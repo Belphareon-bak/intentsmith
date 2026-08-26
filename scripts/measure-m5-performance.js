@@ -20,12 +20,19 @@ import { fileURLToPath } from 'node:url';
 import {
   M5_PERFORMANCE_EVIDENCE_CONTRACT,
   M5_PERFORMANCE_EVIDENCE_VERSION,
-  validateM5PerformanceEvidenceV1,
-} from '../contracts/m5/performance-v1.js';
+  M5_PERFORMANCE_RAW_ARTIFACT_CONTRACT,
+  M5_PERFORMANCE_RAW_ARTIFACT_VERSION,
+  validateM5PerformanceEvidenceV2,
+  validateM5PerformanceRawArtifactV1,
+} from '../contracts/m5/performance-v2.js';
 import {
+  M5_PERFORMANCE_BUDGETS,
   evaluateM5PerformanceEvidence,
   summarizePerformanceMeasurement,
 } from '../src/observability/performance-budget.js';
+import {
+  publishPerformanceArtifactExclusive,
+} from '../src/observability/performance-artifact-store.js';
 import {
   observeWorkspaceRevision,
   queryProjectContext,
@@ -37,9 +44,10 @@ import {
 
 const repositoryRoot = realpathSync(fileURLToPath(new URL('..', import.meta.url)));
 const outputIndex = process.argv.indexOf('--output');
-const outputPath = outputIndex >= 0
-  ? path.resolve(process.argv[outputIndex + 1])
-  : path.join(repositoryRoot, '.intentsmith-artifacts', 'm5-performance-evidence.json');
+const requestedOutput = outputIndex >= 0 ? process.argv[outputIndex + 1] : null;
+if (outputIndex >= 0 && (!requestedOutput || requestedOutput.startsWith('--'))) {
+  throw new Error('performance-runner:missing-output-path');
+}
 const quick = process.argv.includes('--quick');
 const soakDurationMs = quick ? 5_000 : 300_000;
 const deterministicSamples = quick ? 20 : 40;
@@ -65,6 +73,42 @@ function percentileMeasurement(surface, latenciesMs, errorCount, durationMs, ope
     operations,
     rss,
   };
+}
+
+function git(args) {
+  return execFileSync('/usr/bin/git', args, {
+    cwd: repositoryRoot,
+    encoding: 'utf8',
+    maxBuffer: 16 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+}
+
+function requireCleanCandidate(expectedRevision = null) {
+  const candidateRevision = git(['rev-parse', 'HEAD']);
+  const candidateTree = git(['rev-parse', 'HEAD^{tree}']);
+  if (expectedRevision !== null && candidateRevision !== expectedRevision) {
+    throw new Error('performance-runner:candidate-revision-changed');
+  }
+  const status = git(['status', '--porcelain=v1', '--untracked-files=all']);
+  if (status !== '') throw new Error('performance-runner:dirty-candidate');
+  return Object.freeze({ candidateRevision, candidateTree });
+}
+
+function resolveOutputPaths(candidateRevision) {
+  const artifactRoot = path.join(repositoryRoot, '.intentsmith-artifacts');
+  const runId = `${candidateRevision.slice(0, 12)}-${new Date().toISOString().replaceAll(/[^0-9]/g, '').slice(0, 17)}-${randomBytes(4).toString('hex')}`;
+  const evidencePath = requestedOutput
+    ? path.resolve(requestedOutput)
+    : path.join(artifactRoot, `m5-performance-${runId}.evidence.json`);
+  const relative = path.relative(artifactRoot, evidencePath);
+  if (relative.startsWith('..') || path.isAbsolute(relative)) {
+    throw new Error('performance-runner:output-outside-artifact-root');
+  }
+  if (!evidencePath.endsWith('.json')) throw new Error('performance-runner:output-must-be-json');
+  const rawPath = evidencePath.replace(/\.json$/u, '.raw.json');
+  if (rawPath === evidencePath) throw new Error('performance-runner:invalid-output-path');
+  return Object.freeze({ artifactRoot, evidencePath, rawPath });
 }
 
 function readRssMiB(pid) {
@@ -340,36 +384,20 @@ async function measureProjectContext() {
 }
 
 function pinnedBaselines() {
-  return [
-    {
-      surface: 'chat.model-http',
-      sourceRevision: 'd518d7ec2156b108c5d71b72d16ee855781c6be5',
-      sourcePath: 'docs/execution/runs/m1-b6-fresh-install-20260823.md',
-      metrics: { coldMs: 51_206, warmP95Ms: 55_257, errorRateBps: 0, throughputTurnsPerMinute: 1.11 },
-    },
-    {
-      surface: 'studio.production-journey',
-      sourceRevision: 'd518d7ec2156b108c5d71b72d16ee855781c6be5',
-      sourcePath: 'docs/execution/runs/m1-b6-fresh-install-20260823.md',
-      metrics: { deterministicMs: 7, modelMs: 52_267, boundedSoakMs: 65_800, installAndBuildMs: 54_000 },
-    },
-    {
-      surface: 'lifecycle.governed-project-change',
-      sourceRevision: '181bb0cdfa371aaef222fee53e39d7ed60ff8c25',
-      sourcePath: 'docs/execution/runs/wp-m2-execution-v1-20260824.md',
-      metrics: { journeyMs: 44_204, errorRateBps: 0 },
-    },
-    {
-      surface: 'model.vram-authority',
-      sourceRevision: '3185948840b96bb76567a43da69eb1505545e308',
-      sourcePath: 'docs/execution/runs/wp-m1-model-report.md',
-      metrics: { residencyBps: 10_000, minimumFreeMiB: 5_489, coldMs: 26_891, warmMs: 590 },
-    },
-  ];
+  return Object.values(M5_PERFORMANCE_BUDGETS.pinned).map(item => ({
+    surface: item.surface,
+    sourceRevision: item.sourceRevision,
+    sourcePath: item.sourcePath,
+    sourceBlobOid: item.sourceBlobOid,
+    sourceSha256: item.sourceSha256,
+  }));
 }
 
 async function main() {
-  mkdirSync(path.dirname(outputPath), { recursive: true });
+  const before = requireCleanCandidate();
+  const output = resolveOutputPaths(before.candidateRevision);
+  mkdirSync(output.artifactRoot, { recursive: true, mode: 0o700 });
+  mkdirSync(path.dirname(output.evidencePath), { recursive: true, mode: 0o700 });
   server = await startServer();
   await requestChat(server, 0, 'warmup');
   const deterministic = await measureChat(
@@ -379,17 +407,37 @@ async function main() {
   );
   const projectContext = await measureProjectContext();
   const soak = await measureSoak(server);
-  const candidateRevision = execFileSync('/usr/bin/git', ['rev-parse', 'HEAD'], {
-    cwd: repositoryRoot,
-    encoding: 'utf8',
-  }).trim();
+  const after = requireCleanCandidate(before.candidateRevision);
+  if (after.candidateTree !== before.candidateTree) {
+    throw new Error('performance-runner:candidate-tree-changed');
+  }
+  const measuredAtIso = new Date().toISOString();
+  const host = { platform: process.platform, arch: process.arch, node: process.version };
+  const rawArtifact = {
+    contract: M5_PERFORMANCE_RAW_ARTIFACT_CONTRACT,
+    version: M5_PERFORMANCE_RAW_ARTIFACT_VERSION,
+    candidateRevision: before.candidateRevision,
+    candidateTree: before.candidateTree,
+    measuredAtIso,
+    host,
+    measurements: [deterministic, projectContext, soak],
+  };
+  const rawValidation = validateM5PerformanceRawArtifactV1(rawArtifact);
+  if (!rawValidation.valid) throw new Error(rawValidation.errors.join(', '));
+  const rawBytes = Buffer.from(`${JSON.stringify(rawArtifact, null, 2)}\n`);
+  const rawPublication = publishPerformanceArtifactExclusive(output.rawPath, rawBytes);
   const evidence = {
     contract: M5_PERFORMANCE_EVIDENCE_CONTRACT,
     version: M5_PERFORMANCE_EVIDENCE_VERSION,
-    candidateRevision,
-    measuredAtIso: new Date().toISOString(),
-    host: { platform: process.platform, arch: process.arch, node: process.version },
-    measurements: [deterministic, projectContext, soak],
+    candidateRevision: before.candidateRevision,
+    candidateTree: before.candidateTree,
+    measuredAtIso,
+    host,
+    measurementArtifact: {
+      path: path.relative(repositoryRoot, output.rawPath),
+      sha256: rawPublication.sha256,
+      byteLength: rawPublication.byteLength,
+    },
     pinnedBaselines: pinnedBaselines(),
     gpuDisposition: {
       currentMeasurement: 'not_run_foreign_activity',
@@ -397,14 +445,21 @@ async function main() {
       pinnedSurface: 'model.vram-authority',
     },
   };
-  const validation = validateM5PerformanceEvidenceV1(evidence);
+  const validation = validateM5PerformanceEvidenceV2(evidence);
   if (!validation.valid) throw new Error(validation.errors.join(', '));
-  const evaluation = evaluateM5PerformanceEvidence(evidence);
-  writeFileSync(outputPath, `${JSON.stringify({ evidence, evaluation }, null, 2)}\n`, { mode: 0o600 });
+  const evaluation = evaluateM5PerformanceEvidence(evidence, {
+    repositoryRoot,
+    expectedCandidateRevision: before.candidateRevision,
+    requireHeadCandidate: true,
+    requireCleanWorktree: true,
+  });
+  const envelopeBytes = Buffer.from(`${JSON.stringify({ evidence, evaluation }, null, 2)}\n`);
+  publishPerformanceArtifactExclusive(output.evidencePath, envelopeBytes);
   console.log(JSON.stringify({
-    outputPath,
+    outputPath: output.evidencePath,
+    rawArtifact: evidence.measurementArtifact,
     quick,
-    measurements: evidence.measurements.map(summarizePerformanceMeasurement),
+    measurements: rawArtifact.measurements.map(summarizePerformanceMeasurement),
     verdict: evaluation.verdict,
     failedChecks: evaluation.checks.filter(check => !check.passed),
   }, null, 2));

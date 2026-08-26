@@ -5,9 +5,12 @@ import {
 } from '../m1/shared.js';
 
 export const M5_PERFORMANCE_EVIDENCE_CONTRACT = 'M5PerformanceEvidence';
-export const M5_PERFORMANCE_EVIDENCE_VERSION = 1;
+export const M5_PERFORMANCE_EVIDENCE_VERSION = 2;
+export const M5_PERFORMANCE_RAW_ARTIFACT_CONTRACT = 'M5PerformanceRawArtifact';
+export const M5_PERFORMANCE_RAW_ARTIFACT_VERSION = 1;
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
+const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 const SURFACE_PATTERN = /^[a-z][a-z0-9.-]{0,63}$/;
 
 function validNonNegativeInteger(value) {
@@ -58,13 +61,36 @@ function validateDistribution(value, index) {
   return errors;
 }
 
+function validateArtifactDescriptor(value) {
+  const context = 'm5-performance-evidence.measurementArtifact';
+  const errors = validateExactKeys(value, [
+    'path',
+    'sha256',
+    'byteLength',
+  ], [], context);
+  if (!isPlainRecord(value)) return errors;
+  if (
+    typeof value.path !== 'string'
+    || !value.path.startsWith('.intentsmith-artifacts/')
+    || value.path.includes('..')
+    || value.path.includes('\\')
+    || !value.path.endsWith('.raw.json')
+  ) errors.push(`${context}:invalid-path`);
+  if (!SHA256_PATTERN.test(value.sha256 ?? '')) errors.push(`${context}:invalid-sha256`);
+  if (!Number.isSafeInteger(value.byteLength) || value.byteLength < 1) {
+    errors.push(`${context}:invalid-byteLength`);
+  }
+  return errors;
+}
+
 function validatePinnedBaseline(value, index) {
   const context = `m5-performance-evidence.pinnedBaselines[${index}]`;
   const errors = validateExactKeys(value, [
     'surface',
     'sourceRevision',
     'sourcePath',
-    'metrics',
+    'sourceBlobOid',
+    'sourceSha256',
   ], [], context);
   if (!isPlainRecord(value)) return errors;
   if (!SURFACE_PATTERN.test(value.surface ?? '')) errors.push(`${context}:invalid-surface`);
@@ -74,23 +100,76 @@ function validatePinnedBaseline(value, index) {
     || !value.sourcePath.startsWith('docs/')
     || value.sourcePath.includes('..')
   ) errors.push(`${context}:invalid-sourcePath`);
-  if (
-    !isPlainRecord(value.metrics)
-    || Object.keys(value.metrics).length === 0
-    || Object.values(value.metrics).some(metric => !Number.isFinite(metric) || metric < 0)
-  ) errors.push(`${context}:invalid-metrics`);
+  if (!SHA_PATTERN.test(value.sourceBlobOid ?? '')) errors.push(`${context}:invalid-sourceBlobOid`);
+  if (!SHA256_PATTERN.test(value.sourceSha256 ?? '')) errors.push(`${context}:invalid-sourceSha256`);
   return errors;
 }
 
-export function validateM5PerformanceEvidenceV1(value) {
+function validateCandidateIdentity(value, context, errors) {
+  if (!SHA_PATTERN.test(value.candidateRevision ?? '')) {
+    errors.push(`${context}:invalid-candidateRevision`);
+  }
+  if (!SHA_PATTERN.test(value.candidateTree ?? '')) {
+    errors.push(`${context}:invalid-candidateTree`);
+  }
+}
+
+function validateHost(value, context, errors) {
+  errors.push(...validateExactKeys(value, ['platform', 'arch', 'node'], [], context));
+  if (!isPlainRecord(value)) return;
+  for (const key of ['platform', 'arch', 'node']) {
+    if (typeof value[key] !== 'string' || value[key].length === 0) {
+      errors.push(`${context}:invalid-${key}`);
+    }
+  }
+}
+
+export function validateM5PerformanceRawArtifactV1(value) {
+  const context = 'm5-performance-raw-artifact';
+  const errors = validateExactKeys(value, [
+    'contract',
+    'version',
+    'candidateRevision',
+    'candidateTree',
+    'measuredAtIso',
+    'host',
+    'measurements',
+  ], [], context);
+  if (!isPlainRecord(value)) return validationResult(errors, value);
+  if (value.contract !== M5_PERFORMANCE_RAW_ARTIFACT_CONTRACT) {
+    errors.push(`${context}:invalid-contract`);
+  }
+  if (value.version !== M5_PERFORMANCE_RAW_ARTIFACT_VERSION) {
+    errors.push(`${context}:invalid-version`);
+  }
+  validateCandidateIdentity(value, context, errors);
+  if (
+    typeof value.measuredAtIso !== 'string'
+    || Number.isNaN(Date.parse(value.measuredAtIso))
+  ) errors.push(`${context}:invalid-measuredAtIso`);
+  validateHost(value.host, `${context}.host`, errors);
+  if (!Array.isArray(value.measurements) || value.measurements.length === 0) {
+    errors.push(`${context}:invalid-measurements`);
+  } else {
+    value.measurements.forEach((item, index) => errors.push(...validateDistribution(item, index)));
+  }
+  const surfaces = Array.isArray(value.measurements)
+    ? value.measurements.map(item => item?.surface)
+    : [];
+  if (new Set(surfaces).size !== surfaces.length) errors.push(`${context}:duplicate-surface`);
+  return validationResult(errors, value);
+}
+
+export function validateM5PerformanceEvidenceV2(value) {
   const context = 'm5-performance-evidence';
   const errors = validateExactKeys(value, [
     'contract',
     'version',
     'candidateRevision',
+    'candidateTree',
     'measuredAtIso',
     'host',
-    'measurements',
+    'measurementArtifact',
     'pinnedBaselines',
     'gpuDisposition',
   ], [], context);
@@ -101,19 +180,13 @@ export function validateM5PerformanceEvidenceV1(value) {
   if (value.version !== M5_PERFORMANCE_EVIDENCE_VERSION) {
     errors.push(`${context}:invalid-version`);
   }
-  if (!SHA_PATTERN.test(value.candidateRevision ?? '')) {
-    errors.push(`${context}:invalid-candidateRevision`);
-  }
+  validateCandidateIdentity(value, context, errors);
   if (
     typeof value.measuredAtIso !== 'string'
     || Number.isNaN(Date.parse(value.measuredAtIso))
   ) errors.push(`${context}:invalid-measuredAtIso`);
-  errors.push(...validateExactKeys(value.host, ['platform', 'arch', 'node'], [], `${context}.host`));
-  if (!Array.isArray(value.measurements) || value.measurements.length === 0) {
-    errors.push(`${context}:invalid-measurements`);
-  } else {
-    value.measurements.forEach((item, index) => errors.push(...validateDistribution(item, index)));
-  }
+  validateHost(value.host, `${context}.host`, errors);
+  errors.push(...validateArtifactDescriptor(value.measurementArtifact));
   if (!Array.isArray(value.pinnedBaselines) || value.pinnedBaselines.length === 0) {
     errors.push(`${context}:invalid-pinnedBaselines`);
   } else {
@@ -137,7 +210,6 @@ export function validateM5PerformanceEvidenceV1(value) {
     }
   }
   const surfaces = [
-    ...(Array.isArray(value.measurements) ? value.measurements.map(item => item?.surface) : []),
     ...(Array.isArray(value.pinnedBaselines) ? value.pinnedBaselines.map(item => item?.surface) : []),
   ];
   if (new Set(surfaces).size !== surfaces.length) errors.push(`${context}:duplicate-surface`);
