@@ -13303,8 +13303,8 @@
       "owner": "WP-M4-OBSERVATION",
       "state": "ACTIVE",
       "lastGreen": {
-        "commit": null,
-        "artifact": null
+        "commit": "286f5ba881aa5dce3797955efe68a7d5cd97f39c",
+        "artifact": "docs/review/2026-08-26-M4-OPERATOR-REVIEW-RESULT.md"
       },
       "flakeCount": 0,
       "quarantineExpiry": null
@@ -13333,8 +13333,8 @@
       "owner": "WP-M4-MEMORY",
       "state": "ACTIVE",
       "lastGreen": {
-        "commit": null,
-        "artifact": null
+        "commit": "286f5ba881aa5dce3797955efe68a7d5cd97f39c",
+        "artifact": "docs/review/2026-08-26-M4-OPERATOR-REVIEW-RESULT.md"
       },
       "flakeCount": 0,
       "quarantineExpiry": null
@@ -13363,8 +13363,8 @@
       "owner": "WP-M4-CODEINTEL",
       "state": "ACTIVE",
       "lastGreen": {
-        "commit": null,
-        "artifact": null
+        "commit": "286f5ba881aa5dce3797955efe68a7d5cd97f39c",
+        "artifact": "docs/review/2026-08-26-M4-OPERATOR-REVIEW-RESULT.md"
       },
       "flakeCount": 0,
       "quarantineExpiry": null
@@ -13393,8 +13393,8 @@
       "owner": "WP-M4-CONTEXT",
       "state": "ACTIVE",
       "lastGreen": {
-        "commit": null,
-        "artifact": null
+        "commit": "286f5ba881aa5dce3797955efe68a7d5cd97f39c",
+        "artifact": "docs/review/2026-08-26-M4-OPERATOR-REVIEW-RESULT.md"
       },
       "flakeCount": 0,
       "quarantineExpiry": null
@@ -13423,8 +13423,8 @@
       "owner": "WP-M4-HTTP",
       "state": "ACTIVE",
       "lastGreen": {
-        "commit": null,
-        "artifact": null
+        "commit": "286f5ba881aa5dce3797955efe68a7d5cd97f39c",
+        "artifact": "docs/review/2026-08-26-M4-OPERATOR-REVIEW-RESULT.md"
       },
       "flakeCount": 0,
       "quarantineExpiry": null
@@ -13453,8 +13453,8 @@
       "owner": "WP-M4-STUDIO",
       "state": "ACTIVE",
       "lastGreen": {
-        "commit": null,
-        "artifact": null
+        "commit": "286f5ba881aa5dce3797955efe68a7d5cd97f39c",
+        "artifact": "docs/review/2026-08-26-M4-OPERATOR-REVIEW-RESULT.md"
       },
       "flakeCount": 0,
       "quarantineExpiry": null
@@ -13483,8 +13483,8 @@
       "owner": "WP-M4-OUTCOME",
       "state": "ACTIVE",
       "lastGreen": {
-        "commit": null,
-        "artifact": null
+        "commit": "286f5ba881aa5dce3797955efe68a7d5cd97f39c",
+        "artifact": "docs/review/2026-08-26-M4-OPERATOR-REVIEW-RESULT.md"
       },
       "flakeCount": 0,
       "quarantineExpiry": null
@@ -13513,8 +13513,8 @@
       "owner": "WP-M4-E2E",
       "state": "ACTIVE",
       "lastGreen": {
-        "commit": null,
-        "artifact": null
+        "commit": "286f5ba881aa5dce3797955efe68a7d5cd97f39c",
+        "artifact": "docs/review/2026-08-26-M4-OPERATOR-REVIEW-RESULT.md"
       },
       "flakeCount": 0,
       "quarantineExpiry": null
