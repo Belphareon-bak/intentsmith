@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "07b8155c1c7135e7c8bbc5e5be34bbeb7849c5ab",
-  "sourceTree": "715e3ca669f86cbad25c6a1ac3cbe9bc1af3961c",
+  "sourceRevision": "9abf672c585bf8398de76a375b361e668e859e64",
+  "sourceTree": "2d4fd83240d3e5ac913e7238f185dd9ca978eb75",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -968,6 +968,7 @@
     "src/server.js -> src/observability/production-observability.js",
     "src/server.js -> src/packaging/auto-updater.js",
     "src/server.js -> src/planner/lifecycle-build.js",
+    "src/server.js -> src/release/conditional-surfaces.js",
     "src/server.js -> src/routes/agents.js",
     "src/server.js -> src/routes/architect.js",
     "src/server.js -> src/routes/autonomy.js",
