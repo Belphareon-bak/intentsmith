@@ -36,9 +36,10 @@
 
 ## Acceptance hranice a zbývající omezení
 
-- Remediace nespouštěla nový ostrý panel. Existujících 28 COMPLETE a 11 VRAM
-  BLOCKED fyzických runů už je pod současnými contracty; starší contracty se
-  automaticky nepovyšují.
+- Remediace nespouštěla nový ostrý panel. Read-only snapshot po čistém gate má
+  pro 13 installed artefaktů 40 `COMPLETE`, 17 `BLOCKED` a 34 `MISSING`
+  artifact/role buněk pod současnými contracty. Scoring panel tedy není úplný;
+  starší contracty se automaticky nepovyšují.
 - Dřívější nezávislý rereview nad candidatem `d8a2a108` skončil `PASS`, ale
   pozdější review rozsahu `e8c1ba85..96c762db` našlo číselné kolize migrací a
   review rozsahu `96c762db..4169c59d` následně prokázalo nebezpečný upgrade a
