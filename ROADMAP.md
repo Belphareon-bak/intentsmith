@@ -1302,15 +1302,18 @@ stav. Rozhodnutí v kroku 1 určí podobu hranice; roadmapa ji sama nerozhoduje.
 
 ## 8. M4 — Auditovatelné self-learning
 
-**Průběžný stav 2026-08-26:** `WP-M4-OBSERVATION`, SQLite/user-gate část
-`WP-M4-MEMORY`, producer `WP-M4-CODEINTEL` a versionovaný runtime supplement
-`WP-M4-CONTEXT` jsou `IMPLEMENTATION_GREEN / REVIEW_PENDING`; contract V1,
-append-only authority, same-project producer, HTTP/Studio user gate, SPEC-planner konzument a focused evidence jsou v
-[`WP-M4-OBSERVATION-V1.md`](docs/wp/WP-M4-OBSERVATION-V1.md). Code Intelligence
-první úplné outcome E2E zatím není tímto stavem prohlášené za hotové.
-Autoritativní module graph má 1 159 hran, stále 3 cykly
-a 28 souborů v cyklech. Čtyři M4.4 runtime hrany byly explicitně přijaty z
-`998c3442` a tři HTTP authority hrany z `d70f9b7d`.
+**Průběžný stav 2026-08-26:** první úplná M4 smyčka je
+`IMPLEMENTATION_GREEN / REVIEW_PENDING`. Contract V1, append-only authority,
+same-project producer, HTTP/Studio user gate, verzovaný ProjectLearningContext,
+SPEC-planner konzument, durable baseline/observed artifacty, měření a první
+lokální integrační E2E jsou popsány v
+[`WP-M4-OBSERVATION-V1.md`](docs/wp/WP-M4-OBSERVATION-V1.md). E2E nad reálnou
+SQLite a deterministickým fake plannerem prokázalo dvě nezávislé schválené
+změny → pending proposal → explicitní approval → context injection → exact
+plan conformance `0 → 10000` → rollback → delete. Nejde o modelový quality
+benchmark ani o nezávislé review. Autoritativní module graph má 1 160 hran,
+stále 3 cykly a 28 souborů v cyklech; outcome řez je product commit `885cf959`
+a jeho jediná nová authority hrana byla explicitně přijata v `bd5eada6`.
 
 ### Výsledek
 

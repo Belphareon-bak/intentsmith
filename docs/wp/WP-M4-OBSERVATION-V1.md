@@ -155,8 +155,53 @@ contract PASS, M1 Studio regrese 122/122 PASS a repository hygiene
 1 777/1 777 PASS. Registry po tomto řezu má 444 programů a fingerprint
 `80048d888a41fd6a22734a783b0c273721fd8a9168d37946fd0e2373e4ca37e3`.
 
-## Zbývající rozsah
+## Outcome measurement a první integrační E2E
 
-První úplné integrační E2E včetně outcome měření zatím není hotové. Bez
-nezávislého review je celý dosavadní stav pouze
+`LearningPlanEvaluationArtifact@1` je exact-key, integer-only a
+content-addressed důkaz jednoho planner response. Váže project, proposal,
+learned item ID a verzi, nullable ProjectLearningContext digest, čas, response
+digest a právě jeden conformance stav. Baseline musí být bez learning contextu
+a `absent`; observed artifact musí následovat v čase a být svázaný s přesným
+aktuálním context digestem.
+
+Migrace `088` ukládá oba artifacty kanonicky a append-only. SQLite trigger
+ověřuje celý kontrakt i indexed columns a stejný projekt proposal. Měřený
+`LearningOutcome` nese oba artifact ID jako povinná typovaná pole; repository
+odmítne outcome bez existujícího exact baseline/observed páru. Evidence zůstává
+obnovitelná i po rollback/delete tombstone, místo aby po restartu zbyl pouze
+neověřitelný hash v logu.
+
+SPEC planner už modelovému výstupu pouze nevěří: s learning kontextem vyžaduje
+právě jednu exact položku pro každý dodaný item ID/version/key, povolený stav a
+ohraničené vysvětlení. Chybějící, duplicitní, cizí nebo vymyšlená identita končí
+před persistencí planner draftu. Outcome evaluator navíc znovu porovná
+ProjectLearningContext item proti aktuální SQLite authority; ani validně
+přepočítaný digest nad pozměněnou hodnotou nestačí.
+
+Registrovaná lokální E2E používá skutečný migration runner, SQLite repository,
+Code Intelligence producer, application service, workspace-revision provider,
+ProjectLearningContext a produkční `startSpec()`. Pouze odpověď planner modelu
+je deterministický fake; test nemá síť, server, Ollamu ani GPU. Prokázaná cesta:
+
+1. dva různé succeeded `ProjectChangeResult` vytvoří dvě observations a jeden
+   pending proposal se dvěma přesnými zdroji;
+2. baseline plán bez learning contextu vytvoří durable `absent` artifact;
+3. explicitní user approval aktivuje item verze 1 a následující plán vrátí
+   exact `conformed` záznam svázaný s context digestem;
+4. evaluator persistuje oba artifacty a measured outcome s
+   `baselineScoreBps=0`, `observedScoreBps=10000`, `deltaBps=10000`,
+   `sampleSize=1`;
+5. záměrně vymyšlené item ID planner odmítne; rollback odstraní pattern z
+   dalšího contextu/plánu a delete uzavře append-only chain tombstonem;
+6. cizí projekt po celou cestu nemá observation ani outcome.
+
+Outcome focused sada má 8/8 PASS a E2E 1/1 PASS. Celých osm M4 sad má 73/73
+PASS; lifecycle regrese 103/103, schema 38/38 nad 75 migracemi a 149 tabulkami,
+artifact validation 154/154 a module ratchet 13/13 při 1 160 hranách, třech
+cyklech a 28 souborech v cyklech. Registry má 446 programů, 14 exclusions a
+fingerprint `30cd508c5e615650234d17bb80ac75cedd5e39b9f5133846529d89228c2340be`.
+
+Toto měření je úzký contract conformance důkaz s jedním deterministickým
+vzorkem, ne obecný sémantický benchmark modelu. Bez nezávislého review a
+integračního closeoutu zůstává M4 pouze
 `IMPLEMENTATION_GREEN / REVIEW_PENDING`.
