@@ -1271,20 +1271,20 @@
       },
       
       async deleteAgent(id) {
-        const res = await fetch(`/api/agents/${id}`, {
+        const res = await fetch(`/api/agent-extensions/instances/${id}`, {
           method: 'DELETE'
         });
         return res.json();
       },
       
       async runAgent(id) {
-        const res = await fetch(`/api/agents/${id}/run`, { method: 'POST' });
+        const res = await fetch(`/api/agent-extensions/instances/${id}/run`, { method: 'POST' });
         return res.json();
       },
       
       async toggleAgent(id, enabled) {
         const endpoint = enabled ? 'enable' : 'disable';
-        const res = await fetch(`/api/agents/${id}/${endpoint}`, { method: 'POST' });
+        const res = await fetch(`/api/agent-extensions/instances/${id}/${endpoint}`, { method: 'POST' });
         return res.json();
       },
       

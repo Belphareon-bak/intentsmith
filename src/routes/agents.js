@@ -1,3 +1,5 @@
+import { createM3LegacyAgentQuarantineRoutes } from '../agents/m3-legacy-agent-quarantine.js';
+
 /**
  * Agent platform routes — extracted from server.js
  *
@@ -16,7 +18,7 @@ export function createAgentPlatformRoutes(deps) {
     agentExtensionService,
   } = deps;
 
-  return {
+  const routes = {
     'GET /agents': async (req, res) => {
       await sendStaticFile(res, 'src/agents/agents.html', 'text/html');
     },
@@ -241,6 +243,46 @@ export function createAgentPlatformRoutes(deps) {
       }
     },
 
+    'DELETE /api/agent-extensions/instances/:agentId': async (req, res, params) => {
+      try {
+        const removed = agentExtensionService.uninstallInstance(params.agentId);
+        if (!removed) {
+          sendJSON(res, 404, { error: 'Agent extension instance not found' });
+          return;
+        }
+        sendJSON(res, 200, { removed: true, agentId: params.agentId });
+      } catch (error) {
+        sendJSON(res, 409, { error: error.message, code: error.code || 'M3_AGENT_EXTENSION_INVALID' });
+      }
+    },
+
+    'POST /api/agent-extensions/instances/:agentId/run': async (req, res, params) => {
+      try {
+        sendJSON(res, 200, await agentExtensionService.runInstance(params.agentId));
+      } catch (error) {
+        const status = error.code === 'M3_AGENT_EXTENSION_NOT_FOUND' ? 404 : 409;
+        sendJSON(res, status, { error: error.message, code: error.code || 'M3_AGENT_EXTENSION_INVALID' });
+      }
+    },
+
+    'POST /api/agent-extensions/instances/:agentId/enable': async (req, res, params) => {
+      try {
+        sendJSON(res, 200, agentExtensionService.setInstanceEnabled(params.agentId, true));
+      } catch (error) {
+        const status = error.code === 'M3_AGENT_EXTENSION_NOT_FOUND' ? 404 : 409;
+        sendJSON(res, status, { error: error.message, code: error.code || 'M3_AGENT_EXTENSION_INVALID' });
+      }
+    },
+
+    'POST /api/agent-extensions/instances/:agentId/disable': async (req, res, params) => {
+      try {
+        sendJSON(res, 200, agentExtensionService.setInstanceEnabled(params.agentId, false));
+      } catch (error) {
+        const status = error.code === 'M3_AGENT_EXTENSION_NOT_FOUND' ? 404 : 409;
+        sendJSON(res, status, { error: error.message, code: error.code || 'M3_AGENT_EXTENSION_INVALID' });
+      }
+    },
+
     'POST /api/sources/inspect': async (req, res) => {
       const body = await parseBody(req);
       const mockReq = { body };
@@ -292,4 +334,9 @@ export function createAgentPlatformRoutes(deps) {
       await agentRoutes.getSchedulerStatus({}, mockRes);
     },
   };
+
+  return Object.freeze({
+    ...routes,
+    ...createM3LegacyAgentQuarantineRoutes({ sendJSON }),
+  });
 }

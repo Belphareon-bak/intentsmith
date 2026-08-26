@@ -215,6 +215,34 @@ export class AgentExtensionService {
     return true;
   }
 
+  uninstallInstance(instanceId) {
+    const agent = this.repository.getAgent(instanceId);
+    if (!agent) return false;
+    const extension = this.resolveExecution(agent);
+    return this.uninstall(extension.manifest.id, instanceId);
+  }
+
+  async runInstance(instanceId) {
+    const agent = this.repository.getAgent(instanceId);
+    if (!agent) fail(`Unknown agent extension instance: ${instanceId}`, 'M3_AGENT_EXTENSION_NOT_FOUND');
+    this.resolveExecution(agent);
+    if (!this.scheduler || typeof this.scheduler.triggerAgent !== 'function') {
+      fail('Agent extension scheduler is unavailable', 'M3_AGENT_EXTENSION_SCHEDULER_UNAVAILABLE');
+    }
+    return this.scheduler.triggerAgent(instanceId);
+  }
+
+  setInstanceEnabled(instanceId, enabled) {
+    const agent = this.repository.getAgent(instanceId);
+    if (!agent) fail(`Unknown agent extension instance: ${instanceId}`, 'M3_AGENT_EXTENSION_NOT_FOUND');
+    this.resolveExecution(agent);
+    const updated = this.repository.updateAgent(instanceId, { enabled: enabled === true });
+    if (updated.enabled && updated.definition.schedule?.type !== 'manual') {
+      this.scheduler?.rescheduleAgent(instanceId);
+    }
+    return updated;
+  }
+
   resolveExecution(agent) {
     const binding = agent?.definition?.m3_extension;
     if (

@@ -65,13 +65,30 @@ function parseInterval(interval) {
  * Agent Scheduler
  */
 export class AgentScheduler {
-  constructor({ repository, runner, logger = console }) {
+  constructor({ repository, runner, executionAuthority = null, logger = console }) {
     this.repo = repository;
     this.runner = runner;
+    if (executionAuthority !== null && typeof executionAuthority !== 'function') {
+      throw new TypeError('AgentScheduler executionAuthority must be a function');
+    }
+    this.executionAuthority = executionAuthority;
     this.logger = logger;
     this.running = false;
     this.checkInterval = null;
     this.runningAgents = new Set();
+  }
+
+  isExecutionAuthorized(agentOrId) {
+    if (this.executionAuthority === null) return true;
+    const agent = typeof agentOrId === 'string'
+      ? this.repo.getAgent(agentOrId)
+      : agentOrId;
+    if (!agent) return false;
+    try {
+      return this.executionAuthority(agent) === true;
+    } catch {
+      return false;
+    }
   }
   
   /**
@@ -133,6 +150,7 @@ export class AgentScheduler {
    * Computes next_run from last_run for deterministic recovery after restart.
    */
   scheduleAgent(agent) {
+    if (!this.isExecutionAuthorized(agent)) return false;
     const schedule = agent.definition?.schedule;
     if (!schedule || schedule.type === 'manual') {
       return false;
@@ -192,6 +210,9 @@ export class AgentScheduler {
     const dueAgents = this.repo.getDueAgents();
     
     for (const schedule of dueAgents) {
+      if (!this.isExecutionAuthorized(schedule.agent_id)) {
+        continue;
+      }
       if (this.runningAgents.has(schedule.agent_id)) {
         continue; // Already running
       }
@@ -206,6 +227,7 @@ export class AgentScheduler {
    */
   async runAgent(schedule) {
     const agentId = schedule.agent_id;
+    if (!this.isExecutionAuthorized(agentId)) return;
     this.runningAgents.add(agentId);
 
     const runStartTime = new Date();
@@ -240,6 +262,12 @@ export class AgentScheduler {
    * Manually trigger agent
    */
   async triggerAgent(agentId) {
+    if (!this.isExecutionAuthorized(agentId)) {
+      throw Object.assign(
+        new Error('Agent execution requires a trusted M3 extension binding'),
+        { code: 'M3_AGENT_EXTENSION_AUTHORITY_REQUIRED' },
+      );
+    }
     if (this.runningAgents.has(agentId)) {
       throw new Error('Agent is already running');
     }
@@ -258,7 +286,7 @@ export class AgentScheduler {
    */
   rescheduleAgent(agentId) {
     const agent = this.repo.getAgent(agentId);
-    if (agent) {
+    if (agent && this.isExecutionAuthorized(agent)) {
       this.scheduleAgent(agent);
     }
   }
@@ -267,10 +295,11 @@ export class AgentScheduler {
    * Get status
    */
   getStatus() {
+    const agents = this.repo.getAllAgents().filter(agent => this.isExecutionAuthorized(agent));
     return {
       running: this.running,
       runningAgents: Array.from(this.runningAgents),
-      scheduled: this.repo.getAllAgents().map(a => {
+      scheduled: agents.map(a => {
         const sched = this.repo.getSchedule(a.id);
         return {
           id: a.id,

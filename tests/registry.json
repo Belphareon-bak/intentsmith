@@ -13070,6 +13070,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-M3-LEGACY-AGENT-SURFACE-RETIREMENT-TEST",
+      "path": "tests/m3-legacy-agent-surface-retirement.test.js",
+      "argv": [
+        "node",
+        "tests/m3-legacy-agent-surface-retirement.test.js"
+      ],
+      "capabilityId": "C3-013",
+      "tier": "T1",
+      "fixture": "offline",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M3-LEGACY-AGENT-RETIREMENT",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-M3-EXPERTISE-EXTENSION-TEST",
       "path": "tests/m3-expertise-extension.test.js",
       "argv": [

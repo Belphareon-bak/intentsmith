@@ -127,6 +127,7 @@ import { toolExecutor } from './executor/tool-executor.js';
 import { createPlannerRoutes } from './routes/planner.js';
 import { createArchitectRoutes } from './routes/architect.js';
 import { createAgentPlatformRoutes } from './routes/agents.js';
+import { M3_LEGACY_AGENT_MUTATING_ROUTE_KEYS } from './agents/m3-legacy-agent-quarantine.js';
 import { createExpertiseRoutes, createLifecycleRoutes } from './routes/expertises.js';
 import { createProjectRoutes } from './routes/projects.js';
 import { createChatRoutes } from './routes/chat.js';
@@ -619,7 +620,18 @@ if (AgentRepository) {
     extensionService: agentExtensionService,
     projectContextBridge: agentProjectContextBridge,
   });
-  agentScheduler = new AgentScheduler({ repository: agentRepository, runner: agentRunner });
+  agentScheduler = new AgentScheduler({
+    repository: agentRepository,
+    runner: agentRunner,
+    executionAuthority: agent => {
+      try {
+        agentExtensionService.resolveExecution(agent);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+  });
   agentExtensionService.attachScheduler(agentScheduler);
   agentRoutes = createAgentRoutes({
     repository: agentRepository,
@@ -1017,10 +1029,12 @@ if (!agentRoutes) {
   const notAvailable = (req, res) => sendJSON(res, 501, {
     error: 'Agent platform not available (C3_ENABLE_AGENTS=false)'
   });
+  const retiredLegacyMutators = new Set(M3_LEGACY_AGENT_MUTATING_ROUTE_KEYS);
   for (const key of Object.keys(routes)) {
-    if (key.includes('/api/agents') || key.includes('/api/agent-extensions') || key === 'GET /agents' ||
+    if (!retiredLegacyMutators.has(key) &&
+        (key.includes('/api/agents') || key.includes('/api/agent-extensions') || key === 'GET /agents' ||
         key.includes('/api/sources/') || key.includes('/api/notifications') ||
-        key.includes('/api/scheduler')) {
+        key.includes('/api/scheduler'))) {
       routes[key] = notAvailable;
     }
   }
@@ -1374,35 +1388,9 @@ applyHttpTimeoutPolicy(server, config.server.httpTimeouts);
 // ════════════════════════════════════════════════════════════════════════════
 
 listenOnLegacyLoopback(server, config.server, async () => {
-  // Start agent scheduler (Phase B — conditional)
+  // Only exact M3 extension instances pass the scheduler execution authority.
+  // Existing legacy rows remain readable but cannot be scheduled or executed.
   if (agentScheduler) agentScheduler.start();
-
-  // D-int5: Auto-register example agents from src/agents/examples/
-  if (agentRepository) {
-    try {
-      const { readdirSync, readFileSync } = await import('node:fs');
-      const { join, dirname } = await import('node:path');
-      const { fileURLToPath } = await import('node:url');
-      const __dir = dirname(fileURLToPath(import.meta.url));
-      const exDir = join(__dir, 'agents', 'examples');
-      let registered = 0;
-      for (const f of readdirSync(exDir).filter(f => f.endsWith('.json'))) {
-        const def = JSON.parse(readFileSync(join(exDir, f), 'utf-8'));
-        if (!def.id || agentRepository.getAgent(def.id)) continue;
-        agentRepository.createAgent({
-          id: def.id, name: def.name, description: def.description,
-          icon: def.icon || '🤖', definition: def, enabled: true,
-        });
-        if (agentScheduler && def.schedule?.type !== 'manual') {
-          agentScheduler.scheduleAgent(agentRepository.getAgent(def.id));
-        }
-        registered++;
-      }
-      if (registered > 0) logger.info('Server', `Auto-registered ${registered} example agents`);
-    } catch (err) {
-      logger.debug('Server', `Example agent registration skipped: ${err.message}`);
-    }
-  }
 
   // v59.0: Attach WebSocket server for IDE integration
   attachWebSocketServer(server, ChatController, logger, {

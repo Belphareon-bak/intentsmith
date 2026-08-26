@@ -9,7 +9,6 @@ import {
   api,
   assert,
   assertEqual,
-  cleanupAgent,
   cleanupProject,
   createProject,
   suite,
@@ -51,7 +50,7 @@ try {
   });
 
   await testAsync('manual run while disabled creates no run and no notification', async () => {
-    const skipped = await api('POST', `/api/agents/${agentId}/run`);
+    const skipped = await api('POST', `/api/agent-extensions/instances/${agentId}/run`);
     assertEqual(skipped.status, 200);
     assertEqual(skipped.data.run_state, 'SKIP_DISABLED');
     assertEqual(skipped.data.reason, 'disabled');
@@ -65,11 +64,11 @@ try {
   suite('M3 project-health agent — source, condition, trigger, action, result');
 
   await testAsync('first enabled run establishes exact workspace baseline', async () => {
-    const enabled = await api('POST', `/api/agents/${agentId}/enable`);
+    const enabled = await api('POST', `/api/agent-extensions/instances/${agentId}/enable`);
     assertEqual(enabled.status, 200);
     assertEqual(enabled.data.enabled, true);
 
-    const baseline = await api('POST', `/api/agents/${agentId}/run`);
+    const baseline = await api('POST', `/api/agent-extensions/instances/${agentId}/run`);
     assertEqual(baseline.status, 200);
     assertEqual(baseline.data.run_state, 'INIT_BASELINE');
     assertEqual(baseline.data.triggered.length, 0);
@@ -89,7 +88,7 @@ try {
       path.join(project.path, 'index.js'),
       'export const healthy = false;\n// FIXME remove temporary bypass\n',
     );
-    const changed = await api('POST', `/api/agents/${agentId}/run`);
+    const changed = await api('POST', `/api/agent-extensions/instances/${agentId}/run`);
     assertEqual(changed.status, 200);
     assertEqual(changed.data.run_state, 'SUCCESS_TRIGGERED');
     assertEqual(changed.data.triggered[0], 'health_changed');
@@ -120,12 +119,12 @@ try {
   });
 
   await testAsync('disable remains inert after a successful effect-free run', async () => {
-    const disabled = await api('POST', `/api/agents/${agentId}/disable`);
+    const disabled = await api('POST', `/api/agent-extensions/instances/${agentId}/disable`);
     assertEqual(disabled.status, 200);
     assertEqual(disabled.data.enabled, false);
     writeFileSync(path.join(project.path, 'index.js'), '// FIXME another change\n');
 
-    const skipped = await api('POST', `/api/agents/${agentId}/run`);
+    const skipped = await api('POST', `/api/agent-extensions/instances/${agentId}/run`);
     assertEqual(skipped.status, 200);
     assertEqual(skipped.data.run_state, 'SKIP_DISABLED');
     const detail = await api('GET', `/api/agents/${agentId}`);
@@ -147,7 +146,11 @@ try {
     agentId = null;
   });
 } finally {
-  if (agentId) await cleanupAgent(agentId);
+  if (agentId) {
+    try {
+      await api('DELETE', `/api/agent-extensions/instances/${agentId}`);
+    } catch {}
+  }
   if (project?.id) await cleanupProject(project.id);
 }
 

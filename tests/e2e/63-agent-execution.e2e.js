@@ -1,6 +1,6 @@
 // tests/e2e/63-agent-execution.e2e.js — Agent control-plane contracts
 // ══════════════════════════════════════════════════════════════════════════════
-// Tier 3: Local deterministic API, dry-run, error, and trust contracts.
+// Tier 3: Local deterministic API, retirement, error, and trust contracts.
 // ══════════════════════════════════════════════════════════════════════════════
 import { suite, testAsync, assert, assertEqual, summary, api, waitForServer } from './_helpers.js';
 
@@ -31,24 +31,13 @@ await testAsync('check agent platform access', async () => {
 });
 
 // ── Manual Trigger ──────────────────────────────────────────────────────────
-suite('Agent Execution — Manual Trigger');
+suite('Agent Execution — Legacy Mutation Retirement');
 
-await testAsync('dry-run agent execution', async () => {
+await testAsync('legacy dry-run is retired before execution', async () => {
   const { status, data } = await api('POST', '/api/agents/dry-run', { definition });
-  assertEqual(status, 200);
-  assertEqual(data.valid, true);
-  assert(Array.isArray(data.errors) && data.errors.length === 0, 'dry-run errors must be empty');
-  assert(Array.isArray(data.warnings) && data.warnings.length === 0, 'dry-run warnings must be empty');
-  assertEqual(data.preview?.sources?.length, 1);
-  assertEqual(data.preview.sources[0].id, 'src-1');
-  assertEqual(data.preview.sources[0].type, 'database');
-  assertEqual(data.preview.sources[0].valid, true);
-  assertEqual(data.preview.sources[0].description, 'Database query');
-  assertEqual(data.preview.conditions.length, 0);
-  assertEqual(data.preview.triggers.length, 0);
-  assertEqual(data.preview.actions.length, 0);
-  assertEqual(data.preview.schedule.type, 'manual');
-  assertEqual(data.preview.schedule.description, 'Manual trigger only');
+  assertEqual(status, 410);
+  assertEqual(data.code, 'LEGACY_AGENT_MUTATION_RETIRED');
+  assertEqual(data.replacement, '/api/agent-extensions');
 });
 
 // ── Execution History ───────────────────────────────────────────────────────
