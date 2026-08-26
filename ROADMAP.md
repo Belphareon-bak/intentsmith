@@ -65,9 +65,9 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M0 Produktová pravda** | `ACCEPTED / PASS` | současný C3/IntentSmith strom | Víme, co produkt je a co skutečně běží; deklarace nelžou o chování. |
 | **M1 Lokální runtime páteř** | `ACCEPTED / GATE_2_PASS` | M0 accepted; Gate 1 PASS | Stabilní Linux → Theia → chat → Ollama → persistence. |
 | **M2 Řízená práce nad projektem** | `ACCEPTED / CLOSEOUT_PASS` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
-| **M3 Modulární platforma** | `CANDIDATE_COMPLETE / SECTION_7_RE_REVIEW_PENDING` | M2 accepted | Oddíly 1–6 mají operátorské `REVIEW_PASSED`; legacy agent mutační surface z oddílu 7 je fail-closed odstavený a čeká na re-review. |
+| **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
-| **M5 Production hardening** | `IMPLEMENTATION_GREEN / OPERATOR_REMEDIATION_REQUIRED / REVIEW_PENDING / M3_GATE_OPEN` | M4 accepted; M3/7 re-review pending | Všechny implementační bloky jsou zelené; privacy vyžaduje 8 rotací a history disposition. |
+| **M5 Production hardening** | `CHANGES_REQUESTED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Review našlo 18 věcných vad (1 critical, 13 high, 4 medium); potom stále zbývá 8 rotací a history disposition. |
 | **M6 IntentSmith 1.0 release** | `NOT_STARTED` | M5 accepted | Zmražený kandidát projde úplnou release validací a operátorskou demonstrací. |
 | **M7 Remote Companion** | `DESIGN_ONLY` | M6 + remote boundary | Samostatný vzdálený companion release nad bezpečným core rozhraním. |
 
@@ -1269,16 +1269,19 @@ dalším použití nevymýšlí znovu.
      přijetí měřeného přínosu, jinak se explicitně odloží.
 
 Implementační stav k 2026-08-26: všech šest povinných řezů a sjednocený
-closeout jsou `CANDIDATE_COMPLETE / SECTION_7_RE_REVIEW_PENDING`. Registry má 438 programů
+closeout jsou `ACCEPTED / REVIEW_PASSED`. Registry má 438 programů
 a fingerprint `ca2aa642…`; aktuální module graph má 1 150 hran, stále 3 cykly
 a 28 souborů v cyklech. Čerstvý úplný běh skončil pravdivě
 `268 PASS / 2 FAIL / 2 BLOCKED`; žádný nový M3 non-PASS nevznikl. Oddíly
 1–6 mají operátorské `REVIEW_PASSED`; oprava oddílu 7 odstavila legacy
 agent mutátory typovaným HTTP 410 a připnula scheduler k M3 extension authority.
-Oddíl 7 zůstává `RE_REVIEW_READY`, nikoli automaticky přijatý. Evidence je v
+Oddíl 7 má po operátorském re-review `REVIEW_PASSED`; všech sedm oddílů je tím
+přijatých. Evidence je v
 [`m3-closeout-20260826.md`](docs/execution/runs/m3-closeout-20260826.md) a
 operátorská matice v
-[`2026-08-26-M3-OPERATOR-REVIEW-MATRIX.md`](docs/review/2026-08-26-M3-OPERATOR-REVIEW-MATRIX.md).
+[`2026-08-26-M3-OPERATOR-REVIEW-MATRIX.md`](docs/review/2026-08-26-M3-OPERATOR-REVIEW-MATRIX.md);
+finální výsledek oddílu 7 je v
+[`2026-08-26-M3-SECTION-7-OPERATOR-REVIEW-RESULT.md`](docs/review/2026-08-26-M3-SECTION-7-OPERATOR-REVIEW-RESULT.md).
 
 ### Exit kritéria
 
@@ -1368,7 +1371,8 @@ další učící smyčka M4. Nepředbíhá první prokázané Code Intelligence 
 ## 9. M5 — Production hardening
 
 **Průběžný stav 2026-08-26:**
-`IMPLEMENTATION_GREEN / OPERATOR_REMEDIATION_REQUIRED / REVIEW_PENDING / M3_GATE_OPEN`.
+`CHANGES_REQUESTED / ACCEPTANCE_BLOCKED / OPERATOR_REMEDIATION_REQUIRED /
+M6_GATE_CLOSED`.
 `WP-M5-PACKAGE` je implementation-green na product commitu `ce6b8276`:
 podporovaný výchozí core profil, explicitní full PDF profil, read-only
 preflight, cache-only offline instalace a pravdivá Docker `unsupported`
@@ -1469,8 +1473,11 @@ Společný closeout je v
 a operátorský review rozsah v
 [`2026-08-26-M5-OPERATOR-REVIEW-MATRIX.md`](docs/review/2026-08-26-M5-OPERATOR-REVIEW-MATRIX.md).
 
-Nejde o M5 acceptance: M3 oddíl 7, všech osm operátorských rotací, history
-disposition a review všech devíti M5 oddílů zůstávají otevřené.
+Operátorský review skončil `0/9 REVIEW_PASSED`, našel 1 critical, 13 high a 4
+medium blocking vady a je připnutý v
+[`2026-08-26-M5-OPERATOR-REVIEW-RESULT.md`](docs/review/2026-08-26-M5-OPERATOR-REVIEW-RESULT.md).
+M3 oddíl 7 je samostatně přijatý; M5 acceptance dál blokují opravy všech devíti
+oddílů, nový re-review, všech osm operátorských rotací a history disposition.
 
 ### Výsledek
 
