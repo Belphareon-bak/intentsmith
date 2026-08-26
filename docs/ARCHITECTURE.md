@@ -865,10 +865,10 @@ C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
 > [convergence/TEST-REGISTRY.md](convergence/TEST-REGISTRY.md) and validated by
 > `node scripts/validate-test-registry.js`.
 >
-> Current registry: **384 runnable programs** — `289 ACTIVE`, `81 BLOCKED`
+> Current registry: **447 runnable programs** — `351 ACTIVE`, `81 BLOCKED`
 > (each with a concrete prerequisite), `0 KNOWN_DEFECTIVE`, `14 HISTORICAL`.
 > The Gate 0 acceptance scope (`required`, no Ollama/GPU/server)
-> is **227 suites** (`191 offline` + `36 database`).
+> is **278 suites** (`223 offline` + `55 database`).
 >
 > The per-suite counts below are historical C3 figures. They describe assertion
 > volume, not verification: a printed assertion total cannot override a failed

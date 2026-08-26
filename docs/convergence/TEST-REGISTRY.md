@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 449
+- Runnable programs: 447
 - Explicit support-module exclusions: 14
-- Profiles: offline=223, database=57, server=42, model=84, soak=26, manual=17
-- States: ACTIVE=353, HISTORICAL=15, BLOCKED=81
+- Profiles: offline=223, database=55, server=42, model=84, soak=26, manual=17
+- States: ACTIVE=351, HISTORICAL=15, BLOCKED=81
 
 ## Execution profiles
 
@@ -293,12 +293,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M1-MODEL-BINDING-REPOSITORY-TEST` | `tests/m1-model-binding-repository.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-BINDING-STORAGE-TEST` | `tests/m1-model-binding-storage.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-CONTRACT-TEST` | `tests/m1-model-contract.test.js` | `C3-010` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
-| `IS-T1-TESTS-M1-MODEL-FAILOVER-APPLICATION-TEST` | `tests/m1-model-failover-application.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-FAILOVER-COORDINATOR-TEST` | `tests/m1-model-failover-coordinator.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-FAILOVER-PROOF-ARTIFACTS-TEST` | `tests/m1-model-failover-proof-artifacts.test.js` | `C3-010` | T1 | `offline` | 10 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-FAILOVER-REPOSITORY-TEST` | `tests/m1-model-failover-repository.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST` | `tests/m1-model-failover-schema.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
-| `IS-T1-TESTS-M1-MODEL-FAILOVER-TERMINAL-TEST` | `tests/m1-model-failover-terminal.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-M1-MODEL-GPU-PILOT-TEST` | `tests/m1-model-gpu-pilot.test.js` | `C3-010` | T3 | `model` | 10 min | 15 min | network:loopback, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-SETTINGS-TEST` | `tests/m1-model-settings.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-USE-AUTHORITY-TEST` | `tests/m1-model-use-authority.test.js` | `C3-010` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

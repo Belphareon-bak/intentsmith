@@ -12,12 +12,12 @@ The orchestrator is locked to:
 - concurrency: `1`.
 
 The canonical registry currently contains 384 runnable programs. This Gate 0
-orchestrator selects exactly the 191 `offline` and 36 `database` entries. The
+orchestrator selects exactly the 223 `offline` and 55 `database` entries. The
 remaining 38 `server`, 84 `model`, 19 `soak`, and 16 `manual` programs are not
 silently counted as passing. The reviewed parsed-registry serialization
 fingerprint uses `sha256-json-stringify-v1` (SHA-256 over
 `JSON.stringify(JSON.parse(bytes))`) and is
-`a2c4d29e6bcc09bea6fc3baca03c339bbb79a662b0b1a2f6dbebce9116948fd3`;
+`059922af5232391aadee8367428712842d41c77d5c66916b3e6369e949e5deca`;
 the run fails closed if either that fingerprint or the reviewed profile counts
 change. This is not a byte-level hash: formatting-only JSON whitespace does not
 change it. The candidate commit independently binds the exact registry blob.
