@@ -13,6 +13,7 @@ import { lifecycles as lifecycleRepo } from '../db/database.js';
 import { specAnalyze, specDocument } from './lifecycle-prompts.js';
 import { ProjectPhase } from './lifecycle.js';
 import { logSpecScore } from './quality-telemetry.js';
+import { formatProjectLearningContextForPlanner } from '../code-intel/project-learning-context.js';
 
 // ─── Spec Validation ─────────────────────────────────────────────────────────
 
@@ -129,7 +130,10 @@ export async function startSpec(lifecycle, request, context = {}) {
   logger.info('LifecycleSpec', 'Starting SPEC phase', { lifecycleId: lifecycle.id });
 
   const projectContext = context.projectContext || '';
-  const prompt = specAnalyze(request, projectContext);
+  const learnedProjectContext = context.projectLearningContext
+    ? formatProjectLearningContextForPlanner(context.projectLearningContext)
+    : '';
+  const prompt = specAnalyze(request, projectContext, learnedProjectContext);
 
   const llm = lifecycle.callLLM || callLLM;
   const result = await llm('D1', prompt);

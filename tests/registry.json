@@ -13368,6 +13368,36 @@
       },
       "flakeCount": 0,
       "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M4-PROJECT-LEARNING-CONTEXT-TEST",
+      "path": "tests/m4-project-learning-context.test.js",
+      "argv": [
+        "node",
+        "tests/m4-project-learning-context.test.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "database",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M4-CONTEXT",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
     }
   ]
 }

@@ -284,11 +284,40 @@ async function handleProposedResponse(input, state, context) {
       projectContext = await analyzeExistingProject(projectPath, projectId, analysisDb);
     }
 
+    // M4: learning is additive and fail-closed to an empty supplement. Existing
+    // ProjectContextSnapshot@1 remains byte-compatible for all M3 consumers.
+    let projectLearningContext = null;
+    try {
+      const dbMod = await import('../../db/database.js');
+      if (dbMod.learningAuthority) {
+        const { realpath } = await import('node:fs/promises');
+        const canonicalRoot = await realpath(projectPath);
+        const { projectContextProvider } = await import('../../code-intel/project-context-provider.js');
+        const observed = await projectContextProvider.observeWorkspaceRevision(
+          { projectId, canonicalRoot },
+          {},
+          { projects: dbMod.projects },
+        );
+        const { buildProjectLearningContext } = await import('../../code-intel/project-learning-context.js');
+        projectLearningContext = buildProjectLearningContext({
+          repository: dbMod.learningAuthority,
+          projectId,
+          workspaceRevision: observed.workspaceRevision,
+        });
+      }
+    } catch (error) {
+      logger.warn('LifecycleRouter', 'Project learning context unavailable', {
+        projectId,
+        code: error?.code || error?.name || 'UNKNOWN',
+      });
+    }
+
     // Start spec analysis
     const { startSpec } = await import('../../planner/lifecycle-spec.js');
     const specResult = await startSpec(lifecycle, state.originalRequest, {
       designContext: context.designContext || null,
       projectContext,
+      projectLearningContext,
     });
 
     if (specResult.questions && specResult.questions.length > 0) {

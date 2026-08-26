@@ -5,6 +5,7 @@ import { config } from '../config.js';
 import { logger } from '../core/logger.js';
 import { runMigrations } from './migrate.js';
 import { requireConfiguredDatabasePath } from './database-path.js';
+import { LearningAuthorityRepository } from '../memory/learning-authority-repository.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -131,6 +132,10 @@ logger.info('DB', 'Database initialized', { path: dbPath });
 // No more inline CREATE TABLE or ALTER TABLE in this file.
 
 await runMigrations(db);
+
+// M4: one durable same-project learning authority. Construction re-registers
+// the deterministic SQLite validators needed after every process restart.
+export const learningAuthority = new LearningAuthorityRepository(db);
 
 // ════════════════════════════════════════════════════════════════════════════
 // REPOSITORIES
@@ -1982,6 +1987,7 @@ export default {
   // v98 Architecture Governance
   architectureState,
   apiContracts,
+  learningAuthority,
   transaction,
   close,
 };

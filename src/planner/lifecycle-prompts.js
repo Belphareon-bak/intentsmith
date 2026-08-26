@@ -9,7 +9,7 @@
  * Analyze user request → generate clarifying questions + initial assessment.
  * Used in: lifecycle-spec.js → startSpec()
  */
-export function specAnalyze(request, projectContext = '') {
+export function specAnalyze(request, projectContext = '', learnedProjectContext = '') {
   return `You are a senior software architect and engineering partner. Your job is NOT to blindly accept the request — it is to deeply analyze it, challenge assumptions, and present the user with informed choices.
 
 IMPORTANT: All text content in your JSON output (descriptions, questions, analysis) MUST be in the SAME LANGUAGE as the user's request below. If the user writes in Czech, respond in Czech. If in English, respond in English. Technical terms (e.g. "AES-256", "SQLAlchemy") stay in their original form.
@@ -18,6 +18,7 @@ IMPORTANT: All text content in your JSON output (descriptions, questions, analys
 ${request}
 
 ${projectContext ? `## Existing Project Context\n${projectContext}\n` : ''}
+${learnedProjectContext ? `## User-Approved Project Patterns\n${learnedProjectContext}\n\nMANDATORY: The analysis and recommendations must conform to these approved project patterns. If the current request conflicts with one, identify the conflict explicitly instead of silently overriding the pattern.\n` : ''}
 ## Task
 
 ### 1. Core Goal Analysis

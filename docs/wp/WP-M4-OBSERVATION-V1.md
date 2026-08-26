@@ -88,9 +88,34 @@ Producer sada má 11/11 PASS a cross-project compatibility sada 37/37 PASS.
 Registry má 441 programů a fingerprint
 `fbdcc4fc65b47ae0bc751e0679048d9e32deb2467a4a4082469233492124d5b7`.
 
-## Mimo rozsah
+## Versionovaný ProjectContext supplement a runtime konzument
 
-Tento řez ještě neobsahuje SQLite authority, producenta Code Intelligence,
-uživatelské API/UI ani injekci do ProjectContext. Ty navazují v
-`WP-M4-MEMORY`, `WP-M4-CODEINTEL` a `WP-M4-CONTEXT`. Bez nezávislého review je
+[`ProjectLearningContext`](../../contracts/m4/project-learning-context-v1.js)
+je samostatný exact-key, content-addressed supplement. Nemění bajty přijatého
+`ProjectContextSnapshot@1`: váže se na aktuální `projectId` a
+`workspaceRevision`, ale learned itemy čte výhradně z aktivní same-project
+projekce authority. Každá položka nese přesnou verzi, proposal/outcome ID,
+efektivní i základní confidence, expiraci a seznam observation/evidence
+digestů. Výstup je omezen na 16 položek a všechny kolekce i JSON hodnota mají
+tvrdý budget.
+
+Pojmenovaným produkčním konzumentem je SPEC planner. Lifecycle router po
+projektové analýze znovu pozoruje workspace revision, sestaví supplement a
+`startSpec()` jej po plné validaci přidá jako user-approved project data.
+Learning kontext nemůže udělit permission ani měnit code/config; neplatný
+supplement skončí před LLM, zatímco nedostupná volitelná learning vrstva je v
+routeru auditně zalogována a původní M3 project-context cesta pokračuje beze
+změny.
+
+Focused sada má 7/7 PASS, lifecycle regresní sada 103/103 PASS a všechny čtyři
+M2 ProjectContext suity mají dohromady 50/50 PASS. Znovu bylo ověřeno i osm
+M3 konzumentských/extension suit: 359/359 PASS. Registry má 442 programů a
+fingerprint
+`ed993fccec0e605e2a07471214fe4058ab005d41bfbccd5a86f217dda173485f`.
+Fresh schema má 38/38 PASS a artifact validace 154/154 PASS.
+
+## Zbývající rozsah
+
+Code Intelligence HTTP/Studio user gate a první úplné integrační E2E včetně
+outcome měření zatím nejsou hotové. Bez nezávislého review je celý dosavadní
 stav pouze `IMPLEMENTATION_GREEN / REVIEW_PENDING`.

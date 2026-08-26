@@ -1303,13 +1303,13 @@ stav. Rozhodnutí v kroku 1 určí podobu hranice; roadmapa ji sama nerozhoduje.
 ## 8. M4 — Auditovatelné self-learning
 
 **Průběžný stav 2026-08-26:** `WP-M4-OBSERVATION`, SQLite/user-gate část
-`WP-M4-MEMORY` a producer část `WP-M4-CODEINTEL` jsou
-`IMPLEMENTATION_GREEN / REVIEW_PENDING`; contract V1, append-only authority,
-same-project producer a focused evidence jsou v
+`WP-M4-MEMORY`, producer `WP-M4-CODEINTEL` a versionovaný runtime supplement
+`WP-M4-CONTEXT` jsou `IMPLEMENTATION_GREEN / REVIEW_PENDING`; contract V1,
+append-only authority, same-project producer, SPEC-planner konzument a focused evidence jsou v
 [`WP-M4-OBSERVATION-V1.md`](docs/wp/WP-M4-OBSERVATION-V1.md). Code Intelligence
-HTTP/Studio surface a runtime consumer zatím nejsou tímto stavem prohlášeny za
-hotové. Aktuální module graph má 1 152 hran, stále 3 cykly a 28 souborů v
-cyklech; dvě přesně přiznané M4 authority hrany žádný cyklus nevytvořily.
+HTTP/Studio surface a první úplné outcome E2E zatím nejsou tímto stavem
+prohlášeny za hotové. M4.4 přidává čtyři přesné, bezcyklické runtime hrany;
+jejich ratchet acceptance následuje až z čistého product commitu.
 
 ### Výsledek
 
