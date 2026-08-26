@@ -42,7 +42,8 @@
 
 | Layer | Description |
 |-------|-------------|
-| **Local access boundary** | `evaluateLegacyLocalAccess()` (`src/server.js:1091`) runs **before everything else** on every HTTP request; rejects non-loopback host/origin/capability with `403 LEGACY_LOCAL_ACCESS_REQUIRED`. Verified 2026-08-07: foreign `Origin` and foreign `Host` both → 403, on HTTP and on the WS handshake. **This is the only protection 244 of 251 routes have.** |
+| **Local access boundary** | `evaluateLegacyLocalAccess()` runs before routing and rejects non-loopback peer, host, origin or invalid opaque-origin capability with `403 LEGACY_LOCAL_ACCESS_REQUIRED`. IntentSmith remains loopback-only. |
+| **Global auth guard** | `authorizeGlobalRequest()` runs after exact route matching and before every handler. Only `GET /`, `GET /health` and `GET /api/health` are public. Unauthenticated production requests return typed 401; an insufficient API-token scope returns typed 403. |
 | CORS | `OPTIONS *` → 204 with `Access-Control-Allow-*` headers |
 | Rate limit | Tiered per-IP sliding window (v125): Tier 0 exempt (OPTIONS, health, WS), Tier 1 read 600/min (GET), Tier 2 write 120/min (POST/PUT/DELETE). Disabled on localhost. Proxy: `C3_TRUST_PROXY=true` |
 | Path traversal guard | Static file serving + workspace + project paths validated against root. conversationId + package ID sanitized (v126) |
@@ -50,33 +51,26 @@
 
 ### Auth Mechanisms
 
-| Scope | Mechanism |
+| Credential | Mechanism |
 |-------|-----------|
-| `/api/security/*` (7 routes) | `X-Admin-Token` header required (or localhost in dev mode) |
-| Setup routes | No auth (idempotent) |
-| All other routes (244) | No per-route auth. Protected **only** by the local access boundary above |
+| Studio HTTP | Private per-process capability in `X-IntentSmith-Local-Capability`; accepted only for the exact loopback backend origin |
+| Studio WS | Stejná capability v subprotocolu `c3-local-v1.*`; subject se binduje při upgradu |
+| Admin/CLI | `Authorization: Bearer …` nebo `X-Admin-Token`; comparison je timing-safe |
+| Vydaný API token | Bearer token ověřený přes hash, expiry a route-class scope |
+| Development | Explicitní non-production loopback bypass; v production neexistuje |
 
-### What "no per-route auth" means in practice
+### Route classes and scopes
 
-Verified 2026-08-07 against a running instance with `C3_ADMIN_TOKEN` unset
-(the default — the variable is empty in `.env.example`):
+Route key is the matched declaration, not caller input. Public keys are an
+exact allowlist. Ostatní klíče mají třídu `READ`, `MUTATE`, `APPROVAL` nebo
+`ADMIN`. Vydaný token potřebuje odpovídající scope (`read`, `write`, `approve`,
+`admin`, `*`) nebo přesný `route:METHOD /pattern` scope. Přidání syntakticky
+neklasifikovatelné route shodí startup; neznámá route nemá implicitní allow.
 
-| Request from loopback, no credentials | Result |
-|---|---|
-| `GET /api/projects` | 200 |
-| `POST /api/system/backup` | 200 — backup actually created |
-| `GET /api/security/audit` | 200 — dev + localhost bypass in `requireAuth()` |
-| Same requests with a foreign `Origin` or `Host` | 403 |
-
-State-changing routes reachable this way include filesystem writes
-(`POST /api/workspace/file`), third-party code installation
-(`POST /api/marketplace/install/:type/:id`), destructive DB operations
-(`POST /api/system/vacuum`), and **approval grants**
-(`POST /api/autonomy/approve/:id`, `POST /api/lifecycle/*/approve`) — the last
-group being the mechanism L0-11 depends on.
-
-`validateApiToken()` (`src/routes/security.js:270`) exists, returns `scopes`, and
-is **called from nowhere**. Wiring it is `WP-M5-AUTH`.
+Produkční černá skříňka ověřuje, že `GET /api/projects` bez credentialu vrací
+401 ještě před handlerem, admin i Studio capability projdou a skutečně vydaný
+read-only token smí číst, ale zápis končí 403. Body nemůže tvrdit vlastní
+`authenticatedSubject`; ten vkládá pouze transportní guard.
 
 ### Duplicate keys
 

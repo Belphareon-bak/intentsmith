@@ -13550,6 +13550,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-M5-GLOBAL-AUTH-TEST",
+      "path": "tests/m5-global-auth.test.js",
+      "argv": [
+        "node",
+        "tests/m5-global-auth.test.js"
+      ],
+      "capabilityId": "C3-012",
+      "tier": "T1",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 60000,
+      "expectedDurationMs": 3000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M5-AUTH",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-M5-INSTALL-PROFILE-TEST",
       "path": "tests/m5-install-profile.test.js",
       "argv": [

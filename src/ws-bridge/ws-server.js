@@ -40,6 +40,10 @@ import {
   extractLegacyLocalWebSocketCapability,
   isValidLegacyLocalCapability,
 } from '../security/legacy-local-access-policy.js';
+import {
+  RouteAuthClass,
+  authorizeGlobalRequest,
+} from '../security/global-auth-policy.js';
 
 const WS_OPEN = 1;
 const DROP_LOG_INTERVAL = 10;
@@ -77,6 +81,9 @@ function createLegacyWebSocketVerifyClient({
   httpServer,
   allowedOrigins,
   localCapability,
+  adminToken,
+  validateApiToken,
+  production,
   logger,
 }) {
   return (info, done) => {
@@ -105,6 +112,33 @@ function createLegacyWebSocketVerifyClient({
       done(false, 403, 'Forbidden');
       return;
     }
+
+    const presentedLocalCapability = extractLegacyLocalWebSocketCapability(
+      info.req?.headers?.['sec-websocket-protocol'],
+    );
+    const authorization = authorizeGlobalRequest({
+      routeKey: 'WS /c3/ws',
+      routeClass: RouteAuthClass.MUTATE,
+      headers: presentedLocalCapability
+        ? { 'x-intentsmith-local-capability': presentedLocalCapability }
+        : {},
+      remoteAddress: info.req?.socket?.remoteAddress,
+      production,
+      localCapability,
+      adminToken,
+      validateApiToken,
+      websocketProtocols: info.req?.headers?.['sec-websocket-protocol'],
+    });
+    if (!authorization.allowed) {
+      logger.warn('WSBridge', 'Rejected unauthenticated WebSocket upgrade', {
+        reason: authorization.code,
+        ip: info.req?.socket?.remoteAddress,
+      });
+      done(false, authorization.status === 403 ? 403 : 401, 'Unauthorized');
+      return;
+    }
+    info.req.authenticatedSubject = authorization.subject;
+    info.req.authenticatedCredentialType = authorization.credentialType;
     done(true);
   };
 }
@@ -200,6 +234,9 @@ export function getWebSocketBridgeHealth() {
  * @param {string} [options.path='/c3/ws'] — WebSocket endpoint path
  * @param {string[]} [options.allowedOrigins=[]] — Explicit local browser origins
  * @param {string} options.localCapability — Per-process opaque-origin capability
+ * @param {string} [options.adminToken] — Runtime admin credential; never logged
+ * @param {(token:string)=>Object} [options.validateApiToken] — Scoped token reader
+ * @param {boolean} [options.production] — Explicit production auth semantics
  * @param {boolean} [options.m1WireSupported=false] — Explicit activation seam;
  *   production opts in only after the B4 behavior gate passes.
  * @returns {WebSocketServer}
@@ -223,6 +260,9 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
       httpServer,
       allowedOrigins: options.allowedOrigins || [],
       localCapability: options.localCapability,
+      adminToken: options.adminToken,
+      validateApiToken: options.validateApiToken,
+      production: options.production ?? process.env.NODE_ENV === 'production',
       logger,
     }),
   });
@@ -231,6 +271,16 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
 
   wss.on('connection', (ws, req) => {
     const clientIP = req.socket.remoteAddress;
+    const authenticatedSubject = req.authenticatedSubject;
+    if (
+      authenticatedSubject?.actorType !== 'user'
+      || typeof authenticatedSubject.actorId !== 'string'
+      || authenticatedSubject.actorId.length === 0
+    ) {
+      logger.error('WSBridge', 'Verified connection is missing authenticated subject');
+      ws.close(1008, 'Authenticated subject required');
+      return;
+    }
     let handshakeDone = false;
     let negotiatedFeatures = Object.freeze([]);
     let session = null;
@@ -312,14 +362,9 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
             send: safeSend,
             handleRequest: (request) => chatController.handle(request),
             logger,
-            // Successful upgrade verification proves possession of the
-            // per-process local capability. Bind that transport authority to
-            // one stable local operator subject; chat payload fields cannot
-            // manufacture or replace it.
-            authenticatedSubject: Object.freeze({
-              actorType: 'user',
-              actorId: 'local-operator',
-            }),
+            // The subject is minted by the global upgrade guard. Message body
+            // fields cannot manufacture or replace transport authority.
+            authenticatedSubject,
           });
 
           // Send initial status

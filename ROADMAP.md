@@ -1384,6 +1384,14 @@ kódotvorné skills/specialists a konfigurace jsou označené `archival_only`.
 Legacy V1 zůstává listovatelný, ale bez přesného manifestu není automaticky
 obnovitelný. Product candidate a round-trip evidence jsou v
 [`m5-data-20260826.md`](docs/execution/runs/m5-data-20260826.md).
+`WP-M5-AUTH` je implementation-green v tomto kandidátu. Jediný guard běží za
+exact route matchem a před každým handlerem; veřejné jsou pouze tři health/root
+GET klíče. Studio používá existující private per-process capability, admin/CLI
+timing-safe token a vydané API tokeny route-class scopes. Production HTTP bez
+credentialu končí 401, nedostatečný scope 403. WS provádí stejnou kontrolu při
+upgradu a do session předává pouze transportem vytvořený immutable subject;
+native production loopback bez credentialu už není bypass. Non-production
+loopback výjimka zůstala explicitně zachovaná.
 
 Nejde o M5 acceptance: M3 oddíl 7 a zbývající M5 bloky jsou otevřené.
 

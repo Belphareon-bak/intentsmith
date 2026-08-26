@@ -21,35 +21,36 @@ Backend → IDE:   { type: 'hello_reject', reason: '...', requiredProtocol: 1 }
 
 ## Authentication
 
-**The handshake is the only authentication point. Individual messages are not
-authenticated.**
+Handshake má dvě sériové vrstvy. Nejdřív společná loopback/origin boundary,
+potom M5 global auth. Production přijme private per-process Studio capability,
+admin credential nebo scoped API token; native loopback klient bez credentialu
+končí 401. Dev loopback bypass je explicitně omezený na non-production.
 
-`createLegacyWebSocketVerifyClient()` (`src/ws-bridge/ws-server.js:117`) validates
-the upgrade request against the same local access boundary the HTTP side uses:
-host, origin, and per-process capability. Verified 2026-08-07 on `1fc8f03e`:
+Úspěšný upgrade vloží immutable `authenticatedSubject` do serverového requestu.
+Session adapter dostane právě tuto identitu; `chat`, `control` ani `terminal`
+payload ji nemůže vyrobit nebo přepsat. To je per-message authorization
+boundary: všechny následné efekty jsou svázané s jednou ověřenou session.
 
-| Handshake | Result |
+| Handshake | Production výsledek |
 |---|---|
-| `Origin: https://evil.example` | **403** |
-| No `Origin` (native IDE client) | connects |
+| `Origin: https://evil.example` | **403** před auth |
+| Native loopback bez credentialu | **401** |
+| Studio capability pro jiný proces | **401** |
+| Přesná Studio capability | spojeno jako `local-operator` |
+| Admin/API bearer subprotocol | spojeno podle scope/identity |
 
-Once connected, every message is trusted. Three message types perform effects
-that would require authorization if they were HTTP routes:
+Tři nejvýznamnější efektové zprávy zůstávají navíc omezené svými existujícími
+capability/effect kontrakty:
 
 | Message | Effect | Additional guard |
 |---|---|---|
-| `chat` | full chat pipeline — LLM, CRE, tool calls | none |
+| `chat` | full chat pipeline — LLM, CRE, tool calls | transport subject + M2 effect authority |
 | `control` → `edit_approve` | **writes a file**, after `currentHash === baseHash` | hash guard only |
 | `terminal` → `exec` | **runs a shell command**, 120 s timeout | `validateCommand()` — binary whitelist, arg blacklist, path sandbox (`src/executor/shell-security.js:12,56,107`) |
 
-`terminal` is therefore capability-limited but not authenticated: the guard
-constrains **what** can run, not **who** may run it. `edit_approve` is both the
-approval and the effect in one message, which makes it the most sensitive point
-of the WS surface under L0-11.
-
-Adding per-message authorization is `WP-M5-AUTH`; the proposed shape (token
-carried once at handshake, session holds scope) is in
-[`docs/review/2026-08-07-AUTH-MATRIX.md`](review/2026-08-07-AUTH-MATRIX.md).
+Bearer pro WS se přenáší jednou jako base64url subprotocol s prefixem
+`intentsmith-auth-v1.`; raw hodnota se neloguje. Studio tuto cestu nepotřebuje,
+protože používá per-process capability z privátního port-file kontraktu.
 
 ## Channels
 

@@ -138,7 +138,11 @@ import { createM2LifecycleRoutes } from './routes/m2-lifecycle.js';
 import { createAutonomyRoutes } from './routes/autonomy.js';
 import { createSkillRoutes } from './routes/skills.js';
 import { createSystemRoutes } from './routes/system.js';
-import { createSecurityRoutes } from './routes/security.js';
+import { createSecurityRoutes, validateApiToken } from './routes/security.js';
+import {
+  assertGlobalAuthRouteTable,
+  authorizeGlobalRequest,
+} from './security/global-auth-policy.js';
 import { createNotificationRoutes } from './routes/notifications.js';
 import { createMarketplaceRoutes } from './routes/marketplace.js';
 import { createMediaRoutes, recoverStuckGenerations } from './routes/media.js';
@@ -1182,7 +1186,7 @@ function matchRoute(method, url) {
   
   // Exact match
   if (routes[key]) {
-    return { handler: routes[key], params: {} };
+    return { handler: routes[key], params: {}, routeKey: key };
   }
   
   // Pattern match (with :param)
@@ -1210,7 +1214,7 @@ function matchRoute(method, url) {
       } catch {
         return null; // Malformed URI component → 404
       }
-      return { handler, params };
+      return { handler, params, routeKey: pattern };
     }
   }
   
@@ -1279,6 +1283,8 @@ if (_rateLimitEnabled) {
   }, 300_000).unref();
 }
 
+assertGlobalAuthRouteTable(routes);
+
 const server = http.createServer(async (req, res) => {
   const address = server.address();
   const access = evaluateLegacyLocalAccess({
@@ -1316,14 +1322,6 @@ const server = http.createServer(async (req, res) => {
     }));
   }
 
-  // The shared local-access decision above is the HTTP transport authority.
-  // Bind it to the same stable local operator identity as the verified WS
-  // upgrade; request body fields such as userId remain non-authoritative.
-  req.authenticatedSubject = Object.freeze({
-    actorType: 'user',
-    actorId: 'local-operator',
-  });
-
   const requestOrigin = req.headers.origin;
   res._corsOrigin = (
     requestOrigin === 'null'
@@ -1342,7 +1340,7 @@ const server = http.createServer(async (req, res) => {
     const headers = {
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
       'Access-Control-Allow-Headers':
-        `Content-Type, ${LEGACY_LOCAL_CAPABILITY_HEADER}`,
+        `Content-Type, Authorization, X-Admin-Token, ${LEGACY_LOCAL_CAPABILITY_HEADER}`,
       Vary: CORS_VARY,
       ...SECURITY_HEADERS,
     };
@@ -1376,6 +1374,30 @@ const server = http.createServer(async (req, res) => {
   if (!route) {
     return sendJSON(res, 404, { error: 'Not found' });
   }
+
+  const authorization = authorizeGlobalRequest({
+    routeKey: route.routeKey,
+    headers: req.headers,
+    remoteAddress: req.socket.remoteAddress,
+    localCapability: legacyLocalCapability,
+    adminToken: process.env.C3_ADMIN_TOKEN,
+    validateApiToken: token => validateApiToken(db.db, token),
+  });
+  if (!authorization.allowed) {
+    req.resume();
+    if (authorization.status === 401) {
+      res.setHeader('WWW-Authenticate', 'Bearer realm="IntentSmith"');
+    }
+    return sendJSON(res, authorization.status, {
+      error: authorization.status === 403
+        ? 'The authenticated credential does not grant this operation'
+        : 'Authentication is required for this operation',
+      code: authorization.code,
+      routeClass: authorization.routeClass || null,
+    });
+  }
+  req.authenticatedSubject = authorization.subject;
+  req.authenticatedCredentialType = authorization.credentialType;
 
   try {
     await route.handler(req, res, route.params);
@@ -1411,6 +1433,9 @@ listenOnLegacyLoopback(server, config.server, async () => {
   attachWebSocketServer(server, ChatController, logger, {
     allowedOrigins: config.server.allowedOrigins,
     localCapability: legacyLocalCapability,
+    adminToken: process.env.C3_ADMIN_TOKEN,
+    validateApiToken: token => validateApiToken(db.db, token),
+    production: process.env.NODE_ENV === 'production',
     m1WireSupported: true,
   });
   modelBindingApplication.startBackgroundVerification();
