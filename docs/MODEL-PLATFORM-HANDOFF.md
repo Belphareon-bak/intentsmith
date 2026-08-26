@@ -1,15 +1,16 @@
 # Modelová platforma — aktuální handoff
 
-**Datum:** 2026-08-26 · **Stav:** `CHANGES_REQUESTED / REMEDIATION_IN_PROGRESS`
+**Datum:** 2026-08-26 · **Stav:** `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED`
 **Autoritativní popis:** [MODEL-SCORING-ACTIVATION.md](MODEL-SCORING-ACTIVATION.md)
-**Evidence:** [review remediation](execution/runs/model-evaluation-consolidation-review-remediation-20260825.md)
+**Evidence:** [review remediation](execution/runs/model-evaluation-review-remediation-20260826.md)
 
 ## Co je hotové v review kandidátovi
 
 - jeden versioned role-evaluation plan pro D1, D2, CODE, R1, R2, CHAT a VISION;
 - append-only exact-digest runy a role-specific decisions v SQLite;
 - společný read model pro API, CLI, Studio, governor a registry;
-- durable binding je oddělen od evaluace a zůstává jedinou runtime autoritou;
+- durable binding je oddělen od evaluace, všech 7 rolí má exact DB autoritu a
+  chybějící fresh-install baseline se uloží observačně bez runtime operace;
 - gateway zapisuje providerem/inventory ověřený digest skutečně obsluhujícího
   artefaktu; pokud jej neprokáže, zapisuje `NULL`, nikdy desired digest;
 - cleanup vyžaduje disk pressure, exact usage a COMPLETE current-contract stav;
@@ -25,20 +26,27 @@
 - migrace 086 bezpečně zachová i v123 zápisy vzniklé po aplikaci migrace 070;
 - CODE fixture má čistou snapshot provenance a nedostupný historický oracle je
   explicitní pre-pull `BLOCKED`.
+- CLI i Studio zobrazují všechna current-contract rozhodnutí role, včetně
+  neakční CODE výhry qwen3.8;
+- current discovery JSON je uchovaný content-addressed v run evidence.
 
 ## Acceptance hranice a zbývající omezení
 
-- V tomto review kandidátovi zatím nebyl proveden nový ostrý sériový Ollama/GPU
-  panel. Staré runy se automaticky nepovyšují na dnešní contract.
+- Remediace nespouštěla nový ostrý panel. Existujících 28 COMPLETE a 11 VRAM
+  BLOCKED fyzických runů už je pod současnými contracty; starší contracty se
+  automaticky nepovyšují.
 - Dřívější nezávislý rereview nad candidatem `d8a2a108` skončil `PASS`, ale
   pozdější review rozsahu `e8c1ba85..96c762db` našlo blokující číselné kolize
-  migrací. Kandidát proto zůstává `CHANGES_REQUESTED` do nového rereview.
+  migrací. Implementační oprava je green 227/227, ale kandidát čeká na nové
+  nezávislé rereview.
 - Automatický failover/proof issuance zůstává vypnutý; aktivace je ruční přes
   exact binding application.
 - Předchozí candidate na `31234a6b` dostal `CHANGES_REQUESTED`; jeho 227 PASS
   evidence není přijetí ani evidence této opravené revize.
-- Šest drobných neblokujících follow-upů je vypsáno v remediation evidence;
-  nejsou součástí tohoto acceptance ani důvodem měnit autoritativní kontrakt.
+- Starší cross-branch slot 070 mezi modelovou a M2 linkou zůstává explicitním
+  integračním blockerem; numerický preflight ho nenechá projít tiše.
+- Lokální starý dokument `docs/MODEL-SCORING-RESULTS-20260824.md` zůstává jako
+  cizí untracked soubor a není součástí kandidáta ani gate evidence.
 
 ## Praktický read-only start
 

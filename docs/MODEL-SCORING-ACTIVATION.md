@@ -1,8 +1,8 @@
 # Modelové evaluace a aktivace
 
 **Stav:** současný kontrakt v136.1 · **Aktualizováno:** 2026-08-26
-**Implementace:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Přijetí:** čeká na
-nezávislé rereview po opravě migračních kolizí
+**Implementace:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Přijetí:**
+implementace green, čeká na nezávislé rereview remediace 084–086
 
 Název souboru zůstává kvůli existujícím odkazům. IntentSmith už ale nemá
 samostatný „scoring“ runtime. Existuje jedna autoritativní cesta pro modelové
@@ -19,9 +19,12 @@ evaluace a oddělená, ručně autorizovaná cesta pro změnu bindingu.
 4. `model_evaluation_decisions` je append-only rozhodnutí odkazující na oba
    přesné COMPLETE runy a na použitou politiku.
 5. `ModelEvaluationReadModel` je jediný reader pro API, CLI, Studio, governor a
-   model registry.
+   model registry; CLI a Studio zobrazují všechna rozhodnutí role.
 6. Skutečnou změnu role provádí výhradně manual binding application. Evaluace
    sama konfiguraci ani durable binding nemění.
+7. Každá nakonfigurovaná role má durable exact-artifact baseline. Startup
+   doplní pouze chybějící řádek z installed inventory a existující autoritu
+   nikdy nepřepisuje.
 
 Suite contract nehashuje zdroj wrapper closure. Hashuje explicitní skutečný
 prompt, language, rubric, grader a jeho uzavřené vstupy, options a repeats.

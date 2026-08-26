@@ -38,6 +38,11 @@ aktuálního stavu je naproti tomu read-only:
 npm run report:model-evaluations
 ```
 
+Poslední uchovaný factual discovery výstup je
+[model-shortlist-current-20260825.json](execution/runs/model-shortlist-current-20260825.json)
+(SHA-256 `9339a9017ee92495610391e673662b0e8ac5d767a18e2ec667aca31b829527b3`).
+Jeho pořadí není score ani souhlas s pullem či aktivací.
+
 Jednorázový úplný panel všech kompatibilních lokálních artefaktů se spouští:
 
 ```bash
@@ -65,4 +70,6 @@ Před opětovným spuštěním timeru po změně scoring kontraktů se musí sho
 prázdný sdílený GPU slot a dostatečnou diskovou rezervu. Každý stažený artefakt
 se změří při produkčním contextu; nenulový CPU placement zapíše pouze terminal
 `BLOCKED/CANDIDATE_VRAM_FIT_FAILED` a nepustí model do quality sad. Timer nikdy
-nemění binding a bez explicitního `--allow-removal` model nemaže.
+nemění binding a bez explicitního `--allow-removal` model nemaže. Dokumentace
+nepřipíná přesný příští timestamp, protože jej po každém reloadu může změnit
+`RandomizedDelaySec`.

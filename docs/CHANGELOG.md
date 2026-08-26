@@ -16,7 +16,14 @@
   datem nebo suffixem; výjimkou jsou jen přesně vyjmenované historické dvojice
   008 a 030.
 - Dřívější `ACCEPTED` je po navazujícím review nahrazeno stavem
-  `CHANGES_REQUESTED` do nového nezávislého rereview celé remediace.
+  `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED` do nového nezávislého rereview.
+- Startup doplní chybějící exact-artifact desired binding bez pullu, runtime
+  commitu nebo binding operace; živá DB nyní hlásí `DURABLE` pro všech 7 rolí.
+- CLI a Studio zobrazují všechna role decisions, výchozí portfolio je sjednocené
+  v configu/wizardu/installeru a current discovery JSON je uložen podle SHA.
+- Deterministický gate na `341016f3`, run `2026-08-26T07-13-17-823Z`, prošel
+  227/227. Starší cross-branch konflikt slotu 070 zůstává explicitně blokovaný
+  integračním preflightem.
 
 ## v136.3 — konsolidace modelových evaluací (2026-08-25)
 
