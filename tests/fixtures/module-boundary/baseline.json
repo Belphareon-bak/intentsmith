@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "1f4d15e376df0e7fe8a73681c8d0c5f4140255b5",
-  "sourceTree": "31e7491c96da63eed4435805bc832fe08e5fcbff",
+  "sourceRevision": "816a2a4c8a95b49d46f06b94b56feb64c8a40c90",
+  "sourceTree": "5954bc0a5351d7be9604f572d1252212730861fc",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -919,6 +919,7 @@
     "src/runtime-environment.js -> src/security/legacy-local-access-policy.js",
     "src/security/global-auth-policy.js -> src/security/legacy-local-access-policy.js",
     "src/security/privacy-authority-repository.js -> src/security/privacy-authority-validation.js",
+    "src/security/privacy-authority-validation.js -> src/security/global-auth-policy.js",
     "src/security/privacy-authority-validation.js -> src/security/user-settings-privacy.js",
     "src/server-port-file.js -> src/security/legacy-local-access-policy.js",
     "src/server.js -> src/agents/api.js",
