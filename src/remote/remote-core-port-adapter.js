@@ -22,6 +22,7 @@ import {
   validateConversationResult,
 } from '../../contracts/m1/index.js';
 import {
+  normalizeProjectContextQuery,
   validateProjectContextQuery,
   validateProjectContextSnapshot,
 } from '../../contracts/m2/project-context-v1.js';
@@ -226,7 +227,14 @@ function validateResultIdentity(capabilityId, request, result) {
   if (capabilityId === 'conversations') {
     return result.conversationId === request.conversationId && result.turnId === request.turnId;
   }
-  return result.projectId === request.projectId;
+  if (result.projectId !== request.projectId) return false;
+  if (result.status !== 'ok') return true;
+  const normalized = normalizeProjectContextQuery(request.queryText);
+  return result.workspaceRevision === request.workspaceRevision
+    && result.normalizedQuery === normalized.normalizedQuery
+    && result.budget.maxFiles === request.maxFiles
+    && result.budget.maxBytes === request.maxBytes
+    && result.budget.maxTokens === request.maxTokens;
 }
 
 /**

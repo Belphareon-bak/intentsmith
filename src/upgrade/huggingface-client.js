@@ -26,8 +26,7 @@
 
 import { logger } from '../core/logger.js';
 import {
-  MODEL_DISCOVERY_OUTBOUND_AUTHORITY,
-  outboundFetch,
+  modelDiscoveryFetch,
 } from '../network/outbound-policy.js';
 
 const HF_API = 'https://huggingface.co/api/models';
@@ -64,10 +63,10 @@ function isOffline() {
 async function hfFetch(url) {
   if (isOffline()) return null;
   try {
-    const res = await outboundFetch(url, {
+    const res = await modelDiscoveryFetch(url, {
       signal: AbortSignal.timeout(FETCH_TIMEOUT),
       headers: { 'User-Agent': 'intentsmith/1.0', Accept: 'application/json' },
-    }, MODEL_DISCOVERY_OUTBOUND_AUTHORITY);
+    });
     if (!res.ok) {
       if (res.status >= 500) _lastError = Date.now();
       return null;

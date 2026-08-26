@@ -12,7 +12,6 @@ import {
   up as applyOutboundAudit,
 } from '../src/db/migrations/2026_08_26_089_m5_outbound_audit.js';
 import {
-  MODEL_DISCOVERY_OUTBOUND_AUTHORITY,
   OUTBOUND_ERROR_CODE,
   createOutboundPolicy,
 } from '../src/network/outbound-policy.js';
@@ -57,6 +56,7 @@ await testAsync('loopback remains local and never enters the outbound audit', as
   const response = await policy.fetch('http://127.0.0.1:11434/api/tags');
   assert.equal(response.status, 200);
   assert.equal(calls.length, 1);
+  assert.equal(calls[0].init.redirect, 'manual');
   assert.equal(database.prepare('SELECT count(*) AS count FROM m5_outbound_audit_events').get().count, 0);
 });
 
@@ -79,20 +79,22 @@ await testAsync('unscoped external request is durably denied before transport wi
 await testAsync('model discovery needs both explicit opt-in and its exact scope', async () => {
   const disabled = harness({ enabled: false });
   await assert.rejects(
-    disabled.policy.fetch(
+    disabled.policy.modelDiscoveryFetch(
       'https://ollama.com/library',
       {},
-      MODEL_DISCOVERY_OUTBOUND_AUTHORITY,
     ),
     error => error.code === OUTBOUND_ERROR_CODE.SURFACE_DISABLED,
   );
   assert.equal(disabled.calls.length, 0);
 
   const enabled = harness({ enabled: true });
-  const response = await enabled.policy.fetch(
-    'https://huggingface.co/api/models?search=qwen',
-    { method: 'GET', redirect: 'follow' },
-    MODEL_DISCOVERY_OUTBOUND_AUTHORITY,
+  const response = await enabled.policy.modelDiscoveryFetch(
+    'https://huggingface.co/api/models?search=qwen&limit=10&sort=downloads&direction=-1',
+    {
+      method: 'GET',
+      redirect: 'follow',
+      headers: { 'User-Agent': 'intentsmith/1.0', Accept: 'application/json' },
+    },
   );
   assert.equal(response.status, 200);
   assert.equal(enabled.calls.length, 1);
@@ -110,15 +112,15 @@ await testAsync('model discovery needs both explicit opt-in and its exact scope'
 await testAsync('origin, method and redirects are independently fail-closed', async () => {
   const wrongOrigin = harness({ enabled: true });
   await assert.rejects(
-    wrongOrigin.policy.fetch('https://example.com/models', {}, MODEL_DISCOVERY_OUTBOUND_AUTHORITY),
-    error => error.code === OUTBOUND_ERROR_CODE.ORIGIN_DENIED,
+    wrongOrigin.policy.modelDiscoveryFetch('https://example.com/models', {}),
+    error => error.code === OUTBOUND_ERROR_CODE.TARGET_CONTRACT_DENIED,
   );
   assert.equal(wrongOrigin.calls.length, 0);
 
   const wrongMethod = harness({ enabled: true });
   await assert.rejects(
-    wrongMethod.policy.fetch('https://ollama.com/library', { method: 'POST' }, MODEL_DISCOVERY_OUTBOUND_AUTHORITY),
-    error => error.code === OUTBOUND_ERROR_CODE.METHOD_DENIED,
+    wrongMethod.policy.modelDiscoveryFetch('https://ollama.com/library', { method: 'POST' }),
+    error => error.code === OUTBOUND_ERROR_CODE.TARGET_CONTRACT_DENIED,
   );
   assert.equal(wrongMethod.calls.length, 0);
 
@@ -131,17 +133,144 @@ await testAsync('origin, method and redirects are independently fail-closed', as
     },
   });
   await assert.rejects(
-    redirected.policy.fetch('https://whatllm.org', {}, MODEL_DISCOVERY_OUTBOUND_AUTHORITY),
-    error => error.code === OUTBOUND_ERROR_CODE.REDIRECT_DENIED,
+    redirected.policy.modelDiscoveryFetch(
+      'https://whatllm.org',
+      { headers: { Accept: 'text/html' } },
+    ),
+    error => error.code === OUTBOUND_ERROR_CODE.TARGET_CONTRACT_DENIED,
   );
   assert.equal(redirectCalls, 1);
   assert.deepEqual(
     redirected.database.prepare('SELECT phase, decision, reason_code AS reasonCode FROM m5_outbound_audit_events ORDER BY occurred_at_ms').all(),
     [
       { phase: 'decision', decision: 'allow', reasonCode: 'OUTBOUND_POLICY_ALLOWED' },
-      { phase: 'terminal', decision: 'failed', reasonCode: 'OUTBOUND_REDIRECT_DENIED' },
+      { phase: 'decision', decision: 'deny', reasonCode: 'OUTBOUND_TARGET_CONTRACT_DENIED' },
+      { phase: 'terminal', decision: 'failed', reasonCode: 'OUTBOUND_TARGET_CONTRACT_DENIED' },
     ],
   );
+});
+
+await testAsync('an allowed redirect receives a second exact decision before transport', async () => {
+  const calls = [];
+  const redirected = harness({
+    enabled: true,
+    transport: async (input, init) => {
+      calls.push({ input: String(input), redirect: init.redirect });
+      if (calls.length === 1) {
+        return new Response(null, {
+          status: 302,
+          headers: { location: '/library/qwen3' },
+        });
+      }
+      return new Response('{}', { status: 200 });
+    },
+  });
+  const response = await redirected.policy.modelDiscoveryFetch('https://ollama.com/library');
+  assert.equal(response.status, 200);
+  assert.deepEqual(calls, [
+    { input: 'https://ollama.com/library', redirect: 'manual' },
+    { input: 'https://ollama.com/library/qwen3', redirect: 'manual' },
+  ]);
+  assert.deepEqual(
+    redirected.database.prepare(`
+      SELECT phase, decision, target_origin AS targetOrigin, reason_code AS reasonCode
+      FROM m5_outbound_audit_events ORDER BY occurred_at_ms
+    `).all(),
+    [
+      {
+        phase: 'decision', decision: 'allow', targetOrigin: 'https://ollama.com',
+        reasonCode: 'OUTBOUND_POLICY_ALLOWED',
+      },
+      {
+        phase: 'decision', decision: 'allow', targetOrigin: 'https://ollama.com',
+        reasonCode: 'OUTBOUND_POLICY_ALLOWED',
+      },
+      {
+        phase: 'terminal', decision: 'succeeded', targetOrigin: 'https://ollama.com',
+        reasonCode: 'OUTBOUND_REQUEST_COMPLETED',
+      },
+    ],
+  );
+});
+
+await testAsync('loopback redirect cannot escape before a new audited policy decision', async () => {
+  const targets = [];
+  const redirected = harness({
+    enabled: true,
+    transport: async (input, init) => {
+      targets.push({ input: String(input), redirect: init.redirect });
+      return new Response(null, {
+        status: 302,
+        headers: { location: 'http://192.0.2.10/private' },
+      });
+    },
+  });
+  await assert.rejects(
+    redirected.policy.fetch('http://127.0.0.1:11434/api/tags'),
+    error => error.code === OUTBOUND_ERROR_CODE.SCOPE_REQUIRED,
+  );
+  assert.deepEqual(targets, [{
+    input: 'http://127.0.0.1:11434/api/tags',
+    redirect: 'manual',
+  }]);
+  assert.deepEqual(
+    redirected.database.prepare(`
+      SELECT phase, decision, target_origin AS targetOrigin, reason_code AS reasonCode
+      FROM m5_outbound_audit_events ORDER BY occurred_at_ms
+    `).all(),
+    [
+      {
+        phase: 'decision',
+        decision: 'deny',
+        targetOrigin: 'http://192.0.2.10',
+        reasonCode: 'OUTBOUND_SCOPE_REQUIRED',
+      },
+      {
+        phase: 'terminal',
+        decision: 'failed',
+        targetOrigin: 'http://192.0.2.10',
+        reasonCode: 'OUTBOUND_SCOPE_REQUIRED',
+      },
+    ],
+  );
+});
+
+await testAsync('string-literal metadata and endpoint/header overreach cannot forge authority', async () => {
+  for (const probe of [
+    {
+      url: 'https://huggingface.co/unrelated',
+      init: { headers: { Authorization: 'Bearer stolen' } },
+      modelDiscovery: true,
+      code: OUTBOUND_ERROR_CODE.TARGET_CONTRACT_DENIED,
+    },
+    {
+      url: 'https://huggingface.co/api/models?search=qwen&limit=10&sort=downloads&direction=-1',
+      init: { headers: { 'User-Agent': 'intentsmith/1.0', Accept: 'application/json' } },
+      authority: { surface: 'model-discovery', scope: 'model.metadata.read' },
+      code: OUTBOUND_ERROR_CODE.SCOPE_REQUIRED,
+    },
+    {
+      url: 'https://ollama.com/library?q=secret',
+      init: {},
+      modelDiscovery: true,
+      code: OUTBOUND_ERROR_CODE.TARGET_CONTRACT_DENIED,
+    },
+    {
+      url: 'https://ollama.com/library',
+      init: { method: 'GET', body: 'forged' },
+      modelDiscovery: true,
+      code: OUTBOUND_ERROR_CODE.TARGET_CONTRACT_DENIED,
+    },
+  ]) {
+    const value = harness({ enabled: true });
+    await assert.rejects(
+      probe.modelDiscovery
+        ? value.policy.modelDiscoveryFetch(probe.url, probe.init)
+        : value.policy.fetch(probe.url, probe.init, probe.authority),
+      error => error.code === probe.code,
+    );
+    assert.equal(value.calls.length, 0);
+  }
 });
 
 await testAsync('audit authority is append-only', async () => {

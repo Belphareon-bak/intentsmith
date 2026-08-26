@@ -12,8 +12,7 @@
 
 import { logger } from '../core/logger.js';
 import {
-  MODEL_DISCOVERY_OUTBOUND_AUTHORITY,
-  outboundFetch,
+  modelDiscoveryFetch,
 } from '../network/outbound-policy.js';
 
 const REGISTRY_BASE = 'https://ollama.com/library';
@@ -152,12 +151,12 @@ export class RegistryClient {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
-      const response = await outboundFetch(url, {
+      const response = await modelDiscoveryFetch(url, {
         method: 'GET',
         signal: controller.signal,
         redirect: 'follow',
         headers: { 'User-Agent': 'c3-agent/1.0' },
-      }, MODEL_DISCOVERY_OUTBOUND_AUTHORITY);
+      });
       clearTimeout(timeoutId);
 
       if (!response.ok) return null;
@@ -200,12 +199,12 @@ export class RegistryClient {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
     try {
-      const response = await outboundFetch(REGISTRY_BASE, {
+      const response = await modelDiscoveryFetch(REGISTRY_BASE, {
         method: 'GET',
         signal: controller.signal,
         redirect: 'follow',
         headers: { 'User-Agent': 'c3-agent/1.0' },
-      }, MODEL_DISCOVERY_OUTBOUND_AUTHORITY);
+      });
 
       if (!response.ok) {
         return this._libraryIndexCache?.families?.slice(0, limit) || [];
@@ -261,11 +260,11 @@ export class RegistryClient {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
-      const response = await outboundFetch(url, {
+      const response = await modelDiscoveryFetch(url, {
         method: 'HEAD',
         signal: controller.signal,
         redirect: 'follow',
-      }, MODEL_DISCOVERY_OUTBOUND_AUTHORITY);
+      });
       clearTimeout(timeoutId);
 
       if (response.status === 200) return true;
@@ -279,11 +278,11 @@ export class RegistryClient {
     // GET fallback
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
-    const response = await outboundFetch(url, {
+    const response = await modelDiscoveryFetch(url, {
       method: 'GET',
       signal: controller.signal,
       redirect: 'follow',
-    }, MODEL_DISCOVERY_OUTBOUND_AUTHORITY);
+    });
     clearTimeout(timeoutId);
 
     if (response.status === 200) return true;

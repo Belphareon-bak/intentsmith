@@ -19,6 +19,7 @@ import {
   classifyRouteAuth,
   encodeWebSocketBearerCredential,
   extractWebSocketBearerCredential,
+  parseWebSocketBearerCredential,
 } from '../src/security/global-auth-policy.js';
 import { createLegacyLocalCapability } from '../src/security/legacy-local-access-policy.js';
 import { _testInternals as wsInternals } from '../src/ws-bridge/ws-server.js';
@@ -150,6 +151,9 @@ test('WebSocket bearer protocol round-trips exactly and rejects malformed encodi
   assert.equal(extractWebSocketBearerCredential(`c3-v1, ${protocol}`), 'admin secret / unicode-ž');
   assert.equal(extractWebSocketBearerCredential(`${protocol}, ${protocol}`), null);
   assert.equal(extractWebSocketBearerCredential('intentsmith-auth-v1.%%%'), null);
+  assert.deepEqual(parseWebSocketBearerCredential('c3-v1'), { state: 'absent', token: null });
+  assert.equal(parseWebSocketBearerCredential(`${protocol}, ${protocol}`).state, 'ambiguous');
+  assert.equal(parseWebSocketBearerCredential('intentsmith-auth-v1.%%%').state, 'ambiguous');
 });
 
 function verifyUpgrade({
@@ -158,12 +162,14 @@ function verifyUpgrade({
   origin,
   production = true,
   adminToken = 'admin-secret',
+  headers = {},
 } = {}) {
   let callback = null;
   const request = {
     headers: {
       host: '127.0.0.1:3335',
       ...(protocols ? { 'sec-websocket-protocol': protocols } : {}),
+      ...headers,
     },
     socket: { remoteAddress: LOCAL },
   };
@@ -213,6 +219,36 @@ test('WS still rejects foreign origin before any credential is considered', () =
   });
   assert.equal(result.callback.allowed, false);
   assert.equal(result.callback.status, 403);
+});
+
+test('WS rejects mixed, duplicate and malformed transport credentials before identity binding', () => {
+  const capability = createLegacyLocalCapability();
+  const localProtocols = `c3-v1, c3-local-v1.${capability}`;
+  const mixedAdmin = verifyUpgrade({
+    capability,
+    protocols: localProtocols,
+    headers: { authorization: 'Bearer admin-secret' },
+  });
+  assert.equal(mixedAdmin.callback.allowed, false);
+  assert.equal(mixedAdmin.callback.status, 400);
+  assert.equal(mixedAdmin.request.authenticatedSubject, undefined);
+
+  const bearer = encodeWebSocketBearerCredential('admin-secret');
+  const duplicateBearer = verifyUpgrade({
+    capability,
+    protocols: `c3-v1, ${bearer}, ${bearer}`,
+  });
+  assert.equal(duplicateBearer.callback.allowed, false);
+  assert.equal(duplicateBearer.callback.status, 400);
+  assert.equal(duplicateBearer.request.authenticatedSubject, undefined);
+
+  const malformedBearer = verifyUpgrade({
+    capability,
+    protocols: 'c3-v1, intentsmith-auth-v1.%%%',
+  });
+  assert.equal(malformedBearer.callback.allowed, false);
+  assert.equal(malformedBearer.callback.status, 400);
+  assert.equal(malformedBearer.request.authenticatedSubject, undefined);
 });
 
 function delay(ms) {

@@ -24,6 +24,10 @@ import {
   M5_REMOTE_CORE_IMPLEMENTED_CAPABILITIES,
   createM5RemoteCorePortAdapter,
 } from '../src/remote/remote-core-port-adapter.js';
+import {
+  computeProjectContextSnapshotDigest,
+  normalizeProjectContextQuery,
+} from '../contracts/m2/project-context-v1.js';
 import { suite, summary, test, testAsync } from './harness.js';
 
 const SENT_AT = '2026-08-26T13:00:00.000Z';
@@ -102,6 +106,35 @@ function projectResult(request, overrides = {}) {
     },
     ...overrides,
   };
+}
+
+function successfulProjectResult(request, overrides = {}) {
+  const normalized = normalizeProjectContextQuery(request.queryText);
+  const result = {
+    contract: 'ProjectContextSnapshot',
+    version: 1,
+    requestId: request.requestId,
+    projectId: request.projectId,
+    status: 'ok',
+    outcome: 'empty',
+    workspaceRevision: request.workspaceRevision,
+    normalizationVersion: normalized.normalizationVersion,
+    normalizedQuery: normalized.normalizedQuery,
+    terms: [...normalized.terms],
+    items: [],
+    budget: {
+      maxFiles: request.maxFiles,
+      maxBytes: request.maxBytes,
+      maxTokens: request.maxTokens,
+      usedFiles: 0,
+      usedBytes: 0,
+      usedTokens: 0,
+    },
+    truncation: { truncated: false },
+    ...overrides,
+  };
+  result.snapshotDigest = computeProjectContextSnapshotDigest(result);
+  return result;
 }
 
 function adapter(overrides = {}) {
@@ -233,6 +266,49 @@ await testAsync('project invocation uses ProjectContextQuery/Snapshot v1 without
   ));
   assert.equal(result.status, 'error');
   assert.equal(result.error.code, 'PROJECT_CONTEXT_NOT_READY');
+});
+
+await testAsync('project result is bound to exact revision, normalized query and request budgets', async () => {
+  const request = projectQuery();
+  const accepted = adapter({
+    queryProjectContext: async value => successfulProjectResult(value),
+  });
+  const result = await accepted.invoke(invocation(
+    accepted,
+    'projects',
+    M5_REMOTE_CORE_OPERATION.PROJECT_CONTEXT_QUERY,
+    request,
+  ));
+  assert.equal(result.workspaceRevision, request.workspaceRevision);
+
+  for (const forged of [
+    successfulProjectResult(request, { workspaceRevision: `wsr1:${'b'.repeat(64)}` }),
+    successfulProjectResult(request, {
+      normalizedQuery: 'foreign query',
+      terms: ['foreign', 'query'],
+    }),
+    successfulProjectResult(request, {
+      budget: {
+        maxFiles: request.maxFiles + 1,
+        maxBytes: request.maxBytes,
+        maxTokens: request.maxTokens,
+        usedFiles: 0,
+        usedBytes: 0,
+        usedTokens: 0,
+      },
+    }),
+  ]) {
+    const rejecting = adapter({ queryProjectContext: async () => forged });
+    await assert.rejects(
+      rejecting.invoke(invocation(
+        rejecting,
+        'projects',
+        M5_REMOTE_CORE_OPERATION.PROJECT_CONTEXT_QUERY,
+        request,
+      )),
+      error => error.code === M5_REMOTE_CORE_ADAPTER_ERROR.IDENTITY_MISMATCH,
+    );
+  }
 });
 
 await testAsync('forged negotiation digest is rejected before the handler runs', async () => {

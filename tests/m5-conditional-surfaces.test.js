@@ -9,6 +9,7 @@ import {
   M5_CONDITIONAL_SURFACE_DEFINITIONS,
   M5_CONDITIONAL_SURFACE_ERROR,
   assertM5ProductionConditionalSurfaces,
+  isM5ConditionalSurfaceEnabled,
   resolveM5ConditionalSurfaces,
 } from '../src/release/conditional-surfaces.js';
 import { createNotificationRouter } from '../src/notifications/index.js';
@@ -85,6 +86,16 @@ test('unsupported flags require strict true and are never promoted to supported'
   assert.deepEqual(requested.requiredM6Journeys, ['M6-JOURNEY-MODEL-DISCOVERY-V1']);
 });
 
+test('one normalized manifest predicate is the only runtime enablement authority', () => {
+  const whitespace = status({}, { C3_UPDATE_REPO: '   ' });
+  assert.equal(isM5ConditionalSurfaceEnabled(whitespace, 'core-auto-update'), false);
+  assert.equal(isM5ConditionalSurfaceEnabled(whitespace, 'model-discovery'), true);
+  assert.throws(
+    () => isM5ConditionalSurfaceEnabled(whitespace, 'foreign-surface'),
+    /unknown-surface/,
+  );
+});
+
 test('production rejects every requested unsupported surface with a typed census', () => {
   for (const [id, feature] of [
     ['external-notifications', 'externalNotifications'],
@@ -158,10 +169,17 @@ test('server checks release disposition before notification, marketplace, media 
   assert.equal(assertion >= 0, true);
   for (const sentinel of [
     'createNotificationPipeline({',
-    "if (config.features.marketplace === true)",
-    "if (config.features.comfyui !== false)",
-    'if (process.env.C3_UPDATE_REPO)',
+    "isM5ConditionalSurfaceEnabled(conditionalSurfaces, 'marketplace')",
+    "isM5ConditionalSurfaceEnabled(conditionalSurfaces, 'media-comfyui')",
+    "isM5ConditionalSurfaceEnabled(conditionalSurfaces, 'core-auto-update')",
   ]) assert.equal(source.indexOf(sentinel) > assertion, true, sentinel);
+  for (const forbidden of [
+    'config.features.onlineDiscovery === true',
+    'config.features.externalNotifications === true',
+    'config.features.marketplace === true',
+    'config.features.comfyui !== false',
+    'if (process.env.C3_UPDATE_REPO)',
+  ]) assert.equal(source.includes(forbidden), false, forbidden);
   assert.equal(source.includes('conditionalSurfaces,'), true);
 
   const serialized = JSON.stringify(status({}, {

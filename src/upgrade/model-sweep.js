@@ -22,8 +22,7 @@
 
 import { logger } from '../core/logger.js';
 import {
-  MODEL_DISCOVERY_OUTBOUND_AUTHORITY,
-  outboundFetch,
+  modelDiscoveryFetch,
 } from '../network/outbound-policy.js';
 import { canonicalModelName } from './model-identity.js';
 
@@ -114,10 +113,10 @@ let _familiesAt = 0;
 const _tagsCache = new Map();
 
 async function fetchText(url) {
-  const res = await outboundFetch(url, {
+  const res = await modelDiscoveryFetch(url, {
     signal: AbortSignal.timeout(FETCH_TIMEOUT),
     headers: { 'User-Agent': 'intentsmith/1.0' },
-  }, MODEL_DISCOVERY_OUTBOUND_AUTHORITY);
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.text();
 }

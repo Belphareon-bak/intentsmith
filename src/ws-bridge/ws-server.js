@@ -119,22 +119,21 @@ function createLegacyWebSocketVerifyClient({
     const authorization = authorizeGlobalRequest({
       routeKey: 'WS /c3/ws',
       routeClass: RouteAuthClass.MUTATE,
-      headers: presentedLocalCapability
-        ? { 'x-intentsmith-local-capability': presentedLocalCapability }
-        : {},
+      headers: info.req?.headers ?? {},
       remoteAddress: info.req?.socket?.remoteAddress,
       production,
       localCapability,
       adminToken,
       validateApiToken,
       websocketProtocols: info.req?.headers?.['sec-websocket-protocol'],
+      websocketLocalCapability: presentedLocalCapability ?? undefined,
     });
     if (!authorization.allowed) {
       logger.warn('WSBridge', 'Rejected unauthenticated WebSocket upgrade', {
         reason: authorization.code,
         ip: info.req?.socket?.remoteAddress,
       });
-      done(false, authorization.status === 403 ? 403 : 401, 'Unauthorized');
+      done(false, authorization.status, 'Unauthorized');
       return;
     }
     info.req.authenticatedSubject = authorization.subject;

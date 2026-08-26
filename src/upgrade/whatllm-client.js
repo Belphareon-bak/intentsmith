@@ -18,8 +18,7 @@
 
 import { logger } from '../core/logger.js';
 import {
-  MODEL_DISCOVERY_OUTBOUND_AUTHORITY,
-  outboundFetch,
+  modelDiscoveryFetch,
 } from '../network/outbound-policy.js';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -450,10 +449,10 @@ export async function fetchModels() {
   }
 
   try {
-    const res = await outboundFetch(WHATLLM_URL, {
+    const res = await modelDiscoveryFetch(WHATLLM_URL, {
       signal: AbortSignal.timeout(FETCH_TIMEOUT),
       headers: { 'Accept': 'text/html' },
-    }, MODEL_DISCOVERY_OUTBOUND_AUTHORITY);
+    });
 
     if (!res.ok) {
       throw new Error(`HTTP ${res.status}`);

@@ -45,16 +45,38 @@ function safeEqual(left, right) {
   return equal && leftBytes.length === rightBytes.length;
 }
 
+const CREDENTIAL_PARSE_STATE = Object.freeze({
+  ABSENT: 'absent',
+  VALID: 'valid',
+  AMBIGUOUS: 'ambiguous',
+});
+
+function parsedCredential(state, token = null) {
+  return Object.freeze({ state, token });
+}
+
 function bearer(headers = {}) {
+  if (!Object.hasOwn(headers, 'authorization')) {
+    return parsedCredential(CREDENTIAL_PARSE_STATE.ABSENT);
+  }
   const raw = headers.authorization;
-  if (Array.isArray(raw) || typeof raw !== 'string') return null;
+  if (Array.isArray(raw) || typeof raw !== 'string') {
+    return parsedCredential(CREDENTIAL_PARSE_STATE.AMBIGUOUS);
+  }
   const match = /^Bearer ([^\s]+)$/i.exec(raw);
-  return match ? match[1] : null;
+  return match
+    ? parsedCredential(CREDENTIAL_PARSE_STATE.VALID, match[1])
+    : parsedCredential(CREDENTIAL_PARSE_STATE.AMBIGUOUS);
 }
 
 function oneHeader(headers, name) {
-  const value = headers?.[name];
-  return typeof value === 'string' && value.length > 0 ? value : null;
+  if (!Object.hasOwn(headers ?? {}, name)) {
+    return parsedCredential(CREDENTIAL_PARSE_STATE.ABSENT);
+  }
+  const value = headers[name];
+  return typeof value === 'string' && value.length > 0
+    ? parsedCredential(CREDENTIAL_PARSE_STATE.VALID, value)
+    : parsedCredential(CREDENTIAL_PARSE_STATE.AMBIGUOUS);
 }
 
 function validScopes(candidate) {
@@ -103,20 +125,35 @@ export function encodeWebSocketBearerCredential(token) {
   return `${GLOBAL_AUTH_WS_PROTOCOL_PREFIX}${Buffer.from(token).toString('base64url')}`;
 }
 
-export function extractWebSocketBearerCredential(rawProtocols) {
-  if (typeof rawProtocols !== 'string' || rawProtocols.length === 0) return null;
+export function parseWebSocketBearerCredential(rawProtocols) {
+  if (rawProtocols === undefined || rawProtocols === null || rawProtocols === '') {
+    return parsedCredential(CREDENTIAL_PARSE_STATE.ABSENT);
+  }
+  if (typeof rawProtocols !== 'string') {
+    return parsedCredential(CREDENTIAL_PARSE_STATE.AMBIGUOUS);
+  }
   const matches = rawProtocols.split(',')
     .map(value => value.trim())
     .filter(value => value.startsWith(GLOBAL_AUTH_WS_PROTOCOL_PREFIX));
-  if (matches.length !== 1) return null;
+  if (matches.length === 0) return parsedCredential(CREDENTIAL_PARSE_STATE.ABSENT);
+  if (matches.length !== 1) return parsedCredential(CREDENTIAL_PARSE_STATE.AMBIGUOUS);
   const encoded = matches[0].slice(GLOBAL_AUTH_WS_PROTOCOL_PREFIX.length);
-  if (!/^[A-Za-z0-9_-]+$/.test(encoded)) return null;
+  if (!/^[A-Za-z0-9_-]+$/.test(encoded)) {
+    return parsedCredential(CREDENTIAL_PARSE_STATE.AMBIGUOUS);
+  }
   try {
     const decoded = Buffer.from(encoded, 'base64url').toString('utf8');
-    return decoded && Buffer.from(decoded).toString('base64url') === encoded ? decoded : null;
+    return decoded && Buffer.from(decoded).toString('base64url') === encoded
+      ? parsedCredential(CREDENTIAL_PARSE_STATE.VALID, decoded)
+      : parsedCredential(CREDENTIAL_PARSE_STATE.AMBIGUOUS);
   } catch {
-    return null;
+    return parsedCredential(CREDENTIAL_PARSE_STATE.AMBIGUOUS);
   }
+}
+
+export function extractWebSocketBearerCredential(rawProtocols) {
+  const parsed = parseWebSocketBearerCredential(rawProtocols);
+  return parsed.state === CREDENTIAL_PARSE_STATE.VALID ? parsed.token : null;
 }
 
 export function authorizeGlobalRequest({
@@ -129,6 +166,7 @@ export function authorizeGlobalRequest({
   adminToken,
   validateApiToken,
   websocketProtocols,
+  websocketLocalCapability,
 } = {}) {
   if (!routeClass || !Object.values(RouteAuthClass).includes(routeClass)) {
     return decision(false, {
@@ -142,8 +180,23 @@ export function authorizeGlobalRequest({
 
   const localHeader = oneHeader(headers, LEGACY_LOCAL_CAPABILITY_HEADER.toLowerCase());
   const adminHeader = oneHeader(headers, 'x-admin-token');
-  const bearerToken = bearer(headers) || extractWebSocketBearerCredential(websocketProtocols);
-  const credentialCount = [localHeader, adminHeader, bearerToken].filter(Boolean).length;
+  const bearerHeader = bearer(headers);
+  const bearerProtocol = parseWebSocketBearerCredential(websocketProtocols);
+  const localProtocol = websocketLocalCapability === undefined
+    ? parsedCredential(CREDENTIAL_PARSE_STATE.ABSENT)
+    : typeof websocketLocalCapability === 'string' && websocketLocalCapability.length > 0
+      ? parsedCredential(CREDENTIAL_PARSE_STATE.VALID, websocketLocalCapability)
+      : parsedCredential(CREDENTIAL_PARSE_STATE.AMBIGUOUS);
+  const credentials = [localHeader, localProtocol, adminHeader, bearerHeader, bearerProtocol];
+  if (credentials.some(item => item.state === CREDENTIAL_PARSE_STATE.AMBIGUOUS)) {
+    return decision(false, {
+      status: 400,
+      code: GLOBAL_AUTH_CREDENTIAL_AMBIGUOUS,
+      routeClass,
+    });
+  }
+  const presented = credentials.filter(item => item.state === CREDENTIAL_PARSE_STATE.VALID);
+  const credentialCount = presented.length;
   if (credentialCount > 1) {
     return decision(false, {
       status: 400,
@@ -152,8 +205,12 @@ export function authorizeGlobalRequest({
     });
   }
 
-  if (localHeader) {
-    if (legacyLocalCapabilitiesEqual(localCapability, localHeader)) {
+  const localCredential = localHeader.token || localProtocol.token;
+  const adminCredential = adminHeader.token;
+  const bearerToken = bearerHeader.token || bearerProtocol.token;
+
+  if (localCredential) {
+    if (legacyLocalCapabilitiesEqual(localCapability, localCredential)) {
       return decision(true, {
         routeClass,
         credentialType: 'local-capability',
@@ -163,7 +220,7 @@ export function authorizeGlobalRequest({
     return decision(false, { status: 401, code: GLOBAL_AUTH_REQUIRED, routeClass });
   }
 
-  if (adminHeader && safeEqual(adminHeader, adminToken)) {
+  if (adminCredential && safeEqual(adminCredential, adminToken)) {
     return decision(true, {
       routeClass,
       credentialType: 'admin-token',
@@ -171,7 +228,7 @@ export function authorizeGlobalRequest({
     });
   }
 
-  if (adminHeader) {
+  if (adminCredential) {
     return decision(false, { status: 401, code: GLOBAL_AUTH_REQUIRED, routeClass });
   }
 

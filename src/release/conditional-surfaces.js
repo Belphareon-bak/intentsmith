@@ -93,4 +93,15 @@ export function assertM5ProductionConditionalSurfaces(status, { production } = {
   return status;
 }
 
+export function isM5ConditionalSurfaceEnabled(status, surfaceId) {
+  if (!status || status.contract !== M5_CONDITIONAL_SURFACE_CONTRACT) {
+    throw new TypeError('m5-conditional-surfaces:invalid-status');
+  }
+  const surface = status.surfaces?.find(item => item.id === surfaceId);
+  if (!surface || typeof surface.enabled !== 'boolean') {
+    throw new TypeError('m5-conditional-surfaces:unknown-surface');
+  }
+  return surface.enabled;
+}
+
 export const M5_CONDITIONAL_SURFACE_DEFINITIONS = DEFINITIONS;

@@ -29,6 +29,7 @@ import {
 import { installGlobalHandlers, handleError } from './core/error-handler.js';
 import {
   assertM5ProductionConditionalSurfaces,
+  isM5ConditionalSurfaceEnabled,
   resolveM5ConditionalSurfaces,
 } from './release/conditional-surfaces.js';
 import db from './db/database.js';
@@ -46,7 +47,9 @@ assertM5ProductionConditionalSurfaces(conditionalSurfaces, {
 configureProductionOutboundPolicy({
   database: db.db,
   logger,
-  enabledSurfaces: { 'model-discovery': config.features.onlineDiscovery === true },
+  enabledSurfaces: {
+    'model-discovery': isM5ConditionalSurfaceEnabled(conditionalSurfaces, 'model-discovery'),
+  },
 });
 installProductionOutboundGuard();
 
@@ -57,11 +60,11 @@ installGlobalHandlers({ logger, exitOnUncaught: false });
 initNotificationTables(db.db);
 const { pipeline: notificationPipeline, router: notificationRouter } = createNotificationPipeline({
   db,
-  includeExternal: config.features.externalNotifications === true,
+  includeExternal: isM5ConditionalSurfaceEnabled(conditionalSurfaces, 'external-notifications'),
 });
 // Register additional channels (Email, Telegram, Push already registered by factory)
 if (
-  config.features.externalNotifications === true
+  isM5ConditionalSurfaceEnabled(conditionalSurfaces, 'external-notifications')
   && !notificationRouter.channels.has('webhook')
 ) notificationRouter.registerChannel(new WebhookChannel({ logger }));
 if (!notificationRouter.channels.has('desktop')) notificationRouter.registerChannel(new DesktopChannel({ logger }));
@@ -502,7 +505,7 @@ if (config.features.skills !== false) {
 // v123: Marketplace — catalog client + package installer
 let marketplaceClient = null;
 let packageInstaller = null;
-if (config.features.marketplace === true) {
+if (isM5ConditionalSurfaceEnabled(conditionalSurfaces, 'marketplace')) {
   try {
     const { MarketplaceClient } = await import('./marketplace/marketplace-client.js');
     const { PackageInstaller } = await import('./marketplace/package-installer.js');
@@ -527,7 +530,7 @@ if (config.features.marketplace === true) {
 let comfyuiConnector = null;
 let vramManager = null;
 let mediaStorage = null;
-if (config.features.comfyui !== false) {
+if (isM5ConditionalSurfaceEnabled(conditionalSurfaces, 'media-comfyui')) {
   try {
     const { ComfyUIConnector } = await import('./media/comfyui-connector.js');
     const { VRAMManager } = await import('./media/vram-manager.js');
@@ -1640,7 +1643,7 @@ listenOnLegacyLoopback(server, config.server, async () => {
   }
 
   // F2: Start background update checker (only if repository configured)
-  if (process.env.C3_UPDATE_REPO) {
+  if (isM5ConditionalSurfaceEnabled(conditionalSurfaces, 'core-auto-update')) {
     startUpdateChecker((update) => {
       logger.info('Updater', `New version available: ${update.latestVersion} (current: ${update.currentVersion})`);
       logger.info('Updater', `Release: ${update.releaseUrl}`);

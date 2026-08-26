@@ -10,20 +10,82 @@ export const OUTBOUND_ERROR_CODE = Object.freeze({
   SURFACE_DISABLED: 'OUTBOUND_SURFACE_DISABLED',
   ORIGIN_DENIED: 'OUTBOUND_ORIGIN_DENIED',
   METHOD_DENIED: 'OUTBOUND_METHOD_DENIED',
+  TARGET_CONTRACT_DENIED: 'OUTBOUND_TARGET_CONTRACT_DENIED',
   REDIRECT_DENIED: 'OUTBOUND_REDIRECT_DENIED',
 });
 
-const MODEL_DISCOVERY_ORIGINS = Object.freeze(new Set([
-  'https://ollama.com',
-  'https://whatllm.org',
-  'https://huggingface.co',
-]));
-const SCOPES = Object.freeze({
-  'model-discovery': Object.freeze({
-    scope: 'model.metadata.read',
-    methods: Object.freeze(new Set(['GET', 'HEAD'])),
-    origins: MODEL_DISCOVERY_ORIGINS,
-  }),
+const OUTBOUND_CAPABILITIES = new WeakMap();
+const MODEL_FAMILY_PATH = /^\/library\/[a-z0-9._-]+$/;
+const MAX_REDIRECTS = 4;
+
+function requestHeaderEntries(input, init) {
+  const source = Object.hasOwn(init ?? {}, 'headers') ? init.headers : input?.headers;
+  try {
+    return [...new Headers(source).entries()];
+  } catch {
+    return null;
+  }
+}
+
+function requestHasBody(input, init) {
+  if (Object.hasOwn(init ?? {}, 'body')) return init.body !== null && init.body !== undefined;
+  return input?.body !== null && input?.body !== undefined;
+}
+
+function exactHeaders(entries, expected) {
+  if (!entries || entries.length !== expected.length) return false;
+  const actual = new Map(entries);
+  return expected.every(([name, value]) => actual.get(name) === value);
+}
+
+function validModelDiscoveryTarget({ url, method, headers, hasBody }) {
+  if (url.hash !== '' || hasBody) return false;
+  if (url.origin === 'https://whatllm.org') {
+    return method === 'GET'
+      && url.pathname === '/'
+      && url.search === ''
+      && exactHeaders(headers, [['accept', 'text/html']]);
+  }
+  if (url.origin === 'https://huggingface.co') {
+    const keys = [...url.searchParams.keys()].sort();
+    return method === 'GET'
+      && url.pathname === '/api/models'
+      && keys.length === 4
+      && keys.join(',') === 'direction,limit,search,sort'
+      && typeof url.searchParams.get('search') === 'string'
+      && url.searchParams.get('search').length > 0
+      && url.searchParams.get('search').length <= 200
+      && url.searchParams.get('limit') === '10'
+      && url.searchParams.get('sort') === 'downloads'
+      && url.searchParams.get('direction') === '-1'
+      && exactHeaders(headers, [
+        ['accept', 'application/json'],
+        ['user-agent', 'intentsmith/1.0'],
+      ]);
+  }
+  if (url.origin === 'https://ollama.com') {
+    const exactPath = url.pathname === '/library' || MODEL_FAMILY_PATH.test(url.pathname);
+    const allowedHeaders = headers?.length === 0
+      || exactHeaders(headers, [['user-agent', 'c3-agent/1.0']])
+      || exactHeaders(headers, [['user-agent', 'intentsmith/1.0']]);
+    return ['GET', 'HEAD'].includes(method)
+      && exactPath
+      && url.search === ''
+      && allowedHeaders;
+  }
+  return false;
+}
+
+function createOutboundCapability({ surface, scope, validateTarget }) {
+  const capability = Object.freeze(Object.create(null));
+  OUTBOUND_CAPABILITIES.set(capability, Object.freeze({ surface, scope, validateTarget }));
+  return capability;
+}
+
+const MODEL_DISCOVERY_OUTBOUND_CAPABILITY = createOutboundCapability({
+  surface: 'model-discovery',
+  scope: 'model.metadata.read',
+  validateTarget: validModelDiscoveryTarget,
 });
 
 const runtimeTransport = typeof globalThis.fetch === 'function'
@@ -56,11 +118,10 @@ function isLoopback(url) {
   return false;
 }
 
-function metadataValue(metadata) {
-  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null;
-  const keys = Object.keys(metadata).sort();
-  if (keys.length !== 2 || keys[0] !== 'scope' || keys[1] !== 'surface') return null;
-  return metadata;
+function authorityValue(capability) {
+  return capability && typeof capability === 'object'
+    ? OUTBOUND_CAPABILITIES.get(capability) ?? null
+    : null;
 }
 
 export function createOutboundPolicy({
@@ -86,64 +147,99 @@ export function createOutboundPolicy({
       throw typedError(OUTBOUND_ERROR_CODE.INVALID_TARGET, 'Outbound target URL is invalid');
     }
     const method = methodOf(input, init);
-    if (isLoopback(url)) return transport(input, init);
+    const headers = requestHeaderEntries(input, init);
+    const hasBody = requestHasBody(input, init);
+    const authority = authorityValue(metadata);
+    const surface = authority?.surface || 'unscoped';
+    const scope = authority?.scope || 'none';
+    let requestId = null;
+    let currentUrl = url;
+    let currentInput = input;
+    let redirectCount = 0;
 
-    const targetDigest = outboundTargetDigest(url.href);
-    const requestId = audit.createRequestId(idFactory());
-    const declared = metadataValue(metadata);
-    const surface = declared?.surface || 'unscoped';
-    const scope = declared?.scope || 'none';
-    const rule = declared ? SCOPES[surface] : null;
-    let decision = 'allow';
-    let reasonCode = 'OUTBOUND_POLICY_ALLOWED';
-    if (!rule || scope !== rule.scope) {
-      decision = 'deny';
-      reasonCode = OUTBOUND_ERROR_CODE.SCOPE_REQUIRED;
-    } else if (enabledSurfaces[surface] !== true) {
-      decision = 'deny';
-      reasonCode = OUTBOUND_ERROR_CODE.SURFACE_DISABLED;
-    } else if (!rule.methods.has(method)) {
-      decision = 'deny';
-      reasonCode = OUTBOUND_ERROR_CODE.METHOD_DENIED;
-    } else if (!rule.origins.has(url.origin)) {
-      decision = 'deny';
-      reasonCode = OUTBOUND_ERROR_CODE.ORIGIN_DENIED;
+    function appendDecision(targetUrl, decision, reasonCode) {
+      requestId ??= audit.createRequestId(idFactory());
+      const targetDigest = outboundTargetDigest(targetUrl.href);
+      try {
+        audit.append({
+          requestId,
+          phase: 'decision',
+          surface,
+          scope,
+          method,
+          targetOrigin: targetUrl.origin,
+          targetDigest,
+          decision,
+          reasonCode,
+        });
+      } catch (error) {
+        logger.error('Outbound', 'outbound_audit_unavailable', { reasonCode: error?.code || 'DB_ERROR' });
+        throw typedError(OUTBOUND_ERROR_CODE.AUDIT_UNAVAILABLE, 'External request denied because audit is unavailable');
+      }
+      if (decision === 'deny') {
+        logger.warn('Outbound', 'outbound_request_denied', {
+          requestId, surface, scope, method, targetOrigin: targetUrl.origin, reasonCode,
+        });
+        throw typedError(reasonCode, 'External request denied by outbound policy', {
+          requestId, surface, scope,
+        });
+      }
     }
 
-    try {
-      audit.append({
-        requestId,
-        phase: 'decision',
-        surface,
-        scope,
-        method,
-        targetOrigin: url.origin,
-        targetDigest,
-        decision,
+    function authorizeTarget(targetUrl, { redirected = false, fromLoopback = false } = {}) {
+      if (isLoopback(targetUrl)) {
+        if (redirected && !fromLoopback) {
+          appendDecision(targetUrl, 'deny', OUTBOUND_ERROR_CODE.REDIRECT_DENIED);
+        }
+        return;
+      }
+      let reasonCode = 'OUTBOUND_POLICY_ALLOWED';
+      if (!authority) reasonCode = OUTBOUND_ERROR_CODE.SCOPE_REQUIRED;
+      else if (enabledSurfaces[authority.surface] !== true) {
+        reasonCode = OUTBOUND_ERROR_CODE.SURFACE_DISABLED;
+      } else if (!authority.validateTarget({ url: targetUrl, method, headers, hasBody })) {
+        reasonCode = OUTBOUND_ERROR_CODE.TARGET_CONTRACT_DENIED;
+      }
+      appendDecision(
+        targetUrl,
+        reasonCode === 'OUTBOUND_POLICY_ALLOWED' ? 'allow' : 'deny',
         reasonCode,
-      });
-    } catch (error) {
-      logger.error('Outbound', 'outbound_audit_unavailable', { reasonCode: error?.code || 'DB_ERROR' });
-      throw typedError(OUTBOUND_ERROR_CODE.AUDIT_UNAVAILABLE, 'External request denied because audit is unavailable');
-    }
-    if (decision === 'deny') {
-      logger.warn('Outbound', 'outbound_request_denied', { requestId, surface, scope, method, targetOrigin: url.origin, reasonCode });
-      throw typedError(reasonCode, 'External request denied by outbound policy', { requestId, surface, scope });
+      );
     }
 
+    authorizeTarget(currentUrl);
     let response;
     try {
-      response = await transport(input, { ...init, redirect: 'manual' });
-      if (response.status >= 300 && response.status <= 399 && response.headers?.get('location')) {
-        throw typedError(OUTBOUND_ERROR_CODE.REDIRECT_DENIED, 'External redirect requires a new exact policy decision');
+      for (;;) {
+        const sourceWasLoopback = isLoopback(currentUrl);
+        response = await transport(currentInput, { ...init, redirect: 'manual' });
+        const location = response.status >= 300 && response.status <= 399
+          ? response.headers?.get('location')
+          : null;
+        if (!location) break;
+        redirectCount += 1;
+        if (redirectCount > MAX_REDIRECTS) {
+          throw typedError(OUTBOUND_ERROR_CODE.REDIRECT_DENIED, 'External redirect limit exceeded');
+        }
+        let redirectedUrl;
+        try {
+          redirectedUrl = requestUrl(new URL(location, currentUrl));
+        } catch {
+          throw typedError(OUTBOUND_ERROR_CODE.REDIRECT_DENIED, 'External redirect target is invalid');
+        }
+        currentUrl = redirectedUrl;
+        authorizeTarget(currentUrl, { redirected: true, fromLoopback: sourceWasLoopback });
+        currentInput = redirectedUrl.href;
       }
+      if (requestId === null) return response;
+      const targetDigest = outboundTargetDigest(currentUrl.href);
       audit.append({
         requestId,
         phase: 'terminal',
         surface,
         scope,
         method,
-        targetOrigin: url.origin,
+        targetOrigin: currentUrl.origin,
         targetDigest,
         decision: 'succeeded',
         reasonCode: 'OUTBOUND_REQUEST_COMPLETED',
@@ -151,23 +247,26 @@ export function createOutboundPolicy({
       });
       return response;
     } catch (error) {
-      try {
-        audit.append({
-          requestId,
-          phase: 'terminal',
-          surface,
-          scope,
-          method,
-          targetOrigin: url.origin,
-          targetDigest,
-          decision: 'failed',
-          reasonCode: error?.code === OUTBOUND_ERROR_CODE.REDIRECT_DENIED
-            ? OUTBOUND_ERROR_CODE.REDIRECT_DENIED
-            : 'OUTBOUND_REQUEST_FAILED',
-          httpStatus: Number.isInteger(response?.status) ? response.status : null,
-        });
-      } catch (auditError) {
-        logger.error('Outbound', 'outbound_terminal_audit_unavailable', { requestId, reasonCode: auditError?.code || 'DB_ERROR' });
+      if (requestId !== null) {
+        try {
+          const targetDigest = outboundTargetDigest(currentUrl.href);
+          audit.append({
+            requestId,
+            phase: 'terminal',
+            surface,
+            scope,
+            method,
+            targetOrigin: currentUrl.origin,
+            targetDigest,
+            decision: 'failed',
+            reasonCode: Object.values(OUTBOUND_ERROR_CODE).includes(error?.code)
+              ? error.code
+              : 'OUTBOUND_REQUEST_FAILED',
+            httpStatus: Number.isInteger(response?.status) ? response.status : null,
+          });
+        } catch (auditError) {
+          logger.error('Outbound', 'outbound_terminal_audit_unavailable', { requestId, reasonCode: auditError?.code || 'DB_ERROR' });
+        }
       }
       throw error;
     }
@@ -175,6 +274,11 @@ export function createOutboundPolicy({
 
   return Object.freeze({
     fetch: governedFetch,
+    modelDiscoveryFetch: (input, init) => governedFetch(
+      input,
+      init,
+      MODEL_DISCOVERY_OUTBOUND_CAPABILITY,
+    ),
     summary: options => audit.summary(options),
   });
 }
@@ -193,20 +297,15 @@ export function installProductionOutboundGuard() {
   return installedGuard;
 }
 
-export function outboundFetch(input, init, metadata) {
+export function modelDiscoveryFetch(input, init) {
   if (!productionPolicy) {
     throw typedError(OUTBOUND_ERROR_CODE.AUDIT_UNAVAILABLE, 'Production outbound policy is not configured');
   }
-  return productionPolicy.fetch(input, init, metadata);
+  return productionPolicy.modelDiscoveryFetch(input, init);
 }
 
 export function getOutboundDiagnostics() {
   return productionPolicy ? productionPolicy.summary() : null;
 }
 
-export const MODEL_DISCOVERY_OUTBOUND_AUTHORITY = Object.freeze({
-  surface: 'model-discovery',
-  scope: 'model.metadata.read',
-});
-
-export const _testInternals = Object.freeze({ isLoopback, metadataValue, requestUrl });
+export const _testInternals = Object.freeze({ authorityValue, isLoopback, requestUrl });
