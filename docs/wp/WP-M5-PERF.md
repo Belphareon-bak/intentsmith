@@ -1,14 +1,15 @@
 # WP-M5-PERF — evidence-bound production budgets
 
-**Typ:** M5 production hardening · **Stav:** `IMPLEMENTATION_GREEN / REVIEW_PENDING`
+**Typ:** M5 production hardening · **Stav:** `IMPLEMENTATION_GREEN / RE_REVIEW_REQUIRED`
 
-**Product revision:** `fbca096e82e8b749f213062810c95ea949d41572`
+**Product revision:** `034e00f58d35971ff390256f8eaf878361d33dde`
 
 ## Uživatelský výsledek
 
 Release už neposuzuje výkon z jednotlivého rychlého běhu nebo z průměru, který
-schová pomalý konec distribuce. `M5PerformanceEvidence@1` odděluje raw vzorky,
-přesné přijaté baselines a disposition fyzického GPU běhu. Rozhoduje
+schová pomalý konec distribuce. `M5PerformanceEvidence@2` odděluje content-
+addressed raw vzorky, přesné Git baseline sources a disposition fyzického GPU
+běhu. Rozhoduje
 nearest-rank p95, nulový error budget, minimální počet vzorků, skutečné trvání
 soaku a RSS start/peak/end.
 
@@ -21,7 +22,7 @@ Připnuté candidate budgety jsou:
 | core soak | min. 300 000 ms a 1 000 vzorků, p95 nejvýše 100 ms, 0 chyb |
 | server RSS v soaku | peak nejvýše 512 MiB, koncový růst nejvýše 64 MiB |
 | modelový chat | cold nejvýše 70 s, warm p95 nejvýše 60 s, 0 chyb |
-| Studio | deterministic nejvýše 100 ms, soak min. 65 s, build nejvýše 90 s |
+| Studio | deterministic nejvýše 100 ms, modelový turn nejvýše 70 s |
 | governed lifecycle | journey nejvýše 60 s, 0 chyb |
 | VRAM | 100% residency, min. 1 024 MiB free headroom |
 
@@ -33,8 +34,15 @@ WP reviewem zároveň přijímá nebo mění právě tuto tabulku.
 - chybějící plocha, krátký soak nebo méně vzorků znamená `FAIL`;
 - jeden error poruší budget, i kdyby latence zůstala nízká;
 - p95 je nearest-rank bez interpolace;
-- source revision, cesta a metriky každé M1/M2 baseline se ověřují, pouhá
-  existence objektu nestačí;
+- source revision, cesta, Git blob OID a SHA-256 každé M1/M2 baseline se
+  ověřují; metriky pak odvozuje jediný exact parser přímo z těchto bajtů;
+- raw měření je samostatný `M5PerformanceRawArtifact@1`; envelope nese jeho
+  relativní cestu, byte count a SHA-256 a při chybějícím či změněném souboru
+  selže před budget checks;
+- kandidát je vázaný na exact commit i tree; runner před i po měření vyžaduje
+  stejný čistý HEAD;
+- raw i envelope publication používá private mód, `O_EXCL`/`wx` a fsync;
+  existující cesta se nikdy nepřepíše;
 - nový fyzický GPU běh se smí vydat za měření jen v prázdném sériovém okně;
   při cizí aktivitě zůstává `not_run_foreign_activity` a používá se explicitně
   připnutý přijatý pilot;
@@ -43,5 +51,5 @@ WP reviewem zároveň přijímá nebo mění právě tuto tabulku.
 - vlastněný server musí skončit graceful shutdownem a temp root se odstraní.
 
 Focused důkaz je v
-[`m5-perf-20260826.md`](../execution/runs/m5-perf-20260826.md).
+[`m5-perf-remediation-20260826.md`](../execution/runs/m5-perf-remediation-20260826.md).
 Tento dokument není nezávislé review ani M5 acceptance.

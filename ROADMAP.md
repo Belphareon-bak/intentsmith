@@ -1450,16 +1450,20 @@ Remediation důkaz je v
 [`m5-auth-outbound-remote-remediation-20260826.md`](docs/execution/runs/m5-auth-outbound-remote-remediation-20260826.md);
 původní report zůstává v
 [`m5-outbound-20260826.md`](docs/execution/runs/m5-outbound-20260826.md).
-`WP-M5-PERF` je implementation-green na product commitu `fbca096e`.
-Release budgety jsou verzované a fail-closed: raw vzorky používají nearest-rank
-p95, jakákoli chyba má nulový budget a chybějící či přepsaná baseline nemůže
-projít pouhou existencí záznamu. Izolovaný produkční běh naměřil 40/40
-deterministických HTTP requestů s p95 `5,216 ms`, 40/40 ProjectContext dotazů
-nad 128 soubory s p95 `31,797 ms` a pětiminutový soak `1 498/1 498`, p95
-`14,92 ms`, RSS start/peak/end `161,996/164,770/148,984 MiB`. Model, Studio,
-lifecycle a VRAM jsou vázané na přesné přijaté M1/M2 evidence; nový GPU run
-neproběhl, protože read-only census našel cizí aktivní Ollama compute. Důkaz je
-v [`m5-perf-20260826.md`](docs/execution/runs/m5-perf-20260826.md).
+`WP-M5-PERF` má review remediation implementovanou na product commitu
+`034e00f5`; oddíl zůstává `RE_REVIEW_REQUIRED`. `M5PerformanceEvidence@2`
+váže raw vzorky přes SHA-256/byte count a kandidát přes exact commit/tree.
+Runner před i po měření vyžaduje stejný čistý HEAD; raw i envelope publikuje
+private, durable a bez možnosti clobberu. Historické baseline už nenesou
+callerem dodané metriky: exact parser je odvozuje z Git blobů připnutých revision,
+cestou, blob OID a SHA-256. Nepodložené Studio soak/install+build hodnoty byly
+staženy, nikoli přebarveny. Nový čistý běh naměřil 40/40 deterministic HTTP
+s p95 `6,077 ms`, 40/40 ProjectContext s p95 `34,614 ms` a pětiminutový soak
+`1 498/1 498`, p95 `15,246 ms`, 0 chyb, RSS `165,566/168,434/151,426 MiB`.
+Raw SHA-256 je `c26cffa869e8d8434bb1f24f6e69de414a520e9c3cfdf213bf40a31fa3446be5`.
+Nový GPU run neproběhl. Remediation důkaz je v
+[`m5-perf-remediation-20260826.md`](docs/execution/runs/m5-perf-remediation-20260826.md);
+původní report zůstává označený `SUPERSEDED / REVIEW_CHANGES_REQUESTED`.
 
 `WP-M5-REMOTE-PORT` a `WP-M5-CONDITIONAL-SURFACES` mají review remediation
 implementovanou na product commitu `122b5df5`; oba zůstávají
