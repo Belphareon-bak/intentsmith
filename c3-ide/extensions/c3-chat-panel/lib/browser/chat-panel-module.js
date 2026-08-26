@@ -2760,7 +2760,7 @@ function settingsLLM(){
   if(!_ollamaModels){fetch(_backendBase+'/api/system/models',{signal:AbortSignal.timeout(5000)}).then(function(r){return r.json();}).then(function(d){_ollamaModels=d.models||d||[];renderCenter();}).catch(function(){_ollamaModels=[];});}
   if(!_evaluationData&&!_evaluationLoading)_loadEvaluationData();
   var models=[...new Set((_ollamaModels||[]).map(function(m){return typeof m==='string'?m:m.name||m.model||'';}).filter(Boolean))];
-  if(models.length===0)models=['qwen3.5:27b','llava-llama3:8b','llama3.1:70b','mistral:7b'];
+  if(models.length===0)models=['qwen3.5:27b','qwen3.8:latest','qwen3:14b','llava-llama3:8b'];
   var gpus=_gpuInfo&&_gpuInfo.profile?_gpuInfo.profile.gpus:(_gpuInfo&&_gpuInfo.gpus?_gpuInfo.gpus:null);
   var rec=_gpuInfo&&_gpuInfo.recommendation?_gpuInfo.recommendation:null;
   return h('div',null,

@@ -31,6 +31,29 @@ const HISTORICAL_NUMERIC_SLOT_COLLISIONS = new Map([
     '2026_03_08_030_v103_model_overrides',
     '2026_03_08_030_v107_task_memory',
   ])],
+  ['081', Object.freeze([
+    '2026_08_24_081_model_policy_trigger_compatibility',
+    '2026_08_24_081_model_proof_trigger_compatibility',
+  ])],
+]);
+
+// These three identities were introduced by renaming migrations that had
+// already shipped as 081/081/082. They are permanently retired. Databases
+// which saw the accidental names are adopted back to the immutable originals
+// before pending migrations are evaluated.
+const RETIRED_MIGRATION_IDENTITY_ADOPTIONS = Object.freeze([
+  Object.freeze({
+    retired: '2026_08_26_084_model_policy_trigger_compatibility',
+    canonical: '2026_08_24_081_model_policy_trigger_compatibility',
+  }),
+  Object.freeze({
+    retired: '2026_08_26_085_model_proof_trigger_compatibility',
+    canonical: '2026_08_24_081_model_proof_trigger_compatibility',
+  }),
+  Object.freeze({
+    retired: '2026_08_26_086_model_evaluation_consolidation',
+    canonical: '2026_08_24_082_model_evaluation_consolidation',
+  }),
 ]);
 
 // ─── Internal Helpers ────────────────────────────────────────────────────────
@@ -48,6 +71,84 @@ function getAppliedVersions(db) {
   return new Set(
     db.prepare('SELECT version FROM schema_migrations').all().map(r => r.version)
   );
+}
+
+function numericSlot(version) {
+  return version.match(MIGRATION_NUMERIC_SLOT_PATTERN)?.[1];
+}
+
+function validateNumericSlots(versions, label) {
+  const versionsByNumericSlot = new Map();
+  for (const version of versions) {
+    if (typeof version !== 'string' || !MIGRATION_VERSION_PATTERN.test(version)) {
+      throw new Error(`${label} contains an invalid migration version: ${String(version)}`);
+    }
+    const slot = numericSlot(version);
+    const slotVersions = versionsByNumericSlot.get(slot) || [];
+    slotVersions.push(version);
+    versionsByNumericSlot.set(slot, slotVersions);
+  }
+
+  for (const [slot, slotVersions] of versionsByNumericSlot) {
+    if (slotVersions.length < 2) continue;
+    const allowed = HISTORICAL_NUMERIC_SLOT_COLLISIONS.get(slot);
+    const actualSorted = [...slotVersions].sort();
+    const allowedSorted = allowed ? [...allowed].sort() : [];
+    const isExactHistoricalSet = actualSorted.length === allowedSorted.length
+      && actualSorted.every((version, index) => version === allowedSorted[index]);
+    if (!isExactHistoricalSet) {
+      throw new Error(
+        `Duplicate migration numeric slot ${slot} in ${label}: ${actualSorted.join(', ')}`
+      );
+    }
+  }
+}
+
+function validateAppliedMigrationHistory(db) {
+  const versions = db.prepare(
+    'SELECT version FROM schema_migrations ORDER BY version'
+  ).all().map(row => row.version);
+  validateNumericSlots(versions, 'schema_migrations');
+}
+
+function adoptRetiredMigrationIdentities(db, migrations) {
+  const canonicalVersions = new Set(migrations.map(migration => migration.version));
+  const rows = new Set(db.prepare(
+    'SELECT version FROM schema_migrations'
+  ).all().map(row => row.version));
+
+  const adopt = db.transaction(() => {
+    for (const { retired, canonical } of RETIRED_MIGRATION_IDENTITY_ADOPTIONS) {
+      if (!rows.has(retired)) continue;
+      if (!canonicalVersions.has(canonical)) {
+        throw new Error(
+          `Cannot adopt retired migration ${retired}: canonical identity ${canonical} is absent from manifest`
+        );
+      }
+
+      if (rows.has(canonical)) {
+        // The original migration already ran. The later stamp represents only
+        // a redundant execution under the invalid renamed identity.
+        db.prepare('DELETE FROM schema_migrations WHERE version = ?').run(retired);
+      } else {
+        // Preserve the exact original applied_at while restoring the identity.
+        db.prepare(
+          'UPDATE schema_migrations SET version = ? WHERE version = ?'
+        ).run(canonical, retired);
+      }
+    }
+  });
+  adopt();
+}
+
+function prepareMigrationHistory(db, migrations) {
+  ensureMigrationsTable(db);
+  // Reject a stored branch collision before the adoption transaction mutates
+  // any version stamp. This catches integration drift that is no longer
+  // visible in the current filesystem manifest.
+  validateAppliedMigrationHistory(db);
+  adoptRetiredMigrationIdentities(db, migrations);
+  validateAppliedMigrationHistory(db);
 }
 
 async function discoverMigrations() {
@@ -83,7 +184,6 @@ function validateMigrationPlan(migrations) {
   }
 
   const versions = new Set();
-  const versionsByNumericSlot = new Map();
 
   for (const migration of migrations) {
     const file = migration?.file;
@@ -110,25 +210,9 @@ function validateMigrationPlan(migrations) {
     }
     versions.add(version);
 
-    const numericSlot = version.match(MIGRATION_NUMERIC_SLOT_PATTERN)?.[1];
-    const slotVersions = versionsByNumericSlot.get(numericSlot) || [];
-    slotVersions.push(version);
-    versionsByNumericSlot.set(numericSlot, slotVersions);
   }
 
-  for (const [numericSlot, slotVersions] of versionsByNumericSlot) {
-    if (slotVersions.length < 2) continue;
-    const allowed = HISTORICAL_NUMERIC_SLOT_COLLISIONS.get(numericSlot);
-    const actualSorted = [...slotVersions].sort();
-    const allowedSorted = allowed ? [...allowed].sort() : [];
-    const isExactHistoricalPair = actualSorted.length === allowedSorted.length
-      && actualSorted.every((version, index) => version === allowedSorted[index]);
-    if (!isExactHistoricalPair) {
-      throw new Error(
-        `Duplicate migration numeric slot ${numericSlot}: ${actualSorted.join(', ')}`
-      );
-    }
-  }
+  validateNumericSlots(versions, 'migration manifest');
 
   return migrations;
 }
@@ -143,7 +227,7 @@ function validateMigrationPlan(migrations) {
  */
 function runMigrationPlan(db, migrations) {
   validateMigrationPlan(migrations);
-  ensureMigrationsTable(db);
+  prepareMigrationHistory(db, migrations);
   const applied = getAppliedVersions(db);
 
   const result = { applied: [], skipped: [] };
@@ -220,7 +304,7 @@ export function getCurrentVersion(db) {
 export async function listMigrations(db) {
   const migrations = await discoverMigrations();
   validateMigrationPlan(migrations);
-  ensureMigrationsTable(db);
+  prepareMigrationHistory(db, migrations);
   const applied = getAppliedVersions(db);
   return migrations.map(m => ({
     version: m.version,
@@ -263,6 +347,8 @@ export const _testInternals = Object.freeze({
   discoverMigrations,
   runMigrationPlan,
   validateMigrationPlan,
+  validateAppliedMigrationHistory,
+  adoptRetiredMigrationIdentities,
 });
 
 export default { runMigrations, getCurrentVersion, listMigrations, hasColumn, hasTable };

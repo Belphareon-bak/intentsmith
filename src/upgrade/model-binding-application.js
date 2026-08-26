@@ -266,6 +266,60 @@ function defaultDelay(ms) {
   });
 }
 
+/**
+ * Startup may expose model actionability only after rehydration and baseline
+ * reconciliation are complete and truthful. Call once after rehydration (to
+ * stop before any baseline writes on failure), then again with the baseline
+ * summary before routes, CLI bridges or Studio can observe the registry.
+ */
+export function requireModelBindingStartupAuthority(input) {
+  const rehydrate = input?.rehydrate;
+  if (!isPlainObject(rehydrate) || !Array.isArray(rehydrate.failed)) {
+    fail(
+      'MODEL_BINDING_STARTUP_AUTHORITY_INVALID',
+      'Model binding rehydrate summary is invalid',
+    );
+  }
+  if (rehydrate.failed.length > 0) {
+    fail(
+      'MODEL_BINDING_STARTUP_REHYDRATE_FAILED',
+      `Model binding startup rehydrate failed for ${rehydrate.failed.length} item(s)`,
+      { failures: rehydrate.failed },
+    );
+  }
+
+  if (input.baseline === undefined) {
+    return Object.freeze({ status: 'REHYDRATED' });
+  }
+
+  const baseline = input.baseline;
+  const expectedRoles = Object.keys(config.models).sort();
+  const rows = Array.isArray(baseline?.roles) ? baseline.roles : [];
+  const observedRoles = rows.map(row => row?.role).sort();
+  const complete = isPlainObject(baseline)
+    && baseline.rolesChecked === expectedRoles.length
+    && baseline.failed === 0
+    && baseline.created + baseline.alreadyDurable === expectedRoles.length
+    && rows.length === expectedRoles.length
+    && observedRoles.every((role, index) => role === expectedRoles[index])
+    && rows.every(row => ['CREATED', 'ALREADY_DURABLE'].includes(row?.outcome));
+  if (!complete) {
+    fail(
+      'MODEL_BINDING_STARTUP_BASELINE_FAILED',
+      'Configured model binding baselines are incomplete or inconsistent',
+      {
+        expectedRoles,
+        rolesChecked: baseline?.rolesChecked ?? null,
+        created: baseline?.created ?? null,
+        alreadyDurable: baseline?.alreadyDurable ?? null,
+        failed: baseline?.failed ?? null,
+        roles: rows,
+      },
+    );
+  }
+  return Object.freeze({ status: 'DURABLE', roles: Object.freeze(expectedRoles) });
+}
+
 export class OllamaModelBindingProvider {
   constructor(options = {}) {
     if (!isPlainObject(options)) {
@@ -672,20 +726,49 @@ export class ModelBindingApplication {
 
       for (const role of roles) {
         const existing = this.repository.getDesired(role);
-        if (existing) {
-          alreadyDurable += 1;
-          results.push(Object.freeze({
-            role,
-            outcome: 'ALREADY_DURABLE',
-            source: existing.source,
-            code: null,
-          }));
-          continue;
-        }
-
         try {
           const runtime = this.runtime.snapshot(role);
           const runtimeModel = requireString(runtime?.modelName, 'runtime.modelName');
+          // Always resolve the artifact actually named by the runtime. Existing
+          // DB rows are evidence to compare, never a shortcut around runtime
+          // and provider observation.
+          const resolved = await this.provider.resolveExact(runtimeModel);
+          if (existing) {
+            if (!sameModelName(existing.modelName, runtimeModel)
+              || !sameModelName(existing.modelName, resolved.name)) {
+              fail(
+                'MODEL_BINDING_BASELINE_RUNTIME_MISMATCH',
+                'Durable desired binding differs from the configured runtime binding',
+                {
+                  role,
+                  desiredModel: existing.modelName,
+                  runtimeModel,
+                  resolvedModel: resolved.name,
+                },
+              );
+            }
+            if (existing.digestSha256 !== resolved.digestSha256) {
+              fail(
+                'MODEL_BINDING_BASELINE_DIGEST_MISMATCH',
+                'Durable desired binding digest differs from the installed runtime artifact',
+                {
+                  role,
+                  modelName: resolved.name,
+                  desiredDigestSha256: existing.digestSha256,
+                  runtimeDigestSha256: resolved.digestSha256,
+                },
+              );
+            }
+            alreadyDurable += 1;
+            results.push(Object.freeze({
+              role,
+              outcome: 'ALREADY_DURABLE',
+              source: existing.source,
+              code: null,
+            }));
+            continue;
+          }
+
           const roleOverrides = compatibilityOverrides.filter(row => row?.role === role);
           if (roleOverrides.length > 1) {
             fail(
@@ -702,7 +785,6 @@ export class ModelBindingApplication {
               { role, runtimeModel, legacyModel: legacy.modelName },
             );
           }
-          const resolved = await this.provider.resolveExact(runtimeModel);
           const observed = this.repository.observeDesiredBinding({
             role,
             modelName: resolved.name,
@@ -723,7 +805,7 @@ export class ModelBindingApplication {
           results.push(Object.freeze({
             role,
             outcome: 'FAILED',
-            source: null,
+            source: existing?.source || null,
             code: error?.code || 'MODEL_BINDING_BASELINE_RECONCILE_FAILED',
           }));
         }

@@ -6,10 +6,12 @@ import { createServer } from 'node:http';
 import { Worker } from 'node:worker_threads';
 import {
   mkdtempSync,
+  mkdirSync,
   readFileSync,
   readdirSync,
   rmSync,
   statSync,
+  writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
 
@@ -30,6 +32,7 @@ import {
   ModelBindingApplicationError,
   OllamaModelBindingProvider,
   createModelBindingApplication,
+  requireModelBindingStartupAuthority,
 } from '../src/upgrade/model-binding-application.js';
 import {
   canonicalModelName,
@@ -505,6 +508,48 @@ await testAsync('bootstrap defaults share one complete seven-role portfolio', as
   }
 });
 
+await testAsync('wizard v1 config migrates legacy defaults and preserves user overrides', async () => {
+  const parent = path.join(
+    process.env.INTENTSMITH_TEST_ARTIFACT_DIR,
+    'wizard-upgrade',
+  );
+  mkdirSync(parent, { recursive: true });
+  const dataDir = mkdtempSync(path.join(parent, 'v1-'));
+  const setupPath = path.join(dataDir, 'c3-setup.json');
+  writeFileSync(setupPath, JSON.stringify({
+    version: 1,
+    completed: true,
+    completedAt: '2026-08-01T10:00:00.000Z',
+    ollama: {
+      url: 'http://127.0.0.1:11434',
+      models: {
+        D1: 'deepseek-r1-32b',
+        D2: 'custom-d2:latest',
+        CODE: 'qwen3.5:27b',
+        R1: 'deepseek-r1-32b',
+        R2: 'qwen3.5:27b',
+        CHAT: 'qwen3.5:27b',
+      },
+      verified: true,
+    },
+    language: 'en',
+  }), 'utf8');
+
+  const wizard = new SetupWizard(dataDir);
+  const migrated = wizard.load();
+  assertEqual(migrated.version, 2);
+  assertEqual(migrated.completed, true);
+  assertEqual(migrated.language, 'en');
+  assertEqual(migrated.ollama.models.D1, DEFAULT_MODEL_BINDINGS.D1);
+  assertEqual(migrated.ollama.models.D2, 'custom-d2:latest');
+  assertEqual(migrated.ollama.models.R1, DEFAULT_MODEL_BINDINGS.R1);
+  assertEqual(migrated.ollama.models.R2, DEFAULT_MODEL_BINDINGS.R2);
+  assertEqual(migrated.ollama.models.VISION, DEFAULT_MODEL_BINDINGS.VISION);
+  assertEqual(Object.keys(migrated.ollama.models).length, 7);
+  assertEqual(JSON.parse(readFileSync(setupPath, 'utf8')).version, 2);
+  assertEqual(Object.keys(wizard.toEnvVars()).filter(key => key.startsWith('C3_MODEL_')).length, 7);
+});
+
 await testAsync('startup reconciliation persists every installed configured role without a binding operation', async () => {
   await withFixture(async ({ db, repository, application }) => {
     for (const role of Object.keys(config.models)) config.models[role] = 'fixture-base';
@@ -529,7 +574,69 @@ await testAsync('startup reconciliation persists every installed configured role
     assertEqual(second.failed, 0);
     assertEqual(count(db, 'model_desired_bindings'), 7);
     assertEqual(count(db, 'model_binding_operations'), 0);
+    assertEqual(
+      requireModelBindingStartupAuthority({
+        rehydrate: { failed: [] },
+        baseline: second,
+      }).status,
+      'DURABLE',
+    );
   });
+});
+
+await testAsync('startup rejects durable state when configured runtime differs from DB', async () => {
+  await withFixture(async ({ repository, provider, application }) => {
+    for (const role of Object.keys(config.models)) config.models[role] = 'fixture-base';
+    const first = await application.reconcileConfiguredBindingBaselines();
+    assertEqual(first.failed, 0);
+
+    provider.calls.resolve = 0;
+    config.models.CODE = 'fixture-target';
+    const mismatch = await application.reconcileConfiguredBindingBaselines();
+    assertEqual(mismatch.rolesChecked, 7);
+    assertEqual(mismatch.failed, 1);
+    assertEqual(mismatch.alreadyDurable, 6);
+    assertEqual(
+      mismatch.roles.find(row => row.role === 'CODE').code,
+      'MODEL_BINDING_BASELINE_RUNTIME_MISMATCH',
+    );
+    assertEqual(provider.calls.resolve, 7);
+    assertEqual(repository.getDesired('CODE').modelName, 'fixture-base');
+
+    const error = await captureError(() => requireModelBindingStartupAuthority({
+      rehydrate: { failed: [] },
+      baseline: mismatch,
+    }));
+    assertEqual(error.code, 'MODEL_BINDING_STARTUP_BASELINE_FAILED');
+  });
+});
+
+await testAsync('startup rejects durable state when the installed artifact digest drifts', async () => {
+  await withFixture(async ({ provider, application }) => {
+    for (const role of Object.keys(config.models)) config.models[role] = 'fixture-base';
+    const first = await application.reconcileConfiguredBindingBaselines();
+    assertEqual(first.failed, 0);
+
+    provider.models.set('fixture-base', model('fixture-base', DIGEST_B));
+    const drift = await application.reconcileConfiguredBindingBaselines();
+    assertEqual(drift.failed, 7);
+    assert(drift.roles.every(row => row.code === 'MODEL_BINDING_BASELINE_DIGEST_MISMATCH'));
+    const error = await captureError(() => requireModelBindingStartupAuthority({
+      rehydrate: { failed: [] },
+      baseline: drift,
+    }));
+    assertEqual(error.code, 'MODEL_BINDING_STARTUP_BASELINE_FAILED');
+  });
+});
+
+await testAsync('startup stops immediately after any rehydrate failure', async () => {
+  const error = await captureError(() => requireModelBindingStartupAuthority({
+    rehydrate: {
+      failed: [{ role: 'CODE', code: 'MODEL_BINDING_REHYDRATE_DIGEST_DRIFT' }],
+    },
+  }));
+  assertEqual(error.code, 'MODEL_BINDING_STARTUP_REHYDRATE_FAILED');
+  assertEqual(error.details.failures.length, 1);
 });
 
 // Decision 022/A: rollback is bound to an exact operation. Tests whose subject

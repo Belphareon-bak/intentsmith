@@ -136,3 +136,16 @@ cest. Všechny tři příkazy skončily s exit code `0`.
 
 Checksum aplikované migrace, aby změna už aplikovaného souboru nebyla
 neviditelná. Není podmínkou tohoto rozhodnutí ani B3 acceptance.
+
+## Post-review oprava 2026-08-26
+
+Modelová linka už před integrací M2 aplikovala dvě různé plné identity pod
+slotem 081 a konsolidaci 082. Jejich pozdější přeznačení na 084–086 bylo v
+review prokázáno jako upgrade-unsafe a podle pravidla 2 výše bylo zrušeno.
+Guard proto grandfatheruje i přesnou dvojici
+`2026_08_24_081_model_policy_trigger_compatibility` a
+`2026_08_24_081_model_proof_trigger_compatibility`; žádnou třetí identitu pod
+081 nepřijme. Omylem aplikované 084–086 jsou trvale vyřazené a runner je
+atomicky adoptuje na původní identity. Stejný numeric-slot guard se nyní
+aplikuje i na uložené `schema_migrations`, takže přejmenování souboru nemůže
+skrýt historickou branch kolizi.

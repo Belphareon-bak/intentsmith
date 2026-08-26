@@ -232,6 +232,7 @@ import {
 import {
   createModelBindingApplication,
   createOllamaModelBindingProvider,
+  requireModelBindingStartupAuthority,
 } from './upgrade/model-binding-application.js';
 
 // Restore every manual binding through the single durable application boundary
@@ -268,6 +269,7 @@ for (const failure of bindingRehydrate.failed) {
     `Model binding rehydrate failed for ${failure.role}: ${failure.code}`,
   );
 }
+requireModelBindingStartupAuthority({ rehydrate: bindingRehydrate });
 const bindingBaselineReconcile = await modelBindingApplication.reconcileConfiguredBindingBaselines();
 if (bindingBaselineReconcile.created > 0) {
   logger.info(
@@ -281,6 +283,10 @@ for (const failure of bindingBaselineReconcile.roles.filter(row => row.outcome =
     `Configured model binding baseline failed for ${failure.role}: ${failure.code}`,
   );
 }
+requireModelBindingStartupAuthority({
+  rehydrate: bindingRehydrate,
+  baseline: bindingBaselineReconcile,
+});
 
 // Registry metadata client supports factual online discovery only.
 try {

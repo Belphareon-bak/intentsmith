@@ -2,7 +2,7 @@
 
 **Datum:** 2026-08-26 · **Stav:** `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED`
 **Autoritativní popis:** [MODEL-SCORING-ACTIVATION.md](MODEL-SCORING-ACTIVATION.md)
-**Evidence:** [review remediation](execution/runs/model-evaluation-review-remediation-20260826.md)
+**Evidence:** [post-review remediation](execution/runs/model-evaluation-review-remediation-2-20260826.md)
 
 ## Co je hotové v review kandidátovi
 
@@ -23,7 +23,7 @@
   `activationEligible=true`.
 - promptový contract pokrývá text, rubric, language, grading inputs, VISION
   image bytes a skutečný CODE `buildPrompt`; outcome používá stabilní enum;
-- migrace 086 bezpečně zachová i v123 zápisy vzniklé po aplikaci migrace 070;
+- migrace 082 bezpečně zachová i v123 zápisy vzniklé po aplikaci migrace 070;
 - CODE fixture má čistou snapshot provenance a nedostupný historický oracle je
   explicitní pre-pull `BLOCKED`.
 - CLI i Studio zobrazují všechna current-contract rozhodnutí role, včetně
@@ -36,9 +36,10 @@
   BLOCKED fyzických runů už je pod současnými contracty; starší contracty se
   automaticky nepovyšují.
 - Dřívější nezávislý rereview nad candidatem `d8a2a108` skončil `PASS`, ale
-  pozdější review rozsahu `e8c1ba85..96c762db` našlo blokující číselné kolize
-  migrací. Implementační oprava je green 227/227, ale kandidát čeká na nové
-  nezávislé rereview.
+  pozdější review rozsahu `e8c1ba85..96c762db` našlo číselné kolize migrací a
+  review rozsahu `96c762db..4169c59d` následně prokázalo nebezpečný upgrade a
+  nepravdivý startup stav `DURABLE`. Oba HIGH nálezy jsou implementačně
+  opravené, ale kandidát čeká na nové nezávislé rereview.
 - Automatický failover/proof issuance zůstává vypnutý; aktivace je ruční přes
   exact binding application.
 - Předchozí candidate na `31234a6b` dostal `CHANGES_REQUESTED`; jeho 227 PASS

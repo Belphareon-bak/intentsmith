@@ -2,7 +2,7 @@
 
 **Stav:** současný kontrakt v136.1 · **Aktualizováno:** 2026-08-26
 **Implementace:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Přijetí:**
-implementace green, čeká na nezávislé rereview remediace 084–086
+implementace green, čeká na nezávislé rereview post-review remediace
 
 Název souboru zůstává kvůli existujícím odkazům. IntentSmith už ale nemá
 samostatný „scoring“ runtime. Existuje jedna autoritativní cesta pro modelové
@@ -23,8 +23,10 @@ evaluace a oddělená, ručně autorizovaná cesta pro změnu bindingu.
 6. Skutečnou změnu role provádí výhradně manual binding application. Evaluace
    sama konfiguraci ani durable binding nemění.
 7. Každá nakonfigurovaná role má durable exact-artifact baseline. Startup
-   doplní pouze chybějící řádek z installed inventory a existující autoritu
-   nikdy nepřepisuje.
+   doplní pouze chybějící řádek z installed inventory; existující autoritu
+   nepřepisuje, ale vždy ji znovu porovná s runtime jménem a installed exact
+   digestem. Rehydrate, runtime nebo digest mismatch zastaví startup před
+   zveřejněním API/CLI/Studio actionability.
 
 Suite contract nehashuje zdroj wrapper closure. Hashuje explicitní skutečný
 prompt, language, rubric, grader a jeho uzavřené vstupy, options a repeats.
@@ -76,19 +78,20 @@ nikdy nepřepočítá na nulu modelu.
 
 Runtime soubor `src/upgrade/validation-suites.js`, jeho HTTP/WS/UI povrch,
 `model-scoring-report.js` a oddělené v123 proof-measurement skripty neexistují.
-Migrace 086 před dropem starých tabulek kontroluje import, jejich obsah ukládá
+Migrace 082 před dropem starých tabulek kontroluje import, jejich obsah ukládá
 do `model_evaluation_import_evidence` a teprve potom odstraňuje
 `validation_results` a `validation_suite_scores`. Historické migrace a review
 dokumenty zůstávají reprodukovatelnou auditní stopou, nikoli fallbackem.
-Souhrny zapsané legitimně mezi migracemi 070 a 086 nejprve doplní jako
+Souhrny zapsané legitimně mezi migracemi 070 a 082 nejprve doplní jako
 nepoužitelnou `BLOCKED / LEGACY_EXACT_IDENTITY_UNKNOWN` evidenci; server kvůli
 nim při upgradu nespadne.
 
 ## Bezpečný provoz
 
 - Report a API jsou read-only a GPU nepoužívají.
-- Hunt spouštěj jen s prázdným `ollama ps`, bez cizího NVIDIA compute procesu a
-  s dostatečnou RAM, VRAM a 40 GiB rezervou po pullu.
+- Hunt spouštěj jen s prázdným `ollama ps`, bez cizího NVIDIA compute procesu,
+  s dostatečnou VRAM a 40 GiB rezervou po pullu. CPU/RAM offload je zakázaný;
+  artefakt, který se celý nevejde do VRAM, končí `BLOCKED` bez score.
 - `FAILED`, `BLOCKED`, `MISSING`, nerozhodný výsledek ani implementační green
   nejsou PASS.
 - Rychlost zůstává provozní metrika. Při nedostatečném kvalitativním důkazu

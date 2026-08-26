@@ -8,10 +8,30 @@
 
 ---
 
+## v136.5 — upgrade-safe evaluace a fail-closed binding startup (2026-08-26)
+
+- Obnoveny neměnné migrační identity 081/081/082. Omylem zavedené identity
+  084–086 jsou trvale vyřazené a runner je atomicky adoptuje zpět bez druhého
+  spuštění konsolidace; `applied_at` zůstává zachovaný.
+- Migrační guard kontroluje i numerické sloty uložené v `schema_migrations`,
+  takže historickou M2 kolizi 070 nelze skrýt přejmenováním jediného souboru.
+- Importní preflight 082 porovnává celý importovaný řádek včetně contractu,
+  canonical identity, JSON payloadů a timestampu před odstraněním v123 tabulek.
+- Startup znovu ověřuje runtime model a installed digest proti každému durable
+  bindingu. Rehydrate, runtime či digest mismatch fail-closed zastaví server
+  před zveřejněním rout a modelové actionability.
+- Setup config má schema v2: známé staré defaulty se povýší na současné
+  sedmirolové portfolio, skutečné override se zachovají. Studio fallback a
+  required T3 E2E prerequisites používají stejné portfolio jako installer.
+- Stav zůstává `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED`; tato oprava sama
+  není nezávislé přijetí.
+
 ## v136.4 — review remediace modelových evaluací (2026-08-26)
 
 - Modelové compatibility repairy byly po opakovaném union censusu přesunuty na
   migrace 084 a 085; konsolidace je migrace 086. M2 vlastní 071–083.
+  Toto přeznačení bylo později v136.5 zrušeno jako nebezpečné pro DB, které už
+  aplikovaly původní 081/081/082; tento bod zůstává historickým záznamem.
 - Migrační runner fail-closed odmítá i shodný třímístný numerický slot s jiným
   datem nebo suffixem; výjimkou jsou jen přesně vyjmenované historické dvojice
   008 a 030.

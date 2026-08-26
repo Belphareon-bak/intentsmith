@@ -63,8 +63,8 @@ import {
   _testInternals as migrationTestInternals,
 } from '../src/db/migrate.js';
 import { up as up066ModelPolicy } from '../src/db/migrations/2026_08_22_066_model_automation_policy.js';
-import { up as repairModelPolicyTriggers } from '../src/db/migrations/2026_08_26_084_model_policy_trigger_compatibility.js';
-import { up as repairModelProofTriggers } from '../src/db/migrations/2026_08_26_085_model_proof_trigger_compatibility.js';
+import { up as repairModelPolicyTriggers } from '../src/db/migrations/2026_08_24_081_model_policy_trigger_compatibility.js';
+import { up as repairModelProofTriggers } from '../src/db/migrations/2026_08_24_081_model_proof_trigger_compatibility.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -166,9 +166,9 @@ const ALL_MIGRATIONS = [
   '2026_08_22_066_model_automation_policy',
   '2026_08_22_067_model_failover_proof_artifacts',
   '2026_08_22_070_model_evaluation_history',
-  '2026_08_26_084_model_policy_trigger_compatibility',
-  '2026_08_26_085_model_proof_trigger_compatibility',
-  '2026_08_26_086_model_evaluation_consolidation',
+  '2026_08_24_081_model_policy_trigger_compatibility',
+  '2026_08_24_081_model_proof_trigger_compatibility',
+  '2026_08_24_082_model_evaluation_consolidation',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -272,7 +272,7 @@ describe('T-SM0: Migration identity preflight', async () => {
     );
   });
 
-  await it('accepts only the two exact grandfathered numeric-slot pairs', () => {
+  await it('accepts only the three exact grandfathered numeric-slot sets', () => {
     const up = () => {};
     assert.doesNotThrow(() => migrationTestInternals.validateMigrationPlan([
       {
@@ -302,6 +302,135 @@ describe('T-SM0: Migration identity preflight', async () => {
         up,
       },
     ]), /Duplicate migration numeric slot 008/);
+    assert.doesNotThrow(() => migrationTestInternals.validateMigrationPlan([
+      {
+        version: '2026_08_24_081_model_policy_trigger_compatibility',
+        file: '2026_08_24_081_model_policy_trigger_compatibility.js',
+        description: 'immutable model policy repair',
+        up,
+      },
+      {
+        version: '2026_08_24_081_model_proof_trigger_compatibility',
+        file: '2026_08_24_081_model_proof_trigger_compatibility.js',
+        description: 'immutable model proof repair',
+        up,
+      },
+    ]));
+  });
+
+  await it('adopts the retired 084-086 identities atomically and preserves timestamps', async () => {
+    const db = freshDb();
+    await runMigrations(db);
+    const replacements = [
+      ['2026_08_24_081_model_policy_trigger_compatibility', '2026_08_26_084_model_policy_trigger_compatibility', '2026-08-25 20:14:48'],
+      ['2026_08_24_081_model_proof_trigger_compatibility', '2026_08_26_085_model_proof_trigger_compatibility', '2026-08-25 20:17:55'],
+      ['2026_08_24_082_model_evaluation_consolidation', '2026_08_26_086_model_evaluation_consolidation', '2026-08-25 20:17:55'],
+    ];
+    for (const [canonical, retired, appliedAt] of replacements) {
+      db.prepare(`
+        UPDATE schema_migrations SET version = ?, applied_at = ? WHERE version = ?
+      `).run(retired, appliedAt, canonical);
+    }
+
+    const result = await runMigrations(db);
+    assert.strictEqual(result.applied.length, 0);
+    assert.strictEqual(result.skipped.length, MIGRATION_COUNT);
+    for (const [canonical, retired, appliedAt] of replacements) {
+      assert.deepStrictEqual(
+        db.prepare('SELECT applied_at FROM schema_migrations WHERE version = ?').get(canonical),
+        { applied_at: appliedAt }
+      );
+      assert.strictEqual(
+        db.prepare('SELECT 1 AS ok FROM schema_migrations WHERE version = ?').get(retired),
+        undefined
+      );
+    }
+    assert.strictEqual(hasTable(db, 'validation_results'), false);
+    assert.strictEqual(hasTable(db, 'validation_suite_scores'), false);
+    db.close();
+  });
+
+  await it('removes redundant retired stamps from a 96c762db-style history without rerunning 082', async () => {
+    const db = freshDb();
+    await runMigrations(db);
+    const canonicalTimestamp = db.prepare(`
+      SELECT applied_at FROM schema_migrations
+      WHERE version = '2026_08_24_082_model_evaluation_consolidation'
+    `).get().applied_at;
+    db.prepare(`
+      INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)
+    `).run('2026_08_26_084_model_policy_trigger_compatibility', '2026-08-26 10:00:00');
+    db.prepare(`
+      INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)
+    `).run('2026_08_26_085_model_proof_trigger_compatibility', '2026-08-26 10:01:00');
+
+    const result = await runMigrations(db);
+    assert.strictEqual(result.applied.length, 0);
+    assert.strictEqual(result.skipped.length, MIGRATION_COUNT);
+    assert.strictEqual(db.prepare(`
+      SELECT applied_at FROM schema_migrations
+      WHERE version = '2026_08_24_082_model_evaluation_consolidation'
+    `).get().applied_at, canonicalTimestamp);
+    assert.strictEqual(db.prepare(`
+      SELECT COUNT(*) AS count FROM schema_migrations
+      WHERE version IN (
+        '2026_08_26_084_model_policy_trigger_compatibility',
+        '2026_08_26_085_model_proof_trigger_compatibility'
+      )
+    `).get().count, 0);
+    assert.strictEqual(hasTable(db, 'validation_results'), false);
+    db.close();
+  });
+
+  await it('rolls back every identity adoption when a canonical target is absent', () => {
+    const db = freshDb();
+    db.exec(`
+      CREATE TABLE schema_migrations (
+        version TEXT PRIMARY KEY,
+        applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      INSERT INTO schema_migrations(version, applied_at) VALUES
+        ('2026_08_26_084_model_policy_trigger_compatibility', '2026-08-26 10:00:00'),
+        ('2026_08_26_085_model_proof_trigger_compatibility', '2026-08-26 10:01:00');
+    `);
+    const plan = [{
+      version: '2026_08_24_081_model_policy_trigger_compatibility',
+      file: '2026_08_24_081_model_policy_trigger_compatibility.js',
+      description: 'only one canonical target',
+      up: () => {},
+    }];
+
+    assert.throws(
+      () => migrationTestInternals.runMigrationPlan(db, plan),
+      /canonical identity 2026_08_24_081_model_proof_trigger_compatibility is absent/
+    );
+    assert.deepStrictEqual(
+      db.prepare('SELECT version FROM schema_migrations ORDER BY version').all().map(row => row.version),
+      [
+        '2026_08_26_084_model_policy_trigger_compatibility',
+        '2026_08_26_085_model_proof_trigger_compatibility',
+      ]
+    );
+    db.close();
+  });
+
+  await it('rejects a numeric-slot collision already stored in schema_migrations', () => {
+    const db = freshDb();
+    db.exec(`
+      CREATE TABLE schema_migrations (
+        version TEXT PRIMARY KEY,
+        applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      INSERT INTO schema_migrations(version) VALUES
+        ('2026_08_22_070_model_evaluation_history'),
+        ('2026_08_24_070_m2_effect_authority');
+    `);
+    assert.throws(
+      () => migrationTestInternals.runMigrationPlan(db, []),
+      /Duplicate migration numeric slot 070 in schema_migrations/
+    );
+    assert.strictEqual(db.prepare('SELECT COUNT(*) AS count FROM schema_migrations').get().count, 2);
+    db.close();
   });
 
   await it('rejects invalid version format before schema_migrations or up()', () => {
@@ -650,8 +779,8 @@ describe('T-SM7: Baseline creates all expected tables', async () => {
       '2026_08_09_054_model_binding_runtime_finalization',
       '2026_08_22_066_model_automation_policy',
       '2026_08_22_067_model_failover_proof_artifacts',
-      '2026_08_26_084_model_policy_trigger_compatibility',
-      '2026_08_26_085_model_proof_trigger_compatibility',
+      '2026_08_24_081_model_policy_trigger_compatibility',
+      '2026_08_24_081_model_proof_trigger_compatibility',
     ].includes(migration.version));
     migrationTestInternals.runMigrationPlan(db, pre050);
     db.prepare(`

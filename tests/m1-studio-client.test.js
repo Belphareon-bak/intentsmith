@@ -19,7 +19,7 @@ import {
   validateCoreEventStream,
   validateM1Contract,
 } from '../contracts/m1/index.js';
-import { config } from '../src/config.js';
+import { config, DEFAULT_MODEL_BINDINGS } from '../src/config.js';
 import {
   getConversationStore,
   resetConversationStore,
@@ -156,6 +156,17 @@ test('root Studio build and watch share one protocol preparation contract', () =
     studio.scripts.clean,
     'yarn run clean:protocol && yarn --cwd applications/electron clean',
   );
+});
+
+test('settings fallback inventory covers the complete default model portfolio', () => {
+  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
+  const fallback = source.match(/if\(models\.length===0\)models=\[([^\]]+)\]/)?.[1] || '';
+  for (const modelName of [...new Set(Object.values(DEFAULT_MODEL_BINDINGS))]) {
+    assert.ok(
+      fallback.includes(`'${modelName}'`),
+      `Studio fallback inventory must contain ${modelName}`,
+    );
+  }
 });
 
 test('model evaluation tab renders every decision instead of only the latest row', () => {

@@ -7,7 +7,7 @@ import { up as up039 } from '../src/db/migrations/2026_03_26_039_v133_model_usag
 import { up as up041 } from '../src/db/migrations/2026_04_08_041_v136_model_universe.js';
 import { up as up042 } from '../src/db/migrations/2026_04_08_042_v137_universe_reconciliation.js';
 import { up as up070 } from '../src/db/migrations/2026_08_22_070_model_evaluation_history.js';
-import { up as up086 } from '../src/db/migrations/2026_08_26_086_model_evaluation_consolidation.js';
+import { up as up082 } from '../src/db/migrations/2026_08_24_082_model_evaluation_consolidation.js';
 import { ModelEvaluationDecisionStore } from '../src/upgrade/model-evaluation-decision-store.js';
 
 const DIGEST_A = 'a'.repeat(64);
@@ -33,7 +33,7 @@ function consolidatedDatabase() {
     VALUES ('legacy:latest', 'chat', 0.75, 1, 1, 12)
   `).run();
   up070(db);
-  up086(db);
+  up082(db);
   return db;
 }
 
@@ -92,7 +92,7 @@ test('082 imports and archives a legacy summary written after 070', () => {
     INSERT INTO validation_suite_scores (model, suite, score, passed, total)
     VALUES ('late:latest', 'chat', 0.5, 1, 2)
   `).run();
-  up086(db);
+  up082(db);
   const imported = db.prepare(`
     SELECT model_name, status, error_code, metadata_json
     FROM model_evaluation_runs
@@ -135,8 +135,50 @@ test('082 still refuses a colliding legacy run that does not match its source ro
     VALUES ('late:latest', 'chat', 0.5, 1, 2)
   `).run();
   let error = null;
-  try { up086(db); } catch (caught) { error = caught; }
+  try { up082(db); } catch (caught) { error = caught; }
   assert(String(error?.message || '').includes('summary import preflight failed'));
+  assert(db.prepare(
+    "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='validation_suite_scores'"
+  ).get());
+  db.close();
+});
+
+test('082 refuses a collision that only differs in contract, metadata and timestamps', () => {
+  const db = new Database(':memory:');
+  up034(db);
+  up039(db);
+  up070(db);
+  db.prepare(`
+    INSERT INTO validation_suite_scores (
+      model, suite, score, passed, total, duration_ms, validated_at
+    ) VALUES (
+      'late:latest', 'chat', 0.5, 1, 2, 12, '2026-08-24 12:00:00'
+    )
+  `).run();
+  db.prepare(`
+    INSERT INTO model_evaluation_runs (
+      run_id, model_name, model_canonical_name, model_digest_sha256,
+      suite_name, suite_version, suite_contract_sha256, role, status,
+      score, passed, total, repeats, duration_ms, tokens_per_second,
+      vram_bytes, task_results_json, hardware_json, metadata_json,
+      error_code, error_message, started_at, completed_at
+    ) VALUES (
+      'legacy_v123_1', 'late:latest', 'late', NULL,
+      'chat', 'legacy-v123.1', ?, NULL, 'BLOCKED',
+      0.5, 1, 2, 1, 12, NULL,
+      NULL, '[]', '{}', '{"source":"other","reusable":false}',
+      'LEGACY_EXACT_IDENTITY_UNKNOWN',
+      'Legacy score retained, but exact model digest and suite contract were not stored',
+      '2000-01-01 00:00:00', '2000-01-01 00:00:00'
+    )
+  `).run(CONTRACT);
+
+  let error = null;
+  try { up082(db); } catch (caught) { error = caught; }
+  assert(String(error?.message || '').includes('summary import preflight failed'));
+  assert(db.prepare(
+    "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='validation_results'"
+  ).get());
   assert(db.prepare(
     "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='validation_suite_scores'"
   ).get());

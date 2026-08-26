@@ -1,7 +1,7 @@
 # 030 — Jedna current-contract autorita modelových evaluací
 
 **Stav:** `CHANGES_REQUESTED` po navazujícím review · **Datum:** 2026-08-26
-**WP:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Migrace:** 086
+**WP:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Migrace:** 082
 
 ## Kontext
 
@@ -22,7 +22,7 @@ odstranit; C3 repo zůstává případnou historickou referencí.
 4. Binding a evaluace jsou různé autority. Hunt nesmí binding změnit; ruční
    exact-digest binding application zůstává jedinou aktivační cestou.
 5. v123 runtime, endpointy, UI/WS, report a proof-measurement skripty se mažou.
-   Migrace 086 nejprve ověří import, archivuje důkaz a až potom dropne staré
+   Migrace 082 nejprve ověří import, archivuje důkaz a až potom dropne staré
    runtime tabulky.
 6. Automatický failover/proof issuer není zapnut. Historické proof DB schema a
    rozhodnutí 006/015 zůstávají auditní stopou, nikoli dnešním issuing

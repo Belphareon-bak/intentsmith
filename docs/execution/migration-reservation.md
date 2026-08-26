@@ -140,3 +140,18 @@ numerický slot. Povoluje pouze dvě přesně vyjmenované historické dvojice 0
 a 030; každou jinou kolizi odmítne před vytvořením `schema_migrations` nebo
 spuštěním `up()`. Po budoucím spojení modelové a M2 linky tak existující konflikt
 070 fail-closed zastaví integraci místo tichého průchodu.
+
+## Oprava identity po review 2026-08-26
+
+Následné upgrade review prokázalo, že výše popsané přesunutí už aplikovaných
+081/081/082 na 084–086 porušilo rozhodnutí 016 a běžný upgrade z DB na
+`96c762db` spouštěl konsolidaci podruhé. Platí proto:
+
+- původní plné identity 081/081/082 jsou obnovené a neměnné;
+- přesná modelová dvojice pod 081 je třetí explicitně grandfathered kolize;
+- identity 084, 085 a 086 jsou trvale vyřazené a nesmějí být znovu použity;
+- runner je v jedné transakci adoptuje zpět na původní identity; existující
+  původní stamp má přednost, jinak se přejmenováním zachová jeho `applied_at`;
+- guard kontroluje před adopcí i numerické sloty už uložené v
+  `schema_migrations`. M2 konflikt 070 proto zůstává viditelný a fail-closed;
+  vyřešit jej smí pouze autoritativní M2 integrační linka.

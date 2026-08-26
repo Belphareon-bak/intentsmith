@@ -1,12 +1,18 @@
 # Model evaluation review remediation (2026-08-26)
 
-**Stav:** `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED`
+**Stav:** `SUPERSEDED / CHANGES_REQUIRED`
 **Vstupní review:** `e8c1ba85..96c762db` — `CHANGES_REQUESTED`
 **Implementační checkpointy:** `2cead271`, `df4a50f8`, `5b855e26`, `341016f3`
 
 Tento dokument je důkaz opravy, nikoli nezávislé přijetí. Původní scoring
 panel se nepřeznačuje na nový běh a kandidát zůstává nepřijatý do samostatného
 rereview celého rozsahu.
+
+Navazující review rozsahu `96c762db..4169c59d` našlo dva HIGH blokery:
+upgrade-unsafe přeznačení 081/081/082 a startup, který mohl publikovat
+`DURABLE` při runtime/DB mismatch. Tento report proto není current green
+evidence. Aktuální náprava je v
+[druhém remediation reportu](model-evaluation-review-remediation-2-20260826.md).
 
 ## Uzavření review nálezů
 

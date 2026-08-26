@@ -11,7 +11,7 @@
 // schema with its complete protective trigger set. Legacy 066 databases are
 // left untouched. Mixed or unknown schemas fail closed.
 
-export const version = '2026_08_26_084_model_policy_trigger_compatibility';
+export const version = '2026_08_24_081_model_policy_trigger_compatibility';
 export const description = 'Remove legacy policy triggers from exact M1 policy schemas';
 
 const LEGACY_TRIGGER_NAMES = Object.freeze([

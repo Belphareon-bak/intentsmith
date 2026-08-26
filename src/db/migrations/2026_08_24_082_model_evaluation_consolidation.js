@@ -6,7 +6,7 @@
 // two obsolete runtime tables. It also adds the append-only role decision log
 // and digest-binds future usage observations.
 
-export const version = '2026_08_26_086_model_evaluation_consolidation';
+export const version = '2026_08_24_082_model_evaluation_consolidation';
 export const description = 'Consolidate exact-contract evaluations, decisions and audit evidence';
 
 function tableExists(db, name) {
@@ -20,7 +20,7 @@ function hasColumn(db, table, column) {
 }
 
 function requireTable(db, name) {
-  if (!tableExists(db, name)) throw new Error(`required pre-086 table is missing: ${name}`);
+  if (!tableExists(db, name)) throw new Error(`required pre-082 table is missing: ${name}`);
 }
 
 export function up(db) {
@@ -31,7 +31,7 @@ export function up(db) {
     'validation_suite_scores',
   ]) requireTable(db, table);
 
-  // v123 remained live between migrations 070 and 086. Preserve summaries
+  // v123 remained live between migrations 070 and 082. Preserve summaries
   // written in that legitimate upgrade window with the same deliberately
   // non-reusable identity used by 070. INSERT OR IGNORE lets the integrity
   // preflight below distinguish an exact prior import from a colliding or
@@ -78,14 +78,31 @@ export function up(db) {
       FROM model_evaluation_runs current
       WHERE current.run_id = 'legacy_v123_' || legacy.id
         AND current.model_name = legacy.model
+        AND current.model_canonical_name = lower(CASE
+          WHEN legacy.model LIKE '%:latest'
+            THEN substr(legacy.model, 1, length(legacy.model) - 7)
+          ELSE legacy.model
+        END)
         AND current.suite_name = legacy.suite
+        AND current.suite_version = 'legacy-v123.1'
+        AND current.suite_contract_sha256 = '22d7e14cb2800a9e43ee4e5c8cf093dc738e45e7b750c148ca61e26eeb7292ee'
+        AND current.role IS NULL
         AND current.status = 'BLOCKED'
         AND current.model_digest_sha256 IS NULL
         AND current.score IS legacy.score
         AND current.passed = legacy.passed
         AND current.total = legacy.total
+        AND current.repeats = 1
         AND current.duration_ms = COALESCE(legacy.duration_ms, 0)
+        AND current.tokens_per_second IS NULL
+        AND current.vram_bytes IS NULL
+        AND current.task_results_json = '[]'
+        AND current.hardware_json = '{}'
+        AND current.metadata_json = '{"source":"validation_suite_scores","reusable":false}'
         AND current.error_code = 'LEGACY_EXACT_IDENTITY_UNKNOWN'
+        AND current.error_message = 'Legacy score retained, but exact model digest and suite contract were not stored'
+        AND current.started_at = current.completed_at
+        AND (legacy.validated_at IS NULL OR current.started_at = legacy.validated_at)
     )
   `).get().count;
   if (missingSummaryImports !== 0) {
@@ -165,7 +182,7 @@ export function up(db) {
   // current candidate inventory, so rebuild the table without those columns.
   if (tableExists(db, 'discovered_models')) {
     db.exec(`
-      ALTER TABLE discovered_models RENAME TO discovered_models_pre_086;
+      ALTER TABLE discovered_models RENAME TO discovered_models_pre_082;
 
       CREATE TABLE discovered_models (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -187,10 +204,10 @@ export function up(db) {
       )
       SELECT id, name, family, params, category, base_vram_mb, context_window,
              capabilities_json, source, discovered_at, updated_at
-      FROM discovered_models_pre_086
+      FROM discovered_models_pre_082
       ORDER BY id;
 
-      DROP TABLE discovered_models_pre_086;
+      DROP TABLE discovered_models_pre_082;
       CREATE INDEX idx_dm_family ON discovered_models(family);
       CREATE INDEX idx_dm_name ON discovered_models(name);
     `);
@@ -198,7 +215,7 @@ export function up(db) {
 
   if (tableExists(db, 'model_universe_derived')) {
     db.exec(`
-      ALTER TABLE model_universe_derived RENAME TO model_universe_derived_pre_086;
+      ALTER TABLE model_universe_derived RENAME TO model_universe_derived_pre_082;
 
       CREATE TABLE model_universe_derived (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -222,10 +239,10 @@ export function up(db) {
       SELECT id, model_name, tag, confidence, confidence_state,
              capability_vector_json, recompute_at, based_on_version,
              last_computed_at, updated_at
-      FROM model_universe_derived_pre_086
+      FROM model_universe_derived_pre_082
       ORDER BY id;
 
-      DROP TABLE model_universe_derived_pre_086;
+      DROP TABLE model_universe_derived_pre_082;
       CREATE INDEX idx_ud_model ON model_universe_derived(model_name);
       CREATE INDEX idx_ud_recompute ON model_universe_derived(recompute_at);
       CREATE INDEX idx_ud_based_on_version ON model_universe_derived(based_on_version);
