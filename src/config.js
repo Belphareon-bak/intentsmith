@@ -22,7 +22,11 @@ export const config = {
     specialistTelemetry: process.env.C3_SPECIALIST_TELEMETRY !== 'false',  // v82: Specialist execution observability
     autonomy: process.env.C3_ENABLE_AUTONOMY === 'true',  // v83: Guarded autonomy (opt-IN, default OFF)
     skills: process.env.C3_ENABLE_SKILLS !== 'false',  // v85: Skills system (default ON)
-    comfyui: process.env.C3_ENABLE_COMFYUI !== 'false',  // v130: Multimedia generation (ComfyUI)
+    // M5 release freeze: conditional external surfaces are opt-in in development
+    // and rejected as unsupported in production until they gain an M6 journey.
+    comfyui: process.env.C3_ENABLE_COMFYUI === 'true',
+    marketplace: process.env.C3_ENABLE_MARKETPLACE === 'true',
+    externalNotifications: process.env.C3_ENABLE_EXTERNAL_NOTIFICATIONS === 'true',
     // Outbound model discovery (L4 online discovery, L5 WhatLLM benchmarks,
     // registry verify). This is the only path on which the product contacts
     // anything outside the machine.

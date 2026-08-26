@@ -283,6 +283,7 @@ export function createSystemRoutes({
   broadcastValidation = broadcast,
   productionObservability = null,
   m2LifecycleService = null,
+  conditionalSurfaces = null,
 }) {
   const rawDb = db.db || db; // unwrap: db wrapper → raw better-sqlite3 instance
   const dataDir = config.db?.path ? path.dirname(path.resolve(config.db.path)) : path.resolve('./data');
@@ -378,6 +379,7 @@ export function createSystemRoutes({
           lifecycleRecovery: m2LifecycleService.getRecoveryCensusStatus(),
         },
         outbound: getOutboundDiagnostics(),
+        conditionalSurfaces,
         websocket: getWebSocketBridgeHealth(),
       });
     },

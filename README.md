@@ -8,8 +8,8 @@ fetch cesty bez deklarované autority selžou před spojením. Současný
 autoritativní C3 Studio runtime už neobsahuje implicitní Google Fonts egress.
 Spouštěné Studio UI je stále přechodný runtime, nikoli finální vzhled IntentSmithu.
 
-**Verze:** 136.1.0 | **453 registrovaných testovacích programů**
-(`356 ACTIVE`, `81 BLOCKED`, `0 KNOWN_DEFECTIVE`, `16 HISTORICAL`)
+**Verze:** 136.1.0 | **455 registrovaných testovacích programů**
+(`358 ACTIVE`, `81 BLOCKED`, `0 KNOWN_DEFECTIVE`, `16 HISTORICAL`)
 
 > **Stav: aktivní vývoj; M1 a M2 jsou přijaté.** M3 modulární platforma má
 > implementation-green candidate; oddíly 1–6 jsou review-passed a oprava
@@ -38,7 +38,9 @@ zpevňuje. Produktový kontrakt, cílový uživatel a hranice 1.0 jsou v
 - **Code Intelligence** — 33 modulů pro analýzu kódu: symbol index, knowledge graph (9 typů uzlů, 8 typů hran), AST analýza, architecture detection, drift detection, impact analysis, performance anti-pattern detection.
 
 ### Agenti a automatizace
-- **Worker agenti** — RSS/HTTP/DB zdroje, deterministické podmínky, cron scheduling, 6 notifikačních kanálů.
+- **Worker agenti** — RSS/HTTP/DB zdroje, deterministické podmínky a cron
+  scheduling. Externí notifikační kanály jsou v M5 produkčním profilu
+  vypnuté jako `unsupported`; lokální desktop/in-app cesta zůstává.
 - **Skills** — deterministické workflow (JSON): 8 vykonávaných typů kroků (`llm`, `template`, `write`, `shell`, `ask`, `review`, `validate`, `transform`) a samostatná substitution helper vrstva. 14 skills včetně meta-skills a governed M3 project-note workflow.
 - **Specialisté** — rozšiřující balíčky s nástroji, expertízou, znalostní bází a scénáři. M3 candidate používá rozhodnutou strict-injection hranici, verzovaný manifest/context a rekurzivní fail-closed package scanner.
 
@@ -275,10 +277,10 @@ intentsmith/
 │   ├── skills/                   #   Registry, resolver, runner, 8 step types + substitution helper
 │   ├── executor/                 #   Execution loop, tool executor, circuit breaker, sandbox
 │   ├── llm/                      #   Ollama gateway, web search, auth
-│   ├── notifications/            #   6 kanálů (email, TG, ntfy, webhook, ...)
+│   ├── notifications/            #   lokální kanály; externí delivery conditional/unsupported
 │   ├── routes/                   #   REST API (17 route modulů)
 │   ├── ws-bridge/                #   WebSocket bridge (IDE ↔ backend)
-│   ├── marketplace/              #   Remote package marketplace (2 moduly)
+│   ├── marketplace/              #   conditional modul, v M5 release unsupported/off
 │   ├── db/                       #   SQLite schema a verzované migrace
 │   ├── core/                     #   Logger, error handler, feature manager
 │   ├── domains/                  #   Scaffoldy (React, Vue, FastAPI, Flutter, ...)
@@ -324,14 +326,14 @@ intentsmith/
 │   ├── report-gen.json           #   Generování reportů
 │   └── summarizer.json           #   Sumarizace textu
 │
-├── tests/                        # Testy a kanonický registr 453 programů
+├── tests/                        # Testy a kanonický registr 455 programů
 │   ├── harness.js                #   Custom ESM test harness
 │   ├── cre-*.test.js             #   CRE testy (401+)
 │   ├── lifecycle-*.test.js       #   Lifecycle testy (103+)
 │   ├── code-intel-*.test.js      #   Code Intelligence testy (339+)
 │   ├── execution-loop.test.js    #   Execution Engine testy (597+)
 │   ├── upgrade-*.test.js         #   Model Upgrade testy
-│   └── registry.json             #   Kanonický registr 453 programů
+│   └── registry.json             #   Kanonický registr 455 programů
 │
 ├── docs/                         # Aktivní dokumentace + archiv
 │   ├── ARCHITECTURE.md           #   Kompletní architektura

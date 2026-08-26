@@ -36,13 +36,15 @@ import { PushChannel } from './channels/push.js';
  * @param {object} [options.db] - Database instance
  * @returns {NotificationRouter}
  */
-export function createNotificationRouter({ db = null } = {}) {
+export function createNotificationRouter({ db = null, includeExternal = true } = {}) {
   const rawDb = db?.db || db;
   const router = new NotificationRouter({ logger, db: rawDb });
 
-  router.registerChannel(new EmailChannel({ logger }));
-  router.registerChannel(new TelegramChannel({ logger }));
-  router.registerChannel(new PushChannel({ logger }));
+  if (includeExternal) {
+    router.registerChannel(new EmailChannel({ logger }));
+    router.registerChannel(new TelegramChannel({ logger }));
+    router.registerChannel(new PushChannel({ logger }));
+  }
 
   return router;
 }
@@ -55,9 +57,9 @@ export function createNotificationRouter({ db = null } = {}) {
  * @param {object} [options.db] - Database instance
  * @returns {{ pipeline: NotificationPipeline, router: NotificationRouter, policy: NotificationPolicy, digest: DigestAggregator }}
  */
-export function createNotificationPipeline({ db = null } = {}) {
+export function createNotificationPipeline({ db = null, includeExternal = true } = {}) {
   const rawDb = db?.db || db;
-  const router = createNotificationRouter({ db: rawDb });
+  const router = createNotificationRouter({ db: rawDb, includeExternal });
   const policy = new NotificationPolicy({ db: rawDb, logger });
   const digest = new DigestAggregator({ db: rawDb, logger });
   const pipeline = new NotificationPipeline({ router, policy, digest, db: rawDb, logger });

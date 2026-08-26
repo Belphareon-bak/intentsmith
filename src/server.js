@@ -27,6 +27,10 @@ import {
   installProductionOutboundGuard,
 } from './network/outbound-policy.js';
 import { installGlobalHandlers, handleError } from './core/error-handler.js';
+import {
+  assertM5ProductionConditionalSurfaces,
+  resolveM5ConditionalSurfaces,
+} from './release/conditional-surfaces.js';
 import db from './db/database.js';
 
 // ESM __dirname equivalent
@@ -35,6 +39,10 @@ const __dirname = path.dirname(__filename);
 const legacyLocalCapability = createLegacyLocalCapability();
 let metricsCollector = null;
 const productionObservability = createProductionObservability({ logger });
+const conditionalSurfaces = resolveM5ConditionalSurfaces({ config });
+assertM5ProductionConditionalSurfaces(conditionalSurfaces, {
+  production: process.env.NODE_ENV === 'production',
+});
 configureProductionOutboundPolicy({
   database: db.db,
   logger,
@@ -47,9 +55,15 @@ installGlobalHandlers({ logger, exitOnUncaught: false });
 
 // ─── v93: Notification system init (before agent platform) ───────────────────
 initNotificationTables(db.db);
-const { pipeline: notificationPipeline, router: notificationRouter } = createNotificationPipeline({ db });
+const { pipeline: notificationPipeline, router: notificationRouter } = createNotificationPipeline({
+  db,
+  includeExternal: config.features.externalNotifications === true,
+});
 // Register additional channels (Email, Telegram, Push already registered by factory)
-if (!notificationRouter.channels.has('webhook')) notificationRouter.registerChannel(new WebhookChannel({ logger }));
+if (
+  config.features.externalNotifications === true
+  && !notificationRouter.channels.has('webhook')
+) notificationRouter.registerChannel(new WebhookChannel({ logger }));
 if (!notificationRouter.channels.has('desktop')) notificationRouter.registerChannel(new DesktopChannel({ logger }));
 const notificationEmitter = new NotificationEmitter({ pipeline: notificationPipeline, db: db.db });
 setNotificationDeps({ notificationRouter, notificationEmitter });
@@ -483,21 +497,25 @@ if (config.features.skills !== false) {
 // v123: Marketplace — catalog client + package installer
 let marketplaceClient = null;
 let packageInstaller = null;
-try {
-  const { MarketplaceClient } = await import('./marketplace/marketplace-client.js');
-  const { PackageInstaller } = await import('./marketplace/package-installer.js');
-  marketplaceClient = new MarketplaceClient(db.db, {
-    catalogUrl: config.marketplace?.catalogUrl,
-  });
-  packageInstaller = new PackageInstaller(db.db, {
-    client: marketplaceClient,
-    skillRegistry,
-    expertiseRegistry: expertiseLayer?.expertiseRegistry || null,
-    specialistLoader,
-  });
-  logger.info('Server', 'Marketplace initialized');
-} catch (err) {
-  logger.warn('Server', `Marketplace not available: ${err.message}`);
+if (config.features.marketplace === true) {
+  try {
+    const { MarketplaceClient } = await import('./marketplace/marketplace-client.js');
+    const { PackageInstaller } = await import('./marketplace/package-installer.js');
+    marketplaceClient = new MarketplaceClient(db.db, {
+      catalogUrl: config.marketplace?.catalogUrl,
+    });
+    packageInstaller = new PackageInstaller(db.db, {
+      client: marketplaceClient,
+      skillRegistry,
+      expertiseRegistry: expertiseLayer?.expertiseRegistry || null,
+      specialistLoader,
+    });
+    logger.info('Server', 'Marketplace initialized');
+  } catch (err) {
+    logger.warn('Server', `Marketplace not available: ${err.message}`);
+  }
+} else {
+  logger.info('Server', 'Marketplace disabled (C3_ENABLE_MARKETPLACE=true to request it)');
 }
 
 // v130: ComfyUI multimedia module
@@ -929,6 +947,7 @@ const routeDeps = {
   notificationRouter, notificationEmitter,
   comfyuiConnector, vramManager, mediaStorage,
   modelRegistry, modelBindingApplication,
+  conditionalSurfaces,
 };
 
 // M2 small-project-change is the only effect-capable lifecycle surface. The
