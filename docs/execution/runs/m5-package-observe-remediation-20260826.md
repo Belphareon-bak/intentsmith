@@ -3,7 +3,7 @@
 - **Původní review candidate:** `94ea4ea715d0019f66b47a039872aefbee2a9daa`
 - **Remediation product commit:** `8be0094dcc006ba1e22e1937ca81f5b18bb767d2`
 - **Stav oddílů:** `IMPLEMENTATION_GREEN / RE_REVIEW_REQUIRED`
-- **PACKAGE final-candidate fresh clone:** `PENDING`
+- **PACKAGE final-candidate fresh clone:** `PASS` na `034e00f5`
 - **Push:** neproveden
 
 Tento řez opravuje review nálezy R01, R02 a R11. Není to nezávislý re-review,
@@ -28,8 +28,10 @@ a přesný výskyt obou dokumentovaných verify-only příkazů. Tyto dva přík
 focused sada také skutečně spouští.
 
 Původní offline fresh-clone install/build/journey na `ce6b8276` zůstává
-historickým důkazem. Protože se finální candidate ještě změní PERF řezem, nový
-fresh clone je pravdivě odložen na jediný finální SHA.
+historickým důkazem. Finální opakování na product `034e00f5` prošlo z
+`git clone --no-local`: offline install/build, health, deterministic chat,
+graceful shutdown i čistý source. Přesné digests jsou ve společném
+[`m5-integration-closeout-20260826.md`](m5-integration-closeout-20260826.md).
 
 ## R11 — close bez finish
 

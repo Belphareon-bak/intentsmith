@@ -67,7 +67,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M2 Řízená práce nad projektem** | `ACCEPTED / CLOSEOUT_PASS` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
-| **M5 Production hardening** | `CHANGES_REQUESTED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Review našlo 18 věcných vad (1 critical, 13 high, 4 medium); potom stále zbývá 8 rotací a history disposition. |
+| **M5 Production hardening** | `9/9 RE_REVIEW_READY / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Všech 18 review nálezů má implementovanou remediation; stále zbývá operátorský re-review, 8 rotací a history disposition. |
 | **M6 IntentSmith 1.0 release** | `NOT_STARTED` | M5 accepted | Zmražený kandidát projde úplnou release validací a operátorskou demonstrací. |
 | **M7 Remote Companion** | `DESIGN_ONLY` | M6 + remote boundary | Samostatný vzdálený companion release nad bezpečným core rozhraním. |
 
@@ -1488,32 +1488,34 @@ odstraňuje známé plaintext credential klíče z `user_settings` a migrace 091
 navíc vyžaduje pro každý rotation/history INSERT přesnou opaque transportní
 writer authority až na SQL triggeru. Přímý canonical SQL INSERT proto
 fail-closed selže. Exact-HEAD scanner odvozuje čtené roots z distribučního
-manifestu, rozlišuje na PACKAGE/OBSERVE product HEAD 1 848 tracked a 981 content-read
-souborů a má nula
-current-tree findings; všech 13 známých incident objektů je stále dosažitelných.
+manifestu, na evidence source `7020e430` rozlišuje 1 851 scanned a 982
+content-read souborů a má nula current-tree findings; všech 13 známých incident
+objektů je stále dosažitelných.
 Autoritativní module graph má 1 186 hran, stále 3 cykly a 28 souborů v cyklech.
 Původní důkaz je v
 [`m5-privacy-20260826.md`](docs/execution/runs/m5-privacy-20260826.md).
 
-Integrační kandidát `94ea4ea7` navíc opravil statický bootstrap čtyř M5 root
-testů a připnul harness census na skutečných 119 database-reachable programů.
-Všech deset M5 programů má dohromady 92/92 vlastních checks. Úplný
-offline/database gate na tomto čistém kandidátu skončil pravdivě
-`284 PASS / 2 FAIL / 2 BLOCKED`, `verdict: FAIL`, `exitCode: 1`; jedinými
-non-PASS zůstaly přesně zděděné `nightly-orchestrator-self-test`,
-`vram-coordination`, `chat-export-budget` a `export-pdf-docx`. Registry má 456
-programů a fingerprint
-`58d598df9765c376d31dadad69bfd81785230adbc802b7454f02c7b8d8637f5c`.
-Společný closeout je v
-[`m5-integration-closeout-20260826.md`](docs/execution/runs/m5-integration-closeout-20260826.md)
-a operátorský review rozsah v
-[`2026-08-26-M5-OPERATOR-REVIEW-MATRIX.md`](docs/review/2026-08-26-M5-OPERATOR-REVIEW-MATRIX.md).
-
-Operátorský review skončil `0/9 REVIEW_PASSED`, našel 1 critical, 13 high a 4
-medium blocking vady a je připnutý v
+Původní integrační kandidát `94ea4ea7` opravil test bootstrap a dal první
+společný gate, ale jeho operátorský review skončil `0/9 REVIEW_PASSED`: našel
+1 critical, 13 high a 4 medium blocking vady. Výsledek je zachovaný v
 [`2026-08-26-M5-OPERATOR-REVIEW-RESULT.md`](docs/review/2026-08-26-M5-OPERATOR-REVIEW-RESULT.md).
-M3 oddíl 7 je samostatně přijatý; M5 acceptance dál blokují opravy všech devíti
-oddílů, nový re-review, všech osm operátorských rotací a history disposition.
+
+Všech 18 technických nálezů má nyní implementovanou remediation a společný
+product candidate je `034e00f5`. Final-candidate fresh clone, offline
+install/build, production health/chat/shutdown i pětiminutový PERF běh prošly.
+M5 focused panel má `109/109 PASS`. Autoritativní celý gate na evidence source
+`7020e430` zůstává pravdivě `284 PASS / 2 FAIL / 2 BLOCKED`, `verdict: FAIL`,
+`exitCode: 1`, se stejnými čtyřmi zděděnými ID; report SHA-256 je
+`6df01f71cbee4b7f5dfd5a00bb187ab70517771e0873297bf31ca9bd35b477e2`.
+Registry má 456 programů a fingerprint
+`58d598df9765c376d31dadad69bfd81785230adbc802b7454f02c7b8d8637f5c`.
+Všech devět oddílů je `RE_REVIEW_READY`, žádný ještě není `REVIEW_PASSED`.
+Společný closeout a odpověď na review jsou v
+[`m5-integration-closeout-20260826.md`](docs/execution/runs/m5-integration-closeout-20260826.md)
+a
+[`2026-08-26-M5-OPERATOR-REVIEW-RESPONSE.md`](docs/review/2026-08-26-M5-OPERATOR-REVIEW-RESPONSE.md).
+M3 oddíl 7 je samostatně přijatý a zapsaný. M5 acceptance dál blokují nový
+9/9 re-review, všech osm skutečných operátorských rotací a history disposition.
 
 ### Výsledek
 

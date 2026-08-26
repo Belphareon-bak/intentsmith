@@ -1,17 +1,21 @@
 # M5 — společná operátorská review matice
 
-- **Stav:** `9 REVIEW_READY / 0 REVIEW_PASSED / OPERATOR_REVIEW_PENDING`
+- **Stav:** `9 RE_REVIEW_READY / 0 REVIEW_PASSED / OPERATOR_REVIEW_PENDING`
 - **Technický base:** `1276e5ce0add7afec74ea2cd3983891da5425612`
-- **Přesný candidate:** `94ea4ea715d0019f66b47a039872aefbee2a9daa`
-- **Review range:** `1276e5ce..94ea4ea7`
+- **Přesný product candidate:** `034e00f58d35971ff390256f8eaf878361d33dde`
+- **Evidence base:** `7020e4302a3a90997eca0d54052c14d4c40294a1`
+- **Review range:** `1276e5ce..034e00f5`
 - **Větev:** `codex/m5-integration-20260826`
 - **Push:** neproveden
 - **Review autorita:** operátor projektu; lokální Opus se nepoužívá
 
+Implementační odpověď na všech 18 původních nálezů je v
+[`2026-08-26-M5-OPERATOR-REVIEW-RESPONSE.md`](2026-08-26-M5-OPERATOR-REVIEW-RESPONSE.md).
 M5 má devět skutečných Work Packages, proto má tato matice devět oddílů.
 Všechny používají stejné candidate bytes. `REVIEW_PASSED` všech oddílů potvrdí
-technický řez, ale samo neprovede osm rotací, nevyřeší Git historii a neuzavře
-M3 oddíl 7; bez těchto kroků nesmí vzniknout `M5 ACCEPTED`.
+technický řez, ale samo neprovede osm rotací ani nevyřeší Git historii. M3
+oddíl 7 už je samostatně přijatý; bez rotací a history disposition nesmí
+vzniknout `M5 ACCEPTED`.
 
 ## Společný protokol
 
@@ -31,15 +35,15 @@ M3 oddíl 7; bez těchto kroků nesmí vzniknout `M5 ACCEPTED`.
 
 | # | Oddíl | Product provenance | Stav |
 |---:|---|---|---|
-| 1 | PACKAGE | `ce6b8276` | `REVIEW_READY` |
-| 2 | DATA | `7ccb5f80..17c84cfd` | `REVIEW_READY` |
-| 3 | AUTH | `2aa0f8d7..7793931d` | `REVIEW_READY` |
-| 4 | PROCESS | `f979641c..bba01ebf` | `REVIEW_READY` |
-| 5 | OBSERVE | `44e74ae1..08d5a23a` | `REVIEW_READY` |
-| 6 | OUTBOUND | `07b8155c..e8892d7a` | `REVIEW_READY` |
-| 7 | PERF | `fbca096e` | `REVIEW_READY` |
-| 8 | REMOTE-PORT + CONDITIONAL-SURFACES | `9abf672c..f8fc13e3` | `REVIEW_READY` |
-| 9 | PRIVACY + integrační baseline | `a92b9fde..94ea4ea7` | `REVIEW_READY / REMEDIATION_OPEN` |
+| 1 | PACKAGE | `8be0094d` | `RE_REVIEW_READY` |
+| 2 | DATA | `bcfa5c8d` | `RE_REVIEW_READY` |
+| 3 | AUTH | `122b5df5` | `RE_REVIEW_READY` |
+| 4 | PROCESS | `7a282a3f` | `RE_REVIEW_READY` |
+| 5 | OBSERVE | `8be0094d` | `RE_REVIEW_READY` |
+| 6 | OUTBOUND | `122b5df5` | `RE_REVIEW_READY` |
+| 7 | PERF | `034e00f5` | `RE_REVIEW_READY` |
+| 8 | REMOTE-PORT + CONDITIONAL-SURFACES | `122b5df5` | `RE_REVIEW_READY` |
+| 9 | PRIVACY + integrační baseline | `1f4d15e3..034e00f5` | `RE_REVIEW_READY / OPERATOR_REMEDIATION_OPEN` |
 
 ## 1. PACKAGE
 
@@ -54,7 +58,7 @@ Fresh-clone report musí skutečně vázat install, Electron ABI, Studio build,
 health, deterministic chat a čistý shutdown.
 
 ```bash
-git diff 1276e5ce..94ea4ea7 -- scripts/install.sh scripts/run.sh docker \
+git diff 1276e5ce..034e00f5 -- scripts/install.sh scripts/run.sh docker \
   docs/INSTALL.md tests/m5-install-profile.test.js
 node tests/m5-install-profile.test.js
 ```
@@ -73,7 +77,7 @@ skončit před replacementem. PID bez Linux start identity není authority.
 Ověřit skutečný backup -> damage -> offline restore -> byte i logical compare.
 
 ```bash
-git diff 1276e5ce..94ea4ea7 -- src/core/db-backup.js \
+git diff 1276e5ce..034e00f5 -- src/core/db-backup.js \
   src/core/database-restore-lock.js src/db/database.js \
   scripts/restore-state-backup.js src/routes/system.js tests/m5-data-restore.test.js
 node tests/m5-data-restore.test.js
@@ -93,7 +97,7 @@ autoritu před session creation a actor nesmí pocházet z body, chat ani contro
 payloadu. Read token nesmí projít write handlerem.
 
 ```bash
-git diff 1276e5ce..94ea4ea7 -- src/security/global-auth-policy.js \
+git diff 1276e5ce..034e00f5 -- src/security/global-auth-policy.js \
   src/server.js src/ws-bridge tests/m5-global-auth.test.js
 node tests/m5-global-auth.test.js
 node tests/ws-bridge.test.js
@@ -112,7 +116,7 @@ Recovery census musí být prázdný před file/Git recovery; nejistota blokuje
 rollback i terminál a startup retry nesmí mezitím otevřít lifecycle.
 
 ```bash
-git diff 1276e5ce..94ea4ea7 -- src/execution/process-sandbox-provider.js \
+git diff 1276e5ce..034e00f5 -- src/execution/process-sandbox-provider.js \
   src/execution/process-recovery.js src/execution/project-change-runtime.js \
   src/execution/execution-authority-repository.js tests/m5-process-hardening.test.js
 node tests/m5-process-hardening.test.js
@@ -131,7 +135,7 @@ stejný handler a pravdivě degradují při nečitelné DB nebo neúplném recov
 censu; detailní diagnostics zůstává autentizovaný.
 
 ```bash
-git diff 1276e5ce..94ea4ea7 -- src/observability/production-observability.js \
+git diff 1276e5ce..034e00f5 -- src/observability/production-observability.js \
   src/server.js src/routes/misc.js tests/m5-observability.test.js
 node tests/m5-observability.test.js
 node tests/routes-smoke.test.js
@@ -150,7 +154,7 @@ vypnutý opt-in nebo chybějící audit fail-close. DB nesmí obsahovat URL
 path/query, headers, body ani credential values a audit musí být append-only.
 
 ```bash
-git diff 1276e5ce..94ea4ea7 -- \
+git diff 1276e5ce..034e00f5 -- \
   src/db/migrations/2026_08_26_089_m5_outbound_audit.js \
   src/network src/server.js src/upgrade tests/m5-outbound-policy.test.js
 node tests/m5-outbound-policy.test.js
@@ -159,8 +163,8 @@ node tests/outbound-network-optin.test.js
 
 ## 7. PERF
 
-**Vlastněné bajty:** `contracts/m5/performance-v1.js`, performance evaluator,
-measurement script, report a `tests/m5-performance-budget.test.js`.
+**Vlastněné bajty:** `contracts/m5/performance-v2.js`, performance evaluator,
+artifact store, measurement script, report a `tests/m5-performance-budget.test.js`.
 
 **Kontrola:** evidence a budget jsou exact a content-addressed; p95 je
 nearest-rank, každá chyba má nulový budget a missing/rebound baseline fail-close.
@@ -170,9 +174,10 @@ rate a RSS; netvrdit throughput, 24h soak ani nový GPU PASS. Cizí Ollama aktiv
 musí nový GPU běh blokovat bez ukončení procesu.
 
 ```bash
-git diff 1276e5ce..94ea4ea7 -- contracts/m5/performance-v1.js \
-  src/observability/performance-budget.js scripts/measure-m5-performance.js \
-  tests/m5-performance-budget.test.js docs/execution/runs/m5-perf-20260826.md
+git diff 1276e5ce..034e00f5 -- contracts/m5/performance-v2.js \
+  src/observability/performance-budget.js \
+  src/observability/performance-artifact-store.js scripts/measure-m5-performance.js \
+  tests/m5-performance-budget.test.js docs/execution/runs/m5-perf-remediation-20260826.md
 node tests/m5-performance-budget.test.js
 ```
 
@@ -191,7 +196,7 @@ ComfyUI a updater jsou unsupported a explicitní production enable musí
 zastavit startup.
 
 ```bash
-git diff 1276e5ce..94ea4ea7 -- contracts/m5/remote-core-adapter-v1.js \
+git diff 1276e5ce..034e00f5 -- contracts/m5/remote-core-adapter-v1.js \
   src/remote/remote-core-port-adapter.js src/release/conditional-surfaces.js \
   tests/m5-remote-core-adapter.test.js tests/m5-conditional-surfaces.test.js
 node tests/m5-remote-core-adapter.test.js
@@ -200,7 +205,7 @@ node tests/m5-conditional-surfaces.test.js
 
 ## 9. PRIVACY + integrační baseline
 
-**Vlastněné bajty:** privacy contract, migrace 090, repository/validation,
+**Vlastněné bajty:** privacy contract, migrace 090+091, repository/validation,
 transport route, tree/history scanner, settings boundary, Studio cleanup,
 environment-only secret consumers, harness fix a closeout evidence.
 
@@ -212,7 +217,7 @@ object IDs ani matched values a dirty tree odmítá. Current tree má nula nále
 ale 13/13 známých history objektů zůstává dosažitelných. Ověřit, že stav je
 stále 0/8 rotací a bez history receipt; test nesmí tuto skutečnost falšovat.
 
-Integrační source `94ea4ea7` má raw gate `284 PASS / 2 FAIL / 2 BLOCKED`,
+Evidence source `7020e430` má raw gate `284 PASS / 2 FAIL / 2 BLOCKED`,
 `verdict: FAIL`, exit `1`. Jediné non-PASS:
 
 - `nightly-orchestrator-self-test` — FAIL;
@@ -221,8 +226,9 @@ Integrační source `94ea4ea7` má raw gate `284 PASS / 2 FAIL / 2 BLOCKED`,
 - `export-pdf-docx` — BLOCKED.
 
 ```bash
-git diff 1276e5ce..94ea4ea7 -- contracts/m5/privacy-remediation-v1.js \
+git diff 1276e5ce..034e00f5 -- contracts/m5/privacy-remediation-v1.js \
   src/db/migrations/2026_08_26_090_m5_privacy_authority.js \
+  src/db/migrations/2026_08_26_091_m5_privacy_writer_authority.js \
   src/security/privacy-authority-repository.js src/security/privacy-scan.js \
   src/security/user-settings-privacy.js src/routes/privacy.js \
   tests/m5-privacy-remediation.test.js tests/harness-exit-code.test.js
@@ -249,9 +255,9 @@ Oddíl 7: REVIEW_PASSED
 Oddíl 8: REVIEW_PASSED
 Oddíl 9: REVIEW_PASSED
 M5 technical review: REVIEW_PASSED
-M5 acceptance: PENDING_OPERATOR_REMEDIATION_AND_M3_GATE
+M5 acceptance: PENDING_OPERATOR_ROTATIONS_AND_HISTORY
 ```
 
 Jakýkoli `CHANGES_REQUESTED` nechává příslušný oddíl otevřený. Ani `9/9
 REVIEW_PASSED` neopravňuje integrátora sám rotovat tajemství, přepisovat
-historii, pushovat nebo uzavřít M3 oddíl 7.
+historii nebo pushovat. M3 oddíl 7 už je samostatně `REVIEW_PASSED` a zapsaný.
