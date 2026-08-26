@@ -21,8 +21,9 @@ posílá jeho sekce „Výstup" — ne sem.
 | [P5-SECRET-TYPES](P5-SECRET-TYPES.md) | read-only sonda | **doběhla 2026-08-07** | [SECRET-TYPES](../review/2026-08-07-SECRET-TYPES.md) |
 | [P6-MODULE-GRAPH](P6-MODULE-GRAPH.md) | read-only sonda | **doběhla 2026-08-07** | [MODULE-GRAPH](../review/2026-08-07-MODULE-GRAPH.md) + měřidlo a JSON |
 | [P7-ENFORCEMENT-AUDIT](P7-ENFORCEMENT-AUDIT.md) | read-only sonda | **doběhla 2026-08-07** | [ENFORCEMENT-AUDIT](../review/2026-08-07-ENFORCEMENT-AUDIT.md) |
-| [WP-M5-PACKAGE](WP-M5-PACKAGE.md) | zapisující WP | **záložní slot**, nezahájeno | — |
-| [WP-M5-DATA](WP-M5-DATA.md) | zapisující WP | **záložní slot**, nezahájeno | — |
+| [WP-M5-PACKAGE](WP-M5-PACKAGE.md) | zapisující WP | **implementation-green / review pending** | [M5 PACKAGE report](../execution/runs/m5-package-20260826.md) |
+| [WP-M5-DATA](WP-M5-DATA.md) | zapisující WP | **implementation-green / review pending** | [M5 DATA report](../execution/runs/m5-data-20260826.md) |
+| [WP-M5-PROCESS](WP-M5-PROCESS.md) | zapisující WP | **implementation-green / review pending** | [M5 PROCESS report](../execution/runs/m5-process-20260826.md) |
 | [WP-M1-BINDING-REPOSITORY](WP-M1-BINDING-REPOSITORY.md) | zapisující WP | **dokončeno** na `515fb6f7`, evidence `eb7e78b8` | [WP-M1-MODEL report](../execution/runs/wp-m1-model-report.md) |
 | [WP-M1-BINDING-APPLICATION](WP-M1-BINDING-APPLICATION.md) | zapisující WP | **dokončeno** na `e7d89b5e`, fresh-clone evidence `9b71c741` | [WP-M1-MODEL report](../execution/runs/wp-m1-model-report.md) |
 | [WP-M1-BINDING-FINALIZE-RECOVERY](WP-M1-BINDING-FINALIZE-RECOVERY.md) | zapisující WP | **fresh-clone verified** na `7c4aa73c`; review range `0a6bde54..7c4aa73c` | [Finding 008](../findings/008-model-binding-commit-point-split.md) |
@@ -39,9 +40,9 @@ Zadání sondy zůstává i po doběhnutí — je v něm postup a ověřovací p
 si lze výsledek přeměřit. Sloupec „stav" je tady jediná výjimka z pravidla, že se
 zde stav nesleduje; drží ho, aby nikdo nespustil hotovou sondu podruhé.
 
-Ani jeden ze dvou **M5** WP není schválený k zahájení. Jsou připravené pro
-okamžik, kdy zapisující slot uvolní zaparkovaná práce na M1. `WP-M5-PACKAGE` má
-navíc tvrdý BLOCK na pořadí vůči dávce M1 — viz jeho `§0`.
+Historické aktivační podmínky M5 PACKAGE/DATA jsou zachované v jejich zadáních.
+Oba bloky i PROCESS už mají implementační kandidáty; nejde však o acceptance,
+dokud neproběhne operátorské review a nezavře se nadřazená M3 brána.
 
 Dvojice **M1** WP původně otevřela bránu prvního paralelního pilotu podle
 [`2026-08-08-PARALLEL-PILOT.md`](../review/2026-08-08-PARALLEL-PILOT.md):
@@ -87,6 +88,5 @@ Tři sondy slot nespotřebují, ale **žádná z nich není filesystem-read-only
 každá vytváří DB, logy nebo JSON výstup. Sdílený checkout proto použít nesmějí;
 patří jim vlastní checkout nebo izolovaný artifact root.
 
-Zůstává nedostupné: `WP-M5-PACKAGE` (tvrdý BLOCK na pořadí vůči M1 v jeho `§0`),
-krok G a plné `WP-M3-BOUNDARY` (vede přes 21modulový chat SCC vlastněný M1)
-a cokoli na GPU nebo Ollamě (sériový slot drží M1).
+Historická sekce níže popisuje původní frontu z roku 2026-08-08; aktuální M5
+stav a zbývající brány jsou autoritativně vedené v `ROADMAP.md` §9.

@@ -1393,6 +1393,16 @@ upgradu a do session předává pouze transportem vytvořený immutable subject;
 native production loopback bez credentialu už není bypass. Non-production
 loopback výjimka zůstala explicitně zachovaná. Product candidate a black-box
 důkaz jsou v [`m5-auth-20260826.md`](docs/execution/runs/m5-auth-20260826.md).
+`WP-M5-PROCESS` je implementation-green na product commitu `f979641c`.
+Přijatý bubblewrap sandbox nyní dostává před durable start authority konečné
+RLIMIT stropy přes exact `prlimit`; jeho absence je typed unavailable.
+Restartová recovery smí signalizovat jen durable process group se shodným boot
+ID, `/proc` start time, leader PID a PGID a musí ji vyprázdnit před file/Git
+recovery. Nejistá identita fail-closed zastaví rollback i terminalizaci.
+Startup census se po dočasném fencing/cleanup selhání opakuje a do konvergence
+blokuje nové lifecycle operace. Autoritativní module graph má 1 166 hran,
+stále 3 cykly a 28 souborů v cyklech. Důkaz je v
+[`m5-process-20260826.md`](docs/execution/runs/m5-process-20260826.md).
 
 Nejde o M5 acceptance: M3 oddíl 7 a zbývající M5 bloky jsou otevřené.
 
