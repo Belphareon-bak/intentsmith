@@ -19,7 +19,7 @@ import {
   validateCoreEventStream,
   validateM1Contract,
 } from '../contracts/m1/index.js';
-import { config, DEFAULT_MODEL_BINDINGS } from '../src/config.js';
+import { config } from '../src/config.js';
 import {
   getConversationStore,
   resetConversationStore,
@@ -98,6 +98,10 @@ const CHAT_PANEL = new URL(
   '../c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js',
   import.meta.url,
 );
+const ANDROID_LIFECYCLE = new URL(
+  './lifecycle-android-app-e2e.test.js',
+  import.meta.url,
+);
 const AGENT_CLIENT = new URL(
   '../c3-ide/extensions/c3-chat-panel/lib/browser/agent-client.js',
   import.meta.url,
@@ -158,15 +162,24 @@ test('root Studio build and watch share one protocol preparation contract', () =
   );
 });
 
-test('settings fallback inventory covers the complete default model portfolio', () => {
+test('settings never invent installed models from the default portfolio', () => {
   const source = fs.readFileSync(CHAT_PANEL, 'utf8');
-  const fallback = source.match(/if\(models\.length===0\)models=\[([^\]]+)\]/)?.[1] || '';
-  for (const modelName of [...new Set(Object.values(DEFAULT_MODEL_BINDINGS))]) {
-    assert.ok(
-      fallback.includes(`'${modelName}'`),
-      `Studio fallback inventory must contain ${modelName}`,
-    );
-  }
+  assert.doesNotMatch(source, /if\(models\.length===0\)models=\[/);
+  assert.match(source, /function _isInstalledModel\(models,target\)/);
+  assert.match(source, /var installed=_isInstalledModel\(models,m\)/);
+  assert.match(source, /var installed=_isInstalledModel\(installedModels,current\)/);
+});
+
+test('required Android T3 portfolio preflight fails when any exact model is missing', () => {
+  const source = fs.readFileSync(ANDROID_LIFECYCLE, 'utf8');
+  const start = source.indexOf('async function checkOllama()');
+  const end = source.indexOf('// ─── Real LLM Executor', start);
+  assert.notEqual(start, -1);
+  assert.notEqual(end, -1);
+  const preflight = source.slice(start, end);
+  assert.match(preflight, /const found = models\.includes\(req\)/);
+  assert.match(preflight, /if \(!found\) missing\.push\(req\)/);
+  assert.match(preflight, /return missing\.length === 0/);
 });
 
 test('model evaluation tab renders every decision instead of only the latest row', () => {

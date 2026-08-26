@@ -293,6 +293,7 @@ if (bindingStartupAuthority.status === 'DEGRADED') {
     `Model binding authority is DEGRADED; decision actionability disabled (${bindingStartupAuthority.reason})`,
   );
 }
+llmGateway.setBindingStartupAuthority(bindingStartupAuthority);
 
 // Registry metadata client supports factual online discovery only.
 try {

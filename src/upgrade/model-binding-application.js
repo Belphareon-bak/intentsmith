@@ -28,6 +28,13 @@ const RUNTIME_FAILURE_CODES = new Set([
   'MODEL_BINDING_RUNTIME_GUARD_REJECTED',
   'MODEL_BINDING_RUNTIME_COMMIT_FAILED',
 ]);
+const STARTUP_PROVIDER_UNAVAILABLE_CODES = new Set([
+  'MODEL_BINDING_PROVIDER_URL_INVALID',
+  'MODEL_BINDING_PROVIDER_UNAVAILABLE',
+  'MODEL_BINDING_REHYDRATE_TARGET_UNAVAILABLE',
+  'MODEL_BINDING_TARGET_NOT_INSTALLED',
+  'PROVIDER_RECONCILIATION_UNAVAILABLE',
+]);
 
 export class ModelBindingApplicationError extends Error {
   constructor(code, message, options = {}) {
@@ -204,7 +211,8 @@ function runtimeFailureCode(error) {
 }
 
 function rehydrateFailureCode(error) {
-  if (error?.code === 'MODEL_BINDING_PROVIDER_UNAVAILABLE') {
+  if (error?.code === 'MODEL_BINDING_PROVIDER_UNAVAILABLE'
+    || error?.code === 'MODEL_BINDING_PROVIDER_URL_INVALID') {
     return 'MODEL_BINDING_REHYDRATE_TARGET_UNAVAILABLE';
   }
   if (error?.code === 'MODEL_BINDING_TARGET_NOT_INSTALLED') {
@@ -216,6 +224,10 @@ function rehydrateFailureCode(error) {
     return 'MODEL_BINDING_REHYDRATE_DIGEST_DRIFT';
   }
   return 'MODEL_BINDING_REHYDRATE_RUNTIME_COMMIT_FAILED';
+}
+
+function isStartupProviderUnavailable(failure) {
+  return STARTUP_PROVIDER_UNAVAILABLE_CODES.has(failure?.code);
 }
 
 function verificationFailureCode(error) {
@@ -268,13 +280,9 @@ function defaultDelay(ms) {
 
 /**
  * Startup may expose model actionability only after rehydration and baseline
- * reconciliation are complete and truthful. Call once after rehydration (to
- * stop before any baseline writes on failure), then again with the baseline
- * summary before routes or Studio can observe the registry. A rehydrate
- * failure means the configured runtime is unknown and stops startup. A
- * provider/baseline failure is instead published as explicit DEGRADED
- * authority so non-model routes remain available while model decision
- * actionability stays disabled.
+ * reconciliation are complete and truthful. Provider unavailability is an
+ * explicit DEGRADED state so non-model routes remain available. Digest,
+ * runtime or audit integrity failures still stop startup before routes exist.
  */
 export function requireModelBindingStartupAuthority(input) {
   const rehydrate = input?.rehydrate;
@@ -284,16 +292,32 @@ export function requireModelBindingStartupAuthority(input) {
       'Model binding rehydrate summary is invalid',
     );
   }
-  if (rehydrate.failed.length > 0) {
+  const fatalRehydrateFailures = rehydrate.failed.filter(failure => (
+    !isStartupProviderUnavailable(failure)
+  ));
+  if (fatalRehydrateFailures.length > 0) {
     fail(
       'MODEL_BINDING_STARTUP_REHYDRATE_FAILED',
-      `Model binding startup rehydrate failed for ${rehydrate.failed.length} item(s)`,
-      { failures: rehydrate.failed },
+      `Model binding startup rehydrate failed for ${fatalRehydrateFailures.length} integrity item(s)`,
+      { failures: fatalRehydrateFailures },
     );
   }
 
   if (input.baseline === undefined) {
-    return Object.freeze({ status: 'REHYDRATED' });
+    if (rehydrate.failed.length === 0) return Object.freeze({ status: 'REHYDRATED' });
+    const failedRoles = new Set(rehydrate.failed.map(row => row?.role).filter(Boolean));
+    const roles = Object.keys(config.models).sort();
+    return Object.freeze({
+      status: 'DEGRADED',
+      reason: 'MODEL_BINDING_STARTUP_PROVIDER_UNAVAILABLE',
+      roles: Object.freeze(roles),
+      verifiedRoles: Object.freeze(roles.filter(role => !failedRoles.has(role))),
+      failures: Object.freeze(rehydrate.failed.map(row => Object.freeze({
+        phase: 'REHYDRATE',
+        role: row?.role || null,
+        code: row?.code || null,
+      }))),
+    });
   }
 
   const baseline = input.baseline;
@@ -331,16 +355,39 @@ export function requireModelBindingStartupAuthority(input) {
   }
 
   if (baseline.failed > 0) {
-    const failures = rows
+    const baselineFailures = rows
       .filter(row => row.outcome === 'FAILED')
-      .map(row => Object.freeze({ role: row.role, code: row.code || null }));
-    const verifiedRoles = rows
-      .filter(row => row.outcome !== 'FAILED')
-      .map(row => row.role)
-      .sort();
+      .map(row => ({ role: row.role, code: row.code || null }));
+    const fatalBaselineFailures = baselineFailures.filter(failure => (
+      !isStartupProviderUnavailable(failure)
+    ));
+    if (fatalBaselineFailures.length > 0) {
+      fail(
+        'MODEL_BINDING_STARTUP_BASELINE_INTEGRITY_FAILED',
+        `Model binding startup baseline failed for ${fatalBaselineFailures.length} integrity item(s)`,
+        { failures: fatalBaselineFailures },
+      );
+    }
+  }
+
+  if (rehydrate.failed.length > 0 || baseline.failed > 0) {
+    const failures = [
+      ...rehydrate.failed.map(row => Object.freeze({
+        phase: 'REHYDRATE',
+        role: row?.role || null,
+        code: row?.code || null,
+      })),
+      ...rows.filter(row => row.outcome === 'FAILED').map(row => Object.freeze({
+        phase: 'BASELINE',
+        role: row.role,
+        code: row.code || null,
+      })),
+    ];
+    const failedRoles = new Set(failures.map(row => row.role).filter(Boolean));
+    const verifiedRoles = expectedRoles.filter(role => !failedRoles.has(role));
     return Object.freeze({
       status: 'DEGRADED',
-      reason: 'MODEL_BINDING_STARTUP_BASELINE_FAILED',
+      reason: 'MODEL_BINDING_STARTUP_PROVIDER_UNAVAILABLE',
       roles: Object.freeze(expectedRoles),
       verifiedRoles: Object.freeze(verifiedRoles),
       failures: Object.freeze(failures),
@@ -752,6 +799,13 @@ export class ModelBindingApplication {
       let created = 0;
       let alreadyDurable = 0;
       let failed = 0;
+      let inventory = null;
+      let inventoryError = null;
+      try {
+        inventory = await this.provider.listInstalled();
+      } catch (error) {
+        inventoryError = error;
+      }
 
       for (const role of roles) {
         const existing = this.repository.getDesired(role);
@@ -761,7 +815,8 @@ export class ModelBindingApplication {
           // Always resolve the artifact actually named by the runtime. Existing
           // DB rows are evidence to compare, never a shortcut around runtime
           // and provider observation.
-          const resolved = await this.provider.resolveExact(runtimeModel);
+          if (inventoryError) throw inventoryError;
+          const resolved = this.provider.resolveFromInventory(inventory, runtimeModel);
           if (existing) {
             if (!sameModelName(existing.modelName, runtimeModel)
               || !sameModelName(existing.modelName, resolved.name)) {

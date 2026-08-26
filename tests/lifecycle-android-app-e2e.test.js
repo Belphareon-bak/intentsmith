@@ -105,11 +105,13 @@ async function checkOllama() {
     console.log(`    Available models: ${models.join(', ')}`);
 
     const required = [...new Set(Object.values(config.models))];
+    const missing = [];
     for (const req of required) {
       const found = models.includes(req);
       check(found, `Ollama: ${req} model available`, `models: ${models.join(', ')}`);
+      if (!found) missing.push(req);
     }
-    return true;
+    return missing.length === 0;
   } catch (e) {
     console.error(`    Ollama not available: ${e.message}`);
     console.error('    Start Ollama first: ollama serve');

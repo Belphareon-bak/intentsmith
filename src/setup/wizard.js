@@ -24,6 +24,7 @@ import path from 'path';
 import { createInterface } from 'readline';
 import { DEFAULT_MODEL_BINDINGS } from '../config.js';
 import { logger } from '../core/logger.js';
+import { sameModelName } from '../upgrade/model-identity.js';
 
 // ─── Setup State ────────────────────────────────────────────────────────────
 
@@ -237,12 +238,10 @@ export class SetupWizard {
 
     const required = Object.values(this.config.ollama.models);
     const unique = [...new Set(required)];
-    const available = result.models.map(m => m.split(':')[0] + (m.includes(':') ? ':' + m.split(':')[1] : ''));
-
-    const missing = unique.filter(req => {
-      const base = req.split(':')[0];
-      return !available.some(a => a.startsWith(base));
-    });
+    const available = [...result.models];
+    const missing = unique.filter(requiredModel => (
+      !available.some(installedModel => sameModelName(requiredModel, installedModel))
+    ));
 
     return { ok: missing.length === 0, models: result.models, missing, available };
   }

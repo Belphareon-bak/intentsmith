@@ -2429,6 +2429,14 @@ var _deleteConfirm=null;/* {model,sizeGB} */var _deletingModel=null;
 var _verifyFailure=null;/* {role,model,text,identity|null} */
 var _rollbackConfirm=false;var _rollbackInFlight=null;var _rollbackToken=0;
 var _overviewSort={col:'name',dir:'asc'};var _roleBindings=null;
+function _canonicalModelIdentity(value){
+  var name=typeof value==='string'?value.trim().toLowerCase():'';
+  return name.endsWith(':latest')?name.slice(0,-7):name;
+}
+function _isInstalledModel(models,target){
+  var wanted=_canonicalModelIdentity(target);
+  return !!wanted&&(models||[]).some(function(model){return _canonicalModelIdentity(model)===wanted;});
+}
 /* v135: Governor */
 var _governorData=null;var _governorLoading=false;var _governorProposals=null;
 /* v124: Marketplace */
@@ -2760,7 +2768,6 @@ function settingsLLM(){
   if(!_ollamaModels){fetch(_backendBase+'/api/system/models',{signal:AbortSignal.timeout(5000)}).then(function(r){return r.json();}).then(function(d){_ollamaModels=d.models||d||[];renderCenter();}).catch(function(){_ollamaModels=[];});}
   if(!_evaluationData&&!_evaluationLoading)_loadEvaluationData();
   var models=[...new Set((_ollamaModels||[]).map(function(m){return typeof m==='string'?m:m.name||m.model||'';}).filter(Boolean))];
-  if(models.length===0)models=['qwen3.5:27b','qwen3.8:latest','qwen3:14b','llava-llama3:8b'];
   var gpus=_gpuInfo&&_gpuInfo.profile?_gpuInfo.profile.gpus:(_gpuInfo&&_gpuInfo.gpus?_gpuInfo.gpus:null);
   var rec=_gpuInfo&&_gpuInfo.recommendation?_gpuInfo.recommendation:null;
   return h('div',null,
@@ -2798,7 +2805,7 @@ function settingsLLM(){
             var evalRow=roleEval?(roleEval.artifacts||[]).find(function(x){return x.isCurrentBinding;}):null;
             var scoreText=evalRow&&evalRow.status==='COMPLETE'?Math.round(evalRow.score*100)+'%':(evalRow?evalRow.status:'MISSING');
             var scoreColor=evalRow&&evalRow.status==='COMPLETE'?C.accent:evalRow&&evalRow.status==='BLOCKED'?'#eab308':C.tx4;
-            var installed=models.indexOf(m)>=0;
+            var installed=_isInstalledModel(models,m);
             return h('div',{key:r,style:{display:'flex',alignItems:'center',gap:8,padding:'4px 8px',borderRadius:6,background:C.bg2}},
               h('span',{style:{fontWeight:700,fontSize:_fs(10),color:rp[r].color,minWidth:48}},r),
               h('span',{style:{fontSize:_fs(10),color:C.tx3,minWidth:100,flex:'0 0 auto'}},rp[r].name),
@@ -3182,7 +3189,8 @@ function _renderRolesTab(){
     R2:{name:'Rychl\u00E1 revize',desc:'Rychl\u00FD check.',suite:'review_v2',color:'#818cf8'},
     CHAT:{name:'Konverzace',desc:'U\u017Eivatelsk\u00E1 konverzace.',suite:'chat_v3',color:'#3b82f6'},
     VISION:{name:'Anal\u00FDza obr\u00E1zk\u016F',desc:'Porozum\u011Bn\u00ED obr\u00E1zk\u016Fm.',suite:'vision_v2',color:'#f59e0b'}};
-  var models=[...new Set((_installedModels||[]).concat(Object.values(bindings)))].filter(Boolean).sort();
+  var installedModels=[...new Set(_installedModels||[])].filter(Boolean).sort();
+  var models=[...new Set(installedModels.concat(Object.values(bindings)))].filter(Boolean).sort();
   var roles=Object.keys(profiles);
   return h('div',{style:{display:'flex',flexDirection:'column',gap:12}},
     roles.map(function(role){
@@ -3192,7 +3200,7 @@ function _renderRolesTab(){
       var scoreVal=roleEval&&roleEval.status==='COMPLETE'?roleEval.score:null;
       var scorePct=scoreVal!=null?Math.round(scoreVal*100)+'%':(roleEval?roleEval.status:'MISSING');
       var scoreColor=roleEval&&roleEval.status==='COMPLETE'?C.accent:roleEval&&roleEval.status==='BLOCKED'?'#eab308':C.tx4;
-      var installed=models.indexOf(current)>=0;
+      var installed=_isInstalledModel(installedModels,current);
       return h('div',{key:role,style:{background:C.bg2,border:'1px solid '+C.border,borderRadius:10,padding:14}},
         /* Header */
         h('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:6}},

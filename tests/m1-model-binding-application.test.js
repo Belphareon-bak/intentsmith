@@ -508,6 +508,37 @@ await testAsync('bootstrap defaults share one complete seven-role portfolio', as
   }
 });
 
+await testAsync('wizard requires the exact configured tag and accepts only the latest alias', async () => {
+  const wizard = new SetupWizard(path.join(
+    process.env.INTENTSMITH_TEST_ARTIFACT_DIR,
+    'wizard-exact-models',
+  ));
+  wizard.load();
+  wizard.update('ollama', {
+    models: {
+      CHAT: 'qwen3.5:27b',
+      R1: 'qwen3.8:latest',
+    },
+  });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      models: [
+        { name: 'qwen3.5:14b' },
+        { name: 'qwen3.8' },
+      ],
+    }),
+  });
+  try {
+    const result = await wizard.checkModels();
+    assertEqual(result.ok, false);
+    assertEqual(JSON.stringify(result.missing), JSON.stringify(['qwen3.5:27b']));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 await testAsync('wizard v1 config migrates legacy defaults and preserves user overrides', async () => {
   const parent = path.join(
     process.env.INTENTSMITH_TEST_ARTIFACT_DIR,
@@ -551,7 +582,7 @@ await testAsync('wizard v1 config migrates legacy defaults and preserves user ov
 });
 
 await testAsync('startup reconciliation persists every installed configured role without a binding operation', async () => {
-  await withFixture(async ({ db, repository, application }) => {
+  await withFixture(async ({ db, repository, provider, application }) => {
     for (const role of Object.keys(config.models)) config.models[role] = 'fixture-base';
 
     const first = await application.reconcileConfiguredBindingBaselines();
@@ -574,6 +605,9 @@ await testAsync('startup reconciliation persists every installed configured role
     assertEqual(second.failed, 0);
     assertEqual(count(db, 'model_desired_bindings'), 7);
     assertEqual(count(db, 'model_binding_operations'), 0);
+    assertEqual(provider.calls.inventory, 2);
+    assertEqual(provider.calls.snapshotResolve, 14);
+    assertEqual(provider.calls.resolve, 0);
     assertEqual(
       requireModelBindingStartupAuthority({
         rehydrate: { failed: [] },
@@ -584,13 +618,33 @@ await testAsync('startup reconciliation persists every installed configured role
   });
 });
 
-await testAsync('startup degrades authority when configured runtime differs from DB', async () => {
+await testAsync('startup baseline resolves every role from one immutable provider inventory', async () => {
+  await withFixture(async ({ repository, provider, application }) => {
+    for (const role of Object.keys(config.models)) config.models[role] = 'fixture-base';
+    provider.afterInventory = () => {
+      provider.models.set('fixture-base', model('fixture-base', DIGEST_B));
+    };
+
+    const result = await application.reconcileConfiguredBindingBaselines();
+    assertEqual(result.created, 7);
+    assertEqual(result.failed, 0);
+    assertEqual(provider.calls.inventory, 1);
+    assertEqual(provider.calls.snapshotResolve, 7);
+    assertEqual(provider.calls.resolve, 0);
+    for (const role of Object.keys(config.models)) {
+      assertEqual(repository.getDesired(role).digestSha256, DIGEST_A);
+    }
+  });
+});
+
+await testAsync('startup rejects authority when configured runtime differs from DB', async () => {
   await withFixture(async ({ repository, provider, application }) => {
     for (const role of Object.keys(config.models)) config.models[role] = 'fixture-base';
     const first = await application.reconcileConfiguredBindingBaselines();
     assertEqual(first.failed, 0);
 
-    provider.calls.resolve = 0;
+    provider.calls.inventory = 0;
+    provider.calls.snapshotResolve = 0;
     config.models.CODE = 'fixture-target';
     const mismatch = await application.reconcileConfiguredBindingBaselines();
     assertEqual(mismatch.rolesChecked, 7);
@@ -600,23 +654,22 @@ await testAsync('startup degrades authority when configured runtime differs from
       mismatch.roles.find(row => row.role === 'CODE').code,
       'MODEL_BINDING_BASELINE_RUNTIME_MISMATCH',
     );
-    assertEqual(provider.calls.resolve, 7);
+    assertEqual(provider.calls.inventory, 1);
+    assertEqual(provider.calls.snapshotResolve, 7);
     assertEqual(repository.getDesired('CODE').modelName, 'fixture-base');
 
-    const authority = requireModelBindingStartupAuthority({
+    const authorityError = await captureError(() => requireModelBindingStartupAuthority({
       rehydrate: { failed: [] },
       baseline: mismatch,
-    });
-    assertEqual(authority.status, 'DEGRADED');
-    assertEqual(authority.reason, 'MODEL_BINDING_STARTUP_BASELINE_FAILED');
-    assertEqual(authority.failures.length, 1);
-    assertEqual(authority.failures[0].role, 'CODE');
-    assertEqual(authority.failures[0].code, 'MODEL_BINDING_BASELINE_RUNTIME_MISMATCH');
-    assertEqual(authority.verifiedRoles.length, 6);
+    }));
+    assertEqual(authorityError.code, 'MODEL_BINDING_STARTUP_BASELINE_INTEGRITY_FAILED');
+    assertEqual(authorityError.details.failures.length, 1);
+    assertEqual(authorityError.details.failures[0].role, 'CODE');
+    assertEqual(authorityError.details.failures[0].code, 'MODEL_BINDING_BASELINE_RUNTIME_MISMATCH');
   });
 });
 
-await testAsync('startup degrades authority when the installed artifact digest drifts', async () => {
+await testAsync('startup rejects authority when the installed artifact digest drifts', async () => {
   await withFixture(async ({ provider, application }) => {
     for (const role of Object.keys(config.models)) config.models[role] = 'fixture-base';
     const first = await application.reconcileConfiguredBindingBaselines();
@@ -626,13 +679,12 @@ await testAsync('startup degrades authority when the installed artifact digest d
     const drift = await application.reconcileConfiguredBindingBaselines();
     assertEqual(drift.failed, 7);
     assert(drift.roles.every(row => row.code === 'MODEL_BINDING_BASELINE_DIGEST_MISMATCH'));
-    const authority = requireModelBindingStartupAuthority({
+    const authorityError = await captureError(() => requireModelBindingStartupAuthority({
       rehydrate: { failed: [] },
       baseline: drift,
-    });
-    assertEqual(authority.status, 'DEGRADED');
-    assertEqual(authority.failures.length, 7);
-    assertEqual(authority.verifiedRoles.length, 0);
+    }));
+    assertEqual(authorityError.code, 'MODEL_BINDING_STARTUP_BASELINE_INTEGRITY_FAILED');
+    assertEqual(authorityError.details.failures.length, 7);
   });
 });
 
@@ -650,7 +702,19 @@ await testAsync('startup rejects an inconsistent baseline summary instead of deg
   assertEqual(error.code, 'MODEL_BINDING_STARTUP_AUTHORITY_INVALID');
 });
 
-await testAsync('startup stops immediately after any rehydrate failure', async () => {
+await testAsync('startup degrades when rehydrate cannot reach the provider', async () => {
+  const authority = requireModelBindingStartupAuthority({
+    rehydrate: {
+      failed: [{ role: 'CODE', code: 'MODEL_BINDING_REHYDRATE_TARGET_UNAVAILABLE' }],
+    },
+  });
+  assertEqual(authority.status, 'DEGRADED');
+  assertEqual(authority.reason, 'MODEL_BINDING_STARTUP_PROVIDER_UNAVAILABLE');
+  assertEqual(authority.failures.length, 1);
+  assertEqual(authority.failures[0].phase, 'REHYDRATE');
+});
+
+await testAsync('startup stops immediately after a rehydrate integrity failure', async () => {
   const error = await captureError(() => requireModelBindingStartupAuthority({
     rehydrate: {
       failed: [{ role: 'CODE', code: 'MODEL_BINDING_REHYDRATE_DIGEST_DRIFT' }],
