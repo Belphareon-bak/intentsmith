@@ -1373,12 +1373,16 @@ další učící smyčka M4. Nepředbíhá první prokázané Code Intelligence 
 **Průběžný stav 2026-08-26:**
 `CHANGES_REQUESTED / ACCEPTANCE_BLOCKED / OPERATOR_REMEDIATION_REQUIRED /
 M6_GATE_CLOSED`.
-`WP-M5-PACKAGE` je implementation-green na product commitu `ce6b8276`:
-podporovaný výchozí core profil, explicitní full PDF profil, read-only
-preflight, cache-only offline instalace a pravdivá Docker `unsupported`
-dispozice. Exact fresh clone prošel offline dependency instalací, Electron ABI,
-Studio buildem, artifact smoke, production health, deterministickým chatem a
-čistým shutdownem. Důkaz je v
+`WP-M5-PACKAGE` má review remediation implementovanou na product commitu
+`8be0094d`; oddíl zůstává `RE_REVIEW_REQUIRED` a final-candidate fresh clone je
+`PENDING`. `--verify-only` při cizím Node majoru pouze zapíše chybu a nikdy
+nevolá ani nesourcuje NVM. Upgrade návod odkazuje na skutečný storage dokument,
+provádí backup před shutdownem a používá reálný `/api/health`; smoke test tyto
+odkazy, příkazy a route váže na strom. Původní exact fresh clone na `ce6b8276`
+zůstává historickým důkazem nezměněné instalační větve, ne finálním candidate
+důkazem. Remediation je v
+[`m5-package-observe-remediation-20260826.md`](docs/execution/runs/m5-package-observe-remediation-20260826.md);
+původní report zůstává v
 [`m5-package-20260826.md`](docs/execution/runs/m5-package-20260826.md).
 `WP-M5-DATA` má review remediation implementovanou na product commitu
 `bcfa5c8d`; oddíl zůstává `RE_REVIEW_REQUIRED`. Backup nyní publikuje snapshot
@@ -1418,14 +1422,20 @@ Remediation důkaz je v
 [`m5-process-remediation-20260826.md`](docs/execution/runs/m5-process-remediation-20260826.md);
 původní report zůstává v
 [`m5-process-20260826.md`](docs/execution/runs/m5-process-20260826.md).
-`WP-M5-OBSERVE` je implementation-green na product commitu `44e74ae1`.
+`WP-M5-OBSERVE` má review remediation implementovanou na product commitu
+`8be0094d`; oddíl zůstává `RE_REVIEW_REQUIRED`.
 Každý HTTP request má serverovou identitu; známé M2 request/lifecycle/run
 identity se korelují do bezpečného completion recordu a response headers.
 Failure taxonomy, bounded failure ledger a autentizovaný diagnostický endpoint
 neukládají libovolné payloady ani credential hodnoty. Veřejný health nyní
 pravdivě degraduje při nečitelné DB nebo neúplném startup recovery censu a
-všechny tři aliasy používají jediný produkční handler. Autoritativní module graph má 1 167 hran,
-stále 3 cykly a 28 souborů v cyklech. Důkaz je v
+všechny tři aliasy používají jediný produkční handler. `close` bez `finish`
+finalizuje request vždy jako aborted i při `writableEnded=true`; exact-once
+latch zachová normální `finish → close` jako jediný success. Autoritativní
+module graph má 1 186 hran, stále 3 cykly a 28 souborů v cyklech. Remediation
+důkaz je v
+[`m5-package-observe-remediation-20260826.md`](docs/execution/runs/m5-package-observe-remediation-20260826.md);
+původní report zůstává v
 [`m5-observe-20260826.md`](docs/execution/runs/m5-observe-20260826.md).
 `WP-M5-OUTBOUND` má review remediation implementovanou na product commitu
 `122b5df5`; oddíl zůstává `RE_REVIEW_REQUIRED`.
@@ -1474,7 +1484,7 @@ odstraňuje známé plaintext credential klíče z `user_settings` a migrace 091
 navíc vyžaduje pro každý rotation/history INSERT přesnou opaque transportní
 writer authority až na SQL triggeru. Přímý canonical SQL INSERT proto
 fail-closed selže. Exact-HEAD scanner odvozuje čtené roots z distribučního
-manifestu, rozlišuje na transport-remediation HEAD 1 847 tracked a 981 content-read
+manifestu, rozlišuje na PACKAGE/OBSERVE product HEAD 1 848 tracked a 981 content-read
 souborů a má nula
 current-tree findings; všech 13 známých incident objektů je stále dosažitelných.
 Autoritativní module graph má 1 186 hran, stále 3 cykly a 28 souborů v cyklech.

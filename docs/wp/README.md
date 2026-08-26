@@ -21,10 +21,10 @@ posílá jeho sekce „Výstup" — ne sem.
 | [P5-SECRET-TYPES](P5-SECRET-TYPES.md) | read-only sonda | **doběhla 2026-08-07** | [SECRET-TYPES](../review/2026-08-07-SECRET-TYPES.md) |
 | [P6-MODULE-GRAPH](P6-MODULE-GRAPH.md) | read-only sonda | **doběhla 2026-08-07** | [MODULE-GRAPH](../review/2026-08-07-MODULE-GRAPH.md) + měřidlo a JSON |
 | [P7-ENFORCEMENT-AUDIT](P7-ENFORCEMENT-AUDIT.md) | read-only sonda | **doběhla 2026-08-07** | [ENFORCEMENT-AUDIT](../review/2026-08-07-ENFORCEMENT-AUDIT.md) |
-| [WP-M5-PACKAGE](WP-M5-PACKAGE.md) | zapisující WP | **implementation-green / review pending** | [M5 PACKAGE report](../execution/runs/m5-package-20260826.md) |
+| [WP-M5-PACKAGE](WP-M5-PACKAGE.md) | zapisující WP | **implementation-green / final fresh clone pending / re-review required** | [M5 PACKAGE + OBSERVE remediation](../execution/runs/m5-package-observe-remediation-20260826.md) |
 | [WP-M5-DATA](WP-M5-DATA.md) | zapisující WP | **implementation-green / re-review required** | [M5 DATA remediation](../execution/runs/m5-data-remediation-20260826.md) |
 | [WP-M5-PROCESS](WP-M5-PROCESS.md) | zapisující WP | **implementation-green / re-review required** | [M5 PROCESS remediation](../execution/runs/m5-process-remediation-20260826.md) |
-| [WP-M5-OBSERVE](WP-M5-OBSERVE.md) | zapisující WP | **implementation-green / review pending** | [M5 OBSERVE report](../execution/runs/m5-observe-20260826.md) |
+| [WP-M5-OBSERVE](WP-M5-OBSERVE.md) | zapisující WP | **implementation-green / re-review required** | [M5 PACKAGE + OBSERVE remediation](../execution/runs/m5-package-observe-remediation-20260826.md) |
 | [WP-M5-OUTBOUND](WP-M5-OUTBOUND.md) | zapisující WP | **implementation-green / re-review required** | [M5 transport remediation](../execution/runs/m5-auth-outbound-remote-remediation-20260826.md) |
 | [WP-M5-PERF](WP-M5-PERF.md) | zapisující WP | **implementation-green / review pending** | [M5 PERF report](../execution/runs/m5-perf-20260826.md) |
 | [WP-M5-REMOTE-PORT](WP-M5-REMOTE-PORT.md) | zapisující WP | **implementation-green / re-review required** | [M5 transport remediation](../execution/runs/m5-auth-outbound-remote-remediation-20260826.md) |
