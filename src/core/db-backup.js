@@ -174,6 +174,98 @@ function fsyncDirectory(directory) {
   try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
 }
 
+function checkpointWalForBackup(db, opts = {}) {
+  const rows = opts.checkpointWal
+    ? opts.checkpointWal(db)
+    : db.pragma('wal_checkpoint(TRUNCATE)');
+  const result = Array.isArray(rows) && rows.length === 1 ? rows[0] : null;
+  if (
+    !result
+    || !Number.isSafeInteger(result.busy)
+    || !Number.isSafeInteger(result.log)
+    || !Number.isSafeInteger(result.checkpointed)
+    || result.busy !== 0
+    || result.log !== 0
+    || result.checkpointed !== 0
+  ) {
+    throw new StateBackupError(
+      'BACKUP_WAL_CHECKPOINT_INCOMPLETE',
+      'State backup refused because the WAL checkpoint was not complete',
+      {
+        busy: Number.isSafeInteger(result?.busy) ? result.busy : null,
+        log: Number.isSafeInteger(result?.log) ? result.log : null,
+        checkpointed: Number.isSafeInteger(result?.checkpointed) ? result.checkpointed : null,
+      },
+    );
+  }
+  return Object.freeze({ busy: 0, log: 0, checkpointed: 0 });
+}
+
+function databaseFileSetPaths(dbPath) {
+  return [dbPath, `${dbPath}-wal`, `${dbPath}-shm`];
+}
+
+function createPreRestoreSafetySnapshot(targetDbPath, backupsDir, now) {
+  const existing = databaseFileSetPaths(targetDbPath).filter(candidate => fs.existsSync(candidate));
+  if (existing.length === 0) return null;
+  const allocated = uniquePath(
+    backupsDir,
+    `pre-restore-${formatTimestamp(now)}`,
+    '.backup',
+  );
+  fs.mkdirSync(allocated.target, { mode: 0o700 });
+  try {
+    for (const source of existing) {
+      const stat = fs.lstatSync(source);
+      if (!stat.isFile() || stat.isSymbolicLink()) {
+        throw new StateBackupError(
+          'DATABASE_RESTORE_TARGET_UNREADABLE',
+          'Current database file-set contains a non-regular entry',
+        );
+      }
+      const destination = path.join(allocated.target, path.basename(source));
+      fs.copyFileSync(source, destination, fs.constants.COPYFILE_EXCL);
+      fs.chmodSync(destination, 0o600);
+      fsyncFile(destination);
+    }
+    fsyncDirectory(allocated.target);
+    fsyncDirectory(backupsDir);
+    return Object.freeze({ name: allocated.name, path: allocated.target });
+  } catch (error) {
+    try { fs.rmSync(allocated.target, { recursive: true, force: true }); } catch { /* owned cleanup */ }
+    throw error;
+  }
+}
+
+function replaceDatabaseFileSet(stagingPath, targetDbPath) {
+  const movedSidecars = [];
+  let installed = false;
+  try {
+    for (const sidecar of [`${targetDbPath}-wal`, `${targetDbPath}-shm`]) {
+      if (!fs.existsSync(sidecar)) continue;
+      const moved = `${sidecar}.restore-old-${randomUUID()}`;
+      fs.renameSync(sidecar, moved);
+      movedSidecars.push(Object.freeze({ source: sidecar, moved }));
+    }
+    fs.renameSync(stagingPath, targetDbPath);
+    installed = true;
+    fsyncDirectory(path.dirname(targetDbPath));
+    for (const sidecar of movedSidecars) fs.unlinkSync(sidecar.moved);
+    fsyncDirectory(path.dirname(targetDbPath));
+  } catch (error) {
+    if (!installed) {
+      for (const sidecar of [...movedSidecars].reverse()) {
+        try {
+          if (!fs.existsSync(sidecar.source) && fs.existsSync(sidecar.moved)) {
+            fs.renameSync(sidecar.moved, sidecar.source);
+          }
+        } catch { /* preserve the original failure; safety snapshot remains */ }
+      }
+    }
+    throw error;
+  }
+}
+
 /**
  * Create an immutable state backup. V2 preserves code-bearing skills and
  * specialists as archival evidence, but automatic restore intentionally owns
@@ -206,7 +298,7 @@ export function createStateBackup(db, dataDir, opts = {}) {
     if (!fs.existsSync(dbSourcePath)) {
       throw new StateBackupError('BACKUP_DATABASE_MISSING', 'Database source file is missing');
     }
-    db.pragma('wal_checkpoint(TRUNCATE)');
+    const checkpoint = checkpointWalForBackup(db, opts);
     const dbBackupPath = path.join(stagingPath, 'c3.db');
     fs.copyFileSync(dbSourcePath, dbBackupPath, fs.constants.COPYFILE_EXCL);
     fs.chmodSync(dbBackupPath, 0o600);
@@ -274,6 +366,7 @@ export function createStateBackup(db, dataDir, opts = {}) {
       db_size_bytes: fs.statSync(dbBackupPath).size,
       files_count: manifest.length,
       total_size_bytes: manifest.reduce((total, item) => total + item.bytes, 0),
+      wal_checkpoint: checkpoint,
     };
     const metadataPath = path.join(stagingPath, 'metadata.json');
     fs.writeFileSync(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`, {
@@ -562,10 +655,11 @@ export function restoreStateBackup(dataDir, backupName, opts = {}) {
     );
   }
 
-  const lease = acquireDatabaseRestoreLock(targetDbPath);
+  const restoreLockOptions = opts.restoreLockOptions || {};
+  const lease = acquireDatabaseRestoreLock(targetDbPath, restoreLockOptions);
   const stagingPath = path.join(resolvedDataDir, `.c3.db.restore-${randomUUID()}.tmp`);
   try {
-    assertDatabaseFileClosed(targetDbPath);
+    assertDatabaseFileClosed(targetDbPath, restoreLockOptions);
     const validated = validateStateBackup(resolvedDataDir, backupName, opts);
     fs.copyFileSync(validated.backupDbPath, stagingPath, fs.constants.COPYFILE_EXCL);
     fs.chmodSync(stagingPath, 0o600);
@@ -584,28 +678,20 @@ export function restoreStateBackup(dataDir, backupName, opts = {}) {
 
     const backupsDir = path.join(resolvedDataDir, 'backups');
     fs.mkdirSync(backupsDir, { recursive: true, mode: 0o700 });
-    let safetyName = null;
-    if (fs.existsSync(targetDbPath)) {
-      const allocated = uniquePath(
-        backupsDir,
-        `pre-restore-${formatTimestamp(opts.now || new Date())}`,
-        '.db',
-      );
-      fs.copyFileSync(targetDbPath, allocated.target, fs.constants.COPYFILE_EXCL);
-      fs.chmodSync(allocated.target, 0o600);
-      fsyncFile(allocated.target);
-      safetyName = allocated.name;
-    }
+    const safety = createPreRestoreSafetySnapshot(
+      targetDbPath,
+      backupsDir,
+      opts.now || new Date(),
+    );
 
-    fs.renameSync(stagingPath, targetDbPath);
-    fsyncDirectory(resolvedDataDir);
+    replaceDatabaseFileSet(stagingPath, targetDbPath);
     if (opts.silent !== true) {
       logger.info('Backup', `State database restored from ${backupName}`);
     }
     return Object.freeze({
       ok: true,
       backupName,
-      safetyBackupName: safetyName,
+      safetyBackupName: safety?.name || null,
       migrationCount: validated.metadata.migration_versions.length,
       contentFingerprint: validated.metadata.content_fingerprint,
     });
@@ -613,6 +699,6 @@ export function restoreStateBackup(dataDir, backupName, opts = {}) {
     try {
       if (fs.existsSync(stagingPath)) fs.unlinkSync(stagingPath);
     } catch { /* exact owned staging cleanup */ }
-    releaseDatabaseRestoreLock(lease);
+    releaseDatabaseRestoreLock(lease, restoreLockOptions);
   }
 }

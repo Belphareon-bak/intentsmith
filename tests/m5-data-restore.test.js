@@ -17,6 +17,7 @@ import {
 } from '../src/core/db-backup.js';
 import {
   acquireDatabaseRestoreLock,
+  assertDatabaseFileClosed,
   assertNoDatabaseRestore,
   databaseRestoreLockPath,
   releaseDatabaseRestoreLock,
@@ -65,6 +66,24 @@ function digest(filePath) {
   return createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
 }
 
+function currentProcessStartTicks() {
+  const stat = fs.readFileSync(`/proc/${process.pid}/stat`, 'utf8');
+  const close = stat.lastIndexOf(')');
+  return stat.slice(close + 2).trim().split(/\s+/)[19];
+}
+
+function restoreLockPayload(overrides = {}) {
+  return {
+    contract: 'IntentSmithDatabaseRestoreLock',
+    version: 1,
+    pid: process.pid,
+    processStartTicks: currentProcessStartTicks(),
+    token: '0123456789abcdef0123456789abcdef',
+    createdAt: '2026-08-26T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
 function backup(state, now = '2026-08-26T12:00:00.000Z') {
   const result = createStateBackup(state.db, state.dataDir, {
     dbPath: state.dbPath,
@@ -97,6 +116,24 @@ test('V2 backup is immutable, exact and marks code-bearing payload archival-only
   } finally { cleanup(state); }
 });
 
+test('backup fails closed and publishes nothing when WAL checkpoint is incomplete', () => {
+  const state = fixture();
+  try {
+    const result = createStateBackup(state.db, state.dataDir, {
+      dbPath: state.dbPath,
+      projectRoot: state.projectRoot,
+      now: '2026-08-26T12:00:00.000Z',
+      checkpointWal: () => [{ busy: 1, log: 1, checkpointed: 0 }],
+    });
+    assert.match(result.error, /^BACKUP_WAL_CHECKPOINT_INCOMPLETE:/);
+    assert.equal(listBackups(state.dataDir).length, 0);
+    assert.deepEqual(
+      fs.readdirSync(path.join(state.dataDir, 'backups')).filter(name => name.startsWith('.partial-')),
+      [],
+    );
+  } finally { cleanup(state); }
+});
+
 test('backup → damaged current DB → offline restore recovers exact bytes and logical state', () => {
   const state = fixture();
   try {
@@ -125,6 +162,46 @@ test('backup → damaged current DB → offline restore recovers exact bytes and
     assert.equal(recovered.prepare('SELECT content FROM messages').get().content, 'durable canary');
     recovered.close();
     assert.equal(fs.existsSync(databaseRestoreLockPath(state.dbPath)), false);
+  } finally { cleanup(state); }
+});
+
+test('offline restore replaces the complete DB/WAL/SHM file-set without replaying newer WAL', () => {
+  const state = fixture();
+  try {
+    const created = backup(state);
+    state.db.prepare('INSERT INTO messages VALUES (?, ?, ?)')
+      .run('message-after-backup', 'conversation-1', 'must not replay');
+    const captured = new Map();
+    for (const candidate of [state.dbPath, `${state.dbPath}-wal`, `${state.dbPath}-shm`]) {
+      assert.equal(fs.existsSync(candidate), true, candidate);
+      captured.set(candidate, fs.readFileSync(candidate));
+    }
+    state.db.close();
+    state.db = null;
+    for (const [candidate, bytes] of captured) fs.writeFileSync(candidate, bytes);
+
+    const restored = restoreStateBackup(state.dataDir, created.name, {
+      offline: true,
+      dbPath: state.dbPath,
+      projectRoot: state.projectRoot,
+      supportedMigrationVersions: [knownMigration],
+      now: '2026-08-26T12:02:00.000Z',
+    });
+
+    assert.equal(fs.existsSync(`${state.dbPath}-wal`), false);
+    assert.equal(fs.existsSync(`${state.dbPath}-shm`), false);
+    const safetyPath = path.join(state.dataDir, 'backups', restored.safetyBackupName);
+    assert.equal(fs.statSync(safetyPath).isDirectory(), true);
+    assert.equal(fs.existsSync(path.join(safetyPath, 'c3.db')), true);
+    assert.equal(fs.existsSync(path.join(safetyPath, 'c3.db-wal')), true);
+    assert.equal(fs.existsSync(path.join(safetyPath, 'c3.db-shm')), true);
+
+    const recovered = new Database(state.dbPath, { readonly: true });
+    assert.equal(
+      recovered.prepare('SELECT id FROM messages WHERE id = ?').get('message-after-backup'),
+      undefined,
+    );
+    recovered.close();
   } finally { cleanup(state); }
 });
 
@@ -213,6 +290,72 @@ test('live restore lock blocks a new database opener and stale ownership is not 
     );
     releaseDatabaseRestoreLock(lease);
     assert.doesNotThrow(() => assertNoDatabaseRestore(state.dbPath));
+  } finally { cleanup(state); }
+});
+
+test('unreadable process identity and process census fail closed without clearing authority', () => {
+  const state = fixture();
+  try {
+    state.db.close();
+    state.db = null;
+    const lockPath = databaseRestoreLockPath(state.dbPath);
+    fs.writeFileSync(lockPath, `${JSON.stringify(restoreLockPayload())}\n`, { mode: 0o600 });
+    const identityIo = new Proxy(fs, {
+      get(target, property) {
+        if (property === 'readFileSync') {
+          return (source, ...args) => {
+            if (source === `/proc/${process.pid}/stat`) {
+              const error = new Error('permission denied');
+              error.code = 'EACCES';
+              throw error;
+            }
+            return fs.readFileSync(source, ...args);
+          };
+        }
+        const value = Reflect.get(target, property);
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    assert.throws(
+      () => assertNoDatabaseRestore(state.dbPath, { io: identityIo }),
+      error => error.code === 'DATABASE_RESTORE_LOCK_OWNER_UNKNOWN',
+    );
+    assert.equal(fs.existsSync(lockPath), true);
+    fs.unlinkSync(lockPath);
+
+    assert.throws(
+      () => assertDatabaseFileClosed(state.dbPath, {
+        censusDatabaseFiles: () => ({ state: 'unknown' }),
+      }),
+      error => error.code === 'DATABASE_RESTORE_PROCESS_CENSUS_UNREADABLE',
+    );
+  } finally { cleanup(state); }
+});
+
+test('stale-lock cleanup preserves a replacement live lock across the cleanup race', () => {
+  const state = fixture();
+  try {
+    state.db.close();
+    state.db = null;
+    const lockPath = databaseRestoreLockPath(state.dbPath);
+    const stale = restoreLockPayload({
+      pid: 2_147_483_647,
+      processStartTicks: '1',
+      token: 'stale-stale-stale-stale-token',
+    });
+    const replacement = restoreLockPayload({ token: 'live-live-live-live-live-token' });
+    fs.writeFileSync(lockPath, `${JSON.stringify(stale)}\n`, { mode: 0o600 });
+    assert.throws(
+      () => assertNoDatabaseRestore(state.dbPath, {
+        beforeQuarantine() {
+          fs.unlinkSync(lockPath);
+          fs.writeFileSync(lockPath, `${JSON.stringify(replacement)}\n`, { mode: 0o600 });
+        },
+      }),
+      error => error.code === 'DATABASE_RESTORE_LOCK_CHANGED',
+    );
+    assert.equal(JSON.parse(fs.readFileSync(lockPath, 'utf8')).token, replacement.token);
+    fs.unlinkSync(lockPath);
   } finally { cleanup(state); }
 });
 
