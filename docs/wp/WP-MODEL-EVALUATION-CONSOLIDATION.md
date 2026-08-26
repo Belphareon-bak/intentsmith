@@ -15,8 +15,8 @@ review candidate.
 `d8a2a108` sice prošel tehdejším rereview, ale pozdější review rozsahu
 `96c762db..4169c59d` prokázalo upgrade-unsafe migrace a nepravdivou startup
 autoritu. Historický `227/227 PASS` proto není přijetím současné revize.
-Aktuální evidence bude v
-[`model-evaluation-review-remediation-2-20260826.md`](../execution/runs/model-evaluation-review-remediation-2-20260826.md).
+Aktuální integrovaná evidence je v
+[`model-evaluation-final-integration-20260826.md`](../execution/runs/model-evaluation-final-integration-20260826.md).
 
 ## 1. Uživatelský výsledek
 
@@ -159,7 +159,7 @@ tohoto WP.
 | M4 — sedm role suites a fail-closed minima | PASS |
 | M5 — API, CLI, Studio, governor, registry a dokumentace | PASS |
 | M6 — registry, hygiene a module-boundary ratchet | PASS |
-| M7 — clean deterministic + server-owned read E2E handoff | PASS (227/227 at `7bf48ece`) |
+| M7 — clean deterministic + server-owned read E2E handoff | PASS (278/278 at `5f11a4b1`) |
 
 První nezávislé review: `CHANGES_REQUESTED`. Remediační R0–R7 opravily všech
 devět nálezů: úplnou suite identity, upgrade okno 070→082, governor reader,
