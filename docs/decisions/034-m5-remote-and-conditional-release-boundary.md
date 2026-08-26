@@ -37,4 +37,3 @@ produkčním procesu je startup chyba, nikoli skrytý degraded režim.
   journey a případně novou outbound authority.
 
 Toto rozhodnutí není nezávislé review ani M5 acceptance.
-

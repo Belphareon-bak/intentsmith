@@ -1,15 +1,15 @@
 # WP-M5-PERF — evidence-bound production budgets
 
-**Typ:** M5 production hardening · **Stav:** `IMPLEMENTATION_GREEN / RE_REVIEW_REQUIRED`
+**Typ:** M5 production hardening · **Stav:** `SECOND_REVIEW_REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED`
 
-**Product revision:** `034e00f58d35971ff390256f8eaf878361d33dde`
+**Product revision:** `b020ee19880403c92a0367bffd2b41c369308677`
 
 ## Uživatelský výsledek
 
 Release už neposuzuje výkon z jednotlivého rychlého běhu nebo z průměru, který
-schová pomalý konec distribuce. `M5PerformanceEvidence@2` odděluje content-
-addressed raw vzorky, přesné Git baseline sources a disposition fyzického GPU
-běhu. Rozhoduje
+schová pomalý konec distribuce. `M5PerformanceEvidence@3` odděluje content-
+addressed raw v2 vzorky, přesné Git baseline sources a raw GPU measurement či
+census receipt. Rozhoduje
 nearest-rank p95, nulový error budget, minimální počet vzorků, skutečné trvání
 soaku a RSS start/peak/end.
 

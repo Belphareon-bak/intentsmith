@@ -1,6 +1,6 @@
 # WP-M5-OBSERVE — production correlation and diagnostics
 
-**Typ:** M5 production hardening · **Stav:** `IMPLEMENTATION_GREEN / RE_REVIEW_REQUIRED`
+**Typ:** M5 production hardening · **Stav:** `REVIEW_PASSED`
 
 **Product revision:** `8be0094dcc006ba1e22e1937ca81f5b18bb767d2`
 
@@ -51,5 +51,5 @@ metrické úložiště ani distribuovaný trace backend. Samostatné WebSocket z
 mají vlastní přijaté M1 identity a sekvence; tento řez nepřidává druhou WS
 protokolovou identitu.
 
-Tento dokument není nezávislý re-review ani M5 acceptance. M5 zůstává
+Druhé operátorské review tento oddíl přijalo. M5 jako celek zůstává
 `CHANGES_REQUESTED` a M6 gate je zavřený.

@@ -67,7 +67,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M2 Řízená práce nad projektem** | `ACCEPTED / CLOSEOUT_PASS` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
-| **M5 Production hardening** | `9/9 RE_REVIEW_READY / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Všech 18 review nálezů má implementovanou remediation; stále zbývá operátorský re-review, 8 rotací a history disposition. |
+| **M5 Production hardening** | `5/9 REVIEW_PASSED / 4/9 RE_REVIEW_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Sedm nálezů druhého review má implementovanou remediation; zbývá re-review čtyř oddílů, nový integrační důkaz, 8 rotací a history disposition. |
 | **M6 IntentSmith 1.0 release** | `NOT_STARTED` | M5 accepted | Zmražený kandidát projde úplnou release validací a operátorskou demonstrací. |
 | **M7 Remote Companion** | `DESIGN_ONLY` | M6 + remote boundary | Samostatný vzdálený companion release nad bezpečným core rozhraním. |
 
@@ -1371,11 +1371,14 @@ další učící smyčka M4. Nepředbíhá první prokázané Code Intelligence 
 ## 9. M5 — Production hardening
 
 **Průběžný stav 2026-08-26:**
-`CHANGES_REQUESTED / ACCEPTANCE_BLOCKED / OPERATOR_REMEDIATION_REQUIRED /
-M6_GATE_CLOSED`.
+`5/9 REVIEW_PASSED / 4/9 RE_REVIEW_REQUIRED / ACCEPTANCE_BLOCKED /
+OPERATOR_REMEDIATION_REQUIRED / M6_GATE_CLOSED`. Druhé technické review přijalo
+PACKAGE, PROCESS, OBSERVE, OUTBOUND a REMOTE+CONDITIONAL. DATA, AUTH, PERF a
+PRIVACY znovu otevřelo sedmi nálezy; všechny mají implementovanou remediation,
+ale nový společný candidate, evidence a operátorský re-review ještě chybí.
 `WP-M5-PACKAGE` má review remediation implementovanou na product commitu
-`8be0094d`; oddíl zůstává `RE_REVIEW_REQUIRED` a final-candidate fresh clone je
-`PENDING`. `--verify-only` při cizím Node majoru pouze zapíše chybu a nikdy
+`8be0094d`; druhé review oddíl označilo `REVIEW_PASSED`. `--verify-only` při
+cizím Node majoru pouze zapíše chybu a nikdy
 nevolá ani nesourcuje NVM. Upgrade návod odkazuje na skutečný storage dokument,
 provádí backup před shutdownem a používá reálný `/api/health`; smoke test tyto
 odkazy, příkazy a route váže na strom. Původní exact fresh clone na `ce6b8276`
@@ -1385,18 +1388,23 @@ důkazem. Remediation je v
 původní report zůstává v
 [`m5-package-20260826.md`](docs/execution/runs/m5-package-20260826.md).
 `WP-M5-DATA` má review remediation implementovanou na product commitu
-`bcfa5c8d`; oddíl zůstává `RE_REVIEW_REQUIRED`. Backup nyní publikuje snapshot
+`bcfa5c8d`; druhé review jej znovu otevřelo a navazující remediation je na
+`c3170a12`. Oddíl zůstává `RE_REVIEW_REQUIRED`. Backup nyní publikuje snapshot
 jen po exact úplném `wal_checkpoint(TRUNCATE)`. Restore vlastní celý
 `c3.db/c3.db-wal/c3.db-shm` file-set, před výměnou vytváří durable safety
 snapshot a nepřehraje novější stale WAL. Restore-lock identita i cílený Linux
 `fuser` holder census jsou fail-closed pro unknown/unreadable stav; stale
 cleanup používá karanténu a opakované inode/token ověření místo check→unlink.
+Shared OS lease pokrývá celou skutečnou životnost SQLite spojení a exclusive
+lease celý restore; produkční `fuser` census rozliší prokázané closed od
+diagnostického/permission/unknown stavu fail-closed.
 Nové adversariální regrese a širší kompatibilita jsou v
 [`m5-data-remediation-20260826.md`](docs/execution/runs/m5-data-remediation-20260826.md);
 původní round-trip důkaz zůstává v
 [`m5-data-20260826.md`](docs/execution/runs/m5-data-20260826.md).
 `WP-M5-AUTH` má review remediation implementovanou na product commitu
-`122b5df5`; oddíl zůstává `RE_REVIEW_REQUIRED`. Jediný guard běží za
+`122b5df5`; druhé review jej znovu otevřelo a tri-state WS remediation je na
+`dc6e9b12`. Oddíl zůstává `RE_REVIEW_REQUIRED`. Jediný guard běží za
 exact route matchem a před každým handlerem; veřejné jsou pouze tři health/root
 GET klíče. Studio používá existující private per-process capability, admin/CLI
 timing-safe token a vydané API tokeny route-class scopes. Production HTTP bez
@@ -1410,20 +1418,20 @@ je v
 původní black-box report zůstává v
 [`m5-auth-20260826.md`](docs/execution/runs/m5-auth-20260826.md).
 `WP-M5-PROCESS` má review remediation implementovanou na product commitu
-`7a282a3f`; oddíl zůstává `RE_REVIEW_REQUIRED`. Provider orphan/unknown bez
+`7a282a3f`; druhé review oddíl označilo `REVIEW_PASSED`. Provider orphan/unknown bez
 empty důkazu už nevytvoří `process_terminated`, parent terminal ani rollback;
 outstanding fence zachová after-image až do restartové recovery. Approval
 existujícího plánu je stejně jako prepare a interní effect-start blokované do
 úplného startup censu. Restartová signal authority je `linux-pidfd-v1`: pidfd
 zůstává otevřený od nového identity checku přes TERM/KILL až po empty census,
 takže numerický PID/PGID nelze vyměnit mezi kontrolou a signálem. Autoritativní
-module graph zůstává na 1 186 hranách, 3 cyklech a 28 souborech v cyklech.
+module graph má po subject-attestation hraně 1 187 hran, 3 cykly a 28 souborů v cyklech.
 Remediation důkaz je v
 [`m5-process-remediation-20260826.md`](docs/execution/runs/m5-process-remediation-20260826.md);
 původní report zůstává v
 [`m5-process-20260826.md`](docs/execution/runs/m5-process-20260826.md).
 `WP-M5-OBSERVE` má review remediation implementovanou na product commitu
-`8be0094d`; oddíl zůstává `RE_REVIEW_REQUIRED`.
+`8be0094d`; druhé review oddíl označilo `REVIEW_PASSED`.
 Každý HTTP request má serverovou identitu; známé M2 request/lifecycle/run
 identity se korelují do bezpečného completion recordu a response headers.
 Failure taxonomy, bounded failure ledger a autentizovaný diagnostický endpoint
@@ -1432,42 +1440,46 @@ pravdivě degraduje při nečitelné DB nebo neúplném startup recovery censu a
 všechny tři aliasy používají jediný produkční handler. `close` bez `finish`
 finalizuje request vždy jako aborted i při `writableEnded=true`; exact-once
 latch zachová normální `finish → close` jako jediný success. Autoritativní
-module graph má 1 186 hran, stále 3 cykly a 28 souborů v cyklech. Remediation
+module graph má 1 187 hran, stále 3 cykly a 28 souborů v cyklech. Remediation
 důkaz je v
 [`m5-package-observe-remediation-20260826.md`](docs/execution/runs/m5-package-observe-remediation-20260826.md);
 původní report zůstává v
 [`m5-observe-20260826.md`](docs/execution/runs/m5-observe-20260826.md).
 `WP-M5-OUTBOUND` má review remediation implementovanou na product commitu
-`122b5df5`; oddíl zůstává `RE_REVIEW_REQUIRED`.
+`122b5df5`; druhé review oddíl označilo `REVIEW_PASSED`.
 Produkční proces instaluje před optional/background službami jediný global
 `fetch` guard a i loopback transport používá `redirect: manual`. Každá
 `Location` dostane nové policy rozhodnutí. Privátní model-discovery capability
 není exportovaná; exact wrapper ověřuje konkrétní path/query/header/body/method
 profily pro Ollama, Hugging Face a WhatLLM. Opsaný scope literal je neúčinný.
 Audit migrace 089 neukládá URL path/query, body, header ani credential hodnoty.
-Autoritativní module graph má 1 186 hran, stále 3 cykly a 28 souborů v cyklech.
+Autoritativní module graph má 1 187 hran, stále 3 cykly a 28 souborů v cyklech.
 Remediation důkaz je v
 [`m5-auth-outbound-remote-remediation-20260826.md`](docs/execution/runs/m5-auth-outbound-remote-remediation-20260826.md);
 původní report zůstává v
 [`m5-outbound-20260826.md`](docs/execution/runs/m5-outbound-20260826.md).
 `WP-M5-PERF` má review remediation implementovanou na product commitu
-`034e00f5`; oddíl zůstává `RE_REVIEW_REQUIRED`. `M5PerformanceEvidence@2`
-váže raw vzorky přes SHA-256/byte count a kandidát přes exact commit/tree.
+`034e00f5`; druhé review jej znovu otevřelo a navazující remediation je na
+`b020ee19`. Oddíl zůstává `RE_REVIEW_REQUIRED`. `M5PerformanceEvidence@3`
+váže raw v2 vzorky přes SHA-256/byte count a kandidát přes exact commit/tree.
 Runner před i po měření vyžaduje stejný čistý HEAD; raw i envelope publikuje
 private, durable a bez možnosti clobberu. Historické baseline už nenesou
 callerem dodané metriky: exact parser je odvozuje z Git blobů připnutých revision,
 cestou, blob OID a SHA-256. Nepodložené Studio soak/install+build hodnoty byly
-staženy, nikoli přebarveny. Nový čistý běh naměřil 40/40 deterministic HTTP
-s p95 `6,077 ms`, 40/40 ProjectContext s p95 `34,614 ms` a pětiminutový soak
-`1 498/1 498`, p95 `15,246 ms`, 0 chyb, RSS `165,566/168,434/151,426 MiB`.
-Raw SHA-256 je `c26cffa869e8d8434bb1f24f6e69de414a520e9c3cfdf213bf40a31fa3446be5`.
-Nový GPU run neproběhl. Remediation důkaz je v
+staženy, nikoli přebarveny. GPU stav už není tvrzení v envelope: raw povinně
+nese buď přesné měření, nebo read-only census receipt a typovaný `NOT_RUN`.
+Nečitelný, chybějící nebo nulový RSS je measurement failure. Clean quick run
+na `b020ee19` naměřil 20/20 deterministic HTTP s p95 `6,291 ms`, 20/20
+ProjectContext s p95 `30,774 ms` a 5s soak `1 938/1 938`, p95 `4,245 ms`,
+0 chyb; census našel nula compute procesů a fyzické GPU měření nebylo vyžádáno.
+Autoritativní pětiminutový běh nad novým candidate je ještě `PENDING`.
+Remediation důkaz je v
 [`m5-perf-remediation-20260826.md`](docs/execution/runs/m5-perf-remediation-20260826.md);
 původní report zůstává označený `SUPERSEDED / REVIEW_CHANGES_REQUESTED`.
 
 `WP-M5-REMOTE-PORT` a `WP-M5-CONDITIONAL-SURFACES` mají review remediation
-implementovanou na product commitu `122b5df5`; oba zůstávají
-`RE_REVIEW_REQUIRED`. In-process adaptér nabízí
+implementovanou na product commitu `122b5df5`; druhé review oba oddíly označilo
+`REVIEW_PASSED`. In-process adaptér nabízí
 jen exact `conversations@1` a `projects@1`; pět capability bez úplného payload
 kontraktu zůstává explicitně unavailable. Úspěšný project snapshot musí sedět
 na requestový revision, normalizovaný query a všechny budget limity;
@@ -1476,22 +1488,26 @@ Produkční conditional set obsahuje pouze podporovaný model discovery journey;
 external notifications, marketplace, ComfyUI a core updater jsou defaultně
 vypnuté, unsupported a jejich explicitní produkční zapnutí selže při startupu.
 Preflight i všech pět runtime startupů používá jediný normalizovaný manifest.
-Autoritativní module graph má 1 186 hran, stále 3 cykly a 28 souborů v cyklech.
+Autoritativní module graph má 1 187 hran, stále 3 cykly a 28 souborů v cyklech.
 Remediation důkaz je v
 [`m5-auth-outbound-remote-remediation-20260826.md`](docs/execution/runs/m5-auth-outbound-remote-remediation-20260826.md);
 původní report zůstává v
 [`m5-remote-conditional-20260826.md`](docs/execution/runs/m5-remote-conditional-20260826.md).
 
-`WP-M5-PRIVACY` má remediation implementovanou na product commitu `1f4d15e3`
-a module baseline `d3829643`; oddíl zůstává `RE_REVIEW_REQUIRED`. Migrace 090
+`WP-M5-PRIVACY` má první remediation na product commitu `1f4d15e3`; druhé
+review jej znovu otevřelo a navazující remediation je na `b15090a4`. Oddíl
+zůstává `RE_REVIEW_REQUIRED`. Migrace 090
 odstraňuje známé plaintext credential klíče z `user_settings` a migrace 091
-navíc vyžaduje pro každý rotation/history INSERT přesnou opaque transportní
-writer authority až na SQL triggeru. Přímý canonical SQL INSERT proto
-fail-closed selže. Exact-HEAD scanner odvozuje čtené roots z distribučního
-manifestu, na evidence source `7020e430` rozlišuje 1 851 scanned a 982
-content-read souborů a má nula current-tree findings; všech 13 známých incident
-objektů je stále dosažitelných.
-Autoritativní module graph má 1 186 hran, stále 3 cykly a 28 souborů v cyklech.
+navíc vyžaduje pro každý rotation/history INSERT transportem autentizovanou
+subject identitu až na SQL triggeru. Veřejný capability mint byl odstraněn,
+syntaktický klon subjectu zápis neodemkne a receipt actor musí sedět na tutéž
+identitu. Přímý canonical SQL INSERT proto fail-closed selže. Exact-HEAD
+scanner odvozuje čtené roots z distribučního manifestu; na `b15090a4`
+rozlišuje 1 853 scanned a 983 content-read souborů a má nula current-tree
+findings. History scan měří dosažitelnost z přesného ref censu, ne fyzickou
+existenci objektu, a rozlišuje pre-remediation, retain, rewrite a new-root
+disposition. Všech 13 známých incident objektů je stále dosažitelných, takže
+aktuální pravdivý stav je `HISTORY_REMEDIATION_REQUIRED`.
 Původní důkaz je v
 [`m5-privacy-20260826.md`](docs/execution/runs/m5-privacy-20260826.md).
 
@@ -1500,22 +1516,22 @@ společný gate, ale jeho operátorský review skončil `0/9 REVIEW_PASSED`: na�
 1 critical, 13 high a 4 medium blocking vady. Výsledek je zachovaný v
 [`2026-08-26-M5-OPERATOR-REVIEW-RESULT.md`](docs/review/2026-08-26-M5-OPERATOR-REVIEW-RESULT.md).
 
-Všech 18 technických nálezů má nyní implementovanou remediation a společný
-product candidate je `034e00f5`. Final-candidate fresh clone, offline
-install/build, production health/chat/shutdown i pětiminutový PERF běh prošly.
-M5 focused panel má `109/109 PASS`. Autoritativní celý gate na evidence source
-`7020e430` zůstává pravdivě `284 PASS / 2 FAIL / 2 BLOCKED`, `verdict: FAIL`,
-`exitCode: 1`, se stejnými čtyřmi zděděnými ID; report SHA-256 je
-`6df01f71cbee4b7f5dfd5a00bb187ab70517771e0873297bf31ca9bd35b477e2`.
-Registry má 456 programů a fingerprint
-`58d598df9765c376d31dadad69bfd81785230adbc802b7454f02c7b8d8637f5c`.
-Všech devět oddílů je `RE_REVIEW_READY`, žádný ještě není `REVIEW_PASSED`.
+První review našlo 18 technických nálezů a jejich remediation vedla ke
+společnému candidate `034e00f5`. Druhé review označilo pět oddílů
+`REVIEW_PASSED` a čtyři znovu otevřelo sedmi dalšími nálezy. Jejich remediation
+je na `c3170a12`, `dc6e9b12`, `b020ee19` a `b15090a4`; nový společný product
+candidate, final fresh clone, autoritativní pětiminutový PERF artifact a celý
+gate se teprve připínají. Poslední úplný gate na starším evidence source
+`7020e430` zůstává historicky pravdivě `284 PASS / 2 FAIL / 2 BLOCKED`,
+`verdict: FAIL`, `exitCode: 1`, se stejnými čtyřmi zděděnými ID; nelze jej
+přenést na nový candidate bez nového běhu.
 Společný closeout a odpověď na review jsou v
 [`m5-integration-closeout-20260826.md`](docs/execution/runs/m5-integration-closeout-20260826.md)
 a
 [`2026-08-26-M5-OPERATOR-REVIEW-RESPONSE.md`](docs/review/2026-08-26-M5-OPERATOR-REVIEW-RESPONSE.md).
-M3 oddíl 7 je samostatně přijatý a zapsaný. M5 acceptance dál blokují nový
-9/9 re-review, všech osm skutečných operátorských rotací a history disposition.
+M3 oddíl 7 je samostatně přijatý a zapsaný. M5 acceptance dál blokují re-review
+čtyř opravených oddílů, nový přesně připnutý integrační důkaz, všech osm
+skutečných operátorských rotací a history disposition.
 
 ### Výsledek
 

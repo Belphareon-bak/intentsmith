@@ -47,4 +47,3 @@ Neběžel celý deterministický gate ani žádný síťový remote journey. Lis
 pairing, device auth, mobilní UI a pět capability bez payload kontraktu patří
 do pozdějšího scope. Conditional M6 journey je pouze odvozený required set,
 nikoli již provedený M6 důkaz. M3 oddíl 7 i M5 privacy zůstávají otevřené.
-

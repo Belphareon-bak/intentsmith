@@ -77,4 +77,3 @@ export const M5_REMOTE_CORE_ADAPTER_MANIFEST_DIGEST_V1 =
 export const M5_REMOTE_CORE_CAPABILITY_MANIFESTS_V1 = deepFreeze(
   Object.fromEntries(CAPABILITIES.map(item => [item.capabilityId, item])),
 );
-

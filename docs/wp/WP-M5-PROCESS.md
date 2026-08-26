@@ -1,6 +1,6 @@
 # WP-M5-PROCESS — governed process lifecycle hardening
 
-**Typ:** M5 production hardening · **Stav:** `IMPLEMENTATION_GREEN / RE_REVIEW_REQUIRED`
+**Typ:** M5 production hardening · **Stav:** `REVIEW_PASSED`
 
 **Product revision:** `7a282a3fc58ca8d151d2070ea041d952efe9aaf2`
 
@@ -73,5 +73,5 @@ recovery.
 6. Registry, module ratchet, artifact validation a hygiene projdou; celkový
    baseline se interpretuje pravdivě.
 
-Tento dokument není nezávislý re-review ani M5 acceptance. M3 je přijaté;
-M5 zůstává `CHANGES_REQUESTED` a M6 gate je zavřený.
+Druhé operátorské review tento oddíl přijalo. M3 je přijaté; M5 jako celek
+zůstává `CHANGES_REQUESTED` a M6 gate je zavřený.

@@ -1,6 +1,6 @@
 # WP-M5-OUTBOUND — process-wide network policy and audit
 
-**Typ:** M5 production hardening · **Stav:** `IMPLEMENTATION_GREEN / RE_REVIEW_REQUIRED`
+**Typ:** M5 production hardening · **Stav:** `REVIEW_PASSED`
 
 **Product revision:** `122b5df5303e08a38cdd62a35e6577b118795c30`
 
@@ -56,4 +56,4 @@ Focused důkaz je v
 [`m5-auth-outbound-remote-remediation-20260826.md`](../execution/runs/m5-auth-outbound-remote-remediation-20260826.md);
 původní report zůstává v
 [`m5-outbound-20260826.md`](../execution/runs/m5-outbound-20260826.md). Tento
-dokument není nezávislý re-review ani M5 acceptance.
+oddíl prošel druhým operátorským review; nejde tím o celkové M5 acceptance.

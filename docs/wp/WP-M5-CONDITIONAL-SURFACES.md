@@ -1,6 +1,6 @@
 # WP-M5-CONDITIONAL-SURFACES — deterministic release set
 
-**Typ:** M5 production hardening · **Stav:** `IMPLEMENTATION_GREEN / RE_REVIEW_REQUIRED`
+**Typ:** M5 production hardening · **Stav:** `REVIEW_PASSED`
 
 **Product revision:** `122b5df5303e08a38cdd62a35e6577b118795c30`
 
@@ -40,6 +40,6 @@ komponenty; dormant implementace může zůstat dostupná pro neprodukční výv
 - production env s explicitním marketplace flagem: proces končí nenulově s
   pojmenovanou unsupported plochou.
 
-Nejde o M6 journey, nezávislý re-review ani M5 acceptance. Remediation evidence
-je v
+Druhé operátorské review tento oddíl přijalo. Nejde o provedený M6 journey ani
+o celkové M5 acceptance. Remediation evidence je v
 [`m5-auth-outbound-remote-remediation-20260826.md`](../execution/runs/m5-auth-outbound-remote-remediation-20260826.md).

@@ -1,9 +1,10 @@
 # WP-M5-PRIVACY — containment a operátorská remediation authority
 
 **Typ:** M5 production hardening · **Stav:**
-`IMPLEMENTATION_GREEN / OPERATOR_REMEDIATION_REQUIRED / REVIEW_PENDING`
-· **Product:** `a92b9fde94ec6cd64bbd7067afb1e198021e82d2`
-· **Module baseline:** `a699b4362c7c42c9cb6fe36b14b22c753d0cbc6b`
+`SECOND_REVIEW_REMEDIATION_IMPLEMENTED / OPERATOR_REMEDIATION_REQUIRED /
+RE_REVIEW_REQUIRED`
+· **Product:** `b15090a4cacd0a47a1dbd26f224fe19d7e399042`
+· **Module baseline:** `PENDING_FINAL_CANDIDATE_PIN`
 
 ## Výsledek implementace
 

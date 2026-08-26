@@ -1,6 +1,6 @@
 # WP-M5-REMOTE-PORT — in-process core adapter
 
-**Typ:** M5 production hardening · **Stav:** `IMPLEMENTATION_GREEN / RE_REVIEW_REQUIRED`
+**Typ:** M5 production hardening · **Stav:** `REVIEW_PASSED`
 
 **Product revision:** `122b5df5303e08a38cdd62a35e6577b118795c30`
 
@@ -41,6 +41,7 @@ kompozice; M7 teprve smí přidat autentizovaný transport.
 - M2 remote contract + boundary: 27/27 PASS
 - module graph: 1 186 hran, 3 cykly, 28 souborů v cyklech
 
-Tento WP nepřidává companion listener, pairing, mobilní UI ani remote auth a
-není M5 acceptance či nezávislý re-review. Remediation evidence je v
+Tento WP nepřidává companion listener, pairing, mobilní UI ani remote auth.
+Druhé operátorské review jej přijalo; nejde tím o celkové M5 acceptance.
+Remediation evidence je v
 [`m5-auth-outbound-remote-remediation-20260826.md`](../execution/runs/m5-auth-outbound-remote-remediation-20260826.md).
