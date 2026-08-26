@@ -1367,7 +1367,8 @@ další učící smyčka M4. Nepředbíhá první prokázané Code Intelligence 
 
 ## 9. M5 — Production hardening
 
-**Průběžný stav 2026-08-26:** `IMPLEMENTATION_IN_PROGRESS / M3_GATE_OPEN`.
+**Průběžný stav 2026-08-26:**
+`IMPLEMENTATION_GREEN / OPERATOR_REMEDIATION_REQUIRED / REVIEW_PENDING / M3_GATE_OPEN`.
 `WP-M5-PACKAGE` je implementation-green na product commitu `ce6b8276`:
 podporovaný výchozí core profil, explicitní full PDF profil, read-only
 preflight, cache-only offline instalace a pravdivá Docker `unsupported`
@@ -1454,8 +1455,22 @@ objektů je stále dosažitelných. Autoritativní module graph má 1 184 hran, 
 28 souborů v cyklech. Důkaz je v
 [`m5-privacy-20260826.md`](docs/execution/runs/m5-privacy-20260826.md).
 
-Nejde o M5 acceptance: M3 oddíl 7, operátorská privacy remediation a M5 review
-zůstávají otevřené.
+Integrační kandidát `94ea4ea7` navíc opravil statický bootstrap čtyř M5 root
+testů a připnul harness census na skutečných 119 database-reachable programů.
+Všech deset M5 programů má dohromady 92/92 vlastních checks. Úplný
+offline/database gate na tomto čistém kandidátu skončil pravdivě
+`284 PASS / 2 FAIL / 2 BLOCKED`, `verdict: FAIL`, `exitCode: 1`; jedinými
+non-PASS zůstaly přesně zděděné `nightly-orchestrator-self-test`,
+`vram-coordination`, `chat-export-budget` a `export-pdf-docx`. Registry má 456
+programů a fingerprint
+`58d598df9765c376d31dadad69bfd81785230adbc802b7454f02c7b8d8637f5c`.
+Společný closeout je v
+[`m5-integration-closeout-20260826.md`](docs/execution/runs/m5-integration-closeout-20260826.md)
+a operátorský review rozsah v
+[`2026-08-26-M5-OPERATOR-REVIEW-MATRIX.md`](docs/review/2026-08-26-M5-OPERATOR-REVIEW-MATRIX.md).
+
+Nejde o M5 acceptance: M3 oddíl 7, všech osm operátorských rotací, history
+disposition a review všech devíti M5 oddílů zůstávají otevřené.
 
 ### Výsledek
 
