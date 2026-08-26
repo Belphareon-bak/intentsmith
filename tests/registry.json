@@ -13852,6 +13852,66 @@
       },
       "flakeCount": 0,
       "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M6-MODEL-DISCOVERY-JOURNEY-TEST",
+      "path": "tests/m6-model-discovery-journey.test.js",
+      "argv": [
+        "node",
+        "tests/m6-model-discovery-journey.test.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T1",
+      "fixture": "isolated-home-and-owned-loopback-server",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "loopback",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M6-RELEASE",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M6-PLATFORM-JOURNEY-TEST",
+      "path": "tests/m6-platform-journey.test.js",
+      "argv": [
+        "node",
+        "tests/m6-platform-journey.test.js"
+      ],
+      "capabilityId": "C3-023",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 60000,
+      "expectedDurationMs": 2000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M6-RELEASE",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
     }
   ]
 }
