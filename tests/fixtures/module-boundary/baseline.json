@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "2aa0f8d7c3e9ceb36bbdfd12ac1c1cb3f7f91107",
-  "sourceTree": "ebb739bac0294255c7d9a452434de891fd19b927",
+  "sourceRevision": "f979641c2ce05806ed34f2087eb7f9be8482ad3f",
+  "sourceTree": "8da7b8cd843e965c8a1979cdd8f9c93c760733a7",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -549,6 +549,7 @@
     "src/execution/process-sandbox-provider.js -> src/execution/process-supervisor-child.js",
     "src/execution/project-change-planner.js -> src/code-intel/project-context-provider.js",
     "src/execution/project-change-planner.js -> src/executor/project-path-authority.js",
+    "src/execution/project-change-runtime.js -> src/execution/process-recovery.js",
     "src/execution/project-change-runtime.js -> src/executor/project-path-authority.js",
     "src/executor/c3-tool-executor.js -> src/core/logger.js",
     "src/executor/c3-tool-executor.js -> src/executor/shell-parser.js",
