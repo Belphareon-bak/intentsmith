@@ -189,10 +189,7 @@ import { creDecisionEngine } from './chat/cre-decision.js';
 import { toolRegistry } from './tools/registry.js';
 import { createDefaultM2LifecycleApplicationService } from './lifecycle/m2-lifecycle-application-service.js';
 import { createLearningApplicationService } from './memory/learning-application-service.js';
-import {
-  M5PrivacyAuthorityRepository,
-  createM5PrivacyTransportWriterCapability,
-} from './security/privacy-authority-repository.js';
+import { M5PrivacyAuthorityRepository } from './security/privacy-authority-repository.js';
 
 // v85: FeatureManager — runtime feature flags (hot-toggle from IDE)
 import { featureManager } from './core/feature-manager.js';
@@ -969,9 +966,7 @@ const learningService = createLearningApplicationService({
   repository: db.learningAuthority,
   projects: db.projects,
 });
-const privacyAuthority = new M5PrivacyAuthorityRepository(db.db, {
-  writerCapability: createM5PrivacyTransportWriterCapability(),
-});
+const privacyAuthority = new M5PrivacyAuthorityRepository(db.db);
 routeDeps.productionObservability = productionObservability;
 routeDeps.m2LifecycleService = m2LifecycleService;
 let m2RecoveryFailureCount = 0;

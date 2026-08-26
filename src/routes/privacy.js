@@ -25,6 +25,7 @@ function exactBody(value, keys) {
 
 function statusForError(error) {
   const code = typeof error?.code === 'string' ? error.code : '';
+  if (code.includes('WRITER_AUTHORITY_REQUIRED')) return 403;
   if (code.includes('AUTH_REQUIRED')) return 403;
   if (code.includes('ALREADY_RECORDED')) return 409;
   if (code.includes('INPUT_INVALID')) return 400;

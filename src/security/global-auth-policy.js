@@ -27,6 +27,19 @@ const APPROVAL_ROUTE = /(?:\/approve|\/confirm|\/acknowledge)(?:\/|$|:)/;
 const ADMIN_ROUTE = /^(?:GET|POST|PUT|PATCH|DELETE) \/api\/(?:security(?:\/|$)|reset(?:\/|$)|features\/reset(?:\/|$)|workspace\/(?:file|directory|rename)(?:\/|$)|marketplace\/(?:install|update|installed)(?:\/|$)|system\/(?:backup|restore|shutdown-backup|vacuum|drain|clean|models\/pull|models)(?:\/|$))/;
 const ROUTE_KEY = /^(GET|HEAD|POST|PUT|PATCH|DELETE) \/\S*$/;
 const LOOPBACK_PEERS = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1', '::ffff:7f00:1']);
+const AUTHENTICATED_TRANSPORT_SUBJECTS = new WeakSet();
+
+function authenticatedTransportSubject(actorId) {
+  const subject = Object.freeze({ actorType: 'user', actorId });
+  AUTHENTICATED_TRANSPORT_SUBJECTS.add(subject);
+  return subject;
+}
+
+export function isAuthenticatedTransportSubject(subject) {
+  return subject !== null
+    && typeof subject === 'object'
+    && AUTHENTICATED_TRANSPORT_SUBJECTS.has(subject);
+}
 
 function decision(allowed, values = {}) {
   return Object.freeze({ allowed, ...values });
@@ -223,7 +236,7 @@ export function authorizeGlobalRequest({
       return decision(true, {
         routeClass,
         credentialType: 'local-capability',
-        subject: Object.freeze({ actorType: 'user', actorId: 'local-operator' }),
+        subject: authenticatedTransportSubject('local-operator'),
       });
     }
     return decision(false, { status: 401, code: GLOBAL_AUTH_REQUIRED, routeClass });
@@ -233,7 +246,7 @@ export function authorizeGlobalRequest({
     return decision(true, {
       routeClass,
       credentialType: 'admin-token',
-      subject: Object.freeze({ actorType: 'user', actorId: 'admin-token' }),
+      subject: authenticatedTransportSubject('admin-token'),
     });
   }
 
@@ -246,7 +259,7 @@ export function authorizeGlobalRequest({
     return decision(true, {
       routeClass,
       credentialType: 'admin-token',
-      subject: Object.freeze({ actorType: 'user', actorId: 'admin-token' }),
+      subject: authenticatedTransportSubject('admin-token'),
     });
   }
 
@@ -259,7 +272,7 @@ export function authorizeGlobalRequest({
           routeClass,
           credentialType: 'api-token',
           scopes: Object.freeze([...token.scopes]),
-          subject: Object.freeze({ actorType: 'user', actorId: `api-token:${token.id}` }),
+          subject: authenticatedTransportSubject(`api-token:${token.id}`),
         });
       }
       return decision(false, {
@@ -275,7 +288,7 @@ export function authorizeGlobalRequest({
     return decision(true, {
       routeClass,
       credentialType: 'development-loopback',
-      subject: Object.freeze({ actorType: 'user', actorId: 'local-operator' }),
+      subject: authenticatedTransportSubject('local-operator'),
     });
   }
 

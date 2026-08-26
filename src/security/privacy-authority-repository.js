@@ -10,12 +10,9 @@ import {
   validateM5PrivacyRotationReceipt,
 } from '../../contracts/m5/privacy-remediation-v1.js';
 import {
-  createM5PrivacyTransportWriterCapability,
   registerM5PrivacyAuthorityFunctions,
   withM5PrivacyReceiptWriterAuthority,
 } from './privacy-authority-validation.js';
-
-export { createM5PrivacyTransportWriterCapability };
 
 export const M5PrivacyAuthorityErrorCode = Object.freeze({
   AUTH_REQUIRED: 'M5_PRIVACY_AUTH_REQUIRED',
@@ -71,14 +68,13 @@ function storageFailure(error) {
 }
 
 export class M5PrivacyAuthorityRepository {
-  constructor(database, { clock = Date.now, writerCapability = null } = {}) {
+  constructor(database, { clock = Date.now } = {}) {
     if (!database || typeof database.prepare !== 'function' || typeof database.transaction !== 'function') {
       throw new TypeError('m5-privacy-authority:database-required');
     }
     if (typeof clock !== 'function') throw new TypeError('m5-privacy-authority:clock-required');
     this.database = database;
     this.clock = clock;
-    this.writerCapability = writerCapability;
     registerM5PrivacyAuthorityFunctions(database);
   }
 
@@ -123,7 +119,7 @@ export class M5PrivacyAuthorityRepository {
         );
         return withM5PrivacyReceiptWriterAuthority(
           this.database,
-          this.writerCapability,
+          authenticatedSubject,
           { receiptId: receipt.receiptId, recordJson },
           () => this.database.prepare(`
             INSERT INTO m5_privacy_rotation_receipts (
@@ -144,7 +140,7 @@ export class M5PrivacyAuthorityRepository {
       write();
       return receipt;
     } catch (error) {
-      if (error?.message === 'm5-privacy-authority:transport-writer-capability-required') {
+      if (error?.message === 'm5-privacy-authority:authenticated-transport-subject-required') {
         fail(
           M5PrivacyAuthorityErrorCode.WRITER_AUTHORITY_REQUIRED,
           'Transport writer authority is required',
@@ -189,7 +185,7 @@ export class M5PrivacyAuthorityRepository {
         );
         return withM5PrivacyReceiptWriterAuthority(
           this.database,
-          this.writerCapability,
+          authenticatedSubject,
           { receiptId: receipt.receiptId, recordJson },
           () => this.database.prepare(`
             INSERT INTO m5_privacy_history_receipts (
@@ -213,7 +209,7 @@ export class M5PrivacyAuthorityRepository {
       write();
       return receipt;
     } catch (error) {
-      if (error?.message === 'm5-privacy-authority:transport-writer-capability-required') {
+      if (error?.message === 'm5-privacy-authority:authenticated-transport-subject-required') {
         fail(
           M5PrivacyAuthorityErrorCode.WRITER_AUTHORITY_REQUIRED,
           'Transport writer authority is required',

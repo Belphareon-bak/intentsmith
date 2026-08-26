@@ -1,6 +1,7 @@
 import path from 'node:path';
 
 import {
+  M5_PRIVACY_HISTORY_DECISIONS,
   M5_PRIVACY_KIND,
   validateM5PrivacyTreeScan,
 } from '../../contracts/m5/privacy-remediation-v1.js';
@@ -135,21 +136,61 @@ export function scanM5TrackedTree({ candidateRevision, paths, readFile } = {}) {
   return report;
 }
 
-export function verifyM5PrivacyHistoryReachability(incident, exists) {
-  if (!incident || !Array.isArray(incident.trackedObjectManifest) || typeof exists !== 'function') {
+export function verifyM5PrivacyHistoryReachability(incident, {
+  isReachable,
+  declaredRefCount,
+  declaredRefDigest,
+  declaredDisposition = null,
+} = {}) {
+  if (
+    !incident
+    || !Array.isArray(incident.trackedObjectManifest)
+    || typeof isReachable !== 'function'
+    || !Number.isSafeInteger(declaredRefCount)
+    || declaredRefCount < 1
+    || !/^sha256:[a-f0-9]{64}$/.test(declaredRefDigest || '')
+    || !(declaredDisposition === null
+      || Object.values(M5_PRIVACY_HISTORY_DECISIONS).includes(declaredDisposition))
+  ) {
     throw new TypeError('m5-privacy-history:invalid-input');
   }
   let reachableObjects = 0;
+  const seen = new Set();
   for (const item of incident.trackedObjectManifest) {
     if (!item || typeof item.gitBlob !== 'string' || !/^[a-f0-9]{40}$/.test(item.gitBlob)) {
       throw new TypeError('m5-privacy-history:invalid-object-identity');
     }
-    if (exists(item.gitBlob) === true) reachableObjects += 1;
+    if (seen.has(item.gitBlob)) throw new TypeError('m5-privacy-history:duplicate-object-identity');
+    seen.add(item.gitBlob);
+    if (isReachable(item.gitBlob) === true) reachableObjects += 1;
+  }
+  const checkedObjects = incident.trackedObjectManifest.length;
+  const unreachableObjects = checkedObjects - reachableObjects;
+  const allReachable = reachableObjects === checkedObjects;
+  let verdict;
+  if (declaredDisposition === null) {
+    verdict = reachableObjects === 0
+      ? 'HISTORY_REMOVED_RECEIPT_PENDING'
+      : 'HISTORY_REMEDIATION_REQUIRED';
+  } else if (declaredDisposition === M5_PRIVACY_HISTORY_DECISIONS.RETAIN_AND_ROTATE) {
+    verdict = allReachable
+      ? 'HISTORY_RETAINED_AS_DECLARED'
+      : 'HISTORY_DISPOSITION_MISMATCH';
+  } else {
+    verdict = reachableObjects === 0
+      ? 'HISTORY_REMOVED_AS_DECLARED'
+      : 'HISTORY_DISPOSITION_MISMATCH';
   }
   return Object.freeze({
-    checkedObjects: incident.trackedObjectManifest.length,
+    checkedObjects,
     reachableObjects,
-    allReachable: reachableObjects === incident.trackedObjectManifest.length,
+    unreachableObjects,
+    anyReachable: reachableObjects > 0,
+    allReachable,
+    declaredRefCount,
+    declaredRefDigest,
+    declaredDisposition,
+    verdict,
     personalContentInspected: false,
     objectIdentitiesReported: false,
     secretValuesRecorded: false,

@@ -35,8 +35,10 @@ import {
   M5PrivacyAuthorityError,
   M5PrivacyAuthorityErrorCode,
   M5PrivacyAuthorityRepository,
-  createM5PrivacyTransportWriterCapability,
 } from '../src/security/privacy-authority-repository.js';
+import * as privacyAuthorityModule from '../src/security/privacy-authority-repository.js';
+import * as privacyValidationModule from '../src/security/privacy-authority-validation.js';
+import { authorizeGlobalRequest } from '../src/security/global-auth-policy.js';
 import {
   scanM5TrackedTree,
   verifyM5PrivacyHistoryReachability,
@@ -48,7 +50,13 @@ import {
 import { createSessionAdapter } from '../src/ws-bridge/session-adapter.js';
 
 const NOW = 1_800_000_000_000;
-const SUBJECT = Object.freeze({ actorType: 'user', actorId: 'local-operator' });
+const LOCAL_CAPABILITY = 'A'.repeat(43);
+const SUBJECT = authorizeGlobalRequest({
+  routeKey: 'POST /api/security/privacy/rotations/:categoryId/attest',
+  production: true,
+  localCapability: LOCAL_CAPABILITY,
+  websocketLocalCapability: LOCAL_CAPABILITY,
+}).subject;
 const CANARY = 'm5-private-canary-value-never-emit';
 
 function openDb(settings = {}, { writerAuthority = true } = {}) {
@@ -69,7 +77,6 @@ function openDb(settings = {}, { writerAuthority = true } = {}) {
 function repository(db) {
   return new M5PrivacyAuthorityRepository(db, {
     clock: () => NOW,
-    writerCapability: createM5PrivacyTransportWriterCapability(),
   });
 }
 
@@ -258,6 +265,13 @@ test('authority rejects missing users, future claims, category mismatch and repl
     M5PrivacyAuthorityErrorCode.AUTH_REQUIRED,
   );
   expectCode(
+    () => authority.recordRotation({
+      ...input,
+      authenticatedSubject: { actorType: 'user', actorId: SUBJECT.actorId },
+    }),
+    M5PrivacyAuthorityErrorCode.WRITER_AUTHORITY_REQUIRED,
+  );
+  expectCode(
     () => authority.recordRotation({ ...input, completedAtMs: NOW + 1 }),
     M5PrivacyAuthorityErrorCode.INPUT_INVALID,
   );
@@ -274,6 +288,34 @@ test('authority rejects missing users, future claims, category mismatch and repl
     repositoryVisibility: M5_PRIVACY_REPOSITORY_VISIBILITY.PRIVATE,
     completedAtMs: NOW - 1,
   }), M5PrivacyAuthorityErrorCode.INPUT_INVALID);
+  db.close();
+});
+
+test('privacy writer mint is not exported and authority is bound to transport subject identity', () => {
+  assert.equal(Object.hasOwn(
+    privacyAuthorityModule,
+    'createM5PrivacyTransportWriterCapability',
+  ), false);
+  assert.equal(Object.hasOwn(
+    privacyValidationModule,
+    'createM5PrivacyTransportWriterCapability',
+  ), false);
+  const db = openDb();
+  const authority = repository(db);
+  const category = M5_PRIVACY_ROTATION_CATEGORIES[0];
+  expectCode(() => authority.recordRotation({
+    authenticatedSubject: Object.freeze({ ...SUBJECT }),
+    categoryId: category.categoryId,
+    authorityKind: category.authorityKind,
+    completedAtMs: NOW - 1,
+  }), M5PrivacyAuthorityErrorCode.WRITER_AUTHORITY_REQUIRED);
+  authority.recordRotation({
+    authenticatedSubject: SUBJECT,
+    categoryId: category.categoryId,
+    authorityKind: category.authorityKind,
+    completedAtMs: NOW - 1,
+  });
+  assert.equal(authority.summary().rotationCompleted, 1);
   db.close();
 });
 
@@ -502,16 +544,66 @@ test('sensitive tracked paths are not opened and history reachability does not e
   const ids = ['a'.repeat(40), 'b'.repeat(40)];
   const history = verifyM5PrivacyHistoryReachability({
     trackedObjectManifest: ids.map(gitBlob => ({ gitBlob })),
-  }, objectId => objectId === ids[0]);
+  }, {
+    isReachable: objectId => objectId === ids[0],
+    declaredRefCount: 3,
+    declaredRefDigest: `sha256:${'c'.repeat(64)}`,
+  });
   assert.deepEqual(history, {
     checkedObjects: 2,
     reachableObjects: 1,
+    unreachableObjects: 1,
+    anyReachable: true,
     allReachable: false,
+    declaredRefCount: 3,
+    declaredRefDigest: `sha256:${'c'.repeat(64)}`,
+    declaredDisposition: null,
+    verdict: 'HISTORY_REMEDIATION_REQUIRED',
     personalContentInspected: false,
     objectIdentitiesReported: false,
     secretValuesRecorded: false,
   });
   assert(!JSON.stringify(history).includes(ids[0]));
+});
+
+test('history reachability classifies dangling objects from refs and declared dispositions', () => {
+  const incident = {
+    trackedObjectManifest: [
+      { gitBlob: 'a'.repeat(40) },
+      { gitBlob: 'b'.repeat(40) },
+    ],
+  };
+  const base = {
+    declaredRefCount: 2,
+    declaredRefDigest: `sha256:${'d'.repeat(64)}`,
+  };
+  const removedPending = verifyM5PrivacyHistoryReachability(incident, {
+    ...base,
+    isReachable: () => false,
+  });
+  assert.equal(removedPending.reachableObjects, 0);
+  assert.equal(removedPending.verdict, 'HISTORY_REMOVED_RECEIPT_PENDING');
+
+  const rewritten = verifyM5PrivacyHistoryReachability(incident, {
+    ...base,
+    isReachable: () => false,
+    declaredDisposition: M5_PRIVACY_HISTORY_DECISIONS.REWRITE_AND_ROTATE,
+  });
+  assert.equal(rewritten.verdict, 'HISTORY_REMOVED_AS_DECLARED');
+
+  const retained = verifyM5PrivacyHistoryReachability(incident, {
+    ...base,
+    isReachable: () => true,
+    declaredDisposition: M5_PRIVACY_HISTORY_DECISIONS.RETAIN_AND_ROTATE,
+  });
+  assert.equal(retained.verdict, 'HISTORY_RETAINED_AS_DECLARED');
+
+  const mismatch = verifyM5PrivacyHistoryReachability(incident, {
+    ...base,
+    isReachable: objectId => objectId.startsWith('a'),
+    declaredDisposition: M5_PRIVACY_HISTORY_DECISIONS.NEW_ROOT_AND_ROTATE,
+  });
+  assert.equal(mismatch.verdict, 'HISTORY_DISPOSITION_MISMATCH');
 });
 
 test('license authority fails closed without a strong caller-owned secret', () => {

@@ -4,8 +4,8 @@ import {
   validateM5PrivacyRotationReceipt,
 } from '../../contracts/m5/privacy-remediation-v1.js';
 import { inspectM5UserSettingsPrivacy } from './user-settings-privacy.js';
+import { isAuthenticatedTransportSubject } from './global-auth-policy.js';
 
-const WRITER_CAPABILITIES = new WeakSet();
 const DATABASE_WRITER_STATE = new WeakMap();
 
 function databaseWriterState(database) {
@@ -17,23 +17,27 @@ function databaseWriterState(database) {
   return state;
 }
 
-export function createM5PrivacyTransportWriterCapability() {
-  const capability = Object.freeze(Object.create(null));
-  WRITER_CAPABILITIES.add(capability);
-  return capability;
-}
-
 export function withM5PrivacyReceiptWriterAuthority(
   database,
-  capability,
+  authenticatedSubject,
   { receiptId, recordJson },
   operation,
 ) {
-  if (!WRITER_CAPABILITIES.has(capability)) {
-    throw new TypeError('m5-privacy-authority:transport-writer-capability-required');
+  if (!isAuthenticatedTransportSubject(authenticatedSubject)) {
+    throw new TypeError('m5-privacy-authority:authenticated-transport-subject-required');
   }
   if (typeof receiptId !== 'string' || typeof recordJson !== 'string') {
     throw new TypeError('m5-privacy-authority:writer-identity-invalid');
+  }
+  let recordActorId;
+  try {
+    const record = JSON.parse(recordJson);
+    recordActorId = record?.actor?.actorId;
+  } catch {
+    throw new TypeError('m5-privacy-authority:writer-identity-invalid');
+  }
+  if (recordActorId !== authenticatedSubject.actorId) {
+    throw new TypeError('m5-privacy-authority:writer-subject-mismatch');
   }
   if (typeof operation !== 'function') {
     throw new TypeError('m5-privacy-authority:writer-operation-required');
@@ -42,7 +46,12 @@ export function withM5PrivacyReceiptWriterAuthority(
   if (state.active !== null) {
     throw new TypeError('m5-privacy-authority:writer-already-active');
   }
-  const active = { receiptId, recordJson, consumed: false };
+  const active = {
+    receiptId,
+    recordJson,
+    actorId: authenticatedSubject.actorId,
+    consumed: false,
+  };
   state.active = active;
   try {
     const result = operation();
