@@ -125,6 +125,11 @@ function terminalForProcess(status) {
   return { terminal: 'failed', error: 'PROCESS_FAILED' };
 }
 
+function processTerminationProven(outcome) {
+  return outcome?.terminalStatus !== 'orphaned'
+    && (outcome?.processGroupState === 'empty' || outcome?.cleanup?.groupState === 'empty');
+}
+
 function matchesImage(observation, image) {
   if (!image.exists) return observation.exists === false;
   return observation.exists === true
@@ -428,7 +433,10 @@ async function recoverOnly(request, claim, dependencies, startedAt) {
   const outstandingProcesses = executionRepository.listOutstandingProcesses(request.executionId);
   for (const processRecord of outstandingProcesses) {
     const recovery = await processRecovery(processRecord);
-    if (!recovery || !['terminated', 'already_terminated'].includes(recovery.status)) {
+    if (!recovery
+      || recovery.authority !== 'linux-pidfd-v1'
+      || !['terminated', 'already_terminated'].includes(recovery.status)
+      || recovery.groupState !== 'empty') {
       fail(
         ProjectChangeRuntimeErrorCode.PROCESS_RECOVERY_UNRESOLVED,
         'A previously owned process group could not be proven empty',
@@ -454,6 +462,7 @@ async function recoverOnly(request, claim, dependencies, startedAt) {
       details: {
         recovered: true,
         recordedGeneration: processRecord.generation,
+        authority: recovery.authority,
         status: recovery.status,
         reason: recovery.reason,
         identityMatched: recovery.identityMatched,
@@ -875,6 +884,14 @@ export async function executeProjectChange({
   let stop = null;
 
   const finishStopped = async () => {
+    const outstandingProcesses = executionRepository.listOutstandingProcesses(executionId);
+    if (outstandingProcesses.length > 0) {
+      fail(
+        ProjectChangeRuntimeErrorCode.PROCESS_RECOVERY_UNRESOLVED,
+        'A recorded process group is not proven empty; rollback and terminalization are fenced',
+        { effectIds: outstandingProcesses.map(process => process.effectId) },
+      );
+    }
     const rolledBack = await rollbackApplied({
       request,
       material,
@@ -1067,18 +1084,22 @@ export async function executeProjectChange({
         lateCompletionRejected: false, errorCode: error?.code || 'PROCESS_UNAVAILABLE',
       };
     }
+    const terminationProven = recordedProcess ? processTerminationProven(processOutcome) : true;
+    const effectiveProcessStatus = recordedProcess && !terminationProven
+      ? 'orphaned'
+      : processOutcome.terminalStatus;
     focused = {
       effectId: processRequest.effectId,
-      terminalStatus: processOutcome.terminalStatus,
+      terminalStatus: effectiveProcessStatus,
       exitCode: processOutcome.exitCode,
       signal: processOutcome.signal,
       stdoutDigest: processOutcome.stdoutDigest,
       stderrDigest: processOutcome.stderrDigest,
       outputTruncated: processOutcome.outputTruncated,
     };
-    const processTerminal = terminalForProcess(processOutcome.terminalStatus);
+    const processTerminal = terminalForProcess(effectiveProcessStatus);
     const processCompletedAt = timestamp(clock);
-    if (recordedProcess) {
+    if (recordedProcess && terminationProven) {
       executionRepository.appendEvent({
         eventId: eventId(executionId, claim.generation, 'process_terminated', processRequest.effectId),
         executionId,
@@ -1108,15 +1129,16 @@ export async function executeProjectChange({
       outputDigest: computeM2ExecutionValueDigest(focused),
       errorCode: processTerminal.error,
       evidenceRef: `execution:${executionId}:focused-test`,
-      lateCompletionRejected: Boolean(processOutcome.lateCompletionRejected),
+      lateCompletionRejected: effectiveProcessStatus === 'orphaned'
+        || Boolean(processOutcome.lateCompletionRejected),
     }));
-    if (processOutcome.terminalStatus !== 'succeeded' || processOutcome.exitCode !== 0) {
+    if (effectiveProcessStatus !== 'succeeded' || processOutcome.exitCode !== 0) {
       const mapping = {
         cancelled: ['cancelled', ProjectChangeRuntimeErrorCode.TEST_CANCELLED],
         timed_out: ['timed_out', ProjectChangeRuntimeErrorCode.TEST_TIMED_OUT],
         orphaned: ['orphaned', ProjectChangeRuntimeErrorCode.TEST_ORPHANED],
       };
-      const [status, code] = mapping[processOutcome.terminalStatus]
+      const [status, code] = mapping[effectiveProcessStatus]
         ?? ['failed', ProjectChangeRuntimeErrorCode.TEST_FAILED];
       stop = { status, code };
     }

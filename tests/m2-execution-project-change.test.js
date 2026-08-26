@@ -129,6 +129,7 @@ function successfulProcess() {
       });
       return {
         terminalStatus: 'succeeded',
+        processGroupState: 'empty',
         exitCode: 0,
         signal: null,
         stdoutDigest: sha(Buffer.alloc(0)),
@@ -152,6 +153,7 @@ function successfulMutatingProcess(mutate) {
       mutate();
       return {
         terminalStatus: 'succeeded',
+        processGroupState: 'empty',
         exitCode: 0,
         signal: null,
         stdoutDigest: sha(Buffer.alloc(0)),
@@ -174,6 +176,7 @@ function failingProcess() {
       });
       return {
         terminalStatus: 'failed',
+        processGroupState: 'empty',
         exitCode: 7,
         signal: null,
         stdoutDigest: sha(Buffer.from('failed')),
@@ -314,6 +317,76 @@ await testAsync('real two-file write and focused test produce one durable succes
     assert.equal(prepared.effectRepository.getEffectResult(result.focusedTest.effectId).terminalStatus, 'succeeded');
     assert.equal(prepared.executionRepository.listEvents(result.executionId)
       .filter(event => event.type === 'phase_applied').length, 2);
+    prepared.db.close();
+  } finally {
+    cleanup(root);
+  }
+});
+
+await testAsync('orphaned provider outcome keeps durable process outstanding and never records termination', async () => {
+  const root = makeProject();
+  try {
+    const prepared = await prepare(root, { twoFiles: false });
+    const processProvider = Object.freeze({
+      async execute({ onSupervisor }) {
+        onSupervisor({
+          pid: 6299,
+          processGroupId: 6299,
+          bootId: '11111111-1111-4111-8111-111111111111',
+          startIdentity: '399',
+        });
+        return {
+          terminalStatus: 'orphaned',
+          processGroupState: 'alive',
+          exitCode: null,
+          signal: null,
+          stdoutDigest: sha(Buffer.alloc(0)),
+          stderrDigest: sha(Buffer.alloc(0)),
+          outputTruncated: false,
+          lateCompletionRejected: true,
+          cleanup: { groupState: 'alive', childClosed: false },
+        };
+      },
+    });
+    await assert.rejects(() => executeProjectChange({
+      executionId: prepared.plan.request.executionId,
+      grants: prepared.grants,
+      focusedEnvironment: prepared.environment,
+    }, dependencies(prepared, root, processProvider)), error => (
+      error.code === ProjectChangeRuntimeErrorCode.PROCESS_RECOVERY_UNRESOLVED
+    ));
+    const executionId = prepared.plan.request.executionId;
+    assert.equal(prepared.executionRepository.getResult(executionId), null);
+    assert.equal(prepared.executionRepository.listEvents(executionId)
+      .filter(event => event.type === 'process_terminated').length, 0);
+    assert.equal(prepared.executionRepository.listOutstandingProcesses(executionId).length, 1);
+    assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 2;\n');
+
+    prepared.advance(120_000);
+    const recovered = await executeProjectChange({
+      executionId,
+      focusedEnvironment: prepared.environment,
+    }, dependencies(
+      prepared,
+      root,
+      { async execute() { throw new Error('recovery must not rerun focused test'); } },
+      OWNER_TWO,
+      { isProvablyDead: () => true },
+      null,
+      async () => ({
+        authority: 'linux-pidfd-v1',
+        status: 'terminated',
+        reason: 'owned_group_reaped',
+        identityMatched: true,
+        termSent: true,
+        killSent: false,
+        groupState: 'empty',
+      }),
+    ));
+    assert.equal(recovered.terminalStatus, 'orphaned');
+    assert.equal(recovered.rollback.status, 'succeeded');
+    assert.equal(prepared.executionRepository.listOutstandingProcesses(executionId).length, 0);
+    assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 1;\n');
     prepared.db.close();
   } finally {
     cleanup(root);
@@ -635,6 +708,7 @@ await testAsync('SIGKILL after Git index update is completed by generation-two r
           const empty = 'sha256:' + createHash('sha256').update(Buffer.alloc(0)).digest('hex');
           return {
             terminalStatus: 'succeeded', exitCode: 0, signal: null,
+            processGroupState: 'empty',
             stdoutDigest: empty, stderrDigest: empty,
             outputTruncated: false, lateCompletionRejected: false,
           };
@@ -1039,6 +1113,7 @@ await testAsync('restart reaps durable process authority before touching recover
         observedDuringProcessRecovery = fs.readFileSync(path.join(root, 'src/app.js'), 'utf8');
         assert.equal(processRecord.supervisorPid, 6301);
         return {
+          authority: 'linux-pidfd-v1',
           status: 'terminated',
           reason: 'owned_group_reaped',
           identityMatched: true,

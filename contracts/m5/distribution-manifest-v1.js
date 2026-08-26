@@ -17,7 +17,7 @@ export const M5_DISTRIBUTION_MANIFEST = Object.freeze({
   ]),
   rootFiles: Object.freeze(['package.json']),
   contentExtensions: Object.freeze([
-    '.cjs', '.css', '.html', '.js', '.json', '.mjs', '.sh', '.toml',
+    '.cjs', '.css', '.html', '.js', '.json', '.mjs', '.py', '.sh', '.toml',
     '.ts', '.tsx', '.yaml', '.yml',
   ]),
 });

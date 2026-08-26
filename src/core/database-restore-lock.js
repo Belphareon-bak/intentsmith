@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 const LOCK_CONTRACT = 'IntentSmithDatabaseRestoreLock';
 const LOCK_VERSION = 1;
 const MAX_LOCK_BYTES = 16 * 1024;
+const FUSER_PATH = '/usr/bin/fuser';
 
 export class DatabaseRestoreLockError extends Error {
   constructor(code, message, details = {}) {
@@ -316,7 +317,7 @@ function censusError(message) {
 
 function censusDatabaseFiles(paths, opts = {}) {
   if (opts.censusDatabaseFiles) return opts.censusDatabaseFiles(paths);
-  const result = spawnSync('fuser', ['-s', ...paths], {
+  const result = spawnSync(FUSER_PATH, ['-s', ...paths], {
     encoding: 'utf8',
     timeout: 10_000,
     windowsHide: true,

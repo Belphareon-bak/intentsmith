@@ -1,17 +1,23 @@
-import { readFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
-const POLL_INTERVAL_MS = 20;
-const BOOT_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-
-function delay(milliseconds) {
-  return new Promise(resolve => setTimeout(resolve, milliseconds));
-}
-
-function safeError(error) {
-  const code = typeof error?.code === 'string' ? error.code : 'ERROR';
-  const message = typeof error?.message === 'string' ? error.message : String(error);
-  return `${code}:${message}`.slice(0, 512);
-}
+const PYTHON_PATH = '/usr/bin/python3';
+const PIDFD_HELPER_PATH = fileURLToPath(
+  new URL('../../scripts/process-recovery-pidfd.py', import.meta.url),
+);
+const PIDFD_HELPER_CONTRACT = 'IntentSmithProcessRecoveryPidfdV1';
+const PIDFD_AUTHORITY = 'linux-pidfd-v1';
+const execFileAsync = promisify(execFile);
+const OUTCOME_KEYS = Object.freeze([
+  'authority',
+  'groupState',
+  'identityMatched',
+  'killSent',
+  'reason',
+  'status',
+  'termSent',
+]);
 
 function requireProcessRecord(value) {
   const valid = value
@@ -31,76 +37,75 @@ function requireProcessRecord(value) {
   return value;
 }
 
-function parseLinuxProcStat(statText) {
-  if (typeof statText !== 'string') throw new TypeError('process-recovery:invalid-proc-stat');
-  const closeParen = statText.lastIndexOf(')');
-  if (closeParen < 0) throw new TypeError('process-recovery:invalid-proc-stat');
-  const fieldsFromState = statText.slice(closeParen + 2).trim().split(/\s+/);
-  const processGroupId = Number(fieldsFromState[2]);
-  const startIdentity = fieldsFromState[19];
-  if (!Number.isSafeInteger(processGroupId) || processGroupId <= 0
-    || !/^\d+$/.test(startIdentity || '')) {
-    throw new TypeError('process-recovery:invalid-proc-stat');
-  }
-  return Object.freeze({ processGroupId, startIdentity });
-}
-
-function observeProcessGroup(processGroupId, kill = process.kill) {
-  try {
-    kill(-processGroupId, 0);
-    return 'alive';
-  } catch (error) {
-    if (error?.code === 'ESRCH') return 'empty';
-    return 'unknown';
-  }
-}
-
-function signalProcessGroup(processGroupId, signal, kill = process.kill) {
-  try {
-    kill(-processGroupId, signal);
-    return true;
-  } catch (error) {
-    if (error?.code === 'ESRCH') return false;
-    return null;
-  }
-}
-
-async function waitForEmptyProcessGroup(processGroupId, timeoutMs, dependencies) {
-  const now = dependencies.now ?? Date.now;
-  const wait = dependencies.delay ?? delay;
-  const deadline = now() + timeoutMs;
-  let state = observeProcessGroup(processGroupId, dependencies.kill);
-  while (state === 'alive' && now() < deadline) {
-    await wait(POLL_INTERVAL_MS);
-    state = observeProcessGroup(processGroupId, dependencies.kill);
-  }
-  return state;
-}
-
-function outcome(status, reason, values = {}) {
+function unresolved(reason) {
   return Object.freeze({
-    status,
+    authority: PIDFD_AUTHORITY,
+    status: 'unresolved',
     reason,
     identityMatched: false,
     termSent: false,
     killSent: false,
     groupState: 'unknown',
-    ...values,
   });
 }
 
+function validatePidfdOutcome(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  if (JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(OUTCOME_KEYS)) return null;
+  if (value.authority !== PIDFD_AUTHORITY) return null;
+  if (!['terminated', 'already_terminated', 'unresolved'].includes(value.status)) return null;
+  if (typeof value.reason !== 'string' || !/^[a-z0-9_]{1,96}$/.test(value.reason)) return null;
+  if (typeof value.identityMatched !== 'boolean'
+    || typeof value.termSent !== 'boolean'
+    || typeof value.killSent !== 'boolean') return null;
+  if (!['alive', 'empty', 'unknown', 'not_observed'].includes(value.groupState)) return null;
+  if (value.status === 'terminated' && (
+    value.identityMatched !== true
+    || value.groupState !== 'empty'
+    || (!value.termSent && !value.killSent)
+  )) return null;
+  if (value.status === 'already_terminated' && (value.termSent || value.killSent)) return null;
+  return Object.freeze({ ...value });
+}
+
+async function runPidfdRecovery(record, { termGraceMs, killGraceMs } = {}) {
+  try {
+    const { stdout, stderr } = await execFileAsync(PYTHON_PATH, [
+      PIDFD_HELPER_PATH,
+      String(record.supervisorPid),
+      String(record.processGroupId),
+      record.ownerBootId,
+      record.ownerStartIdentity,
+      String(termGraceMs),
+      String(killGraceMs),
+      PIDFD_HELPER_CONTRACT,
+    ], {
+      encoding: 'utf8',
+      timeout: termGraceMs + killGraceMs + 5_000,
+      maxBuffer: 16 * 1024,
+      windowsHide: true,
+      env: {},
+    });
+    if (stderr !== '') return unresolved('pidfd_helper_stderr');
+    const lines = stdout.trim().split('\n');
+    if (lines.length !== 1) return unresolved('pidfd_helper_output_invalid');
+    const parsed = validatePidfdOutcome(JSON.parse(lines[0]));
+    return parsed || unresolved('pidfd_helper_output_invalid');
+  } catch {
+    return unresolved('pidfd_helper_unavailable');
+  }
+}
+
 /**
- * Reconcile one process previously persisted by the M2 sandbox provider.
- * Never signal from PID/PGID alone: boot ID, /proc start time and the exact
- * leader/group identity must all match first.
+ * Reconcile one durable supervisor through a helper that keeps a Linux pidfd
+ * open from identity verification through group signalling and final census.
+ * No production path signals a numeric PID or PGID after a detached /proc
+ * check.
  */
 export async function reconcileOwnedProcess(recordValue, {
-  readFile: read = readFile,
-  kill = process.kill,
-  now = Date.now,
-  delay: wait = delay,
   termGraceMs = 500,
   killGraceMs = 3_000,
+  pidfdReaper = runPidfdRecovery,
 } = {}) {
   const record = requireProcessRecord(recordValue);
   for (const [name, value] of Object.entries({ termGraceMs, killGraceMs })) {
@@ -108,86 +113,22 @@ export async function reconcileOwnedProcess(recordValue, {
       throw new TypeError(`process-recovery:invalid-${name}`);
     }
   }
-
-  let bootId;
+  if (typeof pidfdReaper !== 'function') {
+    throw new TypeError('process-recovery:invalid-pidfd-reaper');
+  }
+  let candidate;
   try {
-    bootId = (await read('/proc/sys/kernel/random/boot_id', 'utf8')).trim();
-  } catch (error) {
-    return outcome('unresolved', 'boot_id_unavailable', { error: safeError(error) });
+    candidate = await pidfdReaper(record, { termGraceMs, killGraceMs });
+  } catch {
+    return unresolved('pidfd_helper_unavailable');
   }
-  if (!BOOT_ID_PATTERN.test(bootId)) return outcome('unresolved', 'boot_id_invalid');
-  if (bootId !== record.ownerBootId) {
-    return outcome('already_terminated', 'boot_changed', { groupState: 'not_observed' });
-  }
-
-  let observed;
-  try {
-    observed = parseLinuxProcStat(await read(`/proc/${record.supervisorPid}/stat`, 'utf8'));
-  } catch (error) {
-    if (error?.code !== 'ENOENT') {
-      return outcome('unresolved', 'proc_identity_unavailable', { error: safeError(error) });
-    }
-    const groupState = observeProcessGroup(record.processGroupId, kill);
-    return groupState === 'empty'
-      ? outcome('already_terminated', 'process_group_empty', { groupState })
-      : outcome('unresolved', 'leader_missing_group_not_empty', { groupState });
-  }
-
-  if (observed.startIdentity !== record.ownerStartIdentity) {
-    // Linux cannot reuse this PID while the old process group ID still exists.
-    // The observed PID is different authority and must not be signalled.
-    return outcome('already_terminated', 'pid_identity_replaced', { groupState: 'not_observed' });
-  }
-  if (record.supervisorPid !== record.processGroupId
-    || observed.processGroupId !== record.processGroupId) {
-    return outcome('unresolved', 'process_group_identity_mismatch', {
-      identityMatched: true,
-      groupState: 'not_observed',
-    });
-  }
-
-  const dependencies = { kill, now, delay: wait };
-  let groupState = observeProcessGroup(record.processGroupId, kill);
-  if (groupState === 'empty') {
-    return outcome('already_terminated', 'process_group_empty', {
-      identityMatched: true,
-      groupState,
-    });
-  }
-  if (groupState !== 'alive') {
-    return outcome('unresolved', 'process_group_unobservable', {
-      identityMatched: true,
-      groupState,
-    });
-  }
-
-  const termSent = signalProcessGroup(record.processGroupId, 'SIGTERM', kill) === true;
-  groupState = await waitForEmptyProcessGroup(record.processGroupId, termGraceMs, dependencies);
-  let killSent = false;
-  if (groupState !== 'empty') {
-    killSent = signalProcessGroup(record.processGroupId, 'SIGKILL', kill) === true;
-    groupState = await waitForEmptyProcessGroup(record.processGroupId, killGraceMs, dependencies);
-  }
-  return groupState === 'empty'
-    ? outcome('terminated', 'owned_group_reaped', {
-      identityMatched: true,
-      termSent,
-      killSent,
-      groupState,
-    })
-    : outcome('unresolved', 'owned_group_not_reaped', {
-      identityMatched: true,
-      termSent,
-      killSent,
-      groupState,
-    });
+  return validatePidfdOutcome(candidate) || unresolved('pidfd_helper_output_invalid');
 }
 
 export const _testInternals = Object.freeze({
-  observeProcessGroup,
-  parseLinuxProcStat,
-  signalProcessGroup,
-  waitForEmptyProcessGroup,
+  PIDFD_HELPER_PATH,
+  runPidfdRecovery,
+  validatePidfdOutcome,
 });
 
 export default reconcileOwnedProcess;

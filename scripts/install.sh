@@ -230,6 +230,21 @@ else
   echo "       Install: sudo apt install util-linux"
   ERRORS=$((ERRORS + 1))
 fi
+if [ -x /usr/bin/python3 ] &&
+   /usr/bin/python3 -c 'import os; raise SystemExit(0 if hasattr(os, "pidfd_open") else 1)' >/dev/null 2>&1; then
+  ok "Python pidfd recovery authority found at /usr/bin/python3"
+else
+  fail "Python 3 with Linux pidfd support is required for crash recovery"
+  echo "       Install: sudo apt install python3"
+  ERRORS=$((ERRORS + 1))
+fi
+if [ -x /usr/bin/fuser ]; then
+  ok "fuser database holder census found at /usr/bin/fuser"
+else
+  fail "fuser is required for fail-closed offline database restore"
+  echo "       Install: sudo apt install psmisc"
+  ERRORS=$((ERRORS + 1))
+fi
 
 echo ""
 

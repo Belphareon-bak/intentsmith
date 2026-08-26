@@ -551,6 +551,16 @@ export function createM2LifecycleApplicationService(dependencyValues) {
   let recoveryCensusAttempts = 0;
   let recoveryCensusLastAttemptAt = null;
   let recoveryCensusLastErrorCode = null;
+  const recoveryExecutionAuthority = Symbol('m2-recovery-execution-authority');
+
+  function requireRecoveryCensusComplete(authority = null) {
+    if (!recoveryCensusComplete && authority !== recoveryExecutionAuthority) {
+      fail(
+        M2LifecycleServiceErrorCode.RECOVERY_INCOMPLETE,
+        'Startup lifecycle recovery census has not completed',
+      );
+    }
+  }
 
   async function resolveProject(projectId) {
     if (!Number.isSafeInteger(projectId) || projectId < 1) {
@@ -592,12 +602,7 @@ export function createM2LifecycleApplicationService(dependencyValues) {
   }
 
   async function prepareSmallProjectChange({ authenticatedSubject, projectId, origin, proposal, signal = null }) {
-    if (!recoveryCensusComplete) {
-      fail(
-        M2LifecycleServiceErrorCode.RECOVERY_INCOMPLETE,
-        'Startup lifecycle recovery census has not completed',
-      );
-    }
+    requireRecoveryCensusComplete();
     const actor = requireSubject(authenticatedSubject);
     const compiled = compileM2ProjectChangeProposal(proposal);
     const transportOrigin = normalizeOrigin(origin, projectId);
@@ -891,7 +896,8 @@ export function createM2LifecycleApplicationService(dependencyValues) {
     return terminal;
   }
 
-  async function runApproved(plan, approval, grantSet, signal = null) {
+  async function runApproved(plan, approval, grantSet, signal = null, recoveryAuthority = null) {
+    requireRecoveryCensusComplete(recoveryAuthority);
     const lifecycleId = plan.identity.lifecycleId;
     const existing = activeRuns.get(lifecycleId);
     if (existing) return existing.promise;
@@ -935,6 +941,7 @@ export function createM2LifecycleApplicationService(dependencyValues) {
     const { plan } = owned;
     const existingTerminal = lifecycleRepository.getTerminal(lifecycleId);
     if (existingTerminal) return statusView(lifecycleId);
+    requireRecoveryCensusComplete();
     if (planDigest !== computeM2LifecyclePlanSnapshotDigest(plan)) {
       fail(M2LifecycleServiceErrorCode.PLAN_DIGEST_MISMATCH, 'Approval does not name the exact current plan');
     }
@@ -1080,7 +1087,7 @@ export function createM2LifecycleApplicationService(dependencyValues) {
           if (durableGrantSet) {
             // Complete durable issuance is the execution authority. Approval
             // expiry cannot relabel an already-started or recovery-only run.
-            await runApproved(plan, approval, durableGrantSet);
+            await runApproved(plan, approval, durableGrantSet, null, recoveryExecutionAuthority);
           } else if (clock() >= Date.parse(approval.expiresAt)) {
             // A crash after durable approval but before the complete grant-set
             // must not wedge the startup census forever. Revoke any partial,
@@ -1101,7 +1108,7 @@ export function createM2LifecycleApplicationService(dependencyValues) {
             lifecycleRepository.recordTerminal({ lifecycleId: plan.identity.lifecycleId, terminal });
           } else {
             const grantSet = ensureGrantSet(plan, approval);
-            await runApproved(plan, approval, grantSet);
+            await runApproved(plan, approval, grantSet, null, recoveryExecutionAuthority);
           }
         }
         recovered.push(statusView(plan.identity.lifecycleId));

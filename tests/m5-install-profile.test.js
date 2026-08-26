@@ -141,6 +141,11 @@ test('core preflight requires the exact process containment toolchain', () => {
   const source = readFileSync(installer, 'utf8');
   assert.match(source, /\[ -x \/usr\/bin\/bwrap \]/);
   assert.match(source, /\[ -x \/usr\/bin\/prlimit \]/);
+  assert.match(source, /\[ -x \/usr\/bin\/python3 \]/);
+  assert.match(source, /hasattr\(os, "pidfd_open"\)/);
+  assert.match(source, /\[ -x \/usr\/bin\/fuser \]/);
   assert.match(source, /bubblewrap is required for governed process execution/);
   assert.match(source, /prlimit is required for governed process resource ceilings/);
+  assert.match(source, /Python 3 with Linux pidfd support is required for crash recovery/);
+  assert.match(source, /fuser is required for fail-closed offline database restore/);
 });

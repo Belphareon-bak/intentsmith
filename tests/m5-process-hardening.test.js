@@ -21,16 +21,7 @@ import {
 import { LINUX_BWRAP_READ_ONLY_PROFILE } from '../src/execution/process-supervisor-child.js';
 
 const REPOSITORY_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const BOOT_ID = '11111111-1111-4111-8111-111111111111';
-
-function procStat(pid, processGroupId, startIdentity) {
-  const fields = Array(20).fill('0');
-  fields[0] = 'S';
-  fields[1] = '1';
-  fields[2] = String(processGroupId);
-  fields[19] = String(startIdentity);
-  return `${pid} (owned supervisor) ${fields.join(' ')}`;
-}
+const CURRENT_BOOT_ID = readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim();
 
 function record(overrides = {}) {
   return {
@@ -39,30 +30,19 @@ function record(overrides = {}) {
     effectId: 'effect:test',
     supervisorPid: 43210,
     processGroupId: 43210,
-    ownerBootId: BOOT_ID,
+    ownerBootId: CURRENT_BOOT_ID,
     ownerStartIdentity: '777',
     ...overrides,
   };
 }
 
-function readProc({ bootId = BOOT_ID, stat = procStat(43210, 43210, 777), statError = null } = {}) {
-  return async candidate => {
-    if (candidate.endsWith('/boot_id')) return `${bootId}\n`;
-    if (statError) throw statError;
-    return stat;
-  };
-}
-
-function missingProcessError() {
-  const error = new Error('gone');
-  error.code = 'ENOENT';
-  return error;
-}
-
-function noSuchProcess() {
-  const error = new Error('gone');
-  error.code = 'ESRCH';
-  return error;
+function observeProcessGroup(processGroupId) {
+  try {
+    process.kill(-processGroupId, 0);
+    return 'alive';
+  } catch (error) {
+    return error?.code === 'ESRCH' ? 'empty' : 'unknown';
+  }
 }
 
 function processSpec(projectRoot, scriptPath, timeoutMs = 5_000) {
@@ -84,103 +64,72 @@ function processSpec(projectRoot, scriptPath, timeoutMs = 5_000) {
 
 suite('M5 process hardening');
 
-test('proc stat parser binds process group and Linux start identity', () => {
-  assert.deepEqual(
-    recoveryInternals.parseLinuxProcStat(procStat(123, 123, 9999)),
-    { processGroupId: 123, startIdentity: '9999' },
-  );
-  assert.throws(() => recoveryInternals.parseLinuxProcStat('malformed'), /invalid-proc-stat/);
+test('production recovery pins pidfd before identity verification and contains no detached numeric kill path', () => {
+  const helper = readFileSync(recoveryInternals.PIDFD_HELPER_PATH, 'utf8');
+  const recovery = readFileSync(path.join(REPOSITORY_ROOT, 'src/execution/process-recovery.js'), 'utf8');
+  const pidfdOpen = helper.indexOf('os.pidfd_open(pid, 0)');
+  const identityRead = helper.indexOf('read_proc_identity(pid)', pidfdOpen);
+  const signalGroup = helper.indexOf('send_group(pgid, signal.SIGTERM)', identityRead);
+  assert.ok(pidfdOpen > 0);
+  assert.ok(identityRead > pidfdOpen);
+  assert.ok(signalGroup > identityRead);
+  assert.equal(recovery.includes('process.kill'), false);
+  assert.equal(recovery.includes('kill(-'), false);
 });
 
 await testAsync('boot change proves the recorded process dead without signalling a reused PID', async () => {
-  let signals = 0;
-  const result = await reconcileOwnedProcess(record(), {
-    readFile: readProc({ bootId: '22222222-2222-4222-8222-222222222222' }),
-    kill() { signals += 1; },
-  });
+  const result = await reconcileOwnedProcess(record({
+    ownerBootId: '22222222-2222-4222-8222-222222222222',
+  }));
   assert.equal(result.status, 'already_terminated');
   assert.equal(result.reason, 'boot_changed');
-  assert.equal(signals, 0);
+  assert.equal(result.termSent, false);
+  assert.equal(result.killSent, false);
+  assert.equal(result.authority, 'linux-pidfd-v1');
 });
 
 await testAsync('PID reuse is not treated as authority to signal a foreign process', async () => {
-  const signals = [];
-  const result = await reconcileOwnedProcess(record(), {
-    readFile: readProc({ stat: procStat(43210, 43210, 778) }),
-    kill(pid, signal) { signals.push([pid, signal]); },
+  const child = spawn(process.execPath, [
+    '-e',
+    "process.stdout.write('ready');setInterval(()=>{},1000)",
+  ], {
+    detached: true,
+    shell: false,
+    stdio: ['ignore', 'pipe', 'ignore'],
   });
-  assert.equal(result.status, 'already_terminated');
-  assert.equal(result.reason, 'pid_identity_replaced');
-  assert.deepEqual(signals, []);
-});
+  try {
+    await new Promise((resolve, reject) => {
+      child.once('error', reject);
+      child.stdout.once('data', resolve);
+    });
+    const identity = await sandboxInternals.readLinuxSupervisorIdentity(child.pid);
+    const result = await reconcileOwnedProcess(record({
+      supervisorPid: identity.supervisorPid,
+      processGroupId: identity.supervisorPgid,
+      ownerBootId: identity.supervisorBootId,
+      ownerStartIdentity: String(Number(identity.supervisorStartIdentity) + 1),
+    }));
+    assert.equal(result.status, 'already_terminated');
+    assert.equal(result.reason, 'pid_identity_replaced');
+    assert.equal(result.termSent, false);
+    assert.equal(result.killSent, false);
+    assert.equal(observeProcessGroup(child.pid), 'alive');
+  } finally {
+    try { process.kill(-child.pid, 'SIGKILL'); } catch { /* test-owned group already exited */ }
+  }
+}, 10_000);
 
-await testAsync('missing leader with a live group is unresolved and never signalled', async () => {
-  const calls = [];
-  const result = await reconcileOwnedProcess(record(), {
-    readFile: readProc({ statError: missingProcessError() }),
-    kill(pid, signal) {
-      calls.push([pid, signal]);
-      if (signal === 0) return;
-      throw new Error('unexpected signal');
-    },
+await testAsync('missing or malformed pidfd authority is fail-closed', async () => {
+  const thrown = await reconcileOwnedProcess(record(), {
+    pidfdReaper: async () => { throw new Error('pidfd denied'); },
   });
-  assert.equal(result.status, 'unresolved');
-  assert.equal(result.reason, 'leader_missing_group_not_empty');
-  assert.deepEqual(calls, [[-43210, 0]]);
-});
-
-await testAsync('unreadable ownership identity is fail-closed without a signal', async () => {
-  const denied = new Error('denied');
-  denied.code = 'EACCES';
-  let signals = 0;
-  const result = await reconcileOwnedProcess(record(), {
-    readFile: readProc({ statError: denied }),
-    kill() { signals += 1; },
+  assert.equal(thrown.status, 'unresolved');
+  assert.equal(thrown.reason, 'pidfd_helper_unavailable');
+  const malformed = await reconcileOwnedProcess(record(), {
+    pidfdReaper: async () => ({ status: 'terminated', groupState: 'empty' }),
   });
-  assert.equal(result.status, 'unresolved');
-  assert.equal(result.reason, 'proc_identity_unavailable');
-  assert.equal(signals, 0);
-});
-
-await testAsync('exact owned identity reaps its group with TERM before continuing recovery', async () => {
-  let alive = true;
-  const calls = [];
-  const result = await reconcileOwnedProcess(record(), {
-    readFile: readProc(),
-    kill(pid, signal) {
-      calls.push([pid, signal]);
-      if (!alive) throw noSuchProcess();
-      if (signal === 'SIGTERM') alive = false;
-    },
-    delay: async () => {},
-  });
-  assert.equal(result.status, 'terminated');
-  assert.equal(result.identityMatched, true);
-  assert.equal(result.groupState, 'empty');
-  assert.equal(result.termSent, true);
-  assert.equal(result.killSent, false);
-  assert.deepEqual(calls.slice(0, 2), [[-43210, 0], [-43210, 'SIGTERM']]);
-});
-
-await testAsync('TERM-resistant exact group escalates to KILL and must become empty', async () => {
-  let alive = true;
-  const signals = [];
-  let time = 0;
-  const result = await reconcileOwnedProcess(record(), {
-    readFile: readProc(),
-    kill(_pid, signal) {
-      if (!alive) throw noSuchProcess();
-      if (signal !== 0) signals.push(signal);
-      if (signal === 'SIGKILL') alive = false;
-    },
-    now: () => time,
-    delay: async milliseconds => { time += milliseconds; },
-    termGraceMs: 20,
-    killGraceMs: 20,
-  });
-  assert.equal(result.status, 'terminated');
-  assert.equal(result.killSent, true);
-  assert.deepEqual(signals, ['SIGTERM', 'SIGKILL']);
+  assert.equal(malformed.status, 'unresolved');
+  assert.equal(malformed.reason, 'pidfd_helper_output_invalid');
 });
 
 await testAsync('real detached TERM-resistant owned group is reaped by exact restart recovery', async () => {
@@ -208,10 +157,11 @@ await testAsync('real detached TERM-resistant owned group is reaped by exact res
       ownerStartIdentity: identity.supervisorStartIdentity,
     }), { termGraceMs: 50, killGraceMs: 3_000 });
     assert.equal(result.status, 'terminated');
+    assert.equal(result.authority, 'linux-pidfd-v1');
     assert.equal(result.identityMatched, true);
     assert.equal(result.killSent, true);
     await closed;
-    assert.equal(recoveryInternals.observeProcessGroup(identity.supervisorPgid), 'empty');
+    assert.equal(observeProcessGroup(identity.supervisorPgid), 'empty');
   } finally {
     try { process.kill(-child.pid, 'SIGKILL'); } catch { /* already reaped */ }
   }

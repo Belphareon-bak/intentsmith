@@ -202,6 +202,7 @@ function terminalResult({
   signal = null,
   supervisorIdentity = null,
   cleanup = null,
+  processGroupState = cleanup?.groupState ?? 'unknown',
   output = emptyOutputEvidence(),
 }) {
   return Object.freeze({
@@ -214,6 +215,7 @@ function terminalResult({
     sandboxProfile: LINUX_BWRAP_READ_ONLY_PROFILE,
     supervisorIdentity,
     cleanup,
+    processGroupState,
     ...output,
   });
 }
@@ -666,6 +668,7 @@ export function createProcessSandboxProvider({
           signal: message.signal,
           supervisorIdentity,
           cleanup,
+          processGroupState: groupState,
           output,
         });
       }
@@ -677,6 +680,7 @@ export function createProcessSandboxProvider({
           signal: message.signal,
           supervisorIdentity,
           cleanup,
+          processGroupState: groupState,
           output,
         });
       }
@@ -688,6 +692,7 @@ export function createProcessSandboxProvider({
         signal: null,
         supervisorIdentity,
         cleanup,
+        processGroupState: groupState,
         output,
       });
     },

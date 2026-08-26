@@ -56,7 +56,7 @@ npm install -g npm@10.9.4
 
 # Systemove zavislosti
 sudo apt update
-sudo apt install -y git python3.12 python3.12-venv build-essential curl fonts-dejavu-core
+sudo apt install -y git python3 python3.12 python3.12-venv build-essential curl fonts-dejavu-core psmisc
 
 # Yarn pro C3 Studio
 npm install -g yarn@1.22.22
@@ -76,7 +76,7 @@ nvm use 22
 npm install -g npm@10.9.4
 
 # Systemove zavislosti
-sudo dnf install -y git python3.12 gcc gcc-c++ make curl dejavu-sans-fonts
+sudo dnf install -y git python3 python3.12 gcc gcc-c++ make curl dejavu-sans-fonts psmisc
 
 # Yarn pro C3 Studio
 npm install -g yarn@1.22.22

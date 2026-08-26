@@ -87,6 +87,7 @@ function processWithTokenExists(token) {
 function assertCleanTerminal(result, terminalStatus) {
   assert.equal(result.state, 'terminal');
   assert.equal(result.terminalStatus, terminalStatus);
+  assert.equal(result.processGroupState, 'empty');
   assert.equal(result.supervisorIdentity.supervisorPid, result.supervisorIdentity.supervisorPgid);
   assert.equal(_testInternals.observeProcessGroup(result.supervisorIdentity.supervisorPgid), 'empty');
 }

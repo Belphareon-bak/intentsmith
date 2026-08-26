@@ -266,6 +266,64 @@ await testAsync('production lifecycle commits a governed non-manifest file with 
   }
 }, 60_000);
 
+await testAsync('restart census fences approval of an existing plan before grants or project effects', async () => {
+  const root = makeProject();
+  const db = openDatabase();
+  const processProvider = Object.freeze({
+    async execute({ onSupervisor }) {
+      onSupervisor({
+        pid: 8199,
+        processGroupId: 8199,
+        bootId: '11111111-1111-4111-8111-111111111111',
+        startIdentity: '999',
+      });
+      return {
+        terminalStatus: 'succeeded',
+        processGroupState: 'empty',
+        exitCode: 0,
+        signal: null,
+        stdoutDigest: sha(Buffer.alloc(0)),
+        stderrDigest: sha(Buffer.alloc(0)),
+        outputTruncated: false,
+        lateCompletionRejected: false,
+      };
+    },
+  });
+  try {
+    const first = createService(db, root, makeClock(), { processProvider });
+    await first.recoverIncompleteSmallProjectChanges();
+    const planned = await prepare(first, proposal({ commit: false }));
+    const restarted = createService(db, root, makeClock(), { processProvider });
+
+    await assert.rejects(() => restarted.approveSmallProjectChange({
+      authenticatedSubject: SUBJECT,
+      lifecycleId: planned.lifecycleId,
+      planDigest: planned.planDigest,
+      origin: ORIGIN,
+    }), error => error.code === M2LifecycleServiceErrorCode.RECOVERY_INCOMPLETE);
+    const fenced = restarted.getSmallProjectChangeStatus({
+      authenticatedSubject: SUBJECT,
+      lifecycleId: planned.lifecycleId,
+      origin: ORIGIN,
+    });
+    assert.equal(fenced.approval, null);
+    assert.equal(fenced.result, null);
+    assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 1;\n');
+
+    await restarted.recoverIncompleteSmallProjectChanges();
+    const completed = await restarted.approveSmallProjectChange({
+      authenticatedSubject: SUBJECT,
+      lifecycleId: planned.lifecycleId,
+      planDigest: planned.planDigest,
+      origin: ORIGIN,
+    });
+    assert.equal(completed.state, 'succeeded');
+  } finally {
+    db.close();
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}, 60_000);
+
 await testAsync('type drift terminalizes and a restarted lifecycle recovery census completes', async () => {
   const root = makeProject();
   const authorityRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-m2-type-drift-'));
@@ -285,6 +343,7 @@ await testAsync('type drift terminalizes and a restarted lifecycle recovery cens
       fs.writeFileSync(path.join(targetPath, 'foreign.txt'), 'foreign directory bytes\n');
       return {
         terminalStatus: 'succeeded',
+        processGroupState: 'empty',
         exitCode: 0,
         signal: null,
         stdoutDigest: sha(Buffer.alloc(0)),
@@ -416,6 +475,7 @@ await testAsync('cancel during the focused process aborts execution, rolls bytes
       return new Promise(resolve => {
         const cancelled = () => resolve({
           terminalStatus: 'cancelled',
+          processGroupState: 'empty',
           exitCode: null,
           signal: 'SIGTERM',
           stdoutDigest: sha(Buffer.alloc(0)),
