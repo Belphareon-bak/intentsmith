@@ -1380,14 +1380,16 @@ dispozice. Exact fresh clone prošel offline dependency instalací, Electron ABI
 Studio buildem, artifact smoke, production health, deterministickým chatem a
 čistým shutdownem. Důkaz je v
 [`m5-package-20260826.md`](docs/execution/runs/m5-package-20260826.md).
-`WP-M5-DATA` je implementation-green v tomto kandidátu: V2 backup je
-immutable a content-addressed, používá přesné identity `schema_migrations` a
-má skutečný backup→poškození→offline restore→porovnání round-trip. Online
-connector fail-closed odkazuje na CLI; restore lock a Linux `/proc` kontrola
-brání výměně otevřené DB. Automatická obnova úmyslně vlastní jen SQLite;
-kódotvorné skills/specialists a konfigurace jsou označené `archival_only`.
-Legacy V1 zůstává listovatelný, ale bez přesného manifestu není automaticky
-obnovitelný. Product candidate a round-trip evidence jsou v
+`WP-M5-DATA` má review remediation implementovanou na product commitu
+`bcfa5c8d`; oddíl zůstává `RE_REVIEW_REQUIRED`. Backup nyní publikuje snapshot
+jen po exact úplném `wal_checkpoint(TRUNCATE)`. Restore vlastní celý
+`c3.db/c3.db-wal/c3.db-shm` file-set, před výměnou vytváří durable safety
+snapshot a nepřehraje novější stale WAL. Restore-lock identita i cílený Linux
+`fuser` holder census jsou fail-closed pro unknown/unreadable stav; stale
+cleanup používá karanténu a opakované inode/token ověření místo check→unlink.
+Nové adversariální regrese a širší kompatibilita jsou v
+[`m5-data-remediation-20260826.md`](docs/execution/runs/m5-data-remediation-20260826.md);
+původní round-trip důkaz zůstává v
 [`m5-data-20260826.md`](docs/execution/runs/m5-data-20260826.md).
 `WP-M5-AUTH` je implementation-green v tomto kandidátu. Jediný guard běží za
 exact route matchem a před každým handlerem; veřejné jsou pouze tři health/root
