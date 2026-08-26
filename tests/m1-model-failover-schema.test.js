@@ -391,8 +391,8 @@ suite('M1 model failover schema — exact migration contract');
 
 await testAsync('fresh file-backed DB creates all failover tables, indexes and triggers', async () => {
   await withMigratedDb(async (db) => {
-    // M2 rollback receipt migration 083 is the current repository schema tip.
-    assertEqual(getCurrentVersion(db), '2026_08_25_083_m2_effect_rollback_receipts');
+    // M4 plan evaluation migration 088 is the current repository schema tip.
+    assertEqual(getCurrentVersion(db), '2026_08_26_088_m4_learning_plan_evaluations');
 
     for (const table of [
       'model_desired_bindings',
@@ -695,7 +695,7 @@ await testAsync('second migration run is a no-op with an identical schema snapsh
     const before = schemaSnapshot(db);
     const result = await runMigrations(db);
     assertEqual(result.applied.length, 0);
-    assertEqual(result.skipped.length, 73);
+    assertEqual(result.skipped.length, 75);
     assertEqual(schemaSnapshot(db), before);
   });
 });
@@ -746,10 +746,12 @@ await testAsync('migration 054 preserves pre-existing success as unconfirmed evi
         '2026_08_24_081_m2_effect_result_semantic_authority_v2',
         '2026_08_25_082_m2_preexecution_approval_terminals',
         '2026_08_25_083_m2_effect_rollback_receipts',
+        '2026_08_26_087_m4_learning_authority',
+        '2026_08_26_088_m4_learning_plan_evaluations',
       ]),
     );
     assertEqual(result.skipped.length, 55);
-    assertEqual(getCurrentVersion(db), '2026_08_25_083_m2_effect_rollback_receipts');
+    assertEqual(getCurrentVersion(db), '2026_08_26_088_m4_learning_plan_evaluations');
     assertEqual(
       db.prepare(`
         SELECT COUNT(*) AS count

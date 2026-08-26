@@ -372,7 +372,10 @@ try {
   //   114 -> 115 M3 project-health agent adds one direct production-path
   //              suite. The canonical bootstrap still precedes its registry
   //              and repository imports.
-  const expectedDatabaseReachableRootTests = 115;
+  //   115 -> 116 M4 learning journey loads the production database to prove
+  //              the complete durable planner loop. The canonical bootstrap
+  //              establishes its isolated DB before the dynamic import.
+  const expectedDatabaseReachableRootTests = 116;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

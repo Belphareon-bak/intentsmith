@@ -5,6 +5,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createWriteStream } from 'node:fs';
 import {
+  chmod,
   mkdir,
   mkdtemp,
   readFile,
@@ -1112,6 +1113,7 @@ assert.deepEqual(
 
 const permissiveXauthority = path.join(toolchainRoot, 'xauthority-permissive');
 await writeFile(permissiveXauthority, 'permissive-xauthority', { mode: 0o644 });
+await chmod(permissiveXauthority, 0o644);
 process.env.INTENTSMITH_STUDIO_XAUTHORITY = permissiveXauthority;
 const permissiveXauthorityRun = await runToolchainFixture(
   'toolchain-permissive-xauthority',
