@@ -89,14 +89,15 @@ try {
     const { status, data } = await api('GET', '/api/security/webhook-secret');
     assertEqual(status, 200);
     assert(typeof data.configured === 'boolean', 'configured must be boolean');
+    assertEqual(data.persistence, 'environment_only');
+    assert(!Object.hasOwn(data, 'masked'), 'secret material must not be masked into the response');
   });
 
-  await testAsync('POST webhook-secret generates new secret', async () => {
+  await testAsync('POST webhook-secret rejects API generation and persistence', async () => {
     const { status, data } = await api('POST', '/api/security/webhook-secret');
-    assertEqual(status, 200);
-    assert(data.ok === true, 'ok flag required');
-    assert(data.masked, 'masked secret required');
-    assert(data.masked.startsWith('c3_'), 'masked should start with c3_');
+    assertEqual(status, 409);
+    assertEqual(data.code, 'M5_PRIVACY_WEBHOOK_SECRET_ENV_ONLY');
+    assert(!Object.hasOwn(data, 'masked'), 'rejection must not expose secret material');
   });
 
   // ── Sessions ──────────────────────────────────────────────────────────────

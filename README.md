@@ -8,8 +8,8 @@ fetch cesty bez deklarované autority selžou před spojením. Současný
 autoritativní C3 Studio runtime už neobsahuje implicitní Google Fonts egress.
 Spouštěné Studio UI je stále přechodný runtime, nikoli finální vzhled IntentSmithu.
 
-**Verze:** 136.1.0 | **455 registrovaných testovacích programů**
-(`358 ACTIVE`, `81 BLOCKED`, `0 KNOWN_DEFECTIVE`, `16 HISTORICAL`)
+**Verze:** 136.1.0 | **456 registrovaných testovacích programů**
+(`359 ACTIVE`, `81 BLOCKED`, `0 KNOWN_DEFECTIVE`, `16 HISTORICAL`)
 
 > **Stav: aktivní vývoj; M1 a M2 jsou přijaté.** M3 modulární platforma má
 > implementation-green candidate; oddíly 1–6 jsou review-passed a oprava
@@ -326,14 +326,14 @@ intentsmith/
 │   ├── report-gen.json           #   Generování reportů
 │   └── summarizer.json           #   Sumarizace textu
 │
-├── tests/                        # Testy a kanonický registr 455 programů
+├── tests/                        # Testy a kanonický registr 456 programů
 │   ├── harness.js                #   Custom ESM test harness
 │   ├── cre-*.test.js             #   CRE testy (401+)
 │   ├── lifecycle-*.test.js       #   Lifecycle testy (103+)
 │   ├── code-intel-*.test.js      #   Code Intelligence testy (339+)
 │   ├── execution-loop.test.js    #   Execution Engine testy (597+)
 │   ├── upgrade-*.test.js         #   Model Upgrade testy
-│   └── registry.json             #   Kanonický registr 455 programů
+│   └── registry.json             #   Kanonický registr 456 programů
 │
 ├── docs/                         # Aktivní dokumentace + archiv
 │   ├── ARCHITECTURE.md           #   Kompletní architektura

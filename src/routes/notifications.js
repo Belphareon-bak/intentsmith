@@ -20,7 +20,8 @@ export function createNotificationRoutes({ notificationRouter, notificationEmitt
           smtpHost: s['c3.notif.smtpHost'] || '',
           smtpPort: s['c3.notif.smtpPort'] || 587,
           smtpUser: s['c3.notif.smtpUser'] || '',
-          smtpPass: s['c3.notif.smtpPass'] ? '*****' : '',
+          smtpPass: process.env.C3_SMTP_PASS ? '*****' : '',
+          credentialPersistence: 'environment_only',
           smtpFrom: s['c3.notif.smtpFrom'] || '',
           emailRecipient: s['c3.notif.emailRecipient'] || '',
           emailOnLifecycle: s['c3.notif.emailOnLifecycle'] !== false,
@@ -35,6 +36,12 @@ export function createNotificationRoutes({ notificationRouter, notificationEmitt
     'POST /api/notifications/config': async (req, res) => {
       try {
         const body = await parseBody(req);
+        if (body && typeof body === 'object' && Object.hasOwn(body, 'smtpPass')) {
+          return sendJSON(res, 400, {
+            error: 'SMTP credentials are environment-only and cannot be persisted by the API.',
+            code: 'M5_PRIVACY_SMTP_CREDENTIAL_ENV_ONLY',
+          });
+        }
 
         // Validate email format
         if (body.emailRecipient && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.emailRecipient)) {
@@ -54,7 +61,6 @@ export function createNotificationRoutes({ notificationRouter, notificationEmitt
           smtpHost: 'c3.notif.smtpHost',
           smtpPort: 'c3.notif.smtpPort',
           smtpUser: 'c3.notif.smtpUser',
-          smtpPass: 'c3.notif.smtpPass',
           smtpFrom: 'c3.notif.smtpFrom',
           emailRecipient: 'c3.notif.emailRecipient',
           emailOnLifecycle: 'c3.notif.emailOnLifecycle',
@@ -66,6 +72,8 @@ export function createNotificationRoutes({ notificationRouter, notificationEmitt
             current[settingKey] = body[key];
           }
         }
+        delete current['c3.notif.smtpPass'];
+        delete current.webhookSecret;
 
         rawDb.prepare('INSERT OR REPLACE INTO user_settings (id, data, updated_at) VALUES (1, ?, datetime(\'now\'))').run(JSON.stringify(current));
 
@@ -75,13 +83,13 @@ export function createNotificationRoutes({ notificationRouter, notificationEmitt
             host: body.smtpHost,
             port: body.smtpPort,
             user: body.smtpUser,
-            pass: body.smtpPass !== '*****' ? body.smtpPass : undefined,
+            pass: process.env.C3_SMTP_PASS,
             from: body.smtpFrom,
           });
         }
         if (notificationEmitter) notificationEmitter.invalidateCache();
 
-        sendJSON(res, 200, { success: true });
+        sendJSON(res, 200, { success: true, credentialPersistence: 'environment_only' });
       } catch (err) {
         sendJSON(res, 500, { error: `Config save failed: ${err.message}` });
       }

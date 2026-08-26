@@ -11,6 +11,18 @@ import {
   stripReservedAutomationKeys,
   updateModelAutomationPolicy,
 } from '../db/model-policy.js';
+import { inspectM5UserSettingsPrivacy } from '../security/user-settings-privacy.js';
+
+function rejectSensitiveSettings(settings, sendJSON, res) {
+  const privacy = inspectM5UserSettingsPrivacy(settings);
+  if (privacy.valid) return false;
+  sendJSON(res, 400, {
+    error: 'Credential values are environment-only and cannot be persisted in user settings.',
+    code: 'M5_PRIVACY_PLAINTEXT_SETTING_FORBIDDEN',
+    forbiddenSettingCount: privacy.forbiddenPaths.length,
+  });
+  return true;
+}
 
 // H9: Settings, Health, Autocomplete, Audit, Logs routes
 const _fbRateMap = new Map(); // IP → last feedback timestamp (rate limit)
@@ -79,6 +91,7 @@ export function createMiscRoutes(deps) {
         // settings save into a 400 on installations whose document already has
         // `models`. Foreign keys inside `models` survive untouched.
         const { settings, ignoredReservedKeys } = stripReservedAutomationKeys(body);
+        if (rejectSensitiveSettings(settings, sendJSON, res)) return;
 
         db.db.prepare(`
           INSERT OR REPLACE INTO user_settings (id, data, updated_at)
@@ -123,6 +136,7 @@ export function createMiscRoutes(deps) {
           )
         `);
         const sanitized = stripReservedAutomationKeys(settings).settings;
+        if (rejectSensitiveSettings(sanitized, sendJSON, res)) return;
         const apply = db.db.transaction(() => {
           db.db.prepare(`
             INSERT OR REPLACE INTO user_settings (id, data, updated_at)

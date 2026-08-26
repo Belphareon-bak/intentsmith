@@ -67,6 +67,7 @@ const ROUTE_MODULES = [
   { file: 'src/routes/learning.js',     export: 'createLearningRoutes' },
   { file: 'src/routes/misc.js',         export: 'createMiscRoutes' },
   { file: 'src/routes/planner.js',      export: 'createPlannerRoutes' },
+  { file: 'src/routes/privacy.js',      export: 'createPrivacyRoutes' },
   { file: 'src/routes/projects.js',     export: 'createProjectRoutes' },
   { file: 'src/routes/specialists.js',  export: 'createSpecialistRoutes' },
 ];
@@ -121,6 +122,11 @@ const mockDeps = {
     weakenLearning: () => ({}),
     rollbackLearning: () => ({}),
     deleteLearning: () => ({}),
+  },
+  privacyAuthority: {
+    summary: () => ({}),
+    recordRotation: () => ({}),
+    recordHistory: () => ({}),
   },
   logger: { info: () => {}, warn: () => {}, error: () => {}, debug: () => {} },
   config: { features: {} },

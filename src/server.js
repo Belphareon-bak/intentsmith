@@ -165,6 +165,7 @@ import { createAutonomyRoutes } from './routes/autonomy.js';
 import { createSkillRoutes } from './routes/skills.js';
 import { createSystemRoutes } from './routes/system.js';
 import { createSecurityRoutes, validateApiToken } from './routes/security.js';
+import { createPrivacyRoutes } from './routes/privacy.js';
 import {
   assertGlobalAuthRouteTable,
   authorizeGlobalRequest,
@@ -185,6 +186,7 @@ import { creDecisionEngine } from './chat/cre-decision.js';
 import { toolRegistry } from './tools/registry.js';
 import { createDefaultM2LifecycleApplicationService } from './lifecycle/m2-lifecycle-application-service.js';
 import { createLearningApplicationService } from './memory/learning-application-service.js';
+import { M5PrivacyAuthorityRepository } from './security/privacy-authority-repository.js';
 
 // v85: FeatureManager — runtime feature flags (hot-toggle from IDE)
 import { featureManager } from './core/feature-manager.js';
@@ -961,6 +963,7 @@ const learningService = createLearningApplicationService({
   repository: db.learningAuthority,
   projects: db.projects,
 });
+const privacyAuthority = new M5PrivacyAuthorityRepository(db.db);
 routeDeps.productionObservability = productionObservability;
 routeDeps.m2LifecycleService = m2LifecycleService;
 let m2RecoveryFailureCount = 0;
@@ -1070,6 +1073,12 @@ const routes = {
 
   // v91: Security routes (auth guard, API tokens, audit, webhook)
   ...createSecurityRoutes(routeDeps),
+  ...createPrivacyRoutes({
+    privacyAuthority,
+    parseBody,
+    sendJSON,
+    safeError,
+  }),
 
   // v87: Notification routes (channels, test, log)
   ...createNotificationRoutes({ ...routeDeps, notificationRouter }),

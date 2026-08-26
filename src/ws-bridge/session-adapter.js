@@ -25,6 +25,7 @@ import {
   validateM1Attachments,
 } from './m1-attachment-policy.js';
 import { featureManager } from '../core/feature-manager.js';
+import { inspectM5UserSettingsPrivacy } from '../security/user-settings-privacy.js';
 import {
   AbortSource,
   abortSourceOf,
@@ -965,16 +966,27 @@ export function createSessionAdapter({
       // v85: Sync feature settings from IDE
       case 'sync_settings': {
         try {
-          const changed = featureManager.applySettings(data.settings || {});
+          const settings = data.settings || {};
+          const privacy = inspectM5UserSettingsPrivacy(settings);
+          if (!privacy.valid) {
+            sendChannel(Channel.CONTROL, {
+              action: 'sync_settings',
+              success: false,
+              code: 'M5_PRIVACY_PLAINTEXT_SETTING_FORBIDDEN',
+              forbiddenSettingCount: privacy.forbiddenPaths.length,
+            });
+            break;
+          }
+          const changed = featureManager.applySettings(settings);
 
           // v93: Sync SMTP notification settings to EmailChannel
-          if (_notificationRouter && 'c3.notif.smtpHost' in (data.settings || {})) {
+          if (_notificationRouter && 'c3.notif.smtpHost' in settings) {
             _notificationRouter.updateChannelConfig('email', {
-              host: data.settings['c3.notif.smtpHost'],
-              port: data.settings['c3.notif.smtpPort'],
-              user: data.settings['c3.notif.smtpUser'],
-              pass: data.settings['c3.notif.smtpPass'],
-              from: data.settings['c3.notif.smtpFrom'],
+              host: settings['c3.notif.smtpHost'],
+              port: settings['c3.notif.smtpPort'],
+              user: settings['c3.notif.smtpUser'],
+              pass: process.env.C3_SMTP_PASS,
+              from: settings['c3.notif.smtpFrom'],
             });
             if (_notificationEmitter) _notificationEmitter.invalidateCache();
             logger.info('WSSession', 'SMTP notification config synced', { sessionId: sid });

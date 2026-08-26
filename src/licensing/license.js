@@ -27,8 +27,18 @@ import { logger } from '../core/logger.js';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-// HMAC secret — in production, embed a unique secret per build
-const LICENSE_SECRET = process.env.C3_LICENSE_SECRET || 'c3-agent-license-v1-default-secret';
+// Signing/validation authority is operator-owned. A missing secret must never
+// silently fall back to a repository-known value.
+const LICENSE_SECRET = process.env.C3_LICENSE_SECRET || null;
+
+function requireLicenseSecret(secret) {
+  if (typeof secret !== 'string' || secret.length < 32) {
+    const error = new Error('License signing authority is unavailable');
+    error.code = 'LICENSE_SIGNING_SECRET_REQUIRED';
+    throw error;
+  }
+  return secret;
+}
 
 export const TIERS = Object.freeze({
   FREE: 'FREE',
@@ -120,6 +130,7 @@ export function generateLicenseKey({
   owner = '',
   secret = LICENSE_SECRET,
 }) {
+  secret = requireLicenseSecret(secret);
   if (!TIERS[tier]) throw new Error(`Invalid tier: ${tier}`);
   if (!hwFingerprint || hwFingerprint.length < 8) {
     throw new Error('Invalid hardware fingerprint');
@@ -169,6 +180,7 @@ export function validateLicenseKey(key, opts = {}) {
   const secret = opts.secret || LICENSE_SECRET;
 
   try {
+    requireLicenseSecret(secret);
     // 1. Parse key format
     if (!key || !key.startsWith('C3-')) {
       return { valid: false, tier: TIERS.FREE, features: TIER_FEATURES.FREE, error: 'Invalid key format' };

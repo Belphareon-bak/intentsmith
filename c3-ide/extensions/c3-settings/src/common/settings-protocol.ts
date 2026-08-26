@@ -108,7 +108,6 @@ export interface C3Settings {
   'c3.notif.smtpHost': string;
   'c3.notif.smtpPort': number;
   'c3.notif.smtpUser': string;
-  'c3.notif.smtpPass': string;
   'c3.notif.smtpFrom': string;
   'c3.notif.emailRecipient': string;
   'c3.notif.emailOnLifecycle': boolean;
@@ -208,7 +207,6 @@ export const C3_DEFAULTS: C3Settings = {
   'c3.notif.smtpHost': '',
   'c3.notif.smtpPort': 587,
   'c3.notif.smtpUser': '',
-  'c3.notif.smtpPass': '',
   'c3.notif.smtpFrom': '',
   'c3.notif.emailRecipient': '',
   'c3.notif.emailOnLifecycle': true,

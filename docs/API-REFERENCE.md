@@ -446,8 +446,8 @@ Lifecycle endpoints are spread across projects and expertises routes:
 
 | Method | Path | Body / Query | Response | Side Effects |
 |--------|------|-------------|----------|-------------|
-| `GET` | `/api/notifications/config` | — | SMTP config (password masked) | — |
-| `POST` | `/api/notifications/config` | `{emailEnabled, smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, emailRecipient, ...}` | `{success}` | Saves config; updates runtime channel |
+| `GET` | `/api/notifications/config` | — | SMTP config + `credentialPersistence: environment_only`; password is only a configured sentinel | — |
+| `POST` | `/api/notifications/config` | `{emailEnabled, smtpHost, smtpPort, smtpUser, smtpFrom, emailRecipient, ...}` | `{success, credentialPersistence}` | Saves non-secret config; rejects `smtpPass`; runtime credential comes only from `C3_SMTP_PASS` |
 | `GET` | `/api/notifications/channels` | — | `{channels: [{name, configured}]}` | — |
 | `POST` | `/api/notifications/test` | `{channel, recipient?}` | Test result | Sends test notification |
 | `POST` | `/api/notifications/verify` | `{channel}` | Verify result | Verifies channel config |
@@ -518,6 +518,11 @@ Lifecycle endpoints are spread across projects and expertises routes:
 | `GET` | `/api/security/tokens` | — | `{tokens: [...]}` | Lists tokens (hash only) |
 | `POST` | `/api/security/tokens` | `{name, scopes?, expiresIn?}` | `{id, name, token, scopes, ...}` | Creates token; plaintext returned once only |
 | `DELETE` | `/api/security/tokens/:id` | — | `{success}` or 404 | Deletes token |
+| `GET` | `/api/security/webhook-secret` | — | `{configured, source, persistence}` | Environment-only status; never emits masked material |
+| `POST` | `/api/security/webhook-secret` | — | `409 M5_PRIVACY_WEBHOOK_SECRET_ENV_ONLY` | API generation and persistence are disabled |
+| `GET` | `/api/security/privacy/remediation` | — | `PrivacyRemediationStatus@1` | Reads append-only operator receipts; never returns values |
+| `POST` | `/api/security/privacy/rotations/:categoryId/attest` | `{authorityKind, completedAtMs, confirmNoSecretValues}` | `PrivacyRotationReceipt@1` | Attests one exact rotation category from transport user authority |
+| `POST` | `/api/security/privacy/history/attest` | `{decision, actionStatus, repositoryVisibility, completedAtMs, confirmOperatorAuthority, confirmNoSecretValues}` | `PrivacyHistoryReceipt@1` | Records the one append-only operator history disposition |
 
 ---
 

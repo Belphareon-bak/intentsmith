@@ -450,11 +450,6 @@ export const C3_PREFERENCE_SCHEMA = {
       default: C3_DEFAULTS['c3.notif.smtpUser'],
       description: 'SMTP uživatelské jméno (email).',
     },
-    'c3.notif.smtpPass': {
-      type: 'string',
-      default: C3_DEFAULTS['c3.notif.smtpPass'],
-      description: 'SMTP heslo nebo App Password. Uloženo lokálně v settings DB.',
-    },
     'c3.notif.smtpFrom': {
       type: 'string',
       default: C3_DEFAULTS['c3.notif.smtpFrom'],

@@ -1819,12 +1819,16 @@ async function loadSettings() {
   } catch (e) {
     console.warn('Failed to load local settings');
   }
+
+  scrubPrivateNotificationSettings(settingsState);
+  localStorage.setItem('paiass_settings', JSON.stringify(settingsState));
   
   applySettings();
   populateSettingsUI();
 }
 
 async function saveSettings() {
+  scrubPrivateNotificationSettings(settingsState);
   // Save to localStorage first (always works)
   localStorage.setItem('paiass_settings', JSON.stringify(settingsState));
   
@@ -1840,6 +1844,20 @@ async function saveSettings() {
   }
   
   updateSettingsSummary();
+}
+
+function scrubPrivateNotificationSettings(settings) {
+  const notifications = settings?.notifications;
+  if (!notifications || typeof notifications !== 'object') return settings;
+  for (const key of [
+    'telegramToken',
+    'slackWebhook',
+    'discordWebhook',
+    'webhookUrl',
+    'smsApiKey',
+    'smsSecret',
+  ]) delete notifications[key];
+  return settings;
 }
 
 function applySettings() {

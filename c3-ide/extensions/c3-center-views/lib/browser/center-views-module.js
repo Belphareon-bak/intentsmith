@@ -550,14 +550,11 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
           h('button', { key: 'test-email', className: 'c3-btn-sm c3-mt-8', onClick: () => this._testNotifChannel('email') }, 'Test Email'),
 
           h('h4', { key: 'notif-tg', className: 'c3-settings-h4' }, 'Telegram'),
-          ..._inp('c3.notif.telegramToken', 'Bot token', '', 'text', { placeholder: 'bot123:ABC...' }),
-          ..._inp('c3.notif.telegramChatId', 'Chat ID', '', 'text', { placeholder: '-100123456789' }),
+          h('p', { key: 'tg-env', className: 'c3-hint' }, 'External notifications are unsupported in M5; credentials are never stored in Studio settings.'),
           h('button', { key: 'test-tg', className: 'c3-btn-sm c3-mt-8', onClick: () => this._testNotifChannel('telegram') }, 'Test Telegram'),
 
           h('h4', { key: 'notif-wh', className: 'c3-settings-h4' }, 'Webhook (HMAC)'),
-          ..._inp('c3.notif.webhookUrl', 'URL', '', 'text', { placeholder: 'https://hooks.example.com/c3' }),
-          ..._inp('c3.notif.webhookSecret', 'HMAC secret', '', 'password', { placeholder: 'your-secret-key' }),
-          h('p', { key: 'wh-hint', className: 'c3-hint' }, 'Header: X-C3-Signature: sha256=<hmac>'),
+          h('p', { key: 'wh-hint', className: 'c3-hint' }, 'External notifications are unsupported in M5; HMAC authority is environment-only.'),
           h('button', { key: 'test-wh', className: 'c3-btn-sm c3-mt-8', onClick: () => this._testNotifChannel('webhook') }, 'Test Webhook'),
 
           h('h4', { key: 'notif-ntfy', className: 'c3-settings-h4' }, 'ntfy.sh'),

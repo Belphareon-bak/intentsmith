@@ -65,12 +65,6 @@ function _hashToken(plaintext) {
   return createHash('sha256').update(plaintext).digest('hex');
 }
 
-function _maskSecret(secret) {
-  if (!secret) return null;
-  if (secret.length < 8) return 'c3_****';
-  return secret.substring(0, 7) + '...' + secret.substring(secret.length - 4);
-}
-
 // ── Routes ───────────────────────────────────────────────────────────────────
 
 /**
@@ -211,37 +205,17 @@ export function createSecurityRoutes({ db, parseBody, sendJSON, logger }) {
       const secret = process.env.C3_WEBHOOK_SECRET || null;
       sendJSON(res, 200, {
         configured: !!secret,
-        masked: secret ? _maskSecret(secret) : null,
+        source: secret ? 'environment' : null,
+        persistence: 'environment_only',
       });
     },
 
     'POST /api/security/webhook-secret': async (req, res) => {
       if (!requireAuth(req, sendJSON, res)) return;
-
-      const newSecret = 'c3_' + randomBytes(24).toString('hex');
-      // Store in user_settings (persisted to DB)
-      try {
-        rawDb.exec(`
-          CREATE TABLE IF NOT EXISTS user_settings (
-            id INTEGER PRIMARY KEY,
-            data TEXT NOT NULL,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-          )
-        `);
-        const row = rawDb.prepare('SELECT data FROM user_settings WHERE id = 1').get();
-        const settings = row ? JSON.parse(row.data) : {};
-        settings.webhookSecret = newSecret;
-        rawDb.prepare(
-          "INSERT OR REPLACE INTO user_settings (id, data, updated_at) VALUES (1, ?, datetime('now'))"
-        ).run(JSON.stringify(settings));
-
-        sendJSON(res, 200, {
-          ok: true,
-          masked: _maskSecret(newSecret),
-        });
-      } catch (err) {
-        sendJSON(res, 500, { error: 'Failed to generate webhook secret' });
-      }
+      sendJSON(res, 409, {
+        error: 'Webhook credentials are environment-only and cannot be generated or persisted by the API.',
+        code: 'M5_PRIVACY_WEBHOOK_SECRET_ENV_ONLY',
+      });
     },
 
     // ── Sessions ───────────────────────────────────────────────────────────
