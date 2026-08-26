@@ -11,7 +11,8 @@ IntentSmithu.
 (`341 ACTIVE`, `81 BLOCKED`, `0 KNOWN_DEFECTIVE`, `16 HISTORICAL`)
 
 > **Stav: aktivní vývoj; M1 a M2 jsou přijaté.** M3 modulární platforma má
-> implementation-green candidate a čeká na společné operátorské review.
+> implementation-green candidate; oddíly 1–6 jsou review-passed a oprava
+> oddílu 7 čeká na operátorské re-review.
 > Registry řádek sám není akceptační důkaz.
 > Gate 0 a historická convergence evidence se používají až nad zmraženým
 > release kandidátem. Aktuální autorita: [PRODUCT.md](PRODUCT.md),

@@ -65,7 +65,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M0 Produktová pravda** | `ACCEPTED / PASS` | současný C3/IntentSmith strom | Víme, co produkt je a co skutečně běží; deklarace nelžou o chování. |
 | **M1 Lokální runtime páteř** | `ACCEPTED / GATE_2_PASS` | M0 accepted; Gate 1 PASS | Stabilní Linux → Theia → chat → Ollama → persistence. |
 | **M2 Řízená práce nad projektem** | `ACCEPTED / CLOSEOUT_PASS` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
-| **M3 Modulární platforma** | `CANDIDATE_COMPLETE / REVIEW_PENDING` | M2 accepted | Všech šest povinných řezů i sjednocený closeout jsou implementation-green; zbývá operátorské review sedmi oddílů a výslovné disposition legacy-agent effect scope. |
+| **M3 Modulární platforma** | `CANDIDATE_COMPLETE / SECTION_7_RE_REVIEW_PENDING` | M2 accepted | Oddíly 1–6 mají operátorské `REVIEW_PASSED`; legacy agent mutační surface z oddílu 7 je fail-closed odstavený a čeká na re-review. |
 | **M4 Auditovatelné self-learning** | `NOT_STARTED` | M2 accepted | Jedna uzavřená, scoped a vratná učící smyčka zlepšuje skutečný scénář. |
 | **M5 Production hardening** | `NOT_STARTED` | M3 + M4 accepted | Instalace, data, auth, procesy, síť, výkon a recovery jsou podporovatelné. |
 | **M6 IntentSmith 1.0 release** | `NOT_STARTED` | M5 accepted | Zmražený kandidát projde úplnou release validací a operátorskou demonstrací. |
@@ -1269,10 +1269,13 @@ dalším použití nevymýšlí znovu.
      přijetí měřeného přínosu, jinak se explicitně odloží.
 
 Implementační stav k 2026-08-26: všech šest povinných řezů a sjednocený
-closeout jsou `CANDIDATE_COMPLETE / REVIEW_PENDING`. Registry má 438 programů
+closeout jsou `CANDIDATE_COMPLETE / SECTION_7_RE_REVIEW_PENDING`. Registry má 438 programů
 a fingerprint `ca2aa642…`; aktuální module graph má 1 150 hran, stále 3 cykly
 a 28 souborů v cyklech. Čerstvý úplný běh skončil pravdivě
-`267 PASS / 2 FAIL / 2 BLOCKED`; žádný nový M3 non-PASS nevznikl. Evidence je v
+`268 PASS / 2 FAIL / 2 BLOCKED`; žádný nový M3 non-PASS nevznikl. Oddíly
+1–6 mají operátorské `REVIEW_PASSED`; oprava oddílu 7 odstavila legacy
+agent mutátory typovaným HTTP 410 a připnula scheduler k M3 extension authority.
+Oddíl 7 zůstává `RE_REVIEW_READY`, nikoli automaticky přijatý. Evidence je v
 [`m3-closeout-20260826.md`](docs/execution/runs/m3-closeout-20260826.md) a
 operátorská matice v
 [`2026-08-26-M3-OPERATOR-REVIEW-MATRIX.md`](docs/review/2026-08-26-M3-OPERATOR-REVIEW-MATRIX.md).

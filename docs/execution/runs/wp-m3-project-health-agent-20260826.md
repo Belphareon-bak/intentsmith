@@ -1,10 +1,10 @@
 # WP-M3-AGENT — governed local project-health journey
 
-- **Stav:** `IMPLEMENTATION_GREEN / REVIEW_PENDING`
-- **Product revisions:** `f484ef766eb96cb738e36e147b0655755e5c94a3`, `b278a0ab`
+- **Stav:** `REVIEW_PASSED / SECTION_7_FOLLOWUP_GREEN`
+- **Product revisions:** `f484ef766eb96cb738e36e147b0655755e5c94a3`, `b278a0ab`, `7708519e`
 - **Větev:** `codex/m3-integration-20260825`
 - **Push:** neproveden
-- **Review:** záměrně odloženo do společného operátorského review M3
+- **Review:** oddíl 6 `REVIEW_PASSED`; integrační oddíl 7 čeká na re-review
 
 Tento řez uzavírá povinnou M3 cestu lokálního project-health agenta: nativní
 extension se objeví v registru, lze ji instalovat jako disabled instanci,
@@ -42,6 +42,7 @@ Object source už není chybně ukončen HUNTER zkratkou pro prázdné kolekce.
 | Důkaz | Výsledek |
 |---|---|
 | `tests/m3-project-health-agent.test.js` | 9/9 PASS |
+| `tests/m3-legacy-agent-surface-retirement.test.js` | 10/10 PASS |
 | `tests/e2e/63-agent-execution.e2e.js` | 5/5 PASS |
 | `tests/e2e/64-m3-project-health-agent.e2e.js` | 6/6 PASS |
 | `tests/scheduler.test.js` | 3/3 PASS |
@@ -57,8 +58,8 @@ Object source už není chybně ukončen HUNTER zkratkou pro prázdné kolekce.
 | `tests/harness-exit-code.test.js` | PASS; 115 DB-reachable root testů chráněno, mutation rejected |
 | `tests/module-boundary-ratchet.test.js` | 13/13 PASS |
 | `tests/artifact-validation.test.js` | 154/154 PASS |
-| registry validace | 437 programů, `72bc64e6a6d8710ffd718ccb419b5106aa2637ae108eb92a8cef7442fa18bc97` |
-| module graph | 1 148 hran, 3 cykly / 28 souborů v cyklech |
+| registry validace | 438 programů, `ca2aa642e8e433ea484a2c20c42f3f8aa045b2b4b906548f417a5185265ed54f` |
+| module graph | 1 150 hran, 3 cykly / 28 souborů v cyklech |
 | `git diff --check` | PASS |
 
 Aktuální společný non-gate server run `2026-08-25T23-08-49-411Z` skončil 5/5
@@ -73,8 +74,9 @@ Pět nových modulových hran bylo přijato proti jednomu úplnému přesnému s
 - `src/server.js -> src/extensions/agent-extension-service.js`
 - `src/server.js -> src/extensions/agent-project-context.js`
 
-Baseline připíná výhradně product revision `f484ef76`; počet cyklů ani cyclic
-membership nevzrostly.
+Původní agent baseline připíná product revision `f484ef76`; follow-up baseline
+`708086b9` přidal proti product fixu `7708519e` jen dvě quarantine import hrany.
+Počet cyklů ani cyclic membership nevzrostly.
 
 ## Přiznané hranice
 
@@ -84,13 +86,13 @@ membership nevzrostly.
 - Native M3 agent manifest je fail-closed omezen na ProjectContext source a
   lokální `store`, `mark_seen` nebo non-LLM `in_app notify`; HTTP, webhook a
   modelové action varianty jsou odmítnuté před instalací.
-- Legacy agent definitions mimo M3 extension cestu si zachovávají své starší
-  source/action možnosti. Tento WP netvrdí, že je migroval pod novou hranici;
-  jejich vztah k globálnímu M3 effect exit kritériu je výslovná review otázka
-  sjednoceného closeoutu.
+- Legacy agent definice mohou zůstat čitelné, ale jejich mutační, build, run a
+  source-validation routes jsou typovaně retired a scheduler bez platné M3
+  extension vazby nic nespustí. Historické HTTP/RSS/webhook chování nebylo
+  migrováno ani zachováno jako spustitelná cesta.
 - Disable zabrání každému dalšímu startu; již běžící invocation se tímto WP
   aktivně necancelluje. Uninstall běžící instanci odmítne.
 - Server E2E používá jen loopback, izolovanou databázi a runner-owned projekt.
   Nebyl použit model, externí síť, GPU ani Ollama.
-- Sjednocený closeout je hotový bez nové regrese, operátorské review ale stále
-  čeká. Stav je proto `IMPLEMENTATION_GREEN / REVIEW_PENDING`.
+- Oddíl 6 je operátorsky přijatý. Integrační oprava oddílu 7 je zelená, ale
+  její re-review stále čeká.

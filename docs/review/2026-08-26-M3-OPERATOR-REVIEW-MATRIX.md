@@ -1,16 +1,18 @@
 # M3 — společná operátorská review matice
 
-- **Stav:** `7 READY / 0 REVIEWED / REVIEW_PENDING`
+- **Stav:** `6 REVIEW_PASSED / 1 RE_REVIEW_READY / REVIEW_PENDING`
 - **Přijatý M2 base:** `9f8a70196c6677f0542852c133a6b3d37093b039`
-- **Přesný candidate source:** `ad23c27814f7fa749f790ec9492500ae0eef7d43`
-- **Review range:** `9f8a7019..ad23c278`
+- **Původní reviewed source:** `07f2510cb7dc6a07ff7aece7c4d3863a27ca3205`
+- **Section 7 product fix:** `7708519e7ac8774660ed4098834afbe26c82d1ee`
+- **Ověřený evidence source:** `abd7c594e0d8afe2433f97470c5185ecf264f727`
+- **Section 7 re-review range:** `07f2510c..abd7c594`
 - **Větev:** `codex/m3-integration-20260825`
 - **Push:** neproveden
 - **Review autorita:** operátor projektu; lokální Opus se nepoužívá
 
-Matice je připravená pro jedno společné review. Každý oddíl musí dostat právě
-`REVIEW_PASSED` nebo `CHANGES_REQUESTED`. Zelený test nebo implementační commit
-sám review nenahrazuje.
+Operátorské review přijalo oddíly 1–6 a vrátilo oddíl 7 kvůli živé legacy
+agent effect cestě. Doporučená varianta B je implementovaná. Zbývá pouze
+re-review oddílu 7; zelený test ani implementační commit jej sám nenahrazuje.
 
 ## Společný protokol
 
@@ -28,13 +30,13 @@ sám review nenahrazuje.
 
 | # | Oddíl | Hlavní provenance | Stav |
 |---:|---|---|---|
-| 1 | L0-8 strict injection a enforcement | `a0d46903..b278a0ab` | `READY` |
-| 2 | ExtensionManifest/Context a lifecycle | `6238d6b1..52cc0d76` | `READY` |
-| 3 | Expertise extension | `cc721f54..a1e6b1f8` | `READY` |
-| 4 | Governed skill | `381011d0..13f645d1` | `READY` |
-| 5 | Code-review specialist | `f35391a3..b278a0ab` | `READY` |
-| 6 | Project-health agent | `f484ef76..b278a0ab` | `READY` |
-| 7 | Integrační effect closure, baseline a MCP disposition | celý range | `READY` |
+| 1 | L0-8 strict injection a enforcement | `a0d46903..b278a0ab` | `REVIEW_PASSED` |
+| 2 | ExtensionManifest/Context a lifecycle | `6238d6b1..52cc0d76` | `REVIEW_PASSED` |
+| 3 | Expertise extension | `cc721f54..a1e6b1f8` | `REVIEW_PASSED` |
+| 4 | Governed skill | `381011d0..13f645d1` | `REVIEW_PASSED` |
+| 5 | Code-review specialist | `f35391a3..b278a0ab` | `REVIEW_PASSED` |
+| 6 | Project-health agent | `f484ef76..b278a0ab` | `REVIEW_PASSED` |
+| 7 | Integrační effect closure, baseline a MCP disposition | `07f2510c..abd7c594` | `RE_REVIEW_READY` |
 
 ## 1. L0-8 strict injection a enforcement
 
@@ -157,20 +159,21 @@ node scripts/run-suites.js --suite=IS-T1-TESTS-M3-PROJECT-HEALTH-AGENT-TEST,IS-T
 **Vlastněné bajty:** celý M3 range, module baseline/registry/harness změny,
 decision 031 a sjednocený closeout report.
 
-**Kontrola:** žádný extension producer nezíská ambientní FS/process/network/DB
-authority; M3 skill efekt jde přes M2; native agent a specialist jsou local
-read-only/effect-free mimo auditovaný lokální výsledek; MCP je pravdivě absent a
-deferred. Ověř module baseline 1 148 hran, 3 cykly/28 souborů, registry 437 a
-úplný běh `267 PASS / 2 FAIL / 2 BLOCKED` bez nového non-PASS.
+**Kontrola re-review:** legacy non-extension agent mutátory vracejí přesný
+typovaný HTTP 410 bez čtení requestu; startup už neregistruje example agenty;
+scheduler v produkci spustí pouze instanci, kterou znovu ověří
+`AgentExtensionService.resolveExecution`. Native install/run/enable/disable/remove
+cesty zůstávají funkční pod `/api/agent-extensions`. Zvlášť ověř interpolovaný
+webhook payload z původního nálezu: retired handler se jeho bajtů nesmí dotknout.
 
-Povinné operátorské rozhodnutí: legacy non-extension agent engine stále umí
-HTTP/RSS, webhook a externí notifications mimo M2. Pokud roadmapové „všechny
-efekty agentů“ zahrnuje i tuto starou platformu, tento oddíl musí skončit
-`CHANGES_REQUESTED`; candidate netvrdí její migraci.
+Integrační stav: module baseline 1 150 hran, 3 cykly/28 souborů, registry 438
+s fingerprintem `ca2aa642e8e433ea484a2c20c42f3f8aa045b2b4b906548f417a5185265ed54f`
+a úplný běh `268 PASS / 2 FAIL / 2 BLOCKED` bez nového non-PASS.
 
 ```bash
 git diff --check
 node scripts/validate-test-registry.js --json
+node scripts/run-suites.js --suite=IS-T1-TESTS-M3-LEGACY-AGENT-SURFACE-RETIREMENT-TEST,IS-T1-TESTS-SCHEDULER-TEST,IS-T3-E2E-08-AGENTS,IS-T3-E2E-63-AGENT-EXECUTION,IS-T3-E2E-64-M3-PROJECT-HEALTH-AGENT --log-level=warn
 node tests/module-boundary-ratchet.test.js
 node tests/schema-migrations.test.js
 node tests/artifact-validation.test.js
@@ -178,18 +181,14 @@ node tests/artifact-validation.test.js
 
 ## Výstup review
 
-Vrať sedm verdictů a souhrnný stav. Bez nálezů je požadovaný tvar:
+Vrať pouze re-review verdict oddílu 7 a souhrnný stav. Bez nálezů je
+požadovaný tvar:
 
 ```text
-Oddíl 1: REVIEW_PASSED
-Oddíl 2: REVIEW_PASSED
-Oddíl 3: REVIEW_PASSED
-Oddíl 4: REVIEW_PASSED
-Oddíl 5: REVIEW_PASSED
-Oddíl 6: REVIEW_PASSED
 Oddíl 7: REVIEW_PASSED
 M3: REVIEW_PASSED
-Legacy-agent scope disposition: <explicitní věta>
+Legacy-agent scope disposition: mutační legacy surface je fail-closed retired;
+native M3 extension cesta zůstává jedinou spustitelnou agent authority.
 ```
 
 Tento výstup ještě musí integrátor zapsat do finální closeout authority; samotný
