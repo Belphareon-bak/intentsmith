@@ -1422,6 +1422,16 @@ vypnutý flag fail-close. Audit migrace 089 neukládá URL path/query, body, hea
 ani credential hodnoty. Autoritativní module graph má 1 175 hran, stále 3 cykly
 a 28 souborů v cyklech. Důkaz je v
 [`m5-outbound-20260826.md`](docs/execution/runs/m5-outbound-20260826.md).
+`WP-M5-PERF` je implementation-green na product commitu `fbca096e`.
+Release budgety jsou verzované a fail-closed: raw vzorky používají nearest-rank
+p95, jakákoli chyba má nulový budget a chybějící či přepsaná baseline nemůže
+projít pouhou existencí záznamu. Izolovaný produkční běh naměřil 40/40
+deterministických HTTP requestů s p95 `5,216 ms`, 40/40 ProjectContext dotazů
+nad 128 soubory s p95 `31,797 ms` a pětiminutový soak `1 498/1 498`, p95
+`14,92 ms`, RSS start/peak/end `161,996/164,770/148,984 MiB`. Model, Studio,
+lifecycle a VRAM jsou vázané na přesné přijaté M1/M2 evidence; nový GPU run
+neproběhl, protože read-only census našel cizí aktivní Ollama compute. Důkaz je
+v [`m5-perf-20260826.md`](docs/execution/runs/m5-perf-20260826.md).
 
 Nejde o M5 acceptance: M3 oddíl 7 a zbývající M5 bloky jsou otevřené.
 
