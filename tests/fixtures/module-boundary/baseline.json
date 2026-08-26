@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "d70f9b7df0de397c39708bf73d98dc6d1df5aead",
-  "sourceTree": "af9397c20b7c639fa46f10ec841f433833149c44",
+  "sourceRevision": "885cf95969f3236720bcf93a142928239e736dcc",
+  "sourceTree": "a592feb6a87f85e6ef89a87f565477e3ce1bdcbd",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -508,6 +508,7 @@
     "src/db/migrations/2026_08_25_083_m2_effect_rollback_receipts.js -> src/db/migrations/2026_08_25_082_m2_preexecution_approval_terminals.js",
     "src/db/migrations/2026_08_25_083_m2_effect_rollback_receipts.js -> src/effects/effect-rollback-settlement.js",
     "src/db/migrations/2026_08_26_087_m4_learning_authority.js -> src/memory/learning-authority-validation.js",
+    "src/db/migrations/2026_08_26_088_m4_learning_plan_evaluations.js -> src/memory/learning-authority-validation.js",
     "src/domains/index.js -> src/core/logger.js",
     "src/domains/index.js -> src/domains/recipes/cicd.js",
     "src/domains/index.js -> src/domains/recipes/infra.js",
