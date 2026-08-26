@@ -1,10 +1,10 @@
 # WP-M5-OUTBOUND — process-wide network policy and audit
 
-**Typ:** M5 production hardening · **Stav:** `IMPLEMENTATION_GREEN / REVIEW_PENDING`
+**Typ:** M5 production hardening · **Stav:** `IMPLEMENTATION_GREEN / RE_REVIEW_REQUIRED`
 
-**Product revision:** `07b8155c1c7135e7c8bbc5e5be34bbeb7849c5ab`
+**Product revision:** `122b5df5303e08a38cdd62a35e6577b118795c30`
 
-**Module-baseline revision:** `e8892d7acecf229639a169e70cad094a091b55a7`
+**Module-baseline revision:** `d3829643545fde1d6b6f71db9f1d88b86bd54b91`
 
 ## Uživatelský výsledek
 
@@ -14,10 +14,11 @@ deklarované plochy a scope je před transportem odmítnut a rozhodnutí musí b
 nejdřív zapsané do append-only SQLite auditu.
 
 Operátorské rozhodnutí z 2026-08-19 o default-on model discovery zůstává
-zachované. Tato plocha je nyní výslovně `model-discovery` /
-`model.metadata.read`, dovoluje pouze GET/HEAD na přesné HTTPS originy
-`ollama.com`, `whatllm.org` a `huggingface.co` a automatické redirecty odmítá.
-Flag `C3_ENABLE_ONLINE_DISCOVERY=false` ji dál celý vypne.
+zachované. Privátní capability není exportovaná; jediný scoped vstup je
+`modelDiscoveryFetch()`. Ten dovoluje pouze GET/HEAD bez body a s přesnými
+caller headers na `ollama.com/library[/<family>]`, exact Hugging Face model
+search query a root `whatllm.org`. Flag `C3_ENABLE_ONLINE_DISCOVERY=false` ji
+dál celý vypne.
 
 ## Autorita a invariants
 
@@ -27,8 +28,13 @@ Flag `C3_ENABLE_ONLINE_DISCOVERY=false` ji dál celý vypne.
 - audit ukládá origin, metodu, scope, surface a hash celé URL, nikdy URL path,
   query, body, header ani credential hodnotu;
 - chybějící audit authority znamená deny, ne unaudited fallback;
-- přesný scope bez zapnuté plochy, špatný origin, metoda nebo redirect končí
-  typovaným deny/failure;
+- opsaný `{ surface, scope }` objekt nemá object-identity capability a končí
+  před transportem;
+- přesná capability bez zapnuté plochy nebo s cizím path, query, header, body či
+  metodou končí typovaným deny/failure;
+- každý transport včetně loopbacku používá `redirect: manual`; každá
+  `Location` dostane nové exact rozhodnutí a teprve allow smí spustit další
+  transport;
 - raw produkční `fetch` z agents, notifications, marketplace, tools, media,
   updateru i uživatelské URL cesty prochází globální guard a je unscoped, dokud
   conditional-surface blok výslovně nezavede užší autoritu;
@@ -47,5 +53,7 @@ horizont ještě nebyl spuštěn a conditional plochy zůstávají fail-closed d
 svého disposition bloku.
 
 Focused důkaz je v
-[`m5-outbound-20260826.md`](../execution/runs/m5-outbound-20260826.md).
-Tento dokument není nezávislé review ani M5 acceptance.
+[`m5-auth-outbound-remote-remediation-20260826.md`](../execution/runs/m5-auth-outbound-remote-remediation-20260826.md);
+původní report zůstává v
+[`m5-outbound-20260826.md`](../execution/runs/m5-outbound-20260826.md). Tento
+dokument není nezávislý re-review ani M5 acceptance.

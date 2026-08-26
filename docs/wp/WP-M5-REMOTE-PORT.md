@@ -1,6 +1,8 @@
 # WP-M5-REMOTE-PORT — in-process core adapter
 
-**Typ:** M5 production hardening · **Stav:** `IMPLEMENTATION_GREEN / REVIEW_PENDING`
+**Typ:** M5 production hardening · **Stav:** `IMPLEMENTATION_GREEN / RE_REVIEW_REQUIRED`
+
+**Product revision:** `122b5df5303e08a38cdd62a35e6577b118795c30`
 
 ## Výsledek
 
@@ -19,7 +21,9 @@ Implementované capability:
 Zbývajících pět katalogových capability vrací exact `unavailable`. Chybějící
 handler, cizí port/capability verze, pozměněný manifest digest, unknown pole,
 neplatný payload nebo nesedící request/conversation/turn/project identita
-selže dřív, než je vrácen zdánlivý úspěch.
+selže dřív, než je vrácen zdánlivý úspěch. Úspěšný project snapshot je navíc
+vázaný na exact requestový `workspaceRevision`, normalizovaný query a všechny
+tři budget limity; validní self-consistent snapshot z cizího requestu neprojde.
 
 ## Security boundary
 
@@ -31,12 +35,12 @@ kompozice; M7 teprve smí přidat autentizovaný transport.
 
 ## Ověření
 
-- product commit: `9abf672c585bf8398de76a375b361e668e859e64`
-- module baseline: `f8fc13e355c40cbb90f5cf4000d246a4d7abf421`
-- `tests/m5-remote-core-adapter.test.js`: 11/11 PASS
+- product commit: `122b5df5303e08a38cdd62a35e6577b118795c30`
+- module baseline: `d3829643545fde1d6b6f71db9f1d88b86bd54b91`
+- `tests/m5-remote-core-adapter.test.js`: 12/12 PASS
 - M2 remote contract + boundary: 27/27 PASS
-- module graph: 1 176 hran, 3 cykly, 28 souborů v cyklech
+- module graph: 1 186 hran, 3 cykly, 28 souborů v cyklech
 
 Tento WP nepřidává companion listener, pairing, mobilní UI ani remote auth a
-není M5 acceptance či nezávislé review.
-
+není M5 acceptance či nezávislý re-review. Remediation evidence je v
+[`m5-auth-outbound-remote-remediation-20260826.md`](../execution/runs/m5-auth-outbound-remote-remediation-20260826.md).

@@ -1391,15 +1391,20 @@ Nové adversariální regrese a širší kompatibilita jsou v
 [`m5-data-remediation-20260826.md`](docs/execution/runs/m5-data-remediation-20260826.md);
 původní round-trip důkaz zůstává v
 [`m5-data-20260826.md`](docs/execution/runs/m5-data-20260826.md).
-`WP-M5-AUTH` je implementation-green v tomto kandidátu. Jediný guard běží za
+`WP-M5-AUTH` má review remediation implementovanou na product commitu
+`122b5df5`; oddíl zůstává `RE_REVIEW_REQUIRED`. Jediný guard běží za
 exact route matchem a před každým handlerem; veřejné jsou pouze tři health/root
 GET klíče. Studio používá existující private per-process capability, admin/CLI
 timing-safe token a vydané API tokeny route-class scopes. Production HTTP bez
 credentialu končí 401, nedostatečný scope 403. WS provádí stejnou kontrolu při
-upgradu a do session předává pouze transportem vytvořený immutable subject;
-native production loopback bez credentialu už není bypass. Non-production
-loopback výjimka zůstala explicitně zachovaná. Product candidate a black-box
-důkaz jsou v [`m5-auth-20260826.md`](docs/execution/runs/m5-auth-20260826.md).
+upgradu a do session předává pouze transportem vytvořený immutable subject.
+WS nyní zachovává všechny transportní credentials a tri-state parser odmítne
+malformed, duplicate i mixed local/admin/bearer kombinaci před identity binding.
+Native production loopback bez credentialu už není bypass. Remediation důkaz
+je v
+[`m5-auth-outbound-remote-remediation-20260826.md`](docs/execution/runs/m5-auth-outbound-remote-remediation-20260826.md);
+původní black-box report zůstává v
+[`m5-auth-20260826.md`](docs/execution/runs/m5-auth-20260826.md).
 `WP-M5-PROCESS` má review remediation implementovanou na product commitu
 `7a282a3f`; oddíl zůstává `RE_REVIEW_REQUIRED`. Provider orphan/unknown bez
 empty důkazu už nevytvoří `process_terminated`, parent terminal ani rollback;
@@ -1422,15 +1427,18 @@ pravdivě degraduje při nečitelné DB nebo neúplném startup recovery censu a
 všechny tři aliasy používají jediný produkční handler. Autoritativní module graph má 1 167 hran,
 stále 3 cykly a 28 souborů v cyklech. Důkaz je v
 [`m5-observe-20260826.md`](docs/execution/runs/m5-observe-20260826.md).
-`WP-M5-OUTBOUND` je implementation-green na product commitu `07b8155c`.
+`WP-M5-OUTBOUND` má review remediation implementovanou na product commitu
+`122b5df5`; oddíl zůstává `RE_REVIEW_REQUIRED`.
 Produkční proces instaluje před optional/background službami jediný global
-`fetch` guard: loopback zůstává lokální a každý externí request bez exact
-surface/scope se před transportem durably zapíše jako deny. Model discovery
-zachovává explicitní default-on rozhodnutí, ale nyní smí pouze GET/HEAD na tři
-přesné HTTPS originy pod `model.metadata.read`; redirect, chybějící audit i
-vypnutý flag fail-close. Audit migrace 089 neukládá URL path/query, body, header
-ani credential hodnoty. Autoritativní module graph má 1 175 hran, stále 3 cykly
-a 28 souborů v cyklech. Důkaz je v
+`fetch` guard a i loopback transport používá `redirect: manual`. Každá
+`Location` dostane nové policy rozhodnutí. Privátní model-discovery capability
+není exportovaná; exact wrapper ověřuje konkrétní path/query/header/body/method
+profily pro Ollama, Hugging Face a WhatLLM. Opsaný scope literal je neúčinný.
+Audit migrace 089 neukládá URL path/query, body, header ani credential hodnoty.
+Autoritativní module graph má 1 186 hran, stále 3 cykly a 28 souborů v cyklech.
+Remediation důkaz je v
+[`m5-auth-outbound-remote-remediation-20260826.md`](docs/execution/runs/m5-auth-outbound-remote-remediation-20260826.md);
+původní report zůstává v
 [`m5-outbound-20260826.md`](docs/execution/runs/m5-outbound-20260826.md).
 `WP-M5-PERF` je implementation-green na product commitu `fbca096e`.
 Release budgety jsou verzované a fail-closed: raw vzorky používají nearest-rank
@@ -1443,15 +1451,21 @@ lifecycle a VRAM jsou vázané na přesné přijaté M1/M2 evidence; nový GPU r
 neproběhl, protože read-only census našel cizí aktivní Ollama compute. Důkaz je
 v [`m5-perf-20260826.md`](docs/execution/runs/m5-perf-20260826.md).
 
-`WP-M5-REMOTE-PORT` a `WP-M5-CONDITIONAL-SURFACES` jsou
-implementation-green na product commitu `9abf672c`. In-process adaptér nabízí
+`WP-M5-REMOTE-PORT` a `WP-M5-CONDITIONAL-SURFACES` mají review remediation
+implementovanou na product commitu `122b5df5`; oba zůstávají
+`RE_REVIEW_REQUIRED`. In-process adaptér nabízí
 jen exact `conversations@1` a `projects@1`; pět capability bez úplného payload
-kontraktu zůstává explicitně unavailable a listener/pairing/auth patří M7.
+kontraktu zůstává explicitně unavailable. Úspěšný project snapshot musí sedět
+na requestový revision, normalizovaný query a všechny budget limity;
+listener/pairing/auth patří M7.
 Produkční conditional set obsahuje pouze podporovaný model discovery journey;
 external notifications, marketplace, ComfyUI a core updater jsou defaultně
 vypnuté, unsupported a jejich explicitní produkční zapnutí selže při startupu.
-Autoritativní module graph má 1 176 hran, stále 3 cykly a 28 souborů v cyklech.
-Důkaz je v
+Preflight i všech pět runtime startupů používá jediný normalizovaný manifest.
+Autoritativní module graph má 1 186 hran, stále 3 cykly a 28 souborů v cyklech.
+Remediation důkaz je v
+[`m5-auth-outbound-remote-remediation-20260826.md`](docs/execution/runs/m5-auth-outbound-remote-remediation-20260826.md);
+původní report zůstává v
 [`m5-remote-conditional-20260826.md`](docs/execution/runs/m5-remote-conditional-20260826.md).
 
 `WP-M5-PRIVACY` má remediation implementovanou na product commitu `1f4d15e3`
@@ -1460,7 +1474,7 @@ odstraňuje známé plaintext credential klíče z `user_settings` a migrace 091
 navíc vyžaduje pro každý rotation/history INSERT přesnou opaque transportní
 writer authority až na SQL triggeru. Přímý canonical SQL INSERT proto
 fail-closed selže. Exact-HEAD scanner odvozuje čtené roots z distribučního
-manifestu, rozlišuje na PROCESS product HEAD 1 846 tracked a 981 content-read
+manifestu, rozlišuje na transport-remediation HEAD 1 847 tracked a 981 content-read
 souborů a má nula
 current-tree findings; všech 13 známých incident objektů je stále dosažitelných.
 Autoritativní module graph má 1 186 hran, stále 3 cykly a 28 souborů v cyklech.
