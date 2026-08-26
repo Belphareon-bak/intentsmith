@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 452
+- Runnable programs: 453
 - Explicit support-module exclusions: 14
-- Profiles: offline=228, database=56, server=41, model=85, soak=26, manual=16
-- States: ACTIVE=355, HISTORICAL=16, BLOCKED=81
+- Profiles: offline=229, database=56, server=41, model=85, soak=26, manual=16
+- States: ACTIVE=356, HISTORICAL=16, BLOCKED=81
 
 ## Execution profiles
 
@@ -363,6 +363,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M5-INSTALL-PROFILE-TEST` | `tests/m5-install-profile.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M5-PACKAGE |
 | `IS-T1-TESTS-M5-OBSERVABILITY-TEST` | `tests/m5-observability.test.js` | `C3-012` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M5-OBSERVE |
 | `IS-T1-TESTS-M5-OUTBOUND-POLICY-TEST` | `tests/m5-outbound-policy.test.js` | `C3-020` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M5-OUTBOUND |
+| `IS-T1-TESTS-M5-PERFORMANCE-BUDGET-TEST` | `tests/m5-performance-budget.test.js` | `C3-012` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M5-PERF |
 | `IS-T1-TESTS-M5-PROCESS-HARDENING-TEST` | `tests/m5-process-hardening.test.js` | `C3-011` | T1 | `soak` | 3 s | 1 min | network:none, toolchain:bubblewrap, toolchain:prlimit | yes | `ACTIVE` | — | WP-M5-PROCESS |
 | `IS-T1-TESTS-MANIFEST-V2-TEST` | `tests/manifest-v2.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MARKETPLACE-CATALOG-V125-TEST` | `tests/marketplace-catalog-v125.test.js` | `C3-022` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
