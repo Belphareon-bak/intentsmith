@@ -20,6 +20,7 @@
     "gate0:generate-evidence": "node scripts/generate-gate0-evidence.js",
     "gate0:promote-review": "node scripts/promote-gate0-review.js",
     "gate0:validate-attestation": "node scripts/validate-gate0-attestation.js",
+    "m6:validate-release": "node scripts/validate-m6-release.js",
     "test:offline": "node scripts/nightly-audit.js --profile=offline",
     "test:database": "node scripts/nightly-audit.js --profile=database",
     "test:deterministic": "node scripts/nightly-audit.js --profile=offline,database",
