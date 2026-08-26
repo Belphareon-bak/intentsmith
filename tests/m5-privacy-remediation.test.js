@@ -10,13 +10,22 @@ import {
   M5_PRIVACY_REPOSITORY_VISIBILITY,
   M5_PRIVACY_ROTATION_CATEGORIES,
   canonicalizeM5PrivacyValue,
+  createM5PrivacyHistoryReceipt,
   createM5PrivacyRotationReceipt,
 } from '../contracts/m5/privacy-remediation-v1.js';
+import {
+  M5_DISTRIBUTION_MANIFEST_DIGEST,
+} from '../contracts/m5/distribution-manifest-v1.js';
 import {
   EXPECTED_M5_PRIVACY_AUTHORITY_FINGERPRINT_V090,
   computeM5PrivacyAuthorityFingerprintV090,
   up as applyPrivacyAuthority,
 } from '../src/db/migrations/2026_08_26_090_m5_privacy_authority.js';
+import {
+  EXPECTED_M5_PRIVACY_WRITER_AUTHORITY_FINGERPRINT_V091,
+  computeM5PrivacyWriterAuthorityFingerprintV091,
+  up as applyPrivacyWriterAuthority,
+} from '../src/db/migrations/2026_08_26_091_m5_privacy_writer_authority.js';
 import { generateLicenseKey, validateLicenseKey } from '../src/licensing/license.js';
 import { createNotificationRoutes } from '../src/routes/notifications.js';
 import { createMiscRoutes } from '../src/routes/misc.js';
@@ -26,6 +35,7 @@ import {
   M5PrivacyAuthorityError,
   M5PrivacyAuthorityErrorCode,
   M5PrivacyAuthorityRepository,
+  createM5PrivacyTransportWriterCapability,
 } from '../src/security/privacy-authority-repository.js';
 import {
   scanM5TrackedTree,
@@ -41,7 +51,7 @@ const NOW = 1_800_000_000_000;
 const SUBJECT = Object.freeze({ actorType: 'user', actorId: 'local-operator' });
 const CANARY = 'm5-private-canary-value-never-emit';
 
-function openDb(settings = {}) {
+function openDb(settings = {}, { writerAuthority = true } = {}) {
   const db = new Database(':memory:');
   db.exec(`
     CREATE TABLE user_settings (
@@ -52,11 +62,15 @@ function openDb(settings = {}) {
   `);
   db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify(settings));
   applyPrivacyAuthority(db);
+  if (writerAuthority) applyPrivacyWriterAuthority(db);
   return db;
 }
 
 function repository(db) {
-  return new M5PrivacyAuthorityRepository(db, { clock: () => NOW });
+  return new M5PrivacyAuthorityRepository(db, {
+    clock: () => NOW,
+    writerCapability: createM5PrivacyTransportWriterCapability(),
+  });
 }
 
 function expectCode(operation, code) {
@@ -88,7 +102,7 @@ test('privacy migration scrubs obsolete plaintext settings and installs exact sc
       retained: true,
     },
     'c3.notif.smtpHost': 'smtp.invalid',
-  });
+  }, { writerAuthority: false });
   const settings = JSON.parse(db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data);
   assert.deepEqual(settings, {
     notifications: { retained: true },
@@ -100,6 +114,12 @@ test('privacy migration scrubs obsolete plaintext settings and installs exact sc
   );
   applyPrivacyAuthority(db);
   assert.equal(computeM5PrivacyAuthorityFingerprintV090(db), EXPECTED_M5_PRIVACY_AUTHORITY_FINGERPRINT_V090);
+  applyPrivacyWriterAuthority(db);
+  assert.equal(
+    computeM5PrivacyWriterAuthorityFingerprintV091(db),
+    EXPECTED_M5_PRIVACY_WRITER_AUTHORITY_FINGERPRINT_V091,
+  );
+  applyPrivacyWriterAuthority(db);
   db.close();
 });
 
@@ -257,7 +277,7 @@ test('authority rejects missing users, future claims, category mismatch and repl
   db.close();
 });
 
-test('SQL authority rejects forged indexed fields and receipts are append-only', () => {
+test('SQL authority rejects direct canonical receipts, forged indexed fields and mutation', () => {
   const db = openDb();
   const receipt = createM5PrivacyRotationReceipt({
     categoryId: 'administrative-api',
@@ -280,6 +300,23 @@ test('SQL authority rejects forged indexed fields and receipts are append-only',
     receipt.actor.actorId,
     canonicalizeM5PrivacyValue(receipt),
   ), /M5_PRIVACY_ROTATION_AUTHORITY_MISMATCH/);
+
+  assert.throws(() => db.prepare(`
+    INSERT INTO m5_privacy_rotation_receipts (
+      receipt_id, incident_id, category_id, completed_at_ms,
+      attested_at_ms, actor_id, record_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    receipt.receiptId,
+    receipt.incidentId,
+    receipt.categoryId,
+    receipt.completedAtMs,
+    receipt.attestedAtMs,
+    receipt.actor.actorId,
+    canonicalizeM5PrivacyValue(receipt),
+  ), /M5_PRIVACY_ROTATION_AUTHORITY_MISMATCH/);
+  assert.equal(db.prepare('SELECT count(*) count FROM m5_privacy_rotation_receipts').get().count, 0);
+
   repository(db).recordRotation({
     authenticatedSubject: SUBJECT,
     categoryId: receipt.categoryId,
@@ -288,6 +325,64 @@ test('SQL authority rejects forged indexed fields and receipts are append-only',
   });
   assert.throws(() => db.prepare('UPDATE m5_privacy_rotation_receipts SET actor_id = ?').run('forged'), /append-only/);
   assert.throws(() => db.prepare('DELETE FROM m5_privacy_rotation_receipts').run(), /append-only/);
+  db.close();
+});
+
+test('direct SQL cannot forge all rotation receipts or history disposition', () => {
+  const db = openDb();
+  const insertRotation = db.prepare(`
+    INSERT INTO m5_privacy_rotation_receipts (
+      receipt_id, incident_id, category_id, completed_at_ms,
+      attested_at_ms, actor_id, record_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+  for (const category of M5_PRIVACY_ROTATION_CATEGORIES) {
+    const receipt = createM5PrivacyRotationReceipt({
+      categoryId: category.categoryId,
+      authorityKind: category.authorityKind,
+      completedAtMs: NOW - 1,
+      attestedAtMs: NOW,
+      actorId: 'forged-operator',
+    });
+    assert.throws(() => insertRotation.run(
+      receipt.receiptId,
+      receipt.incidentId,
+      receipt.categoryId,
+      receipt.completedAtMs,
+      receipt.attestedAtMs,
+      receipt.actor.actorId,
+      canonicalizeM5PrivacyValue(receipt),
+    ), /M5_PRIVACY_ROTATION_AUTHORITY_MISMATCH/);
+  }
+  const history = createM5PrivacyHistoryReceipt({
+    decision: M5_PRIVACY_HISTORY_DECISIONS.RETAIN_AND_ROTATE,
+    actionStatus: M5_PRIVACY_HISTORY_ACTION.RETAINED,
+    repositoryVisibility: M5_PRIVACY_REPOSITORY_VISIBILITY.PRIVATE,
+    completedAtMs: NOW - 1,
+    attestedAtMs: NOW,
+    actorId: 'forged-operator',
+  });
+  assert.throws(() => db.prepare(`
+    INSERT INTO m5_privacy_history_receipts (
+      receipt_id, incident_id, decision, action_status,
+      repository_visibility, completed_at_ms, attested_at_ms,
+      actor_id, record_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    history.receiptId,
+    history.incidentId,
+    history.decision,
+    history.actionStatus,
+    history.repositoryVisibility,
+    history.completedAtMs,
+    history.attestedAtMs,
+    history.actor.actorId,
+    canonicalizeM5PrivacyValue(history),
+  ), /M5_PRIVACY_HISTORY_AUTHORITY_MISMATCH/);
+  const status = repository(db).summary();
+  assert.equal(status.rotationCompleted, 0);
+  assert.equal(status.historyDisposition, null);
+  assert.equal(status.verdict, 'INCOMPLETE');
   db.close();
 });
 
@@ -339,12 +434,59 @@ test('tree scanner reports only rule, path and line and never the matched value'
     },
   });
   assert.equal(report.verdict, 'FAIL');
+  assert.equal(report.scannedFiles, 2);
+  assert.equal(report.contentReadFiles, 1);
+  assert.equal(report.distributionManifestDigest, M5_DISTRIBUTION_MANIFEST_DIGEST);
   assert.deepEqual(report.findings, [{
     ruleId: 'M5_PRIVACY_NAMED_SECRET_LITERAL',
     path: 'src/unsafe.js',
     line: 1,
   }]);
   assert.equal(report.secretValuesRecorded, false);
+  assert(!JSON.stringify(report).includes(CANARY));
+});
+
+test('tree scanner reads every distributed runtime root and detects multiline credentials', () => {
+  const paths = [
+    'agent-extensions/project-health/agent.json',
+    'c3-ide/runtime.js',
+    'skills/example.json',
+    'specialists/example/index.js',
+    'src/multiline.js',
+    'tests/not-distributed.js',
+  ];
+  const reads = [];
+  const report = scanM5TrackedTree({
+    candidateRevision: 'c'.repeat(40),
+    paths,
+    readFile: filePath => {
+      reads.push(filePath);
+      if (filePath === 'src/multiline.js') {
+        return Buffer.from([
+          'const providerToken = process.env.PROVIDER_TOKEN ??',
+          `  '${CANARY}';`,
+          'const config = { apiKey:',
+          `  '${CANARY}' };`,
+        ].join('\n'), 'utf8');
+      }
+      return Buffer.from('{}\n', 'utf8');
+    },
+  });
+  assert.deepEqual(reads, paths.filter(filePath => filePath !== 'tests/not-distributed.js'));
+  assert.equal(report.scannedFiles, paths.length);
+  assert.equal(report.contentReadFiles, 5);
+  assert.deepEqual(report.findings, [
+    {
+      ruleId: 'M5_PRIVACY_SECRET_ENV_FALLBACK_LITERAL',
+      path: 'src/multiline.js',
+      line: 1,
+    },
+    {
+      ruleId: 'M5_PRIVACY_NAMED_SECRET_LITERAL',
+      path: 'src/multiline.js',
+      line: 3,
+    },
+  ]);
   assert(!JSON.stringify(report).includes(CANARY));
 });
 

@@ -279,8 +279,9 @@ export function createM5PrivacyHistoryReceipt({
 export function validateM5PrivacyTreeScan(value) {
   const context = 'm5-privacy-tree-scan';
   const errors = validateExactKeys(value, [
-    'contract', 'version', 'candidateRevision', 'scannedFiles', 'findings',
-    'verdict', 'secretValuesRecorded',
+    'contract', 'version', 'candidateRevision', 'scannedFiles',
+    'contentReadFiles', 'distributionManifestDigest', 'findings', 'verdict',
+    'secretValuesRecorded',
   ], [], context);
   if (!isPlainRecord(value)) return validationResult(errors, value);
   if (value.contract !== M5_PRIVACY_KIND.TREE_SCAN) errors.push(`${context}:invalid-contract`);
@@ -288,6 +289,14 @@ export function validateM5PrivacyTreeScan(value) {
   if (!REVISION.test(value.candidateRevision || '')) errors.push(`${context}:invalid-revision`);
   if (!Number.isSafeInteger(value.scannedFiles) || value.scannedFiles < 0) {
     errors.push(`${context}:invalid-scannedFiles`);
+  }
+  if (
+    !Number.isSafeInteger(value.contentReadFiles)
+    || value.contentReadFiles < 0
+    || value.contentReadFiles > value.scannedFiles
+  ) errors.push(`${context}:invalid-contentReadFiles`);
+  if (!/^sha256:[a-f0-9]{64}$/.test(value.distributionManifestDigest || '')) {
+    errors.push(`${context}:invalid-distributionManifestDigest`);
   }
   if (!Array.isArray(value.findings)) errors.push(`${context}:invalid-findings`);
   else value.findings.forEach((finding, index) => {

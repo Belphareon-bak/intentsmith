@@ -4,11 +4,14 @@ import {
   M5_PRIVACY_KIND,
   validateM5PrivacyTreeScan,
 } from '../../contracts/m5/privacy-remediation-v1.js';
+import {
+  M5_DISTRIBUTION_MANIFEST_DIGEST,
+  isM5DistributedContentPath,
+} from '../../contracts/m5/distribution-manifest-v1.js';
 
 const SENSITIVE_PATH = /(?:^|\/)(?:\.env(?:\.|$)|[^/]+\.(?:db|sqlite|sqlite3|pem|key|p12|pfx|kdbx)(?:$|-)|(?:chats|projects)\/.*\/attachments\/)/i;
-const PRODUCTION_SOURCE = /^(?:bin|contracts|scripts|src)\/.*\.(?:c?js|mjs|json|ts|yaml|yml|toml)$/;
-const SECRET_FALLBACK = /process\.env\.[A-Z0-9_]*(?:SECRET|PASSWORD|PASS|TOKEN|API_KEY|PRIVATE_KEY)[A-Z0-9_]*\s*(?:\|\||\?\?)\s*(['"])[^'"\r\n]+\1/;
-const NAMED_LITERAL = /\b[A-Za-z0-9_]*(?:secret|password|passwd|apiKey|api_key|accessToken|access_token|privateKey|private_key)[A-Za-z0-9_]*\s*(?:=|:)\s*(['"])[^'"\r\n]{8,}\1/i;
+const SECRET_FALLBACK = /process\.env\.[A-Z0-9_]*(?:SECRET|PASSWORD|PASS|TOKEN|API_KEY|PRIVATE_KEY)[A-Z0-9_]*\s*(?:\|\||\?\?)\s*(['"])[^'"\r\n]+\1/g;
+const NAMED_LITERAL = /\b[A-Za-z0-9_]*(?:secret|password|passwd|apiKey|api_key|accessToken|access_token|privateKey|private_key)[A-Za-z0-9_]*\s*(?:=|:)\s*(['"])[^'"\r\n]{8,}\1/gi;
 
 function safePath(value) {
   return typeof value === 'string'
@@ -32,6 +35,34 @@ function compareFindings(left, right) {
   );
 }
 
+function lineAtOffset(source, offset) {
+  let line = 1;
+  for (let index = 0; index < offset; index += 1) {
+    if (source.charCodeAt(index) === 10) line += 1;
+  }
+  return line;
+}
+
+function lineIsComment(source, offset) {
+  const start = source.lastIndexOf('\n', Math.max(0, offset - 1)) + 1;
+  return source.slice(start, offset).trimStart().startsWith('//');
+}
+
+function addMatches(findings, source, filePath, expression, ruleId, skipComments = false) {
+  expression.lastIndex = 0;
+  let match;
+  while ((match = expression.exec(source)) !== null) {
+    if (!skipComments || !lineIsComment(source, match.index)) {
+      findings.push(finding(ruleId, filePath, lineAtOffset(source, match.index)));
+    }
+    if (match[0].length === 0) expression.lastIndex += 1;
+  }
+}
+
+export function isM5PrivacyContentScanPath(filePath) {
+  return isM5DistributedContentPath(filePath);
+}
+
 export function scanM5TrackedTree({ candidateRevision, paths, readFile } = {}) {
   if (!/^[a-f0-9]{40}$/.test(candidateRevision || '')) {
     throw new TypeError('m5-privacy-scan:candidate-revision-invalid');
@@ -46,12 +77,13 @@ export function scanM5TrackedTree({ candidateRevision, paths, readFile } = {}) {
   if (uniquePaths.length !== paths.length) throw new TypeError('m5-privacy-scan:duplicate-path');
 
   const findings = [];
+  let contentReadFiles = 0;
   for (const filePath of uniquePaths) {
     if (filePath !== '.env.example' && SENSITIVE_PATH.test(filePath)) {
       findings.push(finding('M5_PRIVACY_SENSITIVE_PATH_TRACKED', filePath));
       continue;
     }
-    if (!PRODUCTION_SOURCE.test(filePath)) continue;
+    if (!isM5DistributedContentPath(filePath)) continue;
     let bytes;
     try {
       bytes = readFile(filePath);
@@ -60,6 +92,7 @@ export function scanM5TrackedTree({ candidateRevision, paths, readFile } = {}) {
       continue;
     }
     if (!Buffer.isBuffer(bytes)) bytes = Buffer.from(bytes);
+    contentReadFiles += 1;
     if (bytes.includes(0)) {
       findings.push(finding('M5_PRIVACY_PRODUCTION_SOURCE_BINARY', filePath));
       continue;
@@ -69,13 +102,21 @@ export function scanM5TrackedTree({ candidateRevision, paths, readFile } = {}) {
       findings.push(finding('M5_PRIVACY_PRODUCTION_SOURCE_INVALID_UTF8', filePath));
       continue;
     }
-    source.split(/\r?\n/).forEach((line, index) => {
-      if (SECRET_FALLBACK.test(line)) {
-        findings.push(finding('M5_PRIVACY_SECRET_ENV_FALLBACK_LITERAL', filePath, index + 1));
-      } else if (NAMED_LITERAL.test(line) && !line.trimStart().startsWith('//')) {
-        findings.push(finding('M5_PRIVACY_NAMED_SECRET_LITERAL', filePath, index + 1));
-      }
-    });
+    addMatches(
+      findings,
+      source,
+      filePath,
+      SECRET_FALLBACK,
+      'M5_PRIVACY_SECRET_ENV_FALLBACK_LITERAL',
+    );
+    addMatches(
+      findings,
+      source,
+      filePath,
+      NAMED_LITERAL,
+      'M5_PRIVACY_NAMED_SECRET_LITERAL',
+      true,
+    );
   }
   findings.sort(compareFindings);
   const report = Object.freeze({
@@ -83,6 +124,8 @@ export function scanM5TrackedTree({ candidateRevision, paths, readFile } = {}) {
     version: 1,
     candidateRevision,
     scannedFiles: uniquePaths.length,
+    contentReadFiles,
+    distributionManifestDigest: M5_DISTRIBUTION_MANIFEST_DIGEST,
     findings: Object.freeze(findings),
     verdict: findings.length === 0 ? 'PASS' : 'FAIL',
     secretValuesRecorded: false,

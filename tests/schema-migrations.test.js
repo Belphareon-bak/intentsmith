@@ -181,6 +181,7 @@ const ALL_MIGRATIONS = [
   '2026_08_26_088_m4_learning_plan_evaluations',
   '2026_08_26_089_m5_outbound_audit',
   '2026_08_26_090_m5_privacy_authority',
+  '2026_08_26_091_m5_privacy_writer_authority',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;

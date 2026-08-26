@@ -9,7 +9,13 @@ import {
   validateM5PrivacyHistoryReceipt,
   validateM5PrivacyRotationReceipt,
 } from '../../contracts/m5/privacy-remediation-v1.js';
-import { registerM5PrivacyAuthorityFunctions } from './privacy-authority-validation.js';
+import {
+  createM5PrivacyTransportWriterCapability,
+  registerM5PrivacyAuthorityFunctions,
+  withM5PrivacyReceiptWriterAuthority,
+} from './privacy-authority-validation.js';
+
+export { createM5PrivacyTransportWriterCapability };
 
 export const M5PrivacyAuthorityErrorCode = Object.freeze({
   AUTH_REQUIRED: 'M5_PRIVACY_AUTH_REQUIRED',
@@ -17,6 +23,7 @@ export const M5PrivacyAuthorityErrorCode = Object.freeze({
   INPUT_INVALID: 'M5_PRIVACY_INPUT_INVALID',
   ROTATION_ALREADY_RECORDED: 'M5_PRIVACY_ROTATION_ALREADY_RECORDED',
   STORAGE_FAILURE: 'M5_PRIVACY_STORAGE_FAILURE',
+  WRITER_AUTHORITY_REQUIRED: 'M5_PRIVACY_WRITER_AUTHORITY_REQUIRED',
 });
 
 export class M5PrivacyAuthorityError extends Error {
@@ -64,13 +71,14 @@ function storageFailure(error) {
 }
 
 export class M5PrivacyAuthorityRepository {
-  constructor(database, { clock = Date.now } = {}) {
+  constructor(database, { clock = Date.now, writerCapability = null } = {}) {
     if (!database || typeof database.prepare !== 'function' || typeof database.transaction !== 'function') {
       throw new TypeError('m5-privacy-authority:database-required');
     }
     if (typeof clock !== 'function') throw new TypeError('m5-privacy-authority:clock-required');
     this.database = database;
     this.clock = clock;
+    this.writerCapability = writerCapability;
     registerM5PrivacyAuthorityFunctions(database);
   }
 
@@ -103,30 +111,45 @@ export class M5PrivacyAuthorityRepository {
       fail(M5PrivacyAuthorityErrorCode.INPUT_INVALID, 'Rotation attestation is invalid');
     }
     try {
-      const existing = this.database.prepare(`
-        SELECT record_json FROM m5_privacy_rotation_receipts
-        WHERE incident_id = ? AND category_id = ?
-      `).get(M5_PRIVACY_INCIDENT_ID, categoryId);
-      if (existing) fail(
-        M5PrivacyAuthorityErrorCode.ROTATION_ALREADY_RECORDED,
-        'Rotation category already has an append-only receipt',
-      );
-      this.database.prepare(`
-        INSERT INTO m5_privacy_rotation_receipts (
-          receipt_id, incident_id, category_id, completed_at_ms,
-          attested_at_ms, actor_id, record_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        receipt.receiptId,
-        receipt.incidentId,
-        receipt.categoryId,
-        receipt.completedAtMs,
-        receipt.attestedAtMs,
-        receipt.actor.actorId,
-        canonicalizeM5PrivacyValue(receipt),
-      );
+      const recordJson = canonicalizeM5PrivacyValue(receipt);
+      const write = this.database.transaction(() => {
+        const existing = this.database.prepare(`
+          SELECT record_json FROM m5_privacy_rotation_receipts
+          WHERE incident_id = ? AND category_id = ?
+        `).get(M5_PRIVACY_INCIDENT_ID, categoryId);
+        if (existing) fail(
+          M5PrivacyAuthorityErrorCode.ROTATION_ALREADY_RECORDED,
+          'Rotation category already has an append-only receipt',
+        );
+        return withM5PrivacyReceiptWriterAuthority(
+          this.database,
+          this.writerCapability,
+          { receiptId: receipt.receiptId, recordJson },
+          () => this.database.prepare(`
+            INSERT INTO m5_privacy_rotation_receipts (
+              receipt_id, incident_id, category_id, completed_at_ms,
+              attested_at_ms, actor_id, record_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            receipt.receiptId,
+            receipt.incidentId,
+            receipt.categoryId,
+            receipt.completedAtMs,
+            receipt.attestedAtMs,
+            receipt.actor.actorId,
+            recordJson,
+          ),
+        );
+      });
+      write();
       return receipt;
     } catch (error) {
+      if (error?.message === 'm5-privacy-authority:transport-writer-capability-required') {
+        fail(
+          M5PrivacyAuthorityErrorCode.WRITER_AUTHORITY_REQUIRED,
+          'Transport writer authority is required',
+        );
+      }
       storageFailure(error);
     }
   }
@@ -155,32 +178,47 @@ export class M5PrivacyAuthorityRepository {
       fail(M5PrivacyAuthorityErrorCode.INPUT_INVALID, 'History attestation is invalid');
     }
     try {
-      const existing = this.database.prepare(`
-        SELECT record_json FROM m5_privacy_history_receipts WHERE incident_id = ?
-      `).get(M5_PRIVACY_INCIDENT_ID);
-      if (existing) fail(
-        M5PrivacyAuthorityErrorCode.HISTORY_ALREADY_RECORDED,
-        'History disposition already has an append-only receipt',
-      );
-      this.database.prepare(`
-        INSERT INTO m5_privacy_history_receipts (
-          receipt_id, incident_id, decision, action_status,
-          repository_visibility, completed_at_ms, attested_at_ms,
-          actor_id, record_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        receipt.receiptId,
-        receipt.incidentId,
-        receipt.decision,
-        receipt.actionStatus,
-        receipt.repositoryVisibility,
-        receipt.completedAtMs,
-        receipt.attestedAtMs,
-        receipt.actor.actorId,
-        canonicalizeM5PrivacyValue(receipt),
-      );
+      const recordJson = canonicalizeM5PrivacyValue(receipt);
+      const write = this.database.transaction(() => {
+        const existing = this.database.prepare(`
+          SELECT record_json FROM m5_privacy_history_receipts WHERE incident_id = ?
+        `).get(M5_PRIVACY_INCIDENT_ID);
+        if (existing) fail(
+          M5PrivacyAuthorityErrorCode.HISTORY_ALREADY_RECORDED,
+          'History disposition already has an append-only receipt',
+        );
+        return withM5PrivacyReceiptWriterAuthority(
+          this.database,
+          this.writerCapability,
+          { receiptId: receipt.receiptId, recordJson },
+          () => this.database.prepare(`
+            INSERT INTO m5_privacy_history_receipts (
+              receipt_id, incident_id, decision, action_status,
+              repository_visibility, completed_at_ms, attested_at_ms,
+              actor_id, record_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            receipt.receiptId,
+            receipt.incidentId,
+            receipt.decision,
+            receipt.actionStatus,
+            receipt.repositoryVisibility,
+            receipt.completedAtMs,
+            receipt.attestedAtMs,
+            receipt.actor.actorId,
+            recordJson,
+          ),
+        );
+      });
+      write();
       return receipt;
     } catch (error) {
+      if (error?.message === 'm5-privacy-authority:transport-writer-capability-required') {
+        fail(
+          M5PrivacyAuthorityErrorCode.WRITER_AUTHORITY_REQUIRED,
+          'Transport writer authority is required',
+        );
+      }
       storageFailure(error);
     }
   }
