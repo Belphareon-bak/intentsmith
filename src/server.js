@@ -268,6 +268,19 @@ for (const failure of bindingRehydrate.failed) {
     `Model binding rehydrate failed for ${failure.role}: ${failure.code}`,
   );
 }
+const bindingBaselineReconcile = await modelBindingApplication.reconcileConfiguredBindingBaselines();
+if (bindingBaselineReconcile.created > 0) {
+  logger.info(
+    'Server',
+    `Persisted ${bindingBaselineReconcile.created} configured model binding baseline(s)`,
+  );
+}
+for (const failure of bindingBaselineReconcile.roles.filter(row => row.outcome === 'FAILED')) {
+  logger.warn(
+    'Server',
+    `Configured model binding baseline failed for ${failure.role}: ${failure.code}`,
+  );
+}
 
 // Registry metadata client supports factual online discovery only.
 try {

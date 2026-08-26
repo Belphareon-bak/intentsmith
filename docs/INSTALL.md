@@ -24,12 +24,13 @@
 | Komponenta | Minimum | Doporuceno |
 |-----------|---------|-----------|
 | RAM | 16 GB | 32 GB+ |
-| GPU VRAM | 12 GB (pro 32b modely) | 24 GB+ |
+| GPU VRAM | 12 GB (mensi modely) | 24 GB+ pro vychozi portfolio |
 | Disk | 50 GB volneho mista | 100 GB+ |
 | CPU | 4 jadra | 8+ jader |
 
-> Modely qwen3.5:27b a deepseek-r1:32b vyzaduji GPU s dostatkem VRAM.
-> Bez GPU lze pouzit mensi modely (7b/14b), ale kvalita odpovedi bude nizsi.
+> Vychozi modely vyzaduji GPU s dostatkem VRAM. Produkcni scoring je prisne
+> GPU-only: kandidat, ktery se nevejde cely do VRAM, se automaticky vyradi a
+> nesmi dostat skore z CPU/RAM offloadu.
 
 ### Software
 
@@ -141,13 +142,11 @@ cp .env.example .env
 # Spust Ollama (pokud nebezi jako systemd service)
 ollama serve &
 
-# Stahni modely (celkem ~50 GB)
-ollama pull qwen3.5:27b          # CHAT + CODE + R2
-ollama pull deepseek-r1:32b      # D1 + R1 (hluboka analyza a review)
-
-# Volitelne:
-ollama pull qwen3-30b-a3b        # D2 (opravy — lehci model)
-ollama pull llava:13b             # VISION (analyza obrazku)
+# Stahni vychozi portfolio
+ollama pull qwen3.5:27b          # D1 + CODE + CHAT
+ollama pull qwen3.8:latest       # D2 + R1
+ollama pull qwen3:14b            # R2
+ollama pull llava-llama3:8b      # VISION
 ```
 
 > Stazeni modelu muze trvat desitky minut v zavislosti na rychlosti pripojeni.
@@ -303,14 +302,15 @@ Vsechny promenne se nacitaji z `.env` souboru v koreni projektu.
 |----------|---------|------|
 | `C3_MODEL_CHAT` | qwen3.5:27b | Obecna konverzace |
 | `C3_MODEL_CODE` | qwen3.5:27b | Generovani kodu |
-| `C3_MODEL_D1` | deepseek-r1-32b | Hluboka analyza |
-| `C3_MODEL_D2` | qwen3-30b-a3b | Opravy (lehci model) |
-| `C3_MODEL_R1` | deepseek-r1-32b | Finalni review |
-| `C3_MODEL_R2` | qwen3.5:27b | Rychly review |
-| `C3_MODEL_VISION` | llava:13b | Analyza obrazku |
+| `C3_MODEL_D1` | qwen3.5:27b | Hluboka analyza |
+| `C3_MODEL_D2` | qwen3.8:latest | Opravy |
+| `C3_MODEL_R1` | qwen3.8:latest | Finalni review |
+| `C3_MODEL_R2` | qwen3:14b | Rychly review |
+| `C3_MODEL_VISION` | llava-llama3:8b | Analyza obrazku |
 
-`.env.example` zamerne mapuje D1/R1 na skutecny Ollama tag
-`deepseek-r1:32b`; proto je jeho zkopirovani soucasti kanonickeho Quick Startu.
+`.env.example`, setup wizard a vestavene fallbacky pouzivaji stejne portfolio.
+Autoritativni runtime binding je navic evidovan jako exact-artifact zaznam v DB;
+tag sam o sobe neni dostatecna identita pro audit scoringu.
 
 ### Feature flagy
 

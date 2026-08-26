@@ -5,6 +5,16 @@ import os from 'os';
 import path from 'path';
 import { resolveHttpTimeoutPolicy, resolveRoleTimeouts } from './timeout-policy.js';
 
+export const DEFAULT_MODEL_BINDINGS = Object.freeze({
+  D1: 'qwen3.5:27b',
+  D2: 'qwen3.8:latest',
+  CODE: 'qwen3.5:27b',
+  R1: 'qwen3.8:latest',
+  R2: 'qwen3:14b',
+  CHAT: 'qwen3.5:27b',
+  VISION: 'llava-llama3:8b',
+});
+
 export const config = {
   // Feature flags — enable/disable optional modules (B/C/D)
   // Core chat works without any of these.
@@ -87,27 +97,27 @@ export const config = {
   //   D1 = Deep deliberation (analysis, planning, redesign)
   //   D2 = Fix deliberation (lighter, focused on fixes)
   //   CODE = Implementation (code specialist)
-  //   R1 = Final deep review (same brain as D1)
+  //   R1 = Final deep review
   //   R2 = Quick review (fast, good at JSON)
   // ═══════════════════════════════════════════════════════
   models: {
     // D1: Deep deliberation — analysis, planning, final review, redesign
-    D1: process.env.C3_MODEL_D1 || 'deepseek-r1-32b',
+    D1: process.env.C3_MODEL_D1 || DEFAULT_MODEL_BINDINGS.D1,
 
     // D2: Fix deliberation — focused fix reasoning
-    D2: process.env.C3_MODEL_D2 || 'qwen3-30b-a3b',
+    D2: process.env.C3_MODEL_D2 || DEFAULT_MODEL_BINDINGS.D2,
 
     // CODE: Implementation — code generation and fixes
-    CODE: process.env.C3_MODEL_CODE || 'qwen3.5:27b',
+    CODE: process.env.C3_MODEL_CODE || DEFAULT_MODEL_BINDINGS.CODE,
 
-    // R1: Final deep review (= D1, same deep reasoning)
-    R1: process.env.C3_MODEL_R1 || 'deepseek-r1-32b',
+    // R1: Final deep review
+    R1: process.env.C3_MODEL_R1 || DEFAULT_MODEL_BINDINGS.R1,
 
     // R2: Quick review — fast structural/logic check
-    R2: process.env.C3_MODEL_R2 || 'qwen3.5:27b',
+    R2: process.env.C3_MODEL_R2 || DEFAULT_MODEL_BINDINGS.R2,
 
-    CHAT: process.env.C3_MODEL_CHAT || 'qwen3.5:27b',
-    VISION: process.env.C3_MODEL_VISION || 'llava:13b',
+    CHAT: process.env.C3_MODEL_CHAT || DEFAULT_MODEL_BINDINGS.CHAT,
+    VISION: process.env.C3_MODEL_VISION || DEFAULT_MODEL_BINDINGS.VISION,
   },
 
   // Timeouts per role (ms) — multiply via C3_TIMEOUT_SCALE env (default 1)

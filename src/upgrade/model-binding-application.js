@@ -656,6 +656,89 @@ export class ModelBindingApplication {
     return this.#applyManualBinding(inputValue, null);
   }
 
+  /**
+   * Persist exact baselines for configured roles that do not yet have durable
+   * desired state. This is observation-only: existing desired rows are never
+   * changed and no provider pull, runtime commit or binding operation occurs.
+   */
+  async reconcileConfiguredBindingBaselines() {
+    return this.#runExclusive('reconcile-configured-bindings', async () => {
+      const roles = Object.keys(config.models).sort();
+      const compatibilityOverrides = this.repository.listCompatibilityOverridesForRehydrate();
+      const results = [];
+      let created = 0;
+      let alreadyDurable = 0;
+      let failed = 0;
+
+      for (const role of roles) {
+        const existing = this.repository.getDesired(role);
+        if (existing) {
+          alreadyDurable += 1;
+          results.push(Object.freeze({
+            role,
+            outcome: 'ALREADY_DURABLE',
+            source: existing.source,
+            code: null,
+          }));
+          continue;
+        }
+
+        try {
+          const runtime = this.runtime.snapshot(role);
+          const runtimeModel = requireString(runtime?.modelName, 'runtime.modelName');
+          const roleOverrides = compatibilityOverrides.filter(row => row?.role === role);
+          if (roleOverrides.length > 1) {
+            fail(
+              'MODEL_BINDING_BASELINE_AUTHORITY_AMBIGUOUS',
+              'Configured binding baseline has multiple compatibility overrides',
+              { role },
+            );
+          }
+          const legacy = roleOverrides[0] || null;
+          if (legacy && !sameModelName(legacy.modelName, runtimeModel)) {
+            fail(
+              'MODEL_BINDING_BASELINE_AUTHORITY_MISMATCH',
+              'Compatibility override differs from the configured runtime binding',
+              { role, runtimeModel, legacyModel: legacy.modelName },
+            );
+          }
+          const resolved = await this.provider.resolveExact(runtimeModel);
+          const observed = this.repository.observeDesiredBinding({
+            role,
+            modelName: resolved.name,
+            digestSha256: resolved.digestSha256,
+            source: legacy ? 'LEGACY_OVERRIDE' : 'CONFIG_DEFAULT',
+            actor: 'system:binding-application',
+            expectedAbsent: true,
+          });
+          created += observed.outcome === 'CREATED' ? 1 : 0;
+          results.push(Object.freeze({
+            role,
+            outcome: observed.outcome,
+            source: observed.binding.source,
+            code: null,
+          }));
+        } catch (error) {
+          failed += 1;
+          results.push(Object.freeze({
+            role,
+            outcome: 'FAILED',
+            source: null,
+            code: error?.code || 'MODEL_BINDING_BASELINE_RECONCILE_FAILED',
+          }));
+        }
+      }
+
+      return Object.freeze({
+        rolesChecked: roles.length,
+        created,
+        alreadyDurable,
+        failed,
+        roles: Object.freeze(results),
+      });
+    });
+  }
+
   async beginManualBinding(inputValue) {
     let accepted = false;
     let resolveAcceptance;

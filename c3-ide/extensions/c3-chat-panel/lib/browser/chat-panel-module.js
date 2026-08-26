@@ -2760,7 +2760,7 @@ function settingsLLM(){
   if(!_ollamaModels){fetch(_backendBase+'/api/system/models',{signal:AbortSignal.timeout(5000)}).then(function(r){return r.json();}).then(function(d){_ollamaModels=d.models||d||[];renderCenter();}).catch(function(){_ollamaModels=[];});}
   if(!_evaluationData&&!_evaluationLoading)_loadEvaluationData();
   var models=[...new Set((_ollamaModels||[]).map(function(m){return typeof m==='string'?m:m.name||m.model||'';}).filter(Boolean))];
-  if(models.length===0)models=['qwen3.5:27b','llava:13b','llama3.1:70b','mistral:7b'];
+  if(models.length===0)models=['qwen3.5:27b','llava-llama3:8b','llama3.1:70b','mistral:7b'];
   var gpus=_gpuInfo&&_gpuInfo.profile?_gpuInfo.profile.gpus:(_gpuInfo&&_gpuInfo.gpus?_gpuInfo.gpus:null);
   var rec=_gpuInfo&&_gpuInfo.recommendation?_gpuInfo.recommendation:null;
   return h('div',null,
@@ -3029,7 +3029,7 @@ function _renderEvaluationsTab(){
       'Autorita: model_evaluation_runs · pouze exact digest + current suite contract · bez legacy fallbacku. ',
       'Čas testu je auditní údaj; neexistuje skrytá 14denní platnost ani mezi-role průměr.'),
     roleNames.map(function(role){
-      var rd=roles[role];var artifacts=rd.artifacts||[];var decision=rd.latestDecision||null;
+      var rd=roles[role];var artifacts=rd.artifacts||[];var decisions=rd.decisions||[];
       return h('div',{key:role,style:{marginBottom:20}},
         h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:8}},
           h('span',{style:{background:C.accent,color:'#fff',borderRadius:4,padding:'2px 8px',fontSize:_fs(10),fontWeight:700}},role),
@@ -3037,9 +3037,9 @@ function _renderEvaluationsTab(){
           h('span',{style:{fontSize:_fs(10),color:C.tx2,fontFamily:C.mono}},rd.binding||'?'),
           h('span',{style:{fontSize:_fs(9),color:C.tx4,marginLeft:8}},rd.suiteName+' · '+rd.suiteVersion),
           h('span',{style:{fontSize:_fs(8),color:C.tx4,fontFamily:C.mono},title:rd.suiteContractSha256},rd.suiteContractSha256.slice(0,12))),
-        decision?h('div',{style:{marginBottom:8,padding:'7px 9px',borderRadius:6,background:C.bg2,border:'1px solid '+C.border,fontSize:_fs(9),color:C.tx3}},
+        decisions.map(function(decision){return h('div',{key:decision.decisionId,style:{marginBottom:8,padding:'7px 9px',borderRadius:6,background:C.bg2,border:'1px solid '+C.border,fontSize:_fs(9),color:C.tx3}},
           h('span',{style:{fontWeight:700,color:decision.outcome==='CANDIDATE'?C.accent:decision.outcome==='BLOCKED'?'#ef4444':'#eab308'}},decision.outcome),
-          ' · '+decision.incumbentModel+' → '+decision.candidateModel+' · '+new Date(decision.createdAt).toLocaleString('cs-CZ')+' · '+decision.actionability):null,
+          ' · '+decision.incumbentModel+' → '+decision.candidateModel+' · '+new Date(decision.createdAt).toLocaleString('cs-CZ')+' · '+decision.actionability);}),
         artifacts.length===0?h('div',{style:{fontSize:_fs(10),color:C.tx4,padding:8}},'Žádný nainstalovaný artefakt'):
         h('div',{style:{overflowX:'auto'}},
           h('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:_fs(10),fontFamily:C.mono}},

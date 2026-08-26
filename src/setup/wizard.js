@@ -22,6 +22,7 @@
 import fs from 'fs';
 import path from 'path';
 import { createInterface } from 'readline';
+import { DEFAULT_MODEL_BINDINGS } from '../config.js';
 import { logger } from '../core/logger.js';
 
 // ─── Setup State ────────────────────────────────────────────────────────────
@@ -33,14 +34,7 @@ const DEFAULT_SETUP = {
   completedAt: null,
   ollama: {
     url: 'http://127.0.0.1:11434',
-    models: {
-      CHAT: 'qwen3.5:27b',
-      CODE: 'qwen3.5:27b',
-      D1: 'deepseek-r1-32b',
-      R1: 'deepseek-r1-32b',
-      R2: 'qwen3.5:27b',
-      D2: 'qwen3-30b-a3b',
-    },
+    models: { ...DEFAULT_MODEL_BINDINGS },
     verified: false,
   },
   language: 'cs',
@@ -171,6 +165,9 @@ export class SetupWizard {
     env.OLLAMA_URL = this.config.ollama.url;
     env.C3_LANG = this.config.language;
     env.C3_DB_PATH = path.join(this.config.dataDir, 'c3.db');
+    for (const role of Object.keys(DEFAULT_MODEL_BINDINGS)) {
+      env[`C3_MODEL_${role}`] = this.config.ollama.models[role];
+    }
 
     if (this.config.notifications.telegram.enabled) {
       env.TELEGRAM_BOT_TOKEN = this.config.notifications.telegram.token;

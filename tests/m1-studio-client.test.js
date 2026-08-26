@@ -158,6 +158,76 @@ test('root Studio build and watch share one protocol preparation contract', () =
   );
 });
 
+test('model evaluation tab renders every decision instead of only the latest row', () => {
+  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
+  const start = source.indexOf('function _renderEvaluationsTab()');
+  const end = source.indexOf('/* ═══════════════════════════════════════════════════════════', start);
+  assert.notEqual(start, -1);
+  assert.notEqual(end, -1);
+  const context = {
+    module: { exports: null },
+    C: {
+      accent: '#0f0',
+      bg2: '#222',
+      border: '#333',
+      font: 'sans',
+      mono: 'mono',
+      tx1: '#fff',
+      tx2: '#ddd',
+      tx3: '#aaa',
+      tx4: '#777',
+    },
+    _fs: value => value,
+    _evaluationLoading: false,
+    _evaluationData: {
+      roles: {
+        CODE: {
+          binding: 'qwen3.5:27b',
+          suiteName: 'code_patch',
+          suiteVersion: 'code-patch-v2',
+          suiteContractSha256: 'a'.repeat(64),
+          decisions: [
+            {
+              decisionId: 'candidate-win',
+              outcome: 'CANDIDATE',
+              incumbentModel: 'qwen3.5:27b',
+              candidateModel: 'qwen3.8:latest',
+              createdAt: '2026-08-25T21:31:11.743Z',
+              actionability: 'PORTFOLIO_NOT_APPROVED',
+            },
+            {
+              decisionId: 'later-incumbent',
+              outcome: 'INCUMBENT',
+              incumbentModel: 'qwen3.5:27b',
+              candidateModel: 'qwen3-coder:latest',
+              createdAt: '2026-08-25T21:31:11.745Z',
+              actionability: 'NOT_CANDIDATE_WIN',
+            },
+          ],
+          artifacts: [],
+        },
+      },
+    },
+    h: (tag, props, ...children) => ({ tag, props, children }),
+  };
+  vm.runInNewContext(
+    `${source.slice(start, end)}\nmodule.exports=_renderEvaluationsTab();`,
+    context,
+    { filename: `${CHAT_PANEL.pathname}#evaluation-render` },
+  );
+  const flatten = value => {
+    if (value == null) return '';
+    if (typeof value === 'string' || typeof value === 'number') return String(value);
+    if (Array.isArray(value)) return value.map(flatten).join(' ');
+    return flatten(value.children);
+  };
+  const rendered = flatten(context.module.exports);
+  assert.match(rendered, /CANDIDATE/);
+  assert.match(rendered, /qwen3\.8:latest/);
+  assert.match(rendered, /INCUMBENT/);
+  assert.match(rendered, /qwen3-coder:latest/);
+});
+
 function validPostbuildProtocol() {
   return {
     M1_CONTRACT_VERSION: 1,

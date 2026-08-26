@@ -56,8 +56,7 @@ export function renderEvaluationReport(readModel) {
       const score = row.score == null ? '—' : `${Math.round(row.score * 100)}%`;
       lines.push(`  ${row.model}  ${row.digestSha256?.slice(0, 12) || 'NO_DIGEST'}  ${row.status}  ${score}  ${row.testedAt || '—'}`);
     }
-    if (state.latestDecision) {
-      const decision = state.latestDecision;
+    for (const decision of state.decisions || []) {
       lines.push(`  DECISION ${decision.outcome}  ${decision.incumbentModel} -> ${decision.candidateModel}  ${decision.createdAt}  ${decision.actionability}`);
     }
   }

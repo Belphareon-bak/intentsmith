@@ -47,8 +47,9 @@ services:
       - |
         echo "🔄 Pulling C3 models..."
         ollama pull qwen3.5:27b
-        ollama pull qwen3.5:27b
-        ollama pull deepseek-r1:32b
+        ollama pull qwen3.8:latest
+        ollama pull qwen3:14b
+        ollama pull llava-llama3:8b
         echo "✅ All models ready"
     volumes:
       - ollama_data:/root/.ollama

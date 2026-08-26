@@ -125,8 +125,10 @@ cd intentsmith
 cp .env.example .env
 
 # 4. Modely jsou externí artefakty; --minimal je nestahuje
-ollama pull qwen3.5:27b          # hlavní chat + kód
-ollama pull deepseek-r1:32b      # volitelná hluboká analýza + review
+ollama pull qwen3.5:27b          # D1 + CODE + CHAT
+ollama pull qwen3.8:latest       # D2 + R1
+ollama pull qwen3:14b            # R2
+ollama pull llava-llama3:8b      # VISION
 
 # 5. Start backendu a C3 Studio
 ./scripts/run.sh
@@ -354,7 +356,7 @@ vestavěné fallbacky z `src/config.js`.
 | Sekce | Klíčové proměnné | Vestavěný fallback |
 |-------|------------------|---------|
 | Server | `C3_PORT`, `C3_HOST` | `0` (dynamický), `127.0.0.1` |
-| Modely | `C3_MODEL_CHAT`, `C3_MODEL_CODE`, `C3_MODEL_D1` | qwen3.5:27b, qwen3.5:27b, deepseek-r1-32b |
+| Modely | `C3_MODEL_CHAT`, `C3_MODEL_CODE`, `C3_MODEL_D1` | qwen3.5:27b pro všechny tři role |
 | Databáze | `C3_DB_PATH` | `./data/c3.db` |
 | Features | `C3_ENABLE_LIFECYCLE`, `C3_ENABLE_SKILLS`, ... | vše zapnuto |
 | Bezpečnost | `C3_ADMIN_TOKEN` | - (localhost bypass v dev) |

@@ -102,7 +102,7 @@ All decisions flow through CRE — LLM is the text generator, never the authorit
 │                    80+ tables, 36 migrations, prepared statements           │
 ├────────────────────────────────────────────────────────────────────────────┤
 │                      LLM Gateway (Ollama)                                  │
-│  qwen3.5:27b (CHAT/CODE), deepseek-r1:32b (D1/R1), 7 roles, semaphore   │
+│  exact-artifact bindings, 7 roles, one durable DB authority, semaphore   │
 │  Concurrency: 1 slot default (single GPU), prepared for multi-GPU         │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -737,17 +737,20 @@ Registry → Resolver (LLM intent match) → Runner (state machine) → Step exe
 
 | Role | Default Model | Timeout | Usage |
 |------|---------------|---------|-------|
-| D1 (deliberation) | deepseek-r1:32b | 120s | Planning, analysis, roadmap generation |
-| D2 (fix) | qwen3-30b-a3b | 60s | Fix deliberation, error analysis |
+| D1 (deliberation) | qwen3.5:27b | 120s | Planning, analysis, roadmap generation |
+| D2 (fix) | qwen3.8:latest | 60s | Fix deliberation, error analysis |
 | CODE | qwen3.5:27b | 90s | Code generation, implementation |
-| R1 (review) | deepseek-r1:32b | 120s | Final milestone review, security audit |
-| R2 (quick review) | qwen3.5:27b | 45s | Quick code review, checkpoint validation |
+| R1 (review) | qwen3.8:latest | 120s | Final milestone review, security audit |
+| R2 (quick review) | qwen3:14b | 45s | Quick code review, checkpoint validation |
 | CHAT | qwen3.5:27b | 60s | User conversation, synthesis, all non-workflow LLM calls |
-| VISION | llava:13b | 60s | Image understanding, screenshot analysis |
+| VISION | llava-llama3:8b | 60s | Image understanding, screenshot analysis |
 
 ### LLM Gateway & Model Selection
 
-Model selection is **purely static** — there is no adaptive layer that chooses models based on task complexity, token count, or runtime heuristics.
+Request-time model selection is **role-static**: there is no adaptive layer that
+chooses a different model from prompt complexity, token count or a metadata
+quality estimate. The role projection itself can change only through the
+durable binding application (or the separately governed, opt-in failover path).
 
 **Resolution pipeline:**
 
@@ -772,10 +775,11 @@ User Query
 
 **Key principles:**
 - **No routing by complexity** — a simple "ahoj" and a complex synthesis both use the same CHAT model
-- **No fallback chains** — if a model fails (OOM, timeout), the call fails; no automatic switch to a smaller model
+- **No implicit fallback chains** — an ordinary request failure never silently switches models; automated failover is a separate opt-in policy with durable proof and audit state
 - **Role = model** — each role maps to exactly one model at any time
-- **Binding is user-controlled** — evaluation may produce a decision, but only an explicit manual binding command changes the role
+- **Upgrade binding is user-controlled** — evaluation may produce a decision, but only an explicit manual binding command changes the role; the independent failover policy is default-off
 - **Single writer** — `ModelBindingApplication` durably records, applies and verifies the exact artifact; old `UpgradeManager` writers do not exist
+- **Complete startup authority** — a configured role without desired state is observed once with its installed exact digest; existing durable rows are never overwritten by bootstrap
 - **Concurrency** — single-slot semaphore by default (`C3_MAX_CONCURRENT_LLM=1`), serializes all LLM calls across roles to prevent GPU contention
 
 **MODEL_PROFILES** (defined in `src/upgrade/model-profiles.js`) are metadata used by discovery and role eligibility. They are never a request-time router or quality authority.

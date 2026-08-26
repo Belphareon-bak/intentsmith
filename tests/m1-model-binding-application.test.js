@@ -21,7 +21,8 @@ import {
   testAsync,
 } from './harness.js';
 import { runMigrations } from '../src/db/migrate.js';
-import { config } from '../src/config.js';
+import { config, DEFAULT_MODEL_BINDINGS } from '../src/config.js';
+import { SetupWizard } from '../src/setup/wizard.js';
 import {
   createModelFailoverRepository,
 } from '../src/upgrade/model-failover.js';
@@ -478,6 +479,58 @@ function latestOperation(repository, role = 'CHAT') {
 }
 
 suite('M1 model binding application — one truthful commit point');
+
+await testAsync('bootstrap defaults share one complete seven-role portfolio', async () => {
+  const expected = {
+    D1: 'qwen3.5:27b',
+    D2: 'qwen3.8:latest',
+    CODE: 'qwen3.5:27b',
+    R1: 'qwen3.8:latest',
+    R2: 'qwen3:14b',
+    CHAT: 'qwen3.5:27b',
+    VISION: 'llava-llama3:8b',
+  };
+  assertEqual(JSON.stringify(DEFAULT_MODEL_BINDINGS), JSON.stringify(expected));
+  const wizard = new SetupWizard(path.join(
+    process.env.INTENTSMITH_TEST_ARTIFACT_DIR,
+    'bootstrap-defaults',
+  ));
+  assertEqual(
+    JSON.stringify(wizard.load().ollama.models),
+    JSON.stringify(DEFAULT_MODEL_BINDINGS),
+  );
+  const wizardEnv = wizard.toEnvVars();
+  for (const [role, modelName] of Object.entries(DEFAULT_MODEL_BINDINGS)) {
+    assertEqual(wizardEnv[`C3_MODEL_${role}`], modelName);
+  }
+});
+
+await testAsync('startup reconciliation persists every installed configured role without a binding operation', async () => {
+  await withFixture(async ({ db, repository, application }) => {
+    for (const role of Object.keys(config.models)) config.models[role] = 'fixture-base';
+
+    const first = await application.reconcileConfiguredBindingBaselines();
+    assertEqual(first.rolesChecked, 7);
+    assertEqual(first.created, 7);
+    assertEqual(first.alreadyDurable, 0);
+    assertEqual(first.failed, 0);
+    assertEqual(count(db, 'model_desired_bindings'), 7);
+    assertEqual(count(db, 'model_binding_operations'), 0);
+    for (const role of Object.keys(config.models)) {
+      const desired = repository.getDesired(role);
+      assertEqual(desired.modelName, 'fixture-base');
+      assertEqual(desired.digestSha256, DIGEST_A);
+      assertEqual(desired.source, 'CONFIG_DEFAULT');
+    }
+
+    const second = await application.reconcileConfiguredBindingBaselines();
+    assertEqual(second.created, 0);
+    assertEqual(second.alreadyDurable, 7);
+    assertEqual(second.failed, 0);
+    assertEqual(count(db, 'model_desired_bindings'), 7);
+    assertEqual(count(db, 'model_binding_operations'), 0);
+  });
+});
 
 // Decision 022/A: rollback is bound to an exact operation. Tests whose subject
 // is not the recovery identity derive the current one; tests that exercise the

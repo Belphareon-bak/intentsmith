@@ -186,6 +186,44 @@ test('pairwise winner without final portfolio approval is not actionable', () =>
   db.close();
 });
 
+test('CLI report renders every current-contract decision for a role', () => {
+  const db = database();
+  const plans = createRoleEvaluationPlans({ repeats: 1 });
+  insert(db, {
+    runId: 'incumbent-code', digest: DIGEST, plan: plans.CODE,
+    score: 0.2, passed: 1,
+  });
+  db.prepare("UPDATE model_evaluation_runs SET model_name='incumbent:latest', model_canonical_name='incumbent' WHERE run_id='incumbent-code'").run();
+  insert(db, {
+    runId: 'candidate-code', digest: OLD_DIGEST, plan: plans.CODE,
+    score: 1, passed: 7,
+  });
+  db.prepare("UPDATE model_evaluation_runs SET model_name='candidate:latest', model_canonical_name='candidate' WHERE run_id='candidate-code'").run();
+  insertDecision(db, {
+    decisionId: 'code-win', role: 'CODE', incumbentRunId: 'incumbent-code',
+    candidateRunId: 'candidate-code', outcome: 'CANDIDATE', activationEligible: false,
+    createdAt: '2026-08-24T19:00:00.743Z',
+  });
+  insertDecision(db, {
+    decisionId: 'code-later-incumbent', role: 'CODE', incumbentRunId: 'incumbent-code',
+    candidateRunId: 'candidate-code', outcome: 'INCUMBENT', activationEligible: false,
+    createdAt: '2026-08-24T19:00:00.745Z',
+  });
+  const result = new ModelEvaluationReadModel(db, { plans }).read({
+    inventory: [
+      { name: 'incumbent:latest', digest: DIGEST },
+      { name: 'candidate:latest', digest: OLD_DIGEST },
+    ],
+    bindings: { CODE: 'incumbent' },
+  });
+  const rendered = renderEvaluationReport(result);
+  assertEqual(result.roles.CODE.decisions.length, 2);
+  assert(rendered.includes('DECISION CANDIDATE'));
+  assert(rendered.includes('DECISION INCUMBENT'));
+  assertEqual((rendered.match(/^  DECISION /gm) || []).length, 2);
+  db.close();
+});
+
 test('same name with another digest is MISSING', () => {
   const db = database();
   const plans = createRoleEvaluationPlans({ repeats: 1 });
