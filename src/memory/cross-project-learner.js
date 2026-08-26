@@ -111,9 +111,11 @@ function _normalizeStr(s) {
  * @param {Object} opts.projectStacks    - Map<projectId, stackInfo> for other projects
  * @param {number} [opts.maxResults=10]
  * @param {number} [opts.minConfidence=0.3]
+ * @param {boolean} [opts.crossProjectOptIn=false] Explicit user-controlled scope opt-in
  * @returns {Array<{projectId, kind, key, value, confidence, relevanceScore, source}>}
  */
 export function queryCrossProject(db, opts = {}) {
+  if (opts.crossProjectOptIn !== true) return [];
   if (!db) return [];
 
   const {

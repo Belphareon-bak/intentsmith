@@ -36,7 +36,7 @@ fyzické přepsání historie.
 
 ## Evidence
 
-Registrovaná sada `IS-T1-TESTS-M4-LEARNING-CONTRACT-V1-TEST` má 16/16 PASS.
+Registrovaná sada `IS-T1-TESTS-M4-LEARNING-CONTRACT-V1-TEST` má 17/17 PASS.
 Registry po přidání obsahuje 439 programů a fingerprint
 `68979b823d6bc0a0c2e975e6646b7675fea6b03440ef312eb53d4153b151a694`.
 Po contract-only commitu zůstal module-boundary ratchet 13/13 PASS bez změny
@@ -63,11 +63,30 @@ runu `2026-08-26T07-22-42-579Z`.
 
 Focused repository sada má 14/14 PASS. Celý fresh-DB migrační runner má 38/38
 PASS nad 74 migracemi a 148 tabulkami. Artifact validace má 154/154 PASS.
-Registry obsahuje 440 programů a fingerprint
+Registry v tomto authority řezu obsahoval 440 programů a fingerprint
 `18c4a54804b65ffe46ec67d17515d1d342409f5faae4eda8b2bceb8353cca71b`.
 Autoritativní graph následně explicitně přijal dvě authority hrany na product
 commitu `5a542600`; má 1 152 hran, stále 3 cykly a 28 souborů v cyklech a ratchet
 je 13/13 PASS.
+
+## Code Intelligence producer
+
+[`learning-pattern-producer.js`](../../src/code-intel/learning-pattern-producer.js)
+přijímá pouze validní `succeeded` `ProjectChangeResult`, vytvoří exact evidence
+jak pro celý M2 result, tak pro strukturovanou Code Intelligence analýzu a
+persistuje same-project observation. Proposal vznikne až ze dvou různých
+execution IDs, maximálně nad osmi nejnovějšími observations. Jeden execution
+nelze vydávat za dvě opakování.
+
+Pending nebo active proposal stejného klíče další návrhy potlačí. Po rejection
+se stejná evidence znovu nenabízí; nový proposal může vzniknout až po nové
+schválené změně. Producer nikdy nezapisuje Outcome ani vedlejší efekt. Starý
+`queryCrossProject()` nyní vrací prázdný výsledek, pokud volající nepředá
+explicitní `crossProjectOptIn: true`.
+
+Producer sada má 11/11 PASS a cross-project compatibility sada 37/37 PASS.
+Registry má 441 programů a fingerprint
+`fbdcc4fc65b47ae0bc751e0679048d9e32deb2467a4a4082469233492124d5b7`.
 
 ## Mimo rozsah
 

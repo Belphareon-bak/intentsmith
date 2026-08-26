@@ -249,6 +249,32 @@ test('retention, TTL and integer-only decay policy are part of the approved prop
   assert.throws(() => canonicalizeLearningValue(floating), /non-integer-number/);
 });
 
+test('evidence and proposal source collections have hard upper bounds', () => {
+  const tooMuchEvidence = Array.from({ length: 17 }, (_, index) => (
+    createLearningEvidenceV1({
+      kind: LEARNING_EVIDENCE_KIND.CODE_INTELLIGENCE,
+      sourceId: `analysis-${index}`,
+      sourceVersion: 1,
+      digest: `sha256:${index.toString(16).padStart(64, '0')}`,
+      workspaceRevision: REVISION_A,
+      occurredAtMs: BASE_MS + index + 1,
+    })
+  ));
+  assert.throws(
+    () => observation('a', { evidence: tooMuchEvidence }),
+    /too-many-evidence/,
+  );
+
+  const tooManyObservationIds = Array.from(
+    { length: 65 },
+    (_, index) => `lob1:${index.toString(16).padStart(64, '0')}`,
+  );
+  assert.throws(
+    () => proposal(observations(), { observationIds: tooManyObservationIds }),
+    /too-many-items/,
+  );
+});
+
 test('approval creates version one with a proposal-derived identity and exact expiry', () => {
   const sourceProposal = proposal();
   const outcome = approved(sourceProposal);

@@ -109,12 +109,23 @@ test('case insensitive', () => {
 
 suite('queryCrossProject');
 
+test('cross-project retrieval is default off without explicit opt-in', () => {
+  const db = mkDb();
+  insertEntry(db, 'proj-B', 'architecture_decision', 'use_repository_pattern', {
+    decision: 'Use repository pattern',
+    rationale: 'clean architecture',
+  });
+  assertEqual(queryCrossProject(db, { currentProjectId: 'proj-A' }).length, 0, 'default off');
+  db.close();
+});
+
 test('excludes current project', () => {
   const db = mkDb();
   insertEntry(db, 'proj-A', 'fix_strategy', 'IMPORT_NOT_FOUND:app.js:', { success: true, strategy: 'add import' });
   insertEntry(db, 'proj-B', 'fix_strategy', 'IMPORT_NOT_FOUND:util.js:', { success: true, strategy: 'add import' });
 
   const results = queryCrossProject(db, {
+    crossProjectOptIn: true,
     currentProjectId: 'proj-A',
     errors: [{ code: 'IMPORT_NOT_FOUND', file: 'main.js' }],
   });
@@ -130,6 +141,7 @@ test('matches by error code', () => {
   insertEntry(db, 'proj-B', 'fix_strategy', 'TYPE_MISMATCH:other.js:', { success: true, strategy: 'fix type' });
 
   const results = queryCrossProject(db, {
+    crossProjectOptIn: true,
     currentProjectId: 'proj-A',
     errors: [{ code: 'SYNTAX_ERROR', file: 'my.js' }],
   });
@@ -144,6 +156,7 @@ test('architecture decisions always included', () => {
   insertEntry(db, 'proj-B', 'architecture_decision', 'use_repository_pattern', { decision: 'Use repository pattern', rationale: 'clean architecture' });
 
   const results = queryCrossProject(db, {
+    crossProjectOptIn: true,
     currentProjectId: 'proj-A',
     errors: [],
   });
@@ -159,6 +172,7 @@ test('stack similarity boosts score', () => {
   insertEntry(db, 'proj-C', 'fix_strategy', 'IMPORT_NOT_FOUND:y.js:', { success: true, strategy: 'fix' });
 
   const results = queryCrossProject(db, {
+    crossProjectOptIn: true,
     currentProjectId: 'proj-A',
     errors: [{ code: 'IMPORT_NOT_FOUND', file: 'z.js' }],
     currentStack: mkStack('JavaScript', ['Express']),
@@ -180,6 +194,7 @@ test('general error codes get generality boost', () => {
   insertEntry(db, 'proj-B', 'fix_strategy', 'CUSTOM_ERROR:b.js:', { success: true, strategy: 'custom fix' });
 
   const results = queryCrossProject(db, {
+    crossProjectOptIn: true,
     currentProjectId: 'proj-A',
     errors: [
       { code: 'IMPORT_NOT_FOUND', file: 'x.js' },
@@ -203,6 +218,7 @@ test('respects maxResults', () => {
   }
 
   const results = queryCrossProject(db, {
+    crossProjectOptIn: true,
     currentProjectId: 'proj-A',
     errors: [],
     maxResults: 5,
@@ -229,6 +245,7 @@ test('low confidence entries filtered', () => {
   insertEntry(db, 'proj-B', 'fix_strategy', 'SYNTAX_ERROR:x.js:', { success: true, strategy: 'fix' }, 0.1);
 
   const results = queryCrossProject(db, {
+    crossProjectOptIn: true,
     currentProjectId: 'proj-A',
     errors: [{ code: 'SYNTAX_ERROR', file: 'y.js' }],
     minConfidence: 0.3,

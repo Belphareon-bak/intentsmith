@@ -75,6 +75,8 @@ const LEARNING_KEY_PATTERN = /^[a-z][a-z0-9._-]{0,127}$/;
 const MAX_TEXT_LENGTH = 4096;
 const MAX_JSON_BYTES = 32 * 1024;
 const MAX_RETENTION_MS = 10 * 365 * 24 * 60 * 60 * 1000;
+const MAX_OBSERVATION_EVIDENCE = 16;
+const MAX_PROPOSAL_OBSERVATIONS = 64;
 
 function compareUtf8(left, right) {
   return Buffer.compare(Buffer.from(left, 'utf8'), Buffer.from(right, 'utf8'));
@@ -282,6 +284,9 @@ export function validateLearningObservationV1(value) {
   if (!Array.isArray(value.evidence) || value.evidence.length === 0) {
     errors.push(`${context}:invalid-evidence`);
   } else {
+    if (value.evidence.length > MAX_OBSERVATION_EVIDENCE) {
+      errors.push(`${context}:too-many-evidence`);
+    }
     const ids = new Set();
     value.evidence.forEach((entry, index) => {
       errors.push(...validateEvidence(entry, index));
@@ -403,6 +408,9 @@ export function validateLearningProposalV1(value) {
     `${context}.observationIds`,
     2,
   ));
+  if (Array.isArray(value.observationIds) && value.observationIds.length > MAX_PROPOSAL_OBSERVATIONS) {
+    errors.push(`${context}.observationIds:too-many-items`);
+  }
   if (!isBoundedText(value.title)) errors.push(`${context}:invalid-title`);
   if (!isBoundedText(value.rationale)) errors.push(`${context}:invalid-rationale`);
   if (!isConfidence(value.confidenceBps)) errors.push(`${context}:invalid-confidenceBps`);

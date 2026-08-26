@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 440
+- Runnable programs: 441
 - Explicit support-module exclusions: 14
-- Profiles: offline=224, database=50, server=40, model=85, soak=25, manual=16
-- States: ACTIVE=343, HISTORICAL=16, BLOCKED=81
+- Profiles: offline=224, database=51, server=40, model=85, soak=25, manual=16
+- States: ACTIVE=344, HISTORICAL=16, BLOCKED=81
 
 ## Execution profiles
 
@@ -352,6 +352,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M3-SKILL-EFFECT-AUTHORITY-TEST` | `tests/m3-skill-effect-authority.test.js` | `C3-013` | T1 | `database` | 2 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-M3-SKILL |
 | `IS-T1-TESTS-M4-LEARNING-AUTHORITY-REPOSITORY-TEST` | `tests/m4-learning-authority-repository.test.js` | `C3-016` | T1 | `database` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-M4-MEMORY |
 | `IS-T1-TESTS-M4-LEARNING-CONTRACT-V1-TEST` | `tests/m4-learning-contract-v1.test.js` | `C3-016` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M4-OBSERVATION |
+| `IS-T1-TESTS-M4-LEARNING-PATTERN-PRODUCER-TEST` | `tests/m4-learning-pattern-producer.test.js` | `C3-027` | T1 | `database` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-M4-CODEINTEL |
 | `IS-T1-TESTS-MANIFEST-V2-TEST` | `tests/manifest-v2.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MARKETPLACE-CATALOG-V125-TEST` | `tests/marketplace-catalog-v125.test.js` | `C3-022` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MARKETPLACE-TEST` | `tests/marketplace.test.js` | `C3-022` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
