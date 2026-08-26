@@ -3,6 +3,8 @@ import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import {
+  copyFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -36,9 +38,7 @@ import { suite, testAsync, summary } from './harness.js';
 
 void isolatedTestRuntime;
 
-function openDatabase(filename) {
-  const database = new Database(filename);
-  database.pragma('foreign_keys = ON');
+function installAuthoritySchema(database) {
   const hasAuthority = Boolean(database.prepare(
     "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'm2_effect_requests'",
   ).get());
@@ -62,6 +62,23 @@ function openDatabase(filename) {
   }
   applyPreexecutionApprovalTerminals(database);
   applyEffectRollbackReceipts(database);
+}
+
+const authorityTemplatePath = path.join(
+  tmpdir(),
+  'm2-effect-file-runtime-authority-template.sqlite',
+);
+{
+  const template = new Database(authorityTemplatePath);
+  template.pragma('foreign_keys = ON');
+  installAuthoritySchema(template);
+  template.close();
+}
+
+function openDatabase(filename) {
+  if (!existsSync(filename)) copyFileSync(authorityTemplatePath, filename);
+  const database = new Database(filename);
+  database.pragma('foreign_keys = ON');
   return database;
 }
 
