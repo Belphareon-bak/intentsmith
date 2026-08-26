@@ -1311,7 +1311,7 @@ lokální integrační E2E jsou popsány v
 SQLite a deterministickým fake plannerem prokázalo dvě nezávislé schválené
 změny → pending proposal → explicitní approval → context injection → exact
 plan conformance `0 → 10000` → rollback → delete. Nejde o modelový quality
-benchmark ani o nezávislé review. Autoritativní module graph má 1 160 hran,
+benchmark ani o nezávislé review. Autoritativní module graph má 1 162 hran,
 stále 3 cykly a 28 souborů v cyklech; outcome řez je product commit `885cf959`
 a jeho jediná nová authority hrana byla explicitně přijata v `bd5eada6`.
 Úplný deterministický run `2026-08-26T08-52-35-050Z` na source `286f5ba8`
@@ -1382,7 +1382,8 @@ connector fail-closed odkazuje na CLI; restore lock a Linux `/proc` kontrola
 brání výměně otevřené DB. Automatická obnova úmyslně vlastní jen SQLite;
 kódotvorné skills/specialists a konfigurace jsou označené `archival_only`.
 Legacy V1 zůstává listovatelný, ale bez přesného manifestu není automaticky
-obnovitelný.
+obnovitelný. Product candidate a round-trip evidence jsou v
+[`m5-data-20260826.md`](docs/execution/runs/m5-data-20260826.md).
 
 Nejde o M5 acceptance: M3 oddíl 7 a zbývající M5 bloky jsou otevřené.
 
