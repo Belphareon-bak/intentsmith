@@ -47,8 +47,9 @@ const AUDIT_PROCESS_TIMEOUT_MS = DEFAULT_DEADLINE_MS + (5 * 60 * 1000);
 const SUMMARY_TIMEOUT_MS = 5 * 60 * 1000;
 const AUDIT_RUN_ID = 'product-audit';
 const AUDIT_PROFILES = ['offline', 'database'];
-const GATE0_REGISTRY_HASH = '21992f9fcc1625c14baa0a7d53771a88e4f704e97e4c276f4d4b8fd9ea08cd73';
-const GATE0_PROFILE_COUNTS = { offline: 173, database: 26 };
+const AUDIT_ALLOWED_BLOCKERS = ['toolchain:python-pdf-runtime'];
+const GATE0_REGISTRY_HASH = 'f5720dde78109c3040025d2273fd3f967c2f775b7748e5303bc5c95f2a4ba907';
+const GATE0_PROFILE_COUNTS = { offline: 231, database: 57 };
 const PDF_RUNTIME_PACKAGES = Object.freeze({
   'charset-normalizer': '3.4.4',
   pillow: '12.3.0',
@@ -186,7 +187,7 @@ export async function runNightly(rawOptions = {}) {
       blockerPolicy: {
         noBlock: false,
         allowDirty: false,
-        allowBlockers: [],
+        allowBlockers: [...AUDIT_ALLOWED_BLOCKERS],
       },
       note: 'dry-run does not fetch, create/delete worktrees, install packages, or run tests',
     };
@@ -544,6 +545,7 @@ function makeCommandPlan(paths, opts) {
       '--out-dir', paths.auditOutDir,
       '--concurrency', '1',
       '--profile', AUDIT_PROFILES.join(','),
+      '--allow-blocker', AUDIT_ALLOWED_BLOCKERS.join(','),
       '--deadline-ms', String(DEFAULT_DEADLINE_MS),
       '--timeout-ms', String(DEFAULT_DEADLINE_MS),
     ],
@@ -1326,7 +1328,7 @@ async function validateAuditContract({ paths, sourceRevision, runnerExitCode }) 
     profiles: [...AUDIT_PROFILES].sort(),
     ids: [],
     exclude: [],
-    allowBlockers: [],
+    allowBlockers: [...AUDIT_ALLOWED_BLOCKERS],
     noBlock: false,
     allowDirty: false,
   };
@@ -1338,7 +1340,7 @@ async function validateAuditContract({ paths, sourceRevision, runnerExitCode }) 
     profiles: [...AUDIT_PROFILES].sort(),
     ids: [],
     exclude: [],
-    allowBlockers: [],
+    allowBlockers: [...AUDIT_ALLOWED_BLOCKERS],
     noBlock: false,
   };
   const expectedOptionsFingerprint = stableHash(expectedOptions);
@@ -1406,9 +1408,8 @@ async function validateAuditContract({ paths, sourceRevision, runnerExitCode }) 
   requireContract(inventory.options?.noBlock === false, 'no-block override is forbidden');
   requireContract(report.options?.noBlock === false, 'report no-block override is forbidden');
   requireContract(
-    Array.isArray(inventory.options?.allowBlockers)
-      && inventory.options.allowBlockers.length === 0,
-    'inventory blocker overrides are forbidden',
+    isDeepStrictEqual(inventory.options?.allowBlockers, AUDIT_ALLOWED_BLOCKERS),
+    'inventory toolchain authority differs from the locked policy',
   );
   for (const [label, options] of [
     ['inventory', inventory.options],
@@ -1426,8 +1427,8 @@ async function validateAuditContract({ paths, sourceRevision, runnerExitCode }) 
     'audit profiles are not exactly offline,database',
   );
   requireContract(
-    Array.isArray(report.options?.allowBlockers) && report.options.allowBlockers.length === 0,
-    'audit blocker overrides are forbidden',
+    isDeepStrictEqual(report.options?.allowBlockers, AUDIT_ALLOWED_BLOCKERS),
+    'audit toolchain authority differs from the locked policy',
   );
   requireContract(
     isDeepStrictEqual(inventory.options, expectedOptions),
@@ -1846,7 +1847,7 @@ function makeMetadata({
     blockerPolicy: {
       noBlock: false,
       allowDirty: false,
-      allowBlockers: [],
+      allowBlockers: [...AUDIT_ALLOWED_BLOCKERS],
     },
     error,
   };

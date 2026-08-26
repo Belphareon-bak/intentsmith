@@ -3,7 +3,7 @@
 
 import { broadcast } from '../ws-bridge/ws-server.js';
 import { logger } from '../core/logger.js';
-import { setNumCtx } from '../llm/model-ctx.js';
+import { getNumCtx, setNumCtx } from '../llm/model-ctx.js';
 import {
   MODEL_ACTIVITY_OWNER,
   modelUseAuthority as defaultModelUseAuthority,
@@ -176,9 +176,8 @@ export class VRAMManager {
     const vram = await getVramUsageAsync({ comfyuiUrl: this._comfyuiUrl });
     if (!vram) {
       logger.debug('VRAMManager', 'Cannot query VRAM — using fallback num_ctx 4096');
-      this._targetNumCtx = 4096;
-      if (this._chatModel) setNumCtx(this._chatModel, 4096);
-      return 4096;
+      this._targetNumCtx = this.#storeEffectiveNumCtx(4096);
+      return this._targetNumCtx;
     }
 
     const gatewayLimit = opts.maxCtx ?? 8192;
@@ -191,9 +190,8 @@ export class VRAMManager {
 
     if (availableForKV < kvPer1k) {
       logger.warn('VRAMManager', `Tight VRAM: total=${vram.totalMb}, used=${vram.usedMb}, weights=${modelWeightsMb} → num_ctx=2048`);
-      this._targetNumCtx = 2048;
-      if (this._chatModel) setNumCtx(this._chatModel, 2048);
-      return 2048;
+      this._targetNumCtx = this.#storeEffectiveNumCtx(2048);
+      return this._targetNumCtx;
     }
 
     let maxCtx = Math.floor(availableForKV / kvPer1k) * 1024;
@@ -201,14 +199,19 @@ export class VRAMManager {
     maxCtx = Math.max(2048, Math.min(gatewayLimit, maxCtx));
 
     logger.info('VRAMManager', `computeNumCtx=${maxCtx} (total=${vram.totalMb}, used=${vram.usedMb}, weights=${modelWeightsMb}, kvPer1k=${kvPer1k})`);
-    this._targetNumCtx = maxCtx;
-    if (this._chatModel) setNumCtx(this._chatModel, maxCtx);
-    return maxCtx;
+    this._targetNumCtx = this.#storeEffectiveNumCtx(maxCtx);
+    return this._targetNumCtx;
   }
 
   /** @returns {number} Last computed target num_ctx. */
   getTargetNumCtx() {
     return this._targetNumCtx;
+  }
+
+  #storeEffectiveNumCtx(numCtx) {
+    if (!this._chatModel) return numCtx;
+    setNumCtx(this._chatModel, numCtx);
+    return getNumCtx(this._chatModel, numCtx);
   }
 
   // ── VRAM polling (review fix #3) ─────────────────────────────────────────

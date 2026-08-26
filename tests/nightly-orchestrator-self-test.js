@@ -66,7 +66,7 @@ try {
   assert.equal(dryRun.sourceRevision, gitOutput(['rev-parse', `origin/${BRANCH}`], repo));
   assert.equal(dryRun.blockerPolicy.noBlock, false);
   assert.equal(dryRun.blockerPolicy.allowDirty, false);
-  assert.deepEqual(dryRun.blockerPolicy.allowBlockers, []);
+  assert.deepEqual(dryRun.blockerPolicy.allowBlockers, ['toolchain:python-pdf-runtime']);
   assert.deepEqual(argumentValue(dryRun.commands.audit, '--profile').split(','), ['offline', 'database']);
   assert.equal(argumentValue(dryRun.commands.audit, '--timeout-ms'), String(8 * 60 * 60 * 1000));
   assert.deepEqual(dryRun.commands.install, ['npm', 'ci']);
@@ -138,8 +138,8 @@ try {
   assert.equal(failingAudit.runnerExitCode, 1);
   assert.equal(failingAudit.summaryExitCode, 0);
   assert.equal(failingAudit.auditContract.status, 'PASS');
-  assert.equal(failingAudit.auditContract.expectedSuiteCount, 199);
-  assert.deepEqual(failingAudit.auditContract.profileCounts, { offline: 173, database: 26 });
+  assert.equal(failingAudit.auditContract.expectedSuiteCount, 288);
+  assert.deepEqual(failingAudit.auditContract.profileCounts, { offline: 231, database: 57 });
   assert.equal(failingAudit.auditContract.reportVerdict, 'FAIL');
   assert.equal(failingAudit.summaryContract.status, 'PASS');
 
@@ -150,7 +150,7 @@ try {
   assert.equal(metadata.candidateMode, false);
   assert.equal(metadata.blockerPolicy.noBlock, false);
   assert.equal(metadata.blockerPolicy.allowDirty, false);
-  assert.deepEqual(metadata.blockerPolicy.allowBlockers, []);
+  assert.deepEqual(metadata.blockerPolicy.allowBlockers, ['toolchain:python-pdf-runtime']);
   assert.equal(metadata.dependencyInstall.command, 'npm ci');
   assert.equal(metadata.dependencyInstall.lockfileOnly, true);
   assert.equal(metadata.dependencyInstall.node.status, 'PASS');
@@ -253,7 +253,7 @@ try {
   assert.equal(passingAudit.runnerExitCode, 0);
   assert.equal(passingAudit.summaryExitCode, 0);
   assert.equal(passingAudit.auditContract.reportVerdict, 'PASS');
-  assert.equal(passingAudit.auditContract.expectedSuiteCount, 199);
+  assert.equal(passingAudit.auditContract.expectedSuiteCount, 288);
   assert.equal(passingAudit.summaryContract.status, 'PASS');
   const passingMetadata = await readJson(
     path.join(artifactRoot, 'runs', 'selftest-passing-audit', 'metadata.json'),
@@ -736,6 +736,7 @@ const value = name => args[args.indexOf(name) + 1];
 const outDir = value('--out-dir');
 const runId = value('--run-id');
 const profiles = value('--profile').split(',');
+const allowBlockers = value('--allow-blocker').split(',');
 const runDir = path.join(outDir, runId);
 const logsDir = path.join(runDir, 'logs');
 await mkdir(logsDir, { recursive: true, mode: 0o700 });
@@ -771,12 +772,24 @@ const registry = JSON.parse(await readFile('tests/registry.json', 'utf8'));
 const suites = registry.suites
   .filter(suite => profiles.includes(suite.profile))
   .sort((a, b) => a.path.localeCompare(b.path))
-  .map(suite => ({
-    ...suite,
-    category: suite.profile,
-    command: suite.argv,
-    blockers: []
-  }));
+  .map(suite => {
+    const blockers = new Set();
+    if (suite.state !== 'ACTIVE') blockers.add('state-' + String(suite.state).toLowerCase());
+    if (suite.requirements.server) blockers.add('server');
+    if (suite.requirements.ollama) blockers.add('ollama');
+    if (suite.requirements.gpu) blockers.add('gpu');
+    if (suite.requirements.modelFixture) blockers.add('model-fixture');
+    if (suite.requirements.network === 'external') blockers.add('external-network');
+    for (const toolchain of suite.requirements.toolchain || []) {
+      blockers.add('toolchain:' + toolchain);
+    }
+    return {
+      ...suite,
+      category: suite.profile,
+      command: suite.argv,
+      blockers: [...blockers].sort()
+    };
+  });
 const actualSource = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim();
 const sourceRevision = mode === 'source-mismatch' ? '0000000000000000000000000000000000000000' : actualSource;
 const registryHash = createHash('sha256').update(JSON.stringify(registry)).digest('hex');
@@ -788,7 +801,7 @@ const options = {
   profiles: [...profiles].sort(),
   ids: [],
   exclude: [],
-  allowBlockers: [],
+  allowBlockers,
   noBlock: false,
   allowDirty: false
 };
@@ -823,7 +836,7 @@ for (const [index, suite] of suites.entries()) {
     profile: suite.profile,
     category: suite.profile,
     command: suite.command,
-    blockers: [],
+    blockers: suite.blockers,
     required: suite.required,
     start: new Date().toISOString(),
     end: new Date().toISOString(),
@@ -877,7 +890,7 @@ const report = {
     profiles: [...profiles].sort(),
     ids: [],
     exclude: [],
-    allowBlockers: [],
+    allowBlockers,
     noBlock: false
   },
   paths: {
@@ -1061,10 +1074,14 @@ function argumentValue(argv, name) {
 }
 
 function assertNoUnsafeAuditFlags(values) {
-  const text = Array.isArray(values) ? values.join(' ') : String(values);
+  const argv = Array.isArray(values) ? values : String(values).split(/\s+/u);
+  const text = argv.join(' ');
   assert.equal(text.includes('--no-block'), false);
   assert.equal(text.includes('--allow-dirty'), false);
-  assert.equal(text.includes('--allow-blocker'), false);
+  const blockerIndex = argv.indexOf('--allow-blocker');
+  assert.notEqual(blockerIndex, -1);
+  assert.equal(argv[blockerIndex + 1], 'toolchain:python-pdf-runtime');
+  assert.equal(argv.lastIndexOf('--allow-blocker'), blockerIndex);
 }
 
 async function waitForProcessExit(pid) {

@@ -217,6 +217,7 @@ await testAsync('computeNumCtx stores result in _targetNumCtx', async () => {
   );
   assertEqual(mgr.getTargetNumCtx(), result);
   assertEqual(getNumCtx('qwen3.5:27b'), result);
+  assertEqual(result, 4096); // committed reference-model ceiling wins over raw capacity
 });
 
 await testAsync('computeNumCtx respects maxCtx gateway limit', async () => {
@@ -247,7 +248,7 @@ await testAsync('computeNumCtx is always a multiple of 1024', async () => {
 });
 
 await testAsync('computeNumCtx uses model meta kv_per_1k when available', async () => {
-  const mgr = createManager();
+  const mgr = createManager({ chatModel: 'fixture:27b' });
   mgr.setModelMeta({ kv_per_1k: 1000 });
   const result = await withIsolatedVramSources(
     { device: comfyVramDevice() },

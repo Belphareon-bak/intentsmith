@@ -9,7 +9,7 @@ autoritativní C3 Studio runtime už neobsahuje implicitní Google Fonts egress.
 Spouštěné Studio UI je stále přechodný runtime, nikoli finální vzhled IntentSmithu.
 
 **Verze:** 136.1.0 | **456 registrovaných testovacích programů**
-(`359 ACTIVE`, `81 BLOCKED`, `0 KNOWN_DEFECTIVE`, `16 HISTORICAL`)
+(`361 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `16 HISTORICAL`)
 
 > **Stav: aktivní vývoj; M1 a M2 jsou přijaté.** M3 modulární platforma má
 > implementation-green candidate; oddíly 1–6 jsou review-passed a oprava
