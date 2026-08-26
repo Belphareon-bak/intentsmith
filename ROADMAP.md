@@ -1400,15 +1400,18 @@ upgradu a do session předává pouze transportem vytvořený immutable subject;
 native production loopback bez credentialu už není bypass. Non-production
 loopback výjimka zůstala explicitně zachovaná. Product candidate a black-box
 důkaz jsou v [`m5-auth-20260826.md`](docs/execution/runs/m5-auth-20260826.md).
-`WP-M5-PROCESS` je implementation-green na product commitu `f979641c`.
-Přijatý bubblewrap sandbox nyní dostává před durable start authority konečné
-RLIMIT stropy přes exact `prlimit`; jeho absence je typed unavailable.
-Restartová recovery smí signalizovat jen durable process group se shodným boot
-ID, `/proc` start time, leader PID a PGID a musí ji vyprázdnit před file/Git
-recovery. Nejistá identita fail-closed zastaví rollback i terminalizaci.
-Startup census se po dočasném fencing/cleanup selhání opakuje a do konvergence
-blokuje nové lifecycle operace. Autoritativní module graph má 1 166 hran,
-stále 3 cykly a 28 souborů v cyklech. Důkaz je v
+`WP-M5-PROCESS` má review remediation implementovanou na product commitu
+`7a282a3f`; oddíl zůstává `RE_REVIEW_REQUIRED`. Provider orphan/unknown bez
+empty důkazu už nevytvoří `process_terminated`, parent terminal ani rollback;
+outstanding fence zachová after-image až do restartové recovery. Approval
+existujícího plánu je stejně jako prepare a interní effect-start blokované do
+úplného startup censu. Restartová signal authority je `linux-pidfd-v1`: pidfd
+zůstává otevřený od nového identity checku přes TERM/KILL až po empty census,
+takže numerický PID/PGID nelze vyměnit mezi kontrolou a signálem. Autoritativní
+module graph zůstává na 1 186 hranách, 3 cyklech a 28 souborech v cyklech.
+Remediation důkaz je v
+[`m5-process-remediation-20260826.md`](docs/execution/runs/m5-process-remediation-20260826.md);
+původní report zůstává v
 [`m5-process-20260826.md`](docs/execution/runs/m5-process-20260826.md).
 `WP-M5-OBSERVE` je implementation-green na product commitu `44e74ae1`.
 Každý HTTP request má serverovou identitu; známé M2 request/lifecycle/run
@@ -1457,7 +1460,8 @@ odstraňuje známé plaintext credential klíče z `user_settings` a migrace 091
 navíc vyžaduje pro každý rotation/history INSERT přesnou opaque transportní
 writer authority až na SQL triggeru. Přímý canonical SQL INSERT proto
 fail-closed selže. Exact-HEAD scanner odvozuje čtené roots z distribučního
-manifestu, rozlišuje 1 844 tracked a 979 content-read souborů a má nula
+manifestu, rozlišuje na PROCESS product HEAD 1 846 tracked a 981 content-read
+souborů a má nula
 current-tree findings; všech 13 známých incident objektů je stále dosažitelných.
 Autoritativní module graph má 1 186 hran, stále 3 cykly a 28 souborů v cyklech.
 Původní důkaz je v

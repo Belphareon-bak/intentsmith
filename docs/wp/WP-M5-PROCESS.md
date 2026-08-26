@@ -1,10 +1,10 @@
 # WP-M5-PROCESS — governed process lifecycle hardening
 
-**Typ:** M5 production hardening · **Stav:** `IMPLEMENTATION_GREEN / REVIEW_PENDING`
+**Typ:** M5 production hardening · **Stav:** `IMPLEMENTATION_GREEN / RE_REVIEW_REQUIRED`
 
-**Product revision:** `f979641c2ce05806ed34f2087eb7f9be8482ad3f`
+**Product revision:** `7a282a3fc58ca8d151d2070ea041d952efe9aaf2`
 
-**Module-baseline revision:** `bba01ebf6c75f793c2e6c7ce231df5c77c802c87`
+**Module-baseline revision:** `d3829643545fde1d6b6f71db9f1d88b86bd54b91`
 
 ## Uživatelský výsledek
 
@@ -23,9 +23,11 @@ recovery.
   CPU limit odvozený z již schváleného wall-clock timeoutu.
 - Chybějící `prlimit` je `PROCESS_RESOURCE_LIMITER_UNAVAILABLE`; neexistuje
   plain-spawn fallback.
-- Restartová signal authority vyžaduje současně shodný Linux boot ID,
-  `/proc/<pid>/stat` start time, PID jako process-group leader a exact PGID.
-  Samotný PID ani PGID nikdy nestačí.
+- Restartová signal authority používá `linux-pidfd-v1`. Exact `/usr/bin/python3`
+  helper otevře pidfd ještě před opakovaným ověřením boot ID,
+  `/proc/<pid>/stat` start time, leader PID a PGID a drží ho otevřený přes
+  TERM/KILL i finální empty census. Samotný PID ani PGID nikdy nestačí a nelze
+  je vyměnit mezi kontrolou a signálem.
 - Boot change, prázdná group nebo prokazatelně nahrazená PID identita jsou
   evidence, že původní vlastněný proces skončil; cizí aktuální PID se
   nesignalizuje.
@@ -35,16 +37,22 @@ recovery.
 - Úspěšný cleanup se zapisuje existujícím append-only
   `process_terminated` eventem pod aktuálním fencing generation. Outstanding
   census je odvozen z durable process rows a následné termination evidence.
+- Provider outcome `orphaned`, unknown group nebo chybějící exact empty důkaz
+  nesmí vytvořit `process_terminated`, parent terminal ani rollback. After-image
+  a outstanding row zůstanou pro restartový pidfd recovery pass.
 - Startup opakuje recovery census po jedné sekundě, protože přijatá M2 claim
   authority nedovoluje takeover před expirací lease. Do konvergence zůstávají
-  nové lifecycle operace fail-closed.
+  nové lifecycle operace fail-closed. Stejný guard běží před prepare, před
+  approval existujícího plánu i uvnitř jediného effect-start runneru; recovery
+  používá neexportovatelnou symbolovou autoritu.
 - Cleanup inventarizuje výhradně `m2_execution_processes`. Neprochází host
   procesy a nesahá na GPU, Ollamu ani jiné cizí úlohy.
 
 ## Přiznané limity
 
-- Implementovaný profil je pouze Linux/bubblewrap. Absence kernel/toolchain
-  podpory je typed unavailable.
+- Implementovaný profil je pouze Linux/bubblewrap/pidfd. Absence exact
+  `/usr/bin/python3` s `os.pidfd_open`, `bwrap` nebo `prlimit` je typed
+  unavailable a installer ji odmítne.
 - RLIMIT address space není cgroup RSS quota. Je to konečný per-process
   address-space strop děděný celou sandbox group; M5 netvrdí cgroup izolaci.
 - Pokud OS odmítne přečíst identitu nebo signalizovat přesně vlastněnou group,
@@ -65,5 +73,5 @@ recovery.
 6. Registry, module ratchet, artifact validation a hygiene projdou; celkový
    baseline se interpretuje pravdivě.
 
-Tento dokument není nezávislé review ani M5 acceptance. M3 oddíl 7 zůstává
-samostatnou otevřenou branou.
+Tento dokument není nezávislý re-review ani M5 acceptance. M3 je přijaté;
+M5 zůstává `CHANGES_REQUESTED` a M6 gate je zavřený.
