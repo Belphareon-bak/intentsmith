@@ -79,6 +79,19 @@ větví.
 | **082** | použito M2 hardening | pre-execution terminály pro expirované a revokované neprovedené granty |
 | **083** | použito M2 hardening | append-only rollback observation receipts pro standalone efekty |
 
+## Navazující live rezervace 2026-08-26
+
+Opakovaný union census všech commitnutých větví mimo `archive/**` a
+`recovery/**` našel identity `084`–`086` na živé cizí větvi
+`claude/gate1-mobile-app-progress-5sywlt`. Do této větve ani jejích migrací se
+nezasahovalo. Nejnižší volná identita **087** je použita pro append-only M4
+same-project learning authority.
+
+| Číslo | Stav | Obsah |
+|---|---|---|
+| **084–086** | obsazeno na cizí živé větvi | model policy/proof compatibility a model-evaluation consolidation |
+| **087** | rezervováno a použito M4 | exact Observation/Proposal/Outcome authority, user gate a lifecycle chain |
+
 ### Strojově kontrolovaný manifest použitých migrací
 
 Každý současný migrační soubor musí být právě jednou v tomto seznamu. Tím se
@@ -161,6 +174,7 @@ záznamu selže v `artifact-validation`.
 | `2026_08_24_081_m2_effect_result_semantic_authority_v2.js` | použito |
 | `2026_08_25_082_m2_preexecution_approval_terminals.js` | použito |
 | `2026_08_25_083_m2_effect_rollback_receipts.js` | použito |
+| `2026_08_26_087_m4_learning_authority.js` | použito |
 <!-- migration-source-manifest:end -->
 
 ## Proč to nejsou 058 a 059

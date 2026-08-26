@@ -305,8 +305,7 @@ export function validateLearningObservationV1(value) {
   return validationResult(errors, value);
 }
 
-function validateAdaptation(value) {
-  const context = 'learning-proposal.adaptation';
+function validateAdaptation(value, context = 'learning-proposal.adaptation') {
   const errors = validateExactKeys(
     value,
     [
@@ -434,7 +433,7 @@ function validateLearnedItem(value) {
   const context = 'learning-outcome.learnedItem';
   const errors = validateExactKeys(
     value,
-    ['itemId', 'itemVersion', 'active', 'confidenceBps', 'expiresAtMs'],
+    ['itemId', 'itemVersion', 'active', 'confidenceBps', 'expiresAtMs', 'adaptation'],
     [],
     context,
   );
@@ -446,6 +445,7 @@ function validateLearnedItem(value) {
   if (typeof value.active !== 'boolean') errors.push(`${context}:invalid-active`);
   if (!isConfidence(value.confidenceBps)) errors.push(`${context}:invalid-confidenceBps`);
   if (!isTimestamp(value.expiresAtMs)) errors.push(`${context}:invalid-expiresAtMs`);
+  errors.push(...validateAdaptation(value.adaptation, `${context}.adaptation`));
   return errors;
 }
 
@@ -604,6 +604,22 @@ export function validateLearningOutcomeForProposal(outcome, proposal) {
       && [LEARNING_OUTCOME_STATUS.APPROVED, LEARNING_OUTCOME_STATUS.REJECTED].includes(outcome?.status)
       && outcome.learnedItem.expiresAtMs !== outcome.recordedAtMs + proposal.retention.ttlMs
     ) errors.push('learning-chain:expiresAtMs-mismatch');
+    if (
+      outcome?.status === LEARNING_OUTCOME_STATUS.APPROVED
+      && isPlainRecord(proposal?.adaptation)
+    ) {
+      try {
+        if (
+          canonicalizeLearningValue(outcome.learnedItem.adaptation)
+          !== canonicalizeLearningValue(proposal.adaptation)
+        ) errors.push('learning-chain:approved-adaptation-mismatch');
+      } catch {
+        errors.push('learning-chain:approved-adaptation-uncomputable');
+      }
+      if (outcome.learnedItem.confidenceBps !== proposal.confidenceBps) {
+        errors.push('learning-chain:approved-confidence-mismatch');
+      }
+    }
   }
   return validationResult(errors, errors.length === 0 ? outcome : null);
 }
@@ -679,6 +695,28 @@ export function validateLearningOutcomeTransitionV1(outcome, proposal, previousO
       : previousItem.itemVersion;
     if (currentItem.itemVersion !== expectedVersion) {
       errors.push('learning-transition:itemVersion-mismatch');
+    }
+    if (outcome.status === LEARNING_OUTCOME_STATUS.WEAKENED) {
+      for (const key of ['kind', 'key', 'target']) {
+        if (currentItem.adaptation?.[key] !== previousItem.adaptation?.[key]) {
+          errors.push(`learning-transition:weakened-${key}-changed`);
+        }
+      }
+      if (currentItem.confidenceBps >= previousItem.confidenceBps) {
+        errors.push('learning-transition:weakened-confidence-not-lower');
+      }
+    } else {
+      try {
+        if (
+          canonicalizeLearningValue(currentItem.adaptation)
+          !== canonicalizeLearningValue(previousItem.adaptation)
+        ) errors.push('learning-transition:adaptation-changed');
+      } catch {
+        errors.push('learning-transition:adaptation-uncomputable');
+      }
+      if (currentItem.confidenceBps !== previousItem.confidenceBps) {
+        errors.push('learning-transition:confidence-changed');
+      }
     }
   }
   return validationResult(errors, errors.length === 0 ? outcome : null);

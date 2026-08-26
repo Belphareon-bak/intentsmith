@@ -46,6 +46,25 @@ První pokus přes registry runner nebyl produktový výsledek: nový worktree n
 `dotenv`. Opakovaný běh se shodným lockfile dependency tree skončil `PASS` v
 runu `2026-08-26T07-22-42-579Z`.
 
+## Navazující authority implementace
+
+`WP-M4-MEMORY` nyní přidává migraci `087` a
+[`LearningAuthorityRepository`](../../src/memory/learning-authority-repository.js):
+
+- tři exact canonical append-only tabulky s SQL guardy proti přímému bypassu;
+- lineární outcome chain, právě jedno první user rozhodnutí a žádné větvení;
+- `BEGIN IMMEDIATE` pro approve/reject/measure/weaken/rollback/delete/expire;
+- jediný settlement accessor, aktivní learned-item projekci s provenance a
+  deterministickým decay, project-isolated export;
+- delete je terminální tombstone vyřazující položku z runtime čtení; auditní
+  historie zůstává append-only a její fyzická retenční likvidace není tímto
+  kontraktem vydávána za provedenou.
+
+Focused repository sada má 14/14 PASS. Celý fresh-DB migrační runner má 38/38
+PASS nad 74 migracemi a 148 tabulkami. Artifact validace má 154/154 PASS.
+Registry obsahuje 440 programů a fingerprint
+`18c4a54804b65ffe46ec67d17515d1d342409f5faae4eda8b2bceb8353cca71b`.
+
 ## Mimo rozsah
 
 Tento řez ještě neobsahuje SQLite authority, producenta Code Intelligence,

@@ -121,6 +121,7 @@ function approved(sourceProposal = proposal(), overrides = {}) {
       active: true,
       confidenceBps: sourceProposal.confidenceBps,
       expiresAtMs: recordedAtMs + sourceProposal.retention.ttlMs,
+      adaptation: clone(sourceProposal.adaptation),
     },
     measurement: null,
     ...overrides,
@@ -305,7 +306,15 @@ test('weaken increments the version and rollback deactivates the exact item', ()
     actor: { kind: LEARNING_ACTOR_KIND.USER, actorId: 'user-17' },
     reason: 'Use the convention only for production changes.',
     previousOutcomeId: first.outcomeId,
-    learnedItem: { ...clone(first.learnedItem), itemVersion: 2, confidenceBps: 6500 },
+    learnedItem: {
+      ...clone(first.learnedItem),
+      itemVersion: 2,
+      confidenceBps: 6500,
+      adaptation: {
+        ...clone(first.learnedItem.adaptation),
+        value: { statement: 'Require review for production changes only.' },
+      },
+    },
     measurement: null,
   });
   assert.equal(validateLearningOutcomeTransitionV1(weakened, sourceProposal, first).valid, true);

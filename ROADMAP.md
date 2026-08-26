@@ -1302,10 +1302,11 @@ stav. Rozhodnutí v kroku 1 určí podobu hranice; roadmapa ji sama nerozhoduje.
 
 ## 8. M4 — Auditovatelné self-learning
 
-**Průběžný stav 2026-08-26:** `WP-M4-OBSERVATION` je
-`IMPLEMENTATION_GREEN / REVIEW_PENDING`; contract V1 a 16 kontraktových testů
-jsou v [`WP-M4-OBSERVATION-V1.md`](docs/wp/WP-M4-OBSERVATION-V1.md). SQLite
-authority, producent, user gate a runtime consumer zatím nejsou tímto stavem
+**Průběžný stav 2026-08-26:** `WP-M4-OBSERVATION` a SQLite/user-gate část
+`WP-M4-MEMORY` jsou `IMPLEMENTATION_GREEN / REVIEW_PENDING`; contract V1,
+append-only authority a focused evidence jsou v
+[`WP-M4-OBSERVATION-V1.md`](docs/wp/WP-M4-OBSERVATION-V1.md). Code Intelligence
+producent, HTTP/Studio surface a runtime consumer zatím nejsou tímto stavem
 prohlášeny za hotové.
 
 ### Výsledek
