@@ -67,7 +67,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M2 Řízená práce nad projektem** | `ACCEPTED / CLOSEOUT_PASS` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
 | **M3 Modulární platforma** | `CANDIDATE_COMPLETE / SECTION_7_RE_REVIEW_PENDING` | M2 accepted | Oddíly 1–6 mají operátorské `REVIEW_PASSED`; legacy agent mutační surface z oddílu 7 je fail-closed odstavený a čeká na re-review. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
-| **M5 Production hardening** | `NOT_STARTED` | M3 + M4 accepted | Instalace, data, auth, procesy, síť, výkon a recovery jsou podporovatelné. |
+| **M5 Production hardening** | `IMPLEMENTATION_IN_PROGRESS / M3_GATE_OPEN` | M4 accepted; M3/7 re-review pending | PACKAGE je implementation-green; data, auth, procesy, síť, výkon a recovery pokračují. |
 | **M6 IntentSmith 1.0 release** | `NOT_STARTED` | M5 accepted | Zmražený kandidát projde úplnou release validací a operátorskou demonstrací. |
 | **M7 Remote Companion** | `DESIGN_ONLY` | M6 + remote boundary | Samostatný vzdálený companion release nad bezpečným core rozhraním. |
 
@@ -1367,6 +1367,16 @@ další učící smyčka M4. Nepředbíhá první prokázané Code Intelligence 
 
 ## 9. M5 — Production hardening
 
+**Průběžný stav 2026-08-26:** `IMPLEMENTATION_IN_PROGRESS / M3_GATE_OPEN`.
+`WP-M5-PACKAGE` je implementation-green na product commitu `ce6b8276`:
+podporovaný výchozí core profil, explicitní full PDF profil, read-only
+preflight, cache-only offline instalace a pravdivá Docker `unsupported`
+dispozice. Exact fresh clone prošel offline dependency instalací, Electron ABI,
+Studio buildem, artifact smoke, production health, deterministickým chatem a
+čistým shutdownem. Důkaz je v
+[`m5-package-20260826.md`](docs/execution/runs/m5-package-20260826.md).
+Nejde o M5 acceptance: M3 oddíl 7 a zbývající M5 bloky jsou otevřené.
+
 ### Výsledek
 
 IntentSmith není jen funkční checkout; lze jej bezpečně nainstalovat,
@@ -1396,10 +1406,10 @@ aktualizovat, provozovat, diagnostikovat a obnovit na podporovaném Linuxu.
 
 ### Již potvrzená příprava, aby M5 nezačalo novou inventurou
 
-- `scripts/install.sh` dnes dělá PDF runtime povinnou instalační podmínkou,
-  přestože PDF je deklarovaná conditional prerekvizita. `WP-M5-PACKAGE` začne
-  rozdělením podporovaného core profilu a explicitních optional komponent;
-  nesmí pouze přeskočit chybu instalace.
+- `WP-M5-PACKAGE` na `ce6b8276` rozdělil podporovaný výchozí core profil a
+  explicitní full PDF profil. Core chybějící optional runtime pravdivě hlásí;
+  full nad stejnou podmínkou fail-close. `--offline` navíc blokuje Corepack,
+  npm/Yarn síť i Ollama probe a exact fresh clone prošel pouze z cache.
 - `src/core/db-backup.js` umí create/list/prune/stats, ale nemá state restore.
   `WP-M5-DATA` začne skutečným backup→poškození→restore→porovnání round-tripem,
   ne dalším testem existence backup souboru.
@@ -1415,11 +1425,10 @@ aktualizovat, provozovat, diagnostikovat a obnovit na podporovaném Linuxu.
 - přímé efekty jsou rozptýlené v routes, tools, skills, agentech, marketplace,
   notifications, media a upgrade kódu. M5 je nesmí inventarizovat znovu:
   vychází z přijatého M2 brokeru a pouze hledá zbývající bypassy.
-- dnešní `docker/Dockerfile` a `docker/docker-compose.yml` nastavují
-  `C3_HOST=0.0.0.0`, což runtime správně odmítá, a zároveň používají nepřipnuté
-  image/model pulls. Docker se proto nyní
-  neprezentuje jako podporovaná instalační cesta; oprava nebo explicitní
-  `unsupported` disposition patří do `WP-M5-PACKAGE`.
+- Docker je explicitně `unsupported`: default Compose profil nemá žádnou
+  službu, legacy služby vyžadují profil `unsupported`, backend zachovává
+  `127.0.0.1` a lockfile instalace nemá fallback. Bez autentizované ingress
+  boundary se tato cesta nesmí prezentovat jako produkční deployment.
 - `c3-ide/node_modules` není součástí baseline. Theia frozen install/build a
   native ABI se nejprve změří v M0/M1 a teprve jejich přijatá cesta se balí.
 
