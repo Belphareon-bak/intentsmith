@@ -6,9 +6,9 @@ import path from 'node:path';
 import {
   M5_PERFORMANCE_EVIDENCE_CONTRACT,
   M5_PERFORMANCE_EVIDENCE_VERSION,
-  validateM5PerformanceEvidenceV2,
-  validateM5PerformanceRawArtifactV1,
-} from '../../contracts/m5/performance-v2.js';
+  validateM5PerformanceEvidenceV3,
+  validateM5PerformanceRawArtifactV2,
+} from '../../contracts/m5/performance-v3.js';
 
 export const M5_PERFORMANCE_BUDGET_CONTRACT = 'M5PerformanceBudget@1';
 
@@ -239,7 +239,7 @@ function loadRawMeasurementArtifact(evidence, repositoryRoot) {
   } catch {
     throw new Error('performance-artifact:invalid-json');
   }
-  const validation = validateM5PerformanceRawArtifactV1(artifact);
+  const validation = validateM5PerformanceRawArtifactV2(artifact);
   if (!validation.valid) {
     throw new Error(`performance-artifact:invalid-contract:${validation.errors.join('|')}`);
   }
@@ -309,7 +309,7 @@ function verifyPinnedBaselines(evidence, budgets, repositoryRoot) {
 
 export function evaluateM5PerformanceEvidence(evidence, options = {}) {
   const budgets = options.budgets ?? M5_PERFORMANCE_BUDGETS;
-  const validation = validateM5PerformanceEvidenceV2(evidence);
+  const validation = validateM5PerformanceEvidenceV3(evidence);
   if (!validation.valid) {
     return immutable({
       contract: M5_PERFORMANCE_EVIDENCE_CONTRACT,
@@ -409,6 +409,48 @@ export function evaluateM5PerformanceEvidence(evidence, options = {}) {
       );
     }
   }
+  const gpuObservation = rawArtifact.gpuObservation;
+  let gpuSummary = Object.freeze({
+    state: gpuObservation.state,
+    censusState: gpuObservation.census.state,
+    computeProcessCount: gpuObservation.census.computeProcessCount,
+    measurement: null,
+  });
+  if (gpuObservation.state === 'measured') {
+    const measurement = gpuObservation.measurement;
+    const vramBudget = budgets.pinned.vram;
+    checked(checks, 'model.gpu-current:samples', measurement.sampleCount, 1, 'gte', (a, b) => a >= b);
+    checked(checks, 'model.gpu-current:errors', measurement.errorCount, 0, 'eq', (a, b) => a === b);
+    checked(
+      checks,
+      'model.gpu-current:residencyBps',
+      measurement.residencyBps,
+      vramBudget.minimumResidencyBps,
+      'gte',
+      (a, b) => a >= b,
+    );
+    checked(
+      checks,
+      'model.gpu-current:minimumFreeMiB',
+      measurement.minimumFreeMiB,
+      vramBudget.minimumFreeHeadroomMiB,
+      'gte',
+      (a, b) => a >= b,
+    );
+    gpuSummary = Object.freeze({
+      state: gpuObservation.state,
+      censusState: gpuObservation.census.state,
+      computeProcessCount: gpuObservation.census.computeProcessCount,
+      measurement: Object.freeze({
+        surface: measurement.surface,
+        sampleCount: measurement.sampleCount,
+        errorCount: measurement.errorCount,
+        p95Ms: nearestRank(measurement.latenciesMs, 95),
+        residencyBps: measurement.residencyBps,
+        minimumFreeMiB: measurement.minimumFreeMiB,
+      }),
+    });
+  }
   return immutable({
     contract: M5_PERFORMANCE_EVIDENCE_CONTRACT,
     version: M5_PERFORMANCE_EVIDENCE_VERSION,
@@ -416,6 +458,7 @@ export function evaluateM5PerformanceEvidence(evidence, options = {}) {
     errors: [],
     checks,
     summaries,
+    gpuSummary,
     pinnedSummaries: [...pinnedMetrics].map(([surface, metrics]) => Object.freeze({
       surface,
       metrics,

@@ -18,9 +18,9 @@ import {
   M5_PERFORMANCE_EVIDENCE_VERSION,
   M5_PERFORMANCE_RAW_ARTIFACT_CONTRACT,
   M5_PERFORMANCE_RAW_ARTIFACT_VERSION,
-  validateM5PerformanceEvidenceV2,
-  validateM5PerformanceRawArtifactV1,
-} from '../contracts/m5/performance-v2.js';
+  validateM5PerformanceEvidenceV3,
+  validateM5PerformanceRawArtifactV2,
+} from '../contracts/m5/performance-v3.js';
 import {
   M5_PERFORMANCE_BUDGETS,
   derivePinnedPerformanceMetrics,
@@ -29,6 +29,11 @@ import {
   summarizePerformanceMeasurement,
 } from '../src/observability/performance-budget.js';
 import { publishPerformanceArtifactExclusive } from '../src/observability/performance-artifact-store.js';
+import {
+  nonMeasuredGpuObservation,
+  observeGpuPerformanceCensus,
+  readLinuxProcessRssMiB,
+} from '../src/observability/performance-runtime-observation.js';
 import { suite, summary, test } from './harness.js';
 
 const repositoryRoot = realpathSync(fileURLToPath(new URL('..', import.meta.url)));
@@ -72,6 +77,21 @@ function rawArtifact(candidateRevision, candidateTree, host, measuredAtIso) {
         operations: 1_000,
       }),
     ],
+    gpuObservation: {
+      state: 'not_run_foreign_activity',
+      census: {
+        contract: 'M5GpuPerformanceCensus',
+        version: 1,
+        state: 'available',
+        observedAtIso: measuredAtIso,
+        tool: 'nvidia-smi',
+        toolExitCode: 0,
+        computeProcessCount: 1,
+        processIdentitySha256: sha256(Buffer.from('4242')),
+        errorCode: null,
+      },
+      measurement: null,
+    },
   };
 }
 
@@ -109,11 +129,6 @@ function evidenceFixture(root = repositoryRoot) {
       byteLength: bytes.byteLength,
     },
     pinnedBaselines: pinnedBaselines(),
-    gpuDisposition: {
-      currentMeasurement: 'not_run_foreign_activity',
-      reason: 'shared compute is active',
-      pinnedSurface: 'model.vram-authority',
-    },
   };
   return {
     artifact,
@@ -142,16 +157,16 @@ test('nearest-rank p95 does not silently interpolate or discard the slow sample'
 test('raw samples have their own strict content contract', () => {
   const fixture = evidenceFixture();
   try {
-    assert.deepEqual(validateM5PerformanceRawArtifactV1(fixture.artifact).errors, []);
+    assert.deepEqual(validateM5PerformanceRawArtifactV2(fixture.artifact).errors, []);
     fixture.artifact.measurements[0].latenciesMs.pop();
-    assert.equal(validateM5PerformanceRawArtifactV1(fixture.artifact).valid, false);
+    assert.equal(validateM5PerformanceRawArtifactV2(fixture.artifact).valid, false);
   } finally { fixture.cleanup(); }
 });
 
 test('valid evidence derives current and pinned metrics from exact sources', () => {
   const fixture = evidenceFixture();
   try {
-    assert.deepEqual(validateM5PerformanceEvidenceV2(fixture.evidence).errors, []);
+    assert.deepEqual(validateM5PerformanceEvidenceV3(fixture.evidence).errors, []);
     const result = fixture.evaluate();
     assert.equal(result.verdict, 'PASS', result.errors.join(', '));
     assert.equal(result.checks.every(check => check.passed), true);
@@ -210,6 +225,86 @@ test('short soak, RSS leak and any request error are independent blockers', () =
     assert.equal(failed.includes('core.deterministic-soak:errors'), true);
     assert.equal(failed.includes('core.deterministic-soak:rss-growth'), true);
   } finally { fixture.cleanup(); }
+});
+
+test('zero or unreadable RSS is a typed measurement failure, never a best-case value', () => {
+  const fixture = evidenceFixture();
+  try {
+    fixture.artifact.measurements[2].rss = { startMiB: 0, peakMiB: 0, endMiB: 0 };
+    assert.equal(validateM5PerformanceRawArtifactV2(fixture.artifact).valid, false);
+    assert.throws(
+      () => readLinuxProcessRssMiB(123, { readFileSync: () => 'Name:\ttest\n' }),
+      error => error.code === 'PERFORMANCE_RSS_MEASUREMENT_UNREADABLE',
+    );
+    assert.throws(
+      () => readLinuxProcessRssMiB(123, { readFileSync: () => { throw new Error('EACCES'); } }),
+      error => error.code === 'PERFORMANCE_RSS_MEASUREMENT_UNREADABLE',
+    );
+    assert.equal(
+      readLinuxProcessRssMiB(123, { readFileSync: () => 'VmRSS:\t2048 kB\n' }),
+      2,
+    );
+  } finally { fixture.cleanup(); }
+});
+
+test('GPU measured state requires a clean census and a raw GPU measurement surface', () => {
+  const fixture = evidenceFixture();
+  try {
+    fixture.evidence.gpuDisposition = {
+      currentMeasurement: 'measured',
+      reason: 'caller claim',
+      pinnedSurface: 'model.vram-authority',
+    };
+    assert.equal(validateM5PerformanceEvidenceV3(fixture.evidence).valid, false);
+    delete fixture.evidence.gpuDisposition;
+
+    fixture.artifact.gpuObservation.state = 'measured';
+    fixture.artifact.gpuObservation.census.computeProcessCount = 0;
+    fixture.artifact.gpuObservation.census.processIdentitySha256 = sha256(Buffer.from(''));
+    assert.equal(validateM5PerformanceRawArtifactV2(fixture.artifact).valid, false);
+    fixture.artifact.gpuObservation.measurement = {
+      surface: 'model.gpu-current',
+      sampleCount: 3,
+      errorCount: 0,
+      latenciesMs: [10, 11, 12],
+      residencyBps: 10_000,
+      minimumFreeMiB: 2_048,
+    };
+    const bytes = Buffer.from(`${JSON.stringify(fixture.artifact, null, 2)}\n`);
+    writeFileSync(fixture.artifactPath, bytes);
+    fixture.evidence.measurementArtifact.sha256 = sha256(bytes);
+    fixture.evidence.measurementArtifact.byteLength = bytes.byteLength;
+    const result = fixture.evaluate();
+    assert.equal(result.verdict, 'PASS', result.errors.join(', '));
+    assert.equal(result.gpuSummary.state, 'measured');
+    assert.equal(result.gpuSummary.measurement.surface, 'model.gpu-current');
+    assert.equal(result.checks.filter(check => check.id.startsWith('model.gpu-current:')).length, 4);
+  } finally { fixture.cleanup(); }
+});
+
+test('GPU census receipt is derived from tool output and unavailable states remain explicit', () => {
+  const observedAtIso = '2026-08-26T12:00:00.000Z';
+  const active = observeGpuPerformanceCensus({
+    now: new Date(observedAtIso),
+    runNvidiaSmi: () => ({ status: 0, signal: null, error: null, stdout: '42\n84\n42\n' }),
+  });
+  assert.equal(active.state, 'available');
+  assert.equal(active.computeProcessCount, 2);
+  assert.equal(nonMeasuredGpuObservation(active).state, 'not_run_foreign_activity');
+
+  const idle = observeGpuPerformanceCensus({
+    now: new Date(observedAtIso),
+    runNvidiaSmi: () => ({ status: 0, signal: null, error: null, stdout: '' }),
+  });
+  assert.equal(nonMeasuredGpuObservation(idle).state, 'not_run_not_requested');
+
+  const unavailable = observeGpuPerformanceCensus({
+    now: new Date(observedAtIso),
+    runNvidiaSmi: () => ({ status: 9, signal: null, error: null, stdout: '' }),
+  });
+  assert.equal(unavailable.state, 'unavailable');
+  assert.equal(unavailable.errorCode, 'nonzero_exit');
+  assert.equal(nonMeasuredGpuObservation(unavailable).state, 'not_run_census_unavailable');
 });
 
 test('forged candidate revision and tree cannot pass even with zero latencies', () => {

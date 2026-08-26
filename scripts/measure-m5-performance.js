@@ -22,9 +22,9 @@ import {
   M5_PERFORMANCE_EVIDENCE_VERSION,
   M5_PERFORMANCE_RAW_ARTIFACT_CONTRACT,
   M5_PERFORMANCE_RAW_ARTIFACT_VERSION,
-  validateM5PerformanceEvidenceV2,
-  validateM5PerformanceRawArtifactV1,
-} from '../contracts/m5/performance-v2.js';
+  validateM5PerformanceEvidenceV3,
+  validateM5PerformanceRawArtifactV2,
+} from '../contracts/m5/performance-v3.js';
 import {
   M5_PERFORMANCE_BUDGETS,
   evaluateM5PerformanceEvidence,
@@ -33,6 +33,11 @@ import {
 import {
   publishPerformanceArtifactExclusive,
 } from '../src/observability/performance-artifact-store.js';
+import {
+  nonMeasuredGpuObservation,
+  observeGpuPerformanceCensus,
+  readLinuxProcessRssMiB,
+} from '../src/observability/performance-runtime-observation.js';
 import {
   observeWorkspaceRevision,
   queryProjectContext,
@@ -109,16 +114,6 @@ function resolveOutputPaths(candidateRevision) {
   const rawPath = evidencePath.replace(/\.json$/u, '.raw.json');
   if (rawPath === evidencePath) throw new Error('performance-runner:invalid-output-path');
   return Object.freeze({ artifactRoot, evidencePath, rawPath });
-}
-
-function readRssMiB(pid) {
-  try {
-    const status = readFileSync(`/proc/${pid}/status`, 'utf8');
-    const match = status.match(/^VmRSS:\s+(\d+)\s+kB$/m);
-    return match ? Number((Number(match[1]) / 1024).toFixed(3)) : 0;
-  } catch {
-    return 0;
-  }
 }
 
 function serverEnvironment() {
@@ -276,16 +271,16 @@ function requestChat(state, index, phase) {
 async function measureChat(state, samples, surface) {
   const latencies = [];
   let errors = 0;
-  let peakRss = readRssMiB(state.child.pid);
+  let peakRss = readLinuxProcessRssMiB(state.child.pid);
   const startRss = peakRss;
   const started = Date.now();
   for (let index = 0; index < samples; index += 1) {
     const result = await requestChat(state, index, surface.replaceAll('.', '-'));
     latencies.push(result.elapsedMs);
     if (!result.ok) errors += 1;
-    peakRss = Math.max(peakRss, readRssMiB(state.child.pid));
+    peakRss = Math.max(peakRss, readLinuxProcessRssMiB(state.child.pid));
   }
-  const endRss = readRssMiB(state.child.pid);
+  const endRss = readLinuxProcessRssMiB(state.child.pid);
   return percentileMeasurement(surface, latencies, errors, Date.now() - started, samples, {
     startMiB: startRss,
     peakMiB: peakRss,
@@ -297,7 +292,7 @@ async function measureSoak(state) {
   const latencies = [];
   let errors = 0;
   let operation = 0;
-  const startRss = readRssMiB(state.child.pid);
+  const startRss = readLinuxProcessRssMiB(state.child.pid);
   let peakRss = startRss;
   const started = Date.now();
   while (Date.now() - started < soakDurationMs) {
@@ -306,13 +301,13 @@ async function measureSoak(state) {
     latencies.push(result.elapsedMs);
     if (!result.ok) errors += 1;
     operation += 1;
-    peakRss = Math.max(peakRss, readRssMiB(state.child.pid));
+    peakRss = Math.max(peakRss, readLinuxProcessRssMiB(state.child.pid));
     if (!quick) {
       const remaining = 200 - (Date.now() - operationStarted);
       if (remaining > 0) await delay(remaining);
     }
   }
-  const endRss = readRssMiB(state.child.pid);
+  const endRss = readLinuxProcessRssMiB(state.child.pid);
   return percentileMeasurement(
     'core.deterministic-soak',
     latencies,
@@ -413,6 +408,7 @@ async function main() {
   }
   const measuredAtIso = new Date().toISOString();
   const host = { platform: process.platform, arch: process.arch, node: process.version };
+  const gpuObservation = nonMeasuredGpuObservation(observeGpuPerformanceCensus());
   const rawArtifact = {
     contract: M5_PERFORMANCE_RAW_ARTIFACT_CONTRACT,
     version: M5_PERFORMANCE_RAW_ARTIFACT_VERSION,
@@ -421,8 +417,9 @@ async function main() {
     measuredAtIso,
     host,
     measurements: [deterministic, projectContext, soak],
+    gpuObservation,
   };
-  const rawValidation = validateM5PerformanceRawArtifactV1(rawArtifact);
+  const rawValidation = validateM5PerformanceRawArtifactV2(rawArtifact);
   if (!rawValidation.valid) throw new Error(rawValidation.errors.join(', '));
   const rawBytes = Buffer.from(`${JSON.stringify(rawArtifact, null, 2)}\n`);
   const rawPublication = publishPerformanceArtifactExclusive(output.rawPath, rawBytes);
@@ -439,13 +436,8 @@ async function main() {
       byteLength: rawPublication.byteLength,
     },
     pinnedBaselines: pinnedBaselines(),
-    gpuDisposition: {
-      currentMeasurement: 'not_run_foreign_activity',
-      reason: 'Active shared Ollama compute was observed; the accepted M1 serial GPU pilot remains pinned.',
-      pinnedSurface: 'model.vram-authority',
-    },
   };
-  const validation = validateM5PerformanceEvidenceV2(evidence);
+  const validation = validateM5PerformanceEvidenceV3(evidence);
   if (!validation.valid) throw new Error(validation.errors.join(', '));
   const evaluation = evaluateM5PerformanceEvidence(evidence, {
     repositoryRoot,

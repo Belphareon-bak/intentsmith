@@ -5,9 +5,11 @@ import {
 } from '../m1/shared.js';
 
 export const M5_PERFORMANCE_EVIDENCE_CONTRACT = 'M5PerformanceEvidence';
-export const M5_PERFORMANCE_EVIDENCE_VERSION = 2;
+export const M5_PERFORMANCE_EVIDENCE_VERSION = 3;
 export const M5_PERFORMANCE_RAW_ARTIFACT_CONTRACT = 'M5PerformanceRawArtifact';
-export const M5_PERFORMANCE_RAW_ARTIFACT_VERSION = 1;
+export const M5_PERFORMANCE_RAW_ARTIFACT_VERSION = 2;
+export const M5_GPU_CENSUS_CONTRACT = 'M5GpuPerformanceCensus';
+export const M5_GPU_CENSUS_VERSION = 1;
 
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
@@ -47,7 +49,7 @@ function validateDistribution(value, index) {
   errors.push(...validateExactKeys(value.rss, ['startMiB', 'peakMiB', 'endMiB'], [], rssContext));
   if (isPlainRecord(value.rss)) {
     for (const key of ['startMiB', 'peakMiB', 'endMiB']) {
-      if (!Number.isFinite(value.rss[key]) || value.rss[key] < 0) {
+      if (!Number.isFinite(value.rss[key]) || value.rss[key] <= 0) {
         errors.push(`${rssContext}:invalid-${key}`);
       }
     }
@@ -57,6 +59,116 @@ function validateDistribution(value, index) {
       && Number.isFinite(value.rss.endMiB)
       && value.rss.peakMiB < Math.max(value.rss.startMiB, value.rss.endMiB)
     ) errors.push(`${rssContext}:peak-below-observation`);
+  }
+  return errors;
+}
+
+function validateGpuCensus(value) {
+  const context = 'm5-performance-raw-artifact.gpuObservation.census';
+  const errors = validateExactKeys(value, [
+    'contract',
+    'version',
+    'state',
+    'observedAtIso',
+    'tool',
+    'toolExitCode',
+    'computeProcessCount',
+    'processIdentitySha256',
+    'errorCode',
+  ], [], context);
+  if (!isPlainRecord(value)) return errors;
+  if (value.contract !== M5_GPU_CENSUS_CONTRACT) errors.push(`${context}:invalid-contract`);
+  if (value.version !== M5_GPU_CENSUS_VERSION) errors.push(`${context}:invalid-version`);
+  if (!['available', 'unavailable'].includes(value.state)) errors.push(`${context}:invalid-state`);
+  if (
+    typeof value.observedAtIso !== 'string'
+    || Number.isNaN(Date.parse(value.observedAtIso))
+  ) errors.push(`${context}:invalid-observedAtIso`);
+  if (value.tool !== 'nvidia-smi') errors.push(`${context}:invalid-tool`);
+  if (value.state === 'available') {
+    if (value.toolExitCode !== 0) errors.push(`${context}:invalid-toolExitCode`);
+    if (!validNonNegativeInteger(value.computeProcessCount)) {
+      errors.push(`${context}:invalid-computeProcessCount`);
+    }
+    if (!SHA256_PATTERN.test(value.processIdentitySha256 ?? '')) {
+      errors.push(`${context}:invalid-processIdentitySha256`);
+    }
+    if (value.errorCode !== null) errors.push(`${context}:unexpected-errorCode`);
+  } else {
+    if (!(value.toolExitCode === null || validNonNegativeInteger(value.toolExitCode))) {
+      errors.push(`${context}:invalid-toolExitCode`);
+    }
+    if (value.computeProcessCount !== null) errors.push(`${context}:unexpected-computeProcessCount`);
+    if (value.processIdentitySha256 !== null) errors.push(`${context}:unexpected-processIdentitySha256`);
+    if (!['spawn_error', 'signal', 'nonzero_exit', 'malformed_output'].includes(value.errorCode)) {
+      errors.push(`${context}:invalid-errorCode`);
+    }
+  }
+  return errors;
+}
+
+function validateGpuMeasurement(value) {
+  const context = 'm5-performance-raw-artifact.gpuObservation.measurement';
+  const errors = validateExactKeys(value, [
+    'surface',
+    'sampleCount',
+    'errorCount',
+    'latenciesMs',
+    'residencyBps',
+    'minimumFreeMiB',
+  ], [], context);
+  if (!isPlainRecord(value)) return errors;
+  if (value.surface !== 'model.gpu-current') errors.push(`${context}:invalid-surface`);
+  if (!Number.isSafeInteger(value.sampleCount) || value.sampleCount < 1) {
+    errors.push(`${context}:invalid-sampleCount`);
+  }
+  if (!validNonNegativeInteger(value.errorCount) || value.errorCount > value.sampleCount) {
+    errors.push(`${context}:invalid-errorCount`);
+  }
+  if (
+    !Array.isArray(value.latenciesMs)
+    || value.latenciesMs.length !== value.sampleCount
+    || value.latenciesMs.some(item => !Number.isFinite(item) || item < 0)
+  ) errors.push(`${context}:invalid-latenciesMs`);
+  if (!Number.isSafeInteger(value.residencyBps) || value.residencyBps < 0 || value.residencyBps > 10_000) {
+    errors.push(`${context}:invalid-residencyBps`);
+  }
+  if (!Number.isFinite(value.minimumFreeMiB) || value.minimumFreeMiB < 0) {
+    errors.push(`${context}:invalid-minimumFreeMiB`);
+  }
+  return errors;
+}
+
+function validateGpuObservation(value) {
+  const context = 'm5-performance-raw-artifact.gpuObservation';
+  const errors = validateExactKeys(value, ['state', 'census', 'measurement'], [], context);
+  if (!isPlainRecord(value)) return errors;
+  const states = [
+    'not_run_foreign_activity',
+    'not_run_not_requested',
+    'not_run_census_unavailable',
+    'measured',
+  ];
+  if (!states.includes(value.state)) errors.push(`${context}:invalid-state`);
+  errors.push(...validateGpuCensus(value.census));
+  if (value.state === 'measured') {
+    errors.push(...validateGpuMeasurement(value.measurement));
+    if (value.census?.state !== 'available' || value.census?.computeProcessCount !== 0) {
+      errors.push(`${context}:measured-without-clean-census`);
+    }
+  } else if (value.measurement !== null) {
+    errors.push(`${context}:unexpected-measurement`);
+  }
+  if (
+    value.state === 'not_run_foreign_activity'
+    && (value.census?.state !== 'available' || value.census?.computeProcessCount < 1)
+  ) errors.push(`${context}:foreign-activity-not-proven`);
+  if (
+    value.state === 'not_run_not_requested'
+    && (value.census?.state !== 'available' || value.census?.computeProcessCount !== 0)
+  ) errors.push(`${context}:not-requested-census-mismatch`);
+  if (value.state === 'not_run_census_unavailable' && value.census?.state !== 'unavailable') {
+    errors.push(`${context}:unavailable-census-mismatch`);
   }
   return errors;
 }
@@ -124,7 +236,7 @@ function validateHost(value, context, errors) {
   }
 }
 
-export function validateM5PerformanceRawArtifactV1(value) {
+export function validateM5PerformanceRawArtifactV2(value) {
   const context = 'm5-performance-raw-artifact';
   const errors = validateExactKeys(value, [
     'contract',
@@ -134,6 +246,7 @@ export function validateM5PerformanceRawArtifactV1(value) {
     'measuredAtIso',
     'host',
     'measurements',
+    'gpuObservation',
   ], [], context);
   if (!isPlainRecord(value)) return validationResult(errors, value);
   if (value.contract !== M5_PERFORMANCE_RAW_ARTIFACT_CONTRACT) {
@@ -157,10 +270,11 @@ export function validateM5PerformanceRawArtifactV1(value) {
     ? value.measurements.map(item => item?.surface)
     : [];
   if (new Set(surfaces).size !== surfaces.length) errors.push(`${context}:duplicate-surface`);
+  errors.push(...validateGpuObservation(value.gpuObservation));
   return validationResult(errors, value);
 }
 
-export function validateM5PerformanceEvidenceV2(value) {
+export function validateM5PerformanceEvidenceV3(value) {
   const context = 'm5-performance-evidence';
   const errors = validateExactKeys(value, [
     'contract',
@@ -171,7 +285,6 @@ export function validateM5PerformanceEvidenceV2(value) {
     'host',
     'measurementArtifact',
     'pinnedBaselines',
-    'gpuDisposition',
   ], [], context);
   if (!isPlainRecord(value)) return validationResult(errors, value);
   if (value.contract !== M5_PERFORMANCE_EVIDENCE_CONTRACT) {
@@ -191,23 +304,6 @@ export function validateM5PerformanceEvidenceV2(value) {
     errors.push(`${context}:invalid-pinnedBaselines`);
   } else {
     value.pinnedBaselines.forEach((item, index) => errors.push(...validatePinnedBaseline(item, index)));
-  }
-  errors.push(...validateExactKeys(
-    value.gpuDisposition,
-    ['currentMeasurement', 'reason', 'pinnedSurface'],
-    [],
-    `${context}.gpuDisposition`,
-  ));
-  if (isPlainRecord(value.gpuDisposition)) {
-    if (!['not_run_foreign_activity', 'measured'].includes(value.gpuDisposition.currentMeasurement)) {
-      errors.push(`${context}.gpuDisposition:invalid-currentMeasurement`);
-    }
-    if (typeof value.gpuDisposition.reason !== 'string' || value.gpuDisposition.reason.length === 0) {
-      errors.push(`${context}.gpuDisposition:invalid-reason`);
-    }
-    if (!SURFACE_PATTERN.test(value.gpuDisposition.pinnedSurface ?? '')) {
-      errors.push(`${context}.gpuDisposition:invalid-pinnedSurface`);
-    }
   }
   const surfaces = [
     ...(Array.isArray(value.pinnedBaselines) ? value.pinnedBaselines.map(item => item?.surface) : []),
