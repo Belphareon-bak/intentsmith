@@ -66,7 +66,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M1 Lokální runtime páteř** | `ACCEPTED / GATE_2_PASS` | M0 accepted; Gate 1 PASS | Stabilní Linux → Theia → chat → Ollama → persistence. |
 | **M2 Řízená práce nad projektem** | `ACCEPTED / CLOSEOUT_PASS` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
 | **M3 Modulární platforma** | `CANDIDATE_COMPLETE / SECTION_7_RE_REVIEW_PENDING` | M2 accepted | Oddíly 1–6 mají operátorské `REVIEW_PASSED`; legacy agent mutační surface z oddílu 7 je fail-closed odstavený a čeká na re-review. |
-| **M4 Auditovatelné self-learning** | `NOT_STARTED` | M2 accepted | Jedna uzavřená, scoped a vratná učící smyčka zlepšuje skutečný scénář. |
+| **M4 Auditovatelné self-learning** | `CANDIDATE_COMPLETE / OPERATOR_REVIEW_PENDING` | M2 accepted | První same-project smyčka je implementačně a integračně zelená; sedm oddílů čeká na společné operátorské review. |
 | **M5 Production hardening** | `NOT_STARTED` | M3 + M4 accepted | Instalace, data, auth, procesy, síť, výkon a recovery jsou podporovatelné. |
 | **M6 IntentSmith 1.0 release** | `NOT_STARTED` | M5 accepted | Zmražený kandidát projde úplnou release validací a operátorskou demonstrací. |
 | **M7 Remote Companion** | `DESIGN_ONLY` | M6 + remote boundary | Samostatný vzdálený companion release nad bezpečným core rozhraním. |
@@ -1303,7 +1303,7 @@ stav. Rozhodnutí v kroku 1 určí podobu hranice; roadmapa ji sama nerozhoduje.
 ## 8. M4 — Auditovatelné self-learning
 
 **Průběžný stav 2026-08-26:** první úplná M4 smyčka je
-`IMPLEMENTATION_GREEN / REVIEW_PENDING`. Contract V1, append-only authority,
+`CANDIDATE_COMPLETE / OPERATOR_REVIEW_PENDING`. Contract V1, append-only authority,
 same-project producer, HTTP/Studio user gate, verzovaný ProjectLearningContext,
 SPEC-planner konzument, durable baseline/observed artifacty, měření a první
 lokální integrační E2E jsou popsány v
@@ -1314,6 +1314,13 @@ plan conformance `0 → 10000` → rollback → delete. Nejde o modelový qualit
 benchmark ani o nezávislé review. Autoritativní module graph má 1 160 hran,
 stále 3 cykly a 28 souborů v cyklech; outcome řez je product commit `885cf959`
 a jeho jediná nová authority hrana byla explicitně přijata v `bd5eada6`.
+Úplný deterministický run `2026-08-26T08-52-35-050Z` na source `286f5ba8`
+skončil pravdivě `FAIL` / exit `1`, ale přesně zděděným baseline
+`276 PASS / 2 FAIL / 2 BLOCKED / 0 TIMEOUT`; všech osm M4 programů prošlo a
+žádný nový non-PASS nevznikl. Sjednocený closeout je v
+[`m4-closeout-20260826.md`](docs/execution/runs/m4-closeout-20260826.md) a sedm
+review řezů v
+[`2026-08-26-M4-OPERATOR-REVIEW-MATRIX.md`](docs/review/2026-08-26-M4-OPERATOR-REVIEW-MATRIX.md).
 
 ### Výsledek
 

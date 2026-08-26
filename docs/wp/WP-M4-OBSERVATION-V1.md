@@ -203,5 +203,26 @@ fingerprint `30cd508c5e615650234d17bb80ac75cedd5e39b9f5133846529d89228c2340be`.
 
 Toto měření je úzký contract conformance důkaz s jedním deterministickým
 vzorkem, ne obecný sémantický benchmark modelu. Bez nezávislého review a
-integračního closeoutu zůstává M4 pouze
-`IMPLEMENTATION_GREEN / REVIEW_PENDING`.
+operátorského verdictu zůstává M4 pouze
+`CANDIDATE_COMPLETE / OPERATOR_REVIEW_PENDING`.
+
+## Integrační closeout candidate
+
+Úplný sériový registry run `2026-08-26T08-52-35-050Z` na source
+`286f5ba881aa5dce3797955efe68a7d5cd97f39c` vybral 280 `offline,database`
+programů. Runner pravdivě skončil `verdict: FAIL`, exit `1`, s výsledkem
+`276 PASS / 2 FAIL / 2 BLOCKED / 0 TIMEOUT`. Non-PASS množina je přesně
+zděděná: `nightly-orchestrator-self-test`, `vram-coordination`, blokovaný
+`chat-export-budget` a blokovaný `export-pdf-docx`. Všech osm M4 programů v
+tomtéž běhu prošlo.
+
+Tři zastaralé full-gate oracle odhalené předchozím během byly opraveny v
+`286f5ba8`: DB-bootstrap census nyní zahrnuje M4 journey, schema oracle zná
+migrace 087/088 a Xauthority self-test explicitně nastaví deklarovaný mode i
+pod privátním umaskem. Sedm starších zachovaných direct-test runtime nebylo
+smazáno; před finálním během bylo bezeztrátově přesunuto do ignorovaného
+`.intentsmith-artifacts/preserved-direct-tests/2026-08-26-pre-m4-final-gate`.
+
+Přesná evidence a review rozsah jsou v
+[`m4-closeout-20260826.md`](../execution/runs/m4-closeout-20260826.md) a
+[`2026-08-26-M4-OPERATOR-REVIEW-MATRIX.md`](../review/2026-08-26-M4-OPERATOR-REVIEW-MATRIX.md).
