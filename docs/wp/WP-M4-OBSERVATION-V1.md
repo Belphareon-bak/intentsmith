@@ -135,8 +135,28 @@ Tři HTTP authority hrany byly explicitně přijaty z čistého product commitu
 `d70f9b7d`; module graph má 1 159 hran bez růstu cyklů nebo cyklického
 membershipu.
 
+## Studio user gate
+
+Autoritativní committed Studio runtime přidává pouze explicitní příkazy
+`/m4-learning`, `-show`, `-approve`, `-reject`, `-weaken`, `-rollback` a
+`-delete`. Před každým HTTP požadavkem váže numeric project ID a po response
+znovu ověřuje, že uživatel nepřepnul session/project. Úspěch vyžaduje
+`Response.ok` a exact `LearningProposalReview/List`; Studio ověřuje project,
+proposal, observation order, evidence digest/revision a current outcome před
+zobrazením.
+
+Approve/reject/rollback/delete vyžadují exact proposal ID a neprázdný reason;
+weaken vyžaduje exact-key strict JSON. Studio neposílá actor ani project path a
+obecné „ano“ nemá žádnou mutační cestu. Renderer ukazuje rationale, pattern,
+TTL, confidence, úplnou evidence provenance a konkrétní user-gate příkazy.
+
+Studio focused sada má 7/7 PASS, M2 Studio regrese 9/9 PASS, authoritative-lib
+contract PASS, M1 Studio regrese 122/122 PASS a repository hygiene
+1 777/1 777 PASS. Registry po tomto řezu má 444 programů a fingerprint
+`80048d888a41fd6a22734a783b0c273721fd8a9168d37946fd0e2373e4ca37e3`.
+
 ## Zbývající rozsah
 
-Studio konzument user gate a první úplné integrační E2E včetně outcome měření
-zatím nejsou hotové. Bez nezávislého review je celý dosavadní stav pouze
+První úplné integrační E2E včetně outcome měření zatím není hotové. Bez
+nezávislého review je celý dosavadní stav pouze
 `IMPLEMENTATION_GREEN / REVIEW_PENDING`.

@@ -6706,6 +6706,205 @@ function _m2HandleStudioCommand(idx,s,st,ta,text,cmd,arg){
   return true;
 }
 
+/* ── M4 learning — explicit Studio evidence and user-gate surface ── */
+var _M4_LEARNING_COMMANDS=['/m4-learning','/m4-learning-show','/m4-learning-approve','/m4-learning-reject',
+  '/m4-learning-weaken','/m4-learning-rollback','/m4-learning-delete'];
+var _M4_LEARNING_STATES={pending:true,active:true,rejected:true,rolled_back:true,expired:true,deleted:true};
+function _m4LearningProject(s){
+  var projectId=Number(s&&s._projectId);
+  if(!Number.isSafeInteger(projectId)||projectId<1)throw Object.assign(new Error('M4 learning vyžaduje aktivní projekt s číselným ID.'),{code:'M4_STUDIO_PROJECT_REQUIRED'});
+  return projectId;
+}
+function _m4AssertCurrentProject(idx,s,projectId){
+  if(_sessions[idx]!==s||_m4LearningProject(s)!==projectId){
+    throw Object.assign(new Error('Studio projekt se během M4 learning požadavku změnil.'),{code:'M4_STUDIO_CONTEXT_CHANGED'});
+  }
+}
+function _m4LearningFetchJSON(endpoint,options,timeoutMs){
+  var request=Object.assign({credentials:'same-origin'},options||{});
+  if(!request.signal)request.signal=AbortSignal.timeout(timeoutMs);
+  return fetch(_backendBase+endpoint,request).then(function(r){
+    return r.json().catch(function(){return{};}).then(function(payload){
+      if(!r.ok){
+        var code=typeof payload.code==='string'?payload.code:'HTTP_'+r.status;
+        var message=typeof payload.error==='string'?payload.error:'M4 learning HTTP '+r.status;
+        throw Object.assign(new Error(message),{code:code,status:r.status});
+      }
+      return payload;
+    });
+  });
+}
+function _m4LearningProposalId(value){return typeof value==='string'&&/^lpr1:[0-9a-f]{64}$/.test(value);}
+function _m4RequireLearningReview(view,projectId,proposalId){
+  if(!_m2IsRecord(view)||view.contract!=='LearningProposalReview'||view.version!==1||view.projectId!==projectId
+    ||!_m2IsRecord(view.proposal)||view.proposal.projectId!==projectId||!_m4LearningProposalId(view.proposal.proposalId)
+    ||(proposalId&&view.proposal.proposalId!==proposalId)||!Array.isArray(view.proposal.observationIds)
+    ||view.proposal.observationIds.length<2||!Array.isArray(view.observations)
+    ||view.observations.length!==view.proposal.observationIds.length||!_M4_LEARNING_STATES[view.state]){
+    throw Object.assign(new Error('Server vrátil neúplný nebo cizí M4 learning review.'),{code:'M4_STUDIO_INVALID_RESPONSE'});
+  }
+  for(var i=0;i<view.observations.length;i++){
+    var observation=view.observations[i];
+    if(!_m2IsRecord(observation)||observation.contract!=='LearningObservation'||observation.projectId!==projectId
+      ||observation.observationId!==view.proposal.observationIds[i]||!Array.isArray(observation.evidence)
+      ||observation.evidence.length<1){
+      throw Object.assign(new Error('M4 review nemá úplnou same-project evidenci.'),{code:'M4_STUDIO_INVALID_EVIDENCE'});
+    }
+    for(var j=0;j<observation.evidence.length;j++){
+      var evidence=observation.evidence[j];
+      if(!_m2IsRecord(evidence)||typeof evidence.evidenceId!=='string'
+        ||!/^sha256:[0-9a-f]{64}$/.test(evidence.digest)||!/^wsr1:[0-9a-f]{64}$/.test(evidence.workspaceRevision)){
+        throw Object.assign(new Error('M4 review evidence nemá exact digest/revision.'),{code:'M4_STUDIO_INVALID_EVIDENCE'});
+      }
+    }
+  }
+  if(view.state==='pending'){
+    if(view.currentOutcome!==null)throw Object.assign(new Error('Pending M4 proposal nesmí mít outcome.'),{code:'M4_STUDIO_INVALID_RESPONSE'});
+  }else if(!_m2IsRecord(view.currentOutcome)||view.currentOutcome.projectId!==projectId
+    ||view.currentOutcome.proposalId!==view.proposal.proposalId
+    ||(view.state==='active'?['approved','measured','weakened'].indexOf(view.currentOutcome.status)<0:view.currentOutcome.status!==view.state)){
+    throw Object.assign(new Error('M4 review nemá exact current outcome.'),{code:'M4_STUDIO_INVALID_RESPONSE'});
+  }
+  return view;
+}
+function _m4RequireLearningList(view,projectId,state){
+  if(!_m2IsRecord(view)||view.contract!=='LearningProposalReviewList'||view.version!==1
+    ||view.projectId!==projectId||view.stateFilter!==state||!Array.isArray(view.reviews)||view.reviews.length>100){
+    throw Object.assign(new Error('Server vrátil neúplný nebo cizí M4 learning seznam.'),{code:'M4_STUDIO_INVALID_RESPONSE'});
+  }
+  view.reviews.forEach(function(review){_m4RequireLearningReview(review,projectId,null);});
+  return view;
+}
+function _m4LearningDisplay(value,fallback){return value===null||value===undefined||value===''?(fallback||'—'):String(value);}
+function _m4RenderLearningReview(view,compact){
+  var proposal=view.proposal;var adaptation=proposal.adaptation||{};var retention=proposal.retention||{};
+  var lines=[
+    (compact?'M4 PROPOSAL':'M4 LEARNING REVIEW'),
+    'Proposal ID: '+proposal.proposalId,
+    'Project ID: '+view.projectId,
+    'State: '+view.state,
+    'Title: '+_m4LearningDisplay(proposal.title),
+    'Rationale: '+_m4LearningDisplay(proposal.rationale),
+    'Confidence: '+_m4LearningDisplay(proposal.confidenceBps)+'/10000',
+    'Created at: '+_m4LearningDisplay(proposal.createdAtMs),
+    'Pattern key: '+_m4LearningDisplay(adaptation.key),
+    'Pattern value: '+JSON.stringify(adaptation.value),
+    'Target: '+_m4LearningDisplay(adaptation.target),
+    'Changes permissions/code/config: '+[adaptation.changesPermissions,adaptation.changesCode,adaptation.changesConfig].join('/'),
+    'TTL ms: '+_m4LearningDisplay(retention.ttlMs),
+    'Observation IDs: '+JSON.stringify(proposal.observationIds),
+    'Exact evidence:'
+  ];
+  view.observations.forEach(function(observation){
+    lines.push('- observation '+observation.observationId+' | producer: '+_m4LearningDisplay(observation.producer)
+      +' | confidence: '+_m4LearningDisplay(observation.confidenceBps)+'/10000 | observedAt: '+_m4LearningDisplay(observation.observedAtMs));
+    observation.evidence.forEach(function(evidence){
+      lines.push('  evidence '+evidence.evidenceId+' | kind: '+_m4LearningDisplay(evidence.kind)
+        +' | source: '+_m4LearningDisplay(evidence.sourceId)+'@'+_m4LearningDisplay(evidence.sourceVersion)
+        +' | digest: '+evidence.digest+' | workspaceRevision: '+evidence.workspaceRevision);
+    });
+  });
+  if(view.currentOutcome){
+    lines.push('Current outcome ID: '+view.currentOutcome.outcomeId);
+    lines.push('Current outcome actor: '+_m4LearningDisplay(view.currentOutcome.actor&&view.currentOutcome.actor.actorId));
+    lines.push('Current outcome reason: '+_m4LearningDisplay(view.currentOutcome.reason));
+    if(view.currentOutcome.learnedItem){
+      lines.push('Learned item: '+view.currentOutcome.learnedItem.itemId+'@'+view.currentOutcome.learnedItem.itemVersion
+        +' | active: '+view.currentOutcome.learnedItem.active+' | expiresAt: '+view.currentOutcome.learnedItem.expiresAtMs);
+    }
+  }
+  if(view.state==='pending'){
+    lines.push('Explicit approval: /m4-learning-approve '+proposal.proposalId+' <reason>');
+    lines.push('Explicit rejection: /m4-learning-reject '+proposal.proposalId+' <reason>');
+    lines.push('Obecné „ano“ tento proposal nikdy neschválí.');
+  }else if(view.state==='active'){
+    lines.push('Weaken: /m4-learning-weaken '+proposal.proposalId+' {"confidenceBps":5000,"reason":"...","value":{...}}');
+    lines.push('Rollback: /m4-learning-rollback '+proposal.proposalId+' <reason>');
+    lines.push('Delete tombstone: /m4-learning-delete '+proposal.proposalId+' <reason>');
+  }else if(view.state!=='deleted'){
+    lines.push('Delete tombstone: /m4-learning-delete '+proposal.proposalId+' <reason>');
+  }
+  return lines.join('\n');
+}
+function _m4RenderLearningList(view){
+  var lines=['M4 LEARNING PROPOSALS','Project ID: '+view.projectId,'Filter: '+view.stateFilter,'Count: '+view.reviews.length];
+  if(view.reviews.length===0)lines.push('Žádné proposal v tomto stavu.');
+  view.reviews.forEach(function(review,index){
+    lines.push('');lines.push('['+(index+1)+'/'+view.reviews.length+']');lines.push(_m4RenderLearningReview(review,true));
+  });
+  return lines.join('\n');
+}
+function _m4ParseIdReason(arg,usage){
+  var match=/^(lpr1:[0-9a-f]{64})\s+([\s\S]+)$/.exec(arg||'');
+  if(!match||!match[2].trim()||match[2].trim().length>4096){
+    throw Object.assign(new Error('Použití: '+usage),{code:'M4_STUDIO_ARGUMENT_INVALID'});
+  }
+  return {proposalId:match[1],reason:match[2].trim()};
+}
+function _m4ParseWeaken(arg){
+  var match=/^(lpr1:[0-9a-f]{64})\s+([\s\S]+)$/.exec(arg||'');var body;
+  if(!match)throw Object.assign(new Error('Použití: /m4-learning-weaken <proposalId> <strict JSON>'),{code:'M4_STUDIO_ARGUMENT_INVALID'});
+  try{body=JSON.parse(match[2]);}catch(error){throw Object.assign(new Error('Weaken payload není validní strict JSON.'),{code:'M4_STUDIO_JSON_INVALID'});}
+  if(!_m2IsRecord(body)||Object.keys(body).sort().join(',')!=='confidenceBps,reason,value'
+    ||!Number.isSafeInteger(body.confidenceBps)||body.confidenceBps<0||body.confidenceBps>10000
+    ||typeof body.reason!=='string'||!body.reason.trim()||body.reason.length>4096){
+    throw Object.assign(new Error('Weaken JSON musí mít přesně confidenceBps, reason a value.'),{code:'M4_STUDIO_ARGUMENT_INVALID'});
+  }
+  return {proposalId:match[1],body:{confidenceBps:body.confidenceBps,reason:body.reason.trim(),value:body.value}};
+}
+function _m4BeginLearningCommand(idx,st,ta,text){
+  if(ta){ta.value='';ta.style.height='22px';}
+  st.msgs.push({role:'user',text:text,tag:'M4'});st._m4LearningBusy=true;
+  st._thinking={text:'M4 learning…',ts:Date.now()};_sessionActive=idx;_persistSessionState();renderChat();_chatScrollPane(idx);
+}
+function _m4FinishLearningCommand(idx,st,text,isError){
+  st._m4LearningBusy=false;st._thinking=null;
+  st.msgs.push({role:isError?'system':'assistant',text:text,tag:isError?'M4_ERROR':'M4'});
+  _persistSessionState();renderChat();_chatScrollPane(idx);
+}
+function _m4LearningError(error){
+  var code=error&&error.code?error.code:'M4_STUDIO_REQUEST_FAILED';var status=error&&error.status?' HTTP '+error.status:'';
+  return 'M4 chyba ['+code+status+']: '+(error&&error.message?error.message:String(error));
+}
+function _m4HandleLearningCommand(idx,s,st,ta,text,cmd,arg){
+  if(_M4_LEARNING_COMMANDS.indexOf(cmd)<0)return false;
+  if(st._m4LearningBusy){st.msgs.push({role:'system',text:'M4 learning požadavek už běží.',tag:'M4_ERROR'});renderChat();return true;}
+  var projectId;var proposalId=null;var body=null;var state='pending';var method='GET';var endpoint;
+  try{
+    if(st.attachments.length>0)throw Object.assign(new Error('M4 learning příkazy nepřijímají přílohy.'),{code:'M4_STUDIO_ATTACHMENTS_NOT_ALLOWED'});
+    projectId=_m4LearningProject(s);
+    var base='/api/projects/'+encodeURIComponent(projectId)+'/learning/proposals';
+    if(cmd==='/m4-learning'){
+      state=arg||'pending';if(['all','pending','active','terminal'].indexOf(state)<0)throw Object.assign(new Error('Použití: /m4-learning [all|pending|active|terminal]'),{code:'M4_STUDIO_ARGUMENT_INVALID'});
+      endpoint=base+'?state='+encodeURIComponent(state)+'&limit=50';
+    }else if(cmd==='/m4-learning-show'){
+      if(!_m4LearningProposalId(arg))throw Object.assign(new Error('Použití: /m4-learning-show <proposalId>'),{code:'M4_STUDIO_ARGUMENT_INVALID'});
+      proposalId=arg;endpoint=base+'/'+encodeURIComponent(proposalId);
+    }else if(cmd==='/m4-learning-weaken'){
+      var weaken=_m4ParseWeaken(arg);proposalId=weaken.proposalId;body=weaken.body;method='POST';
+      endpoint=base+'/'+encodeURIComponent(proposalId)+'/weaken';
+    }else{
+      var action=cmd.slice('/m4-learning-'.length);var parsed=_m4ParseIdReason(arg,cmd+' <proposalId> <reason>');
+      proposalId=parsed.proposalId;body={reason:parsed.reason};method=action==='delete'?'DELETE':'POST';
+      endpoint=base+'/'+encodeURIComponent(proposalId)+'/'+action;
+      if(action==='delete')endpoint=base+'/'+encodeURIComponent(proposalId);
+    }
+  }catch(error){
+    if(ta){ta.value='';ta.style.height='22px';}
+    st.msgs.push({role:'system',text:_m4LearningError(error),tag:'M4_ERROR'});_persistSessionState();renderChat();_chatScrollPane(idx);return true;
+  }
+  _m4BeginLearningCommand(idx,st,ta,text);
+  var options={method:method};
+  if(body!==null){options.headers={'Content-Type':'application/json'};options.body=JSON.stringify(body);}
+  _m4LearningFetchJSON(endpoint,options,120000).then(function(view){
+    _m4AssertCurrentProject(idx,s,projectId);
+    if(cmd==='/m4-learning')return _m4RenderLearningList(_m4RequireLearningList(view,projectId,state));
+    return _m4RenderLearningReview(_m4RequireLearningReview(view,projectId,proposalId),false);
+  }).then(function(rendered){_m4FinishLearningCommand(idx,st,rendered,false);})
+  .catch(function(error){_m4FinishLearningCommand(idx,st,_m4LearningError(error),true);});
+  return true;
+}
+
 function _chatSendPane(idx){
   var ta=document.getElementById('c3-chat-ta-'+idx);
   var s=_sessions[idx];if(!s)return;var st=s.chat;
@@ -6752,6 +6951,7 @@ function _chatSendPane(idx){
   if(t.charAt(0)==='/'){
     var parts=t.split(/\s+/);var cmd=parts[0].toLowerCase();var arg=parts.slice(1).join(' ');
     if(_m2HandleStudioCommand(idx,s,st,ta,t,cmd,arg))return;
+    if(_m4HandleLearningCommand(idx,s,st,ta,t,cmd,arg))return;
     if(cmd==='/run'){
       if(ta){ta.value='';ta.style.height='22px';}
       st.msgs.push({role:'user',text:t});renderChat();

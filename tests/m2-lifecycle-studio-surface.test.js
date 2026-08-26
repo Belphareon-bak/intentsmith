@@ -47,7 +47,7 @@ test('all Studio lifecycle HTTP success is gated by Response.ok and typed errors
   assert.match(transport, /credentials:'same-origin'/);
   assert.doesNotMatch(transport, /ok:true/);
 
-  const handler = functionSlice('_m2HandleStudioCommand', '_chatSendPane');
+  const handler = functionSlice('_m2HandleStudioCommand', '_m4LearningProject');
   assert.equal((handler.match(/_m2FetchJSON\(/g) || []).length, 4);
   assert.equal((handler.match(/_m2RequireStatusView\(/g) || []).length, 4);
 });
@@ -58,7 +58,7 @@ test('prepare is strict JSON over numeric project and stable string Studio origi
   assert.match(origin, /String\(s\._convId\)\.trim\(\)/);
   assert.match(origin, /surface:'studio',sessionId:conversationId,conversationId:conversationId,projectId:projectId/);
 
-  const handler = functionSlice('_m2HandleStudioCommand', '_chatSendPane');
+  const handler = functionSlice('_m2HandleStudioCommand', '_m4LearningProject');
   assert.match(handler, /proposal=JSON\.parse\(arg\)/);
   assert.match(handler, /if\(!_m2IsRecord\(proposal\)\)/);
   assert.match(handler, /projectId:origin\.projectId,origin:origin,proposal:proposal/);
@@ -67,7 +67,7 @@ test('prepare is strict JSON over numeric project and stable string Studio origi
 });
 
 test('approval forwards only the stored exact lifecycle, plan digest and origin with a long timeout', () => {
-  const handler = functionSlice('_m2HandleStudioCommand', '_chatSendPane');
+  const handler = functionSlice('_m2HandleStudioCommand', '_m4LearningProject');
   assert.match(
     handler,
     /JSON\.stringify\(\{lifecycleId:pending\.lifecycleId,planDigest:pending\.planDigest,origin:pending\.origin\}\)\},3600000/,
@@ -79,7 +79,7 @@ test('approval forwards only the stored exact lifecycle, plan digest and origin 
 });
 
 test('status and cancel preserve the durable origin binding', () => {
-  const handler = functionSlice('_m2HandleStudioCommand', '_chatSendPane');
+  const handler = functionSlice('_m2HandleStudioCommand', '_m4LearningProject');
   assert.match(handler, /lifecycleId:pending\.lifecycleId,reason:arg\|\|'user_cancelled',origin:pending\.origin/);
   for (const field of ['surface', 'sessionId', 'conversationId', 'projectId']) {
     assert.match(handler, new RegExp(`encodeURIComponent\\(origin\\.${field}\\)`));
