@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 462
+- Runnable programs: 463
 - Explicit support-module exclusions: 14
-- Profiles: offline=237, database=57, server=41, model=85, soak=26, manual=16
-- States: ACTIVE=367, HISTORICAL=16, BLOCKED=79
+- Profiles: offline=238, database=57, server=41, model=85, soak=26, manual=16
+- States: ACTIVE=368, HISTORICAL=16, BLOCKED=79
 
 ## Execution profiles
 
@@ -372,6 +372,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M6-L0-EVIDENCE-TEST` | `tests/m6-l0-evidence.test.js` | `C3-012` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-M6-MODEL-DISCOVERY-JOURNEY-TEST` | `tests/m6-model-discovery-journey.test.js` | `C3-023` | T1 | `offline` | 1 s | 30 s | network:loopback | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-M6-PLATFORM-JOURNEY-TEST` | `tests/m6-platform-journey.test.js` | `C3-023` | T1 | `offline` | 2 s | 1 min | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |
+| `IS-T1-TESTS-M6-RELEASE-ARTIFACT-TEST` | `tests/m6-release-artifact.test.js` | `C3-012` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-M6-RELEASE-VALIDATION-TEST` | `tests/m6-release-validation.test.js` | `C3-012` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-M6-TECHNICAL-EVIDENCE-TEST` | `tests/m6-technical-evidence.test.js` | `C3-012` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-MANIFEST-V2-TEST` | `tests/manifest-v2.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
