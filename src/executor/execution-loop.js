@@ -139,6 +139,18 @@ const MAX_FILE_PATCHES = 3;
 const MAX_GIT_DIFF_CHARS = 4000;
 const MAX_PROMPT_PATCHES = 2;
 const MAX_FRONTIER_DEPENDENTS = 5;
+export const MAX_FIX_LOOP_ITERATIONS = 8;
+
+export function resolveMaxLoopIterations(value = MAX_FIX_LOOP_ITERATIONS) {
+  if (
+    !Number.isSafeInteger(value)
+    || value < 1
+    || value > MAX_FIX_LOOP_ITERATIONS
+  ) {
+    throw new RangeError('execution-loop:max-iterations-out-of-range');
+  }
+  return value;
+}
 
 // ─── Convergence Detection ──────────────────────────────────────────────────
 
@@ -235,7 +247,9 @@ export function limitErrors(errors) {
  * @returns {string} Prompt for CODE LLM
  */
 export function buildFixPrompt(milestone, errors, iterationMemory, gitDiff, taskContext, critiqueContext, deltaContext, strategyHints, scopeHint, importMapHint) {
-  const maxIter = config.lifecycle?.maxLoopIterations || 8;
+  const maxIter = resolveMaxLoopIterations(
+    config.lifecycle?.maxLoopIterations ?? MAX_FIX_LOOP_ITERATIONS,
+  );
   const iter = iterationMemory.iteration;
 
   // Compile-first priority

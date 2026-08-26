@@ -8,6 +8,7 @@ import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 import {
   shouldContinue, compareErrors, limitErrors, buildFixPrompt,
   extractErrors, partitionErrorsByProjectScope, isProjectPathRejectionState, runFixLoop,
+  MAX_FIX_LOOP_ITERATIONS, resolveMaxLoopIterations,
 } from '../src/executor/execution-loop.js';
 
 // ─── Test Project Setup ─────────────────────────────────────────────────────
@@ -38,6 +39,23 @@ function cleanupTestProject() {
 }
 
 setupTestProject();
+
+test('L0-7 accepts at most eight execution-loop iterations', () => {
+  assertEqual(MAX_FIX_LOOP_ITERATIONS, 8);
+  assertEqual(resolveMaxLoopIterations(), 8);
+  assertEqual(resolveMaxLoopIterations(1), 1);
+  assertEqual(resolveMaxLoopIterations(8), 8);
+  for (const invalid of [0, 9, 1.5, Number.NaN, '8']) {
+    let error = null;
+    try {
+      resolveMaxLoopIterations(invalid);
+    } catch (cause) {
+      error = cause;
+    }
+    assert(error instanceof RangeError, `expected RangeError for ${String(invalid)}`);
+    assertEqual(error.message, 'execution-loop:max-iterations-out-of-range');
+  }
+});
 
 test('path rejection classifier retains contained aliases without escalating containment', () => {
   assertEqual(isProjectPathRejectionState('canonical_target_mismatch'), true);

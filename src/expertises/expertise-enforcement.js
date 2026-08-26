@@ -179,7 +179,15 @@ export class ExpertiseEnforcer {
   constructor(expert, regenerateFn, options = {}) {
     this.#expert = expert;
     this.#regenerateFn = regenerateFn;
-    this.#maxRetries = options.maxRetries ?? ENFORCEMENT_CONFIG.maxRetries;
+    const maxRetries = options.maxRetries ?? ENFORCEMENT_CONFIG.maxRetries;
+    if (
+      !Number.isSafeInteger(maxRetries)
+      || maxRetries < 0
+      || maxRetries > ENFORCEMENT_CONFIG.maxRetries
+    ) {
+      throw new RangeError('expertise-enforcer:max-retries-out-of-range');
+    }
+    this.#maxRetries = maxRetries;
     this.#strictMode = options.strict ?? false;
     this.#retryAudit = [];
     this.#executionTraceId = options.executionTraceId || null;

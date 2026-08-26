@@ -391,7 +391,7 @@ describe('T-CE8: ExpertiseEnforcer retry decay', async () => {
 
     assert.ok(receivedOptions.length >= 1, 'should have retried');
     const firstRetry = receivedOptions[0];
-    assert.ok(firstRetry.temperatureDecay > 0, 'should have temperature decay');
+    assert.strictEqual(firstRetry.temperatureDecay, 0.1, 'first retry must decay by exactly 0.1');
     assert.ok(firstRetry.topPDecay > 0, 'should have topP decay');
     assert.ok(firstRetry.seed, 'should have seed');
     assert.ok(firstRetry.attempt >= 2, 'attempt should be >= 2');
@@ -412,15 +412,20 @@ describe('T-CE8: ExpertiseEnforcer retry decay', async () => {
       return 'BAD response again for testing';
     };
 
-    const enforcer = new ExpertiseEnforcer(expert, regenerateFn, { maxRetries: 3 });
+    const enforcer = new ExpertiseEnforcer(expert, regenerateFn, { maxRetries: 2 });
     await enforcer.enforce('BAD initial response here', 'Q');
 
-    if (receivedOptions.length >= 2) {
-      assert.ok(
-        receivedOptions[1].temperatureDecay > receivedOptions[0].temperatureDecay,
-        'decay should increase with attempts'
-      );
-    }
+    assert.strictEqual(receivedOptions.length, 2);
+    assert.strictEqual(receivedOptions[0].temperatureDecay, 0.1);
+    assert.strictEqual(receivedOptions[1].temperatureDecay, 0.2);
+  });
+
+  await it('retry budget above the L0-3 maximum is rejected', async () => {
+    const expert = { id: 'test-max-retries', styleRules: {} };
+    assert.throws(
+      () => new ExpertiseEnforcer(expert, async () => 'retry', { maxRetries: 3 }),
+      /expertise-enforcer:max-retries-out-of-range/,
+    );
   });
 
   await it('retry audit trail is populated', async () => {
