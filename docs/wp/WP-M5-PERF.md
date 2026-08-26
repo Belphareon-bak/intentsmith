@@ -2,7 +2,7 @@
 
 **Typ:** M5 production hardening · **Stav:** `SECOND_REVIEW_REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED`
 
-**Product revision:** `b020ee19880403c92a0367bffd2b41c369308677`
+**Product revision:** `816a2a4c8a95b49d46f06b94b56feb64c8a40c90`
 
 ## Uživatelský výsledek
 
@@ -52,4 +52,6 @@ WP reviewem zároveň přijímá nebo mění právě tuto tabulku.
 
 Focused důkaz je v
 [`m5-perf-remediation-20260826.md`](../execution/runs/m5-perf-remediation-20260826.md).
+Exact-candidate pětiminutový důkaz a jeho content adresy jsou v
+[`m5-second-review-remediation-closeout-20260827.md`](../execution/runs/m5-second-review-remediation-closeout-20260827.md).
 Tento dokument není nezávislé review ani M5 acceptance.

@@ -1,8 +1,14 @@
 # WP-M5-DATA — backup/restore round-trip
 
-**Typ:** zapisující Work Package · **Stav: ZÁLOŽNÍ SLOT — needispečovat do fronty**
-**Vstupní revision:** `1fc8f03e649dd561fb279ce68e5c119d35faad55`
-**Vlastník:** jediný zapisující vlastník v okamžiku aktivace
+**Typ:** zapisující Work Package · **Stav:** `SECOND_REVIEW_REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED`
+**Product candidate:** `816a2a4c8a95b49d46f06b94b56feb64c8a40c90`
+**Remediation commit:** `c3170a12e798b41e25e675ba555ffd47b411c5ff`
+**Vlastník:** M5 integrační větev; bez upstreamu a bez push
+
+> Sekce 0–8 níže zachovávají původní plánovací kontrakt. Aktuální implementace
+> už obsahuje round-trip restore, DB/WAL/SHM file-set authority a review
+> remediation. Finální stav a adversariální evidence jsou v
+> [`m5-second-review-remediation-closeout-20260827.md`](../execution/runs/m5-second-review-remediation-closeout-20260827.md).
 
 ---
 

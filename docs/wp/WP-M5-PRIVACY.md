@@ -3,8 +3,9 @@
 **Typ:** M5 production hardening · **Stav:**
 `SECOND_REVIEW_REMEDIATION_IMPLEMENTED / OPERATOR_REMEDIATION_REQUIRED /
 RE_REVIEW_REQUIRED`
-· **Product:** `b15090a4cacd0a47a1dbd26f224fe19d7e399042`
-· **Module baseline:** `PENDING_FINAL_CANDIDATE_PIN`
+· **Product:** `816a2a4c8a95b49d46f06b94b56feb64c8a40c90`
+· **Privacy remediation:** `b15090a4cacd0a47a1dbd26f224fe19d7e399042`
+· **Module baseline:** `6e7cd7410c83826c88d6d65f6af2ae29fc5df3e6`
 
 ## Výsledek implementace
 
@@ -17,8 +18,12 @@ RE_REVIEW_REQUIRED`
 - HTTP, WS, SQLite a Studio settings používají stejnou fail-closed policy;
   SMTP/webhook secret je pouze v environmentu a licenční HMAC nemá známý
   fallback.
-- `scan-m5-privacy.js` odmítne dirty strom, nečte obsah citlivých cest a
-  historical reachability reportuje jen počty.
+- writer nemá veřejnou mint factory; přesná subject identita vzniká privátně
+  až po úspěšné globální transportní autentizaci a SQL boundary ověřuje její
+  identitu i shodu actor ID;
+- `scan-m5-privacy.js` odmítne dirty strom, čte exact HEAD bloby distribučního
+  manifestu, nečte obsah citlivých cest a reachability počítá z deklarovaných
+  refs, ne z fyzické existence dangling objektu.
 
 ## API
 
@@ -53,4 +58,6 @@ node scripts/scan-m5-privacy.js
 
 Přesné výsledky jsou v
 [`m5-privacy-20260826.md`](../execution/runs/m5-privacy-20260826.md).
+Navazující second-review evidence je v
+[`m5-second-review-remediation-closeout-20260827.md`](../execution/runs/m5-second-review-remediation-closeout-20260827.md).
 Tento WP není nezávislé review ani M5 acceptance.
