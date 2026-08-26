@@ -25,6 +25,7 @@ posílá jeho sekce „Výstup" — ne sem.
 | [WP-M5-DATA](WP-M5-DATA.md) | zapisující WP | **implementation-green / review pending** | [M5 DATA report](../execution/runs/m5-data-20260826.md) |
 | [WP-M5-PROCESS](WP-M5-PROCESS.md) | zapisující WP | **implementation-green / review pending** | [M5 PROCESS report](../execution/runs/m5-process-20260826.md) |
 | [WP-M5-OBSERVE](WP-M5-OBSERVE.md) | zapisující WP | **implementation-green / review pending** | [M5 OBSERVE report](../execution/runs/m5-observe-20260826.md) |
+| [WP-M5-OUTBOUND](WP-M5-OUTBOUND.md) | zapisující WP | **implementation-green / review pending** | [M5 OUTBOUND report](../execution/runs/m5-outbound-20260826.md) |
 | [WP-M1-BINDING-REPOSITORY](WP-M1-BINDING-REPOSITORY.md) | zapisující WP | **dokončeno** na `515fb6f7`, evidence `eb7e78b8` | [WP-M1-MODEL report](../execution/runs/wp-m1-model-report.md) |
 | [WP-M1-BINDING-APPLICATION](WP-M1-BINDING-APPLICATION.md) | zapisující WP | **dokončeno** na `e7d89b5e`, fresh-clone evidence `9b71c741` | [WP-M1-MODEL report](../execution/runs/wp-m1-model-report.md) |
 | [WP-M1-BINDING-FINALIZE-RECOVERY](WP-M1-BINDING-FINALIZE-RECOVERY.md) | zapisující WP | **fresh-clone verified** na `7c4aa73c`; review range `0a6bde54..7c4aa73c` | [Finding 008](../findings/008-model-binding-commit-point-split.md) |

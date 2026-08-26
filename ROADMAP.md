@@ -1412,6 +1412,16 @@ pravdivě degraduje při nečitelné DB nebo neúplném startup recovery censu a
 všechny tři aliasy používají jediný produkční handler. Autoritativní module graph má 1 167 hran,
 stále 3 cykly a 28 souborů v cyklech. Důkaz je v
 [`m5-observe-20260826.md`](docs/execution/runs/m5-observe-20260826.md).
+`WP-M5-OUTBOUND` je implementation-green na product commitu `07b8155c`.
+Produkční proces instaluje před optional/background službami jediný global
+`fetch` guard: loopback zůstává lokální a každý externí request bez exact
+surface/scope se před transportem durably zapíše jako deny. Model discovery
+zachovává explicitní default-on rozhodnutí, ale nyní smí pouze GET/HEAD na tři
+přesné HTTPS originy pod `model.metadata.read`; redirect, chybějící audit i
+vypnutý flag fail-close. Audit migrace 089 neukládá URL path/query, body, header
+ani credential hodnoty. Autoritativní module graph má 1 175 hran, stále 3 cykly
+a 28 souborů v cyklech. Důkaz je v
+[`m5-outbound-20260826.md`](docs/execution/runs/m5-outbound-20260826.md).
 
 Nejde o M5 acceptance: M3 oddíl 7 a zbývající M5 bloky jsou otevřené.
 

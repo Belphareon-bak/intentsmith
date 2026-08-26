@@ -286,18 +286,19 @@ znění v [`CONTRACT.md`](CONTRACT.md) §2.
     pro patch, preview, rollback a dead-import write; invariant však zůstává
     `UNVERIFIED`, dokud neexistuje a neprojde celý effect/approval connector,
     revokace, process/network/Git mediace, audit a uživatelský journey.
-12. Žádná tichá background outbound komunikace — **PARTIAL**; background model
-    discovery je off a rodičovský deterministický profil byl empiricky
-    skenovaný. Google Fonts egress byl odstraněn ze všech trackovaných Studio
-    ploch a dva fresh-clone Electron CDP běhy na `7236d221` prokázaly nulový
-    external/other-loopback provoz v ohraničeném journey. Explicitní outbound
-    plochy však stále nemají jednotnou policy.
+12. Žádná tichá background outbound komunikace — **IMPLEMENTATION_GREEN /
+    LONG_HORIZON_PENDING**. Global production `fetch` guard je instalovaný před
+    optional/background službami. Externí request bez exact scope se durably
+    audituje a zastaví před transportem; model discovery zachovává operátorský
+    default-on stav, ale má přesný metadata-read scope, tři HTTPS originy a
+    append-only decision/terminal audit. Google Fonts egress zůstává odstraněný.
     Změřeno 2026-08-07: 82 `fetch` call sites, z toho 46 skutečně odchozích.
     Default konfigurace pod blokující instrumentací neprovedla **žádné** spojení
     mimo loopback — okno 75 s pokrylo startup, idle, shutdown a 30s agent
     scheduler, **nepokrylo** 5min poll ani 24h cyklus, pro delší horizont je to
-    `NOT RUN`. Nejtěžší zbývající plocha je LLM-inicovaný egress: `executeWebSearch`
-    a web scrape v tool executoru nemají síťový gate.
+    `NOT RUN`. LLM-inicovaný web egress zůstává na M2 hranici unavailable,
+    protože query není přesnou autoritou provider fallbacku a redirectů; global
+    guard navíc blokuje každý případný legacy bypass.
     `docs/review/2026-08-07-OUTBOUND-CENSUS.md`
 13. Učení nerozšiřuje authority, nemění code/config a nekříží projekt bez
     opt-inu — **UNVERIFIED**; M4 vyžaduje negativní boundary testy
@@ -413,7 +414,7 @@ aktuální stav je samostatný řádek `Model failover opt-in surface`.
 | Model failover opt-in surface | **CHANGES_REQUIRED / rozhodnutí 020:** typed `updateModelSettings()` nemá produkčního volajícího a A samotné by ponechalo pět živých mutation cest nad stejným JSON blobem. Ani dnešní B neřeší validní `true`, stale overwrite nebo writer provenance. Doporučená E oddělí revisioned `model_automation_policy`, append-only audit a typed GET/PUT; legacy settings ji nesmí aktivovat ani přepsat a import/reset ji mění jen explicitním verzovaným adaptérem. Detection scheduler zůstává do rozhodnutí default off. Viz [`020`](docs/decisions/020-m1-model-failover-opt-in-surface.md). |
 | Token streaming neexistuje — `onLLMToken` je konzument bez producenta | Odpověď přichází celá |
 | Nedostupná Ollama při klasifikaci | Opravena na jeden pokus; změřeno přibližně 80 ms místo 6 091 ms |
-| Automatické online model discovery | `C3_ENABLE_ONLINE_DISCOVERY`, **default on od 2026-08-19** (operátorské rozhodnutí v `DIRECTION.md`), vypíná se hodnotou `false`; každá cesta degraduje samostatně, takže offline běh stále seřadí z lokálního katalogu. Ostatní explicitní outbound plochy čekají na jednotnou policy |
+| Automatické online model discovery | `C3_ENABLE_ONLINE_DISCOVERY`, **default on od 2026-08-19** (operátorské rozhodnutí v `DIRECTION.md`), vypíná se hodnotou `false`; M5 přidává exact `model.metadata.read` scope, tři HTTPS originy, zákaz redirectů a append-only audit. Ostatní externí fetch plochy jsou bez vlastního scope fail-closed. |
 | C3 Studio Google Fonts | Oba runtime link loadery, ruční preview import i archivní v7 import jsou odstraněné; hygiene zakazuje obě Google Fonts domény ve spustitelných Studio assetech. Registrovaný runner prošel ve dvou fresh-clone Electron CDP bězích na `7236d221` s nulovým egresssem. Registry zůstává pravdivě `BLOCKED`. **Měřeno 2026-08-21:** build envelope už chybějící překážkou není — `yarn install --offline` + `yarn build` trvají dohromady **54 s** a postaví všech šest artefaktů. **Vyřešeno 2026-08-22: `STUDIO_ELECTRON_BOUNDARY_PASS`.** Příčinou `electron-exited-before-cdp` byla délka `TMPDIR` — Chromium v něm zakládá unix domain sockety a `sun_path` má limit 108 bajtů, runtime root pod `.intentsmith-artifacts` má 95 znaků. Bisekce: `HOME` ani `XDG_*` nevadí, shodí to výhradně `TMPDIR`; bez namespace padá stejně, takže izolace ani D-Bus (falešná stopa) příčinou nebyly. Sada dává Electronu krátký privátní temp. Evidence: nulový egress, 65,8 s soak, boundary matice 403/403/200, čistý shutdown. |
 | C3 Studio local HTTP | Root cause byl potvrzen jako capability na wire + nepřítomný `Origin` + `Sec-Fetch-Site: cross-site`. Electron-main nyní doplňuje `Origin: null` jen pro přesný top-level file Studio request s odpovídající privátní capability; backend guard zůstal beze změny. Dva fresh-clone negativní journey na `7236d221` prokázaly startup/POST `2xx` i přesný fail-closed security trojúhelník; registry čeká jen na standardní build envelope, nikoli na další ruční journey. |
 | C3 Studio source/build | Operátor přijal funkční ručně udržovaný `lib` jako současný autoritativní runtime. Stale TS je historický archiv; package build/clean/watch ani starý v7 fix payload nesmějí runtime přepsat nebo smazat. Současný vzhled není finální UI kontrakt. |
