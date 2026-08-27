@@ -230,6 +230,7 @@ await testAsync('project path routing keeps writes on FILE_WRITE and root listin
     'chci uložit text do saved.txt',
     'vytvořit soubor plan.md a uložit ho do plan.md',
     'write this to result.txt',
+    'Shrň všechno co jsi zjistil. Výsledek dej do souboru project-analysis.md v projektu.',
   ];
   let decideCalls = 0;
   try {

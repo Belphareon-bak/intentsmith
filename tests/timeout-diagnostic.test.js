@@ -15,8 +15,14 @@
 
 import http from 'node:http';
 
-const BASE_URL = 'http://127.0.0.1:3335';
-const OLLAMA_URL = 'http://127.0.0.1:11434';
+const BASE_URL = process.env.C3_URL || 'http://127.0.0.1:3335';
+const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
+const measurementFailures = [];
+
+function recordFailure(message) {
+  measurementFailures.push(message);
+  console.log(`  ❌ ${message}`);
+}
 
 // ─── HTTP helpers ────────────────────────────────────────────────────────────
 
@@ -71,6 +77,7 @@ function ollamaDirect(prompt, model = 'qwen3.5:27b') {
     model,
     prompt,
     stream: false,
+    think: false,
     options: { num_predict: 100, temperature: 0.3 },
   }, 180000);
 }
@@ -143,12 +150,19 @@ async function main() {
       const t0 = Date.now();
       const res = await ollamaDirect(prompts[i]);
       const elapsed = Date.now() - t0;
-      directTimes.push(elapsed);
       const respLen = (res.body?.response || '').length;
+      const valid = res.status === 200 && res.body?.done === true && respLen > 0;
+      directTimes.push(valid ? elapsed : -1);
       console.log(`  [${i + 1}/10] ${fmt(elapsed)} — "${prompts[i]}" (${respLen} chars)`);
+      if (!valid) {
+        recordFailure(
+          `direct call ${i + 1} is not a completed non-empty Ollama result `
+          + `(HTTP ${res.status}, done=${res.body?.done}, chars=${respLen})`,
+        );
+      }
     } catch (e) {
       directTimes.push(-1);
-      console.log(`  [${i + 1}/10] ❌ ${e.message}`);
+      recordFailure(`direct call ${i + 1} failed: ${e.message}`);
     }
   }
 
@@ -190,15 +204,22 @@ async function main() {
       const t0 = Date.now();
       const res = await chat(q);
       const elapsed = Date.now() - t0;
-      backendTimes.push(elapsed);
       const mode = res.body?.mode || '?';
       const respLen = (res.body?.response || '').length;
       const meta = res.body?.metadata?.decision || {};
       const intent = meta.intent || '?';
+      const valid = res.status === 200 && respLen > 0 && intent !== '?';
+      backendTimes.push(valid ? elapsed : -1);
       console.log(`  [${i + 1}/10] ${fmt(elapsed).padStart(7)} — ${intent.padEnd(15)} — "${q.substring(0, 45)}" (${respLen} chars)`);
+      if (!valid) {
+        recordFailure(
+          `backend call ${i + 1} is not a typed non-empty chat result `
+          + `(HTTP ${res.status}, intent=${intent}, chars=${respLen})`,
+        );
+      }
     } catch (e) {
       backendTimes.push(-1);
-      console.log(`  [${i + 1}/10]      ❌ — ${e.message} — "${q.substring(0, 45)}"`);
+      recordFailure(`backend call ${i + 1} failed for "${q.substring(0, 45)}": ${e.message}`);
     }
   }
 
@@ -221,25 +242,22 @@ async function main() {
 
   console.log('');
 
-  // ═══ Phase 3: Gateway retry detection ═════════════════════════════════════
-  console.log('═══ Phase 3: Retry detection ═══════════════════════════════════\n');
+  // ═══ Phase 3: Historical gateway-budget exposure ══════════════════════════
+  console.log('═══ Phase 3: Historical gateway-budget exposure ═══════════════\n');
 
-  // Check if any response took >60s — that means gateway hit its timeout
-  // and potentially retried, adding 2s + another attempt
+  // A duration above 60 seconds proves exposure to the historical budget. It
+  // does not, by itself, prove that a retry occurred; that requires a separate
+  // attempt-level trace.
   const gatewayTimeouts = backendTimes.filter(t => t > 60000 && t > 0);
   if (gatewayTimeouts.length > 0) {
-    console.log(`  ⚠️  ${gatewayTimeouts.length} calls exceeded 60s gateway CHAT timeout`);
-    console.log(`     These likely triggered gateway retries:`);
-    gatewayTimeouts.forEach((t, i) => {
-      const retryEstimate = t > 62000 ? 'Yes (60s + 2s delay + 2nd attempt)' : 'Borderline';
-      console.log(`     Call: ${fmt(t)} — Retry: ${retryEstimate}`);
+    console.log(`  ⚠️  ${gatewayTimeouts.length} calls exceeded the historical 60s CHAT budget`);
+    console.log('     Attempt-level retry causality was not measured by this program:');
+    gatewayTimeouts.forEach(t => {
+      console.log(`     Call: ${fmt(t)} — observation: budget exceeded`);
     });
-    console.log(`\n  🔴 DIAGNOSIS: Gateway retries are the amplification mechanism.`);
-    console.log(`     When Ollama takes >60s, the gateway retries, doubling the time.`);
-    console.log(`     60s first attempt + 2s delay + N seconds retry > 90s test timeout.`);
+    console.log('\n  🟠 OBSERVATION: Sequential backend latency can exceed the historical budget.');
   } else {
-    console.log(`  ✅ No calls exceeded 60s gateway timeout`);
-    console.log(`     Gateway retries are NOT the issue.`);
+    console.log('  ✅ No calls exceeded the historical 60s CHAT budget');
   }
 
   console.log('');
@@ -277,6 +295,21 @@ async function main() {
   const maxBackend = validBackend.length > 0 ? Math.max(...validBackend) : 0;
   const pipelineOverhead = maxBackend > 0 && maxDirect > 0 ? maxBackend / maxDirect : 0;
   console.log(`\n  Pipeline overhead: ${pipelineOverhead.toFixed(1)}x (backend/direct ratio)`);
+
+  if (directTimes.filter(t => t > 0).length !== prompts.length) {
+    recordFailure(`completed direct sample count is ${directTimes.filter(t => t > 0).length}/${prompts.length}`);
+  }
+  if (backendTimes.filter(t => t > 0).length !== queries.length) {
+    recordFailure(`completed backend sample count is ${backendTimes.filter(t => t > 0).length}/${queries.length}`);
+  }
+
+  if (measurementFailures.length > 0) {
+    console.log('\n  MEASUREMENT FAILURES:');
+    for (const failure of measurementFailures) console.log(`    ❌ ${failure}`);
+    process.exitCode = 1;
+  } else {
+    console.log('\n  ✅ 20/20 calls produced completed, typed, non-empty results');
+  }
 
   console.log('\n═══════════════════════════════════════════════════════════════════\n');
 }

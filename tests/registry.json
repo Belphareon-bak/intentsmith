@@ -8984,7 +8984,7 @@
       "fixture": "isolated-local-server",
       "profile": "server",
       "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
+      "expectedDurationMs": 720000,
       "requirements": {
         "network": "loopback",
         "database": true,
@@ -9104,7 +9104,7 @@
       "fixture": "isolated-local-server",
       "profile": "server",
       "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
+      "expectedDurationMs": 300000,
       "requirements": {
         "network": "loopback",
         "database": true,

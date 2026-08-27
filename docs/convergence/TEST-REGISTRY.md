@@ -483,11 +483,11 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-TELEMETRY-SOAK-TEST` | `tests/telemetry-soak.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-TELEMETRY-TEST` | `tests/telemetry.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-TEST-COVERAGE-EXPLORER-TEST` | `tests/test-coverage-explorer.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
-| `IS-T3-TESTS-TIMEOUT-DIAGNOSTIC-TEST` | `tests/timeout-diagnostic.test.js` | `C3-027` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-TIMEOUT-DIAGNOSTIC-TEST` | `tests/timeout-diagnostic.test.js` | `C3-027` | T3 | `server` | 12 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-TIMEOUT-POLICY-TEST` | `tests/timeout-policy.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-TOOL-ADAPTER-TEST` | `tests/tool-adapter.test.js` | `C3-020` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-TOOL-ENFORCEMENT-TEST` | `tests/tool-enforcement.test.js` | `C3-020` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
-| `IS-T3-TESTS-TOOL-PIPELINE-E2E-TEST` | `tests/tool-pipeline-e2e.test.js` | `C3-020` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-TOOL-PIPELINE-E2E-TEST` | `tests/tool-pipeline-e2e.test.js` | `C3-020` | T3 | `server` | 5 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-TOOL-REGISTRY-E2E-TEST` | `tests/tool-registry-e2e.test.js` | `C3-020` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-TRUST-FEEDBACK-TEST` | `tests/trust-feedback.test.js` | `C3-021` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-ULTIMATE-E2E-TEST` | `tests/ultimate-e2e.test.js` | `C3-027` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |

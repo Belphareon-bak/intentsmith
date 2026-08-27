@@ -13,6 +13,7 @@ import {
   assertDecision,
   extractFilePath,
   isExplicitFileReadIntent,
+  isExplicitFileWriteIntent,
 } from '../cre-decision.js';
 import { logger } from '../../core/logger.js';
 import {
@@ -193,6 +194,14 @@ function buildProjectStatusResponse(input, project, workingMemory, context) {
  */
 function detectFileIntent(input) {
   const stripped = input.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  // A write request may contain both a concrete filename and generic words
+  // such as "soubor" and "projekt". It must reach CRE/FILE_WRITE instead of
+  // being captured by the directory-list heuristic below. A path is still
+  // only input; this guard does not grant write authority.
+  if (isExplicitFileWriteIntent(input)) {
+    return { detected: false, filePath: null, reason: 'explicit-file-write' };
+  }
 
   // Exact lexical filenames outrank the directory-list heuristic. In
   // particular, `PROJECT-NOTE.txt` must not make the `project` substring look

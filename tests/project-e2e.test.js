@@ -340,15 +340,28 @@ async function test2_ExistingProject() {
     console.log(`       Mode: ${data.mode}, Response: ${data.response.length} chars`);
   });
 
-  // ── 2.8 Summary to .md ──
+  // ── 2.8 Summary write remains pending until exact M2 approval ──
 
-  await check('2.8 Chat: request summary in .md file', async () => {
+  await check('2.8 Chat: summary write produces an approval-bound request', async () => {
     const { status, data } = await chat(convId, projectId,
       'Shrň všechno co jsi zjistil — architekturu, bugy, regular fázi, její output a doporučení ' +
       'pro vylepšení. Výsledek dej do souboru project-analysis.md v projektu.'
     );
     assert(status === 200, `Expected 200, got ${status}`);
     assert(data.response, 'Should have a response');
+    assert(
+      data.metadata?.decision?.intent === 'FILE_WRITE',
+      `Expected FILE_WRITE, got ${data.metadata?.decision?.intent}`,
+    );
+    assert(data.metadata?.approvalRequired === true, 'Write must await exact M2 approval');
+    assert(
+      /^tool:[a-f0-9]{64}$/.test(data.metadata?.toolRequestId || ''),
+      'Pending write must retain its durable ToolRequest identity',
+    );
+    assert(
+      !await fs.stat(path.join(existingPath, 'project-analysis.md')).then(() => true, () => false),
+      'Unapproved write must not create project-analysis.md',
+    );
     console.log(`       Mode: ${data.mode}, Response: ${data.response.length} chars`);
   });
 
