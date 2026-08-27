@@ -975,11 +975,15 @@ async function installSoakLifecycleMonitor(cdp) {
   const installed = await evaluate(cdp, `(() => {
     if (window.__intentSmithStudioLifecycleProbeV1) return false;
     const counts = {
-      assistantMessages: 0,
-      systemMessages: 0,
+      terminals: 0,
+      sendOk: 0,
+      sendNonOk: 0,
+      progress: 0,
+      m1Progress: 0,
+      legacyMessages: 0,
+      legacySystems: 0,
       disconnects: 0,
       turnStarts: 0,
-      turnEnds: 0,
       routingDecisions: 0,
       conversationRouteDecisions: 0,
       unexpectedRouteDecisions: 0,
@@ -989,13 +993,19 @@ async function installSoakLifecycleMonitor(cdp) {
       idleSignals: 0
     };
     const handlers = {
-      message: () => { counts.assistantMessages += 1; },
-      system: () => { counts.systemMessages += 1; },
+      terminal: event => {
+        counts.terminals += 1;
+        if (event?.action === 'send' && event?.status === 'ok') counts.sendOk += 1;
+        else counts.sendNonOk += 1;
+      },
+      message: () => { counts.legacyMessages += 1; },
+      system: () => { counts.legacySystems += 1; },
       disconnected: () => { counts.disconnects += 1; },
       agent: wrapped => {
+        counts.progress += 1;
+        if (wrapped?.event?.transport === 'm1') counts.m1Progress += 1;
         const type = wrapped?.event?.type;
         if (type === 'turn_start') counts.turnStarts += 1;
-        else if (type === 'turn_end') counts.turnEnds += 1;
         else if (type === 'cre_decision') {
           counts.routingDecisions += 1;
           if (wrapped?.event?.payload?.intent === 'conversation') {
@@ -1013,7 +1023,12 @@ async function installSoakLifecycleMonitor(cdp) {
         ].includes(type)) {
           counts.forbiddenEffects += 1;
         } else if (type === 'error') counts.agentErrors += 1;
-        else if (!['gate_verdict', 'status_change', 'system_step'].includes(type)) {
+        else if (![
+          'gate_verdict',
+          'status_change',
+          'system_step',
+          'turn_metrics'
+        ].includes(type)) {
           counts.unexpectedAgentEvents += 1;
         }
       },
@@ -1021,6 +1036,7 @@ async function installSoakLifecycleMonitor(cdp) {
         if (event?.data?.agentStatus === 'idle') counts.idleSignals += 1;
       }
     };
+    window.C3Bus.on('chat:terminal', handlers.terminal);
     window.C3Bus.on('chat:message', handlers.message);
     window.C3Bus.on('chat:system', handlers.system);
     window.C3Bus.on('ws:disconnected', handlers.disconnected);
@@ -1041,6 +1057,7 @@ async function readAndRemoveSoakLifecycleMonitor(cdp) {
   return await evaluate(cdp, `(() => {
     const probe = window.__intentSmithStudioLifecycleProbeV1;
     if (!probe) return null;
+    window.C3Bus.off('chat:terminal', probe.handlers.terminal);
     window.C3Bus.off('chat:message', probe.handlers.message);
     window.C3Bus.off('chat:system', probe.handlers.system);
     window.C3Bus.off('ws:disconnected', probe.handlers.disconnected);
@@ -1139,6 +1156,11 @@ async function readAndRemoveM1SoakLifecycleMonitor(cdp) {
 async function rendererFunctionalWsProbe(cdp) {
   return await evaluate(cdp, `(async () => {
     const prompt = 'kolik je 17 * 23?';
+    const client = window.C3WS;
+    const pane = window._sessions?.[0];
+    if (!client?.isReady?.() || !client?.isM1WireNegotiated?.() || !pane) {
+      return { resultClass: 'm1-not-ready' };
+    }
     let conversation;
     try {
       const response = await fetch('/api/conversations', {
@@ -1155,24 +1177,32 @@ async function rendererFunctionalWsProbe(cdp) {
       return { resultClass: 'conversation-create-failed' };
     }
 
+    pane._convId = conversation.id;
+    pane._projectId = null;
+    pane._agentId = null;
+    pane.chat.msgs = [];
+    pane.chat.attachments = [];
+    pane.chat._pendingAttachments = [];
+    pane.chat.editMode = 'ask';
+    pane.chat._thinking = { started: true };
+    pane.chat._delivery = null;
+
     return await new Promise(resolve => {
       let settled = false;
       let sent = false;
       let turnId = null;
-      let sequence = 0;
-      let assistantOrder = null;
-      let turnEndOrder = null;
-      let idleOrder = null;
       const counts = {
         turnStarts: 0,
         routingDecisions: 0,
         conversationRouteDecisions: 0,
         unexpectedRouteDecisions: 0,
         unexpectedAgentEvents: 0,
-        assistantMessages: 0,
-        turnEndsOk: 0,
+        terminals: 0,
+        terminalsOk: 0,
         forbiddenEffects: 0,
-        errorSignals: 0
+        errorSignals: 0,
+        legacyMessages: 0,
+        legacySystems: 0
       };
       let assistantMatches = false;
       let assistantCorrelated = false;
@@ -1181,9 +1211,9 @@ async function rendererFunctionalWsProbe(cdp) {
 
       const removeListeners = () => {
         window.C3Bus.off('agent:event', onAgent);
+        window.C3Bus.off('chat:terminal', onTerminal);
         window.C3Bus.off('chat:message', onMessage);
         window.C3Bus.off('chat:system', onSystem);
-        window.C3Bus.off('status:update', onStatus);
         window.C3Bus.off('ws:disconnected', onDisconnected);
       };
       const finish = resultClass => {
@@ -1194,23 +1224,18 @@ async function rendererFunctionalWsProbe(cdp) {
         resolve({
           conversationCreated: true,
           sent,
+          negotiated: client.isM1WireNegotiated() === true,
+          serverFeatures: client.serverFeatures(),
           ...counts,
           assistantMatches,
           assistantCorrelated,
           assistantModeValid,
           disconnected,
-          orderValid: (
-            assistantOrder !== null
-            && turnEndOrder !== null
-            && idleOrder !== null
-            && assistantOrder < turnEndOrder
-            && turnEndOrder < idleOrder
-          ),
+          spinnerCleared: pane.chat._thinking === null,
           resultClass
         });
       };
       const onAgent = wrapped => {
-        sequence += 1;
         const event = wrapped?.event;
         if (!event || typeof event.type !== 'string') return;
         if (event.type === 'turn_start' && event.payload?.input === prompt) {
@@ -1238,60 +1263,49 @@ async function rendererFunctionalWsProbe(cdp) {
           counts.forbiddenEffects += 1;
         } else if (event.type === 'error') {
           counts.errorSignals += 1;
-        } else if (event.type === 'turn_end') {
-          if (event.payload?.status === 'ok') counts.turnEndsOk += 1;
-          else counts.errorSignals += 1;
-          turnEndOrder = sequence;
-        } else if (!['gate_verdict', 'status_change', 'system_step'].includes(event.type)) {
+        } else if (![
+          'gate_verdict',
+          'status_change',
+          'system_step',
+          'turn_metrics'
+        ].includes(event.type)) {
           counts.unexpectedAgentEvents += 1;
         }
       };
-      const onMessage = event => {
-        sequence += 1;
-        counts.assistantMessages += 1;
-        assistantOrder = sequence;
-        assistantMatches = typeof event?.content === 'string'
-          && /17\\s*(?:\\*|×)\\s*23\\s*=\\s*391/.test(event.content);
+      const onTerminal = event => {
+        if (event?.conversationId !== conversation.id || event?.action !== 'send') return;
+        counts.terminals += 1;
+        if (event.status === 'ok') counts.terminalsOk += 1;
+        else counts.errorSignals += 1;
+        const response = event?.result?.response;
+        assistantMatches = typeof response?.content === 'string'
+          && /17\\s*(?:\\*|×)\\s*23\\s*=\\s*391/.test(response.content);
         assistantCorrelated = Boolean(
           turnId
-          && event?.metadata?.turnId === turnId
-          && event?.metadata?.conversationId === conversation.id
+          && event?.turnId === turnId
+          && typeof event?.requestId === 'string'
+          && event.requestId.length > 0
         );
-        assistantModeValid = event?.tag === 'conversation'
-          && event?.metadata?.mode === 'conversation';
+        assistantModeValid = response?.metadata?.mode === 'conversation'
+          && response?.metadata?.conversationId === conversation.id;
+        setTimeout(() => finish(event.status === 'ok' ? 'terminal-ok' : 'terminal-non-ok'), 250);
       };
-      const onSystem = () => { counts.errorSignals += 1; };
-      const onStatus = event => {
-        sequence += 1;
-        if (turnEndOrder !== null && event?.data?.agentStatus === 'idle') {
-          idleOrder = sequence;
-          setTimeout(() => finish('terminal-idle'), 250);
-        }
-      };
+      const onMessage = () => { counts.legacyMessages += 1; };
+      const onSystem = () => { counts.legacySystems += 1; };
       const onDisconnected = () => {
         disconnected = true;
         finish('disconnected');
       };
       window.C3Bus.on('agent:event', onAgent);
+      window.C3Bus.on('chat:terminal', onTerminal);
       window.C3Bus.on('chat:message', onMessage);
       window.C3Bus.on('chat:system', onSystem);
-      window.C3Bus.on('status:update', onStatus);
       window.C3Bus.on('ws:disconnected', onDisconnected);
       const timeout = setTimeout(() => {
-        window.C3WS.send('control', {
-          action: 'cancel',
-          conversationId: conversation.id
-        });
+        client.sendCancel(pane);
         finish('timeout');
       }, 15_000);
-      sent = window.C3WS.send('chat', {
-        content: prompt,
-        conversationId: conversation.id,
-        editMode: 'ask',
-        agentId: null,
-        projectId: null,
-        attachments: []
-      });
+      sent = client.sendChat(prompt, pane, 0);
       if (!sent) finish('send-rejected');
     });
   })()`, 25_000);
@@ -1648,22 +1662,27 @@ export function validateFunctional(result) {
   return Boolean(
     result?.conversationCreated === true
     && result.sent === true
+    && result.negotiated === true
+    && Array.isArray(result.serverFeatures)
+    && result.serverFeatures.includes('m1-wire-v1')
     && result.turnStarts === 1
     && result.routingDecisions === 1
     && result.conversationRouteDecisions === 1
     && result.unexpectedRouteDecisions === 0
     && result.unexpectedAgentEvents === 0
-    && result.assistantMessages === 1
-    && result.turnEndsOk === 1
+    && result.terminals === 1
+    && result.terminalsOk === 1
     && result.modelProviderRequestsDuringTurn === 0
     && result.forbiddenEffects === 0
     && result.errorSignals === 0
     && result.assistantMatches === true
     && result.assistantCorrelated === true
     && result.assistantModeValid === true
+    && result.legacyMessages === 0
+    && result.legacySystems === 0
     && result.disconnected === false
-    && result.orderValid === true
-    && result.resultClass === 'terminal-idle'
+    && result.spinnerCleared === true
+    && result.resultClass === 'terminal-ok'
   );
 }
 
@@ -1737,11 +1756,15 @@ export function validateM1Functional(result) {
 export function validateSoakLifecycle(result) {
   return Boolean(
     result
-    && result.assistantMessages === 1
-    && result.systemMessages === 0
+    && result.terminals === 1
+    && result.sendOk === 1
+    && result.sendNonOk === 0
+    && result.progress >= 2
+    && result.progress === result.m1Progress
+    && result.legacyMessages === 0
+    && result.legacySystems === 0
     && result.disconnects === 0
     && result.turnStarts === 1
-    && result.turnEnds === 1
     && result.routingDecisions === 1
     && result.conversationRouteDecisions === 1
     && result.unexpectedRouteDecisions === 0
@@ -1906,25 +1929,28 @@ export function successEvidence({
         resultClass: functional.resultClass,
       })
       : Object.freeze({
-        transport: 'websocket',
+        transport: 'm1-wire-v1',
         requestClass: 'deterministic-arithmetic',
         conversationCreated: functional.conversationCreated,
         sent: functional.sent,
+        negotiated: functional.negotiated,
         turnStarts: functional.turnStarts,
         routingDecisions: functional.routingDecisions,
         conversationRouteDecisions: functional.conversationRouteDecisions,
         unexpectedRouteDecisions: functional.unexpectedRouteDecisions,
         unexpectedAgentEvents: functional.unexpectedAgentEvents,
-        assistantMessages: functional.assistantMessages,
-        turnEndsOk: functional.turnEndsOk,
+        terminals: functional.terminals,
+        terminalsOk: functional.terminalsOk,
         modelProviderRequestsDuringTurn: functional.modelProviderRequestsDuringTurn,
         forbiddenEffects: functional.forbiddenEffects,
         errorSignals: functional.errorSignals,
         assistantMatches: functional.assistantMatches,
         assistantCorrelated: functional.assistantCorrelated,
         assistantModeValid: functional.assistantModeValid,
+        legacyMessages: functional.legacyMessages,
+        legacySystems: functional.legacySystems,
         disconnected: functional.disconnected,
-        orderValid: functional.orderValid,
+        spinnerCleared: functional.spinnerCleared,
         resultClass: functional.resultClass,
       }),
     /* 021: the byte bridge as the shipped preload actually exposes it. */
@@ -1952,11 +1978,15 @@ export function successEvidence({
         forbiddenEffects: soakMonitor.forbiddenEffects,
       })
       : Object.freeze({
-        assistantMessages: soakMonitor.assistantMessages,
-        systemMessages: soakMonitor.systemMessages,
+        terminals: soakMonitor.terminals,
+        sendOk: soakMonitor.sendOk,
+        sendNonOk: soakMonitor.sendNonOk,
+        progress: soakMonitor.progress,
+        m1Progress: soakMonitor.m1Progress,
+        legacyMessages: soakMonitor.legacyMessages,
+        legacySystems: soakMonitor.legacySystems,
         disconnects: soakMonitor.disconnects,
         turnStarts: soakMonitor.turnStarts,
-        turnEnds: soakMonitor.turnEnds,
         routingDecisions: soakMonitor.routingDecisions,
         conversationRouteDecisions: soakMonitor.conversationRouteDecisions,
         unexpectedRouteDecisions: soakMonitor.unexpectedRouteDecisions,

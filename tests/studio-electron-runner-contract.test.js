@@ -29,33 +29,41 @@ function validFunctional(overrides = {}) {
   return {
     conversationCreated: true,
     sent: true,
+    negotiated: true,
+    serverFeatures: ['workspace', 'm1-wire-v1'],
     turnStarts: 1,
     routingDecisions: 1,
     conversationRouteDecisions: 1,
     unexpectedRouteDecisions: 0,
     unexpectedAgentEvents: 0,
-    assistantMessages: 1,
-    turnEndsOk: 1,
+    terminals: 1,
+    terminalsOk: 1,
     modelProviderRequestsDuringTurn: 0,
     forbiddenEffects: 0,
     errorSignals: 0,
     assistantMatches: true,
     assistantCorrelated: true,
     assistantModeValid: true,
+    legacyMessages: 0,
+    legacySystems: 0,
     disconnected: false,
-    orderValid: true,
-    resultClass: 'terminal-idle',
+    spinnerCleared: true,
+    resultClass: 'terminal-ok',
     ...overrides,
   };
 }
 
 function validSoak(overrides = {}) {
   return {
-    assistantMessages: 1,
-    systemMessages: 0,
+    terminals: 1,
+    sendOk: 1,
+    sendNonOk: 0,
+    progress: 3,
+    m1Progress: 3,
+    legacyMessages: 0,
+    legacySystems: 0,
     disconnects: 0,
     turnStarts: 1,
-    turnEnds: 1,
     routingDecisions: 1,
     conversationRouteDecisions: 1,
     unexpectedRouteDecisions: 0,
@@ -241,7 +249,7 @@ test('runner uses an explicit non-visual CDP surface and never observes UI state
   assert.match(source, /window\.C3Bus/);
   assert.equal(source.includes('window._c3'), false);
   assert.match(source, /client\.sendChat/);
-  assert.match(source, /window\.C3WS\.send\('chat'/);
+  assert.doesNotMatch(source, /window\.C3WS\.send\('chat'/);
   assert.match(source, /uiEvaluation: 'excluded-non-final-ui'/);
 });
 
@@ -485,21 +493,25 @@ test('only the complete correlated deterministic WS turn passes', () => {
   const mutations = {
     conversationCreated: false,
     sent: false,
+    negotiated: false,
+    serverFeatures: ['workspace'],
     turnStarts: 2,
     routingDecisions: 2,
     conversationRouteDecisions: 0,
     unexpectedRouteDecisions: 1,
     unexpectedAgentEvents: 1,
-    assistantMessages: 2,
-    turnEndsOk: 0,
+    terminals: 2,
+    terminalsOk: 0,
     modelProviderRequestsDuringTurn: 1,
     forbiddenEffects: 1,
     errorSignals: 1,
     assistantMatches: false,
     assistantCorrelated: false,
     assistantModeValid: false,
+    legacyMessages: 1,
+    legacySystems: 1,
     disconnected: true,
-    orderValid: false,
+    spinnerCleared: false,
     resultClass: 'timeout',
   };
   for (const [field, value] of Object.entries(mutations)) {
@@ -510,11 +522,15 @@ test('only the complete correlated deterministic WS turn passes', () => {
 test('full-soak lifecycle rejects every late duplicate, error, effect, or disconnect', () => {
   assert.equal(validateSoakLifecycle(validSoak()), true);
   const mutations = {
-    assistantMessages: 2,
-    systemMessages: 1,
+    terminals: 2,
+    sendOk: 0,
+    sendNonOk: 1,
+    progress: 1,
+    m1Progress: 2,
+    legacyMessages: 1,
+    legacySystems: 1,
     disconnects: 1,
     turnStarts: 2,
-    turnEnds: 2,
     routingDecisions: 2,
     conversationRouteDecisions: 0,
     unexpectedRouteDecisions: 1,

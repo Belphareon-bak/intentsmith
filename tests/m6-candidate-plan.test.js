@@ -14,6 +14,7 @@ import {
   buildM6CandidateExecutionPlan,
   validateM6CandidateExecutionPlan,
 } from '../src/release/m6-candidate-plan.js';
+import { candidateModelResidencyOnly } from '../scripts/run-m6-candidate-evidence.js';
 import { suite, summary, test } from './harness.js';
 import registry from './registry.json' with { type: 'json' };
 
@@ -63,6 +64,23 @@ test('candidate runner materializes only named toolchain bindings', () => {
   assert.match(source, /electron_config_cache: electronCache/u);
   assert.match(source, /electronHeaders: await copyCacheIfPresent/u);
   assert.doesNotMatch(source, /\.\.\.process\.env/u);
+});
+
+test('pre-physical wait recognizes only the candidate-owned Ollama residency', () => {
+  const owned = {
+    compute: [{ pid: 101, processName: '/usr/local/bin/ollama', usedMemoryMiB: 16_000 }],
+    ollama: {
+      runningRows: ['qwen3.5:27b  7653528ba5cb  16 GB  100% GPU  4096  4 minutes'],
+    },
+  };
+  assert.equal(candidateModelResidencyOnly(owned), true);
+  for (const mutation of [
+    { ...owned, compute: [] },
+    { ...owned, compute: [{ ...owned.compute[0], processName: '/usr/bin/python' }] },
+    { ...owned, ollama: { runningRows: [] } },
+    { ...owned, ollama: { runningRows: ['foreign:latest id 16 GB 100% GPU 4096 4 minutes'] } },
+    { ...owned, ollama: { runningRows: [...owned.ollama.runningRows, owned.ollama.runningRows[0]] } },
+  ]) assert.equal(candidateModelResidencyOnly(mutation), false);
 });
 
 test('duplicate, reordered, concurrent or external-network plans fail closed', () => {

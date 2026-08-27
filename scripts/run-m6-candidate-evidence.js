@@ -46,6 +46,9 @@ import {
 
 const SHA_PATTERN = /^[a-f0-9]{40}$/u;
 const PHYSICAL_GPU_MINIMUM_FREE_MIB = 20_000;
+const PHYSICAL_GPU_QUIESCENCE_TIMEOUT_MS = 6 * 60 * 1000;
+const PHYSICAL_GPU_QUIESCENCE_POLL_MS = 5_000;
+const M6_CANDIDATE_MODEL = 'qwen3.5:27b';
 const OWNED_SERVER_REPORT = 'owned-server/report.json';
 
 function git(root, args) {
@@ -175,7 +178,7 @@ function parseCsvLine(line) {
   return line.split(',').map(value => value.trim());
 }
 
-async function captureGpuCensus(evidenceRoot) {
+function gpuCensusSnapshot() {
   let computeRaw;
   let memoryRaw;
   let ollamaRaw;
@@ -227,6 +230,11 @@ async function captureGpuCensus(evidenceRoot) {
   census.foreignActivity = compute.length > 0 || census.ollama.runningRows.length > 0;
   census.sufficientFreeMemory = census.available
     && Math.max(...gpus.map(gpu => gpu.freeMiB)) >= PHYSICAL_GPU_MINIMUM_FREE_MIB;
+  return census;
+}
+
+async function captureGpuCensus(evidenceRoot) {
+  const census = gpuCensusSnapshot();
   const censusPath = path.join(evidenceRoot, 'gpu', 'preflight.json');
   await writePrivateJsonAtomic(censusPath, census);
   if (!census.available || census.foreignActivity || !census.sufficientFreeMemory) {
@@ -236,6 +244,58 @@ async function captureGpuCensus(evidenceRoot) {
     throw error;
   }
   return censusPath;
+}
+
+export function candidateModelResidencyOnly(census) {
+  if (census.ollama.runningRows.length !== 1) return false;
+  const [row] = census.ollama.runningRows;
+  if (row.split(/\s+/u)[0] !== M6_CANDIDATE_MODEL) return false;
+  return census.compute.length >= 1 && census.compute.every(item => (
+    /(?:^|\/)ollama$/u.test(item.processName)
+  ));
+}
+
+async function waitForCandidateGpuQuiescence(evidenceRoot) {
+  const startedAtMs = Date.now();
+  const observations = [];
+  while (true) {
+    const census = gpuCensusSnapshot();
+    observations.push({
+      capturedAt: census.capturedAt,
+      compute: census.compute,
+      gpus: census.gpus,
+      ollama: census.ollama,
+      available: census.available,
+      foreignActivity: census.foreignActivity,
+      sufficientFreeMemory: census.sufficientFreeMemory,
+    });
+    if (census.available && !census.foreignActivity && census.sufficientFreeMemory) {
+      const receiptPath = path.join(evidenceRoot, 'gpu', 'pre-physical-quiescence.json');
+      await writePrivateJsonAtomic(receiptPath, {
+        contract: 'M6GpuQuiescenceReceipt',
+        version: 1,
+        candidateModel: M6_CANDIDATE_MODEL,
+        startedAt: new Date(startedAtMs).toISOString(),
+        endedAt: census.capturedAt,
+        waitedMs: Date.now() - startedAtMs,
+        intervention: 'none-read-only-wait',
+        observations,
+        verdict: 'PASS',
+      });
+      return receiptPath;
+    }
+    if (!census.available || !candidateModelResidencyOnly(census)) {
+      const error = new Error('M6 GPU quiescence encountered unknown or foreign activity');
+      error.code = 'M6_GPU_QUIESCENCE_FOREIGN_ACTIVITY';
+      throw error;
+    }
+    if (Date.now() - startedAtMs >= PHYSICAL_GPU_QUIESCENCE_TIMEOUT_MS) {
+      const error = new Error('M6 candidate model did not unload before physical GPU phase');
+      error.code = 'M6_GPU_QUIESCENCE_TIMEOUT';
+      throw error;
+    }
+    await new Promise(resolve => setTimeout(resolve, PHYSICAL_GPU_QUIESCENCE_POLL_MS));
+  }
 }
 
 async function copyCacheIfPresent(source, destination) {
@@ -679,6 +739,7 @@ export async function runM6CandidateEvidence(root = process.cwd(), argv = []) {
   });
   reportPaths.push(fresh.reportPath);
 
+  await waitForCandidateGpuQuiescence(evidenceRoot);
   const physicalGpu = plan.phases.find(phase => phase.id === 'physical-ollama-gpu');
   reportPaths.push(await runAuditPhase({ root, candidateSha, evidenceRoot, phase: physicalGpu }));
   assertCleanCandidate(root, candidateSha, 'candidate:post-state');
