@@ -1905,9 +1905,9 @@ Remediační kandidát `13413117` navazuje na zamítnutý `74beafea` a drží je
 role-specific exact-artifact model-evaluation cestu. Migrace 097 karanténuje 11
 cross-role decisions; migrace 099 odstraňuje telemetry-derived blacklist.
 Strict-role snapshot má 28 `COMPLETE`, 11 `BLOCKED`, 52 `MISSING` a 0
-`FAILED` buněk. Před přijetím tří nových explicitních hran module graph má 1 190 hran,
-3 cykly a 28 souborů v cyklech; jeho baseline update je samostatný
-integrační krok. Stav zůstává `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED`;
+`FAILED` buněk. Po explicitním přijetí tří nutných hran a utažení jedné
+odstraněné telemetry vazby module graph má 1 192 hran, 3 cykly a 28 souborů
+v cyklech. Stav zůstává `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED`;
 nejde o nezávislé přijetí ani o dokončený GPU-only scoring panel.
 
 ## 14. Rozhodovací fronta — otázka až ve chvíli, kdy má data

@@ -74,6 +74,7 @@ jinou legitimní historii stampů; její přesná projekce je doložena níže.
 | registry current authority | 13/13 PASS |
 | gateway/model-use exact digest | 26/26 PASS |
 | registry validace | 448 programů; fingerprint `0da4a318503be9cb05edb4ad3757d3c6d565ac61f28cc9db6473cb12a7196bcd` |
+| module boundary ratchet | 1 192/1 192 hran; 3 cykly; 28 souborů v cyklech |
 
 Plný deterministický gate nové revize v okamžiku tohoto implementačního
 milníku ještě nebyl spuštěn. Poslední nezávislý gate 278/278 patří zamítnutému
@@ -145,7 +146,8 @@ nevejde do VRAM, se automaticky vyřadí jako `BLOCKED` se `score=NULL`.
 ## Review handoff
 
 Nové rereview musí začít na zamítnutém base `74beafea` a pokrýt implementační
-commity `d5518d4d` a `13413117` i navazující dokumentační/gate evidence.
+commity `d5518d4d`, `13413117` a evidence milestone `7404eacf` i navazující
+baseline/gate evidence.
 Zvlášť má reprodukovat role leakage D1→D2/R1, cross-role decision insert,
 pre-082 backup upgrade, nullable duration, same-tag digest drift před i po
 gateway response, nulový telemetry veto call graph a absenci osiřelých
