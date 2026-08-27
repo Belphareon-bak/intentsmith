@@ -30,8 +30,8 @@ function fakeRunner(scoresByModel) {
   const runIndex = new Map();
   return {
     calls: [],
-    async runSuite(suiteName, model) {
-      this.calls.push({ suiteName, model });
+    async runSuite(suiteName, model, _onProgress, artifact) {
+      this.calls.push({ suiteName, model, artifact: artifact || null });
       const key = `${suiteName}::${model}`;
       const n = runIndex.get(key) ?? 0;
       runIndex.set(key, n + 1);
@@ -50,6 +50,10 @@ function fakeRunner(scoresByModel) {
 }
 
 const ONCE = { repeats: 1 };
+const artifactFor = model => Object.freeze({
+  modelName: model,
+  digestSha256: model === 'A' ? 'a'.repeat(64) : 'b'.repeat(64),
+});
 const CODE_PLAN = Object.freeze({
   role: 'CODE',
   suiteName: 'code',
@@ -72,6 +76,20 @@ await testAsync('oba modely projdou tutéž sadu', async () => {
   await comparePair(runner, 'code', 'A', 'B', ONCE);
   assertEqual(runner.calls.length, 2);
   assert(runner.calls.every(c => c.suiteName === 'code'), 'stejná sada pro oba');
+});
+
+await testAsync('persistovaný běh předá runneru přesnou identitu artefaktu', async () => {
+  const runner = fakeRunner({ A: { _default: 1 }, B: { _default: 1 } });
+  const saved = [];
+  await comparePair(runner, 'code', 'A', 'B', {
+    ...ONCE,
+    resolveArtifact: async model => artifactFor(model),
+    saveHistoricalSummary: async input => { saved.push(input); },
+  });
+  assertEqual(runner.calls[0].artifact.digestSha256, 'a'.repeat(64));
+  assertEqual(runner.calls[1].artifact.digestSha256, 'b'.repeat(64));
+  assertEqual(saved[0].artifact.digestSha256, 'a'.repeat(64));
+  assertEqual(saved[1].artifact.digestSha256, 'b'.repeat(64));
 });
 
 await testAsync('shodná skóre = žádná rozlišující úloha', async () => {
@@ -399,6 +417,7 @@ await testAsync('durable history prevents a second model run for the same contra
     repeats: 1,
     suiteContractSha256: 'a'.repeat(64),
     suiteVersion: 'test-v1',
+    resolveArtifact: async model => artifactFor(model),
     loadHistoricalSummary: async ({ model }) => stored.get(model) || null,
     saveHistoricalSummary: async ({ model, summary }) => { stored.set(model, summary); },
   };
@@ -413,6 +432,7 @@ await testAsync('a different suite contract cannot reuse an old summary', async 
   const stored = new Map();
   const hooks = {
     repeats: 1,
+    resolveArtifact: async model => artifactFor(model),
     loadHistoricalSummary: async ({ model, suiteContractSha256 }) => stored.get(`${suiteContractSha256}:${model}`) || null,
     saveHistoricalSummary: async ({ model, suiteContractSha256, summary }) => { stored.set(`${suiteContractSha256}:${model}`, summary); },
   };

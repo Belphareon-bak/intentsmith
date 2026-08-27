@@ -92,12 +92,14 @@ export function createSuiteCache() {
  * `spread` je rozdíl mezi nejlepším a nejhorším během téže úlohy na témž
  * modelu — tedy kolik z pozorovaného rozdílu jde na vrub náhodě, ne kvalitě.
  */
-async function runSuiteRepeated(runner, suiteName, model, repeats, onProgress, between) {
+async function runSuiteRepeated(
+  runner, suiteName, model, repeats, onProgress, between, expectedArtifact,
+) {
   const started = Date.now();
   const runs = [];
   for (let i = 0; i < repeats; i++) {
     if (i > 0 && between) await between();
-    runs.push(await runner.runSuite(suiteName, model, onProgress));
+    runs.push(await runner.runSuite(suiteName, model, onProgress, expectedArtifact));
   }
 
   const byTask = new Map();
@@ -136,6 +138,7 @@ async function runSuiteRepeated(runner, suiteName, model, repeats, onProgress, b
     unstableTasks: tasks.filter(t => t.spread > 0).map(t => t.name),
     durationMs: Date.now() - started,
     reused: false,
+    artifact: expectedArtifact || null,
   };
 }
 
@@ -164,11 +167,18 @@ async function runSuiteCached(runner, suiteName, model, cache, opts = {}) {
     }
   }
 
+  let expectedArtifact = null;
+  if (typeof opts.resolveArtifact === 'function') {
+    expectedArtifact = await opts.resolveArtifact(model);
+  } else if (typeof opts.saveHistoricalSummary === 'function') {
+    throw new Error('Authoritative evaluation persistence requires resolveArtifact');
+  }
   const result = await runSuiteRepeated(
     runner, suiteName, model,
     opts.repeats ?? DEFAULT_REPEATS,
     opts.onProgress,
     opts.between,
+    expectedArtifact,
   );
   if (typeof opts.saveHistoricalSummary === 'function') {
     const saved = await opts.saveHistoricalSummary({
@@ -178,6 +188,7 @@ async function runSuiteCached(runner, suiteName, model, cache, opts = {}) {
       suiteContractSha256: opts.suiteContractSha256 || null,
       model,
       summary: result,
+      artifact: expectedArtifact,
     });
     if (saved?.runId) result.historyRunId = saved.runId;
   }

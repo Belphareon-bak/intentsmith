@@ -660,6 +660,7 @@ for (const cand of toTry) {
     evaluationPlans,
     trialOpts: {
       repeats: 3,
+      resolveArtifact: historyCallbacks.resolveArtifact,
       loadHistoricalSummary: historyCallbacks.loadHistoricalSummary,
       saveHistoricalSummary: historyCallbacks.saveHistoricalSummary,
     },
@@ -725,7 +726,7 @@ for (const cand of toTry) {
         },
         errorCode: r.stage === 'measure'
           ? (measuredCpuSpill ? 'CANDIDATE_VRAM_FIT_FAILED' : 'CANDIDATE_MEASURE_RETRYABLE')
-          : `CANDIDATE_${String(r.stage || 'unknown').toUpperCase()}_FAILED`,
+          : (r.errorCode || `CANDIDATE_${String(r.stage || 'unknown').toUpperCase()}_FAILED`),
         errorMessage: r.error,
       });
     }

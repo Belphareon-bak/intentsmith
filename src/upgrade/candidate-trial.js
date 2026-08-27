@@ -215,6 +215,7 @@ export async function tryCandidate(candidateName, ctx = {}) {
     removed: false,
     keptReason: null,
     error: null,
+    errorCode: null,
   };
 
   const evaluationPlans = ctx.evaluationPlans || createRoleEvaluationPlans();
@@ -368,6 +369,7 @@ export async function tryCandidate(candidateName, ctx = {}) {
     }
   } catch (err) {
     out.error = err.message;
+    out.errorCode = typeof err.code === 'string' ? err.code : null;
     if (removalAllowed && out.stage !== 'pull') out.removed = await removeModel(candidateName, ctx);
   } finally {
     await unloadModel(candidateName, ctx).catch(() => {});

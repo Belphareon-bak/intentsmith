@@ -5,6 +5,10 @@
 // persists the resulting immutable summary through ModelEvaluationHistory.
 
 import { config } from '../config.js';
+import {
+  normalizeModelDigestSha256,
+  sameModelName,
+} from '../upgrade/model-identity.js';
 
 export const DEFAULT_MODEL_EVALUATION_OPTIONS = Object.freeze({
   timeout: 30_000,
@@ -19,6 +23,35 @@ function promptData(promptResult) {
   return { text: String(promptResult ?? '') };
 }
 
+export const MODEL_EVALUATION_ARTIFACT_ERROR = Object.freeze({
+  EXPECTATION_INVALID: 'MODEL_EVALUATION_ARTIFACT_EXPECTATION_INVALID',
+  RESPONSE_UNVERIFIED: 'MODEL_EVALUATION_RESPONSE_ARTIFACT_UNVERIFIED',
+  RESPONSE_DRIFT: 'MODEL_EVALUATION_RESPONSE_ARTIFACT_DRIFT',
+  RESPONSE_MODEL_MISMATCH: 'MODEL_EVALUATION_RESPONSE_MODEL_MISMATCH',
+});
+
+export class ModelEvaluationArtifactError extends Error {
+  constructor(code, message, detail = {}) {
+    super(`${code}: ${message}`);
+    this.name = 'ModelEvaluationArtifactError';
+    this.code = code;
+    this.detail = Object.freeze({ ...detail });
+  }
+}
+
+function expectedArtifactIdentity(modelName, artifact) {
+  if (artifact == null) return null;
+  const digestSha256 = normalizeModelDigestSha256(artifact.digestSha256);
+  if (!digestSha256 || !sameModelName(artifact.modelName, modelName)) {
+    throw new ModelEvaluationArtifactError(
+      MODEL_EVALUATION_ARTIFACT_ERROR.EXPECTATION_INVALID,
+      'Authoritative evaluation requires an exact artifact matching the requested model.',
+      { modelName },
+    );
+  }
+  return Object.freeze({ modelName: artifact.modelName.trim(), digestSha256 });
+}
+
 export class ModelEvaluationRunner {
   constructor(ollamaBaseUrl, opts = {}) {
     this._baseUrl = ollamaBaseUrl || config.ollama?.baseUrl || 'http://127.0.0.1:11434';
@@ -28,7 +61,7 @@ export class ModelEvaluationRunner {
 
   cancel() { this._cancelled = true; }
 
-  async _callModel(modelName, messages, options = {}) {
+  async _callModel(modelName, messages, options = {}, expectedArtifact = null) {
     const controller = new AbortController();
     const timeoutMs = options.timeout ?? DEFAULT_MODEL_EVALUATION_OPTIONS.timeout;
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -54,6 +87,37 @@ export class ModelEvaluationRunner {
       });
       if (!response.ok) throw new Error(`Ollama HTTP ${response.status}`);
       const data = await response.json();
+      const expected = expectedArtifactIdentity(modelName, expectedArtifact);
+      if (expected) {
+        if (!sameModelName(data.model, expected.modelName)) {
+          throw new ModelEvaluationArtifactError(
+            MODEL_EVALUATION_ARTIFACT_ERROR.RESPONSE_MODEL_MISMATCH,
+            'The evaluation response does not identify the requested model.',
+            { expectedModelName: expected.modelName, observedModelName: data.model || null },
+          );
+        }
+        const observedDigestSha256 = normalizeModelDigestSha256(
+          data.digest || data.model_digest_sha256,
+        );
+        if (!observedDigestSha256) {
+          throw new ModelEvaluationArtifactError(
+            MODEL_EVALUATION_ARTIFACT_ERROR.RESPONSE_UNVERIFIED,
+            'The evaluation response did not attest the served artifact digest.',
+            { modelName: expected.modelName, expectedDigestSha256: expected.digestSha256 },
+          );
+        }
+        if (observedDigestSha256 !== expected.digestSha256) {
+          throw new ModelEvaluationArtifactError(
+            MODEL_EVALUATION_ARTIFACT_ERROR.RESPONSE_DRIFT,
+            'The evaluation response came from a different model artifact.',
+            {
+              modelName: expected.modelName,
+              expectedDigestSha256: expected.digestSha256,
+              observedDigestSha256,
+            },
+          );
+        }
+      }
       return {
         content: data.message?.content || data.response || '',
         evalCount: data.eval_count || 0,
@@ -61,6 +125,7 @@ export class ModelEvaluationRunner {
         durationMs: Date.now() - started,
       };
     } catch (err) {
+      if (err instanceof ModelEvaluationArtifactError) throw err;
       return {
         content: '',
         evalCount: 0,
@@ -74,7 +139,7 @@ export class ModelEvaluationRunner {
     }
   }
 
-  async _runTest(testDef, modelName) {
+  async _runTest(testDef, modelName, expectedArtifact = null) {
     const data = promptData(testDef.prompt());
     const messages = data.messages || [{ role: 'user', content: data.text || '' }];
     if (data.images?.length) {
@@ -85,6 +150,7 @@ export class ModelEvaluationRunner {
       modelName,
       messages,
       testDef.options || data.options || {},
+      expectedArtifact,
     );
     if (result.error) {
       return {
@@ -114,7 +180,7 @@ export class ModelEvaluationRunner {
     };
   }
 
-  async runSuite(suiteName, modelName, onProgress) {
+  async runSuite(suiteName, modelName, onProgress, expectedArtifact = null) {
     const suite = this._suites[suiteName];
     if (!suite) throw new Error(`Unknown evaluation suite: ${suiteName}`);
     this._cancelled = false;
@@ -133,7 +199,7 @@ export class ModelEvaluationRunner {
         totalTests: definitions.length,
         percent: Math.round((i / definitions.length) * 100),
       });
-      tests.push(await this._runTest(definition, modelName));
+      tests.push(await this._runTest(definition, modelName, expectedArtifact));
     }
 
     const score = tests.reduce((sum, row) => sum + row.score, 0) / (tests.length || 1);

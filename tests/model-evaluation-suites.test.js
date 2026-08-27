@@ -2,7 +2,11 @@
 
 import { suite, test, testAsync, assert, assertEqual, summary } from './harness.js';
 import { createHash } from 'node:crypto';
-import { ModelEvaluationRunner } from '../src/eval/model-evaluation-runner.js';
+import {
+  MODEL_EVALUATION_ARTIFACT_ERROR,
+  ModelEvaluationArtifactError,
+  ModelEvaluationRunner,
+} from '../src/eval/model-evaluation-runner.js';
 import {
   ROLE_QUALITY_SUITES,
   chatV3Suite,
@@ -19,6 +23,8 @@ import {
 import { generateSyntheticPng, getSyntheticTestImages } from '../src/eval/synthetic-images.js';
 
 const plans = createRoleEvaluationPlans({ repeats: 1 });
+const DIGEST_A = 'a'.repeat(64);
+const DIGEST_B = 'b'.repeat(64);
 
 suite('current role evaluation authority');
 
@@ -128,6 +134,84 @@ await testAsync('direct call returns content and metrics', async () => {
     assertEqual(result.content, 'response:ping');
     assertEqual(result.evalCount, 42);
     assertEqual(result.promptEvalCount, 9);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+await testAsync('authoritative direct call accepts a response-attested artifact', async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      model: 'fixture:latest',
+      digest: `sha256:${DIGEST_A}`,
+      message: { content: 'verified' },
+    }),
+  });
+  try {
+    const runner = new ModelEvaluationRunner('http://127.0.0.1:11434');
+    const result = await runner._callModel(
+      'fixture',
+      [{ role: 'user', content: 'ping' }],
+      {},
+      { modelName: 'fixture:latest', digestSha256: DIGEST_A },
+    );
+    assertEqual(result.content, 'verified');
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+await testAsync('authoritative direct call rejects a response without artifact proof', async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => ({ model: 'fixture', message: { content: 'unproven' } }),
+  });
+  try {
+    const runner = new ModelEvaluationRunner('http://127.0.0.1:11434');
+    let error = null;
+    try {
+      await runner._callModel(
+        'fixture',
+        [{ role: 'user', content: 'ping' }],
+        {},
+        { modelName: 'fixture', digestSha256: DIGEST_A },
+      );
+    } catch (caught) {
+      error = caught;
+    }
+    assert(error instanceof ModelEvaluationArtifactError);
+    assertEqual(error.code, MODEL_EVALUATION_ARTIFACT_ERROR.RESPONSE_UNVERIFIED);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+await testAsync('authoritative direct call rejects artifact drift', async () => {
+  const original = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      model: 'fixture', digest: DIGEST_B, message: { content: 'wrong artifact' },
+    }),
+  });
+  try {
+    const runner = new ModelEvaluationRunner('http://127.0.0.1:11434');
+    let error = null;
+    try {
+      await runner._callModel(
+        'fixture',
+        [{ role: 'user', content: 'ping' }],
+        {},
+        { modelName: 'fixture', digestSha256: DIGEST_A },
+      );
+    } catch (caught) {
+      error = caught;
+    }
+    assert(error instanceof ModelEvaluationArtifactError);
+    assertEqual(error.code, MODEL_EVALUATION_ARTIFACT_ERROR.RESPONSE_DRIFT);
   } finally {
     globalThis.fetch = original;
   }

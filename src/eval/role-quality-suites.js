@@ -798,9 +798,9 @@ export class RoleQualityEvaluationRunner extends CodePatchEvaluationRunner {
     this._roleSuites = opts.roleSuites || ROLE_QUALITY_SUITES;
   }
 
-  async runSuite(suiteName, modelName, onProgress) {
+  async runSuite(suiteName, modelName, onProgress, expectedArtifact = null) {
     const suite = this._roleSuites[suiteName];
-    if (!suite) return super.runSuite(suiteName, modelName, onProgress);
+    if (!suite) return super.runSuite(suiteName, modelName, onProgress, expectedArtifact);
     this._cancelled = false;
     const started = Date.now();
     const tests = [];
@@ -813,7 +813,7 @@ export class RoleQualityEvaluationRunner extends CodePatchEvaluationRunner {
         currentTest: i + 1, totalTests: definitions.length,
         percent: Math.round((i / definitions.length) * 100),
       });
-      tests.push(await this._runRoleTest(definition, modelName));
+      tests.push(await this._runRoleTest(definition, modelName, expectedArtifact));
     }
     const score = tests.reduce((sum, test) => sum + test.score, 0) / (tests.length || 1);
     const passed = tests.filter(test => test.passed).length;
@@ -827,13 +827,18 @@ export class RoleQualityEvaluationRunner extends CodePatchEvaluationRunner {
     };
   }
 
-  async _runRoleTest(definition, modelName) {
+  async _runRoleTest(definition, modelName, expectedArtifact = null) {
     const promptResult = definition.prompt();
     const data = typeof promptResult === 'object' && promptResult !== null
       ? promptResult : { text: String(promptResult) };
     const messages = data.messages || [{ role: 'user', content: data.text }];
     if (data.images?.length) messages[messages.length - 1] = { ...messages[messages.length - 1], images: data.images };
-    const result = await this._callModel(modelName, messages, definition.options || data.options || {});
+    const result = await this._callModel(
+      modelName,
+      messages,
+      definition.options || data.options || {},
+      expectedArtifact,
+    );
     if (result.error) {
       return {
         name: definition.name, language: definition.language || null,

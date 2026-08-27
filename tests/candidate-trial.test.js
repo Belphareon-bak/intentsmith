@@ -441,6 +441,22 @@ await testAsync('volající může dodat přesnější vlastnosti kandidáta', a
 
 suite('nerozhodnutý kandidát');
 
+await testAsync('scoring zachová fail-closed reason code z runneru', async () => {
+  stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
+  const error = new Error(
+    'MODEL_EVALUATION_RESPONSE_ARTIFACT_UNVERIFIED: response has no digest',
+  );
+  error.code = 'MODEL_EVALUATION_RESPONSE_ARTIFACT_UNVERIFIED';
+  const r = await tryCandidate('cand:7b', {
+    ...FAST_DRAIN,
+    runner: { runSuite: async () => { throw error; } },
+    roles: ['CODE'], bindings: { CODE: 'inc:7b' },
+  });
+  assertEqual(r.errorCode, 'MODEL_EVALUATION_RESPONSE_ARTIFACT_UNVERIFIED');
+  assertEqual(r.stage, 'trial');
+  restore();
+});
+
 await testAsync('shodné skóre se označí jako nerozhodnuté, ne jako prohra', async () => {
   // Sada, která oba modely neodliší, neříká, že je kandidát horší — říká, že
   // to neumí změřit. To je vlastnost sady, ne modelu.

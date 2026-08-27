@@ -274,8 +274,10 @@ export class CodePatchEvaluationRunner extends ModelEvaluationRunner {
   /**
    * Runner nese explicitní suite contract; neexistuje globální fallback.
    */
-  async runSuite(suiteName, modelName, onProgress) {
-    if (suiteName !== this._suite.name) return super.runSuite(suiteName, modelName, onProgress);
+  async runSuite(suiteName, modelName, onProgress, expectedArtifact = null) {
+    if (suiteName !== this._suite.name) {
+      return super.runSuite(suiteName, modelName, onProgress, expectedArtifact);
+    }
 
     this._cancelled = false;
     const startTime = Date.now();
@@ -294,7 +296,7 @@ export class CodePatchEvaluationRunner extends ModelEvaluationRunner {
         currentTest: i + 1, totalTests: defs.length,
         percent: Math.round((i / defs.length) * 100),
       });
-      const result = await this._runTest(defs[i], modelName);
+      const result = await this._runTest(defs[i], modelName, expectedArtifact);
       tests.push(result);
       if (result.passed) passedCount++;
       totalScore += result.score;
@@ -313,12 +315,13 @@ export class CodePatchEvaluationRunner extends ModelEvaluationRunner {
     };
   }
 
-  async _runTest(testDef, modelName) {
+  async _runTest(testDef, modelName, expectedArtifact = null) {
     const promptResult = testDef.prompt();
     const result = await this._callModel(
       modelName,
       [{ role: 'user', content: promptResult.text }],
       testDef.options || {},
+      expectedArtifact,
     );
 
     if (result.error) {

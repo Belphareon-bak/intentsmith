@@ -212,6 +212,12 @@ export function createHistoryCallbacks(options) {
         throw new Error(`Missing suite contract for ${input.suiteName}`);
       }
       const artifact = await resolveArtifact(input.model);
+      const observedDigest = normalizeModelDigestSha256(input.artifact?.digestSha256);
+      if (!observedDigest
+        || observedDigest !== artifact.digestSha256
+        || !sameModelName(input.artifact?.modelName, artifact.modelName)) {
+        throw new Error(`Evaluation artifact proof mismatch for ${input.model}`);
+      }
       const measurement = measurements.get(canonicalModelName(input.model)) || {};
       return history.recordComplete({
         artifact,
