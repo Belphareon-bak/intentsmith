@@ -9,6 +9,7 @@ import {
   M6_CANDIDATE_PHASE_IDS,
   M6_DIRECT_FRESH_CLONE_PROGRAMS,
   M6_PHYSICAL_GPU_PROGRAMS,
+  M6_RUNNER_OWNED_SERVER_PROGRAMS,
 } from '../contracts/m6/candidate-plan-v1.js';
 import {
   buildM6CandidateExecutionPlan,
@@ -43,10 +44,14 @@ test('plan is argument-free, serial and covers the exact ACTIVE required registr
   assert.equal(Object.isFrozen(plan), true);
 });
 
-test('fresh-clone and physical GPU programs cannot be silently omitted', () => {
+test('direct, runner-owned server and physical GPU programs cannot be silently omitted', () => {
   const plan = buildM6CandidateExecutionPlan(registry);
   const selected = new Set(plan.phases.flatMap(phase => phase.programIds));
-  for (const id of [...M6_DIRECT_FRESH_CLONE_PROGRAMS, ...M6_PHYSICAL_GPU_PROGRAMS]) {
+  for (const id of [
+    ...M6_DIRECT_FRESH_CLONE_PROGRAMS,
+    ...M6_RUNNER_OWNED_SERVER_PROGRAMS,
+    ...M6_PHYSICAL_GPU_PROGRAMS,
+  ]) {
     assert.equal(selected.has(id), true, id);
   }
   assert.equal(plan.phases.find(phase => phase.id === 'fresh-clone-install-build-studio')
@@ -55,14 +60,23 @@ test('fresh-clone and physical GPU programs cannot be silently omitted', () => {
     .requiresGpuCensus, true);
 });
 
-test('model and server phase includes every runnable required program without external false promises', () => {
+test('model and runner-owned server phases cover every runnable required program', () => {
   const plan = buildM6CandidateExecutionPlan(registry);
   const byId = new Map(registry.suites.map(program => [program.id, program]));
-  const phase = plan.phases.find(item => item.id === 'model-and-server');
-  assert.equal(phase.programIds.length, 54);
-  assert.equal(phase.programIds.filter(id => byId.get(id).profile === 'model').length, 43);
-  assert.equal(phase.programIds.filter(id => byId.get(id).profile === 'server').length, 11);
-  assert(phase.programIds.every(id => byId.get(id).requirements.network !== 'external'));
+  const modelPhase = plan.phases.find(item => item.id === 'model-without-server');
+  assert.equal(modelPhase.programIds.length, 44);
+  assert.equal(modelPhase.programIds.filter(id => byId.get(id).profile === 'model').length, 43);
+  assert.equal(modelPhase.programIds.filter(id => byId.get(id).profile === 'server').length, 1);
+  assert(modelPhase.programIds.every(id => byId.get(id).requirements.server === false));
+  assert(modelPhase.programIds.every(id => byId.get(id).requirements.network !== 'external'));
+
+  const serverPhase = plan.phases.find(item => item.id === 'runner-owned-server-programs');
+  assert.deepEqual(serverPhase.programIds, M6_RUNNER_OWNED_SERVER_PROGRAMS);
+  assert.equal(serverPhase.programIds.length, 10);
+  assert(serverPhase.programIds.every(id => byId.get(id).requirements.server === true));
+  assert(serverPhase.programIds.every(id => byId.get(id).requirements.network === 'loopback'));
+  assert.equal(serverPhase.runner, 'm6-runner-owned-server-programs');
+  assert.equal(serverPhase.requiresOwnedServer, true);
   assert.equal(registry.suites.filter(program => (
     program.state === 'ACTIVE'
     && program.required === true
@@ -168,11 +182,51 @@ test('candidate runner materializes only named toolchain bindings', () => {
   );
   assert.match(source, /timeout-minutes=\$\{phase\.timeoutMinutes\}/u);
   assert.match(source, /deadline-hours=\$\{phase\.deadlineHours\}/u);
+  assert.match(source, /'--fail-fast'/u);
   assert.match(source, /assertNoStaleDirectTestRuntime\(root\)/u);
   assert.match(
     source,
     /runFreshClonePhase\([\s\S]*waitForCandidateGpuQuiescence\([\s\S]*physical-ollama-gpu[\s\S]*controlled-soak/u,
   );
+  assert.doesNotMatch(source, /\.\.\.process\.env/u);
+});
+
+test('deterministic phase opens only exact locally preflighted toolchains', () => {
+  const plan = buildM6CandidateExecutionPlan(registry);
+  const deterministic = plan.phases.find(
+    phase => phase.id === 'deterministic-offline-database',
+  );
+  assert.deepEqual(deterministic.allowedBlockers, [
+    'toolchain:python-pdf-runtime',
+    'toolchain:bwrap',
+    'toolchain:git',
+    'toolchain:bubblewrap',
+    'toolchain:prlimit',
+  ]);
+  const source = readFileSync(
+    path.join(repositoryRoot, 'scripts', 'nightly-audit.js'),
+    'utf8',
+  );
+  for (const executable of ['/usr/bin/bwrap', '/usr/bin/git', '/usr/bin/prlimit']) {
+    assert(source.includes(executable), executable);
+  }
+  assert.match(source, /invalid-executable-authority/u);
+});
+
+test('server-program runner owns exact serial loopback fixtures and records cleanup', () => {
+  const source = readFileSync(
+    path.join(repositoryRoot, 'scripts', 'run-m6-server-program-evidence.js'),
+    'utf8',
+  );
+  assert.match(source, /const SERVER_PORT = 3335/u);
+  assert.match(source, /INTENTSMITH_TEST_SERVER_PID/u);
+  assert.match(source, /INTENTSMITH_TEST_SERVER_NONCE/u);
+  assert.match(source, /value\?\.pid !== expectedPid/u);
+  assert.match(source, /value\?\.testRunNonce !== expectedNonce/u);
+  assert.match(source, /C3_ENABLE_ONLINE_DISCOVERY: 'false'/u);
+  assert.match(source, /for \(const suite of suites\)/u);
+  assert.match(source, /serverCleanup\.clean === true/u);
+  assert.match(source, /assertServerPortAvailable\(\)/u);
   assert.doesNotMatch(source, /\.\.\.process\.env/u);
 });
 

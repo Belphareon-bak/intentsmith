@@ -6,6 +6,7 @@ import {
   M6_DIRECT_FRESH_CLONE_PROGRAMS,
   M6_DIRECT_OWNED_SERVER_PROGRAMS,
   M6_PHYSICAL_GPU_PROGRAMS,
+  M6_RUNNER_OWNED_SERVER_PROGRAMS,
 } from '../../contracts/m6/candidate-plan-v1.js';
 
 const CONTROLLED_SOAK_BLOCKERS = Object.freeze([
@@ -38,6 +39,7 @@ export function buildM6CandidateExecutionPlan(registry) {
   const direct = new Set([
     ...M6_DIRECT_FRESH_CLONE_PROGRAMS,
     ...M6_DIRECT_OWNED_SERVER_PROGRAMS,
+    ...M6_RUNNER_OWNED_SERVER_PROGRAMS,
     ...M6_PHYSICAL_GPU_PROGRAMS,
   ]);
   const phases = [
@@ -48,7 +50,13 @@ export function buildM6CandidateExecutionPlan(registry) {
       programIds: activeRequired(registry, suite => (
         suite.profile === 'offline' || suite.profile === 'database'
       )),
-      allowedBlockers: ['toolchain:python-pdf-runtime'],
+      allowedBlockers: [
+        'toolchain:python-pdf-runtime',
+        'toolchain:bwrap',
+        'toolchain:git',
+        'toolchain:bubblewrap',
+        'toolchain:prlimit',
+      ],
       requiresCleanCandidate: true,
       requiresFreshClone: false,
       requiresGpuCensus: false,
@@ -66,8 +74,8 @@ export function buildM6CandidateExecutionPlan(registry) {
       requiresOwnedServer: true,
     },
     {
-      id: 'model-and-server',
-      ...phaseLimits('model-and-server'),
+      id: 'model-without-server',
+      ...phaseLimits('model-without-server'),
       runner: 'nightly-audit',
       programIds: activeRequired(registry, suite => (
         (suite.profile === 'model' || suite.profile === 'server')
@@ -78,6 +86,17 @@ export function buildM6CandidateExecutionPlan(registry) {
       requiresFreshClone: false,
       requiresGpuCensus: true,
       requiresOwnedServer: false,
+    },
+    {
+      id: 'runner-owned-server-programs',
+      ...phaseLimits('runner-owned-server-programs'),
+      runner: 'm6-runner-owned-server-programs',
+      programIds: [...M6_RUNNER_OWNED_SERVER_PROGRAMS],
+      allowedBlockers: ['ollama', 'gpu'],
+      requiresCleanCandidate: true,
+      requiresFreshClone: false,
+      requiresGpuCensus: true,
+      requiresOwnedServer: true,
     },
     {
       id: 'fresh-clone-install-build-studio',

@@ -131,6 +131,9 @@ Implementované, ale zatím znovu nezreviewované bloky:
 
 - Git-native raw evidence a exact artifact/receipt re-evaluation;
 - množinově úplný plán všech `ACTIVE + required` programů;
+- sedmifázový plan v6 s exact runner-owned server authority pro deset
+  historických live-server consumer journeys, exact toolchain preflightem a
+  fail-fast po prvním required non-PASS (Decision 040);
 - skutečný persistentní application upgrade 136.0.0 → 136.1.0;
 - L0-11 durable model artifact authority podle Decision 037.
 

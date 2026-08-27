@@ -1671,6 +1671,15 @@ stabilní candidate + re-review:
   validuje exact artifact/receipt chain; ignorovaný JSON nemůže vydat PASS;
 - locked plán používá množinovou rovnost se všemi současnými 370
   `ACTIVE + required` programy;
+- deset required live-server consumer journeys už není posíláno do runneru,
+  který žádný server nevlastní. Plan v6 je odděluje do serializované
+  runner-owned fáze s per-program SQLite/HOME/projects, PID+nonce port-file
+  atestací, exact cleanupem a content-addressed server+test logem. Modelová
+  fáze tím obsahuje pouze 44 programů bez server prerequisite; podrobnosti jsou
+  v Decision 040;
+- auditní povolení toolchain blockeru nyní samo nestačí: Git, bwrap,
+  bubblewrap, prlimit, unshare, iproute2 a PDF interpreter procházejí exact
+  executable preflightem a každá candidate audit fáze používá fail-fast;
 - registry zakazuje konstrukčně nesplnitelný stav `ACTIVE + required +
   external-network`. Devět modelových programů je povinných a jejich test-owned
   transport propustí pouze přesné lokální Ollama endpointy; případný WebSearch

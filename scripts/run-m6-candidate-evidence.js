@@ -65,6 +65,7 @@ const M6_CANDIDATE_MODEL = 'qwen3.5:27b';
 const M6_CANDIDATE_MODEL_ID = '7653528ba5cb';
 const M6_OLLAMA_WORKER = '/usr/local/lib/ollama/llama-server';
 const OWNED_SERVER_REPORT = 'owned-server/report.json';
+const SERVER_PROGRAM_REPORT = 'server-programs/report.json';
 
 function git(root, args) {
   return execFileSync('git', args, {
@@ -167,6 +168,7 @@ function auditArguments({ phase, evidenceRoot, root, candidateSha }) {
     '--concurrency=1',
     `--timeout-minutes=${phase.timeoutMinutes}`,
     `--deadline-hours=${phase.deadlineHours}`,
+    '--fail-fast',
   ];
   for (const blocker of phase.allowedBlockers) args.push(`--allow-blocker=${blocker}`);
   return args;
@@ -1030,11 +1032,59 @@ export async function runM6CandidateEvidence(root = process.cwd(), argv = []) {
   if (serverScript.exitCode !== 0) {
     throw new Error(`M6 owned production server phase failed: ${serverScript.exitCode}`);
   }
-  reportPaths.push(path.join(evidenceRoot, OWNED_SERVER_REPORT));
+  const ownedServerReportPath = path.join(evidenceRoot, OWNED_SERVER_REPORT);
+  const ownedServerReport = JSON.parse(await readFile(ownedServerReportPath, 'utf8'));
+  const ownedServerPhase = plan.phases.find(phase => phase.id === 'owned-production-server');
+  const ownedServerCompletion = validateM6CompletedAuditPhase(
+    ownedServerReport,
+    ownedServerPhase,
+    candidateSha,
+  );
+  if (!ownedServerCompletion.valid) {
+    throw new Error(
+      `M6 owned production server report is red: ${ownedServerCompletion.errors.join('; ')}`,
+    );
+  }
+  reportPaths.push(ownedServerReportPath);
 
   await captureGpuCensus(evidenceRoot);
-  const modelAndServer = plan.phases.find(phase => phase.id === 'model-and-server');
-  reportPaths.push(await runAuditPhase({ root, candidateSha, evidenceRoot, phase: modelAndServer }));
+  const modelWithoutServer = plan.phases.find(phase => phase.id === 'model-without-server');
+  reportPaths.push(await runAuditPhase({
+    root,
+    candidateSha,
+    evidenceRoot,
+    phase: modelWithoutServer,
+  }));
+
+  const serverProgramsPhase = plan.phases.find(
+    phase => phase.id === 'runner-owned-server-programs',
+  );
+  const serverProgramsScript = await runLogged([
+    'node',
+    'scripts/run-m6-server-program-evidence.js',
+  ], {
+    cwd: root,
+    env: safeBaseEnvironment(),
+    logPath: path.join(evidenceRoot, 'logs', 'server-programs-runner.log'),
+    allowFailure: true,
+    timeoutMs: serverProgramsPhase.deadlineHours * 60 * 60 * 1_000 + 10 * 60 * 1_000,
+  });
+  if (serverProgramsScript.exitCode !== 0) {
+    throw new Error(`M6 runner-owned server-program phase failed: ${serverProgramsScript.exitCode}`);
+  }
+  const serverProgramsReportPath = path.join(evidenceRoot, SERVER_PROGRAM_REPORT);
+  const serverProgramsReport = JSON.parse(await readFile(serverProgramsReportPath, 'utf8'));
+  const serverProgramsCompletion = validateM6CompletedAuditPhase(
+    serverProgramsReport,
+    serverProgramsPhase,
+    candidateSha,
+  );
+  if (!serverProgramsCompletion.valid) {
+    throw new Error(
+      `M6 runner-owned server-program report is red: ${serverProgramsCompletion.errors.join('; ')}`,
+    );
+  }
+  reportPaths.push(serverProgramsReportPath);
 
   const fresh = await runFreshClonePhase({
     root,

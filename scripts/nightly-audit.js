@@ -33,6 +33,14 @@ const SELF_STARTING_OWNED_SERVER_PROGRAMS = new Set([
 ]);
 const SELF_STARTING_OWNED_SERVER_FIXTURE =
   'owned-production-server-loopback-network-namespace';
+const EXACT_TOOLCHAIN_EXECUTABLES = Object.freeze({
+  bwrap: '/usr/bin/bwrap',
+  bubblewrap: '/usr/bin/bwrap',
+  git: '/usr/bin/git',
+  iproute2: '/usr/bin/ip',
+  'linux-user-network-namespace': '/usr/bin/unshare',
+  prlimit: '/usr/bin/prlimit',
+});
 const TERMINATION_GRACE_MS = 2_000;
 const ACTIVE_SUITE_CHILDREN = new Map();
 let requestedTerminationSignal = null;
@@ -188,6 +196,59 @@ function blockerIsDisallowed(blocker, opts, suite) {
 async function prepareToolchainEnvironment(suite, opts, hostEnv = process.env) {
   const declared = new Set(suite.requirements.toolchain || []);
   const result = { ok: true, blockers: [], env: {}, forwardedKeys: [] };
+  for (const toolchain of declared) {
+    if (!opts.allowBlockers.has(`toolchain:${toolchain}`)) continue;
+    const executable = EXACT_TOOLCHAIN_EXECUTABLES[toolchain];
+    if (!executable) continue;
+    let metadata;
+    try {
+      metadata = await lstat(executable);
+      if (
+        !metadata.isFile()
+        || metadata.isSymbolicLink()
+        || (metadata.mode & 0o111) === 0
+        || await realpath(executable) !== executable
+      ) throw new Error('invalid exact executable');
+    } catch {
+      return {
+        ...result,
+        ok: false,
+        blockers: [`toolchain:${toolchain}:invalid-executable-authority`],
+      };
+    }
+  }
+
+  if (declared.has('python-pdf-runtime')
+    && opts.allowBlockers.has('toolchain:python-pdf-runtime')) {
+    const configured = hostEnv.INTENTSMITH_PDF_PYTHON || hostEnv.C3_PDF_PYTHON;
+    if (
+      typeof configured !== 'string'
+      || !path.isAbsolute(configured)
+      || (hostEnv.INTENTSMITH_PDF_PYTHON !== undefined
+        && hostEnv.C3_PDF_PYTHON !== undefined
+        && hostEnv.INTENTSMITH_PDF_PYTHON !== hostEnv.C3_PDF_PYTHON)
+    ) {
+      return {
+        ...result,
+        ok: false,
+        blockers: ['toolchain:python-pdf-runtime:invalid-executable-authority'],
+      };
+    }
+    try {
+      const canonical = await realpath(configured);
+      const metadata = await lstat(canonical);
+      if (!metadata.isFile() || metadata.isSymbolicLink() || (metadata.mode & 0o111) === 0) {
+        throw new Error('invalid PDF interpreter');
+      }
+    } catch {
+      return {
+        ...result,
+        ok: false,
+        blockers: ['toolchain:python-pdf-runtime:invalid-executable-authority'],
+      };
+    }
+  }
+
   if (!declared.has('x11-display')) return result;
   if (!opts.allowBlockers.has('toolchain:x11-display')) return result;
 

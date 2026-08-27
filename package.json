@@ -23,6 +23,7 @@
     "m6:validate-release": "node scripts/validate-m6-release.js",
     "m6:capture-release-artifact": "node scripts/capture-m6-release-artifact.js",
     "m6:run-candidate-evidence": "node scripts/run-m6-candidate-evidence.js",
+    "m6:run-server-program-evidence": "node scripts/run-m6-server-program-evidence.js",
     "m6:promote-acceptance": "node scripts/promote-m6-acceptance.js",
     "test:offline": "node scripts/nightly-audit.js --profile=offline",
     "test:database": "node scripts/nightly-audit.js --profile=database",
