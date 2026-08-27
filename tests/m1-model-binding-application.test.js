@@ -4602,7 +4602,7 @@ await testAsync('strict provider rejects non-loopback, ambiguity, missing digest
   assertEqual(drift.code, 'MODEL_BINDING_TARGET_DIGEST_DRIFT');
 });
 
-await testAsync('real loopback provider verifies tags-chat-tags with exact request shape', async () => {
+await testAsync('real loopback provider trusts only a response-attested digest', async () => {
   const sequence = [];
   let tagReads = 0;
   let chatBody = null;
@@ -4624,6 +4624,7 @@ await testAsync('real loopback provider verifies tags-chat-tags with exact reque
       response.setHeader('Content-Type', 'application/json');
       response.end(JSON.stringify({
         model: 'fixture-target:latest',
+        digest: DIGEST_B,
         done: true,
         message: { role: 'assistant', content: 'ok' },
       }));
@@ -4638,7 +4639,7 @@ await testAsync('real loopback provider verifies tags-chat-tags with exact reque
     });
     assertEqual(verified.digestSha256, DIGEST_B);
   });
-  assertEqual(sequence.join('>'), 'tags-1>chat>tags-2');
+  assertEqual(sequence.join('>'), 'tags-1>chat');
   assertEqual(chatBody.model, 'fixture-target:latest');
   assertEqual(chatBody.stream, false);
   assertEqual(chatBody.think, false);
@@ -4646,15 +4647,14 @@ await testAsync('real loopback provider verifies tags-chat-tags with exact reque
   assertEqual(chatBody.options.num_ctx, 512);
 });
 
-await testAsync('real loopback provider rejects malformed, incomplete, HTTP, timeout and drift', async () => {
+await testAsync('real loopback provider rejects malformed, unattested and drifted responses', async () => {
   let scenario = 'empty';
   let tagReads = 0;
   await withLoopbackServer(async (request, response) => {
     if (request.url === '/api/tags') {
       tagReads++;
-      const digest = scenario === 'drift' && tagReads > 1 ? DIGEST_C : DIGEST_B;
       response.setHeader('Content-Type', 'application/json');
-      response.end(JSON.stringify({ models: [{ name: 'fixture-target', digest }] }));
+      response.end(JSON.stringify({ models: [{ name: 'fixture-target', digest: DIGEST_B }] }));
       return;
     }
     if (request.url === '/api/chat') {
@@ -4712,6 +4712,9 @@ await testAsync('real loopback provider rejects malformed, incomplete, HTTP, tim
         response.setHeader('Content-Type', 'application/json');
         response.end(JSON.stringify({
           model: 'fixture-target',
+          ...(scenario === 'missing-digest' ? {} : {
+            digest: scenario === 'digest-drift' ? DIGEST_C : DIGEST_B,
+          }),
           done: true,
           message: { role: 'assistant', content: 'ok' },
         }));
@@ -4729,7 +4732,8 @@ await testAsync('real loopback provider rejects malformed, incomplete, HTTP, tim
       ['wrong-model', 'MODEL_BINDING_VERIFICATION_REJECTED'],
       ['malformed', 'MODEL_BINDING_VERIFICATION_REJECTED'],
       ['status', 'MODEL_BINDING_VERIFICATION_REJECTED'],
-      ['drift', 'MODEL_BINDING_TARGET_DIGEST_DRIFT'],
+      ['missing-digest', 'MODEL_BINDING_VERIFICATION_ARTIFACT_UNVERIFIED'],
+      ['digest-drift', 'MODEL_BINDING_TARGET_DIGEST_DRIFT'],
       ['timeout', 'MODEL_BINDING_PROVIDER_UNAVAILABLE'],
     ]);
     for (const [name, code] of expected) {

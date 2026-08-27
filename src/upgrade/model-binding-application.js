@@ -627,7 +627,28 @@ export class OllamaModelBindingProvider {
         'Exact model verification returned an incomplete or mismatched chat result',
       );
     }
-    return this.resolveExact(before.name, { expectedDigestSha256 });
+    const responseDigestSha256 = normalizeModelDigestSha256(
+      body.digest || body.model_digest_sha256,
+    );
+    if (!responseDigestSha256) {
+      fail(
+        'MODEL_BINDING_VERIFICATION_ARTIFACT_UNVERIFIED',
+        'Exact model verification response did not attest the served artifact digest',
+        { modelName: before.name, expectedDigestSha256 },
+      );
+    }
+    if (responseDigestSha256 !== expectedDigestSha256) {
+      fail(
+        'MODEL_BINDING_TARGET_DIGEST_DRIFT',
+        `Served model digest changed for ${before.name}`,
+        {
+          modelName: before.name,
+          expectedDigestSha256,
+          observedDigestSha256: responseDigestSha256,
+        },
+      );
+    }
+    return Object.freeze({ ...before, digestSha256: responseDigestSha256 });
   }
 }
 
