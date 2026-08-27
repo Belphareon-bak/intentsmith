@@ -67,25 +67,60 @@ test('candidate runner materializes only named toolchain bindings', () => {
 });
 
 test('pre-physical wait recognizes only the candidate-owned Ollama residency', () => {
+  const candidateIdentity = {
+    state: 'observed',
+    uid: 997,
+    executable: '/usr/local/lib/ollama/llama-server',
+    candidateWorkerExecutable: true,
+    candidateWorkerUid: true,
+    candidateModelArgument: true,
+    candidateMmprojArgument: true,
+    loopbackHost: true,
+    offline: true,
+  };
   const owned = {
-    compute: [{ pid: 101, processName: '/usr/local/bin/ollama', usedMemoryMiB: 16_000 }],
+    compute: [{
+      pid: 101,
+      processName: '/usr/local/lib/ollama/llama-server',
+      usedMemoryMiB: 16_000,
+      identity: candidateIdentity,
+    }],
     ollama: {
       runningRows: ['qwen3.5:27b  7653528ba5cb  16 GB  100% GPU  4096  4 minutes'],
     },
   };
   assert.equal(candidateModelResidencyOnly(owned), true);
+  // Ollama registers and unregisters its public row after/before the exact worker
+  // becomes visible to the NVIDIA driver. Both transition directions must wait.
   assert.equal(candidateModelResidencyOnly({
     ...owned,
-    compute: [{
-      ...owned.compute[0],
-      processName: '/usr/local/lib/ollama/llama-server',
-    }],
+    ollama: { runningRows: [] },
+  }), true);
+  assert.equal(candidateModelResidencyOnly({
+    ...owned,
+    compute: [],
+  }), true);
+  assert.equal(candidateModelResidencyOnly({
+    compute: [{ ...owned.compute[0], identity: { state: 'gone', errorCode: 'ENOENT' } }],
+    ollama: { runningRows: [] },
   }), true);
   for (const mutation of [
-    { ...owned, compute: [] },
+    { compute: [], ollama: { runningRows: [] } },
     { ...owned, compute: [{ ...owned.compute[0], processName: '/usr/bin/python' }] },
     { ...owned, compute: [{ ...owned.compute[0], processName: '/foreign/llama-server' }] },
-    { ...owned, ollama: { runningRows: [] } },
+    { ...owned, compute: [{ ...owned.compute[0], identity: { state: 'unreadable', errorCode: 'EACCES' } }] },
+    { ...owned, compute: [{
+      ...owned.compute[0],
+      identity: { ...candidateIdentity, candidateWorkerUid: false },
+    }] },
+    { ...owned, compute: [{
+      ...owned.compute[0],
+      identity: { ...candidateIdentity, candidateModelArgument: false },
+    }] },
+    { ...owned, compute: [{
+      ...owned.compute[0],
+      identity: { ...candidateIdentity, candidateMmprojArgument: false },
+    }] },
     { ...owned, ollama: { runningRows: ['qwen3.5:27b wrongdigest 16 GB 100% GPU 4096 4 minutes'] } },
     { ...owned, ollama: { runningRows: ['foreign:latest id 16 GB 100% GPU 4096 4 minutes'] } },
     { ...owned, ollama: { runningRows: [...owned.ollama.runningRows, owned.ollama.runningRows[0]] } },

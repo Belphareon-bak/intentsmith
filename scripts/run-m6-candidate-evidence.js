@@ -3,6 +3,11 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
+  readFileSync,
+  realpathSync,
+  statSync,
+} from 'node:fs';
+import {
   chmod,
   cp,
   lstat,
@@ -50,6 +55,7 @@ const PHYSICAL_GPU_QUIESCENCE_TIMEOUT_MS = 6 * 60 * 1000;
 const PHYSICAL_GPU_QUIESCENCE_POLL_MS = 5_000;
 const M6_CANDIDATE_MODEL = 'qwen3.5:27b';
 const M6_CANDIDATE_MODEL_ID = '7653528ba5cb';
+const M6_OLLAMA_WORKER = '/usr/local/lib/ollama/llama-server';
 const OWNED_SERVER_REPORT = 'owned-server/report.json';
 
 function git(root, args) {
@@ -179,7 +185,84 @@ function parseCsvLine(line) {
   return line.split(',').map(value => value.trim());
 }
 
-function gpuCensusSnapshot() {
+function processIdentity(pid, authority = null) {
+  const procRoot = `/proc/${pid}`;
+  try {
+    const metadata = statSync(procRoot);
+    const executable = realpathSync(path.join(procRoot, 'exe'));
+    const argv = readFileSync(path.join(procRoot, 'cmdline'))
+      .toString('utf8')
+      .split('\0')
+      .filter(Boolean);
+    const argument = name => {
+      const index = argv.indexOf(name);
+      return index >= 0 ? argv[index + 1] : undefined;
+    };
+    return {
+      state: 'observed',
+      uid: metadata.uid,
+      executable,
+      candidateWorkerExecutable: authority === null
+        ? null
+        : executable === authority.workerExecutable,
+      candidateWorkerUid: authority === null ? null : metadata.uid === authority.workerUid,
+      candidateModelArgument: authority === null
+        ? null
+        : argument('--model') === authority.modelBlob,
+      candidateMmprojArgument: authority === null
+        ? null
+        : argument('--mmproj') === authority.modelBlob,
+      loopbackHost: authority === null ? null : argument('--host') === '127.0.0.1',
+      offline: authority === null ? null : argv.includes('--offline'),
+    };
+  } catch (error) {
+    if (error.code === 'ENOENT' || error.code === 'ESRCH') {
+      return { state: 'gone', errorCode: error.code };
+    }
+    return { state: 'unreadable', errorCode: error.code || 'UNKNOWN' };
+  }
+}
+
+function candidateModelAuthority() {
+  const listed = command('ollama', ['list'])
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean)
+    .slice(1)
+    .filter(line => {
+      const [model, modelId] = line.split(/\s+/u);
+      return model === M6_CANDIDATE_MODEL && modelId === M6_CANDIDATE_MODEL_ID;
+    });
+  if (listed.length !== 1) {
+    throw new Error('M6 candidate Ollama model identity is not uniquely installed');
+  }
+  const fromLines = command('ollama', ['show', '--modelfile', M6_CANDIDATE_MODEL])
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => line.startsWith('FROM '));
+  if (fromLines.length !== 1) {
+    throw new Error('M6 candidate Ollama model blob is ambiguous');
+  }
+  const modelBlob = fromLines[0].slice('FROM '.length).trim();
+  const canonicalBlob = realpathSync(modelBlob);
+  if (
+    canonicalBlob !== modelBlob
+    || !/\/blobs\/sha256-[a-f0-9]{64}$/u.test(canonicalBlob)
+  ) {
+    throw new Error('M6 candidate Ollama model blob is not canonical');
+  }
+  const workerExecutable = realpathSync(M6_OLLAMA_WORKER);
+  const modelMetadata = statSync(canonicalBlob);
+  return Object.freeze({
+    model: M6_CANDIDATE_MODEL,
+    modelId: M6_CANDIDATE_MODEL_ID,
+    modelBlob: canonicalBlob,
+    workerExecutable,
+    workerUid: modelMetadata.uid,
+  });
+}
+
+function gpuCensusSnapshot(authority = null) {
   let computeRaw;
   let memoryRaw;
   let ollamaRaw;
@@ -200,7 +283,13 @@ function gpuCensusSnapshot() {
   }
   const compute = computeRaw ? computeRaw.split('\n').filter(Boolean).map(line => {
     const [pid, processName, usedMemoryMiB] = parseCsvLine(line);
-    return { pid: Number(pid), processName, usedMemoryMiB: Number(usedMemoryMiB) };
+    const numericPid = Number(pid);
+    return {
+      pid: numericPid,
+      processName,
+      usedMemoryMiB: Number(usedMemoryMiB),
+      identity: processIdentity(numericPid, authority),
+    };
   }) : [];
   const gpus = memoryRaw.split('\n').filter(Boolean).map(line => {
     const [index, name, totalMiB, usedMiB, freeMiB, utilizationPercent] = parseCsvLine(line);
@@ -248,20 +337,34 @@ async function captureGpuCensus(evidenceRoot) {
 }
 
 export function candidateModelResidencyOnly(census) {
-  if (census.ollama.runningRows.length !== 1) return false;
-  const [row] = census.ollama.runningRows;
-  const [model, modelId] = row.split(/\s+/u);
-  if (model !== M6_CANDIDATE_MODEL || modelId !== M6_CANDIDATE_MODEL_ID) return false;
-  return census.compute.length >= 1 && census.compute.every(item => (
-    /(?:^|\/)ollama(?:\/llama-server)?$/u.test(item.processName)
+  if (census.compute.length === 0 && census.ollama.runningRows.length === 0) return false;
+  if (census.ollama.runningRows.length > 1) return false;
+  if (census.ollama.runningRows.length === 1) {
+    const [model, modelId] = census.ollama.runningRows[0].split(/\s+/u);
+    if (model !== M6_CANDIDATE_MODEL || modelId !== M6_CANDIDATE_MODEL_ID) return false;
+  }
+  return census.compute.every(item => (
+    item.identity?.state === 'gone'
+    || (
+      item.identity?.state === 'observed'
+      && item.processName === item.identity.executable
+      && item.identity.candidateWorkerExecutable === true
+      && item.identity.candidateWorkerUid === true
+      && item.identity.candidateModelArgument === true
+      && item.identity.candidateMmprojArgument === true
+      && item.identity.loopbackHost === true
+      && item.identity.offline === true
+    )
   ));
 }
 
 async function waitForCandidateGpuQuiescence(evidenceRoot) {
   const startedAtMs = Date.now();
   const observations = [];
+  const authority = candidateModelAuthority();
+  const receiptPath = path.join(evidenceRoot, 'gpu', 'pre-physical-quiescence.json');
   while (true) {
-    const census = gpuCensusSnapshot();
+    const census = gpuCensusSnapshot(authority);
     observations.push({
       capturedAt: census.capturedAt,
       compute: census.compute,
@@ -272,12 +375,12 @@ async function waitForCandidateGpuQuiescence(evidenceRoot) {
       sufficientFreeMemory: census.sufficientFreeMemory,
     });
     if (census.available && !census.foreignActivity && census.sufficientFreeMemory) {
-      const receiptPath = path.join(evidenceRoot, 'gpu', 'pre-physical-quiescence.json');
       await writePrivateJsonAtomic(receiptPath, {
         contract: 'M6GpuQuiescenceReceipt',
         version: 1,
         candidateModel: M6_CANDIDATE_MODEL,
         candidateModelId: M6_CANDIDATE_MODEL_ID,
+        authority,
         startedAt: new Date(startedAtMs).toISOString(),
         endedAt: census.capturedAt,
         waitedMs: Date.now() - startedAtMs,
@@ -288,11 +391,39 @@ async function waitForCandidateGpuQuiescence(evidenceRoot) {
       return receiptPath;
     }
     if (!census.available || !candidateModelResidencyOnly(census)) {
+      await writePrivateJsonAtomic(receiptPath, {
+        contract: 'M6GpuQuiescenceReceipt',
+        version: 1,
+        candidateModel: M6_CANDIDATE_MODEL,
+        candidateModelId: M6_CANDIDATE_MODEL_ID,
+        authority,
+        startedAt: new Date(startedAtMs).toISOString(),
+        endedAt: census.capturedAt,
+        waitedMs: Date.now() - startedAtMs,
+        intervention: 'none-read-only-wait',
+        observations,
+        verdict: 'FAIL',
+        reasonCode: 'M6_GPU_QUIESCENCE_FOREIGN_ACTIVITY',
+      });
       const error = new Error('M6 GPU quiescence encountered unknown or foreign activity');
       error.code = 'M6_GPU_QUIESCENCE_FOREIGN_ACTIVITY';
       throw error;
     }
     if (Date.now() - startedAtMs >= PHYSICAL_GPU_QUIESCENCE_TIMEOUT_MS) {
+      await writePrivateJsonAtomic(receiptPath, {
+        contract: 'M6GpuQuiescenceReceipt',
+        version: 1,
+        candidateModel: M6_CANDIDATE_MODEL,
+        candidateModelId: M6_CANDIDATE_MODEL_ID,
+        authority,
+        startedAt: new Date(startedAtMs).toISOString(),
+        endedAt: census.capturedAt,
+        waitedMs: Date.now() - startedAtMs,
+        intervention: 'none-read-only-wait',
+        observations,
+        verdict: 'FAIL',
+        reasonCode: 'M6_GPU_QUIESCENCE_TIMEOUT',
+      });
       const error = new Error('M6 candidate model did not unload before physical GPU phase');
       error.code = 'M6_GPU_QUIESCENCE_TIMEOUT';
       throw error;
