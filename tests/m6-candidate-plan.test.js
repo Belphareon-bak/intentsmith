@@ -224,7 +224,9 @@ test('server-program runner owns exact serial loopback fixtures and records clea
   assert.match(source, /value\?\.pid !== expectedPid/u);
   assert.match(source, /value\?\.testRunNonce !== expectedNonce/u);
   assert.match(source, /C3_ENABLE_ONLINE_DISCOVERY: 'false'/u);
-  assert.match(source, /for \(const suite of suites\)/u);
+  assert.match(source, /suite\.requirements\.ollama[\s\S]*127\.0\.0\.1:9/u);
+  assert.match(source, /for \(let index = 0; index < suites\.length; index \+= 1\)/u);
+  assert.match(source, /status: 'SKIPPED'/u);
   assert.match(source, /serverCleanup\.clean === true/u);
   assert.match(source, /assertServerPortAvailable\(\)/u);
   assert.doesNotMatch(source, /\.\.\.process\.env/u);

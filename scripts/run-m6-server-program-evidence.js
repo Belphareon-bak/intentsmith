@@ -153,7 +153,7 @@ function privateToken(bytes = 32) {
   return randomBytes(bytes).toString('base64url');
 }
 
-function programEnvironment(paths, candidateSha, programId, nonce, adminToken) {
+function programEnvironment(paths, candidateSha, suite, nonce, adminToken) {
   const environment = {};
   for (const key of ['PATH', 'LANG', 'LC_ALL', 'TZ']) {
     if (process.env[key] !== undefined) environment[key] = process.env[key];
@@ -179,7 +179,7 @@ function programEnvironment(paths, candidateSha, programId, nonce, adminToken) {
     DOTENV_CONFIG_QUIET: 'true',
     C3_AUDIT_RUN: '1',
     INTENTSMITH_TEST_SOURCE_REVISION: candidateSha,
-    INTENTSMITH_TEST_SUITE_ID: programId,
+    INTENTSMITH_TEST_SUITE_ID: suite.id,
     INTENTSMITH_TEST_SERVER_NONCE: nonce,
     C3_ADMIN_TOKEN: adminToken,
     C3_DB_PATH: paths.database,
@@ -191,7 +191,9 @@ function programEnvironment(paths, candidateSha, programId, nonce, adminToken) {
     PORT: String(SERVER_PORT),
     C3_PORT_FILE: paths.portFile,
     C3_URL: `http://${LOOPBACK}:${SERVER_PORT}`,
-    OLLAMA_URL: 'http://127.0.0.1:11434',
+    OLLAMA_URL: suite.requirements.ollama
+      ? 'http://127.0.0.1:11434'
+      : 'http://127.0.0.1:9',
     C3_MODEL_D1: MODEL,
     C3_MODEL_D2: MODEL,
     C3_MODEL_CODE: MODEL,
@@ -414,7 +416,7 @@ async function runProgram({ root, phaseRoot, candidateSha, suite }) {
   const environment = programEnvironment(
     paths,
     candidateSha,
-    suite.id,
+    suite,
     nonce,
     privateToken(),
   );
@@ -502,6 +504,48 @@ async function runProgram({ root, phaseRoot, candidateSha, suite }) {
   };
 }
 
+async function skippedProgramResult({ root, phaseRoot, candidateSha, suite, reason }) {
+  const runtimeRoot = path.join(phaseRoot, 'runtime');
+  await mkdir(runtimeRoot, { recursive: true, mode: 0o700 });
+  const logPath = path.join(runtimeRoot, `${suite.id}.log`);
+  await writeFile(logPath, `status=SKIPPED\nreason=${reason}\n`, {
+    flag: 'wx',
+    mode: 0o600,
+  });
+  return {
+    id: suite.id,
+    path: suite.path,
+    profile: suite.profile,
+    category: suite.profile,
+    command: [...suite.argv],
+    blockers: ['server', ...(suite.requirements.ollama ? ['ollama'] : []),
+      ...(suite.requirements.gpu ? ['gpu'] : [])],
+    required: true,
+    start: null,
+    end: null,
+    durationMs: 0,
+    exitCode: null,
+    signal: null,
+    timedOut: false,
+    status: 'SKIPPED',
+    retryCount: 0,
+    logPath: relative(root, logPath),
+    sourceRevision: candidateSha,
+    modelFixturePreflight: null,
+    environment: { authority: AUTHORITY, sourceRevision: candidateSha },
+    cleanup: { checked: true, leakDetected: false, terminated: true },
+    sourceTree: {
+      checked: true,
+      clean: true,
+      porcelain: null,
+      head: candidateSha,
+    },
+    logError: null,
+    outputError: null,
+    logSha256: await sha256File(logPath),
+  };
+}
+
 function reportFor({ candidateSha, fingerprint, phaseRoot, startedAt, endedAt, results }) {
   const failures = results.filter(result => result.status !== 'PASS');
   return {
@@ -567,10 +611,22 @@ export async function runM6ServerProgramEvidence(root = process.cwd(), argv = []
   const phaseRoot = await createPhaseRoot(root, candidateSha);
   const startedAt = new Date().toISOString();
   const results = [];
-  for (const suite of suites) {
+  for (let index = 0; index < suites.length; index += 1) {
+    const suite = suites[index];
     const result = await runProgram({ root, phaseRoot, candidateSha, suite });
     results.push(result);
-    if (result.status !== 'PASS') break;
+    if (result.status !== 'PASS') {
+      for (const remaining of suites.slice(index + 1)) {
+        results.push(await skippedProgramResult({
+          root,
+          phaseRoot,
+          candidateSha,
+          suite: remaining,
+          reason: `fail-fast-after-${suite.id}`,
+        }));
+      }
+      break;
+    }
   }
   const endedAt = new Date().toISOString();
   assertCleanCandidate(root, candidateSha, 'server-programs:post-state');
