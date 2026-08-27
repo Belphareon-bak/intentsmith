@@ -1,6 +1,6 @@
 # WP-M6-RELEASE — zmrazený kandidát a validační matice IntentSmith 1.0
 
-**Typ:** zapisující Work Package · **Stav:** AKTIVNÍ / IMPLEMENTACE POVOLENA OPERÁTOREM
+**Typ:** zapisující Work Package · **Stav:** CANDIDATE_COMPLETE / TECHNICAL_IMPLEMENTATION_PASS / REVIEW_PENDING / ACCEPTANCE_BLOCKED
 **Vstupní revision:** `55938fd0628bdb725736acdf21a451854580aaa7`
 **Vlastník:** `codex/m6-release-20260827`, jediný writer tohoto checkoutu
 
@@ -98,3 +98,23 @@ WP je implementačně hotový teprve po čistém fresh-clone kandidátu a komple
 review packetu. `ACCEPTED` vyžaduje navíc reálné M5 operátorské podmínky,
 nezávislé review a demo; `BLOCKED`, `NOT RUN` ani předpokládaný budoucí PASS se
 nepočítá.
+
+## 9. Implementační closeout 2026-08-27
+
+- exact product candidate: `8abd6065bd614a15bf9f7814dea14ed1e040c616`;
+- candidate tree: `f41a6af70b29d9024ba1006aabe417aad2ff26aa`;
+- registry: 464 programů, fingerprint
+  `3593af7c529d73c15cc3f12ee7e4e90fd2de91e6b383313ac43bca46969ea342`;
+- locked execution: 311/311 required výsledků PASS přes deterministic, owned
+  server, controlled soak, detached fresh clone a fyzický GPU pilot;
+- L0: 13/13 PASS; conditional model-discovery journey: PASS;
+- release artifact: 7 content-addressed build souborů, exact candidate binding;
+- validator: `valid: true / verdict: BLOCKED / exitCode: 2`, bez errors;
+- productové review: `PENDING`; M5 acceptance, Gate 0 a operator demo:
+  `BLOCKED` na externí autoritě.
+
+Autoritativní implementační report je
+[`m6-integration-closeout-20260827.md`](../execution/runs/m6-integration-closeout-20260827.md)
+a přesná review jednotka je
+[`2026-08-27-M6-OPERATOR-REVIEW-PACKET.md`](../review/2026-08-27-M6-OPERATOR-REVIEW-PACKET.md).
+Tento zápis není self-issued `REVIEW_PASSED` ani release approval.

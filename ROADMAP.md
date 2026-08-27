@@ -68,7 +68,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `5/9 REVIEW_PASSED / 4/9 RE_REVIEW_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Sedm nálezů druhého review má implementovanou remediation; zbývá re-review čtyř oddílů, nový integrační důkaz, 8 rotací a history disposition. |
-| **M6 IntentSmith 1.0 release** | `NOT_STARTED` | M5 accepted | Zmražený kandidát projde úplnou release validací a operátorskou demonstrací. |
+| **M6 IntentSmith 1.0 release** | `CANDIDATE_COMPLETE / TECHNICAL_IMPLEMENTATION_PASS / REVIEW_PENDING / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes otevřený gate | Zmražený kandidát `8abd6065` má kompletní technickou matici; chybí externí M5 autorita, review, Gate 0 a operátorské demo. |
 | **M7 Remote Companion** | `DESIGN_ONLY` | M6 + remote boundary | Samostatný vzdálený companion release nad bezpečným core rozhraním. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
@@ -1642,10 +1642,31 @@ WP, aby roadmapa nepředstírala již existující důkaz.
 
 ## 10. M6 — IntentSmith 1.0 release
 
+**Implementační stav 2026-08-27:** `CANDIDATE_COMPLETE /
+TECHNICAL_IMPLEMENTATION_PASS / REVIEW_PENDING / ACCEPTANCE_BLOCKED` na exact
+product candidatu `8abd6065bd614a15bf9f7814dea14ed1e040c616` (tree
+`f41a6af70b29d9024ba1006aabe417aad2ff26aa`). Uzamčený producer spustil 311
+disjunktních required programů: `296/296` deterministických, `1/1` owned
+production server, `10/10` controlled soak, `3/3` fresh-clone Studio a `1/1`
+fyzický GPU pilot; všechny skončily PASS. Všech 13 L0 řádků a jediný odvozený
+conditional model-discovery journey jsou PASS. Content-addressed release
+manifest váže sedm skutečných build výstupů. Samostatný validator vrací
+`valid: true`, `verdict: BLOCKED`, exit `2`, protože M5 acceptance,
+operátorské read-only review, Gate 0 attestation a demo jsou záměrně externí
+autority. Implementační closeout je v
+[`m6-integration-closeout-20260827.md`](docs/execution/runs/m6-integration-closeout-20260827.md)
+a review jednotka v
+[`2026-08-27-M6-OPERATOR-REVIEW-PACKET.md`](docs/review/2026-08-27-M6-OPERATOR-REVIEW-PACKET.md).
+Nejde o `ACCEPTED`, povolení merge/tag/publish ani náhradu otevřené M5 brány.
+
 ### Vstup
 
-M1–M5 journeys jsou `ACCEPTED`; release candidate je zmražený. Teprve zde se
-znovu aktivuje Gate 0 a attestační řetěz.
+Normální acceptance vstup vyžaduje `M1–M5 ACCEPTED`. M1–M4 jsou přijaté, ale
+M5 zůstává `5/9 REVIEW_PASSED / 4/9 RE_REVIEW_REQUIRED` a nemá skutečných 8/8
+rotací ani history disposition. Operátor výslovně povolil dokončit technickou
+implementaci M6 bez čekání; toto povolení neotevírá acceptance gate. Product
+candidate je zmražený a Gate 0/attestační řetěz může být dokončen až po
+externích autoritách.
 
 ### Povinná validační matice
 
