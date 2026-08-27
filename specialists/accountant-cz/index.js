@@ -26,6 +26,10 @@ function extractAmountInline(input) {
   m = input.match(/(\d[\d\s,.]*\d?)\s*[mM](?:il)?(?:\s|$|,|\.|;)/);
   if (m) return parseFloat(m[1].replace(/[\s,]/g, '').replace(',', '.')) * 1000000;
 
+  // Common Czech word forms used in conversational amounts.
+  if (/\bp[ůu]l\s+milionu?\b/i.test(input)) return 500000;
+  if (/\b(?:jeden\s+)?milion(?:u)?\b/i.test(input)) return 1000000;
+
   // "850 tis", "850 tisíc"
   m = input.match(/(\d[\d\s,.]*\d?)\s*tis[ií]?c?(?:\s|$)/i);
   if (m) return parseFloat(m[1].replace(/[\s,]/g, '').replace(',', '.')) * 1000;
@@ -39,6 +43,70 @@ function extractAmountInline(input) {
   if (m) return parseInt(m[1]);
 
   return null;
+}
+
+function formatCZK(value) {
+  if (!Number.isFinite(value)) return '—';
+  return new Intl.NumberFormat('cs-CZ', {
+    style: 'currency',
+    currency: 'CZK',
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+export function renderTaxResult({ result }) {
+  if (!result || typeof result !== 'object') {
+    throw new TypeError('accountant.tax_calculator requires a structured result');
+  }
+
+  const isSro = result.entity_type === 'sro';
+  const totalTax = isSro ? result.total_tax : result.total_tax_burden;
+  const rows = isSro
+    ? [
+        ['Vstupní zisk', result.gross_income],
+        ['Zdanitelný zisk', result.taxable_profit],
+        ['Daň z příjmů právnických osob', result.corporate_tax],
+        ['Daň z dividendy', result.dividend_tax],
+        ['Celkové daňové zatížení', totalTax],
+        ['Čistý příjem po daních', result.net_income],
+      ]
+    : [
+        ['Hrubý příjem', result.gross_income],
+        ['Výdaje', result.expenses],
+        ['Základ daně', result.tax_base],
+        ['Daň z příjmů po slevách', result.income_tax],
+        ['Sociální pojištění', result.social_insurance],
+        ['Zdravotní pojištění', result.health_insurance],
+        ['Celkové daňové zatížení', totalTax],
+        ['Čistý příjem', result.net_income],
+      ];
+
+  const assumptions = Array.isArray(result.assumptions) ? result.assumptions : [];
+  const warnings = Array.isArray(result.warnings) ? result.warnings : [];
+  const lines = [
+    `## Daňový přehled — ${isSro ? 's.r.o.' : 'OSVČ'} (ČR, ${result.year})`,
+    '',
+    '| Položka | Výsledek |',
+    '|---|---:|',
+    ...rows.map(([label, value]) => `| ${label} | ${formatCZK(value)} |`),
+    `| Efektivní sazba | ${Number(result.effective_rate).toLocaleString('cs-CZ')} % |`,
+  ];
+
+  if (assumptions.length > 0) {
+    lines.push('', '### Předpoklady', '', ...assumptions.map(value => `- ${value}`));
+  }
+  if (warnings.length > 0) {
+    lines.push('', '### Upozornění', '', ...warnings.map(value => `- ${value}`));
+  }
+  lines.push(
+    '',
+    '### Nezahrnuje',
+    '',
+    '- Individuální okolnosti neuvedené ve vstupu a závazné posouzení daňovým poradcem.',
+    '',
+    '*Toto je informativní přehled, nikoli závazná daňová rada. Pro konkrétní daňové rozhodnutí konzultujte daňového poradce.*',
+  );
+  return lines.join('\n');
 }
 
 function extractYearInline(input) {
@@ -268,6 +336,7 @@ function buildToolDefinitions(toolsDir, ToolAdapter) {
       modulePath: path.join(toolsDir, 'tax-calc.js'),
       functionName: 'calculateTax',
       toolAdapter: new TaxCalculatorAdapter(),
+      renderResult: renderTaxResult,
       patterns: [{
         priority: 2,
         patterns: [

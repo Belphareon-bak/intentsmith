@@ -632,7 +632,26 @@ IMPORTANT RULES:
  * then wraps with expert persona via LLM for human-readable output.
  */
 async function executeSpecialistTool(input, toolResult, expertise, context) {
-  const { toolType, result, params } = toolResult;
+  const { toolType, result, params, presentation } = toolResult;
+
+  if (typeof presentation === 'string') {
+    const deterministicTag = new ResponseTag({
+      speaker: ResponseSpeaker.EXPERTISE,
+      mode: ChatMode.EXPERTISE,
+      confidence: 0.95,
+      canExecute: false,
+      metadata: {
+        expertiseSource: context.expertise?._source || 'manual',
+        expertise: { id: expertise.id, name: expertise.name, domain: expertise.domain },
+        executionStatus: 'SUCCESS',
+        toolResults: [{ type: toolType, data: result }],
+        specialistTool: toolType,
+        extractedParams: params,
+        deterministicPresentation: true,
+      },
+    });
+    return new TaggedResponse({ content: presentation, tag: deterministicTag });
+  }
 
   // Format tool result as content string
   const toolContent = JSON.stringify(result, null, 2);

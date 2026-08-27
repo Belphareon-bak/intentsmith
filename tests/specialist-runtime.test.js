@@ -167,6 +167,21 @@ async function runAsyncTests() {
   it('tryToolExecution returns tax result', () => {
     assert(taxResult);
     assert.equal(taxResult.toolType, 'accountant.tax_calculator');
+    assert.equal(typeof taxResult.presentation, 'string');
+    assert.match(taxResult.presentation, /Celkové daňové zatížení/);
+    assert.match(taxResult.presentation, /informativní přehled/);
+  });
+
+  const wordMillionTax = await specialistRuntime.tryToolExecution(
+    'accountant',
+    'Jakou celkovou dan z prijmu zaplatim pri primu milion korun jako zivnostnik?',
+  );
+  it('tax calculator parses a Czech word-million amount and renders it deterministically', () => {
+    assert(wordMillionTax);
+    assert.equal(wordMillionTax.params.gross_income, 1000000);
+    assert.equal(wordMillionTax.result.gross_income, 1000000);
+    assert.equal(typeof wordMillionTax.presentation, 'string');
+    assert.match(wordMillionTax.presentation, /1[^\d]*000[^\d]*000/);
   });
 
   const noMatch = await specialistRuntime.tryToolExecution('accountant', 'jaké je počasí?');

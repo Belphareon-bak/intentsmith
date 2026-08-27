@@ -253,7 +253,19 @@ class ToolExecutor {
         toolId: tool.id, paramsKeys: Object.keys(params), success: true,
       });
 
-      return { success: true, result: adapterResult.data, toolType: tool.id, params, duration, evidence };
+      const presentation = typeof tool.renderResult === 'function'
+        ? tool.renderResult({ result: adapterResult.data, evidence, params })
+        : null;
+      return {
+        success: true,
+        result: adapterResult.data,
+        toolType: tool.id,
+        params,
+        duration,
+        evidence,
+        presentation,
+        expertiseEvidence: tool.expertiseEvidence || null,
+      };
     }
 
     // Legacy path (tools without toolAdapter)
