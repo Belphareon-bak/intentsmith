@@ -11,13 +11,13 @@
 sjednotit scoring/evaluace a pokračovat přes všechny milníky až k jednomu
 review candidate.
 
-**Stav:** `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED`. Poslední nezávislé
+**Stav:** `IMPLEMENTATION_GREEN / PROVIDER_BLOCKED / REREVIEW_REQUIRED`.
+Poslední nezávislé
 rereview nad headem `40418aaf` skončilo `CHANGES_REQUIRED / NOT_ACCEPTED`.
-Navazující implementační candidate `0bd38b7d` uzavírá ABA response identity v
+Navazující product/test candidate `79328185` uzavírá ABA response identity v
 gatewayi, binding verification i autoritativním scoringu a odstraňuje osiřelou
-auto-failover autoritu. Starší `9f6e4828` prošel čistým `279/279` gate; po
-scoring změně je nový plný gate povinný a ani ten nebude nezávislé přijetí.
-Aktuální integrovaná evidence je v
+auto-failover autoritu. Finální čistý gate `2026-08-27T20-32-24-822Z` prošel
+`279/279`; ani ten není nezávislé přijetí. Aktuální integrovaná evidence je v
 [`model-evaluation-final-integration-20260826.md`](../execution/runs/model-evaluation-final-integration-20260826.md).
 
 ## 1. Uživatelský výsledek
@@ -164,7 +164,7 @@ tohoto WP.
 | M4 — sedm role suites a fail-closed minima | PASS |
 | M5 — API, CLI, Studio, governor, registry a dokumentace | PASS |
 | M6 — registry, hygiene a module-boundary ratchet | PASS |
-| M7 — clean deterministic + server-owned read E2E handoff | RERUN REQUIRED po scoring response-attestation `0bd38b7d` |
+| M7 — clean deterministic + server-owned read E2E handoff | PASS — `2026-08-27T20-32-24-822Z`, 279/279 na `79328185` |
 | M8 — provider response exact-artifact attestation | IMPLEMENTACE FAIL-CLOSED PASS; STOCK OLLAMA CAPABILITY BLOCKED |
 
 První nezávislé review: `CHANGES_REQUESTED`. Remediační R0–R7 opravily všech

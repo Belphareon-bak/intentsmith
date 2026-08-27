@@ -1,17 +1,16 @@
 # Model evaluation — remediační integrační handoff (2026-08-27)
 
-**Stav:** `IMPLEMENTATION_GREEN / FINAL_GATE_PENDING / REREVIEW_REQUIRED`
+**Stav:** `IMPLEMENTATION_GREEN / PROVIDER_BLOCKED / REREVIEW_REQUIRED`
 
 **Poslední nezávisle zamítnutý head:** `40418aafb3feba0671b15c3214ada409f4c03ff5`
 
 **Review base:** `74beafea439fdddbbb54e797d351dfe180b2d5f7`
 
-**Implementation candidate:** `0bd38b7d0ff2cd86ef4f3cf5b87ab53501ccba4e`
+**Product/test candidate:** `79328185c6da4d6dd8222cb4f15634ddc90ce5ce`
 
 **Snapshot/provenance tool:** `178aa592ee483096aaf69ebd1cca1ed4ca6be6c8`
 
-**Poslední clean gate source:** `9f6e4828d9aec9eaeaabc6b76c9262bf2a98df11`
-(nepokrývá pozdější scoring response-attestation)
+**Clean deterministic gate source:** `79328185c6da4d6dd8222cb4f15634ddc90ce5ce`
 
 Tento report nahrazuje chybný panel 40/17/34 z předchozí verze dokumentu.
 Nejde o nezávislé přijetí. Timer zůstává vypnutý a žádný GPU scoring se v
@@ -104,6 +103,9 @@ důkaz, nikoli přepsán následným během:
 | `2026-08-27T08-39-33-848Z` | čtyři opravené sady, diagnosticky nad dirty tree | 4 PASS / 0 FAIL | `3c314178d1e45a6f1c2fb5a58c0631872e5bfe4d2d4cf8b52b3a4130920b9f23` |
 | `2026-08-27T08-41-33-095Z` | 279 deterministic suites, clean source `0b7f1c27` | 279 PASS / 0 FAIL / 0 TIMEOUT / 0 BLOCKED / 0 SKIPPED | `a024c7a9632a24b36efa8e3601408d89a78372621f8c4349c1ad52e077991774` |
 | `2026-08-27T19-51-19-172Z` | 279 deterministic suites, clean source `9f6e4828` | 279 PASS / 0 FAIL / 0 TIMEOUT / 0 BLOCKED / 0 SKIPPED | `c6c9eb65702f6ccefdf831b27eb5895d375e78aeb682e40c761816fd22663921` |
+| `2026-08-27T20-19-10-435Z` | 279 deterministic suites, clean source `9fb3b575` | 278 PASS / 1 FAIL; E2E harness probe interně vypršel na 20 s | `197bf7d76672d4d5074eee3737ab743f2441f5e55d31d554dc2c391545468ab9` |
+| `2026-08-27T20-28-35-581Z` | opakovaný clean source `79328185` | `ABORTED / INFRA ENOSPC` po 74 PASS; bez finálního reportu | checkpoint `c4f57ca03699c4ad17b30385fff60e5e39a30b9c8ccfd979a63b39c4e9456336` |
+| `2026-08-27T20-32-24-822Z` | 279 deterministic suites, clean source `79328185` | 279 PASS / 0 FAIL / 0 TIMEOUT / 0 BLOCKED / 0 SKIPPED | `6bc0e13c40de73606024bf25c9f567992c50a581e8d9b602cca402b92f52ae3f` |
 
 Selhání byla: role-less governor fixture, neaktuální 096/83 migrační oracle,
 reviewed Gate 0 fingerprint stále na 278 sadách a meta-test, který zaměnil
@@ -113,8 +115,15 @@ auditní větev harnessu. Po nálezu ABA a osiřelé failover autority prošel n
 plný gate nad čistým `9f6e4828`, se sériovou concurrency 1 a bez povolených
 blocker bypassů. Jeho inventory SHA-256 je
 `2a4bade6ec5801fa828c9ef27d5d9f24dee42ddfed9b3bb6293196e42e173ca9`.
-Tento gate ale předchází `0bd38b7d`; finální clean rerun je proto povinný a
-zatím se nesmí odvodit z focused testů.
+Po scoring response-attestation první plný gate pravdivě selhal na interním
+20s meta-test limitu. Samostatná reprodukce prošla za 1,93 s; limit širokého
+importového probe byl proto zvýšen na 60 s uvnitř nezměněného 120s suite
+stropu. Další pokus byl přerušen plným `/home`; pět disposable runtime stromů
+bylo beze smazání přesunuto do
+`/tmp/intentsmith-gate-runtime-archive-owgAn5it`, zatímco reporty, inventory a
+logy zůstaly. Finální clean rerun na `79328185` prošel 279/279. Jeho inventory
+SHA-256 je
+`51a3e282b9da9d43a8081e5765a30d9698542beff1c0759ea0709150f1813419`.
 Poslední nezávislý gate 278/278
 patří zamítnutému `74beafea`; nelze jej vydávat za nezávislý důkaz tohoto
 kandidáta. Zbývající bránou je nové nezávislé rereview.
@@ -122,7 +131,7 @@ kandidáta. Zbývající bránou je nové nezávislé rereview.
 ## Aktuální strict-role scoring panel
 
 Read-only `ModelEvaluationReadModel` nad 13 přesnými artefakty a disposable
-projekcí živé DB v `2026-08-27T20:14:19.070Z`:
+projekcí živé DB v `2026-08-27T20:40:38.848Z`:
 
 | Role | COMPLETE | BLOCKED | MISSING | FAILED |
 |---|---:|---:|---:|---:|
@@ -150,9 +159,9 @@ Raw JSON:
 
 | Položka | Hodnota |
 |---|---|
-| snapshot SHA-256 | `602ade3844f2210544215388e48b821db76c6c5ea25ff620a13342a8c4fc630e` |
+| snapshot SHA-256 | `ae23c7d9d649d267718ac3499b46618c202adde1ef0628503cd8c49dd5c4e34d` |
 | živá source DB SHA-256 před i po | `e22d580f26b9b467eb2bf3774524206b3d95a36cdcdbc3902a08046e9e12c088` |
-| disposable projected DB SHA-256 | `9d5b78cfb8271b43aa01207c8037669ac086b7d0a73e73b3d805c39b5a7ea7cd` |
+| disposable projected DB SHA-256 | `dd8137892b09217a1ff112913d9fc2ee34fd8f4b1b9c1cf6fc4a1805a48f8ba7` |
 | projected DB | `quick_check=ok`, 88 historických/current stampů, 169 fyzických tabulek |
 | import audit | 664 ARCHIVED detailů, 92 VERIFIED summary, 0 QUARANTINED |
 | decisions po 097 | 22 current + 11 quarantined |
@@ -199,15 +208,15 @@ Snapshot potvrzuje:
 - prázdné `ollama ps`;
 - žádný NVIDIA compute proces.
 
-Stejné provozní podmínky byly znovu ověřeny bounded snapshotem v
-`2026-08-27T22:14:19+02:00`. Po finálním clean gate bude tento důkaz znovu
-vytvořen s fází `post-gate`. Živá DB zůstala byte-identická se SHA-256
+Stejné provozní podmínky byly znovu ověřeny skutečným `post-gate` snapshotem v
+`2026-08-27T22:40:38+02:00`. Živá DB zůstala byte-identická se SHA-256
 `e22d580f26b9b467eb2bf3774524206b3d95a36cdcdbc3902a08046e9e12c088`
 a `quick_check=ok`; candidate ji nemigroval.
 
 Timer se nesmí zapnout a 52 chybějících buněk se nesmí spustit před novým
-nezávislým PASS. Potom musí běžet sériově, GPU-only; model, který se celý
-nevejde do VRAM, se automaticky vyřadí jako `BLOCKED` se `score=NULL`.
+nezávislým PASS ani před přijetím response-attesting provider adaptéru. Potom
+musí běžet sériově, GPU-only; model, který se celý nevejde do VRAM, se
+automaticky vyřadí jako `BLOCKED` se `score=NULL`.
 
 ## Review handoff
 
@@ -222,5 +231,5 @@ pre-082 backup upgrade, nullable duration, A→B→A/no-response-digest rejectio
 v gatewayi, manual verification i scoring runneru, nulový telemetry veto call
 graph, absenci 11 auto-activation repository metod a snapshot source SHA
 před/po. Do jeho
-PASS zůstává pravdivý stav
-`IMPLEMENTATION_GREEN / REREVIEW_REQUIRED`.
+PASS a doplnění provider capability zůstává pravdivý stav
+`IMPLEMENTATION_GREEN / PROVIDER_BLOCKED / REREVIEW_REQUIRED`.

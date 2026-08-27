@@ -47,8 +47,9 @@
   telemetry veto. Poslední rereview nad `40418aaf` navíc našlo ABA response
   identity, zbytky auto-failover writerů a neúplnou snapshot provenienci.
   Product/test oprava `9f6e4828` prošla novým čistým 279/279 gate. Následný
-  `0bd38b7d` přenesl stejnou exact-response atestaci i do ukládaného scoringu;
-  po této změně čeká kandidát na nový plný gate a nezávislé rereview.
+  `0bd38b7d` přenesl stejnou exact-response atestaci i do ukládaného scoringu a
+  product/test head `79328185` prošel novým čistým 279/279 gate. Kandidát čeká
+  na nezávislé rereview a provider capability popsanou níže.
 - Automatický failover/proof issuance není jen vypnutý: veřejné auto-claim,
   proof selection, terminal, expiry/finalization a restart writery jsou
   odstraněné. Aktivace je ruční přes exact binding application.

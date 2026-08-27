@@ -1,0 +1,610 @@
+{
+  "schemaVersion": "intentsmith-model-evaluation-host-db-snapshot-v2",
+  "capturedAtStarted": "2026-08-27T20:40:38.848Z",
+  "capturedAtCompleted": "2026-08-27T20:40:39.213Z",
+  "evidencePhase": "post-gate",
+  "sourceDatabaseReadOnly": true,
+  "invocation": {
+    "cwd": "/home/belphareon/worktrees/is-model-scoring-final-20260826",
+    "command": [
+      "/home/belphareon/.nvm/versions/node/v22.21.1/bin/node",
+      "/home/belphareon/worktrees/is-model-scoring-final-20260826/scripts/model-evaluation-host-snapshot.js",
+      "--db=/home/belphareon/worktrees/is-model-scoring-final-20260826/.intentsmith-artifacts/model-evaluation-post-gate-20260827-v3/projected.sqlite",
+      "--source-db=/home/belphareon/Projects/intentsmith/data/c3.db",
+      "--create-projection",
+      "--phase=post-gate",
+      "--out=/home/belphareon/worktrees/is-model-scoring-final-20260826/docs/execution/runs/model-evaluation-host-db-snapshot-20260827-post-gate.json"
+    ]
+  },
+  "projectionProvenance": {
+    "mode": "CREATED_BY_THIS_INVOCATION",
+    "projectedDatabase": "/home/belphareon/worktrees/is-model-scoring-final-20260826/.intentsmith-artifacts/model-evaluation-post-gate-20260827-v3/projected.sqlite",
+    "sourceDatabase": "/home/belphareon/Projects/intentsmith/data/c3.db",
+    "declaredCreationCommand": null,
+    "executedByThisScript": true,
+    "migration": {
+      "applied": [
+        "2026_08_22_069_model_failover_runtime_finalization",
+        "2026_08_23_092_m2_effect_authority",
+        "2026_08_24_071_m2_effect_authority_hardening",
+        "2026_08_24_072_m2_effect_execution_claims",
+        "2026_08_24_073_m2_effect_claim_truth",
+        "2026_08_24_074_m2_tool_authority",
+        "2026_08_24_075_m2_tool_effect_links",
+        "2026_08_24_076_m2_tool_authority_truth",
+        "2026_08_24_077_m2_effect_invalidations",
+        "2026_08_24_078_m2_execution_authority",
+        "2026_08_24_079_m2_lifecycle_authority",
+        "2026_08_24_080_m2_effect_semantic_authority",
+        "2026_08_24_093_m2_effect_result_semantic_authority_v2",
+        "2026_08_25_094_m2_preexecution_approval_terminals",
+        "2026_08_25_095_m2_effect_rollback_receipts",
+        "2026_08_26_087_m4_learning_authority",
+        "2026_08_26_088_m4_learning_plan_evaluations",
+        "2026_08_26_089_m5_outbound_audit",
+        "2026_08_26_090_m5_privacy_authority",
+        "2026_08_26_091_m5_privacy_writer_authority",
+        "2026_08_26_096_model_evaluation_import_audit",
+        "2026_08_27_097_model_evaluation_role_identity",
+        "2026_08_27_099_remove_model_runtime_guard"
+      ],
+      "skippedCount": 62,
+      "log": [
+        "[2026-08-27T20:40:38.904Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applying: 2026_08_22_069_model_failover_runtime_finalization — Add failover runtime finalize receipts and proof-expiry health events",
+        "[2026-08-27T20:40:38.907Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applied: 2026_08_22_069_model_failover_runtime_finalization",
+        "[2026-08-27T20:40:38.907Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applying: 2026_08_23_092_m2_effect_authority — Add durable M2 effect and single-use approval authority",
+        "[2026-08-27T20:40:38.909Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applied: 2026_08_23_092_m2_effect_authority",
+        "[2026-08-27T20:40:38.909Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applying: 2026_08_24_071_m2_effect_authority_hardening — Harden pre-acceptance M2 effect authority schema",
+        "[2026-08-27T20:40:38.909Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applied: 2026_08_24_071_m2_effect_authority_hardening",
+        "[2026-08-27T20:40:38.909Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applying: 2026_08_24_072_m2_effect_execution_claims — Bind consumed M2 grants to durable execution owners and final schema",
+        "[2026-08-27T20:40:38.913Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applied: 2026_08_24_072_m2_effect_execution_claims",
+        "[2026-08-27T20:40:38.913Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applying: 2026_08_24_073_m2_effect_claim_truth — Harden M2 execution claim identities and result time ordering",
+        "[2026-08-27T20:40:38.914Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applied: 2026_08_24_073_m2_effect_claim_truth",
+        "[2026-08-27T20:40:38.914Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applying: 2026_08_24_074_m2_tool_authority — Persist exact M2 ToolRequest and terminal ToolResult authority",
+        "[2026-08-27T20:40:38.915Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applied: 2026_08_24_074_m2_tool_authority",
+        "[2026-08-27T20:40:38.915Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applying: 2026_08_24_075_m2_tool_effect_links — Bind M2 ToolRequest authority to one exact EffectRequest",
+        "[2026-08-27T20:40:38.916Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applied: 2026_08_24_075_m2_tool_effect_links",
+        "[2026-08-27T20:40:38.916Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applying: 2026_08_24_076_m2_tool_authority_truth — Preserve nullable-project tool denials and exact single-owner terminal truth",
+        "[2026-08-27T20:40:38.953Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applied: 2026_08_24_076_m2_tool_authority_truth",
+        "[2026-08-27T20:40:38.953Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applying: 2026_08_24_077_m2_effect_invalidations — Invalidate poisoned pending effects and enforce kind-specific terminal evidence",
+        "[2026-08-27T20:40:38.956Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applied: 2026_08_24_077_m2_effect_invalidations",
+        "[2026-08-27T20:40:38.956Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applying: 2026_08_24_078_m2_execution_authority — Add durable M2 project-change authority, fencing, and terminal truth",
+        "[2026-08-27T20:40:38.958Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applied: 2026_08_24_078_m2_execution_authority",
+        "[2026-08-27T20:40:38.958Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applying: 2026_08_24_079_m2_lifecycle_authority — Add durable exact M2 lifecycle, governance, approval, and terminal authority",
+        "[2026-08-27T20:40:38.961Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applied: 2026_08_24_079_m2_lifecycle_authority",
+        "[2026-08-27T20:40:38.961Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applying: 2026_08_24_080_m2_effect_semantic_authority — Bind approval grant constraints to immutable effect requests",
+        "[2026-08-27T20:40:38.963Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applied: 2026_08_24_080_m2_effect_semantic_authority",
+        "[2026-08-27T20:40:38.963Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applying: 2026_08_24_093_m2_effect_result_semantic_authority_v2 — Version EffectResult semantic authority and quarantine loose legacy terminals",
+        "[2026-08-27T20:40:38.966Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applied: 2026_08_24_093_m2_effect_result_semantic_authority_v2",
+        "[2026-08-27T20:40:38.966Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applying: 2026_08_25_094_m2_preexecution_approval_terminals — Close expired or revoked unstarted approvals with durable cancellation truth",
+        "[2026-08-27T20:40:38.969Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applied: 2026_08_25_094_m2_preexecution_approval_terminals",
+        "[2026-08-27T20:40:38.969Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applying: 2026_08_25_095_m2_effect_rollback_receipts — Record append-only standalone effect rollback observations",
+        "[2026-08-27T20:40:38.972Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applied: 2026_08_25_095_m2_effect_rollback_receipts",
+        "[2026-08-27T20:40:38.972Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applying: 2026_08_26_087_m4_learning_authority — Add append-only M4 same-project learning authority",
+        "[2026-08-27T20:40:38.974Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applied: 2026_08_26_087_m4_learning_authority",
+        "[2026-08-27T20:40:38.974Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applying: 2026_08_26_088_m4_learning_plan_evaluations — Persist append-only M4 plan evaluation evidence",
+        "[2026-08-27T20:40:38.976Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applied: 2026_08_26_088_m4_learning_plan_evaluations",
+        "[2026-08-27T20:40:38.976Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applying: 2026_08_26_089_m5_outbound_audit — Add append-only M5 outbound policy audit",
+        "[2026-08-27T20:40:38.977Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applied: 2026_08_26_089_m5_outbound_audit",
+        "[2026-08-27T20:40:38.977Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applying: 2026_08_26_090_m5_privacy_authority — Remove obsolete plaintext settings and add append-only M5 privacy receipts",
+        "[2026-08-27T20:40:38.979Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applied: 2026_08_26_090_m5_privacy_authority",
+        "[2026-08-27T20:40:38.979Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applying: 2026_08_26_091_m5_privacy_writer_authority — Require an opaque transport writer capability for M5 privacy receipts",
+        "[2026-08-27T20:40:38.981Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applied: 2026_08_26_091_m5_privacy_writer_authority",
+        "[2026-08-27T20:40:38.981Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applying: 2026_08_26_096_model_evaluation_import_audit — Audit and quarantine unverifiable legacy evaluation imports",
+        "[2026-08-27T20:40:38.983Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applied: 2026_08_26_096_model_evaluation_import_audit",
+        "[2026-08-27T20:40:38.983Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applying: 2026_08_27_097_model_evaluation_role_identity — Enforce role-specific model evaluation and decision identity",
+        "[2026-08-27T20:40:38.999Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applied: 2026_08_27_097_model_evaluation_role_identity",
+        "[2026-08-27T20:40:38.999Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applying: 2026_08_27_099_remove_model_runtime_guard — Remove obsolete telemetry-derived model runtime blacklist",
+        "[2026-08-27T20:40:38.999Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] Applied: 2026_08_27_099_remove_model_runtime_guard",
+        "[2026-08-27T20:40:38.999Z] \u001b[36m[INFO]\u001b[0m [C3:Migration] 23 migration(s) applied, 62 skipped"
+      ]
+    }
+  },
+  "actionsObserved": {
+    "disposableProjectionCreated": true,
+    "migrationsRunOnDisposableProjection": true,
+    "evidenceFileCreated": true,
+    "sourceDatabaseWritten": false,
+    "serviceOrTimerStarted": false,
+    "modelLoaded": false,
+    "scoringRunStarted": false
+  },
+  "sourceRevision": {
+    "command": [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    "exitCode": 0,
+    "signal": null,
+    "stdout": [
+      "79328185c6da4d6dd8222cb4f15634ddc90ce5ce"
+    ],
+    "stderr": []
+  },
+  "sourceDatabase": {
+    "before": {
+      "label": "c3.db",
+      "bytes": 5816320,
+      "modifiedAt": "2026-08-26T18:58:36.828Z",
+      "sha256": "e22d580f26b9b467eb2bf3774524206b3d95a36cdcdbc3902a08046e9e12c088",
+      "quickCheck": "ok",
+      "tableCount": 127,
+      "schemaMigrationCount": 65,
+      "lastVersions": [
+        {
+          "version": "2026_08_24_082_model_evaluation_consolidation",
+          "appliedAt": "2026-08-25 20:17:55"
+        },
+        {
+          "version": "2026_08_24_081_model_proof_trigger_compatibility",
+          "appliedAt": "2026-08-25 20:17:55"
+        },
+        {
+          "version": "2026_08_24_081_model_policy_trigger_compatibility",
+          "appliedAt": "2026-08-25 20:14:48"
+        },
+        {
+          "version": "2026_08_22_070_model_evaluation_history",
+          "appliedAt": "2026-08-23 12:26:37"
+        },
+        {
+          "version": "2026_08_22_068_model_evaluation_history",
+          "appliedAt": "2026-08-22 21:51:35"
+        },
+        {
+          "version": "2026_08_22_067_model_failover_proof_artifacts",
+          "appliedAt": "2026-08-22 16:13:28"
+        },
+        {
+          "version": "2026_08_22_066_model_automation_policy",
+          "appliedAt": "2026-08-22 16:13:28"
+        },
+        {
+          "version": "2026_08_10_062_model_failover_proof_issuance",
+          "appliedAt": "2026-08-10 18:36:19"
+        }
+      ],
+      "authorityTables": [
+        "model_evaluation_runs",
+        "model_evaluation_decisions"
+      ],
+      "retiredV123Tables": [],
+      "telemetryBlacklistTablePresent": true,
+      "evaluationRunStatus": [
+        {
+          "status": "BLOCKED",
+          "count": 178,
+          "minCompletedAt": "2026-08-17 21:21:52",
+          "maxCompletedAt": "2026-08-25T21:21:15.166Z"
+        },
+        {
+          "status": "COMPLETE",
+          "count": 92,
+          "minCompletedAt": "2026-08-22T23:49:46.826Z",
+          "maxCompletedAt": "2026-08-25T21:31:09.963Z"
+        }
+      ],
+      "decisionCount": 33,
+      "roleConsistentDecisionCount": 22,
+      "decisionQuarantineCount": null,
+      "importAuditStatus": []
+    },
+    "after": {
+      "label": "c3.db",
+      "bytes": 5816320,
+      "modifiedAt": "2026-08-26T18:58:36.828Z",
+      "sha256": "e22d580f26b9b467eb2bf3774524206b3d95a36cdcdbc3902a08046e9e12c088",
+      "quickCheck": "ok",
+      "tableCount": 127,
+      "schemaMigrationCount": 65,
+      "lastVersions": [
+        {
+          "version": "2026_08_24_082_model_evaluation_consolidation",
+          "appliedAt": "2026-08-25 20:17:55"
+        },
+        {
+          "version": "2026_08_24_081_model_proof_trigger_compatibility",
+          "appliedAt": "2026-08-25 20:17:55"
+        },
+        {
+          "version": "2026_08_24_081_model_policy_trigger_compatibility",
+          "appliedAt": "2026-08-25 20:14:48"
+        },
+        {
+          "version": "2026_08_22_070_model_evaluation_history",
+          "appliedAt": "2026-08-23 12:26:37"
+        },
+        {
+          "version": "2026_08_22_068_model_evaluation_history",
+          "appliedAt": "2026-08-22 21:51:35"
+        },
+        {
+          "version": "2026_08_22_067_model_failover_proof_artifacts",
+          "appliedAt": "2026-08-22 16:13:28"
+        },
+        {
+          "version": "2026_08_22_066_model_automation_policy",
+          "appliedAt": "2026-08-22 16:13:28"
+        },
+        {
+          "version": "2026_08_10_062_model_failover_proof_issuance",
+          "appliedAt": "2026-08-10 18:36:19"
+        }
+      ],
+      "authorityTables": [
+        "model_evaluation_runs",
+        "model_evaluation_decisions"
+      ],
+      "retiredV123Tables": [],
+      "telemetryBlacklistTablePresent": true,
+      "evaluationRunStatus": [
+        {
+          "status": "BLOCKED",
+          "count": 178,
+          "minCompletedAt": "2026-08-17 21:21:52",
+          "maxCompletedAt": "2026-08-25T21:21:15.166Z"
+        },
+        {
+          "status": "COMPLETE",
+          "count": 92,
+          "minCompletedAt": "2026-08-22T23:49:46.826Z",
+          "maxCompletedAt": "2026-08-25T21:31:09.963Z"
+        }
+      ],
+      "decisionCount": 33,
+      "roleConsistentDecisionCount": 22,
+      "decisionQuarantineCount": null,
+      "importAuditStatus": []
+    },
+    "byteIdenticalDuringSnapshot": true
+  },
+  "projectedDatabase": {
+    "label": "projected.sqlite",
+    "bytes": 6897664,
+    "modifiedAt": "2026-08-27T20:40:39.003Z",
+    "sha256": "dd8137892b09217a1ff112913d9fc2ee34fd8f4b1b9c1cf6fc4a1805a48f8ba7",
+    "quickCheck": "ok",
+    "tableCount": 169,
+    "schemaMigrationCount": 88,
+    "lastVersions": [
+      {
+        "version": "2026_08_27_099_remove_model_runtime_guard",
+        "appliedAt": "2026-08-27 20:40:38"
+      },
+      {
+        "version": "2026_08_27_097_model_evaluation_role_identity",
+        "appliedAt": "2026-08-27 20:40:38"
+      },
+      {
+        "version": "2026_08_26_096_model_evaluation_import_audit",
+        "appliedAt": "2026-08-27 20:40:38"
+      },
+      {
+        "version": "2026_08_26_091_m5_privacy_writer_authority",
+        "appliedAt": "2026-08-27 20:40:38"
+      },
+      {
+        "version": "2026_08_26_090_m5_privacy_authority",
+        "appliedAt": "2026-08-27 20:40:38"
+      },
+      {
+        "version": "2026_08_26_089_m5_outbound_audit",
+        "appliedAt": "2026-08-27 20:40:38"
+      },
+      {
+        "version": "2026_08_26_088_m4_learning_plan_evaluations",
+        "appliedAt": "2026-08-27 20:40:38"
+      },
+      {
+        "version": "2026_08_26_087_m4_learning_authority",
+        "appliedAt": "2026-08-27 20:40:38"
+      }
+    ],
+    "authorityTables": [
+      "model_evaluation_runs",
+      "model_evaluation_decisions",
+      "model_evaluation_decision_quarantine",
+      "model_evaluation_import_audits"
+    ],
+    "retiredV123Tables": [],
+    "telemetryBlacklistTablePresent": false,
+    "evaluationRunStatus": [
+      {
+        "status": "BLOCKED",
+        "count": 178,
+        "minCompletedAt": "2026-08-17 21:21:52",
+        "maxCompletedAt": "2026-08-25T21:21:15.166Z"
+      },
+      {
+        "status": "COMPLETE",
+        "count": 92,
+        "minCompletedAt": "2026-08-22T23:49:46.826Z",
+        "maxCompletedAt": "2026-08-25T21:31:09.963Z"
+      }
+    ],
+    "decisionCount": 22,
+    "roleConsistentDecisionCount": 22,
+    "decisionQuarantineCount": 11,
+    "importAuditStatus": [
+      {
+        "status": "ARCHIVED",
+        "count": 664
+      },
+      {
+        "status": "VERIFIED",
+        "count": 92
+      }
+    ]
+  },
+  "readModel": {
+    "generatedAt": "2026-08-27T20:40:39.087Z",
+    "authority": {
+      "status": "READY",
+      "tables": [
+        "model_evaluation_runs",
+        "model_evaluation_decisions"
+      ],
+      "currentContractOnly": true,
+      "legacyFallback": false
+    },
+    "bindingAuthority": {
+      "status": "UNVERIFIED_RUNTIME",
+      "durableRoles": [
+        "CHAT",
+        "CODE",
+        "D1",
+        "D2",
+        "R1",
+        "R2",
+        "VISION"
+      ],
+      "verifiedRoles": [],
+      "reason": "MODEL_BINDING_RUNTIME_NOT_OBSERVED",
+      "failures": []
+    },
+    "artifactCount": 13,
+    "artifacts": [
+      {
+        "name": "qwen3.6:27b-mtp-q4_k_m",
+        "canonicalName": "qwen3.6:27b-mtp-q4_k_m",
+        "digestSha256": "21c6dd8f67de6708ecf297561045b2c76587828b505bb90897267f62fd38a861",
+        "size": 17769077271,
+        "modifiedAt": "2026-08-23T18:05:46.337364735+02:00"
+      },
+      {
+        "name": "phi4:14b",
+        "canonicalName": "phi4:14b",
+        "digestSha256": "ac896e5b8b34a1f4efa7b14d7520725140d5512484457fab45d2a4ea14c69dba",
+        "size": 9053116391,
+        "modifiedAt": "2026-08-23T09:08:36.746287184+02:00"
+      },
+      {
+        "name": "mistral-small:22b-instruct-2409-q6_k",
+        "canonicalName": "mistral-small:22b-instruct-2409-q6_k",
+        "digestSha256": "5113380707de9b21b6c726a98b4acf6a5b8367e7d4e78d2eba791285f6d36a85",
+        "size": 18252716205,
+        "modifiedAt": "2026-08-23T08:46:57.125984716+02:00"
+      },
+      {
+        "name": "qwen3.8:latest",
+        "canonicalName": "qwen3.8",
+        "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+        "size": 17741872154,
+        "modifiedAt": "2026-08-23T01:35:22.827575346+02:00"
+      },
+      {
+        "name": "qwen3-coder:latest",
+        "canonicalName": "qwen3-coder",
+        "digestSha256": "06c1097efce0431c2045fe7b2e5108366e43bee1b4603a7aded8f21689e90bca",
+        "size": 18556700761,
+        "modifiedAt": "2026-08-20T00:56:20.005274296+02:00"
+      },
+      {
+        "name": "llava-llama3:8b",
+        "canonicalName": "llava-llama3:8b",
+        "digestSha256": "44c161b1f46523301da9c0cc505afa4a4a0cc62f580581d98a430bb21acd46de",
+        "size": 5545682182,
+        "modifiedAt": "2026-03-25T22:04:04.262605238+01:00"
+      },
+      {
+        "name": "qwen3:14b",
+        "canonicalName": "qwen3:14b",
+        "digestSha256": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+        "size": 9276198565,
+        "modifiedAt": "2026-03-18T16:26:13.50361838+01:00"
+      },
+      {
+        "name": "qwen3.5:27b",
+        "canonicalName": "qwen3.5:27b",
+        "digestSha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+        "size": 17420432728,
+        "modifiedAt": "2026-03-07T21:17:23.290013191+01:00"
+      },
+      {
+        "name": "llava:13b",
+        "canonicalName": "llava:13b",
+        "digestSha256": "0d0eb4d7f485d7d0a21fd9b0c1d5b04da481d2150a097e81b64acb59758fdef6",
+        "size": 8011256494,
+        "modifiedAt": "2026-01-11T23:06:24.528657147+01:00"
+      },
+      {
+        "name": "qwen2.5-coder:32b",
+        "canonicalName": "qwen2.5-coder:32b",
+        "digestSha256": "ccd10f08d93f089b72c28b98e78803d5608fbde74f38a3cf4f1ce3562a3f624e",
+        "size": 19851336281,
+        "modifiedAt": "2026-01-08T22:40:33.038910618+01:00"
+      },
+      {
+        "name": "qwen2.5:32b",
+        "canonicalName": "qwen2.5:32b",
+        "digestSha256": "9f13ba1299afea09d9a956fc6a85becc99115a6d596fae201a5487a03bdc4368",
+        "size": 19851349669,
+        "modifiedAt": "2026-01-05T23:04:35.392099759+01:00"
+      },
+      {
+        "name": "deepseek-r1-32b:latest",
+        "canonicalName": "deepseek-r1-32b",
+        "digestSha256": "8eb130aa133f0e36335ca74c37a2cf942788a658912e5be54b8af87b8942b3e5",
+        "size": 18784410147,
+        "modifiedAt": "2026-01-04T15:00:05.728707488+01:00"
+      },
+      {
+        "name": "qwen3-30b-a3b:latest",
+        "canonicalName": "qwen3-30b-a3b",
+        "digestSha256": "dc0b52b99d0e4310b0e74d1b5c0b4af3459537614523b84d94ce62a7c5f99201",
+        "size": 17456010185,
+        "modifiedAt": "2026-01-04T14:58:52.584237151+01:00"
+      }
+    ],
+    "roles": {
+      "D1": {
+        "COMPLETE": 5,
+        "BLOCKED": 3,
+        "MISSING": 5,
+        "FAILED": 0
+      },
+      "D2": {
+        "COMPLETE": 1,
+        "BLOCKED": 0,
+        "MISSING": 12,
+        "FAILED": 0
+      },
+      "R1": {
+        "COMPLETE": 0,
+        "BLOCKED": 0,
+        "MISSING": 13,
+        "FAILED": 0
+      },
+      "CODE": {
+        "COMPLETE": 7,
+        "BLOCKED": 3,
+        "MISSING": 3,
+        "FAILED": 0
+      },
+      "R2": {
+        "COMPLETE": 7,
+        "BLOCKED": 3,
+        "MISSING": 3,
+        "FAILED": 0
+      },
+      "CHAT": {
+        "COMPLETE": 6,
+        "BLOCKED": 2,
+        "MISSING": 5,
+        "FAILED": 0
+      },
+      "VISION": {
+        "COMPLETE": 2,
+        "BLOCKED": 0,
+        "MISSING": 11,
+        "FAILED": 0
+      }
+    },
+    "totals": {
+      "COMPLETE": 28,
+      "BLOCKED": 11,
+      "MISSING": 52,
+      "FAILED": 0
+    },
+    "currentTestedAtRange": {
+      "min": "2026-08-25T20:24:21.425Z",
+      "max": "2026-08-25T21:31:09.963Z"
+    },
+    "decisionCount": 22,
+    "actionableDecisionCount": 0
+  },
+  "host": {
+    "timerEnabled": {
+      "command": [
+        "systemctl",
+        "--user",
+        "is-enabled",
+        "intentsmith-model-hunt.timer"
+      ],
+      "exitCode": 1,
+      "signal": null,
+      "stdout": [
+        "disabled"
+      ],
+      "stderr": []
+    },
+    "timerActive": {
+      "command": [
+        "systemctl",
+        "--user",
+        "is-active",
+        "intentsmith-model-hunt.timer"
+      ],
+      "exitCode": 3,
+      "signal": null,
+      "stdout": [
+        "inactive"
+      ],
+      "stderr": []
+    },
+    "serviceActive": {
+      "command": [
+        "systemctl",
+        "--user",
+        "is-active",
+        "intentsmith-model-hunt.service"
+      ],
+      "exitCode": 3,
+      "signal": null,
+      "stdout": [
+        "inactive"
+      ],
+      "stderr": []
+    },
+    "scheduledHuntTimers": {
+      "command": [
+        "systemctl",
+        "--user",
+        "list-timers",
+        "--all",
+        "--no-legend"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "stdout": [],
+      "stderr": []
+    },
+    "ollamaProcesses": {
+      "command": [
+        "ollama",
+        "ps"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "stdout": [
+        "NAME    ID    SIZE    PROCESSOR    CONTEXT    UNTIL"
+      ],
+      "stderr": []
+    },
+    "nvidiaComputeProcesses": {
+      "command": [
+        "nvidia-smi",
+        "--query-compute-apps=pid,process_name,used_gpu_memory",
+        "--format=csv,noheader,nounits"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "stdout": [],
+      "stderr": []
+    },
+    "nvidiaGpu": {
+      "command": [
+        "nvidia-smi",
+        "--query-gpu=name,memory.total,memory.free,utilization.gpu",
+        "--format=csv,noheader,nounits"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "stdout": [
+        "NVIDIA GeForce RTX 3090, 24576, 23045, 6"
+      ],
+      "stderr": []
+    }
+  }
+}
