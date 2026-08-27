@@ -93,6 +93,7 @@ function safeEnvironment(runtime, portFile) {
     TMP: runtime.temp,
     TEMP: runtime.temp,
     npm_config_cache: runtime.npmCache,
+    PUPPETEER_SKIP_DOWNLOAD: 'true',
     NODE_ENV: 'test',
     CI: '1',
     DOTENV_CONFIG_PATH: path.join(runtime.root, 'no-dotenv-file'),
@@ -281,6 +282,21 @@ function databaseFileIdentity(databasePath) {
   return sha256(`m6-sqlite-file-v1\0${metadata.dev}\0${metadata.ino}`);
 }
 
+function projectMetadata(project, projectsRoot) {
+  assert.equal(typeof project?.path, 'string', 'upgraded canary has no project path');
+  const canonicalProjectsRoot = path.resolve(projectsRoot);
+  const canonicalProjectPath = path.resolve(project.path);
+  const relativeProjectPath = path.relative(canonicalProjectsRoot, canonicalProjectPath);
+  assert.ok(
+    relativeProjectPath !== ''
+      && relativeProjectPath !== '..'
+      && !relativeProjectPath.startsWith(`..${path.sep}`)
+      && !path.isAbsolute(relativeProjectPath),
+    'upgraded canary escaped the owned projects root',
+  );
+  return JSON.parse(readFileSync(path.join(canonicalProjectPath, '.c3', 'project.json'), 'utf8'));
+}
+
 async function main() {
   const namespace = assertLoopbackNetworkNamespace();
   const candidateSha = git(SOURCE_ROOT, ['rev-parse', 'HEAD']);
@@ -343,7 +359,10 @@ async function main() {
     const upgradedCanary = afterList.json.projects.find(project => project.id === canaryId);
     assert.equal(upgradedCanary?.name, M6_UPGRADE_CANARY.name);
     assert.equal(upgradedCanary?.description, M6_UPGRADE_CANARY.description);
-    assert.equal(upgradedCanary?.type, M6_UPGRADE_CANARY.type);
+    const upgradedCanaryMetadata = projectMetadata(upgradedCanary, runtime.projects);
+    assert.equal(upgradedCanaryMetadata.name, M6_UPGRADE_CANARY.name);
+    assert.equal(upgradedCanaryMetadata.description, M6_UPGRADE_CANARY.description);
+    assert.equal(upgradedCanaryMetadata.type, M6_UPGRADE_CANARY.type);
     await stopServer(currentServer);
     currentServer = null;
     const currentMigrationCount = migrationCount(runtime.database);
@@ -368,8 +387,8 @@ async function main() {
       canary: {
         id: canaryId,
         name: upgradedCanary.name,
-        description: upgradedCanary.description,
-        type: upgradedCanary.type,
+        description: upgradedCanaryMetadata.description,
+        type: upgradedCanaryMetadata.type,
         survivedUpgrade: true,
       },
       previousServerCleanShutdown: true,
