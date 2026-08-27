@@ -3,8 +3,8 @@
 // Soak Test: Follow-up Load — 200 turns across scenario types
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// NOT a pass/fail test. Generates distribution data for telemetry analysis.
-// Only asserts no-throw. Prints intent/followup type distribution summary.
+// Deterministic crash-resistance probe that prints regex-fallback distribution
+// data. The real M6 24-hour runtime evidence is produced separately.
 //
 // Run: node tests/soak/followup-load.test.js
 // ══════════════════════════════════════════════════════════════════════════════
@@ -21,6 +21,7 @@ import {
 } from '../../src/chat/handlers/utils/followup.js';
 
 const engine = new CREDecisionEngine();
+engine._llmClassifyIntent = async () => null;
 let crashes = 0;
 let total = 0;
 

@@ -6,7 +6,8 @@
 // Stress-tests CRE on very short inputs — the hardest classification edge.
 // Mix of CZ/EN, 1-word to 3-word phrases, pronouns, commands, greetings.
 //
-// NOT a pass/fail test. Only asserts no-throw.
+// Deterministic crash-resistance probe, not the M6 release soak. The real
+// 24-hour runtime evidence is produced by m6-long-soak.e2e.js.
 //
 // Run: node tests/soak/short-input-stress.test.js
 // ══════════════════════════════════════════════════════════════════════════════
@@ -23,6 +24,7 @@ import {
 } from '../../src/chat/handlers/utils/followup.js';
 
 const engine = new CREDecisionEngine();
+engine._llmClassifyIntent = async () => null;
 let crashes = 0;
 let total = 0;
 

@@ -6,7 +6,8 @@
 // Simulates 20 multi-turn conversations (5-10 turns each).
 // Carries lastDecision forward between turns to test real conversation flow.
 //
-// NOT a pass/fail test. Only asserts no-throw.
+// Deterministic crash-resistance probe, not the M6 release soak. The real
+// 24-hour runtime evidence is produced by m6-long-soak.e2e.js.
 //
 // Run: node tests/soak/mixed-session-simulation.test.js
 // ══════════════════════════════════════════════════════════════════════════════
@@ -23,6 +24,7 @@ import {
 } from '../../src/chat/handlers/utils/followup.js';
 
 const engine = new CREDecisionEngine();
+engine._llmClassifyIntent = async () => null;
 let crashes = 0;
 let totalTurns = 0;
 
