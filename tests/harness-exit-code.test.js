@@ -48,6 +48,11 @@ const isolationHelperPath = realpathSync(
   join(__dirname, 'helpers', 'isolated-test-db.js'),
 );
 const fixtureDir = mkdtempSync(join(tmpdir(), 'c3-harness-meta-'));
+// This probe imports the broad E2E harness and database graph. It verifies
+// isolation and cleanup, not startup latency; keep its child timeout below the
+// registry suite's 120-second ceiling without false-failing on transient host
+// contention observed during the full serial audit.
+const E2E_HARNESS_PROBE_TIMEOUT_MS = 60_000;
 const directParentPath = join(
   repositoryRoot,
   '.intentsmith-artifacts',
@@ -690,7 +695,7 @@ console.log('ISOLATION_PROBE:' + JSON.stringify(probe));
 `);
   const directE2eHarnessProbe = runFixture(
     directE2eHarnessProbeFixture,
-    { raw: true, timeout: 20_000 },
+    { raw: true, timeout: E2E_HARNESS_PROBE_TIMEOUT_MS },
   );
   assert.equal(
     directE2eHarnessProbe.error,
