@@ -1112,7 +1112,7 @@ summary();
   );
   assert.match(
     failingSpecialistRuntime.stdout,
-    /Specialist Runtime:\s*22\/23 PASS,\s*1 FAIL/,
+    /Specialist Runtime:\s*23\/24 PASS,\s*1 FAIL/,
   );
   assert.match(
     failingSpecialistRuntime.stdout,

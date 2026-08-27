@@ -20,6 +20,7 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
+import './helpers/isolated-test-db.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 

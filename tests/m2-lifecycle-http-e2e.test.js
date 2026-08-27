@@ -4,6 +4,7 @@
 // deliberately not exercised: the only mutating authority is the strict M2
 // prepare -> exact approval -> terminal chain.
 
+import './helpers/isolated-test-db.js';
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
