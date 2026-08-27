@@ -159,7 +159,7 @@ tohoto WP.
 | M4 — sedm role suites a fail-closed minima | PASS |
 | M5 — API, CLI, Studio, governor, registry a dokumentace | PASS |
 | M6 — registry, hygiene a module-boundary ratchet | PASS |
-| M7 — clean deterministic + server-owned read E2E handoff | PASS (278/278 at `5f11a4b1`) |
+| M7 — clean deterministic + server-owned read E2E handoff | RERUN REQUIRED po remediaci `13413117` |
 
 První nezávislé review: `CHANGES_REQUESTED`. Remediační R0–R7 opravily všech
 devět nálezů: úplnou suite identity, upgrade okno 070→082, governor reader,

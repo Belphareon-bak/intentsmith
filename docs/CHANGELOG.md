@@ -8,6 +8,24 @@
 
 ---
 
+## v136.6 — role-strict evaluace a exact runtime artefakt (2026-08-27)
+
+- Role je součástí run uniqueness, history/read/cache lookupů i obou stran
+  decision lineage. Migrace 097 zachová 22 role-consistent decisions a 11
+  cross-role řádků přesune do append-only karantény.
+- Skutečná pre-082 záloha projde standardním runnerem: compatibility triggery
+  se opraví před rebuildem 076, nullable legacy duration se normalizuje a
+  import audit 096 toleruje pouze strojový REAL roundtrip.
+- `DURABLE` nese exact digest všech rolí. Registry vyžaduje současný inventory
+  a gateway kontroluje artefakt pod lease před provider requestem i po
+  odpovědi; same-tag digest drift se nevydá ani nezapíše jako úspěch.
+- Telemetry-derived blacklist, manual-binding veto, discovery filtr a
+  `runtime_state` API byly odstraněny; migrace 099 dropne starou guard tabulku.
+  Raw provozní signal events zůstávají pouze diagnostická data.
+- Osiřelé automatické application/failover porty byly odstraněny. Strict-role
+  read-only panel je 28 COMPLETE / 11 BLOCKED / 52 MISSING / 0 FAILED a čeká
+  na nový plný gate a nezávislé rereview; timer zůstává vypnutý.
+
 ## v136.5 — upgrade-safe evaluace a pravdivá binding autorita (2026-08-26)
 
 - Obnoveny neměnné migrační identity 081/081/082. Omylem zavedené identity

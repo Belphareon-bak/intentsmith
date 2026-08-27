@@ -1,7 +1,7 @@
 # 030 — Jedna current-contract autorita modelových evaluací
 
 **Stav:** `CHANGES_REQUESTED` po navazujícím review · **Datum:** 2026-08-26
-**WP:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Migrace:** 082
+**WP:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Migrace:** 082, 096, 097, 099
 
 ## Kontext
 
@@ -53,6 +53,10 @@ odstranit; C3 repo zůstává případnou historickou referencí.
   neověřitelný či malformed usage řádek retenci zablokuje, nikoli uvolní;
 - historické docs a migrace mohou obsahovat staré názvy, ale produkční source,
   route, registry a aktivní test ledger ne;
+- role je součást exact run identity i decision lineage; role-neutral měření by
+  vyžadovalo vlastní explicitní schema a nové rozhodnutí;
+- raw telemetry smí zůstat diagnostická, ale nesmí produkovat derived
+  `disabled` stav ani vstupovat do manual bindingu či discovery;
 - implementační green znamenal nejvýše `REVIEW_PENDING`; candidate `d8a2a108`
   přešel na `ACCEPTED` po nezávislém rereview a reprodukci `227/227` v runu
   `2026-08-25T17-15-48-322Z`; navazující review později našlo blokující

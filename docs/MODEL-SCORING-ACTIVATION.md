@@ -1,6 +1,6 @@
 # Modelové evaluace a aktivace
 
-**Stav:** současný kontrakt v136.1 · **Aktualizováno:** 2026-08-26
+**Stav:** současný kontrakt v136.1 · **Aktualizováno:** 2026-08-27
 **Implementace:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Přijetí:**
 implementace green, čeká na nezávislé rereview post-review remediace
 
@@ -15,7 +15,7 @@ evaluace a oddělená, ručně autorizovaná cesta pro změnu bindingu.
 2. `scripts/model-upgrade-hunt.js` spouští role-specific párové měření na
    přesných Ollama artefaktech. Měření je sériové a předpokládá volný GPU slot.
 3. `model_evaluation_runs` je append-only historie. Aktuální je pouze řádek se
-   shodným digestem artefaktu a dnešním suite contract SHA.
+   shodným digestem artefaktu, rolí a dnešním suite contract SHA.
 4. `model_evaluation_decisions` je append-only rozhodnutí odkazující na oba
    přesné COMPLETE runy a na použitou politiku.
 5. `ModelEvaluationReadModel` je jediný reader pro API, CLI, Studio, governor a
@@ -29,6 +29,8 @@ evaluace a oddělená, ručně autorizovaná cesta pro změnu bindingu.
    mismatch nebo digest mismatch ponechá nemodelové route dostupné, ale
    zveřejní binding autoritu `DEGRADED`; žádné candidate rozhodnutí pak není
    akční a jinak připravený kandidát nese `BINDING_AUTHORITY_DEGRADED`.
+   Gateway stejný exact digest kontroluje znovu pod model-use lease před POST a
+   po odpovědi. Driftující odpověď se nevrátí ani nezapíše jako úspěšný usage.
 
 Suite contract nehashuje zdroj wrapper closure. Hashuje explicitní skutečný
 prompt, language, rubric, grader a jeho uzavřené vstupy, options a repeats.
@@ -37,9 +39,11 @@ VISION přidává SHA-256 dekódovaných image bytes a CODE přesný výstup
 zastaví sestavení plánu; starý run se proto po sémantické změně promptu nemůže
 znovu vydávat za current.
 
-Discovery prior je pouze levné pořadí kandidátů. Katalog, universe ani externí
-benchmark se neukládají jako lokální quality score a nesmějí být zobrazeny
-jako důkaz kvality.
+Discovery prior je pouze levné pořadí kandidátů. Katalog, universe, raw runtime
+telemetry ani externí benchmark se neukládají jako lokální quality score a
+nesmějí být zobrazeny jako důkaz kvality. Telemetry nesmí vytvářet blacklist,
+veto bindingu ani discovery filtr; starou derived guard tabulku odstraňuje
+migrace 099.
 
 ## Co lze číst
 
@@ -90,7 +94,7 @@ Migrace 082 před dropem starých tabulek kontroluje import, jejich obsah uklád
 do `model_evaluation_import_evidence` a teprve potom odstraňuje
 `validation_results` a `validation_suite_scores`. Historické migrace a review
 dokumenty zůstávají reprodukovatelnou auditní stopou, nikoli fallbackem.
-Souhrny zapsané legitimně mezi migracemi 070 a 082 nejprve doplní jako
+Souhrny zapsané legitimně mezi migracemi 070 a 082 se nejprve doplní jako
 nepoužitelnou `BLOCKED / LEGACY_EXACT_IDENTITY_UNKNOWN` evidenci; server kvůli
 nim při upgradu nespadne.
 
@@ -105,9 +109,9 @@ nim při upgradu nespadne.
 - Rychlost zůstává provozní metrika. Při nedostatečném kvalitativním důkazu
   nesmí vyrobit vítěze; decision outcome používá stabilní `reasonCode`, ne
   porovnání lokalizovaného textu `basis`.
-- Usage digest se bere z identity vrácené providerem nebo z exact `/api/tags`
-  inventory pod aktivním model-use lease. Desired binding není důkaz obsloužené
-  identity. Neověřitelná identita se zapíše jako `NULL` a cleanup fail-close
-  nemaže.
+- Usage digest se bere z exact `/api/tags` inventory pod aktivním model-use
+  lease a znovu se ověří proti provider response. Desired binding není důkaz
+  obsloužené identity. Neověřitelná či driftující odpověď není úspěch, nevrátí
+  se klientovi a nevytvoří kladný usage záznam; cleanup dál fail-close nemaže.
 - Automatický failover/proof issuer není tímto kontraktem zapnut. Případné
   budoucí zapnutí vyžaduje nové rozhodnutí a current-contract review.

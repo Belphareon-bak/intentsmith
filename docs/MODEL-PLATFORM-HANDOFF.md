@@ -1,8 +1,8 @@
 # Modelová platforma — aktuální handoff
 
-**Datum:** 2026-08-26 · **Stav:** `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED`
+**Datum:** 2026-08-27 · **Stav:** `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED`
 **Autoritativní popis:** [MODEL-SCORING-ACTIVATION.md](MODEL-SCORING-ACTIVATION.md)
-**Evidence:** [post-review remediation](execution/runs/model-evaluation-review-remediation-2-20260826.md)
+**Evidence:** [finální remediační handoff](execution/runs/model-evaluation-final-integration-20260826.md)
 
 ## Co je hotové v review kandidátovi
 
@@ -36,21 +36,22 @@
 
 ## Acceptance hranice a zbývající omezení
 
-- Remediace nespouštěla nový ostrý panel. Read-only snapshot po čistém gate má
-  pro 13 installed artefaktů 40 `COMPLETE`, 17 `BLOCKED` a 34 `MISSING`
+- Remediace nespouštěla nový ostrý panel. Role-strict read-only snapshot pro 13
+  installed artefaktů má 28 `COMPLETE`, 11 `BLOCKED` a 52 `MISSING`
   artifact/role buněk pod současnými contracty. Scoring panel tedy není úplný;
-  starší contracty se automaticky nepovyšují.
+  starší contracty ani run jiné role se automaticky nepovyšují.
 - Dřívější nezávislý rereview nad candidatem `d8a2a108` skončil `PASS`, ale
   pozdější review rozsahu `e8c1ba85..96c762db` našlo číselné kolize migrací a
-  review rozsahu `96c762db..4169c59d` následně prokázalo nebezpečný upgrade a
-  nepravdivý startup stav `DURABLE`. Oba HIGH nálezy jsou implementačně
-  opravené, ale kandidát čeká na nové nezávislé rereview.
+  review rozsahu `96c762db..4169c59d` a `c5aa379a..74beafea` následně prokázala
+  nebezpečný upgrade, cross-role leakage, nepravdivý startup stav `DURABLE` a
+  telemetry veto. Nálezy jsou implementačně opravené na `13413117`, ale
+  kandidát čeká na nový plný gate a nezávislé rereview.
 - Automatický failover/proof issuance zůstává vypnutý; aktivace je ruční přes
   exact binding application.
 - Předchozí candidate na `31234a6b` dostal `CHANGES_REQUESTED`; jeho 227 PASS
   evidence není přijetí ani evidence této opravené revize.
-- Starší cross-branch slot 070 mezi modelovou a M2 linkou zůstává explicitním
-  integračním blockerem; numerický preflight ho nenechá projít tiše.
+- Starší cross-branch sloty jsou atomicky adoptované nebo fail-closed odmítnuté;
+  skutečná pre-082 fixture i plná záloha nyní projdou standardním runnerem.
 - Lokální starý dokument `docs/MODEL-SCORING-RESULTS-20260824.md` zůstává jako
   cizí untracked soubor a není součástí kandidáta ani gate evidence.
 

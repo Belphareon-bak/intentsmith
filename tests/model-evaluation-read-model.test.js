@@ -123,6 +123,25 @@ test('exact artifact and current contract expose score and timestamp', () => {
   db.close();
 });
 
+test('D1 evidence remains MISSING for D2 and R1 on the shared reasoning suite', () => {
+  const db = database();
+  const plans = createRoleEvaluationPlans({ repeats: 1 });
+  assertEqual(plans.D1.suiteName, plans.D2.suiteName);
+  assertEqual(plans.D1.suiteContractSha256, plans.D2.suiteContractSha256);
+  assertEqual(plans.D1.suiteContractSha256, plans.R1.suiteContractSha256);
+  insert(db, {
+    runId: 'complete-d1-only', digest: DIGEST, plan: plans.D1,
+    score: 0.8, passed: 7,
+  });
+  const evaluations = new ModelEvaluationReadModel(db, { plans }).read({
+    inventory: [{ name: 'fixture:latest', digest: DIGEST }],
+  }).models[0].evaluations;
+  assertEqual(evaluations.D1.status, 'COMPLETE');
+  assertEqual(evaluations.D2.status, 'MISSING');
+  assertEqual(evaluations.R1.status, 'MISSING');
+  db.close();
+});
+
 test('current decision is linked to exact runs and only actionable for the bound incumbent', () => {
   const db = database();
   const plans = createRoleEvaluationPlans({ repeats: 1 });

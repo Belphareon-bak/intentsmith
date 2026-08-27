@@ -1,135 +1,153 @@
-# Model evaluation — finální integrační handoff (2026-08-26)
+# Model evaluation — remediační integrační handoff (2026-08-27)
 
 **Stav:** `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED`
 
-**Review base:** `c5aa379a9d43eac732f26e4628121a63b33f60d5`
+**Poslední zamítnutý candidate:** `74beafea439fdddbbb54e797d351dfe180b2d5f7`
 
-**Product/evidence candidate:** `5f11a4b103618b97d8bf3bd1d8bcc566e8f15c2a`
+**Implementační candidate:** `13413117fb0269beda2f6495b13a1018ca3a0781`
 
-Tento report uzavírá implementační a integrační milestone. Není
-nezávislým přijetím. `ACCEPTED` smí vzniknout až po novém nezávislém
-review celého uvedeného rozsahu včetně navazujícího dokumentačního commitu.
+Tento report nahrazuje chybný panel 40/17/34 z předchozí verze dokumentu.
+Nejde o nezávislé přijetí. Timer zůstává vypnutý a žádný GPU scoring se v
+remediaci nespouštěl.
 
-## Co je nyní autoritativní
+## Autoritativní stav po remediaci
 
-- Jediný scoring read/write kontrakt tvoří append-only
-  `model_evaluation_runs` a `model_evaluation_decisions`. Aktuálnost vyžaduje
-  exact model digest, roli, suite name/version a suite contract SHA; legacy
-  fallback je vypnutý.
-- API, CLI, Studio a governor čtou stejný `ModelEvaluationReadModel`.
-  Metadata discovery neurčují kvalitu ani aktivaci.
-- Binding je samostatná durable autorita. Evaluace ani doporučení model
-  neaktivuje; bez ověřené runtime autority je actionability fail-closed.
-- V123 runtime tabulky a paralelní ranker/recommendation/validation/proposal i
-  automatická failover/proof application cesta byly odstraněny. Historické
-  migrace a run dokumenty zůstávají pouze reprodukční evidencí.
-- Každý budoucí modelový běh je sériový a GPU-only. CPU/RAM spill nedostane
-  score: končí `BLOCKED/CANDIDATE_VRAM_FIT_FAILED` se `score=NULL`.
+- Current výsledek vyžaduje současně exact SHA-256 artefaktu, roli, suite name,
+  suite version a suite contract SHA. D1 run se už nikdy neprojektuje do D2
+  nebo R1 jen proto, že role sdílejí `reasoning_v2`.
+- Append-only `model_evaluation_runs` a role-consistent
+  `model_evaluation_decisions` jsou jediná scoring autorita.
+  `ModelEvaluationReadModel` je jediný product reader.
+- Migrace 097 zahrnula roli do unikátní identity a do DB decision invariantu.
+  Na disposable kopii živé DB zachovala 22 validních decisions a 11 cross-role
+  decisions přesunula s celým payloadem do append-only karantény.
+- Binding a scoring jsou oddělené autority. Jediná aktivační cesta je ruční
+  exact-digest binding application; hunt, discovery ani telemetry binding
+  nemění.
+- `DURABLE` nyní nese exact jméno i digest všech rolí. Registry vyžaduje
+  aktuální provider inventory. Gateway znovu ověří digest před provider POST
+  uvnitř shared model-use lease a po odpovědi; neprokazatelnou nebo driftující
+  odpověď zahodí a usage nezapíše jako úspěch.
+- Runtime telemetry zůstává pouze raw diagnostická evidence. Veškerý výpočet
+  telemetry blacklistu, veto ručního bindingu, skrytý discovery filtr i
+  `runtime_state` API byly odstraněny. Migrace 099 odstraňuje starou odvozenou
+  tabulku `model_runtime_guard`.
+- Osiřelé `applyWinningBindings()` a `runExclusiveAutomaticFailover()` včetně
+  jejich testů byly odstraněny. Detekční/auditní failover schema není proof
+  issuer ani aktivační cesta.
+- V123 runtime tabulky zůstávají odstraněné. Historické migrace jsou pouze
+  upgrade cesta, nikoli runtime fallback.
 
-## Uzavření posledního review
+## Upgrade a importní důkaz
 
-1. Manifest a DB historie se validují jako sjednocení před první mutací.
-2. Všech sedm adopcí a post-validace běží v jediné transakci.
-3. M2 kolize `070/081/082/083` jsou přesunuty na `092–095`; modelové
-   `084–086` se adoptují na původní kanonické identity.
-4. Migrace `096` eviduje legacy import explicitně jako `VERIFIED` nebo
-   `QUARANTINED`; neověřitelná stará data nejsou current score.
-5. Provider-unavailable startup nad durable bindingy zůstane dostupný jako
-   `DEGRADED`; integrity/digest rozpor je nadále fatal. Všech sedm rolí používá
-   jeden immutable provider inventory snapshot.
-6. Studio nevymýšlí installed defaults, wizard vyžaduje exact tag a Android
-   preflight skutečně blokuje chybějící exact portfolio.
-7. Dva poslední registry testy zrušené failover/proof application byly spolu
-   s jejím kódem odstraněny, ne přebarveny na skip.
+- Migrace 076 odstraní přesně známé vadné policy/proof triggery ještě před
+  rebuildem tabulek; standardní runner proto projde i skutečnou pre-082
+  zálohou.
+- Migrace 070 převádí povolené legacy `duration_ms=NULL` na nulu a zachová řádek.
+- Sanitizovaná schema fixture je mechanicky odvozena ze zálohy
+  `c3-pre-082-20260825T220813+0200.sqlite` se SHA-256
+  `8a2c98e2dca1d7533f6f90093b2bbb4380848c87b393e9df806995d8fd1fef14`.
+  Obsahuje schema a 62 stampů, žádná aplikační data.
+- Na disposable kopii celé původní zálohy prošel standardní runner do migrace
+  099: `quick_check=ok`, 138 legacy runů, 756 import evidence, 92/92 VERIFIED,
+  0 QUARANTINED importů a žádná v123 tabulka. Originální backup zůstal se
+  shodným SHA.
+- Migrace 096 toleruje pouze strojový JSON REAL roundtrip v rozsahu čtyř
+  `Number.EPSILON`; materiální rozdíl `1e-6` dál karanténuje.
 
-Migrační census je 83 zdrojů a čerstvá DB má 153 tabulek. Module boundary
-baseline je 1 190 hran; nová scoring autorita přidala 40 explicitních hran a
-odstranění starého systému odebralo 36. Počet cyklů se nezměnil: 3 cykly,
-28 souborů v cyklech.
+Čerstvá DB z kandidátního manifestu má 85 aplikovaných migračních zdrojů a 154
+fyzických SQLite tabulek včetně interních FTS tabulek. Živá historická DB má
+jinou legitimní historii stampů; její přesná projekce je doložena níže.
 
-## Testovací evidence
-
-Focused běhy bez Ollamy/GPU:
+## Focused testy
 
 | Kontrola | Výsledek |
 |---|---:|
-| schema migrace včetně union/adoption scénářů | 55/55 PASS |
-| model evaluation consolidation | 12/12 PASS |
-| model evaluation read model | 9/9 PASS |
-| role evaluation suites | 16/16 PASS |
-| M1 binding application | 112/112 PASS |
-| capability server včetně durable B-14 | 15/15 PASS |
-| Studio client | 125/125 PASS |
-| artifact/documentation integrity | 154/154 PASS |
-| registry validace | 447 programů, fingerprint `059922af5232391aadee8367428712842d41c77d5c66916b3e6369e949e5deca` |
-| module ratchet | 1 190/1 190 PASS |
+| model universe, raw telemetry bez blacklistu | 15/15 PASS |
+| model upgrade/history/portfolio | 58/58 PASS |
+| model evaluation consolidation 070/082/096/097 | 16/16 PASS |
+| sanitizovaný skutečný pre-082 upgrade | 1/1 PASS |
+| schema migrace včetně 097/099 | 55/55 PASS |
+| manual binding application | 109/109 PASS |
+| model evaluation read model včetně D1→D2/R1 negative | 10/10 PASS |
+| pairwise role cache | 34/34 PASS |
+| registry current authority | 13/13 PASS |
+| gateway/model-use exact digest | 26/26 PASS |
+| registry validace | 448 programů; fingerprint `0da4a318503be9cb05edb4ad3757d3c6d565ac61f28cc9db6473cb12a7196bcd` |
 
-Finální deterministická brána:
+Plný deterministický gate nové revize v okamžiku tohoto implementačního
+milníku ještě nebyl spuštěn. Poslední nezávislý gate 278/278 patří zamítnutému
+`74beafea`; nelze jej vydávat za důkaz tohoto kandidáta. Nový gate a nové
+nezávislé rereview jsou samostatné zbývající brány.
 
-| Pole | Hodnota |
+## Aktuální strict-role scoring panel
+
+Read-only `ModelEvaluationReadModel` nad 13 přesnými artefakty a disposable
+projekcí živé DB v `2026-08-27T08:08:10.418Z`:
+
+| Role | COMPLETE | BLOCKED | MISSING | FAILED |
+|---|---:|---:|---:|---:|
+| D1 | 5 | 3 | 5 | 0 |
+| D2 | 1 | 0 | 12 | 0 |
+| R1 | 0 | 0 | 13 | 0 |
+| CODE | 7 | 3 | 3 | 0 |
+| R2 | 7 | 3 | 3 | 0 |
+| CHAT | 6 | 2 | 5 | 0 |
+| VISION | 2 | 0 | 11 | 0 |
+| **Celkem** | **28** | **11** | **52** | **0** |
+
+Current timestampy jsou od `2026-08-25T20:24:21.425Z` do
+`2026-08-25T21:31:09.963Z`. Read model vidí 22 role-consistent decisions,
+žádné actionable. Standalone odečet je správně `UNVERIFIED_RUNTIME` pro všech
+sedm rolí.
+
+Scoring všech modelů tedy **není hotový**: chybí 52 artifact/role buněk.
+Staré contracty ani sdílené suite se do nich nepromítají.
+
+## Bounded raw host/DB snapshot
+
+Raw JSON:
+[`model-evaluation-host-db-snapshot-20260827.json`](model-evaluation-host-db-snapshot-20260827.json)
+
+| Položka | Hodnota |
 |---|---|
-| command | `C3_LOG_LEVEL=error npm run test:deterministic` |
-| run ID | `2026-08-26T21-26-07-640Z` |
-| source revision | `5f11a4b103618b97d8bf3bd1d8bcc566e8f15c2a` |
-| profiles | `offline,database` |
-| concurrency | `1` |
-| start / end UTC | `2026-08-26T21:26:07.679Z` / `2026-08-26T21:30:16.605Z` |
-| verdict | `PASS` |
-| status | `278 PASS / 0 FAIL / 0 TIMEOUT / 0 BLOCKED / 0 SKIPPED` |
-| required failures / blockers | `0 / 0` |
-| report SHA-256 | `0a0b8bf71567915ce256a660cf0ee33708147d7ba995b4f084544c690e916e15` |
-| inventory SHA-256 | `778a3f5c3a6510f713eb4a94e64e8e851041a263abc66de01225f479a059a8ea` |
-| inventory fingerprint | `993c2aece7f637c9119862a0b03d6bd2eac1ef75920355002e95a199f1e9ad48` |
-| options fingerprint | `b6c9a55d1eef4edd4cd3c3fc691fe87947b8aad52dc7249c05af5a41fed7db4e` |
+| snapshot SHA-256 | `a2a4c17d969716c2366bd872bf60bf5ee0d336e0bbe5a33da06006ce420967f4` |
+| živá source DB SHA-256 před i po | `e22d580f26b9b467eb2bf3774524206b3d95a36cdcdbc3902a08046e9e12c088` |
+| disposable projected DB SHA-256 | `d349019eef3be9da8a28f861eabf7673cb9b97467814ee10d9e557769c41d7c5` |
+| projected DB | `quick_check=ok`, 88 historických/current stampů, 169 fyzických tabulek |
+| import audit | 664 ARCHIVED detailů, 92 VERIFIED summary, 0 QUARANTINED |
+| decisions po 097 | 22 current + 11 quarantined |
+| v123 tabulky po projekci | 0 |
+| telemetry blacklist tabulka po 099 | 0 |
 
-Před finálním PASS proběhly dva neakceptovatelné běhy, které se
-nezamlčují: první byl infrastrukturně neplatný po `npm ci --ignore-scripts`
-(172 PASS / 108 FAIL kvůli chybějícímu native `better-sqlite3`); druhý na
-`c2c43a39` skončil 276 PASS / 4 FAIL a odhalil dva osiřelé failover testy,
-starý registry contract a lokální direct-test artefakty. Všechny čtyři příčiny
-byly odstraněny; finální PASS je nový plný běh, nikoli přepsaný report.
+Vyšší počty stampů/tabulek v projekci živé DB oproti fresh schema nejsou
+ztráta dat: živá DB nese starší adoptované a integrační větve. Snapshot proto
+uvádí oba počty odděleně a nesnaží se je sjednotit.
 
-## Aktuální lokální scoring panel
+## Discovery a bezpečný provoz
 
-Read-only snapshot `2026-08-26T21:31:07.185Z` nad živou DB a aktuální
-Ollama inventory:
+Remediace nespustila outbound discovery ani model hunt, takže nevytvořila žádné
+nové návrhy. Metadata discovery mohou pouze seřadit budoucí měření; nejsou
+quality score, blacklist, doporučení ani povolení k aktivaci.
 
-| Stav | Počet artifact/role buněk |
-|---|---:|
-| `COMPLETE` | 40 |
-| `BLOCKED` | 17 |
-| `MISSING` | 34 |
-| `FAILED` | 0 |
-| celkem | 91 (13 exact artefaktů × 7 rolí) |
+Snapshot potvrzuje:
 
-Evidence obsahuje timestampy od `2026-08-25T20:24:21.425Z` do
-`2026-08-25T21:31:09.963Z`, 33 durable decisions a 0 actionable decisions.
-Všech sedm durable rolí je v standalone reportu pravdivě
-`UNVERIFIED_RUNTIME`; CLI nepozoruje serverový runtime.
+- `intentsmith-model-hunt.timer`: `disabled`, `inactive`;
+- `intentsmith-model-hunt.service`: `inactive`;
+- žádný naplánovaný hunt timer;
+- prázdné `ollama ps`;
+- žádný NVIDIA compute proces.
 
-Scoring tedy záměrně není vydáván za dokončený. Podle posledního review se
-34 chybějících buněk nesmí spustit před novým nezávislým přijetím tohoto
-kandidáta. Staré contracty se do panelu nepočítají.
-
-## Discovery a provozní stav
-
-Discovery implementace prošla 38/38 testů a outbound/upgrade sada 66/66.
-Živá DB ale nemá nové návrhy z tohoto běhu: obsahuje jen šest provisional
-L4 záznamů z `2026-08-19` a `model_universe_raw/derived` jsou prázdné. Těchto
-šest metadata záznamů proto nejsou scoring doporučení ani kandidáti k
-aktivaci.
-
-Systemd `intentsmith-model-hunt.timer` byl vypnut a zastaven. Timer i service
-jsou `inactive`; seznam timerů neobsahuje další naplánovaný hunt. `ollama ps`
-je prázdné a NVIDIA compute census nevrátil žádný proces. Timer se smí znovu
-instalovat/povolit a 34 buněk se smí sériově dotestovat až po nezávislém
-přijetí a nasazení tohoto kandidáta.
+Timer se nesmí zapnout a 52 chybějících buněk se nesmí spustit před novým
+nezávislým PASS. Potom musí běžet sériově, GPU-only; model, který se celý
+nevejde do VRAM, se automaticky vyřadí jako `BLOCKED` se `score=NULL`.
 
 ## Review handoff
 
-Review musí pokrýt celý integrační rozsah `c5aa379a..5f11a4b1` a navazující
-dokumentační commit. Zvlášť má znovu přehrát union/adoption rollback,
-durable-provider-unavailable B-14, single provider snapshot, import audit 096,
-exact Studio/wizard/Android preflight a odstranění posledních starých
-failover cest. Do té doby zůstává jediný pravdivý stav
+Nové rereview musí začít na zamítnutém base `74beafea` a pokrýt implementační
+commity `d5518d4d` a `13413117` i navazující dokumentační/gate evidence.
+Zvlášť má reprodukovat role leakage D1→D2/R1, cross-role decision insert,
+pre-082 backup upgrade, nullable duration, same-tag digest drift před i po
+gateway response, nulový telemetry veto call graph a absenci osiřelých
+auto-activation API. Do jeho PASS zůstává pravdivý stav
 `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED`.
