@@ -5,7 +5,7 @@
 // new disposable DB and migrates only that copy.
 
 import { createHash } from 'node:crypto';
-import { createReadStream, existsSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -25,14 +25,14 @@ function parseArgs(argv) {
       values['create-projection'] = true;
       continue;
     }
-    const match = /^--(db|source-db|projection-command|phase)=(.+)$/.exec(arg);
+    const match = /^--(db|source-db|projection-command|phase|out)=(.+)$/.exec(arg);
     if (!match || values[match[1]]) {
       throw new Error(
         'Usage: node scripts/model-evaluation-host-snapshot.js ' +
         '--db=/path/projected.db [--source-db=/path/live.db ' +
         '(--create-projection | ' +
         '--projection-command="exact command used to create projected.db")] ' +
-        '[--phase=pre-gate|post-gate]',
+        '[--phase=pre-gate|post-gate] [--out=/new/evidence.json]',
       );
     }
     values[match[1]] = match[2];
@@ -57,6 +57,7 @@ function parseArgs(argv) {
     createProjection,
     projectionCommand: values['projection-command'] || null,
     phase: values.phase || 'pre-gate',
+    outPath: values.out ? resolve(values.out) : null,
   });
 }
 
@@ -289,6 +290,7 @@ async function main() {
     actionsObserved: Object.freeze({
       disposableProjectionCreated: options.createProjection,
       migrationsRunOnDisposableProjection: options.createProjection,
+      evidenceFileCreated: options.outPath !== null,
       sourceDatabaseWritten: false,
       serviceOrTimerStarted: false,
       modelLoaded: false,
@@ -323,7 +325,12 @@ async function main() {
       ]),
     }),
   };
-  process.stdout.write(`${JSON.stringify(snapshot, null, 2)}\n`);
+  const rendered = `${JSON.stringify(snapshot, null, 2)}\n`;
+  if (options.outPath) {
+    writeFileSync(options.outPath, rendered, { encoding: 'utf8', mode: 0o600, flag: 'wx' });
+  } else {
+    process.stdout.write(rendered);
+  }
 }
 
 main().catch(error => {
