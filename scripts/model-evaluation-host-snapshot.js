@@ -257,6 +257,25 @@ async function main() {
   const timerList = command('systemctl', ['--user', 'list-timers', '--all', '--no-legend']);
   const report = await buildEvaluationReport({ dbPath: options.dbPath });
   const projectedDatabase = await databaseSummary(options.dbPath);
+  const sourceRevision = command('git', ['rev-parse', 'HEAD']);
+  const host = Object.freeze({
+    timerEnabled: command('systemctl', ['--user', 'is-enabled', 'intentsmith-model-hunt.timer']),
+    timerActive: command('systemctl', ['--user', 'is-active', 'intentsmith-model-hunt.timer']),
+    serviceActive: command('systemctl', ['--user', 'is-active', 'intentsmith-model-hunt.service']),
+    scheduledHuntTimers: Object.freeze({
+      ...timerList,
+      stdout: timerList.stdout.filter(line => line.includes('intentsmith-model-hunt')),
+    }),
+    ollamaProcesses: command('ollama', ['ps']),
+    nvidiaComputeProcesses: command('nvidia-smi', [
+      '--query-compute-apps=pid,process_name,used_gpu_memory',
+      '--format=csv,noheader,nounits',
+    ]),
+    nvidiaGpu: command('nvidia-smi', [
+      '--query-gpu=name,memory.total,memory.free,utilization.gpu',
+      '--format=csv,noheader,nounits',
+    ]),
+  });
   const sourceDatabaseAfter = options.sourceDbPath
     ? await databaseSummary(options.sourceDbPath)
     : null;
@@ -296,7 +315,7 @@ async function main() {
       modelLoaded: false,
       scoringRunStarted: false,
     }),
-    sourceRevision: command('git', ['rev-parse', 'HEAD']),
+    sourceRevision,
     sourceDatabase: options.sourceDbPath
       ? Object.freeze({
         before: sourceDatabaseBefore,
@@ -306,24 +325,7 @@ async function main() {
       : null,
     projectedDatabase,
     readModel: readModelSummary(report),
-    host: Object.freeze({
-      timerEnabled: command('systemctl', ['--user', 'is-enabled', 'intentsmith-model-hunt.timer']),
-      timerActive: command('systemctl', ['--user', 'is-active', 'intentsmith-model-hunt.timer']),
-      serviceActive: command('systemctl', ['--user', 'is-active', 'intentsmith-model-hunt.service']),
-      scheduledHuntTimers: Object.freeze({
-        ...timerList,
-        stdout: timerList.stdout.filter(line => line.includes('intentsmith-model-hunt')),
-      }),
-      ollamaProcesses: command('ollama', ['ps']),
-      nvidiaComputeProcesses: command('nvidia-smi', [
-        '--query-compute-apps=pid,process_name,used_gpu_memory',
-        '--format=csv,noheader,nounits',
-      ]),
-      nvidiaGpu: command('nvidia-smi', [
-        '--query-gpu=name,memory.total,memory.free,utilization.gpu',
-        '--format=csv,noheader,nounits',
-      ]),
-    }),
+    host,
   };
   const rendered = `${JSON.stringify(snapshot, null, 2)}\n`;
   if (options.outPath) {
