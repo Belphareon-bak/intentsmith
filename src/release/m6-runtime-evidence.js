@@ -7,6 +7,8 @@ import {
   M6_MAX_THROUGHPUT_CONTRACT,
   M6_MAX_THROUGHPUT_DURATION_MS,
   M6_MAX_THROUGHPUT_PROGRAM,
+  M6_MAX_THROUGHPUT_RAMP_DURATION_MS,
+  M6_MAX_THROUGHPUT_SUSTAINED_DURATION_MS,
   M6_MAX_THROUGHPUT_VERSION,
   M6_PREVIOUS_VERSION,
   M6_PREVIOUS_VERSION_SHA,
@@ -93,6 +95,11 @@ function safeIntegerAtLeast(value, minimum = 0) {
 
 function finiteAtLeast(value, minimum = 0) {
   return Number.isFinite(value) && value >= minimum;
+}
+
+function derivedRequestsPerSecond(successes, durationMs) {
+  if (!safeIntegerAtLeast(successes) || !safeIntegerAtLeast(durationMs, 1)) return null;
+  return Math.round((successes / (durationMs / 1_000)) * 1_000) / 1_000;
 }
 
 function validateCandidate(receipt, candidateSha, prefix, errors) {
@@ -330,6 +337,10 @@ function validateThroughputReceipt(receipt, candidateSha, errors) {
         || !finiteAtLeast(stage.requestsPerSecond)
         || typeof stage.stable !== 'boolean'
         || typeof stage.sustained !== 'boolean') errors.push(`${prefix}:stage-values`);
+      if (stage.requestsPerSecond !== derivedRequestsPerSecond(
+        stage.successes,
+        stage.durationMs,
+      )) errors.push(`${prefix}:stage-rps-binding`);
       if (stage.sustained) sustainedCount += 1;
       validateLatency(stage.latency, {
         samples: stage.successes,
@@ -347,6 +358,15 @@ function validateThroughputReceipt(receipt, candidateSha, errors) {
     if (sustainedCount !== 1 || receipt.stages.at(-1).sustained !== true) {
       errors.push(`${prefix}:sustained-stage`);
     }
+    const minimumRampStageMs = M6_MAX_THROUGHPUT_RAMP_DURATION_MS / levels.length;
+    if (receipt.stages.slice(0, levels.length)
+      .some(stage => !safeIntegerAtLeast(stage?.durationMs, minimumRampStageMs))) {
+      errors.push(`${prefix}:ramp-duration`);
+    }
+    if (!safeIntegerAtLeast(
+      receipt.stages.at(-1)?.durationMs,
+      M6_MAX_THROUGHPUT_SUSTAINED_DURATION_MS,
+    )) errors.push(`${prefix}:sustained-duration`);
     const stableRamp = receipt.stages.filter(stage => stage.sustained !== true && stage.stable);
     const selectedRamp = stableRamp.at(-1);
     const unstableAfter = receipt.stages.find(stage => (

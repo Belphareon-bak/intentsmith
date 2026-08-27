@@ -85,26 +85,36 @@ function logForProgram(programId) {
   if (programId === M6_MAX_THROUGHPUT_PROGRAM) {
     const levels = [1, 8, 32, 128, 512, 1_024];
     const latency = samples => ({ samples, p50Ms: 5, p95Ms: 15, p99Ms: 25, maxMs: 40 });
-    const stages = levels.map((concurrency, index) => ({
-      concurrency,
-      durationMs: 15_000,
-      successes: 1_000 * (index + 1),
-      errorCount: 0,
-      requestsPerSecond: 1_000 + index * 100,
-      latency: latency(1_000 * (index + 1)),
-      stable: true,
-      sustained: false,
-    }));
+    const rps = (requests, durationMs) => (
+      Math.round((requests / (durationMs / 1_000)) * 1_000) / 1_000
+    );
+    const stages = levels.map((concurrency, index) => {
+      const durationMs = 15_000;
+      const successes = 15_000 * (index + 1);
+      return {
+        concurrency,
+        durationMs,
+        successes,
+        errorCount: 0,
+        requestsPerSecond: rps(successes, durationMs),
+        latency: latency(successes),
+        stable: true,
+        sustained: false,
+      };
+    });
+    const sustainedDurationMs = 210_001;
+    const sustainedRequests = 300_000;
     stages.push({
       concurrency: 1_024,
-      durationMs: 210_001,
-      successes: 300_000,
+      durationMs: sustainedDurationMs,
+      successes: sustainedRequests,
       errorCount: 0,
-      requestsPerSecond: 1_428.5,
-      latency: latency(300_000),
+      requestsPerSecond: rps(sustainedRequests, sustainedDurationMs),
+      latency: latency(sustainedRequests),
       stable: true,
       sustained: true,
     });
+    const completedRequests = stages.reduce((total, stage) => total + stage.successes, 0);
     const receipt = {
       contract: 'M6MaxThroughputReceipt',
       version: 1,
@@ -118,11 +128,11 @@ function logForProgram(programId) {
       probeErrorCount: 0,
       stages,
       sustained: {
-        durationMs: 210_001,
-        requests: 300_000,
+        durationMs: sustainedDurationMs,
+        requests: sustainedRequests,
         errorCount: 0,
-        requestsPerSecond: 1_428.5,
-        latency: latency(300_000),
+        requestsPerSecond: rps(sustainedRequests, sustainedDurationMs),
+        latency: latency(sustainedRequests),
       },
       rss: {
         startMiB: 120,
@@ -133,7 +143,7 @@ function logForProgram(programId) {
       },
       diagnostics: {
         activeRequests: 0,
-        completedRequests: 336_001,
+        completedRequests,
         http5xx: 0,
         outboundDecisionCount: 0,
         databaseReady: true,

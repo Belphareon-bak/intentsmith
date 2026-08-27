@@ -53,6 +53,10 @@ function latency(samples, p95Ms = 15, p99Ms = 25) {
   return { samples, p50Ms: 7, p95Ms, p99Ms, maxMs: Math.max(40, p99Ms) };
 }
 
+function requestsPerSecond(requests, durationMs) {
+  return Math.round((requests / (durationMs / 1_000)) * 1_000) / 1_000;
+}
+
 function longSoakReceipt(overrides = {}) {
   return {
     contract: 'M6LongSoakReceipt',
@@ -85,26 +89,33 @@ function longSoakReceipt(overrides = {}) {
 
 function throughputReceipt(overrides = {}) {
   const levels = [1, 8, 32, 128, 512, 1_024];
-  const stages = levels.map((concurrency, index) => ({
-    concurrency,
-    durationMs: 15_000,
-    successes: 1_000 * (index + 1),
-    errorCount: 0,
-    requestsPerSecond: 1_000 + index * 100,
-    latency: latency(1_000 * (index + 1)),
-    stable: true,
-    sustained: false,
-  }));
+  const stages = levels.map((concurrency, index) => {
+    const durationMs = 15_000;
+    const successes = 15_000 * (index + 1);
+    return {
+      concurrency,
+      durationMs,
+      successes,
+      errorCount: 0,
+      requestsPerSecond: requestsPerSecond(successes, durationMs),
+      latency: latency(successes),
+      stable: true,
+      sustained: false,
+    };
+  });
+  const sustainedDurationMs = 210_001;
+  const sustainedRequests = 300_000;
   stages.push({
     concurrency: 1_024,
-    durationMs: 210_001,
-    successes: 300_000,
+    durationMs: sustainedDurationMs,
+    successes: sustainedRequests,
     errorCount: 0,
-    requestsPerSecond: 1_428.5,
-    latency: latency(300_000),
+    requestsPerSecond: requestsPerSecond(sustainedRequests, sustainedDurationMs),
+    latency: latency(sustainedRequests),
     stable: true,
     sustained: true,
   });
+  const completedRequests = stages.reduce((total, stage) => total + stage.successes, 0);
   return {
     contract: 'M6MaxThroughputReceipt',
     version: 1,
@@ -118,11 +129,11 @@ function throughputReceipt(overrides = {}) {
     probeErrorCount: 0,
     stages,
     sustained: {
-      durationMs: 210_001,
-      requests: 300_000,
+      durationMs: sustainedDurationMs,
+      requests: sustainedRequests,
       errorCount: 0,
-      requestsPerSecond: 1_428.5,
-      latency: latency(300_000),
+      requestsPerSecond: requestsPerSecond(sustainedRequests, sustainedDurationMs),
+      latency: latency(sustainedRequests),
     },
     rss: {
       startMiB: 120,
@@ -131,7 +142,7 @@ function throughputReceipt(overrides = {}) {
       growthMiB: 60,
       measurementError: null,
     },
-    diagnostics: diagnostics(336_001),
+    diagnostics: diagnostics(completedRequests),
     networkScope: 'linux-user-network-namespace-loopback-only',
     namespaceInterfaces: ['lo'],
     serverCleanShutdown: true,
@@ -251,6 +262,39 @@ test('forged, short, slow and internally unbound throughput receipts fail closed
       { candidateSha },
     ).valid, false);
   }
+});
+
+test('throughput receipt binds reported rates and full ramp plus sustained durations', () => {
+  const forgedRate = throughputReceipt();
+  forgedRate.stages[0].requestsPerSecond += 10_000;
+  let result = validateM6RuntimeEvidence(
+    M6_MAX_THROUGHPUT_PROGRAM,
+    log(forgedRate),
+    { candidateSha },
+  );
+  assert.equal(result.valid, false);
+  assert(result.errors.includes('throughput-receipt:stage-rps-binding'));
+
+  const shortRamp = throughputReceipt();
+  shortRamp.stages[0].durationMs = 14_999;
+  result = validateM6RuntimeEvidence(
+    M6_MAX_THROUGHPUT_PROGRAM,
+    log(shortRamp),
+    { candidateSha },
+  );
+  assert.equal(result.valid, false);
+  assert(result.errors.includes('throughput-receipt:ramp-duration'));
+
+  const shortSustained = throughputReceipt();
+  shortSustained.stages.at(-1).durationMs = 209_999;
+  shortSustained.sustained.durationMs = 209_999;
+  result = validateM6RuntimeEvidence(
+    M6_MAX_THROUGHPUT_PROGRAM,
+    log(shortSustained),
+    { candidateSha },
+  );
+  assert.equal(result.valid, false);
+  assert(result.errors.includes('throughput-receipt:sustained-duration'));
 });
 
 summary();

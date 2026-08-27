@@ -8,6 +8,8 @@ import { performance } from 'node:perf_hooks';
 import {
   M6_MAX_THROUGHPUT_CONTRACT,
   M6_MAX_THROUGHPUT_DURATION_MS,
+  M6_MAX_THROUGHPUT_RAMP_DURATION_MS,
+  M6_MAX_THROUGHPUT_SUSTAINED_DURATION_MS,
   M6_MAX_THROUGHPUT_VERSION,
   M6_RUNTIME_EVIDENCE_MARKER,
 } from '../contracts/m6/runtime-evidence-v1.js';
@@ -26,7 +28,6 @@ import {
 } from './helpers/m6-owned-runtime-probe.js';
 
 const CONCURRENCY_LEVELS = Object.freeze([1, 8, 32, 128, 512, 1_024]);
-const ACCEPTANCE_RAMP_MS = 90_000;
 const MAX_P95_MS = 100;
 const MAX_P99_MS = 250;
 const MAX_RSS_MIB = 1_536;
@@ -67,13 +68,16 @@ async function runLoadStage({ port, agent, concurrency, durationMs }) {
   };
   await Promise.all(Array.from({ length: concurrency }, () => worker()));
   const actualDurationMs = performance.now() - startedAt;
+  const measuredDurationMs = Math.floor(actualDurationMs);
   const latency = histogram.summary();
   return Object.freeze({
     concurrency,
-    durationMs: Math.floor(actualDurationMs),
+    durationMs: measuredDurationMs,
     successes,
     errorCount: errors.length,
-    requestsPerSecond: rounded(successes / (actualDurationMs / 1_000)),
+    // Derive the declared rate from the exact integer duration carried by the
+    // receipt, so the independent validator can recompute it byte-for-byte.
+    requestsPerSecond: rounded(successes / (measuredDurationMs / 1_000)),
     latency,
     stable: errors.length === 0
       && latency.samples === successes
@@ -112,7 +116,7 @@ async function runMaximumThroughput() {
 
   try {
     const rampBudgetMs = evidenceEligible
-      ? ACCEPTANCE_RAMP_MS
+      ? M6_MAX_THROUGHPUT_RAMP_DURATION_MS
       : Math.floor(selectedDuration * 0.45);
     const perStageMs = Math.max(1_000, Math.floor(rampBudgetMs / CONCURRENCY_LEVELS.length));
     for (const concurrency of CONCURRENCY_LEVELS) {
@@ -127,7 +131,9 @@ async function runMaximumThroughput() {
     assert(stableStages.length > 0, JSON.stringify(stages));
     const selected = stableStages.at(-1);
     const elapsed = performance.now() - startedMonotonic;
-    const sustainDurationMs = Math.max(1_000, selectedDuration - elapsed);
+    const sustainDurationMs = evidenceEligible
+      ? M6_MAX_THROUGHPUT_SUSTAINED_DURATION_MS
+      : Math.max(1_000, selectedDuration - elapsed);
     stages.push(Object.freeze({
       ...(await runLoadStage({
         port: server.authority.port,
