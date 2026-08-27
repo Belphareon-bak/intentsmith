@@ -18,6 +18,7 @@ import {
 import {
   captureM6ReleaseArtifact,
   validateM6ReleaseArtifact,
+  validateM6ReleaseArtifactGitBlobs,
 } from '../src/release/m6-release-artifact.js';
 import { suite, summary, testAsync } from './harness.js';
 
@@ -126,6 +127,48 @@ await testAsync('missing or symlinked build source is rejected before capture', 
     }),
     /not-nonempty-regular-file/u,
   );
+});
+
+await testAsync('Git-native validation reads and checks all seven pinned artifact roles', async () => {
+  const root = await testRoot('git-native');
+  const captured = await capture(root);
+  const artifact = structuredClone(captured);
+  const blobs = new Map();
+  for (const file of artifact.files) {
+    const bytes = await readFile(path.join(root, file.artifactPath));
+    file.artifactPath = `docs/execution/runs/m6/release/files/${file.role}`;
+    blobs.set(file.artifactPath, {
+      bytes,
+      executable: file.role === 'studio-ripgrep',
+    });
+  }
+  const reads = [];
+  const readGitArtifact = async artifactPath => {
+    reads.push(artifactPath);
+    const value = blobs.get(artifactPath);
+    if (!value) throw new Error('missing');
+    return value;
+  };
+  assert.equal((await validateM6ReleaseArtifactGitBlobs(artifact, {
+    candidateSha,
+    readGitArtifact,
+  })).valid, true);
+  assert.equal(reads.length, M6_RELEASE_ARTIFACT_REQUIRED_FILES.length);
+
+  const tampered = new Map(blobs);
+  const firstPath = artifact.files[0].artifactPath;
+  tampered.set(firstPath, { bytes: Buffer.from('forged\n'), executable: false });
+  assert.equal((await validateM6ReleaseArtifactGitBlobs(artifact, {
+    candidateSha,
+    readGitArtifact: async artifactPath => tampered.get(artifactPath),
+  })).valid, false);
+  const wrongMode = new Map(blobs);
+  const executablePath = artifact.files.find(file => file.role === 'studio-ripgrep').artifactPath;
+  wrongMode.set(executablePath, { ...wrongMode.get(executablePath), executable: false });
+  assert.equal((await validateM6ReleaseArtifactGitBlobs(artifact, {
+    candidateSha,
+    readGitArtifact: async artifactPath => wrongMode.get(artifactPath),
+  })).valid, false);
 });
 
 summary();

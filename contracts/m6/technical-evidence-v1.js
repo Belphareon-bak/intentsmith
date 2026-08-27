@@ -1,5 +1,5 @@
 export const M6_TECHNICAL_EVIDENCE_CONTRACT = 'M6TechnicalEvidenceMatrix';
-export const M6_TECHNICAL_EVIDENCE_VERSION = 1;
+export const M6_TECHNICAL_EVIDENCE_VERSION = 2;
 
 export const M6_TECHNICAL_PROGRAMS = Object.freeze({
   'fresh-clone-install-build': Object.freeze([
@@ -55,6 +55,9 @@ export const M6_TECHNICAL_PROGRAMS = Object.freeze({
 });
 
 export const M6_DYNAMIC_TECHNICAL_CHECKS = Object.freeze({
+  'all-active-required-programs': Object.freeze({
+    profiles: Object.freeze(['offline', 'database', 'model', 'server', 'soak']),
+  }),
   'deterministic-offline-database': Object.freeze({
     profiles: Object.freeze(['offline', 'database']),
   }),
@@ -70,4 +73,3 @@ export const M6_EXTERNAL_AUTHORITY_CHECKS = Object.freeze([
   'release-artifact',
   'operator-demo-approval',
 ]);
-

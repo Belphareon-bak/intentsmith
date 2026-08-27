@@ -6,14 +6,22 @@ import { mkdir, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import {
+  M6_CANDIDATE_PHASE_IDS,
+} from '../contracts/m6/candidate-plan-v1.js';
+import {
   M6_L0_IDS,
   M6_RELEASE_EVIDENCE_CONTRACT,
+  M6_RELEASE_EVIDENCE_INDEX_CONTRACT,
+  M6_RELEASE_EVIDENCE_INDEX_VERSION,
+  M6_RELEASE_EVIDENCE_VERSION,
   M6_REQUIRED_CHECK_IDS,
 } from '../contracts/m6/release-v1.js';
 import {
   validateM6ReleaseEvidence,
   validateM6EvidenceCommitBoundary,
+  validateM6ReleaseEvidenceIndex,
   verifyM6ArtifactBindings,
+  verifyM6GitArtifactBindings,
 } from '../src/release/m6-release-validation.js';
 import { suite, summary, testAsync } from './harness.js';
 
@@ -39,7 +47,7 @@ function row(id, status = 'PASS') {
 function evidence(overrides = {}) {
   return {
     contract: M6_RELEASE_EVIDENCE_CONTRACT,
-    version: 1,
+    version: M6_RELEASE_EVIDENCE_VERSION,
     candidateSha,
     registryFingerprint,
     generatedAt: '2026-08-27T00:00:00.000Z',
@@ -147,6 +155,57 @@ await testAsync('artifact verifier binds bytes and rejects symlinked evidence', 
     path: '.intentsmith-artifacts/m6/link.txt',
   };
   assert.equal((await verifyM6ArtifactBindings(root, linked)).valid, false);
+});
+
+await testAsync('Git evidence index requires one pinned report per locked phase', async () => {
+  const binding = phaseId => ({
+    path: `docs/execution/runs/m6/${phaseId}.json`,
+    sha256: artifact.sha256,
+    bytes: artifact.bytes,
+  });
+  const index = {
+    contract: M6_RELEASE_EVIDENCE_INDEX_CONTRACT,
+    version: M6_RELEASE_EVIDENCE_INDEX_VERSION,
+    candidateSha,
+    registryFingerprint,
+    generatedAt: '2026-08-27T00:00:00.000Z',
+    reports: M6_CANDIDATE_PHASE_IDS.map(phaseId => ({
+      phaseId,
+      artifact: binding(phaseId),
+    })),
+    releaseArtifactManifest: binding('release-manifest'),
+  };
+  const validateIndex = value => validateM6ReleaseEvidenceIndex(value, {
+    candidateSha,
+    registryFingerprint,
+    expectedPhaseIds: M6_CANDIDATE_PHASE_IDS,
+  });
+  assert.equal(validateIndex(index).valid, true);
+  const missing = structuredClone(index);
+  missing.reports.pop();
+  assert.equal(validateIndex(missing).valid, false);
+  const ignored = structuredClone(index);
+  ignored.reports[0].artifact.path = '.intentsmith-artifacts/m6/forged.json';
+  assert.equal(validateIndex(ignored).valid, false);
+});
+
+await testAsync('Git artifact bindings are derived from pinned bytes, never local files', async () => {
+  let reads = 0;
+  const reader = async artifactPath => {
+    reads += 1;
+    assert.equal(artifactPath, artifact.path);
+    return { bytes: artifactBytes, executable: false };
+  };
+  assert.equal((await verifyM6GitArtifactBindings([artifact], {
+    readGitArtifact: reader,
+  })).valid, true);
+  assert.equal(reads, 1);
+  assert.equal((await verifyM6GitArtifactBindings([{ ...artifact, sha256: '0'.repeat(64) }], {
+    readGitArtifact: reader,
+  })).valid, false);
+  assert.equal((await verifyM6GitArtifactBindings([artifact], {
+    readGitArtifact: async () => { throw new Error('missing'); },
+  })).valid, false);
 });
 
 await testAsync('evidence-only descendant may record review without rebinding product candidate', async () => {

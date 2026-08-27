@@ -167,3 +167,60 @@ export async function validateM6ReleaseArtifact(artifact, {
   }
   return deepFreeze({ valid: errors.length === 0, errors });
 }
+
+export async function validateM6ReleaseArtifactGitBlobs(artifact, {
+  candidateSha,
+  readGitArtifact,
+} = {}) {
+  const errors = [];
+  if (artifact?.contract !== M6_RELEASE_ARTIFACT_CONTRACT) errors.push('artifact:contract');
+  if (artifact?.version !== M6_RELEASE_ARTIFACT_VERSION) errors.push('artifact:version');
+  if (artifact?.candidateSha !== candidateSha || !SHA_PATTERN.test(artifact?.candidateSha || '')) {
+    errors.push('artifact:candidate');
+  }
+  if (!Number.isFinite(Date.parse(artifact?.generatedAt))) errors.push('artifact:generatedAt');
+  if (artifact?.buildProfile !== 'linux-x64-studio-production') errors.push('artifact:build-profile');
+  if (artifact?.installProfile !== 'core-minimal-offline') errors.push('artifact:install-profile');
+  if (typeof readGitArtifact !== 'function') errors.push('artifact:git-reader');
+  const expected = new Map(M6_RELEASE_ARTIFACT_REQUIRED_FILES.map(item => [item.role, item]));
+  if (!Array.isArray(artifact?.files) || artifact.files.length !== expected.size) {
+    errors.push('artifact:exact-files');
+  }
+  const seen = new Set();
+  for (const [index, file] of (artifact?.files || []).entries()) {
+    const label = `artifact.files[${index}]`;
+    if (seen.has(file?.role)) errors.push(`${label}:duplicate-role`);
+    seen.add(file?.role);
+    const definition = expected.get(file?.role);
+    if (!definition) {
+      errors.push(`${label}:unknown-role`);
+      continue;
+    }
+    if (file.sourcePath !== definition.sourcePath) errors.push(`${label}:source-path`);
+    if (!safeRelativePath(file.artifactPath)) errors.push(`${label}:artifact-path`);
+    if (
+      safeRelativePath(file.artifactPath)
+      && !file.artifactPath.startsWith('docs/execution/runs/m6/')
+    ) errors.push(`${label}:artifact-outside-git-evidence`);
+    if (!Number.isSafeInteger(file.bytes) || file.bytes <= 0) errors.push(`${label}:bytes`);
+    if (!SHA256_PATTERN.test(file.sha256 || '')) errors.push(`${label}:sha256`);
+    const expectedMode = definition.executable ? 0o700 : 0o600;
+    if (file.mode !== expectedMode) errors.push(`${label}:mode`);
+    if (typeof readGitArtifact !== 'function' || !safeRelativePath(file.artifactPath)) continue;
+    try {
+      const gitArtifact = await readGitArtifact(file.artifactPath);
+      if (!Buffer.isBuffer(gitArtifact?.bytes) || typeof gitArtifact?.executable !== 'boolean') {
+        throw new Error('invalid-git-artifact');
+      }
+      if (gitArtifact.bytes.length !== file.bytes) errors.push(`${label}:byte-mismatch`);
+      if (digest(gitArtifact.bytes) !== file.sha256) errors.push(`${label}:digest-mismatch`);
+      if (gitArtifact.executable !== definition.executable) errors.push(`${label}:git-mode`);
+    } catch {
+      errors.push(`${label}:missing-or-unreadable-git-blob`);
+    }
+  }
+  for (const role of expected.keys()) {
+    if (!seen.has(role)) errors.push(`artifact:missing-role:${role}`);
+  }
+  return deepFreeze({ valid: errors.length === 0, errors });
+}

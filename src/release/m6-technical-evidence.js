@@ -10,6 +10,7 @@ import {
 } from '../../contracts/m6/l0-evidence-v1.js';
 import {
   M6_L0_IDS,
+  M6_RELEASE_EVIDENCE_VERSION,
   M6_REQUIRED_CHECK_IDS,
 } from '../../contracts/m6/release-v1.js';
 
@@ -177,6 +178,16 @@ export function evaluateM6TechnicalEvidence({
   const map = validateM6TechnicalProgramMap(registry);
   errors.push(...map.errors);
   const results = collectReports({ reports, candidateSha, registryFingerprint, errors });
+  const requiredActiveIds = (registry?.suites || [])
+    .filter(suite => suite.required === true && suite.state === 'ACTIVE')
+    .map(suite => suite.id)
+    .sort();
+  const actualResultIds = [...results.keys()].sort();
+  for (const programId of actualResultIds) {
+    if (!requiredActiveIds.includes(programId)) {
+      errors.push(`technical-results:unexpected:${programId}`);
+    }
+  }
 
   const technicalRows = Object.entries(map.programSets).map(([id, programIds]) => (
     rowForPrograms(id, programIds, results, candidateSha)
@@ -242,7 +253,7 @@ export function projectM6ReleaseEvidence({
   });
   return deepFreeze({
     contract: 'M6ReleaseEvidence',
-    version: 1,
+    version: M6_RELEASE_EVIDENCE_VERSION,
     candidateSha,
     registryFingerprint,
     generatedAt,
@@ -256,4 +267,3 @@ export function projectM6ReleaseEvidence({
     })),
   });
 }
-

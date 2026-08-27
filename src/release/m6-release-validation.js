@@ -5,6 +5,8 @@ import path from 'node:path';
 import {
   M6_L0_IDS,
   M6_RELEASE_EVIDENCE_CONTRACT,
+  M6_RELEASE_EVIDENCE_INDEX_CONTRACT,
+  M6_RELEASE_EVIDENCE_INDEX_VERSION,
   M6_RELEASE_EVIDENCE_VERSION,
   M6_RELEASE_STATUS,
   M6_RELEASE_VERDICT,
@@ -32,6 +34,16 @@ const CONDITIONAL_KEYS = Object.freeze([
   'status',
 ]);
 const ARTIFACT_KEYS = Object.freeze(['bytes', 'path', 'sha256']);
+const INDEX_KEYS = Object.freeze([
+  'candidateSha',
+  'contract',
+  'generatedAt',
+  'registryFingerprint',
+  'releaseArtifactManifest',
+  'reports',
+  'version',
+]);
+const INDEX_REPORT_KEYS = Object.freeze(['artifact', 'phaseId']);
 const EVIDENCE_ONLY_EXACT_PATHS = new Set([
   'ROADMAP.md',
   'SYSTEM-MAP.md',
@@ -65,6 +77,60 @@ function validArtifact(binding) {
     && SHA256_PATTERN.test(binding.sha256 || '')
     && Number.isSafeInteger(binding.bytes)
     && binding.bytes >= 0;
+}
+
+export function validateM6ReleaseEvidenceIndex(index, {
+  candidateSha,
+  registryFingerprint,
+  expectedPhaseIds,
+} = {}) {
+  const errors = [];
+  if (!exactKeys(index, INDEX_KEYS)) {
+    errors.push('index:keys');
+    return Object.freeze({ valid: false, errors: Object.freeze(errors) });
+  }
+  if (index.contract !== M6_RELEASE_EVIDENCE_INDEX_CONTRACT) errors.push('index:contract');
+  if (index.version !== M6_RELEASE_EVIDENCE_INDEX_VERSION) errors.push('index:version');
+  if (!FULL_SHA_PATTERN.test(index.candidateSha || '') || index.candidateSha !== candidateSha) {
+    errors.push('index:candidate');
+  }
+  if (
+    !SHA256_PATTERN.test(index.registryFingerprint || '')
+    || index.registryFingerprint !== registryFingerprint
+  ) errors.push('index:registry');
+  if (!Number.isFinite(Date.parse(index.generatedAt))) errors.push('index:generatedAt');
+  if (!validArtifact(index.releaseArtifactManifest)) errors.push('index:release-artifact');
+  if (!Array.isArray(index.reports)) {
+    errors.push('index:reports');
+  } else {
+    const actualPhaseIds = index.reports.map(item => item?.phaseId);
+    if (new Set(actualPhaseIds).size !== actualPhaseIds.length) {
+      errors.push('index:duplicate-phase');
+    }
+    if (
+      JSON.stringify([...actualPhaseIds].sort())
+      !== JSON.stringify([...(expectedPhaseIds || [])].sort())
+    ) errors.push('index:exact-phases');
+    index.reports.forEach((item, indexPosition) => {
+      if (!exactKeys(item, INDEX_REPORT_KEYS)) {
+        errors.push(`index.reports[${indexPosition}]:keys`);
+      } else if (!validArtifact(item.artifact)) {
+        errors.push(`index.reports[${indexPosition}]:artifact`);
+      }
+    });
+  }
+  const paths = [
+    index.releaseArtifactManifest?.path,
+    ...(index.reports || []).map(item => item?.artifact?.path),
+  ];
+  if (new Set(paths).size !== paths.length) errors.push('index:duplicate-artifact-path');
+  for (const artifactPath of paths) {
+    if (
+      typeof artifactPath === 'string'
+      && !artifactPath.startsWith('docs/execution/runs/m6/')
+    ) errors.push(`index:artifact-outside-git-evidence:${artifactPath}`);
+  }
+  return Object.freeze({ valid: errors.length === 0, errors: Object.freeze(errors) });
 }
 
 function validateEvidenceRow(row, label, errors) {
@@ -225,6 +291,36 @@ export async function verifyM6ArtifactBindings(root, evidence) {
       if (digest !== binding.sha256) errors.push(`${label}:sha256`);
     } catch (error) {
       errors.push(`${label}:${error.code === 'ENOENT' ? 'missing' : 'unreadable'}`);
+    }
+  }
+  return Object.freeze({ valid: errors.length === 0, errors: Object.freeze(errors) });
+}
+
+export async function verifyM6GitArtifactBindings(bindings, { readGitArtifact } = {}) {
+  const errors = [];
+  if (!Array.isArray(bindings)) {
+    return Object.freeze({ valid: false, errors: Object.freeze(['git-artifacts:not-array']) });
+  }
+  if (typeof readGitArtifact !== 'function') {
+    return Object.freeze({ valid: false, errors: Object.freeze(['git-artifacts:reader']) });
+  }
+  for (const [index, binding] of bindings.entries()) {
+    const label = `git-artifact[${index}]`;
+    if (!validArtifact(binding)) {
+      errors.push(`${label}:shape`);
+      continue;
+    }
+    try {
+      const artifact = await readGitArtifact(binding.path);
+      if (!Buffer.isBuffer(artifact?.bytes) || typeof artifact?.executable !== 'boolean') {
+        throw new Error('invalid-git-artifact');
+      }
+      if (artifact.bytes.length !== binding.bytes) errors.push(`${label}:bytes`);
+      if (createHash('sha256').update(artifact.bytes).digest('hex') !== binding.sha256) {
+        errors.push(`${label}:sha256`);
+      }
+    } catch {
+      errors.push(`${label}:missing-or-unreadable-git-blob`);
     }
   }
   return Object.freeze({ valid: errors.length === 0, errors: Object.freeze(errors) });

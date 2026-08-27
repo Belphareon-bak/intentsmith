@@ -35,6 +35,11 @@ function activeRequired(registry, predicate) {
 
 export function buildM6CandidateExecutionPlan(registry) {
   const fresh = new Set(M6_DIRECT_FRESH_CLONE_PROGRAMS);
+  const direct = new Set([
+    ...M6_DIRECT_FRESH_CLONE_PROGRAMS,
+    ...M6_DIRECT_OWNED_SERVER_PROGRAMS,
+    ...M6_PHYSICAL_GPU_PROGRAMS,
+  ]);
   const phases = [
     {
       id: 'deterministic-offline-database',
@@ -57,6 +62,19 @@ export function buildM6CandidateExecutionPlan(registry) {
       requiresFreshClone: false,
       requiresGpuCensus: false,
       requiresOwnedServer: true,
+    },
+    {
+      id: 'model-and-server',
+      runner: 'nightly-audit',
+      programIds: activeRequired(registry, suite => (
+        (suite.profile === 'model' || suite.profile === 'server')
+        && !direct.has(suite.id)
+      )),
+      allowedBlockers: ['ollama', 'gpu'],
+      requiresCleanCandidate: true,
+      requiresFreshClone: false,
+      requiresGpuCensus: true,
+      requiresOwnedServer: false,
     },
     {
       id: 'controlled-soak',
@@ -134,28 +152,17 @@ export function validateM6CandidateExecutionPlan(plan, registry) {
         if (suite.required !== true || suite.state !== 'ACTIVE') {
           errors.push(`${phase.id}:program-not-required-active:${programId}`);
         }
-        if (suite.requirements?.network === 'external') {
-          errors.push(`${phase.id}:external-network:${programId}`);
-        }
       }
     }
   }
 
-  const deterministic = new Set(activeRequired(registry, suite => (
-    suite.profile === 'offline' || suite.profile === 'database'
-  )));
-  const soak = new Set(activeRequired(registry, suite => suite.profile === 'soak'));
+  const requiredActive = activeRequired(registry, () => true);
   const selected = new Set((plan?.phases || []).flatMap(phase => phase.programIds || []));
-  for (const id of [...deterministic, ...soak]) {
+  for (const id of requiredActive) {
     if (!selected.has(id)) errors.push(`plan:required-program-uncovered:${id}`);
   }
-  for (const id of [
-    ...M6_DIRECT_FRESH_CLONE_PROGRAMS,
-    ...M6_DIRECT_OWNED_SERVER_PROGRAMS,
-    ...M6_PHYSICAL_GPU_PROGRAMS,
-  ]) {
-    if (!selected.has(id)) errors.push(`plan:release-program-uncovered:${id}`);
+  for (const id of selected) {
+    if (!requiredActive.includes(id)) errors.push(`plan:unexpected-program:${id}`);
   }
   return deepFreeze({ valid: errors.length === 0, errors });
 }
-

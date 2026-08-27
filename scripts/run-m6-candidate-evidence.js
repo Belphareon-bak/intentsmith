@@ -29,6 +29,11 @@ import {
   M6_DIRECT_FRESH_CLONE_PROGRAMS,
 } from '../contracts/m6/candidate-plan-v1.js';
 import {
+  M6_RELEASE_EVIDENCE_INDEX_CONTRACT,
+  M6_RELEASE_EVIDENCE_INDEX_PATH,
+  M6_RELEASE_EVIDENCE_INDEX_VERSION,
+} from '../contracts/m6/release-v1.js';
+import {
   buildM6CandidateExecutionPlan,
   validateM6CandidateExecutionPlan,
 } from '../src/release/m6-candidate-plan.js';
@@ -37,7 +42,6 @@ import {
 } from '../src/release/m6-release-artifact.js';
 import {
   evaluateM6TechnicalEvidence,
-  projectM6ReleaseEvidence,
 } from '../src/release/m6-technical-evidence.js';
 import { resolvePdfPythonInterpreter } from '../src/chat/export/pdf-exporter.js';
 import {
@@ -825,13 +829,72 @@ async function loadReportItem(root, reportPath) {
   };
 }
 
-function promoteReleaseArtifact(releaseEvidence, manifestBinding) {
-  const value = structuredClone(releaseEvidence);
-  const row = value.checks.find(item => item.id === 'release-artifact');
-  row.status = 'PASS';
-  row.reasonCode = null;
-  row.artifacts = [manifestBinding];
-  return value;
+async function stageM6GitEvidence({
+  root,
+  candidateSha,
+  registryFingerprint: fingerprint,
+  generatedAt,
+  plan,
+  reportPaths,
+  releaseManifestPath,
+}) {
+  if (reportPaths.length !== plan.phases.length) {
+    throw new Error('M6 Git evidence requires exactly one report per locked phase');
+  }
+  const relativeEvidenceRoot = `docs/execution/runs/m6/candidate-${candidateSha}`;
+  const evidenceRoot = path.join(root, relativeEvidenceRoot);
+  await mkdir(path.dirname(evidenceRoot), { recursive: true, mode: 0o700 });
+  await mkdir(evidenceRoot, { recursive: false, mode: 0o700 });
+  const reportBindings = [];
+  for (const [index, phase] of plan.phases.entries()) {
+    const target = path.join(evidenceRoot, 'reports', `${phase.id}.json`);
+    await mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
+    await cp(reportPaths[index], target, {
+      recursive: false,
+      dereference: false,
+      errorOnExist: true,
+      force: false,
+    });
+    await chmod(target, 0o600);
+    reportBindings.push({
+      phaseId: phase.id,
+      artifact: await artifactBinding(root, target),
+    });
+  }
+
+  const sourceManifest = JSON.parse(await readFile(releaseManifestPath, 'utf8'));
+  const stagedManifest = structuredClone(sourceManifest);
+  for (const file of stagedManifest.files) {
+    const source = path.join(path.dirname(releaseManifestPath), 'files', file.role);
+    const targetRelative = `${relativeEvidenceRoot}/release/files/${file.role}`;
+    const target = path.join(root, targetRelative);
+    await mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
+    await cp(source, target, {
+      recursive: false,
+      dereference: false,
+      errorOnExist: true,
+      force: false,
+    });
+    await chmod(target, file.mode === 0o700 ? 0o700 : 0o600);
+    const binding = await artifactBinding(root, target);
+    if (binding.bytes !== file.bytes || binding.sha256 !== file.sha256) {
+      throw new Error(`M6 staged release role changed bytes: ${file.role}`);
+    }
+    file.artifactPath = targetRelative;
+  }
+  const stagedManifestPath = path.join(evidenceRoot, 'release', 'manifest.json');
+  await writePrivateJsonAtomic(stagedManifestPath, stagedManifest);
+  const index = {
+    contract: M6_RELEASE_EVIDENCE_INDEX_CONTRACT,
+    version: M6_RELEASE_EVIDENCE_INDEX_VERSION,
+    candidateSha,
+    registryFingerprint: fingerprint,
+    generatedAt,
+    reports: reportBindings,
+    releaseArtifactManifest: await artifactBinding(root, stagedManifestPath),
+  };
+  await writePrivateJsonAtomic(path.join(root, M6_RELEASE_EVIDENCE_INDEX_PATH), index);
+  return M6_RELEASE_EVIDENCE_INDEX_PATH;
 }
 
 export async function runM6CandidateEvidence(root = process.cwd(), argv = []) {
@@ -877,6 +940,9 @@ export async function runM6CandidateEvidence(root = process.cwd(), argv = []) {
   reportPaths.push(path.join(evidenceRoot, OWNED_SERVER_REPORT));
 
   await captureGpuCensus(evidenceRoot);
+  const modelAndServer = plan.phases.find(phase => phase.id === 'model-and-server');
+  reportPaths.push(await runAuditPhase({ root, candidateSha, evidenceRoot, phase: modelAndServer }));
+
   const controlledSoak = plan.phases.find(phase => phase.id === 'controlled-soak');
   reportPaths.push(await runAuditPhase({ root, candidateSha, evidenceRoot, phase: controlledSoak }));
 
@@ -910,31 +976,23 @@ export async function runM6CandidateEvidence(root = process.cwd(), argv = []) {
   )) || technical.l0.some(row => row.status !== 'PASS')) {
     throw new Error('M6 technical candidate evidence is incomplete or red');
   }
-  const projected = projectM6ReleaseEvidence({
+  const releaseEvidencePath = await stageM6GitEvidence({
+    root,
     candidateSha,
     registryFingerprint: fingerprint,
     generatedAt: new Date().toISOString(),
-    technicalEvidence: technical,
+    plan,
+    reportPaths,
+    releaseManifestPath: fresh.manifestPath,
   });
-  const releaseEvidence = promoteReleaseArtifact(
-    projected,
-    await artifactBinding(root, fresh.manifestPath),
-  );
-  const releaseEvidencePath = path.join(
-    root,
-    '.intentsmith-artifacts',
-    'm6',
-    'release-evidence.json',
-  );
-  await writePrivateJsonAtomic(releaseEvidencePath, releaseEvidence);
   return Object.freeze({
     candidateSha,
     registryFingerprint: fingerprint,
     evidenceRoot: relative(root, evidenceRoot),
-    releaseEvidencePath: relative(root, releaseEvidencePath),
+    releaseEvidencePath,
     technicalImplementation: 'PASS',
     releaseVerdict: 'BLOCKED',
-    reasonCode: 'M6_EXTERNAL_AUTHORITIES_PENDING',
+    reasonCode: 'M6_GIT_EVIDENCE_COMMIT_AND_EXTERNAL_AUTHORITIES_PENDING',
     exitCode: 2,
   });
 }

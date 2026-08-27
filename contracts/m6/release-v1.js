@@ -1,5 +1,10 @@
 export const M6_RELEASE_EVIDENCE_CONTRACT = 'M6ReleaseEvidence';
-export const M6_RELEASE_EVIDENCE_VERSION = 1;
+export const M6_RELEASE_EVIDENCE_VERSION = 2;
+
+export const M6_RELEASE_EVIDENCE_INDEX_CONTRACT = 'M6ReleaseEvidenceIndex';
+export const M6_RELEASE_EVIDENCE_INDEX_VERSION = 1;
+export const M6_RELEASE_EVIDENCE_INDEX_PATH =
+  'docs/execution/runs/m6/M6-RELEASE-EVIDENCE-INDEX.json';
 
 export const M6_RELEASE_STATUS = Object.freeze({
   PASS: 'PASS',
@@ -10,6 +15,7 @@ export const M6_RELEASE_STATUS = Object.freeze({
 
 export const M6_REQUIRED_CHECK_IDS = Object.freeze([
   'm5-acceptance',
+  'all-active-required-programs',
   'fresh-clone-install-build',
   'deterministic-offline-database',
   'server-ws-studio-journey',
@@ -35,4 +41,3 @@ export const M6_RELEASE_VERDICT = Object.freeze({
   FAIL: 'FAIL',
   BLOCKED: 'BLOCKED',
 });
-

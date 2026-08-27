@@ -22,13 +22,20 @@ const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url))
 
 suite('M6 locked candidate execution plan');
 
-test('plan is argument-free, serial and covers deterministic plus every ACTIVE soak program', () => {
+test('plan is argument-free, serial and covers the exact ACTIVE required registry', () => {
   const plan = buildM6CandidateExecutionPlan(registry);
   const validation = validateM6CandidateExecutionPlan(plan, registry);
   assert.equal(validation.valid, true, validation.errors.join('\n'));
   assert.equal(plan.acceptsArguments, false);
   assert.equal(plan.concurrency, 1);
   assert.deepEqual(plan.phases.map(phase => phase.id), M6_CANDIDATE_PHASE_IDS);
+  const expected = registry.suites
+    .filter(program => program.required === true && program.state === 'ACTIVE')
+    .map(program => program.id)
+    .sort();
+  const selected = plan.phases.flatMap(phase => phase.programIds).sort();
+  assert.deepEqual(selected, expected);
+  assert.equal(selected.length, 369);
   assert.equal(Object.isFrozen(plan), true);
 });
 
@@ -44,12 +51,14 @@ test('fresh-clone and physical GPU programs cannot be silently omitted', () => {
     .requiresGpuCensus, true);
 });
 
-test('no selected program may require external network', () => {
+test('model and server phase includes every remaining required program, including declared external tests', () => {
   const plan = buildM6CandidateExecutionPlan(registry);
   const byId = new Map(registry.suites.map(program => [program.id, program]));
-  for (const id of plan.phases.flatMap(phase => phase.programIds)) {
-    assert.notEqual(byId.get(id).requirements.network, 'external', id);
-  }
+  const phase = plan.phases.find(item => item.id === 'model-and-server');
+  assert.equal(phase.programIds.length, 58);
+  assert.equal(phase.programIds.filter(id => byId.get(id).profile === 'model').length, 47);
+  assert.equal(phase.programIds.filter(id => byId.get(id).profile === 'server').length, 11);
+  assert(phase.programIds.some(id => byId.get(id).requirements.network === 'external'));
 });
 
 test('candidate runner materializes only named toolchain bindings', () => {
@@ -145,7 +154,7 @@ test('pre-physical wait recognizes only the candidate-owned Ollama residency', (
   ]) assert.equal(candidateModelResidencyOnly(mutation), false);
 });
 
-test('duplicate, reordered, concurrent or external-network plans fail closed', () => {
+test('duplicate, reordered, concurrent, uncovered or unexpected plans fail closed', () => {
   const base = buildM6CandidateExecutionPlan(registry);
   for (const mutate of [
     plan => { plan.concurrency = 2; },
