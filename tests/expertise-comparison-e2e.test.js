@@ -162,7 +162,13 @@ try {
   const r = await fetch(`${OLLAMA_URL}/api/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'qwen3.5:27b', prompt: 'Say OK', stream: false, options: { num_predict: 5 } }),
+    body: JSON.stringify({
+      model: 'qwen3.5:27b',
+      prompt: 'Reply with only OK.',
+      stream: false,
+      think: false,
+      options: { num_predict: 8 },
+    }),
   });
   llmOk = r.ok && (await r.json()).response?.length > 0;
 } catch { /* */ }
