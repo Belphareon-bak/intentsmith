@@ -64,4 +64,29 @@ for (const [input, llmIntent, expectedIntent, expectedDecision] of nonBuildCases
   });
 }
 
+await testAsync('unsupported LLM LOCAL label cannot enter terminal local authority', async () => {
+  const { decision } = await decideWithAcceptedLLM(
+    'Kolik zaplatim dani z prijmu 850000 Kc jako OSVC?',
+    IntentType.LOCAL,
+  );
+
+  assertEqual(decision.intent, IntentType.CONVERSATIONAL);
+  assertEqual(decision.type, DecisionType.ANSWER);
+  assert(
+    decision.metadata.diag.overrides.includes('guard13_unbacked_local'),
+    'the deterministic authority downgrade must be recorded',
+  );
+});
+
+await testAsync('supported deterministic calculation remains terminal LOCAL', async () => {
+  const { decision } = await decideWithAcceptedLLM(
+    'Spočítej mi DPH z 15000 Kč',
+    IntentType.CONVERSATIONAL,
+  );
+
+  assertEqual(decision.intent, IntentType.LOCAL);
+  assertEqual(decision.type, DecisionType.LOCAL);
+  assertEqual(decision.metadata.localComputation, true);
+});
+
 summary();

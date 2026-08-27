@@ -3162,6 +3162,22 @@ PRAVIDLA:
       _diag.overrides.push('negation_override');
     }
 
+    // GUARD 13: an LLM may label domain arithmetic (for example a tax
+    // calculation) as LOCAL even though none of the closed deterministic
+    // handlers can execute it. LOCAL is an absolute terminal authority, so a
+    // label without a matching deterministic pattern must not fall through to
+    // the historical local.date default. Downgrade it to conversational
+    // authority; an active specialist may then dispatch its own deterministic
+    // calculator, while the ordinary conversation path remains non-mutating.
+    if (intent === IntentType.LOCAL &&
+        !LOCAL_DETERMINISTIC_PATTERNS.some(pattern => pattern.test(_norm))) {
+      logger.info('CRE:Guard13', 'LOCAL downgrade -> CONVERSATIONAL (no deterministic handler)', {
+        input: input.substring(0, 60),
+      });
+      intent = IntentType.CONVERSATIONAL;
+      _diag.overrides.push('guard13_unbacked_local');
+    }
+
     // ════════════════════════════════════════════════════════════════════════
     // GUARD 6: CREATIVE OVERRIDE — when creative expertise is active,
     // SEARCH and AMBIGUOUS should be downgraded to CREATIVE.

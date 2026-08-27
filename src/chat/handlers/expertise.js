@@ -101,6 +101,9 @@ export async function expertiseHandler(input, context) {
     // v44.6 FIX 6: Expert MUST NOT change decision type
     // ════════════════════════════════════════════════════════════════════════
     // Expert only INTERPRETS results, never changes what decision to make.
+    // The bounded D1 specialist dispatch below is the exception: for
+    // non-mutating information paths it may satisfy the request with a
+    // package-owned deterministic calculator instead of a generic provider.
     // If user asks for creative writing with expert active, expert answers directly.
     // ════════════════════════════════════════════════════════════════════════
 
@@ -123,13 +126,18 @@ export async function expertiseHandler(input, context) {
     // ════════════════════════════════════════════════════════════════════════
     // D1: Specialist tool interception (generalized from D-int2)
     // ════════════════════════════════════════════════════════════════════════
-    // When a specialist expert is active and CRE says ANSWER, check if input
-    // matches specialist tool patterns → execute deterministic tool directly,
+    // When a specialist expert is active and CRE selects a non-mutating answer
+    // or information-retrieval path, check whether the package owns a more
+    // precise deterministic tool for the input. Execute that tool directly,
     // then wrap result with expert persona for human-readable formatting.
     // This ensures "kolik zaplatím z 850k" gets a precise calculation,
     // not an LLM estimate.
     // ════════════════════════════════════════════════════════════════════════
-    if (expertise.styleRules?.toolEnforcement && decision.type === DecisionType.ANSWER) {
+    const specialistDispatchEligible = decision.type === DecisionType.ANSWER ||
+      (decision.type === DecisionType.TOOL_CALL &&
+        ['SEARCH', 'FACTUAL', 'REPORT'].includes(decision.intent));
+    let specialistNeedsClarification = false;
+    if (expertise.styleRules?.toolEnforcement && specialistDispatchEligible) {
       const { specialistRuntime } = await import('../../expertises/specialist-runtime.js');
 
       if (specialistRuntime.isSpecialist(expertise.id)) {
@@ -158,9 +166,13 @@ export async function expertiseHandler(input, context) {
                 missingParams: toolResult.missingParams,
                 extractedParams: toolResult.params,
               };
-              // Fall through to LLM — it will ask for the specific missing params
+              specialistNeedsClarification = true;
+              // Fall through to the expert model — it will ask for the specific
+              // missing params instead of starting the CRE-selected web path.
             } else {
-              logger.info('ExpertHandler', 'Specialist tool interception: ANSWER → TOOL_CALL', {
+              logger.info('ExpertHandler', 'Specialist tool interception: deterministic package dispatch', {
+                creDecisionType: decision.type,
+                creIntent: decision.intent,
                 toolType: toolResult.toolType,
                 expertise: expertise.id,
               });
@@ -174,6 +186,10 @@ export async function expertiseHandler(input, context) {
           // Fall through to normal ANSWER path
         }
       }
+    }
+
+    if (specialistNeedsClarification) {
+      return await generateExpertiseResponse(input, expertise, context);
     }
 
     // v44.6 FIX 6: Expert MUST respect CRE decision type

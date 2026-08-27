@@ -352,9 +352,12 @@ async function testS7_ConversationalFollowUp() {
   checks.push(check('turn1_has_content', (res1.text?.length || 0) > 50,
     `Turn 1 length: ${res1.text?.length || 0}`));
   // Turn 1 should not be an error response
-  const t1noError = !/chyba|error|nemohu zpracovat/i.test(res1.text.substring(0, 100));
+  const t1noError = !/chyba|error|nemohu zpracovat|autoritativn[ií].*efekt|termin[aá]ln[ií]m v[yý]sledkem/i
+    .test(res1.text.substring(0, 180));
   checks.push(check('turn1_no_error', t1noError,
     t1noError ? 'No error' : `Possible error: "${res1.text.substring(0, 100)}"`));
+  checks.push(check('turn1_mode_expert', res1.body?.mode === 'expert',
+    `Turn 1 mode: ${res1.body?.mode} (expected: expert)`));
 
   // Turn 2: Follow-up — "A co jako s.r.o.?"
   const res2 = await chat(
@@ -369,7 +372,8 @@ async function testS7_ConversationalFollowUp() {
   checks.push(check('turn2_has_content', (res2.text?.length || 0) > 50,
     `Turn 2 length: ${res2.text?.length || 0}`));
   // Turn 2 should not be an error response
-  const t2noError = !/chyba|error|nemohu zpracovat/i.test(res2.text.substring(0, 100));
+  const t2noError = !/chyba|error|nemohu zpracovat|autoritativn[ií].*efekt|termin[aá]ln[ií]m v[yý]sledkem/i
+    .test(res2.text.substring(0, 180));
   checks.push(check('turn2_no_error', t2noError,
     t2noError ? 'No error' : `Possible error: "${res2.text.substring(0, 100)}"`));
 

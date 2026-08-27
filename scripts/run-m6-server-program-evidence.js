@@ -296,7 +296,7 @@ async function readServerAuthority(portFile, expectedPid, expectedNonce) {
 
 async function verifyHealth() {
   const response = await fetch(`http://${LOOPBACK}:${SERVER_PORT}/api/health`, {
-    headers: { Accept: 'application/json' },
+    headers: { Accept: 'application/json', Connection: 'close' },
     redirect: 'error',
     signal: AbortSignal.timeout(3_000),
   });
