@@ -145,6 +145,15 @@ Aktuální registry fingerprint je
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 
+Aktuální model-evaluation autoritu popisují
+[`MODEL-SCORING-ACTIVATION.md`](docs/MODEL-SCORING-ACTIVATION.md) a
+[`030-model-evaluation-authority-consolidation.md`](docs/decisions/030-model-evaluation-authority-consolidation.md).
+Tyto dokumenty nahrazují historické auto-failover/proof lifecycle popisy v
+pozdější capability tabulce: veřejné auto-transition repository writery jsou
+odstraněné a gateway, binding verification i autoritativní scoring vyžadují
+digest přímo v provider response. Stock Ollama 0.32.14 jej neposkytuje, takže
+tyto cesty bez důvěryhodného adaptéru zůstávají záměrně fail-closed.
+
 Tool census ze zdroje: **9 JavaScript soubory, 8 664 řádků, 153 top-level
 nástrojových deklarací**. Počet 213 v dřívější inventuře byl textový false count.
 

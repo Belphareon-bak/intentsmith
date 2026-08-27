@@ -1,20 +1,22 @@
 # WP-MODEL-EVALUATION-CONSOLIDATION — jedna autorita pro modelové evaluace
 
 **Typ:** zapisující WP · **Slot:** izolovaný worktree
-`/home/belphareon/worktrees/is-model-evaluation-consolidation-20260824`
+`/home/belphareon/worktrees/is-model-scoring-final-20260826`
 
 **Vstupní revision:** `bd71b2ff37036f1b80d56620083402ffe3610269`
 
-**Větev:** `codex/model-evaluation-consolidation-20260824`
+**Větev:** `codex/model-scoring-final-20260826`
 
 **Autorita:** explicitní pokyn operátora z 2026-08-24 odstranit v123 cestu,
 sjednotit scoring/evaluace a pokračovat přes všechny milníky až k jednomu
 review candidate.
 
-**Stav:** `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED`. Candidate
-`d8a2a108` sice prošel tehdejším rereview, ale pozdější review rozsahu
-`96c762db..4169c59d` prokázalo upgrade-unsafe migrace a nepravdivou startup
-autoritu. Historický `227/227 PASS` proto není přijetím současné revize.
+**Stav:** `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED`. Poslední nezávislé
+rereview nad headem `40418aaf` skončilo `CHANGES_REQUIRED / NOT_ACCEPTED`.
+Navazující implementační candidate `0bd38b7d` uzavírá ABA response identity v
+gatewayi, binding verification i autoritativním scoringu a odstraňuje osiřelou
+auto-failover autoritu. Starší `9f6e4828` prošel čistým `279/279` gate; po
+scoring změně je nový plný gate povinný a ani ten nebude nezávislé přijetí.
 Aktuální integrovaná evidence je v
 [`model-evaluation-final-integration-20260826.md`](../execution/runs/model-evaluation-final-integration-20260826.md).
 
@@ -71,6 +73,9 @@ nejsou runtime fallbackem ani současnou autoritou.
    vyhodnocený nebo inconclusive artefakt se automaticky nemaže.
 8. Vyhodnocení ani doporučení samo model neaktivuje. Aktivace vyžaduje dnešní
    explicitní uživatelský krok a exact-digest binding application.
+9. Digest obsloužené LLM odpovědi se nesmí odvozovat z mutable inventory před
+   nebo po requestu. `DURABLE` runtime a binding verification vyžadují digest
+   přímo z důvěryhodné provider response; bez něj zůstávají fail-closed.
 
 ## 4. Pořadí implementace
 
@@ -159,7 +164,8 @@ tohoto WP.
 | M4 — sedm role suites a fail-closed minima | PASS |
 | M5 — API, CLI, Studio, governor, registry a dokumentace | PASS |
 | M6 — registry, hygiene a module-boundary ratchet | PASS |
-| M7 — clean deterministic + server-owned read E2E handoff | RERUN REQUIRED po remediaci `13413117` |
+| M7 — clean deterministic + server-owned read E2E handoff | RERUN REQUIRED po scoring response-attestation `0bd38b7d` |
+| M8 — provider response exact-artifact attestation | IMPLEMENTACE FAIL-CLOSED PASS; STOCK OLLAMA CAPABILITY BLOCKED |
 
 První nezávislé review: `CHANGES_REQUESTED`. Remediační R0–R7 opravily všech
 devět nálezů: úplnou suite identity, upgrade okno 070→082, governor reader,
@@ -169,6 +175,9 @@ mrtvou speed větev a stabilní decision enum. Druhý nezávislý rereview nad
 `227/227`.
 
 Historické přijetí operátorem bylo navazujícím review zneplatněno. Nový stav
-`ACCEPTED` může vzniknout až po čistém gate na novém HEAD a novém nezávislém
-rereview. Ostrý GPU/Ollama eval panel není součástí této remediace; starší
-výsledky se nepovyšují na current-contract PASS.
+`ACCEPTED` může vzniknout až po novém nezávislém rereview. Ostrý GPU/Ollama
+eval panel není součástí této remediace; starší výsledky se nepovyšují na
+current-contract PASS. Stock Ollama navíc v `ChatResponse` neposkytuje digest
+obslouženého artefaktu. Bez důvěryhodného provider adaptéru proto může být
+kandidát bezpečný a přijatelný k integraci, ale durable LLM runtime ani nové
+exact-artifact scoring běhy nejsou plně funkční a nesmějí být tak popsány.

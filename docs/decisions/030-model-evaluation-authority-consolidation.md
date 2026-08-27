@@ -24,10 +24,11 @@ odstranit; C3 repo zůstává případnou historickou referencí.
 5. v123 runtime, endpointy, UI/WS, report a proof-measurement skripty se mažou.
    Migrace 082 nejprve ověří import, archivuje důkaz a až potom dropne staré
    runtime tabulky.
-6. Automatický failover/proof issuer není zapnut. Historické proof DB schema a
-   rozhodnutí 006/015 zůstávají auditní stopou, nikoli dnešním issuing
-   kontraktem. Jejich případné budoucí oživení vyžaduje nové current-suite
-   rozhodnutí a nezávislé review.
+6. Veřejné repository writery automatického failover/proof lifecycle jsou
+   odstraněné. Historické proof DB schema a rozhodnutí 006/015 zůstávají
+   upgrade/auditní stopou, nikoli dnešním issuing kontraktem. Jejich případné
+   budoucí oživení vyžaduje nové current-suite rozhodnutí, implementaci a
+   nezávislé review.
 7. Každá role má víceúlohové supply minimum a minimálně dvě stabilně
    rozlišující úlohy; CHAT navíc samostatné EN/CS minimum.
 8. Katalog, universe a provozní telemetry nesmějí odvozovat lokální quality
@@ -41,8 +42,12 @@ odstranit; C3 repo zůstává případnou historickou referencí.
     source není prompt identity.
 11. Nedostatečný kvalitativní důkaz je `INCONCLUSIVE`. Propustnost jej nesmí
     změnit na vítězství a DB outcome se odvozuje ze stabilního `reasonCode`.
-12. Usage digest je observed runtime identity z provider response nebo exact
-    inventory pod lease; desired binding se pro usage audit nepoužije.
+12. Usage digest je observed runtime identity pouze z přímé provider response.
+    Exact inventory pod lease dokládá očekávání, ne obsloužený artefakt;
+    desired binding ani druhý inventory snapshot se pro usage audit nepoužijí.
+13. Nový autoritativní scoring běh musí předat očekávaný exact artefakt runneru
+    a každá provider response jej musí přímo attestovat digestem. Chybějící či
+    jiný digest je terminální chyba, nikdy `COMPLETE` score.
 
 ## Důsledky
 

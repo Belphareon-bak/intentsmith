@@ -11,8 +11,8 @@
 - společný read model pro API, CLI, Studio, governor a registry;
 - durable binding je oddělen od evaluace, všech 7 rolí má exact DB autoritu a
   chybějící fresh-install baseline se uloží observačně bez runtime operace;
-- gateway zapisuje providerem/inventory ověřený digest skutečně obsluhujícího
-  artefaktu; pokud jej neprokáže, zapisuje `NULL`, nikdy desired digest;
+- gateway přijme digest skutečně obsluhujícího artefaktu pouze přímo z
+  provider response; mutable inventory před/po jej nesmí dokazovat ani doplnit;
 - cleanup vyžaduje disk pressure, exact usage a COMPLETE current-contract stav;
 - v123 runtime, endpointy, WS zprávy, UI a paralelní proof measurement jsou
   odstraněné; upgrade DB zachová jejich auditní evidence před dropem tabulek;
@@ -44,10 +44,19 @@
   pozdější review rozsahu `e8c1ba85..96c762db` našlo číselné kolize migrací a
   review rozsahu `96c762db..4169c59d` a `c5aa379a..74beafea` následně prokázala
   nebezpečný upgrade, cross-role leakage, nepravdivý startup stav `DURABLE` a
-  telemetry veto. Nálezy jsou implementačně opravené na `13413117`, ale
-  kandidát čeká na nový plný gate a nezávislé rereview.
-- Automatický failover/proof issuance zůstává vypnutý; aktivace je ruční přes
-  exact binding application.
+  telemetry veto. Poslední rereview nad `40418aaf` navíc našlo ABA response
+  identity, zbytky auto-failover writerů a neúplnou snapshot provenienci.
+  Product/test oprava `9f6e4828` prošla novým čistým 279/279 gate. Následný
+  `0bd38b7d` přenesl stejnou exact-response atestaci i do ukládaného scoringu;
+  po této změně čeká kandidát na nový plný gate a nezávislé rereview.
+- Automatický failover/proof issuance není jen vypnutý: veřejné auto-claim,
+  proof selection, terminal, expiry/finalization a restart writery jsou
+  odstraněné. Aktivace je ruční přes exact binding application.
+- Stock Ollama `ChatResponse` nevrací digest obslouženého artefaktu. Bez
+  důvěryhodného response-attesting adaptéru proto `DURABLE` call, binding
+  verification i nový autoritativní scoring správně selžou jako neověřené;
+  plně funkční durable runtime a nové scoring běhy jsou navazující provider
+  capability, nikoli hotová vlastnost tohoto kandidáta.
 - Předchozí candidate na `31234a6b` dostal `CHANGES_REQUESTED`; jeho 227 PASS
   evidence není přijetí ani evidence této opravené revize.
 - Starší cross-branch sloty jsou atomicky adoptované nebo fail-closed odmítnuté;

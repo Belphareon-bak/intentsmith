@@ -29,8 +29,14 @@ evaluace a oddělená, ručně autorizovaná cesta pro změnu bindingu.
    mismatch nebo digest mismatch ponechá nemodelové route dostupné, ale
    zveřejní binding autoritu `DEGRADED`; žádné candidate rozhodnutí pak není
    akční a jinak připravený kandidát nese `BINDING_AUTHORITY_DEGRADED`.
-   Gateway stejný exact digest kontroluje znovu pod model-use lease před POST a
-   po odpovědi. Driftující odpověď se nevrátí ani nezapíše jako úspěšný usage.
+   Gateway před POST pod model-use lease kontroluje očekávaný exact digest
+   proti inventory, ale skutečně obsloužený artefakt přijme pouze z digestu
+   přímo v téže provider response. Mutable inventory po odpovědi není důkaz.
+   Neattestovaná nebo driftující odpověď se nevrátí ani nezapíše jako úspěšný
+   usage.
+8. Stejná response atestace platí pro nové autoritativní scoring běhy. Runner
+   dostane očekávaný `(model name, digest)`; chybějící nebo jiný response digest
+   vyhodí typovanou terminální chybu a nesmí vytvořit `COMPLETE` řádek.
 
 Suite contract nehashuje zdroj wrapper closure. Hashuje explicitní skutečný
 prompt, language, rubric, grader a jeho uzavřené vstupy, options a repeats.
@@ -109,9 +115,18 @@ nim při upgradu nespadne.
 - Rychlost zůstává provozní metrika. Při nedostatečném kvalitativním důkazu
   nesmí vyrobit vítěze; decision outcome používá stabilní `reasonCode`, ne
   porovnání lokalizovaného textu `basis`.
-- Usage digest se bere z exact `/api/tags` inventory pod aktivním model-use
-  lease a znovu se ověří proti provider response. Desired binding není důkaz
-  obsloužené identity. Neověřitelná či driftující odpověď není úspěch, nevrátí
-  se klientovi a nevytvoří kladný usage záznam; cleanup dál fail-close nemaže.
-- Automatický failover/proof issuer není tímto kontraktem zapnut. Případné
-  budoucí zapnutí vyžaduje nové rozhodnutí a current-contract review.
+- Usage digest se bere pouze z přímé provider response. Exact `/api/tags`
+  inventory pod aktivním model-use lease dokládá očekávání, nikoli obslouženou
+  identitu. Desired binding ani druhý inventory snapshot nejsou důkaz.
+  Neověřitelná či driftující odpověď není úspěch, nevrátí se klientovi a
+  nevytvoří kladný usage záznam; cleanup dál fail-close nemaže.
+- Veřejné repository writery automatického failover/proof lifecycle jsou
+  odstraněné. Jejich případné budoucí obnovení vyžaduje nové rozhodnutí,
+  implementaci a current-contract review.
+
+Stock Ollama 0.32.14 ani jeho publikovaný `ChatResponse` schema neposkytují
+digest obslouženého artefaktu. Proto bez důvěryhodného provider adaptéru
+fail-closed skončí durable runtime, manual binding verification i nový scoring.
+To je známý provozní blocker, nikoli důvod nahradit response důkaz mutable
+inventářem. Viz oficiální [API typy](https://github.com/ollama/ollama/blob/main/api/types.go)
+a [OpenAPI schema](https://github.com/ollama/ollama/blob/main/docs/openapi.yaml).

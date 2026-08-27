@@ -1,12 +1,17 @@
 # Model evaluation — remediační integrační handoff (2026-08-27)
 
-**Stav:** `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED`
+**Stav:** `IMPLEMENTATION_GREEN / FINAL_GATE_PENDING / REREVIEW_REQUIRED`
 
-**Poslední zamítnutý candidate:** `74beafea439fdddbbb54e797d351dfe180b2d5f7`
+**Poslední nezávisle zamítnutý head:** `40418aafb3feba0671b15c3214ada409f4c03ff5`
 
-**Product/test candidate:** `5f89bc36045598e292f1c64d34f61abdd0950b29`
+**Review base:** `74beafea439fdddbbb54e797d351dfe180b2d5f7`
 
-**Clean deterministic gate source:** `0b7f1c27d189cca74548856f1c8f92d0616c4275`
+**Implementation candidate:** `0bd38b7d0ff2cd86ef4f3cf5b87ab53501ccba4e`
+
+**Snapshot/provenance tool:** `178aa592ee483096aaf69ebd1cca1ed4ca6be6c8`
+
+**Poslední clean gate source:** `9f6e4828d9aec9eaeaabc6b76c9262bf2a98df11`
+(nepokrývá pozdější scoring response-attestation)
 
 Tento report nahrazuje chybný panel 40/17/34 z předchozí verze dokumentu.
 Nejde o nezávislé přijetí. Timer zůstává vypnutý a žádný GPU scoring se v
@@ -26,17 +31,25 @@ remediaci nespouštěl.
 - Binding a scoring jsou oddělené autority. Jediná aktivační cesta je ruční
   exact-digest binding application; hunt, discovery ani telemetry binding
   nemění.
-- `DURABLE` nyní nese exact jméno i digest všech rolí. Registry vyžaduje
-  aktuální provider inventory. Gateway znovu ověří digest před provider POST
-  uvnitř shared model-use lease a po odpovědi; neprokazatelnou nebo driftující
-  odpověď zahodí a usage nezapíše jako úspěch.
+- `DURABLE` nyní nese exact jméno i digest všech rolí. Gateway ověří inventory
+  před provider POST uvnitř shared model-use lease, ale obsloužený artefakt
+  přijme pouze z digestu přímo v provider response. Druhý mutable `/api/tags`
+  už není důkaz. Stejné pravidlo platí pro manual binding verification;
+  neattestovaná nebo driftující odpověď zůstane neověřená a usage se nezapíše
+  jako úspěch.
+- Autoritativní scoring runner dostane exact artefakt před prvním provider
+  callem a tentýž digest vyžaduje přímo v každé response. Chybějící digest,
+  A→B drift nebo jiné response model identity vyhodí typovanou terminální
+  chybu; summary se neuloží jako `COMPLETE`.
 - Runtime telemetry zůstává pouze raw diagnostická evidence. Veškerý výpočet
   telemetry blacklistu, veto ručního bindingu, skrytý discovery filtr i
   `runtime_state` API byly odstraněny. Migrace 099 odstraňuje starou odvozenou
   tabulku `model_runtime_guard`.
-- Osiřelé `applyWinningBindings()` a `runExclusiveAutomaticFailover()` včetně
-  jejich testů byly odstraněny. Detekční/auditní failover schema není proof
-  issuer ani aktivační cesta.
+- Osiřelé `applyWinningBindings()`, `runExclusiveAutomaticFailover()` a všech
+  11 veřejných repository metod pro auto-claim, proof selection, terminal,
+  expiry, runtime finalization a restart recovery byly odstraněny. Původní
+  999řádkový repository test nahradila detection-only sada. Historické schema
+  zůstává pouze pro bezpečný upgrade a čtení již uložených incidentů.
 - V123 runtime tabulky zůstávají odstraněné. Historické migrace jsou pouze
   upgrade cesta, nikoli runtime fallback.
 
@@ -71,11 +84,14 @@ jinou legitimní historii stampů; její přesná projekce je doložena níže.
 | sanitizovaný skutečný pre-082 upgrade | 1/1 PASS |
 | schema migrace včetně 097/099 | 55/55 PASS |
 | manual binding application | 109/109 PASS |
+| failover detection repository | 4/4 PASS; auto-transition surface absent |
+| model evaluation runner response attestation | 19/19 PASS |
+| pairwise exact-artifact propagation | 35/35 PASS |
+| candidate scoring reason-code propagation | 34/34 PASS |
 | model evaluation read model včetně D1→D2/R1 negative | 10/10 PASS |
-| pairwise role cache | 34/34 PASS |
 | registry current authority | 13/13 PASS |
-| gateway/model-use exact digest | 26/26 PASS |
-| registry validace | 448 programů; fingerprint `0da4a318503be9cb05edb4ad3757d3c6d565ac61f28cc9db6473cb12a7196bcd` |
+| gateway/model-use exact digest včetně A→B→A | 27/27 PASS |
+| registry validace | 448 programů; fingerprint `b8791c78ca0277ed1b1b4b301887ff5a2d85c6f16e6840e95e540860b0275d4d` |
 | module boundary ratchet | 1 192/1 192 hran; 3 cykly; 28 souborů v cyklech |
 
 První plný deterministický gate remediace na source
@@ -87,20 +103,26 @@ důkaz, nikoli přepsán následným během:
 | `2026-08-27T08-29-07-007Z` | 279 deterministic suites | 275 PASS / 4 FAIL / 0 BLOCKED | `928eb6590304701a1007ec8fd980de04630e5d044dafa52f70dd4dd83bc5550d` |
 | `2026-08-27T08-39-33-848Z` | čtyři opravené sady, diagnosticky nad dirty tree | 4 PASS / 0 FAIL | `3c314178d1e45a6f1c2fb5a58c0631872e5bfe4d2d4cf8b52b3a4130920b9f23` |
 | `2026-08-27T08-41-33-095Z` | 279 deterministic suites, clean source `0b7f1c27` | 279 PASS / 0 FAIL / 0 TIMEOUT / 0 BLOCKED / 0 SKIPPED | `a024c7a9632a24b36efa8e3601408d89a78372621f8c4349c1ad52e077991774` |
+| `2026-08-27T19-51-19-172Z` | 279 deterministic suites, clean source `9f6e4828` | 279 PASS / 0 FAIL / 0 TIMEOUT / 0 BLOCKED / 0 SKIPPED | `c6c9eb65702f6ccefdf831b27eb5895d375e78aeb682e40c761816fd22663921` |
 
 Selhání byla: role-less governor fixture, neaktuální 096/83 migrační oracle,
 reviewed Gate 0 fingerprint stále na 278 sadách a meta-test, který zaměnil
 cizí pre-existing ignored runtime za svůj leak. Product/test commit `5f89bc36`
-opravil všechny čtyři příčiny; focused audit už zahrnoval skutečnou auditní
-větev harnessu. Následný plný gate prošel nad čistým source, se sériovou
-concurrency 1 a bez povolených blocker bypassů. Poslední nezávislý gate 278/278
+opravil všechny čtyři tehdejší příčiny; focused audit už zahrnoval skutečnou
+auditní větev harnessu. Po nálezu ABA a osiřelé failover autority prošel nový
+plný gate nad čistým `9f6e4828`, se sériovou concurrency 1 a bez povolených
+blocker bypassů. Jeho inventory SHA-256 je
+`2a4bade6ec5801fa828c9ef27d5d9f24dee42ddfed9b3bb6293196e42e173ca9`.
+Tento gate ale předchází `0bd38b7d`; finální clean rerun je proto povinný a
+zatím se nesmí odvodit z focused testů.
+Poslední nezávislý gate 278/278
 patří zamítnutému `74beafea`; nelze jej vydávat za nezávislý důkaz tohoto
 kandidáta. Zbývající bránou je nové nezávislé rereview.
 
 ## Aktuální strict-role scoring panel
 
 Read-only `ModelEvaluationReadModel` nad 13 přesnými artefakty a disposable
-projekcí živé DB v `2026-08-27T08:08:10.418Z`:
+projekcí živé DB v `2026-08-27T20:14:19.070Z`:
 
 | Role | COMPLETE | BLOCKED | MISSING | FAILED |
 |---|---:|---:|---:|---:|
@@ -124,13 +146,13 @@ Staré contracty ani sdílené suite se do nich nepromítají.
 ## Bounded raw host/DB snapshot
 
 Raw JSON:
-[`model-evaluation-host-db-snapshot-20260827.json`](model-evaluation-host-db-snapshot-20260827.json)
+[`model-evaluation-host-db-snapshot-20260827-post-gate.json`](model-evaluation-host-db-snapshot-20260827-post-gate.json)
 
 | Položka | Hodnota |
 |---|---|
-| snapshot SHA-256 | `a2a4c17d969716c2366bd872bf60bf5ee0d336e0bbe5a33da06006ce420967f4` |
+| snapshot SHA-256 | `602ade3844f2210544215388e48b821db76c6c5ea25ff620a13342a8c4fc630e` |
 | živá source DB SHA-256 před i po | `e22d580f26b9b467eb2bf3774524206b3d95a36cdcdbc3902a08046e9e12c088` |
-| disposable projected DB SHA-256 | `d349019eef3be9da8a28f861eabf7673cb9b97467814ee10d9e557769c41d7c5` |
+| disposable projected DB SHA-256 | `9d5b78cfb8271b43aa01207c8037669ac086b7d0a73e73b3d805c39b5a7ea7cd` |
 | projected DB | `quick_check=ok`, 88 historických/current stampů, 169 fyzických tabulek |
 | import audit | 664 ARCHIVED detailů, 92 VERIFIED summary, 0 QUARANTINED |
 | decisions po 097 | 22 current + 11 quarantined |
@@ -139,7 +161,29 @@ Raw JSON:
 
 Vyšší počty stampů/tabulek v projekci živé DB oproti fresh schema nejsou
 ztráta dat: živá DB nese starší adoptované a integrační větve. Snapshot proto
-uvádí oba počty odděleně a nesnaží se je sjednotit.
+uvádí oba počty odděleně a nesnaží se je sjednotit. V2 raw evidence navíc nese
+přesnou invocation, sama vytvořila dosud neexistující disposable DB přes SQLite
+backup, vyjmenovala aplikované migrace, je označená `post-gate` a obsahuje
+source summary před i po celé projekci.
+
+## Provider attestation — otevřená provozní závislost
+
+Stock Ollama dnes neumí naplnit nový exact-response kontrakt: oficiální
+`ChatRequest` přijímá model name a oficiální `ChatResponse` vrací model name,
+nikoli digest obslouženého artefaktu. Proto je bezpečné chování záměrně
+fail-closed: `DURABLE` gateway volání skončí
+`LLM_BINDING_ARTIFACT_UNVERIFIED`, manual verification skončí
+`MODEL_BINDING_VERIFICATION_ARTIFACT_UNVERIFIED` a nový scoring skončí
+`MODEL_EVALUATION_RESPONSE_ARTIFACT_UNVERIFIED`, dokud před Ollamou není
+důvěryhodný adaptér, který digest skutečně odvodí uvnitř provideru a přidá jej
+do téže response. Mutable pre/post inventory tuto mezeru nesmí nahrazovat.
+Viz oficiální [API typy](https://github.com/ollama/ollama/blob/main/api/types.go)
+a [OpenAPI schema](https://github.com/ollama/ollama/blob/main/docs/openapi.yaml).
+
+To je provozní blocker plně ověřeného durable LLM runtime, ne důvod oslabit
+datovou autoritu. Remediační kandidát je bezpečný, ale nelze jej popsat jako
+plně funkční se stock Ollamou bez navazující provider capability; stejný
+blocker nyní pravdivě zastaví i nové exact-artifact scoring běhy.
 
 ## Discovery a bezpečný provoz
 
@@ -155,8 +199,9 @@ Snapshot potvrzuje:
 - prázdné `ollama ps`;
 - žádný NVIDIA compute proces.
 
-Stejné provozní podmínky byly znovu ověřeny po plném gate v
-`2026-08-27T10:45:17+02:00`. Živá DB zůstala byte-identická se SHA-256
+Stejné provozní podmínky byly znovu ověřeny bounded snapshotem v
+`2026-08-27T22:14:19+02:00`. Po finálním clean gate bude tento důkaz znovu
+vytvořen s fází `post-gate`. Živá DB zůstala byte-identická se SHA-256
 `e22d580f26b9b467eb2bf3774524206b3d95a36cdcdbc3902a08046e9e12c088`
 a `quick_check=ok`; candidate ji nemigroval.
 
@@ -167,11 +212,15 @@ nevejde do VRAM, se automaticky vyřadí jako `BLOCKED` se `score=NULL`.
 ## Review handoff
 
 Nové rereview musí začít na zamítnutém base `74beafea` a pokrýt celý souvislý
-rozsah přes implementační commity `d5518d4d`, `13413117`, evidence milestone
-`7404eacf`, ratchet `3af097a0`, gate-contract opravu `5f89bc36` a navazující
-evidence.
+rozsah až po finální dokumentační head. Nové remediační commity jsou
+`a42fd714` (gateway ABA), `2ba08334` (odstranění auto-failover writerů a
+snapshot v2), `9f6e4828` (binding verification response attestation),
+`a41f84f2` + `178aa592` (nekolizní raw evidence a úplný capture interval) a
+`0bd38b7d` (response attestation autoritativního scoringu).
 Zvlášť má reprodukovat role leakage D1→D2/R1, cross-role decision insert,
-pre-082 backup upgrade, nullable duration, same-tag digest drift před i po
-gateway response, nulový telemetry veto call graph a absenci osiřelých
-auto-activation API. Do jeho PASS zůstává pravdivý stav
+pre-082 backup upgrade, nullable duration, A→B→A/no-response-digest rejection
+v gatewayi, manual verification i scoring runneru, nulový telemetry veto call
+graph, absenci 11 auto-activation repository metod a snapshot source SHA
+před/po. Do jeho
+PASS zůstává pravdivý stav
 `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED`.
