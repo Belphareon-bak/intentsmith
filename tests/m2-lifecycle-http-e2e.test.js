@@ -59,7 +59,7 @@ function git(root, args) {
 
 function writeGovernanceFixture(root) {
   fs.mkdirSync(path.join(root, 'src'), { recursive: true });
-  fs.writeFileSync(path.join(root, 'src', 'app.js'), 'export const value = 1;\n');
+  fs.writeFileSync(path.join(root, 'src', 'app.js'), 'module.exports = { value: 1 };\n');
   fs.writeFileSync(path.join(root, '.c3', 'm2-governance-policy.json'), `${JSON.stringify({
     policyId: 'm2-policy-v1',
     layers: [{ name: 'app', roots: ['src'] }],
@@ -81,7 +81,7 @@ function writeGovernanceFixture(root) {
 function proposal() {
   return {
     intent: 'Update the exact exported application value',
-    changes: [{ path: 'src/app.js', afterContent: 'export const value = 2;\n' }],
+    changes: [{ path: 'src/app.js', afterContent: 'module.exports = { value: 2 };\n' }],
     focusedTest: {
       binary: '/usr/bin/node',
       argv: ['--check', 'src/app.js'],
@@ -172,7 +172,10 @@ async function run() {
     assert(completed.data?.result?.focusedTest?.terminalStatus === 'succeeded', 'focused test terminal is succeeded');
     assert(completed.data?.result?.git?.status === 'committed', 'exact Git commit completed');
     assert(completed.data?.audit?.governanceReceipt?.status === 'accepted', 'post-result governance receipt is accepted');
-    assert(fs.readFileSync(path.join(root, 'src', 'app.js'), 'utf8') === 'export const value = 2;\n', 'approved bytes are on disk');
+    assert(
+      fs.readFileSync(path.join(root, 'src', 'app.js'), 'utf8') === 'module.exports = { value: 2 };\n',
+      'approved bytes are on disk',
+    );
     assert(git(root, ['status', '--porcelain=v1']) === '', 'fixture Git worktree is clean after exact commit');
 
     const durable = await request('GET', `/api/m2/lifecycle/status?${statusQuery}`);
