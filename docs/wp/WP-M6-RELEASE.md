@@ -1,12 +1,12 @@
 # WP-M6-RELEASE — zmrazený kandidát a validační matice IntentSmith 1.0
 
-**Typ:** zapisující Work Package · **Stav:** CANDIDATE_COMPLETE / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED
+**Typ:** zapisující Work Package · **Stav:** REMEDIATION_IN_PROGRESS / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED
 **Vstupní revision:** `55938fd0628bdb725736acdf21a451854580aaa7`
 **Vlastník:** `codex/m6-release-20260827`, jediný writer tohoto checkoutu
 
 Operátor 2026-08-27 výslovně povolil implementovat všechny bloky M6 bez čekání
 na technické re-review M5. Toto povolení mění pořadí práce, nikoli pravdu o
-branách: M5 zůstává `5/9 REVIEW_PASSED / 4 RE_REVIEW_REQUIRED`, skutečné rotace
+branách: M5 zůstává `8/9 REVIEW_PASSED / PRIVACY RE_REVIEW_REQUIRED`, skutečné rotace
 a disposition historie nejsou provedené a M6 se nesmí označit `ACCEPTED`, dokud
 nejsou splněné vstupy a exit kritéria `ROADMAP.md §10`.
 
@@ -124,3 +124,19 @@ Autoritativní implementační report je
 a přesná review jednotka je
 [`2026-08-27-M6-OPERATOR-REVIEW-PACKET.md`](../review/2026-08-27-M6-OPERATOR-REVIEW-PACKET.md).
 Tento zápis není self-issued `REVIEW_PASSED` ani release approval.
+
+## 10. Remediation progress po review
+
+Implementované, ale zatím znovu nezreviewované bloky:
+
+- Git-native raw evidence a exact artifact/receipt re-evaluation;
+- množinově úplný plán všech `ACTIVE + required` programů;
+- skutečný persistentní application upgrade 136.0.0 → 136.1.0;
+- L0-11 durable model artifact authority podle Decision 037.
+
+L0-11 focused důkaz aktuálně tvoří 11/11 nových adversariálních checks,
+24/24 původní model-use, 8/8 VRAM a 108/108 binding/chat compatibility.
+Schéma má 155 tabulek / 79 migrací a registr 467 programů, z toho 372 ACTIVE.
+Skutečný 24h soak, maximum-throughput, nový complete candidate report a
+operátorský re-review jsou stále otevřené. Stav proto zůstává
+`TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED`.

@@ -26,9 +26,37 @@ import {
   MODEL_ACTIVITY_OWNER,
   modelUseAuthority,
 } from './model-use-authority.js';
+import { requireLoopbackModelProviderOrigin } from './model-provider-origin.js';
 
 // Minimum score for user-facing notifications (lower proposals exist but are silent)
 export const MIN_NOTIFY_SCORE = 6;
+export const MODEL_PULL_IDLE_TIMEOUT_MS = 120_000;
+
+function modelPullError(code, message, cause = null) {
+  const error = new Error(message, cause ? { cause } : undefined);
+  error.code = code;
+  return error;
+}
+
+async function readPullChunk(reader, controller, timeoutMs) {
+  let timeoutId;
+  const timeout = new Promise((_resolve, reject) => {
+    timeoutId = setTimeout(() => {
+      const error = modelPullError(
+        'MODEL_PULL_IDLE_TIMEOUT',
+        `Ollama pull produced no bytes for ${timeoutMs} ms`,
+      );
+      controller.abort(error);
+      void reader.cancel(error).catch(() => {});
+      reject(error);
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([reader.read(), timeout]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 // v118: Phase 2 lazy-loaded modules
 let _ranker = null;
@@ -390,7 +418,7 @@ function _assessRisk(currentModel, candidate, profile) {
 // ─── Upgrade Manager Class ──────────────────────────────────────────────────
 
 export class UpgradeManager {
-  constructor() {
+  constructor(options = {}) {
     this._lastDiscovery = null;
     this._lastProposals = null;
     this._lastCheckTime = null;
@@ -405,6 +433,12 @@ export class UpgradeManager {
     this._configVersion = 0;  // Monotonic counter for WS broadcast
     this._bindingRuntimeToken = null;
     this._bindingRuntimeTokenSequence = 0;
+    this._modelArtifactAuthorityRepository = null;
+    this._pullIdleTimeoutMs = MODEL_PULL_IDLE_TIMEOUT_MS;
+    this._modelUseAuthority = options.modelUseAuthority || modelUseAuthority;
+    if (typeof this._modelUseAuthority?.acquireExclusive !== 'function') {
+      throw modelPullError('MODEL_USE_AUTHORITY_REQUIRED', 'Model use authority is unavailable');
+    }
   }
 
   // ─── DB + Persistence (v103.1) ──────────────────────────────────────────
@@ -415,6 +449,22 @@ export class UpgradeManager {
    */
   setDb(db) {
     this._db = db;
+  }
+
+  setModelArtifactAuthorityRepository(repository) {
+    if (!repository
+      || typeof repository.recordIntent !== 'function'
+      || typeof repository.recordOutcome !== 'function'
+      || typeof repository.acquirePullRecoveryClaim !== 'function'
+      || typeof repository.releaseClaim !== 'function'
+      || typeof repository.reconcileSucceeded !== 'function'
+      || typeof repository.listOutstandingEffects !== 'function') {
+      throw modelPullError(
+        'MODEL_ARTIFACT_REPOSITORY_INVALID',
+        'Model artifact authority repository is invalid',
+      );
+    }
+    this._modelArtifactAuthorityRepository = repository;
   }
 
   createBindingRuntimePort() {
@@ -983,41 +1033,90 @@ export class UpgradeManager {
    *
    * @param {string} modelName - e.g. 'qwen3.5:27b'
    * @param {Function} [onProgress] - callback({text, percent, downloadedGB, totalGB, eta, status})
-   * @param {{baseUrl?: string}} [authority]
+   * @param {{baseUrl?: string, source?: string, recoveryOperationId?: string}} [authority]
    * @returns {Promise<void>}
    */
   async pullModel(modelName, onProgress, authority = {}) {
-    const baseUrl = authority.baseUrl || config.ollama?.baseUrl || 'http://127.0.0.1:11434';
-    if (authority.baseUrl) {
-      let parsed;
-      try {
-        parsed = new URL(authority.baseUrl);
-      } catch {
-        throw new Error('Pinned Ollama pull URL is invalid');
-      }
-      if (parsed.protocol !== 'http:'
-        || !new Set(['127.0.0.1', 'localhost', '[::1]']).has(parsed.hostname)
-        || parsed.username
-        || parsed.password
-        || (parsed.pathname !== '/' && parsed.pathname !== '')) {
-        throw new Error('Pinned Ollama pull URL must be an uncredentialed loopback HTTP origin');
-      }
+    const authorityKeys = Object.keys(authority || {}).sort();
+    if (authority === null || typeof authority !== 'object' || Array.isArray(authority)
+      || authorityKeys.some(key => !['baseUrl', 'recoveryOperationId', 'source'].includes(key))) {
+      throw modelPullError('MODEL_PULL_INPUT_INVALID', 'Model pull authority is invalid');
+    }
+    const canonicalName = canonicalModelName(modelName);
+    if (!canonicalName) throw modelPullError('MODEL_PULL_INPUT_INVALID', 'Model name is invalid');
+    let provider;
+    try {
+      provider = requireLoopbackModelProviderOrigin(
+        authority.baseUrl || config.ollama?.baseUrl || 'http://127.0.0.1:11434',
+      );
+    } catch (error) {
+      throw modelPullError('MODEL_PULL_PROVIDER_SCOPE_UNSUPPORTED', error.message, error);
+    }
+    const source = authority.source || 'USER_REQUEST';
+    if (!new Set(['USER_REQUEST', 'USER_HTTP', 'USER_CHAT', 'AUTO_CLEANUP', 'BINDING_APPLICATION', 'RECOVERY']).has(source)) {
+      throw modelPullError('MODEL_PULL_INPUT_INVALID', 'Model pull source is invalid');
     }
 
-    const pullLease = modelUseAuthority.acquireExclusive({
-      modelName,
-      owner: MODEL_ACTIVITY_OWNER.MODEL_PULL,
-    });
+    let pullLease;
+    let operationId = authority.recoveryOperationId || null;
+    const recovery = typeof operationId === 'string';
+    if (recovery) {
+      if (!this._modelArtifactAuthorityRepository) {
+        throw modelPullError(
+          'MODEL_ARTIFACT_DURABLE_AUTHORITY_REQUIRED',
+          'Durable pull recovery authority is unavailable',
+        );
+      }
+      const claim = this._modelArtifactAuthorityRepository.acquirePullRecoveryClaim(operationId);
+      if (claim.exactName !== modelName || claim.providerOrigin !== provider.origin) {
+        this._modelArtifactAuthorityRepository.releaseClaim(claim.claimId);
+        throw modelPullError('MODEL_PULL_RECOVERY_IDENTITY_MISMATCH', 'Pull recovery identity drifted');
+      }
+      pullLease = Object.freeze({
+        claimId: claim.claimId,
+        release: () => this._modelArtifactAuthorityRepository.releaseClaim(claim.claimId),
+      });
+    } else {
+      pullLease = this._modelUseAuthority.acquireExclusive({
+        modelName,
+        owner: MODEL_ACTIVITY_OWNER.MODEL_PULL,
+      });
+    }
     try {
-      const response = await fetch(`${baseUrl}/api/pull`, {
+      if (!recovery && this._modelArtifactAuthorityRepository) {
+        if (typeof pullLease.claimId !== 'string') {
+          throw modelPullError(
+            'MODEL_ARTIFACT_DURABLE_AUTHORITY_REQUIRED',
+            'Durable pull claim is unavailable',
+          );
+        }
+        operationId = this._modelArtifactAuthorityRepository.recordIntent({
+          claimId: pullLease.claimId,
+          kind: 'PULL',
+          exactName: modelName,
+          canonicalName,
+          digestSha256: null,
+          source,
+          providerOrigin: provider.origin,
+        }).operationId;
+      }
+      const controller = new AbortController();
+      const response = await fetch(provider.endpoint('/api/pull'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: modelName }),
         redirect: 'error',
+        signal: controller.signal,
       });
 
       if (!response.ok) {
-        throw new Error(`Ollama pull failed: HTTP ${response.status}`);
+        throw modelPullError(
+          `MODEL_PULL_PROVIDER_HTTP_${response.status}`,
+          `Ollama pull failed: HTTP ${response.status}`,
+        );
+      }
+      if (!response.body || typeof response.body.getReader !== 'function') {
+        throw modelPullError('MODEL_PULL_PROVIDER_BODY_INVALID', 'Ollama pull body is unavailable');
       }
 
       const reader = response.body.getReader();
@@ -1025,6 +1124,7 @@ export class UpgradeManager {
       let buffer = '';
       let lastPercent = -1;
       let lastEmitTime = 0;
+      let providerSuccessSeen = false;
       const startTime = Date.now();
 
       const STATUS_LABELS = {
@@ -1036,8 +1136,64 @@ export class UpgradeManager {
         'success': 'Hotovo',
       };
 
+      const consumeProviderLine = line => {
+        if (!line.trim()) return;
+        let data;
+        try {
+          data = JSON.parse(line);
+        } catch (error) {
+          throw modelPullError(
+            'MODEL_PULL_PROVIDER_BODY_INVALID',
+            'Ollama pull returned malformed JSON',
+            error,
+          );
+        }
+        if (data === null || typeof data !== 'object' || Array.isArray(data)) {
+          throw modelPullError(
+            'MODEL_PULL_PROVIDER_BODY_INVALID',
+            'Ollama pull returned a non-object event',
+          );
+        }
+        if (typeof data.error === 'string' && data.error.trim()) {
+          throw modelPullError(
+            'MODEL_PULL_PROVIDER_REPORTED_ERROR',
+            `Ollama pull error: ${data.error}`,
+          );
+        }
+        if (data.status === 'success') providerSuccessSeen = true;
+
+        if (data.status === 'downloading' && data.total > 0) {
+          const percent = Math.round((data.completed / data.total) * 100);
+          const now = Date.now();
+          if (percent >= lastPercent + 5 || (now - lastEmitTime >= 3000) || percent === 100) {
+            lastPercent = percent;
+            lastEmitTime = now;
+            const elapsed = (now - startTime) / 1000;
+            const speed = data.completed / elapsed;
+            const remaining = (data.total - data.completed) / speed;
+            const eta = remaining > 60
+              ? `${Math.round(remaining / 60)}:${String(Math.round(remaining % 60)).padStart(2, '0')}`
+              : `${Math.round(remaining)}s`;
+            const downloadedGB = (data.completed / 1_073_741_824).toFixed(1);
+            const totalGB = (data.total / 1_073_741_824).toFixed(1);
+            const text = `${modelName} — ${percent}% (${downloadedGB}/${totalGB} GB) — ETA ~${eta}`;
+
+            if (onProgress) onProgress({ text, percent, downloadedGB, totalGB, eta, status: 'downloading' });
+          }
+        } else if (data.status && STATUS_LABELS[data.status] !== undefined) {
+          const label = STATUS_LABELS[data.status];
+          if (label && onProgress) {
+            onProgress({ text: `${modelName} — ${label}`, percent: -1, status: data.status });
+          }
+        }
+      };
+
       while (true) {
-        const { done, value } = await reader.read();
+        const { done, value } = await readPullChunk(
+          reader,
+          controller,
+          this._pullIdleTimeoutMs,
+        );
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
@@ -1045,46 +1201,64 @@ export class UpgradeManager {
         buffer = lines.pop();
 
         for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            const data = JSON.parse(line);
-
-            if (data.status === 'downloading' && data.total > 0) {
-              const percent = Math.round((data.completed / data.total) * 100);
-              const now = Date.now();
-              if (percent >= lastPercent + 5 || (now - lastEmitTime >= 3000) || percent === 100) {
-                lastPercent = percent;
-                lastEmitTime = now;
-                const elapsed = (now - startTime) / 1000;
-                const speed = data.completed / elapsed;
-                const remaining = (data.total - data.completed) / speed;
-                const eta = remaining > 60
-                  ? `${Math.round(remaining / 60)}:${String(Math.round(remaining % 60)).padStart(2, '0')}`
-                  : `${Math.round(remaining)}s`;
-                const downloadedGB = (data.completed / 1_073_741_824).toFixed(1);
-                const totalGB = (data.total / 1_073_741_824).toFixed(1);
-                const text = `${modelName} — ${percent}% (${downloadedGB}/${totalGB} GB) — ETA ~${eta}`;
-
-                if (onProgress) onProgress({ text, percent, downloadedGB, totalGB, eta, status: 'downloading' });
-              }
-            } else if (data.status && STATUS_LABELS[data.status] !== undefined) {
-              const label = STATUS_LABELS[data.status];
-              if (label && onProgress) {
-                onProgress({ text: `${modelName} — ${label}`, percent: -1, status: data.status });
-              }
-            } else if (data.error) {
-              throw new Error(`Ollama pull error: ${data.error}`);
-            }
-          } catch (parseErr) {
-            if (parseErr.message.startsWith('Ollama pull error')) throw parseErr;
-          }
+          consumeProviderLine(line);
         }
+      }
+      buffer += decoder.decode();
+      consumeProviderLine(buffer);
+
+      if (!providerSuccessSeen) {
+        throw modelPullError(
+          'MODEL_PULL_PROVIDER_TERMINAL_MISSING',
+          'Ollama pull ended without an explicit success receipt',
+        );
       }
 
       logger.info('UpgradeManager', `Pulled model: ${modelName}`);
+      if (operationId) {
+        if (recovery) this._modelArtifactAuthorityRepository.reconcileSucceeded(operationId);
+        else this._modelArtifactAuthorityRepository.recordOutcome(operationId, 'SUCCEEDED');
+      }
+    } catch (error) {
+      if (operationId && !recovery) {
+        const definitive = typeof error?.code === 'string'
+          && (error.code.startsWith('MODEL_PULL_PROVIDER_HTTP_')
+            || error.code === 'MODEL_PULL_PROVIDER_BODY_INVALID'
+            || error.code === 'MODEL_PULL_PROVIDER_REPORTED_ERROR'
+            || error.code === 'MODEL_PULL_PROVIDER_TERMINAL_MISSING');
+        this._modelArtifactAuthorityRepository.recordOutcome(
+          operationId,
+          definitive ? 'FAILED' : 'ORPHANED',
+          error?.code || 'MODEL_PULL_PROVIDER_OUTCOME_UNKNOWN',
+        );
+      }
+      throw error;
     } finally {
       pullLease.release();
     }
+  }
+
+  async recoverOutstandingModelPulls(onProgress) {
+    if (!this._modelArtifactAuthorityRepository) return Object.freeze([]);
+    const results = [];
+    for (const operation of this._modelArtifactAuthorityRepository.listOutstandingEffects()) {
+      if (operation.kind !== 'PULL') continue;
+      try {
+        await this.pullModel(operation.exactName, onProgress, {
+          baseUrl: operation.providerOrigin,
+          source: 'RECOVERY',
+          recoveryOperationId: operation.operationId,
+        });
+        results.push(Object.freeze({ operationId: operation.operationId, status: 'RECOVERED' }));
+      } catch (error) {
+        results.push(Object.freeze({
+          operationId: operation.operationId,
+          status: 'STILL_BLOCKED',
+          errorCode: error?.code || 'MODEL_PULL_RECOVERY_FAILED',
+        }));
+      }
+    }
+    return Object.freeze(results);
   }
 
   /**

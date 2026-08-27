@@ -75,9 +75,31 @@ function requireCallback(callback) {
 }
 
 export class ModelUseAuthority {
-  constructor() {
+  constructor(options = {}) {
     this._states = new Map();
     this._nextLeaseId = 1;
+    this._durableRepository = null;
+    if (options.durableRepository) this.bindDurableRepository(options.durableRepository);
+  }
+
+  bindDurableRepository(repository) {
+    if (this._durableRepository !== null) {
+      fail('MODEL_USE_AUTHORITY_ALREADY_BOUND', 'Durable model authority is already bound');
+    }
+    if (this._states.size > 0) {
+      fail('MODEL_USE_AUTHORITY_ACTIVE', 'Cannot bind durable authority with active local leases');
+    }
+    if (!repository
+      || typeof repository.acquireClaim !== 'function'
+      || typeof repository.releaseClaim !== 'function'
+      || typeof repository.snapshot !== 'function') {
+      fail('MODEL_USE_AUTHORITY_REPOSITORY_INVALID', 'Durable model authority repository is invalid');
+    }
+    this._durableRepository = repository;
+  }
+
+  get durable() {
+    return this._durableRepository !== null;
   }
 
   #stateFor(canonicalName) {
@@ -116,6 +138,66 @@ export class ModelUseAuthority {
         `${request.owner} is not valid for a ${mode.toLowerCase()} model activity lease`,
       );
     }
+    if (this._durableRepository) {
+      let claim;
+      try {
+        claim = this._durableRepository.acquireClaim({
+          canonicalName: request.canonicalName,
+          mode,
+          owner: request.owner,
+        });
+      } catch (error) {
+        if (error?.code === 'MODEL_ARTIFACT_CLAIM_CONFLICT') {
+          if (mode === 'SHARED') {
+            fail(
+              'MODEL_USE_EXCLUSIVE_ACTIVE',
+              `Model provider mutation is already active for ${request.modelName}`,
+              {
+                canonicalName: request.canonicalName,
+                owner: error.details?.activeOwners?.[0] || null,
+              },
+            );
+          }
+          if ((error.details?.activeUseCount || 0) > 0) {
+            fail(
+              'MODEL_MUTATION_ACTIVE_USE',
+              `Model is actively in use: ${request.modelName}`,
+              {
+                canonicalName: request.canonicalName,
+                activeUseCount: error.details.activeUseCount,
+                activeOwners: error.details.activeOwners || [],
+              },
+            );
+          }
+          fail(
+            'MODEL_MUTATION_EXCLUSIVE_ACTIVE',
+            `Another model provider mutation is already active for ${request.modelName}`,
+            {
+              canonicalName: request.canonicalName,
+              owner: error.details?.activeOwners?.[0] || null,
+            },
+          );
+        }
+        if (error?.code === 'MODEL_ARTIFACT_OUTCOME_UNRESOLVED') {
+          fail(error.code, error.message, error.details);
+        }
+        throw error;
+      }
+      let released = false;
+      return Object.freeze({
+        modelName: request.modelName,
+        canonicalName: request.canonicalName,
+        owner: request.owner,
+        mode,
+        claimId: claim.claimId,
+        release: () => {
+          if (released) fail('MODEL_USE_LEASE_RELEASED', 'Model activity lease was already released');
+          this._durableRepository.releaseClaim(claim.claimId);
+          released = true;
+        },
+      });
+    }
+
     const state = this.#stateFor(request.canonicalName);
     if (mode === 'SHARED' && state.writer) {
       fail(
@@ -202,6 +284,7 @@ export class ModelUseAuthority {
     if (!canonicalName) {
       fail('MODEL_USE_INPUT_INVALID', 'Model activity snapshot requires a valid modelName');
     }
+    if (this._durableRepository) return this._durableRepository.snapshot(canonicalName);
     const state = this._states.get(canonicalName);
     return Object.freeze({
       canonicalName,

@@ -428,7 +428,13 @@ await testAsync('pull holds exclusive ownership through the streamed response', 
       getReader: () => ({
         read: async () => {
           reads += 1;
-          if (reads === 1) await readGate.promise;
+          if (reads === 1) {
+            await readGate.promise;
+            return {
+              done: false,
+              value: new TextEncoder().encode('{"status":"success"}\n'),
+            };
+          }
           return { done: true, value: undefined };
         },
       }),
@@ -466,7 +472,13 @@ await testAsync('default registry and pull wiring share the production singleton
           getReader: () => ({
             read: async () => {
               reads += 1;
-              if (reads === 1) await readGate.promise;
+              if (reads === 1) {
+                await readGate.promise;
+                return {
+                  done: false,
+                  value: new TextEncoder().encode('{"status":"success"}\n'),
+                };
+              }
               return { done: true, value: undefined };
             },
           }),

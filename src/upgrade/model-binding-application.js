@@ -397,7 +397,10 @@ export class OllamaModelBindingProvider {
     }
     const baseUrl = requireLocalProviderBaseUrl(this.baseUrl);
     try {
-      await this.pullImpl(requestedModel, onProgress, { baseUrl });
+      await this.pullImpl(requestedModel, onProgress, {
+        baseUrl,
+        source: 'BINDING_APPLICATION',
+      });
     } catch (error) {
       throw asApplicationError(
         error,

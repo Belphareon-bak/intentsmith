@@ -67,8 +67,8 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M2 Řízená práce nad projektem** | `ACCEPTED / CLOSEOUT_PASS` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
-| **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY CHANGES_REQUESTED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | DATA, AUTH a PERF prošly re-review; PRIVACY má CRITICAL per-bootstrap writer-authority nález. Stále chybí 8 rotací a history disposition. |
-| **M6 IntentSmith 1.0 release** | `CANDIDATE_COMPLETE / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Kandidát `8abd6065` pokryl jen 311/369 ACTIVE+required programů a jeho finální validator přijímá self-asserted ignorovaný JSON. Sedm z osmi oddílů se vrací do práce. |
+| **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY IMPLEMENTED_RE_REVIEW_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | DATA, AUTH a PERF prošly re-review; per-bootstrap privacy writer oprava je implementovaná a čeká na re-review. Stále chybí 8 rotací a history disposition. |
+| **M6 IntentSmith 1.0 release** | `REMEDIATION_IN_PROGRESS / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, skutečný application upgrade a L0-11 jsou implementované; zbývá skutečný 24h soak, maximum-throughput, finální candidate evidence a re-review. |
 | **M7 Remote Companion** | `DESIGN_ONLY` | M6 + remote boundary | Samostatný vzdálený companion release nad bezpečným core rozhraním. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
@@ -1645,7 +1645,7 @@ WP, aby roadmapa nepředstírala již existující důkaz.
 
 ## 10. M6 — IntentSmith 1.0 release
 
-**Implementační stav 2026-08-27:** `CANDIDATE_COMPLETE /
+**Implementační stav 2026-08-27:** `REMEDIATION_IN_PROGRESS /
 TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` na review kandidatu
 `8abd6065bd614a15bf9f7814dea14ed1e040c616` (tree
 `f41a6af70b29d9024ba1006aabe417aad2ff26aa`). Historický producer skutečně
@@ -1661,6 +1661,26 @@ a superseding review výsledek v
 [`2026-08-27-M5-M6-OPERATOR-REVIEW-RESULT.md`](docs/review/2026-08-27-M5-M6-OPERATOR-REVIEW-RESULT.md); původní review jednotka je v
 [`2026-08-27-M6-OPERATOR-REVIEW-PACKET.md`](docs/review/2026-08-27-M6-OPERATOR-REVIEW-PACKET.md).
 Nejde o `ACCEPTED`, povolení merge/tag/publish ani náhradu otevřené M5 brány.
+
+### Stav remediation po operátorském review
+
+Čtyři false-green třídy už mají implementovanou náhradu a čekají na nový
+stabilní candidate + re-review:
+
+- finální release evidence se znovu odvozuje z raw logů připnutých v Git a
+  validuje exact artifact/receipt chain; ignorovaný JSON nemůže vydat PASS;
+- locked plán používá množinovou rovnost se všemi současnými 372
+  `ACTIVE + required` programy;
+- required previous-version journey spouští skutečný server 136.0.0 nad
+  persistentní DB a poté tentýž stav otevře současnou aplikací 136.1.0;
+- L0-11 má durable cross-process model claims, append-only pull/delete intent a
+  terminály, loopback-only provider scope, bounded stalled-pull recovery a
+  explicitně retired legacy chat cleanup. Focused autorita prošla 11/11,
+  původní model-use 24/24, VRAM 8/8 a binding/chat 108/108.
+
+Dosud chybí skutečný 24hodinový soak, maximum-throughput/resource receipt,
+nový úplný candidate run a operátorský re-review. Proto žádný z těchto řádků
+není ještě vydáván za `REVIEW_PASSED` ani za M6 acceptance.
 
 ### Vstup
 

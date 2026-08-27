@@ -17,7 +17,6 @@ import { logger } from '../../core/logger.js';
 import { parseTodoCommand, handleTodo, handleDone } from './todo.js';
 import { handleFileDecision } from './file.js';
 import { config } from '../../config.js';
-import { canonicalModelName } from '../../upgrade/model-identity.js';
 
 // ─── Lazy-loaded Phase modules (null if feature disabled) ────────────────────
 let handleBuildConfirmed, handleClarificationAnswer, handlePlanVerdict,
@@ -139,7 +138,6 @@ function cancelMessage(what, mode) {
 let _upgradeManager = null;
 let _MIN_NOTIFY_SCORE = 6;
 let _modelBindingApplication = null;
-let _modelRegistry = null;
 
 export function setModelBindingApplication(service) {
   _modelBindingApplication = service || null;
@@ -149,28 +147,9 @@ export function setUpgradeManager(service) {
   _upgradeManager = service || null;
 }
 
-export function setModelRegistry(service) {
-  _modelRegistry = service || null;
-}
-
-function filterOldCleanupCandidates(candidates, now = Date.now()) {
-  const seen = new Set();
-  const result = [];
-  for (const candidate of candidates || []) {
-    const model = typeof candidate?.model === 'string' ? candidate.model.trim() : '';
-    const canonical = canonicalModelName(model);
-    const appliedAtMs = Date.parse(candidate?.appliedAt);
-    if (!model || !canonical || !Number.isFinite(appliedAtMs)) continue;
-    if (now - appliedAtMs <= 7 * 24 * 60 * 60 * 1000 || seen.has(canonical)) continue;
-    seen.add(canonical);
-    result.push({
-      model,
-      replacedBy: candidate.replacedBy,
-      appliedAt: candidate.appliedAt,
-    });
-  }
-  return result;
-}
+// Compatibility hook retained for the server composition root. Chat no longer
+// consumes deletion authority after the M6 retirement of model_cleanup.
+export function setModelRegistry(_service) {}
 
 // ─── Intercept definitions ───────────────────────────────────────────────────
 // Each intercept: { name, modes, fn(input, context, mode) → { handled, response? } }
@@ -396,26 +375,6 @@ intercepts.push({
       } catch (_) {}
     }
 
-    // Suggest removing unused old models (7+ days after upgrade)
-    if (_upgradeManager?._db) {
-      try {
-        const unused = _upgradeManager.getUnusedOldModels();
-        const old = filterOldCleanupCandidates(unused).filter(candidate => (
-          _modelRegistry?.isDeletable(candidate.model).deletable === true
-        ));
-        if (old.length > 0 && !context.sessionState?._cleanupSuggested) {
-          if (context.sessionState) {
-            context.sessionState._cleanupSuggested = true;
-            context.sessionState._cleanupCandidates = JSON.parse(JSON.stringify(old));
-          }
-          if (typeof context.onSystemStep === 'function') {
-            const models = old.map(o => `${o.model} (nahrazen ${o.replacedBy})`).join(', ');
-            try { context.onSystemStep('model_cleanup', `Nepouzivane modely: ${models}. Napis "smaz stare modely" pro pripravu presneho seznamu.`); } catch (_) {}
-          }
-        }
-      } catch (_) {}
-    }
-
     logger.info('PreHandler', `Upgrade notification: ${proposals.length} proposals above score ${_MIN_NOTIFY_SCORE}`);
     return { handled: false }; // never short-circuits
   },
@@ -570,7 +529,10 @@ intercepts.push({
   },
 });
 
-// 0.6 MODEL CLEANUP (v103.2) — remove unused old models
+// M6/L0-11: the legacy chat cleanup could only name the one-step rollback
+// identity, which the binding authority correctly protects. It is retired
+// instead of pretending to offer an executable deletion approval. Exact
+// artifact deletion remains available through authenticated Model Management.
 intercepts.push({
   name: 'model_cleanup',
   modes: ['*'],
@@ -579,96 +541,18 @@ intercepts.push({
     const CONFIRM_RE = /^(potvrd(?:it|zuji)?\s+smaz[aá]n[ií]\s+model[uů]?|confirm\s+model\s+deletion)\s*[!.]?$/i;
     const trimmed = input.trim();
     if (!CLEANUP_RE.test(trimmed) && !CONFIRM_RE.test(trimmed)) return { handled: false };
-
-    if (!_modelRegistry) {
-      return {
-        handled: true,
-        response: systemResponse('Odstraneni modelu neni dostupne: chybi autoritativni model registry.', mode, {
-          modelCleanup: false,
-          errorCode: 'MODEL_DELETE_AUTHORITY_REQUIRED',
-        }),
-      };
-    }
-    if (!context.sessionState) {
-      return {
-        handled: true,
-        response: systemResponse('Odstraneni modelu vyzaduje aktivni session.', mode, {
-          modelCleanup: false,
-          errorCode: 'MODEL_DELETE_SESSION_REQUIRED',
-        }),
-      };
-    }
-
-    if (CONFIRM_RE.test(trimmed)) {
-      const plans = context.sessionState?._pendingModelCleanup;
-      if (!Array.isArray(plans) || plans.length === 0) {
-        return { handled: true, response: systemResponse('Neni pripraven zadny presny seznam modelu k odstraneni.', mode) };
-      }
-      // One approval is single-use even when one of several effects fails.
+    if (context.sessionState) {
       context.sessionState._pendingModelCleanup = null;
       context.sessionState._cleanupCandidates = null;
-      const results = [];
-      for (const plan of plans) {
-        try {
-          const deleted = await _modelRegistry.deleteModel(plan.exactName, {
-            source: 'USER_CHAT',
-            expectedDigestSha256: plan.digestSha256,
-          });
-          results.push(`${deleted.deleted} smazan (${deleted.digestSha256.slice(0, 12)})`);
-          if (typeof context.onSystemStep === 'function') {
-            try { context.onSystemStep('model_deleted', `${deleted.deleted} smazan`); } catch (_) {}
-          }
-        } catch (error) {
-          results.push(`${plan.exactName}: ${error.code || 'MODEL_DELETE_FAILED'}`);
-        }
-      }
-      return { handled: true, response: systemResponse(results.join('\n'), mode, { modelCleanup: true }) };
     }
-
-    if (!_upgradeManager) {
-      try {
-        const um = await import('../../upgrade/upgrade-manager.js');
-        _upgradeManager = um.upgradeManager;
-      } catch {
-        return { handled: false };
-      }
-    }
-
-    // A notification is only a hint. Re-read and re-filter the authoritative
-    // history before every exact preview so stale session state cannot become
-    // deletion authority.
-    const unused = filterOldCleanupCandidates(_upgradeManager.getUnusedOldModels())
-      .filter(candidate => _modelRegistry.isDeletable(candidate.model).deletable === true);
-    if (context.sessionState) {
-      context.sessionState._cleanupCandidates = JSON.parse(JSON.stringify(unused));
-    }
-    if (unused.length === 0) {
-      return { handled: true, response: systemResponse('Zadne nepouzivane modely k odstraneni.', mode) };
-    }
-
-    try {
-      const plans = await _modelRegistry.prepareDeletePlans(unused.map(candidate => candidate.model));
-      context.sessionState._pendingModelCleanup = plans.map(plan => ({ ...plan }));
-      const preview = plans.map(plan => (
-        `${plan.exactName} (${plan.digestSha256.slice(0, 12)})`
-      )).join(', ');
-      return {
-        handled: true,
-        response: systemResponse(
-          `Pripraveno k odstraneni: ${preview}. Napis "potvrdit smazani modelu" pro provedeni.`,
-          mode,
-          { modelCleanupPrepared: true },
-        ),
-      };
-    } catch (error) {
-      return {
-        handled: true,
-        response: systemResponse(`Seznam k odstraneni nelze pripravit: ${error.code || error.message}`, mode, {
-          modelCleanupPrepared: false,
-          errorCode: error.code || 'MODEL_DELETE_PREVIEW_FAILED',
-        }),
-      };
-    }
+    return {
+      handled: true,
+      response: systemResponse(
+        'Mazani modelu pres chat bylo vyradeno. Pouzij Model Management, kde se potvrzuje presna identita artefaktu.',
+        mode,
+        { modelCleanup: false, errorCode: 'MODEL_CLEANUP_CHAT_RETIRED' },
+      ),
+    };
   },
 });
 

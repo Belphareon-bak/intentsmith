@@ -1289,7 +1289,7 @@ export function createSystemRoutes({
 
             await upgradeManager.pullModel(name, (progress) => {
               broadcast('control', { action: 'model_pull_progress', model: name, ...progress });
-            });
+            }, { source: 'USER_HTTP' });
 
             broadcast('control', { action: 'model_pull_progress', model: name, status: 'pulled', percent: 100, text: `${name} — Staženo. Spouštím scoring...` });
 

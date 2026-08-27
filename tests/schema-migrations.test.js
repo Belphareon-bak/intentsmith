@@ -182,6 +182,7 @@ const ALL_MIGRATIONS = [
   '2026_08_26_089_m5_outbound_audit',
   '2026_08_26_090_m5_privacy_authority',
   '2026_08_26_091_m5_privacy_writer_authority',
+  '2026_08_27_098_m6_model_artifact_authority',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -213,6 +214,7 @@ const EXPECTED_TABLES = [
   'm2_effect_rollback_receipts',
   'm4_learning_plan_evaluations',
   'm5_privacy_history_receipts', 'm5_privacy_rotation_receipts',
+  'm6_model_artifact_claims', 'm6_model_artifact_events', 'm6_model_artifact_operations',
   'm2_lifecycle_approval_intents', 'm2_lifecycle_cancel_intents', 'm2_lifecycle_events',
   'm2_lifecycle_governance_receipts', 'm2_lifecycle_grant_sets',
   'm2_lifecycle_operations', 'm2_lifecycle_terminals',

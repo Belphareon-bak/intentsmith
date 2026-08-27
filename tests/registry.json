@@ -14007,6 +14007,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-M6-MODEL-ARTIFACT-AUTHORITY-TEST",
+      "path": "tests/m6-model-artifact-authority.test.js",
+      "argv": [
+        "node",
+        "tests/m6-model-artifact-authority.test.js"
+      ],
+      "capabilityId": "C3-025",
+      "tier": "T1",
+      "fixture": "isolated-multiprocess-sqlite-model-provider",
+      "profile": "database",
+      "timeoutMs": 60000,
+      "expectedDurationMs": 5000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M6-RELEASE",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-M6-TECHNICAL-EVIDENCE-TEST",
       "path": "tests/m6-technical-evidence.test.js",
       "argv": [

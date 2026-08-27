@@ -3,8 +3,11 @@
 - **vlastník:** navazující checkpoint
   `WP-M1-MODEL-CLEANUP-AUTHORITY / C2–C3`
 - **nalezeno v:** read-only call-graph review cleanup authority
-- **stav:** `PARTIAL_REMEDIATION / C2B_GATEWAY_AND_BINDING_FRESH_CLONE_VERIFIED`
-- **dopad:** M1 cleanup checkpoint je bezpečnější, L0-11 zůstává `PARTIAL`
+- **stav:** `IMPLEMENTED / M6_RE_REVIEW_REQUIRED`
+- **dopad:** L0-11 artifact-use/delete boundary je implementovaná; přijetí čeká na re-review
+
+Historický rozbor níže zachovává stav, ve kterém byl nález otevřen. Aktuální
+disposition a důkaz jsou doplněné v poslední sekci.
 
 ## Evidence
 
@@ -105,3 +108,22 @@ rozhodnutá.
   `reader.read()` proto drží single-process writer do restartu. Operátor musí
   zvolit timeout a provider-outcome reconciliation dřív, než se tato cesta
   označí jako produkčně zotavitelná.
+
+## M6 remediation 2026-08-27
+
+[Decision 037](../decisions/037-m6-l0-11-model-artifact-authority.md) zvolila
+durable variantu. Migrace 098 a `model-artifact-authority-repository.js`
+zavádějí cross-process claims, Linux PID/start/boot identitu, fail-closed
+`UNKNOWN` stav, atomické zotavení prokazatelně mrtvého ownera a append-only
+intent/outcome audit pro pull i delete. Produkční singleton se repository váže
+před binding rehydrate a ModelRegistry bez durable vazby v produkčním initu
+selže.
+
+Decision 023/A VRAM hrana už je zapojená v `vram-manager.js` a její cílená sada
+je součástí aktuálního L0-11 programu. Destruktivní provider origin je
+loopback-only. Pull reader má 120s idle timeout; nejednoznačný stav vytvoří
+durable fence a startup opakuje pouze stejnou pull operation identity. Legacy
+chat cleanup je explicitně retired, protože neměl retirement identity odlišnou
+od chráněného one-step rollbacku. Delete orphan zůstává úmyslně blokující pro
+operátora; bez provider-side operation ID jej nelze bezpečně automaticky
+prohlásit za dokončený ani neprovedený.

@@ -5099,7 +5099,7 @@ await testAsync('production pull composition performs tags-pull-tags on one pinn
   assert(progress.some(entry => entry.status === 'success'));
 });
 
-await testAsync('chat cleanup adapter consumes one exact registry plan and one single-use approval', async () => {
+await testAsync('legacy chat cleanup is retired without preview or provider effects', async () => {
   const prepared = [];
   const deleted = [];
   const candidates = [{
@@ -5143,7 +5143,7 @@ await testAsync('chat cleanup adapter consumes one exact registry plan and one s
       conversationId: 'cleanup-conversation',
     }, 'CONVERSATION');
     assertEqual(withoutSession.handled, true);
-    assertEqual(withoutSession.response.tag.metadata.errorCode, 'MODEL_DELETE_SESSION_REQUIRED');
+    assertEqual(withoutSession.response.tag.metadata.errorCode, 'MODEL_CLEANUP_CHAT_RETIRED');
     assertEqual(prepared.length, 0);
 
     const preview = await preHandle('smaz stare modely', {
@@ -5152,10 +5152,11 @@ await testAsync('chat cleanup adapter consumes one exact registry plan and one s
       conversationId: 'cleanup-conversation',
     }, 'CONVERSATION');
     assertEqual(preview.handled, true);
-    assertEqual(preview.response.tag.metadata.modelCleanupPrepared, true);
-    assertEqual(JSON.stringify(prepared), JSON.stringify([['cleanup-fixture']]));
+    assertEqual(preview.response.tag.metadata.errorCode, 'MODEL_CLEANUP_CHAT_RETIRED');
+    assertEqual(preview.response.tag.metadata.modelCleanup, false);
+    assertEqual(prepared.length, 0);
     assertEqual(deleted.length, 0);
-    assertEqual(sessionState._pendingModelCleanup.length, 1);
+    assertEqual(sessionState._pendingModelCleanup, null);
 
     const confirmation = await preHandle('potvrdit smazani modelu', {
       sessionState,
@@ -5163,11 +5164,8 @@ await testAsync('chat cleanup adapter consumes one exact registry plan and one s
       conversationId: 'cleanup-conversation',
     }, 'CONVERSATION');
     assertEqual(confirmation.handled, true);
-    assertEqual(confirmation.response.tag.metadata.modelCleanup, true);
-    assertEqual(JSON.stringify(deleted), JSON.stringify([{
-      name: 'cleanup-fixture:latest',
-      options: { source: 'USER_CHAT', expectedDigestSha256: DIGEST_A },
-    }]));
+    assertEqual(confirmation.response.tag.metadata.errorCode, 'MODEL_CLEANUP_CHAT_RETIRED');
+    assertEqual(deleted.length, 0);
     assertEqual(sessionState._pendingModelCleanup, null);
     assertEqual(sessionState._cleanupCandidates, null);
 
@@ -5177,14 +5175,15 @@ await testAsync('chat cleanup adapter consumes one exact registry plan and one s
       conversationId: 'cleanup-conversation',
     }, 'CONVERSATION');
     assertEqual(replay.handled, true);
-    assertEqual(deleted.length, 1);
+    assertEqual(replay.response.tag.metadata.errorCode, 'MODEL_CLEANUP_CHAT_RETIRED');
+    assertEqual(deleted.length, 0);
   } finally {
     setModelRegistry(null);
     setUpgradeManager(null);
   }
 });
 
-await testAsync('real post-apply chat cleanup parks the protected one-step rollback model', async () => {
+await testAsync('real post-apply chat cleanup stays retired and preserves rollback identity', async () => {
   await withFixture(async ({ db, manager, application }) => {
     await application.applyManualBinding({
       role: 'CHAT',
@@ -5224,8 +5223,8 @@ await testAsync('real post-apply chat cleanup parks the protected one-step rollb
         conversationId: 'protected-cleanup-conversation',
       }, 'CONVERSATION');
       assertEqual(result.handled, true);
-      assertEqual(result.response.content, 'Zadne nepouzivane modely k odstraneni.');
-      assertEqual(sessionState._pendingModelCleanup, undefined);
+      assertEqual(result.response.tag.metadata.errorCode, 'MODEL_CLEANUP_CHAT_RETIRED');
+      assertEqual(sessionState._pendingModelCleanup, null);
       assertEqual(inventoryCalls, 0);
       assert(application.getProtectedModelNames().some(model => sameModelName(model, 'fixture-base')));
     } finally {

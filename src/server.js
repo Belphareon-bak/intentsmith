@@ -285,10 +285,17 @@ import {
   createOllamaModelBindingProvider,
 } from './upgrade/model-binding-application.js';
 import { createModelFailoverApplication } from './upgrade/model-failover-application.js';
+import { modelUseAuthority } from './upgrade/model-use-authority.js';
+import {
+  createModelArtifactAuthorityRepository,
+} from './upgrade/model-artifact-authority-repository.js';
 
 // Restore every manual binding through the single durable application boundary
 // before any LLM call can observe config.models.
 upgradeManager.setDb(db.db);
+const modelArtifactAuthorityRepository = createModelArtifactAuthorityRepository(db.db);
+modelUseAuthority.bindDurableRepository(modelArtifactAuthorityRepository);
+upgradeManager.setModelArtifactAuthorityRepository(modelArtifactAuthorityRepository);
 setUpgradeManager(upgradeManager);
 modelUniverseStore.setDb(db.db);
 const bindingRepository = createModelFailoverRepository(db.db);
@@ -396,7 +403,15 @@ try {
     modelBindingApplication,
     validationRunner,
     broadcast: bindingBroadcast,
+    modelUseAuthority,
+    modelArtifactAuthorityRepository,
+    requireDurableModelUseAuthority: true,
   });
+  const pullRecovery = await upgradeManager.recoverOutstandingModelPulls();
+  for (const result of pullRecovery) {
+    const level = result.status === 'RECOVERED' ? 'info' : 'warn';
+    logger[level]('Server', `Model pull recovery ${result.operationId}: ${result.status}`);
+  }
   setModelRegistry(modelRegistry);
   modelFailoverDetectionCoordinator = createModelFailoverDetectionCoordinator({
     repositoryPort: createModelFailoverDetectionRepositoryPort(bindingRepository),

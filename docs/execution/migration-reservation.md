@@ -96,6 +96,21 @@ potvrdil **090** jako volnou identitu pro append-only operator receipts.
 | **089** | rezervováno a použito M5 | append-only outbound policy decision a terminal audit |
 | **090** | rezervováno a použito M5 | privacy rotation/history attestation authority a odstranění plaintext settings |
 
+## Navazující live rezervace 2026-08-27
+
+Read-only census všech lokálních worktrees našel cizí migrace **092–097**;
+poslední z nich je rozpracovaná model-evaluation role identity v izolovaném
+coworker worktree. Do žádného cizího souboru se nezasahovalo. Commitnutý union
+větví končil na 096, ale worktree census je přísnější autorita pro zabránění
+kolize, takže M6 používá první volnou identitu **098**.
+
+| Číslo | Stav | Obsah |
+|---|---|---|
+| **091** | použito M5 | opaque transport writer authority pro privacy receipts |
+| **092–095** | obsazeno v cizích worktrees | alternativní M2 effect authority chain |
+| **096–097** | obsazeno v cizí model-scoring lince | import audit a role identity |
+| **098** | rezervováno a použito M6 | durable cross-process model artifact claims a append-only provider effect audit |
+
 ### Strojově kontrolovaný manifest použitých migrací
 
 Každý současný migrační soubor musí být právě jednou v tomto seznamu. Tím se
@@ -183,6 +198,7 @@ záznamu selže v `artifact-validation`.
 | `2026_08_26_089_m5_outbound_audit.js` | použito |
 | `2026_08_26_090_m5_privacy_authority.js` | použito |
 | `2026_08_26_091_m5_privacy_writer_authority.js` | použito |
+| `2026_08_27_098_m6_model_artifact_authority.js` | použito |
 <!-- migration-source-manifest:end -->
 
 ## Proč to nejsou 058 a 059

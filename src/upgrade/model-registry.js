@@ -20,6 +20,7 @@ import {
   MODEL_ACTIVITY_OWNER,
   modelUseAuthority,
 } from './model-use-authority.js';
+import { requireLoopbackModelProviderOrigin } from './model-provider-origin.js';
 import { readModelAutomationPolicy } from '../db/model-policy.js';
 import { execSync } from 'child_process';
 import fs from 'fs';
@@ -174,6 +175,8 @@ export class ModelRegistry {
     this._cleanupRunning = false;
     this._clock = Date.now;
     this._modelUseAuthority = modelUseAuthority;
+    this._modelArtifactAuthorityRepository = null;
+    this._requireDurableModelUseAuthority = false;
   }
 
   /** Wire dependencies (called once in server.js) */
@@ -185,6 +188,8 @@ export class ModelRegistry {
     broadcast,
     clock,
     modelUseAuthority: injectedModelUseAuthority,
+    modelArtifactAuthorityRepository,
+    requireDurableModelUseAuthority = false,
   }) {
     this._db = db;
     this._upgradeManager = upgradeManager;
@@ -193,6 +198,8 @@ export class ModelRegistry {
     this._broadcast = broadcast || (() => {});
     this._clock = typeof clock === 'function' ? clock : Date.now;
     this._modelUseAuthority = injectedModelUseAuthority || modelUseAuthority;
+    this._modelArtifactAuthorityRepository = modelArtifactAuthorityRepository || null;
+    this._requireDurableModelUseAuthority = requireDurableModelUseAuthority === true;
     if (typeof this._modelUseAuthority?.acquireShared !== 'function'
       || typeof this._modelUseAuthority?.acquireExclusive !== 'function') {
       registryFail(
@@ -200,6 +207,17 @@ export class ModelRegistry {
         'Model use authority is unavailable',
         503,
       );
+    }
+    if (this._requireDurableModelUseAuthority) {
+      if (this._modelUseAuthority.durable !== true
+        || typeof this._modelArtifactAuthorityRepository?.recordIntent !== 'function'
+        || typeof this._modelArtifactAuthorityRepository?.recordOutcome !== 'function') {
+        registryFail(
+          'MODEL_ARTIFACT_DURABLE_AUTHORITY_REQUIRED',
+          'Durable model artifact authority is unavailable',
+          503,
+        );
+      }
     }
   }
 
@@ -224,6 +242,14 @@ export class ModelRegistry {
           'MODEL_DELETE_IN_USE',
           `Model je používán nebo měněn: ${modelName}`,
           409,
+        );
+      }
+      if (error?.code === 'MODEL_ARTIFACT_OUTCOME_UNRESOLVED') {
+        registryFail(
+          'MODEL_DELETE_OUTCOME_UNRESOLVED',
+          `Předchozí provider efekt nemá potvrzený výsledek: ${modelName}`,
+          503,
+          error.details,
         );
       }
       throw error;
@@ -253,7 +279,7 @@ export class ModelRegistry {
   /** Get installed Ollama models with parsed metadata */
   async getInstalled(options = {}) {
     const strict = options?.strict === true;
-    const baseUrl = config.ollama?.baseUrl || 'http://127.0.0.1:11434';
+    const baseUrl = options?.baseUrl || config.ollama?.baseUrl || 'http://127.0.0.1:11434';
     try {
       const resp = await fetch(`${baseUrl}/api/tags`, { signal: AbortSignal.timeout(8000) });
       if (!resp.ok) {
@@ -754,6 +780,19 @@ export class ModelRegistry {
         503,
       );
     }
+    let provider;
+    try {
+      provider = requireLoopbackModelProviderOrigin(
+        config.ollama?.baseUrl || 'http://127.0.0.1:11434',
+      );
+    } catch (error) {
+      registryFail(
+        'MODEL_DELETE_PROVIDER_SCOPE_UNSUPPORTED',
+        error.message,
+        403,
+        { causeCode: error.code || null },
+      );
+    }
 
     return this._modelBindingApplication.runExclusiveModelMutation(
       { kind: 'MODEL_DELETE' },
@@ -761,12 +800,12 @@ export class ModelRegistry {
         const deleteLease = this.#acquireDeleteLease(name);
         try {
           this.#assertDeleteAllowed(name);
-          const firstInventory = await this.getInstalled({ strict: true });
+          const firstInventory = await this.getInstalled({ strict: true, baseUrl: provider.origin });
           const planned = resolveInstalledArtifact(firstInventory, name, {
             digestSha256: expectedDigestSha256,
           });
           this.#assertDeleteAllowed(name);
-          const secondInventory = await this.getInstalled({ strict: true });
+          const secondInventory = await this.getInstalled({ strict: true, baseUrl: provider.origin });
           const observed = resolveInstalledArtifact(secondInventory, planned.exactName, {
             exactName: planned.exactName,
             digestSha256: planned.digestSha256,
@@ -780,10 +819,28 @@ export class ModelRegistry {
           ));
           const freedGB = observedModel?.sizeGB || '?';
 
-          const baseUrl = config.ollama?.baseUrl || 'http://127.0.0.1:11434';
+          let operationId = null;
+          if (this._modelArtifactAuthorityRepository) {
+            if (typeof deleteLease.claimId !== 'string') {
+              registryFail(
+                'MODEL_ARTIFACT_DURABLE_AUTHORITY_REQUIRED',
+                'Durable delete claim is unavailable',
+                503,
+              );
+            }
+            operationId = this._modelArtifactAuthorityRepository.recordIntent({
+              claimId: deleteLease.claimId,
+              kind: 'DELETE',
+              exactName: observed.exactName,
+              canonicalName: observed.canonicalName,
+              digestSha256: observed.digestSha256,
+              source,
+              providerOrigin: provider.origin,
+            }).operationId;
+          }
           let resp;
           try {
-            resp = await fetch(`${baseUrl}/api/delete`, {
+            resp = await fetch(provider.endpoint('/api/delete'), {
               method: 'DELETE',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ name: observed.exactName }),
@@ -791,6 +848,13 @@ export class ModelRegistry {
               signal: AbortSignal.timeout(30_000),
             });
           } catch (error) {
+            if (operationId) {
+              this._modelArtifactAuthorityRepository.recordOutcome(
+                operationId,
+                'ORPHANED',
+                'MODEL_DELETE_PROVIDER_OUTCOME_UNKNOWN',
+              );
+            }
             throw new ModelRegistryError(
               'MODEL_DELETE_PROVIDER_UNAVAILABLE',
               `Ollama delete není dostupný pro ${observed.exactName}`,
@@ -798,7 +862,17 @@ export class ModelRegistry {
             );
           }
           if (!resp?.ok) {
+            if (operationId) {
+              this._modelArtifactAuthorityRepository.recordOutcome(
+                operationId,
+                'FAILED',
+                `MODEL_DELETE_PROVIDER_HTTP_${resp?.status ?? 'UNKNOWN'}`,
+              );
+            }
             registryFail('MODEL_DELETE_PROVIDER_FAILED', `Ollama vrátil ${resp?.status ?? 'unknown'}`, 502);
+          }
+          if (operationId) {
+            this._modelArtifactAuthorityRepository.recordOutcome(operationId, 'SUCCEEDED');
           }
 
           this.invalidateCache();
