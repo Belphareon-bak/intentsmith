@@ -4,7 +4,7 @@
 
 **Poslední zamítnutý candidate:** `74beafea439fdddbbb54e797d351dfe180b2d5f7`
 
-**Implementační candidate:** `13413117fb0269beda2f6495b13a1018ca3a0781`
+**Product/test candidate:** `5f89bc36045598e292f1c64d34f61abdd0950b29`
 
 Tento report nahrazuje chybný panel 40/17/34 z předchozí verze dokumentu.
 Nejde o nezávislé přijetí. Timer zůstává vypnutý a žádný GPU scoring se v
@@ -76,10 +76,23 @@ jinou legitimní historii stampů; její přesná projekce je doložena níže.
 | registry validace | 448 programů; fingerprint `0da4a318503be9cb05edb4ad3757d3c6d565ac61f28cc9db6473cb12a7196bcd` |
 | module boundary ratchet | 1 192/1 192 hran; 3 cykly; 28 souborů v cyklech |
 
-Plný deterministický gate nové revize v okamžiku tohoto implementačního
-milníku ještě nebyl spuštěn. Poslední nezávislý gate 278/278 patří zamítnutému
-`74beafea`; nelze jej vydávat za důkaz tohoto kandidáta. Nový gate a nové
-nezávislé rereview jsou samostatné zbývající brány.
+První plný deterministický gate remediace na source
+`3af097a058da40d92f855900458fc1e484e71a64` zůstal červený a je zachován jako
+důkaz, nikoli přepsán následným během:
+
+| Run | Rozsah | Výsledek | Report SHA-256 |
+|---|---|---|---|
+| `2026-08-27T08-29-07-007Z` | 279 deterministic suites | 275 PASS / 4 FAIL / 0 BLOCKED | `928eb6590304701a1007ec8fd980de04630e5d044dafa52f70dd4dd83bc5550d` |
+| `2026-08-27T08-39-33-848Z` | čtyři opravené sady, diagnosticky nad dirty tree | 4 PASS / 0 FAIL | `3c314178d1e45a6f1c2fb5a58c0631872e5bfe4d2d4cf8b52b3a4130920b9f23` |
+
+Selhání byla: role-less governor fixture, neaktuální 096/83 migrační oracle,
+reviewed Gate 0 fingerprint stále na 278 sadách a meta-test, který zaměnil
+cizí pre-existing ignored runtime za svůj leak. Product/test commit `5f89bc36`
+opravil všechny čtyři příčiny; focused audit už zahrnoval skutečnou auditní
+větev harnessu. Plný čistý gate product/test kandidáta je stále povinný a v
+tomto bodě ještě nebyl spuštěn. Poslední nezávislý gate 278/278 patří
+zamítnutému `74beafea`; nelze jej vydávat za důkaz tohoto kandidáta. Nový gate
+a nové nezávislé rereview jsou samostatné zbývající brány.
 
 ## Aktuální strict-role scoring panel
 
