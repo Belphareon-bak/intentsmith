@@ -1688,6 +1688,8 @@ stabilní candidate + re-review:
   `manual + required:false`.
 - required previous-version journey spouští skutečný server 136.0.0 nad
   persistentní DB a poté tentýž stav otevře současnou aplikací 136.1.0;
+  receipt v2 dokládá stejný inode/device SQLite souboru, přesných 56 → 79
+  migrací, celý canary a skutečný `lo`-only user/network namespace;
 - L0-11 má durable cross-process model claims, append-only pull/delete intent a
   terminály, loopback-only provider scope, bounded stalled-pull recovery a
   explicitně retired legacy chat cleanup. Focused autorita prošla 11/11,
@@ -1704,8 +1706,11 @@ cyklech; pět přesných nových hran bylo přijato bez růstu cyklu a odstraně
 chat → model-identity hrana baseline zpřísnila.
 
 Dosud chybí skutečný 24hodinový soak, plný maximum-throughput/resource receipt,
-nový úplný candidate run a operátorský re-review. Proto žádný z těchto řádků
-není ještě vydáván za `REVIEW_PASSED` ani za M6 acceptance.
+nový úplný candidate run a operátorský re-review. Operátor 2026-08-27 odložil
+všechny live chat/LLM a model-quality běhy kvůli probíhající optimalizaci a
+možné výměně modelů; jejich stav je `DEFERRED_MODEL_OPTIMIZATION`, nikoli PASS
+nebo FAIL, a starší modelové artefakty se k novému kandidátu nepřipnou. Proto
+žádný z těchto řádků není ještě vydáván za `REVIEW_PASSED` ani za M6 acceptance.
 
 ### Vstup
 

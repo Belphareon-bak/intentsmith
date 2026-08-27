@@ -13,6 +13,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  lstatSync,
   rmSync,
 } from 'node:fs';
 import http from 'node:http';
@@ -25,11 +26,18 @@ import Database from 'better-sqlite3';
 
 import {
   M6_CURRENT_VERSION as CURRENT_VERSION,
+  M6_CURRENT_VERSION_MIGRATION_COUNT as CURRENT_MIGRATION_COUNT,
   M6_PREVIOUS_VERSION as PREVIOUS_VERSION,
+  M6_PREVIOUS_VERSION_MIGRATION_COUNT as PREVIOUS_MIGRATION_COUNT,
   M6_PREVIOUS_VERSION_SHA as PREVIOUS_SHA,
   M6_RUNTIME_EVIDENCE_MARKER,
+  M6_UPGRADE_CANARY,
 } from '../contracts/m6/runtime-evidence-v1.js';
 import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
+import {
+  assertLoopbackNetworkNamespace,
+  reexecInLoopbackNetworkNamespace,
+} from './helpers/m6-owned-runtime-probe.js';
 
 const SOURCE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SHA_PATTERN = /^[a-f0-9]{40}$/u;
@@ -267,7 +275,14 @@ function packageVersion(root) {
   return JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8')).version;
 }
 
+function databaseFileIdentity(databasePath) {
+  const metadata = lstatSync(databasePath, { bigint: true });
+  assert.equal(metadata.isFile(), true, 'upgrade database is not a regular file');
+  return sha256(`m6-sqlite-file-v1\0${metadata.dev}\0${metadata.ino}`);
+}
+
 async function main() {
+  const namespace = assertLoopbackNetworkNamespace();
   const candidateSha = git(SOURCE_ROOT, ['rev-parse', 'HEAD']);
   assert.match(candidateSha, SHA_PATTERN);
   if (process.env.INTENTSMITH_TEST_SOURCE_REVISION) {
@@ -303,9 +318,7 @@ async function main() {
       'previous',
     );
     const create = await requestJson(previousServer, 'POST', '/api/projects', {
-      name: 'M6 Upgrade Canary',
-      description: 'created by the exact 136.0.0 application',
-      type: 'general',
+      ...M6_UPGRADE_CANARY,
     });
     assert.equal(create.statusCode, 201, create.raw);
     assert.ok(Number.isSafeInteger(create.json?.id), create.raw);
@@ -316,6 +329,8 @@ async function main() {
     await stopServer(previousServer);
     previousServer = null;
     const previousMigrationCount = migrationCount(runtime.database);
+    assert.equal(previousMigrationCount, PREVIOUS_MIGRATION_COUNT);
+    const previousDatabaseFileIdentity = databaseFileIdentity(runtime.database);
 
     currentServer = await startServer(
       SOURCE_ROOT,
@@ -326,31 +341,41 @@ async function main() {
     const afterList = await requestJson(currentServer, 'GET', '/api/projects?status=all&limit=100');
     assert.equal(afterList.statusCode, 200, afterList.raw);
     const upgradedCanary = afterList.json.projects.find(project => project.id === canaryId);
-    assert.equal(upgradedCanary?.name, 'M6 Upgrade Canary');
-    assert.equal(upgradedCanary?.description, 'created by the exact 136.0.0 application');
+    assert.equal(upgradedCanary?.name, M6_UPGRADE_CANARY.name);
+    assert.equal(upgradedCanary?.description, M6_UPGRADE_CANARY.description);
+    assert.equal(upgradedCanary?.type, M6_UPGRADE_CANARY.type);
     await stopServer(currentServer);
     currentServer = null;
     const currentMigrationCount = migrationCount(runtime.database);
-    assert.ok(currentMigrationCount > previousMigrationCount, 'candidate applied no newer migrations');
+    assert.equal(currentMigrationCount, CURRENT_MIGRATION_COUNT);
+    const currentDatabaseFileIdentity = databaseFileIdentity(runtime.database);
+    assert.equal(
+      currentDatabaseFileIdentity,
+      previousDatabaseFileIdentity,
+      'candidate did not upgrade the exact previous-version SQLite file',
+    );
 
     const receipt = {
       contract: 'M6PreviousVersionUpgradeReceipt',
-      version: 1,
+      version: 2,
       candidateSha,
       previousSha: PREVIOUS_SHA,
       previousVersion: PREVIOUS_VERSION,
       currentVersion: CURRENT_VERSION,
-      databaseIdentitySha256: sha256(path.resolve(runtime.database)),
+      databaseFileIdentitySha256: currentDatabaseFileIdentity,
       previousMigrationCount,
       currentMigrationCount,
       canary: {
         id: canaryId,
         name: upgradedCanary.name,
+        description: upgradedCanary.description,
+        type: upgradedCanary.type,
         survivedUpgrade: true,
       },
       previousServerCleanShutdown: true,
       currentServerCleanShutdown: true,
-      networkScope: 'loopback-only',
+      networkScope: 'linux-user-network-namespace-loopback-only',
+      namespaceInterfaces: [...namespace.interfaceNames],
       verdict: 'PASS',
     };
     process.stdout.write(
@@ -369,7 +394,9 @@ async function main() {
   }
 }
 
-main().catch(error => {
-  console.error(error.stack || error.message);
-  process.exitCode = 1;
-});
+if (!(await reexecInLoopbackNetworkNamespace(import.meta.url))) {
+  main().catch(error => {
+    console.error(error.stack || error.message);
+    process.exitCode = 1;
+  });
+}

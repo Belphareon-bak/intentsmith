@@ -13,11 +13,18 @@ export const M6_RUNTIME_EVIDENCE_PROGRAMS = Object.freeze([
 
 export const M6_PREVIOUS_VERSION_UPGRADE_CONTRACT =
   'M6PreviousVersionUpgradeReceipt';
-export const M6_PREVIOUS_VERSION_UPGRADE_VERSION = 1;
+export const M6_PREVIOUS_VERSION_UPGRADE_VERSION = 2;
 export const M6_PREVIOUS_VERSION_SHA =
   'd3d2ec88d7b96a89b7d49569fb542ba3bb606fd8';
 export const M6_PREVIOUS_VERSION = '136.0.0';
 export const M6_CURRENT_VERSION = '136.1.0';
+export const M6_PREVIOUS_VERSION_MIGRATION_COUNT = 56;
+export const M6_CURRENT_VERSION_MIGRATION_COUNT = 79;
+export const M6_UPGRADE_CANARY = Object.freeze({
+  name: 'M6 Upgrade Canary',
+  description: 'created by the exact 136.0.0 application',
+  type: 'general',
+});
 
 export const M6_LONG_SOAK_CONTRACT = 'M6LongSoakReceipt';
 export const M6_LONG_SOAK_VERSION = 1;

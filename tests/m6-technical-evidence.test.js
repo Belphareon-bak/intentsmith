@@ -167,18 +167,25 @@ function logForProgram(programId) {
   if (programId !== M6_PREVIOUS_VERSION_UPGRADE_PROGRAM) return `PASS ${programId}\n`;
   const receipt = {
     contract: 'M6PreviousVersionUpgradeReceipt',
-    version: 1,
+    version: 2,
     candidateSha,
     previousSha: M6_PREVIOUS_VERSION_SHA,
     previousVersion: '136.0.0',
     currentVersion: '136.1.0',
-    databaseIdentitySha256: 'e'.repeat(64),
+    databaseFileIdentitySha256: 'e'.repeat(64),
     previousMigrationCount: 56,
-    currentMigrationCount: 78,
-    canary: { id: 1, name: 'M6 Upgrade Canary', survivedUpgrade: true },
+    currentMigrationCount: 79,
+    canary: {
+      id: 1,
+      name: 'M6 Upgrade Canary',
+      description: 'created by the exact 136.0.0 application',
+      type: 'general',
+      survivedUpgrade: true,
+    },
     previousServerCleanShutdown: true,
     currentServerCleanShutdown: true,
-    networkScope: 'loopback-only',
+    networkScope: 'linux-user-network-namespace-loopback-only',
+    namespaceInterfaces: ['lo'],
     verdict: 'PASS',
   };
   return `${M6_RUNTIME_EVIDENCE_MARKER}${Buffer.from(JSON.stringify(receipt)).toString('base64url')}\n`;

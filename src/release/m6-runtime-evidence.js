@@ -1,5 +1,6 @@
 import {
   M6_CURRENT_VERSION,
+  M6_CURRENT_VERSION_MIGRATION_COUNT,
   M6_LONG_SOAK_CONTRACT,
   M6_LONG_SOAK_DURATION_MS,
   M6_LONG_SOAK_PROGRAM,
@@ -11,12 +12,14 @@ import {
   M6_MAX_THROUGHPUT_SUSTAINED_DURATION_MS,
   M6_MAX_THROUGHPUT_VERSION,
   M6_PREVIOUS_VERSION,
+  M6_PREVIOUS_VERSION_MIGRATION_COUNT,
   M6_PREVIOUS_VERSION_SHA,
   M6_PREVIOUS_VERSION_UPGRADE_CONTRACT,
   M6_PREVIOUS_VERSION_UPGRADE_PROGRAM,
   M6_PREVIOUS_VERSION_UPGRADE_VERSION,
   M6_RUNTIME_EVIDENCE_MARKER,
   M6_RUNTIME_EVIDENCE_PROGRAMS,
+  M6_UPGRADE_CANARY,
 } from '../../contracts/m6/runtime-evidence-v1.js';
 
 const SHA_PATTERN = /^[a-f0-9]{40}$/u;
@@ -28,8 +31,9 @@ const UPGRADE_KEYS = Object.freeze([
   'currentMigrationCount',
   'currentServerCleanShutdown',
   'currentVersion',
-  'databaseIdentitySha256',
+  'databaseFileIdentitySha256',
   'networkScope',
+  'namespaceInterfaces',
   'previousMigrationCount',
   'previousServerCleanShutdown',
   'previousSha',
@@ -210,27 +214,39 @@ function validateUpgradeReceipt(receipt, candidateSha, errors) {
   if (receipt.previousSha !== M6_PREVIOUS_VERSION_SHA) errors.push('upgrade-receipt:previous-sha');
   if (receipt.previousVersion !== M6_PREVIOUS_VERSION) errors.push('upgrade-receipt:previous-version');
   if (receipt.currentVersion !== M6_CURRENT_VERSION) errors.push('upgrade-receipt:current-version');
-  if (!SHA256_PATTERN.test(receipt.databaseIdentitySha256 || '')) {
+  if (!SHA256_PATTERN.test(receipt.databaseFileIdentitySha256 || '')) {
     errors.push('upgrade-receipt:database-identity');
   }
-  if (!Number.isSafeInteger(receipt.previousMigrationCount) || receipt.previousMigrationCount <= 0) {
+  if (receipt.previousMigrationCount !== M6_PREVIOUS_VERSION_MIGRATION_COUNT) {
     errors.push('upgrade-receipt:previous-migrations');
   }
-  if (
-    !Number.isSafeInteger(receipt.currentMigrationCount)
-    || receipt.currentMigrationCount <= receipt.previousMigrationCount
-  ) errors.push('upgrade-receipt:current-migrations');
-  if (!exactKeys(receipt.canary, ['id', 'name', 'survivedUpgrade'])) {
+  if (receipt.currentMigrationCount !== M6_CURRENT_VERSION_MIGRATION_COUNT) {
+    errors.push('upgrade-receipt:current-migrations');
+  }
+  if (!exactKeys(receipt.canary, [
+    'description',
+    'id',
+    'name',
+    'survivedUpgrade',
+    'type',
+  ])) {
     errors.push('upgrade-receipt:canary-keys');
   } else if (
     !Number.isSafeInteger(receipt.canary.id)
     || receipt.canary.id <= 0
-    || receipt.canary.name !== 'M6 Upgrade Canary'
+    || receipt.canary.name !== M6_UPGRADE_CANARY.name
+    || receipt.canary.description !== M6_UPGRADE_CANARY.description
+    || receipt.canary.type !== M6_UPGRADE_CANARY.type
     || receipt.canary.survivedUpgrade !== true
   ) errors.push('upgrade-receipt:canary');
   if (receipt.previousServerCleanShutdown !== true) errors.push('upgrade-receipt:previous-shutdown');
   if (receipt.currentServerCleanShutdown !== true) errors.push('upgrade-receipt:current-shutdown');
-  if (receipt.networkScope !== 'loopback-only') errors.push('upgrade-receipt:network-scope');
+  if (receipt.networkScope !== 'linux-user-network-namespace-loopback-only') {
+    errors.push('upgrade-receipt:network-scope');
+  }
+  if (JSON.stringify(receipt.namespaceInterfaces) !== JSON.stringify(['lo'])) {
+    errors.push('upgrade-receipt:namespace-interfaces');
+  }
   if (receipt.verdict !== 'PASS') errors.push('upgrade-receipt:verdict');
 }
 

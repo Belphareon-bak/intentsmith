@@ -10,6 +10,13 @@ branách: M5 zůstává `8/9 REVIEW_PASSED / PRIVACY RE_REVIEW_REQUIRED`, skute�
 a disposition historie nejsou provedené a M6 se nesmí označit `ACCEPTED`, dokud
 nejsou splněné vstupy a exit kritéria `ROADMAP.md §10`.
 
+Operátor tentýž den odložil všechny validační běhy, které vedou chat přes živé
+LLM/Ollamu nebo hodnotí modelově závislou kvalitu, protože probíhá optimalizace
+a aktivní modely se mohou změnit. Tyto řádky mají stav
+`DEFERRED_MODEL_OPTIMIZATION`: nejsou PASS ani FAIL a starší modelové artefakty
+se nesmějí připnout k novému kandidátu. Modelově nezávislé kontrakty, fake
+provider testy, upgrade, soak a throughput bloky mohou pokračovat.
+
 ## 1. Uživatelský výsledek a rozsah
 
 Vznikne reprodukovatelný IntentSmith 1.0 release candidate, jehož hlavní
@@ -135,6 +142,8 @@ Implementované, ale zatím znovu nezreviewované bloky:
   historických live-server consumer journeys, exact toolchain preflightem a
   fail-fast po prvním required non-PASS (Decision 040);
 - skutečný persistentní application upgrade 136.0.0 → 136.1.0;
+- upgrade receipt v2 váže přesný inode/device stejného SQLite souboru,
+  migrační počty 56 → 79, celý canary a skutečný `lo`-only network namespace;
 - L0-11 durable model artifact authority podle Decision 037.
 
 L0-11 focused důkaz aktuálně tvoří 11/11 nových adversariálních checks,

@@ -13948,7 +13948,9 @@
         "ollama": false,
         "gpu": false,
         "toolchain": [
-          "git"
+          "git",
+          "iproute2",
+          "linux-user-network-namespace"
         ]
       },
       "required": true,
