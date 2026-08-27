@@ -14,7 +14,10 @@ import {
   buildM6CandidateExecutionPlan,
   validateM6CandidateExecutionPlan,
 } from '../src/release/m6-candidate-plan.js';
-import { candidateModelResidencyOnly } from '../scripts/run-m6-candidate-evidence.js';
+import {
+  candidateModelResidencyOnly,
+  validateM6CompletedAuditPhase,
+} from '../scripts/run-m6-candidate-evidence.js';
 import { installOllamaLoopbackFetchBoundary } from './helpers/ollama-loopback-fetch-boundary.js';
 import { suite, summary, test, testAsync } from './harness.js';
 import registry from './registry.json' with { type: 'json' };
@@ -165,11 +168,50 @@ test('candidate runner materializes only named toolchain bindings', () => {
   );
   assert.match(source, /timeout-minutes=\$\{phase\.timeoutMinutes\}/u);
   assert.match(source, /deadline-hours=\$\{phase\.deadlineHours\}/u);
+  assert.match(source, /assertNoStaleDirectTestRuntime\(root\)/u);
   assert.match(
     source,
     /runFreshClonePhase\([\s\S]*waitForCandidateGpuQuiescence\([\s\S]*physical-ollama-gpu[\s\S]*controlled-soak/u,
   );
   assert.doesNotMatch(source, /\.\.\.process\.env/u);
+});
+
+test('candidate runner stops after any completed red audit phase', () => {
+  const candidateSha = 'a'.repeat(40);
+  const phase = { id: 'focused', programIds: ['program-a'] };
+  const base = {
+    verdict: 'PASS',
+    exitCode: 0,
+    sourceRevision: candidateSha,
+    interruptionSignal: null,
+    requiredFailureCount: 0,
+    requiredBlockedCount: 0,
+    results: [{
+      id: 'program-a',
+      status: 'PASS',
+      exitCode: 0,
+      signal: null,
+      timedOut: false,
+      sourceRevision: candidateSha,
+      cleanup: { checked: true, leakDetected: false, terminated: true },
+      sourceTree: { checked: true, clean: true, head: candidateSha },
+    }],
+  };
+  assert.equal(validateM6CompletedAuditPhase(base, phase, candidateSha).valid, true);
+  for (const mutate of [
+    report => { report.verdict = 'FAIL'; },
+    report => { report.exitCode = 1; },
+    report => { report.results[0].status = 'BLOCKED'; },
+    report => { report.results[0].timedOut = true; },
+    report => { report.results[0].cleanup.leakDetected = true; },
+    report => { report.results[0].sourceTree.clean = false; },
+    report => { report.results.push(structuredClone(report.results[0])); },
+    report => { report.results = []; },
+  ]) {
+    const report = structuredClone(base);
+    mutate(report);
+    assert.equal(validateM6CompletedAuditPhase(report, phase, candidateSha).valid, false);
+  }
 });
 
 test('nightly runner opens the hard server blocker only for the two exact owned M6 programs', () => {

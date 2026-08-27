@@ -14,6 +14,7 @@ import {
   mkdir,
   mkdtemp,
   readFile,
+  readdir,
   realpath,
   rename,
   rm,
@@ -185,7 +186,63 @@ async function runAuditPhase({ root, candidateSha, evidenceRoot, phase }) {
   const runId = `${phase.id}-${candidateSha}`;
   const reportPath = path.join(evidenceRoot, phase.id, runId, 'report.json');
   await stat(reportPath);
+  const report = JSON.parse(await readFile(reportPath, 'utf8'));
+  const completion = validateM6CompletedAuditPhase(report, phase, candidateSha);
+  if (!completion.valid) {
+    throw new Error(`M6 phase ${phase.id} is red: ${completion.errors.join('; ')}`);
+  }
   return reportPath;
+}
+
+export function validateM6CompletedAuditPhase(report, phase, candidateSha) {
+  const errors = [];
+  if (report?.verdict !== 'PASS') errors.push('report:verdict');
+  if (report?.exitCode !== 0) errors.push('report:exit-code');
+  if (report?.sourceRevision !== candidateSha) errors.push('report:candidate');
+  if (report?.interruptionSignal !== null) errors.push('report:interrupted');
+  if (report?.runnerFailure != null) errors.push('report:runner-failure');
+  if (report?.requiredFailureCount !== 0) errors.push('report:required-failure-count');
+  if (report?.requiredBlockedCount !== 0) errors.push('report:required-blocked-count');
+
+  const expectedIds = [...(phase?.programIds || [])].sort();
+  const results = Array.isArray(report?.results) ? report.results : [];
+  const actualIds = results.map(result => result.id).sort();
+  if (new Set(actualIds).size !== actualIds.length) errors.push('report:duplicate-result');
+  if (JSON.stringify(actualIds) !== JSON.stringify(expectedIds)) errors.push('report:result-set');
+  for (const result of results) {
+    if (result.status !== 'PASS') errors.push(`${result.id}:status`);
+    if (result.exitCode !== 0) errors.push(`${result.id}:exit-code`);
+    if (result.signal !== null) errors.push(`${result.id}:signal`);
+    if (result.timedOut !== false) errors.push(`${result.id}:timeout`);
+    if (result.sourceRevision !== candidateSha) errors.push(`${result.id}:candidate`);
+    if (
+      result.cleanup?.checked !== true
+      || result.cleanup?.leakDetected !== false
+      || result.cleanup?.terminated !== true
+    ) errors.push(`${result.id}:cleanup`);
+    if (
+      result.sourceTree?.checked !== true
+      || result.sourceTree?.clean !== true
+      || result.sourceTree?.head !== candidateSha
+    ) errors.push(`${result.id}:source-tree`);
+  }
+  return Object.freeze({ valid: errors.length === 0, errors: Object.freeze(errors) });
+}
+
+async function assertNoStaleDirectTestRuntime(root) {
+  const runtimeRoot = path.join(root, '.intentsmith-artifacts', 'direct-tests');
+  let entries;
+  try {
+    entries = await readdir(runtimeRoot);
+  } catch (error) {
+    if (error.code === 'ENOENT') return;
+    throw error;
+  }
+  if (entries.length > 0) {
+    throw new Error(
+      'M6 candidate preflight found preserved direct-test runtimes; inspect and quarantine them first',
+    );
+  }
 }
 
 function parseCsvLine(line) {
@@ -943,6 +1000,7 @@ export async function runM6CandidateEvidence(root = process.cwd(), argv = []) {
   const candidateSha = git(root, ['rev-parse', 'HEAD']);
   if (!SHA_PATTERN.test(candidateSha)) throw new Error('M6 candidate SHA is invalid');
   assertCleanCandidate(root, candidateSha, 'candidate:pre-state');
+  await assertNoStaleDirectTestRuntime(root);
   const registry = await loadTestRegistry(root);
   const fingerprint = registryFingerprint(registry);
   const plan = buildM6CandidateExecutionPlan(registry);

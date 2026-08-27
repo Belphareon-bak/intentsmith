@@ -40,6 +40,10 @@ deadline 30 hodin. Jeho množina je odvozena ze všech současných 370
 jejich skutečných efektů a prerequisite. Controlled soak je poslední fáze:
 deterministické, serverové, modelové, fresh-clone i fyzické GPU brány musí
 skončit zeleně dřív, než kandidát začne spotřebovávat 24hodinové okno.
+Po každé auditní fázi runner navíc ihned ověřuje exact result set, PASS/exit,
+candidate SHA, timeout/signál, cleanup a čistotu source tree. Červená dokončená
+fáze proto zastaví kandidáta před další fází a nikdy se nepřenese přes dlouhý
+soak až do opožděného finálního vyhodnocení.
 
 Obecný audit runner zachovává `server` jako hard blocker. Výjimku otevře jen
 po explicitním `--allow-blocker=server` a současné shodě jednoho ze dvou exact
