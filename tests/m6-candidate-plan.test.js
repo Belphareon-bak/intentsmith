@@ -93,7 +93,23 @@ test('candidate runner materializes only named toolchain bindings', () => {
     source,
     /programId === M6_PREVIOUS_VERSION_UPGRADE_PROGRAM[\s\S]*copyCacheIfPresent\([\s\S]*prepared\.environment\.npm_config_cache,[\s\S]*programNpmCache/u,
   );
+  assert.match(source, /timeout-minutes=\$\{phase\.timeoutMinutes\}/u);
+  assert.match(source, /deadline-hours=\$\{phase\.deadlineHours\}/u);
   assert.doesNotMatch(source, /\.\.\.process\.env/u);
+});
+
+test('nightly runner opens the hard server blocker only for the two exact owned M6 programs', () => {
+  const source = readFileSync(
+    path.join(repositoryRoot, 'scripts', 'nightly-audit.js'),
+    'utf8',
+  );
+  assert.match(source, /IS-T5-TESTS-M6-LONG-SOAK-E2E/u);
+  assert.match(source, /IS-T5-TESTS-M6-MAX-THROUGHPUT-E2E/u);
+  assert.match(source, /owned-production-server-loopback-network-namespace/u);
+  assert.match(
+    source,
+    /blocker === 'server'[\s\S]*SELF_STARTING_OWNED_SERVER_PROGRAMS\.has\(suite\?\.id\)[\s\S]*suite\?\.fixture === SELF_STARTING_OWNED_SERVER_FIXTURE/u,
+  );
 });
 
 test('pre-physical wait recognizes only the candidate-owned Ollama residency', () => {

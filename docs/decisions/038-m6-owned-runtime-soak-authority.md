@@ -39,6 +39,12 @@ deadline 30 hodin. Jeho množina je odvozena ze všech současných 374
 `ACTIVE + required` programů; false-soak položky jsou překlasifikované podle
 jejich skutečných efektů a prerequisite.
 
+Obecný audit runner zachovává `server` jako hard blocker. Výjimku otevře jen
+po explicitním `--allow-blocker=server` a současné shodě jednoho ze dvou exact
+M6 program IDs s fixture
+`owned-production-server-loopback-network-namespace`. Ostatní serverové
+programy zůstávají hard-blocked i tehdy, když caller obecný blocker povolí.
+
 ## Budgety
 
 - long soak: 0 chyb a HTTP 5xx, p95 nejvýše 100 ms, p99 nejvýše 250 ms, RSS

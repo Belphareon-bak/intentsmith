@@ -27,6 +27,12 @@ import { probeModelFixture } from './model-fixture-preflight.js';
 const DEFAULT_OUT_DIR = '.intentsmith-artifacts/test-runs';
 const DEFAULT_TIMEOUT_MS = 10 * 60 * 1000;
 const DEFAULT_DEADLINE_MS = 8 * 60 * 60 * 1000;
+const SELF_STARTING_OWNED_SERVER_PROGRAMS = new Set([
+  'IS-T5-TESTS-M6-LONG-SOAK-E2E',
+  'IS-T5-TESTS-M6-MAX-THROUGHPUT-E2E',
+]);
+const SELF_STARTING_OWNED_SERVER_FIXTURE =
+  'owned-production-server-loopback-network-namespace';
 const TERMINATION_GRACE_MS = 2_000;
 const ACTIVE_SUITE_CHILDREN = new Map();
 let requestedTerminationSignal = null;
@@ -165,8 +171,13 @@ function blockersFor(suite) {
   return [...blockers].sort();
 }
 
-function blockerIsDisallowed(blocker, opts) {
+function blockerIsDisallowed(blocker, opts, suite) {
   if (blocker === 'model-fixture') return false;
+  if (blocker === 'server'
+    && SELF_STARTING_OWNED_SERVER_PROGRAMS.has(suite?.id)
+    && suite?.fixture === SELF_STARTING_OWNED_SERVER_FIXTURE) {
+    return !opts.allowBlockers.has('server');
+  }
   if (isHardBlocker(blocker)) return true;
   if (blocker.startsWith('toolchain:')) {
     return !opts.allowBlockers.has(blocker);
@@ -353,7 +364,7 @@ export async function runAudit(options = {}) {
       if (!suite) return;
 
       const disallowedBlockers = suite.blockers.filter(
-        blocker => blockerIsDisallowed(blocker, opts),
+        blocker => blockerIsDisallowed(blocker, opts, suite),
       );
       let result;
       if (requestedTerminationSignal) {
