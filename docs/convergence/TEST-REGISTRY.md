@@ -15,8 +15,8 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 ## Inventory
 
 - Runnable programs: 469
-- Explicit support-module exclusions: 15
-- Profiles: offline=248, database=60, server=44, model=86, soak=15, manual=16
+- Explicit support-module exclusions: 16
+- Profiles: offline=248, database=60, server=44, model=82, soak=15, manual=20
 - States: ACTIVE=374, HISTORICAL=16, BLOCKED=79
 
 ## Execution profiles
@@ -88,7 +88,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-CHAT-OUTPUT-QUALITY-TEST` | `tests/chat-output-quality.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-CHAT-PERSISTENCE-TEST` | `tests/chat-persistence.test.js` | `C3-003` | T3 | `server` | 30 s | 3 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-CHAT-PIPELINE-TEST` | `tests/chat-pipeline.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
-| `IS-T3-TESTS-CHAT-QUALITY-TEST` | `tests/chat-quality.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:external, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-CHAT-QUALITY-TEST` | `tests/chat-quality.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CHAT-SEARCH-QUALITY-TEST` | `tests/chat-search-quality.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CHAT-SYNTHESIS-HARDENING-TEST` | `tests/chat-synthesis-hardening.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CHUNKER-TEST` | `tests/chunker.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
@@ -107,9 +107,9 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-CONTEXT-ENGINE-TEST` | `tests/context-engine.test.js` | `C3-016` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CONTEXT-OPTIMIZER-TEST` | `tests/context-optimizer.test.js` | `C3-016` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CONTINUOUS-IMPROVEMENT-TEST` | `tests/continuous-improvement.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
-| `IS-T3-TESTS-CONV-CZECH-NODIACRITICS-TEST` | `tests/conv-czech-nodiacritics.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:external, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
-| `IS-T3-TESTS-CONV-CZECH-TEST` | `tests/conv-czech.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:external, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
-| `IS-T3-TESTS-CONV-ENGLISH-TEST` | `tests/conv-english.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:external, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-CONV-CZECH-NODIACRITICS-TEST` | `tests/conv-czech-nodiacritics.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-CONV-CZECH-TEST` | `tests/conv-czech.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-CONV-ENGLISH-TEST` | `tests/conv-english.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-CRE-BUILD-ARBITRATION-TEST` | `tests/cre-build-arbitration.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-CRE-COMPREHENSIVE-TEST` | `tests/cre-comprehensive.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-CRE-DIALOG-SCENARIOS-TEST` | `tests/cre-dialog-scenarios.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
@@ -133,11 +133,11 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-DRIFT-DETECTOR-TEST` | `tests/drift-detector.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-E2E-COMPLEX-TEST` | `tests/e2e-complex.test.js` | `C3-027` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-E2E-HARNESS-ISOLATION-TEST` | `tests/e2e-harness-isolation.test.js` | `C3-027` | T2 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
-| `IS-T3-TESTS-E2E-NOTIFICATIONS-TEST` | `tests/e2e-notifications.test.js` | `C3-027` | T3 | `model` | 5 min | 15 min | network:external | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-E2E-NOTIFICATIONS-TEST` | `tests/e2e-notifications.test.js` | `C3-027` | T3 | `manual` | 5 min | 15 min | network:external | no | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-E2E-PIPELINE-TEST` | `tests/e2e-pipeline.test.js` | `C3-027` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-E2E-RESILIENCE-TEST` | `tests/e2e-resilience.test.js` | `C3-027` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-E2E-SPECIALISTS-TEST` | `tests/e2e-specialists.test.js` | `C3-027` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
-| `IS-T3-TESTS-E2E-WORKERS-TEST` | `tests/e2e-workers.test.js` | `C3-027` | T3 | `model` | 5 min | 15 min | network:external, temp-db | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-E2E-WORKERS-TEST` | `tests/e2e-workers.test.js` | `C3-027` | T3 | `manual` | 5 min | 15 min | network:external, temp-db | no | `ACTIVE` | — | primary implementer |
 | `IS-T1-E2E-HELPERS-SELF-CHECK` | `tests/e2e/_helpers.self-check.js` | `C3-027` | T1 | `offline` | 5 s | 30 s | network:loopback | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-E2E-01-HEALTH-SMOKE` | `tests/e2e/01-health-smoke.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
 | `IS-T3-E2E-02-CHAT-API` | `tests/e2e/02-chat-api.e2e.js` | `C3-023` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server | yes | `BLOCKED` | — | primary implementer |
@@ -227,11 +227,11 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-EXECUTION-TRACE-STRESS-TEST` | `tests/execution-trace-stress.test.js` | `C3-007` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-EXECUTOR-CAPABILITIES-TEST` | `tests/executor-capabilities.test.js` | `C3-020` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-EXPERTISE-AB-QUALITY-TEST` | `tests/expertise-ab-quality.test.js` | `C3-011` | T3 | `model` | 10 min | 15 min | network:loopback, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
-| `IS-T3-TESTS-EXPERTISE-COMPARISON-E2E-B-TEST` | `tests/expertise-comparison-e2e-b.test.js` | `C3-011` | T3 | `model` | 10 min | 15 min | network:external, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
-| `IS-T3-TESTS-EXPERTISE-COMPARISON-E2E-C-TEST` | `tests/expertise-comparison-e2e-c.test.js` | `C3-011` | T3 | `model` | 10 min | 15 min | network:external, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
-| `IS-T3-TESTS-EXPERTISE-COMPARISON-E2E-D-TEST` | `tests/expertise-comparison-e2e-d.test.js` | `C3-011` | T3 | `model` | 10 min | 15 min | network:external, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
-| `IS-T3-TESTS-EXPERTISE-COMPARISON-E2E-E-TEST` | `tests/expertise-comparison-e2e-e.test.js` | `C3-011` | T3 | `model` | 10 min | 15 min | network:external, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
-| `IS-T3-TESTS-EXPERTISE-COMPARISON-E2E-TEST` | `tests/expertise-comparison-e2e.test.js` | `C3-011` | T3 | `model` | 10 min | 15 min | network:external, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-EXPERTISE-COMPARISON-E2E-B-TEST` | `tests/expertise-comparison-e2e-b.test.js` | `C3-011` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-EXPERTISE-COMPARISON-E2E-C-TEST` | `tests/expertise-comparison-e2e-c.test.js` | `C3-011` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-EXPERTISE-COMPARISON-E2E-D-TEST` | `tests/expertise-comparison-e2e-d.test.js` | `C3-011` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-EXPERTISE-COMPARISON-E2E-E-TEST` | `tests/expertise-comparison-e2e-e.test.js` | `C3-011` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-EXPERTISE-COMPARISON-E2E-TEST` | `tests/expertise-comparison-e2e.test.js` | `C3-011` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-EXPERTISE-DISCOVERY-TEST` | `tests/expertise-discovery.test.js` | `C3-011` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-EXPERTISE-INTEGRATION-TEST` | `tests/expertise-integration.test.js` | `C3-011` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-EXPERTISE-ROUTING-CORRECTNESS-TEST` | `tests/expertise-routing-correctness.test.js` | `C3-011` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
@@ -397,7 +397,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-MODEL-UPGRADE-TEST` | `tests/model-upgrade.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODULE-BOUNDARY-RATCHET-TEST` | `tests/module-boundary-ratchet.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M1-BOUNDARY-RATCHET |
 | `IS-T1-TESTS-MODULES-TEST` | `tests/modules.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
-| `IS-T3-TESTS-MULTI-SOURCE-EXTERNAL-TEST` | `tests/multi-source-external.test.js` | `C3-015` | T3 | `model` | 30 s | 2 min | network:external | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-MULTI-SOURCE-EXTERNAL-TEST` | `tests/multi-source-external.test.js` | `C3-015` | T3 | `manual` | 30 s | 2 min | network:external | no | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MULTI-SOURCE-INTEGRATION-TEST` | `tests/multi-source-integration.test.js` | `C3-015` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MULTIMEDIA-TEST` | `tests/multimedia.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-NIGHTLY-AUDIT-RUNNER-SELF-TEST` | `tests/nightly-audit-runner-self-test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
@@ -428,7 +428,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-PROJECT-WELCOME-TEST` | `tests/project-welcome.test.js` | `C3-005` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-PROMPT-BUILDER-TEST` | `tests/prompt-builder.test.js` | `C3-016` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-PROPOSAL-STALE-CLEANUP-TEST` | `tests/proposal-stale-cleanup.test.js` | `C3-025` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
-| `IS-T3-TESTS-PUSH-CHANNEL-TEST` | `tests/push-channel.test.js` | `C3-021` | T3 | `model` | 5 min | 15 min | network:external | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-PUSH-CHANNEL-TEST` | `tests/push-channel.test.js` | `C3-021` | T3 | `manual` | 5 min | 15 min | network:external | no | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-QG-IDEMPOTENCE-TEST` | `tests/qg-idempotence.test.js` | `C3-008` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-QUALITY-GATE-TEST` | `tests/quality-gate.test.js` | `C3-008` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-QUALITY-GATES-TEST` | `tests/quality-gates.test.js` | `C3-008` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
@@ -526,6 +526,7 @@ ledger.
 | `tests/harness.js` | Imported unit-test harness library with no top-level test entry point. |
 | `tests/helpers/isolated-test-db.js` | Imported direct-run database isolation bootstrap, not a standalone test. |
 | `tests/helpers/m6-owned-runtime-probe.js` | Imported M6 owned-server and loopback namespace harness, not a standalone test. |
+| `tests/helpers/ollama-loopback-fetch-boundary.js` | Imported fail-closed M6 model-test transport boundary, not a standalone test. |
 | `tests/run-all.js` | Aggregate compatibility entry point; registering it as a child suite would recurse into the registry runner. |
 
 Required fields per run: exact command and commit, clean-tree status, start/end

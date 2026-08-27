@@ -1,4 +1,7 @@
 import './helpers/isolated-test-db.js';
+import { installOllamaLoopbackFetchBoundary } from './helpers/ollama-loopback-fetch-boundary.js';
+
+installOllamaLoopbackFetchBoundary({ reportOnExit: true });
 
 // C3-Agent v58.3 — Czech No-Diacritics Deep Conversation Tests (5 × 10 steps)
 // ══════════════════════════════════════════════════════════════════════════════

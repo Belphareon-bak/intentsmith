@@ -468,6 +468,21 @@ test('registry toolchain prerequisites use unique canonical names', () => {
   )));
 });
 
+test('ACTIVE required registry cannot promise an external program the runner must block', () => {
+  const candidates = [
+    ...committedRegistry.suites.map(suite => suite.path),
+    ...committedRegistry.exclusions.map(exclusion => exclusion.path),
+  ];
+  const invalid = JSON.parse(JSON.stringify(committedRegistry));
+  const suiteRecord = invalid.suites.find(suite => (
+    suite.state === 'ACTIVE' && suite.required === true
+  ));
+  suiteRecord.requirements.network = 'external';
+  assert(validateTestRegistry(invalid, candidates).some(error => (
+    error.includes('ACTIVE required suite cannot depend on hard-blocked external network')
+  )));
+});
+
 test('release orchestrator mirrors exact registry toolchain blockers', () => {
   assertEqual(
     JSON.stringify(registryBlockersFor({

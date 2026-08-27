@@ -26,6 +26,9 @@
 
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { installOllamaLoopbackFetchBoundary } from './helpers/ollama-loopback-fetch-boundary.js';
+
+installOllamaLoopbackFetchBoundary({ reportOnExit: true });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

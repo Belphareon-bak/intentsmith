@@ -227,6 +227,15 @@ export function validateTestRegistry(registry, candidates) {
           `${label} BLOCKED state requires external network, server, ollama, gpu, or a named toolchain`,
         );
       }
+      if (
+        suite.state === 'ACTIVE'
+        && suite.required === true
+        && requirements.network === 'external'
+      ) {
+        errors.push(
+          `${label} ACTIVE required suite cannot depend on hard-blocked external network`,
+        );
+      }
       if (suite.profile === 'offline') {
         const ownsDeclaredLoopback = requirements.network === 'loopback'
           && suite.fixture === OFFLINE_OWNED_LOOPBACK_FIXTURE

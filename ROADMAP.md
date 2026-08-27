@@ -1669,8 +1669,14 @@ stabilní candidate + re-review:
 
 - finální release evidence se znovu odvozuje z raw logů připnutých v Git a
   validuje exact artifact/receipt chain; ignorovaný JSON nemůže vydat PASS;
-- locked plán používá množinovou rovnost se všemi současnými 374
+- locked plán používá množinovou rovnost se všemi současnými 370
   `ACTIVE + required` programy;
+- registry zakazuje konstrukčně nesplnitelný stav `ACTIVE + required +
+  external-network`. Devět modelových programů je povinných a jejich test-owned
+  transport propustí pouze přesné lokální Ollama endpointy; případný WebSearch
+  pokus se odmítne před transportem a projde pouze fail-closed fallbackem. Čtyři
+  skutečné/volitelné externí E2E programy jsou podle vlastního kontraktu
+  `manual + required:false`.
 - required previous-version journey spouští skutečný server 136.0.0 nad
   persistentní DB a poté tentýž stav otevře současnou aplikací 136.1.0;
 - L0-11 má durable cross-process model claims, append-only pull/delete intent a

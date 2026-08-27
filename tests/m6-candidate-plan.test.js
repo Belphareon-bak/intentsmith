@@ -15,7 +15,8 @@ import {
   validateM6CandidateExecutionPlan,
 } from '../src/release/m6-candidate-plan.js';
 import { candidateModelResidencyOnly } from '../scripts/run-m6-candidate-evidence.js';
-import { suite, summary, test } from './harness.js';
+import { installOllamaLoopbackFetchBoundary } from './helpers/ollama-loopback-fetch-boundary.js';
+import { suite, summary, test, testAsync } from './harness.js';
 import registry from './registry.json' with { type: 'json' };
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -35,7 +36,7 @@ test('plan is argument-free, serial and covers the exact ACTIVE required registr
     .sort();
   const selected = plan.phases.flatMap(phase => phase.programIds).sort();
   assert.deepEqual(selected, expected);
-  assert.equal(selected.length, 374);
+  assert.equal(selected.length, 370);
   assert.equal(Object.isFrozen(plan), true);
 });
 
@@ -51,14 +52,82 @@ test('fresh-clone and physical GPU programs cannot be silently omitted', () => {
     .requiresGpuCensus, true);
 });
 
-test('model and server phase includes every remaining required program, including declared external tests', () => {
+test('model and server phase includes every runnable required program without external false promises', () => {
   const plan = buildM6CandidateExecutionPlan(registry);
   const byId = new Map(registry.suites.map(program => [program.id, program]));
   const phase = plan.phases.find(item => item.id === 'model-and-server');
-  assert.equal(phase.programIds.length, 58);
-  assert.equal(phase.programIds.filter(id => byId.get(id).profile === 'model').length, 47);
+  assert.equal(phase.programIds.length, 54);
+  assert.equal(phase.programIds.filter(id => byId.get(id).profile === 'model').length, 43);
   assert.equal(phase.programIds.filter(id => byId.get(id).profile === 'server').length, 11);
-  assert(phase.programIds.some(id => byId.get(id).requirements.network === 'external'));
+  assert(phase.programIds.every(id => byId.get(id).requirements.network !== 'external'));
+  assert.equal(registry.suites.filter(program => (
+    program.state === 'ACTIVE'
+    && program.required === true
+    && program.requirements.network === 'external'
+  )).length, 0);
+});
+
+await testAsync('required model quality programs are transport-contained to exact Ollama endpoints', async () => {
+  const calls = [];
+  let redirectNext = false;
+  const boundary = installOllamaLoopbackFetchBoundary({
+    transport: async (input, init) => {
+      calls.push({ input: String(input), init });
+      if (redirectNext) {
+        redirectNext = false;
+        return { status: 302 };
+      }
+      return { status: 200 };
+    },
+  });
+  try {
+    await fetch('http://127.0.0.1:11434/api/tags');
+    await fetch('http://localhost:11434/api/chat', { method: 'POST' });
+    await fetch(new Request('http://[::1]:11434/api/show', { method: 'POST' }));
+    assert.equal(calls.length, 3);
+    assert(calls.every(call => call.init.redirect === 'manual'));
+
+    redirectNext = true;
+    await assert.rejects(
+      fetch('http://127.0.0.1:11434/api/tags'),
+      error => error.code === 'INTENTSMITH_TEST_OLLAMA_REDIRECT_BLOCKED',
+    );
+
+    for (const [target, init, code] of [
+      ['https://127.0.0.1:11434/api/tags', undefined, 'INTENTSMITH_TEST_EXTERNAL_NETWORK_BLOCKED'],
+      ['http://127.0.0.1:11435/api/tags', undefined, 'INTENTSMITH_TEST_EXTERNAL_NETWORK_BLOCKED'],
+      ['https://example.com/', undefined, 'INTENTSMITH_TEST_EXTERNAL_NETWORK_BLOCKED'],
+      ['http://user:secret@127.0.0.1:11434/api/tags', undefined, 'INTENTSMITH_TEST_EXTERNAL_NETWORK_BLOCKED'],
+      ['http://127.0.0.1:11434/api/tags?forge=1', undefined, 'INTENTSMITH_TEST_EXTERNAL_NETWORK_BLOCKED'],
+      ['http://127.0.0.1:11434/api/delete', { method: 'DELETE' }, 'INTENTSMITH_TEST_OLLAMA_ENDPOINT_BLOCKED'],
+      ['http://127.0.0.1:11434/api/chat', { method: 'GET' }, 'INTENTSMITH_TEST_OLLAMA_ENDPOINT_BLOCKED'],
+    ]) {
+      await assert.rejects(fetch(target, init), error => error.code === code);
+    }
+    assert.deepEqual(boundary.snapshot(), {
+      loopbackRequests: 4,
+      blockedRequests: 7,
+      blockedRedirects: 1,
+    });
+  } finally {
+    assert.equal(boundary.restore(), true);
+  }
+
+  const requiredSources = [
+    'chat-quality.test.js',
+    'conv-czech-nodiacritics.test.js',
+    'conv-czech.test.js',
+    'conv-english.test.js',
+    'expertise-comparison-e2e.test.js',
+    'expertise-comparison-e2e-b.test.js',
+    'expertise-comparison-e2e-c.test.js',
+    'expertise-comparison-e2e-d.test.js',
+    'expertise-comparison-e2e-e.test.js',
+  ];
+  for (const sourcePath of requiredSources) {
+    const source = readFileSync(path.join(repositoryRoot, 'tests', sourcePath), 'utf8');
+    assert.match(source, /installOllamaLoopbackFetchBoundary\(\{ reportOnExit: true \}\)/u);
+  }
 });
 
 test('controlled soak contains only the two measured M6 runtimes with a 30-hour window', () => {

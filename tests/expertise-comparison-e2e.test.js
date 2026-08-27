@@ -1,4 +1,7 @@
 import './helpers/isolated-test-db.js';
+import { installOllamaLoopbackFetchBoundary } from './helpers/ollama-loopback-fetch-boundary.js';
+
+installOllamaLoopbackFetchBoundary({ reportOnExit: true });
 
 // Expertise Comparison E2E Test — 3 expertises × 2 conversations (chat vs expert)
 // ═══════════════════════════════════════════════════════════════════════════════

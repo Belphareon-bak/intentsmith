@@ -1,4 +1,7 @@
 import './helpers/isolated-test-db.js';
+import { installOllamaLoopbackFetchBoundary } from './helpers/ollama-loopback-fetch-boundary.js';
+
+installOllamaLoopbackFetchBoundary({ reportOnExit: true });
 
 // Expertise Comparison E2E Test — Group B: analyst, trader, accountant
 // ═══════════════════════════════════════════════════════════════════════════════
