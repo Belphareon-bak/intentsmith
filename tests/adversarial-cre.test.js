@@ -13,8 +13,8 @@ import './helpers/isolated-test-db.js';
 //   5. INJECTION — tech words embedded in non-tech context
 //   6. GUARD BYPASS — inputs designed to bypass specific guards
 //
-// Expected: Many tests FAIL or KNOWN_ISSUE. That's intentional — documenting
-// existing classifier weaknesses for future fixes.
+// Expected: only explicitly marked KNOWN_ISSUE cases may remain non-PASS.
+// Every unmarked forbidden result is a regression and fails the program.
 //
 // Run: node tests/adversarial-cre.test.js
 // ══════════════════════════════════════════════════════════════════════════════
@@ -438,16 +438,19 @@ await adv(
   { acceptable: ['CREATIVE', 'CONVERSATIONAL'], forbidden: ['BUILD'] },
 );
 
-// X6: "Prokletý ostrov" — dnd_master vs no expertise
+// X6: Same factual query — dnd_master vs no expertise. The explicit question
+// makes SEARCH observable without expertise, so CREATIVE can only come from
+// the active creative authority (GUARD 6), not the model's interpretation of a
+// bare title.
 await adv(
-  'X6a: "Prokletý ostrov" + dnd_master → creative (not film search)',
-  'Prokletý ostrov',
+  'X6a: author query + dnd_master → creative (not film search)',
+  'Kdo napsal Prokletý ostrov?',
   dndCtx,
   { primary: 'CREATIVE', acceptable: ['CREATIVE', 'CONVERSATIONAL'], forbidden: ['SEARCH'] },
 );
 await adv(
-  'X6b: "Prokletý ostrov" + no expertise → search or ambiguous',
-  'Prokletý ostrov',
+  'X6b: author query + no expertise → search or conversational',
+  'Kdo napsal Prokletý ostrov?',
   noCtx,
   { acceptable: ['SEARCH', 'AMBIGUOUS', 'CONVERSATIONAL'], forbidden: ['CREATIVE'] },
 );

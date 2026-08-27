@@ -126,25 +126,27 @@ t('explicit DESIGN plus implementation request is BUILD without project context'
 
 section('GUARD 5 + GUARD 6 — DESIGN vs CREATIVE overlap');
 
-await ta('SEARCH + creativeLock → overridden to CREATIVE (GUARD 6)', async () => {
+await ta('explicit SEARCH + creativeLock → SEARCH bypasses GUARD 6', async () => {
   // GUARD 6 only overrides SEARCH and AMBIGUOUS to CREATIVE, not DESIGN
   const d = await decide('vyhledej informace o Prokletém ostrově', {
     expertise: { creativeLock: true, outputBias: 'creative' },
     hasActiveExpertise: true,
   });
-  // Explicit search ("vyhledej") bypasses GUARD 6, so SEARCH is preserved
-  // But non-explicit search queries would be overridden
-  assert(d != null, 'decision should be returned');
+  // Explicit search ("vyhledej") bypasses GUARD 6, so SEARCH is preserved.
+  assertEqual(d.intent, IntentType.SEARCH, 'explicit search must bypass creative override');
 });
 
 await ta('non-explicit search + creativeLock → CREATIVE (GUARD 6)', async () => {
-  const d = await decide('Prokletý ostrov', {
+  const d = await decide('Kdo napsal Prokletý ostrov?', {
     expertise: { creativeLock: true, outputBias: 'creative' },
     hasActiveExpertise: true,
   });
-  // Non-explicit query under creativeLock → GUARD 6 should override to CREATIVE
-  assert(d.intent !== IntentType.SEARCH,
-    `SEARCH should be overridden to CREATIVE under creativeLock, got ${d.intent}`);
+  assertEqual(d.intent, IntentType.CREATIVE,
+    'non-explicit search should be overridden under creativeLock');
+  assert(
+    d.metadata?.diag?.overrides?.includes('guard6_creative_override'),
+    'CREATIVE result must be attributed to GUARD 6',
+  );
 });
 
 await ta('design keyword + no creativeLock → DESIGN allowed', async () => {
