@@ -20,6 +20,7 @@ import {
   validateM6ReleaseEvidence,
   validateM6EvidenceCommitBoundary,
   validateM6ReleaseEvidenceIndex,
+  validateM6ReportLogBindings,
   verifyM6ArtifactBindings,
   verifyM6GitArtifactBindings,
 } from '../src/release/m6-release-validation.js';
@@ -172,6 +173,7 @@ await testAsync('Git evidence index requires one pinned report per locked phase'
     reports: M6_CANDIDATE_PHASE_IDS.map(phaseId => ({
       phaseId,
       artifact: binding(phaseId),
+      logs: [],
     })),
     releaseArtifactManifest: binding('release-manifest'),
   };
@@ -187,6 +189,24 @@ await testAsync('Git evidence index requires one pinned report per locked phase'
   const ignored = structuredClone(index);
   ignored.reports[0].artifact.path = '.intentsmith-artifacts/m6/forged.json';
   assert.equal(validateIndex(ignored).valid, false);
+});
+
+await testAsync('each report result is bound to its exact pinned Git log', async () => {
+  const report = {
+    results: [{ id: 'PROGRAM-A', logPath: artifact.path, logSha256: artifact.sha256 }],
+  };
+  const indexReport = {
+    phaseId: 'phase-a',
+    artifact,
+    logs: [{ programId: 'PROGRAM-A', artifact }],
+  };
+  assert.equal(validateM6ReportLogBindings(indexReport, report).valid, true);
+  const missing = structuredClone(indexReport);
+  missing.logs = [];
+  assert.equal(validateM6ReportLogBindings(missing, report).valid, false);
+  const rebound = structuredClone(indexReport);
+  rebound.logs[0].artifact.sha256 = '0'.repeat(64);
+  assert.equal(validateM6ReportLogBindings(rebound, report).valid, false);
 });
 
 await testAsync('Git artifact bindings are derived from pinned bytes, never local files', async () => {

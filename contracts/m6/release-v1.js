@@ -2,7 +2,7 @@ export const M6_RELEASE_EVIDENCE_CONTRACT = 'M6ReleaseEvidence';
 export const M6_RELEASE_EVIDENCE_VERSION = 2;
 
 export const M6_RELEASE_EVIDENCE_INDEX_CONTRACT = 'M6ReleaseEvidenceIndex';
-export const M6_RELEASE_EVIDENCE_INDEX_VERSION = 1;
+export const M6_RELEASE_EVIDENCE_INDEX_VERSION = 2;
 export const M6_RELEASE_EVIDENCE_INDEX_PATH =
   'docs/execution/runs/m6/M6-RELEASE-EVIDENCE-INDEX.json';
 

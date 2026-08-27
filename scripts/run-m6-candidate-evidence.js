@@ -847,18 +847,40 @@ async function stageM6GitEvidence({
   await mkdir(evidenceRoot, { recursive: false, mode: 0o700 });
   const reportBindings = [];
   for (const [index, phase] of plan.phases.entries()) {
+    const report = JSON.parse(await readFile(reportPaths[index], 'utf8'));
+    const logs = [];
+    for (const result of report.results || []) {
+      if (
+        typeof result.logPath !== 'string'
+        || path.isAbsolute(result.logPath)
+        || result.logPath.split(path.sep).includes('..')
+      ) throw new Error(`M6 report has an unsafe log path: ${result.id}`);
+      const sourceLog = path.resolve(root, result.logPath);
+      if (!relative(root, sourceLog) || relative(root, sourceLog).startsWith('../')) {
+        throw new Error(`M6 report log escapes the candidate root: ${result.id}`);
+      }
+      const targetLog = path.join(evidenceRoot, 'logs', phase.id, `${result.id}.log`);
+      await mkdir(path.dirname(targetLog), { recursive: true, mode: 0o700 });
+      await cp(sourceLog, targetLog, {
+        recursive: false,
+        dereference: false,
+        errorOnExist: true,
+        force: false,
+      });
+      await chmod(targetLog, 0o600);
+      const logArtifact = await artifactBinding(root, targetLog);
+      if (result.logSha256 !== logArtifact.sha256) {
+        throw new Error(`M6 staged log changed bytes: ${result.id}`);
+      }
+      result.logPath = logArtifact.path;
+      logs.push({ programId: result.id, artifact: logArtifact });
+    }
     const target = path.join(evidenceRoot, 'reports', `${phase.id}.json`);
-    await mkdir(path.dirname(target), { recursive: true, mode: 0o700 });
-    await cp(reportPaths[index], target, {
-      recursive: false,
-      dereference: false,
-      errorOnExist: true,
-      force: false,
-    });
-    await chmod(target, 0o600);
+    await writePrivateJsonAtomic(target, report);
     reportBindings.push({
       phaseId: phase.id,
       artifact: await artifactBinding(root, target),
+      logs,
     });
   }
 

@@ -43,7 +43,8 @@ const INDEX_KEYS = Object.freeze([
   'reports',
   'version',
 ]);
-const INDEX_REPORT_KEYS = Object.freeze(['artifact', 'phaseId']);
+const INDEX_REPORT_KEYS = Object.freeze(['artifact', 'logs', 'phaseId']);
+const INDEX_LOG_KEYS = Object.freeze(['artifact', 'programId']);
 const EVIDENCE_ONLY_EXACT_PATHS = new Set([
   'ROADMAP.md',
   'SYSTEM-MAP.md',
@@ -114,14 +115,35 @@ export function validateM6ReleaseEvidenceIndex(index, {
     index.reports.forEach((item, indexPosition) => {
       if (!exactKeys(item, INDEX_REPORT_KEYS)) {
         errors.push(`index.reports[${indexPosition}]:keys`);
-      } else if (!validArtifact(item.artifact)) {
-        errors.push(`index.reports[${indexPosition}]:artifact`);
+      } else {
+        if (!validArtifact(item.artifact)) {
+          errors.push(`index.reports[${indexPosition}]:artifact`);
+        }
+        if (!Array.isArray(item.logs)) {
+          errors.push(`index.reports[${indexPosition}]:logs`);
+        } else {
+          const programIds = item.logs.map(log => log?.programId);
+          if (new Set(programIds).size !== programIds.length) {
+            errors.push(`index.reports[${indexPosition}]:duplicate-log-program`);
+          }
+          item.logs.forEach((log, logIndex) => {
+            if (
+              !exactKeys(log, INDEX_LOG_KEYS)
+              || typeof log.programId !== 'string'
+              || log.programId.length === 0
+              || !validArtifact(log.artifact)
+            ) {
+              errors.push(`index.reports[${indexPosition}].logs[${logIndex}]:shape`);
+            }
+          });
+        }
       }
     });
   }
   const paths = [
     index.releaseArtifactManifest?.path,
     ...(index.reports || []).map(item => item?.artifact?.path),
+    ...(index.reports || []).flatMap(item => (item?.logs || []).map(log => log?.artifact?.path)),
   ];
   if (new Set(paths).size !== paths.length) errors.push('index:duplicate-artifact-path');
   for (const artifactPath of paths) {
@@ -129,6 +151,26 @@ export function validateM6ReleaseEvidenceIndex(index, {
       typeof artifactPath === 'string'
       && !artifactPath.startsWith('docs/execution/runs/m6/')
     ) errors.push(`index:artifact-outside-git-evidence:${artifactPath}`);
+  }
+  return Object.freeze({ valid: errors.length === 0, errors: Object.freeze(errors) });
+}
+
+export function validateM6ReportLogBindings(indexReport, report) {
+  const errors = [];
+  if (!Array.isArray(indexReport?.logs) || !Array.isArray(report?.results)) {
+    return Object.freeze({ valid: false, errors: Object.freeze(['report-logs:shape']) });
+  }
+  const byProgram = new Map(indexReport.logs.map(log => [log.programId, log.artifact]));
+  const resultIds = report.results.map(result => result?.id);
+  if (new Set(resultIds).size !== resultIds.length) errors.push('report-logs:duplicate-result');
+  if (
+    JSON.stringify([...byProgram.keys()].sort()) !== JSON.stringify([...resultIds].sort())
+  ) errors.push('report-logs:exact-programs');
+  for (const result of report.results) {
+    const binding = byProgram.get(result?.id);
+    if (!binding) continue;
+    if (result.logPath !== binding.path) errors.push(`report-logs:path:${result.id}`);
+    if (result.logSha256 !== binding.sha256) errors.push(`report-logs:sha256:${result.id}`);
   }
   return Object.freeze({ valid: errors.length === 0, errors: Object.freeze(errors) });
 }

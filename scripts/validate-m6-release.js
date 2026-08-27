@@ -28,6 +28,7 @@ import {
   validateM6ReleaseEvidence,
   validateM6EvidenceCommitBoundary,
   validateM6ReleaseEvidenceIndex,
+  validateM6ReportLogBindings,
   verifyM6GitArtifactBindings,
 } from '../src/release/m6-release-validation.js';
 import {
@@ -176,6 +177,7 @@ export async function validateCurrentM6Release(root = process.cwd()) {
   });
   const pinnedBindings = [
     ...(index.reports || []).map(item => item.artifact),
+    ...(index.reports || []).flatMap(item => (item.logs || []).map(log => log.artifact)),
     index.releaseArtifactManifest,
   ];
   const pinnedValidation = await verifyM6GitArtifactBindings(pinnedBindings, {
@@ -203,11 +205,15 @@ export async function validateCurrentM6Release(root = process.cwd()) {
   }
 
   const reports = [];
+  const reportLogErrors = [];
   try {
     for (const item of index.reports) {
       const artifact = await readGitArtifact(item.artifact.path);
+      const report = parseJson(artifact.bytes, `m6-report:${item.phaseId}`);
+      const logValidation = validateM6ReportLogBindings(item, report);
+      reportLogErrors.push(...logValidation.errors.map(error => `${item.phaseId}:${error}`));
       reports.push({
-        report: parseJson(artifact.bytes, `m6-report:${item.phaseId}`),
+        report,
         artifact: item.artifact,
       });
     }
@@ -219,6 +225,21 @@ export async function validateCurrentM6Release(root = process.cwd()) {
       verdict: 'FAIL',
       exitCode: 1,
       errors: Object.freeze([error.message]),
+      candidateSha,
+      evidenceHeadSha,
+      evidenceBoundary: boundary,
+      registryFingerprint: fingerprint,
+      evidencePath: M6_RELEASE_EVIDENCE_PATH,
+    });
+  }
+  if (reportLogErrors.length > 0) {
+    return Object.freeze({
+      contract: 'M6ReleaseValidation',
+      version: 1,
+      valid: false,
+      verdict: 'FAIL',
+      exitCode: 1,
+      errors: Object.freeze(reportLogErrors),
       candidateSha,
       evidenceHeadSha,
       evidenceBoundary: boundary,
