@@ -25,6 +25,7 @@ import path from 'node:path';
 
 const BASE = process.env.C3_URL || 'http://127.0.0.1:3335';
 const TIMEOUT = 300_000; // bounded by the registered 15-minute program timeout
+const PROJECT_READ_CANARY = 'INTENTSMITH_PROJECT_E2E_READ_CANARY';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -219,6 +220,10 @@ async function test2_ExistingProject() {
     path.join(existingPath, 'output', 'regular-summary.json'),
     '{"phase":"regular","records":1,"levels":{"info":1}}\n',
   );
+  await fs.writeFile(
+    path.join(existingPath, 'PROJECT-NOTE.txt'),
+    `${PROJECT_READ_CANARY}\nThis byte string must not cross an unapproved file.list request.\n`,
+  );
   let projectId = null;
   const convId = `e2e-analyzer-${Date.now()}`;
 
@@ -242,17 +247,22 @@ async function test2_ExistingProject() {
     return;
   }
 
-  // ── 2.2 Warmup: list project files (establishes context) ──
+  // ── 2.2 File listing remains behind exact M2 read authority ──
 
-  await check('2.2 Chat: list files in existing project', async () => {
+  await check('2.2 Chat: unapproved file listing fails closed', async () => {
     const { status, data } = await chat(convId, projectId,
       'Jaké soubory jsou v tomto projektu?'
     );
     assert(status === 200, `Expected 200, got ${status}`);
     assert(data.response, 'Should have a response');
-    const hasReal = ['README', 'config', 'core', 'scripts', 'run_regular', '.py', 'src']
-      .some(f => data.response.includes(f));
-    assert(hasReal, `Should list real files (got: ${data.response.substring(0, 200)})`);
+    assert(data.intent === 'FILE_READ', `Expected FILE_READ, got ${data.intent}`);
+    assert(data.metadata?.securityBlocked === true, 'Unapproved listing must be security-blocked');
+    assert(data.metadata?.fallbackSuppressed === true, 'Unapproved listing must suppress LLM fallback');
+    assert(
+      /^tool:[a-f0-9]{64}$/.test(data.metadata?.toolRequestId || ''),
+      'Denied listing must retain its durable ToolRequest identity',
+    );
+    assert(!data.response.includes(PROJECT_READ_CANARY), 'Denied listing must not expose project bytes');
     console.log(`       Mode: ${data.mode}, Response: ${data.response.length} chars`);
   });
 
