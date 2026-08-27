@@ -74,10 +74,19 @@ test('pre-physical wait recognizes only the candidate-owned Ollama residency', (
     },
   };
   assert.equal(candidateModelResidencyOnly(owned), true);
+  assert.equal(candidateModelResidencyOnly({
+    ...owned,
+    compute: [{
+      ...owned.compute[0],
+      processName: '/usr/local/lib/ollama/llama-server',
+    }],
+  }), true);
   for (const mutation of [
     { ...owned, compute: [] },
     { ...owned, compute: [{ ...owned.compute[0], processName: '/usr/bin/python' }] },
+    { ...owned, compute: [{ ...owned.compute[0], processName: '/foreign/llama-server' }] },
     { ...owned, ollama: { runningRows: [] } },
+    { ...owned, ollama: { runningRows: ['qwen3.5:27b wrongdigest 16 GB 100% GPU 4096 4 minutes'] } },
     { ...owned, ollama: { runningRows: ['foreign:latest id 16 GB 100% GPU 4096 4 minutes'] } },
     { ...owned, ollama: { runningRows: [...owned.ollama.runningRows, owned.ollama.runningRows[0]] } },
   ]) assert.equal(candidateModelResidencyOnly(mutation), false);

@@ -49,6 +49,7 @@ const PHYSICAL_GPU_MINIMUM_FREE_MIB = 20_000;
 const PHYSICAL_GPU_QUIESCENCE_TIMEOUT_MS = 6 * 60 * 1000;
 const PHYSICAL_GPU_QUIESCENCE_POLL_MS = 5_000;
 const M6_CANDIDATE_MODEL = 'qwen3.5:27b';
+const M6_CANDIDATE_MODEL_ID = '7653528ba5cb';
 const OWNED_SERVER_REPORT = 'owned-server/report.json';
 
 function git(root, args) {
@@ -249,9 +250,10 @@ async function captureGpuCensus(evidenceRoot) {
 export function candidateModelResidencyOnly(census) {
   if (census.ollama.runningRows.length !== 1) return false;
   const [row] = census.ollama.runningRows;
-  if (row.split(/\s+/u)[0] !== M6_CANDIDATE_MODEL) return false;
+  const [model, modelId] = row.split(/\s+/u);
+  if (model !== M6_CANDIDATE_MODEL || modelId !== M6_CANDIDATE_MODEL_ID) return false;
   return census.compute.length >= 1 && census.compute.every(item => (
-    /(?:^|\/)ollama$/u.test(item.processName)
+    /(?:^|\/)ollama(?:\/llama-server)?$/u.test(item.processName)
   ));
 }
 
@@ -275,6 +277,7 @@ async function waitForCandidateGpuQuiescence(evidenceRoot) {
         contract: 'M6GpuQuiescenceReceipt',
         version: 1,
         candidateModel: M6_CANDIDATE_MODEL,
+        candidateModelId: M6_CANDIDATE_MODEL_ID,
         startedAt: new Date(startedAtMs).toISOString(),
         endedAt: census.capturedAt,
         waitedMs: Date.now() - startedAtMs,
