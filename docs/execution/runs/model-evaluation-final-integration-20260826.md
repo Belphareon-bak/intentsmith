@@ -92,7 +92,7 @@ jinou legitimní historii stampů; její přesná projekce je doložena níže.
 | registry current authority | 13/13 PASS |
 | gateway/model-use exact digest včetně A→B→A | 27/27 PASS |
 | registry validace | 448 programů; fingerprint `b8791c78ca0277ed1b1b4b301887ff5a2d85c6f16e6840e95e540860b0275d4d` |
-| module boundary ratchet | 1 192/1 192 hran; 3 cykly; 28 souborů v cyklech |
+| module boundary ratchet | 1 193/1 193 hran; 3 cykly; 28 souborů v cyklech |
 
 První plný deterministický gate remediace na source
 `3af097a058da40d92f855900458fc1e484e71a64` zůstal červený a je zachován jako

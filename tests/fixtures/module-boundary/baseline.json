@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "7404eacf21de4d30dbd5eea4012055ed8cb90344",
-  "sourceTree": "9f1c07cd05cd85677581f818f9879e1268b9f7e3",
+  "sourceRevision": "1257341c7c1527e0ca7de47b4cebfd0c0d7c5b69",
+  "sourceTree": "904877128252c32c3309ca6a17c22168a9e8bb18",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -561,6 +561,7 @@
     "src/eval/import-code-panel-history.js -> src/upgrade/model-discovery.js",
     "src/eval/import-code-panel-history.js -> src/upgrade/model-evaluation-history.js",
     "src/eval/model-evaluation-runner.js -> src/config.js",
+    "src/eval/model-evaluation-runner.js -> src/upgrade/model-identity.js",
     "src/eval/role-evaluation-plan.js -> src/eval/code-patch-suite.js",
     "src/eval/role-evaluation-plan.js -> src/eval/role-quality-suites.js",
     "src/eval/role-evaluation-plan.js -> src/upgrade/model-evaluation-history.js",

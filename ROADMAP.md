@@ -1907,7 +1907,7 @@ role-specific exact-artifact model-evaluation cestu. Migrace 097 karanténuje 11
 cross-role decisions; migrace 099 odstraňuje telemetry-derived blacklist.
 Strict-role snapshot má 28 `COMPLETE`, 11 `BLOCKED`, 52 `MISSING` a 0
 `FAILED` buněk. Po explicitním přijetí tří nutných hran a utažení jedné
-odstraněné telemetry vazby module graph má 1 192 hran, 3 cykly a 28 souborů
+odstraněné telemetry vazby module graph má 1 193 hran, 3 cykly a 28 souborů
 v cyklech. Poslední čistý gate `2026-08-27T19-51-19-172Z` prošel 279/279 na
 starším product/test headu `9f6e4828`; po doplnění stejné response atestace do
 autoritativního scoring runneru musí být plný gate zopakován. Stav je proto
