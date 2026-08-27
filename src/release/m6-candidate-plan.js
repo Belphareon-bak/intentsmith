@@ -80,19 +80,6 @@ export function buildM6CandidateExecutionPlan(registry) {
       requiresOwnedServer: false,
     },
     {
-      id: 'controlled-soak',
-      ...phaseLimits('controlled-soak'),
-      runner: 'nightly-audit',
-      programIds: activeRequired(registry, suite => (
-        suite.profile === 'soak' && !fresh.has(suite.id)
-      )),
-      allowedBlockers: [...CONTROLLED_SOAK_BLOCKERS],
-      requiresCleanCandidate: true,
-      requiresFreshClone: false,
-      requiresGpuCensus: false,
-      requiresOwnedServer: false,
-    },
-    {
       id: 'fresh-clone-install-build-studio',
       ...phaseLimits('fresh-clone-install-build-studio'),
       runner: 'm6-fresh-clone',
@@ -118,6 +105,19 @@ export function buildM6CandidateExecutionPlan(registry) {
       requiresCleanCandidate: true,
       requiresFreshClone: false,
       requiresGpuCensus: true,
+      requiresOwnedServer: false,
+    },
+    {
+      id: 'controlled-soak',
+      ...phaseLimits('controlled-soak'),
+      runner: 'nightly-audit',
+      programIds: activeRequired(registry, suite => (
+        suite.profile === 'soak' && !fresh.has(suite.id)
+      )),
+      allowedBlockers: [...CONTROLLED_SOAK_BLOCKERS],
+      requiresCleanCandidate: true,
+      requiresFreshClone: false,
+      requiresGpuCensus: false,
       requiresOwnedServer: false,
     },
   ];

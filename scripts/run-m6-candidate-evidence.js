@@ -978,9 +978,6 @@ export async function runM6CandidateEvidence(root = process.cwd(), argv = []) {
   const modelAndServer = plan.phases.find(phase => phase.id === 'model-and-server');
   reportPaths.push(await runAuditPhase({ root, candidateSha, evidenceRoot, phase: modelAndServer }));
 
-  const controlledSoak = plan.phases.find(phase => phase.id === 'controlled-soak');
-  reportPaths.push(await runAuditPhase({ root, candidateSha, evidenceRoot, phase: controlledSoak }));
-
   const fresh = await runFreshClonePhase({
     root,
     candidateSha,
@@ -993,6 +990,9 @@ export async function runM6CandidateEvidence(root = process.cwd(), argv = []) {
   await waitForCandidateGpuQuiescence(evidenceRoot);
   const physicalGpu = plan.phases.find(phase => phase.id === 'physical-ollama-gpu');
   reportPaths.push(await runAuditPhase({ root, candidateSha, evidenceRoot, phase: physicalGpu }));
+
+  const controlledSoak = plan.phases.find(phase => phase.id === 'controlled-soak');
+  reportPaths.push(await runAuditPhase({ root, candidateSha, evidenceRoot, phase: controlledSoak }));
   assertCleanCandidate(root, candidateSha, 'candidate:post-state');
 
   const reports = [];

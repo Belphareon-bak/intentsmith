@@ -131,8 +131,9 @@ await testAsync('required model quality programs are transport-contained to exac
 });
 
 test('controlled soak contains only the two measured M6 runtimes with a 30-hour window', () => {
-  const phase = buildM6CandidateExecutionPlan(registry).phases
-    .find(item => item.id === 'controlled-soak');
+  const plan = buildM6CandidateExecutionPlan(registry);
+  const phase = plan.phases.find(item => item.id === 'controlled-soak');
+  assert.equal(plan.phases.at(-1).id, 'controlled-soak');
   assert.deepEqual(phase.programIds, [
     'IS-T5-TESTS-M6-LONG-SOAK-E2E',
     'IS-T5-TESTS-M6-MAX-THROUGHPUT-E2E',
@@ -164,6 +165,10 @@ test('candidate runner materializes only named toolchain bindings', () => {
   );
   assert.match(source, /timeout-minutes=\$\{phase\.timeoutMinutes\}/u);
   assert.match(source, /deadline-hours=\$\{phase\.deadlineHours\}/u);
+  assert.match(
+    source,
+    /runFreshClonePhase\([\s\S]*waitForCandidateGpuQuiescence\([\s\S]*physical-ollama-gpu[\s\S]*controlled-soak/u,
+  );
   assert.doesNotMatch(source, /\.\.\.process\.env/u);
 });
 
@@ -268,8 +273,8 @@ test('duplicate, reordered, concurrent, uncovered or unexpected plans fail close
     plan => { plan.phases[1].programIds.push(plan.phases[0].programIds[0]); },
     plan => { plan.phases[0].programIds.push('IS-T3-TESTS-CHAT-QUALITY-TEST'); },
     plan => { plan.phases[2].programIds.pop(); },
-    plan => { plan.phases[3].timeoutMinutes = 60; },
-    plan => { plan.phases[3].allowedBlockers.push('gpu'); },
+    plan => { plan.phases.at(-1).timeoutMinutes = 60; },
+    plan => { plan.phases.at(-1).allowedBlockers.push('gpu'); },
   ]) {
     const plan = structuredClone(base);
     mutate(plan);

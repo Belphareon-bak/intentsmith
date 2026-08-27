@@ -37,7 +37,9 @@ parser ho vždy odmítne.
 Candidate plán je sériový a pro controlled-soak zamyká timeout 1 500 minut a
 deadline 30 hodin. Jeho množina je odvozena ze všech současných 370
 `ACTIVE + required` programů; false-soak položky jsou překlasifikované podle
-jejich skutečných efektů a prerequisite.
+jejich skutečných efektů a prerequisite. Controlled soak je poslední fáze:
+deterministické, serverové, modelové, fresh-clone i fyzické GPU brány musí
+skončit zeleně dřív, než kandidát začne spotřebovávat 24hodinové okno.
 
 Obecný audit runner zachovává `server` jako hard blocker. Výjimku otevře jen
 po explicitním `--allow-blocker=server` a současné shodě jednoho ze dvou exact
