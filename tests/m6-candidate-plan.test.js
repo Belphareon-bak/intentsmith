@@ -2,6 +2,8 @@ import './helpers/isolated-test-db.js';
 
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -17,6 +19,7 @@ import {
 } from '../src/release/m6-candidate-plan.js';
 import {
   candidateModelResidencyOnly,
+  captureGpuCensus,
   validateM6CompletedAuditPhase,
 } from '../scripts/run-m6-candidate-evidence.js';
 import { installOllamaLoopbackFetchBoundary } from './helpers/ollama-loopback-fetch-boundary.js';
@@ -361,6 +364,95 @@ test('pre-physical wait recognizes only the candidate-owned Ollama residency', (
     { ...owned, ollama: { runningRows: ['foreign:latest id 16 GB 100% GPU 4096 4 minutes'] } },
     { ...owned, ollama: { runningRows: [...owned.ollama.runningRows, owned.ollama.runningRows[0]] } },
   ]) assert.equal(candidateModelResidencyOnly(mutation), false);
+});
+
+await testAsync('GPU preflight passively waits for two clean samples and records the transient', async () => {
+  const temporary = await mkdtemp(path.join(os.tmpdir(), 'm6-gpu-preflight-wait-'));
+  let clockMs = 0;
+  const clean = Object.freeze({
+    contract: 'M6GpuCensus',
+    version: 1,
+    capturedAt: '2026-08-27T00:00:10.000Z',
+    compute: [],
+    gpus: [{ index: 0, freeMiB: 23_000 }],
+    ollama: { header: '', runningRows: [] },
+    minimumFreeMiB: 20_000,
+    available: true,
+    foreignActivity: false,
+    sufficientFreeMemory: true,
+  });
+  const transient = Object.freeze({
+    ...clean,
+    capturedAt: '2026-08-27T00:00:00.000Z',
+    compute: [{ pid: 101, processName: '/usr/local/lib/ollama/llama-server' }],
+    ollama: { header: 'NAME', runningRows: ['qwen3.5:27b 7653528ba5cb'] },
+    foreignActivity: true,
+    sufficientFreeMemory: false,
+  });
+  const snapshots = [transient, clean, clean];
+  try {
+    const censusPath = await captureGpuCensus(temporary, {
+      snapshot: () => snapshots.shift(),
+      sleep: async ms => { clockMs += ms; },
+      now: () => clockMs,
+      timeoutMs: 20,
+      pollMs: 5,
+    });
+    const finalCensus = JSON.parse(await readFile(censusPath, 'utf8'));
+    const receipt = JSON.parse(await readFile(
+      path.join(temporary, 'gpu', 'preflight-wait.json'),
+      'utf8',
+    ));
+    assert.equal(finalCensus.foreignActivity, false);
+    assert.equal(receipt.verdict, 'PASS');
+    assert.equal(receipt.intervention, 'none-read-only-wait');
+    assert.equal(receipt.requiredStableSamples, 2);
+    assert.equal(receipt.observations.length, 3);
+    assert.equal(receipt.observations[0].foreignActivity, true);
+    assert.equal(receipt.observations[1].foreignActivity, false);
+    assert.equal(receipt.observations[2].foreignActivity, false);
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
+});
+
+await testAsync('GPU preflight remains blocked when activity does not quiesce', async () => {
+  const temporary = await mkdtemp(path.join(os.tmpdir(), 'm6-gpu-preflight-blocked-'));
+  let clockMs = 0;
+  const busy = Object.freeze({
+    contract: 'M6GpuCensus',
+    version: 1,
+    capturedAt: '2026-08-27T00:00:00.000Z',
+    compute: [{ pid: 202, processName: '/foreign/gpu-worker' }],
+    gpus: [{ index: 0, freeMiB: 6_000 }],
+    ollama: { header: '', runningRows: [] },
+    minimumFreeMiB: 20_000,
+    available: true,
+    foreignActivity: true,
+    sufficientFreeMemory: false,
+  });
+  try {
+    await assert.rejects(
+      captureGpuCensus(temporary, {
+        snapshot: () => busy,
+        sleep: async ms => { clockMs += ms; },
+        now: () => clockMs,
+        timeoutMs: 10,
+        pollMs: 5,
+      }),
+      error => error?.code === 'M6_GPU_CENSUS_BLOCKED',
+    );
+    const receipt = JSON.parse(await readFile(
+      path.join(temporary, 'gpu', 'preflight-wait.json'),
+      'utf8',
+    ));
+    assert.equal(receipt.verdict, 'BLOCKED');
+    assert.equal(receipt.reasonCode, 'M6_GPU_CENSUS_BLOCKED');
+    assert.equal(receipt.intervention, 'none-read-only-wait');
+    assert.equal(receipt.observations.length, 3);
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
 });
 
 test('duplicate, reordered, concurrent, uncovered or unexpected plans fail closed', () => {

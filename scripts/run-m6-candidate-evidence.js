@@ -61,6 +61,7 @@ const SHA_PATTERN = /^[a-f0-9]{40}$/u;
 const PHYSICAL_GPU_MINIMUM_FREE_MIB = 20_000;
 const PHYSICAL_GPU_QUIESCENCE_TIMEOUT_MS = 6 * 60 * 1000;
 const PHYSICAL_GPU_QUIESCENCE_POLL_MS = 5_000;
+const PHYSICAL_GPU_PREFLIGHT_STABLE_SAMPLES = 2;
 const M6_CANDIDATE_MODEL = 'qwen3.5:27b';
 const M6_CANDIDATE_MODEL_ID = '7653528ba5cb';
 const M6_OLLAMA_WORKER = '/usr/local/lib/ollama/llama-server';
@@ -405,17 +406,67 @@ function gpuCensusSnapshot(authority = null) {
   return census;
 }
 
-async function captureGpuCensus(evidenceRoot) {
-  const census = gpuCensusSnapshot();
-  const censusPath = path.join(evidenceRoot, 'gpu', 'preflight.json');
-  await writePrivateJsonAtomic(censusPath, census);
-  if (!census.available || census.foreignActivity || !census.sufficientFreeMemory) {
-    const error = new Error('M6 physical GPU phase blocked by read-only host census');
-    error.code = 'M6_GPU_CENSUS_BLOCKED';
-    error.censusPath = censusPath;
-    throw error;
+export async function captureGpuCensus(evidenceRoot, options = {}) {
+  const snapshot = options.snapshot || gpuCensusSnapshot;
+  const sleep = options.sleep || (ms => new Promise(resolve => setTimeout(resolve, ms)));
+  const now = options.now || Date.now;
+  const timeoutMs = options.timeoutMs ?? PHYSICAL_GPU_QUIESCENCE_TIMEOUT_MS;
+  const pollMs = options.pollMs ?? PHYSICAL_GPU_QUIESCENCE_POLL_MS;
+  const stableSamples = options.stableSamples ?? PHYSICAL_GPU_PREFLIGHT_STABLE_SAMPLES;
+  if (!Number.isInteger(stableSamples) || stableSamples < 2) {
+    throw new TypeError('M6 GPU preflight requires at least two stable samples');
   }
-  return censusPath;
+  const startedAtMs = now();
+  const observations = [];
+  let consecutiveCleanSamples = 0;
+  const censusPath = path.join(evidenceRoot, 'gpu', 'preflight.json');
+  const waitReceiptPath = path.join(evidenceRoot, 'gpu', 'preflight-wait.json');
+  while (true) {
+    const census = snapshot();
+    observations.push(census);
+    await writePrivateJsonAtomic(censusPath, census);
+    const clean = census.available
+      && !census.foreignActivity
+      && census.sufficientFreeMemory;
+    consecutiveCleanSamples = clean ? consecutiveCleanSamples + 1 : 0;
+    const elapsedMs = now() - startedAtMs;
+    if (consecutiveCleanSamples >= stableSamples) {
+      await writePrivateJsonAtomic(waitReceiptPath, {
+        contract: 'M6GpuPreflightWaitReceipt',
+        version: 1,
+        startedAt: new Date(startedAtMs).toISOString(),
+        endedAt: census.capturedAt,
+        waitedMs: elapsedMs,
+        pollMs,
+        requiredStableSamples: stableSamples,
+        intervention: 'none-read-only-wait',
+        observations,
+        verdict: 'PASS',
+      });
+      return censusPath;
+    }
+    if (elapsedMs >= timeoutMs) {
+      await writePrivateJsonAtomic(waitReceiptPath, {
+        contract: 'M6GpuPreflightWaitReceipt',
+        version: 1,
+        startedAt: new Date(startedAtMs).toISOString(),
+        endedAt: census.capturedAt,
+        waitedMs: elapsedMs,
+        pollMs,
+        requiredStableSamples: stableSamples,
+        intervention: 'none-read-only-wait',
+        observations,
+        verdict: 'BLOCKED',
+        reasonCode: 'M6_GPU_CENSUS_BLOCKED',
+      });
+      const error = new Error('M6 physical GPU phase blocked by read-only host census');
+      error.code = 'M6_GPU_CENSUS_BLOCKED';
+      error.censusPath = censusPath;
+      error.waitReceiptPath = waitReceiptPath;
+      throw error;
+    }
+    await sleep(pollMs);
+  }
 }
 
 export function candidateModelResidencyOnly(census) {
