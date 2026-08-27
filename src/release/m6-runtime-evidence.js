@@ -367,18 +367,17 @@ function validateThroughputReceipt(receipt, candidateSha, errors) {
       receipt.stages.at(-1)?.durationMs,
       M6_MAX_THROUGHPUT_SUSTAINED_DURATION_MS,
     )) errors.push(`${prefix}:sustained-duration`);
-    const stableRamp = receipt.stages.filter(stage => stage.sustained !== true && stage.stable);
+    const rampStages = receipt.stages.slice(0, levels.length);
+    const firstUnstableIndex = rampStages.findIndex(stage => stage.stable !== true);
+    const stableRamp = firstUnstableIndex === -1
+      ? rampStages
+      : rampStages.slice(0, firstUnstableIndex);
     const selectedRamp = stableRamp.at(-1);
-    const unstableAfter = receipt.stages.find(stage => (
-      stage.sustained !== true
-      && stage.concurrency > (selectedRamp?.concurrency ?? Number.POSITIVE_INFINITY)
-      && stage.stable === false
-    ));
     if (!selectedRamp || selectedRamp.concurrency !== receipt.selectedConcurrency) {
       errors.push(`${prefix}:selected-stage-binding`);
     }
-    if (receipt.ceilingReached !== (receipt.selectedConcurrency === levels.at(-1))
-      || receipt.saturationObserved !== (unstableAfter !== undefined)) {
+    if (receipt.ceilingReached !== (firstUnstableIndex === -1)
+      || receipt.saturationObserved !== (firstUnstableIndex !== -1)) {
       errors.push(`${prefix}:saturation-binding`);
     }
     const probeErrors = receipt.stages
@@ -454,10 +453,17 @@ function validateThroughputReceipt(receipt, candidateSha, errors) {
   const successfulRequests = Array.isArray(receipt.stages)
     ? receipt.stages.reduce((total, stage) => total + (stage.successes || 0), 0)
     : 0;
+  const attemptedRequests = Array.isArray(receipt.stages)
+    ? receipt.stages.reduce(
+      (total, stage) => total + (stage.successes || 0) + (stage.errorCount || 0),
+      0,
+    )
+    : 0;
   const measuredDurationMs = Array.isArray(receipt.stages)
     ? receipt.stages.reduce((total, stage) => total + (stage.durationMs || 0), 0)
     : 0;
-  if (receipt.diagnostics?.completedRequests < successfulRequests) {
+  if (receipt.diagnostics?.completedRequests < successfulRequests
+    || receipt.diagnostics?.completedRequests > attemptedRequests) {
     errors.push(`${prefix}:completed-request-binding`);
   }
   if (measuredDurationMs < M6_MAX_THROUGHPUT_DURATION_MS

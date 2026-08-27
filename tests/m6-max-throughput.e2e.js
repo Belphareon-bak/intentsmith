@@ -46,6 +46,13 @@ function rounded(value) {
   return Math.round(value * 1_000) / 1_000;
 }
 
+function stableRampPrefix(stages) {
+  const firstUnstableIndex = stages.findIndex(stage => stage.stable !== true);
+  return firstUnstableIndex === -1
+    ? stages
+    : stages.slice(0, firstUnstableIndex);
+}
+
 async function runLoadStage({ port, agent, concurrency, durationMs }) {
   const histogram = new LatencyHistogram();
   const errors = [];
@@ -127,7 +134,7 @@ async function runMaximumThroughput() {
         durationMs: perStageMs,
       }));
     }
-    const stableStages = stages.filter(stage => stage.stable);
+    const stableStages = stableRampPrefix(stages);
     assert(stableStages.length > 0, JSON.stringify(stages));
     const selected = stableStages.at(-1);
     const elapsed = performance.now() - startedMonotonic;
@@ -161,15 +168,12 @@ async function runMaximumThroughput() {
 
   const durationMs = Math.floor(performance.now() - startedMonotonic);
   const rssGrowthMiB = Math.max(0, rssEndMiB - rssStartMiB);
-  const stableRampStages = stages.filter(stage => stage.sustained !== true && stage.stable);
+  const rampStages = stages.filter(stage => stage.sustained !== true);
+  const stableRampStages = stableRampPrefix(rampStages);
   const selectedRamp = stableRampStages.at(-1);
   const sustained = stages.find(stage => stage.sustained === true);
-  const firstUnstableAfterSelected = stages.find(stage => (
-    stage.sustained !== true
-    && stage.concurrency > selectedRamp.concurrency
-    && !stage.stable
-  ));
-  const ceilingReached = selectedRamp.concurrency === CONCURRENCY_LEVELS.at(-1);
+  const firstUnstableAfterSelected = rampStages[stableRampStages.length];
+  const ceilingReached = stableRampStages.length === CONCURRENCY_LEVELS.length;
   const probeErrorCount = stages
     .filter(stage => stage.sustained !== true)
     .reduce((total, stage) => total + stage.errorCount, 0);

@@ -20,7 +20,9 @@ Profil `soak` v množině `ACTIVE + required` tvoří přesně dva programy:
    produkční diagnostics kontrola;
 2. `IS-T5-TESTS-M6-MAX-THROUGHPUT-E2E` — pětiminutový ramp přes concurrency
    `1, 8, 32, 128, 512, 1024` a následný sustained běh na nejvyšší stabilní
-   úrovni.
+   úrovni souvislého stable prefixu. První nestabilní stupeň je saturation
+   boundary; případný pozdější náhodný re-green nesmí zvednout vybranou úroveň
+   ani předstírat dosažení horního limitu.
 
 Oba programy spouštějí vlastní produkční `src/server.js`, vlastní SQLite,
 HOME/temp/artifact root a nový Linux user+network namespace. Namespace má

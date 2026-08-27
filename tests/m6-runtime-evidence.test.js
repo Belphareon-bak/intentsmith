@@ -174,6 +174,10 @@ function saturatedThroughputReceipt() {
     stable: false,
   };
   value.stages.at(-1).concurrency = 512;
+  value.diagnostics.completedRequests = value.stages.reduce(
+    (total, stage) => total + stage.successes + stage.errorCount,
+    0,
+  );
   return value;
 }
 
@@ -295,6 +299,38 @@ test('throughput receipt binds reported rates and full ramp plus sustained durat
   );
   assert.equal(result.valid, false);
   assert(result.errors.includes('throughput-receipt:sustained-duration'));
+
+  const nonMonotonicRamp = throughputReceipt();
+  nonMonotonicRamp.stages[4] = {
+    ...nonMonotonicRamp.stages[4],
+    successes: 0,
+    errorCount: 10,
+    requestsPerSecond: 0,
+    latency: { samples: 0, p50Ms: null, p95Ms: null, p99Ms: null, maxMs: 0 },
+    stable: false,
+  };
+  nonMonotonicRamp.probeErrorCount = 10;
+  nonMonotonicRamp.diagnostics.completedRequests = nonMonotonicRamp.stages.reduce(
+    (total, stage) => total + stage.successes + stage.errorCount,
+    0,
+  );
+  result = validateM6RuntimeEvidence(
+    M6_MAX_THROUGHPUT_PROGRAM,
+    log(nonMonotonicRamp),
+    { candidateSha },
+  );
+  assert.equal(result.valid, false);
+  assert(result.errors.includes('throughput-receipt:selected-stage-binding'));
+
+  const unownedRequest = throughputReceipt();
+  unownedRequest.diagnostics.completedRequests += 1;
+  result = validateM6RuntimeEvidence(
+    M6_MAX_THROUGHPUT_PROGRAM,
+    log(unownedRequest),
+    { candidateSha },
+  );
+  assert.equal(result.valid, false);
+  assert(result.errors.includes('throughput-receipt:completed-request-binding'));
 });
 
 summary();
