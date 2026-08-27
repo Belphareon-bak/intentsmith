@@ -4908,24 +4908,24 @@
       "quarantineExpiry": null
     },
     {
-      "id": "IS-T3-TESTS-LIFECYCLE-REAL-LLM-TEST",
-      "path": "tests/lifecycle-real-llm.test.js",
+      "id": "IS-T3-TESTS-M2-LIFECYCLE-HTTP-E2E-TEST",
+      "path": "tests/m2-lifecycle-http-e2e.test.js",
       "argv": [
         "node",
-        "tests/lifecycle-real-llm.test.js"
+        "tests/m2-lifecycle-http-e2e.test.js"
       ],
       "capabilityId": "C3-005",
       "tier": "T3",
       "fixture": "isolated-local-server",
       "profile": "server",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
+      "timeoutMs": 300000,
+      "expectedDurationMs": 30000,
       "requirements": {
         "network": "loopback",
         "database": true,
         "server": true,
-        "ollama": true,
-        "gpu": true
+        "ollama": false,
+        "gpu": false
       },
       "required": true,
       "owner": "primary implementer",
@@ -7054,7 +7054,7 @@
       "fixture": "isolated-local-server",
       "profile": "server",
       "timeoutMs": 900000,
-      "expectedDurationMs": 120000,
+      "expectedDurationMs": 600000,
       "requirements": {
         "network": "loopback",
         "database": true,

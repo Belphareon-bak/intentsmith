@@ -20,8 +20,11 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
-const BASE = 'http://127.0.0.1:3335';
-const TIMEOUT = 120_000; // LLM calls can be slow
+import fs from 'node:fs/promises';
+import path from 'node:path';
+
+const BASE = process.env.C3_URL || 'http://127.0.0.1:3335';
+const TIMEOUT = 300_000; // bounded by the registered 15-minute program timeout
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -190,7 +193,32 @@ async function test1_NewProject() {
 async function test2_ExistingProject() {
   console.log('\n═══ TEST 2: Existing Project — ai-log-analyzer ═════════════════════');
 
-  const existingPath = '/home/belphareon/Projects/ai-log-analyzer';
+  const fixtureRoot = path.join(process.env.HOME, 'project-e2e-fixtures');
+  await fs.mkdir(fixtureRoot, { recursive: true });
+  const existingPath = await fs.mkdtemp(path.join(fixtureRoot, 'ai-log-analyzer-'));
+  await fs.mkdir(path.join(existingPath, 'src'), { recursive: true });
+  await fs.mkdir(path.join(existingPath, 'scripts'), { recursive: true });
+  await fs.mkdir(path.join(existingPath, 'output'), { recursive: true });
+  await fs.writeFile(
+    path.join(existingPath, 'README.md'),
+    '# AI Log Analyzer\n\nDeterministic fixture with regular and backfill phases.\n',
+  );
+  await fs.writeFile(
+    path.join(existingPath, 'config.json'),
+    '{"regular":{"input":"logs/*.jsonl","output":"output/regular-summary.json"}}\n',
+  );
+  await fs.writeFile(
+    path.join(existingPath, 'src', 'core.js'),
+    'export function analyzeLog(line) { return { level: line.level || "unknown" }; }\n',
+  );
+  await fs.writeFile(
+    path.join(existingPath, 'scripts', 'run_regular.js'),
+    'import { analyzeLog } from "../src/core.js";\nconsole.log(analyzeLog({ level: "info" }));\n',
+  );
+  await fs.writeFile(
+    path.join(existingPath, 'output', 'regular-summary.json'),
+    '{"phase":"regular","records":1,"levels":{"info":1}}\n',
+  );
   let projectId = null;
   const convId = `e2e-analyzer-${Date.now()}`;
 
@@ -210,6 +238,7 @@ async function test2_ExistingProject() {
 
   if (!projectId) {
     console.log('  ⏭️  Skipping remaining test 2 — project registration failed');
+    await fs.rm(existingPath, { recursive: true, force: true });
     return;
   }
 
@@ -305,6 +334,8 @@ async function test2_ExistingProject() {
     assert(data.response, 'Should have a response');
     console.log(`       Mode: ${data.mode}, Response: ${data.response.length} chars`);
   });
+
+  await fs.rm(existingPath, { recursive: true, force: true });
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
