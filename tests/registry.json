@@ -27,6 +27,10 @@
       "reason": "Imported unit-test harness library with no top-level test entry point."
     },
     {
+      "path": "tests/helpers/chat-journey-response.js",
+      "reason": "Imported model-journey response classifier with deterministic checks covered by m1-chat-contract.test.js."
+    },
+    {
       "path": "tests/helpers/isolated-test-db.js",
       "reason": "Imported direct-run database isolation bootstrap, not a standalone test."
     },

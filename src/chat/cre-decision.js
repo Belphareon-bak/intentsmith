@@ -183,6 +183,7 @@ export function getSpecialistToolIds() {
 // v121: Export for testing
 export const _testCREInternals = {
   _specialistTools,
+  classifierNumCtxOverride,
   get DESIGN_BUILD_HYBRID() { return [...DESIGN_BUILD_HYBRID]; },
   get DESIGN_BUILD_ESCALATION() { return [...DESIGN_BUILD_ESCALATION]; },
   get DESIGN_ADVISORY() { return [...DESIGN_ADVISORY]; },
@@ -690,6 +691,7 @@ export const KNOWLEDGE_EXPLANATION_PATTERNS = [
   // CZ: "jakou roli hraje X", "jaký dopad má Y"
   /jakou\s+roli/i,
   /jak[ýy]\s+dopad/i,
+  /jak[ýy]\s+vliv/i,
   /jak[ée]\s+d[uů]sledky/i,                    // "jaké důsledky"
   /jak[ée]\s+n[áa]sledky/i,                    // "jaké následky"
   /jak[ée]\s+v[ýy]hody/i,                      // "jaké výhody"
@@ -711,6 +713,7 @@ export const KNOWLEDGE_EXPLANATION_PATTERNS = [
   // EN expanded: role/impact/consequence
   /what\s+role/i,                               // "what role does X play"
   /what\s+impact/i,                             // "what impact does X have"
+  /what\s+(?:influence|effect)\b/i,
   /what\s+are\s+the\s+(benefits|risks|consequences|advantages|disadvantages|effects)/i,
   /why\s+do\s+(most|many|some|few)\s+/i,        // "why do most people quit..."
   /why\s+does\s+(the|a|an)\s+/i,                // "why does the body..."
@@ -757,6 +760,72 @@ const DETERMINISTIC_STATIC_KNOWLEDGE_PATTERNS = [
   /^hlavn[ií]\s+m[eě]sto\s+/i,
   /^(?:the\s+)?capital\s+of\s+/i,
 ];
+
+function isClosedHistoricalQuestion(text, now = new Date()) {
+  const match = text.match(
+    /^(?:what\s+happened\s+in|co\s+se\s+(?:stalo|d[eě]lo)\s+(?:v\s+)?(?:roce\s+)?)\s*(\d{4})\s*[?!.]?$/iu,
+  );
+  return match !== null && Number(match[1]) < now.getFullYear();
+}
+
+// Stable opinion, recommendation, and planning-discussion forms do not need a
+// second model merely to decide whether they are ordinary conversation. The
+// explicit search command exclusion preserves outbound authority for callers
+// who actually request live data.
+const DETERMINISTIC_DISCUSSION_PATTERNS = [
+  /(?:podle\s+tebe|co\s+si\s+mysl|what\s+do\s+you\s+think|in\s+your\s+opinion)/iu,
+  /^(?:mysl[ií][sš]|do\s+you\s+think)\b/iu,
+  /^(?:jak|how|co|what|kdy|when)\b.{0,100}\b(?:by|would|m[aá]\s+smysl|make\s+sense|doporu[cč]|recommend|poznat|recognize|udr[zž]et|maintain|p[rř]ipravit|prepare)\b/iu,
+  /^(?:je\s+lep[sš][ií]|is\s+it\s+better)\b.{0,100}\b(?:nebo|or)\b/iu,
+  /^(?:jak[eé]\b.{0,100}\bchyb|what\s+mistakes?\b)/iu,
+  /^(?:shrn(?:i|out)|summarize)\b/iu,
+  /^jak[eé]\s+jsou\s+nejhez[cč][ií]\s+(?:[cč]esk[eé]\s+)?hrady\b/iu,
+  // A personal calorie-burn estimate depends on pace/body data, but not on
+  // fresh web data. Keep it on the conversational path so the answer can
+  // state assumptions instead of requesting outbound effect authority.
+  /^kolik\s+kalori[ií]\s+(?:sp[aá]l[ií]m|se\s+sp[aá]l[ií])\b/iu,
+  /^how\s+many\s+calories\s+(?:do\s+(?:i|you)|does\s+one|are)\s+burn/iu,
+];
+
+const DETERMINISTIC_LEARNING_GOAL_PATTERNS = [
+  /^(?:chci\s+se|r[aá]d\s+bych\s+se)\s+(?:nau[cč]it|zlep[sš]it|zdokonalit)/iu,
+  /^(?:i\s+want\s+to|i(?:'d|\s+would)\s+like\s+to)\s+(?:learn|improve|get\s+better)/iu,
+  /^(?:chci|r[aá]d\s+bych)\s+za[cč][ií]t\s+(?:cvi[cč]it|sportovat|tr[eé]novat)\b/iu,
+  /^(?:i\s+want\s+to|i(?:'d|\s+would)\s+like\s+to)\s+(?:start|begin)\s+(?:exercising|working\s+out|training)\b/iu,
+];
+
+// Strong single-artifact code requests are safe to classify without a second
+// model pass. The later CODE authority branch still re-checks active-project
+// scope and escalates multi-file work to BUILD before any effect can start.
+const DETERMINISTIC_INLINE_CODE_PATTERNS = [
+  /^(?:napi[sš]|write|show|give)(?:\s|$).{0,60}(?:funkci|function|regex|regul[aá]rn[ií]\s+v[ýiyií]raz|jednoduch[ýiyi]\s+(?:HTTP\s+)?server|simple\s+(?:HTTP\s+)?server|skript|script)\b/iu,
+  /^(?:a\s+co\s+)?rekurzivn[ií]\s+verze\b/iu,
+  /^recursive\s+version\b/iu,
+];
+
+const DETERMINISTIC_LIVE_SEARCH_PATTERNS = [
+  /^kolik\s+tam\s+[zž]ije\s+lid[ií](?:\s|[?!.,]|$)/iu,
+  /^how\s+many\s+people\s+live\s+there\b/iu,
+  /^jak[eé]\s+jsou\s+trendy\s+v\s+IT\s+podnik[aá]n[ií]\s*[?!.]?$/iu,
+  /^what\s+are\s+the\s+current\s+trends\s+in\s+IT\s+business\s*[?!.]?$/iu,
+  /^ahoj[!,]?\s+co\s+je\s+nov[eé]ho\s+v\s+technologi[ií]ch\s*[?!.]?$/iu,
+  /^hello[!,]?\s+what\s+is\s+new\s+in\s+technology\s*[?!.]?$/iu,
+  /^jak[yý]\s+je\s+aktu[aá]ln[ií]\s+ekosyst[eé]m\s+knihoven\s+pro\s+ka[zž]d[yý]\s+framework\s*[?!.]?$/iu,
+  /^jak[eé]\s+jsou\s+trendy\s+pro\s+rok\s+\d{4}\?\s+kter[yý]\s+framework\s+roste\s+nejrychleji\s*[?!.]?$/iu,
+];
+
+const EXPLICIT_SEARCH_COMMAND_PATTERN = /(?:vyhledej|najdi\s+(?:na\s+)?internetu|hledej\s+na\s+webu|search\s+(?:the\s+)?web|look\s+up|google)/iu;
+
+// Ollama treats a context-size change as a different runner configuration.
+// Forcing 1024 on the same artifact used by CHAT therefore evicts and reloads
+// a large model between classification and answer generation. Preserve the
+// compact context only when the operator configured a genuinely separate FAST
+// artifact; otherwise let the shared model use its registered context.
+function classifierNumCtxOverride() {
+  const fastModel = config.models?.FAST;
+  if (typeof fastModel !== 'string' || fastModel.length === 0) return null;
+  return fastModel === config.models?.CHAT ? null : 1024;
+}
 
 // ════════════════════════════════════════════════════════════════════════════════
 // v65: REPORT_SOFT_KEYWORDS — analysis/summary/comparison keywords that may or
@@ -2405,6 +2474,7 @@ PRAVIDLA:
 
     // v72: No conversation context — classify current message only
     const userPrompt = input;
+    const classificationNumCtx = classifierNumCtxOverride();
 
     try {
       const result = await llmClassify(userPrompt, systemPrompt, {
@@ -2417,9 +2487,9 @@ PRAVIDLA:
         temperature: 0.1,
         // v72: maxTokens 150→80 (actual output ~30-40 tokens without reasoning)
         maxTokens: 80,
-        // v72: num_ctx 1024 — classification needs <500 tokens total.
-        // Default 32K context window wastes VRAM on KV-cache allocation.
-        num_ctx: 1024,
+        // A dedicated FAST artifact needs <500 prompt tokens and can keep a
+        // compact runner. A shared CHAT artifact must retain one runner shape.
+        ...(classificationNumCtx === null ? {} : { num_ctx: classificationNumCtx }),
         signal: context.signal,
       });
 
@@ -3118,21 +3188,61 @@ PRAVIDLA:
       || CONVERSATIONAL_PATTERNS.some(p => p.test(_text))
       || SELF_REFERENCE_PATTERNS.some(p => p.test(_text))
       || STATEMENT_PATTERNS.some(p => p.test(_text));
-    const isStaticKnowledge = DETERMINISTIC_STATIC_KNOWLEDGE_PATTERNS.some(p => p.test(_text));
+    const isStaticKnowledge = DETERMINISTIC_STATIC_KNOWLEDGE_PATTERNS.some(p => p.test(_text))
+      || isClosedHistoricalQuestion(_text);
+    const isStableKnowledgeExplanation = KNOWLEDGE_EXPLANATION_PATTERNS.some(p => p.test(_text));
+    const isStableDiscussion = DETERMINISTIC_DISCUSSION_PATTERNS.some(p => p.test(_text))
+      && !EXPLICIT_SEARCH_COMMAND_PATTERN.test(_text)
+      && !REPORT_FRESH_CONTEXT.test(_text);
+    const isStableLearningGoal = DETERMINISTIC_LEARNING_GOAL_PATTERNS.some(p => p.test(_text));
+    const hasDeterministicInlineCodeForm = DETERMINISTIC_INLINE_CODE_PATTERNS.some(p => p.test(_text));
+    const isDeterministicInlineCode = hasDeterministicInlineCodeForm
+      && [IntentType.CODE, IntentType.CONVERSATIONAL, IntentType.AMBIGUOUS, IntentType.SEARCH].includes(deterministicIntent);
+    const isDeterministicLiveSearch = DETERMINISTIC_LIVE_SEARCH_PATTERNS.some(p => p.test(_text));
+    const isDeterministicCreative = deterministicIntent === IntentType.CREATIVE
+      && !EXPLICIT_SEARCH_COMMAND_PATTERN.test(_text)
+      && !REPORT_FRESH_CONTEXT.test(_text);
+    const stableConversationOverride = !mayRequireLocalAuthority
+      && !creativeKnowledgeNeedsArbitration
+      && (
+        ((isStableDiscussion || isStableLearningGoal)
+          && [
+            IntentType.SEARCH,
+            IntentType.FACTUAL,
+            IntentType.REPORT,
+            IntentType.DESIGN,
+            IntentType.AMBIGUOUS,
+          ].includes(deterministicIntent))
+        || (isStableKnowledgeExplanation && deterministicIntent === IntentType.DESIGN)
+      );
+    const resolvedDeterministicIntent = isDeterministicLiveSearch
+      ? IntentType.SEARCH
+      : isDeterministicInlineCode
+        ? IntentType.CODE
+        : stableConversationOverride
+          ? IntentType.CONVERSATIONAL
+          : deterministicIntent;
     const isDeterministic =
-      (deterministicIntent === IntentType.CONVERSATIONAL
+      (resolvedDeterministicIntent === IntentType.CONVERSATIONAL
         && !mayRequireLocalAuthority
         && !creativeKnowledgeNeedsArbitration
-        && (isExplicitConversation || isStaticKnowledge)) ||
-      deterministicIntent === IntentType.LOCAL ||
+        && (isExplicitConversation
+          || isStaticKnowledge
+          || isStableKnowledgeExplanation
+          || isStableDiscussion
+          || isStableLearningGoal)) ||
+      resolvedDeterministicIntent === IntentType.LOCAL ||
+      isDeterministicInlineCode ||
+      isDeterministicCreative ||
+      isDeterministicLiveSearch ||
       isLowInformation ||
       isAmbiguousTechnologyTopic ||
       // v72: ITEM_LOOKUP is purely pattern-based (count + thing) — skip LLM
-      deterministicIntent === IntentType.ITEM_LOOKUP;
+      resolvedDeterministicIntent === IntentType.ITEM_LOOKUP;
 
     if (isDeterministic) {
       const _classStart = performance.now();
-      intent = deterministicIntent;
+      intent = resolvedDeterministicIntent;
       _classificationTimeMs = Math.round(performance.now() - _classStart);
     } else {
       // Phase 1: LLM structured classification (primary)
@@ -4039,7 +4149,7 @@ PRAVIDLA:
       const IMPERATIVE_WITH_ARTIFACT = /(napi[sš]|vytvo[rř]|ud[eě]lej|implementuj|naprogramuj|write|create|implement|code|build)\s.{0,30}(server|api|funkc[ie]|function|script|komponent|component|modul|class|tříd|endpoint|handler|parser|crawler|bot|cli|app|regex|regexp|valid[áa]t|valid[áa]ci|test|query|sql|algorit)/i;
       const IMPERATIVE_WITH_LANG = /(napi[sš]|vytvo[rř]|ud[eě]lej|write|create|implement)\s.{0,40}(python|node|javascript|typescript|java|c\+\+|rust|go|ruby|php|bash|sql|html|css|react|vue|angular|swift|kotlin)/i;
 
-      if (IMPERATIVE_WITH_ARTIFACT.test(input) || IMPERATIVE_WITH_LANG.test(input)) {
+      if (isDeterministicInlineCode || IMPERATIVE_WITH_ARTIFACT.test(input) || IMPERATIVE_WITH_LANG.test(input)) {
         return _makeDecision({
           type: DecisionType.ANSWER,
           intent,

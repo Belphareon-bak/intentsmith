@@ -49,8 +49,10 @@ const EXCLUDED_TYPES = new Set([
 export function recordDecision(sessionState, decisionType, sessionId) {
   if (!sessionState || !decisionType) return;
 
-  // Skip non-productive types
-  if (EXCLUDED_TYPES.has(decisionType)) return;
+  // Only semantic workflow intents are eligible. This is deliberately an
+  // allowlist: transport decision types such as TOOL_CALL and LOCAL are common
+  // plumbing transitions, not reusable user workflows.
+  if (EXCLUDED_TYPES.has(decisionType) || !PRODUCTIVE_TYPES.has(decisionType)) return;
 
   // Initialize sequence array
   if (!sessionState._workflowSequence) {

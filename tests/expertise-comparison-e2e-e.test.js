@@ -1,5 +1,6 @@
 import './helpers/isolated-test-db.js';
 import { installOllamaLoopbackFetchBoundary } from './helpers/ollama-loopback-fetch-boundary.js';
+import { inspectChatJourneyResult } from './helpers/chat-journey-response.js';
 
 installOllamaLoopbackFetchBoundary({ reportOnExit: true });
 
@@ -91,7 +92,22 @@ const CONVERSATIONS = [
 let totalTurns = 0;
 let passedTurns = 0;
 let failedTurns = 0;
+let expectedAuthorityTerminals = 0;
 const allResults = [];
+
+function inspectComparisonTurn({ convLabel, expertiseId, variant, turn, input, result, durationMs }) {
+  const outcome = inspectChatJourneyResult(input, result);
+  if (outcome.kind === 'answer') return outcome.response;
+
+  totalTurns++;
+  passedTurns++;
+  expectedAuthorityTerminals++;
+  console.log(`  [${convLabel}.${String(turn).padStart(2, '0')}] \x1b[36m(expected authority terminal)\x1b[0m \x1b[90m${durationMs}ms\x1b[0m`);
+  console.log(`    → \x1b[33m${input}\x1b[0m`);
+  console.log(`    ← \x1b[0m${outcome.errorCode}: fallback suppressed\x1b[0m\n`);
+  allResults.push({ expertiseId, variant, turn, input, response: null, wordCount: 0, durationMs, mode: 'expected_authority_terminal', errorCode: outcome.errorCode });
+  return null;
+}
 
 function printTurn(convLabel, turnNum, input, response, meta = {}) {
   totalTurns++;
@@ -174,11 +190,10 @@ for (const conv of CONVERSATIONS) {
     const msg = conv.turns[i];
     const t0 = Date.now();
     try {
-      const result = await ChatController.handle({ message: msg, sessionId: sessionA });
+      const result = await ChatController.handle({ message: msg, sessionId: sessionA, authenticatedSubject: { actorType: 'user', actorId: 'm6-model-journey' } });
       const dur = Date.now() - t0;
-      if (!result.response) throw new Error('Prázdná odpověď');
-      const resp = result.response;
-      if (/LLM failed|fetch failed|circuit breaker|Chyba zpracování|nemohl zpracovat|Nepodařilo se zpracovat|toJSON is not a function/i.test(resp)) throw new Error(`Pipeline error: ${resp.substring(0, 200)}`);
+      const resp = inspectComparisonTurn({ convLabel: labelA, expertiseId: conv.expertiseId, variant: 'chat', turn: i + 1, input: msg, result, durationMs: dur });
+      if (resp === null) continue;
       printTurn(labelA, i + 1, msg, resp, { mode: result.mode, duration: dur });
       allResults.push({ expertiseId: conv.expertiseId, variant: 'chat', turn: i + 1, input: msg, response: resp, wordCount: resp.split(/\s+/).filter(w => w.length > 0).length, durationMs: dur, mode: result.mode });
     } catch (err) {
@@ -199,11 +214,10 @@ for (const conv of CONVERSATIONS) {
     const msg = conv.turns[i];
     const t0 = Date.now();
     try {
-      const result = await ChatController.handle({ message: msg, sessionId: sessionB, expertise: expertObj });
+      const result = await ChatController.handle({ message: msg, sessionId: sessionB, expertise: expertObj, authenticatedSubject: { actorType: 'user', actorId: 'm6-model-journey' } });
       const dur = Date.now() - t0;
-      if (!result.response) throw new Error('Prázdná odpověď');
-      const resp = result.response;
-      if (/LLM failed|fetch failed|circuit breaker|Chyba zpracování|nemohl zpracovat|Nepodařilo se zpracovat|toJSON is not a function/i.test(resp)) throw new Error(`Pipeline error: ${resp.substring(0, 200)}`);
+      const resp = inspectComparisonTurn({ convLabel: labelB, expertiseId: conv.expertiseId, variant: 'expert', turn: i + 1, input: msg, result, durationMs: dur });
+      if (resp === null) continue;
       printTurn(labelB, i + 1, msg, resp, { mode: result.mode, duration: dur });
       allResults.push({ expertiseId: conv.expertiseId, variant: 'expert', turn: i + 1, input: msg, response: resp, wordCount: resp.split(/\s+/).filter(w => w.length > 0).length, durationMs: dur, mode: result.mode });
     } catch (err) {
@@ -225,8 +239,8 @@ console.log(`${'═'.repeat(78)}\n`);
 for (const conv of CONVERSATIONS) {
   const chatTurns = allResults.filter(r => r.expertiseId === conv.expertiseId && r.variant === 'chat');
   const expertTurns = allResults.filter(r => r.expertiseId === conv.expertiseId && r.variant === 'expert');
-  const chatOk = chatTurns.filter(r => r.mode !== 'error');
-  const expertOk = expertTurns.filter(r => r.mode !== 'error');
+  const chatOk = chatTurns.filter(r => r.mode !== 'error' && r.mode !== 'expected_authority_terminal');
+  const expertOk = expertTurns.filter(r => r.mode !== 'error' && r.mode !== 'expected_authority_terminal');
   const chatWords = chatOk.reduce((s, r) => s + r.wordCount, 0);
   const expertWords = expertOk.reduce((s, r) => s + r.wordCount, 0);
   const chatAvgWords = chatOk.length ? Math.round(chatWords / chatOk.length) : 0;
@@ -299,8 +313,8 @@ for (const conv of CONVERSATIONS) {
 
 const totalChat = allResults.filter(r => r.variant === 'chat');
 const totalExpert = allResults.filter(r => r.variant === 'expert');
-const totalChatOk = totalChat.filter(r => r.mode !== 'error');
-const totalExpertOk = totalExpert.filter(r => r.mode !== 'error');
+const totalChatOk = totalChat.filter(r => r.mode !== 'error' && r.mode !== 'expected_authority_terminal');
+const totalExpertOk = totalExpert.filter(r => r.mode !== 'error' && r.mode !== 'expected_authority_terminal');
 
 console.log(`${'═'.repeat(78)}`);
 console.log('  CELKOVÉ SHRNUTÍ — Group E');
@@ -308,6 +322,7 @@ console.log(`${'═'.repeat(78)}\n`);
 console.log(`  Celkem turnů:      ${totalTurns}`);
 console.log(`  Úspěšných:         ${passedTurns}`);
 console.log(`  Selhání:           ${failedTurns}`);
+console.log(`  Authority terminaly:${String(expectedAuthorityTerminals).padStart(7)}`);
 console.log('');
 console.log(`  Chat   — úspěšných: ${totalChatOk.length}/${totalChat.length}, celkem slov: ${totalChatOk.reduce((s, r) => s + r.wordCount, 0)}, prům. slov: ${totalChatOk.length ? Math.round(totalChatOk.reduce((s, r) => s + r.wordCount, 0) / totalChatOk.length) : 0}`);
 console.log(`  Expert — úspěšných: ${totalExpertOk.length}/${totalExpert.length}, celkem slov: ${totalExpertOk.reduce((s, r) => s + r.wordCount, 0)}, prům. slov: ${totalExpertOk.length ? Math.round(totalExpertOk.reduce((s, r) => s + r.wordCount, 0) / totalExpertOk.length) : 0}`);

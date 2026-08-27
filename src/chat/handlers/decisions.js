@@ -21,7 +21,7 @@ import { toolExecutor, ExecutionStatus } from '../../executor/tool-executor.js';
 import { logger } from '../../core/logger.js';
 import { preferenceEngine, Structure, FollowUpStyle } from '../../memory/preferences.js';
 import { synthesizeWithLLM } from './utils/synthesis.js';
-import { getLanguageContext } from './utils/language.js';
+import { getLanguageContext, inferUserLanguageFromHistory } from './utils/language.js';
 import { enforceOutputContract, buildOutputGateRetryPrompt } from './utils/output-gate.js';
 import { buildProjectContext } from './utils/project-context-prompt.js';
 import { styleWithConfidence, scoreToLevel } from './utils/confidence-styling.js';
@@ -44,14 +44,30 @@ const M2_TOOL_FALLBACK_SUPPRESS_ERROR_CODES = new Set([
 
 const ANSWER_TOKEN_BUDGET = Object.freeze({
   VERY_SHORT: 64,
-  SHORT_CONVERSATION: 256,
-  STANDARD_CONVERSATION: 256,
+  SHORT_CONVERSATION: 128,
+  STANDARD_CONVERSATION: 128,
+  CREATIVE_CONTEXT_UPDATE: 128,
+  COMPACT_CREATIVE: 256,
+  COMPACT_NAMING: 128,
+  STANDARD_CREATIVE: 768,
+  LONG_CREATIVE: 768,
+  FULL_CREATIVE_DELIVERABLE: 1024,
+  COMPACT_CODE: 512,
+  FULL_CODE_DELIVERABLE: 768,
   LONG_CONVERSATION: 1200,
-  NON_CONVERSATIONAL: 2000,
+  NON_CONVERSATIONAL: 1200,
 });
 
 const BRIEF_CONVERSATION_PATTERN = /^(?:ahoj|\u010dau|cau|nazdar|hi|hello|hey|d[ií]ky|d[eě]kuji|thanks?|thank you|ok(?:ay)?|dob[rř]e|jasn[eě]|rozum[ií]m|jak se m[áa][sš]|how are you)[!.,? ]*$/iu;
 const COMPACT_CREATIVE_PATTERN = /(?:\bhaiku\b|\b(?:e-?mail|mail)\b)/iu;
+const COMPACT_NAMING_PATTERN = /(?:\b(?:n[aá]zev|jm[eé]no|title|name)\b.{0,50}\b(?:pro|for)\b|\b(?:n[aá]vrhy?|suggestions?)\b.{0,30}\b(?:n[aá]zev|jm[eé]n|titles?|names?)\b)/iu;
+const CREATIVE_CONTEXT_UPDATE_PATTERN = /^(?:hlavn[\p{L}]*\s+postav[\p{L}]*|t[eé]ma|the\s+(?:main\s+character|theme))\s+(?:bude|budou|je|will\s+be|is)\b/iu;
+const COUNTED_CREATIVE_PATTERN = /(?:\b(?:navrhni|vymysli|propose|suggest|give)\b.{0,50}\b[2-5]\b|\b[2-5]\b.{0,30}\b(?:varianty?|n[aá]vrhy?|options?|ideas?|items?|encounters?)\b)/iu;
+const CREATIVE_DESCRIPTION_PATTERN = /(?:^(?:popi[sš][\p{L}]*|describe)\s|(?:^|\s)(?:jak|how).{0,35}(?:vypad[\p{L}]*|look(?:s|\s+like)))/iu;
+const FULL_CREATIVE_DELIVERABLE_PATTERN = /(?:\b(?:fin[aá]ln[\p{L}]*|cel[\p{L}]*|kompletn[\p{L}]*|full|complete|whole).{0,70}(?:\btext\b|p[ií]s[\p{L}]*|\blyrics\b|\bsong\b|pov[ií]dk[\p{L}]*|\bstory\b|\bone[- ]pager\b)|\b(?:shr[nň][\p{L}]*|summari[sz]e).{0,50}(?:cel[\p{L}]*|\bwhole\b|\bone[- ]pager\b))/iu;
+const LONG_FORM_CREATIVE_PATTERN = /(?:\bpov[ií]dk|\bp[rř][ií]b[eě]h|\bsc[eé]n|\bkapitol|\bb[aá]se[nň]|\bslok|\brefr[eé]n|\b(?:story|scene|chapter|poem|verse|chorus|bridge|box\s+text)\b)/iu;
+const FULL_CODE_DELIVERABLE_PATTERN = /(?:\b(?:kompletn[\p{L}]*|cel[\p{L}]*|full|complete).{0,60}(?:\bAPI\b|\bendpoint\b|implementac[\p{L}]*|\bimplementation\b|\bserver\b|\bskript\b|\bscript\b))/iu;
+const COMPACT_CODE_PATTERN = /(?:^(?:a\s+co\s+)?rekurzivn[ií]\s+verze\b|\brecursive\s+version\b|^(?:napi[sš]|write|show|give)(?:\s|$).{0,80}(?:funkci|function|middleware|endpoint|regex|regul[aá]rn[ií]\s+v[ýiyií]raz|jednoduch[ýiyi]\s+(?:HTTP\s+)?server|simple\s+(?:HTTP\s+)?server|skript|script)\b)/iu;
 
 const BRIEF_REPLY_INSTRUCTION = Object.freeze({
   cs: '\n\nSTRUČNOST: Odpověz právě jednou krátkou přirozenou větou.',
@@ -60,16 +76,164 @@ const BRIEF_REPLY_INSTRUCTION = Object.freeze({
   de: '\n\nKÜRZE: Antworte mit genau einem kurzen, natürlichen Satz.',
 });
 
+const STANDARD_CONVERSATION_INSTRUCTION = Object.freeze({
+  cs: '\n\nROZSAH: Odpověz přímo, úplně a nejvýše 45 slovy ve 2–3 větách. Poslední větu vždy dokonči.',
+  sk: '\n\nROZSAH: Odpovedz priamo, úplne a najviac 45 slovami v 2–3 vetách. Poslednú vetu vždy dokonči.',
+  en: '\n\nLENGTH: Answer directly and completely in 2–3 sentences and at most 45 words. Always finish the final sentence.',
+  de: '\n\nUMFANG: Antworte direkt und vollständig in 2–3 Sätzen und höchstens 45 Wörtern. Beende den letzten Satz immer.',
+});
+
 function buildBriefReplyInstruction(input, language) {
   const normalizedInput = typeof input === 'string' ? input.trim() : '';
   if (!BRIEF_CONVERSATION_PATTERN.test(normalizedInput)) return '';
   return BRIEF_REPLY_INSTRUCTION[language] || BRIEF_REPLY_INSTRUCTION.cs;
 }
 
+function buildStandardConversationInstruction(input, language, intent) {
+  if (intent !== IntentType.CONVERSATIONAL) return '';
+  const normalizedInput = typeof input === 'string' ? input.trim() : '';
+  if (BRIEF_CONVERSATION_PATTERN.test(normalizedInput)) return '';
+  return STANDARD_CONVERSATION_INSTRUCTION[language]
+    || STANDARD_CONVERSATION_INSTRUCTION.cs;
+}
+
+function buildCompactCodeInstruction(input, language, intent) {
+  if (intent !== IntentType.CODE || !COMPACT_CODE_PATTERN.test(input.trim())) return '';
+  const instructions = {
+    cs: '\n\nROZSAH KÓDU: Začni rovnou jedním code blockem s minimální, ale kompletní implementací. Bez nadpisu, úvodu, tutoriálu a alternativ; po kódu nejvýše jedna krátká věta.',
+    sk: '\n\nROZSAH KÓDU: Začni rovno jedným code blockom s minimálnou, ale kompletnou implementáciou. Bez nadpisu, úvodu, tutoriálu a alternatív; po kóde najviac jedna krátka veta.',
+    en: '\n\nCODE SCOPE: Start directly with one code block containing one minimal but complete implementation. No heading, preamble, tutorial, or alternatives; after the code use at most one short sentence.',
+    de: '\n\nCODE-UMFANG: Beginne direkt mit einem Codeblock, der eine minimale, aber vollständige Implementierung enthält. Keine Überschrift, Einleitung, Anleitung oder Alternativen; nach dem Code höchstens ein kurzer Satz.',
+  };
+  return instructions[language] || instructions.cs;
+}
+
+function buildFullCodeDeliverableInstruction(input, language, intent) {
+  if (intent !== IntentType.CODE
+    || !FULL_CODE_DELIVERABLE_PATTERN.test(input.trim())) return '';
+  const instructions = {
+    cs: '\n\nROZSAH KÓDU: Dodej jeden minimální, ale kompletní code block, který plní všechny výslovně požadované části. Bez tutoriálu a alternativ; po kódu nejvýše 3 krátké poznámky. Celkem nejvýše 260 slov.',
+    sk: '\n\nROZSAH KÓDU: Dodaj jeden minimálny, ale kompletný code block, ktorý plní všetky výslovne požadované časti. Bez návodu a alternatív; po kóde najviac 3 krátke poznámky. Celkovo najviac 260 slov.',
+    en: '\n\nCODE SCOPE: Deliver one minimal but complete code block covering every explicitly requested part. No tutorial or alternatives; after the code use at most 3 short notes. Use at most 260 words total.',
+    de: '\n\nCODE-UMFANG: Liefere einen minimalen, aber vollständigen Codeblock, der alle ausdrücklich verlangten Teile abdeckt. Keine Anleitung oder Alternativen; nach dem Code höchstens 3 kurze Hinweise. Insgesamt höchstens 260 Wörter.',
+  };
+  return instructions[language] || instructions.cs;
+}
+
+function buildCompactNamingInstruction(input, language, intent) {
+  if (intent !== IntentType.CREATIVE || !COMPACT_NAMING_PATTERN.test(input.trim())) return '';
+  const instructions = {
+    cs: '\n\nROZSAH NÁVRHU: Uveď nejvýše 5 krátkých názvů bez úvodu a bez vysvětlení.',
+    sk: '\n\nROZSAH NÁVRHU: Uveď najviac 5 krátkych názvov bez úvodu a bez vysvetlenia.',
+    en: '\n\nNAMING SCOPE: Give at most 5 short names with no preamble or explanation.',
+    de: '\n\nNAMENSUMFANG: Nenne höchstens 5 kurze Namen ohne Einleitung oder Erklärung.',
+  };
+  return instructions[language] || instructions.cs;
+}
+
+function buildCreativeContextUpdateInstruction(input, language, intent) {
+  if (intent !== IntentType.CREATIVE
+    || !CREATIVE_CONTEXT_UPDATE_PATTERN.test(input.trim())) return '';
+  const instructions = {
+    cs: '\n\nKONTEXT: Toto je uživatelovo doplnění rozpracovaného díla, ne žádost o nový rozsáhlý návrh. Potvrď, jak jej zapracuješ, právě ve 2 větách a nejvýše 45 slovy. Nepřidávej novou osnovu ani otázku.',
+    sk: '\n\nKONTEXT: Toto je používateľovo doplnenie rozpracovaného diela, nie žiadosť o nový rozsiahly návrh. Potvrď, ako ho zapracuješ, práve v 2 vetách a najviac 45 slovami. Nepridávaj novú osnovu ani otázku.',
+    en: '\n\nCONTEXT UPDATE: This is the user adding a fact to the work in progress, not requesting a new expanded proposal. Confirm how it will be incorporated in exactly 2 sentences and at most 45 words. Add no new outline or question.',
+    de: '\n\nKONTEXTUPDATE: Der Nutzer ergänzt das laufende Werk um eine Tatsache und verlangt keinen neuen ausführlichen Entwurf. Bestätige in genau 2 Sätzen und höchstens 45 Wörtern, wie sie eingearbeitet wird. Füge keine neue Gliederung oder Frage hinzu.',
+  };
+  return instructions[language] || instructions.cs;
+}
+
+function buildCountedCreativeInstruction(input, language, intent) {
+  if (intent !== IntentType.CREATIVE || !COUNTED_CREATIVE_PATTERN.test(input.trim())) return '';
+  const instructions = {
+    cs: '\n\nPOČET NÁVRHŮ: Dodej přesně požadovaný počet položek. Každá má nejvýše 35 slov; po seznamu už nic nepřidávej.',
+    sk: '\n\nPOČET NÁVRHOV: Dodaj presne požadovaný počet položiek. Každá má najviac 35 slov; po zozname už nič nepridávaj.',
+    en: '\n\nREQUESTED COUNT: Give exactly the requested number of items. Each item must use at most 35 words; add nothing after the list.',
+    de: '\n\nGEFORDERTE ANZAHL: Gib genau die verlangte Anzahl von Punkten an. Jeder Punkt darf höchstens 35 Wörter umfassen; füge nach der Liste nichts hinzu.',
+  };
+  return instructions[language] || instructions.cs;
+}
+
+function buildCreativeDescriptionInstruction(input, language, intent) {
+  if (intent !== IntentType.CREATIVE
+    || !CREATIVE_DESCRIPTION_PATTERN.test(input.trim())) return '';
+  const instructions = {
+    cs: '\n\nPOPISNÝ VÝSTUP: Pokryj všechny výslovně požadované aspekty a nic dalšího. Dodej uzavřený popis nejvýše 120 slovy; bez úvodu, pokračování příběhu, alternativ a následné otázky.',
+    sk: '\n\nPOPISNÝ VÝSTUP: Pokry všetky výslovne požadované aspekty a nič ďalšie. Dodaj uzavretý opis najviac 120 slovami; bez úvodu, pokračovania príbehu, alternatív a následnej otázky.',
+    en: '\n\nDESCRIPTION SCOPE: Cover every explicitly requested aspect and nothing else. Deliver a complete description in at most 120 words, with no preamble, story continuation, alternatives, or follow-up question.',
+    de: '\n\nBESCHREIBUNGSUMFANG: Decke alle ausdrücklich verlangten Aspekte ab und nichts darüber hinaus. Liefere eine abgeschlossene Beschreibung mit höchstens 120 Wörtern, ohne Einleitung, Fortsetzung, Alternativen oder Rückfrage.',
+  };
+  return instructions[language] || instructions.cs;
+}
+
+function buildStandardCreativeInstruction(input, language, intent) {
+  const normalizedInput = input.trim();
+  if (intent !== IntentType.CREATIVE
+    || COMPACT_CREATIVE_PATTERN.test(normalizedInput)
+    || COMPACT_NAMING_PATTERN.test(normalizedInput)
+    || CREATIVE_CONTEXT_UPDATE_PATTERN.test(normalizedInput)
+    || CREATIVE_DESCRIPTION_PATTERN.test(normalizedInput)
+    || LONG_FORM_CREATIVE_PATTERN.test(normalizedInput)) return '';
+  const instructions = {
+    cs: '\n\nROZSAH NÁVRHU: Dodrž přesně požadovanou strukturu, dokonči všechny její části a nepřidávej další varianty. Celkem nejvýše 150 slov.',
+    sk: '\n\nROZSAH NÁVRHU: Dodrž presne požadovanú štruktúru, dokonči všetky jej časti a nepridávaj ďalšie varianty. Celkovo najviac 150 slov.',
+    en: '\n\nIDEATION SCOPE: Follow exactly the requested structure, finish every requested part, and add no extra variants. Use at most 150 words total.',
+    de: '\n\nENTWURFSUMFANG: Halte dich genau an die angeforderte Struktur, schließe alle Teile ab und füge keine weiteren Varianten hinzu. Insgesamt höchstens 150 Wörter.',
+  };
+  return instructions[language] || instructions.cs;
+}
+
+function buildLongCreativeInstruction(input, language, intent) {
+  const normalizedInput = input.trim();
+  if (intent !== IntentType.CREATIVE
+    || !LONG_FORM_CREATIVE_PATTERN.test(normalizedInput)
+    || FULL_CREATIVE_DELIVERABLE_PATTERN.test(normalizedInput)) return '';
+  const instructions = {
+    cs: '\n\nROZSAH TVORBY: Dodej přímo hotovou a uzavřenou požadovanou část, bez komentáře před ní či po ní. Zachovej všechny požadované prvky a použij nejvýše 180 slov.',
+    sk: '\n\nROZSAH TVORBY: Dodaj priamo hotovú a uzavretú požadovanú časť, bez komentára pred ňou či po nej. Zachovaj všetky požadované prvky a použi najviac 180 slov.',
+    en: '\n\nCREATIVE SCOPE: Deliver the requested section directly and completely, with no commentary before or after it. Preserve every requested element and use at most 180 words.',
+    de: '\n\nKREATIVUMFANG: Liefere den angeforderten Teil direkt und vollständig, ohne Kommentar davor oder danach. Behalte alle verlangten Elemente bei und verwende höchstens 180 Wörter.',
+  };
+  return instructions[language] || instructions.cs;
+}
+
+function buildFullCreativeDeliverableInstruction(input, language, intent) {
+  if (intent !== IntentType.CREATIVE
+    || !FULL_CREATIVE_DELIVERABLE_PATTERN.test(input.trim())) return '';
+  const instructions = {
+    cs: '\n\nFINÁLNÍ ROZSAH: Dodej celý požadovaný výstup se všemi označenými částmi, bez úvodu, vysvětlování a alternativ. Výstup musí být uzavřený a mít nejvýše 280 slov.',
+    sk: '\n\nFINÁLNY ROZSAH: Dodaj celý požadovaný výstup so všetkými označenými časťami, bez úvodu, vysvetľovania a alternatív. Výstup musí byť uzavretý a mať najviac 280 slov.',
+    en: '\n\nFINAL DELIVERABLE SCOPE: Deliver the entire requested output with every labeled section, without preamble, explanation, or alternatives. The result must be complete and at most 280 words.',
+    de: '\n\nFINALER UMFANG: Liefere die gesamte angeforderte Ausgabe mit allen bezeichneten Teilen, ohne Einleitung, Erklärung oder Alternativen. Das Ergebnis muss vollständig sein und höchstens 280 Wörter umfassen.',
+  };
+  return instructions[language] || instructions.cs;
+}
+
 function selectAnswerTokenBudget(input, intent) {
   const normalizedInput = typeof input === 'string' ? input.trim() : '';
   if (intent === IntentType.CREATIVE && COMPACT_CREATIVE_PATTERN.test(normalizedInput)) {
-    return ANSWER_TOKEN_BUDGET.SHORT_CONVERSATION;
+    return ANSWER_TOKEN_BUDGET.COMPACT_CREATIVE;
+  }
+  if (intent === IntentType.CREATIVE && COMPACT_NAMING_PATTERN.test(normalizedInput)) {
+    return ANSWER_TOKEN_BUDGET.COMPACT_NAMING;
+  }
+  if (intent === IntentType.CREATIVE && CREATIVE_CONTEXT_UPDATE_PATTERN.test(normalizedInput)) {
+    return ANSWER_TOKEN_BUDGET.CREATIVE_CONTEXT_UPDATE;
+  }
+  if (intent === IntentType.CREATIVE && FULL_CREATIVE_DELIVERABLE_PATTERN.test(normalizedInput)) {
+    return ANSWER_TOKEN_BUDGET.FULL_CREATIVE_DELIVERABLE;
+  }
+  if (intent === IntentType.CREATIVE && LONG_FORM_CREATIVE_PATTERN.test(normalizedInput)) {
+    return ANSWER_TOKEN_BUDGET.LONG_CREATIVE;
+  }
+  if (intent === IntentType.CREATIVE && !LONG_FORM_CREATIVE_PATTERN.test(normalizedInput)) {
+    return ANSWER_TOKEN_BUDGET.STANDARD_CREATIVE;
+  }
+  if (intent === IntentType.CODE && FULL_CODE_DELIVERABLE_PATTERN.test(normalizedInput)) {
+    return ANSWER_TOKEN_BUDGET.FULL_CODE_DELIVERABLE;
+  }
+  if (intent === IntentType.CODE && COMPACT_CODE_PATTERN.test(normalizedInput)) {
+    return ANSWER_TOKEN_BUDGET.COMPACT_CODE;
   }
   if (intent !== IntentType.CONVERSATIONAL) {
     return ANSWER_TOKEN_BUDGET.NON_CONVERSATIONAL;
@@ -770,7 +934,7 @@ async function handleToolCallDecision(input, decision, context) {
   });
 
   // A3: Apply confidence styling before returning to user
-  const langCtx = getLanguageContext(input);
+  const langCtx = getLanguageContext(input, inferUserLanguageFromHistory(context.history));
   const confidenceScore = synthesizedResponse.confidence || 0.5;
   const styled = styleWithConfidence(synthesizedResponse.content, {
     level: scoreToLevel(confidenceScore),
@@ -918,7 +1082,7 @@ async function handleAnswerDecision(input, decision, context) {
     // System prompt for CONVERSATIONAL - strict rules
     // v57.3: Full language-native system prompt (not English + appended instruction)
     // Local models (Qwen/Ollama) need the ENTIRE prompt in target language to stay on track
-    const langCtx = getLanguageContext(input);
+    const langCtx = getLanguageContext(input, inferUserLanguageFromHistory(context.history));
 
     const CONVERSATIONAL_SYSTEM_PROMPTS = {
       // v62.2: Removed "řekni mu, že potřebuješ provést vyhledávání" — caused meta-refusal loop
@@ -1003,7 +1167,17 @@ ${FORBIDDEN_PHRASES.slice(0, 10).map(p => `- "${p}"`).join('\n')}`,
       || CONVERSATIONAL_SYSTEM_PROMPTS.cs)
       + (langCtx.instruction || '')
       + buildStrictLanguageInstruction(langCtx.language)
-      + buildBriefReplyInstruction(input, langCtx.language);
+      + buildBriefReplyInstruction(input, langCtx.language)
+      + buildStandardConversationInstruction(input, langCtx.language, decision.intent)
+      + buildCompactNamingInstruction(input, langCtx.language, decision.intent)
+      + buildCreativeContextUpdateInstruction(input, langCtx.language, decision.intent)
+      + buildCountedCreativeInstruction(input, langCtx.language, decision.intent)
+      + buildCreativeDescriptionInstruction(input, langCtx.language, decision.intent)
+      + buildStandardCreativeInstruction(input, langCtx.language, decision.intent)
+      + buildLongCreativeInstruction(input, langCtx.language, decision.intent)
+      + buildFullCreativeDeliverableInstruction(input, langCtx.language, decision.intent)
+      + buildCompactCodeInstruction(input, langCtx.language, decision.intent)
+      + buildFullCodeDeliverableInstruction(input, langCtx.language, decision.intent);
 
     // v65.4: Project context injection (sanitized, length-limited)
     systemPrompt += buildProjectContext(context);
@@ -1174,6 +1348,7 @@ ${FORBIDDEN_PHRASES.slice(0, 10).map(p => `- "${p}"`).join('\n')}`,
       metadata: {
         model: result.model,
         duration: result.duration,
+        finishReason: result.finishReason || null,
         decision: decision.toJSON(),
       },
     });
@@ -1268,6 +1443,16 @@ export {
   formatClarificationRequest,
   handleAnswerDecision,
   buildBriefReplyInstruction,
+  buildStandardConversationInstruction,
+  buildCompactNamingInstruction,
+  buildCreativeContextUpdateInstruction,
+  buildCountedCreativeInstruction,
+  buildCreativeDescriptionInstruction,
+  buildStandardCreativeInstruction,
+  buildLongCreativeInstruction,
+  buildFullCreativeDeliverableInstruction,
+  buildCompactCodeInstruction,
+  buildFullCodeDeliverableInstruction,
   selectAnswerTokenBudget,
   createForbiddenResponseError,
   handleRefuseDecision,

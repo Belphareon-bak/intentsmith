@@ -44,6 +44,7 @@ try {
         ok: true,
         json: async () => ({
           message: { content: 'ok' },
+          done_reason: 'stop',
           prompt_eval_count: 4,
           eval_count: 1,
         }),
@@ -57,6 +58,7 @@ try {
     });
 
     assertEqual(result.content, 'ok');
+    assertEqual(result.finishReason, 'stop');
     assertEqual(requestBody.options.num_ctx, 6144);
     assertEqual(signals.length, 1);
     assertEqual(signals[0].signalType, 'runtime');

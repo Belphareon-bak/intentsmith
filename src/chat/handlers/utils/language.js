@@ -348,8 +348,44 @@ export function getLanguageContext(userInput, defaultLanguage = 'cs') {
   };
 }
 
+/**
+ * Resolve the most recent language explicitly used by the user.
+ *
+ * Language-neutral follow-ups (numbers, emoji, short acknowledgements) must
+ * not silently reset an established conversation to the product default. The
+ * assistant's own output is intentionally ignored: a contaminated response
+ * must never become the authority for the next turn's language.
+ *
+ * Supports both the durable ConversationStore history shape and the older
+ * in-memory `userInput` shape used by a few direct callers.
+ *
+ * @param {Array<object>} history
+ * @param {DetectedLanguage} [defaultLanguage='cs']
+ * @returns {DetectedLanguage}
+ */
+export function inferUserLanguageFromHistory(history, defaultLanguage = 'cs') {
+  if (!Array.isArray(history)) return defaultLanguage;
+
+  for (let index = history.length - 1; index >= 0; index--) {
+    const entry = history[index];
+    const legacyInput = typeof entry?.userInput === 'string' ? entry.userInput : '';
+    const speaker = entry?.response?.tag?.speaker;
+    const durableInput = speaker === 'user' && typeof entry?.response?.content === 'string'
+      ? entry.response.content
+      : '';
+    const candidate = legacyInput || durableInput;
+    if (!candidate) continue;
+
+    const detection = detectLanguage(candidate);
+    if (detection.language !== 'unknown') return detection.language;
+  }
+
+  return defaultLanguage;
+}
+
 export default {
   detectLanguage,
   buildLanguageInstruction,
   getLanguageContext,
+  inferUserLanguageFromHistory,
 };

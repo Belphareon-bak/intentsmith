@@ -15,7 +15,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 ## Inventory
 
 - Runnable programs: 469
-- Explicit support-module exclusions: 16
+- Explicit support-module exclusions: 17
 - Profiles: offline=248, database=60, server=43, model=82, soak=15, manual=21
 - States: ACTIVE=374, HISTORICAL=16, BLOCKED=79
 
@@ -524,6 +524,7 @@ ledger.
 | `tests/fixtures/m2-project-context/project-b/src/canary-b.js` | Static cross-project containment canary consumed by the M2 project-context suites. |
 | `tests/fixtures/studio-m1-electron-backend.js` | Suite-owned M1 Electron backend fixture launched only by studio-m1-electron-journey.e2e.js. |
 | `tests/harness.js` | Imported unit-test harness library with no top-level test entry point. |
+| `tests/helpers/chat-journey-response.js` | Imported model-journey response classifier with deterministic checks covered by m1-chat-contract.test.js. |
 | `tests/helpers/isolated-test-db.js` | Imported direct-run database isolation bootstrap, not a standalone test. |
 | `tests/helpers/m6-owned-runtime-probe.js` | Imported M6 owned-server and loopback namespace harness, not a standalone test. |
 | `tests/helpers/ollama-loopback-fetch-boundary.js` | Imported fail-closed M6 model-test transport boundary, not a standalone test. |

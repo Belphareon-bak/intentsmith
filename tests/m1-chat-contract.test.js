@@ -34,12 +34,33 @@ import {
 } from '../src/chat/controller.js';
 import {
   buildBriefReplyInstruction,
+  buildCompactCodeInstruction,
+  buildCompactNamingInstruction,
+  buildCreativeContextUpdateInstruction,
+  buildCountedCreativeInstruction,
+  buildCreativeDescriptionInstruction,
+  buildFullCodeDeliverableInstruction,
+  buildFullCreativeDeliverableInstruction,
+  buildLongCreativeInstruction,
+  buildStandardCreativeInstruction,
+  buildStandardConversationInstruction,
   selectAnswerTokenBudget,
 } from '../src/chat/handlers/decisions.js';
 import {
   getConversationStore,
   resetConversationStore,
 } from '../src/chat/conversation-store.js';
+import {
+  assertCompletedExpertiseGeneration,
+  buildExpertiseScopeInstruction,
+  selectExpertiseTokenBudget,
+} from '../src/chat/handlers/expertise.js';
+import {
+  getLanguageContext,
+  inferUserLanguageFromHistory,
+} from '../src/chat/handlers/utils/language.js';
+import { recordDecision as recordWorkflowIntent } from '../src/skills/detector.js';
+import { inspectChatJourneyResult } from './helpers/chat-journey-response.js';
 import { suite, summary, test, testAsync } from './harness.js';
 
 const silentLog = Object.freeze({
@@ -247,16 +268,180 @@ test('ANSWER model generation receives the request cancellation signal', () => {
 
 test('ANSWER token budgets bound short chat without constraining richer intents below authority', () => {
   assert.equal(selectAnswerTokenBudget('OK', 'CONVERSATIONAL'), 64);
-  assert.equal(selectAnswerTokenBudget('Jak se máš?', 'CONVERSATIONAL'), 256);
-  assert.equal(selectAnswerTokenBudget('Co si myslíš o Pythonu?', 'CONVERSATIONAL'), 256);
+  assert.equal(selectAnswerTokenBudget('Jak se máš?', 'CONVERSATIONAL'), 128);
+  assert.equal(selectAnswerTokenBudget('Co si myslíš o Pythonu?', 'CONVERSATIONAL'), 128);
   assert.equal(selectAnswerTokenBudget('x'.repeat(161), 'CONVERSATIONAL'), 1200);
   assert.equal(selectAnswerTokenBudget('Napiš haiku o kávě', 'CREATIVE'), 256);
   assert.equal(selectAnswerTokenBudget('Pomoz mi napsat email', 'CREATIVE'), 256);
+  assert.equal(selectAnswerTokenBudget('Vymysli název pro knihovnu.', 'CREATIVE'), 128);
+  assert.equal(selectAnswerTokenBudget('Téma bude námořní dobrodružství.', 'CREATIVE'), 128);
+  assert.equal(selectAnswerTokenBudget('Vymysli itinerář na 3 dny.', 'CREATIVE'), 768);
+  assert.equal(selectAnswerTokenBudget('Napiš úvodní scénu povídky.', 'CREATIVE'), 768);
+  assert.equal(selectAnswerTokenBudget('Napiš finální verzi celého textu písně.', 'CREATIVE'), 1024);
+  assert.equal(selectAnswerTokenBudget('Napiš mi funkci pro faktoriál.', 'CODE'), 512);
+  assert.equal(selectAnswerTokenBudget('Napiš mi kompletní produkční API.', 'CODE'), 768);
   assert.equal(selectAnswerTokenBudget('Help me write an e-mail', 'CREATIVE'), 256);
-  assert.equal(selectAnswerTokenBudget('napiš příběh', 'CREATIVE'), 2000);
+  assert.equal(selectAnswerTokenBudget('napiš příběh', 'CREATIVE'), 768);
   assert.match(buildBriefReplyInstruction('Díky', 'cs'), /právě jednou krátkou/u);
   assert.match(buildBriefReplyInstruction('Thanks', 'en'), /exactly one short/u);
   assert.equal(buildBriefReplyInstruction('Co si myslíš o Pythonu?', 'cs'), '');
+  assert.match(
+    buildStandardConversationInstruction('Co si myslíš o Pythonu?', 'cs', 'CONVERSATIONAL'),
+    /nejvýše 45 slovy/u,
+  );
+  assert.equal(buildStandardConversationInstruction('Díky', 'cs', 'CONVERSATIONAL'), '');
+  assert.equal(buildStandardConversationInstruction('Co je Python?', 'cs', 'CODE'), '');
+  assert.match(buildCompactCodeInstruction('Napiš mi jednoduchý HTTP server.', 'cs', 'CODE'), /jedním code blockem/u);
+  assert.equal(buildCompactCodeInstruction('Napiš mi kompletní produkční API.', 'cs', 'CODE'), '');
+  assert.match(buildCompactNamingInstruction('Vymysli název pro knihovnu.', 'cs', 'CREATIVE'), /nejvýše 5/u);
+  assert.match(buildCreativeContextUpdateInstruction('Téma bude námořní dobrodružství.', 'cs', 'CREATIVE'), /právě ve 2 větách/u);
+  assert.equal(buildCreativeContextUpdateInstruction('Vytvoř hlavní quest.', 'cs', 'CREATIVE'), '');
+  assert.match(buildCountedCreativeInstruction('Jaké encountery mohou potkat? Navrhni 3.', 'cs', 'CREATIVE'), /Každá má nejvýše 35 slov/u);
+  assert.match(buildCreativeDescriptionInstruction('Popiš prostředí temného lesa.', 'cs', 'CREATIVE'), /nejvýše 120 slovy/u);
+  assert.match(buildStandardCreativeInstruction('Vymysli itinerář na 3 dny.', 'cs', 'CREATIVE'), /nejvýše 150 slov/u);
+  assert.equal(buildStandardCreativeInstruction('Napiš úvodní scénu povídky.', 'cs', 'CREATIVE'), '');
+  assert.match(buildLongCreativeInstruction('Napiš úvodní scénu povídky.', 'cs', 'CREATIVE'), /nejvýše 180 slov/u);
+  assert.equal(buildLongCreativeInstruction('Napiš finální verzi celého textu písně.', 'cs', 'CREATIVE'), '');
+  assert.match(buildFullCreativeDeliverableInstruction('Napiš finální verzi celého textu písně.', 'cs', 'CREATIVE'), /nejvýše 280 slov/u);
+  assert.match(buildFullCodeDeliverableInstruction('Napiš mi kompletní produkční API.', 'cs', 'CODE'), /nejvýše 260 slov/u);
+});
+
+test('expertise generation pairs bounded budgets with complete terminal output', () => {
+  assert.equal(selectExpertiseTokenBudget('Ahoj, pomůžeš mi?'), 128);
+  assert.equal(selectExpertiseTokenBudget('Porovnej tři možnosti a doporuč jednu.'), 384);
+  assert.equal(selectExpertiseTokenBudget('Napiš úvodní scénu povídky.'), 512);
+  assert.equal(selectExpertiseTokenBudget('Napiš middleware pro JWT.'), 640);
+  assert.equal(selectExpertiseTokenBudget('Napiš finální verzi celého textu písně.'), 1024);
+  assert.match(buildExpertiseScopeInstruction('Ahoj, pomůžeš mi?'), /at most 45 words/u);
+  assert.match(buildExpertiseScopeInstruction('Porovnej tři možnosti.'), /at most 120 words/u);
+  assert.match(buildExpertiseScopeInstruction('Napiš úvodní scénu povídky.'), /at most 170 words/u);
+  assert.match(buildExpertiseScopeInstruction('Napiš middleware pro JWT.'), /close the final code block/u);
+  assert.match(buildExpertiseScopeInstruction('Napiš finální verzi celého textu písně.'), /finish the final section/u);
+  assert.throws(
+    () => assertCompletedExpertiseGeneration({ finishReason: 'length' }, 'Expert'),
+    error => error?.code === 'EXPERT_RESPONSE_TRUNCATED',
+  );
+  assert.equal(
+    assertCompletedExpertiseGeneration({ finishReason: 'stop', content: 'complete' }, 'Expert').content,
+    'complete',
+  );
+});
+
+test('model journey harness distinguishes answers from expected live-authority terminals', () => {
+  assert.deepEqual(
+    inspectChatJourneyResult('Co je Python?', { response: 'Programovací jazyk.', metadata: {} }),
+    { kind: 'answer', response: 'Programovací jazyk.' },
+  );
+
+  assert.throws(
+    () => inspectChatJourneyResult('Jaký dopad má AI?', {
+      response: 'authority denied',
+      metadata: {
+        handler: 'tool.authority',
+        securityBlocked: true,
+        fallbackSuppressed: true,
+        error: 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE',
+      },
+    }),
+    /Unexpected authority terminal/u,
+  );
+
+  assert.throws(
+    () => inspectChatJourneyResult('Co je algoritmus?', {
+      response: 'Algoritmus je přesný postup, který',
+      metadata: { finishReason: 'length' },
+    }),
+    /Truncated model response/u,
+  );
+
+  assert.throws(
+    () => inspectChatJourneyResult('Kolik tam žije lidí?', {
+      response: 'Chcete najít informace, nebo vytvořit přehled?',
+      metadata: { awaitingClarification: true },
+    }),
+    /Unexpected clarification/u,
+  );
+
+  assert.deepEqual(
+    inspectChatJourneyResult('What are the current trends in IT business?', {
+      response: 'authority denied',
+      metadata: {
+        handler: 'tool.authority',
+        securityBlocked: true,
+        fallbackSuppressed: true,
+        error: 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE',
+      },
+    }),
+    {
+      kind: 'expected_authority_terminal',
+      response: 'authority denied',
+      errorCode: 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE',
+    },
+  );
+
+  assert.throws(
+    () => inspectChatJourneyResult('Review the current implementation.', {
+      response: 'authority denied',
+      metadata: {
+        handler: 'tool.authority',
+        securityBlocked: true,
+        fallbackSuppressed: true,
+        error: 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE',
+      },
+    }),
+    /Unexpected authority terminal/u,
+  );
+
+  assert.throws(
+    () => inspectChatJourneyResult('What are the current trends in IT business?', {
+      response: 'Unverified current trends from the model.',
+      metadata: {},
+    }),
+    /Expected live-authority terminal/u,
+  );
+
+  assert.throws(
+    () => inspectChatJourneyResult('10 * 9 * 8', {
+      response: 'Výsledek výpočtu je 720. Jedná se o součin tří čísel.',
+      metadata: {},
+    }, { expectedLanguage: 'en' }),
+    /Expected English response but received Czech content/u,
+  );
+
+  assert.throws(
+    () => inspectChatJourneyResult('2050 - 2026', {
+      response: 'Mám z toho vytvořit skill? (ano/ne)',
+      metadata: { proposalShown: true },
+    }, { expectedLanguage: 'en' }),
+    /Unexpected skill proposal/u,
+  );
+});
+
+test('language-neutral follow-up inherits only the latest durable user language', () => {
+  const history = [
+    { response: { tag: { speaker: 'user' }, content: 'Please explain artificial intelligence.' } },
+    { response: { tag: { speaker: 'system' }, content: 'Umělá inteligence je obor informatiky.' } },
+    { response: { tag: { speaker: 'user' }, content: '10 * 9 * 8' } },
+  ];
+  const language = inferUserLanguageFromHistory(history);
+  assert.equal(language, 'en');
+  assert.equal(getLanguageContext('10 * 9 * 8', language).language, 'en');
+
+  assert.equal(inferUserLanguageFromHistory([
+    { response: { tag: { speaker: 'system' }, content: 'This assistant output is English.' } },
+    { response: { tag: { speaker: 'user' }, content: '12345' } },
+  ]), 'cs');
+});
+
+test('workflow detector records semantic productive intents, not transport decisions', () => {
+  const state = {};
+  recordWorkflowIntent(state, 'TOOL_CALL', 'transport-session');
+  recordWorkflowIntent(state, 'LOCAL', 'transport-session');
+  assert.equal(state._workflowSequence, undefined);
+
+  recordWorkflowIntent(state, 'SEARCH', 'semantic-session');
+  recordWorkflowIntent(state, 'CODE', 'semantic-session');
+  assert.deepEqual(state._workflowSequence, ['SEARCH', 'CODE']);
 });
 
 await testAsync('successful result is returned only after the assistant turn persists', async () => {

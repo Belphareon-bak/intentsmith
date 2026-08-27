@@ -1002,6 +1002,9 @@ class LLMGateway {
           model,
           duration,
           role: authToken?.role,
+          finishReason: typeof data.done_reason === 'string'
+            ? data.done_reason
+            : null,
           promptEvalCount: data.prompt_eval_count || null,
           evalCount: data.eval_count || null,
         };

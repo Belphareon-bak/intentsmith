@@ -21,6 +21,64 @@ import { mergeExpertisePrompt } from '../../expertises/merge-engine.js';
 import { CompatibilityBlockError } from '../../expertises/merge-types.js';
 import { preHandle } from './pre-handler.js';
 
+const EXPERTISE_TOKEN_BUDGET = Object.freeze({
+  COMPACT: 128,
+  STANDARD: 384,
+  CREATIVE_SECTION: 512,
+  CODE_DELIVERABLE: 640,
+  FULL_DELIVERABLE: 1024,
+  TOOL_WRAP: 256,
+  MERGED: 512,
+});
+
+const EXPERTISE_COMPACT_PATTERN = /(?:\b(?:d[ií]ky|thanks?|ahoj|hello)\b|\b(?:3|tři|tri|three)\s+(?:n[aá]vrhy?|names?|titles?)\b)/iu;
+const EXPERTISE_FULL_DELIVERABLE_PATTERN = /(?:\b(?:fin[aá]ln[\p{L}]*|cel[\p{L}]*|kompletn[\p{L}]*|full|complete|whole).{0,80}(?:\btext\b|p[ií]s[\p{L}]*|\blyrics\b|\bsong\b|pov[ií]dk[\p{L}]*|\bstory\b|\bone[- ]pager\b|\bpostup\b|\bprocedure\b|\bendpoint\b|\bAPI\b)|\b(?:shr[nň][\p{L}]*|summari[sz]e).{0,60}(?:cel[\p{L}]*|\bwhole\b|\bone[- ]pager\b))/iu;
+const EXPERTISE_CODE_PATTERN = /(?:\b(?:middleware|endpoint|funkci|function|implementac|implementation|k[oó]d|code|API)\b)/iu;
+const EXPERTISE_CREATIVE_SECTION_PATTERN = /(?:\b(?:napi[sš]|vytvo[rř]|popi[sš]|uprav|p[rř]epi[sš]|write|create|describe|rewrite)[\p{L}]*.{0,100}(?:pov[ií]dk|p[rř][ií]b[eě]h|sc[eé]n|kapitol|slok|refr[eé]n|\bverse\b|\bchorus\b|\bbridge\b|\bbox\s+text\b|dialog|postav|\bcharacter\b|\bNPC\b))/iu;
+
+function selectExpertiseTokenBudget(input) {
+  const normalizedInput = typeof input === 'string' ? input.trim() : '';
+  if (EXPERTISE_FULL_DELIVERABLE_PATTERN.test(normalizedInput)) {
+    return EXPERTISE_TOKEN_BUDGET.FULL_DELIVERABLE;
+  }
+  if (EXPERTISE_CODE_PATTERN.test(normalizedInput)) {
+    return EXPERTISE_TOKEN_BUDGET.CODE_DELIVERABLE;
+  }
+  if (EXPERTISE_CREATIVE_SECTION_PATTERN.test(normalizedInput)) {
+    return EXPERTISE_TOKEN_BUDGET.CREATIVE_SECTION;
+  }
+  if (EXPERTISE_COMPACT_PATTERN.test(normalizedInput)) {
+    return EXPERTISE_TOKEN_BUDGET.COMPACT;
+  }
+  return EXPERTISE_TOKEN_BUDGET.STANDARD;
+}
+
+function buildExpertiseScopeInstruction(input) {
+  const normalizedInput = typeof input === 'string' ? input.trim() : '';
+  if (EXPERTISE_FULL_DELIVERABLE_PATTERN.test(normalizedInput)) {
+    return '\n\nRESPONSE SCOPE: Deliver the entire requested artifact with every requested section. Use at most 280 words, finish the final section, and add no preamble or alternative version.';
+  }
+  if (EXPERTISE_CODE_PATTERN.test(normalizedInput)) {
+    return '\n\nRESPONSE SCOPE: Provide one minimal but complete implementation covering every explicit requirement. Use at most 220 words, no tutorial or alternatives, and always close the final code block.';
+  }
+  if (EXPERTISE_CREATIVE_SECTION_PATTERN.test(normalizedInput)) {
+    return '\n\nRESPONSE SCOPE: Deliver the requested creative section directly and completely in at most 170 words. Preserve every requested element and add no commentary before or after it.';
+  }
+  if (EXPERTISE_COMPACT_PATTERN.test(normalizedInput)) {
+    return '\n\nRESPONSE SCOPE: Answer directly and completely in at most 45 words. Do not add optional variants or follow-up offers.';
+  }
+  return '\n\nRESPONSE SCOPE: Answer directly, specifically, and completely in at most 120 words. Prioritize the decision, evidence, or actionable steps requested; add no unrelated alternatives or follow-up offer.';
+}
+
+function assertCompletedExpertiseGeneration(result, surface) {
+  if (result?.finishReason === 'length') {
+    const error = new Error(`${surface} model response reached the token limit`);
+    error.code = 'EXPERT_RESPONSE_TRUNCATED';
+    throw error;
+  }
+  return result;
+}
+
 // v63.2: Capability drift logging — always log, not just on failure
 // v63.3: executionTraceId + executionStep for cross-layer tracing
 async function logCapabilityDrift(conversationId, expertiseId, capabilityProfile, response, executionTraceId = null, executionStep = 'CAPABILITY') {
@@ -268,6 +326,8 @@ async function generateExpertiseResponse(input, expertise, context) {
     // D4: Pass conversationId for specialist memory injection
     const conversationId = context.conversationId || sessionId;
     const expertiseSystemPrompt = await buildExpertiseSystemPrompt(expertise, conversationId);
+    const boundedExpertiseSystemPrompt = expertiseSystemPrompt + buildExpertiseScopeInstruction(input);
+    const maxTokens = selectExpertiseTokenBudget(input);
 
     // Build prompt with context
     let prompt = input;
@@ -278,7 +338,6 @@ async function generateExpertiseResponse(input, expertise, context) {
         .join('\n');
       prompt = `Previous context:\n${historyContext}\n\nUser question: ${input}`;
     }
-
     // v75: Tool clarification — inject structured context for LLM
     if (context.toolClarification) {
       const tc = context.toolClarification;
@@ -297,24 +356,31 @@ async function generateExpertiseResponse(input, expertise, context) {
 
     // Create regeneration function for enforcement
     // v63.2: Accept retryOptions for temperature decay + seed
+    let finalFinishReason = null;
     const regenerateFn = async (retryPrompt, violations, retryOptions) => {
       const decay = retryOptions?.temperatureDecay || 0.1;
       const retryTemp = Math.max(0.1, temperature - decay); // floor 0.1
-      const retryResult = await creBridge.generateChatResponse(retryPrompt, expertiseSystemPrompt, {
-        sessionId: `expert-${sessionId}-retry`,
-        temperature: retryTemp,
-        seed: retryOptions?.seed,
-      });
+      const retryResult = assertCompletedExpertiseGeneration(
+        await creBridge.generateChatResponse(retryPrompt, boundedExpertiseSystemPrompt, {
+          sessionId: `expert-${sessionId}-retry`,
+          temperature: retryTemp,
+          seed: retryOptions?.seed,
+          maxTokens,
+        }), 'Expert retry');
+      finalFinishReason = retryResult.finishReason || null;
       return retryResult.content;
     };
 
     // Call LLM with expert persona
     // v63.3: Capture timing for LLM execution log (performance.now() for sub-ms precision)
     const llmStart = performance.now();
-    const result = await creBridge.generateChatResponse(prompt, expertiseSystemPrompt, {
-      sessionId: `expert-${sessionId}`,
-      temperature,
-    });
+    const result = assertCompletedExpertiseGeneration(
+      await creBridge.generateChatResponse(prompt, boundedExpertiseSystemPrompt, {
+        sessionId: `expert-${sessionId}`,
+        temperature,
+        maxTokens,
+      }), 'Expert');
+    finalFinishReason = result.finishReason || null;
     const llmLatency = Math.round(performance.now() - llmStart);
 
     // v63.3: Log LLM execution step
@@ -326,14 +392,15 @@ async function generateExpertiseResponse(input, expertise, context) {
       expertiseId: expertise.id,
       model: result.model || null,
       temperature,
-      promptHash: hashPrompt(prompt + expertiseSystemPrompt),
+      promptHash: hashPrompt(prompt + boundedExpertiseSystemPrompt),
       promptTokens: result.promptTokens ?? null,
       completionTokens: result.completionTokens ?? null,
       latencyMs: llmLatency,
       tokenSource: singleTokenSource,
       metadata: {
         promptLength: prompt.length,
-        systemPromptLength: expertiseSystemPrompt.length,
+        systemPromptLength: boundedExpertiseSystemPrompt.length,
+        maxTokens,
       },
     });
 
@@ -415,6 +482,8 @@ async function generateExpertiseResponse(input, expertise, context) {
         },
         model: result.model,
         duration: result.duration,
+        finishReason: finalFinishReason,
+        maxTokens,
         temperature,
         synthesisHints: synthesisHints ? {
           preset: synthesisHints.preset,
@@ -484,6 +553,8 @@ async function wrapWithExpertisePersona(input, toolResult, expertise, context) {
     const creBridge = await import('../../llm/cre-bridge.js');
     const wrapConvId = context.conversationId || context.sessionId;
     const expertiseSystemPrompt = await buildExpertiseSystemPrompt(expertise, wrapConvId);
+    const boundedExpertiseSystemPrompt = expertiseSystemPrompt
+      + '\n\nRESPONSE SCOPE: Explain only the supplied tool result in at most 120 words. Do not add unverified facts, alternatives, or a follow-up offer.';
 
     // Build prompt that includes tool results
     const toolContent = toolResult.content || '';
@@ -497,10 +568,12 @@ Based on these results, provide your expert analysis and response.`;
     // v57.0 - Use expertise.temperature
     const temperature = expertise.temperature ?? 0.5;
 
-    const result = await creBridge.generateChatResponse(prompt, expertiseSystemPrompt, {
-      sessionId: `expert-${context.sessionId}`,
-      temperature,
-    });
+    const result = assertCompletedExpertiseGeneration(
+      await creBridge.generateChatResponse(prompt, boundedExpertiseSystemPrompt, {
+        sessionId: `expert-${context.sessionId}`,
+        temperature,
+        maxTokens: EXPERTISE_TOKEN_BUDGET.TOOL_WRAP,
+      }), 'Expert tool-result wrapper');
 
     // v57.0 - Quick check for forbidden phrases (no retry for wrapping)
     const check = quickCheck(result.content, expertise);
@@ -521,6 +594,8 @@ Based on these results, provide your expert analysis and response.`;
         expertise: { id: expertise.id, name: expertise.name, domain: expertise.domain },
         toolResults: toolResult.tag?.metadata?.toolResults,
         model: result.model,
+        finishReason: result.finishReason || null,
+        maxTokens: EXPERTISE_TOKEN_BUDGET.TOOL_WRAP,
         temperature,
         enforcement: { passed: check.passed },
       },
@@ -709,13 +784,22 @@ async function handleMergedExpertises(input, context, executionTraceId) {
         .join('\n');
       prompt = `Previous context:\n${historyContext}\n\nUser question: ${input}`;
     }
+    const boundedMergedPrompt = mergeResult.prompt + buildExpertiseScopeInstruction(input);
+    const maxTokens = Math.min(
+      EXPERTISE_TOKEN_BUDGET.MERGED,
+      selectExpertiseTokenBudget(input),
+    );
 
     // v63.3: Capture timing for LLM execution log (performance.now() for sub-ms precision)
     const llmStart = performance.now();
-    const result = await creBridge.generateChatResponse(prompt, mergeResult.prompt, {
-      sessionId: `merged-${sessionId}`,
-      temperature: mergeResult.metadata.temperature,
-    });
+    let finalFinishReason = null;
+    const result = assertCompletedExpertiseGeneration(
+      await creBridge.generateChatResponse(prompt, boundedMergedPrompt, {
+        sessionId: `merged-${sessionId}`,
+        temperature: mergeResult.metadata.temperature,
+        maxTokens,
+      }), 'Merged expert');
+    finalFinishReason = result.finishReason || null;
     const llmLatency = Math.round(performance.now() - llmStart);
 
     // v63.3: Log LLM execution step for merged expertises
@@ -727,7 +811,7 @@ async function handleMergedExpertises(input, context, executionTraceId) {
       expertiseId: mergeResult.metadata.expertiseIds.join('+'),
       model: result.model || null,
       temperature: mergeResult.metadata.temperature,
-      promptHash: hashPrompt(prompt + mergeResult.prompt),
+      promptHash: hashPrompt(prompt + boundedMergedPrompt),
       promptTokens: result.promptTokens ?? null,
       completionTokens: result.completionTokens ?? null,
       latencyMs: llmLatency,
@@ -736,7 +820,8 @@ async function handleMergedExpertises(input, context, executionTraceId) {
         merged: true,
         expertiseCount: activeExpertises.length,
         promptLength: prompt.length,
-        mergedPromptLength: mergeResult.prompt.length,
+        mergedPromptLength: boundedMergedPrompt.length,
+        maxTokens,
         tone: mergeResult.metadata.tone,
         temperatureMethod: mergeResult.metadata.temperatureMethod,
       },
@@ -763,11 +848,14 @@ async function handleMergedExpertises(input, context, executionTraceId) {
     const regenerateFn = async (retryPrompt, violations, retryOptions) => {
       const decay = retryOptions?.temperatureDecay || 0.1;
       const retryTemp = Math.max(0.1, mergeResult.metadata.temperature - decay); // floor 0.1
-      const retryResult = await creBridge.generateChatResponse(retryPrompt, mergeResult.prompt, {
-        sessionId: `merged-${sessionId}-retry`,
-        temperature: retryTemp,
-        seed: retryOptions?.seed,
-      });
+      const retryResult = assertCompletedExpertiseGeneration(
+        await creBridge.generateChatResponse(retryPrompt, boundedMergedPrompt, {
+          sessionId: `merged-${sessionId}-retry`,
+          temperature: retryTemp,
+          seed: retryOptions?.seed,
+          maxTokens,
+        }), 'Merged expert retry');
+      finalFinishReason = retryResult.finishReason || null;
       return retryResult.content;
     };
 
@@ -838,6 +926,8 @@ async function handleMergedExpertises(input, context, executionTraceId) {
         merged: true,
         expertises: mergeResult.metadata.expertiseIds,
         weights: mergeResult.metadata.weights,
+        finishReason: finalFinishReason,
+        maxTokens,
         tone: mergeResult.metadata.tone,
         temperature: mergeResult.metadata.temperature,
         temperatureMethod: mergeResult.metadata.temperatureMethod,
@@ -930,4 +1020,12 @@ async function handleMergedExpertises(input, context, executionTraceId) {
   }
 }
 
-export { generateExpertiseResponse, wrapWithExpertisePersona, buildExpertiseSystemPrompt, handleMergedExpertises };
+export {
+  generateExpertiseResponse,
+  wrapWithExpertisePersona,
+  buildExpertiseSystemPrompt,
+  handleMergedExpertises,
+  selectExpertiseTokenBudget,
+  buildExpertiseScopeInstruction,
+  assertCompletedExpertiseGeneration,
+};

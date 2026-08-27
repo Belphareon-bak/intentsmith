@@ -1,5 +1,6 @@
 import './helpers/isolated-test-db.js';
 import { installOllamaLoopbackFetchBoundary } from './helpers/ollama-loopback-fetch-boundary.js';
+import { inspectChatJourneyResult } from './helpers/chat-journey-response.js';
 
 installOllamaLoopbackFetchBoundary({ reportOnExit: true });
 
@@ -18,6 +19,7 @@ const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
 let totalSteps = 0;
 let passedSteps = 0;
 let failedSteps = 0;
+let expectedAuthorityTerminals = 0;
 const failures = [];
 
 function printStep(convNum, step, input, response, meta = {}) {
@@ -30,6 +32,14 @@ function printStep(convNum, step, input, response, meta = {}) {
   console.log(`         \x1b[33m${short}\x1b[0m`);
   if (model !== 'local') console.log(`         \x1b[90m[${model} ${dur}ms]\x1b[0m`);
   passedSteps++;
+}
+
+function printExpectedAuthorityTerminal(convNum, step, input, outcome) {
+  totalSteps++;
+  passedSteps++;
+  expectedAuthorityTerminals++;
+  console.log(`  [${convNum}.${String(step).padStart(2, '0')}] \x1b[36m(expected authority terminal)\x1b[0m \x1b[90m${input}\x1b[0m`);
+  console.log(`         \x1b[33m${outcome.errorCode}: fallback suppressed\x1b[0m`);
 }
 
 function failStep(convNum, step, input, error) {
@@ -63,14 +73,17 @@ async function runConversation(ChatController, convNum, title, messages) {
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
     try {
-      const result = await ChatController.handle({ message: msg, sessionId });
-      if (!result.response) throw new Error('Empty response');
-      // Detect graceful error messages that mask real failures
-      const resp = result.response;
-      if (/LLM failed|fetch failed|circuit breaker|error processing|could not process|Failed to process|No search results|toJSON is not a function/i.test(resp)) {
-        throw new Error(`Pipeline error: ${resp.substring(0, 150)}`);
+      const result = await ChatController.handle({
+        message: msg,
+        sessionId,
+        authenticatedSubject: { actorType: 'user', actorId: 'm6-model-journey' },
+      });
+      const outcome = inspectChatJourneyResult(msg, result, { expectedLanguage: 'en' });
+      if (outcome.kind === 'expected_authority_terminal') {
+        printExpectedAuthorityTerminal(convNum, i + 1, msg, outcome);
+        continue;
       }
-      printStep(convNum, i + 1, msg, resp, {
+      printStep(convNum, i + 1, msg, outcome.response, {
         mode: result.mode,
         model: result.metadata?.model,
         duration: result.metadata?.duration,
@@ -313,6 +326,7 @@ console.info = _origInfo;
 
 console.log(`\n${'═'.repeat(70)}`);
 console.log(`  RESULTS: ${passedSteps} OK, ${failedSteps} FAIL, ${totalSteps} total`);
+console.log(`  EXPECTED AUTHORITY TERMINALS: ${expectedAuthorityTerminals}`);
 if (failures.length > 0) {
   console.log(`\n  FAILURES:`);
   for (const f of failures) {

@@ -575,9 +575,11 @@ export async function conversationHandler(input, context) {
     return handleAgentWizardDetected(input, context);
   }
 
-  // v85: Record decision type for workflow pattern detector
+  // v85: Record semantic intent for workflow pattern detection. Decision
+  // transport types such as TOOL_CALL/LOCAL are implementation details and
+  // previously produced spurious cross-conversation skill proposals.
   if (recordDecisionForDetector && sessionState) {
-    try { recordDecisionForDetector(sessionState, decision.type, sessionId); } catch (_) {}
+    try { recordDecisionForDetector(sessionState, decision.intent, sessionId); } catch (_) {}
   }
 
   // STEP 2: Handle based on decision type
