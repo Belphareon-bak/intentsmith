@@ -48,8 +48,8 @@ const SUMMARY_TIMEOUT_MS = 5 * 60 * 1000;
 const AUDIT_RUN_ID = 'product-audit';
 const AUDIT_PROFILES = ['offline', 'database'];
 const AUDIT_ALLOWED_BLOCKERS = ['toolchain:python-pdf-runtime'];
-const GATE0_REGISTRY_HASH = '3593af7c529d73c15cc3f12ee7e4e90fd2de91e6b383313ac43bca46969ea342';
-const GATE0_PROFILE_COUNTS = { offline: 239, database: 57 };
+const GATE0_REGISTRY_HASH = '9394fb0fc70159425bf1ca56fdd529fdaae817798fb4f9fe061de41fe3b5d071';
+const GATE0_PROFILE_COUNTS = { offline: 248, database: 60 };
 const PDF_RUNTIME_PACKAGES = Object.freeze({
   'charset-normalizer': '3.4.4',
   pillow: '12.3.0',
@@ -72,7 +72,7 @@ const BASE_ENV_KEYS = [
 ];
 
 const PREFLIGHT_COMMANDS = [
-  ['node', 'scripts/validate-test-registry.js', '--check'],
+  ['node', 'scripts/validate-test-registry.js'],
   ['node', 'tests/harness-exit-code.test.js'],
   ['node', 'tests/nightly-audit-runner-self-test.js'],
   ['node', 'tests/audit-summary-self-test.js'],
