@@ -255,9 +255,16 @@ async function test2_ExistingProject() {
     );
     assert(status === 200, `Expected 200, got ${status}`);
     assert(data.response, 'Should have a response');
-    assert(data.intent === 'FILE_READ', `Expected FILE_READ, got ${data.intent}`);
+    assert(
+      data.metadata?.decision?.intent === 'FILE_READ',
+      `Expected FILE_READ, got ${data.metadata?.decision?.intent}`,
+    );
     assert(data.metadata?.securityBlocked === true, 'Unapproved listing must be security-blocked');
     assert(data.metadata?.fallbackSuppressed === true, 'Unapproved listing must suppress LLM fallback');
+    assert(
+      data.metadata?.error === 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE',
+      `Expected typed authority denial, got ${data.metadata?.error}`,
+    );
     assert(
       /^tool:[a-f0-9]{64}$/.test(data.metadata?.toolRequestId || ''),
       'Denied listing must retain its durable ToolRequest identity',
