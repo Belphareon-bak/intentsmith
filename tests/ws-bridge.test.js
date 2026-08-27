@@ -66,6 +66,7 @@ import {
   legacyLocalCapabilitiesEqual,
   normalizeLegacyLocalOrigins,
 } from '../src/security/legacy-local-access-policy.js';
+import { createGlobalAuthAuthority } from '../src/security/global-auth-policy.js';
 
 let passed = 0;
 let failed = 0;
@@ -3024,6 +3025,10 @@ test('T25g: rehydrate validation rejects malformed sets before durable lookup', 
       httpServer: { address: () => ({ address: '127.0.0.1', port: 47831 }) },
       allowedOrigins: [],
       localCapability: capability,
+      authAuthority: createGlobalAuthAuthority({
+        localCapability: capability,
+        production: false,
+      }),
       logger: mockLogger,
     });
     const verify = overrides => {

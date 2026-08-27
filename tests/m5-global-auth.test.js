@@ -15,7 +15,7 @@ import {
   GLOBAL_AUTH_SCOPE_REQUIRED,
   RouteAuthClass,
   assertGlobalAuthRouteTable,
-  authorizeGlobalRequest,
+  createGlobalAuthAuthority,
   classifyRouteAuth,
   encodeWebSocketBearerCredential,
   extractWebSocketBearerCredential,
@@ -32,14 +32,23 @@ const route = 'POST /api/projects';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 function authorize(overrides = {}) {
-  return authorizeGlobalRequest({
+  const {
+    localCapability = 'A'.repeat(43),
+    adminToken = 'admin-secret',
+    validateApiToken,
+    production = true,
+    ...request
+  } = overrides;
+  return createGlobalAuthAuthority({
+    localCapability,
+    adminToken,
+    validateApiToken,
+    production,
+  }).authorize({
     routeKey: route,
     headers: {},
     remoteAddress: LOCAL,
-    production: true,
-    localCapability: 'A'.repeat(43),
-    adminToken: 'admin-secret',
-    ...overrides,
+    ...request,
   });
 }
 
@@ -204,9 +213,12 @@ function verifyUpgrade({
     httpServer: { address: () => ({ port: 3335 }) },
     allowedOrigins: [],
     localCapability: capability,
-    adminToken,
-    production,
-    validateApiToken: () => ({ valid: false }),
+    authAuthority: createGlobalAuthAuthority({
+      localCapability: capability,
+      adminToken,
+      production,
+      validateApiToken: () => ({ valid: false }),
+    }),
     logger: { warn() {} },
   });
   verify({ req: request, origin }, (allowed, status, reason) => {

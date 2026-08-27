@@ -4,14 +4,16 @@ import {
   validateM5PrivacyRotationReceipt,
 } from '../../contracts/m5/privacy-remediation-v1.js';
 import { inspectM5UserSettingsPrivacy } from './user-settings-privacy.js';
-import { isAuthenticatedTransportSubject } from './global-auth-policy.js';
 
 const DATABASE_WRITER_STATE = new WeakMap();
 
 function databaseWriterState(database) {
   let state = DATABASE_WRITER_STATE.get(database);
   if (!state) {
-    state = { active: null };
+    state = {
+      active: null,
+      isAuthenticatedTransportSubject: null,
+    };
     DATABASE_WRITER_STATE.set(database, state);
   }
   return state;
@@ -23,7 +25,12 @@ export function withM5PrivacyReceiptWriterAuthority(
   { receiptId, recordJson },
   operation,
 ) {
-  if (!isAuthenticatedTransportSubject(authenticatedSubject)) {
+  const state = databaseWriterState(database);
+  const { isAuthenticatedTransportSubject } = state;
+  if (
+    typeof isAuthenticatedTransportSubject !== 'function'
+    || !isAuthenticatedTransportSubject(authenticatedSubject)
+  ) {
     throw new TypeError('m5-privacy-authority:authenticated-transport-subject-required');
   }
   if (typeof receiptId !== 'string' || typeof recordJson !== 'string') {
@@ -42,7 +49,6 @@ export function withM5PrivacyReceiptWriterAuthority(
   if (typeof operation !== 'function') {
     throw new TypeError('m5-privacy-authority:writer-operation-required');
   }
-  const state = databaseWriterState(database);
   if (state.active !== null) {
     throw new TypeError('m5-privacy-authority:writer-already-active');
   }
@@ -75,9 +81,25 @@ function validCanonical(raw, validator) {
   }
 }
 
-export function registerM5PrivacyAuthorityFunctions(database) {
+export function registerM5PrivacyAuthorityFunctions(
+  database,
+  isAuthenticatedTransportSubject = undefined,
+) {
   if (!database || typeof database.function !== 'function') {
     throw new TypeError('m5-privacy-authority:database-required');
+  }
+  const writerState = databaseWriterState(database);
+  if (isAuthenticatedTransportSubject !== undefined) {
+    if (typeof isAuthenticatedTransportSubject !== 'function') {
+      throw new TypeError('m5-privacy-authority:transport-subject-verifier-required');
+    }
+    if (
+      writerState.isAuthenticatedTransportSubject !== null
+      && writerState.isAuthenticatedTransportSubject !== isAuthenticatedTransportSubject
+    ) {
+      throw new TypeError('m5-privacy-authority:transport-subject-verifier-conflict');
+    }
+    writerState.isAuthenticatedTransportSubject = isAuthenticatedTransportSubject;
   }
   database.function('m5_privacy_rotation_receipt_valid_v1', {
     deterministic: true,
@@ -95,7 +117,6 @@ export function registerM5PrivacyAuthorityFunctions(database) {
       return 0;
     }
   });
-  const writerState = databaseWriterState(database);
   database.function('m5_privacy_receipt_writer_authorized_v1', (
     receiptId,
     recordJson,

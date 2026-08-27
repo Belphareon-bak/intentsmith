@@ -38,7 +38,8 @@ import {
 } from '../src/security/privacy-authority-repository.js';
 import * as privacyAuthorityModule from '../src/security/privacy-authority-repository.js';
 import * as privacyValidationModule from '../src/security/privacy-authority-validation.js';
-import { authorizeGlobalRequest } from '../src/security/global-auth-policy.js';
+import * as globalAuthModule from '../src/security/global-auth-policy.js';
+import { createGlobalAuthAuthority } from '../src/security/global-auth-policy.js';
 import {
   scanM5TrackedTree,
   verifyM5PrivacyHistoryReachability,
@@ -51,10 +52,12 @@ import { createSessionAdapter } from '../src/ws-bridge/session-adapter.js';
 
 const NOW = 1_800_000_000_000;
 const LOCAL_CAPABILITY = 'A'.repeat(43);
-const SUBJECT = authorizeGlobalRequest({
-  routeKey: 'POST /api/security/privacy/rotations/:categoryId/attest',
-  production: true,
+const TRANSPORT_AUTHORITY = createGlobalAuthAuthority({
   localCapability: LOCAL_CAPABILITY,
+  production: true,
+});
+const SUBJECT = TRANSPORT_AUTHORITY.authorize({
+  routeKey: 'POST /api/security/privacy/rotations/:categoryId/attest',
   websocketLocalCapability: LOCAL_CAPABILITY,
 }).subject;
 const CANARY = 'm5-private-canary-value-never-emit';
@@ -77,6 +80,7 @@ function openDb(settings = {}, { writerAuthority = true } = {}) {
 function repository(db) {
   return new M5PrivacyAuthorityRepository(db, {
     clock: () => NOW,
+    isAuthenticatedTransportSubject: TRANSPORT_AUTHORITY.isAuthenticatedSubject,
   });
 }
 
@@ -300,11 +304,34 @@ test('privacy writer mint is not exported and authority is bound to transport su
     privacyValidationModule,
     'createM5PrivacyTransportWriterCapability',
   ), false);
+  assert.equal(Object.hasOwn(
+    globalAuthModule,
+    'authorizeGlobalRequest',
+  ), false);
   const db = openDb();
   const authority = repository(db);
   const category = M5_PRIVACY_ROTATION_CATEGORIES[0];
   expectCode(() => authority.recordRotation({
     authenticatedSubject: Object.freeze({ ...SUBJECT }),
+    categoryId: category.categoryId,
+    authorityKind: category.authorityKind,
+    completedAtMs: NOW - 1,
+  }), M5PrivacyAuthorityErrorCode.WRITER_AUTHORITY_REQUIRED);
+  const attackerCapability = 'B'.repeat(43);
+  const attackerAuthority = createGlobalAuthAuthority({
+    localCapability: attackerCapability,
+    production: true,
+  });
+  const attackerSubject = attackerAuthority.authorize({
+    routeKey: 'POST /api/security/privacy/rotations/:categoryId/attest',
+    websocketLocalCapability: attackerCapability,
+  }).subject;
+  assert.throws(() => new M5PrivacyAuthorityRepository(db, {
+    clock: () => NOW,
+    isAuthenticatedTransportSubject: attackerAuthority.isAuthenticatedSubject,
+  }), /m5-privacy-authority:transport-subject-verifier-conflict/);
+  expectCode(() => authority.recordRotation({
+    authenticatedSubject: attackerSubject,
     categoryId: category.categoryId,
     authorityKind: category.authorityKind,
     completedAtMs: NOW - 1,

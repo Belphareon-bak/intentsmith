@@ -68,14 +68,18 @@ function storageFailure(error) {
 }
 
 export class M5PrivacyAuthorityRepository {
-  constructor(database, { clock = Date.now } = {}) {
+  constructor(database, { clock = Date.now, isAuthenticatedTransportSubject } = {}) {
     if (!database || typeof database.prepare !== 'function' || typeof database.transaction !== 'function') {
       throw new TypeError('m5-privacy-authority:database-required');
     }
     if (typeof clock !== 'function') throw new TypeError('m5-privacy-authority:clock-required');
+    if (typeof isAuthenticatedTransportSubject !== 'function') {
+      throw new TypeError('m5-privacy-authority:transport-subject-verifier-required');
+    }
     this.database = database;
     this.clock = clock;
-    registerM5PrivacyAuthorityFunctions(database);
+    this.isAuthenticatedTransportSubject = isAuthenticatedTransportSubject;
+    registerM5PrivacyAuthorityFunctions(database, isAuthenticatedTransportSubject);
   }
 
   #now() {

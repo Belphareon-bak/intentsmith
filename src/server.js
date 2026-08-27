@@ -171,7 +171,7 @@ import { createSecurityRoutes, validateApiToken } from './routes/security.js';
 import { createPrivacyRoutes } from './routes/privacy.js';
 import {
   assertGlobalAuthRouteTable,
-  authorizeGlobalRequest,
+  createGlobalAuthAuthority,
 } from './security/global-auth-policy.js';
 import { createNotificationRoutes } from './routes/notifications.js';
 import { createMarketplaceRoutes } from './routes/marketplace.js';
@@ -966,7 +966,15 @@ const learningService = createLearningApplicationService({
   repository: db.learningAuthority,
   projects: db.projects,
 });
-const privacyAuthority = new M5PrivacyAuthorityRepository(db.db);
+const globalAuthAuthority = createGlobalAuthAuthority({
+  localCapability: legacyLocalCapability,
+  adminToken: process.env.C3_ADMIN_TOKEN,
+  validateApiToken: token => validateApiToken(db.db, token),
+  production: process.env.NODE_ENV === 'production',
+});
+const privacyAuthority = new M5PrivacyAuthorityRepository(db.db, {
+  isAuthenticatedTransportSubject: globalAuthAuthority.isAuthenticatedSubject,
+});
 routeDeps.productionObservability = productionObservability;
 routeDeps.m2LifecycleService = m2LifecycleService;
 let m2RecoveryFailureCount = 0;
@@ -1451,13 +1459,10 @@ const server = http.createServer(async (req, res) => {
   }
   httpObservation.setRoute(route.routeKey);
 
-  const authorization = authorizeGlobalRequest({
+  const authorization = globalAuthAuthority.authorize({
     routeKey: route.routeKey,
     headers: req.headers,
     remoteAddress: req.socket.remoteAddress,
-    localCapability: legacyLocalCapability,
-    adminToken: process.env.C3_ADMIN_TOKEN,
-    validateApiToken: token => validateApiToken(db.db, token),
   });
   if (!authorization.allowed) {
     req.resume();
@@ -1510,9 +1515,7 @@ listenOnLegacyLoopback(server, config.server, async () => {
   attachWebSocketServer(server, ChatController, logger, {
     allowedOrigins: config.server.allowedOrigins,
     localCapability: legacyLocalCapability,
-    adminToken: process.env.C3_ADMIN_TOKEN,
-    validateApiToken: token => validateApiToken(db.db, token),
-    production: process.env.NODE_ENV === 'production',
+    authAuthority: globalAuthAuthority,
     m1WireSupported: true,
   });
   modelBindingApplication.startBackgroundVerification();

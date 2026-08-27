@@ -27,20 +27,6 @@ const APPROVAL_ROUTE = /(?:\/approve|\/confirm|\/acknowledge)(?:\/|$|:)/;
 const ADMIN_ROUTE = /^(?:GET|POST|PUT|PATCH|DELETE) \/api\/(?:security(?:\/|$)|reset(?:\/|$)|features\/reset(?:\/|$)|workspace\/(?:file|directory|rename)(?:\/|$)|marketplace\/(?:install|update|installed)(?:\/|$)|system\/(?:backup|restore|shutdown-backup|vacuum|drain|clean|models\/pull|models)(?:\/|$))/;
 const ROUTE_KEY = /^(GET|HEAD|POST|PUT|PATCH|DELETE) \/\S*$/;
 const LOOPBACK_PEERS = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1', '::ffff:7f00:1']);
-const AUTHENTICATED_TRANSPORT_SUBJECTS = new WeakSet();
-
-function authenticatedTransportSubject(actorId) {
-  const subject = Object.freeze({ actorType: 'user', actorId });
-  AUTHENTICATED_TRANSPORT_SUBJECTS.add(subject);
-  return subject;
-}
-
-export function isAuthenticatedTransportSubject(subject) {
-  return subject !== null
-    && typeof subject === 'object'
-    && AUTHENTICATED_TRANSPORT_SUBJECTS.has(subject);
-}
-
 function decision(allowed, values = {}) {
   return Object.freeze({ allowed, ...values });
 }
@@ -169,7 +155,7 @@ export function extractWebSocketBearerCredential(rawProtocols) {
   return parsed.state === CREDENTIAL_PARSE_STATE.VALID ? parsed.token : null;
 }
 
-export function authorizeGlobalRequest({
+function authorizeGlobalRequest({
   routeKey,
   routeClass = classifyRouteAuth(routeKey),
   headers = {},
@@ -181,6 +167,7 @@ export function authorizeGlobalRequest({
   websocketProtocols,
   websocketLocalCapability,
   websocketLocalCredential,
+  authenticatedTransportSubject,
 } = {}) {
   if (!routeClass || !Object.values(RouteAuthClass).includes(routeClass)) {
     return decision(false, {
@@ -293,4 +280,53 @@ export function authorizeGlobalRequest({
   }
 
   return decision(false, { status: 401, code: GLOBAL_AUTH_REQUIRED, routeClass });
+}
+
+export function createGlobalAuthAuthority({
+  localCapability,
+  adminToken,
+  validateApiToken,
+  production = process.env.NODE_ENV === 'production',
+} = {}) {
+  const authenticatedTransportSubjects = new WeakSet();
+
+  function authenticatedTransportSubject(actorId) {
+    const subject = Object.freeze({ actorType: 'user', actorId });
+    authenticatedTransportSubjects.add(subject);
+    return subject;
+  }
+
+  function isAuthenticatedSubject(subject) {
+    return subject !== null
+      && typeof subject === 'object'
+      && authenticatedTransportSubjects.has(subject);
+  }
+
+  return Object.freeze({
+    authorize({
+      routeKey,
+      routeClass,
+      headers,
+      remoteAddress,
+      websocketProtocols,
+      websocketLocalCapability,
+      websocketLocalCredential,
+    } = {}) {
+      return authorizeGlobalRequest({
+        routeKey,
+        routeClass,
+        headers,
+        remoteAddress,
+        production,
+        localCapability,
+        adminToken,
+        validateApiToken,
+        websocketProtocols,
+        websocketLocalCapability,
+        websocketLocalCredential,
+        authenticatedTransportSubject,
+      });
+    },
+    isAuthenticatedSubject,
+  });
 }

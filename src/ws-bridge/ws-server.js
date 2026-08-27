@@ -42,7 +42,7 @@ import {
 } from '../security/legacy-local-access-policy.js';
 import {
   RouteAuthClass,
-  authorizeGlobalRequest,
+  createGlobalAuthAuthority,
 } from '../security/global-auth-policy.js';
 
 const WS_OPEN = 1;
@@ -81,11 +81,12 @@ function createLegacyWebSocketVerifyClient({
   httpServer,
   allowedOrigins,
   localCapability,
-  adminToken,
-  validateApiToken,
-  production,
+  authAuthority,
   logger,
 }) {
+  if (!authAuthority || typeof authAuthority.authorize !== 'function') {
+    throw new TypeError('WSBridge requires the bootstrap global auth authority');
+  }
   return (info, done) => {
     const address = httpServer.address();
     const expectedPort = typeof address === 'object' && address
@@ -116,15 +117,11 @@ function createLegacyWebSocketVerifyClient({
       return;
     }
 
-    const authorization = authorizeGlobalRequest({
+    const authorization = authAuthority.authorize({
       routeKey: 'WS /c3/ws',
       routeClass: RouteAuthClass.MUTATE,
       headers: info.req?.headers ?? {},
       remoteAddress: info.req?.socket?.remoteAddress,
-      production,
-      localCapability,
-      adminToken,
-      validateApiToken,
       websocketProtocols: info.req?.headers?.['sec-websocket-protocol'],
       websocketLocalCredential: presentedLocalCredential,
     });
@@ -259,9 +256,12 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
       httpServer,
       allowedOrigins: options.allowedOrigins || [],
       localCapability: options.localCapability,
-      adminToken: options.adminToken,
-      validateApiToken: options.validateApiToken,
-      production: options.production ?? process.env.NODE_ENV === 'production',
+      authAuthority: options.authAuthority ?? createGlobalAuthAuthority({
+        localCapability: options.localCapability,
+        adminToken: options.adminToken,
+        validateApiToken: options.validateApiToken,
+        production: options.production ?? process.env.NODE_ENV === 'production',
+      }),
       logger,
     }),
   });
