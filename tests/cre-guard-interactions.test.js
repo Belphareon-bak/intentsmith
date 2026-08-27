@@ -84,7 +84,8 @@ section('GUARD 6 + GUARD 11 — creativeLock blocks BUILD escalation');
 await ta('creativeLock + "chci vytvořit aplikaci" → NOT BUILD', async () => {
   const d = await decide('chci vytvořit aplikaci pro správu financí', {
     expertise: { creativeLock: true },
-    activeProject: { id: 1, name: 'Test' },
+    hasActiveProject: true,
+    project: { id: 1, name: 'Test' },
   });
   assert(d.type !== DecisionType.PLAN, `Expected non-BUILD, got ${d.type}`);
 });
@@ -98,11 +99,27 @@ await ta('creativeLock + "want to create app" → NOT BUILD', async () => {
 
 await ta('no creativeLock + same input → allowed to escalate', async () => {
   const d = await decide('chci vytvořit aplikaci pro správu financí', {
-    activeProject: { id: 1, name: 'Test' },
+    hasActiveProject: true,
+    project: { id: 1, name: 'Test' },
   });
-  // Without creativeLock, BUILD escalation is possible (depends on other guards)
-  // This test verifies creativeLock is the gate, not something else
-  assert(d != null, 'decision should be returned');
+  assertEqual(d.intent, IntentType.BUILD, 'active project should escalate the build request');
+  assertEqual(d.type, DecisionType.PLAN, 'active project build request should enter planner');
+});
+
+t('plain create-app request stays DESIGN without active project', () => {
+  assertEqual(
+    cre.classifyIntent('chci vytvořit mobilní aplikaci'),
+    IntentType.DESIGN,
+    'project-only escalation must not run in the context-free classifier',
+  );
+});
+
+t('explicit DESIGN plus implementation request is BUILD without project context', () => {
+  assertEqual(
+    cre.classifyIntent('navrhni a implementuj REST API'),
+    IntentType.BUILD,
+    'hybrid design and implementation request should remain a strong BUILD signal',
+  );
 });
 
 // ─── GUARD 5 + GUARD 6 — DESIGN vs CREATIVE overlap ────────────────────────
@@ -268,6 +285,13 @@ section('_testCREInternals defensive copies');
 t('DESIGN_BUILD_ESCALATION returns fresh array each access', () => {
   const a = _testCREInternals.DESIGN_BUILD_ESCALATION;
   const b = _testCREInternals.DESIGN_BUILD_ESCALATION;
+  assert(a !== b, 'should be different array references');
+  assertEqual(a.length, b.length, 'but same content');
+});
+
+t('DESIGN_BUILD_HYBRID returns fresh array each access', () => {
+  const a = _testCREInternals.DESIGN_BUILD_HYBRID;
+  const b = _testCREInternals.DESIGN_BUILD_HYBRID;
   assert(a !== b, 'should be different array references');
   assertEqual(a.length, b.length, 'but same content');
 });

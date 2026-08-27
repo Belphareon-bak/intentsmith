@@ -83,7 +83,7 @@
       "expectedDurationMs": 600000,
       "requirements": {
         "network": "loopback",
-        "database": false,
+        "database": true,
         "server": false,
         "ollama": true,
         "gpu": false

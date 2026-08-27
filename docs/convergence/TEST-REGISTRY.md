@@ -34,7 +34,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 | ID | Path | Capability | Tier | Profile | Expected | Timeout | Requirements | Required | State | Last green | Owner |
 |---|---|---|---|---|---:|---:|---|---:|---|---|---|
-| `IS-T3-E2E-RUN-E2E` | `e2e/run-e2e.js` | `C3-027` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-E2E-RUN-E2E` | `e2e/run-e2e.js` | `C3-027` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T5-TESTS-LEGACY-BENCHMARK` | `tests/_legacy/benchmark.cjs` | `C3-027` | T5 | `manual` | 30 min | 60 min | network:external, temp-db, server, ollama, gpu | no | `HISTORICAL` | — | primary implementer |
 | `IS-T5-TESTS-LEGACY-E2E-LLM-VALIDATION` | `tests/_legacy/e2e-llm-validation.cjs` | `C3-027` | T5 | `manual` | 30 min | 60 min | network:external, temp-db, server, ollama, gpu | no | `HISTORICAL` | — | primary implementer |
 | `IS-T5-TESTS-LEGACY-E2E-LOOP` | `tests/_legacy/e2e-loop.js` | `C3-027` | T5 | `manual` | 30 min | 60 min | network:external, temp-db, server, ollama, gpu | no | `HISTORICAL` | — | primary implementer |

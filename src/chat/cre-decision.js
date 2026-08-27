@@ -181,7 +181,12 @@ export function getSpecialistToolIds() {
 }
 
 // v121: Export for testing
-export const _testCREInternals = { _specialistTools, get DESIGN_BUILD_ESCALATION() { return [...DESIGN_BUILD_ESCALATION]; }, get DESIGN_ADVISORY() { return [...DESIGN_ADVISORY]; } };
+export const _testCREInternals = {
+  _specialistTools,
+  get DESIGN_BUILD_HYBRID() { return [...DESIGN_BUILD_HYBRID]; },
+  get DESIGN_BUILD_ESCALATION() { return [...DESIGN_BUILD_ESCALATION]; },
+  get DESIGN_ADVISORY() { return [...DESIGN_ADVISORY]; },
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // v45.0 KOLO 3: Response Intent (HOW to present the answer)
@@ -1186,6 +1191,15 @@ const BUILD_PATTERNS = [
 // "chci vytvořit mobilní aplikaci" in project mode = lifecycle, not plain doc.
 // Advisory requests ("navrhni schema", "jaký stack") stay DESIGN.
 // ─────────────────────────────────────────────────────────────────────────────
+const DESIGN_BUILD_HYBRID = [
+  // A DESIGN request that also explicitly asks for implementation is a BUILD
+  // signal even without an active project. Keep this narrower than the
+  // project-only escalation vocabulary below.
+  /navrhni\s+.{0,60}(implementuj|postav|buduj|naprogramuj|vytvo[rř]|napi[sš])\b/i,
+  /navrhni\s+.{0,10}a\s+(implementuj|postav|buduj|naprogramuj|vytvo[rř]|napi[sš])/i,
+  /design\s+.{0,30}(implement|build|create|develop)/i,
+];
+
 const DESIGN_BUILD_ESCALATION = [
   // CZ: "chci vytvořit/udělat/postavit [app type]" — intent to BUILD, not just plan
   /chci\s+(vytvo[rř]it|ud[eě]lat|postavit|napsat)\s+.{0,60}(aplikac|app|web|str[áa]nk|syst[eé]m|platform)/i,
@@ -1194,11 +1208,7 @@ const DESIGN_BUILD_ESCALATION = [
   /chci\s+(vytvorit|udelat)\s+.{0,60}(aplikac|app|web|system|mobilni)/i,
   // EN: "I want to create/build/make [app type]"
   /want\s+to\s+(create|build|make|develop)\s+.{0,60}(app|application|website|system|platform)/i,
-  // v126: DESIGN+BUILD hybrid — "navrhni a implementuj/postav/vytvoř/naprogramuj"
-  /navrhni\s+.{0,60}(implementuj|postav|buduj|naprogramuj|vytvo[rř]|napi[sš])\b/i,
-  /navrhni\s+.{0,10}a\s+(implementuj|postav|buduj|naprogramuj|vytvo[rř]|napi[sš])/i,
-  // EN: "design and implement/build"
-  /design\s+.{0,30}(implement|build|create|develop)/i,
+  ...DESIGN_BUILD_HYBRID,
 ];
 
 const DESIGN_ADVISORY = [
@@ -2673,9 +2683,11 @@ PRAVIDLA:
     // v58.3: DESIGN_EXCLUSION — "navrhni nápady/příběh/jídelníček" = NOT architecture
     if (DESIGN_PATTERNS.some(p => p.test(textNorm)) &&
         !DESIGN_EXCLUSION_PATTERNS.some(p => p.test(textNorm))) {
-      // v126: If DESIGN matches BUT input also contains BUILD action verbs,
-      // escalate to BUILD. "Navrhni a implementuj REST API" = BUILD, not DESIGN.
-      if (DESIGN_BUILD_ESCALATION.some(p => p.test(textNorm))) {
+      // v126: If DESIGN matches AND the same request explicitly asks for
+      // implementation, escalate to BUILD. Project-only requests such as
+      // "chci vytvořit mobilní aplikaci" stay DESIGN until GUARD 11 proves
+      // that project context is active.
+      if (DESIGN_BUILD_HYBRID.some(p => p.test(textNorm))) {
         return IntentType.BUILD;
       }
       return IntentType.DESIGN;
@@ -3402,18 +3414,17 @@ PRAVIDLA:
     // Exception: LOCAL (deterministic), explicit FACTUAL (escape hatch)
     // ════════════════════════════════════════════════════════════════════════
     const exceptDesignFollowUp = [IntentType.LOCAL, IntentType.FACTUAL];
-    if (lastIntent === IntentType.DESIGN && !exceptDesignFollowUp.includes(intent)) {
-      const isDesignFollowUp = DESIGN_CONTINUE_PATTERNS.some(p => p.test(input.trim()));
-
-      if (isDesignFollowUp) {
-        logger.info('CREDecision', 'DESIGN follow-up detected, maintaining DESIGN intent', {
-          input: input.substring(0, 50),
-          classifiedAs: intent,
-          maintainingAs: IntentType.DESIGN,
-        });
-        _diag.overrides.push(`design_followup:${intent}→DESIGN`);
-        intent = IntentType.DESIGN;
-      }
+    const isDesignFollowUp = lastIntent === IntentType.DESIGN &&
+      !exceptDesignFollowUp.includes(intent) &&
+      DESIGN_CONTINUE_PATTERNS.some(p => p.test(input.trim()));
+    if (isDesignFollowUp) {
+      logger.info('CREDecision', 'DESIGN follow-up detected, maintaining DESIGN intent', {
+        input: input.substring(0, 50),
+        classifiedAs: intent,
+        maintainingAs: IntentType.DESIGN,
+      });
+      _diag.overrides.push(`design_followup:${intent}→DESIGN`);
+      intent = IntentType.DESIGN;
     }
 
     // v44.6 FIX 7: Enhanced continuation patterns for SEARCH
@@ -3466,7 +3477,11 @@ PRAVIDLA:
 
     // v44.7: Skip sticky intent if we have a strong intent (LOCAL, CONVERSATIONAL)
     // v45.0: Also skip if INTENT_BREAK_PATTERNS match (user starting new task)
-    const isIntentBreak = INTENT_BREAK_PATTERNS.some(p => p.test(input.trim()));
+    // A domain-specific continuation is stronger than a generic leading
+    // "změň/přepni" break. "Změň stack na Kotlin" refines the active design;
+    // "změň téma" still breaks it.
+    const isIntentBreak = !isDesignFollowUp &&
+      INTENT_BREAK_PATTERNS.some(p => p.test(input.trim()));
     _diag.isIntentBreak = isIntentBreak;
     if (isIntentBreak) {
       logger.info('CREDecision', 'Intent break detected - not applying sticky intent', {

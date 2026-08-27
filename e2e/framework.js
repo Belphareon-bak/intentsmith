@@ -250,8 +250,8 @@ export async function assertDecisionType(input, expectedType, context) {
 // CONVERSATION SIMULATOR
 // ═══════════════════════════════════════════════════════════════════════════════
 // Simulates multi-turn conversations using CRE classification + SessionState.
-// Does NOT call real LLM — tracks routing decisions, state transitions, and
-// session lifecycle. For actual LLM output testing, use LIVE mode.
+// The decision path uses the configured LLM intent classifier; response bodies
+// remain synthetic so the harness can focus on routing and session lifecycle.
 // ═══════════════════════════════════════════════════════════════════════════════
 
 class SimpleSessionState {
@@ -348,8 +348,8 @@ export class ConversationSimulator {
   }
 
   /**
-   * Classify intent + make decision for input. Does NOT call LLM.
-   * Simulates the routing that conversationHandler does.
+   * Classify intent + make decision for input. The decision step may call the
+   * configured LLM intent classifier; response generation is simulated.
    */
   async send(input) {
     const text = input.trim();

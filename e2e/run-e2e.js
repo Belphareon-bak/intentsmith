@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 // ══════════════════════════════════════════════════════════════════════════════
-// C3-Agent E2E Tests v58.3 — 58 tests
+// C3-Agent E2E Tests v58.3 — 60 CI checks + 2 conditional soak checks
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Groups:
-//   1. DESIGN (14) — structured synthesis, multi-turn, close, BUILD
+//   1. DESIGN (16) — structured synthesis, multi-turn, close, BUILD
 //   2. KNOWLEDGE vs SEARCH (10) — Tier 1 gate
 //   3. CONVERSATIONAL (6) — chat quality
 //   4. CODE (4) — imperative routing
 //   5. FORBIDDEN (6) — global enforcement
 //   6. LOCAL (3) — deterministic
-//   7. TYPO TOLERANCE (8) — misspelling resilience
-//   8. STRESS (7) — cross-cutting, soak
+//   7. TYPO TOLERANCE (7) — misspelling resilience
+//   8. STRESS (5 CI + 2 conditional) — cross-cutting, soak
 //
 // Run:
 //   node e2e/run-e2e.js                    # CI mode (skip soak)
@@ -19,6 +19,8 @@
 //   E2E_MODE=weekly  node e2e/run-e2e.js   # Include 12-turn soak
 //
 // ══════════════════════════════════════════════════════════════════════════════
+
+import '../tests/helpers/isolated-test-db.js';
 
 import {
   E2ETestRunner,
