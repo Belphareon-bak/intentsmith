@@ -185,26 +185,42 @@ function parseCsvLine(line) {
   return line.split(',').map(value => value.trim());
 }
 
-function processIdentity(pid, authority = null) {
+function processIdentity(pid, processName, authority = null) {
   const procRoot = `/proc/${pid}`;
   try {
     const metadata = statSync(procRoot);
-    const executable = realpathSync(path.join(procRoot, 'exe'));
     const argv = readFileSync(path.join(procRoot, 'cmdline'))
       .toString('utf8')
       .split('\0')
       .filter(Boolean);
+    let executable = null;
+    let executableState = 'observed';
+    let executableErrorCode = null;
+    try {
+      executable = realpathSync(path.join(procRoot, 'exe'));
+    } catch (error) {
+      executableState = 'unreadable';
+      executableErrorCode = error.code || 'UNKNOWN';
+    }
     const argument = name => {
       const index = argv.indexOf(name);
       return index >= 0 ? argv[index + 1] : undefined;
     };
+    const executableBound = authority === null
+      ? null
+      : executable === authority.workerExecutable
+        || (executableState === 'unreadable' && executableErrorCode === 'EACCES');
     return {
       state: 'observed',
       uid: metadata.uid,
       executable,
-      candidateWorkerExecutable: authority === null
+      executableState,
+      executableErrorCode,
+      candidateWorkerBound: authority === null
         ? null
-        : executable === authority.workerExecutable,
+        : processName === authority.workerExecutable
+          && argv[0] === authority.workerExecutable
+          && executableBound,
       candidateWorkerUid: authority === null ? null : metadata.uid === authority.workerUid,
       candidateModelArgument: authority === null
         ? null
@@ -288,7 +304,7 @@ function gpuCensusSnapshot(authority = null) {
       pid: numericPid,
       processName,
       usedMemoryMiB: Number(usedMemoryMiB),
-      identity: processIdentity(numericPid, authority),
+      identity: processIdentity(numericPid, processName, authority),
     };
   }) : [];
   const gpus = memoryRaw.split('\n').filter(Boolean).map(line => {
@@ -347,8 +363,8 @@ export function candidateModelResidencyOnly(census) {
     item.identity?.state === 'gone'
     || (
       item.identity?.state === 'observed'
-      && item.processName === item.identity.executable
-      && item.identity.candidateWorkerExecutable === true
+      && item.processName === M6_OLLAMA_WORKER
+      && item.identity.candidateWorkerBound === true
       && item.identity.candidateWorkerUid === true
       && item.identity.candidateModelArgument === true
       && item.identity.candidateMmprojArgument === true

@@ -71,7 +71,9 @@ test('pre-physical wait recognizes only the candidate-owned Ollama residency', (
     state: 'observed',
     uid: 997,
     executable: '/usr/local/lib/ollama/llama-server',
-    candidateWorkerExecutable: true,
+    executableState: 'observed',
+    executableErrorCode: null,
+    candidateWorkerBound: true,
     candidateWorkerUid: true,
     candidateModelArgument: true,
     candidateMmprojArgument: true,
@@ -98,6 +100,18 @@ test('pre-physical wait recognizes only the candidate-owned Ollama residency', (
   }), true);
   assert.equal(candidateModelResidencyOnly({
     ...owned,
+    compute: [{
+      ...owned.compute[0],
+      identity: {
+        ...candidateIdentity,
+        executable: null,
+        executableState: 'unreadable',
+        executableErrorCode: 'EACCES',
+      },
+    }],
+  }), true);
+  assert.equal(candidateModelResidencyOnly({
+    ...owned,
     compute: [],
   }), true);
   assert.equal(candidateModelResidencyOnly({
@@ -109,6 +123,10 @@ test('pre-physical wait recognizes only the candidate-owned Ollama residency', (
     { ...owned, compute: [{ ...owned.compute[0], processName: '/usr/bin/python' }] },
     { ...owned, compute: [{ ...owned.compute[0], processName: '/foreign/llama-server' }] },
     { ...owned, compute: [{ ...owned.compute[0], identity: { state: 'unreadable', errorCode: 'EACCES' } }] },
+    { ...owned, compute: [{
+      ...owned.compute[0],
+      identity: { ...candidateIdentity, candidateWorkerBound: false },
+    }] },
     { ...owned, compute: [{
       ...owned.compute[0],
       identity: { ...candidateIdentity, candidateWorkerUid: false },
