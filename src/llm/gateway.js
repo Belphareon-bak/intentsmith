@@ -94,24 +94,6 @@ function providerHttpError(status, cause = null) {
   );
 }
 
-async function resolveServedArtifactDigest(baseUrl, servedModel, providerData) {
-  const direct = normalizeModelDigestSha256(
-    providerData?.digest || providerData?.model_digest_sha256,
-  );
-  if (direct) return direct;
-  try {
-    const response = await fetch(`${baseUrl}/api/tags`, {
-      signal: AbortSignal.timeout(2_000),
-    });
-    if (!response.ok) return null;
-    const body = await response.json();
-    const installed = (body.models || []).find(row => sameModelName(row?.name, servedModel));
-    return normalizeModelDigestSha256(installed?.digest);
-  } catch {
-    return null;
-  }
-}
-
 async function resolveCurrentArtifactDigest(baseUrl, modelName, signal) {
   let response;
   try {
@@ -1119,14 +1101,14 @@ class LLMGateway {
             { httpStatus: 503, retryable: false },
           );
         }
-        let servedDigest = normalizeModelDigestSha256(
+        const servedDigest = normalizeModelDigestSha256(
           data?.digest || data?.model_digest_sha256,
         );
         if (expectedArtifact && !servedDigest) {
-          servedDigest = await resolveCurrentArtifactDigest(
-            config.ollama?.baseUrl || 'http://127.0.0.1:11434',
-            servedModel,
-            controller.signal,
+          throw new LLMGatewayError(
+            LLMGatewayErrorCode.BINDING_ARTIFACT_UNVERIFIED,
+            'The local provider response does not identify the serving artifact digest.',
+            { httpStatus: 503, retryable: false },
           );
         }
         if (expectedArtifact && servedDigest !== expectedArtifact.digestSha256) {
@@ -1163,12 +1145,9 @@ class LLMGateway {
             // actually served this request. Persist a digest only when the
             // provider response itself identifies it exactly; otherwise NULL
             // preserves the fail-closed retention boundary during a rebind.
-            const usageDigest = servedDigest || await resolveServedArtifactDigest(
-              config.ollama?.baseUrl || 'http://127.0.0.1:11434', servedModel, data,
-            );
             this._usageDb.prepare(
               'INSERT INTO model_usage (model, role, request_type, model_digest_sha256) VALUES (?, ?, ?, ?)'
-            ).run(servedModel, usageRole, requestType, usageDigest);
+            ).run(servedModel, usageRole, requestType, servedDigest);
           } catch (_) {}
         }
 

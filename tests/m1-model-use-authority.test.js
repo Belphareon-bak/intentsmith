@@ -401,7 +401,7 @@ await testAsync('default registry and pull wiring share the production singleton
 
 suite('M1 model use authority — gateway provider lifecycle');
 
-await testAsync('gateway rejects mutable-tag digest drift before send and before release', async () => {
+await testAsync('gateway rejects mutable-tag drift before send and response digest mismatch', async () => {
   const previousAuthority = llmGateway._bindingStartupAuthority;
   const previousResolver = llmGateway._bindingArtifactResolver;
   const expected = Object.freeze({
@@ -440,16 +440,18 @@ await testAsync('gateway rejects mutable-tag digest drift before send and before
     globalThis.fetch = async url => {
       if (String(url).endsWith('/api/tags')) {
         inventoryCalls += 1;
-        const digest = inventoryCalls === 1 ? DIGEST : 'b'.repeat(64);
         return {
           ok: true,
           json: async () => ({
-            models: [{ name: expected.modelName, digest: `sha256:${digest}` }],
+            models: [{ name: expected.modelName, digest: `sha256:${DIGEST}` }],
           }),
         };
       }
       chatCalls += 1;
-      return providerChatResponse('untrusted response', { model: expected.modelName });
+      return providerChatResponse('untrusted response', {
+        model: expected.modelName,
+        digest: `sha256:${'b'.repeat(64)}`,
+      });
     };
     const postResponse = await captureAsync(callWithAuth(
       gatewayToken('binding-post-response-drift'),
@@ -457,9 +459,62 @@ await testAsync('gateway rejects mutable-tag digest drift before send and before
       { model: 'binding-fixture', capability: 'reasoning', retries: 1 },
     ));
     assertEqual(postResponse.code, 'LLM_BINDING_ARTIFACT_DRIFT');
-    assertEqual(inventoryCalls, 2);
+    assertEqual(inventoryCalls, 1);
     assertEqual(chatCalls, 1);
     assertEqual(modelUseAuthority.snapshot('binding-fixture').activeUseCount, 0);
+    assertEqual(llmGateway.getConcurrencyStats().active, 0);
+  } finally {
+    llmGateway._bindingStartupAuthority = previousAuthority;
+    llmGateway._bindingArtifactResolver = previousResolver;
+    globalThis.fetch = originalFetch;
+  }
+});
+
+await testAsync('gateway rejects an A-B-A tag race when the response has no digest', async () => {
+  const previousAuthority = llmGateway._bindingStartupAuthority;
+  const previousResolver = llmGateway._bindingArtifactResolver;
+  const expected = Object.freeze({
+    modelName: 'binding-aba-fixture:latest',
+    digestSha256: DIGEST,
+  });
+  llmGateway.setBindingStartupAuthority({
+    status: 'DURABLE',
+    artifacts: { CHAT: expected },
+  }, {
+    resolveArtifact: () => expected,
+  });
+  let providerDigest = DIGEST;
+  const calls = [];
+  try {
+    globalThis.fetch = async url => {
+      const pathname = new URL(String(url)).pathname;
+      calls.push(pathname);
+      if (pathname === '/api/tags') {
+        return {
+          ok: true,
+          json: async () => ({
+            models: [{
+              name: expected.modelName,
+              digest: `sha256:${providerDigest}`,
+            }],
+          }),
+        };
+      }
+      providerDigest = 'b'.repeat(64);
+      const response = providerChatResponse('served during digest B', {
+        model: expected.modelName,
+      });
+      providerDigest = DIGEST;
+      return response;
+    };
+    const error = await captureAsync(callWithAuth(
+      gatewayToken('binding-aba-no-digest'),
+      'response must be discarded',
+      { model: 'binding-aba-fixture', capability: 'reasoning', retries: 1 },
+    ));
+    assertEqual(error.code, 'LLM_BINDING_ARTIFACT_UNVERIFIED');
+    assertEqual(calls.join(','), '/api/tags,/api/chat');
+    assertEqual(modelUseAuthority.snapshot('binding-aba-fixture').activeUseCount, 0);
     assertEqual(llmGateway.getConcurrencyStats().active, 0);
   } finally {
     llmGateway._bindingStartupAuthority = previousAuthority;
@@ -581,7 +636,7 @@ await testAsync('gateway usage keeps digest NULL when only desired binding claim
   }
 });
 
-await testAsync('gateway usage prefers served inventory digest over a concurrent desired rebind', async () => {
+await testAsync('gateway usage never infers a served digest from mutable inventory', async () => {
   const servedDigest = 'b'.repeat(64);
   const db = new Database(':memory:');
   db.exec(`
@@ -600,22 +655,27 @@ await testAsync('gateway usage prefers served inventory digest over a concurrent
     INSERT INTO model_desired_bindings(role, model_name, digest_sha256)
     VALUES ('CHAT', 'usage-fixture:latest', ?)
   `).run(DIGEST);
-  globalThis.fetch = async url => String(url).endsWith('/api/tags')
-    ? {
-      ok: true,
-      json: async () => ({
-        models: [{ name: 'usage-fixture:latest', digest: `sha256:${servedDigest}` }],
-      }),
+  let inventoryCalls = 0;
+  globalThis.fetch = async url => {
+    if (String(url).endsWith('/api/tags')) {
+      inventoryCalls += 1;
+      return {
+        ok: true,
+        json: async () => ({
+          models: [{ name: 'usage-fixture:latest', digest: `sha256:${servedDigest}` }],
+        }),
+      };
     }
-    : providerChatResponse('tracked', { model: 'usage-fixture:latest' });
+    return providerChatResponse('tracked', { model: 'usage-fixture:latest' });
+  };
   llmGateway.setUsageDb(db);
   try {
     await callWithAuth(gatewayToken('served-digest-usage'), 'track me', {
       model: 'usage-fixture', capability: 'reasoning', retries: 1,
     });
     const row = db.prepare('SELECT model_digest_sha256 FROM model_usage').get();
-    assertEqual(row.model_digest_sha256, servedDigest);
-    assert(row.model_digest_sha256 !== DIGEST, 'desired rebind digest must not stamp old runtime use');
+    assertEqual(row.model_digest_sha256, null);
+    assertEqual(inventoryCalls, 0);
   } finally {
     llmGateway.setUsageDb(null);
     db.close();
