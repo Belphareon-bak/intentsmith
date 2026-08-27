@@ -26,4 +26,3 @@ následovat pouze evidence-only descendant měnící přesně vyjmenované roadm
 run a review dokumenty; registry ani produktový soubor se změnit nesmí. Tím
 review dokumentace nezmění testovaný build a současně nemusí zůstat
 necommitnutá.
-

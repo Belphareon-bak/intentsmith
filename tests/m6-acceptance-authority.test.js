@@ -158,4 +158,3 @@ test('duplicate receipts and unknown release rows fail closed', () => {
 });
 
 summary();
-

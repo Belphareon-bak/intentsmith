@@ -68,7 +68,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY IMPLEMENTED_RE_REVIEW_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | DATA, AUTH a PERF prošly re-review; per-bootstrap privacy writer oprava je implementovaná a čeká na re-review. Stále chybí 8 rotací a history disposition. |
-| **M6 IntentSmith 1.0 release** | `REMEDIATION_IN_PROGRESS / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, skutečný application upgrade a L0-11 jsou implementované; zbývá skutečný 24h soak, maximum-throughput, finální candidate evidence a re-review. |
+| **M6 IntentSmith 1.0 release** | `REMEDIATION_IN_PROGRESS / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, skutečný application upgrade, L0-11 i pravdivý soak/throughput harness jsou implementované; 24h a pětiminutový plný běh zatím nejsou provedené. |
 | **M7 Remote Companion** | `DESIGN_ONLY` | M6 + remote boundary | Samostatný vzdálený companion release nad bezpečným core rozhraním. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
@@ -1669,7 +1669,7 @@ stabilní candidate + re-review:
 
 - finální release evidence se znovu odvozuje z raw logů připnutých v Git a
   validuje exact artifact/receipt chain; ignorovaný JSON nemůže vydat PASS;
-- locked plán používá množinovou rovnost se všemi současnými 372
+- locked plán používá množinovou rovnost se všemi současnými 374
   `ACTIVE + required` programy;
 - required previous-version journey spouští skutečný server 136.0.0 nad
   persistentní DB a poté tentýž stav otevře současnou aplikací 136.1.0;
@@ -1677,12 +1677,18 @@ stabilní candidate + re-review:
   terminály, loopback-only provider scope, bounded stalled-pull recovery a
   explicitně retired legacy chat cleanup. Focused autorita prošla 11/11,
   původní model-use 24/24, VRAM 8/8 a binding/chat 108/108.
+- původních třináct `ACTIVE` položek označených `soak` bylo podle skutečného
+  runtime překlasifikováno na model/server/database/offline. Soak acceptance
+  nyní tvoří pouze dva nové owned-production-server programy: přesný 24h běh
+  a pětiminutové ramp + sustained maximum-throughput měření v samostatném
+  Linux network namespace. Zkrácené sondy vracejí pouze `DEV_ONLY` a release
+  parser je odmítá.
 
 Autoritativní module graph má 1 191 hran, stále 3 cykly a 28 souborů v
 cyklech; pět přesných nových hran bylo přijato bez růstu cyklu a odstraněná
 chat → model-identity hrana baseline zpřísnila.
 
-Dosud chybí skutečný 24hodinový soak, maximum-throughput/resource receipt,
+Dosud chybí skutečný 24hodinový soak, plný maximum-throughput/resource receipt,
 nový úplný candidate run a operátorský re-review. Proto žádný z těchto řádků
 není ještě vydáván za `REVIEW_PASSED` ani za M6 acceptance.
 

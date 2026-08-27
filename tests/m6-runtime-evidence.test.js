@@ -3,6 +3,8 @@ import './helpers/isolated-test-db.js';
 import assert from 'node:assert/strict';
 
 import {
+  M6_LONG_SOAK_PROGRAM,
+  M6_MAX_THROUGHPUT_PROGRAM,
   M6_PREVIOUS_VERSION_SHA,
   M6_PREVIOUS_VERSION_UPGRADE_PROGRAM,
   M6_RUNTIME_EVIDENCE_MARKER,
@@ -36,6 +38,134 @@ function log(value = receipt()) {
   return `${M6_RUNTIME_EVIDENCE_MARKER}${Buffer.from(JSON.stringify(value)).toString('base64url')}\n`;
 }
 
+function diagnostics(completedRequests = 100_000) {
+  return {
+    activeRequests: 0,
+    completedRequests,
+    http5xx: 0,
+    outboundDecisionCount: 0,
+    databaseReady: true,
+    lifecycleRecoveryComplete: true,
+  };
+}
+
+function latency(samples, p95Ms = 15, p99Ms = 25) {
+  return { samples, p50Ms: 7, p95Ms, p99Ms, maxMs: Math.max(40, p99Ms) };
+}
+
+function longSoakReceipt(overrides = {}) {
+  return {
+    contract: 'M6LongSoakReceipt',
+    version: 1,
+    candidateSha,
+    durationMs: 86_400_001,
+    requestCount: 86_000,
+    healthRequests: 43_000,
+    projectRequests: 43_000,
+    errorCount: 0,
+    latency: latency(86_000),
+    rss: { startMiB: 100, peakMiB: 115, endMiB: 110, growthMiB: 10 },
+    timerDriftMaxMs: 12,
+    diagnostics: diagnostics(86_000),
+    networkScope: 'linux-user-network-namespace-loopback-only',
+    namespaceInterfaces: ['lo'],
+    serverCleanShutdown: true,
+    forcedShutdown: false,
+    budgets: {
+      maximumP95Ms: 100,
+      maximumP99Ms: 250,
+      maximumRssMiB: 1_024,
+      maximumRssGrowthMiB: 128,
+      minimumRequestCount: 80_000,
+    },
+    verdict: 'PASS',
+    ...overrides,
+  };
+}
+
+function throughputReceipt(overrides = {}) {
+  const levels = [1, 8, 32, 128, 512, 1_024];
+  const stages = levels.map((concurrency, index) => ({
+    concurrency,
+    durationMs: 15_000,
+    successes: 1_000 * (index + 1),
+    errorCount: 0,
+    requestsPerSecond: 1_000 + index * 100,
+    latency: latency(1_000 * (index + 1)),
+    stable: true,
+    sustained: false,
+  }));
+  stages.push({
+    concurrency: 1_024,
+    durationMs: 210_001,
+    successes: 300_000,
+    errorCount: 0,
+    requestsPerSecond: 1_428.5,
+    latency: latency(300_000),
+    stable: true,
+    sustained: true,
+  });
+  return {
+    contract: 'M6MaxThroughputReceipt',
+    version: 1,
+    candidateSha,
+    durationMs: 300_001,
+    surface: 'production-public-health-http',
+    concurrencyLevels: levels,
+    selectedConcurrency: 1_024,
+    saturationObserved: false,
+    ceilingReached: true,
+    probeErrorCount: 0,
+    stages,
+    sustained: {
+      durationMs: 210_001,
+      requests: 300_000,
+      errorCount: 0,
+      requestsPerSecond: 1_428.5,
+      latency: latency(300_000),
+    },
+    rss: {
+      startMiB: 120,
+      peakMiB: 260,
+      endMiB: 180,
+      growthMiB: 60,
+      measurementError: null,
+    },
+    diagnostics: diagnostics(336_001),
+    networkScope: 'linux-user-network-namespace-loopback-only',
+    namespaceInterfaces: ['lo'],
+    serverCleanShutdown: true,
+    forcedShutdown: false,
+    budgets: {
+      maximumP95Ms: 100,
+      maximumP99Ms: 250,
+      maximumRssMiB: 1_536,
+      maximumRssGrowthMiB: 512,
+      minimumSustainedRequestsPerSecond: 500,
+    },
+    verdict: 'PASS',
+    ...overrides,
+  };
+}
+
+function saturatedThroughputReceipt() {
+  const value = throughputReceipt();
+  value.selectedConcurrency = 512;
+  value.saturationObserved = true;
+  value.ceilingReached = false;
+  value.probeErrorCount = 1_024;
+  value.stages[5] = {
+    ...value.stages[5],
+    successes: 0,
+    errorCount: 1_024,
+    requestsPerSecond: 0,
+    latency: { samples: 0, p50Ms: null, p95Ms: null, p99Ms: null, maxMs: 0 },
+    stable: false,
+  };
+  value.stages.at(-1).concurrency = 512;
+  return value;
+}
+
 suite('M6 runtime evidence receipts');
 
 test('exact previous-version application receipt passes', () => {
@@ -60,6 +190,64 @@ test('missing, duplicate, rebound and weaker upgrade receipts fail closed', () =
     assert.equal(validateM6RuntimeEvidence(
       M6_PREVIOUS_VERSION_UPGRADE_PROGRAM,
       bytes,
+      { candidateSha },
+    ).valid, false);
+  }
+});
+
+test('exact 24-hour owned-server receipt passes', () => {
+  const result = validateM6RuntimeEvidence(
+    M6_LONG_SOAK_PROGRAM,
+    log(longSoakReceipt()),
+    { candidateSha },
+  );
+  assert.equal(result.valid, true, result.errors.join('\n'));
+});
+
+test('short, development-only, unbound and over-budget soak receipts fail closed', () => {
+  for (const value of [
+    longSoakReceipt({ durationMs: 10_000 }),
+    longSoakReceipt({ verdict: 'DEV_ONLY' }),
+    longSoakReceipt({ candidateSha: 'c'.repeat(40) }),
+    longSoakReceipt({ latency: latency(86_000, 101, 200) }),
+    longSoakReceipt({ namespaceInterfaces: ['lo', 'eth0'] }),
+    longSoakReceipt({ serverCleanShutdown: false }),
+  ]) {
+    assert.equal(validateM6RuntimeEvidence(
+      M6_LONG_SOAK_PROGRAM,
+      log(value),
+      { candidateSha },
+    ).valid, false);
+  }
+});
+
+test('exact maximum-throughput receipt passes', () => {
+  for (const value of [throughputReceipt(), saturatedThroughputReceipt()]) {
+    const result = validateM6RuntimeEvidence(
+      M6_MAX_THROUGHPUT_PROGRAM,
+      log(value),
+      { candidateSha },
+    );
+    assert.equal(result.valid, true, result.errors.join('\n'));
+  }
+});
+
+test('forged, short, slow and internally unbound throughput receipts fail closed', () => {
+  const unboundStages = throughputReceipt().stages.map(stage => ({ ...stage }));
+  unboundStages.at(-1).concurrency = 512;
+  for (const value of [
+    throughputReceipt({ durationMs: 20_000 }),
+    throughputReceipt({ verdict: 'DEV_ONLY' }),
+    throughputReceipt({ candidateSha: 'd'.repeat(40) }),
+    throughputReceipt({ ceilingReached: false }),
+    throughputReceipt({ selectedConcurrency: 512 }),
+    throughputReceipt({ stages: unboundStages }),
+    throughputReceipt({ sustained: { ...throughputReceipt().sustained, requestsPerSecond: 499 } }),
+    throughputReceipt({ networkScope: 'host' }),
+  ]) {
+    assert.equal(validateM6RuntimeEvidence(
+      M6_MAX_THROUGHPUT_PROGRAM,
+      log(value),
       { candidateSha },
     ).valid, false);
   }

@@ -1,5 +1,6 @@
 import {
   M6_CANDIDATE_PHASE_IDS,
+  M6_CANDIDATE_PHASE_LIMITS,
   M6_CANDIDATE_PLAN_CONTRACT,
   M6_CANDIDATE_PLAN_VERSION,
   M6_DIRECT_FRESH_CLONE_PROGRAMS,
@@ -7,15 +8,10 @@ import {
   M6_PHYSICAL_GPU_PROGRAMS,
 } from '../../contracts/m6/candidate-plan-v1.js';
 
-const TOOLCHAIN_BLOCKERS = Object.freeze([
-  'toolchain:bwrap',
-  'toolchain:bubblewrap',
-  'toolchain:git',
+const CONTROLLED_SOAK_BLOCKERS = Object.freeze([
   'toolchain:iproute2',
   'toolchain:linux-user-network-namespace',
-  'toolchain:prlimit',
-  'toolchain:python-pdf-runtime',
-  'toolchain:x11-display',
+  'server',
 ]);
 
 function deepFreeze(value) {
@@ -33,6 +29,10 @@ function activeRequired(registry, predicate) {
     .sort();
 }
 
+function phaseLimits(id) {
+  return { ...M6_CANDIDATE_PHASE_LIMITS[id] };
+}
+
 export function buildM6CandidateExecutionPlan(registry) {
   const fresh = new Set(M6_DIRECT_FRESH_CLONE_PROGRAMS);
   const direct = new Set([
@@ -43,6 +43,7 @@ export function buildM6CandidateExecutionPlan(registry) {
   const phases = [
     {
       id: 'deterministic-offline-database',
+      ...phaseLimits('deterministic-offline-database'),
       runner: 'nightly-audit',
       programIds: activeRequired(registry, suite => (
         suite.profile === 'offline' || suite.profile === 'database'
@@ -55,6 +56,7 @@ export function buildM6CandidateExecutionPlan(registry) {
     },
     {
       id: 'owned-production-server',
+      ...phaseLimits('owned-production-server'),
       runner: 'm6-owned-program',
       programIds: [...M6_DIRECT_OWNED_SERVER_PROGRAMS],
       allowedBlockers: [],
@@ -65,6 +67,7 @@ export function buildM6CandidateExecutionPlan(registry) {
     },
     {
       id: 'model-and-server',
+      ...phaseLimits('model-and-server'),
       runner: 'nightly-audit',
       programIds: activeRequired(registry, suite => (
         (suite.profile === 'model' || suite.profile === 'server')
@@ -78,18 +81,20 @@ export function buildM6CandidateExecutionPlan(registry) {
     },
     {
       id: 'controlled-soak',
+      ...phaseLimits('controlled-soak'),
       runner: 'nightly-audit',
       programIds: activeRequired(registry, suite => (
         suite.profile === 'soak' && !fresh.has(suite.id)
       )),
-      allowedBlockers: [...TOOLCHAIN_BLOCKERS, 'ollama', 'gpu'],
+      allowedBlockers: [...CONTROLLED_SOAK_BLOCKERS],
       requiresCleanCandidate: true,
       requiresFreshClone: false,
-      requiresGpuCensus: true,
+      requiresGpuCensus: false,
       requiresOwnedServer: false,
     },
     {
       id: 'fresh-clone-install-build-studio',
+      ...phaseLimits('fresh-clone-install-build-studio'),
       runner: 'm6-fresh-clone',
       programIds: [...M6_DIRECT_FRESH_CLONE_PROGRAMS],
       allowedBlockers: [
@@ -106,6 +111,7 @@ export function buildM6CandidateExecutionPlan(registry) {
     },
     {
       id: 'physical-ollama-gpu',
+      ...phaseLimits('physical-ollama-gpu'),
       runner: 'nightly-audit',
       programIds: [...M6_PHYSICAL_GPU_PROGRAMS],
       allowedBlockers: ['ollama', 'gpu'],
@@ -163,6 +169,9 @@ export function validateM6CandidateExecutionPlan(plan, registry) {
   }
   for (const id of selected) {
     if (!requiredActive.includes(id)) errors.push(`plan:unexpected-program:${id}`);
+  }
+  if (JSON.stringify(plan) !== JSON.stringify(buildM6CandidateExecutionPlan(registry))) {
+    errors.push('plan:exact-authority');
   }
   return deepFreeze({ valid: errors.length === 0, errors });
 }

@@ -164,8 +164,8 @@ function auditArguments({ phase, evidenceRoot, root, candidateSha }) {
     `--run-id=${phase.id}-${candidateSha}`,
     `--out-dir=${outDir}`,
     '--concurrency=1',
-    '--timeout-minutes=60',
-    '--deadline-hours=8',
+    `--timeout-minutes=${phase.timeoutMinutes}`,
+    `--deadline-hours=${phase.deadlineHours}`,
   ];
   for (const blocker of phase.allowedBlockers) args.push(`--allow-blocker=${blocker}`);
   return args;
@@ -179,7 +179,7 @@ async function runAuditPhase({ root, candidateSha, evidenceRoot, phase }) {
     env: safeBaseEnvironment(),
     logPath,
     allowFailure: true,
-    timeoutMs: 8 * 60 * 60 * 1000,
+    timeoutMs: phase.deadlineHours * 60 * 60 * 1_000 + 10 * 60 * 1_000,
   });
   assertCleanCandidate(root, candidateSha, `${phase.id}:post-state`);
   const runId = `${phase.id}-${candidateSha}`;

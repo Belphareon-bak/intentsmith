@@ -38,4 +38,3 @@ export const M6_RELEASE_ARTIFACT_REQUIRED_FILES = Object.freeze([
     executable: false,
   }),
 ]);
-

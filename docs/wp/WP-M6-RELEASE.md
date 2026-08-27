@@ -136,7 +136,11 @@ Implementované, ale zatím znovu nezreviewované bloky:
 
 L0-11 focused důkaz aktuálně tvoří 11/11 nových adversariálních checks,
 24/24 původní model-use, 8/8 VRAM a 108/108 binding/chat compatibility.
-Schéma má 155 tabulek / 79 migrací a registr 467 programů, z toho 372 ACTIVE.
-Skutečný 24h soak, maximum-throughput, nový complete candidate report a
+Schéma má 155 tabulek / 79 migrací a registr 469 programů, z toho 374 ACTIVE.
+Původních třináct false-soak ACTIVE položek je překlasifikovaných podle
+skutečného runtime. Nové 24h a pětiminutové throughput programy běží nad owned
+production serverem v loopback-only Linux namespace; jejich zkrácené sondy
+prošly, ale jsou explicitně `DEV_ONLY` a release evidence je odmítá. Skutečný
+24h soak, plný maximum-throughput, nový complete candidate report a
 operátorský re-review jsou stále otevřené. Stav proto zůstává
 `TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED`.

@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 467
-- Explicit support-module exclusions: 14
-- Profiles: offline=240, database=58, server=42, model=85, soak=26, manual=16
-- States: ACTIVE=372, HISTORICAL=16, BLOCKED=79
+- Runnable programs: 469
+- Explicit support-module exclusions: 15
+- Profiles: offline=248, database=60, server=44, model=86, soak=15, manual=16
+- States: ACTIVE=374, HISTORICAL=16, BLOCKED=79
 
 ## Execution profiles
 
@@ -289,7 +289,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-LOCAL-MATH-NONFINITE-TEST` | `tests/local-math-nonfinite.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-M1-CHAT-CONTRACT-TEST` | `tests/m1-chat-contract.test.js` | `C3-004` | T2 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-CONTRACT-TEST` | `tests/m1-contract.test.js` | `C3-023` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
-| `IS-T5-TESTS-M1-JOURNEY-TEST` | `tests/m1-journey.test.js` | `C3-001` | T5 | `soak` | 10 min | 20 min | network:loopback, temp-db, server, ollama, gpu, toolchain:linux-user-network-namespace, toolchain:iproute2, toolchain:x11-display | yes | `ACTIVE` | d518d7ec2156b108c5d71b72d16ee855781c6be5 / m1-journey.json | primary implementer |
+| `IS-T5-TESTS-M1-JOURNEY-TEST` | `tests/m1-journey.test.js` | `C3-001` | T5 | `model` | 10 min | 20 min | network:loopback, temp-db, server, ollama, gpu, toolchain:linux-user-network-namespace, toolchain:iproute2, toolchain:x11-display | yes | `ACTIVE` | d518d7ec2156b108c5d71b72d16ee855781c6be5 / m1-journey.json | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-AUTOMATION-POLICY-TEST` | `tests/m1-model-automation-policy.test.js` | `C3-010` | T1 | `offline` | 15 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-BINDING-APPLICATION-TEST` | `tests/m1-model-binding-application.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-BINDING-REPOSITORY-TEST` | `tests/m1-model-binding-repository.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
@@ -321,12 +321,12 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M2-EFFECT-FILE-RUNTIME-TEST` | `tests/m2-effect-file-runtime.test.js` | `C3-016` | T1 | `database` | 45 s | 2 min | network:none, temp-db | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
 | `IS-T1-TESTS-M2-EXECUTION-AUTHORITY-REPOSITORY-TEST` | `tests/m2-execution-authority-repository.test.js` | `C3-011` | T1 | `database` | 5 s | 30 s | network:none, temp-db | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
 | `IS-T1-TESTS-M2-EXECUTION-CONTRACT-V1-TEST` | `tests/m2-execution-contract-v1.test.js` | `C3-011` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
-| `IS-T1-TESTS-M2-EXECUTION-GIT-PRESERVATION-TEST` | `tests/m2-execution-git-preservation.test.js` | `C3-011` | T1 | `soak` | 5 s | 30 s | network:none, toolchain:git | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
-| `IS-T1-TESTS-M2-EXECUTION-PROCESS-SUPERVISION-TEST` | `tests/m2-execution-process-supervision.test.js` | `C3-011` | T1 | `soak` | 10 s | 1 min | network:none, toolchain:bwrap | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
-| `IS-T1-TESTS-M2-EXECUTION-PROJECT-CHANGE-TEST` | `tests/m2-execution-project-change.test.js` | `C3-011` | T1 | `soak` | 10 s | 1 min | network:none, temp-db, toolchain:bwrap, toolchain:git | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
+| `IS-T1-TESTS-M2-EXECUTION-GIT-PRESERVATION-TEST` | `tests/m2-execution-git-preservation.test.js` | `C3-011` | T1 | `offline` | 5 s | 30 s | network:none, toolchain:git | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
+| `IS-T1-TESTS-M2-EXECUTION-PROCESS-SUPERVISION-TEST` | `tests/m2-execution-process-supervision.test.js` | `C3-011` | T1 | `offline` | 10 s | 1 min | network:none, toolchain:bwrap | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
+| `IS-T1-TESTS-M2-EXECUTION-PROJECT-CHANGE-TEST` | `tests/m2-execution-project-change.test.js` | `C3-011` | T1 | `database` | 10 s | 1 min | network:none, temp-db, toolchain:bwrap, toolchain:git | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
 | `IS-T1-TESTS-M2-GOVERNANCE-CONTRACT-V1-TEST` | `tests/m2-governance-contract-v1.test.js` | `C3-018` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
 | `IS-T1-TESTS-M2-GOVERNANCE-EVALUATOR-TEST` | `tests/m2-governance-evaluator.test.js` | `C3-018` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
-| `IS-T1-TESTS-M2-LIFECYCLE-APPLICATION-SERVICE-TEST` | `tests/m2-lifecycle-application-service.test.js` | `C3-005` | T1 | `soak` | 10 s | 1 min | network:none, temp-db, toolchain:bwrap, toolchain:git | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
+| `IS-T1-TESTS-M2-LIFECYCLE-APPLICATION-SERVICE-TEST` | `tests/m2-lifecycle-application-service.test.js` | `C3-005` | T1 | `database` | 10 s | 1 min | network:none, temp-db, toolchain:bwrap, toolchain:git | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
 | `IS-T1-TESTS-M2-LIFECYCLE-AUTHORITY-REPOSITORY-TEST` | `tests/m2-lifecycle-authority-repository.test.js` | `C3-005` | T1 | `database` | 5 s | 30 s | network:none, temp-db | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
 | `IS-T1-TESTS-M2-LIFECYCLE-CONTRACT-V1-TEST` | `tests/m2-lifecycle-contract-v1.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
 | `IS-T1-TESTS-M2-LIFECYCLE-PROPOSAL-COMPILER-TEST` | `tests/m2-lifecycle-proposal-compiler.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
@@ -366,11 +366,13 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M5-OUTBOUND-POLICY-TEST` | `tests/m5-outbound-policy.test.js` | `C3-020` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M5-OUTBOUND |
 | `IS-T1-TESTS-M5-PERFORMANCE-BUDGET-TEST` | `tests/m5-performance-budget.test.js` | `C3-012` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M5-PERF |
 | `IS-T1-TESTS-M5-PRIVACY-REMEDIATION-TEST` | `tests/m5-privacy-remediation.test.js` | `C3-012` | T1 | `database` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-M5-PRIVACY |
-| `IS-T1-TESTS-M5-PROCESS-HARDENING-TEST` | `tests/m5-process-hardening.test.js` | `C3-011` | T1 | `soak` | 3 s | 1 min | network:none, toolchain:bubblewrap, toolchain:prlimit | yes | `ACTIVE` | — | WP-M5-PROCESS |
+| `IS-T1-TESTS-M5-PROCESS-HARDENING-TEST` | `tests/m5-process-hardening.test.js` | `C3-011` | T1 | `offline` | 3 s | 1 min | network:none, toolchain:bubblewrap, toolchain:prlimit | yes | `ACTIVE` | — | WP-M5-PROCESS |
 | `IS-T1-TESTS-M5-REMOTE-CORE-ADAPTER-TEST` | `tests/m5-remote-core-adapter.test.js` | `C3-023` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M5-REMOTE-PORT |
 | `IS-T1-TESTS-M6-ACCEPTANCE-AUTHORITY-TEST` | `tests/m6-acceptance-authority.test.js` | `C3-012` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-M6-CANDIDATE-PLAN-TEST` | `tests/m6-candidate-plan.test.js` | `C3-012` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-M6-L0-EVIDENCE-TEST` | `tests/m6-l0-evidence.test.js` | `C3-012` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |
+| `IS-T5-TESTS-M6-LONG-SOAK-E2E` | `tests/m6-long-soak.e2e.js` | `C3-025` | T5 | `soak` | 1440 min | 1500 min | network:loopback, temp-db, server, toolchain:linux-user-network-namespace, toolchain:iproute2 | yes | `ACTIVE` | — | WP-M6-RELEASE |
+| `IS-T5-TESTS-M6-MAX-THROUGHPUT-E2E` | `tests/m6-max-throughput.e2e.js` | `C3-025` | T5 | `soak` | 5 min | 10 min | network:loopback, temp-db, server, toolchain:linux-user-network-namespace, toolchain:iproute2 | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-M6-MODEL-ARTIFACT-AUTHORITY-TEST` | `tests/m6-model-artifact-authority.test.js` | `C3-025` | T1 | `database` | 5 s | 1 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-M6-MODEL-DISCOVERY-JOURNEY-TEST` | `tests/m6-model-discovery-journey.test.js` | `C3-023` | T1 | `offline` | 1 s | 30 s | network:loopback | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-M6-PLATFORM-JOURNEY-TEST` | `tests/m6-platform-journey.test.js` | `C3-023` | T1 | `offline` | 2 s | 1 min | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |
@@ -460,11 +462,11 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-SKILL-META-DETECTION-TEST` | `tests/skill-meta-detection.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-SKILL-ROUTING-CRE-TEST` | `tests/skill-routing-cre.test.js` | `C3-013` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-SMOKE-TEST` | `tests/smoke.test.js` | `C3-005` | T2 | `database` | 2 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
-| `IS-T5-TESTS-SOAK-ATTACHMENT-HEAVY-TEST` | `tests/soak/attachment-heavy.test.js` | `C3-027` | T5 | `soak` | 30 min | 60 min | network:loopback, temp-db, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
-| `IS-T5-TESTS-SOAK-BREAK-PATTERN-PROBE-TEST` | `tests/soak/break-pattern-probe.test.js` | `C3-027` | T5 | `soak` | 30 min | 60 min | network:loopback, temp-db, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
-| `IS-T5-TESTS-SOAK-FOLLOWUP-LOAD-TEST` | `tests/soak/followup-load.test.js` | `C3-027` | T5 | `soak` | 30 min | 60 min | network:loopback, temp-db, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
-| `IS-T5-TESTS-SOAK-MIXED-SESSION-SIMULATION-TEST` | `tests/soak/mixed-session-simulation.test.js` | `C3-027` | T5 | `soak` | 30 min | 60 min | network:loopback, temp-db, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
-| `IS-T5-TESTS-SOAK-SHORT-INPUT-STRESS-TEST` | `tests/soak/short-input-stress.test.js` | `C3-027` | T5 | `soak` | 30 min | 60 min | network:loopback, temp-db, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
+| `IS-T5-TESTS-SOAK-ATTACHMENT-HEAVY-TEST` | `tests/soak/attachment-heavy.test.js` | `C3-027` | T5 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T5-TESTS-SOAK-BREAK-PATTERN-PROBE-TEST` | `tests/soak/break-pattern-probe.test.js` | `C3-027` | T5 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T5-TESTS-SOAK-FOLLOWUP-LOAD-TEST` | `tests/soak/followup-load.test.js` | `C3-027` | T5 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T5-TESTS-SOAK-MIXED-SESSION-SIMULATION-TEST` | `tests/soak/mixed-session-simulation.test.js` | `C3-027` | T5 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T5-TESTS-SOAK-SHORT-INPUT-STRESS-TEST` | `tests/soak/short-input-stress.test.js` | `C3-027` | T5 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SPECIALIST-BOUNDARY-RATCHET-TEST` | `tests/specialist-boundary-ratchet.test.js` | `C3-013` | T1 | `offline` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-M3-L0-8-ENFORCEMENT |
 | `IS-T1-TESTS-SPECIALIST-HANDLER-TEST` | `tests/specialist-handler.test.js` | `C3-013` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SPECIALIST-LOADER-TEST` | `tests/specialist-loader.test.js` | `C3-013` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
@@ -472,9 +474,9 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-SPECIALIST-RUNTIME-TEST` | `tests/specialist-runtime.test.js` | `C3-013` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-STORAGE-ARCHITECTURE-TEST` | `tests/storage-architecture.test.js` | `C3-024` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-STUDIO-CDP-EVIDENCE-TEST` | `tests/studio-cdp-evidence.test.js` | `C3-001` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
-| `IS-T5-TESTS-STUDIO-ELECTRON-BOUNDARY-E2E` | `tests/studio-electron-boundary.e2e.js` | `C3-001` | T5 | `soak` | 2 min | 5 min | network:loopback, temp-db, toolchain:linux-user-network-namespace, toolchain:iproute2, toolchain:x11-display | yes | `ACTIVE` | c35e47bb48883e2ac88682a393d971e63e72db83 / studio-electron-boundary.json | primary implementer |
+| `IS-T5-TESTS-STUDIO-ELECTRON-BOUNDARY-E2E` | `tests/studio-electron-boundary.e2e.js` | `C3-001` | T5 | `server` | 2 min | 5 min | network:loopback, temp-db, toolchain:linux-user-network-namespace, toolchain:iproute2, toolchain:x11-display | yes | `ACTIVE` | c35e47bb48883e2ac88682a393d971e63e72db83 / studio-electron-boundary.json | primary implementer |
 | `IS-T1-TESTS-STUDIO-ELECTRON-RUNNER-CONTRACT-TEST` | `tests/studio-electron-runner-contract.test.js` | `C3-001` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
-| `IS-T5-TESTS-STUDIO-M1-ELECTRON-JOURNEY-E2E` | `tests/studio-m1-electron-journey.e2e.js` | `C3-001` | T5 | `soak` | 2 min | 5 min | network:loopback, temp-db, toolchain:linux-user-network-namespace, toolchain:iproute2, toolchain:x11-display | yes | `ACTIVE` | — | primary implementer |
+| `IS-T5-TESTS-STUDIO-M1-ELECTRON-JOURNEY-E2E` | `tests/studio-m1-electron-journey.e2e.js` | `C3-001` | T5 | `server` | 2 min | 5 min | network:loopback, temp-db, toolchain:linux-user-network-namespace, toolchain:iproute2, toolchain:x11-display | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SYMBOL-INDEX-TEST` | `tests/symbol-index.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-TASK-MEMORY-TEST` | `tests/task-memory.test.js` | `C3-016` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-TELEMETRY-AGGREGATION-VERSION-TEST` | `tests/telemetry-aggregation-version.test.js` | `C3-027` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
@@ -523,6 +525,7 @@ ledger.
 | `tests/fixtures/studio-m1-electron-backend.js` | Suite-owned M1 Electron backend fixture launched only by studio-m1-electron-journey.e2e.js. |
 | `tests/harness.js` | Imported unit-test harness library with no top-level test entry point. |
 | `tests/helpers/isolated-test-db.js` | Imported direct-run database isolation bootstrap, not a standalone test. |
+| `tests/helpers/m6-owned-runtime-probe.js` | Imported M6 owned-server and loopback namespace harness, not a standalone test. |
 | `tests/run-all.js` | Aggregate compatibility entry point; registering it as a child suite would recurse into the registry runner. |
 
 Required fields per run: exact command and commit, clean-tree status, start/end

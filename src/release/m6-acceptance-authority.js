@@ -199,4 +199,3 @@ export function applyM6AcceptanceReceipts(releaseEvidence, receipts) {
   }
   return deepFreeze({ valid: errors.length === 0, errors, evidence });
 }
-

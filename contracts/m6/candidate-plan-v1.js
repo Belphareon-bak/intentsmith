@@ -1,5 +1,5 @@
 export const M6_CANDIDATE_PLAN_CONTRACT = 'M6CandidateExecutionPlan';
-export const M6_CANDIDATE_PLAN_VERSION = 3;
+export const M6_CANDIDATE_PLAN_VERSION = 4;
 
 export const M6_DIRECT_FRESH_CLONE_PROGRAMS = Object.freeze([
   'IS-T5-TESTS-M1-JOURNEY-TEST',
@@ -24,3 +24,15 @@ export const M6_CANDIDATE_PHASE_IDS = Object.freeze([
   'fresh-clone-install-build-studio',
   'physical-ollama-gpu',
 ]);
+
+export const M6_CANDIDATE_PHASE_LIMITS = Object.freeze({
+  'deterministic-offline-database': Object.freeze({
+    timeoutMinutes: 60,
+    deadlineHours: 8,
+  }),
+  'owned-production-server': Object.freeze({ timeoutMinutes: 60, deadlineHours: 8 }),
+  'model-and-server': Object.freeze({ timeoutMinutes: 60, deadlineHours: 8 }),
+  'controlled-soak': Object.freeze({ timeoutMinutes: 1_500, deadlineHours: 30 }),
+  'fresh-clone-install-build-studio': Object.freeze({ timeoutMinutes: 60, deadlineHours: 8 }),
+  'physical-ollama-gpu': Object.freeze({ timeoutMinutes: 60, deadlineHours: 8 }),
+});

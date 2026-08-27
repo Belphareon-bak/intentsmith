@@ -35,7 +35,7 @@ test('plan is argument-free, serial and covers the exact ACTIVE required registr
     .sort();
   const selected = plan.phases.flatMap(phase => phase.programIds).sort();
   assert.deepEqual(selected, expected);
-  assert.equal(selected.length, 372);
+  assert.equal(selected.length, 374);
   assert.equal(Object.isFrozen(plan), true);
 });
 
@@ -59,6 +59,23 @@ test('model and server phase includes every remaining required program, includin
   assert.equal(phase.programIds.filter(id => byId.get(id).profile === 'model').length, 47);
   assert.equal(phase.programIds.filter(id => byId.get(id).profile === 'server').length, 11);
   assert(phase.programIds.some(id => byId.get(id).requirements.network === 'external'));
+});
+
+test('controlled soak contains only the two measured M6 runtimes with a 30-hour window', () => {
+  const phase = buildM6CandidateExecutionPlan(registry).phases
+    .find(item => item.id === 'controlled-soak');
+  assert.deepEqual(phase.programIds, [
+    'IS-T5-TESTS-M6-LONG-SOAK-E2E',
+    'IS-T5-TESTS-M6-MAX-THROUGHPUT-E2E',
+  ]);
+  assert.equal(phase.timeoutMinutes, 1_500);
+  assert.equal(phase.deadlineHours, 30);
+  assert.equal(phase.requiresGpuCensus, false);
+  assert.deepEqual(phase.allowedBlockers, [
+    'toolchain:iproute2',
+    'toolchain:linux-user-network-namespace',
+    'server',
+  ]);
 });
 
 test('candidate runner materializes only named toolchain bindings', () => {
@@ -166,6 +183,8 @@ test('duplicate, reordered, concurrent, uncovered or unexpected plans fail close
     plan => { plan.phases[1].programIds.push(plan.phases[0].programIds[0]); },
     plan => { plan.phases[0].programIds.push('IS-T3-TESTS-CHAT-QUALITY-TEST'); },
     plan => { plan.phases[2].programIds.pop(); },
+    plan => { plan.phases[3].timeoutMinutes = 60; },
+    plan => { plan.phases[3].allowedBlockers.push('gpu'); },
   ]) {
     const plan = structuredClone(base);
     mutate(plan);

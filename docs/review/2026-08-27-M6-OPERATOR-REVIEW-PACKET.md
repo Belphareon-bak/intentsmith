@@ -1,5 +1,10 @@
 # M6 operator review packet — 2026-08-27
 
+> **SUPERSEDED / HISTORICAL.** Tento packet je připnutý k odmítnutému kandidátu
+> `8abd6065` a jeho tvrzení 311/311 ani deset „soak“ položek nejsou aktuální M6
+> acceptance evidence. Nový re-review packet vznikne až po skutečném 24h a
+> maximum-throughput běhu nad čistým kandidátem.
+
 ## Review jednotka
 
 - **Požadovaný reviewer:** operátor; lokální Opus se podle Decision 036

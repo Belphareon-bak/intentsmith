@@ -1,5 +1,11 @@
 # M6 technical candidate closeout — 2026-08-27
 
+> **SUPERSEDED / HISTORICAL.** Operátorský review kandidáta `8abd6065` vyvrátil
+> `TECHNICAL_IMPLEMENTATION_PASS`: plán nepokrýval celý ACTIVE+required set,
+> finální evidence důvěřovala self-asserted gitignored JSON a deset deklarovaných
+> „soak“ programů nebylo skutečným dlouhým měřením. Dokument níže zachovává
+> historické bajty, ale není aktuálním verdict ani release podkladem.
+
 ## Verdikt a identity
 
 - **Produktový stav:** `CANDIDATE_COMPLETE / TECHNICAL_IMPLEMENTATION_PASS`.

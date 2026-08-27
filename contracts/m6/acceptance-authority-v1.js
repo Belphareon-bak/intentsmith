@@ -23,4 +23,3 @@ export const M6_OPERATOR_DEMO_STEPS = Object.freeze([
 export const M6_EXTERNAL_AUTHORITY_IDS = Object.freeze(
   Object.keys(M6_ACCEPTANCE_RECEIPT_PATHS),
 );
-

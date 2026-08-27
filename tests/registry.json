@@ -31,6 +31,10 @@
       "reason": "Imported direct-run database isolation bootstrap, not a standalone test."
     },
     {
+      "path": "tests/helpers/m6-owned-runtime-probe.js",
+      "reason": "Imported M6 owned-server and loopback namespace harness, not a standalone test."
+    },
+    {
       "path": "tests/fixtures/studio-m1-electron-backend.js",
       "reason": "Suite-owned M1 Electron backend fixture launched only by studio-m1-electron-journey.e2e.js."
     },
@@ -5956,7 +5960,7 @@
       "capabilityId": "C3-001",
       "tier": "T5",
       "fixture": "fresh-install-owned-server-electron-and-local-model",
-      "profile": "soak",
+      "profile": "model",
       "timeoutMs": 1200000,
       "expectedDurationMs": 600000,
       "requirements": {
@@ -8360,16 +8364,16 @@
       ],
       "capabilityId": "C3-027",
       "tier": "T5",
-      "fixture": "isolated-soak-root",
-      "profile": "soak",
-      "timeoutMs": 3600000,
-      "expectedDurationMs": 1800000,
+      "fixture": "pure-in-memory-cre",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
       "requirements": {
-        "network": "loopback",
-        "database": true,
+        "network": "none",
+        "database": false,
         "server": false,
-        "ollama": true,
-        "gpu": true
+        "ollama": false,
+        "gpu": false
       },
       "required": true,
       "owner": "primary implementer",
@@ -8390,16 +8394,16 @@
       ],
       "capabilityId": "C3-027",
       "tier": "T5",
-      "fixture": "isolated-soak-root",
-      "profile": "soak",
-      "timeoutMs": 3600000,
-      "expectedDurationMs": 1800000,
+      "fixture": "pure-in-memory-cre",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
       "requirements": {
-        "network": "loopback",
-        "database": true,
+        "network": "none",
+        "database": false,
         "server": false,
-        "ollama": true,
-        "gpu": true
+        "ollama": false,
+        "gpu": false
       },
       "required": true,
       "owner": "primary implementer",
@@ -8420,16 +8424,16 @@
       ],
       "capabilityId": "C3-027",
       "tier": "T5",
-      "fixture": "isolated-soak-root",
-      "profile": "soak",
-      "timeoutMs": 3600000,
-      "expectedDurationMs": 1800000,
+      "fixture": "pure-in-memory-cre",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
       "requirements": {
-        "network": "loopback",
-        "database": true,
+        "network": "none",
+        "database": false,
         "server": false,
-        "ollama": true,
-        "gpu": true
+        "ollama": false,
+        "gpu": false
       },
       "required": true,
       "owner": "primary implementer",
@@ -8450,16 +8454,16 @@
       ],
       "capabilityId": "C3-027",
       "tier": "T5",
-      "fixture": "isolated-soak-root",
-      "profile": "soak",
-      "timeoutMs": 3600000,
-      "expectedDurationMs": 1800000,
+      "fixture": "pure-in-memory-cre",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
       "requirements": {
-        "network": "loopback",
-        "database": true,
+        "network": "none",
+        "database": false,
         "server": false,
-        "ollama": true,
-        "gpu": true
+        "ollama": false,
+        "gpu": false
       },
       "required": true,
       "owner": "primary implementer",
@@ -8480,16 +8484,16 @@
       ],
       "capabilityId": "C3-027",
       "tier": "T5",
-      "fixture": "isolated-soak-root",
-      "profile": "soak",
-      "timeoutMs": 3600000,
-      "expectedDurationMs": 1800000,
+      "fixture": "pure-in-memory-cre",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
       "requirements": {
-        "network": "loopback",
-        "database": true,
+        "network": "none",
+        "database": false,
         "server": false,
-        "ollama": true,
-        "gpu": true
+        "ollama": false,
+        "gpu": false
       },
       "required": true,
       "owner": "primary implementer",
@@ -8691,7 +8695,7 @@
       "capabilityId": "C3-001",
       "tier": "T5",
       "fixture": "isolated-home-owned-loopback-electron",
-      "profile": "soak",
+      "profile": "server",
       "timeoutMs": 300000,
       "expectedDurationMs": 120000,
       "requirements": {
@@ -8726,7 +8730,7 @@
       "capabilityId": "C3-001",
       "tier": "T5",
       "fixture": "isolated-home-owned-loopback-electron",
-      "profile": "soak",
+      "profile": "server",
       "timeoutMs": 300000,
       "expectedDurationMs": 120000,
       "requirements": {
@@ -12555,7 +12559,7 @@
       "capabilityId": "C3-011",
       "tier": "T1",
       "fixture": "isolated-db-and-project-process",
-      "profile": "soak",
+      "profile": "database",
       "timeoutMs": 60000,
       "expectedDurationMs": 10000,
       "requirements": {
@@ -12589,7 +12593,7 @@
       "capabilityId": "C3-011",
       "tier": "T1",
       "fixture": "isolated-process-tree",
-      "profile": "soak",
+      "profile": "offline",
       "timeoutMs": 60000,
       "expectedDurationMs": 10000,
       "requirements": {
@@ -12622,7 +12626,7 @@
       "capabilityId": "C3-011",
       "tier": "T1",
       "fixture": "isolated-git-repository",
-      "profile": "soak",
+      "profile": "offline",
       "timeoutMs": 30000,
       "expectedDurationMs": 5000,
       "requirements": {
@@ -12715,7 +12719,7 @@
       "capabilityId": "C3-005",
       "tier": "T1",
       "fixture": "isolated-db-and-project-process",
-      "profile": "soak",
+      "profile": "database",
       "timeoutMs": 60000,
       "expectedDurationMs": 10000,
       "requirements": {
@@ -13619,7 +13623,7 @@
       "capabilityId": "C3-011",
       "tier": "T1",
       "fixture": "owned-process-group",
-      "profile": "soak",
+      "profile": "offline",
       "timeoutMs": 60000,
       "expectedDurationMs": 3000,
       "requirements": {
@@ -14145,6 +14149,74 @@
         "server": false,
         "ollama": false,
         "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M6-RELEASE",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T5-TESTS-M6-LONG-SOAK-E2E",
+      "path": "tests/m6-long-soak.e2e.js",
+      "argv": [
+        "node",
+        "tests/m6-long-soak.e2e.js"
+      ],
+      "capabilityId": "C3-025",
+      "tier": "T5",
+      "fixture": "owned-production-server-loopback-network-namespace",
+      "profile": "soak",
+      "timeoutMs": 90000000,
+      "expectedDurationMs": 86400000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false,
+        "toolchain": [
+          "linux-user-network-namespace",
+          "iproute2"
+        ]
+      },
+      "required": true,
+      "owner": "WP-M6-RELEASE",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T5-TESTS-M6-MAX-THROUGHPUT-E2E",
+      "path": "tests/m6-max-throughput.e2e.js",
+      "argv": [
+        "node",
+        "tests/m6-max-throughput.e2e.js"
+      ],
+      "capabilityId": "C3-025",
+      "tier": "T5",
+      "fixture": "owned-production-server-loopback-network-namespace",
+      "profile": "soak",
+      "timeoutMs": 600000,
+      "expectedDurationMs": 300000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false,
+        "toolchain": [
+          "linux-user-network-namespace",
+          "iproute2"
+        ]
       },
       "required": true,
       "owner": "WP-M6-RELEASE",
