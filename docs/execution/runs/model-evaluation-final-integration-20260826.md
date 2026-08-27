@@ -6,6 +6,8 @@
 
 **Product/test candidate:** `5f89bc36045598e292f1c64d34f61abdd0950b29`
 
+**Clean deterministic gate source:** `0b7f1c27d189cca74548856f1c8f92d0616c4275`
+
 Tento report nahrazuje chybný panel 40/17/34 z předchozí verze dokumentu.
 Nejde o nezávislé přijetí. Timer zůstává vypnutý a žádný GPU scoring se v
 remediaci nespouštěl.
@@ -84,15 +86,16 @@ důkaz, nikoli přepsán následným během:
 |---|---|---|---|
 | `2026-08-27T08-29-07-007Z` | 279 deterministic suites | 275 PASS / 4 FAIL / 0 BLOCKED | `928eb6590304701a1007ec8fd980de04630e5d044dafa52f70dd4dd83bc5550d` |
 | `2026-08-27T08-39-33-848Z` | čtyři opravené sady, diagnosticky nad dirty tree | 4 PASS / 0 FAIL | `3c314178d1e45a6f1c2fb5a58c0631872e5bfe4d2d4cf8b52b3a4130920b9f23` |
+| `2026-08-27T08-41-33-095Z` | 279 deterministic suites, clean source `0b7f1c27` | 279 PASS / 0 FAIL / 0 TIMEOUT / 0 BLOCKED / 0 SKIPPED | `a024c7a9632a24b36efa8e3601408d89a78372621f8c4349c1ad52e077991774` |
 
 Selhání byla: role-less governor fixture, neaktuální 096/83 migrační oracle,
 reviewed Gate 0 fingerprint stále na 278 sadách a meta-test, který zaměnil
 cizí pre-existing ignored runtime za svůj leak. Product/test commit `5f89bc36`
 opravil všechny čtyři příčiny; focused audit už zahrnoval skutečnou auditní
-větev harnessu. Plný čistý gate product/test kandidáta je stále povinný a v
-tomto bodě ještě nebyl spuštěn. Poslední nezávislý gate 278/278 patří
-zamítnutému `74beafea`; nelze jej vydávat za důkaz tohoto kandidáta. Nový gate
-a nové nezávislé rereview jsou samostatné zbývající brány.
+větev harnessu. Následný plný gate prošel nad čistým source, se sériovou
+concurrency 1 a bez povolených blocker bypassů. Poslední nezávislý gate 278/278
+patří zamítnutému `74beafea`; nelze jej vydávat za nezávislý důkaz tohoto
+kandidáta. Zbývající bránou je nové nezávislé rereview.
 
 ## Aktuální strict-role scoring panel
 
@@ -152,15 +155,21 @@ Snapshot potvrzuje:
 - prázdné `ollama ps`;
 - žádný NVIDIA compute proces.
 
+Stejné provozní podmínky byly znovu ověřeny po plném gate v
+`2026-08-27T10:45:17+02:00`. Živá DB zůstala byte-identická se SHA-256
+`e22d580f26b9b467eb2bf3774524206b3d95a36cdcdbc3902a08046e9e12c088`
+a `quick_check=ok`; candidate ji nemigroval.
+
 Timer se nesmí zapnout a 52 chybějících buněk se nesmí spustit před novým
 nezávislým PASS. Potom musí běžet sériově, GPU-only; model, který se celý
 nevejde do VRAM, se automaticky vyřadí jako `BLOCKED` se `score=NULL`.
 
 ## Review handoff
 
-Nové rereview musí začít na zamítnutém base `74beafea` a pokrýt implementační
-commity `d5518d4d`, `13413117` a evidence milestone `7404eacf` i navazující
-baseline/gate evidence.
+Nové rereview musí začít na zamítnutém base `74beafea` a pokrýt celý souvislý
+rozsah přes implementační commity `d5518d4d`, `13413117`, evidence milestone
+`7404eacf`, ratchet `3af097a0`, gate-contract opravu `5f89bc36` a navazující
+evidence.
 Zvlášť má reprodukovat role leakage D1→D2/R1, cross-role decision insert,
 pre-082 backup upgrade, nullable duration, same-tag digest drift před i po
 gateway response, nulový telemetry veto call graph a absenci osiřelých
