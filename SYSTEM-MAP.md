@@ -151,8 +151,10 @@ Aktuální model-evaluation autoritu popisují
 Tyto dokumenty nahrazují historické auto-failover/proof lifecycle popisy v
 pozdější capability tabulce: veřejné auto-transition repository writery jsou
 odstraněné a gateway, binding verification i autoritativní scoring vyžadují
-digest přímo v provider response. Stock Ollama 0.32.14 jej neposkytuje, takže
-tyto cesty bez důvěryhodného adaptéru zůstávají záměrně fail-closed.
+digest přímo v provider response. Na hostu nainstalovaná Ollama 0.32.14 jej
+neposkytuje, takže tyto cesty zůstávají záměrně fail-closed. Aktuální upstream
+už `ChatResponse.digest` obsahuje; navazující bezpečná cesta je autorizovaný
+upgrade na připnutý release s kompatibilitním preflightem.
 
 Tool census ze zdroje: **9 JavaScript soubory, 8 664 řádků, 153 top-level
 nástrojových deklarací**. Počet 213 v dřívější inventuře byl textový false count.

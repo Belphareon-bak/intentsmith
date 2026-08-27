@@ -53,11 +53,13 @@
 - Automatický failover/proof issuance není jen vypnutý: veřejné auto-claim,
   proof selection, terminal, expiry/finalization a restart writery jsou
   odstraněné. Aktivace je ruční přes exact binding application.
-- Stock Ollama `ChatResponse` nevrací digest obslouženého artefaktu. Bez
-  důvěryhodného response-attesting adaptéru proto `DURABLE` call, binding
-  verification i nový autoritativní scoring správně selžou jako neověřené;
-  plně funkční durable runtime a nové scoring běhy jsou navazující provider
-  capability, nikoli hotová vlastnost tohoto kandidáta.
+- Na hostu nainstalovaná Ollama 0.32.14 v `ChatResponse` nevrací digest
+  obslouženého artefaktu. Aktuální upstream už pole `ChatResponse.digest`
+  obsahuje; preferovaná navazující capability je proto autorizovaný upgrade na
+  připnutý release, který pole obsahuje, a kompatibilitní preflight. Do té doby
+  `DURABLE` call, binding verification i nový autoritativní scoring správně
+  selžou jako neověřené; plně funkční durable runtime a nové scoring běhy
+  nejsou hotovou vlastností tohoto kandidáta.
 - Předchozí candidate na `31234a6b` dostal `CHANGES_REQUESTED`; jeho 227 PASS
   evidence není přijetí ani evidence této opravené revize.
 - Starší cross-branch sloty jsou atomicky adoptované nebo fail-closed odmítnuté;

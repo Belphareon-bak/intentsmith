@@ -1912,9 +1912,10 @@ v cyklech. Finální čistý gate `2026-08-27T20-32-24-822Z` prošel 279/279 na
 `79328185`; předchozí 278/1 fail i přerušený ENOSPC běh zůstávají v handoff
 evidenci. Stav je `IMPLEMENTATION_GREEN / PROVIDER_BLOCKED /
 REREVIEW_REQUIRED`; nejde o nezávislé přijetí ani o dokončený GPU-only scoring
-panel. Stock Ollama digest obslouženého chat artefaktu nevrací, takže plně
-funkční durable runtime i nové exact-artifact scoring běhy vyžadují provider
-capability.
+panel. Nainstalovaná Ollama 0.32.14 digest obslouženého chat artefaktu nevrací,
+takže plně funkční durable runtime i nové exact-artifact scoring běhy vyžadují
+autorizovaný upgrade na připnutý release s `ChatResponse.digest` a následný
+kompatibilitní preflight. Aktuální upstream už toto pole obsahuje.
 
 ## 14. Rozhodovací fronta — otázka až ve chvíli, kdy má data
 

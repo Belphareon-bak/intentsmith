@@ -177,7 +177,9 @@ mrtvou speed větev a stabilní decision enum. Druhý nezávislý rereview nad
 Historické přijetí operátorem bylo navazujícím review zneplatněno. Nový stav
 `ACCEPTED` může vzniknout až po novém nezávislém rereview. Ostrý GPU/Ollama
 eval panel není součástí této remediace; starší výsledky se nepovyšují na
-current-contract PASS. Stock Ollama navíc v `ChatResponse` neposkytuje digest
-obslouženého artefaktu. Bez důvěryhodného provider adaptéru proto může být
-kandidát bezpečný a přijatelný k integraci, ale durable LLM runtime ani nové
-exact-artifact scoring běhy nejsou plně funkční a nesmějí být tak popsány.
+current-contract PASS. Na hostu nainstalovaná Ollama 0.32.14 navíc v
+`ChatResponse` neposkytuje digest obslouženého artefaktu. Aktuální upstream jej
+už obsahuje, ale dokud nebude autorizovaný a kompatibilitně ověřený připnutý
+release, může být kandidát bezpečný a přijatelný k integraci, ale durable LLM
+runtime ani nové exact-artifact scoring běhy nejsou plně funkční a nesmějí být
+tak popsány.

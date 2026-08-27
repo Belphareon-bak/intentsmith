@@ -177,22 +177,28 @@ source summary před i po celé projekci.
 
 ## Provider attestation — otevřená provozní závislost
 
-Stock Ollama dnes neumí naplnit nový exact-response kontrakt: oficiální
-`ChatRequest` přijímá model name a oficiální `ChatResponse` vrací model name,
-nikoli digest obslouženého artefaktu. Proto je bezpečné chování záměrně
+Na hostu nainstalovaná Ollama 0.32.14 neumí naplnit nový exact-response
+kontrakt: její oficiální `ChatRequest` přijímá model name a `ChatResponse`
+vrací model name, nikoli digest obslouženého artefaktu. Aktuální upstream
+`main` už pole `ChatResponse.digest` obsahuje. Preferovaná finální cesta je
+proto autorizovaně připnout a nasadit vydanou verzi, která tento kontrakt
+zahrnuje, a projít kompatibilitním preflightem; konkrétní release tento kandidát
+zatím nevybral ani nenasadil. Do té doby je bezpečné chování záměrně
 fail-closed: `DURABLE` gateway volání skončí
 `LLM_BINDING_ARTIFACT_UNVERIFIED`, manual verification skončí
 `MODEL_BINDING_VERIFICATION_ARTIFACT_UNVERIFIED` a nový scoring skončí
 `MODEL_EVALUATION_RESPONSE_ARTIFACT_UNVERIFIED`, dokud před Ollamou není
-důvěryhodný adaptér, který digest skutečně odvodí uvnitř provideru a přidá jej
-do téže response. Mutable pre/post inventory tuto mezeru nesmí nahrazovat.
-Viz oficiální [API typy](https://github.com/ollama/ollama/blob/main/api/types.go)
-a [OpenAPI schema](https://github.com/ollama/ollama/blob/main/docs/openapi.yaml).
+důvěryhodná response-attesting provider capability. Mutable pre/post inventory
+tuto mezeru nesmí nahrazovat. Viz oficiální
+[API typy 0.32.14](https://github.com/ollama/ollama/blob/v0.32.14/api/types.go),
+[OpenAPI schema 0.32.14](https://github.com/ollama/ollama/blob/v0.32.14/docs/openapi.yaml)
+a [aktuální upstream API typy](https://github.com/ollama/ollama/blob/main/api/types.go).
 
 To je provozní blocker plně ověřeného durable LLM runtime, ne důvod oslabit
 datovou autoritu. Remediační kandidát je bezpečný, ale nelze jej popsat jako
-plně funkční se stock Ollamou bez navazující provider capability; stejný
-blocker nyní pravdivě zastaví i nové exact-artifact scoring běhy.
+plně funkční s nainstalovanou Ollamou 0.32.14 bez navazující provider
+capability; stejný blocker nyní pravdivě zastaví i nové exact-artifact scoring
+běhy.
 
 ## Discovery a bezpečný provoz
 
@@ -214,8 +220,9 @@ Stejné provozní podmínky byly znovu ověřeny skutečným `post-gate` snapsho
 a `quick_check=ok`; candidate ji nemigroval.
 
 Timer se nesmí zapnout a 52 chybějících buněk se nesmí spustit před novým
-nezávislým PASS ani před přijetím response-attesting provider adaptéru. Potom
-musí běžet sériově, GPU-only; model, který se celý nevejde do VRAM, se
+nezávislým PASS ani před autorizovaným upgradem na připnutý release s
+response-attesting provider capability a úspěšným kompatibilitním preflightem.
+Potom musí běžet sériově, GPU-only; model, který se celý nevejde do VRAM, se
 automaticky vyřadí jako `BLOCKED` se `score=NULL`.
 
 ## Review handoff
@@ -231,5 +238,5 @@ pre-082 backup upgrade, nullable duration, A→B→A/no-response-digest rejectio
 v gatewayi, manual verification i scoring runneru, nulový telemetry veto call
 graph, absenci 11 auto-activation repository metod a snapshot source SHA
 před/po. Do jeho
-PASS a doplnění provider capability zůstává pravdivý stav
+PASS a autorizovaný upgrade s ověřením provider capability zůstává pravdivý stav
 `IMPLEMENTATION_GREEN / PROVIDER_BLOCKED / REREVIEW_REQUIRED`.
