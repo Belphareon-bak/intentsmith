@@ -215,6 +215,10 @@ export async function validateCurrentM6Release(root = process.cwd()) {
       reports.push({
         report,
         artifact: item.artifact,
+        logs: await Promise.all(item.logs.map(async log => ({
+          programId: log.programId,
+          bytes: (await readGitArtifact(log.artifact.path)).bytes,
+        }))),
       });
     }
   } catch (error) {

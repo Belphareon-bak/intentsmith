@@ -1,10 +1,16 @@
 import './helpers/isolated-test-db.js';
 
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 
 import {
   M6_EXTERNAL_AUTHORITY_CHECKS,
 } from '../contracts/m6/technical-evidence-v1.js';
+import {
+  M6_PREVIOUS_VERSION_SHA,
+  M6_PREVIOUS_VERSION_UPGRADE_PROGRAM,
+  M6_RUNTIME_EVIDENCE_MARKER,
+} from '../contracts/m6/runtime-evidence-v1.js';
 import {
   evaluateM6TechnicalEvidence,
   projectM6ReleaseEvidence,
@@ -22,6 +28,7 @@ const artifact = Object.freeze({
 });
 
 function passingResult(program) {
+  const logBytes = logForProgram(program.id);
   return {
     id: program.id,
     required: true,
@@ -32,8 +39,29 @@ function passingResult(program) {
     sourceRevision: candidateSha,
     cleanup: { checked: true, leakDetected: false, terminated: true },
     sourceTree: { checked: true, clean: true, head: candidateSha },
-    logSha256: 'd'.repeat(64),
+    logSha256: createHash('sha256').update(logBytes).digest('hex'),
   };
+}
+
+function logForProgram(programId) {
+  if (programId !== M6_PREVIOUS_VERSION_UPGRADE_PROGRAM) return `PASS ${programId}\n`;
+  const receipt = {
+    contract: 'M6PreviousVersionUpgradeReceipt',
+    version: 1,
+    candidateSha,
+    previousSha: M6_PREVIOUS_VERSION_SHA,
+    previousVersion: '136.0.0',
+    currentVersion: '136.1.0',
+    databaseIdentitySha256: 'e'.repeat(64),
+    previousMigrationCount: 56,
+    currentMigrationCount: 78,
+    canary: { id: 1, name: 'M6 Upgrade Canary', survivedUpgrade: true },
+    previousServerCleanShutdown: true,
+    currentServerCleanShutdown: true,
+    networkScope: 'loopback-only',
+    verdict: 'PASS',
+  };
+  return `${M6_RUNTIME_EVIDENCE_MARKER}${Buffer.from(JSON.stringify(receipt)).toString('base64url')}\n`;
 }
 
 function report(results = registry.suites
@@ -48,7 +76,18 @@ function report(results = registry.suites
   };
 }
 
-function evaluate(reports = [{ report: report(), artifact }]) {
+function reportItem(value = report()) {
+  return {
+    report: value,
+    artifact,
+    logs: value.results.map(result => ({
+      programId: result.id,
+      bytes: logForProgram(result.id),
+    })),
+  };
+}
+
+function evaluate(reports = [reportItem()]) {
   return evaluateM6TechnicalEvidence({
     candidateSha,
     registryFingerprint,
@@ -85,12 +124,12 @@ test('all implementation programs pass but external authorities stay BLOCKED', (
 test('missing execution is NOT_RUN and a red execution is FAIL', () => {
   const passing = report().results;
   const remoteId = 'IS-T1-TESTS-M5-REMOTE-CORE-ADAPTER-TEST';
-  const missing = evaluate([{ report: report(passing.filter(item => item.id !== remoteId)), artifact }]);
+  const missing = evaluate([reportItem(report(passing.filter(item => item.id !== remoteId)))]);
   assert.equal(missing.checks.find(row => row.id === 'remote-core-port').status, 'NOT_RUN');
   assert.equal(missing.verdict, 'BLOCKED');
 
   const red = passing.map(item => item.id === remoteId ? { ...item, status: 'FAIL', exitCode: 1 } : item);
-  const failed = evaluate([{ report: report(red), artifact }]);
+  const failed = evaluate([reportItem(report(red))]);
   assert.equal(failed.checks.find(row => row.id === 'remote-core-port').status, 'FAIL');
   assert.equal(failed.verdict, 'FAIL');
 });
@@ -106,7 +145,7 @@ test('blocked, timed out, leaked, dirty or wrong-candidate PASS cannot become ev
   ];
   for (const mutate of variants) {
     const results = report().results.map(item => item.id === targetId ? mutate(item) : item);
-    const result = evaluate([{ report: report(results), artifact }]);
+    const result = evaluate([reportItem(report(results))]);
     assert.equal(result.checks.find(row => row.id === 'conditional-surfaces').status, 'FAIL');
   }
 });
@@ -119,12 +158,32 @@ test('report candidate, registry, contract, artifact and duplicate program bindi
     item => { item.artifact.sha256 = 'bad'; },
     item => { item.report.results.push(item.report.results[0]); },
   ]) {
-    const item = { report: structuredClone(report()), artifact: { ...artifact } };
+    const item = reportItem(structuredClone(report()));
+    item.artifact = { ...artifact };
     mutate(item);
     const result = evaluate([item]);
     assert.equal(result.valid, false);
     assert.equal(result.verdict, 'FAIL');
   }
+});
+
+test('forged report PASS without exact log bytes or runtime receipt fails closed', () => {
+  const missingLog = reportItem();
+  missingLog.logs = missingLog.logs.filter(
+    log => log.programId !== M6_PREVIOUS_VERSION_UPGRADE_PROGRAM,
+  );
+  assert.equal(evaluate([missingLog]).valid, false);
+
+  const forgedReceipt = reportItem();
+  const target = forgedReceipt.logs.find(
+    log => log.programId === M6_PREVIOUS_VERSION_UPGRADE_PROGRAM,
+  );
+  target.bytes = 'PASS\n';
+  const result = forgedReceipt.report.results.find(
+    item => item.id === M6_PREVIOUS_VERSION_UPGRADE_PROGRAM,
+  );
+  result.logSha256 = createHash('sha256').update(target.bytes).digest('hex');
+  assert.equal(evaluate([forgedReceipt]).valid, false);
 });
 
 test('release projection removes diagnostic internals but preserves truthful blocking', () => {
@@ -146,4 +205,3 @@ test('release projection removes diagnostic internals but preserves truthful blo
 });
 
 summary();
-

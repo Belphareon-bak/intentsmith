@@ -13914,6 +13914,69 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T5-TESTS-M6-PREVIOUS-VERSION-UPGRADE-E2E",
+      "path": "tests/m6-previous-version-upgrade.e2e.js",
+      "argv": [
+        "node",
+        "tests/m6-previous-version-upgrade.e2e.js"
+      ],
+      "capabilityId": "C3-025",
+      "tier": "T5",
+      "fixture": "fresh-clone-previous-version-application",
+      "profile": "server",
+      "timeoutMs": 1200000,
+      "expectedDurationMs": 180000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false,
+        "toolchain": [
+          "git"
+        ]
+      },
+      "required": true,
+      "owner": "WP-M6-RELEASE",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+      "path": "tests/m6-runtime-evidence.test.js",
+      "argv": [
+        "node",
+        "tests/m6-runtime-evidence.test.js"
+      ],
+      "capabilityId": "C3-012",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M6-RELEASE",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-M6-L0-EVIDENCE-TEST",
       "path": "tests/m6-l0-evidence.test.js",
       "argv": [

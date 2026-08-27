@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import {
   M6_DYNAMIC_TECHNICAL_CHECKS,
   M6_EXTERNAL_AUTHORITY_CHECKS,
@@ -13,6 +15,10 @@ import {
   M6_RELEASE_EVIDENCE_VERSION,
   M6_REQUIRED_CHECK_IDS,
 } from '../../contracts/m6/release-v1.js';
+import {
+  M6_RUNTIME_EVIDENCE_PROGRAMS,
+} from '../../contracts/m6/runtime-evidence-v1.js';
+import { validateM6RuntimeEvidence } from './m6-runtime-evidence.js';
 
 const SHA_PATTERN = /^[a-f0-9]{40}$/u;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
@@ -36,7 +42,8 @@ function validArtifact(binding) {
     && SHA256_PATTERN.test(binding.sha256 || '');
 }
 
-function passingResult(result, candidateSha) {
+function passingResult(entry, candidateSha) {
+  const result = entry?.result;
   return result?.status === 'PASS'
     && result.required === true
     && result.exitCode === 0
@@ -49,7 +56,9 @@ function passingResult(result, candidateSha) {
     && result.sourceTree?.checked === true
     && result.sourceTree?.clean === true
     && result.sourceTree?.head === candidateSha
-    && SHA256_PATTERN.test(result.logSha256 || '');
+    && SHA256_PATTERN.test(result.logSha256 || '')
+    && entry.logValid === true
+    && entry.runtimeValidation.valid === true;
 }
 
 function technicalProgramSets(registry) {
@@ -113,11 +122,35 @@ function collectReports({ reports, candidateSha, registryFingerprint, errors }) 
       errors.push(`report[${reportIndex}]:results`);
       continue;
     }
+    const logEntries = Array.isArray(item?.logs) ? item.logs : [];
+    const logsByProgram = new Map();
+    for (const log of logEntries) {
+      if (logsByProgram.has(log?.programId)) {
+        errors.push(`report[${reportIndex}]:duplicate-log:${log?.programId}`);
+      } else {
+        logsByProgram.set(log?.programId, log?.bytes);
+      }
+    }
+    const resultIds = report.results.map(result => result?.id).sort();
+    const logIds = [...logsByProgram.keys()].sort();
+    if (JSON.stringify(resultIds) !== JSON.stringify(logIds)) {
+      errors.push(`report[${reportIndex}]:exact-log-programs`);
+    }
     for (const result of report.results) {
       if (results.has(result?.id)) {
         errors.push(`report:duplicate-program:${result?.id}`);
       } else {
-        results.set(result?.id, { result, artifact });
+        const logBytes = logsByProgram.get(result?.id);
+        const logValid = (typeof logBytes === 'string' || Buffer.isBuffer(logBytes))
+          && createHash('sha256').update(logBytes).digest('hex') === result?.logSha256;
+        if (!logValid) errors.push(`report[${reportIndex}]:log-sha:${result?.id}`);
+        const runtimeValidation = M6_RUNTIME_EVIDENCE_PROGRAMS.includes(result?.id)
+          ? validateM6RuntimeEvidence(result.id, logBytes, { candidateSha })
+          : Object.freeze({ valid: true, errors: Object.freeze([]), receipt: null });
+        if (!runtimeValidation.valid) {
+          errors.push(...runtimeValidation.errors.map(error => `${result.id}:${error}`));
+        }
+        results.set(result?.id, { result, artifact, logValid, runtimeValidation });
       }
     }
   }
@@ -128,7 +161,7 @@ function rowForPrograms(id, programIds, results, candidateSha) {
   const missing = programIds.filter(programId => !results.has(programId));
   const failed = programIds.filter(programId => (
     results.has(programId)
-    && !passingResult(results.get(programId).result, candidateSha)
+    && !passingResult(results.get(programId), candidateSha)
   ));
   const status = failed.length > 0 ? 'FAIL' : missing.length > 0 ? 'NOT_RUN' : 'PASS';
   const artifacts = [...new Map(
