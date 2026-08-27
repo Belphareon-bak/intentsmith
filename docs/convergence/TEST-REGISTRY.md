@@ -294,8 +294,8 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M1-MODEL-BINDING-STORAGE-TEST` | `tests/m1-model-binding-storage.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-CONTRACT-TEST` | `tests/m1-model-contract.test.js` | `C3-010` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-FAILOVER-COORDINATOR-TEST` | `tests/m1-model-failover-coordinator.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-M1-MODEL-FAILOVER-DETECTION-REPOSITORY-TEST` | `tests/m1-model-failover-detection-repository.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-FAILOVER-PROOF-ARTIFACTS-TEST` | `tests/m1-model-failover-proof-artifacts.test.js` | `C3-010` | T1 | `offline` | 10 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
-| `IS-T1-TESTS-M1-MODEL-FAILOVER-REPOSITORY-TEST` | `tests/m1-model-failover-repository.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST` | `tests/m1-model-failover-schema.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-M1-MODEL-GPU-PILOT-TEST` | `tests/m1-model-gpu-pilot.test.js` | `C3-010` | T3 | `model` | 10 min | 15 min | network:loopback, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-MODEL-SETTINGS-TEST` | `tests/m1-model-settings.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |

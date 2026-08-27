@@ -1,15 +1,18 @@
 #!/usr/bin/env node
 
-// Bounded, read-only evidence for the local model-evaluation control plane.
-// It never runs migrations, starts services, loads a model, or writes the DB.
+// Bounded evidence for the local model-evaluation control plane. The source DB
+// is always read-only. With --create-projection, this script alone creates a
+// new disposable DB and migrates only that copy.
 
 import { createHash } from 'node:crypto';
 import { createReadStream, existsSync, statSync } from 'node:fs';
-import { basename, resolve } from 'node:path';
+import { basename, dirname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 import Database from 'better-sqlite3';
 import { buildEvaluationReport } from './model-evaluation-report.js';
+import { runMigrations } from '../src/db/migrate.js';
 
 const MAX_COMMAND_LINES = 50;
 const MAX_COMMAND_BYTES = 16 * 1024;
@@ -17,17 +20,75 @@ const MAX_COMMAND_BYTES = 16 * 1024;
 function parseArgs(argv) {
   const values = {};
   for (const arg of argv) {
-    const match = /^--(db|source-db)=(.+)$/.exec(arg);
+    if (arg === '--create-projection') {
+      if (values['create-projection']) throw new Error('--create-projection is duplicated');
+      values['create-projection'] = true;
+      continue;
+    }
+    const match = /^--(db|source-db|projection-command|phase)=(.+)$/.exec(arg);
     if (!match || values[match[1]]) {
       throw new Error(
         'Usage: node scripts/model-evaluation-host-snapshot.js ' +
-        '--db=/path/projected.db [--source-db=/path/live.db]',
+        '--db=/path/projected.db [--source-db=/path/live.db ' +
+        '(--create-projection | ' +
+        '--projection-command="exact command used to create projected.db")] ' +
+        '[--phase=pre-gate|post-gate]',
       );
     }
-    values[match[1]] = resolve(match[2]);
+    values[match[1]] = match[2];
   }
   if (!values.db) throw new Error('--db is required');
-  return Object.freeze({ dbPath: values.db, sourceDbPath: values['source-db'] || null });
+  const createProjection = values['create-projection'] === true;
+  if (values['source-db'] && !createProjection && !values['projection-command']) {
+    throw new Error('--create-projection or --projection-command is required with --source-db');
+  }
+  if (createProjection && !values['source-db']) {
+    throw new Error('--create-projection requires --source-db');
+  }
+  if (createProjection && values['projection-command']) {
+    throw new Error('--create-projection and --projection-command are mutually exclusive');
+  }
+  if (values.phase && !['pre-gate', 'post-gate'].includes(values.phase)) {
+    throw new Error('--phase must be pre-gate or post-gate');
+  }
+  return Object.freeze({
+    dbPath: resolve(values.db),
+    sourceDbPath: values['source-db'] ? resolve(values['source-db']) : null,
+    createProjection,
+    projectionCommand: values['projection-command'] || null,
+    phase: values.phase || 'pre-gate',
+  });
+}
+
+async function createDisposableProjection(sourceDbPath, projectedDbPath) {
+  if (existsSync(projectedDbPath)) {
+    throw new Error(`Projected DB target already exists: ${projectedDbPath}`);
+  }
+  const source = new Database(sourceDbPath, { readonly: true, fileMustExist: true });
+  try {
+    await source.backup(projectedDbPath);
+  } finally {
+    source.close();
+  }
+  const projected = new Database(projectedDbPath, { fileMustExist: true });
+  try {
+    projected.pragma('foreign_keys = ON');
+    const migrationLog = [];
+    const originalConsoleLog = console.log;
+    console.log = (...parts) => migrationLog.push(parts.map(String).join(' '));
+    try {
+      const result = await runMigrations(projected);
+      return Object.freeze({
+        applied: Object.freeze([...result.applied]),
+        skippedCount: result.skipped.length,
+        log: Object.freeze(boundedText(migrationLog.join('\n'))),
+      });
+    } finally {
+      console.log = originalConsoleLog;
+    }
+  } finally {
+    projected.close();
+  }
 }
 
 function boundedText(value) {
@@ -184,23 +245,64 @@ function readModelSummary(report) {
 
 async function main() {
   const options = parseArgs(process.argv.slice(2));
+  const capturedAtStarted = new Date().toISOString();
+  const sourceDatabaseBefore = options.sourceDbPath
+    ? await databaseSummary(options.sourceDbPath)
+    : null;
+  let projectionMigration = null;
+  if (options.createProjection) {
+    projectionMigration = await createDisposableProjection(options.sourceDbPath, options.dbPath);
+  }
   const timerList = command('systemctl', ['--user', 'list-timers', '--all', '--no-legend']);
   const report = await buildEvaluationReport({ dbPath: options.dbPath });
+  const projectedDatabase = await databaseSummary(options.dbPath);
+  const sourceDatabaseAfter = options.sourceDbPath
+    ? await databaseSummary(options.sourceDbPath)
+    : null;
+  const sourceDatabaseUnchanged = sourceDatabaseBefore === null
+    ? null
+    : sourceDatabaseBefore.sha256 === sourceDatabaseAfter.sha256
+      && sourceDatabaseBefore.bytes === sourceDatabaseAfter.bytes
+      && sourceDatabaseBefore.modifiedAt === sourceDatabaseAfter.modifiedAt;
   const snapshot = {
-    schemaVersion: 'intentsmith-model-evaluation-host-db-snapshot-v1',
-    capturedAt: new Date().toISOString(),
-    readOnly: true,
-    prohibitedActionsObserved: Object.freeze({
-      migrationsRunByThisScript: false,
+    schemaVersion: 'intentsmith-model-evaluation-host-db-snapshot-v2',
+    capturedAtStarted,
+    capturedAtCompleted: new Date().toISOString(),
+    evidencePhase: options.phase,
+    sourceDatabaseReadOnly: true,
+    invocation: Object.freeze({
+      cwd: process.cwd(),
+      command: Object.freeze([
+        process.execPath,
+        resolve(dirname(fileURLToPath(import.meta.url)), 'model-evaluation-host-snapshot.js'),
+        ...process.argv.slice(2),
+      ]),
+    }),
+    projectionProvenance: Object.freeze({
+      mode: options.createProjection ? 'CREATED_BY_THIS_INVOCATION' : 'EXTERNAL',
+      projectedDatabase: options.dbPath,
+      sourceDatabase: options.sourceDbPath,
+      declaredCreationCommand: options.projectionCommand,
+      executedByThisScript: options.createProjection,
+      migration: projectionMigration,
+    }),
+    actionsObserved: Object.freeze({
+      disposableProjectionCreated: options.createProjection,
+      migrationsRunOnDisposableProjection: options.createProjection,
+      sourceDatabaseWritten: false,
       serviceOrTimerStarted: false,
       modelLoaded: false,
       scoringRunStarted: false,
     }),
     sourceRevision: command('git', ['rev-parse', 'HEAD']),
     sourceDatabase: options.sourceDbPath
-      ? await databaseSummary(options.sourceDbPath)
+      ? Object.freeze({
+        before: sourceDatabaseBefore,
+        after: sourceDatabaseAfter,
+        byteIdenticalDuringSnapshot: sourceDatabaseUnchanged,
+      })
       : null,
-    projectedDatabase: await databaseSummary(options.dbPath),
+    projectedDatabase,
     readModel: readModelSummary(report),
     host: Object.freeze({
       timerEnabled: command('systemctl', ['--user', 'is-enabled', 'intentsmith-model-hunt.timer']),

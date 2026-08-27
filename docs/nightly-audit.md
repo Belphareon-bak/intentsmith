@@ -14,12 +14,10 @@ The orchestrator is locked to:
 The canonical registry currently contains 448 runnable programs: 223
 `offline`, 56 `database`, 42 `server`, 84 `model`, 26 `soak`, and 17 `manual`.
 Its current parsed fingerprint is
-`0da4a318503be9cb05edb4ad3757d3c6d565ac61f28cc9db6473cb12a7196bcd`.
-The sealed Gate 0 orchestrator still pins the older reviewed fingerprint
-`059922af5232391aadee8367428712842d41c77d5c66916b3e6369e949e5deca`;
-therefore it intentionally fails closed until release policy is explicitly
-resealed. Neither the extra database suite nor non-selected profiles are
-silently counted as passing. The fingerprint is SHA-256 over
+`b8791c78ca0277ed1b1b4b301887ff5a2d85c6f16e6840e95e540860b0275d4d`.
+The sealed Gate 0 orchestrator pins that same fingerprint. Neither the renamed
+detection-only repository suite nor non-selected profiles are silently counted
+as passing. The fingerprint is SHA-256 over
 `JSON.stringify(JSON.parse(bytes))`, not a byte-level whitespace hash.
 
 ## Evidence location

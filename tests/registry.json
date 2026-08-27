@@ -5437,11 +5437,11 @@
       "quarantineExpiry": null
     },
     {
-      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-REPOSITORY-TEST",
-      "path": "tests/m1-model-failover-repository.test.js",
+      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-DETECTION-REPOSITORY-TEST",
+      "path": "tests/m1-model-failover-detection-repository.test.js",
       "argv": [
         "node",
-        "tests/m1-model-failover-repository.test.js"
+        "tests/m1-model-failover-detection-repository.test.js"
       ],
       "capabilityId": "C3-010",
       "tier": "T1",
