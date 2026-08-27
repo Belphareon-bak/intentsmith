@@ -29,6 +29,9 @@ import {
   M6_DIRECT_FRESH_CLONE_PROGRAMS,
 } from '../contracts/m6/candidate-plan-v1.js';
 import {
+  M6_PREVIOUS_VERSION_UPGRADE_PROGRAM,
+} from '../contracts/m6/runtime-evidence-v1.js';
+import {
   M6_RELEASE_EVIDENCE_INDEX_CONTRACT,
   M6_RELEASE_EVIDENCE_INDEX_PATH,
   M6_RELEASE_EVIDENCE_INDEX_VERSION,
@@ -735,13 +738,23 @@ async function runFreshClonePhase({
         programArtifacts,
         programProjects,
         programTemp,
-        programNpmCache,
         path.join(programRuntime, 'home'),
         path.join(programRuntime, 'xdg', 'config'),
         path.join(programRuntime, 'xdg', 'cache'),
         path.join(programRuntime, 'xdg', 'data'),
         path.join(programRuntime, 'xdg', 'state'),
       ]) await mkdir(directory, { recursive: true, mode: 0o700 });
+      if (programId === M6_PREVIOUS_VERSION_UPGRADE_PROGRAM) {
+        const copied = await copyCacheIfPresent(
+          prepared.environment.npm_config_cache,
+          programNpmCache,
+        );
+        if (!copied) {
+          throw new Error('M6 previous-version upgrade requires the runner-owned npm cache');
+        }
+      } else {
+        await mkdir(programNpmCache, { recursive: false, mode: 0o700 });
+      }
       const environment = {
         ...prepared.environment,
         C3_AUDIT_RUN: '1',

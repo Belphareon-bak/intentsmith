@@ -72,6 +72,10 @@ test('candidate runner materializes only named toolchain bindings', () => {
   assert.match(source, /npm_config_devdir: nodeGypCache/u);
   assert.match(source, /electron_config_cache: electronCache/u);
   assert.match(source, /electronHeaders: await copyCacheIfPresent/u);
+  assert.match(
+    source,
+    /programId === M6_PREVIOUS_VERSION_UPGRADE_PROGRAM[\s\S]*copyCacheIfPresent\([\s\S]*prepared\.environment\.npm_config_cache,[\s\S]*programNpmCache/u,
+  );
   assert.doesNotMatch(source, /\.\.\.process\.env/u);
 });
 
