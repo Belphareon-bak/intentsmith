@@ -67,8 +67,8 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M2 Řízená práce nad projektem** | `ACCEPTED / CLOSEOUT_PASS` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
-| **M5 Production hardening** | `5/9 REVIEW_PASSED / 4/9 RE_REVIEW_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Sedm nálezů druhého review má implementovanou remediation; zbývá re-review čtyř oddílů, nový integrační důkaz, 8 rotací a history disposition. |
-| **M6 IntentSmith 1.0 release** | `CANDIDATE_COMPLETE / TECHNICAL_IMPLEMENTATION_PASS / REVIEW_PENDING / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes otevřený gate | Zmražený kandidát `8abd6065` má kompletní technickou matici; chybí externí M5 autorita, review, Gate 0 a operátorské demo. |
+| **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY CHANGES_REQUESTED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | DATA, AUTH a PERF prošly re-review; PRIVACY má CRITICAL per-bootstrap writer-authority nález. Stále chybí 8 rotací a history disposition. |
+| **M6 IntentSmith 1.0 release** | `CANDIDATE_COMPLETE / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Kandidát `8abd6065` pokryl jen 311/369 ACTIVE+required programů a jeho finální validator přijímá self-asserted ignorovaný JSON. Sedm z osmi oddílů se vrací do práce. |
 | **M7 Remote Companion** | `DESIGN_ONLY` | M6 + remote boundary | Samostatný vzdálený companion release nad bezpečným core rozhraním. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
@@ -1371,14 +1371,17 @@ další učící smyčka M4. Nepředbíhá první prokázané Code Intelligence 
 ## 9. M5 — Production hardening
 
 **Průběžný stav 2026-08-27:**
-`5/9 REVIEW_PASSED / 4/9 RE_REVIEW_REQUIRED / ACCEPTANCE_BLOCKED /
-OPERATOR_REMEDIATION_REQUIRED / M6_GATE_CLOSED`. Druhé technické review přijalo
-PACKAGE, PROCESS, OBSERVE, OUTBOUND a REMOTE+CONDITIONAL. DATA, AUTH, PERF a
-PRIVACY znovu otevřelo sedmi nálezy. Všechny mají implementovanou remediation
-v exact product candidate `816a2a4c8a95b49d46f06b94b56feb64c8a40c90`
-(tree `db31c29870cb5f6916a28117f6ac8f55476d9388`); evidence source je
-`6e7cd7410c83826c88d6d65f6af2ae29fc5df3e6`. Operátorský re-review těchto
-čtyř oddílů ještě chybí, proto se jejich stav nepovyšuje na `REVIEW_PASSED`.
+`8/9 REVIEW_PASSED / PRIVACY CHANGES_REQUESTED / ACCEPTANCE_BLOCKED /
+OPERATOR_REMEDIATION_REQUIRED / M6_GATE_CLOSED`. Re-review exact kandidáta
+`816a2a4c8a95b49d46f06b94b56feb64c8a40c90` přijalo DATA, AUTH a PERF vedle
+pěti dříve přijatých oddílů. PRIVACY zůstává otevřené: veřejná globální auth
+funkce dovolovala same-process callerovi dodat očekávanou i prezentovanou local
+capability a vyrobit subject, který privacy writer uznal. Remediation se váže
+na product commit `665b42c8`: raw mint už není veřejný, HTTP, WS a privacy
+repository sdílí jedinou per-bootstrap autoritu a DB writer odmítne druhý
+verifier. Oprava je `IMPLEMENTED / RE_REVIEW_REQUIRED`; poslední nezávislý
+verdikt zůstává `CHANGES_REQUESTED`; operátorské re-review opravených bajtů
+ještě neproběhlo.
 `WP-M5-PACKAGE` má review remediation implementovanou na product commitu
 `8be0094d`; druhé review oddíl označilo `REVIEW_PASSED`. `--verify-only` při
 cizím Node majoru pouze zapíše chybu a nikdy
@@ -1643,26 +1646,26 @@ WP, aby roadmapa nepředstírala již existující důkaz.
 ## 10. M6 — IntentSmith 1.0 release
 
 **Implementační stav 2026-08-27:** `CANDIDATE_COMPLETE /
-TECHNICAL_IMPLEMENTATION_PASS / REVIEW_PENDING / ACCEPTANCE_BLOCKED` na exact
-product candidatu `8abd6065bd614a15bf9f7814dea14ed1e040c616` (tree
-`f41a6af70b29d9024ba1006aabe417aad2ff26aa`). Uzamčený producer spustil 311
-disjunktních required programů: `296/296` deterministických, `1/1` owned
-production server, `10/10` controlled soak, `3/3` fresh-clone Studio a `1/1`
-fyzický GPU pilot; všechny skončily PASS. Všech 13 L0 řádků a jediný odvozený
-conditional model-discovery journey jsou PASS. Content-addressed release
-manifest váže sedm skutečných build výstupů. Samostatný validator vrací
-`valid: true`, `verdict: BLOCKED`, exit `2`, protože M5 acceptance,
-operátorské read-only review, Gate 0 attestation a demo jsou záměrně externí
-autority. Implementační closeout je v
+TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` na review kandidatu
+`8abd6065bd614a15bf9f7814dea14ed1e040c616` (tree
+`f41a6af70b29d9024ba1006aabe417aad2ff26aa`). Historický producer skutečně
+spustil 311/311 vybraných programů zeleně, ale úplný registry required set má
+369 položek: chybělo 47 modelových a 11 serverových programů. Finální validator
+navíc odvozoval PASS ze self-asserted gitignored JSON namísto opětovného
+vyhodnocení raw reportů, sedmi artifact rolí a exact receipt chainu. Application
+upgrade, L0-11 a dlouhý soak/resource řádek nebyly prokázány v síle, kterou
+release matice vyžaduje. Proto je dřívější `TECHNICAL_IMPLEMENTATION_PASS`
+stažený; 311/311 zůstává pouze pravdivým dílčím výsledkem. Historický closeout je v
 [`m6-integration-closeout-20260827.md`](docs/execution/runs/m6-integration-closeout-20260827.md)
-a review jednotka v
+a superseding review výsledek v
+[`2026-08-27-M5-M6-OPERATOR-REVIEW-RESULT.md`](docs/review/2026-08-27-M5-M6-OPERATOR-REVIEW-RESULT.md); původní review jednotka je v
 [`2026-08-27-M6-OPERATOR-REVIEW-PACKET.md`](docs/review/2026-08-27-M6-OPERATOR-REVIEW-PACKET.md).
 Nejde o `ACCEPTED`, povolení merge/tag/publish ani náhradu otevřené M5 brány.
 
 ### Vstup
 
 Normální acceptance vstup vyžaduje `M1–M5 ACCEPTED`. M1–M4 jsou přijaté, ale
-M5 zůstává `5/9 REVIEW_PASSED / 4/9 RE_REVIEW_REQUIRED` a nemá skutečných 8/8
+M5 zůstává `8/9 REVIEW_PASSED / PRIVACY CHANGES_REQUESTED` a nemá skutečných 8/8
 rotací ani history disposition. Operátor výslovně povolil dokončit technickou
 implementaci M6 bez čekání; toto povolení neotevírá acceptance gate. Product
 candidate je zmražený a Gate 0/attestační řetěz může být dokončen až po

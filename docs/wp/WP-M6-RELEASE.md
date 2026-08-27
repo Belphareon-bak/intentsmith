@@ -1,6 +1,6 @@
 # WP-M6-RELEASE — zmrazený kandidát a validační matice IntentSmith 1.0
 
-**Typ:** zapisující Work Package · **Stav:** CANDIDATE_COMPLETE / TECHNICAL_IMPLEMENTATION_PASS / REVIEW_PENDING / ACCEPTANCE_BLOCKED
+**Typ:** zapisující Work Package · **Stav:** CANDIDATE_COMPLETE / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED
 **Vstupní revision:** `55938fd0628bdb725736acdf21a451854580aaa7`
 **Vlastník:** `codex/m6-release-20260827`, jediný writer tohoto checkoutu
 
@@ -100,6 +100,12 @@ nezávislé review a demo; `BLOCKED`, `NOT RUN` ani předpokládaný budoucí PA
 nepočítá.
 
 ## 9. Implementační closeout 2026-08-27
+
+Níže uvedený closeout je historický dílčí důkaz, nikoli aktuální technical
+verdict. Operátorský review prokázal, že locked set vynechal 58 ACTIVE+required
+programů a finální validator mohl přijmout self-asserted ignorovaný JSON.
+Aktuální stav je proto `TECHNICAL_REVIEW_CHANGES_REQUESTED`; 311/311 zůstává
+pravdivým výsledkem pouze vybraného podsetu.
 
 - exact product candidate: `8abd6065bd614a15bf9f7814dea14ed1e040c616`;
 - candidate tree: `f41a6af70b29d9024ba1006aabe417aad2ff26aa`;
