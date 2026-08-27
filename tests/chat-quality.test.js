@@ -15,8 +15,8 @@
 //   G) Response Structure — appropriate length, no preamble spam
 //
 // Usage:
-//   node src/test/chat-quality.test.js              # all tests
-//   node src/test/chat-quality.test.js --section 2  # specific section
+//   node tests/chat-quality.test.js              # all tests
+//   node tests/chat-quality.test.js --section 2  # specific section
 //
 // Requirements:
 //   - Ollama running on localhost:11434
@@ -24,9 +24,12 @@
 //
 // ═══════════════════════════════════════════════════════════════════════════════
 
+import './helpers/isolated-test-db.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { installOllamaLoopbackFetchBoundary } from './helpers/ollama-loopback-fetch-boundary.js';
+import { AbortSource, abortWithReason } from '../src/core/abort-error.js';
 
 installOllamaLoopbackFetchBoundary({ reportOnExit: true });
 
@@ -36,6 +39,7 @@ const SRC = join(__dirname, '..', 'src');
 
 const args = process.argv.slice(2);
 const SECTION_ONLY = args.includes('--section') ? parseInt(args[args.indexOf('--section') + 1]) : null;
+const HARNESS_SELF_TEST = args.includes('--harness-self-test');
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TEST FRAMEWORK (same as chat-integration.js)
@@ -48,6 +52,7 @@ const failures = [];
 const warningList = [];
 const timings = [];
 let currentSection = 0;
+const testScope = new AsyncLocalStorage();
 
 function ok(name, ms) {
   passed++;
@@ -64,21 +69,44 @@ function fail(name, error) {
 }
 
 function warn(name, detail) {
+  if (testScope.getStore()?.terminal === true) return;
   warnings++;
   warningList.push({ name, detail });
   console.log(`  ⚠️  ${name}: ${detail}`);
+}
+
+async function runTimedOperation(fn, timeout) {
+  const controller = new AbortController();
+  const scope = { signal: controller.signal, terminal: false };
+  let timeoutId;
+  const timeoutError = new Error(`TIMEOUT after ${timeout}ms`);
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      scope.terminal = true;
+      reject(timeoutError);
+      abortWithReason(controller, AbortSource.TIMEOUT, timeoutError.message);
+    }, timeout);
+  });
+  try {
+    const result = await Promise.race([
+      testScope.run(scope, () => fn(controller.signal)),
+      timeoutPromise,
+    ]);
+    scope.terminal = true;
+    return result;
+  } catch (error) {
+    scope.terminal = true;
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 async function test(name, fn, { timeout = 60000 } = {}) {
   if (SECTION_ONLY && currentSection !== SECTION_ONLY) return;
   const start = Date.now();
   try {
-    await Promise.race([
-      fn(),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`TIMEOUT after ${timeout}ms`)), timeout)
-      ),
-    ]);
+    await runTimedOperation(fn, timeout);
     const ms = Date.now() - start;
     timings.push({ name, ms });
     ok(name, ms);
@@ -172,16 +200,66 @@ function assertNoQuality(q, predicate, msg) {
 let ChatController, ChatMode;
 
 async function chat(message, opts = {}) {
+  const { signal = testScope.getStore()?.signal || null, ...qualityOptions } = opts;
   const sid = opts.sessionId || `cqt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
   const result = await ChatController.handle({
     message,
     sessionId: sid,
-    ...(opts.project ? { project: opts.project, context: { projectId: opts.project.id } } : {}),
+    signal,
+    ...(qualityOptions.project
+      ? { project: qualityOptions.project, context: { projectId: qualityOptions.project.id } }
+      : {}),
   });
 
-  const q = qualityCheck(result.response, message, opts);
+  const q = qualityCheck(result.response, message, qualityOptions);
   return { ...result, quality: q, sessionId: sid };
 }
+
+async function runHarnessSelfTest() {
+  const warningsBefore = warnings;
+  let timeoutObserved = false;
+  let lateCallbackRan = false;
+  let timeoutMessage = null;
+  try {
+    await runTimedOperation(async signal => {
+      await new Promise(resolve => {
+        signal.addEventListener('abort', () => {
+          timeoutObserved = signal.reason?.abortSource === AbortSource.TIMEOUT;
+          resolve();
+        }, { once: true });
+      });
+      await new Promise(resolve => setTimeout(resolve, 0));
+      lateCallbackRan = true;
+      warn('late completion', 'must not mutate terminal evidence');
+    }, 5);
+  } catch (error) {
+    timeoutMessage = error.message;
+  }
+  await new Promise(resolve => setTimeout(resolve, 20));
+  const nextSignalWasClean = await runTimedOperation(
+    async signal => signal.aborted === false,
+    50,
+  );
+  const result = {
+    timeoutObserved,
+    timeoutMessage,
+    lateCallbackRan,
+    lateWarningSuppressed: warnings === warningsBefore,
+    nextSignalWasClean,
+  };
+  console.log(`CHAT_QUALITY_HARNESS_SELF_TEST:${JSON.stringify(result)}`);
+  process.exit(
+    Object.values({
+      timeoutObserved,
+      lateCallbackRan,
+      lateWarningSuppressed: result.lateWarningSuppressed,
+      nextSignalWasClean,
+      timeoutWasTyped: timeoutMessage === 'TIMEOUT after 5ms',
+    }).every(Boolean) ? 0 : 1,
+  );
+}
+
+if (HARNESS_SELF_TEST) await runHarnessSelfTest();
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // PRELOAD

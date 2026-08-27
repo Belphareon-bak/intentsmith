@@ -492,6 +492,42 @@ try {
   };
   for (const key of isolationKeys) delete attachmentBoundaryEnvironment[key];
   attachmentBoundaryEnvironment.C3_URL = 'http://127.0.0.1:1';
+
+  const chatQualityHarnessSelfTest = spawnSync(
+    process.execPath,
+    [join(__dirname, 'chat-quality.test.js'), '--harness-self-test'],
+    {
+      cwd: repositoryRoot,
+      encoding: 'utf8',
+      env: attachmentBoundaryEnvironment,
+      timeout: 5_000,
+    },
+  );
+  assert.equal(
+    chatQualityHarnessSelfTest.error,
+    undefined,
+    String(chatQualityHarnessSelfTest.error),
+  );
+  assert.equal(
+    chatQualityHarnessSelfTest.status,
+    0,
+    chatQualityHarnessSelfTest.stderr || chatQualityHarnessSelfTest.stdout,
+  );
+  const chatQualityMarker = chatQualityHarnessSelfTest.stdout
+    .split('\n')
+    .find(line => line.startsWith('CHAT_QUALITY_HARNESS_SELF_TEST:'));
+  assert.ok(chatQualityMarker, chatQualityHarnessSelfTest.stdout);
+  assert.deepEqual(
+    JSON.parse(chatQualityMarker.slice('CHAT_QUALITY_HARNESS_SELF_TEST:'.length)),
+    {
+      timeoutObserved: true,
+      timeoutMessage: 'TIMEOUT after 5ms',
+      lateCallbackRan: true,
+      lateWarningSuppressed: true,
+      nextSignalWasClean: true,
+    },
+  );
+
   const attachmentBoundary = spawnSync(
     process.execPath,
     [

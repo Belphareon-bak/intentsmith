@@ -84,6 +84,36 @@ async function main() {
   const realOllamaUrl = config.ollama.baseUrl;
   config.ollama.baseUrl = `http://127.0.0.1:${closedPort}`;
 
+  const deterministicConversationStarted = Date.now();
+  const deterministicConversation = await Promise.all([
+    cre.decide('OK'),
+    cre.decide('Jak se máš?'),
+    cre.decide('Co si myslíš o Pythonu?'),
+    cre.decide('Kdo byl Albert Einstein?'),
+    cre.decide('Jak funguje DNS?'),
+    cre.decide('What is photosynthesis?'),
+  ]);
+  const deterministicConversationElapsed = Date.now() - deterministicConversationStarted;
+  check(
+    deterministicConversation.every(decision => (
+      decision.intent === IntentType.CONVERSATIONAL
+      && decision.type === DecisionType.ANSWER
+      && decision.metadata?.classifiedBy === 'deterministic'
+    )),
+    'C-04a — explicit conversation and static-knowledge patterns take the deterministic ANSWER path',
+  );
+  check(
+    deterministicConversationElapsed < CLASSIFICATION_BOUND_MS,
+    `C-04a.1 — deterministic conversation does not wait on the model (${deterministicConversationElapsed} ms)`,
+  );
+  const ambiguousTechnologyTopic = await cre.decide('Python');
+  check(
+    ambiguousTechnologyTopic.intent === IntentType.AMBIGUOUS
+      && ambiguousTechnologyTopic.type === DecisionType.ASK_USER
+      && ambiguousTechnologyTopic.metadata?.classifiedBy === 'deterministic',
+    'C-04a.2 — a bare technology topic stays ambiguous without spending a model call',
+  );
+
   const started = Date.now();
   let threw = null;
   let fallback = null;

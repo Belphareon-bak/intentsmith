@@ -378,6 +378,14 @@ async function testT6_4_CompositeGate() {
       assert.equal(v.failDimension, 'D6.2_DENSITY');
     });
 
+    it('MINIMAL creative form accepts a compact substantive result', async () => {
+      const v = enforceOutputContract('Káva tiše voní\nRáno kreslí do páry\nDen se probouzí', {
+        intent: 'CREATIVE',
+        responseIntent: 'MINIMAL',
+      });
+      assert.equal(v.ok, true);
+    });
+
     it('Intent misalignment detected when content is sufficient', async () => {
       const v = enforceOutputContract(
         'Rozumím, že chcete informace o DPH v České republice, pojďme se na to podívat podrobněji a zjistit co je potřeba vědět.',

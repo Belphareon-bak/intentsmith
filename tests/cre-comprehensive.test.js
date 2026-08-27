@@ -824,7 +824,10 @@ section('9A. EDGE: Very short inputs');
 {
   const shortCases = [
     ['a', IntentType.AMBIGUOUS],
-    ['ok', IntentType.AMBIGUOUS],
+    // A standalone acknowledgement is an explicit conversational turn. This
+    // agrees with the chat-pipeline and chat-quality contracts and avoids an
+    // unnecessary clarification/model-classification round trip.
+    ['ok', IntentType.CONVERSATIONAL],
     ['ne', IntentType.AMBIGUOUS],
     ['jo', IntentType.AMBIGUOUS],
     ['?', IntentType.AMBIGUOUS],

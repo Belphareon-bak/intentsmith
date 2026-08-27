@@ -42,6 +42,47 @@ const M2_TOOL_FALLBACK_SUPPRESS_ERROR_CODES = new Set([
   'TOOL_EXECUTION_IN_PROGRESS',
 ]);
 
+const ANSWER_TOKEN_BUDGET = Object.freeze({
+  VERY_SHORT: 64,
+  SHORT_CONVERSATION: 256,
+  STANDARD_CONVERSATION: 256,
+  LONG_CONVERSATION: 1200,
+  NON_CONVERSATIONAL: 2000,
+});
+
+const BRIEF_CONVERSATION_PATTERN = /^(?:ahoj|\u010dau|cau|nazdar|hi|hello|hey|d[ií]ky|d[eě]kuji|thanks?|thank you|ok(?:ay)?|dob[rř]e|jasn[eě]|rozum[ií]m|jak se m[áa][sš]|how are you)[!.,? ]*$/iu;
+const COMPACT_CREATIVE_PATTERN = /(?:\bhaiku\b|\b(?:e-?mail|mail)\b)/iu;
+
+const BRIEF_REPLY_INSTRUCTION = Object.freeze({
+  cs: '\n\nSTRUČNOST: Odpověz právě jednou krátkou přirozenou větou.',
+  sk: '\n\nSTRUČNOSŤ: Odpovedz práve jednou krátkou prirodzenou vetou.',
+  en: '\n\nBREVITY: Reply with exactly one short, natural sentence.',
+  de: '\n\nKÜRZE: Antworte mit genau einem kurzen, natürlichen Satz.',
+});
+
+function buildBriefReplyInstruction(input, language) {
+  const normalizedInput = typeof input === 'string' ? input.trim() : '';
+  if (!BRIEF_CONVERSATION_PATTERN.test(normalizedInput)) return '';
+  return BRIEF_REPLY_INSTRUCTION[language] || BRIEF_REPLY_INSTRUCTION.cs;
+}
+
+function selectAnswerTokenBudget(input, intent) {
+  const normalizedInput = typeof input === 'string' ? input.trim() : '';
+  if (intent === IntentType.CREATIVE && COMPACT_CREATIVE_PATTERN.test(normalizedInput)) {
+    return ANSWER_TOKEN_BUDGET.SHORT_CONVERSATION;
+  }
+  if (intent !== IntentType.CONVERSATIONAL) {
+    return ANSWER_TOKEN_BUDGET.NON_CONVERSATIONAL;
+  }
+  const inputLength = normalizedInput.length;
+  if (inputLength <= 10) return ANSWER_TOKEN_BUDGET.VERY_SHORT;
+  if (BRIEF_CONVERSATION_PATTERN.test(normalizedInput)) {
+    return ANSWER_TOKEN_BUDGET.SHORT_CONVERSATION;
+  }
+  if (inputLength <= 160) return ANSWER_TOKEN_BUDGET.STANDARD_CONVERSATION;
+  return ANSWER_TOKEN_BUDGET.LONG_CONVERSATION;
+}
+
 function isM2DurableEffectTerminal(result) {
   return result?.success === false
     && typeof result?.meta?.m2ToolRequestId === 'string'
@@ -961,7 +1002,8 @@ ${FORBIDDEN_PHRASES.slice(0, 10).map(p => `- "${p}"`).join('\n')}`,
     let systemPrompt = (CONVERSATIONAL_SYSTEM_PROMPTS[langCtx.language]
       || CONVERSATIONAL_SYSTEM_PROMPTS.cs)
       + (langCtx.instruction || '')
-      + buildStrictLanguageInstruction(langCtx.language);
+      + buildStrictLanguageInstruction(langCtx.language)
+      + buildBriefReplyInstruction(input, langCtx.language);
 
     // v65.4: Project context injection (sanitized, length-limited)
     systemPrompt += buildProjectContext(context);
@@ -978,6 +1020,9 @@ ${FORBIDDEN_PHRASES.slice(0, 10).map(p => `- "${p}"`).join('\n')}`,
     let answerRetry = 0;
     let currentPrompt = prompt;
     let result;
+    const answerResponseIntent = detectResponseIntent(input, {
+      lastResponseIntent: context.sessionState?.lastResponseIntent || null,
+    });
 
     // v59.0 IDE Bridge: Notify LLM start for ANSWER path
     if (typeof context.onLLMStart === 'function') {
@@ -993,6 +1038,8 @@ ${FORBIDDEN_PHRASES.slice(0, 10).map(p => `- "${p}"`).join('\n')}`,
       result = await creBridge.generateChatResponse(currentPrompt, systemPrompt, {
         sessionId: `conv-${sessionId}`,
         temperature: answerRetry === 0 ? 0.7 : 0.5,
+        maxTokens: selectAnswerTokenBudget(input, decision.intent),
+        signal: context.signal || null,
       });
 
       // v123.2: System step — LLM response received
@@ -1019,7 +1066,7 @@ ${FORBIDDEN_PHRASES.slice(0, 10).map(p => `- "${p}"`).join('\n')}`,
       // ════════════════════════════════════════════════════════════════════════
       const gateVerdict = enforceOutputContract(result.content, {
         intent: decision.intent || 'CONVERSATIONAL',
-        responseIntent: null,
+        responseIntent: answerResponseIntent,
       });
 
       // v123.2: System step — D6 quality gate
@@ -1096,6 +1143,7 @@ ${FORBIDDEN_PHRASES.slice(0, 10).map(p => `- "${p}"`).join('\n')}`,
     // Log if D6 gate still fails after retry (degraded response)
     const finalGate = enforceOutputContract(result.content, {
       intent: decision.intent || 'CONVERSATIONAL',
+      responseIntent: answerResponseIntent,
     });
     if (!finalGate.ok) {
       logger.warn('ConversationHandler', 'D6 gate still fails after retry — returning degraded', {
@@ -1219,6 +1267,8 @@ export {
   handleAskUserDecision,
   formatClarificationRequest,
   handleAnswerDecision,
+  buildBriefReplyInstruction,
+  selectAnswerTokenBudget,
   createForbiddenResponseError,
   handleRefuseDecision,
 };

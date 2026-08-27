@@ -184,6 +184,14 @@ describe('T8.3: Creative quality gate enforcement', () => {
       `Should mention short, got: ${result.reason}`);
   });
 
+  it('assertCreativeQuality accepts a compact haiku without weakening normal creative work', async () => {
+    const result = assertCreativeQuality(
+      'Káva tiše voní\nRáno kreslí do páry\nDen se probouzí',
+      'Napiš haiku o kávě',
+    );
+    assert.equal(result.valid, true);
+  });
+
   it('assertCreativeQuality rejects input echo (short)', async () => {
     const input = 'napiš příběh o drakovi co zachraňuje princeznu';
     const result = assertCreativeQuality(

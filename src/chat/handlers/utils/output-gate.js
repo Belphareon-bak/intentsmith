@@ -131,9 +131,12 @@ const DENSITY_THRESHOLDS = {
  * @param {string} intent
  * @returns {{ dense: boolean, actualLength: number, threshold: number }}
  */
-function checkDensity(content, intent) {
+function checkDensity(content, intent, responseIntent = null) {
   const trimmed = (content || '').trim();
-  const threshold = DENSITY_THRESHOLDS[intent] || DENSITY_THRESHOLDS.DEFAULT;
+  const intentThreshold = DENSITY_THRESHOLDS[intent] || DENSITY_THRESHOLDS.DEFAULT;
+  const threshold = responseIntent === 'MINIMAL'
+    ? Math.min(intentThreshold, DENSITY_THRESHOLDS.CONVERSATIONAL)
+    : intentThreshold;
 
   // Strip markdown formatting for measurement
   const stripped = trimmed
@@ -256,7 +259,7 @@ export function enforceOutputContract(content, opts = {}) {
   }
 
   // ─── D6.2: Density check ──────────────────────────────────────────────
-  const density = checkDensity(content, intent);
+  const density = checkDensity(content, intent, responseIntent);
   if (!density.dense) {
     return {
       ok: false,

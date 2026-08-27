@@ -11,6 +11,11 @@
  * Minimum content length for creative responses (chars).
  */
 const CREATIVE_MIN_LENGTH = 100;
+const COMPACT_CREATIVE_MIN_LENGTH = 20;
+
+export function isCompactCreativeRequest(input) {
+  return typeof input === 'string' && /\bhaiku\b/iu.test(input);
+}
 
 /**
  * Patterns indicating a skeleton/template response instead of actual creative content.
@@ -60,10 +65,13 @@ export function assertCreativeQuality(content, input) {
   const trimmed = content.trim();
 
   // ─── Length check ───────────────────────────────────────────────────────
-  if (trimmed.length < CREATIVE_MIN_LENGTH) {
+  const minimumLength = isCompactCreativeRequest(input)
+    ? COMPACT_CREATIVE_MIN_LENGTH
+    : CREATIVE_MIN_LENGTH;
+  if (trimmed.length < minimumLength) {
     return {
       valid: false,
-      reason: `Creative response too short: ${trimmed.length}/${CREATIVE_MIN_LENGTH} chars`,
+      reason: `Creative response too short: ${trimmed.length}/${minimumLength} chars`,
     };
   }
 
@@ -533,6 +541,7 @@ export const _test = {
   FILLER_PHRASES,
   FLUFF_PATTERNS,
   CREATIVE_MIN_LENGTH,
+  COMPACT_CREATIVE_MIN_LENGTH,
   // v58.0
   DESIGN_MIN_LENGTH,
   DESIGN_SECTION_MARKERS,

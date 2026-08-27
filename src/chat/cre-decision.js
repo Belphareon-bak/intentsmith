@@ -230,6 +230,7 @@ const RESPONSE_INTENT_PATTERNS = {
   [ResponseIntent.MINIMAL]: [
     /jen číslo/i, /jen datum/i, /jen ano.*ne/i, /pouze/i, /jenom/i,
     /just.*number/i, /just.*date/i, /only/i, /nothing.*else/i,
+    /\bhaiku\b/i,
   ],
   [ResponseIntent.OPINIONATED]: [
     /co.*bys.*doporučil/i, /co.*myslíš/i, /tvůj.*názor/i, /jaký.*je.*nejlepší/i,
@@ -622,6 +623,10 @@ const SEARCH_PATTERNS = [
 // These go to CONVERSATIONAL/ANSWER, NOT SEARCH.
 // Must be checked BEFORE SEARCH_PATTERNS in classification order.
 export const KNOWLEDGE_EXPLANATION_PATTERNS = [
+  // Historical biography forms are static knowledge unless an explicit fresh
+  // signal later wins in the stricter SEARCH precedence.
+  /^kdo\s+byl\s+/i,
+  /^who\s+was\s+/i,
   // ─── CZ: "co je" + general concept (no fresh-data modifier) ─────────────
   /^co\s+je\s+/i,         // "co je neuronová síť", "co je Python"
   /^co\s+jsou\s+/i,       // "co jsou hashovací tabulky"
@@ -730,6 +735,27 @@ export const KNOWLEDGE_EXPLANATION_PATTERNS = [
   /^what\s+do\s+(these|those|the)\s+(file|code|script|module|function)s?\s+do\s*[?]?$/i,
   /^give\s+me\s+(a\s+)?(summary|overview|rundown|breakdown)/i,
   /^summarize\s+(it|them|this|that|these|those)\s*[?!.]?$/i,
+];
+
+// Stable, self-contained knowledge forms that do not need model arbitration.
+// Keep this deliberately narrower than KNOWLEDGE_EXPLANATION_PATTERNS: author
+// lookups and referential follow-ups still need the model/Guard 6 authority
+// chain (for example, "kdo napsal ..." under a creative expertise).
+const DETERMINISTIC_STATIC_KNOWLEDGE_PATTERNS = [
+  /^kdo\s+byl\s+/i,
+  /^who\s+was\s+/i,
+  /^co\s+(?:je|jsou|znamen[áa])\s+/i,
+  /^what\s+(?:is|are)\s+/i,
+  /^what\s+does\s+.+\s+mean\b/i,
+  /^vysv[eě]tli\s+(?!to\b|mi\s+to\b)/i,
+  /^explain\s+(?!it\b|this\b|that\b)/i,
+  /jak\s+(?:to\s+)?funguj/i,
+  /how\s+(?:does|do)\s+.+\s+work\b/i,
+  /^[čc]o\s+je\s+/i,
+  /^was\s+ist\s+/i,
+  /^odpov[eě]z\s+.{0,40}:\s*co\s+je\s+/i,
+  /^hlavn[ií]\s+m[eě]sto\s+/i,
+  /^(?:the\s+)?capital\s+of\s+/i,
 ];
 
 // ════════════════════════════════════════════════════════════════════════════════
@@ -1583,6 +1609,11 @@ export const DESIGN_FORBIDDEN_PHRASES = [
 ];
 
 const CONVERSATIONAL_PATTERNS = [
+  // Standalone acknowledgements — a continuation guard may still reinterpret
+  // these when a prior intent exists, but the first-pass classification is
+  // deterministic and must not spend a model call on two or three characters.
+  /^(?:ok(?:ay)?|dob[rř]e|jasn[eě]|rozum[ií]m)[.!]*$/i,
+  /^(?:dobr[ýy]\s+den)[.!]*$/i,
   // Greetings — match even with trailing text ("Ahoj! Jak se mas?")
   /^(ahoj|čau|cau|nazdar|hi|hello|hey)\b/i,
   // Thanks — standalone or with trailing text ("Díky za motivaci!")
@@ -3064,18 +3095,44 @@ PRAVIDLA:
       return new CREDecision(config);
     };
 
-    // Phase 0: Deterministic fast-path — skip LLM for trivial inputs
+    // Phase 0: Deterministic fast-path — skip LLM where the local classifier
+    // already has an explicit semantic rule. classifyIntent() still applies
+    // its stricter FILE/CODE/etc. precedence before CONVERSATIONAL.
     const _text = input.trim();
     const _norm = normalizeForClassification(_text);
+    const deterministicIntent = this.classifyIntent(input);
+    const isLowInformation = /^[\p{Extended_Pictographic}\p{Emoji_Presentation}\s!?.,…]+$/u.test(_text);
+    const isAmbiguousTechnologyTopic = /^(?:python|javascript|typescript|java|rust|go|ruby|php|c\+\+|sql)$/iu.test(_text);
+    // A numeric finance/tax question may need a specialist calculator. Keep the
+    // LLM classification in the authority chain so an unsupported LOCAL label
+    // is still caught by Guard 13 instead of being silently short-circuited as
+    // ordinary conversation.
+    const mayRequireLocalAuthority = /\d/u.test(_text)
+      && /(?:\b(?:tax(?:es)?|income|vat|mortgage|interest)\b|da[nň]|p[rř]ijm|osv[cč]|dph|zaplat|hypot[eé]k|[uú]rok)/iu.test(_text);
+    // Creative expertise may legitimately reinterpret a general-knowledge
+    // query through Guard 6. Keep that audited arbitration reachable instead
+    // of silently accepting the local CONVERSATIONAL fallback.
+    const creativeKnowledgeNeedsArbitration = context.expertise?.creativeLock === true
+      && KNOWLEDGE_EXPLANATION_PATTERNS.some(p => p.test(_text));
+    const isExplicitConversation = isGratitudeOrFarewell(_text)
+      || CONVERSATIONAL_PATTERNS.some(p => p.test(_text))
+      || SELF_REFERENCE_PATTERNS.some(p => p.test(_text))
+      || STATEMENT_PATTERNS.some(p => p.test(_text));
+    const isStaticKnowledge = DETERMINISTIC_STATIC_KNOWLEDGE_PATTERNS.some(p => p.test(_text));
     const isDeterministic =
-      LOCAL_DETERMINISTIC_PATTERNS.some(p => p.test(_norm)) ||
-      isGratitudeOrFarewell(_text) ||
+      (deterministicIntent === IntentType.CONVERSATIONAL
+        && !mayRequireLocalAuthority
+        && !creativeKnowledgeNeedsArbitration
+        && (isExplicitConversation || isStaticKnowledge)) ||
+      deterministicIntent === IntentType.LOCAL ||
+      isLowInformation ||
+      isAmbiguousTechnologyTopic ||
       // v72: ITEM_LOOKUP is purely pattern-based (count + thing) — skip LLM
-      ITEM_LOOKUP_PATTERNS.some(p => p.test(_text));
+      deterministicIntent === IntentType.ITEM_LOOKUP;
 
     if (isDeterministic) {
       const _classStart = performance.now();
-      intent = this.classifyIntent(input);
+      intent = deterministicIntent;
       _classificationTimeMs = Math.round(performance.now() - _classStart);
     } else {
       // Phase 1: LLM structured classification (primary)

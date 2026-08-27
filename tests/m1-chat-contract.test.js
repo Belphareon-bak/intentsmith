@@ -2,6 +2,7 @@
 
 import './helpers/isolated-test-db.js';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import Database from 'better-sqlite3';
 
 import { finalizeChatResponse } from '../src/chat/response-finalizer.js';
@@ -31,6 +32,10 @@ import {
   SessionState,
   TaggedResponse,
 } from '../src/chat/controller.js';
+import {
+  buildBriefReplyInstruction,
+  selectAnswerTokenBudget,
+} from '../src/chat/handlers/decisions.js';
 import {
   getConversationStore,
   resetConversationStore,
@@ -228,6 +233,31 @@ function openResponse() {
 }
 
 suite('M1 chat — fail-closed assistant persistence boundary');
+
+test('ANSWER model generation receives the request cancellation signal', () => {
+  const source = readFileSync(
+    new URL('../src/chat/handlers/decisions.js', import.meta.url),
+    'utf8',
+  );
+  assert.match(
+    source,
+    /generateChatResponse\(currentPrompt, systemPrompt, \{[\s\S]*?maxTokens: selectAnswerTokenBudget\(input, decision\.intent\),[\s\S]*?signal: context\.signal \|\| null,[\s\S]*?\}\);/u,
+  );
+});
+
+test('ANSWER token budgets bound short chat without constraining richer intents below authority', () => {
+  assert.equal(selectAnswerTokenBudget('OK', 'CONVERSATIONAL'), 64);
+  assert.equal(selectAnswerTokenBudget('Jak se máš?', 'CONVERSATIONAL'), 256);
+  assert.equal(selectAnswerTokenBudget('Co si myslíš o Pythonu?', 'CONVERSATIONAL'), 256);
+  assert.equal(selectAnswerTokenBudget('x'.repeat(161), 'CONVERSATIONAL'), 1200);
+  assert.equal(selectAnswerTokenBudget('Napiš haiku o kávě', 'CREATIVE'), 256);
+  assert.equal(selectAnswerTokenBudget('Pomoz mi napsat email', 'CREATIVE'), 256);
+  assert.equal(selectAnswerTokenBudget('Help me write an e-mail', 'CREATIVE'), 256);
+  assert.equal(selectAnswerTokenBudget('napiš příběh', 'CREATIVE'), 2000);
+  assert.match(buildBriefReplyInstruction('Díky', 'cs'), /právě jednou krátkou/u);
+  assert.match(buildBriefReplyInstruction('Thanks', 'en'), /exactly one short/u);
+  assert.equal(buildBriefReplyInstruction('Co si myslíš o Pythonu?', 'cs'), '');
+});
 
 await testAsync('successful result is returned only after the assistant turn persists', async () => {
   const order = [];
