@@ -1678,6 +1678,10 @@ stabilní candidate + re-review:
   explicitně retired legacy chat cleanup. Focused autorita prošla 11/11,
   původní model-use 24/24, VRAM 8/8 a binding/chat 108/108.
 
+Autoritativní module graph má 1 191 hran, stále 3 cykly a 28 souborů v
+cyklech; pět přesných nových hran bylo přijato bez růstu cyklu a odstraněná
+chat → model-identity hrana baseline zpřísnila.
+
 Dosud chybí skutečný 24hodinový soak, maximum-throughput/resource receipt,
 nový úplný candidate run a operátorský re-review. Proto žádný z těchto řádků
 není ještě vydáván za `REVIEW_PASSED` ani za M6 acceptance.
