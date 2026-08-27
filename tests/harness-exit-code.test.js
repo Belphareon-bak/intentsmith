@@ -48,6 +48,15 @@ const isolationHelperPath = realpathSync(
   join(__dirname, 'helpers', 'isolated-test-db.js'),
 );
 const fixtureDir = mkdtempSync(join(tmpdir(), 'c3-harness-meta-'));
+const directParentPath = join(
+  repositoryRoot,
+  '.intentsmith-artifacts',
+  'direct-tests',
+);
+const directParentExisted = existsSync(directParentPath);
+const directParentEntriesBefore = directParentExisted
+  ? readdirSync(directParentPath).sort()
+  : [];
 const isolationKeys = [
   'C3_AUDIT_RUN',
   'HOME',
@@ -533,9 +542,7 @@ try {
     preservedAttachmentRoot,
     'raw attachment boundary did not preserve its diagnostic runtime',
   );
-  const directParent = realpathSync(
-    join(repositoryRoot, '.intentsmith-artifacts', 'direct-tests'),
-  );
+  const directParent = realpathSync(directParentPath);
   const attachmentRoot = pathResolve(preservedAttachmentRoot);
   const attachmentRootRelative = pathRelative(directParent, attachmentRoot);
   assert.ok(
@@ -1308,16 +1315,18 @@ summary();
 
   if (process.env.C3_AUDIT_RUN === '1') {
     assert.deepEqual(
-      readdirSync(directParent),
-      [],
-      'audit meta-test must not leave a direct-test runtime behind',
+      readdirSync(directParent).sort(),
+      directParentEntriesBefore,
+      'audit meta-test must preserve the pre-existing direct-test runtime set',
     );
-    rmdirSync(directParent);
-    assert.equal(
-      existsSync(directParent),
-      false,
-      'audit meta-test must remove its empty direct-test parent',
-    );
+    if (!directParentExisted) {
+      rmdirSync(directParent);
+      assert.equal(
+        existsSync(directParent),
+        false,
+        'audit meta-test must remove the direct-test parent it created',
+      );
+    }
   }
 
   console.log('Harness exit-code meta-test passed');

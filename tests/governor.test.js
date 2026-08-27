@@ -243,9 +243,16 @@ function seedCurrentEvaluations(db, opts = {}) {
     if (missing.has(role)) continue;
     db.prepare(`
       INSERT INTO model_evaluation_runs (
-        model_digest_sha256, suite_name, suite_contract_sha256, status, completed_at
-      ) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
-    `).run(digest, plan.suiteName, plan.suiteContractSha256, statusByRole[role] || 'COMPLETE');
+        model_digest_sha256, suite_name, suite_contract_sha256, role, status,
+        completed_at
+      ) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `).run(
+      digest,
+      plan.suiteName,
+      plan.suiteContractSha256,
+      role,
+      statusByRole[role] || 'COMPLETE',
+    );
   }
 }
 

@@ -391,8 +391,8 @@ suite('M1 model failover schema — exact migration contract');
 
 await testAsync('fresh file-backed DB creates all failover tables, indexes and triggers', async () => {
   await withMigratedDb(async (db) => {
-    // The append-only evaluation import audit is the current integrated tip.
-    assertEqual(getCurrentVersion(db), '2026_08_26_096_model_evaluation_import_audit');
+    // Runtime-guard removal is the current integrated tip.
+    assertEqual(getCurrentVersion(db), '2026_08_27_099_remove_model_runtime_guard');
 
     for (const table of [
       'model_desired_bindings',
@@ -676,7 +676,7 @@ await testAsync('second migration run is a no-op with an identical schema snapsh
     const before = schemaSnapshot(db);
     const result = await runMigrations(db);
     assertEqual(result.applied.length, 0);
-    assertEqual(result.skipped.length, 83);
+    assertEqual(result.skipped.length, 85);
     assertEqual(schemaSnapshot(db), before);
   });
 });
@@ -737,10 +737,12 @@ await testAsync('migration 054 preserves pre-existing success as unconfirmed evi
         '2026_08_26_090_m5_privacy_authority',
         '2026_08_26_091_m5_privacy_writer_authority',
         '2026_08_26_096_model_evaluation_import_audit',
+        '2026_08_27_097_model_evaluation_role_identity',
+        '2026_08_27_099_remove_model_runtime_guard',
       ]),
     );
     assertEqual(result.skipped.length, 55);
-    assertEqual(getCurrentVersion(db), '2026_08_26_096_model_evaluation_import_audit');
+    assertEqual(getCurrentVersion(db), '2026_08_27_099_remove_model_runtime_guard');
     assertEqual(
       db.prepare(`
         SELECT COUNT(*) AS count
