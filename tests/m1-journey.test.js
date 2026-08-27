@@ -217,7 +217,6 @@ function serverEnvironment(runtime, nonce, providerUrl) {
     C3_ENABLE_TELEMETRY: 'false',
     C3_ENABLE_ONLINE_DISCOVERY: 'false',
     C3_MODEL_UNIVERSE_ENABLED: 'false',
-    C3_MODEL_RUNTIME_GUARD_ENABLED: 'false',
     C3_LIFECYCLE_AUTO_COMMIT: 'false',
     C3_UPDATE_REPO: '',
     C3_TRACE: '0',

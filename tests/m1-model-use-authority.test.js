@@ -401,6 +401,112 @@ await testAsync('default registry and pull wiring share the production singleton
 
 suite('M1 model use authority — gateway provider lifecycle');
 
+await testAsync('gateway rejects mutable-tag digest drift before send and before release', async () => {
+  const previousAuthority = llmGateway._bindingStartupAuthority;
+  const previousResolver = llmGateway._bindingArtifactResolver;
+  const expected = Object.freeze({
+    modelName: 'binding-fixture:latest',
+    digestSha256: DIGEST,
+  });
+  llmGateway.setBindingStartupAuthority({
+    status: 'DURABLE',
+    artifacts: { CHAT: expected },
+  }, {
+    resolveArtifact: () => expected,
+  });
+  try {
+    let chatCalls = 0;
+    globalThis.fetch = async url => {
+      if (String(url).endsWith('/api/tags')) {
+        return {
+          ok: true,
+          json: async () => ({
+            models: [{ name: expected.modelName, digest: `sha256:${'b'.repeat(64)}` }],
+          }),
+        };
+      }
+      chatCalls += 1;
+      return providerChatResponse('must not be served');
+    };
+    const preSend = await captureAsync(callWithAuth(
+      gatewayToken('binding-pre-send-drift'),
+      'must not reach chat',
+      { model: 'binding-fixture', capability: 'reasoning', retries: 1 },
+    ));
+    assertEqual(preSend.code, 'LLM_BINDING_ARTIFACT_DRIFT');
+    assertEqual(chatCalls, 0);
+
+    let inventoryCalls = 0;
+    globalThis.fetch = async url => {
+      if (String(url).endsWith('/api/tags')) {
+        inventoryCalls += 1;
+        const digest = inventoryCalls === 1 ? DIGEST : 'b'.repeat(64);
+        return {
+          ok: true,
+          json: async () => ({
+            models: [{ name: expected.modelName, digest: `sha256:${digest}` }],
+          }),
+        };
+      }
+      chatCalls += 1;
+      return providerChatResponse('untrusted response', { model: expected.modelName });
+    };
+    const postResponse = await captureAsync(callWithAuth(
+      gatewayToken('binding-post-response-drift'),
+      'response must be discarded',
+      { model: 'binding-fixture', capability: 'reasoning', retries: 1 },
+    ));
+    assertEqual(postResponse.code, 'LLM_BINDING_ARTIFACT_DRIFT');
+    assertEqual(inventoryCalls, 2);
+    assertEqual(chatCalls, 1);
+    assertEqual(modelUseAuthority.snapshot('binding-fixture').activeUseCount, 0);
+    assertEqual(llmGateway.getConcurrencyStats().active, 0);
+  } finally {
+    llmGateway._bindingStartupAuthority = previousAuthority;
+    llmGateway._bindingArtifactResolver = previousResolver;
+    globalThis.fetch = originalFetch;
+  }
+});
+
+await testAsync('gateway returns the exact verified artifact digest', async () => {
+  const previousAuthority = llmGateway._bindingStartupAuthority;
+  const previousResolver = llmGateway._bindingArtifactResolver;
+  const expected = Object.freeze({
+    modelName: 'binding-fixture:latest',
+    digestSha256: DIGEST,
+  });
+  llmGateway.setBindingStartupAuthority({
+    status: 'DURABLE',
+    artifacts: { CHAT: expected },
+  }, {
+    resolveArtifact: () => expected,
+  });
+  try {
+    globalThis.fetch = async url => String(url).endsWith('/api/tags')
+      ? {
+        ok: true,
+        json: async () => ({
+          models: [{ name: expected.modelName, digest: `sha256:${DIGEST}` }],
+        }),
+      }
+      : providerChatResponse('verified response', {
+        model: expected.modelName,
+        digest: `sha256:${DIGEST}`,
+      });
+    const result = await callWithAuth(
+      gatewayToken('binding-exact-success'),
+      'serve exact',
+      { model: 'binding-fixture', capability: 'reasoning', retries: 1 },
+    );
+    assertEqual(result.content, 'verified response');
+    assertEqual(result.modelDigestSha256, DIGEST);
+  } finally {
+    llmGateway._bindingStartupAuthority = previousAuthority;
+    llmGateway._bindingArtifactResolver = previousResolver;
+    globalThis.fetch = originalFetch;
+  }
+});
+
 await testAsync('gateway usage binds telemetry only to a digest reported by the serving provider', async () => {
   const db = new Database(':memory:');
   db.exec(`

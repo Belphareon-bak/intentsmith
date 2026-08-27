@@ -8502,6 +8502,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-PRE082-UPGRADE-REGRESSION-TEST",
+      "path": "tests/pre082-upgrade-regression.test.js",
+      "argv": [
+        "node",
+        "tests/pre082-upgrade-regression.test.js"
+      ],
+      "capabilityId": "C3-010",
+      "tier": "T1",
+      "fixture": "isolated-sqlite",
+      "profile": "database",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 30000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-MODEL-EVALUATION-SUITES-TEST",
       "path": "tests/model-evaluation-suites.test.js",
       "argv": [

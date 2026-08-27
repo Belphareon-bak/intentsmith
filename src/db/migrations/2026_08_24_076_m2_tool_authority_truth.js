@@ -27,6 +27,8 @@ import {
   EXPECTED_M2_EFFECT_CORE_FINGERPRINT_V077,
   computeM2EffectCoreFingerprintV073,
 } from '../m2-effect-core-v073-prerequisite.js';
+import { up as repairModelPolicyTriggers } from './2026_08_24_081_model_policy_trigger_compatibility.js';
+import { up as repairModelProofTriggers } from './2026_08_24_081_model_proof_trigger_compatibility.js';
 
 export const version = '2026_08_24_076_m2_tool_authority_truth';
 export const description = 'Preserve nullable-project tool denials and exact single-owner terminal truth';
@@ -311,6 +313,20 @@ function installTruthObjects(db) {
 }
 
 export function up(db) {
+  // Some accepted pre-082 databases contain the exact M1 tables plus invalid
+  // legacy triggers installed by 066/067. Repair those known collisions before
+  // 076 asks SQLite to reparse unrelated M2 schemas. The later 081 migrations
+  // are idempotent and still own the canonical migration stamps.
+  const hasPolicyCollisionCandidate = db.prepare(`
+    SELECT 1 AS ok FROM sqlite_master
+    WHERE type = 'trigger' AND name = 'trg_model_automation_policy_events_no_update'
+  `).get();
+  const hasProofCollisionCandidate = db.prepare(`
+    SELECT 1 AS ok FROM sqlite_master
+    WHERE type = 'trigger' AND name = 'trg_model_failover_proofs_require_artifacts'
+  `).get();
+  if (hasPolicyCollisionCandidate) repairModelPolicyTriggers(db);
+  if (hasProofCollisionCandidate) repairModelProofTriggers(db);
   registerM2ToolProjectionFunction(db);
   const current = computeM2ToolTruthSchemaFingerprint(db);
   const effectCore = computeM2EffectCoreFingerprintV073(db);

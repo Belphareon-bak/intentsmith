@@ -9,6 +9,7 @@ import { up as up042 } from '../src/db/migrations/2026_04_08_042_v137_universe_r
 import { up as up070 } from '../src/db/migrations/2026_08_22_070_model_evaluation_history.js';
 import { up as up082 } from '../src/db/migrations/2026_08_24_082_model_evaluation_consolidation.js';
 import { up as up096 } from '../src/db/migrations/2026_08_26_096_model_evaluation_import_audit.js';
+import { up as up097 } from '../src/db/migrations/2026_08_27_097_model_evaluation_role_identity.js';
 import { ModelEvaluationDecisionStore } from '../src/upgrade/model-evaluation-decision-store.js';
 
 const DIGEST_A = 'a'.repeat(64);
@@ -38,17 +39,17 @@ function consolidatedDatabase() {
   return db;
 }
 
-function insertRun(db, runId, digest, suite = 'chat_v3') {
+function insertRun(db, runId, digest, suite = 'chat_v3', role = 'CHAT') {
   db.prepare(`
     INSERT INTO model_evaluation_runs (
       run_id, model_name, model_canonical_name, model_digest_sha256,
       suite_name, suite_version, suite_contract_sha256, role, status,
       score, passed, total, repeats, duration_ms, task_results_json,
       hardware_json, metadata_json, started_at, completed_at
-    ) VALUES (?, ?, ?, ?, ?, 'chat-quality-v3', ?, 'CHAT', 'COMPLETE',
+    ) VALUES (?, ?, ?, ?, ?, 'chat-quality-v3', ?, ?, 'COMPLETE',
       0.8, 7, 8, 3, 10, '[]', '{}', '{}',
       '2026-08-24T19:00:00.000Z', '2026-08-24T19:01:00.000Z')
-  `).run(runId, `${runId}:latest`, runId, digest, suite, CONTRACT);
+  `).run(runId, `${runId}:latest`, runId, digest, suite, CONTRACT, role);
 }
 
 suite('Model evaluation consolidation migration and decision store');
@@ -111,6 +112,25 @@ test('082 imports and archives a legacy summary written after 070', () => {
   assertEqual(db.prepare(
     "SELECT 1 AS ok FROM sqlite_master WHERE type='table' AND name='validation_suite_scores'"
   ).get(), undefined);
+  db.close();
+});
+
+test('070 normalizes a nullable legacy duration without losing the row', () => {
+  const db = new Database(':memory:');
+  up034(db);
+  db.prepare(`
+    INSERT INTO validation_suite_scores (
+      model, suite, score, passed, total, duration_ms, validated_at
+    ) VALUES ('nullable:latest', 'chat', 0.5, 1, 2, NULL, '2026-08-24 12:00:00')
+  `).run();
+  up070(db);
+  const row = db.prepare(`
+    SELECT duration_ms, status, error_code
+    FROM model_evaluation_runs WHERE run_id = 'legacy_v123_1'
+  `).get();
+  assertEqual(row.duration_ms, 0);
+  assertEqual(row.status, 'BLOCKED');
+  assertEqual(row.error_code, 'LEGACY_EXACT_IDENTITY_UNKNOWN');
   db.close();
 });
 
@@ -243,6 +263,77 @@ test('096 quarantines a weak-086-style imported row that disagrees with its arch
   `).get();
   assertEqual(audit.outcome, 'QUARANTINED');
   assertEqual(audit.reason_code, 'IMPORTED_RUN_MISMATCH');
+  db.close();
+});
+
+test('096 accepts only bounded JSON REAL representation drift', () => {
+  const db = consolidatedDatabase();
+  db.exec(`
+    DROP TRIGGER trg_model_evaluation_runs_no_update;
+    UPDATE model_evaluation_runs
+    SET score = score + 2.220446049250313e-16
+    WHERE run_id = 'legacy_v123_1';
+  `);
+  up096(db);
+  assertEqual(db.prepare(`
+    SELECT outcome FROM model_evaluation_import_audits
+    WHERE source_schema = 'validation_suite_scores' AND source_row_id = 1
+  `).get().outcome, 'VERIFIED');
+  db.close();
+});
+
+test('096 still quarantines a material REAL mismatch', () => {
+  const db = consolidatedDatabase();
+  db.exec(`
+    DROP TRIGGER trg_model_evaluation_runs_no_update;
+    UPDATE model_evaluation_runs
+    SET score = score + 0.000001
+    WHERE run_id = 'legacy_v123_1';
+  `);
+  up096(db);
+  assertEqual(db.prepare(`
+    SELECT outcome FROM model_evaluation_import_audits
+    WHERE source_schema = 'validation_suite_scores' AND source_row_id = 1
+  `).get().outcome, 'QUARANTINED');
+  db.close();
+});
+
+test('097 preserves role-consistent decisions and quarantines cross-role lineage', () => {
+  const db = consolidatedDatabase();
+  insertRun(db, 'd1-incumbent', DIGEST_A, 'chat_v3', 'D1');
+  insertRun(db, 'd1-candidate', DIGEST_B, 'chat_v3', 'D1');
+  const insertDecision = db.prepare(`
+    INSERT INTO model_evaluation_decisions (
+      decision_id, role, incumbent_run_id, candidate_run_id,
+      policy_version, policy_contract_sha256, outcome, basis, details_json
+    ) VALUES (?, ?, 'd1-incumbent', 'd1-candidate', 'role-pairwise-v1', ?,
+      'INCONCLUSIVE', 'fixture', '{}')
+  `);
+  insertDecision.run('consistent-d1', 'D1', CONTRACT);
+  insertDecision.run('cross-role-d2', 'D2', CONTRACT);
+
+  up097(db);
+  assertEqual(db.prepare('SELECT COUNT(*) AS count FROM model_evaluation_decisions').get().count, 1);
+  assertEqual(db.prepare(`
+    SELECT decision_id FROM model_evaluation_decision_quarantine
+  `).get().decision_id, 'cross-role-d2');
+  assertEqual(JSON.parse(db.prepare(`
+    SELECT decision_json FROM model_evaluation_decision_quarantine
+    WHERE decision_id = 'cross-role-d2'
+  `).get().decision_json).role, 'D2');
+  assertEqual(db.prepare(`
+    SELECT name FROM sqlite_master WHERE type = 'index'
+      AND name = 'idx_model_eval_complete_artifact_role_contract'
+  `).get().name, 'idx_model_eval_complete_artifact_role_contract');
+  insertRun(db, 'same-artifact-chat', DIGEST_A, 'chat_v3', 'CHAT');
+  assertEqual(db.prepare(`
+    SELECT COUNT(*) AS count FROM model_evaluation_runs
+    WHERE model_digest_sha256 = ? AND suite_contract_sha256 = ? AND status = 'COMPLETE'
+  `).get(DIGEST_A, CONTRACT).count, 2);
+  let invalidRoleError = null;
+  try { insertRun(db, 'invalid-role', 'e'.repeat(64), 'chat_v3', 'BOGUS'); }
+  catch (error) { invalidRoleError = error; }
+  assert(String(invalidRoleError?.message || '').includes('exact model evaluation requires a valid role'));
   db.close();
 });
 

@@ -1,7 +1,11 @@
 // Small orchestration helpers for the v136.1 model-upgrade prototype.
 
 import { artifactFromInventory, resolveInstalledArtifact } from './model-evaluation-history.js';
-import { canonicalModelName, sameModelName } from './model-identity.js';
+import {
+  canonicalModelName,
+  normalizeModelDigestSha256,
+  sameModelName,
+} from './model-identity.js';
 import { checkRoleEligibility } from './candidate-eligibility.js';
 import { MODEL_PROFILES } from './model-profiles.js';
 import { parseModelNameExtended } from './model-family-extensions.js';
@@ -187,6 +191,7 @@ export function createHistoryCallbacks(options) {
       const artifact = await resolveArtifact(input.model);
       const row = history.getComplete({
         digestSha256: artifact.digestSha256,
+        role: input.role,
         suiteName: input.suiteName,
         contractSha256: input.suiteContractSha256,
       });
@@ -229,26 +234,28 @@ export function evaluationStateForArtifact(artifact, roles, plans, history, hard
   const perRole = {};
   let missing = 0;
   let rejected = 0;
-  const hardwareBlock = history.getHardwareBlock?.({
-    digestSha256: artifact.digestSha256, hardware,
-  });
-  if (hardwareBlock) {
-    for (const role of roles || []) perRole[role] = 'rejected';
-    return Object.freeze({
-      state: 'rejected', missing: 0, rejected: (roles || []).length,
-      perRole, hardwareBlock,
-    });
-  }
+  let hardwareBlock = null;
   for (const role of roles || []) {
     const plan = plans?.[role];
     if (!plan) continue;
+    const roleHardwareBlock = history.getHardwareBlock?.({
+      digestSha256: artifact.digestSha256, role, hardware,
+    });
+    if (roleHardwareBlock) {
+      hardwareBlock ||= roleHardwareBlock;
+      perRole[role] = 'rejected';
+      rejected++;
+      continue;
+    }
     const complete = history.getComplete({
       digestSha256: artifact.digestSha256,
+      role,
       suiteName: plan.suiteName,
       contractSha256: plan.suiteContractSha256,
     });
     const terminal = complete ? null : history.getTerminal({
       digestSha256: artifact.digestSha256,
+      role,
       suiteName: plan.suiteName,
       contractSha256: plan.suiteContractSha256,
       hardware,
@@ -258,7 +265,7 @@ export function evaluationStateForArtifact(artifact, roles, plans, history, hard
     if (terminal) rejected++;
   }
   const state = missing ? 'unseen' : (rejected ? 'rejected' : 'scored');
-  return Object.freeze({ state, missing, rejected, perRole });
+  return Object.freeze({ state, missing, rejected, perRole, hardwareBlock });
 }
 
 /**
@@ -326,40 +333,29 @@ export function buildInstalledCandidateQueue(input = {}) {
   return [...byModel.values()].sort((a, b) => b.priority - a.priority || a.sizeGB - b.sizeGB);
 }
 
-export async function applyWinningBindings(input = {}) {
-  const {
-    before = {}, after = {}, applyBinding, roles = Object.keys(after),
-    responsibilityPolicy = DEFAULT_RESPONSIBILITY_POLICY,
-  } = input;
-  if (typeof applyBinding !== 'function') throw new TypeError('applyBinding is required');
-  const audit = auditResponsibilitySegregation(after, responsibilityPolicy);
-  if (!audit.compliant) {
-    const detail = audit.violations.map(row => `${row.type}:${row.roles.join('+')}`).join(', ');
-    throw new Error(`Responsibility segregation rejected binding portfolio: ${detail}`);
-  }
-  const outcomes = [];
-  for (const role of roles) {
-    const from = before[role];
-    const to = after[role];
-    if (!from || !to || sameModelName(from, to)) continue;
-    const result = await applyBinding(role, to);
-    outcomes.push(Object.freeze({ role, from, to, result }));
-  }
-  return outcomes;
-}
-
 export function resolveCurrentBindings(defaults = {}, repository, roles = Object.keys(defaults)) {
   if (!repository || typeof repository.getDesired !== 'function') {
     throw new TypeError('repository.getDesired is required');
   }
   const durable = {};
+  const artifacts = {};
   for (const role of roles) {
     const desired = repository.getDesired(role);
-    if (desired?.modelName) durable[role] = desired.modelName;
+    if (!desired?.modelName) continue;
+    const digestSha256 = normalizeModelDigestSha256(desired.digestSha256);
+    if (!digestSha256) {
+      throw new Error(`Durable binding ${role} is missing an exact SHA-256 digest`);
+    }
+    durable[role] = desired.modelName;
+    artifacts[role] = Object.freeze({
+      modelName: desired.modelName,
+      digestSha256,
+    });
   }
   return Object.freeze({
     bindings: Object.freeze({ ...defaults, ...durable }),
     durable: Object.freeze(durable),
+    artifacts: Object.freeze(artifacts),
   });
 }
 
@@ -370,6 +366,5 @@ export default {
   createHistoryCallbacks,
   evaluationStateForArtifact,
   buildInstalledCandidateQueue,
-  applyWinningBindings,
   resolveCurrentBindings,
 };

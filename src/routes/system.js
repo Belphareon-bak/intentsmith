@@ -497,7 +497,6 @@ export function createSystemRoutes({
         const state = _normalizeUniverseStateParam(url.searchParams.get('state'));
         const sort = String(url.searchParams.get('sort') || 'confidence').trim().toLowerCase();
         const order = String(url.searchParams.get('order') || 'desc').trim().toLowerCase();
-        const runtimeState = String(url.searchParams.get('runtime_state') || '').trim().toLowerCase() || null;
 
         const listed = modelUniverseStore.listUniverse({
           limit,
@@ -505,7 +504,6 @@ export function createSystemRoutes({
           state,
           sort,
           order,
-          runtimeState,
         });
 
         if (!listed.ok && !listed.disabled) {
@@ -524,7 +522,6 @@ export function createSystemRoutes({
           sort: { by: listed.sortBy || sort || 'confidence', order: listed.order || (order === 'asc' ? 'asc' : 'desc') },
           filters: {
             state: listed.state || state || null,
-            runtime_state: listed.runtimeState || runtimeState || null,
           },
           unavailable: listed.disabled ? (listed.reason || 'feature_disabled') : null,
         });

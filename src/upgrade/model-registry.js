@@ -182,7 +182,14 @@ export class ModelRegistry {
         : [];
       const validDurable = bindingStartupAuthority?.status === 'DURABLE'
         && durableRoles.length === expectedRoles.length
-        && durableRoles.every((role, index) => role === expectedRoles[index]);
+        && durableRoles.every((role, index) => role === expectedRoles[index])
+        && expectedRoles.every(role => (
+          typeof bindingStartupAuthority?.artifacts?.[role]?.modelName === 'string'
+          && bindingStartupAuthority.artifacts[role].modelName.trim().length > 0
+          && normalizeModelDigestSha256(
+            bindingStartupAuthority.artifacts[role].digestSha256,
+          ) !== null
+        ));
       const validDegraded = bindingStartupAuthority?.status === 'DEGRADED'
         && typeof bindingStartupAuthority.reason === 'string'
         && bindingStartupAuthority.reason.length > 0
@@ -201,6 +208,12 @@ export class ModelRegistry {
         reason: bindingStartupAuthority.reason || null,
         verifiedRoles: Object.freeze([...(bindingStartupAuthority.verifiedRoles || [])]),
         failures: Object.freeze([...(bindingStartupAuthority.failures || [])]),
+        artifacts: Object.freeze(Object.fromEntries(Object.entries(
+          bindingStartupAuthority.artifacts || {},
+        ).map(([role, artifact]) => [role, Object.freeze({
+          modelName: artifact.modelName,
+          digestSha256: normalizeModelDigestSha256(artifact.digestSha256),
+        })]))),
       });
     } else {
       this._bindingStartupAuthority = null;
@@ -300,7 +313,7 @@ export class ModelRegistry {
   }
 
   /** Get current role → model bindings */
-  getBindingState() {
+  getBindingState(installedInput = null) {
     if (!this._bindingRepository) {
       return Object.freeze({
         status: 'BOOTSTRAP_FALLBACK',
@@ -329,6 +342,7 @@ export class ModelRegistry {
           // in the public projection.
           bindings: Object.freeze({ ...config.models }),
           durable: resolved.durable,
+          artifacts: resolved.artifacts,
           verifiedRoles: Object.freeze([...(startupAuthority.verifiedRoles || [])]),
           failures: Object.freeze([...(startupAuthority.failures || [])]),
         });
@@ -341,11 +355,52 @@ export class ModelRegistry {
       if (startupAuthority?.status === 'DURABLE'
         && durableCount === roles.length
         && runtimeMatchesDurable) {
+        const inventory = Array.isArray(installedInput) ? installedInput : null;
+        const failures = [];
+        for (const role of roles) {
+          const expected = resolved.artifacts[role];
+          const matches = inventory?.filter(row => sameModelName(row?.name, expected.modelName)) || [];
+          const observedDigest = matches.length === 1
+            ? normalizeModelDigestSha256(matches[0]?.digestSha256 || matches[0]?.digest)
+            : null;
+          if (!inventory) {
+            failures.push(Object.freeze({
+              role,
+              code: 'MODEL_BINDING_RUNTIME_ARTIFACT_UNVERIFIED',
+            }));
+          } else if (matches.length !== 1 || observedDigest !== expected.digestSha256) {
+            failures.push(Object.freeze({
+              role,
+              code: matches.length !== 1
+                ? 'MODEL_BINDING_RUNTIME_ARTIFACT_UNRESOLVED'
+                : 'MODEL_BINDING_RUNTIME_ARTIFACT_DRIFT',
+              expectedDigestSha256: expected.digestSha256,
+              observedDigestSha256: observedDigest,
+            }));
+          }
+        }
+        if (failures.length > 0) {
+          const verifiedRoles = roles.filter(role => (
+            !failures.some(failure => failure.role === role)
+          ));
+          return Object.freeze({
+            status: 'DEGRADED',
+            reason: inventory
+              ? 'MODEL_BINDING_RUNTIME_ARTIFACT_DRIFT'
+              : 'MODEL_BINDING_RUNTIME_ARTIFACT_UNVERIFIED',
+            bindings: resolved.bindings,
+            durable: resolved.durable,
+            artifacts: resolved.artifacts,
+            verifiedRoles: Object.freeze(verifiedRoles),
+            failures: Object.freeze(failures),
+          });
+        }
         return Object.freeze({
           status: 'DURABLE',
           reason: null,
           bindings: resolved.bindings,
           durable: resolved.durable,
+          artifacts: resolved.artifacts,
           verifiedRoles: Object.freeze([...roles]),
           failures: Object.freeze([]),
         });
@@ -360,6 +415,7 @@ export class ModelRegistry {
           : 'MODEL_BINDING_RUNTIME_NOT_OBSERVED',
         bindings: Object.freeze({ ...config.models }),
         durable: resolved.durable,
+        artifacts: resolved.artifacts,
         verifiedRoles: Object.freeze([]),
         failures: Object.freeze([]),
       });
@@ -497,7 +553,7 @@ export class ModelRegistry {
       );
     }
     const installed = installedInput || await this.getInstalled();
-    const bindingState = this.getBindingState();
+    const bindingState = this.getBindingState(installed);
     return this._evaluationReadModel.read({
       inventory: installed,
       bindings: bindingState.bindings,

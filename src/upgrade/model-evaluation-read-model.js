@@ -50,7 +50,7 @@ function decodeCurrentRow(row) {
   });
 }
 
-function currentStatus(db, artifact, plan) {
+function currentStatus(db, artifact, role, plan) {
   if (!artifact.digestSha256) {
     return Object.freeze({
       status: 'BLOCKED',
@@ -68,11 +68,12 @@ function currentStatus(db, artifact, plan) {
     WHERE model_digest_sha256 = ?
       AND suite_name = ?
       AND suite_contract_sha256 = ?
+      AND role = ?
     ORDER BY CASE status WHEN 'COMPLETE' THEN 0 ELSE 1 END,
              completed_at DESC,
              run_id DESC
     LIMIT 1
-  `).get(artifact.digestSha256, plan.suiteName, plan.suiteContractSha256);
+  `).get(artifact.digestSha256, plan.suiteName, plan.suiteContractSha256, role);
   return decodeCurrentRow(row) || Object.freeze({
     status: 'MISSING',
     score: null,
@@ -177,7 +178,7 @@ export class ModelEvaluationReadModel {
       const models = inventory.map(artifact => {
         const evaluations = {};
         for (const [role, plan] of Object.entries(this._plans)) {
-          const result = currentStatus(this._db, artifact, plan);
+          const result = currentStatus(this._db, artifact, role, plan);
           evaluations[role] = Object.freeze({
             role,
             suiteName: plan.suiteName,
@@ -218,6 +219,8 @@ export class ModelEvaluationReadModel {
           JOIN model_evaluation_runs incumbent ON incumbent.run_id = d.incumbent_run_id
           JOIN model_evaluation_runs candidate ON candidate.run_id = d.candidate_run_id
           WHERE d.role = ?
+            AND incumbent.role = d.role
+            AND candidate.role = d.role
             AND candidate.suite_name = ?
             AND candidate.suite_version = ?
             AND candidate.suite_contract_sha256 = ?

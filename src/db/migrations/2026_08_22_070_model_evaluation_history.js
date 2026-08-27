@@ -159,7 +159,7 @@ export function up(db) {
       passed,
       total,
       1,
-      duration_ms,
+      COALESCE(duration_ms, 0),
       '[]',
       '{}',
       '{"source":"validation_suite_scores","reusable":false}',

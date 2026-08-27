@@ -26,7 +26,7 @@ const RUNTIME_FAILURE_CODES = new Set([
   'MODEL_BINDING_TARGET_NOT_INSTALLED',
   'MODEL_BINDING_TARGET_DIGEST_MISSING',
   'MODEL_BINDING_TARGET_DIGEST_DRIFT',
-  'MODEL_BINDING_RUNTIME_GUARD_REJECTED',
+  'MODEL_BINDING_ARTIFACT_IN_USE',
   'MODEL_BINDING_RUNTIME_COMMIT_FAILED',
 ]);
 const STARTUP_PROVIDER_UNAVAILABLE_CODES = new Set([
@@ -192,9 +192,7 @@ function asApplicationError(error, fallbackCode, fallbackMessage, details = null
 
 function runtimeFailureCode(error) {
   if (RUNTIME_FAILURE_CODES.has(error?.code)) return error.code;
-  if (error?.code === 'MODEL_BINDING_RUNTIME_GUARD_REJECTED') {
-    return 'MODEL_BINDING_RUNTIME_GUARD_REJECTED';
-  }
+  if (error?.code === 'MODEL_BINDING_ARTIFACT_IN_USE') return error.code;
   if (error?.code === 'MODEL_BINDING_TARGET_NOT_INSTALLED') {
     return 'MODEL_BINDING_TARGET_NOT_INSTALLED';
   }
@@ -335,7 +333,12 @@ export function requireModelBindingStartupAuthority(input) {
     && observedRoles.every((role, index) => role === expectedRoles[index])
     && rows.every(row => isPlainObject(row)
       && typeof row.role === 'string'
-      && allowedOutcomes.has(row.outcome))
+      && allowedOutcomes.has(row.outcome)
+      && (row.outcome === 'FAILED' || (
+        typeof row.modelName === 'string'
+        && row.modelName.trim().length > 0
+        && normalizeModelDigestSha256(row.digestSha256) !== null
+      )))
     && baseline.created === rows.filter(row => row.outcome === 'CREATED').length
     && baseline.alreadyDurable === rows.filter(row => row.outcome === 'ALREADY_DURABLE').length
     && baseline.failed === rows.filter(row => row.outcome === 'FAILED').length
@@ -354,6 +357,13 @@ export function requireModelBindingStartupAuthority(input) {
       },
     );
   }
+
+  const artifacts = Object.freeze(Object.fromEntries(rows
+    .filter(row => row.outcome !== 'FAILED')
+    .map(row => [row.role, Object.freeze({
+      modelName: row.modelName.trim(),
+      digestSha256: normalizeModelDigestSha256(row.digestSha256),
+    })])));
 
   if (baseline.failed > 0) {
     const baselineFailures = rows
@@ -392,9 +402,16 @@ export function requireModelBindingStartupAuthority(input) {
       roles: Object.freeze(expectedRoles),
       verifiedRoles: Object.freeze(verifiedRoles),
       failures: Object.freeze(failures),
+      artifacts,
     });
   }
-  return Object.freeze({ status: 'DURABLE', roles: Object.freeze(expectedRoles) });
+  return Object.freeze({
+    status: 'DURABLE',
+    roles: Object.freeze(expectedRoles),
+    verifiedRoles: Object.freeze(expectedRoles),
+    failures: Object.freeze([]),
+    artifacts,
+  });
 }
 
 export class OllamaModelBindingProvider {
@@ -754,22 +771,6 @@ export class ModelBindingApplication {
   }
 
   /**
-   * Serialize the internal automatic failover coordinator with every manual
-   * binding and destructive model mutation.  Public HTTP/chat adapters never
-   * receive this callback capability.
-   */
-  async runExclusiveAutomaticFailover(inputValue, callback) {
-    const input = requireExactInput(inputValue, ['kind']);
-    if (input.kind !== 'AUTOMATIC_FAILOVER' || typeof callback !== 'function') {
-      fail(
-        'MODEL_BINDING_APPLICATION_INPUT_INVALID',
-        'Exclusive automatic failover requires its exact internal kind and callback',
-      );
-    }
-    return this.#runExclusive('automatic-failover', callback);
-  }
-
-  /**
    * Return the bounded set of model identities that the durable/runtime
    * binding state still needs. The registry consumes this under the shared
    * mutation owner before any destructive provider effect.
@@ -866,6 +867,8 @@ export class ModelBindingApplication {
               outcome: 'ALREADY_DURABLE',
               source: existing.source,
               code: null,
+              modelName: resolved.name,
+              digestSha256: resolved.digestSha256,
             }));
             continue;
           }
@@ -900,6 +903,8 @@ export class ModelBindingApplication {
             outcome: observed.outcome,
             source: observed.binding.source,
             code: null,
+            modelName: resolved.name,
+            digestSha256: resolved.digestSha256,
           }));
         } catch (error) {
           failed += 1;
@@ -908,6 +913,8 @@ export class ModelBindingApplication {
             outcome: 'FAILED',
             source: existing?.source || null,
             code: error?.code || 'MODEL_BINDING_BASELINE_RECONCILE_FAILED',
+            modelName: null,
+            digestSha256: null,
           }));
         }
       }
@@ -2172,7 +2179,7 @@ export class ModelBindingApplication {
     return new ModelBindingApplicationError(
       providerUnavailable
         ? 'MODEL_BINDING_PROVIDER_UNAVAILABLE'
-        : 'MODEL_BINDING_RUNTIME_GUARD_REJECTED',
+        : 'MODEL_BINDING_ARTIFACT_IN_USE',
       phase === 'VERIFICATION'
         ? 'Exact verification cannot start while the model artifact is being mutated'
         : phase === 'STARTUP_CUTOVER'

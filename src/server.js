@@ -132,6 +132,10 @@ if (config.features.expertises !== false) {
 
 // v36.9.1: LLM client routed through gateway with auth tokens
 import { callWithAuth, llmGateway } from './llm/gateway.js';
+import {
+  normalizeModelDigestSha256,
+  sameModelName,
+} from './upgrade/model-identity.js';
 import { createAuthToken, LLMCallerRole } from './llm/auth-types.js';
 
 // v57.2: Trust Feedback Loop
@@ -348,7 +352,27 @@ if (bindingStartupAuthority.status === 'DEGRADED') {
     `Model binding authority is DEGRADED; decision actionability disabled (${bindingStartupAuthority.reason})`,
   );
 }
-llmGateway.setBindingStartupAuthority(bindingStartupAuthority);
+llmGateway.setBindingStartupAuthority(bindingStartupAuthority, {
+  resolveArtifact({ modelName, role }) {
+    const candidateRoles = role && Object.hasOwn(config.models, role)
+      ? [role]
+      : Object.keys(config.models).filter(candidateRole => (
+        sameModelName(config.models[candidateRole], modelName)
+      ));
+    const artifacts = candidateRoles.map(candidateRole => {
+      if (!sameModelName(config.models[candidateRole], modelName)) return null;
+      const desired = bindingRepository.getDesired(candidateRole);
+      if (!desired || !sameModelName(desired.modelName, modelName)) return null;
+      const digestSha256 = normalizeModelDigestSha256(desired.digestSha256);
+      return digestSha256 ? { modelName: desired.modelName, digestSha256 } : null;
+    }).filter(Boolean);
+    const digests = new Set(artifacts.map(artifact => artifact.digestSha256));
+    if (artifacts.length === 0 || digests.size !== 1) {
+      throw new Error('Current exact binding artifact is unavailable or ambiguous');
+    }
+    return artifacts[0];
+  },
+});
 
 // Registry metadata client supports factual online discovery only.
 try {

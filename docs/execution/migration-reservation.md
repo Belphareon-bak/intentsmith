@@ -74,7 +74,7 @@ superseded a vyžaduje nový nezávislý review.
 
 Opakovaný census nad 366 živými lokálními a remote refs (mimo
 `archive/**` a `recovery/**`) našel 107 různých migračních cest. `087`–`088`
-vlastní M4, `089`–`091` M5 a `096` model-evaluation import audit. Globálně
+vlastní M4, `089`–`091` M5 a `096`–`097` model-evaluation authority. Globálně
 volný souvislý blok byl přesně `092`–`095`; je novou autoritativní M2 řadou.
 
 | Číslo | Stav | Obsah |
@@ -111,6 +111,9 @@ potvrdil **090** jako volnou identitu pro append-only operator receipts.
 | **090** | rezervováno a použito M5 | privacy rotation/history attestation authority a odstranění plaintext settings |
 | **091** | rezervováno a použito M5 | opaque transport writer authority pro privacy receipts |
 | **096** | rezervováno a použito model evaluation | explicitní audit `VERIFIED`/`QUARANTINED` pro legacy import evidence |
+| **097** | rezervováno a použito model evaluation | role-specific run identity a karanténa cross-role decisions |
+| **098** | obsazeno cizí živou M6 větví | model artifact authority; tato větev do něj nezasahuje |
+| **099** | rezervováno a použito model evaluation | odstranění telemetry-derived runtime blacklist tabulky |
 
 ### Strojově kontrolovaný manifest použitých migrací
 
@@ -204,6 +207,8 @@ záznamu selže v `artifact-validation`.
 | `2026_08_26_090_m5_privacy_authority.js` | použito |
 | `2026_08_26_091_m5_privacy_writer_authority.js` | použito |
 | `2026_08_26_096_model_evaluation_import_audit.js` | použito |
+| `2026_08_27_097_model_evaluation_role_identity.js` | použito |
+| `2026_08_27_099_remove_model_runtime_guard.js` | použito |
 <!-- migration-source-manifest:end -->
 
 ## Proč to nejsou 058 a 059

@@ -466,7 +466,7 @@ Lifecycle endpoints are spread across projects and expertises routes:
 | `GET` | `/api/system/models/check` | `?model=name` | Compatibility result | — |
 | `GET` | `/api/system/models` | — | `{models, ollama_url, current_model}` | Proxies to Ollama `/api/tags` |
 | `GET` | `/api/system/models/info` | `?model=name` | Model details | Proxies to Ollama `/api/show` |
-| `GET` | `/api/system/models/universe` | `?limit=50&offset=0&state=stable|partial|unstable&runtime_state=enabled|disabled&sort=confidence|updated|name|context|params&order=asc|desc` | `{models[], total, limit, offset, snapshot_id, sort, filters}` | Factual universe listing; confidence describes metadata reliability, not model quality |
+| `GET` | `/api/system/models/universe` | `?limit=50&offset=0&state=stable|partial|unstable&sort=confidence|updated|name|context|params&order=asc|desc` | `{models[], total, limit, offset, snapshot_id, sort, filters}` | Factual universe listing; confidence describes metadata reliability, not model quality |
 | `GET` | `/api/system/models/universe/:name` | `?tag=&include_signals=true|false&signal_limit=20&source_limit=30` | `{model, sources[], signals[], snapshot_id}` | Lazy detail fetch for one model (source rows + optional signal trace) |
 | `GET` | `/api/system/info` | — | System diagnostics (incl. sessions, provider config) | — |
 | `GET` | `/api/system/storage` | — | Storage stats | — |

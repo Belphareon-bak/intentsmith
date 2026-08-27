@@ -22,7 +22,7 @@ import {
 } from '../src/upgrade/model-evaluation-history.js';
 import { textTask } from '../src/eval/role-quality-suites.js';
 import {
-  applyWinningBindings, auditResponsibilitySegregation, buildInstalledCandidateQueue,
+  auditResponsibilitySegregation, buildInstalledCandidateQueue,
   resolveCurrentBindings, selectResponsibilityPortfolio,
 } from '../src/upgrade/model-upgrade-prototype.js';
 import {
@@ -472,6 +472,7 @@ test('exact digest plus contract is stored once and reused across aliases', () =
   const history = new ModelEvaluationHistory(db);
   const input = {
     artifact: { modelName: 'demo:latest', digestSha256: DIGEST_A },
+    role: 'CHAT',
     suiteName: 'chat_v2', suiteVersion: 'v1', contractSha256: CONTRACT_A,
     summary: summaryRow(),
   };
@@ -486,7 +487,7 @@ test('exact digest plus contract is stored once and reused across aliases', () =
 test('new digest of the same tag and new suite contract create new history', () => {
   const db = evaluationDb();
   const history = new ModelEvaluationHistory(db);
-  const base = { suiteName: 'chat_v2', suiteVersion: 'v1', summary: summaryRow() };
+  const base = { role: 'CHAT', suiteName: 'chat_v2', suiteVersion: 'v1', summary: summaryRow() };
   history.recordComplete({ ...base, artifact: { modelName: 'demo:latest', digestSha256: DIGEST_A }, contractSha256: CONTRACT_A });
   history.recordComplete({ ...base, artifact: { modelName: 'demo:latest', digestSha256: DIGEST_B }, contractSha256: CONTRACT_A });
   history.recordComplete({ ...base, artifact: { modelName: 'demo:latest', digestSha256: DIGEST_A }, contractSha256: CONTRACT_B });
@@ -499,17 +500,18 @@ test('terminal result suppresses only the same exact artifact and contract', () 
   const history = new ModelEvaluationHistory(db);
   history.recordTerminal({
     artifact: { modelName: 'demo:latest', digestSha256: DIGEST_A },
+    role: 'CHAT',
     suiteName: 'chat_v2', suiteVersion: 'v1', contractSha256: CONTRACT_A,
     status: 'FAILED', errorCode: 'FLOOR', errorMessage: 'invalid JSON',
   });
   assertEqual(history.getTerminal({
-    digestSha256: DIGEST_A, suiteName: 'chat_v2', contractSha256: CONTRACT_A,
+    digestSha256: DIGEST_A, role: 'CHAT', suiteName: 'chat_v2', contractSha256: CONTRACT_A,
   }).status, 'FAILED');
   assertEqual(history.getTerminal({
-    digestSha256: DIGEST_B, suiteName: 'chat_v2', contractSha256: CONTRACT_A,
+    digestSha256: DIGEST_B, role: 'CHAT', suiteName: 'chat_v2', contractSha256: CONTRACT_A,
   }), null);
   assertEqual(history.getTerminal({
-    digestSha256: DIGEST_A, suiteName: 'chat_v2', contractSha256: CONTRACT_B,
+    digestSha256: DIGEST_A, role: 'CHAT', suiteName: 'chat_v2', contractSha256: CONTRACT_B,
   }), null);
   db.close();
 });
@@ -519,6 +521,7 @@ test('transient model-load contention stays in history but remains retryable', (
   const history = new ModelEvaluationHistory(db);
   history.recordTerminal({
     artifact: { modelName: 'demo:latest', digestSha256: DIGEST_A },
+    role: 'CHAT',
     suiteName: 'chat_v2', suiteVersion: 'v1', contractSha256: CONTRACT_A,
     status: 'BLOCKED', errorCode: 'CANDIDATE_MEASURE_RETRYABLE',
     errorMessage: 'model se nenacetl do pameti',
@@ -526,7 +529,7 @@ test('transient model-load contention stays in history but remains retryable', (
   });
   assertEqual(history.count(), 1);
   assertEqual(history.getTerminal({
-    digestSha256: DIGEST_A, suiteName: 'chat_v2', contractSha256: CONTRACT_A,
+    digestSha256: DIGEST_A, role: 'CHAT', suiteName: 'chat_v2', contractSha256: CONTRACT_A,
     hardware: { model: 'RTX 3090', vramMb: 24576 },
   }), null);
   db.close();
@@ -537,6 +540,7 @@ test('measured CPU spill is reused across suite changes only on identical hardwa
   const history = new ModelEvaluationHistory(db);
   history.recordTerminal({
     artifact: { modelName: 'demo:latest', digestSha256: DIGEST_A },
+    role: 'CHAT',
     suiteName: 'chat_v2', suiteVersion: 'v1', contractSha256: CONTRACT_A,
     status: 'BLOCKED', errorCode: 'CANDIDATE_VRAM_FIT_FAILED',
     errorMessage: 'CPU spill',
@@ -572,6 +576,7 @@ test('history is append-only', () => {
   const history = new ModelEvaluationHistory(db);
   history.recordComplete({
     artifact: { modelName: 'demo:latest', digestSha256: DIGEST_A },
+    role: 'CHAT',
     suiteName: 'chat_v2', suiteVersion: 'v1', contractSha256: CONTRACT_A,
     summary: summaryRow(),
   });
@@ -628,6 +633,7 @@ test('installed queue marks exact current-contract model as scored', () => {
   const history = new ModelEvaluationHistory(db);
   history.recordComplete({
     artifact: { modelName: 'qwen2.5:32b', digestSha256: DIGEST_A },
+    role: 'CHAT',
     suiteName: 'chat_v2', suiteVersion: 'v1', contractSha256: CONTRACT_A,
     summary: summaryRow(),
   });
@@ -646,6 +652,7 @@ test('installed queue omits exact artifacts already rejected by the same contrac
   const history = new ModelEvaluationHistory(db);
   history.recordTerminal({
     artifact: { modelName: 'qwen2.5:32b', digestSha256: DIGEST_A },
+    role: 'CHAT',
     suiteName: 'chat_v2', suiteVersion: 'v1', contractSha256: CONTRACT_A,
     status: 'BLOCKED', errorCode: 'VRAM', errorMessage: 'CPU spill',
     hardware: { model: 'RTX 3090', vramMb: 24576 },
@@ -671,24 +678,15 @@ test('installed queue omits exact artifacts already rejected by the same contrac
 test('durable desired bindings override stale config defaults', () => {
   const current = resolveCurrentBindings(
     { CHAT: 'default:7b', CODE: 'coder:7b' },
-    { getDesired: role => (role === 'CHAT' ? { modelName: 'manual:14b' } : null) },
+    { getDesired: role => (role === 'CHAT'
+      ? { modelName: 'manual:14b', digestSha256: DIGEST_A }
+      : null) },
     ['CHAT', 'CODE'],
   );
   assertEqual(current.bindings.CHAT, 'manual:14b');
   assertEqual(current.bindings.CODE, 'coder:7b');
   assertEqual(current.durable.CHAT, 'manual:14b');
-});
-
-await testAsync('only changed winning bindings reach the application port', async () => {
-  const calls = [];
-  const outcomes = await applyWinningBindings({
-    before: { CHAT: 'old:7b', CODE: 'same:7b' },
-    after: { CHAT: 'new:8b', CODE: 'same:7b' },
-    applyBinding: async (role, model) => { calls.push({ role, model }); return { ok: true }; },
-  });
-  assertEqual(calls.length, 1);
-  assertEqual(calls[0].role, 'CHAT');
-  assertEqual(outcomes[0].from, 'old:7b');
+  assertEqual(current.artifacts.CHAT.digestSha256, DIGEST_A);
 });
 
 test('responsibility audit rejects concentration and author-reviewer identity', () => {
@@ -760,20 +758,6 @@ test('compliant incumbent remains feasible when a stronger winner conflicts with
   assertEqual(result.audit.compliant, true);
   assertEqual(result.bindings.CODE, 'qwen3.5:27b');
   assertEqual(result.changedRoles.length, 0);
-});
-
-await testAsync('binding application fails closed on a non-segregated portfolio', async () => {
-  let rejected = false;
-  try {
-    await applyWinningBindings({
-      before: { D1: 'a:14b', D2: 'b:14b', R1: 'c:14b' },
-      after: { D1: 'same:14b', D2: 'same:14b', R1: 'same:14b' },
-      applyBinding: async () => ({ ok: true }),
-    });
-  } catch (error) {
-    rejected = /Responsibility segregation/.test(error.message);
-  }
-  assert(rejected, 'invalid portfolio must fail before the application port');
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

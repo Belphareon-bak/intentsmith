@@ -75,13 +75,14 @@ export class ModelEvaluationDecisionStore {
       throw new TypeError('policy.suiteContractSha256 must be a lowercase SHA-256');
     }
     const exactRuns = this._db.prepare(`
-      SELECT run_id, suite_name, suite_version, suite_contract_sha256, status
+      SELECT run_id, role, suite_name, suite_version, suite_contract_sha256, status
       FROM model_evaluation_runs
       WHERE run_id IN (?, ?)
       ORDER BY run_id
     `).all(incumbentRunId, candidateRunId);
     if (exactRuns.length !== 2 || exactRuns.some(run => (
       run.status !== 'COMPLETE'
+      || run.role !== role
       || run.suite_name !== policySuiteName
       || run.suite_version !== policySuiteVersion
       || run.suite_contract_sha256 !== policySuiteContractSha256

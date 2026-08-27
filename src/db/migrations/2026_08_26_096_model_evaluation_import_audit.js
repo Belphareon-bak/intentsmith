@@ -23,6 +23,16 @@ function canonicalLegacyName(modelName) {
   return value.endsWith(':latest') ? value.slice(0, -7) : value;
 }
 
+// SQLite REAL and JSON both use IEEE-754 doubles, but JSON serialization can
+// round the final decimal by a few ULPs. Accept only a bounded four-epsilon
+// representation difference; larger changes remain quarantined.
+function sameArchivedReal(left, right) {
+  if (left === right) return true;
+  if (!Number.isFinite(left) || !Number.isFinite(right)) return false;
+  const scale = Math.max(1, Math.abs(left), Math.abs(right));
+  return Math.abs(left - right) <= 4 * Number.EPSILON * scale;
+}
+
 function legacyImportFieldsMatch(run, payload) {
   return run
     && run.run_id === `legacy_v123_${payload.id}`
@@ -34,7 +44,7 @@ function legacyImportFieldsMatch(run, payload) {
     && run.suite_contract_sha256 === LEGACY_CONTRACT_SHA256
     && run.role === null
     && run.status === 'BLOCKED'
-    && run.score === payload.score
+    && sameArchivedReal(run.score, payload.score)
     && run.passed === payload.passed
     && run.total === payload.total
     && run.repeats === 1

@@ -190,6 +190,8 @@ const ALL_MIGRATIONS = [
   '2026_08_26_090_m5_privacy_authority',
   '2026_08_26_091_m5_privacy_writer_authority',
   '2026_08_26_096_model_evaluation_import_audit',
+  '2026_08_27_097_model_evaluation_role_identity',
+  '2026_08_27_099_remove_model_runtime_guard',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -226,8 +228,7 @@ const EXPECTED_TABLES = [
   'm5_privacy_history_receipts', 'm5_privacy_rotation_receipts',
   'model_binding_application_attempts', 'model_binding_operations', 'model_binding_runtime_finalize_cutoffs', 'model_binding_runtime_finalize_receipts', 'model_catalog_cache', 'model_desired_bindings', 'model_failover_events', 'model_failover_proofs',
   'model_failover_health_events', 'model_failover_runtime_finalize_receipts', 'model_failover_state', 'model_overrides', 'model_performance', 'model_reconciliation_log',
-  'model_evaluation_decisions', 'model_evaluation_import_audits', 'model_evaluation_import_evidence', 'model_evaluation_runs',
-  'model_runtime_guard',
+  'model_evaluation_decision_quarantine', 'model_evaluation_decisions', 'model_evaluation_import_audits', 'model_evaluation_import_evidence', 'model_evaluation_runs',
   'model_signal_events', 'model_universe_derived', 'model_universe_raw',
   'model_usage', 'model_write_log',
   'period_locks', 'project_lifecycles', 'project_memory', 'projects',
@@ -439,6 +440,8 @@ describe('T-SM0: Migration identity preflight', async () => {
       '2026_08_26_090_m5_privacy_authority',
       '2026_08_26_091_m5_privacy_writer_authority',
       '2026_08_26_096_model_evaluation_import_audit',
+      '2026_08_27_097_model_evaluation_role_identity',
+      '2026_08_27_099_remove_model_runtime_guard',
     ]);
     assert.strictEqual(db.prepare(`
       SELECT COUNT(*) AS count FROM schema_migrations

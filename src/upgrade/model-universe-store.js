@@ -1,4 +1,4 @@
-// Model Universe Store v138 — reconciliation + runtime safety guard
+// Model Universe Store — factual metadata reconciliation and raw signals
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { createHash, randomUUID } from 'node:crypto';
@@ -24,27 +24,14 @@ function asRatio(value, fallback) {
   return Number.isFinite(n) && n > 0 && n <= 1 ? n : fallback;
 }
 
-function asThreshold(value, fallback) {
-  const n = Number.parseFloat(String(value ?? ''));
-  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : fallback;
-}
-
 const SIGNAL_FLUSH_INTERVAL_MS = asPositiveInt(process.env.C3_MODEL_SIGNAL_FLUSH_INTERVAL_MS, 10000);
 const SIGNAL_BATCH_SIZE = asPositiveInt(process.env.C3_MODEL_SIGNAL_BATCH_SIZE, 100);
 const SIGNAL_BUFFER_MAX = asPositiveInt(process.env.C3_MODEL_SIGNAL_BUFFER_MAX, 2000);
 const SIGNAL_BASE_SAMPLE_RATE = asPositiveInt(process.env.C3_MODEL_SIGNAL_SAMPLE_RATE, 1);
 const SIGNAL_PRESSURE_SAMPLE_RATE = asPositiveInt(process.env.C3_MODEL_SIGNAL_PRESSURE_SAMPLE_RATE, 10);
 const SIGNAL_HIGH_WATERMARK_RATIO = asRatio(process.env.C3_MODEL_SIGNAL_HIGH_WATERMARK_RATIO, 0.8);
-const RUNTIME_GUARD_WINDOW_EVENTS = asPositiveInt(process.env.C3_MODEL_RUNTIME_GUARD_WINDOW_EVENTS, 20);
-const RUNTIME_GUARD_MIN_EVENTS = asPositiveInt(process.env.C3_MODEL_RUNTIME_GUARD_MIN_EVENTS, 10);
-const RUNTIME_GUARD_DISABLE_ERROR_RATE = asThreshold(process.env.C3_MODEL_RUNTIME_GUARD_DISABLE_ERROR_RATE, 0.55);
-const RUNTIME_GUARD_RECOVER_ERROR_RATE = asThreshold(process.env.C3_MODEL_RUNTIME_GUARD_RECOVER_ERROR_RATE, 0.25);
-const RUNTIME_GUARD_COOLDOWN_MS = asPositiveInt(process.env.C3_MODEL_RUNTIME_GUARD_COOLDOWN_MS, 30 * 60 * 1000);
-const RUNTIME_GUARD_MAX_MODELS_PER_FLUSH = asPositiveInt(process.env.C3_MODEL_RUNTIME_GUARD_MAX_MODELS_PER_FLUSH, 50);
-
 const FEATURE_UNIVERSE_ENABLED = (process.env.C3_MODEL_UNIVERSE_ENABLED || 'true') !== 'false';
 const FEATURE_MIRROR_DISCOVERED = (process.env.C3_DISCOVERY_MIRROR_DISCOVERED_MODELS || 'true') !== 'false';
-const FEATURE_RUNTIME_GUARD_ENABLED = (process.env.C3_MODEL_RUNTIME_GUARD_ENABLED || 'true') !== 'false';
 
 const METADATA_STATES = new Set(['STABLE', 'PARTIAL', 'UNSTABLE']);
 
@@ -463,7 +450,6 @@ class ModelUniverseStore {
     this._derivedHasLastComputedAt = false;
     this._reconHasReasonCode = false;
     this._reconHasEffectivePriority = false;
-    this._hasRuntimeGuardTable = false;
     this._recomputeQueue = new Map(); // key -> { timer, reasonCode }
     this._signalBuffer = [];
     this._signalFlushTimer = null;
@@ -477,10 +463,6 @@ class ModelUniverseStore {
       batches: 0,
       flushErrors: 0,
       bufferPeak: 0,
-      guardEvaluations: 0,
-      guardErrors: 0,
-      guardAutoDisabled: 0,
-      guardRecovered: 0,
       lastFlushAt: null,
       lastFlushReason: null,
     };
@@ -493,15 +475,6 @@ class ModelUniverseStore {
       highWatermarkRatio: SIGNAL_HIGH_WATERMARK_RATIO,
     };
     this._signalConfig = { ...this._defaultSignalConfig };
-    this._defaultRuntimeGuardConfig = {
-      windowEvents: RUNTIME_GUARD_WINDOW_EVENTS,
-      minEvents: RUNTIME_GUARD_MIN_EVENTS,
-      disableErrorRate: RUNTIME_GUARD_DISABLE_ERROR_RATE,
-      recoverErrorRate: RUNTIME_GUARD_RECOVER_ERROR_RATE,
-      cooldownMs: RUNTIME_GUARD_COOLDOWN_MS,
-      maxModelsPerFlush: RUNTIME_GUARD_MAX_MODELS_PER_FLUSH,
-    };
-    this._runtimeGuardConfig = { ...this._defaultRuntimeGuardConfig };
   }
 
   setDb(db) {
@@ -521,15 +494,10 @@ class ModelUniverseStore {
       batches: 0,
       flushErrors: 0,
       bufferPeak: 0,
-      guardEvaluations: 0,
-      guardErrors: 0,
-      guardAutoDisabled: 0,
-      guardRecovered: 0,
       lastFlushAt: null,
       lastFlushReason: null,
     };
     this._signalConfig = { ...this._defaultSignalConfig };
-    this._runtimeGuardConfig = { ...this._defaultRuntimeGuardConfig };
 
     this._db = db;
     this._stmts = null;
@@ -538,7 +506,6 @@ class ModelUniverseStore {
     this._derivedHasLastComputedAt = false;
     this._reconHasReasonCode = false;
     this._reconHasEffectivePriority = false;
-    this._hasRuntimeGuardTable = false;
   }
 
   _clearSignalFlushTimer() {
@@ -562,26 +529,6 @@ class ModelUniverseStore {
 
   resetSignalIngestConfig() {
     this._signalConfig = { ...this._defaultSignalConfig };
-    return this.getSignalStats();
-  }
-
-  setRuntimeGuardConfig(overrides = {}) {
-    const next = { ...this._runtimeGuardConfig };
-    if (overrides.windowEvents != null) next.windowEvents = asPositiveInt(overrides.windowEvents, next.windowEvents);
-    if (overrides.minEvents != null) next.minEvents = asPositiveInt(overrides.minEvents, next.minEvents);
-    if (overrides.disableErrorRate != null) next.disableErrorRate = asThreshold(overrides.disableErrorRate, next.disableErrorRate);
-    if (overrides.recoverErrorRate != null) next.recoverErrorRate = asThreshold(overrides.recoverErrorRate, next.recoverErrorRate);
-    if (overrides.cooldownMs != null) next.cooldownMs = asPositiveInt(overrides.cooldownMs, next.cooldownMs);
-    if (overrides.maxModelsPerFlush != null) next.maxModelsPerFlush = asPositiveInt(overrides.maxModelsPerFlush, next.maxModelsPerFlush);
-    if (next.recoverErrorRate > next.disableErrorRate) {
-      next.recoverErrorRate = next.disableErrorRate;
-    }
-    this._runtimeGuardConfig = next;
-    return this.getSignalStats();
-  }
-
-  resetRuntimeGuardConfig() {
-    this._runtimeGuardConfig = { ...this._defaultRuntimeGuardConfig };
     return this.getSignalStats();
   }
 
@@ -634,217 +581,6 @@ class ModelUniverseStore {
     };
   }
 
-  _classifySignalOutcome(row = {}) {
-    const signalType = String(row.signal_type ?? row.signalType ?? '').trim().toLowerCase();
-    const errorType = String(row.error_type ?? row.errorType ?? '').trim().toLowerCase();
-    const success = row.success;
-
-    // Explicit user cancellation should not penalize model reliability.
-    if (signalType === 'runtime_cancelled' && (errorType === 'user_cancel' || errorType === 'client_cancel')) {
-      return { considered: false, failed: false };
-    }
-    if (success === 1 || success === true) return { considered: true, failed: false };
-    if (success === 0 || success === false) return { considered: true, failed: true };
-    if (signalType === 'runtime') return { considered: true, failed: false };
-    if (signalType === 'runtime_failed' || signalType === 'runtime_timeout' || signalType === 'runtime_oom') {
-      return { considered: true, failed: true };
-    }
-    return { considered: false, failed: false };
-  }
-
-  _evaluateRuntimeGuardForModel(modelName) {
-    if (!FEATURE_RUNTIME_GUARD_ENABLED || !this._hasRuntimeGuardTable) {
-      return { ok: false, skipped: true, reason: 'runtime_guard_disabled' };
-    }
-
-    const normalizedModel = canonicalModelName(modelName);
-    if (!normalizedModel) return { ok: false, skipped: true, reason: 'missing_model' };
-
-    const windowEvents = Math.max(1, this._runtimeGuardConfig.windowEvents);
-    const minEvents = Math.max(1, Math.min(windowEvents, this._runtimeGuardConfig.minEvents));
-    const signalRows = this._stmts.listSignalsForGuard.all(normalizedModel, windowEvents * 3);
-    if (!signalRows || signalRows.length === 0) {
-      return { ok: true, skipped: true, reason: 'no_signals', modelName: normalizedModel };
-    }
-
-    let considered = 0;
-    let failures = 0;
-    let newestTs = null;
-    let oldestTs = null;
-
-    for (const row of signalRows) {
-      const decision = this._classifySignalOutcome(row);
-      if (!decision.considered) continue;
-      const ts = Date.parse(row.created_at || 0) || Date.now();
-      if (newestTs == null || ts > newestTs) newestTs = ts;
-      if (oldestTs == null || ts < oldestTs) oldestTs = ts;
-      considered += 1;
-      if (decision.failed) failures += 1;
-      if (considered >= windowEvents) break;
-    }
-
-    if (considered === 0) {
-      return { ok: true, skipped: true, reason: 'no_classified_signals', modelName: normalizedModel };
-    }
-
-    const errorRate = failures / considered;
-    const windowSeconds = (newestTs != null && oldestTs != null)
-      ? Math.max(1, Math.round((newestTs - oldestTs) / 1000))
-      : 0;
-    const nowMs = Date.now();
-    const existing = this._stmts.getRuntimeGuardByModel.get(normalizedModel) || null;
-    const existingState = String(existing?.state || 'enabled').toLowerCase();
-    const existingDisabledUntilMs = Date.parse(existing?.disabled_until || 0) || 0;
-    const existingDisabledActive = (
-      existingState === 'disabled' &&
-      (!existingDisabledUntilMs || existingDisabledUntilMs > nowMs)
-    );
-    const cooldownExpired = existingState === 'disabled' && existingDisabledUntilMs > 0 && existingDisabledUntilMs <= nowMs;
-    const shouldDisable = considered >= minEvents && errorRate >= this._runtimeGuardConfig.disableErrorRate;
-    const shouldRecover = considered >= minEvents && errorRate <= this._runtimeGuardConfig.recoverErrorRate;
-
-    let nextState = existingState || 'enabled';
-    let nextDisabledUntil = existing?.disabled_until || null;
-    let nextReason = existing?.reason || null;
-    let transition = null;
-
-    if (shouldDisable) {
-      if (!existingDisabledActive) {
-        nextState = 'disabled';
-        nextDisabledUntil = toIso(nowMs + this._runtimeGuardConfig.cooldownMs);
-        nextReason = 'error_rate_guard';
-        transition = 'disabled';
-      }
-    } else if (existingDisabledActive && shouldRecover) {
-      nextState = 'enabled';
-      nextDisabledUntil = null;
-      nextReason = 'error_rate_recovered';
-      transition = 'enabled';
-    } else if (cooldownExpired) {
-      nextState = 'enabled';
-      nextDisabledUntil = null;
-      nextReason = 'cooldown_expired';
-      transition = 'enabled';
-    }
-
-    this._stmts.upsertRuntimeGuard.run(
-      normalizedModel,
-      nextState,
-      errorRate,
-      considered,
-      windowSeconds,
-      nextDisabledUntil,
-      nextReason,
-      newestTs ? toIso(newestTs) : null
-    );
-
-    this._signalStats.guardEvaluations += 1;
-    if (transition === 'disabled') this._signalStats.guardAutoDisabled += 1;
-    if (transition === 'enabled') this._signalStats.guardRecovered += 1;
-
-    return {
-      ok: true,
-      modelName: normalizedModel,
-      state: nextState,
-      disabledUntil: nextDisabledUntil,
-      errorRate,
-      sampleSize: considered,
-      reason: nextReason,
-      transition,
-    };
-  }
-
-  _evaluateRuntimeGuards(modelNames = []) {
-    if (!FEATURE_RUNTIME_GUARD_ENABLED || !this._hasRuntimeGuardTable) return [];
-    const seen = new Set();
-    const unique = [];
-    for (const name of modelNames) {
-      const normalized = canonicalModelName(name);
-      if (!normalized || seen.has(normalized)) continue;
-      seen.add(normalized);
-      unique.push(normalized);
-      if (unique.length >= this._runtimeGuardConfig.maxModelsPerFlush) break;
-    }
-
-    const results = [];
-    for (const modelName of unique) {
-      try {
-        results.push(this._evaluateRuntimeGuardForModel(modelName));
-      } catch (err) {
-        this._signalStats.guardErrors += 1;
-        results.push({ ok: false, modelName, error: err.message });
-      }
-    }
-    return results;
-  }
-
-  getRuntimeGuard(modelName) {
-    this._ensureUniverseStatements();
-    if (!this._hasRuntimeGuardTable) return null;
-
-    const normalized = canonicalModelName(modelName);
-    if (!normalized) return null;
-
-    const row = this._stmts.getRuntimeGuardByModel.get(normalized)
-      || this._stmts.getRuntimeGuardByModel.get(normalizeName(modelName))
-      || null;
-    if (!row) return null;
-
-    return {
-      modelName: row.model_name,
-      state: String(row.state || 'enabled').toLowerCase(),
-      errorRate: row.error_rate != null ? Number(row.error_rate) : null,
-      sampleSize: row.sample_size != null ? Number(row.sample_size) : 0,
-      windowSeconds: row.window_seconds != null ? Number(row.window_seconds) : 0,
-      disabledUntil: row.disabled_until || null,
-      reason: row.reason || null,
-      lastEventAt: row.last_event_at || null,
-      updatedAt: row.updated_at || null,
-    };
-  }
-
-  isModelRuntimeAllowed(modelName) {
-    if (!FEATURE_RUNTIME_GUARD_ENABLED) {
-      return { allowed: true, reason: 'runtime_guard_feature_disabled' };
-    }
-    this._ensureUniverseStatements();
-    if (!this._hasRuntimeGuardTable) {
-      return { allowed: true, reason: 'runtime_guard_table_unavailable' };
-    }
-
-    const guard = this.getRuntimeGuard(modelName);
-    if (!guard) {
-      return { allowed: true, reason: 'runtime_guard_missing' };
-    }
-    if (guard.state !== 'disabled') {
-      return { allowed: true, reason: guard.reason || 'runtime_guard_enabled', guard };
-    }
-
-    const disabledUntilMs = Date.parse(guard.disabledUntil || 0) || 0;
-    const nowMs = Date.now();
-    if (disabledUntilMs > 0 && disabledUntilMs <= nowMs) {
-      this._stmts.upsertRuntimeGuard.run(
-        guard.modelName,
-        'enabled',
-        guard.errorRate,
-        guard.sampleSize,
-        guard.windowSeconds,
-        null,
-        'cooldown_expired',
-        guard.lastEventAt
-      );
-      this._signalStats.guardRecovered += 1;
-      return { allowed: true, reason: 'cooldown_expired', guard: { ...guard, state: 'enabled', disabledUntil: null } };
-    }
-
-    return {
-      allowed: false,
-      reason: guard.reason || 'runtime_guard_disabled',
-      disabledUntil: guard.disabledUntil,
-      guard,
-    };
-  }
-
   _runInsertSignalBatch(rows = []) {
     if (rows.length === 0) return { ok: true, inserted: 0 };
     this._ensureUniverseStatements();
@@ -879,15 +615,10 @@ class ModelUniverseStore {
 
     let insertedTotal = 0;
     let batches = 0;
-    const touchedModels = new Set();
     try {
       while (this._signalBuffer.length > 0) {
         const rows = this._signalBuffer.splice(0, chunkSize);
         if (rows.length === 0) break;
-        for (const row of rows) {
-          const modelName = canonicalModelName(row.modelName);
-          if (modelName) touchedModels.add(modelName);
-        }
         const result = this._runInsertSignalBatch(rows);
         insertedTotal += result.inserted;
         batches += 1;
@@ -904,8 +635,6 @@ class ModelUniverseStore {
     this._signalStats.batches += batches;
     this._signalStats.lastFlushAt = new Date().toISOString();
     this._signalStats.lastFlushReason = reason;
-    const guardResults = this._evaluateRuntimeGuards([...touchedModels]);
-
     if (this._signalBuffer.length > 0 && !this._signalFlushTimer) this._scheduleSignalFlush();
 
     return {
@@ -914,7 +643,6 @@ class ModelUniverseStore {
       batches,
       remaining: this._signalBuffer.length,
       reason,
-      guardEvaluated: guardResults.length,
     };
   }
 
@@ -926,7 +654,6 @@ class ModelUniverseStore {
       config: {
         ...this._signalConfig,
         highWatermark: this._signalHighWatermark(),
-        runtimeGuard: { ...this._runtimeGuardConfig },
       },
     };
   }
@@ -955,15 +682,6 @@ class ModelUniverseStore {
     } catch (_) {
       this._reconHasReasonCode = false;
       this._reconHasEffectivePriority = false;
-    }
-
-    try {
-      const row = this._db.prepare(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'model_runtime_guard' LIMIT 1"
-      ).get();
-      this._hasRuntimeGuardTable = !!row;
-    } catch (_) {
-      this._hasRuntimeGuardTable = false;
     }
 
     const derivedColumns = [
@@ -1022,43 +740,6 @@ class ModelUniverseStore {
         ${reconColumns.map(() => '?').join(', ')}
       )
     `;
-
-    const runtimeStatements = this._hasRuntimeGuardTable
-      ? {
-        getRuntimeGuardByModel: this._db.prepare(`
-          SELECT *
-          FROM model_runtime_guard
-          WHERE model_name = ?
-          LIMIT 1
-        `),
-        upsertRuntimeGuard: this._db.prepare(`
-          INSERT INTO model_runtime_guard (
-            model_name, state, error_rate, sample_size, window_seconds,
-            disabled_until, reason, last_event_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-          ON CONFLICT(model_name) DO UPDATE SET
-            state = COALESCE(excluded.state, model_runtime_guard.state),
-            error_rate = COALESCE(excluded.error_rate, model_runtime_guard.error_rate),
-            sample_size = COALESCE(excluded.sample_size, model_runtime_guard.sample_size),
-            window_seconds = COALESCE(excluded.window_seconds, model_runtime_guard.window_seconds),
-            disabled_until = excluded.disabled_until,
-            reason = COALESCE(excluded.reason, model_runtime_guard.reason),
-            last_event_at = COALESCE(excluded.last_event_at, model_runtime_guard.last_event_at),
-            updated_at = CURRENT_TIMESTAMP
-        `),
-        listSignalsForGuard: this._db.prepare(`
-          SELECT signal_type, success, error_type, created_at
-          FROM model_signal_events
-          WHERE model_name = ?
-          ORDER BY id DESC
-          LIMIT ?
-        `),
-      }
-      : {
-        getRuntimeGuardByModel: { get: () => null },
-        upsertRuntimeGuard: { run: () => ({ changes: 0 }) },
-        listSignalsForGuard: { all: () => [] },
-      };
 
     this._stmts = {
       findRawByIdempotency: this._db.prepare(`
@@ -1145,7 +826,6 @@ class ModelUniverseStore {
           model_name, tag, write_token, write_source, status, error
         ) VALUES (?, ?, ?, ?, ?, ?)
       `),
-      ...runtimeStatements,
     };
   }
 
@@ -1542,33 +1222,6 @@ class ModelUniverseStore {
     return this._stmts.getDerivedByModelTag.get(normalizedModel, normalizedTag) || null;
   }
 
-  _getUniverseGuardFragments() {
-    if (this._hasRuntimeGuardTable) {
-      return {
-        joinSql: 'LEFT JOIN model_runtime_guard g ON g.model_name = r.model_name',
-        selectSql: `
-          g.state AS guard_state,
-          g.error_rate AS guard_error_rate,
-          g.sample_size AS guard_sample_size,
-          g.window_seconds AS guard_window_seconds,
-          g.disabled_until AS guard_disabled_until,
-          g.reason AS guard_reason
-        `,
-      };
-    }
-    return {
-      joinSql: '',
-      selectSql: `
-        NULL AS guard_state,
-        NULL AS guard_error_rate,
-        NULL AS guard_sample_size,
-        NULL AS guard_window_seconds,
-        NULL AS guard_disabled_until,
-        NULL AS guard_reason
-      `,
-    };
-  }
-
   _mapUniverseRow(row = {}) {
     return {
       modelName: row.model_name,
@@ -1583,16 +1236,6 @@ class ModelUniverseStore {
       lastComputedAt: row.derived_last_computed_at || row.derived_updated_at || null,
       updatedAt: row.raw_updated_at || null,
       lastVerifiedAt: row.last_verified_at || null,
-      guard: row.guard_state
-        ? {
-          state: row.guard_state,
-          errorRate: row.guard_error_rate != null ? Number(row.guard_error_rate) : null,
-          sampleSize: row.guard_sample_size != null ? Number(row.guard_sample_size) : null,
-          windowSeconds: row.guard_window_seconds != null ? Number(row.guard_window_seconds) : null,
-          disabledUntil: row.guard_disabled_until || null,
-          reason: row.guard_reason || null,
-        }
-        : null,
     };
   }
 
@@ -1610,24 +1253,6 @@ class ModelUniverseStore {
     const stateInput = String(opts.state || '').trim().toUpperCase();
     const stateFilter = stateInput && METADATA_STATES.has(stateInput) ? stateInput : null;
 
-    const runtimeStateInput = String(opts.runtimeState || '').trim().toLowerCase();
-    const runtimeStateFilter = runtimeStateInput === 'enabled' || runtimeStateInput === 'disabled'
-      ? runtimeStateInput
-      : null;
-
-    if (runtimeStateFilter === 'disabled' && !this._hasRuntimeGuardTable) {
-      return {
-        ok: true,
-        models: [],
-        total: 0,
-        limit,
-        offset,
-        snapshotId: 'u1:0:0',
-        state: stateFilter,
-        runtimeState: runtimeStateFilter,
-      };
-    }
-
     const sortInput = String(opts.sort || 'confidence').trim().toLowerCase();
     const orderInput = String(opts.order || 'desc').trim().toLowerCase();
     const sortMap = {
@@ -1641,23 +1266,16 @@ class ModelUniverseStore {
     const sortSql = sortMap[sortBy];
     const orderSql = orderInput === 'asc' ? 'ASC' : 'DESC';
 
-    const { joinSql, selectSql } = this._getUniverseGuardFragments();
     const where = [`r.source = 'reconciled'`];
     const params = [];
     if (stateFilter) {
       where.push('r.metadata_state = ?');
       params.push(stateFilter);
     }
-    if (runtimeStateFilter && this._hasRuntimeGuardTable) {
-      where.push(`COALESCE(g.state, 'enabled') = ?`);
-      params.push(runtimeStateFilter);
-    }
-
     const fromSql = `
       FROM model_universe_raw r
       LEFT JOIN model_universe_derived d
         ON d.model_name = r.model_name AND d.tag = r.tag
-      ${joinSql}
       WHERE ${where.join(' AND ')}
     `;
 
@@ -1667,8 +1285,7 @@ class ModelUniverseStore {
         r.parameters, r.context_length, r.quantization, r.modality,
         r.updated_at AS raw_updated_at, r.last_verified_at,
         d.confidence, d.confidence_state,
-        d.last_computed_at AS derived_last_computed_at, d.updated_at AS derived_updated_at,
-        ${selectSql}
+        d.last_computed_at AS derived_last_computed_at, d.updated_at AS derived_updated_at
       ${fromSql}
       ORDER BY ${sortSql} ${orderSql}, r.model_name ASC
       LIMIT ? OFFSET ?
@@ -1697,7 +1314,6 @@ class ModelUniverseStore {
       offset,
       snapshotId,
       state: stateFilter,
-      runtimeState: runtimeStateFilter,
       sortBy,
       order: orderSql.toLowerCase(),
     };
@@ -1719,7 +1335,6 @@ class ModelUniverseStore {
     const sourceLimit = Number.isFinite(sourceLimitRaw) ? Math.max(1, Math.min(200, sourceLimitRaw)) : 30;
     const signalLimit = Number.isFinite(signalLimitRaw) ? Math.max(1, Math.min(200, signalLimitRaw)) : 20;
 
-    const { joinSql, selectSql } = this._getUniverseGuardFragments();
     const detailWhere = requestedTag
       ? `r.model_name = ? AND r.tag = ?`
       : `r.model_name = ?`;
@@ -1732,12 +1347,10 @@ class ModelUniverseStore {
         r.metadata_json, r.updated_at AS raw_updated_at, r.last_verified_at,
         d.confidence, d.confidence_state,
         d.capability_vector_json, d.based_on_version,
-        d.last_computed_at AS derived_last_computed_at, d.updated_at AS derived_updated_at,
-        ${selectSql}
+        d.last_computed_at AS derived_last_computed_at, d.updated_at AS derived_updated_at
       FROM model_universe_raw r
       LEFT JOIN model_universe_derived d
         ON d.model_name = r.model_name AND d.tag = r.tag
-      ${joinSql}
       WHERE ${detailWhere} AND r.source = 'reconciled'
       ORDER BY r.updated_at DESC, r.id DESC
       LIMIT 1
@@ -1751,12 +1364,10 @@ class ModelUniverseStore {
           r.metadata_json, r.updated_at AS raw_updated_at, r.last_verified_at,
           d.confidence, d.confidence_state,
           d.capability_vector_json, d.based_on_version,
-          d.last_computed_at AS derived_last_computed_at, d.updated_at AS derived_updated_at,
-          ${selectSql}
+          d.last_computed_at AS derived_last_computed_at, d.updated_at AS derived_updated_at
         FROM model_universe_raw r
         LEFT JOIN model_universe_derived d
           ON d.model_name = r.model_name AND d.tag = r.tag
-        ${joinSql}
         WHERE ${detailWhere}
         ORDER BY (r.source = 'reconciled') DESC, r.updated_at DESC, r.id DESC
         LIMIT 1

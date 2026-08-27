@@ -71,7 +71,7 @@ předává vlastní izolovanou cestu.
 | Ollama | `OLLAMA_URL` | Adresa Ollama serveru |
 | Features | `C3_ENABLE_AGENTS`, `C3_ENABLE_LIFECYCLE`, `C3_ENABLE_EXPERTISES`, `C3_ENABLE_TELEMETRY`, `C3_ENABLE_SKILLS` | Zapnutí/vypnutí modulů |
 | Databáze | `C3_DB_PATH` | Cesta k SQLite souboru |
-| Model Universe | `C3_MODEL_UNIVERSE_ENABLED`, `C3_MODEL_RUNTIME_GUARD_ENABLED`, `C3_MODEL_RUNTIME_GUARD_DISABLE_ERROR_RATE`, `C3_MODEL_RUNTIME_GUARD_RECOVER_ERROR_RATE`, `C3_MODEL_RUNTIME_GUARD_COOLDOWN_MS` | Universe ingest + runtime safety guard |
+| Model Universe | `C3_MODEL_UNIVERSE_ENABLED` | Factual universe ingest and raw diagnostic signals; no quality, blacklist, recommendation, or activation authority |
 | Lifecycle | `C3_LIFECYCLE_REVIEW_FREQ`, `C3_MAX_MILESTONE_LOC`, `C3_MAX_MILESTONE_FILES` | Nastavení projektu |
 | Notifikace | `C3_SMTP_*`, `C3_TELEGRAM_*`, `C3_NTFY_*` | Email, Telegram, push kanály |
 | Security | `C3_ADMIN_TOKEN`, `C3_LICENSE_KEY` | Autentizace a licence |

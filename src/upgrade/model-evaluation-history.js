@@ -34,6 +34,20 @@ function requireText(value, label, max = 512) {
   return value.trim();
 }
 
+export const MODEL_EVALUATION_ROLES = Object.freeze([
+  'D1', 'D2', 'CODE', 'R1', 'R2', 'CHAT', 'VISION',
+]);
+
+const MODEL_EVALUATION_ROLE_SET = new Set(MODEL_EVALUATION_ROLES);
+
+export function requireModelEvaluationRole(value) {
+  const role = requireText(value, 'role', 16).toUpperCase();
+  if (!MODEL_EVALUATION_ROLE_SET.has(role)) {
+    throw new TypeError(`role must be one of ${MODEL_EVALUATION_ROLES.join(', ')}`);
+  }
+  return role;
+}
+
 function json(value, fallback) {
   return JSON.stringify(value ?? fallback);
 }
@@ -136,6 +150,7 @@ export class ModelEvaluationHistory {
   getComplete(input) {
     if (!this._db) return null;
     const digestSha256 = normalizeModelDigestSha256(input?.digestSha256);
+    const role = requireModelEvaluationRole(input?.role);
     const suiteName = requireText(input?.suiteName, 'suiteName', 128);
     const contractSha256 = normalizeModelDigestSha256(input?.contractSha256);
     if (!digestSha256 || !contractSha256) return null;
@@ -144,9 +159,10 @@ export class ModelEvaluationHistory {
       WHERE model_digest_sha256 = ?
         AND suite_name = ?
         AND suite_contract_sha256 = ?
+        AND role = ?
         AND status = 'COMPLETE'
       LIMIT 1
-    `).get(digestSha256, suiteName, contractSha256);
+    `).get(digestSha256, suiteName, contractSha256, role);
     return row ? this.#decode(row) : null;
   }
 
@@ -157,16 +173,18 @@ export class ModelEvaluationHistory {
   getHardwareBlock(input) {
     if (!this._db) return null;
     const digestSha256 = normalizeModelDigestSha256(input?.digestSha256);
+    const role = requireModelEvaluationRole(input?.role);
     const wanted = input?.hardware || null;
     const wantedNumCtx = Number(wanted?.numCtx);
     if (!digestSha256 || !wanted || !Number.isSafeInteger(wantedNumCtx) || wantedNumCtx <= 0) return null;
     const rows = this._db.prepare(`
       SELECT * FROM model_evaluation_runs
       WHERE model_digest_sha256 = ?
+        AND role = ?
         AND status = 'BLOCKED'
         AND error_code = 'CANDIDATE_VRAM_FIT_FAILED'
       ORDER BY completed_at DESC, run_id DESC
-    `).all(digestSha256);
+    `).all(digestSha256, role);
     for (const row of rows) {
       const decoded = this.#decode(row);
       const observed = decoded.hardware || null;
@@ -184,6 +202,7 @@ export class ModelEvaluationHistory {
   getTerminal(input) {
     if (!this._db) return null;
     const digestSha256 = normalizeModelDigestSha256(input?.digestSha256);
+    const role = requireModelEvaluationRole(input?.role);
     const suiteName = requireText(input?.suiteName, 'suiteName', 128);
     const contractSha256 = normalizeModelDigestSha256(input?.contractSha256);
     // A name-only failure is retained as evidence, but cannot safely suppress a
@@ -194,9 +213,10 @@ export class ModelEvaluationHistory {
       WHERE model_digest_sha256 = ?
         AND suite_name = ?
         AND suite_contract_sha256 = ?
+        AND role = ?
         AND status IN ('FAILED', 'BLOCKED')
       ORDER BY completed_at DESC, run_id DESC
-    `).all(digestSha256, suiteName, contractSha256);
+    `).all(digestSha256, suiteName, contractSha256, role);
     for (const row of rows) {
       const decoded = this.#decode(row);
       if (RETRYABLE_TERMINAL_CODES.has(decoded.errorCode)) continue;
@@ -221,11 +241,12 @@ export class ModelEvaluationHistory {
     const suiteName = requireText(input?.suiteName, 'suiteName', 128);
     const suiteVersion = requireText(input?.suiteVersion, 'suiteVersion', 128);
     const contractSha256 = normalizeModelDigestSha256(input?.contractSha256);
+    const role = requireModelEvaluationRole(input?.role);
     if (!digestSha256 || !canonicalName || !contractSha256) {
       throw new TypeError('complete evaluation requires exact model and suite SHA-256 identities');
     }
 
-    const existing = this.getComplete({ digestSha256, suiteName, contractSha256 });
+    const existing = this.getComplete({ digestSha256, role, suiteName, contractSha256 });
     if (existing) return Object.freeze({ ...existing, reused: true });
 
     const summary = input.summary || {};
@@ -255,7 +276,7 @@ export class ModelEvaluationHistory {
         suiteName,
         suiteVersion,
         contractSha256,
-        input.role || null,
+        role,
         score,
         tasks.filter(task => Number(task.mean) >= 0.6).length,
         tasks.length,
@@ -271,12 +292,12 @@ export class ModelEvaluationHistory {
       );
     } catch (error) {
       if (error?.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-        const raced = this.getComplete({ digestSha256, suiteName, contractSha256 });
+        const raced = this.getComplete({ digestSha256, role, suiteName, contractSha256 });
         if (raced) return Object.freeze({ ...raced, reused: true });
       }
       throw error;
     }
-    return this.getComplete({ digestSha256, suiteName, contractSha256 });
+    return this.getComplete({ digestSha256, role, suiteName, contractSha256 });
   }
 
   recordTerminal(input) {
@@ -291,6 +312,7 @@ export class ModelEvaluationHistory {
     const suiteName = requireText(input?.suiteName, 'suiteName', 128);
     const suiteVersion = requireText(input?.suiteVersion, 'suiteVersion', 128);
     const contractSha256 = normalizeModelDigestSha256(input?.contractSha256);
+    const role = requireModelEvaluationRole(input?.role);
     if (!canonicalName || !contractSha256) throw new TypeError('invalid terminal evaluation identity');
     const now = new Date().toISOString();
     const runId = input.runId || `eval_${randomUUID()}`;
@@ -303,7 +325,7 @@ export class ModelEvaluationHistory {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       runId, modelName, canonicalName, digestSha256,
-      suiteName, suiteVersion, contractSha256, input.role || null, status,
+      suiteName, suiteVersion, contractSha256, role, status,
       Number.isSafeInteger(input.repeats) && input.repeats > 0 ? input.repeats : 1,
       json(input.tasks, []), json(input.hardware, {}), json(input.metadata, {}),
       input.errorCode || null, input.errorMessage || null,
@@ -369,4 +391,6 @@ export default {
   suiteContract,
   artifactFromInventory,
   resolveInstalledArtifact,
+  MODEL_EVALUATION_ROLES,
+  requireModelEvaluationRole,
 };

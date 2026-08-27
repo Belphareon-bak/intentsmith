@@ -149,7 +149,7 @@ test('registry never derives DURABLE from DB row count without startup verificat
   try {
     for (const role of Object.keys(config.models)) config.models[role] = `runtime-${role.toLowerCase()}`;
     const bindingRepository = {
-      getDesired: role => ({ modelName: config.models[role] }),
+      getDesired: role => ({ modelName: config.models[role], digestSha256: DIGEST_A }),
     };
     const unverified = createRegistry(db, { bindingRepository });
     assertEqual(unverified.getBindingState().status, 'UNVERIFIED_RUNTIME');
@@ -159,10 +159,23 @@ test('registry never derives DURABLE from DB row count without startup verificat
       bindingStartupAuthority: {
         status: 'DURABLE',
         roles: Object.freeze(Object.keys(config.models).sort()),
+        artifacts: Object.freeze(Object.fromEntries(Object.keys(config.models).map(role => [
+          role,
+          Object.freeze({ modelName: config.models[role], digestSha256: DIGEST_A }),
+        ]))),
       },
     });
-    assertEqual(durable.getBindingState().status, 'DURABLE');
-    assertEqual(durable.getBindingState().verifiedRoles.length, 7);
+    assertEqual(durable.getBindingState().status, 'DEGRADED');
+    assertEqual(durable.getBindingState().reason, 'MODEL_BINDING_RUNTIME_ARTIFACT_UNVERIFIED');
+    const currentInventory = Object.values(config.models).map(name => installedModel(name, DIGEST_A));
+    assertEqual(durable.getBindingState(currentInventory).status, 'DURABLE');
+    assertEqual(durable.getBindingState(currentInventory).verifiedRoles.length, 7);
+    const drifted = durable.getBindingState(
+      Object.values(config.models).map(name => installedModel(name, DIGEST_B)),
+    );
+    assertEqual(drifted.status, 'DEGRADED');
+    assertEqual(drifted.reason, 'MODEL_BINDING_RUNTIME_ARTIFACT_DRIFT');
+    assertEqual(drifted.verifiedRoles.length, 0);
   } finally { db.close(); restoreBindings(); }
 });
 
@@ -173,6 +186,7 @@ await testAsync('registry publishes runtime bindings and disables durable claims
     const bindingRepository = {
       getDesired: role => ({
         modelName: role === 'CODE' ? 'stale-durable-code' : config.models[role],
+        digestSha256: DIGEST_A,
       }),
     };
     const registry = createRegistry(db, {

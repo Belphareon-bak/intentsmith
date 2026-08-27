@@ -4,7 +4,6 @@ import Database from 'better-sqlite3';
 import { modelUniverseStore, makeIdempotencyKey } from '../src/upgrade/model-universe-store.js';
 import { up as upModelUniverse } from '../src/db/migrations/2026_04_08_041_v136_model_universe.js';
 import { up as upUniverseReconcile } from '../src/db/migrations/2026_04_08_042_v137_universe_reconciliation.js';
-import { up as upRuntimeGuard } from '../src/db/migrations/2026_04_12_044_v138_runtime_guard.js';
 
 function createDiscoveredTable(db) {
   db.exec(`
@@ -29,7 +28,6 @@ function createDb(withUniverse = true) {
   if (withUniverse) {
     upModelUniverse(db);
     upUniverseReconcile(db);
-    upRuntimeGuard(db);
     db.exec(`
       ALTER TABLE model_universe_derived DROP COLUMN score_estimated;
       ALTER TABLE model_universe_derived DROP COLUMN score_state;
@@ -463,91 +461,6 @@ test('recordSignalEvent enforces backpressure by dropping oldest buffered events
   assertEqual(seq.join(','), '3,4,5');
 });
 
-test('runtime guard auto-disables model on high runtime error rate', () => {
-  const db = createDb(true);
-  modelUniverseStore.setDb(db);
-  modelUniverseStore.setSignalIngestConfig({
-    flushIntervalMs: 60000,
-    batchSize: 100,
-    bufferMax: 100,
-    baseSampleRate: 1,
-    pressureSampleRate: 1,
-  });
-  modelUniverseStore.setRuntimeGuardConfig({
-    windowEvents: 10,
-    minEvents: 6,
-    disableErrorRate: 0.50,
-    recoverErrorRate: 0.20,
-    cooldownMs: 60000,
-    maxModelsPerFlush: 10,
-  });
-
-  for (let i = 1; i <= 6; i++) {
-    modelUniverseStore.recordSignalEvent({
-      modelName: 'gemma4:27b',
-      signalType: i <= 4 ? 'runtime_failed' : 'runtime',
-      success: i <= 4 ? false : true,
-      errorType: i <= 4 ? 'runtime_failed' : null,
-      latencyMs: 100 + i,
-      scheduleRecompute: false,
-    });
-  }
-
-  const flushed = modelUniverseStore.flushSignalBuffer({ drain: true, reason: 'test_runtime_guard_disable' });
-  const decision = modelUniverseStore.isModelRuntimeAllowed('gemma4:27b');
-  const guard = modelUniverseStore.getRuntimeGuard('gemma4:27b');
-
-  assertEqual(flushed.ok, true);
-  assertEqual(decision.allowed, false);
-  assert(guard, 'Expected runtime guard row');
-  assertEqual(guard.state, 'disabled');
-  assert(guard.errorRate >= 0.5, `Expected errorRate >= 0.5, got ${guard.errorRate}`);
-  assert(guard.disabledUntil != null, 'Expected disabledUntil to be set');
-});
-
-await testAsync('runtime guard re-enables model after cooldown', async () => {
-  const db = createDb(true);
-  modelUniverseStore.setDb(db);
-  modelUniverseStore.setSignalIngestConfig({
-    flushIntervalMs: 60000,
-    batchSize: 100,
-    bufferMax: 100,
-    baseSampleRate: 1,
-    pressureSampleRate: 1,
-  });
-  modelUniverseStore.setRuntimeGuardConfig({
-    windowEvents: 8,
-    minEvents: 4,
-    disableErrorRate: 0.50,
-    recoverErrorRate: 0.20,
-    cooldownMs: 25,
-    maxModelsPerFlush: 10,
-  });
-
-  for (let i = 1; i <= 4; i++) {
-    modelUniverseStore.recordSignalEvent({
-      modelName: 'qwen3.5:14b',
-      signalType: 'runtime_failed',
-      success: false,
-      errorType: 'runtime_failed',
-      latencyMs: 90 + i,
-      scheduleRecompute: false,
-    });
-  }
-  modelUniverseStore.flushSignalBuffer({ drain: true, reason: 'test_runtime_guard_cooldown' });
-
-  const blocked = modelUniverseStore.isModelRuntimeAllowed('qwen3.5:14b');
-  assertEqual(blocked.allowed, false);
-
-  await new Promise(resolve => setTimeout(resolve, 40));
-
-  const allowed = modelUniverseStore.isModelRuntimeAllowed('qwen3.5:14b');
-  assertEqual(allowed.allowed, true);
-  const guard = modelUniverseStore.getRuntimeGuard('qwen3.5:14b');
-  assert(guard, 'Expected runtime guard row after recovery');
-  assertEqual(guard.state, 'enabled');
-});
-
 test('listUniverse supports pagination, filters and snapshot_id', () => {
   const db = createDb(true);
   modelUniverseStore.setDb(db);
@@ -588,36 +501,6 @@ test('listUniverse supports pagination, filters and snapshot_id', () => {
   assertEqual(onlyPartial.ok, true);
   assertEqual(onlyPartial.total, 1);
   assertEqual(onlyPartial.models[0].metadataState, 'PARTIAL');
-});
-
-test('listUniverse supports runtime_state filter (disabled)', () => {
-  const db = createDb(true);
-  modelUniverseStore.setDb(db);
-
-  modelUniverseStore.upsertRaw({
-    modelName: 'qwen3.5:14b',
-    tag: '14b',
-    source: 'local',
-    metadataState: 'STABLE',
-    parameters: 14,
-    contextLength: 32768,
-    quantization: 'Q4_K_M',
-    modality: 'text',
-  });
-  modelUniverseStore.reconcileAndRecompute('qwen3.5:14b', '14b', { reasonCode: 'list_runtime_filter' });
-
-  db.prepare(`
-    INSERT OR REPLACE INTO model_runtime_guard (
-      model_name, state, error_rate, sample_size, window_seconds, disabled_until, reason, last_event_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-  `).run('qwen3.5:14b', 'disabled', 0.75, 20, 1800, '2099-01-01T00:00:00.000Z', 'error_rate_guard');
-
-  const disabledOnly = modelUniverseStore.listUniverse({ limit: 10, runtimeState: 'disabled' });
-  assertEqual(disabledOnly.ok, true);
-  assertEqual(disabledOnly.total, 1);
-  assertEqual(disabledOnly.models.length, 1);
-  assertEqual(disabledOnly.models[0].modelName, 'qwen3.5:14b');
-  assertEqual(disabledOnly.models[0].guard?.state, 'disabled');
 });
 
 test('getUniverseModelDetails returns model + sources + recent signals', () => {

@@ -78,11 +78,9 @@ export const DEFAULT_REPEATS = 3;
 /**
  * Cache výsledků sady pro jeden běh.
  *
- * Role sdílejí sady: `reasoning` obsluhuje D1, D2 i R1, takže bez cache by se
- * pro tutéž dvojici modelů spustila třikrát a celá zkouška kandidáta by trvala
- * skoro dvojnásobek.  Skóre modelu na dané sadě se v rámci běhu nemění, takže
- * je bezpečné ho podržet; klíčem je dvojice sada+model, aby si role nemíchaly
- * různé stávající modely.
+ * Role mohou sdílet zdrojovou sadu, ale výsledek je vždy role-specific
+ * evidence. Cache proto zahrnuje roli, přesný kontrakt a model. D1, D2 a R1
+ * si nesmějí vzájemně promítat ani čerstvě naměřený výsledek.
  */
 export function createSuiteCache() {
   return new Map();
@@ -142,7 +140,8 @@ async function runSuiteRepeated(runner, suiteName, model, repeats, onProgress, b
 }
 
 function cacheKey(suiteName, model, opts = {}) {
-  return `${suiteName}::${opts.suiteContractSha256 || 'missing-contract'}::${model}`;
+  return `${String(opts.role || 'missing-role').toUpperCase()}::${suiteName}`
+    + `::${opts.suiteContractSha256 || 'missing-contract'}::${model}`;
 }
 
 async function runSuiteCached(runner, suiteName, model, cache, opts = {}) {

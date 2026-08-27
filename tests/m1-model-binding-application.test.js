@@ -970,12 +970,12 @@ await testAsync('cutover conflict is retryable and releases a partially acquired
       targetModel: 'fixture-target',
     }));
 
-    assertEqual(error.code, 'MODEL_BINDING_RUNTIME_GUARD_REJECTED');
+    assertEqual(error.code, 'MODEL_BINDING_ARTIFACT_IN_USE');
     assertEqual(error.details.exclusiveOwner, MODEL_ACTIVITY_OWNER.MODEL_PULL);
     const operation = latestOperation(repository);
     const state = repository.getBindingApplicationState(operation.operationId);
     assertEqual(state.runtimeStatus, 'FAILED');
-    assertEqual(state.failureCode, 'MODEL_BINDING_RUNTIME_GUARD_REJECTED');
+    assertEqual(state.failureCode, 'MODEL_BINDING_ARTIFACT_IN_USE');
     assertEqual(state.retryable, true);
     assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-base');
     assertEqual(count(db, 'upgrade_history'), 0);
@@ -2036,12 +2036,11 @@ await testAsync('scheduled recovery repeats at renewed lease boundaries after tr
 });
 
 await testAsync('terminal provider recovery retries the unfinished binding commit', async () => {
-  for (const scenario of ['runtime-guard', 'binding-record']) {
-    const scheduled = [];
-    let failBindingRecord = scenario === 'binding-record';
-    await withExpiringProviderFixture(async ({
-      repository, manager, provider, application, expireProviderClaim,
-    }) => {
+  const scheduled = [];
+  let failBindingRecord = true;
+  await withExpiringProviderFixture(async ({
+    repository, manager, provider, application, expireProviderClaim,
+  }) => {
       repository.observeDesiredBinding({
         role: 'CHAT',
         modelName: 'fixture-base',
@@ -2050,7 +2049,7 @@ await testAsync('terminal provider recovery retries the unfinished binding commi
         actor: 'system:binding-application',
       });
       const intent = repository.recordManualProviderPullIntent({
-        requestKey: `fixture-provider-terminal-retry-${scenario}-0001`,
+        requestKey: 'fixture-provider-terminal-retry-binding-record-0001',
         role: 'CHAT',
         requestPurpose: 'USER_APPLY_TARGET',
         expectedBindingRevision: 1,
@@ -2058,13 +2057,6 @@ await testAsync('terminal provider recovery retries the unfinished binding commi
         targetModelName: 'fixture-target',
         actor: 'user:fixture-operator',
       });
-      if (scenario === 'runtime-guard') {
-        manager._getRuntimeGuardDecision = modelName => ({
-          allowed: canonicalModelName(modelName) !== 'fixture-target',
-          reason: 'fixture transient runtime guard',
-        });
-      }
-
       await application.rehydrateBindings();
       assertEqual(scheduled.length, 1);
       expireProviderClaim();
@@ -2074,10 +2066,9 @@ await testAsync('terminal provider recovery retries the unfinished binding commi
         repository.getProviderOperation(intent.operation.operationId).terminal.outcome,
         'RECONCILED_PRESENT',
       );
-      assertEqual(scheduled.length, 2, `${scenario} did not schedule binding recovery`);
+      assertEqual(scheduled.length, 2, 'binding failure did not schedule recovery');
       assertEqual(scheduled[1].delayMs, 1);
 
-      manager._getRuntimeGuardDecision = () => ({ allowed: true, reason: null });
       scheduled[1].callback();
       await application.awaitBackgroundWork();
       const operation = repository.getEffectiveBinding('CHAT').operation;
@@ -2087,28 +2078,26 @@ await testAsync('terminal provider recovery retries the unfinished binding commi
         'APPLIED',
       );
       assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-target');
-      assertEqual(scheduled.length, 2, `${scenario} rescheduled after applied binding`);
-    }, {
-      repositoryFactory(repository) {
-        if (scenario !== 'binding-record') return repository;
-        return repositoryProxy(repository, {
-          recordUserBindingApply(input) {
-            if (failBindingRecord) {
-              failBindingRecord = false;
-              throw new Error('fixture transient binding record failure');
-            }
-            return repository.recordUserBindingApply(input);
-          },
-        });
-      },
-      scheduleRecovery(callback, delayMs) {
-        const record = { callback, delayMs };
-        scheduled.push(record);
-        return record;
-      },
-      cancelRecovery() {},
-    });
-  }
+      assertEqual(scheduled.length, 2, 'recovery rescheduled after applied binding');
+  }, {
+    repositoryFactory(repository) {
+      return repositoryProxy(repository, {
+        recordUserBindingApply(input) {
+          if (failBindingRecord) {
+            failBindingRecord = false;
+            throw new Error('fixture transient binding record failure');
+          }
+          return repository.recordUserBindingApply(input);
+        },
+      });
+    },
+    scheduleRecovery(callback, delayMs) {
+      const record = { callback, delayMs };
+      scheduled.push(record);
+      return record;
+    },
+    cancelRecovery() {},
+  });
 });
 
 await testAsync('provider origin mismatch blocks startup and explicit resume before provider reads', async () => {
@@ -3189,63 +3178,6 @@ await testAsync('repository failure compensates runtime and releases the token f
   });
 });
 
-await testAsync('temporary runtime guard rejection is retryable after the guard clears', async () => {
-  await withFixture(async ({ db, repository, manager, application }) => {
-    let blocked = true;
-    manager._getRuntimeGuardDecision = modelName => ({
-      allowed: !(blocked && canonicalModelName(modelName) === 'fixture-target'),
-      reason: blocked ? 'fixture temporary guard' : null,
-    });
-
-    const first = await captureError(application.applyManualBinding({
-      role: 'CHAT',
-      targetModel: 'fixture-target',
-    }));
-    assertEqual(first.code, 'MODEL_BINDING_RUNTIME_GUARD_REJECTED');
-    const operation = latestOperation(repository);
-    assertEqual(repository.getBindingApplicationState(operation.operationId).retryable, true);
-    assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-base');
-
-    blocked = false;
-    const retry = await application.applyManualBinding({
-      role: 'CHAT',
-      targetModel: 'fixture-target',
-    });
-    await application.awaitBackgroundWork();
-    assertEqual(retry.outcome, 'APPLIED');
-    assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-target');
-    assertEqual(count(db, 'model_binding_operations'), 1);
-    assertEqual(count(db, 'upgrade_history'), 1);
-  });
-});
-
-await testAsync('guard-rejected rollback retries the same durable reversal after clear', async () => {
-  await withFixture(async ({ db, repository, manager, application }) => {
-    await application.applyManualBinding({ role: 'CHAT', targetModel: 'fixture-target' });
-    await application.awaitBackgroundWork();
-    let blocked = true;
-    manager._getRuntimeGuardDecision = modelName => ({
-      allowed: !(blocked && canonicalModelName(modelName) === 'fixture-base'),
-      reason: blocked ? 'fixture temporary rollback guard' : null,
-    });
-
-    const first = await captureError(application.rollbackManualBinding(currentRollbackIdentity(repository)));
-    assertEqual(first.code, 'MODEL_BINDING_RUNTIME_GUARD_REJECTED');
-    const reversal = latestOperation(repository);
-    assertEqual(reversal.kind, 'USER_ROLLBACK');
-    assertEqual(repository.getBindingApplicationState(reversal.operationId).retryable, true);
-    assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-target');
-
-    blocked = false;
-    const retry = await application.rollbackManualBinding(currentRollbackIdentity(repository));
-    await application.awaitBackgroundWork();
-    assertEqual(retry.operationId, reversal.operationId);
-    assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-base');
-    assertEqual(count(db, 'model_binding_operations'), 2);
-    assertEqual(count(db, 'upgrade_history'), 2);
-  });
-});
-
 await testAsync('explicit rebind recovers a missing legacy artifact with audited pull lineage', async () => {
   await withFixture(async ({ db, repository, manager, provider, application }) => {
     config.models.CHAT = 'missing-legacy';
@@ -3350,28 +3282,6 @@ await testAsync('same applied operation replay has no provider, runtime or broad
     assertEqual(events.length, before.events);
     assertEqual(count(db, 'upgrade_history'), before.history);
     assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').configVersion, before.version);
-  });
-});
-
-await testAsync('different target cannot overtake a retryable unapplied manual operation', async () => {
-  await withFixture(async ({ db, manager, provider, application }) => {
-    manager._getRuntimeGuardDecision = modelName => ({
-      allowed: canonicalModelName(modelName) !== 'fixture-target',
-      reason: 'fixture retryable guard',
-    });
-    const first = await captureError(application.applyManualBinding({
-      role: 'CHAT',
-      targetModel: 'fixture-target',
-    }));
-    assertEqual(first.code, 'MODEL_BINDING_RUNTIME_GUARD_REJECTED');
-    const resolvesBefore = provider.calls.resolve;
-    const error = await captureError(application.applyManualBinding({
-      role: 'CHAT',
-      targetModel: 'fixture-other',
-    }));
-    assertEqual(error.code, 'MODEL_BINDING_APPLICATION_PENDING_OPERATION');
-    assertEqual(provider.calls.resolve, resolvesBefore);
-    assertEqual(count(db, 'model_binding_operations'), 1);
   });
 });
 

@@ -600,6 +600,7 @@ for (const name of new Set(readyRoles.map(role => bindings[role]).filter(Boolean
   const plan = matchingRole ? evaluationPlans[matchingRole] : null;
   const prior = plan ? modelEvaluationHistory.getComplete({
     digestSha256: artifact.digestSha256,
+    role: matchingRole,
     suiteName: plan.suiteName,
     contractSha256: plan.suiteContractSha256,
   }) : null;
@@ -700,13 +701,9 @@ for (const cand of toTry) {
       // row is evidence only and will never suppress a future artifact.
       artifact = { modelName: cand.name };
     }
-    const recordedContracts = new Set();
     for (const role of cand.roles) {
       const plan = evaluationPlans[role];
       if (!plan) continue;
-      const contractKey = `${plan.suiteName}:${plan.suiteContractSha256}`;
-      if (recordedContracts.has(contractKey)) continue;
-      recordedContracts.add(contractKey);
       const measuredCpuSpill = r.stage === 'measure'
         && r.measurement?.placement?.loaded === true
         && r.measurement?.fits === false;

@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 447
+- Runnable programs: 448
 - Explicit support-module exclusions: 14
-- Profiles: offline=223, database=55, server=42, model=84, soak=26, manual=17
-- States: ACTIVE=351, HISTORICAL=15, BLOCKED=81
+- Profiles: offline=223, database=56, server=42, model=84, soak=26, manual=17
+- States: ACTIVE=352, HISTORICAL=15, BLOCKED=81
 
 ## Execution profiles
 
@@ -394,6 +394,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-PATTERN-MINER-TEST` | `tests/pattern-miner.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-PERF-ANALYZER-TEST` | `tests/perf-analyzer.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-PILOT-C1C2C3-TEST` | `tests/pilot-c1c2c3.test.js` | `C3-027` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-PRE082-UPGRADE-REGRESSION-TEST` | `tests/pre082-upgrade-regression.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-PROJECT-CONVERSATION-E2E-P5P7-TEST` | `tests/project-conversation-e2e-p5p7.test.js` | `C3-005` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-PROJECT-CONVERSATION-E2E-V2-TEST` | `tests/project-conversation-e2e-v2.test.js` | `C3-005` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-PROJECT-CONVERSATION-E2E-TEST` | `tests/project-conversation-e2e.test.js` | `C3-005` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |

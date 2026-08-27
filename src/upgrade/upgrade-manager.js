@@ -11,7 +11,6 @@ import { logger } from '../core/logger.js';
 import { config } from '../config.js';
 import { MODEL_PROFILES } from './model-profiles.js';
 import { discover, fetchInstalledModels } from './model-discovery.js';
-import { modelUniverseStore } from './model-universe-store.js';
 import {
   canonicalModelName,
   canonicalModelNameSet,
@@ -121,14 +120,6 @@ export class UpgradeManager {
         'Another model binding runtime transition is in progress',
       );
     }
-    const decision = this._getRuntimeGuardDecision(targetModel);
-    if (!decision.allowed) {
-      throw this._bindingRuntimeFailure(
-        'MODEL_BINDING_RUNTIME_GUARD_REJECTED',
-        `Model temporarily blocked by runtime guard: ${targetModel}`,
-        { role, targetModel, reason: decision.reason || null },
-      );
-    }
     const currentModel = config.models[role];
     if (!sameModelName(currentModel, expectedModel)
       && !sameModelName(currentModel, targetModel)) {
@@ -236,44 +227,6 @@ export class UpgradeManager {
       to: input.targetModel,
       configVersion: this._configVersion,
     });
-  }
-
-  _getRuntimeGuardDecision(modelName) {
-    try {
-      const decision = modelUniverseStore?.isModelRuntimeAllowed?.(modelName);
-      if (!decision || typeof decision.allowed !== 'boolean') {
-        return { allowed: true, reason: 'runtime_guard_unavailable' };
-      }
-      return decision;
-    } catch (err) {
-      logger.debug('UpgradeManager', `Runtime guard check failed for ${modelName}: ${err.message}`);
-      return { allowed: true, reason: 'runtime_guard_error' };
-    }
-  }
-
-  _filterRuntimeGuardedCandidates(candidates = [], stage = 'discovery') {
-    const filtered = [];
-    const blocked = [];
-    for (const candidate of candidates) {
-      const decision = this._getRuntimeGuardDecision(candidate?.name);
-      if (decision.allowed) {
-        filtered.push(candidate);
-        continue;
-      }
-      blocked.push({
-        name: candidate?.name,
-        reason: decision.reason || 'runtime_guard_disabled',
-        disabledUntil: decision.disabledUntil || null,
-      });
-    }
-
-    if (blocked.length > 0) {
-      logger.info('UpgradeManager', `Runtime guard blocked ${blocked.length} candidate(s) during ${stage}`, {
-        blocked: blocked.slice(0, 12),
-      });
-    }
-
-    return { filtered, blocked };
   }
 
   /**
@@ -434,14 +387,6 @@ export class UpgradeManager {
       includeCatalog: opts.fullCycle || false,
     });
 
-    const runtimeGuardFilter = this._filterRuntimeGuardedCandidates(discovery.candidates, 'check_for_upgrades');
-    if (runtimeGuardFilter.blocked.length > 0) {
-      discovery.candidates = runtimeGuardFilter.filtered;
-      discovery.stats = {
-        ...(discovery.stats || {}),
-        runtimeGuardBlocked: runtimeGuardFilter.blocked.length,
-      };
-    }
     this._lastDiscovery = discovery;
 
     // v121.1: L4 Online Discovery (fullCycle only — same cadence as L2)

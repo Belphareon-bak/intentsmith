@@ -241,6 +241,14 @@ await testAsync('jiný stávající model se spustí znovu', async () => {
   assertEqual(runner.calls.length, 3, 'A z cache, B i C se musí změřit');
 });
 
+await testAsync('stejná sada a model se mezi rolemi znovu změří', async () => {
+  const runner = fakeRunner({ A: { _default: 1 }, B: { _default: 1 } });
+  const suiteCache = createSuiteCache();
+  await comparePair(runner, 'reasoning', 'A', 'B', { suiteCache, role: 'D1', ...ONCE });
+  await comparePair(runner, 'reasoning', 'A', 'B', { suiteCache, role: 'D2', ...ONCE });
+  assertEqual(runner.calls.length, 4, 'role is part of the in-memory evidence identity');
+});
+
 await testAsync('bez cache se chování nemění', async () => {
   const runner = fakeRunner({ A: { _default: 1 }, B: { _default: 1 } });
   await comparePair(runner, 'reasoning', 'A', 'B', ONCE);
