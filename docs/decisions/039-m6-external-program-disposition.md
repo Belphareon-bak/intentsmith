@@ -34,9 +34,10 @@ programy zůstávají `ACTIVE + required`:
 - tři `CONV-*` programy;
 - pět `EXPERTISE-COMPARISON-*` programů.
 
-Čtyři programy jsou skutečně operátorské externí E2E nebo kombinují required
-unit část s volitelným credentialed E2E. Jejich vlastní zdroj říká, že bez
-externí konfigurace skipují nebo že jsou oddělené od required offline sady.
+Pět programů je skutečně operátorských externích E2E nebo kombinuje required
+unit část s volitelným credentialed E2E. Jejich vlastní zdroj buď říká, že bez
+externí konfigurace skipují, nebo přímo vyžaduje aktuální veřejný obsah a
+operátorské filesystem/toolchain prerequisite.
 Required alternativy už existují (`notifications.test.js`,
 `workers-phase-b.test.js`, `multi-source-integration.test.js` a M5 outbound
 policy). Proto zůstávají registrované a spustitelné, ale jsou přesně
@@ -44,6 +45,9 @@ policy). Proto zůstávají registrované a spustitelné, ale jsou přesně
 
 - `E2E-NOTIFICATIONS`;
 - `E2E-WORKERS`;
+- `E2E-COMPLEX` — jeho A1 explicitně vyžaduje aktuální web search a odkazy,
+  B1 čte zdrojový checkout bez ProjectContext authority a export vyžaduje
+  operátorsky instalovaný PDF runtime;
 - `MULTI-SOURCE-EXTERNAL`;
 - `PUSH-CHANNEL`.
 
@@ -56,6 +60,6 @@ jejich případný ruční výsledek se do M6 required verdictu nepřičítá.
 `validateTestRegistry()` odmítá každý budoucí záznam s kombinací
 `state=ACTIVE`, `required=true` a `network=external`. External program musí mít
 explicitní operátorskou disposition, nebo jiný spustitelný a pravdivý runtime
-kontrakt. Candidate plán dál vyžaduje přesnou množinovou rovnost všech 370
+kontrakt. Candidate plán dál vyžaduje přesnou množinovou rovnost všech 369
 současných `ACTIVE + required` položek; žádný runnable required program se
 nesmí ručně vynechat.

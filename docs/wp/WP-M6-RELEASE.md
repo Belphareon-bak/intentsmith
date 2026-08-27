@@ -131,7 +131,7 @@ Implementované, ale zatím znovu nezreviewované bloky:
 
 - Git-native raw evidence a exact artifact/receipt re-evaluation;
 - množinově úplný plán všech `ACTIVE + required` programů;
-- sedmifázový plan v6 s exact runner-owned server authority pro deset
+- sedmifázový plan v6 s exact runner-owned server authority pro devět
   historických live-server consumer journeys, exact toolchain preflightem a
   fail-fast po prvním required non-PASS (Decision 040);
 - skutečný persistentní application upgrade 136.0.0 → 136.1.0;
@@ -140,7 +140,7 @@ Implementované, ale zatím znovu nezreviewované bloky:
 L0-11 focused důkaz aktuálně tvoří 11/11 nových adversariálních checks,
 24/24 původní model-use, 8/8 VRAM a 108/108 binding/chat compatibility.
 Schéma má 155 tabulek / 79 migrací a registr 469 programů, z toho 374 ACTIVE a
-370 `ACTIVE + required`. Registry nyní fail-closed zakazuje required external
+369 `ACTIVE + required`. Registry nyní fail-closed zakazuje required external
 program, který committed runner musí vždy hard-blockovat; přesná disposition je
 v Decision 039.
 Původních třináct false-soak ACTIVE položek je překlasifikovaných podle

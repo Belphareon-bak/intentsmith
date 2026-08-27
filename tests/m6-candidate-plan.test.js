@@ -40,7 +40,7 @@ test('plan is argument-free, serial and covers the exact ACTIVE required registr
     .sort();
   const selected = plan.phases.flatMap(phase => phase.programIds).sort();
   assert.deepEqual(selected, expected);
-  assert.equal(selected.length, 370);
+  assert.equal(selected.length, 369);
   assert.equal(Object.isFrozen(plan), true);
 });
 
@@ -72,7 +72,7 @@ test('model and runner-owned server phases cover every runnable required program
 
   const serverPhase = plan.phases.find(item => item.id === 'runner-owned-server-programs');
   assert.deepEqual(serverPhase.programIds, M6_RUNNER_OWNED_SERVER_PROGRAMS);
-  assert.equal(serverPhase.programIds.length, 10);
+  assert.equal(serverPhase.programIds.length, 9);
   assert(serverPhase.programIds.every(id => byId.get(id).requirements.server === true));
   assert(serverPhase.programIds.every(id => byId.get(id).requirements.network === 'loopback'));
   assert.equal(serverPhase.runner, 'm6-runner-owned-server-programs');

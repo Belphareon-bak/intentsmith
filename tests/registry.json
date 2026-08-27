@@ -2960,18 +2960,21 @@
       ],
       "capabilityId": "C3-027",
       "tier": "T3",
-      "fixture": "isolated-local-server",
-      "profile": "server",
+      "fixture": "operator-configured-external-model-server-project-pdf",
+      "profile": "manual",
       "timeoutMs": 900000,
       "expectedDurationMs": 120000,
       "requirements": {
-        "network": "loopback",
+        "network": "external",
         "database": true,
         "server": true,
         "ollama": true,
-        "gpu": true
+        "gpu": true,
+        "toolchain": [
+          "python-pdf-runtime"
+        ]
       },
-      "required": true,
+      "required": false,
       "owner": "primary implementer",
       "state": "ACTIVE",
       "lastGreen": {

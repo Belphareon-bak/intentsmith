@@ -16,7 +16,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 - Runnable programs: 469
 - Explicit support-module exclusions: 16
-- Profiles: offline=248, database=60, server=44, model=82, soak=15, manual=20
+- Profiles: offline=248, database=60, server=43, model=82, soak=15, manual=21
 - States: ACTIVE=374, HISTORICAL=16, BLOCKED=79
 
 ## Execution profiles
@@ -131,7 +131,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-DETERMINISTIC-ANSWER-LATENCY-TEST` | `tests/deterministic-answer-latency.test.js` | `C3-004` | T1 | `offline` | 5 s | 1 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-DOMAINS-TEST` | `tests/domains.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-DRIFT-DETECTOR-TEST` | `tests/drift-detector.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
-| `IS-T3-TESTS-E2E-COMPLEX-TEST` | `tests/e2e-complex.test.js` | `C3-027` | T3 | `server` | 2 min | 15 min | network:loopback, temp-db, server, ollama, gpu | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-E2E-COMPLEX-TEST` | `tests/e2e-complex.test.js` | `C3-027` | T3 | `manual` | 2 min | 15 min | network:external, temp-db, server, ollama, gpu, toolchain:python-pdf-runtime | no | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-E2E-HARNESS-ISOLATION-TEST` | `tests/e2e-harness-isolation.test.js` | `C3-027` | T2 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-E2E-NOTIFICATIONS-TEST` | `tests/e2e-notifications.test.js` | `C3-027` | T3 | `manual` | 5 min | 15 min | network:external | no | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-E2E-PIPELINE-TEST` | `tests/e2e-pipeline.test.js` | `C3-027` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |

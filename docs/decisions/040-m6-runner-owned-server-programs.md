@@ -1,13 +1,13 @@
 # 040 — Required server journeys dostávají runner-owned server authority
 
 - **stav:** `IMPLEMENTED / FULL_CANDIDATE_RUN_PENDING / RE_REVIEW_REQUIRED`
-- **rozsah:** M6 locked plan, deset legacy live-server journeys a audit toolchain
+- **rozsah:** M6 locked plan, devět legacy live-server journeys a audit toolchain
 - **datum:** 2026-08-27
 
 ## Problém
 
-M6 plán po opravě množinové úplnosti vybral všech 370 `ACTIVE + required`
-programů. Deset z nich ale nekonstruuje server: spotřebovává již běžící C3 na
+M6 plán po opravě množinové úplnosti vybral všech 369 `ACTIVE + required`
+programů. Devět z nich ale nekonstruuje server: spotřebovává již běžící C3 na
 loopbacku. Obecný `nightly-audit` záměrně označuje `requirements.server` jako
 hard blocker a server nikdy nespouští. Pouhé přidání
 `--allow-blocker=server` by proto vytvořilo nepravdivě „spustitelný“ plán bez
@@ -22,7 +22,7 @@ materiálně preflightovat jen X11; ostatní názvy pouze odstranily stav
 
 Locked plán verze 6 má sedm sériových fází. Modelové/server-profile programy
 bez `requirements.server` zůstávají v obecném auditu. Přesný zmrazený seznam
-deseti consumer journeys běží v samostatné fázi
+devíti consumer journeys běží v samostatné fázi
 `runner-owned-server-programs` přes
 `scripts/run-m6-server-program-evidence.js`.
 
@@ -55,7 +55,7 @@ obě případné env vazby se musí shodovat. Candidate fáze používají
 ## Hranice tvrzení
 
 Focused kontrakty dokazují množinovou úplnost, izolaci, PID/nonce binding,
-toolchain preflight a fail-fast. Dokud všech deset journeys a následně všech
+toolchain preflight a fail-fast. Dokud všech devět journeys a následně všech
 sedm fází neproběhne nad jedním čistým commitnutým kandidátem, stav zůstává
 `FULL_CANDIDATE_RUN_PENDING`. Rozhodnutí samo nevydává M5/M6 review, rotace,
 history disposition, Gate 0, demo ani release approval.

@@ -1669,9 +1669,9 @@ stabilní candidate + re-review:
 
 - finální release evidence se znovu odvozuje z raw logů připnutých v Git a
   validuje exact artifact/receipt chain; ignorovaný JSON nemůže vydat PASS;
-- locked plán používá množinovou rovnost se všemi současnými 370
+- locked plán používá množinovou rovnost se všemi současnými 369
   `ACTIVE + required` programy;
-- deset required live-server consumer journeys už není posíláno do runneru,
+- devět required live-server consumer journeys už není posíláno do runneru,
   který žádný server nevlastní. Plan v6 je odděluje do serializované
   runner-owned fáze s per-program SQLite/HOME/projects, PID+nonce port-file
   atestací, exact cleanupem a content-addressed server+test logem. Modelová
