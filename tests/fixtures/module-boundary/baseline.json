@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "ff9a7dfc93ab37d983d1feaf02418d8254411034",
-  "sourceTree": "ecdceaa637408001e92edf743934a87ae6e5ed9d",
+  "sourceRevision": "2a90c99739c4214c4f89f197e492c6e18f437795",
+  "sourceTree": "c40f4ee9e7fc492ccd1f7b02f8a5163d8a94303f",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -871,6 +871,7 @@
     "src/release/m6-technical-evidence.js -> src/release/m6-candidate-plan.js",
     "src/release/m6-technical-evidence.js -> src/release/m6-runtime-evidence.js",
     "src/release/signed-authority-bundle-verifier.js -> src/release/m6-acceptance-authority.js",
+    "src/release/signed-authority-bundle-verifier.js -> src/release/m6-operator-demo.js",
     "src/release/signed-authority-bundle-verifier.js -> src/release/m6-release-validation.js",
     "src/release/signed-authority-bundle-verifier.js -> src/security/signed-authority-verifier.js",
     "src/routes/agents.js -> src/agents/m3-legacy-agent-quarantine.js",
