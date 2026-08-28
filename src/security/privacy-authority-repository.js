@@ -17,6 +17,9 @@ import {
   verifySignedAuthorityReceiptSet,
 } from './signed-authority-verifier.js';
 import {
+  registerM5PrivacyAuthorityFunctions,
+} from './privacy-authority-validation.js';
+import {
   registerSignedAuthorityStorageFunctions,
 } from './signed-authority-storage-validation.js';
 
@@ -62,10 +65,18 @@ function storageFailure(error) {
 }
 
 function exactExpectedBindings(value) {
-  return value !== null
+  if (!(value !== null
     && typeof value === 'object'
     && !Array.isArray(value)
-    && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...EXPECTED_BINDING_KEYS].sort());
+    && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...EXPECTED_BINDING_KEYS].sort()))) {
+    return false;
+  }
+  return /^[a-f0-9]{40}$/u.test(value.productCandidateSha)
+    && /^[a-f0-9]{40}$/u.test(value.productCandidateTree)
+    && /^[a-f0-9]{40}$/u.test(value.evidenceHeadSha)
+    && /^[a-f0-9]{64}$/u.test(value.registryFingerprint)
+    && /^sha256:[a-f0-9]{64}$/u.test(value.releaseEvidenceIndexSha256)
+    && /^sha256:[a-f0-9]{64}$/u.test(value.artifactManifestSha256);
 }
 
 function orderLinearChain(receipts) {
@@ -153,6 +164,10 @@ export class M5PrivacyAuthorityRepository {
       ? null
       : Object.freeze({ ...expectedBindings });
     this.verifier = createSignedAuthorityVerifier({ trustStore });
+    // Migrations install persistent triggers, but SQLite functions are scoped
+    // to a single connection and disappear on restart. Re-register every UDF
+    // used by those triggers whenever the production repository is wired.
+    registerM5PrivacyAuthorityFunctions(database);
     registerSignedAuthorityStorageFunctions(database);
   }
 

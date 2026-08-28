@@ -157,6 +157,22 @@ test('wrong key, changed byte, cross-role replay and wrong binding fail closed',
   const changedByte = raw.replace('"blockingFindings":0', '"blockingFindings":1');
   assert.equal(Buffer.byteLength(changedByte), Buffer.byteLength(raw));
   assert.equal(verifier.verifyRaw(changedByte, { expected: expected() }).valid, false);
+
+  const replacementReceipt = signedReceipt(reviewKey, {
+    payload: { blockingFindings: 0, sectionsReviewed: 8, note: '\uFFFD' },
+  });
+  const replacementRaw = Buffer.from(
+    `${canonicalizeSignedAuthorityValue(replacementReceipt)}\n`,
+    'utf8',
+  );
+  const replacementOffset = replacementRaw.indexOf(Buffer.from([0xef, 0xbf, 0xbd]));
+  assert.notEqual(replacementOffset, -1);
+  const invalidUtf8Mutation = Buffer.from(replacementRaw);
+  invalidUtf8Mutation[replacementOffset] = 0xf0;
+  assert.equal(replacementRaw.equals(invalidUtf8Mutation), false);
+  const invalidUtf8 = verifier.verifyRaw(invalidUtf8Mutation, { expected: expected() });
+  assert.equal(invalidUtf8.valid, false);
+  assert(invalidUtf8.errors.includes('raw:utf8'));
 });
 
 test('duplicate nonce and broken previous-receipt chain fail closed', () => {

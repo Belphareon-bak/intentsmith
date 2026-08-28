@@ -3,6 +3,7 @@ import {
   createPublicKey,
   verify as verifySignature,
 } from 'node:crypto';
+import { TextDecoder } from 'node:util';
 
 import {
   SIGNED_AUTHORITY_ALGORITHM,
@@ -28,6 +29,7 @@ const EXPECTED_BINDINGS = Object.freeze([
   'registryFingerprint',
   'releaseEvidenceIndexSha256',
 ]);
+const FATAL_UTF8_DECODER = new TextDecoder('utf-8', { fatal: true });
 
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -146,7 +148,7 @@ export function createSignedAuthorityVerifier({ trustStore } = {}) {
         if (!valid) errors.push('signature:invalid');
       }
       for (const name of EXPECTED_BINDINGS) {
-        if (expected[name] !== undefined && receipt[name] !== expected[name]) {
+        if (Object.hasOwn(expected, name) && receipt[name] !== expected[name]) {
           errors.push(`binding:${name}`);
         }
       }
@@ -165,19 +167,28 @@ export function createSignedAuthorityVerifier({ trustStore } = {}) {
     if (!(typeof rawBytes === 'string' || Buffer.isBuffer(rawBytes))) {
       return Object.freeze({ valid: false, errors: Object.freeze(['raw:bytes']), receipt: null });
     }
+    const exactBytes = Buffer.isBuffer(rawBytes)
+      ? rawBytes
+      : Buffer.from(rawBytes, 'utf8');
+    let decoded;
+    try {
+      decoded = FATAL_UTF8_DECODER.decode(exactBytes);
+    } catch {
+      return Object.freeze({ valid: false, errors: Object.freeze(['raw:utf8']), receipt: null });
+    }
     let receipt;
     try {
-      receipt = JSON.parse(String(rawBytes));
+      receipt = JSON.parse(decoded);
     } catch {
       return Object.freeze({ valid: false, errors: Object.freeze(['raw:json']), receipt: null });
     }
-    let canonical;
+    let canonicalBytes;
     try {
-      canonical = `${canonicalizeSignedAuthorityValue(receipt)}\n`;
+      canonicalBytes = Buffer.from(`${canonicalizeSignedAuthorityValue(receipt)}\n`, 'utf8');
     } catch {
       errors.push('raw:canonical');
     }
-    if (canonical !== String(rawBytes)) errors.push('raw:noncanonical');
+    if (!canonicalBytes?.equals(exactBytes)) errors.push('raw:noncanonical');
     const verified = verify(receipt, options);
     errors.push(...verified.errors);
     return Object.freeze({

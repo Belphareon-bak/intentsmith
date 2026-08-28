@@ -314,6 +314,31 @@ test('user settings cannot reintroduce plaintext credential keys or malformed JS
   db.close();
 });
 
+test('privacy UDFs are restored after SQLite close and reopen before settings routes write', async () => {
+  const databasePath = `${process.env.C3_DB_PATH}.privacy-restart`;
+  const initial = openDb({ retained: true }, { databasePath });
+  initial.close();
+
+  const reopened = new Database(databasePath);
+  const authority = repository(reopened);
+  assert.equal(authority.summary().verdict, 'INCOMPLETE');
+  const responses = [];
+  const routes = createMiscRoutes({
+    db: { db: reopened },
+    parseBody: async req => req.body,
+    sendJSON: (_res, status, payload) => responses.push({ status, payload }),
+    safeError: error => ({ error: error.message }),
+    logger: { info() {}, warn() {}, error() {} },
+  });
+  await routes['POST /api/settings']({ body: { retained: false, language: 'cs' } }, {});
+  assert.equal(responses.at(-1).status, 200, JSON.stringify(responses.at(-1)));
+  assert.deepEqual(
+    JSON.parse(reopened.prepare('SELECT data FROM user_settings WHERE id = 1').get().data),
+    { retained: false, language: 'cs' },
+  );
+  reopened.close();
+});
+
 test('shared settings policy finds and scrubs nested credential keys without retaining values', () => {
   const input = {
     maxTokens: 8192,
@@ -405,6 +430,24 @@ test('remediation remains incomplete until eight signed rotations and signed his
   assert.equal(complete.secretValuesRecorded, false);
   assert.equal(complete.historyDisposition.receiptId, history.receiptId);
   assert(!JSON.stringify(complete).includes(CANARY));
+  db.close();
+});
+
+test('undefined or malformed expected bindings cannot create a privacy PASS', () => {
+  const db = openDb();
+  const undefinedBindings = Object.fromEntries(
+    Object.keys(EXPECTED_BINDINGS).map(key => [key, undefined]),
+  );
+  assert.throws(
+    () => repository(db, { expectedBindings: undefinedBindings }),
+    /m5-privacy-authority:expected-bindings-invalid/,
+  );
+  assert.throws(
+    () => repository(db, {
+      expectedBindings: { ...EXPECTED_BINDINGS, evidenceHeadSha: 'not-a-git-sha' },
+    }),
+    /m5-privacy-authority:expected-bindings-invalid/,
+  );
   db.close();
 });
 
