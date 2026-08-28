@@ -95,8 +95,9 @@ async function main() {
   check(
     hunt.includes('const shortlist = (ONLY.length || INSTALLED_PANEL)')
       && hunt.includes("throw new Error('installed panel obsahuje nenainstalovaný artefakt')")
-      && hunt.includes('ignoreHardwareBlocks: INSTALLED_PANEL'),
-    'installed panel skips remote discovery, rejects remote artifacts and refreshes VRAM placement',
+      && hunt.includes('materializeCurrentHardwareBlocks({')
+      && hunt.includes('ignoreHardwareBlocks: false'),
+    'installed panel skips remote discovery, rejects remote artifacts and reuses exact VRAM placement',
   );
 
   console.log(`\n══ RESULTS: ${pass} passed, ${fail} failed ══`);
