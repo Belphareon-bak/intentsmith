@@ -397,26 +397,95 @@ export function validateM6EvidenceCommitBoundary({
   if (candidateRegistryFingerprint !== evidenceRegistryFingerprint) {
     errors.push('boundary:registry-drift');
   }
+  validateEvidenceOnlyEntries(changedEntries, 'boundary', errors);
+  return Object.freeze({
+    valid: errors.length === 0,
+    errors: Object.freeze(errors),
+    candidateSha,
+    evidenceHeadSha,
+    evidenceOnly: candidateSha !== evidenceHeadSha,
+  });
+}
+
+function validateEvidenceOnlyEntries(changedEntries, label, errors) {
   if (!Array.isArray(changedEntries)) {
-    errors.push('boundary:changed-entries');
-  } else {
-    const normalized = changedEntries.map(entry => ({
-      status: entry?.status,
-      path: String(entry?.path || '').replaceAll('\\', '/'),
-    }));
-    if (new Set(normalized.map(entry => entry.path)).size !== normalized.length) {
-      errors.push('boundary:duplicate-path');
+    errors.push(`${label}:changed-entries`);
+    return;
+  }
+  const normalized = changedEntries.map(entry => ({
+    status: entry?.status,
+    path: String(entry?.path || '').replaceAll('\\', '/'),
+  }));
+  if (new Set(normalized.map(entry => entry.path)).size !== normalized.length) {
+    errors.push(`${label}:duplicate-path`);
+  }
+  for (const entry of normalized) {
+    const changedPath = entry.path;
+    const allowed = EVIDENCE_ONLY_EXACT_PATHS.has(changedPath)
+      || EVIDENCE_ONLY_PREFIXES.some(prefix => changedPath.startsWith(prefix));
+    if (!['A', 'M'].includes(entry.status)) {
+      errors.push(`${label}:unsafe-change:${entry.status || 'unknown'}:${changedPath}`);
     }
-    for (const entry of normalized) {
-      const changedPath = entry.path;
-      const allowed = EVIDENCE_ONLY_EXACT_PATHS.has(changedPath)
-        || EVIDENCE_ONLY_PREFIXES.some(prefix => changedPath.startsWith(prefix));
-      if (!['A', 'M'].includes(entry.status)) {
-        errors.push(`boundary:unsafe-change:${entry.status || 'unknown'}:${changedPath}`);
+    if (!safeRelativePath(changedPath) || !allowed) {
+      errors.push(`${label}:product-path:${changedPath}`);
+    }
+  }
+}
+
+export function validateM6EvidenceCommitHistory({
+  candidateSha,
+  evidenceHeadSha,
+  candidateIsAncestor,
+  commits,
+  worktreeClean,
+  candidateRegistryFingerprint,
+  evidenceRegistryFingerprint,
+} = {}) {
+  const errors = [];
+  if (!FULL_SHA_PATTERN.test(candidateSha || '')) errors.push('history:candidate');
+  if (!FULL_SHA_PATTERN.test(evidenceHeadSha || '')) errors.push('history:evidence-head');
+  if (candidateIsAncestor !== true) errors.push('history:not-descendant');
+  if (worktreeClean !== true) errors.push('history:dirty');
+  if (!SHA256_PATTERN.test(candidateRegistryFingerprint || '')) {
+    errors.push('history:candidate-registry');
+  }
+  if (candidateRegistryFingerprint !== evidenceRegistryFingerprint) {
+    errors.push('history:registry-drift');
+  }
+  if (!Array.isArray(commits)) {
+    errors.push('history:commits');
+  } else {
+    if (candidateSha !== evidenceHeadSha && commits.length === 0) errors.push('history:empty');
+    let expectedParent = candidateSha;
+    for (const [index, commit] of commits.entries()) {
+      const label = `history:commit[${index}]`;
+      if (!FULL_SHA_PATTERN.test(commit?.commitSha || '')) errors.push(`${label}:sha`);
+      if (!Array.isArray(commit?.parentShas) || commit.parentShas.length === 0) {
+        errors.push(`${label}:parents`);
+        continue;
       }
-      if (!safeRelativePath(changedPath) || !allowed) {
-        errors.push(`boundary:product-path:${changedPath}`);
+      if (commit.parentShas.length !== 1) errors.push(`${label}:merge-forbidden`);
+      if (!Array.isArray(commit.changesByParent)
+        || commit.changesByParent.length !== commit.parentShas.length) {
+        errors.push(`${label}:parent-diffs`);
+      } else {
+        const seenParents = new Set();
+        for (const parentDiff of commit.changesByParent) {
+          const parentSha = parentDiff?.parentSha;
+          if (!commit.parentShas.includes(parentSha) || seenParents.has(parentSha)) {
+            errors.push(`${label}:parent-diff-binding`);
+          }
+          seenParents.add(parentSha);
+          validateEvidenceOnlyEntries(parentDiff?.changedEntries, label, errors);
+        }
       }
+      if (commit.parentShas.length === 1 && commit.parentShas[0] !== expectedParent) {
+        errors.push(`${label}:nonlinear-parent`);
+      }
+      expectedParent = commit.commitSha;
+    }
+    if (commits.length > 0 && commits.at(-1)?.commitSha !== evidenceHeadSha) {
+      errors.push('history:head-binding');
     }
   }
   return Object.freeze({

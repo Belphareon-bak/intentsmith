@@ -205,11 +205,15 @@ export class M5PrivacyAuthorityRepository {
       'Exact signed receipt candidate and evidence bindings are required',
     );
     const rows = this.database.prepare(`
-      SELECT record_json FROM m5_signed_privacy_receipts
+      SELECT CAST(record_json AS BLOB) AS record_bytes
+      FROM m5_signed_privacy_receipts
       ORDER BY issued_at_ms, receipt_id
     `).all();
     const receipts = rows.map((row, index) => {
-      const verification = this.verifier.verifyRaw(row.record_json, {
+      // SQLite TEXT decoding is lossy for malformed UTF-8. Authority is bound
+      // to the exact stored bytes, so re-read the underlying bytes as a BLOB
+      // before every verification instead of trusting the decoded JS string.
+      const verification = this.verifier.verifyRaw(row.record_bytes, {
         expected: this.expectedBindings || {},
       });
       if (!verification.valid) fail(

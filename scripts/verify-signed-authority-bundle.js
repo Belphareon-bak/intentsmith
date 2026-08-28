@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
@@ -15,40 +14,36 @@ import {
   buildM6CandidateExecutionPlan,
 } from '../src/release/m6-candidate-plan.js';
 import {
-  validateM6EvidenceCommitBoundary,
+  validateM6EvidenceCommitHistory,
   validateM6ReleaseEvidenceIndex,
 } from '../src/release/m6-release-validation.js';
 import {
   verifySignedAuthorityBundle,
 } from '../src/release/signed-authority-bundle-verifier.js';
+import {
+  assertM6GitMetadataSafe,
+  gitBytes as runGitBytes,
+  gitIsAncestor,
+  gitObjectExists,
+  gitText,
+  m6WorktreeClean,
+  readM6EvidenceCommitHistory,
+} from './m6-git-evidence.js';
 import { registryFingerprint } from './test-registry.js';
 
 export const SIGNED_AUTHORITY_TRUST_STORE_PATH =
   'contracts/authority/trusted-public-keys-v1.json';
 
 function git(root, args) {
-  return execFileSync('git', args, {
-    cwd: root,
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  }).trim();
+  return gitText(root, args);
 }
 
 function gitBytes(root, revision, artifactPath) {
-  return execFileSync('git', ['show', `${revision}:${artifactPath}`], {
-    cwd: root,
-    encoding: null,
-    maxBuffer: 64 * 1024 * 1024,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  return runGitBytes(root, ['show', `${revision}:${artifactPath}`]);
 }
 
 function objectExists(root, revision, artifactPath) {
-  return spawnSync('git', ['cat-file', '-e', `${revision}:${artifactPath}`], {
-    cwd: root,
-    stdio: 'ignore',
-  }).status === 0;
+  return gitObjectExists(root, revision, artifactPath);
 }
 
 function parseJson(bytes, label) {
@@ -88,6 +83,7 @@ function failResult(error) {
 
 export async function verifyCurrentSignedAuthorityBundle(root = process.cwd()) {
   try {
+    assertM6GitMetadataSafe(root);
     const finalEvidenceHeadSha = git(root, ['rev-parse', 'HEAD']);
     if (!objectExists(root, finalEvidenceHeadSha, M6_RELEASE_EVIDENCE_INDEX_PATH)) {
       return Object.freeze({
@@ -105,10 +101,9 @@ export async function verifyCurrentSignedAuthorityBundle(root = process.cwd()) {
     const indexBytes = gitBytes(root, finalEvidenceHeadSha, M6_RELEASE_EVIDENCE_INDEX_PATH);
     const index = parseJson(indexBytes, 'signed-authority:index');
     const candidateSha = index.candidateSha;
-    if (spawnSync('git', ['merge-base', '--is-ancestor', candidateSha, finalEvidenceHeadSha], {
-      cwd: root,
-      stdio: 'ignore',
-    }).status !== 0) throw new Error('signed-authority:candidate-not-ancestor');
+    if (!gitIsAncestor(root, candidateSha, finalEvidenceHeadSha)) {
+      throw new Error('signed-authority:candidate-not-ancestor');
+    }
     const candidateRegistry = parseJson(
       gitBytes(root, candidateSha, 'tests/registry.json'),
       'signed-authority:candidate-registry',
@@ -119,22 +114,17 @@ export async function verifyCurrentSignedAuthorityBundle(root = process.cwd()) {
       'signed-authority:evidence-registry',
     );
     const evidenceRegistryFingerprint = registryFingerprint(evidenceRegistry);
-    const changedEntries = git(root, [
-      'diff', '--name-status', '--no-renames', `${candidateSha}..${finalEvidenceHeadSha}`,
-    ]).split('\n').filter(Boolean).map(line => {
-      const separator = line.indexOf('\t');
-      return separator === -1
-        ? { status: null, path: line }
-        : { status: line.slice(0, separator), path: line.slice(separator + 1) };
-    });
-    const worktreeClean = git(root, [
-      'status', '--porcelain=v1', '--untracked-files=all',
-    ]) === '';
-    const boundary = validateM6EvidenceCommitBoundary({
+    const evidenceCommitHistory = readM6EvidenceCommitHistory(
+      root,
+      candidateSha,
+      finalEvidenceHeadSha,
+    );
+    const worktreeClean = m6WorktreeClean(root);
+    const boundary = validateM6EvidenceCommitHistory({
       candidateSha,
       evidenceHeadSha: finalEvidenceHeadSha,
       candidateIsAncestor: true,
-      changedEntries,
+      commits: evidenceCommitHistory,
       worktreeClean,
       candidateRegistryFingerprint: fingerprint,
       evidenceRegistryFingerprint,
@@ -169,6 +159,23 @@ export async function verifyCurrentSignedAuthorityBundle(root = process.cwd()) {
         rawReceiptsByPath.set(receiptPath, gitBytes(root, finalEvidenceHeadSha, receiptPath));
       }
     }
+    const receiptEvidenceHistories = new Map();
+    for (const raw of rawReceiptsByPath.values()) {
+      try {
+        const receipt = parseJson(raw, 'signed-authority:receipt');
+        if (
+          /^[a-f0-9]{40}$/u.test(receipt.evidenceHeadSha || '')
+          && !receiptEvidenceHistories.has(receipt.evidenceHeadSha)
+        ) {
+          receiptEvidenceHistories.set(
+            receipt.evidenceHeadSha,
+            readM6EvidenceCommitHistory(root, candidateSha, receipt.evidenceHeadSha),
+          );
+        }
+      } catch {
+        // The raw verifier below owns malformed-receipt classification.
+      }
+    }
     const expected = Object.freeze({
       productCandidateSha: candidateSha,
       productCandidateTree: git(root, ['rev-parse', `${candidateSha}^{tree}`]),
@@ -181,14 +188,12 @@ export async function verifyCurrentSignedAuthorityBundle(root = process.cwd()) {
       trustStore,
       expected,
       finalEvidenceHeadSha,
-      changedEntries,
+      evidenceCommitHistory,
+      receiptEvidenceHistories,
       worktreeClean,
       evidenceRegistryFingerprint,
       isAncestor: async (ancestor, descendant) => (
-        spawnSync('git', ['merge-base', '--is-ancestor', ancestor, descendant], {
-          cwd: root,
-          stdio: 'ignore',
-        }).status === 0
+        gitIsAncestor(root, ancestor, descendant)
       ),
       readGitArtifact: async (revision, artifactPath) => (
         readGitArtifact(root, revision, artifactPath)

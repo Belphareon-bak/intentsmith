@@ -17,6 +17,7 @@ import {
 } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
+import { fileURLToPath } from 'node:url';
 import {
   checkArtifactContent,
   isRequiredArtifactPath,
@@ -335,6 +336,37 @@ function currentToolInventory() {
   return { files: files.length, lines, declarations };
 }
 
+function javascriptTreeCensus(relativeDirectory) {
+  const root = fileURLToPath(new URL(`../${relativeDirectory}/`, import.meta.url));
+  const files = [];
+  const visit = directory => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const absolutePath = path.join(directory, entry.name);
+      if (entry.isDirectory()) visit(absolutePath);
+      else if (entry.isFile() && entry.name.endsWith('.js')) files.push(absolutePath);
+    }
+  };
+  visit(root);
+  const lines = files.reduce((total, filePath) => (
+    total + (readFileSync(filePath, 'utf8').match(/\n/g) || []).length
+  ), 0);
+  return Object.freeze({ files: files.length, lines });
+}
+
+function formatCensusInteger(value) {
+  return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+}
+
+function systemMapMatchesJavaScriptCensus(markdown, source, tests) {
+  return markdown.includes(
+    `| \`src/**/*.js\` | **${formatCensusInteger(source.lines)} ř.**, `
+      + `${source.files} \`.js\` souborů v pracovním kandidátu |`,
+  ) && markdown.includes(
+    `| \`tests/**/*.js\` | **${formatCensusInteger(tests.lines)} ř.**, `
+      + `${tests.files} \`.js\` souborů v pracovním kandidátu |`,
+  );
+}
+
 function systemMapMatchesToolInventory(markdown, inventory) {
   const formattedLines = String(inventory.lines).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   return markdown.includes(
@@ -525,6 +557,35 @@ test('SYSTEM-MAP tool census rejects source-count drift', () => {
   assert(!systemMapMatchesToolInventory(
     rootSystemMap.replace('153 top-level', '154 top-level'),
     currentToolInventory(),
+  ));
+});
+
+test('SYSTEM-MAP source and test LOC census derives from current JavaScript bytes', () => {
+  assert(systemMapMatchesJavaScriptCensus(
+    rootSystemMap,
+    javascriptTreeCensus('src'),
+    javascriptTreeCensus('tests'),
+  ));
+});
+
+test('SYSTEM-MAP source and test LOC census rejects either stale total', () => {
+  const source = javascriptTreeCensus('src');
+  const tests = javascriptTreeCensus('tests');
+  assert(!systemMapMatchesJavaScriptCensus(
+    rootSystemMap.replace(
+      `${formatCensusInteger(source.lines)} ř.`,
+      `${formatCensusInteger(source.lines - 1)} ř.`,
+    ),
+    source,
+    tests,
+  ));
+  assert(!systemMapMatchesJavaScriptCensus(
+    rootSystemMap.replace(
+      `${formatCensusInteger(tests.lines)} ř.`,
+      `${formatCensusInteger(tests.lines - 1)} ř.`,
+    ),
+    source,
+    tests,
   ));
 });
 

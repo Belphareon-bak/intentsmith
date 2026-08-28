@@ -3,7 +3,18 @@
 import './helpers/isolated-test-db.js';
 
 import assert from 'node:assert/strict';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash, generateKeyPairSync, sign } from 'node:crypto';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   SIGNED_AUTHORITY_ALGORITHM,
@@ -31,14 +42,27 @@ import {
   SIGNED_AUTHORITY_BUNDLE_PATHS,
 } from '../contracts/m6/acceptance-authority-v1.js';
 import {
+  M6_RELEASE_EVIDENCE_INDEX_CONTRACT,
   M6_RELEASE_EVIDENCE_INDEX_PATH,
+  M6_RELEASE_EVIDENCE_INDEX_VERSION,
 } from '../contracts/m6/release-v1.js';
+import {
+  buildM6CandidateExecutionPlan,
+} from '../src/release/m6-candidate-plan.js';
 import {
   applyVerifiedSignedAuthorityBundle,
   verifySignedAuthorityBundle,
 } from '../src/release/signed-authority-bundle-verifier.js';
 import { signedAuthorityKeyId } from '../src/security/signed-authority-verifier.js';
+import { registryFingerprint } from '../scripts/test-registry.js';
 import { suite, summary, testAsync } from './harness.js';
+
+const repositoryRoot = fileURLToPath(new URL('../', import.meta.url));
+const standaloneVerifierPath = path.join(
+  repositoryRoot,
+  'scripts/verify-signed-authority-bundle.js',
+);
+const fullReleaseVerifierPath = path.join(repositoryRoot, 'scripts/validate-m6-release.js');
 
 const candidateSha = 'a'.repeat(40);
 const evidenceHeadSha = 'b'.repeat(40);
@@ -298,15 +322,33 @@ function fixture() {
       `${canonicalizeSignedAuthorityValue(receipts[index])}\n`,
     ],
   ));
+  const evidenceChangedEntries = [...artifactStore.keys()]
+    .filter(key => key.startsWith(`${evidenceHeadSha}:`))
+    .map(key => ({ status: 'A', path: key.slice(evidenceHeadSha.length + 1) }));
+  const evidenceCommit = Object.freeze({
+    commitSha: evidenceHeadSha,
+    parentShas: Object.freeze([candidateSha]),
+    changesByParent: Object.freeze([Object.freeze({
+      parentSha: candidateSha,
+      changedEntries: Object.freeze(evidenceChangedEntries),
+    })]),
+  });
+  const receiptCommit = Object.freeze({
+    commitSha: finalEvidenceHeadSha,
+    parentShas: Object.freeze([evidenceHeadSha]),
+    changesByParent: Object.freeze([Object.freeze({
+      parentSha: evidenceHeadSha,
+      changedEntries: Object.freeze(SIGNED_AUTHORITY_BUNDLE_PATHS.map(
+        path => ({ status: 'A', path }),
+      )),
+    })]),
+  });
   const dependencies = {
     trustStore,
     expected,
     finalEvidenceHeadSha,
-    changedEntries: [
-      { status: 'A', path: M6_RELEASE_EVIDENCE_INDEX_PATH },
-      { status: 'A', path: releaseManifestPath },
-      ...SIGNED_AUTHORITY_BUNDLE_PATHS.map(path => ({ status: 'A', path })),
-    ],
+    evidenceCommitHistory: [evidenceCommit, receiptCommit],
+    receiptEvidenceHistories: new Map([[evidenceHeadSha, [evidenceCommit]]]),
     worktreeClean: true,
     evidenceRegistryFingerprint: expected.registryFingerprint,
     artifactStore,
@@ -328,6 +370,362 @@ function fixture() {
     }),
   };
   return { rawReceiptsByPath, receipts, dependencies };
+}
+
+function writeGitFixtureFile(root, relativePath, bytes) {
+  const target = path.join(root, relativePath);
+  mkdirSync(path.dirname(target), { recursive: true });
+  writeFileSync(target, bytes);
+}
+
+function fixtureGit(root, args) {
+  return execFileSync('git', args, {
+    cwd: root,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim();
+}
+
+function commitGitFixture(root, message) {
+  fixtureGit(root, ['add', '--all']);
+  fixtureGit(root, ['commit', '--quiet', '-m', message]);
+  return fixtureGit(root, ['rev-parse', 'HEAD']);
+}
+
+function rawArtifactBinding(artifactPath, bytes) {
+  return Object.freeze({
+    path: artifactPath,
+    bytes: bytes.length,
+    gitMode: '100644',
+    sha256: digest(bytes),
+  });
+}
+
+function signGitFixtureReceipt({
+  domain,
+  roleKey,
+  expectedBindings,
+  evidenceHead,
+  artifacts,
+  decision,
+  issuedIndex,
+  previousReceiptId,
+  payload,
+}) {
+  const receipt = {
+    contract: SIGNED_AUTHORITY_RECEIPT_CONTRACT,
+    version: 1,
+    algorithm: SIGNED_AUTHORITY_ALGORITHM,
+    domain,
+    authorityId: roleKey.authorityId,
+    keyId: roleKey.trust.keyId,
+    ...expectedBindings,
+    evidenceHeadSha: evidenceHead,
+    artifacts,
+    decision,
+    issuedAtMs: 1_900_000_000_000 + issuedIndex,
+    nonce: Buffer.alloc(16, issuedIndex + 1).toString('base64url'),
+    previousReceiptId,
+    actor: { actorType: 'user', actorId: `fixture:${roleKey.authorityId}` },
+    payload,
+  };
+  receipt.signature = sign(null, signedAuthoritySigningBytes(receipt), roleKey.privateKey)
+    .toString('base64url');
+  receipt.receiptId = computeSignedAuthorityReceiptId(receipt);
+  return receipt;
+}
+
+function buildRealGitBundle({ productMutationReverted = false } = {}) {
+  const scratchRoot = path.join(repositoryRoot, '.intentsmith-artifacts');
+  mkdirSync(scratchRoot, { recursive: true });
+  const root = mkdtempSync(path.join(scratchRoot, 'signed-authority-git-e2e-'));
+  fixtureGit(root, ['init', '--quiet']);
+  fixtureGit(root, ['config', 'user.name', 'IntentSmith Test Fixture']);
+  fixtureGit(root, ['config', 'user.email', 'fixture@intentsmith.invalid']);
+
+  const registryBytes = readFileSync(path.join(repositoryRoot, 'tests/registry.json'));
+  const registry = JSON.parse(registryBytes.toString('utf8'));
+  writeGitFixtureFile(root, 'tests/registry.json', registryBytes);
+  const registeredPrograms = new Set([
+    ...registry.suites.map(item => item.path),
+    ...registry.exclusions.map(item => item.path),
+  ]);
+  for (const programPath of registeredPrograms) {
+    const extension = path.extname(programPath);
+    const source = extension === '.sh'
+      ? '#!/bin/sh\nexit 0\n'
+      : extension === '.py'
+        ? '# IntentSmith registry fixture\n'
+        : '// IntentSmith registry fixture\n';
+    writeGitFixtureFile(root, programPath, source);
+  }
+  writeGitFixtureFile(
+    root,
+    'contracts/authority/trusted-public-keys-v1.json',
+    `${JSON.stringify(trustStore, null, 2)}\n`,
+  );
+  const originalProductBytes = Buffer.from('export const serverFixture = true;\n', 'utf8');
+  writeGitFixtureFile(root, 'src/server.js', originalProductBytes);
+  const productCandidateSha = commitGitFixture(root, 'fixture product candidate');
+  const productCandidateTree = fixtureGit(root, [
+    'rev-parse', `${productCandidateSha}^{tree}`,
+  ]);
+  const fingerprint = registryFingerprint(registry);
+  const plan = buildM6CandidateExecutionPlan(registry);
+
+  const manifestBytes = Buffer.from('{"contract":"M6ReleaseArtifactFixture"}\n', 'utf8');
+  const manifestPath = 'docs/execution/runs/m6/M6-RELEASE-ARTIFACT.json';
+  const reports = plan.phases.map((phase, phaseIndex) => {
+    const reportBytes = Buffer.from(`report:${phase.id}\n`, 'utf8');
+    return {
+      phaseId: phase.id,
+      runner: phase.runner,
+      artifact: {
+        path: `docs/execution/runs/m6/fixture-phase-${phaseIndex}.json`,
+        bytes: reportBytes.length,
+        sha256: digest(reportBytes).slice('sha256:'.length),
+      },
+      logs: phase.programIds.map((programId, programIndex) => {
+        const logBytes = Buffer.from(`log:${programId}\n`, 'utf8');
+        return {
+          programId,
+          artifact: {
+            path: `docs/execution/runs/m6/fixture-log-${phaseIndex}-${programIndex}.txt`,
+            bytes: logBytes.length,
+            sha256: digest(logBytes).slice('sha256:'.length),
+          },
+        };
+      }),
+    };
+  });
+  const index = {
+    contract: M6_RELEASE_EVIDENCE_INDEX_CONTRACT,
+    version: M6_RELEASE_EVIDENCE_INDEX_VERSION,
+    candidateSha: productCandidateSha,
+    registryFingerprint: fingerprint,
+    generatedAt: '2030-01-01T00:00:00.000Z',
+    reports,
+    releaseArtifactManifest: {
+      path: manifestPath,
+      bytes: manifestBytes.length,
+      sha256: digest(manifestBytes).slice('sha256:'.length),
+    },
+  };
+  const indexBytes = Buffer.from(`${JSON.stringify(index)}\n`, 'utf8');
+  writeGitFixtureFile(root, M6_RELEASE_EVIDENCE_INDEX_PATH, indexBytes);
+  writeGitFixtureFile(root, manifestPath, manifestBytes);
+
+  const authorityArtifacts = new Map();
+  for (const category of M5_PRIVACY_ROTATION_CATEGORIES) {
+    authorityArtifacts.set(
+      `docs/execution/runs/m6/authority/provider-${category.categoryId}.json`,
+      Buffer.from(`provider:${category.categoryId}\n`, 'utf8'),
+    );
+  }
+  authorityArtifacts.set(
+    'docs/execution/runs/m6/authority/ref-census.json',
+    Buffer.from('ref-census\n', 'utf8'),
+  );
+  authorityArtifacts.set(
+    'docs/execution/runs/m6/authority/privacy-scan.json',
+    Buffer.from('privacy-scan\n', 'utf8'),
+  );
+  for (let indexPosition = 9; indexPosition <= 12; indexPosition += 1) {
+    authorityArtifacts.set(
+      `docs/execution/runs/m6/authority/acceptance-${indexPosition}.json`,
+      Buffer.from(`acceptance:${indexPosition}\n`, 'utf8'),
+    );
+  }
+  for (const [artifactPath, bytes] of authorityArtifacts) {
+    writeGitFixtureFile(root, artifactPath, bytes);
+  }
+  commitGitFixture(root, 'fixture evidence');
+
+  if (productMutationReverted) {
+    writeGitFixtureFile(root, 'src/server.js', 'export const serverFixture = false;\n');
+    commitGitFixture(root, 'temporary product mutation');
+  }
+  const evidenceHead = fixtureGit(root, ['rev-parse', 'HEAD']);
+  const expectedBindings = Object.freeze({
+    productCandidateSha,
+    productCandidateTree,
+    registryFingerprint: fingerprint,
+    releaseEvidenceIndexSha256: digest(indexBytes),
+    artifactManifestSha256: digest(manifestBytes),
+  });
+
+  const receipts = [];
+  let previousReceiptId = null;
+  for (const [indexPosition, category] of M5_PRIVACY_ROTATION_CATEGORIES.entries()) {
+    const artifactPath = `docs/execution/runs/m6/authority/provider-${category.categoryId}.json`;
+    const artifact = rawArtifactBinding(artifactPath, authorityArtifacts.get(artifactPath));
+    const receipt = signGitFixtureReceipt({
+      domain: SIGNED_AUTHORITY_DOMAIN.M5_PRIVACY_ROTATION,
+      roleKey: keys.privacy,
+      expectedBindings,
+      evidenceHead,
+      artifacts: [artifact],
+      decision: 'ROTATION_COMPLETED',
+      issuedIndex: indexPosition,
+      previousReceiptId,
+      payload: {
+        contract: M5_SIGNED_PRIVACY_PAYLOAD.ROTATION,
+        version: 1,
+        incidentId: 'G0-PRIVACY-001',
+        categoryId: category.categoryId,
+        authorityKind: category.authorityKind,
+        operationCompleted: true,
+        completedAtMs: 1_899_999_999_000,
+        providerActionEvidenceSha256: artifact.sha256,
+        secretMaterialIncluded: false,
+      },
+    });
+    receipts.push(receipt);
+    previousReceiptId = receipt.receiptId;
+  }
+
+  const refPath = 'docs/execution/runs/m6/authority/ref-census.json';
+  const scanPath = 'docs/execution/runs/m6/authority/privacy-scan.json';
+  const refArtifact = rawArtifactBinding(refPath, authorityArtifacts.get(refPath));
+  const scanArtifact = rawArtifactBinding(scanPath, authorityArtifacts.get(scanPath));
+  const history = signGitFixtureReceipt({
+    domain: SIGNED_AUTHORITY_DOMAIN.M5_PRIVACY_HISTORY,
+    roleKey: keys.privacy,
+    expectedBindings,
+    evidenceHead,
+    artifacts: [refArtifact, scanArtifact],
+    decision: 'HISTORY_DISPOSITION_COMPLETED',
+    issuedIndex: 8,
+    previousReceiptId,
+    payload: {
+      contract: M5_SIGNED_PRIVACY_PAYLOAD.HISTORY,
+      version: 1,
+      incidentId: 'G0-PRIVACY-001',
+      disposition: M5_PRIVACY_HISTORY_DECISIONS.RETAIN_AND_ROTATE,
+      completedAction: M5_PRIVACY_HISTORY_ACTION.RETAINED,
+      repositoryVisibility: M5_PRIVACY_REPOSITORY_VISIBILITY.PRIVATE,
+      operationCompleted: true,
+      completedAtMs: 1_899_999_999_000,
+      postDispositionHeadSha: productCandidateSha,
+      refCensusSha256: refArtifact.sha256,
+      privacyScanSha256: scanArtifact.sha256,
+      secretMaterialIncluded: false,
+    },
+  });
+  receipts.push(history);
+  previousReceiptId = history.receiptId;
+
+  const acceptanceArtifact = indexPosition => {
+    const artifactPath = `docs/execution/runs/m6/authority/acceptance-${indexPosition}.json`;
+    return rawArtifactBinding(artifactPath, authorityArtifacts.get(artifactPath));
+  };
+  const m5 = signGitFixtureReceipt({
+    domain: SIGNED_AUTHORITY_DOMAIN.M5_ACCEPTANCE,
+    roleKey: keys.acceptance,
+    expectedBindings,
+    evidenceHead,
+    artifacts: [acceptanceArtifact(9)],
+    decision: 'M5_ACCEPTED',
+    issuedIndex: 9,
+    previousReceiptId,
+    payload: {
+      contract: M6_ACCEPTANCE_PAYLOAD_CONTRACT.M5,
+      version: 1,
+      reviewSectionsPassed: 9,
+      rotationsCompleted: 8,
+      historyDisposition: M5_PRIVACY_HISTORY_DECISIONS.RETAIN_AND_ROTATE,
+      privacyHistoryReceiptId: history.receiptId,
+      openCriticalHigh: 0,
+      technicalReviewVerdict: 'REVIEW_PASSED',
+      operatorRemediation: 'COMPLETE',
+    },
+  });
+  receipts.push(m5);
+  const review = signGitFixtureReceipt({
+    domain: SIGNED_AUTHORITY_DOMAIN.M6_INDEPENDENT_REVIEW,
+    roleKey: keys.review,
+    expectedBindings,
+    evidenceHead,
+    artifacts: [acceptanceArtifact(10)],
+    decision: 'REVIEW_PASSED',
+    issuedIndex: 10,
+    previousReceiptId: m5.receiptId,
+    payload: {
+      contract: M6_ACCEPTANCE_PAYLOAD_CONTRACT.REVIEW,
+      version: 1,
+      sectionsReviewed: 8,
+      blockingFindings: 0,
+      verdict: 'REVIEW_PASSED',
+    },
+  });
+  receipts.push(review);
+  const demo = signGitFixtureReceipt({
+    domain: SIGNED_AUTHORITY_DOMAIN.M6_OPERATOR_DEMO,
+    roleKey: keys.release,
+    expectedBindings,
+    evidenceHead,
+    artifacts: [acceptanceArtifact(11)],
+    decision: 'DEMO_APPROVED',
+    issuedIndex: 11,
+    previousReceiptId: review.receiptId,
+    payload: {
+      contract: M6_ACCEPTANCE_PAYLOAD_CONTRACT.DEMO,
+      version: 1,
+      stepsPassed: [...M6_OPERATOR_DEMO_STEPS],
+      verdict: 'APPROVED',
+    },
+  });
+  receipts.push(demo);
+  const gate0 = signGitFixtureReceipt({
+    domain: SIGNED_AUTHORITY_DOMAIN.M6_GATE0,
+    roleKey: keys.release,
+    expectedBindings,
+    evidenceHead,
+    artifacts: [acceptanceArtifact(12)],
+    decision: 'GATE_0_PASS',
+    issuedIndex: 12,
+    previousReceiptId: demo.receiptId,
+    payload: {
+      contract: M6_ACCEPTANCE_PAYLOAD_CONTRACT.GATE0,
+      version: 1,
+      chain: 'C-E-R-A',
+      candidateEvidenceVerdict: 'PASS',
+      reviewReceiptId: review.receiptId,
+      demoReceiptId: demo.receiptId,
+      verdict: 'APPROVED',
+    },
+  });
+  receipts.push(gate0);
+
+  SIGNED_AUTHORITY_BUNDLE_PATHS.forEach((receiptPath, indexPosition) => {
+    writeGitFixtureFile(
+      root,
+      receiptPath,
+      `${canonicalizeSignedAuthorityValue(receipts[indexPosition])}\n`,
+    );
+  });
+  commitGitFixture(root, 'fixture signed receipts');
+  if (productMutationReverted) {
+    writeGitFixtureFile(root, 'src/server.js', originalProductBytes);
+    commitGitFixture(root, 'revert temporary product mutation');
+  }
+  return Object.freeze({ root, productCandidateSha });
+}
+
+function runStandalone(scriptPath, root) {
+  const execution = spawnSync(process.execPath, [scriptPath], {
+    cwd: root,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  let result = null;
+  try {
+    result = JSON.parse(execution.stdout);
+  } catch {
+    // Assertions report stdout/stderr when a CLI fails before emitting JSON.
+  }
+  return Object.freeze({ ...execution, result });
 }
 
 suite('Git-pinned signed authority bundle verifier');
@@ -402,16 +800,77 @@ await testAsync('receipt commit containing product changes fails evidence-only b
 
 await testAsync('a later product change anywhere in the candidate-to-HEAD range fails', async () => {
   const value = fixture();
+  const mutationSha = '9'.repeat(40);
+  const revertSha = '8'.repeat(40);
+  const receiptCommit = structuredClone(value.dependencies.evidenceCommitHistory.at(-1));
+  receiptCommit.parentShas = [revertSha];
+  receiptCommit.changesByParent[0].parentSha = revertSha;
   const verification = await verifySignedAuthorityBundle({
     rawReceiptsByPath: value.rawReceiptsByPath,
     ...value.dependencies,
-    changedEntries: [
-      ...value.dependencies.changedEntries,
-      { status: 'M', path: 'src/server.js' },
+    evidenceCommitHistory: [
+      value.dependencies.evidenceCommitHistory[0],
+      {
+        commitSha: mutationSha,
+        parentShas: [evidenceHeadSha],
+        changesByParent: [{
+          parentSha: evidenceHeadSha,
+          changedEntries: [{ status: 'M', path: 'src/server.js' }],
+        }],
+      },
+      {
+        commitSha: revertSha,
+        parentShas: [mutationSha],
+        changesByParent: [{
+          parentSha: mutationSha,
+          changedEntries: [{ status: 'M', path: 'src/server.js' }],
+        }],
+      },
+      receiptCommit,
     ],
   });
   assert.equal(verification.verdict, 'FAIL');
-  assert(verification.errors.some(error => error.includes('boundary:product-path:src/server.js')));
+  assert(verification.errors.some(error => error.includes('product-path:src/server.js')));
+});
+
+await testAsync('each receipt evidence HEAD is independently checked back to the candidate', async () => {
+  const value = fixture();
+  const unsafeEvidence = structuredClone(
+    value.dependencies.receiptEvidenceHistories.get(evidenceHeadSha),
+  );
+  unsafeEvidence[0].changesByParent[0].changedEntries.push({
+    status: 'M',
+    path: 'src/server.js',
+  });
+  const verification = await verifySignedAuthorityBundle({
+    rawReceiptsByPath: value.rawReceiptsByPath,
+    ...value.dependencies,
+    receiptEvidenceHistories: new Map([[evidenceHeadSha, unsafeEvidence]]),
+  });
+  assert.equal(verification.verdict, 'FAIL');
+  assert(verification.errors.some(error => (
+    error.includes('history:commit[0]:product-path:src/server.js')
+  )));
+});
+
+await testAsync('merge commits are forbidden even when every parent diff is evidence-only', async () => {
+  const value = fixture();
+  const merge = structuredClone(value.dependencies.evidenceCommitHistory.at(-1));
+  merge.parentShas = [evidenceHeadSha, '7'.repeat(40)];
+  merge.changesByParent = [
+    merge.changesByParent[0],
+    {
+      parentSha: '7'.repeat(40),
+      changedEntries: SIGNED_AUTHORITY_BUNDLE_PATHS.map(path => ({ status: 'A', path })),
+    },
+  ];
+  const verification = await verifySignedAuthorityBundle({
+    rawReceiptsByPath: value.rawReceiptsByPath,
+    ...value.dependencies,
+    evidenceCommitHistory: [value.dependencies.evidenceCommitHistory[0], merge],
+  });
+  assert.equal(verification.verdict, 'FAIL');
+  assert(verification.errors.some(error => error.includes('merge-forbidden')));
 });
 
 await testAsync('every signed evidence HEAD must already contain the exact index and manifest', async () => {
@@ -506,6 +965,74 @@ await testAsync('only a verified PASS bundle can promote the four external check
   const unchanged = applyVerifiedSignedAuthorityBundle(evidence, blocked);
   assert.equal(unchanged.valid, true);
   assert(unchanged.evidence.checks.every(row => row.status === 'BLOCKED'));
+});
+
+await testAsync('standalone CLI validates a real Git bundle and rejects mutate-then-revert history', async () => {
+  const passing = buildRealGitBundle();
+  const reverted = buildRealGitBundle({ productMutationReverted: true });
+  try {
+    const pass = runStandalone(standaloneVerifierPath, passing.root);
+    assert.equal(pass.status, 0, `${pass.stderr}\n${pass.stdout}`);
+    assert.equal(pass.result?.verdict, 'PASS');
+
+    const failedBundle = runStandalone(standaloneVerifierPath, reverted.root);
+    assert.equal(failedBundle.status, 1, `${failedBundle.stderr}\n${failedBundle.stdout}`);
+    assert.equal(
+      failedBundle.result?.verdict,
+      'FAIL',
+      `${failedBundle.stderr}\n${failedBundle.stdout}`,
+    );
+    assert(failedBundle.result?.errors.some(error => error.includes('product-path:src/server.js')));
+
+    const failedRelease = runStandalone(fullReleaseVerifierPath, reverted.root);
+    assert.equal(failedRelease.status, 1, `${failedRelease.stderr}\n${failedRelease.stdout}`);
+    assert.equal(
+      failedRelease.result?.verdict,
+      'FAIL',
+      `${failedRelease.stderr}\n${failedRelease.stdout}`,
+    );
+    assert(failedRelease.result?.errors.some(error => error.includes('product-path:src/server.js')));
+  } finally {
+    rmSync(passing.root, { recursive: true, force: true });
+    rmSync(reverted.root, { recursive: true, force: true });
+  }
+});
+
+await testAsync('standalone CLI rejects replace refs, grafts and hidden index flags', async () => {
+  const value = buildRealGitBundle();
+  try {
+    const replacement = fixtureGit(value.root, [
+      'commit-tree', `${value.productCandidateSha}^{tree}`, '-m', 'replacement fixture',
+    ]);
+    fixtureGit(value.root, ['replace', value.productCandidateSha, replacement]);
+    const replaceResult = runStandalone(standaloneVerifierPath, value.root);
+    assert.equal(replaceResult.status, 1, `${replaceResult.stderr}\n${replaceResult.stdout}`);
+    assert(replaceResult.result?.errors.includes('m6-git:replace-refs'));
+    fixtureGit(value.root, ['replace', '-d', value.productCandidateSha]);
+
+    const graftPath = path.join(value.root, '.git', 'info', 'grafts');
+    writeFileSync(graftPath, `${value.productCandidateSha}\n`);
+    const graftResult = runStandalone(standaloneVerifierPath, value.root);
+    assert.equal(graftResult.status, 1, `${graftResult.stderr}\n${graftResult.stdout}`);
+    assert(graftResult.result?.errors.includes('m6-git:grafts'));
+    unlinkSync(graftPath);
+
+    fixtureGit(value.root, ['update-index', '--assume-unchanged', 'src/server.js']);
+    writeGitFixtureFile(value.root, 'src/server.js', 'export const hidden = true;\n');
+    const assumeResult = runStandalone(standaloneVerifierPath, value.root);
+    assert.equal(assumeResult.status, 1, `${assumeResult.stderr}\n${assumeResult.stdout}`);
+    assert(assumeResult.result?.errors.some(error => error.startsWith('m6-git:index-flag:')));
+
+    fixtureGit(value.root, ['update-index', '--no-assume-unchanged', 'src/server.js']);
+    writeGitFixtureFile(value.root, 'src/server.js', 'export const serverFixture = true;\n');
+    fixtureGit(value.root, ['update-index', '--skip-worktree', 'src/server.js']);
+    writeGitFixtureFile(value.root, 'src/server.js', 'export const hiddenAgain = true;\n');
+    const skipResult = runStandalone(standaloneVerifierPath, value.root);
+    assert.equal(skipResult.status, 1, `${skipResult.stderr}\n${skipResult.stdout}`);
+    assert(skipResult.result?.errors.some(error => error.startsWith('m6-git:index-flag:S:')));
+  } finally {
+    rmSync(value.root, { recursive: true, force: true });
+  }
 });
 
 summary();

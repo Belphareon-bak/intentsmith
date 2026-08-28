@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
@@ -20,7 +19,7 @@ import {
 } from '../src/release/m6-release-artifact.js';
 import {
   validateM6ReleaseEvidence,
-  validateM6EvidenceCommitBoundary,
+  validateM6EvidenceCommitHistory,
   validateM6ReleaseEvidenceIndex,
   validateM6ReportLogBindings,
   verifyM6GitArtifactBindings,
@@ -36,6 +35,15 @@ import {
   verifyCurrentSignedAuthorityBundle,
 } from './verify-signed-authority-bundle.js';
 import {
+  assertM6GitMetadataSafe,
+  gitBytes as runGitBytes,
+  gitIsAncestor,
+  gitObjectExists as hardenedGitObjectExists,
+  gitText,
+  m6WorktreeClean,
+  readM6EvidenceCommitHistory,
+} from './m6-git-evidence.js';
+import {
   loadTestRegistry,
   registryFingerprint,
 } from './test-registry.js';
@@ -43,20 +51,11 @@ import {
 export const M6_RELEASE_EVIDENCE_PATH = M6_RELEASE_EVIDENCE_INDEX_PATH;
 
 function git(root, args) {
-  return execFileSync('git', args, {
-    cwd: root,
-    encoding: 'utf8',
-    maxBuffer: 64 * 1024 * 1024,
-  }).trim();
+  return gitText(root, args);
 }
 
 function gitBytes(root, revision, artifactPath) {
-  return execFileSync('git', ['show', `${revision}:${artifactPath}`], {
-    cwd: root,
-    encoding: null,
-    maxBuffer: 64 * 1024 * 1024,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  return runGitBytes(root, ['show', `${revision}:${artifactPath}`]);
 }
 
 function gitArtifactReader(root, revision) {
@@ -72,10 +71,7 @@ function gitArtifactReader(root, revision) {
 }
 
 function gitObjectExists(root, revision, artifactPath) {
-  return spawnSync('git', ['cat-file', '-e', `${revision}:${artifactPath}`], {
-    cwd: root,
-    stdio: 'ignore',
-  }).status === 0;
+  return hardenedGitObjectExists(root, revision, artifactPath);
 }
 
 function parseJson(bytes, label) {
@@ -97,9 +93,23 @@ function promoteReleaseArtifact(evidence, artifact) {
 
 export async function validateCurrentM6Release(root = process.cwd()) {
   const evidenceHeadSha = git(root, ['rev-parse', 'HEAD']);
-  const worktreeClean = git(root, [
-    'status', '--porcelain=v1', '--untracked-files=all',
-  ]) === '';
+  try {
+    assertM6GitMetadataSafe(root);
+  } catch (error) {
+    return Object.freeze({
+      contract: 'M6ReleaseValidation',
+      version: 1,
+      valid: false,
+      verdict: 'FAIL',
+      exitCode: 1,
+      errors: Object.freeze([error.message]),
+      candidateSha: null,
+      evidenceHeadSha,
+      registryFingerprint: null,
+      evidencePath: M6_RELEASE_EVIDENCE_PATH,
+    });
+  }
+  const worktreeClean = m6WorktreeClean(root);
   const registry = await loadTestRegistry(root);
   const fingerprint = registryFingerprint(registry);
   const plan = buildM6CandidateExecutionPlan(registry);
@@ -141,37 +151,25 @@ export async function validateCurrentM6Release(root = process.cwd()) {
     });
   }
   const candidateSha = index.candidateSha;
-  const ancestorProbe = spawnSync(
-    'git',
-    ['merge-base', '--is-ancestor', candidateSha, evidenceHeadSha],
-    { cwd: root, stdio: 'ignore' },
-  );
-  const candidateIsAncestor = ancestorProbe.status === 0;
-  let changedEntries = [];
+  const candidateIsAncestor = gitIsAncestor(root, candidateSha, evidenceHeadSha);
+  let evidenceCommitHistory = [];
   let candidateRegistryFingerprint = null;
   if (candidateIsAncestor) {
-    changedEntries = git(root, [
-      'diff', '--name-status', '--no-renames', `${candidateSha}..${evidenceHeadSha}`,
-    ]).split('\n').filter(Boolean).map(line => {
-      const separator = line.indexOf('\t');
-      return separator === -1
-        ? { status: null, path: line }
-        : { status: line.slice(0, separator), path: line.slice(separator + 1) };
-    });
+    evidenceCommitHistory = readM6EvidenceCommitHistory(root, candidateSha, evidenceHeadSha);
     try {
-      const candidateRegistry = JSON.parse(git(root, [
-        'show', `${candidateSha}:tests/registry.json`,
-      ]));
+      const candidateRegistry = JSON.parse(
+        gitBytes(root, candidateSha, 'tests/registry.json').toString('utf8'),
+      );
       candidateRegistryFingerprint = registryFingerprint(candidateRegistry);
     } catch {
       candidateRegistryFingerprint = null;
     }
   }
-  const boundary = validateM6EvidenceCommitBoundary({
+  const boundary = validateM6EvidenceCommitHistory({
     candidateSha,
     evidenceHeadSha,
     candidateIsAncestor,
-    changedEntries,
+    commits: evidenceCommitHistory,
     worktreeClean,
     candidateRegistryFingerprint,
     evidenceRegistryFingerprint: fingerprint,

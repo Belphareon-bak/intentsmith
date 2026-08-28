@@ -22,7 +22,7 @@ import {
   validateM6AcceptanceReceipt,
 } from './m6-acceptance-authority.js';
 import {
-  validateM6EvidenceCommitBoundary,
+  validateM6EvidenceCommitHistory,
 } from './m6-release-validation.js';
 
 const AUTHORITY_RECEIPT_PATH_SET = new Set(SIGNED_AUTHORITY_BUNDLE_PATHS);
@@ -43,6 +43,13 @@ function result({ valid, verdict, errors = [], missingPaths = [], receipts = nul
 function rawAt(rawReceiptsByPath, receiptPath) {
   if (rawReceiptsByPath instanceof Map) return rawReceiptsByPath.get(receiptPath);
   return rawReceiptsByPath?.[receiptPath];
+}
+
+function historyAt(receiptEvidenceHistories, evidenceHeadSha) {
+  if (receiptEvidenceHistories instanceof Map) {
+    return receiptEvidenceHistories.get(evidenceHeadSha);
+  }
+  return receiptEvidenceHistories?.[evidenceHeadSha];
 }
 
 function validatePathSemantic(receipt, index, verifier, expected) {
@@ -129,7 +136,8 @@ export async function verifySignedAuthorityBundle({
   trustStore,
   expected,
   finalEvidenceHeadSha,
-  changedEntries,
+  evidenceCommitHistory,
+  receiptEvidenceHistories,
   worktreeClean,
   evidenceRegistryFingerprint,
   isAncestor,
@@ -151,11 +159,11 @@ export async function verifySignedAuthorityBundle({
     expected?.productCandidateSha,
     finalEvidenceHeadSha,
   );
-  const boundary = validateM6EvidenceCommitBoundary({
+  const boundary = validateM6EvidenceCommitHistory({
     candidateSha: expected?.productCandidateSha,
     evidenceHeadSha: finalEvidenceHeadSha,
     candidateIsAncestor,
-    changedEntries,
+    commits: evidenceCommitHistory,
     worktreeClean,
     candidateRegistryFingerprint: expected?.registryFingerprint,
     evidenceRegistryFingerprint,
@@ -201,6 +209,19 @@ export async function verifySignedAuthorityBundle({
       !await isAncestor(expected.productCandidateSha, receipt.evidenceHeadSha)
       || !await isAncestor(receipt.evidenceHeadSha, finalEvidenceHeadSha)
     ) errors.push(`${receiptPath}:binding:evidence-ancestry`);
+    const receiptHistory = validateM6EvidenceCommitHistory({
+      candidateSha: expected.productCandidateSha,
+      evidenceHeadSha: receipt.evidenceHeadSha,
+      candidateIsAncestor: await isAncestor(
+        expected.productCandidateSha,
+        receipt.evidenceHeadSha,
+      ),
+      commits: historyAt(receiptEvidenceHistories, receipt.evidenceHeadSha),
+      worktreeClean: true,
+      candidateRegistryFingerprint: expected.registryFingerprint,
+      evidenceRegistryFingerprint: expected.registryFingerprint,
+    });
+    errors.push(...receiptHistory.errors.map(error => `${receiptPath}:${error}`));
     for (const binding of receipt.artifacts) {
       const artifactError = await verifyArtifactBinding(receipt, binding, readGitArtifact);
       if (artifactError) errors.push(`${receiptPath}:${binding.path}:${artifactError}`);

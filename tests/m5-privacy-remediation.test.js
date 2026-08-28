@@ -552,6 +552,55 @@ test('second SQLite connection and replacement UDF cannot forge a signed privacy
   reader.close();
 });
 
+test('SQLite TEXT round-trip cannot normalize a one-byte UTF-8 mutation into a valid receipt', () => {
+  const db = openDb();
+  const signed = rotationReceipt(0, null);
+  signed.artifacts[0].path = 'docs/execution/private/provider-\uFFFD.json';
+  signed.signature = sign(
+    null,
+    signedAuthoritySigningBytes(signed),
+    PRIVACY_FIXTURE_PRIVATE_KEY,
+  ).toString('base64url');
+  signed.receiptId = computeSignedAuthorityReceiptId(signed);
+  const canonical = Buffer.from(rawReceipt(signed), 'utf8');
+  const replacement = Buffer.from('\uFFFD', 'utf8');
+  const offset = canonical.indexOf(replacement);
+  assert(offset >= 0, 'fixture must contain the signed replacement character');
+  const mutated = Buffer.from(canonical);
+  mutated[offset] = 0xf0;
+
+  db.function('signed_authority_receipt_shape_valid_v1', () => 1);
+  db.prepare(`
+    INSERT INTO m5_signed_privacy_receipts (
+      receipt_id, domain, authority_id, issued_at_ms, nonce,
+      previous_receipt_id, record_json
+    ) VALUES (?, ?, ?, ?, ?, ?, CAST(? AS TEXT))
+  `).run(
+    signed.receiptId,
+    signed.domain,
+    signed.authorityId,
+    signed.issuedAtMs,
+    signed.nonce,
+    signed.previousReceiptId,
+    mutated,
+  );
+
+  const stored = db.prepare(`
+    SELECT typeof(record_json) AS sqlite_type,
+           record_json,
+           CAST(record_json AS BLOB) AS record_bytes
+    FROM m5_signed_privacy_receipts
+  `).get();
+  assert.equal(stored.sqlite_type, 'text');
+  assert.equal(Buffer.from(stored.record_bytes).equals(mutated), true);
+  assert.equal(Buffer.from(stored.record_json, 'utf8').equals(mutated), false);
+  expectCode(
+    () => repository(db).summary(),
+    M5PrivacyAuthorityErrorCode.SIGNED_RECEIPT_INVALID,
+  );
+  db.close();
+});
+
 test('HTTP attest routes authenticate first and then return typed 410 without reading a body', async () => {
   assert.equal(Object.hasOwn(globalAuthModule, 'authorizeGlobalRequest'), false);
   const db = openDb();
