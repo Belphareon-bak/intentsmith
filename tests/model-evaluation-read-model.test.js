@@ -5,7 +5,12 @@ import {
   ModelEvaluationReadModel,
   ModelEvaluationReadError,
 } from '../src/upgrade/model-evaluation-read-model.js';
+import {
+  inventoryFromModelEvaluationSnapshot,
+  summarizeModelEvaluationReport,
+} from '../src/upgrade/model-evaluation-snapshot.js';
 import { renderEvaluationReport } from '../scripts/model-evaluation-report.js';
+import { compareSnapshotReplay } from '../scripts/model-evaluation-snapshot-replay.js';
 
 const DIGEST = 'a'.repeat(64);
 const OLD_DIGEST = 'b'.repeat(64);
@@ -186,6 +191,63 @@ test('coverage separates missing evidence from model-role applicability', () => 
   assertEqual(result.coverage.notApplicable, 3);
   assertEqual(result.roles.CHAT.coverage.applicableMissing, 2);
   assertEqual(result.roles.VISION.coverage.applicableMissing, 1);
+  db.close();
+});
+
+test('SHA-bound snapshot inventory reproduces vision applicability offline', () => {
+  const db = database();
+  const plans = createRoleEvaluationPlans({ repeats: 1 });
+  const reader = new ModelEvaluationReadModel(db, { plans });
+  const original = reader.read({
+    inventory: [{
+      name: 'qwen3.8:latest',
+      digest: DIGEST,
+      size: 17_741_872_154,
+      modified_at: '2026-08-23T01:35:22.827575346+02:00',
+      params: '27B',
+      family: 'qwen',
+      category: 'general',
+      capabilities: ['completion', 'vision'],
+    }],
+  });
+  const snapshotSummary = summarizeModelEvaluationReport(original);
+  const replayInventory = inventoryFromModelEvaluationSnapshot({
+    readModel: snapshotSummary,
+  });
+  const replay = reader.read({ inventory: replayInventory });
+  const replaySummary = summarizeModelEvaluationReport(replay);
+
+  assertEqual(snapshotSummary.inventoryProjection.artifacts[0].params, 27);
+  assertEqual(snapshotSummary.inventoryProjection.artifacts[0].category, 'general');
+  assertEqual(
+    snapshotSummary.inventoryProjection.artifacts[0].capabilities.join(','),
+    'completion,vision',
+  );
+  assertEqual(replay.models[0].evaluations.VISION.applicable, true);
+  assertEqual(
+    JSON.stringify(replaySummary.coverage),
+    JSON.stringify(snapshotSummary.coverage),
+  );
+  assertEqual(
+    replaySummary.inventoryProjection.sha256,
+    snapshotSummary.inventoryProjection.sha256,
+  );
+  const comparison = compareSnapshotReplay(snapshotSummary, replaySummary, {
+    complete: 0,
+    blocked: 0,
+    applicableMissing: 7,
+    notApplicable: 0,
+  });
+  assertEqual(comparison.verdict, 'PASS');
+  assertEqual(comparison.checks.summaryMatchesSnapshot, true);
+  assertEqual(comparison.checks.expectedCountsMatch, true);
+
+  const tampered = JSON.parse(JSON.stringify({ readModel: snapshotSummary }));
+  tampered.readModel.inventoryProjection.artifacts[0].capabilities = [];
+  let error = null;
+  try { inventoryFromModelEvaluationSnapshot(tampered); } catch (caught) { error = caught; }
+  assert(error instanceof TypeError);
+  assertEqual(error.message, 'snapshot normalized inventory projection SHA-256 mismatch');
   db.close();
 });
 

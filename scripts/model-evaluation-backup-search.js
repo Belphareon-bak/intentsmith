@@ -16,9 +16,12 @@ import {
 } from 'node:fs';
 import { extname, relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const SQLITE_HEADER = Buffer.from('SQLite format 3\0', 'utf8');
 const SQLITE_SUFFIXES = new Set(['.db', '.db3', '.sqlite', '.sqlite3']);
+const REPOSITORY_ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
+const SCRIPT_PATH = fileURLToPath(import.meta.url);
 
 function parseArgs(argv) {
   const roots = [];
@@ -115,15 +118,22 @@ async function describeCandidate(root, path) {
 }
 
 function sourceRevision() {
-  const result = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', timeout: 5_000 });
+  const result = spawnSync('git', ['rev-parse', 'HEAD'], {
+    cwd: REPOSITORY_ROOT,
+    encoding: 'utf8',
+    timeout: 5_000,
+  });
   return Object.freeze({
+    cwd: REPOSITORY_ROOT,
+    command: Object.freeze(['git', 'rev-parse', 'HEAD']),
     exitCode: Number.isInteger(result.status) ? result.status : null,
     value: result.status === 0 ? result.stdout.trim() : null,
   });
 }
 
 async function main() {
-  const options = parseArgs(process.argv.slice(2));
+  const rawArgs = process.argv.slice(2);
+  const options = parseArgs(rawArgs);
   const startedAt = new Date().toISOString();
   const candidates = [];
   const roots = [];
@@ -144,9 +154,14 @@ async function main() {
   ));
   const matches = candidates.filter(candidate => candidate.sha256 === options.claimedSha256);
   const manifest = {
-    schemaVersion: 'intentsmith-model-evaluation-backup-search-v1',
+    schemaVersion: 'intentsmith-model-evaluation-backup-search-v2',
     startedAt,
     completedAt: new Date().toISOString(),
+    invocation: {
+      cwd: process.cwd(),
+      repositoryRoot: REPOSITORY_ROOT,
+      command: [process.execPath, SCRIPT_PATH, ...rawArgs],
+    },
     sourceRevision: sourceRevision(),
     selection: {
       regularFilesOnly: true,

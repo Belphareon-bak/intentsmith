@@ -13,9 +13,11 @@ import { fileURLToPath } from 'node:url';
 import Database from 'better-sqlite3';
 import { buildEvaluationReport } from './model-evaluation-report.js';
 import { runMigrations } from '../src/db/migrate.js';
+import { summarizeModelEvaluationReport } from '../src/upgrade/model-evaluation-snapshot.js';
 
 const MAX_COMMAND_LINES = 50;
 const MAX_COMMAND_BYTES = 16 * 1024;
+const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 function parseArgs(argv) {
   const values = {};
@@ -97,13 +99,16 @@ function boundedText(value) {
   return text ? text.split(/\r?\n/).slice(0, MAX_COMMAND_LINES) : [];
 }
 
-function command(file, args) {
+function command(file, args, options = {}) {
+  const cwd = options.cwd || process.cwd();
   const result = spawnSync(file, args, {
+    cwd,
     encoding: 'utf8',
     timeout: 8_000,
     maxBuffer: MAX_COMMAND_BYTES,
   });
   return Object.freeze({
+    cwd,
     command: [file, ...args],
     exitCode: Number.isInteger(result.status) ? result.status : null,
     signal: result.signal || null,
@@ -206,57 +211,6 @@ async function databaseSummary(path) {
   }
 }
 
-function readModelSummary(report) {
-  const statuses = ['COMPLETE', 'BLOCKED', 'MISSING', 'FAILED'];
-  const totals = Object.fromEntries(statuses.map(status => [status, 0]));
-  const completeIntervalIntegrity = {};
-  const roles = {};
-  const testedAt = [];
-  for (const [role, state] of Object.entries(report.roles)) {
-    const counts = Object.fromEntries(statuses.map(status => [status, 0]));
-    for (const artifact of state.artifacts) {
-      counts[artifact.status] = (counts[artifact.status] || 0) + 1;
-      if (artifact.testedAt) testedAt.push(artifact.testedAt);
-      if (artifact.status === 'COMPLETE') {
-        const integrity = artifact.intervalIntegrity || 'NOT_AVAILABLE';
-        completeIntervalIntegrity[integrity] = (completeIntervalIntegrity[integrity] || 0) + 1;
-      }
-    }
-    roles[role] = Object.freeze({
-      ...counts,
-      notApplicable: state.artifacts.filter(artifact => artifact.applicable === false).length,
-      applicableMissing: state.artifacts.filter(artifact => (
-        artifact.applicable !== false && artifact.status === 'MISSING'
-      )).length,
-    });
-    for (const status of statuses) totals[status] += counts[status];
-  }
-  testedAt.sort();
-  return Object.freeze({
-    generatedAt: report.generatedAt,
-    authority: report.authority,
-    bindingAuthority: report.bindingAuthority,
-    artifactCount: report.models.length,
-    artifacts: report.models.map(model => Object.freeze({
-      name: model.name,
-      canonicalName: model.canonicalName,
-      digestSha256: model.digestSha256,
-      size: model.size,
-      modifiedAt: model.modifiedAt,
-    })),
-    roles,
-    totals,
-    coverage: report.coverage,
-    completeIntervalIntegrity,
-    currentTestedAtRange: Object.freeze({
-      min: testedAt[0] || null,
-      max: testedAt.at(-1) || null,
-    }),
-    decisionCount: report.decisions.length,
-    actionableDecisionCount: report.decisions.filter(row => row.actionable).length,
-  });
-}
-
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const capturedAtStarted = new Date().toISOString();
@@ -270,7 +224,7 @@ async function main() {
   const timerList = command('systemctl', ['--user', 'list-timers', '--all', '--no-legend']);
   const report = await buildEvaluationReport({ dbPath: options.dbPath });
   const projectedDatabase = await databaseSummary(options.dbPath);
-  const sourceRevision = command('git', ['rev-parse', 'HEAD']);
+  const sourceRevision = command('git', ['rev-parse', 'HEAD'], { cwd: REPOSITORY_ROOT });
   const host = Object.freeze({
     timerEnabled: command('systemctl', ['--user', 'is-enabled', 'intentsmith-model-hunt.timer']),
     timerActive: command('systemctl', ['--user', 'is-active', 'intentsmith-model-hunt.timer']),
@@ -298,7 +252,7 @@ async function main() {
       && sourceDatabaseBefore.bytes === sourceDatabaseAfter.bytes
       && sourceDatabaseBefore.modifiedAt === sourceDatabaseAfter.modifiedAt;
   const snapshot = {
-    schemaVersion: 'intentsmith-model-evaluation-host-db-snapshot-v2',
+    schemaVersion: 'intentsmith-model-evaluation-host-db-snapshot-v3',
     capturedAtStarted,
     capturedAtCompleted: new Date().toISOString(),
     evidencePhase: options.phase,
@@ -337,7 +291,7 @@ async function main() {
       })
       : null,
     projectedDatabase,
-    readModel: readModelSummary(report),
+    readModel: summarizeModelEvaluationReport(report),
     host,
   };
   const rendered = `${JSON.stringify(snapshot, null, 2)}\n`;
