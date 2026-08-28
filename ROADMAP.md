@@ -2087,6 +2087,19 @@ nebyly spuštěny podle operátorského odkladu. Systémová Ollama 0.32.14 prot
 zůstává pravdivě `SYSTEM_PROVIDER_BLOCKED`. Podrobný integrační záznam je v
 [`m6-model-evaluation-integration-20260829.md`](docs/execution/runs/m6/m6-model-evaluation-integration-20260829.md).
 
+### M6 signed operator-demo authority (2026-08-29)
+
+Fail-closed devítikrokový demo plán, raw observation validator a samostatná
+offline podepsaná approval hranice jsou integrovány na exact product candidatu
+`d71ac77a`. Runner umí jen plan/record/validate a úplné pozorování stále vrací
+`DEMO_COMPLETED_AWAITING_OPERATOR_APPROVAL`; nemá podpisový ani approval mód.
+Finální signed-authority verifier znovu načte observation z evidence HEAD a
+ověří kanonické UTF-8 bytes, exact candidate/tree/registry a všechny raw
+artefakty. Focused hranice je `301/301 PASS`; po pravdivě červeném
+diagnostickém běhu kvůli stale registry pinu byl pin opraven a nový souvislý
+offline+database gate skončil `304/304 PASS`. Skutečné demo ani approval receipt
+neproběhly, takže M6 acceptance zůstává `BLOCKED`.
+
 ## 14. Rozhodovací fronta — otázka až ve chvíli, kdy má data
 
 | Rozhodnutí | Kdy je skutečně potřeba | Jaká evidence musí být na stole |

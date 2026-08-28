@@ -219,9 +219,15 @@ throughput, independent review, operator demo and Gate 0 remain blocking.
 Exact commands, identities and digests are recorded in
 [`m6-model-evaluation-integration-20260829.md`](../execution/runs/m6/m6-model-evaluation-integration-20260829.md).
 
-## 14. Operator-demo authority preparation
+## 14. Operator-demo authority integration
 
 Fail-closed operator-demo plan/observation runner je připraven v
 [`WP-M6-OPERATOR-DEMO-PREP.md`](WP-M6-OPERATOR-DEMO-PREP.md). Jde o
-`IMPLEMENTED / REVIEW_PENDING`; skutečné demo nebylo spuštěno a approval nebyl
-vydán. Příprava proto nemění žádný M6 verdict ani otevřený blocker výše.
+`IMPLEMENTATION_GREEN / REVIEW_PENDING` na exact candidatu `d71ac77a`.
+Focused hranice prošla `301/301` a po opravě stale registry policy pinu prošel
+jeden souvislý offline+database gate `304/304`. Runner nemá approval mód a
+finální signed-authority verifier znovu validuje committed observation i raw
+artefakty. Skutečné demo nebylo spuštěno a approval nebyl vydán. Integrace proto
+nemění žádný M6 acceptance verdict ani otevřený externí blocker výše. Přesné
+SHA, diagnostický FAIL a opravený PASS jsou v
+[`m6-operator-demo-authority-integration-20260829.md`](../execution/runs/m6/m6-operator-demo-authority-integration-20260829.md).
