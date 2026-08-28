@@ -155,7 +155,7 @@ digest přímo v provider response. Na hostu nainstalovaná systémová Ollama
 0.32.14 jej neposkytuje, takže durable runtime zůstává záměrně fail-closed.
 Remediovaný source rozsah `74beafea..26ab3291` prošel nezávislým Opus max
 `REVIEW_PASSED`. Autorizovaný installed-panel scoring 2026-08-28 proběhl přes
-izolovaný patchovaný sidecar. Současný versioned technický scope obsahuje 79
+izolovaný patchovaný sidecar. Přijatý 13artefaktový snapshot obsahuje 79
 kompatibilních model-role párů: 55 `COMPLETE`, 24 `BLOCKED`, 0 applicable
 `MISSING`; 12 raw `MISSING` je explicitní N/A. Z COMPLETE evidence má 15 běhů
 ověřený skutečný interval a 40 starších current-contract řádků je veřejně
@@ -168,6 +168,11 @@ kontrolu, manifest i clean-clone gate 279/279 a vrátilo
 Scoring/evidence balík je `ACCEPTED`; systémový response-digest provider zůstává
 samostatně `SYSTEM_PROVIDER_BLOCKED`. Evidence:
 [`model-scoring-live-20260828.md`](docs/execution/runs/model-scoring-live-20260828.md).
+Po následném explicitně autorizovaném odstranění čtyř VRAM-blocked exact
+artefaktů má současná inventory 9 modelů a 55/0/0/8 coverage
+(`COMPLETE/BLOCKED/applicable MISSING/N/A`); DB historie i bindingy zůstaly
+beze změny. Důkaz:
+[`model-removal-live-20260828.json`](docs/execution/runs/model-removal-live-20260828.json).
 
 Tool census ze zdroje: **9 JavaScript soubory, 8 664 řádků, 153 top-level
 nástrojových deklarací**. Počet 213 v dřívější inventuře byl textový false count.

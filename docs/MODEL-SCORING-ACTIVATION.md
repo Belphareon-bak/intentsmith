@@ -86,10 +86,14 @@ má `intervalIntegrity=NOT_AVAILABLE`.
 Status a applicability jsou dvě různé osy. `MISSING` se nepřepisuje na umělý
 výsledek. Read model i scoring queue používají
 `technical-role-compatibility-v1`: všechny technicky kompatibilní páry se
-měří, zatímco `preferredCategories` pouze řadí discovery kandidáty. Aktuální
-lokální panel má 55 COMPLETE, 24 BLOCKED a 12 raw MISSING; všech 12 raw
-MISSING je `NOT_APPLICABLE`, takže mezi 79 technicky kompatibilními páry je
-`applicable MISSING=0`.
+měří, zatímco `preferredCategories` pouze řadí discovery kandidáty. Přijatý
+13artefaktový scoring snapshot má 55 COMPLETE, 24 BLOCKED a 12 raw MISSING;
+všech 12 raw MISSING je `NOT_APPLICABLE`, takže mezi 79 technicky
+kompatibilními páry je `applicable MISSING=0`. Po explicitně autorizovaném
+odstranění čtyř VRAM-blocked artefaktů má současná installed inventory 9
+artefaktů, 55 COMPLETE, 0 BLOCKED, 8 N/A a 0 applicable MISSING. Odstraněné
+exact digesty zůstávají v append-only DB historii; důkaz odstranění je v
+[`model-removal-live-20260828.json`](execution/runs/model-removal-live-20260828.json).
 Přesná data a timestampy jsou v
 [`model-scoring-live-20260828.md`](execution/runs/model-scoring-live-20260828.md).
 Commitnutý snapshot nese SHA-bound normalizovanou inventory projekci včetně

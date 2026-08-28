@@ -1936,6 +1936,11 @@ a vrátilo
 Scoring/evidence balík je proto `ACCEPTED`; systémový response-digest provider
 zůstává samostatně `SYSTEM_PROVIDER_BLOCKED`. Podrobnosti jsou v
 [`model-scoring-live-20260828.md`](docs/execution/runs/model-scoring-live-20260828.md).
+Následné explicitně autorizované odstranění čtyř VRAM-blocked artefaktů
+uvolnilo 71,47 GiB bez změny DB historie nebo bindingů. Současná installed
+inventory má 9 artefaktů a coverage 55 `COMPLETE`, 0 `BLOCKED`, 0 applicable
+`MISSING`, 8 N/A; bounded důkaz je v
+[`model-removal-live-20260828.json`](docs/execution/runs/model-removal-live-20260828.json).
 
 ## 14. Rozhodovací fronta — otázka až ve chvíli, kdy má data
 

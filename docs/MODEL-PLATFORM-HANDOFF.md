@@ -44,10 +44,14 @@
 
 ## Acceptance hranice a zbývající omezení
 
-- Aktuální panel 13 installed artefaktů má mezi 79 technicky kompatibilními
-  dvojicemi 55 `COMPLETE`, 24 `BLOCKED`, 0 `FAILED` a 0 applicable `MISSING`.
-  Dalších 12 raw `MISSING` je explicitní N/A. Starší contracty ani run jiné
-  role se automaticky nepovyšují.
+- Přijatý scoring snapshot 13 installed artefaktů má mezi 79 technicky
+  kompatibilními dvojicemi 55 `COMPLETE`, 24 `BLOCKED`, 0 `FAILED` a 0
+  applicable `MISSING`; dalších 12 raw `MISSING` je explicitní N/A. Po
+  explicitně autorizovaném odstranění čtyř VRAM-blocked artefaktů má současná
+  inventory 9 artefaktů, 55 `COMPLETE`, 0 `BLOCKED`, 8 N/A a 0 applicable
+  `MISSING`. Append-only DB historii odstranění nemění. Starší contracty ani
+  run jiné role se automaticky nepovyšují. Důkaz je v
+  [`model-removal-live-20260828.json`](execution/runs/model-removal-live-20260828.json).
 - Dřívější nezávislý rereview nad candidatem `d8a2a108` skončil `PASS`, ale
   pozdější review rozsahu `e8c1ba85..96c762db` našlo číselné kolize migrací a
   review rozsahu `96c762db..4169c59d` a `c5aa379a..74beafea` následně prokázala

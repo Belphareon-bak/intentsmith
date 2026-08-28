@@ -8,6 +8,20 @@
 
 ---
 
+## v136.9 — explicitní odstranění VRAM-blocked modelů (2026-08-28)
+
+- Operátor samostatně autorizoval odstranění čtyř exact artefaktů, které při
+  32k kontextu ve všech použitelných rolích skončily `BLOCKED` se
+  `score=NULL`: `qwen2.5:32b`, `qwen2.5-coder:32b`,
+  `deepseek-r1-32b:latest` a `mistral-small:22b-instruct-2409-q6_k`.
+- `ModelRegistry` před každým provider efektem znovu ověřil exact digest,
+  aktivní/desired/rollback binding protection a výhradní model-use lease.
+  Bindingy ani append-only scoring historie se nezměnily.
+- Installed inventory klesla ze 13 na 9 modelů a modelové úložiště se zmenšilo
+  o 71,47 GiB. Současná coverage je 55 COMPLETE / 0 BLOCKED / 0 applicable
+  MISSING / 8 N/A. Bounded evidence je v
+  [`model-removal-live-20260828.json`](execution/runs/model-removal-live-20260828.json).
+
 ## v136.8 — přijetí reprodukovatelné scoring evidence (2026-08-28)
 
 - Nezávislé rereview rozsahu `d6137d4c..3f027938` přepočítalo SHA-bound

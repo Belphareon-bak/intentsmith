@@ -192,3 +192,19 @@ Celý gate na akceptačním commitu
 `46e841f1afaeea9dc8f39f9a2417852a660aac6fc194fed6aebc7109cb2fe6ec`.
 Scoring/evidence balík je `ACCEPTED`; provider capability zůstává samostatně
 `SYSTEM_PROVIDER_BLOCKED`.
+
+## Post-acceptance explicitní odstranění
+
+Po přijetí tohoto 13artefaktového scoring snapshotu operátor samostatně
+autorizoval odstranění čtyř artefaktů, jejichž všechny použitelné role skončily
+`BLOCKED` se `score=NULL`: `qwen2.5:32b`, `qwen2.5-coder:32b`,
+`deepseek-r1-32b:latest` a `mistral-small:22b-instruct-2409-q6_k`.
+
+Odstranění proběhlo přes `ModelRegistry.deleteModel` s exact digest preflightem,
+binding protection a výhradním model-use lease. Uvolnilo 71,47 GiB; současná
+installed inventory má 9 artefaktů a read-model coverage 55 COMPLETE / 0
+BLOCKED / 0 applicable MISSING / 8 N/A. DB zůstala byte-identická se SHA-256
+`a3eafab1a2061eb83e59720220891d8b41f7a5548a3b20ecd86b8df86827fa8a`,
+`quick_check=ok`; append-only BLOCKED historie odstraněných digestů zůstala
+zachovaná a bindingy se nezměnily. Strojový důkaz je v
+[`model-removal-live-20260828.json`](model-removal-live-20260828.json).
