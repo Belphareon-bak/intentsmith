@@ -29,6 +29,11 @@
 - Z 55 COMPLETE řádků má 15 konzistentní skutečný interval. Zbývajících 40 je
   čteno jako `LEGACY_UNVERIFIED`, bez publikovaného startu a duration; DB
   historie se nepřepisuje.
+- Snapshot v3 uchovává SHA-bound normalizované `params`, `family`, `category`
+  a `capabilities`. Offline replay nad stejnou read-only DB bez Ollamy
+  reprodukuje 55 COMPLETE / 24 BLOCKED / 0 applicable MISSING / 12 N/A.
+- Backup-search manifest v2 ukládá přesný příkaz a source revision získává z
+  připnutého repository rootu, nikoli z callerova cwd.
 
 ## v136.6 — role-strict evaluace a exact runtime artefakt (2026-08-27)
 

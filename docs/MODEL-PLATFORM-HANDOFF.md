@@ -60,8 +60,9 @@
   prošel nezávislým Opus max rereview rozsahu `74beafea..26ab3291` s verdictem
   `REVIEW_PASSED`; pozdější coverage review ale vrátilo `CHANGES_REQUIRED`.
   Aktuální remediace následně prošla čistým finálním gate `279/279` na
-  `ccf54377` v runu `2026-08-28T19-30-37-899Z`; bounded post-gate evidence a
-  reprodukovatelný manifest hledání historické zálohy jsou commitnuté. Tento
+  `53ded662` v runu `2026-08-28T20-11-17-080Z`; bounded post-gate evidence,
+  SHA-bound inventory projection, offline 55/24/0/12 replay a reprodukovatelný
+  manifest hledání historické zálohy jsou commitnuté. Tento
   nový candidate stále vyžaduje vlastní nezávislé rereview;
   provider capability popsaná níže zůstává blokovaná.
 - Automatický failover/proof issuance není jen vypnutý: veřejné auto-claim,

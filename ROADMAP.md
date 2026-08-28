@@ -1921,8 +1921,12 @@ Ollama 0.32.14 zůstala beze změny a
 durable runtime je proto stále `PROVIDER_CAPABILITY_BLOCKED`. Následné review
 našlo hard filtr přes `preferredCategories`, neúplnou cache/export identitu,
 nepublikovanou provenienci 40 starších intervalů a stale dokumentaci. Produktový
-head `ccf54377` tyto vady opravuje a čistý gate
-`2026-08-28T19-30-37-899Z` na něm prošel 279/279. Z 55 COMPLETE výsledků je
+head `ccf54377` tyto vady opravil a čistý gate na něm prošel 279/279. Další
+review našlo neúplnou snapshot inventory projekci, která při offline replay
+ztrácela tři VISION capabilities. Produktový head `53ded662` proto ukládá
+SHA-bound `params`, `family`, `category` a `capabilities`; replay pouze ze
+snapshotu a stejné DB reprodukuje 55/24/0/12 bez Ollamy. Čistý gate
+`2026-08-28T20-11-17-080Z` na něm prošel 279/279. Z 55 COMPLETE výsledků je
 15 intervalů `VERIFIED` a 40 `LEGACY_UNVERIFIED`; u starších řádků reader
 publikuje pouze historický recorded-at timestamp, nikoli start nebo duration.
 Celý navazující candidate stále čeká na nové nezávislé rereview; podrobnosti jsou v

@@ -61,6 +61,10 @@ odstranit; C3 repo zůstává případnou historickou referencí.
     interval. Starší nekonzistentní řádek se nepřepisuje: nese
     `LEGACY_UNVERIFIED`, nulový publikovaný start/duration a pouze explicitně
     neověřený recorded-at timestamp.
+18. Host snapshot musí uchovat SHA-bound normalizované applicability vstupy
+    exact artefaktu (`params`, `family`, `category`, `capabilities`). Přijetí
+    vyžaduje offline replay stejného read modelu nad připnutou DB bez dotazu na
+    mutable provider inventory.
 
 ## Důsledky
 
@@ -83,6 +87,8 @@ odstranit; C3 repo zůstává případnou historickou referencí.
   start timestampy a neuzavřenou evidenci. Tyto nálezy jsou implementačně
   opravené; navazující review ještě odhalilo hard category filtr, neúplnou
   cache/export identitu a neoznačené legacy intervaly. Produktový head
-  `ccf54377` uzavírá i tyto nálezy a čistý finální gate prošel `279/279` v runu
-  `2026-08-28T19-30-37-899Z`, ale současný candidate zůstává
+  `ccf54377` uzavřel tyto nálezy; další review však našlo nereprodukovatelnou
+  snapshot inventory projekci. Head `53ded662` ukládá a ověřuje úplné
+  applicability vstupy a offline reprodukuje 55/24/0/12. Čistý finální gate
+  prošel `279/279` v runu `2026-08-28T20-11-17-080Z`, ale současný candidate zůstává
   `REREVIEW_REQUIRED`, nikoli `ACCEPTED`.

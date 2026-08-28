@@ -39,10 +39,11 @@ není doložená jako byte-identická rollback záloha. Dne 2026-08-28 bylo podl
 hashů prověřeno 33 SQLite kandidátů pod
 `~/.local/share/intentsmith-private`, `~/.local/state` a `~/Projects`; shoda
 nebyla nalezena. Reprodukovatelný read-only
-[`search manifest`](model-evaluation-historical-backup-search-20260828.json)
-má SHA-256 `844abf4219a4fbb9315857911cc0acbf6196cf9f6c39514f6c38610553e8cd27`,
+[`search manifest v2`](model-evaluation-historical-backup-search-20260828-v2.json)
+má SHA-256 `d0cc050898d2f4b365a0f78c2fb26362805af5108ce2e9f1549507fab07475f1`,
 obsahuje všech 33 suffix-selected kandidátů, jejich hashe a 31 pozitivních
-SQLite hlaviček; výsledek je výslovně `NOT_FOUND_NOT_PROVEN`. Dřívější
+SQLite hlaviček, přesný příkaz a repo-bound source revision; výsledek je
+výslovně `NOT_FOUND_NOT_PROVEN`. Dřívější
 disposable projection není rollback obraz. Tato historická evidence gap je
 formálně otevřená a nesmí se převyprávět jako existující záloha.
 
@@ -166,12 +167,19 @@ Raw hunt JSON je mimo Git v private evidence rootu a má SHA-256
 `c37b7964a82ddaba18dffe5739e92770a126db6395d485e14f362ae50e0e4c2d`.
 Commitnutý bounded gate/snapshot záznam je
 [`model-scoring-remediation-20260828.json`](model-scoring-remediation-20260828.json).
-Finální gate nad čistým produktovým kandidátem `ccf54377` skončil v runu
-`2026-08-28T19-30-37-899Z` výsledkem `279/279 PASS`; report má SHA-256
-`30d99e3468b8e934860068ba3ae166d471697efcf71ea77624d9d9687caf53fa`.
+Finální gate nad čistým produktovým kandidátem `53ded662` skončil v runu
+`2026-08-28T20-11-17-080Z` výsledkem `279/279 PASS`; report má SHA-256
+`499575899ca805b8448fcb56f1c27cfb1ef4f849d7863fe0cd7ba40c2fe15aba`.
 Následný read-only
-[`post-gate snapshot`](model-evaluation-host-db-snapshot-20260828-remediation-post-gate-3.json)
-se SHA-256 `6dd92018310cacb0ffd03d0f2a40a1182dbea85f2b643c6549dae0ee1b127d86`
+[`post-gate snapshot v3`](model-evaluation-host-db-snapshot-20260828-remediation-post-gate-4.json)
+se SHA-256 `a12c4b6585882bdcdffbb103c18d84b500af8bc661baa0bb51ff7082f7f94d5e`
 potvrdil stejný DB hash, nulové applicable `MISSING`, vypnutý timer/service a
-prázdný Ollama/GPU slot. Lokální implementace a evidence jsou zelené; otevřené
-zůstává nezávislé rereview a provider capability, takže stav není `ACCEPTED`.
+prázdný Ollama/GPU slot. Snapshot nese všech 13 exact artefaktů v SHA-bound
+normalizované projekci včetně `params`, `family`, `category` a `capabilities`.
+Samostatný
+[`offline replay`](model-evaluation-host-db-snapshot-20260828-remediation-post-gate-4-replay.json)
+se SHA-256 `d94e9f62026492a5a9abafc3700c3b413f79f3b675e8c4b6b44b9778aab453e4`
+bez kontaktu s Ollamou reprodukoval 55 COMPLETE / 24 BLOCKED / 0 applicable
+MISSING / 12 N/A a ověřil byte-identickou DB před/po. Lokální implementace a
+evidence jsou zelené; otevřené zůstává nezávislé rereview a provider
+capability, takže stav není `ACCEPTED`.

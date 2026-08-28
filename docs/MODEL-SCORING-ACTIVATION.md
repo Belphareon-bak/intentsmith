@@ -2,7 +2,7 @@
 
 **Stav:** současný kontrakt v136.1 · **Aktualizováno:** 2026-08-28
 **Implementace:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Přijetí:**
-coverage je implementačně kompletní a čistý finální gate na `ccf54377` prošel
+coverage je implementačně kompletní a čistý finální gate na `53ded662` prošel
 `279/279`; stále je povinné nové nezávislé rereview
 
 Název souboru zůstává kvůli existujícím odkazům. IntentSmith už ale nemá
@@ -90,6 +90,10 @@ MISSING je `NOT_APPLICABLE`, takže mezi 79 technicky kompatibilními páry je
 `applicable MISSING=0`.
 Přesná data a timestampy jsou v
 [`model-scoring-live-20260828.md`](execution/runs/model-scoring-live-20260828.md).
+Commitnutý snapshot nese SHA-bound normalizovanou inventory projekci včetně
+`params`, `family`, `category` a `capabilities`. Offline replay používá pouze
+tuto projekci a stejnou read-only DB; bez kontaktu s Ollamou musí reprodukovat
+55 COMPLETE, 24 BLOCKED, 0 applicable MISSING a 12 N/A, jinak selže.
 
 ## Decision-ready minima
 

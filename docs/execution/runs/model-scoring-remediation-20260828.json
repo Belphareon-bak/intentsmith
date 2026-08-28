@@ -1,7 +1,7 @@
 {
-  "schemaVersion": "intentsmith-model-scoring-remediation-evidence-v1",
+  "schemaVersion": "intentsmith-model-scoring-remediation-evidence-v2",
   "status": "IMPLEMENTATION_GREEN_REREVIEW_REQUIRED",
-  "candidateRevision": "ccf543774601f04eccc6091e6c58a71bb07b77f3",
+  "candidateRevision": "53ded6620d9439acf854e92749c21aaf0b265a08",
   "scoringSourceRevision": "6ae5a3369838fb17f0040c9580a86614833ebf21",
   "reviewState": "REREVIEW_REQUIRED",
   "systemProviderState": "BLOCKED_RESPONSE_ARTIFACT_ATTESTATION_UNAVAILABLE",
@@ -22,9 +22,12 @@
     "candidateFilesHashed": 33,
     "sqliteHeaderCount": 31,
     "manifest": {
-      "path": "docs/execution/runs/model-evaluation-historical-backup-search-20260828.json",
-      "sha256": "844abf4219a4fbb9315857911cc0acbf6196cf9f6c39514f6c38610553e8cd27",
-      "sourceRevision": "ccf543774601f04eccc6091e6c58a71bb07b77f3"
+      "path": "docs/execution/runs/model-evaluation-historical-backup-search-20260828-v2.json",
+      "sha256": "d0cc050898d2f4b365a0f78c2fb26362805af5108ce2e9f1549507fab07475f1",
+      "sourceRevision": "53ded6620d9439acf854e92749c21aaf0b265a08",
+      "schemaVersion": "intentsmith-model-evaluation-backup-search-v2",
+      "exactInvocationRecorded": true,
+      "sourceRevisionRepositoryBound": true
     },
     "originalSearchManifestAvailable": false
   },
@@ -48,10 +51,10 @@
   },
   "gate": {
     "command": "C3_LOG_LEVEL=error npm run test:deterministic",
-    "sourceRevision": "ccf543774601f04eccc6091e6c58a71bb07b77f3",
-    "runId": "2026-08-28T19-30-37-899Z",
-    "startedAt": "2026-08-28T19:30:37.931Z",
-    "endedAt": "2026-08-28T19:34:17.204Z",
+    "sourceRevision": "53ded6620d9439acf854e92749c21aaf0b265a08",
+    "runId": "2026-08-28T20-11-17-080Z",
+    "startedAt": "2026-08-28T20:11:17.118Z",
+    "endedAt": "2026-08-28T20:14:36.636Z",
     "verdict": "PASS",
     "statusCounts": {
       "PASS": 279,
@@ -64,10 +67,31 @@
     "requiredBlockedCount": 0,
     "exitCode": 0,
     "report": {
-      "path": ".intentsmith-artifacts/test-runs/2026-08-28T19-30-37-899Z/report.json",
-      "sha256": "30d99e3468b8e934860068ba3ae166d471697efcf71ea77624d9d9687caf53fa"
+      "path": ".intentsmith-artifacts/test-runs/2026-08-28T20-11-17-080Z/report.json",
+      "sha256": "499575899ca805b8448fcb56f1c27cfb1ef4f849d7863fe0cd7ba40c2fe15aba"
     },
     "previousSuccessfulRuns": [
+      {
+        "sourceRevision": "ccf543774601f04eccc6091e6c58a71bb07b77f3",
+        "runId": "2026-08-28T19-30-37-899Z",
+        "startedAt": "2026-08-28T19:30:37.931Z",
+        "endedAt": "2026-08-28T19:34:17.204Z",
+        "verdict": "PASS",
+        "statusCounts": {
+          "PASS": 279,
+          "FAIL": 0,
+          "TIMEOUT": 0,
+          "BLOCKED": 0,
+          "SKIPPED": 0
+        },
+        "requiredFailureCount": 0,
+        "requiredBlockedCount": 0,
+        "exitCode": 0,
+        "report": {
+          "path": ".intentsmith-artifacts/test-runs/2026-08-28T19-30-37-899Z/report.json",
+          "sha256": "30d99e3468b8e934860068ba3ae166d471697efcf71ea77624d9d9687caf53fa"
+        }
+      },
       {
         "sourceRevision": "e82ecd474970f5b34a05a6b67ff429720adbc533",
         "runId": "2026-08-28T18-22-53-719Z",
@@ -135,16 +159,64 @@
       }
     ]
   },
+  "priorIndependentReview": {
+    "candidateRevision": "d6137d4cedafd09d8e6967b3620fd987237bcb4d",
+    "verdict": "CHANGES_REQUIRED_NOT_ACCEPTED",
+    "blockingFinding": "SNAPSHOT_APPLICABILITY_PROJECTION_INCOMPLETE",
+    "independentGate": {
+      "runId": "2026-08-28T19-53-21-043Z",
+      "statusCounts": {
+        "PASS": 279,
+        "FAIL": 0,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "reportSha256": "8b04cc7e663696e860a831f10bcb62a5b9aa2c28bab71f725e325577ea171c17"
+    }
+  },
   "postGateSnapshot": {
-    "path": "docs/execution/runs/model-evaluation-host-db-snapshot-20260828-remediation-post-gate-3.json",
-    "sha256": "6dd92018310cacb0ffd03d0f2a40a1182dbea85f2b643c6549dae0ee1b127d86",
-    "sourceRevision": "ccf543774601f04eccc6091e6c58a71bb07b77f3",
+    "path": "docs/execution/runs/model-evaluation-host-db-snapshot-20260828-remediation-post-gate-4.json",
+    "sha256": "a12c4b6585882bdcdffbb103c18d84b500af8bc661baa0bb51ff7082f7f94d5e",
+    "sourceRevision": "53ded6620d9439acf854e92749c21aaf0b265a08",
+    "schemaVersion": "intentsmith-model-evaluation-host-db-snapshot-v3",
     "evidencePhase": "post-gate",
     "databaseSha256": "a3eafab1a2061eb83e59720220891d8b41f7a5548a3b20ecd86b8df86827fa8a",
     "databaseQuickCheck": "ok",
+    "inventoryProjection": {
+      "schemaVersion": "intentsmith-normalized-model-inventory-v1",
+      "sha256": "4100d182abf08aaf3c62a10fb7c48d87ed9a82668ef705e75a493c5c00e41bc5",
+      "artifactCount": 13,
+      "fields": [
+        "name",
+        "canonicalName",
+        "digestSha256",
+        "size",
+        "modifiedAt",
+        "params",
+        "family",
+        "category",
+        "capabilities"
+      ]
+    },
     "completeIntervalIntegrity": {
       "VERIFIED": 15,
       "LEGACY_UNVERIFIED": 40
+    }
+  },
+  "postGateSnapshotReplay": {
+    "path": "docs/execution/runs/model-evaluation-host-db-snapshot-20260828-remediation-post-gate-4-replay.json",
+    "sha256": "d94e9f62026492a5a9abafc3700c3b413f79f3b675e8c4b6b44b9778aab453e4",
+    "sourceRevision": "53ded6620d9439acf854e92749c21aaf0b265a08",
+    "verdict": "PASS",
+    "providerContacted": false,
+    "databaseByteIdentical": true,
+    "summaryMatchesSnapshot": true,
+    "actual": {
+      "complete": 55,
+      "blocked": 24,
+      "applicableMissing": 0,
+      "notApplicable": 12
     }
   }
 }

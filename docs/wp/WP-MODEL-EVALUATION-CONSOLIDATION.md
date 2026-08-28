@@ -17,8 +17,9 @@ Remediační rozsah `74beafea..26ab3291` prošel nezávislým Opus max
 Navazující live DB migrace, izolovaný provider sidecar, GPU-only scoring a
 coverage overlay z 2026-08-28 tvoří nový candidate, který musí projít vlastním
 rereview. Poslední remediace uzavírá i category hard filtr, cache/export exact
-identity a interval provenance. Čistý finální gate na `ccf54377` skončil v runu
-`2026-08-28T19-30-37-899Z` výsledkem `279/279 PASS`. Integrovaná evidence je v
+identity, interval provenance a reprodukovatelnost snapshot inventory.
+Čistý finální gate na `53ded662` skončil v runu
+`2026-08-28T20-11-17-080Z` výsledkem `279/279 PASS`. Integrovaná evidence je v
 [`model-evaluation-final-integration-20260826.md`](../execution/runs/model-evaluation-final-integration-20260826.md)
 a [`model-scoring-live-20260828.md`](../execution/runs/model-scoring-live-20260828.md).
 
@@ -171,6 +172,7 @@ tohoto WP.
 | M9 — live DB 099 + installed GPU-only panel | PASS — 55 COMPLETE / 24 BLOCKED / 0 applicable MISSING |
 | M10 — versioned technical coverage + unified inventory/parser | IMPLEMENTATION PASS / 279/279 FINAL GATE PASS / REREVIEW REQUIRED |
 | M11 — suite version, interval provenance, DB rollback search and bounded evidence | IMPLEMENTATION PASS / 279/279 FINAL GATE PASS / REREVIEW REQUIRED |
+| M12 — SHA-bound snapshot inventory + offline 55/24/0/12 replay | IMPLEMENTATION PASS / REPLAY PASS / 279/279 FINAL GATE PASS / REREVIEW REQUIRED |
 
 První nezávislé review: `CHANGES_REQUESTED`. Remediační R0–R7 opravily všech
 devět nálezů: úplnou suite identity, upgrade okno 070→082, governor reader,
