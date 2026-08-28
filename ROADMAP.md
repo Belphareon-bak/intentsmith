@@ -67,8 +67,8 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M2 Řízená práce nad projektem** | `ACCEPTED / CLOSEOUT_PASS` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
-| **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY IMPLEMENTED_RE_REVIEW_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | DATA, AUTH a PERF prošly re-review; per-bootstrap privacy writer oprava je implementovaná a čeká na re-review. Stále chybí 8 rotací a history disposition. |
-| **M6 IntentSmith 1.0 release** | `REMEDIATION_IN_PROGRESS / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, skutečný application upgrade, L0-11 i pravdivý soak/throughput harness jsou implementované; 24h a pětiminutový plný běh zatím nejsou provedené. |
+| **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | DATA, AUTH a PERF prošly re-review. Offline Ed25519 receipt kontrakt a verifier jsou implementované a čekají na re-review; stále chybí Git-pinned produkční public keys, 8 skutečných rotací, history disposition a podepsaná M5 acceptance. |
+| **M6 IntentSmith 1.0 release** | `REMEDIATION_IN_PROGRESS / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, application upgrade, L0-11 a soak/throughput harness jsou implementované. Signed review/demo/Gate 0 verifier je připravený, ale bez offline klíčů a receiptů zůstává acceptance blokovaná; 24h a pětiminutový plný běh zatím nejsou provedené. |
 | **M7 Remote Companion** | `DESIGN_ONLY` | M6 + remote boundary | Samostatný vzdálený companion release nad bezpečným core rozhraním. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
@@ -1701,7 +1701,7 @@ stabilní candidate + re-review:
   Linux network namespace. Zkrácené sondy vracejí pouze `DEV_ONLY` a release
   parser je odmítá.
 
-Autoritativní module graph má 1 195 hran, stále 3 cykly a 28 souborů v
+Autoritativní module graph má 1 197 hran, stále 3 cykly a 28 souborů v
 cyklech; pět přesných nových hran bylo přijato bez růstu cyklu a odstraněná
 chat → model-identity hrana baseline zpřísnila.
 
