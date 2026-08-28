@@ -1,7 +1,7 @@
 # Decision 041 — Offline signed authority receipts
 
 **Datum:** 2026-08-28  
-**Stav:** `APPROVED / IMPLEMENTATION_IN_PROGRESS`  
+**Stav:** `IMPLEMENTED / RE_REVIEW_REQUIRED`
 **Protokol:** `OFFLINE_ED25519_SIGNED_RECEIPTS`
 
 ## Rozhodnutí
@@ -25,6 +25,11 @@ M6 = ACCEPTANCE_BLOCKED
 
 Samotná implementace podpisového kontraktu není rotace, history disposition,
 review, demo, acceptance ani promotion.
+
+Implementace je rozdělena do produktových commitů `c0840f65`, `860d5268` a
+`d5037467`; přesné module-boundary ratchety jsou `97848c15` a `f3e0575f`.
+Trust store zůstává prázdný a fail-closed až do samostatného offline key
+ceremoniálu.
 
 ## Role a kryptografické domény
 
