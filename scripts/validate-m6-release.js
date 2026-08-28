@@ -6,9 +6,6 @@ import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
 import {
-  M6_ACCEPTANCE_RECEIPT_PATHS,
-} from '../contracts/m6/acceptance-authority-v1.js';
-import {
   M6_RELEASE_EVIDENCE_INDEX_PATH,
 } from '../contracts/m6/release-v1.js';
 import { config } from '../src/config.js';
@@ -18,9 +15,6 @@ import {
 import {
   buildM6CandidateExecutionPlan,
 } from '../src/release/m6-candidate-plan.js';
-import {
-  applyM6AcceptanceReceipts,
-} from '../src/release/m6-acceptance-authority.js';
 import {
   validateM6ReleaseArtifactGitBlobs,
 } from '../src/release/m6-release-artifact.js';
@@ -35,6 +29,12 @@ import {
   evaluateM6TechnicalEvidence,
   projectM6ReleaseEvidence,
 } from '../src/release/m6-technical-evidence.js';
+import {
+  applyVerifiedSignedAuthorityBundle,
+} from '../src/release/signed-authority-bundle-verifier.js';
+import {
+  verifyCurrentSignedAuthorityBundle,
+} from './verify-signed-authority-bundle.js';
 import {
   loadTestRegistry,
   registryFingerprint,
@@ -315,32 +315,9 @@ export async function validateCurrentM6Release(root = process.cwd()) {
     evidence = promoteReleaseArtifact(evidence, index.releaseArtifactManifest);
   }
 
-  const receipts = [];
-  const receiptArtifactBindings = [];
-  const receiptErrors = [];
-  for (const receiptPath of Object.values(M6_ACCEPTANCE_RECEIPT_PATHS)) {
-    if (!gitObjectExists(root, evidenceHeadSha, receiptPath)) continue;
-    try {
-      const receipt = parseJson(
-        (await readGitArtifact(receiptPath)).bytes,
-        `m6-acceptance:${receiptPath}`,
-      );
-      receipts.push(receipt);
-      receiptArtifactBindings.push(...(receipt.artifacts || []));
-    } catch (error) {
-      receiptErrors.push(error.message);
-    }
-  }
-  const receiptArtifactValidation = await verifyM6GitArtifactBindings(
-    receiptArtifactBindings,
-    { readGitArtifact },
-  );
-  const promotion = applyM6AcceptanceReceipts(evidence, receipts);
-  const acceptanceErrors = [
-    ...receiptErrors,
-    ...receiptArtifactValidation.errors,
-    ...promotion.errors,
-  ];
+  const signedAuthorityBundle = await verifyCurrentSignedAuthorityBundle(root);
+  const promotion = applyVerifiedSignedAuthorityBundle(evidence, signedAuthorityBundle);
+  const acceptanceErrors = [...promotion.errors];
   if (promotion.valid) evidence = promotion.evidence;
   const validation = validateM6ReleaseEvidence(evidence, {
     candidateSha,
@@ -375,7 +352,10 @@ export async function validateCurrentM6Release(root = process.cwd()) {
       .digest('hex'),
     technicalEvidence: technical,
     releaseArtifactValidation,
-    acceptanceReceiptsFound: receipts.map(receipt => receipt.authorityId).sort(),
+    signedAuthorityBundle,
+    acceptanceReceiptsFound: signedAuthorityBundle.receipts
+      ? signedAuthorityBundle.receipts.map(receipt => receipt.authorityId).sort()
+      : [],
   });
 }
 
