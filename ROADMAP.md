@@ -2079,11 +2079,12 @@ required), fingerprint `ab85f58a854d9271dcf39f321d583f8024ee09b79355e863c5857eae
 Aktuální module graph má 1 210 hran, stále 3 cykly a 28 souborů v cyklech.
 
 Stav řezu je `IMPLEMENTATION_GREEN / INTEGRATION_REVIEW_PENDING`, nikoli M5
-nebo M6 acceptance. Focused a strukturální blok má 1 070 explicitních checků
-bez selhání plus registry, hygiene, syntax a harness metatest. Modelový chat,
-fyzický GPU běh, aktivace bindingů a timer nebyly spuštěny podle operátorského
-odkladu. Systémová Ollama 0.32.14 proto zůstává pravdivě
-`SYSTEM_PROVIDER_BLOCKED`. Podrobný integrační záznam je v
+nebo M6 acceptance. Na exact product candidatu `73385eeb` prošel focused
+release blok `298/298` a jeden souvislý offline+database gate `303/303`, bez
+FAIL, BLOCKED, TIMEOUT nebo změny source SHA. Registry, hygiene a module
+ratchet jsou zelené. Modelový chat, fyzický GPU běh, aktivace bindingů a timer
+nebyly spuštěny podle operátorského odkladu. Systémová Ollama 0.32.14 proto
+zůstává pravdivě `SYSTEM_PROVIDER_BLOCKED`. Podrobný integrační záznam je v
 [`m6-model-evaluation-integration-20260829.md`](docs/execution/runs/m6/m6-model-evaluation-integration-20260829.md).
 
 ## 14. Rozhodovací fronta — otázka až ve chvíli, kdy má data

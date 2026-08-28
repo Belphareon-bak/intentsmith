@@ -202,3 +202,19 @@ trvale připojeném `/home` svazku pod účtem aplikace/workerů. Žádný recei
 nesmí podepsat, dokud nejsou stejné keypairy přesunuty do skutečně offline
 úložiště a reviewer key nemá oddělenou custody. Přesun stávajících keypairů
 nemění product bytes; regenerace klíčů ano.
+
+## 13. Model-evaluation integration checkpoint 2026-08-29
+
+Accepted exact-artifact model evaluation is integrated into the M6 line at
+merge `ff9a7dfc`; exact product candidate `73385eeb` includes the reviewed
+M5-R19 ancestry and binds the application-upgrade contract to the integrated
+87-migration set. A dedicated detached checkout reproduced the focused release
+boundary `298/298 PASS` and one continuous offline+database registry gate
+`303/303 PASS`, with identical start/end candidate SHA and zero non-PASS rows.
+
+This closes the deterministic integration implementation only. Live Ollama
+chat/model-quality and physical GPU evidence remain
+`DEFERRED_MODEL_OPTIMIZATION`; key custody, M5 receipts, 24h soak, full
+throughput, independent review, operator demo and Gate 0 remain blocking.
+Exact commands, identities and digests are recorded in
+[`m6-model-evaluation-integration-20260829.md`](../execution/runs/m6/m6-model-evaluation-integration-20260829.md).
