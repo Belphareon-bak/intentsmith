@@ -1907,7 +1907,7 @@ role-specific exact-artifact model-evaluation cestu. Migrace 097 karanténuje 11
 cross-role decisions; migrace 099 odstraňuje telemetry-derived blacklist.
 Historický strict-role snapshot měl 28 `COMPLETE`, 11 `BLOCKED`, 52 `MISSING`
 a 0 `FAILED` buněk. Po explicitním přijetí čtyř nutných hran a utažení jedné
-odstraněné telemetry vazby module graph má 1 193 hran, 3 cykly a 28 souborů
+odstraněné telemetry vazby module graph má 1 194 hran, 3 cykly a 28 souborů
 v cyklech. Finální čistý gate `2026-08-27T20-32-24-822Z` prošel 279/279 na
 `79328185`; předchozí 278/1 fail i přerušený ENOSPC běh zůstávají v handoff
 evidenci. Nezávislý Opus max rereview rozsahu `74beafea..26ab3291` vrátil
