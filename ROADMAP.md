@@ -67,8 +67,8 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M2 Řízená práce nad projektem** | `ACCEPTED / CLOSEOUT_PASS` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
-| **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | DATA, AUTH a PERF prošly re-review. Offline Ed25519 receipt kontrakt a verifier jsou implementované a čekají na re-review; stále chybí Git-pinned produkční public keys, 8 skutečných rotací, history disposition a podepsaná M5 acceptance. |
-| **M6 IntentSmith 1.0 release** | `REMEDIATION_IN_PROGRESS / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, application upgrade, L0-11 a soak/throughput harness jsou implementované. Signed review/demo/Gate 0 verifier je připravený, ale bez offline klíčů a receiptů zůstává acceptance blokovaná; 24h a pětiminutový plný běh zatím nejsou provedené. |
+| **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Decision 041 candidate dostal `CHANGES_REQUIRED`; adversariální opravy jsou implementované, ale nové review chybí. Produkční klíče, 8 rotací, history disposition a podepsaná M5 acceptance neproběhly. |
+| **M6 IntentSmith 1.0 release** | `SIGNED_AUTHORITY_CHANGES_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, application upgrade, L0-11 a soak/throughput harness jsou implementované. Signed review/demo/Gate 0 verifier má remediation bez review PASS; 24h a pětiminutový plný běh zatím nejsou provedené. |
 | **M7 Remote Companion** | `DESIGN_ONLY` | M6 + remote boundary | Samostatný vzdálený companion release nad bezpečným core rozhraním. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
@@ -1379,9 +1379,11 @@ funkce dovolovala same-process callerovi dodat očekávanou i prezentovanou loca
 capability a vyrobit subject, který privacy writer uznal. Remediation se váže
 na product commit `665b42c8`: raw mint už není veřejný, HTTP, WS a privacy
 repository sdílí jedinou per-bootstrap autoritu a DB writer odmítne druhý
-verifier. Oprava je `IMPLEMENTED / RE_REVIEW_REQUIRED`; poslední nezávislý
-verdikt zůstává `CHANGES_REQUESTED`; operátorské re-review opravených bajtů
-ještě neproběhlo.
+verifier. Tato oprava je historický předstupeň. Decision 041 candidate
+`73fdf836` následně dostal `CHANGES_REQUIRED` kvůli přesným UTF-8 bytes,
+restartovým UDF, expected bindings a Git-lineage mezerám. Jejich remediation
+je implementovaná na `95a2cd6c`, `4beced1b` a `2b5da617`, ale nové
+operátorské re-review ještě neproběhlo.
 `WP-M5-PACKAGE` má review remediation implementovanou na product commitu
 `8be0094d`; druhé review oddíl označilo `REVIEW_PASSED`. `--verify-only` při
 cizím Node majoru pouze zapíše chybu a nikdy
@@ -1506,15 +1508,21 @@ Remediation důkaz je v
 původní report zůstává v
 [`m5-remote-conditional-20260826.md`](docs/execution/runs/m5-remote-conditional-20260826.md).
 
-`WP-M5-PRIVACY` má první remediation na product commitu `1f4d15e3`; druhé
-review jej znovu otevřelo a navazující remediation je na `b15090a4`. Oddíl
-zůstává `RE_REVIEW_REQUIRED`. Migrace 090
+`WP-M5-PRIVACY` má po několika review kolech poslední nezávislý verdict
+`CHANGES_REQUIRED`. Decision 041 offline signed authority nad candidatem
+`73fdf836` je superseded remediation commity `95a2cd6c`, `4beced1b` a
+`2b5da617`; oddíl zůstává `RE_REVIEW_REQUIRED`. Migrace 090
 odstraňuje známé plaintext credential klíče z `user_settings` a migrace 091
 navíc vyžaduje pro každý rotation/history INSERT transportem autentizovanou
 subject identitu až na SQL triggeru. Veřejný capability mint byl odstraněn,
 syntaktický klon subjectu zápis neodemkne a receipt actor musí sedět na tutéž
-identitu. Přímý canonical SQL INSERT proto fail-closed selže. Exact-HEAD
-scanner odvozuje čtené roots z distribučního manifestu; na `b15090a4`
+identitu. Přímý canonical SQL INSERT proto fail-closed selže. Aplikace už
+receipts nemintuje: autentizované POST surface vracejí typed `410`, SQLite
+drží pouze raw signed display cache a autoritativní promotion dělá samostatný
+Git CLI. Ten nyní vyžaduje exact bytes, globální nonce, index/manifest už na
+podepsaném evidence HEAD, celý evidence-only candidate→HEAD rozsah a
+disposition v candidate lineage. Exact-HEAD scanner odvozuje čtené roots z
+distribučního manifestu; na `b15090a4`
 rozlišuje 1 853 scanned a 983 content-read souborů a má nula current-tree
 findings. History scan měří dosažitelnost z přesného ref censu, ne fyzickou
 existenci objektu, a rozlišuje pre-remediation, retain, rewrite a new-root
@@ -1645,8 +1653,8 @@ WP, aby roadmapa nepředstírala již existující důkaz.
 
 ## 10. M6 — IntentSmith 1.0 release
 
-**Implementační stav 2026-08-27:** `REMEDIATION_IN_PROGRESS /
-TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` na review kandidatu
+**Implementační stav 2026-08-28:** `SIGNED_AUTHORITY_CHANGES_REQUIRED /
+TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` na původním review kandidatu
 `8abd6065bd614a15bf9f7814dea14ed1e040c616` (tree
 `f41a6af70b29d9024ba1006aabe417aad2ff26aa`). Historický producer skutečně
 spustil 311/311 vybraných programů zeleně, ale úplný registry required set má
@@ -1701,9 +1709,9 @@ stabilní candidate + re-review:
   Linux network namespace. Zkrácené sondy vracejí pouze `DEV_ONLY` a release
   parser je odmítá.
 
-Autoritativní module graph má 1 197 hran, stále 3 cykly a 28 souborů v
-cyklech; pět přesných nových hran bylo přijato bez růstu cyklu a odstraněná
-chat → model-identity hrana baseline zpřísnila.
+Autoritativní module graph má 1 199 hran, stále 3 cykly a 28 souborů v
+cyklech. Dvě nové authority-validation hrany byly přijaty explicitně bez růstu
+cyklu; předchozí odstraněná chat → model-identity hrana baseline zpřísnila.
 
 Dosud chybí skutečný 24hodinový soak, plný maximum-throughput/resource receipt,
 nový úplný candidate run a operátorský re-review. Operátor 2026-08-27 odložil

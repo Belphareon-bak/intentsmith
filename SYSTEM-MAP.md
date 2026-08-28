@@ -133,15 +133,15 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **190 668 ř.**, 494 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **208 995 ř.**, 438 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **469** (`374 ACTIVE`, `79 BLOCKED`, `16 HISTORICAL`) |
+| `src/**/*.js` | **202 481 ř.**, 537 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **222 044 ř.**, 475 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **471** (`376 ACTIVE`, `79 BLOCKED`, `16 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **156 / 80** |
 | HTTP rout | ~230 |
 | **Schopností v `ACCEPTED/PASS`** | **1 z 22** (#2 CRE); #1 server/routing/DB je zatím `RUNTIME_VERIFIED` — jeho suite má 13 interních checků, zatímco behavior dokument obsahuje 16 řádků, takže tvrzení „13/13 chování“ není platný akceptační součet |
 
 Aktuální registry fingerprint je
-`04d50b8be7e09a7a802cb13629148d0aaeabf7f92f6bf32c19b1c57775356787`.
+`ffb7110746fba9a07a95dff4076778d5725ed584620204ddfe4c676bd4b9a999`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 
@@ -277,10 +277,12 @@ znění v [`CONTRACT.md`](CONTRACT.md) §2.
 10. **Legacy listener nikdy neopustí loopback**
 11. Významný efekt zůstává pod přesnou uživatelskou authority — **OPEN_VIOLATION
     jako celek**. M2 a M3 uzavřely project/file/process/Git/network i extension
-    efektové cesty, ale M5 privacy receipt promotion je v deklarovaném
-    same-process threat modelu obejitelná přes veřejný raw DB handle a
-    connection-local UDF. Dokud je tato authority otevřená, passing M2/M3/model
-    programy nesmějí L0-11 povýšit na `VERIFIED`.
+    efektové cesty. M5 privacy a M6 promotion jsou převedené na offline Ed25519
+    receipts a nedůvěryhodnou SQLite cache, ale Decision 041 re-review candidatu
+    `73fdf836` skončil `CHANGES_REQUIRED`. Remediation bajtové identity,
+    restartových UDF, exact bindings a Git lineage čeká na nové nezávislé
+    review. Dokud tato authority není přijatá, passing M2/M3/model programy
+    nesmějí L0-11 povýšit na `VERIFIED`.
     Změřeno 2026-08-07: samotné approval route (`POST /api/autonomy/approve/:id`,
     `POST /api/lifecycle/*/approve`, `POST /api/skills/executions/:id/confirm`)
     nemají žádnou per-route kontrolu — chrání je totéž co `GET /api/health`.
@@ -424,8 +426,8 @@ aktuální stav je samostatný řádek `Model failover opt-in surface`.
 | Nedostupná Ollama při klasifikaci | Opravena na jeden pokus; změřeno přibližně 80 ms místo 6 091 ms |
 | Automatické online model discovery | `C3_ENABLE_ONLINE_DISCOVERY`, **default on od 2026-08-19** (operátorské rozhodnutí v `DIRECTION.md`), vypíná se hodnotou `false`. Review remediation je implementation-green na `122b5df5`, ale čeká na re-review: všechny transporty používají manual redirect, každá `Location` dostává nové rozhodnutí a neexportovaná capability váže exact Ollama/Hugging Face/WhatLLM path, query, headers, body a method profily. Opsaný scope literal není autorita. |
 | M5 performance release budget | **SECOND-REVIEW REMEDIATION IMPLEMENTED / RE-REVIEW REQUIRED:** `M5PerformanceEvidence@3` a raw v2 vážou každé GPU tvrzení na raw measurement nebo read-only census receipt a nepřijmou nečitelný či nulový RSS jako nejlepší hodnotu. Exact clean candidate `816a2a4c` má autoritativní 5min run: HTTP p95 `5,022 ms`, ProjectContext p95 `32,769 ms`, soak `300 074 ms` / `1 498` vzorků / p95 `14,314 ms`, nula chyb, peak RSS `171,859 MiB`; GPU je pravdivě `not_run_not_requested` s dostupným prázdným `nvidia-smi` censusem, nikoli měřeno. 24h soak, maximum-throughput a nové fyzické GPU měření zůstávají `NOT RUN`. |
-| M5 production hardening review | **8/9 REVIEW_PASSED / PRIVACY REMEDIATION IMPLEMENTED / RE_REVIEW REQUIRED / ACCEPTANCE_BLOCKED:** operátorský re-review exact kandidáta `816a2a4c` přijal DATA, AUTH a PERF; spolu s pěti dříve přijatými oddíly je zelených osm. PRIVACY CRITICAL bypass opravuje product commit `665b42c8` per-bootstrap autoritou sdílenou HTTP, WS a privacy repository a DB vazbou na exact verifier. Nezávislý re-review opravy ještě neproběhl. Scanner zůstává pravdivě zelený pro current tree, ale skutečných osm rotací ani history disposition neproběhly. M5 není přijato a M6 gate je zavřený. Superseding verdict je v [`2026-08-27-M5-M6-OPERATOR-REVIEW-RESULT.md`](docs/review/2026-08-27-M5-M6-OPERATOR-REVIEW-RESULT.md). |
-| M6 IntentSmith 1.0 candidate | **REMEDIATION_IN_PROGRESS / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED:** operátorský review exact kandidáta `8abd6065` přijal jen oddíl 3. Následná implementace odstranila důvěru v gitignored verdict, přidala skutečný 136.0.0 → 136.1.0 application upgrade, durable L0-11 artifact authority a dva pravdivé owned-server soak/throughput harnessy. Locked plán nyní přesně pokrývá 370 `ACTIVE + required`; registry nově odmítá nesplnitelnou kombinaci s hard-blocked external network. Devět povinných modelových programů má test-owned transport omezený na přesné lokální Ollama endpointy a WebSearch pouze fail-closed fallback; čtyři explicitně operátorské externí E2E jsou `manual + required:false`. Plný throughput prošel na superseded diagnostickém SHA `1e962692`, ale přesný nový candidate jej musí zopakovat; první soak byl po 655 466 ms řízeně ukončen po odhalení této orchestration vady a není evidence PASS. Tyto nové product bytes dosud nemají re-review ani úplný candidate report. M5 acceptance, Gate 0 a demo jsou dál blokující externí autority. Žádný merge, tag, publish, push, rotace ani history rewrite neproběhl. |
+| M5 production hardening review | **8/9 REVIEW_PASSED / PRIVACY CHANGES_REQUIRED / REMEDIATION IMPLEMENTED / RE_REVIEW REQUIRED / ACCEPTANCE_BLOCKED:** osm oddílů zůstává přijatých. Decision 041 review exact candidatu `73fdf836` odmítl signed privacy authority kvůli raw-byte, restart UDF, binding a Git-lineage mezerám. Opravy jsou na `95a2cd6c`, `4beced1b` a `2b5da617`, ale dosud nemají nezávislé `REVIEW_PASSED`. Scanner je zelený pro current tree; osm skutečných rotací, history disposition ani M5 acceptance neproběhly. M6 gate zůstává zavřený. |
+| M6 IntentSmith 1.0 candidate | **SIGNED_AUTHORITY_CHANGES_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED:** implementace raw Git evidence, úplného locked plánu, application upgrade, L0-11 a owned-server harnessů pokračuje. Decision 041 review candidatu `73fdf836` otevřel signed review/demo/Gate 0 verifier; remediation nyní kontroluje přesné UTF-8 bytes, globální nonce, index a manifest na každém evidence HEAD, celý candidate→HEAD rozsah a history lineage. Nový re-review ani úplný candidate report ještě neproběhl. Plný throughput na superseded SHA není release evidence; první soak není PASS a live LLM/model-quality běhy jsou operátorem odložené. Žádný merge, tag, publish, push, rotace ani history rewrite neproběhl. |
 | C3 Studio Google Fonts | Oba runtime link loadery, ruční preview import i archivní v7 import jsou odstraněné; hygiene zakazuje obě Google Fonts domény ve spustitelných Studio assetech. Registrovaný runner prošel ve dvou fresh-clone Electron CDP bězích na `7236d221` s nulovým egresssem. Registry zůstává pravdivě `BLOCKED`. **Měřeno 2026-08-21:** build envelope už chybějící překážkou není — `yarn install --offline` + `yarn build` trvají dohromady **54 s** a postaví všech šest artefaktů. **Vyřešeno 2026-08-22: `STUDIO_ELECTRON_BOUNDARY_PASS`.** Příčinou `electron-exited-before-cdp` byla délka `TMPDIR` — Chromium v něm zakládá unix domain sockety a `sun_path` má limit 108 bajtů, runtime root pod `.intentsmith-artifacts` má 95 znaků. Bisekce: `HOME` ani `XDG_*` nevadí, shodí to výhradně `TMPDIR`; bez namespace padá stejně, takže izolace ani D-Bus (falešná stopa) příčinou nebyly. Sada dává Electronu krátký privátní temp. Evidence: nulový egress, 65,8 s soak, boundary matice 403/403/200, čistý shutdown. |
 | C3 Studio local HTTP | Root cause byl potvrzen jako capability na wire + nepřítomný `Origin` + `Sec-Fetch-Site: cross-site`. Electron-main nyní doplňuje `Origin: null` jen pro přesný top-level file Studio request s odpovídající privátní capability; backend guard zůstal beze změny. Dva fresh-clone negativní journey na `7236d221` prokázaly startup/POST `2xx` i přesný fail-closed security trojúhelník; registry čeká jen na standardní build envelope, nikoli na další ruční journey. |
 | C3 Studio source/build | Operátor přijal funkční ručně udržovaný `lib` jako současný autoritativní runtime. Stale TS je historický archiv; package build/clean/watch ani starý v7 fix payload nesmějí runtime přepsat nebo smazat. Současný vzhled není finální UI kontrakt. |

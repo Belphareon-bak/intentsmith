@@ -1,7 +1,7 @@
 # Decision 041 — Offline signed authority receipts
 
-**Datum:** 2026-08-28  
-**Stav:** `IMPLEMENTED / RE_REVIEW_REQUIRED`
+**Datum:** 2026-08-28
+**Stav:** `CHANGES_REQUIRED / REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED`
 **Protokol:** `OFFLINE_ED25519_SIGNED_RECEIPTS`
 
 ## Rozhodnutí
@@ -67,7 +67,7 @@ minimálně:
 - registry fingerprint;
 - SHA-256 release evidence indexu a artifact manifestu;
 - přesné artifact bindings (`path`, `bytes`, Git mode, SHA-256);
-- decision, celočíselný timestamp a 128bit unikátní nonce;
+- decision, celočíselný timestamp a globálně unikátní 128bit nonce;
 - identitu předchozího receiptu v lineárním `C–E–R–A` řetězu;
 - autentizovaného lidského aktéra a typově specifický payload.
 
@@ -88,6 +88,13 @@ Same-process caller, druhé SQLite spojení nebo výměna UDF nesmí vyrobit PAS
 
 M6 promotion navíc provádí samostatné CLI nad raw Git-pinned bundle. Výsledek
 běžící aplikace nebo lokální nepodepsaný JSON nestačí.
+
+CLI kontroluje celý rozsah product candidate → finální evidence HEAD, včetně
+deletions, registry driftu a čistoty pracovního stromu. Každý receipt smí
+odkazovat jen na evidence HEAD, na kterém už existují přesné podepsané bytes
+release evidence indexu a artifact manifestu. History `postDispositionHeadSha`
+musí být předkem product candidatu a M5 acceptance musí opakovat stejnou
+disposition jako navázaný privacy history receipt.
 
 ## Privacy payload
 
@@ -118,3 +125,12 @@ Toto rozhodnutí nepovoluje automatickou výrobu produkčních privátních klí
 skutečné rotace, history rewrite, M5/M6 promotion, tag ani publish. Reálné
 klíče vzniknou až samostatným offline operátorským ceremoniálem po re-review
 implementace.
+
+## Nezávislý re-review implementace
+
+Review exact candidatu `73fdf8365c97c49292752a0e46697345eada0f44`
+skončil `CHANGES_REQUIRED`; focused `369/369` nepokrývalo nalezené adversariální
+případy. Remediation je rozdělena na raw/SQLite commit `95a2cd6c`, Git-lineage
+commit `4beced1b` a exact module baseline `2b5da617`. Tyto nové bytes vyžadují
+samostatný re-review a do jeho `REVIEW_PASSED` zůstává offline key ceremony
+blokovaná.

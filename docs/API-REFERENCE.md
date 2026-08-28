@@ -519,9 +519,9 @@ Lifecycle endpoints are spread across projects and expertises routes:
 | `DELETE` | `/api/security/tokens/:id` | — | `{success}` or 404 | Deletes token |
 | `GET` | `/api/security/webhook-secret` | — | `{configured, source, persistence}` | Environment-only status; never emits masked material |
 | `POST` | `/api/security/webhook-secret` | — | `409 M5_PRIVACY_WEBHOOK_SECRET_ENV_ONLY` | API generation and persistence are disabled |
-| `GET` | `/api/security/privacy/remediation` | — | `PrivacyRemediationStatus@1` | Reads append-only operator receipts; never returns values |
-| `POST` | `/api/security/privacy/rotations/:categoryId/attest` | `{authorityKind, completedAtMs, confirmNoSecretValues}` | `PrivacyRotationReceipt@1` | Attests one exact rotation category from transport user authority |
-| `POST` | `/api/security/privacy/history/attest` | `{decision, actionStatus, repositoryVisibility, completedAtMs, confirmOperatorAuthority, confirmNoSecretValues}` | `PrivacyHistoryReceipt@1` | Records the one append-only operator history disposition |
+| `GET` | `/api/security/privacy/remediation` | — | `PrivacyRemediationStatus@2` | Re-verifies the untrusted signed-receipt cache; never returns secret material |
+| `POST` | `/api/security/privacy/rotations/:categoryId/attest` | body is not parsed | `410 M5_PRIVACY_OFFLINE_SIGNATURE_REQUIRED` | Retired: production receipts require the offline Ed25519 ceremony |
+| `POST` | `/api/security/privacy/history/attest` | body is not parsed | `410 M5_PRIVACY_OFFLINE_SIGNATURE_REQUIRED` | Retired: production receipts require the offline Ed25519 ceremony |
 
 ---
 

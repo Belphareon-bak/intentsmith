@@ -22,4 +22,3 @@ export function registerSignedAuthorityStorageFunctions(database) {
     deterministic: true,
   }, signedAuthorityReceiptShapeValid);
 }
-

@@ -1,27 +1,28 @@
 # WP-M5-PRIVACY — containment a operátorská remediation authority
 
 **Typ:** M5 production hardening · **Stav:**
-`THIRD_REVIEW_REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED /
-OPERATOR_REMEDIATION_REQUIRED`
-· **Product:** `816a2a4c8a95b49d46f06b94b56feb64c8a40c90`
-· **Privacy remediation:** `b15090a4cacd0a47a1dbd26f224fe19d7e399042`
-· **Third-review remediation:** `665b42c8a40807f4b9c0f1762d99cc80fe4cc4ae`
-· **Module baseline:** `6e7cd7410c83826c88d6d65f6af2ae29fc5df3e6`
+`SIGNED_AUTHORITY_CHANGES_REQUIRED / REMEDIATION_IMPLEMENTED /
+RE_REVIEW_REQUIRED / OPERATOR_REMEDIATION_REQUIRED`
+· **Reviewed signed-authority product:** `73fdf8365c97c49292752a0e46697345eada0f44`
+· **Raw/SQLite remediation:** `95a2cd6c`
+· **Git-lineage remediation:** `4beced1b`
+· **Module baseline:** `2b5da617`
 
 ## Výsledek implementace
 
-- `PrivacyRotationReceipt@1` pokrývá přesně osm kategorií incidentu a
-  zakazuje jakékoli secret material.
-- `PrivacyHistoryReceipt@1` svazuje rozhodnutí, dokončenou akci, viditelnost
-  repozitáře, čas a transportně autentizovaného uživatele.
+- `SignedAuthorityReceipt@1` používá oddělený offline Ed25519 klíč role
+  `m5-privacy-operator`, pokrývá přesně osm kategorií a jeden history receipt
+  a zakazuje jakékoli secret material.
+- History payload svazuje disposition, dokončenou akci, post-disposition HEAD,
+  ref census a privacy scan; disposition musí ležet v product candidate lineage.
 - migrace 090 přidá dvě append-only tabulky, exact SQL triggery a odstraní
   plaintext credentials z existujících `user_settings`.
 - HTTP, WS, SQLite a Studio settings používají stejnou fail-closed policy;
   SMTP/webhook secret je pouze v environmentu a licenční HMAC nemá známý
   fallback.
-- writer nemá veřejnou mint factory; přesná subject identita vzniká privátně
-  až po úspěšné globální transportní autentizaci a SQL boundary ověřuje její
-  identitu i shodu actor ID;
+- aplikace nemá podpisový klíč ani mint factory. SQLite je jen nedůvěryhodná
+  display cache raw envelope bytes a každý summary je znovu ověřuje proti
+  Git-pinned trust store a přesným candidate/evidence bindings;
 - `scan-m5-privacy.js` odmítne dirty strom, čte exact HEAD bloby distribučního
   manifestu, nečte obsah citlivých cest a reachability počítá z deklarovaných
   refs, ne z fyzické existence dangling objektu.
@@ -31,8 +32,8 @@ OPERATOR_REMEDIATION_REQUIRED`
 | Metoda | Route | Autorita |
 |---|---|---|
 | `GET` | `/api/security/privacy/remediation` | autentizovaný user subject |
-| `POST` | `/api/security/privacy/rotations/:categoryId/attest` | stejný subject + exact body bez hodnot |
-| `POST` | `/api/security/privacy/history/attest` | stejný subject + dvě explicitní potvrzení |
+| `POST` | `/api/security/privacy/rotations/:categoryId/attest` | autentizace, potom typed `410`; body se nečte |
+| `POST` | `/api/security/privacy/history/attest` | autentizace, potom typed `410`; body se nečte |
 
 ## Aktuální operátorský stav
 
@@ -78,3 +79,19 @@ váže na první konkrétní verifier. Klon subjectu, subject z cizí auth insta
 pokus připojit k téže DB repository s jiným verifierem selžou před insertem.
 Focused regrese jsou zelené, ale jde o implementační důkaz; až do operátorského
 re-review zůstává poslední nezávislý verdict `CHANGES_REQUESTED`.
+
+## Decision 041 re-review a remediation 2026-08-28
+
+Nezávislý review candidatu `73fdf836` skončil `CHANGES_REQUIRED`. Našel
+ztrátu bajtové identity při neplatném UTF-8, chybějící SQLite UDF po restartu,
+nepovinné hodnoty expected bindings, neúplnou candidate→HEAD boundary,
+index/manifest existující až po podepsaném evidence HEAD, forked history
+lineage, rozdílnou disposition v M5 acceptance a nonce unikátní jen per role.
+
+Remediation používá fatal UTF-8 decoder a byte equality, obnovuje všechny
+persistentní UDF při konstrukci repository, vyžaduje šest přesně typovaných
+bindings, kontroluje celý evidence-only Git rozsah a čistý strom, vyžaduje
+index i manifest na každém podepsaném evidence HEAD, váže history před product
+candidate, porovnává obě disposition a používá globální nonce množinu.
+Implementace ani focused testy nejsou review PASS; offline ceremonie zůstává
+blokovaná do nového nezávislého `REVIEW_PASSED`.
