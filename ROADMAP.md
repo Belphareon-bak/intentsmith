@@ -2059,6 +2059,26 @@ inventory má 9 artefaktů a coverage 55 `COMPLETE`, 0 `BLOCKED`, 0 applicable
 `MISSING`, 8 N/A; bounded důkaz je v
 [`model-removal-live-20260828.json`](docs/execution/runs/model-removal-live-20260828.json).
 
+### M6 integrace model-evaluation autority (2026-08-29)
+
+Přijatý exact-artifact scoring řez je integrován do současné M6 linie merge
+commitem `ff9a7dfc`. Integrace zachovává durable M6 model-artifact claimy,
+odstraňuje paralelní auto-failover/proposal writery a používá jediný
+role-specific read model. M6 technical-evidence kontrakt je verze 5: zrušené
+legacy `upgrade-apply` a `upgrade-flow` programy nahrazuje manual-binding
+application autorita, konsolidovaný model-upgrade test a skutečný pre-082
+upgrade regression. Registry má 463 programů (`369 ACTIVE`, z toho 364
+required), fingerprint `ab85f58a854d9271dcf39f321d583f8024ee09b79355e863c5857eaefe29cbca`.
+Aktuální module graph má 1 210 hran, stále 3 cykly a 28 souborů v cyklech.
+
+Stav řezu je `IMPLEMENTATION_GREEN / INTEGRATION_REVIEW_PENDING`, nikoli M5
+nebo M6 acceptance. Focused a strukturální blok má 1 070 explicitních checků
+bez selhání plus registry, hygiene, syntax a harness metatest. Modelový chat,
+fyzický GPU běh, aktivace bindingů a timer nebyly spuštěny podle operátorského
+odkladu. Systémová Ollama 0.32.14 proto zůstává pravdivě
+`SYSTEM_PROVIDER_BLOCKED`. Podrobný integrační záznam je v
+[`m6-model-evaluation-integration-20260829.md`](docs/execution/runs/m6/m6-model-evaluation-integration-20260829.md).
+
 ## 14. Rozhodovací fronta — otázka až ve chvíli, kdy má data
 
 | Rozhodnutí | Kdy je skutečně potřeba | Jaká evidence musí být na stole |
