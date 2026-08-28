@@ -1,7 +1,8 @@
 # Decision 041 — Offline signed authority receipts
 
 **Datum:** 2026-08-28
-**Stav:** `CHANGES_REQUIRED / REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED`
+**Stav:** `IMPLEMENTATION_REVIEW_PASSED / KEY_CEREMONY_COMPLETE /
+PRODUCT_RE_REVIEW_REQUIRED`
 **Protokol:** `OFFLINE_ED25519_SIGNED_RECEIPTS`
 
 ## Rozhodnutí
@@ -28,8 +29,9 @@ review, demo, acceptance ani promotion.
 
 Implementace je rozdělena do produktových commitů `c0840f65`, `860d5268` a
 `d5037467`; přesné module-boundary ratchety jsou `97848c15` a `f3e0575f`.
-Trust store zůstává prázdný a fail-closed až do samostatného offline key
-ceremoniálu.
+Trust store byl po nezávislém `REVIEW_PASSED` a samostatné autorizaci operátora
+naplněn čtyřmi oddělenými veřejnými klíči. Privátní klíče zůstávají mimo
+repozitář a aplikaci v operátorem potvrzeném lokálním vaultu.
 
 ## Role a kryptografické domény
 
@@ -145,5 +147,30 @@ uložené receipty z přesných BLOB bytes, prochází každý commit i každý 
 merge commity odmítá, opakuje stejný důkaz pro každý receipt evidence HEAD a
 fail-closed odmítá replace refs, grafts, `assume-unchanged` i `skip-worktree`.
 Samostatný temp-Git E2E prokazuje PASS platného 13-receipt bundle a FAIL pro
-mutate→receipt→revert historii. Jde stále jen o implementaci čekající na nový
-nezávislý re-review; ceremonie zůstává blokovaná.
+mutate→receipt→revert historii. Třetí nezávislý re-review exact candidatu
+`37edf30d738f780594af98a7a1076e3200038478` skončil `REVIEW_PASSED` a odemkl
+samostatně autorizovanou ceremonii.
+
+## Offline key ceremony 2026-08-29
+
+Operátor autorizoval ceremonii příkazem „Zahaj offline key ceremony a přibal
+M5-R19“ a následně potvrdil lokální vault
+`/home/belphareon/INTENTSMITH_KEYS`. Proces běžel v `bwrap --unshare-net`, měl
+read-only root a zapisoval pouze do adresáře `2026-08-29-prod-v1`. Privátní
+PKCS#8 soubory mají mód `0600`, vault `0700`; žádný privátní bajt ani jeho hash
+nebyl zapsán do Git, SQLite, environmentu serveru ani testovacího logu.
+
+Git-pinned veřejné identity jsou:
+
+| Role | `keyId` |
+|---|---|
+| `m5-privacy-operator` | `sha256:117ab9bb4b87bf20668b61847f23bf30a92e2e268849377e39ae44e5bba83597` |
+| `m5-acceptance-operator` | `sha256:e6396e1498d1e1a9a7fde0a24cae03ea971dd7654520dd3c8c2340980e6c6368` |
+| `m6-independent-reviewer` | `sha256:b875503ff1e60db13cf8b20ac77f8298560de7e7390ab3f70b150e3e9d907f49` |
+| `m6-release-operator` | `sha256:029f78bbcec1393d96f93759cdffe0c9041f45d48f9888cd1b4e6fb99b330c99` |
+
+Každý privátní klíč byl v izolovaném procesu ověřen proti vlastnímu SPKI a
+testovacímu podpisu; všechny čtyři identity jsou rozdílné. Publikace trust
+storu mění product candidate, proto tento nový řez vyžaduje úzký re-review.
+Ceremonie sama neprovedla rotaci, history disposition, acceptance, promotion,
+tag, publish ani push.

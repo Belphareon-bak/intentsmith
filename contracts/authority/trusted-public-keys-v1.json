@@ -2,5 +2,34 @@
   "contract": "SignedAuthorityTrustStore",
   "version": 1,
   "algorithm": "Ed25519",
-  "keys": []
+  "keys": [
+    {
+      "authorityId": "m5-privacy-operator",
+      "algorithm": "Ed25519",
+      "keyId": "sha256:117ab9bb4b87bf20668b61847f23bf30a92e2e268849377e39ae44e5bba83597",
+      "publicKeySpkiDerBase64url": "MCowBQYDK2VwAyEAlxss6ROHY28GLYgj00dmPEvnUrtJYbhsTmfuS2iDIuE",
+      "status": "ACTIVE"
+    },
+    {
+      "authorityId": "m5-acceptance-operator",
+      "algorithm": "Ed25519",
+      "keyId": "sha256:e6396e1498d1e1a9a7fde0a24cae03ea971dd7654520dd3c8c2340980e6c6368",
+      "publicKeySpkiDerBase64url": "MCowBQYDK2VwAyEAFRGd1-asEiCeVUN3zM0aytVZFpv_k7ZnCq-fbHj9dJA",
+      "status": "ACTIVE"
+    },
+    {
+      "authorityId": "m6-independent-reviewer",
+      "algorithm": "Ed25519",
+      "keyId": "sha256:b875503ff1e60db13cf8b20ac77f8298560de7e7390ab3f70b150e3e9d907f49",
+      "publicKeySpkiDerBase64url": "MCowBQYDK2VwAyEAC59yV0P74AXW4CMIiLzSsrMCieJ5XGp43tXR1Y9PT4c",
+      "status": "ACTIVE"
+    },
+    {
+      "authorityId": "m6-release-operator",
+      "algorithm": "Ed25519",
+      "keyId": "sha256:029f78bbcec1393d96f93759cdffe0c9041f45d48f9888cd1b4e6fb99b330c99",
+      "publicKeySpkiDerBase64url": "MCowBQYDK2VwAyEAxSk_EC7Li6JdK97ZgEVVfoJjL3YiqxtO2TWC3ABrm8E",
+      "status": "ACTIVE"
+    }
+  ]
 }

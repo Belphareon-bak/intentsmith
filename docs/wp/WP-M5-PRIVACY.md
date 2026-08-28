@@ -1,7 +1,7 @@
 # WP-M5-PRIVACY — containment a operátorská remediation authority
 
 **Typ:** M5 production hardening · **Stav:**
-`SIGNED_AUTHORITY_CHANGES_REQUIRED / REMEDIATION_IMPLEMENTED /
+`KEY_CEREMONY_COMPLETE / M5_R19_REMEDIATION_IMPLEMENTED /
 RE_REVIEW_REQUIRED / OPERATOR_REMEDIATION_REQUIRED`
 · **Reviewed signed-authority product:** `75498c69cb7587378b0fe29e44dde7cc03c9cc4c`
 · **Raw/SQLite remediation:** `95a2cd6c`
@@ -113,3 +113,17 @@ refs, grafts, `assume-unchanged` i `skip-worktree`. Reálný temp-Git test
 spouští oba standalone CLI a prokazuje, že mutate→receipt→revert končí FAIL.
 Aktuální focused a structural sada je `382/382 PASS`; není to review PASS ani
 oprávnění k offline key ceremony.
+
+## Třetí Decision 041 review, ceremonie a M5-R19 2026-08-29
+
+Třetí nezávislý review kandidatu `37edf30d` uzavřel byte/history implementaci
+jako `REVIEW_PASSED`. Následně autorizovaná ceremonie vytvořila čtyři oddělené
+Ed25519 role mimo repozitář a připnula pouze jejich veřejné SPKI a odvozené
+`keyId` do `contracts/authority/trusted-public-keys-v1.json`.
+
+Privacy review současně našel M5-R19: required offline
+`tests/m1-model-failover-schema.test.js` zůstal po migraci 100 na starém tipu
+098. Oracle nyní vědomě připíná 80 migrací, tip
+`2026_08_28_100_signed_privacy_receipts` a úplný applied seznam. Sada prošla
+`20/20`; změněný product candidate vyžaduje nové úzké re-review. Osm rotací,
+history disposition a M5 acceptance zůstávají neprovedené.

@@ -1,6 +1,6 @@
 # WP-M6-RELEASE — zmrazený kandidát a validační matice IntentSmith 1.0
 
-**Typ:** zapisující Work Package · **Stav:** REMEDIATION_IN_PROGRESS / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED
+**Typ:** zapisující Work Package · **Stav:** KEY_CEREMONY_COMPLETE / PRODUCT_RE_REVIEW_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED
 **Vstupní revision:** `55938fd0628bdb725736acdf21a451854580aaa7`
 **Vlastník:** `codex/m6-release-20260827`, jediný writer tohoto checkoutu
 
@@ -172,5 +172,9 @@ odmítají replacement metadata a skryté index flags.
 Skutečný temp-Git E2E sestaví validní 13-receipt bundle a získá PASS ze
 standalone verifieru. Mutace `src/server.js`, následný signed receipt a revert
 vrátí FAIL v bundle CLI i plném release CLI. Focused a structural matice je
-`382/382 PASS`, registry zůstává 471 / `ffb7110746…`. Tato implementace čeká
-na nový nezávislý review; M5, M6 i offline ceremonie zůstávají blokované.
+`382/382 PASS`, registry zůstává 471 / `ffb7110746…`. Třetí nezávislý review
+kandidatu `37edf30d` skončil `REVIEW_PASSED` a samostatně autorizovaná
+ceremonie 2026-08-29 připnula čtyři produkční veřejné klíče. Protože trust
+store a M5-R19 oracle mění produktové bytes, nový candidate vyžaduje úzký
+re-review. M5 i M6 zůstávají acceptance-blocked na skutečných receipts a
+zbývající release/runtime evidence.
