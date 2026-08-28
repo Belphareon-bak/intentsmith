@@ -10,7 +10,7 @@ import { config } from '../src/config.js';
 import { createModelFailoverRepository } from '../src/upgrade/model-failover.js';
 import { ModelEvaluationReadModel } from '../src/upgrade/model-evaluation-read-model.js';
 import { resolveCurrentBindings } from '../src/upgrade/model-upgrade-prototype.js';
-import { normalizeModelDigestSha256 } from '../src/upgrade/model-identity.js';
+import { normalizeInstalledInventory } from '../src/upgrade/model-inventory.js';
 
 const REPOSITORY_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -34,13 +34,7 @@ async function fetchInventory(baseUrl = config.ollama?.baseUrl || 'http://127.0.
   if (!response.ok) throw new Error(`Ollama inventory HTTP ${response.status}`);
   const body = await response.json();
   if (!Array.isArray(body?.models)) throw new Error('Ollama inventory má neplatný tvar');
-  return body.models.map(model => ({
-    name: model.name,
-    digestSha256: normalizeModelDigestSha256(model.digest),
-    digest: model.digest,
-    size: model.size,
-    modified_at: model.modified_at,
-  }));
+  return normalizeInstalledInventory(body.models);
 }
 
 export function renderEvaluationReport(readModel) {

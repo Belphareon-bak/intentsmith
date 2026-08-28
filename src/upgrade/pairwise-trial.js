@@ -96,6 +96,7 @@ async function runSuiteRepeated(
   runner, suiteName, model, repeats, onProgress, between, expectedArtifact,
 ) {
   const started = Date.now();
+  const startedAt = new Date(started).toISOString();
   const runs = [];
   for (let i = 0; i < repeats; i++) {
     if (i > 0 && between) await between();
@@ -129,6 +130,7 @@ async function runSuiteRepeated(
     language: row.language,
   }));
 
+  const completed = Date.now();
   return {
     suite: suiteName,
     model,
@@ -136,7 +138,9 @@ async function runSuiteRepeated(
     tasks,
     score: tasks.reduce((s, t) => s + t.mean, 0) / (tasks.length || 1),
     unstableTasks: tasks.filter(t => t.spread > 0).map(t => t.name),
-    durationMs: Date.now() - started,
+    durationMs: completed - started,
+    startedAt,
+    completedAt: new Date(completed).toISOString(),
     reused: false,
     artifact: expectedArtifact || null,
   };

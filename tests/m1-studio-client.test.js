@@ -204,6 +204,11 @@ test('model evaluation tab renders every decision instead of only the latest row
     _fs: value => value,
     _evaluationLoading: false,
     _evaluationData: {
+      coverage: {
+        applicableTotal: 1,
+        notApplicable: 1,
+        applicableStatusCounts: { COMPLETE: 1, FAILED: 0, BLOCKED: 0, MISSING: 0 },
+      },
       bindingAuthority: {
         status: 'DEGRADED',
         reason: 'MODEL_BINDING_STARTUP_BASELINE_FAILED',
@@ -232,7 +237,17 @@ test('model evaluation tab renders every decision instead of only the latest row
               actionability: 'NOT_CANDIDATE_WIN',
             },
           ],
-          artifacts: [],
+          artifacts: [{
+            model: 'text-only:7b',
+            digestSha256: 'b'.repeat(64),
+            status: 'MISSING',
+            applicable: false,
+            applicabilityReasonCode: 'MODEL_VISION_CAPABILITY_REQUIRED',
+            applicabilityReason: 'model neumí zpracovat obraz',
+            score: null,
+            testedAt: null,
+            isCurrentBinding: false,
+          }],
         },
       },
     },
@@ -256,6 +271,11 @@ test('model evaluation tab renders every decision instead of only the latest row
   assert.match(rendered, /qwen3-coder:latest/);
   assert.match(rendered, /Binding autorita: DEGRADED/);
   assert.match(rendered, /doporučení a aktivace z evaluace jsou neakční/);
+  assert.match(rendered, /Technicky kompatibilní coverage: 1 · MISSING 0 · N\/A 1/);
+  assert.match(rendered, /text-only:7b/);
+  assert.match(rendered, /N\/A/);
+  assert.match(rendered, /mimo scope/);
+  assert.doesNotMatch(rendered, /← Přiřadit/);
 });
 
 function validPostbuildProtocol() {

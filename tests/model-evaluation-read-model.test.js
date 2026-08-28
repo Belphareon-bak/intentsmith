@@ -82,7 +82,7 @@ function insert(db, values) {
     'fixture',
     values.digest,
     values.plan.suiteName,
-    values.plan.suiteVersion,
+    values.suiteVersion || values.plan.suiteVersion,
     values.contract || values.plan.suiteContractSha256,
     values.role || values.plan.role,
     values.status || 'COMPLETE',
@@ -154,12 +154,35 @@ test('coverage separates missing evidence from model-role applicability', () => 
   assertEqual(result.models[0].evaluations.CHAT.applicable, true);
   assertEqual(result.models[0].evaluations.VISION.applicable, false);
   assertEqual(result.models[1].evaluations.VISION.applicable, true);
-  assertEqual(result.models[1].evaluations.CHAT.applicable, false);
+  assertEqual(result.models[1].evaluations.CHAT.applicable, true);
   assertEqual(result.statusCounts.MISSING, 14);
-  assertEqual(result.coverage.applicableStatusCounts.MISSING, 7);
-  assertEqual(result.coverage.notApplicable, 7);
-  assertEqual(result.roles.CHAT.coverage.applicableMissing, 1);
+  assertEqual(result.coverage.applicableStatusCounts.MISSING, 11);
+  assertEqual(result.coverage.notApplicable, 3);
+  assertEqual(result.roles.CHAT.coverage.applicableMissing, 2);
   assertEqual(result.roles.VISION.coverage.applicableMissing, 1);
+  db.close();
+});
+
+test('raw API and CLI metadata normalize qwen3-coder into the same technical scope', () => {
+  const db = database();
+  const plans = createRoleEvaluationPlans({ repeats: 1 });
+  const result = new ModelEvaluationReadModel(db, { plans }).read({
+    inventory: [{
+      name: 'qwen3-coder:latest',
+      digest: DIGEST,
+      params: '30B',
+      family: 'qwen',
+      category: 'general',
+    }],
+  });
+  const evaluations = result.models[0].evaluations;
+  assertEqual(evaluations.D1.applicable, true);
+  assertEqual(evaluations.D2.applicable, true);
+  assertEqual(evaluations.R1.applicable, true);
+  assertEqual(evaluations.CHAT.applicable, true);
+  assertEqual(evaluations.VISION.applicable, false);
+  assertEqual(result.coverage.applicableStatusCounts.MISSING, 6);
+  assertEqual(result.coverage.notApplicable, 1);
   db.close();
 });
 
@@ -215,6 +238,33 @@ test('current decision is linked to exact runs and only actionable for the bound
     degraded.roles.CHAT.latestDecision.actionability,
     'BINDING_AUTHORITY_DEGRADED',
   );
+  db.close();
+});
+
+test('decision disappears when either linked run has a foreign suite version', () => {
+  const db = database();
+  const plans = createRoleEvaluationPlans({ repeats: 1 });
+  insert(db, {
+    runId: 'foreign-incumbent-chat', digest: DIGEST, plan: plans.CHAT,
+    suiteVersion: `${plans.CHAT.suiteVersion}-foreign`, score: 0.6,
+  });
+  insert(db, {
+    runId: 'current-candidate-chat', digest: OLD_DIGEST, plan: plans.CHAT,
+    score: 0.8,
+  });
+  insertDecision(db, {
+    decisionId: 'foreign-linked-decision', role: 'CHAT',
+    incumbentRunId: 'foreign-incumbent-chat', candidateRunId: 'current-candidate-chat',
+    outcome: 'CANDIDATE', activationEligible: true,
+  });
+  const role = new ModelEvaluationReadModel(db, { plans }).read({
+    inventory: [
+      { name: 'fixture:latest', digest: DIGEST },
+      { name: 'candidate:latest', digest: OLD_DIGEST },
+    ],
+  }).roles.CHAT;
+  assertEqual(role.latestDecision, null);
+  assertEqual(role.decisions.length, 0);
   db.close();
 });
 
@@ -304,6 +354,20 @@ test('old suite contract is MISSING even for the same artifact', () => {
   insert(db, {
     runId: 'old-contract', digest: DIGEST, plan: plans.R2,
     contract: 'c'.repeat(64), score: 0.9,
+  });
+  const row = new ModelEvaluationReadModel(db, { plans }).read({
+    inventory: [{ name: 'fixture', digest: DIGEST }],
+  }).models[0].evaluations.R2;
+  assertEqual(row.status, 'MISSING');
+  db.close();
+});
+
+test('foreign suite version is MISSING even with the same artifact and contract SHA', () => {
+  const db = database();
+  const plans = createRoleEvaluationPlans({ repeats: 1 });
+  insert(db, {
+    runId: 'foreign-version', digest: DIGEST, plan: plans.R2,
+    suiteVersion: `${plans.R2.suiteVersion}-foreign`, score: 0.9,
   });
   const row = new ModelEvaluationReadModel(db, { plans }).read({
     inventory: [{ name: 'fixture', digest: DIGEST }],

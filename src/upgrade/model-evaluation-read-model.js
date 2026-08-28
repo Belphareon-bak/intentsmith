@@ -4,9 +4,11 @@
 // versioned suite contract match. Timestamps are displayed, never converted
 // into an arbitrary freshness TTL. Legacy name-only rows cannot match.
 
-import { createRoleEvaluationPlans } from '../eval/role-evaluation-plan.js';
-import { checkRoleCandidateApplicability } from './candidate-eligibility.js';
-import { parseModelNameExtended } from './model-family-extensions.js';
+import {
+  checkModelEvaluationApplicability,
+  createRoleEvaluationPlans,
+} from '../eval/role-evaluation-plan.js';
+import { normalizeInstalledModel } from './model-inventory.js';
 import {
   canonicalModelName,
   normalizeModelDigestSha256,
@@ -23,29 +25,25 @@ export class ModelEvaluationReadError extends Error {
 }
 
 function exactArtifact(row) {
-  const name = typeof row?.name === 'string' ? row.name.trim() : '';
+  const normalized = normalizeInstalledModel(row);
+  const name = normalized.name;
   const canonicalName = canonicalModelName(name);
-  const digestSha256 = normalizeModelDigestSha256(row?.digestSha256 || row?.digest);
+  const digestSha256 = normalizeModelDigestSha256(normalized.digestSha256);
   return {
     name,
     canonicalName,
     digestSha256,
-    size: Number.isFinite(row?.size) ? row.size : null,
-    modifiedAt: row?.modified_at || row?.modifiedAt || null,
-    params: Number.isFinite(row?.params) ? row.params : null,
-    category: typeof row?.category === 'string' ? row.category.trim() : null,
-    capabilities: Array.isArray(row?.capabilities) ? Object.freeze([...row.capabilities]) : null,
+    size: normalized.size,
+    modifiedAt: normalized.modifiedAt,
+    params: normalized.params,
+    family: normalized.family,
+    category: normalized.category,
+    capabilities: Object.freeze([...normalized.capabilities]),
   };
 }
 
-function roleApplicability(artifact, role) {
-  const parsed = parseModelNameExtended(artifact.name);
-  return checkRoleCandidateApplicability({
-    name: artifact.name,
-    params: artifact.params ?? parsed.params,
-    category: artifact.category || parsed.category,
-    capabilities: artifact.capabilities,
-  }, role);
+function roleApplicability(artifact, plan) {
+  return checkModelEvaluationApplicability(artifact, plan);
 }
 
 function decodeCurrentRow(row) {
@@ -82,13 +80,20 @@ function currentStatus(db, artifact, role, plan) {
     FROM model_evaluation_runs
     WHERE model_digest_sha256 = ?
       AND suite_name = ?
+      AND suite_version = ?
       AND suite_contract_sha256 = ?
       AND role = ?
     ORDER BY CASE status WHEN 'COMPLETE' THEN 0 ELSE 1 END,
              completed_at DESC,
              run_id DESC
     LIMIT 1
-  `).get(artifact.digestSha256, plan.suiteName, plan.suiteContractSha256, role);
+  `).get(
+    artifact.digestSha256,
+    plan.suiteName,
+    plan.suiteVersion,
+    plan.suiteContractSha256,
+    role,
+  );
   return decodeCurrentRow(row) || Object.freeze({
     status: 'MISSING',
     score: null,
@@ -194,7 +199,7 @@ export class ModelEvaluationReadModel {
         const evaluations = {};
         for (const [role, plan] of Object.entries(this._plans)) {
           const result = currentStatus(this._db, artifact, role, plan);
-          const applicability = roleApplicability(artifact, role);
+          const applicability = roleApplicability(artifact, plan);
           evaluations[role] = Object.freeze({
             role,
             suiteName: plan.suiteName,
@@ -240,11 +245,22 @@ export class ModelEvaluationReadModel {
           WHERE d.role = ?
             AND incumbent.role = d.role
             AND candidate.role = d.role
+            AND incumbent.suite_name = ?
+            AND incumbent.suite_version = ?
+            AND incumbent.suite_contract_sha256 = ?
             AND candidate.suite_name = ?
             AND candidate.suite_version = ?
             AND candidate.suite_contract_sha256 = ?
           ORDER BY d.created_at DESC, d.decision_id DESC
-        `).all(role, plan.suiteName, plan.suiteVersion, plan.suiteContractSha256).map(row => (
+        `).all(
+          role,
+          plan.suiteName,
+          plan.suiteVersion,
+          plan.suiteContractSha256,
+          plan.suiteName,
+          plan.suiteVersion,
+          plan.suiteContractSha256,
+        ).map(row => (
           decodeDecision(row, { inventory, binding: bindings[role], bindingAuthority })
         ));
         decisions.push(...roleDecisions);
@@ -269,6 +285,7 @@ export class ModelEvaluationReadModel {
               row.applicable && row.status === 'MISSING'
             )).length,
           }),
+          applicabilityContract: plan.applicabilityContract,
           artifacts: Object.freeze(artifacts),
           latestDecision: roleDecisions[0] || null,
           decisions: Object.freeze(roleDecisions),
@@ -293,6 +310,7 @@ export class ModelEvaluationReadModel {
           tables: Object.freeze(['model_evaluation_runs', 'model_evaluation_decisions']),
           currentContractOnly: true,
           legacyFallback: false,
+          applicability: 'versioned-technical-compatibility',
         }),
         bindingAuthority,
         bindings: Object.freeze({ ...bindings }),

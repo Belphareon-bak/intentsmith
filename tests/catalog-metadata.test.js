@@ -8,12 +8,14 @@ import { suite, test, testAsync, assert, assertEqual, summary } from './harness.
 import {
   catalogLookupKey, buildCatalogIndex, enrichLocalCandidateMetadata,
 } from '../src/upgrade/catalog-metadata.js';
+import { checkRoleEligibility } from '../src/upgrade/candidate-eligibility.js';
 import {
-  checkRoleCandidateApplicability,
-  checkRoleEligibility,
-} from '../src/upgrade/candidate-eligibility.js';
+  checkModelEvaluationApplicability,
+  createRoleEvaluationPlans,
+} from '../src/eval/role-evaluation-plan.js';
 import { parseModelName } from '../src/upgrade/model-profiles.js';
 import { parseModelNameExtended } from '../src/upgrade/model-family-extensions.js';
+import { normalizeInstalledModel } from '../src/upgrade/model-inventory.js';
 import { CATALOG } from '../src/upgrade/model-catalog.js';
 
 // ─── Lookup klíč ────────────────────────────────────────────────────────────
@@ -173,19 +175,42 @@ test('měkké požadavky nevyřazují — jinak by seznam kandidátů zůstal pr
   assertEqual(r.eligible, true);
 });
 
-test('applicability používá stejnou category policy jako installed scoring', () => {
-  const codeForChat = checkRoleCandidateApplicability(
+test('evaluation applicability ignores ranking preferences and keeps technical constraints', () => {
+  const plans = createRoleEvaluationPlans({ repeats: 1 });
+  const codeForChat = checkModelEvaluationApplicability(
     { name: 'qwen3-coder:latest', params: 30, category: 'code' },
-    'CHAT',
+    plans.CHAT,
   );
-  assertEqual(codeForChat.applicable, false);
-  assertEqual(codeForChat.reasonCode, 'ROLE_CATEGORY_NOT_PREFERRED');
+  assertEqual(codeForChat.applicable, true);
 
-  const generalForChat = checkRoleCandidateApplicability(
-    { name: 'qwen3.5:27b', params: 27, category: 'general' },
-    'CHAT',
+  const textForVision = checkModelEvaluationApplicability(
+    { name: 'qwen3.5:27b', params: 27, category: 'general', capabilities: [] },
+    plans.VISION,
   );
-  assertEqual(generalForChat.applicable, true);
+  assertEqual(textForVision.applicable, false);
+  assertEqual(textForVision.reasonCode, 'MODEL_VISION_CAPABILITY_REQUIRED');
+});
+
+test('one inventory normalizer repairs old parser metadata and keeps numeric params', () => {
+  const normalized = normalizeInstalledModel({
+    name: 'qwen3-coder:latest',
+    params: '30B',
+    family: 'qwen',
+    category: 'general',
+    digest: `sha256:${'a'.repeat(64)}`,
+  });
+  assertEqual(normalized.family, 'qwen-coder');
+  assertEqual(normalized.category, 'code');
+  assertEqual(normalized.params, 30);
+  assertEqual(normalized.paramsLabel, '30B');
+});
+
+test('multimodal capability does not overwrite the primary ranking category', () => {
+  const normalized = normalizeInstalledModel({
+    name: 'qwen3.5:27b', capabilities: ['completion', 'vision'],
+  });
+  assertEqual(normalized.category, 'general');
+  assertEqual(normalized.capabilities.includes('vision'), true);
 });
 
 // ─── Rodiny modelů ──────────────────────────────────────────────────────────

@@ -15,6 +15,7 @@ import { config } from '../config.js';
 import { logger } from '../core/logger.js';
 import { parseModelName, MODEL_FAMILIES } from './model-profiles.js';
 import { parseModelNameExtended } from './model-family-extensions.js';
+import { normalizeInstalledModel } from './model-inventory.js';
 import { catalogLookupKey, enrichLocalCandidateMetadata } from './catalog-metadata.js';
 import { enrichFromHuggingFace } from './huggingface-client.js';
 
@@ -132,35 +133,24 @@ export function buildCandidates(ollamaModels) {
   const candidates = [];
 
   for (const m of ollamaModels) {
-    const parsed = parseModelNameExtended(m.name);
-
-    // Try to get params from Ollama details if our parser missed it
-    let params = parsed.params;
-    if (!params && m.details?.parameter_size) {
-      const pMatch = m.details.parameter_size.match(/(\d+)/);
-      if (pMatch) params = parseInt(pMatch[1], 10);
-    }
-
-    // Try to get quantization from details
-    let quantization = parsed.quantization;
-    if (!quantization && m.details?.quantization_level) {
-      quantization = m.details.quantization_level;
-    }
+    const normalized = normalizeInstalledModel(m);
 
     candidates.push({
-      name: m.name,
-      family: parsed.family,
-      category: parsed.category,
-      version: parsed.version,
-      params,
-      quantization,
-      sizeBytes: m.size || 0,
-      sizeGB: m.size ? Math.round((m.size / 1_073_741_824) * 10) / 10 : 0,
-      modifiedAt: m.modified_at || null,
+      name: normalized.name,
+      family: normalized.family,
+      category: normalized.category,
+      version: normalized.version,
+      params: normalized.params,
+      quantization: normalized.quantization,
+      sizeBytes: normalized.size,
+      sizeGB: Math.round((normalized.size / 1_073_741_824) * 10) / 10,
+      modifiedAt: normalized.modifiedAt,
       installed: true,
       source: 'local',
-      digest: m.digest || null,
-      details: m.details || null,
+      digest: normalized.digest,
+      digestSha256: normalized.digestSha256,
+      details: normalized.details,
+      capabilities: normalized.capabilities,
     });
   }
 

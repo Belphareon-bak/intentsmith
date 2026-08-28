@@ -484,6 +484,43 @@ test('exact digest plus contract is stored once and reused across aliases', () =
   db.close();
 });
 
+test('history reuse requires the exact suite version as well as the contract SHA', () => {
+  const db = evaluationDb();
+  const history = new ModelEvaluationHistory(db);
+  history.recordComplete({
+    artifact: { modelName: 'demo:latest', digestSha256: DIGEST_A },
+    role: 'CHAT', suiteName: 'chat_v2', suiteVersion: 'v1',
+    contractSha256: CONTRACT_A, summary: summaryRow(),
+  });
+  assertEqual(history.getComplete({
+    digestSha256: DIGEST_A, role: 'CHAT', suiteName: 'chat_v2',
+    suiteVersion: 'v1', contractSha256: CONTRACT_A,
+  }).status, 'COMPLETE');
+  assertEqual(history.getComplete({
+    digestSha256: DIGEST_A, role: 'CHAT', suiteName: 'chat_v2',
+    suiteVersion: 'foreign-v1', contractSha256: CONTRACT_A,
+  }), null);
+  db.close();
+});
+
+test('history persists the real supplied measurement interval', () => {
+  const db = evaluationDb();
+  const history = new ModelEvaluationHistory(db);
+  const row = history.recordComplete({
+    artifact: { modelName: 'demo:latest', digestSha256: DIGEST_A },
+    role: 'CHAT', suiteName: 'chat_v2', suiteVersion: 'v1',
+    contractSha256: CONTRACT_A, summary: summaryRow(),
+    durationMs: 152_678,
+    startedAt: '2026-08-28T12:00:00.000Z',
+    completedAt: '2026-08-28T12:02:32.678Z',
+  });
+  assertEqual(row.startedAt, '2026-08-28T12:00:00.000Z');
+  assertEqual(row.completedAt, '2026-08-28T12:02:32.678Z');
+  assertEqual(row.durationMs, 152_678);
+  assert(row.startedAt !== row.completedAt);
+  db.close();
+});
+
 test('new digest of the same tag and new suite contract create new history', () => {
   const db = evaluationDb();
   const history = new ModelEvaluationHistory(db);
@@ -505,13 +542,13 @@ test('terminal result suppresses only the same exact artifact and contract', () 
     status: 'FAILED', errorCode: 'FLOOR', errorMessage: 'invalid JSON',
   });
   assertEqual(history.getTerminal({
-    digestSha256: DIGEST_A, role: 'CHAT', suiteName: 'chat_v2', contractSha256: CONTRACT_A,
+    digestSha256: DIGEST_A, role: 'CHAT', suiteName: 'chat_v2', suiteVersion: 'v1', contractSha256: CONTRACT_A,
   }).status, 'FAILED');
   assertEqual(history.getTerminal({
-    digestSha256: DIGEST_B, role: 'CHAT', suiteName: 'chat_v2', contractSha256: CONTRACT_A,
+    digestSha256: DIGEST_B, role: 'CHAT', suiteName: 'chat_v2', suiteVersion: 'v1', contractSha256: CONTRACT_A,
   }), null);
   assertEqual(history.getTerminal({
-    digestSha256: DIGEST_A, role: 'CHAT', suiteName: 'chat_v2', contractSha256: CONTRACT_B,
+    digestSha256: DIGEST_A, role: 'CHAT', suiteName: 'chat_v2', suiteVersion: 'v1', contractSha256: CONTRACT_B,
   }), null);
   db.close();
 });
@@ -529,7 +566,7 @@ test('transient model-load contention stays in history but remains retryable', (
   });
   assertEqual(history.count(), 1);
   assertEqual(history.getTerminal({
-    digestSha256: DIGEST_A, role: 'CHAT', suiteName: 'chat_v2', contractSha256: CONTRACT_A,
+    digestSha256: DIGEST_A, role: 'CHAT', suiteName: 'chat_v2', suiteVersion: 'v1', contractSha256: CONTRACT_A,
     hardware: { model: 'RTX 3090', vramMb: 24576 },
   }), null);
   db.close();
@@ -547,7 +584,7 @@ test('measured CPU spill is reused across suite changes only on identical hardwa
     hardware: { model: 'RTX 3090', vramMb: 24576, numCtx: 32768 },
     metadata: { numCtx: 32768 },
   });
-  const plans = { CHAT: { suiteName: 'chat_v3', suiteContractSha256: CONTRACT_B } };
+  const plans = { CHAT: { suiteName: 'chat_v3', suiteVersion: 'v1', suiteContractSha256: CONTRACT_B } };
   const common = {
     candidates: [{ name: 'qwen2.5:32b', digest: DIGEST_A, params: 32, category: 'general', sizeGB: 19 }],
     roles: ['CHAT'], bindings: { CHAT: 'qwen3.5:27b' }, plans, history,
@@ -640,7 +677,7 @@ test('installed queue marks exact current-contract model as scored', () => {
   const queue = buildInstalledCandidateQueue({
     candidates: [{ name: 'qwen2.5:32b', digest: DIGEST_A, params: 32, category: 'general', sizeGB: 19 }],
     roles: ['CHAT'], bindings: { CHAT: 'qwen3.5:27b' },
-    plans: { CHAT: { suiteName: 'chat_v2', suiteContractSha256: CONTRACT_A } }, history,
+    plans: { CHAT: { suiteName: 'chat_v2', suiteVersion: 'v1', suiteContractSha256: CONTRACT_A } }, history,
   });
   assertEqual(queue.length, 1);
   assertEqual(queue[0].evaluationState.state, 'scored');
@@ -660,14 +697,14 @@ test('installed queue omits exact artifacts already rejected by the same contrac
   const queue = buildInstalledCandidateQueue({
     candidates: [{ name: 'qwen2.5:32b', digest: DIGEST_A, params: 32, category: 'general', sizeGB: 19 }],
     roles: ['CHAT'], bindings: { CHAT: 'qwen3.5:27b' },
-    plans: { CHAT: { suiteName: 'chat_v2', suiteContractSha256: CONTRACT_A } }, history,
+    plans: { CHAT: { suiteName: 'chat_v2', suiteVersion: 'v1', suiteContractSha256: CONTRACT_A } }, history,
     hardware: { model: 'RTX 3090', vramMb: 24576 },
   });
   assertEqual(queue.length, 0);
   const largerGpuQueue = buildInstalledCandidateQueue({
     candidates: [{ name: 'qwen2.5:32b', digest: DIGEST_A, params: 32, category: 'general', sizeGB: 19 }],
     roles: ['CHAT'], bindings: { CHAT: 'qwen3.5:27b' },
-    plans: { CHAT: { suiteName: 'chat_v2', suiteContractSha256: CONTRACT_A } }, history,
+    plans: { CHAT: { suiteName: 'chat_v2', suiteVersion: 'v1', suiteContractSha256: CONTRACT_A } }, history,
     hardware: { model: 'RTX 5090', vramMb: 32768 },
   });
   assertEqual(largerGpuQueue.length, 1);

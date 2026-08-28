@@ -602,6 +602,7 @@ for (const name of new Set(readyRoles.map(role => bindings[role]).filter(Boolean
     digestSha256: artifact.digestSha256,
     role: matchingRole,
     suiteName: plan.suiteName,
+    suiteVersion: plan.suiteVersion,
     contractSha256: plan.suiteContractSha256,
   }) : null;
   const m = prior?.tokensPerSecond != null
@@ -642,6 +643,7 @@ log(`\n══ ZKOUŠKA KANDIDÁTŮ (${toTry.length}) ══`);
 const results = [];
 for (const cand of toTry) {
   log(`\n─── ${cand.name}  (role: ${cand.roles.join(', ')}) ───`);
+  const candidateStartedAt = new Date().toISOString();
   const r = await tryCandidate(cand.name, {
     runner: evaluationRunner,
     skipPull: cand.installed === true,
@@ -691,6 +693,7 @@ for (const cand of toTry) {
       }
     },
   });
+  const candidateCompletedAt = new Date().toISOString();
   results.push(r);
 
   if (r.error) {
@@ -728,6 +731,9 @@ for (const cand of toTry) {
           ? (measuredCpuSpill ? 'CANDIDATE_VRAM_FIT_FAILED' : 'CANDIDATE_MEASURE_RETRYABLE')
           : (r.errorCode || `CANDIDATE_${String(r.stage || 'unknown').toUpperCase()}_FAILED`),
         errorMessage: r.error,
+        durationMs: Date.parse(candidateCompletedAt) - Date.parse(candidateStartedAt),
+        startedAt: candidateStartedAt,
+        completedAt: candidateCompletedAt,
       });
     }
     log(`  ✗ ${r.error}${r.removed ? ' → smazán' : ''}`);

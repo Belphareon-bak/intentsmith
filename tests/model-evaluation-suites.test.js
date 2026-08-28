@@ -18,9 +18,11 @@ import {
 import {
   MINIMUM_ROLE_DISCRIMINATION,
   MINIMUM_ROLE_TASK_COUNTS,
+  MODEL_EVALUATION_APPLICABILITY_VERSION,
   createRoleEvaluationPlans,
 } from '../src/eval/role-evaluation-plan.js';
 import { generateSyntheticPng, getSyntheticTestImages } from '../src/eval/synthetic-images.js';
+import { MODEL_PROFILES } from '../src/upgrade/model-profiles.js';
 
 const plans = createRoleEvaluationPlans({ repeats: 1 });
 const DIGEST_A = 'a'.repeat(64);
@@ -35,6 +37,12 @@ test('all seven roles have one explicit versioned contract', () => {
     assert(plan.suite && plan.suite.name === plan.suiteName, `${role} suite mismatch`);
     assert(plan.suiteVersion.length > 0, `${role} missing suite version`);
     assert(/^[a-f0-9]{64}$/.test(plan.suiteContractSha256), `${role} missing contract SHA`);
+    assertEqual(
+      plan.applicabilityContract.version,
+      MODEL_EVALUATION_APPLICABILITY_VERSION,
+    );
+    assertEqual(plan.applicabilityContract.role, role);
+    assertEqual(plan.applicabilityContract.scope, 'all-technically-compatible-installed-artifacts');
     assertEqual(plan.taskCount, plan.suite.tests.length);
   }
 });
@@ -43,6 +51,18 @@ test('shared reasoning roles use the same exact contract', () => {
   assert(plans.D1.suite === plans.D2.suite && plans.D2.suite === plans.R1.suite);
   assertEqual(plans.D1.suiteContractSha256, plans.D2.suiteContractSha256);
   assertEqual(plans.D2.suiteContractSha256, plans.R1.suiteContractSha256);
+});
+
+test('discovery presentation cannot drift from versioned technical applicability', () => {
+  for (const [role, plan] of Object.entries(plans)) {
+    const requirements = MODEL_PROFILES[role].requirements;
+    const contract = plan.applicabilityContract;
+    assertEqual(requirements.minParams, contract.minimumParametersBillions);
+    assertEqual(requirements.maxParams, contract.maximumParametersBillions);
+    const profileNeedsVision = requirements.capabilities.includes('vision')
+      || requirements.capabilities.includes('image-understanding');
+    assertEqual(profileNeedsVision, contract.requiredModalities.includes('vision'));
+  }
 });
 
 test('suite definitions have unique tasks, prompts, graders and public rubrics', () => {

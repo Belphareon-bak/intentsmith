@@ -6,8 +6,12 @@ import {
   normalizeModelDigestSha256,
   sameModelName,
 } from './model-identity.js';
-import { checkRoleCandidateApplicability } from './candidate-eligibility.js';
+import {
+  applicabilityContractForRole,
+  checkModelEvaluationApplicability,
+} from '../eval/role-evaluation-plan.js';
 import { parseModelNameExtended } from './model-family-extensions.js';
+import { normalizeInstalledModel } from './model-inventory.js';
 
 export const DEFAULT_RESPONSIBILITY_POLICY = Object.freeze({
   // The operator-approved product rule is "no model may own a majority of
@@ -192,6 +196,7 @@ export function createHistoryCallbacks(options) {
         digestSha256: artifact.digestSha256,
         role: input.role,
         suiteName: input.suiteName,
+        suiteVersion: input.suiteVersion,
         contractSha256: input.suiteContractSha256,
       });
       if (!row) return null;
@@ -203,6 +208,8 @@ export function createHistoryCallbacks(options) {
         score: row.score,
         unstableTasks: row.tasks.filter(task => Number(task.spread) > 0).map(task => task.name),
         durationMs: row.durationMs,
+        startedAt: row.startedAt,
+        completedAt: row.completedAt,
         historyRunId: row.runId,
       };
     },
@@ -226,6 +233,8 @@ export function createHistoryCallbacks(options) {
         contractSha256: input.suiteContractSha256,
         summary: input.summary,
         durationMs: input.summary.durationMs,
+        startedAt: input.summary.startedAt,
+        completedAt: input.summary.completedAt,
         tokensPerSecond: measurement.throughput?.tokensPerSecond,
         vramBytes: measurement.placement?.vramBytes,
         hardware,
@@ -256,12 +265,14 @@ export function evaluationStateForArtifact(artifact, roles, plans, history, hard
       digestSha256: artifact.digestSha256,
       role,
       suiteName: plan.suiteName,
+      suiteVersion: plan.suiteVersion,
       contractSha256: plan.suiteContractSha256,
     });
     const terminal = complete ? null : history.getTerminal({
       digestSha256: artifact.digestSha256,
       role,
       suiteName: plan.suiteName,
+      suiteVersion: plan.suiteVersion,
       contractSha256: plan.suiteContractSha256,
       hardware,
     });
@@ -289,18 +300,19 @@ export function buildInstalledCandidateQueue(input = {}) {
   const byModel = new Map();
 
   for (const candidate of candidates) {
-    const artifact = artifactFromInventory(candidate.name, candidates);
+    const normalizedCandidate = normalizeInstalledModel(candidate);
+    const artifact = artifactFromInventory(normalizedCandidate.name, candidates);
     if (!artifact) continue;
-    const profile = parseModelNameExtended(candidate.name);
+    const profile = parseModelNameExtended(normalizedCandidate.name);
     const candidateRoles = [];
     for (const role of roles) {
-      if (sameModelName(candidate.name, bindings[role])) continue;
-      const applicability = checkRoleCandidateApplicability({
-        name: candidate.name,
-        params: candidate.params ?? profile.params,
-        category: candidate.category ?? profile.category,
-        capabilities: candidate.capabilities ?? null,
-      }, role);
+      if (sameModelName(normalizedCandidate.name, bindings[role])) continue;
+      const applicability = checkModelEvaluationApplicability({
+        name: normalizedCandidate.name,
+        params: normalizedCandidate.params ?? profile.params,
+        category: normalizedCandidate.category ?? profile.category,
+        capabilities: normalizedCandidate.capabilities,
+      }, plans?.[role]?.applicabilityContract || applicabilityContractForRole(role));
       if (!applicability.applicable) continue;
       candidateRoles.push(role);
     }
@@ -314,14 +326,14 @@ export function buildInstalledCandidateQueue(input = {}) {
     const runnableRoles = candidateRoles.filter(role => evalState.perRole[role] !== 'rejected');
     if (!runnableRoles.length) continue;
     const priority = candidateRoles.reduce((score, role) => {
-      const category = candidate.category ?? profile.category;
+      const category = normalizedCandidate.category ?? profile.category;
       if (role === 'CODE' && category === 'code') return score + 12;
       if (role === 'VISION' && category === 'vision') return score + 12;
       if ((role === 'D1' || role === 'R1') && category === 'reasoning') return score + 10;
       return score + 4;
-    }, 0) + (evalState.missing * 2) + Math.min(6, Number(candidate.params || 0) / 8);
+    }, 0) + (evalState.missing * 2) + Math.min(6, Number(normalizedCandidate.params || 0) / 8);
     byModel.set(artifact.canonicalName, {
-      ...candidate,
+      ...normalizedCandidate,
       artifact,
       roles: runnableRoles,
       evaluationState: evalState,

@@ -9,7 +9,7 @@
 
 import { config } from '../config.js';
 import { logger } from '../core/logger.js';
-import { parseModelName } from './model-profiles.js';
+import { normalizeInstalledInventory } from './model-inventory.js';
 import {
   canonicalModelName,
   canonicalModelNameSet,
@@ -283,21 +283,7 @@ export class ModelRegistry {
         }
         return [];
       }
-      return (data.models || []).map(m => {
-        const parsed = parseModelName(m.name);
-        return {
-          name: m.name,
-          size: m.size || 0,
-          sizeGB: (m.size / 1_073_741_824).toFixed(1),
-          modified_at: m.modified_at,
-          digest: m.digest,
-          digestSha256: normalizeModelDigestSha256(m.digest),
-          params: parsed.params ? parsed.params + 'B' : '?',
-          family: parsed.family,
-          category: parsed.category,
-          quantization: m.details?.quantization_level || parsed.quantization || '?',
-        };
-      });
+      return normalizeInstalledInventory(data.models);
     } catch (err) {
       if (err instanceof ModelRegistryError) throw err;
       logger.warn('ModelRegistry', `Ollama unavailable: ${err.message}`);
@@ -630,6 +616,7 @@ export class ModelRegistry {
         size: m.size,
         sizeGB: m.sizeGB,
         params: m.params,
+        paramsLabel: m.paramsLabel,
         family: m.family,
         category: m.category,
         quantization: m.quantization,

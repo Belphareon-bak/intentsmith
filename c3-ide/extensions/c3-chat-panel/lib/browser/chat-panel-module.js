@@ -2892,6 +2892,7 @@ function _loadModelOverview(){
     .then(function(d){_modelOverview=d;_modelOverviewLoading=false;
       _roleBindings=d.bindings||null;_evaluationData={schemaVersion:2,authority:d.evaluations&&d.evaluations.authority,
         bindingAuthority:d.evaluations&&d.evaluations.bindingAuthority,statusCounts:d.evaluations&&d.evaluations.statusCounts,
+        coverage:d.evaluations&&d.evaluations.coverage,
         decisions:d.evaluations&&d.evaluations.decisions,roles:d.evaluations&&d.evaluations.roles,bindings:d.bindings||{},
         models:(d.models||[]).map(function(m){return {name:m.name,canonicalName:m.canonicalName||m.name,digestSha256:m.digestSha256||null,evaluations:m.evaluations||{}};})};renderCenter();})
     .catch(function(){_modelOverviewLoading=false;renderCenter();});
@@ -3015,6 +3016,7 @@ function _renderEvaluationsTab(){
   if(_evaluationLoading&&!_evaluationData)return h('div',{style:{color:C.tx3,padding:20,textAlign:'center'}},'Načítám evaluace modelů...');
   if(!_evaluationData||_evaluationData.error)return h('div',{style:{color:'#ef4444',padding:20,textAlign:'center'}},'Chyba: '+(_evaluationData?_evaluationData.error:'žádná data'));
   var roles=_evaluationData.roles||{};var roleNames=Object.keys(roles);
+  var coverage=_evaluationData.coverage||{};var applicableCounts=coverage.applicableStatusCounts||{};
   var bindingAuthority=_evaluationData.bindingAuthority||{status:'UNVERIFIED_RUNTIME'};
   var bindingDurable=bindingAuthority.status==='DURABLE';
   var statusColor={COMPLETE:C.accent,FAILED:'#ef4444',BLOCKED:'#eab308',MISSING:C.tx4};
@@ -3022,7 +3024,10 @@ function _renderEvaluationsTab(){
   return h('div',null,
     h('div',{style:{fontSize:_fs(10),color:C.tx3,marginBottom:12,lineHeight:1.5}},
       'Autorita: model_evaluation_runs · pouze exact digest + current suite contract · bez legacy fallbacku. ',
-      'Čas testu je auditní údaj; neexistuje skrytá 14denní platnost ani mezi-role průměr.'),
+      'Čas testu je auditní údaj; neexistuje skrytá 14denní platnost ani mezi-role průměr. ',
+      'Technicky kompatibilní coverage: '+(coverage.applicableTotal==null?'?':coverage.applicableTotal)+
+      ' · MISSING '+(applicableCounts.MISSING==null?'?':applicableCounts.MISSING)+
+      ' · N/A '+(coverage.notApplicable==null?'?':coverage.notApplicable)+'.'),
     h('div',{style:{fontSize:_fs(10),color:bindingDurable?C.accent:'#eab308',marginBottom:12,padding:'7px 9px',borderRadius:6,background:C.bg2,border:'1px solid '+C.border}},
       'Binding autorita: '+bindingAuthority.status+(bindingAuthority.reason?' · '+bindingAuthority.reason:'')+
       (bindingDurable?'':' · doporučení a aktivace z evaluace jsou neakční')),
@@ -3049,14 +3054,16 @@ function _renderEvaluationsTab(){
               h('th',{style:{textAlign:'left',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font}},'Testováno'),
               h('th',{style:{textAlign:'center',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font}},''))),
             h('tbody',null,artifacts.map(function(row){
-              var isCur=row.isCurrentBinding;var color=statusColor[row.status]||C.tx4;
+              var isCur=row.isCurrentBinding;var isApplicable=row.applicable!==false;
+              var displayStatus=isApplicable?row.status:'N/A';var color=isApplicable?(statusColor[row.status]||C.tx4):C.tx4;
               return h('tr',{key:row.model+row.digestSha256,style:{borderBottom:'1px solid '+C.border,background:isCur?'rgba(34,197,94,0.06)':'transparent'}},
                 h('td',{style:{padding:'4px 6px',color:isCur?C.accent:C.tx2,fontWeight:isCur?700:400}},row.model+(isCur?' *':'')),
                 h('td',{style:{padding:'4px 6px',color:C.tx4},title:row.digestSha256||'digest chybí'},row.digestSha256?row.digestSha256.slice(0,12):'\u2014'),
-                h('td',{style:{padding:'4px 6px',color:color,fontWeight:600}},row.status),
-                h('td',{style:{padding:'4px 6px',textAlign:'right',color:row.status==='COMPLETE'?C.tx1:C.tx4,fontWeight:600}},row.score!=null?Math.round(row.score*100)+'%':'\u2014'),
+                h('td',{style:{padding:'4px 6px',color:color,fontWeight:600},title:isApplicable?'':(row.applicabilityReason||row.applicabilityReasonCode||'technicky nekompatibilní')},displayStatus),
+                h('td',{style:{padding:'4px 6px',textAlign:'right',color:isApplicable&&row.status==='COMPLETE'?C.tx1:C.tx4,fontWeight:600}},isApplicable&&row.score!=null?Math.round(row.score*100)+'%':'\u2014'),
                 h('td',{style:{padding:'4px 6px',color:C.tx3}},tested(row.testedAt)),
                 h('td',{style:{padding:'4px 6px',textAlign:'center'}},
+                  !isApplicable?h('span',{style:{fontSize:_fs(8),color:C.tx4},title:row.applicabilityReason||row.applicabilityReasonCode},'mimo scope'):
                   isCur?h('span',{style:{fontSize:_fs(8),color:C.accent,fontWeight:600}},'\u2713'):
                   _assigningRole===role?h('span',{style:{fontSize:_fs(8),color:'#3b82f6'}},'...'):
                   h('button',{style:{background:'none',border:'1px solid rgba(59,130,246,0.3)',borderRadius:4,padding:'1px 8px',
@@ -3142,7 +3149,7 @@ function _renderOverviewTab(){
         return h('tr',{key:m.name,style:{borderBottom:'1px solid '+C.border}},
           h('td',{style:{padding:'6px 8px',color:C.tx1,fontFamily:C.mono,maxWidth:200,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},
             m.name,
-            h('div',{style:{fontSize:_fs(9),color:C.tx4}},m.params)),
+            h('div',{style:{fontSize:_fs(9),color:C.tx4}},m.paramsLabel||(m.params!=null?m.params+'B':'?'))),
           h('td',{style:{padding:'6px 8px',textAlign:'right',color:C.tx4,fontSize:_fs(9)}},m.quantization||'?'),
           h('td',{style:{padding:'6px 8px',textAlign:'right',color:C.tx2}},m.sizeGB+' GB'),
           h('td',{style:{padding:'6px 8px',textAlign:'right'}},

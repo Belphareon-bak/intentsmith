@@ -90,6 +90,13 @@ await testAsync('persistovaný běh předá runneru přesnou identitu artefaktu'
   assertEqual(runner.calls[1].artifact.digestSha256, 'b'.repeat(64));
   assertEqual(saved[0].artifact.digestSha256, 'a'.repeat(64));
   assertEqual(saved[1].artifact.digestSha256, 'b'.repeat(64));
+  for (const entry of saved) {
+    const started = Date.parse(entry.summary.startedAt);
+    const completed = Date.parse(entry.summary.completedAt);
+    assert(Number.isFinite(started) && Number.isFinite(completed));
+    assert(completed >= started, 'measurement completion must not precede its start');
+    assertEqual(entry.summary.durationMs, completed - started);
+  }
 });
 
 await testAsync('shodná skóre = žádná rozlišující úloha', async () => {

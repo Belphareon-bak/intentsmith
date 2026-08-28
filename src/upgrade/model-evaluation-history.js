@@ -56,6 +56,26 @@ function parseJson(value, fallback) {
   try { return JSON.parse(value); } catch { return fallback; }
 }
 
+function evaluationInterval(input = {}, durationMs = 0) {
+  const boundedDurationMs = Math.max(0, Math.round(Number(durationMs) || 0));
+  const completedValue = input.completedAt || new Date().toISOString();
+  const completedMs = Date.parse(completedValue);
+  if (!Number.isFinite(completedMs)) throw new TypeError('completedAt must be a valid timestamp');
+  const startedValue = input.startedAt
+    || new Date(completedMs - boundedDurationMs).toISOString();
+  const startedMs = Date.parse(startedValue);
+  if (!Number.isFinite(startedMs)) throw new TypeError('startedAt must be a valid timestamp');
+  if (startedMs > completedMs) throw new TypeError('startedAt must not follow completedAt');
+  const measuredDurationMs = completedMs - startedMs;
+  return Object.freeze({
+    startedAt: new Date(startedMs).toISOString(),
+    completedAt: new Date(completedMs).toISOString(),
+    durationMs: input.startedAt && input.completedAt
+      ? measuredDurationMs
+      : (boundedDurationMs || measuredDurationMs),
+  });
+}
+
 // Loading can fail because another evaluator acquired VRAM between drain and
 // placement inspection. Keep that attempt as evidence, but never turn a
 // transient resource race into a permanent rejection of the exact artifact.
@@ -152,17 +172,19 @@ export class ModelEvaluationHistory {
     const digestSha256 = normalizeModelDigestSha256(input?.digestSha256);
     const role = requireModelEvaluationRole(input?.role);
     const suiteName = requireText(input?.suiteName, 'suiteName', 128);
+    const suiteVersion = requireText(input?.suiteVersion, 'suiteVersion', 128);
     const contractSha256 = normalizeModelDigestSha256(input?.contractSha256);
     if (!digestSha256 || !contractSha256) return null;
     const row = this._db.prepare(`
       SELECT * FROM model_evaluation_runs
       WHERE model_digest_sha256 = ?
         AND suite_name = ?
+        AND suite_version = ?
         AND suite_contract_sha256 = ?
         AND role = ?
         AND status = 'COMPLETE'
       LIMIT 1
-    `).get(digestSha256, suiteName, contractSha256, role);
+    `).get(digestSha256, suiteName, suiteVersion, contractSha256, role);
     return row ? this.#decode(row) : null;
   }
 
@@ -204,6 +226,7 @@ export class ModelEvaluationHistory {
     const digestSha256 = normalizeModelDigestSha256(input?.digestSha256);
     const role = requireModelEvaluationRole(input?.role);
     const suiteName = requireText(input?.suiteName, 'suiteName', 128);
+    const suiteVersion = requireText(input?.suiteVersion, 'suiteVersion', 128);
     const contractSha256 = normalizeModelDigestSha256(input?.contractSha256);
     // A name-only failure is retained as evidence, but cannot safely suppress a
     // later test: a mutable Ollama tag may then point at a different artifact.
@@ -212,11 +235,12 @@ export class ModelEvaluationHistory {
       SELECT * FROM model_evaluation_runs
       WHERE model_digest_sha256 = ?
         AND suite_name = ?
+        AND suite_version = ?
         AND suite_contract_sha256 = ?
         AND role = ?
         AND status IN ('FAILED', 'BLOCKED')
       ORDER BY completed_at DESC, run_id DESC
-    `).all(digestSha256, suiteName, contractSha256, role);
+    `).all(digestSha256, suiteName, suiteVersion, contractSha256, role);
     for (const row of rows) {
       const decoded = this.#decode(row);
       if (RETRYABLE_TERMINAL_CODES.has(decoded.errorCode)) continue;
@@ -246,7 +270,9 @@ export class ModelEvaluationHistory {
       throw new TypeError('complete evaluation requires exact model and suite SHA-256 identities');
     }
 
-    const existing = this.getComplete({ digestSha256, role, suiteName, contractSha256 });
+    const existing = this.getComplete({
+      digestSha256, role, suiteName, suiteVersion, contractSha256,
+    });
     if (existing) return Object.freeze({ ...existing, reused: true });
 
     const summary = input.summary || {};
@@ -255,8 +281,10 @@ export class ModelEvaluationHistory {
       throw new TypeError('complete evaluation score must be between 0 and 1');
     }
     const tasks = Array.isArray(summary.tasks) ? summary.tasks : [];
-    const startedAt = input.startedAt || new Date().toISOString();
-    const completedAt = input.completedAt || new Date().toISOString();
+    const interval = evaluationInterval(
+      input,
+      input.durationMs ?? summary.durationMs ?? 0,
+    );
     const runId = input.runId || `eval_${randomUUID()}`;
 
     try {
@@ -281,23 +309,27 @@ export class ModelEvaluationHistory {
         tasks.filter(task => Number(task.mean) >= 0.6).length,
         tasks.length,
         Number.isSafeInteger(summary.runs) && summary.runs > 0 ? summary.runs : 1,
-        Math.max(0, Math.round(Number(input.durationMs ?? summary.durationMs ?? 0) || 0)),
+        interval.durationMs,
         Number.isFinite(input.tokensPerSecond) ? input.tokensPerSecond : null,
         Number.isSafeInteger(input.vramBytes) && input.vramBytes >= 0 ? input.vramBytes : null,
         json(tasks, []),
         json(input.hardware, {}),
         json(input.metadata, {}),
-        startedAt,
-        completedAt,
+        interval.startedAt,
+        interval.completedAt,
       );
     } catch (error) {
       if (error?.code === 'SQLITE_CONSTRAINT_UNIQUE') {
-        const raced = this.getComplete({ digestSha256, role, suiteName, contractSha256 });
+        const raced = this.getComplete({
+          digestSha256, role, suiteName, suiteVersion, contractSha256,
+        });
         if (raced) return Object.freeze({ ...raced, reused: true });
       }
       throw error;
     }
-    return this.getComplete({ digestSha256, role, suiteName, contractSha256 });
+    return this.getComplete({
+      digestSha256, role, suiteName, suiteVersion, contractSha256,
+    });
   }
 
   recordTerminal(input) {
@@ -314,22 +346,23 @@ export class ModelEvaluationHistory {
     const contractSha256 = normalizeModelDigestSha256(input?.contractSha256);
     const role = requireModelEvaluationRole(input?.role);
     if (!canonicalName || !contractSha256) throw new TypeError('invalid terminal evaluation identity');
-    const now = new Date().toISOString();
+    const interval = evaluationInterval(input, input.durationMs ?? 0);
     const runId = input.runId || `eval_${randomUUID()}`;
     this._db.prepare(`
       INSERT INTO model_evaluation_runs (
         run_id, model_name, model_canonical_name, model_digest_sha256,
         suite_name, suite_version, suite_contract_sha256, role, status,
-        repeats, task_results_json, hardware_json, metadata_json,
+        repeats, duration_ms, task_results_json, hardware_json, metadata_json,
         error_code, error_message, started_at, completed_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       runId, modelName, canonicalName, digestSha256,
       suiteName, suiteVersion, contractSha256, role, status,
       Number.isSafeInteger(input.repeats) && input.repeats > 0 ? input.repeats : 1,
+      interval.durationMs,
       json(input.tasks, []), json(input.hardware, {}), json(input.metadata, {}),
       input.errorCode || null, input.errorMessage || null,
-      input.startedAt || now, input.completedAt || now,
+      interval.startedAt, interval.completedAt,
     );
     return this.#decode(
       this._db.prepare('SELECT * FROM model_evaluation_runs WHERE run_id = ?').get(runId),

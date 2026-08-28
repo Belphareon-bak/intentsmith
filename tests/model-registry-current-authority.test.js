@@ -135,6 +135,33 @@ test('only bare and implicit latest aliases share an identity', () => {
   assertEqual(JSON.stringify([...canonicalModelNameSet(['fixture', 'FIXTURE:latest'])]), JSON.stringify(['fixture']));
 });
 
+await testAsync('API inventory uses the shared extended parser and numeric parameters', async () => {
+  const db = createTestDb();
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      models: [{
+        name: 'qwen3-coder:latest',
+        digest: `sha256:${DIGEST_A}`,
+        size: GiB,
+        modified_at: '2026-08-28T12:00:00.000Z',
+        details: { parameter_size: '30B', quantization_level: 'Q4_K_M' },
+      }],
+    }),
+  });
+  try {
+    const installed = await createRegistry(db).getInstalled({ strict: true });
+    assertEqual(installed.length, 1);
+    assertEqual(installed[0].family, 'qwen-coder');
+    assertEqual(installed[0].category, 'code');
+    assertEqual(installed[0].params, 30);
+    assertEqual(installed[0].paramsLabel, '30B');
+  } finally {
+    globalThis.fetch = originalFetch;
+    db.close();
+  }
+});
+
 test('artifact digests are exact normalized sha256 values', () => {
   assertEqual(normalizeModelDigestSha256(DIGEST_A), DIGEST_A);
   assertEqual(normalizeModelDigestSha256(`SHA256:${DIGEST_A.toUpperCase()}`), DIGEST_A);
@@ -326,7 +353,7 @@ await testAsync('overview fails closed without the evaluation read authority', a
   } finally { db.close(); }
 });
 
-await testAsync('overview does not count out-of-category MISSING rows as incomplete', async () => {
+await testAsync('overview does not count technically incompatible MISSING rows as incomplete', async () => {
   const db = createTestDb();
   try {
     for (const role of Object.keys(config.models)) config.models[role] = `safe-${role.toLowerCase()}`;

@@ -11,6 +11,13 @@ import {
 } from './role-quality-suites.js';
 import { suiteContract } from '../upgrade/model-evaluation-history.js';
 import { DEFAULT_REPEATS } from '../upgrade/pairwise-trial.js';
+import { applicabilityContractForRole } from './model-evaluation-applicability.js';
+
+export {
+  MODEL_EVALUATION_APPLICABILITY_VERSION,
+  applicabilityContractForRole,
+  checkModelEvaluationApplicability,
+} from './model-evaluation-applicability.js';
 
 const CODE_FIXTURE_URL = new URL('./code-suite-tasks.json', import.meta.url);
 
@@ -81,6 +88,7 @@ export function createRoleEvaluationPlans(opts = {}) {
       suite,
       suiteVersion,
       suiteContractSha256: contract.sha256,
+      applicabilityContract: applicabilityContractForRole(role),
       repeats,
       taskCount: suite.tests.length,
       minimumTaskCount,
