@@ -2,8 +2,8 @@
 
 **Stav:** současný kontrakt v136.1 · **Aktualizováno:** 2026-08-28
 **Implementace:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Přijetí:**
-remediační base prošel nezávislým rereview; live scoring a coverage overlay
-čekají na nové nezávislé rereview
+coverage je implementačně kompletní; finální gate evidence a nové nezávislé
+rereview jsou stále povinné
 
 Název souboru zůstává kvůli existujícím odkazům. IntentSmith už ale nemá
 samostatný „scoring“ runtime. Existuje jedna autoritativní cesta pro modelové
@@ -12,11 +12,13 @@ evaluace a oddělená, ručně autorizovaná cesta pro změnu bindingu.
 ## Jedna autoritativní cesta
 
 1. `src/eval/role-evaluation-plan.js` mapuje všech sedm rolí na versioned suite,
-   contract SHA, počet opakování a fail-closed minima.
+   contract SHA, počet opakování, fail-closed minima a explicitní versioned
+   technický applicability kontrakt.
 2. `scripts/model-upgrade-hunt.js` spouští role-specific párové měření na
    přesných Ollama artefaktech. Měření je sériové a předpokládá volný GPU slot.
 3. `model_evaluation_runs` je append-only historie. Aktuální je pouze řádek se
-   shodným digestem artefaktu, rolí a dnešním suite contract SHA.
+   shodným digestem artefaktu, rolí, suite name, suite version a dnešním suite
+   contract SHA.
 4. `model_evaluation_decisions` je append-only rozhodnutí odkazující na oba
    přesné COMPLETE runy a na použitou politiku.
 5. `ModelEvaluationReadModel` je jediný reader pro API, CLI, Studio, governor a
@@ -72,10 +74,12 @@ existuje COMPLETE běh. Timestamp se zobrazuje; neexistuje 14denní TTL, které 
 staré či name-only skóre automaticky prohlásilo za současné.
 
 Status a applicability jsou dvě různé osy. `MISSING` se nepřepisuje na umělý
-výsledek, ale read model používá stejnou role/category policy jako installed
-scoring queue a uvádí `applicable`, reason code a coverage. Aktuální lokální
-panel má 40 COMPLETE, 17 BLOCKED a 34 raw MISSING; všech 34 raw MISSING je
-`NOT_APPLICABLE`, takže mezi 57 použitelnými páry je `applicable MISSING=0`.
+výsledek. Read model i scoring queue používají
+`technical-role-compatibility-v1`: všechny technicky kompatibilní páry se
+měří, zatímco `preferredCategories` pouze řadí discovery kandidáty. Aktuální
+lokální panel má 55 COMPLETE, 24 BLOCKED a 12 raw MISSING; všech 12 raw
+MISSING je `NOT_APPLICABLE`, takže mezi 79 technicky kompatibilními páry je
+`applicable MISSING=0`.
 Přesná data a timestampy jsou v
 [`model-scoring-live-20260828.md`](execution/runs/model-scoring-live-20260828.md).
 
@@ -119,6 +123,10 @@ nim při upgradu nespadne.
 - Hunt spouštěj jen s prázdným `ollama ps`, bez cizího NVIDIA compute procesu,
   s dostatečnou VRAM a 40 GiB rezervou po pullu. CPU/RAM offload je zakázaný;
   artefakt, který se celý nevejde do VRAM, končí `BLOCKED` bez score.
+- Exact-digest placement block je artifact-wide, ale lze jej převzít pouze na
+  shodném GPU a shodném context window. Installed panel jej materializuje pro
+  chybějící current role bez dalšího modelového loadu; jiný hardware nebo
+  kontext vyžaduje nové měření.
 - `FAILED`, `BLOCKED`, `MISSING`, nerozhodný výsledek ani implementační green
   nejsou PASS.
 - Rychlost zůstává provozní metrika. Při nedostatečném kvalitativním důkazu

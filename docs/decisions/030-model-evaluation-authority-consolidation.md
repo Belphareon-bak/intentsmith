@@ -1,6 +1,6 @@
 # 030 — Jedna current-contract autorita modelových evaluací
 
-**Stav:** `CHANGES_REQUESTED` po navazujícím review · **Datum:** 2026-08-26
+**Stav:** `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED` · **Datum:** 2026-08-28
 **WP:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Migrace:** 082, 096, 097, 099
 
 ## Kontext
@@ -48,6 +48,15 @@ odstranit; C3 repo zůstává případnou historickou referencí.
 13. Nový autoritativní scoring běh musí předat očekávaný exact artefakt runneru
     a každá provider response jej musí přímo attestovat digestem. Chybějící či
     jiný digest je terminální chyba, nikdy `COMPLETE` score.
+14. Applicability měření má vlastní verzovaný kontrakt a znamená technickou
+    kompatibilitu. Discovery `preferredCategories` jsou pouze ranking prior a
+    nesmějí vytvářet `NOT_APPLICABLE`.
+15. Current a reuse identity zahrnuje současně `suite_name`, `suite_version` a
+    `suite_contract_sha256`; žádná z těchto částí není volitelná.
+16. `started_at` a `completed_at` jsou skutečné hranice modelového běhu.
+    Artifact-wide VRAM spill lze bez nového modelového loadu převzít jen pro
+    exact digest, shodné GPU a shodný context window a musí odkazovat na
+    původní placement run.
 
 ## Důsledky
 
@@ -65,4 +74,8 @@ odstranit; C3 repo zůstává případnou historickou referencí.
 - implementační green znamenal nejvýše `REVIEW_PENDING`; candidate `d8a2a108`
   přešel na `ACCEPTED` po nezávislém rereview a reprodukci `227/227` v runu
   `2026-08-25T17-15-48-322Z`; navazující review později našlo blokující
-  migrační kolize, takže současný stav je znovu `CHANGES_REQUESTED`.
+  migrační kolize. Následná coverage revize rovněž našla parser drift,
+  preference vydávané za nepoužitelnost, neúplnou suite identity, falešné
+  start timestampy a neuzavřenou evidenci. Tyto nálezy jsou implementačně
+  opravené, ale současný candidate zůstává `REREVIEW_REQUIRED`, nikoli
+  `ACCEPTED`.

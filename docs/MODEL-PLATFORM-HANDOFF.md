@@ -1,6 +1,6 @@
 # Modelová platforma — aktuální handoff
 
-**Datum:** 2026-08-28 · **Stav:** `REVIEW_PASSED / PROVIDER_CAPABILITY_BLOCKED`
+**Datum:** 2026-08-28 · **Stav:** `SCORING_COVERAGE_COMPLETE / REREVIEW_REQUIRED / PROVIDER_CAPABILITY_BLOCKED`
 **Autoritativní popis:** [MODEL-SCORING-ACTIVATION.md](MODEL-SCORING-ACTIVATION.md)
 **Evidence:** [finální remediační handoff](execution/runs/model-evaluation-final-integration-20260826.md)
 
@@ -33,13 +33,18 @@
 - CLI i Studio zobrazují všechna current-contract rozhodnutí role, včetně
   neakční CODE výhry qwen3.8;
 - current discovery JSON je uchovaný content-addressed v run evidence.
+- API, CLI, Studio a scoring queue používají jeden extended inventory
+  normalizátor a jeden versioned technical applicability contract;
+  `preferredCategories` zůstává pouze ranking prior;
+- current/reuse lookup zahrnuje suite name, suite version i contract SHA a
+  nové GPU runy ukládají skutečný start a konec.
 
 ## Acceptance hranice a zbývající omezení
 
-- Remediace nespouštěla nový ostrý panel. Role-strict read-only snapshot pro 13
-  installed artefaktů má 28 `COMPLETE`, 11 `BLOCKED` a 52 `MISSING`
-  artifact/role buněk pod současnými contracty. Scoring panel tedy není úplný;
-  starší contracty ani run jiné role se automaticky nepovyšují.
+- Aktuální panel 13 installed artefaktů má mezi 79 technicky kompatibilními
+  dvojicemi 55 `COMPLETE`, 24 `BLOCKED`, 0 `FAILED` a 0 applicable `MISSING`.
+  Dalších 12 raw `MISSING` je explicitní N/A. Starší contracty ani run jiné
+  role se automaticky nepovyšují.
 - Dřívější nezávislý rereview nad candidatem `d8a2a108` skončil `PASS`, ale
   pozdější review rozsahu `e8c1ba85..96c762db` našlo číselné kolize migrací a
   review rozsahu `96c762db..4169c59d` a `c5aa379a..74beafea` následně prokázala
@@ -50,7 +55,9 @@
   `0bd38b7d` přenesl stejnou exact-response atestaci i do ukládaného scoringu a
   product/test head `79328185` prošel novým čistým 279/279 gate. Kandidát čeká
   nezávislým Opus max rereview rozsahu `74beafea..26ab3291` s verdictem
-  `REVIEW_PASSED`; provider capability popsaná níže zůstává blokovaná.
+  `REVIEW_PASSED`; pozdější coverage review ale vrátilo `CHANGES_REQUIRED`.
+  Aktuální remediace a finální gate evidence proto vyžadují vlastní nové
+  nezávislé rereview; provider capability popsaná níže zůstává blokovaná.
 - Automatický failover/proof issuance není jen vypnutý: veřejné auto-claim,
   proof selection, terminal, expiry/finalization a restart writery jsou
   odstraněné. Aktivace je ruční přes exact binding application.
@@ -64,8 +71,10 @@
   nejsou hotovou vlastností tohoto kandidáta.
 - Předchozí candidate na `31234a6b` dostal `CHANGES_REQUESTED`; jeho 227 PASS
   evidence není přijetí ani evidence této opravené revize.
-- Starší cross-branch sloty jsou atomicky adoptované nebo fail-closed odmítnuté;
-  skutečná pre-082 fixture i plná záloha nyní projdou standardním runnerem.
+- Starší cross-branch sloty jsou atomicky adoptované nebo fail-closed odmítnuté.
+  Historická pre-migration záloha se SHA `e22d580f…` nebyla dohledána a její
+  existence není prokazována. Před poslední živou mutací vznikla nová
+  byte-identická záloha současné DB se SHA `b524145d…` a `quick_check=ok`.
 - Lokální starý dokument `docs/MODEL-SCORING-RESULTS-20260824.md` zůstává jako
   cizí untracked soubor a není součástí kandidáta ani gate evidence.
 

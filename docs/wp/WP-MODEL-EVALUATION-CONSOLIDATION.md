@@ -11,7 +11,7 @@
 sjednotit scoring/evaluace a pokračovat přes všechny milníky až k jednomu
 review candidate.
 
-**Stav:** `SCORING_COMPLETE / SYSTEM_PROVIDER_BLOCKED / REREVIEW_REQUIRED`.
+**Stav:** `SCORING_COVERAGE_COMPLETE / SYSTEM_PROVIDER_BLOCKED / REREVIEW_REQUIRED`.
 Remediační rozsah `74beafea..26ab3291` prošel nezávislým Opus max
 `REVIEW_PASSED`; čistý gate `2026-08-27T20-32-24-822Z` prošel `279/279`.
 Navazující live DB migrace, izolovaný provider sidecar, GPU-only scoring a
@@ -166,8 +166,9 @@ tohoto WP.
 | M6 — registry, hygiene a module-boundary ratchet | PASS |
 | M7 — clean deterministic + server-owned read E2E handoff | PASS — `2026-08-27T20-32-24-822Z`, 279/279 na `79328185` |
 | M8 — provider response exact-artifact attestation | PATCH + PREFLIGHT PASS; SYSTEM OLLAMA CAPABILITY BLOCKED |
-| M9 — live DB 099 + installed GPU-only panel | PASS — 40 COMPLETE / 17 BLOCKED / 0 applicable MISSING |
-| M10 — role/category coverage disclosure | IMPLEMENTATION PASS / REREVIEW_REQUIRED |
+| M9 — live DB 099 + installed GPU-only panel | PASS — 55 COMPLETE / 24 BLOCKED / 0 applicable MISSING |
+| M10 — versioned technical coverage + unified inventory/parser | IMPLEMENTATION PASS / FINAL GATE + REREVIEW REQUIRED |
+| M11 — suite version, real intervals, DB rollback and bounded evidence | IMPLEMENTATION PASS / FINAL GATE + REREVIEW REQUIRED |
 
 První nezávislé review: `CHANGES_REQUESTED`. Remediační R0–R7 opravily všech
 devět nálezů: úplnou suite identity, upgrade okno 070→082, governor reader,
@@ -176,9 +177,15 @@ mrtvou speed větev a stabilní decision enum. Druhý nezávislý rereview nad
 `d8a2a108` skončil `PASS`; run `2026-08-25T17-15-48-322Z` reprodukoval
 `227/227`.
 
-Remediační candidate získal `REVIEW_PASSED`. Navazující ostrý panel nepovýšil
-staré contracty: všechny nové řádky jsou exact-artifact/current-contract a
-příliš velké modely skončily `BLOCKED` se `score=NULL`. Systémová Ollama
+Starší remediační candidate získal `REVIEW_PASSED`, ale navazující review
+coverage změn správně vrátilo `CHANGES_REQUIRED`. Aktuální oprava sjednotila
+API/CLI/Studio/queue na jednom inventory normalizátoru, přesunula tvrdou
+applicability do versioned technical contractu, doplnila `suite_version` do
+current/reuse lookupů a ukládá skutečné start/end intervaly. Ostrý panel
+nepovýšil staré contracty: všechny nové řádky jsou
+exact-artifact/current-contract a příliš velké modely skončily `BLOCKED` se
+`score=NULL`. Systémová Ollama
 0.32.14 response digest neposkytuje, takže durable runtime není plně funkční;
 scoring proběhl pouze přes izolovaný a preflightem ověřený sidecar. `ACCEPTED`
-pro nové M9/M10 změny může vzniknout až po novém nezávislém rereview.
+pro nové M9–M11 změny může vzniknout až po finálním gate a novém nezávislém
+rereview.

@@ -1,7 +1,7 @@
 # Model evaluation — remediační integrační handoff (2026-08-27)
 
 **Stav:** historický remediační handoff; aktuální stav je
-`SCORING_COMPLETE / SYSTEM_PROVIDER_BLOCKED / REREVIEW_REQUIRED`
+`SCORING_COVERAGE_COMPLETE / SYSTEM_PROVIDER_BLOCKED / REREVIEW_REQUIRED`
 
 **Poslední nezávisle zamítnutý head:** `40418aafb3feba0671b15c3214ada409f4c03ff5`
 
@@ -131,10 +131,11 @@ Poslední nezávislý gate 278/278
 patří zamítnutému `74beafea`; nelze jej vydávat za nezávislý důkaz tohoto
 kandidáta. Zbývající bránou je nové nezávislé rereview.
 
-## Strict-role scoring panel — aktualizace 2026-08-28
+## Strict-role scoring panel — historická první aktualizace 2026-08-28
 
-Původní panel 28/11/52 byl před live během správný historický snapshot. Po
-autorizovaném scoringu a live migraci ukazuje aktuální read model:
+Původní panel 28/11/52 byl před prvním live během správný historický snapshot.
+Následující tabulka zachovává stav prvního běhu před pozdější opravou
+applicability a parser driftu; není aktuální autoritou:
 
 | Role | COMPLETE | BLOCKED | raw MISSING | applicable MISSING | NOT APPLICABLE |
 |---|---:|---:|---:|---:|---:|
@@ -153,10 +154,11 @@ timestampy jsou od `2026-08-25T20:25:50.055Z` do
 11 quarantined historických decisions a žádné actionable. Standalone odečet
 je správně `UNVERIFIED_RUNTIME` pro všech sedm rolí.
 
-Scoring všech použitelných role/category párů je hotový:
-`applicable MISSING=0`. Raw MISSING zůstává viditelný jako absence runu, ale
-je explicitně oddělený od coverage a nepředstírá score pro nesmyslné dvojice,
-například textový model ve VISION.
+Tvrzení „všechny použitelné role/category páry“ bylo následným review
+zamítnuto: preference nejsou technická nepoužitelnost a API používalo jiný
+parser. Aktuální versioned technical scope, nové GPU výsledky a nula applicable
+MISSING jsou doložené pouze v
+[`model-scoring-live-20260828.md`](model-scoring-live-20260828.md).
 
 ## Bounded raw host/DB snapshot
 
@@ -223,19 +225,21 @@ tehdejší byte-identickou source DB se SHA-256 `e22d580f...`. Následující
 autorizovaná live migrace a scoring z 2026-08-28 jsou odděleně doložené novým
 snapshotem; starý hash se proto nesmí vydávat za aktuální.
 
-Timer se nezapnul. Sériový GPU-only běh uzavřel všech 57 použitelných buněk;
-čtyři příliš velké artefakty byly automaticky vyřazeny jako `BLOCKED` se
-`score=NULL`. Systémové nasazení response-attesting provider capability a nové
-nezávislé rereview coverage změny zůstávají otevřené.
+Timer se nezapnul. Tento historický běh uzavřel 57 tehdy deklarovaných buněk,
+ale tento scope byl později nahrazen 79 technicky kompatibilními dvojicemi.
+Aktuální panel má 55 COMPLETE, 24 BLOCKED a 0 applicable MISSING; čtyři příliš
+velké artefakty zůstávají `BLOCKED` se `score=NULL`. Systémové nasazení
+response-attesting provider capability a nové nezávislé rereview zůstávají
+otevřené.
 
 ## Review handoff
 
 Remediační rozsah `74beafea..26ab3291` už nezávislým Opus max rereview prošel.
-Nové rereview má začít na pre-scoring headu
-`b0f94196422d868179e58ac588e55fcfcd96589f` a pokrýt celý navazující candidate.
-Musí ověřit sdílenou applicability policy v queue/read modelu/overview, raw
-MISSING versus applicable MISSING, fail-closed oddělení auto-cleanupu,
-provider source commit a preflight, live DB snapshot, nulové automatické
-smazání/aktivace a exact current timestamps.
-Do tohoto PASS zůstává nový stav
-`SCORING_COMPLETE / SYSTEM_PROVIDER_BLOCKED / REREVIEW_REQUIRED`.
+Tento review handoff byl supersedovaný pozdějším `CHANGES_REQUIRED`. Nové
+rereview musí začít na review base uvedeném v aktuálním bounded evidence
+záznamu a pokrýt celý navazující candidate. Musí ověřit jednotný inventory
+normalizátor, versioned technical applicability, suite-version lookup,
+skutečné časové intervaly, hardware-block provenance, live DB snapshot,
+nulové automatické smazání/aktivace a exact current timestamps. Do tohoto PASS
+zůstává stav
+`SCORING_COVERAGE_COMPLETE / SYSTEM_PROVIDER_BLOCKED / REREVIEW_REQUIRED`.

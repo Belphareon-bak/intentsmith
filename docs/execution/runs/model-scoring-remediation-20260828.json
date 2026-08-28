@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "intentsmith-model-scoring-remediation-evidence-v1",
+  "status": "PENDING_FINAL_GATE",
+  "candidateRevision": null,
+  "scoringSourceRevision": "6ae5a3369838fb17f0040c9580a86614833ebf21",
+  "reviewState": "REREVIEW_REQUIRED",
+  "systemProviderState": "BLOCKED_RESPONSE_ARTIFACT_ATTESTATION_UNAVAILABLE",
+  "database": {
+    "preRemediationSha256": "b524145d053059426c06de42597785f68b6091593ea9f5db01c4f0eb6d8d765d",
+    "postScoringSha256": "a3eafab1a2061eb83e59720220891d8b41f7a5548a3b20ecd86b8df86827fa8a",
+    "quickCheck": "ok"
+  },
+  "verifiedBackup": {
+    "path": "/home/belphareon/.local/share/intentsmith-private/model-scoring-remediation-20260828T172616Z/backup/c3-pre-remediation.db",
+    "sha256": "b524145d053059426c06de42597785f68b6091593ea9f5db01c4f0eb6d8d765d",
+    "byteIdentical": true,
+    "quickCheck": "ok"
+  },
+  "historicalPreMigrationBackup": {
+    "claimedSha256": "e22d580f26b9b467eb2bf3774524206b3d95a36cdcdbc3902a08046e9e12c088",
+    "status": "NOT_FOUND_NOT_PROVEN",
+    "candidateFilesHashed": 33
+  },
+  "scoringRun": {
+    "sha256": "c37b7964a82ddaba18dffe5739e92770a126db6395d485e14f362ae50e0e4c2d",
+    "allowRemoval": false,
+    "installedArtifacts": 13,
+    "newCompleteRuns": 15,
+    "materializedHardwareBlocks": 7,
+    "activatedBindings": 0,
+    "deletedModels": 0
+  },
+  "coverage": {
+    "total": 91,
+    "applicable": 79,
+    "notApplicable": 12,
+    "complete": 55,
+    "blocked": 24,
+    "failed": 0,
+    "applicableMissing": 0
+  },
+  "gate": null,
+  "postGateSnapshot": null
+}
