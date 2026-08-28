@@ -285,6 +285,77 @@ export function evaluationStateForArtifact(artifact, roles, plans, history, hard
 }
 
 /**
+ * Rebind an already measured artifact-wide CPU spill to every current,
+ * technically applicable role contract on the exact same GPU/context.
+ * Placement is independent of the prompt role, so loading the same oversized
+ * artifact again would only repeat forbidden RAM spill without new evidence.
+ */
+export function materializeCurrentHardwareBlocks(input = {}) {
+  const {
+    candidates = [], roles = [], plans = {}, history, hardware = null,
+  } = input;
+  if (!history) throw new TypeError('history is required');
+  const created = [];
+
+  for (const candidate of candidates) {
+    const normalized = normalizeInstalledModel(candidate);
+    const artifact = artifactFromInventory(normalized.name, candidates);
+    if (!artifact) continue;
+    const placementEvidence = history.getHardwareBlock({
+      digestSha256: artifact.digestSha256,
+      hardware,
+    });
+    if (!placementEvidence) continue;
+
+    for (const role of roles) {
+      const plan = plans?.[role];
+      if (!plan) continue;
+      const applicability = checkModelEvaluationApplicability(
+        normalized,
+        plan.applicabilityContract || applicabilityContractForRole(role),
+      );
+      if (!applicability.applicable) continue;
+      const exactIdentity = {
+        digestSha256: artifact.digestSha256,
+        role,
+        suiteName: plan.suiteName,
+        suiteVersion: plan.suiteVersion,
+        contractSha256: plan.suiteContractSha256,
+      };
+      if (history.getComplete(exactIdentity) || history.getTerminal({
+        ...exactIdentity,
+        hardware,
+      })) continue;
+
+      const placementEvidenceRunId = placementEvidence.metadata?.placementEvidenceRunId
+        || placementEvidence.runId;
+      created.push(history.recordTerminal({
+        artifact,
+        role,
+        suiteName: plan.suiteName,
+        suiteVersion: plan.suiteVersion,
+        contractSha256: plan.suiteContractSha256,
+        status: 'BLOCKED',
+        repeats: plan.repeats,
+        durationMs: 0,
+        completedAt: new Date().toISOString(),
+        hardware: placementEvidence.hardware,
+        metadata: {
+          ...placementEvidence.metadata,
+          source: 'model-evaluation-hardware-block-reuse-v1',
+          placementEvidenceRunId,
+          placementMeasuredAt: placementEvidence.completedAt,
+          timestampSemantics: 'derived-block-write-not-a-new-model-load',
+        },
+        errorCode: 'CANDIDATE_VRAM_FIT_FAILED',
+        errorMessage: placementEvidence.errorMessage,
+      }));
+    }
+  }
+  return Object.freeze(created);
+}
+
+/**
  * Installed alternatives are valuable prototype candidates: no download is
  * needed, and exact digests are already known. Keep only role-compatible
  * alternatives and label whether the current suite contract is already

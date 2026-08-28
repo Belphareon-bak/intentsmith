@@ -23,7 +23,8 @@ import {
 import { textTask } from '../src/eval/role-quality-suites.js';
 import {
   auditResponsibilitySegregation, buildInstalledCandidateQueue,
-  resolveCurrentBindings, selectResponsibilityPortfolio,
+  materializeCurrentHardwareBlocks, resolveCurrentBindings,
+  selectResponsibilityPortfolio,
 } from '../src/upgrade/model-upgrade-prototype.js';
 import {
   acquireGpuEvaluationLock, assessCandidateDownloadHeadroom,
@@ -605,6 +606,48 @@ test('measured CPU spill is reused across suite changes only on identical hardwa
   });
   assertEqual(refreshed.length, 1);
   assertEqual(refreshed[0].evaluationState.state, 'unseen');
+  db.close();
+});
+
+test('artifact-wide CPU spill materializes current role blocks without another model load', () => {
+  const db = evaluationDb();
+  const history = new ModelEvaluationHistory(db);
+  const hardware = { model: 'RTX 3090', vramMb: 24576, numCtx: 32768 };
+  history.recordTerminal({
+    artifact: { modelName: 'demo:latest', digestSha256: DIGEST_A },
+    role: 'CHAT',
+    suiteName: 'chat_v2', suiteVersion: 'v1', contractSha256: CONTRACT_A,
+    status: 'BLOCKED', errorCode: 'CANDIDATE_VRAM_FIT_FAILED',
+    errorMessage: '6 GB would spill to CPU', hardware,
+    metadata: { numCtx: 32768, cpuBytes: 6 * 2 ** 30 },
+  });
+  const plans = {
+    CODE: {
+      role: 'CODE', suiteName: 'code_patch', suiteVersion: 'v2',
+      suiteContractSha256: CONTRACT_B, repeats: 3,
+    },
+  };
+  const created = materializeCurrentHardwareBlocks({
+    candidates: [{ name: 'demo:latest', digest: DIGEST_A, params: 30 }],
+    roles: ['CODE'], plans, history, hardware,
+  });
+  assertEqual(created.length, 1);
+  assertEqual(created[0].role, 'CODE');
+  assertEqual(created[0].errorCode, 'CANDIDATE_VRAM_FIT_FAILED');
+  assertEqual(created[0].metadata.placementEvidenceRunId != null, true);
+  assertEqual(materializeCurrentHardwareBlocks({
+    candidates: [{ name: 'demo:latest', digest: DIGEST_A, params: 30 }],
+    roles: ['CODE'], plans, history, hardware,
+  }).length, 0);
+  assertEqual(buildInstalledCandidateQueue({
+    candidates: [{ name: 'demo:latest', digest: DIGEST_A, params: 30 }],
+    roles: ['CODE'], plans, history, hardware,
+  }).length, 0);
+  assertEqual(buildInstalledCandidateQueue({
+    candidates: [{ name: 'demo:latest', digest: DIGEST_A, params: 30 }],
+    roles: ['CODE'], plans, history,
+    hardware: { model: 'RTX 5090', vramMb: 32768, numCtx: 32768 },
+  }).length, 1);
   db.close();
 });
 

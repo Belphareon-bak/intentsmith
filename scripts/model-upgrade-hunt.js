@@ -64,6 +64,7 @@ import {
   buildInstalledCandidateQueue,
   createHistoryCallbacks,
   evaluationStateForArtifact,
+  materializeCurrentHardwareBlocks,
   resolveCurrentBindings,
   selectResponsibilityPortfolio,
 } from '../src/upgrade/model-upgrade-prototype.js';
@@ -485,6 +486,18 @@ const shortlist = (ONLY.length || INSTALLED_PANEL)
   ? { perRole: new Map(ROLES.map(role => [role, []])), queue: [], familiesTotal: 0 }
   : await buildRoleShortlists(gpu, installedNames, bindings);
 const { perRole, queue: remoteQueue, familiesTotal } = shortlist;
+const reusedHardwareBlocks = DO_RUN && INSTALLED_PANEL
+  ? materializeCurrentHardwareBlocks({
+    candidates: installed,
+    roles: ROLES,
+    plans: evaluationPlans,
+    history: modelEvaluationHistory,
+    hardware: gpu,
+  })
+  : [];
+if (reusedHardwareBlocks.length) {
+  log(`Převzato ${reusedHardwareBlocks.length} current-role VRAM blokací bez nového načtení do RAM.`);
+}
 const installedQueue = REMOTE_ONLY ? [] : buildInstalledCandidateQueue({
   candidates: installed,
   roles: ROLES,
@@ -492,9 +505,9 @@ const installedQueue = REMOTE_ONLY ? [] : buildInstalledCandidateQueue({
   plans: evaluationPlans,
   history: modelEvaluationHistory,
   hardware: gpu,
-  // Explicitní lokální panel je fresh measurement. Starý VRAM block zůstává
-  // auditem, ale nesmí zabránit zápisu terminal row pod current contracts.
-  ignoreHardwareBlocks: INSTALLED_PANEL,
+  // Na stejném GPU a kontextu je artifact-wide CPU spill definitivní. Reuse
+  // výše materializuje current-role BLOCKED rows, takže model znovu nenačítáme.
+  ignoreHardwareBlocks: false,
 });
 // Chybějící suite už staženého artefaktu má přednost před dalším downloadem:
 // je rychlejší, nezvětšuje disk a uzavírá přesně tu historii, kterou už máme.

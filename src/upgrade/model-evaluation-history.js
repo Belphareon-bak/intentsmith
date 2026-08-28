@@ -195,18 +195,16 @@ export class ModelEvaluationHistory {
   getHardwareBlock(input) {
     if (!this._db) return null;
     const digestSha256 = normalizeModelDigestSha256(input?.digestSha256);
-    const role = requireModelEvaluationRole(input?.role);
     const wanted = input?.hardware || null;
     const wantedNumCtx = Number(wanted?.numCtx);
     if (!digestSha256 || !wanted || !Number.isSafeInteger(wantedNumCtx) || wantedNumCtx <= 0) return null;
     const rows = this._db.prepare(`
       SELECT * FROM model_evaluation_runs
       WHERE model_digest_sha256 = ?
-        AND role = ?
         AND status = 'BLOCKED'
         AND error_code = 'CANDIDATE_VRAM_FIT_FAILED'
       ORDER BY completed_at DESC, run_id DESC
-    `).all(digestSha256, role);
+    `).all(digestSha256);
     for (const row of rows) {
       const decoded = this.#decode(row);
       const observed = decoded.hardware || null;
