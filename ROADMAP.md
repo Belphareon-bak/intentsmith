@@ -1701,7 +1701,7 @@ stabilní candidate + re-review:
   Linux network namespace. Zkrácené sondy vracejí pouze `DEV_ONLY` a release
   parser je odmítá.
 
-Autoritativní module graph má 1 192 hran, stále 3 cykly a 28 souborů v
+Autoritativní module graph má 1 195 hran, stále 3 cykly a 28 souborů v
 cyklech; pět přesných nových hran bylo přijato bez růstu cyklu a odstraněná
 chat → model-identity hrana baseline zpřísnila.
 
