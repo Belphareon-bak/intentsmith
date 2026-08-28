@@ -125,12 +125,14 @@ nim při upgradu nespadne.
   implementaci a current-contract review.
 
 Na hostu nainstalovaná Ollama 0.32.14 ani její publikované `ChatResponse`
-schema neposkytují digest obslouženého artefaktu. Aktuální upstream `main` už
-pole `ChatResponse.digest` obsahuje, takže preferovaná finální cesta je připnout
-a ověřit vydanou verzi Ollamy, která tento kontrakt zahrnuje; konkrétní release
-zatím není v tomto kandidátu vybraný ani nasazený. Do autorizovaného upgradu
-fail-closed skončí durable runtime, manual binding verification i nový scoring.
+schema neposkytují digest obslouženého artefaktu. Online kontrola 2026-08-28
+potvrdila, že pole nemají ani nejnovější stable `v0.33.1`, prerelease
+`v0.33.2-rc1`, ani aktuální serverový `main`. Neexistuje tedy vydaná verze,
+jejímž připnutým upgradem by šel tento blocker odstranit. Do zavedení
+důvěryhodné response-attesting provider capability fail-closed skončí durable
+runtime, manual binding verification i nový scoring.
 To je známý provozní blocker, nikoli důvod nahradit response důkaz mutable
 inventářem. Viz oficiální [API typy 0.32.14](https://github.com/ollama/ollama/blob/v0.32.14/api/types.go),
-[OpenAPI schema 0.32.14](https://github.com/ollama/ollama/blob/v0.32.14/docs/openapi.yaml)
+[OpenAPI schema 0.32.14](https://github.com/ollama/ollama/blob/v0.32.14/docs/openapi.yaml),
+[API typy stable v0.33.1](https://github.com/ollama/ollama/blob/v0.33.1/api/types.go)
 a [aktuální upstream API typy](https://github.com/ollama/ollama/blob/main/api/types.go).

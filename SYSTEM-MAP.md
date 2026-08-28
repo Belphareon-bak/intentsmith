@@ -152,9 +152,11 @@ Tyto dokumenty nahrazují historické auto-failover/proof lifecycle popisy v
 pozdější capability tabulce: veřejné auto-transition repository writery jsou
 odstraněné a gateway, binding verification i autoritativní scoring vyžadují
 digest přímo v provider response. Na hostu nainstalovaná Ollama 0.32.14 jej
-neposkytuje, takže tyto cesty zůstávají záměrně fail-closed. Aktuální upstream
-už `ChatResponse.digest` obsahuje; navazující bezpečná cesta je autorizovaný
-upgrade na připnutý release s kompatibilitním preflightem.
+neposkytuje, takže tyto cesty zůstávají záměrně fail-closed. Online kontrola
+2026-08-28 potvrdila stejnou absenci v nejnovějším stable `v0.33.1` i v
+aktuálním serverovém `main`; vydaný upgrade proto tuto capability neposkytuje.
+Remediovaný source rozsah `74beafea..26ab3291` mezitím prošel nezávislým Opus
+max `REVIEW_PASSED`, provider blocker tím ale nezmizel.
 
 Tool census ze zdroje: **9 JavaScript soubory, 8 664 řádků, 153 top-level
 nástrojových deklarací**. Počet 213 v dřívější inventuře byl textový false count.

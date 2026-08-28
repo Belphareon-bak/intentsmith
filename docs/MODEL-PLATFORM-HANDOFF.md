@@ -1,6 +1,6 @@
 # Modelová platforma — aktuální handoff
 
-**Datum:** 2026-08-27 · **Stav:** `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED`
+**Datum:** 2026-08-28 · **Stav:** `REVIEW_PASSED / PROVIDER_CAPABILITY_BLOCKED`
 **Autoritativní popis:** [MODEL-SCORING-ACTIVATION.md](MODEL-SCORING-ACTIVATION.md)
 **Evidence:** [finální remediační handoff](execution/runs/model-evaluation-final-integration-20260826.md)
 
@@ -49,14 +49,16 @@
   Product/test oprava `9f6e4828` prošla novým čistým 279/279 gate. Následný
   `0bd38b7d` přenesl stejnou exact-response atestaci i do ukládaného scoringu a
   product/test head `79328185` prošel novým čistým 279/279 gate. Kandidát čeká
-  na nezávislé rereview a provider capability popsanou níže.
+  nezávislým Opus max rereview rozsahu `74beafea..26ab3291` s verdictem
+  `REVIEW_PASSED`; provider capability popsaná níže zůstává blokovaná.
 - Automatický failover/proof issuance není jen vypnutý: veřejné auto-claim,
   proof selection, terminal, expiry/finalization a restart writery jsou
   odstraněné. Aktivace je ruční přes exact binding application.
 - Na hostu nainstalovaná Ollama 0.32.14 v `ChatResponse` nevrací digest
-  obslouženého artefaktu. Aktuální upstream už pole `ChatResponse.digest`
-  obsahuje; preferovaná navazující capability je proto autorizovaný upgrade na
-  připnutý release, který pole obsahuje, a kompatibilitní preflight. Do té doby
+  obslouženého artefaktu. Online kontrola 2026-08-28 potvrdila stejnou absenci
+  v nejnovějším stable `v0.33.1`, prerelease `v0.33.2-rc1` i v aktuálním
+  serverovém `main`; neexistuje tedy vydaný upgrade, který by capability
+  doplnil. Do zavedení důvěryhodné response-attesting provider capability
   `DURABLE` call, binding verification i nový autoritativní scoring správně
   selžou jako neověřené; plně funkční durable runtime a nové scoring běhy
   nejsou hotovou vlastností tohoto kandidáta.
