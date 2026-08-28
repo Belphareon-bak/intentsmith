@@ -3,7 +3,9 @@
 **Stav:** současný kontrakt v136.1 · **Aktualizováno:** 2026-08-28
 **Implementace:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Přijetí:**
 coverage je implementačně kompletní a čistý finální gate na `53ded662` prošel
-`279/279`; stále je povinné nové nezávislé rereview
+`279/279`; evidence rereview rozsahu `d6137d4c..3f027938` skončilo
+[`REVIEW_PASSED`](review/2026-08-28-WP-MODEL-EVALUATION-EVIDENCE-REREVIEW.md),
+proto je tento scoring/evidence balík `ACCEPTED / SYSTEM_PROVIDER_BLOCKED`
 
 Název souboru zůstává kvůli existujícím odkazům. IntentSmith už ale nemá
 samostatný „scoring“ runtime. Existuje jedna autoritativní cesta pro modelové

@@ -1,6 +1,6 @@
 # 030 — Jedna current-contract autorita modelových evaluací
 
-**Stav:** `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED` · **Datum:** 2026-08-28
+**Stav:** `ACCEPTED / SYSTEM_PROVIDER_BLOCKED` · **Datum:** 2026-08-28
 **WP:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Migrace:** 082, 096, 097, 099
 
 ## Kontext
@@ -90,5 +90,9 @@ odstranit; C3 repo zůstává případnou historickou referencí.
   `ccf54377` uzavřel tyto nálezy; další review však našlo nereprodukovatelnou
   snapshot inventory projekci. Head `53ded662` ukládá a ověřuje úplné
   applicability vstupy a offline reprodukuje 55/24/0/12. Čistý finální gate
-  prošel `279/279` v runu `2026-08-28T20-11-17-080Z`, ale současný candidate zůstává
-  `REREVIEW_REQUIRED`, nikoli `ACCEPTED`.
+  prošel `279/279` v runu `2026-08-28T20-11-17-080Z`. Nezávislé evidence
+  rereview rozsahu `d6137d4c..3f027938` zopakovalo offline replay, tamper
+  kontrolu, manifest i nový clean-clone gate `279/279` a vrátilo
+  [`REVIEW_PASSED`](../review/2026-08-28-WP-MODEL-EVALUATION-EVIDENCE-REREVIEW.md).
+  Scoring/evidence balík je proto `ACCEPTED`; systémový response-digest provider
+  zůstává samostatně `SYSTEM_PROVIDER_BLOCKED`.

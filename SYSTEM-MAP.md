@@ -162,8 +162,11 @@ ověřený skutečný interval a 40 starších current-contract řádků je veř
 označeno `LEGACY_UNVERIFIED` bez publikovaného startu a duration. Produktový
 head `53ded662` navíc ukládá SHA-bound normalizovaný inventory vstup a jeho
 offline replay nad stejnou DB reprodukuje 55/24/0/12 bez kontaktu s providerem.
-Čistý gate prošel 279/279, ale systémový provider blocker nezmizel a celý
-navazující candidate stále čeká na nezávislé rereview. Evidence:
+Nezávislé rereview rozsahu `d6137d4c..3f027938` zopakovalo replay, SHA/tamper
+kontrolu, manifest i clean-clone gate 279/279 a vrátilo
+[`REVIEW_PASSED`](docs/review/2026-08-28-WP-MODEL-EVALUATION-EVIDENCE-REREVIEW.md).
+Scoring/evidence balík je `ACCEPTED`; systémový response-digest provider zůstává
+samostatně `SYSTEM_PROVIDER_BLOCKED`. Evidence:
 [`model-scoring-live-20260828.md`](docs/execution/runs/model-scoring-live-20260828.md).
 
 Tool census ze zdroje: **9 JavaScript soubory, 8 664 řádků, 153 top-level

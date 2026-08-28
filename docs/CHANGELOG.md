@@ -8,6 +8,19 @@
 
 ---
 
+## v136.8 — přijetí reprodukovatelné scoring evidence (2026-08-28)
+
+- Nezávislé rereview rozsahu `d6137d4c..3f027938` přepočítalo SHA-bound
+  inventory projekci, zopakovalo offline read-only replay 55/24/0/12 s
+  blokovaným `fetch`, ověřilo adversariální VISION tamper a reprodukovalo
+  backup manifest všech 33 kandidátů z jiného caller cwd.
+- Focused read-model sada prošla 16/16 a nový celý deterministický gate z
+  čistého klonu reviewed HEADu prošel 279/279. Model-scoring/evidence balík je
+  `ACCEPTED`.
+- Systémová Ollama stále neposkytuje response digest. Durable runtime proto
+  zůstává `SYSTEM_PROVIDER_BLOCKED`; přijetí neautorizuje provider patch, nový
+  GPU scoring, mazání modelů ani změnu bindingu.
+
 ## v136.7 — live GPU-only scoring a role/category coverage (2026-08-28)
 
 - Live DB byla po konzistentním snapshotu standardním runnerem povýšena z
@@ -24,8 +37,8 @@
   jsou označeny jako mimo scoring coverage. Automatický cleanup zůstává
   odděleně fail-closed a tuto metadata policy nepoužívá jako povolení mazat.
 - Portfolio evidence doporučuje `qwen3.8:latest` pro VISION. Portfolio
-  gate nepovolil změnu; bindingy zůstaly beze změny. Nový candidate čeká na
-  nezávislé rereview.
+  gate nepovolil změnu; bindingy zůstaly beze změny. Tehdejší candidate čekal
+  na nezávislé rereview, které je zaznamenané ve v136.8.
 - Z 55 COMPLETE řádků má 15 konzistentní skutečný interval. Zbývajících 40 je
   čteno jako `LEGACY_UNVERIFIED`, bez publikovaného startu a duration; DB
   historie se nepřepisuje.

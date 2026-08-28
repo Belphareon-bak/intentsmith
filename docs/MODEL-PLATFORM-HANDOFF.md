@@ -1,10 +1,10 @@
 # Modelová platforma — aktuální handoff
 
-**Datum:** 2026-08-28 · **Stav:** `SCORING_COVERAGE_COMPLETE / REREVIEW_REQUIRED / PROVIDER_CAPABILITY_BLOCKED`
+**Datum:** 2026-08-28 · **Stav:** `ACCEPTED / SYSTEM_PROVIDER_BLOCKED`
 **Autoritativní popis:** [MODEL-SCORING-ACTIVATION.md](MODEL-SCORING-ACTIVATION.md)
 **Evidence:** [finální remediační handoff](execution/runs/model-evaluation-final-integration-20260826.md)
 
-## Co je hotové v review kandidátovi
+## Co je hotové v přijatém balíku
 
 - jeden versioned role-evaluation plan pro D1, D2, CODE, R1, R2, CHAT a VISION;
 - append-only exact-digest runy a role-specific decisions v SQLite;
@@ -62,9 +62,12 @@
   Aktuální remediace následně prošla čistým finálním gate `279/279` na
   `53ded662` v runu `2026-08-28T20-11-17-080Z`; bounded post-gate evidence,
   SHA-bound inventory projection, offline 55/24/0/12 replay a reprodukovatelný
-  manifest hledání historické zálohy jsou commitnuté. Tento
-  nový candidate stále vyžaduje vlastní nezávislé rereview;
-  provider capability popsaná níže zůstává blokovaná.
+  manifest hledání historické zálohy jsou commitnuté. Nezávislé evidence
+  rereview rozsahu `d6137d4c..3f027938` zopakovalo offline replay, tamper
+  kontrolu, manifest i nový clean-clone gate `279/279` a skončilo
+  [`REVIEW_PASSED`](review/2026-08-28-WP-MODEL-EVALUATION-EVIDENCE-REREVIEW.md).
+  Model-scoring/evidence balík je proto `ACCEPTED`; provider capability popsaná
+  níže zůstává samostatně blokovaná.
 - Automatický failover/proof issuance není jen vypnutý: veřejné auto-claim,
   proof selection, terminal, expiry/finalization a restart writery jsou
   odstraněné. Aktivace je ruční přes exact binding application.

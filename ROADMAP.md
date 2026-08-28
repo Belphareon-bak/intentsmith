@@ -1929,7 +1929,12 @@ snapshotu a stejné DB reprodukuje 55/24/0/12 bez Ollamy. Čistý gate
 `2026-08-28T20-11-17-080Z` na něm prošel 279/279. Z 55 COMPLETE výsledků je
 15 intervalů `VERIFIED` a 40 `LEGACY_UNVERIFIED`; u starších řádků reader
 publikuje pouze historický recorded-at timestamp, nikoli start nebo duration.
-Celý navazující candidate stále čeká na nové nezávislé rereview; podrobnosti jsou v
+Nezávislé evidence rereview rozsahu `d6137d4c..3f027938` zopakovalo offline
+replay, SHA/tamper kontrolu, backup manifest i nový clean-clone gate `279/279`
+a vrátilo
+[`REVIEW_PASSED`](docs/review/2026-08-28-WP-MODEL-EVALUATION-EVIDENCE-REREVIEW.md).
+Scoring/evidence balík je proto `ACCEPTED`; systémový response-digest provider
+zůstává samostatně `SYSTEM_PROVIDER_BLOCKED`. Podrobnosti jsou v
 [`model-scoring-live-20260828.md`](docs/execution/runs/model-scoring-live-20260828.md).
 
 ## 14. Rozhodovací fronta — otázka až ve chvíli, kdy má data
