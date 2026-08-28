@@ -48,13 +48,19 @@ export function renderEvaluationReport(readModel) {
     `Autorita: ${readModel.authority.tables.join(' + ')}; current contract only; legacy fallback OFF`,
     `Vygenerováno: ${readModel.generatedAt}`,
     `Binding autorita: ${readModel.bindingAuthority?.status || 'UNKNOWN'}${readModel.bindingAuthority?.reason ? ` (${readModel.bindingAuthority.reason})` : ''}`,
+    `Coverage: applicable ${readModel.coverage?.applicableTotal ?? '—'}, `
+      + `applicable MISSING ${readModel.coverage?.applicableStatusCounts?.MISSING ?? '—'}, `
+      + `not applicable ${readModel.coverage?.notApplicable ?? '—'}`,
     '',
   ];
   for (const [role, state] of Object.entries(readModel.roles)) {
     lines.push(`${role}  ${state.binding || '—'}  ${state.suiteName}@${state.suiteVersion}`);
     for (const row of state.artifacts) {
       const score = row.score == null ? '—' : `${Math.round(row.score * 100)}%`;
-      lines.push(`  ${row.model}  ${row.digestSha256?.slice(0, 12) || 'NO_DIGEST'}  ${row.status}  ${score}  ${row.testedAt || '—'}`);
+      const applicability = row.applicable === false
+        ? `  NOT_APPLICABLE(${row.applicabilityReasonCode})`
+        : '';
+      lines.push(`  ${row.model}  ${row.digestSha256?.slice(0, 12) || 'NO_DIGEST'}  ${row.status}${applicability}  ${score}  ${row.testedAt || '—'}`);
     }
     for (const decision of state.decisions || []) {
       lines.push(`  DECISION ${decision.outcome}  ${decision.incumbentModel} -> ${decision.candidateModel}  ${decision.createdAt}  ${decision.actionability}`);

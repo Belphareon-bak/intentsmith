@@ -217,7 +217,13 @@ function readModelSummary(report) {
       counts[artifact.status] = (counts[artifact.status] || 0) + 1;
       if (artifact.testedAt) testedAt.push(artifact.testedAt);
     }
-    roles[role] = Object.freeze(counts);
+    roles[role] = Object.freeze({
+      ...counts,
+      notApplicable: state.artifacts.filter(artifact => artifact.applicable === false).length,
+      applicableMissing: state.artifacts.filter(artifact => (
+        artifact.applicable !== false && artifact.status === 'MISSING'
+      )).length,
+    });
     for (const status of statuses) totals[status] += counts[status];
   }
   testedAt.sort();
@@ -235,6 +241,7 @@ function readModelSummary(report) {
     })),
     roles,
     totals,
+    coverage: report.coverage,
     currentTestedAtRange: Object.freeze({
       min: testedAt[0] || null,
       max: testedAt.at(-1) || null,

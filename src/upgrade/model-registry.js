@@ -619,7 +619,7 @@ export class ModelRegistry {
       const modelEvaluations = evaluationByModel.get(canonicalModelName(m.name)) || {};
       const usage = this.getUsage(m.name, m.digestSha256);
       const missingEvaluationRoles = Object.entries(modelEvaluations)
-        .filter(([, row]) => row.status !== 'COMPLETE')
+        .filter(([, row]) => row.applicable !== false && row.status !== 'COMPLETE')
         .map(([role]) => role);
       if (missingEvaluationRoles.length > 0) incompleteEvaluationCount++;
 
@@ -642,7 +642,11 @@ export class ModelRegistry {
         requestCount: usage.requestCount,
         evaluations: modelEvaluations,
         evaluatedRoleCount: Object.values(modelEvaluations)
-          .filter(row => row.status === 'COMPLETE').length,
+          .filter(row => row.applicable !== false && row.status === 'COMPLETE').length,
+        applicableRoleCount: Object.values(modelEvaluations)
+          .filter(row => row.applicable !== false).length,
+        notApplicableRoleCount: Object.values(modelEvaluations)
+          .filter(row => row.applicable === false).length,
         missingEvaluationRoles,
       };
     });
@@ -657,6 +661,7 @@ export class ModelRegistry {
         authority: evaluations.authority,
         bindingAuthority: evaluations.bindingAuthority,
         statusCounts: evaluations.statusCounts,
+        coverage: evaluations.coverage,
         roles: evaluations.roles,
         decisions: evaluations.decisions,
       },

@@ -326,6 +326,45 @@ await testAsync('overview fails closed without the evaluation read authority', a
   } finally { db.close(); }
 });
 
+await testAsync('overview does not count out-of-category MISSING rows as incomplete', async () => {
+  const db = createTestDb();
+  try {
+    for (const role of Object.keys(config.models)) config.models[role] = `safe-${role.toLowerCase()}`;
+    const modelEvaluationReadModel = {
+      read: ({ inventory, bindings }) => ({
+        authority: 'model_evaluation_runs',
+        bindingAuthority: { status: 'TEST' },
+        bindings,
+        models: inventory.map(model => ({
+          name: model.name,
+          canonicalName: canonicalModelName(model.name),
+          evaluations: {
+            CHAT: { status: 'COMPLETE', applicable: true },
+            VISION: { status: 'MISSING', applicable: false },
+          },
+        })),
+        roles: {},
+        statusCounts: { COMPLETE: 1, FAILED: 0, BLOCKED: 0, MISSING: 1 },
+        coverage: {
+          applicableStatusCounts: { COMPLETE: 1, FAILED: 0, BLOCKED: 0, MISSING: 0 },
+          applicableTotal: 1,
+          notApplicable: 1,
+          total: 2,
+        },
+        decisions: [],
+      }),
+    };
+    const registry = createRegistry(db, { modelEvaluationReadModel });
+    registry.getInstalled = async () => [installedModel('coverage-fixture')];
+    const overview = await registry.getOverview();
+    assertEqual(overview.incompleteEvaluationCount, 0);
+    assertEqual(overview.models[0].missingEvaluationRoles.length, 0);
+    assertEqual(overview.models[0].applicableRoleCount, 1);
+    assertEqual(overview.models[0].notApplicableRoleCount, 1);
+    assertEqual(overview.evaluations.coverage.applicableStatusCounts.MISSING, 0);
+  } finally { db.close(); restoreBindings(); }
+});
+
 await testAsync('cleanup requires disk pressure, exact-digest usage and COMPLETE evaluation', async () => {
   const db = createTestDb();
   const old = '2026-07-01T00:00:00.000Z';
@@ -350,7 +389,7 @@ await testAsync('cleanup requires disk pressure, exact-digest usage and COMPLETE
 
     deleted.length = 0;
     registry._evaluationReadModel = { read: () => ({
-      models: [{ evaluations: { CHAT: { status: 'BLOCKED' } } }],
+      models: [{ evaluations: { CHAT: { status: 'BLOCKED', applicable: true } } }],
     }) };
     assertEqual((await registry.runAutoCleanup(14)).length, 0);
     assertEqual(deleted.length, 0);

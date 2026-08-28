@@ -6,8 +6,7 @@ import {
   normalizeModelDigestSha256,
   sameModelName,
 } from './model-identity.js';
-import { checkRoleEligibility } from './candidate-eligibility.js';
-import { MODEL_PROFILES } from './model-profiles.js';
+import { checkRoleCandidateApplicability } from './candidate-eligibility.js';
 import { parseModelNameExtended } from './model-family-extensions.js';
 
 export const DEFAULT_RESPONSIBILITY_POLICY = Object.freeze({
@@ -296,16 +295,13 @@ export function buildInstalledCandidateQueue(input = {}) {
     const candidateRoles = [];
     for (const role of roles) {
       if (sameModelName(candidate.name, bindings[role])) continue;
-      const eligibility = checkRoleEligibility({
+      const applicability = checkRoleCandidateApplicability({
         name: candidate.name,
         params: candidate.params ?? profile.params,
         category: candidate.category ?? profile.category,
         capabilities: candidate.capabilities ?? null,
       }, role);
-      if (!eligibility.eligible) continue;
-      const preferred = MODEL_PROFILES[role]?.preferredCategories;
-      const category = candidate.category ?? profile.category;
-      if (preferred?.length && category && category !== 'unknown' && !preferred.includes(category)) continue;
+      if (!applicability.applicable) continue;
       candidateRoles.push(role);
     }
     if (!candidateRoles.length) continue;

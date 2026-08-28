@@ -8,6 +8,25 @@
 
 ---
 
+## v136.7 — live GPU-only scoring a role/category coverage (2026-08-28)
+
+- Live DB byla po konzistentním snapshotu standardním runnerem povýšena z
+  migrace 082 do 099; `quick_check=ok`, v123 runtime tabulky i telemetry guard
+  chybějí a cross-role decisions jsou v karanténě.
+- Izolovaný sidecar z přesného Ollama tagu 0.32.14 vracel exact manifest digest
+  v každé chat response. Reálný preflight ověřil shodu digestu a plný VRAM
+  placement; systémová Ollama zůstala beze změny.
+- Installed panel proběhl sériově bez pullu, mazání a aktivace. Current coverage
+  je 40 COMPLETE / 17 BLOCKED / 0 applicable MISSING; čtyři artefakty, které
+  by při 32k kontextu použily RAM, skončily BLOCKED se score NULL.
+- Read model a registry overview nyní sdílejí stejnou role/category
+  applicability policy. 34 raw MISSING buněk zůstává pravdivě viditelných, ale
+  jsou označeny jako mimo scoring coverage. Automatický cleanup zůstává
+  odděleně fail-closed a tuto metadata policy nepoužívá jako povolení mazat.
+- Jediný pairwise candidate winner byl `qwen3.8:latest` pro CODE. Portfolio
+  gate nepovolil změnu; bindingy zůstaly beze změny. Nový candidate čeká na
+  nezávislé rereview.
+
 ## v136.6 — role-strict evaluace a exact runtime artefakt (2026-08-27)
 
 - Role je součástí run uniqueness, history/read/cache lookupů i obou stran

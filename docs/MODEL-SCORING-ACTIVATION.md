@@ -1,8 +1,9 @@
 # Modelové evaluace a aktivace
 
-**Stav:** současný kontrakt v136.1 · **Aktualizováno:** 2026-08-27
+**Stav:** současný kontrakt v136.1 · **Aktualizováno:** 2026-08-28
 **Implementace:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Přijetí:**
-implementace green, čeká na nezávislé rereview post-review remediace
+remediační base prošel nezávislým rereview; live scoring a coverage overlay
+čekají na nové nezávislé rereview
 
 Název souboru zůstává kvůli existujícím odkazům. IntentSmith už ale nemá
 samostatný „scoring“ runtime. Existuje jedna autoritativní cesta pro modelové
@@ -70,6 +71,14 @@ Každá role/artifact položka uvádí stav `COMPLETE`, `FAILED`, `BLOCKED` nebo
 existuje COMPLETE běh. Timestamp se zobrazuje; neexistuje 14denní TTL, které by
 staré či name-only skóre automaticky prohlásilo za současné.
 
+Status a applicability jsou dvě různé osy. `MISSING` se nepřepisuje na umělý
+výsledek, ale read model používá stejnou role/category policy jako installed
+scoring queue a uvádí `applicable`, reason code a coverage. Aktuální lokální
+panel má 40 COMPLETE, 17 BLOCKED a 34 raw MISSING; všech 34 raw MISSING je
+`NOT_APPLICABLE`, takže mezi 57 použitelnými páry je `applicable MISSING=0`.
+Přesná data a timestampy jsou v
+[`model-scoring-live-20260828.md`](execution/runs/model-scoring-live-20260828.md).
+
 ## Decision-ready minima
 
 | Role | Suite | Aktivních úloh nejméně | Stabilně rozlišujících nejméně |
@@ -124,15 +133,13 @@ nim při upgradu nespadne.
   odstraněné. Jejich případné budoucí obnovení vyžaduje nové rozhodnutí,
   implementaci a current-contract review.
 
-Na hostu nainstalovaná Ollama 0.32.14 ani její publikované `ChatResponse`
-schema neposkytují digest obslouženého artefaktu. Online kontrola 2026-08-28
-potvrdila, že pole nemají ani nejnovější stable `v0.33.1`, prerelease
-`v0.33.2-rc1`, ani aktuální serverový `main`. Neexistuje tedy vydaná verze,
-jejímž připnutým upgradem by šel tento blocker odstranit. Do zavedení
-důvěryhodné response-attesting provider capability fail-closed skončí durable
-runtime, manual binding verification i nový scoring.
-To je známý provozní blocker, nikoli důvod nahradit response důkaz mutable
-inventářem. Viz oficiální [API typy 0.32.14](https://github.com/ollama/ollama/blob/v0.32.14/api/types.go),
-[OpenAPI schema 0.32.14](https://github.com/ollama/ollama/blob/v0.32.14/docs/openapi.yaml),
-[API typy stable v0.33.1](https://github.com/ollama/ollama/blob/v0.33.1/api/types.go)
-a [aktuální upstream API typy](https://github.com/ollama/ollama/blob/main/api/types.go).
+Na hostu nainstalovaná systémová Ollama 0.32.14 ani její publikované
+`ChatResponse` schema neposkytují digest obslouženého artefaktu. Systémová
+služba proto zůstává beze změny a durable runtime je dál fail-closed. Pro
+autorizovaný live scoring byl z přesného upstream tagu `v0.32.14` sestaven
+izolovaný loopback sidecar s minimálním patchem, který vrací exact manifest
+digest v téže `/api/chat` response. Patch prošel Go testy a reálný preflight
+ověřil současně shodu digestu i `size_vram == size`. Sidecar umožnil bezpečně
+dokončit scoring, po běhu byl zastaven a nepředstírá systémové nasazení.
+Podrobnosti, commity a SHA jsou v
+[`model-scoring-live-20260828.md`](execution/runs/model-scoring-live-20260828.md).

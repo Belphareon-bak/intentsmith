@@ -142,6 +142,27 @@ test('D1 evidence remains MISSING for D2 and R1 on the shared reasoning suite', 
   db.close();
 });
 
+test('coverage separates missing evidence from model-role applicability', () => {
+  const db = database();
+  const plans = createRoleEvaluationPlans({ repeats: 1 });
+  const result = new ModelEvaluationReadModel(db, { plans }).read({
+    inventory: [
+      { name: 'qwen3.5:27b', digest: DIGEST },
+      { name: 'llava:13b', digest: OLD_DIGEST },
+    ],
+  });
+  assertEqual(result.models[0].evaluations.CHAT.applicable, true);
+  assertEqual(result.models[0].evaluations.VISION.applicable, false);
+  assertEqual(result.models[1].evaluations.VISION.applicable, true);
+  assertEqual(result.models[1].evaluations.CHAT.applicable, false);
+  assertEqual(result.statusCounts.MISSING, 14);
+  assertEqual(result.coverage.applicableStatusCounts.MISSING, 7);
+  assertEqual(result.coverage.notApplicable, 7);
+  assertEqual(result.roles.CHAT.coverage.applicableMissing, 1);
+  assertEqual(result.roles.VISION.coverage.applicableMissing, 1);
+  db.close();
+});
+
 test('current decision is linked to exact runs and only actionable for the bound incumbent', () => {
   const db = database();
   const plans = createRoleEvaluationPlans({ repeats: 1 });

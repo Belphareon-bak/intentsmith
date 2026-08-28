@@ -1,6 +1,7 @@
 # Model evaluation — remediační integrační handoff (2026-08-27)
 
-**Stav:** `IMPLEMENTATION_GREEN / PROVIDER_BLOCKED / REREVIEW_REQUIRED`
+**Stav:** historický remediační handoff; aktuální stav je
+`SCORING_COMPLETE / SYSTEM_PROVIDER_BLOCKED / REREVIEW_REQUIRED`
 
 **Poslední nezávisle zamítnutý head:** `40418aafb3feba0671b15c3214ada409f4c03ff5`
 
@@ -12,9 +13,11 @@
 
 **Clean deterministic gate source:** `79328185c6da4d6dd8222cb4f15634ddc90ce5ce`
 
-Tento report nahrazuje chybný panel 40/17/34 z předchozí verze dokumentu.
-Nejde o nezávislé přijetí. Timer zůstává vypnutý a žádný GPU scoring se v
-remediaci nespouštěl.
+Tento report zachovává stav remediace z 2026-08-27. Její pozdější nezávislé
+rereview prošlo. Live migraci, provider sidecar, GPU-only scoring a coverage
+opravu z 2026-08-28 autoritativně doplňuje
+[`model-scoring-live-20260828.md`](model-scoring-live-20260828.md); tyto nové
+změny čekají na samostatné rereview. Timer zůstává vypnutý.
 
 ## Autoritativní stav po remediaci
 
@@ -128,29 +131,32 @@ Poslední nezávislý gate 278/278
 patří zamítnutému `74beafea`; nelze jej vydávat za nezávislý důkaz tohoto
 kandidáta. Zbývající bránou je nové nezávislé rereview.
 
-## Aktuální strict-role scoring panel
+## Strict-role scoring panel — aktualizace 2026-08-28
 
-Read-only `ModelEvaluationReadModel` nad 13 přesnými artefakty a disposable
-projekcí živé DB v `2026-08-27T20:40:38.848Z`:
+Původní panel 28/11/52 byl před live během správný historický snapshot. Po
+autorizovaném scoringu a live migraci ukazuje aktuální read model:
 
-| Role | COMPLETE | BLOCKED | MISSING | FAILED |
-|---|---:|---:|---:|---:|
-| D1 | 5 | 3 | 5 | 0 |
-| D2 | 1 | 0 | 12 | 0 |
-| R1 | 0 | 0 | 13 | 0 |
-| CODE | 7 | 3 | 3 | 0 |
-| R2 | 7 | 3 | 3 | 0 |
-| CHAT | 6 | 2 | 5 | 0 |
-| VISION | 2 | 0 | 11 | 0 |
-| **Celkem** | **28** | **11** | **52** | **0** |
+| Role | COMPLETE | BLOCKED | raw MISSING | applicable MISSING | NOT APPLICABLE |
+|---|---:|---:|---:|---:|---:|
+| D1 | 6 | 3 | 4 | 0 | 4 |
+| D2 | 6 | 3 | 4 | 0 | 4 |
+| R1 | 6 | 3 | 4 | 0 | 4 |
+| CODE | 7 | 3 | 3 | 0 | 3 |
+| R2 | 7 | 3 | 3 | 0 | 3 |
+| CHAT | 6 | 2 | 5 | 0 | 5 |
+| VISION | 2 | 0 | 11 | 0 | 11 |
+| **Celkem** | **40** | **17** | **34** | **0** | **34** |
 
-Current timestampy jsou od `2026-08-25T20:24:21.425Z` do
-`2026-08-25T21:31:09.963Z`. Read model vidí 22 role-consistent decisions,
-žádné actionable. Standalone odečet je správně `UNVERIFIED_RUNTIME` pro všech
-sedm rolí.
+U CODE a R2 jsou tři raw MISSING současně tři NOT APPLICABLE. Current
+timestampy jsou od `2026-08-25T20:25:50.055Z` do
+`2026-08-28T14:45:38.355Z`. Read model vidí 52 role-consistent decisions,
+11 quarantined historických decisions a žádné actionable. Standalone odečet
+je správně `UNVERIFIED_RUNTIME` pro všech sedm rolí.
 
-Scoring všech modelů tedy **není hotový**: chybí 52 artifact/role buněk.
-Staré contracty ani sdílené suite se do nich nepromítají.
+Scoring všech použitelných role/category párů je hotový:
+`applicable MISSING=0`. Raw MISSING zůstává viditelný jako absence runu, ale
+je explicitně oddělený od coverage a nepředstírá score pro nesmyslné dvojice,
+například textový model ve VISION.
 
 ## Bounded raw host/DB snapshot
 
@@ -175,68 +181,61 @@ přesnou invocation, sama vytvořila dosud neexistující disposable DB přes SQ
 backup, vyjmenovala aplikované migrace, je označená `post-gate` a obsahuje
 source summary před i po celé projekci.
 
-## Provider attestation — otevřená provozní závislost
+## Provider attestation — systémový blocker a bounded scoring sidecar
 
 Na hostu nainstalovaná Ollama 0.32.14 neumí naplnit nový exact-response
 kontrakt: její oficiální `ChatRequest` přijímá model name a `ChatResponse`
-vrací model name, nikoli digest obslouženého artefaktu. Aktuální upstream
-`main` už pole `ChatResponse.digest` obsahuje. Preferovaná finální cesta je
-proto autorizovaně připnout a nasadit vydanou verzi, která tento kontrakt
-zahrnuje, a projít kompatibilitním preflightem; konkrétní release tento kandidát
-zatím nevybral ani nenasadil. Do té doby je bezpečné chování záměrně
-fail-closed: `DURABLE` gateway volání skončí
+vrací model name, nikoli digest obslouženého artefaktu. Žádná
+response-attesting verze není autorizovaně nasazená do systémové služby. Ta
+proto zůstává záměrně fail-closed: `DURABLE` gateway volání skončí
 `LLM_BINDING_ARTIFACT_UNVERIFIED`, manual verification skončí
-`MODEL_BINDING_VERIFICATION_ARTIFACT_UNVERIFIED` a nový scoring skončí
+`MODEL_BINDING_VERIFICATION_ARTIFACT_UNVERIFIED` a scoring přes systémový
+provider skončí
 `MODEL_EVALUATION_RESPONSE_ARTIFACT_UNVERIFIED`, dokud před Ollamou není
 důvěryhodná response-attesting provider capability. Mutable pre/post inventory
 tuto mezeru nesmí nahrazovat. Viz oficiální
 [API typy 0.32.14](https://github.com/ollama/ollama/blob/v0.32.14/api/types.go),
-[OpenAPI schema 0.32.14](https://github.com/ollama/ollama/blob/v0.32.14/docs/openapi.yaml)
-a [aktuální upstream API typy](https://github.com/ollama/ollama/blob/main/api/types.go).
+[OpenAPI schema 0.32.14](https://github.com/ollama/ollama/blob/v0.32.14/docs/openapi.yaml).
 
-To je provozní blocker plně ověřeného durable LLM runtime, ne důvod oslabit
-datovou autoritu. Remediační kandidát je bezpečný, ale nelze jej popsat jako
-plně funkční s nainstalovanou Ollamou 0.32.14 bez navazující provider
-capability; stejný blocker nyní pravdivě zastaví i nové exact-artifact scoring
-běhy.
+Systémový provider se nezměnil a plně ověřený durable LLM runtime proto zůstává
+blokovaný. Live scoring ale proběhl přes izolovaný sidecar sestavený z přesného
+tagu 0.32.14 s minimálním response-digest patchem. Preflight prokázal exact
+digest a plný VRAM placement; sidecar byl po scoringu zastaven. Nejde o
+obcházení autority ani o skryté nasazení. Úplná evidence je v
+[`model-scoring-live-20260828.md`](model-scoring-live-20260828.md).
 
 ## Discovery a bezpečný provoz
 
-Remediace nespustila outbound discovery ani model hunt, takže nevytvořila žádné
-nové návrhy. Metadata discovery mohou pouze seřadit budoucí měření; nejsou
-quality score, blacklist, doporučení ani povolení k aktivaci.
+Remediace nespustila outbound discovery. Následný běh 2026-08-28 spustil pouze
+installed panel, bez pullu a bez `--allow-removal`. Metadata discovery nadále
+nejsou quality score, blacklist, doporučení ani povolení k aktivaci.
 
 Snapshot potvrzuje:
 
 - `intentsmith-model-hunt.timer`: `disabled`, `inactive`;
 - `intentsmith-model-hunt.service`: `inactive`;
 - žádný naplánovaný hunt timer;
-- prázdné `ollama ps`;
-- žádný NVIDIA compute proces.
+- po ukončení sidecaru prázdné `ollama ps`;
+- po ukončení sidecaru žádný NVIDIA compute proces.
 
-Stejné provozní podmínky byly znovu ověřeny skutečným `post-gate` snapshotem v
-`2026-08-27T22:40:38+02:00`. Živá DB zůstala byte-identická se SHA-256
-`e22d580f26b9b467eb2bf3774524206b3d95a36cdcdbc3902a08046e9e12c088`
-a `quick_check=ok`; candidate ji nemigroval.
+Historický `post-gate` snapshot z `2026-08-27T22:40:38+02:00` zachovává
+tehdejší byte-identickou source DB se SHA-256 `e22d580f...`. Následující
+autorizovaná live migrace a scoring z 2026-08-28 jsou odděleně doložené novým
+snapshotem; starý hash se proto nesmí vydávat za aktuální.
 
-Timer se nesmí zapnout a 52 chybějících buněk se nesmí spustit před novým
-nezávislým PASS ani před autorizovaným upgradem na připnutý release s
-response-attesting provider capability a úspěšným kompatibilitním preflightem.
-Potom musí běžet sériově, GPU-only; model, který se celý nevejde do VRAM, se
-automaticky vyřadí jako `BLOCKED` se `score=NULL`.
+Timer se nezapnul. Sériový GPU-only běh uzavřel všech 57 použitelných buněk;
+čtyři příliš velké artefakty byly automaticky vyřazeny jako `BLOCKED` se
+`score=NULL`. Systémové nasazení response-attesting provider capability a nové
+nezávislé rereview coverage změny zůstávají otevřené.
 
 ## Review handoff
 
-Nové rereview musí začít na zamítnutém base `74beafea` a pokrýt celý souvislý
-rozsah až po finální dokumentační head. Nové remediační commity jsou
-`a42fd714` (gateway ABA), `2ba08334` (odstranění auto-failover writerů a
-snapshot v2), `9f6e4828` (binding verification response attestation),
-`a41f84f2` + `178aa592` (nekolizní raw evidence a úplný capture interval) a
-`0bd38b7d` (response attestation autoritativního scoringu).
-Zvlášť má reprodukovat role leakage D1→D2/R1, cross-role decision insert,
-pre-082 backup upgrade, nullable duration, A→B→A/no-response-digest rejection
-v gatewayi, manual verification i scoring runneru, nulový telemetry veto call
-graph, absenci 11 auto-activation repository metod a snapshot source SHA
-před/po. Do jeho
-PASS a autorizovaný upgrade s ověřením provider capability zůstává pravdivý stav
-`IMPLEMENTATION_GREEN / PROVIDER_BLOCKED / REREVIEW_REQUIRED`.
+Remediační rozsah `74beafea..26ab3291` už nezávislým Opus max rereview prošel.
+Nové rereview má začít na pre-scoring headu
+`b0f94196422d868179e58ac588e55fcfcd96589f` a pokrýt celý navazující candidate.
+Musí ověřit sdílenou applicability policy v queue/read modelu/overview, raw
+MISSING versus applicable MISSING, fail-closed oddělení auto-cleanupu,
+provider source commit a preflight, live DB snapshot, nulové automatické
+smazání/aktivace a exact current timestamps.
+Do tohoto PASS zůstává nový stav
+`SCORING_COMPLETE / SYSTEM_PROVIDER_BLOCKED / REREVIEW_REQUIRED`.

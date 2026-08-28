@@ -8,7 +8,10 @@ import { suite, test, testAsync, assert, assertEqual, summary } from './harness.
 import {
   catalogLookupKey, buildCatalogIndex, enrichLocalCandidateMetadata,
 } from '../src/upgrade/catalog-metadata.js';
-import { checkRoleEligibility } from '../src/upgrade/candidate-eligibility.js';
+import {
+  checkRoleCandidateApplicability,
+  checkRoleEligibility,
+} from '../src/upgrade/candidate-eligibility.js';
 import { parseModelName } from '../src/upgrade/model-profiles.js';
 import { parseModelNameExtended } from '../src/upgrade/model-family-extensions.js';
 import { CATALOG } from '../src/upgrade/model-catalog.js';
@@ -168,6 +171,21 @@ test('měkké požadavky nevyřazují — jinak by seznam kandidátů zůstal pr
   // katalog u drtivé většiny položek neuvádí.
   const r = checkRoleEligibility({ name: 'qwen3.5:27b', params: 27, category: 'general' }, 'D1');
   assertEqual(r.eligible, true);
+});
+
+test('applicability používá stejnou category policy jako installed scoring', () => {
+  const codeForChat = checkRoleCandidateApplicability(
+    { name: 'qwen3-coder:latest', params: 30, category: 'code' },
+    'CHAT',
+  );
+  assertEqual(codeForChat.applicable, false);
+  assertEqual(codeForChat.reasonCode, 'ROLE_CATEGORY_NOT_PREFERRED');
+
+  const generalForChat = checkRoleCandidateApplicability(
+    { name: 'qwen3.5:27b', params: 27, category: 'general' },
+    'CHAT',
+  );
+  assertEqual(generalForChat.applicable, true);
 });
 
 // ─── Rodiny modelů ──────────────────────────────────────────────────────────

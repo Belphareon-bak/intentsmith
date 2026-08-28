@@ -151,12 +151,15 @@ Aktuální model-evaluation autoritu popisují
 Tyto dokumenty nahrazují historické auto-failover/proof lifecycle popisy v
 pozdější capability tabulce: veřejné auto-transition repository writery jsou
 odstraněné a gateway, binding verification i autoritativní scoring vyžadují
-digest přímo v provider response. Na hostu nainstalovaná Ollama 0.32.14 jej
-neposkytuje, takže tyto cesty zůstávají záměrně fail-closed. Online kontrola
-2026-08-28 potvrdila stejnou absenci v nejnovějším stable `v0.33.1` i v
-aktuálním serverovém `main`; vydaný upgrade proto tuto capability neposkytuje.
-Remediovaný source rozsah `74beafea..26ab3291` mezitím prošel nezávislým Opus
-max `REVIEW_PASSED`, provider blocker tím ale nezmizel.
+digest přímo v provider response. Na hostu nainstalovaná systémová Ollama
+0.32.14 jej neposkytuje, takže durable runtime zůstává záměrně fail-closed.
+Remediovaný source rozsah `74beafea..26ab3291` prošel nezávislým Opus max
+`REVIEW_PASSED`. Autorizovaný installed-panel scoring 2026-08-28 proběhl přes
+izolovaný patchovaný sidecar a uzavřel všech 57 použitelných model-role párů na
+40 `COMPLETE`, 17 `BLOCKED`, 0 applicable `MISSING`; 34 raw `MISSING` je
+explicitně mimo role/category coverage. Systémový provider blocker tím
+nezmizel a nový coverage patch čeká na rereview. Evidence:
+[`model-scoring-live-20260828.md`](docs/execution/runs/model-scoring-live-20260828.md).
 
 Tool census ze zdroje: **9 JavaScript soubory, 8 664 řádků, 153 top-level
 nástrojových deklarací**. Počet 213 v dřívější inventuře byl textový false count.

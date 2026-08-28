@@ -5,6 +5,8 @@
 // into an arbitrary freshness TTL. Legacy name-only rows cannot match.
 
 import { createRoleEvaluationPlans } from '../eval/role-evaluation-plan.js';
+import { checkRoleCandidateApplicability } from './candidate-eligibility.js';
+import { parseModelNameExtended } from './model-family-extensions.js';
 import {
   canonicalModelName,
   normalizeModelDigestSha256,
@@ -30,7 +32,20 @@ function exactArtifact(row) {
     digestSha256,
     size: Number.isFinite(row?.size) ? row.size : null,
     modifiedAt: row?.modified_at || row?.modifiedAt || null,
+    params: Number.isFinite(row?.params) ? row.params : null,
+    category: typeof row?.category === 'string' ? row.category.trim() : null,
+    capabilities: Array.isArray(row?.capabilities) ? Object.freeze([...row.capabilities]) : null,
   };
+}
+
+function roleApplicability(artifact, role) {
+  const parsed = parseModelNameExtended(artifact.name);
+  return checkRoleCandidateApplicability({
+    name: artifact.name,
+    params: artifact.params ?? parsed.params,
+    category: artifact.category || parsed.category,
+    capabilities: artifact.capabilities,
+  }, role);
 }
 
 function decodeCurrentRow(row) {
@@ -179,6 +194,7 @@ export class ModelEvaluationReadModel {
         const evaluations = {};
         for (const [role, plan] of Object.entries(this._plans)) {
           const result = currentStatus(this._db, artifact, role, plan);
+          const applicability = roleApplicability(artifact, role);
           evaluations[role] = Object.freeze({
             role,
             suiteName: plan.suiteName,
@@ -190,6 +206,9 @@ export class ModelEvaluationReadModel {
             runtimeBlockCode: plan.runtimeBlockCode || null,
             runtimeBlockReason: plan.runtimeBlockReason || null,
             isCurrentBinding: sameModelName(bindings[role], artifact.name),
+            applicable: applicability.applicable,
+            applicabilityReasonCode: applicability.reasonCode,
+            applicabilityReason: applicability.reason,
             ...result,
           });
         }
@@ -243,6 +262,13 @@ export class ModelEvaluationReadModel {
           runtimeBlockReason: plan.runtimeBlockReason || null,
           minimumDiscriminatingTasks: plan.minimumDiscriminatingTasks,
           minimumDiscriminatingByLanguage: plan.minimumDiscriminatingByLanguage,
+          coverage: Object.freeze({
+            applicable: artifacts.filter(row => row.applicable).length,
+            notApplicable: artifacts.filter(row => !row.applicable).length,
+            applicableMissing: artifacts.filter(row => (
+              row.applicable && row.status === 'MISSING'
+            )).length,
+          }),
           artifacts: Object.freeze(artifacts),
           latestDecision: roleDecisions[0] || null,
           decisions: Object.freeze(roleDecisions),
@@ -250,8 +276,14 @@ export class ModelEvaluationReadModel {
       }
 
       const statusCounts = { COMPLETE: 0, FAILED: 0, BLOCKED: 0, MISSING: 0 };
+      const applicableStatusCounts = { COMPLETE: 0, FAILED: 0, BLOCKED: 0, MISSING: 0 };
+      let notApplicableCount = 0;
       for (const model of models) {
-        for (const row of Object.values(model.evaluations)) statusCounts[row.status]++;
+        for (const row of Object.values(model.evaluations)) {
+          statusCounts[row.status]++;
+          if (row.applicable) applicableStatusCounts[row.status]++;
+          else notApplicableCount++;
+        }
       }
       return Object.freeze({
         schemaVersion: 2,
@@ -265,6 +297,13 @@ export class ModelEvaluationReadModel {
         bindingAuthority,
         bindings: Object.freeze({ ...bindings }),
         statusCounts: Object.freeze(statusCounts),
+        coverage: Object.freeze({
+          applicableStatusCounts: Object.freeze(applicableStatusCounts),
+          applicableTotal: Object.values(applicableStatusCounts)
+            .reduce((sum, count) => sum + count, 0),
+          notApplicable: notApplicableCount,
+          total: models.length * Object.keys(this._plans).length,
+        }),
         decisions: Object.freeze(decisions),
         roles: Object.freeze(roles),
         models: Object.freeze(models),
