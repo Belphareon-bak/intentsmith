@@ -364,9 +364,10 @@ if (EXPORT_CHAT_HISTORY) {
       FROM model_evaluation_runs
      WHERE status = 'COMPLETE'
        AND suite_name = ?
+       AND suite_version = ?
        AND suite_contract_sha256 = ?
      ORDER BY completed_at ASC
-  `).all(plan.suiteName, plan.suiteContractSha256)
+  `).all(plan.suiteName, plan.suiteVersion, plan.suiteContractSha256)
     .filter(row => !selected.size || selected.has(row.model_canonical_name))
     .map(row => ({
       model: row.model_name,

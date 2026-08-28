@@ -100,6 +100,20 @@ async function main() {
     'installed panel skips remote discovery, rejects remote artifacts and reuses exact VRAM placement',
   );
 
+  const chatHistoryExport = hunt.slice(
+    hunt.indexOf('if (EXPORT_CHAT_HISTORY) {'),
+    hunt.indexOf('const installedRaw = await fetchInstalledModels();'),
+  );
+  check(
+    chatHistoryExport.includes('AND suite_name = ?')
+      && chatHistoryExport.includes('AND suite_version = ?')
+      && chatHistoryExport.includes('AND suite_contract_sha256 = ?')
+      && chatHistoryExport.includes(
+        ').all(plan.suiteName, plan.suiteVersion, plan.suiteContractSha256)',
+      ),
+    'CHAT history export is restricted to the exact suite name, version and contract',
+  );
+
   console.log(`\n══ RESULTS: ${pass} passed, ${fail} failed ══`);
   if (failures.length) {
     console.error('\n  FAILURES:');
