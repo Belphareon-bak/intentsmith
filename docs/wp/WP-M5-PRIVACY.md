@@ -1,7 +1,7 @@
 # WP-M5-PRIVACY — containment a operátorská remediation authority
 
 **Typ:** M5 production hardening · **Stav:**
-`KEY_CEREMONY_COMPLETE / M5_R19_REMEDIATION_IMPLEMENTED /
+`KEY_CUSTODY_CHANGES_REQUIRED / M5_R19_PRODUCT_REMEDIATION_IMPLEMENTED /
 RE_REVIEW_REQUIRED / OPERATOR_REMEDIATION_REQUIRED`
 · **Reviewed signed-authority product:** `75498c69cb7587378b0fe29e44dde7cc03c9cc4c`
 · **Raw/SQLite remediation:** `95a2cd6c`
@@ -125,5 +125,12 @@ Privacy review současně našel M5-R19: required offline
 `tests/m1-model-failover-schema.test.js` zůstal po migraci 100 na starém tipu
 098. Oracle nyní vědomě připíná 80 migrací, tip
 `2026_08_28_100_signed_privacy_receipts` a úplný applied seznam. Sada prošla
-`20/20`; změněný product candidate vyžaduje nové úzké re-review. Osm rotací,
-history disposition a M5 acceptance zůstávají neprovedené.
+`20/20`; úzký review ale našel stejný stale počet 79 v produkčním M6 upgrade
+kontraktu. Loopback-only upgrade jej reprodukoval jako `80 !== 79`. Kontrakt a
+jeho fixture jsou nyní sjednocené na 80, ale nový candidate vyžaduje re-review.
+
+Review současně odmítl custody model: čtyři nešifrované privátní klíče zůstaly
+po network-isolated generování na trvale připojeném stejném `/home` svazku a pod
+stejným OS účtem. Před podpisem musí být stejné keypairy přesunuty do skutečně
+offline úložiště a reviewer key musí mít oddělenou custody. Osm rotací, history
+disposition a M5 acceptance zůstávají neprovedené.

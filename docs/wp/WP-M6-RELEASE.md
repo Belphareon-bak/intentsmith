@@ -1,6 +1,6 @@
 # WP-M6-RELEASE — zmrazený kandidát a validační matice IntentSmith 1.0
 
-**Typ:** zapisující Work Package · **Stav:** KEY_CEREMONY_COMPLETE / PRODUCT_RE_REVIEW_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED
+**Typ:** zapisující Work Package · **Stav:** KEY_CUSTODY_CHANGES_REQUIRED / PRODUCT_REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED
 **Vstupní revision:** `55938fd0628bdb725736acdf21a451854580aaa7`
 **Vlastník:** `codex/m6-release-20260827`, jediný writer tohoto checkoutu
 
@@ -142,8 +142,8 @@ Implementované, ale zatím znovu nezreviewované bloky:
   historických live-server consumer journeys, exact toolchain preflightem a
   fail-fast po prvním required non-PASS (Decision 040);
 - skutečný persistentní application upgrade 136.0.0 → 136.1.0;
-- upgrade receipt v2 váže přesný inode/device stejného SQLite souboru,
-  migrační počty 56 → 79, celý canary a skutečný `lo`-only network namespace;
+- upgrade receipt v3 váže přesný inode/device stejného SQLite souboru,
+  migrační počty 56 → 80, celý canary a skutečný `lo`-only network namespace;
 - L0-11 durable model artifact authority podle Decision 037.
 
 L0-11 focused důkaz aktuálně tvoří 11/11 nových adversariálních checks,
@@ -178,3 +178,25 @@ ceremonie 2026-08-29 připnula čtyři produkční veřejné klíče. Protože t
 store a M5-R19 oracle mění produktové bytes, nový candidate vyžaduje úzký
 re-review. M5 i M6 zůstávají acceptance-blocked na skutečných receipts a
 zbývající release/runtime evidence.
+
+## 12. Úzký ceremony/M5-R19 re-review a worker correction 2026-08-29
+
+Candidate `d81be45f` dostal `CHANGES_REQUIRED`. Deklarovaných `402/402` kontrol,
+registry 471, trust store i privacy scan byly nezávisle reprodukované, ale M5-R19
+opravil pouze model-failover test. Autoritativní
+`M6_CURRENT_VERSION_MIGRATION_COUNT` zůstal 79 a skutečný loopback-only
+136.0.0→136.1.0 upgrade selhal po aplikaci 80 migrací přesně `80 !== 79`.
+Kontrakt, runtime/technical fixture a tento WP jsou sjednocené na 80; historický
+79-migration receipt a staré review pakety se nepřepisují a nejsou evidencí
+nového kandidáta.
+
+Plošný shell, který spouštěl všechny `tests/*m6*` s libovolným 300s timeoutem a
+bez `pipefail`, byl zastaven. Zabil 24h soak po pěti minutách a zkracoval přesně
+pětiminutový throughput, takže nemohl vytvořit release evidence. Další běhy musí
+použít locked registry/runner, přesný timeout a zachovat úplný exit/verdict.
+
+Custody zůstává blokující: čtyři nešifrované privátní klíče jsou na stejném
+trvale připojeném `/home` svazku pod účtem aplikace/workerů. Žádný receipt se
+nesmí podepsat, dokud nejsou stejné keypairy přesunuty do skutečně offline
+úložiště a reviewer key nemá oddělenou custody. Přesun stávajících keypairů
+nemění product bytes; regenerace klíčů ano.

@@ -609,10 +609,13 @@ test('signed privacy docs expose only the offline authority and current review s
   assert(apiReference.includes('410 M5_PRIVACY_OFFLINE_SIGNATURE_REQUIRED'));
   assert(!apiReference.includes('PrivacyRemediationStatus@1'));
   assert(!apiReference.includes('Attests one exact rotation category'));
-  assert(privacyWorkPackage.includes('KEY_CEREMONY_COMPLETE / M5_R19_REMEDIATION_IMPLEMENTED'));
+  assert(privacyWorkPackage.includes(
+    'KEY_CUSTODY_CHANGES_REQUIRED / M5_R19_PRODUCT_REMEDIATION_IMPLEMENTED',
+  ));
   assert(privacyWorkPackage.includes('body se nečte'));
   assert(signedAuthorityDecision.includes(
-    'IMPLEMENTATION_REVIEW_PASSED / KEY_CEREMONY_COMPLETE /\nPRODUCT_RE_REVIEW_REQUIRED',
+    'IMPLEMENTATION_REVIEW_PASSED / KEY_CUSTODY_CHANGES_REQUIRED /\n'
+      + 'PRODUCT_REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED',
   ));
   const counts = committedRegistry.suites.reduce((result, suiteRecord) => {
     result[suiteRecord.state] = (result[suiteRecord.state] || 0) + 1;
