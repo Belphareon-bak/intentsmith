@@ -148,8 +148,8 @@ Implementované, ale zatím znovu nezreviewované bloky:
 
 L0-11 focused důkaz aktuálně tvoří 11/11 nových adversariálních checks,
 24/24 původní model-use, 8/8 VRAM a 108/108 binding/chat compatibility.
-Integrované schéma má 158 tabulek / 87 migrací a registr 463 programů, z toho
-369 ACTIVE a 364 `ACTIVE + required`. Registry nyní fail-closed zakazuje required external
+Integrované schéma má 158 tabulek / 87 migrací a registr 464 programů, z toho
+370 ACTIVE a 365 `ACTIVE + required`. Registry nyní fail-closed zakazuje required external
 program, který committed runner musí vždy hard-blockovat; přesná disposition je
 v Decision 039.
 Původních třináct false-soak ACTIVE položek je překlasifikovaných podle
@@ -218,3 +218,10 @@ chat/model-quality and physical GPU evidence remain
 throughput, independent review, operator demo and Gate 0 remain blocking.
 Exact commands, identities and digests are recorded in
 [`m6-model-evaluation-integration-20260829.md`](../execution/runs/m6/m6-model-evaluation-integration-20260829.md).
+
+## 14. Operator-demo authority preparation
+
+Fail-closed operator-demo plan/observation runner je připraven v
+[`WP-M6-OPERATOR-DEMO-PREP.md`](WP-M6-OPERATOR-DEMO-PREP.md). Jde o
+`IMPLEMENTED / REVIEW_PENDING`; skutečné demo nebylo spuštěno a approval nebyl
+vydán. Příprava proto nemění žádný M6 verdict ani otevřený blocker výše.

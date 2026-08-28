@@ -47,6 +47,12 @@ import {
   M6_RELEASE_EVIDENCE_INDEX_VERSION,
 } from '../contracts/m6/release-v1.js';
 import {
+  M6_OPERATOR_DEMO_OBSERVATION_CONTRACT,
+  M6_OPERATOR_DEMO_OBSERVATION_STAGE,
+  M6_OPERATOR_DEMO_PLAN_DIGEST_V1,
+  M6_OPERATOR_DEMO_PLAN_V1,
+} from '../contracts/m6/operator-demo-v1.js';
+import {
   buildM6CandidateExecutionPlan,
 } from '../src/release/m6-candidate-plan.js';
 import {
@@ -115,6 +121,70 @@ const trustStore = Object.freeze({
 
 function digest(bytes) {
   return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+}
+
+function demoEvidence(productCandidateSha, productCandidateTree, fingerprint) {
+  const rawPrefix =
+    `docs/execution/runs/m6/operator-demo/candidate-${productCandidateSha}/raw/`;
+  const rawArtifacts = new Map(M6_OPERATOR_DEMO_PLAN_V1.steps.map((step, index) => [
+    `${rawPrefix}step-${index}.json`,
+    Buffer.from(`${JSON.stringify({ step: step.id, fixture: true })}\n`, 'utf8'),
+  ]));
+  const observation = {
+    contract: M6_OPERATOR_DEMO_OBSERVATION_CONTRACT,
+    version: 1,
+    stage: M6_OPERATOR_DEMO_OBSERVATION_STAGE,
+    planDigest: M6_OPERATOR_DEMO_PLAN_DIGEST_V1,
+    candidate: {
+      sha: productCandidateSha,
+      tree: productCandidateTree,
+      treeClean: true,
+      standaloneCheckout: true,
+    },
+    registryFingerprint: fingerprint,
+    startedAt: '2030-01-01T00:00:00.000Z',
+    completedAt: '2030-01-01T00:09:00.000Z',
+    durationMs: 540_000,
+    recordedAt: '2030-01-01T00:10:00.000Z',
+    environment: {
+      freshCloneObserved: true,
+      installProfile: 'core-minimal-offline',
+      buildProfile: 'linux-x64-studio-production',
+      unexpectedEgressAttempts: 0,
+    },
+    steps: M6_OPERATOR_DEMO_PLAN_V1.steps.map((step, index) => {
+      const artifactPath = `${rawPrefix}step-${index}.json`;
+      const bytes = rawArtifacts.get(artifactPath);
+      return {
+        id: step.id,
+        status: 'PASS',
+        notes: `Fixture operator observation ${index}.`,
+        artifacts: [{
+          path: artifactPath,
+          bytes: bytes.length,
+          sha256: digest(bytes).slice('sha256:'.length),
+        }],
+      };
+    }),
+    verdict: 'DEMO_COMPLETED_AWAITING_OPERATOR_APPROVAL',
+    acceptance: {
+      authorityId: SIGNED_AUTHORITY_ROLE.M6_RELEASE_OPERATOR,
+      domain: SIGNED_AUTHORITY_DOMAIN.M6_OPERATOR_DEMO,
+      receiptPath: M6_ACCEPTANCE_RECEIPT_PATHS['operator-demo-approval'],
+      status: 'NOT_ISSUED',
+      automaticApproval: 'forbidden',
+    },
+  };
+  const observationBytes = Buffer.from(`${JSON.stringify(observation, null, 2)}\n`, 'utf8');
+  const observationDigest = digest(observationBytes).slice('sha256:'.length);
+  const observationPath =
+    `docs/execution/runs/m6/operator-demo/candidate-${productCandidateSha}/` +
+    `observation-${observationDigest}.json`;
+  return {
+    observationPath,
+    observationBytes,
+    rawArtifacts,
+  };
 }
 
 function signed({ domain, roleKey, decision, payload, previousReceiptId, index, artifactStore }) {
@@ -282,6 +352,18 @@ function fixture() {
     },
   });
   receipts.push(review);
+  const demoArtifacts = demoEvidence(
+    expected.productCandidateSha,
+    expected.productCandidateTree,
+    expected.registryFingerprint,
+  );
+  for (const [artifactPath, bytes] of demoArtifacts.rawArtifacts) {
+    artifactStore.set(`${evidenceHeadSha}:${artifactPath}`, { bytes, gitMode: '100644' });
+  }
+  artifactStore.set(`${evidenceHeadSha}:${demoArtifacts.observationPath}`, {
+    bytes: demoArtifacts.observationBytes,
+    gitMode: '100644',
+  });
   const demo = signed({
     domain: SIGNED_AUTHORITY_DOMAIN.M6_OPERATOR_DEMO,
     roleKey: keys.release,
@@ -296,6 +378,15 @@ function fixture() {
       verdict: 'APPROVED',
     },
   });
+  demo.artifacts = [{
+    path: demoArtifacts.observationPath,
+    bytes: demoArtifacts.observationBytes.length,
+    gitMode: '100644',
+    sha256: digest(demoArtifacts.observationBytes),
+  }];
+  demo.signature = sign(null, signedAuthoritySigningBytes(demo), keys.release.privateKey)
+    .toString('base64url');
+  demo.receiptId = computeSignedAuthorityReceiptId(demo);
   receipts.push(demo);
   const gate0 = signed({
     domain: SIGNED_AUTHORITY_DOMAIN.M6_GATE0,
@@ -537,6 +628,11 @@ function buildRealGitBundle({ productMutationReverted = false } = {}) {
       Buffer.from(`acceptance:${indexPosition}\n`, 'utf8'),
     );
   }
+  const demoArtifacts = demoEvidence(productCandidateSha, productCandidateTree, fingerprint);
+  for (const [artifactPath, bytes] of demoArtifacts.rawArtifacts) {
+    authorityArtifacts.set(artifactPath, bytes);
+  }
+  authorityArtifacts.set(demoArtifacts.observationPath, demoArtifacts.observationBytes);
   for (const [artifactPath, bytes] of authorityArtifacts) {
     writeGitFixtureFile(root, artifactPath, bytes);
   }
@@ -665,7 +761,10 @@ function buildRealGitBundle({ productMutationReverted = false } = {}) {
     roleKey: keys.release,
     expectedBindings,
     evidenceHead,
-    artifacts: [acceptanceArtifact(11)],
+    artifacts: [rawArtifactBinding(
+      demoArtifacts.observationPath,
+      demoArtifacts.observationBytes,
+    )],
     decision: 'DEMO_APPROVED',
     issuedIndex: 11,
     previousReceiptId: review.receiptId,

@@ -24,6 +24,9 @@ import {
 import {
   validateM6EvidenceCommitHistory,
 } from './m6-release-validation.js';
+import {
+  validateM6OperatorDemoReceiptObservation,
+} from './m6-operator-demo.js';
 
 const AUTHORITY_RECEIPT_PATH_SET = new Set(SIGNED_AUTHORITY_BUNDLE_PATHS);
 
@@ -229,6 +232,13 @@ export async function verifySignedAuthorityBundle({
     errors.push(...(await verifyPinnedEvidenceDocuments(receipt, readGitArtifact)).map(
       error => `${receiptPath}:${error}`,
     ));
+    const demoObservation = await validateM6OperatorDemoReceiptObservation(receipt, {
+      candidateSha: expected.productCandidateSha,
+      candidateTree: expected.productCandidateTree,
+      registryFingerprint: expected.registryFingerprint,
+      readGitArtifact: artifactPath => readGitArtifact(receipt.evidenceHeadSha, artifactPath),
+    });
+    errors.push(...demoObservation.errors.map(error => `${receiptPath}:${error}`));
     receipts.push(receipt);
   }
   if (errors.length > 0) return result({ valid: false, verdict: 'FAIL', errors, missingPaths });
