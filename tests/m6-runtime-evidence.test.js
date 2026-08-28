@@ -1,8 +1,10 @@
 import './helpers/isolated-test-db.js';
 
 import assert from 'node:assert/strict';
+import { readdirSync } from 'node:fs';
 
 import {
+  M6_CURRENT_VERSION_MIGRATION_COUNT,
   M6_LONG_SOAK_PROGRAM,
   M6_MAX_THROUGHPUT_PROGRAM,
   M6_PREVIOUS_VERSION_SHA,
@@ -29,7 +31,7 @@ function receipt(overrides = {}) {
     failedUpgradeLogSha256: 'f'.repeat(64),
     failedUpgradeMigrationCount: 70,
     previousMigrationCount: 56,
-    currentMigrationCount: 80,
+    currentMigrationCount: 87,
     canary: {
       id: 1,
       name: 'M6 Upgrade Canary',
@@ -199,6 +201,14 @@ function saturatedThroughputReceipt() {
 
 suite('M6 runtime evidence receipts');
 
+test('current migration count stays bound to the release migration set', () => {
+  const migrationCount = readdirSync(
+    new URL('../src/db/migrations/', import.meta.url),
+    { withFileTypes: true },
+  ).filter(entry => entry.isFile() && entry.name.endsWith('.js')).length;
+  assert.equal(M6_CURRENT_VERSION_MIGRATION_COUNT, migrationCount);
+});
+
 test('exact previous-version application receipt passes', () => {
   const result = validateM6RuntimeEvidence(
     M6_PREVIOUS_VERSION_UPGRADE_PROGRAM,
@@ -217,7 +227,7 @@ test('missing, duplicate, rebound and weaker upgrade receipts fail closed', () =
     log(receipt({ currentMigrationCount: 79 })),
     log(receipt({ previousServerCleanShutdown: false })),
     log(receipt({ failedUpgradeExitCode: 0 })),
-    log(receipt({ failedUpgradeMigrationCount: 80 })),
+    log(receipt({ failedUpgradeMigrationCount: 87 })),
     log(receipt({ restoredDatabaseSha256: '0'.repeat(64) })),
     log(receipt({ restoreVerified: false })),
     log(receipt({ networkScope: 'external' })),

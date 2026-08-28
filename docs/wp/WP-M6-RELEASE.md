@@ -143,13 +143,13 @@ Implementované, ale zatím znovu nezreviewované bloky:
   fail-fast po prvním required non-PASS (Decision 040);
 - skutečný persistentní application upgrade 136.0.0 → 136.1.0;
 - upgrade receipt v3 váže přesný inode/device stejného SQLite souboru,
-  migrační počty 56 → 80, celý canary a skutečný `lo`-only network namespace;
+  migrační počty 56 → 87, celý canary a skutečný `lo`-only network namespace;
 - L0-11 durable model artifact authority podle Decision 037.
 
 L0-11 focused důkaz aktuálně tvoří 11/11 nových adversariálních checks,
 24/24 původní model-use, 8/8 VRAM a 108/108 binding/chat compatibility.
-Schéma má 156 tabulek / 80 migrací a registr 471 programů, z toho 376 ACTIVE a
-371 `ACTIVE + required`. Registry nyní fail-closed zakazuje required external
+Integrované schéma má 158 tabulek / 87 migrací a registr 463 programů, z toho
+369 ACTIVE a 364 `ACTIVE + required`. Registry nyní fail-closed zakazuje required external
 program, který committed runner musí vždy hard-blockovat; přesná disposition je
 v Decision 039.
 Původních třináct false-soak ACTIVE položek je překlasifikovaných podle
@@ -186,9 +186,11 @@ registry 471, trust store i privacy scan byly nezávisle reprodukované, ale M5-
 opravil pouze model-failover test. Autoritativní
 `M6_CURRENT_VERSION_MIGRATION_COUNT` zůstal 79 a skutečný loopback-only
 136.0.0→136.1.0 upgrade selhal po aplikaci 80 migrací přesně `80 !== 79`.
-Kontrakt, runtime/technical fixture a tento WP jsou sjednocené na 80; historický
-79-migration receipt a staré review pakety se nepřepisují a nejsou evidencí
-nového kandidáta.
+Kontrakt, runtime/technical fixture a tento WP byly na tomto kandidátu
+sjednocené na 80; historický 79-migration receipt a staré review pakety se
+nepřepisují a nejsou evidencí nového kandidáta. Modelová integrace následně
+přidala sedm migrací, takže společný candidate používá 87 a rychlý test
+odmítá jakýkoliv další rozdíl mezi kontraktem a migration setem.
 
 Plošný shell, který spouštěl všechny `tests/*m6*` s libovolným 300s timeoutem a
 bez `pipefail`, byl zastaven. Zabil 24h soak po pěti minutách a zkracoval přesně

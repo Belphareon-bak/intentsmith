@@ -181,8 +181,10 @@ tag, publish ani push.
 Review candidatu `d81be45f` skončil `CHANGES_REQUIRED`. Kryptografické identity,
 402 focused/structural kontrol, registry i current-tree privacy scan prošly, ale
 produkční M6 upgrade kontrakt stále očekával 79 migrací. Skutečný loopback-only
-upgrade z verze 136.0.0 aplikoval 80 a skončil `80 !== 79`. Oracle byl následně
-sjednocen na 80 a čeká na nový exact-candidate re-review.
+upgrade z verze 136.0.0 aplikoval 80 a skončil `80 !== 79`. Oracle byl na
+M5/M6 kandidátu sjednocen na 80. Následná modelová integrace přidala sedm
+migrací; společný candidate je proto navázaný na 87 a čeká na nový
+exact-candidate re-review.
 
 Současně nebyl přijat custody model privátních klíčů. `bwrap --unshare-net`
 izoloval generování, ale všechny čtyři nešifrované PKCS#8 soubory po ceremonii

@@ -126,8 +126,10 @@ Privacy review současně našel M5-R19: required offline
 098. Oracle nyní vědomě připíná 80 migrací, tip
 `2026_08_28_100_signed_privacy_receipts` a úplný applied seznam. Sada prošla
 `20/20`; úzký review ale našel stejný stale počet 79 v produkčním M6 upgrade
-kontraktu. Loopback-only upgrade jej reprodukoval jako `80 !== 79`. Kontrakt a
-jeho fixture jsou nyní sjednocené na 80, ale nový candidate vyžaduje re-review.
+kontraktu. Loopback-only upgrade jej reprodukoval jako `80 !== 79`. Původní
+kontrakt a fixture byly sjednocené na 80; po sloučení modelové autority jsou
+navázané na skutečných 87 migrací integrovaného kandidáta. Nový candidate
+vyžaduje re-review.
 
 Review současně odmítl custody model: čtyři nešifrované privátní klíče zůstaly
 po network-isolated generování na trvale připojeném stejném `/home` svazku a pod
