@@ -134,3 +134,16 @@ případy. Remediation je rozdělena na raw/SQLite commit `95a2cd6c`, Git-lineag
 commit `4beced1b` a exact module baseline `2b5da617`. Tyto nové bytes vyžadují
 samostatný re-review a do jeho `REVIEW_PASSED` zůstává offline key ceremony
 blokovaná.
+
+Následující re-review exact candidatu
+`75498c69cb7587378b0fe29e44dde7cc03c9cc4c` znovu skončil
+`CHANGES_REQUIRED`. SQLite repository načítalo raw envelope přes lossy `TEXT`
+dekódování a Git verifier kontroloval jen koncový diff, takže dočasná změna
+produktu následovaná revertem zmizela. Vedle toho lokální Git čtení přijímalo
+replacement objects a skryté index flags. Remediation `8632c490` ověřuje
+uložené receipty z přesných BLOB bytes, prochází každý commit i každý parent,
+merge commity odmítá, opakuje stejný důkaz pro každý receipt evidence HEAD a
+fail-closed odmítá replace refs, grafts, `assume-unchanged` i `skip-worktree`.
+Samostatný temp-Git E2E prokazuje PASS platného 13-receipt bundle a FAIL pro
+mutate→receipt→revert historii. Jde stále jen o implementaci čekající na nový
+nezávislý re-review; ceremonie zůstává blokovaná.

@@ -148,8 +148,8 @@ Implementované, ale zatím znovu nezreviewované bloky:
 
 L0-11 focused důkaz aktuálně tvoří 11/11 nových adversariálních checks,
 24/24 původní model-use, 8/8 VRAM a 108/108 binding/chat compatibility.
-Schéma má 155 tabulek / 79 migrací a registr 469 programů, z toho 374 ACTIVE a
-369 `ACTIVE + required`. Registry nyní fail-closed zakazuje required external
+Schéma má 156 tabulek / 80 migrací a registr 471 programů, z toho 376 ACTIVE a
+371 `ACTIVE + required`. Registry nyní fail-closed zakazuje required external
 program, který committed runner musí vždy hard-blockovat; přesná disposition je
 v Decision 039.
 Původních třináct false-soak ACTIVE položek je překlasifikovaných podle
@@ -159,3 +159,18 @@ prošly, ale jsou explicitně `DEV_ONLY` a release evidence je odmítá. Skuteč
 24h soak, plný maximum-throughput, nový complete candidate report a
 operátorský re-review jsou stále otevřené. Stav proto zůstává
 `TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED`.
+
+## 11. Decision 041 second re-review remediation
+
+Exact candidate `75498c69` dostal `CHANGES_REQUIRED`, přestože jeho focused
+programy byly `375/375 PASS`. Commit `8632c490` uzavírá reprodukované raw-byte
+a Git-history vady: SQLite authority načítá exact BLOB bytes; release verifier
+prochází každý commit a diff vůči každému parentu, zakazuje merge a ověřuje
+samostatně candidate→receipt evidence HEAD; všechny Git read cesty vypínají a
+odmítají replacement metadata a skryté index flags.
+
+Skutečný temp-Git E2E sestaví validní 13-receipt bundle a získá PASS ze
+standalone verifieru. Mutace `src/server.js`, následný signed receipt a revert
+vrátí FAIL v bundle CLI i plném release CLI. Focused a structural matice je
+`382/382 PASS`, registry zůstává 471 / `ffb7110746…`. Tato implementace čeká
+na nový nezávislý review; M5, M6 i offline ceremonie zůstávají blokované.

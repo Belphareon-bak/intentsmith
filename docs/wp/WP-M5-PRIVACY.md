@@ -3,10 +3,11 @@
 **Typ:** M5 production hardening · **Stav:**
 `SIGNED_AUTHORITY_CHANGES_REQUIRED / REMEDIATION_IMPLEMENTED /
 RE_REVIEW_REQUIRED / OPERATOR_REMEDIATION_REQUIRED`
-· **Reviewed signed-authority product:** `73fdf8365c97c49292752a0e46697345eada0f44`
+· **Reviewed signed-authority product:** `75498c69cb7587378b0fe29e44dde7cc03c9cc4c`
 · **Raw/SQLite remediation:** `95a2cd6c`
 · **Git-lineage remediation:** `4beced1b`
 · **Module baseline:** `2b5da617`
+· **Latest byte/history remediation:** `8632c490`
 
 ## Výsledek implementace
 
@@ -95,3 +96,20 @@ index i manifest na každém podepsaném evidence HEAD, váže history před pro
 candidate, porovnává obě disposition a používá globální nonce množinu.
 Implementace ani focused testy nejsou review PASS; offline ceremonie zůstává
 blokovaná do nového nezávislého `REVIEW_PASSED`.
+
+## Druhý Decision 041 re-review a remediation 2026-08-28
+
+Re-review kandidatu `75498c69` potvrdil předchozí opravy a focused
+`375/375`, ale našel dva nezávislé HIGH blockery: SQLite `TEXT` round-trip
+normalizoval neplatnou UTF-8 sekvenci před raw verifierem a koncový Git diff
+neviděl produktovou změnu následovanou revertem. Lokální `refs/replace`, grafts
+a skryté index flags navíc oslabovaly lokální CLI autoritu.
+
+Commit `8632c490` čte každý stored envelope jako přesný BLOB, validuje celý
+lineární rozsah commit po commitu i per parent a totéž opakuje pro každý
+receipt evidence HEAD. Merge commity jsou explicitně zakázané. Všechny Git
+čtecí operace vypínají replacement objects a před verifikací odmítnou replace
+refs, grafts, `assume-unchanged` i `skip-worktree`. Reálný temp-Git test
+spouští oba standalone CLI a prokazuje, že mutate→receipt→revert končí FAIL.
+Aktuální focused a structural sada je `382/382 PASS`; není to review PASS ani
+oprávnění k offline key ceremony.

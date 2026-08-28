@@ -67,8 +67,8 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M2 Řízená práce nad projektem** | `ACCEPTED / CLOSEOUT_PASS` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
-| **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Decision 041 candidate dostal `CHANGES_REQUIRED`; adversariální opravy jsou implementované, ale nové review chybí. Produkční klíče, 8 rotací, history disposition a podepsaná M5 acceptance neproběhly. |
-| **M6 IntentSmith 1.0 release** | `SIGNED_AUTHORITY_CHANGES_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, application upgrade, L0-11 a soak/throughput harness jsou implementované. Signed review/demo/Gate 0 verifier má remediation bez review PASS; 24h a pětiminutový plný běh zatím nejsou provedené. |
+| **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Druhý Decision 041 candidate dostal `CHANGES_REQUIRED`; byte/history remediation `8632c490` je implementovaná, ale nové review chybí. Produkční klíče, 8 rotací, history disposition a podepsaná M5 acceptance neproběhly. |
+| **M6 IntentSmith 1.0 release** | `SIGNED_AUTHORITY_CHANGES_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, application upgrade, L0-11 a soak/throughput harness jsou implementované. Signed verifier nyní kontroluje raw BLOB bytes a per-commit historii, ale nemá review PASS; 24h a pětiminutový plný běh zatím nejsou provedené. |
 | **M7 Remote Companion** | `DESIGN_ONLY` | M6 + remote boundary | Samostatný vzdálený companion release nad bezpečným core rozhraním. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
@@ -1370,7 +1370,7 @@ další učící smyčka M4. Nepředbíhá první prokázané Code Intelligence 
 
 ## 9. M5 — Production hardening
 
-**Průběžný stav 2026-08-27:**
+**Průběžný stav 2026-08-28:**
 `8/9 REVIEW_PASSED / PRIVACY CHANGES_REQUESTED / ACCEPTANCE_BLOCKED /
 OPERATOR_REMEDIATION_REQUIRED / M6_GATE_CLOSED`. Re-review exact kandidáta
 `816a2a4c8a95b49d46f06b94b56feb64c8a40c90` přijalo DATA, AUTH a PERF vedle
@@ -1383,7 +1383,12 @@ verifier. Tato oprava je historický předstupeň. Decision 041 candidate
 `73fdf836` následně dostal `CHANGES_REQUIRED` kvůli přesným UTF-8 bytes,
 restartovým UDF, expected bindings a Git-lineage mezerám. Jejich remediation
 je implementovaná na `95a2cd6c`, `4beced1b` a `2b5da617`, ale nové
-operátorské re-review ještě neproběhlo.
+operátorské re-review exact kandidatu `75498c69` znovu skončilo
+`CHANGES_REQUIRED`: SQLite ztrácelo bajtovou identitu přes `TEXT` a Git boundary
+neviděla dočasnou produktovou změnu následovanou revertem. Remediation
+`8632c490` přidává exact BLOB read, per-commit/per-parent a per-receipt historii,
+zakazuje merge a odmítá replace refs, grafts a skryté index flags. Nový review
+této remediation ještě neproběhl.
 `WP-M5-PACKAGE` má review remediation implementovanou na product commitu
 `8be0094d`; druhé review oddíl označilo `REVIEW_PASSED`. `--verify-only` při
 cizím Node majoru pouze zapíše chybu a nikdy
@@ -1510,8 +1515,8 @@ původní report zůstává v
 
 `WP-M5-PRIVACY` má po několika review kolech poslední nezávislý verdict
 `CHANGES_REQUIRED`. Decision 041 offline signed authority nad candidatem
-`73fdf836` je superseded remediation commity `95a2cd6c`, `4beced1b` a
-`2b5da617`; oddíl zůstává `RE_REVIEW_REQUIRED`. Migrace 090
+`75498c69` je superseded byte/history remediation commitem `8632c490`; oddíl
+zůstává `RE_REVIEW_REQUIRED`. Migrace 090
 odstraňuje známé plaintext credential klíče z `user_settings` a migrace 091
 navíc vyžaduje pro každý rotation/history INSERT transportem autentizovanou
 subject identitu až na SQL triggeru. Veřejný capability mint byl odstraněn,
@@ -1519,9 +1524,10 @@ syntaktický klon subjectu zápis neodemkne a receipt actor musí sedět na tut�
 identitu. Přímý canonical SQL INSERT proto fail-closed selže. Aplikace už
 receipts nemintuje: autentizované POST surface vracejí typed `410`, SQLite
 drží pouze raw signed display cache a autoritativní promotion dělá samostatný
-Git CLI. Ten nyní vyžaduje exact bytes, globální nonce, index/manifest už na
-podepsaném evidence HEAD, celý evidence-only candidate→HEAD rozsah a
-disposition v candidate lineage. Exact-HEAD scanner odvozuje čtené roots z
+Git CLI. Ten nyní vyžaduje exact BLOB bytes, globální nonce, index/manifest už
+na podepsaném evidence HEAD, každý candidate→HEAD commit i parent a samostatný
+candidate→receipt evidence HEAD důkaz; merge a lokální Git replacement/index
+metadata fail-closed odmítá. Exact-HEAD scanner odvozuje čtené roots z
 distribučního manifestu; na `b15090a4`
 rozlišuje 1 853 scanned a 983 content-read souborů a má nula current-tree
 findings. History scan měří dosažitelnost z přesného ref censu, ne fyzickou
@@ -1677,7 +1683,7 @@ stabilní candidate + re-review:
 
 - finální release evidence se znovu odvozuje z raw logů připnutých v Git a
   validuje exact artifact/receipt chain; ignorovaný JSON nemůže vydat PASS;
-- locked plán používá množinovou rovnost se všemi současnými 369
+- locked plán používá množinovou rovnost se všemi současnými 371
   `ACTIVE + required` programy;
 - devět required live-server consumer journeys už není posíláno do runneru,
   který žádný server nevlastní. Plan v6 je odděluje do serializované
