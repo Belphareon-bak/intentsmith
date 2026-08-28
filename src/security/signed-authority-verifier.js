@@ -152,8 +152,7 @@ export function createSignedAuthorityVerifier({ trustStore } = {}) {
           errors.push(`binding:${name}`);
         }
       }
-      const nonceKey = `${receipt.authorityId}\0${receipt.nonce}`;
-      if (seenNonceKeys.has(nonceKey)) errors.push('replay:nonce');
+      if (seenNonceKeys.has(receipt.nonce)) errors.push('replay:nonce');
     }
     return Object.freeze({
       valid: errors.length === 0,
@@ -224,8 +223,7 @@ export function verifySignedAuthorityReceiptSet(
     const result = verifier.verify(receipt, { expected, seenNonceKeys });
     errors.push(...result.errors.map(error => `receipt[${index}]:${error}`));
     if (result.valid) {
-      const nonceKey = `${receipt.authorityId}\0${receipt.nonce}`;
-      seenNonceKeys.add(nonceKey);
+      seenNonceKeys.add(receipt.nonce);
       if (seenReceiptIds.has(receipt.receiptId)) errors.push(`receipt[${index}]:replay:receipt`);
       seenReceiptIds.add(receipt.receiptId);
       if (requireLinearChain && receipt.previousReceiptId !== previousReceiptId) {

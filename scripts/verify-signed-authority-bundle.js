@@ -15,6 +15,7 @@ import {
   buildM6CandidateExecutionPlan,
 } from '../src/release/m6-candidate-plan.js';
 import {
+  validateM6EvidenceCommitBoundary,
   validateM6ReleaseEvidenceIndex,
 } from '../src/release/m6-release-validation.js';
 import {
@@ -113,6 +114,34 @@ export async function verifyCurrentSignedAuthorityBundle(root = process.cwd()) {
       'signed-authority:candidate-registry',
     );
     const fingerprint = registryFingerprint(candidateRegistry);
+    const evidenceRegistry = parseJson(
+      gitBytes(root, finalEvidenceHeadSha, 'tests/registry.json'),
+      'signed-authority:evidence-registry',
+    );
+    const evidenceRegistryFingerprint = registryFingerprint(evidenceRegistry);
+    const changedEntries = git(root, [
+      'diff', '--name-status', '--no-renames', `${candidateSha}..${finalEvidenceHeadSha}`,
+    ]).split('\n').filter(Boolean).map(line => {
+      const separator = line.indexOf('\t');
+      return separator === -1
+        ? { status: null, path: line }
+        : { status: line.slice(0, separator), path: line.slice(separator + 1) };
+    });
+    const worktreeClean = git(root, [
+      'status', '--porcelain=v1', '--untracked-files=all',
+    ]) === '';
+    const boundary = validateM6EvidenceCommitBoundary({
+      candidateSha,
+      evidenceHeadSha: finalEvidenceHeadSha,
+      candidateIsAncestor: true,
+      changedEntries,
+      worktreeClean,
+      candidateRegistryFingerprint: fingerprint,
+      evidenceRegistryFingerprint,
+    });
+    if (!boundary.valid) {
+      throw new Error(`signed-authority:evidence-boundary:${boundary.errors.join(',')}`);
+    }
     const indexValidation = validateM6ReleaseEvidenceIndex(index, {
       candidateSha,
       registryFingerprint: fingerprint,
@@ -152,6 +181,9 @@ export async function verifyCurrentSignedAuthorityBundle(root = process.cwd()) {
       trustStore,
       expected,
       finalEvidenceHeadSha,
+      changedEntries,
+      worktreeClean,
+      evidenceRegistryFingerprint,
       isAncestor: async (ancestor, descendant) => (
         spawnSync('git', ['merge-base', '--is-ancestor', ancestor, descendant], {
           cwd: root,

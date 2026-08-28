@@ -21,6 +21,9 @@ import {
 import {
   validateM6AcceptanceReceipt,
 } from './m6-acceptance-authority.js';
+import {
+  validateM6EvidenceCommitBoundary,
+} from './m6-release-validation.js';
 
 const AUTHORITY_RECEIPT_PATH_SET = new Set(SIGNED_AUTHORITY_BUNDLE_PATHS);
 
@@ -79,11 +82,56 @@ async function verifyArtifactBinding(receipt, binding, readGitArtifact) {
   }
 }
 
+async function verifyPinnedEvidenceDocuments(receipt, readGitArtifact) {
+  const errors = [];
+  let indexArtifact;
+  let index;
+  try {
+    indexArtifact = await readGitArtifact(
+      receipt.evidenceHeadSha,
+      'docs/execution/runs/m6/M6-RELEASE-EVIDENCE-INDEX.json',
+    );
+    const bytes = Buffer.from(indexArtifact.bytes);
+    if (`sha256:${createHash('sha256').update(bytes).digest('hex')}`
+        !== receipt.releaseEvidenceIndexSha256) {
+      errors.push('evidence-index:binding');
+    }
+    index = JSON.parse(bytes.toString('utf8'));
+  } catch {
+    errors.push('evidence-index:unreadable');
+  }
+  const manifestBinding = index?.releaseArtifactManifest;
+  if (
+    typeof manifestBinding?.path !== 'string'
+    || !Number.isSafeInteger(manifestBinding?.bytes)
+    || !/^[a-f0-9]{64}$/u.test(manifestBinding?.sha256 || '')
+  ) {
+    errors.push('artifact-manifest:index-binding');
+    return errors;
+  }
+  try {
+    const artifact = await readGitArtifact(receipt.evidenceHeadSha, manifestBinding.path);
+    const bytes = Buffer.from(artifact.bytes);
+    const digest = createHash('sha256').update(bytes).digest('hex');
+    if (
+      bytes.length !== manifestBinding.bytes
+      || digest !== manifestBinding.sha256
+      || `sha256:${digest}` !== receipt.artifactManifestSha256
+    ) errors.push('artifact-manifest:binding');
+  } catch {
+    errors.push('artifact-manifest:unreadable');
+  }
+  return errors;
+}
+
 export async function verifySignedAuthorityBundle({
   rawReceiptsByPath,
   trustStore,
   expected,
   finalEvidenceHeadSha,
+  changedEntries,
+  worktreeClean,
+  evidenceRegistryFingerprint,
   isAncestor,
   readGitArtifact,
   resolveReceiptCommit,
@@ -99,6 +147,26 @@ export async function verifySignedAuthorityBundle({
   } catch (error) {
     return result({ valid: false, verdict: 'FAIL', errors: [error.message] });
   }
+  const candidateIsAncestor = await isAncestor(
+    expected?.productCandidateSha,
+    finalEvidenceHeadSha,
+  );
+  const boundary = validateM6EvidenceCommitBoundary({
+    candidateSha: expected?.productCandidateSha,
+    evidenceHeadSha: finalEvidenceHeadSha,
+    candidateIsAncestor,
+    changedEntries,
+    worktreeClean,
+    candidateRegistryFingerprint: expected?.registryFingerprint,
+    evidenceRegistryFingerprint,
+  });
+  if (!boundary.valid) {
+    return result({
+      valid: false,
+      verdict: 'FAIL',
+      errors: boundary.errors.map(error => `bundle:${error}`),
+    });
+  }
   const missingPaths = SIGNED_AUTHORITY_BUNDLE_PATHS.filter(
     receiptPath => rawAt(rawReceiptsByPath, receiptPath) === undefined,
   );
@@ -112,7 +180,7 @@ export async function verifySignedAuthorityBundle({
     errors.push(...verified.errors.map(error => `${receiptPath}:${error}`));
     if (!verified.valid) continue;
     const receipt = verified.receipt;
-    seenNonceKeys.add(`${receipt.authorityId}\0${receipt.nonce}`);
+    seenNonceKeys.add(receipt.nonce);
     errors.push(...validatePathSemantic(receipt, index, verifier, expected).map(
       error => `${receiptPath}:${error}`,
     ));
@@ -137,6 +205,9 @@ export async function verifySignedAuthorityBundle({
       const artifactError = await verifyArtifactBinding(receipt, binding, readGitArtifact);
       if (artifactError) errors.push(`${receiptPath}:${binding.path}:${artifactError}`);
     }
+    errors.push(...(await verifyPinnedEvidenceDocuments(receipt, readGitArtifact)).map(
+      error => `${receiptPath}:${error}`,
+    ));
     receipts.push(receipt);
   }
   if (errors.length > 0) return result({ valid: false, verdict: 'FAIL', errors, missingPaths });
@@ -165,13 +236,25 @@ export async function verifySignedAuthorityBundle({
   if (m5?.payload.privacyHistoryReceiptId !== privacyHistory?.receiptId) {
     errors.push('bundle:m5-privacy-history-binding');
   }
+  if (m5?.payload.historyDisposition !== privacyHistory?.payload.disposition) {
+    errors.push('bundle:m5-history-disposition-binding');
+  }
   if (
     gate0?.payload.reviewReceiptId !== review?.receiptId
     || gate0?.payload.demoReceiptId !== demo?.receiptId
   ) errors.push('bundle:gate0-review-demo-binding');
   if (
     privacyHistory
-    && !await isAncestor(privacyHistory.payload.postDispositionHeadSha, privacyHistory.evidenceHeadSha)
+    && (
+      !await isAncestor(
+        privacyHistory.payload.postDispositionHeadSha,
+        expected.productCandidateSha,
+      )
+      || !await isAncestor(
+        privacyHistory.payload.postDispositionHeadSha,
+        privacyHistory.evidenceHeadSha,
+      )
+    )
   ) errors.push('bundle:history-post-disposition-ancestry');
   return errors.length === 0
     ? result({ valid: true, verdict: 'PASS', receipts })

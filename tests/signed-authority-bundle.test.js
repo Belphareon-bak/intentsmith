@@ -31,6 +31,9 @@ import {
   SIGNED_AUTHORITY_BUNDLE_PATHS,
 } from '../contracts/m6/acceptance-authority-v1.js';
 import {
+  M6_RELEASE_EVIDENCE_INDEX_PATH,
+} from '../contracts/m6/release-v1.js';
+import {
   applyVerifiedSignedAuthorityBundle,
   verifySignedAuthorityBundle,
 } from '../src/release/signed-authority-bundle-verifier.js';
@@ -40,12 +43,21 @@ import { suite, summary, testAsync } from './harness.js';
 const candidateSha = 'a'.repeat(40);
 const evidenceHeadSha = 'b'.repeat(40);
 const finalEvidenceHeadSha = 'c'.repeat(40);
+const releaseManifestPath = 'docs/execution/runs/m6/M6-RELEASE-ARTIFACT.json';
+const releaseManifestBytes = Buffer.from('{"contract":"M6ReleaseArtifactFixture"}\n', 'utf8');
+const releaseIndexBytes = Buffer.from(`${JSON.stringify({
+  releaseArtifactManifest: {
+    path: releaseManifestPath,
+    bytes: releaseManifestBytes.length,
+    sha256: digest(releaseManifestBytes).slice('sha256:'.length),
+  },
+})}\n`, 'utf8');
 const expected = Object.freeze({
   productCandidateSha: candidateSha,
   productCandidateTree: 'd'.repeat(40),
   registryFingerprint: 'e'.repeat(64),
-  releaseEvidenceIndexSha256: `sha256:${'f'.repeat(64)}`,
-  artifactManifestSha256: `sha256:${'1'.repeat(64)}`,
+  releaseEvidenceIndexSha256: digest(releaseIndexBytes),
+  artifactManifestSha256: digest(releaseManifestBytes),
 });
 
 function key(authorityId) {
@@ -115,6 +127,14 @@ function signed({ domain, roleKey, decision, payload, previousReceiptId, index, 
 
 function fixture() {
   const artifactStore = new Map();
+  artifactStore.set(`${evidenceHeadSha}:${M6_RELEASE_EVIDENCE_INDEX_PATH}`, {
+    bytes: releaseIndexBytes,
+    gitMode: '100644',
+  });
+  artifactStore.set(`${evidenceHeadSha}:${releaseManifestPath}`, {
+    bytes: releaseManifestBytes,
+    gitMode: '100644',
+  });
   const receipts = [];
   let previousReceiptId = null;
   for (const [index, category] of M5_PRIVACY_ROTATION_CATEGORIES.entries()) {
@@ -282,6 +302,13 @@ function fixture() {
     trustStore,
     expected,
     finalEvidenceHeadSha,
+    changedEntries: [
+      { status: 'A', path: M6_RELEASE_EVIDENCE_INDEX_PATH },
+      { status: 'A', path: releaseManifestPath },
+      ...SIGNED_AUTHORITY_BUNDLE_PATHS.map(path => ({ status: 'A', path })),
+    ],
+    worktreeClean: true,
+    evidenceRegistryFingerprint: expected.registryFingerprint,
     artifactStore,
     isAncestor: async (ancestor, descendant) => (
       (ancestor === candidateSha && [evidenceHeadSha, finalEvidenceHeadSha].includes(descendant))
@@ -371,6 +398,90 @@ await testAsync('receipt commit containing product changes fails evidence-only b
   });
   assert.equal(verification.verdict, 'FAIL');
   assert(verification.errors.some(error => error.includes('binding:evidence-head')));
+});
+
+await testAsync('a later product change anywhere in the candidate-to-HEAD range fails', async () => {
+  const value = fixture();
+  const verification = await verifySignedAuthorityBundle({
+    rawReceiptsByPath: value.rawReceiptsByPath,
+    ...value.dependencies,
+    changedEntries: [
+      ...value.dependencies.changedEntries,
+      { status: 'M', path: 'src/server.js' },
+    ],
+  });
+  assert.equal(verification.verdict, 'FAIL');
+  assert(verification.errors.some(error => error.includes('boundary:product-path:src/server.js')));
+});
+
+await testAsync('every signed evidence HEAD must already contain the exact index and manifest', async () => {
+  const missingIndex = fixture();
+  missingIndex.dependencies.artifactStore.delete(
+    `${evidenceHeadSha}:${M6_RELEASE_EVIDENCE_INDEX_PATH}`,
+  );
+  const indexResult = await verifySignedAuthorityBundle({
+    rawReceiptsByPath: missingIndex.rawReceiptsByPath,
+    ...missingIndex.dependencies,
+  });
+  assert.equal(indexResult.verdict, 'FAIL');
+  assert(indexResult.errors.some(error => error.includes('evidence-index:unreadable')));
+
+  const missingManifest = fixture();
+  missingManifest.dependencies.artifactStore.delete(`${evidenceHeadSha}:${releaseManifestPath}`);
+  const manifestResult = await verifySignedAuthorityBundle({
+    rawReceiptsByPath: missingManifest.rawReceiptsByPath,
+    ...missingManifest.dependencies,
+  });
+  assert.equal(manifestResult.verdict, 'FAIL');
+  assert(manifestResult.errors.some(error => error.includes('artifact-manifest:unreadable')));
+});
+
+await testAsync('history disposition must precede the candidate and match M5 acceptance', async () => {
+  const forked = fixture();
+  const historyIndex = M5_SIGNED_PRIVACY_RECEIPT_PATHS.length - 1;
+  const historyPath = M5_SIGNED_PRIVACY_RECEIPT_PATHS[historyIndex];
+  const forkSha = '9'.repeat(40);
+  const forkedHistory = structuredClone(forked.receipts[historyIndex]);
+  forkedHistory.payload.postDispositionHeadSha = forkSha;
+  forkedHistory.signature = sign(
+    null,
+    signedAuthoritySigningBytes(forkedHistory),
+    keys.privacy.privateKey,
+  ).toString('base64url');
+  forkedHistory.receiptId = computeSignedAuthorityReceiptId(forkedHistory);
+  forked.rawReceiptsByPath.set(
+    historyPath,
+    `${canonicalizeSignedAuthorityValue(forkedHistory)}\n`,
+  );
+  const forkResult = await verifySignedAuthorityBundle({
+    rawReceiptsByPath: forked.rawReceiptsByPath,
+    ...forked.dependencies,
+    isAncestor: async (ancestor, descendant) => (
+      (ancestor === forkSha && descendant === evidenceHeadSha)
+      || forked.dependencies.isAncestor(ancestor, descendant)
+    ),
+  });
+  assert.equal(forkResult.verdict, 'FAIL');
+  assert(forkResult.errors.includes('bundle:history-post-disposition-ancestry'));
+
+  const mismatch = fixture();
+  const m5Index = M5_SIGNED_PRIVACY_RECEIPT_PATHS.length;
+  const m5Path = Object.values(M6_ACCEPTANCE_RECEIPT_PATHS)[0];
+  const mismatchedM5 = structuredClone(mismatch.receipts[m5Index]);
+  mismatchedM5.payload.historyDisposition = M5_PRIVACY_HISTORY_DECISIONS.REWRITE_AND_ROTATE;
+  mismatchedM5.signature = sign(
+    null,
+    signedAuthoritySigningBytes(mismatchedM5),
+    keys.acceptance.privateKey,
+  ).toString('base64url');
+  mismatchedM5.receiptId = computeSignedAuthorityReceiptId(mismatchedM5);
+  mismatch.rawReceiptsByPath.set(m5Path, `${canonicalizeSignedAuthorityValue(mismatchedM5)}\n`);
+  const mismatchResult = await verifySignedAuthorityBundle({
+    rawReceiptsByPath: mismatch.rawReceiptsByPath,
+    ...mismatch.dependencies,
+  });
+  assert.equal(mismatchResult.verdict, 'FAIL');
+  assert(mismatchResult.errors.includes('bundle:m5-history-disposition-binding'));
 });
 
 await testAsync('only a verified PASS bundle can promote the four external checks', async () => {

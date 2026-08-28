@@ -194,6 +194,19 @@ test('duplicate nonce and broken previous-receipt chain fail closed', () => {
     expected: expected(),
     requireLinearChain: true,
   }).valid, false);
+
+  const crossRoleNonce = signedReceipt(releaseKey, {
+    domain: SIGNED_AUTHORITY_DOMAIN.M6_OPERATOR_DEMO,
+    nonce: first.nonce,
+    previousReceiptId: null,
+  });
+  const crossRoleReplay = verifySignedAuthorityReceiptSet(
+    verifier,
+    [first, crossRoleNonce],
+    { expected: expected() },
+  );
+  assert.equal(crossRoleReplay.valid, false);
+  assert(crossRoleReplay.errors.some(error => error.includes('replay:nonce')));
 });
 
 test('unknown, revoked and unsigned legacy receipts never verify', () => {

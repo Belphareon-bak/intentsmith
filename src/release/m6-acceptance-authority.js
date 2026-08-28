@@ -225,7 +225,7 @@ export function applyM6AcceptanceReceipts(releaseEvidence, rawReceipts, {
       errors.push(`receipt[${index}]:order`);
     }
     receipts.push(result.receipt);
-    seenNonceKeys.add(`${result.receipt.authorityId}\0${result.receipt.nonce}`);
+    seenNonceKeys.add(result.receipt.nonce);
     previousReceiptId = result.receipt.receiptId;
   }
   const [m5, review, demo, gate0] = receipts;
