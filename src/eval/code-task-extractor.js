@@ -39,6 +39,12 @@ function git(repo, args, opts = {}) {
   });
 }
 
+/** Testové soubory úlohy — starší fixtury nesou jediný `test`. */
+export function testFilesOf(meta) {
+  if (Array.isArray(meta.tests) && meta.tests.length) return meta.tests;
+  return meta.test ? [meta.test] : [];
+}
+
 /**
  * Projde historii a najde commity, které mění zdroják i jeho test.
  *
@@ -61,31 +67,41 @@ export function findCandidates(repo, opts = {}) {
 
     const sources = files.filter(f => /^src\/.*\.js$/.test(f));
     const tests = files.filter(f => /^tests\/.*\.test\.js$/.test(f));
-    if (sources.length !== 1 || tests.length !== 1) continue;
+    if (!sources.length || tests.length < 1) continue;
+    if (sources.length !== 1 && opts.allowMultipleSources !== true) continue;
 
-    // Přesně jeden zdroják a jeden test: u víc souborů není jednoznačné, co má
-    // model opravit, a úloha by měřila spíš schopnost uhodnout zadání.
-    const [source] = sources;
+    // Přesně jeden zdroják: u víc zdrojáků není jednoznačné, co má model
+    // opravit, a úloha by měřila spíš schopnost uhodnout zadání.
+    //
+    // Testových souborů smí být víc a musí projít **všechny**.  Commit, který
+    // k jedné opravě dopsal testy do tří souborů, je pro sadu cennější než
+    // průměrný: víc cílů znamená, že úloha umí i mezistupeň mezi 0 a 1.
+    // Změřeno 2026-08-22: takových commitů je v historii 14 a osm z nich dá
+    // odvoditelnou úlohu.
     const [test] = tests;
-
-    // Commit, který zdroják teprve zakládá, není oprava — neexistuje stav
-    // „před", takže není co opravovat a úloha by neměla zadání.
-    try {
-      git(repo, ['cat-file', '-e', `${hash}~1:${source}`], { stdio: 'ignore' });
-    } catch { continue; }
-
-    let changed = 0;
-    try {
-      const stat = git(repo, ['show', '--numstat', '--format=', hash, '--', source]);
-      for (const line of stat.split('\n').filter(Boolean)) {
-        const [add, del] = line.split('\t');
-        changed += (parseInt(add, 10) || 0) + (parseInt(del, 10) || 0);
-      }
-    } catch { continue; }
-    if (changed === 0 || changed > maxDiff) continue;
-
     const subject = git(repo, ['log', '-1', '--pretty=format:%s', hash]).trim();
-    out.push({ hash, source, test, changedLines: changed, subject });
+    for (const source of sources) {
+      // Commit, který zdroják teprve zakládá, není oprava — neexistuje stav
+      // „před", takže není co opravovat a úloha by neměla zadání.
+      try {
+        git(repo, ['cat-file', '-e', `${hash}~1:${source}`], { stdio: 'ignore' });
+      } catch { continue; }
+
+      let changed = 0;
+      try {
+        const stat = git(repo, ['show', '--numstat', '--format=', hash, '--', source]);
+        for (const line of stat.split('\n').filter(Boolean)) {
+          const [add, del] = line.split('\t');
+          changed += (parseInt(add, 10) || 0) + (parseInt(del, 10) || 0);
+        }
+      } catch { continue; }
+      if (changed === 0 || changed > maxDiff) continue;
+
+      // V rozšiřovacím režimu vznikne z multi-source commitu jedna kandidatura
+      // na zdroják. Není to domněnka: následná gold verifikace změní zpět jen
+      // tento soubor a přijme jej pouze tehdy, když nové testy skutečně spadnou.
+      out.push({ hash, source, test, tests, changedLines: changed, subject });
+    }
   }
   return out;
 }
@@ -104,9 +120,9 @@ export function verifyCandidate(repo, candidate, opts = {}) {
     git(repo, ['worktree', 'add', '-q', '--detach', work, candidate.hash]);
     linkDependencies(repo, work);
 
+    const testFiles = testFilesOf(candidate);
     const sourcePath = path.join(work, candidate.source);
-    const testPath = path.join(work, candidate.test);
-    if (!existsSync(sourcePath) || !existsSync(testPath)) {
+    if (!existsSync(sourcePath) || testFiles.some(t => !existsSync(path.join(work, t)))) {
       result.reason = 'soubor nebo test v commitu chybí';
       return result;
     }
@@ -115,7 +131,7 @@ export function verifyCandidate(repo, candidate, opts = {}) {
 
     // Stav po opravě musí projít — jinak je test nestabilní nebo závislý na
     // prostředí a jako orákulum se nedá použít.
-    if (!runTest(work, candidate.test, timeout)) {
+    if (!testFiles.every(t => runTest(work, t, timeout))) {
       result.reason = 'test neprojde ani po opravě — nespolehlivé orákulum';
       return result;
     }
@@ -137,7 +153,7 @@ export function verifyCandidate(repo, candidate, opts = {}) {
     }
 
     // A teď to podstatné: test musí selhat, jinak úloha nic neměří.
-    if (runTest(work, candidate.test, timeout)) {
+    if (testFiles.every(t => runTest(work, t, timeout))) {
       result.reason = 'test projde i před opravou — úloha nic neměří';
       return result;
     }
@@ -210,4 +226,4 @@ export function extractTasks(repo, opts = {}) {
   return { tasks, rejected, examined };
 }
 
-export default { findCandidates, verifyCandidate, runTest, extractTasks };
+export default { findCandidates, verifyCandidate, runTest, extractTasks, testFilesOf };

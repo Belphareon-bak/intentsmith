@@ -1,5 +1,13 @@
 # 006 — automatický model rebind zůstává blokovaný rozhodnutím L0-9
 
+> **Současný stav po remediaci 2026-08-27:** níže popsané checkpointy
+> auto-claim, proof selection, terminal activation/restore, expiry a restart
+> recovery jsou historický záznam vývoje, nikoli dnešní veřejný kontrakt.
+> Jejich produkční repository writery a aktivní repository test byly
+> odstraněny. Zachována je pouze detection autorita, ruční exact-digest
+> binding application a migrační/schema kompatibilita již uložené historie.
+> Automatická aktivace zůstává nedostupná.
+
 - **typ:** BLOCK
 - **stav rozhodnutí:** D+ SCHVÁLENO; B3-IDENTITY, B3-PROFILE, FAILOVER SETTINGS, STORAGE, CLAIM RECOVERY, MANUAL BINDING LINEAGE A DETECTION COORDINATOR IMPLEMENTOVÁNY, AKTIVACE OTEVŘENÁ
 - **WP:** WP-M1-MODEL

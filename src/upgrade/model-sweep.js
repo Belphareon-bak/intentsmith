@@ -110,7 +110,46 @@ export function preferredTagForFamily(tags, vramMb, gpuModel = '') {
 
 let _familiesCache = null;
 let _familiesAt = 0;
+let _familyMetadata = new Map();
 const _tagsCache = new Map();
+
+const RELATIVE_AGE_DAYS = Object.freeze({
+  day: 1, days: 1, week: 7, weeks: 7,
+  month: 30, months: 30, year: 365, years: 365,
+});
+
+export function parseLibraryFamilyMetadata(html) {
+  const anchors = [...String(html || '').matchAll(/href="\/library\/([a-z0-9._-]+)"/gi)];
+  const out = new Map();
+  for (let index = 0; index < anchors.length; index++) {
+    const family = anchors[index][1].toLowerCase();
+    const start = anchors[index].index ?? 0;
+    const end = anchors[index + 1]?.index ?? String(html || '').length;
+    const block = String(html || '').slice(start, end);
+    const age = /<span[^>]*>\s*(\d+)\s+(day|days|week|weeks|month|months|year|years)\s+ago\s*<\/span>/i.exec(block);
+    const description = /<p[^>]*>([\s\S]*?)<\/p>/i.exec(block)?.[1]
+      ?.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() || null;
+    const count = Number(age?.[1]);
+    const unit = age?.[2]?.toLowerCase();
+    const updatedDays = Number.isFinite(count) && RELATIVE_AGE_DAYS[unit]
+      ? count * RELATIVE_AGE_DAYS[unit]
+      : null;
+    const previous = out.get(family);
+    if (!previous || (updatedDays != null && (previous.updatedDays == null || updatedDays < previous.updatedDays))) {
+      out.set(family, Object.freeze({
+        family,
+        updatedLabel: age ? `${count} ${unit} ago` : null,
+        updatedDays,
+        description,
+      }));
+    }
+  }
+  return out;
+}
+
+export function getLibraryFamilyMetadata() {
+  return new Map(_familyMetadata);
+}
 
 async function fetchText(url) {
   const res = await modelDiscoveryFetch(url, {
@@ -130,6 +169,7 @@ export async function fetchLibraryFamilies(opts = {}) {
   }
   try {
     const html = opts.html ?? await fetchText(LIBRARY_URL);
+    _familyMetadata = parseLibraryFamilyMetadata(html);
     const found = new Set();
     for (const m of html.matchAll(/href="\/library\/([a-z0-9._-]+)"/gi)) {
       found.add(m[1].toLowerCase());
@@ -211,21 +251,19 @@ export function comfortablyFits(sizeGB, vramMb) {
  * Priorita **není** kvalita, ale pořadí, ve kterém se vyplatí kandidáty zkoušet:
  * čím výš, tím větší šance, že se stažení a test vyplatí.  Vstupují do ní:
  *
- *   - externí hodnocení (whatllm qualityIndex) proti stávajícímu modelu
- *   - datum vydání z HuggingFace: starší než to, co už mám, nemá smysl zkoušet
+ *   - externí discovery signál (whatllm qualityIndex), pouze pro pořadí
+ *   - datum vydání z HuggingFace, pouze pro pořadí
  *   - pohodlnost velikosti: co se vejde s rezervou, je lepší kandidát než to,
  *     co projde předfiltrem jen těsně
  *
- * @returns {Array<{name, family, sizeGB, quality, releaseDate, priority, reasons}>}
+ * @returns {Array<{name, family, sizeGB, externalSignal, releaseDate, priority, reasons}>}
  */
-export function rankCandidates(pool, ctx = {}) {
+export function prioritizeCandidates(pool, ctx = {}) {
   const {
     vramMb = 0,
     installed = [],
-    incumbentQuality = null,
-    qualityOf = () => null,
+    externalSignalOf = () => null,
     releaseDateOf = () => null,
-    incumbentReleaseDate = null,
     // Role, pro kterou se seznam staví.  Když je zadaná, uplatní se filtr
     // způsobilosti a bonus za shodu specializace — bez ní by vznikl jeden
     // univerzální seznam, což je špatná otázka: nehledá se jeden nejlepší
@@ -233,10 +271,10 @@ export function rankCandidates(pool, ctx = {}) {
     role = null,
     eligibilityOf = null,
     profileOf = null,
-    // Kategorie, které pro tuhle roli dávají smysl — `MODEL_PROFILES[role]
-    // .preferredCategories`.  Používá se jako **filtr**, ne jen bonus: vision
-    // model nemá co dělat v seznamu kandidátů na CODE a coder model v CHAT.
-    // Bez toho vzniká jeden promíchaný seznam, což je špatná otázka.
+    // Kategorie, které jsou pro roli obvykle nejzajímavější —
+    // `MODEL_PROFILES[role].preferredCategories`. Jde pouze o pořadí. Tvrdou
+    // technickou způsobilost rozhoduje výhradně `eligibilityOf`; coder model
+    // proto smí být změřen i pro CHAT a vision model pro textovou roli.
     preferredCategories = null,
   } = ctx;
 
@@ -259,43 +297,50 @@ export function rankCandidates(pool, ctx = {}) {
 
     const profile = profileOf ? (profileOf(entry) || {}) : {};
 
-    // Neznámou kategorii nevyřazujeme — nevíme, čím model je, a zahodit ho
-    // kvůli mezeře v rozpoznávání názvu by bylo horší než ho nechat projít
-    // s nulovým bonusem. Rozhodne pak souboj.
-    if (preferredCategories && profile.category && profile.category !== 'unknown'
-      && !preferredCategories.includes(profile.category)) {
-      continue;
-    }
-
-    const quality = qualityOf(entry) ?? null;
+    const externalSignal = externalSignalOf(entry) ?? null;
     const releaseDate = releaseDateOf(entry) ?? null;
     const reasons = [];
 
-    // Externí hodnocení, když je: horší než stávající se nezkouší.
-    if (quality != null && incumbentQuality != null) {
-      if (quality <= incumbentQuality) continue;
-      reasons.push(`externí hodnocení ${quality} > ${incumbentQuality}`);
-    }
-
-    // Starší model než ten, který mám, nemá co nabídnout.
-    if (releaseDate && incumbentReleaseDate
-      && Date.parse(releaseDate) <= Date.parse(incumbentReleaseDate)) {
-      continue;
-    }
+    if (externalSignal != null) reasons.push(`externí discovery signál ${externalSignal}`);
     if (releaseDate) reasons.push(`vydáno ${releaseDate}`);
 
-    // Priorita: externí hodnocení dominuje, novost a pohodlná velikost dolaďují.
+    // `Number(null) === 0`; bez explicitní ochrany by rodina bez timestampu
+    // dostala falešný signál „aktualizováno dnes“ a předběhla skutečně čerstvé
+    // kandidáty.
+    const catalogUpdatedDays = entry.catalogUpdatedDays == null
+      ? null
+      : Number(entry.catalogUpdatedDays);
+    if (Number.isFinite(catalogUpdatedDays) && catalogUpdatedDays >= 0) {
+      reasons.push(`Ollama aktualizováno ${entry.catalogUpdatedLabel || `${catalogUpdatedDays} dní zpět`}`);
+    }
+
+    // Priorita objednává frontu. Nesmí být publikována jako quality score ani
+    // vyřadit kandidáta, který prošel faktickými eligibility filtry.
     let priority = 0;
-    if (quality != null) priority += quality;
+    if (externalSignal != null) priority += externalSignal;
     if (releaseDate) {
       const ageDays = (Date.now() - Date.parse(releaseDate)) / 86400000;
       if (Number.isFinite(ageDays)) priority += Math.max(0, 12 - ageDays / 30);
+    }
+    // Živý Ollama katalog poskytuje stáří poslední aktualizace i rodinám,
+    // které nejsou ve statickém benchmarkovém panelu. Není to důkaz kvality,
+    // ale je to silný signál, že dosud netestovaný artefakt stojí za screening.
+    if (Number.isFinite(catalogUpdatedDays) && catalogUpdatedDays >= 0) {
+      priority += Math.max(0, 16 - catalogUpdatedDays / 15);
     }
     if (comfortablyFits(entry.sizeGB, vramMb)) {
       priority += 3;
       reasons.push('vejde se s rezervou');
     } else {
       reasons.push('velikost těsná — rozhodne měření');
+    }
+
+    if (Array.isArray(preferredCategories)
+      && profile.category
+      && profile.category !== 'unknown'
+      && preferredCategories.includes(profile.category)) {
+      priority += 2;
+      reasons.push(`preferovaná kategorie ${profile.category} pro ${role}`);
     }
 
     // Shoda specializace s rolí. Coder model do role CODE je lepší kandidát
@@ -309,7 +354,8 @@ export function rankCandidates(pool, ctx = {}) {
     }
 
     out.push({
-      ...entry, role, quality, releaseDate,
+      ...entry, role, externalSignal, releaseDate,
+      category: entry.category ?? profile.category ?? 'unknown',
       priority: Math.round(priority * 100) / 100,
       reasons,
     });
@@ -358,7 +404,15 @@ export async function buildCandidatePool(families, opts = {}) {
       if (!family) break;
       const tags = await fetchFamilyTags(family, opts);
       const best = preferredTagForFamily(tags, vramMb, gpuModel);
-      if (best) pool.push(best);
+      if (best) {
+        const metadata = opts.familyMetadata?.get?.(family) || null;
+        pool.push({
+          ...best,
+          catalogUpdatedDays: metadata?.updatedDays ?? null,
+          catalogUpdatedLabel: metadata?.updatedLabel ?? null,
+          catalogDescription: metadata?.description ?? null,
+        });
+      }
       done++;
       if (onProgress && done % 25 === 0) onProgress(done, families.length);
     }
@@ -372,12 +426,14 @@ export async function buildCandidatePool(families, opts = {}) {
 export function clearCache() {
   _familiesCache = null;
   _familiesAt = 0;
+  _familyMetadata = new Map();
   _tagsCache.clear();
 }
 
 export default {
   fetchLibraryFamilies, fetchFamilyTags, parseTagsPage,
-  mightFit, comfortablyFits, rankCandidates, preferredTagForFamily, buildCandidatePool,
+  parseLibraryFamilyMetadata, getLibraryFamilyMetadata,
+  mightFit, comfortablyFits, prioritizeCandidates, preferredTagForFamily, buildCandidatePool,
   formatRunsHere, specializationBonus, clearCache,
   MIN_OBSERVED_VRAM_OVERHEAD, TYPICAL_VRAM_OVERHEAD,
 };

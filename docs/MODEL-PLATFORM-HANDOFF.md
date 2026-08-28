@@ -1,117 +1,104 @@
-# Model scoring a hledání modelů — souhrn a stav
+# Modelová platforma — aktuální handoff
 
-**Datum:** 2026-08-20 · **Verze:** v136.0.0 · **Testy:** 939, 0 selhání
+**Datum:** 2026-08-28 · **Stav:** `ACCEPTED / SYSTEM_PROVIDER_BLOCKED`
+**Autoritativní popis:** [MODEL-SCORING-ACTIVATION.md](MODEL-SCORING-ACTIVATION.md)
+**Evidence:** [finální remediační handoff](execution/runs/model-evaluation-final-integration-20260826.md)
 
-Souhrn práce od 2026-08-17. Slouží jako přehled a jako vstupní bod pro další
-relaci. Detaily: [`MODEL-SCORING-ACTIVATION.md`](MODEL-SCORING-ACTIVATION.md)
-(scoring) a [`MODEL-UPGRADE-HUNT.md`](MODEL-UPGRADE-HUNT.md) (hledání).
+## Co je hotové v přijatém balíku
 
----
+- jeden versioned role-evaluation plan pro D1, D2, CODE, R1, R2, CHAT a VISION;
+- append-only exact-digest runy a role-specific decisions v SQLite;
+- společný read model pro API, CLI, Studio, governor a registry;
+- durable binding je oddělen od evaluace, všech 7 rolí má exact DB autoritu a
+  chybějící fresh-install baseline se uloží observačně bez runtime operace;
+- gateway přijme digest skutečně obsluhujícího artefaktu pouze přímo z
+  provider response; mutable inventory před/po jej nesmí dokazovat ani doplnit;
+- cleanup vyžaduje disk pressure, exact usage a COMPLETE current-contract stav;
+- v123 runtime, endpointy, WS zprávy, UI a paralelní proof measurement jsou
+  odstraněné; upgrade DB zachová jejich auditní evidence před dropem tabulek;
+- všechny role mají víceúlohové task i discrimination minimum.
+- katalog a model universe nesou jen faktická metadata; odhadované benchmarky,
+  agregované quality score, blacklist a paralelní telemetry scorer jsou pryč;
+- rozhodnutí je akční jen po portfolio gate a pouze s explicitním
+  `activationEligible=true`.
+- `DURABLE` vzniká pouze z runtime+provider startup ověření všech rolí;
+  provider/drift failure je veřejné `DEGRADED` a blokuje actionability, zatímco
+  rehydrate failure zastaví start. Standalone CLI je vždy
+  `UNVERIFIED_RUNTIME`.
+- promptový contract pokrývá text, rubric, language, grading inputs, VISION
+  image bytes a skutečný CODE `buildPrompt`; outcome používá stabilní enum;
+- migrace 082 bezpečně zachová i v123 zápisy vzniklé po aplikaci migrace 070;
+- CODE fixture má čistou snapshot provenance a nedostupný historický oracle je
+  explicitní pre-pull `BLOCKED`.
+- CLI i Studio zobrazují všechna current-contract rozhodnutí role, včetně
+  neakční CODE výhry qwen3.8;
+- current discovery JSON je uchovaný content-addressed v run evidence.
+- API, CLI, Studio a scoring queue používají jeden extended inventory
+  normalizátor a jeden versioned technical applicability contract;
+  `preferredCategories` zůstává pouze ranking prior;
+- current/reuse lookup zahrnuje suite name, suite version i contract SHA a
+  nové GPU runy ukládají skutečný start a konec.
+- reader, CLI a Studio rozlišují ověřený interval od staršího
+  `LEGACY_UNVERIFIED`; nekonzistentní historie nikdy nepublikuje start ani
+  duration.
 
-## 1. Kde to začalo
+## Acceptance hranice a zbývající omezení
 
-Úklid disku odhalil 187 GB Ollama modelů. Otázka „které smazat" vedla na
-scoring, který byl **postavený, ale nikdy nespuštěný** — a při prvním měření
-dával nepoužitelné pořadí.
+- Přijatý scoring snapshot 13 installed artefaktů má mezi 79 technicky
+  kompatibilními dvojicemi 55 `COMPLETE`, 24 `BLOCKED`, 0 `FAILED` a 0
+  applicable `MISSING`; dalších 12 raw `MISSING` je explicitní N/A. Po
+  explicitně autorizovaném odstranění čtyř VRAM-blocked artefaktů má současná
+  inventory 9 artefaktů, 55 `COMPLETE`, 0 `BLOCKED`, 8 N/A a 0 applicable
+  `MISSING`. Append-only DB historii odstranění nemění. Starší contracty ani
+  run jiné role se automaticky nepovyšují. Důkaz je v
+  [`model-removal-live-20260828.json`](execution/runs/model-removal-live-20260828.json).
+- Dřívější nezávislý rereview nad candidatem `d8a2a108` skončil `PASS`, ale
+  pozdější review rozsahu `e8c1ba85..96c762db` našlo číselné kolize migrací a
+  review rozsahu `96c762db..4169c59d` a `c5aa379a..74beafea` následně prokázala
+  nebezpečný upgrade, cross-role leakage, nepravdivý startup stav `DURABLE` a
+  telemetry veto. Poslední rereview nad `40418aaf` navíc našlo ABA response
+  identity, zbytky auto-failover writerů a neúplnou snapshot provenienci.
+  Product/test oprava `9f6e4828` prošla novým čistým 279/279 gate. Následný
+  `0bd38b7d` přenesl stejnou exact-response atestaci i do ukládaného scoringu a
+  product/test head `79328185` prošel novým čistým 279/279 gate. Kandidát poté
+  prošel nezávislým Opus max rereview rozsahu `74beafea..26ab3291` s verdictem
+  `REVIEW_PASSED`; pozdější coverage review ale vrátilo `CHANGES_REQUIRED`.
+  Aktuální remediace následně prošla čistým finálním gate `279/279` na
+  `53ded662` v runu `2026-08-28T20-11-17-080Z`; bounded post-gate evidence,
+  SHA-bound inventory projection, offline 55/24/0/12 replay a reprodukovatelný
+  manifest hledání historické zálohy jsou commitnuté. Nezávislé evidence
+  rereview rozsahu `d6137d4c..3f027938` zopakovalo offline replay, tamper
+  kontrolu, manifest i nový clean-clone gate `279/279` a skončilo
+  [`REVIEW_PASSED`](review/2026-08-28-WP-MODEL-EVALUATION-EVIDENCE-REREVIEW.md).
+  Model-scoring/evidence balík je proto `ACCEPTED`; provider capability popsaná
+  níže zůstává samostatně blokovaná.
+- Automatický failover/proof issuance není jen vypnutý: veřejné auto-claim,
+  proof selection, terminal, expiry/finalization a restart writery jsou
+  odstraněné. Aktivace je ruční přes exact binding application.
+- Na hostu nainstalovaná Ollama 0.32.14 v `ChatResponse` nevrací digest
+  obslouženého artefaktu. Online kontrola 2026-08-28 potvrdila stejnou absenci
+  v nejnovějším stable `v0.33.1`, prerelease `v0.33.2-rc1` i v aktuálním
+  serverovém `main`; neexistuje tedy vydaný upgrade, který by capability
+  doplnil. Do zavedení důvěryhodné response-attesting provider capability
+  `DURABLE` call, binding verification i nový autoritativní scoring správně
+  selžou jako neověřené; plně funkční durable runtime a nové scoring běhy
+  nejsou hotovou vlastností tohoto kandidáta.
+- Předchozí candidate na `31234a6b` dostal `CHANGES_REQUESTED`; jeho 227 PASS
+  evidence není přijetí ani evidence této opravené revize.
+- Starší cross-branch sloty jsou atomicky adoptované nebo fail-closed odmítnuté.
+  Historická pre-migration záloha se SHA `e22d580f…` nebyla dohledána a její
+  existence není prokazována. Před poslední živou mutací vznikla nová
+  byte-identická záloha současné DB se SHA `b524145d…` a `quick_check=ok`.
+- Lokální starý dokument `docs/MODEL-SCORING-RESULTS-20260824.md` zůstává jako
+  cizí untracked soubor a není součástí kandidáta ani gate evidence.
 
-## 2. Co se opravilo, chronologicky
-
-| # | Vada | Jak se projevila | Oprava |
-|---|---|---|---|
-| 1 | Lokální modely se nespojovaly s katalogem | 88 % váhy skóre nulové nebo konstantní; rozhodovala jen velikost | `catalog-enrichment.js` |
-| 2 | Rodiny `qwq`, `glm`, `devstral` neznámé; `qwen3-coder` klasifikován jako general | nulový bonus za kategorii | `model-family-extensions.js` |
-| 3 | `requirements` z profilů se nevynucovaly | roli VISION vyhrával textový model | `checkRoleEligibility()` |
-| 4 | `computeHardwareFit` mělo skoková pásma | skok 0.06 na promile VRAM | lineární rampa |
-| 5 | L5 párování ignorovalo generaci a specializaci | `qwen2.5:32b` → `Qwen3 32B`, `deepseek-r1-32b` → `DeepSeek V4 Pro` | přepsané `matchModels` |
-| 6 | whatllm a katalog míchaly nesouměřitelné škály | whatllm modely systematicky o polovinu níž | `buildScaleCalibration()` percentilem |
-| 7 | Jediný zdroj kvality | výpadek whatllm.org shodí celé obohacení | `huggingface-client.js` jako druhý zdroj faktů |
-| 8 | L4 hledalo jen v nainstalovaných rodinách | 7 z 235 rodin; našlo jen kvantizace toho, co už je | `model-sweep.js` |
-| 9 | Odhad VRAM podstřeloval o třetinu | `qwen2.5:32b` odhad 22 GB, skutečnost 30 GB | `vram-measurement.js` přes `/api/ps` |
-| 10 | Sady saturují (100 % padlo 26× z 65) | absolutní skóre u špičky nerozlišuje | párový souboj s marží |
-| 11 | Jeden běh sady nestačí | tatáž dvojice vyšla jednou 3:0, podruhé 0:5 | 3 opakování + práh podle nestability |
-| 12 | Jeden promíchaný seznam kandidátů | vision model kandidátem na CODE | seznam **per role** |
-
-## 3. Klíčová rozhodnutí
-
-**Měření místo odhadu.** Katalogový odhad VRAM podstřeluje o třetinu, takže
-bránou je `/api/ps` (`size` vs `size_vram`) — měřený binární fakt, nezávislý na
-výrobci GPU. Dvě pasti: měřit z **prázdné paměti** (kontence zdvojnásobila
-výsledek) a při **skutečném kontextu** (32k, ne 4k).
-
-**Přetečení je diskvalifikace, ne penalizace.** 8 GB na CPU → 6 tok/s proti
-73.5. Swap režim se nezavádí ani za potvrzení.
-
-**`hardwareFit` není složkou kvality.** Byl 20 % a se `speed` tvořil 27 % váhy
-pro věci nesouvisející s kvalitou → systematická výhoda malých modelů.
-
-**Váha rychlosti podle role.** CHAT 0.15, D1/R1 0.03. Rychlost z naměřených
-tok/s, ne z počtu parametrů — MoE model s 30B parametrů dával 142 tok/s.
-
-**Krátká sada je schopnostní minimum, ne zkrácené hodnocení.** Tři binární
-kontroly (odpoví, JSON, čeština). Nemůže vyřadit model, který je „jen horší".
-
-**Seznam kandidátů je vlastní pro každou roli** — vlastní laťka (její stávající
-model), způsobilost, a `preferredCategories` jako filtr.
-
-**Adopce z HuggingFace se nepřevádí na skóre.** Popularita není kvalita.
-
-**Rozpory mezi zdroji se hlásí, nepřepisují.** Katalog je revidovaný.
-
-## 4. Naměřená data (RTX 3090, 32k kontext)
-
-Po aktualizaci Ollamy na 0.32.14:
-
-| model | VRAM | vejde se | tok/s |
-|---|---|---|---|
-| `qwen3.5:27b` | 16.98 GB | ano | 41.2 |
-| `qwen3.8:latest` | 16.20 GB | ano | 38.8 |
-| `qwen3-30b-a3b` | 19.20 GB | ano | 42.0 |
-| `llava:13b` | 10.04 GB | ano | 58.0 |
-| `deepseek-r1-32b` | 25.83 GB | **ne** | — |
-
-Aktualizace Ollamy zlepšila paměť (`qwen3.5:27b` přestal přetékat: 23.30 → 16.98 GB),
-ale propustnost spadla (`qwen3-30b-a3b` 142 → 42 tok/s). **Neověřeno** — měření
-proběhlo za běhu jiné úlohy, je potřeba zopakovat v klidu.
-
-## 5. Nástroje
+## Praktický read-only start
 
 ```bash
-# vhodnost modelů pro role (skóre + naměřená validace)
-node scripts/model-scoring-report.js --matrix
-node scripts/model-scoring-report.js --matrix --measure   # + VRAM a tok/s
-node scripts/model-scoring-report.js --validate           # přeměří validaci
-
-# hledání lepších modelů
-node scripts/model-upgrade-hunt.js --shortlist            # nic nestahuje
-node scripts/model-upgrade-hunt.js --role=CODE --run --limit=2
-node scripts/model-upgrade-hunt.js --run --limit=3        # všechny role
+npm run report:model-evaluations
+npm run report:model-evaluations -- --json
 ```
 
-## 6. Otevřené body
-
-1. **Validační sady saturují.** 100 % padlo 26× z 65 běhů; `llava:13b` dostal
-   100 % v sadě `code`. Párové srovnání to obchází, ale nevyřešilo. Bez
-   zpřísnění nelze rozhodovat podle měření.
-2. **Katalog je 13 měsíců starý** a nové modely v něm nejsou. `qwen3.8` a
-   `qwen3-coder` proto dostávají skoro nulovou benchmarkovou složku a matice je
-   podhodnocuje — přestože `qwen3.8` má nejvyšší externí hodnocení (57.7).
-3. **`BENCHMARK_WEIGHTS.VISION` obsahuje jen textové benchmarky.** Mezi
-   způsobilými vision modely se tedy řadí podle textu. Matice na to upozorní
-   (`qwen3.5:27b` skóre vede, ale validace 33 % proti 83 % u `llava:13b`).
-4. **Ověřit propad propustnosti** po aktualizaci Ollamy v klidném stavu.
-5. **`model_universe` je prázdný** — report i hunt ho obcházejí a počítají
-   přímo z discovery.
-6. **whatllm zůstává jediným zdrojem kvality.** HuggingFace dodává fakta
-   (datum, schopnosti, adopce), ne hodnocení. Redundance kvality není.
-
-## 7. Co je potřeba vědět o prostředí
-
-- **Ollama 0.32.14** (aktualizováno 2026-08-20 z 0.17.7, která odmítala nové
-  modely přes HTTP 412). Instalace je systémová binárka pod rootem —
-  aktualizace vyžaduje `sudo` heslo.
-- **`C3_ENABLE_ONLINE_DISCOVERY` má výchozí `on`** od 2026-08-19 (operátorské
-  rozhodnutí v `DIRECTION.md`, obrací zápis z 2026-08-02).
-- **`model-profiles.js` je připnutý bajtovým hashem** ve fail-closed proof
-  policy. Změny rodin patří do `model-family-extensions.js`.
-- Vazby rolí se **nikdy nemění automaticky** — výstup je podklad k ručnímu
-  potvrzení.
+Pro nový hunt použij `node scripts/model-upgrade-hunt.js` až po kontrole
+sériového GPU/Ollama slotu. Výstup musí zachovat `BLOCKED`, `FAILED`, `MISSING`
+a `nedostatečný důkaz` jako ne-PASS stavy.

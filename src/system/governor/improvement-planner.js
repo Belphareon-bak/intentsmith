@@ -39,12 +39,12 @@ function ruleModelLowSuccess(dims) {
     severity,
     title: `Nízká úspěšnost modelu (${failing.map(r => `${r.role}: ${Math.round(r.success_rate * 100)}%`).join(', ')})`,
     description: `Průměrná úspěšnost pod 75% za posledních 30 dní.`,
-    suggested_action: 'Zvažte validaci nebo výměnu modelu pro postižené role.',
+    suggested_action: 'Zkontrolujte exact-contract evaluaci a teprve potom zvažte ruční změnu modelu.',
     action_payload: JSON.stringify({
-      type: 'validate',
+      type: 'review-evaluation',
       target: `role:${failing[0].role}`,
-      hint: `run validation suite for ${failing[0].role} role`,
-      apiEndpoint: '/api/system/models/validate',
+      hint: `review current evaluation state for ${failing[0].role} role`,
+      apiEndpoint: '/api/system/models/evaluations',
       params: { role: failing[0].role },
     }),
     confidence,
@@ -154,59 +154,35 @@ function ruleCRELow(dims) {
   };
 }
 
-// ── R5: Pending Proposals Stale ───────────────────────────────────────────────
-function rulePendingProposals(dims) {
-  const u = dims.upgrades;
-  if (!u || u.status === 'UNKNOWN') return null;
-  const pending = u.details?.pending_proposals ?? 0;
-  if (pending <= 3) return null;
-
-  const severity = 'LOW';
-  const confidence = computeConfidence(severity, u.dataCompleteness, u.trend);
-  return {
-    rule_id: 'pending-proposals-stale',
-    type: 'PROPOSAL_REVIEW',
-    severity,
-    title: `${pending} nevyřízených návrhů na upgrade`,
-    description: `Více než 3 nevyřízené návrhy čekají na rozhodnutí.`,
-    suggested_action: 'Projděte návrhy na upgrade modelů a schvalte nebo zamítněte.',
-    action_payload: JSON.stringify({
-      type: 'review',
-      target: 'upgrade_proposals',
-      hint: 'review pending upgrade proposals',
-      apiEndpoint: '/api/system/models/proposals',
-    }),
-    confidence,
-    root_cause: `Uživatel má ${pending} návrhů čekajících na rozhodnutí`,
-    _keyDetails: { pending },
-  };
-}
-
-// ── R6: Model Unvalidated ─────────────────────────────────────────────────────
+// ── Model exact evaluation missing ───────────────────────────────────────────
 function ruleModelUnvalidated(dims) {
   const u = dims.upgrades;
   if (!u || u.status === 'UNKNOWN') return null;
-  if ((u.details?.stalest_validation_days ?? 0) <= 14) return null;
+  const missing = u.details?.current_evaluation_missing_roles || [];
+  const failed = u.details?.current_evaluation_failed_roles || [];
+  const blocked = u.details?.current_evaluation_blocked_roles || [];
+  const durable = u.details?.durable_binding_count ?? 0;
+  if (!missing.length && !failed.length && !blocked.length && durable === 7) return null;
 
-  const days = u.details.stalest_validation_days;
+  const affected = [...new Set([...missing, ...failed, ...blocked])];
   const severity = 'LOW';
   const confidence = computeConfidence(severity, u.dataCompleteness, u.trend);
   return {
-    rule_id: 'model-unvalidated',
-    type: 'MODEL_VALIDATION',
+    rule_id: 'model-evaluation-incomplete',
+    type: 'MODEL_EVALUATION_REVIEW',
     severity,
-    title: `Nevalidované modely (${days} dní)`,
-    description: `Některé modely nebyly validovány déle než 14 dní.`,
-    suggested_action: 'Spusťte validační sadu pro zastaralé modely.',
+    title: `Neúplné aktuální evaluace (${affected.length || 7 - durable} rolí)`,
+    description: 'Některý durable binding nemá COMPLETE výsledek pro exact digest a aktuální suite contract.',
+    suggested_action: 'Zkontrolujte stav evaluací a spusťte model-upgrade-hunt pouze v autorizovaném GPU slotu.',
     action_payload: JSON.stringify({
-      type: 'validate',
+      type: 'review-evaluation',
       target: 'models',
-      hint: 'run validation suites for stale models',
-      apiEndpoint: '/api/system/models/validate',
+      hint: 'review missing, failed and blocked exact-contract evaluations',
+      apiEndpoint: '/api/system/models/evaluations',
     }),
     confidence,
-    root_cause: `Modely nevalidovány ${days} dní — kvalita neznámá`,
-    _keyDetails: { stale_days: days },
+    root_cause: `Exact-contract stav: missing=${missing.join(',') || '-'}; failed=${failed.join(',') || '-'}; blocked=${blocked.join(',') || '-'}`,
+    _keyDetails: { affected: affected.sort().join(','), durable },
   };
 }
 
@@ -268,12 +244,12 @@ function ruleModelDrift(dims, db) {
         severity,
         title: `Pokles výkonu modelu pro ${role} (${Math.round(older.sr * 100)}% → ${Math.round(recent.sr * 100)}%)`,
         description: `Úspěšnost poklesla o více než 15% v posledních 40 vzorcích.`,
-        suggested_action: 'Zvažte výměnu nebo validaci modelu pro tuto roli.',
+        suggested_action: 'Zkontrolujte exact-contract evaluaci a zvažte ruční výměnu modelu pro tuto roli.',
         action_payload: JSON.stringify({
-          type: 'switch',
+          type: 'review-evaluation',
           target: `role:${role}`,
           hint: `model performance declined for ${role}`,
-          apiEndpoint: '/api/system/models/validate',
+          apiEndpoint: '/api/system/models/evaluations',
           params: { role },
         }),
         confidence,
@@ -292,7 +268,6 @@ const RULES = [
   ruleArchDrift,
   ruleBuildQualityLow,
   ruleCRELow,
-  rulePendingProposals,
   ruleModelUnvalidated,
   ruleSpecialistFailing,
   ruleModelDrift,
@@ -321,4 +296,4 @@ export const improvementPlanner = {
 
 // Exported for testing
 export { computeConfidence, computePriority, SEVERITY_WEIGHT, PRIORITY_SEVERITY };
-export { ruleModelLowSuccess, ruleArchDrift, ruleBuildQualityLow, ruleCRELow, rulePendingProposals, ruleModelUnvalidated, ruleSpecialistFailing, ruleModelDrift };
+export { ruleModelLowSuccess, ruleArchDrift, ruleBuildQualityLow, ruleCRELow, ruleModelUnvalidated, ruleSpecialistFailing, ruleModelDrift };

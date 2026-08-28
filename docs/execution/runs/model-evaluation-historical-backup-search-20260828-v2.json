@@ -1,0 +1,334 @@
+{
+  "schemaVersion": "intentsmith-model-evaluation-backup-search-v2",
+  "startedAt": "2026-08-28T20:14:57.634Z",
+  "completedAt": "2026-08-28T20:14:58.006Z",
+  "invocation": {
+    "cwd": "/home/belphareon/worktrees/is-model-scoring-final-20260826",
+    "repositoryRoot": "/home/belphareon/worktrees/is-model-scoring-final-20260826",
+    "command": [
+      "/home/belphareon/.nvm/versions/node/v22.21.1/bin/node",
+      "/home/belphareon/worktrees/is-model-scoring-final-20260826/scripts/model-evaluation-backup-search.js",
+      "--root=intentsmith-private:/home/belphareon/.local/share/intentsmith-private",
+      "--root=local-state:/home/belphareon/.local/state",
+      "--root=projects:/home/belphareon/Projects",
+      "--claimed-sha256=e22d580f26b9b467eb2bf3774524206b3d95a36cdcdbc3902a08046e9e12c088",
+      "--out=docs/execution/runs/model-evaluation-historical-backup-search-20260828-v2.json"
+    ]
+  },
+  "sourceRevision": {
+    "cwd": "/home/belphareon/worktrees/is-model-scoring-final-20260826",
+    "command": [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    "exitCode": 0,
+    "value": "53ded6620d9439acf854e92749c21aaf0b265a08"
+  },
+  "selection": {
+    "regularFilesOnly": true,
+    "followSymlinks": false,
+    "suffixes": [
+      ".db",
+      ".db3",
+      ".sqlite",
+      ".sqlite3"
+    ],
+    "hashAlgorithm": "sha256",
+    "sqliteHeaderChecked": true
+  },
+  "roots": [
+    {
+      "id": "intentsmith-private",
+      "path": "/home/belphareon/.local/share/intentsmith-private",
+      "candidateCount": 8,
+      "skippedSymlinkCount": 0,
+      "traversalErrors": []
+    },
+    {
+      "id": "local-state",
+      "path": "/home/belphareon/.local/state",
+      "candidateCount": 1,
+      "skippedSymlinkCount": 0,
+      "traversalErrors": []
+    },
+    {
+      "id": "projects",
+      "path": "/home/belphareon/Projects",
+      "candidateCount": 24,
+      "skippedSymlinkCount": 1015,
+      "traversalErrors": []
+    }
+  ],
+  "claimedSha256": "e22d580f26b9b467eb2bf3774524206b3d95a36cdcdbc3902a08046e9e12c088",
+  "candidateCount": 33,
+  "sqliteHeaderCount": 31,
+  "matches": [],
+  "result": "NOT_FOUND_NOT_PROVEN",
+  "candidates": [
+    {
+      "rootId": "intentsmith-private",
+      "relativePath": "m1-model-manifest-input-20260812TxwCV9s/evidence/live-c3-post031.raw.db",
+      "bytes": 6987776,
+      "modifiedAt": "2026-08-12T20:55:27.864Z",
+      "sqliteHeader": true,
+      "sha256": "3038074947ce5fc6da9eb571158b02af5a8c16f5f415b2a47ce58596f026f730"
+    },
+    {
+      "rootId": "intentsmith-private",
+      "relativePath": "m1-model-manifest-input-20260812TxwCV9s/runtime/b3-phaseb-model-runtime.db",
+      "bytes": 1974272,
+      "modifiedAt": "2026-08-12T21:43:36.840Z",
+      "sqliteHeader": true,
+      "sha256": "ebfeb5baab186927e59842f097cc29fad39b9cc44af6964c5aa1eb7512c1368b"
+    },
+    {
+      "rootId": "intentsmith-private",
+      "relativePath": "m1-pre-manifest-fk-recovery-20260812T192630Z-74f9affa5e038939/backup/c3-pre-recovery.db",
+      "bytes": 6754304,
+      "modifiedAt": "2026-08-12T19:31:15.325Z",
+      "sqliteHeader": true,
+      "sha256": "cafd97269183f454777ce8d83b03cb8a05dc4dd5dc5832ce935c31fb7f1629a2"
+    },
+    {
+      "rootId": "intentsmith-private",
+      "relativePath": "m1-pre-manifest-fk-recovery-20260812T192630Z-74f9affa5e038939/quarantine/failed-live-after-error.db",
+      "bytes": 6987776,
+      "modifiedAt": "2026-08-12T19:31:16.199Z",
+      "sqliteHeader": true,
+      "sha256": "017b70d1273dd3ca70bbc756ca20f70a4691c06f0831b76eb1177d3fbd012ef0"
+    },
+    {
+      "rootId": "intentsmith-private",
+      "relativePath": "m1-pre-manifest-fk-recovery-20260812T194019Z-4eca63e3b2eb2bc1/backup/c3-pre-recovery.db",
+      "bytes": 6754304,
+      "modifiedAt": "2026-08-12T20:43:36.027Z",
+      "sqliteHeader": true,
+      "sha256": "cafd97269183f454777ce8d83b03cb8a05dc4dd5dc5832ce935c31fb7f1629a2"
+    },
+    {
+      "rootId": "intentsmith-private",
+      "relativePath": "m1-pre-manifest-fk-recovery-20260812T194019Z-4eca63e3b2eb2bc1/quarantine/failed-live-after-error.db",
+      "bytes": 6987776,
+      "modifiedAt": "2026-08-12T20:43:36.996Z",
+      "sqliteHeader": true,
+      "sha256": "35067f77f294b18413946e90ac28182aafc7813890dfaf228eb7597d53741b4a"
+    },
+    {
+      "rootId": "intentsmith-private",
+      "relativePath": "m1-pre-manifest-fk-recovery-20260812T204833Z-bf65915c208f4166/backup/c3-pre-recovery.db",
+      "bytes": 6754304,
+      "modifiedAt": "2026-08-12T20:52:31.072Z",
+      "sqliteHeader": true,
+      "sha256": "cafd97269183f454777ce8d83b03cb8a05dc4dd5dc5832ce935c31fb7f1629a2"
+    },
+    {
+      "rootId": "intentsmith-private",
+      "relativePath": "model-scoring-remediation-20260828T172616Z/backup/c3-pre-remediation.db",
+      "bytes": 7016448,
+      "modifiedAt": "2026-08-28T14:46:35.177Z",
+      "sqliteHeader": true,
+      "sha256": "b524145d053059426c06de42597785f68b6091593ea9f5db01c4f0eb6d8d765d"
+    },
+    {
+      "rootId": "local-state",
+      "relativePath": "intentsmith/proof-backup-G81WkUtS/c3-before-proof.db",
+      "bytes": 1462272,
+      "modifiedAt": "2026-08-10T18:35:47.693Z",
+      "sqliteHeader": true,
+      "sha256": "557ca1aba5db121624a980dc8d1525220c1e09e09dacfb799d4043e0f0b377f2"
+    },
+    {
+      "rootId": "projects",
+      "relativePath": ".m1-db-rehearsal.6gi2OK/c3-source-snapshot.db",
+      "bytes": 6758400,
+      "modifiedAt": "2026-08-12T16:18:48.522Z",
+      "sqliteHeader": true,
+      "sha256": "8106fd3d88c61d5b1289cbb6c59ccec18feb4f5be6911e7dc8ddd6c3f8e844e4"
+    },
+    {
+      "rootId": "projects",
+      "relativePath": "c3-agent-nightly-2026-07-26/data/artifacts/audit-runs/local-nightly-2026-07-26/c3-audit.db",
+      "bytes": 1331200,
+      "modifiedAt": "2026-07-26T21:22:58.598Z",
+      "sqliteHeader": true,
+      "sha256": "abd6a191cb6159ecd18da1596e4529b15078195c19dbdb66708afbf3ea96417f"
+    },
+    {
+      "rootId": "projects",
+      "relativePath": "c3-agent-nightly-2730bed-a1b-20260726/data/c3.db",
+      "bytes": 1331200,
+      "modifiedAt": "2026-07-26T22:03:13.413Z",
+      "sqliteHeader": true,
+      "sha256": "26352605b4c5457fc6d8eb0085effb21d8c23480c5a2d7788ee868c722534fb9"
+    },
+    {
+      "rootId": "projects",
+      "relativePath": "c3-agent-wip/data/backups/c3-state-2026-03-08.backup/c3.db",
+      "bytes": 4333568,
+      "modifiedAt": "2026-03-08T19:20:25.390Z",
+      "sqliteHeader": true,
+      "sha256": "1d290456cba4a3117ebc08a5db19d64ff572b81d088338c8dbaf4f14d8754982"
+    },
+    {
+      "rootId": "projects",
+      "relativePath": "c3-agent-wip/data/backups/c3-state-2026-03-22.backup/c3.db",
+      "bytes": 13025280,
+      "modifiedAt": "2026-03-22T20:50:43.322Z",
+      "sqliteHeader": true,
+      "sha256": "c9427e5b594884e143529193a22185097beec46722c78b5852f3039c21e6a49f"
+    },
+    {
+      "rootId": "projects",
+      "relativePath": "c3-agent-wip/data/backups/c3-state-2026-03-29.backup/c3.db",
+      "bytes": 4874240,
+      "modifiedAt": "2026-03-29T18:22:31.369Z",
+      "sqliteHeader": true,
+      "sha256": "1ce7004004cd3a12a9a3c78616bcab90644c6c89cf7c85248e6f7f166fc431b8"
+    },
+    {
+      "rootId": "projects",
+      "relativePath": "c3-agent-wip/data/backups/c3-state-2026-04-08.backup/c3.db",
+      "bytes": 7241728,
+      "modifiedAt": "2026-04-08T09:37:52.668Z",
+      "sqliteHeader": true,
+      "sha256": "3b9fa2cc6762c900c2a798cdd297fe4e9c6c4fa693bd2b2dc2dcb6bb0a04b1c1"
+    },
+    {
+      "rootId": "projects",
+      "relativePath": "c3-agent-wip/data/backups/c3-state-2026-04-09.backup/c3.db",
+      "bytes": 7241728,
+      "modifiedAt": "2026-04-09T19:25:08.530Z",
+      "sqliteHeader": true,
+      "sha256": "4a8e37aa1e2b40c30a21b01291f424d1b5241de34b4182c7c9f2d17460420b1c"
+    },
+    {
+      "rootId": "projects",
+      "relativePath": "c3-agent-wip/data/backups/c3-state-2026-04-10.backup/c3.db",
+      "bytes": 7241728,
+      "modifiedAt": "2026-04-10T13:22:11.445Z",
+      "sqliteHeader": true,
+      "sha256": "4705e76df154ebcc0d98b8534555014ef38356a6d2b811f5ca0ce2eddd731e3d"
+    },
+    {
+      "rootId": "projects",
+      "relativePath": "c3-agent-wip/data/backups/c3-state-2026-04-11.backup/c3.db",
+      "bytes": 7241728,
+      "modifiedAt": "2026-04-11T19:40:11.245Z",
+      "sqliteHeader": true,
+      "sha256": "dfa4d83112bcb81cab3aa61c11cded3ed4d9fde9f1dc76128fab9b0815bb085f"
+    },
+    {
+      "rootId": "projects",
+      "relativePath": "c3-agent-wip/data/backups/c3-state-2026-04-12.backup/c3.db",
+      "bytes": 6111232,
+      "modifiedAt": "2026-04-12T12:40:55.547Z",
+      "sqliteHeader": true,
+      "sha256": "722eaa8d5535c5dcae0b6964a5aeb8a5ac6d319c9934273b643fd1c458a530b6"
+    },
+    {
+      "rootId": "projects",
+      "relativePath": "c3-agent-wip/data/backups/c3-state-2026-04-13.backup/c3.db",
+      "bytes": 6115328,
+      "modifiedAt": "2026-04-13T19:33:45.200Z",
+      "sqliteHeader": true,
+      "sha256": "4a0fd0faa730b161949f191a2951cc8decc00b16787059fe916d37e364139d20"
+    },
+    {
+      "rootId": "projects",
+      "relativePath": "c3-agent-wip/data/backups/c3-state-2026-05-09.backup/c3.db",
+      "bytes": 6754304,
+      "modifiedAt": "2026-05-09T15:11:01.149Z",
+      "sqliteHeader": true,
+      "sha256": "4e8790aa3528e1560aa6b9af8f1ae6452116273051a8a5b35a3b2c39f23459a2"
+    },
+    {
+      "rootId": "projects",
+      "relativePath": "c3-agent-wip/data/backups/c3-state-2026-08-10.backup/c3.db",
+      "bytes": 6754304,
+      "modifiedAt": "2026-08-10T20:10:57.970Z",
+      "sqliteHeader": true,
+      "sha256": "cafd97269183f454777ce8d83b03cb8a05dc4dd5dc5832ce935c31fb7f1629a2"
+    },
+    {
+      "rootId": "projects",
+      "relativePath": "c3-agent-wip/data/c3-fresh.db",
+      "bytes": 0,
+      "modifiedAt": "2026-04-11T19:42:43.930Z",
+      "sqliteHeader": false,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "rootId": "projects",
+      "relativePath": "c3-agent-wip/data/c3-recovered.db",
+      "bytes": 6111232,
+      "modifiedAt": "2026-04-12T12:38:23.515Z",
+      "sqliteHeader": true,
+      "sha256": "8c7202423bcbe4b342a0cf147f5b4e367e3ced596c0a8cbe900aa1d828beb944"
+    },
+    {
+      "rootId": "projects",
+      "relativePath": "c3-agent-wip/data/c3.db",
+      "bytes": 6987776,
+      "modifiedAt": "2026-08-12T21:31:04.343Z",
+      "sqliteHeader": true,
+      "sha256": "506088b5dbc6b06537de35d80eeada2405e7994c8931b91a029da945b5b924f4"
+    },
+    {
+      "rootId": "projects",
+      "relativePath": "c3-agent-wip/projects/P4-ResumeBot-E2E/db/resumes.db",
+      "bytes": 3177,
+      "modifiedAt": "2026-04-09T21:07:54.348Z",
+      "sqliteHeader": false,
+      "sha256": "fe98997f4315b0fbdc34b071e87d2d6e82ca85d50ed7d09957de93ac5554a37d"
+    },
+    {
+      "rootId": "projects",
+      "relativePath": "c3-nightly-artifacts/runs/manual-20260727-004809/runtime/c3-nightly.db",
+      "bytes": 1331200,
+      "modifiedAt": "2026-07-26T22:56:54.823Z",
+      "sqliteHeader": true,
+      "sha256": "a23f02f53b45993590cf4676b9b47402eee4b61de96c1035502af30b8728d64f"
+    },
+    {
+      "rootId": "projects",
+      "relativePath": "intentsmith/.intentsmith-artifacts/direct-tests/m1-model-binding-application.test-2YebDN/runtime/intentsmith-test.sqlite",
+      "bytes": 1789952,
+      "modifiedAt": "2026-08-26T20:26:23.712Z",
+      "sqliteHeader": true,
+      "sha256": "5173e889bb5e91653ef65d6dd8741b6ae23b360eefd593ac6cf0c8154517af06"
+    },
+    {
+      "rootId": "projects",
+      "relativePath": "intentsmith/data/backups/c3-state-2026-08-02.backup/c3.db",
+      "bytes": 1462272,
+      "modifiedAt": "2026-08-02T20:34:36.350Z",
+      "sqliteHeader": true,
+      "sha256": "6a31496a52efc4e0fd343201e6feece0872c435b0af614199cb631e42e766521"
+    },
+    {
+      "rootId": "projects",
+      "relativePath": "intentsmith/data/backups/c3-state-2026-08-21.backup/c3.db",
+      "bytes": 3072000,
+      "modifiedAt": "2026-08-21T22:56:58.083Z",
+      "sqliteHeader": true,
+      "sha256": "d4d07a6222af6300a2760ed24ca52857b192503bc0b0a4cc38b25cfde65a83ef"
+    },
+    {
+      "rootId": "projects",
+      "relativePath": "intentsmith/data/backups/c3-state-2026-08-22.backup/c3.db",
+      "bytes": 3072000,
+      "modifiedAt": "2026-08-22T16:35:32.816Z",
+      "sqliteHeader": true,
+      "sha256": "336b095349488221ec41d963bebf2af1545050d48a76349c8a76bfafc07c7c2e"
+    },
+    {
+      "rootId": "projects",
+      "relativePath": "intentsmith/data/c3.db",
+      "bytes": 7573504,
+      "modifiedAt": "2026-08-28T17:58:35.826Z",
+      "sqliteHeader": true,
+      "sha256": "a3eafab1a2061eb83e59720220891d8b41f7a5548a3b20ecd86b8df86827fa8a"
+    }
+  ]
+}

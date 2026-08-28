@@ -1,5 +1,10 @@
 # Session handoff — M2 closeout 2026-08-25
 
+> **Superseded 2026-08-26:** jde o historický handoff původního targetu.
+> Autoritativní M2 migrační řada byla kvůli union kolizím přesunuta z
+> `070/081/082/083` na `092/093/094/095`; aktuální stav je
+> `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED`, nikoli přenesené `ACCEPTED`.
+
 ## Výsledek
 
 M2 je `ACCEPTED / CLOSEOUT_PASS`.

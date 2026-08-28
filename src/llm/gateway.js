@@ -24,6 +24,7 @@ import {
 } from '../core/abort-error.js';
 import { logger } from '../core/logger.js';
 import { modelUniverseStore } from '../upgrade/model-universe-store.js';
+import { normalizeModelDigestSha256, sameModelName } from '../upgrade/model-identity.js';
 import {
   MODEL_ACTIVITY_OWNER,
   modelUseAuthority,
@@ -57,6 +58,8 @@ export const LLMGatewayErrorCode = Object.freeze({
   EMPTY_RESPONSE: 'LLM_PROVIDER_EMPTY_RESPONSE',
   QUEUE_TIMEOUT: 'LLM_QUEUE_TIMEOUT',
   MODEL_VRAM_NON_FIT: 'MODEL_VRAM_NON_FIT',
+  BINDING_ARTIFACT_UNVERIFIED: 'LLM_BINDING_ARTIFACT_UNVERIFIED',
+  BINDING_ARTIFACT_DRIFT: 'LLM_BINDING_ARTIFACT_DRIFT',
 });
 
 export class LLMGatewayError extends Error {
@@ -89,6 +92,50 @@ function providerHttpError(status, cause = null) {
     `The local model provider returned HTTP ${status}.`,
     { cause, httpStatus: status, retryable: status >= 500 },
   );
+}
+
+async function resolveCurrentArtifactDigest(baseUrl, modelName, signal) {
+  let response;
+  try {
+    response = await fetch(`${baseUrl}/api/tags`, { signal });
+  } catch (cause) {
+    if (cause?.name === 'AbortError' || cause?.name === 'TimeoutError') throw cause;
+    throw new LLMGatewayError(
+      LLMGatewayErrorCode.BINDING_ARTIFACT_UNVERIFIED,
+      'The bound local model artifact cannot be verified.',
+      { cause, httpStatus: 503, retryable: false },
+    );
+  }
+  if (!response?.ok) {
+    throw new LLMGatewayError(
+      LLMGatewayErrorCode.BINDING_ARTIFACT_UNVERIFIED,
+      'The bound local model artifact cannot be verified.',
+      { httpStatus: 503, retryable: false },
+    );
+  }
+  let body;
+  try { body = await response.json(); }
+  catch (cause) {
+    throw new LLMGatewayError(
+      LLMGatewayErrorCode.BINDING_ARTIFACT_UNVERIFIED,
+      'The bound local model inventory is malformed.',
+      { cause, httpStatus: 503, retryable: false },
+    );
+  }
+  const matches = Array.isArray(body?.models)
+    ? body.models.filter(row => sameModelName(row?.name, modelName))
+    : [];
+  const digestSha256 = matches.length === 1
+    ? normalizeModelDigestSha256(matches[0]?.digest)
+    : null;
+  if (!digestSha256) {
+    throw new LLMGatewayError(
+      LLMGatewayErrorCode.BINDING_ARTIFACT_UNVERIFIED,
+      'The bound local model artifact has no unique exact digest.',
+      { httpStatus: 503, retryable: false },
+    );
+  }
+  return digestSha256;
 }
 
 function parseProviderOutput(data) {
@@ -421,6 +468,12 @@ class LLMGateway {
     // v133: Usage tracking DB (set via setUsageDb)
     this._usageDb = null;
 
+    // Set by server startup after durable binding reconciliation. A degraded
+    // startup must not later serve a configured fallback that differs from a
+    // durable manual binding merely because the provider came back online.
+    this._bindingStartupAuthority = null;
+    this._bindingArtifactResolver = null;
+
     // v125: Concurrency semaphore — gates concurrent LLM calls
     // With single GPU, only 1 call at a time (model swap = 10-30s VRAM load/unload).
     // With multi-GPU, increase maxConcurrentLLM via config.sessions.maxConcurrentLLM.
@@ -438,6 +491,23 @@ class LLMGateway {
 
   /** v133: Set DB for usage tracking */
   setUsageDb(db) { this._usageDb = db; }
+
+  setBindingStartupAuthority(authority, options = {}) {
+    if (!authority || !['DURABLE', 'DEGRADED'].includes(authority.status)) {
+      throw new TypeError('LLM binding startup authority must be DURABLE or DEGRADED');
+    }
+    if (authority.status === 'DURABLE' && typeof options.resolveArtifact !== 'function') {
+      throw new TypeError('DURABLE LLM binding authority requires an exact artifact resolver');
+    }
+    this._bindingStartupAuthority = Object.freeze({
+      status: authority.status,
+      reason: authority.reason || null,
+      artifacts: authority.artifacts || Object.freeze({}),
+    });
+    this._bindingArtifactResolver = typeof options.resolveArtifact === 'function'
+      ? options.resolveArtifact
+      : null;
+  }
 
   /**
    * v125: Acquire LLM slot (semaphore). Returns immediately if slot available,
@@ -743,6 +813,20 @@ class LLMGateway {
       }
     }
 
+    if (this._bindingStartupAuthority?.status === 'DEGRADED') {
+      this.audit.log('LLM_BINDING_AUTHORITY_DEGRADED', {
+        role: authToken?.role,
+        decisionId: authToken?.decisionId,
+        reason: this._bindingStartupAuthority.reason,
+        ...safeCorrelation(options, authToken),
+      });
+      throw new LLMGatewayError(
+        LLMGatewayErrorCode.PROVIDER_UNAVAILABLE,
+        'The local model binding authority is degraded; restart after provider recovery.',
+        { retryable: true },
+      );
+    }
+
     // ════════════════════════════════════════════════════════════════════════
     // RATE LIMIT CHECK
     // ════════════════════════════════════════════════════════════════════════
@@ -774,6 +858,35 @@ class LLMGateway {
     const requestType = options.requestType || 'chat';
     const correlation = safeCorrelation(options, authToken);
     const effectiveNumCtx = resolveNumCtx(model, options.num_ctx);
+    let expectedArtifact = null;
+    if (this._bindingStartupAuthority?.status === 'DURABLE') {
+      try {
+        expectedArtifact = await this._bindingArtifactResolver({
+          modelName: model,
+          role: correlation.modelRole,
+        });
+      } catch (cause) {
+        throw new LLMGatewayError(
+          LLMGatewayErrorCode.BINDING_ARTIFACT_UNVERIFIED,
+          'The requested model is not backed by an exact durable binding.',
+          { cause, httpStatus: 503, retryable: false },
+        );
+      }
+      const expectedDigest = normalizeModelDigestSha256(expectedArtifact?.digestSha256);
+      if (!expectedDigest
+        || typeof expectedArtifact?.modelName !== 'string'
+        || !sameModelName(expectedArtifact.modelName, model)) {
+        throw new LLMGatewayError(
+          LLMGatewayErrorCode.BINDING_ARTIFACT_UNVERIFIED,
+          'The requested model is not backed by an exact durable binding.',
+          { httpStatus: 503, retryable: false },
+        );
+      }
+      expectedArtifact = Object.freeze({
+        modelName: expectedArtifact.modelName.trim(),
+        digestSha256: expectedDigest,
+      });
+    }
 
     const emitRuntimeSignal = (signalType, success, extra = {}) => {
       try {
@@ -931,6 +1044,21 @@ class LLMGateway {
           userSignal.addEventListener('abort', userAbortHandler, { once: true });
         }
 
+        if (expectedArtifact) {
+          const beforeDigest = await resolveCurrentArtifactDigest(
+            config.ollama?.baseUrl || 'http://127.0.0.1:11434',
+            model,
+            controller.signal,
+          );
+          if (beforeDigest !== expectedArtifact.digestSha256) {
+            throw new LLMGatewayError(
+              LLMGatewayErrorCode.BINDING_ARTIFACT_DRIFT,
+              'The bound local model digest changed before the provider request.',
+              { httpStatus: 503, retryable: false },
+            );
+          }
+        }
+
         const response = await fetch(`${config.ollama?.baseUrl || 'http://127.0.0.1:11434'}/api/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -963,6 +1091,33 @@ class LLMGateway {
           );
         }
         const output = parseProviderOutput(data);
+        const servedModel = typeof data.model === 'string' && data.model.trim()
+          ? data.model.trim()
+          : model;
+        if (expectedArtifact && !sameModelName(servedModel, expectedArtifact.modelName)) {
+          throw new LLMGatewayError(
+            LLMGatewayErrorCode.BINDING_ARTIFACT_DRIFT,
+            'The local provider served a different model binding.',
+            { httpStatus: 503, retryable: false },
+          );
+        }
+        const servedDigest = normalizeModelDigestSha256(
+          data?.digest || data?.model_digest_sha256,
+        );
+        if (expectedArtifact && !servedDigest) {
+          throw new LLMGatewayError(
+            LLMGatewayErrorCode.BINDING_ARTIFACT_UNVERIFIED,
+            'The local provider response does not identify the serving artifact digest.',
+            { httpStatus: 503, retryable: false },
+          );
+        }
+        if (expectedArtifact && servedDigest !== expectedArtifact.digestSha256) {
+          throw new LLMGatewayError(
+            LLMGatewayErrorCode.BINDING_ARTIFACT_DRIFT,
+            'The local provider response cannot be bound to the expected artifact digest.',
+            { httpStatus: 503, retryable: false },
+          );
+        }
         const duration = Date.now() - startTime;
 
         // Update rate limit counter
@@ -985,9 +1140,14 @@ class LLMGateway {
         // v133: Usage tracking for auto-cleanup decisions
         if (this._usageDb) {
           try {
+            const usageRole = authToken?.role || 'UNKNOWN';
+            // A desired binding is intent, not evidence of which artifact
+            // actually served this request. Persist a digest only when the
+            // provider response itself identifies it exactly; otherwise NULL
+            // preserves the fail-closed retention boundary during a rebind.
             this._usageDb.prepare(
-              'INSERT INTO model_usage (model, role, request_type) VALUES (?, ?, ?)'
-            ).run(model, authToken?.role || 'UNKNOWN', requestType);
+              'INSERT INTO model_usage (model, role, request_type, model_digest_sha256) VALUES (?, ?, ?, ?)'
+            ).run(servedModel, usageRole, requestType, servedDigest);
           } catch (_) {}
         }
 
@@ -1000,6 +1160,7 @@ class LLMGateway {
         return {
           content: output,
           model,
+          modelDigestSha256: servedDigest,
           duration,
           role: authToken?.role,
           finishReason: typeof data.done_reason === 'string'
@@ -1078,6 +1239,26 @@ class LLMGateway {
               message: `LLM timeout after ${timeout}ms (model: ${model})`,
             });
           }
+        } else if (
+          err instanceof LLMGatewayError
+          && [
+            LLMGatewayErrorCode.BINDING_ARTIFACT_UNVERIFIED,
+            LLMGatewayErrorCode.BINDING_ARTIFACT_DRIFT,
+          ].includes(err.code)
+        ) {
+          this.audit.log('LLM_BINDING_ARTIFACT_REJECTED', {
+            role: authToken?.role,
+            decisionId: authToken?.decisionId,
+            model,
+            errorCode: err.code,
+            ...correlation,
+          });
+          emitRuntimeSignal('runtime_failed', false, {
+            attempt,
+            errorType: err.code,
+            latencyMs: Date.now() - startTime,
+          });
+          throw err;
         } else if (
           err instanceof LLMGatewayError
           && err.code === LLMGatewayErrorCode.PROVIDER_UNAVAILABLE

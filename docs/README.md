@@ -71,7 +71,7 @@ předává vlastní izolovanou cestu.
 | Ollama | `OLLAMA_URL` | Adresa Ollama serveru |
 | Features | `C3_ENABLE_AGENTS`, `C3_ENABLE_LIFECYCLE`, `C3_ENABLE_EXPERTISES`, `C3_ENABLE_TELEMETRY`, `C3_ENABLE_SKILLS` | Zapnutí/vypnutí modulů |
 | Databáze | `C3_DB_PATH` | Cesta k SQLite souboru |
-| Model Universe | `C3_MODEL_UNIVERSE_ENABLED`, `C3_MODEL_RUNTIME_GUARD_ENABLED`, `C3_MODEL_RUNTIME_GUARD_DISABLE_ERROR_RATE`, `C3_MODEL_RUNTIME_GUARD_RECOVER_ERROR_RATE`, `C3_MODEL_RUNTIME_GUARD_COOLDOWN_MS` | Universe ingest + runtime safety guard |
+| Model Universe | `C3_MODEL_UNIVERSE_ENABLED` | Factual universe ingest and raw diagnostic signals; no quality, blacklist, recommendation, or activation authority |
 | Lifecycle | `C3_LIFECYCLE_REVIEW_FREQ`, `C3_MAX_MILESTONE_LOC`, `C3_MAX_MILESTONE_FILES` | Nastavení projektu |
 | Notifikace | `C3_SMTP_*`, `C3_TELEGRAM_*`, `C3_NTFY_*` | Email, Telegram, push kanály |
 | Security | `C3_ADMIN_TOKEN`, `C3_LICENSE_KEY` | Autentizace a licence |
@@ -118,9 +118,8 @@ předává vlastní izolovanou cestu.
 | [ROADMAP.md](ROADMAP.md) | **Roadmapa 1.0** — gate ladder, evidenční stav pilířů, směr IntentSmithu |
 | [CHANGELOG.md](CHANGELOG.md) | Changelog (v56–v136) |
 | [EVAL-REDESIGN.md](EVAL-REDESIGN.md) | Přestavba evaluace: proč současné sady neměří schopnost, plán |
-| [EVAL-NEXT-SESSION.md](EVAL-NEXT-SESSION.md) | **Zadání pro další relaci** — kde to stojí, co dál, pasti |
-| [MODEL-PLATFORM-HANDOFF.md](MODEL-PLATFORM-HANDOFF.md) | **Souhrn stavu** scoringu a hledání modelů, otevřené body |
-| [MODEL-SCORING-ACTIVATION.md](MODEL-SCORING-ACTIVATION.md) | Scoring modelů: zdroje dat, jejich meze, aktivace |
+| [MODEL-PLATFORM-HANDOFF.md](MODEL-PLATFORM-HANDOFF.md) | **Aktuální stav** modelové platformy a pravdivé mezery |
+| [MODEL-SCORING-ACTIVATION.md](MODEL-SCORING-ACTIVATION.md) | Jedna exact-contract evaluační a oddělená aktivační cesta |
 | [MODEL-UPGRADE-HUNT.md](MODEL-UPGRADE-HUNT.md) | Hledání lepších modelů: trychtýř, měření VRAM, párový souboj |
 | [dev-checklist.md](dev-checklist.md) | Development checklist |
 | [archive/ROADMAP-v17-C3.md](archive/ROADMAP-v17-C3.md) | archiv — původní C3 roadmapa v17 (tvrzení o hotovosti neplatná) |
@@ -139,7 +138,7 @@ ve zbytku dokumentace.
 | [convergence/GATE0-REVIEW-FINDINGS-FOLLOWUP.md](convergence/GATE0-REVIEW-FINDINGS-FOLLOWUP.md) | dispozice pěti nálezů nezávislého review a hranice jejich platnosti |
 | [convergence/DECISIONS.md](convergence/DECISIONS.md) | uzamčená rozhodnutí + čekající operátorská |
 | [convergence/FINAL-COMMIT-DISPOSITION.md](convergence/FINAL-COMMIT-DISPOSITION.md) | dispozice 225 záznamů `a7b90e3..ffd21cf` |
-| [convergence/TEST-REGISTRY.md](convergence/TEST-REGISTRY.md) | generovaný ledger 350 testovacích programů a 8 explicitních support výjimek |
+| [convergence/TEST-REGISTRY.md](convergence/TEST-REGISTRY.md) | generovaný ledger 384 testovacích programů a 8 explicitních support výjimek |
 | [convergence/PRIVACY-INCIDENT.json](convergence/PRIVACY-INCIDENT.json) | evidence potvrzené privacy kompromitace |
 
 ### Kontrakty & Protokoly

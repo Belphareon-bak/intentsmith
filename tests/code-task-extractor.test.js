@@ -94,6 +94,23 @@ await testAsync('víc zdrojáků najednou se nebere', async () => {
   cleanup(repo);
 });
 
+await testAsync('rozšiřovací režim rozdělí multi-source commit na ověřitelné kandidáty', async () => {
+  const repo = buildFixture();
+  writeFileSync(path.join(repo, 'src', 'a.js'), 'export const a = 1;\n');
+  writeFileSync(path.join(repo, 'src', 'b.js'), 'export const b = 2;\n');
+  writeFileSync(path.join(repo, 'tests', 'ab.test.js'), 'process.exit(0);\n');
+  git(repo, ['add', '-A']); git(repo, ['commit', '-qm', 'feat: baseline pro dva soubory']);
+  writeFileSync(path.join(repo, 'src', 'a.js'), 'export const a = 3;\n');
+  writeFileSync(path.join(repo, 'src', 'b.js'), 'export const b = 4;\n');
+  writeFileSync(path.join(repo, 'tests', 'ab.test.js'), 'process.exit(0); // nové orákulum\n');
+  git(repo, ['add', '-A']); git(repo, ['commit', '-qm', 'fix: dva existující zdroje']);
+  const found = findCandidates(repo, { limit: 10, allowMultipleSources: true })
+    .filter(candidate => candidate.subject === 'fix: dva existující zdroje');
+  assertEqual(found.length, 2);
+  assertEqual(found.map(candidate => candidate.source).sort().join(','), 'src/a.js,src/b.js');
+  cleanup(repo);
+});
+
 // ─── Ověřování ──────────────────────────────────────────────────────────────
 
 suite('verifyCandidate');

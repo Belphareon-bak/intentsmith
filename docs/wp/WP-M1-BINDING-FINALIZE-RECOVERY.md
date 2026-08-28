@@ -1,5 +1,9 @@
 # WP-M1-BINDING-FINALIZE-RECOVERY — durable runtime finalize receipt
 
+> **Historická přijatá review jednotka.** Příkazy na odstraněné compatibility
+> testy nejsou současným runbookem; current binding/evaluation brány jsou v
+> [WP-MODEL-EVALUATION-CONSOLIDATION](WP-MODEL-EVALUATION-CONSOLIDATION.md).
+
 **Typ:** zapisující WP · **Slot:** hlavní zapisující vlastník, hlavní checkout
 
 **Vstupní revision:** `20b1b93387ab3c165dc01473178aca239a53e21b`
@@ -131,7 +135,7 @@ C3_LOG_LEVEL=error node tests/m1-model-failover-schema.test.js
 C3_LOG_LEVEL=error node tests/m1-model-binding-repository.test.js
 C3_LOG_LEVEL=error node tests/m1-model-binding-application.test.js
 C3_LOG_LEVEL=error node tests/m1-model-binding-storage.test.js
-C3_LOG_LEVEL=error node tests/m1-model-failover-repository.test.js
+C3_LOG_LEVEL=error node tests/m1-model-failover-detection-repository.test.js
 C3_LOG_LEVEL=error node tests/routes-smoke.test.js
 C3_LOG_LEVEL=error node tests/ws-bridge.test.js
 C3_LOG_LEVEL=error node tests/upgrade-flow.test.js

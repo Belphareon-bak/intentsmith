@@ -8,6 +8,7 @@ import {
   test,
   testAsync,
 } from './harness.js';
+import Database from 'better-sqlite3';
 import { ModelRegistry } from '../src/upgrade/model-registry.js';
 import { UpgradeManager } from '../src/upgrade/upgrade-manager.js';
 import { callWithAuth, llmGateway } from '../src/llm/gateway.js';
@@ -67,11 +68,11 @@ function gatewayToken(suffix) {
   });
 }
 
-function providerChatResponse(content) {
+function providerChatResponse(content, metadata = {}) {
   return {
     ok: true,
     status: 200,
-    json: async () => ({ message: { role: 'assistant', content } }),
+    json: async () => ({ message: { role: 'assistant', content }, ...metadata }),
   };
 }
 
@@ -89,7 +90,7 @@ function stalledProviderBody(signal, started) {
   };
 }
 
-function createRegistry(authority, validationRunner = null) {
+function createRegistry(authority) {
   const registry = new ModelRegistry();
   registry.init({
     db: null,
@@ -99,7 +100,6 @@ function createRegistry(authority, validationRunner = null) {
       runExclusiveModelMutation: async (_input, callback) => callback(),
       applyManualBinding: async () => ({ ok: true }),
     },
-    validationRunner,
     broadcast: () => {},
     modelUseAuthority: authority,
   });
@@ -226,7 +226,7 @@ test('a lease cannot be released twice', () => {
   assertEqual(error.code, 'MODEL_USE_LEASE_RELEASED');
 });
 
-suite('M1 model use authority — registry validation/delete races');
+suite('M1 model use authority — registry use/delete races');
 
 await testAsync('generic active use blocks delete with a typed error before inventory', async () => {
   const authority = new ModelUseAuthority();
@@ -254,113 +254,6 @@ await testAsync('generic active use blocks delete with a typed error before inve
     assertEqual(providerCalls, 0);
   } finally {
     useLease.release();
-    globalThis.fetch = originalFetch;
-  }
-});
-
-await testAsync('active validation blocks delete before inventory and provider effects', async () => {
-  const authority = new ModelUseAuthority();
-  const validationGate = deferred();
-  let runnerCalls = 0;
-  let inventoryCalls = 0;
-  let providerCalls = 0;
-  const registry = createRegistry(authority, {
-    async runAll() {
-      runnerCalls += 1;
-      await validationGate.promise;
-      return { overallScore: 1, results: [] };
-    },
-  });
-  registry.getInstalled = async () => {
-    inventoryCalls += 1;
-    return [installedModel()];
-  };
-  globalThis.fetch = async () => {
-    providerCalls += 1;
-    return { ok: true };
-  };
-  try {
-    const reservation = registry.startValidation(
-      'lease-fixture:latest',
-      ['reasoning'],
-      () => {},
-    );
-    await Promise.resolve();
-    assertEqual(runnerCalls, 1);
-    const error = await captureAsync(registry.deleteModel('lease-fixture', {
-      expectedDigestSha256: DIGEST,
-    }));
-    assertEqual(error.code, 'MODEL_DELETE_VALIDATING');
-    assertEqual(inventoryCalls, 0);
-    assertEqual(providerCalls, 0);
-    validationGate.resolve();
-    await reservation.completion;
-    assertEqual(authority.snapshot('lease-fixture').activeUseCount, 0);
-  } finally {
-    validationGate.resolve();
-    globalThis.fetch = originalFetch;
-  }
-});
-
-await testAsync('batch validation refuses a model held by an exclusive mutation', async () => {
-  const authority = new ModelUseAuthority();
-  let runnerCalls = 0;
-  const registry = createRegistry(authority, {
-    async runAll() {
-      runnerCalls += 1;
-      return { overallScore: 1, results: [] };
-    },
-    getAllScores: () => new Map(),
-  });
-  registry.getInstalled = async () => [installedModel()];
-  const mutationLease = authority.acquireExclusive({
-    modelName: 'lease-fixture',
-    owner: MODEL_ACTIVITY_OWNER.MODEL_PULL,
-  });
-  try {
-    const accepted = await registry.validateAll();
-    assertEqual(accepted.queued.length, 1);
-    while (registry._batchRunning) await Promise.resolve();
-    assertEqual(runnerCalls, 0);
-  } finally {
-    mutationLease.release();
-  }
-});
-
-await testAsync('delete reservation rejects a newly starting validation before its runner', async () => {
-  const authority = new ModelUseAuthority();
-  const inventoryGate = deferred();
-  let inventoryCalls = 0;
-  let runnerCalls = 0;
-  const registry = createRegistry(authority, {
-    async runAll() {
-      runnerCalls += 1;
-      return { overallScore: 1, results: [] };
-    },
-  });
-  registry.getInstalled = async () => {
-    inventoryCalls += 1;
-    if (inventoryCalls === 1) await inventoryGate.promise;
-    return [installedModel()];
-  };
-  globalThis.fetch = async () => ({ ok: true });
-  try {
-    const deletion = registry.deleteModel('lease-fixture:latest', {
-      expectedDigestSha256: DIGEST,
-    });
-    while (inventoryCalls === 0) await Promise.resolve();
-    const error = captureError(() => registry.startValidation(
-      'lease-fixture',
-      ['reasoning'],
-      () => {},
-    ));
-    assertEqual(error.code, 'MODEL_VALIDATION_MODEL_MUTATING');
-    assertEqual(runnerCalls, 0);
-    inventoryGate.resolve();
-    const result = await deletion;
-    assertEqual(result.deleted, 'lease-fixture:latest');
-  } finally {
-    inventoryGate.resolve();
     globalThis.fetch = originalFetch;
   }
 });
@@ -396,7 +289,7 @@ await testAsync('delete holds exclusive ownership through the provider effect', 
   }
 });
 
-suite('M1 model use authority — legacy pull/delete serialization');
+suite('M1 model use authority — pull/delete serialization');
 
 await testAsync('active shared use blocks pull before the provider request', async () => {
   let providerCalls = 0;
@@ -519,6 +412,288 @@ await testAsync('default registry and pull wiring share the production singleton
 });
 
 suite('M1 model use authority — gateway provider lifecycle');
+
+await testAsync('gateway rejects mutable-tag drift before send and response digest mismatch', async () => {
+  const previousAuthority = llmGateway._bindingStartupAuthority;
+  const previousResolver = llmGateway._bindingArtifactResolver;
+  const expected = Object.freeze({
+    modelName: 'binding-fixture:latest',
+    digestSha256: DIGEST,
+  });
+  llmGateway.setBindingStartupAuthority({
+    status: 'DURABLE',
+    artifacts: { CHAT: expected },
+  }, {
+    resolveArtifact: () => expected,
+  });
+  try {
+    let chatCalls = 0;
+    globalThis.fetch = async url => {
+      if (String(url).endsWith('/api/tags')) {
+        return {
+          ok: true,
+          json: async () => ({
+            models: [{ name: expected.modelName, digest: `sha256:${'b'.repeat(64)}` }],
+          }),
+        };
+      }
+      chatCalls += 1;
+      return providerChatResponse('must not be served');
+    };
+    const preSend = await captureAsync(callWithAuth(
+      gatewayToken('binding-pre-send-drift'),
+      'must not reach chat',
+      { model: 'binding-fixture', capability: 'reasoning', retries: 1 },
+    ));
+    assertEqual(preSend.code, 'LLM_BINDING_ARTIFACT_DRIFT');
+    assertEqual(chatCalls, 0);
+
+    let inventoryCalls = 0;
+    globalThis.fetch = async url => {
+      if (String(url).endsWith('/api/tags')) {
+        inventoryCalls += 1;
+        return {
+          ok: true,
+          json: async () => ({
+            models: [{ name: expected.modelName, digest: `sha256:${DIGEST}` }],
+          }),
+        };
+      }
+      chatCalls += 1;
+      return providerChatResponse('untrusted response', {
+        model: expected.modelName,
+        digest: `sha256:${'b'.repeat(64)}`,
+      });
+    };
+    const postResponse = await captureAsync(callWithAuth(
+      gatewayToken('binding-post-response-drift'),
+      'response must be discarded',
+      { model: 'binding-fixture', capability: 'reasoning', retries: 1 },
+    ));
+    assertEqual(postResponse.code, 'LLM_BINDING_ARTIFACT_DRIFT');
+    assertEqual(inventoryCalls, 1);
+    assertEqual(chatCalls, 1);
+    assertEqual(modelUseAuthority.snapshot('binding-fixture').activeUseCount, 0);
+    assertEqual(llmGateway.getConcurrencyStats().active, 0);
+  } finally {
+    llmGateway._bindingStartupAuthority = previousAuthority;
+    llmGateway._bindingArtifactResolver = previousResolver;
+    globalThis.fetch = originalFetch;
+  }
+});
+
+await testAsync('gateway rejects an A-B-A tag race when the response has no digest', async () => {
+  const previousAuthority = llmGateway._bindingStartupAuthority;
+  const previousResolver = llmGateway._bindingArtifactResolver;
+  const expected = Object.freeze({
+    modelName: 'binding-aba-fixture:latest',
+    digestSha256: DIGEST,
+  });
+  llmGateway.setBindingStartupAuthority({
+    status: 'DURABLE',
+    artifacts: { CHAT: expected },
+  }, {
+    resolveArtifact: () => expected,
+  });
+  let providerDigest = DIGEST;
+  const calls = [];
+  try {
+    globalThis.fetch = async url => {
+      const pathname = new URL(String(url)).pathname;
+      calls.push(pathname);
+      if (pathname === '/api/tags') {
+        return {
+          ok: true,
+          json: async () => ({
+            models: [{
+              name: expected.modelName,
+              digest: `sha256:${providerDigest}`,
+            }],
+          }),
+        };
+      }
+      providerDigest = 'b'.repeat(64);
+      const response = providerChatResponse('served during digest B', {
+        model: expected.modelName,
+      });
+      providerDigest = DIGEST;
+      return response;
+    };
+    const error = await captureAsync(callWithAuth(
+      gatewayToken('binding-aba-no-digest'),
+      'response must be discarded',
+      { model: 'binding-aba-fixture', capability: 'reasoning', retries: 1 },
+    ));
+    assertEqual(error.code, 'LLM_BINDING_ARTIFACT_UNVERIFIED');
+    assertEqual(calls.join(','), '/api/tags,/api/chat');
+    assertEqual(modelUseAuthority.snapshot('binding-aba-fixture').activeUseCount, 0);
+    assertEqual(llmGateway.getConcurrencyStats().active, 0);
+  } finally {
+    llmGateway._bindingStartupAuthority = previousAuthority;
+    llmGateway._bindingArtifactResolver = previousResolver;
+    globalThis.fetch = originalFetch;
+  }
+});
+
+await testAsync('gateway returns the exact verified artifact digest', async () => {
+  const previousAuthority = llmGateway._bindingStartupAuthority;
+  const previousResolver = llmGateway._bindingArtifactResolver;
+  const expected = Object.freeze({
+    modelName: 'binding-fixture:latest',
+    digestSha256: DIGEST,
+  });
+  llmGateway.setBindingStartupAuthority({
+    status: 'DURABLE',
+    artifacts: { CHAT: expected },
+  }, {
+    resolveArtifact: () => expected,
+  });
+  try {
+    globalThis.fetch = async url => String(url).endsWith('/api/tags')
+      ? {
+        ok: true,
+        json: async () => ({
+          models: [{ name: expected.modelName, digest: `sha256:${DIGEST}` }],
+        }),
+      }
+      : providerChatResponse('verified response', {
+        model: expected.modelName,
+        digest: `sha256:${DIGEST}`,
+      });
+    const result = await callWithAuth(
+      gatewayToken('binding-exact-success'),
+      'serve exact',
+      { model: 'binding-fixture', capability: 'reasoning', retries: 1 },
+    );
+    assertEqual(result.content, 'verified response');
+    assertEqual(result.modelDigestSha256, DIGEST);
+  } finally {
+    llmGateway._bindingStartupAuthority = previousAuthority;
+    llmGateway._bindingArtifactResolver = previousResolver;
+    globalThis.fetch = originalFetch;
+  }
+});
+
+await testAsync('gateway usage binds telemetry only to a digest reported by the serving provider', async () => {
+  const db = new Database(':memory:');
+  db.exec(`
+    CREATE TABLE model_desired_bindings (
+      role TEXT PRIMARY KEY, model_name TEXT NOT NULL, digest_sha256 TEXT NOT NULL
+    );
+    CREATE TABLE model_usage (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      model TEXT NOT NULL,
+      role TEXT NOT NULL,
+      request_type TEXT,
+      model_digest_sha256 TEXT
+    );
+  `);
+  db.prepare(`
+    INSERT INTO model_desired_bindings(role, model_name, digest_sha256)
+    VALUES ('CHAT', 'usage-fixture:latest', ?)
+  `).run(DIGEST);
+  globalThis.fetch = async () => providerChatResponse('tracked', {
+    model: 'usage-fixture:latest',
+    digest: `sha256:${DIGEST}`,
+  });
+  llmGateway.setUsageDb(db);
+  try {
+    const result = await callWithAuth(gatewayToken('digest-usage'), 'track me', {
+      model: 'usage-fixture', capability: 'reasoning', retries: 1,
+    });
+    assertEqual(result.content, 'tracked');
+    const row = db.prepare('SELECT role, model_digest_sha256 FROM model_usage').get();
+    assertEqual(row.role, 'CRE_DECISION');
+    assertEqual(row.model_digest_sha256, DIGEST);
+  } finally {
+    llmGateway.setUsageDb(null);
+    db.close();
+    globalThis.fetch = originalFetch;
+  }
+});
+
+await testAsync('gateway usage keeps digest NULL when only desired binding claims identity', async () => {
+  const db = new Database(':memory:');
+  db.exec(`
+    CREATE TABLE model_desired_bindings (
+      role TEXT PRIMARY KEY, model_name TEXT NOT NULL, digest_sha256 TEXT NOT NULL
+    );
+    CREATE TABLE model_usage (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      model TEXT NOT NULL,
+      role TEXT NOT NULL,
+      request_type TEXT,
+      model_digest_sha256 TEXT
+    );
+  `);
+  db.prepare(`
+    INSERT INTO model_desired_bindings(role, model_name, digest_sha256)
+    VALUES ('CHAT', 'usage-fixture:latest', ?)
+  `).run(DIGEST);
+  globalThis.fetch = async () => providerChatResponse('tracked', {
+    model: 'usage-fixture:latest',
+  });
+  llmGateway.setUsageDb(db);
+  try {
+    await callWithAuth(gatewayToken('unknown-digest-usage'), 'track me', {
+      model: 'usage-fixture', capability: 'reasoning', retries: 1,
+    });
+    const row = db.prepare('SELECT model, model_digest_sha256 FROM model_usage').get();
+    assertEqual(row.model, 'usage-fixture:latest');
+    assertEqual(row.model_digest_sha256, null);
+  } finally {
+    llmGateway.setUsageDb(null);
+    db.close();
+    globalThis.fetch = originalFetch;
+  }
+});
+
+await testAsync('gateway usage never infers a served digest from mutable inventory', async () => {
+  const servedDigest = 'b'.repeat(64);
+  const db = new Database(':memory:');
+  db.exec(`
+    CREATE TABLE model_desired_bindings (
+      role TEXT PRIMARY KEY, model_name TEXT NOT NULL, digest_sha256 TEXT NOT NULL
+    );
+    CREATE TABLE model_usage (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      model TEXT NOT NULL,
+      role TEXT NOT NULL,
+      request_type TEXT,
+      model_digest_sha256 TEXT
+    );
+  `);
+  db.prepare(`
+    INSERT INTO model_desired_bindings(role, model_name, digest_sha256)
+    VALUES ('CHAT', 'usage-fixture:latest', ?)
+  `).run(DIGEST);
+  let inventoryCalls = 0;
+  globalThis.fetch = async url => {
+    if (String(url).endsWith('/api/tags')) {
+      inventoryCalls += 1;
+      return {
+        ok: true,
+        json: async () => ({
+          models: [{ name: 'usage-fixture:latest', digest: `sha256:${servedDigest}` }],
+        }),
+      };
+    }
+    return providerChatResponse('tracked', { model: 'usage-fixture:latest' });
+  };
+  llmGateway.setUsageDb(db);
+  try {
+    await callWithAuth(gatewayToken('served-digest-usage'), 'track me', {
+      model: 'usage-fixture', capability: 'reasoning', retries: 1,
+    });
+    const row = db.prepare('SELECT model_digest_sha256 FROM model_usage').get();
+    assertEqual(row.model_digest_sha256, null);
+    assertEqual(inventoryCalls, 0);
+  } finally {
+    llmGateway.setUsageDb(null);
+    db.close();
+    globalThis.fetch = originalFetch;
+  }
+});
 
 await testAsync('pre-provider setup failure releases the semaphore without a model lease', async () => {
   let providerCalls = 0;

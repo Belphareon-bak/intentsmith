@@ -6,10 +6,12 @@ import { createServer } from 'node:http';
 import { Worker } from 'node:worker_threads';
 import {
   mkdtempSync,
+  mkdirSync,
   readFileSync,
   readdirSync,
   rmSync,
   statSync,
+  writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
 
@@ -21,7 +23,8 @@ import {
   testAsync,
 } from './harness.js';
 import { runMigrations } from '../src/db/migrate.js';
-import { config } from '../src/config.js';
+import { config, DEFAULT_MODEL_BINDINGS } from '../src/config.js';
+import { SetupWizard } from '../src/setup/wizard.js';
 import {
   createModelFailoverRepository,
 } from '../src/upgrade/model-failover.js';
@@ -29,6 +32,7 @@ import {
   ModelBindingApplicationError,
   OllamaModelBindingProvider,
   createModelBindingApplication,
+  requireModelBindingStartupAuthority,
 } from '../src/upgrade/model-binding-application.js';
 import {
   canonicalModelName,
@@ -44,7 +48,6 @@ import { UpgradeManager } from '../src/upgrade/upgrade-manager.js';
 import { createSystemRoutes } from '../src/routes/system.js';
 import {
   preHandle,
-  setModelBindingApplication,
   setModelRegistry,
   setUpgradeManager,
 } from '../src/chat/handlers/pre-handler.js';
@@ -416,7 +419,6 @@ async function withFixture(callback, options = {}) {
       modelUseAuthority: useAuthority,
     });
   } finally {
-    setModelBindingApplication(null);
     restoreBindings();
     db.close();
   }
@@ -480,6 +482,247 @@ function latestOperation(repository, role = 'CHAT') {
 }
 
 suite('M1 model binding application — one truthful commit point');
+
+await testAsync('bootstrap defaults share one complete seven-role portfolio', async () => {
+  const expected = {
+    D1: 'qwen3.5:27b',
+    D2: 'qwen3.8:latest',
+    CODE: 'qwen3.5:27b',
+    R1: 'qwen3.8:latest',
+    R2: 'qwen3:14b',
+    CHAT: 'qwen3.5:27b',
+    VISION: 'llava-llama3:8b',
+  };
+  assertEqual(JSON.stringify(DEFAULT_MODEL_BINDINGS), JSON.stringify(expected));
+  const wizard = new SetupWizard(path.join(
+    process.env.INTENTSMITH_TEST_ARTIFACT_DIR,
+    'bootstrap-defaults',
+  ));
+  assertEqual(
+    JSON.stringify(wizard.load().ollama.models),
+    JSON.stringify(DEFAULT_MODEL_BINDINGS),
+  );
+  const wizardEnv = wizard.toEnvVars();
+  for (const [role, modelName] of Object.entries(DEFAULT_MODEL_BINDINGS)) {
+    assertEqual(wizardEnv[`C3_MODEL_${role}`], modelName);
+  }
+});
+
+await testAsync('wizard requires the exact configured tag and accepts only the latest alias', async () => {
+  const wizard = new SetupWizard(path.join(
+    process.env.INTENTSMITH_TEST_ARTIFACT_DIR,
+    'wizard-exact-models',
+  ));
+  wizard.load();
+  wizard.update('ollama', {
+    models: {
+      CHAT: 'qwen3.5:27b',
+      R1: 'qwen3.8:latest',
+    },
+  });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () => ({
+    ok: true,
+    json: async () => ({
+      models: [
+        { name: 'qwen3.5:14b' },
+        { name: 'qwen3.8' },
+      ],
+    }),
+  });
+  try {
+    const result = await wizard.checkModels();
+    assertEqual(result.ok, false);
+    assertEqual(JSON.stringify(result.missing), JSON.stringify(['qwen3.5:27b']));
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+await testAsync('wizard v1 config migrates legacy defaults and preserves user overrides', async () => {
+  const parent = path.join(
+    process.env.INTENTSMITH_TEST_ARTIFACT_DIR,
+    'wizard-upgrade',
+  );
+  mkdirSync(parent, { recursive: true });
+  const dataDir = mkdtempSync(path.join(parent, 'v1-'));
+  const setupPath = path.join(dataDir, 'c3-setup.json');
+  writeFileSync(setupPath, JSON.stringify({
+    version: 1,
+    completed: true,
+    completedAt: '2026-08-01T10:00:00.000Z',
+    ollama: {
+      url: 'http://127.0.0.1:11434',
+      models: {
+        D1: 'deepseek-r1-32b',
+        D2: 'custom-d2:latest',
+        CODE: 'qwen3.5:27b',
+        R1: 'deepseek-r1-32b',
+        R2: 'qwen3.5:27b',
+        CHAT: 'qwen3.5:27b',
+      },
+      verified: true,
+    },
+    language: 'en',
+  }), 'utf8');
+
+  const wizard = new SetupWizard(dataDir);
+  const migrated = wizard.load();
+  assertEqual(migrated.version, 2);
+  assertEqual(migrated.completed, true);
+  assertEqual(migrated.language, 'en');
+  assertEqual(migrated.ollama.models.D1, DEFAULT_MODEL_BINDINGS.D1);
+  assertEqual(migrated.ollama.models.D2, 'custom-d2:latest');
+  assertEqual(migrated.ollama.models.R1, DEFAULT_MODEL_BINDINGS.R1);
+  assertEqual(migrated.ollama.models.R2, DEFAULT_MODEL_BINDINGS.R2);
+  assertEqual(migrated.ollama.models.VISION, DEFAULT_MODEL_BINDINGS.VISION);
+  assertEqual(Object.keys(migrated.ollama.models).length, 7);
+  assertEqual(JSON.parse(readFileSync(setupPath, 'utf8')).version, 2);
+  assertEqual(Object.keys(wizard.toEnvVars()).filter(key => key.startsWith('C3_MODEL_')).length, 7);
+});
+
+await testAsync('startup reconciliation persists every installed configured role without a binding operation', async () => {
+  await withFixture(async ({ db, repository, provider, application }) => {
+    for (const role of Object.keys(config.models)) config.models[role] = 'fixture-base';
+
+    const first = await application.reconcileConfiguredBindingBaselines();
+    assertEqual(first.rolesChecked, 7);
+    assertEqual(first.created, 7);
+    assertEqual(first.alreadyDurable, 0);
+    assertEqual(first.failed, 0);
+    assertEqual(count(db, 'model_desired_bindings'), 7);
+    assertEqual(count(db, 'model_binding_operations'), 0);
+    for (const role of Object.keys(config.models)) {
+      const desired = repository.getDesired(role);
+      assertEqual(desired.modelName, 'fixture-base');
+      assertEqual(desired.digestSha256, DIGEST_A);
+      assertEqual(desired.source, 'CONFIG_DEFAULT');
+    }
+
+    const second = await application.reconcileConfiguredBindingBaselines();
+    assertEqual(second.created, 0);
+    assertEqual(second.alreadyDurable, 7);
+    assertEqual(second.failed, 0);
+    assertEqual(count(db, 'model_desired_bindings'), 7);
+    assertEqual(count(db, 'model_binding_operations'), 0);
+    assertEqual(provider.calls.inventory, 2);
+    assertEqual(provider.calls.snapshotResolve, 14);
+    assertEqual(provider.calls.resolve, 0);
+    assertEqual(
+      requireModelBindingStartupAuthority({
+        rehydrate: { failed: [] },
+        baseline: second,
+      }).status,
+      'DURABLE',
+    );
+  });
+});
+
+await testAsync('startup baseline resolves every role from one immutable provider inventory', async () => {
+  await withFixture(async ({ repository, provider, application }) => {
+    for (const role of Object.keys(config.models)) config.models[role] = 'fixture-base';
+    provider.afterInventory = () => {
+      provider.models.set('fixture-base', model('fixture-base', DIGEST_B));
+    };
+
+    const result = await application.reconcileConfiguredBindingBaselines();
+    assertEqual(result.created, 7);
+    assertEqual(result.failed, 0);
+    assertEqual(provider.calls.inventory, 1);
+    assertEqual(provider.calls.snapshotResolve, 7);
+    assertEqual(provider.calls.resolve, 0);
+    for (const role of Object.keys(config.models)) {
+      assertEqual(repository.getDesired(role).digestSha256, DIGEST_A);
+    }
+  });
+});
+
+await testAsync('startup rejects authority when configured runtime differs from DB', async () => {
+  await withFixture(async ({ repository, provider, application }) => {
+    for (const role of Object.keys(config.models)) config.models[role] = 'fixture-base';
+    const first = await application.reconcileConfiguredBindingBaselines();
+    assertEqual(first.failed, 0);
+
+    provider.calls.inventory = 0;
+    provider.calls.snapshotResolve = 0;
+    config.models.CODE = 'fixture-target';
+    const mismatch = await application.reconcileConfiguredBindingBaselines();
+    assertEqual(mismatch.rolesChecked, 7);
+    assertEqual(mismatch.failed, 1);
+    assertEqual(mismatch.alreadyDurable, 6);
+    assertEqual(
+      mismatch.roles.find(row => row.role === 'CODE').code,
+      'MODEL_BINDING_BASELINE_RUNTIME_MISMATCH',
+    );
+    assertEqual(provider.calls.inventory, 1);
+    assertEqual(provider.calls.snapshotResolve, 7);
+    assertEqual(repository.getDesired('CODE').modelName, 'fixture-base');
+
+    const authorityError = await captureError(() => requireModelBindingStartupAuthority({
+      rehydrate: { failed: [] },
+      baseline: mismatch,
+    }));
+    assertEqual(authorityError.code, 'MODEL_BINDING_STARTUP_BASELINE_INTEGRITY_FAILED');
+    assertEqual(authorityError.details.failures.length, 1);
+    assertEqual(authorityError.details.failures[0].role, 'CODE');
+    assertEqual(authorityError.details.failures[0].code, 'MODEL_BINDING_BASELINE_RUNTIME_MISMATCH');
+  });
+});
+
+await testAsync('startup rejects authority when the installed artifact digest drifts', async () => {
+  await withFixture(async ({ provider, application }) => {
+    for (const role of Object.keys(config.models)) config.models[role] = 'fixture-base';
+    const first = await application.reconcileConfiguredBindingBaselines();
+    assertEqual(first.failed, 0);
+
+    provider.models.set('fixture-base', model('fixture-base', DIGEST_B));
+    const drift = await application.reconcileConfiguredBindingBaselines();
+    assertEqual(drift.failed, 7);
+    assert(drift.roles.every(row => row.code === 'MODEL_BINDING_BASELINE_DIGEST_MISMATCH'));
+    const authorityError = await captureError(() => requireModelBindingStartupAuthority({
+      rehydrate: { failed: [] },
+      baseline: drift,
+    }));
+    assertEqual(authorityError.code, 'MODEL_BINDING_STARTUP_BASELINE_INTEGRITY_FAILED');
+    assertEqual(authorityError.details.failures.length, 7);
+  });
+});
+
+await testAsync('startup rejects an inconsistent baseline summary instead of degrading it', async () => {
+  const error = await captureError(() => requireModelBindingStartupAuthority({
+    rehydrate: { failed: [] },
+    baseline: {
+      rolesChecked: 7,
+      created: 0,
+      alreadyDurable: 7,
+      failed: 0,
+      roles: [],
+    },
+  }));
+  assertEqual(error.code, 'MODEL_BINDING_STARTUP_AUTHORITY_INVALID');
+});
+
+await testAsync('startup degrades when rehydrate cannot reach the provider', async () => {
+  const authority = requireModelBindingStartupAuthority({
+    rehydrate: {
+      failed: [{ role: 'CODE', code: 'MODEL_BINDING_REHYDRATE_TARGET_UNAVAILABLE' }],
+    },
+  });
+  assertEqual(authority.status, 'DEGRADED');
+  assertEqual(authority.reason, 'MODEL_BINDING_STARTUP_PROVIDER_UNAVAILABLE');
+  assertEqual(authority.failures.length, 1);
+  assertEqual(authority.failures[0].phase, 'REHYDRATE');
+});
+
+await testAsync('startup stops immediately after a rehydrate integrity failure', async () => {
+  const error = await captureError(() => requireModelBindingStartupAuthority({
+    rehydrate: {
+      failed: [{ role: 'CODE', code: 'MODEL_BINDING_REHYDRATE_DIGEST_DRIFT' }],
+    },
+  }));
+  assertEqual(error.code, 'MODEL_BINDING_STARTUP_REHYDRATE_FAILED');
+  assertEqual(error.details.failures.length, 1);
+});
 
 // Decision 022/A: rollback is bound to an exact operation. Tests whose subject
 // is not the recovery identity derive the current one; tests that exercise the
@@ -611,13 +854,8 @@ await testAsync('binding cutover re-resolves and reserves previous plus target t
   });
 });
 
-await testAsync('non-authoritative in-memory history cannot tear a committed runtime finalize', async () => {
-  await withFixture(async ({ db, repository, manager, application }) => {
-    let historyCalls = 0;
-    manager.recordUpgrade = () => {
-      historyCalls++;
-      throw new Error('fixture in-memory history failure');
-    };
+await testAsync('durable history survives the runtime finalize path without a second writer', async () => {
+  await withFixture(async ({ db, repository, application }) => {
     const result = await application.applyManualBinding({
       role: 'CHAT',
       targetModel: 'fixture-target',
@@ -630,7 +868,6 @@ await testAsync('non-authoritative in-memory history cannot tear a committed run
     );
     assertEqual(count(db, 'model_binding_runtime_finalize_receipts'), 1);
     assertEqual(count(db, 'upgrade_history'), 1);
-    assertEqual(historyCalls, 0);
   });
 });
 
@@ -733,12 +970,12 @@ await testAsync('cutover conflict is retryable and releases a partially acquired
       targetModel: 'fixture-target',
     }));
 
-    assertEqual(error.code, 'MODEL_BINDING_RUNTIME_GUARD_REJECTED');
+    assertEqual(error.code, 'MODEL_BINDING_ARTIFACT_IN_USE');
     assertEqual(error.details.exclusiveOwner, MODEL_ACTIVITY_OWNER.MODEL_PULL);
     const operation = latestOperation(repository);
     const state = repository.getBindingApplicationState(operation.operationId);
     assertEqual(state.runtimeStatus, 'FAILED');
-    assertEqual(state.failureCode, 'MODEL_BINDING_RUNTIME_GUARD_REJECTED');
+    assertEqual(state.failureCode, 'MODEL_BINDING_ARTIFACT_IN_USE');
     assertEqual(state.retryable, true);
     assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-base');
     assertEqual(count(db, 'upgrade_history'), 0);
@@ -1431,189 +1668,7 @@ await testAsync('apply commits runtime and audit before exact verification can c
   });
 });
 
-await testAsync('commit layer approves one matching proposal and expires the rest', async () => {
-  await withFixture(async ({ db, application }) => {
-    const insert = db.prepare(`
-      INSERT INTO upgrade_proposals (
-        role, current_model, candidate_model, score, status, detected_at
-      ) VALUES ('CHAT', 'fixture-base', ?, ?, 'pending', ?)
-    `);
-    insert.run('fixture-target', 80, '2026-08-09 01:00:00');
-    insert.run('fixture-target:latest', 90, '2026-08-09 02:00:00');
-    insert.run('fixture-other', 95, '2026-08-09 03:00:00');
-
-    await application.applyManualBinding({
-      role: 'CHAT',
-      targetModel: 'fixture-target',
-    });
-    await application.awaitBackgroundWork();
-    const rows = db.prepare(`
-      SELECT candidate_model AS model, status
-      FROM upgrade_proposals
-      ORDER BY candidate_model
-    `).all();
-    assertEqual(rows.filter(row => row.status === 'approved').length, 1);
-    assertEqual(rows.find(row => row.status === 'approved').model, 'fixture-target:latest');
-    assertEqual(rows.filter(row => row.status === 'expired').length, 2);
-  });
-});
-
-await testAsync('proposal resolution failure is repairable without replaying provider or runtime', async () => {
-  let failResolution = true;
-  await withFixture(async ({ db, repository, manager, provider, events, application }) => {
-    db.prepare(`
-      INSERT INTO upgrade_proposals (
-        role, current_model, candidate_model, score, status, detected_at
-      ) VALUES ('CHAT', 'fixture-base', 'fixture-target', 90, 'pending', ?)
-    `).run('2026-08-09 04:00:00');
-
-    const first = await application.applyManualBinding({
-      role: 'CHAT',
-      targetModel: 'fixture-target',
-    });
-    assertEqual(first.outcome, 'APPLIED_PROPOSAL_REPAIR_PENDING');
-    assertEqual(first.proposalResolutionStatus, 'REPAIR_PENDING');
-    assertEqual(first.warningCode, 'MODEL_BINDING_PROPOSAL_RESOLUTION_FAILED');
-    assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-target');
-    assertEqual(db.prepare(`SELECT status FROM upgrade_proposals`).get().status, 'pending');
-    assertEqual(events.filter(event => event.action === 'model_changed').length, 1);
-    assertEqual(repository.getBindingApplicationState(first.operationId).notificationStatus, 'SUCCEEDED');
-    const resolveCalls = provider.calls.resolve;
-
-    const replay = await application.applyManualBinding({
-      role: 'CHAT',
-      targetModel: 'fixture-target',
-    });
-    await application.awaitBackgroundWork();
-
-    assertEqual(replay.outcome, 'POST_COMMIT_REPAIRED');
-    assertEqual(db.prepare(`SELECT status FROM upgrade_proposals`).get().status, 'approved');
-    assertEqual(provider.calls.resolve, resolveCalls, 'Repair must not revisit the provider');
-    assertEqual(count(db, 'upgrade_history'), 1);
-    assertEqual(events.filter(event => event.action === 'model_changed').length, 1);
-    assertEqual(repository.getBindingApplicationState(replay.operationId).notificationStatus, 'SUCCEEDED');
-  }, {
-    runtimeFactory: runtime => Object.freeze({
-      ...runtime,
-      resolvePendingProposals(role, modelName) {
-        if (failResolution) {
-          failResolution = false;
-          throw new Error('fixture proposal transaction failed');
-        }
-        return runtime.resolvePendingProposals(role, modelName);
-      },
-    }),
-  });
-});
-
-await testAsync('startup proposal repair failure never fabricates a runtime failure', async () => {
-  let initialProposalFailure = true;
-  await withFixture(async ({ db, repository, provider, application }) => {
-    db.prepare(`
-      INSERT INTO upgrade_proposals (
-        role, current_model, candidate_model, score, status, detected_at
-      ) VALUES ('CHAT', 'fixture-base', 'fixture-target', 90, 'pending', ?)
-    `).run('2026-08-09 04:30:00');
-    const first = await application.applyManualBinding({
-      role: 'CHAT',
-      targetModel: 'fixture-target',
-    });
-    assertEqual(first.outcome, 'APPLIED_PROPOSAL_REPAIR_PENDING');
-    const operation = latestOperation(repository);
-    assertEqual(
-      repository.getBindingApplicationState(operation.operationId).runtimeStatus,
-      'APPLIED',
-    );
-
-    config.models.CHAT = 'fixture-base';
-    const restartManager = new UpgradeManager();
-    restartManager.setDb(db);
-    const restartRuntime = restartManager.createBindingRuntimePort();
-    let restartProposalFailure = true;
-    const restartApplication = createModelBindingApplication({
-      repository,
-      runtime: Object.freeze({
-        ...restartRuntime,
-        resolvePendingProposals(role, modelName, operationKind) {
-          if (restartProposalFailure) {
-            restartProposalFailure = false;
-            throw new Error('fixture startup proposal repair unavailable');
-          }
-          return restartRuntime.resolvePendingProposals(role, modelName, operationKind);
-        },
-      }),
-      provider,
-      publishControl: () => ({ accepted: true }),
-      verificationAttempts: 1,
-      delay: async () => {},
-    });
-
-    const restored = await restartApplication.rehydrateBindings();
-    assertEqual(restored.failed.length, 0);
-    assertEqual(restored.restored, 1);
-    assertEqual(restored.warnings.length, 1);
-    assertEqual(restored.warnings[0].code, 'MODEL_BINDING_PROPOSAL_RESOLUTION_FAILED');
-    assertEqual(restartManager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-target');
-    let state = repository.getBindingApplicationState(operation.operationId);
-    assertEqual(
-      state.attempts.filter(attempt => (
-        attempt.kind === 'STARTUP_REHYDRATE' && attempt.outcome === 'FAILED'
-      )).length,
-      0,
-    );
-
-    restartApplication.startBackgroundVerification();
-    await restartApplication.awaitBackgroundWork();
-    state = repository.getBindingApplicationState(operation.operationId);
-    assertEqual(
-      state.attempts.filter(attempt => (
-        attempt.kind === 'STARTUP_REHYDRATE' && attempt.outcome === 'FAILED'
-      )).length,
-      0,
-    );
-    assertEqual(db.prepare('SELECT status FROM upgrade_proposals').get().status, 'approved');
-    assertEqual(state.notificationStatus, 'SUCCEEDED');
-    assertEqual(state.verificationStatus, 'VERIFIED');
-  }, {
-    runtimeFactory: runtime => Object.freeze({
-      ...runtime,
-      resolvePendingProposals(role, modelName, operationKind) {
-        if (initialProposalFailure) {
-          initialProposalFailure = false;
-          throw new Error('fixture initial proposal resolution unavailable');
-        }
-        return runtime.resolvePendingProposals(role, modelName, operationKind);
-      },
-    }),
-  });
-});
-
-await testAsync('rollback expires proposals without inventing an approval', async () => {
-  await withFixture(async ({ db, repository, application }) => {
-    const applied = await application.applyManualBinding({
-      role: 'CHAT',
-      targetModel: 'fixture-target',
-    });
-    await application.awaitBackgroundWork();
-    assertEqual(applied.outcome, 'APPLIED');
-
-    const insert = db.prepare(`
-      INSERT INTO upgrade_proposals (
-        role, current_model, candidate_model, score, status, detected_at
-      ) VALUES ('CHAT', 'fixture-target', ?, ?, 'pending', ?)
-    `);
-    insert.run('fixture-base', 99, '2026-08-09 05:00:00');
-    insert.run('fixture-other', 90, '2026-08-09 04:00:00');
-
-    await application.rollbackManualBinding(currentRollbackIdentity(repository));
-    await application.awaitBackgroundWork();
-    const rows = db.prepare(`SELECT status FROM upgrade_proposals ORDER BY id`).all();
-    assertEqual(rows.filter(row => row.status === 'approved').length, 0);
-    assertEqual(rows.filter(row => row.status === 'expired').length, 2);
-  });
-});
-
-await testAsync('direct authority injection fails before durable or runtime effects', async () => {
+ await testAsync('direct authority injection fails before durable or runtime effects', async () => {
   await withFixture(async ({ db, manager, application, events }) => {
     const error = await captureError(application.applyManualBinding({
       role: 'CHAT',
@@ -1981,12 +2036,11 @@ await testAsync('scheduled recovery repeats at renewed lease boundaries after tr
 });
 
 await testAsync('terminal provider recovery retries the unfinished binding commit', async () => {
-  for (const scenario of ['runtime-guard', 'binding-record']) {
-    const scheduled = [];
-    let failBindingRecord = scenario === 'binding-record';
-    await withExpiringProviderFixture(async ({
-      repository, manager, provider, application, expireProviderClaim,
-    }) => {
+  const scheduled = [];
+  let failBindingRecord = true;
+  await withExpiringProviderFixture(async ({
+    repository, manager, provider, application, expireProviderClaim,
+  }) => {
       repository.observeDesiredBinding({
         role: 'CHAT',
         modelName: 'fixture-base',
@@ -1995,7 +2049,7 @@ await testAsync('terminal provider recovery retries the unfinished binding commi
         actor: 'system:binding-application',
       });
       const intent = repository.recordManualProviderPullIntent({
-        requestKey: `fixture-provider-terminal-retry-${scenario}-0001`,
+        requestKey: 'fixture-provider-terminal-retry-binding-record-0001',
         role: 'CHAT',
         requestPurpose: 'USER_APPLY_TARGET',
         expectedBindingRevision: 1,
@@ -2003,13 +2057,6 @@ await testAsync('terminal provider recovery retries the unfinished binding commi
         targetModelName: 'fixture-target',
         actor: 'user:fixture-operator',
       });
-      if (scenario === 'runtime-guard') {
-        manager._getRuntimeGuardDecision = modelName => ({
-          allowed: canonicalModelName(modelName) !== 'fixture-target',
-          reason: 'fixture transient runtime guard',
-        });
-      }
-
       await application.rehydrateBindings();
       assertEqual(scheduled.length, 1);
       expireProviderClaim();
@@ -2019,10 +2066,9 @@ await testAsync('terminal provider recovery retries the unfinished binding commi
         repository.getProviderOperation(intent.operation.operationId).terminal.outcome,
         'RECONCILED_PRESENT',
       );
-      assertEqual(scheduled.length, 2, `${scenario} did not schedule binding recovery`);
+      assertEqual(scheduled.length, 2, 'binding failure did not schedule recovery');
       assertEqual(scheduled[1].delayMs, 1);
 
-      manager._getRuntimeGuardDecision = () => ({ allowed: true, reason: null });
       scheduled[1].callback();
       await application.awaitBackgroundWork();
       const operation = repository.getEffectiveBinding('CHAT').operation;
@@ -2032,28 +2078,26 @@ await testAsync('terminal provider recovery retries the unfinished binding commi
         'APPLIED',
       );
       assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-target');
-      assertEqual(scheduled.length, 2, `${scenario} rescheduled after applied binding`);
-    }, {
-      repositoryFactory(repository) {
-        if (scenario !== 'binding-record') return repository;
-        return repositoryProxy(repository, {
-          recordUserBindingApply(input) {
-            if (failBindingRecord) {
-              failBindingRecord = false;
-              throw new Error('fixture transient binding record failure');
-            }
-            return repository.recordUserBindingApply(input);
-          },
-        });
-      },
-      scheduleRecovery(callback, delayMs) {
-        const record = { callback, delayMs };
-        scheduled.push(record);
-        return record;
-      },
-      cancelRecovery() {},
-    });
-  }
+      assertEqual(scheduled.length, 2, 'recovery rescheduled after applied binding');
+  }, {
+    repositoryFactory(repository) {
+      return repositoryProxy(repository, {
+        recordUserBindingApply(input) {
+          if (failBindingRecord) {
+            failBindingRecord = false;
+            throw new Error('fixture transient binding record failure');
+          }
+          return repository.recordUserBindingApply(input);
+        },
+      });
+    },
+    scheduleRecovery(callback, delayMs) {
+      const record = { callback, delayMs };
+      scheduled.push(record);
+      return record;
+    },
+    cancelRecovery() {},
+  });
 });
 
 await testAsync('provider origin mismatch blocks startup and explicit resume before provider reads', async () => {
@@ -2376,7 +2420,7 @@ await testAsync('provider status hides historical absence after a newer installe
   });
 });
 
-await testAsync('same-target acceptance is durable, resolves proposals and supersedes stale provider status', async () => {
+await testAsync('same-target acceptance is durable and supersedes stale provider status', async () => {
   await withExpiringProviderFixture(async ({
     db, repository, provider, events, application, expireProviderClaim,
   }) => {
@@ -2403,12 +2447,6 @@ await testAsync('same-target acceptance is durable, resolves proposals and super
       application.getBindingStatus({ role: 'CHAT' }).providerOperationId,
       absent.operation.operationId,
     );
-    db.prepare(`
-      INSERT INTO upgrade_proposals (
-        role, current_model, candidate_model, score, status, detected_at
-      ) VALUES ('CHAT', 'fixture-base', 'fixture-base', 90, 'pending', ?)
-    `).run('2026-08-09 05:00:00');
-
     const started = await application.beginManualBinding({
       role: 'CHAT',
       targetModel: 'fixture-base',
@@ -2421,10 +2459,8 @@ await testAsync('same-target acceptance is durable, resolves proposals and super
     assertEqual(applied.changed, false);
     assertEqual(applied.from, 'fixture-base');
     assertEqual(applied.to, 'fixture-base');
-    assertEqual(applied.proposalResolutionStatus, 'SUCCEEDED');
     assertEqual(count(db, 'model_binding_operations'), 0);
     assertEqual(count(db, 'model_binding_user_noop_receipts'), 1);
-    assertEqual(db.prepare('SELECT status FROM upgrade_proposals').get().status, 'approved');
     assertEqual(application.getBindingStatus({ role: 'CHAT' }).providerOperationId, null);
     assertEqual(events.filter(event => event.action === 'model_changed').length, 0);
   });
@@ -3142,63 +3178,6 @@ await testAsync('repository failure compensates runtime and releases the token f
   });
 });
 
-await testAsync('temporary runtime guard rejection is retryable after the guard clears', async () => {
-  await withFixture(async ({ db, repository, manager, application }) => {
-    let blocked = true;
-    manager._getRuntimeGuardDecision = modelName => ({
-      allowed: !(blocked && canonicalModelName(modelName) === 'fixture-target'),
-      reason: blocked ? 'fixture temporary guard' : null,
-    });
-
-    const first = await captureError(application.applyManualBinding({
-      role: 'CHAT',
-      targetModel: 'fixture-target',
-    }));
-    assertEqual(first.code, 'MODEL_BINDING_RUNTIME_GUARD_REJECTED');
-    const operation = latestOperation(repository);
-    assertEqual(repository.getBindingApplicationState(operation.operationId).retryable, true);
-    assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-base');
-
-    blocked = false;
-    const retry = await application.applyManualBinding({
-      role: 'CHAT',
-      targetModel: 'fixture-target',
-    });
-    await application.awaitBackgroundWork();
-    assertEqual(retry.outcome, 'APPLIED');
-    assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-target');
-    assertEqual(count(db, 'model_binding_operations'), 1);
-    assertEqual(count(db, 'upgrade_history'), 1);
-  });
-});
-
-await testAsync('guard-rejected rollback retries the same durable reversal after clear', async () => {
-  await withFixture(async ({ db, repository, manager, application }) => {
-    await application.applyManualBinding({ role: 'CHAT', targetModel: 'fixture-target' });
-    await application.awaitBackgroundWork();
-    let blocked = true;
-    manager._getRuntimeGuardDecision = modelName => ({
-      allowed: !(blocked && canonicalModelName(modelName) === 'fixture-base'),
-      reason: blocked ? 'fixture temporary rollback guard' : null,
-    });
-
-    const first = await captureError(application.rollbackManualBinding(currentRollbackIdentity(repository)));
-    assertEqual(first.code, 'MODEL_BINDING_RUNTIME_GUARD_REJECTED');
-    const reversal = latestOperation(repository);
-    assertEqual(reversal.kind, 'USER_ROLLBACK');
-    assertEqual(repository.getBindingApplicationState(reversal.operationId).retryable, true);
-    assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-target');
-
-    blocked = false;
-    const retry = await application.rollbackManualBinding(currentRollbackIdentity(repository));
-    await application.awaitBackgroundWork();
-    assertEqual(retry.operationId, reversal.operationId);
-    assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-base');
-    assertEqual(count(db, 'model_binding_operations'), 2);
-    assertEqual(count(db, 'upgrade_history'), 2);
-  });
-});
-
 await testAsync('explicit rebind recovers a missing legacy artifact with audited pull lineage', async () => {
   await withFixture(async ({ db, repository, manager, provider, application }) => {
     config.models.CHAT = 'missing-legacy';
@@ -3303,28 +3282,6 @@ await testAsync('same applied operation replay has no provider, runtime or broad
     assertEqual(events.length, before.events);
     assertEqual(count(db, 'upgrade_history'), before.history);
     assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').configVersion, before.version);
-  });
-});
-
-await testAsync('different target cannot overtake a retryable unapplied manual operation', async () => {
-  await withFixture(async ({ db, manager, provider, application }) => {
-    manager._getRuntimeGuardDecision = modelName => ({
-      allowed: canonicalModelName(modelName) !== 'fixture-target',
-      reason: 'fixture retryable guard',
-    });
-    const first = await captureError(application.applyManualBinding({
-      role: 'CHAT',
-      targetModel: 'fixture-target',
-    }));
-    assertEqual(first.code, 'MODEL_BINDING_RUNTIME_GUARD_REJECTED');
-    const resolvesBefore = provider.calls.resolve;
-    const error = await captureError(application.applyManualBinding({
-      role: 'CHAT',
-      targetModel: 'fixture-other',
-    }));
-    assertEqual(error.code, 'MODEL_BINDING_APPLICATION_PENDING_OPERATION');
-    assertEqual(provider.calls.resolve, resolvesBefore);
-    assertEqual(count(db, 'model_binding_operations'), 1);
   });
 });
 
@@ -3848,100 +3805,7 @@ await testAsync('provider terminal resumes the accepted binding after a real DB 
   }
 });
 
-await testAsync('restart preserves post-commit truth and repairs a pending proposal', async () => {
-  const directory = mkdtempSync(path.join(
-    process.env.INTENTSMITH_TEST_ARTIFACT_DIR,
-    'binding-application-post-commit-repair-',
-  ));
-  const databasePath = path.join(directory, 'binding.sqlite');
-  const provider = new FakeExactProvider();
-  let firstDb;
-  let secondDb;
-  try {
-    config.models.CHAT = 'fixture-base';
-    firstDb = new Database(databasePath);
-    await runMigrations(firstDb);
-    const firstRepository = createModelFailoverRepository(firstDb);
-    const firstManager = new UpgradeManager();
-    firstManager.setDb(firstDb);
-    const firstRuntime = firstManager.createBindingRuntimePort();
-    let failResolution = true;
-    const firstApplication = createModelBindingApplication({
-      repository: firstRepository,
-      runtime: Object.freeze({
-        ...firstRuntime,
-        resolvePendingProposals(role, modelName, operationKind) {
-          if (failResolution) {
-            failResolution = false;
-            throw new Error('fixture crash before proposal resolution');
-          }
-          return firstRuntime.resolvePendingProposals(role, modelName, operationKind);
-        },
-      }),
-      provider,
-      publishControl: () => ({ accepted: true }),
-      verificationAttempts: 1,
-      delay: async () => {},
-    });
-    firstDb.prepare(`
-      INSERT INTO upgrade_proposals (
-        role, current_model, candidate_model, score, status, detected_at
-      ) VALUES ('CHAT', 'fixture-base', 'fixture-target', 90, 'pending', ?)
-    `).run('2026-08-09 06:00:00');
-    const applied = await firstApplication.applyManualBinding({
-      role: 'CHAT',
-      targetModel: 'fixture-target',
-    });
-    assertEqual(applied.outcome, 'APPLIED_PROPOSAL_REPAIR_PENDING');
-    const operation = latestOperation(firstRepository);
-    const beforeRestart = firstRepository.getBindingApplicationState(operation.operationId);
-    assertEqual(beforeRestart.runtimeStatus, 'APPLIED');
-    assertEqual(beforeRestart.notificationStatus, 'SUCCEEDED');
-    assertEqual(firstDb.prepare(`SELECT status FROM upgrade_proposals`).get().status, 'pending');
-    firstDb.close();
-    firstDb = null;
-
-    config.models.CHAT = 'fixture-base';
-    secondDb = new Database(databasePath);
-    const secondRepository = createModelFailoverRepository(secondDb);
-    const secondManager = new UpgradeManager();
-    secondManager.setDb(secondDb);
-    const notifications = [];
-    const secondApplication = createModelBindingApplication({
-      repository: secondRepository,
-      runtime: secondManager.createBindingRuntimePort(),
-      provider,
-      publishControl: payload => {
-        notifications.push(payload);
-        return { accepted: true };
-      },
-      verificationAttempts: 1,
-      delay: async () => {},
-    });
-    const restored = await secondApplication.rehydrateBindings();
-    assertEqual(restored.failed.length, 0);
-    assertEqual(secondDb.prepare(`SELECT status FROM upgrade_proposals`).get().status, 'approved');
-    assertEqual(
-      secondRepository.getBindingApplicationState(operation.operationId).notificationStatus,
-      'SUCCEEDED',
-    );
-    secondApplication.startBackgroundVerification();
-    await secondApplication.awaitBackgroundWork();
-    assertEqual(
-      secondRepository.getBindingApplicationState(operation.operationId).notificationStatus,
-      'SUCCEEDED',
-    );
-    assertEqual(notifications.filter(event => event.action === 'model_changed').length, 0);
-    assertEqual(secondManager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-target');
-  } finally {
-    if (firstDb?.open) firstDb.close();
-    if (secondDb?.open) secondDb.close();
-    restoreBindings();
-    rmSync(directory, { recursive: true, force: false });
-  }
-});
-
-await testAsync('manual binding survives a real DB close and exact startup rehydrate', async () => {
+ await testAsync('manual binding survives a real DB close and exact startup rehydrate', async () => {
   const directory = mkdtempSync(path.join(
     process.env.INTENTSMITH_TEST_ARTIFACT_DIR,
     'binding-application-restart-',
@@ -4393,7 +4257,7 @@ await testAsync('legacy override rehydrates without invented operation, digest o
   });
 });
 
-await testAsync('HTTP and chat strip caller authority and use the same application port', async () => {
+await testAsync('HTTP strips caller authority before the binding application port', async () => {
   await withFixture(async ({ db }) => {
     const calls = [];
     const applyStarted = deferred();
@@ -4409,17 +4273,6 @@ await testAsync('HTTP and chat strip caller authority and use the same applicati
           configVersion: 1,
         }));
         return { accepted: true, phase: 'BINDING_OPERATION', completion };
-      },
-      async applyManualBinding(input) {
-        calls.push({ source: 'application-complete', input });
-        return {
-          ok: true,
-          role: input.role,
-          from: 'fixture-base',
-          to: input.targetModel,
-          verified: false,
-          configVersion: 1,
-        };
       },
       async rollbackManualBinding() {
         throw new Error('not used');
@@ -4459,27 +4312,7 @@ await testAsync('HTTP and chat strip caller authority and use the same applicati
     }));
     applyStarted.resolve();
     await Promise.resolve();
-    setModelBindingApplication(fakeApplication);
-    const sessionState = {
-      _upgradeNotified: true,
-      _pendingUpgrades: [{
-        role: 'CHAT',
-        currentModel: 'fixture-base',
-        candidateModel: 'fixture-target',
-        score: 99,
-        actor: 'system:forged',
-      }],
-    };
-    const chat = await preHandle('ano', {
-      sessionState,
-      sessionId: 'fixture-session',
-      conversationId: 'fixture-conversation',
-    }, 'conversation');
-    assertEqual(chat.handled, true);
-    assertEqual(JSON.stringify(calls[1].input), JSON.stringify({
-      role: 'CHAT',
-      targetModel: 'fixture-target',
-    }));
+    assertEqual(calls.length, 1);
   });
 });
 
@@ -4521,6 +4354,10 @@ async function assertHttpModelRouteRejectsInvalidRoles(endpoint) {
 
       assertEqual(responses.length, 1);
       assertEqual(responses[0].status, 400);
+      assert(
+        responses[0].body.error.includes('Invalid role'),
+        `${endpoint} validated unrelated fields before the invalid role`,
+      );
       assertEqual(calls.length, 0, `${endpoint} leaked invalid role to application authority`);
     }
   });
@@ -4534,7 +4371,7 @@ await testAsync('HTTP rollback rejects inherited or non-exact model roles before
   await assertHttpModelRouteRejectsInvalidRoles('POST /api/system/upgrades/rollback');
 });
 
-await testAsync('HTTP and chat present same-target acceptance without a false change', async () => {
+await testAsync('HTTP presents same-target acceptance without a false change', async () => {
   await withFixture(async ({ db, events, application }) => {
     const responses = [];
     const routes = createSystemRoutes({
@@ -4552,23 +4389,7 @@ await testAsync('HTTP and chat present same-target acceptance without a false ch
       'HTTP same-target acceptance did not persist its no-op receipt',
     );
 
-    setModelBindingApplication(application);
-    const chat = await preHandle('ano', {
-      sessionState: {
-        _upgradeNotified: true,
-        _pendingUpgrades: [{
-          role: 'CHAT',
-          currentModel: 'fixture-base',
-          candidateModel: 'fixture-base',
-          score: 99,
-        }],
-      },
-      sessionId: 'fixture-session',
-      conversationId: 'fixture-conversation',
-    }, 'conversation');
-    assertEqual(chat.handled, true);
-    assert(/Modely potvrzeny beze zmeny/.test(chat.response.content));
-    assertEqual(count(db, 'model_binding_user_noop_receipts'), 2);
+    assertEqual(count(db, 'model_binding_user_noop_receipts'), 1);
     assertEqual(count(db, 'model_binding_operations'), 0);
     assertEqual(events.filter(event => event.action === 'model_changed').length, 0);
   });
@@ -4703,100 +4524,7 @@ await testAsync('HTTP maps binding authority conflicts to 409 instead of false 5
   });
 });
 
-await testAsync('HTTP and chat adapters have equal durable pull/apply truth', async () => {
-  const runJourney = source => withFixture(async ({
-    db,
-    repository,
-    manager,
-    provider,
-    events,
-    application,
-  }) => {
-    const target = model('fixture-pulled', DIGEST_C);
-    provider.pullTargets.set(target.canonicalName, target);
-    let httpRoutes = null;
-    const responses = [];
-    let requestBody = {
-      role: 'CHAT',
-      targetModel: target.name,
-      actor: 'system:forged',
-      digestSha256: DIGEST_A,
-    };
-
-    if (source === 'HTTP') {
-      httpRoutes = createSystemRoutes({
-        db: { db },
-        modelRegistry: null,
-        modelBindingApplication: application,
-        parseBody: async () => requestBody,
-        sendJSON: (_res, status, body) => responses.push({ status, body }),
-      });
-      await httpRoutes['POST /api/system/upgrades/apply']({}, {});
-      assertEqual(responses[0].status, 200);
-      await waitUntil(
-        () => events.some(event => event.action === 'model_changed'),
-        'HTTP durable start did not reach the shared commit layer',
-      );
-    } else {
-      setModelBindingApplication(application);
-      const chat = await preHandle('ano', {
-        sessionState: {
-          _upgradeNotified: true,
-          _pendingUpgrades: [{
-            role: 'CHAT',
-            currentModel: 'fixture-base',
-            candidateModel: target.name,
-            score: 99,
-            actor: 'system:forged',
-          }],
-        },
-        sessionId: 'fixture-session',
-        conversationId: 'fixture-conversation',
-      }, 'conversation');
-      assertEqual(chat.handled, true);
-    }
-    await application.awaitBackgroundWork();
-
-    const operation = latestOperation(repository);
-    const state = repository.getBindingApplicationState(operation.operationId);
-    const shape = {
-      kind: operation.kind,
-      desiredSource: repository.getDesired('CHAT').source,
-      runtimeModel: manager.createBindingRuntimePort().snapshot('CHAT').modelName,
-      runtimeStatus: state.runtimeStatus,
-      verificationStatus: state.verificationStatus,
-      notificationStatus: state.notificationStatus,
-      history: count(db, 'upgrade_history'),
-      providerPulls: provider.calls.pull,
-      providerAudit: count(db, 'model_binding_provider_attempts'),
-      progress: events.filter(event => event.action === 'model_pull_progress').length > 0,
-    };
-
-    if (source === 'HTTP') {
-      const responseCount = responses.length;
-      // Decision 022/A: the HTTP recovery surface carries the exact operation
-      // identity; {role} alone is no longer an actionable rollback.
-      requestBody = {
-        role: 'CHAT',
-        ...currentRollbackIdentity(repository),
-      };
-      await httpRoutes['POST /api/system/upgrades/rollback']({}, {});
-      await application.awaitBackgroundWork();
-      assertEqual(responses[responseCount].status, 200);
-      assertEqual(manager.createBindingRuntimePort().snapshot('CHAT').modelName, 'fixture-base');
-      assertEqual(count(db, 'model_binding_operations'), 2);
-
-      assert(application.getBindingStatus({ role: 'CHAT' }).verificationStatus !== null);
-    }
-    return shape;
-  });
-
-  const http = await runJourney('HTTP');
-  const chat = await runJourney('CHAT');
-  assertEqual(JSON.stringify(http), JSON.stringify(chat));
-});
-
-await testAsync('ModelRegistry delegates assignment without forwarding legacy authority options', async () => {
+ await testAsync('ModelRegistry delegates assignment without forwarding legacy authority options', async () => {
   const calls = [];
   const registry = new ModelRegistry();
   registry.init({
@@ -4808,7 +4536,6 @@ await testAsync('ModelRegistry delegates assignment without forwarding legacy au
         return { ok: true, role: input.role, to: input.targetModel };
       },
     },
-    validationRunner: null,
     broadcast: () => {},
   });
   const result = await registry.assignModel('CHAT', 'fixture-target', {
@@ -4875,7 +4602,7 @@ await testAsync('strict provider rejects non-loopback, ambiguity, missing digest
   assertEqual(drift.code, 'MODEL_BINDING_TARGET_DIGEST_DRIFT');
 });
 
-await testAsync('real loopback provider verifies tags-chat-tags with exact request shape', async () => {
+await testAsync('real loopback provider trusts only a response-attested digest', async () => {
   const sequence = [];
   let tagReads = 0;
   let chatBody = null;
@@ -4897,6 +4624,7 @@ await testAsync('real loopback provider verifies tags-chat-tags with exact reque
       response.setHeader('Content-Type', 'application/json');
       response.end(JSON.stringify({
         model: 'fixture-target:latest',
+        digest: DIGEST_B,
         done: true,
         message: { role: 'assistant', content: 'ok' },
       }));
@@ -4911,7 +4639,7 @@ await testAsync('real loopback provider verifies tags-chat-tags with exact reque
     });
     assertEqual(verified.digestSha256, DIGEST_B);
   });
-  assertEqual(sequence.join('>'), 'tags-1>chat>tags-2');
+  assertEqual(sequence.join('>'), 'tags-1>chat');
   assertEqual(chatBody.model, 'fixture-target:latest');
   assertEqual(chatBody.stream, false);
   assertEqual(chatBody.think, false);
@@ -4919,15 +4647,14 @@ await testAsync('real loopback provider verifies tags-chat-tags with exact reque
   assertEqual(chatBody.options.num_ctx, 512);
 });
 
-await testAsync('real loopback provider rejects malformed, incomplete, HTTP, timeout and drift', async () => {
+await testAsync('real loopback provider rejects malformed, unattested and drifted responses', async () => {
   let scenario = 'empty';
   let tagReads = 0;
   await withLoopbackServer(async (request, response) => {
     if (request.url === '/api/tags') {
       tagReads++;
-      const digest = scenario === 'drift' && tagReads > 1 ? DIGEST_C : DIGEST_B;
       response.setHeader('Content-Type', 'application/json');
-      response.end(JSON.stringify({ models: [{ name: 'fixture-target', digest }] }));
+      response.end(JSON.stringify({ models: [{ name: 'fixture-target', digest: DIGEST_B }] }));
       return;
     }
     if (request.url === '/api/chat') {
@@ -4985,6 +4712,9 @@ await testAsync('real loopback provider rejects malformed, incomplete, HTTP, tim
         response.setHeader('Content-Type', 'application/json');
         response.end(JSON.stringify({
           model: 'fixture-target',
+          ...(scenario === 'missing-digest' ? {} : {
+            digest: scenario === 'digest-drift' ? DIGEST_C : DIGEST_B,
+          }),
           done: true,
           message: { role: 'assistant', content: 'ok' },
         }));
@@ -5002,7 +4732,8 @@ await testAsync('real loopback provider rejects malformed, incomplete, HTTP, tim
       ['wrong-model', 'MODEL_BINDING_VERIFICATION_REJECTED'],
       ['malformed', 'MODEL_BINDING_VERIFICATION_REJECTED'],
       ['status', 'MODEL_BINDING_VERIFICATION_REJECTED'],
-      ['drift', 'MODEL_BINDING_TARGET_DIGEST_DRIFT'],
+      ['missing-digest', 'MODEL_BINDING_VERIFICATION_ARTIFACT_UNVERIFIED'],
+      ['digest-drift', 'MODEL_BINDING_TARGET_DIGEST_DRIFT'],
       ['timeout', 'MODEL_BINDING_PROVIDER_UNAVAILABLE'],
     ]);
     for (const [name, code] of expected) {
@@ -5201,7 +4932,6 @@ await testAsync('real post-apply chat cleanup stays retired and preserves rollba
       db,
       upgradeManager: manager,
       modelBindingApplication: application,
-      validationRunner: null,
       broadcast: () => {},
     });
     registry.getInstalled = async () => {
@@ -5251,16 +4981,8 @@ await testAsync('source call graph has no production reference to legacy binding
     'rollbackUpgrade',
     'loadPersistedOverrides',
     '_backgroundVerify',
+    'recordUpgrade',
   ];
-  const allowedLegacyOccurrences = new Set([
-    'upgrade/upgrade-manager.js:loadPersistedOverrides() {',
-    'upgrade/upgrade-manager.js:async applyUpgrade(role, targetModel, opts = {}) {',
-    "upgrade/upgrade-manager.js:this._requireLegacyBindingWriterAllowed('applyUpgrade');",
-    'upgrade/upgrade-manager.js:async rollbackUpgrade(role, opts = {}) {',
-    "upgrade/upgrade-manager.js:this._requireLegacyBindingWriterAllowed('rollbackUpgrade');",
-    'upgrade/upgrade-manager.js:async _backgroundVerify(role, targetModel, previousModel, onFail) {',
-    'upgrade/upgrade-manager.js:* Called after applyUpgrade to clean up proposals that are now obsolete.',
-  ]);
   const violations = [];
   const modelChangedOwners = [];
   for (const file of files) {
@@ -5268,7 +4990,7 @@ await testAsync('source call graph has no production reference to legacy binding
     for (const line of source.split('\n')) {
       if (!forbidden.some(method => line.includes(method))) continue;
       const occurrence = `${path.relative(root, file)}:${line.trim()}`;
-      if (!allowedLegacyOccurrences.has(occurrence)) violations.push(occurrence);
+      violations.push(occurrence);
     }
     if (/action\s*:\s*['"]model_changed['"]/.test(source)) {
       modelChangedOwners.push(path.relative(root, file));
@@ -5277,10 +4999,7 @@ await testAsync('source call graph has no production reference to legacy binding
   assertEqual(violations.length, 0, `Legacy binding calls remain: ${violations.join(', ')}`);
   assertEqual(
     JSON.stringify(modelChangedOwners),
-    JSON.stringify([
-      'upgrade/model-binding-application.js',
-      'upgrade/model-failover-application.js',
-    ]),
+    JSON.stringify(['upgrade/model-binding-application.js']),
   );
   const modelDeleteOwners = files.filter(file => (
     readFileSync(file, 'utf8').includes('/api/delete')

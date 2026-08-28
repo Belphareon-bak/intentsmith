@@ -12,7 +12,7 @@ import { canonicalModelName } from '../upgrade/model-identity.js';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-/** Estimate model weights VRAM (MB) from param count. From benchmark-estimator.js formula. */
+/** Estimate model weights VRAM (MB) from parameter count and quantization. */
 function _estimateWeightsMb(params) {
   if (!params || params <= 0) return 16200;  // default for ~27B model
   return Math.round(620 * params + 420);
@@ -108,6 +108,18 @@ export class VRAMManager {
     this._modelMeta = meta;
   }
 
+  /** Store the value the runtime will actually consume after profile caps. */
+  _storeTargetNumCtx(numCtx) {
+    if (!this._chatModel) {
+      this._targetNumCtx = numCtx;
+      return numCtx;
+    }
+    setNumCtx(this._chatModel, numCtx);
+    const effectiveNumCtx = getNumCtx(this._chatModel, numCtx);
+    this._targetNumCtx = effectiveNumCtx;
+    return effectiveNumCtx;
+  }
+
   // ── Core: FIFO serialized GPU access (capacity 1) ──────────────────────────
 
   async acquire(task) {
@@ -176,8 +188,7 @@ export class VRAMManager {
     const vram = await getVramUsageAsync({ comfyuiUrl: this._comfyuiUrl });
     if (!vram) {
       logger.debug('VRAMManager', 'Cannot query VRAM — using fallback num_ctx 4096');
-      this._targetNumCtx = this.#storeEffectiveNumCtx(4096);
-      return this._targetNumCtx;
+      return this._storeTargetNumCtx(4096);
     }
 
     const gatewayLimit = opts.maxCtx ?? 8192;
@@ -190,28 +201,21 @@ export class VRAMManager {
 
     if (availableForKV < kvPer1k) {
       logger.warn('VRAMManager', `Tight VRAM: total=${vram.totalMb}, used=${vram.usedMb}, weights=${modelWeightsMb} → num_ctx=2048`);
-      this._targetNumCtx = this.#storeEffectiveNumCtx(2048);
-      return this._targetNumCtx;
+      return this._storeTargetNumCtx(2048);
     }
 
     let maxCtx = Math.floor(availableForKV / kvPer1k) * 1024;
     maxCtx = Math.floor(maxCtx / 1024) * 1024;
     maxCtx = Math.max(2048, Math.min(gatewayLimit, maxCtx));
 
-    logger.info('VRAMManager', `computeNumCtx=${maxCtx} (total=${vram.totalMb}, used=${vram.usedMb}, weights=${modelWeightsMb}, kvPer1k=${kvPer1k})`);
-    this._targetNumCtx = this.#storeEffectiveNumCtx(maxCtx);
-    return this._targetNumCtx;
+    const effectiveNumCtx = this._storeTargetNumCtx(maxCtx);
+    logger.info('VRAMManager', `computeNumCtx=${effectiveNumCtx} (computed=${maxCtx}, total=${vram.totalMb}, used=${vram.usedMb}, weights=${modelWeightsMb}, kvPer1k=${kvPer1k})`);
+    return effectiveNumCtx;
   }
 
   /** @returns {number} Last computed target num_ctx. */
   getTargetNumCtx() {
     return this._targetNumCtx;
-  }
-
-  #storeEffectiveNumCtx(numCtx) {
-    if (!this._chatModel) return numCtx;
-    setNumCtx(this._chatModel, numCtx);
-    return getNumCtx(this._chatModel, numCtx);
   }
 
   // ── VRAM polling (review fix #3) ─────────────────────────────────────────

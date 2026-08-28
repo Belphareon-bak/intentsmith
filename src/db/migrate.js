@@ -21,6 +21,54 @@ const __dirname = path.dirname(__filename);
 
 const MIGRATIONS_DIR = path.join(__dirname, 'migrations');
 const MIGRATION_VERSION_PATTERN = /^\d{4}_\d{2}_\d{2}_\d{3}(?:_[a-z0-9]+)*$/;
+const MIGRATION_NUMERIC_SLOT_PATTERN = /^\d{4}_\d{2}_\d{2}_(\d{3})(?:_|$)/;
+const HISTORICAL_NUMERIC_SLOT_COLLISIONS = new Map([
+  ['008', Object.freeze([
+    '2026_02_19_008',
+    '2026_02_20_008',
+  ])],
+  ['030', Object.freeze([
+    '2026_03_08_030_v103_model_overrides',
+    '2026_03_08_030_v107_task_memory',
+  ])],
+  ['081', Object.freeze([
+    '2026_08_24_081_model_policy_trigger_compatibility',
+    '2026_08_24_081_model_proof_trigger_compatibility',
+  ])],
+]);
+
+// Exact retired identities are adopted atomically before pending migrations
+// run. This preserves applied_at while keeping one collision-free manifest.
+const RETIRED_MIGRATION_IDENTITY_ADOPTIONS = Object.freeze([
+  Object.freeze({
+    retired: '2026_08_23_070_m2_effect_authority',
+    canonical: '2026_08_23_092_m2_effect_authority',
+  }),
+  Object.freeze({
+    retired: '2026_08_24_081_m2_effect_result_semantic_authority_v2',
+    canonical: '2026_08_24_093_m2_effect_result_semantic_authority_v2',
+  }),
+  Object.freeze({
+    retired: '2026_08_25_082_m2_preexecution_approval_terminals',
+    canonical: '2026_08_25_094_m2_preexecution_approval_terminals',
+  }),
+  Object.freeze({
+    retired: '2026_08_25_083_m2_effect_rollback_receipts',
+    canonical: '2026_08_25_095_m2_effect_rollback_receipts',
+  }),
+  Object.freeze({
+    retired: '2026_08_26_084_model_policy_trigger_compatibility',
+    canonical: '2026_08_24_081_model_policy_trigger_compatibility',
+  }),
+  Object.freeze({
+    retired: '2026_08_26_085_model_proof_trigger_compatibility',
+    canonical: '2026_08_24_081_model_proof_trigger_compatibility',
+  }),
+  Object.freeze({
+    retired: '2026_08_26_086_model_evaluation_consolidation',
+    canonical: '2026_08_24_082_model_evaluation_consolidation',
+  }),
+]);
 
 // ─── Internal Helpers ────────────────────────────────────────────────────────
 
@@ -37,6 +85,110 @@ function getAppliedVersions(db) {
   return new Set(
     db.prepare('SELECT version FROM schema_migrations').all().map(r => r.version)
   );
+}
+
+function numericSlot(version) {
+  return version.match(MIGRATION_NUMERIC_SLOT_PATTERN)?.[1];
+}
+
+function validateNumericSlots(versions, label) {
+  const versionsByNumericSlot = new Map();
+  for (const version of versions) {
+    if (typeof version !== 'string' || !MIGRATION_VERSION_PATTERN.test(version)) {
+      throw new Error(`${label} contains an invalid migration version: ${String(version)}`);
+    }
+    const slot = numericSlot(version);
+    const slotVersions = versionsByNumericSlot.get(slot) || [];
+    slotVersions.push(version);
+    versionsByNumericSlot.set(slot, slotVersions);
+  }
+
+  for (const [slot, slotVersions] of versionsByNumericSlot) {
+    if (slotVersions.length < 2) continue;
+    const allowed = HISTORICAL_NUMERIC_SLOT_COLLISIONS.get(slot);
+    const actualSorted = [...slotVersions].sort();
+    const allowedSorted = allowed ? [...allowed].sort() : [];
+    const isExactHistoricalSet = actualSorted.length === allowedSorted.length
+      && actualSorted.every((version, index) => version === allowedSorted[index]);
+    if (!isExactHistoricalSet) {
+      throw new Error(
+        `Duplicate migration numeric slot ${slot} in ${label}: ${actualSorted.join(', ')}`
+      );
+    }
+  }
+}
+
+function projectAdoptedMigrationVersions(appliedVersions, migrations) {
+  const canonicalVersions = new Set(migrations.map(migration => migration.version));
+  const projected = new Set(appliedVersions);
+  for (const { retired, canonical } of RETIRED_MIGRATION_IDENTITY_ADOPTIONS) {
+    if (!projected.has(retired)) continue;
+    if (!canonicalVersions.has(canonical)) {
+      throw new Error(
+        `Cannot adopt retired migration ${retired}: canonical identity ${canonical} is absent from manifest`
+      );
+    }
+    projected.delete(retired);
+    projected.add(canonical);
+  }
+  return projected;
+}
+
+function validateManifestAndHistoryUnion(appliedVersions, migrations, label) {
+  const projected = projectAdoptedMigrationVersions(appliedVersions, migrations);
+  validateNumericSlots(
+    new Set([...projected, ...migrations.map(migration => migration.version)]),
+    label,
+  );
+  return projected;
+}
+
+function adoptRetiredMigrationIdentities(db, migrations) {
+  const rows = new Set(db.prepare(
+    'SELECT version FROM schema_migrations'
+  ).all().map(row => row.version));
+  // Resolve the complete hypothetical state before the first identity write.
+  // This catches collisions split across the manifest and stored history and
+  // also proves that every retired identity has a canonical manifest target.
+  validateManifestAndHistoryUnion(
+    rows,
+    migrations,
+    'migration manifest + schema_migrations after identity adoption',
+  );
+
+  for (const { retired, canonical } of RETIRED_MIGRATION_IDENTITY_ADOPTIONS) {
+    if (!rows.has(retired)) continue;
+    if (rows.has(canonical)) {
+      // The original migration already ran. The later stamp represents only
+      // a redundant execution under the invalid renamed identity.
+      db.prepare('DELETE FROM schema_migrations WHERE version = ?').run(retired);
+    } else {
+      // Preserve the exact original applied_at while restoring the identity.
+      db.prepare(
+        'UPDATE schema_migrations SET version = ? WHERE version = ?'
+      ).run(canonical, retired);
+      rows.add(canonical);
+    }
+    rows.delete(retired);
+  }
+}
+
+function prepareMigrationHistory(db, migrations) {
+  ensureMigrationsTable(db);
+  const prepare = db.transaction(() => {
+    adoptRetiredMigrationIdentities(db, migrations);
+    const finalVersions = db.prepare(
+      'SELECT version FROM schema_migrations ORDER BY version'
+    ).all().map(row => row.version);
+    // Keep the final read and validation inside the adoption transaction. A
+    // failed postcondition therefore rolls every stamp change back.
+    validateManifestAndHistoryUnion(
+      finalVersions,
+      migrations,
+      'migration manifest + schema_migrations after identity adoption',
+    );
+  });
+  prepare();
 }
 
 async function discoverMigrations() {
@@ -97,7 +249,10 @@ function validateMigrationPlan(migrations) {
       throw new Error(`Duplicate migration version: ${version}`);
     }
     versions.add(version);
+
   }
+
+  validateNumericSlots(versions, 'migration manifest');
 
   return migrations;
 }
@@ -112,7 +267,7 @@ function validateMigrationPlan(migrations) {
  */
 function runMigrationPlan(db, migrations) {
   validateMigrationPlan(migrations);
-  ensureMigrationsTable(db);
+  prepareMigrationHistory(db, migrations);
   const applied = getAppliedVersions(db);
 
   const result = { applied: [], skipped: [] };
@@ -189,7 +344,7 @@ export function getCurrentVersion(db) {
 export async function listMigrations(db) {
   const migrations = await discoverMigrations();
   validateMigrationPlan(migrations);
-  ensureMigrationsTable(db);
+  prepareMigrationHistory(db, migrations);
   const applied = getAppliedVersions(db);
   return migrations.map(m => ({
     version: m.version,
@@ -232,6 +387,9 @@ export const _testInternals = Object.freeze({
   discoverMigrations,
   runMigrationPlan,
   validateMigrationPlan,
+  validateManifestAndHistoryUnion,
+  projectAdoptedMigrationVersions,
+  adoptRetiredMigrationIdentities,
 });
 
 export default { runMigrations, getCurrentVersion, listMigrations, hasColumn, hasTable };

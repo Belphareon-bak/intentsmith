@@ -19,7 +19,7 @@ import {
   canonicalStringify,
   computeEffectRequestDigest,
 } from '../contracts/m2/effect-v1.js';
-import { up as applyEffectAuthorityMigration } from '../src/db/migrations/2026_08_23_070_m2_effect_authority.js';
+import { up as applyEffectAuthorityMigration } from '../src/db/migrations/2026_08_23_092_m2_effect_authority.js';
 import { up as applyEffectAuthorityHardening } from '../src/db/migrations/2026_08_24_071_m2_effect_authority_hardening.js';
 import { up as applyEffectExecutionClaims } from '../src/db/migrations/2026_08_24_072_m2_effect_execution_claims.js';
 import { up as applyEffectClaimTruth } from '../src/db/migrations/2026_08_24_073_m2_effect_claim_truth.js';
@@ -28,8 +28,8 @@ import { up as applyToolEffectLinks } from '../src/db/migrations/2026_08_24_075_
 import { up as applyToolTruth } from '../src/db/migrations/2026_08_24_076_m2_tool_authority_truth.js';
 import { up as applyEffectInvalidations } from '../src/db/migrations/2026_08_24_077_m2_effect_invalidations.js';
 import { up as applyEffectSemanticAuthority } from '../src/db/migrations/2026_08_24_080_m2_effect_semantic_authority.js';
-import { up as applyEffectResultSemanticAuthorityV2 } from '../src/db/migrations/2026_08_24_081_m2_effect_result_semantic_authority_v2.js';
-import { up as applyPreexecutionApprovalTerminals } from '../src/db/migrations/2026_08_25_082_m2_preexecution_approval_terminals.js';
+import { up as applyEffectResultSemanticAuthorityV2 } from '../src/db/migrations/2026_08_24_093_m2_effect_result_semantic_authority_v2.js';
+import { up as applyPreexecutionApprovalTerminals } from '../src/db/migrations/2026_08_25_094_m2_preexecution_approval_terminals.js';
 import {
   EffectAuthorityError,
   EffectAuthorityErrorCode,

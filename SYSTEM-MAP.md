@@ -133,17 +133,46 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **202 574 ř.**, 537 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **222 712 ř.**, 475 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **471** (`376 ACTIVE`, `79 BLOCKED`, `16 HISTORICAL`) |
-| Tabulek v čerstvé DB / aplikovaných migrací | **156 / 80** |
+| `src/**/*.js` | **200 470 ř.**, 550 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **215 349 ř.**, 467 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **463** (`369 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
+| Tabulek v čerstvé DB / aplikovaných migrací | **158 / 87** |
 | HTTP rout | ~230 |
 | **Schopností v `ACCEPTED/PASS`** | **1 z 22** (#2 CRE); #1 server/routing/DB je zatím `RUNTIME_VERIFIED` — jeho suite má 13 interních checků, zatímco behavior dokument obsahuje 16 řádků, takže tvrzení „13/13 chování“ není platný akceptační součet |
 
 Aktuální registry fingerprint je
-`ffb7110746fba9a07a95dff4076778d5725ed584620204ddfe4c676bd4b9a999`.
+`ab85f58a854d9271dcf39f321d583f8024ee09b79355e863c5857eaefe29cbca`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
+
+Aktuální model-evaluation autoritu popisují
+[`MODEL-SCORING-ACTIVATION.md`](docs/MODEL-SCORING-ACTIVATION.md) a
+[`030-model-evaluation-authority-consolidation.md`](docs/decisions/030-model-evaluation-authority-consolidation.md).
+Tyto dokumenty nahrazují historické auto-failover/proof lifecycle popisy v
+pozdější capability tabulce: veřejné auto-transition repository writery jsou
+odstraněné a gateway, binding verification i autoritativní scoring vyžadují
+digest přímo v provider response. Na hostu nainstalovaná systémová Ollama
+0.32.14 jej neposkytuje, takže durable runtime zůstává záměrně fail-closed.
+Remediovaný source rozsah `74beafea..26ab3291` prošel nezávislým Opus max
+`REVIEW_PASSED`. Autorizovaný installed-panel scoring 2026-08-28 proběhl přes
+izolovaný patchovaný sidecar. Přijatý 13artefaktový snapshot obsahuje 79
+kompatibilních model-role párů: 55 `COMPLETE`, 24 `BLOCKED`, 0 applicable
+`MISSING`; 12 raw `MISSING` je explicitní N/A. Z COMPLETE evidence má 15 běhů
+ověřený skutečný interval a 40 starších current-contract řádků je veřejně
+označeno `LEGACY_UNVERIFIED` bez publikovaného startu a duration. Produktový
+head `53ded662` navíc ukládá SHA-bound normalizovaný inventory vstup a jeho
+offline replay nad stejnou DB reprodukuje 55/24/0/12 bez kontaktu s providerem.
+Nezávislé rereview rozsahu `d6137d4c..3f027938` zopakovalo replay, SHA/tamper
+kontrolu, manifest i clean-clone gate 279/279 a vrátilo
+[`REVIEW_PASSED`](docs/review/2026-08-28-WP-MODEL-EVALUATION-EVIDENCE-REREVIEW.md).
+Scoring/evidence balík je `ACCEPTED`; systémový response-digest provider zůstává
+samostatně `SYSTEM_PROVIDER_BLOCKED`. Evidence:
+[`model-scoring-live-20260828.md`](docs/execution/runs/model-scoring-live-20260828.md).
+Po následném explicitně autorizovaném odstranění čtyř VRAM-blocked exact
+artefaktů má současná inventory 9 modelů a 55/0/0/8 coverage
+(`COMPLETE/BLOCKED/applicable MISSING/N/A`); DB historie i bindingy zůstaly
+beze změny. Důkaz:
+[`model-removal-live-20260828.json`](docs/execution/runs/model-removal-live-20260828.json).
 
 Tool census ze zdroje: **9 JavaScript soubory, 8 664 řádků, 153 top-level
 nástrojových deklarací**. Počet 213 v dřívější inventuře byl textový false count.

@@ -462,45 +462,45 @@ Lifecycle endpoints are spread across projects and expertises routes:
 |--------|------|-------|----------|-------------|
 | `GET` | `/api/system/gpu` | — | `{profile: {gpus, cpu}, recommendation, sessionCapacity}` | GPU detection + session capacity |
 | `POST` | `/api/system/gpu/refresh` | — | Same | Forces re-detection |
-| `GET` | `/api/system/models/compatibility` | — | `{vram_mb, tiers, recommendations}` | — |
+| `GET` | `/api/system/models/compatibility` | — | `{vram_mb, tiers, recommendations}` | Hardware-fit hints only; not quality evidence |
 | `GET` | `/api/system/models/check` | `?model=name` | Compatibility result | — |
 | `GET` | `/api/system/models` | — | `{models, ollama_url, current_model}` | Proxies to Ollama `/api/tags` |
 | `GET` | `/api/system/models/info` | `?model=name` | Model details | Proxies to Ollama `/api/show` |
-| `GET` | `/api/system/models/universe` | `?limit=50&offset=0&state=stable|partial|unstable&runtime_state=enabled|disabled&sort=score|confidence|updated|name&order=asc|desc` | `{models[], total, limit, offset, snapshot_id, sort, filters}` | Universe listing (reconciled raw + derived + runtime guard state) |
+| `GET` | `/api/system/models/universe` | `?limit=50&offset=0&state=stable|partial|unstable&sort=confidence|updated|name|context|params&order=asc|desc` | `{models[], total, limit, offset, snapshot_id, sort, filters}` | Factual universe listing; confidence describes metadata reliability, not model quality |
 | `GET` | `/api/system/models/universe/:name` | `?tag=&include_signals=true|false&signal_limit=20&source_limit=30` | `{model, sources[], signals[], snapshot_id}` | Lazy detail fetch for one model (source rows + optional signal trace) |
 | `GET` | `/api/system/info` | — | System diagnostics (incl. sessions, provider config) | — |
 | `GET` | `/api/system/storage` | — | Storage stats | — |
 
-### Model Upgrade (v125)
+### Model discovery and manual binding
 
-> Fire-and-forget upgrade with WS progress events. HTTP 200 returned immediately; actual operation reported via WebSocket.
+> Discovery responses contain no quality recommendation. Apply is accepted only
+> after a durable operation or provider-pull intent exists.
 
 | Method | Path | Body | Response | Side Effects |
 |--------|------|------|----------|-------------|
-| `POST` | `/api/system/upgrades/apply` | `{role, targetModel, score?, appliedBy?}` | `{ok, status: 'started'}` | Applies upgrade (fire-and-forget). Auto-pulls if not installed. WS: `upgrade_progress`, `model_changed`, `model_pull_progress`, `upgrade_error` |
-| `POST` | `/api/system/upgrades/rollback` | `{role}` | `{ok, from, to}` | Rolls back to previous model |
-| `GET` | `/api/system/upgrades/proposals` | — | `{proposals[]}` | Current pending proposals |
+| `GET` | `/api/system/upgrades` | — | `{authority, discovery, lastCheckTime, history}` | Read-only discovery status |
+| `POST` | `/api/system/upgrades/check` | `{fullCycle?}` | `{authority, discovery}` | Refreshes factual discovery; no evaluation |
+| `GET` | `/api/system/models/candidates` | — | `{authority, candidates[], roles[]}` | Catalog/discovery candidates; quality is `NOT_EVALUATED` |
+| `POST` | `/api/system/upgrades/apply` | `{role, targetModel}` | `{ok, status: 'started', role, targetModel}` | Manual durable apply; pulls if needed; exact verification and WS are application-owned |
+| `POST` | `/api/system/upgrades/rollback` | `{role, operationId, committedBindingRevision, failedAttemptRevision}` | `{ok, role, from, to, configVersion}` | Exact-operation manual rollback; role-only rollback is rejected |
+| `GET` | `/api/system/upgrades/bindings` | — | `{bindings, overrides, configVersion}` | Read-only current binding projection |
 
-> **WS events after apply:**
-> - `upgrade_progress` — starting, pulling, applying
-> - `model_pull_progress` — download progress (percent, status label)
-> - `model_changed` — success (role, fromModel, toModel)
-> - `upgrade_error` — failure (role, model, error message)
-> - `upgrade_verify_failed` — background verify failed after 3 attempts (warning, not auto-rollback)
-> - `model_validation_prompt` — suggests running validation suite after model change
-
-### Model Validation (v123)
-
-> Validační sady pro objektivní hodnocení modelů. 5 sad: reasoning, code, chat, vision, review.
+> `model_changed` has exactly one producer: `ModelBindingApplication`. Provider
+> pull progress is advisory; it is not evaluation evidence or binding success.
+### Model Evaluations (v136.1)
 
 | Method | Path | Body / Query | Response | Side Effects |
 |--------|------|-------------|----------|-------------|
-| `POST` | `/api/system/models/validate` | `{model, suite?}` | `{ok, started}` | Spustí validaci (async, WS progress) |
-| `GET` | `/api/system/models/validate` | `?model=name` | `{results}` | Výsledky validace pro model |
-| `GET` | `/api/system/models/validation-scores` | — | `{scores[]}` | Všechna skóre napříč modely |
+| `GET` | `/api/system/models/evaluations` | — | `{schemaVersion, generatedAt, authority, bindingAuthority, bindings, statusCounts, roles, models}` | Read-only Ollama inventory + SQLite read |
 
-> **`suite`** = `reasoning` | `code` | `chat` | `vision` | `review` (volitelné — bez něj běží vše)
-> Výsledky se streamují přes WebSocket s akcí `model_validation_progress`. TTL 14 dní.
+Každý artifact/role řádek obsahuje exact digest, suite version a contract SHA,
+stav `COMPLETE|FAILED|BLOCKED|MISSING`, score a timestamp tam, kde existují.
+`bindingAuthority.status` je `DURABLE` pouze po startup ověření všech sedmi
+runtime modelů a digestů. `DEGRADED`, `UNVERIFIED_RUNTIME` a bootstrap stavy
+blokují candidate actionability; jinak připravený kandidát dostane
+`BINDING_AUTHORITY_DEGRADED`. DB řádky samy actionability nezakládají.
+Odstraněné v123 endpointy `/validate` a `/validation-scores` vracejí 404;
+evaluace se spouštějí řízeným hunt workflow, nikoli skrytým HTTP/WS jobem.
 
 ---
 

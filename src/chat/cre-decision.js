@@ -2410,7 +2410,7 @@ export class CREDecisionEngine {
    * Asks the LLM to semantically classify user input into an intent category
    * and extract structured metadata (file targets only — NO shell commands).
    *
-   * Uses fast MoE model (D2/qwen3-30b-a3b) for low latency classification.
+   * Uses an explicit FAST override when configured, otherwise the CHAT model.
    *
    * @param {string} input - User message
    * @param {Object} context - Conversation context (history, project, session)
@@ -2480,7 +2480,6 @@ PRAVIDLA:
       const result = await llmClassify(userPrompt, systemPrompt, {
         sessionId: context.sessionId || `cre-classify-${Date.now()}`,
         // v71.1: Use FAST model if available, otherwise CHAT (qwen3.5:27b).
-        // D2 (qwen3-30b-a3b MoE) doesn't handle format:'json' reliably.
         // Set C3_MODEL_FAST env var to use a dedicated classification model.
         model: config.models?.FAST || config.models?.CHAT,
         format: 'json',

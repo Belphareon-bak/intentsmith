@@ -48,6 +48,20 @@ const isolationHelperPath = realpathSync(
   join(__dirname, 'helpers', 'isolated-test-db.js'),
 );
 const fixtureDir = mkdtempSync(join(tmpdir(), 'c3-harness-meta-'));
+// This probe imports the broad E2E harness and database graph. It verifies
+// isolation and cleanup, not startup latency; keep its child timeout below the
+// registry suite's 120-second ceiling without false-failing on transient host
+// contention observed during the full serial audit.
+const E2E_HARNESS_PROBE_TIMEOUT_MS = 60_000;
+const directParentPath = join(
+  repositoryRoot,
+  '.intentsmith-artifacts',
+  'direct-tests',
+);
+const directParentExisted = existsSync(directParentPath);
+const directParentEntriesBefore = directParentExisted
+  ? readdirSync(directParentPath).sort()
+  : [];
 const isolationKeys = [
   'C3_AUDIT_RUN',
   'HOME',
@@ -378,10 +392,12 @@ try {
   //   116 -> 119 M5 DATA, global AUTH and PRIVACY each load a production path
   //              that reaches the database. Their static bootstrap now also
   //              protects direct execution and temp-root ownership.
-  //   119 -> 120 M6 acceptance authority imports release validation to prove
+  //   118 -> 119 M6 acceptance authority imports release validation to prove
   //              that external operator receipts bind the exact candidate.
   //              Its canonical bootstrap protects that repository graph.
-  const expectedDatabaseReachableRootTests = 120;
+  // Model-evaluation consolidation had first removed one retired database
+  // root from the pre-M6 baseline.
+  const expectedDatabaseReachableRootTests = 119;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,
@@ -568,9 +584,7 @@ try {
     preservedAttachmentRoot,
     'raw attachment boundary did not preserve its diagnostic runtime',
   );
-  const directParent = realpathSync(
-    join(repositoryRoot, '.intentsmith-artifacts', 'direct-tests'),
-  );
+  const directParent = realpathSync(directParentPath);
   const attachmentRoot = pathResolve(preservedAttachmentRoot);
   const attachmentRootRelative = pathRelative(directParent, attachmentRoot);
   assert.ok(
@@ -718,7 +732,7 @@ console.log('ISOLATION_PROBE:' + JSON.stringify(probe));
 `);
   const directE2eHarnessProbe = runFixture(
     directE2eHarnessProbeFixture,
-    { raw: true, timeout: 20_000 },
+    { raw: true, timeout: E2E_HARNESS_PROBE_TIMEOUT_MS },
   );
   assert.equal(
     directE2eHarnessProbe.error,
@@ -1343,16 +1357,18 @@ summary();
 
   if (process.env.C3_AUDIT_RUN === '1') {
     assert.deepEqual(
-      readdirSync(directParent),
-      [],
-      'audit meta-test must not leave a direct-test runtime behind',
+      readdirSync(directParent).sort(),
+      directParentEntriesBefore,
+      'audit meta-test must preserve the pre-existing direct-test runtime set',
     );
-    rmdirSync(directParent);
-    assert.equal(
-      existsSync(directParent),
-      false,
-      'audit meta-test must remove its empty direct-test parent',
-    );
+    if (!directParentExisted) {
+      rmdirSync(directParent);
+      assert.equal(
+        existsSync(directParent),
+        false,
+        'audit meta-test must remove the direct-test parent it created',
+      );
+    }
   }
 
   console.log('Harness exit-code meta-test passed');

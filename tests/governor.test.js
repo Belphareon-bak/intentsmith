@@ -14,6 +14,7 @@
 
 import { suite, test, testAsync, assert, assertEqual, assertIncludes, summary } from './harness.js';
 import Database from 'better-sqlite3';
+import { createRoleEvaluationPlans } from '../src/eval/role-evaluation-plan.js';
 
 import {
   healthAnalyzer, DIMENSION_WEIGHTS, classifyStatus, tableExists,
@@ -23,7 +24,7 @@ import {
 import {
   improvementPlanner, computeConfidence, computePriority, SEVERITY_WEIGHT,
   ruleModelLowSuccess, ruleArchDrift, ruleBuildQualityLow, ruleCRELow,
-  rulePendingProposals, ruleModelUnvalidated, ruleSpecialistFailing, ruleModelDrift,
+  ruleModelUnvalidated, ruleSpecialistFailing, ruleModelDrift,
 } from '../src/system/governor/improvement-planner.js';
 
 import {
@@ -154,36 +155,42 @@ function createTestDb() {
       metadata TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
-    CREATE TABLE upgrade_proposals (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      role TEXT NOT NULL,
-      current_model TEXT NOT NULL,
-      candidate_model TEXT NOT NULL,
-      score REAL NOT NULL,
-      current_score REAL,
-      improvement REAL,
-      score_breakdown TEXT,
-      reason TEXT,
-      risk_level TEXT DEFAULT 'medium',
-      installed INTEGER DEFAULT 0,
-      size_gb REAL DEFAULT 0,
-      source TEXT DEFAULT 'local',
-      status TEXT DEFAULT 'pending',
-      catalog_hash TEXT,
-      evaluation_version TEXT,
-      detected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      resolved_at DATETIME,
-      cooldown_until DATETIME
+    CREATE TABLE model_desired_bindings (
+      role TEXT PRIMARY KEY,
+      model_name TEXT NOT NULL,
+      digest_sha256 TEXT NOT NULL
     );
-    CREATE TABLE validation_suite_scores (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      model TEXT NOT NULL,
-      suite TEXT NOT NULL,
-      score REAL NOT NULL DEFAULT 0.0,
-      passed INTEGER NOT NULL DEFAULT 0,
-      total INTEGER NOT NULL DEFAULT 0,
+    CREATE TABLE model_evaluation_runs (
+      run_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      model_name TEXT,
+      model_canonical_name TEXT,
+      model_digest_sha256 TEXT NOT NULL,
+      suite_name TEXT NOT NULL,
+      suite_version TEXT,
+      suite_contract_sha256 TEXT NOT NULL,
+      role TEXT,
+      status TEXT NOT NULL,
+      score REAL,
+      passed INTEGER DEFAULT 0,
+      total INTEGER DEFAULT 0,
+      repeats INTEGER DEFAULT 1,
       duration_ms INTEGER DEFAULT 0,
-      validated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      error_code TEXT,
+      error_message TEXT,
+      started_at DATETIME,
+      completed_at DATETIME
+    );
+    CREATE TABLE model_evaluation_decisions (
+      decision_id TEXT PRIMARY KEY,
+      role TEXT NOT NULL,
+      incumbent_run_id TEXT NOT NULL,
+      candidate_run_id TEXT NOT NULL,
+      policy_version TEXT NOT NULL,
+      policy_contract_sha256 TEXT NOT NULL,
+      outcome TEXT NOT NULL,
+      basis TEXT NOT NULL,
+      details_json TEXT NOT NULL DEFAULT '{}',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
     CREATE TABLE discovered_models (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -221,6 +228,32 @@ function seedModelPerformance(db, role, success, count, opts = {}) {
   );
   for (let i = 0; i < count; i++) {
     stmt.run(role, opts.model || 'test:7b', opts.task_type || 'generation', success, opts.iterations || 1, opts.errors_remaining || 0, `-${i} hours`);
+  }
+}
+
+function seedCurrentEvaluations(db, opts = {}) {
+  const plans = createRoleEvaluationPlans();
+  const missing = new Set(opts.missing || []);
+  const statusByRole = opts.statusByRole || {};
+  for (const [index, [role, plan]] of Object.entries(plans).entries()) {
+    const digest = (index + 1).toString(16).padStart(64, '0');
+    db.prepare(
+      'INSERT INTO model_desired_bindings (role, model_name, digest_sha256) VALUES (?, ?, ?)'
+    ).run(role, `current-${role.toLowerCase()}:latest`, digest);
+    if (missing.has(role)) continue;
+    db.prepare(`
+      INSERT INTO model_evaluation_runs (
+        model_digest_sha256, suite_name, suite_version, suite_contract_sha256, role, status,
+        completed_at
+      ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    `).run(
+      digest,
+      plan.suiteName,
+      plan.suiteVersion,
+      plan.suiteContractSha256,
+      role,
+      statusByRole[role] || 'COMPLETE',
+    );
   }
 }
 
@@ -429,37 +462,24 @@ test('specialists dimension — only observability events returns fallback', () 
   db.close();
 });
 
-test('upgrades dimension — pending penalty', () => {
+test('upgrades dimension — missing current exact-contract evaluation penalizes', () => {
   const db = createTestDb();
-  for (let i = 0; i < 5; i++) {
-    db.prepare("INSERT INTO upgrade_proposals (role, current_model, candidate_model, score, status) VALUES (?, ?, ?, ?, 'pending')").run('D1', 'a:7b', `b:${i}b`, 0.8);
-  }
+  seedCurrentEvaluations(db, { missing: ['D1'] });
   const result = analyzeUpgrades(db);
-  // pending_penalty = min(5*0.1, 0.3) = 0.3, score = 0.7
-  assertEqual(result.score, 0.7);
-  assertEqual(result.status, 'HEALTHY');
+  assertEqual(result.score, 0.8);
+  assertEqual(result.details.current_evaluation_missing_roles.join(','), 'D1');
   db.close();
 });
 
-test('upgrades dimension — stale validation penalty (active model)', () => {
+test('upgrades dimension — unrelated historical evaluation does not affect current state', () => {
   const db = createTestDb();
-  // Bind test:7b as active model
-  db.prepare("INSERT INTO model_overrides (role, model, previous_model) VALUES (?, ?, ?)").run('D1', 'test:7b', 'old:7b');
-  // Stale validation for the active model
-  db.prepare("INSERT INTO validation_suite_scores (model, suite, score, passed, total, validated_at) VALUES (?, ?, ?, ?, ?, datetime('now', '-20 days'))").run('test:7b', 'reasoning', 0.5, 3, 5);
+  seedCurrentEvaluations(db);
+  db.prepare(`
+    INSERT INTO model_evaluation_runs (
+      model_digest_sha256, suite_name, suite_contract_sha256, status, completed_at
+    ) VALUES (?, ?, ?, 'FAILED', datetime('now', '-20 days'))
+  `).run('f'.repeat(64), 'retired_suite', 'e'.repeat(64));
   const result = analyzeUpgrades(db);
-  // stale_penalty = 0.2, score = 0.8
-  assert(result.score <= 0.8, `Score ${result.score} should be <= 0.8`);
-  db.close();
-});
-
-test('upgrades dimension — obsolete model stale validation does NOT penalize', () => {
-  const db = createTestDb();
-  // Active model is fresh:7b, stale validation exists for obsolete:7b
-  db.prepare("INSERT INTO model_overrides (role, model, previous_model) VALUES (?, ?, ?)").run('D1', 'fresh:7b', 'obsolete:7b');
-  db.prepare("INSERT INTO validation_suite_scores (model, suite, score, passed, total, validated_at) VALUES (?, ?, ?, ?, ?, datetime('now', '-20 days'))").run('obsolete:7b', 'reasoning', 0.5, 3, 5);
-  const result = analyzeUpgrades(db);
-  // No stale penalty because obsolete:7b is not an active model
   assertEqual(result.score, 1.0);
   db.close();
 });
@@ -657,37 +677,19 @@ test('R4: root cause — model overload', () => {
   assertIncludes(p.root_cause, 'latence');
 });
 
-test('R5: pending-proposals-stale fires when > 3', () => {
+test('R6: incomplete current exact-contract evaluation fires', () => {
   const dims = {
     upgrades: { score: 0.7, status: 'HEALTHY', dataCompleteness: 1.0, trend: 0, details: {
-      pending_proposals: 5, stalest_validation_days: 0,
-    }},
-  };
-  const p = rulePendingProposals(dims);
-  assert(p !== null, 'R5 should fire');
-  assertEqual(p.severity, 'LOW');
-  assertIncludes(p.root_cause, '5');
-});
-
-test('R5: does not fire when <= 3', () => {
-  const dims = {
-    upgrades: { score: 0.9, status: 'HEALTHY', dataCompleteness: 1.0, trend: 0, details: {
-      pending_proposals: 2, stalest_validation_days: 0,
-    }},
-  };
-  assertEqual(rulePendingProposals(dims), null);
-});
-
-test('R6: model-unvalidated fires when > 14d', () => {
-  const dims = {
-    upgrades: { score: 0.7, status: 'HEALTHY', dataCompleteness: 1.0, trend: 0, details: {
-      pending_proposals: 0, stalest_validation_days: 20,
+      current_evaluation_missing_roles: ['D1'],
+      current_evaluation_failed_roles: [],
+      current_evaluation_blocked_roles: [],
+      durable_binding_count: 7,
     }},
   };
   const p = ruleModelUnvalidated(dims);
   assert(p !== null, 'R6 should fire');
-  assertEqual(p.type, 'MODEL_VALIDATION');
-  assertIncludes(p.root_cause, '20');
+  assertEqual(p.type, 'MODEL_EVALUATION_REVIEW');
+  assertIncludes(p.root_cause, 'D1');
 });
 
 test('R7: specialist-failing fires when score < 0.70', () => {
@@ -743,7 +745,11 @@ test('evaluate returns multiple proposals when conditions met', () => {
       architecture: { score: 0.5, status: 'DEGRADED', dataCompleteness: 1.0, trend: 0, details: { drift_score: 0.5, layer_violations: 3, circular_deps: 1 }},
       builds: { score: 0.7, status: 'HEALTHY', dataCompleteness: 1.0, trend: 0, details: { avg_quality: 0.7, quality_count: 20, checkpoint_pass_rate: 0.8 }},
       specialists: { score: 0.5, status: 'DEGRADED', dataCompleteness: 1.0, trend: 0, details: {} },
-      upgrades: { score: 0.9, status: 'HEALTHY', dataCompleteness: 1.0, trend: 0, details: { pending_proposals: 1, stalest_validation_days: 0 }},
+      upgrades: { score: 0.9, status: 'HEALTHY', dataCompleteness: 1.0, trend: 0, details: {
+current_evaluation_missing_roles: [],
+        current_evaluation_failed_roles: [], current_evaluation_blocked_roles: [],
+        durable_binding_count: 7,
+      }},
     },
   };
   const proposals = improvementPlanner.evaluate(analysis, db);
@@ -781,7 +787,11 @@ test('rule isolation — one failing dimension does not trigger unrelated rules'
       architecture: { score: 0.95, status: 'HEALTHY', dataCompleteness: 1.0, trend: 0, details: { drift_score: 0.05, layer_violations: 0, circular_deps: 0 }},
       builds: { score: 0.95, status: 'HEALTHY', dataCompleteness: 1.0, trend: 0, details: { avg_quality: 0.95, quality_count: 20 }},
       specialists: { score: 0.95, status: 'HEALTHY', dataCompleteness: 1.0, trend: 0, details: {} },
-      upgrades: { score: 0.95, status: 'HEALTHY', dataCompleteness: 1.0, trend: 0, details: { pending_proposals: 0, stalest_validation_days: 0 }},
+      upgrades: { score: 0.95, status: 'HEALTHY', dataCompleteness: 1.0, trend: 0, details: {
+current_evaluation_missing_roles: [],
+        current_evaluation_failed_roles: [], current_evaluation_blocked_roles: [],
+        durable_binding_count: 7,
+      }},
     },
   };
   const proposals = improvementPlanner.evaluate(analysis);

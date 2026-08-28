@@ -1,5 +1,9 @@
 # P3 — census odchozích call sites
 
+> **Point-in-time census na uvedené vstupní revizi.** Řádek s v123 validation
+> runtime není současná source mapa; current modelová cesta je v rozhodnutí
+> [030](../decisions/030-model-evaluation-authority-consolidation.md).
+
 **Typ:** read-only sonda · **Slot:** nesoutěží o zapisujícího vlastníka
 **Vstupní revision:** `1fc8f03e649dd561fb279ce68e5c119d35faad55`
 **Adresát:** agent, který povede `WP-M5-AUTH` (krok 3 „OUTBOUND v rámci AUTH/conditional policy")

@@ -22,25 +22,30 @@
 import fs from 'fs';
 import path from 'path';
 import { createInterface } from 'readline';
+import { DEFAULT_MODEL_BINDINGS } from '../config.js';
 import { logger } from '../core/logger.js';
+import { sameModelName } from '../upgrade/model-identity.js';
 
 // ─── Setup State ────────────────────────────────────────────────────────────
 
 const SETUP_FILE = 'c3-setup.json';
+const SETUP_SCHEMA_VERSION = 2;
+const LEGACY_MODEL_DEFAULTS_V1 = Object.freeze({
+  D1: Object.freeze(['deepseek-r1-32b', 'deepseek-r1:32b']),
+  D2: Object.freeze(['qwen3-30b-a3b', 'qwen3-30b-a3b:latest']),
+  CODE: Object.freeze(['qwen3.5:27b']),
+  R1: Object.freeze(['deepseek-r1-32b', 'deepseek-r1:32b']),
+  R2: Object.freeze(['qwen3.5:27b']),
+  CHAT: Object.freeze(['qwen3.5:27b']),
+  VISION: Object.freeze(['llava:13b']),
+});
 const DEFAULT_SETUP = {
-  version: 1,
+  version: SETUP_SCHEMA_VERSION,
   completed: false,
   completedAt: null,
   ollama: {
     url: 'http://127.0.0.1:11434',
-    models: {
-      CHAT: 'qwen3.5:27b',
-      CODE: 'qwen3.5:27b',
-      D1: 'deepseek-r1-32b',
-      R1: 'deepseek-r1-32b',
-      R2: 'qwen3.5:27b',
-      D2: 'qwen3-30b-a3b',
-    },
+    models: { ...DEFAULT_MODEL_BINDINGS },
     verified: false,
   },
   language: 'cs',
@@ -53,13 +58,92 @@ const DEFAULT_SETUP = {
   license: { key: '', activated: false },
 };
 
+function cloneDefaultSetup() {
+  return structuredClone(DEFAULT_SETUP);
+}
+
+function isObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function migrateSetupConfig(value) {
+  if (!isObject(value)) throw new Error('Setup configuration must be an object');
+  const sourceVersion = Number.isSafeInteger(value.version) ? value.version : 1;
+  if (sourceVersion > SETUP_SCHEMA_VERSION) {
+    throw new Error(`Unsupported setup configuration version: ${sourceVersion}`);
+  }
+
+  let migrated = structuredClone(value);
+  if (sourceVersion < 2) {
+    const oldModels = isObject(migrated.ollama?.models)
+      ? migrated.ollama.models
+      : {};
+    const models = {};
+    for (const [role, currentDefault] of Object.entries(DEFAULT_MODEL_BINDINGS)) {
+      const previous = oldModels[role];
+      const wasLegacyDefault = LEGACY_MODEL_DEFAULTS_V1[role]?.includes(previous);
+      models[role] = previous === undefined || wasLegacyDefault
+        ? currentDefault
+        : previous;
+    }
+    migrated = {
+      ...migrated,
+      version: 2,
+      ollama: {
+        ...(isObject(migrated.ollama) ? migrated.ollama : {}),
+        models,
+      },
+    };
+  }
+  return migrated;
+}
+
+function mergeSetupDefaults(value) {
+  const defaults = cloneDefaultSetup();
+  const ollama = isObject(value.ollama) ? value.ollama : {};
+  const notifications = isObject(value.notifications) ? value.notifications : {};
+  return {
+    ...defaults,
+    ...value,
+    version: SETUP_SCHEMA_VERSION,
+    ollama: {
+      ...defaults.ollama,
+      ...ollama,
+      models: {
+        ...defaults.ollama.models,
+        ...(isObject(ollama.models) ? ollama.models : {}),
+      },
+    },
+    notifications: {
+      ...defaults.notifications,
+      ...notifications,
+      telegram: {
+        ...defaults.notifications.telegram,
+        ...(isObject(notifications.telegram) ? notifications.telegram : {}),
+      },
+      email: {
+        ...defaults.notifications.email,
+        ...(isObject(notifications.email) ? notifications.email : {}),
+      },
+      ntfy: {
+        ...defaults.notifications.ntfy,
+        ...(isObject(notifications.ntfy) ? notifications.ntfy : {}),
+      },
+    },
+    license: {
+      ...defaults.license,
+      ...(isObject(value.license) ? value.license : {}),
+    },
+  };
+}
+
 // ─── Setup Wizard Class ─────────────────────────────────────────────────────
 
 export class SetupWizard {
   constructor(dataDir = './data') {
     this.dataDir = dataDir;
     this.setupPath = path.join(dataDir, SETUP_FILE);
-    this.config = { ...DEFAULT_SETUP };
+    this.config = cloneDefaultSetup();
   }
 
   /**
@@ -82,7 +166,8 @@ export class SetupWizard {
     try {
       if (fs.existsSync(this.setupPath)) {
         const data = JSON.parse(fs.readFileSync(this.setupPath, 'utf-8'));
-        this.config = { ...DEFAULT_SETUP, ...data };
+        this.config = mergeSetupDefaults(migrateSetupConfig(data));
+        if (JSON.stringify(this.config) !== JSON.stringify(data)) this.save();
       }
     } catch (err) {
       logger.debug('Setup', `Load failed: ${err.message}`);
@@ -153,12 +238,10 @@ export class SetupWizard {
 
     const required = Object.values(this.config.ollama.models);
     const unique = [...new Set(required)];
-    const available = result.models.map(m => m.split(':')[0] + (m.includes(':') ? ':' + m.split(':')[1] : ''));
-
-    const missing = unique.filter(req => {
-      const base = req.split(':')[0];
-      return !available.some(a => a.startsWith(base));
-    });
+    const available = [...result.models];
+    const missing = unique.filter(requiredModel => (
+      !available.some(installedModel => sameModelName(requiredModel, installedModel))
+    ));
 
     return { ok: missing.length === 0, models: result.models, missing, available };
   }
@@ -171,6 +254,9 @@ export class SetupWizard {
     env.OLLAMA_URL = this.config.ollama.url;
     env.C3_LANG = this.config.language;
     env.C3_DB_PATH = path.join(this.config.dataDir, 'c3.db');
+    for (const role of Object.keys(DEFAULT_MODEL_BINDINGS)) {
+      env[`C3_MODEL_${role}`] = this.config.ollama.models[role];
+    }
 
     if (this.config.notifications.telegram.enabled) {
       env.TELEGRAM_BOT_TOKEN = this.config.notifications.telegram.token;

@@ -1,0 +1,2295 @@
+{
+  "generatedAt": "2026-08-23T08:22:04.489Z",
+  "gpu": {
+    "vramMb": 24576,
+    "model": "NVIDIA GeForce RTX 3090",
+    "igpu": false,
+    "numCtx": 32768
+  },
+  "perRole": {
+    "CHAT": []
+  },
+  "queue": [
+    {
+      "name": "qwen2.5:32b",
+      "family": "qwen",
+      "category": "general",
+      "version": "2.5",
+      "params": 32,
+      "quantization": "Q4_K_M",
+      "sizeBytes": 19851349669,
+      "sizeGB": 18.5,
+      "modifiedAt": "2026-01-05T23:04:35.392099759+01:00",
+      "installed": true,
+      "source": "local",
+      "digest": "9f13ba1299afea09d9a956fc6a85becc99115a6d596fae201a5487a03bdc4368",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "qwen2",
+        "families": [
+          "qwen2"
+        ],
+        "parameter_size": "32.8B",
+        "quantization_level": "Q4_K_M",
+        "context_length": 32768,
+        "embedding_length": 5120
+      },
+      "artifact": {
+        "modelName": "qwen2.5:32b",
+        "canonicalName": "qwen2.5:32b",
+        "digestSha256": "9f13ba1299afea09d9a956fc6a85becc99115a6d596fae201a5487a03bdc4368",
+        "sizeBytes": null,
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "qwen2",
+          "families": [
+            "qwen2"
+          ],
+          "parameter_size": "32.8B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 32768,
+          "embedding_length": 5120
+        }
+      },
+      "roles": [
+        "CHAT"
+      ],
+      "evaluationState": {
+        "state": "unseen",
+        "missing": 1,
+        "rejected": 0,
+        "perRole": {
+          "CHAT": "unseen"
+        }
+      },
+      "priority": 10,
+      "reasons": [
+        "already installed",
+        "1 current suite(s) unseen"
+      ]
+    },
+    {
+      "name": "mistral-small:22b-instruct-2409-q6_k",
+      "family": "mistral",
+      "category": "general",
+      "version": null,
+      "params": 22,
+      "quantization": "Q6_K",
+      "sizeBytes": 18252716205,
+      "sizeGB": 17,
+      "modifiedAt": "2026-08-23T08:46:57.125984716+02:00",
+      "installed": true,
+      "source": "local",
+      "digest": "5113380707de9b21b6c726a98b4acf6a5b8367e7d4e78d2eba791285f6d36a85",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "llama",
+        "families": [
+          "llama"
+        ],
+        "parameter_size": "22.2B",
+        "quantization_level": "Q6_K",
+        "context_length": 131072,
+        "embedding_length": 6144
+      },
+      "artifact": {
+        "modelName": "mistral-small:22b-instruct-2409-q6_k",
+        "canonicalName": "mistral-small:22b-instruct-2409-q6_k",
+        "digestSha256": "5113380707de9b21b6c726a98b4acf6a5b8367e7d4e78d2eba791285f6d36a85",
+        "sizeBytes": null,
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "llama",
+          "families": [
+            "llama"
+          ],
+          "parameter_size": "22.2B",
+          "quantization_level": "Q6_K",
+          "context_length": 131072,
+          "embedding_length": 6144
+        }
+      },
+      "roles": [
+        "CHAT"
+      ],
+      "evaluationState": {
+        "state": "unseen",
+        "missing": 1,
+        "rejected": 0,
+        "perRole": {
+          "CHAT": "unseen"
+        }
+      },
+      "priority": 8.75,
+      "reasons": [
+        "already installed",
+        "1 current suite(s) unseen"
+      ]
+    },
+    {
+      "name": "qwen3-30b-a3b:latest",
+      "family": "qwen",
+      "category": "general",
+      "version": "3",
+      "params": 30,
+      "quantization": "Q4_K_S",
+      "sizeBytes": 17456010185,
+      "sizeGB": 16.3,
+      "modifiedAt": "2026-01-04T14:58:52.584237151+01:00",
+      "installed": true,
+      "source": "local",
+      "digest": "dc0b52b99d0e4310b0e74d1b5c0b4af3459537614523b84d94ce62a7c5f99201",
+      "details": {
+        "parent_model": "/usr/share/ollama/.ollama/models/blobs/sha256-fa0c96bed61759800bcab82a8a44a8effcd92cdd8bced06b8195232237390b4a",
+        "format": "gguf",
+        "family": "qwen3moe",
+        "families": [
+          "qwen3moe"
+        ],
+        "parameter_size": "30.5B",
+        "quantization_level": "Q4_K_S",
+        "context_length": 40960,
+        "embedding_length": 2048
+      },
+      "artifact": {
+        "modelName": "qwen3-30b-a3b:latest",
+        "canonicalName": "qwen3-30b-a3b",
+        "digestSha256": "dc0b52b99d0e4310b0e74d1b5c0b4af3459537614523b84d94ce62a7c5f99201",
+        "sizeBytes": null,
+        "details": {
+          "parent_model": "/usr/share/ollama/.ollama/models/blobs/sha256-fa0c96bed61759800bcab82a8a44a8effcd92cdd8bced06b8195232237390b4a",
+          "format": "gguf",
+          "family": "qwen3moe",
+          "families": [
+            "qwen3moe"
+          ],
+          "parameter_size": "30.5B",
+          "quantization_level": "Q4_K_S",
+          "context_length": 40960,
+          "embedding_length": 2048
+        }
+      },
+      "roles": [
+        "CHAT"
+      ],
+      "evaluationState": {
+        "state": "scored",
+        "missing": 0,
+        "rejected": 0,
+        "perRole": {
+          "CHAT": "scored"
+        }
+      },
+      "priority": 7.75,
+      "reasons": [
+        "already installed",
+        "current contract already scored"
+      ]
+    },
+    {
+      "name": "qwen3.5:27b",
+      "family": "qwen",
+      "category": "general",
+      "version": "3.5",
+      "params": 27,
+      "quantization": "Q4_K_M",
+      "sizeBytes": 17420432728,
+      "sizeGB": 16.2,
+      "modifiedAt": "2026-03-07T21:17:23.290013191+01:00",
+      "installed": true,
+      "source": "local",
+      "digest": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "qwen35",
+        "families": [
+          "qwen35"
+        ],
+        "parameter_size": "27.8B",
+        "quantization_level": "Q4_K_M",
+        "context_length": 262144,
+        "embedding_length": 5120
+      },
+      "artifact": {
+        "modelName": "qwen3.5:27b",
+        "canonicalName": "qwen3.5:27b",
+        "digestSha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+        "sizeBytes": null,
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "qwen35",
+          "families": [
+            "qwen35"
+          ],
+          "parameter_size": "27.8B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 262144,
+          "embedding_length": 5120
+        }
+      },
+      "roles": [
+        "CHAT"
+      ],
+      "evaluationState": {
+        "state": "scored",
+        "missing": 0,
+        "rejected": 0,
+        "perRole": {
+          "CHAT": "scored"
+        }
+      },
+      "priority": 7.38,
+      "reasons": [
+        "already installed",
+        "current contract already scored"
+      ]
+    },
+    {
+      "name": "qwen3.8:latest",
+      "family": "qwen",
+      "category": "general",
+      "version": "3.8",
+      "params": 27,
+      "quantization": "Q4_K_M",
+      "sizeBytes": 17741872154,
+      "sizeGB": 16.5,
+      "modifiedAt": "2026-08-23T01:35:22.827575346+02:00",
+      "installed": true,
+      "source": "local",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "details": {
+        "parent_model": "qwen3.8:27b-q4_K_M",
+        "format": "gguf",
+        "family": "qwen35",
+        "families": [
+          "qwen35"
+        ],
+        "parameter_size": "27.3B",
+        "quantization_level": "Q4_K_M",
+        "context_length": 262144,
+        "embedding_length": 5120
+      },
+      "artifact": {
+        "modelName": "qwen3.8:latest",
+        "canonicalName": "qwen3.8",
+        "digestSha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+        "sizeBytes": null,
+        "details": {
+          "parent_model": "qwen3.8:27b-q4_K_M",
+          "format": "gguf",
+          "family": "qwen35",
+          "families": [
+            "qwen35"
+          ],
+          "parameter_size": "27.3B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 262144,
+          "embedding_length": 5120
+        }
+      },
+      "roles": [
+        "CHAT"
+      ],
+      "evaluationState": {
+        "state": "scored",
+        "missing": 0,
+        "rejected": 0,
+        "perRole": {
+          "CHAT": "scored"
+        }
+      },
+      "priority": 7.38,
+      "reasons": [
+        "already installed",
+        "current contract already scored"
+      ]
+    },
+    {
+      "name": "phi4:14b",
+      "family": "phi",
+      "category": "general",
+      "version": "4",
+      "params": 14,
+      "quantization": "Q4_K_M",
+      "sizeBytes": 9053116391,
+      "sizeGB": 8.4,
+      "modifiedAt": "2026-08-23T09:08:36.746287184+02:00",
+      "installed": true,
+      "source": "local",
+      "digest": "ac896e5b8b34a1f4efa7b14d7520725140d5512484457fab45d2a4ea14c69dba",
+      "details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "phi3",
+        "families": [
+          "phi3"
+        ],
+        "parameter_size": "14.7B",
+        "quantization_level": "Q4_K_M",
+        "context_length": 16384,
+        "embedding_length": 5120
+      },
+      "artifact": {
+        "modelName": "phi4:14b",
+        "canonicalName": "phi4:14b",
+        "digestSha256": "ac896e5b8b34a1f4efa7b14d7520725140d5512484457fab45d2a4ea14c69dba",
+        "sizeBytes": null,
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "phi3",
+          "families": [
+            "phi3"
+          ],
+          "parameter_size": "14.7B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 16384,
+          "embedding_length": 5120
+        }
+      },
+      "roles": [
+        "CHAT"
+      ],
+      "evaluationState": {
+        "state": "scored",
+        "missing": 0,
+        "rejected": 0,
+        "perRole": {
+          "CHAT": "scored"
+        }
+      },
+      "priority": 5.75,
+      "reasons": [
+        "already installed",
+        "current contract already scored"
+      ]
+    }
+  ],
+  "results": [
+    {
+      "model": "qwen3.5:27b",
+      "stage": "done",
+      "accepted": true,
+      "inconclusive": false,
+      "measurement": {
+        "model": "qwen3.5:27b",
+        "numCtx": 32768,
+        "placement": {
+          "loaded": true,
+          "sizeBytes": 18233688062,
+          "vramBytes": 18233688062,
+          "cpuBytes": 0,
+          "fullyOnGpu": true
+        },
+        "throughput": {
+          "tokensPerSecond": 37,
+          "tokens": 160
+        },
+        "fits": true,
+        "error": null
+      },
+      "floor": {
+        "passed": true,
+        "failures": [],
+        "reused": true
+      },
+      "trials": [
+        {
+          "role": "CHAT",
+          "suite": "chat_v3",
+          "comparison": {
+            "suite": "chat_v3",
+            "tasks": [
+              {
+                "name": "en_grounded_summary",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_action_email",
+                "language": "en",
+                "candidateScore": 0.8,
+                "incumbentScore": 0.8,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_context_correction",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_missing_context",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 0.667,
+                "candidateSpread": 0,
+                "incumbentSpread": 0.25,
+                "delta": 0.33333333333333337,
+                "noise": 0.25,
+                "discriminating": true
+              },
+              {
+                "name": "en_structured_extraction",
+                "language": "en",
+                "candidateScore": 0.8,
+                "incumbentScore": 0.8,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_translation_from_czech",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_instruction_priority",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_state_updates",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_capability_boundary",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 0.8,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0.19999999999999984,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "en_exact_markdown_table",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_professional_rewrite",
+                "language": "en",
+                "candidateScore": 0.833,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": -0.16666666666666663,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "en_conditional_action",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_exact_csv",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 0.8,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0.19999999999999984,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "en_ambiguous_reference",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 0.8,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0.19999999999999984,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "en_completion_vs_verification",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_quantifier_scope",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_evidence_boundary",
+                "language": "en",
+                "candidateScore": 0.533,
+                "incumbentScore": 0.4,
+                "candidateSpread": 0.19999999999999996,
+                "incumbentSpread": 0,
+                "delta": 0.13333333333333325,
+                "noise": 0.19999999999999996,
+                "discriminating": false
+              },
+              {
+                "name": "en_exact_yaml",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_multi_correction",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_neutral_escalation",
+                "language": "en",
+                "candidateScore": 0.833,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": -0.16666666666666663,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "en_inclusion_exclusion",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_grounded_summary",
+                "language": "cs",
+                "candidateScore": 0.8,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": -0.19999999999999984,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "cz_exact_bullets",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 0.2,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0.7999999999999999,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "cz_context_correction",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_professional_reply",
+                "language": "cs",
+                "candidateScore": 0.8,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": -0.19999999999999984,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "cz_declension",
+                "language": "cs",
+                "candidateScore": 0.933,
+                "incumbentScore": 0.933,
+                "candidateSpread": 0.19999999999999996,
+                "incumbentSpread": 0.19999999999999996,
+                "delta": 0,
+                "noise": 0.19999999999999996,
+                "discriminating": false
+              },
+              {
+                "name": "cz_plural_agreement",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_formal_register",
+                "language": "cs",
+                "candidateScore": 0.833,
+                "incumbentScore": 0.833,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_ambiguity_clarification",
+                "language": "cs",
+                "candidateScore": 0.8,
+                "incumbentScore": 0.6,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0.20000000000000018,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "cz_vocative_request",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 0.933,
+                "candidateSpread": 0,
+                "incumbentSpread": 0.19999999999999996,
+                "delta": 0.06666666666666676,
+                "noise": 0.19999999999999996,
+                "discriminating": false
+              },
+              {
+                "name": "cz_double_negation_counts",
+                "language": "cs",
+                "candidateScore": 0.733,
+                "incumbentScore": 0.6,
+                "candidateSpread": 0.4,
+                "incumbentSpread": 0,
+                "delta": 0.13333333333333341,
+                "noise": 0.4,
+                "discriminating": false
+              },
+              {
+                "name": "cz_grammar_correction",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_numeral_cases",
+                "language": "cs",
+                "candidateScore": 0.8,
+                "incumbentScore": 0.4,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0.4000000000000002,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "cz_relative_pronoun",
+                "language": "cs",
+                "candidateScore": 0.6,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": -0.4,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "cz_conditional_deadline",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              }
+            ],
+            "discriminating": 12,
+            "candidateWins": 7,
+            "incumbentWins": 5,
+            "margin": 0.1,
+            "inconclusive": false,
+            "candidateSuiteScore": 0.9171428571428574,
+            "incumbentSuiteScore": 0.8733333333333334,
+            "repeats": 3,
+            "unstableTasks": [
+              "en_evidence_boundary",
+              "cz_declension",
+              "cz_double_negation_counts",
+              "en_missing_context",
+              "cz_vocative_request"
+            ]
+          },
+          "decision": {
+            "winner": "candidate",
+            "basis": "kvalita",
+            "confidence": "vysoká",
+            "detail": "marže 0.100 ≥ práh 0.04 na 12 rozlišujících úlohách (7:5), jistota vysoká"
+          },
+          "skipped": false
+        }
+      ],
+      "decisions": {
+        "CHAT": {
+          "winner": "candidate",
+          "basis": "kvalita",
+          "confidence": "vysoká",
+          "detail": "marže 0.100 ≥ práh 0.04 na 12 rozlišujících úlohách (7:5), jistota vysoká"
+        }
+      },
+      "removed": false,
+      "keptReason": null,
+      "error": null
+    },
+    {
+      "model": "qwen3-30b-a3b:latest",
+      "stage": "done",
+      "accepted": false,
+      "inconclusive": false,
+      "measurement": {
+        "model": "qwen3-30b-a3b:latest",
+        "numCtx": 32768,
+        "placement": {
+          "loaded": true,
+          "sizeBytes": 20617887743,
+          "vramBytes": 20617887743,
+          "cpuBytes": 0,
+          "fullyOnGpu": true
+        },
+        "throughput": {
+          "tokensPerSecond": 169.8,
+          "tokens": 160
+        },
+        "fits": true,
+        "error": null
+      },
+      "floor": {
+        "passed": true,
+        "failures": [],
+        "reused": true
+      },
+      "trials": [
+        {
+          "role": "CHAT",
+          "suite": "chat_v3",
+          "comparison": {
+            "suite": "chat_v3",
+            "tasks": [
+              {
+                "name": "en_grounded_summary",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_action_email",
+                "language": "en",
+                "candidateScore": 0.8,
+                "incumbentScore": 0.8,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_context_correction",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_missing_context",
+                "language": "en",
+                "candidateScore": 0.833,
+                "incumbentScore": 0.667,
+                "candidateSpread": 0.25,
+                "incumbentSpread": 0.25,
+                "delta": 0.16666666666666674,
+                "noise": 0.25,
+                "discriminating": false
+              },
+              {
+                "name": "en_structured_extraction",
+                "language": "en",
+                "candidateScore": 0.8,
+                "incumbentScore": 0.8,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_translation_from_czech",
+                "language": "en",
+                "candidateScore": 0.75,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": -0.25,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "en_instruction_priority",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_state_updates",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_capability_boundary",
+                "language": "en",
+                "candidateScore": 0.6,
+                "incumbentScore": 0.8,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": -0.20000000000000018,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "en_exact_markdown_table",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_professional_rewrite",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_conditional_action",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_exact_csv",
+                "language": "en",
+                "candidateScore": 0.8,
+                "incumbentScore": 0.8,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_ambiguous_reference",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 0.8,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0.19999999999999984,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "en_completion_vs_verification",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_quantifier_scope",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_evidence_boundary",
+                "language": "en",
+                "candidateScore": 0.467,
+                "incumbentScore": 0.4,
+                "candidateSpread": 0.19999999999999996,
+                "incumbentSpread": 0,
+                "delta": 0.06666666666666654,
+                "noise": 0.19999999999999996,
+                "discriminating": false
+              },
+              {
+                "name": "en_exact_yaml",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_multi_correction",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_neutral_escalation",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_inclusion_exclusion",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_grounded_summary",
+                "language": "cs",
+                "candidateScore": 0.867,
+                "incumbentScore": 1,
+                "candidateSpread": 0.19999999999999996,
+                "incumbentSpread": 0,
+                "delta": -0.1333333333333333,
+                "noise": 0.19999999999999996,
+                "discriminating": false
+              },
+              {
+                "name": "cz_exact_bullets",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 0.2,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0.7999999999999999,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "cz_context_correction",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_professional_reply",
+                "language": "cs",
+                "candidateScore": 0.8,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": -0.19999999999999984,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "cz_declension",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 0.933,
+                "candidateSpread": 0,
+                "incumbentSpread": 0.19999999999999996,
+                "delta": 0.06666666666666676,
+                "noise": 0.19999999999999996,
+                "discriminating": false
+              },
+              {
+                "name": "cz_plural_agreement",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_formal_register",
+                "language": "cs",
+                "candidateScore": 0.722,
+                "incumbentScore": 0.833,
+                "candidateSpread": 0.16666666666666674,
+                "incumbentSpread": 0,
+                "delta": -0.11111111111111116,
+                "noise": 0.16666666666666674,
+                "discriminating": false
+              },
+              {
+                "name": "cz_ambiguity_clarification",
+                "language": "cs",
+                "candidateScore": 0.6,
+                "incumbentScore": 0.6,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_vocative_request",
+                "language": "cs",
+                "candidateScore": 0.8,
+                "incumbentScore": 0.933,
+                "candidateSpread": 0,
+                "incumbentSpread": 0.19999999999999996,
+                "delta": -0.13333333333333308,
+                "noise": 0.19999999999999996,
+                "discriminating": false
+              },
+              {
+                "name": "cz_double_negation_counts",
+                "language": "cs",
+                "candidateScore": 0.6,
+                "incumbentScore": 0.6,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_grammar_correction",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_numeral_cases",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 0.4,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0.6000000000000001,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "cz_relative_pronoun",
+                "language": "cs",
+                "candidateScore": 0.8,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": -0.19999999999999984,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "cz_conditional_deadline",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              }
+            ],
+            "discriminating": 7,
+            "candidateWins": 3,
+            "incumbentWins": 4,
+            "margin": 0.1071,
+            "inconclusive": false,
+            "candidateSuiteScore": 0.8925396825396827,
+            "incumbentSuiteScore": 0.8733333333333334,
+            "repeats": 3,
+            "unstableTasks": [
+              "en_missing_context",
+              "en_evidence_boundary",
+              "cz_grounded_summary",
+              "cz_formal_register",
+              "cz_declension",
+              "cz_vocative_request"
+            ]
+          },
+          "decision": {
+            "winner": "incumbent",
+            "basis": "kvalita",
+            "confidence": "vysoká",
+            "detail": "marže 0.107 splnila práh 0.04, ale poměr rozlišujících úloh 3:4 nepotvrdil většinu kandidáta — stávající zůstává"
+          },
+          "skipped": false
+        }
+      ],
+      "decisions": {
+        "CHAT": {
+          "winner": "incumbent",
+          "basis": "kvalita",
+          "confidence": "vysoká",
+          "detail": "marže 0.107 splnila práh 0.04, ale poměr rozlišujících úloh 3:4 nepotvrdil většinu kandidáta — stávající zůstává"
+        }
+      },
+      "removed": false,
+      "keptReason": "mazání je vypnuté, dokud validační sady nerozlišují",
+      "error": null
+    },
+    {
+      "model": "phi4:14b",
+      "stage": "done",
+      "accepted": false,
+      "inconclusive": false,
+      "measurement": {
+        "model": "phi4:14b",
+        "numCtx": 32768,
+        "placement": {
+          "loaded": true,
+          "sizeBytes": 12411710995,
+          "vramBytes": 12411710995,
+          "cpuBytes": 0,
+          "fullyOnGpu": true
+        },
+        "throughput": {
+          "tokensPerSecond": 69.3,
+          "tokens": 160
+        },
+        "fits": true,
+        "error": null
+      },
+      "floor": {
+        "passed": true,
+        "failures": [],
+        "reused": true
+      },
+      "trials": [
+        {
+          "role": "CHAT",
+          "suite": "chat_v3",
+          "comparison": {
+            "suite": "chat_v3",
+            "tasks": [
+              {
+                "name": "en_grounded_summary",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_action_email",
+                "language": "en",
+                "candidateScore": 0.8,
+                "incumbentScore": 0.8,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_context_correction",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_missing_context",
+                "language": "en",
+                "candidateScore": 0.75,
+                "incumbentScore": 0.667,
+                "candidateSpread": 0,
+                "incumbentSpread": 0.25,
+                "delta": 0.08333333333333337,
+                "noise": 0.25,
+                "discriminating": false
+              },
+              {
+                "name": "en_structured_extraction",
+                "language": "en",
+                "candidateScore": 0.8,
+                "incumbentScore": 0.8,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_translation_from_czech",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_instruction_priority",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_state_updates",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_capability_boundary",
+                "language": "en",
+                "candidateScore": 0.6,
+                "incumbentScore": 0.8,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": -0.20000000000000018,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "en_exact_markdown_table",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_professional_rewrite",
+                "language": "en",
+                "candidateScore": 0.833,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": -0.16666666666666663,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "en_conditional_action",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_exact_csv",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 0.8,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0.19999999999999984,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "en_ambiguous_reference",
+                "language": "en",
+                "candidateScore": 0.8,
+                "incumbentScore": 0.8,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_completion_vs_verification",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_quantifier_scope",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_evidence_boundary",
+                "language": "en",
+                "candidateScore": 0.4,
+                "incumbentScore": 0.4,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_exact_yaml",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_multi_correction",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_neutral_escalation",
+                "language": "en",
+                "candidateScore": 0.833,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": -0.16666666666666663,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "en_inclusion_exclusion",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_grounded_summary",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_exact_bullets",
+                "language": "cs",
+                "candidateScore": 0.2,
+                "incumbentScore": 0.2,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_context_correction",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_professional_reply",
+                "language": "cs",
+                "candidateScore": 0.733,
+                "incumbentScore": 1,
+                "candidateSpread": 0.20000000000000007,
+                "incumbentSpread": 0,
+                "delta": -0.2666666666666666,
+                "noise": 0.20000000000000007,
+                "discriminating": true
+              },
+              {
+                "name": "cz_declension",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 0.933,
+                "candidateSpread": 0,
+                "incumbentSpread": 0.19999999999999996,
+                "delta": 0.06666666666666676,
+                "noise": 0.19999999999999996,
+                "discriminating": false
+              },
+              {
+                "name": "cz_plural_agreement",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_formal_register",
+                "language": "cs",
+                "candidateScore": 0.833,
+                "incumbentScore": 0.833,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_ambiguity_clarification",
+                "language": "cs",
+                "candidateScore": 0.733,
+                "incumbentScore": 0.6,
+                "candidateSpread": 0.20000000000000007,
+                "incumbentSpread": 0,
+                "delta": 0.13333333333333341,
+                "noise": 0.20000000000000007,
+                "discriminating": false
+              },
+              {
+                "name": "cz_vocative_request",
+                "language": "cs",
+                "candidateScore": 0.867,
+                "incumbentScore": 0.933,
+                "candidateSpread": 0.4,
+                "incumbentSpread": 0.19999999999999996,
+                "delta": -0.06666666666666654,
+                "noise": 0.4,
+                "discriminating": false
+              },
+              {
+                "name": "cz_double_negation_counts",
+                "language": "cs",
+                "candidateScore": 0.6,
+                "incumbentScore": 0.6,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_grammar_correction",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_numeral_cases",
+                "language": "cs",
+                "candidateScore": 0.6,
+                "incumbentScore": 0.4,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0.2,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "cz_relative_pronoun",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_conditional_deadline",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              }
+            ],
+            "discriminating": 6,
+            "candidateWins": 2,
+            "incumbentWins": 4,
+            "margin": -0.0667,
+            "inconclusive": false,
+            "candidateSuiteScore": 0.8680952380952381,
+            "incumbentSuiteScore": 0.8733333333333334,
+            "repeats": 3,
+            "unstableTasks": [
+              "cz_professional_reply",
+              "cz_ambiguity_clarification",
+              "cz_vocative_request",
+              "en_missing_context",
+              "cz_declension"
+            ]
+          },
+          "decision": {
+            "winner": "incumbent",
+            "basis": "nedostatečný důkaz",
+            "confidence": "nedostatečná",
+            "detail": "automatická výměna zablokována: stabilně rozlišující úlohy 6/7 celkem, en 4/3, cs 2/4"
+          },
+          "skipped": false
+        }
+      ],
+      "decisions": {
+        "CHAT": {
+          "winner": "incumbent",
+          "basis": "nedostatečný důkaz",
+          "confidence": "nedostatečná",
+          "detail": "automatická výměna zablokována: stabilně rozlišující úlohy 6/7 celkem, en 4/3, cs 2/4"
+        }
+      },
+      "removed": false,
+      "keptReason": "mazání je vypnuté, dokud validační sady nerozlišují",
+      "error": null
+    },
+    {
+      "model": "qwen3.8:latest",
+      "stage": "done",
+      "accepted": true,
+      "inconclusive": false,
+      "measurement": {
+        "model": "qwen3.8:latest",
+        "numCtx": 32768,
+        "placement": {
+          "loaded": true,
+          "sizeBytes": 17399734598,
+          "vramBytes": 17399734598,
+          "cpuBytes": 0,
+          "fullyOnGpu": true
+        },
+        "throughput": {
+          "tokensPerSecond": 37.1,
+          "tokens": 160
+        },
+        "fits": true,
+        "error": null
+      },
+      "floor": {
+        "passed": true,
+        "failures": [],
+        "reused": true
+      },
+      "trials": [
+        {
+          "role": "CHAT",
+          "suite": "chat_v3",
+          "comparison": {
+            "suite": "chat_v3",
+            "tasks": [
+              {
+                "name": "en_grounded_summary",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_action_email",
+                "language": "en",
+                "candidateScore": 0.8,
+                "incumbentScore": 0.8,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_context_correction",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_missing_context",
+                "language": "en",
+                "candidateScore": 0.75,
+                "incumbentScore": 0.667,
+                "candidateSpread": 0,
+                "incumbentSpread": 0.25,
+                "delta": 0.08333333333333337,
+                "noise": 0.25,
+                "discriminating": false
+              },
+              {
+                "name": "en_structured_extraction",
+                "language": "en",
+                "candidateScore": 0.8,
+                "incumbentScore": 0.8,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_translation_from_czech",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_instruction_priority",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_state_updates",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_capability_boundary",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 0.8,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0.19999999999999984,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "en_exact_markdown_table",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_professional_rewrite",
+                "language": "en",
+                "candidateScore": 0.833,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": -0.16666666666666663,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "en_conditional_action",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_exact_csv",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 0.8,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0.19999999999999984,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "en_ambiguous_reference",
+                "language": "en",
+                "candidateScore": 0.8,
+                "incumbentScore": 0.8,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_completion_vs_verification",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_quantifier_scope",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_evidence_boundary",
+                "language": "en",
+                "candidateScore": 0.6,
+                "incumbentScore": 0.4,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0.1999999999999999,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "en_exact_yaml",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_multi_correction",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "en_neutral_escalation",
+                "language": "en",
+                "candidateScore": 0.833,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": -0.16666666666666663,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "en_inclusion_exclusion",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_grounded_summary",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_exact_bullets",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 0.2,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0.7999999999999999,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "cz_context_correction",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_professional_reply",
+                "language": "cs",
+                "candidateScore": 0.667,
+                "incumbentScore": 1,
+                "candidateSpread": 0.19999999999999996,
+                "incumbentSpread": 0,
+                "delta": -0.33333333333333337,
+                "noise": 0.19999999999999996,
+                "discriminating": true
+              },
+              {
+                "name": "cz_declension",
+                "language": "cs",
+                "candidateScore": 0.8,
+                "incumbentScore": 0.933,
+                "candidateSpread": 0,
+                "incumbentSpread": 0.19999999999999996,
+                "delta": -0.13333333333333308,
+                "noise": 0.19999999999999996,
+                "discriminating": false
+              },
+              {
+                "name": "cz_plural_agreement",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_formal_register",
+                "language": "cs",
+                "candidateScore": 0.833,
+                "incumbentScore": 0.833,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_ambiguity_clarification",
+                "language": "cs",
+                "candidateScore": 0.8,
+                "incumbentScore": 0.6,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0.20000000000000018,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "cz_vocative_request",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 0.933,
+                "candidateSpread": 0,
+                "incumbentSpread": 0.19999999999999996,
+                "delta": 0.06666666666666676,
+                "noise": 0.19999999999999996,
+                "discriminating": false
+              },
+              {
+                "name": "cz_double_negation_counts",
+                "language": "cs",
+                "candidateScore": 0.6,
+                "incumbentScore": 0.6,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_grammar_correction",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "cz_numeral_cases",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 0.4,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0.6000000000000001,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "cz_relative_pronoun",
+                "language": "cs",
+                "candidateScore": 0.733,
+                "incumbentScore": 1,
+                "candidateSpread": 0.20000000000000007,
+                "incumbentSpread": 0,
+                "delta": -0.2666666666666666,
+                "noise": 0.20000000000000007,
+                "discriminating": true
+              },
+              {
+                "name": "cz_conditional_deadline",
+                "language": "cs",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              }
+            ],
+            "discriminating": 10,
+            "candidateWins": 6,
+            "incumbentWins": 4,
+            "margin": 0.1267,
+            "inconclusive": false,
+            "candidateSuiteScore": 0.9100000000000001,
+            "incumbentSuiteScore": 0.8733333333333334,
+            "repeats": 3,
+            "unstableTasks": [
+              "cz_professional_reply",
+              "cz_relative_pronoun",
+              "en_missing_context",
+              "cz_declension",
+              "cz_vocative_request"
+            ]
+          },
+          "decision": {
+            "winner": "candidate",
+            "basis": "kvalita",
+            "confidence": "vysoká",
+            "detail": "marže 0.127 ≥ práh 0.04 na 10 rozlišujících úlohách (6:4), jistota vysoká"
+          },
+          "skipped": false
+        }
+      ],
+      "decisions": {
+        "CHAT": {
+          "winner": "candidate",
+          "basis": "kvalita",
+          "confidence": "vysoká",
+          "detail": "marže 0.127 ≥ práh 0.04 na 10 rozlišujících úlohách (6:4), jistota vysoká"
+        }
+      },
+      "removed": false,
+      "keptReason": null,
+      "error": null
+    }
+  ],
+  "bindings": {
+    "D1": "qwen3.5:27b",
+    "D2": "qwen3.8:latest",
+    "CODE": "qwen3.5:27b",
+    "R1": "qwen3.8:latest",
+    "R2": "qwen3:14b",
+    "CHAT": "qwen3:14b",
+    "VISION": "llava-llama3:8b"
+  },
+  "applicationOutcomes": [],
+  "portfolio": {
+    "bindings": {
+      "D1": "qwen3.5:27b",
+      "D2": "qwen3.8:latest",
+      "CODE": "qwen3.5:27b",
+      "R1": "qwen3.8:latest",
+      "R2": "qwen3:14b",
+      "CHAT": "qwen3:14b",
+      "VISION": "llava-llama3:8b"
+    },
+    "choices": {
+      "D1": {
+        "model": "qwen3.5:27b",
+        "score": null,
+        "source": "unmeasured-incumbent",
+        "changed": false
+      },
+      "D2": {
+        "model": "qwen3.8:latest",
+        "score": null,
+        "source": "unmeasured-incumbent",
+        "changed": false
+      },
+      "CODE": {
+        "model": "qwen3.5:27b",
+        "score": null,
+        "source": "unmeasured-incumbent",
+        "changed": false
+      },
+      "R1": {
+        "model": "qwen3.8:latest",
+        "score": null,
+        "source": "unmeasured-incumbent",
+        "changed": false
+      },
+      "R2": {
+        "model": "qwen3:14b",
+        "score": null,
+        "source": "unmeasured-incumbent",
+        "changed": false
+      },
+      "CHAT": {
+        "model": "qwen3:14b",
+        "score": 0.8733333333333334,
+        "source": "incumbent-evaluation",
+        "changed": false
+      },
+      "VISION": {
+        "model": "llava-llama3:8b",
+        "score": null,
+        "source": "unmeasured-incumbent",
+        "changed": false
+      }
+    },
+    "audit": {
+      "compliant": true,
+      "violations": [],
+      "assignments": {
+        "qwen3.5:27b": [
+          "D1",
+          "CODE"
+        ],
+        "qwen3.8": [
+          "D2",
+          "R1"
+        ],
+        "qwen3:14b": [
+          "R2",
+          "CHAT"
+        ],
+        "llava-llama3:8b": [
+          "VISION"
+        ]
+      }
+    },
+    "utility": 0.8733333333333334,
+    "changedRoles": [],
+    "feasible": true,
+    "repairMode": false
+  }
+}

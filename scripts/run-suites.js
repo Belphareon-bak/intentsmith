@@ -112,6 +112,8 @@ function runSuite(suite, env, timeoutMs, outPath) {
       killed = true;
       child.kill('SIGKILL');
     }, timeoutMs);
+    // A stale watchdog must never keep a completed development run alive.
+    timer.unref();
     child.on('exit', (code, signal) => {
       clearTimeout(timer);
       const output = Buffer.concat(chunks).toString('utf8');

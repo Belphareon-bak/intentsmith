@@ -208,7 +208,7 @@ await testAsync('returns 4096 fallback when VRAM cannot be queried', async () =>
   assertEqual(mgr.getTargetNumCtx(), 4096);
 });
 
-await testAsync('computeNumCtx stores result in _targetNumCtx', async () => {
+await testAsync('computeNumCtx stores the profile-capped effective result', async () => {
   const mgr = createManager();
   clearNumCtxCache();
   const result = await withIsolatedVramSources(

@@ -1,0 +1,61 @@
+{
+  "measuredAt": "2026-08-23T10:43:01.907Z",
+  "models": [
+    "qwen3-coder:latest",
+    "qwen3.5:27b",
+    "qwen3-30b-a3b:latest",
+    "qwen3:14b",
+    "llava:13b"
+  ],
+  "repeats": 3,
+  "tasks": [
+    {
+      "name": "patch_50421d22f6eb",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    },
+    {
+      "name": "patch_a6043570f797",
+      "values": [
+        0,
+        0,
+        0,
+        0,
+        0
+      ],
+      "noise": 0,
+      "verdict": "podlaha"
+    }
+  ],
+  "scores": [
+    [
+      "qwen3-coder:latest",
+      0
+    ],
+    [
+      "qwen3.5:27b",
+      0
+    ],
+    [
+      "qwen3-30b-a3b:latest",
+      0
+    ],
+    [
+      "qwen3:14b",
+      0
+    ],
+    [
+      "llava:13b",
+      0
+    ]
+  ],
+  "discriminating": 0,
+  "total": 2
+}

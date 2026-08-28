@@ -9,7 +9,16 @@ import {
   comparePair, decideRole, trialRole, createSuiteCache,
   TASK_MARGIN_EPSILON, DEFAULT_REPEATS,
 } from '../src/upgrade/pairwise-trial.js';
-import { SUITES } from '../src/upgrade/validation-suites.js';
+
+const UNIT_TASKS = Object.freeze([
+  Object.freeze({ name: 'unit_alpha' }),
+  Object.freeze({ name: 'unit_beta' }),
+  Object.freeze({ name: 'unit_gamma' }),
+]);
+const SUITES = Object.freeze({
+  code: Object.freeze({ name: 'code', tests: UNIT_TASKS }),
+  reasoning: Object.freeze({ name: 'reasoning', tests: UNIT_TASKS }),
+});
 
 /**
  * Runner, který pro každý model vrátí předepsaná skóre úloh.
@@ -21,8 +30,8 @@ function fakeRunner(scoresByModel) {
   const runIndex = new Map();
   return {
     calls: [],
-    async runSuite(suiteName, model) {
-      this.calls.push({ suiteName, model });
+    async runSuite(suiteName, model, _onProgress, artifact) {
+      this.calls.push({ suiteName, model, artifact: artifact || null });
       const key = `${suiteName}::${model}`;
       const n = runIndex.get(key) ?? 0;
       runIndex.set(key, n + 1);
@@ -41,6 +50,20 @@ function fakeRunner(scoresByModel) {
 }
 
 const ONCE = { repeats: 1 };
+const artifactFor = model => Object.freeze({
+  modelName: model,
+  digestSha256: model === 'A' ? 'a'.repeat(64) : 'b'.repeat(64),
+});
+const CODE_PLAN = Object.freeze({
+  role: 'CODE',
+  suiteName: 'code',
+  suite: SUITES.code,
+  suiteVersion: 'unit-v1',
+  suiteContractSha256: 'c'.repeat(64),
+  repeats: 1,
+  minimumDiscriminatingTasks: 0,
+  minimumDiscriminatingByLanguage: Object.freeze({}),
+});
 
 const CODE_TASKS = SUITES.code.tests.map(t => t.name);
 
@@ -53,6 +76,27 @@ await testAsync('oba modely projdou tutéž sadu', async () => {
   await comparePair(runner, 'code', 'A', 'B', ONCE);
   assertEqual(runner.calls.length, 2);
   assert(runner.calls.every(c => c.suiteName === 'code'), 'stejná sada pro oba');
+});
+
+await testAsync('persistovaný běh předá runneru přesnou identitu artefaktu', async () => {
+  const runner = fakeRunner({ A: { _default: 1 }, B: { _default: 1 } });
+  const saved = [];
+  await comparePair(runner, 'code', 'A', 'B', {
+    ...ONCE,
+    resolveArtifact: async model => artifactFor(model),
+    saveHistoricalSummary: async input => { saved.push(input); },
+  });
+  assertEqual(runner.calls[0].artifact.digestSha256, 'a'.repeat(64));
+  assertEqual(runner.calls[1].artifact.digestSha256, 'b'.repeat(64));
+  assertEqual(saved[0].artifact.digestSha256, 'a'.repeat(64));
+  assertEqual(saved[1].artifact.digestSha256, 'b'.repeat(64));
+  for (const entry of saved) {
+    const started = Date.parse(entry.summary.startedAt);
+    const completed = Date.parse(entry.summary.completedAt);
+    assert(Number.isFinite(started) && Number.isFinite(completed));
+    assert(completed >= started, 'measurement completion must not precede its start');
+    assertEqual(entry.summary.durationMs, completed - started);
+  }
 });
 
 await testAsync('shodná skóre = žádná rozlišující úloha', async () => {
@@ -73,6 +117,27 @@ await testAsync('rozdíl pod prahem se nepočítá za rozlišení', async () => 
   });
   const r = await comparePair(runner, 'code', 'A', 'B', ONCE);
   assertEqual(r.discriminating, 0, 'drobný rozdíl je šum, ne signál');
+});
+
+await testAsync('třídesetinné zaokrouhlení nepřekročí stejnou noise hranici', async () => {
+  const task = CODE_TASKS[0];
+  const historical = model => ({
+    suite: 'code', model, runs: 3, score: model === 'A' ? 1 : 0.333,
+    tasks: [{
+      name: task,
+      mean: model === 'A' ? 1 : 0.333,
+      spread: model === 'A' ? 0 : (2 / 3),
+      scores: [], responses: [], details: [], rubric: [], language: null,
+    }],
+    unstableTasks: model === 'A' ? [] : [task],
+  });
+  const r = await comparePair(fakeRunner({}), 'code', 'A', 'B', {
+    ...ONCE,
+    loadHistoricalSummary: ({ model }) => historical(model),
+  });
+  assertEqual(r.tasks[0].delta, 0.667);
+  assertEqual(r.tasks[0].discriminating, false,
+    'zaokrouhlovací artefakt nesmí být kvalitativní signál');
 });
 
 await testAsync('marže se počítá jen z rozlišujících úloh', async () => {
@@ -127,23 +192,12 @@ test('víc výher nestačí, když je marže malá', () => {
   assertEqual(d.winner, 'incumbent');
 });
 
-test('při remíze kvality rozhodne výrazně vyšší rychlost', () => {
+test('při remíze kvality nerozhodne ani výrazně vyšší rychlost', () => {
   const d = decideRole({ margin: 0, discriminating: 0, inconclusive: true }, { candidate: 140, incumbent: 70 }, 0.05);
-  assertEqual(d.winner, 'candidate');
-  assertEqual(d.basis, 'rychlost');
-  assert(/2\.00×/.test(d.detail), `detail má uvést poměr: ${d.detail}`);
-});
-
-test('malý rozdíl rychlosti výměnu neospravedlní', () => {
-  const d = decideRole({ margin: 0, discriminating: 0, inconclusive: true }, { candidate: 78, incumbent: 70 }, 0.05);
   assertEqual(d.winner, 'incumbent');
   assertEqual(d.basis, 'nerozhodně');
-});
-
-test('bez změřené rychlosti se při remíze nemění nic', () => {
-  const d = decideRole({ margin: 0, discriminating: 0, inconclusive: true }, {}, 0.05);
-  assertEqual(d.winner, 'incumbent');
-  assert(/není změřená/.test(d.detail));
+  assertEqual(d.reasonCode, 'QUALITY_INCONCLUSIVE');
+  assert(/není náhradní/.test(d.detail));
 });
 
 test('rozhodnutí vždy nese základ i vysvětlení', () => {
@@ -153,7 +207,7 @@ test('rozhodnutí vždy nese základ i vysvětlení', () => {
     { margin: 0, discriminating: 0, inconclusive: true },
   ]) {
     const d = decideRole(c, { candidate: 10, incumbent: 10 }, 0.05);
-    assert(d.basis && d.detail, 'každé rozhodnutí musí být zdůvodněné');
+    assert(d.reasonCode && d.basis && d.detail, 'každé rozhodnutí musí být zdůvodněné');
   }
 });
 
@@ -171,7 +225,9 @@ await testAsync('vrátí porovnání i rozhodnutí', async () => {
     A: { _default: 1 },
     B: { _default: 1, [CODE_TASKS[0]]: 0.2 },
   });
-  const r = await trialRole(runner, 'CODE', 'A', 'B', { threshold: 0.05, ...ONCE });
+  const r = await trialRole(runner, 'CODE', 'A', 'B', {
+    evaluationPlan: CODE_PLAN, threshold: 0.05, ...ONCE,
+  });
   assertEqual(r.skipped, false);
   assertEqual(r.suite, 'code');
   assert(r.comparison && r.decision, 'musí nést obojí');
@@ -181,7 +237,9 @@ await testAsync('vrátí porovnání i rozhodnutí', async () => {
 await testAsync('mezi modely se dá vložit úklid paměti', async () => {
   let drained = 0;
   const runner = fakeRunner({ A: { _default: 1 }, B: { _default: 1 } });
-  await trialRole(runner, 'CODE', 'A', 'B', { between: async () => { drained++; }, ...ONCE });
+  await trialRole(runner, 'CODE', 'A', 'B', {
+    evaluationPlan: CODE_PLAN, between: async () => { drained++; }, ...ONCE,
+  });
   assertEqual(drained, 1, 'kontence ve VRAM zkresluje výsledek — paměť se musí uvolnit');
 });
 
@@ -206,6 +264,23 @@ await testAsync('jiný stávající model se spustí znovu', async () => {
   await comparePair(runner, 'reasoning', 'A', 'B', { suiteCache, ...ONCE });
   await comparePair(runner, 'reasoning', 'A', 'C', { suiteCache, ...ONCE });
   assertEqual(runner.calls.length, 3, 'A z cache, B i C se musí změřit');
+});
+
+await testAsync('stejná sada a model se mezi rolemi znovu změří', async () => {
+  const runner = fakeRunner({ A: { _default: 1 }, B: { _default: 1 } });
+  const suiteCache = createSuiteCache();
+  await comparePair(runner, 'reasoning', 'A', 'B', { suiteCache, role: 'D1', ...ONCE });
+  await comparePair(runner, 'reasoning', 'A', 'B', { suiteCache, role: 'D2', ...ONCE });
+  assertEqual(runner.calls.length, 4, 'role is part of the in-memory evidence identity');
+});
+
+await testAsync('stejný contract se mezi verzemi sady znovu změří', async () => {
+  const runner = fakeRunner({ A: { _default: 1 }, B: { _default: 1 } });
+  const suiteCache = createSuiteCache();
+  const exact = { suiteCache, role: 'CHAT', suiteContractSha256: 'c'.repeat(64), ...ONCE };
+  await comparePair(runner, 'reasoning', 'A', 'B', { ...exact, suiteVersion: 'v1' });
+  await comparePair(runner, 'reasoning', 'A', 'B', { ...exact, suiteVersion: 'v2' });
+  assertEqual(runner.calls.length, 4, 'suite version is part of the in-memory evidence identity');
 });
 
 await testAsync('bez cache se chování nemění', async () => {
@@ -311,10 +386,75 @@ test('víc rozlišujících úloh zvedá jistotu', () => {
   assertEqual(many.confidence, 'vysoká');
 });
 
+test('role-specific evidence gate blocks a narrow language sample', () => {
+  const comparison = {
+    margin: 0.4, candidateWins: 2, incumbentWins: 0, discriminating: 2,
+    inconclusive: false,
+    tasks: [
+      { name: 'cz_a', language: 'cs', discriminating: true },
+      { name: 'cz_b', language: 'cs', discriminating: true },
+    ],
+  };
+  const decision = decideRole(comparison, {}, 0.04, {
+    minimumDiscriminatingTasks: 6,
+    minimumDiscriminatingByLanguage: { en: 3, cs: 4 },
+  });
+  assertEqual(decision.winner, 'incumbent');
+  assertEqual(decision.basis, 'nedostatečný důkaz');
+  assertEqual(decision.reasonCode, 'INSUFFICIENT_EVIDENCE');
+  assert(/cs 2\/4/.test(decision.detail), decision.detail);
+});
+
+test('role-specific evidence gate admits a broad bilingual sample', () => {
+  const tasks = [
+    ...Array.from({ length: 3 }, (_, i) => ({ name: `en_${i}`, language: 'en', discriminating: true })),
+    ...Array.from({ length: 4 }, (_, i) => ({ name: `cs_${i}`, language: 'cs', discriminating: true })),
+  ];
+  const decision = decideRole({
+    margin: 0.2, candidateWins: 6, incumbentWins: 1,
+    discriminating: tasks.length, inconclusive: false, tasks,
+  }, {}, 0.04, {
+    minimumDiscriminatingTasks: 6,
+    minimumDiscriminatingByLanguage: { en: 3, cs: 4 },
+  });
+  assertEqual(decision.winner, 'candidate');
+});
+
 test('jistota se hlásí i u prohry kandidáta', () => {
   const d = decideRole({ margin: -1, candidateWins: 0, incumbentWins: 3, discriminating: 3, inconclusive: false }, {}, 0.05);
   assertEqual(d.winner, 'incumbent');
   assertEqual(d.confidence, 'vysoká');
+});
+
+await testAsync('durable history prevents a second model run for the same contract', async () => {
+  const runner = fakeRunner({ A: { _default: 0.9 }, B: { _default: 0.4 } });
+  const stored = new Map();
+  const options = {
+    repeats: 1,
+    suiteContractSha256: 'a'.repeat(64),
+    suiteVersion: 'test-v1',
+    resolveArtifact: async model => artifactFor(model),
+    loadHistoricalSummary: async ({ model }) => stored.get(model) || null,
+    saveHistoricalSummary: async ({ model, summary }) => { stored.set(model, summary); },
+  };
+  await comparePair(runner, 'code', 'A', 'B', options);
+  assertEqual(runner.calls.length, 2);
+  await comparePair(runner, 'code', 'A', 'B', options);
+  assertEqual(runner.calls.length, 2, 'second comparison must reuse both durable summaries');
+});
+
+await testAsync('a different suite contract cannot reuse an old summary', async () => {
+  const runner = fakeRunner({ A: { _default: 0.9 }, B: { _default: 0.4 } });
+  const stored = new Map();
+  const hooks = {
+    repeats: 1,
+    resolveArtifact: async model => artifactFor(model),
+    loadHistoricalSummary: async ({ model, suiteContractSha256 }) => stored.get(`${suiteContractSha256}:${model}`) || null,
+    saveHistoricalSummary: async ({ model, suiteContractSha256, summary }) => { stored.set(`${suiteContractSha256}:${model}`, summary); },
+  };
+  await comparePair(runner, 'code', 'A', 'B', { ...hooks, suiteContractSha256: 'a'.repeat(64) });
+  await comparePair(runner, 'code', 'A', 'B', { ...hooks, suiteContractSha256: 'b'.repeat(64) });
+  assertEqual(runner.calls.length, 4);
 });
 
 summary();

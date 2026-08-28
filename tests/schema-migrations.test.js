@@ -62,6 +62,9 @@ import {
   hasTable,
   _testInternals as migrationTestInternals,
 } from '../src/db/migrate.js';
+import { up as up066ModelPolicy } from '../src/db/migrations/2026_08_22_066_model_automation_policy.js';
+import { up as repairModelPolicyTriggers } from '../src/db/migrations/2026_08_24_081_model_policy_trigger_compatibility.js';
+import { up as repairModelProofTriggers } from '../src/db/migrations/2026_08_24_081_model_proof_trigger_compatibility.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -163,7 +166,8 @@ const ALL_MIGRATIONS = [
   '2026_08_22_066_model_automation_policy',
   '2026_08_22_067_model_failover_proof_artifacts',
   '2026_08_22_069_model_failover_runtime_finalization',
-  '2026_08_23_070_m2_effect_authority',
+  '2026_08_22_070_model_evaluation_history',
+  '2026_08_23_092_m2_effect_authority',
   '2026_08_24_071_m2_effect_authority_hardening',
   '2026_08_24_072_m2_effect_execution_claims',
   '2026_08_24_073_m2_effect_claim_truth',
@@ -174,15 +178,21 @@ const ALL_MIGRATIONS = [
   '2026_08_24_078_m2_execution_authority',
   '2026_08_24_079_m2_lifecycle_authority',
   '2026_08_24_080_m2_effect_semantic_authority',
-  '2026_08_24_081_m2_effect_result_semantic_authority_v2',
-  '2026_08_25_082_m2_preexecution_approval_terminals',
-  '2026_08_25_083_m2_effect_rollback_receipts',
+  '2026_08_24_081_model_policy_trigger_compatibility',
+  '2026_08_24_081_model_proof_trigger_compatibility',
+  '2026_08_24_082_model_evaluation_consolidation',
+  '2026_08_24_093_m2_effect_result_semantic_authority_v2',
+  '2026_08_25_094_m2_preexecution_approval_terminals',
+  '2026_08_25_095_m2_effect_rollback_receipts',
   '2026_08_26_087_m4_learning_authority',
   '2026_08_26_088_m4_learning_plan_evaluations',
   '2026_08_26_089_m5_outbound_audit',
   '2026_08_26_090_m5_privacy_authority',
   '2026_08_26_091_m5_privacy_writer_authority',
+  '2026_08_26_096_model_evaluation_import_audit',
+  '2026_08_27_097_model_evaluation_role_identity',
   '2026_08_27_098_m6_model_artifact_authority',
+  '2026_08_27_099_remove_model_runtime_guard',
   '2026_08_28_100_signed_privacy_receipts',
 ];
 
@@ -219,9 +229,12 @@ const EXPECTED_TABLES = [
   'm2_lifecycle_approval_intents', 'm2_lifecycle_cancel_intents', 'm2_lifecycle_events',
   'm2_lifecycle_governance_receipts', 'm2_lifecycle_grant_sets',
   'm2_lifecycle_operations', 'm2_lifecycle_terminals',
+  'm2_tool_effect_links', 'tool_v1_requests', 'tool_v1_results',
+  'm4_learning_plan_evaluations',
+  'm5_privacy_history_receipts', 'm5_privacy_rotation_receipts',
   'model_binding_application_attempts', 'model_binding_operations', 'model_binding_runtime_finalize_cutoffs', 'model_binding_runtime_finalize_receipts', 'model_catalog_cache', 'model_desired_bindings', 'model_failover_events', 'model_failover_proofs',
   'model_failover_health_events', 'model_failover_runtime_finalize_receipts', 'model_failover_state', 'model_overrides', 'model_performance', 'model_reconciliation_log',
-  'model_runtime_guard',
+  'model_evaluation_decision_quarantine', 'model_evaluation_decisions', 'model_evaluation_import_audits', 'model_evaluation_import_evidence', 'model_evaluation_runs',
   'model_signal_events', 'model_universe_derived', 'model_universe_raw',
   'model_usage', 'model_write_log',
   'period_locks', 'project_lifecycles', 'project_memory', 'projects',
@@ -231,9 +244,8 @@ const EXPECTED_TABLES = [
   'specialist_memory', 'specialist_migrations', 'specialist_telemetry', 'specialists',
   'task_memory', 'tax_losses', 'telemetry_alerts', 'telemetry_improvements', 'telemetry_metrics',
   'telemetry_snapshots',
-  'tool_v1_requests', 'tool_v1_results', 'm2_tool_effect_links',
-  'upgrade_history', 'upgrade_proposals', 'user_memory', 'user_settings',
-  'validation_results', 'validation_suite_scores', 'vat_periods',
+  'upgrade_history', 'user_memory', 'user_settings',
+  'vat_periods',
   'workflow_patterns', 'workflow_sessions',
 ];
 
@@ -271,6 +283,316 @@ describe('T-SM0: Migration identity preflight', async () => {
       /Duplicate migration version/,
       () => upCalls
     );
+  });
+
+  await it('rejects reused numeric slots with different version strings before mutation', () => {
+    let upCalls = 0;
+    const up = () => { upCalls++; };
+    const plan = [
+      {
+        version: '2026_08_24_081_first_owner',
+        file: '2026_08_24_081_first_owner.js',
+        description: 'first',
+        up,
+      },
+      {
+        version: '2026_08_25_081_second_owner',
+        file: '2026_08_25_081_second_owner.js',
+        description: 'second',
+        up,
+      },
+    ];
+
+    assertManifestRejectedBeforeMutation(
+      plan,
+      /Duplicate migration numeric slot 081/,
+      () => upCalls
+    );
+  });
+
+  await it('accepts only the three exact grandfathered numeric-slot sets', () => {
+    const up = () => {};
+    assert.doesNotThrow(() => migrationTestInternals.validateMigrationPlan([
+      {
+        version: '2026_02_19_008',
+        file: '2026_02_19_008_v69_ledger_core.js',
+        description: 'historical first',
+        up,
+      },
+      {
+        version: '2026_02_20_008',
+        file: '2026_02_20_008_v69_expert_to_expertise.js',
+        description: 'historical second',
+        up,
+      },
+    ]));
+    assert.throws(() => migrationTestInternals.validateMigrationPlan([
+      {
+        version: '2026_02_19_008',
+        file: '2026_02_19_008_v69_ledger_core.js',
+        description: 'historical first',
+        up,
+      },
+      {
+        version: '2026_08_26_008_new_reuse',
+        file: '2026_08_26_008_new_reuse.js',
+        description: 'not grandfathered',
+        up,
+      },
+    ]), /Duplicate migration numeric slot 008/);
+    assert.doesNotThrow(() => migrationTestInternals.validateMigrationPlan([
+      {
+        version: '2026_08_24_081_model_policy_trigger_compatibility',
+        file: '2026_08_24_081_model_policy_trigger_compatibility.js',
+        description: 'immutable model policy repair',
+        up,
+      },
+      {
+        version: '2026_08_24_081_model_proof_trigger_compatibility',
+        file: '2026_08_24_081_model_proof_trigger_compatibility.js',
+        description: 'immutable model proof repair',
+        up,
+      },
+    ]));
+  });
+
+  await it('adopts the retired 084-086 identities atomically and preserves timestamps', async () => {
+    const db = freshDb();
+    await runMigrations(db);
+    const replacements = [
+      ['2026_08_24_081_model_policy_trigger_compatibility', '2026_08_26_084_model_policy_trigger_compatibility', '2026-08-25 20:14:48'],
+      ['2026_08_24_081_model_proof_trigger_compatibility', '2026_08_26_085_model_proof_trigger_compatibility', '2026-08-25 20:17:55'],
+      ['2026_08_24_082_model_evaluation_consolidation', '2026_08_26_086_model_evaluation_consolidation', '2026-08-25 20:17:55'],
+    ];
+    for (const [canonical, retired, appliedAt] of replacements) {
+      db.prepare(`
+        UPDATE schema_migrations SET version = ?, applied_at = ? WHERE version = ?
+      `).run(retired, appliedAt, canonical);
+    }
+
+    const result = await runMigrations(db);
+    assert.strictEqual(result.applied.length, 0);
+    assert.strictEqual(result.skipped.length, MIGRATION_COUNT);
+    for (const [canonical, retired, appliedAt] of replacements) {
+      assert.deepStrictEqual(
+        db.prepare('SELECT applied_at FROM schema_migrations WHERE version = ?').get(canonical),
+        { applied_at: appliedAt }
+      );
+      assert.strictEqual(
+        db.prepare('SELECT 1 AS ok FROM schema_migrations WHERE version = ?').get(retired),
+        undefined
+      );
+    }
+    assert.strictEqual(hasTable(db, 'validation_results'), false);
+    assert.strictEqual(hasTable(db, 'validation_suite_scores'), false);
+    db.close();
+  });
+
+  await it('atomically adopts the retired M2 identities without rerunning migration bodies', async () => {
+    const db = freshDb();
+    await runMigrations(db);
+    const aliases = [
+      ['2026_08_23_092_m2_effect_authority', '2026_08_23_070_m2_effect_authority', '2026-08-25 17:00:00'],
+      ['2026_08_24_093_m2_effect_result_semantic_authority_v2', '2026_08_24_081_m2_effect_result_semantic_authority_v2', '2026-08-25 17:01:00'],
+      ['2026_08_25_094_m2_preexecution_approval_terminals', '2026_08_25_082_m2_preexecution_approval_terminals', '2026-08-25 17:02:00'],
+      ['2026_08_25_095_m2_effect_rollback_receipts', '2026_08_25_083_m2_effect_rollback_receipts', '2026-08-25 17:03:00'],
+    ];
+    for (const [canonical, retired, appliedAt] of aliases) {
+      db.prepare(`
+        UPDATE schema_migrations SET version = ?, applied_at = ? WHERE version = ?
+      `).run(retired, appliedAt, canonical);
+    }
+
+    const result = await runMigrations(db);
+    assert.strictEqual(result.applied.length, 0);
+    assert.strictEqual(result.skipped.length, MIGRATION_COUNT);
+    for (const [canonical, retired, appliedAt] of aliases) {
+      assert.deepStrictEqual(
+        db.prepare('SELECT applied_at FROM schema_migrations WHERE version = ?').get(canonical),
+        { applied_at: appliedAt },
+      );
+      assert.strictEqual(
+        db.prepare('SELECT 1 AS ok FROM schema_migrations WHERE version = ?').get(retired),
+        undefined,
+      );
+    }
+    db.close();
+  });
+
+  await it('continues a partially applied retired M2 history after adopting exact schemas', async () => {
+    const db = freshDb();
+    const migrations = await migrationTestInternals.discoverMigrations();
+    const firstPending = migrations.findIndex(migration => (
+      migration.version === '2026_08_25_094_m2_preexecution_approval_terminals'
+    ));
+    migrationTestInternals.runMigrationPlan(db, migrations.slice(0, firstPending));
+    db.prepare(`
+      UPDATE schema_migrations SET version = '2026_08_23_070_m2_effect_authority'
+      WHERE version = '2026_08_23_092_m2_effect_authority'
+    `).run();
+    db.prepare(`
+      UPDATE schema_migrations
+      SET version = '2026_08_24_081_m2_effect_result_semantic_authority_v2'
+      WHERE version = '2026_08_24_093_m2_effect_result_semantic_authority_v2'
+    `).run();
+
+    const result = migrationTestInternals.runMigrationPlan(db, migrations);
+    assert.deepStrictEqual(result.applied, [
+      '2026_08_25_094_m2_preexecution_approval_terminals',
+      '2026_08_25_095_m2_effect_rollback_receipts',
+      '2026_08_26_087_m4_learning_authority',
+      '2026_08_26_088_m4_learning_plan_evaluations',
+      '2026_08_26_089_m5_outbound_audit',
+      '2026_08_26_090_m5_privacy_authority',
+      '2026_08_26_091_m5_privacy_writer_authority',
+      '2026_08_26_096_model_evaluation_import_audit',
+      '2026_08_27_097_model_evaluation_role_identity',
+      '2026_08_27_098_m6_model_artifact_authority',
+      '2026_08_27_099_remove_model_runtime_guard',
+      '2026_08_28_100_signed_privacy_receipts',
+    ]);
+    assert.strictEqual(db.prepare(`
+      SELECT COUNT(*) AS count FROM schema_migrations
+      WHERE version IN (
+        '2026_08_23_070_m2_effect_authority',
+        '2026_08_24_081_m2_effect_result_semantic_authority_v2'
+      )
+    `).get().count, 0);
+    db.close();
+  });
+
+  await it('removes redundant retired stamps from a 96c762db-style history without rerunning 082', async () => {
+    const db = freshDb();
+    await runMigrations(db);
+    const canonicalTimestamp = db.prepare(`
+      SELECT applied_at FROM schema_migrations
+      WHERE version = '2026_08_24_082_model_evaluation_consolidation'
+    `).get().applied_at;
+    db.prepare(`
+      INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)
+    `).run('2026_08_26_084_model_policy_trigger_compatibility', '2026-08-26 10:00:00');
+    db.prepare(`
+      INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)
+    `).run('2026_08_26_085_model_proof_trigger_compatibility', '2026-08-26 10:01:00');
+
+    const result = await runMigrations(db);
+    assert.strictEqual(result.applied.length, 0);
+    assert.strictEqual(result.skipped.length, MIGRATION_COUNT);
+    assert.strictEqual(db.prepare(`
+      SELECT applied_at FROM schema_migrations
+      WHERE version = '2026_08_24_082_model_evaluation_consolidation'
+    `).get().applied_at, canonicalTimestamp);
+    assert.strictEqual(db.prepare(`
+      SELECT COUNT(*) AS count FROM schema_migrations
+      WHERE version IN (
+        '2026_08_26_084_model_policy_trigger_compatibility',
+        '2026_08_26_085_model_proof_trigger_compatibility'
+      )
+    `).get().count, 0);
+    assert.strictEqual(hasTable(db, 'validation_results'), false);
+    db.close();
+  });
+
+  await it('rolls back every identity adoption when a canonical target is absent', () => {
+    const db = freshDb();
+    db.exec(`
+      CREATE TABLE schema_migrations (
+        version TEXT PRIMARY KEY,
+        applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      INSERT INTO schema_migrations(version, applied_at) VALUES
+        ('2026_08_26_084_model_policy_trigger_compatibility', '2026-08-26 10:00:00'),
+        ('2026_08_26_085_model_proof_trigger_compatibility', '2026-08-26 10:01:00');
+    `);
+    const plan = [{
+      version: '2026_08_24_081_model_policy_trigger_compatibility',
+      file: '2026_08_24_081_model_policy_trigger_compatibility.js',
+      description: 'only one canonical target',
+      up: () => {},
+    }];
+
+    assert.throws(
+      () => migrationTestInternals.runMigrationPlan(db, plan),
+      /canonical identity 2026_08_24_081_model_proof_trigger_compatibility is absent/
+    );
+    assert.deepStrictEqual(
+      db.prepare('SELECT version FROM schema_migrations ORDER BY version').all().map(row => row.version),
+      [
+        '2026_08_26_084_model_policy_trigger_compatibility',
+        '2026_08_26_085_model_proof_trigger_compatibility',
+      ]
+    );
+    db.close();
+  });
+
+  await it('rejects a numeric-slot collision split across DB history and the manifest before up()', () => {
+    const db = freshDb();
+    let upCalls = 0;
+    db.exec(`
+      CREATE TABLE schema_migrations (
+        version TEXT PRIMARY KEY,
+        applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      INSERT INTO schema_migrations(version, applied_at) VALUES
+        ('2026_08_23_070_unknown_owner', '2026-08-25 19:02:00');
+    `);
+    const plan = [{
+      version: '2026_08_22_070_model_evaluation_history',
+      file: '2026_08_22_070_model_evaluation_history.js',
+      description: 'model evaluation history',
+      up: () => { upCalls++; },
+    }];
+    assert.throws(
+      () => migrationTestInternals.runMigrationPlan(db, plan),
+      /Duplicate migration numeric slot 070 in migration manifest \+ schema_migrations/
+    );
+    assert.strictEqual(upCalls, 0);
+    assert.deepStrictEqual(
+      db.prepare('SELECT version, applied_at FROM schema_migrations').all(),
+      [{
+        version: '2026_08_23_070_unknown_owner',
+        applied_at: '2026-08-25 19:02:00',
+      }],
+    );
+    db.close();
+  });
+
+  await it('leaves retired stamps unchanged when their hypothetical adoption would collide', () => {
+    const db = freshDb();
+    db.exec(`
+      CREATE TABLE schema_migrations (
+        version TEXT PRIMARY KEY,
+        applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      INSERT INTO schema_migrations(version, applied_at) VALUES
+        ('2026_08_24_081_unknown_owner', '2026-08-25 18:00:00'),
+        ('2026_08_26_084_model_policy_trigger_compatibility', '2026-08-25 20:14:48');
+    `);
+    const plan = [{
+      version: '2026_08_24_081_model_policy_trigger_compatibility',
+      file: '2026_08_24_081_model_policy_trigger_compatibility.js',
+      description: 'model policy repair',
+      up: () => {},
+    }];
+
+    assert.throws(
+      () => migrationTestInternals.runMigrationPlan(db, plan),
+      /Duplicate migration numeric slot 081 in migration manifest \+ schema_migrations/
+    );
+    assert.deepStrictEqual(
+      db.prepare('SELECT version, applied_at FROM schema_migrations ORDER BY version').all(),
+      [
+        {
+          version: '2026_08_24_081_unknown_owner',
+          applied_at: '2026-08-25 18:00:00',
+        },
+        {
+          version: '2026_08_26_084_model_policy_trigger_compatibility',
+          applied_at: '2026-08-25 20:14:48',
+        },
+      ],
+    );
+    db.close();
   });
 
   await it('rejects invalid version format before schema_migrations or up()', () => {
@@ -620,6 +942,8 @@ describe('T-SM7: Baseline creates all expected tables', async () => {
       '2026_08_22_066_model_automation_policy',
       '2026_08_22_067_model_failover_proof_artifacts',
       '2026_08_22_069_model_failover_runtime_finalization',
+      '2026_08_24_081_model_policy_trigger_compatibility',
+      '2026_08_24_081_model_proof_trigger_compatibility',
     ].includes(migration.version));
     migrationTestInternals.runMigrationPlan(db, pre050);
     db.prepare(`
@@ -838,6 +1162,270 @@ describe('T-SM10: hasColumn / hasTable utilities', async () => {
     for (const t of ['chat_ai', 'chat_ad', 'messages_ai', 'messages_ad', 'messages_count_ai', 'messages_count_ad']) {
       assert.ok(triggers.includes(t), `Missing trigger: ${t}`);
     }
+    db.close();
+  });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// T-SM11: NARROW COMPATIBILITY REPAIR FOR HISTORICAL 066/067 COLLISIONS
+// ══════════════════════════════════════════════════════════════════════════════
+
+const POLICY_LEGACY_TRIGGERS = [
+  'trg_model_automation_policy_events_no_update',
+  'trg_model_automation_policy_events_no_delete',
+  'trg_model_automation_policy_events_sequence',
+  'trg_model_automation_policy_projection_event',
+  'trg_model_automation_policy_projection_event_update',
+];
+
+const POLICY_M1_TRIGGERS = [
+  'trg_model_automation_event_identity_conflict',
+  'trg_model_automation_event_revision',
+  'trg_model_automation_event_lineage',
+  'trg_model_automation_event_projection',
+  'trg_model_automation_event_append_only_update',
+  'trg_model_automation_event_append_only_delete',
+  'trg_model_automation_projection_replace',
+  'trg_model_automation_projection_revision',
+  'trg_model_automation_projection_new_event',
+  'trg_model_automation_projection_current_event',
+  'trg_model_automation_projection_append_only_delete',
+];
+
+const PROOF_COLUMNS = [
+  'proof_id', 'validation_run_id', 'role', 'suite', 'role_contract_sha256',
+  'model_name', 'model_canonical_name', 'model_digest_sha256',
+  'validation_version', 'policy_version', 'score', 'required_score',
+  'passed_count', 'required_passed_count', 'total_count', 'duration_ms',
+  'result', 'inventory_before_name', 'inventory_before_digest',
+  'inventory_after_name', 'inventory_after_digest', 'started_at_ms',
+  'completed_at_ms', 'expires_at_ms', 'created_at_ms',
+  'measurement_artifact_sha256', 'acceptance_artifact_sha256', 'source_revision',
+];
+
+const PROOF_ARTIFACT_COLUMNS = [
+  'proof_id', 'validation_run_id', 'parent_run_id', 'source_revision',
+  'measurement_artifact_sha256', 'measurement_artifact_byte_length',
+  'acceptance_artifact_sha256', 'acceptance_artifact_byte_length', 'role',
+  'suite', 'role_contract_sha256', 'model_name', 'model_canonical_name',
+  'model_digest_sha256', 'validation_version', 'policy_version', 'score',
+  'required_score', 'passed_count', 'required_passed_count', 'total_count',
+  'duration_ms', 'result', 'inventory_before_name', 'inventory_before_digest',
+  'inventory_after_name', 'inventory_after_digest', 'measurement_started_at_ms',
+  'measurement_completed_at_ms', 'acceptance_completed_at_ms', 'proof_ttl_ms',
+  'expires_at_ms', 'issued_at_ms',
+];
+
+const PROOF_M1_TRIGGERS = [
+  'trg_model_failover_proof_artifacts_append_only_delete',
+  'trg_model_failover_proof_artifacts_append_only_update',
+  'trg_model_failover_proof_artifacts_historical_attach',
+  'trg_model_failover_proof_artifacts_identity_conflict',
+  'trg_model_failover_proofs_append_only_delete',
+  'trg_model_failover_proofs_append_only_insert_conflict',
+  'trg_model_failover_proofs_append_only_update',
+  'trg_model_failover_proofs_artifact_companion',
+  'trg_model_failover_proofs_identity_required',
+  'trg_model_failover_proofs_rowid_authority',
+  'trg_model_failover_proofs_rowid_positive',
+];
+
+function selectedTriggerNames(db, predicate = () => true) {
+  return db.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger' ORDER BY name")
+    .all().map(row => row.name).filter(predicate);
+}
+
+function installM1PolicyFixture(db) {
+  db.exec(`
+    CREATE TABLE model_automation_policy_events (
+      seq INTEGER PRIMARY KEY AUTOINCREMENT, event_id TEXT NOT NULL UNIQUE,
+      request_id TEXT NOT NULL UNIQUE, schema_version INTEGER NOT NULL,
+      previous_revision INTEGER NOT NULL, committed_revision INTEGER NOT NULL UNIQUE,
+      event_kind TEXT NOT NULL, actor TEXT NOT NULL, source TEXT NOT NULL,
+      before_auto_failover_enabled INTEGER NOT NULL,
+      before_auto_cleanup_enabled INTEGER NOT NULL,
+      before_auto_cleanup_days INTEGER NOT NULL,
+      after_auto_failover_enabled INTEGER NOT NULL,
+      after_auto_cleanup_enabled INTEGER NOT NULL,
+      after_auto_cleanup_days INTEGER NOT NULL, legacy_quarantine_json TEXT,
+      created_at_ms INTEGER NOT NULL
+    );
+    CREATE TABLE model_automation_policy (
+      id INTEGER PRIMARY KEY, schema_version INTEGER NOT NULL,
+      revision INTEGER NOT NULL, auto_failover_enabled INTEGER NOT NULL,
+      auto_cleanup_enabled INTEGER NOT NULL, auto_cleanup_days INTEGER NOT NULL,
+      last_event_id TEXT NOT NULL, updated_at_ms INTEGER NOT NULL
+    );
+    INSERT INTO model_automation_policy_events (
+      event_id, request_id, schema_version, previous_revision, committed_revision,
+      event_kind, actor, source, before_auto_failover_enabled,
+      before_auto_cleanup_enabled, before_auto_cleanup_days,
+      after_auto_failover_enabled, after_auto_cleanup_enabled,
+      after_auto_cleanup_days, created_at_ms
+    ) VALUES (
+      'policy-event-migration-061', 'policy-request-migration-061', 1, 0, 1,
+      'MIGRATION_DEFAULT_OFF', 'system:migration-061', 'MIGRATION', 0, 0, 14,
+      0, 0, 14, 1
+    );
+    INSERT INTO model_automation_policy VALUES (
+      1, 1, 1, 0, 0, 14, 'policy-event-migration-061', 1
+    );
+  `);
+  for (const name of POLICY_M1_TRIGGERS) {
+    const table = name.startsWith('trg_model_automation_event_')
+      ? 'model_automation_policy_events'
+      : 'model_automation_policy';
+    db.exec(`CREATE TRIGGER ${name} BEFORE UPDATE ON ${table} BEGIN SELECT 1; END`);
+  }
+}
+
+function createTextTable(db, name, columns) {
+  db.exec(`CREATE TABLE ${name} (${columns.map(column => `${column} TEXT`).join(',')})`);
+}
+
+function installM1ProofFixture(db) {
+  createTextTable(db, 'model_failover_proofs', PROOF_COLUMNS);
+  createTextTable(db, 'model_failover_proof_artifacts', PROOF_ARTIFACT_COLUMNS);
+  for (const name of PROOF_M1_TRIGGERS) {
+    const table = name.startsWith('trg_model_failover_proof_artifacts_')
+      ? 'model_failover_proof_artifacts'
+      : 'model_failover_proofs';
+    db.exec(`CREATE TRIGGER ${name} BEFORE UPDATE ON ${table} BEGIN SELECT 1; END`);
+  }
+  db.exec(`
+    CREATE TRIGGER trg_model_failover_proofs_require_artifacts
+    BEFORE INSERT ON model_failover_proofs
+    BEGIN
+      SELECT RAISE(ABORT, 'proof requires a durable measurement artifact')
+      WHERE NEW.measurement_artifact_sha256 IS NULL
+        OR NOT EXISTS (
+          SELECT 1 FROM model_failover_proof_artifacts artifact
+          WHERE artifact.artifact_sha256 = NEW.measurement_artifact_sha256
+            AND artifact.kind = 'MEASUREMENT'
+        );
+      SELECT RAISE(ABORT, 'proof requires a durable parent acceptance artifact')
+      WHERE NEW.acceptance_artifact_sha256 IS NULL
+        OR NOT EXISTS (
+          SELECT 1 FROM model_failover_proof_artifacts artifact
+          WHERE artifact.artifact_sha256 = NEW.acceptance_artifact_sha256
+            AND artifact.kind = 'PARENT_ACCEPTANCE'
+        );
+      SELECT RAISE(ABORT, 'proof requires the source revision of both artifacts')
+      WHERE NEW.source_revision IS NULL
+        OR NOT EXISTS (
+          SELECT 1 FROM model_failover_proof_artifacts artifact
+          WHERE artifact.artifact_sha256 = NEW.measurement_artifact_sha256
+            AND artifact.source_revision = NEW.source_revision
+        )
+        OR NOT EXISTS (
+          SELECT 1 FROM model_failover_proof_artifacts artifact
+          WHERE artifact.artifact_sha256 = NEW.acceptance_artifact_sha256
+            AND artifact.source_revision = NEW.source_revision
+        );
+    END
+  `);
+}
+
+describe('T-SM11: historical model trigger compatibility repairs', async () => {
+  await it('leaves native legacy 066 policy storage unchanged', async () => {
+    const db = freshDb();
+    up066ModelPolicy(db);
+    const before = selectedTriggerNames(db, name => name.startsWith('trg_model_automation_'));
+    repairModelPolicyTriggers(db);
+    assert.deepStrictEqual(
+      selectedTriggerNames(db, name => name.startsWith('trg_model_automation_')),
+      before
+    );
+    db.close();
+  });
+
+  await it('removes only complete 066 triggers from exact M1 policy storage', async () => {
+    const db = freshDb();
+    installM1PolicyFixture(db);
+    up066ModelPolicy(db);
+    const beforeRows = JSON.stringify(db.prepare('SELECT * FROM model_automation_policy_events').all());
+    repairModelPolicyTriggers(db);
+    const after = selectedTriggerNames(db);
+    assert.ok(POLICY_LEGACY_TRIGGERS.every(name => !after.includes(name)));
+    assert.ok(POLICY_M1_TRIGGERS.every(name => after.includes(name)));
+    assert.strictEqual(
+      JSON.stringify(db.prepare('SELECT * FROM model_automation_policy_events').all()),
+      beforeRows
+    );
+    db.exec('CREATE TABLE schema_reparse_probe (id INTEGER PRIMARY KEY)');
+    repairModelPolicyTriggers(db);
+    db.close();
+  });
+
+  await it('fails closed on incomplete M1 policy protection', async () => {
+    const db = freshDb();
+    installM1PolicyFixture(db);
+    up066ModelPolicy(db);
+    db.exec('DROP TRIGGER trg_model_automation_event_lineage');
+    assert.throws(() => repairModelPolicyTriggers(db), /trigger set is incomplete/);
+    assert.ok(POLICY_LEGACY_TRIGGERS.every(name => selectedTriggerNames(db).includes(name)));
+    db.close();
+  });
+
+  await it('fails closed on a partial 066 policy collision', async () => {
+    const db = freshDb();
+    installM1PolicyFixture(db);
+    up066ModelPolicy(db);
+    db.exec(`DROP TRIGGER ${POLICY_LEGACY_TRIGGERS[0]}`);
+    assert.throws(() => repairModelPolicyTriggers(db), /partially present/);
+    assert.ok(POLICY_LEGACY_TRIGGERS.slice(1).every(
+      name => selectedTriggerNames(db).includes(name)
+    ));
+    db.close();
+  });
+
+  await it('leaves native 067 artifact storage unchanged', async () => {
+    const db = freshDb();
+    createTextTable(db, 'model_failover_proof_artifacts', [
+      'artifact_sha256', 'kind', 'byte_length', 'source_revision', 'created_at_ms',
+    ]);
+    const before = db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table'").get().sql;
+    repairModelProofTriggers(db);
+    assert.strictEqual(
+      db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table'").get().sql,
+      before
+    );
+    db.close();
+  });
+
+  await it('removes only the exact 067 trigger from M1 proof storage', async () => {
+    const db = freshDb();
+    installM1ProofFixture(db);
+    const beforeColumns = db.prepare('PRAGMA table_info(model_failover_proofs)').all();
+    repairModelProofTriggers(db);
+    const after = selectedTriggerNames(db);
+    assert.ok(!after.includes('trg_model_failover_proofs_require_artifacts'));
+    assert.ok(PROOF_M1_TRIGGERS.every(name => after.includes(name)));
+    assert.deepStrictEqual(db.prepare('PRAGMA table_info(model_failover_proofs)').all(), beforeColumns);
+    db.exec('CREATE TABLE schema_reparse_probe (id INTEGER PRIMARY KEY)');
+    repairModelProofTriggers(db);
+    db.close();
+  });
+
+  await it('fails closed on incomplete M1 proof protection', async () => {
+    const db = freshDb();
+    installM1ProofFixture(db);
+    db.exec(`DROP TRIGGER ${PROOF_M1_TRIGGERS[0]}`);
+    assert.throws(() => repairModelProofTriggers(db), /trigger set is incomplete/);
+    assert.ok(selectedTriggerNames(db).includes('trg_model_failover_proofs_require_artifacts'));
+    db.close();
+  });
+
+  await it('fails closed on drifted 067 trigger SQL', async () => {
+    const db = freshDb();
+    installM1ProofFixture(db);
+    db.exec('DROP TRIGGER trg_model_failover_proofs_require_artifacts');
+    db.exec(`
+      CREATE TRIGGER trg_model_failover_proofs_require_artifacts
+      BEFORE INSERT ON model_failover_proofs BEGIN SELECT RAISE(ABORT, 'drifted'); END
+    `);
+    assert.throws(() => repairModelProofTriggers(db), /trigger SQL drifted/);
+    assert.ok(selectedTriggerNames(db).includes('trg_model_failover_proofs_require_artifacts'));
     db.close();
   });
 });

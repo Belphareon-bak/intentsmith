@@ -2016,6 +2016,49 @@ mohou pokračovat.
    čistým shutdownem. Gate 2 i M1 jsou proto `ACCEPTED/PASS`; M2 smí navázat.
 9. M2 effect authority a project-change journey se otevírají až po M1.
 
+### Integrovaná model-evaluation autorita (2026-08-26)
+
+Historický product/test kandidát `79328185` navázal na zamítnutý `74beafea`
+a vytvořil jedinou role-specific exact-artifact model-evaluation cestu.
+Migrace 097 karanténuje 11
+cross-role decisions; migrace 099 odstraňuje telemetry-derived blacklist.
+Historický strict-role snapshot měl 28 `COMPLETE`, 11 `BLOCKED`, 52 `MISSING`
+a 0 `FAILED` buněk. Aktuální exact-edge module graph má 1 198 hran, 3 cykly a
+28 souborů v cyklech; zahrnuje sjednocený inventory normalizátor a versioned
+technical applicability. Finální čistý gate `2026-08-27T20-32-24-822Z` prošel 279/279 na
+`79328185`; předchozí 278/1 fail i přerušený ENOSPC běh zůstávají v handoff
+evidenci. Nezávislý Opus max rereview rozsahu `74beafea..26ab3291` vrátil
+`REVIEW_PASSED`; záznam je v
+[`2026-08-28-WP-MODEL-EVALUATION-CONSOLIDATION-OPUS-MAX-REREVIEW.md`](docs/review/2026-08-28-WP-MODEL-EVALUATION-CONSOLIDATION-OPUS-MAX-REREVIEW.md).
+Následný autorizovaný běh 2026-08-28 použil izolovaný response-attesting
+sidecar, live DB migroval do 099 a po pozdější applicability remediaci uzavřel
+všech 79 technicky kompatibilních párů: 55 `COMPLETE`, 24 `BLOCKED`, 0
+applicable `MISSING`; 12 raw `MISSING` buněk je explicitní N/A. Systémová
+Ollama 0.32.14 zůstala beze změny a
+durable runtime je proto stále `PROVIDER_CAPABILITY_BLOCKED`. Následné review
+našlo hard filtr přes `preferredCategories`, neúplnou cache/export identitu,
+nepublikovanou provenienci 40 starších intervalů a stale dokumentaci. Produktový
+head `ccf54377` tyto vady opravil a čistý gate na něm prošel 279/279. Další
+review našlo neúplnou snapshot inventory projekci, která při offline replay
+ztrácela tři VISION capabilities. Produktový head `53ded662` proto ukládá
+SHA-bound `params`, `family`, `category` a `capabilities`; replay pouze ze
+snapshotu a stejné DB reprodukuje 55/24/0/12 bez Ollamy. Čistý gate
+`2026-08-28T20-11-17-080Z` na něm prošel 279/279. Z 55 COMPLETE výsledků je
+15 intervalů `VERIFIED` a 40 `LEGACY_UNVERIFIED`; u starších řádků reader
+publikuje pouze historický recorded-at timestamp, nikoli start nebo duration.
+Nezávislé evidence rereview rozsahu `d6137d4c..3f027938` zopakovalo offline
+replay, SHA/tamper kontrolu, backup manifest i nový clean-clone gate `279/279`
+a vrátilo
+[`REVIEW_PASSED`](docs/review/2026-08-28-WP-MODEL-EVALUATION-EVIDENCE-REREVIEW.md).
+Scoring/evidence balík je proto `ACCEPTED`; systémový response-digest provider
+zůstává samostatně `SYSTEM_PROVIDER_BLOCKED`. Podrobnosti jsou v
+[`model-scoring-live-20260828.md`](docs/execution/runs/model-scoring-live-20260828.md).
+Následné explicitně autorizované odstranění čtyř VRAM-blocked artefaktů
+uvolnilo 71,47 GiB bez změny DB historie nebo bindingů. Současná installed
+inventory má 9 artefaktů a coverage 55 `COMPLETE`, 0 `BLOCKED`, 0 applicable
+`MISSING`, 8 N/A; bounded důkaz je v
+[`model-removal-live-20260828.json`](docs/execution/runs/model-removal-live-20260828.json).
+
 ## 14. Rozhodovací fronta — otázka až ve chvíli, kdy má data
 
 | Rozhodnutí | Kdy je skutečně potřeba | Jaká evidence musí být na stole |

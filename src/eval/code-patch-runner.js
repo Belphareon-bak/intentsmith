@@ -39,10 +39,12 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { execFileSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { writeFileSync, mkdtempSync, rmSync, symlinkSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { findSpansForLines, replaceSpans } from './function-span.js';
+import { findSpansForLines, regionForLines, mergeSpans, replaceSpans } from './function-span.js';
+import { testFilesOf } from './code-task-extractor.js';
 
 export const DEFAULT_TEST_TIMEOUT = 120_000;
 
@@ -75,21 +77,175 @@ export function changedLines(repo, hash, source) {
 }
 
 /**
+ * Hunky commitu jako **dvojice** rozsahů — co bylo a co je místo toho.
+ *
+ * `changedLines()` obě strany rozsype do jednoho pytle čísel, čímž se ztratí
+ * to podstatné: který úsek „před" odpovídá kterému „po".  Dokud se páry
+ * odvozovaly zpětně z počtu nalezených úseků, propadl každý commit, který
+ * vedle opravy něco **přidal** — nový `const`, nový pomocník — protože na
+ * straně „po" byl úsek navíc a počty nesedly.  Změřeno 2026-08-22: takhle
+ * padlo 10 z 32 kandidátů, zdaleka nejvíc ze všech důvodů.
+ *
+ * Hunk přitom párování nese sám a zadarmo.  U čistého přírůstku (`-N,0`) je
+ * stranou „před" kotevní řádek N, za který se vkládalo.
+ *
+ * @returns {Array<{beforeStart, beforeLen, afterStart, afterLen}>}
+ */
+export function changedHunks(repo, hash, source) {
+  const diff = git(repo, ['diff', '-U0', `${hash}~1`, hash, '--', source]);
+  const hunks = [];
+  for (const m of diff.matchAll(/^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/gm)) {
+    hunks.push({
+      beforeStart: +m[1], beforeLen: m[2] === undefined ? 1 : +m[2],
+      afterStart: +m[3], afterLen: m[4] === undefined ? 1 : +m[4],
+    });
+  }
+  return hunks;
+}
+
+const rangeOf = (start, len) => (len
+  ? Array.from({ length: len }, (_, i) => start + i)
+  : [Math.max(1, start)]);   // čistý přírůstek/úbytek — kotevní řádek
+
+/**
+ * Holý úsek přes zadané řádky, bez ohledu na to, co na nich stojí.
+ *
+ * Používá se jen pro **kotvu čistého přírůstku**: commit vložil kód za řádek N
+ * a před opravou tam žádná konstrukce není — často je to prázdný řádek mezi
+ * dvěma funkcemi.  Kotva se přesto musí do zadání dostat, jinak není kam
+ * přírůstek vložit; slitím se sousední skupinou z ní vznikne souvislý úsek,
+ * který přírůstek obklopí.  Bez tohohle padalo 12 z 32 kandidátů (2026-08-22).
+ */
+function bareRegion(src, lines) {
+  const startLine = Math.min(...lines);
+  const endLine = Math.max(...lines);
+  const all = src.split('\n');
+  const text = all.slice(startLine - 1, endLine).join('\n');
+  return { kind: 'region', name: null, startLine, endLine, text, header: text.split('\n')[0].trim(), tail: '' };
+}
+
+/**
+ * Spáruje úseky před opravou s úseky po opravě, hunk po hunku.
+ *
+ * Skupiny se slévají, jakmile se překryjí na **kterékoli** straně: dva hunky
+ * v jedné funkci musí dát jednu jednotku zadání, jinak by se do souboru
+ * vkládal její text dvakrát.  Slévá se do ustálení, protože slitím může
+ * vzniknout překryv s další skupinou.
+ *
+ * @returns {{units: Array<{before, after}>|null, reason: string|null}}
+ */
+export function pairUnits(beforeFile, afterFile, hunks) {
+  if (!hunks.length) return { units: null, reason: 'commit v souboru nic nezměnil' };
+
+  const groups = [];
+  for (const h of hunks) {
+    const beforeLines = rangeOf(h.beforeStart, h.beforeLen);
+    const afterLines = rangeOf(h.afterStart, h.afterLen);
+    let before = regionForLines(beforeFile, beforeLines);
+    let after = regionForLines(afterFile, afterLines);
+
+    // Kosmetický hunk (jen prázdné řádky nebo komentáře) nenese chování a
+    // zadání by jen zašuměl; o platnost úlohy se stará round-trip gold patche.
+    if (!before && !after) continue;
+
+    // Kotva přírůstku nebo úbytku na řádku, kde žádná konstrukce nezačíná.
+    if (!before && !h.beforeLen) before = bareRegion(beforeFile, beforeLines);
+    if (!after && !h.afterLen) after = bareRegion(afterFile, afterLines);
+    if (!before || !after) {
+      return { units: null, reason: 'změnu se nedaří přiřadit úseku souboru' };
+    }
+    groups.push({ before, after });
+  }
+  if (!groups.length) return { units: null, reason: 'commit mění jen komentáře a prázdné řádky' };
+
+  groups.sort((a, b) => a.before.startLine - b.before.startLine);
+
+  const overlaps = (x, y) => x.startLine <= y.endLine && y.startLine <= x.endLine;
+  let merged = true;
+  while (merged) {
+    merged = false;
+    for (let i = 0; i < groups.length - 1; i++) {
+      const a = groups[i], b = groups[i + 1];
+      if (!overlaps(a.before, b.before) && !overlaps(a.after, b.after)) continue;
+      groups.splice(i, 2, {
+        before: mergeSpans(beforeFile, a.before, b.before),
+        after: mergeSpans(afterFile, a.after, b.after),
+      });
+      merged = true;
+      break;
+    }
+  }
+
+  // Kotva na prázdném řádku dá prázdný úsek — zadat „přepiš tenhle nic" nejde
+  // a `applyAndTest()` ho odmítne jako nepoužitelný kód.  Slije se proto se
+  // sousedem: slití dvou skupin je vždycky bezpečné, protože obě strany
+  // zůstanou souvislé a nezměněné řádky mezi nimi si odpovídají.
+  let blank = groups.findIndex(g => !g.before.text.trim() || !g.after.text.trim());
+  while (blank !== -1) {
+    if (groups.length === 1) return { units: null, reason: 'úsek zadání by byl prázdný' };
+    const other = blank > 0 ? blank - 1 : blank + 1;
+    const [lo, hi] = [Math.min(blank, other), Math.max(blank, other)];
+    groups.splice(lo, 2, {
+      before: mergeSpans(beforeFile, groups[lo].before, groups[hi].before),
+      after: mergeSpans(afterFile, groups[lo].after, groups[hi].after),
+    });
+    blank = groups.findIndex(g => !g.before.text.trim() || !g.after.text.trim());
+  }
+
+  // Pořadí na obou stranách musí být stejné, jinak by se gold text vložil do
+  // nesprávného úseku.  Po slití to platí, ale ověřit se to musí — hunky můžou
+  // přijít v pořadí, které se mezi verzemi liší (přesunutá funkce).
+  for (let i = 1; i < groups.length; i++) {
+    if (groups[i].after.startLine <= groups[i - 1].after.startLine) {
+      return { units: null, reason: 'úseky se mezi verzemi přeskládaly' };
+    }
+  }
+  return { units: groups, reason: null };
+}
+
+/**
+ * Je to před opravou a po opravě tentýž úsek?
+ *
+ * U funkce je totožností hlavička — když se změnila, commit funkci přejmenoval
+ * nebo jí sáhl na signaturu a jednotka zadání neodpovídá tomu, co se stalo.
+ *
+ * U vrcholové konstrukce hlavička použít nejde: `const MAX = 40;` → `= 60;` je
+ * oprava *uvnitř* hlavičky a porovnání textu by ji zahodilo právě proto, že
+ * úloha je zajímavá.  Rozhoduje proto deklarované jméno; text až tam, kde se
+ * žádné jméno vyčíst nedá.
+ */
+function sameUnit(before, after) {
+  // Region vznikl slitím a jeho hranice určuje hunk, ne deklarace — porovnávat
+  // jeho první řádek by zahodilo právě ty úlohy, kvůli kterým vznikl.
+  // Za správnost ručí párování hunků a round-trip gold patche.
+  if (before.kind === 'region' || after.kind === 'region') return true;
+  if ((before.kind ?? 'function') !== (after.kind ?? 'function')) return false;
+  if (before.kind === 'top-level') {
+    return before.name ? before.name === after.name : before.header === after.header;
+  }
+  return before.header === after.header;
+}
+
+/**
  * Sestaví úlohu z commitu — bez spouštění testů, takže je to levné.
  *
- * Zadáním je **množina funkcí**, do kterých commit sáhl.  Jedna funkce je jen
- * nejčastější případ: měřeno na 805 commitech tohohle repa mění 19 z 29 jinak
+ * Zadáním je **množina úseků**, do kterých commit sáhl — funkcí i vrcholových
+ * konstrukcí (import, konstanta, `export default`).  Jediná funkce je jen
+ * nejčastější případ: měřeno na 852 commitech tohohle repa mění 19 z 29 jinak
  * použitelných kandidátů víc míst v jednom souboru, takže omezení na jedinou
- * funkci zahazovalo dvě třetiny materiálu.
+ * funkci zahazovalo dvě třetiny materiálu, a omezení na *funkce* zahazovalo
+ * dalších 20 kandidátů z 32 (2026-08-22) — commit typicky mění import nahoře
+ * a zároveň tělo metody dole.
  *
- * Vrací `null` s důvodem, když některý změněný řádek neleží v žádné funkci —
- * úprava importu nebo konstanty na nejvyšší úrovni se jako „přepiš tyhle
- * funkce" zadat nedá.
+ * Vrací `null` s důvodem, když se změněný řádek nepodaří přiřadit žádnému
+ * úseku ani zahodit jako kosmetický — viz `findSpansForLines()`.
  *
  * @returns {{task: Object|null, reason: string|null}}
  */
 export function deriveTask(repo, meta) {
-  const { hash, source, test } = meta;
+  const { hash, source } = meta;
+  const tests = testFilesOf(meta);
+  if (!tests.length) return { task: null, reason: 'úloha nemá testový soubor' };
   let beforeFile, afterFile;
   try {
     beforeFile = git(repo, ['show', `${hash}~1:${source}`]);
@@ -98,20 +254,14 @@ export function deriveTask(repo, meta) {
     return { task: null, reason: `zdroják nelze načíst: ${err.message}` };
   }
 
-  const lines = changedLines(repo, hash, source);
-  const spansBefore = findSpansForLines(beforeFile, lines.before);
-  if (!spansBefore) return { task: null, reason: 'změna zasahuje mimo funkce (verze před)' };
-  const spansAfter = findSpansForLines(afterFile, lines.after);
-  if (!spansAfter) return { task: null, reason: 'změna zasahuje mimo funkce (verze po)' };
+  const { units, reason } = pairUnits(beforeFile, afterFile, changedHunks(repo, hash, source));
+  if (!units) return { task: null, reason };
 
-  // Počet i hlavičky musí sedět, jinak commit funkce přidával nebo přejmenoval
-  // a „přepiš tyhle funkce" by neodpovídalo tomu, co se ve skutečnosti stalo.
-  if (spansBefore.length !== spansAfter.length) {
-    return { task: null, reason: `počet dotčených funkcí se liší (${spansBefore.length} → ${spansAfter.length})` };
-  }
-  for (let i = 0; i < spansBefore.length; i++) {
-    if (spansBefore[i].header !== spansAfter[i].header) {
-      return { task: null, reason: 'oprava mění hlavičku funkce — jiná jednotka' };
+  const spansBefore = units.map(u => u.before);
+  const spansAfter = units.map(u => u.after);
+  for (let i = 0; i < units.length; i++) {
+    if (!sameUnit(spansBefore[i], spansAfter[i])) {
+      return { task: null, reason: 'oprava mění jednotku — jiný úsek před a po' };
     }
   }
 
@@ -119,7 +269,10 @@ export function deriveTask(repo, meta) {
 
   return {
     task: {
-      hash, source, test,
+      hash, source,
+      taskFingerprint: meta.taskFingerprint || null,
+      test: tests[0],   // pro zpětnou slučitelnost se staršími fixturami
+      tests,
       subject: meta.subject,
       beforeFile,
       spans: spansBefore,
@@ -127,7 +280,7 @@ export function deriveTask(repo, meta) {
       goldTexts: spansAfter.map(sp => sp.text),        // referenční oprava
       functionCount: spansBefore.length,
       functionLines,
-      requirements: addedTestNames(repo, hash, test),
+      requirements: [...new Set(tests.flatMap(t => addedTestNames(repo, hash, t)))],
     },
     reason: null,
   };
@@ -168,6 +321,14 @@ export function addedTestNames(repo, hash, testFile) {
  * Vada je popsaná předmětem commitu a názvy testů, které k ní autor napsal —
  * tedy tím, co má platit.  Test se **neukazuje** (anti-cheat pravidlo 3),
  * stejně jako se neukazuje gold patch.
+ *
+ * Proč se druh úseku pojmenovává:
+ *
+ * Od chvíle, kdy jsou jednotkou i vrcholové konstrukce, může v zadání stát
+ * `import { X } from './y.js';` vedle metody o osmdesáti řádcích.  Holý
+ * fragment importu sám o sobě neřekne nic — model musí vidět, že jde o vrchol
+ * souboru, a dostat ho **spolu s dotčenými funkcemi**, aby bylo z čeho vadu
+ * odvodit.  Pořadí úseků je zároveň smlouvou o pořadí bloků v odpovědi.
  */
 export function buildPrompt(task) {
   const fence = '```';
@@ -175,23 +336,41 @@ export function buildPrompt(task) {
     ? `\n\nPožadované chování:\n${task.requirements.map(r => `- ${r}`).join('\n')}`
     : '';
 
+  const kinds = task.functionTexts.map((_, i) => task.spans?.[i]?.kind ?? 'function');
   const many = task.functionTexts.length > 1;
+  const label = (kind, i) => {
+    if (kind === 'top-level') return `Kód na nejvyšší úrovni souboru ${i + 1}:`;
+    if (kind === 'region') return `Úsek souboru ${i + 1}:`;
+    return `Funkce ${i + 1}:`;
+  };
+
   const blocks = task.functionTexts
-    .map((text, i) => `${many ? `Funkce ${i + 1}:\n\n` : ''}${fence}javascript\n${text}\n${fence}`)
+    .map((text, i) => `${many ? `${label(kinds[i], i)}\n\n` : ''}${fence}javascript\n${text}\n${fence}`)
     .join('\n\n');
 
+  // Úsek smí být delší než to, co se v něm mění, a oprava do něj smí kód
+  // **přidat** — právě proto je jednotkou úsek, a ne jen samotná funkce.
+  const unit = kinds[0] === 'function' ? 'funkci' : 'úsek';
   const instruction = many
-    ? `Oprav vadu. Vrať POUZE ${task.functionTexts.length} bloků ${fence}javascript — každou funkci celou, `
-      + 'od hlavičky po uzavírací závorku, ve stejném pořadí jako v zadání. '
+    ? `Oprav vadu. Vrať POUZE ${task.functionTexts.length} bloků ${fence}javascript — každý úsek celý, `
+      + 'od prvního po poslední řádek, ve stejném pořadí jako v zadání. '
+      + 'Nezkracuj je a nevynechávej řádky, kterých se oprava netýká. '
       + 'Žádné vysvětlení, žádný zbytek souboru.'
-    : `Oprav vadu. Vrať POUZE celou opravenou funkci v jednom bloku ${fence}javascript, `
-      + 'od hlavičky po uzavírací závorku. Žádné vysvětlení, žádný zbytek souboru.';
+    : `Oprav vadu. Vrať POUZE celý opravený ${unit === 'funkci' ? 'kód funkce' : 'úsek'} v jednom bloku ${fence}javascript, `
+      + 'od prvního po poslední řádek. Nezkracuj ho a nevynechávej řádky, '
+      + 'kterých se oprava netýká. Žádné vysvětlení, žádný zbytek souboru.';
+
+  const intro = many
+    ? 'Vadu obsahují tyto úseky souboru:'
+    : (kinds[0] === 'function' ? 'Následující funkce obsahuje tuto vadu:'
+      : kinds[0] === 'top-level' ? 'Následující úsek na nejvyšší úrovni souboru obsahuje tuto vadu:'
+        : 'Následující úsek souboru obsahuje tuto vadu:');
 
   return `Soubor: ${task.source}
 
 Hlášená vada: ${task.subject}${req}
 
-${many ? 'Vadu obsahují tyto funkce:' : 'Následující funkce obsahuje tuto vadu:'}
+${intro}
 
 ${blocks}
 
@@ -249,7 +428,11 @@ export function extractFunctionCodes(response, spans) {
 
   const used = new Set();
   const matched = spans.map(span => {
-    const name = functionNameOf(span.header);
+    // Vrcholová konstrukce nese jméno rovnou (`LIMIT`, `import:./y.js`);
+    // u funkce se vyčte z hlavičky.
+    const name = span.kind === 'top-level'
+      ? (span.name?.replace(/^import:/, '') ?? null)
+      : functionNameOf(span.header);
     if (!name) return null;
     const idx = blocks.findIndex((b, i) => !used.has(i) && b.includes(name));
     if (idx === -1) return null;
@@ -279,12 +462,60 @@ export function runIsolatedTest(work, testFile, timeout = DEFAULT_TEST_TIMEOUT) 
     });
     return { passed: true, timedOut: false, output: out || '' };
   } catch (err) {
+    const unshareOutput = `${err.stdout || ''}${err.stderr || ''}`;
+    // Some managed agent/container environments disable unprivileged user
+    // namespaces even though the user's systemd instance can still create a
+    // real private network namespace. Keep the same isolation guarantee; do
+    // not fall back to an unrestricted test process.
+    if (/Operation not permitted|uid_map/i.test(unshareOutput)) {
+      const unit = `intentsmith-codepatch-${process.pid}-${randomUUID().slice(0, 8)}`;
+      try {
+        const out = execFileSync('systemd-run', [
+          '--user', '--wait', '--pipe', '--quiet', '--collect', '--unit', unit,
+          '-p', 'PrivateNetwork=yes',
+          '-p', `WorkingDirectory=${work}`,
+          '-E', `C3_DB_PATH=${env.C3_DB_PATH}`,
+          process.execPath,
+          testFile,
+        ], {
+          cwd: work, timeout, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
+          stdio: ['ignore', 'pipe', 'pipe'], env,
+        });
+        return { passed: true, timedOut: false, output: out || '', isolation: 'systemd-private-network' };
+      } catch (fallbackError) {
+        // execFileSync timeout terminates the systemd-run client, not
+        // necessarily the transient service. Stop only our unique owned unit
+        // so model-generated test code cannot survive the evaluation timeout.
+        try {
+          execFileSync('systemctl', ['--user', 'stop', `${unit}.service`], {
+            timeout: 10_000, stdio: 'ignore',
+          });
+        } catch { /* the collected unit may already be gone */ }
+        return {
+          passed: false,
+          timedOut: fallbackError.code === 'ETIMEDOUT' || fallbackError.signal === 'SIGTERM',
+          output: `${fallbackError.stdout || ''}${fallbackError.stderr || ''}`,
+          isolation: 'systemd-private-network',
+        };
+      }
+    }
     return {
       passed: false,
       timedOut: err.code === 'ETIMEDOUT' || err.signal === 'SIGTERM',
-      output: `${err.stdout || ''}${err.stderr || ''}`,
+      output: unshareOutput,
+      isolation: 'unshare-network',
     };
   }
+}
+
+export function runIsolatedTests(work, testFiles, timeout = DEFAULT_TEST_TIMEOUT, run = runIsolatedTest) {
+  const results = [];
+  for (const file of testFiles) {
+    const result = run(work, file, timeout);
+    results.push(result);
+    if (result.timedOut) break;
+  }
+  return results;
 }
 
 /**
@@ -322,6 +553,12 @@ export function parseTestOutput(output) {
     m = line.match(/^\s*FAIL:\s+(.+?)\s*$/);
     if (m) failed.add(stripMessage(m[1]));
   }
+
+  // Výstupy víc testových souborů se slévají do jednoho textu, takže se stejné
+  // jméno může objevit mezi prošlými i mezi spadlými.  Takový název nic
+  // netvrdí — počítá se jako spadlý, aby se částečné selhání nedalo vydávat
+  // za opravu.
+  for (const name of failed) passed.delete(name);
 
   const m = (output || '').match(/RESULTS:\s*(\d+)\s+passed,\s*(\d+)\s+failed/)
     || (output || '').match(/Results:\s*(\d+)\s+passed,\s*(\d+)\s+failed/);
@@ -390,9 +627,9 @@ export function scoreFromOutput(output, task, filePassed) {
 /**
  * Vloží kód do souboru, spustí skrytý test a vrátí výsledek.
  *
- * Skóre je binární: test projde, nebo neprojde.  `syntaxOk` se sleduje zvlášť
- * jako diagnostika — říká, jestli model selhal na pochopení vady, nebo už na
- * tvaru odpovědi.
+ * Skóre `0..1` je podíl opravených cílových kontrol; jakákoli nová regrese je
+ * vynuluje. `syntaxOk` se sleduje zvlášť jako diagnostika — říká, jestli model
+ * selhal na pochopení vady, nebo už na tvaru odpovědi.
  *
  * @param {string[]|string|null} codes kód pro každý dotčený rozsah
  * @returns {{score, passed, applied, syntaxOk, timedOut, reason}}
@@ -429,7 +666,17 @@ export function applyAndTest(repo, task, codes, opts = {}) {
     catch { syntaxOk = false; }
     if (!syntaxOk) return fail('vložený kód není syntakticky platný', { applied: true });
 
-    const run = runIsolatedTest(work, task.test, timeout);
+    // Testových souborů může být víc a musí projít **všechny**: commit, který
+    // k jedné opravě dopsal testy do tří souborů, by jinak šlo splnit jen
+    // částečně a skóre by tvrdilo, že je vada opravená.
+    // Jeden timeout už znamená nulové skóre a nespolehlivé orákulum. Čekat
+    // dalších 120 s na každý další testový soubor nemůže výsledek změnit.
+    const runs = runIsolatedTests(work, testFilesOf(task), timeout);
+    const run = {
+      passed: runs.every(r => r.passed),
+      timedOut: runs.some(r => r.timedOut),
+      output: runs.map(r => r.output).join('\n'),
+    };
     const scored = scoreFromOutput(run.output, task, run.passed);
     return {
       score: scored.score,
@@ -537,7 +784,7 @@ export function verifyTask(repo, task, opts = {}) {
 }
 
 export default {
-  changedLines, deriveTask, buildPrompt, extractFunctionCode, extractFunctionCodes, functionNameOf,
-  applyAndTest, verifyTask, runIsolatedTest, parseTestOutput, scoreFromOutput,
+  changedLines, changedHunks, pairUnits, deriveTask, buildPrompt, extractFunctionCode, extractFunctionCodes, functionNameOf,
+  applyAndTest, verifyTask, runIsolatedTest, runIsolatedTests, parseTestOutput, scoreFromOutput,
   normalizedGain, DEFAULT_TEST_TIMEOUT,
 };

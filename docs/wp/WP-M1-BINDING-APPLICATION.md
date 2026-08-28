@@ -1,5 +1,10 @@
 # WP-M1-BINDING-APPLICATION — jeden pravdivý manual runtime commit point
 
+> **Historická přijatá review jednotka.** `ModelBindingApplication` zůstává
+> současným jediným writerem, ale odkazy na odstraněné compatibility testy
+> nejsou current runbook; ten je v
+> [WP-MODEL-EVALUATION-CONSOLIDATION](WP-MODEL-EVALUATION-CONSOLIDATION.md).
+
 **Typ:** zapisující WP · **Slot:** hlavní zapisující vlastník, hlavní checkout
 **Stav:** backend checkpoint dokončený na `e7d89b5ef038e1a32ad2fdff3990d6f9f20d9bec`;
 fresh-clone instalace a offline acceptance jsou zelené. Celé M1/Gate 1 zůstává

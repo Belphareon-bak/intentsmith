@@ -31,7 +31,7 @@ import {
   M2ToolAuthorityRepository,
 } from '../src/tools/m2-tool-authority-repository.js';
 import { createEffectFileRuntime } from '../src/effects/effect-file-runtime.js';
-import { up as applyEffectAuthority } from '../src/db/migrations/2026_08_23_070_m2_effect_authority.js';
+import { up as applyEffectAuthority } from '../src/db/migrations/2026_08_23_092_m2_effect_authority.js';
 import { up as applyEffectHardening } from '../src/db/migrations/2026_08_24_071_m2_effect_authority_hardening.js';
 import { up as applyEffectClaims } from '../src/db/migrations/2026_08_24_072_m2_effect_execution_claims.js';
 import { up as applyEffectClaimTruth } from '../src/db/migrations/2026_08_24_073_m2_effect_claim_truth.js';

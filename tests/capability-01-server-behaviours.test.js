@@ -22,7 +22,14 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import { WebSocket } from 'ws';
+import Database from 'better-sqlite3';
 import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
+import { config } from '../src/config.js';
+import { runMigrations } from '../src/db/migrate.js';
+import { createModelFailoverRepository } from '../src/upgrade/model-failover.js';
+import { createModelBindingApplication } from '../src/upgrade/model-binding-application.js';
+import { canonicalModelName } from '../src/upgrade/model-identity.js';
+import { UpgradeManager } from '../src/upgrade/upgrade-manager.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const STARTUP_TIMEOUT_MS = 60_000;
@@ -101,6 +108,73 @@ function startServer(fixture, overrides = {}) {
   child.stderr.on('data', c => { state.stderr += c; });
   child.on('exit', (code, sig) => { state.exitCode = code; state.signal = sig; });
   return state;
+}
+
+async function seedDurableManualBinding(databasePath) {
+  const originalBindings = { ...config.models };
+  const db = new Database(databasePath);
+  try {
+    await runMigrations(db);
+    const artifacts = new Map();
+    let sequence = 1;
+    for (const modelName of [...new Set([
+      ...Object.values(config.models),
+      'capability-b14-manual:latest',
+    ])]) {
+      artifacts.set(canonicalModelName(modelName), Object.freeze({
+        name: modelName,
+        canonicalName: canonicalModelName(modelName),
+        digestSha256: sequence.toString(16).repeat(64),
+      }));
+      sequence += 1;
+    }
+    const resolveFromInventory = (inventory, modelName, options = {}) => {
+      const resolved = inventory.find(row => row.canonicalName === canonicalModelName(modelName));
+      if (!resolved) throw new Error(`fixture model missing: ${modelName}`);
+      if (options.expectedDigestSha256
+        && options.expectedDigestSha256 !== resolved.digestSha256) {
+        throw new Error(`fixture digest drift: ${modelName}`);
+      }
+      return resolved;
+    };
+    const provider = {
+      getOrigin: () => 'http://127.0.0.1:11434',
+      listInstalled: async () => [...artifacts.values()],
+      resolveFromInventory,
+      resolveExact: async (modelName, options = {}) => (
+        resolveFromInventory([...artifacts.values()], modelName, options)
+      ),
+      pull: async () => {},
+      verifyExact: async expected => (
+        resolveFromInventory([...artifacts.values()], expected.modelName, {
+          expectedDigestSha256: expected.digestSha256,
+        })
+      ),
+    };
+    const repository = createModelFailoverRepository(db);
+    const manager = new UpgradeManager();
+    manager.setDb(db);
+    const application = createModelBindingApplication({
+      repository,
+      runtime: manager.createBindingRuntimePort(),
+      provider,
+      publishControl: () => ({ accepted: true }),
+      verificationAttempts: 1,
+      delay: async () => {},
+      logger: { warn() {}, info() {}, debug() {}, error() {} },
+    });
+    const baseline = await application.reconcileConfiguredBindingBaselines();
+    if (baseline.failed !== 0 || baseline.created !== Object.keys(config.models).length) {
+      throw new Error('durable B-14 baseline fixture was not created');
+    }
+    await application.applyManualBinding({
+      role: 'CHAT',
+      targetModel: 'capability-b14-manual:latest',
+    });
+  } finally {
+    Object.assign(config.models, originalBindings);
+    db.close();
+  }
 }
 
 async function waitForPort(state, portFile) {
@@ -240,6 +314,10 @@ async function main() {
       'B-04 — importing the database module without C3_DB_PATH is refused and creates no file',
     );
 
+    // Exercise the upgrade path, not only an empty DB: the child must survive
+    // provider unavailability with durable desired rows and a manual binding.
+    await seedDurableManualBinding(fixture.database);
+
     // ── Start the owned server ───────────────────────────────────────────────
     server = startServer(fixture);
     const portInfo = await waitForPort(server, fixture.portFile);
@@ -333,6 +411,16 @@ async function main() {
       && llm.json?.recoverable === true
       && stillAlive.status === 200,
       'B-14 — with no reachable model the LLM path answers 503 LLM_PROVIDER_UNAVAILABLE and the server keeps serving',
+    );
+    const evaluationsWithoutProvider = await probe(port, {
+      pathname: '/api/system/models/evaluations',
+    });
+    check(
+      evaluationsWithoutProvider.status === 200
+      && evaluationsWithoutProvider.json?.bindingAuthority?.status === 'DEGRADED'
+      && evaluationsWithoutProvider.json?.bindingAuthority?.reason
+        === 'MODEL_BINDING_STARTUP_PROVIDER_UNAVAILABLE',
+      'B-14 — durable bindings plus no provider publish DEGRADED binding authority',
     );
 
     // B-06 - a fatal startup error fails closed.

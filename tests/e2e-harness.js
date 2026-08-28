@@ -46,6 +46,7 @@ import {
 
 import { getLcState, setLcState, clearLcState, initLifecycleStateDb } from '../src/chat/handlers/lifecycle-state.js';
 import { callLLM } from '../src/planner/workflow.js';
+import { config } from '../src/config.js';
 import { stripCodeFences, checkSyntax, repairCode, languagePromptSuffix } from '../src/planner/code-cleaner.js';
 import { runQualityGate, runEnhancedValidation, resolveJsImport, extractJsExports } from '../src/planner/quality-gate.js';
 
@@ -183,10 +184,10 @@ export async function checkOllama() {
     const resp = await fetch('http://127.0.0.1:11434/api/tags');
     const data = await resp.json();
     const models = data.models?.map(m => m.name) || [];
-    const required = ['deepseek-r1', 'qwen3.5'];
+    const required = [...new Set(Object.values(config.models))];
     let ok = true;
     for (const req of required) {
-      const found = models.some(m => m.includes(req));
+      const found = models.includes(req);
       if (!found) { ok = false; console.log(`    Missing model: ${req}`); }
     }
     console.log(`    Models: ${models.length} available`);

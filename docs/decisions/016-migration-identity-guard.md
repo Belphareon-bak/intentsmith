@@ -136,3 +136,33 @@ cest. Všechny tři příkazy skončily s exit code `0`.
 
 Checksum aplikované migrace, aby změna už aplikovaného souboru nebyla
 neviditelná. Není podmínkou tohoto rozhodnutí ani B3 acceptance.
+
+## Post-review oprava 2026-08-26
+
+Modelová linka už před integrací M2 aplikovala dvě různé plné identity pod
+slotem 081 a konsolidaci 082. Jejich pozdější přeznačení na 084–086 bylo v
+review prokázáno jako upgrade-unsafe a podle pravidla 2 výše bylo zrušeno.
+Guard proto grandfatheruje i přesnou dvojici
+`2026_08_24_081_model_policy_trigger_compatibility` a
+`2026_08_24_081_model_proof_trigger_compatibility`; žádnou třetí identitu pod
+081 nepřijme. Omylem aplikované 084–086 jsou trvale vyřazené a runner je
+atomicky adoptuje na původní identity. Stejný numeric-slot guard se nyní
+aplikuje i na uložené `schema_migrations`, takže přejmenování souboru nemůže
+skrýt historickou branch kolizi.
+
+## Integrační uzavření 2026-08-26
+
+Společná M2/model/M4/M5 integrace odhalila, že nestačí posuzovat manifest a
+DB historii odděleně. Runner nyní před první mutací validuje jejich
+hypotetické sjednocení a v jedné transakci provede všech sedm přesně
+vyjmenovaných adopcí i závěrečnou validaci. Jakákoli kolize proto vrátí i
+adopce; `schema_migrations` nezůstane částečně přeznačená.
+
+M2 identity, které se historicky střetly s modelovou linkou, jsou nahrazené
+globálně volnými kanonickými sloty `092`–`095`. Původní M2 `070`, `081`,
+`082` a `083` se pouze atomicky adoptují se zachováním `applied_at`; jejich
+těla se znovu nespouštějí. Modelové omylem vydané `084`–`086` se stejným
+způsobem adoptují na kanonické `081`, `081` a `082`. Jiná kolize nebo
+lookalike schema zůstává fail-closed. Aktuální manifest obsahuje 83 fyzických
+migračních zdrojů a jeho přesný seznam je strojově vázaný v
+[`migration-reservation.md`](../execution/migration-reservation.md).

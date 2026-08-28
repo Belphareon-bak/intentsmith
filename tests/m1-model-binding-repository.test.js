@@ -51,16 +51,7 @@ const MANUAL_BINDING_WORKER_SOURCE = `
     while (Atomics.load(signal, 0) !== 1) Atomics.wait(signal, 0, 0);
     try {
       let result;
-      if (workerData.action === 'claim') {
-        result = repository.claimOperation({
-          role: workerData.role,
-          episodeId: state.episodeId,
-          expectedDesiredRevision: state.desiredRevision,
-          expectedRowVersion: state.rowVersion,
-          kind: 'ACTIVATE',
-          leaseMs: 1000,
-        });
-      } else if (workerData.action === 'provider-terminal') {
+      if (workerData.action === 'provider-terminal') {
         result = repository.recordManualProviderPullSucceeded({
           operationId: workerData.providerOperationId,
           claimToken: workerData.claimToken,
@@ -331,18 +322,6 @@ function detectChat(repository, expectedDesiredRevision = 1) {
   return repository.recordDetection({ role: 'CHAT', expectedDesiredRevision });
 }
 
-function claimChat(repository, state, overrides = {}) {
-  return repository.claimOperation({
-    role: 'CHAT',
-    episodeId: state.episodeId,
-    expectedDesiredRevision: state.desiredRevision,
-    expectedRowVersion: state.rowVersion,
-    kind: 'ACTIVATE',
-    leaseMs: 1000,
-    ...overrides,
-  });
-}
-
 const PROOF_ARTIFACT_SOURCE_REVISION = 'f'.repeat(40);
 
 // Decision 015 (migration 067): a proof cannot exist without its durable
@@ -431,6 +410,65 @@ function insertActivationEvent(db, {
     proofId,
     createdAtMs,
   );
+}
+
+// Upgrade compatibility fixture only. Automatic failover claim/terminal writers
+// are intentionally absent from the public repository contract; these rows
+// model incidents that may already exist in an upgraded database.
+function insertHistoricalFailoverClaim(db, state, {
+  kind = 'ACTIVATE',
+  operationId = `operation-historical-${kind.toLowerCase()}`,
+  claimToken = `claim-token-historical-${kind.toLowerCase()}-0001`,
+  createdAtMs = 2200,
+} = {}) {
+  const desired = db.prepare(`
+    SELECT model_name, digest_sha256
+    FROM model_desired_bindings
+    WHERE role = 'CHAT' AND binding_revision = ?
+  `).get(state.desiredRevision);
+  const eventType = kind === 'ACTIVATE' ? 'ACTIVATION_CLAIMED' : 'RESTORE_CLAIMED';
+  const eventId = `event-binding-repository-historical-${kind.toLowerCase()}-claimed`;
+  const rowVersion = state.rowVersion + 1;
+  db.prepare(`
+    INSERT INTO model_failover_events (
+      event_id, event_type, role, binding_revision, row_version, episode_id,
+      operation_id, actor, reason_code, policy_version, state_before,
+      state_after, desired_model_name, desired_digest_sha256, created_at_ms
+    ) VALUES (?, ?, 'CHAT', ?, ?, ?, ?, 'system:binding-integrity',
+      'FAILOVER_OPERATION_CLAIMED', 'd-plus-v1', ?, ?, ?, ?, ?)
+  `).run(
+    eventId,
+    eventType,
+    state.desiredRevision,
+    rowVersion,
+    state.episodeId,
+    operationId,
+    state.state,
+    state.state,
+    desired.model_name,
+    desired.digest_sha256,
+    createdAtMs,
+  );
+  db.prepare(`
+    UPDATE model_failover_state
+    SET row_version = ?, claim_operation_id = ?, claim_token = ?,
+        claim_kind = ?, claim_started_at_ms = ?, claim_expires_at_ms = ?,
+        updated_at_ms = ?, last_event_id = ?
+    WHERE role = 'CHAT'
+  `).run(
+    rowVersion,
+    operationId,
+    claimToken,
+    kind,
+    createdAtMs,
+    createdAtMs + 1000,
+    createdAtMs,
+    eventId,
+  );
+  return {
+    state: { ...state, rowVersion },
+    claim: { operationId, token: claimToken, kind },
+  };
 }
 
 function activateClaimedChat(db, claimed, { createdAtMs = 3000 } = {}) {
@@ -3722,132 +3760,53 @@ await testAsync('application transaction failures roll back attempt, override an
 
 suite('M1 manual binding repository — incident supersede and retirement');
 
-await testAsync('manual apply and ACTIVATE claim serialize safely in both orders', async () => {
-  const scenarios = [
-    {
-      name: 'apply-wins',
-      contenders: [
-        { prefix: 'apply-first', action: 'apply', requestKey: 'request-race-apply-first' },
-        { prefix: 'claim-second', action: 'claim' },
-      ],
-      expected: 'MODEL_FAILOVER_STALE_DESIRED,RECORDED',
-      claimedEvents: 0,
-    },
-    {
-      name: 'claim-wins',
-      contenders: [
-        { prefix: 'claim-first', action: 'claim' },
-        { prefix: 'apply-second', action: 'apply', requestKey: 'request-race-apply-second' },
-      ],
-      expected: 'CLAIMED,RECORDED',
-      claimedEvents: 1,
-    },
-  ];
+await testAsync('detected incident is atomically superseded by manual intent', async () => {
+  await withRepository(async ({ firstDb }) => {
+    const runtime = createRuntime('supersede-detected');
+    const repository = createModelFailoverRepository(firstDb, runtime.options);
+    observeChat(repository);
+    runtime.setNow(2000);
+    detectChat(repository);
+    runtime.setNow(2500);
+    const applied = applyChat(repository);
+    assertEqual(applied.outcome, 'RECORDED');
+    const state = repository.getState('CHAT');
+    assertEqual(state.state, 'SUPERSEDED_BY_USER');
+    assertEqual(state.desiredRevision, 2);
+    assertEqual(state.rowVersion, 2);
+    assertEqual(state.activeFailover, false);
+    assertEqual(state.claimPresent, false);
+    assertEqual(state.resolvedAtMs, 2500);
+    const supersede = repository.listEvents({ role: 'CHAT' })
+      .find(event => event.eventType === 'SUPERSEDED_BY_USER');
+    assertEqual(supersede.operationId, applied.operation.operationId);
+    assertEqual(supersede.bindingRevision, 2);
+    assertEqual(supersede.stateBefore, 'DETECTED');
+    assertEqual(supersede.stateAfter, 'SUPERSEDED_BY_USER');
+    assertEqual(supersede.verified, false);
+    assertEqual(supersede.proofId, null);
 
-  for (const scenario of scenarios) {
-    await withRepository(async ({ firstDb, databasePath }) => {
-      const runtime = createRuntime(`claim-apply-${scenario.name}`);
-      const repository = createModelFailoverRepository(firstDb, runtime.options);
-      observeChat(repository);
-      runtime.setNow(2000);
-      detectChat(repository);
-      const results = await runManualBindingRace({
-        databasePath,
-        contenders: scenario.contenders,
-        releaseOrder: scenario.contenders.map(contender => contender.prefix),
-      });
-      assertEqual(
-        results.map(result => result.outcome || result.errorCode).sort().join(','),
-        scenario.expected,
-      );
-      const state = repository.getState('CHAT');
-      assertEqual(state.state, 'SUPERSEDED_BY_USER');
-      assertEqual(state.desiredRevision, 2);
-      assertEqual(state.claimPresent, false);
-      assertEqual(repository.getEffectiveBinding('CHAT').source, 'PENDING_MANUAL');
-      assertEqual(firstDb.prepare('SELECT COUNT(*) AS count FROM model_binding_operations').get().count, 1);
-      assertEqual(
-        firstDb.prepare("SELECT COUNT(*) AS count FROM model_failover_events WHERE event_type = 'ACTIVATION_CLAIMED'").get().count,
-        scenario.claimedEvents,
-      );
-      assertEqual(firstDb.prepare('SELECT COUNT(*) AS count FROM model_overrides').get().count, 0);
-      assertEqual(firstDb.prepare('SELECT COUNT(*) AS count FROM upgrade_history').get().count, 0);
+    runtime.setNow(3000);
+    const pendingDetection = captureError(() => detectChat(repository, 2));
+    assertRepositoryError(
+      pendingDetection,
+      'MODEL_FAILOVER_RUNTIME_BINDING_UNCONFIRMED',
+    );
+    const followUp = applyChat(repository, {
+      requestKey: 'request-user-apply-after-supersede',
+      expectedBindingRevision: 2,
+      targetModelName: 'candidate-v2',
+      targetDigestSha256: DIGEST_A,
     });
-  }
-});
-
-await testAsync('detected incident with or without ACTIVATE claim is atomically superseded', async () => {
-  for (const claimedVariant of [false, true]) {
-    await withRepository(async ({ firstDb }) => {
-      const runtime = createRuntime(claimedVariant ? 'supersede-claimed' : 'supersede-detected');
-      const repository = createModelFailoverRepository(firstDb, runtime.options);
-      observeChat(repository);
-      runtime.setNow(2000);
-      const detected = detectChat(repository).state;
-      let claimed = null;
-      if (claimedVariant) {
-        runtime.setNow(2200);
-        claimed = claimChat(repository, detected);
-      }
-      runtime.setNow(2500);
-      const applied = applyChat(repository);
-      assertEqual(applied.outcome, 'RECORDED');
-      const state = repository.getState('CHAT');
-      assertEqual(state.state, 'SUPERSEDED_BY_USER');
-      assertEqual(state.desiredRevision, 2);
-      assertEqual(state.rowVersion, claimedVariant ? 3 : 2);
-      assertEqual(state.activeFailover, false);
-      assertEqual(state.claimPresent, false);
-      assertEqual(state.resolvedAtMs, 2500);
-      const supersede = repository.listEvents({ role: 'CHAT' })
-        .find(event => event.eventType === 'SUPERSEDED_BY_USER');
-      assertEqual(supersede.operationId, applied.operation.operationId);
-      assertEqual(supersede.bindingRevision, 2);
-      assertEqual(supersede.stateBefore, 'DETECTED');
-      assertEqual(supersede.stateAfter, 'SUPERSEDED_BY_USER');
-      assertEqual(supersede.verified, false);
-      assertEqual(supersede.proofId, null);
-
-      if (claimedVariant) {
-        insertPassingChatProof(firstDb, { completedAtMs: 2550 });
-        const late = captureError(() => insertActivationEvent(firstDb, {
-          eventId: 'event-late-activation-after-manual',
-          episodeId: claimed.state.episodeId,
-          operationId: claimed.claim.operationId,
-          bindingRevision: state.desiredRevision,
-          rowVersion: state.rowVersion + 1,
-          desiredModelName: 'candidate',
-          desiredDigestSha256: DIGEST_B,
-          createdAtMs: 2600,
-        }));
-        assert(
-          /live claim/i.test(late.message),
-          `Expected late terminal rejection, got: ${late.message}`,
-        );
-      }
-
-      runtime.setNow(3000);
-      const pendingDetection = captureError(() => detectChat(repository, 2));
-      assertRepositoryError(
-        pendingDetection,
-        'MODEL_FAILOVER_RUNTIME_BINDING_UNCONFIRMED',
-      );
-      const followUp = applyChat(repository, {
-        requestKey: 'request-user-apply-after-supersede',
-        expectedBindingRevision: 2,
-        targetModelName: 'candidate-v2',
-        targetDigestSha256: DIGEST_A,
-      });
-      assertEqual(followUp.outcome, 'RECORDED');
-      assertEqual(followUp.currentDesired.bindingRevision, 3);
-      assertEqual(repository.getState('CHAT'), null);
-      assertEqual(
-        repository.listEvents({ role: 'CHAT' })
-          .filter(event => event.eventType === 'SUPERSEDED_BY_USER').length,
-        1,
-      );
-    });
-  }
+    assertEqual(followUp.outcome, 'RECORDED');
+    assertEqual(followUp.currentDesired.bindingRevision, 3);
+    assertEqual(repository.getState('CHAT'), null);
+    assertEqual(
+      repository.listEvents({ role: 'CHAT' })
+        .filter(event => event.eventType === 'SUPERSEDED_BY_USER').length,
+      1,
+    );
+  });
 });
 
 await testAsync('apply and rollback failures restore a retired superseded incident', async () => {
@@ -3919,8 +3878,7 @@ await testAsync('active failover cannot be superseded by the storage-only reposi
     observeChat(repository);
     runtime.setNow(2000);
     const detected = detectChat(repository).state;
-    runtime.setNow(2200);
-    const claimed = claimChat(repository, detected);
+    const claimed = insertHistoricalFailoverClaim(firstDb, detected);
     activateClaimedChat(firstDb, claimed);
     const before = authoritySnapshot(firstDb);
 
@@ -3961,18 +3919,15 @@ await testAsync('failed and restored incidents require explicit runtime coordina
     observeChat(repository);
     runtime.setNow(2000);
     const detected = detectChat(repository).state;
-    runtime.setNow(2200);
-    const activateClaim = claimChat(repository, detected);
+    const activateClaim = insertHistoricalFailoverClaim(firstDb, detected);
     activateClaimedChat(firstDb, activateClaim);
     runtime.setNow(3200);
     const active = repository.getState('CHAT');
-    const restoreClaim = repository.claimOperation({
-      role: 'CHAT',
-      episodeId: active.episodeId,
-      expectedDesiredRevision: active.desiredRevision,
-      expectedRowVersion: active.rowVersion,
+    const restoreClaim = insertHistoricalFailoverClaim(firstDb, active, {
       kind: 'RESTORE',
-      leaseMs: 1000,
+      operationId: 'operation-historical-restore',
+      claimToken: 'claim-token-historical-restore-0001',
+      createdAtMs: 3200,
     });
     restoreActiveChat(firstDb, restoreClaim);
     const before = authoritySnapshot(firstDb);

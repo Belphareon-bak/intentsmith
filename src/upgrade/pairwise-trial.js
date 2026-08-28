@@ -14,17 +14,48 @@
 //
 //   - úloha, kde oba dopadnou stejně, do rozhodnutí nevstupuje (nerozlišuje);
 //   - rozhoduje se z úloh, kde se skóre liší, podle **marže**, ne pass/fail;
-//   - když nerozlišuje ani jedna úloha, kvalita se prohlásí za nerozhodnou a
-//     rozhodne naměřená propustnost — což je poctivější než tvrdit, že je
-//     kandidát lepší, protože oba dali 100 %.
+//   - když nerozlišuje dost úloh, výsledek je explicitně INCONCLUSIVE. Rychlost
+//     je provozní metrika, ne náhradní důkaz kvality ani důvod k aktivaci.
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { logger } from '../core/logger.js';
-import { SUITES, getSuiteForRole } from './validation-suites.js';
 
 /** O kolik musí kandidát vést v marži, aby se to počítalo za rozdíl na úloze. */
 export const TASK_MARGIN_EPSILON = 0.05;
+
+// Historical panel summaries intentionally store task means to three decimal
+// places. A rounded 0.333 must not beat an exact 2/3 noise boundary merely
+// because 1 - 0.333 is a few ten-thousandths larger than 0.666666....
+const SCORE_ROUNDING_EPSILON = 0.0005;
+export const MODEL_EVALUATION_DECISION_POLICY_VERSION = 'role-pairwise-v1';
+export const MODEL_EVALUATION_DECISION_REASON = Object.freeze({
+  CANDIDATE_QUALITY: 'CANDIDATE_QUALITY',
+  INCUMBENT_QUALITY: 'INCUMBENT_QUALITY',
+  INSUFFICIENT_EVIDENCE: 'INSUFFICIENT_EVIDENCE',
+  QUALITY_INCONCLUSIVE: 'QUALITY_INCONCLUSIVE',
+});
+
+export function decisionPolicyForRole(plan, threshold = 0.05) {
+  if (!plan?.role || !plan?.suiteContractSha256) {
+    throw new TypeError('decision policy requires a current role evaluation plan');
+  }
+  return Object.freeze({
+    version: MODEL_EVALUATION_DECISION_POLICY_VERSION,
+    role: plan.role,
+    suiteName: plan.suiteName,
+    suiteVersion: plan.suiteVersion,
+    suiteContractSha256: plan.suiteContractSha256,
+    repeats: plan.repeats,
+    taskMarginEpsilon: TASK_MARGIN_EPSILON,
+    scoreRoundingEpsilon: SCORE_ROUNDING_EPSILON,
+    improvementThreshold: threshold,
+    minimumDiscriminatingTasks: plan.minimumDiscriminatingTasks || 0,
+    minimumDiscriminatingByLanguage: Object.freeze({
+      ...(plan.minimumDiscriminatingByLanguage || {}),
+    }),
+  });
+}
 
 /**
  * Kolikrát se každá sada spustí na každém modelu.
@@ -47,11 +78,10 @@ export const DEFAULT_REPEATS = 3;
 /**
  * Cache výsledků sady pro jeden běh.
  *
- * Role sdílejí sady: `reasoning` obsluhuje D1, D2 i R1, takže bez cache by se
- * pro tutéž dvojici modelů spustila třikrát a celá zkouška kandidáta by trvala
- * skoro dvojnásobek.  Skóre modelu na dané sadě se v rámci běhu nemění, takže
- * je bezpečné ho podržet; klíčem je dvojice sada+model, aby si role nemíchaly
- * různé stávající modely.
+ * Role mohou sdílet zdrojovou sadu, ale výsledek je vždy role-specific
+ * evidence. Cache proto zahrnuje roli, jméno i verzi sady, přesný kontrakt a
+ * model. D1, D2 a R1 si nesmějí vzájemně promítat ani čerstvě naměřený
+ * výsledek.
  */
 export function createSuiteCache() {
   return new Map();
@@ -63,28 +93,45 @@ export function createSuiteCache() {
  * `spread` je rozdíl mezi nejlepším a nejhorším během téže úlohy na témž
  * modelu — tedy kolik z pozorovaného rozdílu jde na vrub náhodě, ne kvalitě.
  */
-async function runSuiteRepeated(runner, suiteName, model, repeats, onProgress, between) {
+async function runSuiteRepeated(
+  runner, suiteName, model, repeats, onProgress, between, expectedArtifact,
+) {
+  const started = Date.now();
+  const startedAt = new Date(started).toISOString();
   const runs = [];
   for (let i = 0; i < repeats; i++) {
     if (i > 0 && between) await between();
-    runs.push(await runner.runSuite(suiteName, model, onProgress));
+    runs.push(await runner.runSuite(suiteName, model, onProgress, expectedArtifact));
   }
 
   const byTask = new Map();
   for (const run of runs) {
     for (const t of run.tests) {
-      if (!byTask.has(t.name)) byTask.set(t.name, []);
-      byTask.get(t.name).push(t.score ?? 0);
+      if (!byTask.has(t.name)) {
+        byTask.set(t.name, {
+          scores: [], responses: [], details: [], rubric: t.rubric || [],
+          language: t.language || null,
+        });
+      }
+      const row = byTask.get(t.name);
+      row.scores.push(t.score ?? 0);
+      row.responses.push(t.response || '');
+      row.details.push(t.detail || null);
     }
   }
 
-  const tasks = [...byTask.entries()].map(([name, scores]) => ({
+  const tasks = [...byTask.entries()].map(([name, row]) => ({
     name,
-    mean: scores.reduce((a, b) => a + b, 0) / scores.length,
-    spread: Math.max(...scores) - Math.min(...scores),
-    scores,
+    mean: row.scores.reduce((a, b) => a + b, 0) / row.scores.length,
+    spread: Math.max(...row.scores) - Math.min(...row.scores),
+    scores: row.scores,
+    responses: row.responses,
+    details: row.details,
+    rubric: row.rubric,
+    language: row.language,
   }));
 
+  const completed = Date.now();
   return {
     suite: suiteName,
     model,
@@ -92,18 +139,65 @@ async function runSuiteRepeated(runner, suiteName, model, repeats, onProgress, b
     tasks,
     score: tasks.reduce((s, t) => s + t.mean, 0) / (tasks.length || 1),
     unstableTasks: tasks.filter(t => t.spread > 0).map(t => t.name),
+    durationMs: completed - started,
+    startedAt,
+    completedAt: new Date(completed).toISOString(),
+    reused: false,
+    artifact: expectedArtifact || null,
   };
 }
 
+function cacheKey(suiteName, model, opts = {}) {
+  return `${String(opts.role || 'missing-role').toUpperCase()}::${suiteName}`
+    + `::${opts.suiteVersion || 'unversioned'}`
+    + `::${opts.suiteContractSha256 || 'missing-contract'}::${model}`;
+}
+
 async function runSuiteCached(runner, suiteName, model, cache, opts = {}) {
-  const key = `${suiteName}::${model}`;
+  const key = cacheKey(suiteName, model, opts);
   if (cache?.has(key)) return cache.get(key);
+
+  if (typeof opts.loadHistoricalSummary === 'function') {
+    const historical = await opts.loadHistoricalSummary({
+      role: opts.role || null,
+      suiteName,
+      suiteVersion: opts.suiteVersion || 'unversioned',
+      suiteContractSha256: opts.suiteContractSha256 || null,
+      model,
+      repeats: opts.repeats ?? DEFAULT_REPEATS,
+    });
+    if (historical) {
+      const reused = { ...historical, suite: suiteName, model, reused: true };
+      cache?.set(key, reused);
+      return reused;
+    }
+  }
+
+  let expectedArtifact = null;
+  if (typeof opts.resolveArtifact === 'function') {
+    expectedArtifact = await opts.resolveArtifact(model);
+  } else if (typeof opts.saveHistoricalSummary === 'function') {
+    throw new Error('Authoritative evaluation persistence requires resolveArtifact');
+  }
   const result = await runSuiteRepeated(
     runner, suiteName, model,
     opts.repeats ?? DEFAULT_REPEATS,
     opts.onProgress,
     opts.between,
+    expectedArtifact,
   );
+  if (typeof opts.saveHistoricalSummary === 'function') {
+    const saved = await opts.saveHistoricalSummary({
+      role: opts.role || null,
+      suiteName,
+      suiteVersion: opts.suiteVersion || 'unversioned',
+      suiteContractSha256: opts.suiteContractSha256 || null,
+      model,
+      summary: result,
+      artifact: expectedArtifact,
+    });
+    if (saved?.runId) result.historyRunId = saved.runId;
+  }
   cache?.set(key, result);
   return result;
 }
@@ -111,23 +205,20 @@ async function runSuiteCached(runner, suiteName, model, cache, opts = {}) {
 /**
  * Spustí jednu sadu na obou modelech a porovná ji úlohu po úloze.
  *
- * @param {Object} runner - ValidationRunner
+ * @param {Object} runner - ModelEvaluationRunner-compatible runner
  * @param {string} suiteName
  * @param {string} candidate
  * @param {string} incumbent
  * @returns {Promise<{suite, tasks, discriminating, candidateWins, incumbentWins, margin, inconclusive}>}
  */
 export async function comparePair(runner, suiteName, candidate, incumbent, opts = {}) {
-  // Sada se dá předat explicitně, protože do registru `SUITES` nelze přidávat:
-  // fail-closed proof policy kontroluje, že jeho klíče přesně odpovídají pěti
-  // očekávaným sadám, a šestá by ho shodila na `AUTHORITY_INVALID`.  Sady mimo
-  // registr (`code_patch`) tak jdou porovnat, aniž by se registr měnil.
-  const suite = opts.suite || SUITES[suiteName];
-  if (!suite) throw new Error(`Neznámá validační sada: ${suiteName}`);
+  // Suite resolution belongs to the injected runner. Runtime callers reach
+  // this function through trialRole(), which requires an explicit current
+  // evaluation plan; unit runners may expose their own deterministic suites.
 
   const cache = opts.suiteCache;
-  const candidateCached = cache?.has(`${suiteName}::${candidate}`);
-  const incumbentCached = cache?.has(`${suiteName}::${incumbent}`);
+  const candidateCached = cache?.has(cacheKey(suiteName, candidate, opts));
+  const incumbentCached = cache?.has(cacheKey(suiteName, incumbent, opts));
 
   // Pořadí je záměrné: oba modely projdou tutéž sadu, ale každý zvlášť, aby
   // se nepřetahovaly o VRAM. Kdo je rezidentní, ovlivňuje výsledek — změřeno
@@ -150,13 +241,14 @@ export async function comparePair(runner, suiteName, candidate, incumbent, opts 
     const threshold = Math.max(TASK_MARGIN_EPSILON, noise);
     tasks.push({
       name: c.name,
+      language: c.language || i.language || null,
       candidateScore: Math.round(c.mean * 1000) / 1000,
       incumbentScore: Math.round(i.mean * 1000) / 1000,
       candidateSpread: c.spread,
       incumbentSpread: i.spread,
       delta,
       noise,
-      discriminating: Math.abs(delta) > threshold,
+      discriminating: Math.abs(delta) > threshold + SCORE_ROUNDING_EPSILON,
     });
   }
 
@@ -177,6 +269,8 @@ export async function comparePair(runner, suiteName, candidate, incumbent, opts 
     inconclusive: discriminating.length === 0,
     candidateSuiteScore: candidateRun.score,
     incumbentSuiteScore: incumbentRun.score,
+    candidateRunId: candidateRun.historyRunId || null,
+    incumbentRunId: incumbentRun.historyRunId || null,
     repeats: candidateRun.runs,
     unstableTasks: [...new Set([...candidateRun.unstableTasks, ...incumbentRun.unstableTasks])],
   };
@@ -185,16 +279,41 @@ export async function comparePair(runner, suiteName, candidate, incumbent, opts 
 /**
  * Rozhodne souboj pro jednu roli.
  *
- * Kvalita rozhoduje, dokud rozlišuje.  Když nerozlišuje, rozhodne rychlost —
- * ale jen když je rozdíl výrazný, jinak se stávající model nechává být.
- * Setrvačnost je záměrná: výměna má cenu jen tehdy, když je pro ni důvod.
+ * Kvalita rozhoduje jen nad explicitním důkazním minimem. Když sada
+ * nerozlišuje, výsledek zůstává nerozhodný; propustnost se nesmí stát skrytou
+ * náhradní aktivační politikou.
  *
  * @param {Object} comparison - výstup comparePair
- * @param {Object} speed - { candidate: tok/s, incumbent: tok/s }
  * @param {number} threshold - IMPROVEMENT_THRESHOLD pro roli
  */
-export function decideRole(comparison, speed = {}, threshold = 0.05) {
+export function decideRole(comparison, _speed = {}, threshold = 0.05, evidence = {}) {
   const { margin, candidateWins, incumbentWins, inconclusive } = comparison;
+
+  const minimumTotal = Math.max(0, Number(evidence.minimumDiscriminatingTasks) || 0);
+  const languageMinimums = evidence.minimumDiscriminatingByLanguage || {};
+  const discriminatingRows = (comparison.tasks || []).filter(task => task.discriminating);
+  const byLanguage = Object.fromEntries(Object.keys(languageMinimums).map(language => [
+    language,
+    discriminatingRows.filter(task => task.language === language).length,
+  ]));
+  const missingTotal = comparison.discriminating < minimumTotal;
+  const missingLanguages = Object.entries(languageMinimums)
+    .filter(([language, minimum]) => (byLanguage[language] || 0) < minimum);
+  if (missingTotal || missingLanguages.length) {
+    const requirements = [
+      minimumTotal ? `${comparison.discriminating}/${minimumTotal} celkem` : null,
+      ...Object.entries(languageMinimums).map(([language, minimum]) => (
+        `${language} ${byLanguage[language] || 0}/${minimum}`
+      )),
+    ].filter(Boolean).join(', ');
+    return {
+      winner: 'incumbent',
+      reasonCode: MODEL_EVALUATION_DECISION_REASON.INSUFFICIENT_EVIDENCE,
+      basis: 'nedostatečný důkaz',
+      confidence: 'nedostatečná',
+      detail: `rozhodnutí kandidáta zablokováno: stabilně rozlišující úlohy ${requirements}`,
+    };
+  }
 
   // Rozhodnutí opřené o jedinou úlohu je jedno pozorování, ne trend. Signál se
   // nezahazuje — úloha stabilní přes tři běhy nese informaci — ale operátor má
@@ -207,6 +326,7 @@ export function decideRole(comparison, speed = {}, threshold = 0.05) {
     if (margin >= threshold && candidateWins > incumbentWins) {
       return {
         winner: 'candidate',
+        reasonCode: MODEL_EVALUATION_DECISION_REASON.CANDIDATE_QUALITY,
         basis: 'kvalita',
         confidence,
         detail: `marže ${margin.toFixed(3)} ≥ práh ${threshold} na ${comparison.discriminating} rozlišujících úlohách `
@@ -216,42 +336,35 @@ export function decideRole(comparison, speed = {}, threshold = 0.05) {
     if (margin <= -threshold && incumbentWins > candidateWins) {
       return {
         winner: 'incumbent',
+        reasonCode: MODEL_EVALUATION_DECISION_REASON.INCUMBENT_QUALITY,
         basis: 'kvalita',
         confidence,
         detail: `kandidát ztrácí ${Math.abs(margin).toFixed(3)} na ${comparison.discriminating} úlohách, jistota ${confidence}`,
       };
     }
+    if (margin >= threshold && candidateWins <= incumbentWins) {
+      return {
+        winner: 'incumbent',
+        reasonCode: MODEL_EVALUATION_DECISION_REASON.INCUMBENT_QUALITY,
+        basis: 'kvalita',
+        confidence,
+        detail: `marže ${margin.toFixed(3)} splnila práh ${threshold}, ale poměr rozlišujících úloh `
+          + `${candidateWins}:${incumbentWins} nepotvrdil většinu kandidáta — stávající zůstává`,
+      };
+    }
     return {
       winner: 'incumbent',
+      reasonCode: MODEL_EVALUATION_DECISION_REASON.INCUMBENT_QUALITY,
       basis: 'kvalita',
       detail: `rozdíl ${margin.toFixed(3)} nedosáhl prahu ${threshold} — stávající zůstává`,
     };
   }
 
-  // Kvalita nerozlišila. Rychlost rozhodne jen při zřetelném rozdílu.
-  const c = speed.candidate;
-  const i = speed.incumbent;
-  if (c > 0 && i > 0) {
-    const ratio = c / i;
-    if (ratio >= 1.25) {
-      return {
-        winner: 'candidate',
-        basis: 'rychlost',
-        detail: `kvalita nerozlišila (všechny úlohy shodné), kandidát je ${ratio.toFixed(2)}× rychlejší `
-          + `(${c} vs ${i} tok/s)`,
-      };
-    }
-    return {
-      winner: 'incumbent',
-      basis: 'nerozhodně',
-      detail: `kvalita nerozlišila a rychlost se liší jen ${ratio.toFixed(2)}× — stávající zůstává`,
-    };
-  }
-
   return {
     winner: 'incumbent',
+    reasonCode: MODEL_EVALUATION_DECISION_REASON.QUALITY_INCONCLUSIVE,
     basis: 'nerozhodně',
-    detail: 'kvalita nerozlišila a rychlost není změřená',
+    detail: 'kvalita nerozlišila; rychlost není náhradní kvalitativní důkaz',
   };
 }
 
@@ -259,19 +372,36 @@ export function decideRole(comparison, speed = {}, threshold = 0.05) {
  * Kompletní souboj pro jednu roli: porovná a rozhodne.
  */
 export async function trialRole(runner, role, candidate, incumbent, opts = {}) {
-  const suiteName = getSuiteForRole(role);
-  if (!suiteName) return { role, skipped: true, reason: `role ${role} nemá validační sadu` };
+  const plan = opts.evaluationPlan || null;
+  if (!plan) {
+    return { role, skipped: true, reason: `role ${role} nemá explicitní current evaluation plan` };
+  }
+  const suiteName = plan.suiteName;
 
-  const comparison = await comparePair(runner, suiteName, candidate, incumbent, opts);
-  const decision = decideRole(comparison, opts.speed || {}, opts.threshold ?? 0.05);
+  const threshold = opts.threshold ?? 0.05;
+  const policy = decisionPolicyForRole(plan, threshold);
+  const comparison = await comparePair(runner, suiteName, candidate, incumbent, {
+    ...opts,
+    role,
+    suite: plan?.suite || opts.suite,
+    suiteVersion: plan?.suiteVersion || opts.suiteVersion,
+    suiteContractSha256: plan?.suiteContractSha256 || opts.suiteContractSha256,
+  });
+  const decision = decideRole(comparison, {}, threshold, {
+    minimumDiscriminatingTasks: plan?.minimumDiscriminatingTasks
+      ?? opts.minimumDiscriminatingTasks,
+    minimumDiscriminatingByLanguage: plan?.minimumDiscriminatingByLanguage
+      ?? opts.minimumDiscriminatingByLanguage,
+  });
 
   logger.info('PairwiseTrial',
     `${role}: ${candidate} vs ${incumbent} → ${decision.winner} (${decision.basis}) — ${decision.detail}`);
 
-  return { role, suite: suiteName, comparison, decision, skipped: false };
+  return { role, suite: suiteName, policy, comparison, decision, skipped: false };
 }
 
 export default {
   comparePair, decideRole, trialRole, createSuiteCache,
-  TASK_MARGIN_EPSILON, DEFAULT_REPEATS,
+  TASK_MARGIN_EPSILON, DEFAULT_REPEATS, MODEL_EVALUATION_DECISION_REASON,
+  MODEL_EVALUATION_DECISION_POLICY_VERSION, decisionPolicyForRole,
 };

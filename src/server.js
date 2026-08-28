@@ -132,6 +132,10 @@ if (config.features.expertises !== false) {
 
 // v36.9.1: LLM client routed through gateway with auth tokens
 import { callWithAuth, llmGateway } from './llm/gateway.js';
+import {
+  normalizeModelDigestSha256,
+  sameModelName,
+} from './upgrade/model-identity.js';
 import { createAuthToken, LLMCallerRole } from './llm/auth-types.js';
 
 // v57.2: Trust Feedback Loop
@@ -146,7 +150,6 @@ import { attachWebSocketServer } from './ws-bridge/index.js';
 import { setNotificationDeps } from './ws-bridge/session-adapter.js';
 import { getDefaultHandlers } from './chat/handlers/index.js';
 import {
-  setModelBindingApplication,
   setModelRegistry,
   setUpgradeManager,
 } from './chat/handlers/pre-handler.js';
@@ -272,6 +275,7 @@ import { upgradeManager } from './upgrade/upgrade-manager.js';
 
 // v133: ModelRegistry — centralized model management
 import { modelRegistry } from './upgrade/model-registry.js';
+import { ModelEvaluationReadModel } from './upgrade/model-evaluation-read-model.js';
 import { modelUniverseStore } from './upgrade/model-universe-store.js';
 import { createModelFailoverRepository } from './upgrade/model-failover.js';
 import {
@@ -283,8 +287,8 @@ import {
 import {
   createModelBindingApplication,
   createOllamaModelBindingProvider,
+  requireModelBindingStartupAuthority,
 } from './upgrade/model-binding-application.js';
-import { createModelFailoverApplication } from './upgrade/model-failover-application.js';
 import { modelUseAuthority } from './upgrade/model-use-authority.js';
 import {
   createModelArtifactAuthorityRepository,
@@ -299,6 +303,7 @@ upgradeManager.setModelArtifactAuthorityRepository(modelArtifactAuthorityReposit
 setUpgradeManager(upgradeManager);
 modelUniverseStore.setDb(db.db);
 const bindingRepository = createModelFailoverRepository(db.db);
+const modelEvaluationReadModel = new ModelEvaluationReadModel(db.db);
 const { broadcast: bindingBroadcast } = await import('./ws-bridge/ws-server.js');
 const modelBindingProvider = createOllamaModelBindingProvider({
   baseUrl: config.ollama?.baseUrl,
@@ -314,16 +319,6 @@ const modelBindingApplication = createModelBindingApplication({
   publishControl: payload => bindingBroadcast('control', payload),
   logger,
 });
-const modelFailoverApplication = createModelFailoverApplication({
-  repository: bindingRepository,
-  runtime: bindingRuntime,
-  provider: modelBindingProvider,
-  mutationOwner: modelBindingApplication,
-  modelUseAuthority: modelBindingApplication.modelUseAuthority,
-  publishControl: payload => bindingBroadcast('control', payload),
-  logger,
-});
-setModelBindingApplication(modelBindingApplication);
 const bindingRehydrate = await modelBindingApplication.rehydrateBindings();
 if (bindingRehydrate.legacyRestored > 0 || bindingRehydrate.restored > 0) {
   logger.info(
@@ -337,35 +332,60 @@ for (const failure of bindingRehydrate.failed) {
     `Model binding rehydrate failed for ${failure.role}: ${failure.code}`,
   );
 }
-const failoverStartupRecovery = await modelFailoverApplication.recoverStartup();
-for (const result of failoverStartupRecovery.roles) {
-  if (result.status === 'RECOVERED') {
-    logger.info('Server', `Recovered ${result.role} automatic failover runtime binding`);
-  } else if (result.status === 'INCONCLUSIVE' || result.status === 'DEGRADED_PROOF_EXPIRED') {
-    logger.warn(
-      'Server',
-      `Automatic failover startup ${result.role} ${result.status}: ${result.reason}`,
-    );
-  }
+requireModelBindingStartupAuthority({ rehydrate: bindingRehydrate });
+const bindingBaselineReconcile = await modelBindingApplication.reconcileConfiguredBindingBaselines();
+if (bindingBaselineReconcile.created > 0) {
+  logger.info(
+    'Server',
+    `Persisted ${bindingBaselineReconcile.created} configured model binding baseline(s)`,
+  );
 }
+for (const failure of bindingBaselineReconcile.roles.filter(row => row.outcome === 'FAILED')) {
+  logger.warn(
+    'Server',
+    `Configured model binding baseline failed for ${failure.role}: ${failure.code}`,
+  );
+}
+const bindingStartupAuthority = requireModelBindingStartupAuthority({
+  rehydrate: bindingRehydrate,
+  baseline: bindingBaselineReconcile,
+});
+if (bindingStartupAuthority.status === 'DEGRADED') {
+  logger.warn(
+    'Server',
+    `Model binding authority is DEGRADED; decision actionability disabled (${bindingStartupAuthority.reason})`,
+  );
+}
+llmGateway.setBindingStartupAuthority(bindingStartupAuthority, {
+  resolveArtifact({ modelName, role }) {
+    const candidateRoles = role && Object.hasOwn(config.models, role)
+      ? [role]
+      : Object.keys(config.models).filter(candidateRole => (
+        sameModelName(config.models[candidateRole], modelName)
+      ));
+    const artifacts = candidateRoles.map(candidateRole => {
+      if (!sameModelName(config.models[candidateRole], modelName)) return null;
+      const desired = bindingRepository.getDesired(candidateRole);
+      if (!desired || !sameModelName(desired.modelName, modelName)) return null;
+      const digestSha256 = normalizeModelDigestSha256(desired.digestSha256);
+      return digestSha256 ? { modelName: desired.modelName, digestSha256 } : null;
+    }).filter(Boolean);
+    const digests = new Set(artifacts.map(artifact => artifact.digestSha256));
+    if (artifacts.length === 0 || digests.size !== 1) {
+      throw new Error('Current exact binding artifact is unavailable or ambiguous');
+    }
+    return artifacts[0];
+  },
+});
 
-// v118: Phase 2 — proposal store + registry client
+// Registry metadata client supports factual online discovery only.
 try {
-  const { proposalStore } = await import('./upgrade/proposal-store.js');
-  proposalStore.setDb(db.db);
-  upgradeManager.setProposalStore(proposalStore);
-
   const { registryClient } = await import('./upgrade/registry-client.js');
   registryClient.setDb(db.db);
   registryClient.loadCache();
-  upgradeManager.setRegistryClient(registryClient);
-
-  // Expire stale proposals on startup
-  const expired = proposalStore.expireStale();
-  if (expired > 0) logger.info('Server', `Expired ${expired} stale upgrade proposal(s)`);
-  logger.info('Server', 'Phase 2 upgrade pipeline initialized');
+  logger.info('Server', 'Model registry metadata client initialized');
 } catch (err) {
-  logger.warn('Server', `Phase 2 upgrade pipeline not available: ${err.message}`);
+  logger.warn('Server', `Model registry metadata client not available: ${err.message}`);
 }
 
 // v120: Phase 3 — metrics collector for empirical model evaluation
@@ -395,13 +415,13 @@ try {
 // v133: Wire ModelRegistry — centralized model management
 let modelFailoverDetectionCoordinator = null;
 try {
-  const { validationRunner } = await import('./upgrade/validation-suites.js');
-  validationRunner.setDb(db.db);
   modelRegistry.init({
     db: db.db,
     upgradeManager,
     modelBindingApplication,
-    validationRunner,
+    bindingRepository,
+    bindingStartupAuthority,
+    modelEvaluationReadModel,
     broadcast: bindingBroadcast,
     modelUseAuthority,
     modelArtifactAuthorityRepository,
@@ -1673,7 +1693,7 @@ listenOnLegacyLoopback(server, config.server, async () => {
       startModelFailoverDetectionScheduler({
         coordinator: modelFailoverDetectionCoordinator,
         intervalMs: 5 * 60 * 1000,
-        onResult: async result => {
+        onResult: result => {
           if (result.status !== 'SKIPPED_DISABLED') {
             if (result.status === 'COMPLETED') {
               if (result.counters.detectionsCreated > 0) {
@@ -1691,21 +1711,6 @@ listenOnLegacyLoopback(server, config.server, async () => {
               logger.warn(
                 'Server',
                 `Model failover detection ${result.status}: ${result.reason}`,
-              );
-            }
-          }
-          const runtimeResult = await modelFailoverApplication.runAll();
-          for (const roleResult of runtimeResult.roles) {
-            if (roleResult.status === 'APPLIED' || roleResult.status === 'RECOVERED') {
-              logger.info(
-                'Server',
-                `Automatic failover ${roleResult.role} ${roleResult.status}: ${roleResult.reason}`,
-              );
-            } else if (roleResult.status === 'INCONCLUSIVE'
-              || roleResult.status === 'DEGRADED_PROOF_EXPIRED') {
-              logger.warn(
-                'Server',
-                `Automatic failover ${roleResult.role} ${roleResult.status}: ${roleResult.reason}`,
               );
             }
           }

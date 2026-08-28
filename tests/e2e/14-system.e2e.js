@@ -110,7 +110,8 @@ suite('System Upgrades');
 await testAsync('GET /api/system/upgrades returns shape', async () => {
   const { status, data } = await api('GET', '/api/system/upgrades');
   assertEqual(status, 200);
-  assert(Array.isArray(data.proposals), 'proposals must be array');
+  assertEqual(data.authority.discoveryOnly, true);
+  assertEqual(data.authority.qualityRecommendation, false);
   assert(Array.isArray(data.history), 'history must be array');
 });
 
@@ -123,12 +124,9 @@ await testAsync('GET /api/system/upgrades/bindings returns bindings', async () =
   assert(typeof data.configVersion === 'number', 'configVersion must be numeric');
 });
 
-await testAsync('GET /api/system/upgrades/scoring returns scores', async () => {
+await testAsync('removed heuristic scoring endpoint stays absent', async () => {
   const { status, data } = await api('GET', '/api/system/upgrades/scoring');
-  assertEqual(status, 200);
-  assert(data.scoring && typeof data.scoring === 'object', 'scoring map required');
-  assert(typeof data.evalVersion === 'string', 'evalVersion required');
-  assert(typeof data.gpuVramMb === 'number', 'gpuVramMb must be numeric');
+  assertEqual(status, 404);
 });
 
 await testAsync('GET /api/system/catalog returns entries', async () => {
@@ -140,10 +138,9 @@ await testAsync('GET /api/system/catalog returns entries', async () => {
   assert(typeof data.catalogHash === 'string', 'catalogHash required');
 });
 
-await testAsync('GET /api/system/proposals returns proposals', async () => {
+await testAsync('removed heuristic proposals endpoint stays absent', async () => {
   const { status, data } = await api('GET', '/api/system/proposals');
-  assertEqual(status, 200);
-  assert(Array.isArray(data.proposals), 'proposals must be array');
+  assertEqual(status, 404);
 });
 
 await testAsync('GET /api/system/upgrades/discovered returns models', async () => {
@@ -153,12 +150,13 @@ await testAsync('GET /api/system/upgrades/discovered returns models', async () =
   assertEqual(data.count, data.models.length);
 });
 
-await testAsync('GET /api/system/upgrades/recommendations returns sections', async () => {
-  const { status, data } = await api('GET', '/api/system/upgrades/recommendations');
+await testAsync('GET /api/system/models/candidates is discovery-only', async () => {
+  const { status, data } = await api('GET', '/api/system/models/candidates');
   assertEqual(status, 200);
-  assert(Array.isArray(data.sections), 'recommendation sections must be array');
+  assert(Array.isArray(data.candidates), 'candidate inventory must be array');
+  assertEqual(data.authority.discoveryOnly, true);
+  assertEqual(data.authority.qualityRecommendation, false);
   assert(typeof data.gpuVramMb === 'number', 'gpuVramMb must be numeric');
-  assert(data.currentModels && typeof data.currentModels === 'object', 'currentModels required');
 });
 
 // ── Upgrade Apply Error Paths ───────────────────────────────────────────────
@@ -181,19 +179,19 @@ await testAsync('rollback with invalid role returns 400', async () => {
   assert(data.error.includes('Invalid role'), 'invalid-role error required');
 });
 
-await testAsync('dismiss nonexistent proposal returns 404', async () => {
+await testAsync('removed proposal dismissal endpoint stays absent', async () => {
   const { status, data } = await api('POST', '/api/system/proposals/999999999/dismiss');
   assertEqual(status, 404);
-  assert(data.error.includes('Proposal not found'), 'missing-proposal error required');
 });
 
-// ── Validation ──────────────────────────────────────────────────────────────
-suite('Model Validation');
+// ── Model evaluations ──────────────────────────────────────────────────────
+suite('Model Evaluations');
 
-await testAsync('GET validation scores returns shape', async () => {
-  const { status, data } = await api('GET', '/api/system/models/validation-scores');
+await testAsync('GET current evaluations returns authoritative shape', async () => {
+  const { status, data } = await api('GET', '/api/system/models/evaluations');
   assertEqual(status, 200);
-  assert(data.scores && typeof data.scores === 'object', 'scores map required');
+  assert(data.roles && typeof data.roles === 'object', 'role evaluations required');
+  assertEqual(data.authority.currentContractOnly, true);
 });
 
 const result = summary();

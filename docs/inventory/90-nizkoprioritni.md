@@ -5,6 +5,8 @@
 > Specialisté a agenti jsou od 2026-08-03 v rozsahu 1.0 jako platforma + jeden
 > reálný E2E každého typu (M3). Ostatní subsystémy vstupují podle schváleného
 > user journey a dependency DAG. Dokument zůstává mělkou výchozí inventurou.
+> Modelový výčet z 2026-08-02 je superseded rozhodnutím 030; odstraněné rankery,
+> proposal store a v123 validation nejsou current runtime.
 
 **Celkem v této skupině: ~23 000 řádků, 55 historicky mapovaných testových sad.**
 

@@ -1103,7 +1103,7 @@ Be specific and helpful.`;
             logger.warn('Server', `Vision error: ${visionErr.message}`);
             // Fall through to regular chat with error message
             if (visionErr.message.includes('not installed')) {
-              response = `⚠️ Vision model není nainstalován.\n\nPro analýzu obrázků spusťte:\n\`\`\`\nollama pull llava:13b\n\`\`\`\n\nPotom restartujte server.`;
+              response = `⚠️ Vision model není nainstalován.\n\nPro analýzu obrázků spusťte:\n\`\`\`\nollama pull llava-llama3:8b\n\`\`\`\n\nPotom restartujte server.`;
               db.messages.addMessage(conversation_id, 'assistant', response);
               return sendJSON(res, 200, { response });
             }

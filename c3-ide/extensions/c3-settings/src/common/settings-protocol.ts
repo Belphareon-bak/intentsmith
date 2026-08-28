@@ -152,7 +152,7 @@ export const C3_DEFAULTS: C3Settings = {
   // v87: LLM Settings
   'c3.llm.chatModel': 'qwen3.5:27b',
   'c3.llm.codeModel': 'qwen3.5:27b',
-  'c3.llm.visionModel': 'llava:13b',
+  'c3.llm.visionModel': 'llava-llama3:8b',
   'c3.llm.ollamaUrl': 'http://127.0.0.1:11434',
   'c3.llm.temperature': 0.7,
   'c3.llm.contextWindow': 32768,

@@ -1,0 +1,210 @@
+# Live local model scoring — 2026-08-28
+
+**Stav:** `ACCEPTED / SYSTEM_PROVIDER_BLOCKED`
+
+Tento dokument nahrazuje první neúplný scoring souhrn z téhož dne. Aktuální
+autorita měří všechny nainstalované artefakty, které nejsou v rozporu s
+verzovaným technickým kontraktem role
+`technical-role-compatibility-v1`. `preferredCategories` už pouze řadí
+kandidáty; nevyrábí `NOT_APPLICABLE`.
+
+Nic nebylo smazáno, žádný binding nebyl změněn a timer zůstal vypnutý.
+Implementace a evidence prošly nezávislým rereview rozsahu
+`d6137d4c..3f027938` s verdictem `REVIEW_PASSED`; model-scoring/evidence balík
+je proto `ACCEPTED`. Přijetí není povolením k aktivaci či odstranění modelu a
+neodstraňuje samostatný systémový provider blocker.
+
+## Autorita a provider
+
+- Clean IntentSmith source při finálním GPU běhu:
+  `6ae5a3369838fb17f0040c9580a86614833ebf21`.
+- Systémová Ollama zůstala beze změny na `/usr/local/bin/ollama` 0.32.14.
+- Izolovaný sidecar vycházel z upstream tagu `v0.32.14`, commitu
+  `d67ad83426633195089509347ffd4fe795120198`, s jedinou změnou
+  `0cb3844557c2cbf0beac555da0147279eebd9488`: `/api/chat` response nese
+  exact manifest digest vybraného modelu.
+- Sidecar binárka
+  `/home/belphareon/.local/opt/ollama-intentsmith-0.32.14.1/bin/ollama` má
+  SHA-256 `72580ab98c5c82afe9cf73e5b7400b1d3cd94ec0777f961d1aefab878146878a`.
+  Běžela pouze na `127.0.0.1:11435`, s jedním modelem/requestem současně, a
+  po běhu byla zastavena.
+
+Systémový provider tento response contract stále neumí. Běžný runtime proto
+zůstává `SYSTEM_PROVIDER_BLOCKED`; sidecar byl omezený prostředek pro tento
+autorizovaný scoring, nikoli tichá náhrada systémové služby.
+
+## DB a rollback provenance
+
+Historická pre-migration DB se SHA-256
+`e22d580f26b9b467eb2bf3774524206b3d95a36cdcdbc3902a08046e9e12c088`
+není doložená jako byte-identická rollback záloha. Dne 2026-08-28 bylo podle
+hashů prověřeno 33 SQLite kandidátů pod
+`~/.local/share/intentsmith-private`, `~/.local/state` a `~/Projects`; shoda
+nebyla nalezena. Reprodukovatelný read-only
+[`search manifest v2`](model-evaluation-historical-backup-search-20260828-v2.json)
+má SHA-256 `d0cc050898d2f4b365a0f78c2fb26362805af5108ce2e9f1549507fab07475f1`,
+obsahuje všech 33 suffix-selected kandidátů, jejich hashe a 31 pozitivních
+SQLite hlaviček, přesný příkaz a repo-bound source revision; výsledek je
+výslovně `NOT_FOUND_NOT_PROVEN`. Dřívější
+disposable projection není rollback obraz. Tato historická evidence gap je
+formálně otevřená a nesmí se převyprávět jako existující záloha.
+
+Před remediačním zápisem vznikla ověřená současná záloha:
+
+- cesta:
+  `/home/belphareon/.local/share/intentsmith-private/model-scoring-remediation-20260828T172616Z/backup/c3-pre-remediation.db`;
+- source i kopie SHA-256:
+  `b524145d053059426c06de42597785f68b6091593ea9f5db01c4f0eb6d8d765d`;
+- `cmp` byte-identical, mód `0600`, SQLite `quick_check=ok`.
+
+Po scoringu má live DB SHA-256
+`a3eafab1a2061eb83e59720220891d8b41f7a5548a3b20ecd86b8df86827fa8a`
+a `quick_check=ok`. Stará v123 runtime schema nejsou čtenářská ani scoring
+autorita; aktuálnost vyžaduje exact tuple
+`(digest, role, suite_name, suite_version, suite_contract_sha256)`.
+
+## Coverage
+
+Raw `MISSING` zůstává pravdivou absencí runu, ale coverage používá oddělenou
+osu `applicable`. Finální panel má mezi 79 technicky kompatibilními dvojicemi
+nulové `MISSING`:
+
+| Coverage | COMPLETE | BLOCKED | MISSING | FAILED | N/A |
+|---|---:|---:|---:|---:|---:|
+| všech 91 buněk, raw status | 55 | 24 | 12 | 0 | 12 |
+| technicky kompatibilních 79 buněk | 55 | 24 | **0** | 0 | 12 mimo coverage |
+
+| Role | COMPLETE | BLOCKED | raw MISSING | applicable MISSING | N/A |
+|---|---:|---:|---:|---:|---:|
+| D1 | 7 | 4 | 2 | 0 | 2 |
+| D2 | 9 | 4 | 0 | 0 | 0 |
+| R1 | 7 | 4 | 2 | 0 | 2 |
+| CODE | 9 | 4 | 0 | 0 | 0 |
+| R2 | 9 | 4 | 0 | 0 | 0 |
+| CHAT | 9 | 4 | 0 | 0 | 0 |
+| VISION | 5 | 0 | 8 | 0 | 8 |
+
+Přibylo 15 skutečných `COMPLETE` GPU běhů. Všech 15 má `started_at <
+completed_at` a `duration_ms` odpovídající intervalu; rozsah je
+`2026-08-28T17:31:14.781Z` až `2026-08-28T17:55:06.495Z`. Dalších sedm
+current-role `BLOCKED` řádků převzalo exact-digest placement důkaz na shodné
+RTX 3090 a shodném 32k kontextu. Jejich metadata obsahují původní run ID a
+explicitně říkají, že nevznikly novým načtením modelu.
+
+Zbývajících 40 current-contract COMPLETE řádků pochází ze staršího běhu s
+nekonzistentními start/duration hodnotami. DB řádky se nepřepisují. Read model,
+CLI a Studio je zveřejňují jako `intervalIntegrity=LEGACY_UNVERIFIED`, s
+`startedAt=null`, `durationMs=null` a s
+`testedAtProvenance=LEGACY_RECORDED_AT_ONLY`. Aktuální post-gate snapshot tak
+dokládá přesně 15 `VERIFIED` a 40 `LEGACY_UNVERIFIED` COMPLETE intervalů.
+
+## Skóre po rolích
+
+Čísla jsou procenta v rámci konkrétní suite. Nejsou srovnatelná napříč rolemi
+a sama o sobě nejsou povolením k aktivaci nebo smazání.
+
+| Model | D1 | D2 | R1 | CODE | R2 | CHAT | VISION |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `qwen3.6:27b-mtp-q4_k_m` | 95.83 | 95.83 | 95.83 | 33.33 | 67.50 | 92.32 | 93.33 |
+| `phi4:14b` | 87.50 | 87.50 | 87.50 | 38.10 | 62.08 | 85.88 | N/A |
+| `mistral-small:22b-instruct-2409-q6_k` | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED | N/A |
+| `qwen3.8:latest` | 93.61 | 89.72 | 90.83 | **76.19** | 74.58 | 91.26 | **95.56** |
+| `qwen3-coder:latest` | 82.50 | 82.50 | 82.50 | 11.43 | 62.08 | 84.25 | N/A |
+| `llava-llama3:8b` | N/A | 29.72 | N/A | 0.00 | 25.97 | 79.17 | 53.33 |
+| `qwen3:14b` | 82.50 | 82.50 | 82.50 | 4.76 | 71.67 | 88.67 | N/A |
+| `qwen3.5:27b` | **100.00** | **100.00** | **98.61** | 31.75 | **78.19** | **91.53** | 93.33 |
+| `llava:13b` | N/A | 46.67 | N/A | 0.00 | 28.61 | 76.83 | 20.00 |
+| `qwen2.5-coder:32b` | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED | N/A |
+| `qwen2.5:32b` | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED | N/A |
+| `deepseek-r1-32b:latest` | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED | N/A |
+| `qwen3-30b-a3b:latest` | 80.00 | 80.00 | 80.00 | 0.00 | 55.00 | 89.50 | N/A |
+
+Portfolio evidence doporučuje jednu změnu: VISION z `llava-llama3:8b` na
+`qwen3.8:latest` (0.9556 vs 0.5333). `qwen3.6` a `qwen3.5` rovněž VISION
+incumbenta porazily, ale solver vybral vyšší skóre `qwen3.8`. Celkem je v read
+modelu 100 current-contract decisions a nula actionable decisions. Standalone
+binding autorita je `UNVERIFIED_RUNTIME`, takže ani portfolio výhra není
+autorizovaná aktivace.
+
+## VRAM-only gate při 32k kontextu
+
+„GPU-only“ zde znamená žádný model-weight/layer CPU spill; malé host buffers a
+memory mapping provideru nejsou modelový offload. Quality běh se spustil jen
+pokud `/api/ps` hlásilo přesně `size_vram == size`.
+
+Čtyři dříve přesně změřené artefakty se na shodném GPU/kontextu znovu
+nenačítaly. Jejich artifact-wide placement důkaz se bezpečně materializoval do
+dosud chybějících current-role `BLOCKED` řádků:
+
+| Model | size / size_vram | CPU spill | Výsledek |
+|---|---:|---:|---|
+| `qwen2.5:32b` | 26.83 / 21.10 GiB | 5.72 GiB | BLOCKED |
+| `mistral-small:22b-instruct-2409-q6_k` | 24.26 / 21.09 GiB | 3.17 GiB | BLOCKED |
+| `deepseek-r1-32b:latest` | 25.83 / 21.05 GiB | 4.78 GiB | BLOCKED |
+| `qwen2.5-coder:32b` | 26.83 / 21.10 GiB | 5.72 GiB | BLOCKED |
+
+Všechny modely skutečně spuštěné v tomto běhu měly plný VRAM placement.
+
+## Odstranění a aktivace
+
+Tento běh nepovoluje odstranění žádného modelu. Čtyři VRAM-blocked artefakty
+jsou technicky silní kandidáti k pozdější samostatné autorizaci odstranění.
+`qwen3-coder` má nyní kompletní textový panel a nízké CODE skóre, ale i jeho
+odstranění vyžaduje nové rereview a explicitní operator decision.
+`llava:13b` zůstává chráněný rollback artefakt; `llava-llama3:8b` je současný
+VISION binding. Ani jeden se teď nemaže.
+
+## Bounded evidence
+
+Scoring běžel bez `--allow-removal`:
+
+```bash
+OLLAMA_URL=http://127.0.0.1:11435 \
+C3_DB_PATH=/home/belphareon/Projects/intentsmith/data/c3.db \
+node scripts/model-upgrade-hunt.js --run --installed-panel --limit=13 \
+  --report=/private/evidence/model-upgrade-hunt.json
+```
+
+Raw hunt JSON je mimo Git v private evidence rootu a má SHA-256
+`c37b7964a82ddaba18dffe5739e92770a126db6395d485e14f362ae50e0e4c2d`.
+Commitnutý bounded gate/snapshot záznam je
+[`model-scoring-remediation-20260828.json`](model-scoring-remediation-20260828.json).
+Finální gate nad čistým produktovým kandidátem `53ded662` skončil v runu
+`2026-08-28T20-11-17-080Z` výsledkem `279/279 PASS`; report má SHA-256
+`499575899ca805b8448fcb56f1c27cfb1ef4f849d7863fe0cd7ba40c2fe15aba`.
+Následný read-only
+[`post-gate snapshot v3`](model-evaluation-host-db-snapshot-20260828-remediation-post-gate-4.json)
+se SHA-256 `a12c4b6585882bdcdffbb103c18d84b500af8bc661baa0bb51ff7082f7f94d5e`
+potvrdil stejný DB hash, nulové applicable `MISSING`, vypnutý timer/service a
+prázdný Ollama/GPU slot. Snapshot nese všech 13 exact artefaktů v SHA-bound
+normalizované projekci včetně `params`, `family`, `category` a `capabilities`.
+Samostatný
+[`offline replay`](model-evaluation-host-db-snapshot-20260828-remediation-post-gate-4-replay.json)
+se SHA-256 `d94e9f62026492a5a9abafc3700c3b413f79f3b675e8c4b6b44b9778aab453e4`
+bez kontaktu s Ollamou reprodukoval 55 COMPLETE / 24 BLOCKED / 0 applicable
+MISSING / 12 N/A a ověřil byte-identickou DB před/po. Lokální implementace a
+evidence následně prošly nezávislým
+[`evidence rereview`](../../review/2026-08-28-WP-MODEL-EVALUATION-EVIDENCE-REREVIEW.md)
+se SHA-256 `afacfc26219f3fb68bf303e6888c34c4f88c538ed6633279eb93f772e18028ec`.
+Celý gate na akceptačním commitu
+`cbc8b87f92412dbd546e6509e6ed6d471366099d` skončil v runu
+`2026-08-28T20-34-51-696Z` výsledkem `279/279 PASS`; report má SHA-256
+`46e841f1afaeea9dc8f39f9a2417852a660aac6fc194fed6aebc7109cb2fe6ec`.
+Scoring/evidence balík je `ACCEPTED`; provider capability zůstává samostatně
+`SYSTEM_PROVIDER_BLOCKED`.
+
+## Post-acceptance explicitní odstranění
+
+Po přijetí tohoto 13artefaktového scoring snapshotu operátor samostatně
+autorizoval odstranění čtyř artefaktů, jejichž všechny použitelné role skončily
+`BLOCKED` se `score=NULL`: `qwen2.5:32b`, `qwen2.5-coder:32b`,
+`deepseek-r1-32b:latest` a `mistral-small:22b-instruct-2409-q6_k`.
+
+Odstranění proběhlo přes `ModelRegistry.deleteModel` s exact digest preflightem,
+binding protection a výhradním model-use lease. Uvolnilo 71,47 GiB; současná
+installed inventory má 9 artefaktů a read-model coverage 55 COMPLETE / 0
+BLOCKED / 0 applicable MISSING / 8 N/A. DB zůstala byte-identická se SHA-256
+`a3eafab1a2061eb83e59720220891d8b41f7a5548a3b20ecd86b8df86827fa8a`,
+`quick_check=ok`; append-only BLOCKED historie odstraněných digestů zůstala
+zachovaná a bindingy se nezměnily. Strojový důkaz je v
+[`model-removal-live-20260828.json`](model-removal-live-20260828.json).

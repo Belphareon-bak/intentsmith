@@ -8,6 +8,138 @@
 
 ---
 
+## v136.9 — explicitní odstranění VRAM-blocked modelů (2026-08-28)
+
+- Operátor samostatně autorizoval odstranění čtyř exact artefaktů, které při
+  32k kontextu ve všech použitelných rolích skončily `BLOCKED` se
+  `score=NULL`: `qwen2.5:32b`, `qwen2.5-coder:32b`,
+  `deepseek-r1-32b:latest` a `mistral-small:22b-instruct-2409-q6_k`.
+- `ModelRegistry` před každým provider efektem znovu ověřil exact digest,
+  aktivní/desired/rollback binding protection a výhradní model-use lease.
+  Bindingy ani append-only scoring historie se nezměnily.
+- Installed inventory klesla ze 13 na 9 modelů a modelové úložiště se zmenšilo
+  o 71,47 GiB. Současná coverage je 55 COMPLETE / 0 BLOCKED / 0 applicable
+  MISSING / 8 N/A. Bounded evidence je v
+  [`model-removal-live-20260828.json`](execution/runs/model-removal-live-20260828.json).
+
+## v136.8 — přijetí reprodukovatelné scoring evidence (2026-08-28)
+
+- Nezávislé rereview rozsahu `d6137d4c..3f027938` přepočítalo SHA-bound
+  inventory projekci, zopakovalo offline read-only replay 55/24/0/12 s
+  blokovaným `fetch`, ověřilo adversariální VISION tamper a reprodukovalo
+  backup manifest všech 33 kandidátů z jiného caller cwd.
+- Focused read-model sada prošla 16/16 a nový celý deterministický gate z
+  čistého klonu reviewed HEADu prošel 279/279. Model-scoring/evidence balík je
+  `ACCEPTED`.
+- Systémová Ollama stále neposkytuje response digest. Durable runtime proto
+  zůstává `SYSTEM_PROVIDER_BLOCKED`; přijetí neautorizuje provider patch, nový
+  GPU scoring, mazání modelů ani změnu bindingu.
+
+## v136.7 — live GPU-only scoring a role/category coverage (2026-08-28)
+
+- Live DB byla po konzistentním snapshotu standardním runnerem povýšena z
+  migrace 082 do 099; `quick_check=ok`, v123 runtime tabulky i telemetry guard
+  chybějí a cross-role decisions jsou v karanténě.
+- Izolovaný sidecar z přesného Ollama tagu 0.32.14 vracel exact manifest digest
+  v každé chat response. Reálný preflight ověřil shodu digestu a plný VRAM
+  placement; systémová Ollama zůstala beze změny.
+- Installed panel proběhl sériově bez pullu, mazání a aktivace. Current coverage
+  je 55 COMPLETE / 24 BLOCKED / 0 applicable MISSING; čtyři artefakty, které
+  by při 32k kontextu použily RAM, skončily BLOCKED se score NULL.
+- Read model a registry overview nyní sdílejí stejnou versioned technical
+  applicability policy. 12 raw MISSING buněk zůstává pravdivě viditelných, ale
+  jsou označeny jako mimo scoring coverage. Automatický cleanup zůstává
+  odděleně fail-closed a tuto metadata policy nepoužívá jako povolení mazat.
+- Portfolio evidence doporučuje `qwen3.8:latest` pro VISION. Portfolio
+  gate nepovolil změnu; bindingy zůstaly beze změny. Tehdejší candidate čekal
+  na nezávislé rereview, které je zaznamenané ve v136.8.
+- Z 55 COMPLETE řádků má 15 konzistentní skutečný interval. Zbývajících 40 je
+  čteno jako `LEGACY_UNVERIFIED`, bez publikovaného startu a duration; DB
+  historie se nepřepisuje.
+- Snapshot v3 uchovává SHA-bound normalizované `params`, `family`, `category`
+  a `capabilities`. Offline replay nad stejnou read-only DB bez Ollamy
+  reprodukuje 55 COMPLETE / 24 BLOCKED / 0 applicable MISSING / 12 N/A.
+- Backup-search manifest v2 ukládá přesný příkaz a source revision získává z
+  připnutého repository rootu, nikoli z callerova cwd.
+
+## v136.6 — role-strict evaluace a exact runtime artefakt (2026-08-27)
+
+- Role je součástí run uniqueness, history/read/cache lookupů i obou stran
+  decision lineage. Migrace 097 zachová 22 role-consistent decisions a 11
+  cross-role řádků přesune do append-only karantény.
+- Skutečná pre-082 záloha projde standardním runnerem: compatibility triggery
+  se opraví před rebuildem 076, nullable legacy duration se normalizuje a
+  import audit 096 toleruje pouze strojový REAL roundtrip.
+- `DURABLE` nese exact digest všech rolí. Registry vyžaduje současný inventory
+  a gateway kontroluje artefakt pod lease před provider requestem i po
+  odpovědi; same-tag digest drift se nevydá ani nezapíše jako úspěch.
+- Telemetry-derived blacklist, manual-binding veto, discovery filtr a
+  `runtime_state` API byly odstraněny; migrace 099 dropne starou guard tabulku.
+  Raw provozní signal events zůstávají pouze diagnostická data.
+- Osiřelé automatické application/failover porty byly odstraněny. Strict-role
+  read-only panel je 28 COMPLETE / 11 BLOCKED / 52 MISSING / 0 FAILED a čeká
+  na nový plný gate a nezávislé rereview; timer zůstává vypnutý.
+
+## v136.5 — upgrade-safe evaluace a pravdivá binding autorita (2026-08-26)
+
+- Obnoveny neměnné migrační identity 081/081/082. Omylem zavedené identity
+  084–086 jsou trvale vyřazené a runner je atomicky adoptuje zpět bez druhého
+  spuštění konsolidace; `applied_at` zůstává zachovaný.
+- Migrační guard kontroluje i numerické sloty uložené v `schema_migrations`,
+  takže historickou M2 kolizi 070 nelze skrýt přejmenováním jediného souboru.
+- Importní preflight 082 porovnává celý importovaný řádek včetně contractu,
+  canonical identity, JSON payloadů a timestampu před odstraněním v123 tabulek.
+- Startup znovu ověřuje runtime model a installed digest proti každému durable
+  bindingu. Rehydrate failure zastaví server; nedostupný provider, runtime či
+  digest mismatch zveřejní `DEGRADED` a blokuje modelovou actionability, ale
+  zachová kontrakt dostupných nemodelových rout. `DURABLE` se už nikdy
+  neodvozuje pouze z počtu DB řádků a standalone CLI je
+  `UNVERIFIED_RUNTIME`.
+- Setup config má schema v2: známé staré defaulty se povýší na současné
+  sedmirolové portfolio, skutečné override se zachovají. Studio fallback a
+  required T3 E2E prerequisites používají stejné portfolio jako installer.
+- Stav zůstává `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED`; tato oprava sama
+  není nezávislé přijetí.
+
+## v136.4 — review remediace modelových evaluací (2026-08-26)
+
+- Modelové compatibility repairy byly po opakovaném union censusu přesunuty na
+  migrace 084 a 085; konsolidace je migrace 086. M2 vlastní 071–083.
+  Toto přeznačení bylo později v136.5 zrušeno jako nebezpečné pro DB, které už
+  aplikovaly původní 081/081/082; tento bod zůstává historickým záznamem.
+- Migrační runner fail-closed odmítá i shodný třímístný numerický slot s jiným
+  datem nebo suffixem; výjimkou jsou jen přesně vyjmenované historické dvojice
+  008 a 030.
+- Dřívější `ACCEPTED` je po navazujícím review nahrazeno stavem
+  `IMPLEMENTATION_GREEN / REREVIEW_REQUIRED` do nového nezávislého rereview.
+- Startup doplní chybějící exact-artifact desired binding bez pullu, runtime
+  commitu nebo binding operace; živá DB nyní hlásí `DURABLE` pro všech 7 rolí.
+- CLI a Studio zobrazují všechna role decisions, výchozí portfolio je sjednocené
+  v configu/wizardu/installeru a current discovery JSON je uložen podle SHA.
+- Deterministický gate na `341016f3`, run `2026-08-26T07-13-17-823Z`, prošel
+  227/227. Starší cross-branch konflikt slotu 070 zůstává explicitně blokovaný
+  integračním preflightem.
+
+## v136.3 — konsolidace modelových evaluací (2026-08-25)
+
+- Jedna current-contract autorita: exact-digest append-only runy a rozhodnutí,
+  společný API/CLI/Studio reader a durable binding oddělený od evaluace.
+- Odstraněn v123 scoring/validation runtime, jeho endpointy, WS/UI, report a
+  paralelní proof-measurement skripty; migrace 082 před dropem archivuje důkaz.
+- Všech sedm rolí má fail-closed task a discrimination minimum; CHAT vyžaduje
+  samostatný EN/CS důkaz. Candidate `d8a2a108` je po nezávislém rereview
+  `ACCEPTED`; kontrolní run `2026-08-25T17-15-48-322Z` prošel `227/227`.
+- Odstraněny také heuristické benchmarky/quality score v katalogu a model
+  universe a mrtvý telemetry scorer/blacklist. Pairwise výhra je akční pouze
+  po portfolio gate s explicitním `activationEligible=true`.
+- Po prvním `CHANGES_REQUESTED` review byl contract rozšířen na skutečné
+  prompty/rubric/language/VISION bytes/CODE prompt, migrace 082 opravena pro
+  post-070 zápisy, governor sjednocen na read model, usage svázáno s observed
+  artefaktem a decision převedeno z mrtvé speed/prose logiky na stabilní enum.
+
+Detail: [MODEL-SCORING-ACTIVATION.md](MODEL-SCORING-ACTIVATION.md) a rozhodnutí
+[030](decisions/030-model-evaluation-authority-consolidation.md).
+
 ## v136.2 — Gate 1 fronta 1–5 (2026-08-22)
 
 Pět položek závazné Gate 1 fronty z `ROADMAP.md` §13. Všechny jsou rozhodnutí,

@@ -1,5 +1,5 @@
 export const M6_TECHNICAL_EVIDENCE_CONTRACT = 'M6TechnicalEvidenceMatrix';
-export const M6_TECHNICAL_EVIDENCE_VERSION = 4;
+export const M6_TECHNICAL_EVIDENCE_VERSION = 5;
 
 export const M6_TECHNICAL_PROGRAMS = Object.freeze({
   'fresh-clone-install-build': Object.freeze([
@@ -48,8 +48,9 @@ export const M6_TECHNICAL_PROGRAMS = Object.freeze({
   ]),
   'upgrade-backup-restore': Object.freeze([
     'IS-T5-TESTS-M6-PREVIOUS-VERSION-UPGRADE-E2E',
-    'IS-T1-TESTS-UPGRADE-APPLY-TEST',
-    'IS-T1-TESTS-UPGRADE-FLOW-TEST',
+    'IS-T1-TESTS-M1-MODEL-BINDING-APPLICATION-TEST',
+    'IS-T1-TESTS-MODEL-UPGRADE-TEST',
+    'IS-T1-TESTS-PRE082-UPGRADE-REGRESSION-TEST',
     'IS-T1-TESTS-UPGRADE-UX-V125-TEST',
     'IS-T1-TESTS-M5-DATA-RESTORE-TEST',
   ]),

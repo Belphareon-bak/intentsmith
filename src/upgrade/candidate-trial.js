@@ -16,9 +16,10 @@
 // nenačte, neodpoví, nevrátí vyžádaný JSON nebo neumí česky.  Cokoli, co je
 // otázkou kvality, jde vždy do plného souboje.
 //
-// Na disku leží vždy nejvýš jeden kandidát navíc; poražený se maže hned.
-// Nahrazený model se ale **nemaže** — teprve provoz ukáže, jestli byla výměna
-// dobrý nápad.
+// Kandidát se po souboji nemaže naslepo. Přesný digest zůstává v historii a
+// bounded retenci vlastní model-registry: teprve pod diskovým tlakem, po grace
+// period a jen s dokončeným scoringem smí odstranit nevázaný artefakt, který
+// není poslední rollback.
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -27,7 +28,9 @@ import { logger } from '../core/logger.js';
 import { measureModel, drainResident, unloadModel } from './vram-measurement.js';
 import { trialRole, createSuiteCache } from './pairwise-trial.js';
 import { parseModelNameExtended } from './model-family-extensions.js';
-import { IMPROVEMENT_THRESHOLD, checkRoleEligibility } from './model-ranker.js';
+import { ROLE_IMPROVEMENT_THRESHOLDS } from '../eval/role-evaluation-plan.js';
+import { checkRoleEligibility } from './candidate-eligibility.js';
+import { createRoleEvaluationPlans } from '../eval/role-evaluation-plan.js';
 
 const PULL_TIMEOUT = 60 * 60 * 1000;  // hodina; jen pojistka proti zaseknutí
 const PROBE_TIMEOUT = 120_000;
@@ -212,11 +215,48 @@ export async function tryCandidate(candidateName, ctx = {}) {
     removed: false,
     keptReason: null,
     error: null,
+    errorCode: null,
   };
 
+  const evaluationPlans = ctx.evaluationPlans || createRoleEvaluationPlans();
+
+  // Suite readiness is known before download or GPU placement. Do not spend
+  // network, VRAM and capability probes on a candidate when none of its roles
+  // is allowed to make a decision yet.
+  const runnableRoles = [];
+  for (const role of roles) {
+    const plan = evaluationPlans[role] || null;
+    const minimumTaskCount = plan?.minimumTaskCount ?? null;
+    if (!plan) {
+      const reason = `role ${role} nemá explicitní current evaluation plan`;
+      out.trials.push({ role, skipped: true, reason });
+      onStage('roleSkipped', candidateName, { role, reason });
+    } else if (!plan.decisionReady || plan.taskCount < minimumTaskCount) {
+      const reason = plan.runtimeBlockCode
+        ? `${plan.suiteName} je BLOCKED (${plan.runtimeBlockCode}): ${plan.runtimeBlockReason}`
+        : `${plan.suiteName} má ${plan.taskCount}/${minimumTaskCount} `
+          + 'požadovaných aktivních úloh — current contract není decision-ready';
+      out.trials.push({ role, skipped: true, reason });
+      onStage('roleSkipped', candidateName, { role, reason });
+    } else {
+      runnableRoles.push(role);
+    }
+  }
+  if (roles.length > 0 && runnableRoles.length === 0) {
+    out.stage = 'suite-readiness';
+    out.inconclusive = true;
+    out.keptReason = 'role nemá dostatečně rozlišující validační sadu';
+    return out;
+  }
+
   try {
-    onStage('pull', candidateName);
-    await pullModel(candidateName, ctx);
+    if (ctx.skipPull === true) {
+      out.stage = 'measure';
+      onStage('pullSkipped', candidateName, { reason: 'already installed' });
+    } else {
+      onStage('pull', candidateName);
+      await pullModel(candidateName, ctx);
+    }
 
     onStage('measure', candidateName);
     out.stage = 'measure';
@@ -246,7 +286,12 @@ export async function tryCandidate(candidateName, ctx = {}) {
 
     onStage('floor', candidateName);
     out.stage = 'floor';
-    out.floor = await runCapabilityFloor(candidateName, ctx);
+    const reusable = typeof ctx.hasReusableEvaluation === 'function'
+      ? await ctx.hasReusableEvaluation(candidateName, runnableRoles)
+      : false;
+    out.floor = reusable
+      ? { passed: true, failures: [], reused: true }
+      : await runCapabilityFloor(candidateName, ctx);
     if (!out.floor.passed) {
       out.error = `neprošel schopnostním minimem: ${out.floor.failures.map(f => f.reason).join('; ')}`;
       if (removalAllowed) out.removed = await removeModel(candidateName, ctx);
@@ -269,9 +314,10 @@ export async function tryCandidate(candidateName, ctx = {}) {
     out.stage = 'trial';
     // Sdílená cache napříč rolemi — `reasoning` obsluhuje D1, D2 i R1.
     const suiteCache = createSuiteCache();
-    for (const role of roles) {
+    for (const role of runnableRoles) {
       const incumbent = bindings[role];
       if (!incumbent) continue;
+      const evaluationPlan = evaluationPlans[role] || null;
 
       // Nezpůsobilá role se nesoutěží.  Textový model nemá co dělat v souboji
       // o VISION — jednak by tam nemohl vyhrát, jednak by to stálo šest běhů
@@ -283,7 +329,8 @@ export async function tryCandidate(candidateName, ctx = {}) {
         continue;
       }
       const result = await trialRole(runner, role, candidateName, incumbent, {
-        threshold: IMPROVEMENT_THRESHOLD[role] ?? 0.05,
+        evaluationPlan,
+        threshold: ROLE_IMPROVEMENT_THRESHOLDS[role] ?? 0.05,
         speed: {
           candidate: out.measurement.throughput?.tokensPerSecond ?? 0,
           incumbent: incumbentSpeed[incumbent] ?? 0,
@@ -308,7 +355,10 @@ export async function tryCandidate(candidateName, ctx = {}) {
     // informace, takže se to aspoň musí rozlišit ve výstupu a jde to vypnout.
     out.inconclusive = !out.accepted
       && Object.values(out.decisions).length > 0
-      && Object.values(out.decisions).every(d => d.basis === 'nerozhodně');
+      && Object.values(out.decisions).every(d => (
+        d.reasonCode === 'QUALITY_INCONCLUSIVE'
+        || d.reasonCode === 'INSUFFICIENT_EVIDENCE'
+      ));
 
     if (!out.accepted && removalAllowed && !(out.inconclusive && ctx.keepInconclusive)) {
       out.removed = await removeModel(candidateName, ctx);
@@ -319,6 +369,7 @@ export async function tryCandidate(candidateName, ctx = {}) {
     }
   } catch (err) {
     out.error = err.message;
+    out.errorCode = typeof err.code === 'string' ? err.code : null;
     if (removalAllowed && out.stage !== 'pull') out.removed = await removeModel(candidateName, ctx);
   } finally {
     await unloadModel(candidateName, ctx).catch(() => {});

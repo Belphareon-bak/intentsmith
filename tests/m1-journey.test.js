@@ -217,7 +217,6 @@ function serverEnvironment(runtime, nonce, providerUrl) {
     C3_ENABLE_TELEMETRY: 'false',
     C3_ENABLE_ONLINE_DISCOVERY: 'false',
     C3_MODEL_UNIVERSE_ENABLED: 'false',
-    C3_MODEL_RUNTIME_GUARD_ENABLED: 'false',
     C3_LIFECYCLE_AUTO_COMMIT: 'false',
     C3_UPDATE_REPO: '',
     C3_TRACE: '0',
@@ -655,7 +654,7 @@ function selfCheck() {
     'INTENTSMITH_M1_FRESH_CLONE',
     'Jsi recenzent odpovědí.',
     'tests/m1-chat-contract.test.js',
-    'tests/confirmation-ownership.test.js',
+    'tests/model-registry-current-authority.test.js',
     'tests/studio-m1-electron-journey.e2e.js',
     'removed_by_decision_024',
     'literalStudioToRealOllamaTurn: true',
@@ -852,11 +851,11 @@ async function main() {
     ['tests/m1-chat-contract.test.js'],
   );
   assert.match(chatContract.stdout, /RESULTS: 21 passed, 0 failed/);
-  const confirmation = await runChild(
-    'confirmation ownership',
-    ['tests/confirmation-ownership.test.js'],
+  const modelAuthority = await runChild(
+    'current model registry authority',
+    ['tests/model-registry-current-authority.test.js'],
   );
-  assert.match(confirmation.stdout, /5 passed, 0 failed/);
+  assert.match(modelAuthority.stdout, /RESULTS: \d+ passed, 0 failed/);
 
   const studioArtifacts = path.join(artifactRoot, 'studio');
   mkdirSync(studioArtifacts, { mode: 0o700 });

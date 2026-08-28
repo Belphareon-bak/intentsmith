@@ -7,7 +7,7 @@ import './helpers/isolated-test-db.js';
 //
 // Requirements:
 //   - Ollama running at http://127.0.0.1:11434
-//   - Models: deepseek-r1:32b, qwen3.5:27b, qwen3.5:27b
+//   - Models: the exact configured seven-role portfolio (installer defaults)
 //   - Expected duration: 10-30 minutes
 //
 // Run: node tests/lifecycle-android-app-e2e.test.js
@@ -43,6 +43,7 @@ import {
 
 import { getLcState, setLcState, clearLcState, initLifecycleStateDb } from '../src/chat/handlers/lifecycle-state.js';
 import { callLLM } from '../src/planner/workflow.js';
+import { config } from '../src/config.js';
 import { domainRegistry } from '../src/domains/index.js';
 
 // ─── Test Infra ─────────────────────────────────────────────────────────────
@@ -103,12 +104,14 @@ async function checkOllama() {
     const models = data.models?.map(m => m.name) || [];
     console.log(`    Available models: ${models.join(', ')}`);
 
-    const required = ['deepseek-r1', 'qwen3.5'];
+    const required = [...new Set(Object.values(config.models))];
+    const missing = [];
     for (const req of required) {
-      const found = models.some(m => m.includes(req));
+      const found = models.includes(req);
       check(found, `Ollama: ${req} model available`, `models: ${models.join(', ')}`);
+      if (!found) missing.push(req);
     }
-    return true;
+    return missing.length === 0;
   } catch (e) {
     console.error(`    Ollama not available: ${e.message}`);
     console.error('    Start Ollama first: ollama serve');

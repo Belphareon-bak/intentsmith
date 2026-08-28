@@ -1,0 +1,66 @@
+{
+  "schemaVersion": "intentsmith-model-evaluation-snapshot-replay-v1",
+  "startedAt": "2026-08-28T20:14:57.466Z",
+  "completedAt": "2026-08-28T20:14:57.602Z",
+  "verdict": "PASS",
+  "invocation": {
+    "cwd": "/home/belphareon/worktrees/is-model-scoring-final-20260826",
+    "repositoryRoot": "/home/belphareon/worktrees/is-model-scoring-final-20260826",
+    "command": [
+      "/home/belphareon/.nvm/versions/node/v22.21.1/bin/node",
+      "/home/belphareon/worktrees/is-model-scoring-final-20260826/scripts/model-evaluation-snapshot-replay.js",
+      "--snapshot=docs/execution/runs/model-evaluation-host-db-snapshot-20260828-remediation-post-gate-4.json",
+      "--db=/home/belphareon/Projects/intentsmith/data/c3.db",
+      "--expect-complete=55",
+      "--expect-blocked=24",
+      "--expect-applicable-missing=0",
+      "--expect-not-applicable=12",
+      "--out=docs/execution/runs/model-evaluation-host-db-snapshot-20260828-remediation-post-gate-4-replay.json"
+    ]
+  },
+  "sourceRevision": {
+    "cwd": "/home/belphareon/worktrees/is-model-scoring-final-20260826",
+    "command": [
+      "git",
+      "rev-parse",
+      "HEAD"
+    ],
+    "exitCode": 0,
+    "value": "53ded6620d9439acf854e92749c21aaf0b265a08"
+  },
+  "inputs": {
+    "snapshot": {
+      "path": "/home/belphareon/worktrees/is-model-scoring-final-20260826/docs/execution/runs/model-evaluation-host-db-snapshot-20260828-remediation-post-gate-4.json",
+      "sha256": "a12c4b6585882bdcdffbb103c18d84b500af8bc661baa0bb51ff7082f7f94d5e",
+      "inventoryProjectionSha256": "4100d182abf08aaf3c62a10fb7c48d87ed9a82668ef705e75a493c5c00e41bc5"
+    },
+    "database": {
+      "path": "/home/belphareon/Projects/intentsmith/data/c3.db",
+      "sha256Before": "a3eafab1a2061eb83e59720220891d8b41f7a5548a3b20ecd86b8df86827fa8a",
+      "sha256After": "a3eafab1a2061eb83e59720220891d8b41f7a5548a3b20ecd86b8df86827fa8a",
+      "matchesSnapshot": true,
+      "byteIdenticalDuringReplay": true
+    }
+  },
+  "providerInventorySource": "SNAPSHOT_NORMALIZED_PROJECTION_ONLY",
+  "providerContacted": false,
+  "comparison": {
+    "verdict": "PASS",
+    "checks": {
+      "summaryMatchesSnapshot": true,
+      "expectedCountsMatch": true
+    },
+    "expected": {
+      "complete": 55,
+      "blocked": 24,
+      "applicableMissing": 0,
+      "notApplicable": 12
+    },
+    "actual": {
+      "complete": 55,
+      "blocked": 24,
+      "applicableMissing": 0,
+      "notApplicable": 12
+    }
+  }
+}

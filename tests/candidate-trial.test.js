@@ -9,7 +9,12 @@ import {
   runCapabilityFloor, tryCandidate, removeModel, CAPABILITY_FLOOR,
   REMOVAL_ENABLED_BY_DEFAULT,
 } from '../src/upgrade/candidate-trial.js';
-import { SUITES } from '../src/upgrade/validation-suites.js';
+import { createRoleEvaluationPlans } from '../src/eval/role-evaluation-plan.js';
+
+const EVALUATION_PLANS = createRoleEvaluationPlans({ repeats: 1 });
+const SUITES = Object.fromEntries(
+  Object.values(EVALUATION_PLANS).map(plan => [plan.suiteName, plan.suite]),
+);
 
 const GB = 2 ** 30;
 const realFetch = globalThis.fetch;
@@ -76,8 +81,15 @@ const SPILLS = { size: 29 * GB, size_vram: 21 * GB };
 // jako v `scripts/model-upgrade-hunt.js`.  Bez ní se fail-closed nemaže, takže
 // scénáře, které mazání očekávají, musí autoritu dodat.
 const FAST_DRAIN = {
+  // These unit cases hold their synthetic /api/ps placement forever. The
+  // drain contract has its own tests; skip it here instead of inheriting a
+  // real concurrently used GPU or timing out on the immutable stub.
+  drain: false,
+  // Pairwise trials still invoke their between-run drain callback. Bound it
+  // tightly because the same immutable placement fixture cannot become empty.
   drainTimeout: 30,
   drainPollMs: 5,
+  gpuComputeProcesses: () => [],
   deleteModel: async () => {},
 };
 
@@ -173,11 +185,14 @@ await testAsync('propadnutí u minima zamítne kandidáta a smaže ho', async ()
 
 await testAsync('lepší kandidát vyhraje roli a NEsmaže se', async () => {
   stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
-  const codeTask = SUITES.code.tests[0].name;
+  const [firstCodeTask, secondCodeTask] = EVALUATION_PLANS.CODE.suite.tests.map(test => test.name);
   const r = await tryCandidate('cand:7b', {
     ...FAST_DRAIN,
     allowRemoval: true,
-    runner: fakeRunner({ 'cand:7b': { _default: 1 }, 'inc:7b': { _default: 1, [codeTask]: 0.1 } }),
+    runner: fakeRunner({
+      'cand:7b': { _default: 1 },
+      'inc:7b': { _default: 1, [firstCodeTask]: 0.1, [secondCodeTask]: 0.1 },
+    }),
     roles: ['CODE'],
     bindings: { CODE: 'inc:7b' },
   });
@@ -326,6 +341,55 @@ await testAsync('u přetékajícího kandidáta se měření jako úspěch nehl�
 
 suite('způsobilost rolí ve zkoušce');
 
+await testAsync('role se nesoutěží pod minimálním počtem aktivních úloh', async () => {
+  stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'qwen3-coder:30b' });
+  const skipped = [];
+  const stages = [];
+  const r = await tryCandidate('qwen3-coder:30b', {
+    ...FAST_DRAIN,
+    runner: fakeRunner({}),
+    roles: ['CODE'],
+    bindings: { CODE: 'inc:7b' },
+    evaluationPlans: {
+      CODE: { suiteName: 'code_patch', taskCount: 3, minimumTaskCount: 6 },
+    },
+    onStage: (stage, model, info) => {
+      stages.push(stage);
+      if (stage === 'roleSkipped') skipped.push(info);
+    },
+  });
+  assertEqual(skipped.length, 1);
+  assert(/3\/6/.test(skipped[0].reason), skipped[0].reason);
+  assert(!('CODE' in r.decisions), 'nedostatečná sada nesmí rozhodnout vazbu');
+  assertEqual(r.stage, 'suite-readiness');
+  assert(!stages.includes('pull') && !stages.includes('measure'), 'nepřipravená sada nesmí použít síť ani GPU');
+  restore();
+});
+
+await testAsync('nedostupný CODE oracle blokuje kandidáta před pull a GPU', async () => {
+  stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'qwen3-coder:30b' });
+  const stages = [];
+  const result = await tryCandidate('qwen3-coder:30b', {
+    ...FAST_DRAIN,
+    runner: fakeRunner({}),
+    roles: ['CODE'],
+    bindings: { CODE: 'inc:7b' },
+    evaluationPlans: {
+      CODE: {
+        suiteName: 'code_patch', taskCount: 7, minimumTaskCount: 6,
+        decisionReady: false,
+        runtimeBlockCode: 'CODE_FIXTURE_RUNTIME_UNAVAILABLE',
+        runtimeBlockReason: 'historical CODE oracle commits are unavailable',
+      },
+    },
+    onStage: stage => stages.push(stage),
+  });
+  assertEqual(result.stage, 'suite-readiness');
+  assert(result.trials[0].reason.includes('CODE_FIXTURE_RUNTIME_UNAVAILABLE'));
+  assert(!stages.includes('pull') && !stages.includes('measure'));
+  restore();
+});
+
 await testAsync('textový model se pro VISION vůbec nesoutěží', async () => {
   // Nemohl by tam vyhrát a stálo by to šest běhů sady navíc — o způsobilosti
   // rozhodl filtr, souboj ji nemá obcházet.
@@ -377,6 +441,22 @@ await testAsync('volající může dodat přesnější vlastnosti kandidáta', a
 
 suite('nerozhodnutý kandidát');
 
+await testAsync('scoring zachová fail-closed reason code z runneru', async () => {
+  stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
+  const error = new Error(
+    'MODEL_EVALUATION_RESPONSE_ARTIFACT_UNVERIFIED: response has no digest',
+  );
+  error.code = 'MODEL_EVALUATION_RESPONSE_ARTIFACT_UNVERIFIED';
+  const r = await tryCandidate('cand:7b', {
+    ...FAST_DRAIN,
+    runner: { runSuite: async () => { throw error; } },
+    roles: ['CODE'], bindings: { CODE: 'inc:7b' },
+  });
+  assertEqual(r.errorCode, 'MODEL_EVALUATION_RESPONSE_ARTIFACT_UNVERIFIED');
+  assertEqual(r.stage, 'trial');
+  restore();
+});
+
 await testAsync('shodné skóre se označí jako nerozhodnuté, ne jako prohra', async () => {
   // Sada, která oba modely neodliší, neříká, že je kandidát horší — říká, že
   // to neumí změřit. To je vlastnost sady, ne modelu.
@@ -394,11 +474,14 @@ await testAsync('shodné skóre se označí jako nerozhodnuté, ne jako prohra',
 
 await testAsync('skutečná prohra není nerozhodnuto', async () => {
   stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
-  const task = SUITES.code.tests[0].name;
+  const [firstTask, secondTask] = EVALUATION_PLANS.CODE.suite.tests.map(test => test.name);
   const r = await tryCandidate('cand:7b', {
     ...FAST_DRAIN,
     allowRemoval: true,
-    runner: fakeRunner({ 'cand:7b': { _default: 1, [task]: 0 }, 'inc:7b': { _default: 1 } }),
+    runner: fakeRunner({
+      'cand:7b': { _default: 1, [firstTask]: 0, [secondTask]: 0 },
+      'inc:7b': { _default: 1 },
+    }),
     roles: ['CODE'], bindings: { CODE: 'inc:7b' },
   });
   assertEqual(r.accepted, false);
@@ -422,11 +505,14 @@ await testAsync('keepInconclusive nechá nerozhodnutého na disku', async () => 
 
 await testAsync('keepInconclusive nezachrání toho, kdo prohrál', async () => {
   stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
-  const task = SUITES.code.tests[0].name;
+  const [firstTask, secondTask] = EVALUATION_PLANS.CODE.suite.tests.map(test => test.name);
   const r = await tryCandidate('cand:7b', {
     ...FAST_DRAIN,
     allowRemoval: true,
-    runner: fakeRunner({ 'cand:7b': { _default: 1, [task]: 0 }, 'inc:7b': { _default: 1 } }),
+    runner: fakeRunner({
+      'cand:7b': { _default: 1, [firstTask]: 0, [secondTask]: 0 },
+      'inc:7b': { _default: 1 },
+    }),
     roles: ['CODE'], bindings: { CODE: 'inc:7b' },
     keepInconclusive: true,
   });

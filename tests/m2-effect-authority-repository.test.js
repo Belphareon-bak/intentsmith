@@ -9,7 +9,7 @@ import {
   computeEffectRequestDigest,
   deriveApprovalGrantConstraints,
 } from '../contracts/m2/effect-v1.js';
-import { up as applyEffectAuthorityMigration } from '../src/db/migrations/2026_08_23_070_m2_effect_authority.js';
+import { up as applyEffectAuthorityMigration } from '../src/db/migrations/2026_08_23_092_m2_effect_authority.js';
 import { up as applyEffectAuthorityHardening } from '../src/db/migrations/2026_08_24_071_m2_effect_authority_hardening.js';
 import {
   EXPECTED_M2_SCHEMA_FINGERPRINT as EXPECTED_M2_SCHEMA_FINGERPRINT_V072,
@@ -41,18 +41,18 @@ import {
   EXPECTED_M2_EFFECT_RESULT_SEMANTIC_V2_FINGERPRINT,
   computeM2EffectResultSemanticV2Fingerprint,
   up as applyEffectResultSemanticV2,
-} from '../src/db/migrations/2026_08_24_081_m2_effect_result_semantic_authority_v2.js';
+} from '../src/db/migrations/2026_08_24_093_m2_effect_result_semantic_authority_v2.js';
 import {
   EXPECTED_M2_EFFECT_CORE_FINGERPRINT_V082,
   EXPECTED_M2_PREEXECUTION_TERMINAL_FINGERPRINT_V082,
   computeM2PreexecutionTerminalFingerprintV082,
   up as applyPreexecutionApprovalTerminals,
-} from '../src/db/migrations/2026_08_25_082_m2_preexecution_approval_terminals.js';
+} from '../src/db/migrations/2026_08_25_094_m2_preexecution_approval_terminals.js';
 import {
   EXPECTED_M2_EFFECT_ROLLBACK_RECEIPT_FINGERPRINT_V083,
   computeM2EffectRollbackReceiptFingerprintV083,
   up as applyEffectRollbackReceipts,
-} from '../src/db/migrations/2026_08_25_083_m2_effect_rollback_receipts.js';
+} from '../src/db/migrations/2026_08_25_095_m2_effect_rollback_receipts.js';
 import {
   EXPECTED_M2_EFFECT_CORE_FINGERPRINT_V077,
   computeM2EffectCoreFingerprintV073,

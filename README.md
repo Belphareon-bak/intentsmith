@@ -8,12 +8,12 @@ fetch cesty bez deklarované autority selžou před spojením. Současný
 autoritativní C3 Studio runtime už neobsahuje implicitní Google Fonts egress.
 Spouštěné Studio UI je stále přechodný runtime, nikoli finální vzhled IntentSmithu.
 
-**Verze:** 136.1.0 | **471 registrovaných testovacích programů**
-(`376 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `16 HISTORICAL`)
+**Verze:** 136.1.0 | **463 registrovaných testovacích programů**
+(`369 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`)
 
-> **Stav: aktivní vývoj; M1 a M2 jsou přijaté.** M3 modulární platforma má
-> implementation-green candidate; oddíly 1–6 jsou review-passed a oprava
-> oddílu 7 čeká na operátorské re-review.
+> **Stav: aktivní vývoj.** Integrovaný kandidát M2–M5 a model-scoring změny
+> vyžadují nové ověření a nezávislý re-review; historické acceptance se na
+> nové migrační a integrační bajty nepřenášejí.
 > Registry řádek sám není akceptační důkaz.
 > Gate 0 a historická convergence evidence se používají až nad zmraženým
 > release kandidátem. Aktuální autorita: [PRODUCT.md](PRODUCT.md),
@@ -50,7 +50,7 @@ zpevňuje. Produktový kontrakt, cílový uživatel a hranice 1.0 jsou v
 - **Cross-Project Learning** — modul pro podobnost a generalizaci existuje, ale produkční učící smyčka není prokázaná. Přechod mezi projekty musí být default off a pouze na explicitní opt-in.
 
 ### Infrastruktura
-- **Model Upgrade System** — curated catalog (55 modelů), 18 modulů (10 312 řádků), pairwise evaluation, empirical scoring (Phase 3), L4 online discovery, validation suites (5 sad), chat-based approval, streaming pull, rollback.
+- **Modelová platforma** — factual discovery, versioned role-specific evaluace exact artefaktů, append-only run/decision historie a jediná ruční durable binding cesta.
 - **Marketplace** — remote package catalog pro skills, expertízy a specialisty. Transactional install/update/uninstall, dependency resolver, SHA-256 ověření, archive security.
 - **C3 Studio IDE** — Theia + Electron, 32 rozšíření, chat panel, agent log, settings (12 sekcí), specialist focus mode, multimedia view.
 - **153 nástrojů** ve 35 kategoriích. Sandboxed execution, circuit breaker, risk assessment.
@@ -129,8 +129,10 @@ cd intentsmith
 cp .env.example .env
 
 # 4. Modely jsou externí artefakty; --minimal je nestahuje
-ollama pull qwen3.5:27b          # hlavní chat + kód
-ollama pull deepseek-r1:32b      # volitelná hluboká analýza + review
+ollama pull qwen3.5:27b          # D1 + CODE + CHAT
+ollama pull qwen3.8:latest       # D2 + R1
+ollama pull qwen3:14b            # R2
+ollama pull llava-llama3:8b      # VISION
 
 # 5. Start backendu a C3 Studio
 ./scripts/run.sh
@@ -226,9 +228,9 @@ Tři vrstvy: LTM s confidence decay (λ=0.01, poločas 69 dní), task memory (cr
 - [docs/MEMORY.md](docs/MEMORY.md) — architektura paměťového systému
 
 ### Model Upgrade System
-4-vrstvý discovery (local, catalog, hints, online), pairwise evaluation, empirical scoring z reálných metrik, validation suites (5 testovacích sad na model), chat-based approval (nikdy auto-upgrade), streaming pull, rollback.
+Factual discovery (local, catalog, hints, online), role-specific versioned evaluace s exact digestem a timestampem, fail-closed důkazní minima a samostatný manual binding. Discovery ani chatové „ano“ nejsou doporučení nebo aktivační autorita.
 
-- `src/upgrade/` — 18 modulů, 10 312 řádků
+- `src/upgrade/` — 30 modulů, 17 209 řádků
 
 ### Quality Gate v2
 4-vrstvý deterministický pipeline (structural → language → intent → content). Bez LLM — čistě pravidlová validace výstupů. SK→CZ transliterace (~160 pravidel), language drift detection.
@@ -271,7 +273,7 @@ intentsmith/
 │   ├── planner/                  #   Lifecycle + sdílená governance (32 modulů, 14 382 ř.)
 │   ├── patch/                    #   Patch Engine (5 modulů, 1,505 ř.)
 │   ├── memory/                   #   LTM, task memory, cross-project (9 modulů)
-│   ├── upgrade/                  #   Model upgrade system (18 modulů, 10 312 ř.)
+│   ├── upgrade/                  #   Model platform (30 modulů, 17 209 ř.)
 │   ├── expertises/               #   14 built-in expertíz, merge engine, ledger
 │   ├── agents/                   #   Worker agenti, scheduler, conditions
 │   ├── skills/                   #   Registry, resolver, runner, 8 step types + substitution helper
@@ -326,14 +328,14 @@ intentsmith/
 │   ├── report-gen.json           #   Generování reportů
 │   └── summarizer.json           #   Sumarizace textu
 │
-├── tests/                        # Testy a kanonický registr 471 programů
+├── tests/                        # Testy a kanonický registr 463 programů
 │   ├── harness.js                #   Custom ESM test harness
 │   ├── cre-*.test.js             #   CRE testy (401+)
 │   ├── lifecycle-*.test.js       #   Lifecycle testy (103+)
 │   ├── code-intel-*.test.js      #   Code Intelligence testy (339+)
 │   ├── execution-loop.test.js    #   Execution Engine testy (597+)
 │   ├── upgrade-*.test.js         #   Model Upgrade testy
-│   └── registry.json             #   Kanonický registr 471 programů
+│   └── registry.json             #   Kanonický registr 463 programů
 │
 ├── docs/                         # Aktivní dokumentace + archiv
 │   ├── ARCHITECTURE.md           #   Kompletní architektura
@@ -362,7 +364,7 @@ vestavěné fallbacky z `src/config.js`.
 | Sekce | Klíčové proměnné | Vestavěný fallback |
 |-------|------------------|---------|
 | Server | `C3_PORT`, `C3_HOST` | `0` (dynamický), `127.0.0.1` |
-| Modely | `C3_MODEL_CHAT`, `C3_MODEL_CODE`, `C3_MODEL_D1` | qwen3.5:27b, qwen3.5:27b, deepseek-r1-32b |
+| Modely | `C3_MODEL_CHAT`, `C3_MODEL_CODE`, `C3_MODEL_D1` | qwen3.5:27b pro všechny tři role |
 | Databáze | `C3_DB_PATH` | `./data/c3.db` |
 | Features | `C3_ENABLE_LIFECYCLE`, `C3_ENABLE_SKILLS`, ... | vše zapnuto |
 | Bezpečnost | `C3_ADMIN_TOKEN` | - (localhost bypass v dev) |

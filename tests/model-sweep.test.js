@@ -7,8 +7,9 @@ import { suite, test, testAsync, assert, assertEqual, summary } from './harness.
 
 import {
   fetchLibraryFamilies, parseTagsPage, mightFit, comfortablyFits,
-  preferredTagForFamily, formatRunsHere, rankCandidates, clearCache,
+  preferredTagForFamily, formatRunsHere, prioritizeCandidates, clearCache,
   specializationBonus, buildCandidatePool,
+  parseLibraryFamilyMetadata, getLibraryFamilyMetadata,
   MIN_OBSERVED_VRAM_OVERHEAD, TYPICAL_VRAM_OVERHEAD,
 } from '../src/upgrade/model-sweep.js';
 
@@ -29,6 +30,25 @@ await testAsync('vytáhne rodiny z HTML knihovny', async () => {
   const fams = await fetchLibraryFamilies({ html, force: true });
   assertEqual(fams.length, 3, `dostal: ${fams.join(',')}`);
   assert(fams.includes('deepseek-v4-pro'), 'rodina se spojovníky a číslem projde');
+  clearCache();
+});
+
+test('živý katalog zachová stáří aktualizace a popis rodiny', () => {
+  const metadata = parseLibraryFamilyMetadata(`
+    <a href="/library/qwen3.6"><p>Agentic coding and thinking.</p><span>1 week ago</span></a>
+    <a href="/library/laguna-xs-2.1"><p>Local coding model.</p><span>2 days ago</span></a>`);
+  assertEqual(metadata.get('qwen3.6').updatedDays, 7);
+  assertEqual(metadata.get('qwen3.6').description, 'Agentic coding and thinking.');
+  assertEqual(metadata.get('laguna-xs-2.1').updatedDays, 2);
+});
+
+await testAsync('metadata patří ke stejnému živému snapshotu jako rodiny', async () => {
+  clearCache();
+  await fetchLibraryFamilies({
+    html: '<a href="/library/qwen3.6"><p>New model.</p><span>1 week ago</span></a>',
+    force: true,
+  });
+  assertEqual(getLibraryFamilyMetadata().get('qwen3.6').updatedDays, 7);
   clearCache();
 });
 
@@ -153,7 +173,7 @@ test('na neznámé GPU se nefiltruje', () => {
 
 // ─── Fáze 1: řazení ─────────────────────────────────────────────────────────
 
-suite('rankCandidates');
+suite('prioritizeCandidates');
 
 const POOL = [
   { name: 'qwen3.8:latest', family: 'qwen3.8', tag: 'latest', sizeGB: 18 },
@@ -163,61 +183,76 @@ const POOL = [
 ];
 
 test('vyřadí, co se nemůže vejít', () => {
-  const out = rankCandidates(POOL, { vramMb: VRAM_24GB });
+  const out = prioritizeCandidates(POOL, { vramMb: VRAM_24GB });
   assert(!out.some(c => c.family === 'huge'), '400 GB nemá být v seznamu');
 });
 
 test('vyřadí, co už je nainstalované', () => {
-  const out = rankCandidates(POOL, { vramMb: VRAM_24GB, installed: ['qwen3:14b'] });
+  const out = prioritizeCandidates(POOL, { vramMb: VRAM_24GB, installed: ['qwen3:14b'] });
   assert(!out.some(c => c.name === 'qwen3:14b'), 'nainstalovaný model není kandidát');
 });
 
 test('shoda jména je tolerantní k :latest', () => {
-  const out = rankCandidates(POOL, { vramMb: VRAM_24GB, installed: ['qwen3.8'] });
+  const out = prioritizeCandidates(POOL, { vramMb: VRAM_24GB, installed: ['qwen3.8'] });
   assert(!out.some(c => c.family === 'qwen3.8'), 'qwen3.8 ≡ qwen3.8:latest');
 });
 
-test('horší externí hodnocení než stávající se nezkouší', () => {
-  const out = rankCandidates(POOL, {
+test('externí signál pouze řadí a žádného fakticky způsobilého kandidáta nemaže', () => {
+  const out = prioritizeCandidates(POOL, {
     vramMb: VRAM_24GB,
-    incumbentQuality: 20,
-    qualityOf: e => (e.family === 'qwen3.8' ? 57.7 : 5),
+    externalSignalOf: e => (e.family === 'qwen3.8' ? 57.7 : 5),
   });
-  assertEqual(out.length, 1);
+  assertEqual(out.length, 3);
   assertEqual(out[0].family, 'qwen3.8');
 });
 
 test('řadí podle hodnocení sestupně', () => {
   const q = { 'qwen3.8': 57.7, 'devstral-2': 19.2, qwen3: 8.5 };
-  const out = rankCandidates(POOL, { vramMb: VRAM_24GB, qualityOf: e => q[e.family] ?? null });
+  const out = prioritizeCandidates(POOL, { vramMb: VRAM_24GB, externalSignalOf: e => q[e.family] ?? null });
   assertEqual(out[0].family, 'qwen3.8');
   assert(out[0].priority > out[1].priority, 'priorita musí klesat');
 });
 
-test('starší model než stávající se nezkouší', () => {
-  const out = rankCandidates(POOL, {
+test('datum vydání pouze řadí a starší kandidát zůstává k exact evaluaci', () => {
+  const out = prioritizeCandidates(POOL, {
     vramMb: VRAM_24GB,
-    incumbentReleaseDate: '2026-01-01',
     releaseDateOf: e => (e.family === 'qwen3.8' ? '2026-08-05' : '2025-01-01'),
   });
-  assertEqual(out.length, 1);
+  assertEqual(out.length, 3);
   assertEqual(out[0].family, 'qwen3.8');
 });
 
 test('rezerva ve velikosti zvedne prioritu', () => {
-  const tight = rankCandidates([{ name: 'a:1', family: 'a', sizeGB: 18 }], { vramMb: VRAM_24GB });
-  const roomy = rankCandidates([{ name: 'b:1', family: 'b', sizeGB: 10 }], { vramMb: VRAM_24GB });
+  const tight = prioritizeCandidates([{ name: 'a:1', family: 'a', sizeGB: 18 }], { vramMb: VRAM_24GB });
+  const roomy = prioritizeCandidates([{ name: 'b:1', family: 'b', sizeGB: 10 }], { vramMb: VRAM_24GB });
   assert(roomy[0].priority > tight[0].priority, 'pohodlná velikost je lepší kandidát');
   assert(tight[0].reasons.some(r => /těsná/.test(r)), 'těsnost se musí objevit v důvodech');
 });
 
+test('čerstvá aktualizace živého katalogu zvedne netestovaný model ve frontě', () => {
+  const out = prioritizeCandidates([
+    { name: 'fresh:14b', family: 'fresh', sizeGB: 10, catalogUpdatedDays: 7, catalogUpdatedLabel: '1 week ago' },
+    { name: 'old:14b', family: 'old', sizeGB: 10, catalogUpdatedDays: 365, catalogUpdatedLabel: '1 year ago' },
+  ], { vramMb: VRAM_24GB });
+  assertEqual(out[0].family, 'fresh');
+  assert(out[0].reasons.some(reason => /1 week ago/.test(reason)));
+});
+
+test('chybějící stáří se nesmí vydávat za aktualizaci dnes', () => {
+  const [candidate] = prioritizeCandidates([
+    { name: 'undated:14b', family: 'undated', sizeGB: 10, catalogUpdatedDays: null },
+  ], { vramMb: VRAM_24GB });
+  assertEqual(candidate.priority, 3);
+  assert(!candidate.reasons.some(reason => /aktualizováno/.test(reason)));
+});
+
 test('prázdný pool nespadne', () => {
-  assertEqual(rankCandidates([], { vramMb: VRAM_24GB }).length, 0);
+  assertEqual(prioritizeCandidates([], { vramMb: VRAM_24GB }).length, 0);
 });
 
 // ─── Seznam per role ────────────────────────────────────────────────────────
 
-suite('rankCandidates — seznam pro konkrétní roli');
+suite('prioritizeCandidates — seznam pro konkrétní roli');
 
 const MIXED = [
   { name: 'coder:14b', family: 'coder', sizeGB: 9 },
@@ -230,32 +265,32 @@ const CATEGORY = {
 };
 const profileOf = e => ({ category: CATEGORY[e.family], params: 14 });
 
-test('vision model se do seznamu pro CODE nedostane', () => {
-  // Jádro věci: nehledá se jeden univerzální model, ale nejlepší pro každou
-  // roli. Promíchaný seznam je špatná otázka.
-  const out = rankCandidates(MIXED, {
+test('category preference nevyřadí technicky kompatibilní vision model z CODE', () => {
+  const out = prioritizeCandidates(MIXED, {
     vramMb: VRAM_24GB, role: 'CODE', profileOf,
     preferredCategories: ['code', 'general'],
   });
   const names = out.map(c => c.family);
-  assert(!names.includes('seer'), 'vision model nepatří do CODE');
+  assert(names.includes('seer'), 'preference nesmí být hard eligibility filtr');
   assert(names.includes('coder'), 'coder ano');
+  assert(names.indexOf('coder') < names.indexOf('seer'), 'preference smí změnit jen pořadí');
 });
 
-test('coder model se do seznamu pro CHAT nedostane', () => {
-  const out = rankCandidates(MIXED, {
+test('coder model pro CHAT zůstane ve frontě bez preference bonusu', () => {
+  const out = prioritizeCandidates(MIXED, {
     vramMb: VRAM_24GB, role: 'CHAT', profileOf, preferredCategories: ['general'],
   });
   const names = out.map(c => c.family);
-  assert(!names.includes('coder'), 'coder nepatří do CHAT');
+  assert(names.includes('coder'), 'technicky kompatibilní coder musí dostat šanci na měření');
   assert(names.includes('talker'), 'generalista ano');
+  assert(names.indexOf('talker') < names.indexOf('coder'), 'general preference je pouze ranking bonus');
 });
 
 test('neznámá kategorie projde — nevíme, tak nevyřazujeme', () => {
   // Zahodit model kvůli mezeře v rozpoznávání názvu by bylo horší než ho
   // nechat projít s nulovým bonusem; rozhodne pak souboj.
   for (const role of ['CODE', 'CHAT', 'VISION']) {
-    const out = rankCandidates(MIXED, {
+    const out = prioritizeCandidates(MIXED, {
       vramMb: VRAM_24GB, role, profileOf,
       preferredCategories: role === 'VISION' ? ['vision'] : ['general'],
     });
@@ -264,12 +299,24 @@ test('neznámá kategorie projde — nevíme, tak nevyřazujeme', () => {
 });
 
 test('bez preferredCategories se nefiltruje', () => {
-  const out = rankCandidates(MIXED, { vramMb: VRAM_24GB, role: 'CODE', profileOf });
+  const out = prioritizeCandidates(MIXED, { vramMb: VRAM_24GB, role: 'CODE', profileOf });
   assertEqual(out.length, MIXED.length);
 });
 
+test('preferredCategories mění prioritu, nikoli počet technicky způsobilých kandidátů', () => {
+  const without = prioritizeCandidates(MIXED, {
+    vramMb: VRAM_24GB, role: 'CHAT', profileOf,
+  });
+  const withPreference = prioritizeCandidates(MIXED, {
+    vramMb: VRAM_24GB, role: 'CHAT', profileOf, preferredCategories: ['general'],
+  });
+  assertEqual(withPreference.length, without.length);
+  assert(withPreference.find(row => row.family === 'talker').priority
+    > without.find(row => row.family === 'talker').priority);
+});
+
 test('nezpůsobilý kandidát se do seznamu role nedostane', () => {
-  const out = rankCandidates(MIXED, {
+  const out = prioritizeCandidates(MIXED, {
     vramMb: VRAM_24GB,
     role: 'VISION',
     profileOf,
@@ -283,7 +330,7 @@ test('nezpůsobilý kandidát se do seznamu role nedostane', () => {
 });
 
 test('shoda specializace zvedne pořadí v rámci role', () => {
-  const out = rankCandidates(MIXED, {
+  const out = prioritizeCandidates(MIXED, {
     vramMb: VRAM_24GB, role: 'CODE', profileOf,
     preferredCategories: ['code', 'general'],
   });
@@ -292,21 +339,8 @@ test('shoda specializace zvedne pořadí v rámci role', () => {
 });
 
 test('výsledek nese roli, pro kterou byl sestaven', () => {
-  const out = rankCandidates(MIXED, { vramMb: VRAM_24GB, role: 'R2', profileOf });
+  const out = prioritizeCandidates(MIXED, { vramMb: VRAM_24GB, role: 'R2', profileOf });
   assert(out.every(c => c.role === 'R2'), 'každý záznam ví, do které role patří');
-});
-
-test('laťka je vlastní pro každou roli', () => {
-  // Silná role nesmí zvednout laťku slabé — každá se poměřuje svým modelem.
-  const q = { coder: 10, talker: 30, seer: 5, zahadny: 20 };
-  const low = rankCandidates(MIXED, {
-    vramMb: VRAM_24GB, incumbentQuality: 8, qualityOf: e => q[e.family],
-  });
-  const high = rankCandidates(MIXED, {
-    vramMb: VRAM_24GB, incumbentQuality: 25, qualityOf: e => q[e.family],
-  });
-  assert(low.length > high.length, 'vyšší laťka propustí míň kandidátů');
-  assert(high.every(c => q[c.family] > 25), 'nikdo pod laťkou neprojde');
 });
 
 // ─── Bonus za specializaci ──────────────────────────────────────────────────
@@ -345,6 +379,21 @@ await testAsync('pool se nesmí omezit na hodnocené rodiny', async () => {
     html: 'alfa:7b 5GB beta:7b 5GB gama:7b 5GB',
   });
   assertEqual(pool.length, 3, 'všechny rodiny se dostanou do poolu');
+  clearCache();
+});
+
+await testAsync('pool přenese metadata živého katalogu do role rankeru', async () => {
+  clearCache();
+  const familyMetadata = new Map([['novy', {
+    updatedDays: 3, updatedLabel: '3 days ago', description: 'A capable local model.',
+  }]]);
+  const pool = await buildCandidatePool(['novy'], {
+    vramMb: VRAM_24GB,
+    html: 'novy:14b 9GB',
+    familyMetadata,
+  });
+  assertEqual(pool[0].catalogUpdatedDays, 3);
+  assertEqual(pool[0].catalogDescription, 'A capable local model.');
   clearCache();
 });
 

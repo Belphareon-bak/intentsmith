@@ -103,12 +103,12 @@ await testAsync('měří z prázdné paměti', async () => {
     '/api/ps': () => {
       psCalls++;
       if (psCalls === 1) return { models: [{ name: 'jiny:7b', size: GB, size_vram: GB }] };
-      if (psCalls === 2) return { models: [] };
+      if (psCalls <= 5) return { models: [] };
       return { models: [{ name: 'a:7b', size: 10 * GB, size_vram: 10 * GB }] };
     },
     '/api/chat': { eval_count: 100, eval_duration: 1e9 },
   });
-  const r = await measureModel('a:7b');
+  const r = await measureModel('a:7b', { drainPollMs: 1, gpuComputeProcesses: () => [] });
   assertEqual(r.fits, true);
   assert(seen.some(s => s.path === '/api/chat' && s.body?.keep_alive === 0),
     'cizí model se musí uvolnit před měřením');
@@ -129,9 +129,27 @@ await testAsync('přetékající model se neměří na rychlost', async () => {
 
 await testAsync('nenačtený model dá srozumitelnou chybu', async () => {
   stubFetch({ '/api/ps': { models: [] }, '/api/chat': { done: true } });
-  const r = await measureModel('a:7b', { drain: false });
+  const r = await measureModel('a:7b', {
+    drain: false, placementTimeout: 3, placementPollMs: 1,
+  });
   assertEqual(r.fits, false);
   assert(/nenačetl/.test(r.error), r.error);
+  restore();
+});
+
+await testAsync('po loadu počká na opožděnou viditelnost v api/ps', async () => {
+  let psCalls = 0;
+  stubFetch({
+    '/api/ps': () => (++psCalls < 3
+      ? { models: [] }
+      : { models: [{ name: 'a:7b', size: 10 * GB, size_vram: 10 * GB }] }),
+    '/api/chat': { eval_count: 100, eval_duration: 1e9 },
+  });
+  const r = await measureModel('a:7b', {
+    drain: false, placementTimeout: 20, placementPollMs: 1,
+  });
+  assertEqual(r.fits, true);
+  assertEqual(psCalls, 3);
   restore();
 });
 
@@ -150,12 +168,17 @@ suite('drainResident');
 await testAsync('uvolní vše a počká na prázdno', async () => {
   let calls = 0;
   stubFetch({
-    '/api/ps': () => (++calls === 1
-      ? { models: [{ name: 'a:7b' }, { name: 'b:7b' }] }
-      : { models: [] }),
+    '/api/ps': () => {
+      calls += 1;
+      if (calls === 1) return { models: [{ name: 'a:7b' }, { name: 'b:7b' }] };
+      // One empty observation is not enough: llama-server can still own CUDA.
+      if (calls === 3) return { models: [{ name: 'a:7b' }] };
+      return { models: [] };
+    },
     '/api/chat': { done: true },
   });
-  assertEqual(await drainResident({ drainPollMs: 1 }), true);
+  assertEqual(await drainResident({ drainPollMs: 1, gpuComputeProcesses: () => [] }), true);
+  assert(calls >= 7, `stable empty polling expected, got ${calls} calls`);
   restore();
 });
 
@@ -165,6 +188,35 @@ await testAsync('když se paměť neuvolní, ohlásí to a nezacyklí se', async
     '/api/chat': { done: true },
   });
   assertEqual(await drainResident({ drainTimeout: 50, drainPollMs: 10 }), false);
+  restore();
+});
+
+await testAsync('prázdné api/ps nestačí, dokud NVIDIA stále hlásí compute proces', async () => {
+  let processPolls = 0;
+  stubFetch({ '/api/ps': { models: [] } });
+  assertEqual(await drainResident({
+    drainPollMs: 1,
+    drainEmptyPolls: 2,
+    gpuComputeProcesses: () => (++processPolls < 3 ? ['123, llama-server'] : []),
+  }), true);
+  assert(processPolls >= 4, `stable idle polling expected, got ${processPolls}`);
+  restore();
+});
+
+await testAsync('measureModel po neúspěšném drainu nic nenačte', async () => {
+  const seen = stubFetch({
+    '/api/ps': { models: [] },
+    '/api/chat': { eval_count: 1, eval_duration: 1 },
+  });
+  const result = await measureModel('a:7b', {
+    drainTimeout: 8,
+    drainPollMs: 1,
+    drainEmptyPolls: 1,
+    gpuComputeProcesses: () => ['123, cizí-test'],
+  });
+  assertEqual(result.fits, false);
+  assert(/bezpečně uvolnit/.test(result.error), result.error);
+  assert(!seen.some(request => request.path === '/api/chat'), 'po neúspěšném drainu se nesmí loadovat');
   restore();
 });
 
