@@ -261,6 +261,15 @@ const rootAgents = readFileSync(new URL('../AGENTS.md', import.meta.url), 'utf8'
 const rootClaude = readFileSync(new URL('../CLAUDE.md', import.meta.url), 'utf8');
 const rootSystemMap = readFileSync(new URL('../SYSTEM-MAP.md', import.meta.url), 'utf8');
 const rootRoadmap = readFileSync(new URL('../ROADMAP.md', import.meta.url), 'utf8');
+const apiReference = readFileSync(new URL('../docs/API-REFERENCE.md', import.meta.url), 'utf8');
+const privacyWorkPackage = readFileSync(
+  new URL('../docs/wp/WP-M5-PRIVACY.md', import.meta.url),
+  'utf8',
+);
+const signedAuthorityDecision = readFileSync(
+  new URL('../docs/decisions/041-offline-signed-authority-receipts.md', import.meta.url),
+  'utf8',
+);
 const migrationReservation = readFileSync(
   new URL('../docs/execution/migration-reservation.md', import.meta.url),
   'utf8',
@@ -532,6 +541,27 @@ test('SYSTEM-MAP applied migration census derives from migration sources', () =>
 
 test('ROADMAP module edge census derives from the accepted exact-edge baseline', () => {
   assert(roadmapMatchesModuleEdgeCount(rootRoadmap, moduleBoundaryBaseline));
+});
+
+test('signed privacy docs expose only the offline authority and current review state', () => {
+  assert(apiReference.includes('PrivacyRemediationStatus@2'));
+  assert(apiReference.includes('410 M5_PRIVACY_OFFLINE_SIGNATURE_REQUIRED'));
+  assert(!apiReference.includes('PrivacyRemediationStatus@1'));
+  assert(!apiReference.includes('Attests one exact rotation category'));
+  assert(privacyWorkPackage.includes('SIGNED_AUTHORITY_CHANGES_REQUIRED'));
+  assert(privacyWorkPackage.includes('body se nečte'));
+  assert(signedAuthorityDecision.includes(
+    'CHANGES_REQUIRED / REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED',
+  ));
+  const counts = committedRegistry.suites.reduce((result, suiteRecord) => {
+    result[suiteRecord.state] = (result[suiteRecord.state] || 0) + 1;
+    return result;
+  }, {});
+  assert(rootSystemMap.includes(
+    `**${committedRegistry.suites.length}** (`
+      + `\`${counts.ACTIVE} ACTIVE\`, \`${counts.BLOCKED} BLOCKED\`, `
+      + `\`${counts.HISTORICAL} HISTORICAL\`)`,
+  ));
 });
 
 test('diacritics scan ignores intentional fenced, inline, and path examples', () => {
