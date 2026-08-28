@@ -9427,6 +9427,39 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-WORKSPACE-BUDGET-TEST",
+      "path": "tests/workspace-budget.test.js",
+      "argv": [
+        "node",
+        "tests/workspace-budget.test.js"
+      ],
+      "capabilityId": "C3-027",
+      "tier": "T1",
+      "fixture": "isolated-temp-git-worktrees",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false,
+        "toolchain": [
+          "git"
+        ]
+      },
+      "required": true,
+      "owner": "WP-WORKSPACE-BUDGET-INTEGRATION",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-WORKERS-PHASE-B-TEST",
       "path": "tests/workers-phase-b.test.js",
       "argv": [

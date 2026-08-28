@@ -1694,7 +1694,7 @@ stabilní candidate + re-review:
 
 - finální release evidence se znovu odvozuje z raw logů připnutých v Git a
   validuje exact artifact/receipt chain; ignorovaný JSON nemůže vydat PASS;
-- locked plán používá množinovou rovnost se všemi současnými 365
+- locked plán používá množinovou rovnost se všemi současnými 366
   `ACTIVE + required` programy;
 - devět required live-server consumer journeys už není posíláno do runneru,
   který žádný server nevlastní. Plan v6 je odděluje do serializované
