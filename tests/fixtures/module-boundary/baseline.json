@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "4f300269fde62c749d566496ee87f63cae49fab5",
-  "sourceTree": "d20153859b1a5e038cab6565ee2f8c5693977331",
+  "sourceRevision": "86f043f196b85f1b182958c3a7a8aaf438b1b5e6",
+  "sourceTree": "ac94a6ba39ebe140f12bfc54337dd14ba32414eb",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -846,6 +846,7 @@
     "src/planner/workflow.js -> src/llm/auth-types.js",
     "src/planner/workflow.js -> src/llm/gateway.js",
     "src/planner/workflow.js -> src/planner/project-context.js",
+    "src/release/m6-technical-evidence.js -> src/release/m6-candidate-plan.js",
     "src/release/m6-technical-evidence.js -> src/release/m6-runtime-evidence.js",
     "src/routes/agents.js -> src/agents/m3-legacy-agent-quarantine.js",
     "src/routes/agents.js -> src/agents/schema.js",
