@@ -13839,6 +13839,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-SIGNED-AUTHORITY-RECEIPT-TEST",
+      "path": "tests/signed-authority-receipt.test.js",
+      "argv": [
+        "node",
+        "tests/signed-authority-receipt.test.js"
+      ],
+      "capabilityId": "C3-012",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M6-RELEASE",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-M6-RELEASE-VALIDATION-TEST",
       "path": "tests/m6-release-validation.test.js",
       "argv": [

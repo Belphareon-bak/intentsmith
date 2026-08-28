@@ -1,0 +1,6 @@
+{
+  "contract": "SignedAuthorityTrustStore",
+  "version": 1,
+  "algorithm": "Ed25519",
+  "keys": []
+}

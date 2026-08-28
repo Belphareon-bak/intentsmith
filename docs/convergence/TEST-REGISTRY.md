@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 469
+- Runnable programs: 470
 - Explicit support-module exclusions: 17
-- Profiles: offline=248, database=60, server=43, model=82, soak=15, manual=21
-- States: ACTIVE=374, HISTORICAL=16, BLOCKED=79
+- Profiles: offline=249, database=60, server=43, model=82, soak=15, manual=21
+- States: ACTIVE=375, HISTORICAL=16, BLOCKED=79
 
 ## Execution profiles
 
@@ -459,6 +459,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-SESSION-CONTEXT-TEST` | `tests/session-context.test.js` | `C3-024` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SIGNATURE-CACHE-TEST` | `tests/signature-cache.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SIGNATURE-MAP-TEST` | `tests/signature-map.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-SIGNED-AUTHORITY-RECEIPT-TEST` | `tests/signed-authority-receipt.test.js` | `C3-012` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-SKILL-META-DETECTION-TEST` | `tests/skill-meta-detection.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-SKILL-ROUTING-CRE-TEST` | `tests/skill-routing-cre.test.js` | `C3-013` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-SMOKE-TEST` | `tests/smoke.test.js` | `C3-005` | T2 | `database` | 2 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
