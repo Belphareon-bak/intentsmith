@@ -57,6 +57,10 @@ odstranit; C3 repo zůstává případnou historickou referencí.
     Artifact-wide VRAM spill lze bez nového modelového loadu převzít jen pro
     exact digest, shodné GPU a shodný context window a musí odkazovat na
     původní placement run.
+17. Reader smí zveřejnit start a duration pouze pro vzájemně konzistentní
+    interval. Starší nekonzistentní řádek se nepřepisuje: nese
+    `LEGACY_UNVERIFIED`, nulový publikovaný start/duration a pouze explicitně
+    neověřený recorded-at timestamp.
 
 ## Důsledky
 
@@ -77,6 +81,8 @@ odstranit; C3 repo zůstává případnou historickou referencí.
   migrační kolize. Následná coverage revize rovněž našla parser drift,
   preference vydávané za nepoužitelnost, neúplnou suite identity, falešné
   start timestampy a neuzavřenou evidenci. Tyto nálezy jsou implementačně
-  opravené a čistý finální gate na `e82ecd47` prošel `279/279` v runu
-  `2026-08-28T18-22-53-719Z`, ale současný candidate zůstává
+  opravené; navazující review ještě odhalilo hard category filtr, neúplnou
+  cache/export identitu a neoznačené legacy intervaly. Produktový head
+  `ccf54377` uzavírá i tyto nálezy a čistý finální gate prošel `279/279` v runu
+  `2026-08-28T19-30-37-899Z`, ale současný candidate zůstává
   `REREVIEW_REQUIRED`, nikoli `ACCEPTED`.

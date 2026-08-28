@@ -2,7 +2,7 @@
 
 **Stav:** současný kontrakt v136.1 · **Aktualizováno:** 2026-08-28
 **Implementace:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Přijetí:**
-coverage je implementačně kompletní a čistý finální gate na `e82ecd47` prošel
+coverage je implementačně kompletní a čistý finální gate na `ccf54377` prošel
 `279/279`; stále je povinné nové nezávislé rereview
 
 Název souboru zůstává kvůli existujícím odkazům. IntentSmith už ale nemá
@@ -72,6 +72,14 @@ Každá role/artifact položka uvádí stav `COMPLETE`, `FAILED`, `BLOCKED` nebo
 `MISSING`, přesný digest, suite/version/contract, `score` a `testedAt` tam, kde
 existuje COMPLETE běh. Timestamp se zobrazuje; neexistuje 14denní TTL, které by
 staré či name-only skóre automaticky prohlásilo za současné.
+
+Časová evidence má vlastní explicitní provenienci. Reader zveřejní
+`startedAt`, `durationMs` a `intervalIntegrity=VERIFIED` jen pokud start, konec
+a uložená délka tvoří konzistentní interval. U 40 starších current-contract
+řádků je interval nekonzistentní: `startedAt` a `durationMs` proto zůstávají
+`null`, `intervalIntegrity=LEGACY_UNVERIFIED` a `testedAt` je pouze historický
+recorded-at údaj. DB historie se kvůli kosmetice nepřepisuje. Chybějící měření
+má `intervalIntegrity=NOT_AVAILABLE`.
 
 Status a applicability jsou dvě různé osy. `MISSING` se nepřepisuje na umělý
 výsledek. Read model i scoring queue používají

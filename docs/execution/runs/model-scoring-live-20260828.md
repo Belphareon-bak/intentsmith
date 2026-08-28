@@ -38,9 +38,13 @@ Historická pre-migration DB se SHA-256
 není doložená jako byte-identická rollback záloha. Dne 2026-08-28 bylo podle
 hashů prověřeno 33 SQLite kandidátů pod
 `~/.local/share/intentsmith-private`, `~/.local/state` a `~/Projects`; shoda
-nebyla nalezena. Dřívější disposable projection není rollback obraz. Tato
-historická evidence gap je formálně otevřená a nesmí se převyprávět jako
-existující záloha.
+nebyla nalezena. Reprodukovatelný read-only
+[`search manifest`](model-evaluation-historical-backup-search-20260828.json)
+má SHA-256 `844abf4219a4fbb9315857911cc0acbf6196cf9f6c39514f6c38610553e8cd27`,
+obsahuje všech 33 suffix-selected kandidátů, jejich hashe a 31 pozitivních
+SQLite hlaviček; výsledek je výslovně `NOT_FOUND_NOT_PROVEN`. Dřívější
+disposable projection není rollback obraz. Tato historická evidence gap je
+formálně otevřená a nesmí se převyprávět jako existující záloha.
 
 Před remediačním zápisem vznikla ověřená současná záloha:
 
@@ -83,6 +87,13 @@ completed_at` a `duration_ms` odpovídající intervalu; rozsah je
 current-role `BLOCKED` řádků převzalo exact-digest placement důkaz na shodné
 RTX 3090 a shodném 32k kontextu. Jejich metadata obsahují původní run ID a
 explicitně říkají, že nevznikly novým načtením modelu.
+
+Zbývajících 40 current-contract COMPLETE řádků pochází ze staršího běhu s
+nekonzistentními start/duration hodnotami. DB řádky se nepřepisují. Read model,
+CLI a Studio je zveřejňují jako `intervalIntegrity=LEGACY_UNVERIFIED`, s
+`startedAt=null`, `durationMs=null` a s
+`testedAtProvenance=LEGACY_RECORDED_AT_ONLY`. Aktuální post-gate snapshot tak
+dokládá přesně 15 `VERIFIED` a 40 `LEGACY_UNVERIFIED` COMPLETE intervalů.
 
 ## Skóre po rolích
 
@@ -155,9 +166,12 @@ Raw hunt JSON je mimo Git v private evidence rootu a má SHA-256
 `c37b7964a82ddaba18dffe5739e92770a126db6395d485e14f362ae50e0e4c2d`.
 Commitnutý bounded gate/snapshot záznam je
 [`model-scoring-remediation-20260828.json`](model-scoring-remediation-20260828.json).
-Finální gate nad čistým kandidátem `e82ecd47` skončil v runu
-`2026-08-28T18-22-53-719Z` výsledkem `279/279 PASS`. Následný read-only
-[`post-gate snapshot`](model-evaluation-host-db-snapshot-20260828-remediation-post-gate-2.json)
+Finální gate nad čistým produktovým kandidátem `ccf54377` skončil v runu
+`2026-08-28T19-30-37-899Z` výsledkem `279/279 PASS`; report má SHA-256
+`30d99e3468b8e934860068ba3ae166d471697efcf71ea77624d9d9687caf53fa`.
+Následný read-only
+[`post-gate snapshot`](model-evaluation-host-db-snapshot-20260828-remediation-post-gate-3.json)
+se SHA-256 `6dd92018310cacb0ffd03d0f2a40a1182dbea85f2b643c6549dae0ee1b127d86`
 potvrdil stejný DB hash, nulové applicable `MISSING`, vypnutý timer/service a
-prázdný Ollama/GPU slot. Evidence je uzavřená; otevřené zůstává nezávislé
-rereview, nikoli další lokální gate.
+prázdný Ollama/GPU slot. Lokální implementace a evidence jsou zelené; otevřené
+zůstává nezávislé rereview a provider capability, takže stav není `ACCEPTED`.

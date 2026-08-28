@@ -1,7 +1,7 @@
 {
   "schemaVersion": "intentsmith-model-scoring-remediation-evidence-v1",
   "status": "IMPLEMENTATION_GREEN_REREVIEW_REQUIRED",
-  "candidateRevision": "e82ecd474970f5b34a05a6b67ff429720adbc533",
+  "candidateRevision": "ccf543774601f04eccc6091e6c58a71bb07b77f3",
   "scoringSourceRevision": "6ae5a3369838fb17f0040c9580a86614833ebf21",
   "reviewState": "REREVIEW_REQUIRED",
   "systemProviderState": "BLOCKED_RESPONSE_ARTIFACT_ATTESTATION_UNAVAILABLE",
@@ -19,7 +19,14 @@
   "historicalPreMigrationBackup": {
     "claimedSha256": "e22d580f26b9b467eb2bf3774524206b3d95a36cdcdbc3902a08046e9e12c088",
     "status": "NOT_FOUND_NOT_PROVEN",
-    "candidateFilesHashed": 33
+    "candidateFilesHashed": 33,
+    "sqliteHeaderCount": 31,
+    "manifest": {
+      "path": "docs/execution/runs/model-evaluation-historical-backup-search-20260828.json",
+      "sha256": "844abf4219a4fbb9315857911cc0acbf6196cf9f6c39514f6c38610553e8cd27",
+      "sourceRevision": "ccf543774601f04eccc6091e6c58a71bb07b77f3"
+    },
+    "originalSearchManifestAvailable": false
   },
   "scoringRun": {
     "sha256": "c37b7964a82ddaba18dffe5739e92770a126db6395d485e14f362ae50e0e4c2d",
@@ -41,10 +48,10 @@
   },
   "gate": {
     "command": "C3_LOG_LEVEL=error npm run test:deterministic",
-    "sourceRevision": "e82ecd474970f5b34a05a6b67ff429720adbc533",
-    "runId": "2026-08-28T18-22-53-719Z",
-    "startedAt": "2026-08-28T18:22:53.750Z",
-    "endedAt": "2026-08-28T18:26:33.104Z",
+    "sourceRevision": "ccf543774601f04eccc6091e6c58a71bb07b77f3",
+    "runId": "2026-08-28T19-30-37-899Z",
+    "startedAt": "2026-08-28T19:30:37.931Z",
+    "endedAt": "2026-08-28T19:34:17.204Z",
     "verdict": "PASS",
     "statusCounts": {
       "PASS": 279,
@@ -57,10 +64,31 @@
     "requiredBlockedCount": 0,
     "exitCode": 0,
     "report": {
-      "path": ".intentsmith-artifacts/test-runs/2026-08-28T18-22-53-719Z/report.json",
-      "sha256": "8317ce9f48447eea557bf40b66db7c1b1a41f068093ee777451c1ff913bb023e"
+      "path": ".intentsmith-artifacts/test-runs/2026-08-28T19-30-37-899Z/report.json",
+      "sha256": "30d99e3468b8e934860068ba3ae166d471697efcf71ea77624d9d9687caf53fa"
     },
     "previousSuccessfulRuns": [
+      {
+        "sourceRevision": "e82ecd474970f5b34a05a6b67ff429720adbc533",
+        "runId": "2026-08-28T18-22-53-719Z",
+        "startedAt": "2026-08-28T18:22:53.750Z",
+        "endedAt": "2026-08-28T18:26:33.104Z",
+        "verdict": "PASS",
+        "statusCounts": {
+          "PASS": 279,
+          "FAIL": 0,
+          "TIMEOUT": 0,
+          "BLOCKED": 0,
+          "SKIPPED": 0
+        },
+        "requiredFailureCount": 0,
+        "requiredBlockedCount": 0,
+        "exitCode": 0,
+        "report": {
+          "path": ".intentsmith-artifacts/test-runs/2026-08-28T18-22-53-719Z/report.json",
+          "sha256": "8317ce9f48447eea557bf40b66db7c1b1a41f068093ee777451c1ff913bb023e"
+        }
+      },
       {
         "sourceRevision": "031349313884d3427dc0df4784fb61efc23bbd6d",
         "runId": "2026-08-28T18-12-18-428Z",
@@ -108,11 +136,15 @@
     ]
   },
   "postGateSnapshot": {
-    "path": "docs/execution/runs/model-evaluation-host-db-snapshot-20260828-remediation-post-gate-2.json",
-    "sha256": "00d71bf7b9cabc1d410c69fb1167c0b78850544189accb90db9444ed877a02e7",
-    "sourceRevision": "e82ecd474970f5b34a05a6b67ff429720adbc533",
+    "path": "docs/execution/runs/model-evaluation-host-db-snapshot-20260828-remediation-post-gate-3.json",
+    "sha256": "6dd92018310cacb0ffd03d0f2a40a1182dbea85f2b643c6549dae0ee1b127d86",
+    "sourceRevision": "ccf543774601f04eccc6091e6c58a71bb07b77f3",
     "evidencePhase": "post-gate",
     "databaseSha256": "a3eafab1a2061eb83e59720220891d8b41f7a5548a3b20ecd86b8df86827fa8a",
-    "databaseQuickCheck": "ok"
+    "databaseQuickCheck": "ok",
+    "completeIntervalIntegrity": {
+      "VERIFIED": 15,
+      "LEGACY_UNVERIFIED": 40
+    }
   }
 }

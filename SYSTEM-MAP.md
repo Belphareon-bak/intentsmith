@@ -155,10 +155,13 @@ digest přímo v provider response. Na hostu nainstalovaná systémová Ollama
 0.32.14 jej neposkytuje, takže durable runtime zůstává záměrně fail-closed.
 Remediovaný source rozsah `74beafea..26ab3291` prošel nezávislým Opus max
 `REVIEW_PASSED`. Autorizovaný installed-panel scoring 2026-08-28 proběhl přes
-izolovaný patchovaný sidecar a uzavřel všech 57 použitelných model-role párů na
-40 `COMPLETE`, 17 `BLOCKED`, 0 applicable `MISSING`; 34 raw `MISSING` je
-explicitně mimo role/category coverage. Systémový provider blocker tím
-nezmizel a nový coverage patch čeká na rereview. Evidence:
+izolovaný patchovaný sidecar. Současný versioned technický scope obsahuje 79
+kompatibilních model-role párů: 55 `COMPLETE`, 24 `BLOCKED`, 0 applicable
+`MISSING`; 12 raw `MISSING` je explicitní N/A. Z COMPLETE evidence má 15 běhů
+ověřený skutečný interval a 40 starších current-contract řádků je veřejně
+označeno `LEGACY_UNVERIFIED` bez publikovaného startu a duration. Produktový
+head `ccf54377` prošel čistým gate 279/279, ale systémový provider blocker
+nezmizel a celý navazující candidate stále čeká na nezávislé rereview. Evidence:
 [`model-scoring-live-20260828.md`](docs/execution/runs/model-scoring-live-20260828.md).
 
 Tool census ze zdroje: **9 JavaScript soubory, 8 664 řádků, 153 top-level

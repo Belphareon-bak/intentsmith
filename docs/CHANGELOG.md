@@ -17,15 +17,18 @@
   v každé chat response. Reálný preflight ověřil shodu digestu a plný VRAM
   placement; systémová Ollama zůstala beze změny.
 - Installed panel proběhl sériově bez pullu, mazání a aktivace. Current coverage
-  je 40 COMPLETE / 17 BLOCKED / 0 applicable MISSING; čtyři artefakty, které
+  je 55 COMPLETE / 24 BLOCKED / 0 applicable MISSING; čtyři artefakty, které
   by při 32k kontextu použily RAM, skončily BLOCKED se score NULL.
-- Read model a registry overview nyní sdílejí stejnou role/category
-  applicability policy. 34 raw MISSING buněk zůstává pravdivě viditelných, ale
+- Read model a registry overview nyní sdílejí stejnou versioned technical
+  applicability policy. 12 raw MISSING buněk zůstává pravdivě viditelných, ale
   jsou označeny jako mimo scoring coverage. Automatický cleanup zůstává
   odděleně fail-closed a tuto metadata policy nepoužívá jako povolení mazat.
-- Jediný pairwise candidate winner byl `qwen3.8:latest` pro CODE. Portfolio
+- Portfolio evidence doporučuje `qwen3.8:latest` pro VISION. Portfolio
   gate nepovolil změnu; bindingy zůstaly beze změny. Nový candidate čeká na
   nezávislé rereview.
+- Z 55 COMPLETE řádků má 15 konzistentní skutečný interval. Zbývajících 40 je
+  čteno jako `LEGACY_UNVERIFIED`, bez publikovaného startu a duration; DB
+  historie se nepřepisuje.
 
 ## v136.6 — role-strict evaluace a exact runtime artefakt (2026-08-27)
 

@@ -1901,9 +1901,9 @@ mohou pokračovat.
 
 ### Integrovaná model-evaluation autorita (2026-08-26)
 
-Remediační product/test kandidát `79328185` navazuje na zamítnutý `74beafea`
-a drží jedinou
-role-specific exact-artifact model-evaluation cestu. Migrace 097 karanténuje 11
+Historický product/test kandidát `79328185` navázal na zamítnutý `74beafea`
+a vytvořil jedinou role-specific exact-artifact model-evaluation cestu.
+Migrace 097 karanténuje 11
 cross-role decisions; migrace 099 odstraňuje telemetry-derived blacklist.
 Historický strict-role snapshot měl 28 `COMPLETE`, 11 `BLOCKED`, 52 `MISSING`
 a 0 `FAILED` buněk. Aktuální exact-edge module graph má 1 198 hran, 3 cykly a
@@ -1918,8 +1918,14 @@ sidecar, live DB migroval do 099 a po pozdější applicability remediaci uzavř
 všech 79 technicky kompatibilních párů: 55 `COMPLETE`, 24 `BLOCKED`, 0
 applicable `MISSING`; 12 raw `MISSING` buněk je explicitní N/A. Systémová
 Ollama 0.32.14 zůstala beze změny a
-durable runtime je proto stále `PROVIDER_CAPABILITY_BLOCKED`. Coverage patch a
-live evidence čekají na nové rereview; podrobnosti jsou v
+durable runtime je proto stále `PROVIDER_CAPABILITY_BLOCKED`. Následné review
+našlo hard filtr přes `preferredCategories`, neúplnou cache/export identitu,
+nepublikovanou provenienci 40 starších intervalů a stale dokumentaci. Produktový
+head `ccf54377` tyto vady opravuje a čistý gate
+`2026-08-28T19-30-37-899Z` na něm prošel 279/279. Z 55 COMPLETE výsledků je
+15 intervalů `VERIFIED` a 40 `LEGACY_UNVERIFIED`; u starších řádků reader
+publikuje pouze historický recorded-at timestamp, nikoli start nebo duration.
+Celý navazující candidate stále čeká na nové nezávislé rereview; podrobnosti jsou v
 [`model-scoring-live-20260828.md`](docs/execution/runs/model-scoring-live-20260828.md).
 
 ## 14. Rozhodovací fronta — otázka až ve chvíli, kdy má data

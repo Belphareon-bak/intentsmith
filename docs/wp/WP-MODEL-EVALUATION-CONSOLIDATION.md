@@ -16,8 +16,9 @@ Remediační rozsah `74beafea..26ab3291` prošel nezávislým Opus max
 `REVIEW_PASSED`; čistý gate `2026-08-27T20-32-24-822Z` prošel `279/279`.
 Navazující live DB migrace, izolovaný provider sidecar, GPU-only scoring a
 coverage overlay z 2026-08-28 tvoří nový candidate, který musí projít vlastním
-rereview. Čistý finální gate na `e82ecd47` skončil v runu
-`2026-08-28T18-22-53-719Z` výsledkem `279/279 PASS`. Integrovaná evidence je v
+rereview. Poslední remediace uzavírá i category hard filtr, cache/export exact
+identity a interval provenance. Čistý finální gate na `ccf54377` skončil v runu
+`2026-08-28T19-30-37-899Z` výsledkem `279/279 PASS`. Integrovaná evidence je v
 [`model-evaluation-final-integration-20260826.md`](../execution/runs/model-evaluation-final-integration-20260826.md)
 a [`model-scoring-live-20260828.md`](../execution/runs/model-scoring-live-20260828.md).
 
@@ -168,8 +169,8 @@ tohoto WP.
 | M7 — clean deterministic + server-owned read E2E handoff | PASS — `2026-08-27T20-32-24-822Z`, 279/279 na `79328185` |
 | M8 — provider response exact-artifact attestation | PATCH + PREFLIGHT PASS; SYSTEM OLLAMA CAPABILITY BLOCKED |
 | M9 — live DB 099 + installed GPU-only panel | PASS — 55 COMPLETE / 24 BLOCKED / 0 applicable MISSING |
-| M10 — versioned technical coverage + unified inventory/parser | IMPLEMENTATION PASS / FINAL GATE PASS / REREVIEW REQUIRED |
-| M11 — suite version, real intervals, DB rollback and bounded evidence | IMPLEMENTATION PASS / FINAL GATE PASS / REREVIEW REQUIRED |
+| M10 — versioned technical coverage + unified inventory/parser | IMPLEMENTATION PASS / 279/279 FINAL GATE PASS / REREVIEW REQUIRED |
+| M11 — suite version, interval provenance, DB rollback search and bounded evidence | IMPLEMENTATION PASS / 279/279 FINAL GATE PASS / REREVIEW REQUIRED |
 
 První nezávislé review: `CHANGES_REQUESTED`. Remediační R0–R7 opravily všech
 devět nálezů: úplnou suite identity, upgrade okno 070→082, governor reader,

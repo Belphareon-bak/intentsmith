@@ -38,6 +38,9 @@
   `preferredCategories` zůstává pouze ranking prior;
 - current/reuse lookup zahrnuje suite name, suite version i contract SHA a
   nové GPU runy ukládají skutečný start a konec.
+- reader, CLI a Studio rozlišují ověřený interval od staršího
+  `LEGACY_UNVERIFIED`; nekonzistentní historie nikdy nepublikuje start ani
+  duration.
 
 ## Acceptance hranice a zbývající omezení
 
@@ -53,12 +56,13 @@
   identity, zbytky auto-failover writerů a neúplnou snapshot provenienci.
   Product/test oprava `9f6e4828` prošla novým čistým 279/279 gate. Následný
   `0bd38b7d` přenesl stejnou exact-response atestaci i do ukládaného scoringu a
-  product/test head `79328185` prošel novým čistým 279/279 gate. Kandidát čeká
-  nezávislým Opus max rereview rozsahu `74beafea..26ab3291` s verdictem
+  product/test head `79328185` prošel novým čistým 279/279 gate. Kandidát poté
+  prošel nezávislým Opus max rereview rozsahu `74beafea..26ab3291` s verdictem
   `REVIEW_PASSED`; pozdější coverage review ale vrátilo `CHANGES_REQUIRED`.
   Aktuální remediace následně prošla čistým finálním gate `279/279` na
-  `e82ecd47` v runu `2026-08-28T18-22-53-719Z`; bounded post-gate evidence je
-  commitnutá. Tento nový candidate stále vyžaduje vlastní nezávislé rereview;
+  `ccf54377` v runu `2026-08-28T19-30-37-899Z`; bounded post-gate evidence a
+  reprodukovatelný manifest hledání historické zálohy jsou commitnuté. Tento
+  nový candidate stále vyžaduje vlastní nezávislé rereview;
   provider capability popsaná níže zůstává blokovaná.
 - Automatický failover/proof issuance není jen vypnutý: veřejné auto-claim,
   proof selection, terminal, expiry/finalization a restart writery jsou
