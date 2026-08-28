@@ -181,7 +181,7 @@ function logForProgram(programId) {
     failedUpgradeLogSha256: 'd'.repeat(64),
     failedUpgradeMigrationCount: 70,
     previousMigrationCount: 56,
-    currentMigrationCount: 79,
+    currentMigrationCount: 80,
     canary: {
       id: 1,
       name: 'M6 Upgrade Canary',

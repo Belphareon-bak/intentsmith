@@ -1,8 +1,8 @@
 # Decision 041 — Offline signed authority receipts
 
 **Datum:** 2026-08-28
-**Stav:** `IMPLEMENTATION_REVIEW_PASSED / KEY_CEREMONY_COMPLETE /
-PRODUCT_RE_REVIEW_REQUIRED`
+**Stav:** `IMPLEMENTATION_REVIEW_PASSED / KEY_CUSTODY_CHANGES_REQUIRED /
+PRODUCT_REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED`
 **Protokol:** `OFFLINE_ED25519_SIGNED_RECEIPTS`
 
 ## Rozhodnutí
@@ -17,11 +17,12 @@ verifier pro autoritativní operátorské vstupy v následujícím rozsahu:
 - M6 Gate 0.
 
 Toto rozhodnutí nahrazuje procesní autoritu popsanou v Decision 035 a 036.
-Nemění však aktuální stav milníků:
+Samotné rozhodnutí nemění acceptance stav. Aktuální stav po úzkém review
+product candidatu `d81be45f` je:
 
 ```text
-M5 = PRIVACY_CHANGES_REQUIRED
-M6 = ACCEPTANCE_BLOCKED
+M5 = 8/9 REVIEW_PASSED / PRIVACY CHANGES_REQUIRED / ACCEPTANCE_BLOCKED
+M6 = KEY_CUSTODY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED
 ```
 
 Samotná implementace podpisového kontraktu není rotace, history disposition,
@@ -174,3 +175,21 @@ testovacímu podpisu; všechny čtyři identity jsou rozdílné. Publikace trust
 storu mění product candidate, proto tento nový řez vyžaduje úzký re-review.
 Ceremonie sama neprovedla rotaci, history disposition, acceptance, promotion,
 tag, publish ani push.
+
+## Úzký product re-review 2026-08-29
+
+Review candidatu `d81be45f` skončil `CHANGES_REQUIRED`. Kryptografické identity,
+402 focused/structural kontrol, registry i current-tree privacy scan prošly, ale
+produkční M6 upgrade kontrakt stále očekával 79 migrací. Skutečný loopback-only
+upgrade z verze 136.0.0 aplikoval 80 a skončil `80 !== 79`. Oracle byl následně
+sjednocen na 80 a čeká na nový exact-candidate re-review.
+
+Současně nebyl přijat custody model privátních klíčů. `bwrap --unshare-net`
+izoloval generování, ale všechny čtyři nešifrované PKCS#8 soubory po ceremonii
+zůstaly trvale připojené na stejném `/home` Btrfs svazku a pod stejným OS účtem
+jako aplikace a workery. To není výhradně offline úložiště a nedává nezávislé
+custody roli `m6-independent-reviewer`. Před prvním podpisem musí být klíče
+přesunuty na šifrované odpojené médium nebo do ekvivalentního skutečně offline
+signing prostředí; reviewer key musí mít oddělenou custody. Přesun stejných
+keypairů nemění trust store. Regenerace keypairů mění product candidate a
+vyžaduje další review.

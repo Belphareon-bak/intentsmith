@@ -67,8 +67,8 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M2 Řízená práce nad projektem** | `ACCEPTED / CLOSEOUT_PASS` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
-| **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY_REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Decision 041 implementace dostala `REVIEW_PASSED`; autorizovaná ceremonie připnula čtyři oddělené veřejné klíče a M5-R19 migration oracle je opravený. Nový product candidate čeká na úzký re-review; 8 rotací, history disposition a podepsaná M5 acceptance neproběhly. |
-| **M6 IntentSmith 1.0 release** | `KEY_CEREMONY_COMPLETE / PRODUCT_RE_REVIEW_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, application upgrade, L0-11 a soak/throughput harness jsou implementované. Trust store nyní drží čtyři role; jejich product candidate musí projít novým review. 24h a pětiminutový plný běh zatím nejsou provedené. |
+| **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Decision 041 implementace dostala `REVIEW_PASSED` a trust store drží čtyři oddělené veřejné klíče. Úzký review ale našel stale M6 migration oracle a neoffline custody privátních klíčů; oracle remediation je implementovaná, custody zůstává otevřená. Osm rotací, history disposition a podepsaná M5 acceptance neproběhly. |
+| **M6 IntentSmith 1.0 release** | `KEY_CUSTODY_CHANGES_REQUIRED / PRODUCT_REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, application upgrade, L0-11 a soak/throughput harness jsou implementované. Upgrade kontrakt je po reprodukci `80 !== 79` sjednocený na 80, ale čeká na nový review. 24h a pětiminutový plný běh zatím nejsou provedené. |
 | **M7 Remote Companion** | `DESIGN_ONLY` | M6 + remote boundary | Samostatný vzdálený companion release nad bezpečným core rozhraním. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
@@ -1390,8 +1390,11 @@ neviděla dočasnou produktovou změnu následovanou revertem. Remediation
 `8632c490` přidává exact BLOB read, per-commit/per-parent a per-receipt historii,
 zakazuje merge a odmítá replace refs, grafts a skryté index flags. Třetí review
 kandidatu `37edf30d` skončil `REVIEW_PASSED`. Autorizovaná ceremonie následně
-připnula čtyři veřejné Ed25519 role a oprava M5-R19 srovnala migration oracle
-na tip 100 / 80 migrací. Tento nový product řez čeká na úzký re-review.
+připnula čtyři veřejné Ed25519 role. Úzký review kandidatu `d81be45f` ale našel,
+že M5-R19 srovnal jen model-failover test, zatímco M6 upgrade kontrakt zůstal na
+79 a reálný upgrade skončil `80 !== 79`. Oracle remediation je implementovaná,
+ale custody všech privátních klíčů na stejném online `/home` svazku zůstává
+`CHANGES_REQUIRED`.
 `WP-M5-PACKAGE` má review remediation implementovanou na product commitu
 `8be0094d`; druhé review oddíl označilo `REVIEW_PASSED`. `--verify-only` při
 cizím Node majoru pouze zapíše chybu a nikdy
@@ -1517,10 +1520,12 @@ původní report zůstává v
 [`m5-remote-conditional-20260826.md`](docs/execution/runs/m5-remote-conditional-20260826.md).
 
 `WP-M5-PRIVACY` má po několika review kolech poslední nezávislý verdict
-`CHANGES_REQUIRED`, nyní už jen kvůli M5-R19 migration oracle. Decision 041
-byte/history implementace nad candidatem `37edf30d` má `REVIEW_PASSED`;
-autorizovaná ceremonie připnula čtyři oddělené veřejné role a M5-R19 je
-implementačně opravený. Oddíl zůstává `RE_REVIEW_REQUIRED`. Migrace 090
+`CHANGES_REQUIRED` kvůli neúplnému M5-R19 migration oracle a custody klíčů.
+Decision 041 byte/history implementace nad candidatem `37edf30d` má
+`REVIEW_PASSED`; trust store připíná čtyři oddělené veřejné role. Stale M6
+upgrade oracle 79 je implementačně opravený na 80, ale privátní klíče zůstávají
+nešifrované na stejném online svazku. Oddíl zůstává `RE_REVIEW_REQUIRED`.
+Migrace 090
 odstraňuje známé plaintext credential klíče z `user_settings` a migrace 091
 navíc vyžaduje pro každý rotation/history INSERT transportem autentizovanou
 subject identitu až na SQL triggeru. Veřejný capability mint byl odstraněn,
