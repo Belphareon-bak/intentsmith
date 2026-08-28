@@ -224,6 +224,52 @@ race a zneplatnil jinak platný report na shodném SHA — viz `ROADMAP.md` §4,
 „Aktuální evidence“. Efemérní worktree se zakládá na disku, ne v `/tmp`; ten je
 na referenčním stroji tmpfs.
 
+#### Rozpočet pracovní plochy
+
+Efemérní worktree z předchozí sekce má měřitelný konec a rozpočet. Cílem není
+omezit, kolik práce smí běžet — to řeší strop paralelních WP výše. Cílem je,
+aby po dokončené práci nezůstávala pracovní plocha, kterou nikdo neuklidí.
+Samotná věta „po integraci se odstraní" se ukázala jako nevymahatelná — viz níže.
+
+- **Rozpočet se počítá z živých worktreeů.** Živý je ten, jehož commity ještě
+  nenese jiná živá větev; absorbovaný se do rozpočtu nepočítá, protože už jen
+  zabírá místo. Orientační rozpočet jsou tři živé worktree vedle hlavního
+  checkoutu, shodně se stropem paralelních zapisujících WP.
+- **Úklid se vynucuje růstem, ne zákazem.** Před založením nového worktree se
+  odstraní všechny bezpečně odstranitelné absorbované checkouty. Dirty,
+  používaný nebo důkaz obsahující checkout se nejprve vypořádá; nesmí být
+  ztracen ani odstraněn silou. Potřeba dalšího worktree práci neblokuje, ale
+  odložený úklid musí mít pojmenovaný důvod.
+- **Default je větev, ne worktree.** Práce, která na jiný WP navazuje v čase,
+  se dělá přepnutím větve v existujícím checkoutu. Nový worktree opravňuje jen
+  prokazatelně souběžný zapisující WP podle podmínek výše. Dvě větve v jednom
+  checkoutu nejsou paralelní práce — a právě proto pro ně nový worktree není.
+- **Konec worktree je měřitelný.** Worktree se odstraní, jakmile jiná živá
+  větev obsahuje jeho commity celé
+  (`git merge-base --is-ancestor <větev> <jiná>`). Merge do `main` tou podmínkou
+  **není**: `main` se v tomhle projektu jako integrační cíl nepoužívá, takže
+  vázat na ni úklid znamená neuklízet nikdy. Odstraňuje se worktree, ne větev;
+  commity, důkazy ani historie tím nemizí.
+- **Sandbox je vstup běhu, ne jeho důkaz.** Adresáře `runtime/`, `home/`,
+  `repo/` a `node_modules/` pod `.intentsmith-artifacts/` jsou jednorázové.
+  Drží se nejvýše sada z nejnovějšího běhu na worktree; starší se po dokončení
+  běhu mažou. `report.json`, `checkpoint.json`, `inventory.json` a `logs/` leží
+  vedle nich, jsou o tři řády menší a nemažou se nikdy. Sandbox, který tyto
+  důkazy sám obsahuje, je chráněný a automatický úklid ho přeskočí. Plošné
+  smazání `.intentsmith-artifacts` je zakázané.
+
+Stav pracovní plochy vypisuje [`scripts/workspace-budget.sh`](scripts/workspace-budget.sh):
+`report` označí bezpečně odstranitelný worktree a zvlášť pojmenuje dirty,
+používané, detached nebo evidence-bearing překážky; `clean --yes` smaže pouze
+starší jednorázové sandboxy a důkazy nechá. Skript je nástroj, ne autorita —
+pravidlo platí i tam, kde ho nikdo nespustil.
+
+**Proč to tu je.** Pravidlo o efemérním worktree platilo od verze 4 a přesto
+byl 2026-08-28 filesystém referenčního stroje podruhé zaplněný na 100 %
+(3,1 MB volných z 477 G). Naměřeno: 26 worktreeů, z toho 13 s větví už plně
+obsaženou v jiné živé větvi, a 99 GB jednorázových sandboxů proti ~130 MB
+důkazů. Chyběl strop a operační definice konce; obojí doplňuje tato sekce.
+
 #### Měřený dokument patří integračnímu SHA
 
 Sériové mergování samo neopravuje význam měřených dokumentů. Větev změří

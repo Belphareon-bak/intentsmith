@@ -53,6 +53,14 @@ strom. Cizí nebo nejasně vlastněné změny zachovej. Potom sleduj skutečný 
 graph a podle potřeby spusť produkt; dokument ani název testu není náhradou za
 pozorované chování.
 
+Součástí té kontroly je **rozpočet pracovní plochy** (`CONTRACT.md` §6). Neomezuje,
+kolik práce smí běžet — brání jen tomu, aby zůstávaly dokončené worktree a sandboxy.
+Prakticky: práce, která jen navazuje v čase, přepne větev v existujícím checkoutu;
+kdo zakládá nový worktree, nejdřív vypořádá bezpečně odstranitelné absorbované.
+Stav vypíše `scripts/workspace-budget.sh report`, úklid sandboxů `clean --yes`.
+Dirty, používané, detached a evidence-bearing checkouty se nemažou automaticky;
+důkazy ke gate se nemažou nikdy.
+
 Pak **pojmenuj konkrétní autoritativní položku, kterou tenhle běh posouvá** —
 výstup aktivního Work Package, položku `ROADMAP.md §12`, schopnost ze
 `SYSTEM-MAP.md`, přijaté a neimplementované rozhodnutí z `docs/decisions/`,

@@ -68,6 +68,15 @@ Before the first change, establish the baseline from existing documents:
    decision in [`docs/decisions/`](../decisions/) that is not yet implemented,
    an open regression, or an explicit operator instruction.
 
+Step 1 includes the **workspace budget** of [`CONTRACT.md`](../../CONTRACT.md)
+§6. It does not cap how much work may run; it stops finished workspaces from
+accumulating. Work that is merely sequential switches branches in the existing
+checkout. Before creating a concurrent worktree, retire every clean,
+process-free and evidence-free absorbed checkout; preserve and name dirty,
+in-use, detached or evidence-bearing exceptions. `scripts/workspace-budget.sh
+report` prints the current state and the reason a checkout is or is not safely
+retirable.
+
 If no such item can be named, stop and ask. Do not begin work in order to
 discover what the work is. Starting deep implementation without runtime
 observation and a delimited Work Package is forbidden by
@@ -391,6 +400,22 @@ expended. An unfinished `schopnost` must never be recorded as done
 
 Artifact counts, test counts, commits, token usage and elapsed time are
 secondary metrics and are never the headline.
+
+Handoff also **leaves the workspace within budget** ([`CONTRACT.md`](../../CONTRACT.md)
+§6). Before reporting completion:
+
+```bash
+scripts/workspace-budget.sh clean --yes   # drops old one-shot sandboxes, keeps evidence
+scripts/workspace-budget.sh report        # reports retirable and protected worktrees
+```
+
+Sandboxes (`runtime/`, `home/`, `repo/`, `node_modules` under
+`.intentsmith-artifacts/`) are run inputs and are disposable only when they do
+not contain evidence. Evidence (`report.json`, `checkpoint.json`,
+`inventory.json`, `logs/`) is the run output and is never deleted. A dirty,
+in-use, detached or evidence-bearing worktree is not auto-retirable; record the
+reason and resolve it separately. This is not in tension with §9, which forbids
+deleting useful artifacts: a consumed sandbox without evidence is not one.
 
 ## 15. Optimisation target
 
