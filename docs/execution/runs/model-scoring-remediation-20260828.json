@@ -1,7 +1,7 @@
 {
   "schemaVersion": "intentsmith-model-scoring-remediation-evidence-v1",
-  "status": "PENDING_FINAL_GATE",
-  "candidateRevision": null,
+  "status": "IMPLEMENTATION_GREEN_REREVIEW_REQUIRED",
+  "candidateRevision": "031349313884d3427dc0df4784fb61efc23bbd6d",
   "scoringSourceRevision": "6ae5a3369838fb17f0040c9580a86614833ebf21",
   "reviewState": "REREVIEW_REQUIRED",
   "systemProviderState": "BLOCKED_RESPONSE_ARTIFACT_ATTESTATION_UNAVAILABLE",
@@ -39,6 +39,57 @@
     "failed": 0,
     "applicableMissing": 0
   },
-  "gate": null,
-  "postGateSnapshot": null
+  "gate": {
+    "command": "C3_LOG_LEVEL=error npm run test:deterministic",
+    "sourceRevision": "031349313884d3427dc0df4784fb61efc23bbd6d",
+    "runId": "2026-08-28T18-12-18-428Z",
+    "startedAt": "2026-08-28T18:12:18.457Z",
+    "endedAt": "2026-08-28T18:15:47.128Z",
+    "verdict": "PASS",
+    "statusCounts": {
+      "PASS": 279,
+      "FAIL": 0,
+      "TIMEOUT": 0,
+      "BLOCKED": 0,
+      "SKIPPED": 0
+    },
+    "requiredFailureCount": 0,
+    "requiredBlockedCount": 0,
+    "exitCode": 0,
+    "report": {
+      "path": ".intentsmith-artifacts/test-runs/2026-08-28T18-12-18-428Z/report.json",
+      "sha256": "42bc2dd4fb3d5f914db96174e549355dd4f3f8dbdf33f94b903e8070fe9c5520"
+    },
+    "previousFailedAttempts": [
+      {
+        "sourceRevision": "bffb4eccd9da12d9db2a5c52df8bf676f50bfe47",
+        "runId": "2026-08-28T18-06-38-496Z",
+        "startedAt": "2026-08-28T18:06:38.525Z",
+        "endedAt": "2026-08-28T18:10:05.457Z",
+        "verdict": "FAIL",
+        "statusCounts": {
+          "PASS": 277,
+          "FAIL": 2,
+          "TIMEOUT": 0,
+          "BLOCKED": 0,
+          "SKIPPED": 0
+        },
+        "requiredFailureCount": 2,
+        "requiredBlockedCount": 0,
+        "exitCode": 1,
+        "report": {
+          "path": ".intentsmith-artifacts/test-runs/2026-08-28T18-06-38-496Z/report.json",
+          "sha256": "b4ef32e863954e3d8cce0027143ed53aa48a8c2350b0e3c809016fccf19768f5"
+        }
+      }
+    ]
+  },
+  "postGateSnapshot": {
+    "path": "docs/execution/runs/model-evaluation-host-db-snapshot-20260828-remediation-post-gate.json",
+    "sha256": "b0fcc887427621c0f24dc694c8921d0a6a10a27c310f218a8c743aaaa365d086",
+    "sourceRevision": "031349313884d3427dc0df4784fb61efc23bbd6d",
+    "evidencePhase": "post-gate",
+    "databaseSha256": "a3eafab1a2061eb83e59720220891d8b41f7a5548a3b20ecd86b8df86827fa8a",
+    "databaseQuickCheck": "ok"
+  }
 }
