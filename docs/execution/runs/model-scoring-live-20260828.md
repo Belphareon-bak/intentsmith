@@ -1,6 +1,6 @@
 # Live local model scoring — 2026-08-28
 
-**Stav:** `SCORING_COVERAGE_COMPLETE / SYSTEM_PROVIDER_BLOCKED / REREVIEW_REQUIRED`
+**Stav:** `ACCEPTED / SYSTEM_PROVIDER_BLOCKED`
 
 Tento dokument nahrazuje první neúplný scoring souhrn z téhož dne. Aktuální
 autorita měří všechny nainstalované artefakty, které nejsou v rozporu s
@@ -9,8 +9,10 @@ verzovaným technickým kontraktem role
 kandidáty; nevyrábí `NOT_APPLICABLE`.
 
 Nic nebylo smazáno, žádný binding nebyl změněn a timer zůstal vypnutý.
-Implementace a evidence čekají na nové nezávislé rereview; tento stav proto
-není `ACCEPTED` ani povolením k aktivaci či odstranění modelu.
+Implementace a evidence prošly nezávislým rereview rozsahu
+`d6137d4c..3f027938` s verdictem `REVIEW_PASSED`; model-scoring/evidence balík
+je proto `ACCEPTED`. Přijetí není povolením k aktivaci či odstranění modelu a
+neodstraňuje samostatný systémový provider blocker.
 
 ## Autorita a provider
 
@@ -181,5 +183,12 @@ Samostatný
 se SHA-256 `d94e9f62026492a5a9abafc3700c3b413f79f3b675e8c4b6b44b9778aab453e4`
 bez kontaktu s Ollamou reprodukoval 55 COMPLETE / 24 BLOCKED / 0 applicable
 MISSING / 12 N/A a ověřil byte-identickou DB před/po. Lokální implementace a
-evidence jsou zelené; otevřené zůstává nezávislé rereview a provider
-capability, takže stav není `ACCEPTED`.
+evidence následně prošly nezávislým
+[`evidence rereview`](../../review/2026-08-28-WP-MODEL-EVALUATION-EVIDENCE-REREVIEW.md)
+se SHA-256 `afacfc26219f3fb68bf303e6888c34c4f88c538ed6633279eb93f772e18028ec`.
+Celý gate na akceptačním commitu
+`cbc8b87f92412dbd546e6509e6ed6d471366099d` skončil v runu
+`2026-08-28T20-34-51-696Z` výsledkem `279/279 PASS`; report má SHA-256
+`46e841f1afaeea9dc8f39f9a2417852a660aac6fc194fed6aebc7109cb2fe6ec`.
+Scoring/evidence balík je `ACCEPTED`; provider capability zůstává samostatně
+`SYSTEM_PROVIDER_BLOCKED`.

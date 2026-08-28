@@ -1,10 +1,42 @@
 {
   "schemaVersion": "intentsmith-model-scoring-remediation-evidence-v2",
-  "status": "IMPLEMENTATION_GREEN_REREVIEW_REQUIRED",
+  "status": "ACCEPTED_SYSTEM_PROVIDER_BLOCKED",
   "candidateRevision": "53ded6620d9439acf854e92749c21aaf0b265a08",
+  "acceptanceRevision": "cbc8b87f92412dbd546e6509e6ed6d471366099d",
   "scoringSourceRevision": "6ae5a3369838fb17f0040c9580a86614833ebf21",
-  "reviewState": "REREVIEW_REQUIRED",
+  "reviewState": "REVIEW_PASSED",
   "systemProviderState": "BLOCKED_RESPONSE_ARTIFACT_ATTESTATION_UNAVAILABLE",
+  "acceptedReview": {
+    "baseRevision": "d6137d4cedafd09d8e6967b3620fd987237bcb4d",
+    "headRevision": "3f027938ce6eae25dc83bfdba588e46364d34a25",
+    "verdict": "REVIEW_PASSED",
+    "record": {
+      "path": "docs/review/2026-08-28-WP-MODEL-EVALUATION-EVIDENCE-REREVIEW.md",
+      "sha256": "afacfc26219f3fb68bf303e6888c34c4f88c538ed6633279eb93f772e18028ec"
+    }
+  },
+  "acceptanceGate": {
+    "command": "C3_LOG_LEVEL=error npm run test:deterministic",
+    "sourceRevision": "cbc8b87f92412dbd546e6509e6ed6d471366099d",
+    "runId": "2026-08-28T20-34-51-696Z",
+    "startedAt": "2026-08-28T20:34:51.725Z",
+    "endedAt": "2026-08-28T20:38:18.510Z",
+    "verdict": "PASS",
+    "statusCounts": {
+      "PASS": 279,
+      "FAIL": 0,
+      "TIMEOUT": 0,
+      "BLOCKED": 0,
+      "SKIPPED": 0
+    },
+    "requiredFailureCount": 0,
+    "requiredBlockedCount": 0,
+    "exitCode": 0,
+    "report": {
+      "path": ".intentsmith-artifacts/test-runs/2026-08-28T20-34-51-696Z/report.json",
+      "sha256": "46e841f1afaeea9dc8f39f9a2417852a660aac6fc194fed6aebc7109cb2fe6ec"
+    }
+  },
   "database": {
     "preRemediationSha256": "b524145d053059426c06de42597785f68b6091593ea9f5db01c4f0eb6d8d765d",
     "postScoringSha256": "a3eafab1a2061eb83e59720220891d8b41f7a5548a3b20ecd86b8df86827fa8a",
