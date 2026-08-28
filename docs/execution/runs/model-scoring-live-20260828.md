@@ -155,5 +155,9 @@ Raw hunt JSON je mimo Git v private evidence rootu a má SHA-256
 `c37b7964a82ddaba18dffe5739e92770a126db6395d485e14f362ae50e0e4c2d`.
 Commitnutý bounded gate/snapshot záznam je
 [`model-scoring-remediation-20260828.json`](model-scoring-remediation-20260828.json).
-Finální gate a post-gate snapshot musí být vytvořeny až z čistého kandidátního
-commitu; tento souhrn je nepředbíhá.
+Finální gate nad čistým kandidátem `03134931` skončil v runu
+`2026-08-28T18-12-18-428Z` výsledkem `279/279 PASS`. Následný read-only
+[`post-gate snapshot`](model-evaluation-host-db-snapshot-20260828-remediation-post-gate.json)
+potvrdil stejný DB hash, nulové applicable `MISSING`, vypnutý timer/service a
+prázdný Ollama/GPU slot. Evidence je uzavřená; otevřené zůstává nezávislé
+rereview, nikoli další lokální gate.

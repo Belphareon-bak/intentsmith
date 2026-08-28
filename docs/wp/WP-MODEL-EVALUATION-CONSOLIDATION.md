@@ -16,7 +16,8 @@ Remediační rozsah `74beafea..26ab3291` prošel nezávislým Opus max
 `REVIEW_PASSED`; čistý gate `2026-08-27T20-32-24-822Z` prošel `279/279`.
 Navazující live DB migrace, izolovaný provider sidecar, GPU-only scoring a
 coverage overlay z 2026-08-28 tvoří nový candidate, který musí projít vlastním
-rereview. Integrovaná evidence je v
+rereview. Čistý finální gate na `03134931` skončil v runu
+`2026-08-28T18-12-18-428Z` výsledkem `279/279 PASS`. Integrovaná evidence je v
 [`model-evaluation-final-integration-20260826.md`](../execution/runs/model-evaluation-final-integration-20260826.md)
 a [`model-scoring-live-20260828.md`](../execution/runs/model-scoring-live-20260828.md).
 
@@ -167,8 +168,8 @@ tohoto WP.
 | M7 — clean deterministic + server-owned read E2E handoff | PASS — `2026-08-27T20-32-24-822Z`, 279/279 na `79328185` |
 | M8 — provider response exact-artifact attestation | PATCH + PREFLIGHT PASS; SYSTEM OLLAMA CAPABILITY BLOCKED |
 | M9 — live DB 099 + installed GPU-only panel | PASS — 55 COMPLETE / 24 BLOCKED / 0 applicable MISSING |
-| M10 — versioned technical coverage + unified inventory/parser | IMPLEMENTATION PASS / FINAL GATE + REREVIEW REQUIRED |
-| M11 — suite version, real intervals, DB rollback and bounded evidence | IMPLEMENTATION PASS / FINAL GATE + REREVIEW REQUIRED |
+| M10 — versioned technical coverage + unified inventory/parser | IMPLEMENTATION PASS / FINAL GATE PASS / REREVIEW REQUIRED |
+| M11 — suite version, real intervals, DB rollback and bounded evidence | IMPLEMENTATION PASS / FINAL GATE PASS / REREVIEW REQUIRED |
 
 První nezávislé review: `CHANGES_REQUESTED`. Remediační R0–R7 opravily všech
 devět nálezů: úplnou suite identity, upgrade okno 070→082, governor reader,
@@ -187,5 +188,5 @@ exact-artifact/current-contract a příliš velké modely skončily `BLOCKED` se
 `score=NULL`. Systémová Ollama
 0.32.14 response digest neposkytuje, takže durable runtime není plně funkční;
 scoring proběhl pouze přes izolovaný a preflightem ověřený sidecar. `ACCEPTED`
-pro nové M9–M11 změny může vzniknout až po finálním gate a novém nezávislém
-rereview.
+pro nové M9–M11 změny může po dokončeném finálním gate vzniknout až po novém
+nezávislém rereview.

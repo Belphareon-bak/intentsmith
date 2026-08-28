@@ -56,8 +56,10 @@
   product/test head `79328185` prošel novým čistým 279/279 gate. Kandidát čeká
   nezávislým Opus max rereview rozsahu `74beafea..26ab3291` s verdictem
   `REVIEW_PASSED`; pozdější coverage review ale vrátilo `CHANGES_REQUIRED`.
-  Aktuální remediace a finální gate evidence proto vyžadují vlastní nové
-  nezávislé rereview; provider capability popsaná níže zůstává blokovaná.
+  Aktuální remediace následně prošla čistým finálním gate `279/279` na
+  `03134931` v runu `2026-08-28T18-12-18-428Z`; bounded post-gate evidence je
+  commitnutá. Tento nový candidate stále vyžaduje vlastní nezávislé rereview;
+  provider capability popsaná níže zůstává blokovaná.
 - Automatický failover/proof issuance není jen vypnutý: veřejné auto-claim,
   proof selection, terminal, expiry/finalization a restart writery jsou
   odstraněné. Aktivace je ruční přes exact binding application.

@@ -2,8 +2,8 @@
 
 **Stav:** současný kontrakt v136.1 · **Aktualizováno:** 2026-08-28
 **Implementace:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Přijetí:**
-coverage je implementačně kompletní; finální gate evidence a nové nezávislé
-rereview jsou stále povinné
+coverage je implementačně kompletní a čistý finální gate na `03134931` prošel
+`279/279`; stále je povinné nové nezávislé rereview
 
 Název souboru zůstává kvůli existujícím odkazům. IntentSmith už ale nemá
 samostatný „scoring“ runtime. Existuje jedna autoritativní cesta pro modelové
