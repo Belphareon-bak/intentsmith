@@ -77,6 +77,6 @@ odstranit; C3 repo zůstává případnou historickou referencí.
   migrační kolize. Následná coverage revize rovněž našla parser drift,
   preference vydávané za nepoužitelnost, neúplnou suite identity, falešné
   start timestampy a neuzavřenou evidenci. Tyto nálezy jsou implementačně
-  opravené a čistý finální gate na `03134931` prošel `279/279` v runu
-  `2026-08-28T18-12-18-428Z`, ale současný candidate zůstává
+  opravené a čistý finální gate na `e82ecd47` prošel `279/279` v runu
+  `2026-08-28T18-22-53-719Z`, ale současný candidate zůstává
   `REREVIEW_REQUIRED`, nikoli `ACCEPTED`.

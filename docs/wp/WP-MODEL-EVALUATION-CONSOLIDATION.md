@@ -16,8 +16,8 @@ Remediační rozsah `74beafea..26ab3291` prošel nezávislým Opus max
 `REVIEW_PASSED`; čistý gate `2026-08-27T20-32-24-822Z` prošel `279/279`.
 Navazující live DB migrace, izolovaný provider sidecar, GPU-only scoring a
 coverage overlay z 2026-08-28 tvoří nový candidate, který musí projít vlastním
-rereview. Čistý finální gate na `03134931` skončil v runu
-`2026-08-28T18-12-18-428Z` výsledkem `279/279 PASS`. Integrovaná evidence je v
+rereview. Čistý finální gate na `e82ecd47` skončil v runu
+`2026-08-28T18-22-53-719Z` výsledkem `279/279 PASS`. Integrovaná evidence je v
 [`model-evaluation-final-integration-20260826.md`](../execution/runs/model-evaluation-final-integration-20260826.md)
 a [`model-scoring-live-20260828.md`](../execution/runs/model-scoring-live-20260828.md).
 

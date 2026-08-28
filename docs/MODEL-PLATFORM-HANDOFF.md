@@ -57,7 +57,7 @@
   nezávislým Opus max rereview rozsahu `74beafea..26ab3291` s verdictem
   `REVIEW_PASSED`; pozdější coverage review ale vrátilo `CHANGES_REQUIRED`.
   Aktuální remediace následně prošla čistým finálním gate `279/279` na
-  `03134931` v runu `2026-08-28T18-12-18-428Z`; bounded post-gate evidence je
+  `e82ecd47` v runu `2026-08-28T18-22-53-719Z`; bounded post-gate evidence je
   commitnutá. Tento nový candidate stále vyžaduje vlastní nezávislé rereview;
   provider capability popsaná níže zůstává blokovaná.
 - Automatický failover/proof issuance není jen vypnutý: veřejné auto-claim,

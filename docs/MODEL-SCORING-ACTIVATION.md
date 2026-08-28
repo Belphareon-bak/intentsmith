@@ -2,7 +2,7 @@
 
 **Stav:** současný kontrakt v136.1 · **Aktualizováno:** 2026-08-28
 **Implementace:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Přijetí:**
-coverage je implementačně kompletní a čistý finální gate na `03134931` prošel
+coverage je implementačně kompletní a čistý finální gate na `e82ecd47` prošel
 `279/279`; stále je povinné nové nezávislé rereview
 
 Název souboru zůstává kvůli existujícím odkazům. IntentSmith už ale nemá
