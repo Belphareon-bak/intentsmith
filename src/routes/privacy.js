@@ -1,7 +1,6 @@
-import { expectedM5PrivacyAuthorityKind } from '../../contracts/m5/privacy-remediation-v1.js';
-
 const AUTH_REQUIRED = 'M5_PRIVACY_AUTH_REQUIRED';
 const INTERNAL_ERROR = 'M5_PRIVACY_INTERNAL_ERROR';
+const OFFLINE_SIGNATURE_REQUIRED = 'M5_PRIVACY_OFFLINE_SIGNATURE_REQUIRED';
 
 function isRecord(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -17,14 +16,9 @@ function authenticatedUser(req) {
     : null;
 }
 
-function exactBody(value, keys) {
-  return isRecord(value)
-    && Object.keys(value).length === keys.length
-    && keys.every(key => Object.hasOwn(value, key));
-}
-
 function statusForError(error) {
   const code = typeof error?.code === 'string' ? error.code : '';
+  if (code.includes('OFFLINE_SIGNATURE_REQUIRED')) return 410;
   if (code.includes('WRITER_AUTHORITY_REQUIRED')) return 403;
   if (code.includes('AUTH_REQUIRED')) return 403;
   if (code.includes('ALREADY_RECORDED')) return 409;
@@ -87,62 +81,18 @@ export function createPrivacyRoutes({
     ),
 
     'POST /api/security/privacy/rotations/:categoryId/attest': (req, res, params) => (
-      withUser(req, res, async authenticatedSubject => {
-        const body = await parseBody(req);
-        if (!exactBody(body, ['authorityKind', 'completedAtMs', 'confirmNoSecretValues'])) {
-          const error = new Error('Rotation attestation body has unknown or missing fields');
-          error.code = 'M5_PRIVACY_INPUT_INVALID';
-          throw error;
-        }
-        if (body.confirmNoSecretValues !== true) {
-          const error = new Error('Rotation attestation must confirm that no secret value is recorded');
-          error.code = 'M5_PRIVACY_INPUT_INVALID';
-          throw error;
-        }
-        if (body.authorityKind !== expectedM5PrivacyAuthorityKind(params.categoryId)) {
-          const error = new Error('Rotation authority kind does not match the category');
-          error.code = 'M5_PRIVACY_INPUT_INVALID';
-          throw error;
-        }
-        const receipt = privacyAuthority.recordRotation({
-          authenticatedSubject,
-          categoryId: params.categoryId,
-          authorityKind: body.authorityKind,
-          completedAtMs: body.completedAtMs,
-        });
-        return sendJSON(res, 201, receipt);
-      })
+      withUser(req, res, () => sendJSON(res, 410, {
+        error: 'Privacy receipts require the offline Ed25519 operator ceremony.',
+        code: OFFLINE_SIGNATURE_REQUIRED,
+        categoryId: typeof params?.categoryId === 'string' ? params.categoryId : null,
+      }))
     ),
 
     'POST /api/security/privacy/history/attest': (req, res) => (
-      withUser(req, res, async authenticatedSubject => {
-        const body = await parseBody(req);
-        if (!exactBody(body, [
-          'decision',
-          'actionStatus',
-          'repositoryVisibility',
-          'completedAtMs',
-          'confirmOperatorAuthority',
-          'confirmNoSecretValues',
-        ])) {
-          const error = new Error('History attestation body has unknown or missing fields');
-          error.code = 'M5_PRIVACY_INPUT_INVALID';
-          throw error;
-        }
-        if (body.confirmOperatorAuthority !== true || body.confirmNoSecretValues !== true) {
-          const error = new Error('History attestation requires both explicit confirmations');
-          error.code = 'M5_PRIVACY_INPUT_INVALID';
-          throw error;
-        }
-        const receipt = privacyAuthority.recordHistory({
-          authenticatedSubject,
-          decision: body.decision,
-          actionStatus: body.actionStatus,
-          repositoryVisibility: body.repositoryVisibility,
-          completedAtMs: body.completedAtMs,
-        });
-        return sendJSON(res, 201, receipt);
-      })
+      withUser(req, res, () => sendJSON(res, 410, {
+        error: 'Privacy receipts require the offline Ed25519 operator ceremony.',
+        code: OFFLINE_SIGNATURE_REQUIRED,
+      }))
     ),
   });
 }

@@ -1,21 +1,33 @@
 import './helpers/isolated-test-db.js';
 
 import assert from 'node:assert/strict';
+import { createHash, generateKeyPairSync, sign } from 'node:crypto';
 import test from 'node:test';
 import Database from 'better-sqlite3';
 
+import {
+  SIGNED_AUTHORITY_ALGORITHM,
+  SIGNED_AUTHORITY_DOMAIN,
+  SIGNED_AUTHORITY_RECEIPT_CONTRACT,
+  SIGNED_AUTHORITY_ROLE,
+  canonicalizeSignedAuthorityValue,
+  computeSignedAuthorityReceiptId,
+  signedAuthoritySigningBytes,
+} from '../contracts/authority/signed-authority-receipt-v1.js';
 import {
   M5_PRIVACY_HISTORY_ACTION,
   M5_PRIVACY_HISTORY_DECISIONS,
   M5_PRIVACY_REPOSITORY_VISIBILITY,
   M5_PRIVACY_ROTATION_CATEGORIES,
   canonicalizeM5PrivacyValue,
-  createM5PrivacyHistoryReceipt,
   createM5PrivacyRotationReceipt,
 } from '../contracts/m5/privacy-remediation-v1.js';
 import {
   M5_DISTRIBUTION_MANIFEST_DIGEST,
 } from '../contracts/m5/distribution-manifest-v1.js';
+import {
+  M5_SIGNED_PRIVACY_PAYLOAD,
+} from '../contracts/m5/signed-privacy-receipts-v1.js';
 import {
   EXPECTED_M5_PRIVACY_AUTHORITY_FINGERPRINT_V090,
   computeM5PrivacyAuthorityFingerprintV090,
@@ -26,6 +38,11 @@ import {
   computeM5PrivacyWriterAuthorityFingerprintV091,
   up as applyPrivacyWriterAuthority,
 } from '../src/db/migrations/2026_08_26_091_m5_privacy_writer_authority.js';
+import {
+  EXPECTED_SIGNED_PRIVACY_RECEIPTS_FINGERPRINT_V100,
+  computeSignedPrivacyReceiptsFingerprintV100,
+  up as applySignedPrivacyReceipts,
+} from '../src/db/migrations/2026_08_28_100_signed_privacy_receipts.js';
 import { generateLicenseKey, validateLicenseKey } from '../src/licensing/license.js';
 import { createNotificationRoutes } from '../src/routes/notifications.js';
 import { createMiscRoutes } from '../src/routes/misc.js';
@@ -36,10 +53,9 @@ import {
   M5PrivacyAuthorityErrorCode,
   M5PrivacyAuthorityRepository,
 } from '../src/security/privacy-authority-repository.js';
-import * as privacyAuthorityModule from '../src/security/privacy-authority-repository.js';
-import * as privacyValidationModule from '../src/security/privacy-authority-validation.js';
 import * as globalAuthModule from '../src/security/global-auth-policy.js';
 import { createGlobalAuthAuthority } from '../src/security/global-auth-policy.js';
+import { signedAuthorityKeyId } from '../src/security/signed-authority-verifier.js';
 import {
   scanM5TrackedTree,
   verifyM5PrivacyHistoryReachability,
@@ -62,8 +78,143 @@ const SUBJECT = TRANSPORT_AUTHORITY.authorize({
 }).subject;
 const CANARY = 'm5-private-canary-value-never-emit';
 
-function openDb(settings = {}, { writerAuthority = true } = {}) {
-  const db = new Database(':memory:');
+const { privateKey: PRIVACY_FIXTURE_PRIVATE_KEY, publicKey: privacyFixturePublicKey } =
+  generateKeyPairSync('ed25519');
+const privacyFixtureSpki = privacyFixturePublicKey.export({ format: 'der', type: 'spki' });
+const PRIVACY_FIXTURE_KEY_ID = signedAuthorityKeyId(privacyFixturePublicKey);
+const PRIVACY_TRUST_STORE = Object.freeze({
+  contract: 'SignedAuthorityTrustStore',
+  version: 1,
+  algorithm: SIGNED_AUTHORITY_ALGORITHM,
+  keys: [{
+    algorithm: SIGNED_AUTHORITY_ALGORITHM,
+    authorityId: SIGNED_AUTHORITY_ROLE.M5_PRIVACY_OPERATOR,
+    keyId: PRIVACY_FIXTURE_KEY_ID,
+    publicKeySpkiDerBase64url: privacyFixtureSpki.toString('base64url'),
+    status: 'ACTIVE',
+  }],
+});
+const EXPECTED_BINDINGS = Object.freeze({
+  productCandidateSha: 'a'.repeat(40),
+  productCandidateTree: 'b'.repeat(40),
+  evidenceHeadSha: 'c'.repeat(40),
+  registryFingerprint: 'd'.repeat(64),
+  releaseEvidenceIndexSha256: `sha256:${'e'.repeat(64)}`,
+  artifactManifestSha256: `sha256:${'f'.repeat(64)}`,
+});
+
+function digest(label) {
+  return `sha256:${createHash('sha256').update(label, 'utf8').digest('hex')}`;
+}
+
+function signPrivacyReceipt({
+  domain,
+  decision,
+  payload,
+  artifacts,
+  previousReceiptId,
+  nonceByte,
+  privateKey = PRIVACY_FIXTURE_PRIVATE_KEY,
+  keyId = PRIVACY_FIXTURE_KEY_ID,
+}) {
+  const receipt = {
+    contract: SIGNED_AUTHORITY_RECEIPT_CONTRACT,
+    version: 1,
+    algorithm: SIGNED_AUTHORITY_ALGORITHM,
+    domain,
+    authorityId: SIGNED_AUTHORITY_ROLE.M5_PRIVACY_OPERATOR,
+    keyId,
+    ...EXPECTED_BINDINGS,
+    artifacts,
+    decision,
+    issuedAtMs: NOW + nonceByte,
+    nonce: Buffer.alloc(16, nonceByte).toString('base64url'),
+    previousReceiptId,
+    actor: { actorType: 'user', actorId: 'fixture:privacy-operator' },
+    payload,
+  };
+  receipt.signature = sign(
+    null,
+    signedAuthoritySigningBytes(receipt),
+    privateKey,
+  ).toString('base64url');
+  receipt.receiptId = computeSignedAuthorityReceiptId(receipt);
+  return receipt;
+}
+
+function rotationReceipt(index, previousReceiptId) {
+  const category = M5_PRIVACY_ROTATION_CATEGORIES[index];
+  const evidenceSha256 = digest(`provider-action:${category.categoryId}`);
+  return signPrivacyReceipt({
+    domain: SIGNED_AUTHORITY_DOMAIN.M5_PRIVACY_ROTATION,
+    decision: 'ROTATION_COMPLETED',
+    previousReceiptId,
+    nonceByte: index + 1,
+    artifacts: [{
+      path: `docs/execution/private/provider-action-${category.categoryId}.json`,
+      bytes: 128 + index,
+      gitMode: '100644',
+      sha256: evidenceSha256,
+    }],
+    payload: {
+      contract: M5_SIGNED_PRIVACY_PAYLOAD.ROTATION,
+      version: 1,
+      incidentId: 'G0-PRIVACY-001',
+      categoryId: category.categoryId,
+      authorityKind: category.authorityKind,
+      operationCompleted: true,
+      completedAtMs: NOW - 1,
+      providerActionEvidenceSha256: evidenceSha256,
+      secretMaterialIncluded: false,
+    },
+  });
+}
+
+function historyReceipt(previousReceiptId) {
+  const refCensusSha256 = digest('privacy-ref-census');
+  const privacyScanSha256 = digest('privacy-tree-scan');
+  return signPrivacyReceipt({
+    domain: SIGNED_AUTHORITY_DOMAIN.M5_PRIVACY_HISTORY,
+    decision: 'HISTORY_DISPOSITION_COMPLETED',
+    previousReceiptId,
+    nonceByte: 9,
+    artifacts: [
+      {
+        path: 'docs/execution/private/privacy-ref-census.json',
+        bytes: 256,
+        gitMode: '100644',
+        sha256: refCensusSha256,
+      },
+      {
+        path: 'docs/execution/private/privacy-tree-scan.json',
+        bytes: 512,
+        gitMode: '100644',
+        sha256: privacyScanSha256,
+      },
+    ],
+    payload: {
+      contract: M5_SIGNED_PRIVACY_PAYLOAD.HISTORY,
+      version: 1,
+      incidentId: 'G0-PRIVACY-001',
+      disposition: M5_PRIVACY_HISTORY_DECISIONS.RETAIN_AND_ROTATE,
+      completedAction: M5_PRIVACY_HISTORY_ACTION.RETAINED,
+      repositoryVisibility: M5_PRIVACY_REPOSITORY_VISIBILITY.PRIVATE,
+      operationCompleted: true,
+      completedAtMs: NOW - 1,
+      postDispositionHeadSha: '7'.repeat(40),
+      refCensusSha256,
+      privacyScanSha256,
+      secretMaterialIncluded: false,
+    },
+  });
+}
+
+function rawReceipt(receipt) {
+  return `${canonicalizeSignedAuthorityValue(receipt)}\n`;
+}
+
+function openDb(settings = {}, { writerAuthority = true, databasePath = ':memory:' } = {}) {
+  const db = new Database(databasePath);
   db.exec(`
     CREATE TABLE user_settings (
       id INTEGER PRIMARY KEY,
@@ -73,14 +224,17 @@ function openDb(settings = {}, { writerAuthority = true } = {}) {
   `);
   db.prepare('INSERT INTO user_settings (id, data) VALUES (1, ?)').run(JSON.stringify(settings));
   applyPrivacyAuthority(db);
-  if (writerAuthority) applyPrivacyWriterAuthority(db);
+  if (writerAuthority) {
+    applyPrivacyWriterAuthority(db);
+    applySignedPrivacyReceipts(db);
+  }
   return db;
 }
 
-function repository(db) {
+function repository(db, { expectedBindings = EXPECTED_BINDINGS, trustStore = PRIVACY_TRUST_STORE } = {}) {
   return new M5PrivacyAuthorityRepository(db, {
-    clock: () => NOW,
-    isAuthenticatedTransportSubject: TRANSPORT_AUTHORITY.isAuthenticatedSubject,
+    expectedBindings,
+    trustStore,
   });
 }
 
@@ -131,6 +285,12 @@ test('privacy migration scrubs obsolete plaintext settings and installs exact sc
     EXPECTED_M5_PRIVACY_WRITER_AUTHORITY_FINGERPRINT_V091,
   );
   applyPrivacyWriterAuthority(db);
+  applySignedPrivacyReceipts(db);
+  assert.equal(
+    computeSignedPrivacyReceiptsFingerprintV100(db),
+    EXPECTED_SIGNED_PRIVACY_RECEIPTS_FINGERPRINT_V100,
+  );
+  applySignedPrivacyReceipts(db);
   db.close();
 });
 
@@ -220,276 +380,160 @@ test('WS settings boundary rejects credentials before feature or notification di
   assert(!JSON.stringify(sent).includes(CANARY));
 });
 
-test('remediation remains incomplete until all eight rotations and history are recorded', () => {
+test('remediation remains incomplete until eight signed rotations and signed history are imported', () => {
   const db = openDb();
   const authority = repository(db);
   const initial = authority.summary();
   assert.equal(initial.verdict, 'INCOMPLETE');
   assert.equal(initial.rotationCompleted, 0);
   assert.equal(initial.rotationRequired, 8);
-  assert.equal(initial.historyDisposition, null);
+  assert.equal(initial.authorityBindingsVerified, true);
 
-  for (const category of M5_PRIVACY_ROTATION_CATEGORIES) {
-    authority.recordRotation({
-      authenticatedSubject: SUBJECT,
-      categoryId: category.categoryId,
-      authorityKind: category.authorityKind,
-      completedAtMs: NOW - 1,
-    });
+  let previousReceiptId = null;
+  for (let index = 0; index < M5_PRIVACY_ROTATION_CATEGORIES.length; index += 1) {
+    const receipt = rotationReceipt(index, previousReceiptId);
+    authority.importSignedReceipt(rawReceipt(receipt));
+    previousReceiptId = receipt.receiptId;
   }
   assert.equal(authority.summary().verdict, 'INCOMPLETE');
-  authority.recordHistory({
-    authenticatedSubject: SUBJECT,
-    decision: M5_PRIVACY_HISTORY_DECISIONS.RETAIN_AND_ROTATE,
-    actionStatus: M5_PRIVACY_HISTORY_ACTION.RETAINED,
-    repositoryVisibility: M5_PRIVACY_REPOSITORY_VISIBILITY.PRIVATE,
-    completedAtMs: NOW - 1,
-  });
+  const history = historyReceipt(previousReceiptId);
+  authority.importSignedReceipt(rawReceipt(history));
   const complete = authority.summary();
   assert.equal(complete.verdict, 'OPERATOR_REMEDIATION_RECORDED');
   assert.equal(complete.rotationCompleted, 8);
   assert.deepEqual(complete.missingCategoryIds, []);
   assert.equal(complete.secretValuesRecorded, false);
-  assert(complete.rotations.every(receipt => receipt.secretValuesRecorded === false));
+  assert.equal(complete.historyDisposition.receiptId, history.receiptId);
+  assert(!JSON.stringify(complete).includes(CANARY));
   db.close();
 });
 
-test('authority rejects missing users, future claims, category mismatch and replay', () => {
+test('application mint is retired and signed import rejects stale bindings, replay and broken order', () => {
   const db = openDb();
   const authority = repository(db);
-  const category = M5_PRIVACY_ROTATION_CATEGORIES[0];
-  const input = {
-    authenticatedSubject: SUBJECT,
-    categoryId: category.categoryId,
-    authorityKind: category.authorityKind,
-    completedAtMs: NOW - 1,
-  };
+  expectCode(() => authority.recordRotation({}), M5PrivacyAuthorityErrorCode.OFFLINE_SIGNATURE_REQUIRED);
+  expectCode(() => authority.recordHistory({}), M5PrivacyAuthorityErrorCode.OFFLINE_SIGNATURE_REQUIRED);
+
+  const first = rotationReceipt(0, null);
+  const stale = structuredClone(first);
+  stale.productCandidateSha = '9'.repeat(40);
+  stale.signature = sign(null, signedAuthoritySigningBytes(stale), PRIVACY_FIXTURE_PRIVATE_KEY)
+    .toString('base64url');
+  stale.receiptId = computeSignedAuthorityReceiptId(stale);
   expectCode(
-    () => authority.recordRotation({ ...input, authenticatedSubject: { actorType: 'agent', actorId: 'self' } }),
-    M5PrivacyAuthorityErrorCode.AUTH_REQUIRED,
+    () => authority.importSignedReceipt(rawReceipt(stale)),
+    M5PrivacyAuthorityErrorCode.SIGNED_RECEIPT_INVALID,
   );
   expectCode(
-    () => authority.recordRotation({
-      ...input,
-      authenticatedSubject: { actorType: 'user', actorId: SUBJECT.actorId },
-    }),
-    M5PrivacyAuthorityErrorCode.WRITER_AUTHORITY_REQUIRED,
+    () => authority.importSignedReceipt(rawReceipt(rotationReceipt(1, null))),
+    M5PrivacyAuthorityErrorCode.SIGNED_RECEIPT_INVALID,
   );
+  authority.importSignedReceipt(rawReceipt(first));
   expectCode(
-    () => authority.recordRotation({ ...input, completedAtMs: NOW + 1 }),
-    M5PrivacyAuthorityErrorCode.INPUT_INVALID,
+    () => authority.importSignedReceipt(rawReceipt(first)),
+    M5PrivacyAuthorityErrorCode.SIGNED_RECEIPT_INVALID,
   );
-  expectCode(
-    () => authority.recordRotation({ ...input, authorityKind: 'external' }),
-    M5PrivacyAuthorityErrorCode.INPUT_INVALID,
-  );
-  authority.recordRotation(input);
-  expectCode(() => authority.recordRotation(input), M5PrivacyAuthorityErrorCode.ROTATION_ALREADY_RECORDED);
-  expectCode(() => authority.recordHistory({
-    authenticatedSubject: SUBJECT,
-    decision: M5_PRIVACY_HISTORY_DECISIONS.RETAIN_AND_ROTATE,
-    actionStatus: M5_PRIVACY_HISTORY_ACTION.REWRITE_COMPLETED,
-    repositoryVisibility: M5_PRIVACY_REPOSITORY_VISIBILITY.PRIVATE,
-    completedAtMs: NOW - 1,
-  }), M5PrivacyAuthorityErrorCode.INPUT_INVALID);
   db.close();
 });
 
-test('privacy writer mint is not exported and authority is bound to transport subject identity', () => {
-  assert.equal(Object.hasOwn(
-    privacyAuthorityModule,
-    'createM5PrivacyTransportWriterCapability',
-  ), false);
-  assert.equal(Object.hasOwn(
-    privacyValidationModule,
-    'createM5PrivacyTransportWriterCapability',
-  ), false);
-  assert.equal(Object.hasOwn(
-    globalAuthModule,
-    'authorizeGlobalRequest',
-  ), false);
+test('unsigned legacy rows fail closed even after same-process UDF replacement', () => {
   const db = openDb();
-  const authority = repository(db);
-  const category = M5_PRIVACY_ROTATION_CATEGORIES[0];
-  expectCode(() => authority.recordRotation({
-    authenticatedSubject: Object.freeze({ ...SUBJECT }),
-    categoryId: category.categoryId,
-    authorityKind: category.authorityKind,
-    completedAtMs: NOW - 1,
-  }), M5PrivacyAuthorityErrorCode.WRITER_AUTHORITY_REQUIRED);
-  const attackerCapability = 'B'.repeat(43);
-  const attackerAuthority = createGlobalAuthAuthority({
-    localCapability: attackerCapability,
-    production: true,
-  });
-  const attackerSubject = attackerAuthority.authorize({
-    routeKey: 'POST /api/security/privacy/rotations/:categoryId/attest',
-    websocketLocalCapability: attackerCapability,
-  }).subject;
-  assert.throws(() => new M5PrivacyAuthorityRepository(db, {
-    clock: () => NOW,
-    isAuthenticatedTransportSubject: attackerAuthority.isAuthenticatedSubject,
-  }), /m5-privacy-authority:transport-subject-verifier-conflict/);
-  expectCode(() => authority.recordRotation({
-    authenticatedSubject: attackerSubject,
-    categoryId: category.categoryId,
-    authorityKind: category.authorityKind,
-    completedAtMs: NOW - 1,
-  }), M5PrivacyAuthorityErrorCode.WRITER_AUTHORITY_REQUIRED);
-  authority.recordRotation({
-    authenticatedSubject: SUBJECT,
-    categoryId: category.categoryId,
-    authorityKind: category.authorityKind,
-    completedAtMs: NOW - 1,
-  });
-  assert.equal(authority.summary().rotationCompleted, 1);
-  db.close();
-});
-
-test('SQL authority rejects direct canonical receipts, forged indexed fields and mutation', () => {
-  const db = openDb();
-  const receipt = createM5PrivacyRotationReceipt({
+  const legacy = createM5PrivacyRotationReceipt({
     categoryId: 'administrative-api',
     authorityKind: 'local',
     completedAtMs: NOW - 1,
     attestedAtMs: NOW,
     actorId: SUBJECT.actorId,
   });
-  assert.throws(() => db.prepare(`
+  db.function('m5_privacy_receipt_writer_authorized_v1', (_receiptId, _recordJson) => 1);
+  db.function('m5_privacy_rotation_receipt_valid_v1', _recordJson => 1);
+  db.prepare(`
     INSERT INTO m5_privacy_rotation_receipts (
       receipt_id, incident_id, category_id, completed_at_ms,
       attested_at_ms, actor_id, record_json
     ) VALUES (?, ?, ?, ?, ?, ?, ?)
   `).run(
-    receipt.receiptId,
-    receipt.incidentId,
-    'license-agent',
-    receipt.completedAtMs,
-    receipt.attestedAtMs,
-    receipt.actor.actorId,
-    canonicalizeM5PrivacyValue(receipt),
-  ), /M5_PRIVACY_ROTATION_AUTHORITY_MISMATCH/);
-
-  assert.throws(() => db.prepare(`
-    INSERT INTO m5_privacy_rotation_receipts (
-      receipt_id, incident_id, category_id, completed_at_ms,
-      attested_at_ms, actor_id, record_json
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    receipt.receiptId,
-    receipt.incidentId,
-    receipt.categoryId,
-    receipt.completedAtMs,
-    receipt.attestedAtMs,
-    receipt.actor.actorId,
-    canonicalizeM5PrivacyValue(receipt),
-  ), /M5_PRIVACY_ROTATION_AUTHORITY_MISMATCH/);
-  assert.equal(db.prepare('SELECT count(*) count FROM m5_privacy_rotation_receipts').get().count, 0);
-
-  repository(db).recordRotation({
-    authenticatedSubject: SUBJECT,
-    categoryId: receipt.categoryId,
-    authorityKind: receipt.authorityKind,
-    completedAtMs: receipt.completedAtMs,
-  });
-  assert.throws(() => db.prepare('UPDATE m5_privacy_rotation_receipts SET actor_id = ?').run('forged'), /append-only/);
-  assert.throws(() => db.prepare('DELETE FROM m5_privacy_rotation_receipts').run(), /append-only/);
+    legacy.receiptId,
+    legacy.incidentId,
+    legacy.categoryId,
+    legacy.completedAtMs,
+    legacy.attestedAtMs,
+    legacy.actor.actorId,
+    canonicalizeM5PrivacyValue(legacy),
+  );
+  expectCode(
+    () => repository(db).summary(),
+    M5PrivacyAuthorityErrorCode.UNSIGNED_LEGACY_RECEIPT,
+  );
   db.close();
 });
 
-test('direct SQL cannot forge all rotation receipts or history disposition', () => {
-  const db = openDb();
-  const insertRotation = db.prepare(`
-    INSERT INTO m5_privacy_rotation_receipts (
-      receipt_id, incident_id, category_id, completed_at_ms,
-      attested_at_ms, actor_id, record_json
+test('second SQLite connection and replacement UDF cannot forge a signed privacy verdict', () => {
+  const databasePath = `${process.env.C3_DB_PATH}.signed-privacy`;
+  const owner = openDb({}, { databasePath });
+  owner.close();
+
+  const { privateKey: attackerPrivateKey, publicKey: attackerPublicKey } =
+    generateKeyPairSync('ed25519');
+  const attackerKeyId = signedAuthorityKeyId(attackerPublicKey);
+  const forged = rotationReceipt(0, null);
+  forged.keyId = attackerKeyId;
+  forged.signature = sign(null, signedAuthoritySigningBytes(forged), attackerPrivateKey)
+    .toString('base64url');
+  forged.receiptId = computeSignedAuthorityReceiptId(forged);
+  const forgedRaw = rawReceipt(forged);
+
+  const attackerConnection = new Database(databasePath);
+  attackerConnection.function('signed_authority_receipt_shape_valid_v1', _recordJson => 1);
+  attackerConnection.prepare(`
+    INSERT INTO m5_signed_privacy_receipts (
+      receipt_id, domain, authority_id, issued_at_ms, nonce,
+      previous_receipt_id, record_json
     ) VALUES (?, ?, ?, ?, ?, ?, ?)
-  `);
-  for (const category of M5_PRIVACY_ROTATION_CATEGORIES) {
-    const receipt = createM5PrivacyRotationReceipt({
-      categoryId: category.categoryId,
-      authorityKind: category.authorityKind,
-      completedAtMs: NOW - 1,
-      attestedAtMs: NOW,
-      actorId: 'forged-operator',
-    });
-    assert.throws(() => insertRotation.run(
-      receipt.receiptId,
-      receipt.incidentId,
-      receipt.categoryId,
-      receipt.completedAtMs,
-      receipt.attestedAtMs,
-      receipt.actor.actorId,
-      canonicalizeM5PrivacyValue(receipt),
-    ), /M5_PRIVACY_ROTATION_AUTHORITY_MISMATCH/);
-  }
-  const history = createM5PrivacyHistoryReceipt({
-    decision: M5_PRIVACY_HISTORY_DECISIONS.RETAIN_AND_ROTATE,
-    actionStatus: M5_PRIVACY_HISTORY_ACTION.RETAINED,
-    repositoryVisibility: M5_PRIVACY_REPOSITORY_VISIBILITY.PRIVATE,
-    completedAtMs: NOW - 1,
-    attestedAtMs: NOW,
-    actorId: 'forged-operator',
-  });
-  assert.throws(() => db.prepare(`
-    INSERT INTO m5_privacy_history_receipts (
-      receipt_id, incident_id, decision, action_status,
-      repository_visibility, completed_at_ms, attested_at_ms,
-      actor_id, record_json
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
-    history.receiptId,
-    history.incidentId,
-    history.decision,
-    history.actionStatus,
-    history.repositoryVisibility,
-    history.completedAtMs,
-    history.attestedAtMs,
-    history.actor.actorId,
-    canonicalizeM5PrivacyValue(history),
-  ), /M5_PRIVACY_HISTORY_AUTHORITY_MISMATCH/);
-  const status = repository(db).summary();
-  assert.equal(status.rotationCompleted, 0);
-  assert.equal(status.historyDisposition, null);
-  assert.equal(status.verdict, 'INCOMPLETE');
-  db.close();
+    forged.receiptId,
+    forged.domain,
+    forged.authorityId,
+    forged.issuedAtMs,
+    forged.nonce,
+    forged.previousReceiptId,
+    forgedRaw,
+  );
+  attackerConnection.close();
+
+  const reader = new Database(databasePath);
+  expectCode(
+    () => repository(reader).summary(),
+    M5PrivacyAuthorityErrorCode.SIGNED_RECEIPT_INVALID,
+  );
+  reader.close();
 });
 
-test('HTTP gate takes actor only from transport and rejects bodies carrying extra material', async () => {
+test('HTTP attest routes authenticate first and then return typed 410 without reading a body', async () => {
+  assert.equal(Object.hasOwn(globalAuthModule, 'authorizeGlobalRequest'), false);
   const db = openDb();
-  const authority = repository(db);
-  const harness = routeHarness(authority);
-  const route = harness.routes['POST /api/security/privacy/rotations/:categoryId/attest'];
-  await route({ body: { [CANARY]: CANARY } }, {}, { categoryId: 'administrative-api' });
+  const harness = routeHarness(repository(db));
+  const rotation = harness.routes['POST /api/security/privacy/rotations/:categoryId/attest'];
+  await rotation({ body: { [CANARY]: CANARY } }, {}, { categoryId: 'administrative-api' });
   assert.equal(harness.calls.responses.at(-1).status, 403);
   assert.equal(harness.calls.parseBody, 0);
 
-  await route({
+  await rotation({
     authenticatedSubject: SUBJECT,
-    body: {
-      authorityKind: 'local',
-      completedAtMs: NOW - 1,
-      confirmNoSecretValues: true,
-      actorId: 'self-asserted',
-      note: CANARY,
-    },
+    body: { [CANARY]: CANARY },
   }, {}, { categoryId: 'administrative-api' });
-  const rejected = harness.calls.responses.at(-1);
-  assert.equal(rejected.status, 400);
-  assert(!JSON.stringify(rejected).includes(CANARY));
+  const retired = harness.calls.responses.at(-1);
+  assert.equal(retired.status, 410);
+  assert.equal(retired.payload.code, 'M5_PRIVACY_OFFLINE_SIGNATURE_REQUIRED');
+  assert.equal(harness.calls.parseBody, 0);
+  assert(!JSON.stringify(retired).includes(CANARY));
 
-  await route({
+  await harness.routes['POST /api/security/privacy/history/attest']({
     authenticatedSubject: SUBJECT,
-    body: {
-      authorityKind: 'local',
-      completedAtMs: NOW - 1,
-      confirmNoSecretValues: true,
-    },
-  }, {}, { categoryId: 'administrative-api' });
-  const accepted = harness.calls.responses.at(-1);
-  assert.equal(accepted.status, 201);
-  assert.equal(accepted.payload.actor.actorId, SUBJECT.actorId);
-  assert.equal(accepted.payload.secretValuesRecorded, false);
+    body: { [CANARY]: CANARY },
+  }, {});
+  assert.equal(harness.calls.responses.at(-1).status, 410);
+  assert.equal(harness.calls.parseBody, 0);
   db.close();
 });
 

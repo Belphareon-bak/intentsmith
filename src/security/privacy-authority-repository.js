@@ -1,26 +1,47 @@
+import { readFileSync } from 'node:fs';
+
+import {
+  SIGNED_AUTHORITY_DOMAIN,
+} from '../../contracts/authority/signed-authority-receipt-v1.js';
 import {
   M5_PRIVACY_INCIDENT_ID,
   M5_PRIVACY_KIND,
   M5_PRIVACY_ROTATION_CATEGORIES,
-  canonicalizeM5PrivacyValue,
-  createM5PrivacyHistoryReceipt,
-  createM5PrivacyRotationReceipt,
-  expectedM5PrivacyAuthorityKind,
-  validateM5PrivacyHistoryReceipt,
-  validateM5PrivacyRotationReceipt,
 } from '../../contracts/m5/privacy-remediation-v1.js';
 import {
-  registerM5PrivacyAuthorityFunctions,
-  withM5PrivacyReceiptWriterAuthority,
-} from './privacy-authority-validation.js';
+  validateSignedM5PrivacyHistoryReceipt,
+  validateSignedM5PrivacyRotationReceipt,
+} from '../../contracts/m5/signed-privacy-receipts-v1.js';
+import {
+  createSignedAuthorityVerifier,
+  verifySignedAuthorityReceiptSet,
+} from './signed-authority-verifier.js';
+import {
+  registerSignedAuthorityStorageFunctions,
+} from './signed-authority-storage-validation.js';
+
+const DEFAULT_TRUST_STORE = Object.freeze(JSON.parse(readFileSync(
+  new URL('../../contracts/authority/trusted-public-keys-v1.json', import.meta.url),
+  'utf8',
+)));
+
+const EXPECTED_BINDING_KEYS = Object.freeze([
+  'artifactManifestSha256',
+  'evidenceHeadSha',
+  'productCandidateSha',
+  'productCandidateTree',
+  'registryFingerprint',
+  'releaseEvidenceIndexSha256',
+]);
 
 export const M5PrivacyAuthorityErrorCode = Object.freeze({
-  AUTH_REQUIRED: 'M5_PRIVACY_AUTH_REQUIRED',
+  BINDINGS_REQUIRED: 'M5_PRIVACY_SIGNED_BINDINGS_REQUIRED',
   HISTORY_ALREADY_RECORDED: 'M5_PRIVACY_HISTORY_ALREADY_RECORDED',
-  INPUT_INVALID: 'M5_PRIVACY_INPUT_INVALID',
+  OFFLINE_SIGNATURE_REQUIRED: 'M5_PRIVACY_OFFLINE_SIGNATURE_REQUIRED',
   ROTATION_ALREADY_RECORDED: 'M5_PRIVACY_ROTATION_ALREADY_RECORDED',
+  SIGNED_RECEIPT_INVALID: 'M5_PRIVACY_SIGNED_RECEIPT_INVALID',
   STORAGE_FAILURE: 'M5_PRIVACY_STORAGE_FAILURE',
-  WRITER_AUTHORITY_REQUIRED: 'M5_PRIVACY_WRITER_AUTHORITY_REQUIRED',
+  UNSIGNED_LEGACY_RECEIPT: 'M5_PRIVACY_UNSIGNED_LEGACY_RECEIPT',
 });
 
 export class M5PrivacyAuthorityError extends Error {
@@ -35,223 +56,242 @@ function fail(code, message) {
   throw new M5PrivacyAuthorityError(code, message);
 }
 
-function requireActor(subject) {
-  if (
-    subject?.actorType !== 'user'
-    || typeof subject.actorId !== 'string'
-    || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(subject.actorId)
-  ) fail(M5PrivacyAuthorityErrorCode.AUTH_REQUIRED, 'Authenticated user authority is required');
-  return subject.actorId;
-}
-
-function requireCompletedAt(value, now) {
-  if (!Number.isSafeInteger(value) || value < 1 || value > now) {
-    fail(M5PrivacyAuthorityErrorCode.INPUT_INVALID, 'completedAtMs must not be in the future');
-  }
-  return value;
-}
-
-function parseStored(raw, validator, label) {
-  try {
-    const value = JSON.parse(raw);
-    const validation = validator(value);
-    if (!validation.valid || canonicalizeM5PrivacyValue(value) !== raw) throw new Error();
-    return Object.freeze({ ...value, actor: Object.freeze({ ...value.actor }) });
-  } catch {
-    fail(M5PrivacyAuthorityErrorCode.STORAGE_FAILURE, `Stored ${label} is invalid`);
-  }
-}
-
 function storageFailure(error) {
   if (error instanceof M5PrivacyAuthorityError) throw error;
   fail(M5PrivacyAuthorityErrorCode.STORAGE_FAILURE, 'Privacy authority storage failed');
 }
 
+function exactExpectedBindings(value) {
+  return value !== null
+    && typeof value === 'object'
+    && !Array.isArray(value)
+    && JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...EXPECTED_BINDING_KEYS].sort());
+}
+
+function orderLinearChain(receipts) {
+  if (receipts.length === 0) return [];
+  const byPrevious = new Map();
+  for (const receipt of receipts) {
+    const previous = receipt.previousReceiptId ?? null;
+    const children = byPrevious.get(previous) || [];
+    children.push(receipt);
+    byPrevious.set(previous, children);
+  }
+  const ordered = [];
+  let previous = null;
+  while (ordered.length < receipts.length) {
+    const children = byPrevious.get(previous) || [];
+    if (children.length !== 1) fail(
+      M5PrivacyAuthorityErrorCode.SIGNED_RECEIPT_INVALID,
+      'Signed privacy receipt chain is missing, cyclic, or branched',
+    );
+    const next = children[0];
+    ordered.push(next);
+    previous = next.receiptId;
+  }
+  if ((byPrevious.get(previous) || []).length !== 0) fail(
+    M5PrivacyAuthorityErrorCode.SIGNED_RECEIPT_INVALID,
+    'Signed privacy receipt chain has trailing entries',
+  );
+  return ordered;
+}
+
+function validatePrivacySequence(receipts) {
+  const rotations = [];
+  let history = null;
+  for (const [index, receipt] of receipts.entries()) {
+    if (receipt.domain === SIGNED_AUTHORITY_DOMAIN.M5_PRIVACY_ROTATION) {
+      const semantic = validateSignedM5PrivacyRotationReceipt(receipt);
+      if (!semantic.valid) fail(
+        M5PrivacyAuthorityErrorCode.SIGNED_RECEIPT_INVALID,
+        `Signed rotation receipt is invalid: ${semantic.errors.join(',')}`,
+      );
+      if (history !== null || index >= M5_PRIVACY_ROTATION_CATEGORIES.length) fail(
+        M5PrivacyAuthorityErrorCode.SIGNED_RECEIPT_INVALID,
+        'Signed privacy rotations must precede the history receipt',
+      );
+      const expectedCategory = M5_PRIVACY_ROTATION_CATEGORIES[index];
+      if (receipt.payload.categoryId !== expectedCategory.categoryId) fail(
+        M5PrivacyAuthorityErrorCode.SIGNED_RECEIPT_INVALID,
+        'Signed privacy rotations are not in the canonical category order',
+      );
+      rotations.push(receipt);
+    } else if (receipt.domain === SIGNED_AUTHORITY_DOMAIN.M5_PRIVACY_HISTORY) {
+      const semantic = validateSignedM5PrivacyHistoryReceipt(receipt);
+      if (!semantic.valid) fail(
+        M5PrivacyAuthorityErrorCode.SIGNED_RECEIPT_INVALID,
+        `Signed history receipt is invalid: ${semantic.errors.join(',')}`,
+      );
+      if (history !== null || rotations.length !== M5_PRIVACY_ROTATION_CATEGORIES.length) fail(
+        M5PrivacyAuthorityErrorCode.SIGNED_RECEIPT_INVALID,
+        'Signed history receipt requires all eight ordered rotations',
+      );
+      history = receipt;
+    } else {
+      fail(
+        M5PrivacyAuthorityErrorCode.SIGNED_RECEIPT_INVALID,
+        'Receipt domain is not an M5 privacy authority domain',
+      );
+    }
+  }
+  return Object.freeze({ rotations: Object.freeze(rotations), history });
+}
+
 export class M5PrivacyAuthorityRepository {
-  constructor(database, { clock = Date.now, isAuthenticatedTransportSubject } = {}) {
+  constructor(database, {
+    trustStore = DEFAULT_TRUST_STORE,
+    expectedBindings = null,
+  } = {}) {
     if (!database || typeof database.prepare !== 'function' || typeof database.transaction !== 'function') {
       throw new TypeError('m5-privacy-authority:database-required');
     }
-    if (typeof clock !== 'function') throw new TypeError('m5-privacy-authority:clock-required');
-    if (typeof isAuthenticatedTransportSubject !== 'function') {
-      throw new TypeError('m5-privacy-authority:transport-subject-verifier-required');
+    if (expectedBindings !== null && !exactExpectedBindings(expectedBindings)) {
+      throw new TypeError('m5-privacy-authority:expected-bindings-invalid');
     }
     this.database = database;
-    this.clock = clock;
-    this.isAuthenticatedTransportSubject = isAuthenticatedTransportSubject;
-    registerM5PrivacyAuthorityFunctions(database, isAuthenticatedTransportSubject);
+    this.expectedBindings = expectedBindings === null
+      ? null
+      : Object.freeze({ ...expectedBindings });
+    this.verifier = createSignedAuthorityVerifier({ trustStore });
+    registerSignedAuthorityStorageFunctions(database);
   }
 
-  #now() {
-    const now = this.clock();
-    if (!Number.isSafeInteger(now) || now < 1) {
-      fail(M5PrivacyAuthorityErrorCode.INPUT_INVALID, 'Privacy authority clock is invalid');
-    }
-    return now;
+  recordRotation() {
+    fail(
+      M5PrivacyAuthorityErrorCode.OFFLINE_SIGNATURE_REQUIRED,
+      'Privacy rotation receipts must be signed by the offline M5 privacy operator',
+    );
   }
 
-  recordRotation({ authenticatedSubject, categoryId, authorityKind, completedAtMs }) {
-    const actorId = requireActor(authenticatedSubject);
-    const expectedAuthority = expectedM5PrivacyAuthorityKind(categoryId);
-    if (expectedAuthority === null || authorityKind !== expectedAuthority) {
-      fail(M5PrivacyAuthorityErrorCode.INPUT_INVALID, 'Rotation category or authority kind is invalid');
-    }
-    const attestedAtMs = this.#now();
-    requireCompletedAt(completedAtMs, attestedAtMs);
-    let receipt;
-    try {
-      receipt = createM5PrivacyRotationReceipt({
-        categoryId,
-        authorityKind,
-        completedAtMs,
-        attestedAtMs,
-        actorId,
+  recordHistory() {
+    fail(
+      M5PrivacyAuthorityErrorCode.OFFLINE_SIGNATURE_REQUIRED,
+      'Privacy history receipts must be signed by the offline M5 privacy operator',
+    );
+  }
+
+  #assertNoUnsignedLegacyReceipts() {
+    const rotationCount = this.database.prepare(
+      'SELECT count(*) count FROM m5_privacy_rotation_receipts',
+    ).get().count;
+    const historyCount = this.database.prepare(
+      'SELECT count(*) count FROM m5_privacy_history_receipts',
+    ).get().count;
+    if (rotationCount !== 0 || historyCount !== 0) fail(
+      M5PrivacyAuthorityErrorCode.UNSIGNED_LEGACY_RECEIPT,
+      'Unsigned legacy privacy receipts require explicit offline remediation',
+    );
+  }
+
+  #loadVerifiedReceipts({ requireBindings }) {
+    this.#assertNoUnsignedLegacyReceipts();
+    if (requireBindings && this.expectedBindings === null) fail(
+      M5PrivacyAuthorityErrorCode.BINDINGS_REQUIRED,
+      'Exact signed receipt candidate and evidence bindings are required',
+    );
+    const rows = this.database.prepare(`
+      SELECT record_json FROM m5_signed_privacy_receipts
+      ORDER BY issued_at_ms, receipt_id
+    `).all();
+    const receipts = rows.map((row, index) => {
+      const verification = this.verifier.verifyRaw(row.record_json, {
+        expected: this.expectedBindings || {},
       });
-    } catch {
-      fail(M5PrivacyAuthorityErrorCode.INPUT_INVALID, 'Rotation attestation is invalid');
-    }
+      if (!verification.valid) fail(
+        M5PrivacyAuthorityErrorCode.SIGNED_RECEIPT_INVALID,
+        `Stored signed privacy receipt ${index} is invalid: ${verification.errors.join(',')}`,
+      );
+      return verification.receipt;
+    });
+    const ordered = orderLinearChain(receipts);
+    const set = verifySignedAuthorityReceiptSet(this.verifier, ordered, {
+      expected: this.expectedBindings || {},
+      requireLinearChain: true,
+    });
+    if (!set.valid) fail(
+      M5PrivacyAuthorityErrorCode.SIGNED_RECEIPT_INVALID,
+      `Stored signed privacy receipt set is invalid: ${set.errors.join(',')}`,
+    );
+    return Object.freeze({ ordered: Object.freeze(ordered), ...validatePrivacySequence(ordered) });
+  }
+
+  importSignedReceipt(rawReceipt) {
+    if (this.expectedBindings === null) fail(
+      M5PrivacyAuthorityErrorCode.BINDINGS_REQUIRED,
+      'Offline import requires exact candidate and evidence bindings',
+    );
+    const verification = this.verifier.verifyRaw(rawReceipt, {
+      expected: this.expectedBindings,
+    });
+    if (!verification.valid) fail(
+      M5PrivacyAuthorityErrorCode.SIGNED_RECEIPT_INVALID,
+      `Offline signed privacy receipt is invalid: ${verification.errors.join(',')}`,
+    );
+    const receipt = verification.receipt;
+    if (![SIGNED_AUTHORITY_DOMAIN.M5_PRIVACY_ROTATION,
+      SIGNED_AUTHORITY_DOMAIN.M5_PRIVACY_HISTORY].includes(receipt.domain)) fail(
+      M5PrivacyAuthorityErrorCode.SIGNED_RECEIPT_INVALID,
+      'Offline signed receipt does not belong to M5 privacy',
+    );
     try {
-      const recordJson = canonicalizeM5PrivacyValue(receipt);
-      const write = this.database.transaction(() => {
-        const existing = this.database.prepare(`
-          SELECT record_json FROM m5_privacy_rotation_receipts
-          WHERE incident_id = ? AND category_id = ?
-        `).get(M5_PRIVACY_INCIDENT_ID, categoryId);
-        if (existing) fail(
-          M5PrivacyAuthorityErrorCode.ROTATION_ALREADY_RECORDED,
-          'Rotation category already has an append-only receipt',
+      const insert = this.database.transaction(() => {
+        const current = this.#loadVerifiedReceipts({ requireBindings: true });
+        const candidate = [...current.ordered, receipt];
+        const ordered = orderLinearChain(candidate);
+        const set = verifySignedAuthorityReceiptSet(this.verifier, ordered, {
+          expected: this.expectedBindings,
+          requireLinearChain: true,
+        });
+        if (!set.valid) fail(
+          M5PrivacyAuthorityErrorCode.SIGNED_RECEIPT_INVALID,
+          `Offline signed privacy chain is invalid: ${set.errors.join(',')}`,
         );
-        return withM5PrivacyReceiptWriterAuthority(
-          this.database,
-          authenticatedSubject,
-          { receiptId: receipt.receiptId, recordJson },
-          () => this.database.prepare(`
-            INSERT INTO m5_privacy_rotation_receipts (
-              receipt_id, incident_id, category_id, completed_at_ms,
-              attested_at_ms, actor_id, record_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-          `).run(
-            receipt.receiptId,
-            receipt.incidentId,
-            receipt.categoryId,
-            receipt.completedAtMs,
-            receipt.attestedAtMs,
-            receipt.actor.actorId,
-            recordJson,
-          ),
+        validatePrivacySequence(ordered);
+        this.database.prepare(`
+          INSERT INTO m5_signed_privacy_receipts (
+            receipt_id, domain, authority_id, issued_at_ms, nonce,
+            previous_receipt_id, record_json
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          receipt.receiptId,
+          receipt.domain,
+          receipt.authorityId,
+          receipt.issuedAtMs,
+          receipt.nonce,
+          receipt.previousReceiptId,
+          String(rawReceipt),
         );
       });
-      write();
+      insert();
       return receipt;
     } catch (error) {
-      if (error?.message === 'm5-privacy-authority:authenticated-transport-subject-required') {
-        fail(
-          M5PrivacyAuthorityErrorCode.WRITER_AUTHORITY_REQUIRED,
-          'Transport writer authority is required',
-        );
-      }
-      storageFailure(error);
-    }
-  }
-
-  recordHistory({
-    authenticatedSubject,
-    decision,
-    actionStatus,
-    repositoryVisibility,
-    completedAtMs,
-  }) {
-    const actorId = requireActor(authenticatedSubject);
-    const attestedAtMs = this.#now();
-    requireCompletedAt(completedAtMs, attestedAtMs);
-    let receipt;
-    try {
-      receipt = createM5PrivacyHistoryReceipt({
-        decision,
-        actionStatus,
-        repositoryVisibility,
-        completedAtMs,
-        attestedAtMs,
-        actorId,
-      });
-    } catch {
-      fail(M5PrivacyAuthorityErrorCode.INPUT_INVALID, 'History attestation is invalid');
-    }
-    try {
-      const recordJson = canonicalizeM5PrivacyValue(receipt);
-      const write = this.database.transaction(() => {
-        const existing = this.database.prepare(`
-          SELECT record_json FROM m5_privacy_history_receipts WHERE incident_id = ?
-        `).get(M5_PRIVACY_INCIDENT_ID);
-        if (existing) fail(
-          M5PrivacyAuthorityErrorCode.HISTORY_ALREADY_RECORDED,
-          'History disposition already has an append-only receipt',
-        );
-        return withM5PrivacyReceiptWriterAuthority(
-          this.database,
-          authenticatedSubject,
-          { receiptId: receipt.receiptId, recordJson },
-          () => this.database.prepare(`
-            INSERT INTO m5_privacy_history_receipts (
-              receipt_id, incident_id, decision, action_status,
-              repository_visibility, completed_at_ms, attested_at_ms,
-              actor_id, record_json
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `).run(
-            receipt.receiptId,
-            receipt.incidentId,
-            receipt.decision,
-            receipt.actionStatus,
-            receipt.repositoryVisibility,
-            receipt.completedAtMs,
-            receipt.attestedAtMs,
-            receipt.actor.actorId,
-            recordJson,
-          ),
-        );
-      });
-      write();
-      return receipt;
-    } catch (error) {
-      if (error?.message === 'm5-privacy-authority:authenticated-transport-subject-required') {
-        fail(
-          M5PrivacyAuthorityErrorCode.WRITER_AUTHORITY_REQUIRED,
-          'Transport writer authority is required',
-        );
-      }
       storageFailure(error);
     }
   }
 
   summary() {
     try {
-      const rotations = this.database.prepare(`
-        SELECT record_json FROM m5_privacy_rotation_receipts
-        WHERE incident_id = ? ORDER BY category_id
-      `).all(M5_PRIVACY_INCIDENT_ID).map(row => (
-        parseStored(row.record_json, validateM5PrivacyRotationReceipt, 'rotation receipt')
-      ));
-      const historyRow = this.database.prepare(`
-        SELECT record_json FROM m5_privacy_history_receipts WHERE incident_id = ?
-      `).get(M5_PRIVACY_INCIDENT_ID);
-      const history = historyRow
-        ? parseStored(historyRow.record_json, validateM5PrivacyHistoryReceipt, 'history receipt')
-        : null;
-      const completed = new Set(rotations.map(receipt => receipt.categoryId));
+      const authorityBindingsVerified = this.expectedBindings !== null;
+      const { rotations, history } = this.#loadVerifiedReceipts({
+        requireBindings: false,
+      });
+      const completed = new Set(rotations.map(receipt => receipt.payload.categoryId));
       const missingCategoryIds = M5_PRIVACY_ROTATION_CATEGORIES
         .map(category => category.categoryId)
         .filter(categoryId => !completed.has(categoryId));
       return Object.freeze({
         contract: M5_PRIVACY_KIND.REMEDIATION_STATUS,
-        version: 1,
+        version: 2,
+        authorityProtocol: 'OFFLINE_ED25519_SIGNED_RECEIPTS',
+        authorityBindingsVerified,
         incidentId: M5_PRIVACY_INCIDENT_ID,
         rotationRequired: M5_PRIVACY_ROTATION_CATEGORIES.length,
         rotationCompleted: rotations.length,
         missingCategoryIds: Object.freeze(missingCategoryIds),
-        rotations: Object.freeze(rotations),
+        rotations,
         historyDisposition: history,
         secretValuesRecorded: false,
-        verdict: missingCategoryIds.length === 0 && history
+        verdict: authorityBindingsVerified && missingCategoryIds.length === 0 && history
           ? 'OPERATOR_REMEDIATION_RECORDED'
           : 'INCOMPLETE',
       });

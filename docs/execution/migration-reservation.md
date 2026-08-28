@@ -199,6 +199,7 @@ záznamu selže v `artifact-validation`.
 | `2026_08_26_090_m5_privacy_authority.js` | použito |
 | `2026_08_26_091_m5_privacy_writer_authority.js` | použito |
 | `2026_08_27_098_m6_model_artifact_authority.js` | použito |
+| `2026_08_28_100_signed_privacy_receipts.js` | použito |
 <!-- migration-source-manifest:end -->
 
 ## Proč to nejsou 058 a 059

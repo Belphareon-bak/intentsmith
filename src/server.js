@@ -987,9 +987,9 @@ const globalAuthAuthority = createGlobalAuthAuthority({
   validateApiToken: token => validateApiToken(db.db, token),
   production: process.env.NODE_ENV === 'production',
 });
-const privacyAuthority = new M5PrivacyAuthorityRepository(db.db, {
-  isAuthenticatedTransportSubject: globalAuthAuthority.isAuthenticatedSubject,
-});
+// The application has no privacy receipt signing authority. It can only read
+// raw envelopes against the Git-pinned (currently empty) public-key trust store.
+const privacyAuthority = new M5PrivacyAuthorityRepository(db.db);
 routeDeps.productionObservability = productionObservability;
 routeDeps.m2LifecycleService = m2LifecycleService;
 let m2RecoveryFailureCount = 0;
