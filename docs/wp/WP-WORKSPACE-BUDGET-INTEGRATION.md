@@ -1,6 +1,6 @@
 # WP-WORKSPACE-BUDGET-INTEGRATION — bezpečný rozpočet pracovní plochy
 
-**Typ:** zapisující provozní hardening · **Stav:** `IN_PROGRESS`
+**Typ:** zapisující provozní hardening · **Stav:** `IMPLEMENTATION_COMPLETE / GATE_PENDING / REVIEW_PENDING`
 **Vstupní revision:** `5ed1247a` · **Větev:** `codex/workspace-budget-integration-20260829`
 
 ## 1. Uživatelský výsledek
