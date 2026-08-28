@@ -90,11 +90,11 @@ function insert(db, values) {
     values.passed ?? 0,
     values.total ?? values.plan.taskCount,
     values.plan.repeats,
-    123,
+    values.durationMs ?? 60_000,
     values.errorCode || null,
     values.errorMessage || null,
-    values.testedAt || '2026-08-24T18:00:00.000Z',
-    values.testedAt || '2026-08-24T18:01:00.000Z',
+    values.startedAt || '2026-08-24T18:00:00.000Z',
+    values.completedAt || '2026-08-24T18:01:00.000Z',
   );
 }
 
@@ -116,10 +116,36 @@ test('exact artifact and current contract expose score and timestamp', () => {
   assertEqual(row.status, 'COMPLETE');
   assertEqual(row.score, 0.75);
   assertEqual(row.testedAt, '2026-08-24T18:01:00.000Z');
+  assertEqual(row.startedAt, '2026-08-24T18:00:00.000Z');
+  assertEqual(row.durationMs, 60_000);
+  assertEqual(row.intervalIntegrity, 'VERIFIED');
+  assertEqual(row.testedAtProvenance, 'VERIFIED_COMPLETION_BOUNDARY');
   assertEqual(row.isCurrentBinding, true);
   assertEqual(result.authority.legacyFallback, false);
   assertEqual(result.authority.tables.join(','), 'model_evaluation_runs,model_evaluation_decisions');
   assertEqual(result.bindingAuthority.status, 'DURABLE');
+  db.close();
+});
+
+test('legacy inconsistent interval keeps only an explicitly unverified audit timestamp', () => {
+  const db = database();
+  const plans = createRoleEvaluationPlans({ repeats: 1 });
+  insert(db, {
+    runId: 'legacy-chat', digest: DIGEST, plan: plans.CHAT,
+    score: 0.75, durationMs: 12_345,
+    startedAt: '2026-08-24T18:01:00.000Z',
+    completedAt: '2026-08-24T18:01:00.000Z',
+  });
+  const result = new ModelEvaluationReadModel(db, { plans }).read({
+    inventory: [{ name: 'fixture:latest', digest: DIGEST }],
+  });
+  const row = result.models[0].evaluations.CHAT;
+  assertEqual(row.testedAt, '2026-08-24T18:01:00.000Z');
+  assertEqual(row.startedAt, null);
+  assertEqual(row.durationMs, null);
+  assertEqual(row.intervalIntegrity, 'LEGACY_UNVERIFIED');
+  assertEqual(row.testedAtProvenance, 'LEGACY_RECORDED_AT_ONLY');
+  assert(renderEvaluationReport(result).includes('LEGACY_UNVERIFIED'));
   db.close();
 });
 

@@ -274,6 +274,15 @@ await testAsync('stejná sada a model se mezi rolemi znovu změří', async () =
   assertEqual(runner.calls.length, 4, 'role is part of the in-memory evidence identity');
 });
 
+await testAsync('stejný contract se mezi verzemi sady znovu změří', async () => {
+  const runner = fakeRunner({ A: { _default: 1 }, B: { _default: 1 } });
+  const suiteCache = createSuiteCache();
+  const exact = { suiteCache, role: 'CHAT', suiteContractSha256: 'c'.repeat(64), ...ONCE };
+  await comparePair(runner, 'reasoning', 'A', 'B', { ...exact, suiteVersion: 'v1' });
+  await comparePair(runner, 'reasoning', 'A', 'B', { ...exact, suiteVersion: 'v2' });
+  assertEqual(runner.calls.length, 4, 'suite version is part of the in-memory evidence identity');
+});
+
 await testAsync('bez cache se chování nemění', async () => {
   const runner = fakeRunner({ A: { _default: 1 }, B: { _default: 1 } });
   await comparePair(runner, 'reasoning', 'A', 'B', ONCE);

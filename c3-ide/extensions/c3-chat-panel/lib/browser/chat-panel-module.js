@@ -3020,7 +3020,11 @@ function _renderEvaluationsTab(){
   var bindingAuthority=_evaluationData.bindingAuthority||{status:'UNVERIFIED_RUNTIME'};
   var bindingDurable=bindingAuthority.status==='DURABLE';
   var statusColor={COMPLETE:C.accent,FAILED:'#ef4444',BLOCKED:'#eab308',MISSING:C.tx4};
-  function tested(value){return value?new Date(value).toLocaleString('cs-CZ'):'\u2014';}
+  function tested(row){
+    if(!row||!row.testedAt)return '\u2014';
+    var rendered=new Date(row.testedAt).toLocaleString('cs-CZ');
+    return row.intervalIntegrity==='LEGACY_UNVERIFIED'?rendered+' · historický údaj, interval neověřen':rendered;
+  }
   return h('div',null,
     h('div',{style:{fontSize:_fs(10),color:C.tx3,marginBottom:12,lineHeight:1.5}},
       'Autorita: model_evaluation_runs · pouze exact digest + current suite contract · bez legacy fallbacku. ',
@@ -3061,7 +3065,7 @@ function _renderEvaluationsTab(){
                 h('td',{style:{padding:'4px 6px',color:C.tx4},title:row.digestSha256||'digest chybí'},row.digestSha256?row.digestSha256.slice(0,12):'\u2014'),
                 h('td',{style:{padding:'4px 6px',color:color,fontWeight:600},title:isApplicable?'':(row.applicabilityReason||row.applicabilityReasonCode||'technicky nekompatibilní')},displayStatus),
                 h('td',{style:{padding:'4px 6px',textAlign:'right',color:isApplicable&&row.status==='COMPLETE'?C.tx1:C.tx4,fontWeight:600}},isApplicable&&row.score!=null?Math.round(row.score*100)+'%':'\u2014'),
-                h('td',{style:{padding:'4px 6px',color:C.tx3}},tested(row.testedAt)),
+                h('td',{style:{padding:'4px 6px',color:row.intervalIntegrity==='LEGACY_UNVERIFIED'?'#eab308':C.tx3},title:row.testedAtProvenance||row.intervalIntegrity||''},tested(row)),
                 h('td',{style:{padding:'4px 6px',textAlign:'center'}},
                   !isApplicable?h('span',{style:{fontSize:_fs(8),color:C.tx4},title:row.applicabilityReason||row.applicabilityReasonCode},'mimo scope'):
                   isCur?h('span',{style:{fontSize:_fs(8),color:C.accent,fontWeight:600}},'\u2713'):
@@ -3216,8 +3220,10 @@ function _renderRolesTab(){
             scoreVal!=null&&scoreVal<0.4?h('span',{style:{color:'#ef4444'}},'\u26A0'):null),
         /* Warnings */
         !installed?h('div',{style:{marginTop:6,fontSize:_fs(10),color:'#ef4444'}},'\u26A0 Model nen\u00ED nainstalovan\u00FD!'):null,
-        roleEval&&roleEval.testedAt?h('div',{style:{marginTop:4,fontSize:_fs(9),color:C.tx4}},
-          'Testov\u00E1no '+new Date(roleEval.testedAt).toLocaleString('cs-CZ')+' · '+roleEval.suiteContractSha256.slice(0,12)):null);
+        roleEval&&roleEval.testedAt?h('div',{style:{marginTop:4,fontSize:_fs(9),color:roleEval.intervalIntegrity==='LEGACY_UNVERIFIED'?'#eab308':C.tx4}},
+          'Testov\u00E1no '+new Date(roleEval.testedAt).toLocaleString('cs-CZ')+
+          (roleEval.intervalIntegrity==='LEGACY_UNVERIFIED'?' · historický údaj, interval neověřen':'')+
+          ' · '+roleEval.suiteContractSha256.slice(0,12)):null);
     }));
 }
 function centerUpgrades(){

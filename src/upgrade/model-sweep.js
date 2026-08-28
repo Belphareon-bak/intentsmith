@@ -271,10 +271,10 @@ export function prioritizeCandidates(pool, ctx = {}) {
     role = null,
     eligibilityOf = null,
     profileOf = null,
-    // Kategorie, které pro tuhle roli dávají smysl — `MODEL_PROFILES[role]
-    // .preferredCategories`.  Používá se jako **filtr**, ne jen bonus: vision
-    // model nemá co dělat v seznamu kandidátů na CODE a coder model v CHAT.
-    // Bez toho vzniká jeden promíchaný seznam, což je špatná otázka.
+    // Kategorie, které jsou pro roli obvykle nejzajímavější —
+    // `MODEL_PROFILES[role].preferredCategories`. Jde pouze o pořadí. Tvrdou
+    // technickou způsobilost rozhoduje výhradně `eligibilityOf`; coder model
+    // proto smí být změřen i pro CHAT a vision model pro textovou roli.
     preferredCategories = null,
   } = ctx;
 
@@ -296,14 +296,6 @@ export function prioritizeCandidates(pool, ctx = {}) {
     if (ineligibleReason) continue;
 
     const profile = profileOf ? (profileOf(entry) || {}) : {};
-
-    // Neznámou kategorii nevyřazujeme — nevíme, čím model je, a zahodit ho
-    // kvůli mezeře v rozpoznávání názvu by bylo horší než ho nechat projít
-    // s nulovým bonusem. Rozhodne pak souboj.
-    if (preferredCategories && profile.category && profile.category !== 'unknown'
-      && !preferredCategories.includes(profile.category)) {
-      continue;
-    }
 
     const externalSignal = externalSignalOf(entry) ?? null;
     const releaseDate = releaseDateOf(entry) ?? null;
@@ -341,6 +333,14 @@ export function prioritizeCandidates(pool, ctx = {}) {
       reasons.push('vejde se s rezervou');
     } else {
       reasons.push('velikost těsná — rozhodne měření');
+    }
+
+    if (Array.isArray(preferredCategories)
+      && profile.category
+      && profile.category !== 'unknown'
+      && preferredCategories.includes(profile.category)) {
+      priority += 2;
+      reasons.push(`preferovaná kategorie ${profile.category} pro ${role}`);
     }
 
     // Shoda specializace s rolí. Coder model do role CODE je lepší kandidát

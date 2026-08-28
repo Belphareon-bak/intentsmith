@@ -209,6 +209,7 @@ async function databaseSummary(path) {
 function readModelSummary(report) {
   const statuses = ['COMPLETE', 'BLOCKED', 'MISSING', 'FAILED'];
   const totals = Object.fromEntries(statuses.map(status => [status, 0]));
+  const completeIntervalIntegrity = {};
   const roles = {};
   const testedAt = [];
   for (const [role, state] of Object.entries(report.roles)) {
@@ -216,6 +217,10 @@ function readModelSummary(report) {
     for (const artifact of state.artifacts) {
       counts[artifact.status] = (counts[artifact.status] || 0) + 1;
       if (artifact.testedAt) testedAt.push(artifact.testedAt);
+      if (artifact.status === 'COMPLETE') {
+        const integrity = artifact.intervalIntegrity || 'NOT_AVAILABLE';
+        completeIntervalIntegrity[integrity] = (completeIntervalIntegrity[integrity] || 0) + 1;
+      }
     }
     roles[role] = Object.freeze({
       ...counts,
@@ -242,6 +247,7 @@ function readModelSummary(report) {
     roles,
     totals,
     coverage: report.coverage,
+    completeIntervalIntegrity,
     currentTestedAtRange: Object.freeze({
       min: testedAt[0] || null,
       max: testedAt.at(-1) || null,

@@ -363,6 +363,7 @@ if (EXPORT_CHAT_HISTORY) {
            duration_ms, tokens_per_second, vram_bytes, task_results_json, completed_at
       FROM model_evaluation_runs
      WHERE status = 'COMPLETE'
+       AND role = 'CHAT'
        AND suite_name = ?
        AND suite_version = ?
        AND suite_contract_sha256 = ?

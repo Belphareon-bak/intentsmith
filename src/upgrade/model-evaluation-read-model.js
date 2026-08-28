@@ -24,6 +24,52 @@ export class ModelEvaluationReadError extends Error {
   }
 }
 
+export const MODEL_EVALUATION_INTERVAL_INTEGRITY = Object.freeze({
+  VERIFIED: 'VERIFIED',
+  LEGACY_UNVERIFIED: 'LEGACY_UNVERIFIED',
+  NOT_AVAILABLE: 'NOT_AVAILABLE',
+});
+
+const INTERVAL_TOLERANCE_MS = 2;
+
+function decodedInterval(row) {
+  const startedMs = Date.parse(row.started_at);
+  const completedMs = Date.parse(row.completed_at);
+  const durationMs = Number(row.duration_ms);
+  const verified = Number.isFinite(startedMs)
+    && Number.isFinite(completedMs)
+    && completedMs >= startedMs
+    && Number.isSafeInteger(durationMs)
+    && durationMs >= 0
+    && Math.abs((completedMs - startedMs) - durationMs) <= INTERVAL_TOLERANCE_MS;
+  if (verified) {
+    return Object.freeze({
+      durationMs,
+      testedAt: row.completed_at,
+      startedAt: row.started_at,
+      intervalIntegrity: MODEL_EVALUATION_INTERVAL_INTEGRITY.VERIFIED,
+      testedAtProvenance: 'VERIFIED_COMPLETION_BOUNDARY',
+    });
+  }
+  return Object.freeze({
+    durationMs: null,
+    testedAt: Number.isFinite(completedMs) ? row.completed_at : null,
+    startedAt: null,
+    intervalIntegrity: MODEL_EVALUATION_INTERVAL_INTEGRITY.LEGACY_UNVERIFIED,
+    testedAtProvenance: Number.isFinite(completedMs) ? 'LEGACY_RECORDED_AT_ONLY' : 'UNAVAILABLE',
+  });
+}
+
+function unavailableInterval() {
+  return Object.freeze({
+    durationMs: null,
+    testedAt: null,
+    startedAt: null,
+    intervalIntegrity: MODEL_EVALUATION_INTERVAL_INTEGRITY.NOT_AVAILABLE,
+    testedAtProvenance: 'UNAVAILABLE',
+  });
+}
+
 function exactArtifact(row) {
   const normalized = normalizeInstalledModel(row);
   const name = normalized.name;
@@ -48,6 +94,7 @@ function roleApplicability(artifact, plan) {
 
 function decodeCurrentRow(row) {
   if (!row) return null;
+  const interval = decodedInterval(row);
   return Object.freeze({
     runId: row.run_id,
     status: row.status,
@@ -55,9 +102,7 @@ function decodeCurrentRow(row) {
     passed: Number(row.passed),
     total: Number(row.total),
     repeats: Number(row.repeats),
-    durationMs: Number(row.duration_ms),
-    testedAt: row.completed_at,
-    startedAt: row.started_at,
+    ...interval,
     errorCode: row.error_code || null,
     errorMessage: row.error_message || null,
   });
@@ -68,10 +113,10 @@ function currentStatus(db, artifact, role, plan) {
     return Object.freeze({
       status: 'BLOCKED',
       score: null,
-      testedAt: null,
       runId: null,
       errorCode: 'ARTIFACT_DIGEST_MISSING',
       errorMessage: 'Installed model does not expose an exact SHA-256 digest',
+      ...unavailableInterval(),
     });
   }
   const row = db.prepare(`
@@ -97,10 +142,10 @@ function currentStatus(db, artifact, role, plan) {
   return decodeCurrentRow(row) || Object.freeze({
     status: 'MISSING',
     score: null,
-    testedAt: null,
     runId: null,
     errorCode: null,
     errorMessage: null,
+    ...unavailableInterval(),
   });
 }
 

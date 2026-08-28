@@ -105,7 +105,8 @@ async function main() {
     hunt.indexOf('const installedRaw = await fetchInstalledModels();'),
   );
   check(
-    chatHistoryExport.includes('AND suite_name = ?')
+    chatHistoryExport.includes("AND role = 'CHAT'")
+      && chatHistoryExport.includes('AND suite_name = ?')
       && chatHistoryExport.includes('AND suite_version = ?')
       && chatHistoryExport.includes('AND suite_contract_sha256 = ?')
       && chatHistoryExport.includes(

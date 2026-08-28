@@ -79,8 +79,9 @@ export const DEFAULT_REPEATS = 3;
  * Cache výsledků sady pro jeden běh.
  *
  * Role mohou sdílet zdrojovou sadu, ale výsledek je vždy role-specific
- * evidence. Cache proto zahrnuje roli, přesný kontrakt a model. D1, D2 a R1
- * si nesmějí vzájemně promítat ani čerstvě naměřený výsledek.
+ * evidence. Cache proto zahrnuje roli, jméno i verzi sady, přesný kontrakt a
+ * model. D1, D2 a R1 si nesmějí vzájemně promítat ani čerstvě naměřený
+ * výsledek.
  */
 export function createSuiteCache() {
   return new Map();
@@ -148,6 +149,7 @@ async function runSuiteRepeated(
 
 function cacheKey(suiteName, model, opts = {}) {
   return `${String(opts.role || 'missing-role').toUpperCase()}::${suiteName}`
+    + `::${opts.suiteVersion || 'unversioned'}`
     + `::${opts.suiteContractSha256 || 'missing-contract'}::${model}`;
 }
 

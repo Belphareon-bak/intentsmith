@@ -54,7 +54,7 @@ export function renderEvaluationReport(readModel) {
       const applicability = row.applicable === false
         ? `  NOT_APPLICABLE(${row.applicabilityReasonCode})`
         : '';
-      lines.push(`  ${row.model}  ${row.digestSha256?.slice(0, 12) || 'NO_DIGEST'}  ${row.status}${applicability}  ${score}  ${row.testedAt || '—'}`);
+      lines.push(`  ${row.model}  ${row.digestSha256?.slice(0, 12) || 'NO_DIGEST'}  ${row.status}${applicability}  ${score}  ${row.testedAt || '—'}  ${row.intervalIntegrity}`);
     }
     for (const decision of state.decisions || []) {
       lines.push(`  DECISION ${decision.outcome}  ${decision.incumbentModel} -> ${decision.candidateModel}  ${decision.createdAt}  ${decision.actionability}`);

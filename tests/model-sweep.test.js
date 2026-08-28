@@ -265,25 +265,25 @@ const CATEGORY = {
 };
 const profileOf = e => ({ category: CATEGORY[e.family], params: 14 });
 
-test('vision model se do seznamu pro CODE nedostane', () => {
-  // Jádro věci: nehledá se jeden univerzální model, ale nejlepší pro každou
-  // roli. Promíchaný seznam je špatná otázka.
+test('category preference nevyřadí technicky kompatibilní vision model z CODE', () => {
   const out = prioritizeCandidates(MIXED, {
     vramMb: VRAM_24GB, role: 'CODE', profileOf,
     preferredCategories: ['code', 'general'],
   });
   const names = out.map(c => c.family);
-  assert(!names.includes('seer'), 'vision model nepatří do CODE');
+  assert(names.includes('seer'), 'preference nesmí být hard eligibility filtr');
   assert(names.includes('coder'), 'coder ano');
+  assert(names.indexOf('coder') < names.indexOf('seer'), 'preference smí změnit jen pořadí');
 });
 
-test('coder model se do seznamu pro CHAT nedostane', () => {
+test('coder model pro CHAT zůstane ve frontě bez preference bonusu', () => {
   const out = prioritizeCandidates(MIXED, {
     vramMb: VRAM_24GB, role: 'CHAT', profileOf, preferredCategories: ['general'],
   });
   const names = out.map(c => c.family);
-  assert(!names.includes('coder'), 'coder nepatří do CHAT');
+  assert(names.includes('coder'), 'technicky kompatibilní coder musí dostat šanci na měření');
   assert(names.includes('talker'), 'generalista ano');
+  assert(names.indexOf('talker') < names.indexOf('coder'), 'general preference je pouze ranking bonus');
 });
 
 test('neznámá kategorie projde — nevíme, tak nevyřazujeme', () => {
@@ -301,6 +301,18 @@ test('neznámá kategorie projde — nevíme, tak nevyřazujeme', () => {
 test('bez preferredCategories se nefiltruje', () => {
   const out = prioritizeCandidates(MIXED, { vramMb: VRAM_24GB, role: 'CODE', profileOf });
   assertEqual(out.length, MIXED.length);
+});
+
+test('preferredCategories mění prioritu, nikoli počet technicky způsobilých kandidátů', () => {
+  const without = prioritizeCandidates(MIXED, {
+    vramMb: VRAM_24GB, role: 'CHAT', profileOf,
+  });
+  const withPreference = prioritizeCandidates(MIXED, {
+    vramMb: VRAM_24GB, role: 'CHAT', profileOf, preferredCategories: ['general'],
+  });
+  assertEqual(withPreference.length, without.length);
+  assert(withPreference.find(row => row.family === 'talker').priority
+    > without.find(row => row.family === 'talker').priority);
 });
 
 test('nezpůsobilý kandidát se do seznamu role nedostane', () => {

@@ -203,6 +203,8 @@ test('model evaluation tab renders every decision instead of only the latest row
     },
     _fs: value => value,
     _evaluationLoading: false,
+    _assigningRole: null,
+    _assignModel: () => {},
     _evaluationData: {
       coverage: {
         applicableTotal: 1,
@@ -247,6 +249,18 @@ test('model evaluation tab renders every decision instead of only the latest row
             score: null,
             testedAt: null,
             isCurrentBinding: false,
+          }, {
+            model: 'qwen3.5:27b',
+            digestSha256: 'c'.repeat(64),
+            status: 'COMPLETE',
+            applicable: true,
+            score: 0.5,
+            testedAt: '2026-08-24T18:01:00.000Z',
+            startedAt: null,
+            durationMs: null,
+            intervalIntegrity: 'LEGACY_UNVERIFIED',
+            testedAtProvenance: 'LEGACY_RECORDED_AT_ONLY',
+            isCurrentBinding: true,
           }],
         },
       },
@@ -275,6 +289,7 @@ test('model evaluation tab renders every decision instead of only the latest row
   assert.match(rendered, /text-only:7b/);
   assert.match(rendered, /N\/A/);
   assert.match(rendered, /mimo scope/);
+  assert.match(rendered, /historický údaj, interval neověřen/);
   assert.doesNotMatch(rendered, /← Přiřadit/);
 });
 
