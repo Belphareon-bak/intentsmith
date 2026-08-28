@@ -25,6 +25,8 @@ import {
 const SHA_PATTERN = /^[a-f0-9]{40}$/u;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u;
 const UPGRADE_KEYS = Object.freeze([
+  'backupContentFingerprint',
+  'backupDatabaseSha256',
   'candidateSha',
   'canary',
   'contract',
@@ -32,12 +34,19 @@ const UPGRADE_KEYS = Object.freeze([
   'currentServerCleanShutdown',
   'currentVersion',
   'databaseFileIdentitySha256',
+  'failedUpgradeExitCode',
+  'failedUpgradeLogSha256',
+  'failedUpgradeMigrationCount',
   'networkScope',
   'namespaceInterfaces',
   'previousMigrationCount',
   'previousServerCleanShutdown',
   'previousSha',
   'previousVersion',
+  'restoreSafetyBackupCreated',
+  'restoreVerified',
+  'restoredDatabaseSha256',
+  'restoredMigrationCount',
   'verdict',
   'version',
 ]);
@@ -217,6 +226,31 @@ function validateUpgradeReceipt(receipt, candidateSha, errors) {
   if (!SHA256_PATTERN.test(receipt.databaseFileIdentitySha256 || '')) {
     errors.push('upgrade-receipt:database-identity');
   }
+  if (!/^sha256:[a-f0-9]{64}$/u.test(receipt.backupContentFingerprint || '')) {
+    errors.push('upgrade-receipt:backup-fingerprint');
+  }
+  if (
+    !SHA256_PATTERN.test(receipt.backupDatabaseSha256 || '')
+    || receipt.restoredDatabaseSha256 !== receipt.backupDatabaseSha256
+  ) errors.push('upgrade-receipt:restore-bytes');
+  if (!SHA256_PATTERN.test(receipt.failedUpgradeLogSha256 || '')) {
+    errors.push('upgrade-receipt:failed-upgrade-log');
+  }
+  if (!Number.isSafeInteger(receipt.failedUpgradeExitCode) || receipt.failedUpgradeExitCode <= 0) {
+    errors.push('upgrade-receipt:failed-upgrade-exit');
+  }
+  if (
+    !Number.isSafeInteger(receipt.failedUpgradeMigrationCount)
+    || receipt.failedUpgradeMigrationCount <= M6_PREVIOUS_VERSION_MIGRATION_COUNT
+    || receipt.failedUpgradeMigrationCount >= M6_CURRENT_VERSION_MIGRATION_COUNT
+  ) errors.push('upgrade-receipt:failed-upgrade-migrations');
+  if (receipt.restoredMigrationCount !== M6_PREVIOUS_VERSION_MIGRATION_COUNT) {
+    errors.push('upgrade-receipt:restored-migrations');
+  }
+  if (receipt.restoreSafetyBackupCreated !== true) {
+    errors.push('upgrade-receipt:restore-safety-backup');
+  }
+  if (receipt.restoreVerified !== true) errors.push('upgrade-receipt:restore-verification');
   if (receipt.previousMigrationCount !== M6_PREVIOUS_VERSION_MIGRATION_COUNT) {
     errors.push('upgrade-receipt:previous-migrations');
   }

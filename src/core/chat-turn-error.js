@@ -4,6 +4,7 @@ export const ChatTurnErrorCode = Object.freeze({
   LLM_PROVIDER_UNAVAILABLE: 'LLM_PROVIDER_UNAVAILABLE',
   CHAT_PROCESSING_FAILED: 'CHAT_PROCESSING_FAILED',
   CHAT_PERSISTENCE_FAILED: 'CHAT_PERSISTENCE_FAILED',
+  MODEL_RESPONSE_TRUNCATED: 'MODEL_RESPONSE_TRUNCATED',
   M2_EFFECT_AUTHORITY_REQUIRED: 'M2_EFFECT_AUTHORITY_REQUIRED',
 });
 
@@ -11,6 +12,7 @@ export const ChatTurnErrorMessage = Object.freeze({
   LLM_PROVIDER_UNAVAILABLE: 'Model provider is temporarily unavailable.',
   CHAT_PROCESSING_FAILED: 'Chat processing failed.',
   CHAT_PERSISTENCE_FAILED: 'Chat response could not be persisted.',
+  MODEL_RESPONSE_TRUNCATED: 'Model response was incomplete and was not saved.',
   M2_EFFECT_AUTHORITY_REQUIRED: 'This write requires M2 effect authority.',
 });
 
@@ -75,6 +77,19 @@ export class ChatPersistenceError extends ChatTurnError {
       cause,
     });
     this.name = 'ChatPersistenceError';
+  }
+}
+
+export class ModelResponseTruncatedError extends ChatTurnError {
+  constructor(finishReason = 'length') {
+    super(ChatTurnErrorMessage.MODEL_RESPONSE_TRUNCATED, {
+      code: ChatTurnErrorCode.MODEL_RESPONSE_TRUNCATED,
+      statusCode: 502,
+      recoverable: true,
+      sourceErrorType: `MODEL_FINISH_REASON_${String(finishReason).toUpperCase()}`,
+    });
+    this.name = 'ModelResponseTruncatedError';
+    this.finishReason = finishReason;
   }
 }
 

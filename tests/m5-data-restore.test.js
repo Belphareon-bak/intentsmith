@@ -11,6 +11,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import Database from 'better-sqlite3';
 import {
   createStateBackup,
+  discoverSupportedMigrationVersions,
   listBackups,
   restoreStateBackup,
   validateStateBackup,
@@ -29,6 +30,13 @@ import { createSystemRoutes } from '../src/routes/system.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const knownMigration = '2026_02_14_001_baseline';
+
+test('supported restore schema uses migration version constants, not source filenames', () => {
+  const versions = discoverSupportedMigrationVersions(root);
+  assert.equal(versions.includes('2026_02_18_006'), true);
+  assert.equal(versions.includes('2026_02_18_006_v67_auto_compact'), false);
+  assert.equal(new Set(versions).size, versions.length);
+});
 
 function fixture(migration = knownMigration) {
   const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-m5-data-'));

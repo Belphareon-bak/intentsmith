@@ -376,7 +376,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M6-MODEL-ARTIFACT-AUTHORITY-TEST` | `tests/m6-model-artifact-authority.test.js` | `C3-025` | T1 | `database` | 5 s | 1 min | network:loopback, temp-db | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-M6-MODEL-DISCOVERY-JOURNEY-TEST` | `tests/m6-model-discovery-journey.test.js` | `C3-023` | T1 | `offline` | 1 s | 30 s | network:loopback | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-M6-PLATFORM-JOURNEY-TEST` | `tests/m6-platform-journey.test.js` | `C3-023` | T1 | `offline` | 2 s | 1 min | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |
-| `IS-T5-TESTS-M6-PREVIOUS-VERSION-UPGRADE-E2E` | `tests/m6-previous-version-upgrade.e2e.js` | `C3-025` | T5 | `server` | 3 min | 20 min | network:loopback, temp-db, server, toolchain:git | yes | `ACTIVE` | — | WP-M6-RELEASE |
+| `IS-T5-TESTS-M6-PREVIOUS-VERSION-UPGRADE-E2E` | `tests/m6-previous-version-upgrade.e2e.js` | `C3-025` | T5 | `server` | 3 min | 20 min | network:loopback, temp-db, server, toolchain:git, toolchain:iproute2, toolchain:linux-user-network-namespace | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-M6-RELEASE-ARTIFACT-TEST` | `tests/m6-release-artifact.test.js` | `C3-012` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-M6-RELEASE-VALIDATION-TEST` | `tests/m6-release-validation.test.js` | `C3-012` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST` | `tests/m6-runtime-evidence.test.js` | `C3-012` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |

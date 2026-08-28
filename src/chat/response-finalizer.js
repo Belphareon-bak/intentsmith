@@ -6,7 +6,10 @@
 
 import { logger } from '../core/logger.js';
 import { throwIfAborted } from '../core/abort-error.js';
-import { ChatPersistenceError } from '../core/chat-turn-error.js';
+import {
+  ChatPersistenceError,
+  ModelResponseTruncatedError,
+} from '../core/chat-turn-error.js';
 
 async function defaultScoreResponse(...args) {
   const { scoreResponse } = await import('./quality/response-scorer.js');
@@ -60,6 +63,13 @@ export async function finalizeChatResponse({
   const finalContent = result.content;
   let qualityScore = null;
   throwIfAborted(signal);
+  // Provider token exhaustion is a terminal generation failure, not a shorter
+  // successful answer. This shared boundary covers every handler that returns
+  // a TaggedResponse and runs before scoring, persistence, state mutation and
+  // HTTP/WS success serialization.
+  if (metadata.finishReason === 'length') {
+    throw new ModelResponseTruncatedError(metadata.finishReason);
+  }
 
   try {
     const finalScore = await scoreResponse(finalContent || '', {

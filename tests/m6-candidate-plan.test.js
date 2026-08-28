@@ -2,7 +2,7 @@ import './helpers/isolated-test-db.js';
 
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,6 +20,7 @@ import {
 import {
   candidateModelResidencyOnly,
   captureGpuCensus,
+  loadReportItem,
   validateM6CompletedAuditPhase,
 } from '../scripts/run-m6-candidate-evidence.js';
 import { installOllamaLoopbackFetchBoundary } from './helpers/ollama-loopback-fetch-boundary.js';
@@ -273,6 +274,23 @@ test('candidate runner stops after any completed red audit phase', () => {
   }
 });
 
+test('release artifact capture occurs only after every runtime journey', () => {
+  const source = readFileSync(
+    path.join(repositoryRoot, 'scripts', 'run-m6-candidate-evidence.js'),
+    'utf8',
+  );
+  const soakCompletion = source.indexOf(
+    'reportPaths.push(await runAuditPhase({ root, candidateSha, evidenceRoot, phase: controlledSoak }))',
+  );
+  const postJourneyCapture = source.indexOf(
+    'const releaseManifestPath = await finalizeFreshCloneRelease({',
+  );
+  const technicalEvaluation = source.indexOf('const technical = evaluateM6TechnicalEvidence({');
+  assert(soakCompletion > 0);
+  assert(postJourneyCapture > soakCompletion);
+  assert(technicalEvaluation > postJourneyCapture);
+});
+
 test('nightly runner opens the hard server blocker only for the two exact owned M6 programs', () => {
   const source = readFileSync(
     path.join(repositoryRoot, 'scripts', 'nightly-audit.js'),
@@ -285,6 +303,37 @@ test('nightly runner opens the hard server blocker only for the two exact owned 
     source,
     /blocker === 'server'[\s\S]*SELF_STARTING_OWNED_SERVER_PROGRAMS\.has\(suite\?\.id\)[\s\S]*suite\?\.fixture === SELF_STARTING_OWNED_SERVER_FIXTURE/u,
   );
+});
+
+await testAsync('candidate producer loads exact regular report log bytes before evaluation', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'm6-report-loader-'));
+  try {
+    await mkdir(path.join(root, 'logs'));
+    const logPath = path.join(root, 'logs', 'program-a.log');
+    const reportPath = path.join(root, 'report.json');
+    await writeFile(logPath, 'exact log bytes\n');
+    await writeFile(reportPath, JSON.stringify({
+      results: [{ id: 'program-a', logPath: 'logs/program-a.log' }],
+    }));
+    const item = await loadReportItem(root, reportPath, {
+      id: 'deterministic-offline-database',
+      runner: 'nightly-audit',
+    });
+    assert.equal(item.phaseId, 'deterministic-offline-database');
+    assert.equal(item.runner, 'nightly-audit');
+    assert.equal(item.logs.length, 1);
+    assert.equal(item.logs[0].programId, 'program-a');
+    assert.equal(item.logs[0].bytes.toString('utf8'), 'exact log bytes\n');
+
+    await rm(logPath);
+    await symlink('/etc/hosts', logPath);
+    await assert.rejects(
+      loadReportItem(root, reportPath, { id: 'phase', runner: 'nightly-audit' }),
+      /not a regular file/u,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test('pre-physical wait recognizes only the candidate-owned Ollama residency', () => {

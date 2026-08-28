@@ -18,11 +18,13 @@ import {
   projectM6ReleaseEvidence,
   validateM6TechnicalProgramMap,
 } from '../src/release/m6-technical-evidence.js';
+import { buildM6CandidateExecutionPlan } from '../src/release/m6-candidate-plan.js';
 import { suite, summary, test } from './harness.js';
 import registry from './registry.json' with { type: 'json' };
 
 const candidateSha = 'a'.repeat(40);
 const registryFingerprint = 'b'.repeat(64);
+const plan = buildM6CandidateExecutionPlan(registry);
 const artifact = Object.freeze({
   path: '.intentsmith-artifacts/m6/report.json',
   bytes: 123,
@@ -167,12 +169,17 @@ function logForProgram(programId) {
   if (programId !== M6_PREVIOUS_VERSION_UPGRADE_PROGRAM) return `PASS ${programId}\n`;
   const receipt = {
     contract: 'M6PreviousVersionUpgradeReceipt',
-    version: 2,
+    version: 3,
+    backupContentFingerprint: `sha256:${'d'.repeat(64)}`,
+    backupDatabaseSha256: 'c'.repeat(64),
     candidateSha,
     previousSha: M6_PREVIOUS_VERSION_SHA,
     previousVersion: '136.0.0',
     currentVersion: '136.1.0',
     databaseFileIdentitySha256: 'e'.repeat(64),
+    failedUpgradeExitCode: 1,
+    failedUpgradeLogSha256: 'd'.repeat(64),
+    failedUpgradeMigrationCount: 70,
     previousMigrationCount: 56,
     currentMigrationCount: 79,
     canary: {
@@ -183,6 +190,10 @@ function logForProgram(programId) {
       survivedUpgrade: true,
     },
     previousServerCleanShutdown: true,
+    restoreSafetyBackupCreated: true,
+    restoreVerified: true,
+    restoredDatabaseSha256: 'c'.repeat(64),
+    restoredMigrationCount: 56,
     currentServerCleanShutdown: true,
     networkScope: 'linux-user-network-namespace-loopback-only',
     namespaceInterfaces: ['lo'],
@@ -191,20 +202,35 @@ function logForProgram(programId) {
   return `${M6_RUNTIME_EVIDENCE_MARKER}${Buffer.from(JSON.stringify(receipt)).toString('base64url')}\n`;
 }
 
-function report(results = registry.suites
-  .filter(program => program.required && program.state === 'ACTIVE')
-  .map(passingResult)) {
+function report(results, phase) {
+  const options = phase.runner === 'nightly-audit'
+    ? { ids: [...phase.programIds], concurrency: 1 }
+    : {
+        authority: {
+          'm6-owned-program': 'm6-owned-production-server-v1',
+          'm6-runner-owned-server-programs': 'm6-runner-owned-server-programs-v1',
+          'm6-fresh-clone': 'm6-fresh-clone-install-build-studio-v1',
+        }[phase.runner],
+        acceptsArguments: false,
+        concurrency: 1,
+      };
   return {
     schemaVersion: 1,
     manifestType: 'intentsmith.audit-report',
     sourceRevision: candidateSha,
     registryHash: registryFingerprint,
+    dryRun: false,
+    options,
     results,
   };
 }
 
-function reportItem(value = report()) {
+function reportItem(phase, value = report(phase.programIds.map(programId => (
+  passingResult(registry.suites.find(program => program.id === programId))
+)), phase)) {
   return {
+    phaseId: phase.id,
+    runner: phase.runner,
     report: value,
     artifact,
     logs: value.results.map(result => ({
@@ -214,11 +240,20 @@ function reportItem(value = report()) {
   };
 }
 
-function evaluate(reports = [reportItem()]) {
+function reportItems() {
+  return plan.phases.map(phase => reportItem(phase));
+}
+
+function findReportItem(items, programId) {
+  return items.find(item => item.report.results.some(result => result.id === programId));
+}
+
+function evaluate(reports = reportItems()) {
   return evaluateM6TechnicalEvidence({
     candidateSha,
     registryFingerprint,
     registry,
+    plan,
     reports,
   });
 }
@@ -235,10 +270,10 @@ test('program map names exact active required registry evidence for every techni
   ]);
 });
 
-test('all implementation programs pass but external authorities stay BLOCKED', () => {
+test('implementation programs cannot override external or semantic L0 blockers', () => {
   const result = evaluate();
   assert.equal(result.valid, true, result.errors.join('\n'));
-  assert.equal(result.verdict, 'BLOCKED');
+  assert.equal(result.verdict, 'FAIL');
   for (const id of M6_EXTERNAL_AUTHORITY_CHECKS) {
     const row = result.checks.find(item => item.id === id);
     assert.equal(row.status, 'BLOCKED');
@@ -247,19 +282,30 @@ test('all implementation programs pass but external authorities stay BLOCKED', (
   assert(result.checks
     .filter(row => !M6_EXTERNAL_AUTHORITY_CHECKS.includes(row.id))
     .every(row => row.status === 'PASS'));
-  assert(result.l0.every(row => row.status === 'PASS'));
+  assert.equal(result.l0.find(row => row.id === 'L0-11').status, 'FAIL');
+  assert.equal(result.l0.find(row => row.id === 'L0-12').status, 'NOT_RUN');
+  assert(result.l0
+    .filter(row => !['L0-11', 'L0-12'].includes(row.id))
+    .every(row => row.status === 'PASS'));
   assert.equal(result.conditionalJourneys[0].status, 'PASS');
 });
 
-test('missing execution is NOT_RUN and a red execution is FAIL', () => {
-  const passing = report().results;
+test('missing phase result invalidates evidence and a red execution is FAIL', () => {
   const remoteId = 'IS-T1-TESTS-M5-REMOTE-CORE-ADAPTER-TEST';
-  const missing = evaluate([reportItem(report(passing.filter(item => item.id !== remoteId)))]);
-  assert.equal(missing.checks.find(row => row.id === 'remote-core-port').status, 'NOT_RUN');
-  assert.equal(missing.verdict, 'BLOCKED');
+  const missingReports = reportItems();
+  const missingItem = findReportItem(missingReports, remoteId);
+  missingItem.report.results = missingItem.report.results.filter(item => item.id !== remoteId);
+  missingItem.logs = missingItem.logs.filter(item => item.programId !== remoteId);
+  const missing = evaluate(missingReports);
+  assert.equal(missing.valid, false);
+  assert.equal(missing.verdict, 'FAIL');
 
-  const red = passing.map(item => item.id === remoteId ? { ...item, status: 'FAIL', exitCode: 1 } : item);
-  const failed = evaluate([reportItem(report(red))]);
+  const redReports = reportItems();
+  const redItem = findReportItem(redReports, remoteId);
+  redItem.report.results = redItem.report.results.map(item => (
+    item.id === remoteId ? { ...item, status: 'FAIL', exitCode: 1 } : item
+  ));
+  const failed = evaluate(redReports);
   assert.equal(failed.checks.find(row => row.id === 'remote-core-port').status, 'FAIL');
   assert.equal(failed.verdict, 'FAIL');
 });
@@ -274,8 +320,12 @@ test('blocked, timed out, leaked, dirty or wrong-candidate PASS cannot become ev
     item => ({ ...item, sourceRevision: 'e'.repeat(40) }),
   ];
   for (const mutate of variants) {
-    const results = report().results.map(item => item.id === targetId ? mutate(item) : item);
-    const result = evaluate([reportItem(report(results))]);
+    const reports = reportItems();
+    const item = findReportItem(reports, targetId);
+    item.report.results = item.report.results.map(result => (
+      result.id === targetId ? mutate(result) : result
+    ));
+    const result = evaluate(reports);
     assert.equal(result.checks.find(row => row.id === 'conditional-surfaces').status, 'FAIL');
   }
 });
@@ -287,24 +337,29 @@ test('report candidate, registry, contract, artifact and duplicate program bindi
     item => { item.report.manifestType = 'forged'; },
     item => { item.artifact.sha256 = 'bad'; },
     item => { item.report.results.push(item.report.results[0]); },
+    item => { item.phaseId = plan.phases[1].id; },
+    item => { item.runner = 'm6-owned-program'; },
   ]) {
-    const item = reportItem(structuredClone(report()));
+    const reports = reportItems();
+    const item = reports[0];
     item.artifact = { ...artifact };
     mutate(item);
-    const result = evaluate([item]);
+    const result = evaluate(reports);
     assert.equal(result.valid, false);
     assert.equal(result.verdict, 'FAIL');
   }
 });
 
 test('forged report PASS without exact log bytes or runtime receipt fails closed', () => {
-  const missingLog = reportItem();
+  const missingReports = reportItems();
+  const missingLog = findReportItem(missingReports, M6_PREVIOUS_VERSION_UPGRADE_PROGRAM);
   missingLog.logs = missingLog.logs.filter(
     log => log.programId !== M6_PREVIOUS_VERSION_UPGRADE_PROGRAM,
   );
-  assert.equal(evaluate([missingLog]).valid, false);
+  assert.equal(evaluate(missingReports).valid, false);
 
-  const forgedReceipt = reportItem();
+  const forgedReports = reportItems();
+  const forgedReceipt = findReportItem(forgedReports, M6_PREVIOUS_VERSION_UPGRADE_PROGRAM);
   const target = forgedReceipt.logs.find(
     log => log.programId === M6_PREVIOUS_VERSION_UPGRADE_PROGRAM,
   );
@@ -313,7 +368,19 @@ test('forged report PASS without exact log bytes or runtime receipt fails closed
     item => item.id === M6_PREVIOUS_VERSION_UPGRADE_PROGRAM,
   );
   result.logSha256 = createHash('sha256').update(target.bytes).digest('hex');
-  assert.equal(evaluate([forgedReceipt]).valid, false);
+  assert.equal(evaluate(forgedReports).valid, false);
+});
+
+test('phase and runner binding reject a valid offline result relabelled as soak evidence', () => {
+  const reports = reportItems();
+  const offline = reports.find(item => item.phaseId === 'deterministic-offline-database');
+  const soak = reports.find(item => item.phaseId === 'controlled-soak');
+  [offline.report, soak.report] = [soak.report, offline.report];
+  [offline.logs, soak.logs] = [soak.logs, offline.logs];
+  const result = evaluate(reports);
+  assert.equal(result.valid, false);
+  assert(result.errors.some(error => error.includes('phase-programs')));
+  assert(result.errors.some(error => error.includes('runner-authority')));
 });
 
 test('release projection removes diagnostic internals but preserves truthful blocking', () => {

@@ -18,6 +18,7 @@ import {
   ChatProcessingError,
   ChatTurnErrorCode,
   LLMProviderUnavailableError,
+  ModelResponseTruncatedError,
 } from '../src/core/chat-turn-error.js';
 import {
   createChatRoutes,
@@ -85,12 +86,13 @@ function makeResult(content = 'Deterministic answer') {
 }
 
 function finalize({
+  result = makeResult(),
   signal = null,
   persistAssistantTurn,
   scoreResponse = async () => ({ total: 100, dimensions: {}, issues: [] }),
 } = {}) {
   return finalizeChatResponse({
-    result: makeResult(),
+    result,
     message: 'kolik je 2 + 2?',
     sessionId: 'm1-chat-session',
     conversationId: 'm1-chat-conversation',
@@ -457,6 +459,40 @@ await testAsync('successful result is returned only after the assistant turn per
   assert.equal(response.response, 'Deterministic answer');
 });
 
+await testAsync('token-limited model output is terminal before scoring, persistence and success', async () => {
+  let scored = 0;
+  let persisted = 0;
+  const truncated = Object.freeze({
+    ...makeResult('This answer ends halfway'),
+    tag: Object.freeze({
+      metadata: Object.freeze({
+        model: 'fixture-model',
+        finishReason: 'length',
+        decision: Object.freeze({ intent: 'CONVERSATIONAL' }),
+      }),
+    }),
+  });
+  await assert.rejects(
+    finalize({
+      result: truncated,
+      scoreResponse: async () => {
+        scored += 1;
+        return { total: 100, dimensions: {}, issues: [] };
+      },
+      persistAssistantTurn: () => { persisted += 1; },
+    }),
+    error => {
+      assert.equal(error instanceof ModelResponseTruncatedError, true);
+      assert.equal(error.code, ChatTurnErrorCode.MODEL_RESPONSE_TRUNCATED);
+      assert.equal(error.statusCode, 502);
+      assert.equal(error.recoverable, true);
+      return true;
+    },
+  );
+  assert.equal(scored, 0);
+  assert.equal(persisted, 0);
+});
+
 await testAsync('persistence exception is a typed terminal error, never false-success', async () => {
   const storageFailure = new Error('fixture database is read-only');
   await assert.rejects(
@@ -675,6 +711,45 @@ await testAsync('generic handler exception is typed terminal failure, not assist
     globalThis.fetch = originalFetch;
     ChatController.removeSession(conversationId);
     ChatController.removeSession('shared-transport');
+    resetConversationStore();
+  }
+});
+
+await testAsync('handler truncation cannot cross the controller persistence boundary', async () => {
+  resetConversationStore();
+  const store = getConversationStore(null);
+  const conversationId = 'm1-truncated-handler';
+  ChatController.configure({
+    handlers: {
+      [ChatMode.CONVERSATION]: async () => new TaggedResponse({
+        content: 'This answer ends halfway',
+        tag: new ResponseTag({
+          speaker: ResponseSpeaker.SYSTEM,
+          mode: ChatMode.CONVERSATION,
+          confidence: 0.9,
+          metadata: {
+            model: 'fixture-model',
+            finishReason: 'length',
+            decision: { intent: 'CONVERSATIONAL' },
+          },
+        }),
+      }),
+    },
+    config: { autoModeDetection: false },
+  });
+  try {
+    await assert.rejects(
+      ChatController.handle({
+        message: 'return a complete answer',
+        sessionId: conversationId,
+        conversationId,
+      }),
+      error => error instanceof ModelResponseTruncatedError
+        && error.code === ChatTurnErrorCode.MODEL_RESPONSE_TRUNCATED,
+    );
+    assert.deepEqual(store.getAllTurns(conversationId).map(turn => turn.role), ['user']);
+  } finally {
+    ChatController.removeSession(conversationId);
     resetConversationStore();
   }
 });
@@ -1124,6 +1199,11 @@ await testAsync('provider, persistence, and generic failures are valid non-succe
       error: new ChatPersistenceError(new Error('private database detail')),
       statusCode: 500,
       code: 'CHAT_PERSISTENCE_FAILED',
+    },
+    {
+      error: new ModelResponseTruncatedError(),
+      statusCode: 502,
+      code: 'MODEL_RESPONSE_TRUNCATED',
     },
     {
       error: new Error('private generic detail'),

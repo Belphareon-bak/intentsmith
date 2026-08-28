@@ -33,6 +33,11 @@ import {
   M6_RUNTIME_EVIDENCE_MARKER,
   M6_UPGRADE_CANARY,
 } from '../contracts/m6/runtime-evidence-v1.js';
+import {
+  createStateBackup,
+  discoverSupportedMigrationVersions,
+  restoreStateBackup,
+} from '../src/core/db-backup.js';
 import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 import {
   assertLoopbackNetworkNamespace,
@@ -231,6 +236,45 @@ async function stopServer(state) {
   assert.equal(state.exitCode, 0, state.stderr.slice(-4_000));
 }
 
+async function expectServerStartFailure(sourceRoot, runtime, portFile, label) {
+  const nonce = `m6-upgrade-${label}-${randomBytes(12).toString('hex')}`;
+  const child = spawn(process.execPath, ['src/server.js'], {
+    cwd: sourceRoot,
+    env: {
+      ...safeEnvironment(runtime, portFile),
+      INTENTSMITH_TEST_SERVER_NONCE: nonce,
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  ownedChildren.add(child);
+  let stdout = '';
+  let stderr = '';
+  let exitCode = null;
+  let signal = null;
+  child.stdout.setEncoding('utf8');
+  child.stderr.setEncoding('utf8');
+  child.stdout.on('data', chunk => { stdout = bounded(stdout, chunk); });
+  child.stderr.on('data', chunk => { stderr = bounded(stderr, chunk); });
+  child.once('exit', (code, exitSignal) => {
+    exitCode = code;
+    signal = exitSignal;
+    ownedChildren.delete(child);
+  });
+  const deadline = Date.now() + START_TIMEOUT_MS;
+  while (Date.now() < deadline && exitCode === null && signal === null) await delay(25);
+  if (exitCode === null && signal === null) {
+    child.kill('SIGTERM');
+    throw new Error(`${label} server unexpectedly remained alive`);
+  }
+  assert.equal(signal, null, `${label} server ended by ${signal}`);
+  assert.ok(Number.isSafeInteger(exitCode) && exitCode > 0, `${label} server unexpectedly passed`);
+  assert.equal(existsSync(portFile), false, `${label} server reached the listen boundary`);
+  return Object.freeze({
+    exitCode,
+    logSha256: sha256(`${stdout}\0${stderr}`),
+  });
+}
+
 function requestJson(server, method, pathname, body = null) {
   return new Promise((resolve, reject) => {
     const encoded = body === null ? null : JSON.stringify(body);
@@ -280,6 +324,23 @@ function databaseFileIdentity(databasePath) {
   const metadata = lstatSync(databasePath, { bigint: true });
   assert.equal(metadata.isFile(), true, 'upgrade database is not a regular file');
   return sha256(`m6-sqlite-file-v1\0${metadata.dev}\0${metadata.ino}`);
+}
+
+function databaseSha256(databasePath) {
+  return sha256(readFileSync(databasePath));
+}
+
+function assertStoredCanary(databasePath, canaryId) {
+  const database = new Database(databasePath, { readonly: true, fileMustExist: true });
+  try {
+    const row = database.prepare('SELECT id, name, description FROM projects WHERE id = ?')
+      .get(canaryId);
+    assert.equal(row?.id, canaryId);
+    assert.equal(row?.name, M6_UPGRADE_CANARY.name);
+    assert.equal(row?.description, M6_UPGRADE_CANARY.description);
+  } finally {
+    database.close();
+  }
 }
 
 function projectMetadata(project, projectsRoot) {
@@ -346,7 +407,48 @@ async function main() {
     previousServer = null;
     const previousMigrationCount = migrationCount(runtime.database);
     assert.equal(previousMigrationCount, PREVIOUS_MIGRATION_COUNT);
-    const previousDatabaseFileIdentity = databaseFileIdentity(runtime.database);
+    assertStoredCanary(runtime.database, canaryId);
+
+    const backupDatabase = new Database(runtime.database);
+    const backup = createStateBackup(backupDatabase, runtime.root, {
+      dbPath: runtime.database,
+      projectRoot: runtime.previousClone,
+      now: '2026-08-28T00:00:00.000Z',
+    });
+    backupDatabase.close();
+    assert.equal(backup.error, null, backup.error);
+    const backupMetadata = JSON.parse(readFileSync(path.join(backup.path, 'metadata.json'), 'utf8'));
+    const backupDatabaseSha256 = databaseSha256(path.join(backup.path, 'c3.db'));
+
+    const collision = new Database(runtime.database);
+    collision.exec('CREATE TABLE m5_privacy_rotation_receipts (forced_failure TEXT NOT NULL)');
+    collision.close();
+    const failedUpgrade = await expectServerStartFailure(
+      SOURCE_ROOT,
+      runtime,
+      runtime.currentPortFile,
+      'candidate-failed-upgrade',
+    );
+    const failedUpgradeMigrationCount = migrationCount(runtime.database);
+    assert.ok(failedUpgradeMigrationCount > PREVIOUS_MIGRATION_COUNT);
+    assert.ok(failedUpgradeMigrationCount < CURRENT_MIGRATION_COUNT);
+
+    const restored = restoreStateBackup(runtime.root, backup.name, {
+      offline: true,
+      silent: true,
+      dbPath: runtime.database,
+      projectRoot: SOURCE_ROOT,
+      supportedMigrationVersions: discoverSupportedMigrationVersions(SOURCE_ROOT),
+      now: '2026-08-28T00:01:00.000Z',
+    });
+    assert.equal(restored.ok, true);
+    assert.match(restored.safetyBackupName || '', /^pre-restore-/u);
+    const restoredDatabaseSha256 = databaseSha256(runtime.database);
+    assert.equal(restoredDatabaseSha256, backupDatabaseSha256);
+    const restoredMigrationCount = migrationCount(runtime.database);
+    assert.equal(restoredMigrationCount, PREVIOUS_MIGRATION_COUNT);
+    assertStoredCanary(runtime.database, canaryId);
+    const restoredDatabaseFileIdentity = databaseFileIdentity(runtime.database);
 
     currentServer = await startServer(
       SOURCE_ROOT,
@@ -370,18 +472,23 @@ async function main() {
     const currentDatabaseFileIdentity = databaseFileIdentity(runtime.database);
     assert.equal(
       currentDatabaseFileIdentity,
-      previousDatabaseFileIdentity,
+      restoredDatabaseFileIdentity,
       'candidate did not upgrade the exact previous-version SQLite file',
     );
 
     const receipt = {
       contract: 'M6PreviousVersionUpgradeReceipt',
-      version: 2,
+      version: 3,
+      backupContentFingerprint: backupMetadata.content_fingerprint,
+      backupDatabaseSha256,
       candidateSha,
       previousSha: PREVIOUS_SHA,
       previousVersion: PREVIOUS_VERSION,
       currentVersion: CURRENT_VERSION,
       databaseFileIdentitySha256: currentDatabaseFileIdentity,
+      failedUpgradeExitCode: failedUpgrade.exitCode,
+      failedUpgradeLogSha256: failedUpgrade.logSha256,
+      failedUpgradeMigrationCount,
       previousMigrationCount,
       currentMigrationCount,
       canary: {
@@ -392,6 +499,10 @@ async function main() {
         survivedUpgrade: true,
       },
       previousServerCleanShutdown: true,
+      restoreSafetyBackupCreated: true,
+      restoreVerified: true,
+      restoredDatabaseSha256,
+      restoredMigrationCount,
       currentServerCleanShutdown: true,
       networkScope: 'linux-user-network-namespace-loopback-only',
       namespaceInterfaces: [...namespace.interfaceNames],

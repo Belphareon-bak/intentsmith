@@ -9,6 +9,8 @@ import {
 } from '../../contracts/m6/technical-evidence-v1.js';
 import {
   M6_L0_EVIDENCE_PROGRAMS,
+  M6_L0_SEMANTIC_AUTHORITY,
+  M6_L0_SEMANTIC_STATE,
 } from '../../contracts/m6/l0-evidence-v1.js';
 import {
   M6_L0_IDS,
@@ -18,6 +20,7 @@ import {
 import {
   M6_RUNTIME_EVIDENCE_PROGRAMS,
 } from '../../contracts/m6/runtime-evidence-v1.js';
+import { validateM6CandidateExecutionPlan } from './m6-candidate-plan.js';
 import { validateM6RuntimeEvidence } from './m6-runtime-evidence.js';
 
 const SHA_PATTERN = /^[a-f0-9]{40}$/u;
@@ -107,11 +110,37 @@ export function validateM6TechnicalProgramMap(registry) {
   return deepFreeze({ valid: errors.length === 0, errors, programSets: sets });
 }
 
-function collectReports({ reports, candidateSha, registryFingerprint, errors }) {
+function reportMatchesRunner(report, phase) {
+  if (phase?.runner === 'nightly-audit') {
+    const actualIds = Array.isArray(report?.options?.ids)
+      ? [...report.options.ids].sort()
+      : [];
+    return report?.dryRun === false
+      && report?.options?.concurrency === 1
+      && JSON.stringify(actualIds) === JSON.stringify([...phase.programIds].sort());
+  }
+  const expectedAuthority = {
+    'm6-owned-program': 'm6-owned-production-server-v1',
+    'm6-runner-owned-server-programs': 'm6-runner-owned-server-programs-v1',
+    'm6-fresh-clone': 'm6-fresh-clone-install-build-studio-v1',
+  }[phase?.runner];
+  return expectedAuthority !== undefined
+    && report?.dryRun === false
+    && report?.options?.acceptsArguments === false
+    && report?.options?.concurrency === 1
+    && report?.options?.authority === expectedAuthority;
+}
+
+function collectReports({ reports, plan, candidateSha, registryFingerprint, errors }) {
   const results = new Map();
+  const phases = Array.isArray(plan?.phases) ? plan.phases : [];
+  if ((reports || []).length !== phases.length) errors.push('reports:exact-phases');
   for (const [reportIndex, item] of (reports || []).entries()) {
+    const phase = phases[reportIndex];
     const report = item?.report;
     const artifact = item?.artifact;
+    if (item?.phaseId !== phase?.id) errors.push(`report[${reportIndex}]:phase`);
+    if (item?.runner !== phase?.runner) errors.push(`report[${reportIndex}]:runner`);
     if (!validArtifact(artifact)) errors.push(`report[${reportIndex}]:artifact`);
     if (report?.manifestType !== 'intentsmith.audit-report' || report?.schemaVersion !== 1) {
       errors.push(`report[${reportIndex}]:contract`);
@@ -122,6 +151,15 @@ function collectReports({ reports, candidateSha, registryFingerprint, errors }) 
       errors.push(`report[${reportIndex}]:results`);
       continue;
     }
+    const expectedResultIds = [...(phase?.programIds || [])].sort();
+    const reportResultIds = report.results.map(result => result?.id).sort();
+    if (new Set(reportResultIds).size !== reportResultIds.length) {
+      errors.push(`report[${reportIndex}]:duplicate-result`);
+    }
+    if (JSON.stringify(reportResultIds) !== JSON.stringify(expectedResultIds)) {
+      errors.push(`report[${reportIndex}]:phase-programs`);
+    }
+    if (!reportMatchesRunner(report, phase)) errors.push(`report[${reportIndex}]:runner-authority`);
     const logEntries = Array.isArray(item?.logs) ? item.logs : [];
     const logsByProgram = new Map();
     for (const log of logEntries) {
@@ -186,6 +224,29 @@ function rowForPrograms(id, programIds, results, candidateSha) {
   };
 }
 
+function l0RowForPrograms(id, programIds, results, candidateSha) {
+  const row = rowForPrograms(id, programIds, results, candidateSha);
+  const authority = M6_L0_SEMANTIC_AUTHORITY[id];
+  if (row.status !== 'PASS') return { ...row, semanticState: authority.state };
+  if (authority.state === M6_L0_SEMANTIC_STATE.OPEN_VIOLATION) {
+    return {
+      ...row,
+      status: 'FAIL',
+      reasonCode: authority.reasonCode,
+      semanticState: authority.state,
+    };
+  }
+  if (authority.state !== M6_L0_SEMANTIC_STATE.VERIFIED) {
+    return {
+      ...row,
+      status: 'NOT_RUN',
+      reasonCode: authority.reasonCode,
+      semanticState: authority.state,
+    };
+  }
+  return { ...row, semanticState: authority.state };
+}
+
 function externalRow(id) {
   return {
     id,
@@ -202,15 +263,24 @@ export function evaluateM6TechnicalEvidence({
   candidateSha,
   registryFingerprint,
   registry,
+  plan,
   reports,
 } = {}) {
   const errors = [];
   if (!SHA_PATTERN.test(candidateSha || '')) errors.push('candidate:invalid');
   if (!SHA256_PATTERN.test(registryFingerprint || '')) errors.push('registry:invalid');
   if (!Array.isArray(reports) || reports.length === 0) errors.push('reports:required');
+  const planValidation = validateM6CandidateExecutionPlan(plan, registry);
+  errors.push(...planValidation.errors.map(error => `plan:${error}`));
   const map = validateM6TechnicalProgramMap(registry);
   errors.push(...map.errors);
-  const results = collectReports({ reports, candidateSha, registryFingerprint, errors });
+  const results = collectReports({
+    reports,
+    plan,
+    candidateSha,
+    registryFingerprint,
+    errors,
+  });
   const requiredActiveIds = (registry?.suites || [])
     .filter(suite => suite.required === true && suite.state === 'ACTIVE')
     .map(suite => suite.id)
@@ -231,7 +301,7 @@ export function evaluateM6TechnicalEvidence({
       ? externalRow(id)
       : technicalById.get(id)
   ));
-  const l0 = M6_L0_IDS.map(id => rowForPrograms(
+  const l0 = M6_L0_IDS.map(id => l0RowForPrograms(
     id,
     M6_L0_EVIDENCE_PROGRAMS[id] || [],
     results,

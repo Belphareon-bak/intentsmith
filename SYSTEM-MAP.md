@@ -275,8 +275,12 @@ znění v [`CONTRACT.md`](CONTRACT.md) §2.
    statická extension hranice, nikoli hostile-code runtime sandbox.
 9. Model upgrade nikdy neupgraduje sám
 10. **Legacy listener nikdy neopustí loopback**
-11. Významný efekt zůstává pod přesnou uživatelskou authority — **UNVERIFIED
-    jako celek**; M2 musí spojit existující mediaci/approval cesty a zavřít bypassy.
+11. Významný efekt zůstává pod přesnou uživatelskou authority — **OPEN_VIOLATION
+    jako celek**. M2 a M3 uzavřely project/file/process/Git/network i extension
+    efektové cesty, ale M5 privacy receipt promotion je v deklarovaném
+    same-process threat modelu obejitelná přes veřejný raw DB handle a
+    connection-local UDF. Dokud je tato authority otevřená, passing M2/M3/model
+    programy nesmějí L0-11 povýšit na `VERIFIED`.
     Změřeno 2026-08-07: samotné approval route (`POST /api/autonomy/approve/:id`,
     `POST /api/lifecycle/*/approve`, `POST /api/skills/executions/:id/confirm`)
     nemají žádnou per-route kontrolu — chrání je totéž co `GET /api/health`.
@@ -301,7 +305,11 @@ znění v [`CONTRACT.md`](CONTRACT.md) §2.
     guard navíc blokuje každý případný legacy bypass.
     `docs/review/2026-08-07-OUTBOUND-CENSUS.md`
 13. Učení nerozšiřuje authority, nemění code/config a nekříží projekt bez
-    opt-inu — **UNVERIFIED**; M4 vyžaduje negativní boundary testy
+    opt-inu — **VERIFIED** na M4 product candidate `286f5ba8`: operátorské
+    review prošlo `7/7 REVIEW_PASSED`; produkční learning repository zapisuje
+    jen do vlastních `m4_*` tabulek, runtime konzumenti jsou omezení na
+    project-bound prompt context a outcome attribution a cross-project cesta
+    je fail-closed default-off bez explicitního opt-inu.
 
 ---
 

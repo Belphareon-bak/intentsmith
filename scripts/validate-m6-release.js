@@ -9,15 +9,15 @@ import {
   M6_ACCEPTANCE_RECEIPT_PATHS,
 } from '../contracts/m6/acceptance-authority-v1.js';
 import {
-  M6_CANDIDATE_PHASE_IDS,
-} from '../contracts/m6/candidate-plan-v1.js';
-import {
   M6_RELEASE_EVIDENCE_INDEX_PATH,
 } from '../contracts/m6/release-v1.js';
 import { config } from '../src/config.js';
 import {
   resolveM5ConditionalSurfaces,
 } from '../src/release/conditional-surfaces.js';
+import {
+  buildM6CandidateExecutionPlan,
+} from '../src/release/m6-candidate-plan.js';
 import {
   applyM6AcceptanceReceipts,
 } from '../src/release/m6-acceptance-authority.js';
@@ -102,6 +102,7 @@ export async function validateCurrentM6Release(root = process.cwd()) {
   ]) === '';
   const registry = await loadTestRegistry(root);
   const fingerprint = registryFingerprint(registry);
+  const plan = buildM6CandidateExecutionPlan(registry);
   const conditional = resolveM5ConditionalSurfaces({ config });
   const readGitArtifact = gitArtifactReader(root, evidenceHeadSha);
   if (!gitObjectExists(root, evidenceHeadSha, M6_RELEASE_EVIDENCE_PATH)) {
@@ -146,12 +147,17 @@ export async function validateCurrentM6Release(root = process.cwd()) {
     { cwd: root, stdio: 'ignore' },
   );
   const candidateIsAncestor = ancestorProbe.status === 0;
-  let changedPaths = [];
+  let changedEntries = [];
   let candidateRegistryFingerprint = null;
   if (candidateIsAncestor) {
-    changedPaths = git(root, [
-      'diff', '--name-only', '--diff-filter=ACMR', `${candidateSha}..${evidenceHeadSha}`,
-    ]).split('\n').filter(Boolean);
+    changedEntries = git(root, [
+      'diff', '--name-status', '--no-renames', `${candidateSha}..${evidenceHeadSha}`,
+    ]).split('\n').filter(Boolean).map(line => {
+      const separator = line.indexOf('\t');
+      return separator === -1
+        ? { status: null, path: line }
+        : { status: line.slice(0, separator), path: line.slice(separator + 1) };
+    });
     try {
       const candidateRegistry = JSON.parse(git(root, [
         'show', `${candidateSha}:tests/registry.json`,
@@ -165,7 +171,7 @@ export async function validateCurrentM6Release(root = process.cwd()) {
     candidateSha,
     evidenceHeadSha,
     candidateIsAncestor,
-    changedPaths,
+    changedEntries,
     worktreeClean,
     candidateRegistryFingerprint,
     evidenceRegistryFingerprint: fingerprint,
@@ -173,7 +179,7 @@ export async function validateCurrentM6Release(root = process.cwd()) {
   const indexValidation = validateM6ReleaseEvidenceIndex(index, {
     candidateSha,
     registryFingerprint: fingerprint,
-    expectedPhaseIds: M6_CANDIDATE_PHASE_IDS,
+    expectedPhases: plan.phases,
   });
   const pinnedBindings = [
     ...(index.reports || []).map(item => item.artifact),
@@ -213,6 +219,8 @@ export async function validateCurrentM6Release(root = process.cwd()) {
       const logValidation = validateM6ReportLogBindings(item, report);
       reportLogErrors.push(...logValidation.errors.map(error => `${item.phaseId}:${error}`));
       reports.push({
+        phaseId: item.phaseId,
+        runner: item.runner,
         report,
         artifact: item.artifact,
         logs: await Promise.all(item.logs.map(async log => ({
@@ -255,6 +263,7 @@ export async function validateCurrentM6Release(root = process.cwd()) {
     candidateSha,
     registryFingerprint: fingerprint,
     registry,
+    plan,
     reports,
   });
   if (!technical.valid) {

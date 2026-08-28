@@ -6,9 +6,6 @@ import { mkdir, symlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import {
-  M6_CANDIDATE_PHASE_IDS,
-} from '../contracts/m6/candidate-plan-v1.js';
-import {
   M6_L0_IDS,
   M6_RELEASE_EVIDENCE_CONTRACT,
   M6_RELEASE_EVIDENCE_INDEX_CONTRACT,
@@ -24,10 +21,13 @@ import {
   verifyM6ArtifactBindings,
   verifyM6GitArtifactBindings,
 } from '../src/release/m6-release-validation.js';
+import { buildM6CandidateExecutionPlan } from '../src/release/m6-candidate-plan.js';
 import { suite, summary, testAsync } from './harness.js';
+import registry from './registry.json' with { type: 'json' };
 
 const candidateSha = 'a'.repeat(40);
 const registryFingerprint = 'b'.repeat(64);
+const plan = buildM6CandidateExecutionPlan(registry);
 const journeyId = 'M6-JOURNEY-MODEL-DISCOVERY-V1';
 const artifactBytes = Buffer.from('m6 evidence fixture\n');
 const artifact = Object.freeze({
@@ -170,17 +170,18 @@ await testAsync('Git evidence index requires one pinned report per locked phase'
     candidateSha,
     registryFingerprint,
     generatedAt: '2026-08-27T00:00:00.000Z',
-    reports: M6_CANDIDATE_PHASE_IDS.map(phaseId => ({
-      phaseId,
-      artifact: binding(phaseId),
-      logs: [],
+    reports: plan.phases.map(phase => ({
+      phaseId: phase.id,
+      runner: phase.runner,
+      artifact: binding(phase.id),
+      logs: phase.programIds.map(programId => ({ programId, artifact: binding(programId) })),
     })),
     releaseArtifactManifest: binding('release-manifest'),
   };
   const validateIndex = value => validateM6ReleaseEvidenceIndex(value, {
     candidateSha,
     registryFingerprint,
-    expectedPhaseIds: M6_CANDIDATE_PHASE_IDS,
+    expectedPhases: plan.phases,
   });
   assert.equal(validateIndex(index).valid, true);
   const missing = structuredClone(index);
@@ -197,6 +198,7 @@ await testAsync('each report result is bound to its exact pinned Git log', async
   };
   const indexReport = {
     phaseId: 'phase-a',
+    runner: 'nightly-audit',
     artifact,
     logs: [{ programId: 'PROGRAM-A', artifact }],
   };
@@ -233,10 +235,10 @@ await testAsync('evidence-only descendant may record review without rebinding pr
     candidateSha,
     evidenceHeadSha: 'c'.repeat(40),
     candidateIsAncestor: true,
-    changedPaths: [
-      'ROADMAP.md',
-      'docs/execution/runs/m6-closeout.md',
-      'docs/review/2026-08-27-M6-REVIEW.md',
+    changedEntries: [
+      { status: 'M', path: 'ROADMAP.md' },
+      { status: 'A', path: 'docs/execution/runs/m6-closeout.md' },
+      { status: 'A', path: 'docs/review/2026-08-27-M6-REVIEW.md' },
     ],
     worktreeClean: true,
     candidateRegistryFingerprint: registryFingerprint,
@@ -251,13 +253,16 @@ await testAsync('product, registry, ancestry and dirty drift behind evidence com
     candidateSha,
     evidenceHeadSha: 'c'.repeat(40),
     candidateIsAncestor: true,
-    changedPaths: ['docs/review/m6.md'],
+    changedEntries: [{ status: 'A', path: 'docs/review/m6.md' }],
     worktreeClean: true,
     candidateRegistryFingerprint: registryFingerprint,
     evidenceRegistryFingerprint: registryFingerprint,
   };
   for (const mutate of [
-    value => { value.changedPaths = ['src/server.js']; },
+    value => { value.changedEntries = [{ status: 'M', path: 'src/server.js' }]; },
+    value => { value.changedEntries = [{ status: 'D', path: 'src/server.js' }]; },
+    value => { value.changedEntries = [{ status: 'T', path: 'docs/review/m6.md' }]; },
+    value => { value.changedEntries = [{ status: 'D', path: 'docs/review/m6.md' }]; },
     value => { value.evidenceRegistryFingerprint = 'd'.repeat(64); },
     value => { value.candidateIsAncestor = false; },
     value => { value.worktreeClean = false; },

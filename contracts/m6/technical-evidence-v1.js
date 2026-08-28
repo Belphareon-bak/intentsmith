@@ -1,5 +1,5 @@
 export const M6_TECHNICAL_EVIDENCE_CONTRACT = 'M6TechnicalEvidenceMatrix';
-export const M6_TECHNICAL_EVIDENCE_VERSION = 3;
+export const M6_TECHNICAL_EVIDENCE_VERSION = 4;
 
 export const M6_TECHNICAL_PROGRAMS = Object.freeze({
   'fresh-clone-install-build': Object.freeze([

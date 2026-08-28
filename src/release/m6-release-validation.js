@@ -43,7 +43,7 @@ const INDEX_KEYS = Object.freeze([
   'reports',
   'version',
 ]);
-const INDEX_REPORT_KEYS = Object.freeze(['artifact', 'logs', 'phaseId']);
+const INDEX_REPORT_KEYS = Object.freeze(['artifact', 'logs', 'phaseId', 'runner']);
 const INDEX_LOG_KEYS = Object.freeze(['artifact', 'programId']);
 const EVIDENCE_ONLY_EXACT_PATHS = new Set([
   'ROADMAP.md',
@@ -83,7 +83,7 @@ function validArtifact(binding) {
 export function validateM6ReleaseEvidenceIndex(index, {
   candidateSha,
   registryFingerprint,
-  expectedPhaseIds,
+  expectedPhases,
 } = {}) {
   const errors = [];
   if (!exactKeys(index, INDEX_KEYS)) {
@@ -105,17 +105,22 @@ export function validateM6ReleaseEvidenceIndex(index, {
     errors.push('index:reports');
   } else {
     const actualPhaseIds = index.reports.map(item => item?.phaseId);
+    const expectedPhaseIds = (expectedPhases || []).map(item => item.id);
     if (new Set(actualPhaseIds).size !== actualPhaseIds.length) {
       errors.push('index:duplicate-phase');
     }
     if (
-      JSON.stringify([...actualPhaseIds].sort())
-      !== JSON.stringify([...(expectedPhaseIds || [])].sort())
+      JSON.stringify(actualPhaseIds)
+      !== JSON.stringify(expectedPhaseIds)
     ) errors.push('index:exact-phases');
     index.reports.forEach((item, indexPosition) => {
       if (!exactKeys(item, INDEX_REPORT_KEYS)) {
         errors.push(`index.reports[${indexPosition}]:keys`);
       } else {
+        const expectedPhase = expectedPhases?.[indexPosition];
+        if (item.runner !== expectedPhase?.runner) {
+          errors.push(`index.reports[${indexPosition}]:runner`);
+        }
         if (!validArtifact(item.artifact)) {
           errors.push(`index.reports[${indexPosition}]:artifact`);
         }
@@ -126,6 +131,10 @@ export function validateM6ReleaseEvidenceIndex(index, {
           if (new Set(programIds).size !== programIds.length) {
             errors.push(`index.reports[${indexPosition}]:duplicate-log-program`);
           }
+          if (
+            JSON.stringify([...programIds].sort())
+            !== JSON.stringify([...(expectedPhase?.programIds || [])].sort())
+          ) errors.push(`index.reports[${indexPosition}]:phase-programs`);
           item.logs.forEach((log, logIndex) => {
             if (
               !exactKeys(log, INDEX_LOG_KEYS)
@@ -372,7 +381,7 @@ export function validateM6EvidenceCommitBoundary({
   candidateSha,
   evidenceHeadSha,
   candidateIsAncestor,
-  changedPaths,
+  changedEntries,
   worktreeClean,
   candidateRegistryFingerprint,
   evidenceRegistryFingerprint,
@@ -388,14 +397,23 @@ export function validateM6EvidenceCommitBoundary({
   if (candidateRegistryFingerprint !== evidenceRegistryFingerprint) {
     errors.push('boundary:registry-drift');
   }
-  if (!Array.isArray(changedPaths)) {
-    errors.push('boundary:changed-paths');
+  if (!Array.isArray(changedEntries)) {
+    errors.push('boundary:changed-entries');
   } else {
-    const normalized = changedPaths.map(value => String(value).replaceAll('\\', '/'));
-    if (new Set(normalized).size !== normalized.length) errors.push('boundary:duplicate-path');
-    for (const changedPath of normalized) {
+    const normalized = changedEntries.map(entry => ({
+      status: entry?.status,
+      path: String(entry?.path || '').replaceAll('\\', '/'),
+    }));
+    if (new Set(normalized.map(entry => entry.path)).size !== normalized.length) {
+      errors.push('boundary:duplicate-path');
+    }
+    for (const entry of normalized) {
+      const changedPath = entry.path;
       const allowed = EVIDENCE_ONLY_EXACT_PATHS.has(changedPath)
         || EVIDENCE_ONLY_PREFIXES.some(prefix => changedPath.startsWith(prefix));
+      if (!['A', 'M'].includes(entry.status)) {
+        errors.push(`boundary:unsafe-change:${entry.status || 'unknown'}:${changedPath}`);
+      }
       if (!safeRelativePath(changedPath) || !allowed) {
         errors.push(`boundary:product-path:${changedPath}`);
       }

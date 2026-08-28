@@ -819,12 +819,6 @@ async function runFreshClonePhase({
       timeoutMs: 45 * 60 * 1000,
     });
     assertCleanCandidate(cloneRoot, candidateSha, 'fresh-clone:post-install');
-    await runLogged(['node', 'scripts/capture-m6-release-artifact.js'], {
-      cwd: cloneRoot,
-      env: prepared.environment,
-      logPath: path.join(evidenceRoot, 'logs', 'release-artifact-capture.log'),
-      timeoutMs: 5 * 60 * 1000,
-    });
 
     const startedAt = new Date().toISOString();
     const results = [];
@@ -905,50 +899,110 @@ async function runFreshClonePhase({
     });
     const reportPath = path.join(evidenceRoot, 'fresh-clone', 'report.json');
     await writePrivateJsonAtomic(reportPath, report);
-
-    const cloneRelease = path.join(
-      cloneRoot,
-      '.intentsmith-artifacts',
-      'm6',
-      `candidate-${candidateSha}`,
-      'release',
-    );
-    const candidateRelease = path.join(evidenceRoot, 'release');
-    await cp(cloneRelease, candidateRelease, {
-      recursive: true,
-      dereference: false,
-      errorOnExist: true,
-      force: false,
-      preserveTimestamps: true,
-    });
-    const manifestPath = path.join(candidateRelease, 'manifest.json');
-    const releaseArtifact = JSON.parse(await readFile(manifestPath, 'utf8'));
-    const releaseValidation = await validateM6ReleaseArtifact(releaseArtifact, {
-      root,
-      candidateSha,
-      sourceTreeClean: sourceState(root).porcelain === '',
-    });
-    if (!releaseValidation.valid) {
-      throw new Error(`M6 copied release artifact invalid: ${releaseValidation.errors.join('; ')}`);
-    }
-    return { reportPath, manifestPath };
-  } finally {
-    const resolved = path.resolve(temporaryParent);
-    const temporaryRoot = path.resolve(os.tmpdir());
-    if (
-      path.dirname(resolved) !== temporaryRoot
-      || !path.basename(resolved).startsWith('intentsmith-m6-clone-')
-    ) {
-      throw new Error(`Refusing unsafe M6 temporary clone cleanup: ${resolved}`);
-    }
-    await rm(resolved, { recursive: true, force: false, maxRetries: 2 });
+    assertCleanCandidate(cloneRoot, candidateSha, 'fresh-clone:post-journeys');
+    return { reportPath, cloneRoot, temporaryParent };
+  } catch (error) {
+    await cleanupFreshClone({ temporaryParent });
+    throw error;
   }
 }
 
-async function loadReportItem(root, reportPath) {
+async function cleanupFreshClone({ temporaryParent }) {
+  const resolved = path.resolve(temporaryParent);
+  const temporaryRoot = path.resolve(os.tmpdir());
+  if (
+    path.dirname(resolved) !== temporaryRoot
+    || !path.basename(resolved).startsWith('intentsmith-m6-clone-')
+  ) throw new Error(`Refusing unsafe M6 temporary clone cleanup: ${resolved}`);
+  await rm(resolved, { recursive: true, force: false, maxRetries: 2 });
+}
+
+async function finalizeFreshCloneRelease({
+  root,
+  candidateSha,
+  evidenceRoot,
+  fresh,
+}) {
+  assertCleanCandidate(root, candidateSha, 'release-artifact:canonical-post-journeys');
+  assertCleanCandidate(fresh.cloneRoot, candidateSha, 'release-artifact:clone-post-journeys');
+  await runLogged(['node', 'scripts/capture-m6-release-artifact.js'], {
+    cwd: fresh.cloneRoot,
+    env: safeBaseEnvironment(),
+    logPath: path.join(evidenceRoot, 'logs', 'release-artifact-capture.log'),
+    timeoutMs: 5 * 60 * 1000,
+  });
+  const cloneRelease = path.join(
+    fresh.cloneRoot,
+    '.intentsmith-artifacts',
+    'm6',
+    `candidate-${candidateSha}`,
+    'release',
+  );
+  const cloneManifestPath = path.join(cloneRelease, 'manifest.json');
+  const cloneArtifact = JSON.parse(await readFile(cloneManifestPath, 'utf8'));
+  const cloneValidation = await validateM6ReleaseArtifact(cloneArtifact, {
+    root: fresh.cloneRoot,
+    candidateSha,
+    sourceTreeClean: sourceState(fresh.cloneRoot).porcelain === '',
+  });
+  if (!cloneValidation.valid) {
+    throw new Error(`M6 post-journey release artifact invalid: ${cloneValidation.errors.join('; ')}`);
+  }
+  const candidateRelease = path.join(evidenceRoot, 'release');
+  await cp(cloneRelease, candidateRelease, {
+    recursive: true,
+    dereference: false,
+    errorOnExist: true,
+    force: false,
+    preserveTimestamps: true,
+  });
+  const manifestPath = path.join(candidateRelease, 'manifest.json');
+  const releaseArtifact = JSON.parse(await readFile(manifestPath, 'utf8'));
+  const releaseValidation = await validateM6ReleaseArtifact(releaseArtifact, {
+    root,
+    candidateSha,
+    sourceTreeClean: sourceState(root).porcelain === '',
+  });
+  if (!releaseValidation.valid) {
+    throw new Error(`M6 copied release artifact invalid: ${releaseValidation.errors.join('; ')}`);
+  }
+  return manifestPath;
+}
+
+export async function loadReportItem(root, reportPath, phase) {
+  const report = JSON.parse(await readFile(reportPath, 'utf8'));
+  const logs = [];
+  for (const result of report.results || []) {
+    if (
+      typeof result.logPath !== 'string'
+      || path.isAbsolute(result.logPath)
+      || result.logPath.includes('\\')
+      || result.logPath.split('/').includes('..')
+    ) throw new Error(`M6 report has an unsafe log path: ${result.id}`);
+    const sourceLog = path.resolve(root, result.logPath);
+    const relativeLog = path.relative(root, sourceLog);
+    if (
+      relativeLog === ''
+      || relativeLog === '..'
+      || relativeLog.startsWith(`..${path.sep}`)
+    ) throw new Error(`M6 report log escapes the candidate root: ${result.id}`);
+    const metadata = await lstat(sourceLog);
+    if (!metadata.isFile() || metadata.isSymbolicLink()) {
+      throw new Error(`M6 report log is not a regular file: ${result.id}`);
+    }
+    const realLog = await realpath(sourceLog);
+    const realRelative = path.relative(await realpath(root), realLog);
+    if (realRelative === '' || realRelative === '..' || realRelative.startsWith(`..${path.sep}`)) {
+      throw new Error(`M6 report log resolves outside the candidate root: ${result.id}`);
+    }
+    logs.push({ programId: result.id, bytes: await readFile(sourceLog) });
+  }
   return {
-    report: JSON.parse(await readFile(reportPath, 'utf8')),
+    phaseId: phase.id,
+    runner: phase.runner,
+    report,
     artifact: await artifactBinding(root, reportPath),
+    logs,
   };
 }
 
@@ -1002,6 +1056,7 @@ async function stageM6GitEvidence({
     await writePrivateJsonAtomic(target, report);
     reportBindings.push({
       phaseId: phase.id,
+      runner: phase.runner,
       artifact: await artifactBinding(root, target),
       logs,
     });
@@ -1145,50 +1200,62 @@ export async function runM6CandidateEvidence(root = process.cwd(), argv = []) {
     evidenceRoot,
   });
   reportPaths.push(fresh.reportPath);
+  try {
+    await waitForCandidateGpuQuiescence(evidenceRoot);
+    const physicalGpu = plan.phases.find(phase => phase.id === 'physical-ollama-gpu');
+    reportPaths.push(await runAuditPhase({ root, candidateSha, evidenceRoot, phase: physicalGpu }));
 
-  await waitForCandidateGpuQuiescence(evidenceRoot);
-  const physicalGpu = plan.phases.find(phase => phase.id === 'physical-ollama-gpu');
-  reportPaths.push(await runAuditPhase({ root, candidateSha, evidenceRoot, phase: physicalGpu }));
+    const controlledSoak = plan.phases.find(phase => phase.id === 'controlled-soak');
+    reportPaths.push(await runAuditPhase({ root, candidateSha, evidenceRoot, phase: controlledSoak }));
+    assertCleanCandidate(root, candidateSha, 'candidate:post-state');
 
-  const controlledSoak = plan.phases.find(phase => phase.id === 'controlled-soak');
-  reportPaths.push(await runAuditPhase({ root, candidateSha, evidenceRoot, phase: controlledSoak }));
-  assertCleanCandidate(root, candidateSha, 'candidate:post-state');
-
-  const reports = [];
-  for (const reportPath of reportPaths) reports.push(await loadReportItem(root, reportPath));
-  const technical = evaluateM6TechnicalEvidence({
-    candidateSha,
-    registryFingerprint: fingerprint,
-    registry,
-    reports,
-  });
-  await writePrivateJsonAtomic(path.join(evidenceRoot, 'technical-evidence.json'), technical);
-  if (!technical.valid || technical.checks.some(row => (
-    !['m5-acceptance', 'gate0-attestation', 'independent-read-only-review',
-      'release-artifact', 'operator-demo-approval'].includes(row.id)
-    && row.status !== 'PASS'
-  )) || technical.l0.some(row => row.status !== 'PASS')) {
-    throw new Error('M6 technical candidate evidence is incomplete or red');
+    const releaseManifestPath = await finalizeFreshCloneRelease({
+      root,
+      candidateSha,
+      evidenceRoot,
+      fresh,
+    });
+    const reports = [];
+    for (const [index, reportPath] of reportPaths.entries()) {
+      reports.push(await loadReportItem(root, reportPath, plan.phases[index]));
+    }
+    const technical = evaluateM6TechnicalEvidence({
+      candidateSha,
+      registryFingerprint: fingerprint,
+      registry,
+      plan,
+      reports,
+    });
+    await writePrivateJsonAtomic(path.join(evidenceRoot, 'technical-evidence.json'), technical);
+    if (!technical.valid || technical.checks.some(row => (
+      !['m5-acceptance', 'gate0-attestation', 'independent-read-only-review',
+        'release-artifact', 'operator-demo-approval'].includes(row.id)
+      && row.status !== 'PASS'
+    )) || technical.l0.some(row => row.status !== 'PASS')) {
+      throw new Error('M6 technical candidate evidence is incomplete or red');
+    }
+    const releaseEvidencePath = await stageM6GitEvidence({
+      root,
+      candidateSha,
+      registryFingerprint: fingerprint,
+      generatedAt: new Date().toISOString(),
+      plan,
+      reportPaths,
+      releaseManifestPath,
+    });
+    return Object.freeze({
+      candidateSha,
+      registryFingerprint: fingerprint,
+      evidenceRoot: relative(root, evidenceRoot),
+      releaseEvidencePath,
+      technicalImplementation: 'PASS',
+      releaseVerdict: 'BLOCKED',
+      reasonCode: 'M6_GIT_EVIDENCE_COMMIT_AND_EXTERNAL_AUTHORITIES_PENDING',
+      exitCode: 2,
+    });
+  } finally {
+    await cleanupFreshClone(fresh);
   }
-  const releaseEvidencePath = await stageM6GitEvidence({
-    root,
-    candidateSha,
-    registryFingerprint: fingerprint,
-    generatedAt: new Date().toISOString(),
-    plan,
-    reportPaths,
-    releaseManifestPath: fresh.manifestPath,
-  });
-  return Object.freeze({
-    candidateSha,
-    registryFingerprint: fingerprint,
-    evidenceRoot: relative(root, evidenceRoot),
-    releaseEvidencePath,
-    technicalImplementation: 'PASS',
-    releaseVerdict: 'BLOCKED',
-    reasonCode: 'M6_GIT_EVIDENCE_COMMIT_AND_EXTERNAL_AUTHORITIES_PENDING',
-    exitCode: 2,
-  });
 }
 
 export async function main(argv = process.argv.slice(2)) {

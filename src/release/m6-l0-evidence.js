@@ -2,6 +2,8 @@ import {
   M6_L0_EVIDENCE_CONTRACT,
   M6_L0_EVIDENCE_PROGRAMS,
   M6_L0_EVIDENCE_VERSION,
+  M6_L0_SEMANTIC_AUTHORITY,
+  M6_L0_SEMANTIC_STATE,
 } from '../../contracts/m6/l0-evidence-v1.js';
 import { M6_L0_IDS } from '../../contracts/m6/release-v1.js';
 
@@ -53,7 +55,41 @@ export function validateM6L0ProgramMap(registry) {
       }
     }
   }
+  const semanticIds = Object.keys(M6_L0_SEMANTIC_AUTHORITY);
+  if (JSON.stringify(semanticIds.sort()) !== JSON.stringify([...M6_L0_IDS].sort())) {
+    errors.push('l0-semantic-map:exact-ids');
+  }
+  for (const [l0Id, authority] of Object.entries(M6_L0_SEMANTIC_AUTHORITY)) {
+    if (!Object.values(M6_L0_SEMANTIC_STATE).includes(authority?.state)) {
+      errors.push(`${l0Id}:semantic-state-invalid`);
+    }
+    if (
+      authority?.state === M6_L0_SEMANTIC_STATE.VERIFIED
+      && authority?.reasonCode !== null
+    ) errors.push(`${l0Id}:verified-reason-forbidden`);
+    if (
+      authority?.state !== M6_L0_SEMANTIC_STATE.VERIFIED
+      && (typeof authority?.reasonCode !== 'string' || authority.reasonCode.length === 0)
+    ) errors.push(`${l0Id}:semantic-reason-required`);
+  }
   return freeze({ valid: errors.length === 0, errors });
+}
+
+function applySemanticAuthority(l0Id, executionStatus) {
+  const authority = M6_L0_SEMANTIC_AUTHORITY[l0Id];
+  if (executionStatus === 'FAIL') {
+    return { status: 'FAIL', reasonCode: 'M6_L0_PROGRAM_FAILED' };
+  }
+  if (executionStatus === 'NOT_RUN') {
+    return { status: 'NOT_RUN', reasonCode: 'M6_L0_PROGRAM_NOT_RUN' };
+  }
+  if (authority.state === M6_L0_SEMANTIC_STATE.OPEN_VIOLATION) {
+    return { status: 'FAIL', reasonCode: authority.reasonCode };
+  }
+  if (authority.state !== M6_L0_SEMANTIC_STATE.VERIFIED) {
+    return { status: 'NOT_RUN', reasonCode: authority.reasonCode };
+  }
+  return { status: 'PASS', reasonCode: null };
 }
 
 export function evaluateM6L0Evidence({
@@ -89,15 +125,13 @@ export function evaluateM6L0Evidence({
     const failed = programIds.filter(programId => (
       results.has(programId) && !validPassingResult(results.get(programId), candidateSha)
     ));
-    const status = failed.length > 0 ? 'FAIL' : missing.length > 0 ? 'NOT_RUN' : 'PASS';
+    const executionStatus = failed.length > 0 ? 'FAIL' : missing.length > 0 ? 'NOT_RUN' : 'PASS';
+    const { status, reasonCode } = applySemanticAuthority(id, executionStatus);
     return {
       id,
       status,
-      reasonCode: status === 'PASS'
-        ? null
-        : status === 'FAIL'
-          ? 'M6_L0_PROGRAM_FAILED'
-          : 'M6_L0_PROGRAM_NOT_RUN',
+      reasonCode,
+      semanticState: M6_L0_SEMANTIC_AUTHORITY[id].state,
       programIds: [...programIds],
       missing,
       failed,

@@ -55,6 +55,7 @@ import {
 import {
   ChatProcessingError,
   LLMProviderUnavailableError,
+  ModelResponseTruncatedError,
   throwIfTerminalChatFailure,
 } from '../src/core/chat-turn-error.js';
 import {
@@ -1693,6 +1694,34 @@ await asyncTest('T23c: M1 adapter preserves identity and emits one canonical str
     sent.some(message => message.channel === 'chat' && message.data?.type === 'assistant'),
     false,
     'M1 must not emit a legacy assistant envelope',
+  );
+});
+
+await asyncTest('T23c1: M1 WS emits a typed error, never ok, for a length-truncated model result', async () => {
+  const sent = [];
+  const frame = m1StudioFrame('truncated');
+  const adapter = createSessionAdapter({
+    send: encoded => sent.push(JSON.parse(encoded)),
+    handleRequest: async () => {
+      throw new ModelResponseTruncatedError();
+    },
+    logger: mockLogger,
+  });
+
+  try {
+    await adapter.processM1Command(frame);
+  } finally {
+    adapter.cleanup();
+  }
+
+  const events = m1EventStream(sent, frame.command.requestId);
+  assert.equal(events.at(-1).terminalStatus, 'error');
+  assert.equal(events.at(-1).payload.result.status, 'error');
+  assert.equal(events.at(-1).payload.result.error.code, 'MODEL_RESPONSE_TRUNCATED');
+  assert.equal(
+    events.some(event => event.terminalStatus === 'ok'),
+    false,
+    'a truncated response must never cross the M1 WS success boundary',
   );
 });
 

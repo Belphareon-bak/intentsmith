@@ -65,22 +65,29 @@ test('all thirteen invariants require named ACTIVE registry programs', () => {
   }
 });
 
-test('exact clean candidate results across multiple reports yield 13/13 PASS', () => {
+test('clean programs cannot override open or partial semantic invariant states', () => {
   const midpoint = Math.floor(allProgramIds.length / 2);
   const value = evaluate([
     report(allProgramIds.slice(0, midpoint)),
     report(allProgramIds.slice(midpoint)),
   ]);
   assert.equal(value.valid, true);
-  assert.equal(value.verdict, 'PASS');
+  assert.equal(value.verdict, 'FAIL');
   assert.equal(value.rows.length, 13);
-  assert.equal(value.rows.every(row => row.status === 'PASS'), true);
+  assert.equal(value.rows.filter(row => row.status === 'PASS').length, 11);
+  assert.deepEqual(
+    value.rows.filter(row => row.status !== 'PASS').map(row => [row.id, row.status, row.semanticState]),
+    [
+      ['L0-11', 'FAIL', 'OPEN_VIOLATION'],
+      ['L0-12', 'NOT_RUN', 'PARTIAL'],
+    ],
+  );
 });
 
 test('missing execution remains NOT_RUN and release-blocking', () => {
   const value = evaluate([report(allProgramIds.slice(1))]);
   assert.equal(value.valid, true);
-  assert.equal(value.verdict, 'BLOCKED');
+  assert.equal(value.verdict, 'FAIL');
   assert(value.rows.some(row => row.status === 'NOT_RUN'));
 });
 

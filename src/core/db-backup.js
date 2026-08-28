@@ -488,10 +488,27 @@ export function discoverSupportedMigrationVersions(projectRoot) {
       'Current release migration directory is unavailable',
     );
   }
-  return fs.readdirSync(directory)
+  const versions = fs.readdirSync(directory)
     .filter(name => name.endsWith('.js'))
-    .map(name => name.slice(0, -3))
-    .sort();
+    .sort()
+    .map(name => {
+      const source = fs.readFileSync(path.join(directory, name), 'utf8');
+      const match = /^export const version = ['"]([^'"]+)['"];$/mu.exec(source);
+      if (!match) {
+        throw new StateBackupError(
+          'BACKUP_SUPPORTED_SCHEMA_INVALID',
+          `Migration source has no static version authority: ${name}`,
+        );
+      }
+      return match[1];
+    });
+  if (new Set(versions).size !== versions.length) {
+    throw new StateBackupError(
+      'BACKUP_SUPPORTED_SCHEMA_DUPLICATE',
+      'Migration sources contain duplicate version authorities',
+    );
+  }
+  return versions.sort();
 }
 
 function assertMigrationMetadata(metadata) {
