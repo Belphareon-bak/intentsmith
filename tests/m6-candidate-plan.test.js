@@ -44,7 +44,7 @@ test('plan is argument-free, serial and covers the exact ACTIVE required registr
     .sort();
   const selected = plan.phases.flatMap(phase => phase.programIds).sort();
   assert.deepEqual(selected, expected);
-  assert.equal(selected.length, 365);
+  assert.equal(selected.length, 366);
   assert.equal(Object.isFrozen(plan), true);
 });
 

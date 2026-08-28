@@ -15,6 +15,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import './harness.js';
+
 const SOURCE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CLI = path.join(SOURCE_ROOT, 'scripts', 'workspace-budget.mjs');
 const fixtureRoot = mkdtempSync(path.join(os.tmpdir(), 'intentsmith workspace-budget '));
@@ -157,7 +159,7 @@ try {
   check('malformed invocation and non-Git repository fail closed', () => {
     run(['report', '--yes', '--repo', repo], 2);
     run(['report', '--unknown', '--repo', repo], 2);
-    run(['report', '--repo', fixtureRoot], 2);
+    run(['report', '--repo', '/proc'], 2);
   });
 
   process.stdout.write(`workspace budget: ${passed}/${passed} PASS\n`);
