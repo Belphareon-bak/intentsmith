@@ -18,6 +18,7 @@ const HEADER_NAME = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/u;
 const HEADER_VALUE_CONTROL = /[\u0000-\u0008\u000a-\u001f\u007f]/u;
 const admissions = new WeakSet();
 const policies = new WeakSet();
+const rateLimitPlans = new WeakSet();
 
 const ROUTES = Object.freeze([
   Object.freeze({
@@ -389,11 +390,13 @@ export function createM7TransportAdmissionPolicy({ listener, peerIdentityKey } =
           60,
         ));
       }
-      return deepFreeze({
+      const plan = deepFreeze({
         authority: 'DURABLE_RATE_LIMIT_CONSUMER_REQUIRED',
         buckets,
         routeId: admission.routeId,
       });
+      rateLimitPlans.add(plan);
+      return plan;
     },
   };
   deepFreeze(policy);
@@ -403,6 +406,10 @@ export function createM7TransportAdmissionPolicy({ listener, peerIdentityKey } =
 
 export function isGenuineM7TransportAdmissionPolicy(value) {
   return policies.has(value);
+}
+
+export function isGenuineM7TransportRateLimitPlan(value) {
+  return rateLimitPlans.has(value);
 }
 
 export default createM7TransportAdmissionPolicy;

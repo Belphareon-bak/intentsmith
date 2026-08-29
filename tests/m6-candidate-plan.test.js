@@ -99,6 +99,7 @@ test('M7 session authority is an explicit required member of the locked plan', (
 
 test('M7 event, notification and transport boundaries are required locked-plan members', () => {
   const programIds = [
+    'IS-T1-TESTS-M7-DURABLE-RATE-LIMITER-TEST',
     'IS-T1-TESTS-M7-NOTIFICATION-CORE-ADAPTERS-TEST',
     'IS-T1-TESTS-M7-RUN-EVENT-CORE-ADAPTER-TEST',
     'IS-T1-TESTS-M7-TRANSPORT-ADMISSION-POLICY-TEST',

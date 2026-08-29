@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 498
-- Explicit support-module exclusions: 17
-- Profiles: offline=270, database=68, server=44, model=81, soak=15, manual=20
-- States: ACTIVE=404, HISTORICAL=15, BLOCKED=79
+- Runnable programs: 499
+- Explicit support-module exclusions: 18
+- Profiles: offline=270, database=69, server=44, model=81, soak=15, manual=20
+- States: ACTIVE=405, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -375,6 +375,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M6-TECHNICAL-EVIDENCE-TEST` | `tests/m6-technical-evidence.test.js` | `C3-012` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-M7-CONVERSATION-CORE-ADAPTERS-TEST` | `tests/m7-conversation-core-adapters.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-CONVERSATION-CORE-ADAPTERS |
 | `IS-T1-TESTS-M7-CORE-COMPOSITION-TEST` | `tests/m7-core-composition.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-CORE-COMPOSITION |
+| `IS-T1-TESTS-M7-DURABLE-RATE-LIMITER-TEST` | `tests/m7-durable-rate-limiter.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-DURABLE-RATE-LIMITER |
 | `IS-T1-TESTS-M7-IN-PROCESS-CAPABILITY-PROVIDER-TEST` | `tests/m7-in-process-capability-provider.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-IN-PROCESS-CAPABILITY-PROVIDER |
 | `IS-T1-TESTS-M7-M2-APPROVAL-CORE-ADAPTERS-TEST` | `tests/m7-m2-approval-core-adapters.test.js` | `C3-032` | T1 | `database` | 5 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-M2-APPROVAL-ADAPTER |
 | `IS-T1-TESTS-M7-MOBILE-CORE-PIN-INTEGRATION-TEST` | `tests/m7-mobile-core-pin-integration.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-REMOTE-COMPANION |
@@ -556,6 +557,7 @@ ledger.
 | `tests/helpers/chat-journey-response.js` | Imported model-journey response classifier with deterministic checks covered by m1-chat-contract.test.js. |
 | `tests/helpers/isolated-test-db.js` | Imported direct-run database isolation bootstrap, not a standalone test. |
 | `tests/helpers/m6-owned-runtime-probe.js` | Imported M6 owned-server and loopback namespace harness, not a standalone test. |
+| `tests/helpers/m7-durable-rate-limit-racer.js` | Suite-owned cross-process SQLite race helper launched only by m7-durable-rate-limiter.test.js. |
 | `tests/helpers/ollama-loopback-fetch-boundary.js` | Imported fail-closed M6 model-test transport boundary, not a standalone test. |
 | `tests/run-all.js` | Aggregate compatibility entry point; registering it as a child suite would recurse into the registry runner. |
 

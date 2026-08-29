@@ -35,6 +35,10 @@
       "reason": "Imported direct-run database isolation bootstrap, not a standalone test."
     },
     {
+      "path": "tests/helpers/m7-durable-rate-limit-racer.js",
+      "reason": "Suite-owned cross-process SQLite race helper launched only by m7-durable-rate-limiter.test.js."
+    },
+    {
       "path": "tests/helpers/m6-owned-runtime-probe.js",
       "reason": "Imported M6 owned-server and loopback namespace harness, not a standalone test."
     },
@@ -14108,6 +14112,36 @@
       },
       "required": true,
       "owner": "WP-M7-CORE-COMPOSITION",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M7-DURABLE-RATE-LIMITER-TEST",
+      "path": "tests/m7-durable-rate-limiter.test.js",
+      "argv": [
+        "node",
+        "tests/m7-durable-rate-limiter.test.js"
+      ],
+      "capabilityId": "C3-032",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "database",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 3000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M7-DURABLE-RATE-LIMITER",
       "state": "ACTIVE",
       "lastGreen": {
         "commit": null,

@@ -12,6 +12,9 @@ admission policy prošel souvisle `338/338 PASS` na exact kandidátu
 `bba4bbf3`; produktový řez a nový M6 registry ratchet však stále čekají na
 nezávislé review. Policy neotevírá listener, nevlastní produkční klíče a
 nekonzumuje session authority. Produkční M7 transport proto zůstává absent.
+Novější disconnected durable limiter je focused-green, ale poslední souvislý
+gate zůstává tento `bba4bbf3` běh; limiter nemá listener consumer ani
+produkční HMAC key custody.
 Stav M5/M6 se přebírá pouze z
 `ROADMAP.md` a `SYSTEM-MAP.md`, nikoli z historického počítadla zdrojové
 mobilní větve.
