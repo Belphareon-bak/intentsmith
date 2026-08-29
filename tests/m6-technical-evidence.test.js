@@ -7,6 +7,7 @@ import {
   M6_EXTERNAL_AUTHORITY_CHECKS,
 } from '../contracts/m6/technical-evidence-v1.js';
 import {
+  M6_CURRENT_VERSION_MIGRATION_COUNT,
   M6_LONG_SOAK_PROGRAM,
   M6_MAX_THROUGHPUT_PROGRAM,
   M6_PREVIOUS_VERSION_SHA,
@@ -181,7 +182,7 @@ function logForProgram(programId) {
     failedUpgradeLogSha256: 'd'.repeat(64),
     failedUpgradeMigrationCount: 70,
     previousMigrationCount: 56,
-    currentMigrationCount: 90,
+    currentMigrationCount: M6_CURRENT_VERSION_MIGRATION_COUNT,
     canary: {
       id: 1,
       name: 'M6 Upgrade Canary',
