@@ -24,13 +24,13 @@ M7 = CORE_COMPOSITION_CHANGES_REQUIRED /
 - prior rejected candidate:
   `d43e7ada01d6e5de38a06d79021bde8909d2eba3`;
 - exact product candidate:
-  `57ac2a4d3154df8016aea907ead5c68c4606d237`;
+  `caaa14ca0fa586ab4a85cd7ccaed47836005a72f`;
 - product tree:
-  `b7131f405ffa74e0fa06297e608cf3ec397b5fdc`;
+  `aefab7d0447f2722a84ff3137464c4a8a804a6c6`;
 - remediation range:
-  `d43e7ada01d6e5de38a06d79021bde8909d2eba3..57ac2a4d3154df8016aea907ead5c68c4606d237`;
+  `d43e7ada01d6e5de38a06d79021bde8909d2eba3..caaa14ca0fa586ab4a85cd7ccaed47836005a72f`;
 - cumulative range for original composition/mobile assertions:
-  `1d04bd42bbaa79e9da1fe2b6b59b6589ce8efad5..57ac2a4d3154df8016aea907ead5c68c4606d237`;
+  `1d04bd42bbaa79e9da1fe2b6b59b6589ce8efad5..caaa14ca0fa586ab4a85cd7ccaed47836005a72f`;
 - registry fingerprint:
   `a316db7caa97b966c557d2f6f4c2934048b0b7351eb1eac22c144e5479f96479`.
 
@@ -78,7 +78,7 @@ Trace Git source → generated canonical manifest/plugin registry → build
 transform → archive extraction → final evidence manifest.
 
 1. Do APK and AAB each contain the same canonical manifest for exact candidate
-   `57ac2a4d`, rather than merely matching one another?
+   `caaa14ca`, rather than merely matching one another?
 2. Are application ID, version code/name, min/target SDK and source revision
    independently parsed from each archive and compared to source-derived
    expectations?
@@ -96,22 +96,24 @@ transform → archive extraction → final evidence manifest.
 ## D. Evidence and documentation truth
 
 1. Do the cumulative and remediation ranges above resolve exactly?
-2. Do ROADMAP and SYSTEM-MAP preserve the prior `CHANGES_REQUIRED` verdict
+2. Is `git diff --check` clean for both ranges, including the two `.mjs` EOF
+   paths corrected by `caaa14ca`?
+3. Do ROADMAP and SYSTEM-MAP preserve the prior `CHANGES_REQUIRED` verdict
    while recording only remediation implementation and re-review readiness?
-3. Are all four new deterministic reports preserved with their real verdicts,
-   including the three red diagnostics?
-4. Does the final report bind source `57ac2a4d`, registry `a316db7c…f96479`,
+4. Are all five deterministic reports preserved with their real verdicts,
+   including the three red diagnostics and superseded green `57ac2a4d` run?
+5. Does the final report bind source `caaa14ca`, registry `a316db7c…f96479`,
    counts `333/0/0/0/0`, verdict PASS and exit 0?
-5. Does the physical evidence manifest bind the retained APK/AAB bytes and
+6. Does the physical evidence manifest bind the retained APK/AAB bytes and
    label them `THROWAWAY_DEBUG_SIGNED` with `releaseTransportReady: false`?
-6. Does the review avoid transferring the older running M6 soak or claiming
+7. Does the review avoid transferring the older running M6 soak or claiming
    live LLM/GPU, production signing, device or transport evidence?
 
 ## Reproduction
 
 ```bash
-git diff --check d43e7ada..57ac2a4d
-git diff --check 1d04bd42..57ac2a4d
+git diff --check d43e7ada..caaa14ca
+git diff --check 1d04bd42..caaa14ca
 
 node tests/m7-operation-control-adapters.test.js
 node tests/mobile-android-release.test.js
@@ -130,17 +132,17 @@ node scripts/validate-test-registry.js
 
 The exact green gate is:
 
-`.intentsmith-artifacts/m7-remediation-offline-database-20260829/57ac2a4d-final/m7-remediation-57ac2a4d-final/report.json`
+`.intentsmith-artifacts/m7-remediation-offline-database-20260829/caaa14ca-final/m7-remediation-caaa14ca-final/report.json`
 
 Expected SHA-256:
-`923070a9982654f83d5bad9074ddc347f67882a0bb6e4c370e73126fb65e5fcc`.
+`d7f2e540470bf5ec143c09d136260e574e4d30d81fb436733f99a77cf17395c3`.
 
 The exact retained physical build evidence is:
 
-`.intentsmith-artifacts/mobile-release/57ac2a4d3154/manifest.json`
+`.intentsmith-artifacts/mobile-release/caaa14ca0fa5/manifest.json`
 
 Expected SHA-256:
-`1ca7ceeaba081cdfd2f21dc539fc9d9e328723e6cfb52dec23327e822edb6acc`.
+`782db5abdaf29585a0bea5895c7dd1e8c36d62b67fbc54b47d8ef1c48e52b4b8`.
 
 The complete evidence ledger is
 [`m7-core-composition-mobile-binding-remediation-20260829.md`](../execution/runs/m7/m7-core-composition-mobile-binding-remediation-20260829.md).

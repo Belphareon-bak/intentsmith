@@ -17,14 +17,15 @@ evidence and does not turn its `CHANGES_REQUIRED` verdict into a pass.
   `c27a62da1079ba238547eb0b3f454eb1232f0173`;
 - M6 migration-authority test correction:
   `b243c7d13b858c2ab65b5489b532ce6a8ae854d8`;
+- hygiene normalization: `caaa14ca0fa586ab4a85cd7ccaed47836005a72f`;
 - exact re-review product candidate:
-  `57ac2a4d3154df8016aea907ead5c68c4606d237`;
+  `caaa14ca0fa586ab4a85cd7ccaed47836005a72f`;
 - product tree:
-  `b7131f405ffa74e0fa06297e608cf3ec397b5fdc`;
+  `aefab7d0447f2722a84ff3137464c4a8a804a6c6`;
 - remediation range:
-  `d43e7ada01d6e5de38a06d79021bde8909d2eba3..57ac2a4d3154df8016aea907ead5c68c4606d237`;
+  `d43e7ada01d6e5de38a06d79021bde8909d2eba3..caaa14ca0fa586ab4a85cd7ccaed47836005a72f`;
 - cumulative composition/mobile range:
-  `1d04bd42bbaa79e9da1fe2b6b59b6589ce8efad5..57ac2a4d3154df8016aea907ead5c68c4606d237`;
+  `1d04bd42bbaa79e9da1fe2b6b59b6589ce8efad5..caaa14ca0fa586ab4a85cd7ccaed47836005a72f`;
 - branch: `codex/m7-mobile-contract-integration-20260829`, without upstream;
 - registry: 493 runnable, 399 ACTIVE, 79 BLOCKED, 15 HISTORICAL;
 - ACTIVE+required programs: 394;
@@ -41,6 +42,9 @@ corrected without rewriting the rejected verdict. ROADMAP and SYSTEM-MAP now
 both retain `CHANGES_REQUIRED / REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED`.
 The missing historical `318/15` report remains recorded as red, recoverable in
 the user's Trash and absent from its original path; Trash was not modified.
+The final handoff check additionally found two blank EOF lines in new mobile
+`.mjs` files. Commit `caaa14ca` removes them, and `git diff --check` is clean
+for both the remediation and cumulative ranges above.
 
 ### M7-R2 — unbounded operation list
 
@@ -111,7 +115,7 @@ it is not represented as the complete 394-program M6 release plan.
 
 The final run used a clean detached checkout at the exact product candidate,
 one runner and an artifact root outside that checkout. It started at
-`2026-08-29T06:05:33.917Z` and ended at `2026-08-29T06:09:19.872Z`:
+`2026-08-29T06:19:20.589Z` and ended at `2026-08-29T06:23:06.356Z`:
 
 ```text
 333 PASS / 0 FAIL / 0 TIMEOUT / 0 BLOCKED / 0 SKIPPED
@@ -120,13 +124,13 @@ exitCode = 0
 ```
 
 - report:
-  `.intentsmith-artifacts/m7-remediation-offline-database-20260829/57ac2a4d-final/m7-remediation-57ac2a4d-final/report.json`;
+  `.intentsmith-artifacts/m7-remediation-offline-database-20260829/caaa14ca-final/m7-remediation-caaa14ca-final/report.json`;
 - report SHA-256:
-  `923070a9982654f83d5bad9074ddc347f67882a0bb6e4c370e73126fb65e5fcc`;
+  `d7f2e540470bf5ec143c09d136260e574e4d30d81fb436733f99a77cf17395c3`;
 - inventory SHA-256:
-  `f1d9a9245d3e53cbf483c35a52b29fefdc62e8d687e8aad17911521dfb19f6e6`;
+  `f968cca42534579b0d30b65eac5a2927f1bd7637f66708a46cb1554f531c5022`;
 - checkpoint SHA-256:
-  `2646e3ed8a7e8ac0d6d3028a0d12e3434cfe2ba763e372c8edd98ddc7faf7106`;
+  `c73ab3f32b34d9c06a3d66c5ffbc38c9e1a02a28f27da683f1f682770f8db6fe`;
 - inventory fingerprint:
   `840682a9949883150ae224138aa92d13f64de38ee22614a0ff4078cf902c9305`;
 - options fingerprint:
@@ -134,6 +138,10 @@ exitCode = 0
 
 All M6 ratchet sentinels, both signed-authority suites, M7 operation control and
 the Android release suite are PASS entries in this exact report.
+
+The earlier exact `57ac2a4d` run is preserved as a truthful superseded green
+report (`333/333 PASS`, SHA-256 `923070a9…5fcc`). It is not the final evidence,
+because the subsequent cumulative `diff --check` found the two EOF warnings.
 
 ### Preserved red diagnostics
 
@@ -155,17 +163,17 @@ The clean detached candidate produced a fresh APK and AAB. This is deliberately
 classified `THROWAWAY_DEBUG_SIGNED`, not as release-ready:
 
 - evidence directory:
-  `.intentsmith-artifacts/mobile-release/57ac2a4d3154/`;
+  `.intentsmith-artifacts/mobile-release/caaa14ca0fa5/`;
 - evidence manifest SHA-256:
-  `1ca7ceeaba081cdfd2f21dc539fc9d9e328723e6cfb52dec23327e822edb6acc`;
+  `782db5abdaf29585a0bea5895c7dd1e8c36d62b67fbc54b47d8ef1c48e52b4b8`;
 - APK SHA-256:
-  `195c80b3ffbddc90aec74c3ca13e096053f4dcdae8a0fc424a43089f9c4c09c1`;
+  `67149b00a115e32a929aa43c5700a9de5d36e3479aa54afc12395bb47720d39d`;
 - AAB SHA-256:
-  `2094c2947ea9731bf1721cb4a54a7056b562dc210ac6a52e9578995f825db9d6`;
+  `0eb63056d95d2ac49feac4e7b60c4e9963da9268ee19b4afb2f198705820129c`;
 - APK and AAB signer SHA-256:
   `4be471bc1064e2732735c18358ed1a118449c79a0f1ba3ff55d0b36bacb8951c`;
 - source manifest SHA-256:
-  `cd573d29a191d84e7679bf6caeaf240855aa7b307d2296c6a29f1f13a88b92fe`;
+  `648d53c6fcdbcf1ae96274820b6946c71b674864a930f2e515d4fead3a8c4285`;
 - decoded network-policy tree SHA-256 for each archive:
   `30d476e0e9c5af330541794a506690ce996ec81301808f2bedde19cb75891aa2`;
 - mobile runtime audit: 0 vulnerabilities.
@@ -177,7 +185,7 @@ global-fetch patch that must be replaced or disabled before production.
 ## Non-transferable and deferred evidence
 
 - The already-running M6 24-hour soak targets an older candidate and cannot be
-  transferred to `57ac2a4d`; it was not stopped or modified.
+  transferred to `caaa14ca`; it was not stopped or modified.
 - Live LLM/chat-quality, Ollama and GPU tests remain postponed by operator
   instruction while model optimization is in progress.
 - No device/TalkBack matrix, production signer, distribution, listener,
