@@ -184,6 +184,7 @@ async function persistTelemetry(snapshot) {
  * @param {number}  [options.staleTurnMs] — Stale-turn threshold (default: 5 minutes)
  * @param {number}  [options.staleSweepMs] — Stale-turn sweep interval (default: 1 minute)
  * @param {Object}  [options.staleClock] — Injectable stale-sweep clock for tests
+ * @param {Function|null} [options.observeCoreEvent] — optional validated CoreEvent observer
  * @returns {SessionAdapter}
  */
 export function createSessionAdapter({
@@ -196,7 +197,11 @@ export function createSessionAdapter({
   staleSweepMs = 60_000,
   staleClock = null,
   m1CancelConfirmationTimeoutMs = M1_CANCEL_CONFIRMATION_TIMEOUT_MS,
+  observeCoreEvent = null,
 }) {
+  if (observeCoreEvent !== null && typeof observeCoreEvent !== 'function') {
+    throw new TypeError('WSSession observeCoreEvent must be a function or null');
+  }
   let seq = 0;
   let turnCounter = 0;
 
@@ -281,6 +286,22 @@ export function createSessionAdapter({
         throw error;
       }
       sendChannel(Channel.CHAT, event);
+      if (observeCoreEvent !== null
+        && authenticatedSubject?.actorType === 'user'
+        && typeof authenticatedSubject.actorId === 'string') {
+        try {
+          observeCoreEvent({
+            event: structuredClone(event),
+            projectId: null,
+            subjectId: authenticatedSubject.actorId,
+          });
+        } catch (error) {
+          logger.warn('WSSession', 'M7 CoreEvent observer rejected an event', {
+            error: error.message,
+            requestId: command.requestId,
+          });
+        }
+      }
       sequence = event.sequence;
       return event;
     }

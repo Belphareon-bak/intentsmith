@@ -8,18 +8,25 @@ import path from 'node:path';
 import Database from 'better-sqlite3';
 
 import { validateMobileRemotePayload } from '../docs/mobile/contracts/remote-capability-payloads-v1.js';
+import {
+  AgentRepository,
+  createM3AgentNotificationReadPort,
+  initAgentTables,
+} from '../src/agents/repository.js';
 import { up as installJournal } from '../src/db/migrations/2026_08_29_101_m7_remote_operation_journal.js';
 import { up as installInformation } from '../src/db/migrations/2026_08_29_102_m7_manual_information.js';
 import { up as installAbandonments } from '../src/db/migrations/2026_08_29_103_m7_operation_abandonments.js';
+import { up as installNotificationReceipts } from '../src/db/migrations/2026_08_29_107_m7_notification_ack_receipts.js';
 import {
   createM7CoreComposition,
   M7_CORE_COMPOSITION_STAGE,
 } from '../src/remote/m7-core-composition.js';
+import { createM7RunEventCoreAdapter } from '../src/remote/m7-run-event-core-adapter.js';
 import { suite, summary, test, testAsync } from './harness.js';
 
 const CURSOR_KEY = Buffer.alloc(32, 0x63);
 
-function setup(overrides = {}) {
+function setup({ remainingCapabilities = false, ...overrides } = {}) {
   const root = mkdtempSync(path.join(tmpdir(), 'intentsmith-m7-composition-'));
   const projectRoot = path.join(root, 'project');
   mkdirSync(projectRoot);
@@ -76,7 +83,35 @@ function setup(overrides = {}) {
   installJournal(db);
   installAbandonments(db);
   installInformation(db);
+  installNotificationReceipts(db);
   let now = Date.parse('2026-08-29T05:00:01.000Z');
+  let runEventAdapter;
+  let notificationPort;
+  let agentNotificationId = null;
+  if (remainingCapabilities) {
+    initAgentTables(db);
+    const agentRepository = new AgentRepository(db);
+    agentRepository.createAgent({
+      id: 'composition-agent', name: 'Composition Agent', definition: { type: 'MONITOR' },
+    });
+    const agentRunId = agentRepository.createRun('composition-agent');
+    agentNotificationId = Number(agentRepository.createNotification(
+      'composition-agent',
+      agentRunId,
+      { title: 'Composition notification', priority: 'normal', data: { projectId: 1 } },
+    ));
+    notificationPort = createM3AgentNotificationReadPort(agentRepository);
+    runEventAdapter = createM7RunEventCoreAdapter({ now: () => ++now });
+    runEventAdapter.observeCoreEvent({
+      subjectId: 'user:composition:001', projectId: 1,
+      event: {
+        contract: 'CoreEvent', version: 1,
+        requestId: 'run:composition:001', conversationId: 'conversation:composition',
+        turnId: 'turn:composition:001', sequence: 1, phase: 'progress',
+        eventType: 'tool.progress', payload: { progressPercent: 50 },
+      },
+    });
+  }
   let composition;
   try {
     composition = createM7CoreComposition({
@@ -87,6 +122,7 @@ function setup(overrides = {}) {
         grantedScopes: [...input.requiredScopes],
       }),
       authorizeConversation: async ({ projectId, exists }) => exists && projectId === 1,
+      authorizeNotification: async ({ projectId }) => projectId === 1,
       authorizeProject: async ({ projectId }) => projectId === 1,
       clock: () => ++now,
       coreVersion: '136.1.0',
@@ -101,6 +137,7 @@ function setup(overrides = {}) {
         { componentId: 'core-composition', observe: async () => ({ status: 'ok', code: 'READY' }) },
       ],
       mediateMutation: async intent => ({ state: 'executed', result: await intent.perform() }),
+      ...(remainingCapabilities ? { notificationPort, runEventAdapter } : {}),
       ...overrides,
     });
   } catch (error) {
@@ -111,6 +148,7 @@ function setup(overrides = {}) {
   return {
     composition,
     db,
+    agentNotificationId,
     close() {
       db.close();
       rmSync(root, { recursive: true, force: true });
@@ -202,6 +240,45 @@ await testAsync('real project, conversation and settings reads cross the compose
     });
     assert.equal(settings.status, 'ok');
     assert.equal(settings.items.length, 5);
+  } finally {
+    fixture.close();
+  }
+});
+
+await testAsync('real CoreEvent and M3 notification ports complete two more capabilities', async () => {
+  const fixture = setup({ remainingCapabilities: true });
+  try {
+    const provider = fixture.composition.provider;
+    assert.deepEqual(
+      provider.advertise().filter(item => item.status === 'available').map(item => item.capabilityId),
+      ['conversations', 'events', 'notifications', 'projects', 'settings', 'stored_information'],
+    );
+    const events = await invoke(provider, 'events', 1, 'run-event.list', {
+      contract: 'RunEventQuery', version: 1,
+      requestId: 'request:composition:events', runId: 'run:composition:001',
+      limit: 25, afterSeq: 0, waitMs: 0,
+    });
+    assert.equal(events.status, 'ok');
+    assert.deepEqual(events.events.map(event => event.sequence), [1]);
+
+    const notifications = await invoke(provider, 'notifications', 1, 'notification.list', {
+      contract: 'NotificationListQuery', version: 1,
+      requestId: 'request:composition:notifications', limit: 25, afterSeq: 0,
+    });
+    assert.equal(notifications.status, 'ok');
+    assert.deepEqual(
+      notifications.items.map(item => item.notificationId),
+      [`notification:m3:${fixture.agentNotificationId}`],
+    );
+    const ack = await invoke(provider, 'notifications', 1, 'notification.ack', {
+      contract: 'NotificationAckCommand', version: 1,
+      requestId: 'request:composition:notification-ack',
+      operationId: 'operation:composition:notification-ack',
+      notificationIds: [`notification:m3:${fixture.agentNotificationId}`],
+      observedThroughSeq: fixture.agentNotificationId,
+    });
+    assert.equal(ack.outcome, 'CONFIRMED');
+    assert.equal(ack.replayed, false);
   } finally {
     fixture.close();
   }

@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 495
+- Runnable programs: 497
 - Explicit support-module exclusions: 17
-- Profiles: offline=268, database=67, server=44, model=81, soak=15, manual=20
-- States: ACTIVE=401, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=269, database=68, server=44, model=81, soak=15, manual=20
+- States: ACTIVE=403, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -378,10 +378,12 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M7-IN-PROCESS-CAPABILITY-PROVIDER-TEST` | `tests/m7-in-process-capability-provider.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-IN-PROCESS-CAPABILITY-PROVIDER |
 | `IS-T1-TESTS-M7-M2-APPROVAL-CORE-ADAPTERS-TEST` | `tests/m7-m2-approval-core-adapters.test.js` | `C3-032` | T1 | `database` | 5 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-M2-APPROVAL-ADAPTER |
 | `IS-T1-TESTS-M7-MOBILE-CORE-PIN-INTEGRATION-TEST` | `tests/m7-mobile-core-pin-integration.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-REMOTE-COMPANION |
+| `IS-T1-TESTS-M7-NOTIFICATION-CORE-ADAPTERS-TEST` | `tests/m7-notification-core-adapters.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-EVENTS-NOTIFICATIONS-CORE-ADAPTERS |
 | `IS-T1-TESTS-M7-OPERATION-CONTROL-ADAPTERS-TEST` | `tests/m7-operation-control-adapters.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-OPERATION-CONTROL |
 | `IS-T1-TESTS-M7-OPERATION-JOURNAL-TEST` | `tests/m7-operation-journal.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-PERSISTENT-MUTATION-JOURNAL |
 | `IS-T1-TESTS-M7-PROJECT-CORE-ADAPTERS-TEST` | `tests/m7-project-core-adapters.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-PROJECT-CORE-ADAPTERS |
 | `IS-T1-TESTS-M7-REMOTE-HEALTH-ADAPTER-TEST` | `tests/m7-remote-health-adapter.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-REMOTE-HEALTH |
+| `IS-T1-TESTS-M7-RUN-EVENT-CORE-ADAPTER-TEST` | `tests/m7-run-event-core-adapter.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-EVENTS-NOTIFICATIONS-CORE-ADAPTERS |
 | `IS-T1-TESTS-M7-SESSION-AUTHORITY-TEST` | `tests/m7-session-authority.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-SESSION-AUTHORITY |
 | `IS-T1-TESTS-M7-SETTINGS-INFORMATION-CORE-ADAPTERS-TEST` | `tests/m7-settings-information-core-adapters.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-SETTINGS-INFORMATION-CORE-ADAPTERS |
 | `IS-T1-TESTS-MANIFEST-V2-TEST` | `tests/manifest-v2.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

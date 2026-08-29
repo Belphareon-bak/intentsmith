@@ -23,10 +23,12 @@ import {
 import { createM7ConversationCoreAdapters } from './m7-conversation-core-adapters.js';
 import { createM7InProcessCapabilityProvider } from './m7-in-process-capability-provider.js';
 import { createM7M2ApprovalCoreAdapters } from './m7-m2-approval-core-adapters.js';
+import { createM7NotificationCoreAdapters } from './m7-notification-core-adapters.js';
 import { createM7OperationControlAdapters } from './m7-operation-control-adapters.js';
 import { createM7OperationJournal } from './m7-operation-journal.js';
 import { createM7ProjectCoreAdapters } from './m7-project-core-adapters.js';
 import { createM7RemoteHealthAdapter } from './m7-remote-health-adapter.js';
+import { consumeM7RunEventCoreAdapter } from './m7-run-event-core-adapter.js';
 import {
   createM7SettingsInformationCoreAdapters,
 } from './m7-settings-information-core-adapters.js';
@@ -47,12 +49,16 @@ const CONFIG_KEYS = Object.freeze([
   'maxInformationScan',
   'maxApprovalScan',
   'maxMessageScan',
+  'maxNotificationScan',
   'maxProjectScan',
   'mediateMutation',
   'm2ApprovalPort',
+  'notificationPort',
   'observeWorkspaceRevision',
+  'authorizeNotification',
   'queryProjectContext',
   'realpath',
+  'runEventAdapter',
 ]);
 
 const EXTERNAL_VALIDATORS = Object.freeze({
@@ -130,6 +136,18 @@ export function createM7CoreComposition(configValue = {}) {
       maxApprovalScan: config.maxApprovalScan,
       now: clock,
     });
+  const events = config.runEventAdapter === undefined
+    ? null
+    : consumeM7RunEventCoreAdapter(config.runEventAdapter);
+  const notifications = config.notificationPort === undefined
+    ? null
+    : createM7NotificationCoreAdapters({
+      authorizeNotification: config.authorizeNotification,
+      database: config.database,
+      maxNotificationScan: config.maxNotificationScan,
+      notificationPort: config.notificationPort,
+      now: clock,
+    });
   const health = createM7RemoteHealthAdapter({
     clock,
     components: config.healthComponents,
@@ -137,6 +155,8 @@ export function createM7CoreComposition(configValue = {}) {
   });
   const handlers = mergeHandlers(
     approvals?.handlers ?? {},
+    events?.handlers ?? {},
+    notifications?.handlers ?? {},
     projects.handlers,
     conversations.handlers,
     settingsInformation.handlers,
@@ -159,7 +179,9 @@ export function createM7CoreComposition(configValue = {}) {
     adapters: Object.freeze({
       approvals,
       conversations,
+      events,
       health,
+      notifications,
       operationControl,
       projects,
       settingsInformation,

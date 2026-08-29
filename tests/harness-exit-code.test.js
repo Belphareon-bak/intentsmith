@@ -403,9 +403,12 @@ try {
   //   121 -> 122 M7 M2 approval adapters exercise a real lifecycle service,
   //              authority repository and project-change journey behind the
   //              canonical bootstrap.
+  //   122 -> 123 M7 notification adapters exercise the genuine M3 repository,
+  //              durable operation journal and append-only ACK receipts behind
+  //              the canonical bootstrap.
   // Model-evaluation consolidation had first removed one retired database
   // root from the pre-M6 baseline.
-  const expectedDatabaseReachableRootTests = 122;
+  const expectedDatabaseReachableRootTests = 123;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

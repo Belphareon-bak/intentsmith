@@ -4,6 +4,28 @@
 
 import { logger } from '../core/logger.js';
 
+const agentRepositoryState = new WeakMap();
+const m3NotificationPortState = new WeakMap();
+
+function requireNotificationBound(value, label, maximum = 2000) {
+  if (!Number.isSafeInteger(value) || value < 0 || value > maximum) {
+    throw new TypeError(`m3-agent-notification-port:${label}-invalid`);
+  }
+  return value;
+}
+
+function cloneNotificationRow(row) {
+  return Object.freeze({
+    sequence: row.id,
+    agentId: row.agent_id,
+    runId: row.run_id,
+    title: row.title,
+    priority: row.priority,
+    dataJson: row.data,
+    createdAt: row.created_at,
+  });
+}
+
 /**
  * Initialize agent tables
  * @param {import('better-sqlite3').Database} db
@@ -146,6 +168,7 @@ export function initAgentTables(db) {
 export class AgentRepository {
   constructor(db) {
     this.db = db;
+    agentRepositoryState.set(this, { db });
   }
   
   // ════════════════════════════════════════════════════════════════════════════
@@ -673,6 +696,67 @@ export class AgentRepository {
       `).run(agentId, source_id, agentId, source_id, keepCount);
     }
   }
+}
+
+// M7 can project the accepted M3 in-app notification source, but it must not
+// gain the legacy CRUD surface or its mutable read_at writer. This narrow port
+// is closure-branded and exposes only bounded, ascending source observations.
+export function createM3AgentNotificationReadPort(repository) {
+  const state = agentRepositoryState.get(repository);
+  if (!state) throw new TypeError('m3-agent-notification-port:genuine-repository-required');
+  const listAfterStatement = state.db.prepare(`
+    SELECT id, agent_id, run_id, title, priority, data, created_at
+    FROM agent_notifications_v33
+    WHERE id > ?
+    ORDER BY id ASC
+    LIMIT ?
+  `);
+
+  function listAfter({ afterSequence, limit }) {
+    const after = requireNotificationBound(afterSequence, 'after-sequence', Number.MAX_SAFE_INTEGER);
+    const boundedLimit = requireNotificationBound(limit, 'limit', 100_001);
+    if (boundedLimit < 1) throw new TypeError('m3-agent-notification-port:limit-invalid');
+    return Object.freeze(listAfterStatement.all(after, boundedLimit).map(cloneNotificationRow));
+  }
+
+  function findBySequences(sequences) {
+    if (!Array.isArray(sequences)
+      || sequences.length < 1
+      || sequences.length > 200
+      || sequences.some(sequence => (
+        !Number.isSafeInteger(sequence) || sequence < 1
+      ))
+      || new Set(sequences).size !== sequences.length) {
+      throw new TypeError('m3-agent-notification-port:sequences-invalid');
+    }
+    const statement = state.db.prepare(`
+      SELECT id, agent_id, run_id, title, priority, data, created_at
+      FROM agent_notifications_v33
+      WHERE id IN (${sequences.map(() => '?').join(',')})
+      ORDER BY id ASC
+    `);
+    return Object.freeze(statement.all(...sequences).map(cloneNotificationRow));
+  }
+
+  const port = Object.freeze({
+    contract: 'M3AgentNotificationReadPort',
+    version: 1,
+  });
+  m3NotificationPortState.set(port, Object.freeze({
+    database: state.db,
+    findBySequences,
+    listAfter,
+  }));
+  return port;
+}
+
+export function consumeM3AgentNotificationReadPort(port, database) {
+  const state = m3NotificationPortState.get(port);
+  const expectedDatabase = database?.db ?? database;
+  if (!state || state.database !== expectedDatabase) {
+    throw new TypeError('m3-agent-notification-port:genuine-same-database-port-required');
+  }
+  return state;
 }
 
 export default AgentRepository;
