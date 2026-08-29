@@ -1,13 +1,20 @@
 # M7 composition and mobile binding remediation — 2026-08-29
 
-**State:** `REMEDIATION_IMPLEMENTED / FULL_OFFLINE_DATABASE_GATE_GREEN /
-INDEPENDENT_RE_REVIEW_REQUIRED / M7_NOT_ACCEPTED / PROVIDER_NOT_ACTIVE /
+**State:** `REVIEW_PASSED / FULL_OFFLINE_DATABASE_GATE_GREEN /
+M7_NOT_ACCEPTED / PROVIDER_NOT_ACTIVE /
 TRANSPORT_ABSENT`
 
 This report supersedes the implementation claims in
 `m7-core-composition-mobile-release-binding-20260829.md` for the findings raised
 against candidate `d43e7ada`. It does not replace that document as historical
 evidence and does not turn its `CHANGES_REQUIRED` verdict into a pass.
+
+Independent re-review subsequently returned `REVIEW_PASSED` for all three
+requested scopes: `M6_REGISTRY_RATCHET`, `CORE_COMPOSITION` and
+`MOBILE_RELEASE_BINDING`. The exact result is recorded in
+[`2026-08-29-M7-COMPOSITION-MOBILE-M6-RATCHET-REVIEW-RESULT.md`](../../../review/2026-08-29-M7-COMPOSITION-MOBILE-M6-RATCHET-REVIEW-RESULT.md).
+The verdict does not accept M6 or M7 and does not activate a provider or
+transport.
 
 ## Exact binding
 
@@ -39,7 +46,8 @@ evidence and does not turn its `CHANGES_REQUIRED` verdict into a pass.
 The correct cumulative base is
 `1d04bd42bbaa79e9da1fe2b6b59b6589ce8efad5`. The prior packet and ledger were
 corrected without rewriting the rejected verdict. ROADMAP and SYSTEM-MAP now
-both retain `CHANGES_REQUIRED / REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED`.
+record the later scoped `REVIEW_PASSED` while preserving `M7_NOT_ACCEPTED /
+PROVIDER_NOT_ACTIVE / TRANSPORT_ABSENT`.
 The missing historical `318/15` report remains recorded as red, recoverable in
 the user's Trash and absent from its original path; Trash was not modified.
 The final handoff check additionally found two blank EOF lines in new mobile

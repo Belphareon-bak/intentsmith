@@ -68,8 +68,8 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Decision 041 implementace dostala `REVIEW_PASSED` a trust store drží čtyři oddělené veřejné klíče. Úzký review ale našel stale M6 migration oracle a neoffline custody privátních klíčů; oracle remediation je implementovaná, custody zůstává otevřená. Osm rotací, history disposition a podepsaná M5 acceptance neproběhly. |
-| **M6 IntentSmith 1.0 release** | `KEY_CUSTODY_CHANGES_REQUIRED / REGISTRY_RATCHET_REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, application upgrade, L0-11 a soak/throughput harness jsou implementované. Upgrade kontrakt je po M7 list-index migraci navázaný na skutečný počet 91 migrací. Explicitní sentinel chrání oba signed-authority programy, které chyběly v historickém ceremony běhu; nový candidate čeká na review. 24h soak běží, plný throughput zatím neproběhl. |
-| **M7 Remote Companion** | `CORE_COMPOSITION_CHANGES_REQUIRED / MOBILE_RELEASE_BINDING_CHANGES_REQUIRED / REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED / PROVIDER_NOT_ACTIVE / TRANSPORT_ABSENT` | M6 + remote boundary | Nezávislé review odmítlo neomezený N+1 operation list a neúplnou AAB/source vazbu. Remediation zavádí indexovanou snapshot/keyset stránku a kanonický source manifest uvnitř APK i AAB, source-derived plugin registry, oddělené signery a native metadata/policy evidence. Původní verdict zůstává `CHANGES_REQUIRED`, dokud nový candidate neprojde re-review. Approvals, events a notifications zůstávají fail-closed unavailable; session, listener, pairing a produkční transport nejsou aktivní. |
+| **M6 IntentSmith 1.0 release** | `KEY_CUSTODY_CHANGES_REQUIRED / REGISTRY_RATCHET_REVIEW_PASSED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, application upgrade, L0-11 a soak/throughput harness jsou implementované. Upgrade kontrakt je po M7 list-index migraci navázaný na skutečný počet 91 migrací. Nezávislé review na exact candidatu `caaa14ca` přijalo ratchet všech 394 ACTIVE+required programů i oba explicitní signed-authority sentinely; profilový gate zůstává pravdivě samostatných 333 programů. 24h soak běží nad starším SHA, plný throughput zatím neproběhl. |
+| **M7 Remote Companion** | `CORE_COMPOSITION_REVIEW_PASSED / MOBILE_RELEASE_BINDING_REVIEW_PASSED / NOT_ACCEPTED / PROVIDER_NOT_ACTIVE / TRANSPORT_ABSENT` | M6 + remote boundary | Nezávislé re-review přijalo bounded snapshot/keyset operation list i úplnou APK/AAB source, plugin, signer, Android metadata a network-policy vazbu na exact candidatu `caaa14ca`. Tři neblokující follow-upy zůstávají v review ledgeru. Approvals, events a notifications jsou dál fail-closed unavailable; session, listener, pairing, revokace a produkční transport nejsou aktivní, takže M7 jako celek není přijaté. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
 Gate 0 se znovu aktivuje pouze v M6 nad zmraženým kandidátem.
@@ -1832,8 +1832,19 @@ Android release boundary je `13/13`, mobile gate `28/28`, harness chrání
 ratchet `13/13 PASS`. Nesouběžný úplný offline+database gate skončil
 `333/333 PASS`. Dva dřívější souběžné běhy zůstávají pravdivě FAIL, protože
 si dva runnery ve stejném worktree vzájemně zpřístupnily untracked testovací
-adresáře. Nezávislé review nového kandidáta je pending; signing, distribuce,
-device a transport evidence neproběhly.
+adresáře. V tomto historickém checkpointu bylo nezávislé review pending;
+signing, distribuce, device a transport evidence neproběhly.
+
+Následná remediation na exact product kandidatu `caaa14ca` nahradila
+neomezený N+1 operation list jedním bounded snapshot/keyset statementem a
+doplnila kanonický source manifest, source-derived plugin registry, samostatný
+APK/AAB signer a nezávislé Android metadata/network-policy pozorování. Exact
+offline+database profil má `333/333 PASS`, Android boundary `15/15` a mobile
+gate `28/28`. Nezávislé review přijalo `CORE_COMPOSITION`,
+`MOBILE_RELEASE_BINDING` i související `M6_REGISTRY_RATCHET`; výsledek je v
+[`2026-08-29-M7-COMPOSITION-MOBILE-M6-RATCHET-REVIEW-RESULT.md`](docs/review/2026-08-29-M7-COMPOSITION-MOBILE-M6-RATCHET-REVIEW-RESULT.md).
+Verdikty nepovolují provider activation, transport, produkční signing,
+distribuci ani device test a nepřijímají M7 jako celek.
 
 ### Transport-free provider checkpoint 2026-08-29
 
