@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 465
+- Runnable programs: 471
 - Explicit support-module exclusions: 17
-- Profiles: offline=246, database=59, server=44, model=81, soak=15, manual=20
-- States: ACTIVE=371, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=252, database=59, server=44, model=81, soak=15, manual=20
+- States: ACTIVE=377, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -373,6 +373,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M6-RELEASE-VALIDATION-TEST` | `tests/m6-release-validation.test.js` | `C3-012` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST` | `tests/m6-runtime-evidence.test.js` | `C3-012` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-M6-TECHNICAL-EVIDENCE-TEST` | `tests/m6-technical-evidence.test.js` | `C3-012` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |
+| `IS-T1-TESTS-M7-MOBILE-CORE-PIN-INTEGRATION-TEST` | `tests/m7-mobile-core-pin-integration.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-REMOTE-COMPANION |
 | `IS-T1-TESTS-MANIFEST-V2-TEST` | `tests/manifest-v2.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MARKETPLACE-CATALOG-V125-TEST` | `tests/marketplace-catalog-v125.test.js` | `C3-022` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MARKETPLACE-TEST` | `tests/marketplace.test.js` | `C3-022` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
@@ -381,6 +382,11 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-MERGE-ENGINE-TEST` | `tests/merge-engine.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-METRICS-COLLECTOR-TEST` | `tests/metrics-collector.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MILESTONE-SIZE-TEST` | `tests/milestone-size.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-MOBILE-REMOTE-CAPABILITY-CONTRACT-TEST` | `tests/mobile-remote-capability-contract.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-REMOTE-COMPANION |
+| `IS-T1-TESTS-MOBILE-REMOTE-CAPABILITY-PROVIDER-CONTRACT-TEST` | `tests/mobile-remote-capability-provider-contract.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-REMOTE-COMPANION |
+| `IS-T1-TESTS-MOBILE-REMOTE-CORE-SIMULATOR-TEST` | `tests/mobile-remote-core-simulator.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-REMOTE-COMPANION |
+| `IS-T1-TESTS-MOBILE-REMOTE-CORE-V1-TEST` | `tests/mobile-remote-core-v1.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-REMOTE-COMPANION |
+| `IS-T1-TESTS-MOBILE-REMOTE-SESSION-CONTRACT-TEST` | `tests/mobile-remote-session-contract.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-REMOTE-COMPANION |
 | `IS-T1-TESTS-MODEL-CATALOG-REGISTRY-TEST` | `tests/model-catalog-registry.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-CTX-TEST` | `tests/model-ctx.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MODEL-EVALUATION-CONSOLIDATION-TEST` | `tests/model-evaluation-consolidation.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |

@@ -32,6 +32,7 @@ posílá jeho sekce „Výstup" — ne sem.
 | [WP-M5-PRIVACY](WP-M5-PRIVACY.md) | zapisující WP | **second-review remediation implemented / operator remediation required / re-review required** | [M5 PRIVACY report](../execution/runs/m5-privacy-20260826.md) |
 | [WP-M6-RELEASE](WP-M6-RELEASE.md) | zapisující WP | **aktivní; implementace povolena, acceptance brány zůstávají zavřené** | — |
 | [WP-M6-OPERATOR-DEMO-PREP](WP-M6-OPERATOR-DEMO-PREP.md) | zapisující M6 příprava | **IMPLEMENTED / REVIEW_PENDING / REAL DEMO NOT RUN** | [M6 operator demo runbook](../review/M6-OPERATOR-DEMO-RUNBOOK.md) |
+| [WP-M7-MOBILE-CONTRACT-INTEGRATION](WP-M7-MOBILE-CONTRACT-INTEGRATION.md) | zapisující M7 connector prep | **FOCUSED_GREEN / FULL_GATE_PENDING / REVIEW_PENDING / PROVIDER_ABSENT / TRANSPORT_ABSENT** | [candidate contract](../mobile/REMOTE-CAPABILITY-CONTRACT-V1-CANDIDATE.md) |
 | [WP-M1-BINDING-REPOSITORY](WP-M1-BINDING-REPOSITORY.md) | zapisující WP | **dokončeno** na `515fb6f7`, evidence `eb7e78b8` | [WP-M1-MODEL report](../execution/runs/wp-m1-model-report.md) |
 | [WP-M1-BINDING-APPLICATION](WP-M1-BINDING-APPLICATION.md) | zapisující WP | **dokončeno** na `e7d89b5e`, fresh-clone evidence `9b71c741` | [WP-M1-MODEL report](../execution/runs/wp-m1-model-report.md) |
 | [WP-M1-BINDING-FINALIZE-RECOVERY](WP-M1-BINDING-FINALIZE-RECOVERY.md) | zapisující WP | **fresh-clone verified** na `7c4aa73c`; review range `0a6bde54..7c4aa73c` | [Finding 008](../findings/008-model-binding-commit-point-split.md) |

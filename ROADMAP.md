@@ -69,7 +69,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Decision 041 implementace dostala `REVIEW_PASSED` a trust store drží čtyři oddělené veřejné klíče. Úzký review ale našel stale M6 migration oracle a neoffline custody privátních klíčů; oracle remediation je implementovaná, custody zůstává otevřená. Osm rotací, history disposition a podepsaná M5 acceptance neproběhly. |
 | **M6 IntentSmith 1.0 release** | `KEY_CUSTODY_CHANGES_REQUIRED / INTEGRATION_REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, application upgrade, L0-11 a soak/throughput harness jsou implementované. Původní oprava `80 !== 79` byla po sloučení modelové autority znovu navázána na skutečný integrovaný počet 87 migrací a dostala rychlý drift guard; nový candidate čeká na review. 24h a pětiminutový plný běh zatím nejsou provedené. |
-| **M7 Remote Companion** | `DESIGN_ONLY` | M6 + remote boundary | Samostatný vzdálený companion release nad bezpečným core rozhraním. |
+| **M7 Remote Companion** | `CONTRACT_CANDIDATE_IMPLEMENTED / REVIEW_PENDING / PROVIDER_ABSENT / TRANSPORT_ABSENT` | M6 + remote boundary | Sedm capability, 14 mobilních operací, session/recovery kontrakt a test-only simulátor jsou přeneseny na současný M6 core. Produkční provider, listener, pairing, mobilní transport a device/release důkazy ještě neexistují. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
 Gate 0 se znovu aktivuje pouze v M6 nad zmraženým kandidátem.
@@ -1776,6 +1776,21 @@ externích autoritách.
 M7 nezačíná implementací vzdáleného listeneru. Návrh mobilního klienta může
 postupovat paralelně proti `RemoteCorePort`, ale produkční pairing/listener/UI
 začíná až po M6 a samostatně prokázané remote security boundary.
+
+### Contract integration checkpoint 2026-08-29
+
+První bezpečný connector-only blok je `FOCUSED_GREEN / REVIEW_PENDING` na
+větvi od exact M6 candidate `0f9e2c64`. Přenáší transport-free consumer pin,
+executable capability/payload/session kontrakty, sanitizované fixtures,
+provider conformance harness a test-only simulátor. Šest nových registrovaných
+offline sad má focused výsledek `63/63 PASS`; nový integrační test porovnává
+mobilní piny přímo s aktuálními M2/M5 exporty a volá skutečný M5 negotiation.
+
+Stav se tím nemění na runtime dostupnost: requirements zůstávají
+`CANDIDATE_NOT_ACCEPTED`, provider a transport jsou absent a žádný produkční
+modul kandidátní session nebo simulátor neimportuje. Přesný scope a stop
+conditions drží
+[`WP-M7-MOBILE-CONTRACT-INTEGRATION`](docs/wp/WP-M7-MOBILE-CONTRACT-INTEGRATION.md).
 
 Povinné výsledky:
 
