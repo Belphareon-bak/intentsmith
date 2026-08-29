@@ -8,7 +8,10 @@
 `7cf1c8b77e04697115a456adf356ee56db4ce9e7`; reviewed release-binding
 remediation `aa8e8440` + `b46062f9` from evidence head `ab1940aa`
 
-**Status:** `RELEASE_BINDING_REMEDIATION_IMPLEMENTED / FULL_GATE_PENDING /
+**Exact remediated product candidate:**
+`d43e7ada01d6e5de38a06d79021bde8909d2eba3`
+
+**Status:** `RELEASE_BINDING_REMEDIATION_IMPLEMENTED / FULL_GATE_GREEN /
 REVIEW_PENDING / PRODUCTION_TRANSPORT_BLOCKED /
 PRODUCTION_SIGNING_NOT_AUTHORIZED`
 

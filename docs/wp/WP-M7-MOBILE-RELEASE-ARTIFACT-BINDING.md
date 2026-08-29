@@ -7,7 +7,9 @@
 **Zdroj produktu:** `aa8e8440` a `b46062f9`; source evidence HEAD
 `ab1940aa`
 
-**Stav:** `IMPLEMENTED / FULL_GATE_PENDING / REVIEW_PENDING /
+**Exact product candidate:** `d43e7ada01d6e5de38a06d79021bde8909d2eba3`
+
+**Stav:** `IMPLEMENTATION_GREEN / FULL_GATE_GREEN / REVIEW_PENDING /
 PRODUCTION_SIGNING_NOT_AUTHORIZED`
 
 ## 1. Důvod
@@ -54,3 +56,8 @@ Před review musí projít Android release boundary, celý mobile gate, harness
 meta-test, artifact integrita, module ratchet a souvislý offline+database gate
 na novém exact kandidatu. Operátorské rozhodnutí je nutné před produkčním
 signingem, distribucí, veřejným listenerem nebo session/pairing aktivací.
+
+Tyto hranice nyní prošly `13/13 + 28/28`, harness chrání `121`
+database-reachable rootů, artifact boundary je `158/158`, module ratchet
+`13/13` a nesouběžný úplný gate `333/333 PASS`. Stav zůstává
+`REVIEW_PENDING`.

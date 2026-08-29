@@ -69,7 +69,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Decision 041 implementace dostala `REVIEW_PASSED` a trust store drží čtyři oddělené veřejné klíče. Úzký review ale našel stale M6 migration oracle a neoffline custody privátních klíčů; oracle remediation je implementovaná, custody zůstává otevřená. Osm rotací, history disposition a podepsaná M5 acceptance neproběhly. |
 | **M6 IntentSmith 1.0 release** | `KEY_CUSTODY_CHANGES_REQUIRED / INTEGRATION_REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, application upgrade, L0-11 a soak/throughput harness jsou implementované. Původní oprava `80 !== 79` je po modelové a M7 persistence integraci navázaná na skutečný počet 90 migrací a chráněná rychlým drift guardem; nový candidate čeká na review. 24h soak běží, plný throughput zatím neproběhl. |
-| **M7 Remote Companion** | `CORE_COMPOSITION_IMPLEMENTATION_GREEN / FULL_GATE_PENDING / REVIEW_PENDING / PROVIDER_NOT_ACTIVE / TRANSPORT_ABSENT` | M6 + remote boundary | Čtyři ze sedmi capability se nyní skládají v jediném transport-free core rootu; health candidate `f40c58e0` prošel `332/332` a composition focused test má `5/5`. Approvals, events a notifications zůstávají fail-closed unavailable; session, listener, pairing, mobilní transport a device/release důkazy ještě neexistují. |
+| **M7 Remote Companion** | `CORE_COMPOSITION_AND_MOBILE_RELEASE_BINDING_IMPLEMENTATION_GREEN / FULL_GATE_GREEN / REVIEW_PENDING / PROVIDER_NOT_ACTIVE / TRANSPORT_ABSENT` | M6 + remote boundary | Čtyři ze sedmi capability se skládají v jediném transport-free core rootu. Exact candidate `d43e7ada` doplnil chybějící vazbu APK/AAB na reviewovaný source a prošel nesouběžným `333/333` offline+database gate. Approvals, events a notifications zůstávají fail-closed unavailable; session, listener, pairing, produkční mobilní transport, signing a device důkazy ještě neexistují. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
 Gate 0 se znovu aktivuje pouze v M6 nad zmraženým kandidátem.
@@ -1816,6 +1816,25 @@ stop conditions drží
 měření a review rozsah jsou v
 [`m7-mobile-client-integration-20260829.md`](docs/execution/runs/m7/m7-mobile-client-integration-20260829.md).
 
+### Mobile release-binding remediation checkpoint 2026-08-29
+
+Nezávislý integrační audit doložil, že původně přenesený mobilní commit
+`7cf1c8b7` je předkem pozdějšího reviewovaného headu `ab1940aa`. Centrální
+M7 proto na exact candidatu `d43e7ada` doplnila pouze chybějící product/test
+řezy `aa8e8440` a `b46062f9`: APK i AAB se nově bajtově vážou na přesný
+reviewovaný client source, runtime identitu, origin, CSP a Android
+network-security policy; lint zůstává nezávislý na production signing
+credentials. Starý serverový mobilní prototyp zůstává správně vynechaný.
+
+Všech šest převzatých cílových blobů odpovídá přesnému zdrojovému commitu.
+Android release boundary je `13/13`, mobile gate `28/28`, harness chrání
+`121` database-reachable rootů, artifact boundary je `158/158` a module
+ratchet `13/13 PASS`. Nesouběžný úplný offline+database gate skončil
+`333/333 PASS`. Dva dřívější souběžné běhy zůstávají pravdivě FAIL, protože
+si dva runnery ve stejném worktree vzájemně zpřístupnily untracked testovací
+adresáře. Nezávislé review nového kandidáta je pending; signing, distribuce,
+device a transport evidence neproběhly.
+
 ### Transport-free provider checkpoint 2026-08-29
 
 Generic in-process provider je `IMPLEMENTATION_GREEN / FULL_GATE_GREEN /
@@ -1922,8 +1941,9 @@ zůstává `not_active` a pravdivě inzeruje právě čtyři ze sedmi capability
 `approvals`, `events` a `notifications` zůstávají `unavailable`: composition je
 nenahrazuje prázdnými nebo fixture handlery. Sedm přesných importních hran z
 composition rootu bylo explicitně přijato bez růstu cyklů; autoritativní
-module graph má 1 230 hran, stále 3 cykly a 28 souborů v cyklech. Souvislý
-offline+database gate a nezávislé review následují. Session, listener, pairing,
+module graph má 1 230 hran, stále 3 cykly a 28 souborů v cyklech. Exact
+candidate `d43e7ada` prošel nesouběžným souvislým offline+database gate
+`333/333 PASS`; nezávislé review následuje. Session, listener, pairing,
 network transport, production klíče ani runtime activation tento blok
 nepřidává.
 
