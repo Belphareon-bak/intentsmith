@@ -175,7 +175,11 @@ cmd_build() {
   trap restore_policy EXIT
 
   echo "sdk.dir=$ANDROID_HOME" > "$ANDROID_DIR/local.properties"
-  ( cd "$APP_DIR" && npx cap copy android >/dev/null )
+  # A clean checkout has no generated capacitor-cordova-android-plugins
+  # project. `cap copy` updates web assets only and leaves Gradle pointing at a
+  # missing cordova.variables.gradle; `cap sync` deterministically creates the
+  # platform dependency graph as well as copying the reviewed client.
+  ( cd "$APP_DIR" && npx cap sync android >/dev/null )
   cmd_configure_url "$APP_URL"
   ( cd "$ANDROID_DIR" && ./gradlew --no-daemon :app:assembleRelease :app:bundleRelease )
 

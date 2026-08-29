@@ -91,7 +91,8 @@ gradle.taskGraph.whenReady { graph ->
         task.project == project && (
             task.name == 'assembleRelease'
             || task.name == 'bundleRelease'
-            || task.name.startsWith('packageRelease')
+            || task.name == 'packageRelease'
+            || task.name == 'packageReleaseBundle'
         )
     }
     def debugSigningAllowed = project.hasProperty('allowDebugSigning')

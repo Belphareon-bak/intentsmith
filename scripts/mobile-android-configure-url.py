@@ -31,7 +31,7 @@ host = parsed.hostname
 runtime_path = os.path.join(
     android_dir, 'app/src/main/assets/public/runtime-config.js')
 if not os.path.isfile(runtime_path):
-    sys.exit('chybí vygenerované assets/public; spusť nejdřív `cap copy android`')
+    sys.exit('chybí vygenerované assets/public; spusť nejdřív `cap sync android`')
 with open(runtime_path, 'w', encoding='utf-8') as handle:
     handle.write('// Generated for this Android artifact; do not edit.\n')
     handle.write('globalThis.IntentSmithRuntimeConfig = Object.freeze({\n')
@@ -52,15 +52,11 @@ if not os.path.isfile(index_path):
     sys.exit('chybí vygenerované assets/public/index.html')
 with open(index_path, encoding='utf-8') as handle:
     index_html = handle.read()
-connect_directive = "connect-src 'self' %s" % url.rstrip('/')
-index_html, replacements = re.subn(
-    r"connect-src\s+[^;\"]+",
-    connect_directive,
-    index_html,
-    count=1,
-)
-if replacements != 1:
+connect_pattern = r"connect-src\s+[^;\"]+"
+if len(re.findall(connect_pattern, index_html)) != 1:
     sys.exit('index.html nemá právě jednu očekávanou connect-src CSP direktivu')
+connect_directive = "connect-src 'self' %s" % url.rstrip('/')
+index_html = re.sub(connect_pattern, connect_directive, index_html, count=1)
 with open(index_path, 'w', encoding='utf-8') as handle:
     handle.write(index_html)
 

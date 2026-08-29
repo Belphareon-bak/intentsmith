@@ -23,9 +23,48 @@ import {
   MOBILE_RELEASE_REMOTE_PINS,
   classifyMobileReleaseArtifact,
 } from '../scripts/mobile-release-policy.mjs';
+import {
+  MOBILE_RELEASE_EXACT_SOURCE_ASSETS,
+  readMobileSourceRuntimeIdentityV1,
+  renderMobileGeneratedIndexV1,
+  renderMobileGeneratedRuntimeConfigV1,
+  validateMobileReleaseArtifactBindingV1,
+  validateMobileNetworkSecurityTreeV1,
+} from '../scripts/mobile-release-artifact-binding.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const read = relative => readFileSync(path.join(ROOT, relative), 'utf8');
+
+function artifactBindingFixture(gatewayUrl = 'https://gateway.example.test:4443') {
+  const sourceRuntimeConfig = read('src/mobile/client/runtime-config.js');
+  const runtimeIdentity = readMobileSourceRuntimeIdentityV1(sourceRuntimeConfig);
+  const sourceIndex = read('src/mobile/client/index.html');
+  const sourceAssets = Object.fromEntries(MOBILE_RELEASE_EXACT_SOURCE_ASSETS.map(asset => [
+    asset,
+    read(`src/mobile/client/${asset}`),
+  ]));
+  const generatedRuntimeConfig = renderMobileGeneratedRuntimeConfigV1({
+    gatewayUrl,
+    ...runtimeIdentity,
+  });
+  const generatedIndex = renderMobileGeneratedIndexV1(sourceIndex, gatewayUrl);
+  const sourceCapacitorConfig = read('mobile-app/capacitor.config.json');
+  return {
+    sourceCapacitorConfig,
+    apkCapacitorConfig: sourceCapacitorConfig,
+    aabCapacitorConfig: sourceCapacitorConfig,
+    sourceRuntimeConfig,
+    apkRuntimeConfig: generatedRuntimeConfig,
+    aabRuntimeConfig: generatedRuntimeConfig,
+    sourceIndex,
+    apkIndex: generatedIndex,
+    aabIndex: generatedIndex,
+    sourceAssets,
+    apkAssets: { ...sourceAssets },
+    aabAssets: { ...sourceAssets },
+  };
+}
+
 let passed = 0;
 let failed = 0;
 
@@ -88,6 +127,9 @@ await test('release is shrunk and signing is fail-closed without harming debug t
   assert.match(build, /packagesRelease/);
   assert.match(build, /Release build has no signing key/);
   assert.match(build, /allowDebugSigning/);
+  assert.match(build, /task\.name == 'packageRelease'/);
+  assert.match(build, /task\.name == 'packageReleaseBundle'/);
+  assert.doesNotMatch(build, /startsWith\('packageRelease'\)/);
   assert.match(build, /intentsmithSourceRevision/);
   assert.match(build, /git', 'rev-parse', 'HEAD'/);
   assert.doesNotMatch(build, /implementation\s+["']androidx\.security:security-crypto/);
@@ -141,6 +183,7 @@ await test('bundled client pins API origin and applies a restrictive CSP', () =>
 await test('release script builds APK and AAB with JDK 21 and restores tracked policy', () => {
   const script = read('scripts/mobile-android.sh');
   assert.match(script, /toolchain\/jdk21/);
+  assert.match(script, /npx cap sync android/);
   assert.match(script, /:app:assembleRelease :app:bundleRelease/);
   assert.match(script, /trap restore_policy EXIT/);
   assert.match(script, /podpisový klíč není/);
@@ -173,20 +216,143 @@ await test('generated Android assets pin CSP and RemoteCore identity to the arti
     assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
     const runtime = readFileSync(path.join(publicAssets, 'runtime-config.js'), 'utf8');
     const html = readFileSync(path.join(publicAssets, 'index.html'), 'utf8');
-    assert.match(runtime, /transportMode: 'legacy-m1-dev'/);
-    assert.match(runtime, new RegExp(MOBILE_RELEASE_REMOTE_PINS.descriptorDigest));
-    assert.equal(
-      html.match(/connect-src\s+[^;"]+/)?.[0],
-      "connect-src 'self' https://gateway.example.test:4443",
-      'CSP must contain the exact artifact gateway and no generic https: source',
-    );
+    const identity = readMobileSourceRuntimeIdentityV1(read('src/mobile/client/runtime-config.js'));
+    assert.equal(runtime, renderMobileGeneratedRuntimeConfigV1({
+      gatewayUrl: 'https://gateway.example.test:4443',
+      ...identity,
+    }));
+    assert.equal(html, renderMobileGeneratedIndexV1(
+      read('src/mobile/client/index.html'),
+      'https://gateway.example.test:4443',
+    ));
   } finally {
     rmSync(temporary, { recursive: true, force: true });
   }
 });
 
+await test('release evidence binds both archives to the exact reviewed client and native config', () => {
+  const fixture = artifactBindingFixture();
+  const binding = validateMobileReleaseArtifactBindingV1(fixture);
+  assert.equal(binding.gatewayUrl, 'https://gateway.example.test:4443');
+  assert.equal(binding.transportMode, 'legacy-m1-dev');
+  assert.equal(binding.nativeHttpPatchEnabled, true);
+  assert.equal(binding.capacitorConfig.server.url, undefined);
+  assert.deepEqual(validateMobileNetworkSecurityTreeV1({
+    gatewayUrl: binding.gatewayUrl,
+    xmlTree: [
+      'E: network-security-config',
+      '  E: domain-config',
+      '    A: cleartextTrafficPermitted=true',
+      '    E: domain',
+      '      A: includeSubdomains=false',
+      "      T: '127.0.0.1'",
+      '    E: domain',
+      '      A: includeSubdomains=false',
+      "      T: 'localhost'",
+      '  E: base-config',
+      '    A: cleartextTrafficPermitted=false',
+    ].join('\n'),
+  }), ['127.0.0.1', 'localhost']);
+});
+
+await test('stale or substituted generated release assets fail closed', () => {
+  const base = artifactBindingFixture();
+  const patchedConfig = JSON.parse(base.apkCapacitorConfig);
+  patchedConfig.plugins.CapacitorHttp.enabled = false;
+  assert.throws(
+    () => validateMobileReleaseArtifactBindingV1({
+      ...base,
+      apkCapacitorConfig: JSON.stringify(patchedConfig),
+    }),
+    /APK packaged Capacitor config does not match source revision/,
+  );
+  assert.throws(
+    () => validateMobileReleaseArtifactBindingV1({
+      ...base,
+      apkAssets: { ...base.apkAssets, 'app.js': `${base.apkAssets['app.js']}\n// stale` },
+    }),
+    /APK app\.js does not match source revision/,
+  );
+  assert.throws(
+    () => validateMobileReleaseArtifactBindingV1({
+      ...base,
+      aabAssets: { ...base.aabAssets, 'sw.js': `${base.aabAssets['sw.js']}\n// stale` },
+    }),
+    /AAB sw\.js does not match source revision/,
+  );
+  assert.throws(
+    () => validateMobileReleaseArtifactBindingV1({
+      ...base,
+      apkRuntimeConfig: `${base.apkRuntimeConfig}// injected\n`,
+    }),
+    /APK runtime config is not the exact reviewed build-time transformation/,
+  );
+  assert.throws(
+    () => validateMobileReleaseArtifactBindingV1({
+      ...base,
+      aabIndex: base.aabIndex.replace("connect-src 'self'", "connect-src 'self' https:"),
+    }),
+    /AAB index does not match the exact source CSP transformation/,
+  );
+  assert.throws(
+    () => validateMobileReleaseArtifactBindingV1({
+      ...base,
+      sourceIndex: `${base.sourceIndex}\n<meta http-equiv="Content-Security-Policy" content="connect-src 'self'">`,
+    }),
+    /source index does not contain exactly one connect-src directive/,
+  );
+  const wildcardRuntime = renderMobileGeneratedRuntimeConfigV1({
+    gatewayUrl: 'http://0.0.0.0:3336',
+    ...readMobileSourceRuntimeIdentityV1(base.sourceRuntimeConfig),
+  });
+  assert.throws(
+    () => validateMobileReleaseArtifactBindingV1({
+      ...base,
+      apkRuntimeConfig: wildcardRuntime,
+      aabRuntimeConfig: wildcardRuntime,
+    }),
+    /must not use a wildcard host/,
+  );
+  assert.throws(
+    () => validateMobileNetworkSecurityTreeV1({
+      gatewayUrl: 'https://gateway.example.test:4443',
+      xmlTree: [
+        'A: cleartextTrafficPermitted=true',
+        'A: includeSubdomains=false',
+        "T: '127.0.0.1'",
+        'A: includeSubdomains=false',
+        "T: 'localhost'",
+        'A: includeSubdomains=false',
+        "T: 'example.org'",
+        'A: cleartextTrafficPermitted=false',
+      ].join('\n'),
+    }),
+    /cleartext domains do not match gateway/,
+  );
+
+  const productionSourceRuntime = base.sourceRuntimeConfig.replace(
+    "transportMode: 'legacy-m1-dev'",
+    "transportMode: 'remote-core-v1'",
+  );
+  const productionIdentity = readMobileSourceRuntimeIdentityV1(productionSourceRuntime);
+  const productionRuntime = renderMobileGeneratedRuntimeConfigV1({
+    gatewayUrl: 'https://gateway.example.test:4443',
+    ...productionIdentity,
+  });
+  assert.throws(
+    () => validateMobileReleaseArtifactBindingV1({
+      ...base,
+      sourceRuntimeConfig: productionSourceRuntime,
+      apkRuntimeConfig: productionRuntime,
+      aabRuntimeConfig: productionRuntime,
+    }),
+    /reviewed client still blocks it/,
+  );
+});
+
 await test('release evidence pins a candidate signer and labels every weaker artifact', () => {
   const evidence = read('scripts/mobile-release-evidence.mjs');
+  const binding = read('scripts/mobile-release-artifact-binding.mjs');
   const policy = read('scripts/mobile-release-policy.mjs');
   assert.match(evidence, /--expected-signer-sha256/);
   assert.match(evidence, /--allow-dirty/);
@@ -194,8 +360,12 @@ await test('release evidence pins a candidate signer and labels every weaker art
   assert.match(evidence, /APK source revision mismatch/);
   assert.match(evidence, /assets\/public\/runtime-config\.js/);
   assert.match(evidence, /base\/assets\/public\/runtime-config\.js/);
-  assert.match(evidence, /APK and AAB do not bundle the same reviewed mobile client/);
-  assert.match(evidence, /bundled RemoteCore compatibility module does not match the source revision/);
+  assert.match(evidence, /assets\/capacitor\.config\.json/);
+  assert.match(evidence, /aapt-network-security\.txt/);
+  assert.match(evidence, /validateMobileReleaseArtifactBindingV1/);
+  assert.match(binding, /APK packaged Capacitor config does not match source revision/);
+  assert.match(binding, /APK runtime config is not the exact reviewed build-time transformation/);
+  assert.match(binding, /`APK \$\{asset\} does not match source revision`/);
   assert.match(policy, /THROWAWAY_DEBUG_SIGNED/);
   assert.match(policy, /NON_DEBUG_SIGNED_UNVERIFIED/);
   assert.match(policy, /CANDIDATE_SIGNED_UNREVIEWED/);

@@ -397,9 +397,12 @@ try {
   //              Its canonical bootstrap protects that repository graph.
   //   119 -> 120 M7 project core adapters exercise the real SQLite catalog and
   //              accepted M2 context provider behind the canonical bootstrap.
+  //   120 -> 121 M7 core composition loads the database-backed project,
+  //              conversation, journal and settings adapters as one bounded
+  //              transport-free root behind the canonical bootstrap.
   // Model-evaluation consolidation had first removed one retired database
   // root from the pre-M6 baseline.
-  const expectedDatabaseReachableRootTests = 120;
+  const expectedDatabaseReachableRootTests = 121;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

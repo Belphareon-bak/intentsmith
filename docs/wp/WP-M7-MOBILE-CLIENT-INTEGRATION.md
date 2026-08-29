@@ -4,9 +4,12 @@
 
 **Base revision:** `99005858` (M7 contract candidate evidence HEAD)
 
-**Source candidate:** `7cf1c8b77e04697115a456adf356ee56db4ce9e7`
+**Source candidates:** client baseline
+`7cf1c8b77e04697115a456adf356ee56db4ce9e7`; reviewed release-binding
+remediation `aa8e8440` + `b46062f9` from evidence head `ab1940aa`
 
-**Status:** `IN_PROGRESS / PRODUCTION_TRANSPORT_BLOCKED /
+**Status:** `RELEASE_BINDING_REMEDIATION_IMPLEMENTED / FULL_GATE_PENDING /
+REVIEW_PENDING / PRODUCTION_TRANSPORT_BLOCKED /
 PRODUCTION_SIGNING_NOT_AUTHORIZED`
 
 ## 1. User outcome
@@ -41,11 +44,21 @@ Forbidden:
 ## 3. Connector and provenance
 
 The source branch is intentionally not merged wholesale: its merge base and
-backend are older than the current M6/M7 lineage. Mobile-owned bytes are copied
-from exact commit `7cf1c8b7`; shared files are reconciled against the current
-registry and module graph. Existing M7 contract files from candidate
-`54a10fd0` remain authoritative for this integration and are not overwritten
-by older documentation copies.
+backend are older than the current M6/M7 lineage. The reviewed client baseline
+came from exact commit `7cf1c8b7`. A later audit proved that this commit was
+an ancestor, not the final reviewed mobile head: the APK/AAB source-binding
+guard in `aa8e8440` and signing-independent lint correction in `b46062f9`
+were missing.
+
+The central lineage therefore imports only the exact product/test files from
+those two commits. Their resulting blobs are checked against the source
+commits. It intentionally does not import the obsolete server prototype,
+historical mobile migrations, source-branch release status or older contract
+copies. Existing M7 contract files from candidate `54a10fd0` remain
+authoritative.
+
+The bounded remediation contract is
+[`WP-M7-MOBILE-RELEASE-ARTIFACT-BINDING`](WP-M7-MOBILE-RELEASE-ARTIFACT-BINDING.md).
 
 ## 4. Demonstration and stop conditions
 

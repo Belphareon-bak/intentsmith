@@ -10,6 +10,11 @@ import { fileURLToPath } from 'node:url';
 import {
   classifyMobileReleaseArtifact,
 } from './mobile-release-policy.mjs';
+import {
+  MOBILE_RELEASE_EXACT_SOURCE_ASSETS,
+  validateMobileReleaseArtifactBindingV1,
+  validateMobileNetworkSecurityTreeV1,
+} from './mobile-release-artifact-binding.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const ANDROID = path.join(ROOT, 'mobile-app/android');
@@ -69,6 +74,7 @@ mkdirSync(outputDir, { recursive: true });
 
 const apksigner = latestBuildTool('apksigner');
 const aapt = latestBuildTool('aapt');
+const aapt2 = latestBuildTool('aapt2');
 const signer = run(apksigner, ['verify', '--verbose', '--print-certs', APK]).output;
 const badging = run(aapt, ['dump', 'badging', APK]).output;
 const manifestTree = run(aapt, ['dump', 'xmltree', APK, 'AndroidManifest.xml']).output;
@@ -117,37 +123,80 @@ if (expectedSigner && signerSha256 !== expectedSigner) {
   throw new Error(`APK signer mismatch: expected ${expectedSigner}, received ${signerSha256}`);
 }
 
-const config = JSON.parse(readFileSync(path.join(ROOT, 'mobile-app/capacitor.config.json'), 'utf8'));
+const sourceCapacitorConfig = readFileSync(
+  path.join(ROOT, 'mobile-app/capacitor.config.json'),
+  'utf8',
+);
+const apkCapacitorConfig = bundledText(APK, 'assets/capacitor.config.json');
+const aabCapacitorConfig = bundledText(AAB, 'base/assets/capacitor.config.json');
+const apkPlugins = bundledText(APK, 'assets/capacitor.plugins.json');
+const aabPlugins = bundledText(AAB, 'base/assets/capacitor.plugins.json');
+if (apkPlugins !== aabPlugins) {
+  throw new Error('APK and AAB do not bundle the same Capacitor plugin registry');
+}
 const apkRuntimeConfig = bundledText(APK, 'assets/public/runtime-config.js');
 const aabRuntimeConfig = bundledText(AAB, 'base/assets/public/runtime-config.js');
 const apkIndex = bundledText(APK, 'assets/public/index.html');
 const aabIndex = bundledText(AAB, 'base/assets/public/index.html');
-const apkRemoteCore = bundledText(APK, 'assets/public/remote-core-v1.js');
-const aabRemoteCore = bundledText(AAB, 'base/assets/public/remote-core-v1.js');
-if (apkRuntimeConfig !== aabRuntimeConfig || apkIndex !== aabIndex || apkRemoteCore !== aabRemoteCore) {
-  throw new Error('APK and AAB do not bundle the same reviewed mobile client');
+const sourceClientRoot = path.join(ROOT, 'src/mobile/client');
+const sourceAssets = Object.fromEntries(MOBILE_RELEASE_EXACT_SOURCE_ASSETS.map(asset => [
+  asset,
+  readFileSync(path.join(sourceClientRoot, asset), 'utf8'),
+]));
+const apkAssets = Object.fromEntries(MOBILE_RELEASE_EXACT_SOURCE_ASSETS.map(asset => [
+  asset,
+  bundledText(APK, `assets/public/${asset}`),
+]));
+const aabAssets = Object.fromEntries(MOBILE_RELEASE_EXACT_SOURCE_ASSETS.map(asset => [
+  asset,
+  bundledText(AAB, `base/assets/public/${asset}`),
+]));
+const artifactBinding = validateMobileReleaseArtifactBindingV1({
+  sourceCapacitorConfig,
+  apkCapacitorConfig,
+  aabCapacitorConfig,
+  sourceRuntimeConfig: readFileSync(path.join(sourceClientRoot, 'runtime-config.js'), 'utf8'),
+  apkRuntimeConfig,
+  aabRuntimeConfig,
+  sourceIndex: readFileSync(path.join(sourceClientRoot, 'index.html'), 'utf8'),
+  apkIndex,
+  aabIndex,
+  sourceAssets,
+  apkAssets,
+  aabAssets,
+});
+const {
+  capacitorConfig: config,
+  gatewayUrl,
+  transportMode,
+  descriptorDigest,
+  adapterManifestDigest,
+  nativeHttpPatchEnabled,
+} = artifactBinding;
+const apkResources = run(aapt2, ['dump', 'resources', APK]).output;
+const networkSecurityResource = apkResources.match(
+  /resource 0x[0-9a-f]+ xml\/network_security_config\s+\(\) \(file\) (res\/[^\s]+\.xml) type=XML/,
+)?.[1] || null;
+if (!networkSecurityResource) {
+  throw new Error('APK network security config resource could not be resolved');
 }
-const sourceRemoteCore = readFileSync(path.join(ROOT, 'src/mobile/client/remote-core-v1.js'), 'utf8');
-if (apkRemoteCore !== sourceRemoteCore) {
-  throw new Error('bundled RemoteCore compatibility module does not match the source revision');
-}
-const runtimeConfig = apkRuntimeConfig;
-const generatedIndex = apkIndex;
-const gatewayUrl = runtimeConfig.match(/gatewayUrl:\s*['"]([^'"]+)['"]/)?.[1] || null;
-const transportMode = runtimeConfig.match(/transportMode:\s*['"]([^'"]+)['"]/)?.[1] || null;
-const descriptorDigest = runtimeConfig.match(/descriptorDigest:\s*['"](sha256:[0-9a-f]{64})['"]/)?.[1] || null;
-const adapterManifestDigest = runtimeConfig.match(/adapterManifestDigest:\s*['"](sha256:[0-9a-f]{64})['"]/)?.[1] || null;
+const networkSecurityTree = run(aapt2, [
+  'dump', 'xmltree', '--file', networkSecurityResource, APK,
+]).output;
+const networkSecurityCleartextDomains = validateMobileNetworkSecurityTreeV1({
+  gatewayUrl,
+  xmlTree: networkSecurityTree,
+});
 const releasePolicy = classifyMobileReleaseArtifact({
   debugSigned,
   expectedSigner,
   transportMode,
   descriptorDigest,
   adapterManifestDigest,
-  nativeHttpPatchEnabled: config.plugins?.CapacitorHttp?.enabled === true,
+  nativeHttpPatchEnabled,
 });
-if (!gatewayUrl) throw new Error('bundled mobile gateway origin is missing');
 const expectedConnectDirective = `connect-src 'self' ${new URL(gatewayUrl).origin}`;
-const connectDirective = generatedIndex.match(/connect-src\s+[^;"]+/)?.[0] || null;
+const connectDirective = apkIndex.match(/connect-src\s+[^;"]+/)?.[0] || null;
 if (connectDirective !== expectedConnectDirective) {
   throw new Error(`bundled CSP does not pin the selected gateway origin: ${connectDirective || 'missing'}`);
 }
@@ -180,7 +229,9 @@ const manifest = {
     transportMode,
     remoteCoreDescriptorDigest: descriptorDigest,
     remoteCoreAdapterManifestDigest: adapterManifestDigest,
-    remoteCoreModuleSha256: textDigest(apkRemoteCore),
+    remoteCoreModuleSha256: textDigest(apkAssets['remote-core-v1.js']),
+    nativeHttpPatchEnabled,
+    networkSecurityCleartextDomains,
     releaseTransportReady: releasePolicy.releaseTransportReady,
   },
   releaseBlockers: releasePolicy.releaseBlockers,
@@ -196,6 +247,7 @@ writeFileSync(path.join(outputDir, 'manifest.json'), `${JSON.stringify(manifest,
 writeFileSync(path.join(outputDir, 'apksigner.txt'), signer);
 writeFileSync(path.join(outputDir, 'aapt-badging.txt'), badging);
 writeFileSync(path.join(outputDir, 'aapt-manifest.txt'), manifestTree);
+writeFileSync(path.join(outputDir, 'aapt-network-security.txt'), networkSecurityTree);
 writeFileSync(path.join(outputDir, 'aab-jarsigner.txt'), bundleSignature);
 writeFileSync(path.join(outputDir, 'gradle-version.txt'), gradleVersion);
 writeFileSync(path.join(outputDir, 'gradle-release-dependencies.txt'), gradleDependencies);
