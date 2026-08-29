@@ -229,6 +229,7 @@ záznamu selže v `artifact-validation`.
 | `2026_08_29_101_m7_remote_operation_journal.js` | použito pro M7 persistentní mutation journal |
 | `2026_08_29_102_m7_manual_information.js` | použito pro M7 subject/project-scoped ruční informace |
 | `2026_08_29_103_m7_operation_abandonments.js` | použito pro M7 append-only operation abandonment receipts |
+| `2026_08_29_104_m7_operation_list_indexes.js` | použito pro M7 bounded snapshot/keyset operation list |
 <!-- migration-source-manifest:end -->
 
 ## Navazující M7 rezervace 2026-08-29

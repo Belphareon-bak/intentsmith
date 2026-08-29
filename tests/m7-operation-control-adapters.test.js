@@ -20,6 +20,11 @@ import {
   computeM7OperationAbandonmentFingerprintV103,
   up as installAbandonments,
 } from '../src/db/migrations/2026_08_29_103_m7_operation_abandonments.js';
+import {
+  EXPECTED_M7_OPERATION_LIST_INDEX_FINGERPRINT_V104,
+  computeM7OperationListIndexFingerprintV104,
+  up as installListIndexes,
+} from '../src/db/migrations/2026_08_29_104_m7_operation_list_indexes.js';
 import { createM7InProcessCapabilityProvider } from '../src/remote/m7-in-process-capability-provider.js';
 import { createM7OperationControlAdapters } from '../src/remote/m7-operation-control-adapters.js';
 import { createM7OperationJournal } from '../src/remote/m7-operation-journal.js';
@@ -38,6 +43,7 @@ function setup(file = ':memory:') {
   db.pragma('foreign_keys = ON');
   installJournal(db);
   installAbandonments(db);
+  installListIndexes(db);
   let now = Date.parse('2026-08-29T05:00:00.000Z');
   const journal = createM7OperationJournal(db, { clock: () => ++now });
   const adapters = createM7OperationControlAdapters({ cursorKey: CURSOR_KEY, journal });
@@ -122,6 +128,10 @@ test('migration fingerprints append-only abandonment authority', () => {
       .all().map(column => column.name);
     assert.equal(columns.includes('record_json'), true);
     assert.equal(columns.some(name => /payload|result_json/u.test(name)), false);
+    assert.equal(
+      computeM7OperationListIndexFingerprintV104(fixture.db),
+      EXPECTED_M7_OPERATION_LIST_INDEX_FINGERPRINT_V104,
+    );
   } finally {
     fixture.db.close();
   }
@@ -162,7 +172,7 @@ await testAsync('list and get expose only the trusted device-subject partition',
   }
 });
 
-await testAsync('cursor binds subject, state filter and complete operation snapshot', async () => {
+await testAsync('cursor binds subject and filter while preserving a complete stable snapshot', async () => {
   const fixture = setup();
   try {
     await unknownOperation(fixture.journal, 'operation:target:001');
@@ -180,12 +190,68 @@ await testAsync('cursor binds subject, state filter and complete operation snaps
     assert.equal(changedFilter.error.code, 'REMOTE_OPERATION_CURSOR_INVALID');
 
     await unknownOperation(fixture.journal, 'operation:target:003');
-    const stale = await invoke(fixture.provider, 'operation.list', listRequest({
-      requestId: 'request:operation:list:stale',
+    const second = await invoke(fixture.provider, 'operation.list', listRequest({
+      requestId: 'request:operation:list:stable',
       cursor: first.nextCursor,
     }));
-    assert.equal(stale.status, 'error');
-    assert.equal(stale.error.code, 'REMOTE_OPERATION_CURSOR_STALE');
+    assert.equal(second.status, 'ok');
+    assert.equal(second.items.length, 1);
+    assert.equal(second.items[0].operationId, 'operation:target:002');
+    assert.equal(second.end, true);
+    assert.equal(second.snapshotRevision, first.snapshotRevision);
+
+    const fresh = await invoke(fixture.provider, 'operation.list', listRequest({
+      requestId: 'request:operation:list:fresh',
+      limit: 10,
+    }));
+    assert.equal(fresh.items.length, 3);
+    assert.notEqual(fresh.snapshotRevision, first.snapshotRevision);
+  } finally {
+    fixture.db.close();
+  }
+});
+
+await testAsync('large histories use indexed keyset pages without loading the partition', async () => {
+  const fixture = setup();
+  try {
+    for (let index = 0; index < 240; index += 1) {
+      await unknownOperation(fixture.journal, `operation:bulk:${String(index).padStart(3, '0')}`);
+    }
+    const first = await invoke(fixture.provider, 'operation.list', listRequest({
+      requestId: 'request:operation:list:bulk:first',
+      limit: 7,
+      states: ['unknown'],
+    }));
+    assert.equal(first.status, 'ok');
+    assert.equal(first.items.length, 7);
+    assert.equal(first.end, false);
+
+    const second = await invoke(fixture.provider, 'operation.list', listRequest({
+      requestId: 'request:operation:list:bulk:second',
+      cursor: first.nextCursor,
+      limit: 7,
+      states: ['unknown'],
+    }));
+    assert.equal(second.status, 'ok');
+    assert.equal(second.items.length, 7);
+    assert.equal(second.snapshotRevision, first.snapshotRevision);
+    assert.equal(
+      new Set([...first.items, ...second.items].map(item => item.operationId)).size,
+      14,
+    );
+
+    const plan = fixture.db.prepare(`
+      EXPLAIN QUERY PLAN
+      SELECT revision FROM m7_remote_operation_events
+      WHERE device_id = ? AND subject_id = ? AND sequence = 0
+        AND revision > ? AND revision <= ?
+      ORDER BY revision LIMIT ?
+    `).all(DEVICE, SUBJECT, 0, Number.MAX_SAFE_INTEGER, 8);
+    assert.match(
+      plan.map(row => row.detail).join('\n'),
+      /idx_m7_remote_operation_list.*device_id=.*subject_id=.*sequence=.*revision/u,
+    );
+    assert.equal(typeof fixture.journal.listOperations, 'undefined');
   } finally {
     fixture.db.close();
   }

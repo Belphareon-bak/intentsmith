@@ -10,7 +10,7 @@
 **Product tree:** `7a188be5b2accf29d0ffed322103b5114c7ee85a`
 
 **Review range:**
-`1d04bd42dd96a8003ab2fdf0c0fd9d86e55772af..d43e7ada01d6e5de38a06d79021bde8909d2eba3`
+`1d04bd42bbaa79e9da1fe2b6b59b6589ce8efad5..d43e7ada01d6e5de38a06d79021bde8909d2eba3`
 
 ## A. Core composition
 

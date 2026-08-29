@@ -14,10 +14,14 @@ export const MOBILE_RELEASE_TRANSPORT_BLOCKER =
   'M7_REMOTE_LISTENER_AUTH_PAIRING_AND_WIRE_TRANSPORT_NOT_IMPLEMENTED';
 export const MOBILE_RELEASE_NATIVE_HTTP_BLOCKER =
   'CAPACITOR_HTTP_GLOBAL_FETCH_PATCH_MUST_BE_REPLACED_OR_DISABLED';
+export const MOBILE_RELEASE_AAB_SIGNER_BLOCKER =
+  'MOBILE_AAB_UPLOAD_SIGNER_NOT_VERIFIED';
 
 export function classifyMobileReleaseArtifact({
   debugSigned,
   expectedSigner,
+  expectedAabSigner = null,
+  aabSignerVerified = false,
   transportMode,
   descriptorDigest,
   adapterManifestDigest,
@@ -40,11 +44,16 @@ export function classifyMobileReleaseArtifact({
   if (nativeHttpPatchEnabled) {
     releaseBlockers.push(MOBILE_RELEASE_NATIVE_HTTP_BLOCKER);
   }
+  if (expectedSigner && (!expectedAabSigner || aabSignerVerified !== true)) {
+    releaseBlockers.push(MOBILE_RELEASE_AAB_SIGNER_BLOCKER);
+  }
   const releaseTransportReady = releaseBlockers.length === 0;
   const classification = debugSigned
     ? 'THROWAWAY_DEBUG_SIGNED'
     : expectedSigner
-      ? releaseTransportReady
+      ? !expectedAabSigner || aabSignerVerified !== true
+        ? 'CANDIDATE_SIGNED_AAB_UNVERIFIED'
+        : releaseTransportReady
         ? 'CANDIDATE_SIGNED_UNREVIEWED'
         : 'CANDIDATE_SIGNED_TRANSPORT_BLOCKED'
       : 'NON_DEBUG_SIGNED_UNVERIFIED';

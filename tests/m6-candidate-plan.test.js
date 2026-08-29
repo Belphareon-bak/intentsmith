@@ -49,6 +49,33 @@ test('plan is argument-free, serial and covers the exact ACTIVE required registr
   assert.equal(Object.isFrozen(plan), true);
 });
 
+test('offline signed authority proofs are explicit required members of the locked plan', () => {
+  const signedAuthorityPrograms = [
+    'IS-T1-TESTS-SIGNED-AUTHORITY-BUNDLE-TEST',
+    'IS-T1-TESTS-SIGNED-AUTHORITY-RECEIPT-TEST',
+  ];
+  const byId = new Map(registry.suites.map(program => [program.id, program]));
+  const plan = buildM6CandidateExecutionPlan(registry);
+  const deterministic = plan.phases.find(
+    phase => phase.id === 'deterministic-offline-database',
+  );
+  for (const programId of signedAuthorityPrograms) {
+    const program = byId.get(programId);
+    assert.equal(program?.state, 'ACTIVE', programId);
+    assert.equal(program?.required, true, programId);
+    assert.equal(program?.profile, 'offline', programId);
+    assert.equal(deterministic.programIds.includes(programId), true, programId);
+
+    const missing = structuredClone(plan);
+    missing.phases.find(
+      phase => phase.id === 'deterministic-offline-database',
+    ).programIds = deterministic.programIds.filter(id => id !== programId);
+    const validation = validateM6CandidateExecutionPlan(missing, registry);
+    assert.equal(validation.valid, false, programId);
+    assert(validation.errors.includes(`plan:required-program-uncovered:${programId}`));
+  }
+});
+
 test('direct, runner-owned server and physical GPU programs cannot be silently omitted', () => {
   const plan = buildM6CandidateExecutionPlan(registry);
   const selected = new Set(plan.phases.flatMap(phase => phase.programIds));

@@ -1,6 +1,3 @@
-import { createHash } from 'node:crypto';
-
-import { canonicalizeM2ExecutionValue } from '../../contracts/m2/execution-v1.js';
 import {
   M7CoreCursorError,
   M7_CORE_CURSOR_ERROR,
@@ -28,20 +25,13 @@ function deepFreeze(value, seen = new Set()) {
 function requireJournal(value) {
   if (!value
     || typeof value.getOperation !== 'function'
-    || typeof value.listOperations !== 'function'
+    || typeof value.listOperationsPage !== 'function'
     || typeof value.abandonOperation !== 'function') {
     const error = new TypeError('m7-operation-control:journal-required');
     error.code = M7_OPERATION_CONTROL_ERROR.CONFIG_INVALID;
     throw error;
   }
   return value;
-}
-
-function digestRevision(prefix, value) {
-  const digest = createHash('sha256')
-    .update(canonicalizeM2ExecutionValue(value), 'utf8')
-    .digest('hex');
-  return `${prefix}:${digest}`;
 }
 
 function readError(contract, requestId, code, message, retryable = false) {
@@ -115,23 +105,6 @@ export function createM7OperationControlAdapters({ cursorKey, journal } = {}) {
   const operationJournal = requireJournal(journal);
   const cursorCodec = createM7CoreCursorCodec({ key: cursorKey });
 
-  function snapshot(context, states) {
-    const all = operationJournal.listOperations({
-      deviceId: context.deviceId,
-      subjectId: context.subjectId,
-    });
-    const items = states.length === 0
-      ? all
-      : all.filter(item => states.includes(item.state));
-    const snapshotRevision = digestRevision('rev', {
-      deviceId: context.deviceId,
-      subjectId: context.subjectId,
-      states,
-      items,
-    });
-    return deepFreeze({ items, snapshotRevision });
-  }
-
   async function listOperations(request, context) {
     try {
       const states = request.states ?? [];
@@ -139,7 +112,6 @@ export function createM7OperationControlAdapters({ cursorKey, journal } = {}) {
         limit: request.limit,
         states,
       });
-      const current = snapshot(context, states);
       const cursor = request.cursor === undefined ? null : cursorCodec.decode(request.cursor, {
         capabilityId: 'm7-control-plane-prerequisite',
         capabilityVersion: 1,
@@ -147,34 +119,33 @@ export function createM7OperationControlAdapters({ cursorKey, journal } = {}) {
         deviceId: context.deviceId,
         subjectId: context.subjectId,
         filterDigest,
-        snapshotRevision: current.snapshotRevision,
       });
-      const offset = cursor?.offset ?? 0;
-      if (offset > current.items.length) throw new M7CoreCursorError(
-        M7_CORE_CURSOR_ERROR.INVALID,
-        'm7-operation-control:cursor-offset-invalid',
-      );
-      const items = current.items.slice(offset, offset + request.limit);
-      const nextOffset = offset + items.length;
-      const end = nextOffset >= current.items.length;
+      const page = operationJournal.listOperationsPage({
+        deviceId: context.deviceId,
+        subjectId: context.subjectId,
+        states,
+        limit: request.limit,
+        afterRevision: cursor?.offset ?? 0,
+        snapshotRevision: cursor?.snapshotRevision ?? null,
+      });
       return deepFreeze({
         contract: 'OperationPage',
         version: 1,
         requestId: request.requestId,
         status: 'ok',
-        items,
-        end,
-        nextCursor: end ? null : cursorCodec.encode({
+        items: page.items,
+        end: page.end,
+        nextCursor: page.end ? null : cursorCodec.encode({
           capabilityId: 'm7-control-plane-prerequisite',
           capabilityVersion: 1,
           operationId: 'operation.list',
           deviceId: context.deviceId,
           subjectId: context.subjectId,
           filterDigest,
-          snapshotRevision: current.snapshotRevision,
-          offset: nextOffset,
+          snapshotRevision: page.snapshotRevision,
+          offset: page.nextAfterRevision,
         }),
-        snapshotRevision: current.snapshotRevision,
+        snapshotRevision: page.snapshotRevision,
       });
     } catch (error) {
       return mapReadFailure('OperationPage', request.requestId, error);

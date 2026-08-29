@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 
 import {
@@ -12,6 +13,10 @@ export const MOBILE_RELEASE_EXACT_SOURCE_ASSETS = Object.freeze([
   'remote-core-v1.js',
   'sw.js',
 ]);
+export const MOBILE_RELEASE_SOURCE_MANIFEST_ASSET = 'mobile-release-source-manifest.json';
+const SOURCE_REVISION = /^[a-f0-9]{40}$/u;
+const ANDROID_IDENTIFIER = /^[A-Za-z][A-Za-z0-9_.]{0,127}$/u;
+const POSITIVE_INTEGER_TEXT = /^[1-9][0-9]{0,9}$/u;
 
 function exactMatch(text, pattern, label) {
   const matches = [...text.matchAll(pattern)];
@@ -31,6 +36,117 @@ function parseJson(text, label) {
 
 function assertEqual(actual, expected, message) {
   if (actual !== expected) throw new Error(message);
+}
+
+function sha256(value) {
+  return `sha256:${createHash('sha256').update(value).digest('hex')}`;
+}
+
+function requireAndroidMetadata(value) {
+  if (!value
+    || !ANDROID_IDENTIFIER.test(value.applicationId || '')
+    || !POSITIVE_INTEGER_TEXT.test(value.versionCode || '')
+    || typeof value.versionName !== 'string'
+    || value.versionName.length < 1
+    || value.versionName.length > 64
+    || !POSITIVE_INTEGER_TEXT.test(value.minSdk || '')
+    || !POSITIVE_INTEGER_TEXT.test(value.targetSdk || '')) {
+    throw new Error('Android source metadata is invalid');
+  }
+  return value;
+}
+
+export function deriveMobileCapacitorPluginRegistryV1(packageJsonText, packageLockText) {
+  const packageJson = parseJson(packageJsonText, 'mobile package.json');
+  const packageLock = parseJson(packageLockText, 'mobile package-lock.json');
+  const dependencies = packageJson.dependencies;
+  const lockedDependencies = packageLock.packages?.['']?.dependencies;
+  if (!isDeepStrictEqual(dependencies, lockedDependencies)) {
+    throw new Error('mobile package and lock runtime dependencies differ');
+  }
+  const names = Object.keys(dependencies || {}).sort();
+  if (!isDeepStrictEqual(names, ['@capacitor/android', '@capacitor/core'])) {
+    throw new Error('mobile runtime plugin set is not covered by source manifest version 1');
+  }
+  return '[]\n';
+}
+
+export function renderMobileReleaseSourceManifestV1({
+  sourceRevision,
+  android,
+  gatewayUrl,
+  sourceCapacitorConfig,
+  sourcePackageJson,
+  sourcePackageLock,
+  sourceRuntimeConfig,
+  sourceIndex,
+  sourceAssets,
+}) {
+  if (!SOURCE_REVISION.test(sourceRevision || '')) {
+    throw new Error('mobile source revision is invalid');
+  }
+  const metadata = requireAndroidMetadata(android);
+  const config = parseJson(sourceCapacitorConfig, 'source Capacitor config');
+  if (config.appId !== metadata.applicationId) {
+    throw new Error('Capacitor appId does not match Android applicationId');
+  }
+  const runtimeIdentity = readMobileSourceRuntimeIdentityV1(sourceRuntimeConfig);
+  const generatedRuntime = renderMobileGeneratedRuntimeConfigV1({ gatewayUrl, ...runtimeIdentity });
+  const generatedIndex = renderMobileGeneratedIndexV1(sourceIndex, gatewayUrl);
+  const pluginRegistry = deriveMobileCapacitorPluginRegistryV1(
+    sourcePackageJson,
+    sourcePackageLock,
+  );
+  const assets = Object.fromEntries(MOBILE_RELEASE_EXACT_SOURCE_ASSETS.map(asset => {
+    if (typeof sourceAssets?.[asset] !== 'string') {
+      throw new Error(`source asset is missing: ${asset}`);
+    }
+    return [asset, sha256(sourceAssets[asset])];
+  }));
+  const record = {
+    contract: 'MobileReleaseSourceManifest',
+    version: 1,
+    sourceRevision,
+    android: {
+      applicationId: metadata.applicationId,
+      versionCode: metadata.versionCode,
+      versionName: metadata.versionName,
+      minSdk: metadata.minSdk,
+      targetSdk: metadata.targetSdk,
+    },
+    build: {
+      gatewayUrl,
+      capacitorConfigSha256: sha256(sourceCapacitorConfig),
+      capacitorPluginRegistrySha256: sha256(pluginRegistry),
+      generatedRuntimeConfigSha256: sha256(generatedRuntime),
+      generatedIndexSha256: sha256(generatedIndex),
+    },
+    remoteCore: {
+      transportMode: runtimeIdentity.transportMode,
+      descriptorDigest: runtimeIdentity.descriptorDigest,
+      adapterManifestDigest: runtimeIdentity.adapterManifestDigest,
+    },
+    clientAssets: assets,
+  };
+  return `${JSON.stringify(record)}\n`;
+}
+
+export function validateMobileReleaseSourceManifestV1({
+  expectedBytes,
+  apkBytes,
+  aabBytes,
+}) {
+  assertEqual(apkBytes, expectedBytes, 'APK source manifest does not match reviewed source');
+  assertEqual(aabBytes, expectedBytes, 'AAB source manifest does not match reviewed source');
+  const record = parseJson(expectedBytes, 'mobile source manifest');
+  if (renderExactSourceManifestRecord(record) !== expectedBytes) {
+    throw new Error('mobile source manifest is not canonical');
+  }
+  return Object.freeze(record);
+}
+
+function renderExactSourceManifestRecord(record) {
+  return `${JSON.stringify(record)}\n`;
 }
 
 export function readMobileSourceRuntimeIdentityV1(sourceRuntimeConfig) {
@@ -148,6 +264,13 @@ export function validateMobileReleaseArtifactBindingV1({
   sourceAssets,
   apkAssets,
   aabAssets,
+  sourcePackageJson,
+  sourcePackageLock,
+  apkPlugins,
+  aabPlugins,
+  expectedSourceManifest,
+  apkSourceManifest,
+  aabSourceManifest,
 }) {
   const sourceConfig = parseJson(sourceCapacitorConfig, 'source Capacitor config');
   const packagedApkConfig = parseJson(apkCapacitorConfig, 'APK Capacitor config');
@@ -158,6 +281,17 @@ export function validateMobileReleaseArtifactBindingV1({
   if (!isDeepStrictEqual(packagedAabConfig, sourceConfig)) {
     throw new Error('AAB packaged Capacitor config does not match source revision');
   }
+  const expectedPlugins = deriveMobileCapacitorPluginRegistryV1(
+    sourcePackageJson,
+    sourcePackageLock,
+  );
+  assertEqual(apkPlugins, expectedPlugins, 'APK plugin registry does not match source package graph');
+  assertEqual(aabPlugins, expectedPlugins, 'AAB plugin registry does not match source package graph');
+  const sourceManifest = validateMobileReleaseSourceManifestV1({
+    expectedBytes: expectedSourceManifest,
+    apkBytes: apkSourceManifest,
+    aabBytes: aabSourceManifest,
+  });
 
   const runtimeIdentity = readMobileSourceRuntimeIdentityV1(sourceRuntimeConfig);
   const gatewayUrl = parseGeneratedGatewayUrl(apkRuntimeConfig);
@@ -206,5 +340,6 @@ export function validateMobileReleaseArtifactBindingV1({
     gatewayUrl,
     ...runtimeIdentity,
     nativeHttpPatchEnabled: packagedApkConfig.plugins?.CapacitorHttp?.enabled === true,
+    sourceManifest,
   });
 }

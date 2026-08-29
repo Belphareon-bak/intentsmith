@@ -21,6 +21,8 @@ export const M7_OPERATION_JOURNAL_ERROR = Object.freeze({
 });
 
 const IDENTITY_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
+const LIST_STATES = new Set(['abandoned', 'confirmed', 'pending', 'rejected', 'unknown']);
+const SNAPSHOT_PATTERN = /^ops:([0-9]+):([0-9]+)$/u;
 
 export class M7OperationJournalError extends Error {
   constructor(code, message, details = {}) {
@@ -209,6 +211,46 @@ function isoTimestamp(value) {
   return new Date(value).toISOString();
 }
 
+function requireListLimit(value) {
+  if (!Number.isSafeInteger(value) || value < 1 || value > 100) {
+    fail(M7_OPERATION_JOURNAL_ERROR.INPUT_INVALID, 'm7 operation list limit is invalid');
+  }
+  return value;
+}
+
+function requireListStates(value) {
+  if (!Array.isArray(value)
+    || value.length > LIST_STATES.size
+    || new Set(value).size !== value.length
+    || value.some(state => !LIST_STATES.has(state))) {
+    fail(M7_OPERATION_JOURNAL_ERROR.INPUT_INVALID, 'm7 operation list states are invalid');
+  }
+  return value;
+}
+
+function requireAfterRevision(value) {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    fail(M7_OPERATION_JOURNAL_ERROR.INPUT_INVALID, 'm7 operation list cursor is invalid');
+  }
+  return value;
+}
+
+function encodeListSnapshot(eventRevision, abandonmentRevision) {
+  return `ops:${eventRevision}:${abandonmentRevision}`;
+}
+
+function parseListSnapshot(value) {
+  const match = typeof value === 'string' ? value.match(SNAPSHOT_PATTERN) : null;
+  if (!match) fail(M7_OPERATION_JOURNAL_ERROR.INPUT_INVALID, 'm7 operation snapshot is invalid');
+  const eventRevision = Number(match[1]);
+  const abandonmentRevision = Number(match[2]);
+  if (!Number.isSafeInteger(eventRevision)
+    || !Number.isSafeInteger(abandonmentRevision)) {
+    fail(M7_OPERATION_JOURNAL_ERROR.INPUT_INVALID, 'm7 operation snapshot is invalid');
+  }
+  return { eventRevision, abandonmentRevision };
+}
+
 function replayResult(outcome) {
   if (outcome.event.result === null) {
     fail(M7_OPERATION_JOURNAL_ERROR.OUTCOME_UNKNOWN, 'm7 operation outcome is unknown', {
@@ -252,12 +294,84 @@ export class M7OperationJournal {
         sequence, state, result_digest, error_code, recorded_at_ms, record_json
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS BLOB))
     `);
-    this.selectOperationIds = this.database.prepare(`
-      SELECT operation_id AS operationId
-      FROM m7_remote_operation_events
-      WHERE device_id = ? AND subject_id = ?
-      GROUP BY operation_id
-      ORDER BY min(recorded_at_ms), operation_id
+    this.selectListSnapshot = this.database.prepare(`
+      SELECT
+        COALESCE((
+          SELECT max(revision) FROM m7_remote_operation_events
+          WHERE device_id = ? AND subject_id = ?
+        ), 0) AS eventRevision,
+        COALESCE((
+          SELECT max(abandonment_revision) FROM m7_remote_operation_abandonments
+          WHERE device_id = ? AND subject_id = ?
+        ), 0) AS abandonmentRevision
+    `);
+    this.selectOperationPage = this.database.prepare(`
+      WITH projected AS (
+        SELECT
+          intent.revision AS intentRevision,
+          intent.device_id AS intentDeviceId,
+          intent.subject_id AS intentSubjectId,
+          intent.operation_id AS intentOperationId,
+          intent.operation_type AS intentOperationType,
+          intent.request_digest AS intentRequestDigest,
+          intent.sequence AS intentSequence,
+          intent.state AS intentState,
+          intent.result_digest AS intentResultDigest,
+          intent.error_code AS intentErrorCode,
+          intent.recorded_at_ms AS intentRecordedAtMs,
+          CAST(intent.record_json AS BLOB) AS intentRecordBytes,
+          outcome.revision AS outcomeRevision,
+          outcome.device_id AS outcomeDeviceId,
+          outcome.subject_id AS outcomeSubjectId,
+          outcome.operation_id AS outcomeOperationId,
+          outcome.operation_type AS outcomeOperationType,
+          outcome.request_digest AS outcomeRequestDigest,
+          outcome.sequence AS outcomeSequence,
+          outcome.state AS outcomeState,
+          outcome.result_digest AS outcomeResultDigest,
+          outcome.error_code AS outcomeErrorCode,
+          outcome.recorded_at_ms AS outcomeRecordedAtMs,
+          CAST(outcome.record_json AS BLOB) AS outcomeRecordBytes,
+          abandonment.abandonment_revision AS abandonmentRevision,
+          abandonment.device_id AS abandonmentDeviceId,
+          abandonment.subject_id AS abandonmentSubjectId,
+          abandonment.target_operation_id AS abandonmentTargetOperationId,
+          abandonment.source_operation_id AS abandonmentSourceOperationId,
+          abandonment.source_request_digest AS abandonmentSourceRequestDigest,
+          abandonment.target_event_revision AS abandonmentTargetEventRevision,
+          abandonment.target_request_digest AS abandonmentTargetRequestDigest,
+          abandonment.recorded_at_ms AS abandonmentRecordedAtMs,
+          CAST(abandonment.record_json AS BLOB) AS abandonmentRecordBytes,
+          CASE
+            WHEN abandonment.abandonment_revision IS NOT NULL THEN 'abandoned'
+            WHEN outcome.revision IS NULL OR outcome.state = 'UNKNOWN' THEN 'unknown'
+            WHEN outcome.state = 'PENDING' THEN 'pending'
+            WHEN outcome.state = 'CONFIRMED' THEN 'confirmed'
+            ELSE 'rejected'
+          END AS publicState
+        FROM m7_remote_operation_events intent
+        LEFT JOIN m7_remote_operation_events outcome
+          ON outcome.device_id = intent.device_id
+         AND outcome.subject_id = intent.subject_id
+         AND outcome.operation_id = intent.operation_id
+         AND outcome.sequence = 1
+         AND outcome.revision <= @eventRevision
+        LEFT JOIN m7_remote_operation_abandonments abandonment
+          ON abandonment.device_id = intent.device_id
+         AND abandonment.subject_id = intent.subject_id
+         AND abandonment.target_operation_id = intent.operation_id
+         AND abandonment.abandonment_revision <= @abandonmentRevision
+        WHERE intent.device_id = @deviceId
+          AND intent.subject_id = @subjectId
+          AND intent.sequence = 0
+          AND intent.revision > @afterRevision
+          AND intent.revision <= @eventRevision
+      )
+      SELECT * FROM projected
+      WHERE @statesJson = '[]'
+         OR publicState IN (SELECT value FROM json_each(@statesJson))
+      ORDER BY intentRevision
+      LIMIT @rowLimit
     `);
     this.selectAbandonment = this.database.prepare(`
       SELECT abandonment_revision AS abandonmentRevision,
@@ -342,6 +456,73 @@ export class M7OperationJournal {
         ? resultReference(outcome.event.resultDigest)
         : null,
       canAbandon: ['pending', 'unknown'].includes(state),
+      revision: operationRevision(revisionMaterial),
+    });
+  }
+
+  #pageOperationRecord(row) {
+    const intent = parseRow({
+      revision: row.intentRevision,
+      deviceId: row.intentDeviceId,
+      subjectId: row.intentSubjectId,
+      operationId: row.intentOperationId,
+      operationType: row.intentOperationType,
+      requestDigest: row.intentRequestDigest,
+      sequence: row.intentSequence,
+      state: row.intentState,
+      resultDigest: row.intentResultDigest,
+      errorCode: row.intentErrorCode,
+      recordedAtMs: row.intentRecordedAtMs,
+      recordBytes: row.intentRecordBytes,
+    });
+    const outcome = row.outcomeRevision === null ? null : parseRow({
+      revision: row.outcomeRevision,
+      deviceId: row.outcomeDeviceId,
+      subjectId: row.outcomeSubjectId,
+      operationId: row.outcomeOperationId,
+      operationType: row.outcomeOperationType,
+      requestDigest: row.outcomeRequestDigest,
+      sequence: row.outcomeSequence,
+      state: row.outcomeState,
+      resultDigest: row.outcomeResultDigest,
+      errorCode: row.outcomeErrorCode,
+      recordedAtMs: row.outcomeRecordedAtMs,
+      recordBytes: row.outcomeRecordBytes,
+    });
+    const abandonment = row.abandonmentRevision === null ? null : parseAbandonmentRow({
+      abandonmentRevision: row.abandonmentRevision,
+      deviceId: row.abandonmentDeviceId,
+      subjectId: row.abandonmentSubjectId,
+      targetOperationId: row.abandonmentTargetOperationId,
+      sourceOperationId: row.abandonmentSourceOperationId,
+      sourceRequestDigest: row.abandonmentSourceRequestDigest,
+      targetEventRevision: row.abandonmentTargetEventRevision,
+      targetRequestDigest: row.abandonmentTargetRequestDigest,
+      recordedAtMs: row.abandonmentRecordedAtMs,
+      recordBytes: row.abandonmentRecordBytes,
+    });
+    const updatedAtMs = abandonment?.receipt.recordedAtMs
+      ?? outcome?.event.recordedAtMs
+      ?? intent.event.recordedAtMs;
+    const revisionMaterial = {
+      abandonmentRevision: abandonment?.revision ?? null,
+      eventRevision: outcome?.revision ?? intent.revision,
+      operationId: intent.event.operationId,
+      requestDigest: intent.event.requestDigest,
+      state: row.publicState,
+      updatedAtMs,
+    };
+    return deepFreeze({
+      operationId: intent.event.operationId,
+      operationKind: intent.event.operationType,
+      requestDigest: intent.event.requestDigest,
+      state: row.publicState,
+      createdAt: isoTimestamp(intent.event.recordedAtMs),
+      updatedAt: isoTimestamp(updatedAtMs),
+      resultReference: ['confirmed', 'rejected'].includes(row.publicState)
+        ? resultReference(outcome.event.resultDigest)
+        : null,
+      canAbandon: ['pending', 'unknown'].includes(row.publicState),
       revision: operationRevision(revisionMaterial),
     });
   }
@@ -513,18 +694,54 @@ export class M7OperationJournal {
     );
   }
 
-  listOperations({ deviceId, subjectId }) {
+  listOperationsPage({
+    deviceId,
+    subjectId,
+    states = [],
+    limit,
+    afterRevision = 0,
+    snapshotRevision = null,
+  }) {
     const key = {
       deviceId: requireIdentifier(deviceId, 'deviceId'),
       subjectId: requireIdentifier(subjectId, 'subjectId'),
     };
+    const pageLimit = requireListLimit(limit);
+    const listStates = requireListStates(states);
+    const cursorRevision = requireAfterRevision(afterRevision);
     return requireStored(
-      () => this.database.transaction(() => Object.freeze(
-        this.selectOperationIds.all(key.deviceId, key.subjectId).map(row => (
-          this.#operationRecord({ ...key, operationId: row.operationId })
-        )),
-      ))(),
-      'm7 operation records could not be read',
+      () => this.database.transaction(() => {
+        const snapshot = snapshotRevision === null
+          ? this.selectListSnapshot.get(
+            key.deviceId,
+            key.subjectId,
+            key.deviceId,
+            key.subjectId,
+          )
+          : parseListSnapshot(snapshotRevision);
+        const rows = this.selectOperationPage.all({
+          deviceId: key.deviceId,
+          subjectId: key.subjectId,
+          eventRevision: snapshot.eventRevision,
+          abandonmentRevision: snapshot.abandonmentRevision,
+          afterRevision: cursorRevision,
+          statesJson: JSON.stringify(listStates),
+          rowLimit: pageLimit + 1,
+        });
+        const pageRows = rows.slice(0, pageLimit);
+        return deepFreeze({
+          items: pageRows.map(row => this.#pageOperationRecord(row)),
+          end: rows.length <= pageLimit,
+          nextAfterRevision: rows.length <= pageLimit
+            ? null
+            : pageRows.at(-1).intentRevision,
+          snapshotRevision: encodeListSnapshot(
+            snapshot.eventRevision,
+            snapshot.abandonmentRevision,
+          ),
+        });
+      })(),
+      'm7 operation page could not be read',
     );
   }
 

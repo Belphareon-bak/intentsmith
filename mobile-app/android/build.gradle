@@ -26,3 +26,9 @@ allprojects {
 task clean(type: Delete) {
     delete rootProject.buildDir
 }
+
+tasks.register('intentsmithBundletoolClasspath') {
+    doLast {
+        println "INTENTSMITH_BUNDLETOOL_CLASSPATH=${buildscript.configurations.classpath.asPath}"
+    }
+}

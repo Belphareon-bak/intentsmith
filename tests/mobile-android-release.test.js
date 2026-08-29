@@ -25,12 +25,20 @@ import {
 } from '../scripts/mobile-release-policy.mjs';
 import {
   MOBILE_RELEASE_EXACT_SOURCE_ASSETS,
+  MOBILE_RELEASE_SOURCE_MANIFEST_ASSET,
+  deriveMobileCapacitorPluginRegistryV1,
   readMobileSourceRuntimeIdentityV1,
   renderMobileGeneratedIndexV1,
   renderMobileGeneratedRuntimeConfigV1,
+  renderMobileReleaseSourceManifestV1,
   validateMobileReleaseArtifactBindingV1,
   validateMobileNetworkSecurityTreeV1,
 } from '../scripts/mobile-release-artifact-binding.mjs';
+import {
+  parseAabReleaseObservationV1,
+  parseApkReleaseObservationV1,
+  validateMobileAndroidObservationsV1,
+} from '../scripts/mobile-release-android-observation.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const read = relative => readFileSync(path.join(ROOT, relative), 'utf8');
@@ -49,6 +57,27 @@ function artifactBindingFixture(gatewayUrl = 'https://gateway.example.test:4443'
   });
   const generatedIndex = renderMobileGeneratedIndexV1(sourceIndex, gatewayUrl);
   const sourceCapacitorConfig = read('mobile-app/capacitor.config.json');
+  const sourcePackageJson = read('mobile-app/package.json');
+  const sourcePackageLock = read('mobile-app/package-lock.json');
+  const android = {
+    applicationId: 'cz.intentsmith.companion',
+    versionCode: '1',
+    versionName: '1.0',
+    minSdk: '24',
+    targetSdk: '36',
+  };
+  const sourceRevision = 'a'.repeat(40);
+  const expectedSourceManifest = renderMobileReleaseSourceManifestV1({
+    sourceRevision,
+    android,
+    gatewayUrl,
+    sourceCapacitorConfig,
+    sourcePackageJson,
+    sourcePackageLock,
+    sourceRuntimeConfig,
+    sourceIndex,
+    sourceAssets,
+  });
   return {
     sourceCapacitorConfig,
     apkCapacitorConfig: sourceCapacitorConfig,
@@ -62,6 +91,15 @@ function artifactBindingFixture(gatewayUrl = 'https://gateway.example.test:4443'
     sourceAssets,
     apkAssets: { ...sourceAssets },
     aabAssets: { ...sourceAssets },
+    sourcePackageJson,
+    sourcePackageLock,
+    apkPlugins: '[]\n',
+    aabPlugins: '[]\n',
+    expectedSourceManifest,
+    apkSourceManifest: expectedSourceManifest,
+    aabSourceManifest: expectedSourceManifest,
+    android,
+    sourceRevision,
   };
 }
 
@@ -185,8 +223,26 @@ await test('release script builds APK and AAB with JDK 21 and restores tracked p
   assert.match(script, /toolchain\/jdk21/);
   assert.match(script, /npx cap sync android/);
   assert.match(script, /:app:assembleRelease :app:bundleRelease/);
+  assert.match(script, /C3_MOBILE_ALLOW_DEBUG_SIGNING/);
   assert.match(script, /trap restore_policy EXIT/);
+  assert.match(script, /mobile-release-source-manifest\.mjs/);
   assert.match(script, /podpisový klíč není/);
+});
+
+await test('source manifest and plugin registry are derived from the Git-pinned build graph', () => {
+  const fixture = artifactBindingFixture();
+  assert.equal(
+    deriveMobileCapacitorPluginRegistryV1(fixture.sourcePackageJson, fixture.sourcePackageLock),
+    '[]\n',
+  );
+  const manifest = JSON.parse(fixture.expectedSourceManifest);
+  assert.equal(manifest.contract, 'MobileReleaseSourceManifest');
+  assert.equal(manifest.sourceRevision, fixture.sourceRevision);
+  assert.deepEqual(manifest.android, fixture.android);
+  assert.equal(Object.keys(manifest.clientAssets).length, MOBILE_RELEASE_EXACT_SOURCE_ASSETS.length);
+  const build = read('mobile-app/android/app/build.gradle');
+  assert.match(build, /generated\/intentsmithReleaseAssets/);
+  assert.equal(MOBILE_RELEASE_SOURCE_MANIFEST_ASSET, 'mobile-release-source-manifest.json');
 });
 
 await test('generated Android assets pin CSP and RemoteCore identity to the artifact', () => {
@@ -281,6 +337,17 @@ await test('stale or substituted generated release assets fail closed', () => {
     /AAB sw\.js does not match source revision/,
   );
   assert.throws(
+    () => validateMobileReleaseArtifactBindingV1({ ...base, apkPlugins: '[{"id":"forged"}]\n' }),
+    /APK plugin registry does not match source package graph/,
+  );
+  assert.throws(
+    () => validateMobileReleaseArtifactBindingV1({
+      ...base,
+      aabSourceManifest: base.aabSourceManifest.replace(base.sourceRevision, 'b'.repeat(40)),
+    }),
+    /AAB source manifest does not match reviewed source/,
+  );
+  assert.throws(
     () => validateMobileReleaseArtifactBindingV1({
       ...base,
       apkRuntimeConfig: `${base.apkRuntimeConfig}// injected\n`,
@@ -354,14 +421,17 @@ await test('release evidence pins a candidate signer and labels every weaker art
   const evidence = read('scripts/mobile-release-evidence.mjs');
   const binding = read('scripts/mobile-release-artifact-binding.mjs');
   const policy = read('scripts/mobile-release-policy.mjs');
-  assert.match(evidence, /--expected-signer-sha256/);
+  assert.match(evidence, /--expected-apk-signer-sha256/);
+  assert.match(evidence, /--expected-aab-signer-sha256/);
   assert.match(evidence, /--allow-dirty/);
   assert.match(evidence, /build evidence cannot be bound to HEAD/);
-  assert.match(evidence, /APK source revision mismatch/);
+  assert.match(evidence, /parseApkReleaseObservationV1/);
   assert.match(evidence, /assets\/public\/runtime-config\.js/);
   assert.match(evidence, /base\/assets\/public\/runtime-config\.js/);
   assert.match(evidence, /assets\/capacitor\.config\.json/);
   assert.match(evidence, /aapt-network-security\.txt/);
+  assert.match(evidence, /aab-network-security\.txt/);
+  assert.match(evidence, /aab-manifest\.xml/);
   assert.match(evidence, /validateMobileReleaseArtifactBindingV1/);
   assert.match(binding, /APK packaged Capacitor config does not match source revision/);
   assert.match(binding, /APK runtime config is not the exact reviewed build-time transformation/);
@@ -369,11 +439,42 @@ await test('release evidence pins a candidate signer and labels every weaker art
   assert.match(policy, /THROWAWAY_DEBUG_SIGNED/);
   assert.match(policy, /NON_DEBUG_SIGNED_UNVERIFIED/);
   assert.match(policy, /CANDIDATE_SIGNED_UNREVIEWED/);
+  assert.match(policy, /CANDIDATE_SIGNED_AAB_UNVERIFIED/);
   assert.match(policy, /CANDIDATE_SIGNED_TRANSPORT_BLOCKED/);
   assert.match(policy, /M7_REMOTE_LISTENER_AUTH_PAIRING_AND_WIRE_TRANSPORT_NOT_IMPLEMENTED/);
   assert.match(policy, /CAPACITOR_HTTP_GLOBAL_FETCH_PATCH_MUST_BE_REPLACED_OR_DISABLED/);
-  assert.match(evidence, /APK signer mismatch/);
+  assert.match(evidence, /validateMobileAndroidObservationsV1/);
   assert.match(evidence, /bundled CSP does not pin the selected gateway origin/);
+});
+
+await test('APK and AAB native observations independently bind signer and Android identity', () => {
+  const revision = 'c'.repeat(40);
+  const apk = parseApkReleaseObservationV1({
+    badging: "package: name='cz.intentsmith.companion' versionCode='1' versionName='1.0'\nsdkVersion:'24'\ntargetSdkVersion:'36'\n",
+    manifestTree: `E: meta-data\n  A: android:name="cz.intentsmith.SOURCE_REVISION"\n  A: android:value="${revision}"\n`,
+    signerOutput: `Signer #1 certificate SHA-256 digest: ${'ab'.repeat(32)}\n`,
+  });
+  const aab = parseAabReleaseObservationV1({
+    manifestXml: `<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="cz.intentsmith.companion" android:versionCode="1" android:versionName="1.0"><uses-sdk android:minSdkVersion="24" android:targetSdkVersion="36"/><application><meta-data android:name="cz.intentsmith.SOURCE_REVISION" android:value="${revision}"/></application></manifest>`,
+    signerOutput: `SHA256: ${'CD:'.repeat(31)}CD\n`,
+  });
+  const expected = {
+    applicationId: 'cz.intentsmith.companion', versionCode: '1', versionName: '1.0',
+    minSdk: '24', targetSdk: '36', sourceRevision: revision,
+  };
+  validateMobileAndroidObservationsV1({
+    expected, apk, aab,
+    expectedApkSignerSha256: 'ab'.repeat(32),
+    expectedAabSignerSha256: 'cd'.repeat(32),
+  });
+  assert.throws(
+    () => validateMobileAndroidObservationsV1({
+      expected, apk, aab: { ...aab, sourceRevision: 'd'.repeat(40) },
+      expectedApkSignerSha256: 'ab'.repeat(32),
+      expectedAabSignerSha256: 'cd'.repeat(32),
+    }),
+    /AAB sourceRevision mismatch/,
+  );
 });
 
 await test('a production signer cannot promote the legacy development transport', () => {
@@ -383,6 +484,8 @@ await test('a production signer cannot promote the legacy development transport'
     descriptorDigest: MOBILE_RELEASE_REMOTE_PINS.descriptorDigest,
     adapterManifestDigest: MOBILE_RELEASE_REMOTE_PINS.adapterManifestDigest,
     nativeHttpPatchEnabled: true,
+    expectedAabSigner: 'b'.repeat(64),
+    aabSignerVerified: true,
   };
   const blocked = classifyMobileReleaseArtifact({
     ...shared,
@@ -403,6 +506,18 @@ await test('a production signer cannot promote the legacy development transport'
   assert.equal(future.classification, 'CANDIDATE_SIGNED_UNREVIEWED');
   assert.equal(future.releaseTransportReady, true);
   assert.deepEqual(future.releaseBlockers, []);
+
+  const missingAabAuthority = classifyMobileReleaseArtifact({
+    ...shared,
+    expectedAabSigner: null,
+    aabSignerVerified: false,
+    transportMode: 'remote-core-v1',
+    nativeHttpPatchEnabled: false,
+  });
+  assert.equal(missingAabAuthority.classification, 'CANDIDATE_SIGNED_AAB_UNVERIFIED');
+  assert.deepEqual(missingAabAuthority.releaseBlockers, [
+    'MOBILE_AAB_UPLOAD_SIGNER_NOT_VERIFIED',
+  ]);
 
   assert.throws(
     () => classifyMobileReleaseArtifact({

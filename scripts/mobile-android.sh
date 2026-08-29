@@ -181,7 +181,13 @@ cmd_build() {
   # platform dependency graph as well as copying the reviewed client.
   ( cd "$APP_DIR" && npx cap sync android >/dev/null )
   cmd_configure_url "$APP_URL"
-  ( cd "$ANDROID_DIR" && ./gradlew --no-daemon :app:assembleRelease :app:bundleRelease )
+  node "$REPO_ROOT/scripts/mobile-release-source-manifest.mjs" >/dev/null
+  local -a gradle_args=(--no-daemon :app:assembleRelease :app:bundleRelease)
+  if [ "${C3_MOBILE_ALLOW_DEBUG_SIGNING:-}" = "yes-i-know" ]; then
+    gradle_args=(-PallowDebugSigning=true "${gradle_args[@]}")
+    note "· release artefakty budou výslovně označené debug podpisem"
+  fi
+  ( cd "$ANDROID_DIR" && ./gradlew "${gradle_args[@]}" )
 
   restore_policy
   trap - EXIT

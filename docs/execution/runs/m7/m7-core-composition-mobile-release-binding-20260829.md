@@ -5,7 +5,7 @@ PROVIDER_NOT_ACTIVE / TRANSPORT_ABSENT / PRODUCTION_SIGNING_NOT_AUTHORIZED`
 
 ## Vazba
 
-- vstupní evidence HEAD: `1d04bd42dd96a8003ab2fdf0c0fd9d86e55772af`;
+- vstupní evidence HEAD: `1d04bd42bbaa79e9da1fe2b6b59b6589ce8efad5`;
 - exact product candidate:
   `d43e7ada01d6e5de38a06d79021bde8909d2eba3`;
 - product tree: `7a188be5b2accf29d0ffed322103b5114c7ee85a`;
@@ -108,8 +108,15 @@ rootu a druhý runner je proto zachytil jako cizí source-tree drift.
   adresář právě běžící sady druhého runneru; report SHA-256
   `f9dac4aa3d0632d128dc03b808f77cf9815ec1bb36339ad876d5e36e1a1aa9eb`.
 
-Oba reporty zůstávají pravdivě `FAIL`; nebyly přebarveny ani smazány.
-Následný nesouběžný úplný běh je nový report nad nezměněným SHA.
+Oba výsledky zůstávají pravdivě `FAIL`; nebyly přebarveny. Report `332/1`
+zůstává na původní cestě pod
+`.intentsmith-artifacts/m7-mobile-release-binding-offline-database-20260829/`.
+Report `318/15` už na původní evidence cestě není. Nezávislý reviewer ověřil
+jeho přesný SHA i červený obsah v uživatelském Koši a označil jej jako
+obnovitelný; tento ledger jej proto eviduje jako
+`SUPERSEDED_RED / ORIGINAL_PATH_MISSING / RECOVERABLE_IN_TRASH`, nikoli jako
+přítomný artifact nebo PASS. Koš nebyl během remediation měněn. Následný
+nesouběžný úplný běh je nový report nad nezměněným SHA.
 
 ## Limity
 
