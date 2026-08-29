@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 492
+- Runnable programs: 493
 - Explicit support-module exclusions: 17
-- Profiles: offline=268, database=64, server=44, model=81, soak=15, manual=20
-- States: ACTIVE=398, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=268, database=65, server=44, model=81, soak=15, manual=20
+- States: ACTIVE=399, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -374,6 +374,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST` | `tests/m6-runtime-evidence.test.js` | `C3-012` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-M6-TECHNICAL-EVIDENCE-TEST` | `tests/m6-technical-evidence.test.js` | `C3-012` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-M7-CONVERSATION-CORE-ADAPTERS-TEST` | `tests/m7-conversation-core-adapters.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-CONVERSATION-CORE-ADAPTERS |
+| `IS-T1-TESTS-M7-CORE-COMPOSITION-TEST` | `tests/m7-core-composition.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-CORE-COMPOSITION |
 | `IS-T1-TESTS-M7-IN-PROCESS-CAPABILITY-PROVIDER-TEST` | `tests/m7-in-process-capability-provider.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-IN-PROCESS-CAPABILITY-PROVIDER |
 | `IS-T1-TESTS-M7-MOBILE-CORE-PIN-INTEGRATION-TEST` | `tests/m7-mobile-core-pin-integration.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-REMOTE-COMPANION |
 | `IS-T1-TESTS-M7-OPERATION-CONTROL-ADAPTERS-TEST` | `tests/m7-operation-control-adapters.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-OPERATION-CONTROL |
