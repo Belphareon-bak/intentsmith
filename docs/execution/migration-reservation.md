@@ -231,6 +231,7 @@ záznamu selže v `artifact-validation`.
 | `2026_08_29_103_m7_operation_abandonments.js` | použito pro M7 append-only operation abandonment receipts |
 | `2026_08_29_104_m7_operation_list_indexes.js` | použito pro M7 bounded snapshot/keyset operation list |
 | `2026_08_29_105_m7_remote_session_authority.js` | použito pro M7 pairing, session, replay a audit authority |
+| `2026_08_29_106_m7_m2_approval_list_index.js` | použito pro bounded owner-scoped M7 projekci přijaté M2 approval autority |
 <!-- migration-source-manifest:end -->
 
 ## Navazující M7 rezervace 2026-08-29
@@ -371,11 +372,13 @@ Následné upgrade review prokázalo, že výše popsané přesunutí už apliko
 
 ## M7 navazující rezervace 2026-08-29
 
-M7 integrační větev po opakovaném union censusu používá souvislý blok 101–105.
+M7 integrační větev po opakovaném union censusu používá souvislý blok 101–106.
 Čísla 101 a 102 vlastní persistentní mutation journal a manual information;
 103 uzavírá vzdálenou operation evidence, 104 přidává bounded list indexy a
-105 drží transport-free pairing/session authority. Rezervace nemění ani znovu
-nepoužívá historické kolizní sloty popsané výše.
+105 drží transport-free pairing/session authority. Nový census 378 živých refs
+a 27 worktrees před O-04 našel 106 pouze v tomto worktree; 106 proto drží
+bounded owner-scoped čtecí cestu z přijaté M2 approval autority. Rezervace
+nemění ani znovu nepoužívá historické kolizní sloty popsané výše.
 
 | Číslo | Vlastník | Obsah |
 |---|---|---|
@@ -384,3 +387,4 @@ nepoužívá historické kolizní sloty popsané výše.
 | **103** | `WP-M7-OPERATION-CONTROL` | append-only operation abandonment receipts |
 | **104** | `WP-M7-OPERATION-CONTROL` | bounded snapshot/keyset operation-list indexy |
 | **105** | `WP-M7-SESSION-AUTHORITY` | durable pairing, session, replay a audit authority |
+| **106** | `WP-M7-M2-APPROVAL-ADAPTER` | bounded owner-scoped M2 lifecycle approval list |

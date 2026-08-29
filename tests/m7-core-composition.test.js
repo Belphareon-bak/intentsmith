@@ -77,30 +77,37 @@ function setup(overrides = {}) {
   installAbandonments(db);
   installInformation(db);
   let now = Date.parse('2026-08-29T05:00:01.000Z');
-  const composition = createM7CoreComposition({
-    authorityResolver: async input => ({
-      decision: 'allow',
-      deviceId: 'device:composition:001',
-      subjectId: 'user:composition:001',
-      grantedScopes: [...input.requiredScopes],
-    }),
-    authorizeConversation: async ({ projectId, exists }) => exists && projectId === 1,
-    authorizeProject: async ({ projectId }) => projectId === 1,
-    clock: () => ++now,
-    coreVersion: '136.1.0',
-    cursorKey: CURSOR_KEY,
-    database: db,
-    executeConversation: async request => ({
-      contract: 'ConversationResult', version: 1,
-      requestId: request.requestId, conversationId: request.conversationId,
-      turnId: request.turnId, status: 'ok', response: { content: 'Composed.' },
-    }),
-    healthComponents: [
-      { componentId: 'core-composition', observe: async () => ({ status: 'ok', code: 'READY' }) },
-    ],
-    mediateMutation: async intent => ({ state: 'executed', result: await intent.perform() }),
-    ...overrides,
-  });
+  let composition;
+  try {
+    composition = createM7CoreComposition({
+      authorityResolver: async input => ({
+        decision: 'allow',
+        deviceId: 'device:composition:001',
+        subjectId: 'user:composition:001',
+        grantedScopes: [...input.requiredScopes],
+      }),
+      authorizeConversation: async ({ projectId, exists }) => exists && projectId === 1,
+      authorizeProject: async ({ projectId }) => projectId === 1,
+      clock: () => ++now,
+      coreVersion: '136.1.0',
+      cursorKey: CURSOR_KEY,
+      database: db,
+      executeConversation: async request => ({
+        contract: 'ConversationResult', version: 1,
+        requestId: request.requestId, conversationId: request.conversationId,
+        turnId: request.turnId, status: 'ok', response: { content: 'Composed.' },
+      }),
+      healthComponents: [
+        { componentId: 'core-composition', observe: async () => ({ status: 'ok', code: 'READY' }) },
+      ],
+      mediateMutation: async intent => ({ state: 'executed', result: await intent.perform() }),
+      ...overrides,
+    });
+  } catch (error) {
+    db.close();
+    rmSync(root, { recursive: true, force: true });
+    throw error;
+  }
   return {
     composition,
     db,
@@ -125,6 +132,18 @@ test('composition rejects unknown config and has no built-in authority defaults'
   assert.throws(
     () => createM7CoreComposition({}),
     error => /database|journal/u.test(error.message),
+  );
+});
+
+test('composition refuses a structurally forged M2 approval port', () => {
+  assert.throws(
+    () => setup({
+      m2ApprovalPort: Object.freeze({
+        contract: 'M2LifecycleApprovalPort', version: 1,
+        listOwned() { return []; },
+      }),
+    }),
+    /genuine-m2-port-required/u,
   );
 });
 

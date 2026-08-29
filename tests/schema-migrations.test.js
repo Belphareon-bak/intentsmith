@@ -199,6 +199,7 @@ const ALL_MIGRATIONS = [
   '2026_08_29_103_m7_operation_abandonments',
   '2026_08_29_104_m7_operation_list_indexes',
   '2026_08_29_105_m7_remote_session_authority',
+  '2026_08_29_106_m7_m2_approval_list_index',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -463,6 +464,7 @@ describe('T-SM0: Migration identity preflight', async () => {
       '2026_08_29_103_m7_operation_abandonments',
       '2026_08_29_104_m7_operation_list_indexes',
       '2026_08_29_105_m7_remote_session_authority',
+      '2026_08_29_106_m7_m2_approval_list_index',
     ]);
     assert.strictEqual(db.prepare(`
       SELECT COUNT(*) AS count FROM schema_migrations

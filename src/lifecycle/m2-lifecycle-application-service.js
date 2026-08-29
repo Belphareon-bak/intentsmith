@@ -75,6 +75,8 @@ const MAX_CONTEXT_FILES = 24;
 const MAX_CONTEXT_BYTES = 256 * 1024;
 const MAX_CONTEXT_TOKENS = 64 * 1024;
 const IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+const lifecycleServiceAuthority = new WeakMap();
+const lifecycleApprovalPorts = new WeakSet();
 
 export const M2LifecycleServiceErrorCode = Object.freeze({
   INPUT_INVALID: 'M2_LIFECYCLE_INPUT_INVALID',
@@ -1132,7 +1134,7 @@ export function createM2LifecycleApplicationService(dependencyValues) {
     });
   }
 
-  return Object.freeze({
+  const service = Object.freeze({
     prepareSmallProjectChange,
     approveSmallProjectChange,
     cancelSmallProjectChange,
@@ -1140,6 +1142,65 @@ export function createM2LifecycleApplicationService(dependencyValues) {
     recoverIncompleteSmallProjectChanges,
     getRecoveryCensusStatus,
   });
+  lifecycleServiceAuthority.set(service, Object.freeze({ lifecycleRepository }));
+  return service;
+}
+
+export function createM2LifecycleApprovalPort(service) {
+  const authority = lifecycleServiceAuthority.get(service);
+  if (!authority) throw new TypeError('m2-lifecycle-approval-port:genuine-service-required');
+  const { lifecycleRepository } = authority;
+
+  function ownedPlan(subjectId, lifecycleId) {
+    requireIdentifier(subjectId, 'subjectId');
+    requireIdentifier(lifecycleId, 'lifecycleId');
+    const plan = lifecycleRepository.getPlan(lifecycleId);
+    if (!plan || plan.actor?.type !== 'user' || plan.actor.id !== subjectId) {
+      fail(M2LifecycleServiceErrorCode.OWNER_MISMATCH, 'Authenticated subject does not own this lifecycle');
+    }
+    return plan;
+  }
+
+  function serviceInput(subjectId, lifecycleId) {
+    const plan = ownedPlan(subjectId, lifecycleId);
+    return {
+      plan,
+      authenticatedSubject: { actorType: 'user', actorId: subjectId },
+      lifecycleId,
+      // Cross-transport approval deliberately reuses only the immutable origin
+      // already signed into the M2 plan. Remote bytes cannot assert or replace it.
+      origin: plan.origin,
+    };
+  }
+
+  const port = Object.freeze({
+    contract: 'M2LifecycleApprovalPort',
+    version: 1,
+    listOwned({ subjectId, limit }) {
+      return lifecycleRepository.listOwnedOperations({ actorId: subjectId, limit });
+    },
+    getOwnedStatus({ subjectId, lifecycleId }) {
+      const input = serviceInput(subjectId, lifecycleId);
+      return service.getSmallProjectChangeStatus(input);
+    },
+    approveOwned({ subjectId, lifecycleId, planDigest }) {
+      const input = serviceInput(subjectId, lifecycleId);
+      return service.approveSmallProjectChange({ ...input, planDigest });
+    },
+    rejectOwned({ subjectId, lifecycleId }) {
+      const input = serviceInput(subjectId, lifecycleId);
+      return service.cancelSmallProjectChange({
+        ...input,
+        reason: 'remote_user_rejected',
+      });
+    },
+  });
+  lifecycleApprovalPorts.add(port);
+  return port;
+}
+
+export function isM2LifecycleApprovalPort(value) {
+  return lifecycleApprovalPorts.has(value);
 }
 
 export function createDefaultM2LifecycleApplicationService({

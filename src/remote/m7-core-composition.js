@@ -22,6 +22,7 @@ import {
 } from '../../docs/mobile/contracts/remote-capability-requirements-v1.js';
 import { createM7ConversationCoreAdapters } from './m7-conversation-core-adapters.js';
 import { createM7InProcessCapabilityProvider } from './m7-in-process-capability-provider.js';
+import { createM7M2ApprovalCoreAdapters } from './m7-m2-approval-core-adapters.js';
 import { createM7OperationControlAdapters } from './m7-operation-control-adapters.js';
 import { createM7OperationJournal } from './m7-operation-journal.js';
 import { createM7ProjectCoreAdapters } from './m7-project-core-adapters.js';
@@ -44,9 +45,11 @@ const CONFIG_KEYS = Object.freeze([
   'healthComponents',
   'maxConversationScan',
   'maxInformationScan',
+  'maxApprovalScan',
   'maxMessageScan',
   'maxProjectScan',
   'mediateMutation',
+  'm2ApprovalPort',
   'observeWorkspaceRevision',
   'queryProjectContext',
   'realpath',
@@ -119,12 +122,21 @@ export function createM7CoreComposition(configValue = {}) {
     cursorKey: config.cursorKey,
     journal,
   });
+  const approvals = config.m2ApprovalPort === undefined
+    ? null
+    : createM7M2ApprovalCoreAdapters({
+      approvalPort: config.m2ApprovalPort,
+      cursorKey: config.cursorKey,
+      maxApprovalScan: config.maxApprovalScan,
+      now: clock,
+    });
   const health = createM7RemoteHealthAdapter({
     clock,
     components: config.healthComponents,
     coreVersion: config.coreVersion,
   });
   const handlers = mergeHandlers(
+    approvals?.handlers ?? {},
     projects.handlers,
     conversations.handlers,
     settingsInformation.handlers,
@@ -145,6 +157,7 @@ export function createM7CoreComposition(configValue = {}) {
 
   return Object.freeze({
     adapters: Object.freeze({
+      approvals,
       conversations,
       health,
       operationControl,

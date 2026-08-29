@@ -453,6 +453,35 @@ export class M2LifecycleAuthorityRepository {
     return row ? Object.freeze(row) : null;
   }
 
+  listOwnedOperations({ actorId, limit }) {
+    if (!isIdentifier(actorId)
+      || !Number.isSafeInteger(limit)
+      || limit < 1
+      || limit > 2_001) {
+      fail(M2LifecycleAuthorityErrorCode.INPUT_INVALID, 'Owned lifecycle query is invalid');
+    }
+    try {
+      const rows = this.db.prepare(`
+        SELECT lifecycle_id AS lifecycleId, created_at_ms AS createdAtMs
+        FROM m2_lifecycle_operations
+        WHERE json_extract(plan_json, '$.actor.id') = ?
+        ORDER BY created_at_ms DESC, lifecycle_id DESC
+        LIMIT ?
+      `).all(actorId, limit);
+      return Object.freeze(rows.map(row => {
+        const plan = this.getPlan(row.lifecycleId);
+        if (!plan || plan.actor?.type !== 'user' || plan.actor.id !== actorId
+          || Date.parse(plan.createdAt) !== row.createdAtMs) {
+          throw new Error('owned lifecycle index does not match canonical plan');
+        }
+        return Object.freeze(row);
+      }));
+    } catch (error) {
+      if (error instanceof M2LifecycleAuthorityError) throw error;
+      storageFailure('owned lifecycle list', error);
+    }
+  }
+
   #operationMaterial(lifecycleId) {
     const row = this.db.prepare(`
       SELECT operation.*, request.request_json AS request_json
