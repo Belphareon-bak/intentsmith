@@ -48,8 +48,8 @@ const SUMMARY_TIMEOUT_MS = 5 * 60 * 1000;
 const AUDIT_RUN_ID = 'product-audit';
 const AUDIT_PROFILES = ['offline', 'database'];
 const AUDIT_ALLOWED_BLOCKERS = ['toolchain:python-pdf-runtime'];
-const GATE0_REGISTRY_HASH = '9a98ae69b064498816933764d1694646b3d24ce25357aedf09f7f88a3add594b';
-const GATE0_PROFILE_COUNTS = { offline: 267, database: 62 };
+const GATE0_REGISTRY_HASH = 'f322661b468ed5dc202ba6c37743a7002d8b9c251cedbb539b4a5b553f72a53a';
+const GATE0_PROFILE_COUNTS = { offline: 267, database: 63 };
 const PDF_RUNTIME_PACKAGES = Object.freeze({
   'charset-normalizer': '3.4.4',
   pillow: '12.3.0',

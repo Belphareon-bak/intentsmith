@@ -189,8 +189,9 @@ opravil pouze model-failover test. Autoritativní
 Kontrakt, runtime/technical fixture a tento WP byly na tomto kandidátu
 sjednocené na 80; historický 79-migration receipt a staré review pakety se
 nepřepisují a nejsou evidencí nového kandidáta. Modelová integrace následně
-přidala sedm migrací, takže společný candidate používá 87 a rychlý test
-odmítá jakýkoliv další rozdíl mezi kontraktem a migration setem.
+přidala sedm migrací a první dva M7 persistence bloky další dvě, takže současný
+společný candidate používá 89. Rychlý test odmítá jakýkoliv další rozdíl mezi
+kontraktem a migration setem.
 
 Plošný shell, který spouštěl všechny `tests/*m6*` s libovolným 300s timeoutem a
 bez `pipefail`, byl zastaven. Zabil 24h soak po pěti minutách a zkracoval přesně

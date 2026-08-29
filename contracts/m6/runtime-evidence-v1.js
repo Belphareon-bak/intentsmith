@@ -19,7 +19,7 @@ export const M6_PREVIOUS_VERSION_SHA =
 export const M6_PREVIOUS_VERSION = '136.0.0';
 export const M6_CURRENT_VERSION = '136.1.0';
 export const M6_PREVIOUS_VERSION_MIGRATION_COUNT = 56;
-export const M6_CURRENT_VERSION_MIGRATION_COUNT = 88;
+export const M6_CURRENT_VERSION_MIGRATION_COUNT = 89;
 export const M6_UPGRADE_CANARY = Object.freeze({
   name: 'M6 Upgrade Canary',
   description: 'created by the exact 136.0.0 application',

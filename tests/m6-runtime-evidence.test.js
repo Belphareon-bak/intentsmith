@@ -31,7 +31,7 @@ function receipt(overrides = {}) {
     failedUpgradeLogSha256: 'f'.repeat(64),
     failedUpgradeMigrationCount: 70,
     previousMigrationCount: 56,
-    currentMigrationCount: 88,
+    currentMigrationCount: 89,
     canary: {
       id: 1,
       name: 'M6 Upgrade Canary',
@@ -227,7 +227,7 @@ test('missing, duplicate, rebound and weaker upgrade receipts fail closed', () =
     log(receipt({ currentMigrationCount: 79 })),
     log(receipt({ previousServerCleanShutdown: false })),
     log(receipt({ failedUpgradeExitCode: 0 })),
-    log(receipt({ failedUpgradeMigrationCount: 88 })),
+    log(receipt({ failedUpgradeMigrationCount: 89 })),
     log(receipt({ restoredDatabaseSha256: '0'.repeat(64) })),
     log(receipt({ restoreVerified: false })),
     log(receipt({ networkScope: 'external' })),
