@@ -227,6 +227,7 @@ záznamu selže v `artifact-validation`.
 | `2026_08_27_099_remove_model_runtime_guard.js` | použito |
 | `2026_08_28_100_signed_privacy_receipts.js` | použito |
 | `2026_08_29_101_m7_remote_operation_journal.js` | použito pro M7 persistentní mutation journal |
+| `2026_08_29_102_m7_manual_information.js` | použito pro M7 subject/project-scoped ruční informace |
 <!-- migration-source-manifest:end -->
 
 ## Navazující M7 rezervace 2026-08-29
@@ -239,6 +240,7 @@ identita je proto **101**.
 | Číslo | Stav | Obsah |
 |---|---|---|
 | **101** | použito | append-only device + subject + operation mutation journal a exact replay |
+| **102** | použito | subject/project-scoped append-only M7 manual information |
 
 ## Proč to nejsou 058 a 059
 

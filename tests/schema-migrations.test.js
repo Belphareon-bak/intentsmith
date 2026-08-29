@@ -195,6 +195,7 @@ const ALL_MIGRATIONS = [
   '2026_08_27_099_remove_model_runtime_guard',
   '2026_08_28_100_signed_privacy_receipts',
   '2026_08_29_101_m7_remote_operation_journal',
+  '2026_08_29_102_m7_manual_information',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -217,7 +218,7 @@ const EXPECTED_TABLES = [
   'global_memory', 'governor_proposals', 'governor_reports',
   'knowledge_facts', 'knowledge_sources', 'knowledge_verification_log',
   'learned_patterns', 'lifecycle_handoff_state', 'llm_execution_log', 'logs',
-  'marketplace_catalog_cache', 'marketplace_packages', 'media_generations',
+  'm7_manual_information', 'marketplace_catalog_cache', 'marketplace_packages', 'media_generations',
   'memory', 'merge_audit_log', 'messages', 'messages_fts', 'milestones',
   'm2_approval_grants', 'm2_effect_authority_events', 'm2_effect_execution_claims',
   'm2_effect_requests', 'm2_effect_results', 'm2_pending_effect_payloads',
@@ -453,6 +454,7 @@ describe('T-SM0: Migration identity preflight', async () => {
       '2026_08_27_099_remove_model_runtime_guard',
       '2026_08_28_100_signed_privacy_receipts',
       '2026_08_29_101_m7_remote_operation_journal',
+      '2026_08_29_102_m7_manual_information',
     ]);
     assert.strictEqual(db.prepare(`
       SELECT COUNT(*) AS count FROM schema_migrations
