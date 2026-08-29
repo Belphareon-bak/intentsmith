@@ -1,11 +1,12 @@
 # Core/M7 capability handoff
 
-**Stav 2026-08-29:** `CORE_IMPLEMENTATION_IN_PROGRESS / REVIEW_PENDING /
+**Stav 2026-08-29:** `CORE_IMPLEMENTATION_GREEN / FULL_GATE_GREEN / REVIEW_PENDING /
 M7_TRANSPORT_ABSENT / CANDIDATE_NOT_ACCEPTED`
 
 **Aktuální integrační kontext:** connector, client, transport-free provider,
 durable journal a project/conversation/settings/manual-information adaptéry
-jsou implementation-green a čekají na review. Produkční M7 transport zůstává
+jsou implementation-green, úplný offline+database gate je `330/330 PASS` a
+čekají na review. Produkční M7 transport zůstává
 absent. Stav M5/M6 se přebírá pouze z `ROADMAP.md` a `SYSTEM-MAP.md`, nikoli z
 historického počítadla zdrojové mobilní větve.
 

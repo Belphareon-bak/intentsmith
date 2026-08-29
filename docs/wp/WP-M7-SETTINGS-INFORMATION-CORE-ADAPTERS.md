@@ -4,7 +4,8 @@
 
 **Base revision:** `35a82422` (conversation-core evidence HEAD)
 
-**Current state:** `IMPLEMENTATION_IN_PROGRESS / REVIEW_PENDING / NOT_ACTIVE`
+**Current state:** `IMPLEMENTATION_GREEN / FULL_GATE_GREEN / REVIEW_PENDING /
+NOT_ACTIVE`
 
 ## 1. User outcome
 
@@ -81,5 +82,28 @@ model tests.
 
 ## 5. Output
 
-This section is filled only after the exact product candidate and evidence are
-committed. Until then the block remains `IMPLEMENTATION_IN_PROGRESS`.
+The exact product candidate is
+`1b0654f01784a9ae41c2cfbb1e5345c74b6f3c6e` with tree
+`ea40b1bc3559302d425afe4b0cb2278e79cc57a6`. The review range is
+`35a82422..1b0654f0` and consists of implementation `31f46cac`, two accepted
+module edges `5e0373d1`, documentation pin `9296338c`, M6 runtime evidence
+rebind `cbdb0300` and M6 technical-evidence fixture rebind `1b0654f0`.
+
+Focused evidence passed: adapter `10/10`, schema `55/55`, M1 schema `20/20`,
+provider `11/11`, journal `12/12`, mobile contract/provider `11/11 + 14/14`,
+mobile gate `25/25`, M6 runtime/technical/release `8/8 + 8/8 + 13/13`, module
+ratchet `13/13` and artifact validation `158/158`. Registry fingerprint is
+`f322661b468ed5dc202ba6c37743a7002d8b9c251cedbb539b4a5b553f72a53a`.
+
+The complete offline+database gate on the exact candidate returned
+`330 PASS / 0 FAIL / 0 TIMEOUT / 0 BLOCKED / 0 SKIPPED`, verdict `PASS`, exit
+0. The raw report SHA-256 is
+`cd8b180e7f6785ab92b0588f0cbc5dd34a096678b5ea58c3fb3767a84d24c11d`.
+Two earlier runs remain recorded as `FAIL`: `328/330` exposed both M6 runtime
+and nightly-orchestrator migration/registry drift, and `329/330` exposed the
+remaining M6 technical-evidence migration fixture. Neither is presented as
+green.
+
+Independent review is still required. No production mediator, provider
+composition, listener, session, pairing, transport, model, GPU or device path
+was activated.

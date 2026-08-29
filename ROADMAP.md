@@ -69,7 +69,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Decision 041 implementace dostala `REVIEW_PASSED` a trust store drží čtyři oddělené veřejné klíče. Úzký review ale našel stale M6 migration oracle a neoffline custody privátních klíčů; oracle remediation je implementovaná, custody zůstává otevřená. Osm rotací, history disposition a podepsaná M5 acceptance neproběhly. |
 | **M6 IntentSmith 1.0 release** | `KEY_CUSTODY_CHANGES_REQUIRED / INTEGRATION_REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, application upgrade, L0-11 a soak/throughput harness jsou implementované. Původní oprava `80 !== 79` je po modelové a M7 persistence integraci navázaná na skutečný počet 89 migrací a chráněná rychlým drift guardem; nový candidate čeká na review. 24h soak běží, plný throughput zatím neproběhl. |
-| **M7 Remote Companion** | `SETTINGS_INFORMATION_IMPLEMENTATION_GREEN / FOCUSED_GREEN / FULL_GATE_PENDING / REVIEW_PENDING / PROVIDER_NOT_ACTIVE / TRANSPORT_ABSENT` | M6 + remote boundary | Sedm capability a 14 mobilních operací jsou připnuté; transport-free provider, durable effect journal, project/conversation adaptéry a settings/manual-information core existují. Session, listener, pairing, mobilní transport a device/release důkazy ještě neexistují. |
+| **M7 Remote Companion** | `SETTINGS_INFORMATION_IMPLEMENTATION_GREEN / FULL_GATE_GREEN / REVIEW_PENDING / PROVIDER_NOT_ACTIVE / TRANSPORT_ABSENT` | M6 + remote boundary | Sedm capability a 14 mobilních operací jsou připnuté; transport-free provider, durable effect journal, project/conversation adaptéry a settings/manual-information core existují. Session, listener, pairing, mobilní transport a device/release důkazy ještě neexistují. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
 Gate 0 se znovu aktivuje pouze v M6 nad zmraženým kandidátem.
@@ -2283,8 +2283,10 @@ injektovaný approval/effect mediator. Nová fingerprintovaná migrace 102 drž�
 append-only ruční poznámky oddělené podle subjectu a projektu; legacy memory
 tabulky se bez identity migrace nevystavují. Focused sady jsou zelené, registry
 má 490 programů / fingerprint `f322661b…a53a` a module graph 1 219 hran bez
-růstu cyklů. Full gate a nezávislé review jsou pending; runtime composition a
-transport nejsou aktivní. Přesný kontrakt práce drží
+růstu cyklů. Dva úplné běhy pravdivě odhalily tři stale M6 migrace/registry
+oracly; po jejich přesné opravě exact candidate `1b0654f0` prošel souvislým
+offline+database gate `330/330 PASS`. Nezávislé review je pending; runtime
+composition a transport nejsou aktivní. Přesný kontrakt práce drží
 [`WP-M7-SETTINGS-INFORMATION-CORE-ADAPTERS`](docs/wp/WP-M7-SETTINGS-INFORMATION-CORE-ADAPTERS.md).
 
 ## 14. Rozhodovací fronta — otázka až ve chvíli, kdy má data
