@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "5906bf6259fddea55ddfd80b4a6d3eb8df173d7e",
-  "sourceTree": "331c79873c73bbc275c4a34083fa5940a01da525",
+  "sourceRevision": "6da1e94ddd70ca2412c08bd86955dc004248ebe6",
+  "sourceTree": "fc818b61681631144cd0eea8bfb293e43df5b3de",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -876,6 +876,7 @@
     "src/release/signed-authority-bundle-verifier.js -> src/release/m6-operator-demo.js",
     "src/release/signed-authority-bundle-verifier.js -> src/release/m6-release-validation.js",
     "src/release/signed-authority-bundle-verifier.js -> src/security/signed-authority-verifier.js",
+    "src/remote/m7-conversation-core-adapters.js -> src/remote/m7-core-cursor.js",
     "src/remote/m7-operation-journal.js -> src/remote/m7-operation-journal-validation.js",
     "src/remote/m7-project-core-adapters.js -> src/code-intel/project-context-provider.js",
     "src/remote/m7-project-core-adapters.js -> src/remote/m7-core-cursor.js",
