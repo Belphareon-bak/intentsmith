@@ -1,8 +1,8 @@
 # Core/M7 capability handoff
 
 **Stav 2026-08-30:** `CORE_IMPLEMENTATION_GREEN /
-LATEST_FULL_OFFLINE_DATABASE_GATE_GREEN / REVIEW_PENDING /
-PROVIDER_NOT_ACTIVE / M7_TRANSPORT_ABSENT /
+PREVIOUS_FULL_GATE_GREEN_AT_277C7EE9 / LATEST_GATE_PENDING / REVIEW_PENDING /
+PROVIDER_NOT_ACTIVE / M7_LISTENER_ABSENT /
 CANDIDATE_NOT_ACCEPTED`
 
 **Aktuální integrační kontext:** connector, client, transport-free provider,
@@ -10,7 +10,9 @@ durable journal a všech sedm capability adapterů jsou implementation-green.
 Aktuální 337-programový offline+database plán po events/notifications prošel
 souvisle `337/337 PASS` na exact kandidatu `277c7ee9`; nový produktový řez a
 M6 registry ratchet však stále čekají na nezávislé review.
-Produkční M7 transport zůstává absent. Stav M5/M6 se přebírá pouze z
+Disconnected LAN/VPN admission policy je navíc implementation-green, ale
+neotevírá listener a čeká na vlastní gate/review. Produkční M7 transport
+zůstává absent. Stav M5/M6 se přebírá pouze z
 `ROADMAP.md` a `SYSTEM-MAP.md`, nikoli z historického počítadla zdrojové
 mobilní větve.
 
@@ -126,7 +128,9 @@ Implementačně dokončený je generic provider, operation journal, health a vš
 sedm core oblastí: projects, conversations, approvals, events, notifications,
 safe settings projection a subject/project-scoped manual notes. O-01/O-02
 session bytes jsou hotové, ale podmíněný session review zakazuje jejich spojení
-s listenerem do nového review. Nedokončené zůstávají přijetí aktuálního core
-kandidáta, LAN/VPN-only transport adapter, produkční signing a fyzické
+s listenerem do nového review. LAN/VPN admission policy už ověřuje TLS/bind,
+peer, route/header/body hranice a připravuje opaque rate-limit bucket identity,
+ale nemá durable limiter ani síťového konzumenta. Nedokončené zůstávají přijetí
+aktuálního core kandidáta, produkční listener/certificate, signing a fyzické
 device/security/release důkazy. Proto je správný stav stále
 `CANDIDATE_NOT_ACCEPTED`, nikoli production-ready.

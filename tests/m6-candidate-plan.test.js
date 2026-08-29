@@ -97,10 +97,11 @@ test('M7 session authority is an explicit required member of the locked plan', (
   assert(validation.errors.includes(`plan:required-program-uncovered:${programId}`));
 });
 
-test('M7 event and notification adapters are explicit required members of the locked plan', () => {
+test('M7 event, notification and transport boundaries are required locked-plan members', () => {
   const programIds = [
     'IS-T1-TESTS-M7-NOTIFICATION-CORE-ADAPTERS-TEST',
     'IS-T1-TESTS-M7-RUN-EVENT-CORE-ADAPTER-TEST',
+    'IS-T1-TESTS-M7-TRANSPORT-ADMISSION-POLICY-TEST',
   ];
   const byId = new Map(registry.suites.map(program => [program.id, program]));
   const plan = buildM6CandidateExecutionPlan(registry);

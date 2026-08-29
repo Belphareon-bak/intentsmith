@@ -68,8 +68,8 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Decision 041 implementace dostala `REVIEW_PASSED` a trust store drží čtyři oddělené veřejné klíče. Úzký review ale našel stale M6 migration oracle a neoffline custody privátních klíčů; oracle remediation je implementovaná, custody zůstává otevřená. Osm rotací, history disposition a podepsaná M5 acceptance neproběhly. |
-| **M6 IntentSmith 1.0 release** | `PREVIOUS_REGISTRY_RATCHET_REVIEW_PASSED / CURRENT_RATCHET_FULL_GATE_GREEN_REVIEW_PENDING / KEY_CUSTODY_CHANGES_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, application upgrade, L0-11 a soak/throughput harness jsou implementované. Upgrade kontrakt je po M7 notification migraci navázaný na skutečných 94 migrací. Review na `12e1adfc` přijalo 395 ACTIVE+required a 334 offline+database programů; event/notification blok zvedl aktuální piny na 398 a 337. Omission sentinely, nightly self-test a souvislý profilový gate `337/337` jsou zelené, ale nový pin vyžaduje review. 24h soak běží nad starším SHA, plný throughput zatím neproběhl. |
-| **M7 Remote Companion** | `SESSION_AUTHORITY_CONDITIONAL_REVIEW_PASSED_AT_12E1ADFC / O01_O02_O04_EVENTS_NOTIFICATIONS_REVIEW_PENDING / FULL_OFFLINE_DATABASE_GATE_GREEN / NOT_ACCEPTED / PROVIDER_NOT_ACTIVE / TRANSPORT_ABSENT` | M6 + remote boundary | O-01 vyžaduje Ed25519 podpis každé invocation, O-02 přidal samostatný podepsaný challenge endpoint contract a O-04 projektuje approval pouze přes closure-brandovanou přijatou M2 lifecycle autoritu. Transport-free events a notifications mají skutečné M1/M3 producenty, bounded/redacted projekci a durable per-device ACK; exact candidate `277c7ee9` prošel `337/337`, ale nový řez čeká na review. Čerstvý retained APK/AAB current-host důkaz je zelený, ale pouze debug-signed. Nic není připojeno k listeneru; produkční signing, LAN/VPN transport a device test ještě chybí. |
+| **M6 IntentSmith 1.0 release** | `PREVIOUS_REGISTRY_RATCHET_REVIEW_PASSED / PREVIOUS_RATCHET_FULL_GATE_GREEN_AT_277C7EE9 / CURRENT_RATCHET_IMPLEMENTATION_GREEN_REVIEW_PENDING / KEY_CUSTODY_CHANGES_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, application upgrade, L0-11 a soak/throughput harness jsou implementované. Review na `12e1adfc` přijalo 395 ACTIVE+required a 334 offline+database programů; event/notification candidate `277c7ee9` prošel s 398/337. Disconnected transport-admission blok zvedl aktuální piny na 399/338; omission sentinel a nightly self-test jsou zelené, nový produktový SHA však čeká na souvislý gate a review. 24h soak běží nad starším SHA, plný throughput zatím neproběhl. |
+| **M7 Remote Companion** | `SESSION_AUTHORITY_CONDITIONAL_REVIEW_PASSED_AT_12E1ADFC / O01_O02_O04_EVENTS_NOTIFICATIONS_REVIEW_PENDING / TRANSPORT_ADMISSION_IMPLEMENTATION_GREEN_REVIEW_PENDING / PREVIOUS_FULL_GATE_GREEN_AT_277C7EE9 / NOT_ACCEPTED / PROVIDER_NOT_ACTIVE / LISTENER_ABSENT` | M6 + remote boundary | O-01 vyžaduje Ed25519 podpis každé invocation, O-02 samostatný podepsaný challenge a O-04 pouze přijatou M2 autoritu. Event/notification candidate `277c7ee9` prošel `337/337`. Nová disconnected policy zamyká TLS 1.3, LAN/VPN bind a peer, exact paths/headers/body limity a HMAC rate-limit identities, ale neotevírá socket ani nekonzumuje session autoritu. Durable limiter, produkční certifikát/signing, listener wiring a device test ještě chybí. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
 Gate 0 se znovu aktivuje pouze v M6 nad zmraženým kandidátem.
@@ -2034,6 +2034,26 @@ reporty. Live LLM, Ollama a GPU nebyly spuštěné. Implementační evidence je 
 [`m7-events-notifications-core-adapters-20260830.md`](docs/execution/runs/m7/m7-events-notifications-core-adapters-20260830.md)
 a review vstup v
 [`2026-08-30-M7-EVENTS-NOTIFICATIONS-AND-RATCHET-REVIEW-PACKET.md`](docs/review/2026-08-30-M7-EVENTS-NOTIFICATIONS-AND-RATCHET-REVIEW-PACKET.md).
+
+### LAN/VPN transport admission checkpoint 2026-08-30
+
+O-03 je rozpracované jako `IMPLEMENTATION_GREEN / REVIEW_PENDING /
+LISTENER_ABSENT`. Nový transport admission modul neotevírá socket a nemá import
+na session autoritu. Validuje pouze budoucí dedicated listener boundary: exact
+TLS 1.3 bez proxy trustu, konkrétní privátní LAN/VPN bind bez wildcardu,
+socketem pozorovanou private/ULA/CGNAT peer adresu, přesný Host, metodu a sedm
+`/remote/v1/*` cest. Query, legacy `/api/*`, `/m1/*`, `/c3/ws`, credentials,
+cookies, forwarding hlavičky, transfer encoding, duplicitní hlavičky a
+nadlimitní bodies selžou před budoucí session/provider autoritou.
+
+Peer identita se pro rate limiting odvozuje HMAC-SHA-256 z kanonické IP; raw IP
+ani pairing code nejsou v plánu. Pairing plán vyžaduje digest claimu a odděluje
+global, peer a peer+claim bucket; invocation rozlišuje read `60/min` a mutation
+`10/min`. Plán výslovně říká `DURABLE_RATE_LIMIT_CONSUMER_REQUIRED`: durable
+consumer ani produkční HMAC klíč zatím neexistují, takže listener nesmí být
+aktivován. Focused policy je `8/8 PASS`. Registry má aktuálně 498 programů,
+399 `ACTIVE + required`, profilová množina 338 (`270 offline + 68 database`) a
+fingerprint `7188ed91…afaf`; souvislý gate nad novým SHA teprve následuje.
 
 Povinné výsledky:
 
