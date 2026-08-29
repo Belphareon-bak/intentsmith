@@ -22,6 +22,18 @@ const EVENT_KEYS = Object.freeze([
   'subjectId',
   'version',
 ]);
+const ABANDONMENT_KEYS = Object.freeze([
+  'contract',
+  'deviceId',
+  'recordedAtMs',
+  'sourceOperationId',
+  'sourceRequestDigest',
+  'subjectId',
+  'targetEventRevision',
+  'targetOperationId',
+  'targetRequestDigest',
+  'version',
+]);
 const OUTCOME_STATE = Object.freeze({
   CONFIRMED: 'CONFIRMED',
   PENDING: 'PENDING',
@@ -143,12 +155,74 @@ export function parseM7OperationJournalEvent(raw) {
   return Object.freeze(structuredClone(parsed));
 }
 
+export function validateM7OperationAbandonment(value) {
+  const errors = [];
+  if (!exactKeys(value, ABANDONMENT_KEYS)) {
+    return { valid: false, errors: ['abandonment:shape'] };
+  }
+  if (value.contract !== 'M7RemoteOperationAbandonment' || value.version !== 1) {
+    errors.push('abandonment:identity');
+  }
+  for (const field of [
+    'deviceId', 'subjectId', 'sourceOperationId', 'targetOperationId',
+  ]) {
+    if (!IDENTIFIER.test(value[field] || '')) errors.push(`abandonment:${field}`);
+  }
+  if (value.sourceOperationId === value.targetOperationId) {
+    errors.push('abandonment:self-target');
+  }
+  for (const field of ['sourceRequestDigest', 'targetRequestDigest']) {
+    if (!DIGEST.test(value[field] || '')) errors.push(`abandonment:${field}`);
+  }
+  if (!Number.isSafeInteger(value.targetEventRevision) || value.targetEventRevision < 1) {
+    errors.push('abandonment:targetEventRevision');
+  }
+  if (!Number.isSafeInteger(value.recordedAtMs) || value.recordedAtMs < 1) {
+    errors.push('abandonment:recordedAtMs');
+  }
+  return { valid: errors.length === 0, errors };
+}
+
+export function canonicalizeM7OperationAbandonment(value) {
+  const validation = validateM7OperationAbandonment(value);
+  if (!validation.valid) {
+    throw new TypeError(`m7-operation-journal:abandonment-invalid:${validation.errors.join(',')}`);
+  }
+  return canonicalizeM2ExecutionValue(value);
+}
+
+export function encodeM7OperationAbandonment(value) {
+  return Buffer.from(canonicalizeM7OperationAbandonment(value), 'utf8');
+}
+
+export function parseM7OperationAbandonment(raw) {
+  const text = decodeRaw(raw);
+  const parsed = JSON.parse(text);
+  const validation = validateM7OperationAbandonment(parsed);
+  if (!validation.valid || canonicalizeM2ExecutionValue(parsed) !== text) {
+    throw new TypeError(
+      `m7-operation-journal:stored-abandonment-invalid:${validation.errors.join(',') || 'non-canonical'}`,
+    );
+  }
+  return Object.freeze(structuredClone(parsed));
+}
+
 export function registerM7OperationJournalFunctions(db) {
   db.function('m7_remote_operation_event_valid_v1', {
     deterministic: true,
   }, raw => {
     try {
       parseM7OperationJournalEvent(raw);
+      return 1;
+    } catch {
+      return 0;
+    }
+  });
+  db.function('m7_remote_operation_abandonment_valid_v1', {
+    deterministic: true,
+  }, raw => {
+    try {
+      parseM7OperationAbandonment(raw);
       return 1;
     } catch {
       return 0;

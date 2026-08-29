@@ -12,6 +12,7 @@ import {
 import { validateMobileRemotePayload } from '../docs/mobile/contracts/remote-capability-payloads-v1.js';
 import { MOBILE_REMOTE_CAPABILITY_REQUIREMENTS_V1 } from '../docs/mobile/contracts/remote-capability-requirements-v1.js';
 import { up as installJournal } from '../src/db/migrations/2026_08_29_101_m7_remote_operation_journal.js';
+import { up as installOperationAbandonments } from '../src/db/migrations/2026_08_29_103_m7_operation_abandonments.js';
 import {
   EXPECTED_M7_MANUAL_INFORMATION_FINGERPRINT_V102,
   computeM7ManualInformationFingerprintV102,
@@ -82,6 +83,7 @@ function setup({
     );
   `);
   installJournal(db);
+  installOperationAbandonments(db);
   installInformation(db);
   let clock = Date.parse('2026-08-29T04:00:00.000Z');
   let mediationCalls = 0;

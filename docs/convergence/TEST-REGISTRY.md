@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 490
+- Runnable programs: 491
 - Explicit support-module exclusions: 17
-- Profiles: offline=267, database=63, server=44, model=81, soak=15, manual=20
-- States: ACTIVE=396, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=267, database=64, server=44, model=81, soak=15, manual=20
+- States: ACTIVE=397, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -376,6 +376,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M7-CONVERSATION-CORE-ADAPTERS-TEST` | `tests/m7-conversation-core-adapters.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-CONVERSATION-CORE-ADAPTERS |
 | `IS-T1-TESTS-M7-IN-PROCESS-CAPABILITY-PROVIDER-TEST` | `tests/m7-in-process-capability-provider.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-IN-PROCESS-CAPABILITY-PROVIDER |
 | `IS-T1-TESTS-M7-MOBILE-CORE-PIN-INTEGRATION-TEST` | `tests/m7-mobile-core-pin-integration.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-REMOTE-COMPANION |
+| `IS-T1-TESTS-M7-OPERATION-CONTROL-ADAPTERS-TEST` | `tests/m7-operation-control-adapters.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-OPERATION-CONTROL |
 | `IS-T1-TESTS-M7-OPERATION-JOURNAL-TEST` | `tests/m7-operation-journal.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-PERSISTENT-MUTATION-JOURNAL |
 | `IS-T1-TESTS-M7-PROJECT-CORE-ADAPTERS-TEST` | `tests/m7-project-core-adapters.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-PROJECT-CORE-ADAPTERS |
 | `IS-T1-TESTS-M7-SETTINGS-INFORMATION-CORE-ADAPTERS-TEST` | `tests/m7-settings-information-core-adapters.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-SETTINGS-INFORMATION-CORE-ADAPTERS |

@@ -25,6 +25,7 @@ import {
   computeM7RemoteOperationJournalFingerprintV101,
   up as installM7OperationJournal,
 } from '../src/db/migrations/2026_08_29_101_m7_remote_operation_journal.js';
+import { up as installM7OperationAbandonments } from '../src/db/migrations/2026_08_29_103_m7_operation_abandonments.js';
 import {
   createM7InProcessCapabilityProvider,
 } from '../src/remote/m7-in-process-capability-provider.js';
@@ -81,6 +82,7 @@ function memoryDb() {
   const db = new Database(':memory:');
   db.pragma('foreign_keys = ON');
   installM7OperationJournal(db);
+  installM7OperationAbandonments(db);
   return db;
 }
 
@@ -415,6 +417,7 @@ test('a second SQLite connection without the deterministic validator fails close
   const file = path.join(root, 'journal.sqlite');
   const primary = new Database(file);
   installM7OperationJournal(primary);
+  installM7OperationAbandonments(primary);
   const secondary = new Database(file);
   assert.throws(
     () => secondary.prepare(`

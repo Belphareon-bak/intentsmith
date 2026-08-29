@@ -3,7 +3,9 @@ import {
   M7_OPERATION_JOURNAL_OUTCOME_STATE,
   canonicalizeM7OperationJournalEvent,
   computeM7OperationRequestDigest,
+  encodeM7OperationAbandonment,
   encodeM7OperationJournalEvent,
+  parseM7OperationAbandonment,
   parseM7OperationJournalEvent,
   registerM7OperationJournalFunctions,
 } from './m7-operation-journal-validation.js';
@@ -11,7 +13,10 @@ import {
 export const M7_OPERATION_JOURNAL_ERROR = Object.freeze({
   CONFLICT: 'M7_OPERATION_CONFLICT',
   INPUT_INVALID: 'M7_OPERATION_INPUT_INVALID',
+  NOT_ABANDONABLE: 'M7_OPERATION_NOT_ABANDONABLE',
+  NOT_FOUND: 'M7_OPERATION_NOT_FOUND',
   OUTCOME_UNKNOWN: 'M7_OPERATION_OUTCOME_UNKNOWN',
+  REVISION_STALE: 'M7_OPERATION_REVISION_STALE',
   STORAGE_FAILURE: 'M7_OPERATION_STORAGE_FAILURE',
 });
 
@@ -171,6 +176,39 @@ function parseRow(row) {
   }
 }
 
+function parseAbandonmentRow(row) {
+  if (!row) return null;
+  try {
+    const receipt = parseM7OperationAbandonment(row.recordBytes);
+    const exact = receipt.deviceId === row.deviceId
+      && receipt.subjectId === row.subjectId
+      && receipt.targetOperationId === row.targetOperationId
+      && receipt.sourceOperationId === row.sourceOperationId
+      && receipt.sourceRequestDigest === row.sourceRequestDigest
+      && receipt.targetEventRevision === row.targetEventRevision
+      && receipt.targetRequestDigest === row.targetRequestDigest
+      && receipt.recordedAtMs === row.recordedAtMs;
+    if (!exact) throw new Error('abandonment column-record mismatch');
+    return deepFreeze({ revision: row.abandonmentRevision, receipt });
+  } catch (error) {
+    fail(M7_OPERATION_JOURNAL_ERROR.STORAGE_FAILURE, 'stored m7 abandonment is invalid', {
+      cause: error?.message || String(error),
+    });
+  }
+}
+
+function operationRevision(value) {
+  return `rev:${computeM7OperationRequestDigest(value).slice(7)}`;
+}
+
+function resultReference(resultDigest) {
+  return resultDigest === null ? null : `result:${resultDigest.slice(7)}`;
+}
+
+function isoTimestamp(value) {
+  return new Date(value).toISOString();
+}
+
 function replayResult(outcome) {
   if (outcome.event.result === null) {
     fail(M7_OPERATION_JOURNAL_ERROR.OUTCOME_UNKNOWN, 'm7 operation outcome is unknown', {
@@ -214,6 +252,33 @@ export class M7OperationJournal {
         sequence, state, result_digest, error_code, recorded_at_ms, record_json
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS BLOB))
     `);
+    this.selectOperationIds = this.database.prepare(`
+      SELECT operation_id AS operationId
+      FROM m7_remote_operation_events
+      WHERE device_id = ? AND subject_id = ?
+      GROUP BY operation_id
+      ORDER BY min(recorded_at_ms), operation_id
+    `);
+    this.selectAbandonment = this.database.prepare(`
+      SELECT abandonment_revision AS abandonmentRevision,
+             device_id AS deviceId, subject_id AS subjectId,
+             target_operation_id AS targetOperationId,
+             source_operation_id AS sourceOperationId,
+             source_request_digest AS sourceRequestDigest,
+             target_event_revision AS targetEventRevision,
+             target_request_digest AS targetRequestDigest,
+             recorded_at_ms AS recordedAtMs,
+             CAST(record_json AS BLOB) AS recordBytes
+      FROM m7_remote_operation_abandonments
+      WHERE device_id = ? AND subject_id = ? AND target_operation_id = ?
+    `);
+    this.insertAbandonment = this.database.prepare(`
+      INSERT INTO m7_remote_operation_abandonments (
+        device_id, subject_id, target_operation_id, source_operation_id,
+        source_request_digest, target_event_revision, target_request_digest,
+        recorded_at_ms, record_json
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CAST(? AS BLOB))
+    `);
   }
 
   #now() {
@@ -228,6 +293,57 @@ export class M7OperationJournal {
     return this.selectEvents
       .all(key.deviceId, key.subjectId, key.operationId)
       .map(parseRow);
+  }
+
+  #abandonment(key) {
+    return parseAbandonmentRow(this.selectAbandonment.get(
+      key.deviceId,
+      key.subjectId,
+      key.operationId,
+    ));
+  }
+
+  #operationRecord(key) {
+    const events = this.#load(key);
+    if (events.length === 0) return null;
+    if (events.length > 2
+      || events[0].event.sequence !== 0
+      || (events[1] && events[1].event.sequence !== 1)) {
+      fail(M7_OPERATION_JOURNAL_ERROR.STORAGE_FAILURE, 'm7 operation event sequence is invalid');
+    }
+    const intent = events[0];
+    const outcome = events[1] ?? null;
+    const abandonment = this.#abandonment(key);
+    let state;
+    if (abandonment) state = 'abandoned';
+    else if (!outcome || outcome.event.state === 'UNKNOWN') state = 'unknown';
+    else if (outcome.event.state === 'PENDING') state = 'pending';
+    else if (outcome.event.state === 'CONFIRMED') state = 'confirmed';
+    else state = 'rejected';
+    const updatedAtMs = abandonment?.receipt.recordedAtMs
+      ?? outcome?.event.recordedAtMs
+      ?? intent.event.recordedAtMs;
+    const revisionMaterial = {
+      abandonmentRevision: abandonment?.revision ?? null,
+      eventRevision: outcome?.revision ?? intent.revision,
+      operationId: intent.event.operationId,
+      requestDigest: intent.event.requestDigest,
+      state,
+      updatedAtMs,
+    };
+    return deepFreeze({
+      operationId: intent.event.operationId,
+      operationKind: intent.event.operationType,
+      requestDigest: intent.event.requestDigest,
+      state,
+      createdAt: isoTimestamp(intent.event.recordedAtMs),
+      updatedAt: isoTimestamp(updatedAtMs),
+      resultReference: ['confirmed', 'rejected'].includes(state)
+        ? resultReference(outcome.event.resultDigest)
+        : null,
+      canAbandon: ['pending', 'unknown'].includes(state),
+      revision: operationRevision(revisionMaterial),
+    });
   }
 
   #insert(event) {
@@ -382,6 +498,113 @@ export class M7OperationJournal {
       updatedAtMs: outcome?.event.recordedAtMs ?? events[0].event.recordedAtMs,
       revision: outcome?.revision ?? events[0].revision,
     });
+  }
+
+  getOperation({ deviceId, subjectId, operationId }) {
+    const key = {
+      deviceId: requireIdentifier(deviceId, 'deviceId'),
+      subjectId: requireIdentifier(subjectId, 'subjectId'),
+      operationId: requireIdentifier(operationId, 'operationId'),
+      operationType: 'lookup-only',
+    };
+    return requireStored(
+      () => this.database.transaction(() => this.#operationRecord(key))(),
+      'm7 operation record could not be read',
+    );
+  }
+
+  listOperations({ deviceId, subjectId }) {
+    const key = {
+      deviceId: requireIdentifier(deviceId, 'deviceId'),
+      subjectId: requireIdentifier(subjectId, 'subjectId'),
+    };
+    return requireStored(
+      () => this.database.transaction(() => Object.freeze(
+        this.selectOperationIds.all(key.deviceId, key.subjectId).map(row => (
+          this.#operationRecord({ ...key, operationId: row.operationId })
+        )),
+      ))(),
+      'm7 operation records could not be read',
+    );
+  }
+
+  abandonOperation({
+    deviceId,
+    subjectId,
+    sourceOperationId,
+    sourceRequestDigest,
+    targetOperationId,
+    expectedRevision,
+  }) {
+    const sourceKey = {
+      deviceId: requireIdentifier(deviceId, 'deviceId'),
+      subjectId: requireIdentifier(subjectId, 'subjectId'),
+      operationId: requireIdentifier(sourceOperationId, 'sourceOperationId'),
+    };
+    const targetKey = {
+      deviceId: sourceKey.deviceId,
+      subjectId: sourceKey.subjectId,
+      operationId: requireIdentifier(targetOperationId, 'targetOperationId'),
+    };
+    if (sourceKey.operationId === targetKey.operationId) {
+      fail(M7_OPERATION_JOURNAL_ERROR.INPUT_INVALID, 'an abandon operation cannot target itself');
+    }
+    if (!/^sha256:[0-9a-f]{64}$/u.test(sourceRequestDigest || '')) {
+      fail(M7_OPERATION_JOURNAL_ERROR.INPUT_INVALID, 'sourceRequestDigest is invalid');
+    }
+    requireIdentifier(expectedRevision, 'expectedRevision');
+    return requireStored(() => immediate(this.database, () => {
+      const sourceEvents = this.#load(sourceKey);
+      if (sourceEvents.length !== 1
+        || sourceEvents[0].event.operationType !== 'operation.abandon'
+        || sourceEvents[0].event.requestDigest !== sourceRequestDigest) {
+        fail(
+          M7_OPERATION_JOURNAL_ERROR.INPUT_INVALID,
+          'abandonment requires its exact durable operation intent',
+        );
+      }
+      const target = this.#operationRecord(targetKey);
+      if (!target) fail(M7_OPERATION_JOURNAL_ERROR.NOT_FOUND, 'target operation was not found');
+      if (target.revision !== expectedRevision) fail(
+        M7_OPERATION_JOURNAL_ERROR.REVISION_STALE,
+        'target operation revision changed before abandonment',
+        { actualRevision: target.revision },
+      );
+      if (!target.canAbandon) fail(
+        M7_OPERATION_JOURNAL_ERROR.NOT_ABANDONABLE,
+        'target operation is already resolved or abandoned',
+      );
+      const targetEvents = this.#load(targetKey);
+      const currentEvent = targetEvents[targetEvents.length - 1];
+      const receipt = {
+        contract: 'M7RemoteOperationAbandonment',
+        version: 1,
+        deviceId: targetKey.deviceId,
+        subjectId: targetKey.subjectId,
+        targetOperationId: targetKey.operationId,
+        sourceOperationId: sourceKey.operationId,
+        sourceRequestDigest,
+        targetEventRevision: currentEvent.revision,
+        targetRequestDigest: currentEvent.event.requestDigest,
+        recordedAtMs: this.#now(),
+      };
+      const info = this.insertAbandonment.run(
+        receipt.deviceId,
+        receipt.subjectId,
+        receipt.targetOperationId,
+        receipt.sourceOperationId,
+        receipt.sourceRequestDigest,
+        receipt.targetEventRevision,
+        receipt.targetRequestDigest,
+        receipt.recordedAtMs,
+        encodeM7OperationAbandonment(receipt),
+      );
+      if (info.changes !== 1) fail(
+        M7_OPERATION_JOURNAL_ERROR.STORAGE_FAILURE,
+        'm7 operation abandonment was not inserted',
+      );
+      return this.#operationRecord(targetKey);
+    }), 'm7 operation could not be abandoned');
   }
 }
 

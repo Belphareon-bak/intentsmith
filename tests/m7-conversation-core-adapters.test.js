@@ -24,6 +24,7 @@ import {
 import {
   up as installM7OperationJournal,
 } from '../src/db/migrations/2026_08_29_101_m7_remote_operation_journal.js';
+import { up as installM7OperationAbandonments } from '../src/db/migrations/2026_08_29_103_m7_operation_abandonments.js';
 import {
   createM7ConversationCoreAdapters,
 } from '../src/remote/m7-conversation-core-adapters.js';
@@ -188,6 +189,7 @@ function setup({
       ELSE updated_at END
   `).run();
   installM7OperationJournal(db);
+  installM7OperationAbandonments(db);
   let now = 10_000;
   const journal = createM7OperationJournal(db, { clock: () => now++ });
   const adapters = createM7ConversationCoreAdapters({

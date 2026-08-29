@@ -68,8 +68,8 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Decision 041 implementace dostala `REVIEW_PASSED` a trust store drží čtyři oddělené veřejné klíče. Úzký review ale našel stale M6 migration oracle a neoffline custody privátních klíčů; oracle remediation je implementovaná, custody zůstává otevřená. Osm rotací, history disposition a podepsaná M5 acceptance neproběhly. |
-| **M6 IntentSmith 1.0 release** | `KEY_CUSTODY_CHANGES_REQUIRED / INTEGRATION_REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, application upgrade, L0-11 a soak/throughput harness jsou implementované. Původní oprava `80 !== 79` je po modelové a M7 persistence integraci navázaná na skutečný počet 89 migrací a chráněná rychlým drift guardem; nový candidate čeká na review. 24h soak běží, plný throughput zatím neproběhl. |
-| **M7 Remote Companion** | `SETTINGS_INFORMATION_IMPLEMENTATION_GREEN / FULL_GATE_GREEN / REVIEW_PENDING / PROVIDER_NOT_ACTIVE / TRANSPORT_ABSENT` | M6 + remote boundary | Sedm capability a 14 mobilních operací jsou připnuté; transport-free provider, durable effect journal, project/conversation adaptéry a settings/manual-information core existují. Session, listener, pairing, mobilní transport a device/release důkazy ještě neexistují. |
+| **M6 IntentSmith 1.0 release** | `KEY_CUSTODY_CHANGES_REQUIRED / INTEGRATION_REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, application upgrade, L0-11 a soak/throughput harness jsou implementované. Původní oprava `80 !== 79` je po modelové a M7 persistence integraci navázaná na skutečný počet 90 migrací a chráněná rychlým drift guardem; nový candidate čeká na review. 24h soak běží, plný throughput zatím neproběhl. |
+| **M7 Remote Companion** | `OPERATION_CONTROL_IMPLEMENTATION_GREEN / FULL_GATE_PENDING / REVIEW_PENDING / PROVIDER_NOT_ACTIVE / TRANSPORT_ABSENT` | M6 + remote boundary | Sedm capability a 14 mobilních operací jsou připnuté; transport-free provider, durable effect journal, project/conversation/settings/manual-information adaptéry a revision-bound operation recovery existují. Session, listener, pairing, mobilní transport a device/release důkazy ještě neexistují. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
 Gate 0 se znovu aktivuje pouze v M6 nad zmraženým kandidátem.
@@ -1896,6 +1896,19 @@ Registry má 490 programů s fingerprintem `f322661b…a53a`; module graph má 1
 stále 3 cykly a 28 souborů v cyklech. Produkční mediator,
 composition root, session, pairing, listener a transport zůstávají záměrně
 nepřítomné. Souvislý offline+database gate a nezávislé review teprve následují.
+
+### Operation control checkpoint 2026-08-29
+
+Kontrolní rovina `operation.list/get/abandon` je implementačně zelená bez
+aktivace transportu. List a get čtou pouze partition důvěryhodného device a
+subjectu; HMAC cursor váže filtry, úplný snapshot a offset. Abandon vyžaduje
+vlastní durable `operation.abandon` intent, fresh revision cíle a zapisuje
+append-only receipt v migraci 103. Původní effect ani jeho journal se nemění,
+cancel ani retry se nespouští. Focused sada je `6/6 PASS`; souvislý gate a
+nezávislé review následují po explicitním přijetí čtyř přesných nových
+module-boundary hran. Approval capability zůstává mimo tento blok: různé
+produkční approval zdroje nemají jednotnou autoritativní expiraci a její
+normalizace vyžaduje operátorské rozhodnutí.
 
 Povinné výsledky:
 

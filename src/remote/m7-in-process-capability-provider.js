@@ -111,7 +111,7 @@ function normalizeAuthorityDecision(value, requiredScopes) {
   });
 }
 
-function buildDescriptors(requirements, manifests) {
+function buildDescriptors(requirements, manifests, controlPlaneManifest = null) {
   if (!plain(requirements) || !Array.isArray(requirements.capabilities) || !plain(manifests)) {
     fail(M7_IN_PROCESS_PROVIDER_ERROR.CONFIG_INVALID, 'm7-provider:contract-input-invalid');
   }
@@ -162,6 +162,7 @@ function buildDescriptors(requirements, manifests) {
       });
     });
     return deepFreeze({
+      advertised: true,
       capabilityId: requirement.capabilityId,
       version: requirement.targetVersion,
       contractDigest: manifest.contractDigest,
@@ -169,6 +170,53 @@ function buildDescriptors(requirements, manifests) {
       operations,
     });
   });
+  if (controlPlaneManifest !== null) {
+    const requirement = requirements.controlPlanePrerequisite;
+    const manifestOperations = controlPlaneManifest?.operationManifest?.operations;
+    if (!plain(requirement)
+      || requirement.owner !== controlPlaneManifest?.owner
+      || controlPlaneManifest?.operationManifest?.capabilityId !== 'm7-control-plane-prerequisite'
+      || controlPlaneManifest?.operationManifest?.version !== 1
+      || !Array.isArray(requirement.operations)
+      || !Array.isArray(manifestOperations)
+      || manifestOperations.length !== requirement.operations.length) {
+      fail(M7_IN_PROCESS_PROVIDER_ERROR.CONFIG_INVALID, 'm7-provider:control-manifest-mismatch');
+    }
+    const operations = requirement.operations.map((operation, index) => {
+      const pinned = manifestOperations[index];
+      if (!plain(operation)
+        || typeof operation.operationId !== 'string'
+        || operationIds.has(operation.operationId)
+        || !['command', 'mutation', 'read'].includes(operation.kind)
+        || !Array.isArray(operation.requiredScopes)
+        || operation.requiredScopes.some(scope => typeof scope !== 'string' || scope.length === 0)
+        || new Set(operation.requiredScopes).size !== operation.requiredScopes.length
+        || !plain(pinned)
+        || pinned.operationId !== operation.operationId
+        || pinned.requestContract !== operation.requestContract
+        || pinned.resultContract !== operation.resultContract) {
+        fail(M7_IN_PROCESS_PROVIDER_ERROR.CONFIG_INVALID, 'm7-provider:control-operation-mismatch');
+      }
+      operationIds.add(operation.operationId);
+      return deepFreeze({
+        capabilityId: 'm7-control-plane-prerequisite',
+        capabilityVersion: 1,
+        operationId: operation.operationId,
+        requestContract: operation.requestContract,
+        resultContract: operation.resultContract,
+        kind: operation.kind,
+        requiredScopes: [...operation.requiredScopes],
+      });
+    });
+    capabilities.push(deepFreeze({
+      advertised: false,
+      capabilityId: 'm7-control-plane-prerequisite',
+      version: 1,
+      contractDigest: controlPlaneManifest.contractDigest,
+      operationsDigest: controlPlaneManifest.operationsDigest,
+      operations,
+    }));
+  }
   return { capabilities: deepFreeze(capabilities), operationIds };
 }
 
@@ -189,6 +237,7 @@ function unavailableAdvertisement(capability, reason) {
 
 export function createM7InProcessCapabilityProvider({
   authorityResolver,
+  controlPlaneManifest = null,
   externalValidators = {},
   handlers = {},
   manifests,
@@ -204,7 +253,7 @@ export function createM7InProcessCapabilityProvider({
     M7_IN_PROCESS_PROVIDER_ERROR.CONFIG_INVALID,
     'm7-provider:handler-or-validator-map-invalid',
   );
-  const descriptors = buildDescriptors(requirements, manifests);
+  const descriptors = buildDescriptors(requirements, manifests, controlPlaneManifest);
   if (Object.keys(handlers).some(operationId => !descriptors.operationIds.has(operationId))
     || Object.values(handlers).some(handler => typeof handler !== 'function')) {
     fail(M7_IN_PROCESS_PROVIDER_ERROR.CONFIG_INVALID, 'm7-provider:unknown-or-invalid-handler');
@@ -238,7 +287,7 @@ export function createM7InProcessCapabilityProvider({
     },
 
     advertise() {
-      return deepFreeze(descriptors.capabilities.map(capability => (
+      return deepFreeze(descriptors.capabilities.filter(capability => capability.advertised).map(capability => (
         capabilityReady(capability)
           ? {
             capabilityId: capability.capabilityId,
@@ -266,7 +315,10 @@ export function createM7InProcessCapabilityProvider({
         M7_IN_PROCESS_PROVIDER_ERROR.OPERATION_UNAVAILABLE,
         'm7-provider:operation-unavailable',
       );
-      if (!capabilityReady(capability)) fail(
+      const operationReady = typeof handlers[operation.operationId] === 'function'
+        && (operation.kind === 'read' || journalRun !== null);
+      if ((capability.advertised && !capabilityReady(capability))
+        || (!capability.advertised && !operationReady)) fail(
         M7_IN_PROCESS_PROVIDER_ERROR.CAPABILITY_UNAVAILABLE,
         'm7-provider:capability-incomplete',
       );

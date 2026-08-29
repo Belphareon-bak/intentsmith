@@ -14177,6 +14177,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-M7-OPERATION-CONTROL-ADAPTERS-TEST",
+      "path": "tests/m7-operation-control-adapters.test.js",
+      "argv": [
+        "node",
+        "tests/m7-operation-control-adapters.test.js"
+      ],
+      "capabilityId": "C3-032",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "database",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 3000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M7-OPERATION-CONTROL",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-M7-PROJECT-CORE-ADAPTERS-TEST",
       "path": "tests/m7-project-core-adapters.test.js",
       "argv": [

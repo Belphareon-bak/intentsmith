@@ -228,6 +228,7 @@ záznamu selže v `artifact-validation`.
 | `2026_08_28_100_signed_privacy_receipts.js` | použito |
 | `2026_08_29_101_m7_remote_operation_journal.js` | použito pro M7 persistentní mutation journal |
 | `2026_08_29_102_m7_manual_information.js` | použito pro M7 subject/project-scoped ruční informace |
+| `2026_08_29_103_m7_operation_abandonments.js` | použito pro M7 append-only operation abandonment receipts |
 <!-- migration-source-manifest:end -->
 
 ## Navazující M7 rezervace 2026-08-29
@@ -365,3 +366,17 @@ Následné upgrade review prokázalo, že výše popsané přesunutí už apliko
 - guard kontroluje před adopcí i numerické sloty už uložené v
   `schema_migrations`. M2 konflikt 070 proto zůstává viditelný a fail-closed;
   vyřešit jej smí pouze autoritativní M2 integrační linka.
+
+## M7 navazující rezervace 2026-08-29
+
+M7 integrační větev po opakovaném union censusu používá souvislý blok 101–103.
+Čísla 101 a 102 vlastní persistentní mutation journal a manual information;
+nejbližší volné číslo 103 je rezervováno pro append-only uzavření vzdálené
+operation evidence. Rezervace nemění ani znovu nepoužívá historické kolizní
+sloty popsané výše.
+
+| Číslo | Vlastník | Obsah |
+|---|---|---|
+| **101** | `WP-M7-PERSISTENT-MUTATION-JOURNAL` | durable remote operation events |
+| **102** | `WP-M7-SETTINGS-INFORMATION-CORE-ADAPTERS` | subject/project-scoped manual information |
+| **103** | `WP-M7-OPERATION-CONTROL` | append-only operation abandonment receipts |
