@@ -2160,6 +2160,24 @@ diagnostickém běhu kvůli stale registry pinu byl pin opraven a nový souvisl�
 offline+database gate skončil `304/304 PASS`. Skutečné demo ani approval receipt
 neproběhly, takže M6 acceptance zůstává `BLOCKED`.
 
+### M7 persistentní mutation journal (2026-08-29)
+
+Transport-free capability provider má nově durable append-only hranici pro
+remote mutace. Intent se commitne před zavoláním core handleru, první
+contract-valid outcome se uloží jako kanonický BLOB a restartový replay vrátí
+tentýž výsledek s `replayed: true` bez druhého efektu. Identita zahrnuje
+`deviceId + subjectId + operationId`; jiný request digest nebo operation type
+je terminální konflikt a neúplný či nejednoznačný intent se automaticky
+neopakuje. Request payload se neukládá.
+
+Implementace je v `9f6407c2`, dvě přesné authority-validation hrany byly
+samostatně přijaty v `2a67f2d3`. Aktuální module graph má 1 214 hran, stále
+3 cykly a 28 souborů v cyklech. Focused journal/provider testy jsou 10/10 +
+10/10, mobile gate 22/22 a artifact integrita čeká po opravě tohoto census
+zápisu na opakování. Listener, pairing, session authority, core mutační
+adaptéry a transport zůstávají nepřítomné; stav je
+`IMPLEMENTATION_GREEN / FULL_GATE_PENDING / REVIEW_PENDING / NOT_ACTIVE`.
+
 ## 14. Rozhodovací fronta — otázka až ve chvíli, kdy má data
 
 | Rozhodnutí | Kdy je skutečně potřeba | Jaká evidence musí být na stole |
