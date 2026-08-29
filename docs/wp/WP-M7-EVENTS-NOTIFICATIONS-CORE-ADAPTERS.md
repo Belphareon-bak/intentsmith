@@ -4,8 +4,8 @@
 
 **Vstupní revision:** `6688b8fd`
 
-**Stav:** `IMPLEMENTATION_GREEN / REVIEW_REQUIRED / NOT_ACTIVE /
-TRANSPORT_ABSENT`
+**Stav:** `IMPLEMENTATION_GREEN / FULL_OFFLINE_DATABASE_GATE_GREEN /
+REVIEW_REQUIRED / NOT_ACTIVE / TRANSPORT_ABSENT`
 
 ## 1. Uživatelský výsledek
 
@@ -59,3 +59,9 @@ node scripts/validate-test-registry.js --json
 git diff --check
 ```
 
+Souvislý profilový gate nad exact candidatem `277c7ee9` skončil
+`337/337 PASS`, `verdict: PASS`, `exitCode: 0`. Dva předchozí kontrolní běhy
+zůstávají evidované jako `329 PASS / 8 BLOCKED` a `335 PASS / 2 BLOCKED`;
+neobsahují produktový FAIL a přesně ukazují chybějící host toolchain a PDF
+runtime konfiguraci. Přesné identity a hashe jsou v
+[`m7-events-notifications-core-adapters-20260830.md`](../execution/runs/m7/m7-events-notifications-core-adapters-20260830.md).

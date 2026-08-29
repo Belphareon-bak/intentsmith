@@ -1,13 +1,15 @@
 # Core/M7 capability handoff
 
-**Stav 2026-08-30:** `CORE_IMPLEMENTATION_GREEN / LATEST_FULL_GATE_PENDING /
-REVIEW_PENDING / PROVIDER_NOT_ACTIVE / M7_TRANSPORT_ABSENT /
+**Stav 2026-08-30:** `CORE_IMPLEMENTATION_GREEN /
+LATEST_FULL_OFFLINE_DATABASE_GATE_GREEN / REVIEW_PENDING /
+PROVIDER_NOT_ACTIVE / M7_TRANSPORT_ABSENT /
 CANDIDATE_NOT_ACCEPTED`
 
 **Aktuální integrační kontext:** connector, client, transport-free provider,
 durable journal a všech sedm capability adapterů jsou implementation-green.
-Poslední přijatý gate patří staršímu stromu; nový 337-programový
-offline+database gate a review event/notification řezu teprve následují.
+Aktuální 337-programový offline+database plán po events/notifications prošel
+souvisle `337/337 PASS` na exact kandidatu `277c7ee9`; nový produktový řez a
+M6 registry ratchet však stále čekají na nezávislé review.
 Produkční M7 transport zůstává absent. Stav M5/M6 se přebírá pouze z
 `ROADMAP.md` a `SYSTEM-MAP.md`, nikoli z historického počítadla zdrojové
 mobilní větve.
