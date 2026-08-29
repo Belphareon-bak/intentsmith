@@ -392,7 +392,7 @@ suite('M1 model failover schema — exact migration contract');
 await testAsync('fresh file-backed DB creates all failover tables, indexes and triggers', async () => {
   await withMigratedDb(async (db) => {
     // M7 bounded operation-list indexes are the exact current tip.
-    assertEqual(getCurrentVersion(db), '2026_08_29_104_m7_operation_list_indexes');
+    assertEqual(getCurrentVersion(db), '2026_08_29_105_m7_remote_session_authority');
 
     for (const table of [
       'model_desired_bindings',
@@ -676,7 +676,7 @@ await testAsync('second migration run is a no-op with an identical schema snapsh
     const before = schemaSnapshot(db);
     const result = await runMigrations(db);
     assertEqual(result.applied.length, 0);
-    assertEqual(result.skipped.length, 91);
+    assertEqual(result.skipped.length, 92);
     assertEqual(schemaSnapshot(db), before);
   });
 });
@@ -745,10 +745,11 @@ await testAsync('migration 054 preserves pre-existing success as unconfirmed evi
         '2026_08_29_102_m7_manual_information',
         '2026_08_29_103_m7_operation_abandonments',
         '2026_08_29_104_m7_operation_list_indexes',
+        '2026_08_29_105_m7_remote_session_authority',
       ]),
     );
     assertEqual(result.skipped.length, 55);
-    assertEqual(getCurrentVersion(db), '2026_08_29_104_m7_operation_list_indexes');
+    assertEqual(getCurrentVersion(db), '2026_08_29_105_m7_remote_session_authority');
     assertEqual(
       db.prepare(`
         SELECT COUNT(*) AS count

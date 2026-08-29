@@ -220,6 +220,17 @@ export const MOBILE_REMOTE_SESSION_CONTRACT_V1 = deepFreeze({
     revokeEffect: 'session_and_device_cache_untrusted_immediately',
     scopeLossEffect: 'affected_cache_partition_untrusted_immediately',
   },
+  deviceProof: {
+    algorithm: 'Ed25519',
+    signedControlRequests: [
+      'RemoteSessionOpenRequest@1',
+      'RemoteSessionRefreshRequest@1',
+      'RemoteSessionRevokeRequest@1',
+    ],
+    signatureField: 'deviceSignature',
+    canonicalForm: 'remote_core_canonical_json_without_signature_field',
+    domainPrefix: 'IntentSmith/M7/<schemaId>/Ed25519DeviceProof/v1\\n',
+  },
   cursorAuthority: {
     binding: [
       'capabilityId', 'capabilityVersion', 'deviceId', 'limit', 'operationId',
@@ -322,7 +333,23 @@ export const MOBILE_REMOTE_SESSION_CONTRACT_V1 = deepFreeze({
 // Filled from the canonical JSON representation and guarded by the focused
 // contract test. A change requires a new digest and re-review.
 export const MOBILE_REMOTE_SESSION_CONTRACT_DIGEST_V1 =
-  'sha256:89a49730b2da1a7f2b07fc7e920520ae31a3b077fe03e0b019374523eaf1988a';
+  'sha256:a5156bbffa5649c550fe98516f1e2ce558edd44af3b1a355422429b280434248';
+
+export function createRemoteDeviceProofBytesV1(schemaId, request) {
+  const descriptor = MOBILE_REMOTE_SESSION_CONTRACT_V1.controlMessages[schemaId];
+  if (!MOBILE_REMOTE_SESSION_CONTRACT_V1.deviceProof.signedControlRequests.includes(schemaId)
+    || !descriptor
+    || !plain(request)
+    || exactKeys(request, descriptor.requiredFields, 'remote-device-proof').length > 0) {
+    throw new TypeError('remote-device-proof:request-invalid');
+  }
+  const unsigned = {};
+  for (const key of descriptor.requiredFields) {
+    if (key !== 'deviceSignature') unsigned[key] = request[key];
+  }
+  const prefix = `IntentSmith/M7/${schemaId}/Ed25519DeviceProof/v1\n`;
+  return new TextEncoder().encode(`${prefix}${canonicalizeRemoteCoreValue(unsigned)}`);
+}
 
 export function resolveRemoteSecurityTransitionV1(machine, state, event) {
   const transitions = machine === 'pairing'
