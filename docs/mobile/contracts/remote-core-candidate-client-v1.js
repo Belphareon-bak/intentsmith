@@ -18,6 +18,7 @@ import {
 import {
   MOBILE_REMOTE_SESSION_CONTRACT_DIGEST_V1,
   MOBILE_REMOTE_SESSION_CONTRACT_V1,
+  createRemoteInvocationProofBytesV1,
   validateRemoteInvocationEnvelopeV1,
   validateRemoteResponseEnvelopeV1,
 } from './remote-session-contract-v1.js';
@@ -81,6 +82,7 @@ export const MOBILE_REMOTE_CANDIDATE_CLIENT_DESCRIPTOR_V1 = deepFreeze({
     'local_request_schema_validation',
     'strictly_monotonic_locally_issued_counter',
     'fresh_nonce_per_invocation',
+    'ed25519_proof_over_every_invocation',
     'request_session_response_identity_binding',
     'bounded_in_flight_requests',
     'expired_or_revoked_session_stops_new_invocations',
@@ -88,12 +90,13 @@ export const MOBILE_REMOTE_CANDIDATE_CLIENT_DESCRIPTOR_V1 = deepFreeze({
 });
 
 export const MOBILE_REMOTE_CANDIDATE_CLIENT_DESCRIPTOR_DIGEST_V1 =
-  'sha256:f7d655fb2ab1e99149d1629ef5f92821a835937ec32488671946283d9894a6b1';
+  'sha256:e74b8c25ba2e92cd6ef05004fdf7cc2ab4dfd3ae43280681485d8cbf4a8fa45d';
 
 export function createMobileRemoteCandidateClientV1({
   session,
   initialCounter = 0,
   transport,
+  signInvocation,
   now = () => Date.now(),
   nonce = null,
   cryptoApi = globalThis.crypto,
@@ -107,6 +110,9 @@ export function createMobileRemoteCandidateClientV1({
   }
   if (!transport || typeof transport.invoke !== 'function') {
     throw new TypeError('mobile-remote-client:transport-invoke-required');
+  }
+  if (typeof signInvocation !== 'function') {
+    throw new TypeError('mobile-remote-client:signInvocation-required');
   }
   if (typeof now !== 'function') throw new TypeError('mobile-remote-client:now-required');
   if (!cryptoApi?.subtle || typeof cryptoApi.randomUUID !== 'function') {
@@ -162,7 +168,7 @@ export function createMobileRemoteCandidateClientV1({
       }
       issuedNonces.add(requestNonce);
       const sentAtMs = now();
-      const envelope = {
+      const unsignedEnvelope = {
         contract: 'RemoteInvocationEnvelope',
         version: 1,
         requestId: payload?.requestId,
@@ -178,7 +184,13 @@ export function createMobileRemoteCandidateClientV1({
         operationId,
         payload: structuredClone(payload),
         payloadDigest: await digestRemoteCoreValue(payload, cryptoApi),
+        deviceSignature: '',
       };
+      const deviceSignature = await signInvocation(
+        createRemoteInvocationProofBytesV1(unsignedEnvelope),
+        deepFreeze({ clientCounter, operationId, requestId: unsignedEnvelope.requestId }),
+      );
+      const envelope = { ...unsignedEnvelope, deviceSignature };
       const localValidation = await validateRemoteInvocationEnvelopeV1({
         envelope,
         session: boundSession,

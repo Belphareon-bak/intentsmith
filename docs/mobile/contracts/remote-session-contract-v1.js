@@ -30,6 +30,11 @@ const ERROR_CODE = /^[A-Z][A-Z0-9_:-]{0,95}$/;
 const PAIRING_CODE = /^[A-Za-z0-9_-]{22,64}$/;
 const ED25519_PUBLIC_KEY = /^[A-Za-z0-9_-]{43}$/;
 const ED25519_SIGNATURE = /^[A-Za-z0-9_-]{86}$/;
+const INVOCATION_REQUIRED_FIELDS = Object.freeze([
+  'capabilityId', 'capabilityVersion', 'clientCounter', 'contract', 'deviceId',
+  'deviceSignature', 'nonce', 'operationId', 'payload', 'payloadDigest',
+  'requestId', 'sentAt', 'sessionId', 'sessionRevision', 'subjectId', 'version',
+]);
 
 function deepFreeze(value) {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -165,7 +170,7 @@ export const MOBILE_REMOTE_SESSION_CONTRACT_V1 = deepFreeze({
     candidateAdapterManifestDigest: MOBILE_REMOTE_CANDIDATE_ADAPTER_MANIFEST_DIGEST_V1,
   },
   activation: {
-    backendImplementation: 'absent',
+    backendImplementation: 'session_authority_implemented_not_active',
     productionImport: 'forbidden_until_operator_acceptance_and_m7_security_review',
     runtimeAuthority: 'none',
   },
@@ -173,7 +178,7 @@ export const MOBILE_REMOTE_SESSION_CONTRACT_V1 = deepFreeze({
     topology: 'dedicated_remote_listener',
     minimumTlsVersion: 'TLSv1.3',
     serverIdentity: 'sha256_spki_pin',
-    deviceProof: 'ed25519_signed_server_nonce',
+    deviceProof: 'ed25519_signed_control_challenge_and_invocation_envelope',
     allowedPaths: [
       '/remote/v1/health',
       '/remote/v1/invoke',
@@ -227,6 +232,7 @@ export const MOBILE_REMOTE_SESSION_CONTRACT_V1 = deepFreeze({
       'RemoteSessionRefreshRequest@1',
       'RemoteSessionRevokeRequest@1',
     ],
+    signedInvocation: 'RemoteInvocationEnvelope@1',
     signatureField: 'deviceSignature',
     canonicalForm: 'remote_core_canonical_json_without_signature_field',
     domainPrefix: 'IntentSmith/M7/<schemaId>/Ed25519DeviceProof/v1\\n',
@@ -333,11 +339,15 @@ export const MOBILE_REMOTE_SESSION_CONTRACT_V1 = deepFreeze({
 // Filled from the canonical JSON representation and guarded by the focused
 // contract test. A change requires a new digest and re-review.
 export const MOBILE_REMOTE_SESSION_CONTRACT_DIGEST_V1 =
-  'sha256:a5156bbffa5649c550fe98516f1e2ce558edd44af3b1a355422429b280434248';
+  'sha256:94c824f248d0a5c1bdc35582ba4e399bc9c6041824192c02efe22b4a220d7972';
 
 export function createRemoteDeviceProofBytesV1(schemaId, request) {
-  const descriptor = MOBILE_REMOTE_SESSION_CONTRACT_V1.controlMessages[schemaId];
-  if (!MOBILE_REMOTE_SESSION_CONTRACT_V1.deviceProof.signedControlRequests.includes(schemaId)
+  const descriptor = schemaId === MOBILE_REMOTE_SESSION_CONTRACT_V1.deviceProof.signedInvocation
+    ? { requiredFields: INVOCATION_REQUIRED_FIELDS }
+    : MOBILE_REMOTE_SESSION_CONTRACT_V1.controlMessages[schemaId];
+  const signedSchema = schemaId === MOBILE_REMOTE_SESSION_CONTRACT_V1.deviceProof.signedInvocation
+    || MOBILE_REMOTE_SESSION_CONTRACT_V1.deviceProof.signedControlRequests.includes(schemaId);
+  if (!signedSchema
     || !descriptor
     || !plain(request)
     || exactKeys(request, descriptor.requiredFields, 'remote-device-proof').length > 0) {
@@ -349,6 +359,10 @@ export function createRemoteDeviceProofBytesV1(schemaId, request) {
   }
   const prefix = `IntentSmith/M7/${schemaId}/Ed25519DeviceProof/v1\n`;
   return new TextEncoder().encode(`${prefix}${canonicalizeRemoteCoreValue(unsigned)}`);
+}
+
+export function createRemoteInvocationProofBytesV1(envelope) {
+  return createRemoteDeviceProofBytesV1('RemoteInvocationEnvelope@1', envelope);
 }
 
 export function resolveRemoteSecurityTransitionV1(machine, state, event) {
@@ -672,9 +686,7 @@ export async function validateRemoteInvocationEnvelopeV1({
 }) {
   const context = 'remote-invocation';
   const errors = exactKeys(envelope, [
-    'contract', 'version', 'requestId', 'sessionId', 'deviceId', 'subjectId',
-    'sessionRevision', 'clientCounter', 'nonce', 'sentAt', 'capabilityId',
-    'capabilityVersion', 'operationId', 'payload', 'payloadDigest',
+    ...INVOCATION_REQUIRED_FIELDS,
   ], context);
   if (!plain(envelope)) return { valid: false, errors };
   if (!Number.isSafeInteger(previousCounter) || previousCounter < 0) {
@@ -693,6 +705,9 @@ export async function validateRemoteInvocationEnvelopeV1({
     errors.push(`${context}:counter-replay-or-non-monotonic`);
   }
   if (!NONCE.test(envelope.nonce || '')) errors.push(`${context}:invalid-nonce`);
+  if (!ED25519_SIGNATURE.test(envelope.deviceSignature || '')) {
+    errors.push(`${context}:invalid-deviceSignature`);
+  }
   if (!canonicalTimestamp(envelope.sentAt)) errors.push(`${context}:invalid-sentAt`);
   if (canonicalTimestamp(envelope.sentAt)) {
     const skew = Math.abs(nowMs - Date.parse(envelope.sentAt));

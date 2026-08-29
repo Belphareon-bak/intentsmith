@@ -21,12 +21,18 @@ export const M7_REMOTE_SCOPE_IDS = Object.freeze([
 ]);
 
 export const M7_REMOTE_DEVICE_PROOF_SCHEMA_IDS = Object.freeze([
+  'RemoteInvocationEnvelope@1',
   'RemoteSessionOpenRequest@1',
   'RemoteSessionRefreshRequest@1',
   'RemoteSessionRevokeRequest@1',
 ]);
 
 const DEVICE_PROOF_KEYS = Object.freeze({
+  'RemoteInvocationEnvelope@1': Object.freeze([
+    'capabilityId', 'capabilityVersion', 'clientCounter', 'contract', 'deviceId',
+    'deviceSignature', 'nonce', 'operationId', 'payload', 'payloadDigest',
+    'requestId', 'sentAt', 'sessionId', 'sessionRevision', 'subjectId', 'version',
+  ]),
   'RemoteSessionOpenRequest@1': Object.freeze([
     'clientBuild', 'clientInstanceId', 'contract', 'deviceId', 'deviceKeyId',
     'deviceSignature', 'pairingRevision', 'requestId', 'sentAt', 'serverNonce',

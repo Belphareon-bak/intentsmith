@@ -87,6 +87,7 @@ export async function createRemoteSessionGoldenFixturesV1(cryptoApi = globalThis
     operationId: 'project.list',
     payload,
     payloadDigest: await digestRemoteCoreValue(payload, cryptoApi),
+    deviceSignature: 'B'.repeat(86),
   };
   const responsePayload = {
     contract: 'ProjectPage',

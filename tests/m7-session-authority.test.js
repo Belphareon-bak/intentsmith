@@ -26,6 +26,7 @@ import {
 } from '../src/remote/m7-session-authority.js';
 import {
   createM7RemoteDeviceProofBytes,
+  digestM7SessionValue,
   M7_REMOTE_SCOPE_IDS,
 } from '../src/remote/m7-session-authority-validation.js';
 import {
@@ -107,6 +108,11 @@ function setup({ file = ':memory:', seed = 'session-authority' } = {}) {
     clock: () => nowMs,
     pairingEnabled: true,
     randomBytes: deterministicRandom(seed),
+    resolveInvocationScopes: ({ operationId }) => {
+      if (operationId === 'project.list') return ['read:projects'];
+      if (operationId === 'settings.update') return ['write:settings'];
+      throw new TypeError('unknown fixture operation');
+    },
     serverIdentityPin: `sha256:${'c'.repeat(64)}`,
     serverOrigin: 'https://remote.fixture.invalid',
     sessionTtlMs: 300_000,
@@ -163,6 +169,33 @@ function openSession(fixture, pairing) {
     request,
     result: fixture.authority.openSession(request),
   };
+}
+
+function signedInvocation(fixture, opened, pairing, overrides = {}) {
+  const payload = overrides.payload || {
+    contract: 'ProjectListQuery',
+    version: 1,
+    requestId: overrides.requestId || 'request:invocation:001',
+    limit: 25,
+  };
+  return signedRequest('RemoteInvocationEnvelope@1', {
+    contract: 'RemoteInvocationEnvelope',
+    version: 1,
+    requestId: payload.requestId,
+    sessionId: opened.sessionId,
+    deviceId: opened.deviceId,
+    subjectId: opened.subjectId,
+    sessionRevision: opened.sessionRevision,
+    clientCounter: 1,
+    nonce: 'invocation_nonce_00000000000001',
+    sentAt: new Date(fixture.now()).toISOString(),
+    capabilityId: 'projects',
+    capabilityVersion: 2,
+    operationId: 'project.list',
+    payload,
+    payloadDigest: digestM7SessionValue(payload),
+    ...overrides,
+  }, pairing.keys.privateKey);
 }
 
 console.log('\n═══ M7 durable session/pairing authority ═══════════════════════');
@@ -295,16 +328,7 @@ await test('open, invocation, restart and refresh enforce identity, scope, count
     negotiation,
     nowMs: fixture.now(),
   }).valid, true);
-  const invocation = {
-    clientCounter: 1,
-    deviceId: opened.result.deviceId,
-    nonce: 'invocation_nonce_00000000000001',
-    requiredScopes: ['read:projects'],
-    sentAt: new Date(fixture.now()).toISOString(),
-    sessionId: opened.result.sessionId,
-    sessionRevision: opened.result.sessionRevision,
-    subjectId: opened.result.subjectId,
-  };
+  const invocation = signedInvocation(fixture, opened.result, pairing);
   assert.deepEqual(fixture.authority.authorizeInvocation(invocation), {
     decision: 'allow',
     deviceId: opened.result.deviceId,
@@ -324,8 +348,18 @@ await test('open, invocation, restart and refresh enforce identity, scope, count
       ...invocation,
       clientCounter: 2,
       nonce: 'invocation_nonce_00000000000002',
-      requiredScopes: ['write:settings'],
+      operationId: 'settings.update',
     }),
+    M7_SESSION_AUTHORITY_ERROR.PROOF_INVALID,
+  );
+  expectCode(
+    () => restarted.authorizeInvocation(signedInvocation(fixture, opened.result, pairing, {
+      capabilityId: 'settings',
+      clientCounter: 2,
+      nonce: 'invocation_nonce_00000000000012',
+      operationId: 'settings.update',
+      requestId: 'request:invocation:scope-denied',
+    })),
     M7_SESSION_AUTHORITY_ERROR.SCOPE_DENIED,
   );
   const challenge = restarted.issueChallenge({
@@ -346,15 +380,57 @@ await test('open, invocation, restart and refresh enforce identity, scope, count
   assert.equal(refreshed.sessionId, opened.result.sessionId);
   assert.notEqual(refreshed.sessionRevision, opened.result.sessionRevision);
   expectCode(
-    () => restarted.authorizeInvocation({
-      ...invocation,
+    () => restarted.authorizeInvocation(signedInvocation(fixture, opened.result, pairing, {
       clientCounter: 3,
       nonce: 'invocation_nonce_00000000000003',
-    }),
+      requestId: 'request:invocation:old-revision',
+    })),
     M7_SESSION_AUTHORITY_ERROR.SESSION_INVALID,
   );
   restartedDb.close();
   rmSync(directory, { recursive: true, force: true });
+});
+
+await test('invocation proof rejects stolen identifiers and payload tamper before replay state changes', () => {
+  const fixture = setup({ seed: 'invocation-proof' });
+  const pairing = pairDevice(fixture);
+  const opened = openSession(fixture, pairing);
+  const valid = signedInvocation(fixture, opened.result, pairing, {
+    requestId: 'request:invocation:proof',
+    payload: {
+      contract: 'ProjectListQuery', version: 1,
+      requestId: 'request:invocation:proof', limit: 25,
+      privateMarker: 'must-not-enter-audit',
+    },
+  });
+  const tampered = structuredClone(valid);
+  tampered.payload.privateMarker = 'attacker-controlled';
+  tampered.payloadDigest = digestM7SessionValue(tampered.payload);
+  expectCode(
+    () => fixture.authority.authorizeInvocation(tampered),
+    M7_SESSION_AUTHORITY_ERROR.PROOF_INVALID,
+  );
+  const forged = { ...valid, deviceSignature: 'A'.repeat(86) };
+  expectCode(
+    () => fixture.authority.authorizeInvocation(forged),
+    M7_SESSION_AUTHORITY_ERROR.PROOF_INVALID,
+  );
+  const state = fixture.db.prepare(`
+    SELECT last_client_counter AS lastClientCounter
+    FROM m7_remote_sessions WHERE session_revision = ?
+  `).get(opened.result.sessionRevision);
+  assert.equal(state.lastClientCounter, 0);
+  assert.equal(fixture.db.prepare(`SELECT count(*) AS count FROM m7_remote_invocation_nonces`).get().count, 0);
+  const denied = fixture.db.prepare(`
+    SELECT CAST(record_json AS TEXT) AS recordJson
+    FROM m7_remote_session_audit_events
+    WHERE action = 'INVOCATION_AUTHORIZATION_ATTEMPT' AND outcome = 'DENIED'
+  `).all();
+  assert.equal(denied.length, 2);
+  assert.equal(denied.every(row => !row.recordJson.includes('privateMarker')), true);
+  assert.equal(denied.every(row => !row.recordJson.includes(valid.deviceSignature)), true);
+  assert.equal(fixture.authority.authorizeInvocation(valid).decision, 'allow');
+  fixture.db.close();
 });
 
 await test('expired challenge and session fail closed', () => {
@@ -391,16 +467,11 @@ await test('expired challenge and session fail closed', () => {
   }, pairing.keys.privateKey));
   fixture.tick(300_001);
   expectCode(
-    () => fixture.authority.authorizeInvocation({
-      clientCounter: 1,
-      deviceId: opened.deviceId,
+    () => fixture.authority.authorizeInvocation(signedInvocation(fixture, opened, pairing, {
       nonce: 'invocation_nonce_00000000000005',
-      requiredScopes: ['read:projects'],
       sentAt: new Date(fixture.now()).toISOString(),
-      sessionId: opened.sessionId,
-      sessionRevision: opened.sessionRevision,
-      subjectId: opened.subjectId,
-    }),
+      requestId: 'request:invocation:expired',
+    })),
     M7_SESSION_AUTHORITY_ERROR.SESSION_EXPIRED,
   );
   fixture.db.close();
@@ -423,16 +494,14 @@ await test('session and device revocation are terminal and audited', () => {
     'RemoteSessionRevokeResult@1', revoked, { nowMs: fixture.now() },
   ).valid, true);
   expectCode(
-    () => fixture.authority.authorizeInvocation({
-      clientCounter: 2,
-      deviceId: opened.result.deviceId,
-      nonce: 'invocation_nonce_00000000000004',
-      requiredScopes: ['read:projects'],
-      sentAt: new Date(fixture.now()).toISOString(),
-      sessionId: opened.result.sessionId,
+    () => fixture.authority.authorizeInvocation(signedInvocation(fixture, {
+      ...opened.result,
       sessionRevision: revoked.sessionRevision,
-      subjectId: opened.result.subjectId,
-    }),
+    }, pairing, {
+      clientCounter: 2,
+      nonce: 'invocation_nonce_00000000000004',
+      requestId: 'request:invocation:revoked',
+    })),
     M7_SESSION_AUTHORITY_ERROR.SESSION_REVOKED,
   );
   const pairingRevoked = fixture.authority.revokePairing({ deviceId: pairing.result.deviceId });

@@ -77,7 +77,7 @@ export const MOBILE_REMOTE_CORE_SIMULATOR_DESCRIPTOR_V1 = deepFreeze({
 });
 
 export const MOBILE_REMOTE_CORE_SIMULATOR_DESCRIPTOR_DIGEST_V1 =
-  'sha256:8da71da136a9b11aa1ffaf49a0e2bc20aee116dafced3c6e2321cf757c6af9e1';
+  'sha256:dc1053b076f45630192aa59cd525f8dbb395a73a12df7d62bff040db61b1ec3d';
 
 const FIXTURES_BY_OPERATION = new Map(
   MOBILE_REMOTE_GOLDEN_OPERATION_FIXTURES_V1.map(fixture => [fixture.operationId, fixture]),

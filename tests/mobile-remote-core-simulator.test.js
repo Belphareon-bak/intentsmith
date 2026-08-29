@@ -112,6 +112,7 @@ async function envelopeFor(fixture, counter, {
     operationId: fixture.operationId,
     payload,
     payloadDigest: await digestRemoteCoreValue(payload, webcrypto),
+    deviceSignature: 'B'.repeat(86),
   };
 }
 
@@ -126,6 +127,7 @@ const createCandidateClient = transport => createMobileRemoteCandidateClientV1({
   session,
   initialCounter: MOBILE_REMOTE_SESSION_FIXTURE_CONSTANTS_V1.previousCounter,
   transport,
+  signInvocation: async () => 'B'.repeat(86),
   now: () => nowMs,
   nonce: ({ clientCounter }) => `candidate_nonce_${String(clientCounter).padStart(16, '0')}`,
   cryptoApi: webcrypto,
@@ -292,6 +294,7 @@ await test('candidate client rejects a reused nonce before the second transport 
         return simulator.invoke(envelope);
       },
     },
+    signInvocation: async () => 'B'.repeat(86),
     now: () => nowMs,
     nonce: () => 'candidate_nonce_reused_0001',
     cryptoApi: webcrypto,

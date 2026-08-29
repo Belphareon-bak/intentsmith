@@ -47,6 +47,11 @@ const PAIRING_CLAIM_REQUEST_KEYS = Object.freeze([
   'claimCode', 'clientBuild', 'clientInstanceId', 'clientNonce', 'contract',
   'deviceKeyId', 'devicePublicKey', 'requestId', 'sentAt', 'version',
 ]);
+const INVOCATION_REQUEST_KEYS = Object.freeze([
+  'capabilityId', 'capabilityVersion', 'clientCounter', 'contract', 'deviceId',
+  'deviceSignature', 'nonce', 'operationId', 'payload', 'payloadDigest',
+  'requestId', 'sentAt', 'sessionId', 'sessionRevision', 'subjectId', 'version',
+]);
 
 export class M7SessionAuthorityError extends Error {
   constructor(code, message, details = {}) {
@@ -316,6 +321,37 @@ function requireRevokeRequest(request, nowMs) {
   requireTimestamp(request.sentAt, nowMs, 'sentAt');
 }
 
+function requireInvocationRequest(request, nowMs) {
+  if (!hasExactKeys(request, INVOCATION_REQUEST_KEYS)
+    || request.contract !== 'RemoteInvocationEnvelope'
+    || request.version !== 1) {
+    fail(M7_SESSION_AUTHORITY_ERROR.INPUT_INVALID, 'm7-session:invocation-request-invalid');
+  }
+  for (const field of [
+    'capabilityId', 'deviceId', 'operationId', 'requestId', 'sessionId',
+    'sessionRevision', 'subjectId',
+  ]) requireIdentifier(request[field], field);
+  if (!NONCE.test(request.nonce || '')
+    || !SIGNATURE.test(request.deviceSignature || '')
+    || !SHA256.test(request.payloadDigest || '')
+    || !Number.isSafeInteger(request.capabilityVersion)
+    || request.capabilityVersion < 1
+    || !Number.isSafeInteger(request.clientCounter)
+    || request.clientCounter < 1) {
+    fail(M7_SESSION_AUTHORITY_ERROR.INPUT_INVALID, 'm7-session:invocation-proof-input-invalid');
+  }
+  let payloadDigest;
+  try {
+    payloadDigest = digestM7SessionValue(request.payload);
+  } catch {
+    fail(M7_SESSION_AUTHORITY_ERROR.INPUT_INVALID, 'm7-session:invocation-payload-invalid');
+  }
+  if (payloadDigest !== request.payloadDigest) {
+    fail(M7_SESSION_AUTHORITY_ERROR.INPUT_INVALID, 'm7-session:invocation-payload-digest-mismatch');
+  }
+  requireTimestamp(request.sentAt, nowMs, 'sentAt');
+}
+
 export class M7SessionAuthority {
   constructor(db, {
     adapterManifestDigest,
@@ -325,6 +361,7 @@ export class M7SessionAuthority {
     clock = Date.now,
     pairingEnabled = false,
     randomBytes = systemRandomBytes,
+    resolveInvocationScopes = null,
     serverIdentityPin,
     serverOrigin,
     sessionTtlMs = 900_000,
@@ -332,6 +369,7 @@ export class M7SessionAuthority {
     this.database = requireDatabase(db);
     this.clock = requireFunction(clock, 'clock');
     this.randomBytes = requireFunction(randomBytes, 'random-source');
+    this.resolveInvocationScopes = resolveInvocationScopes;
     this.authorizeOperator = authorizeOperator;
     this.pairingEnabled = pairingEnabled;
     this.claimTtlMs = requireDuration(claimTtlMs, 300_000, 'claim-ttl');
@@ -890,27 +928,11 @@ export class M7SessionAuthority {
 
   authorizeInvocation(input) {
     return this.withDeniedAudit('INVOCATION_AUTHORIZATION_ATTEMPT', input, () => {
-      const {
-        clientCounter,
-        deviceId,
-        nonce,
-        requiredScopes,
-        sentAt,
-        sessionId,
-        sessionRevision,
-        subjectId,
-      } = plain(input) ? input : {};
       const nowMs = this.now();
-      for (const [field, value] of Object.entries({
-        deviceId, sessionId, sessionRevision, subjectId,
-      })) requireIdentifier(value, field);
-      if (!NONCE.test(nonce || '')
-        || !Number.isSafeInteger(clientCounter)
-        || clientCounter < 1) {
-        fail(M7_SESSION_AUTHORITY_ERROR.INPUT_INVALID, 'm7-session:invocation-counter-or-nonce-invalid');
-      }
-      requireTimestamp(sentAt, nowMs, 'sentAt');
-      const scopes = requireScopes(requiredScopes);
+      requireInvocationRequest(input, nowMs);
+      const {
+        clientCounter, deviceId, nonce, sessionId, sessionRevision, subjectId,
+      } = input;
       return immediate(this.database, () => {
       const current = this.currentSession(sessionId);
       const stateError = sessionStateError(current, nowMs);
@@ -932,6 +954,21 @@ export class M7SessionAuthority {
         }
       }
       const granted = parseScopes(current.scopesBytes);
+      verifyProof('RemoteInvocationEnvelope@1', input, current.publicKey);
+      if (typeof this.resolveInvocationScopes !== 'function') {
+        fail(M7_SESSION_AUTHORITY_ERROR.CONFIG_INVALID, 'm7-session:invocation-scope-resolver-required');
+      }
+      let scopes;
+      try {
+        scopes = requireScopes(this.resolveInvocationScopes(deepFreeze({
+          capabilityId: input.capabilityId,
+          capabilityVersion: input.capabilityVersion,
+          operationId: input.operationId,
+        })));
+      } catch (error) {
+        if (error instanceof M7SessionAuthorityError) throw error;
+        fail(M7_SESSION_AUTHORITY_ERROR.INPUT_INVALID, 'm7-session:invocation-operation-invalid');
+      }
       if (scopes.some(scope => !granted.includes(scope))) {
         fail(M7_SESSION_AUTHORITY_ERROR.SCOPE_DENIED, 'm7-session:required-scope-denied');
       }
@@ -958,7 +995,13 @@ export class M7SessionAuthority {
         action: 'INVOCATION_AUTHORIZED', deviceId, subjectId,
         pairingRevision: current.pairingRevision, sessionId, sessionRevision,
         outcome: 'ALLOWED',
-        detailsDigest: digestM7SessionValue({ clientCounter, nonceDigest: sha256Text(nonce), scopes }),
+        detailsDigest: digestM7SessionValue({
+          clientCounter,
+          nonceDigest: sha256Text(nonce),
+          requestDigest: digestM7SessionValue(Object.fromEntries(
+            Object.entries(input).filter(([key]) => key !== 'deviceSignature'),
+          )),
+        }),
         recordedAtMs: nowMs,
       });
       return deepFreeze({

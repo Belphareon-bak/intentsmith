@@ -8,6 +8,7 @@ import {
   MOBILE_REMOTE_SESSION_CONTRACT_DIGEST_V1,
   MOBILE_REMOTE_SESSION_CONTRACT_STAGE_V1,
   MOBILE_REMOTE_SESSION_CONTRACT_V1,
+  createRemoteInvocationProofBytesV1,
   resolveRemoteSecurityTransitionV1,
   validateRemoteCursorBindingV1,
   validateRemoteInvocationEnvelopeV1,
@@ -213,7 +214,30 @@ await test('valid protected invocation is scope, identity, counter, time and pay
   assert.equal(validation.operation.operation.operationId, 'project.list');
 });
 
+await test('invocation proof bytes bind every envelope field except the signature itself', () => {
+  const original = Buffer.from(createRemoteInvocationProofBytesV1(golden.invocation));
+  const signatureOnly = structuredClone(golden.invocation);
+  signatureOnly.deviceSignature = 'C'.repeat(86);
+  assert.equal(original.equals(Buffer.from(createRemoteInvocationProofBytesV1(signatureOnly))), true);
+  const payloadChanged = structuredClone(golden.invocation);
+  payloadChanged.payload.limit = 24;
+  assert.equal(original.equals(Buffer.from(createRemoteInvocationProofBytesV1(payloadChanged))), false);
+  const counterChanged = structuredClone(golden.invocation);
+  counterChanged.clientCounter += 1;
+  assert.equal(original.equals(Buffer.from(createRemoteInvocationProofBytesV1(counterChanged))), false);
+});
+
 await test('replay, expiry and scope loss fail before provider authority', async () => {
+  const weakProof = structuredClone(golden.invocation);
+  weakProof.deviceSignature = 'short';
+  assert.match((await validateRemoteInvocationEnvelopeV1({
+    envelope: weakProof,
+    session: golden.session,
+    previousCounter,
+    nowMs,
+    cryptoApi: webcrypto,
+  })).errors.join(','), /invalid-deviceSignature/);
+
   const replay = await validateRemoteInvocationEnvelopeV1({
     envelope: golden.invocation,
     session: golden.session,
