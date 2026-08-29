@@ -1993,7 +1993,9 @@ projde M2 workspace, governance, expiry, grant a execution autoritou. Focused
 journey dokazuje stale no-write, validní zápis, právě jeden approval intent,
 durable replay, reject a subject partition. Default composition bez portu dál
 inzeruje 4/7; s genuine portem je approval pátá dostupná capability. Listener
-a transport nejsou aktivní.
+a transport nejsou aktivní. Přesně tři O-04 importní hrany byly explicitně
+přijaty. Autoritativní module graph má 1 235 hran, stále 3 cykly a 28 souborů
+v cyklech.
 
 Povinné výsledky:
 
