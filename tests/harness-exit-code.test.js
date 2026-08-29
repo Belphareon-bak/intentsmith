@@ -400,9 +400,12 @@ try {
   //   120 -> 121 M7 core composition loads the database-backed project,
   //              conversation, journal and settings adapters as one bounded
   //              transport-free root behind the canonical bootstrap.
+  //   121 -> 122 M7 M2 approval adapters exercise a real lifecycle service,
+  //              authority repository and project-change journey behind the
+  //              canonical bootstrap.
   // Model-evaluation consolidation had first removed one retired database
   // root from the pre-M6 baseline.
-  const expectedDatabaseReachableRootTests = 121;
+  const expectedDatabaseReachableRootTests = 122;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,
