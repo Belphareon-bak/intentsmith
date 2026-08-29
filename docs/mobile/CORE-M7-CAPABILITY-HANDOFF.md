@@ -1,19 +1,22 @@
 # Core/M7 capability handoff
 
-**Stav 2026-08-29:** `CORE_IMPLEMENTATION_GREEN / FULL_GATE_GREEN / REVIEW_PENDING /
-M7_TRANSPORT_ABSENT / CANDIDATE_NOT_ACCEPTED`
+**Stav 2026-08-30:** `CORE_IMPLEMENTATION_GREEN / LATEST_FULL_GATE_PENDING /
+REVIEW_PENDING / PROVIDER_NOT_ACTIVE / M7_TRANSPORT_ABSENT /
+CANDIDATE_NOT_ACCEPTED`
 
 **Aktuální integrační kontext:** connector, client, transport-free provider,
-durable journal a project/conversation/settings/manual-information adaptéry
-jsou implementation-green, úplný offline+database gate je `330/330 PASS` a
-čekají na review. Produkční M7 transport zůstává
-absent. Stav M5/M6 se přebírá pouze z `ROADMAP.md` a `SYSTEM-MAP.md`, nikoli z
-historického počítadla zdrojové mobilní větve.
+durable journal a všech sedm capability adapterů jsou implementation-green.
+Poslední přijatý gate patří staršímu stromu; nový 337-programový
+offline+database gate a review event/notification řezu teprve následují.
+Produkční M7 transport zůstává absent. Stav M5/M6 se přebírá pouze z
+`ROADMAP.md` a `SYSTEM-MAP.md`, nikoli z historického počítadla zdrojové
+mobilní větve.
 
 Tento balík odstranil schema/design blokaci pro core a M7. Transport-free
-provider, durable journal a první čtyři core oblasti už existují jako
-review-pending kandidát; approvals, notifications, events, health a produkční
-composition stále chybějí. Žádný listener ani runtime aktivace z toho neplyne.
+provider, durable journal, health a všech sedm core capability oblastí existují
+jako review-pending kandidát. Approval používá výhradně přijatou M2 autoritu,
+events skutečný M1 emitter a notifications úzký M3 read port. Žádný listener
+ani runtime aktivace z toho neplyne.
 
 ## 1. Jediný kandidátní balík
 
@@ -117,9 +120,11 @@ Dokončeno je schema/design/conformance vstupní rozhraní: přesné typy, verze
 digests, fixtures, identity bindings a implementační pořadí. Core/M7 se tedy
 nemusí zastavit kvůli nejasnému mobilnímu kontraktu.
 
-Dokončený je generic provider, operation journal a první čtyři core oblasti:
-projects, conversations, safe settings projection a subject/project-scoped
-manual notes. Nedokončené zůstávají approvals, notifications, events, health,
-produkční approval/effect composition, M7 wire/auth boundary, přijetí
-kontraktu, mobile transport adapter a fyzické device/security/release důkazy.
-Proto je správný stav stále `CANDIDATE_NOT_ACCEPTED`, nikoli production-ready.
+Implementačně dokončený je generic provider, operation journal, health a všech
+sedm core oblastí: projects, conversations, approvals, events, notifications,
+safe settings projection a subject/project-scoped manual notes. O-01/O-02
+session bytes jsou hotové, ale podmíněný session review zakazuje jejich spojení
+s listenerem do nového review. Nedokončené zůstávají přijetí aktuálního core
+kandidáta, LAN/VPN-only transport adapter, produkční signing a fyzické
+device/security/release důkazy. Proto je správný stav stále
+`CANDIDATE_NOT_ACCEPTED`, nikoli production-ready.

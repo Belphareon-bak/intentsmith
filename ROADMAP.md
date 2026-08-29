@@ -68,8 +68,8 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Decision 041 implementace dostala `REVIEW_PASSED` a trust store drží čtyři oddělené veřejné klíče. Úzký review ale našel stale M6 migration oracle a neoffline custody privátních klíčů; oracle remediation je implementovaná, custody zůstává otevřená. Osm rotací, history disposition a podepsaná M5 acceptance neproběhly. |
-| **M6 IntentSmith 1.0 release** | `PREVIOUS_REGISTRY_RATCHET_REVIEW_PASSED / CURRENT_RATCHET_REVIEW_PENDING / KEY_CUSTODY_CHANGES_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, application upgrade, L0-11 a soak/throughput harness jsou implementované. Upgrade kontrakt je po M7 approval migraci navázaný na skutečných 93 migrací. Review na `12e1adfc` přijalo 395 ACTIVE+required a 334 offline+database programů; nový O-04 program zvedl aktuální piny na 396 a 335 a vyžaduje nový review. 24h soak běží nad starším SHA, plný throughput zatím neproběhl. |
-| **M7 Remote Companion** | `SESSION_AUTHORITY_CONDITIONAL_REVIEW_PASSED_AT_12E1ADFC / O01_O02_O04_REVIEW_PENDING / NOT_ACCEPTED / PROVIDER_NOT_ACTIVE / TRANSPORT_ABSENT` | M6 + remote boundary | O-01 vyžaduje Ed25519 podpis každé invocation, O-02 přidal samostatný podepsaný challenge endpoint contract a O-04 projektuje approval pouze přes closure-brandovanou přijatou M2 lifecycle autoritu. Čerstvý retained APK/AAB current-host důkaz je zelený, ale pouze debug-signed. Nic není připojeno k listeneru; events, notifications, produkční signing, LAN/VPN transport a device test ještě chybí. |
+| **M6 IntentSmith 1.0 release** | `PREVIOUS_REGISTRY_RATCHET_REVIEW_PASSED / CURRENT_RATCHET_IMPLEMENTATION_GREEN_REVIEW_PENDING / KEY_CUSTODY_CHANGES_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, application upgrade, L0-11 a soak/throughput harness jsou implementované. Upgrade kontrakt je po M7 notification migraci navázaný na skutečných 94 migrací. Review na `12e1adfc` přijalo 395 ACTIVE+required a 334 offline+database programů; event/notification blok zvedl aktuální piny na 398 a 337 a omission sentinely i nightly self-test jsou zelené, ale nový pin vyžaduje review. 24h soak běží nad starším SHA, plný throughput zatím neproběhl. |
+| **M7 Remote Companion** | `SESSION_AUTHORITY_CONDITIONAL_REVIEW_PASSED_AT_12E1ADFC / O01_O02_O04_EVENTS_NOTIFICATIONS_REVIEW_PENDING / NOT_ACCEPTED / PROVIDER_NOT_ACTIVE / TRANSPORT_ABSENT` | M6 + remote boundary | O-01 vyžaduje Ed25519 podpis každé invocation, O-02 přidal samostatný podepsaný challenge endpoint contract a O-04 projektuje approval pouze přes closure-brandovanou přijatou M2 lifecycle autoritu. Transport-free events a notifications mají skutečné M1/M3 producenty, bounded/redacted projekci a durable per-device ACK, zatím však čekají na review. Čerstvý retained APK/AAB current-host důkaz je zelený, ale pouze debug-signed. Nic není připojeno k listeneru; produkční signing, LAN/VPN transport a device test ještě chybí. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
 Gate 0 se znovu aktivuje pouze v M6 nad zmraženým kandidátem.
@@ -1975,7 +1975,8 @@ a nightly self-test PASS. Review vázal 494 programů a fingerprint
 a profilová Gate 0 matice 334 offline+database programů. O-01 nyní přidal
 podpis exact invocation envelope a O-02 podepsaný standalone challenge request;
 oba řezy vyžadují nové review. O-04 navíc zvedá aktuální registry piny na
-396/335.
+396/335 v tehdejším checkpointu; pozdější event/notification blok má vlastní
+aktuální census níže.
 
 Blok záměrně neotevírá listener a neaktivuje provider. Operátor schválil
 samostatný `POST /remote/v1/session/challenge` a Ed25519 podpis každé invocation;
@@ -1996,6 +1997,31 @@ inzeruje 4/7; s genuine portem je approval pátá dostupná capability. Listener
 a transport nejsou aktivní. Přesně tři O-04 importní hrany byly explicitně
 přijaty. Autoritativní module graph má 1 235 hran, stále 3 cykly a 28 souborů
 v cyklech.
+
+### Events + notifications core checkpoint 2026-08-30
+
+`events@1` a `notifications@1` jsou `IMPLEMENTATION_GREEN / REVIEW_PENDING /
+NOT_ACTIVE / TRANSPORT_ABSENT`. Skutečný M1 session emitter může přes explicitně
+injektovaný observer plnit subject-bound, paměťově omezený event read model;
+payload se neukládá ani nepřenáší, ztracené retention okno je typované a
+konfliktní sequence zneplatní pouze daný run.
+
+Notifikace vstupují výhradně closure-brandovaným read-only portem skutečné M3
+`AgentRepository`. Remote projekce neemituje body ani volná `data`, každou
+položku dvakrát autorizuje a cursor bezpečně znovu proskenuje skryté položky.
+ACK je device + subject partitionovaný, nesmí překročit pozorovanou sequence,
+projde durable operation journalem a migrace 107 drží exact canonical BLOB
+receipt. Connection-local SQLite validator se registruje i po restartu.
+Legacy HTTP route ani globální M3 `read_at` se nepoužívají.
+
+Focused sady jsou `7/7` events, `8/8` notifications a `8/8` composition.
+Šest přesných hran bylo přijato na `f1b93dd6`; autoritativní module graph má 1 241 hran,
+stále 3 cykly a 28 souborů v cyklech. Registry má 497 programů,
+398 `ACTIVE + required`, profilová offline+database množina má 337 programů a
+fingerprint `7adffb24…b2ee`. M6 omission sentinely, nightly policy i self-test
+jsou implementačně zelené, ale tento nový ratchet ještě nemá nezávislý review.
+Default composition bez optional portů dál pravdivě inzeruje 4/7; žádný
+listener, pairing, produkční signing nebo transport tento blok nezapíná.
 
 Povinné výsledky:
 
