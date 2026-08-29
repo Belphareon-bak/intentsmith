@@ -91,6 +91,10 @@ function plain(value) {
   return prototype === Object.prototype || prototype === null;
 }
 
+function safeAuditIdentifier(value) {
+  return IDENTIFIER.test(value || '') ? value : null;
+}
+
 function hasExactKeys(value, keys) {
   return plain(value)
     && Object.keys(value).length === keys.length
@@ -377,58 +381,108 @@ export class M7SessionAuthority {
     );
   }
 
-  issuePairingClaim({ subjectId, scopes }) {
-    const nowMs = this.now();
-    const normalizedScopes = requireScopes(scopes);
-    requireIdentifier(subjectId, 'subjectId');
-    if (typeof this.authorizeOperator !== 'function') {
-      fail(M7_SESSION_AUTHORITY_ERROR.AUTHORITY_DENIED, 'm7-session:user-authority-required');
+  withDeniedAudit(action, context, callback) {
+    try {
+      return callback();
+    } catch (error) {
+      if (!(error instanceof M7SessionAuthorityError)) throw error;
+      const input = plain(context) ? context : {};
+      let recordedAtMs;
+      try {
+        recordedAtMs = this.now();
+        immediate(this.database, () => {
+          const attemptSequence = this.database.prepare(`
+            SELECT coalesce(max(audit_revision), 0) + 1 AS value
+            FROM m7_remote_session_audit_events
+          `).get().value;
+          this.audit({
+            action,
+            deviceId: safeAuditIdentifier(input.deviceId),
+            subjectId: safeAuditIdentifier(input.subjectId),
+            pairingRevision: safeAuditIdentifier(input.pairingRevision),
+            sessionId: safeAuditIdentifier(input.sessionId),
+            sessionRevision: safeAuditIdentifier(input.sessionRevision),
+            outcome: 'DENIED',
+            reasonCode: error.code,
+            detailsDigest: digestM7SessionValue({
+              action,
+              attemptSequence,
+              reasonCode: error.code,
+              requestId: safeAuditIdentifier(input.requestId),
+            }),
+            recordedAtMs,
+          });
+        });
+      } catch (auditError) {
+        if (auditError instanceof M7SessionAuthorityError
+          && auditError.code === M7_SESSION_AUTHORITY_ERROR.CONFIG_INVALID) {
+          throw error;
+        }
+        fail(M7_SESSION_AUTHORITY_ERROR.STORAGE_FAILURE, 'm7-session:denial-audit-failed', {
+          cause: auditError?.message || String(auditError),
+          deniedReasonCode: error.code,
+        });
+      }
+      throw error;
     }
-    const actorId = normalizeOperatorDecision(this.authorizeOperator({
-      action: 'm7.remote.pairing.issue',
-      subjectId,
-      scopes: normalizedScopes,
-    }));
-    if (!this.isPairingEnabled()) {
-      fail(M7_SESSION_AUTHORITY_ERROR.PAIRING_DISABLED, 'm7-session:pairing-disabled');
-    }
-    const claimCode = randomToken(this.randomBytes, 16);
-    const claimId = randomToken(this.randomBytes, 18, 'pairing-claim:');
-    const claimDigest = sha256Text(claimCode);
-    const expiresAtMs = nowMs + this.claimTtlMs;
-    immediate(this.database, () => {
-      this.database.prepare(`
-        INSERT INTO m7_remote_pairing_claims (
-          claim_id, claim_digest, subject_id, scopes_json, issued_by,
-          issued_at_ms, expires_at_ms, consumed_at_ms, revoked_at_ms
-        ) VALUES (?, ?, ?, CAST(? AS BLOB), ?, ?, ?, NULL, NULL)
-      `).run(
-        claimId, claimDigest, subjectId, frozenScopesBytes(normalizedScopes), actorId,
-        nowMs, expiresAtMs,
-      );
-      this.audit({
-        action: 'PAIRING_CLAIM_ISSUED', actorId, subjectId, outcome: 'ALLOWED',
-        detailsDigest: digestM7SessionValue({ claimId, expiresAtMs, scopes: normalizedScopes }),
-        recordedAtMs: nowMs,
+  }
+
+  issuePairingClaim(input) {
+    return this.withDeniedAudit('PAIRING_CLAIM_ISSUE_ATTEMPT', input, () => {
+      const { subjectId, scopes } = plain(input) ? input : {};
+      const nowMs = this.now();
+      const normalizedScopes = requireScopes(scopes);
+      requireIdentifier(subjectId, 'subjectId');
+      if (typeof this.authorizeOperator !== 'function') {
+        fail(M7_SESSION_AUTHORITY_ERROR.AUTHORITY_DENIED, 'm7-session:user-authority-required');
+      }
+      const actorId = normalizeOperatorDecision(this.authorizeOperator({
+        action: 'm7.remote.pairing.issue',
+        subjectId,
+        scopes: normalizedScopes,
+      }));
+      if (!this.isPairingEnabled()) {
+        fail(M7_SESSION_AUTHORITY_ERROR.PAIRING_DISABLED, 'm7-session:pairing-disabled');
+      }
+      const claimCode = randomToken(this.randomBytes, 16);
+      const claimId = randomToken(this.randomBytes, 18, 'pairing-claim:');
+      const claimDigest = sha256Text(claimCode);
+      const expiresAtMs = nowMs + this.claimTtlMs;
+      immediate(this.database, () => {
+        this.database.prepare(`
+          INSERT INTO m7_remote_pairing_claims (
+            claim_id, claim_digest, subject_id, scopes_json, issued_by,
+            issued_at_ms, expires_at_ms, consumed_at_ms, revoked_at_ms
+          ) VALUES (?, ?, ?, CAST(? AS BLOB), ?, ?, ?, NULL, NULL)
+        `).run(
+          claimId, claimDigest, subjectId, frozenScopesBytes(normalizedScopes), actorId,
+          nowMs, expiresAtMs,
+        );
+        this.audit({
+          action: 'PAIRING_CLAIM_ISSUED', actorId, subjectId, outcome: 'ALLOWED',
+          detailsDigest: digestM7SessionValue({ claimId, expiresAtMs, scopes: normalizedScopes }),
+          recordedAtMs: nowMs,
+        });
       });
-    });
-    return deepFreeze({
-      claimCode,
-      claimId,
-      expiresAt: new Date(expiresAtMs).toISOString(),
-      scopes: [...normalizedScopes],
-      subjectId,
+      return deepFreeze({
+        claimCode,
+        claimId,
+        expiresAt: new Date(expiresAtMs).toISOString(),
+        scopes: [...normalizedScopes],
+        subjectId,
+      });
     });
   }
 
   claimPairing(request) {
-    const nowMs = this.now();
-    const publicKey = requirePairingClaimRequest(request, nowMs);
-    if (!this.isPairingEnabled()) {
-      fail(M7_SESSION_AUTHORITY_ERROR.PAIRING_DISABLED, 'm7-session:pairing-disabled');
-    }
-    const claimDigest = sha256Text(request.claimCode);
-    return immediate(this.database, () => {
+    return this.withDeniedAudit('PAIRING_CLAIM_ATTEMPT', request, () => {
+      const nowMs = this.now();
+      const publicKey = requirePairingClaimRequest(request, nowMs);
+      if (!this.isPairingEnabled()) {
+        fail(M7_SESSION_AUTHORITY_ERROR.PAIRING_DISABLED, 'm7-session:pairing-disabled');
+      }
+      const claimDigest = sha256Text(request.claimCode);
+      return immediate(this.database, () => {
       const claim = this.database.prepare(`
         SELECT claim_id AS claimId, subject_id AS subjectId, scopes_json AS scopesBytes,
           issued_by AS issuedBy, expires_at_ms AS expiresAtMs,
@@ -489,16 +543,21 @@ export class M7SessionAuthority {
         pairedAt: new Date(nowMs).toISOString(),
         error: null,
       });
+      });
     });
   }
 
-  issueChallenge({ deviceId, purpose, sessionId = null, sessionRevision = null }) {
-    const nowMs = this.now();
-    requireIdentifier(deviceId, 'deviceId');
-    if (!['OPEN', 'REFRESH'].includes(purpose)) {
-      fail(M7_SESSION_AUTHORITY_ERROR.INPUT_INVALID, 'm7-session:challenge-purpose-invalid');
-    }
-    const pairing = this.database.prepare(`
+  issueChallenge(input) {
+    return this.withDeniedAudit('SESSION_CHALLENGE_ATTEMPT', input, () => {
+      const {
+        deviceId, purpose, sessionId = null, sessionRevision = null,
+      } = plain(input) ? input : {};
+      const nowMs = this.now();
+      requireIdentifier(deviceId, 'deviceId');
+      if (!['OPEN', 'REFRESH'].includes(purpose)) {
+        fail(M7_SESSION_AUTHORITY_ERROR.INPUT_INVALID, 'm7-session:challenge-purpose-invalid');
+      }
+      const pairing = this.database.prepare(`
       SELECT pairing_revision AS pairingRevision, subject_id AS subjectId, state
       FROM m7_remote_pairings WHERE device_id = ?
     `).get(deviceId);
@@ -538,11 +597,12 @@ export class M7SessionAuthority {
       detailsDigest: digestM7SessionValue({ challengeId, expiresAtMs, purpose }),
       recordedAtMs: nowMs,
     });
-    return deepFreeze({
-      challengeId,
-      serverNonce,
-      expiresAt: new Date(expiresAtMs).toISOString(),
-      purpose,
+      return deepFreeze({
+        challengeId,
+        serverNonce,
+        expiresAt: new Date(expiresAtMs).toISOString(),
+        purpose,
+      });
     });
   }
 
@@ -592,9 +652,10 @@ export class M7SessionAuthority {
   }
 
   openSession(request) {
-    const nowMs = this.now();
-    requireOpenRequest(request, nowMs);
-    return immediate(this.database, () => {
+    return this.withDeniedAudit('SESSION_OPEN_ATTEMPT', request, () => {
+      const nowMs = this.now();
+      requireOpenRequest(request, nowMs);
+      return immediate(this.database, () => {
       const pairing = this.database.prepare(`
         SELECT device_id AS deviceId, subject_id AS subjectId,
           pairing_revision AS pairingRevision, device_key_id AS deviceKeyId,
@@ -651,13 +712,15 @@ export class M7SessionAuthority {
         serverIdentityPin: this.serverIdentityPin,
         adapterManifestDigest: this.adapterManifestDigest, error: null,
       });
+      });
     });
   }
 
   refreshSession(request) {
-    const nowMs = this.now();
-    requireRefreshRequest(request, nowMs);
-    return immediate(this.database, () => {
+    return this.withDeniedAudit('SESSION_REFRESH_ATTEMPT', request, () => {
+      const nowMs = this.now();
+      requireRefreshRequest(request, nowMs);
+      return immediate(this.database, () => {
       const current = this.currentSession(request.sessionId);
       const errorCode = sessionStateError(current, nowMs);
       if (errorCode) fail(errorCode, 'm7-session:active-session-required');
@@ -720,13 +783,15 @@ export class M7SessionAuthority {
         serverIdentityPin: current.serverIdentityPin,
         adapterManifestDigest: current.adapterManifestDigest, error: null,
       });
+      });
     });
   }
 
   revokeSession(request) {
-    const nowMs = this.now();
-    requireRevokeRequest(request, nowMs);
-    return immediate(this.database, () => {
+    return this.withDeniedAudit('SESSION_REVOKE_ATTEMPT', request, () => {
+      const nowMs = this.now();
+      requireRevokeRequest(request, nowMs);
+      return immediate(this.database, () => {
       const current = this.currentSession(request.sessionId);
       const errorCode = sessionStateError(current, nowMs);
       if (errorCode) fail(errorCode, 'm7-session:active-session-required');
@@ -776,19 +841,22 @@ export class M7SessionAuthority {
         pairingRevision: current.pairingRevision, sessionRevision,
         revokedAt: new Date(nowMs).toISOString(), error: null,
       });
+      });
     });
   }
 
-  revokePairing({ deviceId, reason = 'operator_revoke' }) {
-    const nowMs = this.now();
-    requireIdentifier(deviceId, 'deviceId');
-    if (typeof this.authorizeOperator !== 'function') {
-      fail(M7_SESSION_AUTHORITY_ERROR.AUTHORITY_DENIED, 'm7-session:user-authority-required');
-    }
-    const actorId = normalizeOperatorDecision(this.authorizeOperator({
-      action: 'm7.remote.pairing.revoke', deviceId, reason,
-    }));
-    return immediate(this.database, () => {
+  revokePairing(input) {
+    return this.withDeniedAudit('PAIRING_REVOKE_ATTEMPT', input, () => {
+      const { deviceId, reason = 'operator_revoke' } = plain(input) ? input : {};
+      const nowMs = this.now();
+      requireIdentifier(deviceId, 'deviceId');
+      if (typeof this.authorizeOperator !== 'function') {
+        fail(M7_SESSION_AUTHORITY_ERROR.AUTHORITY_DENIED, 'm7-session:user-authority-required');
+      }
+      const actorId = normalizeOperatorDecision(this.authorizeOperator({
+        action: 'm7.remote.pairing.revoke', deviceId, reason,
+      }));
+      return immediate(this.database, () => {
       const pairing = this.database.prepare(`
         SELECT pairing_revision AS pairingRevision, subject_id AS subjectId, state
         FROM m7_remote_pairings WHERE device_id = ?
@@ -816,31 +884,34 @@ export class M7SessionAuthority {
         revokedAt: new Date(nowMs).toISOString(),
         subjectId: pairing.subjectId,
       });
+      });
     });
   }
 
-  authorizeInvocation({
-    clientCounter,
-    deviceId,
-    nonce,
-    requiredScopes,
-    sentAt,
-    sessionId,
-    sessionRevision,
-    subjectId,
-  }) {
-    const nowMs = this.now();
-    for (const [field, value] of Object.entries({
-      deviceId, sessionId, sessionRevision, subjectId,
-    })) requireIdentifier(value, field);
-    if (!NONCE.test(nonce || '')
-      || !Number.isSafeInteger(clientCounter)
-      || clientCounter < 1) {
-      fail(M7_SESSION_AUTHORITY_ERROR.INPUT_INVALID, 'm7-session:invocation-counter-or-nonce-invalid');
-    }
-    requireTimestamp(sentAt, nowMs, 'sentAt');
-    const scopes = requireScopes(requiredScopes);
-    return immediate(this.database, () => {
+  authorizeInvocation(input) {
+    return this.withDeniedAudit('INVOCATION_AUTHORIZATION_ATTEMPT', input, () => {
+      const {
+        clientCounter,
+        deviceId,
+        nonce,
+        requiredScopes,
+        sentAt,
+        sessionId,
+        sessionRevision,
+        subjectId,
+      } = plain(input) ? input : {};
+      const nowMs = this.now();
+      for (const [field, value] of Object.entries({
+        deviceId, sessionId, sessionRevision, subjectId,
+      })) requireIdentifier(value, field);
+      if (!NONCE.test(nonce || '')
+        || !Number.isSafeInteger(clientCounter)
+        || clientCounter < 1) {
+        fail(M7_SESSION_AUTHORITY_ERROR.INPUT_INVALID, 'm7-session:invocation-counter-or-nonce-invalid');
+      }
+      requireTimestamp(sentAt, nowMs, 'sentAt');
+      const scopes = requireScopes(requiredScopes);
+      return immediate(this.database, () => {
       const current = this.currentSession(sessionId);
       const stateError = sessionStateError(current, nowMs);
       if (stateError) {
@@ -895,6 +966,7 @@ export class M7SessionAuthority {
         deviceId,
         subjectId,
         grantedScopes: [...scopes],
+      });
       });
     });
   }

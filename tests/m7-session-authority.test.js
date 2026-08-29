@@ -255,6 +255,16 @@ await test('tampered Ed25519 open proof fails without consuming its challenge', 
     () => fixture.authority.openSession({ ...valid, clientBuild: 'tampered-build' }),
     M7_SESSION_AUTHORITY_ERROR.PROOF_INVALID,
   );
+  const denial = fixture.db.prepare(`
+    SELECT action, outcome, CAST(record_json AS TEXT) AS recordJson
+    FROM m7_remote_session_audit_events
+    WHERE outcome = 'DENIED'
+  `).get();
+  assert.equal(denial.action, 'SESSION_OPEN_ATTEMPT');
+  assert.equal(denial.outcome, 'DENIED');
+  assert.equal(JSON.parse(denial.recordJson).reasonCode, M7_SESSION_AUTHORITY_ERROR.PROOF_INVALID);
+  assert.equal(denial.recordJson.includes(valid.deviceSignature), false);
+  assert.equal(denial.recordJson.includes(challenge.serverNonce), false);
   const opened = fixture.authority.openSession(valid);
   assert.equal(opened.status, 'active');
   expectCode(
@@ -493,6 +503,16 @@ await test('fail-closed defaults cannot mint or revoke pairing authority', () =>
     }),
     M7_SESSION_AUTHORITY_ERROR.AUTHORITY_DENIED,
   );
+  const deniedRows = db.prepare(`
+    SELECT CAST(record_json AS TEXT) AS recordJson
+    FROM m7_remote_session_audit_events
+    WHERE action = 'PAIRING_CLAIM_ISSUE_ATTEMPT' AND outcome = 'DENIED'
+    ORDER BY audit_revision
+  `).all();
+  assert.equal(deniedRows.length, 2);
+  assert.equal(deniedRows.every(row => (
+    JSON.parse(row.recordJson).reasonCode === M7_SESSION_AUTHORITY_ERROR.AUTHORITY_DENIED
+  )), true);
   db.close();
 });
 
