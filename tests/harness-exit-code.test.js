@@ -395,9 +395,11 @@ try {
   //   118 -> 119 M6 acceptance authority imports release validation to prove
   //              that external operator receipts bind the exact candidate.
   //              Its canonical bootstrap protects that repository graph.
+  //   119 -> 120 M7 project core adapters exercise the real SQLite catalog and
+  //              accepted M2 context provider behind the canonical bootstrap.
   // Model-evaluation consolidation had first removed one retired database
   // root from the pre-M6 baseline.
-  const expectedDatabaseReachableRootTests = 119;
+  const expectedDatabaseReachableRootTests = 120;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,
