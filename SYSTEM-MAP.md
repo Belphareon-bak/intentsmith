@@ -133,15 +133,15 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **206 544 ř.**, 555 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **226 118 ř.**, 489 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **485** (`391 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
+| `src/**/*.js` | **206 886 ř.**, 556 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **226 429 ř.**, 490 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **486** (`392 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **158 / 87** |
 | HTTP rout | ~230 |
 | **Schopností v `ACCEPTED/PASS`** | **1 z 22** (#2 CRE); #1 server/routing/DB je zatím `RUNTIME_VERIFIED` — jeho suite má 13 interních checků, zatímco behavior dokument obsahuje 16 řádků, takže tvrzení „13/13 chování“ není platný akceptační součet |
 
 Aktuální registry fingerprint je
-`67e9dd3739e59a3587720cf618bca33b633efe0b68111ea2c0d1e49381dd20e6`.
+`a47d511f71c1528caa42d60fb010abd8211d0130738c67b48cfad3d45b95e943`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 
