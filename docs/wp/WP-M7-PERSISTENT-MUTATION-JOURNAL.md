@@ -4,6 +4,9 @@
 
 **Base revision:** `abc2968d` (provider evidence HEAD)
 
+**Current state:** `IMPLEMENTATION_GREEN / FULL_GATE_GREEN / REVIEW_PENDING /
+NOT_ACTIVE`
+
 ## 1. User outcome
 
 Persist the identity and first validated outcome of every M7 mutation before a
@@ -58,3 +61,19 @@ Required before review:
 
 Stop before abandonment control-plane semantics, retention/purge policy,
 session-owner liveness, operation list/get wire adapters or any listener.
+
+## 5. Output
+
+- product candidate: `ea97c410f061cf2022777a295a986b26ef773464`;
+- product tree: `23b422f435762d03fdadff1d8b1e0450e85869cf`;
+- implementation: `9f6407c2`; exact module-edge acceptance: `2a67f2d3`;
+- focused journal/provider: `10/10 + 10/10 PASS`;
+- mobile gate: `22/22 PASS`;
+- full offline+database gate: `327/327 PASS`;
+- detailed evidence:
+  [m7-persistent-mutation-journal-20260829.md](../execution/runs/m7/m7-persistent-mutation-journal-20260829.md);
+- independent review packet:
+  [2026-08-29-M7-PERSISTENT-MUTATION-JOURNAL-REVIEW-PACKET.md](../review/2026-08-29-M7-PERSISTENT-MUTATION-JOURNAL-REVIEW-PACKET.md).
+
+This is not M7 acceptance. No provider activation, session, pairing, listener,
+transport or production mutation adapter is part of the output.

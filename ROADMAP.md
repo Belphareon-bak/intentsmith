@@ -2173,10 +2173,11 @@ neopakuje. Request payload se neukládá.
 Implementace je v `9f6407c2`, dvě přesné authority-validation hrany byly
 samostatně přijaty v `2a67f2d3`. Aktuální module graph má 1 214 hran, stále
 3 cykly a 28 souborů v cyklech. Focused journal/provider testy jsou 10/10 +
-10/10, mobile gate 22/22 a artifact integrita čeká po opravě tohoto census
-zápisu na opakování. Listener, pairing, session authority, core mutační
-adaptéry a transport zůstávají nepřítomné; stav je
-`IMPLEMENTATION_GREEN / FULL_GATE_PENDING / REVIEW_PENDING / NOT_ACTIVE`.
+10/10, mobile gate 22/22 a artifact integrita 158/158. Souvislý
+offline+database gate na exact kandidatu `ea97c410` skončil 327/327 PASS.
+Listener, pairing, session authority, core mutační adaptéry a transport
+zůstávají nepřítomné; stav je
+`IMPLEMENTATION_GREEN / FULL_GATE_GREEN / REVIEW_PENDING / NOT_ACTIVE`.
 
 ## 14. Rozhodovací fronta — otázka až ve chvíli, kdy má data
 
