@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 487
+- Runnable programs: 488
 - Explicit support-module exclusions: 17
-- Profiles: offline=267, database=60, server=44, model=81, soak=15, manual=20
-- States: ACTIVE=393, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=267, database=61, server=44, model=81, soak=15, manual=20
+- States: ACTIVE=394, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -376,6 +376,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M7-IN-PROCESS-CAPABILITY-PROVIDER-TEST` | `tests/m7-in-process-capability-provider.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-IN-PROCESS-CAPABILITY-PROVIDER |
 | `IS-T1-TESTS-M7-MOBILE-CORE-PIN-INTEGRATION-TEST` | `tests/m7-mobile-core-pin-integration.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-REMOTE-COMPANION |
 | `IS-T1-TESTS-M7-OPERATION-JOURNAL-TEST` | `tests/m7-operation-journal.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-PERSISTENT-MUTATION-JOURNAL |
+| `IS-T1-TESTS-M7-PROJECT-CORE-ADAPTERS-TEST` | `tests/m7-project-core-adapters.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-PROJECT-CORE-ADAPTERS |
 | `IS-T1-TESTS-MANIFEST-V2-TEST` | `tests/manifest-v2.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MARKETPLACE-CATALOG-V125-TEST` | `tests/marketplace-catalog-v125.test.js` | `C3-022` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MARKETPLACE-TEST` | `tests/marketplace.test.js` | `C3-022` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
