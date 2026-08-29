@@ -226,7 +226,19 @@ záznamu selže v `artifact-validation`.
 | `2026_08_27_098_m6_model_artifact_authority.js` | použito |
 | `2026_08_27_099_remove_model_runtime_guard.js` | použito |
 | `2026_08_28_100_signed_privacy_receipts.js` | použito |
+| `2026_08_29_101_m7_remote_operation_journal.js` | použito pro M7 persistentní mutation journal |
 <!-- migration-source-manifest:end -->
+
+## Navazující M7 rezervace 2026-08-29
+
+Bezprostřední census před persistentním mutation journalem prošel 378
+commitnutých lokálních a remote refs mimo `archive/**` a `recovery/**` a všech
+27 lokálních worktrees. Obě množiny končí na identitě `100`; první volná
+identita je proto **101**.
+
+| Číslo | Stav | Obsah |
+|---|---|---|
+| **101** | použito | append-only device + subject + operation mutation journal a exact replay |
 
 ## Proč to nejsou 058 a 059
 

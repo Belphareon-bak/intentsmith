@@ -80,14 +80,16 @@ function requireValidation(validation, code, label) {
 }
 
 function normalizeAuthorityDecision(value, requiredScopes) {
-  if (!exactKeys(value, ['decision', 'subjectId', 'grantedScopes'])
+  if (!exactKeys(value, ['decision', 'deviceId', 'subjectId', 'grantedScopes'])
     || !['allow', 'deny'].includes(value.decision)
     || !Array.isArray(value.grantedScopes)
     || value.grantedScopes.some(scope => typeof scope !== 'string' || scope.length === 0)
     || new Set(value.grantedScopes).size !== value.grantedScopes.length
     || (value.decision === 'allow'
-      && (typeof value.subjectId !== 'string' || value.subjectId.length === 0))
-    || (value.decision === 'deny' && value.subjectId !== null)) {
+      && (typeof value.subjectId !== 'string' || value.subjectId.length === 0
+        || typeof value.deviceId !== 'string' || value.deviceId.length === 0))
+    || (value.decision === 'deny'
+      && (value.subjectId !== null || value.deviceId !== null))) {
     fail(
       M7_IN_PROCESS_PROVIDER_ERROR.AUTHORITY_INVALID,
       'm7-provider:authority-decision-invalid',
@@ -101,6 +103,7 @@ function normalizeAuthorityDecision(value, requiredScopes) {
     );
   }
   return deepFreeze({
+    deviceId: value.deviceId,
     subjectId: value.subjectId,
     // The resolver may know more about the subject than this operation needs.
     // Do not expose unrelated authority to a core handler.
@@ -295,16 +298,36 @@ export function createM7InProcessCapabilityProvider({
         operation.requiredScopes,
       );
       const handlerContext = deepFreeze({
+        deviceId: authority.deviceId,
         subjectId: authority.subjectId,
         grantedScopes: [...authority.grantedScopes],
         capabilityId: operation.capabilityId,
         operationId: operation.operationId,
       });
-      const execute = () => handlers[operation.operationId](request, handlerContext);
+      const validateResult = (value) => {
+        const validation = pairValidator({
+          capabilityId: operation.capabilityId,
+          capabilityVersion: operation.capabilityVersion,
+          operationId: operation.operationId,
+          request,
+          result: value,
+          externalValidators,
+        });
+        requireValidation(
+          validation,
+          M7_IN_PROCESS_PROVIDER_ERROR.INVALID_RESULT,
+          'invalid-result',
+        );
+        return cloneFrozen(value, 'result');
+      };
+      const execute = async () => validateResult(
+        await handlers[operation.operationId](request, handlerContext),
+      );
       let result;
       if (operation.kind === 'mutation') {
         let executionStarted = false;
         result = await journalRun.call(mutationJournal, Object.freeze({
+          deviceId: authority.deviceId,
           subjectId: authority.subjectId,
           operationId: request.operationId,
           operationType: operation.operationId,
@@ -321,20 +344,9 @@ export function createM7InProcessCapabilityProvider({
       } else {
         result = await execute();
       }
-      const pairValidation = pairValidator({
-        capabilityId: operation.capabilityId,
-        capabilityVersion: operation.capabilityVersion,
-        operationId: operation.operationId,
-        request,
-        result,
-        externalValidators,
-      });
-      requireValidation(
-        pairValidation,
-        M7_IN_PROCESS_PROVIDER_ERROR.INVALID_RESULT,
-        'invalid-result',
-      );
-      return cloneFrozen(result, 'result');
+      // Validate again after the journal boundary: a replay did not execute the
+      // handler in this invocation and must earn the same contract proof.
+      return validateResult(result);
     },
   });
 }

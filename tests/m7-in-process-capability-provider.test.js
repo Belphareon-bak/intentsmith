@@ -82,6 +82,7 @@ function completeProvider(overrides = {}) {
         observations.authority.push(input);
         return {
           decision: 'allow',
+          deviceId: 'device:test-001',
           subjectId: 'device:test-001',
           grantedScopes: [...input.requiredScopes],
         };
@@ -154,6 +155,7 @@ await testAsync('invalid request and missing scope fail before a core handler or
     observations,
     authorityResolver: async () => ({
       decision: 'allow',
+      deviceId: 'device:test-001',
       subjectId: 'device:test-001',
       grantedScopes: [],
     }),
@@ -178,6 +180,7 @@ await testAsync('handler context is attenuated to the exact operation scope', as
     observations,
     authorityResolver: async input => ({
       decision: 'allow',
+      deviceId: 'device:test-001',
       subjectId: 'device:test-001',
       grantedScopes: [...input.requiredScopes, 'write:settings'],
     }),
@@ -189,6 +192,7 @@ await testAsync('handler context is attenuated to the exact operation scope', as
     request: structuredClone(read.request),
   });
   assert.deepEqual(observations.handler[0].context.grantedScopes, ['read:projects']);
+  assert.equal(observations.handler[0].context.deviceId, 'device:test-001');
 });
 
 await testAsync('foreign result identity is rejected and returned results are immutable clones', async () => {
@@ -222,6 +226,37 @@ await testAsync('foreign result identity is rejected and returned results are im
   assert.notEqual(result, read.success);
 });
 
+await testAsync('a mutation journal can persist only a provider-validated handler result', async () => {
+  const mutation = fixtureByOperation.get('settings.update');
+  let persisted = false;
+  const handlers = Object.fromEntries(capabilityFixtures.map(fixture => [
+    fixture.operationId,
+    async () => fixture.operationId === mutation.operationId
+      ? { ...structuredClone(fixture.success), operationId: 'operation:foreign' }
+      : structuredClone(fixture.success),
+  ]));
+  const provider = completeProvider({
+    handlers,
+    mutationJournal: {
+      async run(input) {
+        const value = await input.execute();
+        persisted = true;
+        return value;
+      },
+    },
+  }).provider;
+  await assert.rejects(
+    provider.invoke({
+      capabilityId: mutation.capabilityId,
+      capabilityVersion: mutation.capabilityVersion,
+      operationId: mutation.operationId,
+      request: structuredClone(mutation.request),
+    }),
+    error => error.code === M7_IN_PROCESS_PROVIDER_ERROR.INVALID_RESULT,
+  );
+  assert.equal(persisted, false);
+});
+
 await testAsync('every mutation crosses the journal and its callback is at-most-once', async () => {
   const mutation = fixtureByOperation.get('settings.update');
   let handlerCalls = 0;
@@ -251,6 +286,7 @@ await testAsync('every mutation crosses the journal and its callback is at-most-
     error => error.code === M7_IN_PROCESS_PROVIDER_ERROR.JOURNAL_PROTOCOL,
   );
   assert.equal(handlerCalls, 1);
+  assert.equal(provider.describe().stage, 'IMPLEMENTED_NOT_ACTIVE');
 });
 
 await testAsync('unknown operation, wrong version and malformed authority decision fail closed', async () => {

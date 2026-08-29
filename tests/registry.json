@@ -14117,6 +14117,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-M7-OPERATION-JOURNAL-TEST",
+      "path": "tests/m7-operation-journal.test.js",
+      "argv": [
+        "node",
+        "tests/m7-operation-journal.test.js"
+      ],
+      "capabilityId": "C3-032",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "database",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 3000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M7-PERSISTENT-MUTATION-JOURNAL",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-MOBILE-REMOTE-CAPABILITY-CONTRACT-TEST",
       "path": "tests/mobile-remote-capability-contract.test.js",
       "argv": [
