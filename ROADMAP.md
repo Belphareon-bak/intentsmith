@@ -1911,6 +1911,22 @@ a 28 souborů v cyklech. Approval capability zůstává mimo tento blok: různé
 produkční approval zdroje nemají jednotnou autoritativní expiraci a její
 normalizace vyžaduje operátorské rozhodnutí.
 
+### Core composition checkpoint 2026-08-29
+
+Jediný transport-free composition root skládá reálné project, conversation,
+settings a stored-information adaptéry nad společným durable mutation
+journalem. Stejný provider zpřístupňuje neinzerovaný operation recovery a
+remote health control plane. Focused composition test je `5/5 PASS`; provider
+zůstává `not_active` a pravdivě inzeruje právě čtyři ze sedmi capability.
+
+`approvals`, `events` a `notifications` zůstávají `unavailable`: composition je
+nenahrazuje prázdnými nebo fixture handlery. Sedm přesných importních hran z
+composition rootu bylo explicitně přijato bez růstu cyklů; autoritativní
+module graph má 1 230 hran, stále 3 cykly a 28 souborů v cyklech. Souvislý
+offline+database gate a nezávislé review následují. Session, listener, pairing,
+network transport, production klíče ani runtime activation tento blok
+nepřidává.
+
 Povinné výsledky:
 
 - oddělený listener, autentizace a pairing;
