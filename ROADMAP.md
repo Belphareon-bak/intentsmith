@@ -1905,8 +1905,9 @@ subjectu; HMAC cursor váže filtry, úplný snapshot a offset. Abandon vyžaduj
 vlastní durable `operation.abandon` intent, fresh revision cíle a zapisuje
 append-only receipt v migraci 103. Původní effect ani jeho journal se nemění,
 cancel ani retry se nespouští. Focused sada je `6/6 PASS`; souvislý gate a
-nezávislé review následují po explicitním přijetí čtyř přesných nových
-module-boundary hran. Approval capability zůstává mimo tento blok: různé
+nezávislé review následují. Čtyři přesné nové module-boundary hrany byly
+přijaty bez růstu cyklů; aktuální module graph má 1 223 hran, stále 3 cykly
+a 28 souborů v cyklech. Approval capability zůstává mimo tento blok: různé
 produkční approval zdroje nemají jednotnou autoritativní expiraci a její
 normalizace vyžaduje operátorské rozhodnutí.
 
