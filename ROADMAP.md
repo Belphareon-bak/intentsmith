@@ -69,7 +69,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Decision 041 implementace dostala `REVIEW_PASSED` a trust store drží čtyři oddělené veřejné klíče. Úzký review ale našel stale M6 migration oracle a neoffline custody privátních klíčů; oracle remediation je implementovaná, custody zůstává otevřená. Osm rotací, history disposition a podepsaná M5 acceptance neproběhly. |
 | **M6 IntentSmith 1.0 release** | `KEY_CUSTODY_CHANGES_REQUIRED / INTEGRATION_REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, application upgrade, L0-11 a soak/throughput harness jsou implementované. Původní oprava `80 !== 79` byla po sloučení modelové autority znovu navázána na skutečný integrovaný počet 87 migrací a dostala rychlý drift guard; nový candidate čeká na review. 24h a pětiminutový plný běh zatím nejsou provedené. |
-| **M7 Remote Companion** | `CONVERSATION_CORE_FOCUSED_GREEN / FULL_GATE_RERUN_PENDING / REVIEW_PENDING / PROVIDER_NOT_ACTIVE / TRANSPORT_ABSENT` | M6 + remote boundary | Sedm capability a 14 mobilních operací jsou připnuté; transport-free provider, durable effect journal, project adaptéry a kompletní conversation core handlery existují. Session, listener, pairing, mobilní transport a device/release důkazy ještě neexistují. |
+| **M7 Remote Companion** | `CONVERSATION_CORE_IMPLEMENTATION_GREEN / FULL_GATE_GREEN / REVIEW_PENDING / PROVIDER_NOT_ACTIVE / TRANSPORT_ABSENT` | M6 + remote boundary | Sedm capability a 14 mobilních operací jsou připnuté; transport-free provider, durable effect journal, project adaptéry a kompletní conversation core handlery existují. Session, listener, pairing, mobilní transport a device/release důkazy ještě neexistují. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
 Gate 0 se znovu aktivuje pouze v M6 nad zmraženým kandidátem.
@@ -1868,11 +1868,11 @@ stejné `turnId`; legacy řádky dostávají jen deterministický read fallback.
 Focused adaptéry jsou `8/8`, provider `11/11`, journal `12/12` a mobile gate
 `24/24 PASS`. Jediná nová importní hrana byla explicitně přijata v
 `4ee0a1d9`; aktuální module graph má 1 217 hran, stále 3 cykly a 28 souborů v
-cyklech. Registry má 489 programů, fingerprint `9a98ae69…594b`. První gate na
-`4ee0a1d9` je pravdivě červený kvůli tomuto stale roadmap censusu a chybějícím
-explicitním lokálním toolchain allowlistům; opravený candidate čeká na úplný
-rerun. Provider zůstává neaktivní a listener/session/pairing nejsou součástí
-tohoto bloku.
+cyklech. Registry má 489 programů, fingerprint `9a98ae69…594b`. Dva červené
+meziběhy zůstávají evidované; po opravě odvozeného roadmap pinu a exact PDF
+runtime invokace prošel candidate `91f022a9` souvislým offline+database gate
+`329/329 PASS`. Provider zůstává neaktivní a listener/session/pairing nejsou
+součástí tohoto bloku.
 
 Povinné výsledky:
 
@@ -2247,9 +2247,10 @@ Implementace je v `6da1e94d`; jediná přesná importní hrana byla přijata v
 `4ee0a1d9`. Aktuální module graph má 1 217 hran, stále 3 cykly a 28 souborů v
 cyklech. Focused výsledky jsou `8/8 + 11/11 + 12/12`, mobile gate `24/24` a
 registry 489 programů s fingerprintem `9a98ae69…594b`. První full gate na
-`4ee0a1d9` zůstává evidovaný jako FAIL; nový exact candidate po odvozeném
-roadmap pinu čeká na rerun. Produkční composition, session authority, pairing,
-listener, transport a fyzická device cesta zůstávají mimo tento blok.
+`4ee0a1d9` zůstává evidovaný jako FAIL a první pokus na `91f022a9` jako
+BLOCKED kvůli nepředanému PDF interpreteru; exact opakování na témž čistém
+candidate skončilo `329/329 PASS`. Produkční composition, session authority,
+pairing, listener, transport a fyzická device cesta zůstávají mimo tento blok.
 
 ## 14. Rozhodovací fronta — otázka až ve chvíli, kdy má data
 

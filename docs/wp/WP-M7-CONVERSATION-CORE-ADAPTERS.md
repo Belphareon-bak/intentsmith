@@ -4,7 +4,8 @@
 
 **Base revision:** `0f6d212c` (project-core evidence HEAD)
 
-**Current state:** `IN_PROGRESS / NOT_ACTIVE`
+**Current state:** `IMPLEMENTATION_GREEN / FOCUSED_GREEN / FULL_GATE_GREEN /
+REVIEW_PENDING / NOT_ACTIVE`
 
 ## 1. User outcome
 
@@ -79,5 +80,16 @@ pairing, revocation, wire transport or real LLM/device work.
 
 ## 5. Output
 
-To be filled after the exact product candidate and evidence are frozen. This
-block is not M7 acceptance or runtime activation.
+- exact product candidate: `91f022a9a2948f7f2ad87d3f88610d798bbdb1f3`;
+- product tree: `ba1182e839decb90aea0911890943f8cfbc9cec9`;
+- implementation: `6da1e94d`; module-edge acceptance: `4ee0a1d9`;
+- focused conversation/provider/journal/finalizer:
+  `8/8 + 11/11 + 12/12 + 7/7 PASS`;
+- mobile gate: `24/24 PASS`;
+- full offline+database gate: `329/329 PASS`;
+- detailed evidence:
+  [m7-conversation-core-adapters-20260829.md](../execution/runs/m7/m7-conversation-core-adapters-20260829.md);
+- independent review packet:
+  [2026-08-29-M7-CONVERSATION-CORE-ADAPTERS-REVIEW-PACKET.md](../review/2026-08-29-M7-CONVERSATION-CORE-ADAPTERS-REVIEW-PACKET.md).
+
+This is not M7 acceptance or runtime activation.
