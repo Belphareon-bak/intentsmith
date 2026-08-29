@@ -13,10 +13,20 @@ import {
   createM3AgentNotificationReadPort,
   initAgentTables,
 } from '../src/agents/repository.js';
+import { up as installEffectAuthority } from '../src/db/migrations/2026_08_23_092_m2_effect_authority.js';
+import { up as installEffectHardening } from '../src/db/migrations/2026_08_24_071_m2_effect_authority_hardening.js';
+import { up as installEffectClaims } from '../src/db/migrations/2026_08_24_072_m2_effect_execution_claims.js';
+import { up as installEffectClaimTruth } from '../src/db/migrations/2026_08_24_073_m2_effect_claim_truth.js';
+import { up as installExecutionAuthority } from '../src/db/migrations/2026_08_24_078_m2_execution_authority.js';
+import { up as installLifecycleAuthority } from '../src/db/migrations/2026_08_24_079_m2_lifecycle_authority.js';
 import { up as installJournal } from '../src/db/migrations/2026_08_29_101_m7_remote_operation_journal.js';
 import { up as installInformation } from '../src/db/migrations/2026_08_29_102_m7_manual_information.js';
 import { up as installAbandonments } from '../src/db/migrations/2026_08_29_103_m7_operation_abandonments.js';
 import { up as installNotificationReceipts } from '../src/db/migrations/2026_08_29_107_m7_notification_ack_receipts.js';
+import {
+  createDefaultM2LifecycleApplicationService,
+  createM2LifecycleApprovalPort,
+} from '../src/lifecycle/m2-lifecycle-application-service.js';
 import {
   createM7CoreComposition,
   M7_CORE_COMPOSITION_STAGE,
@@ -26,7 +36,7 @@ import { suite, summary, test, testAsync } from './harness.js';
 
 const CURSOR_KEY = Buffer.alloc(32, 0x63);
 
-function setup({ remainingCapabilities = false, ...overrides } = {}) {
+function setup({ approvalCapability = false, remainingCapabilities = false, ...overrides } = {}) {
   const root = mkdtempSync(path.join(tmpdir(), 'intentsmith-m7-composition-'));
   const projectRoot = path.join(root, 'project');
   mkdirSync(projectRoot);
@@ -84,9 +94,20 @@ function setup({ remainingCapabilities = false, ...overrides } = {}) {
   installAbandonments(db);
   installInformation(db);
   installNotificationReceipts(db);
+  if (approvalCapability) {
+    for (const migration of [
+      installEffectAuthority,
+      installEffectHardening,
+      installEffectClaims,
+      installEffectClaimTruth,
+      installExecutionAuthority,
+      installLifecycleAuthority,
+    ]) migration(db);
+  }
   let now = Date.parse('2026-08-29T05:00:01.000Z');
   let runEventAdapter;
   let notificationPort;
+  let m2ApprovalPort;
   let agentNotificationId = null;
   if (remainingCapabilities) {
     initAgentTables(db);
@@ -111,6 +132,20 @@ function setup({ remainingCapabilities = false, ...overrides } = {}) {
         eventType: 'tool.progress', payload: { progressPercent: 50 },
       },
     });
+  }
+  if (approvalCapability) {
+    const service = createDefaultM2LifecycleApplicationService({
+      database: db,
+      projects: Object.freeze({
+        findById: Object.freeze({
+          get(projectId) {
+            return projectId === 1 ? { id: 1, path: projectRoot, status: 'active' } : null;
+          },
+        }),
+      }),
+      clock: () => ++now,
+    });
+    m2ApprovalPort = createM2LifecycleApprovalPort(service);
   }
   let composition;
   try {
@@ -137,6 +172,7 @@ function setup({ remainingCapabilities = false, ...overrides } = {}) {
         { componentId: 'core-composition', observe: async () => ({ status: 'ok', code: 'READY' }) },
       ],
       mediateMutation: async intent => ({ state: 'executed', result: await intent.perform() }),
+      ...(approvalCapability ? { m2ApprovalPort } : {}),
       ...(remainingCapabilities ? { notificationPort, runEventAdapter } : {}),
       ...overrides,
     });
@@ -279,6 +315,25 @@ await testAsync('real CoreEvent and M3 notification ports complete two more capa
     });
     assert.equal(ack.outcome, 'CONFIRMED');
     assert.equal(ack.replayed, false);
+  } finally {
+    fixture.close();
+  }
+});
+
+await testAsync('all seven genuine capability ports compose without activating a provider', async () => {
+  const fixture = setup({ approvalCapability: true, remainingCapabilities: true });
+  try {
+    assert.deepEqual(
+      fixture.composition.provider.advertise()
+        .filter(item => item.status === 'available')
+        .map(item => item.capabilityId),
+      ['approvals', 'conversations', 'events', 'notifications', 'projects', 'settings', 'stored_information'],
+    );
+    assert.deepEqual(fixture.composition.provider.describe(), {
+      contract: 'M7InProcessCapabilityProvider', version: 1,
+      stage: 'IMPLEMENTED_NOT_ACTIVE', activation: 'not_active',
+      listener: 'absent', transport: 'absent',
+    });
   } finally {
     fixture.close();
   }
