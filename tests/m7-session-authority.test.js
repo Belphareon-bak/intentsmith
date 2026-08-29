@@ -22,7 +22,9 @@ import {
 import {
   M7_SESSION_AUTHORITY_ERROR,
   M7_SESSION_AUTHORITY_STAGE,
+  M7_SESSION_CHALLENGE_ROUTE,
   createM7SessionAuthority,
+  createM7SessionChallengeHandler,
 } from '../src/remote/m7-session-authority.js';
 import {
   createM7RemoteDeviceProofBytes,
@@ -117,8 +119,10 @@ function setup({ file = ':memory:', seed = 'session-authority' } = {}) {
     serverOrigin: 'https://remote.fixture.invalid',
     sessionTtlMs: 300_000,
   };
+  const authority = createM7SessionAuthority(db, config);
   return {
-    authority: createM7SessionAuthority(db, config),
+    authority,
+    challengeHandler: createM7SessionChallengeHandler(authority),
     config,
     db,
     now: () => nowMs,
@@ -147,11 +151,35 @@ function pairDevice(fixture, keys = keyFixture(), scopes = ['read:projects', 'wr
   return { claim, keys, request, result };
 }
 
-function openSession(fixture, pairing) {
-  const challenge = fixture.authority.issueChallenge({
+function requestChallenge(fixture, pairing, {
+  clientNonce = 'challenge_nonce_000000000000001',
+  purpose = 'OPEN',
+  requestId = 'request:session:challenge:001',
+  sessionId = null,
+  sessionRevision = null,
+} = {}) {
+  const request = signedRequest('RemoteSessionChallengeRequest@1', {
+    contract: 'RemoteSessionChallengeRequest',
+    version: 1,
+    requestId,
     deviceId: pairing.result.deviceId,
-    purpose: 'OPEN',
-  });
+    pairingRevision: pairing.result.pairingRevision,
+    purpose,
+    sessionId,
+    sessionRevision,
+    clientNonce,
+    sentAt: new Date(fixture.now()).toISOString(),
+  }, pairing.keys.privateKey);
+  return {
+    request,
+    result: fixture.challengeHandler.handle({
+      method: 'POST', path: '/remote/v1/session/challenge', body: request,
+    }),
+  };
+}
+
+function openSession(fixture, pairing) {
+  const challenge = requestChallenge(fixture, pairing);
   const request = signedRequest('RemoteSessionOpenRequest@1', {
     contract: 'RemoteSessionOpenRequest',
     version: 1,
@@ -161,7 +189,7 @@ function openSession(fixture, pairing) {
     deviceId: pairing.result.deviceId,
     pairingRevision: pairing.result.pairingRevision,
     deviceKeyId: pairing.request.deviceKeyId,
-    serverNonce: challenge.serverNonce,
+    serverNonce: challenge.result.serverNonce,
     sentAt: new Date(fixture.now()).toISOString(),
   }, pairing.keys.privateKey);
   return {
@@ -203,6 +231,10 @@ console.log('\n═══ M7 durable session/pairing authority ══════
 await test('migration is exact and the authority remains explicitly inactive', () => {
   const fixture = setup();
   assert.equal(M7_SESSION_AUTHORITY_STAGE, 'IMPLEMENTED_NOT_ACTIVE');
+  assert.deepEqual(M7_SESSION_CHALLENGE_ROUTE, {
+    method: 'POST', path: '/remote/v1/session/challenge', stage: 'TRANSPORT_FREE_NOT_REGISTERED',
+  });
+  assert.equal(typeof fixture.authority.issueChallenge, 'undefined');
   assert.equal(
     computeM7RemoteSessionAuthorityFingerprintV105(fixture.db),
     EXPECTED_M7_REMOTE_SESSION_AUTHORITY_FINGERPRINT_V105,
@@ -268,12 +300,60 @@ await test('pairing is single-use across repository instances and preserves exac
   rmSync(directory, { recursive: true, force: true });
 });
 
+await test('signed challenge requests are exact, single-use and server-identity bound', () => {
+  const fixture = setup({ seed: 'challenge-proof' });
+  const pairing = pairDevice(fixture);
+  const exchange = requestChallenge(fixture, pairing, {
+    clientNonce: 'challenge_nonce_000000000000010',
+    requestId: 'request:session:challenge:proof',
+  });
+  assert.equal(validateRemoteSessionControlExchangeV1({
+    requestSchemaId: 'RemoteSessionChallengeRequest@1',
+    request: exchange.request,
+    result: exchange.result,
+    negotiation: {
+      status: 'negotiated',
+      serverIdentityPin: fixture.config.serverIdentityPin,
+    },
+    nowMs: fixture.now(),
+  }).valid, true);
+  assert.match(exchange.result.challengeId, /^challenge:[A-Za-z0-9_-]{43}$/u);
+  expectCode(
+    () => fixture.challengeHandler.handle({
+      method: 'GET', path: '/remote/v1/session/challenge', body: exchange.request,
+    }),
+    M7_SESSION_AUTHORITY_ERROR.INPUT_INVALID,
+  );
+  expectCode(
+    () => fixture.authority.requestChallenge(exchange.request),
+    M7_SESSION_AUTHORITY_ERROR.REPLAY,
+  );
+  expectCode(
+    () => fixture.authority.requestChallenge({
+      ...exchange.request,
+      requestId: 'request:session:challenge:tampered',
+    }),
+    M7_SESSION_AUTHORITY_ERROR.PROOF_INVALID,
+  );
+  assert.equal(fixture.db.prepare(`
+    SELECT count(*) AS count FROM m7_remote_session_challenges
+  `).get().count, 1);
+  const auditBytes = fixture.db.prepare(`
+    SELECT group_concat(CAST(record_json AS TEXT), '') AS value
+    FROM m7_remote_session_audit_events
+  `).get().value;
+  assert.equal(auditBytes.includes(exchange.request.deviceSignature), false);
+  assert.equal(auditBytes.includes(exchange.request.clientNonce), false);
+  assert.equal(auditBytes.includes(exchange.result.serverNonce), false);
+  fixture.db.close();
+});
+
 await test('tampered Ed25519 open proof fails without consuming its challenge', () => {
   const fixture = setup();
   const pairing = pairDevice(fixture);
-  const challenge = fixture.authority.issueChallenge({
-    deviceId: pairing.result.deviceId,
-    purpose: 'OPEN',
+  const challenge = requestChallenge(fixture, pairing, {
+    clientNonce: 'challenge_nonce_000000000000002',
+    requestId: 'request:session:challenge:proof',
   });
   const valid = signedRequest('RemoteSessionOpenRequest@1', {
     contract: 'RemoteSessionOpenRequest', version: 1,
@@ -283,7 +363,7 @@ await test('tampered Ed25519 open proof fails without consuming its challenge', 
     deviceId: pairing.result.deviceId,
     pairingRevision: pairing.result.pairingRevision,
     deviceKeyId: pairing.request.deviceKeyId,
-    serverNonce: challenge.serverNonce,
+    serverNonce: challenge.result.serverNonce,
     sentAt: new Date(fixture.now()).toISOString(),
   }, pairing.keys.privateKey);
   expectCode(
@@ -299,7 +379,7 @@ await test('tampered Ed25519 open proof fails without consuming its challenge', 
   assert.equal(denial.outcome, 'DENIED');
   assert.equal(JSON.parse(denial.recordJson).reasonCode, M7_SESSION_AUTHORITY_ERROR.PROOF_INVALID);
   assert.equal(denial.recordJson.includes(valid.deviceSignature), false);
-  assert.equal(denial.recordJson.includes(challenge.serverNonce), false);
+  assert.equal(denial.recordJson.includes(challenge.result.serverNonce), false);
   const opened = fixture.authority.openSession(valid);
   assert.equal(opened.status, 'active');
   expectCode(
@@ -362,9 +442,14 @@ await test('open, invocation, restart and refresh enforce identity, scope, count
     })),
     M7_SESSION_AUTHORITY_ERROR.SCOPE_DENIED,
   );
-  const challenge = restarted.issueChallenge({
-    deviceId: opened.result.deviceId,
+  const challenge = requestChallenge({
+    ...fixture,
+    authority: restarted,
+    challengeHandler: createM7SessionChallengeHandler(restarted),
+  }, pairing, {
+    clientNonce: 'challenge_nonce_000000000000003',
     purpose: 'REFRESH',
+    requestId: 'request:session:challenge:refresh',
     sessionId: opened.result.sessionId,
     sessionRevision: opened.result.sessionRevision,
   });
@@ -374,7 +459,7 @@ await test('open, invocation, restart and refresh enforce identity, scope, count
     sessionId: opened.result.sessionId, deviceId: opened.result.deviceId,
     subjectId: opened.result.subjectId, sessionRevision: opened.result.sessionRevision,
     clientCounter: 2, clientNonce: 'refresh_nonce_0000000000000001',
-    serverNonce: challenge.serverNonce, sentAt: new Date(fixture.now()).toISOString(),
+    serverNonce: challenge.result.serverNonce, sentAt: new Date(fixture.now()).toISOString(),
   }, pairing.keys.privateKey);
   const refreshed = restarted.refreshSession(refresh);
   assert.equal(refreshed.sessionId, opened.result.sessionId);
@@ -436,9 +521,9 @@ await test('invocation proof rejects stolen identifiers and payload tamper befor
 await test('expired challenge and session fail closed', () => {
   const fixture = setup();
   const pairing = pairDevice(fixture);
-  const challenge = fixture.authority.issueChallenge({
-    deviceId: pairing.result.deviceId,
-    purpose: 'OPEN',
+  const challenge = requestChallenge(fixture, pairing, {
+    clientNonce: 'challenge_nonce_000000000000004',
+    requestId: 'request:session:challenge:expired',
   });
   const request = signedRequest('RemoteSessionOpenRequest@1', {
     contract: 'RemoteSessionOpenRequest', version: 1,
@@ -448,21 +533,21 @@ await test('expired challenge and session fail closed', () => {
     deviceId: pairing.result.deviceId,
     pairingRevision: pairing.result.pairingRevision,
     deviceKeyId: pairing.request.deviceKeyId,
-    serverNonce: challenge.serverNonce,
+    serverNonce: challenge.result.serverNonce,
     sentAt: new Date(fixture.now()).toISOString(),
   }, pairing.keys.privateKey);
   fixture.tick(30_001);
   request.sentAt = new Date(fixture.now()).toISOString();
   const resigned = signedRequest('RemoteSessionOpenRequest@1', request, pairing.keys.privateKey);
   expectCode(() => fixture.authority.openSession(resigned), M7_SESSION_AUTHORITY_ERROR.CHALLENGE_INVALID);
-  const fresh = fixture.authority.issueChallenge({
-    deviceId: pairing.result.deviceId,
-    purpose: 'OPEN',
+  const fresh = requestChallenge(fixture, pairing, {
+    clientNonce: 'challenge_nonce_000000000000005',
+    requestId: 'request:session:challenge:fresh',
   });
   const opened = fixture.authority.openSession(signedRequest('RemoteSessionOpenRequest@1', {
     ...request,
     requestId: 'request:session:open:expires-session',
-    serverNonce: fresh.serverNonce,
+    serverNonce: fresh.result.serverNonce,
     sentAt: new Date(fixture.now()).toISOString(),
   }, pairing.keys.privateKey));
   fixture.tick(300_001);
@@ -507,8 +592,9 @@ await test('session and device revocation are terminal and audited', () => {
   const pairingRevoked = fixture.authority.revokePairing({ deviceId: pairing.result.deviceId });
   assert.equal(pairingRevoked.deviceId, pairing.result.deviceId);
   expectCode(
-    () => fixture.authority.issueChallenge({
-      deviceId: pairing.result.deviceId, purpose: 'OPEN',
+    () => requestChallenge(fixture, pairing, {
+      clientNonce: 'challenge_nonce_000000000000006',
+      requestId: 'request:session:challenge:revoked',
     }),
     M7_SESSION_AUTHORITY_ERROR.PAIRING_REVOKED,
   );

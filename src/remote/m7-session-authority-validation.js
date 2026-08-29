@@ -22,6 +22,7 @@ export const M7_REMOTE_SCOPE_IDS = Object.freeze([
 
 export const M7_REMOTE_DEVICE_PROOF_SCHEMA_IDS = Object.freeze([
   'RemoteInvocationEnvelope@1',
+  'RemoteSessionChallengeRequest@1',
   'RemoteSessionOpenRequest@1',
   'RemoteSessionRefreshRequest@1',
   'RemoteSessionRevokeRequest@1',
@@ -32,6 +33,10 @@ const DEVICE_PROOF_KEYS = Object.freeze({
     'capabilityId', 'capabilityVersion', 'clientCounter', 'contract', 'deviceId',
     'deviceSignature', 'nonce', 'operationId', 'payload', 'payloadDigest',
     'requestId', 'sentAt', 'sessionId', 'sessionRevision', 'subjectId', 'version',
+  ]),
+  'RemoteSessionChallengeRequest@1': Object.freeze([
+    'clientNonce', 'contract', 'deviceId', 'deviceSignature', 'pairingRevision',
+    'purpose', 'requestId', 'sentAt', 'sessionId', 'sessionRevision', 'version',
   ]),
   'RemoteSessionOpenRequest@1': Object.freeze([
     'clientBuild', 'clientInstanceId', 'contract', 'deviceId', 'deviceKeyId',

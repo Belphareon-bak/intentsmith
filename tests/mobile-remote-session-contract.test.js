@@ -73,7 +73,7 @@ await test('pairing and session state machines reject implicit reactivation', ()
   );
 });
 
-await test('pairing, open, refresh and revoke messages have exact fail-closed shapes', () => {
+await test('pairing, challenge, open, refresh and revoke messages have exact fail-closed shapes', () => {
   assert.deepEqual(
     Object.keys(golden.controlMessages),
     Object.keys(MOBILE_REMOTE_SESSION_CONTRACT_V1.controlMessages),
@@ -108,6 +108,7 @@ await test('control responses are bound to the exact request and trusted session
   const messages = golden.controlMessages;
   const cases = [
     ['RemotePairingClaimRequest@1', null, null],
+    ['RemoteSessionChallengeRequest@1', null, golden.negotiation],
     ['RemoteSessionOpenRequest@1', null, golden.negotiation],
     ['RemoteSessionRefreshRequest@1', golden.session, null],
     ['RemoteSessionRevokeRequest@1', golden.session, null],
@@ -185,6 +186,35 @@ await test('control responses are bound to the exact request and trusted session
     session: golden.session,
     nowMs,
   }).errors.join(','), /pairingRevision-mismatch/);
+
+  const refreshChallenge = structuredClone(messages['RemoteSessionChallengeRequest@1']);
+  refreshChallenge.requestId = 'request:session:challenge:refresh';
+  refreshChallenge.purpose = 'REFRESH';
+  refreshChallenge.sessionId = golden.session.sessionId;
+  refreshChallenge.sessionRevision = golden.session.sessionRevision;
+  refreshChallenge.clientNonce = 'challenge_nonce_000000000000099';
+  const refreshChallengeResult = structuredClone(messages['RemoteSessionChallengeResult@1']);
+  refreshChallengeResult.requestId = refreshChallenge.requestId;
+  refreshChallengeResult.purpose = 'REFRESH';
+  refreshChallengeResult.sessionId = refreshChallenge.sessionId;
+  refreshChallengeResult.sessionRevision = refreshChallenge.sessionRevision;
+  assert.equal(validateRemoteSessionControlExchangeV1({
+    requestSchemaId: 'RemoteSessionChallengeRequest@1',
+    request: refreshChallenge,
+    result: refreshChallengeResult,
+    session: golden.session,
+    negotiation: golden.negotiation,
+    nowMs,
+  }).valid, true);
+  refreshChallengeResult.sessionRevision = 'session-revision:foreign';
+  assert.match(validateRemoteSessionControlExchangeV1({
+    requestSchemaId: 'RemoteSessionChallengeRequest@1',
+    request: refreshChallenge,
+    result: refreshChallengeResult,
+    session: golden.session,
+    negotiation: golden.negotiation,
+    nowMs,
+  }).errors.join(','), /sessionRevision-mismatch/);
 });
 
 await test('session negotiation binds exact hello, version, descriptor, adapter and server identity', async () => {

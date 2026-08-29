@@ -141,6 +141,13 @@ const CONTROL_EXCHANGES = {
     requestResultBindings: ['requestId', 'deviceKeyId'],
     trustedContext: 'none',
   },
+  'RemoteSessionChallengeRequest@1': {
+    resultSchemaId: 'RemoteSessionChallengeResult@1',
+    requestResultBindings: [
+      'requestId', 'deviceId', 'pairingRevision', 'purpose', 'sessionId', 'sessionRevision',
+    ],
+    trustedContext: 'validated_session_negotiation',
+  },
   'RemoteSessionOpenRequest@1': {
     resultSchemaId: 'RemoteSessionOpenResult@1',
     requestResultBindings: ['requestId', 'deviceId', 'pairingRevision'],
@@ -183,6 +190,7 @@ export const MOBILE_REMOTE_SESSION_CONTRACT_V1 = deepFreeze({
       '/remote/v1/health',
       '/remote/v1/invoke',
       '/remote/v1/pairing/claim',
+      '/remote/v1/session/challenge',
       '/remote/v1/session/open',
       '/remote/v1/session/refresh',
       '/remote/v1/session/revoke',
@@ -220,6 +228,7 @@ export const MOBILE_REMOTE_SESSION_CONTRACT_V1 = deepFreeze({
     lifetimeSecondsMaximum: 900,
     refreshBeforeExpirySecondsMaximum: 300,
     clockSkewSecondsMaximum: 60,
+    challengeLifetimeSecondsMaximum: 60,
     nonceUse: 'single_use_per_session',
     counterUse: 'strictly_monotonic_serialized_per_session',
     revokeEffect: 'session_and_device_cache_untrusted_immediately',
@@ -228,6 +237,7 @@ export const MOBILE_REMOTE_SESSION_CONTRACT_V1 = deepFreeze({
   deviceProof: {
     algorithm: 'Ed25519',
     signedControlRequests: [
+      'RemoteSessionChallengeRequest@1',
       'RemoteSessionOpenRequest@1',
       'RemoteSessionRefreshRequest@1',
       'RemoteSessionRevokeRequest@1',
@@ -264,6 +274,20 @@ export const MOBILE_REMOTE_SESSION_CONTRACT_V1 = deepFreeze({
       requiredFields: [
         'contract', 'deviceId', 'deviceKeyId', 'error', 'pairedAt',
         'pairingRevision', 'requestId', 'scopes', 'status', 'subjectId', 'version',
+      ],
+    },
+    'RemoteSessionChallengeRequest@1': {
+      path: '/remote/v1/session/challenge',
+      requiredFields: [
+        'clientNonce', 'contract', 'deviceId', 'deviceSignature', 'pairingRevision',
+        'purpose', 'requestId', 'sentAt', 'sessionId', 'sessionRevision', 'version',
+      ],
+    },
+    'RemoteSessionChallengeResult@1': {
+      requiredFields: [
+        'challengeId', 'contract', 'deviceId', 'error', 'expiresAt', 'issuedAt',
+        'pairingRevision', 'purpose', 'requestId', 'serverIdentityPin', 'serverNonce',
+        'sessionId', 'sessionRevision', 'status', 'version',
       ],
     },
     'RemoteSessionOpenRequest@1': {
@@ -339,7 +363,7 @@ export const MOBILE_REMOTE_SESSION_CONTRACT_V1 = deepFreeze({
 // Filled from the canonical JSON representation and guarded by the focused
 // contract test. A change requires a new digest and re-review.
 export const MOBILE_REMOTE_SESSION_CONTRACT_DIGEST_V1 =
-  'sha256:94c824f248d0a5c1bdc35582ba4e399bc9c6041824192c02efe22b4a220d7972';
+  'sha256:a3cb148982f3f3b6938d51e84c311f707b48d6184c696eee96d81b77c7575859';
 
 export function createRemoteDeviceProofBytesV1(schemaId, request) {
   const descriptor = schemaId === MOBILE_REMOTE_SESSION_CONTRACT_V1.deviceProof.signedInvocation
@@ -467,7 +491,7 @@ export function validateRemoteSessionControlMessageV1(schemaId, value, { nowMs }
   if (value.version !== 1) errors.push(`${context}:invalid-version`);
   if (!IDENTIFIER.test(value.requestId || '')) errors.push(`${context}:invalid-requestId`);
   for (const key of [
-    'clientInstanceId', 'deviceId', 'pairingRevision', 'sessionId',
+    'challengeId', 'clientInstanceId', 'deviceId', 'pairingRevision', 'sessionId',
     'sessionRevision', 'subjectId',
   ]) {
     if (Object.prototype.hasOwnProperty.call(value, key)
@@ -488,13 +512,22 @@ export function validateRemoteSessionControlMessageV1(schemaId, value, { nowMs }
   if (Object.prototype.hasOwnProperty.call(value, 'deviceSignature')
       && !ED25519_SIGNATURE.test(value.deviceSignature || '')) errors.push(`${context}:invalid-deviceSignature`);
   for (const key of ['clientNonce', 'serverNonce']) {
-    if (Object.prototype.hasOwnProperty.call(value, key) && !NONCE.test(value[key] || '')) {
+    const nullableChallengeError = schemaId === 'RemoteSessionChallengeResult@1'
+      && value.status === 'error'
+      && value[key] === null;
+    if (Object.prototype.hasOwnProperty.call(value, key)
+        && !nullableChallengeError
+        && !NONCE.test(value[key] || '')) {
       errors.push(`${context}:invalid-${key}`);
     }
   }
   if (Object.prototype.hasOwnProperty.call(value, 'clientCounter')
       && (!Number.isSafeInteger(value.clientCounter) || value.clientCounter < 1)) {
     errors.push(`${context}:invalid-clientCounter`);
+  }
+  if (Object.prototype.hasOwnProperty.call(value, 'purpose')
+      && !['OPEN', 'REFRESH'].includes(value.purpose)) {
+    errors.push(`${context}:invalid-purpose`);
   }
   for (const key of ['sentAt', 'pairedAt', 'issuedAt', 'expiresAt', 'revokedAt']) {
     if (Object.prototype.hasOwnProperty.call(value, key)
@@ -526,6 +559,8 @@ export function validateRemoteSessionControlMessageV1(schemaId, value, { nowMs }
   if (!isRequest) {
     const successStatus = schemaId === 'RemotePairingClaimResult@1'
       ? 'paired'
+      : schemaId === 'RemoteSessionChallengeResult@1'
+        ? 'issued'
       : schemaId === 'RemoteSessionRevokeResult@1'
         ? 'revoked'
         : 'active';
@@ -543,13 +578,45 @@ export function validateRemoteSessionControlMessageV1(schemaId, value, { nowMs }
   }
   if (canonicalTimestamp(value.issuedAt) && canonicalTimestamp(value.expiresAt)) {
     const lifetime = Date.parse(value.expiresAt) - Date.parse(value.issuedAt);
-    if (lifetime <= 0 || lifetime > MOBILE_REMOTE_SESSION_CONTRACT_V1.session.lifetimeSecondsMaximum * 1000) {
+    const maximumSeconds = schemaId === 'RemoteSessionChallengeResult@1'
+      ? MOBILE_REMOTE_SESSION_CONTRACT_V1.session.challengeLifetimeSecondsMaximum
+      : MOBILE_REMOTE_SESSION_CONTRACT_V1.session.lifetimeSecondsMaximum;
+    if (lifetime <= 0 || lifetime > maximumSeconds * 1000) {
       errors.push(`${context}:invalid-session-lifetime`);
     }
   }
   if (Object.prototype.hasOwnProperty.call(value, 'reason')
       && !['device_lost', 'logout', 'operator_revoke', 'security_reset'].includes(value.reason)) {
     errors.push(`${context}:invalid-reason`);
+  }
+  if (schemaId === 'RemoteSessionChallengeRequest@1') {
+    for (const key of ['deviceId', 'pairingRevision']) {
+      if (!IDENTIFIER.test(value[key] || '')) errors.push(`${context}:invalid-${key}`);
+    }
+    const open = value.purpose === 'OPEN';
+    if (open && (value.sessionId !== null || value.sessionRevision !== null)) {
+      errors.push(`${context}:open-session-binding-forbidden`);
+    }
+    if (!open && (!IDENTIFIER.test(value.sessionId || '')
+      || !IDENTIFIER.test(value.sessionRevision || ''))) {
+      errors.push(`${context}:refresh-session-binding-required`);
+    }
+  }
+  if (schemaId === 'RemoteSessionChallengeResult@1' && value.status === 'issued') {
+    for (const key of [
+      'challengeId', 'deviceId', 'pairingRevision', 'purpose', 'serverIdentityPin',
+      'serverNonce',
+    ]) {
+      if (value[key] === null) errors.push(`${context}:${key}-must-not-be-null`);
+    }
+    const open = value.purpose === 'OPEN';
+    if (open && (value.sessionId !== null || value.sessionRevision !== null)) {
+      errors.push(`${context}:open-session-binding-forbidden`);
+    }
+    if (!open && (!IDENTIFIER.test(value.sessionId || '')
+      || !IDENTIFIER.test(value.sessionRevision || ''))) {
+      errors.push(`${context}:refresh-session-binding-required`);
+    }
   }
   return { valid: errors.length === 0, errors };
 }
@@ -611,6 +678,20 @@ export function validateRemoteSessionControlExchangeV1({
       }
       if (result?.adapterManifestDigest !== negotiation.adapterManifestDigest) {
         errors.push(`${context}.result-negotiation:adapterManifestDigest-mismatch`);
+      }
+    }
+  }
+
+  if (requestSchemaId === 'RemoteSessionChallengeRequest@1') {
+    if (!plain(negotiation) || negotiation.status !== 'negotiated') {
+      errors.push(`${context}:validated-negotiation-required`);
+    } else if (result?.serverIdentityPin !== negotiation.serverIdentityPin) {
+      errors.push(`${context}.result-negotiation:serverIdentityPin-mismatch`);
+    }
+    if (request?.purpose === 'REFRESH') {
+      errors.push(...validateSessionRecord(session, nowMs, `${context}.session`));
+      for (const field of ['sessionId', 'deviceId', 'sessionRevision']) {
+        compareBoundField(errors, request, session, field, `${context}.request-session`);
       }
     }
   }

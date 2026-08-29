@@ -90,7 +90,7 @@ export const MOBILE_REMOTE_CANDIDATE_CLIENT_DESCRIPTOR_V1 = deepFreeze({
 });
 
 export const MOBILE_REMOTE_CANDIDATE_CLIENT_DESCRIPTOR_DIGEST_V1 =
-  'sha256:e74b8c25ba2e92cd6ef05004fdf7cc2ab4dfd3ae43280681485d8cbf4a8fa45d';
+  'sha256:c257f7141c9b4506406cef25f3ce940e17cc06872025e271899036fad7f34106';
 
 export function createMobileRemoteCandidateClientV1({
   session,

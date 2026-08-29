@@ -15,6 +15,11 @@ import {
 } from './m7-session-authority-validation.js';
 
 export const M7_SESSION_AUTHORITY_STAGE = 'IMPLEMENTED_NOT_ACTIVE';
+export const M7_SESSION_CHALLENGE_ROUTE = Object.freeze({
+  method: 'POST',
+  path: '/remote/v1/session/challenge',
+  stage: 'TRANSPORT_FREE_NOT_REGISTERED',
+});
 
 export const M7_SESSION_AUTHORITY_ERROR = Object.freeze({
   AUTHORITY_DENIED: 'M7_SESSION_OPERATOR_AUTHORITY_DENIED',
@@ -46,6 +51,10 @@ const SPKI_ED25519_PREFIX = Buffer.from('302a300506032b6570032100', 'hex');
 const PAIRING_CLAIM_REQUEST_KEYS = Object.freeze([
   'claimCode', 'clientBuild', 'clientInstanceId', 'clientNonce', 'contract',
   'deviceKeyId', 'devicePublicKey', 'requestId', 'sentAt', 'version',
+]);
+const CHALLENGE_REQUEST_KEYS = Object.freeze([
+  'clientNonce', 'contract', 'deviceId', 'deviceSignature', 'pairingRevision',
+  'purpose', 'requestId', 'sentAt', 'sessionId', 'sessionRevision', 'version',
 ]);
 const INVOCATION_REQUEST_KEYS = Object.freeze([
   'capabilityId', 'capabilityVersion', 'clientCounter', 'contract', 'deviceId',
@@ -269,6 +278,31 @@ function requirePairingClaimRequest(request, nowMs) {
   }
   requireTimestamp(request.sentAt, nowMs, 'sentAt');
   return publicKey;
+}
+
+function requireChallengeRequest(request, nowMs) {
+  if (!hasExactKeys(request, CHALLENGE_REQUEST_KEYS)
+    || request.contract !== 'RemoteSessionChallengeRequest'
+    || request.version !== 1) {
+    fail(M7_SESSION_AUTHORITY_ERROR.INPUT_INVALID, 'm7-session:challenge-request-invalid');
+  }
+  for (const field of ['deviceId', 'pairingRevision', 'requestId']) {
+    requireIdentifier(request[field], field);
+  }
+  if (!NONCE.test(request.clientNonce || '')
+    || !SIGNATURE.test(request.deviceSignature || '')
+    || !['OPEN', 'REFRESH'].includes(request.purpose)) {
+    fail(M7_SESSION_AUTHORITY_ERROR.INPUT_INVALID, 'm7-session:challenge-proof-input-invalid');
+  }
+  if (request.purpose === 'OPEN') {
+    if (request.sessionId !== null || request.sessionRevision !== null) {
+      fail(M7_SESSION_AUTHORITY_ERROR.INPUT_INVALID, 'm7-session:open-challenge-session-forbidden');
+    }
+  } else {
+    requireIdentifier(request.sessionId, 'sessionId');
+    requireIdentifier(request.sessionRevision, 'sessionRevision');
+  }
+  requireTimestamp(request.sentAt, nowMs, 'sentAt');
 }
 
 function requireOpenRequest(request, nowMs) {
@@ -585,61 +619,81 @@ export class M7SessionAuthority {
     });
   }
 
-  issueChallenge(input) {
+  requestChallenge(input) {
     return this.withDeniedAudit('SESSION_CHALLENGE_ATTEMPT', input, () => {
-      const {
-        deviceId, purpose, sessionId = null, sessionRevision = null,
-      } = plain(input) ? input : {};
       const nowMs = this.now();
-      requireIdentifier(deviceId, 'deviceId');
-      if (!['OPEN', 'REFRESH'].includes(purpose)) {
-        fail(M7_SESSION_AUTHORITY_ERROR.INPUT_INVALID, 'm7-session:challenge-purpose-invalid');
-      }
+      requireChallengeRequest(input, nowMs);
+      return immediate(this.database, () => {
       const pairing = this.database.prepare(`
-      SELECT pairing_revision AS pairingRevision, subject_id AS subjectId, state
-      FROM m7_remote_pairings WHERE device_id = ?
-    `).get(deviceId);
-    if (!pairing || pairing.state !== 'PAIRED') {
-      fail(M7_SESSION_AUTHORITY_ERROR.PAIRING_REVOKED, 'm7-session:active-pairing-required');
-    }
-    if (purpose === 'REFRESH') {
-      requireIdentifier(sessionId, 'sessionId');
-      requireIdentifier(sessionRevision, 'sessionRevision');
-      const session = this.currentSession(sessionId);
-      if (!session
-        || session.sessionRevision !== sessionRevision
-        || session.deviceId !== deviceId
-        || session.state !== 'ACTIVE'
-        || session.expiresAtMs <= nowMs) {
-        fail(M7_SESSION_AUTHORITY_ERROR.SESSION_INVALID, 'm7-session:active-session-required');
+        SELECT pairing_revision AS pairingRevision, subject_id AS subjectId,
+          device_public_key AS publicKey, state
+        FROM m7_remote_pairings WHERE device_id = ?
+      `).get(input.deviceId);
+      if (!pairing || pairing.state !== 'PAIRED') {
+        fail(M7_SESSION_AUTHORITY_ERROR.PAIRING_REVOKED, 'm7-session:active-pairing-required');
       }
-    } else if (sessionId !== null || sessionRevision !== null) {
-      fail(M7_SESSION_AUTHORITY_ERROR.INPUT_INVALID, 'm7-session:open-challenge-session-forbidden');
-    }
-    const serverNonce = randomToken(this.randomBytes, 24);
-    const challengeId = randomToken(this.randomBytes, 18, 'challenge:');
-    const expiresAtMs = nowMs + this.challengeTtlMs;
-    this.database.prepare(`
-      INSERT INTO m7_remote_session_challenges (
-        challenge_id, nonce_digest, purpose, device_id, pairing_revision,
-        session_id, session_revision, issued_at_ms, expires_at_ms, consumed_at_ms
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
-    `).run(
-      challengeId, sha256Text(serverNonce), purpose, deviceId,
-      pairing.pairingRevision, sessionId, sessionRevision, nowMs, expiresAtMs,
-    );
-    this.audit({
-      action: 'SESSION_CHALLENGE_ISSUED', deviceId, subjectId: pairing.subjectId,
-      pairingRevision: pairing.pairingRevision, sessionId, sessionRevision,
-      outcome: 'ALLOWED',
-      detailsDigest: digestM7SessionValue({ challengeId, expiresAtMs, purpose }),
-      recordedAtMs: nowMs,
-    });
+      if (pairing.pairingRevision !== input.pairingRevision) {
+        fail(M7_SESSION_AUTHORITY_ERROR.PAIRING_INVALID, 'm7-session:pairing-binding-invalid');
+      }
+      verifyProof('RemoteSessionChallengeRequest@1', input, pairing.publicKey);
+      if (input.purpose === 'REFRESH') {
+        const session = this.currentSession(input.sessionId);
+        if (!session
+          || session.sessionRevision !== input.sessionRevision
+          || session.deviceId !== input.deviceId
+          || session.pairingRevision !== input.pairingRevision
+          || session.state !== 'ACTIVE'
+          || session.expiresAtMs <= nowMs) {
+          fail(M7_SESSION_AUTHORITY_ERROR.SESSION_INVALID, 'm7-session:active-session-required');
+        }
+      }
+      const proofBytes = createM7RemoteDeviceProofBytes('RemoteSessionChallengeRequest@1', input);
+      const challengeId = `challenge:${createHash('sha256').update(proofBytes).digest('base64url')}`;
+      const serverNonce = randomToken(this.randomBytes, 24);
+      const expiresAtMs = nowMs + this.challengeTtlMs;
+      try {
+        this.database.prepare(`
+          INSERT INTO m7_remote_session_challenges (
+            challenge_id, nonce_digest, purpose, device_id, pairing_revision,
+            session_id, session_revision, issued_at_ms, expires_at_ms, consumed_at_ms
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+        `).run(
+          challengeId, sha256Text(serverNonce), input.purpose, input.deviceId,
+          pairing.pairingRevision, input.sessionId, input.sessionRevision, nowMs, expiresAtMs,
+        );
+      } catch (error) {
+        if (String(error?.code || '').startsWith('SQLITE_CONSTRAINT')) {
+          fail(M7_SESSION_AUTHORITY_ERROR.REPLAY, 'm7-session:challenge-request-replay');
+        }
+        throw error;
+      }
+      this.audit({
+        action: 'SESSION_CHALLENGE_ISSUED', deviceId: input.deviceId,
+        subjectId: pairing.subjectId, pairingRevision: pairing.pairingRevision,
+        sessionId: input.sessionId, sessionRevision: input.sessionRevision,
+        outcome: 'ALLOWED',
+        detailsDigest: digestM7SessionValue({
+          challengeId, expiresAtMs, purpose: input.purpose, requestId: input.requestId,
+        }),
+        recordedAtMs: nowMs,
+      });
       return deepFreeze({
+        contract: 'RemoteSessionChallengeResult',
+        version: 1,
+        requestId: input.requestId,
+        status: 'issued',
+        deviceId: input.deviceId,
+        pairingRevision: pairing.pairingRevision,
+        purpose: input.purpose,
+        sessionId: input.sessionId,
+        sessionRevision: input.sessionRevision,
         challengeId,
         serverNonce,
+        issuedAt: new Date(nowMs).toISOString(),
         expiresAt: new Date(expiresAtMs).toISOString(),
-        purpose,
+        serverIdentityPin: this.serverIdentityPin,
+        error: null,
+      });
       });
     });
   }
@@ -1017,6 +1071,23 @@ export class M7SessionAuthority {
 
 export function createM7SessionAuthority(db, config) {
   return new M7SessionAuthority(db, config);
+}
+
+export function createM7SessionChallengeHandler(sessionAuthority) {
+  if (!sessionAuthority || typeof sessionAuthority.requestChallenge !== 'function') {
+    fail(M7_SESSION_AUTHORITY_ERROR.CONFIG_INVALID, 'm7-session:challenge-authority-required');
+  }
+  return deepFreeze({
+    route: { ...M7_SESSION_CHALLENGE_ROUTE },
+    handle(input) {
+      if (!hasExactKeys(input, ['body', 'method', 'path'])
+        || input.method !== M7_SESSION_CHALLENGE_ROUTE.method
+        || input.path !== M7_SESSION_CHALLENGE_ROUTE.path) {
+        fail(M7_SESSION_AUTHORITY_ERROR.INPUT_INVALID, 'm7-session:challenge-route-invalid');
+      }
+      return sessionAuthority.requestChallenge(input.body);
+    },
+  });
 }
 
 export default createM7SessionAuthority;
