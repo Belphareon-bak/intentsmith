@@ -1816,6 +1816,27 @@ stop conditions drží
 měření a review rozsah jsou v
 [`m7-mobile-client-integration-20260829.md`](docs/execution/runs/m7/m7-mobile-client-integration-20260829.md).
 
+### Transport-free provider checkpoint 2026-08-29
+
+Generic in-process provider je `IMPLEMENTATION_GREEN / FULL_GATE_GREEN /
+REVIEW_PENDING / NOT_ACTIVE` na exact product candidatu `c5b50589` (tree
+`c147f7ff…516`). Všech 14 kandidátních operací prošlo existujícím provider
+conformance harness; capability se neinzeruje, pokud chybí jediný handler nebo
+mutation journal. Request je validován před autoritou, handler dostane jen
+přesný operation scope, každá mutace prochází at-most-once callbackem journalu
+a result se znovu váže k requestu a vrací jako immutable clone.
+
+Provider nic neimportuje z route, serveru, DB, session ani network vrstvy,
+neumí otevřít listener a hlásí `activation: not_active`. Focused provider má
+`9/9 PASS`, mobilní gate `21/21 PASS` a celý offline+database gate
+`326/326 PASS`; registry obsahuje 486 programů s fingerprintem
+`a47d511f…5e943`. Tento checkpoint neimplementuje reálné operation handlery,
+persistentní journal, session/pairing/revokaci ani wire transport. Přesný rozsah
+je v
+[`WP-M7-IN-PROCESS-CAPABILITY-PROVIDER`](docs/wp/WP-M7-IN-PROCESS-CAPABILITY-PROVIDER.md)
+a evidence v
+[`m7-in-process-capability-provider-20260829.md`](docs/execution/runs/m7/m7-in-process-capability-provider-20260829.md).
+
 Povinné výsledky:
 
 - oddělený listener, autentizace a pairing;
