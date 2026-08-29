@@ -222,7 +222,7 @@ export function createM7InProcessCapabilityProvider({
   )));
   const capabilityReady = capability => capability.operations.every(operation => (
     typeof handlers[operation.operationId] === 'function'
-      && (operation.kind !== 'mutation' || journalRun !== null)
+      && (operation.kind === 'read' || journalRun !== null)
   ));
 
   return Object.freeze({
@@ -324,12 +324,16 @@ export function createM7InProcessCapabilityProvider({
         await handlers[operation.operationId](request, handlerContext),
       );
       let result;
-      if (operation.kind === 'mutation') {
+      if (operation.kind !== 'read') {
         let executionStarted = false;
         result = await journalRun.call(mutationJournal, Object.freeze({
           deviceId: authority.deviceId,
           subjectId: authority.subjectId,
-          operationId: request.operationId,
+          // Candidate mutation contracts carry operationId. The accepted M1
+          // ConversationCommand predates that field and binds idempotence to
+          // requestId + conversationId + turnId, so its requestId is the
+          // durable journal identity.
+          operationId: request.operationId ?? request.requestId,
           operationType: operation.operationId,
           request,
           execute: async () => {

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { TextDecoder } from 'node:util';
 
+import { validateConversationResult } from '../../contracts/m1/index.js';
 import { canonicalizeM2ExecutionValue } from '../../contracts/m2/execution-v1.js';
 
 const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
@@ -28,6 +29,27 @@ const OUTCOME_STATE = Object.freeze({
   UNKNOWN: 'UNKNOWN',
 });
 const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
+
+function resultState(value, event) {
+  if (!plain(value)) return null;
+  if (value.operationId === event.operationId
+    && value.outcome === event.state
+    && value.replayed === false) return value.outcome;
+  // ConversationCommand@1 is the only accepted effectful contract without an
+  // operationId/replayed pair. Its requestId is the journal identity and an
+  // exact terminal ConversationResult is replayed byte-for-byte.
+  if (event.operationType === 'conversation.execute'
+    && value.contract === 'ConversationResult'
+    && value.version === 1
+    && value.requestId === event.operationId
+    && !Object.hasOwn(value, 'operationId')
+    && !Object.hasOwn(value, 'outcome')
+    && !Object.hasOwn(value, 'replayed')
+    && validateConversationResult(value).valid) {
+    return value.status === 'ok' ? 'CONFIRMED' : 'REJECTED';
+  }
+  return null;
+}
 
 function plain(value) {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
@@ -86,10 +108,7 @@ export function validateM7OperationJournalEvent(value) {
         || !ERROR_CODE.test(value.errorCode || '')) {
         errors.push('event:unknownWithoutResult');
       }
-    } else if (!plain(value.result)
-      || value.result.operationId !== value.operationId
-      || value.result.outcome !== value.state
-      || value.result.replayed !== false
+    } else if (resultState(value.result, value) !== value.state
       || value.resultDigest !== digestCanonical(value.result)
       || value.errorCode !== null) {
       errors.push('event:result');

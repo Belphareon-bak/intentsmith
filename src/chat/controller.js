@@ -11,6 +11,8 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
+import { randomUUID } from 'node:crypto';
+
 import { logger } from '../core/logger.js';
 import { SafetyEngine } from './safety/engine.js';
 import { getConversationStore, TurnRole } from './conversation-store.js';
@@ -1801,6 +1803,9 @@ ChatController.handle = async function(request) {
   // v66.0: Use IDE's stable conversationId for DB key (not ephemeral WS sessionId)
   // ════════════════════════════════════════════════════════════════════════════
   const dbConversationId = request.conversationId || sessionId;
+  const durableTurnId = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u.test(request.turnId || '')
+    ? request.turnId
+    : `turn:${randomUUID()}`;
   // Conversation state has the same ownership key as durable turns. A shared
   // WebSocket/HTTP transport session must never merge two conversations.
   const controller = sessionManager.getSession(dbConversationId);
@@ -1813,6 +1818,7 @@ ChatController.handle = async function(request) {
   // INVARIANT: Persist user turn BEFORE processing
   const persistedUserTurn = store.appendTurn(dbConversationId, TurnRole.USER, message, {
     timestamp: Date.now(),
+    m7: { turnId: durableTurnId, status: 'ok' },
   });
 
   // Load history from DB (NOT from RAM)
@@ -2018,6 +2024,7 @@ ChatController.handle = async function(request) {
     ...context,
     sessionId,
     conversationId: dbConversationId,
+    turnId: durableTurnId,
     userMessageId: persistedUserTurn.id,
     userId,
     authenticatedSubject: authenticatedSubject || null,
@@ -2087,6 +2094,7 @@ ChatController.handle = async function(request) {
     message,
     sessionId,
     conversationId: dbConversationId,
+    turnId: durableTurnId,
     signal,
     persistAssistantTurn: (content, turnMetadata) => {
       store.appendTurn(dbConversationId, TurnRole.ASSISTANT, content, turnMetadata);

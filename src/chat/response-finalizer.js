@@ -38,6 +38,7 @@ function scoreSummary(score) {
  * @param {string} options.message - Original user message
  * @param {string} options.sessionId - Chat session identifier
  * @param {string} options.conversationId - Persisted conversation identifier
+ * @param {string|null} [options.turnId] - Durable M1/M7 turn correlation
  * @param {AbortSignal|null} [options.signal]
  * @param {Function} options.persistAssistantTurn - Persists final content
  * @param {Object} [options.dependencies] - Deterministic test seams
@@ -49,6 +50,7 @@ export async function finalizeChatResponse({
   message,
   sessionId,
   conversationId,
+  turnId = null,
   signal = null,
   persistAssistantTurn,
   dependencies = {},
@@ -132,6 +134,7 @@ export async function finalizeChatResponse({
       confidence: result.confidence,
       model: metadata.model,
       intent: metadata.decision?.intent,
+      ...(turnId === null ? {} : { m7: { turnId, status: 'ok' } }),
     });
   } catch (err) {
     log.error('ChatController', `Failed to persist assistant turn: ${err.message}`);

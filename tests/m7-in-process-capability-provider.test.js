@@ -119,12 +119,12 @@ await testAsync('all seven capabilities and 14 operations pass the existing conf
   assert.equal(report.total, 14);
   assert.equal(observations.authority.length, 14);
   assert.equal(observations.handler.length, 14);
-  assert.equal(observations.journal.length, 4);
+  assert.equal(observations.journal.length, 5);
   assert.equal(observations.handler.every(item => Object.isFrozen(item.request)), true);
   assert.equal(observations.handler.every(item => Object.isFrozen(item.context)), true);
 });
 
-test('a capability is unavailable unless its complete handler and mutation journal set exists', () => {
+test('a capability is unavailable unless its complete handler and effect journal set exists', () => {
   const handlers = Object.fromEntries(capabilityFixtures
     .filter(fixture => fixture.operationId !== 'settings.update')
     .map(fixture => [fixture.operationId, async () => structuredClone(fixture.success)]));
@@ -133,6 +133,14 @@ test('a capability is unavailable unless its complete handler and mutation journ
   assert.equal(advertisement.find(item => item.capabilityId === 'settings').status, 'unavailable');
   assert.equal(advertisement.find(item => item.capabilityId === 'projects').status, 'available');
   assert.equal(Object.isFrozen(advertisement), true);
+
+  const withoutJournal = completeProvider({ mutationJournal: null }).provider.advertise();
+  assert.equal(
+    withoutJournal.find(item => item.capabilityId === 'conversations').status,
+    'unavailable',
+  );
+  assert.equal(withoutJournal.find(item => item.capabilityId === 'settings').status, 'unavailable');
+  assert.equal(withoutJournal.find(item => item.capabilityId === 'projects').status, 'available');
 });
 
 await testAsync('invalid request and missing scope fail before a core handler or journal runs', async () => {
@@ -287,6 +295,39 @@ await testAsync('every mutation crosses the journal and its callback is at-most-
   );
   assert.equal(handlerCalls, 1);
   assert.equal(provider.describe().stage, 'IMPLEMENTED_NOT_ACTIVE');
+});
+
+await testAsync('every command crosses the journal using its request identity', async () => {
+  const command = fixtureByOperation.get('conversation.execute');
+  let handlerCalls = 0;
+  let journalInput = null;
+  const handlers = Object.fromEntries(capabilityFixtures.map(fixture => [
+    fixture.operationId,
+    async () => {
+      if (fixture.operationId === command.operationId) handlerCalls += 1;
+      return structuredClone(fixture.success);
+    },
+  ]));
+  const provider = completeProvider({
+    handlers,
+    mutationJournal: {
+      async run(input) {
+        journalInput = input;
+        const value = await input.execute();
+        return value;
+      },
+    },
+  }).provider;
+  const result = await provider.invoke({
+    capabilityId: command.capabilityId,
+    capabilityVersion: command.capabilityVersion,
+    operationId: command.operationId,
+    request: structuredClone(command.request),
+  });
+  assert.equal(result.requestId, command.request.requestId);
+  assert.equal(journalInput.operationId, command.request.requestId);
+  assert.equal(journalInput.operationType, 'conversation.execute');
+  assert.equal(handlerCalls, 1);
 });
 
 await testAsync('unknown operation, wrong version and malformed authority decision fail closed', async () => {

@@ -75,6 +75,20 @@ await test('a low-scored model response makes zero post-answer model calls', asy
   assert(finalized.quality.finalScore);
 });
 
+await test('the finalizer persists an optional durable turn correlation without changing content', async () => {
+  const persisted = [];
+  await finalizeChatResponse({
+    result: responseResult('Durable answer.'),
+    message: 'Persist the turn identity.',
+    sessionId: 'm7-turn-session',
+    conversationId: 'm7-turn-conversation',
+    turnId: 'turn:m7:001',
+    persistAssistantTurn: (content, metadata) => persisted.push({ content, metadata }),
+  });
+  assert.equal(persisted[0].content, 'Durable answer.');
+  assert.deepEqual(persisted[0].metadata.m7, { turnId: 'turn:m7:001', status: 'ok' });
+});
+
 await test('pre-cancelled finalization never persists an assistant turn', async () => {
   const controller = new AbortController();
   controller.abort();

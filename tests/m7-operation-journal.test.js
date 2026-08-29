@@ -58,6 +58,24 @@ const result = Object.freeze({
   outcome: 'CONFIRMED',
   replayed: false,
 });
+const conversationRequest = Object.freeze({
+  contract: 'ConversationCommand',
+  version: 1,
+  requestId: 'request:conversation:001',
+  conversationId: 'conversation:001',
+  turnId: 'turn:001',
+  action: 'send',
+  input: 'Hello from the durable command.',
+});
+const conversationResult = Object.freeze({
+  contract: 'ConversationResult',
+  version: 1,
+  requestId: conversationRequest.requestId,
+  conversationId: conversationRequest.conversationId,
+  turnId: conversationRequest.turnId,
+  status: 'ok',
+  response: { content: 'Durable response.' },
+});
 
 function memoryDb() {
   const db = new Database(':memory:');
@@ -126,6 +144,65 @@ await testAsync('restart replay returns the first result without a second handle
   assert.equal(replay.replayed, true);
   assert.equal(handlerCalls, 1);
   assert.equal(Object.isFrozen(replay), true);
+  db.close();
+});
+
+await testAsync('an M1 conversation command replays its exact terminal result after restart', async () => {
+  const db = memoryDb();
+  let handlerCalls = 0;
+  const input = {
+    deviceId: 'device:conversation:001',
+    subjectId: 'user:conversation:001',
+    operationId: conversationRequest.requestId,
+    operationType: 'conversation.execute',
+    request: structuredClone(conversationRequest),
+    execute: async () => {
+      handlerCalls += 1;
+      return structuredClone(conversationResult);
+    },
+  };
+  const first = await journal(db).run(input);
+  const replay = await journal(db, 2_000).run(input);
+  assert.deepEqual(first, conversationResult);
+  assert.deepEqual(replay, conversationResult);
+  assert.equal(Object.hasOwn(replay, 'replayed'), false);
+  assert.equal(handlerCalls, 1);
+  assert.equal(journal(db, 3_000).getSettlement({
+    deviceId: input.deviceId,
+    subjectId: input.subjectId,
+    operationId: input.operationId,
+  }).state, 'CONFIRMED');
+  db.close();
+});
+
+await testAsync('a terminal failed conversation command is durably rejected and not retried', async () => {
+  const db = memoryDb();
+  let handlerCalls = 0;
+  const failed = {
+    ...structuredClone(conversationResult),
+    status: 'cancelled',
+    error: { code: 'M1_CANCELLED', message: 'Cancelled.' },
+  };
+  delete failed.response;
+  const input = {
+    deviceId: 'device:conversation:002',
+    subjectId: 'user:conversation:002',
+    operationId: conversationRequest.requestId,
+    operationType: 'conversation.execute',
+    request: structuredClone(conversationRequest),
+    execute: async () => {
+      handlerCalls += 1;
+      return structuredClone(failed);
+    },
+  };
+  assert.deepEqual(await journal(db).run(input), failed);
+  assert.deepEqual(await journal(db, 2_000).run(input), failed);
+  assert.equal(handlerCalls, 1);
+  assert.equal(journal(db, 3_000).getSettlement({
+    deviceId: input.deviceId,
+    subjectId: input.subjectId,
+    operationId: input.operationId,
+  }).state, 'REJECTED');
   db.close();
 });
 

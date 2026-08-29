@@ -1,3 +1,4 @@
+import { validateConversationResult } from '../../contracts/m1/index.js';
 import {
   M7_OPERATION_JOURNAL_OUTCOME_STATE,
   canonicalizeM7OperationJournalEvent,
@@ -111,11 +112,17 @@ function stateForResult(result) {
   if (result === null || typeof result !== 'object' || Array.isArray(result)) {
     fail(M7_OPERATION_JOURNAL_ERROR.INPUT_INVALID, 'm7 journal result must be an object');
   }
-  const state = M7_OPERATION_JOURNAL_OUTCOME_STATE[result.outcome];
-  if (!state || result.replayed !== false) {
-    fail(M7_OPERATION_JOURNAL_ERROR.INPUT_INVALID, 'm7 journal result outcome is invalid');
+  const mutationState = M7_OPERATION_JOURNAL_OUTCOME_STATE[result.outcome];
+  if (mutationState && result.replayed === false) return mutationState;
+  if (result.contract === 'ConversationResult'
+    && result.version === 1
+    && !Object.hasOwn(result, 'operationId')
+    && !Object.hasOwn(result, 'outcome')
+    && !Object.hasOwn(result, 'replayed')
+    && validateConversationResult(result).valid) {
+    return result.status === 'ok' ? 'CONFIRMED' : 'REJECTED';
   }
-  return state;
+  fail(M7_OPERATION_JOURNAL_ERROR.INPUT_INVALID, 'm7 journal result outcome is invalid');
 }
 
 function buildEvent({ key, requestDigest, sequence, state, result, errorCode, recordedAtMs }) {
@@ -172,7 +179,10 @@ function replayResult(outcome) {
       errorCode: outcome.event.errorCode,
     });
   }
-  return deepFreeze({ ...structuredClone(outcome.event.result), replayed: true });
+  if (Object.hasOwn(outcome.event.result, 'replayed')) {
+    return deepFreeze({ ...structuredClone(outcome.event.result), replayed: true });
+  }
+  return deepFreeze(structuredClone(outcome.event.result));
 }
 
 export class M7OperationJournal {
