@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "2a90c99739c4214c4f89f197e492c6e18f437795",
-  "sourceTree": "c40f4ee9e7fc492ccd1f7b02f8a5163d8a94303f",
+  "sourceRevision": "ac1ee5ac6d29326cc91f3188b9858377da669390",
+  "sourceTree": "996e1174925e949f80c734fb43e7d12cf77ac4e9",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -692,6 +692,7 @@
     "src/memory/preferences.js -> src/core/logger.js",
     "src/memory/preferences.js -> src/memory/long-term.js",
     "src/memory/task-memory.js -> src/core/logger.js",
+    "src/mobile/client/app.js -> src/mobile/client/remote-core-v1.js",
     "src/network/outbound-policy.js -> src/network/outbound-audit-repository.js",
     "src/notifications/channels/desktop.js -> src/notifications/channels/base.js",
     "src/notifications/channels/email.js -> src/notifications/channels/base.js",

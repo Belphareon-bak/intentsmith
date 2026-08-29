@@ -1795,6 +1795,23 @@ modul kandidátní session nebo simulátor neimportuje. Přesný scope a stop
 conditions drží
 [`WP-M7-MOBILE-CONTRACT-INTEGRATION`](docs/wp/WP-M7-MOBILE-CONTRACT-INTEGRATION.md).
 
+### Client/Android integration checkpoint 2026-08-29
+
+Přesný mobilní klient a Android shell ze zdrojového commitu `7cf1c8b7` jsou
+přeneseny produktovým commitem `ac1ee5ac` bez starého serveru, DB, migrací nebo
+legacy gateway. Mobilní gate má `20/20 PASS`, Android release boundary
+`11/11 PASS`, registry a artifact boundary jsou zelené. Aktuální module graph má 1 212 hran,
+stále 3 cykly a 28 souborů v cyklech; jediná nová hrana je
+explicitní consumer pin `src/mobile/client/app.js ->
+src/mobile/client/remote-core-v1.js`.
+
+Stav je zatím `CLIENT_IMPLEMENTATION_GREEN / FULL_GATE_PENDING /
+PRODUCTION_TRANSPORT_BLOCKED / PRODUCTION_SIGNING_NOT_AUTHORIZED`. Hostový
+debug build není device, TalkBack, wire-transport ani distribuční důkaz a
+`remote-core-v1` zůstává fail-closed bez fallbacku na legacy `/m1`. Rozsah a
+stop conditions drží
+[`WP-M7-MOBILE-CLIENT-INTEGRATION`](docs/wp/WP-M7-MOBILE-CLIENT-INTEGRATION.md).
+
 Povinné výsledky:
 
 - oddělený listener, autentizace a pairing;
