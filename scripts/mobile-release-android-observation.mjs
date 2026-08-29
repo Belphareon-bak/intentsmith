@@ -73,4 +73,3 @@ export function validateMobileAndroidObservationsV1({
   }
   return Object.freeze({ apk, aab });
 }
-
