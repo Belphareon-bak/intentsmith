@@ -1799,18 +1799,22 @@ conditions drží
 
 Přesný mobilní klient a Android shell ze zdrojového commitu `7cf1c8b7` jsou
 přeneseny produktovým commitem `ac1ee5ac` bez starého serveru, DB, migrací nebo
-legacy gateway. Mobilní gate má `20/20 PASS`, Android release boundary
-`11/11 PASS`, registry a artifact boundary jsou zelené. Aktuální module graph má 1 212 hran,
+legacy gateway. Exact product candidate `6a5094ed` (tree `a86f0717…b3e6`) má
+mobilní gate `20/20 PASS`, Android release boundary `11/11 PASS` a souvislý
+offline+database gate `325/325 PASS`. Registry obsahuje 485 programů s
+fingerprintem `67e9dd37…20e6`. Aktuální module graph má 1 212 hran,
 stále 3 cykly a 28 souborů v cyklech; jediná nová hrana je
 explicitní consumer pin `src/mobile/client/app.js ->
 src/mobile/client/remote-core-v1.js`.
 
-Stav je zatím `CLIENT_IMPLEMENTATION_GREEN / FULL_GATE_PENDING /
+Stav je zatím `CLIENT_IMPLEMENTATION_GREEN / FULL_GATE_GREEN / REVIEW_PENDING /
 PRODUCTION_TRANSPORT_BLOCKED / PRODUCTION_SIGNING_NOT_AUTHORIZED`. Hostový
 debug build není device, TalkBack, wire-transport ani distribuční důkaz a
 `remote-core-v1` zůstává fail-closed bez fallbacku na legacy `/m1`. Rozsah a
 stop conditions drží
-[`WP-M7-MOBILE-CLIENT-INTEGRATION`](docs/wp/WP-M7-MOBILE-CLIENT-INTEGRATION.md).
+[`WP-M7-MOBILE-CLIENT-INTEGRATION`](docs/wp/WP-M7-MOBILE-CLIENT-INTEGRATION.md);
+měření a review rozsah jsou v
+[`m7-mobile-client-integration-20260829.md`](docs/execution/runs/m7/m7-mobile-client-integration-20260829.md).
 
 Povinné výsledky:
 
