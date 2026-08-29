@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "1231b27a46d31f9814083bba04b9522a57d6a064",
-  "sourceTree": "8586a078c6bfb94d0dc4ce85639c605eac1e0043",
+  "sourceRevision": "2fbd13fb4f987e4ed848641906eef0f1c2bd38d7",
+  "sourceTree": "5f7393d828bb99805dbdd1492cafb13584c1aa42",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -890,6 +890,7 @@
     "src/remote/m7-core-composition.js -> src/remote/m7-remote-health-adapter.js",
     "src/remote/m7-core-composition.js -> src/remote/m7-run-event-core-adapter.js",
     "src/remote/m7-core-composition.js -> src/remote/m7-settings-information-core-adapters.js",
+    "src/remote/m7-durable-rate-limiter.js -> src/remote/m7-transport-admission-policy.js",
     "src/remote/m7-m2-approval-core-adapters.js -> src/lifecycle/m2-lifecycle-application-service.js",
     "src/remote/m7-m2-approval-core-adapters.js -> src/remote/m7-core-cursor.js",
     "src/remote/m7-notification-core-adapters.js -> src/agents/repository.js",

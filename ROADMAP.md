@@ -2076,7 +2076,9 @@ nad limitem 10 dohromady dostaly přesně 10 allow a 10 deny. Schema je `55/55`,
 M1 migration oracle `20/20` a M6 runtime/technical evidence `8/8 + 8/8`.
 Registry má 499 programů, 400 `ACTIVE + required`, profil 339
 (`270 offline + 69 database`) a fingerprint `f2b34a87…e750b`. Module edge,
-souvislý gate a review následují. Produkční klíč, listener ani síť nevznikly.
+který dovoluje limiteru ověřit genuine admission plan, je přijatý jako jediný
+nový spoj; module graph má 1 242 hran, 3 cykly a 28 souborů v cyklech. Souvislý
+gate a review následují. Produkční klíč, listener ani síť nevznikly.
 
 Povinné výsledky:
 
