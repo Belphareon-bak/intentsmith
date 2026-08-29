@@ -4,7 +4,7 @@
 
 **Base revision:** `6e4fc2cf` (persistent-journal evidence HEAD)
 
-**Current state:** `IMPLEMENTATION_GREEN / FOCUSED_GREEN / FULL_GATE_PENDING /
+**Current state:** `IMPLEMENTATION_GREEN / FOCUSED_GREEN / FULL_GATE_GREEN /
 REVIEW_PENDING / NOT_ACTIVE`
 
 ## 1. User outcome
@@ -77,3 +77,18 @@ Required before review:
 
 Stop before session-key generation, production composition, listener work or
 any non-project capability.
+
+## 5. Output
+
+- exact product candidate: `e937344a94b71303646ccdae1b658c7c4fba6248`;
+- product tree: `299daec816c3e8f2ff084fe2680561b6618d25ad`;
+- implementation: `5906bf62`; module-edge acceptance: `a0233a00`;
+- focused adapter/provider/journal: `8/8 + 10/10 + 10/10 PASS`;
+- mobile gate: `23/23 PASS`;
+- full offline+database gate: `328/328 PASS`;
+- detailed evidence:
+  [m7-project-core-adapters-20260829.md](../execution/runs/m7/m7-project-core-adapters-20260829.md);
+- independent review packet:
+  [2026-08-29-M7-PROJECT-CORE-ADAPTERS-REVIEW-PACKET.md](../review/2026-08-29-M7-PROJECT-CORE-ADAPTERS-REVIEW-PACKET.md).
+
+This is not M7 acceptance or runtime activation.
