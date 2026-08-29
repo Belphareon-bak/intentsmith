@@ -4,6 +4,9 @@
 
 **Base revision:** `6e4fc2cf` (persistent-journal evidence HEAD)
 
+**Current state:** `IMPLEMENTATION_GREEN / FOCUSED_GREEN / FULL_GATE_PENDING /
+REVIEW_PENDING / NOT_ACTIVE`
+
 ## 1. User outcome
 
 Implement the first complete production-backed M7 capability without exposing

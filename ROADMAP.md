@@ -69,7 +69,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Decision 041 implementace dostala `REVIEW_PASSED` a trust store drží čtyři oddělené veřejné klíče. Úzký review ale našel stale M6 migration oracle a neoffline custody privátních klíčů; oracle remediation je implementovaná, custody zůstává otevřená. Osm rotací, history disposition a podepsaná M5 acceptance neproběhly. |
 | **M6 IntentSmith 1.0 release** | `KEY_CUSTODY_CHANGES_REQUIRED / INTEGRATION_REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, application upgrade, L0-11 a soak/throughput harness jsou implementované. Původní oprava `80 !== 79` byla po sloučení modelové autority znovu navázána na skutečný integrovaný počet 87 migrací a dostala rychlý drift guard; nový candidate čeká na review. 24h a pětiminutový plný běh zatím nejsou provedené. |
-| **M7 Remote Companion** | `CONTRACT_CANDIDATE_IMPLEMENTED / REVIEW_PENDING / PROVIDER_ABSENT / TRANSPORT_ABSENT` | M6 + remote boundary | Sedm capability, 14 mobilních operací, session/recovery kontrakt a test-only simulátor jsou přeneseny na současný M6 core. Produkční provider, listener, pairing, mobilní transport a device/release důkazy ještě neexistují. |
+| **M7 Remote Companion** | `PROJECT_CORE_IMPLEMENTATION_GREEN / FULL_GATE_PENDING / REVIEW_PENDING / PROVIDER_NOT_ACTIVE / TRANSPORT_ABSENT` | M6 + remote boundary | Sedm capability a 14 mobilních operací jsou připnuté; transport-free provider, durable mutation journal a první skutečné `project.list` + rootless context adaptéry existují. Session, listener, pairing, mobilní transport a device/release důkazy ještě neexistují. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
 Gate 0 se znovu aktivuje pouze v M6 nad zmraženým kandidátem.
@@ -1837,6 +1837,23 @@ je v
 a evidence v
 [`m7-in-process-capability-provider-20260829.md`](docs/execution/runs/m7/m7-in-process-capability-provider-20260829.md).
 
+### Project core adapters checkpoint 2026-08-29
+
+První skutečná capability je `IMPLEMENTATION_GREEN / FOCUSED_GREEN /
+FULL_GATE_PENDING / REVIEW_PENDING / NOT_ACTIVE`. `project.list` čte reálný
+SQLite katalog, po project-access rozhodnutí dvakrát pozoruje workspace a před
+emitováním autorizaci opakuje. HMAC kurzor váže device, subject, capability,
+operaci, filtry, úplný snapshot a offset. `project-context.query` přijímá jen
+`projectId`, hostový root vyřeší až uvnitř core a deleguje do přijatého M2
+provideru. Projektové cesty se na mobilní hranici nevracejí.
+
+Focused adapter je `8/8 PASS`; provider, journal a mobilní kontrakty zůstávají
+zelené. Dvě přesné importní hrany byly přijaty na `a0233a00` bez růstu cyklů;
+aktuální module graph má 1 216 hran, stále 3 cykly a 28 souborů v cyklech.
+Registry má 488 programů, fingerprint `82c2d70a…10e2`. Produkční session
+autorita, kurzorový klíč, composition root, listener a transport zůstávají
+záměrně nepřítomné; souvislý gate a nezávislé review teprve následují.
+
 Povinné výsledky:
 
 - oddělený listener, autentizace a pairing;
@@ -2178,6 +2195,22 @@ offline+database gate na exact kandidatu `ea97c410` skončil 327/327 PASS.
 Listener, pairing, session authority, core mutační adaptéry a transport
 zůstávají nepřítomné; stav je
 `IMPLEMENTATION_GREEN / FULL_GATE_GREEN / REVIEW_PENDING / NOT_ACTIVE`.
+
+### M7 project core adapters (2026-08-29)
+
+Transport-free provider má první dva reálné read handlery: autorizovaný,
+snapshotovaný `project.list` a rootless `project-context.query` nad přijatým M2
+manifest/retrieval providerem. Katalog je omezený na 200 active projektů,
+workspace i katalog se kontrolují opakovaně a autorita se před emitováním
+znovu ověří. Continuation cursor je opaque HMAC a váže úplnou trusted identitu
+i snapshot; hostové rooty neopouštějí core.
+
+Implementace je v `5906bf62`; dvě přesné importní hrany byly samostatně
+přijaty v `a0233a00`. Aktuální module graph má 1 216 hran, stále 3 cykly a 28
+souborů v cyklech. Focused adapter je 8/8, registry má 488 programů s
+fingerprintem `82c2d70a…10e2`. Stav je `IMPLEMENTATION_GREEN / FOCUSED_GREEN /
+FULL_GATE_PENDING / REVIEW_PENDING / NOT_ACTIVE`; session, pairing, listener,
+transport a fyzická device cesta nejsou součástí tohoto bloku.
 
 ## 14. Rozhodovací fronta — otázka až ve chvíli, kdy má data
 
