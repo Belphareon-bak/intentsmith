@@ -1,17 +1,18 @@
 # Core/M7 capability handoff
 
-**Stav 2026-08-27:** `SCHEMA_COMPLETE_CANDIDATE / PROVIDER_ABSENT /
+**Stav 2026-08-29:** `CORE_IMPLEMENTATION_IN_PROGRESS / REVIEW_PENDING /
 M7_TRANSPORT_ABSENT / CANDIDATE_NOT_ACCEPTED`
 
-**Aktuální integrační kontext:** connector-only kandidát `54a10fd0` je
-`IMPLEMENTATION_GREEN / FULL_GATE_GREEN / REVIEW_PENDING`; provider a produkční
-M7 transport zůstávají absent. Stav M5/M6 se přebírá pouze z `ROADMAP.md` a
-`SYSTEM-MAP.md`, nikoli z historického počítadla zdrojové mobilní větve.
+**Aktuální integrační kontext:** connector, client, transport-free provider,
+durable journal a project/conversation/settings/manual-information adaptéry
+jsou implementation-green a čekají na review. Produkční M7 transport zůstává
+absent. Stav M5/M6 se přebírá pouze z `ROADMAP.md` a `SYSTEM-MAP.md`, nikoli z
+historického počítadla zdrojové mobilní větve.
 
-Tento balík odstraňuje schema/design blokaci pro core a M7. Neříká, že sedm
-capability existuje v backendu, a nemění rozpracovaný M5/M6 runtime. Provider
-tým může implementovat proti exact payloadům a spustit společný conformance
-gate bez domýšlení názvů, kurzorů, mutačních výsledků nebo recovery tvarů.
+Tento balík odstranil schema/design blokaci pro core a M7. Transport-free
+provider, durable journal a první čtyři core oblasti už existují jako
+review-pending kandidát; approvals, notifications, events, health a produkční
+composition stále chybějí. Žádný listener ani runtime aktivace z toho neplyne.
 
 ## 1. Jediný kandidátní balík
 
@@ -115,7 +116,9 @@ Dokončeno je schema/design/conformance vstupní rozhraní: přesné typy, verze
 digests, fixtures, identity bindings a implementační pořadí. Core/M7 se tedy
 nemusí zastavit kvůli nejasnému mobilnímu kontraktu.
 
-Nedokončené zůstávají samotné providery, jejich DB/read-model rozhodnutí,
-operation journal, M7 wire/auth boundary, přijetí kontraktu, mobile transport
-adapter a fyzické device/security/release důkazy. Proto je správný stav stále
-`CANDIDATE_NOT_ACCEPTED`, nikoli production-ready.
+Dokončený je generic provider, operation journal a první čtyři core oblasti:
+projects, conversations, safe settings projection a subject/project-scoped
+manual notes. Nedokončené zůstávají approvals, notifications, events, health,
+produkční approval/effect composition, M7 wire/auth boundary, přijetí
+kontraktu, mobile transport adapter a fyzické device/security/release důkazy.
+Proto je správný stav stále `CANDIDATE_NOT_ACCEPTED`, nikoli production-ready.
