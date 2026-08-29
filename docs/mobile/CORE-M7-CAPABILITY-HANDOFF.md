@@ -1,18 +1,18 @@
 # Core/M7 capability handoff
 
 **Stav 2026-08-30:** `CORE_IMPLEMENTATION_GREEN /
-PREVIOUS_FULL_GATE_GREEN_AT_277C7EE9 / LATEST_GATE_PENDING / REVIEW_PENDING /
+LATEST_FULL_GATE_GREEN_AT_BBA4BBF3 / REVIEW_PENDING /
 PROVIDER_NOT_ACTIVE / M7_LISTENER_ABSENT /
 CANDIDATE_NOT_ACCEPTED`
 
 **Aktuální integrační kontext:** connector, client, transport-free provider,
 durable journal a všech sedm capability adapterů jsou implementation-green.
-Aktuální 337-programový offline+database plán po events/notifications prošel
-souvisle `337/337 PASS` na exact kandidatu `277c7ee9`; nový produktový řez a
-M6 registry ratchet však stále čekají na nezávislé review.
-Disconnected LAN/VPN admission policy je navíc implementation-green, ale
-neotevírá listener a čeká na vlastní gate/review. Produkční M7 transport
-zůstává absent. Stav M5/M6 se přebírá pouze z
+Aktuální 338-programový offline+database plán včetně disconnected LAN/VPN
+admission policy prošel souvisle `338/338 PASS` na exact kandidátu
+`bba4bbf3`; produktový řez a nový M6 registry ratchet však stále čekají na
+nezávislé review. Policy neotevírá listener, nevlastní produkční klíče a
+nekonzumuje session authority. Produkční M7 transport proto zůstává absent.
+Stav M5/M6 se přebírá pouze z
 `ROADMAP.md` a `SYSTEM-MAP.md`, nikoli z historického počítadla zdrojové
 mobilní větve.
 

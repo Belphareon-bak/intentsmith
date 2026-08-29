@@ -4,8 +4,8 @@
 
 **Vstupní revision:** `6d050aa8`
 
-**Stav:** `IMPLEMENTATION_GREEN / REVIEW_REQUIRED / LISTENER_ABSENT /
-SESSION_AUTHORITY_NOT_CONNECTED`
+**Stav:** `IMPLEMENTATION_GREEN / FULL_OFFLINE_DATABASE_GATE_GREEN /
+REVIEW_REQUIRED / LISTENER_ABSENT / SESSION_AUTHORITY_NOT_CONNECTED`
 
 ## 1. Uživatelský výsledek
 
@@ -62,3 +62,12 @@ node tests/artifact-validation.test.js
 node scripts/validate-test-registry.js --json
 git diff --check
 ```
+
+Souvislý profilový gate nad exact kandidátem
+`bba4bbf3b9f1864863d53f6323caf455ecb5fc3f` skončil `338/338 PASS`, bez
+jediného non-PASS. Raw report je
+`.intentsmith-artifacts/m7-transport-admission-offline-database-20260830/2026-08-29T22-53-46-348Z/report.json`
+a jeho SHA-256 je
+`df1fa20522afc04c55c06bd9fe95bee95e834b2c824c91f961c67b9f82801356`.
+To dokazuje současnou deterministic `offline + database` množinu, nikoli
+listener, zařízení, síť, live LLM/GPU nebo produkční key custody.
