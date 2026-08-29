@@ -9,8 +9,8 @@
 
 **Exact product candidate:** `d43e7ada01d6e5de38a06d79021bde8909d2eba3`
 
-**Stav:** `IMPLEMENTATION_GREEN / FULL_GATE_GREEN / REVIEW_PENDING /
-PRODUCTION_SIGNING_NOT_AUTHORIZED`
+**Stav:** `IMPLEMENTATION_GREEN / FRESH_RETAINED_EVIDENCE_GREEN /
+REVIEW_PENDING / PRODUCTION_SIGNING_NOT_AUTHORIZED`
 
 ## 1. Důvod
 
@@ -61,3 +61,14 @@ Tyto hranice nyní prošly `13/13 + 28/28`, harness chrání `121`
 database-reachable rootů, artifact boundary je `158/158`, module ratchet
 `13/13` a nesouběžný úplný gate `333/333 PASS`. Stav zůstává
 `REVIEW_PENDING`.
+
+## 6. Čerstvé retained evidence po review follow-upu
+
+Nový current-host build na exact product candidatu `f24ff9c9` vytvořil APK i
+AAB a evidence generator je skutečně zkopíroval pod stabilní `retainedPath`.
+Manifest už nevyžaduje dohledání volatilního Gradle outputu. APK a AAB prošly
+dvěma odlišnými native observation cestami a obě daly stejný network-security
+tree digest. Výsledek, exact digesty a pravdivé release blockery jsou v
+[`m7-mobile-retained-evidence-20260829.md`](../execution/runs/m7/m7-mobile-retained-evidence-20260829.md).
+
+Build je výslovně `THROWAWAY_DEBUG_SIGNED`, nikoli distribuovatelný release.
