@@ -142,8 +142,8 @@ try {
   assert.equal(failingAudit.runnerExitCode, 1);
   assert.equal(failingAudit.summaryExitCode, 0);
   assert.equal(failingAudit.auditContract.status, 'PASS');
-  assert.equal(failingAudit.auditContract.expectedSuiteCount, 331);
-  assert.deepEqual(failingAudit.auditContract.profileCounts, { offline: 267, database: 64 });
+  assert.equal(failingAudit.auditContract.expectedSuiteCount, 332);
+  assert.deepEqual(failingAudit.auditContract.profileCounts, { offline: 268, database: 64 });
   assert.equal(failingAudit.auditContract.reportVerdict, 'FAIL');
   assert.equal(failingAudit.summaryContract.status, 'PASS');
 
@@ -257,7 +257,7 @@ try {
   assert.equal(passingAudit.runnerExitCode, 0);
   assert.equal(passingAudit.summaryExitCode, 0);
   assert.equal(passingAudit.auditContract.reportVerdict, 'PASS');
-  assert.equal(passingAudit.auditContract.expectedSuiteCount, 331);
+  assert.equal(passingAudit.auditContract.expectedSuiteCount, 332);
   assert.equal(passingAudit.summaryContract.status, 'PASS');
   const passingMetadata = await readJson(
     path.join(artifactRoot, 'runs', 'selftest-passing-audit', 'metadata.json'),
