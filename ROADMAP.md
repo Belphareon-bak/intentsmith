@@ -1779,12 +1779,15 @@ začíná až po M6 a samostatně prokázané remote security boundary.
 
 ### Contract integration checkpoint 2026-08-29
 
-První bezpečný connector-only blok je `FOCUSED_GREEN / REVIEW_PENDING` na
-větvi od exact M6 candidate `0f9e2c64`. Přenáší transport-free consumer pin,
+První bezpečný connector-only blok je `IMPLEMENTATION_GREEN /
+FULL_GATE_GREEN / REVIEW_PENDING` na exact product candidatu `54a10fd0`
+odvozeném z M6 candidate `0f9e2c64`. Přenáší transport-free consumer pin,
 executable capability/payload/session kontrakty, sanitizované fixtures,
 provider conformance harness a test-only simulátor. Šest nových registrovaných
 offline sad má focused výsledek `63/63 PASS`; nový integrační test porovnává
 mobilní piny přímo s aktuálními M2/M5 exporty a volá skutečný M5 negotiation.
+Souvislý offline+database gate má `311/311 PASS`; registry fingerprint je
+`e0fb9ec59e860128fbb9b16664604b349fbfe9f515ada52b0b2ed22fe5047a63`.
 
 Stav se tím nemění na runtime dostupnost: requirements zůstávají
 `CANDIDATE_NOT_ACCEPTED`, provider a transport jsou absent a žádný produkční

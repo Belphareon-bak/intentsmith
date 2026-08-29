@@ -6,7 +6,7 @@
 
 **Source candidate:** `ab1940aac6694b6a6ac616b833967fe47ba9ed26`
 
-**Status:** `FOCUSED_GREEN / FULL_GATE_PENDING / REVIEW_PENDING /
+**Status:** `IMPLEMENTATION_GREEN / FULL_GATE_GREEN / REVIEW_PENDING /
 PROVIDER_ABSENT / TRANSPORT_ABSENT`
 
 ## 1. User outcome
@@ -95,3 +95,17 @@ git diff --check
 Before a review packet, freeze a clean product commit and run the complete
 offline+database registry gate. A green gate is implementation evidence, not
 contract acceptance or permission to implement the listener.
+
+Completed candidate evidence:
+
+- product candidate `54a10fd0bb6134c9437c99a103dcb23e7ed639f8`;
+- product tree `3a7758900f3444e640c0a5eaf77014bfe5106c68`;
+- focused mobile candidate boundary `63/63 PASS`;
+- continuous offline+database registry gate `311/311 PASS`;
+- registry fingerprint
+  `e0fb9ec59e860128fbb9b16664604b349fbfe9f515ada52b0b2ed22fe5047a63`;
+- no live LLM, Ollama inference, physical GPU, listener or Android build was
+  invoked by this block.
+
+The implementation report is
+[`m7-mobile-contract-integration-20260829.md`](../execution/runs/m7/m7-mobile-contract-integration-20260829.md).
