@@ -230,6 +230,7 @@ záznamu selže v `artifact-validation`.
 | `2026_08_29_102_m7_manual_information.js` | použito pro M7 subject/project-scoped ruční informace |
 | `2026_08_29_103_m7_operation_abandonments.js` | použito pro M7 append-only operation abandonment receipts |
 | `2026_08_29_104_m7_operation_list_indexes.js` | použito pro M7 bounded snapshot/keyset operation list |
+| `2026_08_29_105_m7_remote_session_authority.js` | použito pro M7 pairing, session, replay a audit authority |
 <!-- migration-source-manifest:end -->
 
 ## Navazující M7 rezervace 2026-08-29
@@ -370,14 +371,16 @@ Následné upgrade review prokázalo, že výše popsané přesunutí už apliko
 
 ## M7 navazující rezervace 2026-08-29
 
-M7 integrační větev po opakovaném union censusu používá souvislý blok 101–103.
+M7 integrační větev po opakovaném union censusu používá souvislý blok 101–105.
 Čísla 101 a 102 vlastní persistentní mutation journal a manual information;
-nejbližší volné číslo 103 je rezervováno pro append-only uzavření vzdálené
-operation evidence. Rezervace nemění ani znovu nepoužívá historické kolizní
-sloty popsané výše.
+103 uzavírá vzdálenou operation evidence, 104 přidává bounded list indexy a
+105 drží transport-free pairing/session authority. Rezervace nemění ani znovu
+nepoužívá historické kolizní sloty popsané výše.
 
 | Číslo | Vlastník | Obsah |
 |---|---|---|
 | **101** | `WP-M7-PERSISTENT-MUTATION-JOURNAL` | durable remote operation events |
 | **102** | `WP-M7-SETTINGS-INFORMATION-CORE-ADAPTERS` | subject/project-scoped manual information |
 | **103** | `WP-M7-OPERATION-CONTROL` | append-only operation abandonment receipts |
+| **104** | `WP-M7-OPERATION-CONTROL` | bounded snapshot/keyset operation-list indexy |
+| **105** | `WP-M7-SESSION-AUTHORITY` | durable pairing, session, replay a audit authority |

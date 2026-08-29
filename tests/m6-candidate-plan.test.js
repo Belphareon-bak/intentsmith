@@ -76,6 +76,27 @@ test('offline signed authority proofs are explicit required members of the locke
   }
 });
 
+test('M7 session authority is an explicit required member of the locked plan', () => {
+  const programId = 'IS-T1-TESTS-M7-SESSION-AUTHORITY-TEST';
+  const program = registry.suites.find(item => item.id === programId);
+  const plan = buildM6CandidateExecutionPlan(registry);
+  const deterministic = plan.phases.find(
+    phase => phase.id === 'deterministic-offline-database',
+  );
+  assert.equal(program?.state, 'ACTIVE');
+  assert.equal(program?.required, true);
+  assert.equal(program?.profile, 'database');
+  assert.equal(deterministic.programIds.includes(programId), true);
+
+  const missing = structuredClone(plan);
+  missing.phases.find(
+    phase => phase.id === 'deterministic-offline-database',
+  ).programIds = deterministic.programIds.filter(id => id !== programId);
+  const validation = validateM6CandidateExecutionPlan(missing, registry);
+  assert.equal(validation.valid, false);
+  assert(validation.errors.includes(`plan:required-program-uncovered:${programId}`));
+});
+
 test('direct, runner-owned server and physical GPU programs cannot be silently omitted', () => {
   const plan = buildM6CandidateExecutionPlan(registry);
   const selected = new Set(plan.phases.flatMap(phase => phase.programIds));

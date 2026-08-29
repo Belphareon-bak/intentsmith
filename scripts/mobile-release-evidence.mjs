@@ -2,6 +2,7 @@
 
 import { createHash } from 'node:crypto';
 import {
+  copyFileSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -289,6 +290,13 @@ const connectDirective = apkIndex.match(/connect-src\s+[^;"]+/)?.[0] || null;
 if (connectDirective !== expectedConnectDirective) {
   throw new Error(`bundled CSP does not pin the selected gateway origin: ${connectDirective || 'missing'}`);
 }
+const retainedQualifier = releasePolicy.classification.toLowerCase().replaceAll('_', '-');
+const retainedApkName = `IntentSmith-${commit.slice(0, 12)}-${retainedQualifier}.apk`;
+const retainedAabName = `IntentSmith-${commit.slice(0, 12)}-${retainedQualifier}.aab`;
+const retainedApk = path.join(outputDir, retainedApkName);
+const retainedAab = path.join(outputDir, retainedAabName);
+copyFileSync(APK, retainedApk);
+copyFileSync(AAB, retainedAab);
 const manifest = {
   schemaVersion: 1,
   createdAt: new Date().toISOString(),
@@ -296,8 +304,16 @@ const manifest = {
   dirty,
   classification: releasePolicy.classification,
   artifacts: {
-    apk: { path: path.relative(ROOT, APK), sha256: digest(APK) },
-    aab: { path: path.relative(ROOT, AAB), sha256: digest(AAB) },
+    apk: {
+      path: path.relative(ROOT, APK),
+      retainedPath: path.relative(ROOT, retainedApk),
+      sha256: digest(retainedApk),
+    },
+    aab: {
+      path: path.relative(ROOT, AAB),
+      retainedPath: path.relative(ROOT, retainedAab),
+      sha256: digest(retainedAab),
+    },
   },
   android: {
     apk: {

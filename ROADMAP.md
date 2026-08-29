@@ -68,8 +68,8 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Decision 041 implementace dostala `REVIEW_PASSED` a trust store drží čtyři oddělené veřejné klíče. Úzký review ale našel stale M6 migration oracle a neoffline custody privátních klíčů; oracle remediation je implementovaná, custody zůstává otevřená. Osm rotací, history disposition a podepsaná M5 acceptance neproběhly. |
-| **M6 IntentSmith 1.0 release** | `KEY_CUSTODY_CHANGES_REQUIRED / REGISTRY_RATCHET_REVIEW_PASSED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, application upgrade, L0-11 a soak/throughput harness jsou implementované. Upgrade kontrakt je po M7 list-index migraci navázaný na skutečný počet 91 migrací. Nezávislé review na exact candidatu `caaa14ca` přijalo ratchet všech 394 ACTIVE+required programů i oba explicitní signed-authority sentinely; profilový gate zůstává pravdivě samostatných 333 programů. 24h soak běží nad starším SHA, plný throughput zatím neproběhl. |
-| **M7 Remote Companion** | `CORE_COMPOSITION_REVIEW_PASSED / MOBILE_RELEASE_BINDING_REVIEW_PASSED / NOT_ACCEPTED / PROVIDER_NOT_ACTIVE / TRANSPORT_ABSENT` | M6 + remote boundary | Nezávislé re-review přijalo bounded snapshot/keyset operation list i úplnou APK/AAB source, plugin, signer, Android metadata a network-policy vazbu na exact candidatu `caaa14ca`. Tři neblokující follow-upy zůstávají v review ledgeru. Approvals, events a notifications jsou dál fail-closed unavailable; session, listener, pairing, revokace a produkční transport nejsou aktivní, takže M7 jako celek není přijaté. |
+| **M6 IntentSmith 1.0 release** | `PREVIOUS_REGISTRY_RATCHET_REVIEW_PASSED / CURRENT_RATCHET_REVIEW_PENDING / KEY_CUSTODY_CHANGES_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, application upgrade, L0-11 a soak/throughput harness jsou implementované. Upgrade kontrakt je po M7 session migraci navázaný na skutečný počet 92 migrací. Review na `caaa14ca` přijalo tehdejších 394 ACTIVE+required programů; aktuálních 395 a profilových 334 mají omission regresi i zelené self-testy, ale vyžadují nový review pin. 24h soak běží nad starším SHA, plný throughput zatím neproběhl. |
+| **M7 Remote Companion** | `CORE_COMPOSITION_REVIEW_PASSED_AT_CAAA14CA / MOBILE_RELEASE_BINDING_REVIEW_PASSED_AT_CAAA14CA / SESSION_AUTHORITY_IMPLEMENTATION_GREEN / CURRENT_REVIEW_PENDING / NOT_ACCEPTED / PROVIDER_NOT_ACTIVE / TRANSPORT_ABSENT` | M6 + remote boundary | Durable transport-free pairing/session autorita drží exact Ed25519 device key, expiry, revokaci, restart-safe replay ochranu a audit povolených i odmítnutých akcí. Dva review follow-upy jsou opravené: evidence manifest ukazuje na retained APK/AAB a operation-list plán pokrývá skutečný CTE. Approvals, events a notifications jsou dál fail-closed unavailable; wire challenge exchange, per-invocation device proof/channel binding, listener a produkční transport nejsou aktivní, takže M7 jako celek není přijaté. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
 Gate 0 se znovu aktivuje pouze v M6 nad zmraženým kandidátem.
@@ -1957,6 +1957,27 @@ candidate `d43e7ada` prošel nesouběžným souvislým offline+database gate
 `333/333 PASS`; nezávislé review následuje. Session, listener, pairing,
 network transport, production klíče ani runtime activation tento blok
 nepřidává.
+
+### Session authority checkpoint 2026-08-29
+
+Transport-free `M7SessionAuthority@1` je `IMPLEMENTATION_GREEN /
+REVIEW_PENDING / NOT_ACTIVE / TRANSPORT_ABSENT`. Migrace 105 drží jednorázové
+pairing claims bez raw code, exact 32-byte Ed25519 device key, krátké
+single-use challenge, generační session stav, counter/nonce replay ochranu,
+expiry a revokaci. Každý povolený i typovaně odmítnutý authority pokus vytváří
+append-only audit; denial evidence neobsahuje raw claim, nonce ani podpis.
+
+Focused autorita má `9/9`, mobilní session contract `12/12`, schema `55/55`,
+M1 schema `20/20`, M6 runtime evidence `8/8`, module ratchet `13/13` a nightly
+self-test PASS. Registry má 494 programů s fingerprintem `bf26d0a5…effb5`;
+aktuální module graph má 1 232 hran, stále 3 cykly a 28 souborů v cyklech.
+Změněný M6 plán pokrývá všech 395 ACTIVE+required programů a profilová Gate 0
+matice 334 offline+database programů, ale oba piny vyžadují nové review.
+
+Blok záměrně neotevírá listener a neaktivuje provider. Wire cesta pro získání
+challenge a per-invocation device proof nebo TLS channel binding zůstávají
+bez operátorského rozhodnutí fail-closed. Produkční klíče, signing, device test,
+tag, publish ani push neproběhly.
 
 Povinné výsledky:
 

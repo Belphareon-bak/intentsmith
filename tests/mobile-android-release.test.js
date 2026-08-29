@@ -425,6 +425,10 @@ await test('release evidence pins a candidate signer and labels every weaker art
   assert.match(evidence, /--expected-aab-signer-sha256/);
   assert.match(evidence, /--allow-dirty/);
   assert.match(evidence, /build evidence cannot be bound to HEAD/);
+  assert.match(evidence, /copyFileSync\(APK, retainedApk\)/);
+  assert.match(evidence, /copyFileSync\(AAB, retainedAab\)/);
+  assert.match(evidence, /retainedPath: path\.relative\(ROOT, retainedApk\)/);
+  assert.match(evidence, /retainedPath: path\.relative\(ROOT, retainedAab\)/);
   assert.match(evidence, /parseApkReleaseObservationV1/);
   assert.match(evidence, /assets\/public\/runtime-config\.js/);
   assert.match(evidence, /base\/assets\/public\/runtime-config\.js/);

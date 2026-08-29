@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -240,16 +240,35 @@ await testAsync('large histories use indexed keyset pages without loading the pa
       14,
     );
 
-    const plan = fixture.db.prepare(`
-      EXPLAIN QUERY PLAN
-      SELECT revision FROM m7_remote_operation_events
-      WHERE device_id = ? AND subject_id = ? AND sequence = 0
-        AND revision > ? AND revision <= ?
-      ORDER BY revision LIMIT ?
-    `).all(DEVICE, SUBJECT, 0, Number.MAX_SAFE_INTEGER, 8);
+    const journalSource = readFileSync(new URL(
+      '../src/remote/m7-operation-journal.js',
+      import.meta.url,
+    ), 'utf8');
+    const productionStatement = journalSource.match(
+      /this\.selectOperationPage = this\.database\.prepare\(`([\s\S]*?)`\);/u,
+    )?.[1];
+    assert.equal(typeof productionStatement, 'string');
+    const plan = fixture.db.prepare(`EXPLAIN QUERY PLAN ${productionStatement}`).all({
+      deviceId: DEVICE,
+      subjectId: SUBJECT,
+      eventRevision: Number.MAX_SAFE_INTEGER,
+      abandonmentRevision: Number.MAX_SAFE_INTEGER,
+      afterRevision: 0,
+      statesJson: '[]',
+      rowLimit: 8,
+    });
+    const planText = plan.map(row => row.detail).join('\n');
     assert.match(
-      plan.map(row => row.detail).join('\n'),
+      planText,
       /idx_m7_remote_operation_list.*device_id=.*subject_id=.*sequence=.*revision/u,
+    );
+    assert.match(
+      planText,
+      /sqlite_autoindex_m7_remote_operation_events_2.*device_id=.*subject_id=.*operation_id=.*sequence/u,
+    );
+    assert.match(
+      planText,
+      /sqlite_autoindex_m7_remote_operation_abandonments_2.*device_id=.*subject_id=.*target_operation_id/u,
     );
     assert.equal(typeof fixture.journal.listOperations, 'undefined');
   } finally {

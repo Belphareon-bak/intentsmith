@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import './helpers/isolated-test-db.js';
+
 import { strict as assert } from 'node:assert';
 import {
   createHash,
