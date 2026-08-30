@@ -406,9 +406,12 @@ try {
   //   122 -> 123 M7 notification adapters exercise the genuine M3 repository,
   //              durable operation journal and append-only ACK receipts behind
   //              the canonical bootstrap.
+  //   123 -> 124 M7 disconnected request pipeline composes the admission,
+  //              limiter, session and database-backed core authorities behind
+  //              the canonical isolation bootstrap.
   // Model-evaluation consolidation had first removed one retired database
   // root from the pre-M6 baseline.
-  const expectedDatabaseReachableRootTests = 123;
+  const expectedDatabaseReachableRootTests = 124;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,
