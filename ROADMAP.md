@@ -2077,7 +2077,7 @@ M1 migration oracle `20/20` a M6 runtime/technical evidence `8/8 + 8/8`.
 Registry má 499 programů, 400 `ACTIVE + required`, profil 339
 (`270 offline + 69 database`) a fingerprint `f2b34a87…e750b`. Module edge,
 který dovoluje limiteru ověřit genuine admission plan, je přijatý jako jediný
-nový spoj; module graph má 1 242 hran, 3 cykly a 28 souborů v cyklech. Exact
+nový spoj; aktuální module graph má 1 247 hran, 3 cykly a 28 souborů v cyklech. Exact
 candidate `b23f63d6` následně prošel souvislým offline+database gate
 `339/339 PASS`, exit 0; report má SHA-256 `1e19ab67…0d80`. Limiter i aktuální
 M6 registry ratchet dostaly nezávislé `REVIEW_PASSED`; výsledek je v
