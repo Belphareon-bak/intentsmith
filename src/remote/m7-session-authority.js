@@ -48,6 +48,7 @@ const SIGNATURE = /^[A-Za-z0-9_-]{86}$/u;
 const SHA256 = /^sha256:[0-9a-f]{64}$/u;
 const HTTPS_ORIGIN = /^https:\/\/[^/?#]+$/u;
 const SPKI_ED25519_PREFIX = Buffer.from('302a300506032b6570032100', 'hex');
+const sessionAuthorities = new WeakSet();
 const PAIRING_CLAIM_REQUEST_KEYS = Object.freeze([
   'claimCode', 'clientBuild', 'clientInstanceId', 'clientNonce', 'contract',
   'deviceKeyId', 'devicePublicKey', 'requestId', 'sentAt', 'version',
@@ -419,6 +420,7 @@ export class M7SessionAuthority {
     this.serverIdentityPin = serverIdentityPin;
     this.adapterManifestDigest = adapterManifestDigest;
     registerM7SessionAuthorityFunctions(this.database);
+    sessionAuthorities.add(this);
   }
 
   now() {
@@ -1073,8 +1075,12 @@ export function createM7SessionAuthority(db, config) {
   return new M7SessionAuthority(db, config);
 }
 
+export function isGenuineM7SessionAuthority(value) {
+  return sessionAuthorities.has(value);
+}
+
 export function createM7SessionChallengeHandler(sessionAuthority) {
-  if (!sessionAuthority || typeof sessionAuthority.requestChallenge !== 'function') {
+  if (!isGenuineM7SessionAuthority(sessionAuthority)) {
     fail(M7_SESSION_AUTHORITY_ERROR.CONFIG_INVALID, 'm7-session:challenge-authority-required');
   }
   return deepFreeze({

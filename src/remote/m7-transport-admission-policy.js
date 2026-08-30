@@ -14,6 +14,7 @@ export const M7_TRANSPORT_ADMISSION_ERROR = Object.freeze({
 });
 
 const SHA256 = /^sha256:[0-9a-f]{64}$/u;
+const IDENTIFIER = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u;
 const HEADER_NAME = /^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/u;
 const HEADER_VALUE_CONTROL = /[\u0000-\u0008\u000a-\u001f\u007f]/u;
 const admissions = new WeakSet();
@@ -287,9 +288,10 @@ function hmacDigest(key, domain, value) {
   return `sha256:${createHmac('sha256', key).update(`${domain}\n${value}`, 'utf8').digest('hex')}`;
 }
 
-function rateBucket(key, bucket, identity, maximum, windowSeconds) {
+function rateBucket(key, bucket, configurationId, identity, maximum, windowSeconds) {
   return Object.freeze({
     bucket,
+    configurationId,
     identityDigest: hmacDigest(key, `IntentSmith/M7/RateLimit/${bucket}/v1`, identity),
     maximum,
     windowSeconds,
@@ -333,6 +335,14 @@ export function createM7TransportAdmissionPolicy({ listener, peerIdentityKey } =
         fail(M7_TRANSPORT_ADMISSION_ERROR.HEADER_INVALID, 'host-mismatch');
       }
       const contentLength = parseContentLength(headers, route);
+      const healthRequestId = headers.get('x-intentsmith-request-id');
+      if (route.access === 'public_health') {
+        if (!IDENTIFIER.test(healthRequestId || '')) {
+          fail(M7_TRANSPORT_ADMISSION_ERROR.HEADER_INVALID, 'health-request-id-required');
+        }
+      } else if (healthRequestId !== undefined) {
+        fail(M7_TRANSPORT_ADMISSION_ERROR.HEADER_INVALID, 'health-request-id-route-mismatch');
+      }
       const admission = deepFreeze({
         access: route.access,
         bodyBytesMaximum: route.bodyBytesMaximum,
@@ -345,6 +355,7 @@ export function createM7TransportAdmissionPolicy({ listener, peerIdentityKey } =
           peer.canonical,
         ),
         peerScope: peer.scope,
+        requestId: healthRequestId ?? null,
         routeId: route.routeId,
       });
       admissions.add(admission);
@@ -361,9 +372,16 @@ export function createM7TransportAdmissionPolicy({ listener, peerIdentityKey } =
           fail(M7_TRANSPORT_ADMISSION_ERROR.RATE_LIMIT_INPUT_INVALID, 'claim-digest-required');
         }
         buckets.push(
-          rateBucket(key, 'pairing-global', 'global', 30, 600),
-          rateBucket(key, 'pairing-peer', peer, 5, 600),
-          rateBucket(key, 'pairing-peer-claim', `${peer}\n${context.claimCodeDigest}`, 5, 600),
+          rateBucket(key, 'pairing-global', 'pairing-claim', 'global', 30, 600),
+          rateBucket(key, 'pairing-peer', 'pairing-claim', peer, 5, 600),
+          rateBucket(
+            key,
+            'pairing-peer-claim',
+            'pairing-claim',
+            `${peer}\n${context.claimCodeDigest}`,
+            5,
+            600,
+          ),
         );
       } else if (admission.access === 'signed_invocation') {
         if (!exactKeys(context, ['operationKind'])
@@ -374,6 +392,7 @@ export function createM7TransportAdmissionPolicy({ listener, peerIdentityKey } =
         buckets.push(rateBucket(
           key,
           mutation ? 'invocation-mutation-peer' : 'invocation-read-peer',
+          'invoke',
           peer,
           mutation ? 10 : 60,
           60,
@@ -385,6 +404,7 @@ export function createM7TransportAdmissionPolicy({ listener, peerIdentityKey } =
         buckets.push(rateBucket(
           key,
           admission.access === 'public_health' ? 'health-peer' : 'session-control-peer',
+          admission.access === 'public_health' ? 'remote-health' : 'session-control',
           peer,
           admission.access === 'public_health' ? 60 : 30,
           60,

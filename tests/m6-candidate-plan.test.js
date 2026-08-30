@@ -97,8 +97,9 @@ test('M7 session authority is an explicit required member of the locked plan', (
   assert(validation.errors.includes(`plan:required-program-uncovered:${programId}`));
 });
 
-test('M7 event, notification and transport boundaries are required locked-plan members', () => {
+test('M7 event, notification and request boundaries are required locked-plan members', () => {
   const programIds = [
+    'IS-T1-TESTS-M7-DISCONNECTED-REQUEST-PIPELINE-TEST',
     'IS-T1-TESTS-M7-DURABLE-RATE-LIMITER-TEST',
     'IS-T1-TESTS-M7-NOTIFICATION-CORE-ADAPTERS-TEST',
     'IS-T1-TESTS-M7-RUN-EVENT-CORE-ADAPTER-TEST',

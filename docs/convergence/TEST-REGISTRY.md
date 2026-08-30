@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 499
+- Runnable programs: 500
 - Explicit support-module exclusions: 18
-- Profiles: offline=270, database=69, server=44, model=81, soak=15, manual=20
-- States: ACTIVE=405, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=270, database=70, server=44, model=81, soak=15, manual=20
+- States: ACTIVE=406, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -375,6 +375,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M6-TECHNICAL-EVIDENCE-TEST` | `tests/m6-technical-evidence.test.js` | `C3-012` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-M7-CONVERSATION-CORE-ADAPTERS-TEST` | `tests/m7-conversation-core-adapters.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-CONVERSATION-CORE-ADAPTERS |
 | `IS-T1-TESTS-M7-CORE-COMPOSITION-TEST` | `tests/m7-core-composition.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-CORE-COMPOSITION |
+| `IS-T1-TESTS-M7-DISCONNECTED-REQUEST-PIPELINE-TEST` | `tests/m7-disconnected-request-pipeline.test.js` | `C3-032` | T1 | `database` | 5 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-DISCONNECTED-REQUEST-PIPELINE |
 | `IS-T1-TESTS-M7-DURABLE-RATE-LIMITER-TEST` | `tests/m7-durable-rate-limiter.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-DURABLE-RATE-LIMITER |
 | `IS-T1-TESTS-M7-IN-PROCESS-CAPABILITY-PROVIDER-TEST` | `tests/m7-in-process-capability-provider.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-IN-PROCESS-CAPABILITY-PROVIDER |
 | `IS-T1-TESTS-M7-M2-APPROVAL-CORE-ADAPTERS-TEST` | `tests/m7-m2-approval-core-adapters.test.js` | `C3-032` | T1 | `database` | 5 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-M2-APPROVAL-ADAPTER |

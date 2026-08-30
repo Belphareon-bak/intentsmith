@@ -67,6 +67,7 @@ function requirePlan(plan) {
     if (bucket === null
       || typeof bucket !== 'object'
       || !IDENTIFIER.test(bucket.bucket || '')
+      || !IDENTIFIER.test(bucket.configurationId || '')
       || !SHA256.test(bucket.identityDigest || '')
       || !Number.isSafeInteger(bucket.maximum)
       || bucket.maximum < 1
@@ -108,9 +109,9 @@ function windowFor(nowMs, windowSeconds) {
   };
 }
 
-function rowConfigurationMatches(row, bucket, routeId) {
+function rowConfigurationMatches(row, bucket) {
   return row.bucket === bucket.bucket
-    && row.routeId === routeId
+    && row.routeId === bucket.configurationId
     && row.maximum === bucket.maximum
     && row.windowSeconds === bucket.windowSeconds;
 }
@@ -182,7 +183,6 @@ export function createM7DurableRateLimiter(database, {
           const configurationMatches = rowConfigurationMatches(
             row || {},
             bucket,
-            genuinePlan.routeId,
           );
           if (row && !configurationMatches && nowMs < row.windowEndsAtMs) {
             fail(M7_DURABLE_RATE_LIMIT_ERROR.CONFIG_DRIFT, 'active-window-config-drift', {
@@ -225,7 +225,7 @@ export function createM7DurableRateLimiter(database, {
         for (const observation of observations) {
           const values = [
             observation.bucket.bucket,
-            genuinePlan.routeId,
+            observation.bucket.configurationId,
             observation.bucket.maximum,
             observation.bucket.windowSeconds,
             observation.window.windowNumber,

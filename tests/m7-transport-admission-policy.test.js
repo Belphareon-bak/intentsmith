@@ -38,7 +38,7 @@ function createPolicy(overrides = {}) {
 function request(overrides = {}) {
   const method = overrides.method || 'POST';
   const bodyHeaders = method === 'GET'
-    ? []
+    ? ['X-IntentSmith-Request-Id', 'request:health:transport']
     : ['Content-Type', 'application/json', 'Content-Length', '128'];
   return {
     httpVersion: '1.1',
@@ -115,9 +115,12 @@ test('exact route, method, TLS, HTTP version and Host are required', () => {
   assert.equal(policy.admit(request()).routeId, 'session-open');
   assert.equal(policy.admit(request({
     method: 'GET',
-    rawHeaders: ['Host', 'intentsmith.home.arpa:7443'],
+    rawHeaders: [
+      'Host', 'intentsmith.home.arpa:7443',
+      'X-IntentSmith-Request-Id', 'request:health:transport',
+    ],
     target: '/remote/v1/health',
-  })).routeId, 'remote-health');
+  })).requestId, 'request:health:transport');
   for (const invalid of [
     { socketEncrypted: false },
     { tlsVersion: 'TLSv1.2' },
@@ -133,6 +136,23 @@ test('exact route, method, TLS, HTTP version and Host are required', () => {
     : invalid.rawHeaders
       ? M7_TRANSPORT_ADMISSION_ERROR.HEADER_INVALID
       : M7_TRANSPORT_ADMISSION_ERROR.REQUEST_DENIED);
+});
+
+test('public health owns one exact header request identity and POST routes reject it', () => {
+  const policy = createPolicy();
+  expectCode(() => policy.admit(request({
+    method: 'GET',
+    rawHeaders: ['Host', 'intentsmith.home.arpa:7443'],
+    target: '/remote/v1/health',
+  })), M7_TRANSPORT_ADMISSION_ERROR.HEADER_INVALID);
+  expectCode(() => policy.admit(request({
+    rawHeaders: [
+      'Host', 'intentsmith.home.arpa:7443',
+      'Content-Type', 'application/json',
+      'Content-Length', '128',
+      'X-IntentSmith-Request-Id', 'request:ambiguous',
+    ],
+  })), M7_TRANSPORT_ADMISSION_ERROR.HEADER_INVALID);
 });
 
 test('headers reject credentials, proxy identity, cookies, ambiguity and streaming bodies', () => {
@@ -204,10 +224,12 @@ test('rate-limit plans require post-parse claim digest or operation class', () =
   const pairingPlan = policy.createRateLimitPlan(pairing, {
     claimCodeDigest: `sha256:${'b'.repeat(64)}`,
   });
-  assert.deepEqual(pairingPlan.buckets.map(item => [item.bucket, item.maximum, item.windowSeconds]), [
-    ['pairing-global', 30, 600],
-    ['pairing-peer', 5, 600],
-    ['pairing-peer-claim', 5, 600],
+  assert.deepEqual(pairingPlan.buckets.map(item => [
+    item.bucket, item.configurationId, item.maximum, item.windowSeconds,
+  ]), [
+    ['pairing-global', 'pairing-claim', 30, 600],
+    ['pairing-peer', 'pairing-claim', 5, 600],
+    ['pairing-peer-claim', 'pairing-claim', 5, 600],
   ]);
   assert.equal(JSON.stringify(pairingPlan).includes('b'.repeat(64)), false);
   expectCode(

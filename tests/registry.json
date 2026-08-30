@@ -14121,6 +14121,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-M7-DISCONNECTED-REQUEST-PIPELINE-TEST",
+      "path": "tests/m7-disconnected-request-pipeline.test.js",
+      "argv": [
+        "node",
+        "tests/m7-disconnected-request-pipeline.test.js"
+      ],
+      "capabilityId": "C3-032",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "database",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 5000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M7-DISCONNECTED-REQUEST-PIPELINE",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-M7-DURABLE-RATE-LIMITER-TEST",
       "path": "tests/m7-durable-rate-limiter.test.js",
       "argv": [

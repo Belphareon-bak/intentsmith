@@ -167,6 +167,27 @@ test('read and mutation windows enforce their exact independent limits', () => {
   database.close();
 });
 
+test('all session-control routes share one stable peer bucket without config drift', () => {
+  const { database, limiter, policy } = setup();
+  const paths = [
+    '/remote/v1/session/challenge',
+    '/remote/v1/session/open',
+    '/remote/v1/session/refresh',
+    '/remote/v1/session/revoke',
+  ];
+  for (const target of paths) {
+    const admission = policy.admit(request({ target }));
+    const decision = limiter.consume(policy.createRateLimitPlan(admission, {}));
+    assert.equal(decision.allowed, true);
+    assert.equal(decision.routeId, admission.routeId);
+  }
+  assert.deepEqual(database.prepare(`
+    SELECT route_id AS configurationId, allowed_count AS allowedCount
+    FROM m7_remote_rate_limit_buckets WHERE bucket = 'session-control-peer'
+  `).get(), { configurationId: 'session-control', allowedCount: 4 });
+  database.close();
+});
+
 test('state survives a second repository instance and SQLite connection', () => {
   const path = process.env.INTENTSMITH_TEST_ARTIFACT_DIR
     ? `${process.env.INTENTSMITH_TEST_ARTIFACT_DIR}/m7-rate-limit-restart.sqlite`

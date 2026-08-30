@@ -25,6 +25,7 @@ import {
   M7_SESSION_CHALLENGE_ROUTE,
   createM7SessionAuthority,
   createM7SessionChallengeHandler,
+  isGenuineM7SessionAuthority,
 } from '../src/remote/m7-session-authority.js';
 import {
   createM7RemoteDeviceProofBytes,
@@ -231,6 +232,8 @@ console.log('\n═══ M7 durable session/pairing authority ══════
 await test('migration is exact and the authority remains explicitly inactive', () => {
   const fixture = setup();
   assert.equal(M7_SESSION_AUTHORITY_STAGE, 'IMPLEMENTED_NOT_ACTIVE');
+  assert.equal(isGenuineM7SessionAuthority(fixture.authority), true);
+  assert.equal(isGenuineM7SessionAuthority({ ...fixture.authority }), false);
   assert.deepEqual(M7_SESSION_CHALLENGE_ROUTE, {
     method: 'POST', path: '/remote/v1/session/challenge', stage: 'TRANSPORT_FREE_NOT_REGISTERED',
   });
