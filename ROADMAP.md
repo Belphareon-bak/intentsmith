@@ -68,8 +68,8 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Decision 041 implementace dostala `REVIEW_PASSED` a trust store drží čtyři oddělené veřejné klíče. Úzký review ale našel stale M6 migration oracle a neoffline custody privátních klíčů; oracle remediation je implementovaná, custody zůstává otevřená. Osm rotací, history disposition a podepsaná M5 acceptance neproběhly. |
-| **M6 IntentSmith 1.0 release** | `CURRENT_REGISTRY_RATCHET_REVIEW_PASSED_AT_B23F63D6 / CURRENT_FULL_GATE_GREEN_AT_B23F63D6 / KEY_CUSTODY_CHANGES_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, application upgrade, L0-11 a soak/throughput harness jsou implementované. Disconnected durable-limiter candidate `b23f63d6` prošel s 400 ACTIVE+required a celým profilem 339; aktuální ratchet dostal nezávislé `REVIEW_PASSED`. 24h soak běží nad starším SHA a plný throughput zatím neproběhl. |
-| **M7 Remote Companion** | `SESSION_AUTHORITY_CONDITIONAL_REVIEW_PASSED_AT_12E1ADFC / DURABLE_LIMITER_REVIEW_PASSED_AT_B23F63D6 / O01_O02_O04_EVENTS_NOTIFICATIONS_REVIEW_PENDING / TRANSPORT_ADMISSION_FULL_GATE_GREEN_REVIEW_PENDING / LATEST_FULL_GATE_GREEN_AT_B23F63D6 / NOT_ACCEPTED / PROVIDER_NOT_ACTIVE / LISTENER_ABSENT` | M6 + remote boundary | Admission policy zůstává disconnected a durable limiter spotřebovává genuine HMAC bucket plány atomicky přes SQLite `IMMEDIATE`, přežije restart a fail-closed hlídá clock/config/capacity. Exact candidate `b23f63d6` prošel `339/339` a limiter dostal nezávislé `REVIEW_PASSED`; listener ani session authority limiter nekonzumují. Produkční HMAC key custody, certifikát, listener wiring a device test ještě chybí. |
+| **M6 IntentSmith 1.0 release** | `CURRENT_REGISTRY_RATCHET_REVIEW_PENDING_AT_5C185B0F / CURRENT_FULL_GATE_GREEN_AT_5C185B0F / KEY_CUSTODY_CHANGES_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, úplný ACTIVE+required plán, application upgrade, L0-11 a soak/throughput harness jsou implementované. Aktuální disconnected-pipeline candidate `5c185b0f` má 401 ACTIVE+required a celý profil 340 prošel `340/340`; registry změna čeká na nový review verdict. Předchozí ratchet PASS na `b23f63d6` je historický. 24h soak běží nad starším SHA a plný throughput zatím neproběhl. |
+| **M7 Remote Companion** | `SESSION_AUTHORITY_CONDITIONAL_REVIEW_PASSED_AT_12E1ADFC / DURABLE_LIMITER_REVIEW_PASSED_AT_B23F63D6_HISTORICAL / DISCONNECTED_PIPELINE_FULL_GATE_GREEN_REVIEW_PENDING_AT_5C185B0F / CURRENT_SESSION_ADMISSION_LIMITER_REVIEW_PENDING / NOT_ACCEPTED / PROVIDER_NOT_ACTIVE / LISTENER_ABSENT` | M6 + remote boundary | Jedna odpojená raw-byte pipeline nyní skládá genuine admission, durable limiter, per-invocation Ed25519 session authority a closure-private core provider pro všech sedm rout. Exact candidate `5c185b0f` prošel `340/340`, ale změněné session/admission/limiter bytes i nový registry ratchet čekají na review. Listener, produkční key custody, pairing issuance, Android transport a device test ještě neexistují. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
 Gate 0 se znovu aktivuje pouze v M6 nad zmraženým kandidátem.
@@ -2083,6 +2083,39 @@ candidate `b23f63d6` následně prošel souvislým offline+database gate
 M6 registry ratchet dostaly nezávislé `REVIEW_PASSED`; výsledek je v
 [`2026-08-30-M7-DURABLE-RATE-LIMITER-REVIEW-RESULT.md`](docs/review/2026-08-30-M7-DURABLE-RATE-LIMITER-REVIEW-RESULT.md).
 Produkční klíč, listener ani síť nevznikly.
+
+### Disconnected request-authority pipeline checkpoint 2026-08-30
+
+Nový řez je `IMPLEMENTATION_GREEN / FULL_OFFLINE_DATABASE_GATE_GREEN /
+REVIEW_PENDING / NOT_ACTIVE / LISTENER_ABSENT`. Jedna closure-brandovaná
+pipeline přijímá raw transport metadata a raw body bytes a vynucuje pořadí
+admission → trusted operation classification → durable limiter → canonical
+JSON/fatal UTF-8 → signed session authority → private core provider. Všech
+sedm mobilních rout prochází touto hranicí; žádný produkční modul ji zatím
+nekonzumuje.
+
+Integrační test odkryl a opravil skutečnou chybu: čtyři session-control routy
+sdílely limiter bucket, ale rozdílné request routeId způsobovalo falešný
+`CONFIG_DRIFT`. Genuine buckety nyní nesou stabilní `configurationId`, zatímco
+decision dál eviduje skutečnou routu. Focused pipeline je `7/7`, admission
+`9/9`, limiter `11/11`, session `11/11` a mobilní kontrakty `13/13 + 14/14`.
+Harness vědomě přijal 124. DB-reachable root a negativní bootstrap sentinel
+zůstal účinný.
+
+Registry má 500 programů, 401 `ACTIVE + required`, profil 340
+(`270 offline + 70 database`) a fingerprint `a7bbe1f7…ff5e`. Module graph má
+1 247 hran, 3 cykly a 28 souborů v cyklech. Exact candidate `5c185b0f` prošel
+souvislým gate `340/340 PASS`, exit 0; raw report má SHA-256
+`b6e4f44a…4a08`. Současné session/admission/limiter bytes, pipeline a M6
+registry ratchet jsou předané k nezávislému review v
+[`2026-08-30-M7-DISCONNECTED-REQUEST-PIPELINE-REVIEW-PACKET.md`](docs/review/2026-08-30-M7-DISCONNECTED-REQUEST-PIPELINE-REVIEW-PACKET.md).
+Implementační report je
+[`m7-disconnected-request-pipeline-20260830.md`](docs/execution/runs/m7/m7-disconnected-request-pipeline-20260830.md).
+
+Tento řez neaktivuje doporučené varianty `M7-TLS-01`, `M7-RATE-01`,
+`M7-NET-01` ani `M7-PAIR-01`. In-flight fence je zatím per pipeline instance;
+listener před aktivací musí prokázat singleton composition nebo silnější
+shared authority.
 
 Povinné výsledky:
 
