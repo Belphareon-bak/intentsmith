@@ -11,7 +11,7 @@ Release verdict: `NOT READY`
 |---|---|---|---|
 | `MM0` provenance and branch | `COMPLETE` | `550856e5` | core base selected; prototype integration follows |
 | `MM1` prototype integration | `COMPLETE` | `550856e5..fec916b8` | merge `c1994d9b`; mobile gate 37/37 active |
-| `MM2` RemoteCorePort | `IN PROGRESS` | candidate pending commit | candidate port + 237-route inventory; freeze remains open |
+| `MM2` RemoteCorePort | `IN PROGRESS` | candidate `f4861bca` | candidate port + 237-route inventory; freeze remains open |
 | `MM3` primary mobile surfaces | `NOT STARTED` | — | — |
 | `MM4` governed surfaces | `NOT STARTED` | — | — |
 | `MM5` transport and hardening | `NOT STARTED` | — | — |

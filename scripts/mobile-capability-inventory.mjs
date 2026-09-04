@@ -187,7 +187,9 @@ function markdown(inventory) {
     )),
     '',
   ];
-  return `${lines.join('\n')}\n`;
+  // The final empty item contributes the single POSIX newline. Appending a
+  // second newline would make every generated review artifact fail diff-check.
+  return lines.join('\n');
 }
 
 if (path.resolve(process.argv[1] || '') === fileURLToPath(import.meta.url)) {

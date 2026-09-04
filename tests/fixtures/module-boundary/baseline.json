@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "c1994d9bd66c94925b6b65867623f5459c3a6890",
-  "sourceTree": "4c9d1123e3125a45fadc97cd93973324fbf0871e",
+  "sourceRevision": "f4861bca7d9b0945704c0357facd966fb41fb726",
+  "sourceTree": "a4d7a391f11211e485ddf2a8669fdd26c71e23be",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -630,6 +630,7 @@
     "src/mobile/gateway.js -> src/mobile/operation-journal.js",
     "src/mobile/gateway.js -> src/mobile/protocol.js",
     "src/mobile/gateway.js -> src/mobile/upstream.js",
+    "src/mobile/gateway.js -> src/remote-core/port.js",
     "src/mobile/handlers.js -> src/approvals/authority.js",
     "src/mobile/handlers.js -> src/mobile/pairing.js",
     "src/mobile/handlers.js -> src/mobile/protocol.js",

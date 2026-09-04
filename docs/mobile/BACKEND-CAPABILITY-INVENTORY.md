@@ -287,4 +287,3 @@ WebSocket message kinds require separate contract inventories.
 | `GET /m1/operations/:operationId` | operations | mobile-v1 | — | mobile-mirror-candidate |
 | `POST /m1/operations/:operationId/abandon` | operations | mobile-v1 | — | mobile-mirror-candidate |
 | `POST /m1/pair/claim` | platform | mobile-v1 | — | conditional-or-desktop-only |
-

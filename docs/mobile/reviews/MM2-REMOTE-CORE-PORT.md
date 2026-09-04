@@ -2,6 +2,8 @@
 
 Status: `CANDIDATE DELIVERED; FREEZE OPEN`
 
+Implementation checkpoint: `f4861bca`
+
 This checkpoint delivers the testable MM2 shape without claiming that its
 still-provisional upstream dependencies are frozen.
 
@@ -24,6 +26,8 @@ still-provisional upstream dependencies are frozen.
 | `node tests/mobile-capability-inventory.test.js` | PASS |
 | `node scripts/validate-test-registry.js --write-doc` | PASS — 422 runnable programs |
 | `npm run test:mobile` | PASS — 39/39 active; 1 Chromium suite withheld |
+| `node scripts/module-boundary-ratchet.mjs` | PASS — 1,096 edges; 3 existing cycles |
+| `node tests/module-boundary-ratchet.test.js` | PASS — 13/13 |
 
 The withheld browser accessibility suite is recorded as `BLOCKED`, not counted
 as a pass, because this host has no Chromium runtime.
