@@ -2,16 +2,16 @@
 
 Updated: 2026-09-04
 Branch: `mobile/master-prod-ready`
-Current milestone: `MM1`
+Current milestone: `MM2`
 Release verdict: `NOT READY`
 
 ## Milestone ledger
 
 | Milestone | Status | Review commit/range | Notes |
 |---|---|---|---|
-| `MM0` provenance and branch | `COMPLETE` | MM0 milestone commit | core base selected; prototype integration follows |
-| `MM1` prototype integration | `IN PROGRESS` | merge commit plus stabilization commits | core/mobile histories combined; verification pending |
-| `MM2` RemoteCorePort | `NOT STARTED` | — | — |
+| `MM0` provenance and branch | `COMPLETE` | `550856e5` | core base selected; prototype integration follows |
+| `MM1` prototype integration | `COMPLETE` | `550856e5..fec916b8` | merge `c1994d9b`; mobile gate 37/37 active |
+| `MM2` RemoteCorePort | `IN PROGRESS` | pending | backend capability inventory and versioned port |
 | `MM3` primary mobile surfaces | `NOT STARTED` | — | — |
 | `MM4` governed surfaces | `NOT STARTED` | — | — |
 | `MM5` transport and hardening | `NOT STARTED` | — | — |
