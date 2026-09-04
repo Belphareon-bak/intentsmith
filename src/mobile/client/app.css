@@ -678,6 +678,12 @@ body.has-navbar .composer { margin-bottom: calc(3.625rem + var(--safe-bottom)); 
 .kv-val { font-weight: 550; text-align: right; word-break: break-word; }
 .kv-val.mono { font-family: var(--font-mono); font-size: 0.7812rem; }
 
+.memory-record { padding: 0.8125rem 1rem; border-top: 0.0625rem solid var(--border); }
+.memory-record-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.memory-record-key { min-width: 0; color: var(--text-muted); overflow-wrap: anywhere; }
+.memory-record-value { margin: 0.5rem 0; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
+.memory-record-meta { display: flex; flex-wrap: wrap; gap: 0.375rem 0.75rem; color: var(--text-faint); font-size: 0.7188rem; }
+
 .pill {
   display: inline-flex; align-items: center; gap: 0.3125rem;
   font-size: 0.7188rem; font-weight: 650; padding: 0.1875rem 0.5625rem; border-radius: 1.25rem;

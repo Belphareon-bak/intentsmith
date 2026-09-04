@@ -16,8 +16,8 @@
 // `tests/mobile/<area>/<name>.test.js`, and a nested suite would have been
 // registered, validated, and quietly left out of the gate.  `capabilityId` is
 // the property that actually means "this is mobile" — `C3-031` and `C3-032` —
-// and it does not move when a file does.  Both selectors currently yield the
-// same 23 suites, which is what makes this a safe change rather than a guess.
+// and it does not move when a file does.  The registry remains the only source
+// of the current suite count, so adding a surface cannot leave this gate stale.
 //
 // **Why it validates first.**  Reading `tests/registry.json` raw would let a
 // malformed row through: a typo in `state` would silently become "not ACTIVE",

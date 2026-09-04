@@ -91,6 +91,8 @@ export async function handleCapabilities({ principal, upstream, corePort = null 
           && corePort?.capabilities(principal)?.features?.['projects.read']?.status === 'available',
         settings: principal.scopes.includes('read:settings')
           && corePort?.capabilities(principal)?.features?.['settings.read']?.status === 'available',
+        memory: principal.scopes.includes('read:memory')
+          && corePort?.capabilities(principal)?.features?.['storedInformation.read']?.status === 'available',
         notifications: principal.scopes.includes('read:notifications'),
         approvals: principal.scopes.includes('read:approvals'),
         // Streaming does not exist upstream (PLAN.md §3): onLLMToken has no
@@ -253,6 +255,79 @@ export async function handleSettings({ corePort, principal, query }) {
   return {
     status: 200,
     body: withEnvelope(versioned(outcome.data), { principal }),
+  };
+}
+
+// ── GET /m1/memory ──────────────────────────────────────────────────────────
+
+export async function handleStoredInformation({ corePort, principal, query }) {
+  const allowedParameters = new Set(['kind', 'limit', 'cursor']);
+  const seenParameters = new Set();
+  for (const name of query.keys()) {
+    if (!allowedParameters.has(name)) {
+      return errorResponse(MOBILE_ERRORS.BAD_REQUEST, { reason: 'unknown_parameter', field: name });
+    }
+    if (seenParameters.has(name)) {
+      return errorResponse(MOBILE_ERRORS.BAD_REQUEST, { reason: 'duplicate_parameter', field: name });
+    }
+    seenParameters.add(name);
+  }
+
+  const kind = query.get('kind') || 'all';
+  if (!['all', 'ltm', 'task'].includes(kind)) {
+    return errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+      reason: 'kind_invalid', allowed: ['all', 'ltm', 'task'],
+    });
+  }
+  const rawLimit = query.get('limit');
+  if (rawLimit !== null && (!/^[1-9][0-9]*$/.test(rawLimit) || Number(rawLimit) > MAX_PAGE_SIZE)) {
+    return errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+      reason: 'limit_invalid', allowed: { min: 1, max: MAX_PAGE_SIZE },
+    });
+  }
+  const limit = rawLimit === null ? 50 : Number(rawLimit);
+  const stream = `stored-information:${kind}`;
+  const cursor = decodeCursor(query.get('cursor'), { stream });
+  if (!cursor.valid) {
+    return errorResponse(MOBILE_ERRORS.CURSOR_UNKNOWN, { reason: cursor.reason, restart: true });
+  }
+
+  let outcome;
+  try {
+    outcome = await corePort?.invoke({
+      version: 1,
+      feature: 'storedInformation.read',
+      input: { operation: 'list', kind, limit, offset: cursor.position },
+      principal,
+    }) ?? { ok: false, error: { code: 'capability_unavailable' } };
+  } catch (error) {
+    outcome = { ok: false, error: { code: error?.code || 'provider_failure' } };
+  }
+
+  if (!outcome.ok) {
+    if (outcome.error?.code === 'capability_forbidden') {
+      return errorResponse(MOBILE_ERRORS.SCOPE_REQUIRED, { requiredScope: 'read:memory' });
+    }
+    if (['operation_invalid', 'kind_invalid', 'limit_invalid', 'cursor_invalid'].includes(outcome.error?.code)) {
+      return errorResponse(MOBILE_ERRORS.BAD_REQUEST, { reason: outcome.error.code });
+    }
+    return errorResponse(MOBILE_ERRORS.SERVER_UNAVAILABLE, {
+      reason: outcome.error?.code || 'stored_information_provider_unavailable',
+    });
+  }
+
+  const page = paginate({
+    rows: outcome.data.rows.map(record => versioned(record)),
+    limit,
+    stream,
+    position: cursor.position,
+  });
+  return {
+    status: 200,
+    body: withEnvelope(page.items, {
+      principal,
+      extra: { hasMore: page.hasMore, nextCursor: page.nextCursor, end: page.end, kind },
+    }),
   };
 }
 
@@ -1088,6 +1163,7 @@ export const MOBILE_HANDLERS = Object.freeze({
   'GET /m1/projects': handleProjects,
   'GET /m1/projects/:id': handleProjectDetail,
   'GET /m1/settings': handleSettings,
+  'GET /m1/memory': handleStoredInformation,
   'GET /m1/conversations': handleConversations,
   'GET /m1/conversations/:id': handleConversationDetail,
   'POST /m1/chat': handleChat,

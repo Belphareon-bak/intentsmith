@@ -45,6 +45,9 @@ export const PAIRABLE_SCOPES = Object.freeze([
   // Public projection only; secret-bearing and unowned settings are removed
   // by the core repository before the mobile provider sees them.
   'read:settings',
+  // User-facing LTM and project-scoped task memory. Internal agent memory is
+  // excluded by the repository projection.
+  'read:memory',
 ]);
 
 /**
@@ -96,7 +99,7 @@ export function createPairingCode(rawDb, {
   scopes = [
     'read:capabilities', 'read:chat', 'write:chat',
     'read:notifications', 'write:notifications',
-    'read:projects', 'read:settings',
+    'read:projects', 'read:settings', 'read:memory',
   ],
   label = null,
   ttlMs = DEFAULT_PAIRING_TTL_MS,

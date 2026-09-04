@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "scanner": "scripts/mobile-capability-inventory.mjs",
-  "routeDigest": "078913f1de43e870da735b0e69f1dcc9d46061a40f70b12206aa13e6dbf7a246",
+  "routeDigest": "a29e71745ead40f06a0c761235f9275673d8a792b2d6a5eb607738e6f97d338b",
   "summary": {
-    "routes": 240,
-    "mobileV1": 16,
+    "routes": 241,
+    "mobileV1": 17,
     "legacyCore": 224,
-    "reads": 109,
+    "reads": 110,
     "mutations": 131,
-    "remoteCoreCandidates": 65,
+    "remoteCoreCandidates": 66,
     "domains": {
       "agents": 17,
       "approvals": 4,
@@ -26,7 +26,7 @@
       "skills": 7,
       "specialists": 34,
       "storage": 1,
-      "stored-information": 2,
+      "stored-information": 3,
       "system": 45
     }
   },
@@ -2801,6 +2801,18 @@
       "access": "mutation",
       "exposure": "mobile-v1",
       "remoteCoreFeature": "conversations.send",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/m1/memory",
+      "sources": [
+        "src/mobile/handlers.js"
+      ],
+      "domain": "stored-information",
+      "access": "read",
+      "exposure": "mobile-v1",
+      "remoteCoreFeature": "storedInformation.read",
       "mobilePolicy": "mobile-mirror-candidate"
     },
     {

@@ -176,7 +176,7 @@ await test('production connector exposes implemented reads without speculative w
   });
   const features = port.capabilities({
     scopes: ['read:projects', 'write:projects', 'read:chat', 'write:chat',
-      'read:settings', 'write:settings'],
+      'read:settings', 'write:settings', 'read:memory', 'write:memory'],
   }).features;
   assert.equal(features['projects.read'].status, 'available');
   assert.equal(features['projects.create'].status, 'unavailable');
@@ -188,6 +188,9 @@ await test('production connector exposes implemented reads without speculative w
   assert.equal(features['conversations.archive'].status, 'unavailable');
   assert.equal(features['settings.read'].status, 'available');
   assert.equal(features['settings.write'].status, 'unavailable');
+  assert.equal(features['storedInformation.read'].status, 'available');
+  assert.equal(features['storedInformation.write'].status, 'unavailable');
+  assert.equal(features['storedInformation.delete'].status, 'unavailable');
 });
 
 await test('conversation handler fails closed when its provider is unavailable', async () => {

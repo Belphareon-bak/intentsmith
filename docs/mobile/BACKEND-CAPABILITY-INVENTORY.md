@@ -6,12 +6,12 @@ This inventory is exhaustive for statically declared `/api` and `/m1` route-map
 keys under `src/routes/**` and `src/mobile/handlers.js`. Dynamic behavior and
 WebSocket message kinds require separate contract inventories.
 
-- Routes: 240
-- Existing mobile v1 routes: 16
+- Routes: 241
+- Existing mobile v1 routes: 17
 - Legacy core routes: 224
-- Reads / mutations: 109 / 131
-- Routes mapping to the seven-domain RemoteCorePort candidate: 65
-- Route digest: `078913f1de43e870da735b0e69f1dcc9d46061a40f70b12206aa13e6dbf7a246`
+- Reads / mutations: 110 / 131
+- Routes mapping to the seven-domain RemoteCorePort candidate: 66
+- Route digest: `a29e71745ead40f06a0c761235f9275673d8a792b2d6a5eb607738e6f97d338b`
 
 ## Domain counts
 
@@ -33,7 +33,7 @@ WebSocket message kinds require separate contract inventories.
 | skills | 7 |
 | specialists | 34 |
 | storage | 1 |
-| stored-information | 2 |
+| stored-information | 3 |
 | system | 45 |
 
 ## Interpretation
@@ -281,6 +281,7 @@ WebSocket message kinds require separate contract inventories.
 | `GET /m1/conversations/:id` | conversations | mobile-v1 | conversations.read | mobile-mirror-candidate |
 | `GET /m1/health` | platform | mobile-v1 | — | conditional-or-desktop-only |
 | `POST /m1/chat` | conversations | mobile-v1 | conversations.send | mobile-mirror-candidate |
+| `GET /m1/memory` | stored-information | mobile-v1 | storedInformation.read | mobile-mirror-candidate |
 | `GET /m1/notifications` | notifications | mobile-v1 | notifications.read | mobile-mirror-candidate |
 | `POST /m1/notifications/ack` | notifications | mobile-v1 | notifications.ack | mobile-mirror-candidate |
 | `GET /m1/operations` | operations | mobile-v1 | — | mobile-mirror-candidate |

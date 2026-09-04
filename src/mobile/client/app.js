@@ -244,13 +244,21 @@ const auth = {
 // stale state is how a user approves something that already changed.
 const FRESH_MS = 60_000;
 const STALE_MS = 15 * 60_000;
+const CACHE_WINDOWS = Object.freeze({
+  memory: Object.freeze({ freshMs: 60 * 60_000, staleMs: 7 * 24 * 60 * 60_000 }),
+});
+
+function cacheWindow(name) {
+  return CACHE_WINDOWS[name] || { freshMs: FRESH_MS, staleMs: STALE_MS };
+}
 
 const cache = {
   read(name) {
     const entry = store.get(K.cache + name);
     if (!entry) return { status: 'MISSING', data: null, at: null };
     const age = Date.now() - entry.at;
-    const status = age < FRESH_MS ? 'FRESH' : age < STALE_MS ? 'STALE' : 'EXPIRED';
+    const window = cacheWindow(name);
+    const status = age < window.freshMs ? 'FRESH' : age < window.staleMs ? 'STALE' : 'EXPIRED';
     return { status, data: entry.data, at: entry.at, age };
   },
   write(name, data) { store.set(K.cache + name, { at: Date.now(), data }); },
@@ -767,6 +775,15 @@ function replaceScopes(scopes) {
     state.error.settings = null;
     state.loading.settings = false;
   }
+  if (!next.includes('read:memory')) {
+    memoryGeneration++;
+    delete state.data.memory;
+    state.error.memory = null;
+    state.loading.memory = false;
+    state.cacheAge.memory = null;
+    state.cacheAt.memory = null;
+    store.del(K.cache + 'memory');
+  }
 }
 
 // §8.11 — the server decides the cap; this is the fallback for the moment the
@@ -1131,7 +1148,7 @@ const ROUTE_SECTION = {
 /** The scopes this client version knows how to act on (§3.4, step 2). */
 const SUPPORTED_SCOPES = new Set([
   'read:chat', 'write:chat', 'read:notifications',
-  'read:approvals', 'write:approvals', 'read:projects', 'read:settings',
+  'read:approvals', 'write:approvals', 'read:projects', 'read:settings', 'read:memory',
 ]);
 
 /**
@@ -2021,6 +2038,51 @@ function serverSettingsCard() {
   </div>`;
 }
 
+function storedInformationValue(value) {
+  if (typeof value === 'string') return value;
+  try { return JSON.stringify(value); } catch { return 'nečitelná hodnota'; }
+}
+
+function storedInformationCard() {
+  const records = state.data.memory;
+  let content;
+  if (!auth.has('read:memory')) {
+    content = '<div class="kv-note">Zařízení nemá scope <span class="mono">read:memory</span>. Uchovávané informace proto zůstávají skryté.</div>';
+  } else if (state.loading.memory && !records) {
+    content = '<div class="skel skel-line"></div><div class="skel skel-line short"></div>';
+  } else if (state.error.memory && !records) {
+    content = errorPanel(state.error.memory, 'load-memory');
+  } else if (records && records.length === 0) {
+    content = '<div class="kv-note">Backend potvrdil, že zatím není nic uloženo.</div>';
+  } else if (records) {
+    content = records.map(record => `<article class="memory-record">
+      <div class="memory-record-head">
+        <span class="memory-record-key mono">${esc(record.key)}</span>
+        <span class="pill" data-tone="muted">${record.kind === 'task' ? 'úkolová' : 'dlouhodobá'}</span>
+      </div>
+      <p class="memory-record-value">${esc(storedInformationValue(record.value))}</p>
+      <div class="memory-record-meta">
+        <span>${esc(record.category)}</span>
+        <span>Síla ${record.strength === null ? '—' : Math.round(record.strength * 100) + '%'}</span>
+        ${record.projectId ? `<span>Projekt ${esc(record.projectId)}</span>` : ''}
+      </div>
+    </article>`).join('');
+  } else {
+    content = '<div class="skel skel-line"></div><div class="skel skel-line short"></div>';
+  }
+
+  const cacheNote = records && state.cacheAge.memory === 'STALE'
+    ? '<div class="kv-note" data-tone="warn">Zobrazuje se starší uložená kopie. Obnoví se, až bude backend dostupný.</div>'
+    : '';
+
+  return `<div class="card">
+    <div class="card-head"><h3 class="card-title">Paměť</h3>
+      <span class="pill" data-tone="${auth.has('read:memory') ? 'info' : 'muted'}">${auth.has('read:memory') ? 'jen ke čtení' : icon('lock') + 'zamčeno'}</span></div>
+    ${cacheNote}
+    ${content}
+  </div>`;
+}
+
 function viewDiagnostics() {
   const health = state.data.health;
   const caps = state.data.capabilities;
@@ -2047,14 +2109,7 @@ function viewDiagnostics() {
 
     ${serverSettingsCard()}
 
-    <div class="card" data-locked="true">
-      <div class="card-head"><h3 class="card-title">Paměť</h3>
-        <span class="pill" data-tone="muted">${icon('lock')}Připravujeme</span></div>
-      <p class="card-note">Náhled na to, co si o tobě IntentSmith pamatuje, a ruční
-      poznámka. Zatím se nestaví: obsah i rozsah určuje kontraktní kolo
-      <span class="mono">DR-008</span>, doména 3 (Fáze 4, <span class="mono">MR-17</span>,
-      <span class="mono">MR-18</span>).</p>
-    </div>
+    ${storedInformationCard()}
 
     <div class="card">
       <div class="card-head"><h3 class="card-title">Spojení</h3></div>
@@ -4022,6 +4077,7 @@ function openApproval(approvalId) {
 }
 
 let settingsGeneration = 0;
+let memoryGeneration = 0;
 
 async function loadSettings() {
   if (!auth.has('read:settings')) return;
@@ -4052,6 +4108,46 @@ async function loadSettings() {
   }
 }
 
+async function loadStoredInformation() {
+  if (!auth.has('read:memory')) return;
+  const generation = ++memoryGeneration;
+  const cached = cache.read('memory');
+  if (cached.status === 'EXPIRED') {
+    store.del(K.cache + 'memory');
+    state.data.memory = undefined;
+    state.cacheAge.memory = null;
+    state.cacheAt.memory = null;
+  } else {
+    state.data.memory = cached.data || undefined;
+    state.cacheAge.memory = cached.data ? cached.status : null;
+    state.cacheAt.memory = cached.data ? cached.at : null;
+  }
+  state.loading.memory = true;
+  state.error.memory = null;
+  render();
+
+  try {
+    const response = await api('/memory?kind=all&limit=50');
+    if (generation !== memoryGeneration) return;
+    state.data.memory = response.data;
+    state.cacheAge.memory = 'FRESH';
+    state.cacheAt.memory = Date.now();
+    cache.write('memory', response.data);
+    if (response.scopes) replaceScopes(response.scopes);
+    setConn('ok');
+  } catch (error) {
+    if (generation !== memoryGeneration) return;
+    if (error.kind === 'auth') return handleAuthFailure(error);
+    state.error.memory = error;
+    setConn(error.kind === 'offline' ? 'offline' : error.kind === 'server' ? 'server' : state.conn);
+  } finally {
+    if (generation === memoryGeneration) {
+      state.loading.memory = false;
+      render();
+    }
+  }
+}
+
 async function loadDiagnostics() {
   try {
     const health = await api('/health');
@@ -4075,6 +4171,7 @@ async function loadDiagnostics() {
     if (error.kind === 'auth') return handleAuthFailure(error);
   }
   if (auth.has('read:settings')) await loadSettings();
+  if (auth.has('read:memory')) await loadStoredInformation();
   render();
 }
 
@@ -4711,6 +4808,7 @@ document.addEventListener('click', event => {
     'load-projects': () => loadProjects(),
     'load-project': () => loadProject(),
     'load-settings': () => loadSettings(),
+    'load-memory': () => loadStoredInformation(),
     'load-thread': () => loadThread(state.conversationId),
     'load-older': () => loadOlderMessages(),
     // MD-15 — a local preference, written the moment it is changed.  There is
@@ -4992,6 +5090,7 @@ export const __ms20 = {
   viewOverview, navItems, currentSection, sectionRoute, unknownScopes, NAV_ITEMS, ROUTE_SECTION,
   viewProjects, viewProject, loadProjects, loadProject, openProject,
   serverSettingsCard, publicSettingRows, loadSettings,
+  storedInformationCard, storedInformationValue, loadStoredInformation,
   renderNavBar, navCount, newChat, layoutNavRing, normaliseNavRing, centreNavOnSelection,
   navRingIsTurningItself, NAV_TURN_CEILING_MS, NAV_TURN_QUIET_MS,
   scheduleNavRetraction, whenNavTurnEnds, NAV_TURN_MS,

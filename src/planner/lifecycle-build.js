@@ -113,6 +113,10 @@ async function ensureTaskMemory() {
   if (_taskMemLoaded) return _taskMemory;
   try {
     const mod = await import('../memory/task-memory.js');
+    // The singleton used by the execution loop was previously never wired to
+    // the production database, so recordFix/queryRelevant silently no-op'd.
+    // Initialize it at the lazy composition seam that owns its lifecycle.
+    if (!mod.taskMemory.db) mod.taskMemory.init(_rawDb);
     _taskMemory = {
       queryRelevant: mod.taskMemory.queryRelevant.bind(mod.taskMemory),
       formatTaskMemory: mod.formatTaskMemory,
@@ -2085,6 +2089,7 @@ export const _testInternals = {
   matchesScopePattern,
   runPytestIfAvailable: _runPytestIfAvailable,
   canPassMilestone,
+  ensureTaskMemory,
 };
 
 export default {

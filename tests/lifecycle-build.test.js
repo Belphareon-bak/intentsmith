@@ -27,6 +27,7 @@ import {
   projects,
   db,
 } from '../src/db/database.js';
+import { taskMemory } from '../src/memory/task-memory.js';
 
 const {
   mergeCheckpointFindings,
@@ -35,6 +36,7 @@ const {
   matchesScopePattern,
   runPytestIfAvailable,
   canPassMilestone,
+  ensureTaskMemory,
 } = _testInternals;
 
 let passed = 0;
@@ -55,6 +57,13 @@ function fail(name, msg) {
 function assert(condition, name, detail = '') {
   if (condition) pass(name);
   else fail(name, detail || 'assertion failed');
+}
+
+{
+  taskMemory.db = null;
+  const wiredTaskMemory = await ensureTaskMemory();
+  assert(taskMemory.db === db, 'task memory: production lifecycle wires the authoritative database');
+  assert(typeof wiredTaskMemory?.recordFix === 'function', 'task memory: execution loop receives a live writer');
 }
 
 async function assertThrowsAsync(fn, name) {
