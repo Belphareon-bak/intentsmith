@@ -1,6 +1,7 @@
 # MM4-A review — public settings read projection
 
 Status: `IMPLEMENTED AND TESTED`
+Checkpoint commit: `87a51930`
 
 This checkpoint replaces the backend-settings placeholder with a real,
 scope-gated, read-only projection. It uses the core's existing revisioned user
@@ -35,6 +36,8 @@ escapes keys and values and exposes no write control; `settings.write` remains
 | `node tests/mobile-settings-ui.test.js` | PASS — 7/7 |
 | `node tests/remote-core-port-contract.test.js` | PASS — 12/12 |
 | `npm run test:mobile` | PASS — 43/43 active; 1 Chromium suite withheld |
+| `node scripts/module-boundary-ratchet.mjs` | PASS — 1,100 edges; 3 existing cycles |
+| `node tests/module-boundary-ratchet.test.js` | PASS — 13/13 |
 
 ## Compatibility boundary
 
