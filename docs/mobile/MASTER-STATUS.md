@@ -11,8 +11,8 @@ Release verdict: `NOT READY`
 |---|---|---|---|
 | `MM0` provenance and branch | `COMPLETE` | `550856e5` | core base selected; prototype integration follows |
 | `MM1` prototype integration | `COMPLETE` | `550856e5..fec916b8` | merge `c1994d9b`; mobile gate 37/37 active |
-| `MM2` RemoteCorePort | `IN PROGRESS` | candidate `f4861bca` | candidate port + 237-route inventory; freeze remains open |
-| `MM3` primary mobile surfaces | `IN PROGRESS` | projects `1a7be999` | project list/detail implemented; search/runs open |
+| `MM2` RemoteCorePort | `IN PROGRESS` | candidate `f4861bca` | 3 production providers; freeze remains open |
+| `MM3` primary mobile surfaces | `IN PROGRESS` | projects `1a7be999`; conversation port pending commit | project list/detail and conversation reads implemented; search/runs open |
 | `MM4` governed surfaces | `NOT STARTED` | — | — |
 | `MM5` transport and hardening | `NOT STARTED` | — | — |
 | `MM6` Android release | `NOT STARTED` | — | — |
@@ -29,7 +29,7 @@ Release verdict: `NOT READY`
 ## Latest verification
 
 - Mobile gate: `PASS` — 41/41 active suites, 1 prerequisite-blocked suite.
-- RemoteCorePort candidate: 11/11 contract checks.
+- RemoteCorePort candidate: 12/12 contract checks.
 - Backend inventory: 239 unique static routes; digest
   `49a7773258e798478d5108f59b86d34bcd1598adcc0684060589b33982cc7274`.
 - Test registry: 424 runnable programs; digest

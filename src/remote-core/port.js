@@ -7,6 +7,7 @@ import {
   negotiateRemoteCoreVersion,
 } from '../../contracts/remote-core/index.js';
 import { isJsonValue, isPlainRecord } from '../../contracts/m1/shared.js';
+import { createConversationsReadProvider } from './providers/conversations.js';
 import { createProjectsReadProvider } from './providers/projects.js';
 
 export class RemoteCorePortError extends Error {
@@ -169,6 +170,7 @@ export function createMobileRemoteCorePort({ rawDb, upstream } = {}) {
   return new RemoteCorePort({
     providers: {
       'projects.read': createProjectsReadProvider(rawDb),
+      'conversations.read': createConversationsReadProvider(rawDb),
       'conversations.send': upstreamChatProvider(upstream),
     },
   });

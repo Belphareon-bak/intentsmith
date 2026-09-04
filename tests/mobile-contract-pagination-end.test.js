@@ -92,6 +92,8 @@ seedConversation('conv-long', 250);
 seedConversation('conv-exact', 200);
 seedConversation('conv-empty', 0);
 seedConversation('conv-single', 1);
+seedConversation('conv-deleted', 1);
+db.prepare("UPDATE conversations SET state = 'deleted' WHERE id = ?").run('conv-deleted');
 
 const gateway = await startMobileGateway({
   rawDb: db,
@@ -279,6 +281,16 @@ try {
     assert.equal(total, 4, 'all four seeded conversations must be reachable');
     assert.equal(last.end, true);
     assert.equal(last.nextCursor, null);
+  });
+
+  await test('a deleted conversation is absent from both list and detail', async () => {
+    const list = await get('/m1/conversations?limit=100');
+    assert.equal(list.status, 200);
+    assert.ok(!list.body.data.some(item => item.id === 'conv-deleted'));
+
+    const detail = await get('/m1/conversations/conv-deleted?anchor=latest');
+    assert.equal(detail.status, 404);
+    assert.equal(detail.body.error.code, 'not_found');
   });
 
   // ── Why the client cannot keep SS-03 today ────────────────────────────────

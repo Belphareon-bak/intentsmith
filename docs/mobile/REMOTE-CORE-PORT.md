@@ -54,13 +54,15 @@ scope, malformed input and malformed provider output.
 
 ## Current production wiring
 
-The mobile gateway constructs the port itself and routes message submission
+The mobile gateway constructs the port itself and routes conversation list,
+detail and history reads through `conversations.read`, and message submission
 through `conversations.send`. The adapter preserves the existing distinction
 between a decided rejection and an ambiguous upstream outcome, so retry and
 operation-journal guarantees remain intact.
 
-`projects.read` and `conversations.send` now have production providers. The
-other seventeen feature identifiers currently report `unavailable`. Their
+`projects.read`, `conversations.read` and `conversations.send` now have
+production providers. The other sixteen feature identifiers currently report
+`unavailable`. Their
 providers are added alongside the corresponding MM3/MM4 user surfaces. The
 older `/m1` handlers remain on an exact allow-list during this transition; no
 `/api/*` proxy or generic port operation exists.

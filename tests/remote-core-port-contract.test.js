@@ -13,7 +13,7 @@ import {
   createMobileRemoteCorePort,
   createUpstreamRemoteCorePort,
 } from '../src/remote-core/port.js';
-import { handleCapabilities } from '../src/mobile/handlers.js';
+import { handleCapabilities, handleConversations } from '../src/mobile/handlers.js';
 
 let passed = 0;
 let failed = 0;
@@ -160,7 +160,7 @@ await test('production gateway routes chat through the narrow port', () => {
   assert.doesNotMatch(gateway, /['"](?:GET|POST|PUT|PATCH|DELETE)\s+\/m1\/\*['"]/i);
 });
 
-await test('production connector exposes project reads without project writes', () => {
+await test('production connector exposes implemented reads without speculative writes', () => {
   const rawDb = {
     prepare(sql) {
       return {
@@ -173,11 +173,28 @@ await test('production connector exposes project reads without project writes', 
     rawDb,
     upstream: { postChat: async () => ({ ok: true, data: {} }) },
   });
-  const features = port.capabilities({ scopes: ['read:projects', 'write:projects'] }).features;
+  const features = port.capabilities({
+    scopes: ['read:projects', 'write:projects', 'read:chat', 'write:chat'],
+  }).features;
   assert.equal(features['projects.read'].status, 'available');
   assert.equal(features['projects.create'].status, 'unavailable');
   assert.equal(features['projects.update'].status, 'unavailable');
   assert.equal(features['projects.archive'].status, 'unavailable');
+  assert.equal(features['conversations.read'].status, 'available');
+  assert.equal(features['conversations.create'].status, 'unavailable');
+  assert.equal(features['conversations.update'].status, 'unavailable');
+  assert.equal(features['conversations.archive'].status, 'unavailable');
+});
+
+await test('conversation handler fails closed when its provider is unavailable', async () => {
+  const response = await handleConversations({
+    corePort: new RemoteCorePort(),
+    principal: { deviceId: 'd1', scopes: ['read:chat'] },
+    query: new URLSearchParams(),
+  });
+  assert.equal(response.status, 503);
+  assert.equal(response.body.error.code, 'server_unavailable');
+  assert.equal(response.body.error.reason, 'capability_unavailable');
 });
 
 console.log(`\nRemoteCorePort contract: ${passed} passed, ${failed} failed`);

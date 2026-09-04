@@ -8,9 +8,9 @@
 //
 // Split of responsibility with the legacy server (PLAN.md §2 diagram):
 //
-//   reads  — served from the shared SQLite directly.  The gateway and the
-//            server are separate processes over one WAL database, so a read
-//            needs no hop and no upstream dependency.
+//   reads  — requested through the core-owned RemoteCorePort. Its production
+//            providers may project the shared WAL database, but the gateway
+//            handler no longer owns those repository queries.
 //   chat   — delegated upstream over loopback.  CRE, quality gates, and the
 //            LLM live in the server process and stay its responsibility; the
 //            gateway must not become a second place where chat is decided
@@ -85,7 +85,8 @@ export async function handleCapabilities({ principal, upstream, corePort = null 
       scopes: principal.scopes,
       features: {
         chat: principal.scopes.includes('write:chat') && upstreamState.reachable,
-        conversations: principal.scopes.includes('read:chat'),
+        conversations: principal.scopes.includes('read:chat')
+          && corePort?.capabilities(principal)?.features?.['conversations.read']?.status === 'available',
         projects: principal.scopes.includes('read:projects')
           && corePort?.capabilities(principal)?.features?.['projects.read']?.status === 'available',
         notifications: principal.scopes.includes('read:notifications'),
@@ -214,7 +215,7 @@ function projectReadError(error) {
 
 // ── GET /m1/conversations ────────────────────────────────────────────────────
 
-export async function handleConversations({ rawDb, principal, query }) {
+export async function handleConversations({ corePort, principal, query }) {
   const limit = clampLimit(query.get('limit'));
   const cursor = decodeCursor(query.get('cursor'), { stream: 'conversations' });
   if (!cursor.valid) {
@@ -226,23 +227,15 @@ export async function handleConversations({ rawDb, principal, query }) {
 
   // One row beyond the page so `hasMore` is observed rather than inferred
   // from a full page (§8.6).
-  const rows = rawDb.prepare(`
-    SELECT id, title, message_count, state, created_at, updated_at
-      FROM conversations
-     WHERE state != 'deleted'
-     ORDER BY datetime(updated_at) DESC, id DESC
-     LIMIT ? OFFSET ?
-  `).all(limit + 1, cursor.position);
+  const outcome = await invokeConversationRead(corePort, {
+    operation: 'list',
+    limit,
+    position: cursor.position,
+  }, principal);
+  if (!outcome.ok) return conversationReadError(outcome.error);
 
   const page = paginate({
-    rows: rows.map(row => versioned({
-      id: row.id,
-      title: row.title || 'Nová konverzace',
-      messageCount: row.message_count || 0,
-      state: row.state || 'active',
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    })),
+    rows: outcome.data.rows.map(conversation => versioned(conversation)),
     limit,
     stream: 'conversations',
     position: cursor.position,
@@ -259,13 +252,15 @@ export async function handleConversations({ rawDb, principal, query }) {
 
 // ── GET /m1/conversations/:id ────────────────────────────────────────────────
 
-export async function handleConversationDetail({ rawDb, principal, params, query }) {
-  const conversation = rawDb.prepare(`
-    SELECT id, title, message_count, state, created_at, updated_at
-      FROM conversations WHERE id = ?
-  `).get(params.id);
-
-  if (!conversation) return errorResponse(MOBILE_ERRORS.NOT_FOUND, { resource: 'conversation' });
+export async function handleConversationDetail({ corePort, principal, params, query }) {
+  // Preserve the shipped repair order: a missing/deleted conversation is a
+  // 404 even when the supplied cursor is also broken. The client cannot
+  // restart a stream whose resource no longer exists.
+  const present = await invokeConversationRead(corePort, {
+    operation: 'exists',
+    id: params.id,
+  }, principal);
+  if (!present.ok) return conversationReadError(present.error);
 
   const limit = clampLimit(query.get('limit'), 50);
   const stream = `messages:${params.id}`;
@@ -295,40 +290,31 @@ export async function handleConversationDetail({ rawDb, principal, params, query
     return errorResponse(MOBILE_ERRORS.CURSOR_UNKNOWN, { reason: cursor.reason, restart: true });
   }
 
-  const toMessage = row => versioned({
-    id: String(row.id),
-    role: row.role,
-    content: row.content,
-    createdAt: row.created_at,
-    metadata: safeParse(row.metadata),
-  });
-  const selectMessages = rawDb.prepare(`
-    SELECT id, role, content, created_at, metadata
-      FROM messages
-     WHERE conversation_id = ?
-     ORDER BY id ASC
-     LIMIT ? OFFSET ?
-  `);
-
   const backward = anchor === 'latest' || cursor.direction === CURSOR_BACKWARD;
+  const outcome = await invokeConversationRead(corePort, {
+    operation: 'detail',
+    id: params.id,
+    limit,
+    position: cursor.position,
+    direction: backward ? CURSOR_BACKWARD : 'forward',
+    anchorLatest: anchor === 'latest',
+  }, principal);
+  if (!outcome.ok) return conversationReadError(outcome.error);
+
+  const toMessage = message => versioned({
+    ...message,
+    metadata: safeParse(message.metadata),
+  });
   let page;
   if (backward) {
-    // `until` is the exclusive upper offset of the page being built: the end of
-    // the stream when the walk opens, and the start of the previously served
-    // page on every step after that.
-    const total = rawDb.prepare(`
-      SELECT COUNT(*) AS total FROM messages WHERE conversation_id = ?
-    `).get(params.id).total;
-    const until = anchor === 'latest' ? total : Math.min(cursor.position, total);
-    const start = Math.max(0, until - limit);
-    const rows = until > start ? selectMessages.all(params.id, until - start, start) : [];
-    page = paginateBackward({ rows: rows.map(toMessage), stream, start });
+    page = paginateBackward({
+      rows: outcome.data.rows.map(toMessage),
+      stream,
+      start: outcome.data.start,
+    });
   } else {
-    // One row beyond the page so `hasMore` is observed rather than inferred
-    // from a full page (§8.6).
-    const rows = selectMessages.all(params.id, limit + 1, cursor.position);
     page = paginate({
-      rows: rows.map(toMessage),
+      rows: outcome.data.rows.map(toMessage),
       limit,
       stream,
       position: cursor.position,
@@ -338,14 +324,7 @@ export async function handleConversationDetail({ rawDb, principal, params, query
   return {
     status: 200,
     body: withEnvelope({
-      conversation: versioned({
-        id: conversation.id,
-        title: conversation.title || 'Nová konverzace',
-        messageCount: conversation.message_count || 0,
-        state: conversation.state || 'active',
-        createdAt: conversation.created_at,
-        updatedAt: conversation.updated_at,
-      }),
+      conversation: versioned(outcome.data.conversation),
       messages: page.items,
     }, {
       principal,
@@ -359,6 +338,38 @@ export async function handleConversationDetail({ rawDb, principal, params, query
       },
     }),
   };
+}
+
+async function invokeConversationRead(corePort, input, principal) {
+  if (!corePort || typeof corePort.invoke !== 'function') {
+    return { ok: false, error: { code: 'capability_unavailable' } };
+  }
+  try {
+    return await corePort.invoke({
+      version: 1,
+      feature: 'conversations.read',
+      input,
+      principal,
+    });
+  } catch (error) {
+    return { ok: false, error: { code: error?.code || 'provider_failure' } };
+  }
+}
+
+function conversationReadError(error) {
+  if (error?.code === 'not_found') {
+    return errorResponse(MOBILE_ERRORS.NOT_FOUND, { resource: 'conversation' });
+  }
+  if (error?.code === 'conversation_id_invalid' || error?.code === 'page_invalid'
+      || error?.code === 'operation_invalid') {
+    return errorResponse(MOBILE_ERRORS.BAD_REQUEST, { reason: error.code });
+  }
+  if (error?.code === 'capability_forbidden') {
+    return errorResponse(MOBILE_ERRORS.SCOPE_REQUIRED, { requiredScope: 'read:chat' });
+  }
+  return errorResponse(MOBILE_ERRORS.SERVER_UNAVAILABLE, {
+    reason: error?.code || 'conversations_provider_unavailable',
+  });
 }
 
 // ── POST /m1/chat ────────────────────────────────────────────────────────────
