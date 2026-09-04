@@ -9,6 +9,7 @@ import {
 import { isJsonValue, isPlainRecord } from '../../contracts/m1/shared.js';
 import { createConversationsReadProvider } from './providers/conversations.js';
 import { createProjectsReadProvider } from './providers/projects.js';
+import { createSettingsReadProvider } from './providers/settings.js';
 
 export class RemoteCorePortError extends Error {
   constructor(code, details = {}) {
@@ -172,6 +173,7 @@ export function createMobileRemoteCorePort({ rawDb, upstream } = {}) {
       'projects.read': createProjectsReadProvider(rawDb),
       'conversations.read': createConversationsReadProvider(rawDb),
       'conversations.send': upstreamChatProvider(upstream),
+      'settings.read': createSettingsReadProvider(rawDb),
     },
   });
 }

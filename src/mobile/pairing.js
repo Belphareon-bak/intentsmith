@@ -42,6 +42,9 @@ export const PAIRABLE_SCOPES = Object.freeze([
   // Read-only project projection. This never grants project mutation,
   // workspace/file access, or a route on the legacy listener.
   'read:projects',
+  // Public projection only; secret-bearing and unowned settings are removed
+  // by the core repository before the mobile provider sees them.
+  'read:settings',
 ]);
 
 /**
@@ -93,7 +96,7 @@ export function createPairingCode(rawDb, {
   scopes = [
     'read:capabilities', 'read:chat', 'write:chat',
     'read:notifications', 'write:notifications',
-    'read:projects',
+    'read:projects', 'read:settings',
   ],
   label = null,
   ttlMs = DEFAULT_PAIRING_TTL_MS,

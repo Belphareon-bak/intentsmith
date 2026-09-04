@@ -89,6 +89,8 @@ export async function handleCapabilities({ principal, upstream, corePort = null 
           && corePort?.capabilities(principal)?.features?.['conversations.read']?.status === 'available',
         projects: principal.scopes.includes('read:projects')
           && corePort?.capabilities(principal)?.features?.['projects.read']?.status === 'available',
+        settings: principal.scopes.includes('read:settings')
+          && corePort?.capabilities(principal)?.features?.['settings.read']?.status === 'available',
         notifications: principal.scopes.includes('read:notifications'),
         approvals: principal.scopes.includes('read:approvals'),
         // Streaming does not exist upstream (PLAN.md §3): onLLMToken has no
@@ -211,6 +213,47 @@ function projectReadError(error) {
   return errorResponse(MOBILE_ERRORS.SERVER_UNAVAILABLE, {
     reason: error?.code || 'projects_provider_unavailable',
   });
+}
+
+// ── GET /m1/settings ────────────────────────────────────────────────────────
+
+export async function handleSettings({ corePort, principal, query }) {
+  const firstParameter = query.keys().next();
+  if (!firstParameter.done) {
+    return errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+      reason: 'unknown_parameter',
+      field: firstParameter.value,
+    });
+  }
+
+  let outcome;
+  try {
+    outcome = await corePort?.invoke({
+      version: 1,
+      feature: 'settings.read',
+      input: { operation: 'read' },
+      principal,
+    }) ?? { ok: false, error: { code: 'capability_unavailable' } };
+  } catch (error) {
+    outcome = { ok: false, error: { code: error?.code || 'provider_failure' } };
+  }
+
+  if (!outcome.ok) {
+    if (outcome.error?.code === 'capability_forbidden') {
+      return errorResponse(MOBILE_ERRORS.SCOPE_REQUIRED, { requiredScope: 'read:settings' });
+    }
+    if (outcome.error?.code === 'operation_invalid') {
+      return errorResponse(MOBILE_ERRORS.BAD_REQUEST, { reason: outcome.error.code });
+    }
+    return errorResponse(MOBILE_ERRORS.SERVER_UNAVAILABLE, {
+      reason: outcome.error?.code || 'settings_provider_unavailable',
+    });
+  }
+
+  return {
+    status: 200,
+    body: withEnvelope(versioned(outcome.data), { principal }),
+  };
 }
 
 // ── GET /m1/conversations ────────────────────────────────────────────────────
@@ -1044,6 +1087,7 @@ export const MOBILE_HANDLERS = Object.freeze({
   'GET /m1/capabilities': handleCapabilities,
   'GET /m1/projects': handleProjects,
   'GET /m1/projects/:id': handleProjectDetail,
+  'GET /m1/settings': handleSettings,
   'GET /m1/conversations': handleConversations,
   'GET /m1/conversations/:id': handleConversationDetail,
   'POST /m1/chat': handleChat,

@@ -162,6 +162,7 @@ await test('production gateway routes chat through the narrow port', () => {
 
 await test('production connector exposes implemented reads without speculative writes', () => {
   const rawDb = {
+    transaction(fn) { return fn; },
     prepare(sql) {
       return {
         all: () => sql.includes('FROM projects p') ? [] : [],
@@ -174,7 +175,8 @@ await test('production connector exposes implemented reads without speculative w
     upstream: { postChat: async () => ({ ok: true, data: {} }) },
   });
   const features = port.capabilities({
-    scopes: ['read:projects', 'write:projects', 'read:chat', 'write:chat'],
+    scopes: ['read:projects', 'write:projects', 'read:chat', 'write:chat',
+      'read:settings', 'write:settings'],
   }).features;
   assert.equal(features['projects.read'].status, 'available');
   assert.equal(features['projects.create'].status, 'unavailable');
@@ -184,6 +186,8 @@ await test('production connector exposes implemented reads without speculative w
   assert.equal(features['conversations.create'].status, 'unavailable');
   assert.equal(features['conversations.update'].status, 'unavailable');
   assert.equal(features['conversations.archive'].status, 'unavailable');
+  assert.equal(features['settings.read'].status, 'available');
+  assert.equal(features['settings.write'].status, 'unavailable');
 });
 
 await test('conversation handler fails closed when its provider is unavailable', async () => {

@@ -761,6 +761,12 @@ function replaceScopes(scopes) {
     store.delPrefix(K.cache + 'projects.');
     store.delPrefix(K.cache + 'project.');
   }
+  if (!next.includes('read:settings')) {
+    settingsGeneration++;
+    delete state.data.settings;
+    state.error.settings = null;
+    state.loading.settings = false;
+  }
 }
 
 // §8.11 — the server decides the cap; this is the fallback for the moment the
@@ -1125,7 +1131,7 @@ const ROUTE_SECTION = {
 /** The scopes this client version knows how to act on (§3.4, step 2). */
 const SUPPORTED_SCOPES = new Set([
   'read:chat', 'write:chat', 'read:notifications',
-  'read:approvals', 'write:approvals', 'read:projects',
+  'read:approvals', 'write:approvals', 'read:projects', 'read:settings',
 ]);
 
 /**
@@ -1963,6 +1969,58 @@ async function clearAppPin() {
   render();
 }
 
+function publicSettingRows(document) {
+  if (!document || typeof document !== 'object' || Array.isArray(document)) return [];
+  const rows = [];
+  for (const [key, value] of Object.entries(document)) {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      for (const [child, childValue] of Object.entries(value)) {
+        rows.push({ key: `/${key}/${child}`, value: childValue });
+      }
+    } else {
+      rows.push({ key, value });
+    }
+  }
+  return rows.sort((left, right) => left.key.localeCompare(right.key, 'cs'));
+}
+
+function publicSettingValue(value) {
+  if (value === true) return 'zapnuto';
+  if (value === false) return 'vypnuto';
+  if (value === null) return 'nenastaveno';
+  if (typeof value === 'string') return value || 'prázdná hodnota';
+  try { return JSON.stringify(value); } catch { return 'nečitelná hodnota'; }
+}
+
+function serverSettingsCard() {
+  const data = state.data.settings;
+  const rows = publicSettingRows(data?.settings);
+  let content;
+  if (!auth.has('read:settings')) {
+    content = '<div class="kv-note">Zařízení nemá scope <span class="mono">read:settings</span>. Veřejné nastavení backendu proto zůstává skryté.</div>';
+  } else if (state.loading.settings && !data) {
+    content = '<div class="skel skel-line"></div><div class="skel skel-line short"></div>';
+  } else if (state.error.settings && !data) {
+    content = errorPanel(state.error.settings, 'load-settings');
+  } else if (data && rows.length === 0) {
+    content = '<div class="kv-note">Backend potvrdil prázdné veřejné nastavení.</div>';
+  } else if (data) {
+    content = rows.map(row => `<div class="kv">
+      <span class="kv-key mono">${esc(row.key)}</span>
+      <span class="kv-val">${esc(publicSettingValue(row.value))}</span>
+    </div>`).join('');
+  } else {
+    content = '<div class="skel skel-line"></div><div class="skel skel-line short"></div>';
+  }
+
+  return `<div class="card">
+    <div class="card-head"><h3 class="card-title">Nastavení backendu</h3>
+      <span class="pill" data-tone="${auth.has('read:settings') ? 'info' : 'muted'}">${auth.has('read:settings') ? 'jen ke čtení' : icon('lock') + 'zamčeno'}</span></div>
+    ${data ? `<div class="kv"><span class="kv-key">Revize</span><span class="kv-val mono">${esc(data.revision)}</span></div>` : ''}
+    ${content}
+  </div>`;
+}
+
 function viewDiagnostics() {
   const health = state.data.health;
   const caps = state.data.capabilities;
@@ -1986,6 +2044,8 @@ function viewDiagnostics() {
           ${prefs.get('hideBarOnHome') ? 'checked' : ''}>
       </label>
     </div>
+
+    ${serverSettingsCard()}
 
     <div class="card" data-locked="true">
       <div class="card-head"><h3 class="card-title">Paměť</h3>
@@ -3961,6 +4021,37 @@ function openApproval(approvalId) {
   loadApprovals({ grantFor: approvalId });
 }
 
+let settingsGeneration = 0;
+
+async function loadSettings() {
+  if (!auth.has('read:settings')) return;
+  const generation = ++settingsGeneration;
+  // This surface is deliberately live-only: do not let settings from a prior
+  // identity or an earlier connection masquerade as the current backend.
+  state.data.settings = undefined;
+  state.loading.settings = true;
+  state.error.settings = null;
+  render();
+
+  try {
+    const response = await api('/settings');
+    if (generation !== settingsGeneration) return;
+    state.data.settings = response.data;
+    if (response.scopes) replaceScopes(response.scopes);
+    setConn('ok');
+  } catch (error) {
+    if (generation !== settingsGeneration) return;
+    if (error.kind === 'auth') return handleAuthFailure(error);
+    state.error.settings = error;
+    setConn(error.kind === 'offline' ? 'offline' : error.kind === 'server' ? 'server' : state.conn);
+  } finally {
+    if (generation === settingsGeneration) {
+      state.loading.settings = false;
+      render();
+    }
+  }
+}
+
 async function loadDiagnostics() {
   try {
     const health = await api('/health');
@@ -3983,6 +4074,7 @@ async function loadDiagnostics() {
   } catch (error) {
     if (error.kind === 'auth') return handleAuthFailure(error);
   }
+  if (auth.has('read:settings')) await loadSettings();
   render();
 }
 
@@ -4618,6 +4710,7 @@ document.addEventListener('click', event => {
     'load-conversations': loadConversations,
     'load-projects': () => loadProjects(),
     'load-project': () => loadProject(),
+    'load-settings': () => loadSettings(),
     'load-thread': () => loadThread(state.conversationId),
     'load-older': () => loadOlderMessages(),
     // MD-15 — a local preference, written the moment it is changed.  There is
@@ -4898,6 +4991,7 @@ export const __ms20 = {
   trustBar, trustZones, withTrustBar, screenLocks, serverNow,
   viewOverview, navItems, currentSection, sectionRoute, unknownScopes, NAV_ITEMS, ROUTE_SECTION,
   viewProjects, viewProject, loadProjects, loadProject, openProject,
+  serverSettingsCard, publicSettingRows, loadSettings,
   renderNavBar, navCount, newChat, layoutNavRing, normaliseNavRing, centreNavOnSelection,
   navRingIsTurningItself, NAV_TURN_CEILING_MS, NAV_TURN_QUIET_MS,
   scheduleNavRetraction, whenNavTurnEnds, NAV_TURN_MS,
