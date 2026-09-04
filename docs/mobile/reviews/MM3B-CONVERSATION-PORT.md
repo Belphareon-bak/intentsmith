@@ -1,6 +1,7 @@
 # MM3-B review — conversation read boundary
 
 Status: `IMPLEMENTED AND TESTED`
+Checkpoint commit: `ddb90e7e`
 
 This checkpoint moves the already shipped conversation list, detail and
 message-history projection behind `RemoteCorePort` without changing its
@@ -31,6 +32,8 @@ does not exist.
 | `node tests/mobile-contract-cursor-rejection.test.js` | PASS — 10/10 |
 | `node tests/mobile-contract-pagination-end.test.js` | PASS — 21/21 |
 | `npm run test:mobile` | PASS — 41/41 active; 1 Chromium suite withheld |
+| `node scripts/module-boundary-ratchet.mjs` | PASS — 1,098 edges; 3 existing cycles |
+| `node tests/module-boundary-ratchet.test.js` | PASS — 13/13 |
 
 ## Compatibility boundary
 
