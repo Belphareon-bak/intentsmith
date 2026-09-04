@@ -2,7 +2,7 @@
 
 Updated: 2026-09-04
 Branch: `mobile/master-prod-ready`
-Current milestone: `MM2`
+Current milestone: `MM3` (`MM2` freeze dependency remains open)
 Release verdict: `NOT READY`
 
 ## Milestone ledger
@@ -12,7 +12,7 @@ Release verdict: `NOT READY`
 | `MM0` provenance and branch | `COMPLETE` | `550856e5` | core base selected; prototype integration follows |
 | `MM1` prototype integration | `COMPLETE` | `550856e5..fec916b8` | merge `c1994d9b`; mobile gate 37/37 active |
 | `MM2` RemoteCorePort | `IN PROGRESS` | candidate `f4861bca` | candidate port + 237-route inventory; freeze remains open |
-| `MM3` primary mobile surfaces | `IN PROGRESS` | projects pending commit | project list/detail implemented; search/runs open |
+| `MM3` primary mobile surfaces | `IN PROGRESS` | projects `1a7be999` | project list/detail implemented; search/runs open |
 | `MM4` governed surfaces | `NOT STARTED` | — | — |
 | `MM5` transport and hardening | `NOT STARTED` | — | — |
 | `MM6` Android release | `NOT STARTED` | — | — |
@@ -34,6 +34,8 @@ Release verdict: `NOT READY`
   `49a7773258e798478d5108f59b86d34bcd1598adcc0684060589b33982cc7274`.
 - Test registry: 424 runnable programs; digest
   `de503fade99ff89d8bd864e28cc10a07b56036ecd63bf19d4c1101b443e3e213`.
+- Module boundary: `PASS` — 1,097 edges, 3 pre-existing cycles; the reviewed
+  project-provider edge is pinned to checkpoint `1a7be999`.
 
 ## Truth rules
 

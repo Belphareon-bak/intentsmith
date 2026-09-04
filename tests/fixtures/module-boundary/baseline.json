@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "f4861bca7d9b0945704c0357facd966fb41fb726",
-  "sourceTree": "a4d7a391f11211e485ddf2a8669fdd26c71e23be",
+  "sourceRevision": "1a7be99913e3d96c69bb2f455bceec40bfc54127",
+  "sourceTree": "218501aed96fc80503363734da2f65564a34fb0c",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -816,6 +816,7 @@
     "src/planner/workflow.js -> src/llm/auth-types.js",
     "src/planner/workflow.js -> src/llm/gateway.js",
     "src/planner/workflow.js -> src/planner/project-context.js",
+    "src/remote-core/port.js -> src/remote-core/providers/projects.js",
     "src/routes/agents.js -> src/agents/schema.js",
     "src/routes/approvals.js -> src/approvals/authority.js",
     "src/routes/architect.js -> src/architect/index.js",

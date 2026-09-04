@@ -1,6 +1,7 @@
 # MM3-A review — read-only projects
 
 Status: `IMPLEMENTED AND TESTED`
+Checkpoint commit: `1a7be999`
 
 This checkpoint replaces the former locked Projects placeholder with a real,
 scope-gated mobile projection. It is intentionally read-only: project and
@@ -33,6 +34,8 @@ paths, file contents, shell access or desktop administrative data.
 | `node tests/mobile-navbar.test.js` | PASS — 22/22 |
 | `node tests/mobile-overview.test.js` | PASS — 18/18 |
 | `npm run test:mobile` | PASS — 41/41 active; 1 Chromium suite withheld |
+| `node scripts/module-boundary-ratchet.mjs` | PASS — 1,097 edges; 3 existing cycles |
+| `node tests/module-boundary-ratchet.test.js` | PASS — 13/13 |
 
 ## Compatibility boundary
 
