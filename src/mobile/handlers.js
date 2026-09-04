@@ -86,6 +86,8 @@ export async function handleCapabilities({ principal, upstream, corePort = null 
       features: {
         chat: principal.scopes.includes('write:chat') && upstreamState.reachable,
         conversations: principal.scopes.includes('read:chat'),
+        projects: principal.scopes.includes('read:projects')
+          && corePort?.capabilities(principal)?.features?.['projects.read']?.status === 'available',
         notifications: principal.scopes.includes('read:notifications'),
         approvals: principal.scopes.includes('read:approvals'),
         // Streaming does not exist upstream (PLAN.md §3): onLLMToken has no
@@ -101,6 +103,113 @@ export async function handleCapabilities({ principal, upstream, corePort = null 
       remoteCore: corePort?.capabilities(principal) ?? null,
     }, { principal }),
   };
+}
+
+// ── GET /m1/projects ────────────────────────────────────────────────────────
+
+export async function handleProjects({ corePort, principal, query }) {
+  const allowedParameters = new Set(['state', 'limit', 'cursor']);
+  const seenParameters = new Set();
+  for (const name of query.keys()) {
+    if (!allowedParameters.has(name)) {
+      return errorResponse(MOBILE_ERRORS.BAD_REQUEST, { reason: 'unknown_parameter', field: name });
+    }
+    if (seenParameters.has(name)) {
+      return errorResponse(MOBILE_ERRORS.BAD_REQUEST, { reason: 'duplicate_parameter', field: name });
+    }
+    seenParameters.add(name);
+  }
+
+  const state = query.get('state') || 'active';
+  if (state !== 'active' && state !== 'archived') {
+    return errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+      reason: 'state_invalid',
+      allowed: ['active', 'archived'],
+    });
+  }
+
+  const rawLimit = query.get('limit');
+  if (rawLimit !== null && (!/^[1-9][0-9]*$/.test(rawLimit) || Number(rawLimit) > MAX_PAGE_SIZE)) {
+    return errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+      reason: 'limit_invalid',
+      allowed: { min: 1, max: MAX_PAGE_SIZE },
+    });
+  }
+  const limit = rawLimit === null ? 50 : Number(rawLimit);
+  const stream = `projects:${state}`;
+  const cursor = decodeCursor(query.get('cursor'), { stream });
+  if (!cursor.valid) {
+    return errorResponse(MOBILE_ERRORS.CURSOR_UNKNOWN, { reason: cursor.reason, restart: true });
+  }
+
+  const outcome = await invokeProjectRead(corePort, {
+    operation: 'list',
+    state,
+    limit,
+    offset: cursor.position,
+  }, principal);
+  if (!outcome.ok) return projectReadError(outcome.error);
+
+  const page = paginate({
+    rows: outcome.data.rows.map(project => versioned(project)),
+    limit,
+    stream,
+    position: cursor.position,
+  });
+  return {
+    status: 200,
+    body: withEnvelope(page.items, {
+      principal,
+      extra: { hasMore: page.hasMore, nextCursor: page.nextCursor, end: page.end, state },
+    }),
+  };
+}
+
+// ── GET /m1/projects/:id ────────────────────────────────────────────────────
+
+export async function handleProjectDetail({ corePort, principal, params }) {
+  const outcome = await invokeProjectRead(corePort, {
+    operation: 'detail',
+    id: params.id,
+  }, principal);
+  if (!outcome.ok) return projectReadError(outcome.error);
+  return {
+    status: 200,
+    body: withEnvelope(versioned(outcome.data.project), { principal }),
+  };
+}
+
+async function invokeProjectRead(corePort, input, principal) {
+  if (!corePort || typeof corePort.invoke !== 'function') {
+    return { ok: false, error: { code: 'capability_unavailable' } };
+  }
+  try {
+    return await corePort.invoke({
+      version: 1,
+      feature: 'projects.read',
+      input,
+      principal,
+    });
+  } catch (error) {
+    return { ok: false, error: { code: error?.code || 'provider_failure' } };
+  }
+}
+
+function projectReadError(error) {
+  if (error?.code === 'not_found') {
+    return errorResponse(MOBILE_ERRORS.NOT_FOUND, { resource: 'project' });
+  }
+  if (error?.code === 'project_id_invalid' || error?.code === 'state_invalid'
+      || error?.code === 'limit_invalid' || error?.code === 'cursor_invalid'
+      || error?.code === 'operation_invalid') {
+    return errorResponse(MOBILE_ERRORS.BAD_REQUEST, { reason: error.code });
+  }
+  if (error?.code === 'capability_forbidden') {
+    return errorResponse(MOBILE_ERRORS.SCOPE_REQUIRED, { requiredScope: 'read:projects' });
+  }
+  return errorResponse(MOBILE_ERRORS.SERVER_UNAVAILABLE, {
+    reason: error?.code || 'projects_provider_unavailable',
+  });
 }
 
 // ── GET /m1/conversations ────────────────────────────────────────────────────
@@ -922,6 +1031,8 @@ export const MOBILE_HANDLERS = Object.freeze({
   'GET /m1/health': handleHealth,
   'POST /m1/pair/claim': handlePairClaim,
   'GET /m1/capabilities': handleCapabilities,
+  'GET /m1/projects': handleProjects,
+  'GET /m1/projects/:id': handleProjectDetail,
   'GET /m1/conversations': handleConversations,
   'GET /m1/conversations/:id': handleConversationDetail,
   'POST /m1/chat': handleChat,

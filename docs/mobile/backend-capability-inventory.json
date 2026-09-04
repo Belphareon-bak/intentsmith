@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "scanner": "scripts/mobile-capability-inventory.mjs",
-  "routeDigest": "eb5b5e15da03ac2fdf657dc452c3f094e20e05b28ffbcd3d0bdf082341e4a9af",
+  "routeDigest": "49a7773258e798478d5108f59b86d34bcd1598adcc0684060589b33982cc7274",
   "summary": {
-    "routes": 237,
-    "mobileV1": 13,
+    "routes": 239,
+    "mobileV1": 15,
     "legacyCore": 224,
-    "reads": 106,
+    "reads": 108,
     "mutations": 131,
-    "remoteCoreCandidates": 62,
+    "remoteCoreCandidates": 64,
     "domains": {
       "agents": 17,
       "approvals": 4,
@@ -19,7 +19,7 @@
       "notifications": 12,
       "operations": 3,
       "platform": 16,
-      "projects": 29,
+      "projects": 31,
       "quality": 5,
       "security": 7,
       "settings": 10,
@@ -2874,6 +2874,30 @@
       "exposure": "mobile-v1",
       "remoteCoreFeature": null,
       "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/m1/projects",
+      "sources": [
+        "src/mobile/handlers.js"
+      ],
+      "domain": "projects",
+      "access": "read",
+      "exposure": "mobile-v1",
+      "remoteCoreFeature": "projects.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/m1/projects/:id",
+      "sources": [
+        "src/mobile/handlers.js"
+      ],
+      "domain": "projects",
+      "access": "read",
+      "exposure": "mobile-v1",
+      "remoteCoreFeature": "projects.read",
+      "mobilePolicy": "mobile-mirror-candidate"
     }
   ]
 }

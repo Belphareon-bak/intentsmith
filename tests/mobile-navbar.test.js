@@ -337,14 +337,15 @@ await test('§3.1 the documented order holds, with Nastavení last', () => {
   assert.deepEqual(labels(), ['Přehled', 'Konverzace', 'Projekty', 'Approvaly', 'Nastavení']);
 });
 
-await test('§3.1 an item whose screen does not exist is locked, never a dead tap', () => {
+await test('MM3 a granted project capability opens the real project screen', () => {
   reset({ scopes: [...ALL_SCOPES, 'read:projects'] });
   state.data.approvals = [];
   render();
   const projects = tabs().find(tab => tab.includes('data-nav="projects"'));
   assert.ok(projects, 'a granted scope produced no item at all');
-  assert.match(projects, /aria-disabled="true"/);
-  assert.ok(!/data-act=/.test(projects), 'the Projekty item is tappable; MS-12 is not built');
+  assert.match(projects, /data-act="go"/);
+  assert.match(projects, /data-route="projects"/);
+  assert.ok(!/aria-disabled="true"/.test(projects), 'the implemented project screen stayed locked');
 });
 
 await test('§3.1 a bar of only Přehled and Nastavení is worse than none, so there is none', () => {

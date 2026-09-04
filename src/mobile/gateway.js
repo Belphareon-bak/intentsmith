@@ -29,7 +29,7 @@ import { APPROVAL_RESPONSE_HEADERS, MOBILE_HANDLERS } from './handlers.js';
 import { MOBILE_ERRORS, PROTOCOL_VERSION, mobileError } from './protocol.js';
 import { OperationJournal } from './operation-journal.js';
 import { UpstreamClient } from './upstream.js';
-import { createUpstreamRemoteCorePort } from '../remote-core/port.js';
+import { createMobileRemoteCorePort } from '../remote-core/port.js';
 
 const CLIENT_DIR = fileURLToPath(new URL('./client/', import.meta.url));
 
@@ -113,7 +113,7 @@ export function createMobileGateway({
   const gatewayInstance = instance || registerGatewayInstance(rawDb);
   const operationJournal = (journal || new OperationJournal(rawDb))
     .bindInstance(gatewayInstance.instanceId);
-  const remoteCorePort = corePort || createUpstreamRemoteCorePort(upstream);
+  const remoteCorePort = corePort || createMobileRemoteCorePort({ rawDb, upstream });
 
   const server = http.createServer(async (req, res) => {
     try {

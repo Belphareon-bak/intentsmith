@@ -298,16 +298,14 @@ await test('§3.2 the root shows a handful of recent conversations, not the whol
 
 // ── §3.1 / §3.4 — the mapping layer ─────────────────────────────────────────
 
-await test('§3.1 an item whose screen does not exist is locked, never a dead tap', () => {
+await test('MM3 the scoped Projects tile reaches the implemented screen', () => {
   reset({ scopes: [...ALL_SCOPES, 'read:projects'] });
   state.data.approvals = [];
   state.data.conversations = [];
   const markup = viewOverview();
-  const tile = markup.match(/<li class="ov-tile"[^>]*data-section="projects"[\s\S]*?<\/li>/);
+  const tile = markup.match(/<button class="ov-tile"[^>]*data-act="go"[^>]*data-route="projects"[^>]*data-section="projects"[\s\S]*?<\/button>/);
   assert.ok(tile, 'Projekty is granted by scope but has no tile on the root');
-  assert.ok(!/data-act=/.test(tile[0]),
-    'the Projekty tile is tappable; MS-12 is not built (MR-14 BLOCKED_BY_CONTRACT_AND_GATE1)');
-  assert.match(tile[0], /Připravujeme/);
+  assert.ok(!/Připravujeme/.test(tile[0]), 'the implemented screen is still presented as future work');
 });
 
 await test('§3.4 an unknown capability produces no item and is written to diagnostics', () => {

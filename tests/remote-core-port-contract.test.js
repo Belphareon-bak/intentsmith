@@ -10,6 +10,7 @@ import {
 import {
   RemoteCorePort,
   RemoteCorePortError,
+  createMobileRemoteCorePort,
   createUpstreamRemoteCorePort,
 } from '../src/remote-core/port.js';
 import { handleCapabilities } from '../src/mobile/handlers.js';
@@ -153,10 +154,30 @@ await test('gateway capabilities expose the connector version and per-feature tr
 await test('production gateway routes chat through the narrow port', () => {
   const gateway = readFileSync(new URL('../src/mobile/gateway.js', import.meta.url), 'utf8');
   const handlers = readFileSync(new URL('../src/mobile/handlers.js', import.meta.url), 'utf8');
-  assert.match(gateway, /createUpstreamRemoteCorePort\(upstream\)/);
+  assert.match(gateway, /createMobileRemoteCorePort\(\{ rawDb, upstream \}\)/);
   assert.match(handlers, /corePort\.invoke\(\{/);
   assert.doesNotMatch(gateway, /fetch\s*\(/i);
   assert.doesNotMatch(gateway, /['"](?:GET|POST|PUT|PATCH|DELETE)\s+\/m1\/\*['"]/i);
+});
+
+await test('production connector exposes project reads without project writes', () => {
+  const rawDb = {
+    prepare(sql) {
+      return {
+        all: () => sql.includes('FROM projects p') ? [] : [],
+        get: () => undefined,
+      };
+    },
+  };
+  const port = createMobileRemoteCorePort({
+    rawDb,
+    upstream: { postChat: async () => ({ ok: true, data: {} }) },
+  });
+  const features = port.capabilities({ scopes: ['read:projects', 'write:projects'] }).features;
+  assert.equal(features['projects.read'].status, 'available');
+  assert.equal(features['projects.create'].status, 'unavailable');
+  assert.equal(features['projects.update'].status, 'unavailable');
+  assert.equal(features['projects.archive'].status, 'unavailable');
 });
 
 console.log(`\nRemoteCorePort contract: ${passed} passed, ${failed} failed`);

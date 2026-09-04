@@ -7,6 +7,7 @@ import {
   negotiateRemoteCoreVersion,
 } from '../../contracts/remote-core/index.js';
 import { isJsonValue, isPlainRecord } from '../../contracts/m1/shared.js';
+import { createProjectsReadProvider } from './providers/projects.js';
 
 export class RemoteCorePortError extends Error {
   constructor(code, details = {}) {
@@ -136,29 +137,46 @@ export class RemoteCorePort {
   }
 }
 
-/** Adapter for the only legacy core effect currently used by the gateway. */
-export function createUpstreamRemoteCorePort(upstream) {
+function upstreamChatProvider(upstream) {
   if (!upstream || typeof upstream.postChat !== 'function') {
     throw new RemoteCorePortError('upstream_invalid');
   }
+  return async input => {
+    const result = await upstream.postChat(input);
+    if (result?.ok) return { ok: true, data: result.data ?? {} };
+    return {
+      ok: false,
+      error: {
+        code: typeof result?.code === 'string' ? result.code : 'upstream_unavailable',
+        details: {
+          decided: result?.decided === true,
+          ...(Number.isInteger(result?.status) ? { status: result.status } : {}),
+        },
+      },
+    };
+  };
+}
+
+/** Adapter retained for consumers that only need the legacy chat effect. */
+export function createUpstreamRemoteCorePort(upstream) {
+  return new RemoteCorePort({
+    providers: { 'conversations.send': upstreamChatProvider(upstream) },
+  });
+}
+
+/** Production connector used by the companion gateway. */
+export function createMobileRemoteCorePort({ rawDb, upstream } = {}) {
   return new RemoteCorePort({
     providers: {
-      'conversations.send': async input => {
-        const result = await upstream.postChat(input);
-        if (result?.ok) return { ok: true, data: result.data ?? {} };
-        return {
-          ok: false,
-          error: {
-            code: typeof result?.code === 'string' ? result.code : 'upstream_unavailable',
-            details: {
-              decided: result?.decided === true,
-              ...(Number.isInteger(result?.status) ? { status: result.status } : {}),
-            },
-          },
-        };
-      },
+      'projects.read': createProjectsReadProvider(rawDb),
+      'conversations.send': upstreamChatProvider(upstream),
     },
   });
 }
 
-export default { RemoteCorePort, RemoteCorePortError, createUpstreamRemoteCorePort };
+export default {
+  RemoteCorePort,
+  RemoteCorePortError,
+  createUpstreamRemoteCorePort,
+  createMobileRemoteCorePort,
+};

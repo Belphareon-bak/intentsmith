@@ -39,11 +39,8 @@ export const PAIRABLE_SCOPES = Object.freeze([
   'write:notifications',
   'read:approvals',
   'write:approvals',
-  // Operator 2026-08-11.  Grants the *item*, not the screen: `MR-14` stays
-  // BLOCKED_BY_CONTRACT_AND_GATE1 and `MS-12` is not built, so Projekty appears
-  // in the bar and on the root locked (§3.1).  Showing a section that exists
-  // and cannot be entered yet is the honest rendering; hiding it would make the
-  // bar rearrange itself under the user the day the contract lands.
+  // Read-only project projection. This never grants project mutation,
+  // workspace/file access, or a route on the legacy listener.
   'read:projects',
 ]);
 

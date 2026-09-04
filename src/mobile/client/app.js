@@ -55,6 +55,13 @@ const store = {
     try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* quota */ }
   },
   del(key) { try { localStorage.removeItem(key); } catch { /* ignore */ } },
+  delPrefix(prefix) {
+    try {
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith(prefix)) localStorage.removeItem(key);
+      }
+    } catch { /* ignore */ }
+  },
   /** Wipe domain data. Preferences survive; credentials and content do not. */
   wipeDomain() {
     try {
@@ -623,6 +630,8 @@ const state = {
   session: 'unknown',      // unknown | unpaired | active | expired | revoked
   conn: 'ok',              // ok | offline | server
   conversationId: null,
+  projectId: null,
+  projectState: 'active',
   data: {},
   loading: {},
   error: {},
@@ -736,6 +745,22 @@ function replaceScopes(scopes) {
   store.set(K.scopes, next);
   if (!next.includes('write:approvals')) invalidateApprovalAuthority();
   if (!next.includes('read:approvals')) invalidateApprovalSurface();
+  if (!next.includes('read:projects')) {
+    projectsGeneration++;
+    projectGeneration++;
+    delete state.data.projects;
+    delete state.data.project;
+    state.error.projects = null;
+    state.error.project = null;
+    state.loading.projects = false;
+    state.loading.project = false;
+    state.cacheAge.projects = null;
+    state.cacheAge.project = null;
+    state.cacheAt.projects = null;
+    state.cacheAt.project = null;
+    store.delPrefix(K.cache + 'projects.');
+    store.delPrefix(K.cache + 'project.');
+  }
 }
 
 // §8.11 — the server decides the cap; this is the fallback for the moment the
@@ -764,7 +789,7 @@ function md(text) {
   const blocks = [];
   out = out.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
     blocks.push(`<pre><code data-lang="${esc(lang)}">${code.replace(/\n$/, '')}</code></pre>`);
-    return ` BLOCK${blocks.length - 1} `;
+    return `\u0000BLOCK${blocks.length - 1}\u0000`;
   });
   out = out.replace(/`([^`\n]+)`/g, '<code>$1</code>');
   out = out.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
@@ -772,7 +797,7 @@ function md(text) {
   out = out
     .split(/\n{2,}/)
     .map(para => {
-      if (para.startsWith(' BLOCK')) return para;
+      if (para.startsWith('\u0000BLOCK')) return para;
       const lines = para.split('\n');
       if (lines.every(line => /^\s*[-*]\s+/.test(line))) {
         return `<ul>${lines.map(line => `<li>${line.replace(/^\s*[-*]\s+/, '')}</li>`).join('')}</ul>`;
@@ -783,7 +808,7 @@ function md(text) {
       return `<p>${lines.join('<br>')}</p>`;
     })
     .join('');
-  return out.replace(/ BLOCK(\d+) /g, (_, index) => blocks[Number(index)]);
+  return out.replace(/\u0000BLOCK(\d+)\u0000/g, (_, index) => blocks[Number(index)]);
 }
 
 /**
@@ -899,6 +924,8 @@ const TRUST_DATASET = {
   overview: 'conversations',
   conversations: 'conversations',
   chat: 'thread',
+  projects: 'projects',
+  project: 'project',
   notifications: 'notifications',
   operations: 'operations',
 };
@@ -918,6 +945,10 @@ function screenLocks(route = state.route) {
       break;
     case 'conversations':
       need('read:chat', 'konverzace');
+      break;
+    case 'projects':
+    case 'project':
+      need('read:projects', 'projekty');
       break;
     case 'chat':
       need('write:chat', 'psaní zpráv');
@@ -1065,12 +1096,7 @@ function withTrustBar(html) {
 const NAV_ITEMS = [
   { id: 'overview', route: 'overview', label: 'Přehled', icon: 'home', scope: null },
   { id: 'conversations', route: 'conversations', label: 'Konverzace', icon: 'chat', scope: 'read:chat' },
-  // D-UI-1 decided projects belong in the product; `MR-14` stays
-  // BLOCKED_BY_CONTRACT_AND_GATE1 and `MS-12` is not built.  So the item is
-  // locked rather than absent or tappable: §3.1 says a scope without upstream
-  // shows locked, and the WP says Projects stay "an item without a screen".
-  // It cannot appear at all until a server actually grants `read:projects`.
-  { id: 'projects', route: null, label: 'Projekty', icon: 'folder', scope: 'read:projects', locked: true },
+  { id: 'projects', route: 'projects', label: 'Projekty', icon: 'folder', scope: 'read:projects' },
   { id: 'approvals', route: 'approvals', label: 'Approvaly', icon: 'shield', scope: 'read:approvals' },
   // §3.3 — MS-03, MS-04 and MS-20 live under Nastavení, which replaces the
   // former standalone "Stav" item (D-UI-3).
@@ -1088,6 +1114,8 @@ const ROUTE_SECTION = {
   notifications: 'overview',
   conversations: 'conversations',
   chat: 'conversations',
+  projects: 'projects',
+  project: 'projects',
   approvals: 'approvals',
   approval: 'approvals',
   diagnostics: 'settings',
@@ -1399,9 +1427,8 @@ function viewOverview() {
   //
   // Two deliberate departures from that image, both because the backend cannot
   // support it: no greeting by name, and no counts for things nothing counts.
-  // "3 agenti běží" and "8 aktivních projektů" have no data source at all
-  // (`MR-07`, `MR-14` are BLOCKED_BY_CONTRACT), and a made-up number on the
-  // root is the exact failure this whole design system exists to prevent.
+  // "3 agenti běží" has no accepted runtime data source, and a made-up number
+  // on the root is the exact failure this whole design system exists to prevent.
   //
   // The tiles are also what keeps §3.2 true: with the bar retracted on the root
   // the homescreen is the only map of the app, so every section has to be
@@ -1529,6 +1556,91 @@ function viewConversations() {
   }
 
   return header({ title: 'Konverzace', right }) + `<div class="scroll">${body}</div>`;
+}
+
+function projectStateLabel(value) {
+  return value === 'archived' ? 'Archivovaný' : 'Aktivní';
+}
+
+function viewProjects() {
+  const list = state.data.projects;
+  const error = state.error.projects;
+  const loading = state.loading.projects;
+  const age = state.cacheAge.projects;
+  const stateSwitch = `<div class="project-filter" role="group" aria-label="Stav projektu">
+    <button class="btn btn-sm ${state.projectState === 'active' ? 'btn-primary' : 'btn-secondary'}"
+      data-act="project-state" data-state="active">Aktivní</button>
+    <button class="btn btn-sm ${state.projectState === 'archived' ? 'btn-primary' : 'btn-secondary'}"
+      data-act="project-state" data-state="archived">Archivované</button>
+  </div>`;
+  let body;
+
+  if (!auth.has('read:projects')) {
+    body = statePanel('scope', 'Bez oprávnění',
+      'Zařízení nemá scope read:projects, takže seznam projektů nelze zobrazit.');
+  } else if (loading && !list) {
+    body = skeletonList();
+  } else if (error && !list) {
+    body = errorPanel(error, 'load-projects');
+  } else if (Array.isArray(list) && list.length === 0) {
+    body = statePanel('empty',
+      state.projectState === 'archived' ? 'Archiv je prázdný' : 'Zatím žádné aktivní projekty',
+      'Tohle je potvrzená odpověď backendu, ne odhad z lokální cache.');
+  } else if (Array.isArray(list)) {
+    body = `<div class="list">${list.map(project => `
+      <button class="row" data-act="open-project" data-id="${esc(project.id)}">
+        <div class="row-main">
+          <div class="row-title">${esc(project.name)}</div>
+          <div class="row-sub">${project.conversationCount === null
+            ? 'Počet konverzací není dostupný'
+            : `${project.conversationCount} ${plural(project.conversationCount, 'konverzace', 'konverzace', 'konverzací')}`}</div>
+        </div>
+        <div class="row-time">${timeAgo(project.updatedAt)}</div>
+      </button>`).join('')}
+      ${age && age !== 'FRESH' ? `<div class="kv"><span class="kv-key">Data z cache</span><span class="pill" data-tone="${age === 'STALE' ? 'warn' : 'muted'}">${age === 'STALE' ? 'zastaralá' : 'stará'}</span></div>` : ''}
+    </div>`;
+  } else {
+    body = skeletonList();
+  }
+
+  return header({ title: 'Projekty' })
+    + `<div class="scroll"><div class="container">${stateSwitch}${body}</div></div>`;
+}
+
+function viewProject() {
+  const project = state.data.project;
+  const error = state.error.project;
+  const loading = state.loading.project;
+  let body;
+
+  if (!auth.has('read:projects')) {
+    body = statePanel('scope', 'Bez oprávnění',
+      'Zařízení nemá scope read:projects, takže detail projektu nelze zobrazit.');
+  } else if (loading && !project) {
+    body = skeletonList(4);
+  } else if (error && !project) {
+    body = errorPanel(error, 'load-project');
+  } else if (project) {
+    const createdAt = serverTimeMs(project.createdAt);
+    const createdLabel = Number.isNaN(createdAt)
+      ? 'Není dostupné'
+      : new Date(createdAt).toLocaleDateString('cs-CZ');
+    body = `<div class="container project-detail">
+      <section class="card" aria-labelledby="project-detail-h">
+        <div class="card-head"><h2 class="card-title" id="project-detail-h">Přehled projektu</h2></div>
+        <div class="kv"><span class="kv-key">Stav</span><span class="pill" data-tone="${project.state === 'active' ? 'ok' : 'muted'}">${projectStateLabel(project.state)}</span></div>
+        <div class="kv"><span class="kv-key">Konverzace</span><span>${project.conversationCount === null ? 'Není dostupné' : esc(project.conversationCount)}</span></div>
+        <div class="kv"><span class="kv-key">Vytvořeno</span><span>${esc(createdLabel)}</span></div>
+        <div class="kv"><span class="kv-key">Poslední aktivita</span><span>${esc(timeAgo(project.updatedAt) || 'Není dostupná')}</span></div>
+      </section>
+      <p class="card-note">Mobilní projekce je zatím pouze pro čtení. Soubory, shell a správa cest zůstávají na desktopu.</p>
+    </div>`;
+  } else {
+    body = skeletonList(4);
+  }
+
+  return header({ title: project?.name || 'Projekt', left: 'back' })
+    + `<div class="scroll">${body}</div>`;
 }
 
 function plural(n, one, few, many) {
@@ -3126,6 +3238,8 @@ function render() {
     overview: viewOverview,
     conversations: viewConversations,
     chat: viewChat,
+    projects: viewProjects,
+    project: viewProject,
     notifications: viewNotifications,
     approvals: viewApprovals,
     approval: viewApproval,
@@ -3213,6 +3327,80 @@ async function loadConversations() {
   } finally {
     state.loading.conversations = false;
     render();
+  }
+}
+
+let projectsGeneration = 0;
+let projectGeneration = 0;
+
+async function loadProjects(projectState = state.projectState) {
+  if (!auth.has('read:projects')) return;
+  const requestedState = projectState === 'archived' ? 'archived' : 'active';
+  state.projectState = requestedState;
+  const generation = ++projectsGeneration;
+  const cacheKey = `projects.${requestedState}`;
+  const cached = cache.read(cacheKey);
+  state.data.projects = cached.data || undefined;
+  state.cacheAge.projects = cached.data ? cached.status : null;
+  state.cacheAt.projects = cached.data ? cached.at : null;
+  state.loading.projects = true;
+  state.error.projects = null;
+  render();
+
+  try {
+    const response = await api(`/projects?state=${requestedState}&limit=100`);
+    if (generation !== projectsGeneration || requestedState !== state.projectState) return;
+    state.data.projects = response.data;
+    state.cacheAge.projects = 'FRESH';
+    state.cacheAt.projects = Date.now();
+    cache.write(cacheKey, response.data);
+    if (response.scopes) replaceScopes(response.scopes);
+    setConn('ok');
+  } catch (error) {
+    if (generation !== projectsGeneration) return;
+    if (error.kind === 'auth') return handleAuthFailure(error);
+    state.error.projects = error;
+    setConn(error.kind === 'offline' ? 'offline' : error.kind === 'server' ? 'server' : state.conn);
+  } finally {
+    if (generation === projectsGeneration) {
+      state.loading.projects = false;
+      render();
+    }
+  }
+}
+
+async function loadProject(projectId = state.projectId) {
+  if (!auth.has('read:projects') || !projectId) return;
+  const requestedId = String(projectId);
+  const generation = ++projectGeneration;
+  const cacheKey = `project.${requestedId}`;
+  const cached = cache.read(cacheKey);
+  state.data.project = cached.data || undefined;
+  state.cacheAge.project = cached.data ? cached.status : null;
+  state.cacheAt.project = cached.data ? cached.at : null;
+  state.loading.project = true;
+  state.error.project = null;
+  render();
+
+  try {
+    const response = await api(`/projects/${encodeURIComponent(requestedId)}`);
+    if (generation !== projectGeneration || state.projectId !== requestedId) return;
+    state.data.project = response.data;
+    state.cacheAge.project = 'FRESH';
+    state.cacheAt.project = Date.now();
+    cache.write(cacheKey, response.data);
+    if (response.scopes) replaceScopes(response.scopes);
+    setConn('ok');
+  } catch (error) {
+    if (generation !== projectGeneration || state.projectId !== requestedId) return;
+    if (error.kind === 'auth') return handleAuthFailure(error);
+    state.error.project = error;
+    setConn(error.kind === 'offline' ? 'offline' : error.kind === 'server' ? 'server' : state.conn);
+  } finally {
+    if (generation === projectGeneration && state.projectId === requestedId) {
+      state.loading.project = false;
+      render();
+    }
   }
 }
 
@@ -4328,6 +4516,7 @@ function navigate(route) {
   // answer about what is waiting now (D-S2, MD-07).
   if (route === 'overview') { loadConversations(); loadApprovals(); }
   if (route === 'conversations') loadConversations();
+  if (route === 'projects') loadProjects();
   if (route === 'notifications') loadNotifications();
   // SS-01/SS-05/SS-10: entering the screen always re-reads the queue from the
   // server, including after a reconnect.  It is a read, so repeating is safe —
@@ -4344,6 +4533,13 @@ function navigate(route) {
   }
   if (route === 'operations') loadOperations();
   if (route === 'diagnostics') { loadDiagnostics(); loadOperations(); }
+}
+
+function openProject(projectId) {
+  transitionRoute('project');
+  state.projectId = String(projectId);
+  state.data.project = undefined;
+  loadProject(state.projectId);
 }
 
 function openChat(conversationId) {
@@ -4383,6 +4579,8 @@ document.addEventListener('click', event => {
     'approval-reject': () => { decideApproval('reject'); },
     'new-chat': newChat,
     'open-chat': () => openChat(target.dataset.id),
+    'open-project': () => openProject(target.dataset.id),
+    'project-state': () => loadProjects(target.dataset.state),
     send: doSend,
     pair: doPair,
     repair: () => { auth.clear(); state.session = 'unpaired'; render(); },
@@ -4418,6 +4616,8 @@ document.addEventListener('click', event => {
     },
     'load-operations': loadOperations,
     'load-conversations': loadConversations,
+    'load-projects': () => loadProjects(),
+    'load-project': () => loadProject(),
     'load-thread': () => loadThread(state.conversationId),
     'load-older': () => loadOlderMessages(),
     // MD-15 — a local preference, written the moment it is changed.  There is
@@ -4620,6 +4820,8 @@ async function handleVisibilityChange() {
 
   if (state.route === 'notifications') await loadNotifications();
   if (state.route === 'conversations') await loadConversations();
+  if (state.route === 'projects') await loadProjects();
+  if (state.route === 'project') await loadProject();
 }
 
 document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -4673,6 +4875,7 @@ async function boot() {
   state.session = 'active';
   render();
   await loadConversations();
+  if (auth.has('read:projects')) loadProjects();
   loadDiagnostics();
   loadNotifications();
   // D-S2: the approval count is only honest if it is live, so it is read at
@@ -4694,6 +4897,7 @@ export const __ms20 = {
   render, navigate, viewOperations, ms20Entries,
   trustBar, trustZones, withTrustBar, screenLocks, serverNow,
   viewOverview, navItems, currentSection, sectionRoute, unknownScopes, NAV_ITEMS, ROUTE_SECTION,
+  viewProjects, viewProject, loadProjects, loadProject, openProject,
   renderNavBar, navCount, newChat, layoutNavRing, normaliseNavRing, centreNavOnSelection,
   navRingIsTurningItself, NAV_TURN_CEILING_MS, NAV_TURN_QUIET_MS,
   scheduleNavRetraction, whenNavTurnEnds, NAV_TURN_MS,
