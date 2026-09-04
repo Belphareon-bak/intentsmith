@@ -36,7 +36,7 @@ and action is gated by a server-advertised capability and a device scope.
 | `MM1` | Existing Android prototype integrated onto the current core baseline | merge conflicts resolved; mobile gate has a documented baseline |
 | `MM2` | Versioned `RemoteCorePort` and complete backend capability inventory | contract tests; unsupported capability rejection; no legacy bypass |
 | `MM3` | Projects, conversations, search and run experience | UI, API and negative-state tests for every exposed action |
-| `MM4` | Approvals, agents, specialists, notifications, settings and devices | authority tests plus multi-device and lifecycle evidence |
+| `MM4` | Approvals, agents, specialists, notifications, settings, stored information and devices | authority tests plus multi-device and lifecycle evidence |
 | `MM5` | Production remote transport and mobile hardening | TLS/identity boundary, secure storage, offline/push policy, security review |
 | `MM6` | Reproducible Android release | clean-clone build, API target compliance, signed-artifact procedure, device matrix |
 
@@ -62,4 +62,3 @@ never private signing material, pairing secrets, production credentials or
 recoverable hashes derived from weak secrets.  A production release remains
 blocked until an operator supplies external signing material and accepts the
 physical-device and security evidence.
-

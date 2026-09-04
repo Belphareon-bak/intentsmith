@@ -60,9 +60,9 @@ through `conversations.send`. The adapter preserves the existing distinction
 between a decided rejection and an ambiguous upstream outcome, so retry and
 operation-journal guarantees remain intact.
 
-`projects.read`, `conversations.read`, `conversations.send` and `settings.read`
-now have production providers. The other fifteen feature identifiers currently report
-`unavailable`. Their
+`projects.read`, `conversations.read`, `conversations.send`, `settings.read` and
+`storedInformation.read` now have production providers. The other fourteen
+feature identifiers currently report `unavailable`. Their
 providers are added alongside the corresponding MM3/MM4 user surfaces. The
 older `/m1` handlers remain on an exact allow-list during this transition; no
 `/api/*` proxy or generic port operation exists.
@@ -73,10 +73,10 @@ older `/m1` handlers remain on an exact allow-list during this transition; no
 route-map key and writes both human-readable and JSON artifacts. At this
 candidate checkpoint it records:
 
-- 240 unique routes;
-- 16 existing `/m1` routes;
+- 241 unique routes;
+- 17 existing `/m1` routes;
 - 224 broader desktop/core routes;
-- 62 routes mapped to the seven RemoteCorePort domains.
+- 66 routes mapped to the seven RemoteCorePort domains.
 
 The inventory is an exposure review input, not automatic permission. Security
 token and secret administration are marked `never-expose-admin`; governed
