@@ -632,11 +632,17 @@ function atomicWriteJson(target, value) {
     closeSync(fileDescriptor);
     fileDescriptor = null;
     renameSync(temporary, target);
-    const directoryDescriptor = openSync(parent, 'r');
+    let directoryDescriptor = null;
     try {
+      directoryDescriptor = openSync(parent, 'r');
       fsyncSync(directoryDescriptor);
+    } catch (error) {
+      // Windows does not permit fsync on directory handles. The file itself
+      // was fsynced before the atomic rename, so only the unsupported
+      // directory durability hint is skipped.
+      if (!['EPERM', 'EINVAL', 'EISDIR'].includes(error?.code)) throw error;
     } finally {
-      closeSync(directoryDescriptor);
+      if (directoryDescriptor !== null) closeSync(directoryDescriptor);
     }
   } finally {
     if (fileDescriptor !== null) closeSync(fileDescriptor);
