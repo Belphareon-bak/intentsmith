@@ -14,7 +14,7 @@
 import { logger } from '../core/logger.js';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -48,7 +48,10 @@ async function discoverMigrations() {
 
   const migrations = [];
   for (const file of files) {
-    const mod = await import(path.join(MIGRATIONS_DIR, file));
+    // Dynamic import accepts native absolute paths on POSIX but requires a
+    // file URL on Windows. Converting on every platform keeps one deterministic
+    // code path and makes clean-clone migration tests portable.
+    const mod = await import(pathToFileURL(path.join(MIGRATIONS_DIR, file)).href);
     migrations.push({
       version: mod.version,
       description: mod.description || file,

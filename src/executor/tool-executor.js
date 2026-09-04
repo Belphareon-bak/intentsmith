@@ -262,6 +262,8 @@ export class ToolResult {
       errorCode,
       meta: {
         suggestion,
+        // `EFFECT_ORPHANED` tu schválně **není**: efekt, o kterém nevíme, jestli
+        // nastal, se nesmí zopakovat.
         retryable: ['SOURCE_BLOCKED', 'SOURCE_UNAVAILABLE', 'TIMEOUT'].includes(errorCode),
       },
     });
@@ -277,6 +279,15 @@ export const ToolErrorCode = {
   INVALID_PARAMS: 'INVALID_PARAMS',
   SANDBOX_VIOLATION: 'SANDBOX_VIOLATION', // v44.2 - path outside project
   READ_ONLY_PROJECT: 'READ_ONLY_PROJECT', // v44.5 - write in read-only mode
+  // Efekt se po abortu nezastavil v odkladu.  **Není to timeout** a nesmí se
+  // na timeout zploštit: timeout znamená „nestalo se to", orphaned znamená
+  // „nevíme, jestli se to stalo".  Rozdíl je celý smysl `025` a návrhový
+  // dokument ho žádá výslovně (`22-effect-authority-trace.md` §Effect):
+  // `cancelled` ani `timed_out` se nesmí vydat před potvrzeným ukončením.
+  //
+  // Nikdy není `retryable`.  Zopakovat efekt, o kterém nevíme, jestli
+  // proběhl, je nejrychlejší cesta k tomu, aby proběhl dvakrát.
+  EFFECT_ORPHANED: 'EFFECT_ORPHANED',
   UNKNOWN: 'UNKNOWN',
 };
 
@@ -293,6 +304,10 @@ export class ExecutionResult {
     error = null,
     errorCode = null,
     retryable = false,
+    // Efekt se po abortu nezastavil: nevíme, jestli nastal.  Nese se odděleně
+    // od `status`, protože `status` zůstává `FAILED` — orphaned **není** úspěch
+    // a spotřebitelé, kteří se ptají „nepovedlo se?", mají dostat ano.
+    orphaned = false,
     suggestion = null,
     duration = 0,
     metadata = {},
@@ -302,6 +317,7 @@ export class ExecutionResult {
     this.error = error;              // Top-level error if FAILED
     this.errorCode = errorCode;      // Machine-readable error code
     this.retryable = retryable;      // Can be retried
+    this.orphaned = orphaned;        // Outcome UNKNOWN — effect may or may not have happened
     this.suggestion = suggestion;    // Suggested action for recovery
     this.duration = duration;
     this.metadata = metadata;
@@ -370,6 +386,33 @@ export class ExecutionResult {
  * This is the execution layer that was MISSING.
  * CRE decides WHAT to do, ToolExecutor DOES it.
  */
+/**
+ * Kolik času dostane efekt na to, aby se po abortu zastavil.
+ *
+ * `guardedWrite` se na signál dívá na začátku každého kola čekání (`pollMs`
+ * 500 ms) a ještě jednou po rozhodnutí, takže se zastaví v řádu půl vteřiny.
+ * Odklad je dvojnásobek s rezervou — a když nestačí, je to porucha, kterou
+ * musí být slyšet, ne něco, co se přejde tichým timeoutem.
+ */
+const TOOL_ABORT_GRACE_MS = 2000;
+
+/**
+ * Zruš `child`, když se zruší `parent`.  Vrací odpojení.
+ *
+ * Bez tohohle by zrušený požadavek zastavil čekání volajícího, ale ne efekt
+ * pod ním — a zrušení, po kterém se ještě něco stane, není zrušení.
+ */
+function linkAbortSignal(parent, child) {
+  if (!parent) return () => {};
+  if (parent.aborted) {
+    child.abort(parent.reason);
+    return () => {};
+  }
+  const onAbort = () => child.abort(parent.reason);
+  parent.addEventListener('abort', onAbort, { once: true });
+  return () => parent.removeEventListener('abort', onAbort);
+}
+
 export class ToolExecutor {
   constructor(options = {}) {
     this.toolHandlers = new Map();
@@ -701,15 +744,30 @@ export class ToolExecutor {
           }
         }
 
-        const result = await this.executeWithTimeout(
-          handler({
-            ...context,
-            query: effectiveQuery,  // v56.2: MUST be AFTER ...context to override context.query
-            intent: decision.intent,
-            metadata: decision.metadata,
-          }),
-          this.timeout
-        );
+        // P0: timeout musí efekt **zastavit**, ne jen přestat na něj čekat.
+        //
+        // Řadič se vyrábí **před** spuštěním handleru, aby ho handler dostal
+        // v `signal` a mohl na zrušení zareagovat.  Naváže se i na signál
+        // volajícího, takže zrušený požadavek zastaví efekt stejně jako
+        // vypršelý čas.
+        const effectAbort = new AbortController();
+        const unlink = linkAbortSignal(context.signal, effectAbort);
+        let result;
+        try {
+          result = await this.executeWithTimeout(
+            handler({
+              ...context,
+              query: effectiveQuery,  // v56.2: MUST be AFTER ...context to override context.query
+              intent: decision.intent,
+              metadata: decision.metadata,
+              signal: effectAbort.signal,
+            }),
+            this.timeout,
+            effectAbort,
+          );
+        } finally {
+          unlink();
+        }
 
         // v45.0: Handler returns ToolResult directly
         if (result instanceof ToolResult) {
@@ -850,29 +908,103 @@ export class ToolExecutor {
 
     // v45.0: No summary - tools return DATA only
     // LLM synthesizes response via synthesizeWithLLM() in handlers
+    // Osiřelý efekt se nesmí ztratit v poli výsledků.  Zvedá se na úroveň
+    // celého běhu, protože „jeden z nástrojů možná něco udělal" je vlastnost
+    // běhu, ne detail jednoho řádku — a telefon podle toho ukáže `run.unknown`
+    // místo `run.failed`.
+    const orphaned = toolResults.some(r => r.errorCode === ToolErrorCode.EFFECT_ORPHANED);
+
     return new ExecutionResult({
       status,
       toolResults,  // Array of ToolResult (structured data)
       duration,
+      orphaned,
       metadata: {
         intent: decision.intent,
         toolCount: decision.tools.length,
         retryCount,
         autoRetried: retryCount > 0,
+        ...(orphaned ? { orphaned: true } : {}),
       },
     });
   }
 
   /**
-   * Execute with timeout
+   * Execute with timeout — a **počkej, až se efekt doopravdy zastaví**.
+   *
+   * Původně to byl `Promise.race`: po vypršení času se vrátila chyba a
+   * podkladová operace běžela dál.  U zápisu souboru to znamenalo, že běh
+   * skončil jako `FAILED` a *pak* se soubor zapsal — efekt po terminálním
+   * výsledku, přesně to, co `025` zakazuje.  Review to reprodukovalo: běh
+   * spadl po 26 ms, approval čekal dál a po jeho schválení vznikl soubor.
+   *
+   * Teď se po vypršení času nejdřív **abortuje**, a teprve po terminálním
+   * zastavení operace se vyhodí chyba.  Když se operace nezastaví ani
+   * v odkladu, **řekne se to** — „nevím, jestli efekt nastal" je horší zpráva
+   * než timeout, ale je pravdivá, a tichý timeout by ji zakryl.
+   *
+   * @param {Promise} promise    běžící operace
+   * @param {number}  timeout
+   * @param {AbortController} [controller]  bez něj zůstává původní chování,
+   *   protože handler, který o zrušení neví, se zastavit nedá
    */
-  async executeWithTimeout(promise, timeout) {
-    return Promise.race([
-      promise,
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`Timeout after ${timeout}ms`)), timeout)
-      ),
-    ]);
+  async executeWithTimeout(promise, timeout, controller = null) {
+    // Nezachycený reject na `promise` by shodil proces, když ji necháme běžet.
+    const settled = promise.then(
+      value => ({ ok: true, value }),
+      error => ({ ok: false, error }),
+    );
+
+    if (!controller) {
+      return Promise.race([
+        promise,
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Timeout after ${timeout}ms`)), timeout)
+        ),
+      ]);
+    }
+
+    let timer = null;
+    const expired = new Promise(resolve => {
+      timer = setTimeout(() => resolve('timeout'), timeout);
+      if (typeof timer.unref === 'function') timer.unref();
+    });
+
+    const first = await Promise.race([settled, expired]);
+    clearTimeout(timer);
+
+    if (first !== 'timeout') {
+      if (first.ok) return first.value;
+      throw first.error;
+    }
+
+    // Vypršelo: zastavit efekt a **počkat na jeho konec**.
+    controller.abort(new Error(`Timeout after ${timeout}ms`));
+
+    let graceTimer = null;
+    const grace = new Promise(resolve => {
+      graceTimer = setTimeout(() => resolve('stuck'), TOOL_ABORT_GRACE_MS);
+      if (typeof graceTimer.unref === 'function') graceTimer.unref();
+    });
+    const stopped = await Promise.race([settled, grace]);
+    clearTimeout(graceTimer);
+
+    if (stopped === 'stuck') {
+      // **Orphaned, ne timeout.**  Znění schválně nezačíná slovem „Timeout":
+      // `classifyError` se dívá i na text a review reprodukovalo, že se tenhle
+      // stav přeložil na obyčejný retryable `TIMEOUT` a auto-retry pak spustil
+      // druhý efekt.  Kód se kontroluje dřív než text, ale spoléhat se jen na
+      // to by znamenalo nechat past nastraženou pro příště.
+      throw Object.assign(
+        new Error(
+          `Effect did not stop within ${TOOL_ABORT_GRACE_MS}ms after abort `
+          + `(deadline was ${timeout}ms) — its outcome is UNKNOWN, treat the run as orphaned`,
+        ),
+        { code: ToolErrorCode.EFFECT_ORPHANED, retryable: false, orphaned: true },
+      );
+    }
+
+    throw new Error(`Timeout after ${timeout}ms`);
   }
 
   /**
@@ -882,6 +1014,17 @@ export class ToolExecutor {
    */
   classifyError(err) {
     const message = err.message?.toLowerCase() || '';
+
+    // **Kód má přednost před textem.**  Osiřelý efekt se nesmí přeložit na
+    // retryable timeout — druhý pokus by provedl efekt, o kterém nevíme, jestli
+    // ten první neproběhl.  Tohle je ta klasifikace, kterou review našlo.
+    if (err.code === ToolErrorCode.EFFECT_ORPHANED) {
+      return {
+        code: ToolErrorCode.EFFECT_ORPHANED,
+        retryable: false,
+        suggestion: 'Není jisté, jestli operace proběhla. Ověř stav cíle, než ji spustíš znovu.',
+      };
+    }
 
     // v44.2 - Sandbox violation (path outside project)
     if (err.code === ToolErrorCode.SANDBOX_VIOLATION || message.includes('sandbox_violation')) {
@@ -1204,6 +1347,11 @@ export class ToolExecutor {
    * Execute file write
    * v44.2 - Now enforces project sandbox
    * v44.5 - Checks for read-only mode
+   * P0-2  - Zápis jde přes jednu řízenou cestu (`executor/effects.js`), ne
+   *         přes `fs.writeFile`.  Sandbox a read-only zůstávají tam, kde byly:
+   *         nejdřív se rozhodne, jestli **smí** vzniknout otázka, teprve pak se
+   *         ptá.  Ptát se na zápis, který by stejně neprošel sandboxem, by
+   *         znamenalo posílat lidem otázky, jejichž „ano" nic neudělá.
    */
   async executeFileWrite(params) {
     const { path, filePath, content } = params;
@@ -1237,12 +1385,37 @@ export class ToolExecutor {
     // v44.2 - Validate path is within project sandbox
     const validatedPath = await this.validateProjectPath(targetPath, 'write');
 
-    const fs = await import('fs/promises');
-    await fs.writeFile(validatedPath, content, 'utf-8');
+    const { writeUserFile } = await import('./effects.js');
+    const result = await writeUserFile({
+      filePath: validatedPath,
+      content: String(content),
+      // Vlastníkem zámku je **jeden tah**, ne relace (`027`) — dva tahy jedné
+      // konverzace se jinak pro zámek slijí v jednoho držitele a přepíšou se.
+      runId: params.turnId || `tool:${params.sessionId || params.requestId || 'anonymous'}`,
+      ownerLabel: 'tool.file_write',
+      // Zrušení i timeout musí zápis zastavit.  `signal` sem teče z `execute()`
+      // spolu se zbytkem kontextu a `executeWithTimeout` k němu přidá svůj
+      // vlastní důvod k zastavení.
+      signal: params.signal || null,
+    });
+
+    if (!result.written) {
+      // Nezapsáno se **vyhodí**, ne vrátí jako `success: true` s nulou bajtů.
+      // Volající tuhle hodnotu předává dál jako výsledek nástroje a „povedlo se,
+      // jen nic nevzniklo" je přesně ta věta, kvůli které se pak hledá soubor,
+      // který nikdy nebyl.
+      throw Object.assign(
+        new Error(`FILE_WRITE_NOT_PERFORMED: ${result.state}${result.message ? ` — ${result.message}` : ''}`),
+        { code: 'FILE_WRITE_NOT_PERFORMED', state: result.state, guard: result.guard,
+          approvalId: result.approvalId || null },
+      );
+    }
 
     return {
-      path: validatedPath,
+      path: result.target || validatedPath,
       bytesWritten: content.length,
+      guard: result.guard,
+      approvalId: result.approvalId || null,
       success: true,
     };
   }

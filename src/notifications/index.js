@@ -10,6 +10,7 @@ export { WebhookChannel } from './channels/webhook.js';
 export { DesktopChannel } from './channels/desktop.js';
 export {
   EXTERNAL_NOTIFICATION_CHANNEL_FLAGS,
+  INTERNAL_NOTIFICATION_CHANNELS,
   NOTIFICATION_CHANNEL_DISABLED,
   NOTIFICATION_CHANNEL_POLICY_INVALID,
   notificationChannelEnabled,
@@ -36,6 +37,7 @@ import { TelegramChannel } from './channels/telegram.js';
 import { PushChannel } from './channels/push.js';
 import { WebhookChannel } from './channels/webhook.js';
 import { DesktopChannel } from './channels/desktop.js';
+import { MobileChannel } from './channels/mobile.js';
 import {
   EXTERNAL_NOTIFICATION_CHANNELS,
   notificationChannelEnabled,
@@ -118,6 +120,13 @@ export function createNotificationRouter({
     channelPolicy: validatedPolicy,
   });
 
+  // Internal companion delivery is always present. Its Symbol capability in
+  // MobileChannel is the authorization boundary; external channel opt-ins do
+  // not control it and an HTTP/agent payload cannot mint that capability.
+  if (!router.registerChannel(new MobileChannel({ db: rawDb, logger: channelLogger }))) {
+    throw notificationFactoryError();
+  }
+
   for (const channelName of EXTERNAL_NOTIFICATION_CHANNELS) {
     if (!notificationChannelEnabled(validatedPolicy, channelName)) continue;
     const factory = Object.hasOwn(channelFactories, channelName)
@@ -132,6 +141,19 @@ export function createNotificationRouter({
     }
   }
 
+  // F-111 — the mobile inbox had a channel class, a table and a read/ack API,
+  // and nothing that registered it.  `router.send()` dispatches by
+  // `notification.channel`, so an unregistered channel is not a channel that
+  // does nothing: it is an error path ("Channel 'mobile' not registered"), and
+  // no `mobile_notifications` row could ever be written by ordinary emission.
+  //
+  // Registering here rather than in `server.js` covers every caller of this
+  // factory, which is what the finding is about — the *production* router.
+  // It is additive: dispatch is by name, so no existing flow changes.
+  //
+  // A missing `db` is tolerated on purpose.  Callers that build a router
+  // without one (tests, tooling) get a channel that reports "no database"
+  // instead of throwing, which keeps the failure legible rather than fatal.
   return router;
 }
 

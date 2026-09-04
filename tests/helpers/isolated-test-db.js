@@ -322,6 +322,15 @@ function createDirectRuntime() {
   process.once('beforeExit', exitCode => {
     if (!cleanupRequested(exitCode)) return;
     if (!cleanup()) {
+      // SQLite handles owned by imported process singletons are released only
+      // after `exit` on Windows. Preserve that isolated directory for the
+      // parent/human to reap; a passing suite must not become a false failure.
+      if (process.platform === 'win32' && ['EBUSY', 'EPERM'].includes(cleanupError?.code)) {
+        process.stderr.write(
+          `Isolated test runtime preserved until handles close: ${root}\n`,
+        );
+        return;
+      }
       process.exitCode = 1;
       process.stderr.write(
         `Failed to remove isolated test runtime ${root}: ${cleanupError.message}\n`,
@@ -334,6 +343,12 @@ function createDirectRuntime() {
 
     if (cleanupRequested(exitCode) && !cleanupAttempted) {
       if (!cleanup()) {
+        if (process.platform === 'win32' && ['EBUSY', 'EPERM'].includes(cleanupError?.code)) {
+          process.stderr.write(
+            `Isolated test runtime preserved until handles close: ${root}\n`,
+          );
+          return;
+        }
         process.exitCode = 1;
         process.stderr.write(
           `Failed to remove isolated test runtime ${root}: ${cleanupError.message}\n`,

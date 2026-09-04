@@ -453,7 +453,7 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
     channelFactories: fakeChannelFactories(defaultCounters),
     logger: SILENT_LOGGER,
   });
-  assert.deepEqual(defaultRouter.getAvailableChannels(), ['in_app']);
+  assert.deepEqual(defaultRouter.getAvailableChannels(), ['in_app', 'mobile']);
   assert.equal(Object.values(defaultCounters.construct).reduce((a, b) => a + b, 0), 0);
   assert.deepEqual(
     await defaultRouter.send({ channel: 'in_app', agentId: 'local' }),
@@ -468,7 +468,7 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
       channelFactories: fakeChannelFactories(counters),
       logger: SILENT_LOGGER,
     });
-    assert.deepEqual(router.getAvailableChannels(), ['in_app', channelName]);
+    assert.deepEqual(router.getAvailableChannels(), ['in_app', 'mobile', channelName]);
     assert.equal(counters.construct[channelName], 1);
     assert.equal(Object.values(counters.construct).reduce((a, b) => a + b, 0), 1);
 
@@ -479,7 +479,7 @@ await testAsync('channel, startup and setup authority is exact, default-off and 
       channelFactories: fakeChannelFactories(offCounters),
       logger: SILENT_LOGGER,
     });
-    assert.deepEqual(offRouter.getAvailableChannels(), ['in_app']);
+    assert.deepEqual(offRouter.getAvailableChannels(), ['in_app', 'mobile']);
     assert.equal(Object.values(offCounters.construct).reduce((a, b) => a + b, 0), 0);
 
     const invalidCounters = makeCounters();

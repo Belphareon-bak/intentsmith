@@ -20,6 +20,12 @@ export const EXTERNAL_NOTIFICATION_CHANNELS = Object.freeze(
   Object.keys(EXTERNAL_NOTIFICATION_CHANNEL_FLAGS),
 );
 
+// Internal channels never cross an operator-selected external transport.
+// `mobile` persists only an already-authorised, content-free projection in the
+// companion inbox; the gateway transport has its own authentication boundary.
+export const INTERNAL_NOTIFICATION_CHANNELS = Object.freeze(['mobile']);
+const INTERNAL_NOTIFICATION_CHANNEL_SET = new Set(INTERNAL_NOTIFICATION_CHANNELS);
+
 const VALIDATED_POLICIES = new WeakSet();
 
 export class NotificationChannelPolicyError extends Error {
@@ -75,6 +81,13 @@ export function isManagedExternalNotificationChannel(channelName) {
     && Object.hasOwn(EXTERNAL_NOTIFICATION_CHANNEL_FLAGS, canonicalName);
 }
 
+export function isManagedNotificationChannel(channelName) {
+  const canonicalName = canonicalNotificationChannelName(channelName);
+  return canonicalName === 'in_app'
+    || INTERNAL_NOTIFICATION_CHANNEL_SET.has(canonicalName)
+    || isManagedExternalNotificationChannel(canonicalName);
+}
+
 export function notificationChannelEnabled(policy, channelName) {
   requireNotificationChannelPolicy(policy);
   if (channelName === 'in_app') return true;
@@ -97,6 +110,15 @@ export function notificationChannelDecision(policy, channelName) {
   }
 
   const canonicalName = canonicalNotificationChannelName(channelName);
+  if (INTERNAL_NOTIFICATION_CHANNEL_SET.has(canonicalName)) {
+    return Object.freeze({
+      managed: true,
+      external: false,
+      canonicalName,
+      enabled: true,
+      code: null,
+    });
+  }
   const managed = canonicalName !== null
     && Object.hasOwn(EXTERNAL_NOTIFICATION_CHANNEL_FLAGS, canonicalName);
   const enabled = managed && policy.enabled[canonicalName] === true;

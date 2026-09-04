@@ -16,7 +16,19 @@
       --assist-border: #2d9a5c;
       --error: #d44; --error-bg: #fdeaea;
       --sidebar-w: 280px;
+      --amber: #a06a10; --amber-bg: #fdf4e3;
     }
+    /* Ukazatel čekajícího rozhodnutí. Musí být vidět tam, kde se pracuje —
+       otázka, o které se člověk dozví, jen když si otevře jinou stránku, je
+       otázka, na kterou se nedostane odpověď. */
+    .approval-bar {
+      display: none; padding: 10px 12px; margin: 0 12px 8px;
+      background: var(--amber-bg); border: 1px solid var(--amber); border-radius: 6px;
+      color: var(--amber); font-size: 13px; text-decoration: none;
+    }
+    .approval-bar.on { display: block; }
+    .approval-bar strong { font-weight: 600; }
+    .approval-bar .why { display: block; color: var(--text-muted); font-size: 12px; margin-top: 2px; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
       background: var(--bg); color: var(--text); height: 100vh;
@@ -166,6 +178,7 @@
     <h2>C3 Chat</h2>
     <button class="btn-new" onclick="newConversation()">+ Nová</button>
   </div>
+  <a class="approval-bar" id="approvalBar" href="/approvals-ui" target="_blank" rel="noopener"></a>
   <div class="conv-list" id="convList"></div>
 </div>
 
@@ -454,9 +467,39 @@ function esc(text) {
 // Init
 // ══════════════════════════════════════════════════════════════════════════════
 
+// ══════════════════════════════════════════════════════════════════════════════
+// Čekající rozhodnutí (P0-6)
+//
+// Ukazuje se **jen** to, co server potvrdil.  Selhání dotazu lištu schová místo
+// aby ukázalo nulu — ale schovaná lišta netvrdí „nic nečeká", jen o tom mlčí.
+// Tvrdit klid smí pořád jen ta druhá plocha, která má potvrzenou odpověď.
+//
+// Počet je jediné, co se odsud dozvíš.  Co to je, je za odkazem, protože popis
+// approvalu je S2 a do postranní lišty nepatří.
+// ══════════════════════════════════════════════════════════════════════════════
+
+async function pollApprovals() {
+  const bar = document.getElementById('approvalBar');
+  if (!bar) return;
+  try {
+    const res = await fetch('/api/approvals');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const n = Array.isArray(data.approvals) ? data.approvals.length : 0;
+    if (n === 0) { bar.classList.remove('on'); return; }
+    bar.innerHTML = `<strong>${n === 1 ? 'Čeká 1 rozhodnutí' : `Čekají ${n} rozhodnutí`}</strong>`
+      + '<span class="why">Bez něj běh nepokračuje. Otevřít →</span>';
+    bar.classList.add('on');
+  } catch {
+    bar.classList.remove('on');
+  }
+}
+
 (async function init() {
   await loadConversations();
   document.getElementById('input').focus();
+  pollApprovals();
+  setInterval(pollApprovals, 4000);
 })();
 </script>
 </body>

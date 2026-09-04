@@ -1,0 +1,383 @@
+# IntentSmith Mobile — kanonický prototyp a cesta k production-ready
+
+**Datum konsolidace:** 2026-08-18
+
+**Kanonická větev prototypu:** `wp/mobile-prototype-20260817`
+
+**Runtime implementace a APK:** `HEAD` větve (hardening po konsolidaci —
+lifecycle, systémový zámek, fail-closed podpis). Předchozí snapshot
+`485c34977078a46cc397b9b3807f6a311fc906ba` je archivovaný v
+[`archive/PROTOTYPE-485c3497.md`](archive/PROTOTYPE-485c3497.md).
+
+**Verdikt:** `CURRENT-HOST EMULATOR JOURNEY VERIFIED`; fyzický telefon,
+fresh-clone reprodukce a production release jsou `NOT RUN` / `NOT READY`.
+
+Tento soubor je jediný aktuální stavový a rozhodovací rozcestník pro mobilní
+prototyp. Návod k obsluze je v [TRYING-IT.md](TRYING-IT.md), historické
+implementační vysvětlení přesměrovává sem z [PROTOTYPE.md](PROTOTYPE.md) a
+raw obrazová evidence zůstává v [`prototype-evidence/`](prototype-evidence/).
+
+> Tento dokument sjednocuje prototypové větve, ale nepřebíjí projektové
+> autority [`PRODUCT.md`](../../PRODUCT.md), [`CONTRACT.md`](../../CONTRACT.md),
+> [`DIRECTION.md`](../../DIRECTION.md), [`ROADMAP.md`](../../ROADMAP.md) ani
+> [`SYSTEM-MAP.md`](../../SYSTEM-MAP.md). Remote Companion je podle roadmapy
+> samostatný M7 release. Rozhodnutí
+> [024](../decisions/024-mobile-companion-producer-and-shell.md),
+> [025](../decisions/025-approval-window-and-push.md),
+> [026](../decisions/026-wireless-gateway-access.md) a
+> [027](../decisions/027-single-writer-per-file.md) jsou **přijatá
+> (2026-08-19)**. Přijetí ale nespouští producenta samo — `guardedWrite` se
+> zapíná vložením závislostí (`setApprovalDeps`) a v produkčním kódu ho zatím
+> nikdo nevkládá.
+
+## 1. Jedna jasná cesta k dnešnímu prototypu
+
+| Co | Kanonická hodnota |
+|---|---|
+| Worktree | `/home/belphareon/worktrees/is-mobile-prototype` |
+| Větev | `wp/mobile-prototype-20260817` |
+| Zdroj runtime a APK | `HEAD` (hardening); předchozí `485c3497` v archivu |
+| Vstupní mobile baseline | `2fcc2ff357238e4736a15a9e01affa14183e37ef` |
+| APK | `mobile-app/android/app/build/outputs/apk/release/app-release.apk` |
+| Absolutní cesta APK | `/home/belphareon/worktrees/is-mobile-prototype/mobile-app/android/app/build/outputs/apk/release/app-release.apk` |
+| SHA-256 APK | `c22254de1b19cc0a558dc5c118e694311e60fb7766a3e55a3d7f9e4ea036856d` |
+| Package | `cz.intentsmith.companion` |
+| Podpis | interní RSA-4096; cert SHA-256 `9c8aafc3a480e0eccf8230e324fede05f3b3e6db62bd5aea75e539af1e5bf786` |
+| Ověřená platforma | Android 15 emulátor, `x86_64`, API 35, KVM |
+| Fyzický telefon | `NOT RUN` |
+| Push / vzdálený listener | není součástí prototypu |
+
+APK je interní artefakt pro USB demonstraci. Není to store build ani release
+kandidát. Hash výše patří buildu z `HEAD`; každý další build ho změní, protože
+APK není bit-reprodukovatelné (razítka, pořadí v zipu) — reprodukovatelnost je
+položka `P1` v [PROD-READY-HANDBOOK.md](PROD-READY-HANDBOOK.md), ne tvrzení
+o dnešku. Kontrolovat se dá **podpis**, ne hash: cert SHA-256 výše je stabilní.
+
+Nejkratší bezpečný postup je:
+
+```bash
+cd /home/belphareon/worktrees/is-mobile-prototype
+npm ci --offline
+npm --prefix mobile-app ci --offline
+npm run mobile:seed -- --db /tmp/is-demo.db
+
+# Terminál 1 — gateway drží terminál obsazený, dokud běží.
+C3_DB_PATH=/tmp/is-demo.db C3_MOBILE_PAIRING=on npm run mobile:gateway
+```
+
+```bash
+# Terminál 2 — telefon, párovací kód, běh
+npm run mobile:android:run
+C3_DB_PATH=/tmp/is-demo.db C3_MOBILE_PAIRING=on node scripts/mobile-pair.js \
+  --scopes read:capabilities,read:chat,write:chat,read:notifications,write:notifications,read:approvals,write:approvals
+npm run mobile:demo -- --db /tmp/is-demo.db
+```
+
+Bez kroku s `mobile-pair.js` se aplikace zastaví na párovací obrazovce a nemá
+co zadat; approvaly navíc **nejsou ve výchozích scopech** (`P-8`), takže je
+příkaz žádá výslovně. Podrobnosti a co si při klikání všímat jsou v
+[TRYING-IT.md](TRYING-IT.md). Gateway zůstává na `127.0.0.1:3336`; telefon se k
+ní dostane jen přes USB `adb reverse`. Nic se nevystavuje do Wi-Fi.
+
+## 2. Co znamená „nejlepší z obou“
+
+Vznikly dva nezávislé kandidáty. Jejich celé větve se nemají mechanicky slít:
+obě mění shell, klienta, lockfile a registry jiným způsobem. Správný výsledný
+směr je selektivní integrace jejich silných vrstev.
+
+| Zdroj | Co z něj bereme | Co z něj neděláme |
+|---|---|---|
+| `wp/mobile-prototype-20260817` / `485c3497` | kanonický dnes spustitelný prototyp; producent approvalů, S1 projektor, indikátory `CoreEvent`, Android shell a manuálně ověřený emulator journey | demo producent nevydáváme za zapojené produkční jádro a PIN shell za finální security boundary |
+| `codex/mobile-prototype-20260817` / implementace `fda3fc43`, výsledkový HEAD `78ca9f38` | referenční hardening: Capacitor 8, target API 36, přímý AndroidKeyStore AES-GCM, systémový `BiometricPrompt`, vyčištění JS session, abort/epoch guard a striktní build/install kontrola | nevydáváme jej za device-ověřený prototyp; jeho approval je syntetický a nemá producenty |
+
+Bezpečnostní kandidát je tedy **zdroj pro port vybraných změn**, ne druhá
+kanonická aplikace. Jeho úplný dobový protokol lze přečíst bez přepnutí větve:
+
+```bash
+git show 78ca9f38:docs/mobile/WP-MOBILE-ANDROID-PROTOTYPE-CODEX-20260817-RESULT.md
+```
+
+Výsledná prod cesta má zachovat běžící producenty a pozorovaný journey z
+`485c3497`, ale nahradit nebo zpevnit shell podle bezpečnostních vlastností z
+`fda3fc43`. Takový hybridní kód **zatím nevznikl**; tento dokument jej
+definuje jako následující integrační WP, nikoli jako hotovou skutečnost.
+
+## 3. Pravdivý stav dnešního prototypu
+
+| Oblast | Stav | Co bylo skutečně ověřeno | Hranice tvrzení |
+|---|---|---|---|
+| Párování a čtení SQLite | `EMULATOR VERIFIED` | párování, seznam konverzací, stránkovaná historie, přehled, trust bar a žurnál | pouze current-host emulátor; žádná fresh-clone ani fyzická device matice |
+| ★ approval | `SEAM IMPLEMENTED` | telefon rozhodl durable approval a soubor vznikl; od 2026-08-19 vede přes `guardedWrite` i editační cesta jádra (`fs.write` v režimu `ask`), takže odpovědět může telefon, IDE i desktop | zapíná se vložením závislostí (`setApprovalDeps`), jinak platí původní chování; fyzický telefon `NOT RUN` |
+| Approval authority | `COMPONENT IMPLEMENTED` | mint jde přes `createMobileApproval`, má výpočet otisku, vazbu a od `025` **předpoklad stavu cíle** místo okna; rozhodovací pravidla jsou v **jedné** sdílené funkci pro mobil i desktop | rozhodnutí 024–027 přijata 2026-08-19; `DR-011` v PLAN/DATA-MODEL/SCREENS ještě popisuje staré pětiminutové okno a je tím **zastaralé** |
+| Notifikační schránka | `DEMO PRODUCER IMPLEMENTED` | uzavřený devítivětý S1 slovník bez obsahu, zobrazený na emulátoru | je to pull; bez push a bez zapojení do skutečného core lifecycle |
+| Průběh běhu | `DEMO PROJECTION IMPLEMENTED` | demo mapuje `CoreEvent` do S1 indikátorů ve schránce | není vlastní run obrazovka ani produkční CoreEvent konektor |
+| Android shell | `EMULATOR VERIFIED` | instalace/launch, gateway přes `adb reverse`, background lock a `FLAG_SECURE` | Capacitor 6, minSdk 22, compile/target 34 a servírované UI přes `server.url` jsou prototypová konfigurace |
+| Token at rest | `PARTIAL` | credential je v Keystore-backed encrypted preferences; backup je vypnutý; JS kopie se při zamčení zahazuje | [`EncryptedSharedPreferences` je deprecated](https://developer.android.com/reference/androidx/security/crypto/EncryptedSharedPreferences); mezi odemčením a zamčením kopie v JS paměti existuje |
+| Background lock | `EMULATOR VERIFIED` | `onPause` zapečetí vault, pošle do stránky `intentsmithLock` (zahodí credential z paměti, zruší běžící requesty, zneplatní epochu) a zvedne překryv; pozdní odpověď je inertní | ověřeno na emulátoru a šesti testy; fyzický telefon `NOT RUN` |
+| Odemčení | `EMULATOR VERIFIED` | systémový `BiometricPrompt` (otisk / obličej / PIN telefonu); po odemčení se stránka reloadne a čte z trezoru | vlastní PIN zůstává jen pro telefon **bez** zámku obrazovky; fyzická biometrie `NOT RUN` |
+| APK a podpis | `INTERNAL BUILD VERIFIED` | release build **selže**, když chybí podpisový klíč; interní podpis ověřen `apksigner` | `-PallowDebugSigning=true` je vědomý únik pro jednorázový build; žádná release key ceremony |
+| Síť | `USB LOOPBACK ONLY` | `adb reverse` zachovává gateway na loopbacku | žádný vzdálený listener, VPN support claim, TLS ani push |
+| Accessibility | `PARTIAL` | `mobile-browser-a11y` **22/22 PASS** ve skutečném Chromiu (ručně; v gate dál withheld) — kontrast, focus order, ohlášení trust baru čtečce **a růst se 200% písmem** | TalkBack na zařízení a fyzická AT matice zůstávají `NOT RUN`; jeden test sám pojmenovává sporné měření kontrastu popisků lišty |
+
+Nejdůležitější upřesnění proti staršímu popisu: po approval v demu provádí
+`scripts/mobile-demo-run.js` přímý `fs.writeFileSync`. Pořadí je správné — efekt
+nastane až po souhlasu — ale není to skutečný executor/effect broker. Proto je
+produkční F-100 integrace stále otevřená.
+
+### Co změnil hardening po konsolidaci
+
+Tři výhrady z porovnávacího review byly oprávněné a jsou zapracované, ne
+odargumentované:
+
+1. **Zámek zapečeťoval trezor, ale ne stránku.** WebView si po bootu drží
+   credential v paměti a překryv na to nesahá. `onPause` teď posílá do stránky
+   `intentsmithLock`: credential z paměti zmizí, běžící requesty se zruší a
+   epocha se posune, takže odpověď, která dorazí po zamčení, se zahodí místo
+   aby překreslila zamčenou relaci. Šest testů v
+   `tests/mobile-secure-credential.test.js` drží každou z těch vlastností zvlášť.
+2. **Vlastní PIN byl slabší než zámek, který telefon už má.** Primární cesta je
+   teď systémový `BiometricPrompt` s `DEVICE_CREDENTIAL`; aplikační PIN zůstává
+   výhradně pro telefon bez zámku obrazovky a obrazovka nastavení říká, který
+   z nich platí. Zrušený prompt neodemyká a **nepropadá** na slabší PIN.
+3. **Release build mohl tiše podepsat debug klíčem.** Teď bez klíče selže.
+
+Čtvrtou vadu našel až běh na emulátoru, ne čtení kódu: aplikace se zamykala i
+**před spárováním**, takže první obrazovkou po instalaci byl systémový prompt
+hlídající prázdnou schránku. Zámek se teď zapíná až když je co chránit.
+
+### Co našlo nezávislé review (2026-08-19) a co s tím je
+
+Review připnuté na `5f5ffba2` našlo osm nálezů, tři z nich `P0`. **Všechny jsou
+opravené**, ale jeden z nich se opravit úplně nedá a je poctivější to napsat než
+to zamlčet:
+
+| # | Nález | Stav |
+|---|---|---|
+| 1 | `TOCTOU` mezi ověřením a zápisem | **zúženo** — poslední ověření je teď těsně před zápisem; zbytek viz níže |
+| 2 | zápis po ztrátě lease | **opraveno** — fencing přes id zámku, selhání heartbeatu zápis zakáže |
+| 3 | chyba čtení se vydávala za neexistující soubor | **opraveno** — `absent` smí znamenat jen `ENOENT`, ostatní je neověřitelné |
+| 4 | „ghost approval" bez terminálního stavu | **opraveno** — `2026_08_19_068_mobile_approval_lifecycle`, `invalidated`/`cancelled` + důvod |
+| 5 | dvě rozhodovací autority | **opraveno** — jedna sdílená funkce pro pravidla, transport zůstává každé ploše vlastní |
+| 6 | rozpadlá kanonická dokumentace | **opraveno** — tenhle soubor |
+| 7 | identita cíle jen lexikální (symlink) | **opraveno** — kanonický cíl přes `realpath` pro zámek, předpoklad i zápis |
+| 8 | desktopová `S2` odpověď bez `no-store` | **opraveno** |
+
+**Co u nálezu 1 zbývá a proč.** Mezi „přečti a porovnej" a „zapiš" zůstává
+štěrbina řádově mikrosekund, protože zápis souboru na POSIXu není
+compare-and-swap. Zavřít ji nejde zúžením — jde jen tím, že **všichni**
+zapisovatelé půjdou přes jednu mediační vrstvu (verzované úložiště nebo
+broker). To je rozhodnutí o síle slibu, ne oprava, a patří do `P1`:
+
+> **Dnešní slib:** dva agenti IntentSmithu si nesáhnou na týž soubor (zámek) a
+> změna, která proběhne kdykoli **do poslední kontroly**, zápis zastaví
+> (předpoklad). **Neslibuje se**, že externí zapisovatel nemůže trefit
+> mikrosekundu mezi poslední kontrolou a zápisem.
+
+Tři sondy z review jsou převedené na regresní testy
+(`tests/guarded-write.test.js` §6), takže se ty tři cesty nemůžou vrátit tiše.
+
+## 4. Důkazy, které dnes existují
+
+Na runtime snapshotu a znovu po dokumentační konsolidaci prošlo:
+
+- `npm run test:mobile`: **36/36 aktivních mobilních programů PASS** (bylo 31/31 před approval balíkem);
+- `mobile-browser-a11y`: **22/22 PASS** při ručním spuštění — prerekvizita se
+  doinstaluje jedním příkazem (`npx puppeteer browsers install chrome`).
+  V gate zůstává **withheld**: stav `BLOCKED` je vlastnost registru, ne mého
+  stroje, a gate schválně nesonduje prostředí. Aby se ten výsledek počítal,
+  musí někdo přeřadit sadu na `ACTIVE` a přijmout tím, že Chromium je napříště
+  povinná prerekvizita gate — to je rozhodnutí implementátora registru;
+- `tests/mobile-companion-producer.test.js`: **24 PASS**;
+- `tests/file-write-lock.test.js`: **16 PASS**, `tests/guarded-write.test.js`:
+  **13 PASS**, `tests/desktop-approval-surface.test.js`: **10 PASS**,
+  `tests/ide-durable-approval.test.js`: **7 PASS**;
+- `tests/mobile-companion-e2e.test.js`: **5 PASS** přes vlastní gateway proces a HTTP;
+- `tests/mobile-secure-credential.test.js`: **17 PASS** (10 úložiště + 7 lifecycle);
+- Android `lintRelease`: **0 errors / 21 warnings**;
+- `tests/artifact-validation.test.js`: **151/151 PASS**;
+- registry: **409 programů** (`311 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`),
+  9 explicitních support-module exclusions;
+- repository hygiene: **PASS**, 1 687 trackovaných cest včetně tohoto dokumentu;
+- current-host emulátor: pairing → demo run → approval → durable decision →
+  soubor po schválení, a po hardeningu znovu celé včetně cyklu
+  pozadí → `BiometricPrompt` → device credential → reload → funkční relace;
+  obrazová evidence je v [`prototype-evidence/`](prototype-evidence/).
+
+Tyto výsledky nejsou release verdict. Chybí fresh-checkout attestace root i
+`mobile-app` instalace/buildu, fyzický telefon a nezávislá akceptace.
+
+### Approval rovina — zapnutá od 2026-08-19
+
+Zápis v cestě `FILE_WRITE` a nástroje `fs.write` se ptá a čeká; bez zapojené
+rozhodovací roviny **nezapíše nic**. Celý záznam včetně toho, co **ne**platí, je
+v [`WP-APPROVAL-PLANE-RESULT.md`](WP-APPROVAL-PLANE-RESULT.md).
+
+### Boundary gate — zelený od 2026-08-19
+
+`node scripts/module-boundary-ratchet.mjs` **PASS**. Reviewer schválil směry
+závislostí a odmítl jedinou věc — pojmenování sdíleného jádra jako `src/mobile`.
+Autorita se proto přesunula do `src/approvals/` a baseline se rebaselinoval
+v `85d98215`:
+
+```text
+baselineEdges=1077 currentEdges=1075 added=0 removed=2 cycles=3 filesInCycles=28
+```
+
+Dvě hrany naopak **ubyly** (`effects.js` už nesahá na zámek ani atomický zápis
+přímo). Utažení baseline na 1075 je rozhodnutí integrátora, ne podmínka gate —
+ratchet propouští jen přírůstky.
+
+
+## 5. Co přesně chybí do production-ready
+
+„Production-ready“ zde znamená Remote Companion release podle M7 roadmapy, ne
+jen APK, které lze nainstalovat. Následující položky jsou povinné a jejich
+`NOT RUN`, `PARTIAL` nebo `BLOCKED` stav se nesmí přepsat na PASS.
+
+### P0 — uzavřít pravdivý interní prototyp
+
+1. ~~**Rozhodnout 024.**~~ **HOTOVO 2026-08-19** — operátor přijal 024 i
+   navazující [025](../decisions/025-approval-window-and-push.md),
+   [026](../decisions/026-wireless-gateway-access.md) a
+   [027](../decisions/027-single-writer-per-file.md). Producent tím **není**
+   spuštěný: přijetí potvrdilo tvar, zapojení je vázané na body 2 a P0-6.
+   Dvě věci, které z 024 vypadly jako samostatná rozhodnutí, protože nejsou
+   implementační: [025 — jak dlouho approval čeká a jak se o něm dozvíš](../decisions/025-approval-window-and-push.md)
+   a [026 — přístup k gateway bez kabelu](../decisions/026-wireless-gateway-access.md).
+2. **Zapojit skutečný effect seam.** `requestApproval()` musí volat reálná
+   authority před skutečným efektem; efekt musí mít idempotenci, cancel,
+   timeout, restart/recovery, audit a stav `UNKNOWN` při nejasném výsledku.
+   Přímý demo zápis nesmí být produkční cesta.
+3. ~~**Uzavřít lifecycle session.**~~ **HOTOVO** — `intentsmithLock`, abort
+   běžících requestů, epoch guard a wipe JS credentialu; testy v
+   `tests/mobile-secure-credential.test.js` §5. Zbývá potvrdit na fyzickém
+   telefonu.
+4. ~~**Systémový zámek.**~~ **HOTOVO** — `BiometricPrompt` s
+   `DEVICE_CREDENTIAL`; aplikační PIN jen jako fallback bez zámku obrazovky.
+5. ~~**Fail-closed podpis.**~~ **HOTOVO** — release bez klíče selže.
+6. **Zbytek shellu na podporovanou řadu.** Zůstává Capacitor **6** (npm dnes
+   vede `8.5.0`, takže jsme dvě major verze pozadu a mimo
+   [support policy](https://capacitorjs.com/docs/main/reference/support-policy)),
+   `compileSdk`/`targetSdk` **34**, `minSdk` **22** a
+   [`server.url`](https://capacitorjs.com/docs/config), který je určený pro live
+   reload a **nesmí se omylem stát store runtime**. Dál zůstává
+   `EncryptedSharedPreferences` místo přímého AndroidKeyStore. Postup a rizika
+   jsou v [PROD-READY-HANDBOOK.md](PROD-READY-HANDBOOK.md) §3.
+   > Zabalení UI do APK není jen build volba: klient by pak běžel z
+   > `http://localhost` a mluvil na `127.0.0.1:3336` cross-origin, takže by
+   > gateway musela otevřít **CORS**, které dnes záměrně nemá. Je to
+   > bezpečnostní rozhodnutí, ne konfigurace.
+7. **Provést fyzický device journey.** Alespoň jeden podporovaný telefon:
+   install, pairing, Keystore persistence po process death, approval approve i
+   reject/expire, Home/recents/lock, gateway outage a odpojení USB.
+8. **Rozhodnout boundary delta.** Integrátor zkontroluje tři hrany a až poté
+   změní baseline nebo implementaci. Červený ratchet se nesmí umlčet.
+9. **Odsouhlasit S1 slovník jako produktový text.** Devět vět, které uživatel
+   uvidí, dnes schválil kód. Patří to k přijetí 024, ne k implementaci.
+10. **Popsat chování s víc zařízeními.** Dva spárované telefony: kdo rozhodl,
+    co uvidí ten druhý, jak se chovají per-device receipty (`DR-012 A`) a co
+    znamená „nic nečeká" na zařízení, které o approvalu nevědělo.
+
+### P1 — interní pilot s bezpečnou distribucí
+
+1. **Reprodukovatelný build z čistého checkoutu:** root i Android závislosti z
+   lockfilů, přesná JDK/SDK/Gradle verze, jeden artefakt, applicationId,
+   versionCode a signer ověřené fail-closed.
+2. **Signing bez fallbacku:** oddělený interní/release flavor, chráněný klíč a
+   heslo, rotace, záloha a dokumentované vlastnictví. Release nesmí potichu
+   spadnout na debug key.
+3. **Revokace a ztracené zařízení:** desktop musí okamžitě zrušit device token,
+   aktivní granty a session; aplikace musí stav zjistit a lokálně credential
+   odstranit.
+4. **Push s explicitní policy:** spící aplikace musí dostat bezpečný S1
+   ukazatel, nebo produkt musí pravdivě deklarovat pull-only omezení. Push
+   potřebuje consent, outbound policy, credential scope, retry a audit.
+5. **Datová hranice:** rozhodnout šifrování WebView/cache dat at rest,
+   retention, logout wipe, backup/device-transfer a diagnostické logy bez S2/S3
+   obsahu.
+6. **Accessibility a zařízení:** 200% font, TalkBack, kontrast, focus order,
+   malý displej, rotace, soft keyboard, offline/reconnect a vybraná OS matice.
+7. **Supply chain:** dependency audit, supported-version policy, SBOM/licence a
+   postup pro bezpečnostní aktualizace.
+
+### P2 — skutečný Remote Companion release
+
+1. Core 1.0 musí dodat přijatý a implementovaný `RemoteCorePort`; mobilní
+   release podle roadmapy následuje až po M6.
+2. Oddělený vzdálený listener, autentizované pairing, device scope, expiry,
+   revokace a audit musí mít pozitivní i negativní boundary test.
+3. Legacy `/api/*` ani `/c3/ws` nesmějí být přes vzdálenou cestu dostupné jako
+   bypass.
+4. Projekty, konverzace, settings, stored information, approvals,
+   notifications a typed runtime events musí běžet přes verzovaný kompatibilní
+   kontrakt s pravdivým degraded/offline chováním.
+5. Release kandidát musí z fresh clone projít fyzickou device maticí, security
+   review, data/recovery round-tripem, dlouhým během a operátorskou demonstrací.
+
+Grafika a finální vizuální polish přicházejí až po P0/P1 funkčnosti, rozložení,
+accessibility a bezpečnostních hranicích.
+
+## 6. Doporučené pořadí následující práce
+
+```text
+přijetí / odmítnutí rozhodnutí 024
+  → malý hybridní WP z runtime 485c3497
+      → reálný effect seam + producer
+      → port lifecycle/Keystore/BiometricPrompt hardeningu z fda3fc43
+      → podporovaný Android/Capacitor build
+  → fyzický USB device journey a negativní cesty
+  → integrátorské boundary review
+  → interní pilot
+  → až po RemoteCorePort/M6 samostatný M7 remote release
+```
+
+Nevhodná zkratka je merge celých dvou prototypových větví. Bezpečnější je
+vzít `485c3497` jako běžící základ a portovat po jednotlivých vlastnostech s
+focused testem a device důkazem.
+
+## 7. Dokumentační autorita a úklid
+
+| Soubor / skupina | Role od této konsolidace |
+|---|---|
+| `FINAL-PROTOTYPE.md` | jediný aktuální mobilní stav, kanonická cesta a prod-ready backlog |
+| `TRYING-IT.md` | pouze praktický runbook; nesmí duplikovat stavové verdikty |
+| `PROTOTYPE.md` | stabilní legacy odkaz sem, nikoli druhá verze pravdy |
+| `docs/decisions/024-*` | čekající implementační rozhodnutí a strop producenta |
+| `prototype-evidence/` | point-in-time obrazová evidence z emulátoru |
+| `PROD-READY-HANDBOOK.md` | jak se každá položka `P0`–`P2` uzavírá: kritérium hotovosti, důkaz, vlastník, runbooky |
+| `archive/PROTOTYPE-485c3497.md` | plný implementační popis snapshotu `485c3497`, zachovaný celý |
+| `WP-MOBILE-*`, `PLAN.md`, `SCREENS.md`, `UI-DESIGN.md`, návrh kontraktu v2 | historické návrhy, WP evidence nebo budoucí scope; nejsou aktuální stavový souhrn |
+
+Historické soubory se nemažou: dokazují, co bylo navrženo a ověřeno. Konsolidace
+je proto **přesun, ne smazání** — text, který dřív žil v `PROTOTYPE.md`, je celý
+v `archive/PROTOTYPE-485c3497.md`, aby pravidlo v tomhle odstavci platilo i pro
+commit, který ho zavedl. Rozkol se odstraňuje jasnou autoritou, ne zničením
+evidence. Worktrees a větve jsou také
+zachované; jejich odstranění je samostatná destruktivní operace a není součástí
+tohoto úklidu.
+
+## 8. Akceptační checklist pro označení „prod-ready“
+
+- [ ] Rozhodnutí 024 je operátorem uzavřené.
+- [ ] Approval producer je zapojený do skutečného core effectu, ne jen dema.
+- [x] Background revokuje JS session a aktivní requesty; late response je inertní. *(emulátor + 7 testů; fyzický telefon zbývá)*
+- [x] Odemčení je systémový credential, ne vlastní PIN. *(emulátor; fyzická biometrie zbývá)*
+- [ ] Použitá Capacitor/Android řada je podporovaná a production konfigurace
+      nenačítá vývojový server.
+- [ ] Build je reprodukovatelný z čistého checkoutu.
+- [x] Podpis je fail-closed — release bez klíče selže.
+- [ ] Fyzický telefon prošel approve/reject/expire, outage, restart a lost-device scénáři.
+- [ ] Accessibility a podporovaná device/OS matice jsou PASS.
+- [ ] Boundary ratchet je přijatý integrátorem, ne pouze přebaselinovaný.
+- [ ] Push nebo deklarovaný pull-only model má přijatou bezpečnostní a provozní policy.
+- [ ] S1 slovník je odsouhlasený jako produktový text, ne jen jako kód.
+- [ ] Chování s víc spárovanými zařízeními je popsané a otestované.
+- [ ] `RemoteCorePort`, oddělený listener, pairing, revokace a legacy-bypass
+      negativní test jsou PASS.
+- [ ] Fresh-clone release artefakt odpovídá testovanému commitu a operátor jej
+      přijal po skutečné demonstraci.
+
+Dokud není zaškrtnutý celý seznam, správné označení je **interní mobilní
+prototyp**, ne production-ready aplikace. Jak se každá položka uzavírá — čím se
+prokáže, kdo ji vlastní a co je „hotovo" — je v
+[PROD-READY-HANDBOOK.md](PROD-READY-HANDBOOK.md).

@@ -1,3 +1,8 @@
+// Direct-run isolation bootstrap.  Must be the first import: it redirects
+// HOME/TMPDIR/XDG_* into a private root, so the `mkdtemp` below lands inside
+// the sandbox instead of the real system temp.
+import './helpers/isolated-test-db.js';
+
 import { spawnSync } from 'node:child_process';
 import {
   copyFileSync,

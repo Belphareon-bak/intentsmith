@@ -587,10 +587,23 @@ function readFakeNpmObservation() {
   return JSON.parse(fs.readFileSync(fakeNpmObservedPath, 'utf8'));
 }
 
-await testAsync('fs.write + fs.read roundtrip', async () => {
+// `fs.write` jde od P0 balíku přes řízenou cestu a ta je **fail-closed**: bez
+// zapojené rozhodovací roviny nezapíše nic.  Fixtury pro ostatní fs nástroje
+// proto vyrábí přímo `node:fs` — jsou to podklady testu, ne zápisy agenta,
+// a přes approval je hnát by testovalo něco jiného, než co tahle sada zkoumá.
+await testAsync('fs.write bez zapojené rozhodovací roviny nezapíše — a řekne proč', async () => {
+  const filePath = path.join(tmpDir, 'refused.txt');
+  const w = await registry.get('fs.write').execute({ path: filePath, content: 'nemá vzniknout' });
+
+  assert(w.refused === true, 'fs.write zapsal bez zapojené roviny');
+  assertEqual(w.written, 0);
+  assertEqual(w.state, 'refused_unconfigured');
+  assert(!fs.existsSync(filePath), 'soubor vznikl, přestože se nástroj tvářil odmítavě');
+});
+
+await testAsync('fs.read roundtrip', async () => {
   const filePath = path.join(tmpDir, 'test.txt');
-  const w = await registry.get('fs.write').execute({ path: filePath, content: 'Hello, World!' });
-  assert(!w.error, `write error: ${w.error}`);
+  fs.writeFileSync(filePath, 'Hello, World!');
 
   const r = await registry.get('fs.read').execute({ path: filePath });
   assert(!r.error, `read error: ${r.error}`);
@@ -623,7 +636,7 @@ await testAsync('fs.mkdir — creates directory', async () => {
 
 await testAsync('fs.append — appends to file', async () => {
   const filePath = path.join(tmpDir, 'append-test.txt');
-  await registry.get('fs.write').execute({ path: filePath, content: 'line1\n' });
+  fs.writeFileSync(filePath, 'line1\n');
   await registry.get('fs.append').execute({ path: filePath, content: 'line2\n' });
   const r = await registry.get('fs.read').execute({ path: filePath });
   assertIncludes(r.content, 'line1');
@@ -643,9 +656,7 @@ await testAsync('fs.readJson + fs.writeJson roundtrip', async () => {
 
 await testAsync('fs.head — reads first N lines', async () => {
   const filePath = path.join(tmpDir, 'multiline.txt');
-  await registry.get('fs.write').execute({
-    path: filePath, content: 'line1\nline2\nline3\nline4\nline5\n'
-  });
+  fs.writeFileSync(filePath, 'line1\nline2\nline3\nline4\nline5\n');
   const r = await registry.get('fs.head').execute({ path: filePath, lines: 3 });
   assert(!r.error, `error: ${r.error}`);
   const resultLines = (r.content || r.lines || '').toString().trim().split('\n');

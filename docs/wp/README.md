@@ -32,6 +32,7 @@ který jej právě zapisuje.
 | [P5-SECRET-TYPES](P5-SECRET-TYPES.md) | read-only sonda | **doběhla 2026-08-07** | [SECRET-TYPES](../review/2026-08-07-SECRET-TYPES.md) |
 | [P6-MODULE-GRAPH](P6-MODULE-GRAPH.md) | read-only sonda | **doběhla 2026-08-07** | [MODULE-GRAPH](../review/2026-08-07-MODULE-GRAPH.md) + měřidlo a JSON |
 | [P7-ENFORCEMENT-AUDIT](P7-ENFORCEMENT-AUDIT.md) | read-only sonda | **doběhla 2026-08-07** | [ENFORCEMENT-AUDIT](../review/2026-08-07-ENFORCEMENT-AUDIT.md) |
+| [P11-REMOTECOREPORT-DESIGN-INPUT](P11-REMOTECOREPORT-DESIGN-INPUT.md) | read-only sonda | **doběhla 2026-08-09; přeneseno do mobile master** | vstup pro `MM2 RemoteCorePort` |
 | [WP-M5-PACKAGE](WP-M5-PACKAGE.md) | zapisující WP | **blokován do přijetí M3+M4 a rebase** | — |
 | [WP-M5-DATA](WP-M5-DATA.md) | zapisující WP | **blokován do přijetí M3+M4 a rebase** | — |
 | [WP-M1-BINDING-REPOSITORY](WP-M1-BINDING-REPOSITORY.md) | zapisující WP | **dokončeno** na `515fb6f7`, evidence `eb7e78b8` | [WP-M1-MODEL report](../execution/runs/wp-m1-model-report.md) |

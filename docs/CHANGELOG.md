@@ -8,6 +8,25 @@
 
 ---
 
+## Unreleased — Mobile Master MM1 integration (2026-09-04)
+
+The Android companion prototype is being integrated onto
+`integration/m1-consolidated-20260810` in the canonical
+`mobile/master-prod-ready` branch. The integration preserves the newer core
+notification authority and adds the mobile inbox as an internal fail-closed
+channel.
+
+- Existing pairing, conversations, operation journal, durable approvals,
+  notification inbox and Android secure-shell work is carried forward.
+- Mobile migrations 055–060 remain unchanged. The former mobile migrations
+  061–065 are renumbered to 066–070 because the selected core baseline already
+  owns 061, 062, 064 and 065. This prototype lineage was not production-shipped,
+  so the rename avoids two meanings for one migration ordinal before release.
+- Core notification credentials remain environment-authoritative and
+  default-off. The retired legacy `NotificationEmitter` bridge is not restored.
+- This is integration source, not device or release evidence. Canonical status
+  and review boundaries live in `docs/mobile/MASTER-STATUS.md`.
+
 ## Unreleased — exact server-settings reset authority (WP029 source candidate, 2026-08-12)
 
 > This is source progress before independent Review A/B and promotion. It is

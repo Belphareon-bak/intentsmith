@@ -10,7 +10,7 @@ Release verdict: `NOT READY`
 | Milestone | Status | Review commit/range | Notes |
 |---|---|---|---|
 | `MM0` provenance and branch | `COMPLETE` | MM0 milestone commit | core base selected; prototype integration follows |
-| `MM1` prototype integration | `NOT STARTED` | — | — |
+| `MM1` prototype integration | `IN PROGRESS` | merge commit plus stabilization commits | core/mobile histories combined; verification pending |
 | `MM2` RemoteCorePort | `NOT STARTED` | — | — |
 | `MM3` primary mobile surfaces | `NOT STARTED` | — | — |
 | `MM4` governed surfaces | `NOT STARTED` | — | — |

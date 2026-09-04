@@ -487,7 +487,43 @@ async function handleToolCallDecision(input, decision, context) {
     logger.error('HandleToolCall', 'All tools failed', {
       error: executionResult.error,
       tools: decision.tools,
+      ...(executionResult.orphaned ? { orphaned: true } : {}),
     });
+
+    // Osiřelý efekt **nesmí** spadnout do LLM fallbacku níž.
+    //
+    // Fallback existuje pro „hledání selhalo, zkus odpovědět z hlavy" — tedy
+    // pro případ, kdy se prokazatelně nic nestalo.  Tady se ale možná stalo:
+    // efekt se po abortu nezastavil a nikdo neví, jak dopadl.  Odpovědět
+    // uživateli klidnou větou z LLM by tenhle stav zakrylo, a to je přesně ta
+    // záměna, kvůli které `025` rozlišuje „neproběhlo" a „nevím".
+    if (executionResult.orphaned) {
+      const langCtx = context.langCtx || getLanguageContext(input);
+      const cs = (langCtx?.language || 'cs') === 'cs';
+      return new TaggedResponse({
+        content: cs
+          ? '⚠️ **Stav operace není jistý.** Nepodařilo se ji zastavit včas, takže nevím, '
+            + 'jestli proběhla, nebo ne. Ověř stav cíle, než ji spustíš znovu — '
+            + 'automaticky ji neopakuju právě proto, aby neproběhla dvakrát.'
+          : '⚠️ **The outcome is unknown.** The operation could not be stopped in time, so I '
+            + 'cannot tell whether it happened. Check the target before retrying — I will not '
+            + 'retry automatically, precisely so it does not happen twice.',
+        tag: new ResponseTag({
+          speaker: ResponseSpeaker.SYSTEM,
+          mode: ChatMode.CONVERSATION,
+          confidence: 0.5,
+          canExecute: false,
+          metadata: {
+            decision: decision.toJSON(),
+            handler: 'tool.call',
+            orphaned: true,
+            terminalStatus: 'orphaned',
+            errorCode: 'EFFECT_ORPHANED',
+            retryable: false,
+          },
+        }),
+      });
+    }
 
     // ═══════════════════════════════════════════════════════════════════════
     // v58.3: LLM fallback — when search fails, try answering from LLM knowledge

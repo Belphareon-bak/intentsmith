@@ -5,7 +5,7 @@ import { logger as defaultLogger } from '../core/logger.js';
 import {
   NOTIFICATION_CHANNEL_DISABLED,
   NOTIFICATION_CHANNEL_UNSUPPORTED,
-  isManagedExternalNotificationChannel,
+  isManagedNotificationChannel,
   notificationChannelDecision,
   readNotificationChannelPolicy,
   requireNotificationChannelPolicy,
@@ -38,7 +38,7 @@ export class NotificationRouter {
    * @param {import('./channels/base.js').NotificationChannel} channel
    */
   registerChannel(channel) {
-    if (!isManagedExternalNotificationChannel(channel?.name)) {
+    if (!isManagedNotificationChannel(channel?.name) || channel.name === 'in_app') {
       return false;
     }
     if (!notificationChannelDecision(this.channelPolicy, channel.name).enabled) {

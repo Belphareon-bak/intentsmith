@@ -330,7 +330,42 @@ try {
   // e7829077 and removal of the dead multi-agent suite. The unprotected set
   // below remains the fail-closed safety assertion; this count only pins the
   // reviewed import-graph census.
-  const expectedDatabaseReachableRootTests = 95;
+  //
+  // Re-reviewed 2026-08-12: 95 → 99.  The drift is **pre-existing and was not
+  // caused by the twelve bootstraps added on this date** — measured on the
+  // unmodified tree with only the assertion above neutralised, the census was
+  // already 99 with an empty unprotected set, and none of those twelve appears
+  // in `databaseReachable` either before or after.  It read 95 only because the
+  // missing-bootstrap assertion above aborted the program before this line was
+  // ever reached, so four suites' worth of import-graph growth sat unreviewed
+  // behind a louder failure.  The safety assertion that follows held throughout.
+  //
+  // Re-reviewed 2026-08-19 s balíkem P0-2: 99 → 102.  Rozpad je změřený, ne
+  // odhadnutý — census se pustil na `5c5413e4` (v odděleném worktree, aby se
+  // pracovní strom nesahal) a na tomhle stromu, a množiny se porovnaly:
+  //
+  //   * na `5c5413e4` byl census **100**, ne 99.  Ta jednička je **předchozí
+  //     drift** a s tímhle balíkem nesouvisí; konstanta byla zastaralá už
+  //     předtím, jen to nikdo nezměřil.
+  //   * +2 jsou dva programy, které tenhle balík přidává a které databázi
+  //     doopravdy dosáhnou: `effects-guarded-path.test.js` (přes
+  //     `chat/handlers/file.js`) a `approval-lifecycle.test.js` (přes
+  //     `ws-bridge/session-adapter.js`).  Třetí přidaný program,
+  //     `multi-device-approvals.test.js`, v censu **není** a být nemá:
+  //     sahá jen na `db/migrate.js`, autoritu, handlery a politiku, a žádná
+  //     z těch cest nevede do `db/database.js`.  Census měří dosažitelnost,
+  //     ne počet nových sad.
+  //
+  // Re-reviewed 2026-08-19 s P0 balíkem: 102 → 103.  Přibyl jediný program,
+  // `effects-p0-regressions.test.js`, a do censu patří, protože prochází
+  // skutečným chatovým handlerem a nástrojem — tedy přes `chat/handlers/file.js`
+  // do `db/database.js`.  To je zároveň důvod, proč ten test existuje: vada
+  // byla ve volacím místě, ne v jednotce.
+  //
+  // Rozdíl množin je přesně tyhle dva a **nic neubylo** — žádný existující
+  // program se do databáze nedostal cestou, kterou dřív neměl.  Fail-closed
+  // kontrola `unprotected` níž platila po celou dobu.
+  const expectedDatabaseReachableRootTests = 103;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

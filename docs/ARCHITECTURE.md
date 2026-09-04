@@ -742,6 +742,54 @@ Cross-Project (F14):
 
 **Decay:** λ=0.005 (half-life ~139 days). Reinforcement: +0.05 on reuse (cap 0.95). Prune: remove entries below threshold after maxAge.
 
+### 16. Supervised Effects & Mobile Companion (v135.1)
+
+Cesta, po které se agent **zeptá člověka a počká** — a odpovědět může víc než
+jedno místo. Skládá se ze dvou nezávislých ochran, které dávají smysl jen spolu.
+
+```
+guardedWrite(rawDb, producer, runId, filePath, content)
+  1. acquireFileLock(repo, branch, path)        ← 027: druhý AGENT je odmítnut hned
+     └─ držen a obnovován po celé čekání
+  2. requestApproval({ precondition: digest })  ← 025: vazba na stav CÍLE
+     ├─ mint výhradně přes createMobileApproval (DR-011 autorita, F-100)
+     └─ S1 mirror do mobilní schránky (DR-013, uzavřený slovník 9 vět)
+  3. awaitDecision({ readTarget })              ← čeká bez limitu, kontroluje průběžně
+  4. zápis                                       ← až tady, a jen když předpoklad platí
+```
+
+**Zámek drží ostatní agenty; předpoklad drží všechny ostatní** — člověka
+v editoru, `git checkout`, jiný nástroj. Kdyby existoval jen zámek, stačilo by
+jedno místo mimo něj a tichý přepis je zpátky.
+
+**Rozhodovací plochy** (jedna otázka, tři místa, první odpověď vítězí):
+
+| Plocha | Cesta | Čím se prokazuje |
+|---|---|---|
+| Telefon | `POST /m1/approvals/:id/decide` | otisk obsahu (povinný) |
+| Desktop | `POST /api/approvals/:id/decide` | otisk obsahu (povinný) |
+| IDE | `edit_approve` s `reqId` = id approvalu | relace + `reqId` (jako dosud) |
+
+**Životní cyklus:** konec relace otázku **stáhne** (`decision='cancelled'`) a
+pustí zámek — souhlas, po kterém se nic nestane, je horší než nezodpovězená
+otázka.
+
+**Zapíná se vložením závislostí** (`setApprovalDeps({ db, producer })`). Bez nich
+zůstává původní chování relace beze změny — rozhodnutí `024` říká, že producent
+se nespouští sám.
+
+**Mobilní klient** je PWA servírovaná gateway (`127.0.0.1:3336`, loopback),
+volitelně zabalená do nativního Android shellu: credential v Keystore, zámek
+přes systémový `BiometricPrompt`, zamčení zahodí credential z paměti stránky a
+zruší běžící requesty. Cesta z telefonu vede přes `adb reverse` nebo VPN;
+gateway se dál váže na loopback.
+
+**Klíčové soubory:** `src/executor/guarded-write.js`, `src/executor/file-lock.js`,
+`src/approvals/authority.js`, `src/approvals/fingerprint.js`,
+`src/mobile/companion-producer.js`,
+`src/routes/approvals.js`, `src/ws-bridge/session-adapter.js`,
+`mobile-app/` (Android shell). Rozhodnutí: `docs/decisions/024`–`027`.
+
 ---
 
 ## Skills System
