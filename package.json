@@ -15,6 +15,7 @@
     "mobile:pair": "node scripts/mobile-pair.js",
     "mobile:seed": "node scripts/mobile-seed-demo.js",
     "mobile:demo": "node scripts/mobile-demo-run.js",
+    "mobile:inventory": "node scripts/mobile-capability-inventory.mjs",
     "mobile:android:doctor": "bash scripts/mobile-android.sh doctor",
     "mobile:android:reverse": "bash scripts/mobile-android.sh reverse",
     "mobile:android:keystore": "bash scripts/mobile-android.sh keystore",

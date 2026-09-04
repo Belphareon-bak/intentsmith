@@ -29,6 +29,7 @@ import { APPROVAL_RESPONSE_HEADERS, MOBILE_HANDLERS } from './handlers.js';
 import { MOBILE_ERRORS, PROTOCOL_VERSION, mobileError } from './protocol.js';
 import { OperationJournal } from './operation-journal.js';
 import { UpstreamClient } from './upstream.js';
+import { createUpstreamRemoteCorePort } from '../remote-core/port.js';
 
 const CLIENT_DIR = fileURLToPath(new URL('./client/', import.meta.url));
 
@@ -101,6 +102,7 @@ export function createMobileGateway({
   env = process.env,
   logger = console,
   instance = null,
+  corePort = null,
 } = {}) {
   if (!rawDb) throw new Error('createMobileGateway requires a database handle');
 
@@ -111,10 +113,18 @@ export function createMobileGateway({
   const gatewayInstance = instance || registerGatewayInstance(rawDb);
   const operationJournal = (journal || new OperationJournal(rawDb))
     .bindInstance(gatewayInstance.instanceId);
+  const remoteCorePort = corePort || createUpstreamRemoteCorePort(upstream);
 
   const server = http.createServer(async (req, res) => {
     try {
-      await handleRequest(req, res, { rawDb, upstream, journal: operationJournal, env, logger });
+      await handleRequest(req, res, {
+        rawDb,
+        upstream,
+        corePort: remoteCorePort,
+        journal: operationJournal,
+        env,
+        logger,
+      });
     } catch (error) {
       logger.error?.('MobileGateway', `Unhandled: ${error.message}`);
       // Never leak an internal message to the phone; the cause goes to the log.
@@ -222,6 +232,7 @@ async function handleRequest(req, res, ctx) {
     rawDb: ctx.rawDb,
     journal: ctx.journal,
     upstream: ctx.upstream,
+    corePort: ctx.corePort,
     env: ctx.env,
     principal: decision.principal,
     params: decision.params || {},

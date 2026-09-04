@@ -73,7 +73,7 @@ export async function handleHealth({ upstream }) {
 
 // ── GET /m1/capabilities ─────────────────────────────────────────────────────
 
-export async function handleCapabilities({ principal, upstream }) {
+export async function handleCapabilities({ principal, upstream, corePort = null }) {
   const upstreamState = await upstream.probe();
   return {
     status: 200,
@@ -95,6 +95,10 @@ export async function handleCapabilities({ principal, upstream }) {
       },
       limits: { maxMessageLength: MAX_MESSAGE_LENGTH, pageSize: DEFAULT_PAGE_SIZE },
       upstream: upstreamState.reachable ? 'ok' : 'unreachable',
+      // MM2: the versioned in-process connector is reported separately from
+      // legacy booleans so old clients remain compatible and new clients can
+      // distinguish unavailable providers from missing scopes.
+      remoteCore: corePort?.capabilities(principal) ?? null,
     }, { principal }),
   };
 }
@@ -254,7 +258,7 @@ export async function handleConversationDetail({ rawDb, principal, params, query
 // run twice for a single user intent.  The journal decides that before any
 // upstream call happens.
 
-export async function handleChat({ rawDb, journal, upstream, principal, body }) {
+export async function handleChat({ rawDb, journal, upstream, corePort = null, principal, body }) {
   const message = typeof body?.message === 'string' ? body.message.trim() : '';
   const conversationId = typeof body?.conversationId === 'string' ? body.conversationId.trim() : '';
   const operationId = body?.operationId;
@@ -311,7 +315,14 @@ export async function handleChat({ rawDb, journal, upstream, principal, body }) 
   try {
     ensureConversationRow(rawDb, conversationId);
 
-    const upstreamResult = await upstream.postChat({ conversationId, message });
+    const upstreamResult = corePort
+      ? portChatResult(await corePort.invoke({
+        version: 1,
+        feature: 'conversations.send',
+        input: { conversationId, message },
+        principal,
+      }))
+      : await upstream.postChat({ conversationId, message });
 
     if (!upstreamResult.ok) {
       // The upstream said no in a way we understand → a decided negative.
@@ -836,6 +847,17 @@ function chatResolutionResponse(resolution, operationId, principal) {
   const current = resolution?.current;
   if (!current?.known) return missingOperationResponse(operationId);
   return chatOperationResponse({ operationId, record: current, principal });
+}
+
+function portChatResult(result) {
+  if (result.ok) return { ok: true, data: result.data };
+  const details = result.error?.details || {};
+  return {
+    ok: false,
+    code: result.error?.code || 'upstream_unavailable',
+    decided: details.decided === true,
+    ...(Number.isInteger(details.status) ? { status: details.status } : {}),
+  };
 }
 
 function approvalOperationResponse({ approvalId, operationId, record, principal, replayed = false }) {

@@ -12697,6 +12697,66 @@
                                      },
                        "flakeCount":  0,
                        "quarantineExpiry":  null
+                   },
+                   {
+                       "id":  "IS-T1-TESTS-REMOTE-CORE-PORT-CONTRACT-TEST",
+                       "path":  "tests/remote-core-port-contract.test.js",
+                       "argv":  [
+                                    "node",
+                                    "tests/remote-core-port-contract.test.js"
+                                ],
+                       "capabilityId":  "C3-031",
+                       "tier":  "T1",
+                       "fixture":  "isolated-home",
+                       "profile":  "offline",
+                       "timeoutMs":  120000,
+                       "expectedDurationMs":  5000,
+                       "requirements":  {
+                                            "network":  "none",
+                                            "database":  false,
+                                            "server":  false,
+                                            "ollama":  false,
+                                            "gpu":  false
+                                        },
+                       "required":  true,
+                       "owner":  "primary implementer",
+                       "state":  "ACTIVE",
+                       "lastGreen":  {
+                                         "commit":  null,
+                                         "artifact":  null
+                                     },
+                       "flakeCount":  0,
+                       "quarantineExpiry":  null
+                   },
+                   {
+                       "id":  "IS-T1-TESTS-MOBILE-CAPABILITY-INVENTORY-TEST",
+                       "path":  "tests/mobile-capability-inventory.test.js",
+                       "argv":  [
+                                    "node",
+                                    "tests/mobile-capability-inventory.test.js"
+                                ],
+                       "capabilityId":  "C3-031",
+                       "tier":  "T1",
+                       "fixture":  "isolated-home",
+                       "profile":  "offline",
+                       "timeoutMs":  120000,
+                       "expectedDurationMs":  5000,
+                       "requirements":  {
+                                            "network":  "none",
+                                            "database":  false,
+                                            "server":  false,
+                                            "ollama":  false,
+                                            "gpu":  false
+                                        },
+                       "required":  true,
+                       "owner":  "primary implementer",
+                       "state":  "ACTIVE",
+                       "lastGreen":  {
+                                         "commit":  null,
+                                         "artifact":  null
+                                     },
+                       "flakeCount":  0,
+                       "quarantineExpiry":  null
                    }
                ]
 }

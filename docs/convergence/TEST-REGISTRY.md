@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 420
+- Runnable programs: 422
 - Explicit support-module exclusions: 9
-- Profiles: offline=201, database=63, server=37, model=85, soak=19, manual=15
-- States: ACTIVE=321, HISTORICAL=16, BLOCKED=83
+- Profiles: offline=203, database=63, server=37, model=85, soak=19, manual=15
+- States: ACTIVE=323, HISTORICAL=16, BLOCKED=83
 
 ## Execution profiles
 
@@ -318,6 +318,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T2-TESTS-MOBILE-APPROVAL-CACHE-BOUNDARY-TEST` | `tests/mobile-approval-cache-boundary.test.js` | `C3-032` | T2 | `database` | 30 s | 4 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MOBILE-APPROVAL-LIFECYCLE-REGRESSION-TEST` | `tests/mobile-approval-lifecycle-regression.test.js` | `C3-032` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MOBILE-BROWSER-A11Y-TEST` | `tests/mobile-browser-a11y.test.js` | `C3-032` | T1 | `offline` | 1 min | 5 min | network:loopback, toolchain:chromium-runtime | yes | `BLOCKED` | — | primary implementer |
+| `IS-T1-TESTS-MOBILE-CAPABILITY-INVENTORY-TEST` | `tests/mobile-capability-inventory.test.js` | `C3-031` | T1 | `offline` | 5 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-MOBILE-COMPANION-E2E-TEST` | `tests/mobile-companion-e2e.test.js` | `C3-031` | T2 | `database` | 30 s | 3 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MOBILE-COMPANION-PRODUCER-TEST` | `tests/mobile-companion-producer.test.js` | `C3-031` | T2 | `database` | 20 s | 3 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-MOBILE-CONTRACT-CURSOR-REJECTION-TEST` | `tests/mobile-contract-cursor-rejection.test.js` | `C3-031` | T2 | `database` | 30 s | 5 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
@@ -392,6 +393,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-QUERY-EXPANDER-TEST` | `tests/query-expander.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-REFACTOR-AGENT-TEST` | `tests/refactor-agent.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-REGRESSION-PREDICTOR-TEST` | `tests/regression-predictor.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-REMOTE-CORE-PORT-CONTRACT-TEST` | `tests/remote-core-port-contract.test.js` | `C3-031` | T1 | `offline` | 5 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-REPOSITORY-HYGIENE-TEST` | `tests/repository-hygiene.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-RESPONSE-SCORER-TEST` | `tests/response-scorer.test.js` | `C3-008` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-RISK-ANALYZER-TEST` | `tests/risk-analyzer.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

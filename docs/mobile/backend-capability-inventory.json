@@ -1,0 +1,2879 @@
+{
+  "schemaVersion": 1,
+  "scanner": "scripts/mobile-capability-inventory.mjs",
+  "routeDigest": "eb5b5e15da03ac2fdf657dc452c3f094e20e05b28ffbcd3d0bdf082341e4a9af",
+  "summary": {
+    "routes": 237,
+    "mobileV1": 13,
+    "legacyCore": 224,
+    "reads": 106,
+    "mutations": 131,
+    "remoteCoreCandidates": 62,
+    "domains": {
+      "agents": 17,
+      "approvals": 4,
+      "autonomy": 4,
+      "conversations": 23,
+      "marketplace": 7,
+      "media": 11,
+      "notifications": 12,
+      "operations": 3,
+      "platform": 16,
+      "projects": 29,
+      "quality": 5,
+      "security": 7,
+      "settings": 10,
+      "skills": 7,
+      "specialists": 34,
+      "storage": 1,
+      "stored-information": 2,
+      "system": 45
+    }
+  },
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api/agents",
+      "sources": [
+        "src/routes/agents.js"
+      ],
+      "domain": "agents",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agents",
+      "sources": [
+        "src/routes/agents.js"
+      ],
+      "domain": "agents",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/agents/:id",
+      "sources": [
+        "src/routes/agents.js"
+      ],
+      "domain": "agents",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agents/:id",
+      "sources": [
+        "src/routes/agents.js"
+      ],
+      "domain": "agents",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/agents/:id",
+      "sources": [
+        "src/routes/agents.js"
+      ],
+      "domain": "agents",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agents/:id/disable",
+      "sources": [
+        "src/routes/agents.js"
+      ],
+      "domain": "agents",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agents/:id/enable",
+      "sources": [
+        "src/routes/agents.js"
+      ],
+      "domain": "agents",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agents/:id/run",
+      "sources": [
+        "src/routes/agents.js"
+      ],
+      "domain": "agents",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agents/:id/runs",
+      "sources": [
+        "src/routes/agents.js"
+      ],
+      "domain": "agents",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agents/build",
+      "sources": [
+        "src/routes/agents.js"
+      ],
+      "domain": "agents",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agents/confirm",
+      "sources": [
+        "src/routes/agents.js"
+      ],
+      "domain": "agents",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agents/dry-run",
+      "sources": [
+        "src/routes/agents.js"
+      ],
+      "domain": "agents",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agents/refine",
+      "sources": [
+        "src/routes/agents.js"
+      ],
+      "domain": "agents",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agents/schema",
+      "sources": [
+        "src/routes/agents.js"
+      ],
+      "domain": "agents",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/approvals",
+      "sources": [
+        "src/routes/approvals.js"
+      ],
+      "domain": "approvals",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "approvals.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/approvals/:id/decide",
+      "sources": [
+        "src/routes/approvals.js"
+      ],
+      "domain": "approvals",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "approvals.decide",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/artifacts/:filename",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/attachments",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/attachments/:id",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/audit",
+      "sources": [
+        "src/routes/misc.js"
+      ],
+      "domain": "platform",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/autocomplete",
+      "sources": [
+        "src/routes/misc.js"
+      ],
+      "domain": "platform",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/autonomy/alerts/:id/acknowledge",
+      "sources": [
+        "src/routes/autonomy.js"
+      ],
+      "domain": "autonomy",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/autonomy/approve/:id",
+      "sources": [
+        "src/routes/autonomy.js"
+      ],
+      "domain": "autonomy",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/autonomy/reject/:id",
+      "sources": [
+        "src/routes/autonomy.js"
+      ],
+      "domain": "autonomy",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/autonomy/status",
+      "sources": [
+        "src/routes/autonomy.js"
+      ],
+      "domain": "autonomy",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/context",
+      "sources": [
+        "src/routes/misc.js"
+      ],
+      "domain": "platform",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/conversations",
+      "sources": [
+        "src/routes/chat.js"
+      ],
+      "domain": "conversations",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "conversations.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/conversations",
+      "sources": [
+        "src/routes/chat.js"
+      ],
+      "domain": "conversations",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "conversations.create",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/conversations/:id",
+      "sources": [
+        "src/routes/chat.js"
+      ],
+      "domain": "conversations",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "conversations.archive",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/conversations/:id",
+      "sources": [
+        "src/routes/chat.js"
+      ],
+      "domain": "conversations",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "conversations.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/conversations/:id",
+      "sources": [
+        "src/routes/chat.js"
+      ],
+      "domain": "conversations",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "conversations.update",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/conversations/:id/archive",
+      "sources": [
+        "src/routes/chat.js"
+      ],
+      "domain": "conversations",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "conversations.archive",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/conversations/:id/assign",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "conversations",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "conversations.create",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/conversations/:id/messages",
+      "sources": [
+        "src/routes/chat.js"
+      ],
+      "domain": "conversations",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "conversations.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/conversations/:id/restore",
+      "sources": [
+        "src/routes/chat.js"
+      ],
+      "domain": "conversations",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "conversations.archive",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/drafts",
+      "sources": [
+        "src/routes/chat.js"
+      ],
+      "domain": "conversations",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/drafts",
+      "sources": [
+        "src/routes/chat.js"
+      ],
+      "domain": "conversations",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/drafts",
+      "sources": [
+        "src/routes/chat.js"
+      ],
+      "domain": "conversations",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/expertise-schema",
+      "sources": [
+        "src/routes/expertises.js"
+      ],
+      "domain": "platform",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/expertise-wizard/test-prompt",
+      "sources": [
+        "src/routes/expertises.js"
+      ],
+      "domain": "platform",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/expertises",
+      "sources": [
+        "src/routes/expertises.js"
+      ],
+      "domain": "specialists",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/expertises",
+      "sources": [
+        "src/routes/expertises.js"
+      ],
+      "domain": "specialists",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/expertises/:id",
+      "sources": [
+        "src/routes/expertises.js"
+      ],
+      "domain": "specialists",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/expertises/:id",
+      "sources": [
+        "src/routes/expertises.js"
+      ],
+      "domain": "specialists",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/expertises/:id",
+      "sources": [
+        "src/routes/expertises.js"
+      ],
+      "domain": "specialists",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/expertises/route",
+      "sources": [
+        "src/routes/expertises.js"
+      ],
+      "domain": "specialists",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/export",
+      "sources": [
+        "src/routes/chat.js"
+      ],
+      "domain": "conversations",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/features",
+      "sources": [
+        "src/routes/misc.js"
+      ],
+      "domain": "settings",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/features/:name",
+      "sources": [
+        "src/routes/misc.js"
+      ],
+      "domain": "settings",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/features/reset",
+      "sources": [
+        "src/routes/misc.js"
+      ],
+      "domain": "settings",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/feedback",
+      "sources": [
+        "src/routes/misc.js"
+      ],
+      "domain": "platform",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/feedback",
+      "sources": [
+        "src/routes/misc.js"
+      ],
+      "domain": "platform",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/feedback/:id/attach",
+      "sources": [
+        "src/routes/misc.js"
+      ],
+      "domain": "platform",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/health",
+      "sources": [
+        "src/routes/misc.js"
+      ],
+      "domain": "platform",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/chat",
+      "sources": [
+        "src/routes/chat.js"
+      ],
+      "domain": "conversations",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "conversations.send",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/chat/sessions",
+      "sources": [
+        "src/routes/chat.js"
+      ],
+      "domain": "conversations",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "conversations.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/chat/sessions/:sessionId",
+      "sources": [
+        "src/routes/chat.js"
+      ],
+      "domain": "conversations",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "conversations.archive",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/chat/sessions/:sessionId",
+      "sources": [
+        "src/routes/chat.js"
+      ],
+      "domain": "conversations",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "conversations.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/chat/sessions/stats",
+      "sources": [
+        "src/routes/chat.js"
+      ],
+      "domain": "conversations",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "conversations.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/chat/specialist",
+      "sources": [
+        "src/routes/chat.js"
+      ],
+      "domain": "conversations",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "conversations.archive",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/chat/specialist",
+      "sources": [
+        "src/routes/chat.js"
+      ],
+      "domain": "conversations",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "conversations.create",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/lifecycle/change/approve",
+      "sources": [
+        "src/routes/expertises.js"
+      ],
+      "domain": "specialists",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/lifecycle/change/propose",
+      "sources": [
+        "src/routes/expertises.js"
+      ],
+      "domain": "specialists",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/lifecycle/change/reject",
+      "sources": [
+        "src/routes/expertises.js"
+      ],
+      "domain": "specialists",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/lifecycle/milestone/approve",
+      "sources": [
+        "src/routes/expertises.js"
+      ],
+      "domain": "specialists",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/lifecycle/milestone/blocked",
+      "sources": [
+        "src/routes/expertises.js"
+      ],
+      "domain": "specialists",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/lifecycle/milestone/next",
+      "sources": [
+        "src/routes/expertises.js"
+      ],
+      "domain": "specialists",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/lifecycle/resume",
+      "sources": [
+        "src/routes/expertises.js"
+      ],
+      "domain": "specialists",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/lifecycle/review/acknowledge",
+      "sources": [
+        "src/routes/expertises.js"
+      ],
+      "domain": "specialists",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/lifecycle/roadmap/approve",
+      "sources": [
+        "src/routes/expertises.js"
+      ],
+      "domain": "specialists",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/lifecycle/spec/answer",
+      "sources": [
+        "src/routes/expertises.js"
+      ],
+      "domain": "specialists",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/lifecycle/spec/approve",
+      "sources": [
+        "src/routes/expertises.js"
+      ],
+      "domain": "specialists",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/lifecycle/start",
+      "sources": [
+        "src/routes/expertises.js"
+      ],
+      "domain": "specialists",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/lifecycle/status",
+      "sources": [
+        "src/routes/expertises.js"
+      ],
+      "domain": "specialists",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/logs",
+      "sources": [
+        "src/routes/misc.js"
+      ],
+      "domain": "platform",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/logs/export",
+      "sources": [
+        "src/routes/misc.js"
+      ],
+      "domain": "platform",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/marketplace/catalog",
+      "sources": [
+        "src/routes/marketplace.js"
+      ],
+      "domain": "marketplace",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/marketplace/catalog/refresh",
+      "sources": [
+        "src/routes/marketplace.js"
+      ],
+      "domain": "marketplace",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/marketplace/export/:type/:id",
+      "sources": [
+        "src/routes/marketplace.js"
+      ],
+      "domain": "marketplace",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/marketplace/install/:type/:id",
+      "sources": [
+        "src/routes/marketplace.js"
+      ],
+      "domain": "marketplace",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/marketplace/installed",
+      "sources": [
+        "src/routes/marketplace.js"
+      ],
+      "domain": "marketplace",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/marketplace/installed/:type/:id",
+      "sources": [
+        "src/routes/marketplace.js"
+      ],
+      "domain": "marketplace",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/marketplace/update/:type/:id",
+      "sources": [
+        "src/routes/marketplace.js"
+      ],
+      "domain": "marketplace",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/media",
+      "sources": [
+        "src/routes/media.js"
+      ],
+      "domain": "media",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/media/cancel",
+      "sources": [
+        "src/routes/media.js"
+      ],
+      "domain": "media",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/media/favorite",
+      "sources": [
+        "src/routes/media.js"
+      ],
+      "domain": "media",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/media/generate",
+      "sources": [
+        "src/routes/media.js"
+      ],
+      "domain": "media",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/media/health",
+      "sources": [
+        "src/routes/media.js"
+      ],
+      "domain": "media",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/media/history",
+      "sources": [
+        "src/routes/media.js"
+      ],
+      "domain": "media",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/media/models",
+      "sources": [
+        "src/routes/media.js"
+      ],
+      "domain": "media",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/media/models/refresh",
+      "sources": [
+        "src/routes/media.js"
+      ],
+      "domain": "media",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/media/output",
+      "sources": [
+        "src/routes/media.js"
+      ],
+      "domain": "media",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/media/status",
+      "sources": [
+        "src/routes/media.js"
+      ],
+      "domain": "media",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/media/vram",
+      "sources": [
+        "src/routes/media.js"
+      ],
+      "domain": "media",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/memory",
+      "sources": [
+        "src/routes/chat.js"
+      ],
+      "domain": "stored-information",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "storedInformation.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/memory",
+      "sources": [
+        "src/routes/chat.js"
+      ],
+      "domain": "stored-information",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "storedInformation.write",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/merge-preview",
+      "sources": [
+        "src/routes/expertises.js"
+      ],
+      "domain": "specialists",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/merge-preview",
+      "sources": [
+        "src/routes/expertises.js"
+      ],
+      "domain": "specialists",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications",
+      "sources": [
+        "src/routes/agents.js"
+      ],
+      "domain": "notifications",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "notifications.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/:id/read",
+      "sources": [
+        "src/routes/agents.js"
+      ],
+      "domain": "notifications",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "notifications.ack",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/config",
+      "sources": [
+        "src/routes/notifications.js"
+      ],
+      "domain": "notifications",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "notifications.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/config",
+      "sources": [
+        "src/routes/notifications.js"
+      ],
+      "domain": "notifications",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "notifications.ack",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/channels",
+      "sources": [
+        "src/routes/notifications.js"
+      ],
+      "domain": "notifications",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "notifications.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/log",
+      "sources": [
+        "src/routes/notifications.js"
+      ],
+      "domain": "notifications",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "notifications.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/read-all",
+      "sources": [
+        "src/routes/agents.js"
+      ],
+      "domain": "notifications",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "notifications.ack",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/send",
+      "sources": [
+        "src/routes/notifications.js"
+      ],
+      "domain": "notifications",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "notifications.ack",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/test",
+      "sources": [
+        "src/routes/notifications.js"
+      ],
+      "domain": "notifications",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "notifications.ack",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/verify",
+      "sources": [
+        "src/routes/notifications.js"
+      ],
+      "domain": "notifications",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "notifications.ack",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "projects.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/projects",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "projects.create",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/projects/:id",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "projects.archive",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/:id",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "projects.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/projects/:id",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "projects.update",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/projects/:id/archive",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "projects.archive",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/:id/conversations",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "projects.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/:id/lifecycle",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "projects.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/projects/:id/lifecycle/bind",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "projects.create",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/:id/memory",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "projects.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/projects/:id/memory",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "projects.update",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/projects/:id/memory/:key",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "projects.archive",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/projects/:id/readme",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "projects.create",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/projects/:id/restore",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "projects.archive",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/:id/roadmap",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "projects.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/defaults",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "projects.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/projects/lifecycle/start",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "projects.create",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/projects/open-folder",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "projects.create",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/quality/distribution",
+      "sources": [
+        "src/routes/quality.js"
+      ],
+      "domain": "quality",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/quality/project/:id",
+      "sources": [
+        "src/routes/quality.js"
+      ],
+      "domain": "quality",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/quality/report",
+      "sources": [
+        "src/routes/quality.js"
+      ],
+      "domain": "quality",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/quality/summary",
+      "sources": [
+        "src/routes/quality.js"
+      ],
+      "domain": "quality",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/quality/volatility/:id",
+      "sources": [
+        "src/routes/quality.js"
+      ],
+      "domain": "quality",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/reset",
+      "sources": [
+        "src/routes/misc.js"
+      ],
+      "domain": "platform",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/audit",
+      "sources": [
+        "src/routes/security.js"
+      ],
+      "domain": "security",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "never-expose-admin"
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/sessions",
+      "sources": [
+        "src/routes/security.js"
+      ],
+      "domain": "security",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "never-expose-admin"
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/tokens",
+      "sources": [
+        "src/routes/security.js"
+      ],
+      "domain": "security",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "never-expose-admin"
+    },
+    {
+      "method": "POST",
+      "path": "/api/security/tokens",
+      "sources": [
+        "src/routes/security.js"
+      ],
+      "domain": "security",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "never-expose-admin"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/security/tokens/:id",
+      "sources": [
+        "src/routes/security.js"
+      ],
+      "domain": "security",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "never-expose-admin"
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/webhook-secret",
+      "sources": [
+        "src/routes/security.js"
+      ],
+      "domain": "security",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "never-expose-admin"
+    },
+    {
+      "method": "POST",
+      "path": "/api/security/webhook-secret",
+      "sources": [
+        "src/routes/security.js"
+      ],
+      "domain": "security",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "never-expose-admin"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "sources": [
+        "src/routes/misc.js"
+      ],
+      "domain": "settings",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "settings.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings",
+      "sources": [
+        "src/routes/misc.js"
+      ],
+      "domain": "settings",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "settings.write",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/backup",
+      "sources": [
+        "src/routes/misc.js"
+      ],
+      "domain": "settings",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "settings.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/import",
+      "sources": [
+        "src/routes/misc.js"
+      ],
+      "domain": "settings",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "settings.write",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/reset",
+      "sources": [
+        "src/routes/misc.js"
+      ],
+      "domain": "settings",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "settings.write",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/v2",
+      "sources": [
+        "src/routes/misc.js"
+      ],
+      "domain": "settings",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "settings.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/v2",
+      "sources": [
+        "src/routes/misc.js"
+      ],
+      "domain": "settings",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": "settings.write",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/scheduler/status",
+      "sources": [
+        "src/routes/agents.js"
+      ],
+      "domain": "platform",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/skills",
+      "sources": [
+        "src/routes/skills.js"
+      ],
+      "domain": "skills",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/skills/:id",
+      "sources": [
+        "src/routes/skills.js"
+      ],
+      "domain": "skills",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/skills/executions/:id",
+      "sources": [
+        "src/routes/skills.js"
+      ],
+      "domain": "skills",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/skills/executions/:id/cancel",
+      "sources": [
+        "src/routes/skills.js"
+      ],
+      "domain": "skills",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/skills/executions/:id/confirm",
+      "sources": [
+        "src/routes/skills.js"
+      ],
+      "domain": "skills",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/skills/executions/:id/resume",
+      "sources": [
+        "src/routes/skills.js"
+      ],
+      "domain": "skills",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/skills/reload",
+      "sources": [
+        "src/routes/skills.js"
+      ],
+      "domain": "skills",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/sources/inspect",
+      "sources": [
+        "src/routes/agents.js"
+      ],
+      "domain": "agents",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/sources/validate-condition",
+      "sources": [
+        "src/routes/agents.js"
+      ],
+      "domain": "agents",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/sources/validate-field",
+      "sources": [
+        "src/routes/agents.js"
+      ],
+      "domain": "agents",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/specialists",
+      "sources": [
+        "src/routes/specialists.js"
+      ],
+      "domain": "specialists",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/specialists",
+      "sources": [
+        "src/routes/specialists.js"
+      ],
+      "domain": "specialists",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/specialists/:id",
+      "sources": [
+        "src/routes/specialists.js"
+      ],
+      "domain": "specialists",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/specialists/:id/disable",
+      "sources": [
+        "src/routes/specialists.js"
+      ],
+      "domain": "specialists",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/specialists/:id/enable",
+      "sources": [
+        "src/routes/specialists.js"
+      ],
+      "domain": "specialists",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/specialists/:id/expertises",
+      "sources": [
+        "src/routes/specialists.js"
+      ],
+      "domain": "specialists",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/specialists/:id/expertises",
+      "sources": [
+        "src/routes/specialists.js"
+      ],
+      "domain": "specialists",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/specialists/:id/expertises/:expertiseId",
+      "sources": [
+        "src/routes/specialists.js"
+      ],
+      "domain": "specialists",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/specialists/:id/expertises/:expertiseId",
+      "sources": [
+        "src/routes/specialists.js"
+      ],
+      "domain": "specialists",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/specialists/:id/integrity",
+      "sources": [
+        "src/routes/specialists.js"
+      ],
+      "domain": "specialists",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/specialists/:id/update",
+      "sources": [
+        "src/routes/specialists.js"
+      ],
+      "domain": "specialists",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/api/specialists/discover",
+      "sources": [
+        "src/routes/specialists.js"
+      ],
+      "domain": "specialists",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/specialists/telemetry",
+      "sources": [
+        "src/routes/specialists.js"
+      ],
+      "domain": "specialists",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/api/storage/info",
+      "sources": [
+        "src/routes/misc.js"
+      ],
+      "domain": "storage",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/backup",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/backups",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/catalog",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/clean",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/drain",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/governor/check",
+      "sources": [
+        "src/routes/governor.js"
+      ],
+      "domain": "system",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/governor/proposals",
+      "sources": [
+        "src/routes/governor.js"
+      ],
+      "domain": "system",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/governor/proposals/:id/approve",
+      "sources": [
+        "src/routes/governor.js"
+      ],
+      "domain": "system",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/governor/proposals/:id/dismiss",
+      "sources": [
+        "src/routes/governor.js"
+      ],
+      "domain": "system",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/governor/report",
+      "sources": [
+        "src/routes/governor.js"
+      ],
+      "domain": "system",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/governor/status",
+      "sources": [
+        "src/routes/governor.js"
+      ],
+      "domain": "system",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/gpu",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/gpu/refresh",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/info",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/system/models",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/compatibility",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/check",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/info",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/overview",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/models/pull",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/settings",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/system/models/settings",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/universe",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/universe/:name",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/validate",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/models/validate",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/models/validate-all",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/validation-scores",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/proposals",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/proposals/:id/dismiss",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/shutdown-backup",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/storage",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/storage/settings",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/system/storage/settings",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/upgrades",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/upgrades/apply",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/upgrades/bindings",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/upgrades/discovered",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/upgrades/check",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/upgrades/recommendations",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/upgrades/recovery/rollback",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/upgrades/rollback",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/upgrades/scoring",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/vacuum",
+      "sources": [
+        "src/routes/system.js"
+      ],
+      "domain": "system",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/workspace/directory",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "governed-effect-only"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/workspace/file",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "governed-effect-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace/file",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "governed-effect-only"
+    },
+    {
+      "method": "POST",
+      "path": "/api/workspace/file",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "governed-effect-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace/git-status",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "governed-effect-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace/ls",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "governed-effect-only"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/workspace/rename",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "mutation",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "governed-effect-only"
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace/tree",
+      "sources": [
+        "src/routes/projects.js"
+      ],
+      "domain": "projects",
+      "access": "read",
+      "exposure": "legacy-core",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "governed-effect-only"
+    },
+    {
+      "method": "GET",
+      "path": "/m1/approvals",
+      "sources": [
+        "src/mobile/handlers.js"
+      ],
+      "domain": "approvals",
+      "access": "read",
+      "exposure": "mobile-v1",
+      "remoteCoreFeature": "approvals.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/m1/approvals/:id/decide",
+      "sources": [
+        "src/mobile/handlers.js"
+      ],
+      "domain": "approvals",
+      "access": "mutation",
+      "exposure": "mobile-v1",
+      "remoteCoreFeature": "approvals.decide",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/m1/capabilities",
+      "sources": [
+        "src/mobile/handlers.js"
+      ],
+      "domain": "platform",
+      "access": "read",
+      "exposure": "mobile-v1",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "GET",
+      "path": "/m1/conversations",
+      "sources": [
+        "src/mobile/handlers.js"
+      ],
+      "domain": "conversations",
+      "access": "read",
+      "exposure": "mobile-v1",
+      "remoteCoreFeature": "conversations.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/m1/conversations/:id",
+      "sources": [
+        "src/mobile/handlers.js"
+      ],
+      "domain": "conversations",
+      "access": "read",
+      "exposure": "mobile-v1",
+      "remoteCoreFeature": "conversations.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/m1/health",
+      "sources": [
+        "src/mobile/handlers.js"
+      ],
+      "domain": "platform",
+      "access": "read",
+      "exposure": "mobile-v1",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/m1/chat",
+      "sources": [
+        "src/mobile/handlers.js"
+      ],
+      "domain": "conversations",
+      "access": "mutation",
+      "exposure": "mobile-v1",
+      "remoteCoreFeature": "conversations.send",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/m1/notifications",
+      "sources": [
+        "src/mobile/handlers.js"
+      ],
+      "domain": "notifications",
+      "access": "read",
+      "exposure": "mobile-v1",
+      "remoteCoreFeature": "notifications.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/m1/notifications/ack",
+      "sources": [
+        "src/mobile/handlers.js"
+      ],
+      "domain": "notifications",
+      "access": "mutation",
+      "exposure": "mobile-v1",
+      "remoteCoreFeature": "notifications.ack",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/m1/operations",
+      "sources": [
+        "src/mobile/handlers.js"
+      ],
+      "domain": "operations",
+      "access": "read",
+      "exposure": "mobile-v1",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/m1/operations/:operationId",
+      "sources": [
+        "src/mobile/handlers.js"
+      ],
+      "domain": "operations",
+      "access": "read",
+      "exposure": "mobile-v1",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/m1/operations/:operationId/abandon",
+      "sources": [
+        "src/mobile/handlers.js"
+      ],
+      "domain": "operations",
+      "access": "mutation",
+      "exposure": "mobile-v1",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/m1/pair/claim",
+      "sources": [
+        "src/mobile/handlers.js"
+      ],
+      "domain": "platform",
+      "access": "mutation",
+      "exposure": "mobile-v1",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    }
+  ]
+}
