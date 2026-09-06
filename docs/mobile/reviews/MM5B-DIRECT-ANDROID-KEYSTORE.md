@@ -1,7 +1,7 @@
 # MM5-B review — direct AndroidKeyStore credential vault
 
 Status: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`
-Checkpoint commit: `14be72b8`
+Implementation commits: `14be72b8`, truth-copy follow-up `71746be5`
 
 This checkpoint removes the deprecated AndroidX Security Crypto wrapper and
 makes the secure-storage format an owned, reviewable boundary. It also closes

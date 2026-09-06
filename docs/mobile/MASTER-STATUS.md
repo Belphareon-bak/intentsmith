@@ -15,7 +15,7 @@ Release verdict: `NOT READY`
 | `MM2` RemoteCorePort | `IN PROGRESS` | candidate `f4861bca` | 7 production provider registrations; freeze remains open |
 | `MM3` primary mobile surfaces | `IN PROGRESS` | projects `1a7be999`; conversations `ddb90e7e` | project list/detail and conversation reads implemented; search/runs open |
 | `MM4` governed surfaces | `IN PROGRESS` | settings `87a51930`; memory `2c33fd9b`; workers/specialists `49dd991d` | read projections implemented; safe mutations remain open |
-| `MM5` transport and hardening | `IN PROGRESS` | transport `a5d5bab4`; vault `14be72b8` | packaged native transport and direct AndroidKeyStore vault implemented; remote TLS/identity, push/offline policy and external security review remain open |
+| `MM5` transport and hardening | `IN PROGRESS` | transport `a5d5bab4`; vault `14be72b8..71746be5` | packaged native transport and direct AndroidKeyStore vault implemented; remote TLS/identity, push/offline policy and external security review remain open |
 | `MM6` Android release | `IN PROGRESS` | platform `d4607100`; CLI `d8bbea33`; artifacts `8e98924d` | API 36, cross-platform workflow, versioned APK/AAB manifest and SBOM implemented; binary build, production signing and device evidence open |
 
 ## Known external blockers
