@@ -3,6 +3,10 @@
 Status: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`
 Checkpoint commit: `13fa98c6`
 
+Subsequent checkpoint MM4-E (`4bb9011d`) completed the revision-checked
+settings-write item that was still open when this review was recorded. The
+remaining-work section below is historical as of MM4-D.
+
 This checkpoint turns the specified MS-04 device screen into a real,
 server-authoritative lifecycle surface. A paired phone can inspect public
 metadata for mobile credentials and, only with a separate write scope, revoke

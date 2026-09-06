@@ -321,6 +321,17 @@ Hranice, kterou je nutné vyslovit nahlas (a je už v `DATA-MODEL` §5.3):
 útočníkovi, který telefon nepřipojí k síti, neexistuje remote wipe. Jediná
 obrana, která funguje po ztrátě, je minimalizace cache (`P-1`).
 
+### P1-3a Revizní zápis nastavení
+
+Stav MM4-E: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`.
+`PUT /m1/settings` zapisuje jednu z 11 validovaných UX preferencí pouze nad
+přesnou serverovou revizí. `write:settings` je pairable, ale není ve výchozím
+profilu; konflikt se znovu načte a nikdy se automaticky nepřepisuje. Výsledek
+operace a samotné nastavení nejsou v jedné transakci, takže selhání zápisu
+výsledku po commitu zůstává pravdivě `UNKNOWN` v MS-20. Obecný settings editor,
+security/model authority, fyzický WebView průchod a v2 refreeze se netvrdí. Viz
+[MM4-E review](reviews/MM4E-REVISIONED-SETTINGS-WRITE.md).
+
 ### P1-4 Push, nebo přiznané pull-only
 
 | | |

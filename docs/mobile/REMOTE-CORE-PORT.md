@@ -2,6 +2,11 @@
 
 Status: `CANDIDATE_V1`
 
+Latest implementation checkpoint: MM4-E (`4bb9011d`) registers the narrow
+revision-checked settings writer. This is an additive candidate implementation,
+not a contract freeze; see
+[`reviews/MM4E-REVISIONED-SETTINGS-WRITE.md`](reviews/MM4E-REVISIONED-SETTINGS-WRITE.md).
+
 `RemoteCorePort` is the core-owned, in-process boundary used by the mobile
 gateway. It is deliberately narrower than the desktop HTTP listener: a mobile
 component can invoke a named capability, but cannot submit an arbitrary URL,
@@ -63,9 +68,11 @@ between a decided rejection and an ambiguous upstream outcome, so retry and
 operation-journal guarantees remain intact.
 
 `projects.read`, `conversations.read`, `conversations.send`, `settings.read`,
-`storedInformation.read`, `workers.read` and `specialists.read` now have
+`settings.write`, `storedInformation.read`, `workers.read` and `specialists.read` now have
 production providers. Worker and specialist registration is conditional on
-their authoritative tables existing. The other seventeen feature identifiers
+their authoritative tables existing. `settings.write` is limited to the eleven
+validated `UX_PREFERENCES_V1` paths and an exact expected revision; it is not a
+generic adapter over the settings repository. The other sixteen feature identifiers
 currently report `unavailable`. Their
 providers are added alongside the corresponding MM3/MM4 user surfaces. The
 older `/m1` handlers remain on an exact allow-list during this transition; no
@@ -77,10 +84,10 @@ older `/m1` handlers remain on an exact allow-list during this transition; no
 route-map key and writes both human-readable and JSON artifacts. At this
 candidate checkpoint it records:
 
-- 243 unique routes;
-- 19 existing `/m1` routes;
+- 246 unique routes;
+- 22 existing `/m1` routes;
 - 224 broader desktop/core routes;
-- 81 routes mapped to the nine RemoteCorePort domains.
+- 82 routes mapped to the nine RemoteCorePort domains.
 
 The inventory is an exposure review input, not automatic permission. Security
 token and secret administration are marked `never-expose-admin`; governed

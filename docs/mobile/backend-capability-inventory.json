@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "scanner": "scripts/mobile-capability-inventory.mjs",
-  "routeDigest": "2ef4a8c06e53b7afd63aa3f9d82d1959fa7ad9a50a223138f2c270efcfb9ad62",
+  "routeDigest": "e347a76a9a53f623aff015a5a987e3a7dcfb16e16989a1b489c8e146788be0a1",
   "summary": {
-    "routes": 245,
-    "mobileV1": 21,
+    "routes": 246,
+    "mobileV1": 22,
     "legacyCore": 224,
     "reads": 113,
-    "mutations": 132,
-    "remoteCoreCandidates": 81,
+    "mutations": 133,
+    "remoteCoreCandidates": 82,
     "domains": {
       "agents": 18,
       "approvals": 4,
@@ -22,7 +22,7 @@
       "projects": 31,
       "quality": 5,
       "security": 7,
-      "settings": 11,
+      "settings": 12,
       "skills": 7,
       "specialists": 35,
       "storage": 1,
@@ -2945,6 +2945,18 @@
       "access": "read",
       "exposure": "mobile-v1",
       "remoteCoreFeature": "settings.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "PUT",
+      "path": "/m1/settings",
+      "sources": [
+        "src/mobile/handlers.js"
+      ],
+      "domain": "settings",
+      "access": "mutation",
+      "exposure": "mobile-v1",
+      "remoteCoreFeature": "settings.write",
       "mobilePolicy": "mobile-mirror-candidate"
     },
     {

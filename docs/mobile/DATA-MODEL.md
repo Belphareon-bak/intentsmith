@@ -1,10 +1,10 @@
 # IntentSmith Mobile — klientský datový, cache a trust model
 
 > **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
-> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 21
-> rout; vedle read-only `/m1/workers` a `/m1/specialists` obsahuje scope-gated
-> seznam a odvolání zařízení. Autoritou poslední změny je review
-> `MM4D-PAIRED-DEVICES`;
+> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 22
+> rout; vedle worker/specialist read modelu a správy zařízení obsahuje revizně
+> řízený `PUT /m1/settings`. Autoritou poslední změny je review
+> `MM4E-REVISIONED-SETTINGS-WRITE`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná produktová fáze není DONE
@@ -190,6 +190,13 @@ Značení: `MD-xx`. Sloupec „Offline změny" používá:
 ---
 
 ### MD-01 — Nastavení (podmnožina viditelná na mobilu)
+
+> **Implementační checkpoint MM4-E (2026-09-06):** aktuální klient drží tuto
+> projekci záměrně jen v paměti a při vstupu ji čte živě; níže navržený `ST-DB`
+> settings cache proto není implementační pravda této větve. Zapisovat lze jen
+> 11 cest `UX_PREFERENCES_V1`, nad přesnou revizí a s `operationId`; konflikt se
+> nepřepisuje a nejasný výsledek se automaticky neopakuje. Viz
+> `reviews/MM4E-REVISIONED-SETTINGS-WRITE.md`.
 
 **`R-5` uzavřeno — jednoznačně a všude:** tabulka dělení v PLAN.md **§5.4** je
 **závazná**. Celá Security sekce a feature flags na telefon nepatří. `R-5` není

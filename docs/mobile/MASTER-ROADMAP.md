@@ -44,6 +44,11 @@ Each milestone ends in its own commit or short, contiguous commit series.  Its
 review package records scope, observed tests, remaining risks and exact commit
 range.  Later work must not rewrite an accepted milestone.
 
+Current MM4 sub-checkpoints: settings read (`87a51930`), stored-information
+read (`2c33fd9b`), worker/specialist read (`49dd991d`), paired-device lifecycle
+(`13fa98c6`) and revisioned UX-settings write (`4bb9011d`). MM4 remains open for
+safe stored-information mutation and governed worker/specialist actions.
+
 ## Current lineage
 
 - canonical core base: `integration/m1-consolidated-20260810`

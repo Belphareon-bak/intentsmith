@@ -26,6 +26,7 @@ i webového klienta**, takže na čtení žádný backend nepotřebuje. Legacy s
 | Přehled, trust bar, stavy cache, zamčení podle scope | ✅ |
 | Žurnál operací, obrazovka rozřešení (`MS-20`) | ✅ |
 | Seznam a odvolání spárovaných zařízení (`MS-04`) | ✅ — odvolání blokuje další requesty, není remote wipe |
+| Veřejné nastavení a zápis 11 UX preferencí (`MS-10`/`MS-11`) | ✅ — vyžaduje explicitní `write:settings`, legacy backend proces ne |
 | **Odeslat zprávu** | ❌ — `upstream: unreachable`, aplikace to řekne rovnou |
 | Approvaly s reálným obsahem | ✅ — produkční cesta je zapojená (`server.js`), takže je vyrobí skutečný zápis. Gateway je ale jen čte; **vyrábí** je backend, takže bez něj se nová otázka neobjeví |
 | Schránka s ukazateli běhu | ✅ jen v demu — S1 projektor `DR-013 A`, tentýž demo běh |
@@ -66,14 +67,16 @@ C3_DB_PATH=/tmp/is-demo.db C3_MOBILE_PAIRING=on node src/mobile-gateway.js
 #    procesu, takže bez něj skript kód nevydá — a skončí exit 0, takže je to
 #    ticho, ne chyba.
 C3_DB_PATH=/tmp/is-demo.db C3_MOBILE_PAIRING=on node scripts/mobile-pair.js \
-  --scopes read:capabilities,read:chat,write:chat,read:notifications,write:notifications,read:approvals,write:approvals,read:devices,write:devices
+  --scopes read:capabilities,read:chat,write:chat,read:notifications,write:notifications,read:approvals,write:approvals,read:projects,read:settings,write:settings,read:memory,read:workers,read:specialists,read:devices,write:devices
 
 # 4. Volitelně: běh, který se zeptá na approval a čeká na odpověď
 node scripts/mobile-demo-run.js --db /tmp/is-demo.db
 ```
 
 Approvaly **nejsou ve výchozích scopech**. Příkaz výše je proto žádá
-explicitně; nejmenší dostatečný scope je záměr (`P-8`), ne opomenutí.
+explicitně. `write:settings` je rovněž pairable, ale záměrně není výchozí;
+rozšíření existujícího tokenu není možné a vyžaduje nový jednorázový kód.
+Nejmenší dostatečný scope je záměr (`P-8`), ne opomenutí.
 
 V prohlížeči pak otevři `http://127.0.0.1:3336` a vlož kód. V Android aplikaci
 nejdřív proveď USB postup v další sekci a kód vlož tam. Kód je
@@ -154,6 +157,21 @@ Správu zařízení zkontroluj v **Nastavení → Spárovaná zařízení**:
 Přesný source-tested rozsah a non-claims jsou v
 [MM4-D review](reviews/MM4D-PAIRED-DEVICES.md).
 
+Revizní zápis nastavení zkontroluj v **Nastavení → Nastavení backendu**:
+
+1. bez `write:settings` jsou hodnoty jen text a karta výslovně žádá nové
+   párování; s ním se zobrazí editory přesně pro 11 bezpečných UX preferencí;
+2. u prázdného dokumentu musí pole říkat „nenastaveno“, ne si vymyslet default;
+3. po **Uložit** se revize zvýší právě o jedna a hodnota se zobrazí až po
+   potvrzení serverem;
+4. změň tutéž hodnotu mezitím na desktopu: telefon musí ohlásit konflikt, načíst
+   aktuální revizi a nic sám nepřepisovat;
+5. odpoj spojení: editace se zamkne a rozdělaná změna se po reconnectu sama
+   neodešle.
+
+Přesný allow-list, recovery pravidla a non-claims jsou v
+[MM4-E review](reviews/MM4E-REVISIONED-SETTINGS-WRITE.md).
+
 ---
 
 ## Známá omezení, ať je nehlásíš jako vady
@@ -164,6 +182,7 @@ Přesný source-tested rozsah a non-claims jsou v
 | Vlastní obrazovka průběhu / agent log chybí | `MR-07` je `BLOCKED_BY_CONTRACT`; demo ukazuje jen S1 indikátory ve schránce |
 | Hledání chybí | `MR-10` je `BLOCKED_BY_CONTRACT` |
 | Projekty jsou jen read-only | seznam a detail jsou zapojené; mutation kontrakt zatím není přijatý |
+| Nastavení není obecný desktop editor | zapisuje jen 11 `UX_PREFERENCES_V1` cest; security, modely, import/reset/backup a feature flags zůstávají mimo mobil |
 | Odvolání zařízení není remote wipe | nový přístup se zablokuje; obsah už uložený v offline telefonu tím nezmizí |
 | Notifikace nedorazí do spící aplikace | Push (`N-1`) není; schránka je pull. Naplnit ji umí `npm run mobile:demo` |
 | ~~Na 200 % písma se nic nezvětší~~ | **Už neplatí.** Stylesheet byl převedený 2026-08-11 a `mobile-browser-a11y` to měří v prohlížeči |

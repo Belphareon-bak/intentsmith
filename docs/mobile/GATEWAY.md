@@ -1,10 +1,10 @@
 # Mobilní gateway — provoz
 
 > **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
-> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 21
-> rout; vedle read-only `/m1/workers` a `/m1/specialists` obsahuje scope-gated
-> seznam a odvolání zařízení. Autoritou poslední změny je review
-> `MM4D-PAIRED-DEVICES`;
+> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 22
+> rout; vedle worker/specialist read modelu a správy zařízení obsahuje revizně
+> řízený `PUT /m1/settings`. Autoritou poslední změny je review
+> `MM4E-REVISIONED-SETTINGS-WRITE`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; gateway je implementovaná a testovaná pouze **na loopbacku**, nikoli produkčně DONE.
@@ -152,9 +152,24 @@ Revokace **okamžitě zablokuje nový přístup**. To je jediné, co zaručuje.
 Nezaručuje vzdálené smazání dat z offline telefonu a nesmí se tak popisovat
 (DATA-MODEL §4.2).
 
+### Revizní zápis nastavení
+
+MM4-E přidává `PUT /m1/settings` se samostatným, ne-výchozím
+`write:settings`. Exact body je `{ operationId, expectedRevision, path, value }`
+a provider přijímá jen 11 cest `UX_PREFERENCES_V1`. Souběžná změna vrací
+`state_conflict`, nic automaticky nepřepisuje a klient nejprve znovu čte.
+Nastavení a journal result nejsou v jedné transakci; chyba po commitu je proto
+`UNKNOWN` řešené přes `/m1/operations`, ne falešné `REJECTED`. Úplná hranice a
+testy jsou v `reviews/MM4E-REVISIONED-SETTINGS-WRITE.md`.
+
 ---
 
 ## 4. Routy
+
+> Tabulka v této historické sekci zachycuje původních 13 rout. Aktuálních 22
+> exact rout je generováno v `BACKEND-CAPABILITY-INVENTORY.md`; poslední
+> přírůstek je `PUT /m1/settings` (`write:settings`, MM4-E). Následující věta
+> „vše ostatní je 404“ se vztahuje k tehdejšímu checkpointu, ne k dnešnímu HEAD.
 
 | Metoda | Cesta | Scope |
 |---|---|---|

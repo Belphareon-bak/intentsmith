@@ -1,10 +1,10 @@
 # IntentSmith Mobile — coverage matice
 
 > **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
-> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 21
-> rout; vedle read-only `/m1/workers` a `/m1/specialists` obsahuje scope-gated
-> seznam a odvolání zařízení. Autoritou poslední změny je review
-> `MM4D-PAIRED-DEVICES`;
+> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 22
+> rout; vedle worker/specialist read modelu a správy zařízení obsahuje revizně
+> řízený `PUT /m1/settings`. Autoritou poslední změny je review
+> `MM4E-REVISIONED-SETTINGS-WRITE`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; tato matice není sama evidence a žádný produktový požadavek zde není DONE
@@ -220,7 +220,7 @@ obrazovkový dopad v SCREENS §1.1.
 | `MR-05` historie a stránkování | 1 | **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`** | **Aktualizováno 2026-08-12:** `MISSING_IMPLEMENTATION` už neplatí. Kurzorové stránkování v klientovi existuje (`loadOlderMessages`, `threadWindowOf`, `THREAD_PAGE_SIZE`), serverová kotva `anchor` také, a kryjí je `mobile-ms07-history`, `mobile-contract-pagination-end` a `mobile-contract-cursor-rejection` — všechny PASS na integračním kandidátu. **Produktově DONE to není:** sdílená validace zůstává blokovaná. Historické `WP-MOBILE-016` je `CHANGES_REQUIRED` a zůstává historickým záznamem |
 | `MR-07` průběh běhu | 1 | **`BLOCKED_BY_CONTRACT`** | Blokující `/m1/chat` ani žurnál operací **nejsou agent log**. Žádné UI do schválení kontraktu na zdroj dat o průběhu, jeho lifecycle a obnovu. Doména 5 kontraktního kola `DR-008` |
 | `MR-10` hledání | 1 | **`BLOCKED_BY_CONTRACT`** | **Lokální hledání nad načtenými stránkami požadavek nesplňuje.** Kontrakt musí určit rozsah, stránkování, autorizaci, klasifikaci dat a chování offline. Doména 6 kontraktního kola `DR-008` |
-| `MR-12`, `MR-13` | 2 | **`BLOCKED_BY_CONTRACT_AND_GATE1`** | `DR-008` autorizovalo jen společné kontraktní kolo. Před implementací je nutný schválený/refrozený kontrakt v2, příslušná Gate 1 evidence a samostatný Work Package |
+| `MR-12`, `MR-13` | 2 | **`IMPLEMENTED / SOURCE TESTED / DEVICE TEST PENDING`** | MM4-A dodal live-only veřejné čtení a MM4-E revizně řízený zápis 11 UX preferencí; 13/13 gateway/core a 13/13 UI scénářů PASS. Není to refreeze návrhu v2 ani obecný settings editor |
 | `MR-14` projekty | **3B** | **`BLOCKED_BY_CONTRACT_AND_GATE1`** | Nález `F-055`: **není odložený a není odstraněný.** Doména 2 kontraktního kola `DR-008` |
 | `MR-15`, `MR-16` approvaly | **3A** | **`LOCALLY_COMPOSED / COMPOSITION_REVIEW_APPROVED / REGISTRY_REVIEW_APPROVED / MOBILE_PASS / SHARED_VALIDATION_BLOCKED`** | Historické `392c5928` dostalo v `RV-023`–`RV-025` `CHANGES_REQUIRED`; opravená kompozice prošla `RV-039`/`RV-040` a registry `RV-042`/`RV-043`. Celý profil je `208/3`, 3A je **NOT DONE** a `F-100` blokuje produkci |
 | `MR-17`, `MR-18` | 4 | **`BLOCKED_BY_CONTRACT_AND_GATE1`** | Doména 3; kontrakt v2 + příslušná Gate 1 evidence + samostatný Work Package |
