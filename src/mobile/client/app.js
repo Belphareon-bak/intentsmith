@@ -2119,12 +2119,12 @@ function securityCard() {
   const native = secure.native;
   const degraded = Boolean(secure.plugin) && !native;
   const tone = native ? 'ok' : degraded ? 'danger' : 'warn';
-  const where = native ? 'Android Keystore' : 'prohlížeč (localStorage)';
+  const where = native ? 'Android Keystore' : degraded ? 'Android Keystore — chyba' : 'prohlížeč (localStorage)';
 
   const note = native
     ? 'Přihlášení je šifrované klíčem, který aplikace nemůže vynést ze zařízení, a nevydá se, dokud je aplikace zamčená.'
     : degraded
-      ? 'Aplikace má trezor, ale nepodařilo se ho otevřít. Přihlášení je proto uložené jako v prohlížeči — bez ochrany, kterou by Keystore dal.'
+      ? 'Aplikace má trezor, ale nepodařilo se ho otevřít. Credential se nenačetl a nativní shell jej do localStorage neuloží; nové párování zůstane zablokované do opravy trezoru.'
       : 'Prohlížeč bezpečné úložiště nenabízí (MD-11 žádá ST-SECURE). Platí to i pro PWA přidanou na plochu.';
 
   // The lock the device actually enforces decides what this card offers.  A

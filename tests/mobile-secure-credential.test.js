@@ -293,6 +293,8 @@ await test('a shell whose vault will not open is reported, never silently downgr
   const markup = nodes.app.innerHTML;
   assert.ok(markup.includes('nepodařilo se ho otevřít'),
     'the settings screen did not say the vault is broken');
+  assert.ok(markup.includes('do localStorage neuloží'),
+    'the settings screen still described the forbidden browser fallback');
   assert.ok(markup.includes('KeyStoreException'),
     'the reason was swallowed, leaving the user with a mystery');
 });
