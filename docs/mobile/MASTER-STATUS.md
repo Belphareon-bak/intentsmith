@@ -2,7 +2,8 @@
 
 Updated: 2026-09-06
 Branch: `mobile/master-prod-ready`
-Current milestone: `MM4` (`MM2` freeze dependency and MM3 run authority remain open)
+Current milestones: `MM3`–`MM6` in parallel (`MM2` freeze dependency and MM3
+run authority remain open)
 Release verdict: `NOT READY`
 
 ## Milestone ledger
@@ -15,7 +16,7 @@ Release verdict: `NOT READY`
 | `MM3` primary mobile surfaces | `IN PROGRESS` | projects `1a7be999`; conversations `ddb90e7e` | project list/detail and conversation reads implemented; search/runs open |
 | `MM4` governed surfaces | `IN PROGRESS` | settings `87a51930`; memory `2c33fd9b`; workers/specialists `49dd991d` | read projections implemented; safe mutations remain open |
 | `MM5` transport and hardening | `IN PROGRESS` | packaged transport `a5d5bab4` | canonical UI is packaged; native HTTP transport and fail-closed endpoint policy implemented; vault hardening remains open |
-| `MM6` Android release | `IN PROGRESS` | platform `d4607100` | Capacitor 8/API 36 static baseline implemented; binary build, signing and device evidence open |
+| `MM6` Android release | `IN PROGRESS` | platform `d4607100`; CLI `d8bbea33` | Capacitor 8/API 36 baseline and cross-platform fail-closed workflow implemented; binary build, production signing and device evidence open |
 
 ## Known external blockers
 
@@ -30,7 +31,7 @@ Release verdict: `NOT READY`
 
 ## Latest verification
 
-- Mobile gate: `PASS` — 49/49 active suites, 1 prerequisite-blocked suite.
+- Mobile gate: `PASS` — 50/50 active suites, 1 prerequisite-blocked suite.
 - RemoteCorePort candidate: 12/12 contract checks.
 - Backend inventory: 243 unique static routes; digest
   `851339fe2e6c4f94acbaabc76606c0ae2e94cdcbe206fc216fc9f7a9358b12bb`.
@@ -41,8 +42,10 @@ Release verdict: `NOT READY`
 - Packaged transport: `PASS` — 8/8 checks; no production `server.url`, no
   remote cleartext endpoint, no CORS widening and all client API calls retain
   the `/m1` boundary.
-- Test registry: 432 runnable programs; digest
-  `f7fcb37b9718858e9ae0c284806c2d1c1d0c425e712d1a043ff7b2f0b3f84b27`.
+- Android release CLI: `PASS` — 11/11 checks on Windows; `doctor` runs without
+  Bash and accurately reports the absent JDK, SDK, signing material and device.
+- Test registry: 433 runnable programs; digest
+  `8bebec957011c77b832aee9f74f60df76fdf954395ace3facc0507a27c6679fe`.
 - Module boundary: `PASS` — 1,106 edges, 3 pre-existing cycles; reviewed
   provider additions are pinned to their MM3/MM4 checkpoint commits.
 

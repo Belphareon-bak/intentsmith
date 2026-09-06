@@ -9,8 +9,10 @@
 [`archive/PROTOTYPE-485c3497.md`](archive/PROTOTYPE-485c3497.md); není artefaktem
 aktuálního API-36 checkoutu.
 
-**Verdikt:** `CURRENT-HOST EMULATOR JOURNEY VERIFIED`; fyzický telefon,
-fresh-clone reprodukce a production release jsou `NOT RUN` / `NOT READY`.
+**Verdikt:** aktuální checkout je `IMPLEMENTED AND TESTED`, ale jeho API-36
+binární build je `NOT RUN`; starší emulator journey zůstává historickým důkazem.
+Fyzický telefon, fresh-clone reprodukce a production release jsou `NOT RUN` /
+`NOT READY`.
 
 Tento soubor je jediný aktuální stavový a rozhodovací rozcestník pro mobilní
 prototyp. Návod k obsluze je v [TRYING-IT.md](TRYING-IT.md), historické
@@ -112,7 +114,7 @@ definuje jako následující integrační WP, nikoli jako hotovou skutečnost.
 | Token at rest | `PARTIAL` | credential je v Keystore-backed encrypted preferences; backup je vypnutý; JS kopie se při zamčení zahazuje | [`EncryptedSharedPreferences` je deprecated](https://developer.android.com/reference/androidx/security/crypto/EncryptedSharedPreferences); mezi odemčením a zamčením kopie v JS paměti existuje |
 | Background lock | `EMULATOR VERIFIED` | `onPause` zapečetí vault, pošle do stránky `intentsmithLock` (zahodí credential z paměti, zruší běžící requesty, zneplatní epochu) a zvedne překryv; pozdní odpověď je inertní | ověřeno na emulátoru a šesti testy; fyzický telefon `NOT RUN` |
 | Odemčení | `EMULATOR VERIFIED` | systémový `BiometricPrompt` (otisk / obličej / PIN telefonu); po odemčení se stránka reloadne a čte z trezoru | vlastní PIN zůstává jen pro telefon **bez** zámku obrazovky; fyzická biometrie `NOT RUN` |
-| APK a podpis | `INTERNAL BUILD VERIFIED` | release build **selže**, když chybí podpisový klíč; interní podpis ověřen `apksigner` | `-PallowDebugSigning=true` je vědomý únik pro jednorázový build; žádná release key ceremony |
+| APK a podpis | historical internal build verified; current build `NOT RUN` | cross-platform workflow před buildem kontroluje JDK 21/API 36, release bez klíče selže a ověření podpisu po buildu je povinné | `--debug-signing` je vědomý únik pro jednorázový build; žádná production key ceremony |
 | Síť | `USB LOOPBACK ONLY` | `adb reverse` zachovává gateway na loopbacku | žádný vzdálený listener, VPN support claim, TLS ani push |
 | Accessibility | `PARTIAL` | `mobile-browser-a11y` **22/22 PASS** ve skutečném Chromiu (ručně; v gate dál withheld) — kontrast, focus order, ohlášení trust baru čtečce **a růst se 200% písmem** | TalkBack na zařízení a fyzická AT matice zůstávají `NOT RUN`; jeden test sám pojmenovává sporné měření kontrastu popisků lišty |
 
@@ -266,6 +268,9 @@ jen APK, které lze nainstalovat. Následující položky jsou povinné a jejich
    > `Access-Control-Allow-Origin: *` by otevřela bearer API libovolné stránce.
    > MM5-A proto používá nativní transport a serverovou hranici nemění; pinovaná
    > identita vzdálené protistrany zůstává podmínkou skutečného remote release.
+   Build/doctor/install cesta je od MM6-B jeden Node CLI pro Windows, Linux i
+   macOS. Ověření podpisu už nesmí selhat potichu; 11 regresí drží toolchain,
+   náhodné interní heslo i explicitní debug escape.
 7. **Provést fyzický device journey.** Alespoň jeden podporovaný telefon:
    install, pairing, Keystore persistence po process death, approval approve i
    reject/expire, Home/recents/lock, gateway outage a odpojení USB.

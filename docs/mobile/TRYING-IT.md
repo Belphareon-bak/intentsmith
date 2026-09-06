@@ -98,7 +98,7 @@ Kanonický prototyp používá jen `adb reverse`: Android otevře svůj
 `127.0.0.1:3336` a USB kabelem jej přivede ke gateway na počítači. Gateway se
 dál váže jen na loopback; žádný port se neotevře do Wi-Fi.
 
-```bash
+```text
 # Jen kontrola, nic nemění
 npm run mobile:android:doctor
 
@@ -110,8 +110,10 @@ npm run mobile:android:build
 npm run mobile:android:run
 ```
 
-Příkaz `run` vyžaduje připojený a autorizovaný Android device nebo emulátor.
-Interní klíč ani výsledné APK nejsou release signing. Vzdálený listener,
+Tyto npm příkazy používají stejný Node CLI na Windows, Linuxu i macOS; Bash není
+prerekvizita. `build` sám povinně ověří signer výsledného APK. Příkaz `run`
+vyžaduje připojený a autorizovaný Android device nebo emulátor. Interní klíč ani
+výsledné APK nejsou production release signing. Vzdálený listener,
 Tailscale/VPN a `C3_MOBILE_ALLOW_REMOTE` nejsou podporovaná cesta tohoto
 prototypu.
 

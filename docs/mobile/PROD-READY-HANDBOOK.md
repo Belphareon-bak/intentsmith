@@ -371,12 +371,17 @@ cesta k gateway je `adb reverse`** a že gateway se váže na loopback.
 ### 5.1 Vydat interní build
 
 ```bash
-npm run mobile:android:doctor          # co stojí a co ne
-npm run mobile:android:keystore        # jednou za život klíče
-npm run mobile:android:build           # selže, pokud klíč chybí — to je záměr
-"$ANDROID_HOME"/build-tools/*/apksigner verify --print-certs \
-  mobile-app/android/app/build/outputs/apk/release/app-release.apk
+npm run mobile:android:doctor           # read-only přehled na Windows/Linux/macOS
+npm run mobile:android:doctor -- --strict # failne, pokud build toolchain není celý
+npm run mobile:android:keystore         # jednou pro lokální interní klíč
+npm run mobile:android:build            # build + povinné ověření podpisu
 ```
+
+Autoritativní cesta je `scripts/mobile-android.mjs`; shellový soubor je jen
+kompatibilní delegát. CLI vyžaduje JDK 21, Android API 36 a `apksigner.jar`,
+nepřijme nepodepsané APK a chybu verifikace nepřekryje. Volba
+`npm run mobile:android:build -- --debug-signing` je výslovný throwaway escape,
+nikoli release postup.
 
 Do zápisu patří: commit, `versionCode`, cert SHA-256, kdo build dělal. **Ne
 hash APK** — ten se mění při každém buildu a jeho zapsání vytváří dojem
