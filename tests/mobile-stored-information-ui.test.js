@@ -59,7 +59,8 @@ globalThis.fetch = async () => { throw new TypeError('network disabled'); };
 
 const { __ms20 } = await import('../src/mobile/client/app.js');
 const {
-  state, store, K, cache, storedInformationCard, loadStoredInformation, unknownScopes,
+  state, store, journal, K, cache, storedInformationCard, loadStoredInformation, unknownScopes,
+  manualMemoryInput, memoryMutationFresh, memoryWriteOutcome, createManualMemory, replaceScopes,
 } = __ms20;
 
 function reset(scopes = ['read:memory']) {
@@ -75,6 +76,12 @@ function reset(scopes = ['read:memory']) {
   state.error = {};
   state.cacheAge = {};
   state.cacheAt = {};
+  state.memoryLive = false;
+  state.memorySaving = false;
+  state.memoryNote = null;
+  for (const key of Object.keys(nodes)) {
+    if (!['app', 'toasts'].includes(key)) delete nodes[key];
+  }
   nodes.app.innerHTML = '';
 }
 
@@ -145,8 +152,72 @@ await test('records are escaped, labelled and expose no write or delete action',
 });
 
 await test('memory scope is recognized by this client version', () => {
-  reset(['read:memory', 'read:future']);
+  reset(['read:memory', 'write:memory', 'read:future']);
   assert.deepEqual(unknownScopes(), ['read:future']);
+});
+
+await test('manual create requires both scopes and a successful live read', () => {
+  reset(['read:memory', 'write:memory']);
+  state.data.memory = [];
+  let markup = storedInformationCard();
+  assert.match(markup, /create-only zápis/);
+  assert.match(markup, /data-act="memory-create"[^>]*disabled/);
+  assert.equal(memoryMutationFresh(), false);
+
+  state.memoryLive = true;
+  assert.equal(memoryMutationFresh(), true);
+  markup = storedInformationCard();
+  assert.match(markup, /data-act="memory-create"/);
+  assert.ok(!/data-act="memory-create"[^>]*disabled/.test(markup));
+
+  state.conn = 'offline';
+  assert.equal(memoryMutationFresh(), false);
+  assert.match(storedInformationCard(), /data-act="memory-create"[^>]*disabled/);
+
+  replaceScopes(['read:memory']);
+  assert.ok(!storedInformationCard().includes('data-act="memory-create"'));
+  assert.match(storedInformationCard(), /write:memory/);
+});
+
+await test('manual input validation is byte-bounded and never normalizes a key', () => {
+  reset(['read:memory', 'write:memory']);
+  nodes['memory-category'] = element('select');
+  nodes['memory-key'] = element('input');
+  nodes['memory-value'] = element('textarea');
+  nodes['memory-category'].value = 'project';
+  nodes['memory-key'].value = 'repository-root';
+  nodes['memory-value'].value = 'C:\\work\\intentsmith';
+  assert.equal(manualMemoryInput().ok, true);
+
+  nodes['memory-key'].value = ' repository-root ';
+  assert.equal(manualMemoryInput().ok, false);
+  nodes['memory-key'].value = 'repository-root';
+  nodes['memory-value'].value = 'ž'.repeat(4097);
+  assert.equal(manualMemoryInput().ok, false);
+  nodes['memory-category'].value = 'agent_internal';
+  assert.equal(manualMemoryInput().ok, false);
+});
+
+await test('write result validator binds the content-free receipt to the attempted key', () => {
+  const valid = {
+    ok: true,
+    data: {
+      operationId: 'memory-op-1',
+      state: 'CONFIRMED',
+      result: {
+        id: 'ltm:mem_default_project_repository-root',
+        kind: 'ltm',
+        category: 'project',
+        key: 'repository-root',
+      },
+    },
+  };
+  assert.equal(memoryWriteOutcome(valid, 'memory-op-1', 'project', 'repository-root').valid, true);
+  assert.equal(memoryWriteOutcome(valid, 'memory-op-1', 'project', 'other-key').valid, false);
+  assert.equal(memoryWriteOutcome({
+    ...valid,
+    data: { ...valid.data, result: { ...valid.data.result, value: 'must not be accepted' } },
+  }, 'memory-op-1', 'project', 'repository-root').valid, false);
 });
 
 await test('memory cache uses one-hour fresh and seven-day hard limits', () => {
@@ -180,7 +251,147 @@ await test('load publishes only the displayed window and caches that window', as
   assert.equal(calls[0].url, '/m1/memory?kind=all&limit=50');
   assert.equal(calls[0].options.headers.authorization, 'Bearer token');
   assert.equal(state.data.memory[0].id, 'ltm:1');
+  assert.equal(state.memoryLive, true);
+  assert.equal(calls[0].options.cache, 'no-store');
   assert.deepEqual(store.get(K.cache + 'memory').data, state.data.memory);
+});
+
+await test('confirmed create sends once, stores no payload in the journal and refreshes by read', async () => {
+  reset(['read:memory', 'write:memory']);
+  state.data.memory = [];
+  state.memoryLive = true;
+  nodes['memory-category'] = element('select');
+  nodes['memory-key'] = element('input');
+  nodes['memory-value'] = element('textarea');
+  nodes['memory-category'].value = 'project';
+  nodes['memory-key'].value = 'repository-root';
+  nodes['memory-value'].value = 'C:\\work\\intentsmith';
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    if (options.method === 'POST') {
+      const sent = JSON.parse(options.body);
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return {
+            ok: true,
+            scopes: ['read:memory', 'write:memory'],
+            data: {
+              operationId: sent.operationId,
+              state: 'CONFIRMED',
+              result: {
+                id: 'ltm:mem_default_project_repository-root',
+                kind: 'ltm', category: sent.category, key: sent.key,
+              },
+            },
+          };
+        },
+      };
+    }
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return {
+          ok: true,
+          scopes: ['read:memory', 'write:memory'],
+          data: [record({
+            id: 'ltm:mem_default_project_repository-root',
+            category: 'project', key: 'repository-root', value: 'C:\\work\\intentsmith',
+          })],
+        };
+      },
+    };
+  };
+
+  await createManualMemory();
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].url, '/m1/memory');
+  assert.equal(calls[0].options.method, 'POST');
+  assert.equal(calls[0].options.cache, 'no-store');
+  assert.equal(calls[1].url, '/m1/memory?kind=all&limit=50');
+  assert.equal(calls[1].options.method, 'GET');
+  const sent = JSON.parse(calls[0].options.body);
+  const entry = journal.find(sent.operationId);
+  assert.equal(entry.lastKnownState, 'CONFIRMED');
+  assert.equal(entry.operationType, 'memory.create');
+  assert.equal(entry.displaySummary, 'Přidání informace do paměti');
+  assert.ok(!JSON.stringify(entry).includes('repository-root'));
+  assert.ok(!JSON.stringify(entry).includes('C:\\work\\intentsmith'));
+  assert.equal(state.data.memory[0].key, 'repository-root');
+  assert.match(state.memoryNote.text, /potvrzena serverem/);
+});
+
+await test('ambiguous create becomes UNKNOWN and is never retried or refreshed', async () => {
+  reset(['read:memory', 'write:memory']);
+  state.data.memory = [];
+  state.memoryLive = true;
+  nodes['memory-category'] = element('select');
+  nodes['memory-key'] = element('input');
+  nodes['memory-value'] = element('textarea');
+  nodes['memory-category'].value = 'style';
+  nodes['memory-key'].value = 'answer-tone';
+  nodes['memory-value'].value = 'stručně';
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    throw new TypeError('connection lost');
+  };
+
+  await createManualMemory();
+  assert.equal(calls, 1);
+  assert.equal(journal.all().at(-1).lastKnownState, 'UNKNOWN');
+  assert.equal(state.memoryLive, false);
+  assert.match(state.memoryNote.text, /Není jisté/);
+  assert.match(state.memoryNote.text, /Nic se neopakuje/);
+});
+
+await test('duplicate key is rejected, refreshed by read and never sent again', async () => {
+  reset(['read:memory', 'write:memory']);
+  state.data.memory = [record({ category: 'project', key: 'repository-root' })];
+  state.memoryLive = true;
+  nodes['memory-category'] = element('select');
+  nodes['memory-key'] = element('input');
+  nodes['memory-value'] = element('textarea');
+  nodes['memory-category'].value = 'project';
+  nodes['memory-key'].value = 'repository-root';
+  nodes['memory-value'].value = 'new value';
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    if (options.method === 'POST') {
+      return {
+        ok: false,
+        status: 409,
+        async json() {
+          return {
+            ok: false,
+            error: { code: 'state_conflict', reason: 'memory_key_conflict', state: 'REJECTED' },
+          };
+        },
+      };
+    }
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return {
+          ok: true,
+          scopes: ['read:memory', 'write:memory'],
+          data: [record({ category: 'project', key: 'repository-root', value: 'old value' })],
+        };
+      },
+    };
+  };
+
+  await createManualMemory();
+  assert.equal(calls.length, 2);
+  assert.equal(calls.filter(call => call.options.method === 'POST').length, 1);
+  assert.equal(journal.all().at(-1).lastKnownState, 'REJECTED');
+  assert.equal(state.data.memory[0].value, 'old value');
+  assert.match(state.memoryNote.text, /nepřepsal/);
 });
 
 await test('expired cache is deleted and scope withdrawal clears all memory state', async () => {
@@ -195,6 +406,7 @@ await test('expired cache is deleted and scope withdrawal clears all memory stat
   assert.equal(state.data.memory, undefined);
   assert.equal(state.loading.memory, false);
   assert.equal(state.cacheAge.memory, null);
+  assert.equal(state.memoryLive, false);
   assert.equal(store.get(K.cache + 'memory'), null);
 });
 

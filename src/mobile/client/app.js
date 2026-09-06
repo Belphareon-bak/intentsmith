@@ -557,6 +557,9 @@ function lockDownSession() {
   state.loading = {};
   state.error = {};
   state.opsLookup = {};
+  state.memoryLive = false;
+  state.memorySaving = false;
+  state.memoryNote = null;
   state.thread = { cursor: null, end: false, loadingOlder: false, stickToBottom: true };
   invalidateApprovalSurface();
 }
@@ -596,11 +599,12 @@ async function api(path, { method = 'GET', body = null, timeoutMs = 130_000, str
     const routePath = path.split(/[?#]/, 1)[0];
     const approvalRequest = routePath === '/approvals' || routePath.startsWith('/approvals/');
     const settingsRequest = routePath === '/settings';
+    const memoryRequest = routePath === '/memory';
     response = await fetch(API + path, {
       method, headers,
       body: body ? JSON.stringify(body) : undefined,
       signal: controller.signal,
-      ...(approvalRequest || settingsRequest ? { cache: 'no-store' } : {}),
+      ...(approvalRequest || settingsRequest || memoryRequest ? { cache: 'no-store' } : {}),
     });
   } catch (error) {
     // No HTTP response at all. Ambiguous for mutations — the caller decides.
@@ -745,6 +749,9 @@ const state = {
   deviceNote: null,
   settingsSaving: null,
   settingsNote: null,
+  memoryLive: false,
+  memorySaving: false,
+  memoryNote: null,
   sessionWipeFailed: false,
 
   // MS-13 / MS-14.  The right to decide is not a flag the app owns; it belongs
@@ -858,8 +865,12 @@ function replaceScopes(scopes) {
     state.loading.memory = false;
     state.cacheAge.memory = null;
     state.cacheAt.memory = null;
+    state.memoryLive = false;
+    state.memorySaving = false;
+    state.memoryNote = null;
     store.del(K.cache + 'memory');
   }
+  if (!next.includes('write:memory')) state.memorySaving = false;
   if (!next.includes('read:workers')) {
     workersGeneration++;
     delete state.data.workers;
@@ -1278,7 +1289,8 @@ const ROUTE_SECTION = {
 /** The scopes this client version knows how to act on (§3.4, step 2). */
 const SUPPORTED_SCOPES = new Set([
   'read:chat', 'write:chat', 'read:notifications',
-  'read:approvals', 'write:approvals', 'read:projects', 'read:settings', 'write:settings', 'read:memory',
+  'read:approvals', 'write:approvals', 'read:projects', 'read:settings', 'write:settings',
+  'read:memory', 'write:memory',
   'read:workers', 'read:specialists',
   'read:devices', 'write:devices',
 ]);
@@ -2379,6 +2391,44 @@ function storedInformationValue(value) {
   try { return JSON.stringify(value); } catch { return 'nečitelná hodnota'; }
 }
 
+const MANUAL_MEMORY_CATEGORIES = Object.freeze([
+  ['preference', 'Preference'],
+  ['project', 'Projekt'],
+  ['style', 'Styl komunikace'],
+  ['correction', 'Korekce'],
+]);
+
+function memoryMutationFresh() {
+  return state.route === 'diagnostics'
+    && state.conn === 'ok'
+    && state.memoryLive === true
+    && Array.isArray(state.data.memory)
+    && !state.loading.memory
+    && !state.error.memory;
+}
+
+function manualMemoryForm() {
+  if (!auth.has('read:memory') || !auth.has('write:memory')) return '';
+  const enabled = memoryMutationFresh() && !state.memorySaving;
+  const disabled = enabled ? '' : 'disabled';
+  return `<div class="memory-create">
+    <div class="memory-create-title">Přidat explicitní informaci</div>
+    <label class="memory-field">Kategorie
+      <select id="memory-category" class="setting-input" ${disabled}>${MANUAL_MEMORY_CATEGORIES.map(([value, label]) => (
+        `<option value="${value}">${label}</option>`
+      )).join('')}</select>
+    </label>
+    <label class="memory-field">Klíč
+      <input id="memory-key" class="setting-input" type="text" maxlength="128" autocomplete="off" placeholder="např. repository-root" ${disabled}>
+    </label>
+    <label class="memory-field">Hodnota
+      <textarea id="memory-value" class="setting-input memory-value-input" maxlength="8192" rows="4" placeholder="Informace, kterou má backend uchovat" ${disabled}></textarea>
+    </label>
+    <button class="btn btn-primary" data-act="memory-create" ${disabled}>${state.memorySaving ? 'Ukládám…' : 'Uložit nový záznam'}</button>
+    <div class="kv-note">Vytvoří se pouze nový explicitní LTM záznam. Existující klíč se nepřepíše; úkolová paměť, editace a mazání nejsou z telefonu dostupné.</div>
+  </div>`;
+}
+
 function storedInformationCard() {
   const records = state.data.memory;
   let content;
@@ -2413,7 +2463,10 @@ function storedInformationCard() {
 
   return `<div class="card">
     <div class="card-head"><h3 class="card-title">Paměť</h3>
-      <span class="pill" data-tone="${auth.has('read:memory') ? 'info' : 'muted'}">${auth.has('read:memory') ? 'jen ke čtení' : icon('lock') + 'zamčeno'}</span></div>
+      <span class="pill" data-tone="${auth.has('read:memory') && auth.has('write:memory') ? 'ok' : auth.has('read:memory') ? 'info' : 'muted'}">${auth.has('read:memory') && auth.has('write:memory') ? 'create-only zápis' : auth.has('read:memory') ? 'jen ke čtení' : icon('lock') + 'zamčeno'}</span></div>
+    ${state.memoryNote ? `<div class="kv-note" data-tone="${esc(state.memoryNote.tone)}" role="status">${esc(state.memoryNote.text)}</div>` : ''}
+    ${auth.has('read:memory') && !auth.has('write:memory') ? '<div class="kv-note">Ruční přidání vyžaduje samostatný scope <span class="mono">write:memory</span>; nové oprávnění vznikne pouze novým párováním.</div>' : ''}
+    ${manualMemoryForm()}
     ${cacheNote}
     ${content}
   </div>`;
@@ -2645,6 +2698,7 @@ const OPERATION_TYPE_LABEL = {
   'approval.decide': 'Rozhodnutí approvalu',
   'device.revoke': 'Odvolání spárovaného zařízení',
   'settings.write': 'Změna nastavení backendu',
+  'memory.create': 'Přidání informace do paměti',
 };
 
 /**
@@ -4707,6 +4761,7 @@ async function saveSetting(path) {
 async function loadStoredInformation() {
   if (!auth.has('read:memory')) return;
   const generation = ++memoryGeneration;
+  state.memoryLive = false;
   const cached = cache.read('memory');
   if (cached.status === 'EXPIRED') {
     store.del(K.cache + 'memory');
@@ -4730,10 +4785,12 @@ async function loadStoredInformation() {
     state.cacheAt.memory = Date.now();
     cache.write('memory', response.data);
     if (response.scopes) replaceScopes(response.scopes);
+    state.memoryLive = auth.has('read:memory');
     setConn('ok');
   } catch (error) {
     if (generation !== memoryGeneration) return;
     if (error.kind === 'auth') return await handleAuthFailure(error);
+    state.memoryLive = false;
     state.error.memory = error;
     setConn(error.kind === 'offline' ? 'offline' : error.kind === 'server' ? 'server' : state.conn);
   } finally {
@@ -4741,6 +4798,139 @@ async function loadStoredInformation() {
       state.loading.memory = false;
       render();
     }
+  }
+}
+
+function manualMemoryInput() {
+  const category = document.getElementById('memory-category')?.value;
+  const key = document.getElementById('memory-key')?.value;
+  const value = document.getElementById('memory-value')?.value;
+  const bytes = typeof value === 'string' ? new TextEncoder().encode(value).length : Infinity;
+  return {
+    ok: MANUAL_MEMORY_CATEGORIES.some(([candidate]) => candidate === category)
+      && typeof key === 'string'
+      && key.length >= 1
+      && key.length <= 128
+      && key === key.trim()
+      && !/[\u0000-\u001f\u007f]/u.test(key)
+      && typeof value === 'string'
+      && value.trim().length > 0
+      && bytes <= 8 * 1024,
+    category,
+    key,
+    value,
+  };
+}
+
+function memoryWriteOutcome(response, operationId, category, key) {
+  const data = response?.data;
+  if (response?.ok !== true || !data || data.operationId !== operationId
+      || !['PENDING', 'UNKNOWN', 'CONFIRMED', 'REJECTED'].includes(data.state)) {
+    return { valid: false };
+  }
+  const result = data.result;
+  if (data.state === 'CONFIRMED') {
+    if (!result
+        || Object.keys(result).sort().join(',') !== 'category,id,key,kind'
+        || result.category !== category
+        || result.key !== key
+        || result.kind !== 'ltm'
+        || result.id !== `ltm:mem_default_${category}_${key}`) return { valid: false };
+  } else if (result !== null && result !== undefined) {
+    return { valid: false };
+  }
+  return { valid: true, state: data.state, result: result || null };
+}
+
+/** One explicit create, no replacement and no automatic retry. */
+async function createManualMemory() {
+  if (!auth.has('read:memory') || !auth.has('write:memory')
+      || !memoryMutationFresh() || state.memorySaving) return;
+  const input = manualMemoryInput();
+  if (!input.ok) {
+    state.memoryNote = {
+      tone: 'danger',
+      text: 'Vyber kategorii, zadej klíč bez krajních mezer a neprázdnou hodnotu do 8 KiB.',
+    };
+    return render();
+  }
+
+  const operationId = newOperationId();
+  journal.add({
+    operationId,
+    operationType: 'memory.create',
+    displaySummary: 'Přidání informace do paměti',
+  });
+  state.memorySaving = true;
+  state.memoryNote = null;
+  render();
+
+  try {
+    const response = await api('/memory', {
+      method: 'POST',
+      body: { operationId, category: input.category, key: input.key, value: input.value },
+      strict: true,
+    });
+    const outcome = memoryWriteOutcome(response, operationId, input.category, input.key);
+    if (!outcome.valid) {
+      journal.setState(operationId, 'UNKNOWN', { unknownReason: 'unspecified' });
+      setConn('server');
+      state.memoryNote = {
+        tone: 'danger',
+        text: 'Server nevrátil platný výsledek zápisu. Nic se neopakuje; stav zjisti v Nerozřešených pokusech.',
+      };
+      return;
+    }
+    if (response.scopes) replaceScopes(response.scopes);
+    journal.setState(operationId, outcome.state);
+    if (outcome.state !== 'CONFIRMED') {
+      state.memoryNote = {
+        tone: outcome.state === 'REJECTED' ? 'warn' : 'danger',
+        text: outcome.state === 'REJECTED'
+          ? 'Server nový záznam odmítl. Nic nebylo přepsáno.'
+          : 'Výsledek zápisu není potvrzený. Nic se neopakuje; stav zjisti v Nerozřešených pokusech.',
+      };
+      return;
+    }
+    await loadStoredInformation();
+    setConn('ok');
+    state.memoryNote = { tone: 'ok', text: 'Nová informace byla potvrzena serverem.' };
+  } catch (error) {
+    if (error.kind === 'auth') return await handleAuthFailure(error);
+    const ambiguous = error.detail?.state !== 'REJECTED'
+      && (error.kind === 'offline' || error.kind === 'server' || error.kind === 'protocol'
+        || error.detail?.state === 'UNKNOWN');
+    if (ambiguous) {
+      journal.setState(operationId, 'UNKNOWN', { unknownReason: error.detail?.reason || null });
+      setConn(error.kind === 'offline' ? 'offline' : 'server');
+      state.memoryLive = false;
+      state.memoryNote = {
+        tone: 'danger',
+        text: 'Není jisté, zda se záznam vytvořil. Nic se neopakuje; stav zjisti v Nerozřešených pokusech.',
+      };
+    } else {
+      journal.setState(operationId, 'REJECTED');
+      if (error.kind === 'scope') {
+        replaceScopes(auth.scopes.filter(scope => scope !== 'write:memory'));
+      }
+      if (error.code === 'state_conflict' && error.detail?.reason === 'memory_key_conflict') {
+        await loadStoredInformation();
+        state.memoryNote = {
+          tone: 'warn',
+          text: `Klíč ${input.category}/${input.key} už existuje. Backend jej nepřepsal; zvol nový klíč.`,
+        };
+      } else {
+        state.memoryNote = {
+          tone: 'warn',
+          text: error.kind === 'limit'
+            ? 'Zápis neprošel: nejdřív uvolni limit v Nerozřešených pokusech.'
+            : 'Server nový záznam odmítl. Nic nebylo přepsáno.',
+        };
+      }
+    }
+  } finally {
+    state.memorySaving = false;
+    render();
   }
 }
 
@@ -5717,6 +5907,7 @@ document.addEventListener('click', event => {
     'load-settings': () => loadSettings(),
     'setting-save': () => { saveSetting(target.dataset.settingPath); },
     'load-memory': () => loadStoredInformation(),
+    'memory-create': () => { createManualMemory(); },
     'load-workers': () => loadWorkers(),
     'load-specialists': () => loadSpecialists(),
     'load-devices': () => loadDevices(),
@@ -6017,6 +6208,8 @@ export const __ms20 = {
   serverSettingsCard, publicSettingRows, loadSettings, saveSetting,
   settingsWriteOutcome, settingsMutationFresh, settingInputId,
   storedInformationCard, storedInformationValue, loadStoredInformation,
+  manualMemoryForm, manualMemoryInput, memoryMutationFresh,
+  memoryWriteOutcome, createManualMemory,
   renderNavBar, navCount, newChat, layoutNavRing, normaliseNavRing, centreNavOnSelection,
   navRingIsTurningItself, NAV_TURN_CEILING_MS, NAV_TURN_QUIET_MS,
   scheduleNavRetraction, whenNavTurnEnds, NAV_TURN_MS,

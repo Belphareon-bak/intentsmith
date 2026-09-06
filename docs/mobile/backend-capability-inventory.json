@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "scanner": "scripts/mobile-capability-inventory.mjs",
-  "routeDigest": "e347a76a9a53f623aff015a5a987e3a7dcfb16e16989a1b489c8e146788be0a1",
+  "routeDigest": "10f6abef4496799822b7c78669ca139a59dc54af68126f54408a89ab6cc91645",
   "summary": {
-    "routes": 246,
-    "mobileV1": 22,
+    "routes": 247,
+    "mobileV1": 23,
     "legacyCore": 224,
     "reads": 113,
-    "mutations": 133,
-    "remoteCoreCandidates": 82,
+    "mutations": 134,
+    "remoteCoreCandidates": 83,
     "domains": {
       "agents": 18,
       "approvals": 4,
@@ -26,7 +26,7 @@
       "skills": 7,
       "specialists": 35,
       "storage": 1,
-      "stored-information": 3,
+      "stored-information": 4,
       "system": 45
     }
   },
@@ -2837,6 +2837,18 @@
       "access": "read",
       "exposure": "mobile-v1",
       "remoteCoreFeature": "storedInformation.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "POST",
+      "path": "/m1/memory",
+      "sources": [
+        "src/mobile/handlers.js"
+      ],
+      "domain": "stored-information",
+      "access": "mutation",
+      "exposure": "mobile-v1",
+      "remoteCoreFeature": "storedInformation.write",
       "mobilePolicy": "mobile-mirror-candidate"
     },
     {

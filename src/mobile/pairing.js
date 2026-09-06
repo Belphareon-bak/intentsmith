@@ -51,6 +51,9 @@ export const PAIRABLE_SCOPES = Object.freeze([
   // User-facing LTM and project-scoped task memory. Internal agent memory is
   // excluded by the repository projection.
   'read:memory',
+  // Create-only explicit LTM facts. Kept out of default grants; it cannot
+  // update/delete an existing fact or write execution-loop task memory.
+  'write:memory',
   // Persisted worker configuration and last trustworthy terminal run only.
   'read:workers',
   // Persisted specialist package configuration; no runtime registration data.

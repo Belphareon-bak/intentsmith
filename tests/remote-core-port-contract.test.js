@@ -161,7 +161,7 @@ await test('production gateway routes chat through the narrow port', () => {
   assert.doesNotMatch(gateway, /['"](?:GET|POST|PUT|PATCH|DELETE)\s+\/m1\/\*['"]/i);
 });
 
-await test('production connector exposes only implemented providers, including narrow settings write', () => {
+await test('production connector exposes only implemented providers, including narrow settings and memory writes', () => {
   const rawDb = {
     transaction(fn) { return fn; },
     prepare(sql) {
@@ -192,7 +192,7 @@ await test('production connector exposes only implemented providers, including n
   assert.equal(features['settings.read'].status, 'available');
   assert.equal(features['settings.write'].status, 'available');
   assert.equal(features['storedInformation.read'].status, 'available');
-  assert.equal(features['storedInformation.write'].status, 'unavailable');
+  assert.equal(features['storedInformation.write'].status, 'available');
   assert.equal(features['storedInformation.delete'].status, 'unavailable');
   // The mock has no subsystem tables, so discovery must not advertise a
   // provider that would fail only after invocation.

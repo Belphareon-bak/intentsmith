@@ -762,6 +762,17 @@ body.has-navbar .composer { margin-bottom: calc(3.625rem + var(--safe-bottom)); 
 .memory-record-key { min-width: 0; color: var(--text-muted); overflow-wrap: anywhere; }
 .memory-record-value { margin: 0.5rem 0; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
 .memory-record-meta { display: flex; flex-wrap: wrap; gap: 0.375rem 0.75rem; color: var(--text-faint); font-size: 0.7188rem; }
+.memory-create {
+  display: grid; gap: 0.75rem; padding: 0.875rem 1rem;
+  border-top: 0.0625rem solid var(--border);
+  background: var(--bg-sunken);
+}
+.memory-create-title { font-size: 0.875rem; font-weight: 650; }
+.memory-field { display: grid; gap: 0.3125rem; font-size: 0.7812rem; color: var(--text-muted); }
+.memory-field .setting-input { width: 100%; max-width: none; }
+.memory-value-input { resize: vertical; min-height: 6rem; line-height: 1.5; font: inherit; }
+.memory-create .btn { justify-self: start; min-height: 3rem; }
+.memory-create .kv-note { padding: 0; border-top: 0; }
 
 .pill {
   display: inline-flex; align-items: center; gap: 0.3125rem;

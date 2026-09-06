@@ -1,4 +1,5 @@
-// Read-only projection of the two user-facing memory stores.
+// Projection of the two user-facing memory stores plus the narrow create-only
+// authority for explicit LTM facts.
 //
 // Long-term memory and task memory were built at different times and do not
 // share a provenance vocabulary. This repository therefore preserves their
@@ -126,6 +127,12 @@ export function createStoredInformationRepository(rawDb, { userId = 'default' } 
      ORDER BY last_used_missing ASC, last_used_sort DESC, record_id DESC
      LIMIT ? OFFSET ?
   `);
+  const createManual = rawDb.prepare(`
+    INSERT INTO memory (
+      id, user_id, kind, key, value, confidence, source, ttl,
+      access_count, last_accessed_at
+    ) VALUES (?, ?, ?, ?, ?, 1, 'explicit', NULL, 0, NULL)
+  `);
 
   return Object.freeze({
     list({ kind = 'all', limit, offset = 0, now = Date.now() } = {}) {
@@ -151,6 +158,26 @@ export function createStoredInformationRepository(rawDb, { userId = 'default' } 
       }
       const rows = listRows.all(userId, now, kind, kind, limit + 1, offset);
       return rows.map(row => recordDto(row, now));
+    },
+
+    // Unlike LongTermMemory.write(), this is intentionally INSERT-only. The
+    // table's UNIQUE(user_id, kind, key) constraint is the atomic authority:
+    // a stale/manual caller can never replace a fact that already exists.
+    createManual({ category, key, value } = {}) {
+      const id = `mem_${userId}_${category}_${key}`;
+      try {
+        createManual.run(id, userId, category, key, JSON.stringify(value));
+      } catch (error) {
+        if (String(error?.code || '').startsWith('SQLITE_CONSTRAINT')) {
+          const conflict = new Error('Long-term memory key already exists');
+          conflict.code = 'STORED_INFORMATION_ALREADY_EXISTS';
+          throw conflict;
+        }
+        const failure = new Error('Long-term memory create failed');
+        failure.code = 'STORED_INFORMATION_CREATE_FAILED';
+        throw failure;
+      }
+      return { id, category, key };
     },
   });
 }

@@ -49,6 +49,7 @@ const MAX_MESSAGE_LENGTH = 32_000;
 export const APPROVAL_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
 export const DEVICE_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
 export const SETTINGS_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
+export const MEMORY_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
 
 // ── GET /m1/health ───────────────────────────────────────────────────────────
 //
@@ -97,6 +98,8 @@ export async function handleCapabilities({ principal, upstream, corePort = null 
           && corePort?.capabilities(principal)?.features?.['settings.write']?.status === 'available',
         memory: principal.scopes.includes('read:memory')
           && corePort?.capabilities(principal)?.features?.['storedInformation.read']?.status === 'available',
+        memoryWrite: principal.scopes.includes('write:memory')
+          && corePort?.capabilities(principal)?.features?.['storedInformation.write']?.status === 'available',
         workers: principal.scopes.includes('read:workers')
           && corePort?.capabilities(principal)?.features?.['workers.read']?.status === 'available',
         specialists: principal.scopes.includes('read:specialists')
@@ -531,6 +534,184 @@ export async function handleStoredInformation({ corePort, principal, query }) {
       principal,
       extra: { hasMore: page.hasMore, nextCursor: page.nextCursor, end: page.end, kind },
     }),
+  };
+}
+
+function memoryResponse(result) {
+  return { ...result, headers: MEMORY_RESPONSE_HEADERS };
+}
+
+function memoryOperationResponse({ operationId, record, principal, replayed = false }) {
+  const open = record.state === 'PENDING' || record.state === 'UNKNOWN';
+  return {
+    status: open ? 202 : 200,
+    headers: MEMORY_RESPONSE_HEADERS,
+    body: withEnvelope(
+      { operationId, state: record.state, result: record.result },
+      { principal, extra: replayed ? { replayed: true } : {} },
+    ),
+  };
+}
+
+function memoryUnknownResponse(journal, principal, operationId, reason) {
+  try { journal.markUnknown(principal.deviceId, operationId, reason); } catch { /* no durable answer */ }
+  return memoryResponse(errorResponse(MOBILE_ERRORS.SERVER_UNAVAILABLE, {
+    reason,
+    operationId,
+    state: 'UNKNOWN',
+    resolveBy: `GET /m1/operations/${operationId}`,
+  }));
+}
+
+// ── POST /m1/memory ────────────────────────────────────────────────────────
+//
+// Manual memory is create-only. Task/execution memory, replacement and delete
+// remain outside the mobile surface.
+
+export async function handleStoredInformationWrite({ corePort, journal, principal, body }) {
+  const keys = body && typeof body === 'object' && !Array.isArray(body)
+    ? Object.keys(body).sort()
+    : [];
+  const exact = keys.length === 4
+    && keys[0] === 'category'
+    && keys[1] === 'key'
+    && keys[2] === 'operationId'
+    && keys[3] === 'value';
+  if (!exact) {
+    return memoryResponse(errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+      reason: 'body_shape_invalid',
+    }));
+  }
+
+  const { operationId, category, key, value } = body;
+  if (!operationId) {
+    return memoryResponse(errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+      field: 'operationId', reason: 'required',
+    }));
+  }
+  if (typeof category !== 'string' || typeof key !== 'string' || typeof value !== 'string') {
+    return memoryResponse(errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+      reason: 'memory_input_invalid',
+    }));
+  }
+
+  const claim = journal.begin({
+    deviceId: principal.deviceId,
+    operationId,
+    operationType: 'memory.create',
+    request: { category, key, value },
+  });
+  if (claim.outcome === 'conflict') {
+    const descriptor = claim.reason === 'fingerprint_mismatch'
+      ? MOBILE_ERRORS.OPERATION_CONFLICT
+      : MOBILE_ERRORS.BAD_REQUEST;
+    return memoryResponse(errorResponse(descriptor, {
+      reason: claim.reason, operationId,
+    }));
+  }
+  if (claim.outcome === 'limited') {
+    return memoryResponse(errorResponse(
+      claim.reason === 'open_operation_cap' ? MOBILE_ERRORS.OPERATION_LIMIT : MOBILE_ERRORS.RATE_LIMITED,
+      { reason: claim.reason, openOperations: journal.openOperations(principal.deviceId) },
+    ));
+  }
+  if (claim.outcome === 'replay') {
+    return memoryOperationResponse({ operationId, record: claim.record, principal, replayed: true });
+  }
+
+  let outcome;
+  try {
+    outcome = await corePort?.invoke({
+      version: 1,
+      feature: 'storedInformation.write',
+      input: { operation: 'create', category, key, value },
+      principal,
+    }) ?? { ok: false, error: { code: 'capability_unavailable' } };
+  } catch (error) {
+    const definitelyNotDispatched = [
+      'capability_unavailable', 'capability_forbidden', 'capability_unknown',
+      'contract_version_unsupported', 'input_invalid',
+    ].includes(error?.code);
+    if (!definitelyNotDispatched) {
+      return memoryUnknownResponse(
+        journal, principal, operationId, UNKNOWN_REASONS.GATEWAY_EXCEPTION,
+      );
+    }
+    outcome = { ok: false, error: { code: error.code } };
+  }
+
+  if (!outcome.ok) {
+    const code = outcome.error?.code || 'stored_information_write_failed';
+    let resolution;
+    try {
+      resolution = journal.reject(principal.deviceId, operationId, code);
+    } catch {
+      return memoryUnknownResponse(
+        journal, principal, operationId, UNKNOWN_REASONS.RESULT_PERSISTENCE_FAILED,
+      );
+    }
+    if (!resolution.resolved && resolution.current?.state === 'UNKNOWN') {
+      return memoryUnknownResponse(
+        journal, principal, operationId, UNKNOWN_REASONS.RESULT_PERSISTENCE_FAILED,
+      );
+    }
+    if (!resolution.resolved && resolution.current?.known) {
+      return memoryOperationResponse({ operationId, record: resolution.current, principal });
+    }
+    if (code === 'memory_key_conflict') {
+      return memoryResponse(errorResponse(MOBILE_ERRORS.STATE_CONFLICT, {
+        reason: code, operationId, state: 'REJECTED',
+      }));
+    }
+    if (['operation_invalid', 'memory_category_invalid', 'memory_key_invalid', 'memory_value_invalid'].includes(code)) {
+      return memoryResponse(errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+        reason: code, operationId, state: 'REJECTED',
+      }));
+    }
+    if (code === 'capability_forbidden') {
+      return memoryResponse(errorResponse(MOBILE_ERRORS.SCOPE_REQUIRED, {
+        requiredScope: 'write:memory', operationId, state: 'REJECTED',
+      }));
+    }
+    return memoryResponse(errorResponse(MOBILE_ERRORS.SERVER_UNAVAILABLE, {
+      reason: code, operationId, state: 'REJECTED',
+    }));
+  }
+
+  const result = outcome.data;
+  const resultKeys = result && typeof result === 'object' && !Array.isArray(result)
+    ? Object.keys(result).sort()
+    : [];
+  const validResult = resultKeys.length === 4
+    && resultKeys[0] === 'category'
+    && resultKeys[1] === 'id'
+    && resultKeys[2] === 'key'
+    && resultKeys[3] === 'kind'
+    && result.category === category
+    && result.key === key
+    && result.kind === 'ltm'
+    && result.id === `ltm:mem_default_${category}_${key}`;
+  if (!validResult) {
+    return memoryUnknownResponse(
+      journal, principal, operationId, UNKNOWN_REASONS.GATEWAY_EXCEPTION,
+    );
+  }
+
+  try {
+    const resolution = journal.confirm(principal.deviceId, operationId, result);
+    if (!resolution.resolved) {
+      return memoryOperationResponse({ operationId, record: resolution.current, principal });
+    }
+  } catch {
+    return memoryUnknownResponse(
+      journal, principal, operationId, UNKNOWN_REASONS.RESULT_PERSISTENCE_FAILED,
+    );
+  }
+
+  return {
+    status: 200,
+    headers: MEMORY_RESPONSE_HEADERS,
+    body: withEnvelope({ operationId, state: 'CONFIRMED', result }, { principal }),
   };
 }
 
@@ -1567,6 +1748,7 @@ export const MOBILE_HANDLERS = Object.freeze({
   'GET /m1/settings': handleSettings,
   'PUT /m1/settings': handleSettingsWrite,
   'GET /m1/memory': handleStoredInformation,
+  'POST /m1/memory': handleStoredInformationWrite,
   'GET /m1/workers': handleWorkers,
   'GET /m1/specialists': handleSpecialists,
   'GET /m1/devices': handleDevices,

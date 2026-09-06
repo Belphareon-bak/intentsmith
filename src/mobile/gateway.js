@@ -27,6 +27,7 @@ import { authorizeMobileRequest, matchMobileRoute } from './gateway-policy.js';
 import { registerGatewayInstance, reapDeadInstances } from './gateway-instance.js';
 import {
   APPROVAL_RESPONSE_HEADERS,
+  MEMORY_RESPONSE_HEADERS,
   MOBILE_HANDLERS,
   SETTINGS_RESPONSE_HEADERS,
 } from './handlers.js';
@@ -52,6 +53,11 @@ const APPROVAL_ROUTE_KEYS = new Set([
 const SETTINGS_ROUTE_KEYS = new Set([
   'GET /m1/settings',
   'PUT /m1/settings',
+]);
+
+const MEMORY_ROUTE_KEYS = new Set([
+  'GET /m1/memory',
+  'POST /m1/memory',
 ]);
 
 /**
@@ -250,7 +256,10 @@ async function handleRequest(req, res, ctx) {
     body,
   });
 
-  return sendJson(res, result.status, result.body, result.headers);
+  // Route-owned privacy headers are also the fallback for successful handler
+  // responses. This keeps sensitive reads (for example stored information)
+  // non-cacheable even when their handler has no mutation-specific headers.
+  return sendJson(res, result.status, result.body, result.headers || routeResponseHeaders);
 }
 
 function extrasFor(decision) {
@@ -279,6 +288,7 @@ function responseHeadersForRoute(method, pathname) {
     const routeKey = route && `${route.method} ${route.path}`;
     if (APPROVAL_ROUTE_KEYS.has(routeKey)) return APPROVAL_RESPONSE_HEADERS;
     if (SETTINGS_ROUTE_KEYS.has(routeKey)) return SETTINGS_RESPONSE_HEADERS;
+    if (MEMORY_ROUTE_KEYS.has(routeKey)) return MEMORY_RESPONSE_HEADERS;
     return undefined;
   } catch {
     return undefined;

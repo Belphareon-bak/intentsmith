@@ -39,4 +39,76 @@ export function createStoredInformationReadProvider(rawDb) {
   };
 }
 
+const MANUAL_CATEGORIES = new Set(['preference', 'project', 'style', 'correction']);
+const MAX_MANUAL_VALUE_BYTES = 8 * 1024;
+const WRITE_INPUT_KEYS = new Set(['operation', 'category', 'key', 'value']);
+
+function validManualKey(value) {
+  return typeof value === 'string'
+    && value.length >= 1
+    && value.length <= 128
+    && value === value.trim()
+    && !/[\u0000-\u001f\u007f]/u.test(value);
+}
+
+function validManualValue(value) {
+  return typeof value === 'string'
+    && value.trim().length > 0
+    && Buffer.byteLength(value, 'utf8') <= MAX_MANUAL_VALUE_BYTES;
+}
+
+/** Core-owned create-only adapter for explicit, user-facing LTM facts. */
+export function createStoredInformationWriteProvider(rawDb) {
+  if (!rawDb || typeof rawDb.prepare !== 'function') {
+    throw new TypeError('stored information provider requires a database handle');
+  }
+  const repository = createStoredInformationRepository(rawDb);
+
+  return async input => {
+    if (
+      input.operation !== 'create'
+      || Object.keys(input).some(key => !WRITE_INPUT_KEYS.has(key))
+      || Object.keys(input).length !== WRITE_INPUT_KEYS.size
+    ) {
+      return { ok: false, error: { code: 'operation_invalid' } };
+    }
+    if (!MANUAL_CATEGORIES.has(input.category)) {
+      return { ok: false, error: { code: 'memory_category_invalid' } };
+    }
+    if (!validManualKey(input.key)) {
+      return { ok: false, error: { code: 'memory_key_invalid' } };
+    }
+    if (!validManualValue(input.value)) {
+      return { ok: false, error: { code: 'memory_value_invalid' } };
+    }
+
+    let created;
+    try {
+      created = repository.createManual({
+        category: input.category,
+        key: input.key,
+        value: input.value,
+      });
+    } catch (error) {
+      return {
+        ok: false,
+        error: {
+          code: error?.code === 'STORED_INFORMATION_ALREADY_EXISTS'
+            ? 'memory_key_conflict'
+            : 'stored_information_write_failed',
+        },
+      };
+    }
+    return {
+      ok: true,
+      data: {
+        id: `ltm:${created.id}`,
+        kind: 'ltm',
+        category: input.category,
+        key: input.key,
+      },
+    };
+  };
+}
+
 export default createStoredInformationReadProvider;
