@@ -6,18 +6,18 @@ This inventory is exhaustive for statically declared `/api` and `/m1` route-map
 keys under `src/routes/**` and `src/mobile/handlers.js`. Dynamic behavior and
 WebSocket message kinds require separate contract inventories.
 
-- Routes: 241
-- Existing mobile v1 routes: 17
+- Routes: 243
+- Existing mobile v1 routes: 19
 - Legacy core routes: 224
-- Reads / mutations: 110 / 131
-- Routes mapping to the seven-domain RemoteCorePort candidate: 66
-- Route digest: `a29e71745ead40f06a0c761235f9275673d8a792b2d6a5eb607738e6f97d338b`
+- Reads / mutations: 112 / 131
+- Routes mapping to the nine-domain RemoteCorePort candidate: 81
+- Route digest: `851339fe2e6c4f94acbaabc76606c0ae2e94cdcbe206fc216fc9f7a9358b12bb`
 
 ## Domain counts
 
 | Domain | Routes |
 |---|---:|
-| agents | 17 |
+| agents | 18 |
 | approvals | 4 |
 | autonomy | 4 |
 | conversations | 23 |
@@ -31,7 +31,7 @@ WebSocket message kinds require separate contract inventories.
 | security | 7 |
 | settings | 11 |
 | skills | 7 |
-| specialists | 34 |
+| specialists | 35 |
 | storage | 1 |
 | stored-information | 3 |
 | system | 45 |
@@ -50,20 +50,20 @@ WebSocket message kinds require separate contract inventories.
 
 | Route | Domain | Exposure | RemoteCorePort feature | Mobile policy |
 |---|---|---|---|---|
-| `GET /api/agents` | agents | legacy-core | — | mobile-mirror-candidate |
+| `GET /api/agents` | agents | legacy-core | workers.read | mobile-mirror-candidate |
 | `POST /api/agents` | agents | legacy-core | — | mobile-mirror-candidate |
 | `DELETE /api/agents/:id` | agents | legacy-core | — | mobile-mirror-candidate |
-| `GET /api/agents/:id` | agents | legacy-core | — | mobile-mirror-candidate |
+| `GET /api/agents/:id` | agents | legacy-core | workers.read | mobile-mirror-candidate |
 | `PUT /api/agents/:id` | agents | legacy-core | — | mobile-mirror-candidate |
-| `POST /api/agents/:id/disable` | agents | legacy-core | — | mobile-mirror-candidate |
-| `POST /api/agents/:id/enable` | agents | legacy-core | — | mobile-mirror-candidate |
+| `POST /api/agents/:id/disable` | agents | legacy-core | workers.toggle | mobile-mirror-candidate |
+| `POST /api/agents/:id/enable` | agents | legacy-core | workers.toggle | mobile-mirror-candidate |
 | `POST /api/agents/:id/run` | agents | legacy-core | — | mobile-mirror-candidate |
-| `GET /api/agents/:id/runs` | agents | legacy-core | — | mobile-mirror-candidate |
+| `GET /api/agents/:id/runs` | agents | legacy-core | workers.read | mobile-mirror-candidate |
 | `POST /api/agents/build` | agents | legacy-core | — | mobile-mirror-candidate |
 | `POST /api/agents/confirm` | agents | legacy-core | — | mobile-mirror-candidate |
 | `POST /api/agents/dry-run` | agents | legacy-core | — | mobile-mirror-candidate |
 | `POST /api/agents/refine` | agents | legacy-core | — | mobile-mirror-candidate |
-| `GET /api/agents/schema` | agents | legacy-core | — | mobile-mirror-candidate |
+| `GET /api/agents/schema` | agents | legacy-core | workers.read | mobile-mirror-candidate |
 | `GET /api/approvals` | approvals | legacy-core | approvals.read | mobile-mirror-candidate |
 | `POST /api/approvals/:id/decide` | approvals | legacy-core | approvals.decide | mobile-mirror-candidate |
 | `GET /api/artifacts/:filename` | projects | legacy-core | — | mobile-mirror-candidate |
@@ -207,19 +207,19 @@ WebSocket message kinds require separate contract inventories.
 | `POST /api/sources/inspect` | agents | legacy-core | — | mobile-mirror-candidate |
 | `POST /api/sources/validate-condition` | agents | legacy-core | — | mobile-mirror-candidate |
 | `POST /api/sources/validate-field` | agents | legacy-core | — | mobile-mirror-candidate |
-| `GET /api/specialists` | specialists | legacy-core | — | mobile-mirror-candidate |
+| `GET /api/specialists` | specialists | legacy-core | specialists.read | mobile-mirror-candidate |
 | `POST /api/specialists` | specialists | legacy-core | — | mobile-mirror-candidate |
-| `GET /api/specialists/:id` | specialists | legacy-core | — | mobile-mirror-candidate |
-| `POST /api/specialists/:id/disable` | specialists | legacy-core | — | mobile-mirror-candidate |
-| `POST /api/specialists/:id/enable` | specialists | legacy-core | — | mobile-mirror-candidate |
-| `GET /api/specialists/:id/expertises` | specialists | legacy-core | — | mobile-mirror-candidate |
+| `GET /api/specialists/:id` | specialists | legacy-core | specialists.read | mobile-mirror-candidate |
+| `POST /api/specialists/:id/disable` | specialists | legacy-core | specialists.toggle | mobile-mirror-candidate |
+| `POST /api/specialists/:id/enable` | specialists | legacy-core | specialists.toggle | mobile-mirror-candidate |
+| `GET /api/specialists/:id/expertises` | specialists | legacy-core | specialists.read | mobile-mirror-candidate |
 | `POST /api/specialists/:id/expertises` | specialists | legacy-core | — | mobile-mirror-candidate |
 | `DELETE /api/specialists/:id/expertises/:expertiseId` | specialists | legacy-core | — | mobile-mirror-candidate |
 | `PATCH /api/specialists/:id/expertises/:expertiseId` | specialists | legacy-core | — | mobile-mirror-candidate |
-| `GET /api/specialists/:id/integrity` | specialists | legacy-core | — | mobile-mirror-candidate |
+| `GET /api/specialists/:id/integrity` | specialists | legacy-core | specialists.read | mobile-mirror-candidate |
 | `POST /api/specialists/:id/update` | specialists | legacy-core | — | mobile-mirror-candidate |
 | `POST /api/specialists/discover` | specialists | legacy-core | — | mobile-mirror-candidate |
-| `GET /api/specialists/telemetry` | specialists | legacy-core | — | mobile-mirror-candidate |
+| `GET /api/specialists/telemetry` | specialists | legacy-core | specialists.read | mobile-mirror-candidate |
 | `GET /api/storage/info` | storage | legacy-core | — | conditional-or-desktop-only |
 | `POST /api/system/backup` | system | legacy-core | — | conditional-or-desktop-only |
 | `GET /api/system/backups` | system | legacy-core | — | conditional-or-desktop-only |
@@ -291,3 +291,5 @@ WebSocket message kinds require separate contract inventories.
 | `GET /m1/projects` | projects | mobile-v1 | projects.read | mobile-mirror-candidate |
 | `GET /m1/projects/:id` | projects | mobile-v1 | projects.read | mobile-mirror-candidate |
 | `GET /m1/settings` | settings | mobile-v1 | settings.read | mobile-mirror-candidate |
+| `GET /m1/specialists` | specialists | mobile-v1 | specialists.read | mobile-mirror-candidate |
+| `GET /m1/workers` | agents | mobile-v1 | workers.read | mobile-mirror-candidate |

@@ -11,6 +11,8 @@ import { createConversationsReadProvider } from './providers/conversations.js';
 import { createProjectsReadProvider } from './providers/projects.js';
 import { createSettingsReadProvider } from './providers/settings.js';
 import { createStoredInformationReadProvider } from './providers/stored-information.js';
+import { createWorkersReadProvider } from './providers/workers.js';
+import { createSpecialistsReadProvider } from './providers/specialists.js';
 
 export class RemoteCorePortError extends Error {
   constructor(code, details = {}) {
@@ -169,15 +171,41 @@ export function createUpstreamRemoteCorePort(upstream) {
 
 /** Production connector used by the companion gateway. */
 export function createMobileRemoteCorePort({ rawDb, upstream } = {}) {
+  const providers = {
+    'projects.read': createProjectsReadProvider(rawDb),
+    'conversations.read': createConversationsReadProvider(rawDb),
+    'conversations.send': upstreamChatProvider(upstream),
+    'settings.read': createSettingsReadProvider(rawDb),
+    'storedInformation.read': createStoredInformationReadProvider(rawDb),
+  };
+
+  // agents_v33 is initialized by the agent subsystem rather than a core DB
+  // migration. Never advertise it merely because a provider implementation
+  // exists: standalone gateways against older databases must fail discovery
+  // closed. Specialists are migration-owned but checked for the same reason.
+  if (hasTable(rawDb, 'agents_v33')
+      && hasTable(rawDb, 'agent_runs_v33')
+      && hasTable(rawDb, 'agent_schedule_v33')) {
+    providers['workers.read'] = createWorkersReadProvider(rawDb);
+  }
+  if (hasTable(rawDb, 'specialists') && hasTable(rawDb, 'specialist_expertises')) {
+    providers['specialists.read'] = createSpecialistsReadProvider(rawDb);
+  }
+
   return new RemoteCorePort({
-    providers: {
-      'projects.read': createProjectsReadProvider(rawDb),
-      'conversations.read': createConversationsReadProvider(rawDb),
-      'conversations.send': upstreamChatProvider(upstream),
-      'settings.read': createSettingsReadProvider(rawDb),
-      'storedInformation.read': createStoredInformationReadProvider(rawDb),
-    },
+    providers,
   });
+}
+
+function hasTable(rawDb, name) {
+  if (!rawDb || typeof rawDb.prepare !== 'function') return false;
+  try {
+    return Boolean(rawDb.prepare(
+      "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+    ).get(name));
+  } catch {
+    return false;
+  }
 }
 
 export default {

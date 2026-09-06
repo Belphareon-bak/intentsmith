@@ -246,6 +246,8 @@ const FRESH_MS = 60_000;
 const STALE_MS = 15 * 60_000;
 const CACHE_WINDOWS = Object.freeze({
   memory: Object.freeze({ freshMs: 60 * 60_000, staleMs: 7 * 24 * 60 * 60_000 }),
+  workers: Object.freeze({ freshMs: 5 * 60_000, staleMs: 7 * 24 * 60 * 60_000 }),
+  specialists: Object.freeze({ freshMs: 60 * 60_000, staleMs: 7 * 24 * 60 * 60_000 }),
 });
 
 function cacheWindow(name) {
@@ -640,6 +642,7 @@ const state = {
   conversationId: null,
   projectId: null,
   projectState: 'active',
+  pagination: {},
   data: {},
   loading: {},
   error: {},
@@ -750,6 +753,7 @@ function invalidateApprovalSession() {
  */
 function replaceScopes(scopes) {
   const next = Array.isArray(scopes) ? scopes : [];
+  state.pagination ||= {};
   store.set(K.scopes, next);
   if (!next.includes('write:approvals')) invalidateApprovalAuthority();
   if (!next.includes('read:approvals')) invalidateApprovalSurface();
@@ -783,6 +787,26 @@ function replaceScopes(scopes) {
     state.cacheAge.memory = null;
     state.cacheAt.memory = null;
     store.del(K.cache + 'memory');
+  }
+  if (!next.includes('read:workers')) {
+    workersGeneration++;
+    delete state.data.workers;
+    delete state.pagination.workers;
+    state.error.workers = null;
+    state.loading.workers = false;
+    state.cacheAge.workers = null;
+    state.cacheAt.workers = null;
+    store.del(K.cache + 'workers');
+  }
+  if (!next.includes('read:specialists')) {
+    specialistsGeneration++;
+    delete state.data.specialists;
+    delete state.pagination.specialists;
+    state.error.specialists = null;
+    state.loading.specialists = false;
+    state.cacheAge.specialists = null;
+    state.cacheAt.specialists = null;
+    store.del(K.cache + 'specialists');
   }
 }
 
@@ -892,6 +916,8 @@ const ICONS = {
   clock: '<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M12 7.5V12l3 2" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
   home: '<path d="M4 10.5L12 4l8 6.5V19a1.5 1.5 0 01-1.5 1.5h-13A1.5 1.5 0 014 19v-8.5z" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linejoin="round"/>',
   folder: '<path d="M3 7.5A1.5 1.5 0 014.5 6h4l2 2.5h9A1.5 1.5 0 0121 10v8a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 18V7.5z" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linejoin="round"/>',
+  bot: '<rect x="4" y="7" width="16" height="13" rx="3" stroke="currentColor" stroke-width="1.8" fill="none"/><path d="M12 3v4M9 3h6M8 12h.01M16 12h.01M8.5 16h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>',
+  spark: '<path d="M12 2l1.8 5.2L19 9l-5.2 1.8L12 16l-1.8-5.2L5 9l5.2-1.8L12 2zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/>',
 };
 
 const icon = (name, cls = '') => `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] || ''}</svg>`;
@@ -951,6 +977,8 @@ const TRUST_DATASET = {
   project: 'project',
   notifications: 'notifications',
   operations: 'operations',
+  workers: 'workers',
+  specialists: 'specialists',
 };
 
 /**
@@ -972,6 +1000,12 @@ function screenLocks(route = state.route) {
     case 'projects':
     case 'project':
       need('read:projects', 'projekty');
+      break;
+    case 'workers':
+      need('read:workers', 'agenty');
+      break;
+    case 'specialists':
+      need('read:specialists', 'specialisty');
       break;
     case 'chat':
       need('write:chat', 'psaní zpráv');
@@ -1120,6 +1154,8 @@ const NAV_ITEMS = [
   { id: 'overview', route: 'overview', label: 'Přehled', icon: 'home', scope: null },
   { id: 'conversations', route: 'conversations', label: 'Konverzace', icon: 'chat', scope: 'read:chat' },
   { id: 'projects', route: 'projects', label: 'Projekty', icon: 'folder', scope: 'read:projects' },
+  { id: 'workers', route: 'workers', label: 'Agenti', icon: 'bot', scope: 'read:workers' },
+  { id: 'specialists', route: 'specialists', label: 'Specialisté', icon: 'spark', scope: 'read:specialists' },
   { id: 'approvals', route: 'approvals', label: 'Approvaly', icon: 'shield', scope: 'read:approvals' },
   // §3.3 — MS-03, MS-04 and MS-20 live under Nastavení, which replaces the
   // former standalone "Stav" item (D-UI-3).
@@ -1139,6 +1175,8 @@ const ROUTE_SECTION = {
   chat: 'conversations',
   projects: 'projects',
   project: 'projects',
+  workers: 'workers',
+  specialists: 'specialists',
   approvals: 'approvals',
   approval: 'approvals',
   diagnostics: 'settings',
@@ -1149,6 +1187,7 @@ const ROUTE_SECTION = {
 const SUPPORTED_SCOPES = new Set([
   'read:chat', 'write:chat', 'read:notifications',
   'read:approvals', 'write:approvals', 'read:projects', 'read:settings', 'read:memory',
+  'read:workers', 'read:specialists',
 ]);
 
 /**
@@ -1488,6 +1527,11 @@ function viewOverview() {
       if (item.id === 'notifications') {
         return { ...item, value: Array.isArray(state.data.notifications) ? `${state.unread}` : null };
       }
+      if (item.id === 'workers' || item.id === 'specialists') {
+        const list = state.data[item.id];
+        const partial = state.pagination[item.id]?.hasMore === true;
+        return { ...item, value: Array.isArray(list) ? `${list.length}${partial ? '+' : ''}` : null };
+      }
       return { ...item, value: null };
     });
 
@@ -1502,17 +1546,6 @@ function viewOverview() {
     }
     return `<li><button class="ov-tile" data-act="go" data-route="${esc(tile.route)}" data-section="${esc(tile.id)}">${body}</button></li>`;
   }).join('');
-
-  // §3.1 — an optional module is not in the bar until its capability arrives; a
-  // "Připravujeme" tile here is enough until then, and is the honest rendering
-  // of a capability the backend does not have.  Paměť is no longer among them:
-  // the operator placed it under Nastavení instead of giving it a section.
-  const upcoming = ['Autonomní agenti', 'Specialisté'].map(label => `
-    <li class="ov-tile" data-locked="true">
-      ${icon('lock')}
-      <span class="ov-tile-label">${esc(label)}</span>
-      <span class="ov-tile-note">Připravujeme</span>
-    </li>`).join('');
 
   const gear = '<button class="icon-btn" data-act="go" data-route="diagnostics"'
     + ` data-section="settings" aria-label="Nastavení">${icon('gear')}</button>`;
@@ -1537,10 +1570,6 @@ function viewOverview() {
         ? '<button class="ov-more" data-act="go" data-route="conversations">Zobrazit všechny</button>' : ''}
     </section>
 
-    <section class="ov-section" aria-labelledby="ov-soon-h">
-      <h2 class="ov-h" id="ov-soon-h">Připravujeme</h2>
-      <ul class="ov-tiles">${upcoming}</ul>
-    </section>
   </div></div>`;
 }
 
@@ -1664,6 +1693,139 @@ function viewProject() {
 
   return header({ title: project?.name || 'Projekt', left: 'back' })
     + `<div class="scroll">${body}</div>`;
+}
+
+function configuredResourceCacheNote(name) {
+  const age = state.cacheAge[name];
+  if (!age || age === 'FRESH') return '';
+  return `<div class="kv"><span class="kv-key">Data z cache</span>
+    <span class="pill" data-tone="${age === 'STALE' ? 'warn' : 'muted'}">${age === 'STALE' ? 'zastaralá' : 'stará'}</span></div>`;
+}
+
+function configuredResourceMore(name) {
+  const page = state.pagination[name];
+  if (!page?.hasMore) return '';
+  return `<div class="resource-more">
+    <button class="btn btn-secondary" data-act="load-more-${name}" ${state.loading[name] ? 'disabled' : ''}>
+      ${state.loading[name] ? 'Načítám…' : 'Načíst další'}
+    </button>
+    <p>Seznam je výřez. Backend potvrdil další položky.</p>
+  </div>`;
+}
+
+function configuredResourceInlineError(name) {
+  const error = state.error[name];
+  if (!error || !state.data[name]) return '';
+  const text = error.kind === 'offline'
+    ? 'Další data teď nelze ověřit: telefon je offline.'
+    : 'Aktualizace seznamu selhala. Zobrazená kopie může být starší.';
+  return `<div class="resource-inline-error" role="status">${esc(text)}
+    <button class="btn btn-secondary btn-sm" data-act="load-${name}">Zkusit znovu</button>
+  </div>`;
+}
+
+function workerStatus(worker) {
+  if (!worker.lastRun) return { tone: 'muted', text: 'bez ukončeného běhu' };
+  if (worker.lastRun.status === 'success') return { tone: 'ok', text: 'poslední běh uspěl' };
+  if (worker.lastRun.status === 'partial') return { tone: 'warn', text: 'poslední běh částečný' };
+  return { tone: 'danger', text: 'poslední běh selhal' };
+}
+
+function scheduledAt(value) {
+  const ms = serverTimeMs(value);
+  if (Number.isNaN(ms)) return value || '';
+  return new Date(ms).toLocaleString('cs-CZ', {
+    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+  });
+}
+
+function viewWorkers() {
+  const list = state.data.workers;
+  const error = state.error.workers;
+  const loading = state.loading.workers;
+  let body;
+
+  if (!auth.has('read:workers')) {
+    body = statePanel('scope', 'Bez oprávnění',
+      'Zařízení nemá scope read:workers, takže seznam agentů nelze zobrazit.');
+  } else if (loading && !list) {
+    body = skeletonList();
+  } else if (error && !list) {
+    body = errorPanel(error, 'load-workers');
+  } else if (Array.isArray(list) && list.length === 0) {
+    body = statePanel('empty', 'Zatím žádní agenti',
+      'Backend potvrdil prázdný seznam nakonfigurovaných agentů.');
+  } else if (Array.isArray(list)) {
+    body = `<div class="list">${list.map(worker => {
+      const last = workerStatus(worker);
+      return `<article class="resource-row">
+        <div class="resource-icon" aria-hidden="true">${esc(worker.icon || 'A')}</div>
+        <div class="row-main">
+          <div class="resource-title-line"><span class="row-title">${esc(worker.name)}</span>
+            <span class="pill" data-tone="${worker.enabled ? 'ok' : 'muted'}">${worker.enabled ? 'zapnutý' : 'vypnutý'}</span></div>
+          <div class="row-sub">${esc(worker.kind || 'typ neurčen')} · ${esc(worker.description || 'bez popisu')}</div>
+          <div class="resource-meta">
+            <span class="pill" data-tone="${last.tone}">${esc(last.text)}</span>
+            ${worker.schedule?.nextRunAt ? `<span>Další běh ${esc(scheduledAt(worker.schedule.nextRunAt))}</span>` : ''}
+          </div>
+        </div>
+      </article>`;
+    }).join('')}${configuredResourceCacheNote('workers')}${configuredResourceInlineError('workers')}${configuredResourceMore('workers')}</div>`;
+  } else {
+    body = skeletonList();
+  }
+
+  return header({ title: 'Agenti' }) + `<div class="scroll"><div class="container resource-screen">
+    <p class="resource-lead">Konfigurace a poslední ukončený běh. Živý stav se nezobrazuje, protože jej backend neumí po restartu spolehlivě potvrdit.</p>
+    ${body}
+  </div></div>`;
+}
+
+function specialistStatus(status) {
+  return {
+    enabled: { tone: 'ok', text: 'zapnutý' },
+    disabled: { tone: 'muted', text: 'vypnutý' },
+    installed: { tone: 'info', text: 'nainstalovaný' },
+  }[status] || { tone: 'danger', text: 'neznámý stav' };
+}
+
+function viewSpecialists() {
+  const list = state.data.specialists;
+  const error = state.error.specialists;
+  const loading = state.loading.specialists;
+  let body;
+
+  if (!auth.has('read:specialists')) {
+    body = statePanel('scope', 'Bez oprávnění',
+      'Zařízení nemá scope read:specialists, takže seznam specialistů nelze zobrazit.');
+  } else if (loading && !list) {
+    body = skeletonList();
+  } else if (error && !list) {
+    body = errorPanel(error, 'load-specialists');
+  } else if (Array.isArray(list) && list.length === 0) {
+    body = statePanel('empty', 'Zatím žádní specialisté',
+      'Backend potvrdil prázdný seznam nainstalovaných specialistů.');
+  } else if (Array.isArray(list)) {
+    body = `<div class="list">${list.map(specialist => {
+      const status = specialistStatus(specialist.status);
+      return `<article class="resource-row">
+        <div class="resource-icon" aria-hidden="true">${icon('spark')}</div>
+        <div class="row-main">
+          <div class="resource-title-line"><span class="row-title">${esc(specialist.name)}</span>
+            <span class="pill" data-tone="${status.tone}">${esc(status.text)}</span></div>
+          <div class="row-sub">${esc(specialist.domain)} · ${esc(specialist.type)} · verze ${esc(specialist.packageVersion)}</div>
+          <div class="resource-meta"><span>${esc(specialist.expertiseCount)} ${plural(specialist.expertiseCount, 'expertiza', 'expertizy', 'expertiz')}</span></div>
+        </div>
+      </article>`;
+    }).join('')}${configuredResourceCacheNote('specialists')}${configuredResourceInlineError('specialists')}${configuredResourceMore('specialists')}</div>`;
+  } else {
+    body = skeletonList();
+  }
+
+  return header({ title: 'Specialisté' }) + `<div class="scroll"><div class="container resource-screen">
+    <p class="resource-lead">Nainstalované balíčky a jejich uložený stav. Registrace v právě běžícím procesu není součástí tohoto přehledu.</p>
+    ${body}
+  </div></div>`;
 }
 
 function plural(n, one, few, many) {
@@ -3355,6 +3517,8 @@ function render() {
     chat: viewChat,
     projects: viewProjects,
     project: viewProject,
+    workers: viewWorkers,
+    specialists: viewSpecialists,
     notifications: viewNotifications,
     approvals: viewApprovals,
     approval: viewApproval,
@@ -4078,6 +4242,8 @@ function openApproval(approvalId) {
 
 let settingsGeneration = 0;
 let memoryGeneration = 0;
+let workersGeneration = 0;
+let specialistsGeneration = 0;
 
 async function loadSettings() {
   if (!auth.has('read:settings')) return;
@@ -4146,6 +4312,84 @@ async function loadStoredInformation() {
       render();
     }
   }
+}
+
+async function loadConfiguredResources(name, { append = false } = {}) {
+  const config = {
+    workers: { scope: 'read:workers', generation: () => ++workersGeneration },
+    specialists: { scope: 'read:specialists', generation: () => ++specialistsGeneration },
+  }[name];
+  if (!config || !auth.has(config.scope)) return;
+
+  const generation = config.generation();
+  state.pagination ||= {};
+  if (!append) {
+    const cached = cache.read(name);
+    if (cached.status === 'EXPIRED') {
+      store.del(K.cache + name);
+      state.data[name] = undefined;
+      delete state.pagination[name];
+      state.cacheAge[name] = null;
+      state.cacheAt[name] = null;
+    } else {
+      const snapshot = cached.data && Array.isArray(cached.data.items) ? cached.data : null;
+      state.data[name] = snapshot?.items || undefined;
+      state.pagination[name] = snapshot?.page || { hasMore: false, nextCursor: null };
+      state.cacheAge[name] = snapshot ? cached.status : null;
+      state.cacheAt[name] = snapshot ? cached.at : null;
+    }
+  }
+
+  const cursor = append ? state.pagination[name]?.nextCursor : null;
+  if (append && !cursor) return;
+  state.loading[name] = true;
+  state.error[name] = null;
+  render();
+
+  try {
+    const suffix = cursor ? `&cursor=${encodeURIComponent(cursor)}` : '';
+    const response = await api(`/${name}?limit=50${suffix}`);
+    const currentGeneration = name === 'workers' ? workersGeneration : specialistsGeneration;
+    if (generation !== currentGeneration) return;
+    const prior = append && Array.isArray(state.data[name]) ? state.data[name] : [];
+    const joined = [...prior, ...response.data];
+    const seen = new Set();
+    state.data[name] = joined.filter(item => {
+      if (!item || typeof item.id !== 'string' || seen.has(item.id)) return false;
+      seen.add(item.id);
+      return true;
+    });
+    state.pagination[name] = {
+      hasMore: response.hasMore === true,
+      nextCursor: response.nextCursor || null,
+      end: response.end === true,
+    };
+    state.cacheAge[name] = 'FRESH';
+    state.cacheAt[name] = Date.now();
+    cache.write(name, { items: state.data[name], page: state.pagination[name] });
+    if (response.scopes) replaceScopes(response.scopes);
+    setConn('ok');
+  } catch (error) {
+    const currentGeneration = name === 'workers' ? workersGeneration : specialistsGeneration;
+    if (generation !== currentGeneration) return;
+    if (error.kind === 'auth') return handleAuthFailure(error);
+    state.error[name] = error;
+    setConn(error.kind === 'offline' ? 'offline' : error.kind === 'server' ? 'server' : state.conn);
+  } finally {
+    const currentGeneration = name === 'workers' ? workersGeneration : specialistsGeneration;
+    if (generation === currentGeneration) {
+      state.loading[name] = false;
+      render();
+    }
+  }
+}
+
+function loadWorkers(options) {
+  return loadConfiguredResources('workers', options);
+}
+
+function loadSpecialists(options) {
+  return loadConfiguredResources('specialists', options);
 }
 
 async function loadDiagnostics() {
@@ -4706,6 +4950,8 @@ function navigate(route) {
   if (route === 'overview') { loadConversations(); loadApprovals(); }
   if (route === 'conversations') loadConversations();
   if (route === 'projects') loadProjects();
+  if (route === 'workers') loadWorkers();
+  if (route === 'specialists') loadSpecialists();
   if (route === 'notifications') loadNotifications();
   // SS-01/SS-05/SS-10: entering the screen always re-reads the queue from the
   // server, including after a reconnect.  It is a read, so repeating is safe —
@@ -4809,6 +5055,10 @@ document.addEventListener('click', event => {
     'load-project': () => loadProject(),
     'load-settings': () => loadSettings(),
     'load-memory': () => loadStoredInformation(),
+    'load-workers': () => loadWorkers(),
+    'load-specialists': () => loadSpecialists(),
+    'load-more-workers': () => loadWorkers({ append: true }),
+    'load-more-specialists': () => loadSpecialists({ append: true }),
     'load-thread': () => loadThread(state.conversationId),
     'load-older': () => loadOlderMessages(),
     // MD-15 — a local preference, written the moment it is changed.  There is
@@ -5013,6 +5263,8 @@ async function handleVisibilityChange() {
   if (state.route === 'conversations') await loadConversations();
   if (state.route === 'projects') await loadProjects();
   if (state.route === 'project') await loadProject();
+  if (state.route === 'workers') await loadWorkers();
+  if (state.route === 'specialists') await loadSpecialists();
 }
 
 document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -5067,6 +5319,8 @@ async function boot() {
   render();
   await loadConversations();
   if (auth.has('read:projects')) loadProjects();
+  if (auth.has('read:workers')) loadWorkers();
+  if (auth.has('read:specialists')) loadSpecialists();
   loadDiagnostics();
   loadNotifications();
   // D-S2: the approval count is only honest if it is live, so it is read at
@@ -5089,6 +5343,7 @@ export const __ms20 = {
   trustBar, trustZones, withTrustBar, screenLocks, serverNow,
   viewOverview, navItems, currentSection, sectionRoute, unknownScopes, NAV_ITEMS, ROUTE_SECTION,
   viewProjects, viewProject, loadProjects, loadProject, openProject,
+  viewWorkers, viewSpecialists, loadWorkers, loadSpecialists,
   serverSettingsCard, publicSettingRows, loadSettings,
   storedInformationCard, storedInformationValue, loadStoredInformation,
   renderNavBar, navCount, newChat, layoutNavRing, normaliseNavRing, centreNavOnSelection,

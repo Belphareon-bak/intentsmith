@@ -405,6 +405,46 @@ button { cursor: pointer; border: none; background: none; }
 .project-detail { padding-top: 1rem; }
 .project-detail .card-note { margin: 0.875rem 0; }
 
+/* Read-only worker and specialist projections. Runtime state is deliberately
+   absent, so these rows are articles rather than controls that imply a detail
+   or mutation the gateway cannot perform. */
+.resource-screen { padding-top: 0.875rem; }
+.resource-lead {
+  margin: 0 0 0.875rem; color: var(--text-muted);
+  font-size: 0.8125rem; line-height: 1.55;
+}
+.resource-row {
+  display: flex; align-items: flex-start; gap: 0.75rem;
+  padding: 0.875rem 1rem; background: var(--bg-raised);
+  border-bottom: 0.0625rem solid var(--border);
+}
+.resource-row:first-child { border-radius: var(--radius) var(--radius) 0 0; }
+.resource-icon {
+  flex: 0 0 2.25rem; width: 2.25rem; height: 2.25rem;
+  display: grid; place-items: center; overflow: hidden;
+  border-radius: 0.625rem; background: var(--bg-sunken);
+  color: var(--text-muted); font-size: 1rem; font-weight: 650;
+}
+.resource-icon svg { width: 1.25rem; height: 1.25rem; }
+.resource-title-line {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 0.625rem; min-width: 0;
+}
+.resource-title-line .row-title { flex: 1; }
+.resource-meta {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 0.5rem;
+  margin-top: 0.5rem; color: var(--text-muted); font-size: 0.75rem;
+}
+.resource-more, .resource-inline-error {
+  display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+  padding: 0.875rem 1rem; text-align: center;
+  border-bottom: 0.0625rem solid var(--border);
+}
+.resource-more p, .resource-inline-error {
+  margin: 0; color: var(--text-muted); font-size: 0.7812rem; line-height: 1.45;
+}
+.resource-inline-error { color: var(--danger); background: var(--danger-soft); }
+
 /* ── Skeletons (SS-01) — shaped like the content they replace ──────────── */
 .skel { background: var(--bg-sunken); border-radius: 0.375rem; animation: shimmer 1.5s ease-in-out infinite; }
 @keyframes shimmer { 0%,100% { opacity: .55; } 50% { opacity: 1; } }

@@ -93,6 +93,10 @@ export async function handleCapabilities({ principal, upstream, corePort = null 
           && corePort?.capabilities(principal)?.features?.['settings.read']?.status === 'available',
         memory: principal.scopes.includes('read:memory')
           && corePort?.capabilities(principal)?.features?.['storedInformation.read']?.status === 'available',
+        workers: principal.scopes.includes('read:workers')
+          && corePort?.capabilities(principal)?.features?.['workers.read']?.status === 'available',
+        specialists: principal.scopes.includes('read:specialists')
+          && corePort?.capabilities(principal)?.features?.['specialists.read']?.status === 'available',
         notifications: principal.scopes.includes('read:notifications'),
         approvals: principal.scopes.includes('read:approvals'),
         // Streaming does not exist upstream (PLAN.md §3): onLLMToken has no
@@ -329,6 +333,100 @@ export async function handleStoredInformation({ corePort, principal, query }) {
       extra: { hasMore: page.hasMore, nextCursor: page.nextCursor, end: page.end, kind },
     }),
   };
+}
+
+// ── GET /m1/workers and /m1/specialists ─────────────────────────────────────
+
+async function handleConfiguredResourceList({
+  corePort,
+  principal,
+  query,
+  feature,
+  scope,
+  stream,
+  unavailableReason,
+}) {
+  const allowedParameters = new Set(['limit', 'cursor']);
+  const seenParameters = new Set();
+  for (const name of query.keys()) {
+    if (!allowedParameters.has(name)) {
+      return errorResponse(MOBILE_ERRORS.BAD_REQUEST, { reason: 'unknown_parameter', field: name });
+    }
+    if (seenParameters.has(name)) {
+      return errorResponse(MOBILE_ERRORS.BAD_REQUEST, { reason: 'duplicate_parameter', field: name });
+    }
+    seenParameters.add(name);
+  }
+
+  const rawLimit = query.get('limit');
+  if (rawLimit !== null && (!/^[1-9][0-9]*$/.test(rawLimit) || Number(rawLimit) > MAX_PAGE_SIZE)) {
+    return errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+      reason: 'limit_invalid', allowed: { min: 1, max: MAX_PAGE_SIZE },
+    });
+  }
+  const limit = rawLimit === null ? 50 : Number(rawLimit);
+  const cursor = decodeCursor(query.get('cursor'), { stream });
+  if (!cursor.valid) {
+    return errorResponse(MOBILE_ERRORS.CURSOR_UNKNOWN, { reason: cursor.reason, restart: true });
+  }
+
+  let outcome;
+  try {
+    outcome = await corePort?.invoke({
+      version: 1,
+      feature,
+      input: { operation: 'list', limit, offset: cursor.position },
+      principal,
+    }) ?? { ok: false, error: { code: 'capability_unavailable' } };
+  } catch (error) {
+    outcome = { ok: false, error: { code: error?.code || 'provider_failure' } };
+  }
+
+  if (!outcome.ok) {
+    if (outcome.error?.code === 'capability_forbidden') {
+      return errorResponse(MOBILE_ERRORS.SCOPE_REQUIRED, { requiredScope: scope });
+    }
+    if (['operation_invalid', 'limit_invalid', 'cursor_invalid'].includes(outcome.error?.code)) {
+      return errorResponse(MOBILE_ERRORS.BAD_REQUEST, { reason: outcome.error.code });
+    }
+    return errorResponse(MOBILE_ERRORS.SERVER_UNAVAILABLE, {
+      reason: outcome.error?.code || unavailableReason,
+    });
+  }
+
+  const page = paginate({
+    rows: outcome.data.rows.map(record => versioned(record)),
+    limit,
+    stream,
+    position: cursor.position,
+  });
+  return {
+    status: 200,
+    body: withEnvelope(page.items, {
+      principal,
+      extra: { hasMore: page.hasMore, nextCursor: page.nextCursor, end: page.end },
+    }),
+  };
+}
+
+export async function handleWorkers(args) {
+  return handleConfiguredResourceList({
+    ...args,
+    feature: 'workers.read',
+    scope: 'read:workers',
+    stream: 'workers',
+    unavailableReason: 'workers_provider_unavailable',
+  });
+}
+
+export async function handleSpecialists(args) {
+  return handleConfiguredResourceList({
+    ...args,
+    feature: 'specialists.read',
+    scope: 'read:specialists',
+    stream: 'specialists',
+    unavailableReason: 'specialists_provider_unavailable',
+  });
 }
 
 // ── GET /m1/conversations ────────────────────────────────────────────────────
@@ -1164,6 +1262,8 @@ export const MOBILE_HANDLERS = Object.freeze({
   'GET /m1/projects/:id': handleProjectDetail,
   'GET /m1/settings': handleSettings,
   'GET /m1/memory': handleStoredInformation,
+  'GET /m1/workers': handleWorkers,
+  'GET /m1/specialists': handleSpecialists,
   'GET /m1/conversations': handleConversations,
   'GET /m1/conversations/:id': handleConversationDetail,
   'POST /m1/chat': handleChat,

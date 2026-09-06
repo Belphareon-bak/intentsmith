@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
   "scanner": "scripts/mobile-capability-inventory.mjs",
-  "routeDigest": "a29e71745ead40f06a0c761235f9275673d8a792b2d6a5eb607738e6f97d338b",
+  "routeDigest": "851339fe2e6c4f94acbaabc76606c0ae2e94cdcbe206fc216fc9f7a9358b12bb",
   "summary": {
-    "routes": 241,
-    "mobileV1": 17,
+    "routes": 243,
+    "mobileV1": 19,
     "legacyCore": 224,
-    "reads": 110,
+    "reads": 112,
     "mutations": 131,
-    "remoteCoreCandidates": 66,
+    "remoteCoreCandidates": 81,
     "domains": {
-      "agents": 17,
+      "agents": 18,
       "approvals": 4,
       "autonomy": 4,
       "conversations": 23,
@@ -24,7 +24,7 @@
       "security": 7,
       "settings": 11,
       "skills": 7,
-      "specialists": 34,
+      "specialists": 35,
       "storage": 1,
       "stored-information": 3,
       "system": 45
@@ -40,7 +40,7 @@
       "domain": "agents",
       "access": "read",
       "exposure": "legacy-core",
-      "remoteCoreFeature": null,
+      "remoteCoreFeature": "workers.read",
       "mobilePolicy": "mobile-mirror-candidate"
     },
     {
@@ -76,7 +76,7 @@
       "domain": "agents",
       "access": "read",
       "exposure": "legacy-core",
-      "remoteCoreFeature": null,
+      "remoteCoreFeature": "workers.read",
       "mobilePolicy": "mobile-mirror-candidate"
     },
     {
@@ -100,7 +100,7 @@
       "domain": "agents",
       "access": "mutation",
       "exposure": "legacy-core",
-      "remoteCoreFeature": null,
+      "remoteCoreFeature": "workers.toggle",
       "mobilePolicy": "mobile-mirror-candidate"
     },
     {
@@ -112,7 +112,7 @@
       "domain": "agents",
       "access": "mutation",
       "exposure": "legacy-core",
-      "remoteCoreFeature": null,
+      "remoteCoreFeature": "workers.toggle",
       "mobilePolicy": "mobile-mirror-candidate"
     },
     {
@@ -136,7 +136,7 @@
       "domain": "agents",
       "access": "read",
       "exposure": "legacy-core",
-      "remoteCoreFeature": null,
+      "remoteCoreFeature": "workers.read",
       "mobilePolicy": "mobile-mirror-candidate"
     },
     {
@@ -196,7 +196,7 @@
       "domain": "agents",
       "access": "read",
       "exposure": "legacy-core",
-      "remoteCoreFeature": null,
+      "remoteCoreFeature": "workers.read",
       "mobilePolicy": "mobile-mirror-candidate"
     },
     {
@@ -1924,7 +1924,7 @@
       "domain": "specialists",
       "access": "read",
       "exposure": "legacy-core",
-      "remoteCoreFeature": null,
+      "remoteCoreFeature": "specialists.read",
       "mobilePolicy": "mobile-mirror-candidate"
     },
     {
@@ -1948,7 +1948,7 @@
       "domain": "specialists",
       "access": "read",
       "exposure": "legacy-core",
-      "remoteCoreFeature": null,
+      "remoteCoreFeature": "specialists.read",
       "mobilePolicy": "mobile-mirror-candidate"
     },
     {
@@ -1960,7 +1960,7 @@
       "domain": "specialists",
       "access": "mutation",
       "exposure": "legacy-core",
-      "remoteCoreFeature": null,
+      "remoteCoreFeature": "specialists.toggle",
       "mobilePolicy": "mobile-mirror-candidate"
     },
     {
@@ -1972,7 +1972,7 @@
       "domain": "specialists",
       "access": "mutation",
       "exposure": "legacy-core",
-      "remoteCoreFeature": null,
+      "remoteCoreFeature": "specialists.toggle",
       "mobilePolicy": "mobile-mirror-candidate"
     },
     {
@@ -1984,7 +1984,7 @@
       "domain": "specialists",
       "access": "read",
       "exposure": "legacy-core",
-      "remoteCoreFeature": null,
+      "remoteCoreFeature": "specialists.read",
       "mobilePolicy": "mobile-mirror-candidate"
     },
     {
@@ -2032,7 +2032,7 @@
       "domain": "specialists",
       "access": "read",
       "exposure": "legacy-core",
-      "remoteCoreFeature": null,
+      "remoteCoreFeature": "specialists.read",
       "mobilePolicy": "mobile-mirror-candidate"
     },
     {
@@ -2068,7 +2068,7 @@
       "domain": "specialists",
       "access": "read",
       "exposure": "legacy-core",
-      "remoteCoreFeature": null,
+      "remoteCoreFeature": "specialists.read",
       "mobilePolicy": "mobile-mirror-candidate"
     },
     {
@@ -2921,6 +2921,30 @@
       "access": "read",
       "exposure": "mobile-v1",
       "remoteCoreFeature": "settings.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/m1/specialists",
+      "sources": [
+        "src/mobile/handlers.js"
+      ],
+      "domain": "specialists",
+      "access": "read",
+      "exposure": "mobile-v1",
+      "remoteCoreFeature": "specialists.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/m1/workers",
+      "sources": [
+        "src/mobile/handlers.js"
+      ],
+      "domain": "agents",
+      "access": "read",
+      "exposure": "mobile-v1",
+      "remoteCoreFeature": "workers.read",
       "mobilePolicy": "mobile-mirror-candidate"
     }
   ]

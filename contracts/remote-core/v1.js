@@ -38,6 +38,13 @@ export const REMOTE_CORE_FEATURES = Object.freeze({
   'storedInformation.write': feature('storedInformation', 'write', ['write:memory'], true),
   'storedInformation.delete': feature('storedInformation', 'delete', ['write:memory'], true),
 
+  'workers.read': feature('workers', 'read', ['read:workers']),
+  'workers.toggle': feature('workers', 'toggle', ['write:workers'], true),
+  'workers.dryRun': feature('workers', 'dryRun', ['execute:worker-dry-run'], true),
+
+  'specialists.read': feature('specialists', 'read', ['read:specialists']),
+  'specialists.toggle': feature('specialists', 'toggle', ['write:specialists'], true),
+
   'approvals.read': feature('approvals', 'read', ['read:approvals']),
   'approvals.decide': feature('approvals', 'decide', ['write:approvals'], true),
 
@@ -52,6 +59,8 @@ export const REMOTE_CORE_DOMAINS = Object.freeze([
   'conversations',
   'settings',
   'storedInformation',
+  'workers',
+  'specialists',
   'approvals',
   'notifications',
   'events',

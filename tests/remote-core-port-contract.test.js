@@ -34,12 +34,13 @@ function code(errorCode) {
 
 console.log('\n=== RemoteCorePort candidate v1 contract ===');
 
-await test('inventory covers exactly the seven core-owned domains', () => {
+await test('inventory covers exactly the nine core-owned domains', () => {
   assert.deepEqual(REMOTE_CORE_DOMAINS, [
     'projects', 'conversations', 'settings', 'storedInformation',
+    'workers', 'specialists',
     'approvals', 'notifications', 'events',
   ]);
-  assert.equal(REMOTE_CORE_FEATURE_IDS.length, 19);
+  assert.equal(REMOTE_CORE_FEATURE_IDS.length, 24);
   assert.equal(REMOTE_CORE_PORT_STAGE, 'CANDIDATE_V1');
 });
 
@@ -176,7 +177,9 @@ await test('production connector exposes implemented reads without speculative w
   });
   const features = port.capabilities({
     scopes: ['read:projects', 'write:projects', 'read:chat', 'write:chat',
-      'read:settings', 'write:settings', 'read:memory', 'write:memory'],
+      'read:settings', 'write:settings', 'read:memory', 'write:memory',
+      'read:workers', 'write:workers', 'execute:worker-dry-run',
+      'read:specialists', 'write:specialists'],
   }).features;
   assert.equal(features['projects.read'].status, 'available');
   assert.equal(features['projects.create'].status, 'unavailable');
@@ -191,6 +194,13 @@ await test('production connector exposes implemented reads without speculative w
   assert.equal(features['storedInformation.read'].status, 'available');
   assert.equal(features['storedInformation.write'].status, 'unavailable');
   assert.equal(features['storedInformation.delete'].status, 'unavailable');
+  // The mock has no subsystem tables, so discovery must not advertise a
+  // provider that would fail only after invocation.
+  assert.equal(features['workers.read'].status, 'unavailable');
+  assert.equal(features['workers.toggle'].status, 'unavailable');
+  assert.equal(features['workers.dryRun'].status, 'unavailable');
+  assert.equal(features['specialists.read'].status, 'unavailable');
+  assert.equal(features['specialists.toggle'].status, 'unavailable');
 });
 
 await test('conversation handler fails closed when its provider is unavailable', async () => {

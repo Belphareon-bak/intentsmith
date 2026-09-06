@@ -48,6 +48,10 @@ export const PAIRABLE_SCOPES = Object.freeze([
   // User-facing LTM and project-scoped task memory. Internal agent memory is
   // excluded by the repository projection.
   'read:memory',
+  // Persisted worker configuration and last trustworthy terminal run only.
+  'read:workers',
+  // Persisted specialist package configuration; no runtime registration data.
+  'read:specialists',
 ]);
 
 /**
@@ -100,6 +104,7 @@ export function createPairingCode(rawDb, {
     'read:capabilities', 'read:chat', 'write:chat',
     'read:notifications', 'write:notifications',
     'read:projects', 'read:settings', 'read:memory',
+    'read:workers', 'read:specialists',
   ],
   label = null,
   ttlMs = DEFAULT_PAIRING_TTL_MS,

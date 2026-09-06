@@ -14,7 +14,7 @@
 //
 // ==============================================================================
 
-const SHELL = 'is-shell-v4';
+const SHELL = 'is-shell-v5';
 const ASSETS = ['/', '/index.html', '/app.css', '/app.js', '/manifest.webmanifest'];
 
 self.addEventListener('install', event => {

@@ -29,7 +29,7 @@ function domainFor(routePath) {
     ['projects', /^\/api\/(projects|workspace|artifacts|attachments)(\/|$)/],
     ['conversations', /^\/api\/(chat|conversations|drafts|export)(\/|$)/],
     ['stored-information', /^\/api\/(memory)(\/|$)/],
-    ['agents', /^\/api\/(agents|sources)(\/|$)/],
+    ['agents', /^\/api\/(agents|workers|sources)(\/|$)/],
     ['specialists', /^\/api\/(specialists|expertises|expertise-|merge-preview|lifecycle)(\/|$)/],
     ['approvals', /^\/api\/approvals(\/|$)/],
     ['notifications', /^\/api\/notifications(\/|$)/],
@@ -70,6 +70,22 @@ function remoteCoreFeature(method, routePath) {
     if (method === 'GET') return 'storedInformation.read';
     if (method === 'DELETE') return 'storedInformation.delete';
     return 'storedInformation.write';
+  }
+  if (/^\/api\/(agents|workers)(?:\/|$)/.test(normalized)) {
+    if (method === 'GET') return 'workers.read';
+    if (method === 'POST' && /^\/api\/agents\/:id\/(enable|disable)$/.test(normalized)) {
+      return 'workers.toggle';
+    }
+    // The existing /api/agents/dry-run accepts a caller-supplied definition;
+    // it is not the isolated, server-version worker dry-run in the candidate.
+    return null;
+  }
+  if (/^\/api\/specialists(?:\/|$)/.test(normalized)) {
+    if (method === 'GET') return 'specialists.read';
+    if (method === 'POST' && /^\/api\/specialists\/:id\/(enable|disable)$/.test(normalized)) {
+      return 'specialists.toggle';
+    }
+    return null;
   }
   if (/^\/api\/approvals(?:\/|$)/.test(normalized)) {
     return method === 'GET' ? 'approvals.read' : 'approvals.decide';
@@ -159,7 +175,7 @@ function markdown(inventory) {
     `- Existing mobile v1 routes: ${inventory.summary.mobileV1}`,
     `- Legacy core routes: ${inventory.summary.legacyCore}`,
     `- Reads / mutations: ${inventory.summary.reads} / ${inventory.summary.mutations}`,
-    `- Routes mapping to the seven-domain RemoteCorePort candidate: ${inventory.summary.remoteCoreCandidates}`,
+    `- Routes mapping to the nine-domain RemoteCorePort candidate: ${inventory.summary.remoteCoreCandidates}`,
     `- Route digest: \`${inventory.routeDigest}\``,
     '',
     '## Domain counts',
