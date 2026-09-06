@@ -50,6 +50,7 @@ export const APPROVAL_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-st
 export const DEVICE_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
 export const SETTINGS_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
 export const MEMORY_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
+export const WORKER_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
 
 // ── GET /m1/health ───────────────────────────────────────────────────────────
 //
@@ -102,6 +103,8 @@ export async function handleCapabilities({ principal, upstream, corePort = null 
           && corePort?.capabilities(principal)?.features?.['storedInformation.write']?.status === 'available',
         workers: principal.scopes.includes('read:workers')
           && corePort?.capabilities(principal)?.features?.['workers.read']?.status === 'available',
+        workersWrite: principal.scopes.includes('write:workers')
+          && corePort?.capabilities(principal)?.features?.['workers.toggle']?.status === 'available',
         specialists: principal.scopes.includes('read:specialists')
           && corePort?.capabilities(principal)?.features?.['specialists.read']?.status === 'available',
         devices: principal.scopes.includes('read:devices'),
@@ -797,6 +800,199 @@ export async function handleWorkers(args) {
     stream: 'workers',
     unavailableReason: 'workers_provider_unavailable',
   });
+}
+
+function workerResponse(result) {
+  return { ...result, headers: WORKER_RESPONSE_HEADERS };
+}
+
+function workerOperationResponse({ operationId, record, principal, replayed = false }) {
+  const open = record.state === 'PENDING' || record.state === 'UNKNOWN';
+  return {
+    status: open ? 202 : 200,
+    headers: WORKER_RESPONSE_HEADERS,
+    body: withEnvelope(
+      { operationId, state: record.state, result: record.result },
+      { principal, extra: replayed ? { replayed: true } : {} },
+    ),
+  };
+}
+
+function workerUnknownResponse(journal, principal, operationId, reason) {
+  try { journal.markUnknown(principal.deviceId, operationId, reason); } catch { /* no durable answer */ }
+  return workerResponse(errorResponse(MOBILE_ERRORS.SERVER_UNAVAILABLE, {
+    reason,
+    operationId,
+    state: 'UNKNOWN',
+    resolveBy: `GET /m1/operations/${operationId}`,
+  }));
+}
+
+// ── PUT /m1/workers/:id/enabled ────────────────────────────────────────────
+//
+// The gateway owns the operation journal, while AgentRepository +
+// AgentScheduler in the live legacy process remain the lifecycle authority.
+export async function handleWorkerToggle({ corePort, journal, principal, params, body }) {
+  const keys = body && typeof body === 'object' && !Array.isArray(body)
+    ? Object.keys(body).sort()
+    : [];
+  const exact = keys.length === 3
+    && keys[0] === 'enabled'
+    && keys[1] === 'expectedEnabled'
+    && keys[2] === 'operationId';
+  if (!exact) {
+    return workerResponse(errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+      reason: 'body_shape_invalid',
+    }));
+  }
+
+  const id = params?.id;
+  const { operationId, expectedEnabled, enabled } = body;
+  if (!operationId) {
+    return workerResponse(errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+      field: 'operationId', reason: 'required',
+    }));
+  }
+  if (
+    typeof id !== 'string'
+    || id.length < 1
+    || id.length > 128
+    || id !== id.trim()
+    || /[\u0000-\u001f\u007f]/u.test(id)
+    || typeof expectedEnabled !== 'boolean'
+    || typeof enabled !== 'boolean'
+    || expectedEnabled === enabled
+  ) {
+    return workerResponse(errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+      reason: 'worker_transition_invalid',
+    }));
+  }
+
+  const claim = journal.begin({
+    deviceId: principal.deviceId,
+    operationId,
+    operationType: 'worker.toggle',
+    request: { id, expectedEnabled, enabled },
+  });
+  if (claim.outcome === 'conflict') {
+    const descriptor = claim.reason === 'fingerprint_mismatch'
+      ? MOBILE_ERRORS.OPERATION_CONFLICT
+      : MOBILE_ERRORS.BAD_REQUEST;
+    return workerResponse(errorResponse(descriptor, { reason: claim.reason, operationId }));
+  }
+  if (claim.outcome === 'limited') {
+    return workerResponse(errorResponse(
+      claim.reason === 'open_operation_cap' ? MOBILE_ERRORS.OPERATION_LIMIT : MOBILE_ERRORS.RATE_LIMITED,
+      { reason: claim.reason, openOperations: journal.openOperations(principal.deviceId) },
+    ));
+  }
+  if (claim.outcome === 'replay') {
+    return workerOperationResponse({ operationId, record: claim.record, principal, replayed: true });
+  }
+
+  let outcome;
+  try {
+    outcome = await corePort?.invoke({
+      version: 1,
+      feature: 'workers.toggle',
+      input: { operation: 'setEnabled', id, expectedEnabled, enabled },
+      principal,
+    }) ?? { ok: false, error: { code: 'capability_unavailable', details: { decided: true } } };
+  } catch (error) {
+    const definitelyNotDispatched = [
+      'capability_unavailable', 'capability_forbidden', 'capability_unknown',
+      'contract_version_unsupported', 'input_invalid',
+    ].includes(error?.code);
+    if (!definitelyNotDispatched) {
+      return workerUnknownResponse(
+        journal, principal, operationId, UNKNOWN_REASONS.GATEWAY_EXCEPTION,
+      );
+    }
+    outcome = { ok: false, error: { code: error.code, details: { decided: true } } };
+  }
+
+  if (!outcome.ok && outcome.error?.details?.decided !== true) {
+    return workerUnknownResponse(
+      journal, principal, operationId, normalizeUnknownReason(outcome.error?.code),
+    );
+  }
+
+  if (!outcome.ok) {
+    const code = outcome.error?.code || 'worker_toggle_failed';
+    let resolution;
+    try {
+      resolution = journal.reject(principal.deviceId, operationId, code);
+    } catch {
+      return workerUnknownResponse(
+        journal, principal, operationId, UNKNOWN_REASONS.RESULT_PERSISTENCE_FAILED,
+      );
+    }
+    if (!resolution.resolved && resolution.current?.state === 'UNKNOWN') {
+      return workerUnknownResponse(
+        journal, principal, operationId, UNKNOWN_REASONS.RESULT_PERSISTENCE_FAILED,
+      );
+    }
+    if (!resolution.resolved && resolution.current?.known) {
+      return workerOperationResponse({ operationId, record: resolution.current, principal });
+    }
+    if (code === 'worker_state_conflict') {
+      return workerResponse(errorResponse(MOBILE_ERRORS.STATE_CONFLICT, {
+        reason: code, operationId, state: 'REJECTED',
+      }));
+    }
+    if (code === 'worker_not_found') {
+      return workerResponse(errorResponse(MOBILE_ERRORS.NOT_FOUND, {
+        resource: 'worker', operationId, state: 'REJECTED',
+      }));
+    }
+    if (['operation_invalid', 'worker_id_invalid', 'worker_transition_invalid'].includes(code)) {
+      return workerResponse(errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+        reason: code, operationId, state: 'REJECTED',
+      }));
+    }
+    if (code === 'capability_forbidden') {
+      return workerResponse(errorResponse(MOBILE_ERRORS.SCOPE_REQUIRED, {
+        requiredScope: 'write:workers', operationId, state: 'REJECTED',
+      }));
+    }
+    return workerResponse(errorResponse(MOBILE_ERRORS.SERVER_UNAVAILABLE, {
+      reason: code, operationId, state: 'REJECTED',
+    }));
+  }
+
+  const result = outcome.data;
+  const resultKeys = result && typeof result === 'object' && !Array.isArray(result)
+    ? Object.keys(result).sort()
+    : [];
+  const validResult = resultKeys.length === 3
+    && resultKeys[0] === 'enabled'
+    && resultKeys[1] === 'id'
+    && resultKeys[2] === 'previousEnabled'
+    && result.id === id
+    && result.previousEnabled === expectedEnabled
+    && result.enabled === enabled;
+  if (!validResult) {
+    return workerUnknownResponse(
+      journal, principal, operationId, UNKNOWN_REASONS.GATEWAY_EXCEPTION,
+    );
+  }
+
+  try {
+    const resolution = journal.confirm(principal.deviceId, operationId, result);
+    if (!resolution.resolved) {
+      return workerOperationResponse({ operationId, record: resolution.current, principal });
+    }
+  } catch {
+    return workerUnknownResponse(
+      journal, principal, operationId, UNKNOWN_REASONS.RESULT_PERSISTENCE_FAILED,
+    );
+  }
+
+  return {
+    status: 200,
+    headers: WORKER_RESPONSE_HEADERS,
+    body: withEnvelope({ operationId, state: 'CONFIRMED', result }, { principal }),
+  };
 }
 
 export async function handleSpecialists(args) {
@@ -1750,6 +1946,7 @@ export const MOBILE_HANDLERS = Object.freeze({
   'GET /m1/memory': handleStoredInformation,
   'POST /m1/memory': handleStoredInformationWrite,
   'GET /m1/workers': handleWorkers,
+  'PUT /m1/workers/:id/enabled': handleWorkerToggle,
   'GET /m1/specialists': handleSpecialists,
   'GET /m1/devices': handleDevices,
   'POST /m1/devices/:id/revoke': handleDeviceRevoke,

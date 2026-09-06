@@ -56,6 +56,9 @@ export const PAIRABLE_SCOPES = Object.freeze([
   'write:memory',
   // Persisted worker configuration and last trustworthy terminal run only.
   'read:workers',
+  // Precondition-checked enable/disable through the live legacy worker owner.
+  // Non-default because enabling resumes scheduled external effects.
+  'write:workers',
   // Persisted specialist package configuration; no runtime registration data.
   'read:specialists',
   // Device lifecycle is an intentional denial-of-access authority, never an

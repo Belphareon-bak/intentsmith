@@ -6,18 +6,18 @@ This inventory is exhaustive for statically declared `/api` and `/m1` route-map
 keys under `src/routes/**` and `src/mobile/handlers.js`. Dynamic behavior and
 WebSocket message kinds require separate contract inventories.
 
-- Routes: 247
-- Existing mobile v1 routes: 23
+- Routes: 248
+- Existing mobile v1 routes: 24
 - Legacy core routes: 224
-- Reads / mutations: 113 / 134
-- Routes mapping to the nine-domain RemoteCorePort candidate: 83
-- Route digest: `10f6abef4496799822b7c78669ca139a59dc54af68126f54408a89ab6cc91645`
+- Reads / mutations: 113 / 135
+- Routes mapping to the nine-domain RemoteCorePort candidate: 84
+- Route digest: `a8b901d143f2f680d68e321d49e13ed99ecf86e32bdb1fb050614d491997293f`
 
 ## Domain counts
 
 | Domain | Routes |
 |---|---:|
-| agents | 18 |
+| agents | 19 |
 | approvals | 4 |
 | autonomy | 4 |
 | conversations | 23 |
@@ -297,3 +297,4 @@ WebSocket message kinds require separate contract inventories.
 | `PUT /m1/settings` | settings | mobile-v1 | settings.write | mobile-mirror-candidate |
 | `GET /m1/specialists` | specialists | mobile-v1 | specialists.read | mobile-mirror-candidate |
 | `GET /m1/workers` | agents | mobile-v1 | workers.read | mobile-mirror-candidate |
+| `PUT /m1/workers/:id/enabled` | agents | mobile-v1 | workers.toggle | mobile-mirror-candidate |

@@ -8,8 +8,9 @@
 //
 // What this process exposes: /m1/* as enumerated in gateway-policy, plus an
 // optional static client.  Nothing else — there is no proxy path, no catch-all,
-// and no way to reach the legacy API through it.  The upstream connection is
-// outbound only and hard-coded to the four fields chat needs.
+// and no way to reach the legacy API through it. The upstream connection is
+// outbound only and exposes named, fixed-shape commands for chat and worker
+// lifecycle; it cannot forward a caller-selected URL or method.
 //
 // Bind policy (PLAN.md §8.1): loopback unless an operator explicitly opts out.
 // The ban on non-loopback binds is a *deployment* rule that this code enforces
@@ -30,6 +31,7 @@ import {
   MEMORY_RESPONSE_HEADERS,
   MOBILE_HANDLERS,
   SETTINGS_RESPONSE_HEADERS,
+  WORKER_RESPONSE_HEADERS,
 } from './handlers.js';
 import { MOBILE_ERRORS, PROTOCOL_VERSION, mobileError } from './protocol.js';
 import { OperationJournal } from './operation-journal.js';
@@ -58,6 +60,11 @@ const SETTINGS_ROUTE_KEYS = new Set([
 const MEMORY_ROUTE_KEYS = new Set([
   'GET /m1/memory',
   'POST /m1/memory',
+]);
+
+const WORKER_ROUTE_KEYS = new Set([
+  'GET /m1/workers',
+  'PUT /m1/workers/:id/enabled',
 ]);
 
 /**
@@ -289,6 +296,7 @@ function responseHeadersForRoute(method, pathname) {
     if (APPROVAL_ROUTE_KEYS.has(routeKey)) return APPROVAL_RESPONSE_HEADERS;
     if (SETTINGS_ROUTE_KEYS.has(routeKey)) return SETTINGS_RESPONSE_HEADERS;
     if (MEMORY_ROUTE_KEYS.has(routeKey)) return MEMORY_RESPONSE_HEADERS;
+    if (WORKER_ROUTE_KEYS.has(routeKey)) return WORKER_RESPONSE_HEADERS;
     return undefined;
   } catch {
     return undefined;

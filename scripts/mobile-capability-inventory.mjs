@@ -73,6 +73,9 @@ function remoteCoreFeature(method, routePath) {
   }
   if (/^\/api\/(agents|workers)(?:\/|$)/.test(normalized)) {
     if (method === 'GET') return 'workers.read';
+    if (method === 'PUT' && /^\/api\/workers\/:id\/enabled$/.test(normalized)) {
+      return 'workers.toggle';
+    }
     if (method === 'POST' && /^\/api\/agents\/:id\/(enable|disable)$/.test(normalized)) {
       return 'workers.toggle';
     }

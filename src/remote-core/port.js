@@ -14,7 +14,7 @@ import {
   createStoredInformationReadProvider,
   createStoredInformationWriteProvider,
 } from './providers/stored-information.js';
-import { createWorkersReadProvider } from './providers/workers.js';
+import { createWorkersReadProvider, createWorkersToggleProvider } from './providers/workers.js';
 import { createSpecialistsReadProvider } from './providers/specialists.js';
 
 export class RemoteCorePortError extends Error {
@@ -192,6 +192,9 @@ export function createMobileRemoteCorePort({ rawDb, upstream } = {}) {
       && hasTable(rawDb, 'agent_runs_v33')
       && hasTable(rawDb, 'agent_schedule_v33')) {
     providers['workers.read'] = createWorkersReadProvider(rawDb);
+    if (typeof upstream?.setWorkerEnabled === 'function') {
+      providers['workers.toggle'] = createWorkersToggleProvider(upstream);
+    }
   }
   if (hasTable(rawDb, 'specialists') && hasTable(rawDb, 'specialist_expertises')) {
     providers['specialists.read'] = createSpecialistsReadProvider(rawDb);

@@ -221,6 +221,46 @@ export class AgentRepository {
     this.db.prepare(`UPDATE agents_v33 SET ${fields.join(', ')} WHERE id = ?`).run(...values);
     return this.getAgent(id);
   }
+
+  /**
+   * Atomically move one worker between enabled states when the caller proves
+   * the state it just read. Mobile uses this instead of a read-then-update so
+   * a second phone or the desktop cannot be silently overwritten.
+   */
+  transitionEnabled(id, { expectedEnabled, enabled } = {}) {
+    if (typeof expectedEnabled !== 'boolean' || typeof enabled !== 'boolean') {
+      throw new TypeError('worker transition requires boolean states');
+    }
+    if (expectedEnabled === enabled) {
+      throw new TypeError('worker transition must change state');
+    }
+
+    const transition = this.db.transaction(() => {
+      const row = this.db.prepare(
+        'SELECT id, enabled FROM agents_v33 WHERE id = ?',
+      ).get(id);
+      if (!row) return { outcome: 'not_found' };
+
+      const currentEnabled = row.enabled === 1;
+      if (currentEnabled !== expectedEnabled) {
+        return { outcome: 'conflict', currentEnabled };
+      }
+
+      const changed = this.db.prepare(`
+        UPDATE agents_v33
+           SET enabled = ?, updated_at = CURRENT_TIMESTAMP
+         WHERE id = ? AND enabled = ?
+      `).run(enabled ? 1 : 0, id, expectedEnabled ? 1 : 0);
+      if (changed.changes !== 1) {
+        // The IMMEDIATE transaction makes this unreachable for competing DB
+        // writers, but fail closed if storage ever violates that invariant.
+        return { outcome: 'conflict', currentEnabled: expectedEnabled };
+      }
+      return { outcome: 'changed', id, previousEnabled: expectedEnabled, enabled };
+    });
+
+    return transition.immediate();
+  }
   
   updateAgentState(id, state) {
     this.db.prepare('UPDATE agents_v33 SET state = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')

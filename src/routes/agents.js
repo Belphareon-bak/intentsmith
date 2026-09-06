@@ -60,13 +60,15 @@ export function createAgentPlatformRoutes(deps) {
     },
 
     'POST /api/agents/:id/enable': async (req, res, params) => {
-      const mockReq = { params: { id: params.id } };
+      const body = await parseBody(req);
+      const mockReq = { params: { id: params.id }, body };
       const mockRes = createMockResponse(res);
       await agentRoutes.enableAgent(mockReq, mockRes);
     },
 
     'POST /api/agents/:id/disable': async (req, res, params) => {
-      const mockReq = { params: { id: params.id } };
+      const body = await parseBody(req);
+      const mockReq = { params: { id: params.id }, body };
       const mockRes = createMockResponse(res);
       await agentRoutes.disableAgent(mockReq, mockRes);
     },

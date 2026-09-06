@@ -75,6 +75,45 @@ export function createAgentRoutes({ repository, scheduler, executor, llmClient, 
 
   // Agent Builder for creating agents from descriptions
   const builder = llmClient ? new AgentBuilder({ llmClient }) : null;
+
+  async function setEnabled(req, res, enabled) {
+    try {
+      const guarded = req.body && Object.hasOwn(req.body, 'expectedEnabled');
+      if (guarded) {
+        const transition = repository.transitionEnabled(req.params.id, {
+          expectedEnabled: req.body.expectedEnabled,
+          enabled,
+        });
+        if (transition.outcome === 'not_found') {
+          return res.status(404).json({ ok: false, code: 'worker_not_found' });
+        }
+        if (transition.outcome === 'conflict') {
+          return res.status(409).json({
+            ok: false,
+            code: 'worker_state_conflict',
+            currentEnabled: transition.currentEnabled,
+          });
+        }
+        if (enabled) scheduler.rescheduleAgent(req.params.id);
+        return res.json({
+          ok: true,
+          id: transition.id,
+          previousEnabled: transition.previousEnabled,
+          enabled: transition.enabled,
+        });
+      }
+
+      // Preserve the existing desktop API behavior for callers that do not
+      // opt into the mobile precondition contract.
+      const updated = repository.update(req.params.id, { enabled });
+      if (!updated) return res.status(404).json({ error: 'Agent not found' });
+      if (enabled) scheduler.rescheduleAgent(req.params.id);
+      return res.json(updated);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
   return {
     // ═══════════════════════════════════════════════════════════════════════════
     // AGENTS CRUD
@@ -267,16 +306,7 @@ export function createAgentRoutes({ repository, scheduler, executor, llmClient, 
      * Enable agent
      */
     async enableAgent(req, res) {
-      try {
-        const updated = repository.update(req.params.id, { enabled: true });
-        if (!updated) {
-          return res.status(404).json({ error: 'Agent not found' });
-        }
-        scheduler.rescheduleAgent(req.params.id);
-        res.json(updated);
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
+      return setEnabled(req, res, true);
     },
     
     /**
@@ -284,15 +314,7 @@ export function createAgentRoutes({ repository, scheduler, executor, llmClient, 
      * Disable agent
      */
     async disableAgent(req, res) {
-      try {
-        const updated = repository.update(req.params.id, { enabled: false });
-        if (!updated) {
-          return res.status(404).json({ error: 'Agent not found' });
-        }
-        res.json(updated);
-      } catch (err) {
-        res.status(500).json({ error: err.message });
-      }
+      return setEnabled(req, res, false);
     },
     
     /**

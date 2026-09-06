@@ -6,13 +6,14 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import { initAgentTables } from '../src/agents/repository.js';
+import { createAgentRoutes } from '../src/agents/api.js';
+import { AgentRepository, initAgentTables } from '../src/agents/repository.js';
 import { runMigrations } from '../src/db/migrate.js';
 import { startMobileGateway } from '../src/mobile/gateway.js';
 import { handleSpecialists, handleWorkers } from '../src/mobile/handlers.js';
-import { createPairingCode } from '../src/mobile/pairing.js';
+import { createPairingCode, PAIRABLE_SCOPES } from '../src/mobile/pairing.js';
 import { RemoteCorePort, createMobileRemoteCorePort } from '../src/remote-core/port.js';
-import { OfflineUpstream } from '../src/mobile/upstream.js';
+import { UpstreamClient } from '../src/mobile/upstream.js';
 
 let passed = 0;
 let failed = 0;
@@ -79,11 +80,57 @@ db.prepare(`
   'finance-cz', 'cashflow', 'Cashflow', 1,
 );
 
+const agentRepository = new AgentRepository(db);
+const scheduler = {
+  rescheduled: [],
+  rescheduleAgent(id) { this.rescheduled.push(id); },
+};
+const agentRoutes = createAgentRoutes({ repository: agentRepository, scheduler });
+const workerUpstream = {
+  calls: 0,
+  mode: 'normal',
+  async probe() { return { reachable: true }; },
+  async postChat() { return { ok: false, decided: false, code: 'not_used' }; },
+  async setWorkerEnabled({ id, expectedEnabled, enabled }) {
+    this.calls += 1;
+    let status = 200;
+    let payload = null;
+    const res = {
+      status(value) { status = value; return this; },
+      json(value) { payload = value; return value; },
+    };
+    const handler = enabled ? agentRoutes.enableAgent : agentRoutes.disableAgent;
+    await handler({ params: { id }, body: { expectedEnabled } }, res);
+    if (this.mode === 'ambiguous-after-effect' && payload?.ok) {
+      return { ok: false, decided: false, code: 'upstream_reset' };
+    }
+    if (this.mode === 'malformed-after-effect' && payload?.ok) {
+      return { ok: true, data: { id, enabled } };
+    }
+    if (status === 200) {
+      return {
+        ok: true,
+        data: {
+          id: payload.id,
+          previousEnabled: payload.previousEnabled,
+          enabled: payload.enabled,
+        },
+      };
+    }
+    return {
+      ok: false,
+      decided: [400, 404, 409].includes(status),
+      code: payload?.code || `upstream_status_${status}`,
+      status,
+    };
+  },
+};
+
 const gateway = await startMobileGateway({
   rawDb: db,
   host: '127.0.0.1',
   port: 0,
-  upstream: new OfflineUpstream(),
+  upstream: workerUpstream,
   env: { ...process.env, C3_MOBILE_PAIRING: 'on', C3_MOBILE_UI: 'off' },
   logger: { error() {}, warn() {}, info() {} },
 });
@@ -106,6 +153,18 @@ async function get(pathname, token) {
   return { status: response.status, body: await response.json() };
 }
 
+async function put(pathname, token, body) {
+  const response = await fetch(gateway.url + pathname, {
+    method: 'PUT',
+    headers: {
+      authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  return { status: response.status, headers: response.headers, body: await response.json() };
+}
+
 try {
   await test('both read scopes are enforced at the route boundary', async () => {
     const token = await pair(['read:capabilities']);
@@ -117,20 +176,118 @@ try {
       assert.equal(response.status, 403);
       assert.equal(response.body.error.requiredScope, scope);
     }
+    const denied = await put('/m1/workers/worker-a/enabled', token, {
+      operationId: 'worker-denied', expectedEnabled: true, enabled: false,
+    });
+    assert.equal(denied.status, 403);
+    assert.equal(denied.body.error.requiredScope, 'write:workers');
+    assert.equal(agentRepository.getAgent('worker-a').enabled, true);
   });
 
   const token = await pair(['read:capabilities', 'read:workers', 'read:specialists']);
+  const writeToken = await pair([
+    'read:capabilities', 'read:workers', 'write:workers', 'read:specialists',
+  ]);
 
-  await test('discovery reports reads available and every mutation unavailable', async () => {
+  await test('discovery reports the worker transition separately from unsupported actions', async () => {
+    assert.ok(PAIRABLE_SCOPES.includes('write:workers'));
+    assert.ok(!createPairingCode(db, { ttlMs: 60_000 }).scopes.includes('write:workers'));
     const response = await get('/m1/capabilities', token);
     const features = response.body.data.remoteCore.features;
     assert.equal(response.body.data.features.workers, true);
     assert.equal(response.body.data.features.specialists, true);
     assert.equal(features['workers.read'].status, 'available');
-    assert.equal(features['workers.toggle'].status, 'unavailable');
+    assert.equal(features['workers.toggle'].status, 'forbidden');
     assert.equal(features['workers.dryRun'].status, 'unavailable');
     assert.equal(features['specialists.read'].status, 'available');
     assert.equal(features['specialists.toggle'].status, 'unavailable');
+
+    const writable = await get('/m1/capabilities', writeToken);
+    assert.equal(writable.body.data.features.workersWrite, true);
+    assert.equal(writable.body.data.remoteCore.features['workers.toggle'].status, 'available');
+  });
+
+  await test('legacy worker owner enforces the expected state and reschedules only enable', async () => {
+    const callsBefore = workerUpstream.calls;
+    const disable = {
+      operationId: 'worker-disable-a', expectedEnabled: true, enabled: false,
+    };
+    const disabled = await put('/m1/workers/worker-a/enabled', writeToken, disable);
+    assert.equal(disabled.status, 200, JSON.stringify(disabled.body));
+    assert.equal(disabled.headers.get('cache-control'), 'no-store');
+    assert.equal(disabled.body.data.state, 'CONFIRMED');
+    assert.deepEqual(disabled.body.data.result, {
+      id: 'worker-a', previousEnabled: true, enabled: false,
+    });
+    assert.equal(agentRepository.getAgent('worker-a').enabled, false);
+    assert.equal(scheduler.rescheduled.length, 0);
+
+    const replay = await put('/m1/workers/worker-a/enabled', writeToken, disable);
+    assert.equal(replay.status, 200);
+    assert.equal(replay.body.replayed, true);
+    assert.equal(workerUpstream.calls, callsBefore + 1);
+
+    const stale = await put('/m1/workers/worker-a/enabled', writeToken, {
+      operationId: 'worker-disable-stale', expectedEnabled: true, enabled: false,
+    });
+    assert.equal(stale.status, 409);
+    assert.equal(stale.body.error.reason, 'worker_state_conflict');
+    assert.equal(stale.body.error.state, 'REJECTED');
+    assert.equal(agentRepository.getAgent('worker-a').enabled, false);
+
+    const enabled = await put('/m1/workers/worker-a/enabled', writeToken, {
+      operationId: 'worker-enable-aa', expectedEnabled: false, enabled: true,
+    });
+    assert.equal(enabled.status, 200);
+    assert.deepEqual(enabled.body.data.result, {
+      id: 'worker-a', previousEnabled: false, enabled: true,
+    });
+    assert.equal(agentRepository.getAgent('worker-a').enabled, true);
+    assert.deepEqual(scheduler.rescheduled, ['worker-a']);
+  });
+
+  await test('worker operation key binds target and both states', async () => {
+    const response = await put('/m1/workers/worker-a/enabled', writeToken, {
+      operationId: 'worker-enable-aa', expectedEnabled: true, enabled: false,
+    });
+    assert.equal(response.status, 409);
+    assert.equal(response.body.error.code, 'operation_conflict');
+    assert.equal(response.body.error.reason, 'fingerprint_mismatch');
+    assert.equal(agentRepository.getAgent('worker-a').enabled, true);
+
+    const malformed = await put('/m1/workers/worker-a/enabled', writeToken, {
+      operationId: 'worker-malformed', expectedEnabled: true, enabled: false, force: true,
+    });
+    assert.equal(malformed.status, 400);
+    assert.equal(agentRepository.getAgent('worker-a').enabled, true);
+  });
+
+  await test('upstream worker adapter fixes method, target and precondition shape', async () => {
+    const calls = [];
+    const upstream = new UpstreamClient({
+      baseUrl: 'http://127.0.0.1:3335',
+      fetchImpl: async (url, init) => {
+        calls.push({ url, init });
+        return {
+          ok: true,
+          status: 200,
+          async json() {
+            return { ok: true, id: 'worker-a', previousEnabled: true, enabled: false };
+          },
+        };
+      },
+    });
+    const result = await upstream.setWorkerEnabled({
+      id: 'worker-a', expectedEnabled: true, enabled: false,
+    });
+    assert.deepEqual(result, {
+      ok: true,
+      data: { id: 'worker-a', previousEnabled: true, enabled: false },
+    });
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, 'http://127.0.0.1:3335/api/agents/worker-a/disable');
+    assert.equal(calls[0].init.method, 'POST');
+    assert.deepEqual(JSON.parse(calls[0].init.body), { expectedEnabled: true });
   });
 
   await test('worker projection exposes configuration and only the last terminal run', async () => {
@@ -205,6 +362,41 @@ try {
     assert.equal(response.status, 503);
     assert.equal(response.body.error.reason, 'worker_record_invalid');
     assert.ok(!JSON.stringify(response.body).includes('malformed-definition-secret'));
+  });
+
+  await test('lost or malformed post-effect results stay UNKNOWN and are never dispatched twice', async () => {
+    workerUpstream.mode = 'ambiguous-after-effect';
+    const ambiguousBody = {
+      operationId: 'worker-disable-lost-result', expectedEnabled: true, enabled: false,
+    };
+    const callsBefore = workerUpstream.calls;
+    const ambiguous = await put('/m1/workers/worker-a/enabled', writeToken, ambiguousBody);
+    assert.equal(ambiguous.status, 503);
+    assert.equal(ambiguous.body.error.state, 'UNKNOWN');
+    assert.equal(ambiguous.body.error.resolveBy, 'GET /m1/operations/worker-disable-lost-result');
+    assert.equal(agentRepository.getAgent('worker-a').enabled, false);
+    const replay = await put('/m1/workers/worker-a/enabled', writeToken, ambiguousBody);
+    assert.equal(replay.status, 202);
+    assert.equal(replay.body.data.state, 'UNKNOWN');
+    assert.equal(workerUpstream.calls, callsBefore + 1);
+
+    const journalRow = db.prepare(`
+      SELECT request_fingerprint, result_json
+        FROM mobile_operations WHERE operation_id = ?
+    `).get(ambiguousBody.operationId);
+    assert.match(journalRow.request_fingerprint, /^[0-9a-f]{64}$/);
+    assert.equal(journalRow.result_json, null);
+    assert.ok(!db.prepare('PRAGMA table_info(mobile_operations)').all()
+      .some(column => column.name === 'request_json'));
+
+    workerUpstream.mode = 'malformed-after-effect';
+    const malformed = await put('/m1/workers/worker-a/enabled', writeToken, {
+      operationId: 'worker-enable-malformed-result', expectedEnabled: false, enabled: true,
+    });
+    assert.equal(malformed.status, 503);
+    assert.equal(malformed.body.error.state, 'UNKNOWN');
+    assert.equal(agentRepository.getAgent('worker-a').enabled, true);
+    workerUpstream.mode = 'normal';
   });
 
   await test('missing providers fail closed and optional worker tables stay undiscoverable', async () => {

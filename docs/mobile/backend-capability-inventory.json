@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
   "scanner": "scripts/mobile-capability-inventory.mjs",
-  "routeDigest": "10f6abef4496799822b7c78669ca139a59dc54af68126f54408a89ab6cc91645",
+  "routeDigest": "a8b901d143f2f680d68e321d49e13ed99ecf86e32bdb1fb050614d491997293f",
   "summary": {
-    "routes": 247,
-    "mobileV1": 23,
+    "routes": 248,
+    "mobileV1": 24,
     "legacyCore": 224,
     "reads": 113,
-    "mutations": 134,
-    "remoteCoreCandidates": 83,
+    "mutations": 135,
+    "remoteCoreCandidates": 84,
     "domains": {
-      "agents": 18,
+      "agents": 19,
       "approvals": 4,
       "autonomy": 4,
       "conversations": 23,
@@ -2993,6 +2993,18 @@
       "access": "read",
       "exposure": "mobile-v1",
       "remoteCoreFeature": "workers.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "PUT",
+      "path": "/m1/workers/:id/enabled",
+      "sources": [
+        "src/mobile/handlers.js"
+      ],
+      "domain": "agents",
+      "access": "mutation",
+      "exposure": "mobile-v1",
+      "remoteCoreFeature": "workers.toggle",
       "mobilePolicy": "mobile-mirror-candidate"
     }
   ]

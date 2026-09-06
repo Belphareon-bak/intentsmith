@@ -84,6 +84,58 @@ export class UpstreamClient {
     }
   }
 
+  /**
+   * Narrow worker lifecycle command. The legacy server remains the owner of
+   * AgentRepository + AgentScheduler; the gateway never mutates their tables
+   * behind that live process.
+   */
+  async setWorkerEnabled({ id, expectedEnabled, enabled }) {
+    const action = enabled ? 'enable' : 'disable';
+    let response;
+    try {
+      response = await this._fetch(`/api/agents/${encodeURIComponent(id)}/${action}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ expectedEnabled }),
+      });
+    } catch (error) {
+      return { ok: false, decided: false, code: classify(error) };
+    }
+
+    if ([400, 404, 409].includes(response.status)) {
+      const code = response.status === 404
+        ? 'worker_not_found'
+        : response.status === 409 ? 'worker_state_conflict' : 'worker_request_invalid';
+      return { ok: false, decided: true, code, status: response.status };
+    }
+    if (!response.ok) {
+      return {
+        ok: false,
+        decided: false,
+        code: `upstream_status_${response.status}`,
+        status: response.status,
+      };
+    }
+
+    try {
+      const data = await response.json();
+      const valid = data && data.ok === true
+        && Object.keys(data).sort().join(',') === 'enabled,id,ok,previousEnabled'
+        && data.id === id
+        && data.enabled === enabled
+        && data.previousEnabled === expectedEnabled;
+      if (!valid) {
+        return { ok: false, decided: false, code: 'upstream_unreadable_body' };
+      }
+      return {
+        ok: true,
+        data: { id: data.id, previousEnabled: data.previousEnabled, enabled: data.enabled },
+      };
+    } catch {
+      return { ok: false, decided: false, code: 'upstream_unreadable_body' };
+    }
+  }
+
   async _fetch(path, init, timeoutMs = this.timeoutMs) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -108,6 +160,7 @@ function classify(error) {
 export class OfflineUpstream {
   async probe() { return { reachable: false, reason: 'upstream_disabled' }; }
   async postChat() { return { ok: false, decided: false, code: 'upstream_disabled' }; }
+  async setWorkerEnabled() { return { ok: false, decided: false, code: 'upstream_disabled' }; }
 }
 
 export default { UpstreamClient, OfflineUpstream };

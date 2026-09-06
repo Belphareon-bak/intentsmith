@@ -560,6 +560,10 @@ function lockDownSession() {
   state.memoryLive = false;
   state.memorySaving = false;
   state.memoryNote = null;
+  state.workersLive = false;
+  state.workerSaving = null;
+  state.workerConfirm = null;
+  state.workerNote = null;
   state.thread = { cursor: null, end: false, loadingOlder: false, stickToBottom: true };
   invalidateApprovalSurface();
 }
@@ -600,11 +604,14 @@ async function api(path, { method = 'GET', body = null, timeoutMs = 130_000, str
     const approvalRequest = routePath === '/approvals' || routePath.startsWith('/approvals/');
     const settingsRequest = routePath === '/settings';
     const memoryRequest = routePath === '/memory';
+    const workerRequest = routePath === '/workers' || routePath.startsWith('/workers/');
     response = await fetch(API + path, {
       method, headers,
       body: body ? JSON.stringify(body) : undefined,
       signal: controller.signal,
-      ...(approvalRequest || settingsRequest || memoryRequest ? { cache: 'no-store' } : {}),
+      ...(approvalRequest || settingsRequest || memoryRequest || workerRequest
+        ? { cache: 'no-store' }
+        : {}),
     });
   } catch (error) {
     // No HTTP response at all. Ambiguous for mutations — the caller decides.
@@ -752,6 +759,10 @@ const state = {
   memoryLive: false,
   memorySaving: false,
   memoryNote: null,
+  workersLive: false,
+  workerSaving: null,
+  workerConfirm: null,
+  workerNote: null,
   sessionWipeFailed: false,
 
   // MS-13 / MS-14.  The right to decide is not a flag the app owns; it belongs
@@ -879,7 +890,15 @@ function replaceScopes(scopes) {
     state.loading.workers = false;
     state.cacheAge.workers = null;
     state.cacheAt.workers = null;
+    state.workersLive = false;
+    state.workerSaving = null;
+    state.workerConfirm = null;
+    state.workerNote = null;
     store.del(K.cache + 'workers');
+  }
+  if (!next.includes('write:workers')) {
+    state.workerSaving = null;
+    state.workerConfirm = null;
   }
   if (!next.includes('read:specialists')) {
     specialistsGeneration++;
@@ -1291,7 +1310,7 @@ const SUPPORTED_SCOPES = new Set([
   'read:chat', 'write:chat', 'read:notifications',
   'read:approvals', 'write:approvals', 'read:projects', 'read:settings', 'write:settings',
   'read:memory', 'write:memory',
-  'read:workers', 'read:specialists',
+  'read:workers', 'write:workers', 'read:specialists',
   'read:devices', 'write:devices',
 ]);
 
@@ -1847,6 +1866,18 @@ function scheduledAt(value) {
   });
 }
 
+function workerMutationFresh() {
+  return state.session === 'active'
+    && state.route === 'workers'
+    && state.conn === 'ok'
+    && auth.has('read:workers')
+    && auth.has('write:workers')
+    && state.workersLive === true
+    && state.cacheAge.workers === 'FRESH'
+    && !state.loading.workers
+    && !state.error.workers;
+}
+
 function viewWorkers() {
   const list = state.data.workers;
   const error = state.error.workers;
@@ -1864,8 +1895,19 @@ function viewWorkers() {
     body = statePanel('empty', 'Zatím žádní agenti',
       'Backend potvrdil prázdný seznam nakonfigurovaných agentů.');
   } else if (Array.isArray(list)) {
-    body = `<div class="list">${list.map(worker => {
+    const fresh = workerMutationFresh();
+    body = `${state.workerNote ? `<div class="ms20-note" data-tone="${esc(state.workerNote.tone)}" role="status">${esc(state.workerNote.text)}</div>` : ''}
+      ${!auth.has('write:workers')
+        ? '<div class="device-warning">Zapnutí a vypnutí vyžaduje nové párování se scope write:workers.</div>'
+        : !fresh
+          ? '<div class="device-warning">Stav není právě živě ověřený. Nejdřív seznam obnov; nad cache se agent nepřepíná.</div>'
+          : ''}
+      <div class="list">${list.map(worker => {
       const last = workerStatus(worker);
+      const armed = state.workerConfirm?.id === worker.id
+        && state.workerConfirm.expectedEnabled === worker.enabled;
+      const running = state.workerSaving === worker.id;
+      const canToggle = fresh && !state.workerSaving;
       return `<article class="resource-row">
         <div class="resource-icon" aria-hidden="true">${esc(worker.icon || 'A')}</div>
         <div class="row-main">
@@ -1876,6 +1918,14 @@ function viewWorkers() {
             <span class="pill" data-tone="${last.tone}">${esc(last.text)}</span>
             ${worker.schedule?.nextRunAt ? `<span>Další běh ${esc(scheduledAt(worker.schedule.nextRunAt))}</span>` : ''}
           </div>
+          ${armed ? `<div class="device-confirm" data-tone="${worker.enabled ? 'danger' : 'warn'}">
+              <strong>${worker.enabled ? `Vypnout ${esc(worker.name)}?` : `Zapnout ${esc(worker.name)}?`}</strong>
+              <span>${worker.enabled
+                ? 'Nové plánované běhy se zastaví. Právě probíhající běh se tím neruší a může doběhnout.'
+                : 'Agent znovu získá možnost provádět naplánované akce. Změna platí jen nad právě načteným stavem.'}</span>
+              <div class="device-actions"><button class="btn btn-secondary btn-sm" data-act="worker-toggle-cancel">Zpět</button><button class="btn ${worker.enabled ? 'btn-danger' : 'btn-primary'} btn-sm" data-act="worker-toggle-confirm" data-worker="${esc(worker.id)}" ${running ? 'disabled' : ''}>${running ? 'Měním…' : 'Potvrdit změnu'}</button></div>
+            </div>`
+            : `<div class="device-actions"><button class="btn ${worker.enabled ? 'btn-danger' : 'btn-secondary'} btn-sm" data-act="worker-toggle-ask" data-worker="${esc(worker.id)}" ${canToggle ? '' : 'disabled'}>${worker.enabled ? 'Vypnout' : 'Zapnout'}</button></div>`}
         </div>
       </article>`;
     }).join('')}${configuredResourceCacheNote('workers')}${configuredResourceInlineError('workers')}${configuredResourceMore('workers')}</div>`;
@@ -2699,6 +2749,7 @@ const OPERATION_TYPE_LABEL = {
   'device.revoke': 'Odvolání spárovaného zařízení',
   'settings.write': 'Změna nastavení backendu',
   'memory.create': 'Přidání informace do paměti',
+  'worker.toggle': 'Změna stavu agenta',
 };
 
 /**
@@ -4944,6 +4995,7 @@ async function loadConfiguredResources(name, { append = false } = {}) {
   const generation = config.generation();
   state.pagination ||= {};
   if (!append) {
+    if (name === 'workers') state.workersLive = false;
     const cached = cache.read(name);
     if (cached.status === 'EXPIRED') {
       store.del(K.cache + name);
@@ -4988,11 +5040,13 @@ async function loadConfiguredResources(name, { append = false } = {}) {
     state.cacheAt[name] = Date.now();
     cache.write(name, { items: state.data[name], page: state.pagination[name] });
     if (response.scopes) replaceScopes(response.scopes);
+    if (name === 'workers') state.workersLive = auth.has('read:workers');
     setConn('ok');
   } catch (error) {
     const currentGeneration = name === 'workers' ? workersGeneration : specialistsGeneration;
     if (generation !== currentGeneration) return;
     if (error.kind === 'auth') return await handleAuthFailure(error);
+    if (name === 'workers') state.workersLive = false;
     state.error[name] = error;
     setConn(error.kind === 'offline' ? 'offline' : error.kind === 'server' ? 'server' : state.conn);
   } finally {
@@ -5006,6 +5060,149 @@ async function loadConfiguredResources(name, { append = false } = {}) {
 
 function loadWorkers(options) {
   return loadConfiguredResources('workers', options);
+}
+
+function workerById(id) {
+  return Array.isArray(state.data.workers)
+    ? state.data.workers.find(worker => worker?.id === id) || null
+    : null;
+}
+
+function askWorkerToggle(id) {
+  const worker = workerById(id);
+  if (!worker || !workerMutationFresh() || state.workerSaving) return;
+  state.workerConfirm = {
+    id: worker.id,
+    expectedEnabled: worker.enabled,
+    enabled: !worker.enabled,
+  };
+  state.workerNote = null;
+  render();
+}
+
+function cancelWorkerToggle() {
+  state.workerConfirm = null;
+  render();
+}
+
+function workerWriteOutcome(response, operationId, id, expectedEnabled, enabled) {
+  const data = response?.data;
+  if (response?.ok !== true || !data || data.operationId !== operationId
+      || !['PENDING', 'UNKNOWN', 'CONFIRMED', 'REJECTED'].includes(data.state)) {
+    return { valid: false };
+  }
+  const result = data.result;
+  if (data.state === 'CONFIRMED') {
+    if (!result
+        || Object.keys(result).sort().join(',') !== 'enabled,id,previousEnabled'
+        || result.id !== id
+        || result.previousEnabled !== expectedEnabled
+        || result.enabled !== enabled) return { valid: false };
+  } else if (result !== null && result !== undefined) {
+    return { valid: false };
+  }
+  return { valid: true, state: data.state, result: result || null };
+}
+
+/** One precondition-checked lifecycle transition, never queued or retried. */
+async function confirmWorkerToggle(id) {
+  const worker = workerById(id);
+  const intent = state.workerConfirm;
+  if (!worker || !intent || intent.id !== id
+      || worker.enabled !== intent.expectedEnabled
+      || !workerMutationFresh() || state.workerSaving) return;
+
+  const operationId = newOperationId();
+  journal.add({
+    operationId,
+    operationType: 'worker.toggle',
+    displaySummary: 'Změna stavu agenta',
+  });
+  state.workerSaving = id;
+  state.workerConfirm = null;
+  state.workerNote = null;
+  render();
+
+  try {
+    const response = await api(`/workers/${encodeURIComponent(id)}/enabled`, {
+      method: 'PUT',
+      body: {
+        operationId,
+        expectedEnabled: intent.expectedEnabled,
+        enabled: intent.enabled,
+      },
+      strict: true,
+    });
+    const outcome = workerWriteOutcome(
+      response, operationId, id, intent.expectedEnabled, intent.enabled,
+    );
+    if (!outcome.valid) {
+      journal.setState(operationId, 'UNKNOWN', { unknownReason: 'unspecified' });
+      state.workersLive = false;
+      setConn('server');
+      state.workerNote = {
+        tone: 'danger',
+        text: 'Server nevrátil platný výsledek změny. Nic se neopakuje; stav zjisti v Nerozřešených pokusech.',
+      };
+      return;
+    }
+    if (response.scopes) replaceScopes(response.scopes);
+    journal.setState(operationId, outcome.state);
+    if (outcome.state !== 'CONFIRMED') {
+      state.workersLive = false;
+      state.workerNote = {
+        tone: outcome.state === 'REJECTED' ? 'warn' : 'danger',
+        text: outcome.state === 'REJECTED'
+          ? 'Backend změnu stavu odmítl. Obnov seznam a rozhodni znovu.'
+          : 'Výsledek změny není potvrzený. Nic se neopakuje; stav zjisti v Nerozřešených pokusech.',
+      };
+      return;
+    }
+    await loadWorkers();
+    setConn('ok');
+    state.workerNote = {
+      tone: 'ok',
+      text: intent.enabled ? 'Agent byl zapnut.' : 'Agent byl vypnut. Právě probíhající běh mohl doběhnout.',
+    };
+  } catch (error) {
+    if (error.kind === 'auth') return await handleAuthFailure(error);
+    const ambiguous = error.detail?.state !== 'REJECTED'
+      && (error.kind === 'offline' || error.kind === 'server' || error.kind === 'protocol'
+        || error.detail?.state === 'UNKNOWN');
+    if (ambiguous) {
+      journal.setState(operationId, 'UNKNOWN', { unknownReason: error.detail?.reason || null });
+      state.workersLive = false;
+      setConn(error.kind === 'offline' ? 'offline' : 'server');
+      state.workerNote = {
+        tone: 'danger',
+        text: 'Není jisté, zda se stav agenta změnil. Nic se neopakuje; stav zjisti v Nerozřešených pokusech.',
+      };
+    } else {
+      journal.setState(operationId, 'REJECTED');
+      if (error.kind === 'scope') {
+        replaceScopes(auth.scopes.filter(scope => scope !== 'write:workers'));
+      }
+      if (error.code === 'state_conflict' || error.code === 'not_found') {
+        await loadWorkers();
+        state.workerNote = {
+          tone: 'warn',
+          text: error.code === 'not_found'
+            ? 'Agent už neexistuje. Seznam byl obnoven.'
+            : 'Stav agenta mezitím změnil někdo jiný. Seznam byl obnoven; nic se nepřepsalo.',
+        };
+      } else {
+        state.workerNote = {
+          tone: 'warn',
+          text: error.kind === 'limit'
+            ? 'Změna neprošla: nejdřív uvolni limit v Nerozřešených pokusech.'
+            : 'Backend změnu stavu odmítl.',
+        };
+      }
+    }
+  } finally {
+    state.workerSaving = null;
+    render();
+  }
 }
 
 function loadSpecialists(options) {
@@ -5782,6 +5979,8 @@ function transitionRoute(route) {
     state.opsConfirm = null;
     state.deviceConfirm = null;
     state.deviceNote = null;
+    state.workerConfirm = null;
+    state.workerNote = null;
   }
   invalidateApprovalAuthority();
   state.route = route;
@@ -5909,6 +6108,9 @@ document.addEventListener('click', event => {
     'load-memory': () => loadStoredInformation(),
     'memory-create': () => { createManualMemory(); },
     'load-workers': () => loadWorkers(),
+    'worker-toggle-ask': () => askWorkerToggle(target.dataset.worker),
+    'worker-toggle-cancel': cancelWorkerToggle,
+    'worker-toggle-confirm': () => { confirmWorkerToggle(target.dataset.worker); },
     'load-specialists': () => loadSpecialists(),
     'load-devices': () => loadDevices(),
     'device-revoke-ask': () => askDeviceRevoke(target.dataset.device),
@@ -6202,6 +6404,8 @@ export const __ms20 = {
   viewOverview, navItems, currentSection, sectionRoute, unknownScopes, NAV_ITEMS, ROUTE_SECTION,
   viewProjects, viewProject, loadProjects, loadProject, openProject,
   viewWorkers, viewSpecialists, loadWorkers, loadSpecialists,
+  workerMutationFresh, workerWriteOutcome,
+  askWorkerToggle, cancelWorkerToggle, confirmWorkerToggle,
   viewDevices, viewDiagnostics, viewSession,
   loadDevices, askDeviceRevoke, cancelDeviceRevoke, confirmDeviceRevoke,
   validDeviceSnapshot, deviceRevokeOutcome, handleAuthFailure,

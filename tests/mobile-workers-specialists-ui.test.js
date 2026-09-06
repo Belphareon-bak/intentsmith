@@ -59,8 +59,10 @@ globalThis.fetch = async () => { throw new TypeError('network disabled'); };
 
 const { __ms20 } = await import('../src/mobile/client/app.js');
 const {
-  state, store, K, cache, viewOverview, navItems, unknownScopes,
+  state, store, journal, K, cache, viewOverview, navItems, unknownScopes,
   viewWorkers, viewSpecialists, loadWorkers, loadSpecialists,
+  workerMutationFresh, workerWriteOutcome,
+  askWorkerToggle, cancelWorkerToggle, confirmWorkerToggle,
 } = __ms20;
 
 function reset(scopes = ['read:workers', 'read:specialists']) {
@@ -77,6 +79,10 @@ function reset(scopes = ['read:workers', 'read:specialists']) {
   state.cacheAge = {};
   state.cacheAt = {};
   state.pagination = {};
+  state.workersLive = false;
+  state.workerSaving = null;
+  state.workerConfirm = null;
+  state.workerNote = null;
   nodes.app.innerHTML = '';
 }
 
@@ -105,7 +111,7 @@ function specialist(overrides = {}) {
 console.log('\n=== Mobile workers and specialists UI ===');
 
 await test('scopes create real sections and remove the former coming-soon placeholders', () => {
-  reset(['read:workers', 'read:specialists', 'read:future']);
+  reset(['read:workers', 'write:workers', 'read:specialists', 'read:future']);
   assert.ok(navItems().some(item => item.id === 'workers' && item.route === 'workers'));
   assert.ok(navItems().some(item => item.id === 'specialists' && item.route === 'specialists'));
   assert.deepEqual(unknownScopes(), ['read:future']);
@@ -142,7 +148,7 @@ await test('loading, failure and confirmed empty remain distinct states', () => 
   assert.match(viewSpecialists(), /Backend potvrdil prázdný seznam/);
 });
 
-await test('records are escaped, read-only and honest about absent live runtime', () => {
+await test('records are escaped and unavailable actions remain explicitly locked', () => {
   reset();
   state.data.workers = [worker({ name: '<script>worker</script>', description: '<img src=x>' })];
   state.data.specialists = [specialist({ name: '<script>specialist</script>', domain: '<svg>' })];
@@ -152,12 +158,168 @@ await test('records are escaped, read-only and honest about absent live runtime'
   assert.ok(!workers.includes('<img'));
   assert.match(workers, /poslední běh uspěl/);
   assert.match(workers, /Živý stav se nezobrazuje/);
-  assert.ok(!/data-act="(?:run|toggle|enable|disable|dry-run)-worker/.test(workers));
+  assert.match(workers, /write:workers/);
+  assert.match(workers, /data-act="worker-toggle-ask"[^>]+disabled/);
+  assert.ok(!/data-act="worker-(?:run|dry-run)"/.test(workers));
   assert.ok(!specialists.includes('<script>'));
   assert.ok(!specialists.includes('<svg>'));
   assert.match(specialists, /2 expertizy/);
   assert.match(specialists, /Registrace v právě běžícím procesu není/);
   assert.ok(!/data-act="(?:toggle|enable|disable)-specialist/.test(specialists));
+});
+
+await test('worker toggle requires both scopes, a live read and two-step confirmation', () => {
+  reset(['read:workers', 'write:workers']);
+  state.data.workers = [worker()];
+  state.cacheAge.workers = 'FRESH';
+  assert.equal(workerMutationFresh(), false);
+  assert.match(viewWorkers(), /Stav není právě živě ověřený/);
+  assert.match(viewWorkers(), /data-act="worker-toggle-ask"[^>]+disabled/);
+
+  state.workersLive = true;
+  assert.equal(workerMutationFresh(), true);
+  assert.doesNotMatch(viewWorkers(), /data-act="worker-toggle-ask"[^>]+disabled/);
+  askWorkerToggle('worker-1');
+  assert.deepEqual(state.workerConfirm, {
+    id: 'worker-1', expectedEnabled: true, enabled: false,
+  });
+  assert.match(viewWorkers(), /Právě probíhající běh se tím neruší/);
+  assert.match(viewWorkers(), /data-act="worker-toggle-confirm"/);
+  cancelWorkerToggle();
+  assert.equal(state.workerConfirm, null);
+});
+
+await test('worker result validator binds id, previous state and target state', () => {
+  const valid = workerWriteOutcome({
+    ok: true,
+    data: {
+      operationId: 'op-1', state: 'CONFIRMED',
+      result: { id: 'worker-1', previousEnabled: true, enabled: false },
+    },
+  }, 'op-1', 'worker-1', true, false);
+  assert.equal(valid.valid, true);
+  assert.equal(workerWriteOutcome({
+    ok: true,
+    data: {
+      operationId: 'op-1', state: 'CONFIRMED',
+      result: { id: 'worker-2', previousEnabled: true, enabled: false },
+    },
+  }, 'op-1', 'worker-1', true, false).valid, false);
+});
+
+await test('confirmed worker toggle sends once, keeps journal generic and refreshes by read', async () => {
+  reset(['read:workers', 'write:workers']);
+  state.data.workers = [worker()];
+  state.cacheAge.workers = 'FRESH';
+  state.workersLive = true;
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    if (options.method === 'PUT') {
+      const sent = JSON.parse(options.body);
+      return {
+        ok: true,
+        status: 200,
+        async json() {
+          return {
+            ok: true,
+            scopes: ['read:workers', 'write:workers'],
+            data: {
+              operationId: sent.operationId,
+              state: 'CONFIRMED',
+              result: { id: 'worker-1', previousEnabled: true, enabled: false },
+            },
+          };
+        },
+      };
+    }
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return {
+          ok: true,
+          scopes: ['read:workers', 'write:workers'],
+          data: [worker({ enabled: false })],
+          hasMore: false, nextCursor: null, end: true,
+        };
+      },
+    };
+  };
+
+  askWorkerToggle('worker-1');
+  await confirmWorkerToggle('worker-1');
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].url, '/m1/workers/worker-1/enabled');
+  assert.equal(calls[0].options.method, 'PUT');
+  assert.equal(calls[0].options.cache, 'no-store');
+  assert.deepEqual(
+    Object.keys(JSON.parse(calls[0].options.body)).sort(),
+    ['enabled', 'expectedEnabled', 'operationId'],
+  );
+  assert.equal(calls[1].url, '/m1/workers?limit=50');
+  assert.equal(calls[1].options.cache, 'no-store');
+  assert.equal(state.data.workers[0].enabled, false);
+  assert.equal(state.workersLive, true);
+  const localJournal = JSON.stringify(store.get(K.journal));
+  assert.match(localJournal, /Změna stavu agenta/);
+  assert.ok(!localJournal.includes('worker-1'));
+});
+
+await test('ambiguous worker toggle becomes UNKNOWN and is never retried', async () => {
+  reset(['read:workers', 'write:workers']);
+  state.data.workers = [worker()];
+  state.cacheAge.workers = 'FRESH';
+  state.workersLive = true;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    throw new TypeError('lost connection');
+  };
+  askWorkerToggle('worker-1');
+  await confirmWorkerToggle('worker-1');
+  assert.equal(calls, 1);
+  assert.equal(state.workersLive, false);
+  assert.equal(journal.open().at(-1).lastKnownState, 'UNKNOWN');
+  assert.match(state.workerNote.text, /Není jisté/);
+});
+
+await test('worker conflict refreshes current truth without a second mutation', async () => {
+  reset(['read:workers', 'write:workers']);
+  state.data.workers = [worker()];
+  state.cacheAge.workers = 'FRESH';
+  state.workersLive = true;
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    if (options.method === 'PUT') {
+      return {
+        ok: false,
+        status: 409,
+        async json() {
+          return { ok: false, error: { code: 'state_conflict', state: 'REJECTED', reason: 'worker_state_conflict' } };
+        },
+      };
+    }
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return {
+          ok: true,
+          scopes: ['read:workers', 'write:workers'],
+          data: [worker({ enabled: false })],
+          hasMore: false, nextCursor: null, end: true,
+        };
+      },
+    };
+  };
+  askWorkerToggle('worker-1');
+  await confirmWorkerToggle('worker-1');
+  assert.equal(calls.filter(call => call.options.method === 'PUT').length, 1);
+  assert.equal(calls.length, 2);
+  assert.equal(state.data.workers[0].enabled, false);
+  assert.match(state.workerNote.text, /mezitím změnil někdo jiný/);
 });
 
 await test('worker and specialist caches use their documented freshness windows', () => {
@@ -216,6 +378,9 @@ await test('loads cache the displayed window and append only with a server curso
 
 await test('expired cache is deleted and server scope withdrawal clears both domains', async () => {
   reset();
+  state.workersLive = true;
+  state.workerSaving = 'worker-1';
+  state.workerConfirm = { id: 'worker-1', expectedEnabled: true, enabled: false };
   for (const name of ['workers', 'specialists']) {
     store.set(K.cache + name, {
       at: Date.now() - 8 * 24 * 60 * 60_000,
@@ -236,6 +401,9 @@ await test('expired cache is deleted and server scope withdrawal clears both dom
   await loadWorkers();
   assert.equal(state.data.workers, undefined);
   assert.equal(store.get(K.cache + 'workers'), null);
+  assert.equal(state.workersLive, false);
+  assert.equal(state.workerSaving, null);
+  assert.equal(state.workerConfirm, null);
   await loadSpecialists();
   assert.equal(state.data.specialists, undefined);
   assert.equal(store.get(K.cache + 'specialists'), null);
