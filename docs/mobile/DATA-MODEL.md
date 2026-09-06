@@ -1,10 +1,11 @@
 # IntentSmith Mobile — klientský datový, cache a trust model
 
 > **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
-> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 23
-> rout; vedle worker/specialist read modelu, správy zařízení a revizního
-> `PUT /m1/settings` obsahuje create-only `POST /m1/memory`. Autoritou poslední
-> změny je review `MM4F-CREATE-ONLY-MEMORY`;
+> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 24
+> rout; vedle worker/specialist read modelu, správy zařízení, revizního
+> `PUT /m1/settings` a create-only `POST /m1/memory` obsahuje precondition-checked
+> `PUT /m1/workers/:id/enabled`. Autoritou poslední změny je review
+> `MM4G-WORKER-STATE`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná produktová fáze není DONE
@@ -780,6 +781,14 @@ důkazy, B6 ani životní cyklus `MD-08` nejsou produkčně uzavřené.
 | `E-REVOKE` | smazat při zjištění |
 | Po ztrátě (`E-LOST`) | čitelný seznam agentů a jejich stavů |
 
+> **MM4-G write overlay:** `enabled` se mění jen online nad úspěšným živým
+> readem a přesným `expectedEnabled`. Serverový operation fingerprint váže id,
+> předchozí i cílový stav; lokální journal používá pouze obecný popis bez id a
+> názvu workera. Úspěch se do UI nepřijímá optimisticky, ale ověřuje následným
+> readem. Konflikt přebírá serverovou pravdu. Timeout nebo chyba po možném
+> efektu je `UNKNOWN` v `MD-19`, nikdy automatický retry. Vypnutí zastavuje
+> budoucí plánované běhy, ne již běžící práci. Specialisté zůstávají read-only.
+
 ---
 
 ### MD-18 — Klientský chybový a telemetrický log
@@ -1156,6 +1165,7 @@ Jedna tabulka, protože právě tohle se v návrzích nejčastěji rozjede.
 | Odeslat operaci s dříve vydaným klíčem po připojení | **ne automaticky** — klíč není fronta (I-11) |
 | Odeslat zprávu | ne |
 | Změnit nastavení | ne |
+| Zapnout nebo vypnout workera | ne — `MUT-NEVER-QUEUED`, vyžaduje živý read a online legacy autoritu |
 | Schválit nebo zamítnout approval | **nikdy** |
 | Spustit agenta, přechod fáze, jakýkoli příkaz | **nikdy** |
 | Bezpečnostní a administrativní operace | **nikdy** |

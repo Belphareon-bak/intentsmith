@@ -1,11 +1,18 @@
 # IntentSmith Mobile — návrh UI
 
 > **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
-> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 23
-> rout; vedle worker/specialist read modelu, správy zařízení a revizního
-> `PUT /m1/settings` obsahuje create-only `POST /m1/memory`. Autoritou poslední
-> změny je review `MM4F-CREATE-ONLY-MEMORY`;
+> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 24
+> rout; vedle worker/specialist read modelu, správy zařízení, revizního
+> `PUT /m1/settings` a create-only `POST /m1/memory` obsahuje precondition-checked
+> `PUT /m1/workers/:id/enabled`. Autoritou poslední změny je review
+> `MM4G-WORKER-STATE`;
 > wildcard ani obecný `/api` proxy nevznikl.
+
+> **MM4-G UI overlay:** karta workera nabízí Zapnout/Vypnout pouze s
+> `read:workers` + `write:workers`, po úspěšném live readu ve stavu `FRESH` a
+> přes dvoukrokové potvrzení. Během efektu je ovládání zamčené, úspěch se ověří
+> následným readem, konflikt přebírá serverový stav a `UNKNOWN` se přesune do
+> MS-20 bez automatického retry. Specialisté zůstávají viditelně read-only.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; UI tím není produktově DONE
 **Datum a revize:** 2026-08-01 · vstupy `RV-028`, `RV-036`, `RV-037`, reconciliation `RV-038`; Composition Review C `RV-039`/`RV-040`; registr a chráněné hodnoty `RV-042`/`RV-043`

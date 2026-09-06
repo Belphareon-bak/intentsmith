@@ -3,6 +3,11 @@
 Status: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`
 Checkpoint commit: `3341ea11`
 
+Historical scope note: this review remains authoritative for MM4-F only.
+MM4-G later added guarded worker enable/disable in `7ac9e303`; current inventory
+counts and remaining action scope are recorded in
+[`MM4G-WORKER-STATE.md`](MM4G-WORKER-STATE.md).
+
 This checkpoint gives the existing stored-information card one deliberately
 narrow mutation: a paired device may create a new explicit long-term-memory
 entry. It does not expose the core's broader memory machinery, replacement,

@@ -1,10 +1,11 @@
 # Mobilní gateway — provoz
 
 > **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
-> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 23
-> rout; vedle worker/specialist read modelu, správy zařízení a revizního
-> `PUT /m1/settings` obsahuje create-only `POST /m1/memory`. Autoritou poslední
-> změny je review `MM4F-CREATE-ONLY-MEMORY`;
+> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 24
+> rout; vedle worker/specialist read modelu, správy zařízení, revizního
+> `PUT /m1/settings` a create-only `POST /m1/memory` obsahuje precondition-checked
+> `PUT /m1/workers/:id/enabled`. Autoritou poslední změny je review
+> `MM4G-WORKER-STATE`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; gateway je implementovaná a testovaná pouze **na loopbacku**, nikoli produkčně DONE.
@@ -80,15 +81,16 @@ zeptá na `/api/*` nebo `/c3/ws`.
  ┌────────────────────────────┐        ┌────────────────────────────┐
  │ mobile gateway  :3336      │        │ legacy server  :3335       │
  │  /m1/*  + webový klient    │───────▶│  bind 127.0.0.1 — VŽDY     │
- │  fail-closed scope guard   │  chat  │  /api/*, /c3/ws (terminál) │
+ │  fail-closed scope guard   │ named │  /api/*, /c3/ws (terminál) │
  └────────────────────────────┘        └────────────────────────────┘
             │                                      │
             └──────────── sdílená SQLite ──────────┘
 ```
 
-Gateway nemá chatovou logiku. Čtení bere přímo z SQLite, chat deleguje na
-legacy server přes loopback — CRE tak zůstává jedinou autoritou a QGv2 se
-neobchází.
+Gateway nemá chatovou ani worker lifecycle logiku. Čtení bere přímo z SQLite;
+chat a zapnutí/vypnutí workera deleguje pevnými jmenovanými příkazy na legacy
+server přes loopback. CRE a worker repository/scheduler tak zůstávají jedinými
+živými autoritami a žádný obecný `/api` proxy nevzniká.
 
 ---
 
@@ -173,13 +175,25 @@ Nejednoznačný výsledek po možném efektu je `UNKNOWN` a klient ho automatick
 neopakuje. Úplná hranice a testy jsou v
 `reviews/MM4F-CREATE-ONLY-MEMORY.md`.
 
+### Precondition-checked zapnutí/vypnutí workera
+
+MM4-G přidává `PUT /m1/workers/:id/enabled` se samostatným, ne-výchozím
+`write:workers`. Exact body je `{ operationId, expectedEnabled, enabled }` a
+oba boolean stavy se musí lišit. Gateway nevystavuje obecný legacy proxy ani
+nepíše `agents_v33` přímo. `workers.toggle` deleguje pouze pevný
+`POST /api/agents/:id/enable|disable`; živý legacy proces pak ověří expected
+state a změnu v jedné IMMEDIATE SQLite transakci a při zapnutí použije existující
+scheduler. Konflikt je rozhodnuté `REJECTED`; timeout, 5xx nebo nečitelný
+výsledek po možném efektu je `UNKNOWN`. Klient nad ním nedělá auto-retry.
+Úplná hranice a testy jsou v `reviews/MM4G-WORKER-STATE.md`.
+
 ---
 
 ## 4. Routy
 
-> Tabulka v této historické sekci zachycuje původních 13 rout. Aktuálních 23
+> Tabulka v této historické sekci zachycuje původních 13 rout. Aktuálních 24
 > exact rout je generováno v `BACKEND-CAPABILITY-INVENTORY.md`; poslední
-> přírůstek je `POST /m1/memory` (`write:memory`, MM4-F). Následující věta
+> přírůstek je `PUT /m1/workers/:id/enabled` (`write:workers`, MM4-G). Následující věta
 > „vše ostatní je 404“ se vztahuje k tehdejšímu checkpointu, ne k dnešnímu HEAD.
 
 | Metoda | Cesta | Scope |

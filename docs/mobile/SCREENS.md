@@ -1,10 +1,11 @@
 # IntentSmith Mobile — mapa obrazovek a toků, fáze 1–5
 
 > **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
-> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 23
-> rout; vedle worker/specialist read modelu, správy zařízení a revizního
-> `PUT /m1/settings` obsahuje create-only `POST /m1/memory`. Autoritou poslední
-> změny je review `MM4F-CREATE-ONLY-MEMORY`;
+> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 24
+> rout; vedle worker/specialist read modelu, správy zařízení, revizního
+> `PUT /m1/settings` a create-only `POST /m1/memory` obsahuje precondition-checked
+> `PUT /m1/workers/:id/enabled`. Autoritou poslední změny je review
+> `MM4G-WORKER-STATE`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná obrazovka tím není produktově DONE
@@ -699,28 +700,31 @@ ne přepis běhu.**
 
 ### Fáze 5 — Workeři
 
-> `MS-18` a `MS-19` jsou návrhy. Implementace vyžaduje schválený a refrozený
-> kontrakt v2, příslušnou Gate 1 evidenci a samostatný Work Package; samotné
-> přijetí `DR-008` ani schválení kontraktu ji neautorizuje.
+> **Implementační checkpoint MM4-G (2026-09-06):** `MS-18` má filtrovaný
+> worker read model, poslední důvěryhodný terminální běh a úzké zapnutí/vypnutí
+> nad očekávaným živým stavem. UI vyžaduje `read:workers` + `write:workers`,
+> `FRESH` live read a dvoukrokové potvrzení. `MS-19`, úplná run historie,
+> progress/cancel, create/edit a všechny specialist mutation zůstávají návrhem
+> bez produkčního provideru.
 
 ---
 
 #### MS-18 — Agenti: stav a historie běhů
 
-**Požadavky:** `MR-19` · **Data:** `MD-17`, `MD-09` · **Testy:** `IS-T1-TESTS-MOBILE-CACHE-FRESHNESS-STATES-TEST`, `IS-T1-TESTS-MOBILE-OFFLINE-NEVER-QUEUED-TEST`
+**Požadavky:** `MR-19` · **Data:** `MD-17`, `MD-09`, `MD-19` · **Testy:** `mobile-workers-specialists`, `mobile-workers-specialists-ui`, `IS-T1-TESTS-MOBILE-CACHE-FRESHNESS-STATES-TEST`, `IS-T1-TESTS-MOBILE-OFFLINE-NEVER-QUEUED-TEST`
 
 | Stav | Chování |
 |---|---|
 | `SS-01` | Skeleton |
 | `SS-02` | „Žádní agenti" |
-| `SS-03` | Stav ze cache se stářím; **výstupy běhů nedostupné** (`MD-17`) |
-| `SS-04` | Stav agenta zastarává rychle; ukazatel je důrazný |
+| `SS-03` | Stav ze cache se stářím; **výstupy běhů i ovládání nedostupné** (`MD-17`) |
+| `SS-04` | Stav agenta zastarává rychle; ovládání se zamkne, dokud neproběhne živý refresh |
 | `SS-05` | Refresh |
 | `SS-06` | Jako `MS-06` |
 | `SS-07` | Uzamčeno |
-| `SS-08` | Cache čitelná, ovládání neaktivní |
-| `SS-09` | Agent mezitím doběhl nebo byl vypnut → převzít serverový stav |
-| `SS-10` | Čtení bezpečné; **spuštění a pozastavení jsou příkazy a neopakují se automaticky** |
+| `SS-08` | Cache čitelná, ovládání neaktivní; `write:workers` se získá jen novým párováním |
+| `SS-09` | Stav změnil desktop nebo jiný telefon → precondition conflict, obnovit a převzít serverový stav |
+| `SS-10` | Zapnutí/vypnutí je operation-keyed příkaz s dvojím potvrzením; **nikdy se automaticky neopakuje**. `UNKNOWN` se řeší v MS-20. Vypnutí neruší již běžící práci |
 
 ---
 
@@ -805,8 +809,9 @@ v [DATA-MODEL.md](DATA-MODEL.md).
 ## 7. Co v mapě záměrně není
 
 Vytváření agentů a specialistů, editace skillů, marketplace, cokoli se shell
-přístupem, iOS, cloud push a přechody lifecycle fází z telefonu. Mimo 1.0
-podle PLAN.md §5 a §9 — a `MS-12` je proto čtecí obrazovka, ne ovládací panel.
+přístupem, iOS, cloud push a všechny lifecycle přechody kromě úzkého
+worker enable/disable z MM4-G. Specialisté zůstávají read-only; přímý DB toggle
+by obcházel jejich živou `SpecialistLoader` autoritu.
 
 ---
 

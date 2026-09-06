@@ -28,6 +28,8 @@ i webového klienta**, takže na čtení žádný backend nepotřebuje. Legacy s
 | Seznam a odvolání spárovaných zařízení (`MS-04`) | ✅ — odvolání blokuje další requesty, není remote wipe |
 | Veřejné nastavení a zápis 11 UX preferencí (`MS-10`/`MS-11`) | ✅ — vyžaduje explicitní `write:settings`, legacy backend proces ne |
 | Uchovávané informace a vytvoření explicitní LTM položky (`MS-12`) | ✅ — vyžaduje explicitní `write:memory`; náhrada ani mazání nejsou dostupné |
+| Seznam agentů/specialistů | ✅ — filtrované čtení ze sdílené SQLite |
+| **Zapnout nebo vypnout agenta** | ❌ — změna je záměrně delegovaná živému legacy serveru, který vlastní scheduler |
 | **Odeslat zprávu** | ❌ — `upstream: unreachable`, aplikace to řekne rovnou |
 | Approvaly s reálným obsahem | ✅ — produkční cesta je zapojená (`server.js`), takže je vyrobí skutečný zápis. Gateway je ale jen čte; **vyrábí** je backend, takže bez něj se nová otázka neobjeví |
 | Schránka s ukazateli běhu | ✅ jen v demu — S1 projektor `DR-013 A`, tentýž demo běh |
@@ -68,15 +70,15 @@ C3_DB_PATH=/tmp/is-demo.db C3_MOBILE_PAIRING=on node src/mobile-gateway.js
 #    procesu, takže bez něj skript kód nevydá — a skončí exit 0, takže je to
 #    ticho, ne chyba.
 C3_DB_PATH=/tmp/is-demo.db C3_MOBILE_PAIRING=on node scripts/mobile-pair.js \
-  --scopes read:capabilities,read:chat,write:chat,read:notifications,write:notifications,read:approvals,write:approvals,read:projects,read:settings,write:settings,read:memory,write:memory,read:workers,read:specialists,read:devices,write:devices
+  --scopes read:capabilities,read:chat,write:chat,read:notifications,write:notifications,read:approvals,write:approvals,read:projects,read:settings,write:settings,read:memory,write:memory,read:workers,write:workers,read:specialists,read:devices,write:devices
 
 # 4. Volitelně: běh, který se zeptá na approval a čeká na odpověď
 node scripts/mobile-demo-run.js --db /tmp/is-demo.db
 ```
 
 Approvaly **nejsou ve výchozích scopech**. Příkaz výše je proto žádá
-explicitně. `write:settings` i `write:memory` jsou rovněž pairable, ale záměrně
-nejsou výchozí;
+explicitně. `write:settings`, `write:memory` i `write:workers` jsou rovněž
+pairable, ale záměrně nejsou výchozí;
 rozšíření existujícího tokenu není možné a vyžaduje nový jednorázový kód.
 Nejmenší dostatečný scope je záměr (`P-8`), ne opomenutí.
 
@@ -189,6 +191,23 @@ Create-only paměť zkontroluj v **Nastavení → Uchovávané informace**:
 Přesná datová hranice, journal a negativní scénáře jsou v
 [MM4-F review](reviews/MM4F-CREATE-ONLY-MEMORY.md).
 
+Stav agenta zkontroluj v **Agenti** se spuštěným legacy backendem:
+
+1. bez `write:workers` musí být seznam čitelný, ale tlačítka změny zamčená;
+2. s `read:workers` i `write:workers` nejdřív proveď živé obnovení a zvol
+   **Zapnout** nebo **Vypnout**; první stisk jen otevře potvrzení;
+3. potvrď varování. Úspěch se nesmí zobrazit optimisticky — aplikace nejdřív
+   znovu načte stav ze serveru;
+4. změň mezitím stejný stav z desktopu: mobil musí dostat konflikt, obnovit
+   seznam a cizí změnu nepřepsat;
+5. přeruš odpověď po odeslání: operace musí přejít do `UNKNOWN` v MS-20 a
+   klient ji nesmí automaticky opakovat;
+6. při vypnutí počítej s tím, že už běžící práce může doběhnout; vypnutí brání
+   budoucím plánovaným běhům, není to cancel.
+
+Přesný authority path, precondition, journal a non-claims jsou v
+[MM4-G review](reviews/MM4G-WORKER-STATE.md).
+
 ---
 
 ## Známá omezení, ať je nehlásíš jako vady
@@ -201,6 +220,8 @@ Přesná datová hranice, journal a negativní scénáře jsou v
 | Projekty jsou jen read-only | seznam a detail jsou zapojené; mutation kontrakt zatím není přijatý |
 | Nastavení není obecný desktop editor | zapisuje jen 11 `UX_PREFERENCES_V1` cest; security, modely, import/reset/backup a feature flags zůstávají mimo mobil |
 | Paměť je jen create-only | lze přidat nový explicitní LTM klíč; nelze nahradit ani smazat LTM, zapisovat task memory nebo interní kategorie |
+| Agent lifecycle je úzký | lze jen zapnout/vypnout worker nad živě načteným stavem; create/edit/run/dry-run ani cancel právě běžící práce nejsou dostupné |
+| Specialisté jsou read-only | bezpečný živý mutation port přes `SpecialistLoader` zatím neexistuje; přímý DB toggle by obcházel runtime autoritu |
 | Odvolání zařízení není remote wipe | nový přístup se zablokuje; obsah už uložený v offline telefonu tím nezmizí |
 | Notifikace nedorazí do spící aplikace | Push (`N-1`) není; schránka je pull. Naplnit ji umí `npm run mobile:demo` |
 | ~~Na 200 % písma se nic nezvětší~~ | **Už neplatí.** Stylesheet byl převedený 2026-08-11 a `mobile-browser-a11y` to měří v prohlížeči |

@@ -1,10 +1,11 @@
 # IntentSmith Mobile — zadání a plán realizace
 
 > **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
-> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 23
-> rout; vedle worker/specialist read modelu, správy zařízení a revizního
-> `PUT /m1/settings` obsahuje create-only `POST /m1/memory`. Autoritou poslední
-> změny je review `MM4F-CREATE-ONLY-MEMORY`;
+> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 24
+> rout; vedle worker/specialist read modelu, správy zařízení, revizního
+> `PUT /m1/settings` a create-only `POST /m1/memory` obsahuje precondition-checked
+> `PUT /m1/workers/:id/enabled`. Autoritou poslední změny je review
+> `MM4G-WORKER-STATE`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; **žádná produktová fáze není DONE**

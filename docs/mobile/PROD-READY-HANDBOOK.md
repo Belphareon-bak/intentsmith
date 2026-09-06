@@ -344,6 +344,20 @@ klíče a hodnoty. Selhání po možném efektu je `UNKNOWN`, nikdy automatický
 Fyzický WebView průchod a nezávislé security review zůstávají otevřené. Viz
 [MM4-F review](reviews/MM4F-CREATE-ONLY-MEMORY.md).
 
+### P1-3c Precondition-checked stav agenta
+
+Stav MM4-G: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`.
+`PUT /m1/workers/:id/enabled` smí změnit pouze boolean `enabled` a jen pokud
+odpovídá stav, který telefon právě živě načetl. `write:workers` je pairable,
+ale není ve výchozím profilu; UI navíc vyžaduje `read:workers`, čerstvý serverový
+stav a dvoukrokové potvrzení. Gateway nemění worker tabulky přímo: pevně
+deleguje existující legacy `AgentRepository` + `AgentScheduler` autoritě.
+Konflikt nic nepřepíše, nejednoznačný výsledek je `UNKNOWN` a nikdy se
+automaticky neopakuje. Vypnutí zastaví budoucí plánované běhy, ale neruší už
+běžící práci. Specialist mutation, create/edit/run/dry-run, fyzický WebView
+průchod a nezávislé security review zůstávají otevřené. Viz
+[MM4-G review](reviews/MM4G-WORKER-STATE.md).
+
 ### P1-4 Push, nebo přiznané pull-only
 
 | | |
@@ -495,8 +509,8 @@ jiného, telefon nemá zámek obrazovky — a to je nález, ne detail.
 
 ## 6. Co tenhle handbook **nezavádí**
 
-- Handbook sám nezavádí kontrakt. Aktuální přesný allow-list má 23 rout;
-  poslední create-only memory routu přidal a otestoval MM4-F, ne tento dokument.
+- Handbook sám nezavádí kontrakt. Aktuální přesný allow-list má 24 rout;
+  poslední worker-state routu přidal a otestoval MM4-G, ne tento dokument.
 - Žádný termín. Termíny patří operátorovi; tady jsou jen závislosti a pořadí.
 - Žádné „nice to have". Každá položka výše má popsaný způsob, jak selže —
   když ho někdo nedokáže popsat u nové položky, do seznamu nepatří.

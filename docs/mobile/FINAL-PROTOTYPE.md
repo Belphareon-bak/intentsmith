@@ -69,12 +69,12 @@ C3_DB_PATH=/tmp/is-demo.db C3_MOBILE_PAIRING=on npm run mobile:gateway
 # Terminál 2 — telefon, párovací kód, běh
 npm run mobile:android:run
 C3_DB_PATH=/tmp/is-demo.db C3_MOBILE_PAIRING=on node scripts/mobile-pair.js \
-  --scopes read:capabilities,read:chat,write:chat,read:notifications,write:notifications,read:approvals,write:approvals,read:projects,read:settings,write:settings,read:memory,write:memory,read:workers,read:specialists,read:devices,write:devices
+  --scopes read:capabilities,read:chat,write:chat,read:notifications,write:notifications,read:approvals,write:approvals,read:projects,read:settings,write:settings,read:memory,write:memory,read:workers,write:workers,read:specialists,read:devices,write:devices
 npm run mobile:demo -- --db /tmp/is-demo.db
 ```
 
 Bez kroku s `mobile-pair.js` se aplikace zastaví na párovací obrazovce a nemá
-co zadat; approvaly, `write:settings` ani `write:memory` navíc **nejsou ve výchozích scopech**
+co zadat; approvaly, `write:settings`, `write:memory` ani `write:workers` navíc **nejsou ve výchozích scopech**
 (`P-8`), takže je příkaz žádá výslovně. Podrobnosti a co si při klikání všímat jsou v
 [TRYING-IT.md](TRYING-IT.md). Gateway zůstává na `127.0.0.1:3336`; telefon se k
 ní dostane jen přes USB `adb reverse`. Nic se nevystavuje do Wi-Fi.
@@ -105,7 +105,10 @@ journalled odvolání spárovaných zařízení. MM4-E v `4bb9011d` přidává
 revizně řízený zápis jedenácti bezpečných UX preferencí s operation recovery a
 bez automatického retry. MM4-F v `3341ea11` přidává pouze vytvoření nové
 explicitní LTM položky bez náhrady existujícího klíče; klientský operation
-journal neukládá její klíč ani hodnotu. Aktuální binární a fyzický device
+journal neukládá její klíč ani hodnotu. MM4-G v `7ac9e303` přidává
+precondition-checked zapnutí a vypnutí workera přes jeho stávající živou
+repository/scheduler autoritu; klientský journal neukládá identitu workera a
+nejednoznačný výsledek se neopakuje. Aktuální binární a fyzický device
 journey však stále neproběhl, takže jde o implementovaný kandidát, ne release
 verdict.
 
@@ -123,6 +126,7 @@ verdict.
 | Spárovaná zařízení | `SOURCE TESTED; DEVICE TEST PENDING` | veřejný DTO seznam bez credential materialu; scope-gated, operation-keyed revoke; atomický self-revoke a následný vault wipe; 8/8 gateway + 11/11 UI | `write:devices` je denial-of-access authority; nejde o remote wipe ani desktop admin UI; fyzický lost-device journey `NOT RUN` |
 | Nastavení backendu | `SOURCE TESTED; DEVICE TEST PENDING` | live-only veřejné čtení; zápis 11 UX preferencí nad očekávanou revizí; 13/13 gateway/core + 13/13 UI | `write:settings` není default; nejde o obecný settings/security/model editor ani refreeze návrhu v2; fyzický WebView journey `NOT RUN` |
 | Uchovávané informace | `SOURCE TESTED; DEVICE TEST PENDING` | filtrované LTM/task-memory čtení a online vytvoření nové explicitní LTM položky; 12/12 gateway/core + 14/14 UI | `write:memory` není default; žádná náhrada, smazání, zápis task memory ani interní kategorie; fyzický WebView journey `NOT RUN` |
+| Agenti a specialisté | `SOURCE TESTED; DEVICE TEST PENDING` | filtrované seznamy a poslední důvěryhodný terminální běh; worker enable/disable nad očekávaným stavem, 12/12 gateway/core + 12/12 UI | `write:workers` není default; vypnutí neruší právě běžící práci; specialisté jsou read-only a create/edit/run/dry-run zůstávají mimo současnou autoritu |
 | Background lock | `EMULATOR VERIFIED` | `onPause` zapečetí vault, pošle do stránky `intentsmithLock` (zahodí credential z paměti, zruší běžící requesty, zneplatní epochu) a zvedne překryv; pozdní odpověď je inertní | ověřeno na emulátoru a šesti testy; fyzický telefon `NOT RUN` |
 | Odemčení | `EMULATOR VERIFIED` | systémový `BiometricPrompt` (otisk / obličej / PIN telefonu); po odemčení se stránka reloadne a čte z trezoru | vlastní PIN zůstává jen pro telefon **bez** zámku obrazovky; fyzická biometrie `NOT RUN` |
 | APK a podpis | historical internal build verified; current build `NOT RUN` | cross-platform workflow před buildem kontroluje JDK 21/API 36, release bez klíče selže a ověření podpisu po buildu je povinné | `--debug-signing` je vědomý únik pro jednorázový build; žádná production key ceremony |
