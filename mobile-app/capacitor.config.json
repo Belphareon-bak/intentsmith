@@ -1,17 +1,19 @@
 {
   "appId": "cz.intentsmith.companion",
   "appName": "IntentSmith",
-  "webDir": "www",
+  "webDir": "../src/mobile/client",
   "android": {
     "allowMixedContent": false,
     "captureInput": false,
     "webContentsDebuggingEnabled": false,
     "loggingBehavior": "none"
   },
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  },
   "server": {
-    "url": "http://127.0.0.1:3336",
-    "cleartext": true,
-    "errorPath": "unreachable.html",
     "androidScheme": "http"
   }
 }

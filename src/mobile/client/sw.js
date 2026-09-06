@@ -1,7 +1,7 @@
 // Service worker — app shell only.
 // ==============================================================================
 //
-// It caches the four static files that make up the shell and nothing else.
+// It caches the static files that make up the shell and nothing else.
 //
 // /m1 responses are deliberately NOT cached here.  Domain data caching is the
 // application's job, because DATA-MODEL §3 attaches *rules* to cache age —
@@ -14,8 +14,10 @@
 //
 // ==============================================================================
 
-const SHELL = 'is-shell-v5';
-const ASSETS = ['/', '/index.html', '/app.css', '/app.js', '/manifest.webmanifest'];
+const SHELL = 'is-shell-v6';
+const ASSETS = [
+  '/', '/index.html', '/runtime-config.js', '/app.css', '/app.js', '/manifest.webmanifest',
+];
 
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(SHELL).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting()));

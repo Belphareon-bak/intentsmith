@@ -71,6 +71,9 @@ test('release WebView diagnostics are disabled', () => {
   assert.equal(capacitorConfig.android.webContentsDebuggingEnabled, false);
   assert.equal(capacitorConfig.android.loggingBehavior, 'none');
   assert.equal(capacitorConfig.android.allowMixedContent, false);
+  assert.equal(capacitorConfig.webDir, '../src/mobile/client');
+  assert.equal(capacitorConfig.plugins.CapacitorHttp.enabled, true);
+  assert.deepEqual(capacitorConfig.server, { androidScheme: 'http' });
 });
 
 test('release signing still fails closed without an explicit key or escape', () => {

@@ -39,23 +39,20 @@ ANDROID_DIR="$APP_DIR/android"
 PORT="${C3_MOBILE_PORT:-3336}"
 APP_ID="cz.intentsmith.companion"
 
-# Kam se aplikace připojuje.  Výchozí je loopback telefonu, který přes
-# `adb reverse` vede kabelem sem.  Pro bezdrát (rozhodnutí 026) se sem dá
-# adresa v tunelu VPN:
+# Kam se zabalený klient připojuje. Výchozí je loopback telefonu, který přes
+# `adb reverse` vede kabelem sem. Vzdálený build musí použít HTTPS:
 #
-#   C3_MOBILE_APP_URL=http://100.64.1.5:3336 npm run mobile:android:build
+#   C3_MOBILE_APP_URL=https://gateway.example npm run mobile:android:build
 #
-# Je to vstup **buildu**, ne přepínač v aplikaci: Capacitor injektuje most do
-# stránky jen pro origin ze své konfigurace, takže přepínání adresy za běhu by
-# znamenalo přestavět most — a na jiné adrese přijít o trezor.  Interní APK si
-# stejně staví každý sám, takže je tohle poctivější než nastavení, které by
-# polovinu aplikace tiše vypnulo.  Runtime varianta je P1, viz handbook.
+# Je to vstup buildu, ne přepínač v aplikaci. `cap copy` zabalí jediný klient a
+# následující krok zapíše origin jen do ignorovaného Android assetu. Zdrojový
+# klient ani Capacitor konfigurace se buildem nemění.
 APP_URL="${C3_MOBILE_APP_URL:-http://127.0.0.1:$PORT}"
 
 # The toolchain is not assumed to be on PATH: this repo is developed on machines
 # where the Android SDK was unpacked by hand rather than installed by Studio.
 : "${ANDROID_HOME:=${ANDROID_SDK_ROOT:-$HOME/toolchain/android-sdk}}"
-: "${JAVA_HOME:=$HOME/toolchain/jdk17}"
+: "${JAVA_HOME:=$HOME/toolchain/jdk21}"
 export ANDROID_HOME ANDROID_SDK_ROOT="$ANDROID_HOME" JAVA_HOME
 ADB="$ANDROID_HOME/platform-tools/adb"
 
@@ -130,41 +127,11 @@ EOF
   note "  Je to interní prototypový klíč. Do obchodu s ním nic nejde."
 }
 
-# Zapiš adresu do konfigurace Capacitoru i do síťové politiky Androidu.
-# Obojí musí souhlasit: config říká, KAM se aplikace připojí, network security
-# config říká, kam smí BEZ TLS.  Kdyby se rozešly, aplikace by mlčky nespojila.
-cmd_configure_url() {
-  local url="$1"
-  local host
-  host="$(printf '%s' "$url" | sed -E 's#^[a-z]+://##; s#[:/].*$##')"
-
-  case "$url" in
-    https://*) ;;
-    http://127.0.0.1*|http://localhost*) ;;
-    http://*)
-      # Stejná pojistka, jakou má gateway na své straně: nešifrovaný provoz
-      # mimo loopback je vědomé rozhodnutí, ne překlep v proměnné.  Uvnitř VPN
-      # je obhajitelný, protože šifruje tunel — ale musí se to vyslovit.
-      if [ "${C3_MOBILE_APP_ALLOW_CLEARTEXT:-}" != "yes-i-know" ]; then
-        die "Adresa $url je nešifrovaná a míří mimo loopback.
-  Uvnitř VPN je to obhajitelné (tunel šifruje), jinde ne.
-  Vědomé povolení: C3_MOBILE_APP_ALLOW_CLEARTEXT=yes-i-know"
-      fi
-      note "· cleartext mimo loopback povolen vědomě: $host"
-      ;;
-    *) die "Adresa musí začínat http:// nebo https:// — dostal jsem: $url" ;;
-  esac
-
-  APP_DIR="$APP_DIR" ANDROID_DIR="$ANDROID_DIR" IS_URL="$url" IS_HOST="$host" \
-    python3 "$REPO_ROOT/scripts/mobile-android-configure-url.py"
-  note "✓ aplikace se bude připojovat na $url"
-}
-
 cmd_build() {
   [ -d "$ANDROID_DIR" ] || die "chybí $ANDROID_DIR — spusť nejdřív: cd mobile-app && npx cap add android"
-  cmd_configure_url "$APP_URL"
   echo "sdk.dir=$ANDROID_HOME" > "$ANDROID_DIR/local.properties"
   ( cd "$APP_DIR" && npx cap copy android >/dev/null )
+  node "$REPO_ROOT/scripts/mobile-android-prepare-assets.mjs" --url "$APP_URL"
   ( cd "$ANDROID_DIR" && ./gradlew --no-daemon :app:assembleRelease )
   local apk="$ANDROID_DIR/app/build/outputs/apk/release/app-release.apk"
   [ -f "$apk" ] || apk="$ANDROID_DIR/app/build/outputs/apk/release/app-release-unsigned.apk"

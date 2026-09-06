@@ -77,6 +77,7 @@ const STATIC_FILES = Object.freeze({
   '/index.html': { file: 'index.html', type: 'text/html; charset=utf-8' },
   '/app.css': { file: 'app.css', type: 'text/css; charset=utf-8' },
   '/app.js': { file: 'app.js', type: 'text/javascript; charset=utf-8' },
+  '/runtime-config.js': { file: 'runtime-config.js', type: 'text/javascript; charset=utf-8' },
   '/manifest.webmanifest': { file: 'manifest.webmanifest', type: 'application/manifest+json' },
   '/sw.js': { file: 'sw.js', type: 'text/javascript; charset=utf-8' },
 });

@@ -34,6 +34,10 @@
   <!-- Toast host for transient confirmations -->
   <div id="toasts" class="toasts" aria-live="polite"></div>
 
+  <!-- Same-origin is the browser default. The Android build replaces only
+       this tiny configuration asset after `cap copy`; application code stays
+       byte-identical to the gateway-served client. -->
+  <script src="/runtime-config.js"></script>
   <script src="/app.js" type="module"></script>
 </body>
 </html>

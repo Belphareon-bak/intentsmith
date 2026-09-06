@@ -24,7 +24,29 @@
 //
 // ==============================================================================
 
-const API = '/m1';
+function configuredGatewayOrigin() {
+  const raw = globalThis.INTENTSMITH_RUNTIME_CONFIG?.gatewayOrigin;
+  if (raw === undefined || raw === null || raw === '') return '';
+  if (typeof raw !== 'string') throw new TypeError('gateway_origin_invalid');
+
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new TypeError('gateway_origin_invalid');
+  }
+  if (!['http:', 'https:'].includes(parsed.protocol)
+      || parsed.username || parsed.password
+      || parsed.pathname !== '/' || parsed.search || parsed.hash) {
+    throw new TypeError('gateway_origin_invalid');
+  }
+  return parsed.origin;
+}
+
+// Browser/PWA stays same-origin. The packaged Android build injects the exact
+// gateway origin into runtime-config.js and CapacitorHttp carries these
+// requests through the native network stack without widening gateway CORS.
+const API = `${configuredGatewayOrigin()}/m1`;
 
 // MR-05.  One screenful with room to scroll, not the whole history: the old
 // `limit=100` was the server's ceiling, so a longer conversation was truncated

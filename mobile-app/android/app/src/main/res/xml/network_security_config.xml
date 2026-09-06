@@ -8,12 +8,12 @@
   `127.0.0.1:3336` the desktop's — the traffic never leaves the USB cable, so
   there is no network for cleartext to be observed on.
 
-  Android blocks cleartext by default since API 28, and the tempting fix is
+  The packaged UI uses CapacitorHttp, so it does not need browser CORS. Android
+  blocks cleartext by default since API 28, and the tempting fix is
   `android:usesCleartextTraffic="true"` on the application.  That would permit
   cleartext to *every* host, which on a phone that also has Wi-Fi is a much
-  larger permission than the one needed.  This file grants it to loopback only,
-  so a future build that starts talking to a real server cannot silently do it
-  in the clear.
+  larger permission than the one needed. This file grants it to loopback only;
+  the build configuration rejects non-loopback HTTP and requires HTTPS.
 -->
 <network-security-config>
     <domain-config cleartextTrafficPermitted="true">
