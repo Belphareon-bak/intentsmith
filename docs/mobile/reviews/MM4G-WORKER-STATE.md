@@ -3,6 +3,10 @@
 Status: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`
 Checkpoint commit: `7ac9e303`
 
+Historical checkpoint note: MM4-H (`fd8ad498`) later added metadata-only
+terminal run history. Counts and the complete-history non-claim below remain
+the evidence and boundary observed at MM4-G itself.
+
 This checkpoint adds one deliberately narrow worker mutation to the existing
 read projection: a paired device may enable or disable a worker only when it
 proves the boolean state it just read. It does not expose generic agent CRUD,

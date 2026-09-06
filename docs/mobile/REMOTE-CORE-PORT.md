@@ -2,10 +2,10 @@
 
 Status: `CANDIDATE_V1`
 
-Latest implementation checkpoint: MM4-G (`7ac9e303`) registers a narrow,
-precondition-checked worker enable/disable command. This is an additive
-candidate implementation, not a contract freeze; see
-[`reviews/MM4G-WORKER-STATE.md`](reviews/MM4G-WORKER-STATE.md).
+Latest implementation checkpoint: MM4-H (`fd8ad498`) extends the existing
+`workers.read` provider with worker detail and terminal run-history metadata.
+This is an additive candidate implementation, not a contract freeze; see
+[`reviews/MM4H-WORKER-RUN-HISTORY.md`](reviews/MM4H-WORKER-RUN-HISTORY.md).
 
 `RemoteCorePort` is the core-owned, in-process boundary used by the mobile
 gateway. It is deliberately narrower than the desktop HTTP listener: a mobile
@@ -76,6 +76,9 @@ fixed-shape lifecycle upstream: the mobile gateway never writes worker tables
 behind the live server. The legacy `AgentRepository` validates the expected
 enabled state inside an IMMEDIATE transaction and `AgentScheduler` remains the
 owner of rescheduling after enable.
+`workers.read` also accepts the exact `history` operation used by
+`GET /m1/workers/:id/runs`. It returns only bounded metadata for terminal rows
+and excludes execution content and untrustworthy live-run state.
 `settings.write` is limited to the eleven validated `UX_PREFERENCES_V1` paths
 and an exact expected revision; it is not a generic adapter over the settings
 repository. `storedInformation.write` permits only an atomic insert of a new
@@ -92,10 +95,10 @@ older `/m1` handlers remain on an exact allow-list during this transition; no
 route-map key and writes both human-readable and JSON artifacts. At this
 candidate checkpoint it records:
 
-- 248 unique routes;
-- 24 existing `/m1` routes;
+- 249 unique routes;
+- 25 existing `/m1` routes;
 - 224 broader desktop/core routes;
-- 84 routes mapped to the nine RemoteCorePort domains.
+- 85 routes mapped to the nine RemoteCorePort domains.
 
 The inventory is an exposure review input, not automatic permission. Security
 token and secret administration are marked `never-expose-admin`; governed

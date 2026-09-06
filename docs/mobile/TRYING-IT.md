@@ -28,7 +28,7 @@ i webového klienta**, takže na čtení žádný backend nepotřebuje. Legacy s
 | Seznam a odvolání spárovaných zařízení (`MS-04`) | ✅ — odvolání blokuje další requesty, není remote wipe |
 | Veřejné nastavení a zápis 11 UX preferencí (`MS-10`/`MS-11`) | ✅ — vyžaduje explicitní `write:settings`, legacy backend proces ne |
 | Uchovávané informace a vytvoření explicitní LTM položky (`MS-12`) | ✅ — vyžaduje explicitní `write:memory`; náhrada ani mazání nejsou dostupné |
-| Seznam agentů/specialistů | ✅ — filtrované čtení ze sdílené SQLite |
+| Seznam agentů/specialistů a terminální historie agenta | ✅ — filtrované čtení ze sdílené SQLite; historie je metadata-only |
 | **Zapnout nebo vypnout agenta** | ❌ — změna je záměrně delegovaná živému legacy serveru, který vlastní scheduler |
 | **Odeslat zprávu** | ❌ — `upstream: unreachable`, aplikace to řekne rovnou |
 | Approvaly s reálným obsahem | ✅ — produkční cesta je zapojená (`server.js`), takže je vyrobí skutečný zápis. Gateway je ale jen čte; **vyrábí** je backend, takže bez něj se nová otázka neobjeví |
@@ -208,6 +208,21 @@ Stav agenta zkontroluj v **Agenti** se spuštěným legacy backendem:
 Přesný authority path, precondition, journal a non-claims jsou v
 [MM4-G review](reviews/MM4G-WORKER-STATE.md).
 
+Detail a historii agenta zkontroluj v **Agenti → Detail a historie**:
+
+1. detail musí ukázat identitu, typ, stav a plán, ale nikdy definition/state,
+   log, error text, explain payload ani identitu triggeru;
+2. běhy musí být od nejnovějšího, pouze ukončené a jen se stavem `success`,
+   `partial` nebo `error`;
+3. **Načíst starší běhy** musí pokračovat do minulosti bez duplicit; nový běh
+   vložený mezi stránkami nesmí posunout již vydaný kurzor;
+4. bez `read:workers` se nesmí zobrazit ani dříve zapamatované jméno workera;
+5. odpojení, zamknutí nebo opuštění detailu nesmí historii nabízet jako offline
+   cache.
+
+Přesná projekce, kurzorový kontrakt, negativní scénáře a non-claims jsou v
+[MM4-H review](reviews/MM4H-WORKER-RUN-HISTORY.md).
+
 ---
 
 ## Známá omezení, ať je nehlásíš jako vady
@@ -220,7 +235,7 @@ Přesný authority path, precondition, journal a non-claims jsou v
 | Projekty jsou jen read-only | seznam a detail jsou zapojené; mutation kontrakt zatím není přijatý |
 | Nastavení není obecný desktop editor | zapisuje jen 11 `UX_PREFERENCES_V1` cest; security, modely, import/reset/backup a feature flags zůstávají mimo mobil |
 | Paměť je jen create-only | lze přidat nový explicitní LTM klíč; nelze nahradit ani smazat LTM, zapisovat task memory nebo interní kategorie |
-| Agent lifecycle je úzký | lze jen zapnout/vypnout worker nad živě načteným stavem; create/edit/run/dry-run ani cancel právě běžící práce nejsou dostupné |
+| Agent lifecycle je úzký | lze číst metadata ukončených běhů a zapnout/vypnout worker nad živě načteným stavem; live progress, create/edit/run/dry-run ani cancel právě běžící práce nejsou dostupné |
 | Specialisté jsou read-only | bezpečný živý mutation port přes `SpecialistLoader` zatím neexistuje; přímý DB toggle by obcházel runtime autoritu |
 | Odvolání zařízení není remote wipe | nový přístup se zablokuje; obsah už uložený v offline telefonu tím nezmizí |
 | Notifikace nedorazí do spící aplikace | Push (`N-1`) není; schránka je pull. Naplnit ji umí `npm run mobile:demo` |

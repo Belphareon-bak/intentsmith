@@ -1,11 +1,12 @@
 # IntentSmith Mobile — klientský datový, cache a trust model
 
 > **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
-> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 24
+> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 25
 > rout; vedle worker/specialist read modelu, správy zařízení, revizního
 > `PUT /m1/settings` a create-only `POST /m1/memory` obsahuje precondition-checked
-> `PUT /m1/workers/:id/enabled`. Autoritou poslední změny je review
-> `MM4G-WORKER-STATE`;
+> `PUT /m1/workers/:id/enabled` a metadata-only
+> `GET /m1/workers/:id/runs`. Autoritou poslední změny je review
+> `MM4H-WORKER-RUN-HISTORY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná produktová fáze není DONE
@@ -788,6 +789,13 @@ důkazy, B6 ani životní cyklus `MD-08` nejsou produkčně uzavřené.
 > readem. Konflikt přebírá serverovou pravdu. Timeout nebo chyba po možném
 > efektu je `UNKNOWN` v `MD-19`, nikdy automatický retry. Vypnutí zastavuje
 > budoucí plánované běhy, ne již běžící práci. Specialisté zůstávají read-only.
+
+> **MM4-H history overlay:** detail workera a stránky ukončených běhů jsou
+> live-only `ST-MEM`, nikoli `ST-DB` cache. Projekce je omezena na S1 metadata:
+> id, `success|partial|error`, start/dokončení a počty akcí/triggerů. `running`,
+> log, error text, explain payload, identity triggerů a worker
+> definition/state/params se neposílají. Opaque kurzor je svázaný s workerem a
+> směrem do minulosti; scope/session/background invalidace detail zahodí.
 
 ---
 

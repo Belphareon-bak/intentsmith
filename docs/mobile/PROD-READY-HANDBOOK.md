@@ -358,6 +358,18 @@ běžící práci. Specialist mutation, create/edit/run/dry-run, fyzický WebVie
 průchod a nezávislé security review zůstávají otevřené. Viz
 [MM4-G review](reviews/MM4G-WORKER-STATE.md).
 
+### P1-3d Detail agenta a terminální historie
+
+Stav MM4-H: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`.
+`GET /m1/workers/:id/runs` používá `read:workers` a vrací samostatný detail
+workera plus nejnovější stránku ukončených běhů. Kurzor je neprůhledný, svázaný
+s workerem a směrem do minulosti. Mobil dostane jen id, terminální stav, čas
+startu/dokončení a počty akcí a triggerů; `running`, logy, chybové texty,
+explain payloady, identity triggerů, definition/state/params ani run commands
+nejsou součástí projekce. Historie není perzistentní offline cache. 15/15
+gateway/core a 15/15 UI scénářů prošlo, fyzický WebView průchod nikoli. Viz
+[MM4-H review](reviews/MM4H-WORKER-RUN-HISTORY.md).
+
 ### P1-4 Push, nebo přiznané pull-only
 
 | | |
@@ -509,8 +521,8 @@ jiného, telefon nemá zámek obrazovky — a to je nález, ne detail.
 
 ## 6. Co tenhle handbook **nezavádí**
 
-- Handbook sám nezavádí kontrakt. Aktuální přesný allow-list má 24 rout;
-  poslední worker-state routu přidal a otestoval MM4-G, ne tento dokument.
+- Handbook sám nezavádí kontrakt. Aktuální přesný allow-list má 25 rout;
+  poslední worker-history routu přidal a otestoval MM4-H, ne tento dokument.
 - Žádný termín. Termíny patří operátorovi; tady jsou jen závislosti a pořadí.
 - Žádné „nice to have". Každá položka výše má popsaný způsob, jak selže —
   když ho někdo nedokáže popsat u nové položky, do seznamu nepatří.

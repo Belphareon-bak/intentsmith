@@ -1,11 +1,12 @@
 # IntentSmith Mobile — mapa obrazovek a toků, fáze 1–5
 
 > **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
-> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 24
+> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 25
 > rout; vedle worker/specialist read modelu, správy zařízení, revizního
 > `PUT /m1/settings` a create-only `POST /m1/memory` obsahuje precondition-checked
-> `PUT /m1/workers/:id/enabled`. Autoritou poslední změny je review
-> `MM4G-WORKER-STATE`;
+> `PUT /m1/workers/:id/enabled` a metadata-only
+> `GET /m1/workers/:id/runs`. Autoritou poslední změny je review
+> `MM4H-WORKER-RUN-HISTORY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná obrazovka tím není produktově DONE
@@ -700,10 +701,11 @@ ne přepis běhu.**
 
 ### Fáze 5 — Workeři
 
-> **Implementační checkpoint MM4-G (2026-09-06):** `MS-18` má filtrovaný
-> worker read model, poslední důvěryhodný terminální běh a úzké zapnutí/vypnutí
+> **Implementační checkpoint MM4-H (2026-09-06):** `MS-18` má filtrovaný
+> worker read model, samostatný detail, stránkovanou metadata-only terminální
+> historii a úzké zapnutí/vypnutí
 > nad očekávaným živým stavem. UI vyžaduje `read:workers` + `write:workers`,
-> `FRESH` live read a dvoukrokové potvrzení. `MS-19`, úplná run historie,
+> `FRESH` live read a dvoukrokové potvrzení. `MS-19`, execution obsah, live
 > progress/cancel, create/edit a všechny specialist mutation zůstávají návrhem
 > bez produkčního provideru.
 
@@ -717,7 +719,7 @@ ne přepis běhu.**
 |---|---|
 | `SS-01` | Skeleton |
 | `SS-02` | „Žádní agenti" |
-| `SS-03` | Stav ze cache se stářím; **výstupy běhů i ovládání nedostupné** (`MD-17`) |
+| `SS-03` | Seznam může být ze cache se stářím; detail a historie běhů vyžadují live read a ovládání je nedostupné (`MD-17`) |
 | `SS-04` | Stav agenta zastarává rychle; ovládání se zamkne, dokud neproběhne živý refresh |
 | `SS-05` | Refresh |
 | `SS-06` | Jako `MS-06` |
