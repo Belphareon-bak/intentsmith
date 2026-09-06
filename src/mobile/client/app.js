@@ -128,6 +128,8 @@ const secure = {
   mode: 'browser',
   /** Why not native, when a shell *was* present.  Rendered, not swallowed. */
   reason: null,
+  /** A pre-release encrypted-preferences vault was removed and must be paired once. */
+  repairRequired: false,
   lock: { hasPin: false, locked: false, maxFailures: 0, kind: 'none' },
   cache: { token: null, device: null },
 
@@ -143,6 +145,7 @@ const secure = {
     this.plugin = plugin;
     try {
       const state = await plugin.getState();
+      this.repairRequired = Boolean(state.repairRequired);
       this.lock = {
         hasPin: Boolean(state.hasPin),
         locked: Boolean(state.locked),
@@ -167,24 +170,40 @@ const secure = {
   },
 
   async save({ token, deviceId }) {
-    this.cache = { token, device: deviceId };
-    if (!this.native) return;
+    // A shell is never allowed to fall back to localStorage.  If its vault did
+    // not open, pairing must stop rather than turn an S3 token into browser
+    // data while the screen still looks like the installed app.
+    if (!this.plugin || !this.native) return false;
     try {
       await this.plugin.save({ token, deviceId: deviceId || '' });
+      this.cache = { token, device: deviceId };
+      this.repairRequired = false;
+      return true;
     } catch (error) {
-      // The credential is in memory and the session works; what failed is its
-      // durability.  Saying so is the difference between "you will have to pair
-      // again tomorrow" and a mystery.
+      this.cache = { token: null, device: null };
       this.reason = String(error?.message || error);
       this.mode = 'browser';
+      return false;
     }
   },
 
   async clear() {
+    if (this.plugin) {
+      try {
+        // Plugin.clear is deliberately able to destroy a corrupt vault.  Its
+        // success is the logout boundary; do not claim a wipe before it.
+        await this.plugin.clear();
+        this.mode = 'native';
+        this.reason = null;
+      } catch (error) {
+        this.reason = String(error?.message || error);
+        return false;
+      }
+    }
     this.cache = { token: null, device: null };
-    if (!this.native) return;
-    try { await this.plugin.clear(); } catch { /* wiped locally regardless */ }
+    this.repairRequired = false;
     this.lock = { ...this.lock, hasPin: false };
+    return true;
   },
 
   /**
@@ -228,33 +247,40 @@ const auth = {
   // Reads stay synchronous.  In the shell they answer from the credential
   // hydrated at boot; in a browser they answer from `localStorage`, exactly as
   // before.  Nothing else in this file had to learn the difference.
-  get token() { return secure.native ? secure.cache.token : store.get(K.token); },
-  get device() { return secure.native ? secure.cache.device : store.get(K.device); },
+  // Presence of the plugin, not successful hydration, is the boundary.  A
+  // broken installed shell must not read an old browser token as a fallback.
+  get token() { return secure.plugin ? secure.cache.token : store.get(K.token); },
+  get device() { return secure.plugin ? secure.cache.device : store.get(K.device); },
   get scopes() { return store.get(K.scopes, []); },
   has(scope) { return (store.get(K.scopes, []) || []).includes(scope); },
-  save({ token, deviceId, scopes }) {
+  async save({ token, deviceId, scopes }) {
     // A new credential is a lifecycle boundary.  No approval authority or
     // process-local attribution from the prior credential may cross it; the
     // durable MD-19 journal intentionally remains separate.
     invalidateApprovalSession();
-    if (secure.native) {
-      // Memory first so the caller's next synchronous read already sees it; the
-      // durable write is awaited by nobody because failing it degrades the
-      // session rather than ending it, and `secure.save` records that.
-      secure.save({ token, deviceId });
+    if (secure.plugin) {
+      if (!await secure.save({ token, deviceId })) {
+        const error = new Error(secure.reason || 'vault_unavailable');
+        error.code = 'vault_unavailable';
+        throw error;
+      }
     } else {
       store.set(K.token, token);
       store.set(K.device, deviceId);
     }
     replaceScopes(scopes || []);
   },
-  clear() {
+  async clear() {
     invalidateApprovalSession();
     // `E-LOGOUT` (`MD-11`): the credential goes first, and it goes from
     // wherever it actually lives.  A wipe that only cleared `localStorage`
     // would leave a working token in the Keystore of a device the user just
     // logged out.
-    secure.clear();
+    if (!await secure.clear()) {
+      const error = new Error(secure.reason || 'vault_clear_failed');
+      error.code = 'vault_clear_failed';
+      throw error;
+    }
     store.wipeDomain();
   },
 };
@@ -1245,6 +1271,7 @@ function sectionRoute(section) {
 
 function viewPairing({ error = null, busy = false } = {}) {
   const prefill = new URLSearchParams(location.hash.slice(1)).get('pair') || '';
+  const vaultBroken = Boolean(secure.plugin && !secure.native);
   return `
     <div class="pair">
       <div class="pair-brand">
@@ -1254,6 +1281,8 @@ function viewPairing({ error = null, busy = false } = {}) {
           <p class="pair-lead">Naskenuj QR kód z desktopu. Token se nikam neopisuje — kód je jednorázový a má omezenou platnost.</p>
         </div>
       </div>
+      ${secure.repairRequired ? `<div class="pair-error">Bezpečné úložiště bylo aktualizováno. Starý prototypový trezor byl bezpečně odstraněn; pro pokračování zařízení jednou znovu spáruj.</div>` : ''}
+      ${vaultBroken ? `<div class="pair-error">Bezpečné úložiště telefonu není dostupné${secure.reason ? `: ${esc(secure.reason)}` : '.'} Párovací kód neposílej, dokud trezor neopravíš. <button class="btn btn-secondary" data-act="repair-vault">Vymazat poškozený trezor</button></div>` : ''}
       ${error ? `<div class="pair-error">${esc(error)}</div>` : ''}
       <div class="field">
         <label for="pair-code">Párovací kód</label>
@@ -1266,7 +1295,7 @@ function viewPairing({ error = null, busy = false } = {}) {
         <label for="pair-name">Název zařízení</label>
         <input id="pair-name" type="text" placeholder="např. Pixel" value="${esc(guessDeviceName())}">
       </div>
-      <button class="btn btn-primary btn-block" data-act="pair" ${busy ? 'disabled' : ''}>
+      <button class="btn btn-primary btn-block" data-act="pair" ${busy || vaultBroken ? 'disabled' : ''}>
         ${busy ? 'Připojuji…' : 'Připojit'}
       </button>
       <div class="pair-steps">
@@ -4473,15 +4502,17 @@ async function doPair() {
       return;
     }
 
-    auth.save(payload.data);
+    await auth.save(payload.data);
     state.session = 'active';
     transitionRoute('conversations');
     history.replaceState(null, '', location.pathname);
     toast('Zařízení připojeno');
     await loadConversations();
     loadDiagnostics();
-  } catch {
-    state.error.pairing = 'Server není dostupný. Zkontroluj, že jsi na stejné síti / VPN.';
+  } catch (error) {
+    state.error.pairing = error?.code === 'vault_unavailable'
+      ? 'Server kód přijal, ale bezpečné úložiště telefonu zápis odmítlo. Token nebyl uložen. Oprav trezor nebo aplikaci přeinstaluj a na desktopu vygeneruj nový kód.'
+      : 'Server není dostupný. Zkontroluj, že jsi na stejné síti / VPN.';
   } finally {
     state.loading.pairing = false;
     render();
@@ -4936,17 +4967,32 @@ async function ackAll() {
   }
 }
 
-function logout() {
+async function logout() {
   const open = journal.open();
   // MD-19 E-LOGOUT: the warning must state the consequence, not just ask.
   const message = open.length
     ? `Máš ${open.length} nerozřešených operací. Odhlášením zmizí lokální klíče, ale efekt na serveru může zůstat nerozřešený a z telefonu ho už nedohledáš.\n\nOpravdu odhlásit?`
     : 'Odhlásit zařízení a smazat lokální data?';
   if (!confirm(message)) return;
-  auth.clear();
+  try {
+    await auth.clear();
+  } catch {
+    toast('Bezpečné úložiště se nepodařilo smazat. Zařízení zůstává přihlášené; aplikaci ukonči a zkus to znovu.', 'danger');
+    return;
+  }
   state.session = 'unpaired';
   state.data = {};
   render();
+}
+
+async function repairLocalState() {
+  try {
+    await auth.clear();
+    state.session = 'unpaired';
+    render();
+  } catch {
+    toast('Lokální oprava selhala; trezor nebyl prokazatelně smazán.', 'danger');
+  }
 }
 
 /**
@@ -5040,7 +5086,8 @@ document.addEventListener('click', event => {
     'project-state': () => loadProjects(target.dataset.state),
     send: doSend,
     pair: doPair,
-    repair: () => { auth.clear(); state.session = 'unpaired'; render(); },
+    repair: repairLocalState,
+    'repair-vault': repairLocalState,
     logout,
     diagnostics: () => navigate('diagnostics'),
     operations: () => navigate('operations'),

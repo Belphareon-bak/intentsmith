@@ -78,6 +78,13 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(VaultPlugin.class);
+        // Seal the plugin before BridgeActivity is allowed to start the
+        // WebView.  Waiting until super.onCreate() returns leaves a cold-start
+        // race in which page JavaScript can call read() before the visible
+        // overlay exists.  Context is already attached when onCreate begins,
+        // so the vault and system-lock decision are available here.
+        boolean coldStartLocked = LockPolicy.lockEngaged(this);
+        if (coldStartLocked) VaultPlugin.LockState.lock();
         super.onCreate(savedInstanceState);
 
         // Before anything can be drawn, and not per screen: a flag that is only
@@ -92,7 +99,7 @@ public class MainActivity extends BridgeActivity {
         installLockOverlay();
 
         // A cold start is a return from the longest possible background.
-        if (LockPolicy.lockEngaged(this)) {
+        if (coldStartLocked) {
             engageLock();
         }
     }

@@ -99,10 +99,10 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
-    // MD-11 / I-6: the credential is S3 and belongs in ST-SECURE.  This is the
-    // Keystore-backed store that makes ST-SECURE exist on Android at all —
-    // see LockPolicy.java.
-    implementation "androidx.security:security-crypto:1.1.0-alpha06"
+    // MD-11 / I-6: KeystoreVault uses the platform AndroidKeyStore directly.
+    // AndroidX Security Crypto deprecated EncryptedSharedPreferences and
+    // MasterKey; retaining that wrapper would add an obsolete security format
+    // to the release solely for prototype compatibility.
     // MR-23 / P-4: the lock is the *system* credential where the device has
     // one.  A screen lock the user already trusts beats a PIN this app would
     // have to store, rate-limit and get right on its own.

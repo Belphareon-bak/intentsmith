@@ -31,16 +31,20 @@ public class VaultPlugin extends Plugin {
     @PluginMethod
     public void getState(PluginCall call) {
         JSObject result = new JSObject();
-        result.put("available", LockPolicy.available(getContext()));
-        result.put("error", LockPolicy.openError());
         result.put("hasPin", LockPolicy.pinIsSet(getContext()));
         // Which lock is actually in force, so the settings screen states the
         // truth rather than offering a PIN on a phone that uses its own.
         result.put("lockKind", LockPolicy.lockKind(getContext()).name().toLowerCase());
         result.put("hasCredential", LockPolicy.hasCredential(getContext()));
+        result.put("repairRequired", LockPolicy.repairRequired(getContext()));
         result.put("locked", LockState.isLocked());
         result.put("failures", LockPolicy.failures(getContext()));
         result.put("maxFailures", LockPolicy.MAX_FAILURES);
+        // Read this last: any authenticated read above can discover corruption
+        // and turn the vault unavailable.  Returning the earlier optimistic
+        // value would make a broken store look healthy for one boot.
+        result.put("available", LockPolicy.available(getContext()));
+        result.put("error", LockPolicy.openError());
         call.resolve(result);
     }
 
@@ -84,12 +88,19 @@ public class VaultPlugin extends Plugin {
         result.put("token", LockPolicy.get(getContext(), LockPolicy.K_TOKEN, null));
         result.put("deviceId", LockPolicy.get(getContext(), LockPolicy.K_DEVICE, null));
         result.put("scopes", LockPolicy.get(getContext(), LockPolicy.K_SCOPES, "[]"));
+        if (!LockPolicy.available(getContext())) {
+            call.reject("vault_unavailable", LockPolicy.openError());
+            return;
+        }
         call.resolve(result);
     }
 
     @PluginMethod
     public void clear(PluginCall call) {
-        LockPolicy.clearAll(getContext());
+        if (!LockPolicy.clearAll(getContext())) {
+            call.reject("vault_clear_failed", LockPolicy.openError());
+            return;
+        }
         LockState.unlock();
         call.resolve(new JSObject().put("cleared", true));
     }

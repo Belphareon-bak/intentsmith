@@ -97,12 +97,19 @@ globalThis.fetch = async () => { throw new TypeError('this suite does not call t
 // Modelled on `LockPolicy.java` rather than on the plugin's happy path: it can
 // be locked, it can refuse to open, and `read()` rejects while locked.  A fake
 // that always succeeded would only prove the client can call a function.
-function fakeVault({ available = true, error = null, hasPin = false, locked = false, lockKind = null } = {}) {
+function fakeVault({
+  available = true,
+  error = null,
+  hasPin = false,
+  locked = false,
+  lockKind = null,
+  repairRequired = false,
+} = {}) {
   const held = { token: null, deviceId: null, scopes: '[]' };
   const vault = {
     calls: [],
     state: {
-      available, error, hasPin, locked, hasCredential: false, maxFailures: 10,
+      available, error, hasPin, locked, repairRequired, hasCredential: false, maxFailures: 10,
       lockKind: lockKind || (hasPin ? 'pin' : 'none'),
     },
     async getState() {
@@ -121,6 +128,7 @@ function fakeVault({ available = true, error = null, hasPin = false, locked = fa
       held.token = token;
       held.deviceId = deviceId;
       vault.state.locked = false;
+      vault.state.repairRequired = false;
       return { saved: true };
     },
     async clear() {
@@ -171,6 +179,7 @@ function resetAdapter() {
   secure.plugin = null;
   secure.mode = 'browser';
   secure.reason = null;
+  secure.repairRequired = false;
   secure.lock = { hasPin: false, locked: false, maxFailures: 0 };
   secure.cache = { token: null, device: null };
   state.error = {};
@@ -197,7 +206,7 @@ await test('MD-11 in the shell the token never reaches localStorage', async () =
   assert.equal(secure.native, true, `vault did not open: ${secure.reason}`);
 
   // The pairing path, exactly as `doPair` calls it.
-  auth.save({ token: 'tok-secret-value', deviceId: 'dev-1', scopes: ['read:chat'] });
+  await auth.save({ token: 'tok-secret-value', deviceId: 'dev-1', scopes: ['read:chat'] });
 
   assert.ok(!everythingStored().includes('tok-secret-value'),
     `the credential was mirrored into localStorage:\n${everythingStored()}`);
@@ -221,15 +230,32 @@ await test('MR-23 a locked vault yields no credential, and that is not "unpaired
   assert.ok(!vault.calls.includes('read'), 'the client tried to read a locked vault');
 });
 
+await test('legacy vault reset is explicit and clears after successful re-pairing', async () => {
+  resetAdapter();
+  const vault = fakeVault({ repairRequired: true });
+  installShell(vault);
+  await secure.hydrate();
+
+  state.session = 'unpaired';
+  render();
+  assert.ok(nodes.app.innerHTML.includes('Bezpečné úložiště bylo aktualizováno'),
+    'the one-time credential reset was hidden from the operator');
+  assert.ok(nodes.app.innerHTML.includes('znovu spáruj'),
+    'the recovery action was not stated');
+
+  await secure.save({ token: 'tok-repaired', deviceId: 'dev-repaired' });
+  assert.equal(secure.repairRequired, false,
+    'the migration warning survived a successful replacement credential');
+});
+
 await test('E-LOGOUT clears the vault, not only the browser store', async () => {
   resetAdapter();
   const vault = fakeVault();
   installShell(vault);
   await secure.hydrate();
-  auth.save({ token: 'tok-1', deviceId: 'dev-1', scopes: [] });
+  await auth.save({ token: 'tok-1', deviceId: 'dev-1', scopes: [] });
 
-  auth.clear();
-  await Promise.resolve();
+  await auth.clear();
   assert.ok(vault.calls.includes('clear'),
     'logout left a working token in the Keystore of a device that just logged out');
   assert.equal(auth.token, null);
@@ -245,7 +271,7 @@ await test('without a shell nothing changes — the token is in localStorage, as
   assert.equal(secure.plugin, null);
   assert.equal(secure.reason, null, 'a plain browser is not a degraded shell and must not report one');
 
-  auth.save({ token: 'tok-browser', deviceId: 'dev-2', scopes: [] });
+  await auth.save({ token: 'tok-browser', deviceId: 'dev-2', scopes: [] });
   assert.equal(store.get(K.token), 'tok-browser');
   assert.equal(auth.token, 'tok-browser');
 });
@@ -269,6 +295,29 @@ await test('a shell whose vault will not open is reported, never silently downgr
     'the settings screen did not say the vault is broken');
   assert.ok(markup.includes('KeyStoreException'),
     'the reason was swallowed, leaving the user with a mystery');
+});
+
+await test('a broken native vault never falls back to localStorage during pairing', async () => {
+  resetAdapter();
+  installShell(fakeVault({ available: false, error: 'KeyStoreException: invalidated' }));
+  await secure.hydrate();
+
+  state.session = 'unpaired';
+  render();
+  assert.ok(nodes.app.innerHTML.includes('Párovací kód neposílej'),
+    'pairing did not warn before a one-time code could be consumed');
+  assert.match(nodes.app.innerHTML, /data-act="pair" disabled/,
+    'pairing remained enabled while secure persistence was unavailable');
+  assert.ok(nodes.app.innerHTML.includes('data-act="repair-vault"'),
+    'the unavailable vault had no local recovery action');
+
+  await assert.rejects(
+    () => auth.save({ token: 'must-never-be-browser-data', deviceId: 'dev-broken', scopes: [] }),
+    error => error.code === 'vault_unavailable',
+  );
+  assert.ok(!everythingStored().includes('must-never-be-browser-data'),
+    'the installed shell downgraded an S3 token into localStorage');
+  assert.equal(auth.token, null, 'a rejected credential remained usable in memory');
 });
 
 await test('the settings screen names the real store in each mode', async () => {
@@ -362,7 +411,7 @@ await test('MR-23 locking drops the credential the page was holding', async () =
   resetAdapter();
   installShell(fakeVault());
   await secure.hydrate();
-  auth.save({ token: 'tok-in-memory', deviceId: 'dev-1', scopes: [] });
+  await auth.save({ token: 'tok-in-memory', deviceId: 'dev-1', scopes: [] });
   assert.equal(auth.token, 'tok-in-memory');
 
   lockDownSession();
@@ -394,7 +443,7 @@ await test('MR-23 a request in flight when the lock falls is aborted', async () 
   resetAdapter();
   installShell(fakeVault());
   await secure.hydrate();
-  auth.save({ token: 'tok-1', deviceId: 'dev-1', scopes: [] });
+  await auth.save({ token: 'tok-1', deviceId: 'dev-1', scopes: [] });
 
   let aborted = false;
   globalThis.fetch = (url, options) => new Promise((resolve, reject) => {
@@ -420,7 +469,7 @@ await test('MR-23 a response that lands after the lock is inert', async () => {
   resetAdapter();
   installShell(fakeVault());
   await secure.hydrate();
-  auth.save({ token: 'tok-1', deviceId: 'dev-1', scopes: [] });
+  await auth.save({ token: 'tok-1', deviceId: 'dev-1', scopes: [] });
 
   // The realistic shape: the server already answered, the bytes are on their
   // way, and `fetch` resolves *after* the lock.  Nothing aborted it — so the
@@ -447,7 +496,7 @@ await test('MR-23 a locked session issues nothing at all', async () => {
   resetAdapter();
   installShell(fakeVault());
   await secure.hydrate();
-  auth.save({ token: 'tok-1', deviceId: 'dev-1', scopes: [] });
+  await auth.save({ token: 'tok-1', deviceId: 'dev-1', scopes: [] });
   lockDownSession();
 
   let called = false;
@@ -462,7 +511,7 @@ await test('MR-23 unlocking lets the session work again', async () => {
   resetAdapter();
   installShell(fakeVault());
   await secure.hydrate();
-  auth.save({ token: 'tok-1', deviceId: 'dev-1', scopes: [] });
+  await auth.save({ token: 'tok-1', deviceId: 'dev-1', scopes: [] });
   lockDownSession();
   unlockSession();
 
