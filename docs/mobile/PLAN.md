@@ -1,5 +1,11 @@
 # IntentSmith Mobile — zadání a plán realizace
 
+> **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
+> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 19
+> rout; poslední dvě jsou scope-gated read-only `/m1/workers` a
+> `/m1/specialists`. Autoritou změny je review `MM4C-WORKERS-SPECIALISTS-READ`;
+> wildcard ani obecný `/api` proxy nevznikl.
+
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; **žádná produktová fáze není DONE**
 **Revize:** vstupy `RV-028`, `RV-036`, `RV-037`, reconciliation `RV-038`; Composition Review C `RV-039`/`RV-040`; registr a chráněné hodnoty `RV-042`/`RV-043`
 **Datum:** 2026-08-01
