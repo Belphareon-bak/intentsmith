@@ -15,7 +15,7 @@ Release verdict: `NOT READY`
 | `MM2` RemoteCorePort | `IN PROGRESS` | candidate `f4861bca` | 7 production provider registrations; freeze remains open |
 | `MM3` primary mobile surfaces | `IN PROGRESS` | projects `1a7be999`; conversations `ddb90e7e` | project list/detail and conversation reads implemented; search/runs open |
 | `MM4` governed surfaces | `IN PROGRESS` | settings `87a51930`; memory `2c33fd9b`; workers/specialists `49dd991d` | read projections implemented; safe mutations remain open |
-| `MM5` transport and hardening | `IN PROGRESS` | packaged transport `a5d5bab4` | canonical UI is packaged; native HTTP transport and fail-closed endpoint policy implemented; vault hardening remains open |
+| `MM5` transport and hardening | `IN PROGRESS` | transport `a5d5bab4`; vault `14be72b8` | packaged native transport and direct AndroidKeyStore vault implemented; remote TLS/identity, push/offline policy and external security review remain open |
 | `MM6` Android release | `IN PROGRESS` | platform `d4607100`; CLI `d8bbea33`; artifacts `8e98924d` | API 36, cross-platform workflow, versioned APK/AAB manifest and SBOM implemented; binary build, production signing and device evidence open |
 
 ## Known external blockers
@@ -31,7 +31,7 @@ Release verdict: `NOT READY`
 
 ## Latest verification
 
-- Mobile gate: `PASS` — 51/51 active suites, 1 prerequisite-blocked suite.
+- Mobile gate: `PASS` — 52/52 active suites, 1 prerequisite-blocked suite.
 - RemoteCorePort candidate: 12/12 contract checks.
 - Backend inventory: 243 unique static routes; digest
   `851339fe2e6c4f94acbaabc76606c0ae2e94cdcbe206fc216fc9f7a9358b12bb`.
@@ -44,11 +44,14 @@ Release verdict: `NOT READY`
   the `/m1` boundary.
 - Android release CLI: `PASS` — 11/11 checks on Windows; `doctor` runs without
   Bash and accurately reports the absent JDK, SDK, signing material and device.
+- Direct AndroidKeyStore boundary: `PASS` — 12/12 source invariants and 19/19
+  client credential/lifecycle scenarios. Three device-side instrumented tests
+  are implemented but not run without an Android toolchain and target.
 - Release artifacts: `PASS` — 10/10 checks; Gradle consumes the tracked
   `0.1.0`/`1000` metadata and the workflow requires signed APK+AAB, CycloneDX
   SBOM and a source/endpoint/signer manifest.
-- Test registry: 434 runnable programs; digest
-  `a64556159d6278feaa3ac30664d8535a1632292ad439af9f52215fe87b26e07b`.
+- Test registry: 435 runnable programs; digest
+  `7766af6e373b90d01ea3ea6517d03540be292b5f203202b1d75003a008db46da`.
 - Module boundary: `PASS` — 1,106 edges, 3 pre-existing cycles; reviewed
   provider additions are pinned to their MM3/MM4 checkpoint commits.
 

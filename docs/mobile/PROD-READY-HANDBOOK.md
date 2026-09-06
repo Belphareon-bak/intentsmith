@@ -59,8 +59,10 @@ Rozhoduje se **pět věcí najednou**, a je poctivé je vypsat, protože „při
 024" jinak znamená pro každého něco jiného: (1) producent smí razit approvaly,
 (2) devět vět S1 slovníku je text, který uživatel uvidí, (3) čekání na řádku je
 přijatelný mechanismus napříč procesy, (4) `adb reverse` je pro prototyp
-dostatečná cesta, (5) `EncryptedSharedPreferences` + systémový zámek jsou
-přijatelná hranice **pro interní použití**.
+dostatečná cesta, (5) systémový zámek a ST-SECURE vault jsou přijatelná
+hranice **pro interní použití**. Původní `EncryptedSharedPreferences` už není
+aktuální implementace: MM5-B jej nahradil přímým AES-GCM klíčem v
+`AndroidKeyStore`.
 
 ### P0-2 Skutečný effect seam — ✅ **ZAPNUTO** (2026-08-19), rozsah `FILE_WRITE` + `fs.write`
 
@@ -330,8 +332,14 @@ approvalů omezená na „mám telefon zrovna v ruce".
 | **Důkaz** | rozhodnutí + test, že logout maže, co má |
 | **Pád** | S2 obsah přežije odhlášení v cache WebView, kterou nikdo nesmazal |
 
-Dnes: credential je v Keystore, **cache klienta ne**. `P-3` (`ST-DB` chráněná
-klíčem z `ST-SECURE`) je stále jen návrh.
+Dnes: credential, identita zařízení, PIN verifier a čítač pokusů jsou ve
+verzovaných AES-GCM obálkách pod neexportovatelným AndroidKeyStore klíčem.
+Náhodné IV generuje provider, identita záznamu je AAD a logické skupiny se
+commitují atomicky. Nativní shell se při chybě nikdy nevrací do
+`localStorage`; párování je zablokované ještě před odesláním jednorázového
+kódu. **Cache klienta ale šifrovaná není.** `P-3` (`ST-DB` chráněná klíčem z
+`ST-SECURE`) zůstává návrh. Detail a non-claims:
+[MM5-B review](reviews/MM5B-DIRECT-ANDROID-KEYSTORE.md).
 
 ### P1-6 Accessibility a device matice
 
@@ -444,6 +452,7 @@ jiného, telefon nemá zámek obrazovky — a to je nález, ne detail.
 |---|---|
 | aplikace ukazuje „Gateway není dostupná" | běží gateway? je otevřený `adb reverse`? (`mobile:android:doctor`) |
 | párovací skript nevydá kód | `C3_MOBILE_PAIRING=on` — bez něj skončí tiše a exit 0 |
+| párování je zablokované hláškou o trezoru | nejdřív použít „Vymazat poškozený trezor“; pokud selže, přeinstalovat aplikaci; nový párovací kód vytvořit až potom |
 | fronta approvalů je prázdná | běžel `mobile:demo`? má zařízení scope `read:approvals`? |
 | snímek obrazovky je černý | `FLAG_SECURE`; v debug buildu `adb shell settings put global intentsmith_capture 1` |
 | po odemčení je aplikace prázdná | správně: relace se po zamčení čte z trezoru znovu, ne z paměti |

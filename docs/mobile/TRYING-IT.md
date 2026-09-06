@@ -1,7 +1,7 @@
 # Jak si mobilní aplikaci zkusit — i bez backendu
 
-Praktický runbook pro kanonický prototyp na větvi
-`wp/mobile-prototype-20260817`. Aktuální stav, cesta k APK, důkazy a prod-ready
+Praktický runbook pro kanonickou aplikaci na větvi
+`mobile/master-prod-ready`. Aktuální stav, cesta k APK, důkazy a prod-ready
 mezery jsou výhradně v [FINAL-PROTOTYPE.md](FINAL-PROTOTYPE.md).
 
 Tento návod obslouží stejný klient ve webovém prohlížeči i v Android shellu.
@@ -117,6 +117,12 @@ výsledné APK nejsou production release signing. Vzdálený listener,
 Tailscale/VPN a `C3_MOBILE_ALLOW_REMOTE` nejsou podporovaná cesta tohoto
 prototypu.
 
+Nativní shell ukládá credential pouze do přímého AES-GCM trezoru pod
+`AndroidKeyStore`; do `localStorage` nesmí propadnout ani při chybě. Když
+párovací obrazovka hlásí nedostupný trezor, párovací tlačítko je záměrně
+vypnuté. Nejdřív použij **Vymazat poškozený trezor** (nebo aplikaci
+přeinstaluj) a teprve potom na desktopu vygeneruj nový jednorázový kód.
+
 ---
 
 ## Co si při zkoušení všímat
@@ -143,7 +149,7 @@ prototypu.
 | Odpověď přijde najednou, netéče po tocích | Token streaming neexistuje (`PLAN.md` §3) |
 | Vlastní obrazovka průběhu / agent log chybí | `MR-07` je `BLOCKED_BY_CONTRACT`; demo ukazuje jen S1 indikátory ve schránce |
 | Hledání chybí | `MR-10` je `BLOCKED_BY_CONTRACT` |
-| Projekty chybí | `MR-14` čeká na `DR-008` a Gate 1 |
+| Projekty jsou jen read-only | seznam a detail jsou zapojené; mutation kontrakt zatím není přijatý |
 | Notifikace nedorazí do spící aplikace | Push (`N-1`) není; schránka je pull. Naplnit ji umí `npm run mobile:demo` |
 | ~~Na 200 % písma se nic nezvětší~~ | **Už neplatí.** Stylesheet byl převedený 2026-08-11 a `mobile-browser-a11y` to měří v prohlížeči |
 | Nové spárování = nový `deviceId` | Staré operace z nového zařízení nejsou vidět |

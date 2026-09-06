@@ -87,7 +87,7 @@ směr je selektivní integrace jejich silných vrstev.
 
 | Zdroj | Co z něj bereme | Co z něj neděláme |
 |---|---|---|
-| `wp/mobile-prototype-20260817` / `485c3497` | kanonický dnes spustitelný prototyp; producent approvalů, S1 projektor, indikátory `CoreEvent`, Android shell a manuálně ověřený emulator journey | demo producent nevydáváme za zapojené produkční jádro a PIN shell za finální security boundary |
+| `wp/mobile-prototype-20260817` / `485c3497` | historický běžící vstup: producent approvalů, S1 projektor, indikátory `CoreEvent`, Android shell a manuálně ověřený emulator journey | není už kanonická větev; demo producent nevydáváme za zapojené produkční jádro |
 | `codex/mobile-prototype-20260817` / implementace `fda3fc43`, výsledkový HEAD `78ca9f38` | referenční hardening: Capacitor 8, target API 36, přímý AndroidKeyStore AES-GCM, systémový `BiometricPrompt`, vyčištění JS session, abort/epoch guard a striktní build/install kontrola | nevydáváme jej za device-ověřený prototyp; jeho approval je syntetický a nemá producenty |
 
 Bezpečnostní kandidát je tedy **zdroj pro port vybraných změn**, ne druhá
@@ -97,10 +97,11 @@ kanonická aplikace. Jeho úplný dobový protokol lze přečíst bez přepnutí
 git show 78ca9f38:docs/mobile/WP-MOBILE-ANDROID-PROTOTYPE-CODEX-20260817-RESULT.md
 ```
 
-Výsledná prod cesta má zachovat běžící producenty a pozorovaný journey z
-`485c3497`, ale nahradit nebo zpevnit shell podle bezpečnostních vlastností z
-`fda3fc43`. Takový hybridní kód **zatím nevznikl**; tento dokument jej
-definuje jako následující integrační WP, nikoli jako hotovou skutečnost.
+Větev `mobile/master-prod-ready` už tuto hybridní cestu realizuje po
+samostatných checkpointech: zachovává mobilní gateway a klienta, balí kanonické
+UI do Capacitor shellu a v `14be72b8` nahrazuje původní wrapper vlastním přímým
+AndroidKeyStore trezorem. Aktuální binární a fyzický device journey však stále
+neproběhl, takže jde o implementovaný kandidát, ne release verdict.
 
 ## 3. Pravdivý stav dnešního prototypu
 
@@ -112,7 +113,7 @@ definuje jako následující integrační WP, nikoli jako hotovou skutečnost.
 | Notifikační schránka | `DEMO PRODUCER IMPLEMENTED` | uzavřený devítivětý S1 slovník bez obsahu, zobrazený na emulátoru | je to pull; bez push a bez zapojení do skutečného core lifecycle |
 | Průběh běhu | `DEMO PROJECTION IMPLEMENTED` | demo mapuje `CoreEvent` do S1 indikátorů ve schránce | není vlastní run obrazovka ani produkční CoreEvent konektor |
 | Android shell | `IMPLEMENTED AND STATICALLY TESTED`; current binary not rebuilt | Capacitor 8.4.3, minSdk 24, compile/target 36; canonical client is packaged in the APK and native HTTP transport keeps the gateway behind `/m1` without CORS widening | current API-36 binary and device journey remain unverified |
-| Token at rest | `PARTIAL` | credential je v Keystore-backed encrypted preferences; backup je vypnutý; JS kopie se při zamčení zahazuje | [`EncryptedSharedPreferences` je deprecated](https://developer.android.com/reference/androidx/security/crypto/EncryptedSharedPreferences); mezi odemčením a zamčením kopie v JS paměti existuje |
+| Token at rest | `SOURCE TESTED; DEVICE TEST PENDING` | přímý `AndroidKeyStore` AES-256-GCM trezor, náhodné IV, AAD, atomické skupiny a vypnutý backup; nativní shell nikdy nepadá do `localStorage` | 12/12 invariantů a 19/19 klientských scénářů PASS; tři instrumentační testy jsou napsané, ale bez SDK/zařízení `NOT RUN`; mezi odemčením a zamčením kopie v JS paměti existuje |
 | Background lock | `EMULATOR VERIFIED` | `onPause` zapečetí vault, pošle do stránky `intentsmithLock` (zahodí credential z paměti, zruší běžící requesty, zneplatní epochu) a zvedne překryv; pozdní odpověď je inertní | ověřeno na emulátoru a šesti testy; fyzický telefon `NOT RUN` |
 | Odemčení | `EMULATOR VERIFIED` | systémový `BiometricPrompt` (otisk / obličej / PIN telefonu); po odemčení se stránka reloadne a čte z trezoru | vlastní PIN zůstává jen pro telefon **bez** zámku obrazovky; fyzická biometrie `NOT RUN` |
 | APK a podpis | historical internal build verified; current build `NOT RUN` | cross-platform workflow před buildem kontroluje JDK 21/API 36, release bez klíče selže a ověření podpisu po buildu je povinné | `--debug-signing` je vědomý únik pro jednorázový build; žádná production key ceremony |
@@ -192,7 +193,7 @@ Na runtime snapshotu a znovu po dokumentační konsolidaci prošlo:
   **13 PASS**, `tests/desktop-approval-surface.test.js`: **10 PASS**,
   `tests/ide-durable-approval.test.js`: **7 PASS**;
 - `tests/mobile-companion-e2e.test.js`: **5 PASS** přes vlastní gateway proces a HTTP;
-- `tests/mobile-secure-credential.test.js`: **17 PASS** (10 úložiště + 7 lifecycle);
+- `tests/mobile-secure-credential.test.js`: **19 PASS** (credential, downgrade a lifecycle hranice);
 - Android `lintRelease`: **0 errors / 21 warnings**;
 - `tests/artifact-validation.test.js`: **151/151 PASS**;
 - registry: **409 programů** (`311 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`),
@@ -262,7 +263,12 @@ jen APK, které lze nainstalovat. Následující položky jsou povinné a jejich
    byl odstraněn: APK balí přímo `src/mobile/client`, absolutní gateway origin
    se zapisuje do build assetu a Capacitor HTTP převádí `fetch` na nativní
    transport. Vzdálený cleartext build je odmítnut a gateway stále nepovoluje
-   CORS. Zůstává `EncryptedSharedPreferences` místo přímého AndroidKeyStore.
+   CORS. MM5-B v `14be72b8` odstranil deprecated Security Crypto wrapper:
+   credential, PIN verifier i čítač pokusů jsou v přímém AES-GCM trezoru pod
+   neexportovatelným AndroidKeyStore klíčem; korupce selže zavřeně a rozbitý
+   nativní vault nikdy nepropadne do browserového úložiště. Formát, jednorázový
+   reset prototypového vaultu, důkazy a non-claims jsou v
+   [MM5-B review](reviews/MM5B-DIRECT-ANDROID-KEYSTORE.md).
    Postup a rizika jsou v [PROD-READY-HANDBOOK.md](PROD-READY-HANDBOOK.md) §3.
    > Zabalení UI do APK vyžadovalo explicitní transportní hranici: bez nativního
    > transportu by prohlížeč vynutil CORS. „Oprava“ přes
@@ -331,8 +337,10 @@ accessibility a bezpečnostních hranicích.
 přijetí / odmítnutí rozhodnutí 024
   → malý hybridní WP z runtime 485c3497
       → reálný effect seam + producer
-      → port lifecycle/Keystore/BiometricPrompt hardeningu z fda3fc43
-      → podporovaný Android/Capacitor build
+      → lifecycle/BiometricPrompt hardening (implementováno)
+      → přímý AndroidKeyStore trezor (implementováno v MM5-B)
+      → podporovaný Android/Capacitor zdrojový baseline (implementováno)
+      → čistý binární build a device ověření (otevřeno)
   → fyzický USB device journey a negativní cesty
   → integrátorské boundary review
   → interní pilot
