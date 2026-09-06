@@ -3,6 +3,11 @@
 Status: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`
 Checkpoint commit: `4bb9011d`
 
+Subsequent checkpoint MM4-F (`3341ea11`) completed the create-only manual
+memory mutation described as remaining work below. Its current authority is
+[`MM4F-CREATE-ONLY-MEMORY.md`](MM4F-CREATE-ONLY-MEMORY.md); inventory counts
+and the remaining-work sentence in this document are historical as of MM4-E.
+
 This checkpoint turns the public backend-settings card into a deliberately
 narrow mutation surface. A phone may write one validated UX preference at the
 revision it just read. It does not receive a general settings editor, secret

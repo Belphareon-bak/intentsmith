@@ -2,10 +2,10 @@
 
 Status: `CANDIDATE_V1`
 
-Latest implementation checkpoint: MM4-E (`4bb9011d`) registers the narrow
-revision-checked settings writer. This is an additive candidate implementation,
+Latest implementation checkpoint: MM4-F (`3341ea11`) registers the narrow,
+create-only manual-memory writer. This is an additive candidate implementation,
 not a contract freeze; see
-[`reviews/MM4E-REVISIONED-SETTINGS-WRITE.md`](reviews/MM4E-REVISIONED-SETTINGS-WRITE.md).
+[`reviews/MM4F-CREATE-ONLY-MEMORY.md`](reviews/MM4F-CREATE-ONLY-MEMORY.md).
 
 `RemoteCorePort` is the core-owned, in-process boundary used by the mobile
 gateway. It is deliberately narrower than the desktop HTTP listener: a mobile
@@ -68,12 +68,15 @@ between a decided rejection and an ambiguous upstream outcome, so retry and
 operation-journal guarantees remain intact.
 
 `projects.read`, `conversations.read`, `conversations.send`, `settings.read`,
-`settings.write`, `storedInformation.read`, `workers.read` and `specialists.read` now have
-production providers. Worker and specialist registration is conditional on
-their authoritative tables existing. `settings.write` is limited to the eleven
-validated `UX_PREFERENCES_V1` paths and an exact expected revision; it is not a
-generic adapter over the settings repository. The other sixteen feature identifiers
-currently report `unavailable`. Their
+`settings.write`, `storedInformation.read`, `storedInformation.write`,
+`workers.read` and `specialists.read` now have production providers. Worker and
+specialist registration is conditional on their authoritative tables existing.
+`settings.write` is limited to the eleven validated `UX_PREFERENCES_V1` paths
+and an exact expected revision; it is not a generic adapter over the settings
+repository. `storedInformation.write` permits only an atomic insert of a new
+explicit LTM entry in four public categories. It cannot replace or delete LTM,
+write task memory, or address internal categories. The other fifteen feature
+identifiers currently report `unavailable`. Their
 providers are added alongside the corresponding MM3/MM4 user surfaces. The
 older `/m1` handlers remain on an exact allow-list during this transition; no
 `/api/*` proxy or generic port operation exists.
@@ -84,10 +87,10 @@ older `/m1` handlers remain on an exact allow-list during this transition; no
 route-map key and writes both human-readable and JSON artifacts. At this
 candidate checkpoint it records:
 
-- 246 unique routes;
-- 22 existing `/m1` routes;
+- 247 unique routes;
+- 23 existing `/m1` routes;
 - 224 broader desktop/core routes;
-- 82 routes mapped to the nine RemoteCorePort domains.
+- 83 routes mapped to the nine RemoteCorePort domains.
 
 The inventory is an exposure review input, not automatic permission. Security
 token and secret administration are marked `never-expose-admin`; governed

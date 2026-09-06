@@ -12,9 +12,9 @@ Release verdict: `NOT READY`
 |---|---|---|---|
 | `MM0` provenance and branch | `COMPLETE` | `550856e5` | core base selected; prototype integration follows |
 | `MM1` prototype integration | `COMPLETE` | `550856e5..fec916b8` | merge `c1994d9b`; mobile gate 37/37 active |
-| `MM2` RemoteCorePort | `IN PROGRESS` | candidate `f4861bca` | 8 production provider registrations; freeze remains open |
+| `MM2` RemoteCorePort | `IN PROGRESS` | candidate `f4861bca` | 9 production provider registrations; freeze remains open |
 | `MM3` primary mobile surfaces | `IN PROGRESS` | projects `1a7be999`; conversations `ddb90e7e` | project list/detail and conversation reads implemented; search/runs open |
-| `MM4` governed surfaces | `IN PROGRESS` | settings read `87a51930`; memory `2c33fd9b`; workers/specialists `49dd991d`; devices `13fa98c6`; settings write `4bb9011d` | read projections, paired-device revocation and revisioned UX-setting writes implemented; remaining safe mutations stay open |
+| `MM4` governed surfaces | `IN PROGRESS` | settings read `87a51930`; memory read `2c33fd9b`; workers/specialists `49dd991d`; devices `13fa98c6`; settings write `4bb9011d`; memory create `3341ea11` | read projections, paired-device revocation, revisioned UX-setting writes and create-only manual memory are implemented; governed worker/specialist actions stay open |
 | `MM5` transport and hardening | `IN PROGRESS` | transport `a5d5bab4`; vault `14be72b8..71746be5` | packaged native transport and direct AndroidKeyStore vault implemented; remote TLS/identity, push/offline policy and external security review remain open |
 | `MM6` Android release | `IN PROGRESS` | platform `d4607100`; CLI `d8bbea33`; artifacts `8e98924d` | API 36, cross-platform workflow, versioned APK/AAB manifest and SBOM implemented; binary build, production signing and device evidence open |
 
@@ -33,9 +33,9 @@ Release verdict: `NOT READY`
 
 - Mobile gate: `PASS` — 54/54 active suites, 1 prerequisite-blocked suite.
 - RemoteCorePort candidate: 12/12 contract checks.
-- Backend inventory: 246 unique static routes, including 22 exact `/m1`
+- Backend inventory: 247 unique static routes, including 23 exact `/m1`
   routes; digest
-  `e347a76a9a53f623aff015a5a987e3a7dcfb16e16989a1b489c8e146788be0a1`.
+  `10f6abef4496799822b7c78669ca139a59dc54af68126f54408a89ab6cc91645`.
 - Android platform invariant suite: `PASS` — 8/8; Capacitor 8.4.3, API 36,
   Java 21 and fail-closed signing configuration.
 - Mobile-app dependency audit: `PASS` — 0 known vulnerabilities in the full
@@ -55,6 +55,11 @@ Release verdict: `NOT READY`
   client scenarios. Only 11 `UX_PREFERENCES_V1` paths are writable;
   `write:settings` is pairable but non-default, and ambiguous results are never
   auto-retried.
+- Create-only stored information: `PASS` — 12/12 gateway/core scenarios and
+  14/14 client scenarios. `write:memory` is pairable but non-default; only a
+  new explicit LTM value may be inserted, while replacement, deletion, task
+  memory and internal categories remain unavailable. Ambiguous effects become
+  `UNKNOWN` and are never auto-retried.
 - Release artifacts: `PASS` — 10/10 checks; Gradle consumes the tracked
   `0.1.0`/`1000` metadata and the workflow requires signed APK+AAB, CycloneDX
   SBOM and a source/endpoint/signer manifest.

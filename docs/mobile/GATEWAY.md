@@ -1,10 +1,10 @@
 # Mobilní gateway — provoz
 
 > **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
-> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 22
-> rout; vedle worker/specialist read modelu a správy zařízení obsahuje revizně
-> řízený `PUT /m1/settings`. Autoritou poslední změny je review
-> `MM4E-REVISIONED-SETTINGS-WRITE`;
+> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 23
+> rout; vedle worker/specialist read modelu, správy zařízení a revizního
+> `PUT /m1/settings` obsahuje create-only `POST /m1/memory`. Autoritou poslední
+> změny je review `MM4F-CREATE-ONLY-MEMORY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; gateway je implementovaná a testovaná pouze **na loopbacku**, nikoli produkčně DONE.
@@ -162,13 +162,24 @@ Nastavení a journal result nejsou v jedné transakci; chyba po commitu je proto
 `UNKNOWN` řešené přes `/m1/operations`, ne falešné `REJECTED`. Úplná hranice a
 testy jsou v `reviews/MM4E-REVISIONED-SETTINGS-WRITE.md`.
 
+### Create-only zápis uchovávané informace
+
+MM4-F přidává `POST /m1/memory` se samostatným, ne-výchozím `write:memory`.
+Exact body je `{ operationId, category, key, value }`. Provider smí jediným
+atomickým insertem vytvořit nový explicitní LTM záznam v kategoriích
+`preference`, `project`, `style` nebo `correction`. Existující klíč je konflikt;
+replacement, delete, task memory a interní kategorie nejsou routou dostupné.
+Nejednoznačný výsledek po možném efektu je `UNKNOWN` a klient ho automaticky
+neopakuje. Úplná hranice a testy jsou v
+`reviews/MM4F-CREATE-ONLY-MEMORY.md`.
+
 ---
 
 ## 4. Routy
 
-> Tabulka v této historické sekci zachycuje původních 13 rout. Aktuálních 22
+> Tabulka v této historické sekci zachycuje původních 13 rout. Aktuálních 23
 > exact rout je generováno v `BACKEND-CAPABILITY-INVENTORY.md`; poslední
-> přírůstek je `PUT /m1/settings` (`write:settings`, MM4-E). Následující věta
+> přírůstek je `POST /m1/memory` (`write:memory`, MM4-F). Následující věta
 > „vše ostatní je 404“ se vztahuje k tehdejšímu checkpointu, ne k dnešnímu HEAD.
 
 | Metoda | Cesta | Scope |

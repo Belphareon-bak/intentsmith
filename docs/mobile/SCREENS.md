@@ -1,10 +1,10 @@
 # IntentSmith Mobile — mapa obrazovek a toků, fáze 1–5
 
 > **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
-> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 22
-> rout; vedle worker/specialist read modelu a správy zařízení obsahuje revizně
-> řízený `PUT /m1/settings`. Autoritou poslední změny je review
-> `MM4E-REVISIONED-SETTINGS-WRITE`;
+> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 23
+> rout; vedle worker/specialist read modelu, správy zařízení a revizního
+> `PUT /m1/settings` obsahuje create-only `POST /m1/memory`. Autoritou poslední
+> změny je review `MM4F-CREATE-ONLY-MEMORY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná obrazovka tím není produktově DONE
@@ -644,6 +644,14 @@ ne přepis běhu.**
 ---
 
 ### Fáze 4 — Uchovávané informace
+
+> **Implementační checkpoint MM4-F (2026-09-06):** `MS-16` čte filtrovanou
+> LTM/task-memory projekci a `MS-17` umí vytvořit pouze nový explicitní LTM klíč
+> přes `write:memory` a `operationId`. Formulář je dostupný až po úspěšném živém
+> čtení; offline, stale, chyba a odebraný scope ho zamykají. Duplicitní klíč se
+> nepřepisuje, nejasný efekt se automaticky neopakuje a lokální operation
+> journal neukládá obsah. Aktuální evidence je
+> `reviews/MM4F-CREATE-ONLY-MEMORY.md`.
 
 > `MS-16` a `MS-17` jsou návrhy. Implementace vyžaduje schválený a refrozený
 > kontrakt v2, příslušnou Gate 1 evidenci a samostatný Work Package; samotné

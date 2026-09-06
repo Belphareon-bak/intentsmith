@@ -27,6 +27,7 @@ i webového klienta**, takže na čtení žádný backend nepotřebuje. Legacy s
 | Žurnál operací, obrazovka rozřešení (`MS-20`) | ✅ |
 | Seznam a odvolání spárovaných zařízení (`MS-04`) | ✅ — odvolání blokuje další requesty, není remote wipe |
 | Veřejné nastavení a zápis 11 UX preferencí (`MS-10`/`MS-11`) | ✅ — vyžaduje explicitní `write:settings`, legacy backend proces ne |
+| Uchovávané informace a vytvoření explicitní LTM položky (`MS-12`) | ✅ — vyžaduje explicitní `write:memory`; náhrada ani mazání nejsou dostupné |
 | **Odeslat zprávu** | ❌ — `upstream: unreachable`, aplikace to řekne rovnou |
 | Approvaly s reálným obsahem | ✅ — produkční cesta je zapojená (`server.js`), takže je vyrobí skutečný zápis. Gateway je ale jen čte; **vyrábí** je backend, takže bez něj se nová otázka neobjeví |
 | Schránka s ukazateli běhu | ✅ jen v demu — S1 projektor `DR-013 A`, tentýž demo běh |
@@ -67,14 +68,15 @@ C3_DB_PATH=/tmp/is-demo.db C3_MOBILE_PAIRING=on node src/mobile-gateway.js
 #    procesu, takže bez něj skript kód nevydá — a skončí exit 0, takže je to
 #    ticho, ne chyba.
 C3_DB_PATH=/tmp/is-demo.db C3_MOBILE_PAIRING=on node scripts/mobile-pair.js \
-  --scopes read:capabilities,read:chat,write:chat,read:notifications,write:notifications,read:approvals,write:approvals,read:projects,read:settings,write:settings,read:memory,read:workers,read:specialists,read:devices,write:devices
+  --scopes read:capabilities,read:chat,write:chat,read:notifications,write:notifications,read:approvals,write:approvals,read:projects,read:settings,write:settings,read:memory,write:memory,read:workers,read:specialists,read:devices,write:devices
 
 # 4. Volitelně: běh, který se zeptá na approval a čeká na odpověď
 node scripts/mobile-demo-run.js --db /tmp/is-demo.db
 ```
 
 Approvaly **nejsou ve výchozích scopech**. Příkaz výše je proto žádá
-explicitně. `write:settings` je rovněž pairable, ale záměrně není výchozí;
+explicitně. `write:settings` i `write:memory` jsou rovněž pairable, ale záměrně
+nejsou výchozí;
 rozšíření existujícího tokenu není možné a vyžaduje nový jednorázový kód.
 Nejmenší dostatečný scope je záměr (`P-8`), ne opomenutí.
 
@@ -172,6 +174,21 @@ Revizní zápis nastavení zkontroluj v **Nastavení → Nastavení backendu**:
 Přesný allow-list, recovery pravidla a non-claims jsou v
 [MM4-E review](reviews/MM4E-REVISIONED-SETTINGS-WRITE.md).
 
+Create-only paměť zkontroluj v **Nastavení → Uchovávané informace**:
+
+1. bez `write:memory` musí karta zůstat pouze pro čtení; formulář se smí ukázat
+   až po úspěšném živém čtení se scope `read:memory` i `write:memory`;
+2. vyber jednu ze čtyř veřejných kategorií, zadej nový klíč a hodnotu a potvrď
+   **Přidat informaci**;
+3. po potvrzení serverem se seznam znovu načte a nová položka se zobrazí;
+4. zopakuj stejný klíč: server musí vrátit konflikt a původní hodnotu nesmí
+   změnit;
+5. odpoj spojení během výsledku: operace musí přejít do `UNKNOWN` v MS-20 a
+   klient ji nesmí automaticky poslat podruhé.
+
+Přesná datová hranice, journal a negativní scénáře jsou v
+[MM4-F review](reviews/MM4F-CREATE-ONLY-MEMORY.md).
+
 ---
 
 ## Známá omezení, ať je nehlásíš jako vady
@@ -183,6 +200,7 @@ Přesný allow-list, recovery pravidla a non-claims jsou v
 | Hledání chybí | `MR-10` je `BLOCKED_BY_CONTRACT` |
 | Projekty jsou jen read-only | seznam a detail jsou zapojené; mutation kontrakt zatím není přijatý |
 | Nastavení není obecný desktop editor | zapisuje jen 11 `UX_PREFERENCES_V1` cest; security, modely, import/reset/backup a feature flags zůstávají mimo mobil |
+| Paměť je jen create-only | lze přidat nový explicitní LTM klíč; nelze nahradit ani smazat LTM, zapisovat task memory nebo interní kategorie |
 | Odvolání zařízení není remote wipe | nový přístup se zablokuje; obsah už uložený v offline telefonu tím nezmizí |
 | Notifikace nedorazí do spící aplikace | Push (`N-1`) není; schránka je pull. Naplnit ji umí `npm run mobile:demo` |
 | ~~Na 200 % písma se nic nezvětší~~ | **Už neplatí.** Stylesheet byl převedený 2026-08-11 a `mobile-browser-a11y` to měří v prohlížeči |

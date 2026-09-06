@@ -1,10 +1,10 @@
 # IntentSmith Mobile — klientský datový, cache a trust model
 
 > **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
-> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 22
-> rout; vedle worker/specialist read modelu a správy zařízení obsahuje revizně
-> řízený `PUT /m1/settings`. Autoritou poslední změny je review
-> `MM4E-REVISIONED-SETTINGS-WRITE`;
+> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 23
+> rout; vedle worker/specialist read modelu, správy zařízení a revizního
+> `PUT /m1/settings` obsahuje create-only `POST /m1/memory`. Autoritou poslední
+> změny je review `MM4F-CREATE-ONLY-MEMORY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná produktová fáze není DONE
@@ -384,16 +384,24 @@ Obsah schvalovaného approvalu se řídí i `MD-07`.
 
 ### MD-06 — Uchovávané informace (LTM, task memory)
 
+> **Implementační checkpoint MM4-F (2026-09-06):** klient čte filtrovanou
+> projekci LTM a task memory a smí online vytvořit jen nový explicitní LTM klíč
+> v jedné ze čtyř veřejných kategorií. Existující klíč nelze nahradit;
+> odstranění, zápis task memory a interní kategorie zůstávají nedostupné.
+> Mutace se nikdy neřadí offline, její HTTP odpovědi mají `no-store` a lokální
+> operation journal neobsahuje klíč ani hodnotu. Viz
+> `reviews/MM4F-CREATE-ONLY-MEMORY.md`.
+
 | Atribut | Hodnota |
 |---|---|
 | Zdroj pravdy | **server** |
-| V telefonu | ano — read-only, dle PLAN.md §5 Fáze 4 |
+| V telefonu | ano — čtení a create-only online formulář dle MM4-F |
 | Citlivost | **S2** — kondenzovaný obsah mnoha konverzací naráz |
 | Úložiště | `ST-DB` |
 | TTL | `FRESH` 1 h · `STALE` 7 dnů · `EXPIRED` 7 dnů |
 | Invalidace | refresh obrazovky |
 | Offline čtení | `READ_CACHED` |
-| Offline změny | `MUT-ONLINE-ONLY`; mazání paměti z telefonu je mimo 1.0 (PLAN.md §5) |
+| Offline změny | `MUT-ONLINE-ONLY`; nic se nefrontuje, replacement i mazání jsou mimo aktuální kontrakt |
 | `E-LOGOUT` | smazat |
 | `E-EXPIRE` | ponechat do konce TTL, read-only |
 | `E-REVOKE` | smazat při zjištění |

@@ -332,6 +332,18 @@ výsledku po commitu zůstává pravdivě `UNKNOWN` v MS-20. Obecný settings ed
 security/model authority, fyzický WebView průchod a v2 refreeze se netvrdí. Viz
 [MM4-E review](reviews/MM4E-REVISIONED-SETTINGS-WRITE.md).
 
+### P1-3b Create-only uchovávaná informace
+
+Stav MM4-F: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`.
+`POST /m1/memory` smí atomicky vložit jen nový explicitní LTM klíč v jedné ze
+čtyř veřejných kategorií. `write:memory` je pairable, ale není ve výchozím
+profilu. Existující klíč se nikdy nepřepíše; smazání, task memory a interní
+kategorie nejsou touto autoritou dosažitelné. Serverový operation fingerprint
+váže i hodnotu, klientský lokální journal však uchovává jen obecný popis bez
+klíče a hodnoty. Selhání po možném efektu je `UNKNOWN`, nikdy automatický retry.
+Fyzický WebView průchod a nezávislé security review zůstávají otevřené. Viz
+[MM4-F review](reviews/MM4F-CREATE-ONLY-MEMORY.md).
+
 ### P1-4 Push, nebo přiznané pull-only
 
 | | |
@@ -483,8 +495,8 @@ jiného, telefon nemá zámek obrazovky — a to je nález, ne detail.
 
 ## 6. Co tenhle handbook **nezavádí**
 
-- Handbook sám nezavádí kontrakt. Aktuální přesný allow-list má 21 rout; dvě
-  device-lifecycle routy přidal a otestoval MM4-D, ne tento dokument.
+- Handbook sám nezavádí kontrakt. Aktuální přesný allow-list má 23 rout;
+  poslední create-only memory routu přidal a otestoval MM4-F, ne tento dokument.
 - Žádný termín. Termíny patří operátorovi; tady jsou jen závislosti a pořadí.
 - Žádné „nice to have". Každá položka výše má popsaný způsob, jak selže —
   když ho někdo nedokáže popsat u nové položky, do seznamu nepatří.

@@ -1,10 +1,10 @@
 # IntentSmith Mobile — coverage matice
 
 > **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
-> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 22
-> rout; vedle worker/specialist read modelu a správy zařízení obsahuje revizně
-> řízený `PUT /m1/settings`. Autoritou poslední změny je review
-> `MM4E-REVISIONED-SETTINGS-WRITE`;
+> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 23
+> rout; vedle worker/specialist read modelu, správy zařízení a revizního
+> `PUT /m1/settings` obsahuje create-only `POST /m1/memory`. Autoritou poslední
+> změny je review `MM4F-CREATE-ONLY-MEMORY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; tato matice není sama evidence a žádný produktový požadavek zde není DONE
@@ -223,7 +223,7 @@ obrazovkový dopad v SCREENS §1.1.
 | `MR-12`, `MR-13` | 2 | **`IMPLEMENTED / SOURCE TESTED / DEVICE TEST PENDING`** | MM4-A dodal live-only veřejné čtení a MM4-E revizně řízený zápis 11 UX preferencí; 13/13 gateway/core a 13/13 UI scénářů PASS. Není to refreeze návrhu v2 ani obecný settings editor |
 | `MR-14` projekty | **3B** | **`BLOCKED_BY_CONTRACT_AND_GATE1`** | Nález `F-055`: **není odložený a není odstraněný.** Doména 2 kontraktního kola `DR-008` |
 | `MR-15`, `MR-16` approvaly | **3A** | **`LOCALLY_COMPOSED / COMPOSITION_REVIEW_APPROVED / REGISTRY_REVIEW_APPROVED / MOBILE_PASS / SHARED_VALIDATION_BLOCKED`** | Historické `392c5928` dostalo v `RV-023`–`RV-025` `CHANGES_REQUIRED`; opravená kompozice prošla `RV-039`/`RV-040` a registry `RV-042`/`RV-043`. Celý profil je `208/3`, 3A je **NOT DONE** a `F-100` blokuje produkci |
-| `MR-17`, `MR-18` | 4 | **`BLOCKED_BY_CONTRACT_AND_GATE1`** | Doména 3; kontrakt v2 + příslušná Gate 1 evidence + samostatný Work Package |
+| `MR-17`, `MR-18` | 4 | **`IMPLEMENTED / SOURCE TESTED / DEVICE TEST PENDING`** | MM4-B dodal filtrované čtení a MM4-F create-only explicitní LTM insert; 12/12 gateway/core a 14/14 UI scénářů PASS. Replacement, delete, task-memory write, interní kategorie a refreeze v2 se netvrdí |
 | `MR-19`, `MR-20` | 5 | **`BLOCKED_BY_CONTRACT_AND_GATE1`** | Doména 4; kontrakt v2 + příslušná Gate 1 evidence + samostatný Work Package |
 | `MR-21` notifikace | 1+ | **`PARTIAL / PRODUCTION_BLOCKED`** | Třída/tabulka/read+ack surface existují. `DR-003` A, `DR-012` A a `DR-013` A určují append-only lifecycle, per-device receipts a S1-safe mirror, ale nejsou implementované: pipeline řádek nevytvoří (`F-111`/`F-014`), ACK **je** izolovaný per zařízení (`F-112` `RESOLVED_IN_CODE`), ale rooty `F-011`/`F-015` zůstávají a spící PWA nemá push (`N-1`) |
 | `MR-22` správa zařízení | 0 | **`IMPLEMENTED / SOURCE TESTED / DEVICE TEST PENDING`** | MM4-D dodává scope-gated seznam a dvoukrokové odvolání, 8/8 gateway a 11/11 UI scénářů; revokace není remote wipe a fyzický Android běh chybí |

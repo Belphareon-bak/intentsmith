@@ -46,8 +46,10 @@ range.  Later work must not rewrite an accepted milestone.
 
 Current MM4 sub-checkpoints: settings read (`87a51930`), stored-information
 read (`2c33fd9b`), worker/specialist read (`49dd991d`), paired-device lifecycle
-(`13fa98c6`) and revisioned UX-settings write (`4bb9011d`). MM4 remains open for
-safe stored-information mutation and governed worker/specialist actions.
+(`13fa98c6`), revisioned UX-settings write (`4bb9011d`) and create-only manual
+stored information (`3341ea11`). MM4 remains open for governed
+worker/specialist actions; memory replacement, deletion and task-memory writes
+are explicitly outside the current mobile authority.
 
 ## Current lineage
 
