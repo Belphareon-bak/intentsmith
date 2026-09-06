@@ -1,9 +1,10 @@
 # IntentSmith Mobile — coverage matice
 
 > **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
-> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 19
-> rout; poslední dvě jsou scope-gated read-only `/m1/workers` a
-> `/m1/specialists`. Autoritou změny je review `MM4C-WORKERS-SPECIALISTS-READ`;
+> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 21
+> rout; vedle read-only `/m1/workers` a `/m1/specialists` obsahuje scope-gated
+> seznam a odvolání zařízení. Autoritou poslední změny je review
+> `MM4D-PAIRED-DEVICES`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; tato matice není sama evidence a žádný produktový požadavek zde není DONE
@@ -225,7 +226,7 @@ obrazovkový dopad v SCREENS §1.1.
 | `MR-17`, `MR-18` | 4 | **`BLOCKED_BY_CONTRACT_AND_GATE1`** | Doména 3; kontrakt v2 + příslušná Gate 1 evidence + samostatný Work Package |
 | `MR-19`, `MR-20` | 5 | **`BLOCKED_BY_CONTRACT_AND_GATE1`** | Doména 4; kontrakt v2 + příslušná Gate 1 evidence + samostatný Work Package |
 | `MR-21` notifikace | 1+ | **`PARTIAL / PRODUCTION_BLOCKED`** | Třída/tabulka/read+ack surface existují. `DR-003` A, `DR-012` A a `DR-013` A určují append-only lifecycle, per-device receipts a S1-safe mirror, ale nejsou implementované: pipeline řádek nevytvoří (`F-111`/`F-014`), ACK **je** izolovaný per zařízení (`F-112` `RESOLVED_IN_CODE`), ale rooty `F-011`/`F-015` zůstávají a spící PWA nemá push (`N-1`) |
-| `MR-22` správa zařízení | 0 | **`PARTIAL`** | Pod úložištním limitem PWA (PLAN.md §7.2) |
+| `MR-22` správa zařízení | 0 | **`IMPLEMENTED / SOURCE TESTED / DEVICE TEST PENDING`** | MM4-D dodává scope-gated seznam a dvoukrokové odvolání, 8/8 gateway a 11/11 UI scénářů; revokace není remote wipe a fyzický Android běh chybí |
 | `MR-23` zámek aplikace | 0 | **`PARTIAL`** | Pod úložištním limitem PWA; `localStorage` není OS keychain, `M-R2` zůstává neodstraněné |
 | `MR-24` neuzavřené operace | 1 | **`LOCALLY_COMPOSED / COMPOSITION_REVIEW_APPROVED / REGISTRY_REVIEW_APPROVED / MOBILE_PASS / SHARED_VALIDATION_BLOCKED`** | Opravené checkpointy a journal allowlist jsou kompozičně i registry zrevidované a mobilní program prošel. Funkce není produktově DONE; sdílený profil selhal a SCREENS stále postrádá samostatnou definici toku (`GAP-9`) |
 | `MR-25` osiřelé operace | — | `MISSING_IMPLEMENTATION` | Backendový úkol, není zahájen (`M-R8`) |

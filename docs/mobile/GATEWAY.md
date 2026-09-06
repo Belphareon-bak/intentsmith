@@ -1,9 +1,10 @@
 # Mobilní gateway — provoz
 
 > **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
-> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 19
-> rout; poslední dvě jsou scope-gated read-only `/m1/workers` a
-> `/m1/specialists`. Autoritou změny je review `MM4C-WORKERS-SPECIALISTS-READ`;
+> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 21
+> rout; vedle read-only `/m1/workers` a `/m1/specialists` obsahuje scope-gated
+> seznam a odvolání zařízení. Autoritou poslední změny je review
+> `MM4D-PAIRED-DEVICES`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; gateway je implementovaná a testovaná pouze **na loopbacku**, nikoli produkčně DONE.
@@ -136,6 +137,11 @@ Vypíše QR s párovací URL. Telefon ji otevře, klient pošle kód na
 Kód se ukáže **jednou**. Znovu ho přečíst nejde; jde jen vydat nový.
 
 ### Odvolání zařízení
+
+Kanonické UI MM4-D používá `GET /m1/devices` (`read:devices`) a
+`POST /m1/devices/:id/revoke` (`write:devices`). Mutace nese `operationId`, je
+vázaná na přesný cíl a revokaci se svým výsledkem commitne v jedné SQLite
+transakci. Níže uvedené přímé volání zůstává nízkoúrovňovou operátorskou cestou.
 
 ```js
 import { revokeDevice, listDevices } from './src/mobile/pairing.js';

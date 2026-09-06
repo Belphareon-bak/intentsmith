@@ -1,9 +1,10 @@
 # IntentSmith Mobile — mapa obrazovek a toků, fáze 1–5
 
 > **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
-> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 19
-> rout; poslední dvě jsou scope-gated read-only `/m1/workers` a
-> `/m1/specialists`. Autoritou změny je review `MM4C-WORKERS-SPECIALISTS-READ`;
+> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 21
+> rout; vedle read-only `/m1/workers` a `/m1/specialists` obsahuje scope-gated
+> seznam a odvolání zařízení. Autoritou poslední změny je review
+> `MM4D-PAIRED-DEVICES`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná obrazovka tím není produktově DONE
@@ -273,7 +274,15 @@ Jediná obrazovka, která má smysl i bez platného tokenu — má odpovědět n
 
 #### MS-04 — Spárovaná zařízení a jejich odvolání
 
-**Požadavky:** `MR-22` · **Data:** `MD-11`, `MD-12` · **Testy:** `IS-T2-TESTS-MOBILE-SCOPE-TOKEN-EXPIRY-TEST`, `IS-T1-TESTS-MOBILE-LIFECYCLE-REVOKE-WIPE-TEST`, `IS-T1-TESTS-MOBILE-LIFECYCLE-REVOKE-CANNOT-WIPE-OFFLINE-TEST`
+> **Implementační checkpoint MM4-D (2026-09-06):** tato obrazovka, její přesné
+> scopes a journalled revoke jsou implementované a source-tested. Fyzický
+> Android průchod zůstává `NOT RUN`; revokace není vzdálené smazání.
+
+**Požadavky:** `MR-22` · **Data:** `MD-11`, `MD-12` · **Testy:**
+`IS-T2-TESTS-MOBILE-DEVICES-TEST`, `IS-T1-TESTS-MOBILE-DEVICES-UI-TEST`,
+`IS-T2-TESTS-MOBILE-SCOPE-TOKEN-EXPIRY-TEST`,
+`IS-T1-TESTS-MOBILE-LIFECYCLE-REVOKE-WIPE-TEST`,
+`IS-T1-TESTS-MOBILE-LIFECYCLE-REVOKE-CANNOT-WIPE-OFFLINE-TEST`
 
 | Stav | Chování |
 |---|---|

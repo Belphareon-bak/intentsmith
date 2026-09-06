@@ -100,7 +100,8 @@ git show 78ca9f38:docs/mobile/WP-MOBILE-ANDROID-PROTOTYPE-CODEX-20260817-RESULT.
 Větev `mobile/master-prod-ready` už tuto hybridní cestu realizuje po
 samostatných checkpointech: zachovává mobilní gateway a klienta, balí kanonické
 UI do Capacitor shellu a v `14be72b8` nahrazuje původní wrapper vlastním přímým
-AndroidKeyStore trezorem. Aktuální binární a fyzický device journey však stále
+AndroidKeyStore trezorem. MM4-D v `13fa98c6` přidává scope-gated seznam a
+journalled odvolání spárovaných zařízení. Aktuální binární a fyzický device journey však stále
 neproběhl, takže jde o implementovaný kandidát, ne release verdict.
 
 ## 3. Pravdivý stav dnešního prototypu
@@ -114,6 +115,7 @@ neproběhl, takže jde o implementovaný kandidát, ne release verdict.
 | Průběh běhu | `DEMO PROJECTION IMPLEMENTED` | demo mapuje `CoreEvent` do S1 indikátorů ve schránce | není vlastní run obrazovka ani produkční CoreEvent konektor |
 | Android shell | `IMPLEMENTED AND STATICALLY TESTED`; current binary not rebuilt | Capacitor 8.4.3, minSdk 24, compile/target 36; canonical client is packaged in the APK and native HTTP transport keeps the gateway behind `/m1` without CORS widening | current API-36 binary and device journey remain unverified |
 | Token at rest | `SOURCE TESTED; DEVICE TEST PENDING` | přímý `AndroidKeyStore` AES-256-GCM trezor, náhodné IV, AAD, atomické skupiny a vypnutý backup; nativní shell nikdy nepadá do `localStorage` | 12/12 invariantů a 19/19 klientských scénářů PASS; tři instrumentační testy jsou napsané, ale bez SDK/zařízení `NOT RUN`; mezi odemčením a zamčením kopie v JS paměti existuje |
+| Spárovaná zařízení | `SOURCE TESTED; DEVICE TEST PENDING` | veřejný DTO seznam bez credential materialu; scope-gated, operation-keyed revoke; atomický self-revoke a následný vault wipe; 8/8 gateway + 11/11 UI | `write:devices` je denial-of-access authority; nejde o remote wipe ani desktop admin UI; fyzický lost-device journey `NOT RUN` |
 | Background lock | `EMULATOR VERIFIED` | `onPause` zapečetí vault, pošle do stránky `intentsmithLock` (zahodí credential z paměti, zruší běžící requesty, zneplatní epochu) a zvedne překryv; pozdní odpověď je inertní | ověřeno na emulátoru a šesti testy; fyzický telefon `NOT RUN` |
 | Odemčení | `EMULATOR VERIFIED` | systémový `BiometricPrompt` (otisk / obličej / PIN telefonu); po odemčení se stránka reloadne a čte z trezoru | vlastní PIN zůstává jen pro telefon **bez** zámku obrazovky; fyzická biometrie `NOT RUN` |
 | APK a podpis | historical internal build verified; current build `NOT RUN` | cross-platform workflow před buildem kontroluje JDK 21/API 36, release bez klíče selže a ověření podpisu po buildu je povinné | `--debug-signing` je vědomý únik pro jednorázový build; žádná production key ceremony |
@@ -181,7 +183,8 @@ Tři sondy z review jsou převedené na regresní testy
 
 Na runtime snapshotu a znovu po dokumentační konsolidaci prošlo:
 
-- `npm run test:mobile`: **36/36 aktivních mobilních programů PASS** (bylo 31/31 před approval balíkem);
+- `npm run test:mobile`: **54/54 aktivních mobilních programů PASS**; 1 Chromium
+  sada je withheld a nepočítá se jako průchod;
 - `mobile-browser-a11y`: **22/22 PASS** při ručním spuštění — prerekvizita se
   doinstaluje jedním příkazem (`npx puppeteer browsers install chrome`).
   V gate zůstává **withheld**: stav `BLOCKED` je vlastnost registru, ne mého
@@ -196,8 +199,8 @@ Na runtime snapshotu a znovu po dokumentační konsolidaci prošlo:
 - `tests/mobile-secure-credential.test.js`: **19 PASS** (credential, downgrade a lifecycle hranice);
 - Android `lintRelease`: **0 errors / 21 warnings**;
 - `tests/artifact-validation.test.js`: **151/151 PASS**;
-- registry: **409 programů** (`311 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`),
-  9 explicitních support-module exclusions;
+- registry: **437 programů**, 9 explicitních support-module exclusions; digest
+  `ba13e78b08c7b8e4e505668a1fe867ca5a526dc36317734c308d212d237df031`;
 - repository hygiene: **PASS**, 1 687 trackovaných cest včetně tohoto dokumentu;
 - current-host emulátor: pairing → demo run → approval → durable decision →
   soubor po schválení, a po hardeningu znovu celé včetně cyklu
@@ -300,9 +303,10 @@ jen APK, které lze nainstalovat. Následující položky jsou povinné a jejich
 2. **Signing bez fallbacku:** oddělený interní/release flavor, chráněný klíč a
    heslo, rotace, záloha a dokumentované vlastnictví. Release nesmí potichu
    spadnout na debug key.
-3. **Revokace a ztracené zařízení:** desktop musí okamžitě zrušit device token,
-   aktivní granty a session; aplikace musí stav zjistit a lokálně credential
-   odstranit.
+3. **Revokace a ztracené zařízení:** MM4-D už dovoluje jinému oprávněnému
+   telefonu okamžitě zrušit device token a aplikace po autentickém 401 nebo
+   self-revoke maže i nativní credential. Desktop admin UI, aktivní granty,
+   fyzický lost-device test a nezávislé security přijetí zůstávají otevřené.
 4. **Push s explicitní policy:** spící aplikace musí dostat bezpečný S1
    ukazatel, nebo produkt musí pravdivě deklarovat pull-only omezení. Push
    potřebuje consent, outbound policy, credential scope, retry a audit.
@@ -382,6 +386,8 @@ tohoto úklidu.
       nenačítá vývojový server.
 - [ ] Build je reprodukovatelný z čistého checkoutu.
 - [x] Podpis je fail-closed — release bez klíče selže.
+- [x] Scope-gated seznam a journalled odvolání zařízení jsou source-tested.
+      *(8/8 gateway + 11/11 UI; fyzický lost-device průchod zbývá)*
 - [ ] Fyzický telefon prošel approve/reject/expire, outage, restart a lost-device scénáři.
 - [ ] Accessibility a podporovaná device/OS matice jsou PASS.
 - [ ] Boundary ratchet je přijatý integrátorem, ne pouze přebaselinovaný.

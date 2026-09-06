@@ -25,6 +25,7 @@ i webového klienta**, takže na čtení žádný backend nepotřebuje. Legacy s
 | Seznam konverzací, čtení historie, stránkování (`MR-05`) | ✅ |
 | Přehled, trust bar, stavy cache, zamčení podle scope | ✅ |
 | Žurnál operací, obrazovka rozřešení (`MS-20`) | ✅ |
+| Seznam a odvolání spárovaných zařízení (`MS-04`) | ✅ — odvolání blokuje další requesty, není remote wipe |
 | **Odeslat zprávu** | ❌ — `upstream: unreachable`, aplikace to řekne rovnou |
 | Approvaly s reálným obsahem | ✅ — produkční cesta je zapojená (`server.js`), takže je vyrobí skutečný zápis. Gateway je ale jen čte; **vyrábí** je backend, takže bez něj se nová otázka neobjeví |
 | Schránka s ukazateli běhu | ✅ jen v demu — S1 projektor `DR-013 A`, tentýž demo běh |
@@ -65,7 +66,7 @@ C3_DB_PATH=/tmp/is-demo.db C3_MOBILE_PAIRING=on node src/mobile-gateway.js
 #    procesu, takže bez něj skript kód nevydá — a skončí exit 0, takže je to
 #    ticho, ne chyba.
 C3_DB_PATH=/tmp/is-demo.db C3_MOBILE_PAIRING=on node scripts/mobile-pair.js \
-  --scopes read:capabilities,read:chat,write:chat,read:notifications,write:notifications,read:approvals,write:approvals
+  --scopes read:capabilities,read:chat,write:chat,read:notifications,write:notifications,read:approvals,write:approvals,read:devices,write:devices
 
 # 4. Volitelně: běh, který se zeptá na approval a čeká na odpověď
 node scripts/mobile-demo-run.js --db /tmp/is-demo.db
@@ -140,6 +141,19 @@ přeinstaluj) a teprve potom na desktopu vygeneruj nový jednorázový kód.
 5. Vypni gateway a scrolluj dál — okraj okna musí říct **„Starší zprávy vyžadují
    připojení"**, nikdy nesmí utnout historii mlčky.
 
+Správu zařízení zkontroluj v **Nastavení → Spárovaná zařízení**:
+
+1. aktuální telefon musí být označený „toto zařízení" a nikde se nesmí objevit
+   token ani jeho hash;
+2. první ťuknutí na **Odvolat** pouze otevře potvrzení se jménem cíle;
+3. text musí říct, že se zablokuje další přístup, ale data v odpojeném telefonu
+   se vzdáleně nesmažou;
+4. odvolání tohoto telefonu ukončí relaci a vyžádá nové párování. Pokud jsou
+   otevřené operace, potvrzení předem pojmenuje ztrátu jejich lokálních klíčů.
+
+Přesný source-tested rozsah a non-claims jsou v
+[MM4-D review](reviews/MM4D-PAIRED-DEVICES.md).
+
 ---
 
 ## Známá omezení, ať je nehlásíš jako vady
@@ -150,6 +164,7 @@ přeinstaluj) a teprve potom na desktopu vygeneruj nový jednorázový kód.
 | Vlastní obrazovka průběhu / agent log chybí | `MR-07` je `BLOCKED_BY_CONTRACT`; demo ukazuje jen S1 indikátory ve schránce |
 | Hledání chybí | `MR-10` je `BLOCKED_BY_CONTRACT` |
 | Projekty jsou jen read-only | seznam a detail jsou zapojené; mutation kontrakt zatím není přijatý |
+| Odvolání zařízení není remote wipe | nový přístup se zablokuje; obsah už uložený v offline telefonu tím nezmizí |
 | Notifikace nedorazí do spící aplikace | Push (`N-1`) není; schránka je pull. Naplnit ji umí `npm run mobile:demo` |
 | ~~Na 200 % písma se nic nezvětší~~ | **Už neplatí.** Stylesheet byl převedený 2026-08-11 a `mobile-browser-a11y` to měří v prohlížeči |
 | Nové spárování = nový `deviceId` | Staré operace z nového zařízení nejsou vidět |

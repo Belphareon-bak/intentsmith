@@ -1,9 +1,10 @@
 # IntentSmith Mobile — testovací strategie a napojení na kanonický registr
 
 > **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
-> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 19
-> rout; poslední dvě jsou scope-gated read-only `/m1/workers` a
-> `/m1/specialists`. Autoritou změny je review `MM4C-WORKERS-SPECIALISTS-READ`;
+> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 21
+> rout; vedle read-only `/m1/workers` a `/m1/specialists` obsahuje scope-gated
+> seznam a odvolání zařízení. Autoritou poslední změny je review
+> `MM4D-PAIRED-DEVICES`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; mobilní zeleň není Gate 0 PASS

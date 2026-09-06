@@ -308,6 +308,14 @@ Dnes: release **selže**, když klíč chybí (fail-closed);
 | **Vlastník** | Operátor (proces), Implementátor (kód) |
 | **Pád** | ztracený telefon zůstane platným čtenářem, dokud nevyprší token |
 
+Stav MM4-D: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`.
+Scope-gated mobilní seznam a revoke prošly 8/8 gateway a 11/11 klientskými
+scénáři. Server commitne self-revocation a její výsledek atomicky; klient po
+potvrzení maže credential z nativního vaultu. Desktopová administrátorská
+obrazovka, fyzický lost-device průchod a nezávislá bezpečnostní akceptace však
+zůstávají otevřené. Viz
+[MM4-D review](reviews/MM4D-PAIRED-DEVICES.md).
+
 Hranice, kterou je nutné vyslovit nahlas (a je už v `DATA-MODEL` §5.3):
 **revokace zabrání novému přístupu, nesmaže, co už v telefonu je.** Proti
 útočníkovi, který telefon nepřipojí k síti, neexistuje remote wipe. Jediná
@@ -440,8 +448,11 @@ jiného, telefon nemá zámek obrazovky — a to je nález, ne detail.
 
 ### 5.3 Revokovat ztracené zařízení
 
-1. Na desktopu zrušit token zařízení (`revokeDevice`).
-2. Ověřit, že další request z telefonu dostane 401.
+1. Na jiném spárovaném telefonu se scopes `read:devices,write:devices` otevřít
+   **Nastavení → Spárovaná zařízení**, vybrat přesný cíl a potvrdit odvolání.
+   Nízkoúrovňová desktopová cesta `revokeDevice` zůstává operátorská alternativa.
+2. Ověřit, že další request z odvolaného telefonu dostane 401
+   `token_revoked`; jakmile ji aplikace přijme, musí vyčistit i nativní vault.
 3. Zapsat, kdy k tomu došlo — okno mezi ztrátou a revokací je to, co útočníkovi
    zbylo.
 4. **Nepředstírat remote wipe.** Co je v telefonu, tam zůstane.
@@ -461,8 +472,8 @@ jiného, telefon nemá zámek obrazovky — a to je nález, ne detail.
 
 ## 6. Co tenhle handbook **nezavádí**
 
-- Žádný nový kontrakt, routu ani tabulku. Prototyp běží na zmrazených 13
-  routách a tenhle dokument to nemění.
+- Handbook sám nezavádí kontrakt. Aktuální přesný allow-list má 21 rout; dvě
+  device-lifecycle routy přidal a otestoval MM4-D, ne tento dokument.
 - Žádný termín. Termíny patří operátorovi; tady jsou jen závislosti a pořadí.
 - Žádné „nice to have". Každá položka výše má popsaný způsob, jak selže —
   když ho někdo nedokáže popsat u nové položky, do seznamu nepatří.

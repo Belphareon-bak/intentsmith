@@ -1,9 +1,10 @@
 # IntentSmith Mobile — klientský datový, cache a trust model
 
 > **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
-> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 19
-> rout; poslední dvě jsou scope-gated read-only `/m1/workers` a
-> `/m1/specialists`. Autoritou změny je review `MM4C-WORKERS-SPECIALISTS-READ`;
+> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 21
+> rout; vedle read-only `/m1/workers` a `/m1/specialists` obsahuje scope-gated
+> seznam a odvolání zařízení. Autoritou poslední změny je review
+> `MM4D-PAIRED-DEVICES`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná produktová fáze není DONE
@@ -1105,7 +1106,7 @@ Nedílná součást tohoto modelu. Tabulky v §4 mají sloupec `E-LOST` právě 
 | **P-6** | Vyloučit `ST-DB` a `ST-SECURE` ze systémových záloh | A3 | |
 | **P-7** | Zakázat S2/S3 v `MD-18` a v notifikacích `MD-08` | A1, A3 | Vynucené testem, ne pravidlem |
 | **P-8** | Nejmenší dostatečný scope zařízení; telefon jako čtečka + approvaly | A2 | Omezuje škodu z platného tokenu |
-| **P-9** | Viditelný seznam spárovaných zařízení a jednoklikové odvolání | A2 | Zkracuje okno mezi ztrátou a revokací |
+| **P-9** | Viditelný seznam spárovaných zařízení a explicitně potvrzené odvolání | A2 | Zkracuje okno mezi ztrátou a revokací bez záměny cílového telefonu |
 
 ### 5.5 Reziduální rizika
 
