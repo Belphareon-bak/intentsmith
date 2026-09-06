@@ -10,8 +10,9 @@ import { createAgentRoutes } from '../src/agents/api.js';
 import { AgentRepository, initAgentTables } from '../src/agents/repository.js';
 import { runMigrations } from '../src/db/migrate.js';
 import { startMobileGateway } from '../src/mobile/gateway.js';
-import { handleSpecialists, handleWorkers } from '../src/mobile/handlers.js';
+import { handleSpecialists, handleWorkerRuns, handleWorkers } from '../src/mobile/handlers.js';
 import { createPairingCode, PAIRABLE_SCOPES } from '../src/mobile/pairing.js';
+import { encodeCursor } from '../src/mobile/protocol.js';
 import { RemoteCorePort, createMobileRemoteCorePort } from '../src/remote-core/port.js';
 import { UpstreamClient } from '../src/mobile/upstream.js';
 
@@ -52,10 +53,21 @@ db.prepare(`
 `).run('worker-a', '2026-09-05 10:00:00', '2026-09-04 10:00:00', 3600000, null);
 db.prepare(`
   INSERT INTO agent_runs_v33
-    (agent_id, started_at, finished_at, status, actions_executed, explain, log, error)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    (agent_id, started_at, finished_at, status, triggers_fired, actions_executed, explain, log, error)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?), (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `).run(
-  'worker-a', '2026-09-04 09:00:00', '2026-09-04 09:01:00', 'success', 2,
+  'worker-a', '2026-09-04 07:00:00', '2026-09-04 07:01:00', 'partial',
+  JSON.stringify(['trigger-secret-old']), 1, JSON.stringify({ secret: 'explain-old' }), 'log-old', 'error-old',
+  'worker-a', '2026-09-04 08:00:00', '2026-09-04 08:02:00', 'error',
+  JSON.stringify(['trigger-secret-a', 'trigger-secret-b']), 0, JSON.stringify({ secret: 'explain-error' }), 'log-error', 'error-secret',
+);
+db.prepare(`
+  INSERT INTO agent_runs_v33
+    (agent_id, started_at, finished_at, status, triggers_fired, actions_executed, explain, log, error)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+`).run(
+  'worker-a', '2026-09-04 09:00:00', '2026-09-04 09:01:00', 'success',
+  JSON.stringify(['trigger-secret-latest']), 2,
   JSON.stringify({ secret: 'explain-secret' }), 'log-secret', null,
 );
 db.prepare(`
@@ -150,7 +162,7 @@ async function get(pathname, token) {
   const response = await fetch(gateway.url + pathname, {
     headers: { authorization: `Bearer ${token}` },
   });
-  return { status: response.status, body: await response.json() };
+  return { status: response.status, headers: response.headers, body: await response.json() };
 }
 
 async function put(pathname, token, body) {
@@ -170,6 +182,7 @@ try {
     const token = await pair(['read:capabilities']);
     for (const [pathname, scope] of [
       ['/m1/workers', 'read:workers'],
+      ['/m1/workers/worker-a/runs', 'read:workers'],
       ['/m1/specialists', 'read:specialists'],
     ]) {
       const response = await get(pathname, token);
@@ -309,6 +322,91 @@ try {
     ]) assert.ok(!encoded.includes(secret), secret);
   });
 
+  await test('worker history is terminal-only, content-free and walks stably into the past', async () => {
+    const first = await get('/m1/workers/worker-a/runs?limit=2', token);
+    assert.equal(first.status, 200, JSON.stringify(first.body));
+    assert.equal(first.body.direction, 'backward');
+    assert.equal(first.body.hasMore, true);
+    assert.equal(first.body.end, false);
+    assert.ok(first.body.nextCursor);
+    assert.equal(first.body.data.worker.id, 'worker-a');
+    assert.deepEqual(first.body.data.runs.map(run => run.status), ['success', 'error']);
+    assert.deepEqual(first.body.data.runs.map(run => run.triggerCount), [1, 2]);
+    assert.equal(first.body.data.runs[0].actionsExecuted, 2);
+    assert.equal(first.headers.get('cache-control'), 'no-store');
+
+    const encoded = JSON.stringify(first.body);
+    for (const secret of [
+      'definition-secret', 'state-secret', 'params-secret',
+      'trigger-secret-latest', 'trigger-secret-a', 'trigger-secret-b',
+      'explain-secret', 'explain-error', 'log-secret', 'log-error', 'error-secret',
+      'untrusted-running-secret',
+    ]) assert.ok(!encoded.includes(secret), secret);
+
+    // A newer terminal run appended after page one must not shift the absolute
+    // cursor that already points to the older prefix.
+    db.prepare(`
+      INSERT INTO agent_runs_v33
+        (agent_id, started_at, finished_at, status, triggers_fired, actions_executed, log)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      'worker-a', '2026-09-04 12:00:00', '2026-09-04 12:01:00', 'success',
+      JSON.stringify([]), 0, 'newer-secret',
+    );
+    const second = await get(
+      `/m1/workers/worker-a/runs?limit=2&cursor=${encodeURIComponent(first.body.nextCursor)}`,
+      token,
+    );
+    assert.equal(second.status, 200);
+    assert.deepEqual(second.body.data.runs.map(run => run.status), ['partial']);
+    assert.equal(second.body.hasMore, false);
+    assert.equal(second.body.end, true);
+    assert.equal(second.body.nextCursor, null);
+    assert.ok(!JSON.stringify(second.body).includes('newer-secret'));
+  });
+
+  await test('worker history rejects missing workers, foreign cursors and malformed queries', async () => {
+    const missing = await get('/m1/workers/not-there/runs', token);
+    assert.equal(missing.status, 404);
+    assert.equal(missing.body.error.code, 'not_found');
+
+    const list = await get('/m1/workers?limit=1', token);
+    const crossed = await get(
+      `/m1/workers/worker-a/runs?cursor=${encodeURIComponent(list.body.nextCursor)}`,
+      token,
+    );
+    assert.equal(crossed.status, 400);
+    assert.equal(crossed.body.error.code, 'cursor_unknown');
+
+    const forward = encodeCursor({ stream: 'worker-runs:worker-a', position: 1 });
+    const wrongDirection = await get(
+      `/m1/workers/worker-a/runs?cursor=${encodeURIComponent(forward)}`,
+      token,
+    );
+    assert.equal(wrongDirection.status, 400);
+    assert.equal(wrongDirection.body.error.reason, 'cursor_direction_mismatch');
+
+    for (const pathname of [
+      '/m1/workers/worker-a/runs?state=success',
+      '/m1/workers/worker-a/runs?limit=1&limit=2',
+      '/m1/workers/worker-a/runs?limit=0',
+    ]) {
+      const response = await get(pathname, token);
+      assert.equal(response.status, 400, pathname);
+    }
+  });
+
+  await test('malformed run metadata fails closed without returning its raw bytes', async () => {
+    db.prepare('UPDATE agent_runs_v33 SET triggers_fired = ? WHERE id = 1')
+      .run('malformed-trigger-secret');
+    const response = await get('/m1/workers/worker-a/runs?limit=100', token);
+    assert.equal(response.status, 503);
+    assert.equal(response.body.error.reason, 'worker_record_invalid');
+    assert.ok(!JSON.stringify(response.body).includes('malformed-trigger-secret'));
+    db.prepare('UPDATE agent_runs_v33 SET triggers_fired = ? WHERE id = 1')
+      .run('[]');
+  });
+
   await test('specialist projection exposes package state and expertise count without manifest', async () => {
     const response = await get('/m1/specialists?limit=50', token);
     assert.equal(response.status, 200);
@@ -400,14 +498,16 @@ try {
   });
 
   await test('missing providers fail closed and optional worker tables stay undiscoverable', async () => {
-    for (const [handler, scope] of [
-      [handleWorkers, 'read:workers'],
-      [handleSpecialists, 'read:specialists'],
+    for (const [handler, scope, params] of [
+      [handleWorkers, 'read:workers', undefined],
+      [handleWorkerRuns, 'read:workers', { id: 'worker-a' }],
+      [handleSpecialists, 'read:specialists', undefined],
     ]) {
       const response = await handler({
         corePort: new RemoteCorePort(),
         principal: { deviceId: 'd1', scopes: [scope] },
         query: new URLSearchParams(),
+        params,
       });
       assert.equal(response.status, 503);
       assert.equal(response.body.error.reason, 'capability_unavailable');

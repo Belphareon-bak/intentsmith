@@ -60,7 +60,8 @@ globalThis.fetch = async () => { throw new TypeError('network disabled'); };
 const { __ms20 } = await import('../src/mobile/client/app.js');
 const {
   state, store, journal, K, cache, viewOverview, navItems, unknownScopes,
-  viewWorkers, viewSpecialists, loadWorkers, loadSpecialists,
+  viewWorkers, viewWorker, viewSpecialists, loadWorkers, loadSpecialists,
+  validWorkerHistoryResponse, loadWorkerHistory, loadOlderWorkerRuns,
   workerMutationFresh, workerWriteOutcome,
   askWorkerToggle, cancelWorkerToggle, confirmWorkerToggle,
 } = __ms20;
@@ -83,6 +84,8 @@ function reset(scopes = ['read:workers', 'read:specialists']) {
   state.workerSaving = null;
   state.workerConfirm = null;
   state.workerNote = null;
+  state.workerId = null;
+  state.workerRuns = { cursor: null, end: false, loadingOlder: false };
   nodes.app.innerHTML = '';
 }
 
@@ -104,6 +107,16 @@ function specialist(overrides = {}) {
     type: 'domain', status: 'enabled', expertiseCount: 2,
     installedAt: '2026-09-01T10:00:00.000Z', enabledAt: '2026-09-02T10:00:00.000Z',
     disabledAt: null, updatedAt: '2026-09-02T10:00:00.000Z', version: 'v1:specialist',
+    ...overrides,
+  };
+}
+
+function run(overrides = {}) {
+  return {
+    id: '9', status: 'success',
+    startedAt: '2026-09-06T10:00:00.000Z',
+    finishedAt: '2026-09-06T10:01:00.000Z',
+    actionsExecuted: 2, triggerCount: 1, version: 'v1:run',
     ...overrides,
   };
 }
@@ -159,6 +172,7 @@ await test('records are escaped and unavailable actions remain explicitly locked
   assert.match(workers, /poslední běh uspěl/);
   assert.match(workers, /Živý stav se nezobrazuje/);
   assert.match(workers, /write:workers/);
+  assert.match(workers, /data-act="open-worker"/);
   assert.match(workers, /data-act="worker-toggle-ask"[^>]+disabled/);
   assert.ok(!/data-act="worker-(?:run|dry-run)"/.test(workers));
   assert.ok(!specialists.includes('<script>'));
@@ -166,6 +180,94 @@ await test('records are escaped and unavailable actions remain explicitly locked
   assert.match(specialists, /2 expertizy/);
   assert.match(specialists, /Registrace v právě běžícím procesu není/);
   assert.ok(!/data-act="(?:toggle|enable|disable)-specialist/.test(specialists));
+});
+
+await test('worker detail hides execution content and distinguishes its history states', () => {
+  reset(['read:workers']);
+  state.route = 'worker';
+  state.workerId = 'worker-1';
+  state.data.worker = worker();
+  state.data.workerRuns = [run()];
+  state.workerRuns = { cursor: 'older-runs', end: false, loadingOlder: false };
+  const detail = viewWorker();
+  assert.match(detail, /Přehled agenta/);
+  assert.match(detail, /Ukončené běhy/);
+  assert.match(detail, /Běh 9/);
+  assert.match(detail, /2 akce/);
+  assert.match(detail, /Načíst starší běhy/);
+  assert.match(detail, /Log, error text, explain payload/);
+  assert.ok(!/data-act="worker-(?:run|dry-run|cancel)"/.test(detail));
+
+  state.data.workerRuns = [];
+  state.workerRuns = { cursor: null, end: true, loadingOlder: false };
+  assert.match(viewWorker(), /Bez ukončených běhů/);
+  reset([]);
+  state.route = 'worker';
+  state.data.worker = worker({ name: 'must-not-render-detail' });
+  assert.match(viewWorker(), /read:workers/);
+  assert.ok(!viewWorker().includes('must-not-render-detail'));
+});
+
+await test('worker history validator binds exact metadata-only shapes', () => {
+  const response = {
+    ok: true,
+    direction: 'backward', hasMore: true, end: false, nextCursor: 'older-runs',
+    data: { worker: worker(), runs: [run()] },
+  };
+  assert.equal(validWorkerHistoryResponse(response, 'worker-1'), true);
+  assert.equal(validWorkerHistoryResponse({
+    ...response,
+    data: { ...response.data, runs: [{ ...run(), log: 'secret' }] },
+  }, 'worker-1'), false);
+  assert.equal(validWorkerHistoryResponse({
+    ...response,
+    data: { ...response.data, worker: worker({ id: 'worker-2' }) },
+  }, 'worker-1'), false);
+  assert.equal(validWorkerHistoryResponse({
+    ...response, direction: 'forward',
+  }, 'worker-1'), false);
+});
+
+await test('worker history loads newest first and appends only by server cursor', async () => {
+  reset(['read:workers']);
+  state.route = 'worker';
+  state.workerId = 'worker-1';
+  state.data.workers = [worker()];
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    const older = String(url).includes('cursor=older-runs');
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return {
+          ok: true,
+          scopes: ['read:workers'],
+          direction: 'backward',
+          hasMore: !older,
+          nextCursor: older ? null : 'older-runs',
+          end: older,
+          data: {
+            worker: worker(),
+            runs: [run({ id: older ? '8' : '9', status: older ? 'error' : 'success' })],
+          },
+        };
+      },
+    };
+  };
+
+  await loadWorkerHistory();
+  assert.equal(calls[0].url, '/m1/workers/worker-1/runs?limit=20');
+  assert.equal(calls[0].options.cache, 'no-store');
+  assert.deepEqual(state.data.workerRuns.map(item => item.id), ['9']);
+  assert.equal(state.workerRuns.cursor, 'older-runs');
+  assert.equal(state.cacheAge.worker, 'FRESH');
+  await loadOlderWorkerRuns();
+  assert.equal(calls[1].url, '/m1/workers/worker-1/runs?limit=20&cursor=older-runs');
+  assert.deepEqual(state.data.workerRuns.map(item => item.id), ['9', '8']);
+  assert.equal(state.workerRuns.end, true);
+  assert.equal(state.workerRuns.cursor, null);
 });
 
 await test('worker toggle requires both scopes, a live read and two-step confirmation', () => {

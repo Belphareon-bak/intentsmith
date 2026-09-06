@@ -802,6 +802,120 @@ export async function handleWorkers(args) {
   });
 }
 
+// ── GET /m1/workers/:id/runs ───────────────────────────────────────────────
+//
+// Metadata-only terminal history. Running rows, logs, explain records, error
+// text and trigger identities are deliberately absent from the projection.
+export async function handleWorkerRuns({ corePort, principal, params, query }) {
+  const allowedParameters = new Set(['limit', 'cursor']);
+  const seenParameters = new Set();
+  for (const name of query.keys()) {
+    if (!allowedParameters.has(name)) {
+      return workerResponse(errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+        reason: 'unknown_parameter', field: name,
+      }));
+    }
+    if (seenParameters.has(name)) {
+      return workerResponse(errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+        reason: 'duplicate_parameter', field: name,
+      }));
+    }
+    seenParameters.add(name);
+  }
+
+  const id = params?.id;
+  if (
+    typeof id !== 'string'
+    || id.length < 1
+    || id.length > 128
+    || id !== id.trim()
+    || /[\u0000-\u001f\u007f]/u.test(id)
+  ) {
+    return workerResponse(errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+      reason: 'worker_id_invalid',
+    }));
+  }
+
+  const rawLimit = query.get('limit');
+  if (rawLimit !== null && (!/^[1-9][0-9]*$/.test(rawLimit) || Number(rawLimit) > MAX_PAGE_SIZE)) {
+    return workerResponse(errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+      reason: 'limit_invalid', allowed: { min: 1, max: MAX_PAGE_SIZE },
+    }));
+  }
+  const limit = rawLimit === null ? 20 : Number(rawLimit);
+  const stream = `worker-runs:${id}`;
+  const cursor = decodeCursor(query.get('cursor'), { stream });
+  if (!cursor.valid || (!cursor.initial && cursor.direction !== CURSOR_BACKWARD)) {
+    return workerResponse(errorResponse(MOBILE_ERRORS.CURSOR_UNKNOWN, {
+      reason: cursor.valid ? 'cursor_direction_mismatch' : cursor.reason,
+      restart: true,
+    }));
+  }
+
+  let outcome;
+  try {
+    outcome = await corePort?.invoke({
+      version: 1,
+      feature: 'workers.read',
+      input: {
+        operation: 'history',
+        id,
+        limit,
+        end: cursor.initial ? null : cursor.position,
+      },
+      principal,
+    }) ?? { ok: false, error: { code: 'capability_unavailable' } };
+  } catch (error) {
+    outcome = { ok: false, error: { code: error?.code || 'provider_failure' } };
+  }
+
+  if (!outcome.ok) {
+    if (outcome.error?.code === 'capability_forbidden') {
+      return workerResponse(errorResponse(MOBILE_ERRORS.SCOPE_REQUIRED, {
+        requiredScope: 'read:workers',
+      }));
+    }
+    if (outcome.error?.code === 'not_found') {
+      return workerResponse(errorResponse(MOBILE_ERRORS.NOT_FOUND, { resource: 'worker' }));
+    }
+    if (outcome.error?.code === 'cursor_invalid') {
+      return workerResponse(errorResponse(MOBILE_ERRORS.CURSOR_UNKNOWN, {
+        reason: 'cursor_position_invalid', restart: true,
+      }));
+    }
+    if (['operation_invalid', 'worker_id_invalid', 'limit_invalid'].includes(outcome.error?.code)) {
+      return workerResponse(errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+        reason: outcome.error.code,
+      }));
+    }
+    return workerResponse(errorResponse(MOBILE_ERRORS.SERVER_UNAVAILABLE, {
+      reason: outcome.error?.code || 'workers_provider_unavailable',
+    }));
+  }
+
+  const page = paginateBackward({
+    rows: outcome.data.rows.slice().reverse().map(record => versioned(record)),
+    stream,
+    start: outcome.data.start,
+  });
+  return {
+    status: 200,
+    headers: WORKER_RESPONSE_HEADERS,
+    body: withEnvelope({
+      worker: versioned(outcome.data.worker),
+      runs: page.items,
+    }, {
+      principal,
+      extra: {
+        hasMore: page.hasMore,
+        nextCursor: page.nextCursor,
+        end: page.end,
+        direction: CURSOR_BACKWARD,
+      },
+    }),
+  };
+}
+
 function workerResponse(result) {
   return { ...result, headers: WORKER_RESPONSE_HEADERS };
 }
@@ -1946,6 +2060,7 @@ export const MOBILE_HANDLERS = Object.freeze({
   'GET /m1/memory': handleStoredInformation,
   'POST /m1/memory': handleStoredInformationWrite,
   'GET /m1/workers': handleWorkers,
+  'GET /m1/workers/:id/runs': handleWorkerRuns,
   'PUT /m1/workers/:id/enabled': handleWorkerToggle,
   'GET /m1/specialists': handleSpecialists,
   'GET /m1/devices': handleDevices,

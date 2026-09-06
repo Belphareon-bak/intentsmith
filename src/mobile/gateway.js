@@ -64,6 +64,7 @@ const MEMORY_ROUTE_KEYS = new Set([
 
 const WORKER_ROUTE_KEYS = new Set([
   'GET /m1/workers',
+  'GET /m1/workers/:id/runs',
   'PUT /m1/workers/:id/enabled',
 ]);
 

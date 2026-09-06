@@ -12,7 +12,7 @@ const stored = JSON.parse(readFileSync(
 
 assert.deepEqual(stored, inventory, 'generated backend inventory is stale');
 assert.ok(inventory.summary.routes > 100, 'route scanner found implausibly few backend routes');
-assert.equal(inventory.summary.mobileV1, 24, 'the current /m1 allow-list changed without review');
+assert.equal(inventory.summary.mobileV1, 25, 'the current /m1 allow-list changed without review');
 assert.equal(
   inventory.routes.filter(route => route.path.startsWith('/m1')).length,
   inventory.summary.mobileV1,
@@ -27,6 +27,10 @@ assert.equal(
 assert.equal(
   inventory.routes.find(route => route.path === '/m1/workers/:id/enabled')?.remoteCoreFeature,
   'workers.toggle',
+);
+assert.equal(
+  inventory.routes.find(route => route.path === '/m1/workers/:id/runs')?.remoteCoreFeature,
+  'workers.read',
 );
 assert.equal(
   inventory.routes.find(route => route.path === '/m1/specialists')?.remoteCoreFeature,

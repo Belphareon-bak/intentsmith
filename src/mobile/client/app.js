@@ -564,6 +564,8 @@ function lockDownSession() {
   state.workerSaving = null;
   state.workerConfirm = null;
   state.workerNote = null;
+  state.workerId = null;
+  state.workerRuns = { cursor: null, end: false, loadingOlder: false };
   state.thread = { cursor: null, end: false, loadingOlder: false, stickToBottom: true };
   invalidateApprovalSurface();
 }
@@ -712,6 +714,7 @@ const state = {
   conn: 'ok',              // ok | offline | server
   conversationId: null,
   projectId: null,
+  workerId: null,
   projectState: 'active',
   pagination: {},
   data: {},
@@ -763,6 +766,7 @@ const state = {
   workerSaving: null,
   workerConfirm: null,
   workerNote: null,
+  workerRuns: { cursor: null, end: false, loadingOlder: false },
   sessionWipeFailed: false,
 
   // MS-13 / MS-14.  The right to decide is not a flag the app owns; it belongs
@@ -884,6 +888,7 @@ function replaceScopes(scopes) {
   if (!next.includes('write:memory')) state.memorySaving = false;
   if (!next.includes('read:workers')) {
     workersGeneration++;
+    workerDetailGeneration++;
     delete state.data.workers;
     delete state.pagination.workers;
     state.error.workers = null;
@@ -894,6 +899,14 @@ function replaceScopes(scopes) {
     state.workerSaving = null;
     state.workerConfirm = null;
     state.workerNote = null;
+    state.workerId = null;
+    state.workerRuns = { cursor: null, end: false, loadingOlder: false };
+    delete state.data.worker;
+    delete state.data.workerRuns;
+    state.error.worker = null;
+    state.loading.worker = false;
+    state.cacheAge.worker = null;
+    state.cacheAt.worker = null;
     store.del(K.cache + 'workers');
   }
   if (!next.includes('write:workers')) {
@@ -1094,6 +1107,7 @@ const TRUST_DATASET = {
   notifications: 'notifications',
   operations: 'operations',
   workers: 'workers',
+  worker: 'worker',
   specialists: 'specialists',
   devices: 'devices',
 };
@@ -1119,6 +1133,7 @@ function screenLocks(route = state.route) {
       need('read:projects', 'projekty');
       break;
     case 'workers':
+    case 'worker':
       need('read:workers', 'agenty');
       break;
     case 'specialists':
@@ -1297,6 +1312,7 @@ const ROUTE_SECTION = {
   projects: 'projects',
   project: 'projects',
   workers: 'workers',
+  worker: 'workers',
   specialists: 'specialists',
   approvals: 'approvals',
   approval: 'approvals',
@@ -1925,7 +1941,7 @@ function viewWorkers() {
                 : 'Agent znovu získá možnost provádět naplánované akce. Změna platí jen nad právě načteným stavem.'}</span>
               <div class="device-actions"><button class="btn btn-secondary btn-sm" data-act="worker-toggle-cancel">Zpět</button><button class="btn ${worker.enabled ? 'btn-danger' : 'btn-primary'} btn-sm" data-act="worker-toggle-confirm" data-worker="${esc(worker.id)}" ${running ? 'disabled' : ''}>${running ? 'Měním…' : 'Potvrdit změnu'}</button></div>
             </div>`
-            : `<div class="device-actions"><button class="btn ${worker.enabled ? 'btn-danger' : 'btn-secondary'} btn-sm" data-act="worker-toggle-ask" data-worker="${esc(worker.id)}" ${canToggle ? '' : 'disabled'}>${worker.enabled ? 'Vypnout' : 'Zapnout'}</button></div>`}
+            : `<div class="device-actions"><button class="btn btn-secondary btn-sm" data-act="open-worker" data-worker="${esc(worker.id)}">Detail a historie</button><button class="btn ${worker.enabled ? 'btn-danger' : 'btn-secondary'} btn-sm" data-act="worker-toggle-ask" data-worker="${esc(worker.id)}" ${canToggle ? '' : 'disabled'}>${worker.enabled ? 'Vypnout' : 'Zapnout'}</button></div>`}
         </div>
       </article>`;
     }).join('')}${configuredResourceCacheNote('workers')}${configuredResourceInlineError('workers')}${configuredResourceMore('workers')}</div>`;
@@ -1937,6 +1953,94 @@ function viewWorkers() {
     <p class="resource-lead">Konfigurace a poslední ukončený běh. Živý stav se nezobrazuje, protože jej backend neumí po restartu spolehlivě potvrdit.</p>
     ${body}
   </div></div>`;
+}
+
+function workerRunPresentation(run) {
+  const status = {
+    success: { tone: 'ok', text: 'úspěch' },
+    partial: { tone: 'warn', text: 'částečný' },
+    error: { tone: 'danger', text: 'chyba' },
+  }[run.status] || { tone: 'danger', text: 'neznámý' };
+  const started = serverTimeMs(run.startedAt);
+  const finished = serverTimeMs(run.finishedAt);
+  const durationMs = Number.isNaN(started) || Number.isNaN(finished) || finished < started
+    ? null
+    : finished - started;
+  const duration = durationMs === null
+    ? 'délka není dostupná'
+    : durationMs < 60_000
+      ? `${Math.max(1, Math.round(durationMs / 1000))} s`
+      : `${Math.round(durationMs / 60_000)} min`;
+  return { ...status, duration };
+}
+
+function workerRunsMore() {
+  if (!state.workerRuns?.cursor || state.workerRuns.end) return '';
+  return `<div class="resource-more">
+    <button class="btn btn-secondary" data-act="load-more-worker-runs" ${state.workerRuns.loadingOlder ? 'disabled' : ''}>
+      ${state.workerRuns.loadingOlder ? 'Načítám…' : 'Načíst starší běhy'}
+    </button>
+    <p>Historie je výřez. Kurzor pokračuje směrem ke starším ukončeným běhům.</p>
+  </div>`;
+}
+
+function viewWorker() {
+  const worker = state.data.worker || workerById(state.workerId);
+  const runs = state.data.workerRuns;
+  const error = state.error.worker;
+  const loading = state.loading.worker;
+  let body;
+
+  if (!auth.has('read:workers')) {
+    body = statePanel('scope', 'Bez oprávnění',
+      'Zařízení nemá scope read:workers, takže detail agenta nelze zobrazit.');
+  } else if (loading && !worker) {
+    body = skeletonList(5);
+  } else if (error && !worker) {
+    body = errorPanel(error, 'load-worker');
+  } else if (worker) {
+    const schedule = worker.schedule;
+    let history;
+    if (loading && !Array.isArray(runs)) {
+      history = skeletonList(3);
+    } else if (error && !Array.isArray(runs)) {
+      history = errorPanel(error, 'load-worker');
+    } else if (Array.isArray(runs) && runs.length === 0) {
+      history = statePanel('empty', 'Bez ukončených běhů',
+        'Backend potvrdil, že agent zatím nemá důvěryhodný terminální běh.');
+    } else if (Array.isArray(runs)) {
+      history = `<div class="list">${runs.map(run => {
+        const shown = workerRunPresentation(run);
+        return `<article class="resource-row">
+          <div class="resource-icon" aria-hidden="true">#</div>
+          <div class="row-main">
+            <div class="resource-title-line"><span class="row-title">Běh ${esc(run.id)}</span><span class="pill" data-tone="${shown.tone}">${shown.text}</span></div>
+            <div class="row-sub">${esc(timeAgo(run.startedAt) || 'čas není dostupný')} · ${esc(shown.duration)}</div>
+            <div class="resource-meta"><span>${esc(run.actionsExecuted)} ${plural(run.actionsExecuted, 'akce', 'akce', 'akcí')}</span><span>${esc(run.triggerCount)} ${plural(run.triggerCount, 'trigger', 'triggery', 'triggerů')}</span></div>
+          </div>
+        </article>`;
+      }).join('')}${error ? `<div class="resource-inline-error" role="status">Starší běhy teď nelze načíst.<button class="btn btn-secondary btn-sm" data-act="load-more-worker-runs">Zkusit znovu</button></div>` : ''}${workerRunsMore()}</div>`;
+    } else {
+      history = skeletonList(3);
+    }
+
+    body = `<div class="container project-detail">
+      <section class="card" aria-labelledby="worker-detail-h">
+        <div class="card-head"><h2 class="card-title" id="worker-detail-h">Přehled agenta</h2></div>
+        <div class="kv"><span class="kv-key">Stav</span><span class="pill" data-tone="${worker.enabled ? 'ok' : 'muted'}">${worker.enabled ? 'zapnutý' : 'vypnutý'}</span></div>
+        <div class="kv"><span class="kv-key">Typ</span><span>${esc(worker.kind || 'neurčen')}</span></div>
+        <div class="kv"><span class="kv-key">Další běh</span><span>${schedule?.nextRunAt ? esc(scheduledAt(schedule.nextRunAt)) : 'není naplánovaný'}</span></div>
+        <div class="kv"><span class="kv-key">Interval</span><span>${schedule?.intervalMs ? esc(`${Math.round(schedule.intervalMs / 60_000)} min`) : 'není nastavený'}</span></div>
+      </section>
+      <p class="card-note">Historie obsahuje jen metadata ukončených běhů. Log, error text, explain payload, trigger identity ani nedůvěryhodný stav „running“ se do telefonu neposílají.</p>
+      <section aria-labelledby="worker-runs-h"><div class="card-head"><h2 class="card-title" id="worker-runs-h">Ukončené běhy</h2></div>${history}</section>
+    </div>`;
+  } else {
+    body = skeletonList(5);
+  }
+
+  return header({ title: auth.has('read:workers') ? worker?.name || 'Agent' : 'Agent', left: 'back' })
+    + `<div class="scroll">${body}</div>`;
 }
 
 function specialistStatus(status) {
@@ -3890,6 +3994,7 @@ function render() {
     projects: viewProjects,
     project: viewProject,
     workers: viewWorkers,
+    worker: viewWorker,
     specialists: viewSpecialists,
     notifications: viewNotifications,
     approvals: viewApprovals,
@@ -4616,6 +4721,7 @@ function openApproval(approvalId) {
 let settingsGeneration = 0;
 let memoryGeneration = 0;
 let workersGeneration = 0;
+let workerDetailGeneration = 0;
 let specialistsGeneration = 0;
 let devicesGeneration = 0;
 
@@ -5066,6 +5172,147 @@ function workerById(id) {
   return Array.isArray(state.data.workers)
     ? state.data.workers.find(worker => worker?.id === id) || null
     : null;
+}
+
+function validIsoOrNull(value) {
+  return value === null || (typeof value === 'string' && !Number.isNaN(Date.parse(value)));
+}
+
+function validWorkerSnapshot(worker, id) {
+  if (!worker || typeof worker !== 'object' || Array.isArray(worker)
+      || Object.keys(worker).sort().join(',') !== 'createdAt,description,enabled,icon,id,kind,lastRun,name,schedule,updatedAt,version'
+      || worker.id !== id || typeof worker.name !== 'string' || !worker.name
+      || !(worker.description === null || typeof worker.description === 'string')
+      || !(worker.icon === null || typeof worker.icon === 'string')
+      || !(worker.kind === null || typeof worker.kind === 'string')
+      || typeof worker.enabled !== 'boolean'
+      || typeof worker.createdAt !== 'string' || Number.isNaN(Date.parse(worker.createdAt))
+      || typeof worker.updatedAt !== 'string' || Number.isNaN(Date.parse(worker.updatedAt))
+      || typeof worker.version !== 'string' || !worker.version.startsWith('v1:')) return false;
+
+  if (worker.schedule !== null) {
+    const schedule = worker.schedule;
+    if (!schedule || typeof schedule !== 'object' || Array.isArray(schedule)
+        || Object.keys(schedule).sort().join(',') !== 'cronExpression,intervalMs,lastRunAt,nextRunAt'
+        || !(schedule.intervalMs === null
+          || (Number.isSafeInteger(schedule.intervalMs) && schedule.intervalMs >= 0))
+        || !(schedule.cronExpression === null || typeof schedule.cronExpression === 'string')
+        || !validIsoOrNull(schedule.nextRunAt) || !validIsoOrNull(schedule.lastRunAt)) return false;
+  }
+
+  if (worker.lastRun !== null) {
+    const last = worker.lastRun;
+    if (!last || typeof last !== 'object' || Array.isArray(last)
+        || Object.keys(last).sort().join(',') !== 'actionsExecuted,finishedAt,id,startedAt,status'
+        || typeof last.id !== 'string' || !last.id
+        || !['success', 'partial', 'error'].includes(last.status)
+        || typeof last.startedAt !== 'string' || Number.isNaN(Date.parse(last.startedAt))
+        || typeof last.finishedAt !== 'string' || Number.isNaN(Date.parse(last.finishedAt))
+        || Date.parse(last.finishedAt) < Date.parse(last.startedAt)
+        || !Number.isSafeInteger(last.actionsExecuted) || last.actionsExecuted < 0) return false;
+  }
+  return true;
+}
+
+function validWorkerHistoryResponse(response, id) {
+  const data = response?.data;
+  if (response?.ok !== true
+      || !data || typeof data !== 'object' || Array.isArray(data)
+      || Object.keys(data).sort().join(',') !== 'runs,worker'
+      || response.direction !== 'backward'
+      || typeof response.hasMore !== 'boolean'
+      || typeof response.end !== 'boolean'
+      || response.hasMore === response.end
+      || (response.hasMore && (typeof response.nextCursor !== 'string' || !response.nextCursor))
+      || (!response.hasMore && response.nextCursor !== null)) return false;
+
+  const worker = data.worker;
+  if (!validWorkerSnapshot(worker, id) || !Array.isArray(data.runs)) return false;
+
+  const ids = new Set();
+  return data.runs.every(run => {
+    if (!run || typeof run !== 'object' || Array.isArray(run)
+        || Object.keys(run).sort().join(',') !== 'actionsExecuted,finishedAt,id,startedAt,status,triggerCount,version'
+        || typeof run.id !== 'string' || !run.id || ids.has(run.id)
+        || !['success', 'partial', 'error'].includes(run.status)
+        || typeof run.startedAt !== 'string' || Number.isNaN(Date.parse(run.startedAt))
+        || typeof run.finishedAt !== 'string' || Number.isNaN(Date.parse(run.finishedAt))
+        || Date.parse(run.finishedAt) < Date.parse(run.startedAt)
+        || !Number.isSafeInteger(run.actionsExecuted) || run.actionsExecuted < 0
+        || !Number.isSafeInteger(run.triggerCount) || run.triggerCount < 0
+        || typeof run.version !== 'string' || !run.version.startsWith('v1:')) return false;
+    ids.add(run.id);
+    return true;
+  });
+}
+
+async function loadWorkerHistory({ append = false } = {}) {
+  const id = state.workerId;
+  if (!auth.has('read:workers') || !id) return;
+  const cursor = append ? state.workerRuns?.cursor : null;
+  if (append && (!cursor || state.workerRuns.loadingOlder)) return;
+
+  const generation = ++workerDetailGeneration;
+  if (!append) {
+    state.data.worker = workerById(id) || undefined;
+    state.data.workerRuns = undefined;
+    state.workerRuns = { cursor: null, end: false, loadingOlder: false };
+    state.cacheAge.worker = null;
+    state.cacheAt.worker = null;
+  }
+  state.loading.worker = !append;
+  state.workerRuns.loadingOlder = append;
+  state.error.worker = null;
+  render();
+
+  try {
+    const suffix = cursor ? `&cursor=${encodeURIComponent(cursor)}` : '';
+    const response = await api(`/workers/${encodeURIComponent(id)}/runs?limit=20${suffix}`);
+    if (generation !== workerDetailGeneration || state.workerId !== id) return;
+    if (!validWorkerHistoryResponse(response, id)) {
+      throw Object.assign(new Error('invalid worker history response'), {
+        kind: 'protocol', code: 'protocol_invalid_response',
+      });
+    }
+    const prior = append && Array.isArray(state.data.workerRuns) ? state.data.workerRuns : [];
+    const priorIds = new Set(prior.map(run => run.id));
+    if (response.data.runs.some(run => priorIds.has(run.id))) {
+      throw Object.assign(new Error('overlapping worker history page'), {
+        kind: 'protocol', code: 'protocol_invalid_response',
+      });
+    }
+    const seen = new Set();
+    state.data.worker = response.data.worker;
+    state.data.workerRuns = [...prior, ...response.data.runs].filter(run => {
+      if (seen.has(run.id)) return false;
+      seen.add(run.id);
+      return true;
+    });
+    state.workerRuns = {
+      cursor: response.nextCursor,
+      end: response.end,
+      loadingOlder: false,
+    };
+    state.cacheAge.worker = 'FRESH';
+    state.cacheAt.worker = Date.now();
+    if (response.scopes) replaceScopes(response.scopes);
+    setConn('ok');
+  } catch (error) {
+    if (generation !== workerDetailGeneration || state.workerId !== id) return;
+    if (error.kind === 'auth') return await handleAuthFailure(error);
+    state.error.worker = error;
+    setConn(error.kind === 'offline' ? 'offline' : error.kind === 'server' || error.kind === 'protocol' ? 'server' : state.conn);
+  } finally {
+    if (generation === workerDetailGeneration && state.workerId === id) {
+      state.loading.worker = false;
+      state.workerRuns.loadingOlder = false;
+      render();
+    }
+  }
+}
+
+function loadOlderWorkerRuns() {
+  return loadWorkerHistory({ append: true });
 }
 
 function askWorkerToggle(id) {
@@ -5975,6 +6222,7 @@ async function repairLocalState() {
  * direct/stale caller is separately stopped by approvalDecidable's route gate.
  */
 function transitionRoute(route) {
+  if (state.route === 'worker' && route !== 'worker') workerDetailGeneration++;
   if (route !== state.route) {
     state.opsConfirm = null;
     state.deviceConfirm = null;
@@ -5999,6 +6247,7 @@ function navigate(route) {
   if (route === 'conversations') loadConversations();
   if (route === 'projects') loadProjects();
   if (route === 'workers') loadWorkers();
+  if (route === 'worker') loadWorkerHistory();
   if (route === 'specialists') loadSpecialists();
   if (route === 'devices') loadDevices();
   if (route === 'notifications') loadNotifications();
@@ -6024,6 +6273,17 @@ function openProject(projectId) {
   state.projectId = String(projectId);
   state.data.project = undefined;
   loadProject(state.projectId);
+}
+
+function openWorker(workerId) {
+  const selected = workerById(workerId);
+  transitionRoute('worker');
+  state.workerId = String(workerId);
+  state.data.worker = selected || undefined;
+  state.data.workerRuns = undefined;
+  state.workerRuns = { cursor: null, end: false, loadingOlder: false };
+  state.error.worker = null;
+  loadWorkerHistory();
 }
 
 function openChat(conversationId) {
@@ -6064,6 +6324,7 @@ document.addEventListener('click', event => {
     'new-chat': newChat,
     'open-chat': () => openChat(target.dataset.id),
     'open-project': () => openProject(target.dataset.id),
+    'open-worker': () => openWorker(target.dataset.worker),
     'project-state': () => loadProjects(target.dataset.state),
     send: doSend,
     pair: doPair,
@@ -6108,6 +6369,8 @@ document.addEventListener('click', event => {
     'load-memory': () => loadStoredInformation(),
     'memory-create': () => { createManualMemory(); },
     'load-workers': () => loadWorkers(),
+    'load-worker': () => loadWorkerHistory(),
+    'load-more-worker-runs': () => loadOlderWorkerRuns(),
     'worker-toggle-ask': () => askWorkerToggle(target.dataset.worker),
     'worker-toggle-cancel': cancelWorkerToggle,
     'worker-toggle-confirm': () => { confirmWorkerToggle(target.dataset.worker); },
@@ -6323,6 +6586,7 @@ async function handleVisibilityChange() {
   if (state.route === 'projects') await loadProjects();
   if (state.route === 'project') await loadProject();
   if (state.route === 'workers') await loadWorkers();
+  if (state.route === 'worker') await loadWorkerHistory();
   if (state.route === 'specialists') await loadSpecialists();
   if (state.route === 'devices') await loadDevices();
 }
@@ -6403,7 +6667,8 @@ export const __ms20 = {
   trustBar, trustZones, withTrustBar, screenLocks, serverNow,
   viewOverview, navItems, currentSection, sectionRoute, unknownScopes, NAV_ITEMS, ROUTE_SECTION,
   viewProjects, viewProject, loadProjects, loadProject, openProject,
-  viewWorkers, viewSpecialists, loadWorkers, loadSpecialists,
+  viewWorkers, viewWorker, viewSpecialists, loadWorkers, loadSpecialists,
+  validWorkerHistoryResponse, loadWorkerHistory, loadOlderWorkerRuns, openWorker,
   workerMutationFresh, workerWriteOutcome,
   askWorkerToggle, cancelWorkerToggle, confirmWorkerToggle,
   viewDevices, viewDiagnostics, viewSession,
