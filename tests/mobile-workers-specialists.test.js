@@ -10,7 +10,12 @@ import { createAgentRoutes } from '../src/agents/api.js';
 import { AgentRepository, initAgentTables } from '../src/agents/repository.js';
 import { runMigrations } from '../src/db/migrate.js';
 import { startMobileGateway } from '../src/mobile/gateway.js';
-import { handleSpecialists, handleWorkerRuns, handleWorkers } from '../src/mobile/handlers.js';
+import {
+  handleSpecialistDetail,
+  handleSpecialists,
+  handleWorkerRuns,
+  handleWorkers,
+} from '../src/mobile/handlers.js';
 import { createPairingCode, PAIRABLE_SCOPES } from '../src/mobile/pairing.js';
 import { encodeCursor } from '../src/mobile/protocol.js';
 import { RemoteCorePort, createMobileRemoteCorePort } from '../src/remote-core/port.js';
@@ -184,6 +189,7 @@ try {
       ['/m1/workers', 'read:workers'],
       ['/m1/workers/worker-a/runs', 'read:workers'],
       ['/m1/specialists', 'read:specialists'],
+      ['/m1/specialists/finance-cz', 'read:specialists'],
     ]) {
       const response = await get(pathname, token);
       assert.equal(response.status, 403);
@@ -423,6 +429,61 @@ try {
     assert.ok(!Object.hasOwn(response.body.data[0], 'isRegistered'));
   });
 
+  await test('specialist detail exposes ordered expertise bindings without runtime or manifest data', async () => {
+    const response = await get('/m1/specialists/finance-cz', token);
+    assert.equal(response.status, 200, JSON.stringify(response.body));
+    assert.equal(response.headers.get('cache-control'), 'no-store');
+    assert.equal(response.body.data.id, 'finance-cz');
+    assert.equal(response.body.data.expertiseCount, 2);
+    assert.deepEqual(
+      response.body.data.expertises.map(item => [item.id, item.label, item.priority]),
+      [['tax', 'Daně', 2], ['cashflow', 'Cashflow', 1]],
+    );
+    assert.match(response.body.data.version, /^v1:/);
+    const encoded = JSON.stringify(response.body);
+    for (const secret of ['manifest-secret', 'private-tool']) {
+      assert.ok(!encoded.includes(secret), secret);
+    }
+    for (const absent of ['manifest', 'tools', 'isRegistered', 'integrity']) {
+      assert.ok(!Object.hasOwn(response.body.data, absent), absent);
+    }
+  });
+
+  await test('specialist detail rejects missing resources, unknown query and non-exact provider input', async () => {
+    const missing = await get('/m1/specialists/not-there', token);
+    assert.equal(missing.status, 404);
+    assert.equal(missing.body.error.code, 'not_found');
+
+    const query = await get('/m1/specialists/finance-cz?include=manifest', token);
+    assert.equal(query.status, 400);
+    assert.equal(query.body.error.reason, 'unknown_parameter');
+
+    const port = createMobileRemoteCorePort({ rawDb: db, upstream: workerUpstream });
+    const extra = await port.invoke({
+      version: 1,
+      feature: 'specialists.read',
+      input: { operation: 'detail', id: 'finance-cz', include: 'manifest' },
+      principal: { deviceId: 'direct', scopes: ['read:specialists'] },
+    });
+    assert.equal(extra.ok, false);
+    assert.equal(extra.error.code, 'operation_invalid');
+  });
+
+  await test('malformed specialist binding fails closed without returning its raw bytes', async () => {
+    db.prepare(`
+      UPDATE specialist_expertises SET added_at = ?
+       WHERE specialist_id = ? AND expertise_id = ?
+    `).run('malformed-binding-secret', 'finance-cz', 'tax');
+    const response = await get('/m1/specialists/finance-cz', token);
+    assert.equal(response.status, 503);
+    assert.equal(response.body.error.reason, 'specialist_record_invalid');
+    assert.ok(!JSON.stringify(response.body).includes('malformed-binding-secret'));
+    db.prepare(`
+      UPDATE specialist_expertises SET added_at = CURRENT_TIMESTAMP
+       WHERE specialist_id = ? AND expertise_id = ?
+    `).run('finance-cz', 'tax');
+  });
+
   await test('lists paginate with stream-bound opaque cursors', async () => {
     db.prepare(`
       INSERT INTO agents_v33 (id, name, definition, enabled) VALUES (?, ?, ?, 0)
@@ -502,6 +563,7 @@ try {
       [handleWorkers, 'read:workers', undefined],
       [handleWorkerRuns, 'read:workers', { id: 'worker-a' }],
       [handleSpecialists, 'read:specialists', undefined],
+      [handleSpecialistDetail, 'read:specialists', { id: 'finance-cz' }],
     ]) {
       const response = await handler({
         corePort: new RemoteCorePort(),

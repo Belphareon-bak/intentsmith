@@ -566,6 +566,7 @@ function lockDownSession() {
   state.workerNote = null;
   state.workerId = null;
   state.workerRuns = { cursor: null, end: false, loadingOlder: false };
+  state.specialistId = null;
   state.thread = { cursor: null, end: false, loadingOlder: false, stickToBottom: true };
   invalidateApprovalSurface();
 }
@@ -607,11 +608,12 @@ async function api(path, { method = 'GET', body = null, timeoutMs = 130_000, str
     const settingsRequest = routePath === '/settings';
     const memoryRequest = routePath === '/memory';
     const workerRequest = routePath === '/workers' || routePath.startsWith('/workers/');
+    const specialistRequest = routePath === '/specialists' || routePath.startsWith('/specialists/');
     response = await fetch(API + path, {
       method, headers,
       body: body ? JSON.stringify(body) : undefined,
       signal: controller.signal,
-      ...(approvalRequest || settingsRequest || memoryRequest || workerRequest
+      ...(approvalRequest || settingsRequest || memoryRequest || workerRequest || specialistRequest
         ? { cache: 'no-store' }
         : {}),
     });
@@ -715,6 +717,7 @@ const state = {
   conversationId: null,
   projectId: null,
   workerId: null,
+  specialistId: null,
   projectState: 'active',
   pagination: {},
   data: {},
@@ -922,6 +925,13 @@ function replaceScopes(scopes) {
     state.cacheAge.specialists = null;
     state.cacheAt.specialists = null;
     store.del(K.cache + 'specialists');
+    specialistDetailGeneration++;
+    state.specialistId = null;
+    delete state.data.specialist;
+    state.error.specialist = null;
+    state.loading.specialist = false;
+    state.cacheAge.specialist = null;
+    state.cacheAt.specialist = null;
   }
   if (!next.includes('read:devices')) {
     devicesGeneration++;
@@ -1109,6 +1119,7 @@ const TRUST_DATASET = {
   workers: 'workers',
   worker: 'worker',
   specialists: 'specialists',
+  specialist: 'specialist',
   devices: 'devices',
 };
 
@@ -1137,6 +1148,7 @@ function screenLocks(route = state.route) {
       need('read:workers', 'agenty');
       break;
     case 'specialists':
+    case 'specialist':
       need('read:specialists', 'specialisty');
       break;
     case 'devices':
@@ -1314,6 +1326,7 @@ const ROUTE_SECTION = {
   workers: 'workers',
   worker: 'workers',
   specialists: 'specialists',
+  specialist: 'specialists',
   approvals: 'approvals',
   approval: 'approvals',
   diagnostics: 'settings',
@@ -2077,6 +2090,7 @@ function viewSpecialists() {
             <span class="pill" data-tone="${status.tone}">${esc(status.text)}</span></div>
           <div class="row-sub">${esc(specialist.domain)} · ${esc(specialist.type)} · verze ${esc(specialist.packageVersion)}</div>
           <div class="resource-meta"><span>${esc(specialist.expertiseCount)} ${plural(specialist.expertiseCount, 'expertiza', 'expertizy', 'expertiz')}</span></div>
+          <div class="device-actions"><button class="btn btn-secondary btn-sm" data-act="open-specialist" data-specialist="${esc(specialist.id)}">Detail expertiz</button></div>
         </div>
       </article>`;
     }).join('')}${configuredResourceCacheNote('specialists')}${configuredResourceInlineError('specialists')}${configuredResourceMore('specialists')}</div>`;
@@ -2088,6 +2102,56 @@ function viewSpecialists() {
     <p class="resource-lead">Nainstalované balíčky a jejich uložený stav. Registrace v právě běžícím procesu není součástí tohoto přehledu.</p>
     ${body}
   </div></div>`;
+}
+
+function viewSpecialist() {
+  const specialist = state.data.specialist;
+  const error = state.error.specialist;
+  const loading = state.loading.specialist;
+  let body;
+
+  if (!auth.has('read:specialists')) {
+    body = statePanel('scope', 'Bez oprávnění',
+      'Zařízení nemá scope read:specialists, takže detail specialisty nelze zobrazit.');
+  } else if (error && !specialist) {
+    body = errorPanel(error, 'load-specialist');
+  } else if (specialist) {
+    const status = specialistStatus(specialist.status);
+    const expertises = specialist.expertises.length
+      ? `<div class="list">${specialist.expertises.map(expertise => `<article class="resource-row">
+          <div class="resource-icon" aria-hidden="true">#</div>
+          <div class="row-main">
+            <div class="resource-title-line"><span class="row-title">${esc(expertise.label || expertise.id)}</span><span class="pill" data-tone="info">priorita ${esc(expertise.priority)}</span></div>
+            <div class="row-sub">${esc(expertise.id)}</div>
+            <div class="resource-meta"><span>${expertise.addedAt ? `přidáno ${esc(scheduledAt(expertise.addedAt))}` : 'čas přidání není dostupný'}</span></div>
+          </div>
+        </article>`).join('')}</div>`
+      : statePanel('empty', 'Bez navázaných expertiz',
+        'Backend potvrdil, že balíček teď nemá žádnou uloženou vazbu expertizy.');
+
+    body = `<div class="container project-detail">
+      <section class="card" aria-labelledby="specialist-detail-h">
+        <div class="card-head"><h2 class="card-title" id="specialist-detail-h">Přehled specialisty</h2></div>
+        <div class="kv"><span class="kv-key">Stav balíčku</span><span class="pill" data-tone="${status.tone}">${esc(status.text)}</span></div>
+        <div class="kv"><span class="kv-key">Doména</span><span>${esc(specialist.domain)}</span></div>
+        <div class="kv"><span class="kv-key">Typ</span><span>${esc(specialist.type)}</span></div>
+        <div class="kv"><span class="kv-key">Verze balíčku</span><span>${esc(specialist.packageVersion)}</span></div>
+        <div class="kv"><span class="kv-key">Nainstalováno</span><span>${specialist.installedAt ? esc(scheduledAt(specialist.installedAt)) : 'čas není dostupný'}</span></div>
+      </section>
+      <p class="card-note">Detail ukazuje jen uložená metadata balíčku a vazby expertiz. Živá registrace, tools, manifest, prompty a filesystem integrity nejsou z gateway pozorovatelné a do telefonu se neposílají.</p>
+      <section aria-labelledby="specialist-expertises-h"><div class="card-head"><h2 class="card-title" id="specialist-expertises-h">Navázané expertizy</h2></div>${expertises}</section>
+      <p class="card-note">Změny stavu a vazeb zůstávají jen na desktopové autoritě SpecialistLoaderu.</p>
+    </div>`;
+  } else if (loading) {
+    body = skeletonList(4);
+  } else {
+    body = skeletonList(4);
+  }
+
+  return header({
+    title: auth.has('read:specialists') ? specialist?.name || 'Specialista' : 'Specialista',
+    left: 'back',
+  }) + `<div class="scroll">${body}</div>`;
 }
 
 function plural(n, one, few, many) {
@@ -3996,6 +4060,7 @@ function render() {
     workers: viewWorkers,
     worker: viewWorker,
     specialists: viewSpecialists,
+    specialist: viewSpecialist,
     notifications: viewNotifications,
     approvals: viewApprovals,
     approval: viewApproval,
@@ -4723,6 +4788,7 @@ let memoryGeneration = 0;
 let workersGeneration = 0;
 let workerDetailGeneration = 0;
 let specialistsGeneration = 0;
+let specialistDetailGeneration = 0;
 let devicesGeneration = 0;
 
 async function loadSettings() {
@@ -5454,6 +5520,84 @@ async function confirmWorkerToggle(id) {
 
 function loadSpecialists(options) {
   return loadConfiguredResources('specialists', options);
+}
+
+function validSpecialistDetailResponse(response, id) {
+  const specialist = response?.data;
+  if (response?.ok !== true
+      || !specialist || typeof specialist !== 'object' || Array.isArray(specialist)
+      || Object.keys(specialist).sort().join(',') !== 'disabledAt,domain,enabledAt,expertiseCount,expertises,id,installedAt,name,packageVersion,status,type,updatedAt,version'
+      || specialist.id !== id
+      || typeof specialist.name !== 'string' || !specialist.name
+      || typeof specialist.packageVersion !== 'string' || !specialist.packageVersion
+      || typeof specialist.domain !== 'string' || !specialist.domain
+      || !['domain', 'utility', 'integration'].includes(specialist.type)
+      || !['installed', 'enabled', 'disabled'].includes(specialist.status)
+      || !Number.isSafeInteger(specialist.expertiseCount) || specialist.expertiseCount < 0
+      || !validIsoOrNull(specialist.installedAt)
+      || !validIsoOrNull(specialist.enabledAt)
+      || !validIsoOrNull(specialist.disabledAt)
+      || !validIsoOrNull(specialist.updatedAt)
+      || typeof specialist.version !== 'string' || !specialist.version.startsWith('v1:')
+      || !Array.isArray(specialist.expertises)
+      || specialist.expertiseCount !== specialist.expertises.length) return false;
+
+  const ids = new Set();
+  return specialist.expertises.every(expertise => {
+    if (!expertise || typeof expertise !== 'object' || Array.isArray(expertise)
+        || Object.keys(expertise).sort().join(',') !== 'addedAt,id,label,priority'
+        || typeof expertise.id !== 'string' || !expertise.id || ids.has(expertise.id)
+        || !(expertise.label === null || typeof expertise.label === 'string')
+        || !Number.isSafeInteger(expertise.priority)
+        || !validIsoOrNull(expertise.addedAt)) return false;
+    ids.add(expertise.id);
+    return true;
+  });
+}
+
+async function loadSpecialist() {
+  const id = state.specialistId;
+  if (!auth.has('read:specialists') || !id) return;
+  const generation = ++specialistDetailGeneration;
+  state.data.specialist = undefined;
+  state.loading.specialist = true;
+  state.error.specialist = null;
+  state.cacheAge.specialist = null;
+  state.cacheAt.specialist = null;
+  render();
+
+  try {
+    const response = await api(`/specialists/${encodeURIComponent(id)}`, { strict: true });
+    if (generation !== specialistDetailGeneration || state.specialistId !== id) return;
+    if (!validSpecialistDetailResponse(response, id)) {
+      throw Object.assign(new Error('invalid specialist detail response'), {
+        kind: 'protocol', code: 'protocol_invalid_response',
+      });
+    }
+    state.data.specialist = response.data;
+    state.cacheAge.specialist = 'FRESH';
+    state.cacheAt.specialist = Date.now();
+    if (response.scopes) {
+      replaceScopes(response.scopes);
+      if (!auth.has('read:specialists')) return render();
+    }
+    setConn('ok');
+  } catch (error) {
+    if (generation !== specialistDetailGeneration || state.specialistId !== id) return;
+    if (error.kind === 'auth') return await handleAuthFailure(error);
+    if (error.kind === 'scope') {
+      replaceScopes(auth.scopes.filter(scope => scope !== 'read:specialists'));
+      render();
+    } else {
+      state.error.specialist = error;
+    }
+    setConn(error.kind === 'offline' ? 'offline' : error.kind === 'server' || error.kind === 'protocol' ? 'server' : state.conn);
+  } finally {
+    if (generation === specialistDetailGeneration && state.specialistId === id) {
+      state.loading.specialist = false;
+      render();
+    }
+  }
 }
 
 function validDeviceSnapshot(value) {
@@ -6223,6 +6367,7 @@ async function repairLocalState() {
  */
 function transitionRoute(route) {
   if (state.route === 'worker' && route !== 'worker') workerDetailGeneration++;
+  if (state.route === 'specialist' && route !== 'specialist') specialistDetailGeneration++;
   if (route !== state.route) {
     state.opsConfirm = null;
     state.deviceConfirm = null;
@@ -6249,6 +6394,7 @@ function navigate(route) {
   if (route === 'workers') loadWorkers();
   if (route === 'worker') loadWorkerHistory();
   if (route === 'specialists') loadSpecialists();
+  if (route === 'specialist') loadSpecialist();
   if (route === 'devices') loadDevices();
   if (route === 'notifications') loadNotifications();
   // SS-01/SS-05/SS-10: entering the screen always re-reads the queue from the
@@ -6284,6 +6430,14 @@ function openWorker(workerId) {
   state.workerRuns = { cursor: null, end: false, loadingOlder: false };
   state.error.worker = null;
   loadWorkerHistory();
+}
+
+function openSpecialist(specialistId) {
+  transitionRoute('specialist');
+  state.specialistId = String(specialistId);
+  state.data.specialist = undefined;
+  state.error.specialist = null;
+  loadSpecialist();
 }
 
 function openChat(conversationId) {
@@ -6325,6 +6479,7 @@ document.addEventListener('click', event => {
     'open-chat': () => openChat(target.dataset.id),
     'open-project': () => openProject(target.dataset.id),
     'open-worker': () => openWorker(target.dataset.worker),
+    'open-specialist': () => openSpecialist(target.dataset.specialist),
     'project-state': () => loadProjects(target.dataset.state),
     send: doSend,
     pair: doPair,
@@ -6375,6 +6530,7 @@ document.addEventListener('click', event => {
     'worker-toggle-cancel': cancelWorkerToggle,
     'worker-toggle-confirm': () => { confirmWorkerToggle(target.dataset.worker); },
     'load-specialists': () => loadSpecialists(),
+    'load-specialist': () => loadSpecialist(),
     'load-devices': () => loadDevices(),
     'device-revoke-ask': () => askDeviceRevoke(target.dataset.device),
     'device-revoke-cancel': cancelDeviceRevoke,
@@ -6588,6 +6744,7 @@ async function handleVisibilityChange() {
   if (state.route === 'workers') await loadWorkers();
   if (state.route === 'worker') await loadWorkerHistory();
   if (state.route === 'specialists') await loadSpecialists();
+  if (state.route === 'specialist') await loadSpecialist();
   if (state.route === 'devices') await loadDevices();
 }
 
@@ -6667,7 +6824,8 @@ export const __ms20 = {
   trustBar, trustZones, withTrustBar, screenLocks, serverNow,
   viewOverview, navItems, currentSection, sectionRoute, unknownScopes, NAV_ITEMS, ROUTE_SECTION,
   viewProjects, viewProject, loadProjects, loadProject, openProject,
-  viewWorkers, viewWorker, viewSpecialists, loadWorkers, loadSpecialists,
+  viewWorkers, viewWorker, viewSpecialists, viewSpecialist, loadWorkers, loadSpecialists,
+  validSpecialistDetailResponse, loadSpecialist, openSpecialist,
   validWorkerHistoryResponse, loadWorkerHistory, loadOlderWorkerRuns, openWorker,
   workerMutationFresh, workerWriteOutcome,
   askWorkerToggle, cancelWorkerToggle, confirmWorkerToggle,

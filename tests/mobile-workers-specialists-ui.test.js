@@ -60,7 +60,8 @@ globalThis.fetch = async () => { throw new TypeError('network disabled'); };
 const { __ms20 } = await import('../src/mobile/client/app.js');
 const {
   state, store, journal, K, cache, viewOverview, navItems, unknownScopes,
-  viewWorkers, viewWorker, viewSpecialists, loadWorkers, loadSpecialists,
+  viewWorkers, viewWorker, viewSpecialists, viewSpecialist, loadWorkers, loadSpecialists,
+  validSpecialistDetailResponse, loadSpecialist, openSpecialist,
   validWorkerHistoryResponse, loadWorkerHistory, loadOlderWorkerRuns,
   workerMutationFresh, workerWriteOutcome,
   askWorkerToggle, cancelWorkerToggle, confirmWorkerToggle,
@@ -86,6 +87,7 @@ function reset(scopes = ['read:workers', 'read:specialists']) {
   state.workerNote = null;
   state.workerId = null;
   state.workerRuns = { cursor: null, end: false, loadingOlder: false };
+  state.specialistId = null;
   nodes.app.innerHTML = '';
 }
 
@@ -109,6 +111,16 @@ function specialist(overrides = {}) {
     disabledAt: null, updatedAt: '2026-09-02T10:00:00.000Z', version: 'v1:specialist',
     ...overrides,
   };
+}
+
+function specialistDetail(overrides = {}) {
+  return specialist({
+    expertises: [
+      { id: 'tax', label: 'Daně', priority: 2, addedAt: '2026-09-03T10:00:00.000Z' },
+      { id: 'cashflow', label: null, priority: 1, addedAt: null },
+    ],
+    ...overrides,
+  });
 }
 
 function run(overrides = {}) {
@@ -138,10 +150,14 @@ await test('missing scopes lock both screens and hide remembered records', () =>
   reset([]);
   state.data.workers = [worker({ name: 'must-not-render-worker' })];
   state.data.specialists = [specialist({ name: 'must-not-render-specialist' })];
+  state.data.specialist = specialistDetail({ name: 'must-not-render-specialist-detail' });
   assert.match(viewWorkers(), /read:workers/);
   assert.ok(!viewWorkers().includes('must-not-render-worker'));
   assert.match(viewSpecialists(), /read:specialists/);
   assert.ok(!viewSpecialists().includes('must-not-render-specialist'));
+  state.route = 'specialist';
+  assert.match(viewSpecialist(), /read:specialists/);
+  assert.ok(!viewSpecialist().includes('must-not-render-specialist-detail'));
 });
 
 await test('loading, failure and confirmed empty remain distinct states', () => {
@@ -179,7 +195,82 @@ await test('records are escaped and unavailable actions remain explicitly locked
   assert.ok(!specialists.includes('<svg>'));
   assert.match(specialists, /2 expertizy/);
   assert.match(specialists, /Registrace v právě běžícím procesu není/);
+  assert.match(specialists, /data-act="open-specialist"/);
   assert.ok(!/data-act="(?:toggle|enable|disable)-specialist/.test(specialists));
+});
+
+await test('specialist detail renders persisted bindings while keeping runtime and mutations absent', () => {
+  reset(['read:specialists']);
+  state.route = 'specialist';
+  state.specialistId = 'finance-cz';
+  state.data.specialist = specialistDetail({
+    name: '<script>finance</script>',
+    expertises: [
+      { id: '<tax>', label: '<img src=x>', priority: 2, addedAt: '2026-09-03T10:00:00.000Z' },
+      { id: 'cashflow', label: null, priority: 1, addedAt: null },
+    ],
+  });
+  const detail = viewSpecialist();
+  assert.match(detail, /Přehled specialisty/);
+  assert.match(detail, /Navázané expertizy/);
+  assert.match(detail, /priorita 2/);
+  assert.match(detail, /Živá registrace, tools, manifest, prompty/);
+  assert.ok(!detail.includes('<script>'));
+  assert.ok(!detail.includes('<img'));
+  assert.ok(!/data-act="(?:toggle|enable|disable|bind|unbind)-specialist/.test(detail));
+});
+
+await test('specialist detail validator rejects hidden or inconsistent fields', () => {
+  const response = { ok: true, data: specialistDetail() };
+  assert.equal(validSpecialistDetailResponse(response, 'finance-cz'), true);
+  assert.equal(validSpecialistDetailResponse({
+    ...response,
+    data: { ...response.data, manifest: { secret: true } },
+  }, 'finance-cz'), false);
+  assert.equal(validSpecialistDetailResponse({
+    ...response,
+    data: { ...response.data, expertiseCount: 3 },
+  }, 'finance-cz'), false);
+  assert.equal(validSpecialistDetailResponse({
+    ...response,
+    data: {
+      ...response.data,
+      expertises: [{ ...response.data.expertises[0], prompt: 'secret' }, response.data.expertises[1]],
+    },
+  }, 'finance-cz'), false);
+});
+
+await test('specialist detail is live-only, exact-shape validated and scope-bound', async () => {
+  reset(['read:specialists']);
+  state.data.specialists = [specialist()];
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return { ok: true, scopes: ['read:specialists'], data: specialistDetail() };
+      },
+    };
+  };
+  openSpecialist('finance-cz');
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(calls[0].url, '/m1/specialists/finance-cz');
+  assert.equal(calls[0].options.cache, 'no-store');
+  assert.equal(state.data.specialist.id, 'finance-cz');
+  assert.equal(state.cacheAge.specialist, 'FRESH');
+  assert.equal(store.get(K.cache + 'specialist'), null);
+
+  globalThis.fetch = async () => ({
+    ok: false,
+    status: 403,
+    async json() { return { ok: false, error: { code: 'scope_required' } }; },
+  });
+  await loadSpecialist();
+  assert.equal(state.specialistId, null);
+  assert.equal(state.data.specialist, undefined);
+  assert.match(viewSpecialist(), /read:specialists/);
 });
 
 await test('worker detail hides execution content and distinguishes its history states', () => {

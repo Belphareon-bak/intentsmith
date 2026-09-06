@@ -30,6 +30,7 @@ import {
   APPROVAL_RESPONSE_HEADERS,
   MEMORY_RESPONSE_HEADERS,
   MOBILE_HANDLERS,
+  SPECIALIST_RESPONSE_HEADERS,
   SETTINGS_RESPONSE_HEADERS,
   WORKER_RESPONSE_HEADERS,
 } from './handlers.js';
@@ -66,6 +67,11 @@ const WORKER_ROUTE_KEYS = new Set([
   'GET /m1/workers',
   'GET /m1/workers/:id/runs',
   'PUT /m1/workers/:id/enabled',
+]);
+
+const SPECIALIST_ROUTE_KEYS = new Set([
+  'GET /m1/specialists',
+  'GET /m1/specialists/:id',
 ]);
 
 /**
@@ -298,6 +304,7 @@ function responseHeadersForRoute(method, pathname) {
     if (SETTINGS_ROUTE_KEYS.has(routeKey)) return SETTINGS_RESPONSE_HEADERS;
     if (MEMORY_ROUTE_KEYS.has(routeKey)) return MEMORY_RESPONSE_HEADERS;
     if (WORKER_ROUTE_KEYS.has(routeKey)) return WORKER_RESPONSE_HEADERS;
+    if (SPECIALIST_ROUTE_KEYS.has(routeKey)) return SPECIALIST_RESPONSE_HEADERS;
     return undefined;
   } catch {
     return undefined;

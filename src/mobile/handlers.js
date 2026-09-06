@@ -51,6 +51,7 @@ export const DEVICE_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-stor
 export const SETTINGS_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
 export const MEMORY_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
 export const WORKER_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
+export const SPECIALIST_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
 
 // ── GET /m1/health ───────────────────────────────────────────────────────────
 //
@@ -1119,6 +1120,74 @@ export async function handleSpecialists(args) {
   });
 }
 
+function specialistResponse(result) {
+  return { ...result, headers: SPECIALIST_RESPONSE_HEADERS };
+}
+
+// ── GET /m1/specialists/:id ────────────────────────────────────────────────
+//
+// Persisted package metadata and expertise bindings only. The standalone
+// gateway cannot observe live registration, runtime tools or filesystem
+// integrity and therefore does not invent them.
+export async function handleSpecialistDetail({ corePort, principal, params, query }) {
+  for (const name of query.keys()) {
+    return specialistResponse(errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+      reason: 'unknown_parameter', field: name,
+    }));
+  }
+
+  const id = params?.id;
+  if (
+    typeof id !== 'string'
+    || id.length < 1
+    || id.length > 128
+    || id !== id.trim()
+    || /[\u0000-\u001f\u007f]/u.test(id)
+  ) {
+    return specialistResponse(errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+      reason: 'specialist_id_invalid',
+    }));
+  }
+
+  let outcome;
+  try {
+    outcome = await corePort?.invoke({
+      version: 1,
+      feature: 'specialists.read',
+      input: { operation: 'detail', id },
+      principal,
+    }) ?? { ok: false, error: { code: 'capability_unavailable' } };
+  } catch (error) {
+    outcome = { ok: false, error: { code: error?.code || 'provider_failure' } };
+  }
+
+  if (!outcome.ok) {
+    if (outcome.error?.code === 'capability_forbidden') {
+      return specialistResponse(errorResponse(MOBILE_ERRORS.SCOPE_REQUIRED, {
+        requiredScope: 'read:specialists',
+      }));
+    }
+    if (outcome.error?.code === 'not_found') {
+      return specialistResponse(errorResponse(MOBILE_ERRORS.NOT_FOUND, {
+        resource: 'specialist',
+      }));
+    }
+    if (['operation_invalid', 'specialist_id_invalid'].includes(outcome.error?.code)) {
+      return specialistResponse(errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+        reason: outcome.error.code,
+      }));
+    }
+    return specialistResponse(errorResponse(MOBILE_ERRORS.SERVER_UNAVAILABLE, {
+      reason: outcome.error?.code || 'specialists_provider_unavailable',
+    }));
+  }
+
+  return specialistResponse({
+    status: 200,
+    body: withEnvelope(versioned(outcome.data.specialist), { principal }),
+  });
+}
+
 // ── GET /m1/conversations ────────────────────────────────────────────────────
 
 export async function handleConversations({ corePort, principal, query }) {
@@ -2063,6 +2132,7 @@ export const MOBILE_HANDLERS = Object.freeze({
   'GET /m1/workers/:id/runs': handleWorkerRuns,
   'PUT /m1/workers/:id/enabled': handleWorkerToggle,
   'GET /m1/specialists': handleSpecialists,
+  'GET /m1/specialists/:id': handleSpecialistDetail,
   'GET /m1/devices': handleDevices,
   'POST /m1/devices/:id/revoke': handleDeviceRevoke,
   'GET /m1/conversations': handleConversations,

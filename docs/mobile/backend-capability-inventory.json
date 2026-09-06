@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "scanner": "scripts/mobile-capability-inventory.mjs",
-  "routeDigest": "2924e93da37c97b55b6b14b2c1983edb294aafa3a8214c971a699129743f5e4e",
+  "routeDigest": "c47a580b144d78619ca71b60c6862bf353ffa1868bf120a807c09fcb17093277",
   "summary": {
-    "routes": 249,
-    "mobileV1": 25,
+    "routes": 250,
+    "mobileV1": 26,
     "legacyCore": 224,
-    "reads": 114,
+    "reads": 115,
     "mutations": 135,
-    "remoteCoreCandidates": 85,
+    "remoteCoreCandidates": 86,
     "domains": {
       "agents": 20,
       "approvals": 4,
@@ -24,7 +24,7 @@
       "security": 7,
       "settings": 12,
       "skills": 7,
-      "specialists": 35,
+      "specialists": 36,
       "storage": 1,
       "stored-information": 4,
       "system": 45
@@ -2974,6 +2974,18 @@
     {
       "method": "GET",
       "path": "/m1/specialists",
+      "sources": [
+        "src/mobile/handlers.js"
+      ],
+      "domain": "specialists",
+      "access": "read",
+      "exposure": "mobile-v1",
+      "remoteCoreFeature": "specialists.read",
+      "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/m1/specialists/:id",
       "sources": [
         "src/mobile/handlers.js"
       ],
