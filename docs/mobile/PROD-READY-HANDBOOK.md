@@ -269,10 +269,16 @@ Dnešní stav: `decideApproval` je idempotentní a receipty jsou per-device
 | **Pád** | „u mě to jde" — a release se nedá zopakovat, až bude potřeba hotfix |
 
 **Bit-shodné APK to nebude** a nemá se to slibovat: zip nese časová razítka.
-Kontroluje se **podpis a obsah**, ne hash. Checkout od MM6-A vyžaduje JDK 21,
+Kontroluje se **podpis a obsah**; SHA-256 v manifestu identifikuje konkrétní
+artefakt, ale netvrdí bitovou reprodukovatelnost. Checkout od MM6-A vyžaduje JDK 21,
 Android SDK 36, Gradle 8.14.3 přes wrapper a pinovaný Capacitor 8.4.3. Na
 aktuálním hostu JDK ani Android SDK nejsou, proto zatím existuje statický důkaz,
 ne clean-clone binární důkaz.
+
+Verze má jedinou trackovanou autoritu `mobile-app/release.json`. Schéma
+`major*1000000 + minor*1000 + patch` dává verzi `0.1.0` kód `1000`, takže je
+vyšší než historický prototyp s kódem 1. Každý distribuovaný upgrade musí změnit
+`versionName` i odvozený monotónní `versionCode` v tomto souboru.
 
 ### P1-2 Podpis a klíč
 
@@ -383,9 +389,18 @@ nepřijme nepodepsané APK a chybu verifikace nepřekryje. Volba
 `npm run mobile:android:build -- --debug-signing` je výslovný throwaway escape,
 nikoli release postup.
 
-Do zápisu patří: commit, `versionCode`, cert SHA-256, kdo build dělal. **Ne
-hash APK** — ten se mění při každém buildu a jeho zapsání vytváří dojem
-reprodukovatelnosti, který neexistuje.
+Úspěšný build musí vytvořit čtyři navzájem svázané výstupy pod Gradle
+`app/build/outputs/`: signed APK pro device journey, signed AAB pro publikační
+kanál, `release-sbom.cdx.json` a `release-manifest.json`. Manifest zaznamená
+plný Git commit a dirty flag, verzi, gateway origin, cert SHA-256, verze
+toolchainu, hash dependency locku a hashe/velikosti obou binárních artefaktů.
+Výchozí build odmítá dirty worktree; `--allow-dirty` je pouze explicitně
+označený diagnostický artefakt. Production metadata navíc zakazuje dirty i
+debug-signed manifest.
+
+Do zápisu patří: `release-manifest.json`, `versionCode`, cert SHA-256, kdo build
+dělal a výsledek device/release review. Hash APK/AAB slouží k identifikaci právě
+tohoto výstupu, ne jako slib reprodukovatelnosti dalšího buildu.
 
 ### 5.2 Nasadit na telefon
 

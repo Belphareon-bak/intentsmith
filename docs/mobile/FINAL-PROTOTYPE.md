@@ -40,7 +40,8 @@ raw obrazová evidence zůstává v [`prototype-evidence/`](prototype-evidence/)
 | Větev | `mobile/master-prod-ready` |
 | Zdroj runtime | `HEAD`; předchozí emulátorový APK `485c3497` je jen historický důkaz |
 | Vstupní mobile baseline | `2fcc2ff357238e4736a15a9e01affa14183e37ef` |
-| Aktuální APK/AAB | `NOT BUILT` — host nemá JDK 21 ani Android SDK 36 |
+| Aktuální verze | `0.1.0` / Android `versionCode 1000` z `mobile-app/release.json` |
+| Aktuální APK/AAB | `NOT BUILT` — workflow i manifest jsou připravené, host nemá JDK 21 ani Android SDK 36 |
 | Package | `cz.intentsmith.companion` |
 | Podpis | interní RSA-4096; cert SHA-256 `9c8aafc3a480e0eccf8230e324fede05f3b3e6db62bd5aea75e539af1e5bf786` |
 | Ověřená platforma | Android 15 emulátor, `x86_64`, API 35, KVM |
@@ -270,7 +271,10 @@ jen APK, které lze nainstalovat. Následující položky jsou povinné a jejich
    > identita vzdálené protistrany zůstává podmínkou skutečného remote release.
    Build/doctor/install cesta je od MM6-B jeden Node CLI pro Windows, Linux i
    macOS. Ověření podpisu už nesmí selhat potichu; 11 regresí drží toolchain,
-   náhodné interní heslo i explicitní debug escape.
+   náhodné interní heslo i explicitní debug escape. MM6-C přidal jedinou
+   verzovací autoritu, současný signed APK+AAB build, CycloneDX SBOM a release
+   manifest s commitem, endpointem, lockfilem, hashi artefaktů a signer
+   certifikátem. Skutečný výstup zůstává `NOT RUN` bez toolchainu a klíče.
 7. **Provést fyzický device journey.** Alespoň jeden podporovaný telefon:
    install, pairing, Keystore persistence po process death, approval approve i
    reject/expire, Home/recents/lock, gateway outage a odpojení USB.
