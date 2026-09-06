@@ -45,7 +45,11 @@ async function call(pathname, token = null) {
   const response = await fetch(gateway.url + pathname, {
     headers: token ? { authorization: `Bearer ${token}` } : {},
   });
-  return { status: response.status, body: await response.json() };
+  return {
+    status: response.status,
+    cacheControl: response.headers.get('cache-control'),
+    body: await response.json(),
+  };
 }
 
 async function pair(scopes) {
@@ -72,9 +76,21 @@ try {
   insertProject('Archive', 'archived', '2026-07-01 10:00:00');
   insertProject('Deleted', 'deleted', '2026-06-01 10:00:00');
   db.prepare(`
-    INSERT INTO conversations (id, project_id, title, state)
-    VALUES ('project-conversation', ?, 'Project chat', 'active')
-  `).run(Number(currentId));
+    INSERT INTO conversations (id, project_id, title, message_count, state, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run('project-conversation', Number(currentId), 'Project chat', 4, 'active', '2026-09-04 12:00:00');
+  db.prepare(`
+    INSERT INTO conversations (id, project_id, title, message_count, state, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run('project-older', Number(currentId), 'Archived project chat', 2, 'archived', '2026-09-03 12:00:00');
+  db.prepare(`
+    INSERT INTO conversations (id, project_id, title, state, updated_at)
+    VALUES (?, ?, ?, ?, ?)
+  `).run('project-deleted', Number(currentId), 'Deleted project chat', 'deleted', '2026-09-05 12:00:00');
+  db.prepare(`
+    INSERT INTO conversations (id, project_id, title, state, updated_at)
+    VALUES (?, ?, ?, ?, ?)
+  `).run('other-project-chat', Number(olderId), 'Other project chat', 'active', '2026-09-06 12:00:00');
 
   await test('missing project scope is refused before data is returned', async () => {
     const token = await pair(['read:chat']);
@@ -99,7 +115,7 @@ try {
     assert.equal(first.status, 200);
     assert.equal(first.body.data.length, 1);
     assert.equal(first.body.data[0].id, currentId);
-    assert.equal(first.body.data[0].conversationCount, 1);
+    assert.equal(first.body.data[0].conversationCount, 2);
     assert.equal(first.body.data[0].state, 'active');
     assert.match(first.body.data[0].createdAt, /^\d{4}-\d{2}-\d{2}T/);
     assert.match(first.body.data[0].version, /^v1:/);
@@ -148,7 +164,7 @@ try {
     assert.equal(found.status, 200);
     assert.equal(found.body.data.id, currentId);
     assert.equal(found.body.data.name, 'Current');
-    assert.equal(found.body.data.conversationCount, 1);
+    assert.equal(found.body.data.conversationCount, 2);
 
     const missing = await call('/m1/projects/999999', token);
     assert.equal(missing.status, 404);
@@ -156,6 +172,72 @@ try {
     const malformed = await call('/m1/projects/not-a-number', token);
     assert.equal(malformed.status, 400);
     assert.equal(malformed.body.error.code, 'bad_request');
+  });
+
+  await test('project conversation drill-down requires both chat and project read scopes', async () => {
+    const projectsOnly = await call(`/m1/conversations?projectId=${currentId}`, token);
+    assert.equal(projectsOnly.status, 403);
+    assert.equal(projectsOnly.body.error.code, 'scope_required');
+    assert.equal(projectsOnly.body.error.requiredScope, 'read:chat');
+
+    const chatOnlyToken = await pair(['read:chat']);
+    const chatOnly = await call(`/m1/conversations?projectId=${currentId}`, chatOnlyToken);
+    assert.equal(chatOnly.status, 403);
+    assert.equal(chatOnly.body.error.code, 'scope_required');
+    assert.equal(chatOnly.body.error.requiredScope, 'read:projects');
+  });
+
+  const drillDownToken = await pair(['read:chat', 'read:projects']);
+
+  await test('project conversation drill-down returns only live rows from that project', async () => {
+    const response = await call(`/m1/conversations?projectId=${currentId}&limit=20`, drillDownToken);
+    assert.equal(response.status, 200);
+    assert.deepEqual(response.body.data.map(conversation => conversation.id), [
+      'project-conversation', 'project-older',
+    ]);
+    assert.deepEqual(response.body.data.map(conversation => conversation.state), ['active', 'archived']);
+    assert.equal(response.body.data[0].messageCount, 4);
+    assert.match(response.body.data[0].version, /^v1:/);
+    assert.equal(response.body.end, true);
+    assert.equal(response.cacheControl, 'no-store');
+    assert.ok(!JSON.stringify(response.body).includes('project-deleted'));
+    assert.ok(!JSON.stringify(response.body).includes('other-project-chat'));
+  });
+
+  await test('project cursors are opaque and cannot cross filters', async () => {
+    const first = await call(`/m1/conversations?projectId=${currentId}&limit=1`, drillDownToken);
+    assert.equal(first.status, 200);
+    assert.equal(first.body.hasMore, true);
+    assert.match(first.body.nextCursor, /^c1\./);
+
+    const next = await call(`/m1/conversations?projectId=${currentId}&limit=1&cursor=${encodeURIComponent(first.body.nextCursor)}`, drillDownToken);
+    assert.equal(next.status, 200);
+    assert.deepEqual(next.body.data.map(conversation => conversation.id), ['project-older']);
+    assert.equal(next.body.end, true);
+
+    for (const pathname of [
+      `/m1/conversations?projectId=${olderId}&cursor=${encodeURIComponent(first.body.nextCursor)}`,
+      `/m1/conversations?cursor=${encodeURIComponent(first.body.nextCursor)}`,
+    ]) {
+      const crossed = await call(pathname, drillDownToken);
+      assert.equal(crossed.status, 400, pathname);
+      assert.equal(crossed.body.error.code, 'cursor_unknown', pathname);
+      assert.equal(crossed.body.error.restart, true, pathname);
+    }
+  });
+
+  await test('project conversation query rejects malformed, duplicate and unknown filters', async () => {
+    for (const pathname of [
+      '/m1/conversations?projectId=0',
+      '/m1/conversations?projectId=1x',
+      '/m1/conversations?projectId=999999999999999999999999',
+      `/m1/conversations?projectId=${currentId}&projectId=${olderId}`,
+      `/m1/conversations?projectId=${currentId}&sort=title`,
+    ]) {
+      const response = await call(pathname, drillDownToken);
+      assert.equal(response.status, 400, pathname);
+      assert.equal(response.body.error.code, 'bad_request', pathname);
+    }
   });
 } finally {
   await gateway.stop();

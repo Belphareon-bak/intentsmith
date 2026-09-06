@@ -567,6 +567,7 @@ function lockDownSession() {
   state.workerId = null;
   state.workerRuns = { cursor: null, end: false, loadingOlder: false };
   state.specialistId = null;
+  invalidateProjectConversationSurface();
   state.thread = { cursor: null, end: false, loadingOlder: false, stickToBottom: true };
   invalidateApprovalSurface();
 }
@@ -609,11 +610,14 @@ async function api(path, { method = 'GET', body = null, timeoutMs = 130_000, str
     const memoryRequest = routePath === '/memory';
     const workerRequest = routePath === '/workers' || routePath.startsWith('/workers/');
     const specialistRequest = routePath === '/specialists' || routePath.startsWith('/specialists/');
+    const projectConversationRequest = routePath === '/conversations'
+      && new URLSearchParams(path.split('?', 2)[1] || '').has('projectId');
     response = await fetch(API + path, {
       method, headers,
       body: body ? JSON.stringify(body) : undefined,
       signal: controller.signal,
       ...(approvalRequest || settingsRequest || memoryRequest || workerRequest || specialistRequest
+        || projectConversationRequest
         ? { cache: 'no-store' }
         : {}),
     });
@@ -770,6 +774,10 @@ const state = {
   workerConfirm: null,
   workerNote: null,
   workerRuns: { cursor: null, end: false, loadingOlder: false },
+  // MM3-C. Project membership is a live, scope-bound drill-down. It is never
+  // written to the durable cache; the cursor is useful only for this one open
+  // project and is withdrawn on navigation, disconnect, lock or scope loss.
+  projectConversations: { cursor: null, end: false, loadingOlder: false },
   sessionWipeFailed: false,
 
   // MS-13 / MS-14.  The right to decide is not a flag the app owns; it belongs
@@ -866,6 +874,9 @@ function replaceScopes(scopes) {
     state.cacheAt.project = null;
     store.delPrefix(K.cache + 'projects.');
     store.delPrefix(K.cache + 'project.');
+  }
+  if (!next.includes('read:projects') || !next.includes('read:chat')) {
+    invalidateProjectConversationSurface();
   }
   if (!next.includes('read:settings')) {
     settingsGeneration++;
@@ -1140,8 +1151,11 @@ function screenLocks(route = state.route) {
       need('read:chat', 'konverzace');
       break;
     case 'projects':
+      need('read:projects', 'projekty');
+      break;
     case 'project':
       need('read:projects', 'projekty');
+      need('read:chat', 'konverzace projektu');
       break;
     case 'workers':
     case 'worker':
@@ -1770,6 +1784,45 @@ function projectStateLabel(value) {
   return value === 'archived' ? 'Archivovaný' : 'Aktivní';
 }
 
+function projectConversationMore() {
+  const page = state.projectConversations;
+  if (!page?.cursor || page.end) return '';
+  return `<div class="resource-more">
+    <button class="btn btn-secondary" data-act="load-more-project-conversations" ${page.loadingOlder ? 'disabled' : ''}>
+      ${page.loadingOlder ? 'Načítám…' : 'Načíst starší konverzace'}
+    </button>
+    <p>Seznam je živý výřez. Backend potvrdil další konverzace tohoto projektu.</p>
+  </div>`;
+}
+
+function projectConversationList() {
+  const list = state.data.projectConversations;
+  const error = state.error.projectConversations;
+  const loading = state.loading.projectConversations;
+
+  if (!auth.has('read:chat')) {
+    return statePanel('scope', 'Konverzace jsou zamčené',
+      'Zařízení nemá scope read:chat. Detail projektu zůstává dostupný, jeho konverzace ale telefon nesmí načíst.');
+  }
+  if (loading && !Array.isArray(list)) return skeletonList(3);
+  if (error && !Array.isArray(list)) return errorPanel(error, 'load-project-conversations');
+  if (Array.isArray(list) && list.length === 0) {
+    return statePanel('empty', 'Projekt nemá žádné konverzace',
+      'Backend potvrdil prázdný živý seznam pro tento projekt.');
+  }
+  if (Array.isArray(list)) {
+    return `<div class="list">${list.map(conversation => `
+      <button class="row" data-act="open-chat" data-id="${esc(conversation.id)}">
+        <div class="row-main">
+          <div class="row-title">${esc(conversation.title)}</div>
+          <div class="row-sub">${conversation.messageCount} ${plural(conversation.messageCount, 'zpráva', 'zprávy', 'zpráv')}</div>
+        </div>
+        <div class="row-time">${esc(timeAgo(conversation.updatedAt) || 'čas není dostupný')}</div>
+      </button>`).join('')}${error ? `<div class="resource-inline-error" role="status">Starší konverzace teď nelze načíst.<button class="btn btn-secondary btn-sm" data-act="load-more-project-conversations">Zkusit znovu</button></div>` : ''}${projectConversationMore()}</div>`;
+  }
+  return skeletonList(3);
+}
+
 function viewProjects() {
   const list = state.data.projects;
   const error = state.error.projects;
@@ -1842,6 +1895,11 @@ function viewProject() {
         <div class="kv"><span class="kv-key">Poslední aktivita</span><span>${esc(timeAgo(project.updatedAt) || 'Není dostupná')}</span></div>
       </section>
       <p class="card-note">Mobilní projekce je zatím pouze pro čtení. Soubory, shell a správa cest zůstávají na desktopu.</p>
+      <section aria-labelledby="project-conversations-h">
+        <div class="card-head"><h2 class="card-title" id="project-conversations-h">Konverzace projektu</h2></div>
+        <p class="card-note">Živý seznam z backendu; telefon ho neukládá do trvalé cache.</p>
+        ${projectConversationList()}
+      </section>
     </div>`;
   } else {
     body = skeletonList(4);
@@ -4154,6 +4212,106 @@ async function loadConversations() {
 
 let projectsGeneration = 0;
 let projectGeneration = 0;
+let projectConversationsGeneration = 0;
+
+function invalidateProjectConversationSurface() {
+  projectConversationsGeneration++;
+  delete state.data.projectConversations;
+  state.error.projectConversations = null;
+  state.loading.projectConversations = false;
+  state.projectConversations = { cursor: null, end: false, loadingOlder: false };
+}
+
+function validProjectConversationPage(response) {
+  if (response?.ok !== true
+      || !Array.isArray(response.data)
+      || typeof response.hasMore !== 'boolean'
+      || typeof response.end !== 'boolean'
+      || response.hasMore === response.end
+      || (response.hasMore && (typeof response.nextCursor !== 'string' || !response.nextCursor))
+      || (!response.hasMore && response.nextCursor !== null)) return false;
+
+  const ids = new Set();
+  return response.data.every(conversation => {
+    if (!conversation || typeof conversation !== 'object' || Array.isArray(conversation)
+        || Object.keys(conversation).sort().join(',') !== 'createdAt,id,messageCount,state,title,updatedAt,version'
+        || typeof conversation.id !== 'string' || !conversation.id || ids.has(conversation.id)
+        || typeof conversation.title !== 'string' || !conversation.title
+        || !Number.isSafeInteger(conversation.messageCount) || conversation.messageCount < 0
+        || !['active', 'archived'].includes(conversation.state)
+        || !validIsoOrNull(conversation.createdAt)
+        || !validIsoOrNull(conversation.updatedAt)
+        || typeof conversation.version !== 'string' || !conversation.version.startsWith('v1:')) return false;
+    ids.add(conversation.id);
+    return true;
+  });
+}
+
+async function loadProjectConversations({ append = false } = {}) {
+  const id = state.projectId;
+  if (!auth.has('read:projects') || !auth.has('read:chat') || !id) return;
+  const cursor = append ? state.projectConversations?.cursor : null;
+  if (append && (!cursor || state.projectConversations.loadingOlder)) return;
+
+  const generation = ++projectConversationsGeneration;
+  if (!append) {
+    delete state.data.projectConversations;
+    state.projectConversations = { cursor: null, end: false, loadingOlder: false };
+  }
+  state.loading.projectConversations = !append;
+  state.projectConversations.loadingOlder = append;
+  state.error.projectConversations = null;
+  render();
+
+  try {
+    const suffix = cursor ? `&cursor=${encodeURIComponent(cursor)}` : '';
+    const response = await api(`/conversations?projectId=${encodeURIComponent(id)}&limit=20${suffix}`, { strict: true });
+    if (generation !== projectConversationsGeneration || state.projectId !== id || state.route !== 'project') return;
+    if (!validProjectConversationPage(response)) {
+      throw Object.assign(new Error('invalid project conversation page'), {
+        kind: 'protocol', code: 'protocol_invalid_response',
+      });
+    }
+    if (response.scopes) {
+      replaceScopes(response.scopes);
+      if (!auth.has('read:projects') || !auth.has('read:chat')) return render();
+    }
+    if (generation !== projectConversationsGeneration || state.projectId !== id || state.route !== 'project') return;
+
+    const prior = append && Array.isArray(state.data.projectConversations)
+      ? state.data.projectConversations : [];
+    const priorIds = new Set(prior.map(conversation => conversation.id));
+    if (response.data.some(conversation => priorIds.has(conversation.id))) {
+      throw Object.assign(new Error('overlapping project conversation page'), {
+        kind: 'protocol', code: 'protocol_invalid_response',
+      });
+    }
+    state.data.projectConversations = [...prior, ...response.data];
+    state.projectConversations = {
+      cursor: response.nextCursor,
+      end: response.end,
+      loadingOlder: false,
+    };
+    setConn('ok');
+  } catch (error) {
+    if (generation !== projectConversationsGeneration || state.projectId !== id || state.route !== 'project') return;
+    if (error.kind === 'auth') return await handleAuthFailure(error);
+    if (error.kind === 'scope') {
+      replaceScopes(auth.scopes.filter(scope => scope !== 'read:chat'));
+      render();
+    } else {
+      state.error.projectConversations = error;
+      setConn(error.kind === 'offline' ? 'offline'
+        : error.kind === 'server' || error.kind === 'protocol' ? 'server' : state.conn);
+    }
+  } finally {
+    if (generation === projectConversationsGeneration && state.projectId === id && state.route === 'project') {
+      state.loading.projectConversations = false;
+      state.projectConversations.loadingOlder = false;
+      render();
+    }
+  }
+}
 
 async function loadProjects(projectState = state.projectState) {
   if (!auth.has('read:projects')) return;
@@ -4213,6 +4371,9 @@ async function loadProject(projectId = state.projectId) {
     cache.write(cacheKey, response.data);
     if (response.scopes) replaceScopes(response.scopes);
     setConn('ok');
+    if (auth.has('read:projects') && auth.has('read:chat')) {
+      await loadProjectConversations();
+    }
   } catch (error) {
     if (generation !== projectGeneration || state.projectId !== requestedId) return;
     if (error.kind === 'auth') return await handleAuthFailure(error);
@@ -6366,6 +6527,7 @@ async function repairLocalState() {
  * direct/stale caller is separately stopped by approvalDecidable's route gate.
  */
 function transitionRoute(route) {
+  if (state.route === 'project' && route !== 'project') invalidateProjectConversationSurface();
   if (state.route === 'worker' && route !== 'worker') workerDetailGeneration++;
   if (state.route === 'specialist' && route !== 'specialist') specialistDetailGeneration++;
   if (route !== state.route) {
@@ -6418,6 +6580,7 @@ function openProject(projectId) {
   transitionRoute('project');
   state.projectId = String(projectId);
   state.data.project = undefined;
+  invalidateProjectConversationSurface();
   loadProject(state.projectId);
 }
 
@@ -6519,6 +6682,8 @@ document.addEventListener('click', event => {
     'load-conversations': loadConversations,
     'load-projects': () => loadProjects(),
     'load-project': () => loadProject(),
+    'load-project-conversations': () => loadProjectConversations(),
+    'load-more-project-conversations': () => loadProjectConversations({ append: true }),
     'load-settings': () => loadSettings(),
     'setting-save': () => { saveSetting(target.dataset.settingPath); },
     'load-memory': () => loadStoredInformation(),
@@ -6679,6 +6844,7 @@ document.addEventListener('keydown', event => {
  */
 function handleWentOffline() {
   invalidateApprovalSurface();
+  invalidateProjectConversationSurface();
   setConn('offline');
   render();
 }
@@ -6824,6 +6990,7 @@ export const __ms20 = {
   trustBar, trustZones, withTrustBar, screenLocks, serverNow,
   viewOverview, navItems, currentSection, sectionRoute, unknownScopes, NAV_ITEMS, ROUTE_SECTION,
   viewProjects, viewProject, loadProjects, loadProject, openProject,
+  validProjectConversationPage, loadProjectConversations, invalidateProjectConversationSurface,
   viewWorkers, viewWorker, viewSpecialists, viewSpecialist, loadWorkers, loadSpecialists,
   validSpecialistDetailResponse, loadSpecialist, openSpecialist,
   validWorkerHistoryResponse, loadWorkerHistory, loadOlderWorkerRuns, openWorker,

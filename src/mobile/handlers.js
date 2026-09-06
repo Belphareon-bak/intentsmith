@@ -52,6 +52,7 @@ export const SETTINGS_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-st
 export const MEMORY_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
 export const WORKER_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
 export const SPECIALIST_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
+export const PROJECT_CONVERSATION_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
 
 // ── GET /m1/health ───────────────────────────────────────────────────────────
 //
@@ -1190,14 +1191,53 @@ export async function handleSpecialistDetail({ corePort, principal, params, quer
 
 // ── GET /m1/conversations ────────────────────────────────────────────────────
 
+function projectConversationResponse(result, filtered) {
+  return filtered ? { ...result, headers: PROJECT_CONVERSATION_RESPONSE_HEADERS } : result;
+}
+
 export async function handleConversations({ corePort, principal, query }) {
+  const projectFiltered = query.has('projectId');
+  const allowedParameters = new Set(['limit', 'cursor', 'projectId']);
+  const seenParameters = new Set();
+  for (const name of query.keys()) {
+    if (!allowedParameters.has(name)) {
+      return projectConversationResponse(
+        errorResponse(MOBILE_ERRORS.BAD_REQUEST, { reason: 'unknown_parameter', field: name }),
+        projectFiltered,
+      );
+    }
+    if (seenParameters.has(name)) {
+      return projectConversationResponse(
+        errorResponse(MOBILE_ERRORS.BAD_REQUEST, { reason: 'duplicate_parameter', field: name }),
+        projectFiltered,
+      );
+    }
+    seenParameters.add(name);
+  }
+
+  const projectId = query.get('projectId');
+  if (projectId !== null && (!/^[1-9][0-9]*$/.test(projectId)
+      || !Number.isSafeInteger(Number(projectId)))) {
+    return projectConversationResponse(
+      errorResponse(MOBILE_ERRORS.BAD_REQUEST, { reason: 'project_id_invalid' }), true,
+    );
+  }
+  if (projectId !== null && !principal?.scopes?.includes('read:projects')) {
+    return projectConversationResponse(
+      errorResponse(MOBILE_ERRORS.SCOPE_REQUIRED, { requiredScope: 'read:projects' }), true,
+    );
+  }
   const limit = clampLimit(query.get('limit'));
-  const cursor = decodeCursor(query.get('cursor'), { stream: 'conversations' });
+  const stream = projectId === null ? 'conversations' : `conversations:project:${projectId}`;
+  const cursor = decodeCursor(query.get('cursor'), { stream });
   if (!cursor.valid) {
     // §8.2 — an unrecognised cursor is refused with a name, never guessed at.
     // `restart: true` tells the client the correct recovery is to load from the
     // beginning, so it does not have to infer that.
-    return errorResponse(MOBILE_ERRORS.CURSOR_UNKNOWN, { reason: cursor.reason, restart: true });
+    return projectConversationResponse(
+      errorResponse(MOBILE_ERRORS.CURSOR_UNKNOWN, { reason: cursor.reason, restart: true }),
+      projectFiltered,
+    );
   }
 
   // One row beyond the page so `hasMore` is observed rather than inferred
@@ -1206,23 +1246,26 @@ export async function handleConversations({ corePort, principal, query }) {
     operation: 'list',
     limit,
     position: cursor.position,
+    projectId,
   }, principal);
-  if (!outcome.ok) return conversationReadError(outcome.error);
+  if (!outcome.ok) {
+    return projectConversationResponse(conversationReadError(outcome.error), projectFiltered);
+  }
 
   const page = paginate({
     rows: outcome.data.rows.map(conversation => versioned(conversation)),
     limit,
-    stream: 'conversations',
+    stream,
     position: cursor.position,
   });
 
-  return {
+  return projectConversationResponse({
     status: 200,
     body: withEnvelope(page.items, {
       principal,
       extra: { hasMore: page.hasMore, nextCursor: page.nextCursor, end: page.end },
     }),
-  };
+  }, projectFiltered);
 }
 
 // ── GET /m1/conversations/:id ────────────────────────────────────────────────
@@ -1336,7 +1379,7 @@ function conversationReadError(error) {
     return errorResponse(MOBILE_ERRORS.NOT_FOUND, { resource: 'conversation' });
   }
   if (error?.code === 'conversation_id_invalid' || error?.code === 'page_invalid'
-      || error?.code === 'operation_invalid') {
+      || error?.code === 'project_id_invalid' || error?.code === 'operation_invalid') {
     return errorResponse(MOBILE_ERRORS.BAD_REQUEST, { reason: error.code });
   }
   if (error?.code === 'capability_forbidden') {

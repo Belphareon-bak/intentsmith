@@ -65,7 +65,9 @@ globalThis.fetch = async () => { throw new TypeError('network disabled'); };
 
 const { __ms20 } = await import('../src/mobile/client/app.js');
 const {
-  state, store, K, viewProjects, viewProject, loadProjects,
+  state, store, K, viewProjects, viewProject, loadProjects, loadProject,
+  validProjectConversationPage, loadProjectConversations,
+  invalidateProjectConversationSurface,
   currentSection, screenLocks, trustBar,
 } = __ms20;
 
@@ -84,9 +86,35 @@ function reset(scopes = ['read:projects']) {
   state.error = {};
   state.cacheAge = {};
   state.cacheAt = {};
+  state.projectConversations = { cursor: null, end: false, loadingOlder: false };
   state.serverOffsetMs = 0;
   nodes.app.innerHTML = '';
   body.children.length = 0;
+}
+
+function conversation(overrides = {}) {
+  return {
+    id: 'chat-1',
+    title: 'Mobilní návrh',
+    messageCount: 3,
+    state: 'active',
+    createdAt: '2026-09-03T10:00:00.000Z',
+    updatedAt: '2026-09-04T10:00:00.000Z',
+    version: 'v1:def',
+    ...overrides,
+  };
+}
+
+function conversationPage(data, overrides = {}) {
+  return {
+    ok: true,
+    scopes: ['read:projects', 'read:chat'],
+    data,
+    hasMore: false,
+    nextCursor: null,
+    end: true,
+    ...overrides,
+  };
 }
 
 function project(overrides = {}) {
@@ -158,6 +186,153 @@ await test('project detail is labelled read-only and exposes no mutation control
   assert.match(markup, /Mobilní projekce je zatím pouze pro čtení/);
   assert.match(markup, /4/);
   assert.ok(!/data-act="(?:archive|delete|edit|save)-project"/.test(markup));
+});
+
+await test('project detail keeps metadata visible while chat scope is explicitly locked', () => {
+  reset(['read:projects']);
+  state.route = 'project';
+  state.projectId = '17';
+  state.data.project = project();
+  state.data.projectConversations = [conversation({ title: 'Must not render' })];
+  const markup = viewProject();
+  assert.match(markup, /Konverzace jsou zamčené/);
+  assert.match(markup, /read:chat/);
+  assert.ok(!markup.includes('Must not render'));
+  assert.deepEqual(screenLocks(), ['konverzace projektu']);
+});
+
+await test('confirmed project conversations escape content and open the existing chat surface', () => {
+  reset(['read:projects', 'read:chat']);
+  state.route = 'project';
+  state.projectId = '17';
+  state.data.project = project();
+  state.data.projectConversations = [conversation({ title: '<script>bad()</script>' })];
+  state.projectConversations.end = true;
+  const markup = viewProject();
+  assert.match(markup, /Konverzace projektu/);
+  assert.match(markup, /&lt;script&gt;bad\(\)&lt;\/script&gt;/);
+  assert.ok(!markup.includes('<script>'));
+  assert.match(markup, /data-act="open-chat" data-id="chat-1"/);
+  assert.match(markup, /telefon ho neukládá do trvalé cache/);
+  assert.ok(!/data-act="new-chat"/.test(markup));
+});
+
+await test('project conversations distinguish loading, failure and confirmed empty', () => {
+  reset(['read:projects', 'read:chat']);
+  state.route = 'project';
+  state.projectId = '17';
+  state.data.project = project();
+  state.loading.projectConversations = true;
+  assert.ok(!viewProject().includes('Projekt nemá žádné konverzace'));
+  state.loading.projectConversations = false;
+  state.error.projectConversations = { kind: 'offline' };
+  const failed = viewProject();
+  assert.match(failed, /Nejsi online/);
+  assert.match(failed, /data-act="load-project-conversations"/);
+  state.error.projectConversations = null;
+  state.data.projectConversations = [];
+  assert.match(viewProject(), /Projekt nemá žádné konverzace/);
+});
+
+await test('project conversation page validation is exact and rejects overlaps in one page', () => {
+  assert.equal(validProjectConversationPage(conversationPage([conversation()])), true);
+  assert.equal(validProjectConversationPage(conversationPage([
+    conversation(), conversation({ title: 'Duplicate' }),
+  ])), false);
+  assert.equal(validProjectConversationPage(conversationPage([
+    { ...conversation(), projectId: '17' },
+  ])), false);
+  assert.equal(validProjectConversationPage(conversationPage([], {
+    hasMore: true, nextCursor: null, end: false,
+  })), false);
+});
+
+await test('project detail automatically loads its live conversation drill-down', async () => {
+  reset(['read:projects', 'read:chat']);
+  state.route = 'project';
+  state.projectId = '17';
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    const payload = url === '/m1/projects/17'
+      ? { ok: true, scopes: ['read:projects', 'read:chat'], data: project() }
+      : conversationPage([conversation()]);
+    return { ok: true, status: 200, async json() { return payload; } };
+  };
+
+  await loadProject();
+
+  assert.deepEqual(calls.map(call => call.url), [
+    '/m1/projects/17',
+    '/m1/conversations?projectId=17&limit=20',
+  ]);
+  assert.equal(calls[1].options.cache, 'no-store');
+  assert.equal(state.data.project.id, '17');
+  assert.deepEqual(state.data.projectConversations.map(item => item.id), ['chat-1']);
+  assert.ok(store.get(K.cache + 'project.17'));
+  assert.equal(store.get(K.cache + 'projectConversations.17'), null);
+});
+
+await test('project conversation pagination appends one server-issued page', async () => {
+  reset(['read:projects', 'read:chat']);
+  state.route = 'project';
+  state.projectId = '17';
+  state.data.project = project();
+  const calls = [];
+  const responses = [
+    conversationPage([conversation()], { hasMore: true, nextCursor: 'c1.opaque', end: false }),
+    conversationPage([conversation({ id: 'chat-2', title: 'Starší' })]),
+  ];
+  globalThis.fetch = async url => ({
+    ok: true,
+    status: 200,
+    async json() { calls.push(url); return responses.shift(); },
+  });
+
+  await loadProjectConversations();
+  await loadProjectConversations({ append: true });
+
+  assert.deepEqual(calls, [
+    '/m1/conversations?projectId=17&limit=20',
+    '/m1/conversations?projectId=17&limit=20&cursor=c1.opaque',
+  ]);
+  assert.deepEqual(state.data.projectConversations.map(item => item.id), ['chat-1', 'chat-2']);
+  assert.equal(state.projectConversations.end, true);
+});
+
+await test('overlapping project pages fail as protocol errors without duplicating rows', async () => {
+  reset(['read:projects', 'read:chat']);
+  state.route = 'project';
+  state.projectId = '17';
+  state.data.project = project();
+  state.data.projectConversations = [conversation()];
+  state.projectConversations = { cursor: 'c1.next', end: false, loadingOlder: false };
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    async json() { return conversationPage([conversation()]); },
+  });
+
+  await loadProjectConversations({ append: true });
+
+  assert.deepEqual(state.data.projectConversations.map(item => item.id), ['chat-1']);
+  assert.equal(state.error.projectConversations.code, 'protocol_invalid_response');
+  assert.equal(state.conn, 'server');
+});
+
+await test('project conversation surface is withdrawn without touching project metadata', () => {
+  reset(['read:projects', 'read:chat']);
+  state.data.project = project();
+  state.data.projectConversations = [conversation()];
+  state.error.projectConversations = { kind: 'offline' };
+  state.projectConversations = { cursor: 'c1.next', end: false, loadingOlder: true };
+
+  invalidateProjectConversationSurface();
+
+  assert.equal(state.data.project.id, '17');
+  assert.equal(state.data.projectConversations, undefined);
+  assert.equal(state.error.projectConversations, null);
+  assert.deepEqual(state.projectConversations, { cursor: null, end: false, loadingOlder: false });
 });
 
 await test('a stale project list is called stale in the trust bar', () => {

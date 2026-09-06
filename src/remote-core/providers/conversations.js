@@ -26,15 +26,41 @@ function validPage(input) {
     && Number.isInteger(input.position) && input.position >= 0;
 }
 
+const LIST_INPUT_KEYS = new Set(['operation', 'limit', 'position', 'projectId']);
+const EXISTS_INPUT_KEYS = new Set(['operation', 'id']);
+const DETAIL_INPUT_KEYS = new Set([
+  'operation', 'id', 'limit', 'position', 'direction', 'anchorLatest',
+]);
+
+function exactInput(input, keys, requiredSize = keys.size) {
+  const names = Object.keys(input);
+  return names.length >= requiredSize && !names.some(name => !keys.has(name));
+}
+
+function projectFilter(value) {
+  if (value === undefined || value === null) return { ok: true, id: null };
+  if (typeof value !== 'string' || !/^[1-9][0-9]*$/.test(value)) {
+    return { ok: false };
+  }
+  const id = Number(value);
+  return Number.isSafeInteger(id) ? { ok: true, id } : { ok: false };
+}
+
 function listConversations(rawDb, input) {
   if (!validPage(input)) return { ok: false, error: { code: 'page_invalid' } };
+  const project = projectFilter(input.projectId);
+  if (!project.ok) return { ok: false, error: { code: 'project_id_invalid' } };
+  const filtered = project.id !== null;
   const rows = rawDb.prepare(`
     SELECT id, title, message_count, state, created_at, updated_at
       FROM conversations
      WHERE state != 'deleted'
+       ${filtered ? 'AND project_id = ?' : ''}
      ORDER BY datetime(updated_at) DESC, id DESC
      LIMIT ? OFFSET ?
-  `).all(input.limit + 1, input.position);
+  `).all(...(filtered
+    ? [project.id, input.limit + 1, input.position]
+    : [input.limit + 1, input.position]));
   return { ok: true, data: { rows: rows.map(conversationDto) } };
 }
 
@@ -105,9 +131,19 @@ export function createConversationsReadProvider(rawDb) {
     throw new TypeError('conversations provider requires a database handle');
   }
   return async input => {
-    if (input.operation === 'list') return listConversations(rawDb, input);
-    if (input.operation === 'exists') return requireConversation(rawDb, input.id);
-    if (input.operation === 'detail') return conversationDetail(rawDb, input);
+    if (!input || typeof input !== 'object' || Array.isArray(input)) {
+      return { ok: false, error: { code: 'operation_invalid' } };
+    }
+    if (input.operation === 'list'
+        && exactInput(input, LIST_INPUT_KEYS, LIST_INPUT_KEYS.size - 1)) {
+      return listConversations(rawDb, input);
+    }
+    if (input.operation === 'exists' && exactInput(input, EXISTS_INPUT_KEYS)) {
+      return requireConversation(rawDb, input.id);
+    }
+    if (input.operation === 'detail' && exactInput(input, DETAIL_INPUT_KEYS)) {
+      return conversationDetail(rawDb, input);
+    }
     return { ok: false, error: { code: 'operation_invalid' } };
   };
 }
