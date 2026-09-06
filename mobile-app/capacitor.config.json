@@ -5,7 +5,8 @@
   "android": {
     "allowMixedContent": false,
     "captureInput": false,
-    "webContentsDebuggingEnabled": true
+    "webContentsDebuggingEnabled": false,
+    "loggingBehavior": "none"
   },
   "server": {
     "url": "http://127.0.0.1:3336",

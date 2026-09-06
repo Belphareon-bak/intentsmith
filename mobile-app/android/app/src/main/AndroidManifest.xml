@@ -3,8 +3,7 @@
 
     <!-- P-6 (DATA-MODEL §5.4): the credential must not leave the device in a
          backup.  `allowBackup="false"` is the only setting that holds on every
-         Android version the app supports; the newer `dataExtractionRules` are
-         ignored below API 31, which is most of the range `minSdk 22` admits. -->
+         Android version the app supports. -->
     <application
         android:allowBackup="false"
         android:fullBackupContent="false"
@@ -16,7 +15,7 @@
         android:theme="@style/AppTheme">
 
         <activity
-            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:name=".MainActivity"
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
