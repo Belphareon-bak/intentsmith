@@ -52,6 +52,11 @@ export const PAIRABLE_SCOPES = Object.freeze([
   'read:workers',
   // Persisted specialist package configuration; no runtime registration data.
   'read:specialists',
+  // Device lifecycle is an intentional denial-of-access authority, never an
+  // admin or token-reading surface. It can list public token metadata and
+  // revoke, but cannot mint, widen or recover a credential.
+  'read:devices',
+  'write:devices',
 ]);
 
 /**
@@ -104,7 +109,7 @@ export function createPairingCode(rawDb, {
     'read:capabilities', 'read:chat', 'write:chat',
     'read:notifications', 'write:notifications',
     'read:projects', 'read:settings', 'read:memory',
-    'read:workers', 'read:specialists',
+    'read:workers', 'read:specialists', 'read:devices', 'write:devices',
   ],
   label = null,
   ttlMs = DEFAULT_PAIRING_TTL_MS,
@@ -309,18 +314,37 @@ export function revokeDevice(rawDb, deviceId) {
 
 export function listDevices(rawDb) {
   return rawDb.prepare(`
-    SELECT id, name, scopes, created_at, last_used_at, expires_at, revoked_at
+    SELECT id, device_id, name, scopes, created_at, last_used_at, expires_at, revoked_at
       FROM api_tokens WHERE kind = 'mobile' ORDER BY created_at DESC
-  `).all().map(row => ({
-    deviceId: row.id,
+  `).all().map(deviceRow);
+}
+
+export function getMobileDevice(rawDb, deviceId) {
+  const row = rawDb.prepare(`
+    SELECT id, device_id, name, scopes, created_at, last_used_at, expires_at, revoked_at
+      FROM api_tokens
+     WHERE kind = 'mobile' AND (id = ? OR device_id = ?)
+     LIMIT 1
+  `).get(deviceId, deviceId);
+  return row ? deviceRow(row) : null;
+}
+
+function deviceRow(row) {
+  let scopes = [];
+  try {
+    const parsed = JSON.parse(row.scopes || '[]');
+    if (Array.isArray(parsed)) scopes = parsed.filter(scope => typeof scope === 'string');
+  } catch { /* corrupted scope metadata is exposed as no authority, never raw */ }
+  return {
+    deviceId: row.device_id || row.id,
     name: row.name,
-    scopes: JSON.parse(row.scopes || '[]'),
+    scopes,
     createdAt: row.created_at,
     lastUsedAt: row.last_used_at,
     expiresAt: row.expires_at,
     revokedAt: row.revoked_at,
     revoked: Boolean(row.revoked_at),
-  }));
+  };
 }
 
 /** Remove expired, unclaimed codes.  Claimed codes are kept as an audit trail. */
@@ -347,6 +371,7 @@ export default {
   validateDeviceToken,
   revokeDevice,
   listDevices,
+  getMobileDevice,
   purgePairingCodes,
   cancelPairingCode,
   isPairingEnabled,

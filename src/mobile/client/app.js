@@ -657,7 +657,7 @@ async function api(path, { method = 'GET', body = null, timeoutMs = 130_000, str
 // SS-06: revocation and expiry are different events with different handling.
 // Revocation wipes before rendering; expiry keeps the journal so UNKNOWN
 // operations can still be resolved after re-pairing (MD-19 E-EXPIRE).
-function handleAuthFailure(error) {
+async function handleAuthFailure(error) {
   // SS-06 for MS-13: the queue is memory-only, so wiping storage does not
   // reach it.  It has to be dropped explicitly or a revoked device would keep
   // rendering approvals it is no longer allowed to see.
@@ -665,17 +665,28 @@ function handleAuthFailure(error) {
   // that was already on the wire cannot hand a revoked device its approvals back.
   invalidateApprovalSession();
 
-  if (error.code === 'token_revoked') {
+  const keptJournal = error.code === 'token_expired' ? journal.all() : null;
+  let vaultCleared = true;
+  try {
+    // The credential may live in Android Keystore. Clearing only localStorage
+    // would make a revoked token reappear on the next process start.
+    await auth.clear();
+  } catch {
+    // Fail closed for this process even when the persistent vault could not
+    // prove deletion. The server has already rejected the credential; the
+    // session screen keeps the storage failure visible for repair.
+    vaultCleared = false;
+    secure.forget();
     store.wipeDomain();
-    state.session = 'revoked';
-  } else if (error.code === 'token_expired') {
-    const keptJournal = journal.all();
-    store.wipeDomain();
-    store.set(K.journal, keptJournal);
-    state.session = 'expired';
-  } else {
-    store.wipeDomain();
-    state.session = 'unpaired';
+  }
+
+  if (keptJournal) store.set(K.journal, keptJournal);
+  state.sessionWipeFailed = !vaultCleared;
+  state.session = error.code === 'token_revoked'
+    ? 'revoked'
+    : error.code === 'token_expired' ? 'expired' : 'unpaired';
+  if (!vaultCleared && state.session === 'unpaired') {
+    state.error.pairing = 'Bezpečný trezor nepotvrdil smazání neplatného tokenu. Oprav trezor nebo aplikaci přeinstaluj, teprve potom páruj znovu.';
   }
   render();
 }
@@ -725,6 +736,13 @@ const state = {
   opsNote: {},             // operationId → { tone, text } outcome of that lookup
   opsConfirm: null,        // the single attempt awaiting the second confirmation
   opsAbandoning: null,     // the single attempt whose abandon is in flight
+
+  // MS-04: revocation is two-step and single-target. The selected row cannot
+  // survive navigation, and the in-flight target disables every other revoke.
+  deviceConfirm: null,
+  deviceRevoking: null,
+  deviceNote: null,
+  sessionWipeFailed: false,
 
   // MS-13 / MS-14.  The right to decide is not a flag the app owns; it belongs
   // to one confirmed read, of one approval, on one open screen.  Four fields
@@ -855,6 +873,20 @@ function replaceScopes(scopes) {
     state.cacheAge.specialists = null;
     state.cacheAt.specialists = null;
     store.del(K.cache + 'specialists');
+  }
+  if (!next.includes('read:devices')) {
+    devicesGeneration++;
+    delete state.data.devices;
+    state.error.devices = null;
+    state.loading.devices = false;
+    state.cacheAge.devices = null;
+    state.cacheAt.devices = null;
+    state.deviceConfirm = null;
+    state.deviceRevoking = null;
+    state.deviceNote = null;
+    store.del(K.cache + 'devices');
+  } else if (!next.includes('write:devices')) {
+    state.deviceConfirm = null;
   }
 }
 
@@ -1027,6 +1059,7 @@ const TRUST_DATASET = {
   operations: 'operations',
   workers: 'workers',
   specialists: 'specialists',
+  devices: 'devices',
 };
 
 /**
@@ -1054,6 +1087,10 @@ function screenLocks(route = state.route) {
       break;
     case 'specialists':
       need('read:specialists', 'specialisty');
+      break;
+    case 'devices':
+      if (!auth.has('read:devices')) locked.push('seznam zařízení');
+      else need('write:devices', 'odvolání zařízení');
       break;
     case 'chat':
       need('write:chat', 'psaní zpráv');
@@ -1228,6 +1265,7 @@ const ROUTE_SECTION = {
   approvals: 'approvals',
   approval: 'approvals',
   diagnostics: 'settings',
+  devices: 'settings',
   operations: 'settings',
 };
 
@@ -1236,6 +1274,7 @@ const SUPPORTED_SCOPES = new Set([
   'read:chat', 'write:chat', 'read:notifications',
   'read:approvals', 'write:approvals', 'read:projects', 'read:settings', 'read:memory',
   'read:workers', 'read:specialists',
+  'read:devices', 'write:devices',
 ]);
 
 /**
@@ -2296,6 +2335,88 @@ function storedInformationCard() {
   </div>`;
 }
 
+function deviceStatus(device) {
+  if (device.revoked) return { tone: 'danger', label: 'odvolané' };
+  if (device.expired) return { tone: 'warn', label: 'vypršelé' };
+  if (device.current) return { tone: 'ok', label: 'toto zařízení' };
+  return { tone: 'info', label: 'aktivní' };
+}
+
+function deviceExpiry(device) {
+  const ms = serverTimeMs(device.expiresAt);
+  if (Number.isNaN(ms)) return 'platnost neuvedena';
+  if (device.expired) return `platnost vypršela ${timeAgo(device.expiresAt)}`;
+  return `platnost do ${new Date(ms).toLocaleDateString('cs-CZ', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+}
+
+function deviceErrorMessage(error) {
+  if (error?.kind === 'offline') return 'Nejsi online. Zobrazený seznam nemusí být aktuální.';
+  if (error?.kind === 'server' || error?.kind === 'protocol') return 'Server nevrátil použitelný aktuální seznam zařízení.';
+  if (error?.kind === 'scope') return 'Scope read:devices už není platný. Obnov oprávnění novým párováním.';
+  return 'Seznam zařízení se nepodařilo načíst.';
+}
+
+/** MS-04 — server-authoritative paired devices and explicit revocation. */
+function viewDevices() {
+  const devices = state.data.devices;
+  const error = state.error.devices;
+  let body;
+
+  if (!auth.has('read:devices')) {
+    body = statePanel('scope', 'Bez oprávnění', 'Seznam vyžaduje scope read:devices. Rozšíření oprávnění znamená nové párování na desktopu.');
+  } else if (state.loading.devices && !devices) {
+    body = skeletonList(4);
+  } else if (error && !devices) {
+    body = errorPanel(error, 'load-devices');
+  } else if (devices && devices.length === 0) {
+    body = statePanel('empty', 'Žádná zařízení', 'Server nevrátil žádný mobilní device token.');
+  } else {
+    const fresh = deviceMutationFresh();
+    body = `
+      ${state.deviceNote ? `<div class="ms20-note" data-tone="${esc(state.deviceNote.tone)}" role="status">${esc(state.deviceNote.text)}</div>` : ''}
+      ${state.cacheAge.devices && state.cacheAge.devices !== 'FRESH'
+        ? '<div class="device-warning">Seznam je ze starší cache. Nad zastaralým seznamem nelze nikoho odvolat; nejdřív ho obnov.</div>'
+        : ''}
+      ${error ? `<div class="resource-inline-error">${esc(deviceErrorMessage(error))}<button class="btn btn-secondary btn-sm" data-act="load-devices">Zkusit znovu</button></div>` : ''}
+      <div class="device-warning">Odvolání zabrání dalšímu přístupu. Data, která už v odpojeném telefonu jsou, vzdáleně nesmaže.</div>
+      <div class="list">${(devices || []).map(device => {
+        const status = deviceStatus(device);
+        const armed = state.deviceConfirm === device.deviceId;
+        const running = state.deviceRevoking === device.deviceId;
+        const canRevoke = auth.has('write:devices') && fresh && !device.revoked && !device.expired && !state.deviceRevoking;
+        const open = state.data.operationsMeta?.open ?? journal.open().length;
+        return `<article class="device-row" data-device="${esc(device.deviceId)}">
+          <div class="resource-title-line">
+            <div class="row-title">${esc(device.name || 'Mobilní zařízení')}</div>
+            <span class="pill" data-tone="${status.tone}">${status.label}</span>
+          </div>
+          <div class="device-id mono">${esc(device.deviceId)}</div>
+          <div class="resource-meta">
+            <span>naposledy ${device.lastUsedAt ? timeAgo(device.lastUsedAt) : 'nepoužito'}</span>
+            <span>${deviceExpiry(device)}</span>
+          </div>
+          <div class="device-scopes">${(device.scopes || []).map(scope => `<span class="pill" data-tone="muted">${esc(scope)}</span>`).join('') || '<span class="pill" data-tone="muted">žádné scope</span>'}</div>
+          ${armed ? `<div class="device-confirm" data-tone="danger">
+              <strong>${device.current ? 'Odvoláváš tento telefon.' : `Odvolat ${esc(device.name || device.deviceId)}?`}</strong>
+              <span>${device.current && open ? `Máš ${open} nerozřešených operací; po smazání lokálního klíče je z tohoto telefonu už nedohledáš. ` : ''}Server zablokuje další přístup, ale nesmaže data uložená v telefonu.</span>
+              <div class="device-actions"><button class="btn btn-secondary btn-sm" data-act="device-revoke-cancel">Zpět</button><button class="btn btn-danger btn-sm" data-act="device-revoke-confirm" data-device="${esc(device.deviceId)}" ${running ? 'disabled' : ''}>${running ? 'Odvolávám…' : 'Potvrdit odvolání'}</button></div>
+            </div>`
+            : device.revoked || device.expired
+              ? ''
+              : `<div class="device-actions"><button class="btn btn-danger btn-sm" data-act="device-revoke-ask" data-device="${esc(device.deviceId)}" ${canRevoke ? '' : 'disabled'}>Odvolat</button></div>`}
+        </article>`;
+      }).join('')}</div>`;
+  }
+
+  return header({
+    title: 'Spárovaná zařízení',
+    left: 'back',
+    right: auth.has('read:devices')
+      ? `<button class="icon-btn" data-act="load-devices" aria-label="Obnovit">${icon('wifi')}</button>`
+      : '',
+  }) + `<div class="scroll"><div class="container device-screen">${body}</div></div>`;
+}
+
 function viewDiagnostics() {
   const health = state.data.health;
   const caps = state.data.capabilities;
@@ -2341,6 +2462,10 @@ function viewDiagnostics() {
       <div class="scope-list">
         ${(auth.scopes || []).map(scope => `<span class="pill" data-tone="info">${esc(scope)}</span>`).join('') || '<span class="pill" data-tone="muted">žádné</span>'}
       </div>
+      <div class="kv"><span class="kv-key">Spárovaná zařízení</span>
+        ${auth.has('read:devices')
+          ? '<button class="btn btn-secondary btn-sm" data-act="go" data-route="devices">Spravovat</button>'
+          : '<span class="pill" data-tone="muted">scope read:devices chybí</span>'}</div>
       <!-- §3.4: a capability this client version does not know is ignored by
            the navigation and written down here instead.  Rendering an item the
            client cannot service is the failure that rule prevents; saying
@@ -2434,6 +2559,7 @@ const MS20_STATE_LABEL = {
 const OPERATION_TYPE_LABEL = {
   'chat.send': 'Odeslání zprávy',
   'approval.decide': 'Rozhodnutí approvalu',
+  'device.revoke': 'Odvolání spárovaného zařízení',
 };
 
 /**
@@ -3035,14 +3161,19 @@ function viewApproval() {
 
 function viewSession() {
   if (state.session === 'revoked') {
-    // Cache was already wiped by handleAuthFailure before this rendered.
+    // Cache and the credential were already wiped before this rendered. A
+    // failed native-vault deletion is reported rather than silently claimed.
     return `<div class="scroll">${statePanel('revoked', 'Zařízení bylo odvoláno',
-      'Přístup byl zrušen na serveru a lokální data byla smazána. Pro obnovení je potřeba nové párování.',
+      state.sessionWipeFailed
+        ? 'Server další přístup odmítá a aplikace zahodila lokální data, ale bezpečný trezor nepotvrdil smazání tokenu. Oprav trezor nebo aplikaci přeinstaluj; pro obnovení je potřeba nové párování.'
+        : 'Přístup byl zrušen na serveru a lokální data i token byly smazány. Pro obnovení je potřeba nové párování.',
       `<button class="btn btn-primary" data-act="repair">Spárovat znovu</button>`)}</div>`;
   }
   if (state.session === 'expired') {
     return `<div class="scroll">${statePanel('expired', 'Platnost vypršela',
-      'Token zařízení expiroval. Data zůstala, stačí se znovu přihlásit novým párováním.',
+      state.sessionWipeFailed
+        ? 'Server token odmítá a aplikace zahodila lokální obsah, ale bezpečný trezor nepotvrdil jeho smazání. Oprav trezor nebo aplikaci přeinstaluj; záznam nerozřešených operací zůstal pro nové párování.'
+        : 'Token zařízení expiroval a byl smazán. Zůstal jen záznam nerozřešených operací; pokračovat lze novým párováním.',
       `<button class="btn btn-primary" data-act="repair">Spárovat znovu</button>`)}</div>`;
   }
   return null;
@@ -3574,6 +3705,7 @@ function render() {
     approvals: viewApprovals,
     approval: viewApproval,
     operations: viewOperations,
+    devices: viewDevices,
     diagnostics: viewDiagnostics,
   };
   // How far the thread was scrolled from its *bottom*, measured before the
@@ -3651,7 +3783,7 @@ async function loadConversations() {
     if (response.scopes) replaceScopes(response.scopes);
     setConn('ok');
   } catch (error) {
-    if (error.kind === 'auth') return handleAuthFailure(error);
+    if (error.kind === 'auth') return await handleAuthFailure(error);
     state.error.conversations = error;
     setConn(error.kind === 'offline' ? 'offline' : error.kind === 'server' ? 'server' : state.conn);
   } finally {
@@ -3688,7 +3820,7 @@ async function loadProjects(projectState = state.projectState) {
     setConn('ok');
   } catch (error) {
     if (generation !== projectsGeneration) return;
-    if (error.kind === 'auth') return handleAuthFailure(error);
+    if (error.kind === 'auth') return await handleAuthFailure(error);
     state.error.projects = error;
     setConn(error.kind === 'offline' ? 'offline' : error.kind === 'server' ? 'server' : state.conn);
   } finally {
@@ -3723,7 +3855,7 @@ async function loadProject(projectId = state.projectId) {
     setConn('ok');
   } catch (error) {
     if (generation !== projectGeneration || state.projectId !== requestedId) return;
-    if (error.kind === 'auth') return handleAuthFailure(error);
+    if (error.kind === 'auth') return await handleAuthFailure(error);
     state.error.project = error;
     setConn(error.kind === 'offline' ? 'offline' : error.kind === 'server' ? 'server' : state.conn);
   } finally {
@@ -3793,7 +3925,7 @@ async function loadThread(conversationId) {
     writeThreadCache(conversationId);
     setConn('ok');
   } catch (error) {
-    if (error.kind === 'auth') return handleAuthFailure(error);
+    if (error.kind === 'auth') return await handleAuthFailure(error);
     if (error.code === 'not_found') {
       // A conversation that exists only locally is normal right after
       // "new chat" — an empty thread, not an error.
@@ -3853,7 +3985,7 @@ async function loadOlderMessages() {
     writeThreadCache(conversationId);
     setConn('ok');
   } catch (error) {
-    if (error.kind === 'auth') return handleAuthFailure(error);
+    if (error.kind === 'auth') return await handleAuthFailure(error);
     if (error.code === 'cursor_unknown') {
       // SS-10 — the stream moved under us.  The only honest repair is to read
       // the thread again from the newest end.  Splicing a fresh page onto a
@@ -3895,7 +4027,7 @@ async function loadNotifications() {
     cache.write('notifications', response.data);
     setConn('ok');
   } catch (error) {
-    if (error.kind === 'auth') return handleAuthFailure(error);
+    if (error.kind === 'auth') return await handleAuthFailure(error);
     state.error.notifications = error;
   } finally {
     state.loading.notifications = false;
@@ -4025,7 +4157,7 @@ async function loadApprovals({ grantFor = null } = {}) {
       && list.some(item => item.id === requestedFor);
     state.approvalVerifiedAt = granted ? Date.now() : null;
   } catch (error) {
-    if (error.kind === 'auth') return handleAuthFailure(error);
+    if (error.kind === 'auth') return await handleAuthFailure(error);
     if (generation !== approvalsGeneration) return;   // superseded: publish nothing
     state.error.approvals = error;
     // A failed load withdraws permission to decide.  SS-05 wants the state
@@ -4199,7 +4331,7 @@ async function decideApproval(decision) {
     await loadApprovals();
   } catch (error) {
     state.approvalSending = false;
-    if (error.kind === 'auth') return handleAuthFailure(error);
+    if (error.kind === 'auth') return await handleAuthFailure(error);
     // F-063: whatever went wrong, the screen no longer holds a verified state,
     // so the controls go before the explanation arrives.
     invalidateApprovalAuthority();
@@ -4295,6 +4427,7 @@ let settingsGeneration = 0;
 let memoryGeneration = 0;
 let workersGeneration = 0;
 let specialistsGeneration = 0;
+let devicesGeneration = 0;
 
 async function loadSettings() {
   if (!auth.has('read:settings')) return;
@@ -4314,7 +4447,7 @@ async function loadSettings() {
     setConn('ok');
   } catch (error) {
     if (generation !== settingsGeneration) return;
-    if (error.kind === 'auth') return handleAuthFailure(error);
+    if (error.kind === 'auth') return await handleAuthFailure(error);
     state.error.settings = error;
     setConn(error.kind === 'offline' ? 'offline' : error.kind === 'server' ? 'server' : state.conn);
   } finally {
@@ -4354,7 +4487,7 @@ async function loadStoredInformation() {
     setConn('ok');
   } catch (error) {
     if (generation !== memoryGeneration) return;
-    if (error.kind === 'auth') return handleAuthFailure(error);
+    if (error.kind === 'auth') return await handleAuthFailure(error);
     state.error.memory = error;
     setConn(error.kind === 'offline' ? 'offline' : error.kind === 'server' ? 'server' : state.conn);
   } finally {
@@ -4423,7 +4556,7 @@ async function loadConfiguredResources(name, { append = false } = {}) {
   } catch (error) {
     const currentGeneration = name === 'workers' ? workersGeneration : specialistsGeneration;
     if (generation !== currentGeneration) return;
-    if (error.kind === 'auth') return handleAuthFailure(error);
+    if (error.kind === 'auth') return await handleAuthFailure(error);
     state.error[name] = error;
     setConn(error.kind === 'offline' ? 'offline' : error.kind === 'server' ? 'server' : state.conn);
   } finally {
@@ -4441,6 +4574,214 @@ function loadWorkers(options) {
 
 function loadSpecialists(options) {
   return loadConfiguredResources('specialists', options);
+}
+
+function validDeviceSnapshot(value) {
+  return Array.isArray(value) && value.every(device => device
+    && typeof device.deviceId === 'string'
+    && device.deviceId.length >= 8
+    && typeof device.name === 'string'
+    && Array.isArray(device.scopes)
+    && device.scopes.every(scope => typeof scope === 'string')
+    && typeof device.revoked === 'boolean'
+    && typeof device.expired === 'boolean'
+    && typeof device.current === 'boolean'
+    && typeof device.version === 'string');
+}
+
+async function loadDevices() {
+  if (!auth.has('read:devices')) return;
+  const generation = ++devicesGeneration;
+  const cached = cache.read('devices');
+  if (cached.status === 'EXPIRED') {
+    store.del(K.cache + 'devices');
+    state.data.devices = undefined;
+    state.cacheAge.devices = null;
+    state.cacheAt.devices = null;
+  } else {
+    state.data.devices = Array.isArray(cached.data) ? cached.data : undefined;
+    state.cacheAge.devices = cached.data ? cached.status : null;
+    state.cacheAt.devices = cached.data ? cached.at : null;
+  }
+  state.loading.devices = true;
+  state.error.devices = null;
+  render();
+
+  try {
+    const response = await api('/devices');
+    if (generation !== devicesGeneration) return;
+    if (response?.ok !== true || !validDeviceSnapshot(response.data)) {
+      throw new ApiError('protocol', { code: 'protocol_invalid_response' });
+    }
+    state.data.devices = response.data;
+    state.cacheAge.devices = 'FRESH';
+    state.cacheAt.devices = Date.now();
+    cache.write('devices', response.data);
+    if (response.scopes) replaceScopes(response.scopes);
+    setConn('ok');
+  } catch (error) {
+    if (generation !== devicesGeneration) return;
+    if (error.kind === 'auth') return await handleAuthFailure(error);
+    state.error.devices = error;
+    setConn(error.kind === 'offline' ? 'offline' : error.kind === 'server' ? 'server' : state.conn);
+  } finally {
+    if (generation === devicesGeneration) {
+      state.loading.devices = false;
+      render();
+    }
+  }
+}
+
+function deviceById(deviceId) {
+  return (state.data.devices || []).find(device => device.deviceId === deviceId) || null;
+}
+
+function deviceMutationFresh() {
+  return state.cacheAge.devices === 'FRESH' && state.conn === 'ok'
+    && !state.error.devices && !state.loading.devices;
+}
+
+function askDeviceRevoke(deviceId) {
+  const target = deviceById(deviceId);
+  if (state.route !== 'devices' || !target || !auth.has('write:devices')
+      || !deviceMutationFresh() || target.revoked || target.expired || state.deviceRevoking) return;
+  state.deviceConfirm = target.deviceId;
+  state.deviceNote = null;
+  render();
+}
+
+function cancelDeviceRevoke() {
+  if (state.deviceRevoking) return;
+  state.deviceConfirm = null;
+  render();
+}
+
+/** Accept only a result bound to this exact key and target. */
+function deviceRevokeOutcome(response, operationId, deviceId) {
+  const data = response?.data;
+  if (response?.ok !== true || !data || data.operationId !== operationId
+      || !['PENDING', 'UNKNOWN', 'CONFIRMED', 'REJECTED'].includes(data.state)) {
+    return { valid: false };
+  }
+  const result = Object.prototype.hasOwnProperty.call(data, 'deviceId') ? data : data.result;
+  if (data.state === 'CONFIRMED') {
+    const expectedCurrent = deviceId === auth.device;
+    if (!result || result.deviceId !== deviceId || result.revoked !== true
+        || result.remoteWipe !== false || result.current !== expectedCurrent) {
+      return { valid: false };
+    }
+  } else if (result !== null && result !== undefined) {
+    return { valid: false };
+  }
+  return { valid: true, state: data.state, result: result || null, replayed: response.replayed === true };
+}
+
+async function finishSelfRevocation() {
+  let vaultCleared = true;
+  try {
+    await auth.clear();
+  } catch {
+    vaultCleared = false;
+    secure.forget();
+    store.wipeDomain();
+  }
+  state.sessionWipeFailed = !vaultCleared;
+  state.session = 'revoked';
+  state.data = {};
+  state.deviceConfirm = null;
+  state.deviceNote = null;
+}
+
+/**
+ * MS-04 — one deliberate revoke, one operation key, and no automatic retry.
+ * The key is persisted before dispatch so a lost response remains readable in
+ * MS-20. Self-revocation consumes the caller's authority, therefore the server
+ * commits the result atomically and the client wipes its vault immediately.
+ */
+async function confirmDeviceRevoke(deviceId) {
+  const target = deviceById(deviceId);
+  if (state.route !== 'devices' || state.deviceConfirm !== deviceId || !target
+      || !auth.has('write:devices') || !deviceMutationFresh()
+      || target.revoked || target.expired || state.deviceRevoking) return;
+
+  const operationId = newOperationId();
+  journal.add({
+    operationId,
+    operationType: 'device.revoke',
+    displaySummary: 'Odvolání spárovaného zařízení',
+  });
+  state.deviceRevoking = deviceId;
+  state.deviceNote = null;
+  render();
+
+  try {
+    const response = await api(`/devices/${encodeURIComponent(deviceId)}/revoke`, {
+      method: 'POST',
+      body: { operationId },
+    });
+    const outcome = deviceRevokeOutcome(response, operationId, deviceId);
+    if (!outcome.valid) {
+      journal.setState(operationId, 'UNKNOWN', { unknownReason: 'unspecified' });
+      setConn('server');
+      state.deviceNote = {
+        tone: 'danger',
+        text: 'Server nevrátil platný výsledek odvolání. Nic se neopakuje; stav zjisti v Nerozřešených pokusech.',
+      };
+      return;
+    }
+
+    journal.setState(operationId, outcome.state);
+    setConn('ok');
+    if (outcome.state === 'PENDING' || outcome.state === 'UNKNOWN') {
+      state.deviceNote = {
+        tone: 'danger',
+        text: 'Výsledek odvolání není potvrzený. Nic se neopakuje; stav zjisti v Nerozřešených pokusech.',
+      };
+      return;
+    }
+    if (outcome.state === 'REJECTED') {
+      state.deviceNote = { tone: 'warn', text: 'Server odvolání odmítl. Načti aktuální seznam a rozhodni znovu.' };
+      return;
+    }
+
+    if (outcome.result.current) {
+      await finishSelfRevocation();
+      return;
+    }
+
+    state.deviceConfirm = null;
+    state.deviceNote = {
+      tone: 'ok',
+      text: outcome.replayed
+        ? 'Odvolání už bylo potvrzené dřív; server vrátil původní výsledek.'
+        : 'Zařízení bylo odvoláno. Jeho další serverový přístup je zablokovaný; nejde o vzdálené smazání dat.',
+    };
+    await loadDevices();
+  } catch (error) {
+    if (error.kind === 'auth') return await handleAuthFailure(error);
+    if (error.detail?.state !== 'REJECTED'
+        && (error.kind === 'offline' || error.kind === 'server' || error.kind === 'protocol'
+        || error.detail?.state === 'UNKNOWN')) {
+      journal.setState(operationId, 'UNKNOWN', { unknownReason: error.detail?.reason || null });
+      setConn(error.kind === 'offline' ? 'offline' : 'server');
+      state.deviceNote = {
+        tone: 'danger',
+        text: 'Není jisté, zda odvolání dorazilo. Nic se neopakuje; stav zjisti v Nerozřešených pokusech.',
+      };
+    } else {
+      journal.setState(operationId, 'REJECTED');
+      if (error.kind === 'scope') replaceScopes(auth.scopes.filter(scope => scope !== 'write:devices'));
+      state.deviceNote = {
+        tone: 'warn',
+        text: error.kind === 'limit'
+          ? 'Odvolání neprošlo: nejdřív uvolni limit v Nerozřešených pokusech.'
+          : 'Odvolání se neprovedlo. Načti aktuální seznam a rozhodni znovu.',
+      };
+    }
+  } finally {
+    state.deviceRevoking = null;
+    render();
+  }
 }
 
 async function loadDiagnostics() {
@@ -4463,7 +4804,7 @@ async function loadDiagnostics() {
     state.data.capabilities = caps.data;
     replaceScopes(caps.data.scopes || []);
   } catch (error) {
-    if (error.kind === 'auth') return handleAuthFailure(error);
+    if (error.kind === 'auth') return await handleAuthFailure(error);
   }
   if (auth.has('read:settings')) await loadSettings();
   if (auth.has('read:memory')) await loadStoredInformation();
@@ -4600,7 +4941,7 @@ async function sendOperation(operationId) {
     state.sending = false;
     state.sendingSince = null;
     state.sendingOperationId = null;
-    if (error.kind === 'auth') return handleAuthFailure(error);
+    if (error.kind === 'auth') return await handleAuthFailure(error);
 
     if (error.kind === 'offline') {
       // Never assume it did not happen. UNKNOWN keeps the key alive so the
@@ -4715,7 +5056,7 @@ async function loadOperations() {
     }
     setConn('ok');
   } catch (error) {
-    if (error.kind === 'auth') return handleAuthFailure(error);
+    if (error.kind === 'auth') return await handleAuthFailure(error);
     // The previous list is kept on purpose and labelled as last known (§9).
     // Dropping it would turn a failed refresh into an empty recovery screen —
     // the one screen where "nothing hangs" must never be a guess.
@@ -4850,7 +5191,7 @@ async function lookupOperation(operationId) {
         : 'Pokus na serveru pořád čeká na výsledek.',
     };
   } catch (error) {
-    if (error.kind === 'auth') return handleAuthFailure(error);
+    if (error.kind === 'auth') return await handleAuthFailure(error);
     if (isUnknownKeyAnswer(error, operationId)) {
       // An answer that arrives with a non-2xx status, not a failed request.
       unknownKeyNote(operationId);
@@ -4927,7 +5268,7 @@ async function confirmAbandon(operationId) {
     delete state.opsNote[operationId];
     await loadOperations();
   } catch (error) {
-    if (error.kind === 'auth') return handleAuthFailure(error);
+    if (error.kind === 'auth') return await handleAuthFailure(error);
     if (error.code === 'not_found') {
       // The server holds no such record, so the local entry is all there is and
       // dropping it loses nothing.
@@ -4962,7 +5303,7 @@ async function ackAll() {
     await api('/notifications/ack', { method: 'POST', body: { ids: unread } });
     await loadNotifications();
   } catch (error) {
-    if (error.kind === 'auth') return handleAuthFailure(error);
+    if (error.kind === 'auth') return await handleAuthFailure(error);
     toast('Nepodařilo se označit jako přečtené.', 'danger');
   }
 }
@@ -5001,7 +5342,11 @@ async function repairLocalState() {
  * direct/stale caller is separately stopped by approvalDecidable's route gate.
  */
 function transitionRoute(route) {
-  if (route !== state.route) state.opsConfirm = null;
+  if (route !== state.route) {
+    state.opsConfirm = null;
+    state.deviceConfirm = null;
+    state.deviceNote = null;
+  }
   invalidateApprovalAuthority();
   state.route = route;
   if (route !== 'approval') state.approvalId = null;
@@ -5020,6 +5365,7 @@ function navigate(route) {
   if (route === 'projects') loadProjects();
   if (route === 'workers') loadWorkers();
   if (route === 'specialists') loadSpecialists();
+  if (route === 'devices') loadDevices();
   if (route === 'notifications') loadNotifications();
   // SS-01/SS-05/SS-10: entering the screen always re-reads the queue from the
   // server, including after a reconnect.  It is a read, so repeating is safe —
@@ -5126,6 +5472,10 @@ document.addEventListener('click', event => {
     'load-memory': () => loadStoredInformation(),
     'load-workers': () => loadWorkers(),
     'load-specialists': () => loadSpecialists(),
+    'load-devices': () => loadDevices(),
+    'device-revoke-ask': () => askDeviceRevoke(target.dataset.device),
+    'device-revoke-cancel': cancelDeviceRevoke,
+    'device-revoke-confirm': () => { confirmDeviceRevoke(target.dataset.device); },
     'load-more-workers': () => loadWorkers({ append: true }),
     'load-more-specialists': () => loadSpecialists({ append: true }),
     'load-thread': () => loadThread(state.conversationId),
@@ -5334,6 +5684,7 @@ async function handleVisibilityChange() {
   if (state.route === 'project') await loadProject();
   if (state.route === 'workers') await loadWorkers();
   if (state.route === 'specialists') await loadSpecialists();
+  if (state.route === 'devices') await loadDevices();
 }
 
 document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -5413,6 +5764,9 @@ export const __ms20 = {
   viewOverview, navItems, currentSection, sectionRoute, unknownScopes, NAV_ITEMS, ROUTE_SECTION,
   viewProjects, viewProject, loadProjects, loadProject, openProject,
   viewWorkers, viewSpecialists, loadWorkers, loadSpecialists,
+  viewDevices, viewDiagnostics, viewSession,
+  loadDevices, askDeviceRevoke, cancelDeviceRevoke, confirmDeviceRevoke,
+  validDeviceSnapshot, deviceRevokeOutcome, handleAuthFailure,
   serverSettingsCard, publicSettingRows, loadSettings,
   storedInformationCard, storedInformationValue, loadStoredInformation,
   renderNavBar, navCount, newChat, layoutNavRing, normaliseNavRing, centreNavOnSelection,

@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 435
+- Runnable programs: 437
 - Explicit support-module exclusions: 9
-- Profiles: offline=211, database=68, server=37, model=85, soak=19, manual=15
-- States: ACTIVE=336, HISTORICAL=16, BLOCKED=83
+- Profiles: offline=212, database=69, server=37, model=85, soak=19, manual=15
+- States: ACTIVE=338, HISTORICAL=16, BLOCKED=83
 
 ## Execution profiles
 
@@ -327,6 +327,8 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T2-TESTS-MOBILE-CONTRACT-CURSOR-REJECTION-TEST` | `tests/mobile-contract-cursor-rejection.test.js` | `C3-031` | T2 | `database` | 30 s | 5 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-MOBILE-CONTRACT-PAGINATION-END-TEST` | `tests/mobile-contract-pagination-end.test.js` | `C3-031` | T2 | `database` | 30 s | 5 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-MOBILE-DATA-MODEL-TEST` | `tests/mobile-data-model.test.js` | `C3-031` | T2 | `database` | 20 s | 3 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-MOBILE-DEVICES-UI-TEST` | `tests/mobile-devices-ui.test.js` | `C3-032` | T1 | `offline` | 5 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T2-TESTS-MOBILE-DEVICES-TEST` | `tests/mobile-devices.test.js` | `C3-031` | T2 | `database` | 30 s | 3 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-MOBILE-FAULT-INJECTION-TEST` | `tests/mobile-fault-injection.test.js` | `C3-031` | T2 | `database` | 30 s | 4 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MOBILE-GATE-SELF-TEST` | `tests/mobile-gate-self-test.js` | `C3-032` | T1 | `offline` | 8 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-MOBILE-GATEWAY-BOUNDARY-TEST` | `tests/mobile-gateway-boundary.test.js` | `C3-031` | T2 | `database` | 30 s | 4 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |

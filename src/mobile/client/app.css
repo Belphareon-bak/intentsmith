@@ -445,6 +445,26 @@ button { cursor: pointer; border: none; background: none; }
 }
 .resource-inline-error { color: var(--danger); background: var(--danger-soft); }
 
+/* MS-04 paired-device lifecycle. A revoke stays inside its row so the second
+   confirmation cannot be mistaken for a different phone after a re-render. */
+.device-screen { padding-top: 0.875rem; }
+.device-row {
+  padding: 0.875rem 1rem; background: var(--bg-raised);
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  margin-bottom: 0.75rem;
+}
+.device-id { margin-top: 0.25rem; color: var(--text-faint); font-size: 0.7188rem; overflow-wrap: anywhere; }
+.device-scopes { display: flex; flex-wrap: wrap; gap: 0.3125rem; margin-top: 0.625rem; }
+.device-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.75rem; }
+.device-warning, .device-confirm {
+  display: flex; flex-direction: column; gap: 0.5rem;
+  padding: 0.75rem 1rem; margin-bottom: 0.75rem;
+  border-radius: var(--radius); background: var(--warn-soft); color: var(--warn);
+  font-size: 0.8125rem; line-height: 1.5;
+}
+.device-confirm { margin: 0.75rem 0 0; background: var(--danger-soft); color: var(--danger); }
+.device-confirm .device-actions { margin-top: 0.25rem; }
+
 /* ── Skeletons (SS-01) — shaped like the content they replace ──────────── */
 .skel { background: var(--bg-sunken); border-radius: 0.375rem; animation: shimmer 1.5s ease-in-out infinite; }
 @keyframes shimmer { 0%,100% { opacity: .55; } 50% { opacity: 1; } }

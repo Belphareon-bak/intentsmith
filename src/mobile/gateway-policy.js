@@ -55,6 +55,8 @@ export const MOBILE_ROUTE_POLICY = Object.freeze([
   Object.freeze({ method: 'GET',  path: '/m1/memory',                  scope: 'read:memory' }),
   Object.freeze({ method: 'GET',  path: '/m1/workers',                 scope: 'read:workers' }),
   Object.freeze({ method: 'GET',  path: '/m1/specialists',             scope: 'read:specialists' }),
+  Object.freeze({ method: 'GET',  path: '/m1/devices',                 scope: 'read:devices' }),
+  Object.freeze({ method: 'POST', path: '/m1/devices/:id/revoke',      scope: 'write:devices' }),
   Object.freeze({ method: 'POST', path: '/m1/chat',                    scope: 'write:chat' }),
   Object.freeze({ method: 'GET',  path: '/m1/notifications',           scope: 'read:notifications' }),
   Object.freeze({ method: 'POST', path: '/m1/notifications/ack',       scope: 'write:notifications' }),

@@ -35,7 +35,7 @@ import {
   versioned,
   withEnvelope,
 } from './protocol.js';
-import { claimPairingCode } from './pairing.js';
+import { claimPairingCode, getMobileDevice, listDevices, revokeDevice } from './pairing.js';
 import { listMobileNotifications, ackMobileNotifications } from '../notifications/channels/mobile.js';
 import { approvalIsBound, evaluateApprovalDecision, decisionState } from '../approvals/authority.js';
 
@@ -47,6 +47,7 @@ const MAX_MESSAGE_LENGTH = 32_000;
 // Approval list and decision results therefore carry an explicit transport
 // directive without changing their frozen response bodies.
 export const APPROVAL_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
+export const DEVICE_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
 
 // ── GET /m1/health ───────────────────────────────────────────────────────────
 //
@@ -97,6 +98,7 @@ export async function handleCapabilities({ principal, upstream, corePort = null 
           && corePort?.capabilities(principal)?.features?.['workers.read']?.status === 'available',
         specialists: principal.scopes.includes('read:specialists')
           && corePort?.capabilities(principal)?.features?.['specialists.read']?.status === 'available',
+        devices: principal.scopes.includes('read:devices'),
         notifications: principal.scopes.includes('read:notifications'),
         approvals: principal.scopes.includes('read:approvals'),
         // Streaming does not exist upstream (PLAN.md §3): onLLMToken has no
@@ -880,6 +882,111 @@ export async function handlePairClaim({ rawDb, body, env }) {
   };
 }
 
+// ── Devices ─────────────────────────────────────────────────────────────────
+
+export async function handleDevices({ rawDb, principal }) {
+  const now = Date.now();
+  const devices = listDevices(rawDb).map(device => versioned({
+    ...device,
+    current: device.deviceId === principal.deviceId,
+    expired: sqlTimeToMs(device.expiresAt) <= now,
+  }));
+  return {
+    status: 200,
+    headers: DEVICE_RESPONSE_HEADERS,
+    body: withEnvelope(devices, { principal }),
+  };
+}
+
+function deviceOperationResponse({ operationId, record, principal, replayed = false }) {
+  const open = record.state === 'PENDING' || record.state === 'UNKNOWN';
+  return {
+    status: open ? 202 : 200,
+    headers: DEVICE_RESPONSE_HEADERS,
+    body: withEnvelope(
+      { operationId, state: record.state, result: record.result },
+      { principal, extra: replayed ? { replayed: true } : {} },
+    ),
+  };
+}
+
+export async function handleDeviceRevoke({ rawDb, journal, principal, params, body }) {
+  const targetId = typeof params.id === 'string' ? params.id : '';
+  const operationId = body?.operationId;
+  if (!/^[A-Za-z0-9_-]{8,128}$/.test(targetId)) {
+    return errorResponse(MOBILE_ERRORS.BAD_REQUEST, { field: 'deviceId', reason: 'invalid' });
+  }
+  if (!operationId) {
+    return errorResponse(MOBILE_ERRORS.BAD_REQUEST, { field: 'operationId', reason: 'required' });
+  }
+
+  const target = getMobileDevice(rawDb, targetId);
+  if (!target) return errorResponse(MOBILE_ERRORS.NOT_FOUND, { resource: 'device' });
+
+  const claim = journal.begin({
+    deviceId: principal.deviceId,
+    operationId,
+    operationType: 'device.revoke',
+    request: { deviceId: target.deviceId },
+  });
+  if (claim.outcome === 'conflict') {
+    return errorResponse(MOBILE_ERRORS.OPERATION_CONFLICT, { reason: claim.reason, operationId });
+  }
+  if (claim.outcome === 'limited') {
+    return errorResponse(
+      claim.reason === 'open_operation_cap' ? MOBILE_ERRORS.OPERATION_LIMIT : MOBILE_ERRORS.RATE_LIMITED,
+      { reason: claim.reason, openOperations: journal.openOperations(principal.deviceId) },
+    );
+  }
+  if (claim.outcome === 'replay') {
+    return deviceOperationResponse({ operationId, record: claim.record, principal, replayed: true });
+  }
+
+  let result;
+  try {
+    // Token revocation and its durable operation result share one SQLite
+    // transaction. This matters most for self-revocation: after commit this
+    // token can never call the recovery endpoint, so an UNKNOWN outcome would
+    // be permanently unresolvable by the initiating device.
+    rawDb.transaction(() => {
+      const fresh = getMobileDevice(rawDb, target.deviceId);
+      if (!fresh) throw new Error('device_disappeared');
+      const changed = revokeDevice(rawDb, target.deviceId);
+      result = {
+        deviceId: target.deviceId,
+        revoked: true,
+        alreadyRevoked: !changed,
+        current: target.deviceId === principal.deviceId,
+        // Revocation blocks future server reads. It cannot erase an offline
+        // phone and the wire response must not invite that interpretation.
+        remoteWipe: false,
+      };
+      const resolution = journal.confirm(principal.deviceId, operationId, result);
+      if (!resolution.resolved) throw new Error(`operation_${resolution.reason}`);
+    })();
+  } catch {
+    let failureState = 'UNKNOWN';
+    try {
+      const rejected = journal.reject(principal.deviceId, operationId, 'device_revoke_failed');
+      if (rejected.resolved || rejected.current?.state === 'REJECTED') failureState = 'REJECTED';
+    } catch { /* the response remains UNKNOWN; startup recovery owns the row */ }
+    return errorResponse(MOBILE_ERRORS.SERVER_UNAVAILABLE, {
+      reason: 'device_revoke_failed',
+      operationId,
+      state: failureState,
+      ...(failureState === 'UNKNOWN'
+        ? { resolveBy: `GET /m1/operations/${operationId}` }
+        : {}),
+    });
+  }
+
+  return {
+    status: 200,
+    headers: DEVICE_RESPONSE_HEADERS,
+    body: withEnvelope({ operationId, state: 'CONFIRMED', ...result }, { principal }),
+  };
+}
+
 // ── Notifications ────────────────────────────────────────────────────────────
 
 export async function handleNotifications({ rawDb, principal, query }) {
@@ -1264,6 +1371,8 @@ export const MOBILE_HANDLERS = Object.freeze({
   'GET /m1/memory': handleStoredInformation,
   'GET /m1/workers': handleWorkers,
   'GET /m1/specialists': handleSpecialists,
+  'GET /m1/devices': handleDevices,
+  'POST /m1/devices/:id/revoke': handleDeviceRevoke,
   'GET /m1/conversations': handleConversations,
   'GET /m1/conversations/:id': handleConversationDetail,
   'POST /m1/chat': handleChat,

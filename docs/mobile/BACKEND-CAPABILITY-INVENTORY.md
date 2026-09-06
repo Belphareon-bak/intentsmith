@@ -6,12 +6,12 @@ This inventory is exhaustive for statically declared `/api` and `/m1` route-map
 keys under `src/routes/**` and `src/mobile/handlers.js`. Dynamic behavior and
 WebSocket message kinds require separate contract inventories.
 
-- Routes: 243
-- Existing mobile v1 routes: 19
+- Routes: 245
+- Existing mobile v1 routes: 21
 - Legacy core routes: 224
-- Reads / mutations: 112 / 131
+- Reads / mutations: 113 / 132
 - Routes mapping to the nine-domain RemoteCorePort candidate: 81
-- Route digest: `851339fe2e6c4f94acbaabc76606c0ae2e94cdcbe206fc216fc9f7a9358b12bb`
+- Route digest: `2ef4a8c06e53b7afd63aa3f9d82d1959fa7ad9a50a223138f2c270efcfb9ad62`
 
 ## Domain counts
 
@@ -25,7 +25,7 @@ WebSocket message kinds require separate contract inventories.
 | media | 11 |
 | notifications | 12 |
 | operations | 3 |
-| platform | 16 |
+| platform | 18 |
 | projects | 31 |
 | quality | 5 |
 | security | 7 |
@@ -279,6 +279,8 @@ WebSocket message kinds require separate contract inventories.
 | `GET /m1/capabilities` | platform | mobile-v1 | — | conditional-or-desktop-only |
 | `GET /m1/conversations` | conversations | mobile-v1 | conversations.read | mobile-mirror-candidate |
 | `GET /m1/conversations/:id` | conversations | mobile-v1 | conversations.read | mobile-mirror-candidate |
+| `GET /m1/devices` | platform | mobile-v1 | — | conditional-or-desktop-only |
+| `POST /m1/devices/:id/revoke` | platform | mobile-v1 | — | conditional-or-desktop-only |
 | `GET /m1/health` | platform | mobile-v1 | — | conditional-or-desktop-only |
 | `POST /m1/chat` | conversations | mobile-v1 | conversations.send | mobile-mirror-candidate |
 | `GET /m1/memory` | stored-information | mobile-v1 | storedInformation.read | mobile-mirror-candidate |

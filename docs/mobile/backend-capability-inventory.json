@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
   "scanner": "scripts/mobile-capability-inventory.mjs",
-  "routeDigest": "851339fe2e6c4f94acbaabc76606c0ae2e94cdcbe206fc216fc9f7a9358b12bb",
+  "routeDigest": "2ef4a8c06e53b7afd63aa3f9d82d1959fa7ad9a50a223138f2c270efcfb9ad62",
   "summary": {
-    "routes": 243,
-    "mobileV1": 19,
+    "routes": 245,
+    "mobileV1": 21,
     "legacyCore": 224,
-    "reads": 112,
-    "mutations": 131,
+    "reads": 113,
+    "mutations": 132,
     "remoteCoreCandidates": 81,
     "domains": {
       "agents": 18,
@@ -18,7 +18,7 @@
       "media": 11,
       "notifications": 12,
       "operations": 3,
-      "platform": 16,
+      "platform": 18,
       "projects": 31,
       "quality": 5,
       "security": 7,
@@ -2778,6 +2778,30 @@
       "exposure": "mobile-v1",
       "remoteCoreFeature": "conversations.read",
       "mobilePolicy": "mobile-mirror-candidate"
+    },
+    {
+      "method": "GET",
+      "path": "/m1/devices",
+      "sources": [
+        "src/mobile/handlers.js"
+      ],
+      "domain": "platform",
+      "access": "read",
+      "exposure": "mobile-v1",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
+    },
+    {
+      "method": "POST",
+      "path": "/m1/devices/:id/revoke",
+      "sources": [
+        "src/mobile/handlers.js"
+      ],
+      "domain": "platform",
+      "access": "mutation",
+      "exposure": "mobile-v1",
+      "remoteCoreFeature": null,
+      "mobilePolicy": "conditional-or-desktop-only"
     },
     {
       "method": "GET",
