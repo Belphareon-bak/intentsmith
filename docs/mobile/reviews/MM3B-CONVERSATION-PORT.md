@@ -47,3 +47,8 @@ not a wire-v2 claim. `ConversationCommand` and `ConversationResult` remain
 - an authoritative run list/detail/event provider and cancellation semantics;
 - frozen wire-contract prerequisites;
 - real Chromium and physical-device UI evidence.
+
+> Historical checkpoint note: MM3-C later extended the existing list
+> operation with the separately reviewed project filter in `701308d8`. The
+> 41/41 and 1,098-edge counts above remain evidence for MM3-B, not current HEAD.
+> See [MM3-C review](MM3C-PROJECT-CONVERSATIONS.md).

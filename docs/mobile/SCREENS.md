@@ -6,8 +6,10 @@
 > `PUT /m1/settings` a create-only `POST /m1/memory` obsahuje precondition-checked
 > `PUT /m1/workers/:id/enabled` a metadata-only
 > `GET /m1/workers/:id/runs` a live-only
-> `GET /m1/specialists/:id`. Autoritou poslední změny je review
-> `MM4I-SPECIALIST-DETAIL`;
+> `GET /m1/specialists/:id`. MM3-C navíc doplnilo detail projektu o živý,
+> stránkovaný seznam jeho konverzací přes existující route. Vyžaduje
+> `read:projects` i `read:chat`, otevírá stávající chat a nepřidává mutaci.
+> Autoritou poslední změny je review `MM3C-PROJECT-CONVERSATIONS`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná obrazovka tím není produktově DONE
@@ -500,7 +502,7 @@ ochrana, producer/projektor a Gate 1 důkazy chybějí.
 | Část | Toky | Stav |
 |---|---|---|
 | **3A — approvaly** | `MS-13`, `MS-14` | Historické `392c5928` má `CHANGES_REQUIRED` z `RV-023`–`RV-025`; opravená kompozice prošla `RV-039`/`RV-040`, registry `RV-042`/`RV-043` a mobilní M3 subset. Celý profil `208/3` a produkční `F-100` blokují; 3A je **NOT DONE** |
-| **3B — projekty** | `MS-12` | `MR-14` je **`BLOCKED_BY_CONTRACT_AND_GATE1`**; obrazovka se nestaví |
+| **3B — projekty** | `MS-12` | MM3-A/MM3-C: read-only seznam/detail a živý drill-down do konverzací jsou `SOURCE TESTED / DEVICE TEST PENDING`; lifecycle mutations zůstávají otevřené |
 
 **Fáze 3 jako celek je DONE teprve po 3B.** Uzavření 3A fázi nezavírá.
 
@@ -510,23 +512,29 @@ ochrana, producer/projektor a Gate 1 důkazy chybějí.
 
 **Požadavky:** `MR-14` · **Data:** `MD-02`, `MD-13` · **Testy:** `IS-T1-TESTS-MOBILE-CACHE-FRESHNESS-STATES-TEST`, `IS-T1-TESTS-MOBILE-OFFLINE-NEVER-QUEUED-TEST`
 
-> **`MR-14` je `BLOCKED_BY_CONTRACT_AND_GATE1` — tato obrazovka se nestaví**
-> (Fáze 3B, PLAN.md §5.2, nález `F-055`). Tabulka níže popisuje **zamýšlené**
-> chování. Požadavek i tok **zůstávají evidované**: blokáda není odložení
-> a není zrušení, a `MS-12` se z této mapy nesmí odstranit.
+> **Implementační checkpoint MM3-C (2026-09-06):** explicitně autorizovaná
+> větev už má read-only seznam/detail projektů a v detailu živý seznam
+> přiřazených konverzací. Metadata projektu vyžadují `read:projects`; členství
+> konverzací navíc `read:chat`. Řádek otevírá existující `MS-07`, cursor je
+> svázaný s projektem a tato část není offline cache. Vytvoření, přiřazení,
+> editace, archivace a mazání zůstávají nedostupné.
 
 | Stav | Chování |
 |---|---|
 | `SS-01` | Skeleton |
-| `SS-02` | „Žádné projekty" |
-| `SS-03` | Seznam a **poslední známá fáze** ze cache, vždy se stářím |
+| `SS-02` | „Žádné projekty"; uvnitř detailu samostatné potvrzené „Projekt nemá žádné konverzace" |
+| `SS-03` | Seznam a **poslední známá fáze** ze cache, vždy se stářím; členství konverzací se zahodí a offline se netvrdí |
 | `SS-04` | Fáze projektu zastarává rychle — ukazatel stáří je zde důraznější |
 | `SS-05` | Refresh; změna fáze se převezme bez ptaní (je serverová) |
 | `SS-06` | Jako `MS-06` |
-| `SS-07` | Uzamčeno |
+| `SS-07` | Bez `read:projects` je zamčený celý tok; bez `read:chat` zůstává detail projektu, ale jeho konverzační sekce je zamčená |
 | `SS-08` | Cache čitelná, akce neaktivní |
 | `SS-09` | Fáze se změnila → převzít, a pokud na ní visela nabízená akce, akci stáhnout |
 | `SS-10` | Čtení bezpečné; přechody fází se z telefonu neopakují (`MUT-NEVER-QUEUED`) |
+
+Konverzační sekce má vlastní loading, error, empty, list a „Načíst starší
+konverzace“ stav. Překryv stránky je protokolová chyba; pozdní odpověď po
+odchodu, změně projektu nebo invalidaci generace se nesmí publikovat.
 
 ---
 

@@ -28,6 +28,13 @@
 > tools, telemetry a mutation controls se nerenderují; ztráta scope nebo relace
 > detail okamžitě zahodí.
 
+> **MM3-C UI overlay:** detail projektu nově obsahuje samostatný živý seznam
+> přiřazených konverzací. Metadata projektu vyžadují `read:projects`, seznam
+> navíc `read:chat`; chybějící druhý scope zamkne jen tuto sekci. Loading,
+> failure a potvrzené prázdno jsou různé stavy, starší stránka se načítá pouze
+> serverovým cursorem a řádek otevírá existující chat. Seznam není offline
+> cache a UI nenabízí vytvoření ani přiřazení konverzace.
+
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; UI tím není produktově DONE
 **Datum a revize:** 2026-08-01 · vstupy `RV-028`, `RV-036`, `RV-037`, reconciliation `RV-038`; Composition Review C `RV-039`/`RV-040`; registr a chráněné hodnoty `RV-042`/`RV-043`
 **Stavová evidence:** 13 rout na produktovém commitu `4553b3ee`; registr `362`, `C3-031=7`, `C3-032=5`, `offline=178`, `database=33`, required ACTIVE deterministic `211`; všech 11 mobilních programů a `schema-migrations` PASS, ale celý profil skončil exit `1`, `208 PASS / 3 FAIL` kvůli `F-115` a `F-116`; žádný Gate 0 PASS, verdikt ani handoff nebyl vydán, fáze 3A je `NOT DONE`, `F-100` blokuje produkci a `GAP-2` zůstává otevřená
@@ -168,7 +175,7 @@ v kódu. Záložka bez scopu se nezobrazí; scope bez upstreamu se zobrazí uzam
 |---|---|---|
 | vždy, když je odemčeno | **Přehled** — kořen, §3.2 | 3 |
 | `conversations` (`read:chat`) | **Konverzace** | 1 |
-| `projects` (`read:projects`) | **Projekty** — `D-UI-1`, čeká na kontrakt `DR-008` domény 2 | — |
+| `projects` (`read:projects`) | **Projekty** — read-only seznam/detail; konverzační sekce navíc vyžaduje `read:chat` (MM3-A/MM3-C) | 3B |
 | `approvals` (`read:approvals`) | **Approvaly** ★ | 3 |
 | vždy (i bez tokenu) | **Nastavení** — diagnostika, zařízení, o aplikaci | 0 |
 | volitelné moduly | **až vzniknou**, viz níže | — |
@@ -207,12 +214,12 @@ Zamýšlená sada podle předlohy: `Konverzace`, `Projekty`, `Domů`, `Aktivita`
 > smysl. Podmínka úplnosti kořene tím ale nepadá: dokud lišta neumí smyčku,
 > zůstává homescreen jedinou mapou.
 
-**[F] `read:projects` uděleno (operátor 2026-08-11).** Pairing ho nově vydává,
-takže `Projekty` je pátá položka smyčky a dlaždice na kořeni — **uzamčená**.
-`MR-14` zůstává `BLOCKED_BY_CONTRACT_AND_GATE1` a `MS-12` se nestaví; uděluje se
-položka, ne obrazovka. Lišta se tím nepřeskupí uživateli pod rukama v den, kdy
-kontrakt projde. Zařízení spárovaná dřív scope nemají — je vydávaný při párování,
-takže se projeví až u nového spárování.
+**[F] `read:projects` uděleno (operátor 2026-08-11).** Pairing ho vydává a
+`Projekty` jsou pátá položka smyčky i dlaždice na kořeni. MM3-A následně
+dodalo read-only seznam/detail a MM3-C jeho živé konverzace; bez `read:chat`
+zůstane detail dostupný, ale tato sekce je viditelně zamčená. Lifecycle a
+mutation povrch se tím neotevřel. Zařízení spárovaná dřív scope nemají — je
+vydávaný při párování, takže se projeví až u nového spárování.
 
 **[F] OPRAVENO 2026-08-11 — prstenec se v širokém okně neotáčel.**
 

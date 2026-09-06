@@ -382,6 +382,18 @@ povrch. Kombinované worker/specialist sady prošly 18/18 backend a 18/18 UI
 scénáři. Zdrojová evidence a non-claims:
 [MM4-I review](reviews/MM4I-SPECIALIST-DETAIL.md).
 
+### P1-3f Read-only konverzace projektu
+
+Stav MM3-C: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`.
+Existující `GET /m1/conversations` přijímá uzavřený `projectId` filtr pouze s
+`read:chat` i `read:projects`. Core provider filtruje členství a smazané řádky,
+gateway izoluje cursor pro každý projekt a klient drží výsledek jen v paměti s
+request/response `no-store`. Detail rozlišuje loading, chybu, prázdno a
+scope-lock a otevírá existující chat. 11/11 gateway/core a 17/17 UI scénářů
+prošlo. Žádná project/chat mutation, search, run progress, fyzický WebView
+průchod ani security acceptance se tím netvrdí. Viz
+[MM3-C review](reviews/MM3C-PROJECT-CONVERSATIONS.md).
+
 ### P1-4 Push, nebo přiznané pull-only
 
 | | |
@@ -534,7 +546,8 @@ jiného, telefon nemá zámek obrazovky — a to je nález, ne detail.
 ## 6. Co tenhle handbook **nezavádí**
 
 - Handbook sám nezavádí kontrakt. Aktuální přesný allow-list má 26 rout;
-  poslední specialist-detail routu přidal a otestoval MM4-I, ne tento dokument.
+  poslední specialist-detail routu přidal MM4-I a MM3-C následně rozšířilo
+  existující conversation-list query bez přidání routy, ne tento dokument.
 - Žádný termín. Termíny patří operátorovi; tady jsou jen závislosti a pořadí.
 - Žádné „nice to have". Každá položka výše má popsaný způsob, jak selže —
   když ho někdo nedokáže popsat u nové položky, do seznamu nepatří.

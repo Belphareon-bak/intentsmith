@@ -6,8 +6,11 @@
 > `PUT /m1/settings` a create-only `POST /m1/memory` obsahuje precondition-checked
 > `PUT /m1/workers/:id/enabled` a metadata-only
 > `GET /m1/workers/:id/runs` a live-only
-> `GET /m1/specialists/:id`. Autoritou poslední změny je review
-> `MM4I-SPECIALIST-DETAIL`;
+> `GET /m1/specialists/:id`. MM3-C navíc rozšířilo existující
+> `GET /m1/conversations` o uzavřený `projectId` filtr. Projektový seznam
+> konverzací je memory-only, má request/response `no-store` a mizí při ztrátě
+> scope, relace, uzamčení aplikace nebo spojení. Autoritou poslední změny je review
+> `MM3C-PROJECT-CONVERSATIONS`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná produktová fáze není DONE
@@ -255,11 +258,12 @@ automaticky otevřenou práci.
 
 ### MD-02 — Projekty a jejich lifecycle stav
 
-> **Stav požadavku `MR-14` (Fáze 3B): `BLOCKED_BY_CONTRACT_AND_GATE1`**
-> (PLAN.md §5.2, nález `F-055`). Doménový model níže platí a **nikam nemizí**.
-> Přijaté `DR-008` samo nic neotevřelo: před implementací musí být změněný
-> kontrakt schválený a refrozen jako v2, musí existovat příslušná Gate 1 evidence
-> a samostatný Work Package. Blokáda je stav, ne zrušení.
+> **Kanonický stav MM3-A/MM3-C na této větvi:** na základě explicitního
+> operátorského zadání existuje read-only seznam/detail projektů a živý
+> drill-down do jejich konverzací. Jde o `SOURCE TESTED / DEVICE TEST PENDING`,
+> nikoli o refreeze wire v2 nebo dokončený lifecycle. Projektové a konverzační
+> mutation operace zůstávají nedostupné. Starší blokované znění v historických
+> podkladech proto není stavem aktuálního checkoutu.
 
 | Atribut | Hodnota |
 |---|---|
@@ -275,6 +279,13 @@ automaticky otevřenou práci.
 | `E-EXPIRE` | ponechat do konce TTL, read-only |
 | `E-REVOKE` | smazat při zjištění |
 | Po ztrátě (`E-LOST`) | čitelný seznam projektů a fází |
+
+Projektový seznam a detail používají omezenou S1 cache podle tabulky. Seznam
+konverzací uvnitř detailu je jiný dataset: `ST-MEM`, živý, se dvěma scopy
+(`read:projects` + `read:chat`), request/response `no-store` a cursorem vázaným
+na projekt. Mizí při odchodu z projektu, uzamčení, disconnectu nebo odebrání
+kteréhokoli scope a po návratu se čte znovu. Názvy a metadata projektů tedy
+mohou zůstat označené jako cache, ale členství konverzací se z cache netvrdí.
 
 ---
 

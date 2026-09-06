@@ -23,6 +23,7 @@ i webového klienta**, takže na čtení žádný backend nepotřebuje. Legacy s
 |---|---|
 | Párování zařízení | ✅ |
 | Seznam konverzací, čtení historie, stránkování (`MR-05`) | ✅ |
+| Projekty, detail a živé přiřazené konverzace (`MM3-C`) | ✅ — read-only; drill-down vyžaduje `read:projects` i `read:chat` a není offline cache |
 | Přehled, trust bar, stavy cache, zamčení podle scope | ✅ |
 | Žurnál operací, obrazovka rozřešení (`MS-20`) | ✅ |
 | Seznam a odvolání spárovaných zařízení (`MS-04`) | ✅ — odvolání blokuje další requesty, není remote wipe |
@@ -222,6 +223,26 @@ Detail a historii agenta zkontroluj v **Agenti → Detail a historie**:
 
 Přesná projekce, kurzorový kontrakt, negativní scénáře a non-claims jsou v
 [MM4-H review](reviews/MM4H-WORKER-RUN-HISTORY.md).
+
+### Konverzace projektu (MM3-C)
+
+1. Spáruj zařízení se scopy `read:projects` i `read:chat`, otevři **Projekty**
+   a vyber projekt.
+2. Detail musí zachovat metadata projektu a pod nimi načíst jen aktivní nebo
+   archivované konverzace přiřazené právě tomuto projektu; smazané a cizí řádky
+   se nesmí objevit.
+3. **Načíst starší konverzace** pokračuje serverovým cursorem. Cursor z jiného
+   projektu ani z globálního seznamu se nesmí přijmout.
+4. Řádek otevře stávající chat. Detail nesmí nabídnout vytvoření, přiřazení,
+   archivaci ani smazání projektu nebo konverzace.
+5. Odeber jen `read:chat`: metadata projektu zůstanou čitelná, konverzační
+   sekce se zamkne a zapamatovaný seznam zmizí. Totéž členství se zahodí při
+   odpojení, uzamčení nebo opuštění detailu.
+6. V offline režimu se seznam konverzací projektu nesmí vydávat za aktuální;
+   klient jej neukládá do persistentní cache.
+
+Přesná authority, cache a cursor hranice jsou v
+[MM3-C review](reviews/MM3C-PROJECT-CONVERSATIONS.md).
 
 ### Detail specialisty a expertiz (MM4-I)
 

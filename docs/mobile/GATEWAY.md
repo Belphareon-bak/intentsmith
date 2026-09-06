@@ -6,8 +6,10 @@
 > `PUT /m1/settings` a create-only `POST /m1/memory` obsahuje precondition-checked
 > `PUT /m1/workers/:id/enabled` a metadata-only
 > `GET /m1/workers/:id/runs` a live-only
-> `GET /m1/specialists/:id`. Autoritou poslední změny je review
-> `MM4I-SPECIALIST-DETAIL`;
+> `GET /m1/specialists/:id`. MM3-C navíc rozšířilo existující
+> `GET /m1/conversations` o uzavřený `projectId` filtr, dvojici scopů
+> `read:chat` + `read:projects`, projektově svázaný cursor a `no-store`.
+> Autoritou poslední změny je review `MM3C-PROJECT-CONVERSATIONS`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; gateway je implementovaná a testovaná pouze **na loopbacku**, nikoli produkčně DONE.
@@ -212,13 +214,26 @@ exact-shape, detail je `no-store` a nevzniká obecný loader ani `/api` proxy.
 Úplná hranice a testy jsou v
 `reviews/MM4I-SPECIALIST-DETAIL.md`.
 
+### Konverzace přiřazené projektu
+
+MM3-C nepřidává novou routu: uzavřený volitelný `projectId` filtr patří k
+existujícímu `GET /m1/conversations`. Základní route vyžaduje `read:chat` a
+filtrovaný tvar navíc `read:projects`. Id je kladné safe-integer desetinné
+číslo; neznámé/duplicitní parametry selžou. `conversations.read/list` filtruje
+`project_id` a `state != 'deleted'` uvnitř core provideru. Cursor má stream
+konkrétního projektu, takže nejde použít pro jiný projekt ani globální seznam.
+Filtrovaná odpověď má `Cache-Control: no-store`; nový `/api` proxy ani
+projektová či konverzační mutation autorita nevznikly. Úplná hranice a testy
+jsou v `reviews/MM3C-PROJECT-CONVERSATIONS.md`.
+
 ---
 
 ## 4. Routy
 
 > Tabulka v této historické sekci zachycuje původních 13 rout. Aktuálních 26
-> exact rout je generováno v `BACKEND-CAPABILITY-INVENTORY.md`; poslední
-> přírůstek je `GET /m1/specialists/:id` (`read:specialists`, MM4-I).
+> exact rout je generováno v `BACKEND-CAPABILITY-INVENTORY.md`; poslední novou
+> routou je `GET /m1/specialists/:id` (`read:specialists`, MM4-I) a MM3-C
+> následně rozšířilo existující conversation-list query bez změny počtu rout.
 > Následující věta „vše ostatní je 404“ se vztahuje k tehdejšímu checkpointu,
 > ne k dnešnímu HEAD.
 

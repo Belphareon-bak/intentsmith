@@ -2,11 +2,12 @@
 
 Status: `CANDIDATE_V1`
 
-Latest implementation checkpoint: MM4-I (`241b8934`) extends the existing
-`specialists.read` provider with persisted public package metadata and ordered
-expertise bindings. This is an additive candidate implementation, not a
-contract freeze; see
-[`reviews/MM4I-SPECIALIST-DETAIL.md`](reviews/MM4I-SPECIALIST-DETAIL.md).
+Latest implementation checkpoint: MM3-C (`701308d8`) extends the existing
+`conversations.read` list operation with a closed optional project filter.
+Opaque pagination streams are bound to the selected project and the filtered
+gateway read requires both `read:chat` and `read:projects`. This is an additive
+candidate implementation, not a contract freeze; see
+[`reviews/MM3C-PROJECT-CONVERSATIONS.md`](reviews/MM3C-PROJECT-CONVERSATIONS.md).
 
 `RemoteCorePort` is the core-owned, in-process boundary used by the mobile
 gateway. It is deliberately narrower than the desktop HTTP listener: a mobile
@@ -67,6 +68,13 @@ detail and history reads through `conversations.read`, and message submission
 through `conversations.send`. The adapter preserves the existing distinction
 between a decided rejection and an ambiguous upstream outcome, so retry and
 operation-journal guarantees remain intact.
+
+The list operation also accepts the exact optional `projectId` input used by
+MM3-C. Filtering happens inside the core-owned provider before DTO projection;
+deleted and other-project rows are absent. The gateway binds each continuation
+cursor to that project and the client keeps this filtered surface in memory
+only with `no-store`. This adds no assignment, create, archive or project
+mutation authority.
 
 `projects.read`, `conversations.read`, `conversations.send`, `settings.read`,
 `settings.write`, `storedInformation.read`, `storedInformation.write`,

@@ -51,3 +51,8 @@ a separate reviewable change.
 - an authoritative run list/detail/event provider and cancellation semantics;
 - frozen wire-contract prerequisites;
 - real Chromium and physical-device UI evidence.
+
+> Historical checkpoint note: MM3-C later added the separately reviewed live
+> project-to-conversation drill-down in `701308d8`. The 7/7, 9/9, 41/41 and
+> 1,097-edge counts above remain evidence for MM3-A, not current HEAD. See
+> [MM3-C review](MM3C-PROJECT-CONVERSATIONS.md).

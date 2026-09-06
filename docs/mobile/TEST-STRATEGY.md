@@ -30,6 +30,14 @@
 > exact response shape, escaping, scope/session invalidaci, absenci persistentní
 > detail cache a všech specialist mutation controls.
 
+> **MM3-C evidence overlay:** `mobile-projects` (11/11) pokrývá dvojí scope,
+> SQL-side filtr, deleted/other-project exclusion, řazení, no-store, uzavřenou
+> query a cursor izolaci mezi projekty i proti globálnímu seznamu.
+> `mobile-projects-ui` (17/17) kryje přesný response shape, escaping,
+> loading/error/empty/lock stavy, automatický drill-down, nepřekrývající se
+> append, memory-only lifecycle a absenci mutation controls. Celý mobilní gate
+> zůstává 54/54 active s jednou Chromium prerequisite sadou withheld.
+
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; mobilní zeleň není Gate 0 PASS
 **Revize:** vstupy `RV-028`, `RV-036`, `RV-037`, reconciliation `RV-038`; Composition Review C `RV-039`/`RV-040`; registr a chráněné hodnoty `RV-042`/`RV-043`
 **Datum:** 2026-08-01
@@ -627,7 +635,7 @@ zafixuje tvar, který kontrakt teprve určí, a vypadá jako pokrytí.
 |---|---|---|
 | `MR-07` průběh běhu | `BLOCKED_BY_CONTRACT` | K `MS-15` nevzniká UI ani jeho testy. **Existující sady kolem `/m1/chat` a žurnálu operací nesmí být vydávány za pokrytí `MR-07`** — nejsou to testy agent logu |
 | `MR-10` hledání | `BLOCKED_BY_CONTRACT` | K `MS-09` nevzniká UI ani jeho testy. Test hledání nad cachovaným oknem by prokazoval něco, co požadavek **nesplňuje** |
-| `MR-14` projekty | `BLOCKED_BY_CONTRACT_AND_GATE1` | K `MS-12` nevzniká UI ani jeho testy. Řádky pro projektovou doménu vzniknou až s kontraktem a Gate 1 |
+| `MR-14` projekty | `PARTIAL / SOURCE TESTED / DEVICE TEST PENDING` | Explicitně autorizované MM3-A/MM3-C dodaly read-only seznam/detail a project-to-conversation drill-down. `mobile-projects` 11/11 a `mobile-projects-ui` 17/17 kryjí authority/filter/cursor/cache/UI hranici. Lifecycle mutations, wire refreeze, Chromium a device evidence zůstávají otevřené |
 | `MR-05` kurzorové stránkování | `LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED` | **Aktualizováno 2026-08-12:** `MN-cursor-rejection` a `MN-pagination-end` existují a procházejí, a klientská část už není `MISSING_IMPLEMENTATION` — kryje ji `mobile-ms07-history`. Produktově `DONE` to není: sdílená validace zůstává blokovaná |
 
 Blokáda se týká **testů k blokovaným schopnostem**, ne doménových pravidel:

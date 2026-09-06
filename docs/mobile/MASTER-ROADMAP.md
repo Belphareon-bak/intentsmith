@@ -44,6 +44,13 @@ Each milestone ends in its own commit or short, contiguous commit series.  Its
 review package records scope, observed tests, remaining risks and exact commit
 range.  Later work must not rewrite an accepted milestone.
 
+Current MM3 sub-checkpoints: project list/detail (`1a7be999`), conversation
+provider boundary (`ddb90e7e`) and live project-to-conversation drill-down
+(`701308d8`). The drill-down reuses the exact conversation read route, requires
+both project and chat read scopes, isolates cursors per project and adds no
+mutation. MM3 remains open for server-backed global search, authoritative live
+run progress/cancel, frozen wire prerequisites and device evidence.
+
 Current MM4 sub-checkpoints: settings read (`87a51930`), stored-information
 read (`2c33fd9b`), worker/specialist read (`49dd991d`), paired-device lifecycle
 (`13fa98c6`), revisioned UX-settings write (`4bb9011d`) and create-only manual
