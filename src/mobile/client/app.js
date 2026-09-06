@@ -595,11 +595,12 @@ async function api(path, { method = 'GET', body = null, timeoutMs = 130_000, str
     // pagination adds a query string and a fragment must not change cache policy.
     const routePath = path.split(/[?#]/, 1)[0];
     const approvalRequest = routePath === '/approvals' || routePath.startsWith('/approvals/');
+    const settingsRequest = routePath === '/settings';
     response = await fetch(API + path, {
       method, headers,
       body: body ? JSON.stringify(body) : undefined,
       signal: controller.signal,
-      ...(approvalRequest ? { cache: 'no-store' } : {}),
+      ...(approvalRequest || settingsRequest ? { cache: 'no-store' } : {}),
     });
   } catch (error) {
     // No HTTP response at all. Ambiguous for mutations — the caller decides.
@@ -742,6 +743,8 @@ const state = {
   deviceConfirm: null,
   deviceRevoking: null,
   deviceNote: null,
+  settingsSaving: null,
+  settingsNote: null,
   sessionWipeFailed: false,
 
   // MS-13 / MS-14.  The right to decide is not a flag the app owns; it belongs
@@ -844,7 +847,10 @@ function replaceScopes(scopes) {
     delete state.data.settings;
     state.error.settings = null;
     state.loading.settings = false;
+    state.settingsSaving = null;
+    state.settingsNote = null;
   }
+  if (!next.includes('write:settings')) state.settingsSaving = null;
   if (!next.includes('read:memory')) {
     memoryGeneration++;
     delete state.data.memory;
@@ -1272,7 +1278,7 @@ const ROUTE_SECTION = {
 /** The scopes this client version knows how to act on (§3.4, step 2). */
 const SUPPORTED_SCOPES = new Set([
   'read:chat', 'write:chat', 'read:notifications',
-  'read:approvals', 'write:approvals', 'read:projects', 'read:settings', 'read:memory',
+  'read:approvals', 'write:approvals', 'read:projects', 'read:settings', 'write:settings', 'read:memory',
   'read:workers', 'read:specialists',
   'read:devices', 'write:devices',
 ]);
@@ -2261,9 +2267,85 @@ function publicSettingValue(value) {
   try { return JSON.stringify(value); } catch { return 'nečitelná hodnota'; }
 }
 
+const EDITABLE_SETTINGS = Object.freeze({
+  '/appearance/accentColor': Object.freeze({ type: 'color' }),
+  '/appearance/fontFamily': Object.freeze({ type: 'enum', values: ['system', 'inter', 'roboto', 'source-code'] }),
+  '/appearance/fontSize': Object.freeze({ type: 'number', min: 12, max: 20 }),
+  '/appearance/theme': Object.freeze({ type: 'enum', values: ['dark', 'light', 'system'] }),
+  '/c3.language': Object.freeze({ type: 'enum', values: ['cs', 'en'] }),
+  '/c3.output.codeBlocks': Object.freeze({ type: 'boolean' }),
+  '/c3.output.markdownRendering': Object.freeze({ type: 'boolean' }),
+  '/c3.output.syntaxHighlight': Object.freeze({ type: 'boolean' }),
+  '/output/codeStyle': Object.freeze({ type: 'enum', values: ['default', 'airbnb', 'google', 'standard'] }),
+  '/output/defaultFormat': Object.freeze({ type: 'enum', values: ['markdown', 'json', 'csv', 'yaml'] }),
+  '/output/namingConvention': Object.freeze({ type: 'enum', values: ['camelCase', 'snake_case', 'kebab-case', 'PascalCase'] }),
+});
+
+function settingPointer(rowKey) {
+  return rowKey.startsWith('/') ? rowKey : `/${rowKey}`;
+}
+
+function settingInputId(path) {
+  return `server-setting-${path.replace(/[^A-Za-z0-9_-]/g, '-')}`;
+}
+
+function settingsMutationFresh() {
+  return state.route === 'diagnostics'
+    && state.conn === 'ok'
+    && Boolean(state.data.settings)
+    && !state.loading.settings
+    && !state.error.settings;
+}
+
+function settingEditor(row) {
+  const path = settingPointer(row.key);
+  const field = EDITABLE_SETTINGS[path];
+  if (!field || !auth.has('write:settings')) {
+    return `<span class="kv-val">${esc(publicSettingValue(row.value))}</span>`;
+  }
+  const id = settingInputId(path);
+  const writable = auth.has('read:settings')
+    && settingsMutationFresh() && !state.settingsSaving;
+  const disabled = writable ? '' : 'disabled';
+  let input;
+  if (field.type === 'enum') {
+    const unset = row.value === undefined ? '<option value="" selected disabled>nenastaveno</option>' : '';
+    input = `<select id="${id}" class="setting-input" aria-label="Hodnota ${esc(path)}" ${disabled}>${unset}${field.values.map(value => (
+      `<option value="${esc(value)}" ${row.value === value ? 'selected' : ''}>${esc(value)}</option>`
+    )).join('')}</select>`;
+  } else if (field.type === 'boolean') {
+    const unset = row.value === undefined ? '<option value="" selected disabled>nenastaveno</option>' : '';
+    input = `<select id="${id}" class="setting-input" aria-label="Hodnota ${esc(path)}" ${disabled}>
+      ${unset}
+      <option value="true" ${row.value === true ? 'selected' : ''}>zapnuto</option>
+      <option value="false" ${row.value === false ? 'selected' : ''}>vypnuto</option>
+    </select>`;
+  } else if (field.type === 'number') {
+    const value = row.value === undefined ? '' : row.value;
+    input = `<input id="${id}" class="setting-input" aria-label="Hodnota ${esc(path)}" type="number" min="${field.min}" max="${field.max}" step="1" value="${esc(value)}" placeholder="nenastaveno" ${disabled}>`;
+  } else if (row.value === undefined) {
+    input = `<input id="${id}" class="setting-input" aria-label="Hodnota ${esc(path)}" type="text" inputmode="text" placeholder="#RRGGBB" ${disabled}>`;
+  } else {
+    input = `<input id="${id}" class="setting-input setting-color" aria-label="Hodnota ${esc(path)}" type="color" value="${esc(row.value)}" ${disabled}>`;
+  }
+  return `<span class="setting-control">${input}
+    <button class="btn btn-secondary btn-sm" data-act="setting-save" data-setting-path="${esc(path)}" ${disabled}>${state.settingsSaving === path ? 'Ukládám…' : 'Uložit'}</button>
+  </span>`;
+}
+
 function serverSettingsCard() {
   const data = state.data.settings;
-  const rows = publicSettingRows(data?.settings);
+  const canEdit = auth.has('read:settings') && auth.has('write:settings');
+  let rows = publicSettingRows(data?.settings);
+  if (data && canEdit) {
+    const present = new Set(rows.map(row => settingPointer(row.key)));
+    rows = [
+      ...rows,
+      ...Object.keys(EDITABLE_SETTINGS)
+        .filter(path => !present.has(path))
+        .map(path => ({ key: path, value: undefined })),
+    ].sort((left, right) => left.key.localeCompare(right.key, 'cs'));
+  }
   let content;
   if (!auth.has('read:settings')) {
     content = '<div class="kv-note">Zařízení nemá scope <span class="mono">read:settings</span>. Veřejné nastavení backendu proto zůstává skryté.</div>';
@@ -2276,7 +2358,7 @@ function serverSettingsCard() {
   } else if (data) {
     content = rows.map(row => `<div class="kv">
       <span class="kv-key mono">${esc(row.key)}</span>
-      <span class="kv-val">${esc(publicSettingValue(row.value))}</span>
+      ${settingEditor(row)}
     </div>`).join('');
   } else {
     content = '<div class="skel skel-line"></div><div class="skel skel-line short"></div>';
@@ -2284,8 +2366,10 @@ function serverSettingsCard() {
 
   return `<div class="card">
     <div class="card-head"><h3 class="card-title">Nastavení backendu</h3>
-      <span class="pill" data-tone="${auth.has('read:settings') ? 'info' : 'muted'}">${auth.has('read:settings') ? 'jen ke čtení' : icon('lock') + 'zamčeno'}</span></div>
+      <span class="pill" data-tone="${canEdit ? 'ok' : auth.has('read:settings') ? 'info' : 'muted'}">${canEdit ? 'revizní zápis' : auth.has('read:settings') ? 'jen ke čtení' : icon('lock') + 'zamčeno'}</span></div>
     ${data ? `<div class="kv"><span class="kv-key">Revize</span><span class="kv-val mono">${esc(data.revision)}</span></div>` : ''}
+    ${state.settingsNote ? `<div class="kv-note" data-tone="${esc(state.settingsNote.tone)}" role="status">${esc(state.settingsNote.text)}</div>` : ''}
+    ${auth.has('read:settings') && !auth.has('write:settings') ? '<div class="kv-note">Zápis vyžaduje samostatný scope <span class="mono">write:settings</span>; nové oprávnění vznikne pouze novým párováním.</div>' : ''}
     ${content}
   </div>`;
 }
@@ -2560,6 +2644,7 @@ const OPERATION_TYPE_LABEL = {
   'chat.send': 'Odeslání zprávy',
   'approval.decide': 'Rozhodnutí approvalu',
   'device.revoke': 'Odvolání spárovaného zařízení',
+  'settings.write': 'Změna nastavení backendu',
 };
 
 /**
@@ -4437,6 +4522,7 @@ async function loadSettings() {
   state.data.settings = undefined;
   state.loading.settings = true;
   state.error.settings = null;
+  state.settingsNote = null;
   render();
 
   try {
@@ -4455,6 +4541,166 @@ async function loadSettings() {
       state.loading.settings = false;
       render();
     }
+  }
+}
+
+function currentSettingValue(path) {
+  const settings = state.data.settings?.settings;
+  if (!settings || typeof settings !== 'object') return undefined;
+  if (path.startsWith('/appearance/') || path.startsWith('/output/')) {
+    const [, container, key] = path.split('/');
+    return settings[container]?.[key];
+  }
+  return settings[path.slice(1)];
+}
+
+function parsedSettingValue(path) {
+  const field = EDITABLE_SETTINGS[path];
+  const input = document.getElementById(settingInputId(path));
+  if (!field || !input) return { ok: false };
+  if (field.type === 'boolean') return { ok: true, value: input.value === 'true' };
+  if (field.type === 'number') {
+    const value = Number(input.value);
+    return {
+      ok: Number.isSafeInteger(value) && value >= field.min && value <= field.max,
+      value,
+    };
+  }
+  if (field.type === 'color') {
+    return { ok: /^#[0-9A-Fa-f]{6}$/.test(input.value), value: input.value };
+  }
+  return { ok: field.values.includes(input.value), value: input.value };
+}
+
+function settingsWriteOutcome(response, operationId, path, value, expectedRevision) {
+  const data = response?.data;
+  if (response?.ok !== true || !data || data.operationId !== operationId
+      || !['PENDING', 'UNKNOWN', 'CONFIRMED', 'REJECTED'].includes(data.state)) {
+    return { valid: false };
+  }
+  const result = data.result;
+  if (data.state === 'CONFIRMED') {
+    if (!result || result.path !== path || !Object.is(result.value, value)
+        || result.revision !== expectedRevision + 1) return { valid: false };
+  } else if (result !== null && result !== undefined) {
+    if (data.state !== 'REJECTED'
+        || Object.keys(result).some(key => key !== 'currentRevision')) return { valid: false };
+  }
+  return { valid: true, state: data.state, result: result || null };
+}
+
+function applyConfirmedSetting(path, value, revision) {
+  const current = state.data.settings;
+  if (!current || !current.settings) return;
+  const settings = structuredClone(current.settings);
+  if (path.startsWith('/appearance/') || path.startsWith('/output/')) {
+    const [, container, key] = path.split('/');
+    settings[container] = { ...(settings[container] || {}), [key]: value };
+  } else {
+    settings[path.slice(1)] = value;
+  }
+  // The old content fingerprint no longer describes this snapshot. A later
+  // GET will supply a new one; inventing it on the phone would fake authority.
+  const { version: _oldVersion, ...withoutVersion } = current;
+  state.data.settings = { ...withoutVersion, revision, settings };
+}
+
+/** One explicit save, one key, no automatic retry. */
+async function saveSetting(path) {
+  const expectedRevision = state.data.settings?.revision;
+  if (!Object.hasOwn(EDITABLE_SETTINGS, path)
+      || !auth.has('read:settings') || !auth.has('write:settings')
+      || !settingsMutationFresh() || state.settingsSaving
+      || !Number.isSafeInteger(expectedRevision)) return;
+
+  const parsed = parsedSettingValue(path);
+  if (!parsed.ok) {
+    state.settingsNote = { tone: 'danger', text: 'Hodnota není v povoleném rozsahu.' };
+    return render();
+  }
+  if (Object.is(currentSettingValue(path), parsed.value)) {
+    state.settingsNote = { tone: 'info', text: 'Hodnota se nezměnila; na server se nic neposlalo.' };
+    return render();
+  }
+
+  const operationId = newOperationId();
+  journal.add({
+    operationId,
+    operationType: 'settings.write',
+    displaySummary: 'Změna nastavení backendu',
+  });
+  state.settingsSaving = path;
+  state.settingsNote = null;
+  render();
+
+  try {
+    const response = await api('/settings', {
+      method: 'PUT',
+      body: { operationId, expectedRevision, path, value: parsed.value },
+      strict: true,
+    });
+    const outcome = settingsWriteOutcome(
+      response, operationId, path, parsed.value, expectedRevision,
+    );
+    if (!outcome.valid) {
+      journal.setState(operationId, 'UNKNOWN', { unknownReason: 'unspecified' });
+      setConn('server');
+      state.settingsNote = {
+        tone: 'danger',
+        text: 'Server nevrátil platný výsledek změny. Nic se neopakuje; stav zjisti v Nerozřešených pokusech.',
+      };
+      return;
+    }
+    if (response.scopes) replaceScopes(response.scopes);
+    journal.setState(operationId, outcome.state);
+    if (outcome.state !== 'CONFIRMED') {
+      state.settingsNote = {
+        tone: outcome.state === 'REJECTED' ? 'warn' : 'danger',
+        text: outcome.state === 'REJECTED'
+          ? 'Server změnu odmítl. Načti aktuální nastavení a rozhodni znovu.'
+          : 'Výsledek změny není potvrzený. Nic se neopakuje; stav zjisti v Nerozřešených pokusech.',
+      };
+      return;
+    }
+    applyConfirmedSetting(path, parsed.value, outcome.result.revision);
+    setConn('ok');
+    state.settingsNote = { tone: 'ok', text: 'Nastavení bylo potvrzeno serverem.' };
+  } catch (error) {
+    if (error.kind === 'auth') return await handleAuthFailure(error);
+    const ambiguous = error.detail?.state !== 'REJECTED'
+      && (error.kind === 'offline' || error.kind === 'server' || error.kind === 'protocol'
+        || error.detail?.state === 'UNKNOWN');
+    if (ambiguous) {
+      journal.setState(operationId, 'UNKNOWN', { unknownReason: error.detail?.reason || null });
+      setConn(error.kind === 'offline' ? 'offline' : 'server');
+      state.settingsNote = {
+        tone: 'danger',
+        text: 'Není jisté, zda se změna provedla. Nic se neopakuje; stav zjisti v Nerozřešených pokusech.',
+      };
+    } else {
+      journal.setState(operationId, 'REJECTED');
+      if (error.kind === 'scope') {
+        replaceScopes(auth.scopes.filter(scope => scope !== 'write:settings'));
+      }
+      if (error.code === 'state_conflict') {
+        await loadSettings();
+        const serverValue = currentSettingValue(path);
+        state.settingsNote = {
+          tone: 'warn',
+          text: `Nastavení mezitím změnil jiný klient. Pokus: ${publicSettingValue(parsed.value)}; server: ${publicSettingValue(serverValue)}. Aktuální revize je načtená; rozhodni znovu.`,
+        };
+      } else {
+        state.settingsNote = {
+          tone: 'warn',
+          text: error.kind === 'limit'
+            ? 'Změna neprošla: nejdřív uvolni limit v Nerozřešených pokusech.'
+            : 'Server změnu odmítl. Načti aktuální nastavení a rozhodni znovu.',
+        };
+      }
+    }
+  } finally {
+    state.settingsSaving = null;
+    render();
   }
 }
 
@@ -5469,6 +5715,7 @@ document.addEventListener('click', event => {
     'load-projects': () => loadProjects(),
     'load-project': () => loadProject(),
     'load-settings': () => loadSettings(),
+    'setting-save': () => { saveSetting(target.dataset.settingPath); },
     'load-memory': () => loadStoredInformation(),
     'load-workers': () => loadWorkers(),
     'load-specialists': () => loadSpecialists(),
@@ -5767,7 +6014,8 @@ export const __ms20 = {
   viewDevices, viewDiagnostics, viewSession,
   loadDevices, askDeviceRevoke, cancelDeviceRevoke, confirmDeviceRevoke,
   validDeviceSnapshot, deviceRevokeOutcome, handleAuthFailure,
-  serverSettingsCard, publicSettingRows, loadSettings,
+  serverSettingsCard, publicSettingRows, loadSettings, saveSetting,
+  settingsWriteOutcome, settingsMutationFresh, settingInputId,
   storedInformationCard, storedInformationValue, loadStoredInformation,
   renderNavBar, navCount, newChat, layoutNavRing, normaliseNavRing, centreNavOnSelection,
   navRingIsTurningItself, NAV_TURN_CEILING_MS, NAV_TURN_QUIET_MS,

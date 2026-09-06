@@ -8,9 +8,9 @@ import path from 'node:path';
 
 import { runMigrations } from '../src/db/migrate.js';
 import { startMobileGateway } from '../src/mobile/gateway.js';
-import { handleSettings } from '../src/mobile/handlers.js';
+import { handleSettings, handleSettingsWrite } from '../src/mobile/handlers.js';
 import { OperationJournal } from '../src/mobile/operation-journal.js';
-import { createPairingCode } from '../src/mobile/pairing.js';
+import { createPairingCode, PAIRABLE_SCOPES } from '../src/mobile/pairing.js';
 import { RemoteCorePort } from '../src/remote-core/port.js';
 import { OfflineUpstream } from '../src/mobile/upstream.js';
 
@@ -66,10 +66,23 @@ async function pair(scopes) {
 }
 
 async function get(pathname, token) {
+  return request(pathname, { token });
+}
+
+async function request(pathname, { token, method = 'GET', body = null } = {}) {
   const response = await fetch(gateway.url + pathname, {
-    headers: { authorization: `Bearer ${token}` },
+    method,
+    headers: {
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+      ...(body ? { 'content-type': 'application/json' } : {}),
+    },
+    ...(body ? { body: JSON.stringify(body) } : {}),
   });
-  return { status: response.status, body: await response.json() };
+  return {
+    status: response.status,
+    cacheControl: response.headers.get('cache-control'),
+    body: await response.json(),
+  };
 }
 
 try {
@@ -118,6 +131,176 @@ try {
     });
     assert.equal(response.status, 503);
     assert.equal(response.body.error.reason, 'capability_unavailable');
+  });
+
+  await test('write scope is pairable, non-default and enforced before body dispatch', async () => {
+    assert.ok(PAIRABLE_SCOPES.includes('write:settings'));
+    const defaults = createPairingCode(db, { ttlMs: 60_000 });
+    assert.ok(!defaults.scopes.includes('write:settings'));
+
+    const reader = await pair(['read:settings']);
+    const denied = await request('/m1/settings', {
+      token: reader.token,
+      method: 'PUT',
+      body: {
+        operationId: 'w'.repeat(32), expectedRevision: 2,
+        path: '/appearance/theme', value: 'light',
+      },
+    });
+    assert.equal(denied.status, 403);
+    assert.equal(denied.cacheControl, 'no-store');
+    assert.equal(denied.body.error.requiredScope, 'write:settings');
+  });
+
+  const writer = await pair(['read:capabilities', 'read:settings', 'write:settings']);
+
+  await test('capabilities advertise write only when provider and scope are both present', async () => {
+    const response = await get('/m1/capabilities', writer.token);
+    assert.equal(response.status, 200);
+    assert.equal(response.body.data.features.settings, true);
+    assert.equal(response.body.data.features.settingsWrite, true);
+    assert.equal(response.body.data.remoteCore.features['settings.write'].status, 'available');
+  });
+
+  await test('one allow-listed setting commits at the expected revision and preserves siblings', async () => {
+    const response = await request('/m1/settings', {
+      token: writer.token,
+      method: 'PUT',
+      body: {
+        operationId: 'a'.repeat(32), expectedRevision: 2,
+        path: '/appearance/theme', value: 'light',
+      },
+    });
+    assert.equal(response.status, 200);
+    assert.equal(response.cacheControl, 'no-store');
+    assert.equal(response.body.data.state, 'CONFIRMED');
+    assert.deepEqual(response.body.data.result, {
+      revision: 3, path: '/appearance/theme', value: 'light',
+    });
+
+    const read = await get('/m1/settings', writer.token);
+    assert.equal(read.cacheControl, 'no-store');
+    assert.equal(read.body.data.revision, 3);
+    assert.equal(read.body.data.settings.appearance.theme, 'light');
+    assert.equal(read.body.data.settings.appearance.density, 'comfortable');
+    assert.ok(!JSON.stringify(read.body).includes('must-not-cross-mobile-boundary'));
+  });
+
+  await test('same key replays one setting effect and cannot be rebound', async () => {
+    const replay = await request('/m1/settings', {
+      token: writer.token,
+      method: 'PUT',
+      body: {
+        operationId: 'a'.repeat(32), expectedRevision: 2,
+        path: '/appearance/theme', value: 'light',
+      },
+    });
+    assert.equal(replay.status, 200);
+    assert.equal(replay.body.replayed, true);
+    assert.equal(replay.body.data.result.revision, 3);
+
+    const conflict = await request('/m1/settings', {
+      token: writer.token,
+      method: 'PUT',
+      body: {
+        operationId: 'a'.repeat(32), expectedRevision: 3,
+        path: '/appearance/theme', value: 'system',
+      },
+    });
+    assert.equal(conflict.status, 409);
+    assert.equal(conflict.body.error.code, 'operation_conflict');
+  });
+
+  await test('stale revision is rejected with the current revision and no overwrite', async () => {
+    const response = await request('/m1/settings', {
+      token: writer.token,
+      method: 'PUT',
+      body: {
+        operationId: 'b'.repeat(32), expectedRevision: 2,
+        path: '/appearance/theme', value: 'system',
+      },
+    });
+    assert.equal(response.status, 409);
+    assert.equal(response.body.error.code, 'state_conflict');
+    assert.equal(response.body.error.state, 'REJECTED');
+    assert.equal(response.body.error.currentRevision, 3);
+    const read = await get('/m1/settings', writer.token);
+    assert.equal(read.body.data.settings.appearance.theme, 'light');
+  });
+
+  await test('path and value validation default-deny settings outside the UX profile', async () => {
+    const invalidPath = await request('/m1/settings', {
+      token: writer.token,
+      method: 'PUT',
+      body: {
+        operationId: 'c'.repeat(32), expectedRevision: 3,
+        path: '/private/integration/secret', value: 'leak',
+      },
+    });
+    assert.equal(invalidPath.status, 400);
+    assert.equal(invalidPath.body.error.reason, 'setting_path_invalid');
+
+    const invalidValue = await request('/m1/settings', {
+      token: writer.token,
+      method: 'PUT',
+      body: {
+        operationId: 'd'.repeat(32), expectedRevision: 3,
+        path: '/appearance/fontSize', value: 99,
+      },
+    });
+    assert.equal(invalidValue.status, 400);
+    assert.equal(invalidValue.body.error.reason, 'setting_value_invalid');
+    const read = await get('/m1/settings', writer.token);
+    assert.equal(read.body.data.revision, 3);
+  });
+
+  await test('unknown body fields are rejected before consuming an operation key', async () => {
+    const operationId = 'e'.repeat(32);
+    const response = await request('/m1/settings', {
+      token: writer.token,
+      method: 'PUT',
+      body: {
+        operationId, expectedRevision: 3,
+        path: '/appearance/theme', value: 'dark', force: true,
+      },
+    });
+    assert.equal(response.status, 400);
+    assert.equal(response.body.error.reason, 'body_shape_invalid');
+    const row = db.prepare(
+      'SELECT 1 FROM mobile_operations WHERE device_id = ? AND operation_id = ?',
+    ).get(writer.deviceId, operationId);
+    assert.equal(row, undefined);
+  });
+
+  await test('malformed provider success remains UNKNOWN instead of confirming an unbound result', async () => {
+    const operationId = 'f'.repeat(32);
+    const response = await handleSettingsWrite({
+      corePort: new RemoteCorePort({
+        providers: {
+          'settings.write': async () => ({
+            ok: true,
+            data: { revision: 4, path: '/output/defaultFormat', value: 'json' },
+          }),
+        },
+      }),
+      journal: new OperationJournal(db),
+      principal: {
+        deviceId: writer.deviceId,
+        scopes: ['read:settings', 'write:settings'],
+      },
+      body: {
+        operationId, expectedRevision: 3,
+        path: '/appearance/theme', value: 'dark',
+      },
+    });
+    assert.equal(response.status, 503);
+    assert.equal(response.body.error.state, 'UNKNOWN');
+    assert.equal(
+      db.prepare(
+        'SELECT state FROM mobile_operations WHERE device_id = ? AND operation_id = ?',
+      ).get(writer.deviceId, operationId).state,
+      'UNKNOWN',
+    );
   });
 } finally {
   await gateway.stop();

@@ -25,7 +25,11 @@ import { fileURLToPath } from 'node:url';
 
 import { authorizeMobileRequest, matchMobileRoute } from './gateway-policy.js';
 import { registerGatewayInstance, reapDeadInstances } from './gateway-instance.js';
-import { APPROVAL_RESPONSE_HEADERS, MOBILE_HANDLERS } from './handlers.js';
+import {
+  APPROVAL_RESPONSE_HEADERS,
+  MOBILE_HANDLERS,
+  SETTINGS_RESPONSE_HEADERS,
+} from './handlers.js';
 import { MOBILE_ERRORS, PROTOCOL_VERSION, mobileError } from './protocol.js';
 import { OperationJournal } from './operation-journal.js';
 import { UpstreamClient } from './upstream.js';
@@ -43,6 +47,11 @@ const MAX_BODY_BYTES = 1_000_000;
 const APPROVAL_ROUTE_KEYS = new Set([
   'GET /m1/approvals',
   'POST /m1/approvals/:id/decide',
+]);
+
+const SETTINGS_ROUTE_KEYS = new Set([
+  'GET /m1/settings',
+  'PUT /m1/settings',
 ]);
 
 /**
@@ -215,7 +224,7 @@ async function handleRequest(req, res, ctx) {
   }
 
   let body = null;
-  if (req.method === 'POST') {
+  if (req.method === 'POST' || req.method === 'PUT') {
     const parsed = await readJsonBody(req);
     if (!parsed.ok) {
       return sendError(
@@ -268,7 +277,9 @@ function responseHeadersForRoute(method, pathname) {
   try {
     const route = matchMobileRoute(method, pathname);
     const routeKey = route && `${route.method} ${route.path}`;
-    return APPROVAL_ROUTE_KEYS.has(routeKey) ? APPROVAL_RESPONSE_HEADERS : undefined;
+    if (APPROVAL_ROUTE_KEYS.has(routeKey)) return APPROVAL_RESPONSE_HEADERS;
+    if (SETTINGS_ROUTE_KEYS.has(routeKey)) return SETTINGS_RESPONSE_HEADERS;
+    return undefined;
   } catch {
     return undefined;
   }

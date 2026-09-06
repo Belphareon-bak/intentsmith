@@ -48,6 +48,7 @@ const MAX_MESSAGE_LENGTH = 32_000;
 // directive without changing their frozen response bodies.
 export const APPROVAL_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
 export const DEVICE_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
+export const SETTINGS_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
 
 // ── GET /m1/health ───────────────────────────────────────────────────────────
 //
@@ -92,6 +93,8 @@ export async function handleCapabilities({ principal, upstream, corePort = null 
           && corePort?.capabilities(principal)?.features?.['projects.read']?.status === 'available',
         settings: principal.scopes.includes('read:settings')
           && corePort?.capabilities(principal)?.features?.['settings.read']?.status === 'available',
+        settingsWrite: principal.scopes.includes('write:settings')
+          && corePort?.capabilities(principal)?.features?.['settings.write']?.status === 'available',
         memory: principal.scopes.includes('read:memory')
           && corePort?.capabilities(principal)?.features?.['storedInformation.read']?.status === 'available',
         workers: principal.scopes.includes('read:workers')
@@ -228,10 +231,10 @@ function projectReadError(error) {
 export async function handleSettings({ corePort, principal, query }) {
   const firstParameter = query.keys().next();
   if (!firstParameter.done) {
-    return errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+    return settingsResponse(errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
       reason: 'unknown_parameter',
       field: firstParameter.value,
-    });
+    }));
   }
 
   let outcome;
@@ -248,19 +251,213 @@ export async function handleSettings({ corePort, principal, query }) {
 
   if (!outcome.ok) {
     if (outcome.error?.code === 'capability_forbidden') {
-      return errorResponse(MOBILE_ERRORS.SCOPE_REQUIRED, { requiredScope: 'read:settings' });
+      return settingsResponse(errorResponse(MOBILE_ERRORS.SCOPE_REQUIRED, { requiredScope: 'read:settings' }));
     }
     if (outcome.error?.code === 'operation_invalid') {
-      return errorResponse(MOBILE_ERRORS.BAD_REQUEST, { reason: outcome.error.code });
+      return settingsResponse(errorResponse(MOBILE_ERRORS.BAD_REQUEST, { reason: outcome.error.code }));
     }
-    return errorResponse(MOBILE_ERRORS.SERVER_UNAVAILABLE, {
+    return settingsResponse(errorResponse(MOBILE_ERRORS.SERVER_UNAVAILABLE, {
       reason: outcome.error?.code || 'settings_provider_unavailable',
-    });
+    }));
   }
 
   return {
     status: 200,
+    headers: SETTINGS_RESPONSE_HEADERS,
     body: withEnvelope(versioned(outcome.data), { principal }),
+  };
+}
+
+function settingsResponse(result) {
+  return { ...result, headers: SETTINGS_RESPONSE_HEADERS };
+}
+
+function settingsOperationResponse({ operationId, record, principal, replayed = false }) {
+  const open = record.state === 'PENDING' || record.state === 'UNKNOWN';
+  return {
+    status: open ? 202 : 200,
+    headers: SETTINGS_RESPONSE_HEADERS,
+    body: withEnvelope(
+      { operationId, state: record.state, result: record.result },
+      { principal, extra: replayed ? { replayed: true } : {} },
+    ),
+  };
+}
+
+function rejectSettingsOperation(journal, principal, operationId, errorCode, result = null) {
+  try {
+    return journal.reject(principal.deviceId, operationId, errorCode, result);
+  } catch {
+    return { resolved: false, current: { known: true, state: 'UNKNOWN', result: null } };
+  }
+}
+
+function settingsUnknownResponse(journal, principal, operationId, reason) {
+  try { journal.markUnknown(principal.deviceId, operationId, reason); } catch { /* no durable answer */ }
+  return settingsResponse(errorResponse(MOBILE_ERRORS.SERVER_UNAVAILABLE, {
+    reason,
+    operationId,
+    state: 'UNKNOWN',
+    resolveBy: `GET /m1/operations/${operationId}`,
+  }));
+}
+
+// ── PUT /m1/settings ───────────────────────────────────────────────────────
+//
+// One user intent writes one allow-listed UX preference. The expected
+// revision prevents a phone from overwriting a newer desktop edit, and the
+// operation key prevents a lost response from turning into a second write.
+
+export async function handleSettingsWrite({ corePort, journal, principal, body }) {
+  const keys = body && typeof body === 'object' && !Array.isArray(body)
+    ? Object.keys(body).sort()
+    : [];
+  const exact = keys.length === 4
+    && keys[0] === 'expectedRevision'
+    && keys[1] === 'operationId'
+    && keys[2] === 'path'
+    && keys[3] === 'value';
+  if (!exact) {
+    return settingsResponse(errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+      reason: 'body_shape_invalid',
+    }));
+  }
+
+  const { operationId, expectedRevision, path, value } = body;
+  if (!operationId) {
+    return settingsResponse(errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+      field: 'operationId', reason: 'required',
+    }));
+  }
+  if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1) {
+    return settingsResponse(errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+      field: 'expectedRevision', reason: 'invalid',
+    }));
+  }
+  if (typeof path !== 'string' || path.length === 0) {
+    return settingsResponse(errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+      field: 'path', reason: 'invalid',
+    }));
+  }
+
+  const claim = journal.begin({
+    deviceId: principal.deviceId,
+    operationId,
+    operationType: 'settings.write',
+    request: { expectedRevision, path, value },
+  });
+  if (claim.outcome === 'conflict') {
+    const descriptor = claim.reason === 'fingerprint_mismatch'
+      ? MOBILE_ERRORS.OPERATION_CONFLICT
+      : MOBILE_ERRORS.BAD_REQUEST;
+    return settingsResponse(errorResponse(descriptor, {
+      reason: claim.reason, operationId,
+    }));
+  }
+  if (claim.outcome === 'limited') {
+    return settingsResponse(errorResponse(
+      claim.reason === 'open_operation_cap' ? MOBILE_ERRORS.OPERATION_LIMIT : MOBILE_ERRORS.RATE_LIMITED,
+      { reason: claim.reason, openOperations: journal.openOperations(principal.deviceId) },
+    ));
+  }
+  if (claim.outcome === 'replay') {
+    return settingsOperationResponse({ operationId, record: claim.record, principal, replayed: true });
+  }
+
+  let outcome;
+  try {
+    outcome = await corePort?.invoke({
+      version: 1,
+      feature: 'settings.write',
+      input: { operation: 'write', expectedRevision, path, value },
+      principal,
+    }) ?? { ok: false, error: { code: 'capability_unavailable' } };
+  } catch (error) {
+    const definitelyNotDispatched = [
+      'capability_unavailable', 'capability_forbidden', 'capability_unknown',
+      'contract_version_unsupported', 'input_invalid',
+    ].includes(error?.code);
+    if (!definitelyNotDispatched) {
+      return settingsUnknownResponse(
+        journal, principal, operationId, UNKNOWN_REASONS.GATEWAY_EXCEPTION,
+      );
+    }
+    outcome = { ok: false, error: { code: error.code } };
+  }
+
+  if (!outcome.ok) {
+    const code = outcome.error?.code || 'settings_write_failed';
+    const rejectedResult = code === 'settings_revision_conflict'
+      ? { currentRevision: outcome.error?.details?.currentRevision ?? null }
+      : null;
+    const resolution = rejectSettingsOperation(
+      journal, principal, operationId, code, rejectedResult,
+    );
+    if (!resolution.resolved && resolution.current?.state === 'UNKNOWN') {
+      return settingsUnknownResponse(
+        journal, principal, operationId, UNKNOWN_REASONS.RESULT_PERSISTENCE_FAILED,
+      );
+    }
+    if (!resolution.resolved && resolution.current?.known) {
+      return settingsOperationResponse({ operationId, record: resolution.current, principal });
+    }
+    if (code === 'settings_revision_conflict') {
+      return settingsResponse(errorResponse(MOBILE_ERRORS.STATE_CONFLICT, {
+        reason: code,
+        operationId,
+        state: 'REJECTED',
+        currentRevision: rejectedResult.currentRevision,
+      }));
+    }
+    if (['operation_invalid', 'settings_revision_invalid', 'setting_path_invalid', 'setting_value_invalid'].includes(code)) {
+      return settingsResponse(errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+        reason: code, operationId, state: 'REJECTED',
+      }));
+    }
+    if (code === 'capability_forbidden') {
+      return settingsResponse(errorResponse(MOBILE_ERRORS.SCOPE_REQUIRED, {
+        requiredScope: 'write:settings', operationId, state: 'REJECTED',
+      }));
+    }
+    return settingsResponse(errorResponse(MOBILE_ERRORS.SERVER_UNAVAILABLE, {
+      reason: code, operationId, state: 'REJECTED',
+    }));
+  }
+
+  const result = outcome.data;
+  const resultKeys = result && typeof result === 'object' && !Array.isArray(result)
+    ? Object.keys(result).sort()
+    : [];
+  const validResult = resultKeys.length === 3
+    && resultKeys[0] === 'path'
+    && resultKeys[1] === 'revision'
+    && resultKeys[2] === 'value'
+    && result.revision === expectedRevision + 1
+    && result.path === path
+    && Object.is(result.value, value);
+  if (!validResult) {
+    // A provider can only know this result after attempting the transaction.
+    // Treat a malformed success as ambiguous; never persist or return it as a
+    // confirmed effect merely because it arrived in a `{ok:true}` envelope.
+    return settingsUnknownResponse(
+      journal, principal, operationId, UNKNOWN_REASONS.GATEWAY_EXCEPTION,
+    );
+  }
+  try {
+    const resolution = journal.confirm(principal.deviceId, operationId, result);
+    if (!resolution.resolved) {
+      return settingsOperationResponse({ operationId, record: resolution.current, principal });
+    }
+  } catch {
+    return settingsUnknownResponse(
+      journal, principal, operationId, UNKNOWN_REASONS.RESULT_PERSISTENCE_FAILED,
+    );
+  }
+
+  return {
+    status: 200,
+    headers: SETTINGS_RESPONSE_HEADERS,
+    body: withEnvelope({ operationId, state: 'CONFIRMED', result }, { principal }),
   };
 }
 
@@ -1368,6 +1565,7 @@ export const MOBILE_HANDLERS = Object.freeze({
   'GET /m1/projects': handleProjects,
   'GET /m1/projects/:id': handleProjectDetail,
   'GET /m1/settings': handleSettings,
+  'PUT /m1/settings': handleSettingsWrite,
   'GET /m1/memory': handleStoredInformation,
   'GET /m1/workers': handleWorkers,
   'GET /m1/specialists': handleSpecialists,

@@ -9,7 +9,7 @@ import {
 import { isJsonValue, isPlainRecord } from '../../contracts/m1/shared.js';
 import { createConversationsReadProvider } from './providers/conversations.js';
 import { createProjectsReadProvider } from './providers/projects.js';
-import { createSettingsReadProvider } from './providers/settings.js';
+import { createSettingsReadProvider, createSettingsWriteProvider } from './providers/settings.js';
 import { createStoredInformationReadProvider } from './providers/stored-information.js';
 import { createWorkersReadProvider } from './providers/workers.js';
 import { createSpecialistsReadProvider } from './providers/specialists.js';
@@ -176,6 +176,7 @@ export function createMobileRemoteCorePort({ rawDb, upstream } = {}) {
     'conversations.read': createConversationsReadProvider(rawDb),
     'conversations.send': upstreamChatProvider(upstream),
     'settings.read': createSettingsReadProvider(rawDb),
+    'settings.write': createSettingsWriteProvider(rawDb),
     'storedInformation.read': createStoredInformationReadProvider(rawDb),
   };
 

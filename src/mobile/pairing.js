@@ -45,6 +45,9 @@ export const PAIRABLE_SCOPES = Object.freeze([
   // Public projection only; secret-bearing and unowned settings are removed
   // by the core repository before the mobile provider sees them.
   'read:settings',
+  // Narrow UX_PREFERENCES_V1 mutation only. Kept out of the default grant so
+  // an operator must deliberately mint this write authority.
+  'write:settings',
   // User-facing LTM and project-scoped task memory. Internal agent memory is
   // excluded by the repository projection.
   'read:memory',

@@ -59,7 +59,8 @@ globalThis.fetch = async () => { throw new TypeError('network disabled'); };
 
 const { __ms20 } = await import('../src/mobile/client/app.js');
 const {
-  state, store, K, serverSettingsCard, publicSettingRows, loadSettings, unknownScopes,
+  state, store, journal, K, serverSettingsCard, publicSettingRows, loadSettings, unknownScopes,
+  saveSetting, settingInputId, settingsMutationFresh, replaceScopes,
 } = __ms20;
 
 function reset(scopes = ['read:settings']) {
@@ -75,6 +76,11 @@ function reset(scopes = ['read:settings']) {
   state.error = {};
   state.cacheAge = {};
   state.cacheAt = {};
+  state.settingsSaving = null;
+  state.settingsNote = null;
+  for (const key of Object.keys(nodes)) {
+    if (!['app', 'toasts'].includes(key)) delete nodes[key];
+  }
   nodes.app.innerHTML = '';
 }
 
@@ -174,6 +180,173 @@ await test('scope withdrawal clears the published settings surface', async () =>
   await loadSettings();
   assert.equal(state.data.settings, undefined);
   assert.equal(state.loading.settings, false);
+});
+
+await test('write controls require the separate scope and a live current revision', () => {
+  reset(['read:settings', 'write:settings']);
+  state.data.settings = settings();
+  assert.equal(settingsMutationFresh(), true);
+  let markup = serverSettingsCard();
+  assert.match(markup, /revizní zápis/);
+  assert.match(markup, /data-act="setting-save"/);
+  assert.ok(!/data-act="setting-save"[^>]*disabled/.test(markup));
+
+  state.conn = 'offline';
+  assert.equal(settingsMutationFresh(), false);
+  markup = serverSettingsCard();
+  assert.match(markup, /data-act="setting-save"[^>]*disabled/);
+
+  replaceScopes(['read:settings']);
+  assert.ok(!serverSettingsCard().includes('data-act="setting-save"'));
+});
+
+await test('write scope exposes unset allow-listed fields without inventing defaults', () => {
+  reset(['read:settings', 'write:settings']);
+  state.data.settings = settings({ settings: {} });
+  const markup = serverSettingsCard();
+  assert.match(markup, /data-setting-path="\/appearance\/accentColor"/);
+  assert.match(markup, /data-setting-path="\/c3\.output\.syntaxHighlight"/);
+  assert.match(markup, /data-setting-path="\/output\/namingConvention"/);
+  assert.match(markup, /nenastaveno/);
+  assert.ok(!markup.includes('Backend potvrdil prázdné veřejné nastavení'));
+});
+
+await test('confirmed save sends one revision-bound operation and updates the live snapshot', async () => {
+  reset(['read:settings', 'write:settings']);
+  state.data.settings = settings();
+  const input = element('select');
+  input.value = 'light';
+  nodes[settingInputId('/appearance/theme')] = input;
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    const sent = JSON.parse(options.body);
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return {
+          ok: true,
+          scopes: ['read:settings', 'write:settings'],
+          data: {
+            operationId: sent.operationId,
+            state: 'CONFIRMED',
+            result: { revision: 8, path: sent.path, value: sent.value },
+          },
+        };
+      },
+    };
+  };
+
+  await saveSetting('/appearance/theme');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, '/m1/settings');
+  assert.equal(calls[0].options.method, 'PUT');
+  assert.equal(calls[0].options.cache, 'no-store');
+  const sent = JSON.parse(calls[0].options.body);
+  assert.equal(sent.expectedRevision, 7);
+  assert.equal(sent.path, '/appearance/theme');
+  assert.equal(sent.value, 'light');
+  assert.equal(journal.find(sent.operationId).lastKnownState, 'CONFIRMED');
+  assert.equal(journal.find(sent.operationId).displaySummary, 'Změna nastavení backendu');
+  assert.equal(state.data.settings.revision, 8);
+  assert.equal(state.data.settings.settings.appearance.theme, 'light');
+  assert.equal(Object.hasOwn(state.data.settings, 'version'), false);
+});
+
+await test('revision conflict is rejected, then refreshed by a read without overwrite retry', async () => {
+  reset(['read:settings', 'write:settings']);
+  state.data.settings = settings();
+  const input = element('select');
+  input.value = 'light';
+  nodes[settingInputId('/appearance/theme')] = input;
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    if (options.method === 'PUT') {
+      return {
+        ok: false,
+        status: 409,
+        async json() {
+          return {
+            ok: false,
+            error: {
+              code: 'state_conflict', state: 'REJECTED', currentRevision: 8,
+            },
+          };
+        },
+      };
+    }
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return {
+          ok: true,
+          scopes: ['read:settings', 'write:settings'],
+          data: settings({ revision: 8, settings: { appearance: { theme: 'system' } } }),
+        };
+      },
+    };
+  };
+
+  await saveSetting('/appearance/theme');
+  assert.equal(calls.length, 2);
+  assert.equal(calls.filter(call => call.options.method === 'PUT').length, 1);
+  assert.equal(calls[1].url, '/m1/settings');
+  assert.equal(calls[1].options.method, 'GET');
+  assert.equal(journal.all().at(-1).lastKnownState, 'REJECTED');
+  assert.equal(state.data.settings.revision, 8);
+  assert.equal(state.data.settings.settings.appearance.theme, 'system');
+  assert.match(state.settingsNote.text, /mezitím změnil jiný klient/);
+  assert.match(state.settingsNote.text, /Pokus: light; server: system/);
+});
+
+await test('unreadable success remains UNKNOWN and is never retried', async () => {
+  reset(['read:settings', 'write:settings']);
+  state.data.settings = settings();
+  const input = element('select');
+  input.value = 'light';
+  nodes[settingInputId('/appearance/theme')] = input;
+  let calls = 0;
+  globalThis.fetch = async (_url, options) => {
+    calls += 1;
+    const sent = JSON.parse(options.body);
+    return {
+      ok: true,
+      status: 200,
+      async json() {
+        return {
+          ok: true,
+          data: {
+            operationId: sent.operationId,
+            state: 'CONFIRMED',
+            result: { revision: 8, path: '/output/defaultFormat', value: 'light' },
+          },
+        };
+      },
+    };
+  };
+
+  await saveSetting('/appearance/theme');
+  assert.equal(calls, 1);
+  assert.equal(journal.open().length, 1);
+  assert.equal(journal.open()[0].lastKnownState, 'UNKNOWN');
+  assert.match(state.settingsNote.text, /Nic se neopakuje/);
+});
+
+await test('unchanged value performs no network request and consumes no operation key', async () => {
+  reset(['read:settings', 'write:settings']);
+  state.data.settings = settings();
+  const input = element('select');
+  input.value = 'dark';
+  nodes[settingInputId('/appearance/theme')] = input;
+  let calls = 0;
+  globalThis.fetch = async () => { calls += 1; throw new Error('must not dispatch'); };
+  await saveSetting('/appearance/theme');
+  assert.equal(calls, 0);
+  assert.equal(journal.all().length, 0);
+  assert.match(state.settingsNote.text, /nic neposlalo/);
 });
 
 console.log(`\nMobile settings UI: ${passed} passed, ${failed} failed`);

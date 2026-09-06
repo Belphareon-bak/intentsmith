@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { Buffer } from 'node:buffer';
-import { mergeSettingsProjection } from './settings-portability.js';
+import { SETTINGS_PORTABLE_PATHS, mergeSettingsProjection } from './settings-portability.js';
 
 // IntentSmith user-settings authority
 //
@@ -1108,6 +1108,21 @@ export function projectPublicUserSettings(document) {
     if (Object.keys(container).length > 0) setOwn(projected, containerKey, container);
   }
   return projected;
+}
+
+/**
+ * Validate one mobile-safe UX preference and return the narrow patch shape
+ * consumed by `commitGeneric`. Keeping this adapter beside the repository
+ * prevents remote providers from reaching through the core settings boundary.
+ */
+export function createPortableUserSettingsPatch(path, value) {
+  if (typeof path !== 'string' || !SETTINGS_PORTABLE_PATHS.includes(path)) {
+    throw new UserSettingsError(
+      'USER_SETTINGS_PORTABLE_PATH_INVALID',
+      'Setting path is outside the portable UX profile',
+    );
+  }
+  return mergeSettingsProjection({}, { [path]: value }).document;
 }
 
 export class UserSettingsRepository {

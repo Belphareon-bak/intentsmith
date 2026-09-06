@@ -161,7 +161,7 @@ await test('production gateway routes chat through the narrow port', () => {
   assert.doesNotMatch(gateway, /['"](?:GET|POST|PUT|PATCH|DELETE)\s+\/m1\/\*['"]/i);
 });
 
-await test('production connector exposes implemented reads without speculative writes', () => {
+await test('production connector exposes only implemented providers, including narrow settings write', () => {
   const rawDb = {
     transaction(fn) { return fn; },
     prepare(sql) {
@@ -190,7 +190,7 @@ await test('production connector exposes implemented reads without speculative w
   assert.equal(features['conversations.update'].status, 'unavailable');
   assert.equal(features['conversations.archive'].status, 'unavailable');
   assert.equal(features['settings.read'].status, 'available');
-  assert.equal(features['settings.write'].status, 'unavailable');
+  assert.equal(features['settings.write'].status, 'available');
   assert.equal(features['storedInformation.read'].status, 'available');
   assert.equal(features['storedInformation.write'].status, 'unavailable');
   assert.equal(features['storedInformation.delete'].status, 'unavailable');
