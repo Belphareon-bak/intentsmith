@@ -567,6 +567,7 @@ function lockDownSession() {
   state.workerId = null;
   state.workerRuns = { cursor: null, end: false, loadingOlder: false };
   state.specialistId = null;
+  invalidateConversationSurface();
   invalidateProjectConversationSurface();
   state.thread = { cursor: null, end: false, loadingOlder: false, stickToBottom: true };
   invalidateApprovalSurface();
@@ -859,6 +860,7 @@ function replaceScopes(scopes) {
   store.set(K.scopes, next);
   if (!next.includes('write:approvals')) invalidateApprovalAuthority();
   if (!next.includes('read:approvals')) invalidateApprovalSurface();
+  if (!next.includes('read:chat')) invalidateConversationSurface({ clearCache: true });
   if (!next.includes('read:projects')) {
     projectsGeneration++;
     projectGeneration++;
@@ -1752,17 +1754,17 @@ function viewConversations() {
   const right = `<button class="icon-btn" data-act="new-chat" aria-label="Nová konverzace">${icon('plus')}</button>`;
   let body;
 
-  if (loading && !list) {
+  if (loading && !Array.isArray(list)) {
     body = skeletonList();
-  } else if (error && !list) {
+  } else if (error && !Array.isArray(list)) {
     // No cached copy to fall back on, so the failure is the whole screen.
     body = errorPanel(error, 'load-conversations');
-  } else if (list && list.length === 0) {
+  } else if (Array.isArray(list) && list.length === 0) {
     // Reached only after a successful response — never from a failed load.
     body = statePanel('empty', 'Zatím žádné konverzace',
       'Začni novou konverzaci a objeví se tady.',
       `<button class="btn btn-primary" data-act="new-chat">Nová konverzace</button>`);
-  } else if (list) {
+  } else if (Array.isArray(list)) {
     body = `<div class="list">${list.map(item => `
       <button class="row" data-act="open-chat" data-id="${esc(item.id)}">
         <div class="row-main">
@@ -1772,12 +1774,38 @@ function viewConversations() {
         <div class="row-time">${timeAgo(item.updatedAt)}</div>
       </button>`).join('')}
       ${age && age !== 'FRESH' ? `<div class="kv"><span class="kv-key">Data z cache</span><span class="pill" data-tone="${age === 'STALE' ? 'warn' : 'muted'}">${age === 'STALE' ? 'zastaralá' : 'stará'}</span></div>` : ''}
-      </div>`;
+      </div>
+      ${conversationListInlineError()}
+      ${conversationListMore()}`;
   } else {
     body = skeletonList();
   }
 
   return header({ title: 'Konverzace', right }) + `<div class="scroll">${body}</div>`;
+}
+
+function conversationListMore() {
+  const page = state.pagination?.conversations;
+  if (!page?.hasMore || !page.nextCursor) return '';
+  return `<div class="resource-more">
+    <button class="btn btn-secondary" data-act="load-more-conversations" ${state.loading.conversations ? 'disabled' : ''}>
+      ${state.loading.conversations ? 'Načítám…' : 'Načíst další'}
+    </button>
+    <p>Seznam je výřez. Backend potvrdil další konverzace.</p>
+  </div>`;
+}
+
+function conversationListInlineError() {
+  const error = state.error.conversations;
+  if (!error || !Array.isArray(state.data.conversations)) return '';
+  const text = error.kind === 'offline'
+    ? 'Další konverzace teď nelze ověřit: telefon je offline.'
+    : error.kind === 'protocol'
+      ? 'Server vrátil neplatnou stránku. Zobrazený seznam se nezměnil.'
+      : 'Aktualizace seznamu selhala. Zobrazená kopie může být starší.';
+  return `<div class="resource-inline-error" role="status">${esc(text)}
+    <button class="btn btn-secondary btn-sm" data-act="load-conversations">Načíst od začátku</button>
+  </div>`;
 }
 
 function projectStateLabel(value) {
@@ -4181,32 +4209,114 @@ function autoGrow(textarea) {
 
 // ── Loads ───────────────────────────────────────────────────────────────────
 
-async function loadConversations() {
-  const cached = cache.read('conversations');
-  if (cached.data) {
-    state.data.conversations = cached.data;
-    state.cacheAge.conversations = cached.status;
-    state.cacheAt.conversations = cached.at;
+let conversationsGeneration = 0;
+
+function invalidateConversationSurface({ clearCache = false } = {}) {
+  conversationsGeneration++;
+  delete state.data.conversations;
+  delete state.pagination?.conversations;
+  state.error.conversations = null;
+  state.loading.conversations = false;
+  state.cacheAge.conversations = null;
+  state.cacheAt.conversations = null;
+  if (clearCache) store.del(K.cache + 'conversations');
+}
+
+async function loadConversations({ append = false } = {}) {
+  if (!auth.has('read:chat')) return;
+  state.pagination ||= {};
+
+  if (!append) {
+    const cached = cache.read('conversations');
+    if (cached.status === 'EXPIRED') {
+      store.del(K.cache + 'conversations');
+      delete state.data.conversations;
+      delete state.pagination.conversations;
+      state.cacheAge.conversations = null;
+      state.cacheAt.conversations = null;
+    } else {
+      const snapshot = cached.data && Array.isArray(cached.data.items) ? cached.data : null;
+      const legacyItems = Array.isArray(cached.data) ? cached.data : null;
+      const page = snapshot?.page;
+      const validSnapshot = snapshot && validConversationPage({ ok: true, data: snapshot.items,
+        hasMore: page?.hasMore, nextCursor: page?.nextCursor, end: page?.end });
+      const validLegacy = legacyItems && validConversationPage({ ok: true, data: legacyItems,
+        hasMore: false, nextCursor: null, end: true });
+      if (validSnapshot || validLegacy) {
+        state.data.conversations = validSnapshot ? snapshot.items : legacyItems;
+        state.pagination.conversations = validSnapshot
+          ? { hasMore: page.hasMore, nextCursor: page.nextCursor, end: page.end }
+          : { hasMore: false, nextCursor: null, end: false };
+        state.cacheAge.conversations = cached.status;
+        state.cacheAt.conversations = cached.at;
+      } else if (cached.data) {
+        store.del(K.cache + 'conversations');
+        delete state.data.conversations;
+        delete state.pagination.conversations;
+        state.cacheAge.conversations = null;
+        state.cacheAt.conversations = null;
+      }
+    }
   }
+
+  const cursor = append ? state.pagination.conversations?.nextCursor : null;
+  if (append && (!cursor || state.loading.conversations)) return;
+  const generation = ++conversationsGeneration;
   state.loading.conversations = true;
   state.error.conversations = null;
   render();
 
   try {
-    const response = await api('/conversations?limit=50');
-    state.data.conversations = response.data;
+    const suffix = cursor ? `&cursor=${encodeURIComponent(cursor)}` : '';
+    const response = await api(`/conversations?limit=50${suffix}`, { strict: true });
+    if (generation !== conversationsGeneration) return;
+    if (!validConversationPage(response)) {
+      throw Object.assign(new Error('invalid conversation page'), {
+        kind: 'protocol', code: 'protocol_invalid_response',
+      });
+    }
+    if (response.scopes) {
+      replaceScopes(response.scopes);
+      if (!auth.has('read:chat')) return render();
+    }
+    if (generation !== conversationsGeneration) return;
+
+    const prior = append && Array.isArray(state.data.conversations) ? state.data.conversations : [];
+    const priorIds = new Set(prior.map(conversation => conversation.id));
+    if (response.data.some(conversation => priorIds.has(conversation.id))) {
+      throw Object.assign(new Error('overlapping conversation page'), {
+        kind: 'protocol', code: 'protocol_invalid_response',
+      });
+    }
+    state.data.conversations = [...prior, ...response.data];
+    state.pagination.conversations = {
+      hasMore: response.hasMore,
+      nextCursor: response.nextCursor,
+      end: response.end,
+    };
     state.cacheAge.conversations = 'FRESH';
     state.cacheAt.conversations = Date.now();
-    cache.write('conversations', response.data);
-    if (response.scopes) replaceScopes(response.scopes);
+    cache.write('conversations', {
+      items: state.data.conversations,
+      page: state.pagination.conversations,
+    });
     setConn('ok');
   } catch (error) {
+    if (generation !== conversationsGeneration) return;
     if (error.kind === 'auth') return await handleAuthFailure(error);
-    state.error.conversations = error;
-    setConn(error.kind === 'offline' ? 'offline' : error.kind === 'server' ? 'server' : state.conn);
+    if (error.kind === 'scope') {
+      replaceScopes(auth.scopes.filter(scope => scope !== 'read:chat'));
+      render();
+    } else {
+      state.error.conversations = error;
+      setConn(error.kind === 'offline' ? 'offline'
+        : error.kind === 'server' || error.kind === 'protocol' ? 'server' : state.conn);
+    }
   } finally {
-    state.loading.conversations = false;
-    render();
+    if (generation === conversationsGeneration) {
+      state.loading.conversations = false;
+      render();
+    }
   }
 }
 
@@ -4222,7 +4332,7 @@ function invalidateProjectConversationSurface() {
   state.projectConversations = { cursor: null, end: false, loadingOlder: false };
 }
 
-function validProjectConversationPage(response) {
+function validConversationPage(response) {
   if (response?.ok !== true
       || !Array.isArray(response.data)
       || typeof response.hasMore !== 'boolean'
@@ -4245,6 +4355,10 @@ function validProjectConversationPage(response) {
     ids.add(conversation.id);
     return true;
   });
+}
+
+function validProjectConversationPage(response) {
+  return validConversationPage(response);
 }
 
 async function loadProjectConversations({ append = false } = {}) {
@@ -6680,6 +6794,7 @@ document.addEventListener('click', event => {
     },
     'load-operations': loadOperations,
     'load-conversations': loadConversations,
+    'load-more-conversations': () => loadConversations({ append: true }),
     'load-projects': () => loadProjects(),
     'load-project': () => loadProject(),
     'load-project-conversations': () => loadProjectConversations(),
@@ -6988,7 +7103,9 @@ export const __ms20 = {
   sessionEpoch, lockDownSession, unlockSession,
   render, navigate, viewOperations, ms20Entries,
   trustBar, trustZones, withTrustBar, screenLocks, serverNow,
-  viewOverview, navItems, currentSection, sectionRoute, unknownScopes, NAV_ITEMS, ROUTE_SECTION,
+  viewOverview, viewConversations, loadConversations, validConversationPage,
+  invalidateConversationSurface, conversationListMore, conversationListInlineError,
+  navItems, currentSection, sectionRoute, unknownScopes, NAV_ITEMS, ROUTE_SECTION,
   viewProjects, viewProject, loadProjects, loadProject, openProject,
   validProjectConversationPage, loadProjectConversations, invalidateProjectConversationSurface,
   viewWorkers, viewWorker, viewSpecialists, viewSpecialist, loadWorkers, loadSpecialists,

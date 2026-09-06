@@ -104,7 +104,10 @@ globalThis.fetch = async () => { throw new TypeError('this suite renders; it doe
 // ── The client under test ───────────────────────────────────────────────────
 
 const { __ms20 } = await import('../src/mobile/client/app.js');
-const { state, store, K, render, viewOverview, navItems, currentSection, unknownScopes } = __ms20;
+const {
+  state, store, K, render, viewOverview, viewConversations, loadConversations,
+  validConversationPage, replaceScopes, navItems, currentSection, unknownScopes,
+} = __ms20;
 
 // Captured before this suite touches anything: what the client starts on.
 const BOOT_ROUTE = state.route;
@@ -125,6 +128,7 @@ function reset({ scopes = ALL_SCOPES } = {}) {
   state.conversationId = null;
   state.sending = false;
   state.data = {};
+  state.pagination = {};
   state.loading = {};
   state.error = {};
   state.cacheAge = {};
@@ -137,6 +141,7 @@ function reset({ scopes = ALL_SCOPES } = {}) {
   state.approvalAttempts = {};
   body.children.length = 0;
   nodes.app.innerHTML = '';
+  globalThis.fetch = async () => { throw new TypeError('network disabled'); };
 }
 
 function approval(overrides = {}) {
@@ -154,7 +159,28 @@ function approval(overrides = {}) {
 }
 
 function conversation(overrides = {}) {
-  return { id: 'c-1', title: 'Refaktor gateway', messageCount: 12, updatedAt: Date.now() - MINUTE, ...overrides };
+  return {
+    id: 'c-1',
+    title: 'Refaktor gateway',
+    messageCount: 12,
+    state: 'active',
+    createdAt: '2026-09-03T10:00:00.000Z',
+    updatedAt: new Date(Date.now() - MINUTE).toISOString(),
+    version: 'v1:conversation-1',
+    ...overrides,
+  };
+}
+
+function conversationPage(data, overrides = {}) {
+  return {
+    ok: true,
+    scopes: ALL_SCOPES,
+    data,
+    hasMore: false,
+    nextCursor: null,
+    end: true,
+    ...overrides,
+  };
 }
 
 console.log('\n=== Přehled — the root (UI-DESIGN §3.2, D-UI-3) ===');
@@ -356,6 +382,147 @@ await test('§10 every tile carries a word, and a locked one carries the lock as
   for (const tile of tiles.filter(one => one.includes('data-locked="true"'))) {
     assert.match(tile, /Připravujeme/, `locked tile without a word for its state: ${tile}`);
   }
+});
+
+// ── MM3-D — complete conversation list ─────────────────────────────────────
+
+await test('MM3-D a partial list says so and exposes exactly one continuation control', () => {
+  reset();
+  state.route = 'conversations';
+  state.data.conversations = [conversation()];
+  state.pagination.conversations = { hasMore: true, nextCursor: 'opaque.1', end: false };
+  let markup = viewConversations();
+  assert.match(markup, /data-act="load-more-conversations"/);
+  assert.match(markup, /Backend potvrdil další konverzace/);
+  assert.equal((markup.match(/load-more-conversations/g) || []).length, 1);
+
+  state.loading.conversations = true;
+  markup = viewConversations();
+  assert.match(markup, /data-act="load-more-conversations" disabled/);
+  assert.match(markup, /Načítám…/);
+});
+
+await test('MM3-D validates the complete page and rejects malformed or duplicate rows', () => {
+  assert.equal(validConversationPage(conversationPage([conversation()])), true);
+  assert.equal(validConversationPage(conversationPage([
+    conversation(), conversation({ id: 'c-1', title: 'Stejné id' }),
+  ])), false);
+  assert.equal(validConversationPage(conversationPage([
+    conversation({ unexpected: true }),
+  ])), false);
+  assert.equal(validConversationPage(conversationPage([], {
+    hasMore: true, nextCursor: null, end: false,
+  })), false);
+  assert.equal(validConversationPage(conversationPage([], {
+    hasMore: false, nextCursor: null, end: false,
+  })), false);
+});
+
+await test('MM3-D follows only server-issued cursors, appends in order and caches the page boundary', async () => {
+  reset();
+  state.route = 'conversations';
+  const calls = [];
+  const responses = [
+    conversationPage([conversation()], { hasMore: true, nextCursor: 'opaque.next', end: false }),
+    conversationPage([conversation({ id: 'c-2', title: 'Starší' })]),
+  ];
+  globalThis.fetch = async (url, options) => ({
+    ok: true,
+    status: 200,
+    async json() { calls.push({ url, options }); return responses.shift(); },
+  });
+
+  await loadConversations();
+  await loadConversations({ append: true });
+
+  assert.deepEqual(calls.map(call => call.url), [
+    '/m1/conversations?limit=50',
+    '/m1/conversations?limit=50&cursor=opaque.next',
+  ]);
+  assert.deepEqual(state.data.conversations.map(item => item.id), ['c-1', 'c-2']);
+  assert.deepEqual(state.pagination.conversations, { hasMore: false, nextCursor: null, end: true });
+  const saved = store.get(K.cache + 'conversations');
+  assert.deepEqual(saved.data.items.map(item => item.id), ['c-1', 'c-2']);
+  assert.deepEqual(saved.data.page, { hasMore: false, nextCursor: null, end: true });
+});
+
+await test('MM3-D rejects an overlapping next page without changing the published window', async () => {
+  reset();
+  state.route = 'conversations';
+  state.data.conversations = [conversation()];
+  state.pagination.conversations = { hasMore: true, nextCursor: 'opaque.next', end: false };
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    async json() { return conversationPage([conversation()]); },
+  });
+
+  await loadConversations({ append: true });
+
+  assert.deepEqual(state.data.conversations.map(item => item.id), ['c-1']);
+  assert.equal(state.error.conversations.kind, 'protocol');
+  assert.match(viewConversations(), /Zobrazený seznam se nezměnil/);
+  assert.match(viewConversations(), /Načíst od začátku/);
+});
+
+await test('MM3-D scope withdrawal removes the list, page boundary and durable cache together', () => {
+  reset();
+  state.data.conversations = [conversation()];
+  state.pagination.conversations = { hasMore: true, nextCursor: 'opaque.next', end: false };
+  state.cacheAge.conversations = 'FRESH';
+  store.set(K.cache + 'conversations', {
+    at: Date.now(),
+    data: { items: state.data.conversations, page: state.pagination.conversations },
+  });
+
+  replaceScopes(ALL_SCOPES.filter(scope => scope !== 'read:chat'));
+
+  assert.equal(state.data.conversations, undefined);
+  assert.equal(state.pagination.conversations, undefined);
+  assert.equal(state.cacheAge.conversations, null);
+  assert.equal(store.get(K.cache + 'conversations'), null);
+});
+
+await test('MM3-D a late older refresh cannot replace the newest confirmed page', async () => {
+  reset();
+  state.route = 'conversations';
+  const releases = [];
+  globalThis.fetch = () => new Promise(resolve => releases.push(payload => resolve({
+    ok: true,
+    status: 200,
+    async json() { return payload; },
+  })));
+
+  const older = loadConversations();
+  await Promise.resolve();
+  const newer = loadConversations();
+  await Promise.resolve();
+  releases[1](conversationPage([conversation({ id: 'c-new', title: 'Novější odpověď' })]));
+  await newer;
+  releases[0](conversationPage([conversation({ id: 'c-old', title: 'Pozdní odpověď' })]));
+  await older;
+
+  assert.deepEqual(state.data.conversations.map(item => item.id), ['c-new']);
+});
+
+await test('MM3-D reads the legacy array cache without inventing a continuation cursor', async () => {
+  reset();
+  state.route = 'conversations';
+  store.set(K.cache + 'conversations', { at: Date.now(), data: [conversation()] });
+  let release;
+  globalThis.fetch = () => new Promise(resolve => { release = resolve; });
+
+  const pending = loadConversations();
+  assert.deepEqual(state.data.conversations.map(item => item.id), ['c-1']);
+  assert.deepEqual(state.pagination.conversations, { hasMore: false, nextCursor: null, end: false });
+  assert.ok(!viewConversations().includes('load-more-conversations'));
+
+  release({
+    ok: true,
+    status: 200,
+    async json() { return conversationPage([conversation()]); },
+  });
+  await pending;
 });
 
 console.log(`\nPřehled: ${passed} passed, ${failed} failed`);
