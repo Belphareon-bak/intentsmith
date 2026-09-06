@@ -28,7 +28,7 @@ i webového klienta**, takže na čtení žádný backend nepotřebuje. Legacy s
 | Seznam a odvolání spárovaných zařízení (`MS-04`) | ✅ — odvolání blokuje další requesty, není remote wipe |
 | Veřejné nastavení a zápis 11 UX preferencí (`MS-10`/`MS-11`) | ✅ — vyžaduje explicitní `write:settings`, legacy backend proces ne |
 | Uchovávané informace a vytvoření explicitní LTM položky (`MS-12`) | ✅ — vyžaduje explicitní `write:memory`; náhrada ani mazání nejsou dostupné |
-| Seznam agentů/specialistů a terminální historie agenta | ✅ — filtrované čtení ze sdílené SQLite; historie je metadata-only |
+| Seznam a detail agentů/specialistů, terminální historie agenta | ✅ — filtrované čtení ze sdílené SQLite; historie je metadata-only, detail specialisty ukazuje jen veřejný balíček a vazby expertiz |
 | **Zapnout nebo vypnout agenta** | ❌ — změna je záměrně delegovaná živému legacy serveru, který vlastní scheduler |
 | **Odeslat zprávu** | ❌ — `upstream: unreachable`, aplikace to řekne rovnou |
 | Approvaly s reálným obsahem | ✅ — produkční cesta je zapojená (`server.js`), takže je vyrobí skutečný zápis. Gateway je ale jen čte; **vyrábí** je backend, takže bez něj se nová otázka neobjeví |
@@ -223,6 +223,20 @@ Detail a historii agenta zkontroluj v **Agenti → Detail a historie**:
 Přesná projekce, kurzorový kontrakt, negativní scénáře a non-claims jsou v
 [MM4-H review](reviews/MM4H-WORKER-RUN-HISTORY.md).
 
+### Detail specialisty a expertiz (MM4-I)
+
+1. V navigaci otevřete **Specialisté** a vyberte **Detail expertiz**.
+2. Ověřte veřejná metadata balíčku a pořadí vazeb expertiz podle priority.
+3. Rozlište perzistovaný stav balíčku od živé runtime registrace: aplikace
+   výslovně říká, že živý stav z tohoto gateway procesu nepozoruje.
+4. Ověřte, že obrazovka nemá enable/disable, bind/unbind, editaci priority ani
+   zobrazení manifestu, promptů, nástrojů či execution obsahu.
+5. Odeberte scope `read:specialists` nebo uzamkněte aplikaci; otevřený detail
+   se musí zahodit. Po návratu se čte znovu online, ne z offline detail cache.
+
+Zdrojová evidence a přesné non-claims jsou v
+[MM4-I review](reviews/MM4I-SPECIALIST-DETAIL.md).
+
 ---
 
 ## Známá omezení, ať je nehlásíš jako vady
@@ -236,7 +250,7 @@ Přesná projekce, kurzorový kontrakt, negativní scénáře a non-claims jsou 
 | Nastavení není obecný desktop editor | zapisuje jen 11 `UX_PREFERENCES_V1` cest; security, modely, import/reset/backup a feature flags zůstávají mimo mobil |
 | Paměť je jen create-only | lze přidat nový explicitní LTM klíč; nelze nahradit ani smazat LTM, zapisovat task memory nebo interní kategorie |
 | Agent lifecycle je úzký | lze číst metadata ukončených běhů a zapnout/vypnout worker nad živě načteným stavem; live progress, create/edit/run/dry-run ani cancel právě běžící práce nejsou dostupné |
-| Specialisté jsou read-only | bezpečný živý mutation port přes `SpecialistLoader` zatím neexistuje; přímý DB toggle by obcházel runtime autoritu |
+| Specialisté jsou read-only | seznam a detail balíčku/expertiz existují, ale perzistovaný status není živý runtime stav; bezpečný mutation port přes `SpecialistLoader` zatím neexistuje a přímý DB toggle by obcházel runtime autoritu |
 | Odvolání zařízení není remote wipe | nový přístup se zablokuje; obsah už uložený v offline telefonu tím nezmizí |
 | Notifikace nedorazí do spící aplikace | Push (`N-1`) není; schránka je pull. Naplnit ji umí `npm run mobile:demo` |
 | ~~Na 200 % písma se nic nezvětší~~ | **Už neplatí.** Stylesheet byl převedený 2026-08-11 a `mobile-browser-a11y` to měří v prohlížeči |

@@ -96,6 +96,11 @@ Generated backend inventory: 249 static routes, 25 exact mobile-v1 routes,
 capabilities. Inventory digest:
 `2924e93da37c97b55b6b14b2c1983edb294aafa3a8214c971a699129743f5e4e`.
 
+> Historical checkpoint note: MM4-I later added the separately reviewed
+> specialist detail route. The 249/25 inventory and 15/15 suite counts above
+> remain the exact MM4-H evidence, not current-HEAD totals. See
+> [MM4-I review](MM4I-SPECIALIST-DETAIL.md).
+
 ## Specialist authority decision
 
 MM4-H also traced specialist state changes through the existing

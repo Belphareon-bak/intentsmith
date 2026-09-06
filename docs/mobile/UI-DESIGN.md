@@ -1,12 +1,13 @@
 # IntentSmith Mobile — návrh UI
 
 > **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
-> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 25
+> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 26
 > rout; vedle worker/specialist read modelu, správy zařízení, revizního
 > `PUT /m1/settings` a create-only `POST /m1/memory` obsahuje precondition-checked
 > `PUT /m1/workers/:id/enabled` a metadata-only
-> `GET /m1/workers/:id/runs`. Autoritou poslední změny je review
-> `MM4H-WORKER-RUN-HISTORY`;
+> `GET /m1/workers/:id/runs` a live-only
+> `GET /m1/specialists/:id`. Autoritou poslední změny je review
+> `MM4I-SPECIALIST-DETAIL`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 > **MM4-G UI overlay:** karta workera nabízí Zapnout/Vypnout pouze s
@@ -19,6 +20,13 @@
 > konfiguraci vhodnou pro mobil a nejnovější metadata ukončených běhů s
 > explicitním „Načíst starší běhy“. Execution obsah ani run/dry-run/cancel
 > controls se nerenderují a detail se nevydává za offline cache.
+
+> **MM4-I UI overlay:** položka specialisty nabízí **Detail expertiz**.
+> Samostatná live-only obrazovka ukazuje veřejná metadata balíčku a seřazené
+> vazby expertiz, označuje status jako perzistovaný a vysvětluje, že živá
+> runtime registrace není z gateway procesu pozorovatelná. Manifest, prompty,
+> tools, telemetry a mutation controls se nerenderují; ztráta scope nebo relace
+> detail okamžitě zahodí.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; UI tím není produktově DONE
 **Datum a revize:** 2026-08-01 · vstupy `RV-028`, `RV-036`, `RV-037`, reconciliation `RV-038`; Composition Review C `RV-039`/`RV-040`; registr a chráněné hodnoty `RV-042`/`RV-043`

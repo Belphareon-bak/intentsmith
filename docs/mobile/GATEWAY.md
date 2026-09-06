@@ -1,12 +1,13 @@
 # Mobilní gateway — provoz
 
 > **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
-> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 25
+> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 26
 > rout; vedle worker/specialist read modelu, správy zařízení, revizního
 > `PUT /m1/settings` a create-only `POST /m1/memory` obsahuje precondition-checked
 > `PUT /m1/workers/:id/enabled` a metadata-only
-> `GET /m1/workers/:id/runs`. Autoritou poslední změny je review
-> `MM4H-WORKER-RUN-HISTORY`;
+> `GET /m1/workers/:id/runs` a live-only
+> `GET /m1/specialists/:id`. Autoritou poslední změny je review
+> `MM4I-SPECIALIST-DETAIL`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; gateway je implementovaná a testovaná pouze **na loopbacku**, nikoli produkčně DONE.
@@ -199,14 +200,27 @@ mimo projekci. Detail a historie mají `no-store` a klient je neukládá do offl
 cache. Úplná hranice a testy jsou v
 `reviews/MM4H-WORKER-RUN-HISTORY.md`.
 
+### Detail specialisty a vazeb expertiz
+
+MM4-I přidává `GET /m1/specialists/:id` s `read:specialists` a bez query
+parametrů. Uzavřená operace `specialists.read/detail` čte veřejná metadata
+balíčku a uspořádané vazby z `specialists` + `specialist_expertises` v jedné
+read transakci. Manifest, prompty, nástroje, filesystem a integrita, živá
+registrace, telemetry, memory i všechny mutation operace jsou vyloučené.
+Perzistovaný `status` není vydáván za stav živého runtime. Route i klient jsou
+exact-shape, detail je `no-store` a nevzniká obecný loader ani `/api` proxy.
+Úplná hranice a testy jsou v
+`reviews/MM4I-SPECIALIST-DETAIL.md`.
+
 ---
 
 ## 4. Routy
 
-> Tabulka v této historické sekci zachycuje původních 13 rout. Aktuálních 25
+> Tabulka v této historické sekci zachycuje původních 13 rout. Aktuálních 26
 > exact rout je generováno v `BACKEND-CAPABILITY-INVENTORY.md`; poslední
-> přírůstek je `GET /m1/workers/:id/runs` (`read:workers`, MM4-H). Následující věta
-> „vše ostatní je 404“ se vztahuje k tehdejšímu checkpointu, ne k dnešnímu HEAD.
+> přírůstek je `GET /m1/specialists/:id` (`read:specialists`, MM4-I).
+> Následující věta „vše ostatní je 404“ se vztahuje k tehdejšímu checkpointu,
+> ne k dnešnímu HEAD.
 
 | Metoda | Cesta | Scope |
 |---|---|---|

@@ -1,12 +1,13 @@
 # IntentSmith Mobile — coverage matice
 
 > **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
-> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 25
+> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 26
 > rout; vedle worker/specialist read modelu, správy zařízení, revizního
 > `PUT /m1/settings` a create-only `POST /m1/memory` obsahuje precondition-checked
 > `PUT /m1/workers/:id/enabled` a metadata-only
-> `GET /m1/workers/:id/runs`. Autoritou poslední změny je review
-> `MM4H-WORKER-RUN-HISTORY`;
+> `GET /m1/workers/:id/runs` a live-only
+> `GET /m1/specialists/:id`. Autoritou poslední změny je review
+> `MM4I-SPECIALIST-DETAIL`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; tato matice není sama evidence a žádný produktový požadavek zde není DONE
@@ -183,7 +184,7 @@ hotovost.
 | `MR-16` rozhodnutí o approvalu ★ | **3A** | `MS-14` | `MD-07`, `MD-12`, `MD-19` | MN-approval-idempotency, MN-operation-key-conflict, MO-never-queued, MO-operation-key-not-a-queue, MC-stale-blocks-action, MS-fail-closed | `M-R2` |
 | `MR-17` čtení uchovávaných informací | 4 | `MS-16` | `MD-06` | MC-only-explicit, MV-storage-class | **`M-R3` (nejvyšší hustota)** |
 | `MR-18` ruční poznámka | 4 | `MS-17` | `MD-06`, `MD-14`, `MD-19` | MO-mutations-refused, MO-draft-no-autosend, MN-operation-key-reuse | — |
-| `MR-19` stav agentů a historie | 5 | `MS-18` | `MD-17`, `MD-09`, `MD-19` | mobile-workers-specialists ×12, mobile-workers-specialists-ui ×12, MC-freshness, MO-never-queued | — |
+| `MR-19` stav agentů a historie | 5 | `MS-18` | `MD-17`, `MD-09`, `MD-19` | mobile-workers-specialists ×18, mobile-workers-specialists-ui ×18, MC-freshness, MO-never-queued | — |
 | `MR-20` dry-run agenta | 5 | `MS-19` | `MD-17`, `MD-19` | MO-never-queued, MS-fail-closed, MO-operation-key-unknown-state | `G0-R032` |
 | `MR-21` in-app notifikace | 1+ | `MS-05` | `MD-08` | MV-notification-content | `M-R5` |
 | `MR-22` správa a odvolání zařízení | 0 | `MS-04` | `MD-11`, `MD-12` | MS-token-expiry, ML-revoke-wipe, ML-revoke-cannot-wipe-offline | **`M-R1`** |
@@ -226,7 +227,7 @@ obrazovkový dopad v SCREENS §1.1.
 | `MR-14` projekty | **3B** | **`BLOCKED_BY_CONTRACT_AND_GATE1`** | Nález `F-055`: **není odložený a není odstraněný.** Doména 2 kontraktního kola `DR-008` |
 | `MR-15`, `MR-16` approvaly | **3A** | **`LOCALLY_COMPOSED / COMPOSITION_REVIEW_APPROVED / REGISTRY_REVIEW_APPROVED / MOBILE_PASS / SHARED_VALIDATION_BLOCKED`** | Historické `392c5928` dostalo v `RV-023`–`RV-025` `CHANGES_REQUIRED`; opravená kompozice prošla `RV-039`/`RV-040` a registry `RV-042`/`RV-043`. Celý profil je `208/3`, 3A je **NOT DONE** a `F-100` blokuje produkci |
 | `MR-17`, `MR-18` | 4 | **`IMPLEMENTED / SOURCE TESTED / DEVICE TEST PENDING`** | MM4-B dodal filtrované čtení a MM4-F create-only explicitní LTM insert; 12/12 gateway/core a 14/14 UI scénářů PASS. Replacement, delete, task-memory write, interní kategorie a refreeze v2 se netvrdí |
-| `MR-19` stav agentů a historie | 5 | **`PARTIAL / SOURCE TESTED / DEVICE TEST PENDING`** | MM4-C dodal filtrovaný worker/specialist read model, MM4-G precondition-checked worker enable/disable a MM4-H detail s metadata-only terminální historií. MM4-H prošel 15/15 gateway/core a 15/15 UI; execution obsah, aktivní run progress a cancel nejsou součástí této autority |
+| `MR-19` stav agentů a historie | 5 | **`PARTIAL / SOURCE TESTED / DEVICE TEST PENDING`** | MM4-C dodal filtrovaný worker/specialist read model, MM4-G precondition-checked worker enable/disable, MM4-H worker detail s metadata-only terminální historií a MM4-I specialist detail s public-only vazbami expertiz. Kombinované sady prošly 18/18 gateway/core a 18/18 UI; persisted specialist status není live runtime truth a execution obsah, aktivní run progress, cancel i specialist mutations nejsou součástí této autority |
 | `MR-20` dry-run agenta | 5 | **`BLOCKED_BY_CONTRACT_AND_GATE1`** | `workers.dryRun` zůstává bez provideru; kontrakt + příslušná Gate 1 evidence + samostatný Work Package |
 | `MR-21` notifikace | 1+ | **`PARTIAL / PRODUCTION_BLOCKED`** | Třída/tabulka/read+ack surface existují. `DR-003` A, `DR-012` A a `DR-013` A určují append-only lifecycle, per-device receipts a S1-safe mirror, ale nejsou implementované: pipeline řádek nevytvoří (`F-111`/`F-014`), ACK **je** izolovaný per zařízení (`F-112` `RESOLVED_IN_CODE`), ale rooty `F-011`/`F-015` zůstávají a spící PWA nemá push (`N-1`) |
 | `MR-22` správa zařízení | 0 | **`IMPLEMENTED / SOURCE TESTED / DEVICE TEST PENDING`** | MM4-D dodává scope-gated seznam a dvoukrokové odvolání, 8/8 gateway a 11/11 UI scénářů; revokace není remote wipe a fyzický Android běh chybí |

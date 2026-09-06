@@ -1,12 +1,13 @@
 # IntentSmith Mobile — mapa obrazovek a toků, fáze 1–5
 
 > **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
-> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 25
+> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 26
 > rout; vedle worker/specialist read modelu, správy zařízení, revizního
 > `PUT /m1/settings` a create-only `POST /m1/memory` obsahuje precondition-checked
 > `PUT /m1/workers/:id/enabled` a metadata-only
-> `GET /m1/workers/:id/runs`. Autoritou poslední změny je review
-> `MM4H-WORKER-RUN-HISTORY`;
+> `GET /m1/workers/:id/runs` a live-only
+> `GET /m1/specialists/:id`. Autoritou poslední změny je review
+> `MM4I-SPECIALIST-DETAIL`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná obrazovka tím není produktově DONE
@@ -701,13 +702,15 @@ ne přepis běhu.**
 
 ### Fáze 5 — Workeři
 
-> **Implementační checkpoint MM4-H (2026-09-06):** `MS-18` má filtrovaný
+> **Implementační checkpoint MM4-I (2026-09-06):** `MS-18` má filtrovaný
 > worker read model, samostatný detail, stránkovanou metadata-only terminální
 > historii a úzké zapnutí/vypnutí
 > nad očekávaným živým stavem. UI vyžaduje `read:workers` + `write:workers`,
 > `FRESH` live read a dvoukrokové potvrzení. `MS-19`, execution obsah, live
-> progress/cancel, create/edit a všechny specialist mutation zůstávají návrhem
-> bez produkčního provideru.
+> progress/cancel a worker create/edit zůstávají návrhem bez produkčního
+> provideru. `read:specialists` navíc otevírá live-only detail veřejných
+> metadat balíčku a vazeb expertiz; perzistovaný status není živá runtime
+> registrace a všechny specialist mutation zůstávají nedostupné.
 
 ---
 
@@ -727,6 +730,13 @@ ne přepis běhu.**
 | `SS-08` | Cache čitelná, ovládání neaktivní; `write:workers` se získá jen novým párováním |
 | `SS-09` | Stav změnil desktop nebo jiný telefon → precondition conflict, obnovit a převzít serverový stav |
 | `SS-10` | Zapnutí/vypnutí je operation-keyed příkaz s dvojím potvrzením; **nikdy se automaticky neopakuje**. `UNKNOWN` se řeší v MS-20. Vypnutí neruší již běžící práci |
+
+**MM4-I specialista:** položka seznamu nabízí **Detail expertiz**. Obrazovka
+má samostatné loading/empty/not-found/error stavy, zobrazuje jen veřejná
+metadata balíčku a seřazené vazby expertiz a výslovně označuje status jako
+perzistovaný. Nemá enable/disable, bind/unbind, editaci priority ani manifest,
+prompt, tools či execution obsah. Detail je vždy online; ztráta scope,
+zamčení, změna relace, background nebo reconnect jej zahodí.
 
 ---
 
@@ -813,7 +823,8 @@ v [DATA-MODEL.md](DATA-MODEL.md).
 Vytváření agentů a specialistů, editace skillů, marketplace, cokoli se shell
 přístupem, iOS, cloud push a všechny lifecycle přechody kromě úzkého
 worker enable/disable z MM4-G. Specialisté zůstávají read-only; přímý DB toggle
-by obcházel jejich živou `SpecialistLoader` autoritu.
+by obcházel jejich živou `SpecialistLoader` autoritu. Read-only detail balíčku
+a expertiz z MM4-I není lifecycle oprávnění.
 
 ---
 

@@ -49,9 +49,10 @@ read (`2c33fd9b`), worker/specialist read (`49dd991d`), paired-device lifecycle
 (`13fa98c6`), revisioned UX-settings write (`4bb9011d`) and create-only manual
 stored information (`3341ea11`), and guarded worker enable/disable
 (`7ac9e303`), followed by worker detail and terminal run history
-(`fd8ad498`). MM4 remains open for governed specialist actions, live run
-progress and broader worker lifecycle commands; memory replacement, deletion
-and task-memory writes are explicitly outside the current mobile authority.
+(`fd8ad498`) and persisted specialist package/expertise detail (`241b8934`).
+MM4 remains open for governed specialist actions, live run progress and
+broader worker lifecycle commands; memory replacement, deletion and
+task-memory writes are explicitly outside the current mobile authority.
 
 ## Current lineage
 

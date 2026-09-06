@@ -1,12 +1,13 @@
 # IntentSmith Mobile — klientský datový, cache a trust model
 
 > **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
-> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 25
+> níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 26
 > rout; vedle worker/specialist read modelu, správy zařízení, revizního
 > `PUT /m1/settings` a create-only `POST /m1/memory` obsahuje precondition-checked
 > `PUT /m1/workers/:id/enabled` a metadata-only
-> `GET /m1/workers/:id/runs`. Autoritou poslední změny je review
-> `MM4H-WORKER-RUN-HISTORY`;
+> `GET /m1/workers/:id/runs` a live-only
+> `GET /m1/specialists/:id`. Autoritou poslední změny je review
+> `MM4I-SPECIALIST-DETAIL`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná produktová fáze není DONE
@@ -796,6 +797,15 @@ důkazy, B6 ani životní cyklus `MD-08` nejsou produkčně uzavřené.
 > log, error text, explain payload, identity triggerů a worker
 > definition/state/params se neposílají. Opaque kurzor je svázaný s workerem a
 > směrem do minulosti; scope/session/background invalidace detail zahodí.
+
+> **MM4-I specialist-detail overlay:** detail specialisty je live-only
+> `ST-MEM`, má HTTP `no-store` a po scope/session/background invalidaci se
+> zahodí. Jedna SQLite read transakce spojuje veřejná perzistovaná metadata
+> `specialists` s uspořádanými vazbami `specialist_expertises`. `status` je stav
+> balíčku v databázi, nikoli důkaz živé `SpecialistRuntime` registrace.
+> `manifest_json`, prompty, nástroje, filesystem/integrita, telemetry, memory a
+> všechny zápisy jsou vyloučené; poškozený typ, čas, status, priorita nebo vazba
+> odmítne celý detail fail-closed.
 
 ---
 

@@ -370,6 +370,18 @@ nejsou součástí projekce. Historie není perzistentní offline cache. 15/15
 gateway/core a 15/15 UI scénářů prošlo, fyzický WebView průchod nikoli. Viz
 [MM4-H review](reviews/MM4H-WORKER-RUN-HISTORY.md).
 
+### P1-3e Detail balíčku specialisty a expertiz
+
+Stav MM4-I: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`.
+`GET /m1/specialists/:id` vyžaduje `read:specialists` a vrací pouze veřejná
+perzistovaná metadata balíčku a uspořádané vazby expertiz z jedné read
+transakce. Detail je live-only, má `Cache-Control: no-store` a scope/session
+invalidation. Manifest, prompty, nástroje, filesystem, integrita, živá runtime
+registrace, telemetry, specialist memory a všechny mutation operace jsou mimo
+povrch. Kombinované worker/specialist sady prošly 18/18 backend a 18/18 UI
+scénáři. Zdrojová evidence a non-claims:
+[MM4-I review](reviews/MM4I-SPECIALIST-DETAIL.md).
+
 ### P1-4 Push, nebo přiznané pull-only
 
 | | |
@@ -521,8 +533,8 @@ jiného, telefon nemá zámek obrazovky — a to je nález, ne detail.
 
 ## 6. Co tenhle handbook **nezavádí**
 
-- Handbook sám nezavádí kontrakt. Aktuální přesný allow-list má 25 rout;
-  poslední worker-history routu přidal a otestoval MM4-H, ne tento dokument.
+- Handbook sám nezavádí kontrakt. Aktuální přesný allow-list má 26 rout;
+  poslední specialist-detail routu přidal a otestoval MM4-I, ne tento dokument.
 - Žádný termín. Termíny patří operátorovi; tady jsou jen závislosti a pořadí.
 - Žádné „nice to have". Každá položka výše má popsaný způsob, jak selže —
   když ho někdo nedokáže popsat u nové položky, do seznamu nepatří.
