@@ -14,8 +14,8 @@ Release verdict: `NOT READY`
 | `MM2` RemoteCorePort | `IN PROGRESS` | candidate `f4861bca` | 7 production provider registrations; freeze remains open |
 | `MM3` primary mobile surfaces | `IN PROGRESS` | projects `1a7be999`; conversations `ddb90e7e` | project list/detail and conversation reads implemented; search/runs open |
 | `MM4` governed surfaces | `IN PROGRESS` | settings `87a51930`; memory `2c33fd9b`; workers/specialists `49dd991d` | read projections implemented; safe mutations remain open |
-| `MM5` transport and hardening | `NOT STARTED` | — | — |
-| `MM6` Android release | `IN PROGRESS` | platform `d4607100` | Capacitor 8/API 36 static baseline implemented; binary build, transport, signing and device evidence open |
+| `MM5` transport and hardening | `IN PROGRESS` | packaged transport `a5d5bab4` | canonical UI is packaged; native HTTP transport and fail-closed endpoint policy implemented; vault hardening remains open |
+| `MM6` Android release | `IN PROGRESS` | platform `d4607100` | Capacitor 8/API 36 static baseline implemented; binary build, signing and device evidence open |
 
 ## Known external blockers
 
@@ -30,7 +30,7 @@ Release verdict: `NOT READY`
 
 ## Latest verification
 
-- Mobile gate: `PASS` — 48/48 active suites, 1 prerequisite-blocked suite.
+- Mobile gate: `PASS` — 49/49 active suites, 1 prerequisite-blocked suite.
 - RemoteCorePort candidate: 12/12 contract checks.
 - Backend inventory: 243 unique static routes; digest
   `851339fe2e6c4f94acbaabc76606c0ae2e94cdcbe206fc216fc9f7a9358b12bb`.
@@ -38,8 +38,11 @@ Release verdict: `NOT READY`
   Java 21 and fail-closed signing configuration.
 - Mobile-app dependency audit: `PASS` — 0 known vulnerabilities in the full
   and production-only dependency trees.
-- Test registry: 431 runnable programs; digest
-  `6556402d2fbf61972df97659200a0ab8b73ff080b50f2ce211b9dec5e566d793`.
+- Packaged transport: `PASS` — 8/8 checks; no production `server.url`, no
+  remote cleartext endpoint, no CORS widening and all client API calls retain
+  the `/m1` boundary.
+- Test registry: 432 runnable programs; digest
+  `f7fcb37b9718858e9ae0c284806c2d1c1d0c425e712d1a043ff7b2f0b3f84b27`.
 - Module boundary: `PASS` — 1,106 edges, 3 pre-existing cycles; reviewed
   provider additions are pinned to their MM3/MM4 checkpoint commits.
 

@@ -389,25 +389,22 @@ npm run mobile:android:reverse   # tunel; nic se nevystavuje do sítě
 npm run mobile:android:run       # tunel + instalace + spuštění
 ```
 
-**Bezdrátově (rozhodnutí 026):** adresa gateway je vstup buildu, ne nastavení
-v aplikaci —
+**Bezdrátově (rozhodnutí 026):** kanonický klient je zabalený do APK. Adresa
+gateway je vstup přípravy build assetu, ne adresa WebView stránky —
 
 ```bash
-C3_MOBILE_APP_URL=http://100.64.1.5:3336 \
-C3_MOBILE_APP_ALLOW_CLEARTEXT=yes-i-know \
+C3_MOBILE_APP_URL=https://companion.example.internal \
   npm run mobile:android:build
 ```
 
-Bez druhé proměnné build **selže**: nešifrovaný provoz mimo loopback je vědomé
-rozhodnutí (uvnitř VPN obhajitelné, jinde ne), ne překlep v proměnné. Loopback
-zůstává povolený i v takovém buildu, aby se telefon mohl vrátit ke kabelu, když
-tunel spadne.
+Přípravný krok odmítne vzdálené `http://`; cleartext je povolen pouze pro
+`127.0.0.1`, `localhost` a `[::1]` při USB `adb reverse`. Vzdálený build vyžaduje
+`https://` a release review identity/certifikátu protistrany.
 
-> **Proč to není přepínač v aplikaci.** Capacitor injektuje most do stránky jen
-> pro origin ze své konfigurace. Přepnutí adresy za běhu by znamenalo, že na
-> nové adrese most není — a s ním zmizí trezor i zámek. Runtime varianta proto
-> vyžaduje přestavbu mostu (vlastní `JavascriptInterface` s kontrolou originu)
-> a je to položka **P1**, ne úprava skriptu.
+> **Proč to není přepínač v aplikaci.** Endpoint je podepsaná build konfigurace,
+> ne uživatelská preference. `CapacitorHttp` převádí klientské `fetch` na nativní
+> transport; klient zůstává lokální a neztrácí pluginový most. Změna endpointu
+> proto vyžaduje nový artefakt a nové ověření transportní identity.
 
 Po instalaci vždy zkontrolovat v Nastavení: *Úložiště přihlášení* musí říkat
 **Android Keystore** a *Zámek aplikace* **zámek telefonu**. Když říká něco

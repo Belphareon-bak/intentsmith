@@ -1,13 +1,13 @@
 # IntentSmith Mobile — kanonický prototyp a cesta k production-ready
 
-**Datum konsolidace:** 2026-08-18
+**Datum poslední aktualizace:** 2026-09-06
 
-**Kanonická větev prototypu:** `wp/mobile-prototype-20260817`
+**Kanonická vývojová větev:** `mobile/master-prod-ready`
 
-**Runtime implementace a APK:** `HEAD` větve (hardening po konsolidaci —
-lifecycle, systémový zámek, fail-closed podpis). Předchozí snapshot
+**Runtime implementace:** `HEAD` větve. Historický emulátorový APK snapshot
 `485c34977078a46cc397b9b3807f6a311fc906ba` je archivovaný v
-[`archive/PROTOTYPE-485c3497.md`](archive/PROTOTYPE-485c3497.md).
+[`archive/PROTOTYPE-485c3497.md`](archive/PROTOTYPE-485c3497.md); není artefaktem
+aktuálního API-36 checkoutu.
 
 **Verdikt:** `CURRENT-HOST EMULATOR JOURNEY VERIFIED`; fyzický telefon,
 fresh-clone reprodukce a production release jsou `NOT RUN` / `NOT READY`.
@@ -34,24 +34,21 @@ raw obrazová evidence zůstává v [`prototype-evidence/`](prototype-evidence/)
 
 | Co | Kanonická hodnota |
 |---|---|
-| Worktree | `/home/belphareon/worktrees/is-mobile-prototype` |
-| Větev | `wp/mobile-prototype-20260817` |
-| Zdroj runtime a APK | `HEAD` (hardening); předchozí `485c3497` v archivu |
+| Worktree | konkrétní absolutní cesta není součástí produktu; použij kořen klonu |
+| Větev | `mobile/master-prod-ready` |
+| Zdroj runtime | `HEAD`; předchozí emulátorový APK `485c3497` je jen historický důkaz |
 | Vstupní mobile baseline | `2fcc2ff357238e4736a15a9e01affa14183e37ef` |
-| APK | `mobile-app/android/app/build/outputs/apk/release/app-release.apk` |
-| Absolutní cesta APK | `/home/belphareon/worktrees/is-mobile-prototype/mobile-app/android/app/build/outputs/apk/release/app-release.apk` |
-| SHA-256 APK | `c22254de1b19cc0a558dc5c118e694311e60fb7766a3e55a3d7f9e4ea036856d` |
+| Aktuální APK/AAB | `NOT BUILT` — host nemá JDK 21 ani Android SDK 36 |
 | Package | `cz.intentsmith.companion` |
 | Podpis | interní RSA-4096; cert SHA-256 `9c8aafc3a480e0eccf8230e324fede05f3b3e6db62bd5aea75e539af1e5bf786` |
 | Ověřená platforma | Android 15 emulátor, `x86_64`, API 35, KVM |
 | Fyzický telefon | `NOT RUN` |
 | Push / vzdálený listener | není součástí prototypu |
 
-APK je interní artefakt pro USB demonstraci. Není to store build ani release
-kandidát. Hash výše patří buildu z `HEAD`; každý další build ho změní, protože
-APK není bit-reprodukovatelné (razítka, pořadí v zipu) — reprodukovatelnost je
-položka `P1` v [PROD-READY-HANDBOOK.md](PROD-READY-HANDBOOK.md), ne tvrzení
-o dnešku. Kontrolovat se dá **podpis**, ne hash: cert SHA-256 výše je stabilní.
+Historický APK je interní artefakt pro USB demonstraci. Není to store build ani
+release kandidát pro aktuální větev. Nový artefakt se smí označit až po
+API-36 buildu, ověření podpisu a device matici; starý hash ani certifikát se na
+něj nepřenášejí.
 
 Nejkratší bezpečný postup je:
 
@@ -111,7 +108,7 @@ definuje jako následující integrační WP, nikoli jako hotovou skutečnost.
 | Approval authority | `COMPONENT IMPLEMENTED` | mint jde přes `createMobileApproval`, má výpočet otisku, vazbu a od `025` **předpoklad stavu cíle** místo okna; rozhodovací pravidla jsou v **jedné** sdílené funkci pro mobil i desktop | rozhodnutí 024–027 přijata 2026-08-19; `DR-011` v PLAN/DATA-MODEL/SCREENS ještě popisuje staré pětiminutové okno a je tím **zastaralé** |
 | Notifikační schránka | `DEMO PRODUCER IMPLEMENTED` | uzavřený devítivětý S1 slovník bez obsahu, zobrazený na emulátoru | je to pull; bez push a bez zapojení do skutečného core lifecycle |
 | Průběh běhu | `DEMO PROJECTION IMPLEMENTED` | demo mapuje `CoreEvent` do S1 indikátorů ve schránce | není vlastní run obrazovka ani produkční CoreEvent konektor |
-| Android shell | `EMULATOR VERIFIED` for the historical shell; current binary not rebuilt | historical install/launch, gateway through `adb reverse`, background lock and `FLAG_SECURE`; current checkout statically verifies Capacitor 8.4.3, minSdk 24 and compile/target 36 | UI is still loaded through production-ineligible `server.url`; current API-36 binary and device journey remain unverified |
+| Android shell | `IMPLEMENTED AND STATICALLY TESTED`; current binary not rebuilt | Capacitor 8.4.3, minSdk 24, compile/target 36; canonical client is packaged in the APK and native HTTP transport keeps the gateway behind `/m1` without CORS widening | current API-36 binary and device journey remain unverified |
 | Token at rest | `PARTIAL` | credential je v Keystore-backed encrypted preferences; backup je vypnutý; JS kopie se při zamčení zahazuje | [`EncryptedSharedPreferences` je deprecated](https://developer.android.com/reference/androidx/security/crypto/EncryptedSharedPreferences); mezi odemčením a zamčením kopie v JS paměti existuje |
 | Background lock | `EMULATOR VERIFIED` | `onPause` zapečetí vault, pošle do stránky `intentsmithLock` (zahodí credential z paměti, zruší běžící requesty, zneplatní epochu) a zvedne překryv; pozdní odpověď je inertní | ověřeno na emulátoru a šesti testy; fyzický telefon `NOT RUN` |
 | Odemčení | `EMULATOR VERIFIED` | systémový `BiometricPrompt` (otisk / obličej / PIN telefonu); po odemčení se stránka reloadne a čte z trezoru | vlastní PIN zůstává jen pro telefon **bez** zámku obrazovky; fyzická biometrie `NOT RUN` |
@@ -258,15 +255,17 @@ jen APK, které lze nainstalovat. Následující položky jsou povinné a jejich
 6. **Zbytek shellu na podporovanou řadu.** **ČÁSTEČNĚ 2026-09-06** — checkout
    nyní pinne auditovaný Capacitor **8.4.3**, `compileSdk`/`targetSdk` **36**,
    `minSdk` **24**, Java 21 a vypnuté release WebView debug/logování. Binární
-   build na tomto hostu neproběhl, protože chybí JDK/Android SDK. Zůstává
-   [`server.url`](https://capacitorjs.com/docs/config), který je určený pro live
-   reload a **nesmí se omylem stát store runtime**. Dál zůstává
-   `EncryptedSharedPreferences` místo přímého AndroidKeyStore. Postup a rizika
-   jsou v [PROD-READY-HANDBOOK.md](PROD-READY-HANDBOOK.md) §3.
-   > Zabalení UI do APK není jen build volba: klient by pak běžel z
-   > `http://localhost` a mluvil na `127.0.0.1:3336` cross-origin, takže by
-   > gateway musela otevřít **CORS**, které dnes záměrně nemá. Je to
-   > bezpečnostní rozhodnutí, ne konfigurace.
+   build na tomto hostu neproběhl, protože chybí JDK/Android SDK. `server.url`
+   byl odstraněn: APK balí přímo `src/mobile/client`, absolutní gateway origin
+   se zapisuje do build assetu a Capacitor HTTP převádí `fetch` na nativní
+   transport. Vzdálený cleartext build je odmítnut a gateway stále nepovoluje
+   CORS. Zůstává `EncryptedSharedPreferences` místo přímého AndroidKeyStore.
+   Postup a rizika jsou v [PROD-READY-HANDBOOK.md](PROD-READY-HANDBOOK.md) §3.
+   > Zabalení UI do APK vyžadovalo explicitní transportní hranici: bez nativního
+   > transportu by prohlížeč vynutil CORS. „Oprava“ přes
+   > `Access-Control-Allow-Origin: *` by otevřela bearer API libovolné stránce.
+   > MM5-A proto používá nativní transport a serverovou hranici nemění; pinovaná
+   > identita vzdálené protistrany zůstává podmínkou skutečného remote release.
 7. **Provést fyzický device journey.** Alespoň jeden podporovaný telefon:
    install, pairing, Keystore persistence po process death, approval approve i
    reject/expire, Home/recents/lock, gateway outage a odpojení USB.
