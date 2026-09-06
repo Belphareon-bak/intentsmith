@@ -269,9 +269,10 @@ Dnešní stav: `decideApproval` je idempotentní a receipty jsou per-device
 | **Pád** | „u mě to jde" — a release se nedá zopakovat, až bude potřeba hotfix |
 
 **Bit-shodné APK to nebude** a nemá se to slibovat: zip nese časová razítka.
-Kontroluje se **podpis a obsah**, ne hash. Dnešní toolchain: JDK 17
-(`~/toolchain/jdk17`), Android SDK 34/35 (`~/toolchain/android-sdk`), Gradle
-přes wrapper, Capacitor 6.
+Kontroluje se **podpis a obsah**, ne hash. Checkout od MM6-A vyžaduje JDK 21,
+Android SDK 36, Gradle 8.14.3 přes wrapper a pinovaný Capacitor 8.4.3. Na
+aktuálním hostu JDK ani Android SDK nejsou, proto zatím existuje statický důkaz,
+ne clean-clone binární důkaz.
 
 ### P1-2 Podpis a klíč
 
@@ -341,7 +342,7 @@ klíčem z `ST-SECURE`) je stále jen návrh.
 |---|---|
 | **Kritérium** | dependency audit bez neošetřených nálezů, podporované verze, SBOM |
 | **Důkaz** | výstup auditu + seznam přijatých rizik |
-| **Pád** | end-of-support runtime (dnes Capacitor 6) bez bezpečnostních záplat |
+| **Pád** | nepodporovaný runtime nebo neřešený nález v runtime/build dependency stromu |
 
 ---
 

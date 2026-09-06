@@ -111,7 +111,7 @@ definuje jako následující integrační WP, nikoli jako hotovou skutečnost.
 | Approval authority | `COMPONENT IMPLEMENTED` | mint jde přes `createMobileApproval`, má výpočet otisku, vazbu a od `025` **předpoklad stavu cíle** místo okna; rozhodovací pravidla jsou v **jedné** sdílené funkci pro mobil i desktop | rozhodnutí 024–027 přijata 2026-08-19; `DR-011` v PLAN/DATA-MODEL/SCREENS ještě popisuje staré pětiminutové okno a je tím **zastaralé** |
 | Notifikační schránka | `DEMO PRODUCER IMPLEMENTED` | uzavřený devítivětý S1 slovník bez obsahu, zobrazený na emulátoru | je to pull; bez push a bez zapojení do skutečného core lifecycle |
 | Průběh běhu | `DEMO PROJECTION IMPLEMENTED` | demo mapuje `CoreEvent` do S1 indikátorů ve schránce | není vlastní run obrazovka ani produkční CoreEvent konektor |
-| Android shell | `EMULATOR VERIFIED` | instalace/launch, gateway přes `adb reverse`, background lock a `FLAG_SECURE` | Capacitor 6, minSdk 22, compile/target 34 a servírované UI přes `server.url` jsou prototypová konfigurace |
+| Android shell | `EMULATOR VERIFIED` for the historical shell; current binary not rebuilt | historical install/launch, gateway through `adb reverse`, background lock and `FLAG_SECURE`; current checkout statically verifies Capacitor 8.4.3, minSdk 24 and compile/target 36 | UI is still loaded through production-ineligible `server.url`; current API-36 binary and device journey remain unverified |
 | Token at rest | `PARTIAL` | credential je v Keystore-backed encrypted preferences; backup je vypnutý; JS kopie se při zamčení zahazuje | [`EncryptedSharedPreferences` je deprecated](https://developer.android.com/reference/androidx/security/crypto/EncryptedSharedPreferences); mezi odemčením a zamčením kopie v JS paměti existuje |
 | Background lock | `EMULATOR VERIFIED` | `onPause` zapečetí vault, pošle do stránky `intentsmithLock` (zahodí credential z paměti, zruší běžící requesty, zneplatní epochu) a zvedne překryv; pozdní odpověď je inertní | ověřeno na emulátoru a šesti testy; fyzický telefon `NOT RUN` |
 | Odemčení | `EMULATOR VERIFIED` | systémový `BiometricPrompt` (otisk / obličej / PIN telefonu); po odemčení se stránka reloadne a čte z trezoru | vlastní PIN zůstává jen pro telefon **bez** zámku obrazovky; fyzická biometrie `NOT RUN` |
@@ -255,10 +255,10 @@ jen APK, které lze nainstalovat. Následující položky jsou povinné a jejich
 4. ~~**Systémový zámek.**~~ **HOTOVO** — `BiometricPrompt` s
    `DEVICE_CREDENTIAL`; aplikační PIN jen jako fallback bez zámku obrazovky.
 5. ~~**Fail-closed podpis.**~~ **HOTOVO** — release bez klíče selže.
-6. **Zbytek shellu na podporovanou řadu.** Zůstává Capacitor **6** (npm dnes
-   vede `8.5.0`, takže jsme dvě major verze pozadu a mimo
-   [support policy](https://capacitorjs.com/docs/main/reference/support-policy)),
-   `compileSdk`/`targetSdk` **34**, `minSdk` **22** a
+6. **Zbytek shellu na podporovanou řadu.** **ČÁSTEČNĚ 2026-09-06** — checkout
+   nyní pinne auditovaný Capacitor **8.4.3**, `compileSdk`/`targetSdk` **36**,
+   `minSdk` **24**, Java 21 a vypnuté release WebView debug/logování. Binární
+   build na tomto hostu neproběhl, protože chybí JDK/Android SDK. Zůstává
    [`server.url`](https://capacitorjs.com/docs/config), který je určený pro live
    reload a **nesmí se omylem stát store runtime**. Dál zůstává
    `EncryptedSharedPreferences` místo přímého AndroidKeyStore. Postup a rizika
