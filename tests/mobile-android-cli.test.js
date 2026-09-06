@@ -95,7 +95,7 @@ await test('the newest installed build-tools signer jar is selected', () => {
 });
 
 await test('signer verification is mandatory and has no swallowed failure', () => {
-  assert.match(workflow, /runCommand\(java\.command, \['-jar', signerJar, 'verify', '--print-certs', apk\]\)/);
+  assert.match(workflow, /runCommand\([\s\S]+?java\.command,[\s\S]+?\['-jar', signerJar, 'verify', '--print-certs', apk\]/);
   assert.doesNotMatch(workflow, /apksigner[\s\S]{0,200}\|\| true/);
   assert.match(workflow, /Signed release APK was not produced/);
 });

@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "applicationId": "cz.intentsmith.companion",
+  "versionCode": 1000,
+  "versionName": "0.1.0",
+  "versionScheme": "major*1000000+minor*1000+patch",
+  "channel": "internal"
+}

@@ -1,14 +1,29 @@
+import groovy.json.JsonSlurper
+
 apply plugin: 'com.android.application'
+
+def mobileReleaseFile = rootProject.file('../release.json')
+if (!mobileReleaseFile.exists()) {
+    throw new GradleException("Missing mobile release metadata: ${mobileReleaseFile}")
+}
+def mobileRelease = new JsonSlurper().parse(mobileReleaseFile)
+if (mobileRelease.schemaVersion != 1
+        || mobileRelease.applicationId != 'cz.intentsmith.companion'
+        || !(mobileRelease.versionCode instanceof Integer)
+        || mobileRelease.versionCode < 1
+        || !(mobileRelease.versionName ==~ /\d+\.\d+\.\d+/)) {
+    throw new GradleException('Invalid mobile-app/release.json')
+}
 
 android {
     namespace = "cz.intentsmith.companion"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId = "cz.intentsmith.companion"
+        applicationId = mobileRelease.applicationId
         minSdkVersion = rootProject.ext.minSdkVersion
         targetSdkVersion = rootProject.ext.targetSdkVersion
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = mobileRelease.versionCode
+        versionName = mobileRelease.versionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

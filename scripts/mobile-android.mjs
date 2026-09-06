@@ -9,6 +9,7 @@ import {
   existsSync,
   mkdirSync,
   readdirSync,
+  readFileSync,
   writeFileSync,
 } from 'node:fs';
 import os from 'node:os';
@@ -16,6 +17,15 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { prepareAndroidAssets } from './mobile-android-prepare-assets.mjs';
+import {
+  artifactRecord,
+  assertJarsignerVerified,
+  createReleaseManifest,
+  parseApkSignerDigest,
+  readReleaseMetadata,
+  renderReleaseManifest,
+  sha256File,
+} from './mobile-release-artifacts.mjs';
 
 export const REPO_ROOT = fileURLToPath(new URL('../', import.meta.url));
 export const APP_DIR = path.join(REPO_ROOT, 'mobile-app');
@@ -23,6 +33,7 @@ export const ANDROID_DIR = path.join(APP_DIR, 'android');
 export const APP_ID = 'cz.intentsmith.companion';
 export const REQUIRED_JAVA_MAJOR = 21;
 export const REQUIRED_ANDROID_API = 36;
+export const RELEASE_METADATA_FILE = path.join(APP_DIR, 'release.json');
 
 const port = process.env.C3_MOBILE_PORT || '3336';
 const gatewayUrl = process.env.C3_MOBILE_APP_URL || `http://127.0.0.1:${port}`;
@@ -145,6 +156,53 @@ function requireBuildToolchain({ allowDebugSigning = false } = {}) {
     die('Release build has no signing key. Run `npm run mobile:android:keystore` first.');
   }
   return { sdkRoot, java, signerJar };
+}
+
+function gitSourceState() {
+  const revision = runCommand('git', ['rev-parse', 'HEAD'], { capture: true }).stdout.trim();
+  const status = runCommand('git', ['status', '--porcelain'], { capture: true }).stdout.trim();
+  return { revision, dirty: status !== '' };
+}
+
+function resolveNpmCli() {
+  const candidates = [
+    process.env.npm_execpath,
+    path.join(path.dirname(process.execPath), 'node_modules', 'npm', 'bin', 'npm-cli.js'),
+  ].filter(Boolean);
+  const found = candidates.find(candidate => existsSync(candidate));
+  if (!found) die('npm CLI could not be located for CycloneDX SBOM generation.');
+  return found;
+}
+
+function gradleDistribution() {
+  const properties = readFileSync(
+    path.join(ANDROID_DIR, 'gradle', 'wrapper', 'gradle-wrapper.properties'),
+    'utf8',
+  );
+  const match = properties.match(/^distributionUrl=(.+)$/m);
+  if (!match) die('Gradle wrapper distributionUrl is missing.');
+  return match[1].trim();
+}
+
+function generateSbom(outputPath) {
+  const npmCli = resolveNpmCli();
+  const result = runCommand(process.execPath, [
+    npmCli,
+    'sbom',
+    '--omit=dev',
+    '--sbom-format=cyclonedx',
+  ], { cwd: APP_DIR, capture: true });
+  let sbom;
+  try {
+    sbom = JSON.parse(result.stdout);
+  } catch (error) {
+    die(`npm produced an invalid CycloneDX SBOM: ${error.message}`);
+  }
+  if (sbom.bomFormat !== 'CycloneDX' || sbom.specVersion !== '1.5') {
+    die('npm produced an unexpected SBOM format or version.');
+  }
+  writeFileSync(outputPath, `${JSON.stringify(sbom, null, 2)}\n`, 'utf8');
+  return artifactRecord(outputPath, REPO_ROOT);
 }
 
 async function gatewayResponds() {
@@ -278,24 +336,68 @@ function runGradle(javaCommand, args) {
   ], { cwd: ANDROID_DIR });
 }
 
-async function build({ allowDebugSigning = false } = {}) {
+async function build({ allowDebugSigning = false, allowDirty = false } = {}) {
   assertReadable(ANDROID_DIR, `Android project is missing: ${ANDROID_DIR}`);
+  const source = gitSourceState();
+  if (source.dirty && !allowDirty) {
+    die('Release build requires a clean worktree; pass --allow-dirty only for a non-release diagnostic artifact.');
+  }
+  const releaseMetadata = readReleaseMetadata(RELEASE_METADATA_FILE);
   const { sdkRoot, java, signerJar } = requireBuildToolchain({ allowDebugSigning });
   writeFileSync(path.join(ANDROID_DIR, 'local.properties'), renderLocalProperties(sdkRoot), 'utf8');
 
   const capacitorBin = path.join(APP_DIR, 'node_modules', '@capacitor', 'cli', 'bin', 'capacitor');
   assertReadable(capacitorBin, 'Capacitor CLI is missing; run `npm --prefix mobile-app ci`.');
   runCommand(process.execPath, [capacitorBin, 'copy', 'android'], { cwd: APP_DIR });
-  await prepareAndroidAssets({ gatewayUrl });
+  const runtime = await prepareAndroidAssets({ gatewayUrl });
 
-  const gradleArgs = ['--no-daemon', ':app:assembleRelease'];
+  const gradleArgs = ['--no-daemon', ':app:assembleRelease', ':app:bundleRelease'];
   if (allowDebugSigning) gradleArgs.push('-PallowDebugSigning=true');
   runGradle(java.command, gradleArgs);
 
   const apk = path.join(ANDROID_DIR, 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk');
+  const bundle = path.join(ANDROID_DIR, 'app', 'build', 'outputs', 'bundle', 'release', 'app-release.aab');
   assertReadable(apk, `Signed release APK was not produced at ${apk}.`);
-  runCommand(java.command, ['-jar', signerJar, 'verify', '--print-certs', apk]);
+  assertReadable(bundle, `Signed release AAB was not produced at ${bundle}.`);
+  const apkVerification = runCommand(
+    java.command,
+    ['-jar', signerJar, 'verify', '--print-certs', apk],
+    { capture: true },
+  );
+  process.stdout.write(apkVerification.stdout || '');
+  const certificateSha256 = parseApkSignerDigest(apkVerification.stdout);
+  const bundleVerification = runCommand(
+    javaTool('jarsigner'),
+    ['-verify', '-verbose', '-certs', bundle],
+    { capture: true },
+  );
+  assertJarsignerVerified(`${bundleVerification.stdout || ''}${bundleVerification.stderr || ''}`);
+
+  const outputDir = path.join(ANDROID_DIR, 'app', 'build', 'outputs');
+  const sbomPath = path.join(outputDir, 'release-sbom.cdx.json');
+  const sbom = generateSbom(sbomPath);
+  const capacitorPackage = JSON.parse(readFileSync(path.join(APP_DIR, 'package.json'), 'utf8'));
+  const manifest = createReleaseManifest({
+    generatedAt: new Date().toISOString(),
+    sourceRevision: source.revision,
+    sourceDirty: source.dirty,
+    metadata: releaseMetadata,
+    gatewayOrigin: runtime.origin,
+    debugSigning: allowDebugSigning,
+    certificateSha256,
+    nodeVersion: process.version,
+    javaMajor: java.major,
+    capacitorVersion: capacitorPackage.dependencies['@capacitor/core'],
+    gradleDistribution: gradleDistribution(),
+    dependencyLockSha256: sha256File(path.join(APP_DIR, 'package-lock.json')),
+    artifacts: [artifactRecord(apk, REPO_ROOT), artifactRecord(bundle, REPO_ROOT)],
+    sbom,
+  });
+  const manifestPath = path.join(outputDir, 'release-manifest.json');
+  writeFileSync(manifestPath, renderReleaseManifest(manifest), 'utf8');
   note(`✓ signed APK verified: ${apk}`);
+  note(`✓ signed AAB verified: ${bundle}`);
+  note(`✓ release manifest: ${manifestPath}`);
 }
 
 function install() {
@@ -317,7 +419,7 @@ function runOnDevice() {
 function parseOptions(args) {
   const command = args[0] || 'doctor';
   const options = new Set(args.slice(1));
-  const known = new Set(['--strict', '--debug-signing']);
+  const known = new Set(['--strict', '--debug-signing', '--allow-dirty']);
   for (const option of options) {
     if (!known.has(option)) die(`Unknown option: ${option}`);
   }
@@ -327,7 +429,15 @@ function parseOptions(args) {
   if (options.has('--debug-signing') && command !== 'build') {
     die('--debug-signing is valid only with build.');
   }
-  return { command, strict: options.has('--strict'), allowDebugSigning: options.has('--debug-signing') };
+  if (options.has('--allow-dirty') && command !== 'build') {
+    die('--allow-dirty is valid only with build.');
+  }
+  return {
+    command,
+    strict: options.has('--strict'),
+    allowDebugSigning: options.has('--debug-signing'),
+    allowDirty: options.has('--allow-dirty'),
+  };
 }
 
 export async function main(args = process.argv.slice(2)) {
