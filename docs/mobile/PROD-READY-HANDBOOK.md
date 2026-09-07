@@ -308,13 +308,15 @@ Dnes: release **selže**, když klíč chybí (fail-closed);
 | **Vlastník** | Operátor (proces), Implementátor (kód) |
 | **Pád** | ztracený telefon zůstane platným čtenářem, dokud nevyprší token |
 
-Stav MM4-D: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`.
-Scope-gated mobilní seznam a revoke prošly 8/8 gateway a 11/11 klientskými
-scénáři. Server commitne self-revocation a její výsledek atomicky; klient po
+Stav MM4-D + MM4-M: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`.
+Scope-gated mobilní seznam a revoke prošly 8/8 gateway a 15/15 klientskými
+scénáři. MM4-M přijme jen exact veřejný snapshot s jediným current řádkem
+svázaným s credentialem; validní cache je read-only a revoke vyžaduje nový
+live read. Server commitne self-revocation a její výsledek atomicky; klient po
 potvrzení maže credential z nativního vaultu. Desktopová administrátorská
 obrazovka, fyzický lost-device průchod a nezávislá bezpečnostní akceptace však
-zůstávají otevřené. Viz
-[MM4-D review](reviews/MM4D-PAIRED-DEVICES.md).
+zůstávají otevřené. Viz [MM4-D review](reviews/MM4D-PAIRED-DEVICES.md) a
+[MM4-M review](reviews/MM4M-PAIRED-DEVICE-LIST-INTEGRITY.md).
 
 Hranice, kterou je nutné vyslovit nahlas (a je už v `DATA-MODEL` §5.3):
 **revokace zabrání novému přístupu, nesmaže, co už v telefonu je.** Proti

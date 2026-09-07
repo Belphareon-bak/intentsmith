@@ -16,8 +16,10 @@
 > validaci, id binding a failure semantics uplatňuje na detail projektu.
 > MM4-K nyní ověřuje exact live-only settings DTO a celý 46-path public owner
 > map před publikací nebo odemčením editoru. MM4-L váže exact LTM/task records
-> na server-issued page boundary a validuje current i legacy cache. Autoritou
-> poslední změny je review `MM4L-STORED-INFORMATION-LIST-INTEGRITY`;
+> na server-issued page boundary a validuje current i legacy cache. MM4-M
+> validuje exact paired-device snapshot, váže jeho `current` řádek na aktivní
+> credential a odděluje čitelnou cache od volatile revoke authority. Autoritou
+> poslední změny je review `MM4M-PAIRED-DEVICE-LIST-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná produktová fáze není DONE
@@ -687,6 +689,14 @@ důkazy, B6 ani životní cyklus `MD-08` nejsou produkčně uzavřené.
 ---
 
 ### MD-11 — Device token a identita zařízení
+
+> **Implementační checkpoint MM4-M (2026-09-07):** mobilní seznam přijme jen
+> exact 11-field public DTO, unikátní id a právě jeden `current` řádek svázaný
+> s `deviceId` aktivního credentialu. Durable snapshot se před renderem znovu
+> validuje; validní cache je pouze ke čtení a corrupt/expired cache se maže.
+> Revokaci smí odemknout jen aktuální exact live read a tento volatile grant
+> ruší nový read, chyba, lock, offline, reconnect i scope loss. Viz
+> [MM4-M review](reviews/MM4M-PAIRED-DEVICE-LIST-INTEGRITY.md).
 
 | Atribut | Hodnota |
 |---|---|

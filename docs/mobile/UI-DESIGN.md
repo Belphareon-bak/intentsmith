@@ -10,8 +10,9 @@
 > nové route a MM3-F totéž pro live/cached detail projektu.
 > MM4-K zpřísňuje live-only settings read a editor relock. MM4-L zpřísňuje
 > stored-information DTO/page/cache hranici a doplňuje úplný cursorový průchod.
+> MM4-M zpřísňuje exact device snapshot/cache a live revoke gate.
 > Autoritou poslední změny je review
-> `MM4L-STORED-INFORMATION-LIST-INTEGRITY`;
+> `MM4M-PAIRED-DEVICE-LIST-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 > **MM4-G UI overlay:** karta workera nabízí Zapnout/Vypnout pouze s
@@ -78,6 +79,13 @@
 > neúplný stav; vadná stránka zachová potvrzené řádky s inline chybou a retry,
 > ale create-only ovládání zůstane zamčené. Prázdný stav tvrdí úplnost jen při
 > serverem potvrzeném `end`.
+
+> **MM4-M UI overlay:** karta **Spárovaná zařízení** vykreslí pouze exact
+> snapshot s právě jedním `current` řádkem svázaným s tímto credentialem.
+> Validní cache zůstává při výpadku čitelná se stářím, ale nikdy neodemkne
+> **Odvolat**. Tlačítko vyžaduje aktuální exact live read, oba scopy, zdravé
+> spojení a existující dvoukrokové potvrzení; nový read, chyba, lock, offline,
+> reconnect nebo scope loss jej okamžitě zamkne.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; UI tím není produktově DONE
 **Datum a revize:** 2026-08-01 · vstupy `RV-028`, `RV-036`, `RV-037`, reconciliation `RV-038`; Composition Review C `RV-039`/`RV-040`; registr a chráněné hodnoty `RV-042`/`RV-043`

@@ -15,8 +15,9 @@
 > exact live/cache hranici detailu projektu, jeho not-found a route-race stav.
 > MM4-K nyní uzavírá exact live-only settings read a fail-closed editor relock.
 > MM4-L uzavírá exact stored-information list, úplný cursorový průchod a page
-> cache boundary. Autoritou poslední změny je review
-> `MM4L-STORED-INFORMATION-LIST-INTEGRITY`;
+> cache boundary. MM4-M uzavírá exact device snapshot/cache a live revoke
+> authority. Autoritou poslední změny je review
+> `MM4M-PAIRED-DEVICE-LIST-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná obrazovka tím není produktově DONE
@@ -289,6 +290,13 @@ Jediná obrazovka, která má smysl i bez platného tokenu — má odpovědět n
 > **Implementační checkpoint MM4-D (2026-09-06):** tato obrazovka, její přesné
 > scopes a journalled revoke jsou implementované a source-tested. Fyzický
 > Android průchod zůstává `NOT RUN`; revokace není vzdálené smazání.
+
+> **Implementační checkpoint MM4-M (2026-09-07):** seznam se publikuje pouze
+> po exact 11-field DTO validaci, s unikátními id a právě jedním `current`
+> řádkem svázaným s aktivním credentialem. Cache se validuje před renderem a
+> zůstává read-only; revokaci smí odemknout jen aktuální live read. Read,
+> protocol/server/offline chyba, lock, reconnect nebo scope loss live grant
+> odeberou. Evidence: [MM4-M review](reviews/MM4M-PAIRED-DEVICE-LIST-INTEGRITY.md).
 
 **Požadavky:** `MR-22` · **Data:** `MD-11`, `MD-12` · **Testy:**
 `IS-T2-TESTS-MOBILE-DEVICES-TEST`, `IS-T1-TESTS-MOBILE-DEVICES-UI-TEST`,

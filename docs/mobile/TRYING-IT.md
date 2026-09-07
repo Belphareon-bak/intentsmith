@@ -162,6 +162,22 @@ Správu zařízení zkontroluj v **Nastavení → Spárovaná zařízení**:
 Přesný source-tested rozsah a non-claims jsou v
 [MM4-D review](reviews/MM4D-PAIRED-DEVICES.md).
 
+Integritu seznamu zařízení (MM4-M) zkontroluj ve stejné kartě:
+
+1. odpověď musí mít přesně jeden `current` řádek a jeho `deviceId` se musí
+   shodovat s credentialem tohoto telefonu;
+2. duplicate id/scope, extra pole, chybný timestamp/revoke stav, HTTP 201 nebo
+   neúplná obálka musí odmítnout celý live snapshot;
+3. validní cache se při výpadku smí zobrazit se stářím, ale **Odvolat** musí
+   zůstat zamčené; corrupt/expired cache se musí odstranit;
+4. nový read, protocol/server/offline chyba, lock, reconnect nebo scope loss
+   musí odebrat potvrzení i live revoke grant;
+5. ze dvou souběžných readů smí publikovat pouze nejnovější generace a transport
+   musí pro device read/revoke použít `no-store`.
+
+Exact snapshot, cache a live-authority pravidla jsou v
+[MM4-M review](reviews/MM4M-PAIRED-DEVICE-LIST-INTEGRITY.md).
+
 Revizní zápis nastavení zkontroluj v **Nastavení → Nastavení backendu**:
 
 1. bez `write:settings` jsou hodnoty jen text a karta výslovně žádá nové

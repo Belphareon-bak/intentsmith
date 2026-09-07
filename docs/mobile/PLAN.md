@@ -8,9 +8,10 @@
 > `GET /m1/workers/:id/runs` a live-only
 > `GET /m1/specialists/:id`. Následné consumer-only checkpointy nyní validují
 > a stránkují globální konverzace, projekty, workery/specialisty a stored
-> information, validují project detail a uzavírají live settings read.
+> information, validují project detail a uzavírají live settings read. MM4-M
+> nyní uzavírá exact paired-device snapshot/cache a live revoke authority.
 > Autoritou poslední změny je review
-> `MM4L-STORED-INFORMATION-LIST-INTEGRITY`;
+> `MM4M-PAIRED-DEVICE-LIST-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; **žádná produktová fáze není DONE**

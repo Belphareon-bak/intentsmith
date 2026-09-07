@@ -15,8 +15,10 @@
 > na live i cached detail projektu, včetně requested-id, not-found a route-race
 > chování. MM4-K nyní fail-closed ověřuje exact live-only settings DTO a všech
 > 46 core-owned public paths. MM4-L uzavírá exact stored-information list,
-> server-issued cursor a validovanou page cache. Autoritou poslední změny je
-> review `MM4L-STORED-INFORMATION-LIST-INTEGRITY`;
+> server-issued cursor a validovanou page cache. MM4-M nyní stejnou fail-closed
+> hranici uplatňuje na seznam spárovaných zařízení a live revoke authority.
+> Autoritou poslední změny je review
+> `MM4M-PAIRED-DEVICE-LIST-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 > **MM3-D coverage overlay:** globální `MS-06` nově skutečně spotřebuje
@@ -57,6 +59,14 @@
 > cursor append, validovanou current/legacy cache, corrupt-cache deletion,
 > protocol-safe retention, scope withdrawal, response race a create-form
 > relock. Backend zůstává 12/12; route, scope, port ani mutation se neměnily.
+
+> **MM4-M coverage overlay:** `MS-04` přijme jen exact 11-field public device
+> DTO, unikátní id a právě jeden `current` řádek svázaný s credentialem.
+> `mobile-devices-ui` (15/15) kryje strict HTTP 200/envelope, `no-store`,
+> hidden/invalid fields, current binding, duplicate id/scope, validovanou a
+> corrupt cache, response race a live-only revoke grant přes offline,
+> reconnect, lock a scope withdrawal. Backend zůstává 8/8; route, scope, port,
+> wire ani mutation se neměnily.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; tato matice není sama evidence a žádný produktový požadavek zde není DONE
 **Revize:** vstupy `RV-028`, `RV-036`, `RV-037`, reconciliation `RV-038`; Composition Review C `RV-039`/`RV-040`; registr a chráněné hodnoty `RV-042`/`RV-043`
@@ -278,7 +288,7 @@ obrazovkový dopad v SCREENS §1.1.
 | `MR-19` stav agentů a historie | 5 | **`PARTIAL / SOURCE TESTED / DEVICE TEST PENDING`** | MM4-C dodal filtrovaný worker/specialist read model, MM4-G precondition-checked worker enable/disable, MM4-H worker detail s metadata-only terminální historií, MM4-I specialist detail s public-only vazbami expertiz a MM4-J exact fail-closed list/cache consumer. Kombinované sady prošly 18/18 gateway/core a 24/24 UI; persisted specialist status není live runtime truth a execution obsah, aktivní run progress, cancel i specialist mutations nejsou součástí této autority |
 | `MR-20` dry-run agenta | 5 | **`BLOCKED_BY_CONTRACT_AND_GATE1`** | `workers.dryRun` zůstává bez provideru; kontrakt + příslušná Gate 1 evidence + samostatný Work Package |
 | `MR-21` notifikace | 1+ | **`PARTIAL / PRODUCTION_BLOCKED`** | Třída/tabulka/read+ack surface existují. `DR-003` A, `DR-012` A a `DR-013` A určují append-only lifecycle, per-device receipts a S1-safe mirror, ale nejsou implementované: pipeline řádek nevytvoří (`F-111`/`F-014`), ACK **je** izolovaný per zařízení (`F-112` `RESOLVED_IN_CODE`), ale rooty `F-011`/`F-015` zůstávají a spící PWA nemá push (`N-1`) |
-| `MR-22` správa zařízení | 0 | **`IMPLEMENTED / SOURCE TESTED / DEVICE TEST PENDING`** | MM4-D dodává scope-gated seznam a dvoukrokové odvolání, 8/8 gateway a 11/11 UI scénářů; revokace není remote wipe a fyzický Android běh chybí |
+| `MR-22` správa zařízení | 0 | **`IMPLEMENTED / SOURCE TESTED / DEVICE TEST PENDING`** | MM4-D dodává scope-gated seznam a dvoukrokové odvolání; MM4-M exact snapshot/current binding, validovanou read-only cache a live revoke gate. 8/8 gateway a 15/15 UI scénářů; revokace není remote wipe a fyzický Android běh chybí |
 | `MR-23` zámek aplikace | 0 | **`PARTIAL`** | Pod úložištním limitem PWA; `localStorage` není OS keychain, `M-R2` zůstává neodstraněné |
 | `MR-24` neuzavřené operace | 1 | **`LOCALLY_COMPOSED / COMPOSITION_REVIEW_APPROVED / REGISTRY_REVIEW_APPROVED / MOBILE_PASS / SHARED_VALIDATION_BLOCKED`** | Opravené checkpointy a journal allowlist jsou kompozičně i registry zrevidované a mobilní program prošel. Funkce není produktově DONE; sdílený profil selhal a SCREENS stále postrádá samostatnou definici toku (`GAP-9`) |
 | `MR-25` osiřelé operace | — | `MISSING_IMPLEMENTATION` | Backendový úkol, není zahájen (`M-R8`) |

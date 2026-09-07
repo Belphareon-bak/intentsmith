@@ -10,7 +10,8 @@ candidate implementation, not a contract freeze; see
 [`reviews/MM3C-PROJECT-CONVERSATIONS.md`](reviews/MM3C-PROJECT-CONVERSATIONS.md).
 
 Latest consumer checkpoints MM3-D (`34bc19de`), MM3-E (`075f5eb7`), MM4-J
-(`acff7939`), MM3-F (`a08d0dd0`), MM4-K (`99cdfdde`) and MM4-L (`d1f0a98a`)
+(`acff7939`), MM3-F (`a08d0dd0`), MM4-K (`99cdfdde`), MM4-L (`d1f0a98a`) and
+MM4-M (`af33f984`)
 change no port input,
 output or provider. They make the mobile client consume already returned
 opaque cursors for the global conversation
@@ -35,6 +36,10 @@ boundary, returns only the server-issued opaque cursor and binds the retained
 window to its cache boundary before it can render or support the existing
 create-only writer. See
 [`reviews/MM4L-STORED-INFORMATION-LIST-INTEGRITY.md`](reviews/MM4L-STORED-INFORMATION-LIST-INTEGRITY.md).
+MM4-M validates the existing paired-device projection as an exact public
+snapshot, binds its single current row to the active credential and separates
+readable cache from live revoke authority. See
+[`reviews/MM4M-PAIRED-DEVICE-LIST-INTEGRITY.md`](reviews/MM4M-PAIRED-DEVICE-LIST-INTEGRITY.md).
 
 `RemoteCorePort` is the core-owned, in-process boundary used by the mobile
 gateway. It is deliberately narrower than the desktop HTTP listener: a mobile

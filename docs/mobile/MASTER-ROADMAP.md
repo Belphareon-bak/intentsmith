@@ -69,7 +69,8 @@ stored information (`3341ea11`), and guarded worker enable/disable
 (`fd8ad498`), persisted specialist package/expertise detail (`241b8934`) and
 fail-closed configured-list integrity (`acff7939`), followed by exact public-
 settings read integrity (`99cdfdde`) and exact stored-information list
-integrity (`d1f0a98a`). Worker and specialist list
+integrity (`d1f0a98a`), then paired-device list integrity (`af33f984`). Worker
+and specialist list
 pages and cache snapshots now require exact public DTOs, coherent opaque-cursor
 boundaries and no duplicate/overlapping ids; only an exact live worker page can
 support its existing guarded toggle.
@@ -79,6 +80,9 @@ core-owned public paths; malformed or unowned data cannot render or unlock the
 The stored-information consumer now validates exact LTM/task records, walks the
 existing opaque cursor to its confirmed end and persists only an exact
 `{ items, page }` window. Invalid reads retain no mutation authority.
+The device consumer now validates the exact public snapshot and current-device
+binding before publication; its cache is read-only and only a current live read
+can unlock the existing revoke flow.
 MM4 remains open for governed specialist actions, live run progress and
 broader worker lifecycle commands; memory replacement, deletion and
 task-memory writes are explicitly outside the current mobile authority.

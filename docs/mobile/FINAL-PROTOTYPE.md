@@ -134,6 +134,9 @@ MM4-K v `99cdfdde` uzavírá live-only settings consumer: exact DTO a celý
 MM4-L v `d1f0a98a` uzavírá stored-information truncation a trust hranici:
 exact LTM/task DTO, server-issued cursor, úplný průchod, validovaný
 `{ items, page }` cache snapshot a fail-closed create-form relock.
+MM4-M v `af33f984` uzavírá paired-device list trust hranici: exact veřejný
+snapshot, vazbu jediného `current` řádku na credential, validovanou read-only
+cache a live-only revoke grant rušený při readu, chybě, locku i reconnectu.
 Aktuální binární build a fyzický device journey však stále neproběhly, takže
 jde o implementovaný kandidát, ne release verdict.
 
@@ -148,7 +151,7 @@ jde o implementovaný kandidát, ne release verdict.
 | Průběh běhu | `DEMO PROJECTION IMPLEMENTED` | demo mapuje `CoreEvent` do S1 indikátorů ve schránce | není vlastní run obrazovka ani produkční CoreEvent konektor |
 | Android shell | `IMPLEMENTED AND STATICALLY TESTED`; current binary not rebuilt | Capacitor 8.4.3, minSdk 24, compile/target 36; canonical client is packaged in the APK and native HTTP transport keeps the gateway behind `/m1` without CORS widening | current API-36 binary and device journey remain unverified |
 | Token at rest | `SOURCE TESTED; DEVICE TEST PENDING` | přímý `AndroidKeyStore` AES-256-GCM trezor, náhodné IV, AAD, atomické skupiny a vypnutý backup; nativní shell nikdy nepadá do `localStorage` | 12/12 invariantů a 19/19 klientských scénářů PASS; tři instrumentační testy jsou napsané, ale bez SDK/zařízení `NOT RUN`; mezi odemčením a zamčením kopie v JS paměti existuje |
-| Spárovaná zařízení | `SOURCE TESTED; DEVICE TEST PENDING` | veřejný DTO seznam bez credential materialu; scope-gated, operation-keyed revoke; atomický self-revoke a následný vault wipe; 8/8 gateway + 11/11 UI | `write:devices` je denial-of-access authority; nejde o remote wipe ani desktop admin UI; fyzický lost-device journey `NOT RUN` |
+| Spárovaná zařízení | `SOURCE TESTED; DEVICE TEST PENDING` | exact veřejný 11-field snapshot bez credential materialu, jediný current řádek svázaný s credentialem, validovaná read-only cache a live-only operation-keyed revoke; atomický self-revoke a následný vault wipe; 8/8 gateway + 15/15 UI | `write:devices` je denial-of-access authority; cache revokaci neodemkne; nejde o remote wipe ani desktop admin UI; fyzický lost-device journey `NOT RUN` |
 | Nastavení backendu | `SOURCE TESTED; DEVICE TEST PENDING` | exact live-only čtení všech 46 core-owned public paths; zápis 11 UX preferencí nad očekávanou revizí; 13/13 gateway/core + 17/17 UI | `write:settings` není default; malformed read editor neodemkne; nejde o obecný settings/security/model editor ani refreeze návrhu v2; fyzický WebView journey `NOT RUN` |
 | Uchovávané informace | `SOURCE TESTED; DEVICE TEST PENDING` | filtrované exact LTM/task-memory čtení, úplný opaque-cursor průchod, validovaná page cache a online vytvoření nové explicitní LTM položky; 12/12 gateway/core + 21/21 UI | `write:memory` není default; žádná náhrada, smazání, zápis task memory ani interní kategorie; fyzický WebView journey `NOT RUN` |
 | Globální seznam konverzací | `SOURCE TESTED; DEVICE TEST PENDING` | kompletní cursorový průchod po 50, exact page validation, overlap/concurrency guard a validovaná S1 cache boundary; 25/25 klientských scénářů | není globální search ani mutation; fyzický WebView journey zůstává otevřený |
@@ -425,7 +428,7 @@ tohoto úklidu.
 - [ ] Build je reprodukovatelný z čistého checkoutu.
 - [x] Podpis je fail-closed — release bez klíče selže.
 - [x] Scope-gated seznam a journalled odvolání zařízení jsou source-tested.
-      *(8/8 gateway + 11/11 UI; fyzický lost-device průchod zbývá)*
+      *(8/8 gateway + 15/15 UI po MM4-M; fyzický lost-device průchod zbývá)*
 - [ ] Fyzický telefon prošel approve/reject/expire, outage, restart a lost-device scénáři.
 - [ ] Accessibility a podporovaná device/OS matice jsou PASS.
 - [ ] Boundary ratchet je přijatý integrátorem, ne pouze přebaselinovaný.

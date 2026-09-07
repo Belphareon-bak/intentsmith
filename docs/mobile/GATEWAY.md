@@ -1,6 +1,6 @@
 # Mobilní gateway — provoz
 
-> **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
+> **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-07):** text
 > níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 26
 > rout; vedle worker/specialist read modelu, správy zařízení, revizního
 > `PUT /m1/settings` a create-only `POST /m1/memory` obsahuje precondition-checked
@@ -9,7 +9,9 @@
 > `GET /m1/specialists/:id`. MM3-C navíc rozšířilo existující
 > `GET /m1/conversations` o uzavřený `projectId` filtr, dvojici scopů
 > `read:chat` + `read:projects`, projektově svázaný cursor a `no-store`.
-> Autoritou poslední změny je review `MM3C-PROJECT-CONVERSATIONS`;
+> MM4-M zpřísnilo consumer existujícího device list/revoke povrchu bez změny
+> gateway kontraktu. Autoritou poslední změny je review
+> `MM4M-PAIRED-DEVICE-LIST-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; gateway je implementovaná a testovaná pouze **na loopbacku**, nikoli produkčně DONE.
@@ -268,6 +270,13 @@ okno společně s boundary. Duplicate/overlap, malformed live nebo cached data
 se nepublikují a existující create-only writer se relockne. Gateway, provider,
 wire i allow-list se neměnily. Viz
 `reviews/MM4L-STORED-INFORMATION-LIST-INTEGRITY.md`.
+
+MM4-M (`af33f984`) zpřísňuje pouze consumer existujícího `GET /m1/devices`.
+Klient požadavek explicitně posílá s `no-store`, přijme jen HTTP 200 success
+envelope s exact veřejným DTO, unikátními id a jedním `current` řádkem
+svázaným s aktivním credentialem. Validní cache je jen ke čtení a revoke
+odemkne pouze aktuální live read. Gateway, provider, wire i allow-list se
+neměnily. Viz `reviews/MM4M-PAIRED-DEVICE-LIST-INTEGRITY.md`.
 
 ---
 
