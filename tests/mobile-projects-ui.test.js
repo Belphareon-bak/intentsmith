@@ -66,9 +66,10 @@ globalThis.fetch = async () => { throw new TypeError('network disabled'); };
 const { __ms20 } = await import('../src/mobile/client/app.js');
 const {
   state, store, K, viewProjects, viewProject, loadProjects, loadProject,
-  validProjectPage, validProjectConversationPage, loadProjectConversations,
+  validProjectPage, validProjectDetailResponse,
+  validProjectConversationPage, loadProjectConversations,
   invalidateProjectConversationSurface,
-  currentSection, screenLocks, trustBar,
+  currentSection, screenLocks, trustBar, navigate,
 } = __ms20;
 
 function reset(scopes = ['read:projects']) {
@@ -145,6 +146,15 @@ function projectPage(data, overrides = {}) {
   };
 }
 
+function projectDetail(data = project(), overrides = {}) {
+  return {
+    ok: true,
+    scopes: ['read:projects'],
+    data,
+    ...overrides,
+  };
+}
+
 console.log('\n=== Mobile project UI ===');
 
 await test('project list is a real navigation section and detail stays under it', () => {
@@ -201,6 +211,158 @@ await test('project detail is labelled read-only and exposes no mutation control
   assert.match(markup, /Mobilní projekce je zatím pouze pro čtení/);
   assert.match(markup, /4/);
   assert.ok(!/data-act="(?:archive|delete|edit|save)-project"/.test(markup));
+});
+
+await test('MM3-F project detail validator binds id and exact public DTO', () => {
+  assert.equal(validProjectDetailResponse(projectDetail(), '17'), true);
+  assert.equal(validProjectDetailResponse(projectDetail(project({ id: '18' })), '17'), false);
+  assert.equal(validProjectDetailResponse(projectDetail(project({ path: 'C:/secret' })), '17'), false);
+  assert.equal(validProjectDetailResponse(projectDetail(project({ state: 'deleted' })), '17'), false);
+  assert.equal(validProjectDetailResponse(projectDetail(project({ conversationCount: -1 })), '17'), false);
+  assert.equal(validProjectDetailResponse(projectDetail(project({ version: 'legacy' })), '17'), false);
+  assert.equal(validProjectDetailResponse({ ok: false, data: project() }, '17'), false);
+});
+
+await test('MM3-F keeps a validated stale detail visible with explicit offline recovery', async () => {
+  reset();
+  state.route = 'project';
+  state.projectId = '17';
+  store.set(K.cache + 'project.17', {
+    at: Date.now() - 2 * 60_000,
+    data: project(),
+  });
+  globalThis.fetch = async () => { throw new TypeError('network disabled'); };
+
+  await loadProject();
+
+  assert.equal(state.data.project.id, '17');
+  assert.equal(state.cacheAge.project, 'STALE');
+  assert.equal(state.error.project.kind, 'offline');
+  const markup = viewProject();
+  assert.match(markup, /Detail z cache/);
+  assert.match(markup, /zastaralý/);
+  assert.match(markup, /Aktuální detail teď nelze ověřit/);
+  assert.match(markup, /data-act="load-project"/);
+});
+
+await test('MM3-F deletes expired or corrupt detail caches before publication', async () => {
+  for (const [label, entry] of [
+    ['expired', { at: Date.now() - 16 * 60_000, data: project() }],
+    ['corrupt', { at: Date.now(), data: project({ path: 'C:/secret' }) }],
+  ]) {
+    reset();
+    state.route = 'project';
+    state.projectId = '17';
+    store.set(K.cache + 'project.17', entry);
+    globalThis.fetch = async () => { throw new TypeError(`${label} network disabled`); };
+
+    await loadProject();
+
+    assert.equal(state.data.project, undefined, label);
+    assert.equal(state.cacheAge.project, null, label);
+    assert.equal(store.get(K.cache + 'project.17'), null, label);
+  }
+});
+
+await test('MM3-F malformed live detail preserves the last validated cache', async () => {
+  reset();
+  state.route = 'project';
+  state.projectId = '17';
+  const cached = { at: Date.now(), data: project() };
+  store.set(K.cache + 'project.17', cached);
+  let calls = 0;
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    async json() {
+      calls += 1;
+      return projectDetail(project({ path: 'C:/must-not-enter-cache' }));
+    },
+  });
+
+  await loadProject();
+
+  assert.equal(calls, 1);
+  assert.deepEqual(state.data.project, cached.data);
+  assert.deepEqual(store.get(K.cache + 'project.17'), cached);
+  assert.equal(state.error.project.kind, 'protocol');
+  assert.equal(state.conn, 'server');
+  assert.match(viewProject(), /Server vrátil neplatný detail/);
+  assert.ok(!JSON.stringify(store.get(K.cache + 'project.17')).includes('must-not-enter-cache'));
+});
+
+await test('MM3-F conclusive not-found withdraws remembered project detail', async () => {
+  reset();
+  state.route = 'project';
+  state.projectId = '17';
+  store.set(K.cache + 'project.17', { at: Date.now(), data: project() });
+  globalThis.fetch = async () => ({
+    ok: false,
+    status: 404,
+    async json() { return { ok: false, error: { code: 'not_found' } }; },
+  });
+
+  await loadProject();
+
+  assert.equal(state.data.project, undefined);
+  assert.equal(store.get(K.cache + 'project.17'), null);
+  assert.equal(state.error.project.code, 'not_found');
+});
+
+await test('MM3-F a detail response arriving after navigation is inert', async () => {
+  reset();
+  state.route = 'project';
+  state.projectId = '17';
+  let releaseDetail;
+  globalThis.fetch = url => {
+    if (url === '/m1/projects/17') {
+      return new Promise(resolve => { releaseDetail = resolve; });
+    }
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      async json() { return projectPage([project()]); },
+    });
+  };
+
+  const pending = loadProject();
+  navigate('projects');
+  releaseDetail({
+    ok: true,
+    status: 200,
+    async json() { return projectDetail(); },
+  });
+  await pending;
+  await Promise.resolve();
+
+  assert.equal(state.route, 'projects');
+  assert.equal(state.data.project, undefined);
+  assert.equal(state.loading.project, false);
+  assert.equal(store.get(K.cache + 'project.17'), null);
+});
+
+await test('MM3-F latest same-project response is the only published generation', async () => {
+  reset();
+  state.route = 'project';
+  state.projectId = '17';
+  const releases = [];
+  globalThis.fetch = () => new Promise(resolve => { releases.push(resolve); });
+
+  const first = loadProject();
+  const second = loadProject();
+  const response = data => ({
+    ok: true,
+    status: 200,
+    async json() { return projectDetail(data); },
+  });
+  releases[1](response(project({ name: 'Novější detail' })));
+  await second;
+  releases[0](response(project({ name: 'Opožděný detail' })));
+  await first;
+
+  assert.equal(state.data.project.name, 'Novější detail');
+  assert.equal(store.get(K.cache + 'project.17').data.name, 'Novější detail');
+  assert.equal(state.error.project, null);
 });
 
 await test('project detail keeps metadata visible while chat scope is explicitly locked', () => {

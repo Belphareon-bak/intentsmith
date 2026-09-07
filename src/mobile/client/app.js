@@ -1950,6 +1950,8 @@ function viewProject() {
         <div class="kv"><span class="kv-key">Vytvořeno</span><span>${esc(createdLabel)}</span></div>
         <div class="kv"><span class="kv-key">Poslední aktivita</span><span>${esc(timeAgo(project.updatedAt) || 'Není dostupná')}</span></div>
       </section>
+      ${projectDetailCacheNote()}
+      ${projectDetailInlineError()}
       <p class="card-note">Mobilní projekce je zatím pouze pro čtení. Soubory, shell a správa cest zůstávají na desktopu.</p>
       <section aria-labelledby="project-conversations-h">
         <div class="card-head"><h2 class="card-title" id="project-conversations-h">Konverzace projektu</h2></div>
@@ -1963,6 +1965,26 @@ function viewProject() {
 
   return header({ title: project?.name || 'Projekt', left: 'back' })
     + `<div class="scroll">${body}</div>`;
+}
+
+function projectDetailCacheNote() {
+  const age = state.cacheAge.project;
+  if (!age || age === 'FRESH') return '';
+  return `<div class="kv"><span class="kv-key">Detail z cache</span>
+    <span class="pill" data-tone="${age === 'STALE' ? 'warn' : 'muted'}">${age === 'STALE' ? 'zastaralý' : 'starý'}</span></div>`;
+}
+
+function projectDetailInlineError() {
+  const error = state.error.project;
+  if (!error || !state.data.project) return '';
+  const text = error.kind === 'offline'
+    ? 'Aktuální detail teď nelze ověřit: telefon je offline.'
+    : error.kind === 'protocol'
+      ? 'Server vrátil neplatný detail. Zobrazená kopie se nezměnila.'
+      : 'Aktualizace detailu selhala. Zobrazená kopie může být starší.';
+  return `<div class="resource-inline-error" role="status">${esc(text)}
+    <button class="btn btn-secondary btn-sm" data-act="load-project">Načíst detail znovu</button>
+  </div>`;
 }
 
 function configuredResourceCacheNote(name) {
@@ -4391,6 +4413,25 @@ function validProjectConversationPage(response) {
   return validConversationPage(response);
 }
 
+function validProjectSnapshot(project, requestedId, requestedState = null) {
+  return Boolean(project && typeof project === 'object' && !Array.isArray(project)
+    && Object.keys(project).sort().join(',') === 'conversationCount,createdAt,id,name,state,updatedAt,version'
+    && typeof project.id === 'string' && /^[1-9][0-9]*$/.test(project.id)
+    && Number.isSafeInteger(Number(project.id)) && project.id === requestedId
+    && typeof project.name === 'string' && project.name
+    && ['active', 'archived'].includes(project.state)
+    && (requestedState === null || project.state === requestedState)
+    && (project.conversationCount === null
+      || (Number.isSafeInteger(project.conversationCount) && project.conversationCount >= 0))
+    && validIsoOrNull(project.createdAt)
+    && validIsoOrNull(project.updatedAt)
+    && typeof project.version === 'string' && project.version.startsWith('v1:'));
+}
+
+function validProjectDetailResponse(response, requestedId) {
+  return response?.ok === true && validProjectSnapshot(response.data, requestedId);
+}
+
 function validProjectPage(response, requestedState) {
   if (response?.ok !== true
       || response.state !== requestedState
@@ -4403,17 +4444,8 @@ function validProjectPage(response, requestedState) {
 
   const ids = new Set();
   return response.data.every(project => {
-    if (!project || typeof project !== 'object' || Array.isArray(project)
-        || Object.keys(project).sort().join(',') !== 'conversationCount,createdAt,id,name,state,updatedAt,version'
-        || typeof project.id !== 'string' || !/^[1-9][0-9]*$/.test(project.id)
-        || !Number.isSafeInteger(Number(project.id)) || ids.has(project.id)
-        || typeof project.name !== 'string' || !project.name
-        || project.state !== requestedState
-        || !(project.conversationCount === null
-          || (Number.isSafeInteger(project.conversationCount) && project.conversationCount >= 0))
-        || !validIsoOrNull(project.createdAt)
-        || !validIsoOrNull(project.updatedAt)
-        || typeof project.version !== 'string' || !project.version.startsWith('v1:')) return false;
+    if (!project || typeof project.id !== 'string' || ids.has(project.id)
+        || !validProjectSnapshot(project, project.id, requestedState)) return false;
     ids.add(project.id);
     return true;
   });
@@ -4588,37 +4620,70 @@ async function loadProjects(projectState = state.projectState, { append = false 
 }
 
 async function loadProject(projectId = state.projectId) {
-  if (!auth.has('read:projects') || !projectId) return;
+  if (!auth.has('read:projects') || !projectId || state.route !== 'project') return;
   const requestedId = String(projectId);
   const generation = ++projectGeneration;
   const cacheKey = `project.${requestedId}`;
   const cached = cache.read(cacheKey);
-  state.data.project = cached.data || undefined;
-  state.cacheAge.project = cached.data ? cached.status : null;
-  state.cacheAt.project = cached.data ? cached.at : null;
+  if (cached.status === 'EXPIRED') {
+    store.del(K.cache + cacheKey);
+    delete state.data.project;
+    state.cacheAge.project = null;
+    state.cacheAt.project = null;
+  } else if (validProjectSnapshot(cached.data, requestedId)) {
+    state.data.project = cached.data;
+    state.cacheAge.project = cached.status;
+    state.cacheAt.project = cached.at;
+  } else {
+    if (cached.data) store.del(K.cache + cacheKey);
+    delete state.data.project;
+    state.cacheAge.project = null;
+    state.cacheAt.project = null;
+  }
   state.loading.project = true;
   state.error.project = null;
   render();
 
   try {
-    const response = await api(`/projects/${encodeURIComponent(requestedId)}`);
-    if (generation !== projectGeneration || state.projectId !== requestedId) return;
+    const response = await api(`/projects/${encodeURIComponent(requestedId)}`, { strict: true });
+    if (generation !== projectGeneration || state.projectId !== requestedId || state.route !== 'project') return;
+    if (!validProjectDetailResponse(response, requestedId)) {
+      throw Object.assign(new Error('invalid project detail response'), {
+        kind: 'protocol', code: 'protocol_invalid_response',
+      });
+    }
+    if (response.scopes) {
+      replaceScopes(response.scopes);
+      if (!auth.has('read:projects')) return render();
+    }
+    if (generation !== projectGeneration || state.projectId !== requestedId || state.route !== 'project') return;
     state.data.project = response.data;
     state.cacheAge.project = 'FRESH';
     state.cacheAt.project = Date.now();
     cache.write(cacheKey, response.data);
-    if (response.scopes) replaceScopes(response.scopes);
     setConn('ok');
     if (auth.has('read:projects') && auth.has('read:chat')) {
       await loadProjectConversations();
     }
   } catch (error) {
-    if (generation !== projectGeneration || state.projectId !== requestedId) return;
+    if (generation !== projectGeneration || state.projectId !== requestedId || state.route !== 'project') return;
     if (error.kind === 'auth') return await handleAuthFailure(error);
-    state.error.project = error;
-    setConn(error.kind === 'offline' ? 'offline' : error.kind === 'server' ? 'server' : state.conn);
+    if (error.kind === 'scope') {
+      replaceScopes(auth.scopes.filter(scope => scope !== 'read:projects'));
+      render();
+    } else {
+      if (error.code === 'not_found') {
+        store.del(K.cache + cacheKey);
+        delete state.data.project;
+        state.cacheAge.project = null;
+        state.cacheAt.project = null;
+      }
+      state.error.project = error;
+      setConn(error.kind === 'offline' ? 'offline'
+        : error.kind === 'server' || error.kind === 'protocol' ? 'server' : state.conn);
+    }
   } finally {
-    if (generation === projectGeneration && state.projectId === requestedId) {
+    if (generation === projectGeneration && state.projectId === requestedId && state.route === 'project') {
       state.loading.project = false;
       render();
     }
@@ -6839,7 +6904,11 @@ async function repairLocalState() {
  * direct/stale caller is separately stopped by approvalDecidable's route gate.
  */
 function transitionRoute(route) {
-  if (state.route === 'project' && route !== 'project') invalidateProjectConversationSurface();
+  if (state.route === 'project' && route !== 'project') {
+    projectGeneration++;
+    state.loading.project = false;
+    invalidateProjectConversationSurface();
+  }
   if (state.route === 'worker' && route !== 'worker') workerDetailGeneration++;
   if (state.route === 'specialist' && route !== 'specialist') specialistDetailGeneration++;
   if (route !== state.route) {
@@ -7306,7 +7375,8 @@ export const __ms20 = {
   invalidateConversationSurface, conversationListMore, conversationListInlineError,
   navItems, currentSection, sectionRoute, unknownScopes, NAV_ITEMS, ROUTE_SECTION,
   viewProjects, viewProject, loadProjects, loadProject, openProject,
-  validProjectPage, projectListMore, projectListInlineError,
+  validProjectPage, validProjectDetailResponse, projectListMore, projectListInlineError,
+  projectDetailCacheNote, projectDetailInlineError,
   validProjectConversationPage, loadProjectConversations, invalidateProjectConversationSurface,
   viewWorkers, viewWorker, viewSpecialists, viewSpecialist, loadWorkers, loadSpecialists,
   validConfiguredResourcePage,
