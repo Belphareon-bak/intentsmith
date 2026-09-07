@@ -13,7 +13,7 @@ Release verdict: `NOT READY`
 | `MM0` provenance and branch | `COMPLETE` | `550856e5` | core base selected; prototype integration follows |
 | `MM1` prototype integration | `COMPLETE` | `550856e5..fec916b8` | merge `c1994d9b`; mobile gate 37/37 active |
 | `MM2` RemoteCorePort | `IN PROGRESS` | candidate `f4861bca` | 10 production provider registrations; freeze remains open |
-| `MM3` primary mobile surfaces | `IN PROGRESS` | projects `1a7be999`; conversations `ddb90e7e`; project drill-down `701308d8`; conversation paging `34bc19de`; project paging `075f5eb7`; detail integrity `a08d0dd0`; cache lifecycle `1d449b78` | project list/detail with strict live/cache validation and the `MD-02` 15-minute/seven-day lifecycle, complete state-filter paging, conversation reads/global paging and live project-to-conversation navigation implemented; search/runs open |
+| `MM3` primary mobile surfaces | `IN PROGRESS` | projects `1a7be999`; conversations `ddb90e7e`; project drill-down `701308d8`; conversation paging `34bc19de`; project paging `075f5eb7`; detail integrity `a08d0dd0`; project cache `1d449b78`; conversation cache `6dd452f7` | project list/detail and conversation caches now follow their documented lifecycles; complete state-filter/global/thread paging and live project-to-conversation navigation are implemented; full thread integrity, HTTP-cache isolation, search/runs and device evidence remain open |
 | `MM4` governed surfaces | `IN PROGRESS` | settings read `87a51930`; memory read `2c33fd9b`; workers/specialists `49dd991d`; devices `13fa98c6`; settings write `4bb9011d`; memory create `3341ea11`; worker state `7ac9e303`; worker history `fd8ad498`; specialist detail `241b8934`; list integrity `acff7939`; settings integrity `99cdfdde`; memory integrity `d1f0a98a`; device integrity `af33f984`; notification integrity `656941d4` | read projections, paired-device revocation, revisioned UX-setting writes, create-only manual memory, guarded worker enable/disable, terminal worker-run history, inspectable specialist expertise bindings and fail-closed configured-list/settings/memory/device/notification consumers are implemented; specialist actions and production notification delivery/push policy stay open |
 | `MM5` transport and hardening | `IN PROGRESS` | transport `a5d5bab4`; vault `14be72b8..71746be5` | packaged native transport and direct AndroidKeyStore vault implemented; remote TLS/identity, push/offline policy and external security review remain open |
 | `MM6` Android release | `IN PROGRESS` | platform `d4607100`; CLI `d8bbea33`; artifacts `8e98924d` | API 36, cross-platform workflow, versioned APK/AAB manifest and SBOM implemented; binary build, production signing and device evidence open |
@@ -115,6 +115,12 @@ Release verdict: `NOT READY`
   concurrent response and stores a validated S1 `{ items, page }` snapshot.
   Legacy array caches remain readable without a fabricated continuation;
   losing `read:chat` withdraws the list, cursor and durable cache together.
+- Conversation cache lifecycle: `PASS` — the current combined overview suite
+  is 37/37 and `mobile-ms07-history` is 16/16. `MD-03` metadata is fresh for
+  15 minutes and expires at 30 days; `MD-04` S2 threads are fresh for 15
+  minutes and expire at seven days. Expired thread content is deleted before
+  publication. Full exact thread/cache validation and browser HTTP-cache
+  isolation remain separate open boundaries.
 - Complete project filters: `PASS` — 11/11 gateway/core and 23/23 client
   scenarios. Active and archived lists now walk their existing state-bound
   opaque cursors, validate exact rows/response state, reject overlaps and late

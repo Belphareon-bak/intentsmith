@@ -352,7 +352,7 @@ Exact DTO, cache/failure semantics a route-generation důkazy jsou v
 a privacy tradeoff delší S1 retence jsou v
 [MM3-G review](reviews/MM3G-PROJECT-CACHE-LIFECYCLE.md).
 
-### Globální seznam konverzací (MM3-D)
+### Konverzace, stránkování a cache lifecycle (MM3-D/MM3-H)
 
 1. Otevři **Konverzace** s více než 50 nesmazanými konverzacemi. Pod první
    dávkou musí být věta, že seznam je výřez, a tlačítko **Načíst další**.
@@ -366,9 +366,15 @@ a privacy tradeoff delší S1 retence jsou v
    Po navrácení scope je nutný nový serverový read.
 6. Starší instalace s array-only cache smí řádky během upgradu přečíst, ale
    nesmí z ní nabídnout **Načíst další**, dokud server nevydá nový cursor.
+7. V řízeném testu timestampů je list po 16 minutách `STALE`, po 29 dnech stále
+   čitelný a po 30 dnech `EXPIRED`; S1 titulek se nesmí vydávat za live stav.
+8. Stažené vlákno je po 16 minutách `STALE`, ale od sedmi dnů `EXPIRED` a musí
+   být smazáno dřív, než se jeho S2 zprávy objeví v paměti nebo UI.
 
 Přesná validace, cache migrace a negativní cursor scénáře jsou v
-[MM3-D review](reviews/MM3D-CONVERSATION-LIST-PAGINATION.md).
+[MM3-D review](reviews/MM3D-CONVERSATION-LIST-PAGINATION.md); lifecycle hranice
+a jejich security tradeoff jsou v
+[MM3-H review](reviews/MM3H-CONVERSATION-CACHE-LIFECYCLE.md).
 
 ### Konverzace projektu (MM3-C)
 

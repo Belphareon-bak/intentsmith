@@ -19,8 +19,10 @@
 > authority. MM4-N uzavírá exact notification inbox, viditelnou partial
 > boundary, validovanou cache a live-only ACK. MM3-G sjednocuje project
 > list/detail cache s `MD-02`: 15 minut fresh, stale do sedmi dnů, pak expired.
+> MM3-H odděluje `MD-03` list cache (15 minut / 30 dnů) a `MD-04` S2 thread
+> cache (15 minut / 7 dnů) a expired vlákno smaže před publikací.
 > Autoritou poslední změny je review
-> `MM3G-PROJECT-CACHE-LIFECYCLE`;
+> `MM3H-CONVERSATION-CACHE-LIFECYCLE`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná obrazovka tím není produktově DONE
@@ -390,6 +392,11 @@ acceptance zůstávají otevřené.
 > i potvrzenou boundary, starý array-only formát z ní žádný cursor nevymýšlí.
 > Zdrojová evidence: [MM3-D review](reviews/MM3D-CONVERSATION-LIST-PAGINATION.md).
 
+> **Implementační checkpoint MM3-H (2026-09-07):** metadata v `MS-06` jsou
+> `FRESH` 15 minut, poté označená `STALE` do 30 dnů a od 30 dnů `EXPIRED`.
+> Jde o read-only cache, nikoli serverovou autoritu. Zdrojová evidence:
+> [MM3-H review](reviews/MM3H-CONVERSATION-CACHE-LIFECYCLE.md).
+
 ---
 
 #### MS-07 — Detail konverzace
@@ -419,6 +426,13 @@ acceptance zůstávají otevřené.
 > protože sdílená validace zůstává blokovaná. Je-li
 > stávající kurzor u `/m1/conversations`
 > použitelný, není to změna veřejného kontraktu.
+
+> **Implementační checkpoint MM3-H (2026-09-07):** stažené S2 okno v `MS-07`
+> je `FRESH` 15 minut, poté označené `STALE` do sedmi dnů a od sedmi dnů
+> `EXPIRED`; expired obsah se smaže před vstupem do paměti nebo rendereru.
+> Exact thread DTO/cache validace a browser HTTP-cache izolace zůstávají
+> samostatně otevřené. Zdrojová evidence:
+> [MM3-H review](reviews/MM3H-CONVERSATION-CACHE-LIFECYCLE.md).
 
 ---
 

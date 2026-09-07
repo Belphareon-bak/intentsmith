@@ -15,8 +15,11 @@
 > MM3-G následně sjednocuje klientskou lifecycle politiku project list/detail
 > cache s `MD-02`: 15 minut `FRESH`, poté `STALE` až do sedmi dnů a od sedmi
 > dnů `EXPIRED`; route, DTO, scope ani mutation se nemění.
+> MM3-H odděluje `MD-03` conversation-list cache (15 minut / 30 dnů) a
+> `MD-04` S2 thread cache (15 minut / 7 dnů) a expired vlákno maže před
+> publikací; wire kontrakt ani mutation se nemění.
 > Autoritou poslední změny je review
-> `MM3G-PROJECT-CACHE-LIFECYCLE`;
+> `MM3H-CONVERSATION-CACHE-LIFECYCLE`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; **žádná produktová fáze není DONE**
@@ -395,6 +398,11 @@ sdílená validace zůstává blokovaná. Historické `WP-MOBILE-016` je
 `/m1/conversations` pro tento účel
 použitelný, **nejde o změnu veřejného kontraktu** a kontraktní kolo se kvůli
 tomu neotevírá.
+
+MM3-H (`6dd452f7`) navíc implementuje již přijatá lifecycle okna: `MD-03`
+15 minut fresh / 30 dnů do expiry a `MD-04` 15 minut fresh / sedm dnů do
+expiry. Expired S2 thread se maže před publikací. Neuzavírá tím exact thread
+DTO/cache validaci, browser HTTP cache, globální search ani device evidence.
 
 **K bodu 4 — `MR-07`, průběh běhu:** `BLOCKED_BY_CONTRACT`. Dnešní blokující
 `/m1/chat` a žurnál operací **nejsou agent log** — jedno je jedna odpověď

@@ -15,8 +15,10 @@
 > výřez, validovanou cache a ACK odemčený jen aktuálním live readem.
 > MM3-G sjednocuje project list/detail cache s `MD-02`: 15 minut fresh, stale
 > do sedmi dnů a od sedmi dnů expired se smazáním před publikací.
+> MM3-H odděluje `MD-03` metadata (15 minut / 30 dnů) od `MD-04` S2 vláken
+> (15 minut / 7 dnů) a expired vlákno smaže před renderem.
 > Autoritou poslední změny je review
-> `MM3G-PROJECT-CACHE-LIFECYCLE`;
+> `MM3H-CONVERSATION-CACHE-LIFECYCLE`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 > **MM4-G UI overlay:** karta workera nabízí Zapnout/Vypnout pouze s
@@ -63,6 +65,12 @@
 > text pojmenuje, zda backend potvrdil další aktivní, nebo archivované položky.
 > Chyba appendu zachová potvrzené řádky a nabízí refresh filtru od začátku;
 > pozdní odpověď předchozího filtru je inertní.
+
+> **MM3-H UI overlay:** seznam konverzací označí validovaná S1 metadata po
+> 15 minutách jako `STALE` a drží je nejvýše 30 dnů. Stažené S2 okno zpráv je
+> `STALE` od 15 minut nejvýše do sedmi dnů; expired vlákno se smaže před
+> publikací. Stale stav nikdy neodemkne mutaci a viditelná cursor boundary dál
+> rozlišuje stažené okno od úplné historie.
 
 > **MM3-F UI overlay:** projektový detail zobrazí pouze exact-validovaný DTO
 > svázaný s otevřeným id. Validní stale kopii explicitně označí jako
@@ -919,7 +927,9 @@ Token se nezobrazí nikdy, ani zkrácený, ani jako otisk (`C-9`).
 
 V detailu platí totéž na horním okraji zpráv. Odmítnutý kurzor (`CURSOR_UNKNOWN`,
 `restart: true`) vede na **plný refresh s viditelným vysvětlením**, ne na tiché
-dotažení chybějícího úseku.
+dotažení chybějícího úseku. List metadata jsou fresh 15 minut a expirují za
+30 dnů; S2 vlákno je fresh 15 minut a expiruje za sedm dnů. Po expiraci se
+obsah nesmí ani dočasně vyrenderovat.
 
 ### 6.4 `MS-08` — odeslání, hlavní UX problém (B-3)
 

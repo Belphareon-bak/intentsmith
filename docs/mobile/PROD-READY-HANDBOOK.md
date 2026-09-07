@@ -452,18 +452,22 @@ prošlo. Žádná project/chat mutation, search, run progress, fyzický WebView
 průchod ani security acceptance se tím netvrdí. Viz
 [MM3-C review](reviews/MM3C-PROJECT-CONVERSATIONS.md).
 
-### P1-3g Úplný globální seznam konverzací
+### P1-3g Úplný globální seznam a lifecycle konverzací
 
-Stav MM3-D: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`.
+Stav MM3-D/MM3-H: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`.
 Globální `GET /m1/conversations` už na klientovi nekončí prvními 50 řádky.
 UI zobrazuje potvrzenou partial boundary a vrací pouze opaque cursor vydaný
 serverem. Exact DTO, duplicita, překryv i pozdní stará odpověď selžou bez
 přepsání potvrzeného okna. S1 cache ukládá validované `{ items, page }`, umí
 přečíst starý array-only formát bez fabrikace cursoru a celá se maže při ztrátě
-`read:chat`. Klientská sada prošla 25/25; route, provider a scope se neměnily.
-Search, mutation, fyzický WebView průchod ani release acceptance se tím
-netvrdí. Viz
-[MM3-D review](reviews/MM3D-CONVERSATION-LIST-PAGINATION.md).
+`read:chat`. MM3-H navíc uplatňuje `MD-03` okno 15 minut fresh / 30 dnů do
+expiry a `MD-04` okno 15 minut fresh / sedm dnů do expiry; expired S2 vlákno
+smaže před publikací. Aktuální kombinovaná overview sada prošla 37/37 a historie
+16/16; route, provider a scope se neměnily. Plná exact thread/cache validace,
+browser HTTP-cache izolace, search, mutation, fyzický WebView průchod ani
+release acceptance se tím netvrdí. Viz
+[MM3-D review](reviews/MM3D-CONVERSATION-LIST-PAGINATION.md) a
+[MM3-H review](reviews/MM3H-CONVERSATION-CACHE-LIFECYCLE.md).
 
 ### P1-3h Úplné filtry projektů
 

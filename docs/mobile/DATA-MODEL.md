@@ -22,8 +22,10 @@
 > notification cache na přesnou sekvenční page boundary, přijímá pouze devět
 > S1 tvarů producenta a nikdy z cache neodvozuje ACK autoritu;
 > MM3-G navíc implementuje zde předepsané 15minutové fresh a sedmidenní expiry
-> okno pro list i detail projektu. Autoritou poslední změny je review
-> `MM3G-PROJECT-CACHE-LIFECYCLE`;
+> okno pro list i detail projektu. MM3-H implementuje oddělené okno konverzačního
+> seznamu (`MD-03`, 15 minut / 30 dnů) a zpráv (`MD-04`, 15 minut / 7 dnů) a
+> expirované S2 vlákno smaže před publikací. Autoritou poslední změny je review
+> `MM3H-CONVERSATION-CACHE-LIFECYCLE`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná produktová fáze není DONE
@@ -366,6 +368,11 @@ mohou zůstat označené jako cache, ale členství konverzací se z cache netvr
 > stávající logout/revoke/TTL pravidla trvalé cache. Zdrojová evidence:
 > [MM3-D review](reviews/MM3D-CONVERSATION-LIST-PAGINATION.md).
 >
+> **Implementační checkpoint MM3-H (2026-09-07):** `conversations` nyní
+> používá přesně tabulku výše: 15 minut `FRESH`, poté read-only `STALE` do
+> 30 dnů a od 30 dnů `EXPIRED`. Evidence:
+> [MM3-H review](reviews/MM3H-CONVERSATION-CACHE-LIFECYCLE.md).
+>
 > **Hledání (`MR-10`) nad `MD-03`/`MD-04`: `BLOCKED_BY_CONTRACT`**
 > (PLAN.md §5.1). **Hledání v cachovaném okně požadavek nesplňuje** — uživatel,
 > který nic nenajde, z toho nesmí usoudit, že hledaná věc neexistuje. Kontrakt
@@ -390,6 +397,13 @@ mohou zůstat označené jako cache, ale členství konverzací se z cache netvr
 | `E-EXPIRE` | ponechat do konce TTL, read-only |
 | `E-REVOKE` | smazat při zjištění |
 | Po ztrátě (`E-LOST`) | **čitelný obsah konverzací v rozsahu okna.** Nejcitlivější položka celého modelu |
+
+> **Implementační checkpoint MM3-H (2026-09-07):** každý
+> `thread.<conversationId>` nyní používá 15 minut `FRESH`, potom read-only
+> `STALE` do sedmi dnů a od sedmi dnů `EXPIRED`. Expired S2 obsah se smaže
+> dřív, než se dostane do paměti nebo rendereru. Exact validace celého thread
+> DTO/cache tvaru a HTTP-cache izolace jsou samostatné otevřené hranice. Evidence:
+> [MM3-H review](reviews/MM3H-CONVERSATION-CACHE-LIFECYCLE.md).
 
 > Okno je bezpečnostní parametr, ne výkonnostní. Čím delší, tím větší dopad
 > ztráty telefonu. Výchozí návrh **[R]**: posledních 200 zpráv na konverzaci,

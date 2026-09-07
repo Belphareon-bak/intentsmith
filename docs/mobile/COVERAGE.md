@@ -21,8 +21,11 @@
 > stránkování, validovanou cache a live-only ACK oddělený read/write scopy.
 > MM3-G následně sjednocuje projektový list/detail cache lifecycle s `MD-02`:
 > 15 minut fresh, sedm dní do expiry; membership konverzací zůstává live-only.
+> MM3-H vynucuje oddělenou `MD-03`/`MD-04` lifecycle: metadata konverzací jsou
+> fresh 15 minut a expirují za 30 dnů, S2 vlákna jsou fresh 15 minut a expirují
+> za sedm dnů; expirované vlákno se smaže před publikací.
 > Autoritou poslední změny je review
-> `MM3G-PROJECT-CACHE-LIFECYCLE`;
+> `MM3H-CONVERSATION-CACHE-LIFECYCLE`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 > **MM3-D coverage overlay:** globální `MS-06` nově skutečně spotřebuje
@@ -288,8 +291,8 @@ obrazovkový dopad v SCREENS §1.1.
 | Požadavek | Fáze | Stav | Poznámka |
 |---|---|---|---|
 | `MR-01`..`MR-03` | 0 | `IMPLEMENTED_LOCAL_UNREVIEWED` | Pairing, scope, diagnostika |
-| `MR-04`, `MR-06`, `MR-08`, `MR-09`, `MR-11` | 1 | `IMPLEMENTED_LOCAL_UNREVIEWED` | Šest z osmi oblastí Fáze 1 (spolu s částí `MR-05`) |
-| `MR-05` historie a stránkování | 1 | **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`** | **Aktualizováno 2026-08-12:** `MISSING_IMPLEMENTATION` už neplatí. Kurzorové stránkování v klientovi existuje (`loadOlderMessages`, `threadWindowOf`, `THREAD_PAGE_SIZE`), serverová kotva `anchor` také, a kryjí je `mobile-ms07-history`, `mobile-contract-pagination-end` a `mobile-contract-cursor-rejection` — všechny PASS na integračním kandidátu. **Produktově DONE to není:** sdílená validace zůstává blokovaná. Historické `WP-MOBILE-016` je `CHANGES_REQUIRED` a zůstává historickým záznamem |
+| `MR-04`, `MR-06`, `MR-08`, `MR-09`, `MR-11` | 1 | `IMPLEMENTED_LOCAL_UNREVIEWED` | Šest z osmi oblastí Fáze 1 (spolu s částí `MR-05`); MM3-H source-testuje `MD-03` 15min/30denní cache lifecycle, ale nemění status celé skupiny |
+| `MR-05` historie a stránkování | 1 | **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`** | Kurzorové stránkování, serverová kotva a boundary testy procházejí; MM3-H navíc source-testuje `MD-04` 15min/7denní lifecycle a mazání expired S2 před publikací (`mobile-ms07-history` 16/16). Plná exact thread integrita, HTTP-cache izolace, sdílená validace a device evidence zůstávají otevřené; historické `WP-MOBILE-016` zůstává `CHANGES_REQUIRED` |
 | `MR-07` průběh běhu | 1 | **`BLOCKED_BY_CONTRACT`** | Blokující `/m1/chat` ani žurnál operací **nejsou agent log**. Žádné UI do schválení kontraktu na zdroj dat o průběhu, jeho lifecycle a obnovu. Doména 5 kontraktního kola `DR-008` |
 | `MR-10` hledání | 1 | **`BLOCKED_BY_CONTRACT`** | **Lokální hledání nad načtenými stránkami požadavek nesplňuje.** Kontrakt musí určit rozsah, stránkování, autorizaci, klasifikaci dat a chování offline. Doména 6 kontraktního kola `DR-008` |
 | `MR-12`, `MR-13` | 2 | **`IMPLEMENTED / SOURCE TESTED / DEVICE TEST PENDING`** | MM4-A dodal live-only veřejné čtení, MM4-E revizně řízený zápis 11 UX preferencí a MM4-K exact 46-path read consumer s mutation relockem; 13/13 gateway/core a 17/17 UI scénářů PASS. Není to refreeze návrhu v2 ani obecný settings editor |
