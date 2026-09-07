@@ -6,8 +6,9 @@
 > `PUT /m1/settings` a create-only `POST /m1/memory` obsahuje precondition-checked
 > `PUT /m1/workers/:id/enabled` a metadata-only
 > `GET /m1/workers/:id/runs` a live-only
-> `GET /m1/specialists/:id`. Autoritou poslední změny je review
-> `MM4I-SPECIALIST-DETAIL`;
+> `GET /m1/specialists/:id`. MM3-D následně doplnilo klientské pokrytí úplného
+> global conversation-list cursoru bez změny route. Autoritou poslední změny
+> je review `MM3D-CONVERSATION-LIST-PAGINATION`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 > **MM4-G evidence overlay:** `mobile-workers-specialists` (12/12) pokrývá
@@ -37,6 +38,13 @@
 > loading/error/empty/lock stavy, automatický drill-down, nepřekrývající se
 > append, memory-only lifecycle a absenci mutation controls. Celý mobilní gate
 > zůstává 54/54 active s jednou Chromium prerequisite sadou withheld.
+
+> **MM3-D evidence overlay:** `mobile-overview` (25/25) kryje viditelnou
+> partial boundary, exact page/row tvar, duplicate a overlap rejection,
+> server-issued cursor append, per-page cache snapshot, scope wipe, souběžný
+> newest-response-wins guard a migraci array-only cache bez vymyšleného
+> cursoru. Backendový pagination/cursor kontrakt dál kryjí existující sady
+> 21/21 a 10/10; nová route ani testovací program nevznikly.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; mobilní zeleň není Gate 0 PASS
 **Revize:** vstupy `RV-028`, `RV-036`, `RV-037`, reconciliation `RV-038`; Composition Review C `RV-039`/`RV-040`; registr a chráněné hodnoty `RV-042`/`RV-043`

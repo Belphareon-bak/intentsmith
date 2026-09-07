@@ -394,6 +394,19 @@ prošlo. Žádná project/chat mutation, search, run progress, fyzický WebView
 průchod ani security acceptance se tím netvrdí. Viz
 [MM3-C review](reviews/MM3C-PROJECT-CONVERSATIONS.md).
 
+### P1-3g Úplný globální seznam konverzací
+
+Stav MM3-D: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`.
+Globální `GET /m1/conversations` už na klientovi nekončí prvními 50 řádky.
+UI zobrazuje potvrzenou partial boundary a vrací pouze opaque cursor vydaný
+serverem. Exact DTO, duplicita, překryv i pozdní stará odpověď selžou bez
+přepsání potvrzeného okna. S1 cache ukládá validované `{ items, page }`, umí
+přečíst starý array-only formát bez fabrikace cursoru a celá se maže při ztrátě
+`read:chat`. Klientská sada prošla 25/25; route, provider a scope se neměnily.
+Search, mutation, fyzický WebView průchod ani release acceptance se tím
+netvrdí. Viz
+[MM3-D review](reviews/MM3D-CONVERSATION-LIST-PAGINATION.md).
+
 ### P1-4 Push, nebo přiznané pull-only
 
 | | |
@@ -547,7 +560,8 @@ jiného, telefon nemá zámek obrazovky — a to je nález, ne detail.
 
 - Handbook sám nezavádí kontrakt. Aktuální přesný allow-list má 26 rout;
   poslední specialist-detail routu přidal MM4-I a MM3-C následně rozšířilo
-  existující conversation-list query bez přidání routy, ne tento dokument.
+  existující conversation-list query bez přidání routy. MM3-D pouze doplnilo
+  klientského konzumenta jejího už existujícího cursoru, ne tento dokument.
 - Žádný termín. Termíny patří operátorovi; tady jsou jen závislosti a pořadí.
 - Žádné „nice to have". Každá položka výše má popsaný způsob, jak selže —
   když ho někdo nedokáže popsat u nové položky, do seznamu nepatří.

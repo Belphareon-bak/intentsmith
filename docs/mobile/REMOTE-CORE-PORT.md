@@ -2,12 +2,18 @@
 
 Status: `CANDIDATE_V1`
 
-Latest implementation checkpoint: MM3-C (`701308d8`) extends the existing
+Latest port implementation checkpoint: MM3-C (`701308d8`) extends the existing
 `conversations.read` list operation with a closed optional project filter.
 Opaque pagination streams are bound to the selected project and the filtered
 gateway read requires both `read:chat` and `read:projects`. This is an additive
 candidate implementation, not a contract freeze; see
 [`reviews/MM3C-PROJECT-CONVERSATIONS.md`](reviews/MM3C-PROJECT-CONVERSATIONS.md).
+
+Latest consumer checkpoint: MM3-D (`34bc19de`) changes no port input, output
+or provider. It makes the mobile global-list client consume the already
+returned opaque cursor, validate every versioned page and persist only the
+confirmed S1 window plus its boundary. See
+[`reviews/MM3D-CONVERSATION-LIST-PAGINATION.md`](reviews/MM3D-CONVERSATION-LIST-PAGINATION.md).
 
 `RemoteCorePort` is the core-owned, in-process boundary used by the mobile
 gateway. It is deliberately narrower than the desktop HTTP listener: a mobile

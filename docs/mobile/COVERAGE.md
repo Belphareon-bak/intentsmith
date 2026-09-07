@@ -8,9 +8,16 @@
 > `GET /m1/workers/:id/runs` a live-only
 > `GET /m1/specialists/:id`. MM3-C navíc doplnilo živý
 > project-to-conversation drill-down přes existující route, se dvěma scopy,
-> per-project cursorem a bez persistentní cache. Autoritou poslední změny je
-> review `MM3C-PROJECT-CONVERSATIONS`;
+> per-project cursorem a bez persistentní cache. MM3-D doplnilo globální
+> cursor consumer a validovanou page cache. Autoritou poslední změny je review
+> `MM3D-CONVERSATION-LIST-PAGINATION`;
 > wildcard ani obecný `/api` proxy nevznikl.
+
+> **MM3-D coverage overlay:** globální `MS-06` nově skutečně spotřebuje
+> existující conversation-list cursor. `mobile-overview` (25/25) pokrývá
+> partial/end UI, exact DTO, duplicate/overlap fail closure, append pořadí,
+> concurrency, cache boundary, legacy cache a scope invalidaci. Nejde o
+> globální search coverage ani device důkaz; backend inventory se nezměnil.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; tato matice není sama evidence a žádný produktový požadavek zde není DONE
 **Revize:** vstupy `RV-028`, `RV-036`, `RV-037`, reconciliation `RV-038`; Composition Review C `RV-039`/`RV-040`; registr a chráněné hodnoty `RV-042`/`RV-043`

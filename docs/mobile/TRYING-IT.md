@@ -224,6 +224,24 @@ Detail a historii agenta zkontroluj v **Agenti → Detail a historie**:
 Přesná projekce, kurzorový kontrakt, negativní scénáře a non-claims jsou v
 [MM4-H review](reviews/MM4H-WORKER-RUN-HISTORY.md).
 
+### Globální seznam konverzací (MM3-D)
+
+1. Otevři **Konverzace** s více než 50 nesmazanými konverzacemi. Pod první
+   dávkou musí být věta, že seznam je výřez, a tlačítko **Načíst další**.
+2. Stisk načte přesně další stránku vydaným serverovým cursorem; existující
+   řádky zůstanou ve stejném pořadí a žádný se nesmí zdvojit.
+3. Po potvrzeném konci tlačítko zmizí. Samotný počet řádků nesmí konec ani
+   pokračování odhadnout.
+4. Odpoj síť před dalším načtením: potvrzené S1 okno zůstane označené jako
+   cache, chyba se ukáže inline a obnova začne vědomě od hlavy.
+5. Odeber `read:chat`: seznam, page boundary i persistentní cache musí zmizet.
+   Po navrácení scope je nutný nový serverový read.
+6. Starší instalace s array-only cache smí řádky během upgradu přečíst, ale
+   nesmí z ní nabídnout **Načíst další**, dokud server nevydá nový cursor.
+
+Přesná validace, cache migrace a negativní cursor scénáře jsou v
+[MM3-D review](reviews/MM3D-CONVERSATION-LIST-PAGINATION.md).
+
 ### Konverzace projektu (MM3-C)
 
 1. Spáruj zařízení se scopy `read:projects` i `read:chat`, otevři **Projekty**

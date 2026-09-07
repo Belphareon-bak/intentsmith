@@ -9,8 +9,9 @@
 > `GET /m1/specialists/:id`. MM3-C navíc rozšířilo existující
 > `GET /m1/conversations` o uzavřený `projectId` filtr. Projektový seznam
 > konverzací je memory-only, má request/response `no-store` a mizí při ztrátě
-> scope, relace, uzamčení aplikace nebo spojení. Autoritou poslední změny je review
-> `MM3C-PROJECT-CONVERSATIONS`;
+> scope, relace, uzamčení aplikace nebo spojení. MM3-D poté doplnilo validovaný
+> page snapshot globální S1 cache a úplný cursorový průchod. Autoritou poslední
+> změny je review `MM3D-CONVERSATION-LIST-PAGINATION`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná produktová fáze není DONE
@@ -309,6 +310,16 @@ mohou zůstat označené jako cache, ale členství konverzací se z cache netvr
 > **Titulek konverzace je odvozený z obsahu.** Formálně metadata, prakticky
 > často shrnutí toho nejcitlivějšího. Proto se `MD-03` chová jako S1 s poznámkou:
 > pro účely §5 se s ním zachází jako s obsahem.
+>
+> **Implementační checkpoint MM3-D (2026-09-06):** globální seznam ukládá
+> validovaný snapshot `{ items, page }`, kde `page` je poslední serverem
+> potvrzené `hasMore`/`nextCursor`/`end`. Další stránku smí vyžádat jen opaque
+> cursorem z tohoto snapshotu; počet řádků ani starý array-only formát nesmí
+> vytvořit domnělý cursor nebo konec. Neplatná a překrývající se stránka
+> poslední potvrzené okno nepřepíše. Odebrání `read:chat` maže paměť, boundary
+> i tuto S1 cache; lock maže paměť a zneplatní rozběhnuté čtení, ale dodržuje
+> stávající logout/revoke/TTL pravidla trvalé cache. Zdrojová evidence:
+> [MM3-D review](reviews/MM3D-CONVERSATION-LIST-PAGINATION.md).
 >
 > **Hledání (`MR-10`) nad `MD-03`/`MD-04`: `BLOCKED_BY_CONTRACT`**
 > (PLAN.md §5.1). **Hledání v cachovaném okně požadavek nesplňuje** — uživatel,

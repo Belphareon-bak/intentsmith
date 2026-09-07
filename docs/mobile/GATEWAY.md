@@ -226,6 +226,14 @@ Filtrovaná odpověď má `Cache-Control: no-store`; nový `/api` proxy ani
 projektová či konverzační mutation autorita nevznikly. Úplná hranice a testy
 jsou v `reviews/MM3C-PROJECT-CONVERSATIONS.md`.
 
+### Globální conversation-list consumer
+
+MM3-D (`34bc19de`) nemění gateway, allow-list ani `RemoteCorePort`. Klient
+nově spotřebuje `hasMore`, `nextCursor` a `end`, které globální
+`GET /m1/conversations` už vydával, a odmítá neplatný nebo překrývající se
+page. Opaque cursor nepočítá ani neupravuje. Úplná klientská hranice a testy
+jsou v `reviews/MM3D-CONVERSATION-LIST-PAGINATION.md`.
+
 ---
 
 ## 4. Routy

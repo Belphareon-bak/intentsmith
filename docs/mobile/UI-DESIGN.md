@@ -35,6 +35,13 @@
 > serverovým cursorem a řádek otevírá existující chat. Seznam není offline
 > cache a UI nenabízí vytvoření ani přiřazení konverzace.
 
+> **MM3-D UI overlay:** globální obrazovka **Konverzace** ukazuje
+> **Načíst další** jen nad serverem potvrzeným `hasMore` a opaque cursorem a
+> současně vysvětluje, že jde o výřez. Během appendu je ovládání zamčené. Chyba
+> další stránky nechává poslední potvrzené řádky čitelné a nabízí **Načíst od
+> začátku**; potvrzené prázdno se nad chybou nikdy nevyrábí. Scope loss stáhne
+> řádky, page boundary i S1 cache.
+
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; UI tím není produktově DONE
 **Datum a revize:** 2026-08-01 · vstupy `RV-028`, `RV-036`, `RV-037`, reconciliation `RV-038`; Composition Review C `RV-039`/`RV-040`; registr a chráněné hodnoty `RV-042`/`RV-043`
 **Stavová evidence:** 13 rout na produktovém commitu `4553b3ee`; registr `362`, `C3-031=7`, `C3-032=5`, `offline=178`, `database=33`, required ACTIVE deterministic `211`; všech 11 mobilních programů a `schema-migrations` PASS, ale celý profil skončil exit `1`, `208 PASS / 3 FAIL` kvůli `F-115` a `F-116`; žádný Gate 0 PASS, verdikt ani handoff nebyl vydán, fáze 3A je `NOT DONE`, `F-100` blokuje produkci a `GAP-2` zůstává otevřená

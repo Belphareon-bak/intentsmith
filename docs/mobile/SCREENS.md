@@ -9,7 +9,8 @@
 > `GET /m1/specialists/:id`. MM3-C navíc doplnilo detail projektu o živý,
 > stránkovaný seznam jeho konverzací přes existující route. Vyžaduje
 > `read:projects` i `read:chat`, otevírá stávající chat a nepřidává mutaci.
-> Autoritou poslední změny je review `MM3C-PROJECT-CONVERSATIONS`;
+> MM3-D následně uzavřelo truncation globálního seznamu přes existující cursor.
+> Autoritou poslední změny je review `MM3D-CONVERSATION-LIST-PAGINATION`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná obrazovka tím není produktově DONE
@@ -361,6 +362,14 @@ ochrana, producer/projektor a Gate 1 důkazy chybějí.
 | `SS-08` | Cache zůstává čitelná, ukazatel „server neodpovídá" |
 | `SS-09` | Konverzace přejmenovaná či archivovaná jinde → převezmi serverový stav |
 | `SS-10` | Refresh je bezpečný vždy; stránkování se opakuje od posledního potvrzeného kurzoru (`MD-13`) |
+
+> **Implementační checkpoint MM3-D (2026-09-06):** `MS-06` už nekončí po
+> prvních 50 řádcích. Pokud backend vrátí `hasMore: true` a opaque cursor, UI
+> výslovně řekne, že seznam je výřez, a nabídne právě jedno **Načíst další**.
+> Stránka s neplatným exact tvarem, duplicitou nebo překryvem je protokolová
+> chyba a nezmění potvrzené okno; pozdní starší refresh je inertní. Cache nese
+> i potvrzenou boundary, starý array-only formát z ní žádný cursor nevymýšlí.
+> Zdrojová evidence: [MM3-D review](reviews/MM3D-CONVERSATION-LIST-PAGINATION.md).
 
 ---
 
