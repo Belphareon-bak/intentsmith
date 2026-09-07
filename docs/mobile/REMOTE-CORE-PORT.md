@@ -10,9 +10,9 @@ candidate implementation, not a contract freeze; see
 [`reviews/MM3C-PROJECT-CONVERSATIONS.md`](reviews/MM3C-PROJECT-CONVERSATIONS.md).
 
 Latest consumer checkpoints MM3-D (`34bc19de`), MM3-E (`075f5eb7`), MM4-J
-(`acff7939`) and MM3-F (`a08d0dd0`) change no port input, output or provider.
-They make the mobile
-client consume already returned opaque cursors for the global conversation
+(`acff7939`), MM3-F (`a08d0dd0`) and MM4-K (`99cdfdde`) change no port input,
+output or provider. They make the mobile client consume already returned
+opaque cursors for the global conversation
 list, active/archive project filters and worker/specialist lists; validate
 every versioned page; and persist only the confirmed S1 window plus its
 boundary. MM4-J also rejects hidden configured-resource fields, duplicate or
@@ -25,6 +25,10 @@ MM3-F additionally binds the existing project-detail DTO to its requested id,
 validates live and cached snapshots, distinguishes conclusive not-found from
 ambiguous failure and prevents a late route generation from publishing. See
 [`reviews/MM3F-PROJECT-DETAIL-INTEGRITY.md`](reviews/MM3F-PROJECT-DETAIL-INTEGRITY.md).
+MM4-K validates the existing settings read as an exact versioned DTO and binds
+its 46 accepted public paths directly to the core owner-map export before the
+document can render or support the separate revisioned writer. See
+[`reviews/MM4K-PUBLIC-SETTINGS-INTEGRITY.md`](reviews/MM4K-PUBLIC-SETTINGS-INTEGRITY.md).
 
 `RemoteCorePort` is the core-owned, in-process boundary used by the mobile
 gateway. It is deliberately narrower than the desktop HTTP listener: a mobile

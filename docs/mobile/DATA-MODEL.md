@@ -14,7 +14,9 @@
 > state-bound page snapshots projektů. MM4-J uzavírá worker/specialist list
 > snapshots exact DTO a page-boundary validací. MM3-F nyní stejnou exact
 > validaci, id binding a failure semantics uplatňuje na detail projektu.
-> Autoritou poslední změny je review `MM3F-PROJECT-DETAIL-INTEGRITY`;
+> MM4-K nyní ověřuje exact live-only settings DTO a celý 46-path public owner
+> map před publikací nebo odemčením editoru. Autoritou poslední změny je review
+> `MM4K-PUBLIC-SETTINGS-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná produktová fáze není DONE
@@ -207,6 +209,15 @@ Značení: `MD-xx`. Sloupec „Offline změny" používá:
 > 11 cest `UX_PREFERENCES_V1`, nad přesnou revizí a s `operationId`; konflikt se
 > nepřepisuje a nejasný výsledek se automaticky neopakuje. Viz
 > `reviews/MM4E-REVISIONED-SETTINGS-WRITE.md`.
+
+> **Implementační checkpoint MM4-K (2026-09-07):** live response se publikuje
+> pouze jako exact `{ revision, settings, version }` s pozitivní safe-integer
+> revizí, `v1:` verzí a konečnými JSON hodnotami výhradně na všech 46
+> core-owned veřejných cestách. Klientská kopie allow-listu se v testu přímo
+> porovnává s core exportem. Unknown/private nebo neplatná vnořená data odmítnou
+> celý read a neodemknou 11-path MM4-E editor. Cache tím nevzniká a route,
+> scope, port ani wire se nemění. Zdrojová evidence:
+> [MM4-K review](reviews/MM4K-PUBLIC-SETTINGS-INTEGRITY.md).
 
 **`R-5` uzavřeno — jednoznačně a všude:** tabulka dělení v PLAN.md **§5.4** je
 **závazná**. Celá Security sekce a feature flags na telefon nepatří. `R-5` není

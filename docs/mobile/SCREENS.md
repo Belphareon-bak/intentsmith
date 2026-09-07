@@ -13,7 +13,8 @@
 > MM3-E totéž uzavírá odděleně pro aktivní a archivované projekty. MM4-J
 > uzavírá exact list/cache integritu workerů a specialistů. MM3-F nyní uzavírá
 > exact live/cache hranici detailu projektu, jeho not-found a route-race stav.
-> Autoritou poslední změny je review `MM3F-PROJECT-DETAIL-INTEGRITY`;
+> MM4-K nyní uzavírá exact live-only settings read a fail-closed editor relock.
+> Autoritou poslední změny je review `MM4K-PUBLIC-SETTINGS-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná obrazovka tím není produktově DONE
@@ -462,6 +463,13 @@ ochrana, producer/projektor a Gate 1 důkazy chybějí.
 > zápis zamykají. Následující historický kontraktní blok neznamená refreeze v2;
 > aktuální evidence je `reviews/MM4E-REVISIONED-SETTINGS-WRITE.md`.
 
+> **Implementační checkpoint MM4-K (2026-09-07):** `MS-10` přijme jen exact
+> `{ revision, settings, version }` a všech 46 core-owned public paths.
+> Klientská allow-list se testem přímo váže na core export. Unknown/private
+> pole, neplatná nested data, revize, verze nebo non-finite JSON stáhnou celý
+> read jako protocol failure a `MS-11` zůstane zamčené. Read je stále live-only
+> bez cache. Evidence: [MM4-K review](reviews/MM4K-PUBLIC-SETTINGS-INTEGRITY.md).
+
 > `DR-008` autorizovalo jen společný návrh kontraktu. `MS-10` a `MS-11` se
 > nestaví, dokud nebude kontrakt nezávisle schválený a refrozen jako v2,
 > nebudou splněné příslušné Gate 1 závislosti a nevznikne samostatný Work
@@ -476,13 +484,13 @@ ochrana, producer/projektor a Gate 1 důkazy chybějí.
 | Stav | Chování |
 |---|---|
 | `SS-01` | Skeleton sekcí |
-| `SS-02` | Nenastane — nastavení má vždy hodnoty |
-| `SS-03` | Hodnoty ze cache, **ovládací prvky neaktivní** |
-| `SS-04` | Stáří viditelné; editace zamčená do refreshe |
+| `SS-02` | Exact validovaný prázdný public dokument má explicitní empty stav; neplatný dokument se za prázdný nevydává |
+| `SS-03` | Serverové nastavení je na této větvi live-only; persistentní cache se nevytváří |
+| `SS-04` | Neaplikuje se — settings snapshot je buď potvrzený live, nebo se celý stáhne; editor bez něj zůstává zamčený |
 | `SS-05` | Refresh při návratu na obrazovku |
 | `SS-06` | Jako `MS-06` |
 | `SS-07` | Desktop-only sekce se **nezobrazují vůbec** — nejsou to uzamčené prvky, na telefon nepatří. Dělení je závazné (`R-5`, `R5-1`) |
-| `SS-08` | Cache čitelná, editace neaktivní |
+| `SS-08` | Bez živého exact validovaného dokumentu není co číst ani editovat; retry provede nový safe read |
 | `SS-09` | Hodnota změněná na desktopu → **převzít serverovou** (`R5-4`) a u bezpečnostně významné hodnoty to **zobrazit**, ne přepsat potichu |
 | `SS-10` | Čtení, bezpečné |
 

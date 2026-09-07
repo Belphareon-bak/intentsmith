@@ -10,7 +10,8 @@
 > global conversation-list cursoru bez změny route a MM3-E stejné důkazy pro
 > oddělené project-state streamy. MM4-J doplňuje exact fail-closed list/cache
 > důkazy pro workers/specialists a MM3-F pro live/cached project detail.
-> Autoritou poslední změny je review `MM3F-PROJECT-DETAIL-INTEGRITY`;
+> MM4-K doplňuje exact 46-path public-settings read a editor-relock důkazy.
+> Autoritou poslední změny je review `MM4K-PUBLIC-SETTINGS-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 > **MM4-G evidence overlay:** `mobile-workers-specialists` (12/12) pokrývá
@@ -67,6 +68,12 @@
 > conclusive `not_found`, route departure a same-project response race.
 > `mobile-projects` zůstává 11/11; route, scope, port ani nový testovací program
 > nevznikly. Aktuální cache TTL se neměnilo a delší cíl `MD-02` se netvrdí.
+
+> **MM4-K evidence overlay:** `mobile-settings-ui` (17/17) kryje exact settings
+> DTO, přímou shodu 46-path klientské allow-list s core exportem, flat/nested
+> unknown fields, finite JSON, HTTP 200/envelope, mutation relock, scope
+> withdrawal a response race. `mobile-settings` zůstává 13/13; settings jsou
+> stále live-only a route, scope, port ani testovací program se neměnily.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; mobilní zeleň není Gate 0 PASS
 **Revize:** vstupy `RV-028`, `RV-036`, `RV-037`, reconciliation `RV-038`; Composition Review C `RV-039`/`RV-040`; registr a chráněné hodnoty `RV-042`/`RV-043`

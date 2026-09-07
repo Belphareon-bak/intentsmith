@@ -7,8 +7,9 @@
 > `PUT /m1/workers/:id/enabled` a metadata-only
 > `GET /m1/workers/:id/runs` a live-only
 > `GET /m1/specialists/:id`. MM4-J zpřísňuje klientské list/cache hranice bez
-> nové route a MM3-F totéž pro live/cached detail projektu. Autoritou poslední
-> změny je review `MM3F-PROJECT-DETAIL-INTEGRITY`;
+> nové route a MM3-F totéž pro live/cached detail projektu.
+> MM4-K zpřísňuje live-only settings read a editor relock. Autoritou poslední
+> změny je review `MM4K-PUBLIC-SETTINGS-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 > **MM4-G UI overlay:** karta workera nabízí Zapnout/Vypnout pouze s
@@ -62,6 +63,12 @@
 > znovu**. Expired/corrupt cache, definitivní `not_found`, ztráta scope a
 > pozdní response po opuštění obrazovky se nesmějí renderovat. Konverzační
 > sekce zůstává oddělená live-only plocha.
+
+> **MM4-K UI overlay:** karta **Nastavení backendu** renderuje jen exact
+> validovaný live dokument nad 46-path core public owner map. Malformed nebo
+> neznámá data se nevykreslí částečně jako „prázdná“; zobrazí failure/retry a
+> všechny revizní write controls zůstanou zamčené. Platný prázdný dokument má
+> vlastní explicitní empty stav. Persistentní settings cache nevzniká.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; UI tím není produktově DONE
 **Datum a revize:** 2026-08-01 · vstupy `RV-028`, `RV-036`, `RV-037`, reconciliation `RV-038`; Composition Review C `RV-039`/`RV-040`; registr a chráněné hodnoty `RV-042`/`RV-043`

@@ -177,6 +177,22 @@ Revizní zápis nastavení zkontroluj v **Nastavení → Nastavení backendu**:
 Přesný allow-list, recovery pravidla a non-claims jsou v
 [MM4-E review](reviews/MM4E-REVISIONED-SETTINGS-WRITE.md).
 
+Integritu čtení nastavení (MM4-K) zkontroluj ve stejné kartě:
+
+1. validní live dokument smí obsahovat jen `revision`, `settings`, `version` a
+   jednu ze 46 veřejných core cest;
+2. přidej simulovanou private cestu, neznámý nested child, extra top-level pole,
+   neplatnou revizi/verzi nebo non-finite hodnotu — celý read musí skončit jako
+   protocol chyba a hodnota se nesmí vyrenderovat;
+3. i se scope `write:settings` musí malformed read skrýt všechny save controls;
+4. HTTP 201 nebo success bez přesné obálky se nesmí vydávat za úspěšné čtení;
+5. ze dvou souběžných readů smí publikovat jen novější generace a scope
+   withdrawal musí dokument ihned stáhnout;
+6. ověř, že se `settings` nikdy nezapsalo pod mobilní cache key.
+
+Exact DTO, 46-path drift ratchet a mutation relock jsou v
+[MM4-K review](reviews/MM4K-PUBLIC-SETTINGS-INTEGRITY.md).
+
 Create-only paměť zkontroluj v **Nastavení → Uchovávané informace**:
 
 1. bez `write:memory` musí karta zůstat pouze pro čtení; formulář se smí ukázat

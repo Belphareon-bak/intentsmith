@@ -128,6 +128,9 @@ MM3-F v `a08d0dd0` vyžaduje exact public DTO a requested id také u live/cached
 detailu, rozlišuje nejednoznačné selhání od definitivního `not_found` a blokuje
 pozdní response po odchodu z route. Delší cílová cache politika `MD-02` tím
 zatím implementována není.
+MM4-K v `99cdfdde` uzavírá live-only settings consumer: exact DTO a celý
+46-path public owner map se ověří před renderem i před odemčením samostatného
+11-path revizního editoru; klientský seznam test přímo váže na core export.
 Aktuální binární build a fyzický device journey však stále neproběhly, takže
 jde o implementovaný kandidát, ne release verdict.
 
@@ -143,7 +146,7 @@ jde o implementovaný kandidát, ne release verdict.
 | Android shell | `IMPLEMENTED AND STATICALLY TESTED`; current binary not rebuilt | Capacitor 8.4.3, minSdk 24, compile/target 36; canonical client is packaged in the APK and native HTTP transport keeps the gateway behind `/m1` without CORS widening | current API-36 binary and device journey remain unverified |
 | Token at rest | `SOURCE TESTED; DEVICE TEST PENDING` | přímý `AndroidKeyStore` AES-256-GCM trezor, náhodné IV, AAD, atomické skupiny a vypnutý backup; nativní shell nikdy nepadá do `localStorage` | 12/12 invariantů a 19/19 klientských scénářů PASS; tři instrumentační testy jsou napsané, ale bez SDK/zařízení `NOT RUN`; mezi odemčením a zamčením kopie v JS paměti existuje |
 | Spárovaná zařízení | `SOURCE TESTED; DEVICE TEST PENDING` | veřejný DTO seznam bez credential materialu; scope-gated, operation-keyed revoke; atomický self-revoke a následný vault wipe; 8/8 gateway + 11/11 UI | `write:devices` je denial-of-access authority; nejde o remote wipe ani desktop admin UI; fyzický lost-device journey `NOT RUN` |
-| Nastavení backendu | `SOURCE TESTED; DEVICE TEST PENDING` | live-only veřejné čtení; zápis 11 UX preferencí nad očekávanou revizí; 13/13 gateway/core + 13/13 UI | `write:settings` není default; nejde o obecný settings/security/model editor ani refreeze návrhu v2; fyzický WebView journey `NOT RUN` |
+| Nastavení backendu | `SOURCE TESTED; DEVICE TEST PENDING` | exact live-only čtení všech 46 core-owned public paths; zápis 11 UX preferencí nad očekávanou revizí; 13/13 gateway/core + 17/17 UI | `write:settings` není default; malformed read editor neodemkne; nejde o obecný settings/security/model editor ani refreeze návrhu v2; fyzický WebView journey `NOT RUN` |
 | Uchovávané informace | `SOURCE TESTED; DEVICE TEST PENDING` | filtrované LTM/task-memory čtení a online vytvoření nové explicitní LTM položky; 12/12 gateway/core + 14/14 UI | `write:memory` není default; žádná náhrada, smazání, zápis task memory ani interní kategorie; fyzický WebView journey `NOT RUN` |
 | Globální seznam konverzací | `SOURCE TESTED; DEVICE TEST PENDING` | kompletní cursorový průchod po 50, exact page validation, overlap/concurrency guard a validovaná S1 cache boundary; 25/25 klientských scénářů | není globální search ani mutation; fyzický WebView journey zůstává otevřený |
 | Projekty a jejich konverzace | `PARTIAL / SOURCE TESTED; DEVICE TEST PENDING` | read-only projektový seznam/detail s exact live/cache validací, úplné active/archive cursorové filtry a živý drill-down přiřazených konverzací; 11/11 gateway/core + 30/30 UI | detail používá dnešní 1min/15min klientské cache window, nikoli zatím delší cíl `MD-02`; členství konverzací je memory-only; create/assign/edit/archive/delete, search, wire freeze a fyzický WebView journey zůstávají otevřené |

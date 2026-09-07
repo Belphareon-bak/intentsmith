@@ -254,6 +254,13 @@ Corrupt/expired cache, conclusive `not_found`, scope loss a pozdní response po
 odchodu z route se nesmějí publikovat. Viz
 `reviews/MM3F-PROJECT-DETAIL-INTEGRITY.md`.
 
+MM4-K (`99cdfdde`) je další consumer-only zpřísnění. Existující live-only
+`GET /m1/settings` nyní klient přijme jen jako HTTP 200 success envelope s
+exact `{ revision, settings, version }` a 46-path public owner map shodnou s
+core exportem. Unknown/private pole nebo malformed hodnota se nerenderuje a
+nemůže odemknout MM4-E writer. Gateway, provider a wire se neměnily. Viz
+`reviews/MM4K-PUBLIC-SETTINGS-INTEGRITY.md`.
+
 ---
 
 ## 4. Routy

@@ -13,7 +13,9 @@
 > project-state streamy. MM4-J fail-closed ověřuje celé worker/specialist list
 > pages a jejich cache boundaries. MM3-F nyní stejnou exact hranici aplikuje
 > na live i cached detail projektu, včetně requested-id, not-found a route-race
-> chování. Autoritou poslední změny je review `MM3F-PROJECT-DETAIL-INTEGRITY`;
+> chování. MM4-K nyní fail-closed ověřuje exact live-only settings DTO a všech
+> 46 core-owned public paths. Autoritou poslední změny je review
+> `MM4K-PUBLIC-SETTINGS-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 > **MM3-D coverage overlay:** globální `MS-06` nově skutečně spotřebuje
@@ -40,6 +42,13 @@
 > deletion, protocol-safe zachování potvrzeného detailu, definitivní
 > `not_found`, odchod z route a newest-generation-wins. Backend zůstává 11/11;
 > route, scope, wire ani mutation povrch se neměnily.
+
+> **MM4-K coverage overlay:** `MS-10` přijme pouze HTTP 200 success envelope,
+> exact `{ revision, settings, version }`, pozitivní revizi, `v1:` verzi a
+> public owner map shodnou s core exportem. `mobile-settings-ui` (17/17) kryje
+> flat/nested path drift, hidden fields, finite JSON, protocol failure,
+> write-control relock, scope withdrawal a newest-generation-wins. Backend
+> zůstává 13/13; route, scope, port, cache ani mutation se neměnily.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; tato matice není sama evidence a žádný produktový požadavek zde není DONE
 **Revize:** vstupy `RV-028`, `RV-036`, `RV-037`, reconciliation `RV-038`; Composition Review C `RV-039`/`RV-040`; registr a chráněné hodnoty `RV-042`/`RV-043`
@@ -254,7 +263,7 @@ obrazovkový dopad v SCREENS §1.1.
 | `MR-05` historie a stránkování | 1 | **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`** | **Aktualizováno 2026-08-12:** `MISSING_IMPLEMENTATION` už neplatí. Kurzorové stránkování v klientovi existuje (`loadOlderMessages`, `threadWindowOf`, `THREAD_PAGE_SIZE`), serverová kotva `anchor` také, a kryjí je `mobile-ms07-history`, `mobile-contract-pagination-end` a `mobile-contract-cursor-rejection` — všechny PASS na integračním kandidátu. **Produktově DONE to není:** sdílená validace zůstává blokovaná. Historické `WP-MOBILE-016` je `CHANGES_REQUIRED` a zůstává historickým záznamem |
 | `MR-07` průběh běhu | 1 | **`BLOCKED_BY_CONTRACT`** | Blokující `/m1/chat` ani žurnál operací **nejsou agent log**. Žádné UI do schválení kontraktu na zdroj dat o průběhu, jeho lifecycle a obnovu. Doména 5 kontraktního kola `DR-008` |
 | `MR-10` hledání | 1 | **`BLOCKED_BY_CONTRACT`** | **Lokální hledání nad načtenými stránkami požadavek nesplňuje.** Kontrakt musí určit rozsah, stránkování, autorizaci, klasifikaci dat a chování offline. Doména 6 kontraktního kola `DR-008` |
-| `MR-12`, `MR-13` | 2 | **`IMPLEMENTED / SOURCE TESTED / DEVICE TEST PENDING`** | MM4-A dodal live-only veřejné čtení a MM4-E revizně řízený zápis 11 UX preferencí; 13/13 gateway/core a 13/13 UI scénářů PASS. Není to refreeze návrhu v2 ani obecný settings editor |
+| `MR-12`, `MR-13` | 2 | **`IMPLEMENTED / SOURCE TESTED / DEVICE TEST PENDING`** | MM4-A dodal live-only veřejné čtení, MM4-E revizně řízený zápis 11 UX preferencí a MM4-K exact 46-path read consumer s mutation relockem; 13/13 gateway/core a 17/17 UI scénářů PASS. Není to refreeze návrhu v2 ani obecný settings editor |
 | `MR-14` projekty | **3B** | **`PARTIAL / SOURCE TESTED / DEVICE TEST PENDING`** | MM3-A přidal read-only seznam/detail; MM3-C živý project-to-conversation drill-down; MM3-E úplné state-bound listy; MM3-F exact live/cache detail s id bindingem, not-found a route-race invalidací. `mobile-projects` 11/11 a UI 30/30 PASS. Lifecycle/project/chat mutations, cache-policy alignment, v2 freeze a device evidence zůstávají otevřené |
 | `MR-15`, `MR-16` approvaly | **3A** | **`LOCALLY_COMPOSED / COMPOSITION_REVIEW_APPROVED / REGISTRY_REVIEW_APPROVED / MOBILE_PASS / SHARED_VALIDATION_BLOCKED`** | Historické `392c5928` dostalo v `RV-023`–`RV-025` `CHANGES_REQUIRED`; opravená kompozice prošla `RV-039`/`RV-040` a registry `RV-042`/`RV-043`. Celý profil je `208/3`, 3A je **NOT DONE** a `F-100` blokuje produkci |
 | `MR-17`, `MR-18` | 4 | **`IMPLEMENTED / SOURCE TESTED / DEVICE TEST PENDING`** | MM4-B dodal filtrované čtení a MM4-F create-only explicitní LTM insert; 12/12 gateway/core a 14/14 UI scénářů PASS. Replacement, delete, task-memory write, interní kategorie a refreeze v2 se netvrdí |

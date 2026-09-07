@@ -332,6 +332,19 @@ výsledku po commitu zůstává pravdivě `UNKNOWN` v MS-20. Obecný settings ed
 security/model authority, fyzický WebView průchod a v2 refreeze se netvrdí. Viz
 [MM4-E review](reviews/MM4E-REVISIONED-SETTINGS-WRITE.md).
 
+### P1-3a.1 Integrita veřejného čtení nastavení
+
+Stav MM4-K: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`.
+Existující `GET /m1/settings` klient přijme jen jako HTTP 200 success envelope
+s exact `{ revision, settings, version }`. Všech 46 veřejných cest musí patřit
+do core generic owner map; klientský seznam se s core exportem porovnává přímo
+v testu. Unknown/private/nested pole, neplatná revize/verze nebo non-finite JSON
+odmítnou celý read a 11-path MM4-E editor zůstane zamčený. Data jsou dál
+live-only bez persistentní cache. Backend zůstává 13/13 a klient prošel 17/17;
+route, scope, port, wire ani mutation se neměnily. Fyzický WebView průchod a
+release acceptance se netvrdí. Viz
+[MM4-K review](reviews/MM4K-PUBLIC-SETTINGS-INTEGRITY.md).
+
 ### P1-3b Create-only uchovávaná informace
 
 Stav MM4-F: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`.
@@ -603,7 +616,8 @@ jiného, telefon nemá zámek obrazovky — a to je nález, ne detail.
   klientského konzumenta jejího už existujícího cursoru a MM3-E totéž pro
   existující project-state cursory. MM4-J stejným způsobem zpřísnilo už
   existující worker/specialist list consumery a MM3-F existující project-detail
-  consumer, ne tento dokument.
+  consumer. MM4-K stejně zpřísnilo existující settings read consumer, ne tento
+  dokument.
 - Žádný termín. Termíny patří operátorovi; tady jsou jen závislosti a pořadí.
 - Žádné „nice to have". Každá položka výše má popsaný způsob, jak selže —
   když ho někdo nedokáže popsat u nové položky, do seznamu nepatří.
