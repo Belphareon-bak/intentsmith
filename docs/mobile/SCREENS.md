@@ -17,8 +17,10 @@
 > MM4-L uzavírá exact stored-information list, úplný cursorový průchod a page
 > cache boundary. MM4-M uzavírá exact device snapshot/cache a live revoke
 > authority. MM4-N uzavírá exact notification inbox, viditelnou partial
-> boundary, validovanou cache a live-only ACK. Autoritou poslední změny je review
-> `MM4N-NOTIFICATION-INBOX-INTEGRITY`;
+> boundary, validovanou cache a live-only ACK. MM3-G sjednocuje project
+> list/detail cache s `MD-02`: 15 minut fresh, stale do sedmi dnů, pak expired.
+> Autoritou poslední změny je review
+> `MM3G-PROJECT-CACHE-LIFECYCLE`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná obrazovka tím není produktově DONE
@@ -535,7 +537,7 @@ acceptance zůstávají otevřené.
 | Část | Toky | Stav |
 |---|---|---|
 | **3A — approvaly** | `MS-13`, `MS-14` | Historické `392c5928` má `CHANGES_REQUIRED` z `RV-023`–`RV-025`; opravená kompozice prošla `RV-039`/`RV-040`, registry `RV-042`/`RV-043` a mobilní M3 subset. Celý profil `208/3` a produkční `F-100` blokují; 3A je **NOT DONE** |
-| **3B — projekty** | `MS-12` | MM3-A/MM3-C/MM3-E/MM3-F: read-only seznam/detail s exact live/cache validací, úplné active/archive filtry a živý drill-down do konverzací jsou `SOURCE TESTED / DEVICE TEST PENDING`; lifecycle mutations a cache-policy alignment zůstávají otevřené |
+| **3B — projekty** | `MS-12` | MM3-A/MM3-C/MM3-E/MM3-F/MM3-G: read-only seznam/detail s exact live/cache validací, úplné active/archive filtry, `MD-02` cache lifecycle a živý drill-down do konverzací jsou `SOURCE TESTED / DEVICE TEST PENDING`; lifecycle mutations zůstávají otevřené |
 
 **Fáze 3 jako celek je DONE teprve po 3B.** Uzavření 3A fázi nezavírá.
 
@@ -564,9 +566,15 @@ acceptance zůstávají otevřené.
 > Expired/corrupt snapshot se před zobrazením smaže. Validní stale kopie zůstane
 > při offline/server/protocol selhání viditelně označená a dostane explicitní
 > retry; definitivní `not_found` ji odstraní. Pozdní response po odchodu a
-> starší same-project generace jsou inertní. Aktuální klientský detail TTL se
-> neměnil a delší cíl `MD-02` zůstává otevřený. Zdrojová evidence:
+> starší same-project generace jsou inertní. Zdrojová evidence:
 > [MM3-F review](reviews/MM3F-PROJECT-DETAIL-INTEGRITY.md).
+
+> **Implementační checkpoint MM3-G (2026-09-07):** active/archive list i
+> detail používají společné okno z `MD-02`: 15 minut `FRESH`, od 15 minut do
+> sedmi dnů čitelný, označený `STALE` a od sedmi dnů `EXPIRED` se smazáním před
+> publikací. Živá project-conversation membership zůstává memory-only a mimo
+> tuto cache. Zdrojová evidence:
+> [MM3-G review](reviews/MM3G-PROJECT-CACHE-LIFECYCLE.md).
 
 | Stav | Chování |
 |---|---|

@@ -13,7 +13,8 @@
 > gateway kontraktu. MM4-N zpřísnilo consumer existujícího notification
 > read/ack povrchu a doplnilo `no-store` response header bez změny route či
 > wire body. Autoritou poslední změny je review
-> `MM4N-NOTIFICATION-INBOX-INTEGRITY`;
+> `MM4N-NOTIFICATION-INBOX-INTEGRITY`. Následující MM3-G mění pouze klientské
+> project cache window, nikoli gateway; viz `MM3G-PROJECT-CACHE-LIFECYCLE`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; gateway je implementovaná a testovaná pouze **na loopbacku**, nikoli produkčně DONE.

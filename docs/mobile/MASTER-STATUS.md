@@ -13,7 +13,7 @@ Release verdict: `NOT READY`
 | `MM0` provenance and branch | `COMPLETE` | `550856e5` | core base selected; prototype integration follows |
 | `MM1` prototype integration | `COMPLETE` | `550856e5..fec916b8` | merge `c1994d9b`; mobile gate 37/37 active |
 | `MM2` RemoteCorePort | `IN PROGRESS` | candidate `f4861bca` | 10 production provider registrations; freeze remains open |
-| `MM3` primary mobile surfaces | `IN PROGRESS` | projects `1a7be999`; conversations `ddb90e7e`; project drill-down `701308d8`; conversation paging `34bc19de`; project paging `075f5eb7`; detail integrity `a08d0dd0` | project list/detail with strict live/cache validation, complete state-filter paging, conversation reads/global paging and live project-to-conversation navigation implemented; search/runs open |
+| `MM3` primary mobile surfaces | `IN PROGRESS` | projects `1a7be999`; conversations `ddb90e7e`; project drill-down `701308d8`; conversation paging `34bc19de`; project paging `075f5eb7`; detail integrity `a08d0dd0`; cache lifecycle `1d449b78` | project list/detail with strict live/cache validation and the `MD-02` 15-minute/seven-day lifecycle, complete state-filter paging, conversation reads/global paging and live project-to-conversation navigation implemented; search/runs open |
 | `MM4` governed surfaces | `IN PROGRESS` | settings read `87a51930`; memory read `2c33fd9b`; workers/specialists `49dd991d`; devices `13fa98c6`; settings write `4bb9011d`; memory create `3341ea11`; worker state `7ac9e303`; worker history `fd8ad498`; specialist detail `241b8934`; list integrity `acff7939`; settings integrity `99cdfdde`; memory integrity `d1f0a98a`; device integrity `af33f984`; notification integrity `656941d4` | read projections, paired-device revocation, revisioned UX-setting writes, create-only manual memory, guarded worker enable/disable, terminal worker-run history, inspectable specialist expertise bindings and fail-closed configured-list/settings/memory/device/notification consumers are implemented; specialist actions and production notification delivery/push policy stay open |
 | `MM5` transport and hardening | `IN PROGRESS` | transport `a5d5bab4`; vault `14be72b8..71746be5` | packaged native transport and direct AndroidKeyStore vault implemented; remote TLS/identity, push/offline policy and external security review remain open |
 | `MM6` Android release | `IN PROGRESS` | platform `d4607100`; CLI `d8bbea33`; artifacts `8e98924d` | API 36, cross-platform workflow, versioned APK/AAB manifest and SBOM implemented; binary build, production signing and device evidence open |
@@ -120,14 +120,14 @@ Release verdict: `NOT READY`
   opaque cursors, validate exact rows/response state, reject overlaps and late
   cross-filter responses, and persist separate validated `{ items, page }`
   snapshots. No project mutation or new route was introduced.
-- Project-detail integrity: `PASS` — the gateway/core suite remains 11/11 and
-  the expanded project client suite is 30/30. Live and cached detail now
+- Project-detail and cache lifecycle: `PASS` — the gateway/core suite remains
+  11/11 and the expanded project client suite is 31/31. Live and cached detail now
   require the exact versioned public DTO and requested id; corrupt/expired
   cache, definitive not-found, scope loss and late route generations cannot
   republish stale authority. Ambiguous offline/server/protocol failures retain
   only a valid non-expired copy with explicit cache and recovery labelling.
-  The current one-minute/15-minute client window is unchanged and does not yet
-  implement the longer `MD-02` target policy.
+  List and detail now share the `MD-02` 15-minute fresh / seven-day expiry
+  policy. Project-conversation membership remains live-only and uncached.
 - Release artifacts: `PASS` — 10/10 checks; Gradle consumes the tracked
   `0.1.0`/`1000` metadata and the workflow requires signed APK+AAB, CycloneDX
   SBOM and a source/endpoint/signer manifest.

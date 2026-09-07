@@ -13,8 +13,10 @@
 > MM4-M zpřísňuje exact device snapshot/cache a live revoke gate.
 > MM4-N zpřísňuje notification inbox: exact S1 records, viditelný sekvenční
 > výřez, validovanou cache a ACK odemčený jen aktuálním live readem.
+> MM3-G sjednocuje project list/detail cache s `MD-02`: 15 minut fresh, stale
+> do sedmi dnů a od sedmi dnů expired se smazáním před publikací.
 > Autoritou poslední změny je review
-> `MM4N-NOTIFICATION-INBOX-INTEGRITY`;
+> `MM3G-PROJECT-CACHE-LIFECYCLE`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 > **MM4-G UI overlay:** karta workera nabízí Zapnout/Vypnout pouze s
@@ -68,6 +70,12 @@
 > znovu**. Expired/corrupt cache, definitivní `not_found`, ztráta scope a
 > pozdní response po opuštění obrazovky se nesmějí renderovat. Konverzační
 > sekce zůstává oddělená live-only plocha.
+
+> **MM3-G UI overlay:** project active/archive list i detail klasifikují
+> validovanou cache mladší než 15 minut jako `FRESH`, od 15 minut do sedmi dnů
+> jako explicitně označenou `STALE` a od sedmi dnů jako `EXPIRED`, která se
+> před renderem smaže. Stale snapshot zůstává pouze read-only kontextem, nikdy
+> live autoritou; project-conversation membership se dál persistentně neukládá.
 
 > **MM4-K UI overlay:** karta **Nastavení backendu** renderuje jen exact
 > validovaný live dokument nad 46-path core public owner map. Malformed nebo
@@ -236,7 +244,7 @@ v kódu. Záložka bez scopu se nezobrazí; scope bez upstreamu se zobrazí uzam
 |---|---|---|
 | vždy, když je odemčeno | **Přehled** — kořen, §3.2 | 3 |
 | `conversations` (`read:chat`) | **Konverzace** | 1 |
-| `projects` (`read:projects`) | **Projekty** — read-only úplný seznam a exact-validovaný detail; konverzační sekce navíc vyžaduje `read:chat` (MM3-A/MM3-C/MM3-E/MM3-F) | 3B |
+| `projects` (`read:projects`) | **Projekty** — read-only úplný seznam, exact-validovaný detail a `MD-02` 15min/7denní cache lifecycle; konverzační sekce navíc vyžaduje `read:chat` (MM3-A/MM3-C/MM3-E/MM3-F/MM3-G) | 3B |
 | `approvals` (`read:approvals`) | **Approvaly** ★ | 3 |
 | vždy (i bez tokenu) | **Nastavení** — diagnostika, zařízení, o aplikaci | 0 |
 | volitelné moduly | **až vzniknou**, viz níže | — |
@@ -278,7 +286,8 @@ Zamýšlená sada podle předlohy: `Konverzace`, `Projekty`, `Domů`, `Aktivita`
 **[F] `read:projects` uděleno (operátor 2026-08-11).** Pairing ho vydává a
 `Projekty` jsou pátá položka smyčky i dlaždice na kořeni. MM3-A následně
 dodalo read-only seznam/detail, MM3-C jeho živé konverzace, MM3-E úplné filtry
-a MM3-F exact live/cache detail; bez `read:chat`
+a MM3-F exact live/cache detail; MM3-G sjednotilo cache lifecycle s `MD-02`.
+Bez `read:chat`
 zůstane detail dostupný, ale tato sekce je viditelně zamčená. Lifecycle a
 mutation povrch se tím neotevřel. Zařízení spárovaná dřív scope nemají — je
 vydávaný při párování, takže se projeví až u nového spárování.

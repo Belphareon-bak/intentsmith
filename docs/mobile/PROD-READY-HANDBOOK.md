@@ -477,19 +477,21 @@ route, provider ani scope se neměnily. Project mutation, fyzický WebView
 průchod ani release acceptance se tím netvrdí. Viz
 [MM3-E review](reviews/MM3E-PROJECT-LIST-PAGINATION.md).
 
-### P1-3i Integrita detailu projektu
+### P1-3i Integrita detailu projektu a lifecycle cache
 
-Stav MM3-F: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`.
+Stav MM3-F/MM3-G: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`.
 Existující `GET /m1/projects/:id` klient přijme pouze s exact veřejným DTO a
 id shodným s požadovanou routou. Stejné ověření platí před publikací cache;
 expired/corrupt snapshot se smaže. Offline/server/protocol selhání smí ponechat
 jen validní neexpirovanou kopii s viditelným označením a retry, zatímco
 definitivní `not_found` ji odstraní. Pozdní response po odchodu nebo starší
-generace je inertní. Backend zůstává 11/11 a klient prošel 30/30; route, scope,
-port ani mutation se neměnily. MM3-F nemění TTL: aktuální detail používá
-generické 1min fresh/15min expiry window a delší cíl `MD-02` zůstává otevřený.
-Fyzický WebView průchod a release acceptance se netvrdí. Viz
-[MM3-F review](reviews/MM3F-PROJECT-DETAIL-INTEGRITY.md).
+generace je inertní. MM3-G navíc váže active/archive list i detail na lifecycle
+z `MD-02`: mladší než 15 minut je `FRESH`, od 15 minut do sedmi dnů `STALE` a
+od sedmi dnů `EXPIRED` se smazáním před publikací. Backend zůstává 11/11 a
+klient prošel 31/31; route, scope, port ani mutation se neměnily. Delší retence
+S1 metadat je vědomý privacy tradeoff, ne live autorita. Fyzický WebView průchod
+a release acceptance se netvrdí. Viz [MM3-F review](reviews/MM3F-PROJECT-DETAIL-INTEGRITY.md)
+a [MM3-G review](reviews/MM3G-PROJECT-CACHE-LIFECYCLE.md).
 
 ### P1-4 Push, nebo přiznané pull-only
 

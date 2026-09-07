@@ -15,8 +15,10 @@
 > MM4-M doplňuje exact device snapshot/cache a live revoke-authority důkazy.
 > MM4-N doplňuje exact notification DTO/S1/page/cache, race, scope a live-only
 > ACK důkazy bez nové route nebo testovacího programu.
+> MM3-G doplňuje přesné 15minutové/sedmidenní age-boundary důkazy pro project
+> list/detail cache bez změny wire kontraktu.
 > Autoritou poslední změny je review
-> `MM4N-NOTIFICATION-INBOX-INTEGRITY`;
+> `MM3G-PROJECT-CACHE-LIFECYCLE`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 > **MM4-G evidence overlay:** `mobile-workers-specialists` (12/12) pokrývá
@@ -72,7 +74,14 @@
 > recovery, expired/corrupt cache deletion, protocol-safe retention,
 > conclusive `not_found`, route departure a same-project response race.
 > `mobile-projects` zůstává 11/11; route, scope, port ani nový testovací program
-> nevznikly. Aktuální cache TTL se neměnilo a delší cíl `MD-02` se netvrdí.
+> nevznikly.
+
+> **MM3-G evidence overlay:** `mobile-projects-ui` (31/31) přímo kryje společné
+> `MD-02` okno active listu, archived listu a detailu: `FRESH` pod 15 minut,
+> `STALE` od 15 minut do sedmi dnů a `EXPIRED` od sedmi dnů. Samostatný negativní
+> scénář potvrzuje, že nesouvisející cache doména tuto politiku nezdědila.
+> `mobile-projects` zůstává 11/11; route, DTO, scope, port, storage shape ani
+> nový testovací program nevznikly.
 
 > **MM4-K evidence overlay:** `mobile-settings-ui` (17/17) kryje exact settings
 > DTO, přímou shodu 46-path klientské allow-list s core exportem, flat/nested
@@ -698,7 +707,7 @@ zafixuje tvar, který kontrakt teprve určí, a vypadá jako pokrytí.
 |---|---|---|
 | `MR-07` průběh běhu | `BLOCKED_BY_CONTRACT` | K `MS-15` nevzniká UI ani jeho testy. **Existující sady kolem `/m1/chat` a žurnálu operací nesmí být vydávány za pokrytí `MR-07`** — nejsou to testy agent logu |
 | `MR-10` hledání | `BLOCKED_BY_CONTRACT` | K `MS-09` nevzniká UI ani jeho testy. Test hledání nad cachovaným oknem by prokazoval něco, co požadavek **nesplňuje** |
-| `MR-14` projekty | `PARTIAL / SOURCE TESTED / DEVICE TEST PENDING` | MM3-A/MM3-C/MM3-E/MM3-F dodaly read-only seznam/detail, úplné state-bound stránkování, project-to-conversation drill-down a exact live/cache detail s not-found/route-race invalidací. `mobile-projects` 11/11 a `mobile-projects-ui` 30/30 kryjí authority/filter/cursor/cache/UI hranici. Lifecycle mutations, cache-policy alignment, wire refreeze, Chromium a device evidence zůstávají otevřené |
+| `MR-14` projekty | `PARTIAL / SOURCE TESTED / DEVICE TEST PENDING` | MM3-A/MM3-C/MM3-E/MM3-F/MM3-G dodaly read-only seznam/detail, úplné state-bound stránkování, project-to-conversation drill-down, exact live/cache detail a `MD-02` 15min/7denní lifecycle. `mobile-projects` 11/11 a `mobile-projects-ui` 31/31 kryjí authority/filter/cursor/cache/UI hranici. Lifecycle mutations, wire refreeze, Chromium a device evidence zůstávají otevřené |
 | `MR-05` kurzorové stránkování | `LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED` | **Aktualizováno 2026-08-12:** `MN-cursor-rejection` a `MN-pagination-end` existují a procházejí, a klientská část už není `MISSING_IMPLEMENTATION` — kryje ji `mobile-ms07-history`. Produktově `DONE` to není: sdílená validace zůstává blokovaná |
 
 Blokáda se týká **testů k blokovaným schopnostem**, ne doménových pravidel:

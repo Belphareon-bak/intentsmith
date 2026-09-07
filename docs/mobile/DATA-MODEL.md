@@ -18,10 +18,12 @@
 > map před publikací nebo odemčením editoru. MM4-L váže exact LTM/task records
 > na server-issued page boundary a validuje current i legacy cache. MM4-M
 > validuje exact paired-device snapshot, váže jeho `current` řádek na aktivní
-> credential a odděluje čitelnou cache od volatile revoke authority. Autoritou
-> poslední změny je review `MM4N-NOTIFICATION-INBOX-INTEGRITY`. MM4-N váže
+> credential a odděluje čitelnou cache od volatile revoke authority. MM4-N váže
 > notification cache na přesnou sekvenční page boundary, přijímá pouze devět
 > S1 tvarů producenta a nikdy z cache neodvozuje ACK autoritu;
+> MM3-G navíc implementuje zde předepsané 15minutové fresh a sedmidenní expiry
+> okno pro list i detail projektu. Autoritou poslední změny je review
+> `MM3G-PROJECT-CACHE-LIFECYCLE`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná produktová fáze není DONE
@@ -321,11 +323,15 @@ mohou zůstat označené jako cache, ale členství konverzací se z cache netvr
 > snapshot se před publikací smaže; nejednoznačný offline/server/protocol pád
 > ponechá pouze validní neexpirovanou kopii s explicitním označením a retry.
 > Definitivní `not_found`, ztráta scope a pozdní response po odchodu detail i
-> cache stáhnou nebo nechají inertní. MM3-F nemění délku cache: aktuální
-> generické klientské window je `FRESH` 1 min a `EXPIRED` po 15 min, takže delší
-> cíl v tabulce výše zatím není implementovaná skutečnost a jeho sjednocení
-> zůstává otevřené. Zdrojová evidence:
+> cache stáhnou nebo nechají inertní. Zdrojová evidence:
 > [MM3-F review](reviews/MM3F-PROJECT-DETAIL-INTEGRITY.md).
+>
+> **Implementační checkpoint MM3-G (2026-09-07):** `projects.active`,
+> `projects.archived` i každý `project.<id>` nyní používají přesně tabulku výše:
+> 15 minut `FRESH`, potom read-only `STALE` do sedmi dnů a od sedmi dnů
+> `EXPIRED` s odstraněním před publikací. Projektové membership konverzací
+> zůstává oddělené `ST-MEM`. Evidence:
+> [MM3-G review](reviews/MM3G-PROJECT-CACHE-LIFECYCLE.md).
 
 ---
 

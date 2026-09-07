@@ -327,17 +327,17 @@ Zdrojová evidence a exact DTO/cache hranice jsou v
 State/cursor vazba, cache migrace a negativní scénáře jsou v
 [MM3-E review](reviews/MM3E-PROJECT-LIST-PAGINATION.md).
 
-### Integrita detailu projektu (MM3-F)
+### Integrita detailu projektu a cache lifecycle (MM3-F/MM3-G)
 
 1. Otevři detail projektu a ověř, že live response s jiným id, extra polem,
    neplatným stavem, timestampem, countem nebo verzí skončí jako protocol
    chyba a nesmí přepsat poslední validní detail ani cache.
-2. S validní cache starší než jednu minutu odpoj backend. Detail musí zůstat
+2. S validní cache starší než 15 minut odpoj backend. Detail musí zůstat
    označený jako zastaralý, vysvětlit offline stav a nabídnout **Načíst detail
    znovu**; konverzace projektu se za offline cache vydávat nesmějí.
-3. Cache starší než 15 minut nebo se špatným id/tvarem musí být odstraněna před
-   publikací. Tyto hodnoty popisují dnešní klientský window, ne delší cíl
-   `MD-02`.
+3. Cache stará sedm dnů nebo se špatným id/tvarem musí být odstraněna před
+   publikací. Active list, archived list i detail mají stejné okno z `MD-02`:
+   15 minut `FRESH`, potom `STALE`, od sedmi dnů `EXPIRED`.
 4. Definitivní `not_found` musí odstranit zapamatovaný detail i cache. Oproti
    tomu server/protocol/offline selhání nesmí smazat validní neexpirovanou
    kopii.
@@ -348,7 +348,9 @@ State/cursor vazba, cache migrace a negativní scénáře jsou v
    cache musí zmizet společně.
 
 Exact DTO, cache/failure semantics a route-generation důkazy jsou v
-[MM3-F review](reviews/MM3F-PROJECT-DETAIL-INTEGRITY.md).
+[MM3-F review](reviews/MM3F-PROJECT-DETAIL-INTEGRITY.md); přesné age boundaries
+a privacy tradeoff delší S1 retence jsou v
+[MM3-G review](reviews/MM3G-PROJECT-CACHE-LIFECYCLE.md).
 
 ### Globální seznam konverzací (MM3-D)
 

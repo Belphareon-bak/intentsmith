@@ -12,8 +12,11 @@
 > nyní uzavírá exact paired-device snapshot/cache a live revoke authority.
 > MM4-N uzavírá exact notification DTO/page/cache consumer a live-only ACK
 > autoritu nad oddělenými `read:notifications`/`write:notifications` scopy.
+> MM3-G následně sjednocuje klientskou lifecycle politiku project list/detail
+> cache s `MD-02`: 15 minut `FRESH`, poté `STALE` až do sedmi dnů a od sedmi
+> dnů `EXPIRED`; route, DTO, scope ani mutation se nemění.
 > Autoritou poslední změny je review
-> `MM4N-NOTIFICATION-INBOX-INTEGRITY`;
+> `MM3G-PROJECT-CACHE-LIFECYCLE`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; **žádná produktová fáze není DONE**

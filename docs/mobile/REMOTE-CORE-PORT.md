@@ -11,7 +11,7 @@ candidate implementation, not a contract freeze; see
 
 Latest consumer checkpoints MM3-D (`34bc19de`), MM3-E (`075f5eb7`), MM4-J
 (`acff7939`), MM3-F (`a08d0dd0`), MM4-K (`99cdfdde`), MM4-L (`d1f0a98a`) and
-MM4-M (`af33f984`), followed by MM4-N (`656941d4`),
+MM4-M (`af33f984`), followed by MM4-N (`656941d4`) and MM3-G (`1d449b78`),
 change no port input,
 output or provider. They make the mobile client consume already returned
 opaque cursors for the global conversation
@@ -44,6 +44,11 @@ MM4-N similarly changes no RemoteCorePort operation: notifications remain the
 gateway-owned read/ack projection. It validates the existing exact S1 records,
 sequence boundary, cache and live ACK authority. See
 [`reviews/MM4N-NOTIFICATION-INBOX-INTEGRITY.md`](reviews/MM4N-NOTIFICATION-INBOX-INTEGRITY.md).
+MM3-G changes only the mobile consumer's age classification for already
+validated project snapshots, aligning project list/detail caches with the
+existing `MD-02` 15-minute/seven-day lifecycle. It adds no port operation,
+provider call, wire field or authority. See
+[`reviews/MM3G-PROJECT-CACHE-LIFECYCLE.md`](reviews/MM3G-PROJECT-CACHE-LIFECYCLE.md).
 
 `RemoteCorePort` is the core-owned, in-process boundary used by the mobile
 gateway. It is deliberately narrower than the desktop HTTP listener: a mobile
