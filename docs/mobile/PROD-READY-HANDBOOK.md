@@ -382,6 +382,19 @@ povrch. Kombinované worker/specialist sady prošly 18/18 backend a 18/18 UI
 scénáři. Zdrojová evidence a non-claims:
 [MM4-I review](reviews/MM4I-SPECIALIST-DETAIL.md).
 
+### P1-3e.1 Integrita seznamů agentů a specialistů
+
+Stav MM4-J: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`.
+Existující `GET /m1/workers` a `GET /m1/specialists` mají na klientovi přesný
+fail-closed consumer. Celý page musí mít koherentní opaque-cursor boundary a
+každý řádek exact veřejný verzovaný DTO; duplicate, overlap, skryté pole nebo
+corrupt cache nepotichu nezmizí, ale odmítne celý vstup bez změny posledního
+potvrzeného okna. Legacy array cache zůstává čitelná bez vymyšleného cursoru.
+Neplatná worker odpověď ruší live proof potřebný pro toggle. Backendová sada
+zůstává 18/18 a klientská prošla 24/24; route, scope a port se neměnily.
+Fyzický WebView průchod a nezávislé security review zůstávají otevřené. Viz
+[MM4-J review](reviews/MM4J-CONFIGURED-LIST-INTEGRITY.md).
+
 ### P1-3f Read-only konverzace projektu
 
 Stav MM3-C: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`.
@@ -574,7 +587,8 @@ jiného, telefon nemá zámek obrazovky — a to je nález, ne detail.
   poslední specialist-detail routu přidal MM4-I a MM3-C následně rozšířilo
   existující conversation-list query bez přidání routy. MM3-D pouze doplnilo
   klientského konzumenta jejího už existujícího cursoru a MM3-E totéž pro
-  existující project-state cursory, ne tento dokument.
+  existující project-state cursory. MM4-J stejným způsobem zpřísnilo už
+  existující worker/specialist list consumery, ne tento dokument.
 - Žádný termín. Termíny patří operátorovi; tady jsou jen závislosti a pořadí.
 - Žádné „nice to have". Každá položka výše má popsaný způsob, jak selže —
   když ho někdo nedokáže popsat u nové položky, do seznamu nepatří.

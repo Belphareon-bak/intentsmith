@@ -9,13 +9,17 @@ gateway read requires both `read:chat` and `read:projects`. This is an additive
 candidate implementation, not a contract freeze; see
 [`reviews/MM3C-PROJECT-CONVERSATIONS.md`](reviews/MM3C-PROJECT-CONVERSATIONS.md).
 
-Latest consumer checkpoints MM3-D (`34bc19de`) and MM3-E (`075f5eb7`) change
-no port input, output or provider. They make the mobile client consume the
-already returned opaque cursors for the global conversation list and the
-active/archive project filters, validate every versioned page and persist only
-the confirmed S1 window plus its boundary. See
+Latest consumer checkpoints MM3-D (`34bc19de`), MM3-E (`075f5eb7`) and MM4-J
+(`acff7939`) change no port input, output or provider. They make the mobile
+client consume already returned opaque cursors for the global conversation
+list, active/archive project filters and worker/specialist lists; validate
+every versioned page; and persist only the confirmed S1 window plus its
+boundary. MM4-J also rejects hidden configured-resource fields, duplicate or
+overlapping ids and corrupt cache snapshots before they reach UI or worker
+mutation gating. See
 [`reviews/MM3D-CONVERSATION-LIST-PAGINATION.md`](reviews/MM3D-CONVERSATION-LIST-PAGINATION.md)
-and [`reviews/MM3E-PROJECT-LIST-PAGINATION.md`](reviews/MM3E-PROJECT-LIST-PAGINATION.md).
+[`reviews/MM3E-PROJECT-LIST-PAGINATION.md`](reviews/MM3E-PROJECT-LIST-PAGINATION.md)
+and [`reviews/MM4J-CONFIGURED-LIST-INTEGRITY.md`](reviews/MM4J-CONFIGURED-LIST-INTEGRITY.md).
 
 `RemoteCorePort` is the core-owned, in-process boundary used by the mobile
 gateway. It is deliberately narrower than the desktop HTTP listener: a mobile

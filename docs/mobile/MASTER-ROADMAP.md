@@ -62,7 +62,11 @@ read (`2c33fd9b`), worker/specialist read (`49dd991d`), paired-device lifecycle
 (`13fa98c6`), revisioned UX-settings write (`4bb9011d`) and create-only manual
 stored information (`3341ea11`), and guarded worker enable/disable
 (`7ac9e303`), followed by worker detail and terminal run history
-(`fd8ad498`) and persisted specialist package/expertise detail (`241b8934`).
+(`fd8ad498`), persisted specialist package/expertise detail (`241b8934`) and
+fail-closed configured-list integrity (`acff7939`). Worker and specialist list
+pages and cache snapshots now require exact public DTOs, coherent opaque-cursor
+boundaries and no duplicate/overlapping ids; only an exact live worker page can
+support its existing guarded toggle.
 MM4 remains open for governed specialist actions, live run progress and
 broader worker lifecycle commands; memory replacement, deletion and
 task-memory writes are explicitly outside the current mobile authority.

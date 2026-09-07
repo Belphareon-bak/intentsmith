@@ -224,6 +224,25 @@ Detail a historii agenta zkontroluj v **Agenti → Detail a historie**:
 Přesná projekce, kurzorový kontrakt, negativní scénáře a non-claims jsou v
 [MM4-H review](reviews/MM4H-WORKER-RUN-HISTORY.md).
 
+### Integrita seznamů agentů a specialistů (MM4-J)
+
+1. Připrav více než 50 workerů nebo specialistů. Pokračování se smí ukázat jen
+   nad potvrzeným `hasMore` a neprázdným serverovým cursorem.
+2. **Načíst další** musí cursor vrátit beze změny; během requestu je ovládání
+   neaktivní a řazení již potvrzených řádků zůstává stabilní.
+3. V testovacím gateway vrať duplicate id, overlap předchozí stránky, hidden
+   pole nebo nekonzistentní `hasMore`/`nextCursor`/`end`: celý page se musí
+   odmítnout, potvrzený seznam i cache zůstat stejné a UI nabídnout načtení od
+   začátku.
+4. Po neplatné worker odpovědi musí Zapnout/Vypnout zůstat zamčené, i když je
+   poslední cache stále vidět.
+5. Odeber odpovídající read scope: seznam, cursor i persistentní cache musí
+   zmizet společně. Starý array-only cache formát se smí zobrazit bez
+   vymyšleného pokračování nebo tvrzení o konci.
+
+Zdrojová evidence a exact DTO/cache hranice jsou v
+[MM4-J review](reviews/MM4J-CONFIGURED-LIST-INTEGRITY.md).
+
 ### Aktivní a archivované projekty (MM3-E)
 
 1. Připrav více než 100 aktivních projektů, otevři **Projekty → Aktivní** a

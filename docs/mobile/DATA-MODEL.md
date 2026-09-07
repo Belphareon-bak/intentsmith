@@ -1,6 +1,6 @@
 # IntentSmith Mobile — klientský datový, cache a trust model
 
-> **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
+> **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-07):** text
 > níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 26
 > rout; vedle worker/specialist read modelu, správy zařízení, revizního
 > `PUT /m1/settings` a create-only `POST /m1/memory` obsahuje precondition-checked
@@ -11,8 +11,9 @@
 > konverzací je memory-only, má request/response `no-store` a mizí při ztrátě
 > scope, relace, uzamčení aplikace nebo spojení. MM3-D poté doplnilo validovaný
 > page snapshot globální S1 cache a úplný cursorový průchod. MM3-E přidalo
-> state-bound page snapshots projektů. Autoritou poslední změny je review
-> `MM3E-PROJECT-LIST-PAGINATION`;
+> state-bound page snapshots projektů. MM4-J uzavírá worker/specialist list
+> snapshots exact DTO a page-boundary validací. Autoritou poslední změny je
+> review `MM4J-CONFIGURED-LIST-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná produktová fáze není DONE
@@ -838,6 +839,15 @@ důkazy, B6 ani životní cyklus `MD-08` nejsou produkčně uzavřené.
 > `manifest_json`, prompty, nástroje, filesystem/integrita, telemetry, memory a
 > všechny zápisy jsou vyloučené; poškozený typ, čas, status, priorita nebo vazba
 > odmítne celý detail fail-closed.
+
+> **MM4-J configured-list overlay:** cache workerů i specialistů ukládá pouze
+> validovaný `{ items, page }` snapshot. `items` musí odpovídat přesnému
+> veřejnému verzovanému DTO a mít unikátní id; `page` musí mít koherentní
+> `hasMore`/`end` a opaque cursor přesně jen pro pokračování. Překryv další
+> stránky, skryté pole, poškozený nested worker stav nebo corrupt cache odmítne
+> celý vstup bez změny posledního potvrzeného okna. Starý array-only formát je
+> čitelný bez vymyšleného cursoru nebo tvrzení o konci. Neplatná worker response
+> ruší `workersLive`, takže z ní nelze odemknout mutation.
 
 ---
 

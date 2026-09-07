@@ -1,13 +1,14 @@
 # IntentSmith Mobile — návrh UI
 
-> **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
+> **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-07):** text
 > níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 26
 > rout; vedle worker/specialist read modelu, správy zařízení, revizního
 > `PUT /m1/settings` a create-only `POST /m1/memory` obsahuje precondition-checked
 > `PUT /m1/workers/:id/enabled` a metadata-only
 > `GET /m1/workers/:id/runs` a live-only
-> `GET /m1/specialists/:id`. Autoritou poslední změny je review
-> `MM4I-SPECIALIST-DETAIL`;
+> `GET /m1/specialists/:id`. MM4-J zpřísňuje klientské list/cache hranice bez
+> nové route. Autoritou poslední změny je review
+> `MM4J-CONFIGURED-LIST-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 > **MM4-G UI overlay:** karta workera nabízí Zapnout/Vypnout pouze s
@@ -27,6 +28,13 @@
 > runtime registrace není z gateway procesu pozorovatelná. Manifest, prompty,
 > tools, telemetry a mutation controls se nerenderují; ztráta scope nebo relace
 > detail okamžitě zahodí.
+
+> **MM4-J UI overlay:** seznam **Agenti** i **Specialisté** ukazuje
+> pokračování jen nad serverem potvrzeným `hasMore` a neprázdným opaque
+> cursorem. Během appendu je tlačítko zamčené. Neplatná či překrývající se
+> stránka nechá poslední potvrzené řádky čitelné, pojmenuje protocol chybu a
+> nabídne restart seznamu od začátku. Vadná worker page současně zamkne toggle;
+> skrytá či malformed data se částečně nerenderují ani necachují.
 
 > **MM3-C UI overlay:** detail projektu nově obsahuje samostatný živý seznam
 > přiřazených konverzací. Metadata projektu vyžadují `read:projects`, seznam

@@ -240,6 +240,13 @@ ověřují response/row state a drží oddělené cache boundaries. Gateway rout
 query a provider se nezměnily. Viz
 `reviews/MM3E-PROJECT-LIST-PAGINATION.md`.
 
+MM4-J (`acff7939`) je rovněž consumer-only. Existující worker/specialist list
+routes, query a port operations se nemění; klient nyní přijme pouze exact
+public DTO page s koherentním `hasMore`/`nextCursor`/`end`, odmítne duplicate
+nebo overlap a publikuje jen validovaný cache snapshot. Vadná worker stránka
+navíc ruší live proof pro toggle. Viz
+`reviews/MM4J-CONFIGURED-LIST-INTEGRITY.md`.
+
 ---
 
 ## 4. Routy

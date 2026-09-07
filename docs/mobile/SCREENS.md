@@ -1,6 +1,6 @@
 # IntentSmith Mobile — mapa obrazovek a toků, fáze 1–5
 
-> **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
+> **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-07):** text
 > níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 26
 > rout; vedle worker/specialist read modelu, správy zařízení, revizního
 > `PUT /m1/settings` a create-only `POST /m1/memory` obsahuje precondition-checked
@@ -10,8 +10,9 @@
 > stránkovaný seznam jeho konverzací přes existující route. Vyžaduje
 > `read:projects` i `read:chat`, otevírá stávající chat a nepřidává mutaci.
 > MM3-D následně uzavřelo truncation globálního seznamu přes existující cursor.
-> MM3-E totéž uzavírá odděleně pro aktivní a archivované projekty. Autoritou
-> poslední změny je review `MM3E-PROJECT-LIST-PAGINATION`;
+> MM3-E totéž uzavírá odděleně pro aktivní a archivované projekty. MM4-J
+> uzavírá exact list/cache integritu workerů a specialistů. Autoritou poslední
+> změny je review `MM4J-CONFIGURED-LIST-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná obrazovka tím není produktově DONE
@@ -727,7 +728,7 @@ ne přepis běhu.**
 
 ### Fáze 5 — Workeři
 
-> **Implementační checkpoint MM4-I (2026-09-06):** `MS-18` má filtrovaný
+> **Implementační checkpoint MM4-J (2026-09-07):** `MS-18` má filtrovaný
 > worker read model, samostatný detail, stránkovanou metadata-only terminální
 > historii a úzké zapnutí/vypnutí
 > nad očekávaným živým stavem. UI vyžaduje `read:workers` + `write:workers`,
@@ -735,7 +736,9 @@ ne přepis běhu.**
 > progress/cancel a worker create/edit zůstávají návrhem bez produkčního
 > provideru. `read:specialists` navíc otevírá live-only detail veřejných
 > metadat balíčku a vazeb expertiz; perzistovaný status není živá runtime
-> registrace a všechny specialist mutation zůstávají nedostupné.
+> registrace a všechny specialist mutation zůstávají nedostupné. Seznamové
+> stránky obou domén navíc přijímají jen exact public DTO, koherentní opaque
+> cursor a nepřekrývající se id; vadná worker page relockne toggle.
 
 ---
 
@@ -755,6 +758,13 @@ ne přepis běhu.**
 | `SS-08` | Cache čitelná, ovládání neaktivní; `write:workers` se získá jen novým párováním |
 | `SS-09` | Stav změnil desktop nebo jiný telefon → precondition conflict, obnovit a převzít serverový stav |
 | `SS-10` | Zapnutí/vypnutí je operation-keyed příkaz s dvojím potvrzením; **nikdy se automaticky neopakuje**. `UNKNOWN` se řeší v MS-20. Vypnutí neruší již běžící práci |
+
+**MM4-J seznamový stav:** tlačítko pokračování vzniká jen s potvrzeným
+`hasMore` a neprázdným serverovým cursorem a během requestu je neaktivní.
+Protocol chyba, duplicita nebo overlap zachová poslední potvrzené řádky,
+ukáže explicitní chybu a nabídne načtení od začátku. Corrupt cache se smaže;
+legacy array se může zobrazit, ale bez pokračování a bez tvrzení, že seznam je
+kompletní. Pouze exact živá worker response smí obnovit mutation gate.
 
 **MM4-I specialista:** položka seznamu nabízí **Detail expertiz**. Obrazovka
 má samostatné loading/empty/not-found/error stavy, zobrazuje jen veřejná

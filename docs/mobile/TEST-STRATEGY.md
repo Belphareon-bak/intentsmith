@@ -1,6 +1,6 @@
 # IntentSmith Mobile — testovací strategie a napojení na kanonický registr
 
-> **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-06):** text
+> **Kanonický overlay větve `mobile/master-prod-ready` (2026-09-07):** text
 > níže zachycuje původní 13-route checkpoint. Aktuální přesný allow-list má 26
 > rout; vedle worker/specialist read modelu, správy zařízení, revizního
 > `PUT /m1/settings` a create-only `POST /m1/memory` obsahuje precondition-checked
@@ -8,8 +8,9 @@
 > `GET /m1/workers/:id/runs` a live-only
 > `GET /m1/specialists/:id`. MM3-D následně doplnilo klientské pokrytí úplného
 > global conversation-list cursoru bez změny route a MM3-E stejné důkazy pro
-> oddělené project-state streamy. Autoritou poslední změny je review
-> `MM3E-PROJECT-LIST-PAGINATION`;
+> oddělené project-state streamy. MM4-J doplňuje exact fail-closed list/cache
+> důkazy pro workers/specialists. Autoritou poslední změny je review
+> `MM4J-CONFIGURED-LIST-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 > **MM4-G evidence overlay:** `mobile-workers-specialists` (12/12) pokrývá
@@ -31,6 +32,13 @@
 > poškozená data. `mobile-workers-specialists-ui` (18/18) kryje detail route,
 > exact response shape, escaping, scope/session invalidaci, absenci persistentní
 > detail cache a všech specialist mutation controls.
+
+> **MM4-J evidence overlay:** `mobile-workers-specialists-ui` (24/24) nově
+> kryje exact list DTO včetně nested worker polí, page invariant, duplicate a
+> overlap rejection, protocol-safe zachování potvrzeného okna/cache,
+> corrupt-cache deletion, legacy array bez fabrikace cursoru, partial control,
+> newest-response-wins a relock worker mutation. Backend zůstává 18/18; nový
+> route, port kontrakt ani testovací program nevznikl.
 
 > **MM3-C evidence overlay:** `mobile-projects` (11/11) pokrývá dvojí scope,
 > SQL-side filtr, deleted/other-project exclusion, řazení, no-store, uzavřenou
