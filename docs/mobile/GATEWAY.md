@@ -21,6 +21,11 @@
 > globální conversation read tvary; body, route, scope ani port se nemění.
 > Viz `MM3I-CONVERSATION-THREAD-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
+>
+> MM5-C je čistě client/Android storage checkpoint: nepřidává gateway route,
+> scope, body, header ani provider. Nativní app-state a mutation durability
+> boundary popisuje `MM5C-ENCRYPTED-NATIVE-APP-STATE`; tento gateway kontrakt
+> zůstává beze změny.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; gateway je implementovaná a testovaná pouze **na loopbacku**, nikoli produkčně DONE.
 **Revize:** vstupy `RV-028`, `RV-036`, `RV-037`, reconciliation `RV-038`; Composition Review C `RV-039`/`RV-040`; registr a chráněné hodnoty `RV-042`/`RV-043`.

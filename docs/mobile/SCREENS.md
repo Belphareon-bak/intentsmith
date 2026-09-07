@@ -23,8 +23,11 @@
 > cache (15 minut / 7 dnů) a expired vlákno smaže před publikací.
 > MM3-I uzavírá exact route-bound thread/page/cache validaci, duplicate/overlap,
 > route/scope race, server-not-found semantics a oboustranné HTTP `no-store`.
+> MM5-C mění pod obrazovkami pouze nativní storage boundary: jejich cache,
+> drafty, journal, scopes a preference hydratuje z Keystore app-state, lock
+> maže dešifrovanou paměť a storage failure blokuje párování i mutace.
 > Autoritou poslední změny je review
-> `MM3I-CONVERSATION-THREAD-INTEGRITY`;
+> `MM5C-ENCRYPTED-NATIVE-APP-STATE`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná obrazovka tím není produktově DONE
@@ -157,7 +160,7 @@ znamená *kód existuje a lokálně běží*, ne *zrevidováno a integrováno*.
 | `MR-10` hledání | **`BLOCKED_BY_CONTRACT`** | **`MS-09` se nestaví.** Hledání v cachovaném okně požadavek nesplňuje |
 | `MR-14` projekty | **`BLOCKED_BY_CONTRACT_AND_GATE1`** (`F-055`) | **`MS-12` se nestaví.** Požadavek zůstává evidovaný — není odložený ani odstraněný |
 | `MR-15`, `MR-16` approvaly | Fáze **3A**, `LOCALLY_COMPOSED / COMPOSITION_REVIEW_APPROVED / REGISTRY_REVIEW_APPROVED / MOBILE_PASS / SHARED_VALIDATION_BLOCKED` | Historické `392c5928` dostalo v `RV-023`–`RV-025` `CHANGES_REQUIRED`; opravená kompozice prošla `RV-039`/`RV-040`, registry `RV-042`/`RV-043` a mobilní M3 subset. Celý profil `208/3` a `F-100` drží 3A **NOT DONE** |
-| `MR-22`, `MR-23` | `PARTIAL` pod úložištním limitem PWA (PLAN.md §7.2) | `MS-01`, `MS-04` nesmí tvrdit ochranu, kterou prohlížečové úložiště nedá |
+| `MR-22`, `MR-23` | `SOURCE TESTED / DEVICE TEST PENDING` pro Android; `PARTIAL` pro PWA | `MS-01` v Android shellu chrání credential i app-state Keystore hranicí a lock-time memory wipe; `MS-04` má správu/revoke. Browser nesmí tvrdit ochranu, kterou plaintext `localStorage` nedá |
 | `MR-24` neuzavřené operace | `LOCALLY_COMPOSED / COMPOSITION_REVIEW_APPROVED / REGISTRY_REVIEW_APPROVED / MOBILE_PASS / SHARED_VALIDATION_BLOCKED` | Kompozice prošla `RV-039`/`RV-040`, registrace pod `C3-032` `RV-042` a mobilní M3 program PASS. Funkce není produktově DONE, protože celý profil je FAIL `208/3`; tato mapa navíc stále nemá samostatnou definici toku `MS-20` (`GAP-9`). `MR-25` je otevřený paralelní backendový úkol, ne prerekvizita `MR-24` |
 | `MR-04`, `MR-06`, `MR-08`, `MR-09`, `MR-11` | `IMPLEMENTED_LOCAL_UNREVIEWED` | Fáze 1 **zůstává otevřená** (`DR-009`) |
 

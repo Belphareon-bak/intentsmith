@@ -147,6 +147,11 @@ MM3-H v `6dd452f7` odděluje `MD-03` metadata (15 minut / 30 dnů) od
 MM3-I v `7a6b379e` uzavírá exact route-bound thread/page/cache validaci,
 duplicate/overlap a route/scope race ochranu, přesný not-found/local-draft
 rozdíl a client/server HTTP `no-store` pro globální list i detail.
+MM5-C v `3817cc00` následně uzavírá plaintext-at-rest mezeru Android klienta:
+oddělený Keystore app-state nese cache, drafty, journal, scopes a preference,
+mutace čekají na jeho durable zápis, lock maže dešifrovanou WebView paměť a
+logout rotuje celý klíč s přenosem pouze preferencí. Browser/PWA zůstává
+explicitně plaintext.
 Aktuální binární build a fyzický device journey však stále neproběhly, takže
 jde o implementovaný kandidát, ne release verdict.
 
@@ -160,7 +165,7 @@ jde o implementovaný kandidát, ne release verdict.
 | Notifikační schránka | `SOURCE TESTED; DEVICE TEST PENDING` | closed-S1 producer, per-device receipts, unikátní sequence, exact klientský DTO/page/cache consumer a live-only ACK; 36/36 klient, 10/10 ACK, 6/6 sequence, 9/9 wiring, 24/24 producer a 5/5 process/HTTP E2E | je to pull; obecná production event-selection/delivery a push policy, wire freeze i fyzický WebView journey zůstávají otevřené |
 | Průběh běhu | `DEMO PROJECTION IMPLEMENTED` | demo mapuje `CoreEvent` do S1 indikátorů ve schránce | není vlastní run obrazovka ani produkční CoreEvent konektor |
 | Android shell | `IMPLEMENTED AND STATICALLY TESTED`; current binary not rebuilt | Capacitor 8.4.3, minSdk 24, compile/target 36; canonical client is packaged in the APK and native HTTP transport keeps the gateway behind `/m1` without CORS widening | current API-36 binary and device journey remain unverified |
-| Token at rest | `SOURCE TESTED; DEVICE TEST PENDING` | přímý `AndroidKeyStore` AES-256-GCM trezor, náhodné IV, AAD, atomické skupiny a vypnutý backup; nativní shell nikdy nepadá do `localStorage` | 12/12 invariantů a 19/19 klientských scénářů PASS; tři instrumentační testy jsou napsané, ale bez SDK/zařízení `NOT RUN`; mezi odemčením a zamčením kopie v JS paměti existuje |
+| Token a app data at rest | `SOURCE TESTED; DEVICE TEST PENDING` | přímý `AndroidKeyStore` AES-256-GCM trezor; credential je oddělený od bounded app-state pro cache, drafty, journal, scopes a preference; commit-before-delete migrace, mutation barrier, lock-time memory wipe a preferences-only logout rotation | 15/15 invariantů a 25/25 klientských scénářů PASS; čtyři instrumentační testy jsou napsané, ale bez SDK/zařízení `NOT RUN`; browser/PWA zůstává plaintext `localStorage` |
 | Spárovaná zařízení | `SOURCE TESTED; DEVICE TEST PENDING` | exact veřejný 11-field snapshot bez credential materialu, jediný current řádek svázaný s credentialem, validovaná read-only cache a live-only operation-keyed revoke; atomický self-revoke a následný vault wipe; 8/8 gateway + 15/15 UI | `write:devices` je denial-of-access authority; cache revokaci neodemkne; nejde o remote wipe ani desktop admin UI; fyzický lost-device journey `NOT RUN` |
 | Nastavení backendu | `SOURCE TESTED; DEVICE TEST PENDING` | exact live-only čtení všech 46 core-owned public paths; zápis 11 UX preferencí nad očekávanou revizí; 13/13 gateway/core + 17/17 UI | `write:settings` není default; malformed read editor neodemkne; nejde o obecný settings/security/model editor ani refreeze návrhu v2; fyzický WebView journey `NOT RUN` |
 | Uchovávané informace | `SOURCE TESTED; DEVICE TEST PENDING` | filtrované exact LTM/task-memory čtení, úplný opaque-cursor průchod, validovaná page cache a online vytvoření nové explicitní LTM položky; 12/12 gateway/core + 21/21 UI | `write:memory` není default; žádná náhrada, smazání, zápis task memory ani interní kategorie; fyzický WebView journey `NOT RUN` |
@@ -323,6 +328,13 @@ jen APK, které lze nainstalovat. Následující položky jsou povinné a jejich
    nativní vault nikdy nepropadne do browserového úložiště. Formát, jednorázový
    reset prototypového vaultu, důkazy a non-claims jsou v
    [MM5-B review](reviews/MM5B-DIRECT-ANDROID-KEYSTORE.md).
+   MM5-C v `3817cc00` používá tentýž klíč pro oddělený bounded app-state
+   záznam: cache, drafty, operation journal, scopes a preference už v Android
+   shellu neleží v plaintext WebView `localStorage`. Migrace maže plaintext až
+   po encrypted commit, lock zahodí dešifrovanou paměť, mutace čekají na
+   durable zápis a logout rotuje klíč s přenosem pouze preferencí. Důkazy a
+   limity jsou v
+   [MM5-C review](reviews/MM5C-ENCRYPTED-NATIVE-APP-STATE.md).
    Postup a rizika jsou v [PROD-READY-HANDBOOK.md](PROD-READY-HANDBOOK.md) §3.
    > Zabalení UI do APK vyžadovalo explicitní transportní hranici: bez nativního
    > transportu by prohlížeč vynutil CORS. „Oprava“ přes
@@ -393,7 +405,8 @@ přijetí / odmítnutí rozhodnutí 024
   → malý hybridní WP z runtime 485c3497
       → reálný effect seam + producer
       → lifecycle/BiometricPrompt hardening (implementováno)
-      → přímý AndroidKeyStore trezor (implementováno v MM5-B)
+      → přímý AndroidKeyStore credential trezor (implementováno v MM5-B)
+      → šifrovaný native app-state + mutation barrier (implementováno v MM5-C)
       → podporovaný Android/Capacitor zdrojový baseline (implementováno)
       → čistý binární build a device ověření (otevřeno)
   → fyzický USB device journey a negativní cesty

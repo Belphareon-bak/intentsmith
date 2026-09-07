@@ -19,8 +19,11 @@
 > (15 minut / 7 dnů) a expired vlákno smaže před renderem.
 > MM3-I uzavírá exact route-bound thread/page/cache hranici, response race,
 > scope wipe, not-found semantics a client/server HTTP `no-store`.
+> MM5-C doplňuje nativní UI pravdu o dvě oddělené storage řádky: credential a
+> data aplikace. Keystore, browser plaintext i fail-closed chyba jsou pojmenované;
+> rozbitý app-state bridge blokuje pairing a mutation místo tichého fallbacku.
 > Autoritou poslední změny je review
-> `MM3I-CONVERSATION-THREAD-INTEGRITY`;
+> `MM5C-ENCRYPTED-NATIVE-APP-STATE`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 > **MM4-G UI overlay:** karta workera nabízí Zapnout/Vypnout pouze s
@@ -1450,7 +1453,8 @@ rozřešenou historii, draft ani přesný retry payload. Po ztrátě tokenu a no
 spárování se razí nový `deviceId` a nedostupné jsou i starý seznam a lookupy.
 Klasifikace je tedy `draft` · `preference` · `operation recovery index`.
 Obsah, zákaz ukládat text zprávy, pořadí zápisu **klíč → záznam → odeslání**
-a omezení dnešního `localStorage` jsou v `DATA-MODEL.md` §4.5.
+a rozdíl mezi browserovým `localStorage` a MM5-C šifrovaným Android app-state
+je v `DATA-MODEL.md` §4.5.
 
 ---
 
@@ -1496,7 +1500,7 @@ Tři pravidla, která eskalace nesmí porušit:
 | **U-7** | Zámek aplikace: PIN v aplikaci, nebo systémové ověření? | **[R]** Systémové (biometrie/PIN OS); vlastní PIN je další tajemství k ochraně |
 | **U-8** | Zobrazovat `confidence` a `mode` z odpovědi chatu? | **[D]** — hodnoty existují, ale bez kalibrace by mátly |
 | ~~**U-9**~~ | Je lokální index klíčů operací třetí výjimka z `I-10`? | **ROZHODNUTO — ano.** Povinně perzistentní; není to cache, ale schopnost ověřit a bezpečně zopakovat. `I-10` má nově tři výjimky — §15, `DATA-MODEL.md` §4.5 |
-| **U-10** | Šifrované úložiště indexu na dnešní PWA | **[D]** `localStorage` šifrovaný není. Index je S1 (typy a časy, žádný obsah), takže to fázi 0–1 neblokuje; **nativní klient ho musí uložit šifrovaně** — `DATA-MODEL.md` §4.5 |
+| **U-10** | Šifrované úložiště indexu | **Android implementováno/source tested v MM5-C; browser otevřený.** Nativní journal je v AES-GCM app-state pod `AndroidKeyStore` a před mutací má durability barrier. PWA `localStorage` šifrovaný není — `DATA-MODEL.md` §4.5 |
 
 ### 17.1 Co musí být hotové před zahájením implementace
 

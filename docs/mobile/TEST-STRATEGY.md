@@ -21,9 +21,17 @@
 > thread cache a dokládá mazání expired vlákna před publikací.
 > MM3-I doplňuje exact route-bound thread/page/cache, duplicate/overlap,
 > response-race, scope-wipe, not-found a client/server HTTP-cache důkazy.
+> MM5-C rozšiřuje secure-storage důkaz o šifrovaný app-state, one-way migraci,
+> fail-closed write/bridge stavy, mutation barrier, lock-time memory wipe a
+> preferences-only key rotation. Instrumentovaný provider běh zůstává `NOT RUN`.
 > Autoritou poslední změny je review
-> `MM3I-CONVERSATION-THREAD-INTEGRITY`;
+> `MM5C-ENCRYPTED-NATIVE-APP-STATE`;
 > wildcard ani obecný `/api` proxy nevznikl.
+
+> **MM5-C evidence overlay:** `mobile-secure-credential` je 25/25 a
+> `mobile-android-keystore` 15/15. Celý gate je 54/54 active, Chromium withheld.
+> Čtvrtý instrumentovaný Android test je napsaný, ale bez JDK 21/API 36/targetu
+> nebyl spuštěn a nesmí se počítat jako device pass.
 
 > **MM4-G evidence overlay:** `mobile-workers-specialists` (12/12) pokrývá
 > scope/capability guard, exact body/result, IMMEDIATE precondition transition,

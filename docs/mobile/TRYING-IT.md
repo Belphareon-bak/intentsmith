@@ -126,11 +126,16 @@ výsledné APK nejsou production release signing. Vzdálený listener,
 Tailscale/VPN a `C3_MOBILE_ALLOW_REMOTE` nejsou podporovaná cesta tohoto
 prototypu.
 
-Nativní shell ukládá credential pouze do přímého AES-GCM trezoru pod
-`AndroidKeyStore`; do `localStorage` nesmí propadnout ani při chybě. Když
+Nativní shell ukládá credential i oddělený app-state do přímého AES-GCM trezoru
+pod `AndroidKeyStore`. Cache, koncepty zpráv, žurnál operací, scopes ani
+preference v nativním režimu nesmí propadnout do WebView `localStorage`; při
+prvním startu se starý plaintext smaže až po potvrzeném šifrovaném zápisu. Když
 párovací obrazovka hlásí nedostupný trezor, párovací tlačítko je záměrně
 vypnuté. Nejdřív použij **Vymazat poškozený trezor** (nebo aplikaci
 přeinstaluj) a teprve potom na desktopu vygeneruj nový jednorázový kód.
+V **Nastavení → Zabezpečení** musí Android uvádět `Android Keystore` zvlášť
+pro přihlášení i data aplikace; browser naopak pravdivě uvádí plaintext
+`localStorage`.
 
 ---
 

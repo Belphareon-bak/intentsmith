@@ -27,8 +27,12 @@
 > expirované S2 vlákno smaže před publikací. MM3-I přijímá pouze exact
 > route-bound thread/page/cache DTO, ruší data při scope loss a odděluje tuto
 > app cache od povinného request/response HTTP `no-store`.
+> MM5-C implementuje chráněnou perzistenci současného Android klienta jako
+> bounded AES-GCM snapshot pod nevynositelným `AndroidKeyStore` klíčem. Nativní
+> cache, drafty, operation journal, scopes a preference už neleží ve WebView
+> `localStorage`; browser/PWA zůstává explicitně slabší plaintext režim.
 > Autoritou poslední změny je review
-> `MM3I-CONVERSATION-THREAD-INTEGRITY`;
+> `MM5C-ENCRYPTED-NATIVE-APP-STATE`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná produktová fáze není DONE
@@ -165,6 +169,11 @@ Citlivost určuje povolené úložiště, ne naopak.
 **[R]** `ST-DB` musí být chráněná klíčem z `ST-SECURE`, ne jen spoléhat na
 šifrování souborového systému OS. Rozdíl je hmatatelný u odemčeného telefonu
 a u zálohy — viz `M-R2`. Rozhodnutí `D-M2`.
+
+**[F] MM5-C:** současný Android klient tuto at-rest vlastnost realizuje jedním
+verzovaným AES-GCM app-state záznamem pod `AndroidKeyStore`, nikoli relační DB.
+Je to implementace dnešního snapshot store; není to freeze obecného budoucího
+`ST-DB` formátu. Browser/PWA nadále používá plaintext `localStorage`.
 
 ---
 
@@ -1166,11 +1175,11 @@ Po terminálním výsledku se položka **nemaže hned** — zůstává jako krá
 historie a odchází až s retencí. „Jak to nakonec dopadlo" musí jít zodpovědět
 i minutu poté.
 
-**Úložiště:** `ST-DB`. Na platformě, kde je k dispozici šifrované perzistentní
-úložiště, patří index do něj. **Dnešní PWA klient to nesplňuje** — `localStorage`
-není šifrovaný a je čitelný ve třídě útočníka A2/A3 (§5.1). Index je S1 (typy
-a časy, žádný obsah), takže to není blokátor, ale **je to evidované omezení**,
-ne vyřešený bod. Nativní klient ho má povinně uložit šifrovaně.
+**Úložiště:** `ST-DB`. Android shell od MM5-C ukládá index v šifrovaném
+app-state záznamu pod `AndroidKeyStore` a před mutací čeká na jeho durable
+zápis. **Browser/PWA to nesplňuje** — jeho `localStorage` není šifrovaný a je
+čitelný ve třídě útočníka A2/A3 (§5.1). Index je S1 (typy a časy, žádný obsah),
+ale browserová mezera zůstává explicitní a nativní device důkaz není hotový.
 
 #### 4.6 Osiřelé operace — `MR-25`, otevřený backendový úkol
 

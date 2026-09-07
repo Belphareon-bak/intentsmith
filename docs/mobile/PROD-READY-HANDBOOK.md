@@ -521,13 +521,16 @@ approvalů omezená na „mám telefon zrovna v ruce".
 | **Důkaz** | rozhodnutí + test, že logout maže, co má |
 | **Pád** | S2 obsah přežije odhlášení v cache WebView, kterou nikdo nesmazal |
 
-Dnes: credential, identita zařízení, PIN verifier a čítač pokusů jsou ve
-verzovaných AES-GCM obálkách pod neexportovatelným AndroidKeyStore klíčem.
-Náhodné IV generuje provider, identita záznamu je AAD a logické skupiny se
-commitují atomicky. Nativní shell se při chybě nikdy nevrací do
-`localStorage`; párování je zablokované ještě před odesláním jednorázového
-kódu. **Cache klienta ale šifrovaná není.** `P-3` (`ST-DB` chráněná klíčem z
-`ST-SECURE`) zůstává návrh. Detail a non-claims:
+Dnes: credential, identita zařízení, PIN verifier, čítač pokusů a oddělený
+app-state jsou ve verzovaných AES-GCM obálkách pod neexportovatelným
+AndroidKeyStore klíčem. App-state nese cache, drafty, operation journal, scopes
+a preference; je namespaced a omezený na 8 MiB. Migrace maže WebView plaintext
+až po encrypted commit, lock maže dešifrovanou procesní kopii, nativní mutace
+čekají na durable zápis a logout zničí starý klíč a pod novým přenese jen
+preference. Nativní shell nikdy nepadá zpět do `localStorage`; browser/PWA
+zůstává přiznaně plaintext. Zdrojová kritéria P1-5 jsou splněná, ale device,
+storage-pressure a security acceptance zůstávají otevřené. Detail a non-claims:
+[MM5-C review](reviews/MM5C-ENCRYPTED-NATIVE-APP-STATE.md) a
 [MM5-B review](reviews/MM5B-DIRECT-ANDROID-KEYSTORE.md).
 
 ### P1-6 Accessibility a device matice

@@ -21,8 +21,12 @@
 > MM3-I uzavírá exact route-bound thread/page/cache consumer, race/scope wipe,
 > přesný not-found/local-draft rozdíl a client/server HTTP `no-store` pro oba
 > globální conversation reads; body kontraktu ani mutation se nemění.
+> MM5-C uzavírá plaintext persistence současného Android klienta: oddělený
+> šifrovaný app-state nese cache, drafty, žurnál, scopes a preference, migrace
+> je commit-before-delete a nativní mutace čekají na durable zápis. PWA dál
+> zůstává na explicitně slabším `localStorage`.
 > Autoritou poslední změny je review
-> `MM3I-CONVERSATION-THREAD-INTEGRITY`;
+> `MM5C-ENCRYPTED-NATIVE-APP-STATE`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; **žádná produktová fáze není DONE**
@@ -428,8 +432,8 @@ stránkování, autorizaci, klasifikaci dat a chování offline; projde kolem
 
 | Požadavek | Stav | Co platí |
 |---|---|---|
-| `MR-22` správa a odvolání zařízení | `PARTIAL` | Omezeno úložištěm PWA (§7.2) |
-| `MR-23` zámek aplikace | `PARTIAL` | Omezeno úložištěm PWA (§7.2); `M-R2` zůstává |
+| `MR-22` správa a odvolání zařízení | `IMPLEMENTED / SOURCE TESTED / DEVICE TEST PENDING` | Nativní credential i app-state jsou v Keystore hranici; revokace není remote wipe a PWA zůstává slabší (§7.2) |
+| `MR-23` zámek aplikace | `PARTIAL / SOURCE TESTED / DEVICE TEST PENDING` | Android maže credential i dešifrovaný app-state z WebView paměti a po unlocku rehydratuje z Keystore; PWA nemá vynutitelný lock a `M-R2` zůstává bez device/security acceptance |
 | `MR-24` rozřešení neuzavřených operací | `LOCALLY_COMPOSED / COMPOSITION_REVIEW_APPROVED / REGISTRY_REVIEW_APPROVED / MOBILE_PASS / SHARED_VALIDATION_BLOCKED` | Historické `392c5928` dostalo v `RV-025` `CHANGES_REQUIRED`; opravená kompozice prošla `RV-039`/`RV-040`, registry `RV-042`/`RV-043` a mobilní program M3. Celý profil FAIL `208/3` brání produktovému DONE; `GAP-9` zůstává dokumentační mezera. `MR-25` je otevřený souběžný backendový úkol, ne prerekvizita `MR-24` |
 
 ### 5.2 Fáze 3 se dělí na 3A a 3B
@@ -580,8 +584,10 @@ od okamžiku, kdy je ve hře `expo-secure-store` a device token, je potřeba
 
 **[F]** M-1 měl padnout *„před založením mobilního projektu nebo první
 implementací UI"* (§9). Nepadl. Mezitím vznikl klient
-`src/mobile/client/app.js` — **vanilla JS PWA** s `localStorage`, service workerem
-a manifestem, servírovaný přímo mobilní gateway. Počet řádků se mezi vybranými
+`src/mobile/client/app.js` — **vanilla JS klient** s browserovým `localStorage`,
+service workerem a manifestem, který se zároveň balí do nativního Android
+shellu. MM5-C v nativním režimu nahrazuje plaintext klientských dat šifrovaným
+app-state bridge; browserový režim zůstává beze změny. Počet řádků se mezi vybranými
 implementačními checkpointy mění a není stavová evidence
 (`src/mobile/gateway.js`, statická cesta `/`). Žádný React Native, žádné Expo,
 žádný `expo-secure-store`.
@@ -631,9 +637,10 @@ a Gate 0 PASS neexistují; sdílený profil skončil `208 PASS / 3 FAIL`.
 
 **Cena, kterou to má — ne skrytá:**
 
-1. `localStorage` **není** `expo-secure-store`. Device token leží v úložišti
-   prohlížeče bez OS keychainu. `MR-23` (zámek aplikace) a `M-R2` tím nejsou
-   pokryté v té kvalitě, jakou nativní klient umí, a **nesmí se tvrdit, že jsou**.
+1. V browser/PWA režimu `localStorage` **není** secure storage: token i data
+   nemají OS keychain ani vynutitelný app lock. Android shell od MM5-C ukládá
+   credential i oddělený app-state přes `AndroidKeyStore`, ale bez fyzického
+   device/security důkazu se `M-R2` nepovažuje za uzavřené.
 2. Notifikace při spící appce (`N-1`, `MR-21`) PWA bez push service neumí.
 3. Biometrika a bezpečné pozadí nejsou dostupné.
 

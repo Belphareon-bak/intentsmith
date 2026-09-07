@@ -101,6 +101,15 @@ actions and accepted production notification delivery/push policy; live run
 progress and broader worker lifecycle commands remain open. Memory replacement,
 deletion and task-memory writes are explicitly outside current mobile authority.
 
+Current MM5 sub-checkpoints: packaged native transport (`a5d5bab4`), direct
+AndroidKeyStore credential vault (`14be72b8..71746be5`) and encrypted native
+app-state (`3817cc00`). MM5-C stores cache, drafts, operation journal, scopes
+and preferences in a separate bounded AES-GCM record, migrates plaintext only
+after a confirmed encrypted write, clears decrypted state on lock and requires
+durability before native mutations. MM5 remains open for remote TLS/peer
+identity, production notification/offline policy, device evidence and
+independent security acceptance.
+
 ## Current lineage
 
 - canonical core base: `integration/m1-consolidated-20260810`

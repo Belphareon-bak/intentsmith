@@ -55,12 +55,19 @@ conversation metadata and `MD-04` S2 thread windows keep their distinct
 expiry boundaries, and expired thread content is deleted before publication.
 It adds no port operation, provider call, wire field or authority. See
 [`reviews/MM3H-CONVERSATION-CACHE-LIFECYCLE.md`](reviews/MM3H-CONVERSATION-CACHE-LIFECYCLE.md).
+
 MM3-I also changes no port input, output or provider. It validates the existing
 thread body against the requested id, exact public records and backward page
 boundary, rejects duplicate/overlap and stale generations, and adds only the
 HTTP `no-store` transport header on the two existing global conversation read
 routes. See
 [`reviews/MM3I-CONVERSATION-THREAD-INTEGRITY.md`](reviews/MM3I-CONVERSATION-THREAD-INTEGRITY.md).
+
+MM5-C (`3817cc00`) likewise adds no port operation, provider, wire field or
+authority. It moves the current Android client's cache, drafts, operation
+journal, scopes and preferences behind a separate encrypted Keystore app-state
+record and places a durability barrier before native mutations. See
+[`reviews/MM5C-ENCRYPTED-NATIVE-APP-STATE.md`](reviews/MM5C-ENCRYPTED-NATIVE-APP-STATE.md).
 
 `RemoteCorePort` is the core-owned, in-process boundary used by the mobile
 gateway. It is deliberately narrower than the desktop HTTP listener: a mobile

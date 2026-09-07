@@ -27,9 +27,20 @@
 > MM3-I uzavírá exact route-bound DTO/page/cache validaci vláken, odmítá
 > duplicate/overlap i pozdní odpovědi, maže thread cache při ztrátě scope a
 > izoluje globální list i detail od browser HTTP cache na klientu i gateway.
+> MM5-C nyní v nativním shellu přesouvá cache, drafty, žurnál, scope snapshot
+> a preference z plaintext WebView `localStorage` do odděleného AES-GCM
+> app-state záznamu pod `AndroidKeyStore`; migrace, lock, logout a mutation
+> durability selhávají zavřeně. Browser/PWA zůstává explicitně plaintext.
 > Autoritou poslední změny je review
-> `MM3I-CONVERSATION-THREAD-INTEGRITY`;
+> `MM5C-ENCRYPTED-NATIVE-APP-STATE`;
 > wildcard ani obecný `/api` proxy nevznikl.
+
+> **MM5-C coverage overlay:** `mobile-secure-credential` (25/25) kryje
+> one-way migraci, existující/corrupt snapshot, žádný nativní plaintext
+> fallback, mutation barrier, logout key rotation a lock-time memory wipe.
+> `mobile-android-keystore` (15/15) kryje 8MiB/namespaced hranici, locked bridge,
+> PIN wipe a preferences-only reset. Gate zůstává 54/54 active; device běh
+> nebyl proveden.
 
 > **MM3-I coverage overlay:** `mobile-ms07-history` (22/22) kryje exact
 > conversation/message DTO, route id, backward boundary, current/legacy cache,
@@ -313,7 +324,7 @@ obrazovkový dopad v SCREENS §1.1.
 | `MR-20` dry-run agenta | 5 | **`BLOCKED_BY_CONTRACT_AND_GATE1`** | `workers.dryRun` zůstává bez provideru; kontrakt + příslušná Gate 1 evidence + samostatný Work Package |
 | `MR-21` notifikace | 1+ | **`PARTIAL / SOURCE TESTED / PRODUCTION POLICY BLOCKED`** | Durable storage, fail-closed channel, jediný closed-S1 producer, per-device receipts, unikátní sequence, read/ack surface a MM4-N exact klientský DTO/page/cache/live-ACK consumer jsou implementované. Klient 36/36; ACK 10/10; sequence 6/6; wiring 9/9; producer 24/24; process/HTTP E2E 5/5. Obecná production event-selection/delivery policy, push/background chování, wire freeze a device/release evidence zůstávají otevřené (`N-1`) |
 | `MR-22` správa zařízení | 0 | **`IMPLEMENTED / SOURCE TESTED / DEVICE TEST PENDING`** | MM4-D dodává scope-gated seznam a dvoukrokové odvolání; MM4-M exact snapshot/current binding, validovanou read-only cache a live revoke gate. 8/8 gateway a 15/15 UI scénářů; revokace není remote wipe a fyzický Android běh chybí |
-| `MR-23` zámek aplikace | 0 | **`PARTIAL`** | Pod úložištním limitem PWA; `localStorage` není OS keychain, `M-R2` zůstává neodstraněné |
+| `MR-23` zámek aplikace | 0 | **`PARTIAL / SOURCE TESTED / DEVICE TEST PENDING`** | Android shell má lifecycle lock, Keystore credential i šifrovaný app-state a při locku maže dešifrovanou WebView paměť; browser/PWA zůstává plaintext bez vynutitelného app locku a fyzický device důkaz chybí |
 | `MR-24` neuzavřené operace | 1 | **`LOCALLY_COMPOSED / COMPOSITION_REVIEW_APPROVED / REGISTRY_REVIEW_APPROVED / MOBILE_PASS / SHARED_VALIDATION_BLOCKED`** | Opravené checkpointy a journal allowlist jsou kompozičně i registry zrevidované a mobilní program prošel. Funkce není produktově DONE; sdílený profil selhal a SCREENS stále postrádá samostatnou definici toku (`GAP-9`) |
 | `MR-25` osiřelé operace | — | `MISSING_IMPLEMENTATION` | Backendový úkol, není zahájen (`M-R8`) |
 
@@ -394,7 +405,7 @@ serverovou hranici, která má cenu i kdyby žádný telefon nikdy nevznikl
 |---|---|---|---|
 | **`G0-R032`** neautentizované RCE mimo loopback | Oddělený listener, `S-1`..`S-4` | MB ×5 (3× vyžaduje serverovou runtime prerekvizitu) | **OPEN** — blokuje jakékoli vzdálené zpřístupnění |
 | **`M-R1`** revokace nesmaže offline cache | `P-1` minimalizace, `P-2` úklid, `MS-04` to říká nahlas | `ML-revoke-cannot-wipe-offline` | **přijato jako vlastnost** |
-| **`M-R2`** odemčený telefon obchází úložiště | `P-4` zámek aplikace, `P-8` nejmenší scope | ML-logout-wipe, MC-expired-purge | zmírněno, neodstranitelné. **Pod dnešním PWA klientem zmírněno slaběji:** `localStorage` není OS keychain, takže `MR-22`/`MR-23` jsou `PARTIAL` a **nesmí se tvrdit, že jsou pokryté** (PLAN.md §7.2) |
+| **`M-R2`** odemčený telefon obchází úložiště | `P-4` zámek aplikace, `P-8` nejmenší scope | ML-logout-wipe, MC-expired-purge, MM5-C secure-state | Android zdrojově zmírněno Keystore app-state, lock-time memory wipe a fail-closed mutacemi; bez device/security evidence neuzavřeno. Browser/PWA dál používá plaintext `localStorage` a `MR-23` tam pokrytý není |
 | **`M-R3`** okno zpráv je největší dopad ztráty | `P-1`, `D-M6` rozsah okna | MC-only-explicit | zmírněno, rozsah otevřený |
 | **`M-R4`** diagnostika prozradí backend | přijato | MV-diagnostics | přijato |
 | **`M-R5`** notifikace na zamčené obrazovce | ukazatel, ne obsah | MV-notification-content | zmírněno |
