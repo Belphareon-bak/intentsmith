@@ -12,8 +12,9 @@
 > scope, relace, uzamčení aplikace nebo spojení. MM3-D poté doplnilo validovaný
 > page snapshot globální S1 cache a úplný cursorový průchod. MM3-E přidalo
 > state-bound page snapshots projektů. MM4-J uzavírá worker/specialist list
-> snapshots exact DTO a page-boundary validací. Autoritou poslední změny je
-> review `MM4J-CONFIGURED-LIST-INTEGRITY`;
+> snapshots exact DTO a page-boundary validací. MM3-F nyní stejnou exact
+> validaci, id binding a failure semantics uplatňuje na detail projektu.
+> Autoritou poslední změny je review `MM3F-PROJECT-DETAIL-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná produktová fáze není DONE
@@ -261,7 +262,7 @@ automaticky otevřenou práci.
 
 ### MD-02 — Projekty a jejich lifecycle stav
 
-> **Kanonický stav MM3-A/MM3-C/MM3-E na této větvi:** na základě explicitního
+> **Kanonický stav MM3-A/MM3-C/MM3-E/MM3-F na této větvi:** na základě explicitního
 > operátorského zadání existuje read-only seznam/detail projektů a živý
 > drill-down do jejich konverzací. Jde o `SOURCE TESTED / DEVICE TEST PENDING`,
 > nikoli o refreeze wire v2 nebo dokončený lifecycle. Projektové a konverzační
@@ -298,6 +299,17 @@ mohou zůstat označené jako cache, ale členství konverzací se z cache netvr
 > čitelný, ale nevydává se za potvrzený konec ani zdroj cursoru. Ztráta
 > `read:projects` maže oba seznamy, jejich boundaries a detailové cache.
 > Zdrojová evidence: [MM3-E review](reviews/MM3E-PROJECT-LIST-PAGINATION.md).
+
+> **Implementační checkpoint MM3-F (2026-09-07):** live i cached detail musí
+> mít exact veřejný DTO tvar a id shodné s požadovanou routou. Expired/corrupt
+> snapshot se před publikací smaže; nejednoznačný offline/server/protocol pád
+> ponechá pouze validní neexpirovanou kopii s explicitním označením a retry.
+> Definitivní `not_found`, ztráta scope a pozdní response po odchodu detail i
+> cache stáhnou nebo nechají inertní. MM3-F nemění délku cache: aktuální
+> generické klientské window je `FRESH` 1 min a `EXPIRED` po 15 min, takže delší
+> cíl v tabulce výše zatím není implementovaná skutečnost a jeho sjednocení
+> zůstává otevřené. Zdrojová evidence:
+> [MM3-F review](reviews/MM3F-PROJECT-DETAIL-INTEGRITY.md).
 
 ---
 

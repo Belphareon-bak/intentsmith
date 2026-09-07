@@ -247,6 +247,13 @@ nebo overlap a publikuje jen validovaný cache snapshot. Vadná worker stránka
 navíc ruší live proof pro toggle. Viz
 `reviews/MM4J-CONFIGURED-LIST-INTEGRITY.md`.
 
+MM3-F (`a08d0dd0`) také nemění gateway, allow-list ani `RemoteCorePort`.
+Existující `GET /m1/projects/:id` nyní klient přijme jen jako HTTP 200 success
+envelope s exact verzovaným veřejným DTO a id shodným s požadovanou routou.
+Corrupt/expired cache, conclusive `not_found`, scope loss a pozdní response po
+odchodu z route se nesmějí publikovat. Viz
+`reviews/MM3F-PROJECT-DETAIL-INTEGRITY.md`.
+
 ---
 
 ## 4. Routy

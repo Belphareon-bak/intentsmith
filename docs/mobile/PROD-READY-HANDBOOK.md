@@ -432,6 +432,20 @@ route, provider ani scope se neměnily. Project mutation, fyzický WebView
 průchod ani release acceptance se tím netvrdí. Viz
 [MM3-E review](reviews/MM3E-PROJECT-LIST-PAGINATION.md).
 
+### P1-3i Integrita detailu projektu
+
+Stav MM3-F: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`.
+Existující `GET /m1/projects/:id` klient přijme pouze s exact veřejným DTO a
+id shodným s požadovanou routou. Stejné ověření platí před publikací cache;
+expired/corrupt snapshot se smaže. Offline/server/protocol selhání smí ponechat
+jen validní neexpirovanou kopii s viditelným označením a retry, zatímco
+definitivní `not_found` ji odstraní. Pozdní response po odchodu nebo starší
+generace je inertní. Backend zůstává 11/11 a klient prošel 30/30; route, scope,
+port ani mutation se neměnily. MM3-F nemění TTL: aktuální detail používá
+generické 1min fresh/15min expiry window a delší cíl `MD-02` zůstává otevřený.
+Fyzický WebView průchod a release acceptance se netvrdí. Viz
+[MM3-F review](reviews/MM3F-PROJECT-DETAIL-INTEGRITY.md).
+
 ### P1-4 Push, nebo přiznané pull-only
 
 | | |
@@ -588,7 +602,8 @@ jiného, telefon nemá zámek obrazovky — a to je nález, ne detail.
   existující conversation-list query bez přidání routy. MM3-D pouze doplnilo
   klientského konzumenta jejího už existujícího cursoru a MM3-E totéž pro
   existující project-state cursory. MM4-J stejným způsobem zpřísnilo už
-  existující worker/specialist list consumery, ne tento dokument.
+  existující worker/specialist list consumery a MM3-F existující project-detail
+  consumer, ne tento dokument.
 - Žádný termín. Termíny patří operátorovi; tady jsou jen závislosti a pořadí.
 - Žádné „nice to have". Každá položka výše má popsaný způsob, jak selže —
   když ho někdo nedokáže popsat u nové položky, do seznamu nepatří.

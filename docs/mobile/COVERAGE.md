@@ -10,9 +10,10 @@
 > project-to-conversation drill-down přes existující route, se dvěma scopy,
 > per-project cursorem a bez persistentní cache. MM3-D doplnilo globální
 > cursor consumer a validovanou page cache; MM3-E totéž doplnilo pro oddělené
-> project-state streamy. MM4-J nyní fail-closed ověřuje celé worker/specialist
-> list pages a jejich cache boundaries. Autoritou poslední změny je review
-> `MM4J-CONFIGURED-LIST-INTEGRITY`;
+> project-state streamy. MM4-J fail-closed ověřuje celé worker/specialist list
+> pages a jejich cache boundaries. MM3-F nyní stejnou exact hranici aplikuje
+> na live i cached detail projektu, včetně requested-id, not-found a route-race
+> chování. Autoritou poslední změny je review `MM3F-PROJECT-DETAIL-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 > **MM3-D coverage overlay:** globální `MS-06` nově skutečně spotřebuje
@@ -32,6 +33,13 @@
 > nepřekrývajícími se id. `mobile-workers-specialists-ui` (24/24) kryje exact
 > i vnořené tvary, protocol-safe zachování cache, corrupt/legacy cache,
 > partial UI, scope withdrawal, response race a relock worker mutation.
+
+> **MM3-F coverage overlay:** `MS-12` publikuje project detail jen po exact
+> public DTO a requested-id validaci. `mobile-projects-ui` (30/30) nově kryje
+> validní stale cache a explicitní offline recovery, expired/corrupt cache
+> deletion, protocol-safe zachování potvrzeného detailu, definitivní
+> `not_found`, odchod z route a newest-generation-wins. Backend zůstává 11/11;
+> route, scope, wire ani mutation povrch se neměnily.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; tato matice není sama evidence a žádný produktový požadavek zde není DONE
 **Revize:** vstupy `RV-028`, `RV-036`, `RV-037`, reconciliation `RV-038`; Composition Review C `RV-039`/`RV-040`; registr a chráněné hodnoty `RV-042`/`RV-043`
@@ -247,7 +255,7 @@ obrazovkový dopad v SCREENS §1.1.
 | `MR-07` průběh běhu | 1 | **`BLOCKED_BY_CONTRACT`** | Blokující `/m1/chat` ani žurnál operací **nejsou agent log**. Žádné UI do schválení kontraktu na zdroj dat o průběhu, jeho lifecycle a obnovu. Doména 5 kontraktního kola `DR-008` |
 | `MR-10` hledání | 1 | **`BLOCKED_BY_CONTRACT`** | **Lokální hledání nad načtenými stránkami požadavek nesplňuje.** Kontrakt musí určit rozsah, stránkování, autorizaci, klasifikaci dat a chování offline. Doména 6 kontraktního kola `DR-008` |
 | `MR-12`, `MR-13` | 2 | **`IMPLEMENTED / SOURCE TESTED / DEVICE TEST PENDING`** | MM4-A dodal live-only veřejné čtení a MM4-E revizně řízený zápis 11 UX preferencí; 13/13 gateway/core a 13/13 UI scénářů PASS. Není to refreeze návrhu v2 ani obecný settings editor |
-| `MR-14` projekty | **3B** | **`PARTIAL / SOURCE TESTED / DEVICE TEST PENDING`** | MM3-A přidal read-only seznam/detail; MM3-C živý project-to-conversation drill-down s `read:projects` + `read:chat`, per-project cursorem a bez persistentní cache. `mobile-projects` 11/11 a UI 17/17 PASS. Lifecycle/project/chat mutations, v2 freeze a device evidence zůstávají otevřené |
+| `MR-14` projekty | **3B** | **`PARTIAL / SOURCE TESTED / DEVICE TEST PENDING`** | MM3-A přidal read-only seznam/detail; MM3-C živý project-to-conversation drill-down; MM3-E úplné state-bound listy; MM3-F exact live/cache detail s id bindingem, not-found a route-race invalidací. `mobile-projects` 11/11 a UI 30/30 PASS. Lifecycle/project/chat mutations, cache-policy alignment, v2 freeze a device evidence zůstávají otevřené |
 | `MR-15`, `MR-16` approvaly | **3A** | **`LOCALLY_COMPOSED / COMPOSITION_REVIEW_APPROVED / REGISTRY_REVIEW_APPROVED / MOBILE_PASS / SHARED_VALIDATION_BLOCKED`** | Historické `392c5928` dostalo v `RV-023`–`RV-025` `CHANGES_REQUIRED`; opravená kompozice prošla `RV-039`/`RV-040` a registry `RV-042`/`RV-043`. Celý profil je `208/3`, 3A je **NOT DONE** a `F-100` blokuje produkci |
 | `MR-17`, `MR-18` | 4 | **`IMPLEMENTED / SOURCE TESTED / DEVICE TEST PENDING`** | MM4-B dodal filtrované čtení a MM4-F create-only explicitní LTM insert; 12/12 gateway/core a 14/14 UI scénářů PASS. Replacement, delete, task-memory write, interní kategorie a refreeze v2 se netvrdí |
 | `MR-19` stav agentů a historie | 5 | **`PARTIAL / SOURCE TESTED / DEVICE TEST PENDING`** | MM4-C dodal filtrovaný worker/specialist read model, MM4-G precondition-checked worker enable/disable, MM4-H worker detail s metadata-only terminální historií, MM4-I specialist detail s public-only vazbami expertiz a MM4-J exact fail-closed list/cache consumer. Kombinované sady prošly 18/18 gateway/core a 24/24 UI; persisted specialist status není live runtime truth a execution obsah, aktivní run progress, cancel i specialist mutations nejsou součástí této autority |

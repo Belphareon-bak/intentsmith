@@ -261,6 +261,29 @@ Zdrojová evidence a exact DTO/cache hranice jsou v
 State/cursor vazba, cache migrace a negativní scénáře jsou v
 [MM3-E review](reviews/MM3E-PROJECT-LIST-PAGINATION.md).
 
+### Integrita detailu projektu (MM3-F)
+
+1. Otevři detail projektu a ověř, že live response s jiným id, extra polem,
+   neplatným stavem, timestampem, countem nebo verzí skončí jako protocol
+   chyba a nesmí přepsat poslední validní detail ani cache.
+2. S validní cache starší než jednu minutu odpoj backend. Detail musí zůstat
+   označený jako zastaralý, vysvětlit offline stav a nabídnout **Načíst detail
+   znovu**; konverzace projektu se za offline cache vydávat nesmějí.
+3. Cache starší než 15 minut nebo se špatným id/tvarem musí být odstraněna před
+   publikací. Tyto hodnoty popisují dnešní klientský window, ne delší cíl
+   `MD-02`.
+4. Definitivní `not_found` musí odstranit zapamatovaný detail i cache. Oproti
+   tomu server/protocol/offline selhání nesmí smazat validní neexpirovanou
+   kopii.
+5. Zahaj načtení, vrať se na seznam a teprve potom dokonči response. Detail ani
+   cache se nesmí znovu objevit. Ze dvou souběžných načtení stejného projektu
+   smí publikovat pouze novější generace.
+6. Odeber `read:projects`; detail, projektové seznamy i jejich persistentní
+   cache musí zmizet společně.
+
+Exact DTO, cache/failure semantics a route-generation důkazy jsou v
+[MM3-F review](reviews/MM3F-PROJECT-DETAIL-INTEGRITY.md).
+
 ### Globální seznam konverzací (MM3-D)
 
 1. Otevři **Konverzace** s více než 50 nesmazanými konverzacemi. Pod první

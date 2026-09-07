@@ -11,8 +11,9 @@
 > `read:projects` i `read:chat`, otevírá stávající chat a nepřidává mutaci.
 > MM3-D následně uzavřelo truncation globálního seznamu přes existující cursor.
 > MM3-E totéž uzavírá odděleně pro aktivní a archivované projekty. MM4-J
-> uzavírá exact list/cache integritu workerů a specialistů. Autoritou poslední
-> změny je review `MM4J-CONFIGURED-LIST-INTEGRITY`;
+> uzavírá exact list/cache integritu workerů a specialistů. MM3-F nyní uzavírá
+> exact live/cache hranici detailu projektu, jeho not-found a route-race stav.
+> Autoritou poslední změny je review `MM3F-PROJECT-DETAIL-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná obrazovka tím není produktově DONE
@@ -513,7 +514,7 @@ ochrana, producer/projektor a Gate 1 důkazy chybějí.
 | Část | Toky | Stav |
 |---|---|---|
 | **3A — approvaly** | `MS-13`, `MS-14` | Historické `392c5928` má `CHANGES_REQUIRED` z `RV-023`–`RV-025`; opravená kompozice prošla `RV-039`/`RV-040`, registry `RV-042`/`RV-043` a mobilní M3 subset. Celý profil `208/3` a produkční `F-100` blokují; 3A je **NOT DONE** |
-| **3B — projekty** | `MS-12` | MM3-A/MM3-C/MM3-E: read-only seznam/detail, úplné active/archive filtry a živý drill-down do konverzací jsou `SOURCE TESTED / DEVICE TEST PENDING`; lifecycle mutations zůstávají otevřené |
+| **3B — projekty** | `MS-12` | MM3-A/MM3-C/MM3-E/MM3-F: read-only seznam/detail s exact live/cache validací, úplné active/archive filtry a živý drill-down do konverzací jsou `SOURCE TESTED / DEVICE TEST PENDING`; lifecycle mutations a cache-policy alignment zůstávají otevřené |
 
 **Fáze 3 jako celek je DONE teprve po 3B.** Uzavření 3A fázi nezavírá.
 
@@ -537,16 +538,25 @@ ochrana, producer/projektor a Gate 1 důkazy chybějí.
 > potvrzeného okna. Každý filtr má vlastní validovanou S1 cache boundary.
 > Zdrojová evidence: [MM3-E review](reviews/MM3E-PROJECT-LIST-PAGINATION.md).
 
+> **Implementační checkpoint MM3-F (2026-09-07):** detail přijme live i cached
+> projekt jen s exact veřejným DTO a id shodným s požadovanou routou.
+> Expired/corrupt snapshot se před zobrazením smaže. Validní stale kopie zůstane
+> při offline/server/protocol selhání viditelně označená a dostane explicitní
+> retry; definitivní `not_found` ji odstraní. Pozdní response po odchodu a
+> starší same-project generace jsou inertní. Aktuální klientský detail TTL se
+> neměnil a delší cíl `MD-02` zůstává otevřený. Zdrojová evidence:
+> [MM3-F review](reviews/MM3F-PROJECT-DETAIL-INTEGRITY.md).
+
 | Stav | Chování |
 |---|---|
 | `SS-01` | Skeleton |
 | `SS-02` | „Žádné projekty"; uvnitř detailu samostatné potvrzené „Projekt nemá žádné konverzace" |
-| `SS-03` | Seznam a **poslední známá fáze** ze cache, vždy se stářím; členství konverzací se zahodí a offline se netvrdí |
+| `SS-03` | Seznam a exact-validovaný detail/poslední známá fáze ze stále platné cache, vždy se stářím a explicitním selháním refresh; členství konverzací se zahodí a offline se netvrdí |
 | `SS-04` | Fáze projektu zastarává rychle — ukazatel stáří je zde důraznější |
 | `SS-05` | Refresh; změna fáze se převezme bez ptaní (je serverová) |
 | `SS-06` | Jako `MS-06` |
 | `SS-07` | Bez `read:projects` je zamčený celý tok; bez `read:chat` zůstává detail projektu, ale jeho konverzační sekce je zamčená |
-| `SS-08` | Cache čitelná, akce neaktivní |
+| `SS-08` | Pouze validní neexpirovaná cache je čitelná a označená, akce neaktivní; `not_found` detail stáhne |
 | `SS-09` | Fáze se změnila → převzít, a pokud na ní visela nabízená akce, akci stáhnout |
 | `SS-10` | Čtení bezpečné; přechody fází se z telefonu neopakují (`MUT-NEVER-QUEUED`) |
 
