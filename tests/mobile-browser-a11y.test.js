@@ -26,15 +26,16 @@
 //
 // **Fail-closed** (`TEST-STRATEGY.md` §5, condition 1; `G0-R016`).  No browser
 // means a non-zero exit and a named prerequisite, never "skipped, therefore
-// green".  The registry row carries `state: BLOCKED` with
-// `requirements.toolchain: ["chromium-runtime"]` for exactly that reason
-// (condition 5: a suite that needs a toolchain the ordinary run does not have
-// is not `offline`).
+// green".  Since MM5-D the registry row is `ACTIVE`, retains
+// `requirements.toolchain: ["chromium-runtime"]`, and makes that runtime a hard
+// prerequisite of the mobile gate.  A fresh host provisions the browser version
+// resolved by the installed Puppeteer package with `npm run mobile:a11y:setup`;
+// absence or launch failure stops the gate.
 //
 // **What this still does not prove.**  A headless Chrome is not a phone.  It
 // does not prove what VoiceOver or TalkBack say out loud, how the bar behaves
-// under a real OS font setting (see the last test — the client is px-based, so
-// it does not respond to one at all), or anything about iOS Safari.  Contrast
+// under a real OS font setting (the browser-level 200% simulation is not that),
+// or anything about iOS Safari.  Contrast
 // here is computed for opaque and alpha-composited backgrounds; a colour behind
 // `backdrop-filter` is approximated by the stack underneath it.
 //
@@ -202,14 +203,6 @@ const CONTRAST = `(() => {
     // problem, and counting both would report one failure twice.
     const own = [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim().length > 0);
     if (!own) continue;
-    // OPEN, measured separately below.  The bar's labels only became visible to
-    // this collector once the ring stopped scrolling items off screen for no
-    // reason, and the number it computes for them is not trustworthy: making
-    // the text *brighter* lowered the ratio, which means the background it
-    // resolves under the navbar is wrong.  Excluded here so one unexplained
-    // measurement does not mask every other surface; the exclusion cannot rot,
-    // because the test after this one fails the moment it stops being true.
-    if (el.classList.contains('nav-tab-label')) continue;
     const style = getComputedStyle(el);
     const fg = parse(style.color);
     if (!fg) continue;
@@ -306,6 +299,10 @@ async function onEachSurface(collect) {
   await page.evaluate(ACTIVATE);
   for (const [name, setup] of SURFACES) {
     await page.evaluate(setup);
+    // Selection and theme colours transition for 120 ms.  Measuring during
+    // that interpolation compares the new background with the old foreground
+    // and fabricates a contrast failure that no settled frame contains.
+    await new Promise(resolve => setTimeout(resolve, 160));
     const issues = await page.evaluate(collect);
     for (const issue of issues) found.push(`${name} — ${issue}`);
   }
@@ -492,11 +489,26 @@ try {
     await page.evaluate(ACTIVATE);
     const outcome = await page.evaluate(async () => {
       const S = window.__is;
-      const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => ({
-        id: String(from + i),
-        role: (from + i) % 2 ? 'user' : 'assistant',
-        content: `zpráva ${from + i}`,
-      }));
+      // Keep the browser fixture on the same exact public DTO boundary as the
+      // client.  MM3-I made thread pages fail closed on missing/private fields;
+      // a shorthand rendering fixture here would therefore test protocol
+      // rejection instead of the real scroll-triggered paging behaviour.
+      const message = number => ({
+        id: String(number),
+        role: number % 2 ? 'user' : 'assistant',
+        content: `zpráva ${number}`,
+        createdAt: new Date(Date.UTC(2026, 0, 1, 0, 0, number)).toISOString(),
+        metadata: null,
+        version: `v1:message-${number}`,
+      });
+      const range = (from, to) => Array.from(
+        { length: to - from + 1 }, (_, i) => message(from + i));
+      const conversation = {
+        id: 'c1', title: 'Dlouhá', messageCount: 200, state: 'active',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T01:00:00.000Z',
+        version: 'v1:conversation-c1',
+      };
 
       const requests = [];
       const realFetch = window.fetch;
@@ -510,7 +522,7 @@ try {
             ok: true, protocolVersion: 'm1.2026-07-30', scopes: ['read:chat'],
             hasMore: true, nextCursor: 'c1.next.page', end: false, direction: 'backward',
             data: {
-              conversation: { id: 'c1', title: 'Dlouhá' },
+              conversation,
               messages: range(101, 150),
             },
           }),
@@ -522,7 +534,7 @@ try {
         S.state.conn = 'ok';
         S.state.conversationId = 'c1';
         S.state.data.thread = {
-          conversation: { id: 'c1', title: 'Dlouhá' },
+          conversation,
           messages: range(151, 200),
         };
         S.state.thread = { cursor: 'c1.a.b', end: false, loadingOlder: false, stickToBottom: true };
@@ -699,15 +711,16 @@ try {
     assert.equal(outcome.selectionStillMarked, true, 'and the highlight must survive it');
   });
 
-  await test('§10 OTEVŘENÉ: popisky lišty měří pod 4.5:1 a to měření je sporné', async () => {
-    // Recorded, not asserted away.  These labels were excluded from the
-    // contrast sweep above; this is what keeps that exclusion honest.  The
-    // number itself is doubtful — brightening the text *lowered* it, so the
-    // background resolved under the navbar is wrong — but "the checker cannot
-    // read this surface" is itself a defect worth holding open.
+  await test('§10 popisky lišty po ustálení motivu drží kontrast 4.5:1', async () => {
+    // Theme and selection changes animate the foreground for 120 ms.  The old
+    // characterisation sampled that transition immediately after turning the
+    // background dark, mixed a light-theme foreground with a dark-theme
+    // background, then called the resulting 2.2:1 an open product defect.
+    // Measure a settled frame, as the complete contrast sweep above now does.
     await page.evaluate(ACTIVATE);
     await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'dark' }]);
     await page.evaluate(`window.__is.state.route = 'conversations'; window.__is.render();`);
+    await new Promise(resolve => setTimeout(resolve, 160));
     const measured = await page.evaluate(`(() => {
       ${MEASURE}
       return [...document.querySelectorAll('.nav-tab-label')]
@@ -715,15 +728,14 @@ try {
         .map(el => {
           const fg = parse(getComputedStyle(el).color);
           const bg = effectiveBg(el);
-          return { text: el.textContent.trim(), ratio: round(ratio(over(fg, bg), bg)), bg: bg.map(Math.round) };
+          return { text: el.textContent.trim(), ratio: round(ratio(over(fg, bg), bg)) };
         });
     })()`);
     await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'light' }]);
 
     assert.ok(measured.length >= 2, 'the labels must be on screen at all — that was the bar bug');
-    assert.ok(measured.some(m => m.ratio < 4.5),
-      'this characterisation is stale: the labels now measure above 4.5:1, so remove the '
-      + 'exclusion in CONTRAST and delete this test');
+    assert.deepEqual(measured.filter(item => item.ratio < 4.5), [],
+      `every visible label needs 4.5:1 after the transition settles: ${JSON.stringify(measured)}`);
   });
 
   await test('§3.1 prstenec se ot\xe1\u010d\xed i v \u0161irok\xe9m okn\u011b, ne jen na telefonu', async () => {

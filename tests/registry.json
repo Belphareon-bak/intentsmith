@@ -12540,7 +12540,7 @@
                                         },
                        "required":  true,
                        "owner":  "primary implementer",
-                       "state":  "BLOCKED",
+                       "state":  "ACTIVE",
                        "lastGreen":  {
                                          "commit":  null,
                                          "artifact":  null

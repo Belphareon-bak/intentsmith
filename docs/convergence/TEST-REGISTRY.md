@@ -17,7 +17,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 - Runnable programs: 437
 - Explicit support-module exclusions: 9
 - Profiles: offline=212, database=69, server=37, model=85, soak=19, manual=15
-- States: ACTIVE=338, HISTORICAL=16, BLOCKED=83
+- States: ACTIVE=339, HISTORICAL=16, BLOCKED=82
 
 ## Execution profiles
 
@@ -320,7 +320,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-MOBILE-APPROVAL-AUTHORITY-TEST` | `tests/mobile-approval-authority.test.js` | `C3-031` | T2 | `database` | 20 s | 3 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-MOBILE-APPROVAL-CACHE-BOUNDARY-TEST` | `tests/mobile-approval-cache-boundary.test.js` | `C3-032` | T2 | `database` | 30 s | 4 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MOBILE-APPROVAL-LIFECYCLE-REGRESSION-TEST` | `tests/mobile-approval-lifecycle-regression.test.js` | `C3-032` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
-| `IS-T1-TESTS-MOBILE-BROWSER-A11Y-TEST` | `tests/mobile-browser-a11y.test.js` | `C3-032` | T1 | `offline` | 1 min | 5 min | network:loopback, toolchain:chromium-runtime | yes | `BLOCKED` | — | primary implementer |
+| `IS-T1-TESTS-MOBILE-BROWSER-A11Y-TEST` | `tests/mobile-browser-a11y.test.js` | `C3-032` | T1 | `offline` | 1 min | 5 min | network:loopback, toolchain:chromium-runtime | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MOBILE-CAPABILITY-INVENTORY-TEST` | `tests/mobile-capability-inventory.test.js` | `C3-031` | T1 | `offline` | 5 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-MOBILE-COMPANION-E2E-TEST` | `tests/mobile-companion-e2e.test.js` | `C3-031` | T2 | `database` | 30 s | 3 min | network:loopback, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MOBILE-COMPANION-PRODUCER-TEST` | `tests/mobile-companion-producer.test.js` | `C3-031` | T2 | `database` | 20 s | 3 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |

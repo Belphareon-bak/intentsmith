@@ -22,6 +22,7 @@
     "mobile:android:build": "node scripts/mobile-android.mjs build",
     "mobile:android:install": "node scripts/mobile-android.mjs install",
     "mobile:android:run": "node scripts/mobile-android.mjs run",
+    "mobile:a11y:setup": "puppeteer browsers install chrome",
     "test": "npm run test:deterministic",
     "test:all": "node tests/run-all.js",
     "test:gate0": "npm run test:deterministic",
