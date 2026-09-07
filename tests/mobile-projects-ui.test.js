@@ -66,7 +66,7 @@ globalThis.fetch = async () => { throw new TypeError('network disabled'); };
 const { __ms20 } = await import('../src/mobile/client/app.js');
 const {
   state, store, K, viewProjects, viewProject, loadProjects, loadProject,
-  validProjectConversationPage, loadProjectConversations,
+  validProjectPage, validProjectConversationPage, loadProjectConversations,
   invalidateProjectConversationSurface,
   currentSection, screenLocks, trustBar,
 } = __ms20;
@@ -82,6 +82,7 @@ function reset(scopes = ['read:projects']) {
   state.projectId = null;
   state.projectState = 'active';
   state.data = {};
+  state.pagination = {};
   state.loading = {};
   state.error = {};
   state.cacheAge = {};
@@ -90,6 +91,7 @@ function reset(scopes = ['read:projects']) {
   state.serverOffsetMs = 0;
   nodes.app.innerHTML = '';
   body.children.length = 0;
+  globalThis.fetch = async () => { throw new TypeError('network disabled'); };
 }
 
 function conversation(overrides = {}) {
@@ -126,6 +128,19 @@ function project(overrides = {}) {
     updatedAt: '2026-09-04T10:00:00.000Z',
     conversationCount: 4,
     version: 'v1:abc',
+    ...overrides,
+  };
+}
+
+function projectPage(data, overrides = {}) {
+  return {
+    ok: true,
+    scopes: ['read:projects'],
+    state: 'active',
+    data,
+    hasMore: false,
+    nextCursor: null,
+    end: true,
     ...overrides,
   };
 }
@@ -352,7 +367,7 @@ await test('load uses the scoped project route and persists an offline copy', as
       ok: true,
       status: 200,
       async json() {
-        return { ok: true, scopes: ['read:projects'], data: [project()] };
+        return projectPage([project()]);
       },
     };
   };
@@ -372,7 +387,7 @@ await test('scope withdrawal clears every project cache and published surface', 
     ok: true,
     status: 200,
     async json() {
-      return { ok: true, scopes: [], data: [project()] };
+      return projectPage([project()], { scopes: [] });
     },
   });
 
@@ -382,6 +397,132 @@ await test('scope withdrawal clears every project cache and published surface', 
   assert.equal(store.get(K.cache + 'projects.active'), null);
   assert.equal(store.get(K.cache + 'project.17'), null);
   assert.equal(store.get(K.cache + 'project.18'), null);
+});
+
+await test('MM3-E a partial project filter exposes one disabled-safe continuation control', () => {
+  reset();
+  state.data.projects = [project()];
+  state.pagination.projects = { hasMore: true, nextCursor: 'c1.active', end: false };
+  let markup = viewProjects();
+  assert.match(markup, /data-act="load-more-projects"/);
+  assert.match(markup, /Backend potvrdil další aktivní projekty/);
+  assert.equal((markup.match(/load-more-projects/g) || []).length, 1);
+
+  state.loading.projects = true;
+  markup = viewProjects();
+  assert.match(markup, /data-act="load-more-projects" disabled/);
+  assert.match(markup, /Načítám…/);
+});
+
+await test('MM3-E validates exact project pages and binds every row to the selected state', () => {
+  assert.equal(validProjectPage(projectPage([project()]), 'active'), true);
+  assert.equal(validProjectPage(projectPage([
+    project(), project({ name: 'Duplicitní id' }),
+  ]), 'active'), false);
+  assert.equal(validProjectPage(projectPage([project({ path: 'C:/secret' })]), 'active'), false);
+  assert.equal(validProjectPage(projectPage([project({ state: 'archived' })]), 'active'), false);
+  assert.equal(validProjectPage(projectPage([project()], { state: 'archived' }), 'active'), false);
+  assert.equal(validProjectPage(projectPage([], {
+    hasMore: false, nextCursor: null, end: false,
+  }), 'active'), false);
+});
+
+await test('MM3-E appends only with the active filter cursor and caches its page boundary', async () => {
+  reset();
+  const calls = [];
+  const responses = [
+    projectPage([project()], { hasMore: true, nextCursor: 'c1.active', end: false }),
+    projectPage([project({ id: '16', name: 'Starší' })]),
+  ];
+  globalThis.fetch = async url => ({
+    ok: true,
+    status: 200,
+    async json() { calls.push(url); return responses.shift(); },
+  });
+
+  await loadProjects('active');
+  await loadProjects('active', { append: true });
+
+  assert.deepEqual(calls, [
+    '/m1/projects?state=active&limit=100',
+    '/m1/projects?state=active&limit=100&cursor=c1.active',
+  ]);
+  assert.deepEqual(state.data.projects.map(item => item.id), ['17', '16']);
+  assert.deepEqual(state.pagination.projects, { hasMore: false, nextCursor: null, end: true });
+  const saved = store.get(K.cache + 'projects.active');
+  assert.deepEqual(saved.data.items.map(item => item.id), ['17', '16']);
+  assert.deepEqual(saved.data.page, { hasMore: false, nextCursor: null, end: true });
+});
+
+await test('MM3-E rejects overlapping project pages without changing the confirmed filter', async () => {
+  reset();
+  state.data.projects = [project()];
+  state.pagination.projects = { hasMore: true, nextCursor: 'c1.active', end: false };
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    async json() { return projectPage([project()]); },
+  });
+
+  await loadProjects('active', { append: true });
+
+  assert.deepEqual(state.data.projects.map(item => item.id), ['17']);
+  assert.equal(state.error.projects.kind, 'protocol');
+  assert.match(viewProjects(), /Zobrazený seznam se nezměnil/);
+  assert.match(viewProjects(), /Načíst filtr od začátku/);
+});
+
+await test('MM3-E an archived response wins over a late active-filter response', async () => {
+  reset();
+  const releases = [];
+  globalThis.fetch = () => new Promise(resolve => releases.push(payload => resolve({
+    ok: true,
+    status: 200,
+    async json() { return payload; },
+  })));
+
+  const active = loadProjects('active');
+  await Promise.resolve();
+  const archived = loadProjects('archived');
+  await Promise.resolve();
+  releases[1](projectPage([
+    project({ id: '30', name: 'Archiv', state: 'archived' }),
+  ], { state: 'archived' }));
+  await archived;
+  releases[0](projectPage([project({ id: '20', name: 'Pozdní aktivní' })]));
+  await active;
+
+  assert.equal(state.projectState, 'archived');
+  assert.deepEqual(state.data.projects.map(item => item.id), ['30']);
+});
+
+await test('MM3-E keeps active and archived cache snapshots separate', async () => {
+  reset();
+  store.set(K.cache + 'projects.active', { at: Date.now(), data: [project()] });
+  store.set(K.cache + 'projects.archived', {
+    at: Date.now(),
+    data: [project({ id: '30', name: 'Archiv', state: 'archived' })],
+  });
+  let release;
+  globalThis.fetch = () => new Promise(resolve => { release = resolve; });
+
+  const pending = loadProjects('archived');
+  assert.equal(state.projectState, 'archived');
+  assert.deepEqual(state.data.projects.map(item => item.id), ['30']);
+  assert.deepEqual(state.pagination.projects, { hasMore: false, nextCursor: null, end: false });
+  assert.ok(!viewProjects().includes('load-more-projects'));
+
+  release({
+    ok: true,
+    status: 200,
+    async json() {
+      return projectPage([project({ id: '30', name: 'Archiv', state: 'archived' })], {
+        state: 'archived',
+      });
+    },
+  });
+  await pending;
+  assert.ok(store.get(K.cache + 'projects.active'));
 });
 
 console.log(`\nMobile project UI: ${passed} passed, ${failed} failed`);

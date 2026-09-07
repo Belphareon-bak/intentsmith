@@ -554,6 +554,7 @@ function lockDownSession() {
   // durable ST-DB cache is deliberately left alone — MD-07 governs its life,
   // and wiping it here would turn a lock into a logout.
   state.data = {};
+  state.pagination = {};
   state.loading = {};
   state.error = {};
   state.opsLookup = {};
@@ -865,6 +866,7 @@ function replaceScopes(scopes) {
     projectsGeneration++;
     projectGeneration++;
     delete state.data.projects;
+    delete state.pagination.projects;
     delete state.data.project;
     state.error.projects = null;
     state.error.project = null;
@@ -1867,9 +1869,9 @@ function viewProjects() {
   if (!auth.has('read:projects')) {
     body = statePanel('scope', 'Bez oprávnění',
       'Zařízení nemá scope read:projects, takže seznam projektů nelze zobrazit.');
-  } else if (loading && !list) {
+  } else if (loading && !Array.isArray(list)) {
     body = skeletonList();
-  } else if (error && !list) {
+  } else if (error && !Array.isArray(list)) {
     body = errorPanel(error, 'load-projects');
   } else if (Array.isArray(list) && list.length === 0) {
     body = statePanel('empty',
@@ -1887,13 +1889,39 @@ function viewProjects() {
         <div class="row-time">${timeAgo(project.updatedAt)}</div>
       </button>`).join('')}
       ${age && age !== 'FRESH' ? `<div class="kv"><span class="kv-key">Data z cache</span><span class="pill" data-tone="${age === 'STALE' ? 'warn' : 'muted'}">${age === 'STALE' ? 'zastaralá' : 'stará'}</span></div>` : ''}
-    </div>`;
+    </div>
+    ${projectListInlineError()}
+    ${projectListMore()}`;
   } else {
     body = skeletonList();
   }
 
   return header({ title: 'Projekty' })
     + `<div class="scroll"><div class="container">${stateSwitch}${body}</div></div>`;
+}
+
+function projectListMore() {
+  const page = state.pagination?.projects;
+  if (!page?.hasMore || !page.nextCursor) return '';
+  return `<div class="resource-more">
+    <button class="btn btn-secondary" data-act="load-more-projects" ${state.loading.projects ? 'disabled' : ''}>
+      ${state.loading.projects ? 'Načítám…' : 'Načíst další projekty'}
+    </button>
+    <p>Seznam je výřez. Backend potvrdil další ${state.projectState === 'archived' ? 'archivované' : 'aktivní'} projekty.</p>
+  </div>`;
+}
+
+function projectListInlineError() {
+  const error = state.error.projects;
+  if (!error || !Array.isArray(state.data.projects)) return '';
+  const text = error.kind === 'offline'
+    ? 'Další projekty teď nelze ověřit: telefon je offline.'
+    : error.kind === 'protocol'
+      ? 'Server vrátil neplatnou stránku. Zobrazený seznam se nezměnil.'
+      : 'Aktualizace projektů selhala. Zobrazená kopie může být starší.';
+  return `<div class="resource-inline-error" role="status">${esc(text)}
+    <button class="btn btn-secondary btn-sm" data-act="load-projects">Načíst filtr od začátku</button>
+  </div>`;
 }
 
 function viewProject() {
@@ -4361,6 +4389,34 @@ function validProjectConversationPage(response) {
   return validConversationPage(response);
 }
 
+function validProjectPage(response, requestedState) {
+  if (response?.ok !== true
+      || response.state !== requestedState
+      || !Array.isArray(response.data)
+      || typeof response.hasMore !== 'boolean'
+      || typeof response.end !== 'boolean'
+      || response.hasMore === response.end
+      || (response.hasMore && (typeof response.nextCursor !== 'string' || !response.nextCursor))
+      || (!response.hasMore && response.nextCursor !== null)) return false;
+
+  const ids = new Set();
+  return response.data.every(project => {
+    if (!project || typeof project !== 'object' || Array.isArray(project)
+        || Object.keys(project).sort().join(',') !== 'conversationCount,createdAt,id,name,state,updatedAt,version'
+        || typeof project.id !== 'string' || !/^[1-9][0-9]*$/.test(project.id)
+        || !Number.isSafeInteger(Number(project.id)) || ids.has(project.id)
+        || typeof project.name !== 'string' || !project.name
+        || project.state !== requestedState
+        || !(project.conversationCount === null
+          || (Number.isSafeInteger(project.conversationCount) && project.conversationCount >= 0))
+        || !validIsoOrNull(project.createdAt)
+        || !validIsoOrNull(project.updatedAt)
+        || typeof project.version !== 'string' || !project.version.startsWith('v1:')) return false;
+    ids.add(project.id);
+    return true;
+  });
+}
+
 async function loadProjectConversations({ append = false } = {}) {
   const id = state.projectId;
   if (!auth.has('read:projects') || !auth.has('read:chat') || !id) return;
@@ -4427,36 +4483,102 @@ async function loadProjectConversations({ append = false } = {}) {
   }
 }
 
-async function loadProjects(projectState = state.projectState) {
+async function loadProjects(projectState = state.projectState, { append = false } = {}) {
   if (!auth.has('read:projects')) return;
   const requestedState = projectState === 'archived' ? 'archived' : 'active';
+  if (append && requestedState !== state.projectState) return;
   state.projectState = requestedState;
-  const generation = ++projectsGeneration;
+  state.pagination ||= {};
   const cacheKey = `projects.${requestedState}`;
-  const cached = cache.read(cacheKey);
-  state.data.projects = cached.data || undefined;
-  state.cacheAge.projects = cached.data ? cached.status : null;
-  state.cacheAt.projects = cached.data ? cached.at : null;
+  if (!append) {
+    const cached = cache.read(cacheKey);
+    if (cached.status === 'EXPIRED') {
+      store.del(K.cache + cacheKey);
+      delete state.data.projects;
+      delete state.pagination.projects;
+      state.cacheAge.projects = null;
+      state.cacheAt.projects = null;
+    } else {
+      const snapshot = cached.data && Array.isArray(cached.data.items) ? cached.data : null;
+      const legacyItems = Array.isArray(cached.data) ? cached.data : null;
+      const page = snapshot?.page;
+      const validSnapshot = snapshot && validProjectPage({
+        ok: true, state: requestedState, data: snapshot.items,
+        hasMore: page?.hasMore, nextCursor: page?.nextCursor, end: page?.end,
+      }, requestedState);
+      const validLegacy = legacyItems && validProjectPage({
+        ok: true, state: requestedState, data: legacyItems,
+        hasMore: false, nextCursor: null, end: true,
+      }, requestedState);
+      if (validSnapshot || validLegacy) {
+        state.data.projects = validSnapshot ? snapshot.items : legacyItems;
+        state.pagination.projects = validSnapshot
+          ? { hasMore: page.hasMore, nextCursor: page.nextCursor, end: page.end }
+          : { hasMore: false, nextCursor: null, end: false };
+        state.cacheAge.projects = cached.status;
+        state.cacheAt.projects = cached.at;
+      } else {
+        if (cached.data) store.del(K.cache + cacheKey);
+        delete state.data.projects;
+        delete state.pagination.projects;
+        state.cacheAge.projects = null;
+        state.cacheAt.projects = null;
+      }
+    }
+  }
+
+  const cursor = append ? state.pagination.projects?.nextCursor : null;
+  if (append && (!cursor || state.loading.projects)) return;
+  const generation = ++projectsGeneration;
   state.loading.projects = true;
   state.error.projects = null;
   render();
 
   try {
-    const response = await api(`/projects?state=${requestedState}&limit=100`);
+    const suffix = cursor ? `&cursor=${encodeURIComponent(cursor)}` : '';
+    const response = await api(`/projects?state=${requestedState}&limit=100${suffix}`, { strict: true });
     if (generation !== projectsGeneration || requestedState !== state.projectState) return;
-    state.data.projects = response.data;
+    if (!validProjectPage(response, requestedState)) {
+      throw Object.assign(new Error('invalid project page'), {
+        kind: 'protocol', code: 'protocol_invalid_response',
+      });
+    }
+    if (response.scopes) {
+      replaceScopes(response.scopes);
+      if (!auth.has('read:projects')) return render();
+    }
+    if (generation !== projectsGeneration || requestedState !== state.projectState) return;
+
+    const prior = append && Array.isArray(state.data.projects) ? state.data.projects : [];
+    const priorIds = new Set(prior.map(project => project.id));
+    if (response.data.some(project => priorIds.has(project.id))) {
+      throw Object.assign(new Error('overlapping project page'), {
+        kind: 'protocol', code: 'protocol_invalid_response',
+      });
+    }
+    state.data.projects = [...prior, ...response.data];
+    state.pagination.projects = {
+      hasMore: response.hasMore,
+      nextCursor: response.nextCursor,
+      end: response.end,
+    };
     state.cacheAge.projects = 'FRESH';
     state.cacheAt.projects = Date.now();
-    cache.write(cacheKey, response.data);
-    if (response.scopes) replaceScopes(response.scopes);
+    cache.write(cacheKey, { items: state.data.projects, page: state.pagination.projects });
     setConn('ok');
   } catch (error) {
-    if (generation !== projectsGeneration) return;
+    if (generation !== projectsGeneration || requestedState !== state.projectState) return;
     if (error.kind === 'auth') return await handleAuthFailure(error);
-    state.error.projects = error;
-    setConn(error.kind === 'offline' ? 'offline' : error.kind === 'server' ? 'server' : state.conn);
+    if (error.kind === 'scope') {
+      replaceScopes(auth.scopes.filter(scope => scope !== 'read:projects'));
+      render();
+    } else {
+      state.error.projects = error;
+      setConn(error.kind === 'offline' ? 'offline'
+        : error.kind === 'server' || error.kind === 'protocol' ? 'server' : state.conn);
+    }
   } finally {
-    if (generation === projectsGeneration) {
+    if (generation === projectsGeneration && requestedState === state.projectState) {
       state.loading.projects = false;
       render();
     }
@@ -6796,6 +6918,7 @@ document.addEventListener('click', event => {
     'load-conversations': loadConversations,
     'load-more-conversations': () => loadConversations({ append: true }),
     'load-projects': () => loadProjects(),
+    'load-more-projects': () => loadProjects(state.projectState, { append: true }),
     'load-project': () => loadProject(),
     'load-project-conversations': () => loadProjectConversations(),
     'load-more-project-conversations': () => loadProjectConversations({ append: true }),
@@ -7107,6 +7230,7 @@ export const __ms20 = {
   invalidateConversationSurface, conversationListMore, conversationListInlineError,
   navItems, currentSection, sectionRoute, unknownScopes, NAV_ITEMS, ROUTE_SECTION,
   viewProjects, viewProject, loadProjects, loadProject, openProject,
+  validProjectPage, projectListMore, projectListInlineError,
   validProjectConversationPage, loadProjectConversations, invalidateProjectConversationSurface,
   viewWorkers, viewWorker, viewSpecialists, viewSpecialist, loadWorkers, loadSpecialists,
   validSpecialistDetailResponse, loadSpecialist, openSpecialist,
