@@ -17,8 +17,10 @@
 > do sedmi dnů a od sedmi dnů expired se smazáním před publikací.
 > MM3-H odděluje `MD-03` metadata (15 minut / 30 dnů) od `MD-04` S2 vláken
 > (15 minut / 7 dnů) a expired vlákno smaže před renderem.
+> MM3-I uzavírá exact route-bound thread/page/cache hranici, response race,
+> scope wipe, not-found semantics a client/server HTTP `no-store`.
 > Autoritou poslední změny je review
-> `MM3H-CONVERSATION-CACHE-LIFECYCLE`;
+> `MM3I-CONVERSATION-THREAD-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 > **MM4-G UI overlay:** karta workera nabízí Zapnout/Vypnout pouze s
@@ -71,6 +73,12 @@
 > `STALE` od 15 minut nejvýše do sedmi dnů; expired vlákno se smaže před
 > publikací. Stale stav nikdy neodemkne mutaci a viditelná cursor boundary dál
 > rozlišuje stažené okno od úplné historie.
+
+> **MM3-I UI overlay:** detail konverzace zobrazí jen exact-validovaný snapshot
+> pro právě otevřené id. Vadná, duplicitní, překrývající se nebo pozdní stránka
+> potvrzené okno nezmění; scope loss stáhne paměť i cache. Serverové `not_found`
+> je chyba, ne prázdný chat, kromě úzké výjimky nikdy neodeslaného lokálního
+> `m-*` draftu. Browser HTTP cache se pro list/thread nepoužívá.
 
 > **MM3-F UI overlay:** projektový detail zobrazí pouze exact-validovaný DTO
 > svázaný s otevřeným id. Validní stale kopii explicitně označí jako
@@ -930,6 +938,12 @@ V detailu platí totéž na horním okraji zpráv. Odmítnutý kurzor (`CURSOR_U
 dotažení chybějícího úseku. List metadata jsou fresh 15 minut a expirují za
 30 dnů; S2 vlákno je fresh 15 minut a expiruje za sedm dnů. Po expiraci se
 obsah nesmí ani dočasně vyrenderovat.
+
+MM3-I navíc váže každou thread odpověď na právě otevřené id, exact veřejné
+conversation/message DTO a koherentní backward boundary. Duplicate/overlap,
+corrupt cache a response z opuštěné route jsou protokolová data, ne nový stav
+UI. Definitivní serverové `not_found` zobrazí chybu; prázdný stav patří jen
+nikdy neodeslanému lokálnímu chatu. HTTP cache je pro list i detail vypnutá.
 
 ### 6.4 `MS-08` — odeslání, hlavní UX problém (B-3)
 

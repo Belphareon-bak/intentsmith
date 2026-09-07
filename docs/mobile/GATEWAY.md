@@ -16,7 +16,10 @@
 > `MM4N-NOTIFICATION-INBOX-INTEGRITY`. Následující MM3-G mění pouze klientské
 > project cache window, nikoli gateway; viz `MM3G-PROJECT-CACHE-LIFECYCLE`.
 > MM3-H stejně mění jen klientskou lifecycle klasifikaci a mazání expired
-> thread cache; viz `MM3H-CONVERSATION-CACHE-LIFECYCLE`;
+> thread cache; viz `MM3H-CONVERSATION-CACHE-LIFECYCLE`. MM3-I pak uzavírá
+> exact thread consumer a přidává transportní `no-store` na oba existující
+> globální conversation read tvary; body, route, scope ani port se nemění.
+> Viz `MM3I-CONVERSATION-THREAD-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; gateway je implementovaná a testovaná pouze **na loopbacku**, nikoli produkčně DONE.
@@ -243,6 +246,14 @@ nově spotřebuje `hasMore`, `nextCursor` a `end`, které globální
 page. Opaque cursor nepočítá ani neupravuje. Úplná klientská hranice a testy
 jsou v `reviews/MM3D-CONVERSATION-LIST-PAGINATION.md`.
 
+MM3-I (`7a6b379e`) rovněž nepřidává route ani port operation. Klient váže
+existující detail response na požadované conversation id, exact veřejné DTO,
+`backward` směr a koherentní page boundary; continuation odmítne při duplicate
+nebo overlap. Gateway na globální list i detail přidává pouze
+`Cache-Control: no-store`, včetně autorizačních a handler chyb, zatímco klient
+používá `cache: 'no-store'`. Wire body a cursor zůstávají stejné. Viz
+`reviews/MM3I-CONVERSATION-THREAD-INTEGRITY.md`.
+
 Stejnou consumer-only změnou je MM3-E (`075f5eb7`): aktivní a archivovaný
 project list nyní spotřebují své již existující state-bound cursory, přesně
 ověřují response/row state a drží oddělené cache boundaries. Gateway route,
@@ -333,6 +344,12 @@ ne klient — a otevřít chůzi na konkrétním konci streamu umí `anchor`:
 Odpověď nese `hasMore`, `end`, `nextCursor` a **`direction`** (`forward` |
 `backward`), aby `end` nebyl dvojznačný: u zpětné chůze znamená „držíš
 nejstarší zprávu" — to je hranice, kterou `SS-03` vykresluje.
+
+MM3-I vyžaduje, aby mobilní backward consumer přijal jen přesný veřejný
+conversation/message tvar, id odpovídající routě a koherentní boundary bez
+duplicate/overlap. `GET /m1/conversations` i
+`GET /m1/conversations/:id` mají na requestu i odpovědi `no-store`; gateway
+hlavičku drží také na authorization a handler error cestách.
 
 Bez `anchor` se chová jako dřív: dopředu od nejstarší zprávy. Ta výchozí
 sémantika se **nezměnila**, protože nezměněný dotaz musí dostat nezměněnou

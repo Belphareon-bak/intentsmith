@@ -452,9 +452,9 @@ prošlo. Žádná project/chat mutation, search, run progress, fyzický WebView
 průchod ani security acceptance se tím netvrdí. Viz
 [MM3-C review](reviews/MM3C-PROJECT-CONVERSATIONS.md).
 
-### P1-3g Úplný globální seznam a lifecycle konverzací
+### P1-3g Úplný globální seznam, lifecycle a integrita vláken
 
-Stav MM3-D/MM3-H: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`.
+Stav MM3-D/MM3-H/MM3-I: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`.
 Globální `GET /m1/conversations` už na klientovi nekončí prvními 50 řádky.
 UI zobrazuje potvrzenou partial boundary a vrací pouze opaque cursor vydaný
 serverem. Exact DTO, duplicita, překryv i pozdní stará odpověď selžou bez
@@ -463,11 +463,16 @@ přečíst starý array-only formát bez fabrikace cursoru a celá se maže při
 `read:chat`. MM3-H navíc uplatňuje `MD-03` okno 15 minut fresh / 30 dnů do
 expiry a `MD-04` okno 15 minut fresh / sedm dnů do expiry; expired S2 vlákno
 smaže před publikací. Aktuální kombinovaná overview sada prošla 37/37 a historie
-16/16; route, provider a scope se neměnily. Plná exact thread/cache validace,
-browser HTTP-cache izolace, search, mutation, fyzický WebView průchod ani
-release acceptance se tím netvrdí. Viz
+22/22. MM3-I přijímá jen exact versioned conversation/message DTO svázané s
+route id a koherentní backward boundary, odmítá duplicate/overlap, pozdní
+generace a corrupt cache a při ztrátě `read:chat` maže všechna `thread.*` data.
+Serverový pagination/cache boundary je 23/23; list i detail používají client
+`cache: no-store` a gateway `Cache-Control: no-store` také na chybových cestách.
+Route, body, provider a scope se neměnily. Search, nové mutation autority,
+fyzický WebView průchod ani release acceptance se tím netvrdí. Viz
 [MM3-D review](reviews/MM3D-CONVERSATION-LIST-PAGINATION.md) a
-[MM3-H review](reviews/MM3H-CONVERSATION-CACHE-LIFECYCLE.md).
+[MM3-H review](reviews/MM3H-CONVERSATION-CACHE-LIFECYCLE.md) a
+[MM3-I review](reviews/MM3I-CONVERSATION-THREAD-INTEGRITY.md).
 
 ### P1-3h Úplné filtry projektů
 

@@ -24,9 +24,19 @@
 > MM3-H vynucuje oddělenou `MD-03`/`MD-04` lifecycle: metadata konverzací jsou
 > fresh 15 minut a expirují za 30 dnů, S2 vlákna jsou fresh 15 minut a expirují
 > za sedm dnů; expirované vlákno se smaže před publikací.
+> MM3-I uzavírá exact route-bound DTO/page/cache validaci vláken, odmítá
+> duplicate/overlap i pozdní odpovědi, maže thread cache při ztrátě scope a
+> izoluje globální list i detail od browser HTTP cache na klientu i gateway.
 > Autoritou poslední změny je review
-> `MM3H-CONVERSATION-CACHE-LIFECYCLE`;
+> `MM3I-CONVERSATION-THREAD-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
+
+> **MM3-I coverage overlay:** `mobile-ms07-history` (22/22) kryje exact
+> conversation/message DTO, route id, backward boundary, current/legacy cache,
+> corrupt deletion, duplicate/overlap, route race, scope wipe a přesný
+> server-not-found/local-draft rozdíl. `mobile-contract-pagination-end` (23/23)
+> kryje `Cache-Control: no-store` pro success, handler error i authorization
+> error; celý mobilní gate zůstává 54/54 active a Chromium withheld.
 
 > **MM3-D coverage overlay:** globální `MS-06` nově skutečně spotřebuje
 > existující conversation-list cursor. `mobile-overview` (25/25) pokrývá
@@ -291,8 +301,8 @@ obrazovkový dopad v SCREENS §1.1.
 | Požadavek | Fáze | Stav | Poznámka |
 |---|---|---|---|
 | `MR-01`..`MR-03` | 0 | `IMPLEMENTED_LOCAL_UNREVIEWED` | Pairing, scope, diagnostika |
-| `MR-04`, `MR-06`, `MR-08`, `MR-09`, `MR-11` | 1 | `IMPLEMENTED_LOCAL_UNREVIEWED` | Šest z osmi oblastí Fáze 1 (spolu s částí `MR-05`); MM3-H source-testuje `MD-03` 15min/30denní cache lifecycle, ale nemění status celé skupiny |
-| `MR-05` historie a stránkování | 1 | **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`** | Kurzorové stránkování, serverová kotva a boundary testy procházejí; MM3-H navíc source-testuje `MD-04` 15min/7denní lifecycle a mazání expired S2 před publikací (`mobile-ms07-history` 16/16). Plná exact thread integrita, HTTP-cache izolace, sdílená validace a device evidence zůstávají otevřené; historické `WP-MOBILE-016` zůstává `CHANGES_REQUIRED` |
+| `MR-04`, `MR-06`, `MR-08`, `MR-09`, `MR-11` | 1 | `IMPLEMENTED_LOCAL_UNREVIEWED` | Šest z osmi oblastí Fáze 1 (spolu s částí `MR-05`); MM3-H/MM3-I source-testují lifecycle a exact/no-store conversation consumer, ale nemění status celé skupiny |
+| `MR-05` historie a stránkování | 1 | **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`** | Kurzorové stránkování, serverová kotva, `MD-04` lifecycle, exact route-bound thread/cache integrita, race/scope wipe a oboustranné HTTP `no-store` procházejí (`mobile-ms07-history` 22/22, pagination 23/23). Sdílená validace a device evidence zůstávají otevřené; historické `WP-MOBILE-016` zůstává `CHANGES_REQUIRED` |
 | `MR-07` průběh běhu | 1 | **`BLOCKED_BY_CONTRACT`** | Blokující `/m1/chat` ani žurnál operací **nejsou agent log**. Žádné UI do schválení kontraktu na zdroj dat o průběhu, jeho lifecycle a obnovu. Doména 5 kontraktního kola `DR-008` |
 | `MR-10` hledání | 1 | **`BLOCKED_BY_CONTRACT`** | **Lokální hledání nad načtenými stránkami požadavek nesplňuje.** Kontrakt musí určit rozsah, stránkování, autorizaci, klasifikaci dat a chování offline. Doména 6 kontraktního kola `DR-008` |
 | `MR-12`, `MR-13` | 2 | **`IMPLEMENTED / SOURCE TESTED / DEVICE TEST PENDING`** | MM4-A dodal live-only veřejné čtení, MM4-E revizně řízený zápis 11 UX preferencí a MM4-K exact 46-path read consumer s mutation relockem; 13/13 gateway/core a 17/17 UI scénářů PASS. Není to refreeze návrhu v2 ani obecný settings editor |

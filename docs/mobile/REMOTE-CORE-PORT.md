@@ -12,7 +12,7 @@ candidate implementation, not a contract freeze; see
 Latest consumer checkpoints MM3-D (`34bc19de`), MM3-E (`075f5eb7`), MM4-J
 (`acff7939`), MM3-F (`a08d0dd0`), MM4-K (`99cdfdde`), MM4-L (`d1f0a98a`) and
 MM4-M (`af33f984`), followed by MM4-N (`656941d4`), MM3-G (`1d449b78`) and
-MM3-H (`6dd452f7`),
+MM3-H (`6dd452f7`) and MM3-I (`7a6b379e`),
 change no port input,
 output or provider. They make the mobile client consume already returned
 opaque cursors for the global conversation
@@ -55,6 +55,12 @@ conversation metadata and `MD-04` S2 thread windows keep their distinct
 expiry boundaries, and expired thread content is deleted before publication.
 It adds no port operation, provider call, wire field or authority. See
 [`reviews/MM3H-CONVERSATION-CACHE-LIFECYCLE.md`](reviews/MM3H-CONVERSATION-CACHE-LIFECYCLE.md).
+MM3-I also changes no port input, output or provider. It validates the existing
+thread body against the requested id, exact public records and backward page
+boundary, rejects duplicate/overlap and stale generations, and adds only the
+HTTP `no-store` transport header on the two existing global conversation read
+routes. See
+[`reviews/MM3I-CONVERSATION-THREAD-INTEGRITY.md`](reviews/MM3I-CONVERSATION-THREAD-INTEGRITY.md).
 
 `RemoteCorePort` is the core-owned, in-process boundary used by the mobile
 gateway. It is deliberately narrower than the desktop HTTP listener: a mobile

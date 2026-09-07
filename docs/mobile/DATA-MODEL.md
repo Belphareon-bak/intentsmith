@@ -24,8 +24,11 @@
 > MM3-G navíc implementuje zde předepsané 15minutové fresh a sedmidenní expiry
 > okno pro list i detail projektu. MM3-H implementuje oddělené okno konverzačního
 > seznamu (`MD-03`, 15 minut / 30 dnů) a zpráv (`MD-04`, 15 minut / 7 dnů) a
-> expirované S2 vlákno smaže před publikací. Autoritou poslední změny je review
-> `MM3H-CONVERSATION-CACHE-LIFECYCLE`;
+> expirované S2 vlákno smaže před publikací. MM3-I přijímá pouze exact
+> route-bound thread/page/cache DTO, ruší data při scope loss a odděluje tuto
+> app cache od povinného request/response HTTP `no-store`.
+> Autoritou poslední změny je review
+> `MM3I-CONVERSATION-THREAD-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná produktová fáze není DONE
@@ -401,9 +404,17 @@ mohou zůstat označené jako cache, ale členství konverzací se z cache netvr
 > **Implementační checkpoint MM3-H (2026-09-07):** každý
 > `thread.<conversationId>` nyní používá 15 minut `FRESH`, potom read-only
 > `STALE` do sedmi dnů a od sedmi dnů `EXPIRED`. Expired S2 obsah se smaže
-> dřív, než se dostane do paměti nebo rendereru. Exact validace celého thread
-> DTO/cache tvaru a HTTP-cache izolace jsou samostatné otevřené hranice. Evidence:
+> dřív, než se dostane do paměti nebo rendereru. Evidence:
 > [MM3-H review](reviews/MM3H-CONVERSATION-CACHE-LIFECYCLE.md).
+
+> **Implementační checkpoint MM3-I (2026-09-07):** current cache je exact
+> `{ conversation, messages, window }`; exact legacy tvar bez `window` je
+> čitelný jen jako partial. Live stránka musí nést požadované conversation id,
+> exact versioned message records a koherentní backward boundary. Duplicate,
+> overlap, corrupt cache, pozdní generace a scope loss se nesmějí publikovat.
+> Globální list i thread navíc používají client `cache: no-store` a gateway
+> `Cache-Control: no-store`; tím se nemění sedmidenní app-cache retence.
+> Evidence: [MM3-I review](reviews/MM3I-CONVERSATION-THREAD-INTEGRITY.md).
 
 > Okno je bezpečnostní parametr, ne výkonnostní. Čím delší, tím větší dopad
 > ztráty telefonu. Výchozí návrh **[R]**: posledních 200 zpráv na konverzaci,
@@ -784,7 +795,9 @@ ani nezávislé release/security přijetí.
 > klient má (`loadOlderMessages`, `threadWindowOf`, `THREAD_PAGE_SIZE`), takže
 > pravidlo výše **má kdo dodržet** a kryjí ho `mobile-ms07-history`,
 > `mobile-contract-pagination-end` a `mobile-contract-cursor-rejection`.
-> Produktově `DONE` to není: sdílená validace zůstává blokovaná. Historické `WP-MOBILE-016` je
+> MM3-I navíc fail-closed ověřuje celý route-bound thread snapshot a HTTP
+> cache boundary. Produktově `DONE` to není: sdílená validace a device evidence
+> zůstávají blokované. Historické `WP-MOBILE-016` je
 > `CHANGES_REQUIRED` a současný kandidát stále není `DONE` (PLAN.md §5.1).
 > Je-li stávající kurzor u `/m1/conversations` pro tento účel použitelný,
 > **nejde o změnu veřejného kontraktu** a kontraktní kolo se kvůli tomu

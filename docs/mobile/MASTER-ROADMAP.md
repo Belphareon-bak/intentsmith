@@ -51,6 +51,7 @@ provider boundary (`ddb90e7e`) and live project-to-conversation drill-down
 fail-closed project-detail integrity (`a08d0dd0`).
 Project list and detail cache lifecycle alignment follows in `1d449b78`.
 Conversation list/thread cache lifecycle enforcement follows in `6dd452f7`.
+Conversation thread integrity and HTTP cache isolation follows in `7a6b379e`.
 The drill-down reuses the exact conversation read route, requires
 both project and chat read scopes, isolates cursors per project and adds no
 mutation. The global list now consumes its existing opaque continuation,
@@ -63,7 +64,10 @@ published. List and detail now share the `MD-02` 15-minute fresh / seven-day
 expiry policy while project-conversation membership stays live-only. MM3
 also now applies the distinct `MD-03` 15-minute/30-day metadata and `MD-04`
 15-minute/seven-day S2 thread windows, deleting expired thread content before
-publication. MM3 remains open for full thread-integrity and HTTP-cache review,
+publication. The exact route-bound thread/page/cache consumer now rejects
+malformed, duplicate, overlapping and stale-generation data, clears on scope
+loss, distinguishes server not-found from a never-sent local draft and keeps
+both conversation read routes out of browser HTTP caches. MM3 remains open for
 server-backed global search, authoritative live run
 progress/cancel, frozen wire prerequisites and device evidence.
 

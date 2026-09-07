@@ -352,7 +352,7 @@ Exact DTO, cache/failure semantics a route-generation důkazy jsou v
 a privacy tradeoff delší S1 retence jsou v
 [MM3-G review](reviews/MM3G-PROJECT-CACHE-LIFECYCLE.md).
 
-### Konverzace, stránkování a cache lifecycle (MM3-D/MM3-H)
+### Konverzace, stránkování, cache lifecycle a integrita (MM3-D/MM3-H/MM3-I)
 
 1. Otevři **Konverzace** s více než 50 nesmazanými konverzacemi. Pod první
    dávkou musí být věta, že seznam je výřez, a tlačítko **Načíst další**.
@@ -370,11 +370,24 @@ a privacy tradeoff delší S1 retence jsou v
    čitelný a po 30 dnech `EXPIRED`; S1 titulek se nesmí vydávat za live stav.
 8. Stažené vlákno je po 16 minutách `STALE`, ale od sedmi dnů `EXPIRED` a musí
    být smazáno dřív, než se jeho S2 zprávy objeví v paměti nebo UI.
+9. V řízeném gateway testu vrať jiné conversation id, extra pole, duplicitní
+   message id, overlap starší stránky nebo nekoherentní boundary: celý page se
+   musí odmítnout a poslední validní okno i cache zůstanou beze změny.
+10. Odešli thread request a před odpovědí odejdi z chatu, otevři jiný chat nebo
+    odeber `read:chat`: pozdní response se nesmí publikovat; scope loss navíc
+    odstraní všechny `thread.*` cache.
+11. Definitivní `404 not_found` pro známou serverovou konverzaci musí smazat
+    její data a ukázat chybu. Jen nové, nikdy neodeslané lokální `m-*` id smí
+    zůstat prázdným chatem.
+12. V devtools ověř, že globální list i thread posílají `cache: no-store` a
+    gateway vrací `Cache-Control: no-store` pro 200, handler error i 401.
 
 Přesná validace, cache migrace a negativní cursor scénáře jsou v
 [MM3-D review](reviews/MM3D-CONVERSATION-LIST-PAGINATION.md); lifecycle hranice
 a jejich security tradeoff jsou v
-[MM3-H review](reviews/MM3H-CONVERSATION-CACHE-LIFECYCLE.md).
+[MM3-H review](reviews/MM3H-CONVERSATION-CACHE-LIFECYCLE.md); exact thread a
+HTTP-cache boundary je v
+[MM3-I review](reviews/MM3I-CONVERSATION-THREAD-INTEGRITY.md).
 
 ### Konverzace projektu (MM3-C)
 

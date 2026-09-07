@@ -21,8 +21,10 @@
 > list/detail cache s `MD-02`: 15 minut fresh, stale do sedmi dnů, pak expired.
 > MM3-H odděluje `MD-03` list cache (15 minut / 30 dnů) a `MD-04` S2 thread
 > cache (15 minut / 7 dnů) a expired vlákno smaže před publikací.
+> MM3-I uzavírá exact route-bound thread/page/cache validaci, duplicate/overlap,
+> route/scope race, server-not-found semantics a oboustranné HTTP `no-store`.
 > Autoritou poslední změny je review
-> `MM3H-CONVERSATION-CACHE-LIFECYCLE`;
+> `MM3I-CONVERSATION-THREAD-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná obrazovka tím není produktově DONE
@@ -430,9 +432,16 @@ acceptance zůstávají otevřené.
 > **Implementační checkpoint MM3-H (2026-09-07):** stažené S2 okno v `MS-07`
 > je `FRESH` 15 minut, poté označené `STALE` do sedmi dnů a od sedmi dnů
 > `EXPIRED`; expired obsah se smaže před vstupem do paměti nebo rendereru.
-> Exact thread DTO/cache validace a browser HTTP-cache izolace zůstávají
-> samostatně otevřené. Zdrojová evidence:
+> Zdrojová evidence:
 > [MM3-H review](reviews/MM3H-CONVERSATION-CACHE-LIFECYCLE.md).
+
+> **Implementační checkpoint MM3-I (2026-09-07):** `MS-07` publikuje jen exact
+> conversation/message DTO pro požadované id s koherentní backward boundary.
+> Current/legacy cache se validuje před čtením; duplicate/overlap, corrupt
+> snapshot, pozdní response a scope loss selžou zavřeně. Definitivní serverový
+> `not_found` se nevydává za prázdný chat; výjimkou je pouze nikdy neodeslané
+> lokální `m-*` id. List i thread mají client/server HTTP `no-store`. Evidence:
+> [MM3-I review](reviews/MM3I-CONVERSATION-THREAD-INTEGRITY.md).
 
 ---
 
