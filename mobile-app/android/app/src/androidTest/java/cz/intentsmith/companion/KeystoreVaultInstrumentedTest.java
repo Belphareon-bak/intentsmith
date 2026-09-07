@@ -56,6 +56,29 @@ public class KeystoreVaultInstrumentedTest {
     }
 
     @Test
+    public void appStateRoundTripIsEncryptedAndRejectsCredentialKeys() throws Exception {
+        String snapshot = "{\"is.cache.thread.demo\":{\"secret\":\"message-secret-456\"},"
+            + "\"is.drafts\":{\"op-1\":{\"message\":\"draft-secret-789\"}}}";
+
+        assertTrue(LockPolicy.saveAppState(context, snapshot));
+        assertEquals(snapshot, LockPolicy.readAppState(context));
+        assertFalse(LockPolicy.appStateInputValid("{\"is.auth.token\":\"must-not-pass\"}"));
+        assertFalse(LockPolicy.appStateInputValid("{\"foreign.key\":true}"));
+
+        SharedPreferences raw = context.getSharedPreferences(CURRENT_STORE, Context.MODE_PRIVATE);
+        String stored = raw.getAll().toString();
+        assertFalse(stored.contains("message-secret-456"));
+        assertFalse(stored.contains("draft-secret-789"));
+        assertTrue(stored.contains("v1."));
+
+        assertFalse(LockPolicy.clearAll(context, snapshot));
+        assertEquals(snapshot, LockPolicy.readAppState(context));
+        String preferences = "{\"is.prefs\":{\"hideBarOnHome\":false}}";
+        assertTrue(LockPolicy.clearAll(context, preferences));
+        assertEquals(preferences, LockPolicy.readAppState(context));
+    }
+
+    @Test
     public void authenticatedCorruptionFailsClosedInsteadOfLookingUnpaired() throws Exception {
         KeystoreVault vault = KeystoreVault.open(context);
         vault.putCredential(credential("token-before-corruption"));

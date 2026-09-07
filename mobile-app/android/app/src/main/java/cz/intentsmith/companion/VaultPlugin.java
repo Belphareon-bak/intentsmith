@@ -20,10 +20,10 @@ import com.getcapacitor.annotation.CapacitorPlugin;
  * phone (`A2`) would only need to reach the page, not the person.  So the seal
  * is here, on the read, and the overlay is the visible half of it.
  *
- * The web client's contract is in `src/mobile/client/app.js` (`nativeVault`):
- * it hydrates the credential once at boot and keeps the synchronous `store`
- * API it always had, so nothing else in 4 000 lines had to become async to gain
- * a Keystore.
+ * The web client's contract is in `src/mobile/client/app.js` (`secure` and
+ * `store`): it hydrates the credential and the separate encrypted app-state
+ * snapshot once at boot.  Synchronous reads then come from process memory;
+ * every mutation crosses an asynchronous durability barrier before dispatch.
  */
 @CapacitorPlugin(name = "IntentSmithVault")
 public class VaultPlugin extends Plugin {
@@ -96,8 +96,49 @@ public class VaultPlugin extends Plugin {
     }
 
     @PluginMethod
+    public void readAppState(PluginCall call) {
+        if (!LockPolicy.available(getContext())) {
+            call.reject("vault_unavailable", LockPolicy.openError());
+            return;
+        }
+        if (LockState.isLocked()) {
+            call.reject("locked");
+            return;
+        }
+        boolean present = LockPolicy.hasAppState(getContext());
+        String state = LockPolicy.readAppState(getContext());
+        if (!LockPolicy.available(getContext())) {
+            call.reject("vault_unavailable", LockPolicy.openError());
+            return;
+        }
+        call.resolve(new JSObject().put("present", present).put("state", state));
+    }
+
+    @PluginMethod
+    public void writeAppState(PluginCall call) {
+        if (LockState.isLocked()) {
+            call.reject("locked");
+            return;
+        }
+        String state = call.getString("state");
+        if (!LockPolicy.appStateInputValid(state)) {
+            call.reject("app_state_invalid");
+            return;
+        }
+        if (!LockPolicy.saveAppState(getContext(), state)) {
+            call.reject("vault_unavailable", LockPolicy.openError());
+            return;
+        }
+        call.resolve(new JSObject().put("saved", true));
+    }
+
+    @PluginMethod
     public void clear(PluginCall call) {
-        if (!LockPolicy.clearAll(getContext())) {
+        String preservedAppState = call.getString("appState");
+        boolean cleared = preservedAppState == null
+            ? LockPolicy.clearAll(getContext())
+            : LockPolicy.clearAll(getContext(), preservedAppState);
+        if (!cleared) {
             call.reject("vault_clear_failed", LockPolicy.openError());
             return;
         }

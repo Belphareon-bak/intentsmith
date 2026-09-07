@@ -92,7 +92,7 @@ test('legacy reset is narrow, recorded, and gives the user a recovery action', (
   assert.match(client, /znovu spáruj/);
 });
 
-test('PIN verifier, attempt counter, token, device and scopes share the encrypted store', () => {
+test('PIN verifier, attempt counter, credential and app state share the encrypted store', () => {
   assert.doesNotMatch(policy, /SharedPreferences/);
   assert.match(policy, /values\.put\(K_TOKEN, token\)/);
   assert.match(policy, /values\.put\(K_PIN_HASH/);
@@ -100,7 +100,7 @@ test('PIN verifier, attempt counter, token, device and scopes share the encrypte
   assert.match(policy, /store\.putStrings/);
   assert.match(
     policy,
-    /if \(count >= MAX_FAILURES\) \{[\s\S]+?store\.putStrings\([\s\S]+?names\(K_TOKEN, K_DEVICE, K_SCOPES\)\)/,
+    /if \(count >= MAX_FAILURES\) \{[\s\S]+?store\.putStrings\([\s\S]+?names\(K_TOKEN, K_DEVICE, K_SCOPES, K_APP_STATE\)\)/,
   );
   assert.doesNotMatch(policy, /\bSet\.of\(/, 'Set.of is unavailable on the Android 7 runtime floor');
 });
@@ -109,16 +109,44 @@ test('logout can recover a corrupt vault and backup stays disabled', () => {
   assert.match(vault, /static void destroy\(Context suppliedContext\)/);
   assert.match(vault, /deleteKey\(KEY_ALIAS\)/);
   assert.match(vault, /deleteKey\(LEGACY_KEY_ALIAS\)/);
-  assert.match(plugin, /if \(!LockPolicy\.clearAll\(getContext\(\)\)\)/);
+  assert.match(plugin, /LockPolicy\.clearAll\(getContext\(\), preservedAppState\)/);
   assert.match(manifest, /android:allowBackup="false"/);
   assert.match(manifest, /android:fullBackupContent="false"/);
+});
+
+test('app state is bounded, namespaced and excludes credential identities', () => {
+  assert.match(policy, /MAX_APP_STATE_BYTES = 8 \* 1024 \* 1024/);
+  assert.match(policy, /json\.getBytes\(StandardCharsets\.UTF_8\)\.length > MAX_APP_STATE_BYTES/);
+  assert.match(policy, /new JSONObject\(json\)/);
+  assert.match(policy, /!key\.startsWith\("is\."\)/);
+  assert.match(policy, /"is\.auth\.token"\.equals\(key\)/);
+  assert.match(policy, /"is\.auth\.device"\.equals\(key\)/);
+  assert.match(policy, /Collections\.singletonMap\(K_APP_STATE, json\)/);
+});
+
+test('the app-state bridge is sealed while locked and never falls back', () => {
+  assert.match(plugin, /void readAppState\(PluginCall call\)[\s\S]+?LockState\.isLocked\(\)[\s\S]+?call\.reject\("locked"\)/);
+  assert.match(plugin, /void writeAppState\(PluginCall call\)[\s\S]+?LockState\.isLocked\(\)[\s\S]+?call\.reject\("locked"\)/);
+  assert.match(client, /encrypted_app_state_bridge_missing/);
+  assert.match(client, /if \(store\.plugin && String\(method\)\.toUpperCase\(\) !== 'GET'\) await store\.flush\(\)/);
+  assert.match(client, /if \(this\.plugin && \(!this\.native \|\| this\.failure\)\) throw/);
+});
+
+test('logout rotates the key and seeds only caller-validated preferences', () => {
+  assert.match(policy, /preferencesStateInputValid\(String json\)/);
+  assert.match(policy, /!"is\.prefs"\.equals\(keys\.next\(\)\)/);
+  assert.match(policy, /preservedAppState != null && !preferencesStateInputValid\(preservedAppState\)/);
+  assert.match(policy, /KeystoreVault\.destroy\(context\)[\s\S]+?Collections\.singletonMap\(K_APP_STATE, preservedAppState\)/);
+  assert.match(client, /const preserved = store\.preferencesOnly\(\)[\s\S]+?plugin\.clear\(\{ appState: JSON\.stringify\(preserved\) \}\)/);
 });
 
 test('device-side tests cover round-trip, corruption and legacy reset', () => {
   assert.match(instrumented, /roundTripLeavesNoCleartextInPreferences/);
   assert.match(instrumented, /authenticatedCorruptionFailsClosedInsteadOfLookingUnpaired/);
   assert.match(instrumented, /legacyPrototypeIsNarrowlyResetAndRepairClearsAfterPairing/);
+  assert.match(instrumented, /appStateRoundTripIsEncryptedAndRejectsCredentialKeys/);
   assert.match(instrumented, /assertFalse\(stored\.contains\("token-secret-123"\)\)/);
+  assert.match(instrumented, /assertFalse\(stored\.contains\("draft-secret-789"\)\)/);
 });
 
 console.log(`\nDirect AndroidKeyStore vault: ${passed} passed, ${failed} failed`);

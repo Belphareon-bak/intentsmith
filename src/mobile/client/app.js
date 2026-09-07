@@ -67,25 +67,173 @@ const K = {
 };
 
 const store = {
+  plugin: null,
+  native: false,
+  reason: null,
+  failure: null,
+  memory: Object.create(null),
+  pending: Promise.resolve(),
+
+  _clone(value) {
+    if (value === undefined) return undefined;
+    return JSON.parse(JSON.stringify(value));
+  },
+  _validSnapshot(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    return Object.keys(value).every(key => key.startsWith('is.')
+      && key !== K.token && key !== K.device);
+  },
+  _browserSnapshot() {
+    const snapshot = {};
+    try {
+      for (const key of Object.keys(localStorage)) {
+        if (!key.startsWith('is.') || key === K.token || key === K.device) continue;
+        try { snapshot[key] = JSON.parse(localStorage.getItem(key)); } catch { /* corrupt legacy value */ }
+      }
+    } catch { /* unavailable browser storage becomes an empty migration */ }
+    return snapshot;
+  },
+  _clearBrowserNamespace() {
+    try {
+      for (const key of Object.keys(localStorage)) {
+        if (key.startsWith('is.')) localStorage.removeItem(key);
+      }
+    } catch { /* the native copy is already durable */ }
+  },
+  _storageError(reason = this.reason || 'encrypted_app_state_unavailable') {
+    const error = new Error(reason);
+    error.kind = 'storage';
+    error.code = 'encrypted_app_state_unavailable';
+    return error;
+  },
+  async hydrate({ locked = false } = {}) {
+    const plugin = globalThis.Capacitor?.Plugins?.IntentSmithVault || null;
+    this.plugin = plugin;
+    this.native = false;
+    this.reason = null;
+    this.failure = null;
+    this.memory = Object.create(null);
+    this.pending = Promise.resolve();
+    if (!plugin) return;
+    if (typeof plugin.readAppState !== 'function' || typeof plugin.writeAppState !== 'function') {
+      this.reason = 'encrypted_app_state_bridge_missing';
+      this.failure = this._storageError(this.reason);
+      return;
+    }
+
+    // MainActivity keeps the WebView behind its lock overlay and reloads it
+    // after unlock.  Do not turn that deliberate sealed state into a corrupt-
+    // vault warning merely because the bridge correctly refuses this read.
+    if (locked) {
+      this.native = true;
+      return;
+    }
+
+    try {
+      const held = await plugin.readAppState();
+      let snapshot;
+      if (held.present) {
+        snapshot = JSON.parse(held.state);
+        if (!this._validSnapshot(snapshot)) throw new Error('encrypted_app_state_invalid');
+      } else {
+        snapshot = this._browserSnapshot();
+        // Migration is one way: plaintext is removed only after the encrypted
+        // record is durably accepted by the native vault.
+        await plugin.writeAppState({ state: JSON.stringify(snapshot) });
+      }
+      this.memory = Object.assign(Object.create(null), this._clone(snapshot));
+      this.native = true;
+      this._clearBrowserNamespace();
+    } catch (error) {
+      this.reason = String(error?.message || error);
+      this.failure = this._storageError(this.reason);
+    }
+  },
+  _schedule() {
+    if (!this.plugin || !this.native) return this.pending;
+    const snapshot = JSON.stringify(this.memory);
+    this.pending = this.pending
+      .then(() => this.plugin.writeAppState({ state: snapshot }))
+      .catch(error => {
+        this.reason = String(error?.message || error);
+        this.native = false;
+        this.failure = this._storageError(this.reason);
+      });
+    return this.pending;
+  },
+  async flush() {
+    await this.pending;
+    if (this.plugin && (!this.native || this.failure)) throw this.failure || this._storageError();
+  },
   get(key, fallback = null) {
+    if (this.plugin) {
+      if (!Object.prototype.hasOwnProperty.call(this.memory, key)) return this._clone(fallback);
+      return this._clone(this.memory[key]);
+    }
     try {
       const raw = localStorage.getItem(key);
       return raw === null ? fallback : JSON.parse(raw);
     } catch { return fallback; }
   },
   set(key, value) {
+    if (this.plugin) {
+      if (!key.startsWith('is.') || key === K.token || key === K.device) {
+        this.reason = 'encrypted_app_state_key_invalid';
+        this.native = false;
+        this.failure = this._storageError(this.reason);
+        return this.pending;
+      }
+      this.memory[key] = this._clone(value);
+      return this._schedule();
+    }
     try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* quota */ }
   },
-  del(key) { try { localStorage.removeItem(key); } catch { /* ignore */ } },
+  del(key) {
+    if (this.plugin) {
+      delete this.memory[key];
+      return this._schedule();
+    }
+    try { localStorage.removeItem(key); } catch { /* ignore */ }
+  },
   delPrefix(prefix) {
+    if (this.plugin) {
+      for (const key of Object.keys(this.memory)) {
+        if (key.startsWith(prefix)) delete this.memory[key];
+      }
+      return this._schedule();
+    }
     try {
       for (const key of Object.keys(localStorage)) {
         if (key.startsWith(prefix)) localStorage.removeItem(key);
       }
     } catch { /* ignore */ }
   },
+  preferencesOnly() {
+    const kept = {};
+    if (Object.prototype.hasOwnProperty.call(this.memory, K.prefs)) {
+      kept[K.prefs] = this._clone(this.memory[K.prefs]);
+    }
+    return kept;
+  },
+  adoptResetState(snapshot) {
+    this.memory = Object.assign(Object.create(null), this._clone(snapshot));
+    this.native = true;
+    this.reason = null;
+    this.failure = null;
+    this.pending = Promise.resolve();
+    this._clearBrowserNamespace();
+  },
+  /** Drop decrypted native app data from this WebView process on lock. */
+  forget() {
+    if (this.plugin) this.memory = Object.create(null);
+  },
   /** Wipe domain data. Preferences survive; credentials and content do not. */
   wipeDomain() {
+    if (this.plugin) {
+      const kept = this.preferencesOnly();
+      this.memory = Object.assign(Object.create(null), kept);
+      return this._schedule();
+    }
     try {
       for (const key of Object.keys(localStorage)) {
         if (key.startsWith('is.') && key !== K.prefs) localStorage.removeItem(key);
@@ -112,16 +260,17 @@ const store = {
 //
 // Two rules make it honest rather than merely convenient:
 //
-//   * **Only the token and the device id go native.**  Scopes are `S1` and
-//     `ST-DB` by `MD-12`; moving them would claim a protection the data model
-//     does not ask for and would make the settings screen lie in the other
-//     direction.
+//   * **Credential and app data stay in different encrypted records.**  The
+//     S3 token/device/scopes group keeps its atomic credential write.  Cache,
+//     drafts, the operation journal and preferences share a separate bounded
+//     snapshot, so no S3 field can be smuggled into the lower-classification
+//     record and no native app content remains in WebView localStorage.
 //
 //   * **A failed vault is loud.**  If the shell is present and its vault will
 //     not open, the client does *not* quietly fall back to `localStorage` while
 //     still looking native.  It records why, says so on the settings screen,
-//     and keeps working — degraded and labelled.  Silent downgrade is how a
-//     user ends up trusting a phone they should have wiped.
+//     and blocks pairing and mutations.  Silent downgrade is how a user ends
+//     up trusting a phone they should have wiped.
 const secure = {
   plugin: null,
   /** 'native' once the vault is open; 'browser' otherwise — including a failed shell. */
@@ -141,14 +290,22 @@ const secure = {
    */
   async hydrate() {
     const plugin = globalThis.Capacitor?.Plugins?.IntentSmithVault || null;
-    if (!plugin) return;                       // a plain browser: nothing to say
     this.plugin = plugin;
+    this.mode = 'browser';
+    this.reason = null;
+    this.cache = { token: null, device: null };
+    if (!plugin) {
+      await store.hydrate();                   // a plain browser: unchanged
+      return;
+    }
+    let locked = false;
     try {
       const state = await plugin.getState();
       this.repairRequired = Boolean(state.repairRequired);
+      locked = Boolean(state.locked);
       this.lock = {
         hasPin: Boolean(state.hasPin),
-        locked: Boolean(state.locked),
+        locked,
         maxFailures: state.maxFailures || 0,
         // 'system' — the phone's own screen lock, through BiometricPrompt;
         // 'pin' — this app's fallback for a phone that has none;
@@ -157,25 +314,34 @@ const secure = {
       };
       if (!state.available) {
         this.reason = state.error || 'vault_unavailable';
-        return;
-      }
-      this.mode = 'native';
-      if (state.hasCredential && !state.locked) {
-        const held = await plugin.read();
-        this.cache = { token: held.token || null, device: held.deviceId || null };
+      } else {
+        this.mode = 'native';
+        if (state.hasCredential && !locked) {
+          const held = await plugin.read();
+          this.cache = { token: held.token || null, device: held.deviceId || null };
+        }
       }
     } catch (error) {
       this.reason = String(error?.message || error);
     }
+    await store.hydrate({ locked });
+    if (!locked && !store.native) {
+      // One broken half makes the whole native storage boundary unavailable.
+      // In particular, never pair a credential when its scopes/journal cannot
+      // cross the same durable boundary.
+      this.mode = 'browser';
+      this.cache = { token: null, device: null };
+      this.reason = this.reason || store.reason || 'encrypted_app_state_unavailable';
+    }
   },
 
-  async save({ token, deviceId }) {
+  async save({ token, deviceId, scopes = [] }) {
     // A shell is never allowed to fall back to localStorage.  If its vault did
     // not open, pairing must stop rather than turn an S3 token into browser
     // data while the screen still looks like the installed app.
     if (!this.plugin || !this.native) return false;
     try {
-      await this.plugin.save({ token, deviceId: deviceId || '' });
+      await this.plugin.save({ token, deviceId: deviceId || '', scopes: JSON.stringify(scopes) });
       this.cache = { token, device: deviceId };
       this.repairRequired = false;
       return true;
@@ -192,7 +358,12 @@ const secure = {
       try {
         // Plugin.clear is deliberately able to destroy a corrupt vault.  Its
         // success is the logout boundary; do not claim a wipe before it.
-        await this.plugin.clear();
+        // Let any already-issued bridge write settle first so it cannot land
+        // after key rotation and recreate pre-logout content.
+        await store.pending;
+        const preserved = store.preferencesOnly();
+        await this.plugin.clear({ appState: JSON.stringify(preserved) });
+        store.adoptResetState(preserved);
         this.mode = 'native';
         this.reason = null;
       } catch (error) {
@@ -259,7 +430,7 @@ const auth = {
     // durable MD-19 journal intentionally remains separate.
     invalidateApprovalSession();
     if (secure.plugin) {
-      if (!await secure.save({ token, deviceId })) {
+      if (!store.native || !await secure.save({ token, deviceId, scopes })) {
         const error = new Error(secure.reason || 'vault_unavailable');
         error.code = 'vault_unavailable';
         throw error;
@@ -269,6 +440,14 @@ const auth = {
       store.set(K.device, deviceId);
     }
     replaceScopes(scopes || []);
+    try {
+      await store.flush();
+    } catch (error) {
+      // Pairing must not leave a durable credential beside an app-state write
+      // that failed. Rotate the vault back to a preferences-only clean state.
+      if (secure.plugin) await secure.clear();
+      throw error;
+    }
   },
   async clear() {
     invalidateApprovalSession();
@@ -281,7 +460,7 @@ const auth = {
       error.code = 'vault_clear_failed';
       throw error;
     }
-    store.wipeDomain();
+    if (!secure.plugin) store.wipeDomain();
   },
 };
 
@@ -557,6 +736,7 @@ function lockDownSession() {
   sessionEpoch.locked = true;
   sessionEpoch.bump();
   secure.forget();
+  store.forget();
   // S2 in memory: conversation windows, approval bodies, diagnostics.  The
   // durable ST-DB cache is deliberately left alone — MD-07 governs its life,
   // and wiping it here would turn a lock into a logout.
@@ -598,6 +778,13 @@ async function api(path, { method = 'GET', body = null, timeoutMs = 130_000, str
   if (sessionEpoch.locked) {
     throw new ApiError('offline', { code: 'locked' });
   }
+
+  // A native mutation may depend on a journal entry, draft, scope update or
+  // cache transition written synchronously just before this call.  The bridge
+  // is asynchronous, so wait for that encrypted snapshot before any request
+  // capable of changing server state leaves the phone.  A failed write stops
+  // the mutation; it must never turn into an untracked side effect.
+  if (store.plugin && String(method).toUpperCase() !== 'GET') await store.flush();
 
   const headers = {};
   const token = auth.token;
@@ -713,10 +900,18 @@ async function handleAuthFailure(error) {
     // session screen keeps the storage failure visible for repair.
     vaultCleared = false;
     secure.forget();
-    store.wipeDomain();
+    await store.wipeDomain();
   }
 
-  if (keptJournal) store.set(K.journal, keptJournal);
+  if (keptJournal && vaultCleared) {
+    store.set(K.journal, keptJournal);
+    try {
+      await store.flush();
+    } catch {
+      vaultCleared = false;
+      secure.forget();
+    }
+  }
   state.sessionWipeFailed = !vaultCleared;
   state.session = error.code === 'token_revoked'
     ? 'revoked'
@@ -1452,7 +1647,8 @@ function sectionRoute(section) {
 
 function viewPairing({ error = null, busy = false } = {}) {
   const prefill = new URLSearchParams(location.hash.slice(1)).get('pair') || '';
-  const vaultBroken = Boolean(secure.plugin && !secure.native);
+  const vaultBroken = Boolean((secure.plugin && !secure.native) || (store.plugin && !store.native));
+  const vaultReason = secure.reason || store.reason;
   return `
     <div class="pair">
       <div class="pair-brand">
@@ -1463,7 +1659,7 @@ function viewPairing({ error = null, busy = false } = {}) {
         </div>
       </div>
       ${secure.repairRequired ? `<div class="pair-error">Bezpečné úložiště bylo aktualizováno. Starý prototypový trezor byl bezpečně odstraněn; pro pokračování zařízení jednou znovu spáruj.</div>` : ''}
-      ${vaultBroken ? `<div class="pair-error">Bezpečné úložiště telefonu není dostupné${secure.reason ? `: ${esc(secure.reason)}` : '.'} Párovací kód neposílej, dokud trezor neopravíš. <button class="btn btn-secondary" data-act="repair-vault">Vymazat poškozený trezor</button></div>` : ''}
+      ${vaultBroken ? `<div class="pair-error">Bezpečné úložiště telefonu není dostupné${vaultReason ? `: ${esc(vaultReason)}` : '.'} Párovací kód neposílej, dokud trezor neopravíš. <button class="btn btn-secondary" data-act="repair-vault">Vymazat poškozený trezor</button></div>` : ''}
       ${error ? `<div class="pair-error">${esc(error)}</div>` : ''}
       <div class="field">
         <label for="pair-code">Párovací kód</label>
@@ -2749,21 +2945,29 @@ function viewNotifications() {
  * locked.  Showing the same screen in both would make one of them a lie.
  *
  * The third state is the one worth the code: a shell whose vault would not
- * open.  It looks native, behaves like a browser, and is the only case where a
- * user could reasonably believe a protection they do not have — so it is
- * spelled out, with the reason, rather than folded into "prohlížeč".
+ * open.  It looks native but fails closed, and is the only case where a user
+ * could reasonably believe a protection they do not have — so it is spelled
+ * out, with the reason, rather than folded into "prohlížeč".
  */
 function securityCard() {
   const native = secure.native;
-  const degraded = Boolean(secure.plugin) && !native;
+  const dataNative = store.native;
+  const degraded = Boolean(secure.plugin) && (!native || !dataNative);
   const tone = native ? 'ok' : degraded ? 'danger' : 'warn';
   const where = native ? 'Android Keystore' : degraded ? 'Android Keystore — chyba' : 'prohlížeč (localStorage)';
+  const dataTone = dataNative ? 'ok' : store.plugin ? 'danger' : 'warn';
+  const dataWhere = dataNative ? 'Android Keystore' : store.plugin ? 'Android Keystore — chyba' : 'prohlížeč (localStorage)';
 
   const note = native
     ? 'Přihlášení je šifrované klíčem, který aplikace nemůže vynést ze zařízení, a nevydá se, dokud je aplikace zamčená.'
     : degraded
       ? 'Aplikace má trezor, ale nepodařilo se ho otevřít. Credential se nenačetl a nativní shell jej do localStorage neuloží; nové párování zůstane zablokované do opravy trezoru.'
       : 'Prohlížeč bezpečné úložiště nenabízí (MD-11 žádá ST-SECURE). Platí to i pro PWA přidanou na plochu.';
+  const dataNote = dataNative
+    ? 'Cache, koncepty zpráv, žurnál operací a preference jsou šifrované stejným nevynositelným klíčem; ve WebView localStorage nezůstávají.'
+    : store.plugin
+      ? 'Šifrovaný stav aplikace není dostupný. Nativní shell nepoužije plaintext localStorage a před mutací vyžaduje potvrzený zápis.'
+      : 'Cache, koncepty, žurnál i preference zůstávají v plaintext localStorage prohlížeče. Pro citlivý provoz použij nativní aplikaci.';
 
   // The lock the device actually enforces decides what this card offers.  A
   // PIN field on a phone that unlocks with a fingerprint would be a second
@@ -2795,7 +2999,10 @@ function securityCard() {
       <div class="kv"><span class="kv-key">Úložiště přihlášení</span>
         <span class="pill" data-tone="${tone}">${esc(where)}</span></div>
       <div class="kv-note">${esc(note)}</div>
-      ${degraded && secure.reason ? `<div class="kv"><span class="kv-key">Důvod</span><span class="kv-val mono">${esc(secure.reason)}</span></div>` : ''}
+      <div class="kv"><span class="kv-key">Data aplikace</span>
+        <span class="pill" data-tone="${dataTone}">${esc(dataWhere)}</span></div>
+      <div class="kv-note">${esc(dataNote)}</div>
+      ${degraded && (secure.reason || store.reason) ? `<div class="kv"><span class="kv-key">Důvod</span><span class="kv-val mono">${esc(secure.reason || store.reason)}</span></div>` : ''}
       ${lockRow}
       ${pin}
       ${state.error.security ? `<div class="kv-note" data-tone="danger">${esc(state.error.security)}</div>` : ''}
@@ -6984,7 +7191,7 @@ async function finishSelfRevocation() {
   } catch {
     vaultCleared = false;
     secure.forget();
-    store.wipeDomain();
+    await store.wipeDomain();
   }
   state.sessionWipeFailed = !vaultCleared;
   state.session = 'revoked';
@@ -7118,12 +7325,20 @@ async function doPair() {
   const code = document.getElementById('pair-code')?.value.trim();
   const name = document.getElementById('pair-name')?.value.trim() || guessDeviceName();
   if (!code) { state.error.pairing = 'Zadej párovací kód.'; return render(); }
+  if ((secure.plugin && !secure.native) || (store.plugin && !store.native)) {
+    state.error.pairing = 'Bezpečné úložiště telefonu není dostupné. Párovací kód nebyl odeslán.';
+    return render();
+  }
 
   state.loading.pairing = true;
   state.error.pairing = null;
+  let claimAccepted = false;
   render();
 
   try {
+    // Claim consumes a one-time code, so the encrypted-state durability check
+    // must happen before the request rather than inside auth.save afterwards.
+    if (store.plugin) await store.flush();
     const response = await fetch(`${API}/pair/claim`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -7144,6 +7359,7 @@ async function doPair() {
       return;
     }
 
+    claimAccepted = true;
     await auth.save(payload.data);
     state.session = 'active';
     transitionRoute('conversations');
@@ -7154,6 +7370,10 @@ async function doPair() {
   } catch (error) {
     state.error.pairing = error?.code === 'vault_unavailable'
       ? 'Server kód přijal, ale bezpečné úložiště telefonu zápis odmítlo. Token nebyl uložen. Oprav trezor nebo aplikaci přeinstaluj a na desktopu vygeneruj nový kód.'
+      : error?.kind === 'storage'
+        ? claimAccepted
+          ? 'Server kód přijal, ale šifrovaný stav telefonu se nepodařilo uložit. Token byl z trezoru znovu odstraněn; oprav trezor a na desktopu vygeneruj nový kód.'
+          : 'Bezpečné úložiště telefonu nepotvrdilo zápis. Párovací kód nebyl odeslán; oprav trezor a zkus to znovu.'
       : 'Server není dostupný. Zkontroluj, že jsi na stejné síti / VPN.';
   } finally {
     state.loading.pairing = false;

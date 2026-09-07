@@ -5,12 +5,16 @@ import android.util.Base64;
 
 import androidx.biometric.BiometricManager;
 
+import org.json.JSONObject;
+
+import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -19,18 +23,25 @@ import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
 
 /**
- * Credential and lock policy shared by the Capacitor plugin and activity.
+ * Credential, app-state and lock policy shared by the Capacitor plugin and
+ * activity.
  *
  * MD-11 classifies the device token as S3/ST-SECURE.  Every stored value,
- * including the PIN verifier and failure counter, therefore passes through
- * {@link KeystoreVault}.  The PIN remains a fallback for devices without a
- * system credential; it is a lock, not a second authentication factor.
+ * including the app snapshot, PIN verifier and failure counter, therefore
+ * passes through {@link KeystoreVault}.  The PIN remains a fallback for
+ * devices without a system credential; it is a lock, not a second
+ * authentication factor.
  */
 final class LockPolicy {
 
     static final String K_TOKEN = "auth.token";
     static final String K_DEVICE = "auth.device";
     static final String K_SCOPES = "auth.scopes";
+    static final String K_APP_STATE = "app.state";
+
+    // Below the practical WebView storage ceiling, but explicit so compromised
+    // page code cannot turn one bridge call into an unbounded vault record.
+    static final int MAX_APP_STATE_BYTES = 8 * 1024 * 1024;
 
     private static final String K_PIN_HASH = "lock.pin.hash";
     private static final String K_PIN_SALT = "lock.pin.salt";
@@ -180,13 +191,90 @@ final class LockPolicy {
         }
     }
 
+    // ── Encrypted ST-DB snapshot ──────────────────────────────────────────
+
+    static boolean hasAppState(Context context) {
+        KeystoreVault store = vault(context);
+        return store != null && store.contains(K_APP_STATE);
+    }
+
+    static boolean appStateInputValid(String json) {
+        if (json == null
+                || json.getBytes(StandardCharsets.UTF_8).length > MAX_APP_STATE_BYTES) return false;
+        try {
+            JSONObject object = new JSONObject(json);
+            Iterator<String> keys = object.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                // The app-state record owns only the browser client's `is.*`
+                // namespace. S3 credential fields have their own records and
+                // may never be smuggled into this lower-classification blob.
+                if (!key.startsWith("is.")
+                        || "is.auth.token".equals(key)
+                        || "is.auth.device".equals(key)) return false;
+            }
+            return true;
+        } catch (Exception error) {
+            return false;
+        }
+    }
+
+    /** Logout may carry only cosmetic preferences across key rotation. */
+    static boolean preferencesStateInputValid(String json) {
+        if (!appStateInputValid(json)) return false;
+        try {
+            JSONObject object = new JSONObject(json);
+            Iterator<String> keys = object.keys();
+            while (keys.hasNext()) {
+                if (!"is.prefs".equals(keys.next())) return false;
+            }
+            return true;
+        } catch (Exception error) {
+            return false;
+        }
+    }
+
+    static String readAppState(Context context) {
+        return get(context, K_APP_STATE, "{}");
+    }
+
+    static boolean saveAppState(Context context, String json) {
+        if (!appStateInputValid(json)) return false;
+        KeystoreVault store = vault(context);
+        if (store == null) return false;
+        try {
+            store.putStrings(Collections.singletonMap(K_APP_STATE, json), Collections.emptySet());
+            return true;
+        } catch (Exception error) {
+            markUnavailable(error);
+            return false;
+        }
+    }
+
     /** E-LOGOUT is also the recovery path for a corrupt or invalidated key. */
     static synchronized boolean clearAll(Context context) {
+        return clearAll(context, null);
+    }
+
+    /**
+     * Destroy the old key and optionally seed a caller-validated preferences-
+     * only app state under a new key. A crash between the two loses preferences
+     * but can never leave credential or cached content behind.
+     */
+    static synchronized boolean clearAll(Context context, String preservedAppState) {
+        if (preservedAppState != null && !preferencesStateInputValid(preservedAppState)) return false;
         try {
             KeystoreVault.destroy(context);
             vault = null;
             attempted = false;
             openError = null;
+            if (preservedAppState != null) {
+                KeystoreVault replacement = vault(context);
+                if (replacement == null) return false;
+                replacement.putStrings(
+                    Collections.singletonMap(K_APP_STATE, preservedAppState),
+                    Collections.emptySet());
+            }
             return true;
         } catch (Exception error) {
             markUnavailable(error);
@@ -251,7 +339,7 @@ final class LockPolicy {
                 // while the credential it was meant to revoke survives.
                 store.putStrings(
                     Collections.singletonMap(K_FAILURES, Integer.toString(count)),
-                    names(K_TOKEN, K_DEVICE, K_SCOPES));
+                    names(K_TOKEN, K_DEVICE, K_SCOPES, K_APP_STATE));
                 return new Result(Outcome.WIPED, 0);
             }
             store.putStrings(

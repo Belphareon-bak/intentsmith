@@ -105,9 +105,11 @@ function fakeVault({
   lockKind = null,
   repairRequired = false,
 } = {}) {
-  const held = { token: null, deviceId: null, scopes: '[]' };
+  const held = { token: null, deviceId: null, scopes: '[]', appState: null };
   const vault = {
     calls: [],
+    failNextAppStateWrite: false,
+    appStateWriteGate: null,
     state: {
       available, error, hasPin, locked, repairRequired, hasCredential: false, maxFailures: 10,
       lockKind: lockKind || (hasPin ? 'pin' : 'none'),
@@ -122,20 +124,45 @@ function fakeVault({
       if (!available) throw new Error('vault_unavailable');
       return { ...held };
     },
-    async save({ token, deviceId }) {
+    async save({ token, deviceId, scopes = '[]' }) {
       vault.calls.push('save');
       if (!available) throw new Error('vault_unavailable');
       held.token = token;
       held.deviceId = deviceId;
+      held.scopes = scopes;
       vault.state.locked = false;
       vault.state.repairRequired = false;
       return { saved: true };
     },
-    async clear() {
+    async readAppState() {
+      vault.calls.push('readAppState');
+      if (vault.state.locked) throw new Error('locked');
+      if (!available) throw new Error(error || 'vault_unavailable');
+      return { present: held.appState !== null, state: held.appState ?? '{}' };
+    },
+    async writeAppState({ state }) {
+      vault.calls.push('writeAppState');
+      if (vault.state.locked) throw new Error('locked');
+      if (!available) throw new Error(error || 'vault_unavailable');
+      if (vault.failNextAppStateWrite) {
+        vault.failNextAppStateWrite = false;
+        throw new Error('app_state_write_failed');
+      }
+      if (vault.appStateWriteGate) {
+        const gate = vault.appStateWriteGate;
+        vault.appStateWriteGate = null;
+        await gate;
+      }
+      held.appState = state;
+      return { saved: true };
+    },
+    async clear({ appState = null } = {}) {
       vault.calls.push('clear');
       vaultCleared = true;
       held.token = null;
       held.deviceId = null;
+      held.scopes = '[]';
+      held.appState = appState;
       return { cleared: true };
     },
     async setPin({ pin }) {
@@ -182,9 +209,16 @@ function resetAdapter() {
   secure.repairRequired = false;
   secure.lock = { hasPin: false, locked: false, maxFailures: 0 };
   secure.cache = { token: null, device: null };
+  store.plugin = null;
+  store.native = false;
+  store.reason = null;
+  store.failure = null;
+  store.memory = Object.create(null);
+  store.pending = Promise.resolve();
   state.error = {};
   state.data = {};
   state.loading = {};
+  globalThis.fetch = async () => { throw new TypeError('this suite does not call the network'); };
 }
 
 /** Everything the browser store holds, as one string — for the negative test. */
@@ -212,8 +246,72 @@ await test('MD-11 in the shell the token never reaches localStorage', async () =
     `the credential was mirrored into localStorage:\n${everythingStored()}`);
   assert.equal(auth.token, 'tok-secret-value', 'the session cannot read its own credential');
   assert.equal(vault.held.token, 'tok-secret-value', 'the credential never reached the vault');
-  // MD-12: scopes are S1 / ST-DB, and stay where the data model puts them.
+  // MD-12: scopes stay in the atomic credential group and the encrypted app
+  // snapshot used by synchronous client reads; neither copy is plaintext.
+  assert.equal(vault.held.scopes, '["read:chat"]');
   assert.deepEqual(store.get(K.scopes), ['read:chat']);
+  assert.deepEqual(JSON.parse(vault.held.appState)[K.scopes], ['read:chat']);
+  assert.equal(everythingStored(), '', 'native app state leaked into WebView localStorage');
+});
+
+await test('MM5-C migrates legacy app state only after an encrypted commit', async () => {
+  resetAdapter();
+  localStorage.setItem(K.token, JSON.stringify('legacy-token-must-drop'));
+  localStorage.setItem(K.device, JSON.stringify('legacy-device-must-drop'));
+  localStorage.setItem(K.scopes, JSON.stringify(['read:projects']));
+  localStorage.setItem(`${K.cache}projects.active`, JSON.stringify({ at: 7, data: ['p1'] }));
+  localStorage.setItem(K.drafts, JSON.stringify({ op1: { message: 'draft-secret' } }));
+  localStorage.setItem(K.journal, JSON.stringify([{ operationId: 'op1' }]));
+  localStorage.setItem(K.prefs, JSON.stringify({ hideBarOnHome: false }));
+
+  const vault = fakeVault();
+  installShell(vault);
+  await secure.hydrate();
+
+  const migrated = JSON.parse(vault.held.appState);
+  assert.deepEqual(migrated[K.scopes], ['read:projects']);
+  assert.equal(migrated[`${K.cache}projects.active`].data[0], 'p1');
+  assert.equal(migrated[K.drafts].op1.message, 'draft-secret');
+  assert.equal(migrated[K.prefs].hideBarOnHome, false);
+  assert.ok(!(K.token in migrated) && !(K.device in migrated),
+    'credential fields were smuggled into the app-state record');
+  assert.equal(everythingStored(), '', 'plaintext namespace survived successful migration');
+  assert.equal(auth.token, null, 'a legacy browser token became a native credential');
+});
+
+await test('MM5-C an existing encrypted snapshot wins over stale browser plaintext', async () => {
+  resetAdapter();
+  localStorage.setItem(K.prefs, JSON.stringify({ hideBarOnHome: true }));
+  localStorage.setItem(`${K.cache}projects.active`, JSON.stringify({ at: 1, data: ['stale'] }));
+  const vault = fakeVault();
+  vault.held.appState = JSON.stringify({
+    [K.prefs]: { hideBarOnHome: false },
+    [`${K.cache}projects.active`]: { at: 2, data: ['encrypted'] },
+  });
+  installShell(vault);
+
+  await secure.hydrate();
+
+  assert.equal(store.get(K.prefs).hideBarOnHome, false);
+  assert.deepEqual(store.get(`${K.cache}projects.active`).data, ['encrypted']);
+  assert.equal(everythingStored(), '', 'stale plaintext survived encrypted hydration');
+});
+
+await test('MM5-C failed migration keeps its source but never reads it as fallback', async () => {
+  resetAdapter();
+  localStorage.setItem(K.scopes, JSON.stringify(['plaintext:scope']));
+  localStorage.setItem(K.drafts, JSON.stringify({ op1: { message: 'recoverable source' } }));
+  const vault = fakeVault();
+  vault.failNextAppStateWrite = true;
+  installShell(vault);
+
+  await secure.hydrate();
+
+  assert.equal(store.native, false);
+  assert.equal(secure.native, false);
+  assert.ok(everythingStored().includes('recoverable source'),
+    'migration erased plaintext before the encrypted commit succeeded');
+  assert.deepEqual(auth.scopes, [], 'failed native hydration fell back to plaintext data');
 });
 
 await test('MR-23 a locked vault yields no credential, and that is not "unpaired"', async () => {
@@ -254,11 +352,23 @@ await test('E-LOGOUT clears the vault, not only the browser store', async () => 
   installShell(vault);
   await secure.hydrate();
   await auth.save({ token: 'tok-1', deviceId: 'dev-1', scopes: [] });
+  store.set(K.prefs, { hideBarOnHome: false });
+  store.set(`${K.cache}thread.c1`, { at: 1, data: { secret: 'cached' } });
+  store.set(K.drafts, { op1: { message: 'draft' } });
+  store.set(K.journal, [{ operationId: 'op1' }]);
+  await store.flush();
 
   await auth.clear();
   assert.ok(vault.calls.includes('clear'),
     'logout left a working token in the Keystore of a device that just logged out');
   assert.equal(auth.token, null);
+  assert.deepEqual(JSON.parse(vault.held.appState), {
+    [K.prefs]: { hideBarOnHome: false },
+  }, 'logout did not rotate to a preferences-only app-state record');
+  assert.equal(store.get(`${K.cache}thread.c1`), null);
+  assert.equal(store.get(K.drafts), null);
+  assert.equal(store.get(K.journal), null);
+  assert.equal(everythingStored(), '', 'logout recreated native state in localStorage');
 });
 
 // ── 2. The plain browser ────────────────────────────────────────────────────
@@ -322,6 +432,24 @@ await test('a broken native vault never falls back to localStorage during pairin
   assert.equal(auth.token, null, 'a rejected credential remained usable in memory');
 });
 
+await test('an invalid encrypted app snapshot fails closed without plaintext fallback', async () => {
+  resetAdapter();
+  localStorage.setItem(K.scopes, JSON.stringify(['must:not:load']));
+  const vault = fakeVault();
+  vault.held.appState = JSON.stringify({ [K.token]: 'smuggled-token' });
+  installShell(vault);
+
+  await secure.hydrate();
+
+  assert.equal(store.native, false, 'an invalid encrypted snapshot was accepted');
+  assert.equal(secure.native, false, 'credential access survived a broken app-state boundary');
+  assert.deepEqual(auth.scopes, [], 'the shell fell back to plaintext scopes');
+  state.session = 'unpaired';
+  render();
+  assert.match(nodes.app.innerHTML, /data-act="pair" disabled/,
+    'pairing remained enabled with an invalid encrypted app snapshot');
+});
+
 await test('the settings screen names the real store in each mode', async () => {
   const shown = async build => {
     resetAdapter();
@@ -341,7 +469,54 @@ await test('the settings screen names the real store in each mode', async () => 
   assert.ok(browser.includes('ST-SECURE'), 'the browser build did not say what is missing');
 });
 
-// ── 4. The lock ─────────────────────────────────────────────────────────────
+// ── 4. Durable app-state boundary ──────────────────────────────────────────
+
+await test('a mutation waits until its encrypted journal state is durable', async () => {
+  resetAdapter();
+  const vault = fakeVault();
+  installShell(vault);
+  await secure.hydrate();
+  await auth.save({ token: 'tok-barrier', deviceId: 'dev-1', scopes: [] });
+
+  let release;
+  vault.appStateWriteGate = new Promise(resolve => { release = resolve; });
+  store.set(K.journal, [{ operationId: 'op-before-send' }]);
+  let sent = false;
+  globalThis.fetch = async () => {
+    sent = true;
+    return { ok: true, status: 200, json: async () => ({ ok: true, data: {} }) };
+  };
+
+  const pending = api('/chat', { method: 'POST', body: { operationId: 'op-before-send' } });
+  await Promise.resolve();
+  await Promise.resolve();
+  assert.equal(sent, false, 'the mutation outran its encrypted journal write');
+  release();
+  await pending;
+  assert.equal(sent, true, 'the mutation stayed blocked after durable storage succeeded');
+});
+
+await test('a failed encrypted app-state write blocks the mutation before fetch', async () => {
+  resetAdapter();
+  const vault = fakeVault();
+  installShell(vault);
+  await secure.hydrate();
+  await auth.save({ token: 'tok-fail-closed', deviceId: 'dev-1', scopes: [] });
+
+  vault.failNextAppStateWrite = true;
+  store.set(K.journal, [{ operationId: 'op-must-not-send' }]);
+  let sent = false;
+  globalThis.fetch = async () => { sent = true; throw new Error('must not run'); };
+
+  const error = await api('/chat', { method: 'POST', body: { operationId: 'op-must-not-send' } })
+    .catch(value => value);
+  assert.equal(sent, false, 'fetch ran after encrypted persistence failed');
+  assert.equal(error.kind, 'storage');
+  assert.equal(error.code, 'encrypted_app_state_unavailable');
+  assert.equal(store.native, false, 'the failed store continued claiming native protection');
+});
+
+// ── 5. The lock ─────────────────────────────────────────────────────────────
 
 await test('MR-23 the PIN is set through the vault and never kept in client state', async () => {
   resetAdapter();
@@ -402,7 +577,7 @@ await test('the browser build offers no lock it cannot enforce', async () => {
     'the browser build offered a PIN, which nothing in a browser can enforce');
 });
 
-// ── 5. The lock, in the layer a curtain cannot reach (MR-23) ────────────────
+// ── 6. The lock, in the layer a curtain cannot reach (MR-23) ────────────────
 //
 // The native overlay hides the screen.  These tests are about the half it
 // cannot do: the page behind it keeps a credential in memory, keeps requests in
@@ -433,12 +608,19 @@ await test('MR-23 locking drops S2 data that was already on screen', async () =>
     conversations: [{ id: 'c1', title: 'Rozpočet 2026' }],
     approvals: [{ id: 'ap-1', detail: 'zapsat /tajne/heslo.txt' }],
   };
+  store.set(`${K.cache}thread.c1`, { at: 1, data: { content: 'cached-secret' } });
+  store.set(K.drafts, { op1: { message: 'draft-secret' } });
+  await store.flush();
 
   lockDownSession();
 
   const left = JSON.stringify(state.data);
   assert.ok(!left.includes('Rozpočet'), `conversation content survived the lock: ${left}`);
   assert.ok(!left.includes('heslo'), `approval content survived the lock: ${left}`);
+  assert.equal(store.get(`${K.cache}thread.c1`), null,
+    'decrypted cache survived in WebView memory after locking');
+  assert.equal(store.get(K.drafts), null,
+    'decrypted drafts survived in WebView memory after locking');
 });
 
 await test('MR-23 a request in flight when the lock falls is aborted', async () => {
