@@ -53,6 +53,7 @@ export const MEMORY_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-stor
 export const WORKER_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
 export const SPECIALIST_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
 export const PROJECT_CONVERSATION_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
+export const CONVERSATION_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
 export const NOTIFICATION_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
 
 // ── GET /m1/health ───────────────────────────────────────────────────────────
@@ -1193,7 +1194,14 @@ export async function handleSpecialistDetail({ corePort, principal, params, quer
 // ── GET /m1/conversations ────────────────────────────────────────────────────
 
 function projectConversationResponse(result, filtered) {
-  return filtered ? { ...result, headers: PROJECT_CONVERSATION_RESPONSE_HEADERS } : result;
+  return {
+    ...result,
+    headers: filtered ? PROJECT_CONVERSATION_RESPONSE_HEADERS : CONVERSATION_RESPONSE_HEADERS,
+  };
+}
+
+function conversationResponse(result) {
+  return { ...result, headers: CONVERSATION_RESPONSE_HEADERS };
 }
 
 export async function handleConversations({ corePort, principal, query }) {
@@ -1279,7 +1287,7 @@ export async function handleConversationDetail({ corePort, principal, params, qu
     operation: 'exists',
     id: params.id,
   }, principal);
-  if (!present.ok) return conversationReadError(present.error);
+  if (!present.ok) return conversationResponse(conversationReadError(present.error));
 
   const limit = clampLimit(query.get('limit'), 50);
   const stream = `messages:${params.id}`;
@@ -1291,22 +1299,24 @@ export async function handleConversationDetail({ corePort, principal, params, qu
   const anchor = query.get('anchor');
   const rawCursor = query.get('cursor');
   if (anchor !== null && rawCursor) {
-    return errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+    return conversationResponse(errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
       reason: 'anchor_with_cursor',
       detail: 'anchor opens a walk; a cursor continues one',
-    });
+    }));
   }
   if (anchor !== null && anchor !== 'latest') {
     // An unknown anchor must not fall through to the oldest page: that is how a
     // client ends up believing it is holding the newest messages when it is not.
-    return errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
+    return conversationResponse(errorResponse(MOBILE_ERRORS.BAD_REQUEST, {
       reason: 'anchor_unknown', anchor, allowed: ['latest'],
-    });
+    }));
   }
 
   const cursor = decodeCursor(rawCursor, { stream });
   if (!cursor.valid) {
-    return errorResponse(MOBILE_ERRORS.CURSOR_UNKNOWN, { reason: cursor.reason, restart: true });
+    return conversationResponse(errorResponse(
+      MOBILE_ERRORS.CURSOR_UNKNOWN, { reason: cursor.reason, restart: true },
+    ));
   }
 
   const backward = anchor === 'latest' || cursor.direction === CURSOR_BACKWARD;
@@ -1318,7 +1328,7 @@ export async function handleConversationDetail({ corePort, principal, params, qu
     direction: backward ? CURSOR_BACKWARD : 'forward',
     anchorLatest: anchor === 'latest',
   }, principal);
-  if (!outcome.ok) return conversationReadError(outcome.error);
+  if (!outcome.ok) return conversationResponse(conversationReadError(outcome.error));
 
   const toMessage = message => versioned({
     ...message,
@@ -1340,7 +1350,7 @@ export async function handleConversationDetail({ corePort, principal, params, qu
     });
   }
 
-  return {
+  return conversationResponse({
     status: 200,
     body: withEnvelope({
       conversation: versioned(outcome.data.conversation),
@@ -1356,7 +1366,7 @@ export async function handleConversationDetail({ corePort, principal, params, qu
         direction: backward ? CURSOR_BACKWARD : 'forward',
       },
     }),
-  };
+  });
 }
 
 async function invokeConversationRead(corePort, input, principal) {

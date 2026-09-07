@@ -487,6 +487,7 @@ await test('MM3-D follows only server-issued cursors, appends in order and cache
     '/m1/conversations?limit=50',
     '/m1/conversations?limit=50&cursor=opaque.next',
   ]);
+  assert.ok(calls.every(call => call.options.cache === 'no-store'));
   assert.deepEqual(state.data.conversations.map(item => item.id), ['c-1', 'c-2']);
   assert.deepEqual(state.pagination.conversations, { hasMore: false, nextCursor: null, end: true });
   const saved = store.get(K.cache + 'conversations');

@@ -580,7 +580,7 @@ function lockDownSession() {
   state.specialistId = null;
   invalidateConversationSurface();
   invalidateProjectConversationSurface();
-  state.thread = { cursor: null, end: false, loadingOlder: false, stickToBottom: true };
+  invalidateThreadSurface();
   invalidateApprovalSurface();
 }
 
@@ -625,15 +625,15 @@ async function api(path, { method = 'GET', body = null, timeoutMs = 130_000, str
       || routePath.startsWith('/notifications/');
     const workerRequest = routePath === '/workers' || routePath.startsWith('/workers/');
     const specialistRequest = routePath === '/specialists' || routePath.startsWith('/specialists/');
-    const projectConversationRequest = routePath === '/conversations'
-      && new URLSearchParams(path.split('?', 2)[1] || '').has('projectId');
+    const conversationRequest = routePath === '/conversations'
+      || routePath.startsWith('/conversations/');
     response = await fetch(API + path, {
       method, headers,
       body: body ? JSON.stringify(body) : undefined,
       signal: controller.signal,
       ...(approvalRequest || settingsRequest || memoryRequest || deviceRequest || notificationRequest
         || workerRequest || specialistRequest
-        || projectConversationRequest
+        || conversationRequest
         ? { cache: 'no-store' }
         : {}),
     });
@@ -897,7 +897,10 @@ function replaceScopes(scopes) {
     state.notificationsLive = false;
     state.notificationAcking = false;
   }
-  if (!next.includes('read:chat')) invalidateConversationSurface({ clearCache: true });
+  if (!next.includes('read:chat')) {
+    invalidateConversationSurface({ clearCache: true });
+    invalidateThreadSurface({ clearCache: true });
+  }
   if (!next.includes('read:projects')) {
     projectsGeneration++;
     projectGeneration++;
@@ -4818,18 +4821,78 @@ function validConversationPage(response) {
 
   const ids = new Set();
   return response.data.every(conversation => {
-    if (!conversation || typeof conversation !== 'object' || Array.isArray(conversation)
-        || Object.keys(conversation).sort().join(',') !== 'createdAt,id,messageCount,state,title,updatedAt,version'
-        || typeof conversation.id !== 'string' || !conversation.id || ids.has(conversation.id)
-        || typeof conversation.title !== 'string' || !conversation.title
-        || !Number.isSafeInteger(conversation.messageCount) || conversation.messageCount < 0
-        || !['active', 'archived'].includes(conversation.state)
-        || !validIsoOrNull(conversation.createdAt)
-        || !validIsoOrNull(conversation.updatedAt)
-        || typeof conversation.version !== 'string' || !conversation.version.startsWith('v1:')) return false;
+    if (!validConversationSnapshot(conversation) || ids.has(conversation.id)) return false;
     ids.add(conversation.id);
     return true;
   });
+}
+
+function validConversationSnapshot(conversation, requestedId = null) {
+  return Boolean(conversation && typeof conversation === 'object' && !Array.isArray(conversation)
+    && Object.keys(conversation).sort().join(',') === 'createdAt,id,messageCount,state,title,updatedAt,version'
+    && typeof conversation.id === 'string' && conversation.id
+    && (requestedId === null || conversation.id === requestedId)
+    && typeof conversation.title === 'string' && conversation.title
+    && Number.isSafeInteger(conversation.messageCount) && conversation.messageCount >= 0
+    && ['active', 'archived'].includes(conversation.state)
+    && validIsoOrNull(conversation.createdAt)
+    && validIsoOrNull(conversation.updatedAt)
+    && typeof conversation.version === 'string' && conversation.version.startsWith('v1:'));
+}
+
+function validThreadMessages(messages) {
+  if (!Array.isArray(messages)) return false;
+  const ids = new Set();
+  return messages.every(message => {
+    if (!message || typeof message !== 'object' || Array.isArray(message)
+        || Object.keys(message).sort().join(',') !== 'content,createdAt,id,metadata,role,version'
+        || typeof message.id !== 'string' || !/^[1-9][0-9]*$/.test(message.id)
+        || !Number.isSafeInteger(Number(message.id)) || ids.has(message.id)
+        || !['user', 'assistant', 'system'].includes(message.role)
+        || typeof message.content !== 'string' || !message.content
+        || !validIsoOrNull(message.createdAt)
+        || !finiteJsonValue(message.metadata)
+        || typeof message.version !== 'string' || !message.version.startsWith('v1:')) return false;
+    ids.add(message.id);
+    return true;
+  });
+}
+
+function validThreadBoundary(source) {
+  return Boolean(source && typeof source === 'object' && !Array.isArray(source)
+    && typeof source.hasMore === 'boolean'
+    && typeof source.end === 'boolean'
+    && source.hasMore !== source.end
+    && (source.hasMore
+      ? typeof source.nextCursor === 'string' && source.nextCursor
+      : source.nextCursor === null));
+}
+
+function validThreadResponse(response, requestedId) {
+  const data = response?.data;
+  return Boolean(response?.ok === true
+    && response.direction === 'backward'
+    && validThreadBoundary(response)
+    && data && typeof data === 'object' && !Array.isArray(data)
+    && Object.keys(data).sort().join(',') === 'conversation,messages'
+    && validConversationSnapshot(data.conversation, requestedId)
+    && validThreadMessages(data.messages));
+}
+
+function validThreadCacheSnapshot(snapshot, requestedId) {
+  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) return false;
+  const keys = Object.keys(snapshot).sort().join(',');
+  if (keys !== 'conversation,messages' && keys !== 'conversation,messages,window') return false;
+  if (!validConversationSnapshot(snapshot.conversation, requestedId)
+      || !validThreadMessages(snapshot.messages)) return false;
+  if (!snapshot.window) return true; // exact legacy snapshot: explicitly partial
+  const window = snapshot.window;
+  return Boolean(window && typeof window === 'object' && !Array.isArray(window)
+    && Object.keys(window).sort().join(',') === 'cursor,end'
+    && typeof window.end === 'boolean'
+    && ((window.end && window.cursor === null)
+      || (!window.end && (window.cursor === null
+        || (typeof window.cursor === 'string' && window.cursor)))));
 }
 
 function validProjectConversationPage(response) {
@@ -5132,12 +5195,32 @@ function writeThreadCache(conversationId) {
   });
 }
 
+let threadGeneration = 0;
+
+function invalidateThreadSurface({ clearCache = false } = {}) {
+  threadGeneration++;
+  delete state.data.thread;
+  state.error.thread = null;
+  state.loading.thread = false;
+  state.cacheAge.thread = null;
+  state.cacheAt.thread = null;
+  state.thread = { cursor: null, end: false, loadingOlder: false, stickToBottom: true };
+  if (clearCache) store.delPrefix(K.cache + 'thread.');
+}
+
 async function loadThread(conversationId) {
+  if (!auth.has('read:chat') || !conversationId) return;
+  const requestedId = conversationId;
+  const generation = ++threadGeneration;
   const key = `thread.${conversationId}`;
   let cached = cache.read(key);
   if (cached.status === 'EXPIRED') {
     // MD-04 is a content boundary, not only an age label. Once its seven-day
     // window closes, no expired S2 message may reach memory or the renderer.
+    store.del(K.cache + key);
+    cached = { status: 'MISSING', data: null, at: null };
+  }
+  if (cached.data && !validThreadCacheSnapshot(cached.data, requestedId)) {
     store.del(K.cache + key);
     cached = { status: 'MISSING', data: null, at: null };
   }
@@ -5165,7 +5248,21 @@ async function loadThread(conversationId) {
     // *into the past* on demand.  Asking without an anchor would return the
     // oldest page and hide the exchange the user came back for.
     const response = await api(
-      `/conversations/${encodeURIComponent(conversationId)}?anchor=latest&limit=${THREAD_PAGE_SIZE}`);
+      `/conversations/${encodeURIComponent(conversationId)}?anchor=latest&limit=${THREAD_PAGE_SIZE}`,
+      { strict: true });
+    if (generation !== threadGeneration || state.route !== 'chat'
+        || state.conversationId !== requestedId) return;
+    if (!validThreadResponse(response, requestedId)) {
+      throw Object.assign(new Error('invalid thread page'), {
+        kind: 'protocol', code: 'protocol_invalid_response',
+      });
+    }
+    if (response.scopes) {
+      replaceScopes(response.scopes);
+      if (!auth.has('read:chat')) return render();
+    }
+    if (generation !== threadGeneration || state.route !== 'chat'
+        || state.conversationId !== requestedId) return;
     state.data.thread = response.data;
     state.thread = {
       cursor: response.nextCursor || null,
@@ -5178,22 +5275,36 @@ async function loadThread(conversationId) {
     writeThreadCache(conversationId);
     setConn('ok');
   } catch (error) {
+    if (generation !== threadGeneration || state.route !== 'chat'
+        || state.conversationId !== requestedId) return;
     if (error.kind === 'auth') return await handleAuthFailure(error);
     if (error.code === 'not_found') {
-      // A conversation that exists only locally is normal right after
-      // "new chat" — an empty thread, not an error.
-      state.data.thread = { conversation: { id: conversationId, title: 'Nová konverzace' }, messages: [] };
-      // Nothing to page into: an empty thread is the whole history.
-      state.thread = { cursor: null, end: true, loadingOlder: false, stickToBottom: true };
-      state.cacheAge.thread = 'FRESH';
-      state.cacheAt.thread = Date.now();
+      store.del(K.cache + key);
+      if (requestedId.startsWith('m-') && !cached.data) {
+        // A conversation created locally but not sent yet has no server row.
+        state.data.thread = { conversation: { id: requestedId, title: 'Nová konverzace' }, messages: [] };
+        state.thread = { cursor: null, end: true, loadingOlder: false, stickToBottom: true };
+        state.cacheAge.thread = 'FRESH';
+        state.cacheAt.thread = Date.now();
+      } else {
+        delete state.data.thread;
+        state.cacheAge.thread = null;
+        state.cacheAt.thread = null;
+        state.error.thread = error;
+      }
+    } else if (error.kind === 'scope') {
+      replaceScopes(auth.scopes.filter(scope => scope !== 'read:chat'));
     } else {
       state.error.thread = error;
-      setConn(error.kind === 'offline' ? 'offline' : error.kind === 'server' ? 'server' : state.conn);
+      setConn(error.kind === 'offline' ? 'offline'
+        : error.kind === 'server' || error.kind === 'protocol' ? 'server' : state.conn);
     }
   } finally {
-    state.loading.thread = false;
-    render();
+    if (generation === threadGeneration && state.route === 'chat'
+        && state.conversationId === requestedId) {
+      state.loading.thread = false;
+      render();
+    }
   }
 }
 
@@ -5209,6 +5320,8 @@ async function loadOlderMessages() {
   const cursor = state.thread.cursor;
   if (!conversationId || !cursor || state.thread.loadingOlder) return;
 
+  const generation = ++threadGeneration;
+
   state.thread.loadingOlder = true;
   // From here on the reader is in the past, so no render may drag them back to
   // the newest message — not this one, and not a reply arriving later.
@@ -5218,9 +5331,29 @@ async function loadOlderMessages() {
   try {
     const response = await api(
       `/conversations/${encodeURIComponent(conversationId)}`
-      + `?limit=${THREAD_PAGE_SIZE}&cursor=${encodeURIComponent(cursor)}`);
-    const older = response.data.messages || [];
+      + `?limit=${THREAD_PAGE_SIZE}&cursor=${encodeURIComponent(cursor)}`,
+      { strict: true });
+    if (generation !== threadGeneration || state.route !== 'chat'
+        || state.conversationId !== conversationId) return;
+    if (!validThreadResponse(response, conversationId)) {
+      throw Object.assign(new Error('invalid older thread page'), {
+        kind: 'protocol', code: 'protocol_invalid_response',
+      });
+    }
+    if (response.scopes) {
+      replaceScopes(response.scopes);
+      if (!auth.has('read:chat')) return render();
+    }
+    if (generation !== threadGeneration || state.route !== 'chat'
+        || state.conversationId !== conversationId) return;
+    const older = response.data.messages;
     const thread = state.data.thread;
+    const knownIds = new Set((thread?.messages || []).map(message => message.id));
+    if (older.some(message => knownIds.has(message.id))) {
+      throw Object.assign(new Error('overlapping thread page'), {
+        kind: 'protocol', code: 'protocol_invalid_response',
+      });
+    }
     // The page is older than everything held, so it goes on the front.  The
     // conversation head is refreshed from the same response rather than kept,
     // so a rename that happened elsewhere lands here too (SS-09).
@@ -5238,6 +5371,8 @@ async function loadOlderMessages() {
     writeThreadCache(conversationId);
     setConn('ok');
   } catch (error) {
+    if (generation !== threadGeneration || state.route !== 'chat'
+        || state.conversationId !== conversationId) return;
     if (error.kind === 'auth') return await handleAuthFailure(error);
     if (error.code === 'cursor_unknown') {
       // SS-10 — the stream moved under us.  The only honest repair is to read
@@ -5247,13 +5382,20 @@ async function loadOlderMessages() {
       state.thread = { cursor: null, end: false, loadingOlder: false, stickToBottom: true };
       return loadThread(conversationId);
     }
+    if (error.kind === 'scope') {
+      replaceScopes(auth.scopes.filter(scope => scope !== 'read:chat'));
+      return render();
+    }
     // The window that is already on screen stays: it was true when it loaded,
     // and failing to extend it is not a reason to throw it away.
     state.error.thread = error;
     setConn(error.kind === 'offline' ? 'offline' : error.kind === 'server' ? 'server' : state.conn);
   } finally {
-    state.thread.loadingOlder = false;
-    render();
+    if (generation === threadGeneration && state.route === 'chat'
+        && state.conversationId === conversationId) {
+      state.thread.loadingOlder = false;
+      render();
+    }
   }
 }
 
@@ -7545,6 +7687,10 @@ function transitionRoute(route) {
   }
   if (state.route === 'worker' && route !== 'worker') workerDetailGeneration++;
   if (state.route === 'specialist' && route !== 'specialist') specialistDetailGeneration++;
+  if (state.route === 'chat' && route !== 'chat') {
+    invalidateThreadSurface();
+    state.conversationId = null;
+  }
   if (route !== state.route) {
     state.opsConfirm = null;
     state.deviceConfirm = null;
@@ -7627,6 +7773,9 @@ function openChat(conversationId) {
 function newChat() {
   const id = `m-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   transitionRoute('chat');
+  // Starting a local draft while an existing thread request is in flight must
+  // retire that request even though the route itself remains `chat`.
+  invalidateThreadSurface();
   state.conversationId = id;
   state.data.thread = { conversation: { id, title: 'Nová konverzace' }, messages: [] };
   // A conversation that starts here has no past, so the window is complete from
@@ -8006,7 +8155,7 @@ export const __ms20 = {
   state, journal, drafts, store, secure, auth, cache, prefs, K, api,
   securityCard, setAppPin, clearAppPin,
   sessionEpoch, lockDownSession, unlockSession,
-  render, navigate, viewOperations, ms20Entries,
+  render, navigate, transitionRoute, viewOperations, ms20Entries,
   trustBar, trustZones, withTrustBar, screenLocks, serverNow,
   viewOverview, viewConversations, loadConversations, validConversationPage,
   invalidateConversationSurface, conversationListMore, conversationListInlineError,
@@ -8040,6 +8189,8 @@ export const __ms20 = {
   navRingIsTurningItself, NAV_TURN_CEILING_MS, NAV_TURN_QUIET_MS,
   scheduleNavRetraction, whenNavTurnEnds, NAV_TURN_MS,
   viewChat, threadBoundary, loadThread, loadOlderMessages, threadWindowOf, THREAD_PAGE_SIZE,
+  validConversationSnapshot, validThreadMessages, validThreadResponse,
+  validThreadCacheSnapshot, invalidateThreadSurface,
   runSilence, runSilenceEntries, overviewRunSilence,
   approvalCountdown, approvalWindowMinutes, approvalRow, serverTimeMs,
   viewApprovals, loadApprovals, approvalsGone,

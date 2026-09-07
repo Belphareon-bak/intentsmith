@@ -96,8 +96,8 @@ globalThis.history = { replaceState: () => {} };
 /** Every request the client makes, and the answers it is given. */
 const wire = { calls: [], reply: null };
 globalThis.fetch = async (url, options = {}) => {
-  wire.calls.push({ url: String(url), method: options.method || 'GET' });
-  const answer = typeof wire.reply === 'function' ? wire.reply(String(url)) : wire.reply;
+  wire.calls.push({ url: String(url), method: options.method || 'GET', cache: options.cache });
+  const answer = await (typeof wire.reply === 'function' ? wire.reply(String(url)) : wire.reply);
   if (!answer) throw new TypeError('no reply configured for ' + url);
   return {
     ok: answer.status < 400,
@@ -111,14 +111,30 @@ const { __ms20 } = await import('../src/mobile/client/app.js');
 const {
   state, store, K, render, viewChat, threadBoundary,
   loadThread, loadOlderMessages, threadWindowOf, THREAD_PAGE_SIZE, cache,
+  validConversationSnapshot, validThreadMessages, validThreadResponse,
+  validThreadCacheSnapshot, replaceScopes, transitionRoute,
 } = __ms20;
 
 console.log('\n=== MS-07 conversation history window (MR-05) ===');
 
-const message = n => ({ id: String(n), role: n % 2 ? 'user' : 'assistant', content: `zpráva ${n}` });
+const message = n => ({
+  id: String(n),
+  role: n % 2 ? 'user' : 'assistant',
+  content: `zpráva ${n}`,
+  createdAt: new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString(),
+  metadata: null,
+  version: `v1:message-${n}`,
+});
 const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => message(from + i));
 const MINUTE = 60_000;
 const DAY = 24 * 60 * MINUTE;
+
+const conversation = (overrides = {}) => ({
+  id: 'c1', title: 'Dlouhá', messageCount: 250, state: 'active',
+  createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T01:00:00.000Z',
+  version: 'v1:conversation-c1',
+  ...overrides,
+});
 
 /** A server answer in the shape `withEnvelope` produces. */
 function page(messages, { nextCursor = null, end = true, direction = 'backward' } = {}) {
@@ -132,7 +148,10 @@ function page(messages, { nextCursor = null, end = true, direction = 'backward' 
       nextCursor,
       end,
       direction,
-      data: { conversation: { id: 'c1', title: 'Dlouhá', messageCount: 250 }, messages },
+      data: {
+        conversation: conversation(),
+        messages,
+      },
     },
   };
 }
@@ -168,6 +187,7 @@ try {
     assert.ok(url.includes('anchor=latest'), `opening request must anchor: ${url}`);
     assert.ok(url.includes(`limit=${THREAD_PAGE_SIZE}`), url);
     assert.ok(!url.includes('cursor='), 'the opening request carries no cursor');
+    assert.equal(wire.calls[0].cache, 'no-store', 'S2 thread response may enter browser HTTP cache');
     assert.equal(state.data.thread.messages.at(-1).content, 'zpráva 250');
   });
 
@@ -261,7 +281,7 @@ try {
     reset({ conn: 'offline' });
     const key = K.cache + 'thread.c1';
     const data = {
-      conversation: { id: 'c1', title: 'Dlouhá', messageCount: 250 },
+      conversation: conversation(),
       messages: range(201, 250),
       window: { cursor: 'cur-200', end: false },
     };
@@ -282,6 +302,113 @@ try {
     assert.equal(state.data.thread, null, 'expired messages must not reach memory');
     assert.equal(state.cacheAge.thread, null);
     assert.equal(state.error.thread.kind, 'offline');
+  });
+
+  await test('MM3-I accepts only the exact route-bound thread DTO and boundary', () => {
+    const valid = page(range(201, 250), { nextCursor: 'cur-200', end: false }).body;
+    assert.equal(validConversationSnapshot(valid.data.conversation, 'c1'), true);
+    assert.equal(validThreadMessages(valid.data.messages), true);
+    assert.equal(validThreadResponse(valid, 'c1'), true);
+    assert.equal(validThreadCacheSnapshot({
+      ...valid.data, window: { cursor: valid.nextCursor, end: valid.end },
+    }, 'c1'), true);
+
+    assert.equal(validThreadResponse({
+      ...valid, data: { ...valid.data, conversation: conversation({ id: 'other' }) },
+    }, 'c1'), false);
+    assert.equal(validThreadResponse({
+      ...valid, data: { ...valid.data, messages: [{ ...valid.data.messages[0], hidden: true }] },
+    }, 'c1'), false);
+    assert.equal(validThreadResponse({ ...valid, direction: 'forward' }, 'c1'), false);
+    assert.equal(validThreadResponse({ ...valid, nextCursor: null }, 'c1'), false);
+    assert.equal(validThreadCacheSnapshot({
+      ...valid.data, window: { cursor: valid.nextCursor, end: valid.end }, hidden: true,
+    }, 'c1'), false);
+  });
+
+  await test('MM3-I deletes corrupt fresh cache and retains valid cache on a malformed live response', async () => {
+    reset({ conn: 'offline' });
+    const key = K.cache + 'thread.c1';
+    const poison = {
+      conversation: conversation(), messages: [{ ...message(1), hidden: true }],
+      window: { cursor: null, end: true },
+    };
+    store.set(key, { at: Date.now(), data: poison });
+    wire.reply = () => { throw new TypeError('offline'); };
+    await loadThread('c1');
+    assert.equal(store.get(key), null);
+    assert.equal(state.data.thread, null);
+
+    reset();
+    wire.reply = page(range(201, 250), { nextCursor: 'cur-200', end: false });
+    await loadThread('c1');
+    const confirmed = store.get(key);
+    wire.reply = page([{ ...message(251), hidden: true }]);
+    await loadThread('c1');
+    assert.equal(state.error.thread.kind, 'protocol');
+    assert.deepEqual(store.get(key), confirmed, 'malformed live data replaced the confirmed cache');
+    assert.equal(state.data.thread.messages.length, 50);
+  });
+
+  await test('MM3-I rejects overlapping older pages without changing the confirmed thread', async () => {
+    reset();
+    wire.reply = page(range(201, 250), { nextCursor: 'cur-200', end: false });
+    await loadThread('c1');
+    const before = state.data.thread.messages.map(item => item.id);
+    wire.reply = page(range(200, 249), { nextCursor: 'cur-199', end: false });
+    await loadOlderMessages();
+    assert.deepEqual(state.data.thread.messages.map(item => item.id), before);
+    assert.equal(state.error.thread.kind, 'protocol');
+  });
+
+  await test('MM3-I a response that lands after leaving chat is inert', async () => {
+    reset();
+    let release;
+    wire.reply = () => new Promise(resolve => { release = resolve; });
+    const pending = loadThread('c1');
+    await Promise.resolve();
+    transitionRoute('conversations');
+    release(page(range(201, 250), { nextCursor: 'cur-200', end: false }));
+    await pending;
+    assert.equal(state.data.thread, undefined);
+    assert.equal(store.get(K.cache + 'thread.c1'), null);
+    assert.equal(state.loading.thread, false);
+  });
+
+  await test('MM3-I read-scope withdrawal removes every durable and in-memory thread', () => {
+    reset();
+    state.data.thread = { conversation: conversation(), messages: range(1, 2) };
+    store.set(K.cache + 'thread.c1', { at: Date.now(), data: {
+      ...state.data.thread, window: { cursor: null, end: true },
+    } });
+    store.set(K.cache + 'thread.c2', { at: Date.now(), data: {
+      conversation: conversation({ id: 'c2', version: 'v1:conversation-c2' }),
+      messages: [], window: { cursor: null, end: true },
+    } });
+
+    replaceScopes(['write:chat']);
+
+    assert.equal(state.data.thread, undefined);
+    assert.equal(store.get(K.cache + 'thread.c1'), null);
+    assert.equal(store.get(K.cache + 'thread.c2'), null);
+  });
+
+  await test('MM3-I server not-found deletes known data while a never-sent local chat stays empty', async () => {
+    reset();
+    wire.reply = page(range(1, 2));
+    await loadThread('c1');
+    wire.reply = { status: 404, body: { ok: false, error: { code: 'not_found' } } };
+    await loadThread('c1');
+    assert.equal(state.data.thread, undefined);
+    assert.equal(store.get(K.cache + 'thread.c1'), null);
+    assert.equal(state.error.thread.code, 'not_found');
+
+    reset();
+    state.conversationId = 'm-local';
+    wire.reply = { status: 404, body: { ok: false, error: { code: 'not_found' } } };
+    await loadThread('m-local');
+    assert.deepEqual(state.data.thread.messages, []);
+    assert.equal(state.thread.end, true);
   });
 
   await test('loading older prepends the page and follows the server cursor', async () => {

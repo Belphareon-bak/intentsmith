@@ -114,13 +114,13 @@ const claimed = await fetch(`${gateway.url}/m1/pair/claim`, {
 assert.equal(claimed.status, 200, 'pairing must succeed for this suite to mean anything');
 const device = (await claimed.json()).data;
 
-async function get(pathname) {
+async function get(pathname, { token = device.token } = {}) {
   const response = await fetch(gateway.url + pathname, {
-    headers: { authorization: `Bearer ${device.token}` },
+    headers: token ? { authorization: `Bearer ${token}` } : {},
   });
   let body = null;
   try { body = await response.json(); } catch { /* some responses have no body */ }
-  return { status: response.status, body };
+  return { status: response.status, body, cacheControl: response.headers.get('cache-control') };
 }
 
 /** One page of a thread, with the envelope fields SS-03 depends on. */
@@ -139,6 +139,7 @@ async function threadPage(id, { limit, cursor = null, anchor = null } = {}) {
     direction: response.body.direction,
     nextCursor: response.body.nextCursor,
     conversation: response.body.data.conversation,
+    cacheControl: response.cacheControl,
   };
 }
 
@@ -329,8 +330,28 @@ try {
     assert.equal(page.messages.at(-1).content, 'zpráva 250',
       'the newest message must be the last one in the opening page');
     assert.equal(page.direction, 'backward', 'the response states which way the walk runs');
+    assert.equal(page.cacheControl, 'no-store', 'S2 thread response may enter browser HTTP cache');
     assert.equal(page.hasMore, true, 'there is older material behind it');
     assert.ok(page.nextCursor);
+  });
+
+  await test('conversation list, thread and thread failures are excluded from HTTP caches', async () => {
+    const list = await get('/m1/conversations?limit=10');
+    const thread = await get('/m1/conversations/conv-long?limit=10&anchor=latest');
+    const missing = await get('/m1/conversations/missing?limit=10&anchor=latest');
+    assert.equal(list.cacheControl, 'no-store');
+    assert.equal(thread.cacheControl, 'no-store');
+    assert.equal(missing.status, 404);
+    assert.equal(missing.cacheControl, 'no-store');
+  });
+
+  await test('conversation authorization failures are excluded from HTTP caches', async () => {
+    const list = await get('/m1/conversations', { token: null });
+    const thread = await get('/m1/conversations/conv-long?anchor=latest', { token: null });
+    assert.equal(list.status, 401);
+    assert.equal(list.cacheControl, 'no-store');
+    assert.equal(thread.status, 401);
+    assert.equal(thread.cacheControl, 'no-store');
   });
 
   await test('messages inside a backward page stay in chronological order', async () => {

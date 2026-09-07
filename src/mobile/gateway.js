@@ -28,6 +28,7 @@ import { authorizeMobileRequest, matchMobileRoute } from './gateway-policy.js';
 import { registerGatewayInstance, reapDeadInstances } from './gateway-instance.js';
 import {
   APPROVAL_RESPONSE_HEADERS,
+  CONVERSATION_RESPONSE_HEADERS,
   MEMORY_RESPONSE_HEADERS,
   MOBILE_HANDLERS,
   SPECIALIST_RESPONSE_HEADERS,
@@ -72,6 +73,11 @@ const WORKER_ROUTE_KEYS = new Set([
 const SPECIALIST_ROUTE_KEYS = new Set([
   'GET /m1/specialists',
   'GET /m1/specialists/:id',
+]);
+
+const CONVERSATION_ROUTE_KEYS = new Set([
+  'GET /m1/conversations',
+  'GET /m1/conversations/:id',
 ]);
 
 /**
@@ -305,6 +311,7 @@ function responseHeadersForRoute(method, pathname) {
     if (MEMORY_ROUTE_KEYS.has(routeKey)) return MEMORY_RESPONSE_HEADERS;
     if (WORKER_ROUTE_KEYS.has(routeKey)) return WORKER_RESPONSE_HEADERS;
     if (SPECIALIST_ROUTE_KEYS.has(routeKey)) return SPECIALIST_RESPONSE_HEADERS;
+    if (CONVERSATION_ROUTE_KEYS.has(routeKey)) return CONVERSATION_RESPONSE_HEADERS;
     return undefined;
   } catch {
     return undefined;
