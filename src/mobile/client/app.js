@@ -293,12 +293,15 @@ const auth = {
 const FRESH_MS = 60_000;
 const STALE_MS = 15 * 60_000;
 const CACHE_WINDOWS = Object.freeze({
+  projects: Object.freeze({ freshMs: 15 * 60_000, staleMs: 7 * 24 * 60 * 60_000 }),
   memory: Object.freeze({ freshMs: 60 * 60_000, staleMs: 7 * 24 * 60 * 60_000 }),
   workers: Object.freeze({ freshMs: 5 * 60_000, staleMs: 7 * 24 * 60 * 60_000 }),
   specialists: Object.freeze({ freshMs: 60 * 60_000, staleMs: 7 * 24 * 60 * 60_000 }),
 });
 
 function cacheWindow(name) {
+  if (name === 'projects.active' || name === 'projects.archived'
+      || name.startsWith('project.')) return CACHE_WINDOWS.projects;
   return CACHE_WINDOWS[name] || { freshMs: FRESH_MS, staleMs: STALE_MS };
 }
 

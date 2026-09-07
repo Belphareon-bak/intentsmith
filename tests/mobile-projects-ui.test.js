@@ -228,7 +228,7 @@ await test('MM3-F keeps a validated stale detail visible with explicit offline r
   state.route = 'project';
   state.projectId = '17';
   store.set(K.cache + 'project.17', {
-    at: Date.now() - 2 * 60_000,
+    at: Date.now() - 16 * 60_000,
     data: project(),
   });
   globalThis.fetch = async () => { throw new TypeError('network disabled'); };
@@ -247,7 +247,7 @@ await test('MM3-F keeps a validated stale detail visible with explicit offline r
 
 await test('MM3-F deletes expired or corrupt detail caches before publication', async () => {
   for (const [label, entry] of [
-    ['expired', { at: Date.now() - 16 * 60_000, data: project() }],
+    ['expired', { at: Date.now() - 8 * 24 * 60 * 60_000, data: project() }],
     ['corrupt', { at: Date.now(), data: project({ path: 'C:/secret' }) }],
   ]) {
     reset();
@@ -518,6 +518,22 @@ await test('a stale project list is called stale in the trust bar', () => {
   state.cacheAge.projects = 'STALE';
   state.cacheAt.projects = Date.now() - 120_000;
   assert.match(trustBar(), /Data z|Starší data/);
+});
+
+await test('MM3-G project list and detail share the documented 15-minute/seven-day window', () => {
+  reset();
+  const now = Date.now();
+  const keys = ['projects.active', 'projects.archived', 'project.17'];
+  for (const key of keys) {
+    store.set(K.cache + key, { at: now - 14 * 60_000, data: {} });
+    assert.equal(__ms20.cache.read(key).status, 'FRESH', `${key} expired freshness too early`);
+    store.set(K.cache + key, { at: now - 16 * 60_000, data: {} });
+    assert.equal(__ms20.cache.read(key).status, 'STALE', `${key} skipped the stale window`);
+    store.set(K.cache + key, { at: now - 8 * 24 * 60 * 60_000, data: {} });
+    assert.equal(__ms20.cache.read(key).status, 'EXPIRED', `${key} survived past seven days`);
+  }
+  assert.equal(__ms20.cache.read('devices').status, 'MISSING',
+    'the project policy must not change an unrelated cache domain');
 });
 
 await test('load uses the scoped project route and persists an offline copy', async () => {
