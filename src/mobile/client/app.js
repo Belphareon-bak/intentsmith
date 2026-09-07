@@ -1974,7 +1974,7 @@ function configuredResourceCacheNote(name) {
 
 function configuredResourceMore(name) {
   const page = state.pagination[name];
-  if (!page?.hasMore) return '';
+  if (!page?.hasMore || !page.nextCursor) return '';
   return `<div class="resource-more">
     <button class="btn btn-secondary" data-act="load-more-${name}" ${state.loading[name] ? 'disabled' : ''}>
       ${state.loading[name] ? 'Načítám…' : 'Načíst další'}
@@ -1985,12 +1985,14 @@ function configuredResourceMore(name) {
 
 function configuredResourceInlineError(name) {
   const error = state.error[name];
-  if (!error || !state.data[name]) return '';
+  if (!error || !Array.isArray(state.data[name])) return '';
   const text = error.kind === 'offline'
     ? 'Další data teď nelze ověřit: telefon je offline.'
-    : 'Aktualizace seznamu selhala. Zobrazená kopie může být starší.';
+    : error.kind === 'protocol'
+      ? 'Server vrátil neplatnou stránku. Zobrazený seznam se nezměnil.'
+      : 'Aktualizace seznamu selhala. Zobrazená kopie může být starší.';
   return `<div class="resource-inline-error" role="status">${esc(text)}
-    <button class="btn btn-secondary btn-sm" data-act="load-${name}">Zkusit znovu</button>
+    <button class="btn btn-secondary btn-sm" data-act="load-${name}">Načíst seznam od začátku</button>
   </div>`;
 }
 
@@ -5554,6 +5556,26 @@ async function createManualMemory() {
   }
 }
 
+function validConfiguredResourcePage(name, response) {
+  if (!['workers', 'specialists'].includes(name)
+      || response?.ok !== true
+      || !Array.isArray(response.data)
+      || typeof response.hasMore !== 'boolean'
+      || typeof response.end !== 'boolean'
+      || response.hasMore === response.end
+      || (response.hasMore && (typeof response.nextCursor !== 'string' || !response.nextCursor))
+      || (!response.hasMore && response.nextCursor !== null)) return false;
+
+  const ids = new Set();
+  return response.data.every(item => {
+    if (!item || typeof item.id !== 'string' || !item.id || ids.has(item.id)) return false;
+    ids.add(item.id);
+    return name === 'workers'
+      ? validWorkerSnapshot(item, item.id)
+      : validSpecialistSnapshot(item, item.id);
+  });
+}
+
 async function loadConfiguredResources(name, { append = false } = {}) {
   const config = {
     workers: { scope: 'read:workers', generation: () => ++workersGeneration },
@@ -5574,41 +5596,71 @@ async function loadConfiguredResources(name, { append = false } = {}) {
       state.cacheAt[name] = null;
     } else {
       const snapshot = cached.data && Array.isArray(cached.data.items) ? cached.data : null;
-      state.data[name] = snapshot?.items || undefined;
-      state.pagination[name] = snapshot?.page || { hasMore: false, nextCursor: null };
-      state.cacheAge[name] = snapshot ? cached.status : null;
-      state.cacheAt[name] = snapshot ? cached.at : null;
+      const legacyItems = Array.isArray(cached.data) ? cached.data : null;
+      const page = snapshot?.page;
+      const validSnapshot = snapshot && validConfiguredResourcePage(name, {
+        ok: true, data: snapshot.items,
+        hasMore: page?.hasMore, nextCursor: page?.nextCursor, end: page?.end,
+      });
+      const validLegacy = legacyItems && validConfiguredResourcePage(name, {
+        ok: true, data: legacyItems, hasMore: false, nextCursor: null, end: true,
+      });
+      if (validSnapshot || validLegacy) {
+        state.data[name] = validSnapshot ? snapshot.items : legacyItems;
+        state.pagination[name] = validSnapshot
+          ? { hasMore: page.hasMore, nextCursor: page.nextCursor, end: page.end }
+          : { hasMore: false, nextCursor: null, end: false };
+        state.cacheAge[name] = cached.status;
+        state.cacheAt[name] = cached.at;
+      } else {
+        if (cached.data) store.del(K.cache + name);
+        delete state.data[name];
+        delete state.pagination[name];
+        state.cacheAge[name] = null;
+        state.cacheAt[name] = null;
+      }
     }
   }
 
   const cursor = append ? state.pagination[name]?.nextCursor : null;
-  if (append && !cursor) return;
+  if (append && (!cursor || state.loading[name])) return;
   state.loading[name] = true;
   state.error[name] = null;
   render();
 
   try {
     const suffix = cursor ? `&cursor=${encodeURIComponent(cursor)}` : '';
-    const response = await api(`/${name}?limit=50${suffix}`);
+    const response = await api(`/${name}?limit=50${suffix}`, { strict: true });
     const currentGeneration = name === 'workers' ? workersGeneration : specialistsGeneration;
     if (generation !== currentGeneration) return;
+    if (!validConfiguredResourcePage(name, response)) {
+      throw Object.assign(new Error(`invalid ${name} page`), {
+        kind: 'protocol', code: 'protocol_invalid_response',
+      });
+    }
+    if (response.scopes) {
+      replaceScopes(response.scopes);
+      if (!auth.has(config.scope)) return render();
+    }
+    const activeGeneration = name === 'workers' ? workersGeneration : specialistsGeneration;
+    if (generation !== activeGeneration) return;
+
     const prior = append && Array.isArray(state.data[name]) ? state.data[name] : [];
-    const joined = [...prior, ...response.data];
-    const seen = new Set();
-    state.data[name] = joined.filter(item => {
-      if (!item || typeof item.id !== 'string' || seen.has(item.id)) return false;
-      seen.add(item.id);
-      return true;
-    });
+    const priorIds = new Set(prior.map(item => item.id));
+    if (response.data.some(item => priorIds.has(item.id))) {
+      throw Object.assign(new Error(`overlapping ${name} page`), {
+        kind: 'protocol', code: 'protocol_invalid_response',
+      });
+    }
+    state.data[name] = [...prior, ...response.data];
     state.pagination[name] = {
-      hasMore: response.hasMore === true,
-      nextCursor: response.nextCursor || null,
-      end: response.end === true,
+      hasMore: response.hasMore,
+      nextCursor: response.nextCursor,
+      end: response.end,
     };
     state.cacheAge[name] = 'FRESH';
     state.cacheAt[name] = Date.now();
     cache.write(name, { items: state.data[name], page: state.pagination[name] });
-    if (response.scopes) replaceScopes(response.scopes);
     if (name === 'workers') state.workersLive = auth.has('read:workers');
     setConn('ok');
   } catch (error) {
@@ -5616,8 +5668,14 @@ async function loadConfiguredResources(name, { append = false } = {}) {
     if (generation !== currentGeneration) return;
     if (error.kind === 'auth') return await handleAuthFailure(error);
     if (name === 'workers') state.workersLive = false;
-    state.error[name] = error;
-    setConn(error.kind === 'offline' ? 'offline' : error.kind === 'server' ? 'server' : state.conn);
+    if (error.kind === 'scope') {
+      replaceScopes(auth.scopes.filter(scope => scope !== config.scope));
+      render();
+    } else {
+      state.error[name] = error;
+      setConn(error.kind === 'offline' ? 'offline'
+        : error.kind === 'server' || error.kind === 'protocol' ? 'server' : state.conn);
+    }
   } finally {
     const currentGeneration = name === 'workers' ? workersGeneration : specialistsGeneration;
     if (generation === currentGeneration) {
@@ -5644,7 +5702,8 @@ function validIsoOrNull(value) {
 function validWorkerSnapshot(worker, id) {
   if (!worker || typeof worker !== 'object' || Array.isArray(worker)
       || Object.keys(worker).sort().join(',') !== 'createdAt,description,enabled,icon,id,kind,lastRun,name,schedule,updatedAt,version'
-      || worker.id !== id || typeof worker.name !== 'string' || !worker.name
+      || typeof worker.id !== 'string' || !worker.id || worker.id !== id
+      || typeof worker.name !== 'string' || !worker.name
       || !(worker.description === null || typeof worker.description === 'string')
       || !(worker.icon === null || typeof worker.icon === 'string')
       || !(worker.kind === null || typeof worker.kind === 'string')
@@ -5675,6 +5734,23 @@ function validWorkerSnapshot(worker, id) {
         || !Number.isSafeInteger(last.actionsExecuted) || last.actionsExecuted < 0) return false;
   }
   return true;
+}
+
+function validSpecialistSnapshot(specialist, id) {
+  return Boolean(specialist && typeof specialist === 'object' && !Array.isArray(specialist)
+    && Object.keys(specialist).sort().join(',') === 'disabledAt,domain,enabledAt,expertiseCount,id,installedAt,name,packageVersion,status,type,updatedAt,version'
+    && typeof specialist.id === 'string' && specialist.id && specialist.id === id
+    && typeof specialist.name === 'string' && specialist.name
+    && typeof specialist.packageVersion === 'string' && specialist.packageVersion
+    && typeof specialist.domain === 'string' && specialist.domain
+    && ['domain', 'utility', 'integration'].includes(specialist.type)
+    && ['installed', 'enabled', 'disabled'].includes(specialist.status)
+    && Number.isSafeInteger(specialist.expertiseCount) && specialist.expertiseCount >= 0
+    && validIsoOrNull(specialist.installedAt)
+    && validIsoOrNull(specialist.enabledAt)
+    && validIsoOrNull(specialist.disabledAt)
+    && validIsoOrNull(specialist.updatedAt)
+    && typeof specialist.version === 'string' && specialist.version.startsWith('v1:'));
 }
 
 function validWorkerHistoryResponse(response, id) {
@@ -7233,6 +7309,7 @@ export const __ms20 = {
   validProjectPage, projectListMore, projectListInlineError,
   validProjectConversationPage, loadProjectConversations, invalidateProjectConversationSurface,
   viewWorkers, viewWorker, viewSpecialists, viewSpecialist, loadWorkers, loadSpecialists,
+  validConfiguredResourcePage,
   validSpecialistDetailResponse, loadSpecialist, openSpecialist,
   validWorkerHistoryResponse, loadWorkerHistory, loadOlderWorkerRuns, openWorker,
   workerMutationFresh, workerWriteOutcome,

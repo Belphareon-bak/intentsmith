@@ -61,6 +61,7 @@ const { __ms20 } = await import('../src/mobile/client/app.js');
 const {
   state, store, journal, K, cache, viewOverview, navItems, unknownScopes,
   viewWorkers, viewWorker, viewSpecialists, viewSpecialist, loadWorkers, loadSpecialists,
+  validConfiguredResourcePage,
   validSpecialistDetailResponse, loadSpecialist, openSpecialist,
   validWorkerHistoryResponse, loadWorkerHistory, loadOlderWorkerRuns,
   workerMutationFresh, workerWriteOutcome,
@@ -129,6 +130,18 @@ function run(overrides = {}) {
     startedAt: '2026-09-06T10:00:00.000Z',
     finishedAt: '2026-09-06T10:01:00.000Z',
     actionsExecuted: 2, triggerCount: 1, version: 'v1:run',
+    ...overrides,
+  };
+}
+
+function configuredPage(data, overrides = {}) {
+  return {
+    ok: true,
+    scopes: ['read:workers', 'read:specialists'],
+    data,
+    hasMore: false,
+    nextCursor: null,
+    end: true,
     ...overrides,
   };
 }
@@ -567,6 +580,158 @@ await test('loads cache the displayed window and append only with a server curso
   assert.equal(calls[1].url, '/m1/workers?limit=50&cursor=next-worker');
   assert.deepEqual(state.data.workers.map(item => item.id), ['worker-1', 'worker-2']);
   assert.deepEqual(store.get(K.cache + 'workers').data.items, state.data.workers);
+});
+
+await test('configured list validator binds exact worker, specialist and page shapes', () => {
+  assert.equal(validConfiguredResourcePage('workers', configuredPage([worker()])), true);
+  assert.equal(validConfiguredResourcePage('specialists', configuredPage([specialist()])), true);
+  assert.equal(validConfiguredResourcePage('unknown', configuredPage([])), false);
+  assert.equal(validConfiguredResourcePage('workers', configuredPage([
+    worker(), worker({ name: 'Duplicitní agent' }),
+  ])), false);
+  assert.equal(validConfiguredResourcePage('workers', configuredPage([
+    worker({ definition: { secret: true } }),
+  ])), false);
+  assert.equal(validConfiguredResourcePage('workers', configuredPage([
+    worker({ schedule: { ...worker().schedule, secret: true } }),
+  ])), false);
+  assert.equal(validConfiguredResourcePage('specialists', configuredPage([
+    specialist({ manifest: { secret: true } }),
+  ])), false);
+  assert.equal(validConfiguredResourcePage('specialists', configuredPage([
+    specialist({ expertiseCount: -1 }),
+  ])), false);
+  assert.equal(validConfiguredResourcePage('workers', configuredPage([], {
+    hasMore: true, nextCursor: null, end: false,
+  })), false);
+  assert.equal(validConfiguredResourcePage('workers', configuredPage([], {
+    hasMore: false, nextCursor: null, end: false,
+  })), false);
+});
+
+await test('partial configured lists expose one disabled-safe continuation control', () => {
+  reset();
+  state.data.workers = [worker()];
+  state.pagination.workers = { hasMore: true, nextCursor: 'worker.cursor', end: false };
+  let markup = viewWorkers();
+  assert.equal((markup.match(/load-more-workers/g) || []).length, 1);
+  assert.match(markup, /Backend potvrdil další položky/);
+
+  state.loading.workers = true;
+  markup = viewWorkers();
+  assert.match(markup, /data-act="load-more-workers" disabled/);
+
+  state.loading.workers = false;
+  state.pagination.workers.nextCursor = null;
+  assert.ok(!viewWorkers().includes('load-more-workers'));
+});
+
+await test('overlapping configured page preserves the confirmed list and cursor', async () => {
+  reset(['read:workers', 'write:workers', 'read:specialists']);
+  const saved = {
+    items: [worker()],
+    page: { hasMore: true, nextCursor: 'worker.cursor', end: false },
+  };
+  state.data.workers = saved.items;
+  state.pagination.workers = saved.page;
+  state.cacheAge.workers = 'FRESH';
+  state.workersLive = true;
+  cache.write('workers', saved);
+  const cacheBefore = store.get(K.cache + 'workers');
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    async json() {
+      return configuredPage([worker()], {
+        scopes: ['read:workers', 'write:workers', 'read:specialists'],
+      });
+    },
+  });
+
+  await loadWorkers({ append: true });
+
+  assert.deepEqual(state.data.workers, saved.items);
+  assert.deepEqual(state.pagination.workers, saved.page);
+  assert.equal(state.error.workers.kind, 'protocol');
+  assert.equal(state.workersLive, false);
+  assert.deepEqual(store.get(K.cache + 'workers'), cacheBefore);
+  assert.match(viewWorkers(), /neplatnou stránku/);
+  assert.match(viewWorkers(), /Stav není právě živě ověřený/);
+});
+
+await test('malformed live specialist page cannot replace a validated cached window', async () => {
+  reset();
+  state.route = 'specialists';
+  const saved = {
+    items: [specialist()],
+    page: { hasMore: true, nextCursor: 'specialist.cursor', end: false },
+  };
+  cache.write('specialists', saved);
+  const cacheBefore = store.get(K.cache + 'specialists');
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    async json() {
+      return configuredPage([specialist({ prompt: 'must-not-enter-cache' })]);
+    },
+  });
+
+  await loadSpecialists();
+
+  assert.deepEqual(state.data.specialists, saved.items);
+  assert.deepEqual(state.pagination.specialists, saved.page);
+  assert.equal(state.error.specialists.kind, 'protocol');
+  assert.deepEqual(store.get(K.cache + 'specialists'), cacheBefore);
+  assert.ok(!JSON.stringify(store.get(K.cache + 'specialists')).includes('must-not-enter-cache'));
+});
+
+await test('legacy caches remain readable without invented cursors and corrupt snapshots are deleted', async () => {
+  reset();
+  store.set(K.cache + 'workers', { at: Date.now(), data: [worker()] });
+  store.set(K.cache + 'specialists', {
+    at: Date.now(),
+    data: {
+      items: [specialist({ tools: ['private-tool'] })],
+      page: { hasMore: true, nextCursor: 'unsafe.cursor', end: false },
+    },
+  });
+  globalThis.fetch = async () => { throw new TypeError('network disabled'); };
+
+  await loadWorkers();
+  assert.deepEqual(state.data.workers, [worker()]);
+  assert.deepEqual(state.pagination.workers, { hasMore: false, nextCursor: null, end: false });
+  assert.equal(state.error.workers.kind, 'offline');
+
+  await loadSpecialists();
+  assert.equal(state.data.specialists, undefined);
+  assert.equal(state.pagination.specialists, undefined);
+  assert.equal(store.get(K.cache + 'specialists'), null);
+});
+
+await test('latest configured-resource response wins and is the only cached generation', async () => {
+  reset();
+  const pending = [];
+  globalThis.fetch = () => new Promise(resolve => { pending.push(resolve); });
+
+  const first = loadWorkers();
+  const second = loadWorkers();
+  const response = data => ({
+    ok: true,
+    status: 200,
+    async json() { return configuredPage(data); },
+  });
+  pending[1](response([worker({ id: 'worker-new', name: 'Novější' })]));
+  await second;
+  pending[0](response([worker({ id: 'worker-old', name: 'Opožděný' })]));
+  await first;
+
+  assert.deepEqual(state.data.workers.map(item => item.id), ['worker-new']);
+  assert.deepEqual(
+    store.get(K.cache + 'workers').data.items.map(item => item.id),
+    ['worker-new'],
+  );
+  assert.equal(state.error.workers, null);
+  assert.equal(state.workersLive, true);
 });
 
 await test('expired cache is deleted and server scope withdrawal clears both domains', async () => {
