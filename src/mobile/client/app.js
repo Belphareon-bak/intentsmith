@@ -559,6 +559,7 @@ function lockDownSession() {
   state.error = {};
   state.opsLookup = {};
   state.memoryLive = false;
+  state.devicesLive = false;
   state.memorySaving = false;
   state.memoryNote = null;
   state.workersLive = false;
@@ -610,6 +611,7 @@ async function api(path, { method = 'GET', body = null, timeoutMs = 130_000, str
     const approvalRequest = routePath === '/approvals' || routePath.startsWith('/approvals/');
     const settingsRequest = routePath === '/settings';
     const memoryRequest = routePath === '/memory';
+    const deviceRequest = routePath === '/devices' || routePath.startsWith('/devices/');
     const workerRequest = routePath === '/workers' || routePath.startsWith('/workers/');
     const specialistRequest = routePath === '/specialists' || routePath.startsWith('/specialists/');
     const projectConversationRequest = routePath === '/conversations'
@@ -618,7 +620,8 @@ async function api(path, { method = 'GET', body = null, timeoutMs = 130_000, str
       method, headers,
       body: body ? JSON.stringify(body) : undefined,
       signal: controller.signal,
-      ...(approvalRequest || settingsRequest || memoryRequest || workerRequest || specialistRequest
+      ...(approvalRequest || settingsRequest || memoryRequest || deviceRequest
+        || workerRequest || specialistRequest
         || projectConversationRequest
         ? { cache: 'no-store' }
         : {}),
@@ -766,6 +769,7 @@ const state = {
   deviceConfirm: null,
   deviceRevoking: null,
   deviceNote: null,
+  devicesLive: false,
   settingsSaving: null,
   settingsNote: null,
   memoryLive: false,
@@ -961,6 +965,7 @@ function replaceScopes(scopes) {
     state.deviceConfirm = null;
     state.deviceRevoking = null;
     state.deviceNote = null;
+    state.devicesLive = false;
     store.del(K.cache + 'devices');
   } else if (!next.includes('write:devices')) {
     state.deviceConfirm = null;
@@ -1081,8 +1086,6 @@ const icon = (name, cls = '') => `<svg class="${cls}" viewBox="0 0 24 24" aria-h
 
 // ── Connection state (SS-03 / SS-08) ────────────────────────────────────────
 function setConn(kind) {
-  if (state.conn === kind) return;
-  state.conn = kind;
   // F-063: losing the connection — to the network or to a server that answers
   // badly — ends the right to decide, wherever in the app it was noticed.  This
   // is the catch-all behind the explicit invalidations: every failure path in
@@ -1092,12 +1095,28 @@ function setConn(kind) {
   // `setConn('ok')` immediately before it decides whether to grant, and bumping
   // the epoch at that moment would make every grant impossible.  The reconnect
   // itself is invalidated by `handleCameOnline()`, which runs before any read.
-  if (kind !== 'ok') invalidateApprovalAuthority();
+  if (kind !== 'ok') {
+    invalidateApprovalAuthority();
+    invalidateLiveMutationReads();
+  }
+  // Repeat failures must still revoke any authority granted since the first
+  // transition (for example, a reconnect probe that failed while still marked
+  // offline).  Only the visual state change may be skipped.
+  if (state.conn === kind) return;
+  state.conn = kind;
   // Zone 1 of the trust bar lives inside the re-rendered screen now, so a
   // connection change repaints the screen rather than a separate element.
   // Every caller already renders afterwards; doing it here as well is what
   // makes "the bar is stale" unreachable rather than a matter of discipline.
   render();
+}
+
+function invalidateLiveMutationReads() {
+  state.memoryLive = false;
+  state.workersLive = false;
+  state.devicesLive = false;
+  state.deviceConfirm = null;
+  state.workerConfirm = null;
 }
 
 // ── Trust bar (UI-DESIGN §4, D-UI-2) ────────────────────────────────────────
@@ -6384,54 +6403,112 @@ async function loadSpecialist() {
   }
 }
 
-function validDeviceSnapshot(value) {
-  return Array.isArray(value) && value.every(device => device
-    && typeof device.deviceId === 'string'
-    && device.deviceId.length >= 8
-    && typeof device.name === 'string'
-    && Array.isArray(device.scopes)
-    && device.scopes.every(scope => typeof scope === 'string')
-    && typeof device.revoked === 'boolean'
-    && typeof device.expired === 'boolean'
-    && typeof device.current === 'boolean'
-    && typeof device.version === 'string');
+const DEVICE_SNAPSHOT_KEYS = Object.freeze([
+  'createdAt', 'current', 'deviceId', 'expired', 'expiresAt', 'lastUsedAt',
+  'name', 'revoked', 'revokedAt', 'scopes', 'version',
+]);
+
+function validDeviceRecord(device) {
+  if (!plainJsonObject(device)
+      || Object.keys(device).sort().join(',') !== DEVICE_SNAPSHOT_KEYS.join(',')
+      || typeof device.deviceId !== 'string'
+      || !/^[A-Za-z0-9_-]{8,128}$/u.test(device.deviceId)
+      || typeof device.name !== 'string' || !device.name || device.name !== device.name.trim()
+      || device.name.length > 64
+      || !Array.isArray(device.scopes)
+      || !device.scopes.every((scope, index) => (
+        typeof scope === 'string' && scope.length > 0 && device.scopes.indexOf(scope) === index
+      ))
+      || typeof device.revoked !== 'boolean'
+      || typeof device.expired !== 'boolean'
+      || typeof device.current !== 'boolean'
+      || typeof device.createdAt !== 'string' || Number.isNaN(Date.parse(device.createdAt))
+      || !validIsoOrNull(device.lastUsedAt)
+      || typeof device.expiresAt !== 'string' || Number.isNaN(Date.parse(device.expiresAt))
+      || !validIsoOrNull(device.revokedAt)
+      || device.revoked !== (device.revokedAt !== null)
+      || typeof device.version !== 'string' || !device.version.startsWith('v1:')) return false;
+  return true;
+}
+
+function validDeviceSnapshot(value, currentDeviceId = auth.device) {
+  if (!Array.isArray(value) || !value.length
+      || typeof currentDeviceId !== 'string' || !currentDeviceId) return false;
+  const ids = new Set();
+  let current = null;
+  for (const device of value) {
+    if (!validDeviceRecord(device) || ids.has(device.deviceId)) return false;
+    ids.add(device.deviceId);
+    if (device.current) {
+      if (current !== null) return false;
+      current = device.deviceId;
+    }
+  }
+  return current === currentDeviceId;
+}
+
+function validDeviceListResponse(response) {
+  const scopes = response?.scopes;
+  return Boolean(response?.ok === true
+    && validDeviceSnapshot(response.data)
+    && Array.isArray(scopes)
+    && scopes.every((scope, index) => (
+      typeof scope === 'string' && scope.length > 0 && scopes.indexOf(scope) === index
+    )));
 }
 
 async function loadDevices() {
   if (!auth.has('read:devices')) return;
   const generation = ++devicesGeneration;
+  state.devicesLive = false;
+  state.deviceConfirm = null;
   const cached = cache.read('devices');
   if (cached.status === 'EXPIRED') {
     store.del(K.cache + 'devices');
     state.data.devices = undefined;
     state.cacheAge.devices = null;
     state.cacheAt.devices = null;
+  } else if (validDeviceSnapshot(cached.data)) {
+    state.data.devices = cached.data;
+    state.cacheAge.devices = cached.status;
+    state.cacheAt.devices = cached.at;
   } else {
-    state.data.devices = Array.isArray(cached.data) ? cached.data : undefined;
-    state.cacheAge.devices = cached.data ? cached.status : null;
-    state.cacheAt.devices = cached.data ? cached.at : null;
+    if (cached.data) store.del(K.cache + 'devices');
+    state.data.devices = undefined;
+    state.cacheAge.devices = null;
+    state.cacheAt.devices = null;
   }
   state.loading.devices = true;
   state.error.devices = null;
   render();
 
   try {
-    const response = await api('/devices');
+    const response = await api('/devices', { strict: true });
     if (generation !== devicesGeneration) return;
-    if (response?.ok !== true || !validDeviceSnapshot(response.data)) {
+    if (!validDeviceListResponse(response)) {
       throw new ApiError('protocol', { code: 'protocol_invalid_response' });
     }
+    replaceScopes(response.scopes);
+    if (!auth.has('read:devices') || generation !== devicesGeneration) return render();
     state.data.devices = response.data;
     state.cacheAge.devices = 'FRESH';
     state.cacheAt.devices = Date.now();
     cache.write('devices', response.data);
-    if (response.scopes) replaceScopes(response.scopes);
+    state.devicesLive = true;
     setConn('ok');
   } catch (error) {
     if (generation !== devicesGeneration) return;
     if (error.kind === 'auth') return await handleAuthFailure(error);
-    state.error.devices = error;
-    setConn(error.kind === 'offline' ? 'offline' : error.kind === 'server' ? 'server' : state.conn);
+    state.devicesLive = false;
+    state.deviceConfirm = null;
+    if (error.kind === 'scope') {
+      replaceScopes(auth.scopes.filter(scope => scope !== 'read:devices'));
+      render();
+    } else {
+      state.error.devices = error;
+      setConn(error.kind === 'offline' ? 'offline'
+        : error.kind === 'server' || error.kind === 'protocol' ? 'server' : state.conn);
+    }
   } finally {
     if (generation === devicesGeneration) {
       state.loading.devices = false;
@@ -6445,7 +6522,11 @@ function deviceById(deviceId) {
 }
 
 function deviceMutationFresh() {
-  return state.cacheAge.devices === 'FRESH' && state.conn === 'ok'
+  return state.route === 'devices'
+    && auth.has('read:devices') && auth.has('write:devices')
+    && state.devicesLive === true
+    && Array.isArray(state.data.devices)
+    && state.cacheAge.devices === 'FRESH' && state.conn === 'ok'
     && !state.error.devices && !state.loading.devices;
 }
 
@@ -7481,6 +7562,7 @@ function handleWentOffline() {
 
 function handleCameOnline() {
   invalidateApprovalSurface();
+  invalidateLiveMutationReads();
   setConn('ok');
   if (state.session === 'active') navigate(state.route);
   else render();
@@ -7633,7 +7715,8 @@ export const __ms20 = {
   askWorkerToggle, cancelWorkerToggle, confirmWorkerToggle,
   viewDevices, viewDiagnostics, viewSession,
   loadDevices, askDeviceRevoke, cancelDeviceRevoke, confirmDeviceRevoke,
-  validDeviceSnapshot, deviceRevokeOutcome, handleAuthFailure,
+  validDeviceRecord, validDeviceSnapshot, validDeviceListResponse,
+  deviceMutationFresh, deviceRevokeOutcome, handleAuthFailure,
   serverSettingsCard, publicSettingRows, PUBLIC_SETTINGS_PATHS, validSettingsResponse,
   loadSettings, saveSetting,
   settingsWriteOutcome, settingsMutationFresh, settingInputId,

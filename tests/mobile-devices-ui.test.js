@@ -61,7 +61,8 @@ const {
   state, store, secure, auth, cache, journal, K,
   viewDevices, viewDiagnostics, viewSession,
   loadDevices, askDeviceRevoke, cancelDeviceRevoke, confirmDeviceRevoke,
-  handleAuthFailure, replaceScopes,
+  validDeviceRecord, validDeviceSnapshot, validDeviceListResponse, deviceMutationFresh,
+  handleAuthFailure, handleWentOffline, handleCameOnline, replaceScopes,
 } = __ms20;
 
 function device(overrides = {}) {
@@ -79,6 +80,19 @@ function device(overrides = {}) {
     version: 'v1:device',
     ...overrides,
   };
+}
+
+function currentDevice(overrides = {}) {
+  return device({
+    deviceId: 'device-current-123',
+    name: 'Tento telefon',
+    current: true,
+    ...overrides,
+  });
+}
+
+function deviceList(...others) {
+  return [currentDevice(), ...(others.length ? others : [device()])];
 }
 
 function reset(scopes = ['read:devices', 'write:devices']) {
@@ -103,6 +117,7 @@ function reset(scopes = ['read:devices', 'write:devices']) {
   state.deviceConfirm = null;
   state.deviceRevoking = null;
   state.deviceNote = null;
+  state.devicesLive = false;
   nodes.app.innerHTML = '';
 }
 
@@ -110,7 +125,15 @@ function response(data, { status = 200, extra = {} } = {}) {
   return {
     ok: status >= 200 && status < 300,
     status,
-    async json() { return { ok: true, protocolVersion: 'm1.2026-07-30', data, ...extra }; },
+    async json() {
+      return {
+        ok: true,
+        protocolVersion: 'm1.2026-07-30',
+        scopes: [...auth.scopes],
+        data,
+        ...extra,
+      };
+    },
   };
 }
 
@@ -155,6 +178,7 @@ await test('revocation requires a fresh row and an explicit second step', () => 
   reset();
   state.data.devices = [device()];
   state.cacheAge.devices = 'FRESH';
+  state.devicesLive = true;
   askDeviceRevoke('device-other-123');
   assert.equal(state.deviceConfirm, 'device-other-123');
   assert.match(viewDevices(), /Potvrdit odvolání/);
@@ -170,28 +194,110 @@ await test('self-revoke warning names unresolved attempts before dispatch', () =
   journal.add({ operationId: 'e'.repeat(32), operationType: 'chat.send', displaySummary: 'Odeslání zprávy' });
   state.data.devices = [device({ deviceId: 'device-current-123', current: true })];
   state.cacheAge.devices = 'FRESH';
+  state.devicesLive = true;
   askDeviceRevoke('device-current-123');
   assert.match(viewDevices(), /1 nerozřešených operací/);
   assert.match(viewDevices(), /Odvoláváš tento telefon/);
 });
 
-await test('device list accepts only the versioned public DTO', async () => {
+await test('device validators bind the exact public DTO to this credential', () => {
   reset(['read:devices']);
-  globalThis.fetch = async () => response([device()]);
+  const rows = deviceList();
+  assert.equal(validDeviceRecord(rows[0]), true);
+  assert.equal(validDeviceSnapshot(rows), true);
+  assert.equal(validDeviceListResponse({ ok: true, scopes: ['read:devices'], data: rows }), true);
+  assert.equal(validDeviceRecord({ ...rows[0], tokenHash: 'must-not-exist' }), false);
+  assert.equal(validDeviceRecord({ ...rows[0], revoked: true, revokedAt: null }), false);
+  assert.equal(validDeviceSnapshot([rows[0], { ...rows[0] }]), false);
+  assert.equal(validDeviceSnapshot([device()]), false);
+  assert.equal(validDeviceListResponse({
+    ok: true, scopes: ['read:devices', 'read:devices'], data: rows,
+  }), false);
+});
+
+await test('device list accepts only a strict versioned public snapshot', async () => {
+  reset(['read:devices']);
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    return response(deviceList());
+  };
   await loadDevices();
-  assert.equal(state.data.devices[0].deviceId, 'device-other-123');
+  assert.equal(state.data.devices.find(row => !row.current).deviceId, 'device-other-123');
   assert.equal(cache.read('devices').status, 'FRESH');
+  assert.equal(state.devicesLive, true);
+  assert.equal(calls[0].options.cache, 'no-store');
+
+  globalThis.fetch = async () => response(deviceList(), { status: 201 });
+  await loadDevices();
+  assert.equal(state.error.devices.kind, 'protocol');
+  assert.equal(state.devicesLive, false);
 
   globalThis.fetch = async () => response([{ deviceId: 'device-other-123', token_hash: 'secret' }]);
   await loadDevices();
   assert.equal(state.error.devices.kind, 'protocol');
   assert.equal(state.cacheAge.devices, 'FRESH');
+  assert.equal(state.devicesLive, false);
+  assert.equal(deviceMutationFresh(), false);
+});
+
+await test('valid cache remains read-only after failure and corrupt cache is deleted', async () => {
+  reset();
+  store.set(K.cache + 'devices', { at: Date.now(), data: deviceList() });
+  globalThis.fetch = async () => { throw new TypeError('offline'); };
+  await loadDevices();
+  assert.equal(state.data.devices.length, 2);
+  assert.equal(state.devicesLive, false);
+  assert.equal(deviceMutationFresh(), false);
+  assert.match(viewDevices(), /disabled/);
+
+  reset();
+  store.set(K.cache + 'devices', {
+    at: Date.now(), data: [{ ...currentDevice(), tokenHash: 'must-not-render' }],
+  });
+  globalThis.fetch = async () => { throw new TypeError('offline'); };
+  await loadDevices();
+  assert.equal(state.data.devices, undefined);
+  assert.equal(store.get(K.cache + 'devices'), null);
+  assert.ok(!viewDevices().includes('must-not-render'));
+});
+
+await test('a late device response cannot replace the newest generation', async () => {
+  reset(['read:devices']);
+  const pending = [];
+  globalThis.fetch = async () => new Promise(resolve => pending.push(resolve));
+  const older = loadDevices();
+  const newest = loadDevices();
+  pending[1](response(deviceList(device({ name: 'Nejnovější' }))));
+  await newest;
+  pending[0](response(deviceList(device({ name: 'Starší' }))));
+  await older;
+  assert.equal(state.data.devices.find(row => !row.current).name, 'Nejnovější');
+  assert.equal(cache.read('devices').data.find(row => !row.current).name, 'Nejnovější');
+});
+
+await test('offline and reconnect transitions withdraw all live mutation grants', () => {
+  reset();
+  state.data.devices = deviceList();
+  state.cacheAge.devices = 'FRESH';
+  state.devicesLive = true;
+  state.memoryLive = true;
+  state.workersLive = true;
+  assert.equal(deviceMutationFresh(), true);
+  handleWentOffline();
+  assert.equal(state.devicesLive, false);
+  assert.equal(state.memoryLive, false);
+  assert.equal(state.workersLive, false);
+  globalThis.fetch = async () => { throw new TypeError('offline'); };
+  handleCameOnline();
+  assert.equal(state.devicesLive, false);
 });
 
 await test('confirmed revoke sends one journalled mutation and refreshes with a read', async () => {
   reset();
   state.data.devices = [device()];
   state.cacheAge.devices = 'FRESH';
+  state.devicesLive = true;
   askDeviceRevoke('device-other-123');
   const calls = [];
   let operationId;
@@ -209,14 +315,14 @@ await test('confirmed revoke sends one journalled mutation and refreshes with a 
         remoteWipe: false,
       });
     }
-    return response([device({ revoked: true, revokedAt: '2026-09-06 11:00:00' })]);
+    return response(deviceList(device({ revoked: true, revokedAt: '2026-09-06 11:00:00' })));
   };
   await confirmDeviceRevoke('device-other-123');
   assert.equal(calls.length, 2);
   assert.equal(calls[0].url, '/m1/devices/device-other-123/revoke');
   assert.equal(calls[1].url, '/m1/devices');
   assert.equal(journal.find(operationId).lastKnownState, 'CONFIRMED');
-  assert.equal(state.data.devices[0].revoked, true);
+  assert.equal(state.data.devices.find(row => row.deviceId === 'device-other-123').revoked, true);
   assert.match(state.deviceNote.text, /nejde o vzdálené smazání/);
 });
 
@@ -224,6 +330,7 @@ await test('unreadable mutation response remains UNKNOWN and is never retried', 
   reset();
   state.data.devices = [device()];
   state.cacheAge.devices = 'FRESH';
+  state.devicesLive = true;
   askDeviceRevoke('device-other-123');
   let calls = 0;
   globalThis.fetch = async () => {
@@ -240,6 +347,7 @@ await test('self-revoke clears the credential and moves to the revoked session',
   reset();
   state.data.devices = [device({ deviceId: 'device-current-123', current: true })];
   state.cacheAge.devices = 'FRESH';
+  state.devicesLive = true;
   askDeviceRevoke('device-current-123');
   globalThis.fetch = async (_url, options) => {
     const operationId = JSON.parse(options.body).operationId;
