@@ -17,8 +17,10 @@
 > 46 core-owned public paths. MM4-L uzavírá exact stored-information list,
 > server-issued cursor a validovanou page cache. MM4-M nyní stejnou fail-closed
 > hranici uplatňuje na seznam spárovaných zařízení a live revoke authority.
+> MM4-N uzavírá consumer mobilní schránky: exact S1 DTO/slovník, sekvenční
+> stránkování, validovanou cache a live-only ACK oddělený read/write scopy.
 > Autoritou poslední změny je review
-> `MM4M-PAIRED-DEVICE-LIST-INTEGRITY`;
+> `MM4N-NOTIFICATION-INBOX-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 > **MM3-D coverage overlay:** globální `MS-06` nově skutečně spotřebuje
@@ -38,6 +40,13 @@
 > nepřekrývajícími se id. `mobile-workers-specialists-ui` (24/24) kryje exact
 > i vnořené tvary, protocol-safe zachování cache, corrupt/legacy cache,
 > partial UI, scope withdrawal, response race a relock worker mutation.
+
+> **MM4-N coverage overlay:** `mobile-overview` (36/36) kryje přesný devítipolový
+> notification DTO, přímou shodu klientského slovníku s `S1_VOCABULARY`,
+> monotónní/unikátní sequence window, stránkování, current/legacy/corrupt cache,
+> response race, scope/connection invalidaci a live-only ACK bez auto-retry.
+> Backendové sady zůstávají ACK 10/10, sequence 6/6, wiring 9/9, producer 24/24
+> a process/HTTP E2E 5/5. Produkční push a delivery policy tím prokázány nejsou.
 
 > **MM3-F coverage overlay:** `MS-12` publikuje project detail jen po exact
 > public DTO a requested-id validaci. `mobile-projects-ui` (30/30) nově kryje
@@ -287,7 +296,7 @@ obrazovkový dopad v SCREENS §1.1.
 | `MR-17`, `MR-18` | 4 | **`IMPLEMENTED / SOURCE TESTED / DEVICE TEST PENDING`** | MM4-B dodal filtrované čtení, MM4-F create-only explicitní LTM insert a MM4-L exact DTO, úplný opaque-cursor průchod a validovanou page cache; 12/12 gateway/core a 21/21 UI scénářů PASS. Replacement, delete, task-memory write, interní kategorie a refreeze v2 se netvrdí |
 | `MR-19` stav agentů a historie | 5 | **`PARTIAL / SOURCE TESTED / DEVICE TEST PENDING`** | MM4-C dodal filtrovaný worker/specialist read model, MM4-G precondition-checked worker enable/disable, MM4-H worker detail s metadata-only terminální historií, MM4-I specialist detail s public-only vazbami expertiz a MM4-J exact fail-closed list/cache consumer. Kombinované sady prošly 18/18 gateway/core a 24/24 UI; persisted specialist status není live runtime truth a execution obsah, aktivní run progress, cancel i specialist mutations nejsou součástí této autority |
 | `MR-20` dry-run agenta | 5 | **`BLOCKED_BY_CONTRACT_AND_GATE1`** | `workers.dryRun` zůstává bez provideru; kontrakt + příslušná Gate 1 evidence + samostatný Work Package |
-| `MR-21` notifikace | 1+ | **`PARTIAL / PRODUCTION_BLOCKED`** | Třída/tabulka/read+ack surface existují. `DR-003` A, `DR-012` A a `DR-013` A určují append-only lifecycle, per-device receipts a S1-safe mirror, ale nejsou implementované: pipeline řádek nevytvoří (`F-111`/`F-014`), ACK **je** izolovaný per zařízení (`F-112` `RESOLVED_IN_CODE`), ale rooty `F-011`/`F-015` zůstávají a spící PWA nemá push (`N-1`) |
+| `MR-21` notifikace | 1+ | **`PARTIAL / SOURCE TESTED / PRODUCTION POLICY BLOCKED`** | Durable storage, fail-closed channel, jediný closed-S1 producer, per-device receipts, unikátní sequence, read/ack surface a MM4-N exact klientský DTO/page/cache/live-ACK consumer jsou implementované. Klient 36/36; ACK 10/10; sequence 6/6; wiring 9/9; producer 24/24; process/HTTP E2E 5/5. Obecná production event-selection/delivery policy, push/background chování, wire freeze a device/release evidence zůstávají otevřené (`N-1`) |
 | `MR-22` správa zařízení | 0 | **`IMPLEMENTED / SOURCE TESTED / DEVICE TEST PENDING`** | MM4-D dodává scope-gated seznam a dvoukrokové odvolání; MM4-M exact snapshot/current binding, validovanou read-only cache a live revoke gate. 8/8 gateway a 15/15 UI scénářů; revokace není remote wipe a fyzický Android běh chybí |
 | `MR-23` zámek aplikace | 0 | **`PARTIAL`** | Pod úložištním limitem PWA; `localStorage` není OS keychain, `M-R2` zůstává neodstraněné |
 | `MR-24` neuzavřené operace | 1 | **`LOCALLY_COMPOSED / COMPOSITION_REVIEW_APPROVED / REGISTRY_REVIEW_APPROVED / MOBILE_PASS / SHARED_VALIDATION_BLOCKED`** | Opravené checkpointy a journal allowlist jsou kompozičně i registry zrevidované a mobilní program prošel. Funkce není produktově DONE; sdílený profil selhal a SCREENS stále postrádá samostatnou definici toku (`GAP-9`) |
@@ -397,7 +406,7 @@ Vypsané, protože nevypsaná díra je horší než přiznaná.
 | **GAP-4** | `MR-06` slibuje odpověď „najednou", protože token streaming neexistuje. Až vznikne, změní se tok `MS-08` i `MS-15` | nízká | Ponechat; `MR-06` je pravdivý popis dneška, ne cíl |
 | **GAP-5** | Žádný test nepokrývá `SS-01`..`SS-10` jako **úplnost** — tedy že tok žádný stav nevynechal | střední | Zvážit jeden `offline` test nad deklarativním popisem toků. Riziko: test, který kontroluje dokumentaci, ne chování |
 | **GAP-6** | Budoucí klientské testy by mohly obejít kanonický registr přes souhrnný wrapper | střední | Pět dnešních successorů je registrovaných přímo a fail-closed, bez prázdného wrapperu. Každý budoucí klientský program musí dostat vlastní registry řádek; agregace nesmí skrýt jeho výsledek |
-| **GAP-7** | `MR-21` (notifikace) nemá end-to-end produkční doručení ani bezpečný ACK pro více zařízení | **vysoká** | `DR-003` A, `DR-012` A a `DR-013` A jsou přijaté cíle, ne hotový kód. Per-device receipty (migrace 058) a dotazy **existují**, `F-112` je uzavřený a kanál je nově registrovaný a **fail-closed**. Chybí **S1 projector `DR-013 A`**, bez kterého schránka zůstane prázdná, a `N-1`. `F-011`, `F-014`, `F-015` i druhá půlka `F-111` zůstávají otevřené |
+| **GAP-7** | `MR-21` nemá přijatou obecnou production event-selection/delivery a push/background policy | **vysoká** | Dřívější komponentní mezery jsou source-tested: fail-closed kanál a jediný closed-S1 producer, per-device receipts/ACK, unikátní sequence a MM4-N exact consumer existují. Otevřené zůstává, které reálné runtime události se smějí kam zrcadlit, jak se doručují spící aplikaci (`N-1`), vzdálená síť, wire freeze, fyzický device průchod a nezávislé release/security přijetí |
 | ~~**GAP-8**~~ | ~~`C3-032` nemělo žádný registrovaný program~~ | **RESOLVED** | `eee04db9` a `RV-042`: `C3-031=7`, `C3-032=5`; čtyři programy byly přidány a `MS-20` přesunuto při zachování ID. To uzavírá registry mezeru; sdílenou validaci a `WP-MOBILE-025` dál blokují `F-115`/`F-116` a Gate 0 verdikt nebyl vydán |
 | **GAP-9** | `MR-24` odkazuje na tok `MS-20`, který v SCREENS §4 **neexistuje** | střední | Implementace je lokálně složená, ale dokumentační definice toku stále chybí. Jde o přiznanou díru, ne důvod maskovat stav jako DONE |
 | ~~**GAP-10**~~ | ~~Lokální operation index nevynucuje uzavřený sedmipolový tvar~~ | **RESOLVED / EVIDENCED** | `2a814434`, `RV-037`, kompoziční `RV-039`/`RV-040` a M3 mobilní PASS dokazují allowlist pro moderní i legacy zápisy |

@@ -19,7 +19,9 @@
 > na server-issued page boundary a validuje current i legacy cache. MM4-M
 > validuje exact paired-device snapshot, váže jeho `current` řádek na aktivní
 > credential a odděluje čitelnou cache od volatile revoke authority. Autoritou
-> poslední změny je review `MM4M-PAIRED-DEVICE-LIST-INTEGRITY`;
+> poslední změny je review `MM4N-NOTIFICATION-INBOX-INTEGRITY`. MM4-N váže
+> notification cache na přesnou sekvenční page boundary, přijímá pouze devět
+> S1 tvarů producenta a nikdy z cache neodvozuje ACK autoritu;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná produktová fáze není DONE
@@ -598,7 +600,7 @@ zůstávají otevřené v `F-100`.
 
 | Atribut | Hodnota |
 |---|---|
-| Zdroj pravdy | Existující řádek v serverové tabulce `mobile_notifications`; klientská cache není autorita. Normální produkční pipeline ale dnes žádný mobilní řádek nevytváří (`F-111`) |
+| Zdroj pravdy | Existující řádek v serverové tabulce `mobile_notifications`; klientská cache není autorita. Closed-S1 companion producer umí řádky vytvořit, ale obecná produkční event-selection/delivery policy není uzavřená |
 | V telefonu | ano — krátká historie, bez obsahu |
 | Citlivost | **S1** — text notifikace **nesmí** nést obsah zprávy ani diffu |
 | Úložiště | `ST-DB` |
@@ -614,25 +616,21 @@ zůstávají otevřené v `F-100`.
 > **[R]** Notifikace nese ukazatel („nový approval v projektu X"), ne obsah.
 > Notifikace se zobrazují i na zamčené obrazovce, kde neplatí žádná z ochran §5.
 > Doručovací hranice zůstává dle PLAN.md §6 — spící aplikace nedostane realtime
-> signál. Pokud řádek vznikl přímým zápisem nebo seedem, může ho načíst při
-> příštím HTTP pullu; běžnou produkční emisi to bez `F-111` wiring nepokrývá.
+> signál. Existující durable řádek klient při příštím HTTP pullu přečte; MM4-N
+> umí projít celé serverem potvrzené sequence window, ale push tím nevzniká.
 
-**`F-111` zůstává otevřený produkční blocker a úzké child evidence root
-`F-014`, ne druhý root.** Třída
-`MobileChannel`, tabulka a HTTP read/ack surface existují, ale produkční router
-`MobileChannel` nekonstruuje ani neregistruje. Bez samostatného produkčního
-producenta/wiring běžná notification pipeline řádek nevytvoří (`F-111`).
+Komponentní nálezy jsou v kódu uzavřené: router registruje fail-closed
+`MobileChannel`, capability drží právě closed-S1 companion producer, migrace
+058 používá per-device receipts a migrace 059 garantuje unikátní sekvenci.
+Read i ACK jsou device-scoped. MM4-N navíc přijímá jen exact devítipolové řádky
+odpovídající stejnému devítipoložkovému `S1_VOCABULARY`, přesnou page boundary
+a scope list; cache ukládá `{ items, page }`, legacy array výslovně označí jako
+neúplné a ACK odemkne jen nový live read s oběma scopy. Nejasný ACK se
+automaticky neopakuje.
 
-Stav přečtení **je** od migrace 058 per-device autorita a `F-112` je uzavřený
-(dřívější znění o tom, že autorita chybí, už neplatí; úzké child
-evidence root findingů `F-011`/`F-015`, ne další root). Pull je device-filtered,
-ACK však aktualizuje jen podle ID bez `deviceId` a broadcast má jediné globální
-`read_at`. Root `F-015` současně zůstává otevřený kvůli závodu `MAX(seq)+1` bez
-`UNIQUE`/transakční garance. `DR-003` A a jeho specializace `DR-012` A byly
-`PRODUCT_OWNER` přijaty společně; `DR-013` A přijímá policy-controlled S1-safe
-companion mirror. Jsou to cílové kontrakty, ne implementace. Dokud nevznikne
-per-device receipt/ACK izolace, sekvenční garance, producent/projektor a Gate 1
-důkazy, B6 ani životní cyklus `MD-08` nejsou produkčně uzavřené.
+Tato source evidence sama neuzavírá obecnou produkční event-selection/delivery
+policy, push pro spící aplikaci, freeze wire kontraktu, Android device průchod
+ani nezávislé release/security přijetí.
 
 ---
 

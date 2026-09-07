@@ -11,7 +11,7 @@ candidate implementation, not a contract freeze; see
 
 Latest consumer checkpoints MM3-D (`34bc19de`), MM3-E (`075f5eb7`), MM4-J
 (`acff7939`), MM3-F (`a08d0dd0`), MM4-K (`99cdfdde`), MM4-L (`d1f0a98a`) and
-MM4-M (`af33f984`)
+MM4-M (`af33f984`), followed by MM4-N (`656941d4`),
 change no port input,
 output or provider. They make the mobile client consume already returned
 opaque cursors for the global conversation
@@ -40,6 +40,10 @@ MM4-M validates the existing paired-device projection as an exact public
 snapshot, binds its single current row to the active credential and separates
 readable cache from live revoke authority. See
 [`reviews/MM4M-PAIRED-DEVICE-LIST-INTEGRITY.md`](reviews/MM4M-PAIRED-DEVICE-LIST-INTEGRITY.md).
+MM4-N similarly changes no RemoteCorePort operation: notifications remain the
+gateway-owned read/ack projection. It validates the existing exact S1 records,
+sequence boundary, cache and live ACK authority. See
+[`reviews/MM4N-NOTIFICATION-INBOX-INTEGRITY.md`](reviews/MM4N-NOTIFICATION-INBOX-INTEGRITY.md).
 
 `RemoteCorePort` is the core-owned, in-process boundary used by the mobile
 gateway. It is deliberately narrower than the desktop HTTP listener: a mobile

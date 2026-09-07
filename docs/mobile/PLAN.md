@@ -10,8 +10,10 @@
 > a stránkují globální konverzace, projekty, workery/specialisty a stored
 > information, validují project detail a uzavírají live settings read. MM4-M
 > nyní uzavírá exact paired-device snapshot/cache a live revoke authority.
+> MM4-N uzavírá exact notification DTO/page/cache consumer a live-only ACK
+> autoritu nad oddělenými `read:notifications`/`write:notifications` scopy.
 > Autoritou poslední změny je review
-> `MM4M-PAIRED-DEVICE-LIST-INTEGRITY`;
+> `MM4N-NOTIFICATION-INBOX-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; **žádná produktová fáze není DONE**
@@ -24,10 +26,12 @@
 **Aktuální hranice:** kód a `gateway-policy.js` drží přesný **13-route HTTP
 allow-list**. Je to dnešní implementovaný/source-policy-frozen povrch, nikoli
 formálně refrozený kontrakt v2 pro šest domén z `DR-008`. Dnešní `/m1` nemá
-WebSocket ani SSE. Existují třída/DB tabulka a HTTP read/ack surface
-(`GET /m1/notifications`, `POST /m1/notifications/ack`), ale bez produkčního
-producenta a wiring nejde o dosažitelný end-to-end inbox; realtime je jen
-budoucí neautorizovaný kandidát. Každé nové spárování razí nový `deviceId`,
+WebSocket ani SSE. Existují třída/DB tabulka, per-device receipts, unikátní
+sequence, closed-S1 companion producer a HTTP read/ack surface
+(`GET /m1/notifications`, `POST /m1/notifications/ack`). MM4-N jejich consumer
+validuje fail-closed; obecná produkční event-selection/delivery a push policy
+však nejsou uzavřené a realtime je jen budoucí neautorizovaný kandidát. Každé
+nové spárování razí nový `deviceId`,
 takže staré operace nejsou z nového zařízení dostupné. Při zachovaném tokenu
 téhož zařízení se nejasný timeout řeší `GET /m1/operations/:id`; seznam
 stejného zařízení obnoví jen serverová pole otevřených pokusů, ne lokální
@@ -184,7 +188,7 @@ komponent, nikoli jako zapojená produkční cesta.
 | S-4 / B3 — hraniční negativní testy | registrovaný program, **38 testovacích případů PASS** v M3; lokální a bez main integrace či non-loopback důkazu | `tests/mobile-gateway-boundary.test.js` |
 | S-5 / B4 — atomický jednorázový pairing | hotovo | `src/mobile/pairing.js`, `scripts/mobile-pair.js` |
 | B5 — `/m1` handlery | hotovo | `src/mobile/handlers.js` |
-| B6 — mobilní notifikace | **PARTIAL / PRODUCTION_BLOCKED** | Třída `MobileChannel`, tabulka a HTTP read/ack surface existují. Produkční router kanál **nově registruje** a schránka je **fail-closed**: bez capability `DR-013` do ní nezapíše ani HTTP routa, ani konfigurace agenta. ACK **je** izolovaný podle zařízení (`F-112` `RESOLVED_IN_CODE`); jeho rooty `F-011`/`F-015` tím uzavřené nejsou. Druhá půlka `F-111` — co se vůbec zrcadlí — zůstává otevřená. `DR-003` A, `DR-012` A a `DR-013` A určují cílový lifecycle, per-device receipts a S1-safe mirror, ale nejsou implementované; end-to-end delivery není hotové |
+| B6 — mobilní notifikace | **PARTIAL / SOURCE TESTED / PRODUCTION POLICY BLOCKED** | Fail-closed `MobileChannel`, jediný closed-S1 companion producer, per-device receipts/ACK, unikátní sequence a HTTP read/ack existují. MM4-N doplňuje exact DTO/page/cache consumer, úplný sequence průchod, oddělené read/write scopy a live-only ACK bez auto-retry. Obecná production event-selection/delivery a push/background policy, wire freeze, remote transport a device/release evidence zůstávají otevřené |
 | DATA-MODEL §8 (11 požadavků) | registrovaný program, **41 testovacích případů PASS** v M3; bez main integrace | `src/mobile/protocol.js`, `src/mobile/operation-journal.js` |
 
 **Vlastněný supervizor** (`tests/helpers/server-supervisor.js`) odstraňuje důvod,
@@ -301,7 +305,7 @@ vzdálené zpřístupnění serveru.
 | B3 | Negativní testy hranice | offline policy testy hotové; serverové testy **před** B4 |
 | B4 | `POST /m1/pair/claim` — atomický jednorázový kód | nejrizikovější nový kód |
 | B5 | `GET /m1/health`, `/m1/capabilities`, `/m1/conversations`, `POST /m1/chat` | delegace na existující |
-| B6 | **PARTIAL:** implementovat přijaté `DR-003` A, `DR-012` A a `DR-013` A — produkční producer/wiring durable inboxu, bezpečný per-device ACK, sekvenční model a policy-controlled S1-safe mirror; HTTP pull/ack surface už existuje, žádný WS/SSE | §6; `F-014`→`F-111`, `F-011`/`F-015`→`F-112` |
+| B6 | **PARTIAL / SOURCE TESTED / PRODUCTION POLICY BLOCKED:** fail-closed channel, jediný closed-S1 producer, per-device ACK, unikátní sequence, HTTP pull/ack a MM4-N exact klientský consumer existují. Uzavřít obecnou production event-selection/delivery a push/background policy; žádný WS/SSE | §6; MM4-N review |
 
 Odhady v člověkodnech záměrně neuvádím — po P1 (párování end-to-end) se přeměří.
 
@@ -502,49 +506,31 @@ kolem `DR-008` (§5.3).
 
 ## 6. In-app notifikace
 
-**[F] Komponenty, ne produkční tok.** Pokud se `MobileChannel` přímo vytvoří a
-zavolá, zapíše durable řádek do `mobile_notifications`. Gateway nabízí sekvenční
-`GET /m1/notifications?afterSeq=…` a explicitní
-`POST /m1/notifications/ack`. Dnešní klient načítá přes
-`GET /m1/notifications?limit=50` (tedy s výchozím `afterSeq=0`) při startu,
-otevření obrazovky a návratu této obrazovky do popředí; `nextAfterSeq` zatím
-neposouvá.
+**[F] Source-tested pull tok.** Produkční router registruje fail-closed
+`MobileChannel` a jediný držitel jeho capability je closed-S1 companion
+producer. Durable tabulka má unikátní sequence a per-device receipts. Gateway
+nabízí sekvenční `GET /m1/notifications?afterSeq=…` a device-scoped
+`POST /m1/notifications/ack`, obojí s `no-store`.
 
-**[F] `F-111`: produkční producent/wiring chybí.** Jde o úzké child evidence
-stále blokujícího root `F-014`, ne další unikátní root.
-`createNotificationRouter()`
-registruje jen email, telegram a push; `server.js` přidává webhook a desktop.
-Žádná produkční cesta nekonstruuje ani neregistruje `MobileChannel`, takže
-běžná emise přes notification pipeline tabulku nenaplní. Seedovaný nebo přímo
-zapsaný řádek lze přečíst, ale to není end-to-end produkční delivery.
+MM4-N klient načte první stránku a pokračuje pouze serverem vydaným
+`nextAfterSeq`. Přijme jen exact devítipolový DTO odpovídající uzavřenému
+`S1_VOCABULARY`, koherentní boundary a validní scopes. Potvrzené okno ukládá
+jako `{ items, page }`; stará array cache zůstane jen explicitně neúplná.
+ACK vyžaduje oba scopy a nový live read, obsahuje jen zobrazené unread id,
+po úspěchu se ověří novým readem a nejasný výsledek se automaticky neopakuje.
 
-**[F] `F-112`: ACK není device-scoped.** Jde o úzké ACK child evidence stále
-blokujících root findingů `F-011` a `F-015`, ne další unikátní root. Pull
-filtruje cílené řádky podle
-`principal.deviceId` a přidává broadcasty, ale handler předává do
-`ackMobileNotifications()` jen ID a SQL aktualizuje pouze `WHERE id IN (...)`.
-Zařízení tak může při znalosti ID potvrdit cizí cílený řádek; broadcast navíc
-sdílí jedno globální `read_at`. Jde o **HIGH produkční blocker**. Root `F-015`
-navíc samostatně drží závod `MAX(seq)+1` bez `UNIQUE`/transakční garance.
-`PRODUCT_OWNER` přijal `DR-003` A a jeho specializaci `DR-012` A společně;
-`DR-013` A navíc určuje policy-controlled S1-safe companion mirror. Jde o
-závazný cílový kontrakt, ne implementaci: per-device receipts, sekvenční
-ochrana, producer/projektor a Gate 1 důkazy chybějí a produkční wiring zůstává
-blokovaný.
-
-**B6 tedy není hotové end to end.** Existují storage/channel/read+ack
-komponenty bez bezpečné a dosažitelné produkční kompozice. `broadcast()` je jen
-volitelný live hint uvnitř nekonstruované třídy; mobilní WS/SSE neexistuje.
-Přidat realtime by znamenalo nový transport, threat model a kontrakt, které
-tento plán neautorizuje.
+**B6 stále není production-ready end to end.** Chybí přijatá obecná policy,
+které runtime události se mají zrcadlit a pro která zařízení; mobilní WS/SSE ani
+push pro spící aplikaci neexistují. Source/loopback důkazy také nejsou Android
+device, remote transport, wire-freeze nebo release/security acceptance.
 
 **Hranice — produktový limit, ne bug:**
 
 | Stav appky | Dorazí? |
 |---|---|
-| Popředí | ⚠️ seedovaný/přímo zapsaný řádek se načte při startu/otevření/obnovení obrazovky; běžný produkční producer chybí |
-| Pozadí, proces žije, VPN aktivní | ⚠️ existující durable řádek čeká na příští HTTP pull; produkční pipeline ho dnes nevytváří |
-| Zavřená / proces zabitý / VPN dole | ❌ žádný realtime signál; případný durable řádek lze číst až po návratu, ale jen pokud ho někdo přímo vytvořil |
+| Popředí | ✅ existující S1 řádky se načtou při startu/otevření/foreground refreshi a stránkují podle sequence; nejde o realtime subscription |
+| Pozadí, proces žije, VPN aktivní | ⚠️ durable řádek čeká na příští HTTP pull; background polling policy není přijata |
+| Zavřená / proces zabitý / VPN dole | ❌ žádný realtime signál; durable řádek lze číst až po návratu |
 
 **[?] N-1 — notifikace při spící appce:**
 

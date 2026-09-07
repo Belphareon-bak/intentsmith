@@ -11,8 +11,10 @@
 > MM4-K zpřísňuje live-only settings read a editor relock. MM4-L zpřísňuje
 > stored-information DTO/page/cache hranici a doplňuje úplný cursorový průchod.
 > MM4-M zpřísňuje exact device snapshot/cache a live revoke gate.
+> MM4-N zpřísňuje notification inbox: exact S1 records, viditelný sekvenční
+> výřez, validovanou cache a ACK odemčený jen aktuálním live readem.
 > Autoritou poslední změny je review
-> `MM4M-PAIRED-DEVICE-LIST-INTEGRITY`;
+> `MM4N-NOTIFICATION-INBOX-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 > **MM4-G UI overlay:** karta workera nabízí Zapnout/Vypnout pouze s
@@ -86,6 +88,13 @@
 > **Odvolat**. Tlačítko vyžaduje aktuální exact live read, oba scopy, zdravé
 > spojení a existující dvoukrokové potvrzení; nový read, chyba, lock, offline,
 > reconnect nebo scope loss jej okamžitě zamkne.
+
+> **MM4-N UI overlay:** obrazovka **Zprávy** rozlišuje potvrzené prázdno,
+> neúplnou legacy cache, stale kopii, inline chybu a serverem potvrzený partial
+> výřez s **Načíst další zprávy**. Počet na přehledu má u neúplného okna `+`.
+> **Označit zobrazené přečtené** vyžaduje oba notification scopy, zdravé
+> spojení a přesný live read; cache, nový read, chyba, lock, offline, reconnect
+> či scope loss právo okamžitě odebere. Nejasný ACK se sám neopakuje.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; UI tím není produktově DONE
 **Datum a revize:** 2026-08-01 · vstupy `RV-028`, `RV-036`, `RV-037`, reconciliation `RV-038`; Composition Review C `RV-039`/`RV-040`; registr a chráněné hodnoty `RV-042`/`RV-043`
@@ -179,7 +188,7 @@ pro jiný produkt.
 | **B-7** | **[F]** `capabilities` vrací `scopes` + `features` a obnovuje je při každém čtení (`handlers.js:66-89`) | Navigace se **odvozuje ze serveru**, nekóduje se natvrdo. Nová tabulka scopů na desktopu = jiná dolní lišta na telefonu, bez update aplikace |
 | **B-8** | **[F]** Approval nese `title`, `detail`, `payloadFingerprint`, `expiresAt`, `expired`; **obsah diffu tam není** | `R-4` je uzavřené jako **popis + otisk pouze**. Diff není součástí 1.0, nesmí se zobrazovat, stahovat, exportovat ani ukládat; UI na něj nepředstírá připravenou schopnost |
 | **B-9** | **[F]** Historické `392c5928` kontrolovalo neshodu otisku jen tehdy, když ho volající poslal; klientský successor `a3443de1` guard opravil a spolu s `0292cb69` dostal bounded `RV-028` `APPROVED_WITH_FOLLOWUPS`. Přesné změny jsou kompozičně schválené (`RV-039`/`RV-040`), správně registrované a mobilní M3 subset prošel; produkční approval producer/TTL autorita chybí | Tři různé konce jednoho gesta mají tři různé obrazovky. Lokální kompozice není důkaz end-to-end `R-3`: `F-100` zůstává produkční blocker a celý profil je `208/3` |
-| **B-10** | **[F]** Třída, tabulka a sekvenční HTTP read/ack surface (`afterSeq`) existují, ale produkční router `MobileChannel` nekonstruuje ani neregistruje (`F-111`, child `F-014`). ACK předává jen ID, ne `deviceId`, a broadcast sdílí globální `read_at` (`F-112`, **HIGH**, child `F-011`/`F-015`); root `F-015` navíc drží sekvenční závod. `DR-003` A, `DR-012` A a `DR-013` A jsou přijaté cílové kontrakty, ale receipts, sekvenční ochrana, producer/projektor a Gate 1 důkazy chybějí. Gateway nemá WS kanál | Jde o neuzavřené **pull komponenty**, ne produkční end-to-end inbox ani push. UI nesmí naznačovat, že běžná událost dorazí, že ACK je bezpečný mezi zařízeními nebo že ticho znamená klid — §6.8 |
+| **B-10** | **[F]** Fail-closed `MobileChannel`, jediný closed-S1 producer, per-device receipts/ACK, unikátní sequence a HTTP read/ack surface existují. MM4-N klient validuje exact S1 DTO/page/cache, pokračuje pouze `nextAfterSeq`, odděluje read/write scope a ACK odemkne jen live read. Gateway nemá WS/SSE ani push | Jde o source-tested **pull tok**, ne důkaz obecné production event-selection/delivery nebo push. UI smí tvrdit device-scoped ACK a úplnost jen nad potvrzeným `end`; ticho bez aktuálního readu není klid — §6.8 |
 | **B-11** | **[F]** Konverzace i zprávy stránkují kurzorem s explicitním koncem; neznámý kurzor vrací `restart: true` (`handlers.js:97-134`) | Konec cachovaného okna je zobrazitelný přesně (`C-3`), a odmítnutý kurzor má jedinou správnou reakci: plný refresh, nikdy dopočet |
 | **B-12** | **[F]** Neexistuje route pro agent log ani průběh běhu | **`MS-15` nemá čím být.** Místo falešného průběhu se navrhuje poctivé „běží, nevím jak daleko" — §6.5 |
 | **B-13** | **[F]** `GET /m1/operations/:id` je **vázané na zařízení**: handler volá `lookup(principal.deviceId, …)` a SQL filtruje `WHERE device_id = ? AND operation_id = ?` (`operation-journal.js:82-88`). `deviceId` pochází z `api_tokens.device_id` (`pairing.js:277`) a **revokovaný token je odmítnut dřív, než se čte cokoli** (`pairing.js:256`) | Čtení cizí operace není možné ani s platným tokenem jiného zařízení, ani s uhádnutým ID. Odvolaný klient nepřečte nic. **UI smí lookup považovat za bezpečný** — §7 a §16 |
@@ -644,7 +653,7 @@ Platí to i pro volitelné moduly: zapnutí modulu přidává obojí, ne jen pol
    ┌──────────────┬─────────────────┬─────────────┴──────┬─────────────────┐
    ▼              ▼                 ▼                    ▼                 ▼
  MS-06         MS-13 fronta ★   MS-05 zprávy      MS-03 stav        MS-20 pokusy
- konverzace      │              (F-111/F-112)     pod Nastavením     (nové, §6.9)
+ konverzace      │              (pull; bez push)  pod Nastavením     (nové, §6.9)
    │             ▼                                     │
    ▼           MS-14 rozhodnutí ★                MS-04 zařízení
  MS-07 detail                                          projekty ▶ D-UI-1
@@ -1080,18 +1089,13 @@ klíč zmizí, ale efekt na serveru může zůstat nerozřešený.
 Notifikace nese **ukazatel, ne obsah** (`MD-08`) — objevuje se na zamčené
 obrazovce, kde neplatí zámek aplikace. „Čeká approval pro ~projekt~", nikdy text.
 
-Protože současná HTTP surface umí jen pull existujících řádků (B-10), hlavička
-nese **čas posledního načtení** a historie z cache je označená jako z definice
-neúplná. Nejde o tvrzení, že produkční pipeline řádky vytváří.
-
-Tento návrh lze zatím ověřovat jen nad seedovanými nebo přímo zapsanými řádky.
-Běžná produkční pipeline mobilní řádek nevytvoří (`F-111`, child root `F-014`)
-a ACK/badge nelze považovat za device-scoped autoritu (`F-112`, child root
-`F-011`/`F-015`); `F-015` navíc drží samostatný sekvenční závod. `PRODUCT_OWNER`
-přijal `DR-003` A, `DR-012` A a `DR-013` A, ale append-only lifecycle,
-per-device receipts, policy-controlled S1-safe mirror, producer/projektor a
-Gate 1 důkazy nejsou implementované. Obrazovka proto není důkazem hotového
-produkčního inboxu.
+Protože současná HTTP surface umí pull existujících řádků (B-10), historie
+ukazuje cache age a hranici úplnosti. Exact current snapshot nese serverem
+potvrzené `end` nebo viditelné pokračování; exact legacy array se označí jako
+neúplná. Closed-S1 producer, per-device receipts/ACK a unikátní sequence jsou
+source/loopback testované. Obrazovka přesto není důkazem přijaté obecné
+production event-selection/delivery, background refresh/push, vzdálené sítě,
+fyzického zařízení nebo release akceptace.
 
 ### 6.9 `MS-20` — nerozřešené pokusy: **recovery mechanismus**, `U-1` schváleno
 
@@ -1332,7 +1336,7 @@ kroků je proto součást návrhu, ne implementační detail.
 | **Ztráta konektivity** | Trust bar → `SS-03`, mutační prvky neaktivní, draft zůstává | Fronta. Automatický retry mutace |
 | **Změna sítě (Wi-Fi ↔ LTE)** | Zachází se s ní jako s reconnectem (`SS-05`): požadavek v letu je považován za **ztracený**, ne za běžící | Předpokládat, že spojení pokračovalo |
 | **Zabití procesu při čekání** | Po startu se pokus najde v lokálním indexu a **přečte** (`W-3`) | Odeslat znovu s novým klíčem |
-| **Reconnect** | ① `health` → ② operace → ③ data; při aktivaci notifikační obrazovky také HTTP pull existujících/seedovaných řádků. Bez producenta `F-111` nejde o důkaz doručení běžné události. Přerušený turn se **označí**, nepokračuje (`C-8`) | Z notifikace domýšlet autoritativní stav nebo rekonstruovat neexistující události běhu |
+| **Reconnect** | ① `health` → ② operace → ③ data; při aktivní notifikační obrazovce se nejdřív odebere live ACK grant a provede nový HTTP pull durable S1 řádků. Přerušený turn se **označí**, nepokračuje (`C-8`) | Z notifikace domýšlet autoritativní stav, ACKovat z cache nebo rekonstruovat neexistující události běhu |
 
 Pravidlo, které to spojuje: **žádný přechod nikdy nezpůsobí mutaci.** Obnovit
 se dá jen čtením.
@@ -1348,7 +1352,7 @@ a co znamená nejasný konec. Stav je ověřený proti handlerům.
 |---|---|---|---|---|
 | `POST /m1/chat` | **povinný** — bez něj `BAD_REQUEST` (`handlers.js:211-215`) | jen s **týmž** klíčem → `202`/`200` bez druhého efektu (`handlers.js:249-264`) | přečíst `GET /m1/operations/:id` (`resolveBy` je v odpovědi, `handlers.js:291`) | jiný text = jiná zpráva → **nový klíč**; týž klíč + jiný payload = `OPERATION_CONFLICT` |
 | `POST /m1/approvals/:id/decide` | **povinný** (`handlers.js:464`) | jen s týmž klíčem **a** týmž otiskem; klíč **neprodlužuje** jednorázové oprávnění (`I-11`) | přečíst stav approvalu **i** operace; nikdy nerozhodovat znovu naslepo | jiný otisk → `APPROVAL_SUPERSEDED`, rozhodnutí se zahazuje |
-| `POST /m1/notifications/ack` | není | stejné ID je mechanicky idempotentní, ale endpoint není bezpečný mezi zařízeními: handler nepředá `deviceId`, SQL filtruje jen ID a broadcast má globální `read_at` (`F-112`, child `F-011`/`F-015`) | **nepovažovat za produkčně bezpečný retry**; `DR-003` A a `DR-012` A přijaly append-only lifecycle a per-device receipts, ale implementace, sekvenční ochrana a Gate 1 důkazy chybějí | — |
+| `POST /m1/notifications/ack` | není | stejné ID je per-device idempotentní; targeted i broadcast receipt jsou izolované podle `principal.deviceId` | klient ACKuje jen zobrazené unread id po live readu; timeout/malformed odpověď **automaticky neopakuje**, ale nový read zjistí skutečný stav | — |
 | `POST /m1/pair/claim` | není | **ne** — druhé uplatnění je `PAIRING_ALREADY_USED` | začít znovu s **novým kódem** | — |
 | všechna `GET` | není | ano | — | — |
 

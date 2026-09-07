@@ -1,6 +1,6 @@
 # IntentSmith Mobile — kanonický prototyp a cesta k production-ready
 
-**Datum poslední aktualizace:** 2026-09-06
+**Datum poslední aktualizace:** 2026-09-07
 
 **Kanonická vývojová větev:** `mobile/master-prod-ready`
 
@@ -137,6 +137,9 @@ exact LTM/task DTO, server-issued cursor, úplný průchod, validovaný
 MM4-M v `af33f984` uzavírá paired-device list trust hranici: exact veřejný
 snapshot, vazbu jediného `current` řádku na credential, validovanou read-only
 cache a live-only revoke grant rušený při readu, chybě, locku i reconnectu.
+MM4-N v `656941d4` uzavírá notification consumer trust hranici: exact
+devítipolový DTO a closed-S1 slovník, monotónní sequence window, validovanou
+current/legacy cache a ACK odemčený jen oběma scopy a aktuálním live readem.
 Aktuální binární build a fyzický device journey však stále neproběhly, takže
 jde o implementovaný kandidát, ne release verdict.
 
@@ -147,7 +150,7 @@ jde o implementovaný kandidát, ne release verdict.
 | Párování a čtení SQLite | `EMULATOR VERIFIED` | párování, seznam konverzací, stránkovaná historie, přehled, trust bar a žurnál | pouze current-host emulátor; žádná fresh-clone ani fyzická device matice |
 | ★ approval | `SEAM IMPLEMENTED` | telefon rozhodl durable approval a soubor vznikl; od 2026-08-19 vede přes `guardedWrite` i editační cesta jádra (`fs.write` v režimu `ask`), takže odpovědět může telefon, IDE i desktop | zapíná se vložením závislostí (`setApprovalDeps`), jinak platí původní chování; fyzický telefon `NOT RUN` |
 | Approval authority | `COMPONENT IMPLEMENTED` | mint jde přes `createMobileApproval`, má výpočet otisku, vazbu a od `025` **předpoklad stavu cíle** místo okna; rozhodovací pravidla jsou v **jedné** sdílené funkci pro mobil i desktop | rozhodnutí 024–027 přijata 2026-08-19; `DR-011` v PLAN/DATA-MODEL/SCREENS ještě popisuje staré pětiminutové okno a je tím **zastaralé** |
-| Notifikační schránka | `DEMO PRODUCER IMPLEMENTED` | uzavřený devítivětý S1 slovník bez obsahu, zobrazený na emulátoru | je to pull; bez push a bez zapojení do skutečného core lifecycle |
+| Notifikační schránka | `SOURCE TESTED; DEVICE TEST PENDING` | closed-S1 producer, per-device receipts, unikátní sequence, exact klientský DTO/page/cache consumer a live-only ACK; 36/36 klient, 10/10 ACK, 6/6 sequence, 9/9 wiring, 24/24 producer a 5/5 process/HTTP E2E | je to pull; obecná production event-selection/delivery a push policy, wire freeze i fyzický WebView journey zůstávají otevřené |
 | Průběh běhu | `DEMO PROJECTION IMPLEMENTED` | demo mapuje `CoreEvent` do S1 indikátorů ve schránce | není vlastní run obrazovka ani produkční CoreEvent konektor |
 | Android shell | `IMPLEMENTED AND STATICALLY TESTED`; current binary not rebuilt | Capacitor 8.4.3, minSdk 24, compile/target 36; canonical client is packaged in the APK and native HTTP transport keeps the gateway behind `/m1` without CORS widening | current API-36 binary and device journey remain unverified |
 | Token at rest | `SOURCE TESTED; DEVICE TEST PENDING` | přímý `AndroidKeyStore` AES-256-GCM trezor, náhodné IV, AAD, atomické skupiny a vypnutý backup; nativní shell nikdy nepadá do `localStorage` | 12/12 invariantů a 19/19 klientských scénářů PASS; tři instrumentační testy jsou napsané, ale bez SDK/zařízení `NOT RUN`; mezi odemčením a zamčením kopie v JS paměti existuje |
@@ -429,6 +432,9 @@ tohoto úklidu.
 - [x] Podpis je fail-closed — release bez klíče selže.
 - [x] Scope-gated seznam a journalled odvolání zařízení jsou source-tested.
       *(8/8 gateway + 15/15 UI po MM4-M; fyzický lost-device průchod zbývá)*
+- [x] Pull/ACK notifikační consumer je fail-closed a source-tested.
+      *(36/36 klient, 10/10 per-device ACK, 6/6 sequence, 9/9 wiring,
+      24/24 producer, 5/5 process/HTTP E2E po MM4-N; push/device průchod zbývá)*
 - [ ] Fyzický telefon prošel approve/reject/expire, outage, restart a lost-device scénáři.
 - [ ] Accessibility a podporovaná device/OS matice jsou PASS.
 - [ ] Boundary ratchet je přijatý integrátorem, ne pouze přebaselinovaný.

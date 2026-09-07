@@ -323,6 +323,23 @@ Hranice, kterou je nutné vyslovit nahlas (a je už v `DATA-MODEL` §5.3):
 útočníkovi, který telefon nepřipojí k síti, neexistuje remote wipe. Jediná
 obrana, která funguje po ztrátě, je minimalizace cache (`P-1`).
 
+### P1-3n Integrita notifikační schránky
+
+Stav MM4-N: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`.
+Existující pull/ACK surface klient přijme jen jako přesný HTTP 200 envelope,
+exact devítipolové S1 záznamy shodné s closed vocabulary producenta a
+koherentní monotónní sequence boundary. Serverem potvrzený partial výřez má
+viditelné pokračování; cache nese `{ items, page }`, legacy array je explicitně
+neúplná a corrupt/expired data se mažou. `read:notifications` nedává právo
+zapisovat: ACK vyžaduje i `write:notifications`, zdravé spojení a nový live
+read. Nejasný ACK se automaticky neopakuje a oba HTTP směry používají
+`no-store`. Source evidence je 36/36 klient, 10/10 ACK, 6/6 sequence, 9/9
+wiring, 24/24 producer a 5/5 process/HTTP E2E.
+
+To není důkaz push doručení, background policy, vzdálené sítě, fyzického
+WebView ani release přijetí. Viz
+[MM4-N review](reviews/MM4N-NOTIFICATION-INBOX-INTEGRITY.md).
+
 ### P1-3a Revizní zápis nastavení
 
 Stav MM4-E: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`.

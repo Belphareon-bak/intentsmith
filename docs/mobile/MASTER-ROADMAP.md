@@ -69,7 +69,8 @@ stored information (`3341ea11`), and guarded worker enable/disable
 (`fd8ad498`), persisted specialist package/expertise detail (`241b8934`) and
 fail-closed configured-list integrity (`acff7939`), followed by exact public-
 settings read integrity (`99cdfdde`) and exact stored-information list
-integrity (`d1f0a98a`), then paired-device list integrity (`af33f984`). Worker
+integrity (`d1f0a98a`), paired-device list integrity (`af33f984`) and
+notification inbox integrity (`656941d4`). Worker
 and specialist list
 pages and cache snapshots now require exact public DTOs, coherent opaque-cursor
 boundaries and no duplicate/overlapping ids; only an exact live worker page can
@@ -83,9 +84,12 @@ existing opaque cursor to its confirmed end and persists only an exact
 The device consumer now validates the exact public snapshot and current-device
 binding before publication; its cache is read-only and only a current live read
 can unlock the existing revoke flow.
-MM4 remains open for governed specialist actions, live run progress and
-broader worker lifecycle commands; memory replacement, deletion and
-task-memory writes are explicitly outside the current mobile authority.
+The notification consumer now binds exact S1 records to a monotonic sequence
+window, validates current/legacy cache, separates read/write scopes and grants
+ACK only after a current live read. MM4 remains open for governed specialist
+actions and accepted production notification delivery/push policy; live run
+progress and broader worker lifecycle commands remain open. Memory replacement,
+deletion and task-memory writes are explicitly outside current mobile authority.
 
 ## Current lineage
 

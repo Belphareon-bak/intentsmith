@@ -13,8 +13,10 @@
 > MM4-K doplňuje exact 46-path public-settings read a editor-relock důkazy.
 > MM4-L doplňuje exact stored-information DTO/page/cache a cursor důkazy.
 > MM4-M doplňuje exact device snapshot/cache a live revoke-authority důkazy.
+> MM4-N doplňuje exact notification DTO/S1/page/cache, race, scope a live-only
+> ACK důkazy bez nové route nebo testovacího programu.
 > Autoritou poslední změny je review
-> `MM4M-PAIRED-DEVICE-LIST-INTEGRITY`;
+> `MM4N-NOTIFICATION-INBOX-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 > **MM4-G evidence overlay:** `mobile-workers-specialists` (12/12) pokrývá
@@ -93,6 +95,14 @@
 > při readu, chybě, locku, offline, reconnectu nebo scope loss.
 > `mobile-devices` zůstává 8/8; route, scope, port ani nový testovací program
 > se neměnily.
+
+> **MM4-N evidence overlay:** `mobile-overview` (36/36) nyní přímo porovnává
+> klientský closed-S1 slovník s producentem a kryje exact DTO, sequence/page
+> invariant, partial UI, current/legacy/corrupt cache, newest-response-wins,
+> scope/connectivity wipe, read/write rozdělení a live-only ACK. ACK odmítne
+> malformed/non-200 odpověď, neautorizuje se z cache a nejasný efekt se
+> automaticky neopakuje. Existující backendové sady zůstávají 10/10, 6/6,
+> 9/9, 24/24 a E2E 5/5; celý gate je 54/54 active, Chromium withheld.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; mobilní zeleň není Gate 0 PASS
 **Revize:** vstupy `RV-028`, `RV-036`, `RV-037`, reconciliation `RV-038`; Composition Review C `RV-039`/`RV-040`; registr a chráněné hodnoty `RV-042`/`RV-043`
@@ -364,25 +374,22 @@ z ní odvodit nelze.
 a `MS-20` zachovalo ID. `RV-042` schválilo registry delta, `RV-043` chráněné
 hodnoty. M3 potvrdilo mobile PASS, ale celý běh `208/3` není Gate 0 PASS.
 
-### 4.3 Stále otevřené produkční blokery z `RV-035`, zachované v `RV-036`
+### 4.3 Stav původních produkčních blockerů po MM4-N
 
 Existence komponent není test end-to-end kontraktu. Před jakýmkoli produkčním
 claimem musí nová nebo rozšířená evidence fail-closed prokázat:
 
-1. **`F-111` — skutečný producent.** Jde o úzké child evidence root `F-014`,
-   ne další unikátní root. Produkční notification router musí
-   z normální emise vytvořit očekávaný řádek `mobile_notifications`, který pak
-   stejné zařízení přečte přes `GET /m1/notifications`. Přímá konstrukce
-   `MobileChannel` nebo seed databáze tento důkaz nenahrazuje.
-2. **`F-112` — izolovaný ACK.** Jde o úzké child evidence root findingů
-   `F-011`/`F-015`, ne další unikátní root; `F-015` navíc samostatně vyžaduje
-   concurrency test závodu `MAX(seq)+1` a DB uniqueness/transakční garance.
-   HTTP negativní test musí prokázat, že zařízení
-   A nedokáže ACKnout cílený řádek zařízení B ani při znalosti ID. Broadcast
-   musí mít samostatný stav přečtení pro každé zařízení. `PRODUCT_OWNER` přijal
-   `DR-003` A, jeho specializaci `DR-012` A a companion pravidlo `DR-013` A.
-   Cílový append-only lifecycle, per-device receipts a policy-controlled S1-safe
-   mirror však nejsou implementované; concurrency ochrana a Gate 1 důkazy chybějí.
+1. **`F-111` komponentní část — source-tested.** Produkční router registruje
+   fail-closed mobile channel, jediný capability holder je closed-S1 companion
+   producer a owned-process E2E prochází zápisem i HTTP čtením. Otevřená je
+   obecná production event-selection/delivery policy, nikoli existence těchto
+   komponent.
+2. **`F-112` / `F-015` komponentní část — source-tested.** Migrace 058 drží
+   per-device receipts, handler předává `principal.deviceId`, targeted i
+   broadcast ACK jsou izolované a migrace 059 plus concurrency test drží
+   unikátní sequence. MM4-N přidává exact client consumer a live-only ACK gate.
+   Otevřené zůstávají nezávislá release akceptace, wire freeze, remote/device
+   evidence a push/background policy.
 3. **`F-113` — `RESOLVED` a evidované.** Test v
    `mobile-ms20-ui.test.js` vkládá moderní i legacy záznamy s extra poli a
    prokazuje, že `normalizeEntry()` vrátí jen sedm allowlistovaných polí, aliasy
@@ -390,10 +397,10 @@ claimem musí nová nebo rozšířená evidence fail-closed prokázat:
    vstupu nefabrikuje identitu ani čas. Oprava `2a814434` prošla `RV-037`,
    Composition Review C `RV-039`/`RV-040`, registry `RV-042` a mobilní M3 PASS.
 
-Testy pro `F-111`/`F-112` a jejich produkční implementace stále chybějí.
-`F-113` má source, kompoziční, registry i mobilní M3 evidenci. Dokumentace sama
-produktový kontrakt ani implementační autoritu nemění a celý profil `208/3`
-zůstává blokovaný.
+Testy pro uvedené komponenty nyní existují: wiring 9/9, producer 24/24,
+process/HTTP E2E 5/5, ACK 10/10, sequence 6/6 a MM4-N klient v kombinované
+overview sadě 36/36. Dokumentace ani zelený source/loopback gate samy neudělují
+produkční delivery, push, remote-network nebo release autoritu.
 
 ---
 

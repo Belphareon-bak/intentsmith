@@ -10,8 +10,10 @@
 > `GET /m1/conversations` o uzavřený `projectId` filtr, dvojici scopů
 > `read:chat` + `read:projects`, projektově svázaný cursor a `no-store`.
 > MM4-M zpřísnilo consumer existujícího device list/revoke povrchu bez změny
-> gateway kontraktu. Autoritou poslední změny je review
-> `MM4M-PAIRED-DEVICE-LIST-INTEGRITY`;
+> gateway kontraktu. MM4-N zpřísnilo consumer existujícího notification
+> read/ack povrchu a doplnilo `no-store` response header bez změny route či
+> wire body. Autoritou poslední změny je review
+> `MM4N-NOTIFICATION-INBOX-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; gateway je implementovaná a testovaná pouze **na loopbacku**, nikoli produkčně DONE.
@@ -26,10 +28,12 @@ Vzdálená expozice zůstává zakázaná a `GAP-2` otevřená — viz
 **Aktuální hranice:** kód a `gateway-policy.js` drží přesný **13-route HTTP
 allow-list**. Je to dnešní implementovaný/source-policy-frozen povrch, nikoli
 formálně refrozený kontrakt v2 pro šest domén z `DR-008`. Dnešní `/m1` nemá
-WebSocket ani SSE. Existují třída/DB tabulka a HTTP read/ack surface
-(`GET /m1/notifications`, `POST /m1/notifications/ack`), ale bez produkčního
-producenta a wiring nejde o dosažitelný end-to-end inbox; realtime je jen
-budoucí neautorizovaný kandidát. Každé nové spárování razí nový `deviceId`,
+WebSocket ani SSE. Existují třída/DB tabulka, per-device receipts, unikátní
+sequence, closed-S1 companion producer a HTTP read/ack surface
+(`GET /m1/notifications`, `POST /m1/notifications/ack`). MM4-N jejich consumer
+validuje fail-closed; obecná produkční event-selection/delivery a push policy
+však nejsou uzavřené a realtime je jen budoucí neautorizovaný kandidát. Každé
+nové spárování razí nový `deviceId`,
 takže staré operace nejsou z nového zařízení dostupné. Při zachovaném tokenu
 téhož zařízení se nejasný timeout řeší `GET /m1/operations/:id`; seznam
 stejného zařízení obnoví jen serverová pole otevřených pokusů, ne lokální
@@ -337,22 +341,20 @@ tenhle krok schválil (`WP-MOBILE-028` §4, varianta A). Není to formální ref
 kontraktu v2; jestli kontraktní autorita usoudí, že tvar requestu pod zmrazený
 povrch spadá, projde `MR-05` kolem `DR-008` jako ostatní domény.
 
-Notifikační dvojice rout zatím **není produkčně bezpečný end-to-end kanál**.
-`GET /m1/notifications` filtruje cílené řádky na `principal.deviceId` a přidává
-broadcast řádky. `POST /m1/notifications/ack` ale předá databázi jen seznam ID;
-SQL aktualizuje `read_at` pouze podle těchto ID, bez predikátu `device_id`.
-Zařízení tak může ACKnout uhodnutý cílený řádek jiného zařízení a broadcast
-řádek má jedno globální `read_at` pro všechny (`F-112`, **HIGH**, úzké child
-evidence root findingů `F-011`/`F-015`). Root `F-015` navíc samostatně drží
-závod `MAX(seq)+1` bez `UNIQUE`/transakční garance. `DR-012` specializuje
-`DR-003`; variantu A obou rozhodnutí `PRODUCT_OWNER` přijal společně a
-`DR-013` A přijal policy-controlled S1-safe companion mirror. Jsou to cílové
-kontrakty, ne implementace: per-device receipt/ACK izolace, sekvenční garance,
-producent/projektor a Gate 1 důkazy stále chybějí. Třída
-`MobileChannel`, tabulka a tyto read/ack routy existují, ale produkční router
-registruje email/telegram/push a server doplňuje webhook/desktop;
-`MobileChannel` nikde nekonstruuje ani nezapojí. Běžná produkční emise proto
-mobilní řádek nevytvoří (`F-111`, úzké child evidence root `F-014`).
+Notifikační dvojice rout je source-tested jako device-scoped pull/ACK kanál.
+`GET /m1/notifications` filtruje cílené řádky na `principal.deviceId`, přidává
+broadcasty a vydává unikátní monotónní sequence boundary. Stav přečtení je v
+`mobile_notification_receipts` per zařízení; `POST /m1/notifications/ack`
+předává databázi i `principal.deviceId`, takže cizí cílený řádek ani broadcast
+receipt jiného zařízení nezmění. Obě odpovědi nesou `Cache-Control: no-store`.
+
+Produkční router registruje fail-closed `MobileChannel`; jeho neforgeable
+capability drží právě `src/mobile/companion-producer.js`, který mapuje approval
+a core-run ukazatele do uzavřeného S1 slovníku. MM4-N klient přijímá pouze
+exact DTO z tohoto slovníku, validuje sequence page/cache, odděluje read a write
+scope a ACKuje jen zobrazené nepřečtené id po aktuálním live readu. Komponentní
+evidence je zelená, ale obecná produkční event-selection/delivery policy, push,
+wire freeze, device průchod a release acceptance tím nejsou prohlášeny.
 
 `POST /m1/approvals/:id/decide` také sám neprokazuje cílový kontrakt `R-3`.
 Podle `DR-011` zůstává `R-3` cílem: chybí produkční producent approvalů,

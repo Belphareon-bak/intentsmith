@@ -16,8 +16,9 @@
 > MM4-K nyní uzavírá exact live-only settings read a fail-closed editor relock.
 > MM4-L uzavírá exact stored-information list, úplný cursorový průchod a page
 > cache boundary. MM4-M uzavírá exact device snapshot/cache a live revoke
-> authority. Autoritou poslední změny je review
-> `MM4M-PAIRED-DEVICE-LIST-INTEGRITY`;
+> authority. MM4-N uzavírá exact notification inbox, viditelnou partial
+> boundary, validovanou cache a live-only ACK. Autoritou poslední změny je review
+> `MM4N-NOTIFICATION-INBOX-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná obrazovka tím není produktově DONE
@@ -29,10 +30,12 @@
 **Aktuální hranice:** kód a `gateway-policy.js` drží přesný **13-route HTTP
 allow-list**. Je to dnešní implementovaný/source-policy-frozen povrch, nikoli
 formálně refrozený kontrakt v2 pro šest domén z `DR-008`. Dnešní `/m1` nemá
-WebSocket ani SSE. Existují třída/DB tabulka a HTTP read/ack surface
-(`GET /m1/notifications`, `POST /m1/notifications/ack`), ale bez produkčního
-producenta a wiring nejde o dosažitelný end-to-end inbox; realtime je jen
-budoucí neautorizovaný kandidát. Každé nové spárování razí nový `deviceId`,
+WebSocket ani SSE. Existují třída/DB tabulka, per-device receipts, unikátní
+sequence, closed-S1 companion producer a HTTP read/ack surface
+(`GET /m1/notifications`, `POST /m1/notifications/ack`). MM4-N jejich consumer
+validuje fail-closed; obecná produkční event-selection/delivery a push policy
+však nejsou uzavřené a realtime je jen budoucí neautorizovaný kandidát. Každé
+nové spárování razí nový `deviceId`,
 takže staré operace nejsou z nového zařízení dostupné. Při zachovaném tokenu
 téhož zařízení se nejasný timeout řeší `GET /m1/operations/:id`; seznam
 stejného zařízení obnoví jen serverová pole otevřených pokusů, ne lokální
@@ -327,29 +330,29 @@ Jediná obrazovka, která má smysl i bez platného tokenu — má odpovědět n
 
 **Požadavky:** `MR-21` · **Data:** `MD-08` · **Testy:** `IS-T1-TESTS-MOBILE-PRIVACY-NOTIFICATION-CONTENT-TEST`
 
-Obrazovka dnes umí číst jen předem seedované nebo přímo zapsané řádky.
-Produkční notification pipeline `MobileChannel` nekonstruuje ani neregistruje,
-takže normální událost do mobilního inboxu nedorazí (`F-111`, úzké child
-evidence root `F-014`). Akce „přečteno" navíc není produkčně bezpečná: handler
-nepředává `deviceId`, SQL ACKuje pouze podle ID a broadcast sdílí globální
-`read_at` (`F-112`, **HIGH**, child `F-011`/`F-015`). Root `F-015` samostatně
-drží i závod `MAX(seq)+1` bez `UNIQUE`. `PRODUCT_OWNER` přijal `DR-003` A,
-specializaci `DR-012` A a `DR-013` A pro policy-controlled S1-safe companion
-mirror. Rozhodnutí jsou cílový kontrakt, ne implementace: receipts, sekvenční
-ochrana, producer/projektor a Gate 1 důkazy chybějí.
+> **Implementační checkpoint MM4-N (2026-09-07):** klient přijímá pouze exact
+> devítipolové S1 řádky shodné s closed vocabulary producenta, prochází celé
+> serverem potvrzené sequence window, validuje current i legacy cache a
+> odděluje čtecí scope od live-only ACK authority. Per-device receipts,
+> unikátní sequence a fail-closed companion producer jsou source/loopback
+> testované. Evidence: [MM4-N review](reviews/MM4N-NOTIFICATION-INBOX-INTEGRITY.md).
+
+Obrazovka je pull consumer, ne realtime centrum. Produkční event-selection,
+background refresh/push, remote transport, fyzický device průchod a release
+acceptance zůstávají otevřené.
 
 | Stav | Chování |
 |---|---|
 | `SS-01` | Skeleton |
-| `SS-02` | „Zatím nic" |
-| `SS-03` | Historie z cache **s výslovným upozorněním, že je do dalšího HTTP pullu neúplná**. Durable řádky mohou čekat na serveru; aplikace je offline právě nečte |
+| `SS-02` | „Žádné notifikace" jen po serverem potvrzeném `end`; prázdná legacy cache úplnost netvrdí |
+| `SS-03` | Historie z validované cache se stářím; legacy array je výslovně neúplná a ACK z cache zůstává zamčený |
 | `SS-04` | Stáří posledního doručení je vidět vždy |
-| `SS-05` | Po reconnectu následuje HTTP pull existujících serverových řádků a pak refresh odkazovaných autoritativních dat. Bez produkčního producenta `F-111` tento pull nepokrývá běžné události. Notifikace je ukazatel, takže sama neurčuje aktuální stav (DATA-MODEL §3) |
+| `SS-05` | Po reconnectu se live ACK grant odebere a při otevřené obrazovce následuje nový HTTP pull. Notifikace je ukazatel, takže sama neurčuje aktuální stav (DATA-MODEL §3) |
 | `SS-06` | Vyprázdnit, přejít na přihlášení |
 | `SS-07` | Notifikace mimo scope se nedoručují ani nezobrazují |
 | `SS-08` | Kanál je dole — řekni to; ticho není „nic se neděje" |
 | `SS-09` | Notifikace odkazuje na věc, která už neexistuje → otevři aktuální stav, ne 404 |
-| `SS-10` | HTTP pull je opakovatelné čtení. ACK stejné množiny ID je mechanicky idempotentní, ale kvůli `F-112` není bezpečný mezi zařízeními ani produkčně schválený |
+| `SS-10` | HTTP pull je opakovatelné čtení. ACK je per-device a idempotentní, ale nejasný HTTP výsledek se automaticky neopakuje; nový read zjistí skutečný stav |
 
 > Notifikace nese ukazatel, ne obsah (`MD-08`) — objevuje se na zamčené
 > obrazovce, kde neplatí `MR-23`.

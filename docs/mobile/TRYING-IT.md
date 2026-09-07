@@ -33,7 +33,7 @@ i webového klienta**, takže na čtení žádný backend nepotřebuje. Legacy s
 | **Zapnout nebo vypnout agenta** | ❌ — změna je záměrně delegovaná živému legacy serveru, který vlastní scheduler |
 | **Odeslat zprávu** | ❌ — `upstream: unreachable`, aplikace to řekne rovnou |
 | Approvaly s reálným obsahem | ✅ — produkční cesta je zapojená (`server.js`), takže je vyrobí skutečný zápis. Gateway je ale jen čte; **vyrábí** je backend, takže bez něj se nová otázka neobjeví |
-| Schránka s ukazateli běhu | ✅ jen v demu — S1 projektor `DR-013 A`, tentýž demo běh |
+| Schránka s ukazateli běhu | ✅ pro durable S1 řádky — exact pull, sequence pagination a per-device ACK; bez push a bez přijaté obecné production event-selection/delivery policy |
 
 Neběžící backend se **nemaskuje**: `GET /m1/health` vrací
 `upstream: "unreachable"` s důvodem a composer se zamkne s vysvětlením. To je
@@ -177,6 +177,23 @@ Integritu seznamu zařízení (MM4-M) zkontroluj ve stejné kartě:
 
 Exact snapshot, cache a live-authority pravidla jsou v
 [MM4-M review](reviews/MM4M-PAIRED-DEVICE-LIST-INTEGRITY.md).
+
+Integritu notifikační schránky (MM4-N) zkontroluj v **Přehled → Zprávy**:
+
+1. s `read:notifications` bez `write:notifications` musí být historie čitelná,
+   ale **Označit zobrazené přečtené** zamčené a UI musí chybějící scope říct;
+2. přes 50 řádků musí vzniknout **Načíst další zprávy** a druhý request vrací
+   právě serverem vydané `nextAfterSeq`; počet na přehledu ukazuje u neúplného
+   okna `+`;
+3. extra pole, neznámý event/text mimo closed S1 slovník, duplicate id,
+   neklesající pořadí nebo chybná boundary odmítne celou stránku;
+4. validní cache se smí číst se stářím, ale ACK neodemkne; legacy array musí
+   přiznat neúplnost a corrupt/expired snapshot se odstraní;
+5. nový read, protocol/server/offline chyba, lock, reconnect nebo scope loss
+   musí live ACK grant odebrat; nejasný ACK se nesmí sám opakovat.
+
+Exact DTO/page/cache a live-authority pravidla jsou v
+[MM4-N review](reviews/MM4N-NOTIFICATION-INBOX-INTEGRITY.md).
 
 Revizní zápis nastavení zkontroluj v **Nastavení → Nastavení backendu**:
 
