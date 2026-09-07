@@ -117,6 +117,8 @@ console.log('\n=== MS-07 conversation history window (MR-05) ===');
 
 const message = n => ({ id: String(n), role: n % 2 ? 'user' : 'assistant', content: `zpráva ${n}` });
 const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => message(from + i));
+const MINUTE = 60_000;
+const DAY = 24 * 60 * MINUTE;
 
 /** A server answer in the shape `withEnvelope` produces. */
 function page(messages, { nextCursor = null, end = true, direction = 'backward' } = {}) {
@@ -253,6 +255,33 @@ try {
     const restored = threadWindowOf(cached.data);
     assert.equal(restored.cursor, 'cur-200');
     assert.equal(restored.end, false);
+  });
+
+  await test('MM3-H thread content uses 15 minutes/seven days and deletes expired S2 before publication', async () => {
+    reset({ conn: 'offline' });
+    const key = K.cache + 'thread.c1';
+    const data = {
+      conversation: { id: 'c1', title: 'Dlouhá', messageCount: 250 },
+      messages: range(201, 250),
+      window: { cursor: 'cur-200', end: false },
+    };
+
+    store.set(key, { at: Date.now() - 14 * MINUTE, data });
+    assert.equal(cache.read('thread.c1').status, 'FRESH');
+    store.set(key, { at: Date.now() - 16 * MINUTE, data });
+    assert.equal(cache.read('thread.c1').status, 'STALE');
+    store.set(key, { at: Date.now() - 6 * DAY, data });
+    assert.equal(cache.read('thread.c1').status, 'STALE');
+    store.set(key, { at: Date.now() - 8 * DAY, data });
+    assert.equal(cache.read('thread.c1').status, 'EXPIRED');
+
+    wire.reply = () => { throw new TypeError('offline'); };
+    await loadThread('c1');
+
+    assert.equal(store.get(key), null, 'expired S2 cache must be deleted');
+    assert.equal(state.data.thread, null, 'expired messages must not reach memory');
+    assert.equal(state.cacheAge.thread, null);
+    assert.equal(state.error.thread.kind, 'offline');
   });
 
   await test('loading older prepends the page and follows the server cursor', async () => {

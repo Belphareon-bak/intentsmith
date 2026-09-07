@@ -293,6 +293,8 @@ const auth = {
 const FRESH_MS = 60_000;
 const STALE_MS = 15 * 60_000;
 const CACHE_WINDOWS = Object.freeze({
+  conversations: Object.freeze({ freshMs: 15 * 60_000, staleMs: 30 * 24 * 60 * 60_000 }),
+  thread: Object.freeze({ freshMs: 15 * 60_000, staleMs: 7 * 24 * 60 * 60_000 }),
   projects: Object.freeze({ freshMs: 15 * 60_000, staleMs: 7 * 24 * 60 * 60_000 }),
   memory: Object.freeze({ freshMs: 60 * 60_000, staleMs: 7 * 24 * 60 * 60_000 }),
   workers: Object.freeze({ freshMs: 5 * 60_000, staleMs: 7 * 24 * 60 * 60_000 }),
@@ -300,6 +302,8 @@ const CACHE_WINDOWS = Object.freeze({
 });
 
 function cacheWindow(name) {
+  if (name === 'conversations') return CACHE_WINDOWS.conversations;
+  if (name.startsWith('thread.')) return CACHE_WINDOWS.thread;
   if (name === 'projects.active' || name === 'projects.archived'
       || name.startsWith('project.')) return CACHE_WINDOWS.projects;
   return CACHE_WINDOWS[name] || { freshMs: FRESH_MS, staleMs: STALE_MS };
@@ -5130,7 +5134,13 @@ function writeThreadCache(conversationId) {
 
 async function loadThread(conversationId) {
   const key = `thread.${conversationId}`;
-  const cached = cache.read(key);
+  let cached = cache.read(key);
+  if (cached.status === 'EXPIRED') {
+    // MD-04 is a content boundary, not only an age label. Once its seven-day
+    // window closes, no expired S2 message may reach memory or the renderer.
+    store.del(K.cache + key);
+    cached = { status: 'MISSING', data: null, at: null };
+  }
   if (cached.data) {
     state.data.thread = cached.data;
     state.cacheAge.thread = cached.status;

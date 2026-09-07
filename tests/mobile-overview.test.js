@@ -107,7 +107,7 @@ globalThis.fetch = async () => { throw new TypeError('this suite renders; it doe
 const { __ms20 } = await import('../src/mobile/client/app.js');
 const {
   state, store, K, render, viewOverview, viewConversations, loadConversations,
-  validConversationPage, replaceScopes, navItems, currentSection, unknownScopes,
+  validConversationPage, replaceScopes, navItems, currentSection, unknownScopes, cache,
   viewNotifications, loadNotifications, ackAll, notificationMutationFresh,
   validNotificationRecord, validNotificationRecords, validNotificationBoundary,
   validNotificationPage, validNotificationCacheSnapshot, validNotificationAckResponse,
@@ -119,6 +119,7 @@ const BOOT_ROUTE = state.route;
 
 const html = () => nodes.app.innerHTML;
 const MINUTE = 60_000;
+const DAY = 24 * 60 * MINUTE;
 const ALL_SCOPES = [
   'read:chat', 'write:chat', 'read:notifications', 'write:notifications',
   'read:approvals', 'write:approvals',
@@ -570,6 +571,23 @@ await test('MM3-D reads the legacy array cache without inventing a continuation 
     async json() { return conversationPage([conversation()]); },
   });
   await pending;
+});
+
+await test('MM3-H conversation metadata uses the documented 15-minute/30-day lifecycle', () => {
+  reset();
+  const key = K.cache + 'conversations';
+  const data = { items: [conversation()], page: {
+    hasMore: false, nextCursor: null, end: true,
+  } };
+
+  store.set(key, { at: Date.now() - 14 * MINUTE, data });
+  assert.equal(cache.read('conversations').status, 'FRESH');
+  store.set(key, { at: Date.now() - 16 * MINUTE, data });
+  assert.equal(cache.read('conversations').status, 'STALE');
+  store.set(key, { at: Date.now() - 29 * DAY, data });
+  assert.equal(cache.read('conversations').status, 'STALE');
+  store.set(key, { at: Date.now() - 31 * DAY, data });
+  assert.equal(cache.read('conversations').status, 'EXPIRED');
 });
 
 // ── MM4-N — notification inbox consumer integrity ───────────────────────────
