@@ -176,7 +176,7 @@ jde o implementovaný kandidát, ne release verdict.
 | Odemčení | `EMULATOR VERIFIED` | systémový `BiometricPrompt` (otisk / obličej / PIN telefonu); po odemčení se stránka reloadne a čte z trezoru | vlastní PIN zůstává jen pro telefon **bez** zámku obrazovky; fyzická biometrie `NOT RUN` |
 | APK a podpis | historical internal build verified; current build `NOT RUN` | cross-platform workflow před buildem kontroluje JDK 21/API 36, release bez klíče selže a ověření podpisu po buildu je povinné | `--debug-signing` je vědomý únik pro jednorázový build; žádná production key ceremony |
 | Síť | `USB LOOPBACK ONLY` | `adb reverse` zachovává gateway na loopbacku | žádný vzdálený listener, VPN support claim, TLS ani push |
-| Accessibility | `PARTIAL` | `mobile-browser-a11y` **22/22 PASS** ve skutečném Chromiu (ručně; v gate dál withheld) — kontrast, focus order, ohlášení trust baru čtečce **a růst se 200% písmem** | TalkBack na zařízení a fyzická AT matice zůstávají `NOT RUN`; jeden test sám pojmenovává sporné měření kontrastu popisků lišty |
+| Accessibility | `SOURCE TESTED; DEVICE/AT MATRIX PENDING` | required `mobile-browser-a11y` **22/22 PASS** ve skutečném Chromiu uvnitř mobilní gate — ustálený light/dark kontrast včetně popisků lišty, focus order, trust-bar accessibility, touch targets, scroll paging a růst se 200% browser písmem | TalkBack na zařízení, skutečné OS font nastavení, rotace, soft keyboard a fyzická AT/OS matice zůstávají `NOT RUN` |
 
 Nejdůležitější upřesnění proti staršímu popisu: po approval v demu provádí
 `scripts/mobile-demo-run.js` přímý `fs.writeFileSync`. Pořadí je správné — efekt
@@ -239,24 +239,22 @@ Tři sondy z review jsou převedené na regresní testy
 
 Na runtime snapshotu a znovu po dokumentační konsolidaci prošlo:
 
-- `npm run test:mobile`: **54/54 aktivních mobilních programů PASS**; 1 Chromium
-  sada je withheld a nepočítá se jako průchod;
-- `mobile-browser-a11y`: **22/22 PASS** při ručním spuštění — prerekvizita se
-  doinstaluje jedním příkazem (`npx puppeteer browsers install chrome`).
-  V gate zůstává **withheld**: stav `BLOCKED` je vlastnost registru, ne mého
-  stroje, a gate schválně nesonduje prostředí. Aby se ten výsledek počítal,
-  musí někdo přeřadit sadu na `ACTIVE` a přijmout tím, že Chromium je napříště
-  povinná prerekvizita gate — to je rozhodnutí implementátora registru;
+- `npm run test:mobile`: **55/55 aktivních mobilních programů PASS**, bez
+  withheld sady;
+- `mobile-browser-a11y`: required `ACTIVE`, **22/22 PASS** uvnitř gate. Runtime
+  se připraví `npm run mobile:a11y:setup`; chybějící browser končí nenulově.
+  Settled-frame měření zahrnuje i popisky lišty, ale výsledek nenahrazuje
+  TalkBack ani fyzickou AT/device matici;
 - `tests/mobile-companion-producer.test.js`: **24 PASS**;
 - `tests/file-write-lock.test.js`: **16 PASS**, `tests/guarded-write.test.js`:
   **13 PASS**, `tests/desktop-approval-surface.test.js`: **10 PASS**,
   `tests/ide-durable-approval.test.js`: **7 PASS**;
 - `tests/mobile-companion-e2e.test.js`: **5 PASS** přes vlastní gateway proces a HTTP;
-- `tests/mobile-secure-credential.test.js`: **19 PASS** (credential, downgrade a lifecycle hranice);
+- `tests/mobile-secure-credential.test.js`: **25 PASS** (credential, encrypted app-state, downgrade a lifecycle hranice);
 - Android `lintRelease`: **0 errors / 21 warnings**;
 - `tests/artifact-validation.test.js`: **151/151 PASS**;
 - registry: **437 programů**, 9 explicitních support-module exclusions; digest
-  `ba13e78b08c7b8e4e505668a1fe867ca5a526dc36317734c308d212d237df031`;
+  `bc0f50334497555c729a1bc0cd304337d1df08476d0546aaad9b1f0ceb42dd74`;
 - repository hygiene: **PASS**, 1 687 trackovaných cest včetně tohoto dokumentu;
 - current-host emulátor: pairing → demo run → approval → durable decision →
   soubor po schválení, a po hardeningu znovu celé včetně cyklu

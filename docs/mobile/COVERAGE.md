@@ -31,15 +31,24 @@
 > a preference z plaintext WebView `localStorage` do odděleného AES-GCM
 > app-state záznamu pod `AndroidKeyStore`; migrace, lock, logout a mutation
 > durability selhávají zavřeně. Browser/PWA zůstává explicitně plaintext.
+> MM5-D aktivuje skutečný Chromium accessibility program jako povinnou součást
+> mobilní gate. Kryje 22/22 browser scénářů včetně ustáleného light/dark
+> kontrastu bez výjimky pro popisky lišty, dotykových cílů, focus/order,
+> accessibility tree, 200% písma a skutečné scroll události pro starší zprávy.
 > Autoritou poslední změny je review
-> `MM5C-ENCRYPTED-NATIVE-APP-STATE`;
+> `MM5D-ACTIVE-BROWSER-ACCESSIBILITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
+
+> **MM5-D coverage overlay:** `mobile-browser-a11y` je v registru `ACTIVE` a
+> prochází 22/22. `npm run test:mobile` jej skutečně spouští a prochází 55/55
+> aktivních sad bez withheld položky. Chybějící Chromium je nyní hard failure,
+> ne skip. TalkBack, fyzická AT/device matice a iOS Safari zůstávají `NOT RUN`.
 
 > **MM5-C coverage overlay:** `mobile-secure-credential` (25/25) kryje
 > one-way migraci, existující/corrupt snapshot, žádný nativní plaintext
 > fallback, mutation barrier, logout key rotation a lock-time memory wipe.
 > `mobile-android-keystore` (15/15) kryje 8MiB/namespaced hranici, locked bridge,
-> PIN wipe a preferences-only reset. Gate zůstává 54/54 active; device běh
+> PIN wipe a preferences-only reset. Gate je po MM5-D 55/55 active; device běh
 > nebyl proveden.
 
 > **MM3-I coverage overlay:** `mobile-ms07-history` (22/22) kryje exact
@@ -47,7 +56,7 @@
 > corrupt deletion, duplicate/overlap, route race, scope wipe a přesný
 > server-not-found/local-draft rozdíl. `mobile-contract-pagination-end` (23/23)
 > kryje `Cache-Control: no-store` pro success, handler error i authorization
-> error; celý mobilní gate zůstává 54/54 active a Chromium withheld.
+> error; celý mobilní gate je po MM5-D 55/55 active bez withheld sady.
 
 > **MM3-D coverage overlay:** globální `MS-06` nově skutečně spotřebuje
 > existující conversation-list cursor. `mobile-overview` (25/25) pokrývá

@@ -102,13 +102,16 @@ progress and broader worker lifecycle commands remain open. Memory replacement,
 deletion and task-memory writes are explicitly outside current mobile authority.
 
 Current MM5 sub-checkpoints: packaged native transport (`a5d5bab4`), direct
-AndroidKeyStore credential vault (`14be72b8..71746be5`) and encrypted native
-app-state (`3817cc00`). MM5-C stores cache, drafts, operation journal, scopes
+AndroidKeyStore credential vault (`14be72b8..71746be5`), encrypted native
+app-state (`3817cc00`) and mandatory browser accessibility (`4dd33b49`). MM5-C stores cache, drafts, operation journal, scopes
 and preferences in a separate bounded AES-GCM record, migrates plaintext only
 after a confirmed encrypted write, clears decrypted state on lock and requires
-durability before native mutations. MM5 remains open for remote TLS/peer
-identity, production notification/offline policy, device evidence and
-independent security acceptance.
+durability before native mutations. MM5-D provisions the Puppeteer-resolved
+Chrome explicitly, moves the fail-closed browser suite into the required mobile
+gate, aligns its paging fixture with the exact MM3-I DTO and removes the navbar
+contrast exclusion by measuring settled frames. MM5 remains open for remote
+TLS/peer identity, production notification/offline policy, physical
+accessibility/device evidence and independent security acceptance.
 
 ## Current lineage
 

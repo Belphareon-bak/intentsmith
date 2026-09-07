@@ -25,11 +25,18 @@
 > fail-closed write/bridge stavy, mutation barrier, lock-time memory wipe a
 > preferences-only key rotation. Instrumentovaný provider běh zůstává `NOT RUN`.
 > Autoritou poslední změny je review
-> `MM5C-ENCRYPTED-NATIVE-APP-STATE`;
+> `MM5D-ACTIVE-BROWSER-ACCESSIBILITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
+> **MM5-D evidence overlay:** `mobile-browser-a11y` je nově required `ACTIVE`,
+> má explicitní setup `npm run mobile:a11y:setup` a prochází 22/22 ve skutečném
+> Chromiu. Úplná mobilní gate jej spouští a prochází 55/55 bez withheld sady.
+> Exact MM3-I paging fixture, settled-frame contrast a navbar label inclusion
+> jsou součástí testovacího kontraktu. Fyzický TalkBack/device průchod zůstává
+> `NOT RUN`.
+
 > **MM5-C evidence overlay:** `mobile-secure-credential` je 25/25 a
-> `mobile-android-keystore` 15/15. Celý gate je 54/54 active, Chromium withheld.
+> `mobile-android-keystore` 15/15. Celý gate je po MM5-D 55/55 active bez withheld.
 > Čtvrtý instrumentovaný Android test je napsaný, ale bez JDK 21/API 36/targetu
 > nebyl spuštěn a nesmí se počítat jako device pass.
 
@@ -38,7 +45,7 @@
 > scheduler ownership, replay, conflict, ambiguous `UNKNOWN`, no retry a
 > content-free journal. `mobile-workers-specialists-ui` (12/12) pokrývá live
 > read gate, dvoukrokové potvrzení, scope withdrawal, refresh a klientský
-> recovery tok. Celý `test:mobile` je 54/54 active; Chromium sada je withheld.
+> recovery tok. Celý `test:mobile` je po MM5-D 55/55 active bez withheld.
 
 > **MM4-H evidence overlay:** `mobile-workers-specialists` (15/15) přidává
 > terminal-only projekci, S2 redaction, corrupt-row fail closure, closed query,
@@ -66,7 +73,7 @@
 > `mobile-projects-ui` (17/17) kryje přesný response shape, escaping,
 > loading/error/empty/lock stavy, automatický drill-down, nepřekrývající se
 > append, memory-only lifecycle a absenci mutation controls. Celý mobilní gate
-> zůstává 54/54 active s jednou Chromium prerequisite sadou withheld.
+> je po MM5-D 55/55 active; Chromium program je povinnou 55. sadou.
 
 > **MM3-D evidence overlay:** `mobile-overview` (25/25) kryje viditelnou
 > partial boundary, exact page/row tvar, duplicate a overlap rejection,
@@ -139,7 +146,7 @@
 > scope/connectivity wipe, read/write rozdělení a live-only ACK. ACK odmítne
 > malformed/non-200 odpověď, neautorizuje se z cache a nejasný efekt se
 > automaticky neopakuje. Existující backendové sady zůstávají 10/10, 6/6,
-> 9/9, 24/24 a E2E 5/5; celý gate je 54/54 active, Chromium withheld.
+> 9/9, 24/24 a E2E 5/5; celý gate je po MM5-D 55/55 active bez withheld.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; mobilní zeleň není Gate 0 PASS
 **Revize:** vstupy `RV-028`, `RV-036`, `RV-037`, reconciliation `RV-038`; Composition Review C `RV-039`/`RV-040`; registr a chráněné hodnoty `RV-042`/`RV-043`
@@ -460,9 +467,10 @@ plocha", proti které je podmínka 3 v PLAN.md §8 napsaná.
 >    lifecycle/cache, `MS-13`, `MS-14` a `MS-20` mají vlastní přímé řádky pod
 >    `C3-032`; `RV-042` schválilo registraci bez prázdného wrapperu.
 > 2. **Toolchain je jiný než u RN.** Podmínka 5 níže (profil odpovídá
->    skutečnosti) se tím nezjednodušuje: prohlížečová sada potřebuje běhové
->    prostředí, které běžný `offline` profil nemá, a pak je to prerekvizita
->    a `BLOCKED`, ne `offline`.
+>    skutečnosti) se tím nezjednodušuje: prohlížečová sada deklaruje
+>    `chromium-runtime`. Původně proto byla `BLOCKED`; MM5-D runtime přijalo
+>    jako povinný setup mobilní gate a přeřadilo ji na `ACTIVE`. Profil zůstává
+>    `offline`, protože běh používá jen vlastní loopback, ne externí síť.
 
 Tři varianty a doporučení:
 
@@ -491,15 +499,17 @@ Klient i pět přímých successor programů existují, přímo testují PWA a j
 správně registrované pod `C3-032`; kanonický registr se uzavřel bez prázdného
 souhrnného wrapperu (`eee04db9`, `RV-042`).
 
-**Prohlížečová sada podle podmínky 5 (`786d4c74`).**
+**Prohlížečová sada podle podmínky 5 (`786d4c74`, aktivace `4dd33b49`).**
 `tests/mobile-browser-a11y.test.js` je první sada, na kterou podmínka 5 doopravdy
 dopadá: renderuje klienta v Chrome, aby změřila to, co markup říct nemůže —
 kontrast (§10), dotykové cíle (§8), geometrii trust baru (§4) a strom
-přístupnosti. Řádek je proto `BLOCKED` s `requirements.toolchain
-["chromium-runtime"]`, ne `offline`. Fail-closed podle podmínky 1: chybějící
-`puppeteer` nebo prázdná cache prohlížeče končí nenulově s pojmenovanou
-prerekvizitou. Do `npm run test:mobile` zařazená není — baterie by pak padala
-na stroji bez prohlížeče; spouští se `npm run test:mobile:browser`.
+přístupnosti. MM5-D přijímá Chromium jako povinnou prerekvizitu mobilní gate:
+řádek je required `ACTIVE`, stále pravdivě deklaruje `requirements.toolchain
+["chromium-runtime"]` a setup je `npm run mobile:a11y:setup`. Chybějící
+`puppeteer`, prázdná cache nebo launch failure končí nenulově; nic se neskipuje.
+Samostatně se spouští `npm run test:mobile:browser`, ale `npm run test:mobile`
+jej nyní vždy obsahuje. Browser 22/22 není důkaz fyzického TalkBacku ani device
+matice.
 
 ---
 
@@ -735,7 +745,7 @@ zafixuje tvar, který kontrakt teprve určí, a vypadá jako pokrytí.
 |---|---|---|
 | `MR-07` průběh běhu | `BLOCKED_BY_CONTRACT` | K `MS-15` nevzniká UI ani jeho testy. **Existující sady kolem `/m1/chat` a žurnálu operací nesmí být vydávány za pokrytí `MR-07`** — nejsou to testy agent logu |
 | `MR-10` hledání | `BLOCKED_BY_CONTRACT` | K `MS-09` nevzniká UI ani jeho testy. Test hledání nad cachovaným oknem by prokazoval něco, co požadavek **nesplňuje** |
-| `MR-14` projekty | `PARTIAL / SOURCE TESTED / DEVICE TEST PENDING` | MM3-A/MM3-C/MM3-E/MM3-F/MM3-G dodaly read-only seznam/detail, úplné state-bound stránkování, project-to-conversation drill-down, exact live/cache detail a `MD-02` 15min/7denní lifecycle. `mobile-projects` 11/11 a `mobile-projects-ui` 31/31 kryjí authority/filter/cursor/cache/UI hranici. Lifecycle mutations, wire refreeze, Chromium a device evidence zůstávají otevřené |
+| `MR-14` projekty | `PARTIAL / SOURCE TESTED / DEVICE TEST PENDING` | MM3-A/MM3-C/MM3-E/MM3-F/MM3-G dodaly read-only seznam/detail, úplné state-bound stránkování, project-to-conversation drill-down, exact live/cache detail a `MD-02` 15min/7denní lifecycle. `mobile-projects` 11/11 a `mobile-projects-ui` 31/31 kryjí authority/filter/cursor/cache/UI hranici. Lifecycle mutations, wire refreeze a device evidence zůstávají otevřené |
 | `MR-05` kurzorové stránkování | `LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED` | `MN-cursor-rejection` prochází, `MN-pagination-end` má po MM3-I 23/23 a `mobile-ms07-history` 22/22. `MD-04` lifecycle, exact route-bound thread/cache, overlap/race/scope wipe a HTTP-cache izolace jsou source-tested. Produktově `DONE` to není: sdílená validace a device evidence zůstávají otevřené |
 
 Blokáda se týká **testů k blokovaným schopnostem**, ne doménových pravidel:

@@ -137,6 +137,23 @@ V **Nastavení → Zabezpečení** musí Android uvádět `Android Keystore` zvl
 pro přihlášení i data aplikace; browser naopak pravdivě uvádí plaintext
 `localStorage`.
 
+## Povinná browser accessibility gate
+
+Na čerstvém hostu nejdřív připrav browser runtime a potom spusť samostatnou nebo
+celou mobilní gate:
+
+```bash
+npm run mobile:a11y:setup
+npm run test:mobile:browser   # očekáváno 22/22
+npm run test:mobile           # očekáváno 55/55, bez withheld
+```
+
+Od MM5-D je `mobile-browser-a11y` required `ACTIVE`: chybějící executable nebo
+launch failure není skip, ale pád gate. Headless Chrome ověřuje settled
+light/dark kontrast včetně popisků lišty, touch targets, focus/order,
+accessibility tree, scroll paging a 200% browser font. Nenahrazuje fyzický
+TalkBack, skutečné OS font nastavení, rotaci, soft keyboard ani AT/device matici.
+
 ---
 
 ## Co si při zkoušení všímat

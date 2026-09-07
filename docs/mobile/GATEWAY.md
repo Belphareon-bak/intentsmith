@@ -543,9 +543,14 @@ node tests/mobile-fault-injection.test.js     # 15 — result_persistence_failed
 node tests/mobile-migration-parity.test.js    # 12 — parita migrací 055/056/057
 node tests/schema-migrations.test.js           # 38 — migrace schématu
 node scripts/check-migration-numbers.mjs      #      kolize čísel migrací (§6.5)
-npm run test:mobile:browser                   # 12 — §4/§8/§10 v Chrome (BLOCKED: chromium-runtime)
+npm run mobile:a11y:setup                     #      explicitní Chromium prerequisite
+npm run test:mobile:browser                   # 22 — §3/§4/§8/§10 ve skutečném Chrome
 node tests/legacy-listener-boundary.test.js   # 11 — offline policy
 ```
+
+Od MM5-D je browser program required `ACTIVE` a `npm run test:mobile` jej
+spouští jako jednu z 55 aktivních sad. Chybějící executable nebo launch failure
+zastaví gate; browser PASS není fyzický TalkBack/device důkaz.
 
 Čtyři síťové mobilní sady mají `requirements.server:false`, protože si
 listener spouštějí a zastavují samy. Další dvě mobilní sady jsou

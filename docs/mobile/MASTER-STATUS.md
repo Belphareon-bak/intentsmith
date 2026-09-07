@@ -15,7 +15,7 @@ Release verdict: `NOT READY`
 | `MM2` RemoteCorePort | `IN PROGRESS` | candidate `f4861bca` | 10 production provider registrations; freeze remains open |
 | `MM3` primary mobile surfaces | `IN PROGRESS` | projects `1a7be999`; conversations `ddb90e7e`; project drill-down `701308d8`; conversation paging `34bc19de`; project paging `075f5eb7`; detail integrity `a08d0dd0`; project cache `1d449b78`; conversation cache `6dd452f7`; thread integrity `7a6b379e` | project/list/detail/thread caches follow their documented lifecycles; complete paging, exact route-bound thread integrity, HTTP-cache isolation and live project drill-down are implemented; search/runs, wire freeze and device evidence remain open |
 | `MM4` governed surfaces | `IN PROGRESS` | settings read `87a51930`; memory read `2c33fd9b`; workers/specialists `49dd991d`; devices `13fa98c6`; settings write `4bb9011d`; memory create `3341ea11`; worker state `7ac9e303`; worker history `fd8ad498`; specialist detail `241b8934`; list integrity `acff7939`; settings integrity `99cdfdde`; memory integrity `d1f0a98a`; device integrity `af33f984`; notification integrity `656941d4` | read projections, paired-device revocation, revisioned UX-setting writes, create-only manual memory, guarded worker enable/disable, terminal worker-run history, inspectable specialist expertise bindings and fail-closed configured-list/settings/memory/device/notification consumers are implemented; specialist actions and production notification delivery/push policy stay open |
-| `MM5` transport and hardening | `IN PROGRESS` | transport `a5d5bab4`; credential vault `14be72b8..71746be5`; encrypted app-state `3817cc00` | packaged native transport, direct AndroidKeyStore credential vault and separate encrypted cache/draft/journal/preferences snapshot implemented; remote TLS/identity, push/offline policy, device evidence and external security review remain open |
+| `MM5` transport and hardening | `IN PROGRESS` | transport `a5d5bab4`; credential vault `14be72b8..71746be5`; encrypted app-state `3817cc00`; active browser accessibility `4dd33b49` | packaged native transport, direct AndroidKeyStore credential vault, separate encrypted cache/draft/journal/preferences snapshot and mandatory browser accessibility gate implemented; remote TLS/identity, push/offline policy, physical accessibility/device evidence and external security review remain open |
 | `MM6` Android release | `IN PROGRESS` | platform `d4607100`; CLI `d8bbea33`; artifacts `8e98924d` | API 36, cross-platform workflow, versioned APK/AAB manifest and SBOM implemented; binary build, production signing and device evidence open |
 
 ## Known external blockers
@@ -26,12 +26,14 @@ Release verdict: `NOT READY`
 - Physical Android hardware is not attached to the current build host.
 - JDK 21 and the Android SDK are absent on this host; no APK/AAB build is
   claimed, and the Android SDK licence was not accepted on the operator's behalf.
-- Chromium is unavailable on this host, so the registered browser accessibility
-  suite remains explicitly withheld rather than counted as passing.
-
 ## Latest verification
 
-- Mobile gate: `PASS` — 54/54 active suites, 1 prerequisite-blocked suite.
+- Mobile gate: `PASS` — 55/55 active suites, zero withheld. The required
+  browser accessibility program ran inside the gate and passed 22/22.
+- Browser accessibility: `PASS` at source level — settled light/dark contrast,
+  navbar labels, touch targets, focus/order, trust-bar accessibility, thread
+  scroll paging and 200% browser font scaling. TalkBack and the physical AT/OS
+  matrix remain `NOT RUN`.
 - Notification inbox integrity: `PASS` — 36/36 combined overview/client
   scenarios, 10/10 per-device ACK, 6/6 sequence uniqueness, 9/9 fail-closed
   wiring, 24/24 closed-S1 producer and 5/5 owned-process HTTP E2E. The client
@@ -145,7 +147,7 @@ Release verdict: `NOT READY`
   `0.1.0`/`1000` metadata and the workflow requires signed APK+AAB, CycloneDX
   SBOM and a source/endpoint/signer manifest.
 - Test registry: 437 runnable programs; digest
-  `ba13e78b08c7b8e4e505668a1fe867ca5a526dc36317734c308d212d237df031`.
+  `bc0f50334497555c729a1bc0cd304337d1df08476d0546aaad9b1f0ceb42dd74`.
 - Module boundary: `PASS` — 1,106 edges, 3 pre-existing cycles; reviewed
   provider additions are pinned to their MM3/MM4 checkpoint commits.
 

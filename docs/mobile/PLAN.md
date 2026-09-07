@@ -25,8 +25,12 @@
 > šifrovaný app-state nese cache, drafty, žurnál, scopes a preference, migrace
 > je commit-before-delete a nativní mutace čekají na durable zápis. PWA dál
 > zůstává na explicitně slabším `localStorage`.
+> MM5-D přijímá `chromium-runtime` jako povinnou prerekvizitu mobilní gate:
+> `mobile-browser-a11y` je required `ACTIVE`, prochází 22/22 a celý program
+> prochází 55/55 bez withheld sady. Je to source/browser evidence, ne TalkBack
+> ani fyzická device matice.
 > Autoritou poslední změny je review
-> `MM5C-ENCRYPTED-NATIVE-APP-STATE`;
+> `MM5D-ACTIVE-BROWSER-ACCESSIBILITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; **žádná produktová fáze není DONE**

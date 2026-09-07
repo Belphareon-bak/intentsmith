@@ -538,9 +538,12 @@ storage-pressure a security acceptance zůstávají otevřené. Detail a non-cla
 | | |
 |---|---|
 | **Kritérium** | 200 % písmo, TalkBack, kontrast, focus order, malý displej, rotace, měkká klávesnice |
-| **Důkaz** | `mobile-browser-a11y` PASS (dnes **22/22** v Chromiu, ale v gate withheld) + ruční průchod na telefonu s TalkBackem |
-| **Podmínka započtení** | sada je v registru `BLOCKED`; aby ji gate počítal, musí ji implementátor přeřadit na `ACTIVE` a Chromium se tím stane povinnou prerekvizitou gate (≈150 MB při setupu). Do té doby je to důkaz, ne gate |
+| **Důkaz** | required `mobile-browser-a11y` **22/22 PASS** uvnitř mobilní gate + ruční průchod na telefonu s TalkBackem |
+| **Podmínka započtení** | MM5-D přeřadilo sadu na `ACTIVE`; `npm run mobile:a11y:setup` připraví Chromium a chybějící runtime/launch je hard failure. Browser část je započtená, fyzický TalkBack/device průchod nikoli |
 | **Pád** | aplikace je nepoužitelná pro část lidí. Automatická sada pokrývá kontrast, focus order, ohlášení čtečce a růst se 200 % písmem; **nepokrývá** TalkBack na zařízení a fyzickou AT matici |
+
+Zdrojový checkpoint, oprava exact paging fixture, settled-frame kontrast a
+non-claims jsou v [MM5-D review](reviews/MM5D-ACTIVE-BROWSER-ACCESSIBILITY.md).
 
 ### P1-7 Supply chain
 

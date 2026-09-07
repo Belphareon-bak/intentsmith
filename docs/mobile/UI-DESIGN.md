@@ -22,8 +22,11 @@
 > MM5-C doplňuje nativní UI pravdu o dvě oddělené storage řádky: credential a
 > data aplikace. Keystore, browser plaintext i fail-closed chyba jsou pojmenované;
 > rozbitý app-state bridge blokuje pairing a mutation místo tichého fallbacku.
+> MM5-D aktivuje 22/22 browser accessibility scénářů uvnitř celé mobilní gate,
+> zahrnuje popisky lišty do light/dark kontrastního sweepu a měří až po
+> ustálení barevných přechodů. Fyzický TalkBack/AT průchod tím není nahrazen.
 > Autoritou poslední změny je review
-> `MM5C-ENCRYPTED-NATIVE-APP-STATE`;
+> `MM5D-ACTIVE-BROWSER-ACCESSIBILITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 > **MM4-G UI overlay:** karta workera nabízí Zapnout/Vypnout pouze s
@@ -434,13 +437,14 @@ Testy, které tvrdily dp jako pixelový literál (`48px`, `56px`, `32px`, `12px`
 jsou nově **jednotkově nezávislé**: hodnotu normalizují při kořeni 16 px. Držely
 záměr, ne zápis — a nespadnou při další změně jednotky.
 
-**[F] OTEVŘENO — prohlížečová sada je flaky (2026-08-11).** Tři běhy po sobě
-daly tři různé výsledky: jednou `22/0`, jednou spadl test centrování prstence
-(`-92 dp`, tedy o jednu položku vedle), jednou charakterizace kontrastu popisků
-lišty. Sada sdílí jednu stránku a stav se mezi testy dědí; u kontrastu navíc
-platí dřívější výhrada, že to měření je samo o sobě nespolehlivé. **Zelený běh
-téhle sady proto zatím není důkaz.** Opravit dřív, než se o ni začne cokoli
-opírat.
+**[F] UZAVŘENO NA SOURCE/BROWSER ÚROVNI V MM5-D (2026-09-07).** Původní flaky
+poznámka měla dvě oddělené příčiny. Pozdější MM3-I zpřísnění udělalo ze
+zkrácené paging fixture neplatný DTO, takže response správně selhala zavřeně.
+Kontrastní charakterizace současně měřila během 120ms přechodu foregroundu po
+okamžité změně backgroundu a popisky pak z hlavního sweepu vynechávala. Fixture
+je nyní exact, každý surface čeká 160 ms na ustálení a popisky jsou povinnou
+součástí 4.5:1 kontroly. Required browser sada je 22/22 a celá mobilní gate
+55/55. Fyzický TalkBack, OS font setting a AT/device matice zůstávají otevřené.
 
 **Stav implementace k 2026-08-10:**
 
