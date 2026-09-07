@@ -53,6 +53,7 @@ export const MEMORY_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-stor
 export const WORKER_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
 export const SPECIALIST_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
 export const PROJECT_CONVERSATION_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
+export const NOTIFICATION_RESPONSE_HEADERS = Object.freeze({ 'Cache-Control': 'no-store' });
 
 // ── GET /m1/health ───────────────────────────────────────────────────────────
 //
@@ -1799,6 +1800,7 @@ export async function handleNotifications({ rawDb, principal, query }) {
 
   return {
     status: 200,
+    headers: NOTIFICATION_RESPONSE_HEADERS,
     body: withEnvelope(items, {
       principal,
       extra: {
@@ -1817,7 +1819,11 @@ export async function handleNotificationAck({ rawDb, principal, body }) {
   if (ids.length === 0) return errorResponse(MOBILE_ERRORS.BAD_REQUEST, { field: 'ids', reason: 'required' });
   // F-112: the principal's device is part of the write, not merely of the read.
   const changed = ackMobileNotifications(rawDb, ids, { deviceId: principal.deviceId });
-  return { status: 200, body: withEnvelope({ acknowledged: changed }, { principal }) };
+  return {
+    status: 200,
+    headers: NOTIFICATION_RESPONSE_HEADERS,
+    body: withEnvelope({ acknowledged: changed }, { principal }),
+  };
 }
 
 // ── Approvals ────────────────────────────────────────────────────────────────

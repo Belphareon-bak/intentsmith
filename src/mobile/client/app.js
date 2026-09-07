@@ -558,6 +558,8 @@ function lockDownSession() {
   state.loading = {};
   state.error = {};
   state.opsLookup = {};
+  state.notificationsLive = false;
+  state.notificationAcking = false;
   state.memoryLive = false;
   state.devicesLive = false;
   state.memorySaving = false;
@@ -612,6 +614,8 @@ async function api(path, { method = 'GET', body = null, timeoutMs = 130_000, str
     const settingsRequest = routePath === '/settings';
     const memoryRequest = routePath === '/memory';
     const deviceRequest = routePath === '/devices' || routePath.startsWith('/devices/');
+    const notificationRequest = routePath === '/notifications'
+      || routePath.startsWith('/notifications/');
     const workerRequest = routePath === '/workers' || routePath.startsWith('/workers/');
     const specialistRequest = routePath === '/specialists' || routePath.startsWith('/specialists/');
     const projectConversationRequest = routePath === '/conversations'
@@ -620,7 +624,7 @@ async function api(path, { method = 'GET', body = null, timeoutMs = 130_000, str
       method, headers,
       body: body ? JSON.stringify(body) : undefined,
       signal: controller.signal,
-      ...(approvalRequest || settingsRequest || memoryRequest || deviceRequest
+      ...(approvalRequest || settingsRequest || memoryRequest || deviceRequest || notificationRequest
         || workerRequest || specialistRequest
         || projectConversationRequest
         ? { cache: 'no-store' }
@@ -770,6 +774,8 @@ const state = {
   deviceRevoking: null,
   deviceNote: null,
   devicesLive: false,
+  notificationsLive: false,
+  notificationAcking: false,
   settingsSaving: null,
   settingsNote: null,
   memoryLive: false,
@@ -807,6 +813,7 @@ const state = {
 // network does not order their answers.  Only the newest read may publish; an
 // older one that lands last is dropped whole, answer and failure alike.
 let approvalsGeneration = 0;
+let notificationsGeneration = 0;
 
 // During one revalidation the previously confirmed surface may be needed only
 // to compare what disappeared when the new answer lands.  It is never published
@@ -867,6 +874,22 @@ function replaceScopes(scopes) {
   store.set(K.scopes, next);
   if (!next.includes('write:approvals')) invalidateApprovalAuthority();
   if (!next.includes('read:approvals')) invalidateApprovalSurface();
+  if (!next.includes('read:notifications')) {
+    notificationsGeneration++;
+    delete state.data.notifications;
+    delete state.pagination.notifications;
+    state.error.notifications = null;
+    state.loading.notifications = false;
+    state.cacheAge.notifications = null;
+    state.cacheAt.notifications = null;
+    state.unread = 0;
+    state.notificationsLive = false;
+    state.notificationAcking = false;
+    store.del(K.cache + 'notifications');
+  } else if (!next.includes('write:notifications')) {
+    state.notificationsLive = false;
+    state.notificationAcking = false;
+  }
   if (!next.includes('read:chat')) invalidateConversationSurface({ clearCache: true });
   if (!next.includes('read:projects')) {
     projectsGeneration++;
@@ -1112,6 +1135,8 @@ function setConn(kind) {
 }
 
 function invalidateLiveMutationReads() {
+  state.notificationsLive = false;
+  state.notificationAcking = false;
   state.memoryLive = false;
   state.workersLive = false;
   state.devicesLive = false;
@@ -1199,7 +1224,8 @@ function screenLocks(route = state.route) {
       need('write:chat', 'psaní zpráv');
       break;
     case 'notifications':
-      need('read:notifications', 'zprávy');
+      if (!auth.has('read:notifications')) locked.push('zprávy');
+      else need('write:notifications', 'označení přečtených zpráv');
       break;
     case 'approvals':
     case 'approval':
@@ -1354,10 +1380,10 @@ const NAV_ITEMS = [
 const ROUTE_SECTION = {
   overview: 'overview',
   // MS-05 hangs directly off the root in §3.3 and is not a bar item: the bell
-  // has no production producer (F-111) and no per-device ACK (F-112), so
-  // UI-REVIEW §3.5 keeps it off the bar.  It is reached by a row on the root
-  // and therefore belongs to the root's section — a deep destination, like a
-  // single conversation inside Konverzace.
+  // remains outside the bar until production delivery and foreground refresh
+  // policy are closed.  It is reached by a row on the root and therefore
+  // belongs to the root's section — a deep destination, like a single
+  // conversation inside Konverzace.
   notifications: 'overview',
   conversations: 'conversations',
   chat: 'conversations',
@@ -1376,7 +1402,7 @@ const ROUTE_SECTION = {
 
 /** The scopes this client version knows how to act on (§3.4, step 2). */
 const SUPPORTED_SCOPES = new Set([
-  'read:chat', 'write:chat', 'read:notifications',
+  'read:chat', 'write:chat', 'read:notifications', 'write:notifications',
   'read:approvals', 'write:approvals', 'read:projects', 'read:settings', 'write:settings',
   'read:memory', 'write:memory',
   'read:workers', 'write:workers', 'read:specialists',
@@ -1721,7 +1747,11 @@ function viewOverview() {
         return { ...item, value: confirmed ? `${list.length} čeká` : null };
       }
       if (item.id === 'notifications') {
-        return { ...item, value: Array.isArray(state.data.notifications) ? `${state.unread}` : null };
+        const partial = state.pagination.notifications?.end === false;
+        return {
+          ...item,
+          value: Array.isArray(state.data.notifications) ? `${state.unread}${partial ? '+' : ''}` : null,
+        };
       }
       if (item.id === 'workers' || item.id === 'specialists') {
         const list = state.data[item.id];
@@ -2504,9 +2534,142 @@ function composer() {
   </div>`;
 }
 
+const MOBILE_NOTIFICATION_VOCABULARY = Object.freeze({
+  'approval.requested': Object.freeze({
+    kind: 'approval', priority: 'high', title: 'Čeká rozhodnutí',
+    body: 'Otevři schránku approvalů a rozhodni.',
+  }),
+  'approval.expired': Object.freeze({
+    kind: 'approval', priority: 'normal', title: 'Rozhodnutí už neplatí',
+    body: 'Cíl se změnil. Otevři schránku approvalů.',
+  }),
+  'run.started': Object.freeze({
+    kind: 'run', priority: 'low', title: 'Běh začal',
+    body: 'Průběh je vidět v přehledu.',
+  }),
+  'run.progress': Object.freeze({
+    kind: 'run', priority: 'low', title: 'Běh pokračuje',
+    body: 'Průběh je vidět v přehledu.',
+  }),
+  'run.blocked': Object.freeze({
+    kind: 'run', priority: 'high', title: 'Běh čeká na tebe',
+    body: 'Bez rozhodnutí nepokračuje.',
+  }),
+  'run.ok': Object.freeze({
+    kind: 'run', priority: 'normal', title: 'Běh doběhl',
+    body: 'Výsledek je v konverzaci.',
+  }),
+  'run.failed': Object.freeze({
+    kind: 'run', priority: 'high', title: 'Běh selhal',
+    body: 'Podrobnosti jsou v konverzaci.',
+  }),
+  'run.cancelled': Object.freeze({
+    kind: 'run', priority: 'normal', title: 'Běh byl zrušen',
+    body: 'Nic dalšího se neprovedlo.',
+  }),
+  'run.unknown': Object.freeze({
+    kind: 'run', priority: 'high', title: 'Stav běhu není jistý',
+    body: 'Zjisti stav v žurnálu operací.',
+  }),
+});
+
+const NOTIFICATION_RECORD_KEYS = Object.freeze([
+  'body', 'createdAt', 'data', 'id', 'kind', 'priority', 'read', 'seq', 'title',
+]);
+
+function validNotificationRef(value) {
+  return value === undefined || (typeof value === 'string'
+    && value.length > 0 && value.length <= 128 && value === value.trim());
+}
+
+function validNotificationRecord(item) {
+  if (!plainJsonObject(item)
+      || Object.keys(item).sort().join(',') !== NOTIFICATION_RECORD_KEYS.join(',')
+      || typeof item.id !== 'string' || !/^[A-Za-z0-9_-]{8,128}$/u.test(item.id)
+      || !Number.isSafeInteger(item.seq) || item.seq <= 0
+      || typeof item.read !== 'boolean'
+      || typeof item.createdAt !== 'string' || Number.isNaN(Date.parse(item.createdAt))
+      || !plainJsonObject(item.data)) return false;
+
+  const dataKeys = Object.keys(item.data).sort();
+  if (!dataKeys.includes('event')
+      || dataKeys.some(key => !['approvalId', 'event', 'runId'].includes(key))
+      || !validNotificationRef(item.data.approvalId)
+      || !validNotificationRef(item.data.runId)) return false;
+
+  const expected = Object.hasOwn(MOBILE_NOTIFICATION_VOCABULARY, item.data.event)
+    ? MOBILE_NOTIFICATION_VOCABULARY[item.data.event]
+    : null;
+  return Boolean(expected
+    && item.kind === expected.kind
+    && item.priority === expected.priority
+    && item.title === expected.title
+    && item.body === expected.body);
+}
+
+function validNotificationRecords(records, afterSeq = 0, maxItems = Infinity) {
+  if (!Array.isArray(records) || records.length > maxItems
+      || !Number.isSafeInteger(afterSeq) || afterSeq < 0) return false;
+  const ids = new Set();
+  let lastSeq = afterSeq;
+  return records.every(item => {
+    if (!validNotificationRecord(item) || ids.has(item.id) || item.seq <= lastSeq) return false;
+    ids.add(item.id);
+    lastSeq = item.seq;
+    return true;
+  });
+}
+
+function validNotificationBoundary(page, items, afterSeq = 0) {
+  if (!plainJsonObject(page)
+      || Object.keys(page).sort().join(',') !== 'end,hasMore,nextAfterSeq'
+      || typeof page.hasMore !== 'boolean'
+      || typeof page.end !== 'boolean'
+      || page.hasMore === page.end
+      || !Number.isSafeInteger(page.nextAfterSeq) || page.nextAfterSeq < afterSeq) return false;
+  const expectedNext = items.length ? items[items.length - 1].seq : afterSeq;
+  return page.nextAfterSeq === expectedNext && (!page.hasMore || items.length > 0);
+}
+
+function validNotificationPage(response, afterSeq = 0) {
+  const items = response?.data;
+  const page = {
+    hasMore: response?.hasMore,
+    nextAfterSeq: response?.nextAfterSeq,
+    end: response?.end,
+  };
+  const scopes = response?.scopes;
+  return Boolean(response?.ok === true
+    && validNotificationRecords(items, afterSeq, 50)
+    && (!page.hasMore || items.length === 50)
+    && validNotificationBoundary(page, items, afterSeq)
+    && Array.isArray(scopes)
+    && scopes.every((scope, index) => (
+      typeof scope === 'string' && scope.length > 0 && scopes.indexOf(scope) === index
+    )));
+}
+
+function validNotificationCacheSnapshot(snapshot) {
+  return Boolean(plainJsonObject(snapshot)
+    && Object.keys(snapshot).sort().join(',') === 'items,page'
+    && validNotificationRecords(snapshot.items)
+    && validNotificationBoundary(snapshot.page, snapshot.items));
+}
+
+function notificationMutationFresh() {
+  return state.route === 'notifications'
+    && auth.has('read:notifications') && auth.has('write:notifications')
+    && state.notificationsLive === true
+    && Array.isArray(state.data.notifications)
+    && state.conn === 'ok'
+    && !state.loading.notifications && !state.error.notifications
+    && !state.notificationAcking;
+}
+
 function viewNotifications() {
   const list = state.data.notifications;
   const error = state.error.notifications;
+  const page = state.pagination.notifications;
 
   let body;
   if (!auth.has('read:notifications')) {
@@ -2516,7 +2679,9 @@ function viewNotifications() {
   } else if (error && !list) {
     body = errorPanel(error, 'load-notifications');
   } else if (list && list.length === 0) {
-    body = statePanel('empty', 'Žádné notifikace', 'Až se něco stane, uvidíš to tady.');
+    body = page?.end === true
+      ? statePanel('empty', 'Žádné notifikace', 'Backend potvrdil, že ve schránce nic není.')
+      : statePanel('empty', 'Uložená kopie je prázdná', 'Úplnost schránky není potvrzena.');
   } else if (list) {
     body = `<div class="list">${list.slice().reverse().map(item => `
       <div class="notif" data-unread="${!item.read}">
@@ -2531,9 +2696,37 @@ function viewNotifications() {
     body = skeletonList(4);
   }
 
+  const cacheNote = list && state.cacheAge.notifications === 'STALE'
+    ? '<div class="kv-note" data-tone="warn">Zobrazuje se starší uložená kopie. Do dalšího živého načtení může být neúplná.</div>'
+    : '';
+  const inlineError = error && list
+    ? `<div class="resource-inline-error" role="status">${esc(
+      error.kind === 'offline'
+        ? 'Schránku teď nelze ověřit: telefon je offline.'
+        : error.kind === 'protocol'
+          ? 'Server vrátil neplatnou stránku. Zobrazená kopie se nezměnila.'
+          : 'Aktualizace schránky selhala. Zobrazená kopie může být starší.',
+    )}<button class="btn btn-secondary btn-sm" data-act="load-notifications">Načíst od začátku</button></div>`
+    : '';
+  const more = list && page?.hasMore && Number.isSafeInteger(page.nextAfterSeq)
+    ? `<div class="resource-more">
+      <button class="btn btn-secondary" data-act="load-more-notifications" ${state.loading.notifications ? 'disabled' : ''}>
+        ${state.loading.notifications ? 'Načítám…' : 'Načíst další zprávy'}
+      </button>
+      <p>Schránka je výřez. Backend potvrdil další zprávy.</p>
+    </div>`
+    : list && page?.end === false
+      ? '<div class="kv-note" data-tone="warn">Úplnost starší uložené kopie nelze potvrdit. Načti schránku od začátku.</div>'
+      : '';
+
+  const canAck = notificationMutationFresh();
   const right = state.unread > 0
-    ? `<button class="icon-btn" data-act="ack-all" aria-label="Označit přečtené">${icon('inbox')}</button>` : '';
-  return header({ title: 'Zprávy', right, left: 'back' }) + `<div class="scroll">${body}</div>`;
+    ? `<button class="icon-btn" data-act="ack-all" aria-label="Označit zobrazené přečtené" ${canAck ? '' : 'disabled'}>${icon('inbox')}</button>` : '';
+  const writeNote = auth.has('read:notifications') && !auth.has('write:notifications')
+    ? '<div class="kv-note">Označení přečtených zpráv vyžaduje scope <span class="mono">write:notifications</span>.</div>'
+    : '';
+  return header({ title: 'Zprávy', right, left: 'back' })
+    + `<div class="scroll">${writeNote}${cacheNote}${body}${inlineError}${more}</div>`;
 }
 
 /**
@@ -5051,34 +5244,98 @@ async function loadOlderMessages() {
   }
 }
 
-async function loadNotifications() {
+async function loadNotifications({ append = false } = {}) {
   if (!auth.has('read:notifications')) return;
-  const cached = cache.read('notifications');
-  if (cached.data) {
-    state.data.notifications = cached.data;
-    // Previously the cached copy was published without recording its age, so
-    // the screen showed a remembered inbox with nothing saying so.  Trust-bar
-    // zone 2 reads this; leaving it unset is the exact silence §4 forbids.
-    state.cacheAge.notifications = cached.status;
-    state.cacheAt.notifications = cached.at;
+  state.pagination ||= {};
+  const afterSeq = append ? state.pagination.notifications?.nextAfterSeq : 0;
+  if (append && (!Number.isSafeInteger(afterSeq) || afterSeq <= 0 || state.loading.notifications)) return;
+  const generation = ++notificationsGeneration;
+  const priorWasLive = state.notificationsLive === true;
+  state.notificationsLive = false;
+
+  if (!append) {
+    const cached = cache.read('notifications');
+    if (cached.status === 'EXPIRED') {
+      store.del(K.cache + 'notifications');
+      delete state.data.notifications;
+      delete state.pagination.notifications;
+      state.cacheAge.notifications = null;
+      state.cacheAt.notifications = null;
+      state.unread = 0;
+    } else {
+      const snapshot = cached.data && Array.isArray(cached.data.items) ? cached.data : null;
+      const legacyItems = Array.isArray(cached.data) ? cached.data : null;
+      const validSnapshot = validNotificationCacheSnapshot(snapshot);
+      const validLegacy = validNotificationRecords(legacyItems, 0, 50);
+      if (validSnapshot || validLegacy) {
+        state.data.notifications = validSnapshot ? snapshot.items : legacyItems;
+        state.pagination.notifications = validSnapshot
+          ? { ...snapshot.page }
+          : { hasMore: false, nextAfterSeq: null, end: false };
+        state.cacheAge.notifications = cached.status;
+        state.cacheAt.notifications = cached.at;
+        state.unread = state.data.notifications.filter(item => !item.read).length;
+      } else {
+        if (cached.data) store.del(K.cache + 'notifications');
+        delete state.data.notifications;
+        delete state.pagination.notifications;
+        state.cacheAge.notifications = null;
+        state.cacheAt.notifications = null;
+        state.unread = 0;
+      }
+    }
   }
   state.loading.notifications = true;
   state.error.notifications = null;
+  render();
 
   try {
-    const response = await api('/notifications?limit=50');
-    state.data.notifications = response.data;
-    state.unread = response.data.filter(item => !item.read).length;
+    const suffix = append ? `&afterSeq=${afterSeq}` : '';
+    const response = await api(`/notifications?limit=50${suffix}`, { strict: true });
+    if (generation !== notificationsGeneration) return;
+    if (!validNotificationPage(response, afterSeq)) {
+      throw new ApiError('protocol', { code: 'protocol_invalid_response' });
+    }
+    replaceScopes(response.scopes);
+    if (!auth.has('read:notifications') || generation !== notificationsGeneration) return render();
+
+    const prior = append && Array.isArray(state.data.notifications) ? state.data.notifications : [];
+    const priorIds = new Set(prior.map(item => item.id));
+    if (response.data.some(item => priorIds.has(item.id))) {
+      throw new ApiError('protocol', { code: 'protocol_invalid_response' });
+    }
+    state.data.notifications = [...prior, ...response.data];
+    state.pagination.notifications = {
+      hasMore: response.hasMore,
+      nextAfterSeq: response.nextAfterSeq,
+      end: response.end,
+    };
+    state.unread = state.data.notifications.filter(item => !item.read).length;
     state.cacheAge.notifications = 'FRESH';
     state.cacheAt.notifications = Date.now();
-    cache.write('notifications', response.data);
+    cache.write('notifications', {
+      items: state.data.notifications,
+      page: state.pagination.notifications,
+    });
+    state.notificationsLive = auth.has('write:notifications') && (!append || priorWasLive);
     setConn('ok');
   } catch (error) {
+    if (generation !== notificationsGeneration) return;
     if (error.kind === 'auth') return await handleAuthFailure(error);
-    state.error.notifications = error;
+    state.notificationsLive = false;
+    if (error.kind === 'scope') {
+      replaceScopes(auth.scopes.filter(scope => scope !== 'read:notifications'));
+      render();
+    } else {
+      state.error.notifications = error;
+      setConn(error.kind === 'offline' ? 'offline'
+        : error.kind === 'server' || error.kind === 'protocol' ? 'server' : state.conn);
+    }
   } finally {
-    state.loading.notifications = false;
-    render();
+    if (generation === notificationsGeneration) {
+      state.loading.notifications = false;
+      render();
+    }
   }
 }
 
@@ -7185,15 +7442,52 @@ async function confirmAbandon(operationId) {
   }
 }
 
+function validNotificationAckResponse(response, attemptedCount) {
+  const data = response?.data;
+  const scopes = response?.scopes;
+  return Boolean(response?.ok === true
+    && plainJsonObject(data)
+    && Object.keys(data).sort().join(',') === 'acknowledged'
+    && Number.isSafeInteger(data.acknowledged)
+    && data.acknowledged >= 0 && data.acknowledged <= attemptedCount
+    && Array.isArray(scopes)
+    && scopes.every((scope, index) => (
+      typeof scope === 'string' && scope.length > 0 && scopes.indexOf(scope) === index
+    )));
+}
+
 async function ackAll() {
+  if (!notificationMutationFresh()) {
+    toast('Nejdřív načti aktuální schránku se scope write:notifications.', 'warn');
+    return;
+  }
   const unread = (state.data.notifications || []).filter(item => !item.read).map(item => item.id);
   if (unread.length === 0) return;
+  state.notificationAcking = true;
+  state.notificationsLive = false;
+  render();
   try {
-    await api('/notifications/ack', { method: 'POST', body: { ids: unread } });
-    await loadNotifications();
+    const response = await api('/notifications/ack', {
+      method: 'POST', body: { ids: unread }, strict: true,
+    });
+    if (!validNotificationAckResponse(response, unread.length)) {
+      throw new ApiError('protocol', { code: 'protocol_invalid_response' });
+    }
+    replaceScopes(response.scopes);
+    if (state.route === 'notifications' && auth.has('read:notifications')) await loadNotifications();
   } catch (error) {
     if (error.kind === 'auth') return await handleAuthFailure(error);
+    state.notificationsLive = false;
+    if (error.kind === 'scope') {
+      replaceScopes(auth.scopes.filter(scope => scope !== 'write:notifications'));
+    } else {
+      setConn(error.kind === 'offline' ? 'offline'
+        : error.kind === 'server' || error.kind === 'protocol' ? 'server' : state.conn);
+    }
     toast('Nepodařilo se označit jako přečtené.', 'danger');
+  } finally {
+    state.notificationAcking = false;
+    render();
   }
 }
 
@@ -7394,6 +7688,7 @@ document.addEventListener('click', event => {
     'load-project': () => loadProject(),
     'load-project-conversations': () => loadProjectConversations(),
     'load-more-project-conversations': () => loadProjectConversations({ append: true }),
+    'load-more-notifications': () => loadNotifications({ append: true }),
     'load-settings': () => loadSettings(),
     'setting-save': () => { saveSetting(target.dataset.settingPath); },
     'load-memory': () => loadStoredInformation(),
@@ -7702,6 +7997,10 @@ export const __ms20 = {
   trustBar, trustZones, withTrustBar, screenLocks, serverNow,
   viewOverview, viewConversations, loadConversations, validConversationPage,
   invalidateConversationSurface, conversationListMore, conversationListInlineError,
+  viewNotifications, loadNotifications, ackAll, notificationMutationFresh,
+  validNotificationRecord, validNotificationRecords, validNotificationBoundary,
+  validNotificationPage, validNotificationCacheSnapshot, validNotificationAckResponse,
+  MOBILE_NOTIFICATION_VOCABULARY,
   navItems, currentSection, sectionRoute, unknownScopes, NAV_ITEMS, ROUTE_SECTION,
   viewProjects, viewProject, loadProjects, loadProject, openProject,
   validProjectPage, validProjectDetailResponse, projectListMore, projectListInlineError,

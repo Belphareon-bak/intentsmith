@@ -29,6 +29,7 @@
 // ==============================================================================
 
 import { strict as assert } from 'node:assert';
+import { S1_VOCABULARY } from '../src/mobile/companion-producer.js';
 
 let passed = 0;
 let failed = 0;
@@ -107,6 +108,10 @@ const { __ms20 } = await import('../src/mobile/client/app.js');
 const {
   state, store, K, render, viewOverview, viewConversations, loadConversations,
   validConversationPage, replaceScopes, navItems, currentSection, unknownScopes,
+  viewNotifications, loadNotifications, ackAll, notificationMutationFresh,
+  validNotificationRecord, validNotificationRecords, validNotificationBoundary,
+  validNotificationPage, validNotificationCacheSnapshot, validNotificationAckResponse,
+  MOBILE_NOTIFICATION_VOCABULARY, handleWentOffline, handleCameOnline,
 } = __ms20;
 
 // Captured before this suite touches anything: what the client starts on.
@@ -114,7 +119,10 @@ const BOOT_ROUTE = state.route;
 
 const html = () => nodes.app.innerHTML;
 const MINUTE = 60_000;
-const ALL_SCOPES = ['read:chat', 'write:chat', 'read:notifications', 'read:approvals', 'write:approvals'];
+const ALL_SCOPES = [
+  'read:chat', 'write:chat', 'read:notifications', 'write:notifications',
+  'read:approvals', 'write:approvals',
+];
 
 function reset({ scopes = ALL_SCOPES } = {}) {
   localStorage.clear();
@@ -135,6 +143,8 @@ function reset({ scopes = ALL_SCOPES } = {}) {
   state.cacheAt = {};
   state.serverOffsetMs = 0;
   state.unread = 0;
+  state.notificationsLive = false;
+  state.notificationAcking = false;
   state.opsLookup = {};
   state.opsNote = {};
   state.approvalsGone = {};
@@ -180,6 +190,43 @@ function conversationPage(data, overrides = {}) {
     nextCursor: null,
     end: true,
     ...overrides,
+  };
+}
+
+function notification(sequence = 1, overrides = {}) {
+  return {
+    id: `notif_${String(sequence).padStart(4, '0')}`,
+    kind: 'approval',
+    priority: 'high',
+    title: 'Čeká rozhodnutí',
+    body: 'Otevři schránku approvalů a rozhodni.',
+    data: { event: 'approval.requested', approvalId: `approval-${sequence}` },
+    createdAt: new Date(Date.UTC(2026, 8, 7, 10, sequence % 60)).toISOString(),
+    seq: sequence,
+    read: false,
+    ...overrides,
+  };
+}
+
+function notificationPage(data, overrides = {}) {
+  const { afterSeq = 0, ...pageOverrides } = overrides;
+  const nextAfterSeq = data.length ? data[data.length - 1].seq : afterSeq;
+  return {
+    ok: true,
+    scopes: ALL_SCOPES,
+    data,
+    hasMore: false,
+    nextAfterSeq,
+    end: true,
+    ...pageOverrides,
+  };
+}
+
+function httpResponse(payload, { status = 200 } = {}) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    async json() { return payload; },
   };
 }
 
@@ -523,6 +570,256 @@ await test('MM3-D reads the legacy array cache without inventing a continuation 
     async json() { return conversationPage([conversation()]); },
   });
   await pending;
+});
+
+// ── MM4-N — notification inbox consumer integrity ───────────────────────────
+
+await test('MM4-N consumes exactly the producer S1 vocabulary and rejects record drift', () => {
+  assert.deepEqual(MOBILE_NOTIFICATION_VOCABULARY, S1_VOCABULARY);
+  const valid = notification();
+  assert.equal(validNotificationRecord(valid), true);
+  assert.equal(validNotificationRecord({ ...valid, title: 'Obsah z backendu' }), false);
+  assert.equal(validNotificationRecord({ ...valid, unexpected: true }), false);
+  assert.equal(validNotificationRecord({
+    ...valid, data: { ...valid.data, payload: '/secret/path' },
+  }), false);
+  assert.equal(validNotificationRecord({
+    ...valid, data: { event: 'future.event' },
+  }), false);
+});
+
+await test('MM4-N validates ordered unique sequence windows and coherent page boundaries', () => {
+  const one = notification(1);
+  const two = notification(2);
+  assert.equal(validNotificationRecords([one, two]), true);
+  assert.equal(validNotificationRecords([two, one]), false);
+  assert.equal(validNotificationRecords([one, { ...two, id: one.id }]), false);
+  assert.equal(validNotificationBoundary(
+    { hasMore: false, nextAfterSeq: 2, end: true }, [one, two],
+  ), true);
+  assert.equal(validNotificationBoundary(
+    { hasMore: false, nextAfterSeq: 99, end: true }, [one, two],
+  ), false);
+  assert.equal(validNotificationPage(notificationPage([one, two])), true);
+  assert.equal(validNotificationPage(notificationPage([one, two], {
+    hasMore: true, end: false,
+  })), false, 'a full continuation claim requires the full 50-row page');
+  assert.equal(validNotificationCacheSnapshot({
+    items: [one, two], page: { hasMore: false, nextAfterSeq: 2, end: true },
+  }), true);
+});
+
+await test('MM4-N read and write notification scopes are separate UI authorities', () => {
+  reset({ scopes: ALL_SCOPES.filter(scope => scope !== 'write:notifications') });
+  state.route = 'notifications';
+  state.data.notifications = [notification()];
+  state.pagination.notifications = { hasMore: false, nextAfterSeq: 1, end: true };
+  state.unread = 1;
+  state.notificationsLive = true;
+
+  const markup = viewNotifications();
+  assert.match(markup, /write:notifications/);
+  assert.match(markup, /data-act="ack-all"[^>]*disabled/);
+  assert.equal(notificationMutationFresh(), false);
+  assert.ok(!unknownScopes().includes('write:notifications'));
+});
+
+await test('MM4-N reads no-store, follows afterSeq and persists the exact confirmed window', async () => {
+  reset();
+  state.route = 'notifications';
+  const first = Array.from({ length: 50 }, (_, index) => notification(index + 1));
+  const second = [notification(51)];
+  const replies = [
+    notificationPage(first, { hasMore: true, end: false }),
+    notificationPage(second, { afterSeq: 50 }),
+  ];
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    return httpResponse(replies.shift());
+  };
+
+  await loadNotifications();
+  assert.equal(state.notificationsLive, true);
+  assert.match(viewNotifications(), /load-more-notifications/);
+  await loadNotifications({ append: true });
+
+  assert.deepEqual(calls.map(call => call.url), [
+    '/m1/notifications?limit=50',
+    '/m1/notifications?limit=50&afterSeq=50',
+  ]);
+  assert.ok(calls.every(call => call.options.cache === 'no-store'));
+  assert.equal(state.data.notifications.length, 51);
+  assert.deepEqual(state.pagination.notifications, {
+    hasMore: false, nextAfterSeq: 51, end: true,
+  });
+  const saved = store.get(K.cache + 'notifications');
+  assert.equal(saved.data.items.length, 51);
+  assert.deepEqual(saved.data.page, state.pagination.notifications);
+  assert.equal(state.unread, 51);
+  assert.equal(state.notificationsLive, true);
+});
+
+await test('MM4-N rejects an overlapping continuation without changing the displayed window', async () => {
+  reset();
+  state.route = 'notifications';
+  state.data.notifications = [notification(1)];
+  state.pagination.notifications = { hasMore: true, nextAfterSeq: 1, end: false };
+  state.notificationsLive = true;
+  globalThis.fetch = async () => httpResponse(notificationPage([
+    notification(2, { id: 'notif_0001' }),
+  ], { afterSeq: 1 }));
+
+  await loadNotifications({ append: true });
+
+  assert.deepEqual(state.data.notifications.map(item => item.id), ['notif_0001']);
+  assert.equal(state.error.notifications.kind, 'protocol');
+  assert.equal(state.notificationsLive, false);
+  assert.match(viewNotifications(), /Zobrazená kopie se nezměnila/);
+});
+
+await test('MM4-N treats cache as read-only evidence and deletes corrupt snapshots', async () => {
+  reset();
+  state.route = 'notifications';
+  store.set(K.cache + 'notifications', {
+    at: Date.now(),
+    data: { items: [{ id: 'poison' }], page: { hasMore: false, nextAfterSeq: 0, end: true } },
+  });
+  globalThis.fetch = async () => { throw new TypeError('offline'); };
+
+  await loadNotifications();
+
+  assert.equal(store.get(K.cache + 'notifications'), null);
+  assert.equal(state.data.notifications, undefined);
+  assert.equal(state.unread, 0);
+  assert.equal(state.error.notifications.kind, 'offline');
+  assert.equal(state.notificationsLive, false);
+});
+
+await test('MM4-N legacy array cache is explicitly incomplete and never authorizes ACK', async () => {
+  reset();
+  state.route = 'notifications';
+  store.set(K.cache + 'notifications', { at: Date.now(), data: [notification()] });
+  let release;
+  globalThis.fetch = () => new Promise(resolve => { release = resolve; });
+
+  const pending = loadNotifications();
+  assert.deepEqual(state.pagination.notifications, {
+    hasMore: false, nextAfterSeq: null, end: false,
+  });
+  assert.equal(state.notificationsLive, false);
+  assert.match(viewNotifications(), /Úplnost starší uložené kopie nelze potvrdit/);
+  assert.match(viewNotifications(), /data-act="ack-all"[^>]*disabled/);
+
+  release(httpResponse(notificationPage([notification()])));
+  await pending;
+});
+
+await test('MM4-N a late older inbox response cannot replace the newest page', async () => {
+  reset();
+  state.route = 'notifications';
+  const releases = [];
+  globalThis.fetch = () => new Promise(resolve => releases.push(payload => (
+    resolve(httpResponse(payload))
+  )));
+
+  const older = loadNotifications();
+  await Promise.resolve();
+  const newer = loadNotifications();
+  await Promise.resolve();
+  releases[1](notificationPage([notification(2)]));
+  await newer;
+  releases[0](notificationPage([notification(1)]));
+  await older;
+
+  assert.deepEqual(state.data.notifications.map(item => item.id), ['notif_0002']);
+  assert.equal(state.notificationsLive, true);
+});
+
+await test('MM4-N scope loss and connectivity loss withdraw list and mutation authority', () => {
+  reset();
+  state.route = 'notifications';
+  state.data.notifications = [notification()];
+  state.pagination.notifications = { hasMore: false, nextAfterSeq: 1, end: true };
+  state.unread = 1;
+  state.notificationsLive = true;
+  store.set(K.cache + 'notifications', {
+    at: Date.now(), data: { items: state.data.notifications, page: state.pagination.notifications },
+  });
+
+  handleWentOffline();
+  assert.equal(state.notificationsLive, false);
+  assert.equal(state.conn, 'offline');
+
+  state.session = 'unpaired';
+  handleCameOnline();
+  assert.equal(state.notificationsLive, false);
+  replaceScopes(ALL_SCOPES.filter(scope => scope !== 'read:notifications'));
+  assert.equal(state.data.notifications, undefined);
+  assert.equal(state.pagination.notifications, undefined);
+  assert.equal(state.unread, 0);
+  assert.equal(store.get(K.cache + 'notifications'), null);
+});
+
+await test('MM4-N ACK is guarded, bounded, no-store and refreshed from a live read', async () => {
+  reset();
+  state.route = 'notifications';
+  state.data.notifications = [notification(1), notification(2, { read: true })];
+  state.pagination.notifications = { hasMore: false, nextAfterSeq: 2, end: true };
+  state.unread = 1;
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    if (url.endsWith('/notifications/ack')) {
+      return httpResponse({
+        ok: true, scopes: ALL_SCOPES, data: { acknowledged: 1 },
+      });
+    }
+    return httpResponse(notificationPage([
+      notification(1, { read: true }), notification(2, { read: true }),
+    ]));
+  };
+
+  await ackAll();
+  assert.equal(calls.length, 0, 'a cached list issued a mutation without a live grant');
+
+  state.notificationsLive = true;
+  await ackAll();
+
+  assert.deepEqual(calls.map(call => call.url), [
+    '/m1/notifications/ack', '/m1/notifications?limit=50',
+  ]);
+  assert.deepEqual(JSON.parse(calls[0].options.body), { ids: ['notif_0001'] });
+  assert.ok(calls.every(call => call.options.cache === 'no-store'));
+  assert.equal(state.unread, 0);
+  assert.equal(state.notificationsLive, true);
+  assert.equal(validNotificationAckResponse({
+    ok: true, scopes: ALL_SCOPES, data: { acknowledged: 2 },
+  }, 1), false, 'the server cannot acknowledge more rows than the client attempted');
+});
+
+await test('MM4-N malformed or non-200 ACK stays fail-closed and is never auto-retried', async () => {
+  reset();
+  state.route = 'notifications';
+  state.data.notifications = [notification()];
+  state.pagination.notifications = { hasMore: false, nextAfterSeq: 1, end: true };
+  state.unread = 1;
+  state.notificationsLive = true;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    return httpResponse({
+      ok: true, scopes: ALL_SCOPES, data: { acknowledged: 1 },
+    }, { status: 201 });
+  };
+
+  await ackAll();
+
+  assert.equal(calls, 1);
+  assert.equal(state.notificationsLive, false);
+  assert.equal(state.notificationAcking, false);
+  assert.equal(state.unread, 1);
+  assert.equal(state.conn, 'server');
 });
 
 console.log(`\nPřehled: ${passed} passed, ${failed} failed`);

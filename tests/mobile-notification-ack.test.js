@@ -201,6 +201,7 @@ try {
       rawDb: db, principal: principal(PHONE), body: { ids: [theirs.messageId] },
     });
     assert.equal(foreign.status, 200);
+    assert.equal(foreign.headers['Cache-Control'], 'no-store');
     assert.equal(foreign.body.data.acknowledged, 0, 'the route acknowledged a foreign row');
 
     const own = await handleNotificationAck({
@@ -209,6 +210,7 @@ try {
     assert.equal(own.body.data.acknowledged, 1);
 
     const listed = await handleNotifications({ rawDb: db, principal: principal(PHONE), query: query() });
+    assert.equal(listed.headers['Cache-Control'], 'no-store');
     assert.equal(listed.body.data.find(row => row.id === mine.messageId).read, true);
 
     const other = await handleNotifications({ rawDb: db, principal: principal(TABLET), query: query() });
