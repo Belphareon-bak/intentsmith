@@ -2612,6 +2612,102 @@ async function clearAppPin() {
   render();
 }
 
+// Browser-side mirror of the core GENERIC settings owner map. The gateway
+// projects this allow-list before crossing RemoteCorePort; repeating the
+// boundary here prevents an incompatible or compromised gateway from turning
+// a new private setting into something the phone renders (or edits by
+// accident). Dotted names are literal top-level keys. Only appearance/output
+// are nested public containers.
+const PUBLIC_SETTINGS_FLAT_KEYS = new Set([
+  'c3.account.displayName',
+  'c3.account.description',
+  'c3.account.timezone',
+  'c3.account.currency',
+  'c3.language',
+  'c3.llm.chatModel',
+  'c3.llm.codeModel',
+  'c3.llm.ollamaUrl',
+  'c3.llm.temperature',
+  'c3.llm.contextWindow',
+  'c3.llm.timeoutChat',
+  'c3.llm.timeoutCode',
+  'c3.llm.numGpu',
+  'c3.memory.conversationMaxTurns',
+  'c3.memory.compactThreshold',
+  'c3.memory.compactKeepTurns',
+  'c3.memory.ltmEnabled',
+  'c3.memory.ltmMaxEntries',
+  'c3.memory.ltmDecayHalfLife',
+  'c3.memory.contextBudgetChat',
+  'c3.memory.contextBudgetCode',
+  'c3.memory.contextBudgetMaxTokens',
+  'c3.memory.learningEnabled',
+  'c3.memory.feedbackDetection',
+  'c3.memory.patternTracking',
+  'c3.notif.desktopEnabled',
+  'c3.notif.quietEnabled',
+  'c3.notif.quietFrom',
+  'c3.notif.quietTo',
+  'c3.output.codeBlocks',
+  'c3.output.syntaxHighlight',
+  'c3.output.markdownRendering',
+  'c3.output.maxResponseLength',
+  'c3.system.logLevel',
+  'c3.system.logRetentionDays',
+  'c3.system.maxFileSize',
+  'c3.system.rateLimit',
+]);
+const PUBLIC_SETTINGS_NESTED_KEYS = Object.freeze({
+  appearance: new Set(['theme', 'accentColor', 'fontFamily', 'fontSize', 'density']),
+  output: new Set(['enabledTypes', 'defaultFormat', 'codeStyle', 'namingConvention']),
+});
+const PUBLIC_SETTINGS_PATHS = Object.freeze([
+  ...PUBLIC_SETTINGS_FLAT_KEYS,
+  ...Object.entries(PUBLIC_SETTINGS_NESTED_KEYS).flatMap(([container, children]) => (
+    [...children].map(child => `/${container}/${child}`)
+  )),
+].sort());
+
+function plainJsonObject(value) {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function finiteJsonValue(value, stack = new Set()) {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return true;
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (typeof value !== 'object' || stack.has(value)) return false;
+  if (!Array.isArray(value) && !plainJsonObject(value)) return false;
+  stack.add(value);
+  const valid = (Array.isArray(value) ? value : Object.values(value))
+    .every(item => finiteJsonValue(item, stack));
+  stack.delete(value);
+  return valid;
+}
+
+function validPublicSettingsDocument(document) {
+  if (!plainJsonObject(document)) return false;
+  return Object.entries(document).every(([key, value]) => {
+    if (PUBLIC_SETTINGS_FLAT_KEYS.has(key)) return finiteJsonValue(value);
+    const allowed = PUBLIC_SETTINGS_NESTED_KEYS[key];
+    if (!allowed || !plainJsonObject(value) || Object.keys(value).length === 0) return false;
+    return Object.entries(value).every(([child, childValue]) => (
+      allowed.has(child) && finiteJsonValue(childValue)
+    ));
+  });
+}
+
+function validSettingsResponse(response) {
+  const data = response?.data;
+  return Boolean(response?.ok === true
+    && plainJsonObject(data)
+    && Object.keys(data).sort().join(',') === 'revision,settings,version'
+    && Number.isSafeInteger(data.revision) && data.revision >= 1
+    && validPublicSettingsDocument(data.settings)
+    && typeof data.version === 'string' && data.version.startsWith('v1:'));
+}
+
 function publicSettingRows(document) {
   if (!document || typeof document !== 'object' || Array.isArray(document)) return [];
   const rows = [];
@@ -5267,8 +5363,11 @@ async function loadSettings() {
   render();
 
   try {
-    const response = await api('/settings');
+    const response = await api('/settings', { strict: true });
     if (generation !== settingsGeneration) return;
+    if (!validSettingsResponse(response)) {
+      throw new ApiError('protocol', { code: 'protocol_invalid_response' });
+    }
     state.data.settings = response.data;
     if (response.scopes) replaceScopes(response.scopes);
     setConn('ok');
@@ -5276,7 +5375,8 @@ async function loadSettings() {
     if (generation !== settingsGeneration) return;
     if (error.kind === 'auth') return await handleAuthFailure(error);
     state.error.settings = error;
-    setConn(error.kind === 'offline' ? 'offline' : error.kind === 'server' ? 'server' : state.conn);
+    setConn(error.kind === 'offline' ? 'offline'
+      : error.kind === 'server' || error.kind === 'protocol' ? 'server' : state.conn);
   } finally {
     if (generation === settingsGeneration) {
       state.loading.settings = false;
@@ -7387,7 +7487,8 @@ export const __ms20 = {
   viewDevices, viewDiagnostics, viewSession,
   loadDevices, askDeviceRevoke, cancelDeviceRevoke, confirmDeviceRevoke,
   validDeviceSnapshot, deviceRevokeOutcome, handleAuthFailure,
-  serverSettingsCard, publicSettingRows, loadSettings, saveSetting,
+  serverSettingsCard, publicSettingRows, PUBLIC_SETTINGS_PATHS, validSettingsResponse,
+  loadSettings, saveSetting,
   settingsWriteOutcome, settingsMutationFresh, settingInputId,
   storedInformationCard, storedInformationValue, loadStoredInformation,
   manualMemoryForm, manualMemoryInput, memoryMutationFresh,

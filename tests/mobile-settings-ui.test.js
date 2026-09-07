@@ -1,4 +1,5 @@
 import { strict as assert } from 'node:assert';
+import { GENERIC_USER_SETTING_PATHS } from '../src/db/user-settings.js';
 
 let passed = 0;
 let failed = 0;
@@ -59,7 +60,9 @@ globalThis.fetch = async () => { throw new TypeError('network disabled'); };
 
 const { __ms20 } = await import('../src/mobile/client/app.js');
 const {
-  state, store, journal, K, serverSettingsCard, publicSettingRows, loadSettings, unknownScopes,
+  state, store, journal, K, serverSettingsCard, publicSettingRows, PUBLIC_SETTINGS_PATHS,
+  validSettingsResponse,
+  loadSettings, unknownScopes,
   saveSetting, settingInputId, settingsMutationFresh, replaceScopes,
 } = __ms20;
 
@@ -149,6 +152,92 @@ await test('public rows are stable, escaped and read-only', () => {
 await test('settings scope is recognized by this client version', () => {
   reset(['read:settings', 'read:future']);
   assert.deepEqual(unknownScopes(), ['read:future']);
+});
+
+await test('MM4-K settings validator accepts only the versioned public owner map', () => {
+  const response = data => ({ ok: true, data });
+  assert.deepEqual(PUBLIC_SETTINGS_PATHS, [...GENERIC_USER_SETTING_PATHS].sort());
+  assert.equal(validSettingsResponse(response(settings())), true);
+  assert.equal(validSettingsResponse(response(settings({ revision: 0 }))), false);
+  assert.equal(validSettingsResponse(response(settings({ version: 'legacy' }))), false);
+  assert.equal(validSettingsResponse(response({ ...settings(), private: 'must-not-render' })), false);
+  assert.equal(validSettingsResponse(response(settings({
+    settings: { 'private.integration.secret': 'must-not-render' },
+  }))), false);
+  assert.equal(validSettingsResponse(response(settings({
+    settings: { appearance: { theme: 'dark', secret: 'must-not-render' } },
+  }))), false);
+  assert.equal(validSettingsResponse(response(settings({
+    settings: { 'c3.llm.temperature': Number.POSITIVE_INFINITY },
+  }))), false);
+  assert.equal(validSettingsResponse(response(settings({
+    settings: {
+      'c3.system.rateLimit': { burst: [1, 2, 3] },
+      output: { enabledTypes: ['markdown', 'json'] },
+    },
+  }))), true);
+});
+
+await test('MM4-K malformed live settings never render or unlock revisioned writes', async () => {
+  reset(['read:settings', 'write:settings']);
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 200,
+    async json() {
+      return {
+        ok: true,
+        scopes: ['read:settings', 'write:settings'],
+        data: settings({ settings: { 'private.integration.secret': 'must-not-render' } }),
+      };
+    },
+  });
+  await loadSettings();
+  assert.equal(state.data.settings, undefined);
+  assert.equal(state.error.settings.kind, 'protocol');
+  assert.equal(state.conn, 'server');
+  assert.equal(settingsMutationFresh(), false);
+  const markup = serverSettingsCard();
+  assert.ok(!markup.includes('must-not-render'));
+  assert.ok(!markup.includes('data-act="setting-save"'));
+});
+
+await test('MM4-K settings read requires an HTTP 200 success envelope', async () => {
+  reset();
+  globalThis.fetch = async () => ({
+    ok: true,
+    status: 201,
+    async json() { return { ok: true, data: settings() }; },
+  });
+  await loadSettings();
+  assert.equal(state.data.settings, undefined);
+  assert.equal(state.error.settings.kind, 'protocol');
+  assert.equal(state.error.settings.code, 'protocol_invalid_response');
+});
+
+await test('MM4-K newest settings response is the only published revision', async () => {
+  reset();
+  const pending = [];
+  globalThis.fetch = () => new Promise(resolve => pending.push(resolve));
+  const first = loadSettings();
+  const second = loadSettings();
+  const reply = revision => ({
+    ok: true,
+    status: 200,
+    async json() {
+      return {
+        ok: true,
+        scopes: ['read:settings'],
+        data: settings({ revision, settings: { 'c3.language': revision === 9 ? 'cs' : 'en' } }),
+      };
+    },
+  });
+  pending[1](reply(9));
+  await second;
+  pending[0](reply(8));
+  await first;
+  assert.equal(state.data.settings.revision, 9);
+  assert.equal(state.data.settings.settings['c3.language'], 'cs');
+  assert.equal(state.error.settings, null);
 });
 
 await test('live load uses the scoped route and never writes a settings cache', async () => {
