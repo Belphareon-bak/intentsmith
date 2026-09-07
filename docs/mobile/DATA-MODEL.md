@@ -10,8 +10,9 @@
 > `GET /m1/conversations` o uzavřený `projectId` filtr. Projektový seznam
 > konverzací je memory-only, má request/response `no-store` a mizí při ztrátě
 > scope, relace, uzamčení aplikace nebo spojení. MM3-D poté doplnilo validovaný
-> page snapshot globální S1 cache a úplný cursorový průchod. Autoritou poslední
-> změny je review `MM3D-CONVERSATION-LIST-PAGINATION`;
+> page snapshot globální S1 cache a úplný cursorový průchod. MM3-E přidalo
+> state-bound page snapshots projektů. Autoritou poslední změny je review
+> `MM3E-PROJECT-LIST-PAGINATION`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná produktová fáze není DONE
@@ -259,7 +260,7 @@ automaticky otevřenou práci.
 
 ### MD-02 — Projekty a jejich lifecycle stav
 
-> **Kanonický stav MM3-A/MM3-C na této větvi:** na základě explicitního
+> **Kanonický stav MM3-A/MM3-C/MM3-E na této větvi:** na základě explicitního
 > operátorského zadání existuje read-only seznam/detail projektů a živý
 > drill-down do jejich konverzací. Jde o `SOURCE TESTED / DEVICE TEST PENDING`,
 > nikoli o refreeze wire v2 nebo dokončený lifecycle. Projektové a konverzační
@@ -287,6 +288,15 @@ konverzací uvnitř detailu je jiný dataset: `ST-MEM`, živý, se dvěma scopy
 na projekt. Mizí při odchodu z projektu, uzamčení, disconnectu nebo odebrání
 kteréhokoli scope a po návratu se čte znovu. Názvy a metadata projektů tedy
 mohou zůstat označené jako cache, ale členství konverzací se z cache netvrdí.
+
+> **Implementační checkpoint MM3-E (2026-09-07):** seznam projektů ukládá
+> oddělený validovaný `{ items, page }` snapshot pro `active` a `archived`.
+> Response `state`, každý řádek, cache key i opaque cursor musí patřit právě
+> vybranému filtru. Duplicate/overlap nebo pozdní response starého filtru
+> potvrzené okno nepřepíše. Starý array-only snapshot zůstává při upgradu
+> čitelný, ale nevydává se za potvrzený konec ani zdroj cursoru. Ztráta
+> `read:projects` maže oba seznamy, jejich boundaries a detailové cache.
+> Zdrojová evidence: [MM3-E review](reviews/MM3E-PROJECT-LIST-PAGINATION.md).
 
 ---
 

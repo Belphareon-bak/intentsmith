@@ -7,8 +7,9 @@
 > `PUT /m1/workers/:id/enabled` a metadata-only
 > `GET /m1/workers/:id/runs` a live-only
 > `GET /m1/specialists/:id`. MM3-D následně doplnilo klientské pokrytí úplného
-> global conversation-list cursoru bez změny route. Autoritou poslední změny
-> je review `MM3D-CONVERSATION-LIST-PAGINATION`;
+> global conversation-list cursoru bez změny route a MM3-E stejné důkazy pro
+> oddělené project-state streamy. Autoritou poslední změny je review
+> `MM3E-PROJECT-LIST-PAGINATION`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 > **MM4-G evidence overlay:** `mobile-workers-specialists` (12/12) pokrývá
@@ -45,6 +46,12 @@
 > newest-response-wins guard a migraci array-only cache bez vymyšleného
 > cursoru. Backendový pagination/cursor kontrakt dál kryjí existující sady
 > 21/21 a 10/10; nová route ani testovací program nevznikly.
+
+> **MM3-E evidence overlay:** `mobile-projects-ui` (23/23) kryje active/archive
+> partial boundary, top-level i row state binding, exact DTO, duplicate a
+> overlap rejection, server-issued cursor append, oddělené cache snapshots,
+> legacy cache a cross-filter response race. `mobile-projects` zůstává 11/11;
+> backend route ani nový testovací program nevznikly.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; mobilní zeleň není Gate 0 PASS
 **Revize:** vstupy `RV-028`, `RV-036`, `RV-037`, reconciliation `RV-038`; Composition Review C `RV-039`/`RV-040`; registr a chráněné hodnoty `RV-042`/`RV-043`

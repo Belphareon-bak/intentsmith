@@ -47,11 +47,14 @@ range.  Later work must not rewrite an accepted milestone.
 Current MM3 sub-checkpoints: project list/detail (`1a7be999`), conversation
 provider boundary (`ddb90e7e`) and live project-to-conversation drill-down
 (`701308d8`), followed by complete global conversation-list pagination
-(`34bc19de`). The drill-down reuses the exact conversation read route, requires
+(`34bc19de`) and complete state-filtered project-list pagination (`075f5eb7`).
+The drill-down reuses the exact conversation read route, requires
 both project and chat read scopes, isolates cursors per project and adds no
 mutation. The global list now consumes its existing opaque continuation,
-validates exact pages and persists the confirmed S1 window plus boundary. MM3
-remains open for server-backed global search, authoritative live run
+validates exact pages and persists the confirmed S1 window plus boundary.
+Active and archived projects now apply the same rule to their separate,
+state-bound streams without adding mutation authority. MM3 remains open for
+server-backed global search, authoritative live run
 progress/cancel, frozen wire prerequisites and device evidence.
 
 Current MM4 sub-checkpoints: settings read (`87a51930`), stored-information

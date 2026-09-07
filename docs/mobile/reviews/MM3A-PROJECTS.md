@@ -56,3 +56,7 @@ a separate reviewable change.
 > project-to-conversation drill-down in `701308d8`. The 7/7, 9/9, 41/41 and
 > 1,097-edge counts above remain evidence for MM3-A, not current HEAD. See
 > [MM3-C review](MM3C-PROJECT-CONVERSATIONS.md).
+>
+> MM3-E později uzavřelo klientskou truncation active/archive seznamů v
+> `075f5eb7`; historické MM3-A počty výše se tím nemění. Viz
+> [MM3-E review](MM3E-PROJECT-LIST-PAGINATION.md).

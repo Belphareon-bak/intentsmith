@@ -234,6 +234,12 @@ nově spotřebuje `hasMore`, `nextCursor` a `end`, které globální
 page. Opaque cursor nepočítá ani neupravuje. Úplná klientská hranice a testy
 jsou v `reviews/MM3D-CONVERSATION-LIST-PAGINATION.md`.
 
+Stejnou consumer-only změnou je MM3-E (`075f5eb7`): aktivní a archivovaný
+project list nyní spotřebují své již existující state-bound cursory, přesně
+ověřují response/row state a drží oddělené cache boundaries. Gateway route,
+query a provider se nezměnily. Viz
+`reviews/MM3E-PROJECT-LIST-PAGINATION.md`.
+
 ---
 
 ## 4. Routy

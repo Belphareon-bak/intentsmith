@@ -407,6 +407,18 @@ Search, mutation, fyzický WebView průchod ani release acceptance se tím
 netvrdí. Viz
 [MM3-D review](reviews/MM3D-CONVERSATION-LIST-PAGINATION.md).
 
+### P1-3h Úplné filtry projektů
+
+Stav MM3-E: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`.
+Aktivní a archivované projekty už na klientovi nekončí první stovkou. Každý
+filtr vrací pouze svůj opaque cursor, response i řádky musí nést správný stav a
+duplicate, overlap nebo pozdní odpověď předchozího filtru potvrzené okno
+nezmění. Oba S1 filtry mají oddělený validovaný `{ items, page }` snapshot a
+starý array-only formát nevyrábí cursor. Backend prošel 11/11 a klient 23/23;
+route, provider ani scope se neměnily. Project mutation, fyzický WebView
+průchod ani release acceptance se tím netvrdí. Viz
+[MM3-E review](reviews/MM3E-PROJECT-LIST-PAGINATION.md).
+
 ### P1-4 Push, nebo přiznané pull-only
 
 | | |
@@ -561,7 +573,8 @@ jiného, telefon nemá zámek obrazovky — a to je nález, ne detail.
 - Handbook sám nezavádí kontrakt. Aktuální přesný allow-list má 26 rout;
   poslední specialist-detail routu přidal MM4-I a MM3-C následně rozšířilo
   existující conversation-list query bez přidání routy. MM3-D pouze doplnilo
-  klientského konzumenta jejího už existujícího cursoru, ne tento dokument.
+  klientského konzumenta jejího už existujícího cursoru a MM3-E totéž pro
+  existující project-state cursory, ne tento dokument.
 - Žádný termín. Termíny patří operátorovi; tady jsou jen závislosti a pořadí.
 - Žádné „nice to have". Každá položka výše má popsaný způsob, jak selže —
   když ho někdo nedokáže popsat u nové položky, do seznamu nepatří.

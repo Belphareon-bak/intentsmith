@@ -10,7 +10,8 @@
 > stránkovaný seznam jeho konverzací přes existující route. Vyžaduje
 > `read:projects` i `read:chat`, otevírá stávající chat a nepřidává mutaci.
 > MM3-D následně uzavřelo truncation globálního seznamu přes existující cursor.
-> Autoritou poslední změny je review `MM3D-CONVERSATION-LIST-PAGINATION`;
+> MM3-E totéž uzavírá odděleně pro aktivní a archivované projekty. Autoritou
+> poslední změny je review `MM3E-PROJECT-LIST-PAGINATION`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná obrazovka tím není produktově DONE
@@ -511,7 +512,7 @@ ochrana, producer/projektor a Gate 1 důkazy chybějí.
 | Část | Toky | Stav |
 |---|---|---|
 | **3A — approvaly** | `MS-13`, `MS-14` | Historické `392c5928` má `CHANGES_REQUIRED` z `RV-023`–`RV-025`; opravená kompozice prošla `RV-039`/`RV-040`, registry `RV-042`/`RV-043` a mobilní M3 subset. Celý profil `208/3` a produkční `F-100` blokují; 3A je **NOT DONE** |
-| **3B — projekty** | `MS-12` | MM3-A/MM3-C: read-only seznam/detail a živý drill-down do konverzací jsou `SOURCE TESTED / DEVICE TEST PENDING`; lifecycle mutations zůstávají otevřené |
+| **3B — projekty** | `MS-12` | MM3-A/MM3-C/MM3-E: read-only seznam/detail, úplné active/archive filtry a živý drill-down do konverzací jsou `SOURCE TESTED / DEVICE TEST PENDING`; lifecycle mutations zůstávají otevřené |
 
 **Fáze 3 jako celek je DONE teprve po 3B.** Uzavření 3A fázi nezavírá.
 
@@ -527,6 +528,13 @@ ochrana, producer/projektor a Gate 1 důkazy chybějí.
 > konverzací navíc `read:chat`. Řádek otevírá existující `MS-07`, cursor je
 > svázaný s projektem a tato část není offline cache. Vytvoření, přiřazení,
 > editace, archivace a mazání zůstávají nedostupné.
+
+> **Implementační checkpoint MM3-E (2026-09-07):** aktivní i archivovaný
+> seznam nově pokračuje za první stovku pouze svým serverovým opaque cursorem.
+> UI ukazuje partial boundary a **Načíst další projekty**; response/row state,
+> duplicate, overlap a pozdní odpověď předchozího filtru selžou bez přepsání
+> potvrzeného okna. Každý filtr má vlastní validovanou S1 cache boundary.
+> Zdrojová evidence: [MM3-E review](reviews/MM3E-PROJECT-LIST-PAGINATION.md).
 
 | Stav | Chování |
 |---|---|

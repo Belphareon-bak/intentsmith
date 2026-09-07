@@ -13,7 +13,7 @@ Release verdict: `NOT READY`
 | `MM0` provenance and branch | `COMPLETE` | `550856e5` | core base selected; prototype integration follows |
 | `MM1` prototype integration | `COMPLETE` | `550856e5..fec916b8` | merge `c1994d9b`; mobile gate 37/37 active |
 | `MM2` RemoteCorePort | `IN PROGRESS` | candidate `f4861bca` | 10 production provider registrations; freeze remains open |
-| `MM3` primary mobile surfaces | `IN PROGRESS` | projects `1a7be999`; conversations `ddb90e7e`; project drill-down `701308d8`; complete list paging `34bc19de` | project list/detail, conversation reads, global cursor paging and live project-to-conversation navigation implemented; search/runs open |
+| `MM3` primary mobile surfaces | `IN PROGRESS` | projects `1a7be999`; conversations `ddb90e7e`; project drill-down `701308d8`; conversation paging `34bc19de`; project paging `075f5eb7` | project list/detail, complete state-filter paging, conversation reads/global paging and live project-to-conversation navigation implemented; search/runs open |
 | `MM4` governed surfaces | `IN PROGRESS` | settings read `87a51930`; memory read `2c33fd9b`; workers/specialists `49dd991d`; devices `13fa98c6`; settings write `4bb9011d`; memory create `3341ea11`; worker state `7ac9e303`; worker history `fd8ad498`; specialist detail `241b8934` | read projections, paired-device revocation, revisioned UX-setting writes, create-only manual memory, guarded worker enable/disable, terminal worker-run history and inspectable specialist expertise bindings are implemented; specialist actions stay open |
 | `MM5` transport and hardening | `IN PROGRESS` | transport `a5d5bab4`; vault `14be72b8..71746be5` | packaged native transport and direct AndroidKeyStore vault implemented; remote TLS/identity, push/offline policy and external security review remain open |
 | `MM6` Android release | `IN PROGRESS` | platform `d4607100`; CLI `d8bbea33`; artifacts `8e98924d` | API 36, cross-platform workflow, versioned APK/AAB manifest and SBOM implemented; binary build, production signing and device evidence open |
@@ -90,6 +90,11 @@ Release verdict: `NOT READY`
   concurrent response and stores a validated S1 `{ items, page }` snapshot.
   Legacy array caches remain readable without a fabricated continuation;
   losing `read:chat` withdraws the list, cursor and durable cache together.
+- Complete project filters: `PASS` — 11/11 gateway/core and 23/23 client
+  scenarios. Active and archived lists now walk their existing state-bound
+  opaque cursors, validate exact rows/response state, reject overlaps and late
+  cross-filter responses, and persist separate validated `{ items, page }`
+  snapshots. No project mutation or new route was introduced.
 - Release artifacts: `PASS` — 10/10 checks; Gradle consumes the tracked
   `0.1.0`/`1000` metadata and the workflow requires signed APK+AAB, CycloneDX
   SBOM and a source/endpoint/signer manifest.

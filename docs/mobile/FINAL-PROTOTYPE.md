@@ -119,9 +119,11 @@ text, explain payloady a stav `running` do telefonu neposílá. MM4-I v
   cache; nepřidává projektovou ani chat mutation. MM3-D v `34bc19de` uzavírá
   truncation globálního seznamu: klient zobrazí partial boundary, pokračuje
   pouze opaque cursorem, odmítne neplatný či překrývající se page a ukládá
-  validované S1 okno spolu s jeho potvrzenou boundary. Aktuální binární a
-fyzický device journey však stále neproběhl, takže jde o implementovaný
-kandidát, ne release verdict.
+  validované S1 okno spolu s jeho potvrzenou boundary. MM3-E v `075f5eb7`
+  stejným fail-closed způsobem doplňuje oddělené úplné
+  aktivní/archivované seznamy projektů, včetně state-bound response a cache.
+Aktuální binární build a fyzický device journey však stále neproběhly, takže
+jde o implementovaný kandidát, ne release verdict.
 
 ## 3. Pravdivý stav dnešního prototypu
 
@@ -138,7 +140,7 @@ kandidát, ne release verdict.
 | Nastavení backendu | `SOURCE TESTED; DEVICE TEST PENDING` | live-only veřejné čtení; zápis 11 UX preferencí nad očekávanou revizí; 13/13 gateway/core + 13/13 UI | `write:settings` není default; nejde o obecný settings/security/model editor ani refreeze návrhu v2; fyzický WebView journey `NOT RUN` |
 | Uchovávané informace | `SOURCE TESTED; DEVICE TEST PENDING` | filtrované LTM/task-memory čtení a online vytvoření nové explicitní LTM položky; 12/12 gateway/core + 14/14 UI | `write:memory` není default; žádná náhrada, smazání, zápis task memory ani interní kategorie; fyzický WebView journey `NOT RUN` |
 | Globální seznam konverzací | `SOURCE TESTED; DEVICE TEST PENDING` | kompletní cursorový průchod po 50, exact page validation, overlap/concurrency guard a validovaná S1 cache boundary; 25/25 klientských scénářů | není globální search ani mutation; fyzický WebView journey zůstává otevřený |
-| Projekty a jejich konverzace | `PARTIAL / SOURCE TESTED; DEVICE TEST PENDING` | read-only projektový seznam/detail a živý drill-down přiřazených konverzací; dvojí scope, SQL-side filtr, projektový cursor a no-store; 11/11 gateway/core + 17/17 UI | seznam/detail projektu mohou mít označenou S1 cache, členství konverzací je memory-only; create/assign/edit/archive/delete, search, wire freeze a fyzický WebView journey zůstávají otevřené |
+| Projekty a jejich konverzace | `PARTIAL / SOURCE TESTED; DEVICE TEST PENDING` | read-only projektový seznam/detail, úplné active/archive cursorové filtry a živý drill-down přiřazených konverzací; 11/11 gateway/core + 23/23 UI | seznam/detail projektu mohou mít oddělenou označenou S1 cache, členství konverzací je memory-only; create/assign/edit/archive/delete, search, wire freeze a fyzický WebView journey zůstávají otevřené |
 | Agenti a specialisté | `SOURCE TESTED; DEVICE TEST PENDING` | filtrované seznamy, detail workera, stránkovaná terminální historie bez execution obsahu a detail specialisty s veřejnými metadaty balíčku a vazbami expertiz; worker enable/disable nad očekávaným stavem, kombinované sady 18/18 gateway/core + 18/18 UI | `write:workers` není default; vypnutí neruší právě běžící práci; specialist status je perzistovaný, ne živý runtime stav; live progress, cancel, create/edit/run/dry-run a specialist mutations zůstávají mimo současnou autoritu |
 | Background lock | `EMULATOR VERIFIED` | `onPause` zapečetí vault, pošle do stránky `intentsmithLock` (zahodí credential z paměti, zruší běžící requesty, zneplatní epochu) a zvedne překryv; pozdní odpověď je inertní | ověřeno na emulátoru a šesti testy; fyzický telefon `NOT RUN` |
 | Odemčení | `EMULATOR VERIFIED` | systémový `BiometricPrompt` (otisk / obličej / PIN telefonu); po odemčení se stránka reloadne a čte z trezoru | vlastní PIN zůstává jen pro telefon **bez** zámku obrazovky; fyzická biometrie `NOT RUN` |

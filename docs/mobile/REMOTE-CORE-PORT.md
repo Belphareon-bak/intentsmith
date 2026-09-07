@@ -9,11 +9,13 @@ gateway read requires both `read:chat` and `read:projects`. This is an additive
 candidate implementation, not a contract freeze; see
 [`reviews/MM3C-PROJECT-CONVERSATIONS.md`](reviews/MM3C-PROJECT-CONVERSATIONS.md).
 
-Latest consumer checkpoint: MM3-D (`34bc19de`) changes no port input, output
-or provider. It makes the mobile global-list client consume the already
-returned opaque cursor, validate every versioned page and persist only the
-confirmed S1 window plus its boundary. See
-[`reviews/MM3D-CONVERSATION-LIST-PAGINATION.md`](reviews/MM3D-CONVERSATION-LIST-PAGINATION.md).
+Latest consumer checkpoints MM3-D (`34bc19de`) and MM3-E (`075f5eb7`) change
+no port input, output or provider. They make the mobile client consume the
+already returned opaque cursors for the global conversation list and the
+active/archive project filters, validate every versioned page and persist only
+the confirmed S1 window plus its boundary. See
+[`reviews/MM3D-CONVERSATION-LIST-PAGINATION.md`](reviews/MM3D-CONVERSATION-LIST-PAGINATION.md)
+and [`reviews/MM3E-PROJECT-LIST-PAGINATION.md`](reviews/MM3E-PROJECT-LIST-PAGINATION.md).
 
 `RemoteCorePort` is the core-owned, in-process boundary used by the mobile
 gateway. It is deliberately narrower than the desktop HTTP listener: a mobile

@@ -224,6 +224,24 @@ Detail a historii agenta zkontroluj v **Agenti → Detail a historie**:
 Přesná projekce, kurzorový kontrakt, negativní scénáře a non-claims jsou v
 [MM4-H review](reviews/MM4H-WORKER-RUN-HISTORY.md).
 
+### Aktivní a archivované projekty (MM3-E)
+
+1. Připrav více než 100 aktivních projektů, otevři **Projekty → Aktivní** a
+   ověř větu, že seznam je výřez, i tlačítko **Načíst další projekty**.
+2. Další dávka musí pokračovat serverovým cursorem bez duplicit. Po potvrzeném
+   konci tlačítko zmizí; počet řádků sám konec neurčuje.
+3. Přepni na **Archivované**. Řádky ani cursor aktivního filtru se nesmějí
+   objevit a pozdní aktivní odpověď nesmí archiv přepsat.
+4. Odpoj síť při appendu: poslední potvrzené S1 řádky zůstanou označené jako
+   cache, chyba je inline a obnova načte vybraný filtr od začátku.
+5. Odeber `read:projects`: aktivní i archivovaný seznam, jejich page boundaries
+   a všechny projektové detailové cache musí zmizet.
+6. Po upgradu ze starší array-only cache smí aplikace ukázat správný filtr, ale
+   pokračování nabídne až po novém serverovém readu.
+
+State/cursor vazba, cache migrace a negativní scénáře jsou v
+[MM3-E review](reviews/MM3E-PROJECT-LIST-PAGINATION.md).
+
 ### Globální seznam konverzací (MM3-D)
 
 1. Otevři **Konverzace** s více než 50 nesmazanými konverzacemi. Pod první
