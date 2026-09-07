@@ -61,6 +61,7 @@ const { __ms20 } = await import('../src/mobile/client/app.js');
 const {
   state, store, journal, K, cache, storedInformationCard, loadStoredInformation, unknownScopes,
   manualMemoryInput, memoryMutationFresh, memoryWriteOutcome, createManualMemory, replaceScopes,
+  validStoredInformationRecord, validStoredInformationPage,
 } = __ms20;
 
 function reset(scopes = ['read:memory']) {
@@ -72,6 +73,7 @@ function reset(scopes = ['read:memory']) {
   state.route = 'diagnostics';
   state.conn = 'ok';
   state.data = {};
+  state.pagination = {};
   state.loading = {};
   state.error = {};
   state.cacheAge = {};
@@ -105,6 +107,41 @@ function record(overrides = {}) {
   };
 }
 
+function taskRecord(overrides = {}) {
+  return record({
+    id: 'task:2',
+    kind: 'task',
+    category: 'fix',
+    key: 'sqlite-lock',
+    value: 'serialize writes',
+    source: 'execution_loop',
+    projectId: '17',
+    milestoneId: '4',
+    ...overrides,
+  });
+}
+
+function page(data, overrides = {}) {
+  return {
+    ok: true,
+    scopes: ['read:memory'],
+    kind: 'all',
+    hasMore: false,
+    nextCursor: null,
+    end: true,
+    data,
+    ...overrides,
+  };
+}
+
+function http(payload, { status = 200 } = {}) {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    async json() { return payload; },
+  };
+}
+
 console.log('\n=== Mobile stored-information UI ===');
 
 await test('missing scope locks the card and hides remembered records', () => {
@@ -130,6 +167,7 @@ await test('loading and failed reads are never rendered as an empty memory', () 
 await test('a confirmed empty response has an explicit empty state', () => {
   reset();
   state.data.memory = [];
+  state.pagination.memory = { hasMore: false, nextCursor: null, end: true };
   assert.match(storedInformationCard(), /Backend potvrdil, že zatím není nic uloženo/);
 });
 
@@ -220,6 +258,24 @@ await test('write result validator binds the content-free receipt to the attempt
   }, 'memory-op-1', 'project', 'repository-root').valid, false);
 });
 
+await test('read validators accept only the exact LTM/task DTO and page boundary', () => {
+  const ltm = record();
+  const task = taskRecord();
+  assert.equal(validStoredInformationRecord(ltm), true);
+  assert.equal(validStoredInformationRecord(task), true);
+  assert.equal(validStoredInformationPage(page([ltm, task])), true);
+  assert.equal(validStoredInformationRecord({ ...ltm, extra: true }), false);
+  assert.equal(validStoredInformationRecord({ ...ltm, projectId: 'must-not-exist' }), false);
+  assert.equal(validStoredInformationRecord({ ...task, source: 'invented' }), false);
+  assert.equal(validStoredInformationRecord({ ...ltm, strength: Infinity }), false);
+  assert.equal(validStoredInformationPage(page([ltm, ltm])), false);
+  assert.equal(validStoredInformationPage(page([ltm], {
+    hasMore: true, nextCursor: null, end: false,
+  })), false);
+  assert.equal(validStoredInformationPage(page([ltm], { kind: 'ltm' })), false);
+  assert.equal(validStoredInformationPage(page([ltm], { scopes: ['read:memory', 'read:memory'] })), false);
+});
+
 await test('memory cache uses one-hour fresh and seven-day hard limits', () => {
   reset();
   const realNow = Date.now;
@@ -236,16 +292,36 @@ await test('memory cache uses one-hour fresh and seven-day hard limits', () => {
   }
 });
 
+await test('legacy cache is validated but never presented as a complete list', async () => {
+  reset();
+  store.set(K.cache + 'memory', { at: Date.now(), data: [record()] });
+  globalThis.fetch = async () => { throw new TypeError('offline'); };
+  await loadStoredInformation();
+  assert.equal(state.data.memory[0].id, 'ltm:1');
+  assert.deepEqual(state.pagination.memory, { hasMore: false, nextCursor: null, end: false });
+  assert.match(storedInformationCard(), /Úplnost starší uložené kopie nelze potvrdit/);
+  assert.equal(state.memoryLive, false);
+});
+
+await test('corrupt cache is deleted before an offline read can publish it', async () => {
+  reset();
+  store.set(K.cache + 'memory', {
+    at: Date.now(),
+    data: { items: [{ ...record(), extra: true }], page: { hasMore: false, nextCursor: null, end: true } },
+  });
+  globalThis.fetch = async () => { throw new TypeError('offline'); };
+  await loadStoredInformation();
+  assert.equal(state.data.memory, undefined);
+  assert.equal(store.get(K.cache + 'memory'), null);
+  assert.equal(state.memoryLive, false);
+});
+
 await test('load publishes only the displayed window and caches that window', async () => {
   reset();
   const calls = [];
   globalThis.fetch = async (url, options) => {
     calls.push({ url, options });
-    return {
-      ok: true,
-      status: 200,
-      async json() { return { ok: true, scopes: ['read:memory'], data: [record()] }; },
-    };
+    return http(page([record()]));
   };
   await loadStoredInformation();
   assert.equal(calls[0].url, '/m1/memory?kind=all&limit=50');
@@ -253,7 +329,80 @@ await test('load publishes only the displayed window and caches that window', as
   assert.equal(state.data.memory[0].id, 'ltm:1');
   assert.equal(state.memoryLive, true);
   assert.equal(calls[0].options.cache, 'no-store');
-  assert.deepEqual(store.get(K.cache + 'memory').data, state.data.memory);
+  assert.deepEqual(store.get(K.cache + 'memory').data, {
+    items: state.data.memory,
+    page: { hasMore: false, nextCursor: null, end: true },
+  });
+});
+
+await test('opaque cursors append a validated page and persist the complete window', async () => {
+  reset();
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    return calls.length === 1
+      ? http(page([record()], { hasMore: true, nextCursor: 'c1.a+/=', end: false }))
+      : http(page([taskRecord()]));
+  };
+  await loadStoredInformation();
+  assert.match(storedInformationCard(), /data-act="load-more-memory"/);
+  await loadStoredInformation({ append: true });
+  assert.equal(calls[1].url, '/m1/memory?kind=all&limit=50&cursor=c1.a%2B%2F%3D');
+  assert.deepEqual(state.data.memory.map(item => item.id), ['ltm:1', 'task:2']);
+  assert.deepEqual(state.pagination.memory, { hasMore: false, nextCursor: null, end: true });
+  assert.ok(!storedInformationCard().includes('data-act="load-more-memory"'));
+  assert.deepEqual(store.get(K.cache + 'memory').data.items, state.data.memory);
+  assert.equal(state.memoryLive, true);
+});
+
+await test('overlapping append is rejected without changing the confirmed window', async () => {
+  reset(['read:memory', 'write:memory']);
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return calls === 1
+      ? http(page([record()], { scopes: ['read:memory', 'write:memory'], hasMore: true, nextCursor: 'opaque', end: false }))
+      : http(page([record()], { scopes: ['read:memory', 'write:memory'] }));
+  };
+  await loadStoredInformation();
+  const cached = store.get(K.cache + 'memory');
+  await loadStoredInformation({ append: true });
+  assert.deepEqual(state.data.memory.map(item => item.id), ['ltm:1']);
+  assert.deepEqual(store.get(K.cache + 'memory'), cached);
+  assert.equal(state.error.memory.kind, 'protocol');
+  assert.equal(state.memoryLive, false);
+  assert.equal(memoryMutationFresh(), false);
+  assert.match(storedInformationCard(), /neplatnou stránku/);
+});
+
+await test('strict HTTP and DTO failures preserve valid cache and relock create', async () => {
+  reset(['read:memory', 'write:memory']);
+  const snapshot = {
+    items: [record()],
+    page: { hasMore: false, nextCursor: null, end: true },
+  };
+  store.set(K.cache + 'memory', { at: Date.now(), data: snapshot });
+  globalThis.fetch = async () => http(page([record({ extra: true })]), { status: 201 });
+  await loadStoredInformation();
+  assert.deepEqual(state.data.memory, snapshot.items);
+  assert.deepEqual(store.get(K.cache + 'memory').data, snapshot);
+  assert.equal(state.error.memory.kind, 'protocol');
+  assert.equal(state.memoryLive, false);
+  assert.equal(memoryMutationFresh(), false);
+});
+
+await test('a late older read cannot replace the newest generation', async () => {
+  reset();
+  const pending = [];
+  globalThis.fetch = async () => new Promise(resolve => pending.push(resolve));
+  const older = loadStoredInformation();
+  const newest = loadStoredInformation();
+  pending[1](http(page([record({ id: 'ltm:newest', key: 'newest' })])));
+  await newest;
+  pending[0](http(page([record({ id: 'ltm:older', key: 'older' })])));
+  await older;
+  assert.equal(state.data.memory[0].id, 'ltm:newest');
+  assert.equal(store.get(K.cache + 'memory').data.items[0].id, 'ltm:newest');
 });
 
 await test('confirmed create sends once, stores no payload in the journal and refreshes by read', async () => {
@@ -290,20 +439,10 @@ await test('confirmed create sends once, stores no payload in the journal and re
         },
       };
     }
-    return {
-      ok: true,
-      status: 200,
-      async json() {
-        return {
-          ok: true,
-          scopes: ['read:memory', 'write:memory'],
-          data: [record({
-            id: 'ltm:mem_default_project_repository-root',
-            category: 'project', key: 'repository-root', value: 'C:\\work\\intentsmith',
-          })],
-        };
-      },
-    };
+    return http(page([record({
+      id: 'ltm:mem_default_project_repository-root',
+      category: 'project', key: 'repository-root', value: 'C:\\work\\intentsmith',
+    })], { scopes: ['read:memory', 'write:memory'] }));
   };
 
   await createManualMemory();
@@ -373,17 +512,9 @@ await test('duplicate key is rejected, refreshed by read and never sent again', 
         },
       };
     }
-    return {
-      ok: true,
-      status: 200,
-      async json() {
-        return {
-          ok: true,
-          scopes: ['read:memory', 'write:memory'],
-          data: [record({ category: 'project', key: 'repository-root', value: 'old value' })],
-        };
-      },
-    };
+    return http(page([
+      record({ category: 'project', key: 'repository-root', value: 'old value' }),
+    ], { scopes: ['read:memory', 'write:memory'] }));
   };
 
   await createManualMemory();
@@ -397,11 +528,7 @@ await test('duplicate key is rejected, refreshed by read and never sent again', 
 await test('expired cache is deleted and scope withdrawal clears all memory state', async () => {
   reset();
   store.set(K.cache + 'memory', { at: Date.now() - 8 * 24 * 60 * 60_000, data: [record()] });
-  globalThis.fetch = async () => ({
-    ok: true,
-    status: 200,
-    async json() { return { ok: true, scopes: [], data: [record()] }; },
-  });
+  globalThis.fetch = async () => http(page([record()], { scopes: [] }));
   await loadStoredInformation();
   assert.equal(state.data.memory, undefined);
   assert.equal(state.loading.memory, false);

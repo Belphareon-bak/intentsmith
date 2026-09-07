@@ -769,6 +769,8 @@ const state = {
   settingsSaving: null,
   settingsNote: null,
   memoryLive: false,
+  // MM4-L. Stored information is a server-owned forward window. The cursor is
+  // opaque and is persisted only with the exact records it describes.
   memorySaving: false,
   memoryNote: null,
   workersLive: false,
@@ -894,6 +896,7 @@ function replaceScopes(scopes) {
   if (!next.includes('read:memory')) {
     memoryGeneration++;
     delete state.data.memory;
+    delete state.pagination.memory;
     state.error.memory = null;
     state.loading.memory = false;
     state.cacheAge.memory = null;
@@ -2843,6 +2846,85 @@ function storedInformationValue(value) {
   try { return JSON.stringify(value); } catch { return 'nečitelná hodnota'; }
 }
 
+const STORED_INFORMATION_KEYS = Object.freeze([
+  'accessCount', 'category', 'createdAt', 'id', 'key', 'kind', 'lastUsedAt',
+  'milestoneId', 'projectId', 'source', 'storedConfidence', 'strength', 'value', 'version',
+]);
+
+function validStoredInformationRecord(record) {
+  if (!plainJsonObject(record)
+      || Object.keys(record).sort().join(',') !== STORED_INFORMATION_KEYS.join(',')
+      || !['ltm', 'task'].includes(record.kind)
+      || typeof record.id !== 'string'
+      || (record.kind === 'ltm' && !/^ltm:.+/u.test(record.id))
+      || (record.kind === 'task' && !/^task:[1-9][0-9]*$/u.test(record.id))
+      || typeof record.category !== 'string' || !record.category
+      || typeof record.key !== 'string' || !record.key
+      || !finiteJsonValue(record.value)
+      || !(record.strength === null
+        || (typeof record.strength === 'number' && Number.isFinite(record.strength)
+          && record.strength >= 0 && record.strength <= 1))
+      || !(record.storedConfidence === null
+        || (typeof record.storedConfidence === 'number' && Number.isFinite(record.storedConfidence)
+          && record.storedConfidence >= 0 && record.storedConfidence <= 1))
+      || typeof record.source !== 'string' || !record.source
+      || !(record.projectId === null || (typeof record.projectId === 'string' && record.projectId))
+      || !(record.milestoneId === null || (typeof record.milestoneId === 'string' && record.milestoneId))
+      || !validIsoOrNull(record.createdAt)
+      || !validIsoOrNull(record.lastUsedAt)
+      || !Number.isSafeInteger(record.accessCount) || record.accessCount < 0
+      || typeof record.version !== 'string' || !record.version.startsWith('v1:')) return false;
+
+  return record.kind === 'task'
+    ? record.source === 'execution_loop' && record.projectId !== null
+    : record.projectId === null && record.milestoneId === null;
+}
+
+function validStoredInformationRecords(records, maxItems = Infinity) {
+  if (!Array.isArray(records) || records.length > maxItems) return false;
+  const ids = new Set();
+  return records.every(record => {
+    if (!validStoredInformationRecord(record) || ids.has(record.id)) return false;
+    ids.add(record.id);
+    return true;
+  });
+}
+
+function validStoredInformationBoundary(page, itemCount) {
+  return Boolean(plainJsonObject(page)
+    && Object.keys(page).sort().join(',') === 'end,hasMore,nextCursor'
+    && typeof page.hasMore === 'boolean'
+    && typeof page.end === 'boolean'
+    && page.hasMore !== page.end
+    && (page.hasMore
+      ? itemCount > 0 && typeof page.nextCursor === 'string' && page.nextCursor.length > 0
+      : page.nextCursor === null));
+}
+
+function validStoredInformationPage(response) {
+  const boundary = {
+    hasMore: response?.hasMore,
+    nextCursor: response?.nextCursor,
+    end: response?.end,
+  };
+  const scopes = response?.scopes;
+  return Boolean(response?.ok === true
+    && response.kind === 'all'
+    && validStoredInformationRecords(response.data, 50)
+    && validStoredInformationBoundary(boundary, response.data.length)
+    && Array.isArray(scopes)
+    && scopes.every((scope, index) => (
+      typeof scope === 'string' && scope.length > 0 && scopes.indexOf(scope) === index
+    )));
+}
+
+function validStoredInformationCacheSnapshot(snapshot) {
+  return Boolean(plainJsonObject(snapshot)
+    && Object.keys(snapshot).sort().join(',') === 'items,page'
+    && validStoredInformationRecords(snapshot.items)
+    && validStoredInformationBoundary(snapshot.page, snapshot.items.length));
+}
+
 const MANUAL_MEMORY_CATEGORIES = Object.freeze([
   ['preference', 'Preference'],
   ['project', 'Projekt'],
@@ -2891,7 +2973,9 @@ function storedInformationCard() {
   } else if (state.error.memory && !records) {
     content = errorPanel(state.error.memory, 'load-memory');
   } else if (records && records.length === 0) {
-    content = '<div class="kv-note">Backend potvrdil, že zatím není nic uloženo.</div>';
+    content = state.pagination.memory?.end === true
+      ? '<div class="kv-note">Backend potvrdil, že zatím není nic uloženo.</div>'
+      : '<div class="kv-note">Uložená kopie je prázdná; úplnost seznamu není potvrzena.</div>';
   } else if (records) {
     content = records.map(record => `<article class="memory-record">
       <div class="memory-record-head">
@@ -2913,6 +2997,28 @@ function storedInformationCard() {
     ? '<div class="kv-note" data-tone="warn">Zobrazuje se starší uložená kopie. Obnoví se, až bude backend dostupný.</div>'
     : '';
 
+  const page = state.pagination.memory;
+  const more = records && page?.hasMore && page.nextCursor
+    ? `<div class="resource-more">
+      <button class="btn btn-secondary" data-act="load-more-memory" ${state.loading.memory ? 'disabled' : ''}>
+        ${state.loading.memory ? 'Načítám…' : 'Načíst další informace'}
+      </button>
+      <p>Seznam je výřez. Backend potvrdil další uložené informace.</p>
+    </div>`
+    : records && page?.end === false
+      ? '<div class="kv-note" data-tone="warn">Úplnost starší uložené kopie nelze potvrdit. Načti seznam znovu od začátku.</div>'
+      : '';
+
+  const inlineError = state.error.memory && records
+    ? `<div class="resource-inline-error" role="status">${esc(
+      state.error.memory.kind === 'offline'
+        ? 'Další informace teď nelze ověřit: telefon je offline.'
+        : state.error.memory.kind === 'protocol'
+          ? 'Server vrátil neplatnou stránku. Zobrazený seznam se nezměnil.'
+          : 'Aktualizace paměti selhala. Zobrazená kopie může být starší.',
+    )}<button class="btn btn-secondary btn-sm" data-act="load-memory">Načíst seznam od začátku</button></div>`
+    : '';
+
   return `<div class="card">
     <div class="card-head"><h3 class="card-title">Paměť</h3>
       <span class="pill" data-tone="${auth.has('read:memory') && auth.has('write:memory') ? 'ok' : auth.has('read:memory') ? 'info' : 'muted'}">${auth.has('read:memory') && auth.has('write:memory') ? 'create-only zápis' : auth.has('read:memory') ? 'jen ke čtení' : icon('lock') + 'zamčeno'}</span></div>
@@ -2921,6 +3027,8 @@ function storedInformationCard() {
     ${manualMemoryForm()}
     ${cacheNote}
     ${content}
+    ${inlineError}
+    ${more}
   </div>`;
 }
 
@@ -5545,33 +5653,71 @@ async function saveSetting(path) {
   }
 }
 
-async function loadStoredInformation() {
+async function loadStoredInformation({ append = false } = {}) {
   if (!auth.has('read:memory')) return;
+  state.pagination ||= {};
+  const cursor = append ? state.pagination.memory?.nextCursor : null;
+  if (append && (!cursor || state.loading.memory)) return;
   const generation = ++memoryGeneration;
   state.memoryLive = false;
-  const cached = cache.read('memory');
-  if (cached.status === 'EXPIRED') {
-    store.del(K.cache + 'memory');
-    state.data.memory = undefined;
-    state.cacheAge.memory = null;
-    state.cacheAt.memory = null;
-  } else {
-    state.data.memory = cached.data || undefined;
-    state.cacheAge.memory = cached.data ? cached.status : null;
-    state.cacheAt.memory = cached.data ? cached.at : null;
+  if (!append) {
+    const cached = cache.read('memory');
+    if (cached.status === 'EXPIRED') {
+      store.del(K.cache + 'memory');
+      state.data.memory = undefined;
+      delete state.pagination.memory;
+      state.cacheAge.memory = null;
+      state.cacheAt.memory = null;
+    } else {
+      const snapshot = cached.data && Array.isArray(cached.data.items) ? cached.data : null;
+      const legacyItems = Array.isArray(cached.data) ? cached.data : null;
+      const page = snapshot?.page;
+      const validSnapshot = validStoredInformationCacheSnapshot(snapshot);
+      const validLegacy = validStoredInformationRecords(legacyItems, 50);
+      if (validSnapshot || validLegacy) {
+        state.data.memory = validSnapshot ? snapshot.items : legacyItems;
+        state.pagination.memory = validSnapshot
+          ? { hasMore: page.hasMore, nextCursor: page.nextCursor, end: page.end }
+          : { hasMore: false, nextCursor: null, end: false };
+        state.cacheAge.memory = cached.status;
+        state.cacheAt.memory = cached.at;
+      } else {
+        if (cached.data) store.del(K.cache + 'memory');
+        state.data.memory = undefined;
+        delete state.pagination.memory;
+        state.cacheAge.memory = null;
+        state.cacheAt.memory = null;
+      }
+    }
   }
   state.loading.memory = true;
   state.error.memory = null;
   render();
 
   try {
-    const response = await api('/memory?kind=all&limit=50');
+    const suffix = cursor ? `&cursor=${encodeURIComponent(cursor)}` : '';
+    const response = await api(`/memory?kind=all&limit=50${suffix}`, { strict: true });
     if (generation !== memoryGeneration) return;
-    state.data.memory = response.data;
+    if (!validStoredInformationPage(response)) {
+      throw new ApiError('protocol', { code: 'protocol_invalid_response' });
+    }
+    replaceScopes(response.scopes);
+    if (!auth.has('read:memory') || generation !== memoryGeneration) return render();
+
+    const prior = append && Array.isArray(state.data.memory) ? state.data.memory : [];
+    const priorIds = new Set(prior.map(record => record.id));
+    if (response.data.some(record => priorIds.has(record.id))) {
+      throw new ApiError('protocol', { code: 'protocol_invalid_response' });
+    }
+    state.data.memory = [...prior, ...response.data];
+    state.pagination.memory = {
+      hasMore: response.hasMore,
+      nextCursor: response.nextCursor,
+      end: response.end,
+    };
     state.cacheAge.memory = 'FRESH';
     state.cacheAt.memory = Date.now();
-    cache.write('memory', response.data);
-    if (response.scopes) replaceScopes(response.scopes);
+    cache.write('memory', { items: state.data.memory, page: state.pagination.memory });
     state.memoryLive = auth.has('read:memory');
     setConn('ok');
   } catch (error) {
@@ -7170,6 +7316,7 @@ document.addEventListener('click', event => {
     'load-settings': () => loadSettings(),
     'setting-save': () => { saveSetting(target.dataset.settingPath); },
     'load-memory': () => loadStoredInformation(),
+    'load-more-memory': () => loadStoredInformation({ append: true }),
     'memory-create': () => { createManualMemory(); },
     'load-workers': () => loadWorkers(),
     'load-worker': () => loadWorkerHistory(),
@@ -7490,7 +7637,8 @@ export const __ms20 = {
   serverSettingsCard, publicSettingRows, PUBLIC_SETTINGS_PATHS, validSettingsResponse,
   loadSettings, saveSetting,
   settingsWriteOutcome, settingsMutationFresh, settingInputId,
-  storedInformationCard, storedInformationValue, loadStoredInformation,
+  storedInformationCard, storedInformationValue, validStoredInformationRecord,
+  validStoredInformationPage, loadStoredInformation,
   manualMemoryForm, manualMemoryInput, memoryMutationFresh,
   memoryWriteOutcome, createManualMemory,
   renderNavBar, navCount, newChat, layoutNavRing, normaliseNavRing, centreNavOnSelection,
