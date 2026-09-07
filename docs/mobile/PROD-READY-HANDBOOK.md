@@ -345,6 +345,19 @@ route, scope, port, wire ani mutation se neměnily. Fyzický WebView průchod a
 release acceptance se netvrdí. Viz
 [MM4-K review](reviews/MM4K-PUBLIC-SETTINGS-INTEGRITY.md).
 
+### P1-3a.2 Integrita seznamu uchovávaných informací
+
+Stav MM4-L: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`.
+Existující `GET /m1/memory` klient přijme jen jako HTTP 200 success envelope,
+exact 14-field versioned LTM/task DTO a koherentní `kind=all` page boundary.
+Opaque cursor se pouze vrací serveru, duplicate/overlap odmítne celou stránku
+a potvrzené okno se ukládá jako `{ items, page }`. Přesný legacy array zůstane
+jen explicitně neúplnou kopií; corrupt/expired cache se maže. Vadný live read
+zachová poslední validované okno pouze ke čtení a relockne MM4-F create form.
+Backend zůstává 12/12 a klient prošel 21/21; route, scope, port, wire ani
+mutation se neměnily. Fyzický WebView průchod a release acceptance se netvrdí.
+Viz [MM4-L review](reviews/MM4L-STORED-INFORMATION-LIST-INTEGRITY.md).
+
 ### P1-3b Create-only uchovávaná informace
 
 Stav MM4-F: `IMPLEMENTED AND SOURCE TESTED; DEVICE EXECUTION NOT RUN`.
@@ -616,8 +629,8 @@ jiného, telefon nemá zámek obrazovky — a to je nález, ne detail.
   klientského konzumenta jejího už existujícího cursoru a MM3-E totéž pro
   existující project-state cursory. MM4-J stejným způsobem zpřísnilo už
   existující worker/specialist list consumery a MM3-F existující project-detail
-  consumer. MM4-K stejně zpřísnilo existující settings read consumer, ne tento
-  dokument.
+  consumer. MM4-K stejně zpřísnilo existující settings read consumer a MM4-L
+  existující stored-information list consumer, ne tento dokument.
 - Žádný termín. Termíny patří operátorovi; tady jsou jen závislosti a pořadí.
 - Žádné „nice to have". Každá položka výše má popsaný způsob, jak selže —
   když ho někdo nedokáže popsat u nové položky, do seznamu nepatří.

@@ -14,7 +14,9 @@
 > uzavírá exact list/cache integritu workerů a specialistů. MM3-F nyní uzavírá
 > exact live/cache hranici detailu projektu, jeho not-found a route-race stav.
 > MM4-K nyní uzavírá exact live-only settings read a fail-closed editor relock.
-> Autoritou poslední změny je review `MM4K-PUBLIC-SETTINGS-INTEGRITY`;
+> MM4-L uzavírá exact stored-information list, úplný cursorový průchod a page
+> cache boundary. Autoritou poslední změny je review
+> `MM4L-STORED-INFORMATION-LIST-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná obrazovka tím není produktově DONE
@@ -700,9 +702,18 @@ ne přepis běhu.**
 > journal neukládá obsah. Aktuální evidence je
 > `reviews/MM4F-CREATE-ONLY-MEMORY.md`.
 
-> `MS-16` a `MS-17` jsou návrhy. Implementace vyžaduje schválený a refrozený
-> kontrakt v2, příslušnou Gate 1 evidenci a samostatný Work Package; samotné
-> přijetí `DR-008` ani schválení kontraktu ji neautorizuje.
+> **Implementační checkpoint MM4-L (2026-09-07):** `MS-16` přijme pouze exact
+> versioned LTM/task records v koherentní `kind=all` stránce. Viditelný partial
+> stav a **Načíst další informace** vracejí backendu výhradně jeho opaque
+> cursor; duplicate/overlap stránka se odmítne bez změny potvrzeného okna.
+> Current `{ items, page }` i legacy cache se před renderem validují, legacy
+> array se označí jako neúplný a corrupt/expired cache se smaže. Vadný read
+> ponechá poslední validované řádky pouze ke čtení a zamkne `MS-17`. Evidence:
+> [MM4-L review](reviews/MM4L-STORED-INFORMATION-LIST-INTEGRITY.md).
+
+> Následující tabulky zůstávají návrhem cílového kontraktu v2; MM4-B/F/L jsou
+> implementované source checkpointy, nikoli jeho formální refreeze. Gate 1,
+> device evidence a samostatná release acceptance tím nejsou nahrazené.
 
 ---
 
@@ -713,13 +724,13 @@ ne přepis běhu.**
 | Stav | Chování |
 |---|---|
 | `SS-01` | Skeleton |
-| `SS-02` | „Zatím nic uloženo" |
-| `SS-03` | Jen položky, které byly zobrazené a cachované — cache je zde úmyslně úsporná (`MD-06`) |
+| `SS-02` | „Zatím nic uloženo" jen po exact stránce s potvrzeným `end`; prázdná legacy cache úplnost netvrdí |
+| `SS-03` | Jen exact validované položky a jejich serverový page boundary; partial/legacy okno je viditelně neúplné (`MD-06`) |
 | `SS-04` | Stáří viditelné |
-| `SS-05` | Refresh |
+| `SS-05` | Refresh od začátku; další stránka pouze opaque cursorem vydaným serverem |
 | `SS-06` | Jako `MS-06` |
 | `SS-07` | Uzamčeno |
-| `SS-08` | Cache čitelná |
+| `SS-08` | Validní cache čitelná pouze read-only; vadná stránka zachová poslední potvrzené okno a nabídne refresh |
 | `SS-09` | Položka zanikla nebo zeslábla (decay) → převzít serverový stav |
 | `SS-10` | Čtení bezpečné. **Mazání paměti z telefonu není v 1.0** (PLAN.md §5) |
 

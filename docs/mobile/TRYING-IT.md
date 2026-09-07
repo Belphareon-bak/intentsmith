@@ -193,6 +193,23 @@ Integritu čtení nastavení (MM4-K) zkontroluj ve stejné kartě:
 Exact DTO, 46-path drift ratchet a mutation relock jsou v
 [MM4-K review](reviews/MM4K-PUBLIC-SETTINGS-INTEGRITY.md).
 
+Integritu seznamu paměti (MM4-L) zkontroluj ve stejné kartě:
+
+1. validní první stránka s `hasMore: true` musí ukázat **Načíst další
+   informace** a nesmí tvrdit, že je seznam úplný;
+2. další požadavek smí vrátit pouze opaque `nextCursor` vydaný serverem;
+3. duplicate/overlap, extra record field, chybný LTM/task tvar nebo nekoherentní
+   cursor/end musí odmítnout celou stránku a ponechat potvrzené řádky beze změny;
+4. current cache musí obsahovat `{ items, page }`; exact legacy array se smí
+   zobrazit jen jako neúplný a corrupt/expired cache se musí odstranit;
+5. offline, server nebo protocol chyba musí ponechat validní kopii pouze ke
+   čtení a okamžitě zamknout create form;
+6. scope withdrawal musí stáhnout seznam, page boundary i cache a opožděná
+   starší generace nesmí přepsat novější výsledek.
+
+Exact DTO, cursor/cache boundary a failure preservation jsou v
+[MM4-L review](reviews/MM4L-STORED-INFORMATION-LIST-INTEGRITY.md).
+
 Create-only paměť zkontroluj v **Nastavení → Uchovávané informace**:
 
 1. bez `write:memory` musí karta zůstat pouze pro čtení; formulář se smí ukázat

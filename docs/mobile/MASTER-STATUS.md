@@ -14,7 +14,7 @@ Release verdict: `NOT READY`
 | `MM1` prototype integration | `COMPLETE` | `550856e5..fec916b8` | merge `c1994d9b`; mobile gate 37/37 active |
 | `MM2` RemoteCorePort | `IN PROGRESS` | candidate `f4861bca` | 10 production provider registrations; freeze remains open |
 | `MM3` primary mobile surfaces | `IN PROGRESS` | projects `1a7be999`; conversations `ddb90e7e`; project drill-down `701308d8`; conversation paging `34bc19de`; project paging `075f5eb7`; detail integrity `a08d0dd0` | project list/detail with strict live/cache validation, complete state-filter paging, conversation reads/global paging and live project-to-conversation navigation implemented; search/runs open |
-| `MM4` governed surfaces | `IN PROGRESS` | settings read `87a51930`; memory read `2c33fd9b`; workers/specialists `49dd991d`; devices `13fa98c6`; settings write `4bb9011d`; memory create `3341ea11`; worker state `7ac9e303`; worker history `fd8ad498`; specialist detail `241b8934`; list integrity `acff7939`; settings integrity `99cdfdde` | read projections, paired-device revocation, revisioned UX-setting writes, create-only manual memory, guarded worker enable/disable, terminal worker-run history, inspectable specialist expertise bindings and fail-closed configured-list/settings consumers are implemented; specialist actions stay open |
+| `MM4` governed surfaces | `IN PROGRESS` | settings read `87a51930`; memory read `2c33fd9b`; workers/specialists `49dd991d`; devices `13fa98c6`; settings write `4bb9011d`; memory create `3341ea11`; worker state `7ac9e303`; worker history `fd8ad498`; specialist detail `241b8934`; list integrity `acff7939`; settings integrity `99cdfdde`; memory integrity `d1f0a98a` | read projections, paired-device revocation, revisioned UX-setting writes, create-only manual memory, guarded worker enable/disable, terminal worker-run history, inspectable specialist expertise bindings and fail-closed configured-list/settings/memory consumers are implemented; specialist actions stay open |
 | `MM5` transport and hardening | `IN PROGRESS` | transport `a5d5bab4`; vault `14be72b8..71746be5` | packaged native transport and direct AndroidKeyStore vault implemented; remote TLS/identity, push/offline policy and external security review remain open |
 | `MM6` Android release | `IN PROGRESS` | platform `d4607100`; CLI `d8bbea33`; artifacts `8e98924d` | API 36, cross-platform workflow, versioned APK/AAB manifest and SBOM implemented; binary build, production signing and device evidence open |
 
@@ -62,7 +62,10 @@ Release verdict: `NOT READY`
   non-finite JSON, malformed status/envelope and stale response generations
   cannot publish or unlock the separate 11-path revisioned editor.
 - Create-only stored information: `PASS` — 12/12 gateway/core scenarios and
-  14/14 client scenarios. `write:memory` is pairable but non-default; only a
+  21/21 client scenarios after MM4-L list-integrity coverage. Exact LTM/task
+  DTOs, opaque-cursor pagination, `{ items, page }` cache validation,
+  duplicate/overlap rejection and live-authority relocking now guard the read.
+  `write:memory` is pairable but non-default; only a
   new explicit LTM value may be inserted, while replacement, deletion, task
   memory and internal categories remain unavailable. Ambiguous effects become
   `UNKNOWN` and are never auto-retried.

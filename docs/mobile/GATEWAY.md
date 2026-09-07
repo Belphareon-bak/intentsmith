@@ -261,6 +261,14 @@ core exportem. Unknown/private pole nebo malformed hodnota se nerenderuje a
 nemůže odemknout MM4-E writer. Gateway, provider a wire se neměnily. Viz
 `reviews/MM4K-PUBLIC-SETTINGS-INTEGRITY.md`.
 
+MM4-L (`d1f0a98a`) stejně zpřísňuje pouze consumer existujícího
+`GET /m1/memory`. Klient nyní přijme exact versioned LTM/task DTO a koherentní
+`kind=all` page, vrací jen opaque server-issued cursor a cacheuje potvrzené
+okno společně s boundary. Duplicate/overlap, malformed live nebo cached data
+se nepublikují a existující create-only writer se relockne. Gateway, provider,
+wire i allow-list se neměnily. Viz
+`reviews/MM4L-STORED-INFORMATION-LIST-INTEGRITY.md`.
+
 ---
 
 ## 4. Routy

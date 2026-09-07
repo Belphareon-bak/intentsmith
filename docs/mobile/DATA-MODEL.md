@@ -15,8 +15,9 @@
 > snapshots exact DTO a page-boundary validací. MM3-F nyní stejnou exact
 > validaci, id binding a failure semantics uplatňuje na detail projektu.
 > MM4-K nyní ověřuje exact live-only settings DTO a celý 46-path public owner
-> map před publikací nebo odemčením editoru. Autoritou poslední změny je review
-> `MM4K-PUBLIC-SETTINGS-INTEGRITY`;
+> map před publikací nebo odemčením editoru. MM4-L váže exact LTM/task records
+> na server-issued page boundary a validuje current i legacy cache. Autoritou
+> poslední změny je review `MM4L-STORED-INFORMATION-LIST-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; žádná produktová fáze není DONE
@@ -450,6 +451,16 @@ Obsah schvalovaného approvalu se řídí i `MD-07`.
 > Mutace se nikdy neřadí offline, její HTTP odpovědi mají `no-store` a lokální
 > operation journal neobsahuje klíč ani hodnotu. Viz
 > `reviews/MM4F-CREATE-ONLY-MEMORY.md`.
+
+> **Implementační checkpoint MM4-L (2026-09-07):** `MD-06` se publikuje jen
+> jako exact 14-field LTM/task DTO v koherentní `kind=all` stránce. Klient
+> spotřebuje opaque cursor až do serverem potvrzeného `end`, ukládá
+> `{ items, page }` a cache před renderem znovu validuje. Přesný legacy array
+> může zůstat čitelný, ale je označený jako neúplný a cursor se nevymýšlí.
+> Expired/corrupt cache se maže; vadná live/append response zachová poslední
+> validované okno jen ke čtení a relockne MM4-F formulář. Stávající TTL 1 h / 7
+> dnů, route, scope, port, wire ani mutation se nemění. Zdrojová evidence:
+> [MM4-L review](reviews/MM4L-STORED-INFORMATION-LIST-INTEGRITY.md).
 
 | Atribut | Hodnota |
 |---|---|

@@ -8,8 +8,10 @@
 > `GET /m1/workers/:id/runs` a live-only
 > `GET /m1/specialists/:id`. MM4-J zpřísňuje klientské list/cache hranice bez
 > nové route a MM3-F totéž pro live/cached detail projektu.
-> MM4-K zpřísňuje live-only settings read a editor relock. Autoritou poslední
-> změny je review `MM4K-PUBLIC-SETTINGS-INTEGRITY`;
+> MM4-K zpřísňuje live-only settings read a editor relock. MM4-L zpřísňuje
+> stored-information DTO/page/cache hranici a doplňuje úplný cursorový průchod.
+> Autoritou poslední změny je review
+> `MM4L-STORED-INFORMATION-LIST-INTEGRITY`;
 > wildcard ani obecný `/api` proxy nevznikl.
 
 > **MM4-G UI overlay:** karta workera nabízí Zapnout/Vypnout pouze s
@@ -69,6 +71,13 @@
 > neznámá data se nevykreslí částečně jako „prázdná“; zobrazí failure/retry a
 > všechny revizní write controls zůstanou zamčené. Platný prázdný dokument má
 > vlastní explicitní empty stav. Persistentní settings cache nevzniká.
+
+> **MM4-L UI overlay:** karta **Paměť** vykreslí jen exact validované LTM/task
+> záznamy. Pokud backend potvrdí další stránku, zobrazí **Načíst další
+> informace** a pojmenuje seznam jako výřez. Exact legacy cache má explicitní
+> neúplný stav; vadná stránka zachová potvrzené řádky s inline chybou a retry,
+> ale create-only ovládání zůstane zamčené. Prázdný stav tvrdí úplnost jen při
+> serverem potvrzeném `end`.
 
 **Status:** **`LOCAL_REGISTRY_CONVERGED / MOBILE_SUBSET_PASS / SHARED_VALIDATION_BLOCKED`**; UI tím není produktově DONE
 **Datum a revize:** 2026-08-01 · vstupy `RV-028`, `RV-036`, `RV-037`, reconciliation `RV-038`; Composition Review C `RV-039`/`RV-040`; registr a chráněné hodnoty `RV-042`/`RV-043`
