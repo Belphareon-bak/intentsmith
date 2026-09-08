@@ -409,9 +409,15 @@ try {
   //   123 -> 124 M7 disconnected request pipeline composes the admission,
   //              limiter, session and database-backed core authorities behind
   //              the canonical isolation bootstrap.
+  //   124 -> 125 M7 durable session authority exercises the append-only
+  //              pairing/session schema directly. Its canonical bootstrap is
+  //              the first import and the unprotected assertion remains empty.
+  //   125 -> 126 M7 VPN production runtime composes the real database-backed
+  //              session, limiter, approval, notification and core adapters.
+  //              It is likewise protected before any production import.
   // Model-evaluation consolidation had first removed one retired database
   // root from the pre-M6 baseline.
-  const expectedDatabaseReachableRootTests = 124;
+  const expectedDatabaseReachableRootTests = 126;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,
