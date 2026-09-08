@@ -14661,6 +14661,36 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-M7-VPN-PRODUCTION-RUNTIME-TEST",
+      "path": "tests/m7-vpn-production-runtime.test.js",
+      "argv": [
+        "node",
+        "tests/m7-vpn-production-runtime.test.js"
+      ],
+      "capabilityId": "C3-032",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "database",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 5000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M7-VPN-LISTENER-ACTIVATION",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-M7-VPN-RUNTIME-CONFIG-TEST",
       "path": "tests/m7-vpn-runtime-config.test.js",
       "argv": [

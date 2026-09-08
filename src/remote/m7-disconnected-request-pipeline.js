@@ -197,12 +197,16 @@ export function createM7DisconnectedRequestPipeline({
   admissionPolicy,
   coreConfig,
   rateLimiter,
+  requireCompleteCapabilities = false,
   sessionAuthority,
 } = {}) {
   if (!isGenuineM7TransportAdmissionPolicy(admissionPolicy)
     || !isGenuineM7DurableRateLimiter(rateLimiter)
     || !isGenuineM7SessionAuthority(sessionAuthority)) {
     fail(M7_DISCONNECTED_REQUEST_PIPELINE_ERROR.CONFIG_INVALID, 'genuine-authorities-required');
+  }
+  if (typeof requireCompleteCapabilities !== 'boolean') {
+    fail(M7_DISCONNECTED_REQUEST_PIPELINE_ERROR.CONFIG_INVALID, 'completion-policy-invalid');
   }
   const trustedCoreConfig = validateCoreConfig(coreConfig);
   if (admissionPolicy.listener.serverOrigin !== sessionAuthority.serverOrigin
@@ -268,6 +272,22 @@ export function createM7DisconnectedRequestPipeline({
     ...trustedCoreConfig,
     authorityResolver,
   });
+  if (requireCompleteCapabilities) {
+    const advertised = composition.provider.advertise();
+    const required = MOBILE_REMOTE_CAPABILITY_REQUIREMENTS_V1.capabilities
+      .map(capability => capability.capabilityId)
+      .sort();
+    const available = advertised
+      .filter(capability => capability.status === 'available')
+      .map(capability => capability.capabilityId)
+      .sort();
+    if (canonicalizeM7SessionValue(available) !== canonicalizeM7SessionValue(required)) {
+      fail(
+        M7_DISCONNECTED_REQUEST_PIPELINE_ERROR.CONFIG_INVALID,
+        'complete-capability-set-required',
+      );
+    }
+  }
 
   const pipeline = {
     stage: M7_DISCONNECTED_REQUEST_PIPELINE_STAGE,
