@@ -273,7 +273,7 @@ export function createSessionAdapter({
     sendChannel(Channel.AGENT, event);
   }
 
-  function createM1Egress(command) {
+  function createM1Egress(command, projectId = null) {
     let sequence = 0;
     let terminalStatus = null;
 
@@ -292,7 +292,7 @@ export function createSessionAdapter({
         try {
           observeCoreEvent({
             event: structuredClone(event),
-            projectId: null,
+            projectId,
             subjectId: authenticatedSubject.actorId,
           });
         } catch (error) {
@@ -381,7 +381,9 @@ export function createSessionAdapter({
     if (!content || typeof content !== 'string') return;
 
     const convId = options.conversationId || '__default__';
-    const m1Egress = m1Command === null ? null : createM1Egress(m1Command);
+    const m1Egress = m1Command === null
+      ? null
+      : createM1Egress(m1Command, options.projectId ?? null);
 
     // Per-conversation mutex: reject only if THIS conversation is busy
     if (activeTurns.has(convId)) {

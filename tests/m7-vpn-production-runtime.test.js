@@ -3,7 +3,7 @@
 import './helpers/isolated-test-db.js';
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -19,6 +19,7 @@ import {
   M7_SESSION_AUTHORITY_ERROR,
   M7SessionAuthorityError,
 } from '../src/remote/m7-session-authority.js';
+import { createM7RunEventCoreAdapter } from '../src/remote/m7-run-event-core-adapter.js';
 import { createM7VpnRuntimeConfiguration } from '../src/remote/m7-vpn-runtime-config.js';
 import {
   _testInternals,
@@ -141,6 +142,48 @@ await testAsync('missing genuine notification or M2 port fails before any listen
   } finally {
     test.close();
   }
+});
+
+await testAsync('the server-owned event adapter is shared with the exact runtime composition', async () => {
+  const test = await fixture();
+  try {
+    const runEventAdapter = createM7RunEventCoreAdapter();
+    const composition = createM7VpnRuntimeComposition({
+      dependencies: { ...test.dependencies, runEventAdapter },
+      peerIdentityKey: Buffer.alloc(32, 0x74),
+      runtimeConfig: runtimeConfig(),
+    });
+    assert.equal(composition.runEventAdapter, runEventAdapter);
+  } finally {
+    test.close();
+  }
+});
+
+test('server activation publishes pairing only after bind and withdraws it before drain', () => {
+  const source = readFileSync(new URL('../src/server.js', import.meta.url), 'utf8');
+  const activation = source.slice(
+    source.indexOf('listenOnLegacyLoopback(server, config.server'),
+    source.indexOf('// Only exact M3 extension instances'),
+  );
+  const shutdown = source.slice(
+    source.indexOf('async function gracefulShutdown'),
+    source.indexOf("process.on('SIGINT'"),
+  );
+  assert.match(source, /m7RemoteFlag !== undefined[\s\S]*m7RemoteFlag !== 'true'[\s\S]*m7RemoteFlag !== 'false'/u);
+  assert.ok(activation.indexOf('await m7VpnRuntime.start()') >= 0);
+  assert.ok(
+    activation.indexOf('await m7VpnRuntime.start()')
+      < activation.indexOf('m7SessionAuthority = m7VpnRuntime.sessionAuthority'),
+  );
+  assert.ok(shutdown.indexOf('m7SessionAuthority = null') >= 0);
+  assert.ok(
+    shutdown.indexOf('m7SessionAuthority = null')
+      < shutdown.indexOf('await m7VpnRuntime.stop'),
+  );
+  assert.ok(
+    shutdown.indexOf('await m7VpnRuntime.stop') < shutdown.indexOf('db.close()'),
+  );
+  assert.match(source, /observeCoreEvent: m7RunEventAdapter\?\.observeCoreEvent \?\? null/u);
 });
 
 test('operation scopes and cursor key are exact and domain-separated', () => {

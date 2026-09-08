@@ -58,6 +58,20 @@ test('T4: model context initialization is non-blocking and failure-tolerant', ()
   );
 });
 
+test('T5: remote pairing is withdrawn and the VPN listener drains before DB close', () => {
+  assert.ok(shutdownBlock.includes('m7SessionAuthority = null'));
+  assert.ok(shutdownBlock.includes('await m7VpnRuntime.stop'));
+  assert.ok(
+    shutdownBlock.indexOf('m7SessionAuthority = null')
+      < shutdownBlock.indexOf('await m7VpnRuntime.stop'),
+    'pairing should be withdrawn before the listener drains',
+  );
+  assert.ok(
+    shutdownBlock.indexOf('await m7VpnRuntime.stop') < shutdownBlock.indexOf('db.close()'),
+    'the remote listener should drain before db.close()',
+  );
+});
+
 console.log(`\n${'═'.repeat(60)}`);
 console.log(`  Server Shutdown Tests: ${passed} passed, ${failed} failed`);
 console.log(`${'═'.repeat(60)}\n`);

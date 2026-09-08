@@ -76,11 +76,13 @@ logger.info('Server', `Notification system initialized (channels: ${notification
 
 // ─── Optional: Agent Platform v33 (Phase B) ─────────────────────────────────
 let AgentRepository, AgentScheduler, AgentRunner, AgentExtensionService;
+let createM3AgentNotificationReadPort;
 let createAgentRoutes, createAgentProjectContextBridge, LLMServices, agentProjectContextCapabilityId;
 if (config.features.agents !== false) {
   try {
     const repo = await import('./agents/repository.js');
     AgentRepository = repo.AgentRepository;
+    createM3AgentNotificationReadPort = repo.createM3AgentNotificationReadPort;
     repo.initAgentTables(db.db);
     AgentScheduler = (await import('./agents/scheduler.js')).AgentScheduler;
     AgentRunner = (await import('./agents/runner.js')).AgentRunner;
@@ -191,9 +193,16 @@ import { setSkillEffectAuthority } from './skills/runner.js';
 import { skillM2EffectAuthority } from './skills/m2-effect-authority.js';
 import { creDecisionEngine } from './chat/cre-decision.js';
 import { toolRegistry } from './tools/registry.js';
-import { createDefaultM2LifecycleApplicationService } from './lifecycle/m2-lifecycle-application-service.js';
+import {
+  createDefaultM2LifecycleApplicationService,
+  createM2LifecycleApprovalPort,
+} from './lifecycle/m2-lifecycle-application-service.js';
 import { createLearningApplicationService } from './memory/learning-application-service.js';
 import { M5PrivacyAuthorityRepository } from './security/privacy-authority-repository.js';
+import { createM7ConversationCommandExecutor } from './remote/m7-conversation-command-executor.js';
+import { createM7RunEventCoreAdapter } from './remote/m7-run-event-core-adapter.js';
+import { createM7VpnProductionRuntime } from './remote/m7-vpn-production-runtime.js';
+import { createM7VpnRuntimeConfiguration } from './remote/m7-vpn-runtime-config.js';
 
 // v85: FeatureManager — runtime feature flags (hot-toggle from IDE)
 import { featureManager } from './core/feature-manager.js';
@@ -1012,6 +1021,8 @@ const globalAuthAuthority = createGlobalAuthAuthority({
 // that composition owns a verified systemd credential bundle and an active
 // listener, the local Studio issuance route remains truthfully unavailable.
 let m7SessionAuthority = null;
+let m7RunEventAdapter = null;
+let m7VpnRuntime = null;
 // The application has no privacy receipt signing authority. It can only read
 // raw envelopes against the Git-pinned (currently empty) public-key trust store.
 const privacyAuthority = new M5PrivacyAuthorityRepository(db.db);
@@ -1038,6 +1049,93 @@ async function runM2StartupRecoveryCensus() {
   }
 }
 await runM2StartupRecoveryCensus();
+
+const m7RemoteFlag = process.env.INTENTSMITH_M7_REMOTE_ENABLED;
+if (m7RemoteFlag !== undefined && m7RemoteFlag !== 'true' && m7RemoteFlag !== 'false') {
+  throw new TypeError('m7-vpn-server:remote-enabled-must-be-exact-boolean');
+}
+
+if (m7RemoteFlag === 'true') {
+  if (!agentRepository || typeof createM3AgentNotificationReadPort !== 'function') {
+    throw new TypeError('m7-vpn-server:agent-notification-authority-required');
+  }
+
+  const runtimeConfig = createM7VpnRuntimeConfiguration();
+  const localRemoteSubjectId = 'local-operator';
+  const isActiveProject = projectId => {
+    if (!Number.isSafeInteger(projectId) || projectId < 1) return false;
+    const project = db.projects.findById.get(projectId);
+    return project?.status === 'active';
+  };
+  const isLocalRemoteSubject = subjectId => subjectId === localRemoteSubjectId;
+
+  m7RunEventAdapter = createM7RunEventCoreAdapter();
+  const conversationExecutor = createM7ConversationCommandExecutor({
+    handleRequest: request => ChatController.handle(request),
+    observeCoreEvent: input => m7RunEventAdapter.observeCoreEvent(input),
+    resolveConversationProjectId: conversationId => (
+      db.conversations.findById.get(conversationId)?.project_id ?? null
+    ),
+  });
+  m7VpnRuntime = createM7VpnProductionRuntime({
+    runtimeConfig,
+    dependencies: {
+      authorizeConversation: async ({ exists, projectId, state, subjectId }) => (
+        isLocalRemoteSubject(subjectId)
+        && exists === true
+        && (state === 'active' || state === 'archived')
+        && (projectId === null || isActiveProject(projectId))
+      ),
+      authorizeNotification: async ({ projectId, subjectId }) => (
+        isLocalRemoteSubject(subjectId)
+        && (projectId === null || isActiveProject(projectId))
+      ),
+      authorizeOperator: input => {
+        const subject = input?.authenticatedSubject;
+        const allowed = input?.action === 'm7.remote.pairing.issue'
+          && input?.credentialType === 'local-capability'
+          && input?.subjectId === localRemoteSubjectId
+          && globalAuthAuthority.isAuthenticatedSubject(subject)
+          && subject.actorType === 'user'
+          && subject.actorId === localRemoteSubjectId;
+        return Object.freeze({
+          actorId: allowed ? localRemoteSubjectId : 'remote-authority-denied',
+          actorType: 'user',
+          decision: allowed ? 'allow' : 'deny',
+        });
+      },
+      authorizeProject: async ({ projectId, subjectId }) => (
+        isLocalRemoteSubject(subjectId) && isActiveProject(projectId)
+      ),
+      coreVersion: getCurrentVersion(),
+      database: db.db,
+      executeConversation: conversationExecutor.execute,
+      healthComponents: [
+        {
+          componentId: 'database',
+          observe: async () => {
+            const ready = db.db.prepare('SELECT 1 AS ready').get()?.ready === 1;
+            return ready
+              ? { code: 'READY', status: 'ok' }
+              : { code: 'NOT_READY', status: 'unavailable' };
+          },
+        },
+        {
+          componentId: 'm2-recovery-census',
+          observe: async () => {
+            const census = m2LifecycleService.getRecoveryCensusStatus();
+            return census.complete
+              ? { code: 'READY', status: 'ok' }
+              : { code: 'INCOMPLETE', status: 'unavailable' };
+          },
+        },
+      ],
+      m2ApprovalPort: createM2LifecycleApprovalPort(m2LifecycleService),
+      notificationPort: createM3AgentNotificationReadPort(agentRepository),
+      runEventAdapter: m7RunEventAdapter,
+    },
+  });
+}
 
 // v93: notificationRouter + notificationPipeline initialized above (before agent platform)
 
@@ -1553,6 +1651,21 @@ applyHttpTimeoutPolicy(server, config.server.httpTimeouts);
 // ════════════════════════════════════════════════════════════════════════════
 
 listenOnLegacyLoopback(server, config.server, async () => {
+  if (m7VpnRuntime) {
+    try {
+      const binding = await m7VpnRuntime.start();
+      // Pairing becomes reachable only after the dedicated listener has proven
+      // its exact VPN bind. The route resolver therefore cannot observe a
+      // genuine session authority during construction or failed startup.
+      m7SessionAuthority = m7VpnRuntime.sessionAuthority;
+      logger.info('M7Remote', 'VPN-only companion listener active', binding);
+    } catch (error) {
+      logger.error('M7Remote', `VPN listener activation failed: ${error?.code || error?.message || error}`);
+      await gracefulShutdown('M7_ACTIVATION_FAILURE', 1);
+      return;
+    }
+  }
+
   // Only exact M3 extension instances pass the scheduler execution authority.
   // Existing legacy rows remain readable but cannot be scheduled or executed.
   if (agentScheduler) agentScheduler.start();
@@ -1563,6 +1676,7 @@ listenOnLegacyLoopback(server, config.server, async () => {
     localCapability: legacyLocalCapability,
     authAuthority: globalAuthAuthority,
     m1WireSupported: true,
+    observeCoreEvent: m7RunEventAdapter?.observeCoreEvent ?? null,
   });
   modelBindingApplication.startBackgroundVerification();
 
@@ -1825,8 +1939,25 @@ process.on('uncaughtException', (error, origin) => {
 /**
  * v55.1 - Graceful shutdown with proper cleanup
  */
-function gracefulShutdown(signal) {
+let shutdownInProgress = false;
+async function gracefulShutdown(signal, exitCode = 0) {
+  if (shutdownInProgress) return;
+  shutdownInProgress = true;
   logger.info('Server', `Received ${signal}, shutting down gracefully...`);
+
+  // Revoke local pairing issuance before the remote listener begins draining.
+  // The runtime disables its session pairing callback before waiting for open
+  // sockets, so no new remote authority can enter during shutdown.
+  m7SessionAuthority = null;
+  if (m7VpnRuntime) {
+    try {
+      await m7VpnRuntime.stop({ graceMs: 5_000 });
+      logger.debug('M7Remote', 'VPN companion listener stopped');
+    } catch (error) {
+      logger.error('M7Remote', `VPN listener shutdown failed: ${error?.code || error?.message || error}`);
+      exitCode = 1;
+    }
+  }
   
   // Stop session cleanup timer
   try {
@@ -1891,10 +2022,10 @@ function gracefulShutdown(signal) {
   }
 
   logger.info('Server', 'Shutdown complete');
-  process.exit(0);
+  process.exit(exitCode);
 }
 
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => { void gracefulShutdown('SIGINT'); });
+process.on('SIGTERM', () => { void gracefulShutdown('SIGTERM'); });
 
 export default server;

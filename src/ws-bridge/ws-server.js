@@ -364,6 +364,7 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
             // The subject is minted by the global upgrade guard. Message body
             // fields cannot manufacture or replace transport authority.
             authenticatedSubject,
+            observeCoreEvent: options.observeCoreEvent ?? null,
           });
 
           // Send initial status

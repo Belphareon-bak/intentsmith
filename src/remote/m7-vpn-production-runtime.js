@@ -107,7 +107,7 @@ export function createM7VpnRuntimeComposition({
   const database = requireDatabase(deps.database);
   const key = requirePeerKey(peerIdentityKey);
   const state = { active: false };
-  const events = createM7RunEventCoreAdapter({ now: deps.clock });
+  const events = deps.runEventAdapter ?? createM7RunEventCoreAdapter({ now: deps.clock });
   const sessionAuthority = createM7SessionAuthority(database, {
     adapterManifestDigest: MOBILE_REMOTE_CANDIDATE_ADAPTER_MANIFEST_DIGEST_V1,
     authorizeOperator: deps.authorizeOperator,
