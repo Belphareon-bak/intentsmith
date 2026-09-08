@@ -68,7 +68,11 @@ export function classifyMobileReleaseArtifact({
   if (expectedSigner && (!expectedAabSigner || aabSignerVerified !== true)) {
     releaseBlockers.push(MOBILE_RELEASE_AAB_SIGNER_BLOCKER);
   }
-  const releaseTransportReady = releaseBlockers.length === 0;
+  const releaseTransportReady = releaseBlockers.length === 0
+    && debugSigned === false
+    && typeof expectedSigner === 'string'
+    && typeof expectedAabSigner === 'string'
+    && aabSignerVerified === true;
   const classification = debugSigned
     ? 'THROWAWAY_DEBUG_SIGNED'
     : expectedSigner

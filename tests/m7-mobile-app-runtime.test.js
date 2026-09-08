@@ -140,8 +140,31 @@ assert.equal(nativePosts, 0);
 assert.equal(browserFetches, 0);
 assert.match(__ms20.storageIdentity(), new RegExp(ADAPTER.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
 
+// Losing the VPN while a validated pairing exists must not turn the device
+// into the impossible state "has a durable key but UI says unpaired". The
+// connection gate remains closed, and an online event must prove reachability
+// through health before data refresh resumes.
+await __ms20.applyM7ResumeFailure(Object.assign(new Error('offline'), {
+  code: 'M7_REMOTE_FAILURE',
+}));
+assert.equal(__ms20.state.session, 'active');
+assert.equal(__ms20.state.conn, 'offline');
+assert.equal(__ms20.hasPairedIdentity(), true);
+__ms20.state.route = 'diagnostics';
+await __ms20.handleCameOnline();
+assert.equal(__ms20.state.session, 'active');
+assert.equal(__ms20.state.conn, 'ok');
+assert.equal(__ms20.state.error.security, null);
+
 __ms20.lockDownSession();
 await assert.rejects(__ms20.api('/health'), error => error.code === 'locked');
 assert.equal(browserFetches, 0);
+
+await __ms20.applyM7ResumeFailure(Object.assign(new Error('bad proof'), {
+  code: 'REMOTE_DEVICE_SIGNATURE_INVALID',
+}));
+assert.equal(__ms20.state.session, 'invalid');
+assert.equal(__ms20.hasPairedIdentity(), true);
+assert.deepEqual(__ms20.auth.scopes, []);
 
 console.log('\nM7 mobile app runtime: 1 passed, 0 failed');

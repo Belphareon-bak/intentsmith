@@ -765,6 +765,64 @@ function m7ApiError(error) {
   return new ApiError(kind, { code, status, detail, body: error?.body ?? null });
 }
 
+async function applyM7ResumeFailure(error) {
+  const normalized = m7ApiError(error);
+  const snapshot = m7RemoteClient?.snapshot() || null;
+  const pairingRetained = snapshot !== null
+    && (
+      ['REMOTE_TRANSPORT_FAILED', 'M7_REMOTE_FAILURE'].includes(error?.code)
+      || ['server', 'limit'].includes(normalized.kind)
+    );
+
+  if (pairingRetained) {
+    // A transport outage is not a revocation. The client state reached this
+    // point only after m7-native-remote-client validated every durable field,
+    // so retaining its scopes is safe while the connection gate continues to
+    // block mutations. In particular, a failed refresh has already persisted
+    // a pairing-only state before its request left the device.
+    replaceScopes(snapshot.scopes);
+    let durabilityError = null;
+    try {
+      await store.flush();
+    } catch (flushError) {
+      durabilityError = String(flushError?.message || flushError);
+    }
+    state.session = 'active';
+    const availabilityMessage = normalized.kind === 'offline'
+      ? 'VPN server není dostupný. Spárování zůstává uložené a relace se obnoví až po návratu VPN.'
+      : `Vzdálenou relaci teď nelze obnovit (${normalized.code}). Spárování zůstává uložené.`;
+    state.error.security = durabilityError === null
+      ? availabilityMessage
+      : `${availabilityMessage} Rozsah relace se nepodařilo zapsat (${durabilityError}).`;
+    setConn(normalized.kind === 'offline' ? 'offline' : 'server');
+    render();
+    return Object.freeze({ normalized, pairingRetained: true });
+  }
+
+  state.session = ['token_revoked', 'token_invalid'].includes(normalized.code)
+    ? 'revoked'
+    : normalized.code === 'token_expired' ? 'expired' : 'invalid';
+  state.error.security = `Vzdálenou relaci nelze obnovit (${normalized.code}).`;
+  replaceScopes([]);
+  render();
+  return Object.freeze({ normalized, pairingRetained: false });
+}
+
+async function resumeM7PairedSession() {
+  try {
+    const session = await getM7RemoteClient().resume();
+    if (!session) throw new Error('remote_session_missing');
+    replaceScopes(session.scopes);
+    await store.flush();
+    state.session = 'active';
+    state.error.security = null;
+    return session;
+  } catch (error) {
+    await applyM7ResumeFailure(error);
+    return null;
+  }
+}
+
 /**
  * F-059 — `response.ok` is a range, not an answer.
  *
@@ -992,7 +1050,7 @@ const state = {
   // §3.2 — from phase 3 the root of the app is Přehled.  Phases 0–1 have no
   // home screen at all, and that case is handled by `session`, not by this.
   route: 'overview',
-  session: 'unknown',      // unknown | unpaired | active | expired | revoked
+  session: 'unknown',      // unknown | unpaired | active | expired | revoked | invalid
   conn: 'ok',              // ok | offline | server
   conversationId: null,
   data: {},
@@ -3002,6 +3060,11 @@ function viewSession() {
     return `<div class="scroll">${statePanel('expired', 'Platnost vypršela',
       'Token zařízení expiroval. Data zůstala, stačí se znovu přihlásit novým párováním.',
       `<button class="btn btn-primary" data-act="repair">Spárovat znovu</button>`)}</div>`;
+  }
+  if (state.session === 'invalid') {
+    return `<div class="scroll">${statePanel('invalid', 'Relaci nelze bezpečně ověřit',
+      'Lokální identita zůstala uložená, ale její konfigurace nebo odpověď serveru neprošla kontrolou. Nejdřív oprav připojení; nové párování vyžaduje vědomé smazání této identity.',
+      `<button class="btn btn-primary" data-act="repair">Smazat identitu a spárovat znovu</button>`)}</div>`;
   }
   return null;
 }
@@ -5254,8 +5317,19 @@ function handleWentOffline() {
   render();
 }
 
-function handleCameOnline() {
+async function handleCameOnline() {
   invalidateApprovalSurface();
+  if (REMOTE_MODE && hasPairedIdentity()) {
+    const session = await resumeM7PairedSession();
+    if (!session) return;
+    // resume() can return a still-valid local session without I/O. Health is
+    // therefore the observation that permits the UI to leave the offline
+    // state; an OS online event alone is not evidence that the VPN origin is
+    // reachable or still presents the pinned server identity.
+    await loadDiagnostics();
+    if (state.session === 'active' && state.conn === 'ok') navigate(state.route);
+    return;
+  }
   setConn('ok');
   if (state.session === 'active') navigate(state.route);
   else render();
@@ -5409,12 +5483,8 @@ async function boot() {
       render();
       return;
     }
-    try {
-      const session = await getM7RemoteClient().resume();
-      if (!session) throw new Error('remote_session_missing');
-      replaceScopes(session.scopes);
-      await store.flush();
-      state.session = 'active';
+    const session = await resumeM7PairedSession();
+    if (session) {
       render();
       if (hashCode) {
         toast('Nejdřív odpoj současné zařízení, potom naskenuj nový párovací kód.');
@@ -5425,16 +5495,6 @@ async function boot() {
       if (auth.has('read:notifications')) loadNotifications();
       if (auth.has('read:approvals')) loadApprovals();
       reconcileOpenOperations().catch(() => {});
-    } catch (error) {
-      const normalized = m7ApiError(error);
-      state.session = ['token_revoked', 'token_invalid'].includes(normalized.code)
-        ? 'revoked'
-        : normalized.code === 'token_expired' ? 'expired' : 'unpaired';
-      state.error.security = normalized.kind === 'offline'
-        ? 'VPN server není dostupný. Relace se neprohlašuje za aktivní.'
-        : `Vzdálenou relaci nelze obnovit (${normalized.code}).`;
-      replaceScopes([]);
-      render();
     }
     return;
   }
@@ -5500,6 +5560,7 @@ export const __ms20 = {
   unresolvedApprovalAttempt, unassociatedApprovalAttempt,
   handleWentOffline, handleCameOnline, handleVisibilityChange,
   invalidateApprovalAuthority, invalidateApprovalSurface, replaceScopes, handleAuthFailure,
+  applyM7ResumeFailure, resumeM7PairedSession,
   MOBILE_PROTOCOL_VERSION, MAX_NOTIFICATION_PAGES,
   apiBaseFor, REMOTE_CORE_V1_PIN, MOBILE_TRANSPORT_MODE, validateMobileRuntimeConfig,
   storageIdentity, hasPairedIdentity, boot,

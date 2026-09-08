@@ -6,6 +6,7 @@
 import './helpers/isolated-test-db.js';
 
 import { strict as assert } from 'node:assert';
+import { createHash } from 'node:crypto';
 import {
   existsSync,
   mkdirSync,
@@ -39,6 +40,10 @@ import {
   parseApkReleaseObservationV1,
   validateMobileAndroidObservationsV1,
 } from '../scripts/mobile-release-android-observation.mjs';
+import {
+  MOBILE_M7_RUNTIME_CHECK_IDS,
+  validateMobileM7RuntimeEvidenceV1,
+} from '../scripts/mobile-m7-runtime-evidence.mjs';
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const read = relative => readFileSync(path.join(ROOT, relative), 'utf8');
@@ -554,6 +559,118 @@ await test('release evidence pins a candidate signer and labels every weaker art
   assert.match(policy, /CAPACITOR_HTTP_GLOBAL_FETCH_PATCH_MUST_BE_REPLACED_OR_DISABLED/);
   assert.match(evidence, /validateMobileAndroidObservationsV1/);
   assert.match(evidence, /bundled CSP does not pin the selected gateway origin/);
+  assert.match(evidence, /readMobileM7RuntimeEvidenceV1/);
+  assert.match(evidence, /runtimeEvidenceVerified: runtimeEvidence\?\.verified === true/);
+});
+
+await test('physical VPN runtime evidence is canonical, artifact-bound and fail-closed', () => {
+  const evidenceRoot = mkdtempSync(path.join(os.tmpdir(), 'm7-runtime-evidence-'));
+  try {
+    const artifactPath = path.join(evidenceRoot, 'device-observation.txt');
+    const artifactBytes = Buffer.from('physical-device-vpn-observation\n');
+    writeFileSync(artifactPath, artifactBytes, { mode: 0o600 });
+    const digest = value => createHash('sha256').update(value).digest('hex');
+    const expected = {
+      aabSha256: '1'.repeat(64),
+      aabSignerSha256: '2'.repeat(64),
+      adapterManifestDigest: `sha256:${'3'.repeat(64)}`,
+      apkSha256: '4'.repeat(64),
+      apkSignerSha256: '5'.repeat(64),
+      candidateSha: '6'.repeat(40),
+      candidateTreeSha: '7'.repeat(40),
+      descriptorDigest: `sha256:${'8'.repeat(64)}`,
+      serverIdentityPin: `sha256:${'9'.repeat(64)}`,
+      serverOrigin: 'https://100.64.0.10:7443',
+      sourceManifestSha256: 'a'.repeat(64),
+    };
+    const record = {
+      artifactBindings: {
+        aabSha256: expected.aabSha256,
+        aabSignerSha256: expected.aabSignerSha256,
+        apkSha256: expected.apkSha256,
+        apkSignerSha256: expected.apkSignerSha256,
+        sourceManifestSha256: expected.sourceManifestSha256,
+      },
+      artifacts: [{
+        bytes: artifactBytes.length,
+        id: 'device-observation',
+        path: 'device-observation.txt',
+        sha256: digest(artifactBytes),
+      }],
+      candidate: { sha: expected.candidateSha, treeSha: expected.candidateTreeSha },
+      checks: MOBILE_M7_RUNTIME_CHECK_IDS.map(id => ({
+        artifactIds: ['device-observation'], id, status: 'PASS',
+      })),
+      contract: 'MobileM7RuntimeEvidence',
+      device: {
+        apiLevel: 36,
+        applicationId: 'cz.intentsmith.companion',
+        model: 'physical-test-device',
+        physical: true,
+        sourceRevision: expected.candidateSha,
+        versionCode: 1,
+        versionName: '1.0',
+      },
+      recordedAtMs: 1_788_000_000_000,
+      runtime: {
+        adapterManifestDigest: expected.adapterManifestDigest,
+        descriptorDigest: expected.descriptorDigest,
+        listenerAddress: '100.64.0.10',
+        listenerPort: 7443,
+        serverIdentityPin: expected.serverIdentityPin,
+        serverOrigin: expected.serverOrigin,
+        tlsVersion: 'TLSv1.3',
+        transportMode: 'remote-core-v1',
+        vpnInterface: 'tailscale0',
+      },
+      version: 1,
+    };
+    const rawBytes = Buffer.from(`${JSON.stringify(record)}\n`);
+    const valid = validateMobileM7RuntimeEvidenceV1({ rawBytes, evidenceRoot, expected });
+    assert.equal(valid.valid, true, valid.errors.join(','));
+    assert.equal(valid.verified, true);
+
+    const failedCheck = structuredClone(record);
+    failedCheck.checks[0].status = 'FAIL';
+    const red = validateMobileM7RuntimeEvidenceV1({
+      rawBytes: Buffer.from(`${JSON.stringify(failedCheck)}\n`), evidenceRoot, expected,
+    });
+    assert.equal(red.valid, true, red.errors.join(','));
+    assert.equal(red.verified, false);
+
+    const staleCandidate = validateMobileM7RuntimeEvidenceV1({
+      rawBytes, evidenceRoot, expected: { ...expected, candidateSha: 'b'.repeat(40) },
+    });
+    assert.equal(staleCandidate.valid, false);
+    assert(staleCandidate.errors.includes('candidate:sha'));
+
+    writeFileSync(artifactPath, 'tampered\n', { mode: 0o600 });
+    const tampered = validateMobileM7RuntimeEvidenceV1({ rawBytes, evidenceRoot, expected });
+    assert.equal(tampered.valid, false);
+    assert(tampered.errors.some(error => error.includes('artifact:device-observation')));
+
+    const nonCanonical = validateMobileM7RuntimeEvidenceV1({
+      rawBytes: Buffer.from(`${JSON.stringify(record, null, 2)}\n`), evidenceRoot, expected,
+    });
+    assert.equal(nonCanonical.valid, false);
+    assert(nonCanonical.errors.includes('mobile-runtime-evidence:canonical-bytes'));
+
+    const invalidUtf8 = validateMobileM7RuntimeEvidenceV1({
+      rawBytes: Buffer.from([0x7b, 0x22, 0xff, 0x22, 0x7d]), evidenceRoot, expected,
+    });
+    assert.equal(invalidUtf8.valid, false);
+    assert(invalidUtf8.errors.includes('mobile-runtime-evidence:utf8'));
+
+    const traversal = structuredClone(record);
+    traversal.artifacts[0].path = '../device-observation.txt';
+    const escaped = validateMobileM7RuntimeEvidenceV1({
+      rawBytes: Buffer.from(`${JSON.stringify(traversal)}\n`), evidenceRoot, expected,
+    });
+    assert.equal(escaped.valid, false);
+    assert(escaped.errors.includes('artifacts:shape'));
+  } finally {
+    rmSync(evidenceRoot, { recursive: true, force: true });
+  }
 });
 
 await test('APK and AAB native observations independently bind signer and Android identity', () => {
@@ -645,6 +762,18 @@ await test('a production signer cannot promote the legacy development transport'
   assert.deepEqual(missingAabAuthority.releaseBlockers, [
     'MOBILE_AAB_UPLOAD_SIGNER_NOT_VERIFIED',
   ]);
+
+  const debugArtifact = classifyMobileReleaseArtifact({
+    ...shared,
+    debugSigned: true,
+    transportMode: 'remote-core-v1',
+    adapterManifestDigest: MOBILE_RELEASE_REMOTE_PINS.m7AdapterManifestDigest,
+    serverOrigin: M7_TEST_ORIGIN,
+    serverIdentityPin: M7_TEST_SPKI_PIN,
+    runtimeEvidenceVerified: true,
+  });
+  assert.equal(debugArtifact.classification, 'THROWAWAY_DEBUG_SIGNED');
+  assert.equal(debugArtifact.releaseTransportReady, false);
 
   assert.throws(
     () => classifyMobileReleaseArtifact({
