@@ -8,7 +8,8 @@ Owned branch: `work/mobile-completion-20260908`.
 Owned checkout: `/home/belphareon/worktrees/is-mobile-completion-20260908`.
 Product candidate: `88d1d45ba90f287a1a5ed166e2be0de1b75dc29c`.
 Candidate tree: `34b02110ffade4b0a80728449384cd5edf4127b1`.
-Independent source review: PASS; doc-only follow-up review pending.
+Independent source review: PASS. Doc-only follow-up
+`56665cd40c969f417589f20c7e14a1558754a638`: independently REVIEW_PASSED.
 Scope and authority: [WP](../../../wp/WP-MOBILE-COMPLETION-20260908.md).
 
 ## Inventory and compatibility
@@ -146,6 +147,29 @@ no real pairing, listener activation, device installation, tag or publication.
 Product code is frozen at the candidate above. Evidence/document-only follow-up
 fixes the independently found runbook cwd bug: the Gradle command uses a subshell
 so subsequent npm commands still run from the root. Final full-run result is
-recorded above. Doc-only re-review and owned temporary-clone cleanup remain
-to be recorded. Neither baseline FAIL nor global NOT_READY is waived.
+recorded above. Reviewer independently closed the handoff P2 on evidence commit
+`56665cd40c969f417589f20c7e14a1558754a638` and rehashed the retained APK/AAB.
+Neither baseline FAIL nor global NOT_READY is waived.
+
+Cleanup: the owned fresh clone
+`/home/belphareon/worktrees/.mobile-verification-33N72t` was clean at S88, no
+process had its cwd there, and it contained no residual test evidence (only
+an empty artifact-directory tree). It was moved to the desktop Trash, about
+602 MiB, **recoverable**, not claimed as freed disk space. Three disposable
+runtime/home directories selected for this checkout by the workspace-budget
+dry run were also moved to Trash. All raw red/green reports, checkpoints,
+inventories, logs, Android reports and APK/AAB remain in the owned evidence
+directory. The two full-run runtime trees were protected by the evidence rule
+and retained. No global cleanup command was applied to foreign worktrees.
+The adb daemon started by this run was stopped only after confirming no devices
+or connected clients; other workers' processes were not stopped.
+
+One owned review branch/worktree remains, clean, without upstream and unpushed:
+`work/mobile-completion-20260908`. It is not yet absorbed by integration.
+At final inventory the foreign integration HEAD was still `de0e8127`, with
+active native/session/UI work plus new changes to the same release-policy and
+evidence scripts. Therefore **do not overwrite those files from this branch**:
+merge after its owner commits, preserve its transport/config fields AND this
+slice's mandatory dirty-source provenance, then rerun both release and mobile
+boundaries on the new merge SHA. No foreign branch was reset, cleaned or merged.
 Do not infer PROD_READY from this document or transfer donor test counts.

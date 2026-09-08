@@ -17,11 +17,13 @@ od jeho source review.
 | MOBILE_ACCESSIBILITY_SOURCE | REVIEW_PASSED |
 | MOBILE_RELEASE_SOURCE_PROVENANCE | REVIEW_PASSED |
 | MOBILE_COMPLETION_HANDOFF na source88d1 | CHANGES_REQUIRED — jeden dokumentační P2 |
+| MOBILE_COMPLETION_HANDOFF po opravě na evidence56665cd4 | REVIEW_PASSED |
 | Celá mobilní aplikace / M7 release | NOT_READY |
 
 P2: TRYING-IT přepnul shell do `mobile-app/android`, ale další root npm script
 tam není. Doc-only follow-up používá `(cd mobile-app/android && ./gradlew ...)`.
-Oprava je implementovaná; její nezávislé potvrzení následuje. Původní nález
+Opravu nezávislý reviewer potvrdil na exact evidence HEAD
+`56665cd40c969f417589f20c7e14a1558754a638`, bez dalšího P1/P2 nálezu. Původní nález
 zůstává zaznamenaný, není zpětně označený jako PASS na starém SHA.
 
 Browser oracle už skutečně měří rozhodovací tlačítka MS-14, sRGB/alpha pozadí,
@@ -71,3 +73,12 @@ assertion selhává pouze kvůli registry součtu, ne kvůli privátním klíč�
 Hromadný merge celé donorové větve není ekvivalent bodu2: obnovil by její
 odlišnou `/m1` implementaci a DTO. Zachovává se jediný aktuální integrační základ.
 Nic nebylo pushnuto, podepsáno produkčními klíči, aktivováno ani publikováno.
+
+## Konečný handoff
+
+Zůstává jediná naše čistá review větev `work/mobile-completion-20260908`, bez
+upstreamu. Dočasný fresh clone (602 MiB) a tři disposable runtime/home adresáře
+jsou v koši a lze je obnovit; žádné důkazy nebyly smazané. Integrační checkout má
+stále aktivního cizího writeru, jehož novější změny překrývají i release tooling.
+Bez jeho commitnutého kandidáta není bezpečné integraci uzavřít nebo prohlásit
+větve za sjednocené. Tento řez je dokončený a review-passed; celá aplikace není.

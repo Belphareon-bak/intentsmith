@@ -1,9 +1,10 @@
 # WP-MOBILE-COMPLETION-20260908
 
-Status: IMPLEMENTED / SOURCE_REVIEW_PASSED / BASELINE_GATE_FAIL /
-FINAL_HANDOFF_REVIEW_PENDING / NOT_RELEASE_ACCEPTANCE.
+Status: SCOPED_COMPLETE / REVIEW_PASSED / BASELINE_GATE_FAIL /
+AWAITING_INTEGRATION / NOT_RELEASE_ACCEPTANCE.
 
 Product candidate: `88d1d45ba90f287a1a5ed166e2be0de1b75dc29c`.
+Independently re-reviewed evidence: `56665cd40c969f417589f20c7e14a1558754a638`.
 Results: [execution evidence](../execution/runs/mobile/mobile-completion-20260908.md)
 and [milestone review](../review/2026-09-08-MOBILE-COMPLETION-REVIEW.md).
 
