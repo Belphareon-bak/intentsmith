@@ -2136,13 +2136,26 @@ Mobilní gate prošel `45/45`; native client `7/7`, Android release boundary
 `18/18`, UI adapter `4/4`, remote core `7/7`, credential boundary
 `31/31`, MS20 UI `43/43`, app runtime `1/1` a browser accessibility `22/22`.
 Offline Gradle zkompiloval Java cestu a spustil `M7CanonicalJsonTest`.
-Registry má 510 programů, 411 `ACTIVE + required`, deterministic scope 350
-(`277 offline + 73 database`) a fingerprint `73782eec…5fd9`. Autoritativní
+Nezávislé review kandidáta `07b582d1` následně uzavřelo všech osm technických
+řezů jako `REVIEW_PASSED`; Android verdict byl poctivě omezený na zdroj, protože
+na fyzickém zařízení nic neběželo. `M7_OVERALL` proto zůstalo `NOT_ACCEPTED`.
+
+Product follow-up `f3a8753e` přidal společný devítiprvkový JSON corpus, jehož
+kanonické UTF-8 bajty ověřuje Node i Android/JUnit, a testovaný recovery postup
+pro terminální chybu aktivace. `9ae1a516` navíc přidal inertní generátor
+user-systemd unity: přijímá jen veřejné VPN hodnoty a cesty k zašifrovaným
+credential obálkám, emituje pouze `LoadCredentialEncrypted=`, nečte credential
+bytes, nic neinstaluje ani neaktivuje. `systemd-analyze --user verify` nad
+vyrenderovanou dočasnou unitou prošel bez výstupu.
+
+Registry má 511 programů, 412 `ACTIVE + required`, deterministic scope 351
+(`278 offline + 73 database`) a fingerprint `922f65e9…0b40`. Autoritativní
 module graph má 1 273 hran, 3 cykly a 28 souborů v cyklech.
-M6 locked plan zahrnuje všech 411 povinných programů; omission test navíc
-jednotlivě zamyká všech deset nových listener/Android programů. Nightly
+M6 locked plan zahrnuje všech 412 povinných programů; omission test navíc
+jednotlivě zamyká všech jedenáct nových listener/Android programů. Nightly
 orchestrator používá stejný fingerprint a přesné profilové počty. Focused
-výsledky jsou candidate plan `20/20` a orchestrator self-test PASS.
+výsledky zahrnují shared Node corpus `11/11`, Android M7 JUnit `4/4`, VPN config
+a renderer `11/11`, candidate plan `20/20` a orchestrator self-test PASS.
 
 Čistý exact candidate `07b582d171eb590d4c4c55ea7a8837bfdf9315e1`
 (tree `78fb2adc88ba9a9d2604f8a837bf3d0cd68503a6`) nejdřív bez otevřených
@@ -2153,11 +2166,19 @@ pět exact toolchain autorit a skončil `PASS / exit 0 / 350 PASS / 0 non-PASS`.
 Finální report `2026-09-08T22-41-31-787Z` má SHA-256
 `72f8c9e7…cc96`; oba reporty zůstávají zachované.
 
-Stav je `IMPLEMENTATION_GREEN / DETERMINISTIC_GATE_PASS / REVIEW_PENDING /
-REAL_VPN_DEVICE_EVIDENCE_BLOCKED / NOT_ACCEPTED`. Nebyl měněn firewall ani
-systemd, nevznikl produkční secret, nic nebylo pushnuto ani publikováno a
-neproběhl fyzický telefon, VPN bind, TalkBack, signing/distribuce, GPU/Ollama
-ani live LLM chat.
+Aktuální exact candidate `9ae1a5164d31f8cd4f1e3880eac79576399ef21f`
+(tree `944db57faa8472eb2966bd57826b2e1fead9fe5b`) zopakoval obě větve: raw běh
+`2026-09-08T23-42-36-615Z` skončil pravdivě `343 PASS / 8 BLOCKED / exit 2`,
+zatímco běh se stejnými pěti exact toolchain autoritami
+`2026-09-08T23-46-27-677Z` skončil `351/351 PASS / exit 0`; jeho SHA-256 je
+`ccbba183…12ec`.
+
+Stav je `PREVIOUS_8_OF_8_REVIEW_PASSED / FOLLOWUP_IMPLEMENTATION_GREEN /
+FOLLOWUP_REVIEW_PENDING / REAL_VPN_DEVICE_EVIDENCE_BLOCKED / NOT_ACCEPTED`.
+Nebyl měněn firewall ani instalovaný/aktivní systemd stav, nevznikl produkční
+secret, nic nebylo pushnuto ani publikováno a neproběhl fyzický telefon, VPN
+bind, TalkBack, signing/distribuce, GPU/Ollama ani live LLM chat. Review packet
+je `docs/review/2026-09-09-M7-PROD-READINESS-FOLLOWUP-REVIEW-PACKET.md`.
 
 Povinné výsledky:
 
