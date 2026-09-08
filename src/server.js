@@ -181,6 +181,7 @@ import { createMarketplaceRoutes } from './routes/marketplace.js';
 import { createMediaRoutes, recoverStuckGenerations } from './routes/media.js';
 import { createGovernorRoutes } from './routes/governor.js';
 import { createLearningRoutes } from './routes/learning.js';
+import { createM7LocalPairingRoutes } from './routes/m7-local-pairing.js';
 import { createNotificationPipeline, initNotificationTables } from './notifications/index.js';
 import { WebhookChannel } from './notifications/channels/webhook.js';
 import { DesktopChannel } from './notifications/channels/desktop.js';
@@ -1007,6 +1008,10 @@ const globalAuthAuthority = createGlobalAuthAuthority({
   validateApiToken: token => validateApiToken(db.db, token),
   production: process.env.NODE_ENV === 'production',
 });
+// Populated only by the separately governed M7 VPN runtime composition. Until
+// that composition owns a verified systemd credential bundle and an active
+// listener, the local Studio issuance route remains truthfully unavailable.
+let m7SessionAuthority = null;
 // The application has no privacy receipt signing authority. It can only read
 // raw envelopes against the Git-pinned (currently empty) public-key trust store.
 const privacyAuthority = new M5PrivacyAuthorityRepository(db.db);
@@ -1099,6 +1104,12 @@ const routes = {
     parseBody,
     sendJSON,
     safeError,
+  }),
+  ...createM7LocalPairingRoutes({
+    isAuthenticatedSubject: subject => globalAuthAuthority.isAuthenticatedSubject(subject),
+    parseBody,
+    resolveSessionAuthority: () => m7SessionAuthority,
+    sendJSON,
   }),
   ...createMiscRoutes(routeDeps),
   ...createSpecialistRoutes(routeDeps),

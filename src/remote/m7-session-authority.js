@@ -503,7 +503,9 @@ export class M7SessionAuthority {
 
   issuePairingClaim(input) {
     return this.withDeniedAudit('PAIRING_CLAIM_ISSUE_ATTEMPT', input, () => {
-      const { subjectId, scopes } = plain(input) ? input : {};
+      const {
+        authenticatedSubject, credentialType, subjectId, scopes,
+      } = plain(input) ? input : {};
       const nowMs = this.now();
       const normalizedScopes = requireScopes(scopes);
       requireIdentifier(subjectId, 'subjectId');
@@ -512,6 +514,8 @@ export class M7SessionAuthority {
       }
       const actorId = normalizeOperatorDecision(this.authorizeOperator({
         action: 'm7.remote.pairing.issue',
+        authenticatedSubject,
+        credentialType,
         subjectId,
         scopes: normalizedScopes,
       }));
