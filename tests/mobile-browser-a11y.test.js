@@ -150,8 +150,15 @@ const MEASURE = `
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
   };
   const parse = (value) => {
-    const m = String(value).match(/rgba?\\(([^)]+)\\)/);
-    if (!m) return null;
+    // Chromium serializes colour-mix(in srgb, ...) as color(srgb ...), not
+    // rgb(). Ignoring it silently measures against the wrong ancestor.
+    const srgb = String(value).match(/^color\\(srgb ([^)]+)\\)$/);
+    if (srgb) {
+      const parts = srgb[1].split(/[ \\/]+/).filter(Boolean).map(Number);
+      return { rgb: parts.slice(0, 3).map(c => c * 255), a: parts[3] ?? 1 };
+    }
+    const m = String(value).match(/^rgba?\\(([^)]+)\\)$/);
+    if (!m) throw new Error('Unmeasured CSS colour: ' + value);
     const parts = m[1].split(/[ ,\\/]+/).filter(Boolean).map(Number);
     return { rgb: parts.slice(0, 3), a: parts.length > 3 ? parts[3] : 1 };
   };
@@ -227,7 +234,11 @@ const TARGETS = `(() => {
     if (!visible(el)) continue;
     // A locked item is deliberately not tappable (§3.1), so it is not a target.
     if (el.getAttribute('aria-disabled') === 'true' || el.disabled) continue;
-    const r = el.getBoundingClientRect();
+    // A wrapping <label> is the checkbox's actual hit area. Other controls
+    // must meet the floor themselves; unrelated adjacent text does not count.
+    const target = el.matches('input[type="checkbox"], input[type="radio"]')
+      ? [...(el.labels || [])].find(label => label.contains(el)) || el : el;
+    const r = target.getBoundingClientRect();
     if (r.width < 48 || r.height < 48) {
       small.push(label(el) + ' "' + (el.textContent || '').trim().slice(0, 24) + '" ' + Math.round(r.width) + '×' + Math.round(r.height));
     }
@@ -294,10 +305,87 @@ const SURFACES = [
     window.__is.render();`],
 ];
 
-async function onEachSurface(collect) {
+// MM5-E: exercise the implemented backend mirror, including writable controls
+// with live authority. A permission-denied placeholder is not surface coverage.
+const MIRROR_ACTIVATE = `(() => {
+  ${ACTIVATE};
+  const S = window.__is;
+  const scopes = ['read:chat', 'write:chat', 'read:notifications',
+    'read:approvals', 'write:approvals', 'read:projects', 'read:workers',
+    'write:workers', 'read:specialists', 'read:settings', 'write:settings',
+    'read:memory', 'write:memory', 'read:devices', 'write:devices'];
+  S.store.set(S.K.scopes, scopes);
+  Object.assign(S.state, {
+    projectState: 'active', projectId: 'p1', workerId: 'w1', specialistId: 's1',
+    pagination: {}, workersLive: true, devicesLive: true, memoryLive: true,
+    workerConfirm: null, workerSaving: null, workerNote: null,
+    deviceConfirm: null, deviceRevoking: null, deviceNote: null,
+    memorySaving: false, memoryNote: null, settingsSaving: null, settingsNote: null,
+    workerRuns: { cursor: 'runs.next', end: false, loadingOlder: false },
+  });
+  const date = new Date(Date.now() - 60000).toISOString();
+  const project = { id: 'p1', name: 'Mobilní aplikace IntentSmith', state: 'active',
+    conversationCount: 12, createdAt: date, updatedAt: date, version: 'v1:p1' };
+  const worker = { id: 'w1', name: 'Kontrola projektu', description: 'Kontroluje stav projektu',
+    icon: 'A', kind: 'MONITOR', enabled: true,
+    schedule: { intervalMs: 3600000, cronExpression: null, nextRunAt: date, lastRunAt: date },
+    lastRun: { id: '4', status: 'partial', startedAt: date, finishedAt: date, actionsExecuted: 2 },
+    createdAt: date, updatedAt: date, version: 'v1:w1' };
+  const specialist = { id: 's1', name: 'Kontrola kvality', packageVersion: '2.1.0', domain: 'quality',
+    type: 'domain', status: 'installed', expertiseCount: 1, installedAt: date,
+    enabledAt: null, disabledAt: null, updatedAt: date, version: 'v1:s1' };
+  const device = { deviceId: 'device-1', name: 'Tento telefon', scopes,
+    createdAt: date, lastUsedAt: date, expiresAt: '2030-01-01T00:00:00.000Z', revokedAt: null,
+    revoked: false, expired: false, current: true, version: 'v1:device' };
+  Object.assign(S.state.data, {
+    projects: [project], project,
+    projectConversations: S.state.data.conversations,
+    workers: [worker], worker,
+    workerRuns: [{ id: '4', status: 'partial', startedAt: date, finishedAt: date,
+      actionsExecuted: 2, triggerCount: 1, version: 'v1:run' }],
+    specialists: [specialist], specialist: { ...specialist,
+      expertises: [{ id: 'review', label: 'Revize kódu', priority: 2, addedAt: date }] },
+    devices: [device],
+    settings: { revision: 7, version: 'v1:settings', settings: {
+      'c3.language': 'cs', appearance: { theme: 'dark', accentColor: '#009688', fontSize: 16 },
+    } },
+    memory: [{ id: 'ltm:1', key: 'repository-root', value: 'IntentSmith', kind: 'ltm',
+      category: 'project', strength: 1, projectId: 'p1', milestoneId: null,
+      source: 'explicit', storedConfidence: 1, accessCount: 0,
+      createdAt: date, lastUsedAt: null, version: 'v1:memory' }],
+  });
+  for (const key of ['projects', 'workers', 'specialists', 'memory']) {
+    S.state.pagination[key] = { hasMore: true, nextCursor: 'page.next', end: false };
+    S.state.cacheAge[key] = 'FRESH';
+  }
+  S.state.cacheAge.devices = 'FRESH';
+})()`;
+
+const MIRROR_SURFACES = [
+  ['Projekty', 'projects', '[data-act="open-project"]'],
+  ['Projekt a konverzace', 'project', '#project-conversations-h'],
+  ['Agenti', 'workers', '[data-act="worker-toggle-ask"]:enabled'],
+  ['Potvrzení změny agenta', 'workers', '[data-act="worker-toggle-confirm"]:enabled',
+    `window.__is.state.workerConfirm = { id: 'w1', expectedEnabled: true };`],
+  ['Agent a historie', 'worker', '#worker-runs-h'],
+  ['Specialisté', 'specialists', '[data-act="open-specialist"]'],
+  ['Specialista a expertizy', 'specialist', '#specialist-expertises-h'],
+  ['Spárovaná zařízení', 'devices', '[data-act="device-revoke-ask"]:enabled'],
+  ['Potvrzení odvolání zařízení', 'devices', '[data-act="device-revoke-confirm"]:enabled',
+    `window.__is.state.deviceConfirm = 'device-1';`],
+  ['Nastavení, paměť a zabezpečení', 'diagnostics', '#memory-key:enabled'],
+].map(([name, route, selector, setup = '']) => [name, `
+  ${MIRROR_ACTIVATE};
+  window.__is.state.route = '${route}';
+  ${setup}
+  window.__is.render();
+  if (!document.querySelector('${selector}')) throw new Error('Missing real surface: ${name}');
+`]);
+
+async function onEachSurface(collect, surfaces = [...SURFACES, ...MIRROR_SURFACES]) {
   const found = [];
   await page.evaluate(ACTIVATE);
-  for (const [name, setup] of SURFACES) {
+  for (const [name, setup] of surfaces) {
     await page.evaluate(setup);
     // Selection and theme colours transition for 120 ms.  Measuring during
     // that interpolation compares the new background with the old foreground
@@ -313,6 +401,20 @@ console.log('\n=== Mobile browser accessibility (UI-DESIGN §4, §8, §10) ===')
 console.log(`  chrome: ${executablePath}`);
 
 try {
+  await test('kontrast měří i color(srgb) a průhledné vrstvy', async () => {
+    const measured = await page.evaluate(`(() => {
+      ${MEASURE}
+      const parent = document.createElement('div');
+      const child = document.createElement('span');
+      parent.style.backgroundColor = 'rgb(20, 40, 60)';
+      child.style.backgroundColor = 'color-mix(in srgb, white 50%, transparent)';
+      parent.appendChild(child); document.body.appendChild(parent);
+      try { return { rgb: effectiveBg(child), value: parse('color(srgb 0.1 0.2 0.3 / 0.4)') }; }
+      finally { parent.remove(); }
+    })()`);
+    assert.deepEqual(measured.rgb, [137.5, 147.5, 157.5]);
+    assert.deepEqual(measured.value, { rgb: [25.5, 51, 76.5], a: 0.4 });
+  });
   // ── §10 contrast ──────────────────────────────────────────────────────────
 
   for (const theme of ['light', 'dark']) {
@@ -738,6 +840,35 @@ try {
       `every visible label needs 4.5:1 after the transition settles: ${JSON.stringify(measured)}`);
   });
 
+  await test('MM5-E zrcadlo backendu nepřetéká na 320/390 dp ani při 200% písmu', async () => {
+    const client = await page.createCDPSession();
+    const issues = [];
+    try {
+      for (const width of [320, 390]) {
+        await page.setViewport({ width, height: 844, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+        for (const size of [16, 32]) {
+          await client.send('Page.setFontSizes', { fontSizes: { standard: size, fixed: size } });
+          const found = await onEachSurface(`(() => {
+            ${MEASURE}
+            const scroll = document.querySelector('.scroll');
+            const bounds = scroll.getBoundingClientRect();
+            return [...scroll.querySelectorAll('*')].filter(el => {
+              if (!visible(el)) return false;
+              const r = el.getBoundingClientRect();
+              return r.right > bounds.right + 1 || r.left < bounds.left - 1;
+            }).map(el => label(el)).filter((value, i, values) => values.indexOf(value) === i);
+          })()`, MIRROR_SURFACES);
+          issues.push(...found.map(issue => `${width}dp/${size}px — ${issue}`));
+        }
+      }
+    } finally {
+      await client.send('Page.setFontSizes', { fontSizes: { standard: 16, fixed: 16 } });
+      await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+      await client.detach();
+    }
+    assert.deepEqual(issues, []);
+  });
+
   await test('§3.1 prstenec se ot\xe1\u010d\xed i v \u0161irok\xe9m okn\u011b, ne jen na telefonu', async () => {
     // The defect this pins, from the operator's recording: in a wide window the
     // bar would not switch at all and Nastavení stayed put.  Three sets of items
@@ -1024,6 +1155,7 @@ try {
       return page.evaluate(() => ({
         root: getComputedStyle(document.documentElement).fontSize,
         body: getComputedStyle(document.body).fontSize,
+        navHeight: document.querySelector('.nav-tab').getBoundingClientRect().height,
         rowTime: (() => { const el = document.querySelector('.row-time, .ov-row-time'); return el ? getComputedStyle(el).fontSize : null; })(),
       }));
     };
@@ -1032,6 +1164,7 @@ try {
     const at100 = await sizes(16);
     const at200 = await sizes(32);
     await client.send('Page.setFontSizes', { fontSizes: { standard: 16, fixed: 16 } });
+    await client.detach();
 
     assert.equal(at100.root, '16px');
     assert.equal(at200.root, '32px', 'the browser preference did not apply — the probe itself is broken');
@@ -1047,15 +1180,8 @@ try {
 
     // Scaling the text without the box it lives in is worse than not scaling at
     // all, because the letters then collide with the frame.
-    const grew = await page.evaluate(async () => {
-      const read = () => {
-        const el = document.querySelector('.nav-tab');
-        return el ? el.getBoundingClientRect().height : null;
-      };
-      return read();
-    });
-    assert.ok(grew && grew > 48,
-      `the bar's touch target must grow with the text, measured ${Math.round(grew ?? 0)} dp`);
+    assert.ok(at200.navHeight > at100.navHeight,
+      `the bar's touch target must grow with the text: ${at100.navHeight} → ${at200.navHeight} dp`);
   });
 
   await test('žádná chyba v konzoli během celé sady', () => {

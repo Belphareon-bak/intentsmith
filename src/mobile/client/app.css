@@ -42,6 +42,7 @@ html { font-size: 100%; }
   --accent-text:   #a75337;
 
   --danger:        #b3392b;
+  --on-danger:     #ffffff;
   --danger-soft:   #fbe9e6;
   /* A state colour has to clear 4.5:1 on every "soft" surface it can land on,
      not just its own: the age zone is --warn on --danger-soft when the
@@ -86,10 +87,11 @@ html { font-size: 100%; }
     --accent-hover:  #e08a6e;
     --accent-soft:   #3d2b23;
     --on-accent:     #1f1e1d;
-    /* Dark mode never needed the split — --accent is 4.86:1 on --bg here. */
-    --accent-text:   #d97757;
+    /* Include the raised/translucent navbar, not only the body background. */
+    --accent-text:   #e08a6e;
 
     --danger:        #e57d6e;  --danger-soft: #3d2523;
+    --on-danger:     #1f1e1d;
     --warn:          #d9a94f;  --warn-soft:   #3a3020;
     --ok:            #7fb08d;  --ok-soft:     #23301f;
     --info:          #7fa3d9;  --info-soft:   #232c3d;
@@ -427,7 +429,7 @@ button { cursor: pointer; border: none; background: none; }
 }
 .resource-icon svg { width: 1.25rem; height: 1.25rem; }
 .resource-title-line {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
   gap: 0.625rem; min-width: 0;
 }
 .resource-title-line .row-title { flex: 1; }
@@ -455,7 +457,7 @@ button { cursor: pointer; border: none; background: none; }
 }
 .device-id { margin-top: 0.25rem; color: var(--text-faint); font-size: 0.7188rem; overflow-wrap: anywhere; }
 .device-scopes { display: flex; flex-wrap: wrap; gap: 0.3125rem; margin-top: 0.625rem; }
-.device-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.75rem; }
+.device-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.5rem; margin-top: 0.75rem; }
 .device-warning, .device-confirm {
   display: flex; flex-direction: column; gap: 0.5rem;
   padding: 0.75rem 1rem; margin-bottom: 0.75rem;
@@ -493,14 +495,16 @@ button { cursor: pointer; border: none; background: none; }
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.4375rem;
+  min-width: 3rem; min-height: 3rem;
+  max-width: 100%; overflow-wrap: anywhere;
   padding: 0.625rem 1.125rem; border-radius: var(--radius);
   font-size: 0.9062rem; font-weight: 600;
   transition: background .12s, opacity .12s;
 }
-.btn-primary { background: var(--accent); color: var(--on-accent); }
+.btn-primary { background: var(--accent-text); color: var(--on-accent); }
 .btn-primary:active { background: var(--accent-hover); }
 .btn-secondary { background: var(--bg-sunken); color: var(--text); border: 1px solid var(--border-strong); }
-.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger { background: var(--danger); color: var(--on-danger); }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .btn-block { width: 100%; }
 /* §8 — "small" is about the type and the padding, never about the target: the
@@ -723,12 +727,13 @@ body.has-navbar .composer { margin-bottom: calc(3.625rem + var(--safe-bottom)); 
 .card-head { padding: 0.8125rem 1rem 0.25rem; }
 .card-title { font-size: 0.75rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-faint); margin: 0; }
 .kv {
-  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem;
   padding: 0.75rem 1rem; border-top: 0.0625rem solid var(--border);
   font-size: 0.875rem;
 }
 .card-head + .kv { border-top: none; }
-.kv-key { color: var(--text-muted); flex-shrink: 0; }
+.kv > * { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.kv-key { color: var(--text-muted); }
 /* Explanatory rows are prose, not a label: they must wrap rather than run off
    the card. */
 .kv-note {
@@ -738,11 +743,11 @@ body.has-navbar .composer { margin-bottom: calc(3.625rem + var(--safe-bottom)); 
 .kv-val { font-weight: 550; text-align: right; word-break: break-word; }
 .kv-val.mono { font-family: var(--font-mono); font-size: 0.7812rem; }
 .setting-control {
-  min-width: 0; display: flex; align-items: center; justify-content: flex-end;
+  min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end;
   gap: 0.5rem; flex: 1 1 auto;
 }
 .setting-input {
-  min-width: 6.5rem; max-width: 11rem; min-height: 3rem; padding: 0.4375rem 0.625rem;
+  min-width: min(6.5rem, 100%); max-width: 11rem; min-height: 3rem; padding: 0.4375rem 0.625rem;
   color: var(--text); background: var(--bg-sunken); border: 1px solid var(--border-strong);
   border-radius: var(--radius);
 }
@@ -758,7 +763,7 @@ body.has-navbar .composer { margin-bottom: calc(3.625rem + var(--safe-bottom)); 
 }
 
 .memory-record { padding: 0.8125rem 1rem; border-top: 0.0625rem solid var(--border); }
-.memory-record-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.memory-record-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem; }
 .memory-record-key { min-width: 0; color: var(--text-muted); overflow-wrap: anywhere; }
 .memory-record-value { margin: 0.5rem 0; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
 .memory-record-meta { display: flex; flex-wrap: wrap; gap: 0.375rem 0.75rem; color: var(--text-faint); font-size: 0.7188rem; }
@@ -776,6 +781,7 @@ body.has-navbar .composer { margin-bottom: calc(3.625rem + var(--safe-bottom)); 
 
 .pill {
   display: inline-flex; align-items: center; gap: 0.3125rem;
+  max-width: 100%; overflow-wrap: anywhere;
   font-size: 0.7188rem; font-weight: 650; padding: 0.1875rem 0.5625rem; border-radius: 1.25rem;
 }
 .pill[data-tone="ok"]     { background: var(--ok-soft);     color: var(--ok); }
