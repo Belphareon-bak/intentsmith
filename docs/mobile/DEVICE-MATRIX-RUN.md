@@ -1,106 +1,94 @@
-# Matice fyzického telefonu — protokol a záznamový list
+# M7 fyzická VPN/device matice
 
-**Stav: `NOT RUN` (kandidát 2026-08-27).** Tenhle dokument je **připravený běh**, ne důkaz. Vyplněná
-matice vzniká až tím, že ji někdo odklikne na skutečném telefonu — emulátor
-biometrii, Doze, výrobcem zabité procesy ani odpojení kabelu za běhu
-nereprodukuje, a to je přesně důvod, proč `P0-3` existuje.
+**Stav: `NOT RUN`.** Tento soubor je protokol běhu, ne důkaz. PASS vznikne až
+pozorováním přesně připnutého candidate-signed APK na fyzickém Android zařízení
+API 29+ proti VPN-only TLS listeneru Decision 042. Emulátor, browser, USB
+gateway ani prázdný řádek nejsou PASS.
 
-Kritérium a vlastník jsou v [PROD-READY-HANDBOOK.md](PROD-READY-HANDBOOK.md)
-§P0-3. Tady je to, co k němu chybělo: **jak to udělat, aby výsledek byl
-pozorování a ne dojem.**
+## Identita běhu
 
----
-
-## Než začneš
-
-| | |
-|---|---|
-| Telefon | fyzický, Android API 24+; podporovaná pilotní matice musí určit konkrétní modely/OS; se zámkem obrazovky a biometrií |
-| Kabel | USB, `adb devices` vidí zařízení jako `device` (ne `unauthorized`) |
-| Backend | `npm start` běží (`127.0.0.1:3335`) — **nově je potřeba**, viz níž |
-| Gateway | `npm run mobile:gateway` (`127.0.0.1:3336`) |
-| Můstek | `npm run mobile:android:reverse` |
-| APK | candidate-signed build z `codex/mobile-prod-client-20260826`; debug-signed throwaway není release důkaz |
-
-**Změna proti dřívějšku:** approvaly se už nevyrábějí demem. Vyrábí je skutečný
-zápis, takže backend musí běžet — gateway sama frontu jen čte. Řádky 3–5 a 10 se
-proto řídí skutečným během, ne `npm run mobile:demo`.
-
-Jak vyrobit otázku: v `/chat-ui` napiš „ulož to do poznamka.md" (nebo cokoli, co
-skončí zápisem souboru). Běh se zastaví a čeká.
-
----
-
-## Záznamový list
-
-Vyplň **všechny** sloupce. Prázdné pole není „prošlo", je to „neproběhlo".
-
-```
-Datum:        ____________________
-Model:        ____________________
-Android:      ____________________
-Verze APK:    ____________________  (commit: ____________)
-Kdo klikal:   ____________________
+```text
+Datum a operátor:       ______________________________
+Candidate SHA/tree:     ______________________________
+APK SHA-256/signer:     ______________________________
+AAB SHA-256/signer:     ______________________________
+Source manifest SHA:    ______________________________
+Telefon/model/API:      ______________________________
+App version/code:       ______________________________
+VPN interface/address:  ______________________________
+Server origin/SPKI:     ______________________________
+Evidence directory:     ______________________________  (0700)
 ```
 
-| # | Scénář | Co musí platit | Výsledek | Poznámka |
-|---|---|---|---|---|
-| 1 | instalace a první spuštění | žádný prompt před spárováním | ☐ PASS ☐ FAIL | |
-| 2 | párování deep linkem i vložením kódu | kód je jednorázový; druhé použití 409; cizí/malformed URI se odmítne | ☐ PASS ☐ FAIL | |
-| 3 | approve | efekt nastane **až po** ťuknutí — soubor před ním na disku není | ☐ PASS ☐ FAIL | |
-| 4 | reject | efekt nenastane a běh to řekne | ☐ PASS ☐ FAIL | |
-| 5 | nechat propadnout (změnit cíl během čekání) | běh skončí bez efektu; telefon ukáže **„Rozhodnutí už neplatí / Cíl se změnil."** | ☐ PASS ☐ FAIL | |
-| 6 | Home → návrat | zámek, `BiometricPrompt`, po odemčení funkční relace | ☐ PASS ☐ FAIL | |
-| 7 | recents náhled | prázdný / zakrytý (`FLAG_SECURE`) | ☐ PASS ☐ FAIL | |
-| 8 | zabití procesu z recents | po startu zámek, credential přežil v Keystore | ☐ PASS ☐ FAIL | |
-| 9 | odpojení USB za běhu | „gateway nedostupná" — nemlčí a neukazuje starý obsah jako živý | ☐ PASS ☐ FAIL | |
-| 10 | vypnutí gateway během čekání na approval | totéž, plus běh na desktopu se dozví konec | ☐ PASS ☐ FAIL | |
-| 11 | letadlový režim | `SS-03` offline, ne `SS-08` | ☐ PASS ☐ FAIL | |
-| 12 | reboot telefonu | po startu zámek, pak funkční relace | ☐ PASS ☐ FAIL | |
-| 13 | odebrání a obnovení zámku obrazovky | po odebrání zůstane credential zapečetěný a není platná unlock cesta; po obnovení systémového zámku jde aplikaci znovu odemknout | ☐ PASS ☐ FAIL | |
-| 14 | odhlášení | credential i šifrovaná doménová data zmizí, návrat na párování | ☐ PASS ☐ FAIL | |
-| 15 | změna pairing identity | stará cache/journal/draft se nevykreslí pod novým device id | ☐ PASS ☐ FAIL | |
-| 16 | TalkBack + 200 % font | focus/hlášení jsou smysluplné, obsah ani akce nejsou oříznuté | ☐ PASS ☐ FAIL | |
+Nezaznamenávej pairing code, private key, HMAC key, bearer/local capability,
+auth headers ani obsah chatu. Textové logy před uložením rediguj; redakci
+pojmenuj. Observation soubory mají mode `0600`.
 
----
+## Povinných 13 runtime checků
 
-## Jak jednotlivé řádky provést
+ID a pořadí odpovídají `MobileM7RuntimeEvidence@1`. Každý řádek musí mít
+`PASS` nebo `FAIL` a alespoň jeden konkrétní artifact ID.
 
-Číslované kroky jsou schválně doslovné. „Zkusil jsem to a šlo to" není
-pozorování; pozorování je „udělal jsem X a viděl jsem Y".
+| # | Check ID | Provedení a acceptance | Stav | Artifact ID |
+|---:|---|---|---|---|
+| 1 | `candidate-installed` | Android package, version, source revision, APK digest a signer sedí s kandidátem | ☐ PASS ☐ FAIL | |
+| 2 | `logout-identity-wiped` | po logoutu zmizí session, pairing state, wrapped signing seed i doménová data; app žádnou mutaci nepodepíše | ☐ PASS ☐ FAIL | |
+| 3 | `mutation-approval-roundtrip` | skutečný M2 approval se zobrazí; efekt před tapem nenastane; approve/reject zachová fingerprint a operation identity | ☐ PASS ☐ FAIL | |
+| 4 | `offline-reconnect` | vypnout VPN za běhu a restartovat app; pairing zůstane, UI je offline, mutace jsou blokované; po návratu VPN health ověří server a data se znovu načtou | ☐ PASS ☐ FAIL | |
+| 5 | `pairing-single-use` | lokální Studio vydá 5min claim; první claim uspěje, druhý pokus se stejným kódem je odmítnut a auditován | ☐ PASS ☐ FAIL | |
+| 6 | `read-invocation-signed` | zachycený read request nese validní Ed25519 invocation proof; změna payloadu/signature je odmítnuta před core adapterem | ☐ PASS ☐ FAIL | |
+| 7 | `server-restart-replay-fenced` | po restartu serveru opakovaný counter/nonce selže; nový monotónní request se stejným pairingem projde | ☐ PASS ☐ FAIL | |
+| 8 | `session-open-signed` | OPEN challenge i request jsou podepsané a svázané s device/pairing/originem | ☐ PASS ☐ FAIL | |
+| 9 | `session-refresh-signed` | REFRESH je podepsaný; stará revision je po dispatchi nepoužitelná a výpadek nechá jen resumable pairing | ☐ PASS ☐ FAIL | |
+| 10 | `session-revoke-enforced` | revoke okamžitě odmítne další invocation a lokální logout zničí device signing authority | ☐ PASS ☐ FAIL | |
+| 11 | `tls13-spki-accepted` | telefon přijme pouze TLS 1.3 server s build-pinned SPKI a přesným originem `:7443` | ☐ PASS ☐ FAIL | |
+| 12 | `vpn-only-reachability` | listener je na exact VPN adrese; dostupný doma i mimo LAN jen přes VPN; LAN, loopback, wildcard a public ingress nejsou použitelné | ☐ PASS ☐ FAIL | |
+| 13 | `wrong-spki-rejected` | build se stejným originem a úmyslně chybným SPKI pinem selže před HTTP; žádný redirect/proxy/browser-fetch fallback | ☐ PASS ☐ FAIL | |
 
-**3 — approve.** Vyrob otázku (viz výše). **Než ťukneš**, ověř na desktopu, že
-cíl na disku neexistuje (`ls`). Teprve pak ťukni Schválit. Znovu `ls`.
-*Pozorování:* před ťuknutím soubor není, po ťuknutí je.
+Jediný FAIL znamená pravdivý červený evidence index. Nález neopravuj změnou
+řádku; oprav produkt, zmraz nový kandidát a běh zopakuj.
 
-**4 — reject.** Totéž, ale Zamítnout. *Pozorování:* soubor není ani potom a chat
-řekne, že zápis byl zamítnut.
+## Povinná accessibility/device doplňková matice
 
-**5 — propadnutí.** Vyrob otázku a **než odpovíš**, změň cíl z desktopu
-(`echo x >> cil`). Pak ťukni Schválit. *Pozorování:* nic se nezapsalo a text na
-telefonu odpovídá novému slovníku. Starý text („Okno vypršelo, běh pokračoval
-bez svolení") by byl nález — přestal platit rozhodnutím `025`.
+Tyto body nejsou nahrazené třinácti transport checks a musí být součástí
+release review:
 
-**9 — odpojení kabelu.** Vytáhni USB za běhu aplikace, ne před spuštěním.
-*Pozorování:* obrazovka řekne, že gateway není dostupná. Pokud dál ukazuje
-seznam jako živý, je to nález.
+| Scénář | Acceptance | Stav | Artifact ID |
+|---|---|---|---|
+| systémový zámek + biometrie | bez zámku se identity nevytvoří; Home/return vyžádá bezpečné odemčení | ☐ PASS ☐ FAIL | |
+| recents snapshot | citlivý obsah je zakrytý přes `FLAG_SECURE` | ☐ PASS ☐ FAIL | |
+| process death a reboot | wrapped identity přežije, plaintext key nikoli; session se bezpečně obnoví | ☐ PASS ☐ FAIL | |
+| TalkBack | fokus, statusy a rozhodovací akce jsou smysluplně ohlášené | ☐ PASS ☐ FAIL | |
+| 200 % font + rotace | obsah ani 48dp/56dp akce nejsou oříznuté nebo překryté | ☐ PASS ☐ FAIL | |
+| airplane mode / Doze | cache je výslovně stale/offline a nic se automaticky znovu neodešle | ☐ PASS ☐ FAIL | |
+| změna pairing identity | stará cache, journal ani draft se nevykreslí pod novým device ID | ☐ PASS ☐ FAIL | |
 
-**10 — gateway během čekání.** Nech běh čekat na approval a zabij gateway
-(`Ctrl-C`). *Pozorování:* telefon oznámí nedostupnost; běh na desktopu skončí
-bez efektu a **řekne proč**. Po restartu backendu nesmí ta otázka viset ve
-frontě jako čekající — na to už nikdo nečeká.
+## Minimální evidence artefakty
 
-**12 — reboot.** Po rebootu zkontroluj i frontu: approvaly, na které čekal
-proces zabitý restartem, mají být uzavřené (`cancelled` / `waiter_gone`), ne
-`pending`. Rozhodnutí, po kterém by se nic nestalo, je horší než žádné.
+Doporučená malá sada bez secrets:
 
----
+- `candidate-package.txt`: redigovaný `adb shell dumpsys package` s version,
+  source revision a signer pozorováním;
+- `vpn-bind.txt`: exact `ip`/`ss` a firewall census před a po běhu;
+- `session-audit.json`: export pouze relevantních M7 audit fields bez
+  credentialů a payloadů;
+- `device-journey.txt`: časová osa kroků a pozorovaných výsledků;
+- `accessibility.txt`: TalkBack/font/rotation pozorování;
+- podle potřeby redigované screenshoty, nikdy QR/pairing code.
 
-## Co s nálezem
+Každý artifact dostane stabilní lowercase ID, relativní kanonickou cestu,
+počet bajtů a SHA-256. Seznam artifactů i checků je seřazený. Index je přesně
+jednořádkový kanonický JSON ukončený `\n`; produkční validator odmítá
+pretty-print i změnu jediného bajtu.
 
-Zapiš ho jako řádek s `FAIL` a **konkrétním pozorováním**, ne jako dojem.
-„Chová se divně" se nedá opravit ani reprodukovat. „Po odpojení USB zůstal
-seznam konverzací a trust bar zelený po dobu ~40 s" ano.
+## Po běhu
 
-Matice s jediným `FAIL` je pořád platný důkaz — jen říká něco jiného. Matice
-s prázdnými poli není důkaz vůbec.
+1. Přepočti digesty APK/AAB a všech observation souborů.
+2. Vytvoř `MobileM7RuntimeEvidence@1` index; i FAIL řádky zachovej.
+3. Spusť release evidence s `--runtime-evidence`, viz [TRYING-IT.md](TRYING-IT.md).
+4. Ověř, že output vytvořil nový `<sha12>-<run>` adresář a nepřepsal starý.
+5. Předej candidate SHA, celý privátní bundle a manifest nezávislému reviewerovi.
+
+`runtimeEvidence.verified: true` znamená pouze, že kanonické bytes, vazby,
+artefakty a všech 13 stavů prošly lokálním validátorem. Neznamená to
+`REVIEW_PASSED`, M7 acceptance ani oprávnění k publish.

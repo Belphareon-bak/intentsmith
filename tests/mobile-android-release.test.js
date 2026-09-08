@@ -673,6 +673,20 @@ await test('physical VPN runtime evidence is canonical, artifact-bound and fail-
   }
 });
 
+await test('the physical-device runbook names the production VPN path and every runtime check', () => {
+  const tryingIt = read('docs/mobile/TRYING-IT.md');
+  const matrix = read('docs/mobile/DEVICE-MATRIX-RUN.md');
+  assert.match(tryingIt, /C3_MOBILE_TRANSPORT_MODE=remote-core-v1/);
+  assert.match(tryingIt, /INTENTSMITH_M7_REMOTE_ENABLED=true/);
+  assert.match(tryingIt, /--runtime-evidence \/absolute\/private\/path\/runtime-evidence\.json/);
+  assert.match(tryingIt, /<sha12>-<run>/);
+  assert.doesNotMatch(tryingIt, /is-mobile-prod-client-20260826/);
+  assert.match(matrix, /\*\*Stav: `NOT RUN`\.\*\*/);
+  for (const checkId of MOBILE_M7_RUNTIME_CHECK_IDS) {
+    assert.equal(matrix.includes(`\`${checkId}\``), true, checkId);
+  }
+});
+
 await test('APK and AAB native observations independently bind signer and Android identity', () => {
   const revision = 'c'.repeat(40);
   const apk = parseApkReleaseObservationV1({
