@@ -30,6 +30,7 @@ port, retenci, cap ani local-only pairing volby.
 
 ```bash
 node tests/m7-vpn-runtime-config.test.js
+node tests/m7-vpn-tls-listener.test.js
 node tests/m7-transport-admission-policy.test.js
 node tests/m7-durable-rate-limiter.test.js
 node tests/module-boundary-ratchet.test.js

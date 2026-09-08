@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 501
+- Runnable programs: 502
 - Explicit support-module exclusions: 18
-- Profiles: offline=271, database=70, server=44, model=81, soak=15, manual=20
-- States: ACTIVE=407, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=271, database=71, server=44, model=81, soak=15, manual=20
+- States: ACTIVE=408, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -390,6 +390,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M7-SETTINGS-INFORMATION-CORE-ADAPTERS-TEST` | `tests/m7-settings-information-core-adapters.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-SETTINGS-INFORMATION-CORE-ADAPTERS |
 | `IS-T1-TESTS-M7-TRANSPORT-ADMISSION-POLICY-TEST` | `tests/m7-transport-admission-policy.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-LAN-VPN-TRANSPORT-ADMISSION |
 | `IS-T1-TESTS-M7-VPN-RUNTIME-CONFIG-TEST` | `tests/m7-vpn-runtime-config.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-VPN-LISTENER-ACTIVATION |
+| `IS-T1-TESTS-M7-VPN-TLS-LISTENER-TEST` | `tests/m7-vpn-tls-listener.test.js` | `C3-032` | T1 | `database` | 5 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-VPN-LISTENER-ACTIVATION |
 | `IS-T1-TESTS-MANIFEST-V2-TEST` | `tests/manifest-v2.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MARKETPLACE-CATALOG-V125-TEST` | `tests/marketplace-catalog-v125.test.js` | `C3-022` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MARKETPLACE-TEST` | `tests/marketplace.test.js` | `C3-022` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

@@ -28,6 +28,7 @@ export const M7_SYSTEMD_CREDENTIAL_NAMES = Object.freeze({
 const SHA256 = /^sha256:[0-9a-f]{64}$/u;
 const VPN_INTERFACE = /^(?:tailscale0|wg(?:[0-9]+|-[A-Za-z0-9_.-]+)|tun(?:[0-9]+|-[A-Za-z0-9_.-]+))$/u;
 const configurations = new WeakSet();
+const configurationObservers = new WeakMap();
 
 export class M7VpnRuntimeConfigError extends Error {
   constructor(code, message) {
@@ -157,7 +158,24 @@ export function createM7VpnRuntimeConfiguration({
     stage: M7_VPN_RUNTIME_CONFIG_STAGE,
   });
   configurations.add(config);
+  configurationObservers.set(config, networkInterfaces);
   return config;
+}
+
+export function assertM7VpnRuntimeConfigurationCurrent(config) {
+  if (!configurations.has(config)) {
+    fail(M7_VPN_RUNTIME_CONFIG_ERROR.CONFIG_INVALID, 'runtime-config-not-genuine');
+  }
+  let interfaces;
+  try {
+    interfaces = configurationObservers.get(config)();
+  } catch {
+    fail(M7_VPN_RUNTIME_CONFIG_ERROR.VPN_INTERFACE_UNAVAILABLE, 'interface-recheck-failed');
+  }
+  if (!interfaceHasAddress(interfaces, config.interfaceName, config.bindAddress)) {
+    fail(M7_VPN_RUNTIME_CONFIG_ERROR.VPN_INTERFACE_UNAVAILABLE, 'vpn-interface-address-changed');
+  }
+  return true;
 }
 
 function readCredential(path, maximumBytes, field, ownerUid, io) {
