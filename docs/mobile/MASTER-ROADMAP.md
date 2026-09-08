@@ -103,13 +103,19 @@ deletion and task-memory writes are explicitly outside current mobile authority.
 
 Current MM5 sub-checkpoints: packaged native transport (`a5d5bab4`), direct
 AndroidKeyStore credential vault (`14be72b8..71746be5`), encrypted native
-app-state (`3817cc00`) and mandatory browser accessibility (`4dd33b49`). MM5-C stores cache, drafts, operation journal, scopes
+app-state (`3817cc00`), mandatory browser accessibility (`4dd33b49`) and
+backend-mirror browser usability (`da6abe27`). MM5-C stores cache, drafts, operation journal, scopes
 and preferences in a separate bounded AES-GCM record, migrates plaintext only
 after a confirmed encrypted write, clears decrypted state on lock and requires
 durability before native mutations. MM5-D provisions the Puppeteer-resolved
 Chrome explicitly, moves the fail-closed browser suite into the required mobile
 gate, aligns its paging fixture with the exact MM3-I DTO and removes the navbar
-contrast exclusion by measuring settled frames. MM5 remains open for remote
+contrast exclusion by measuring settled frames. MM5-E expands that sweep to
+18 populated surfaces/states, correctly measures sRGB colour-mix layers, fixes
+primary/danger/navbar contrast and checks mirror reflow at 320/390 CSS pixels
+with 100%/200% browser fonts. See the
+[MM5-E review package](reviews/MM5E-MIRROR-BROWSER-USABILITY.md).
+MM5 remains open for remote
 TLS/peer identity, production notification/offline policy, physical
 accessibility/device evidence and independent security acceptance.
 
