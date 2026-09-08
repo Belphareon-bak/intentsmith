@@ -1,6 +1,11 @@
 # WP-MOBILE-COMPLETION-20260908
 
-Status: IN_PROGRESS / NOT_RELEASE_ACCEPTANCE.
+Status: IMPLEMENTED / SOURCE_REVIEW_PASSED / BASELINE_GATE_FAIL /
+FINAL_HANDOFF_REVIEW_PENDING / NOT_RELEASE_ACCEPTANCE.
+
+Product candidate: `88d1d45ba90f287a1a5ed166e2be0de1b75dc29c`.
+Results: [execution evidence](../execution/runs/mobile/mobile-completion-20260908.md)
+and [milestone review](../review/2026-09-08-MOBILE-COMPLETION-REVIEW.md).
 
 Authority: explicit operator request to finish mobile work and review milestones;
 `docs/mobile/UI-DESIGN.md` §4, §8 and §10; existing release artifact source-binding

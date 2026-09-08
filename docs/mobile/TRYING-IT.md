@@ -57,8 +57,7 @@ Build dočasně upraví network policy a po skončení ji obnoví; zkontroluj Gi
 Signing-independent kontroly po synchronizaci assets:
 
 ```bash
-cd mobile-app/android
-./gradlew --offline --no-daemon :app:testDebugUnitTest :app:lintRelease
+(cd mobile-app/android && ./gradlew --offline --no-daemon :app:testDebugUnitTest :app:lintRelease)
 ```
 
 Evidence se vytváří nad stejným čistým commitem jako build:
