@@ -74,6 +74,7 @@ const DATA = {
 /* ═══ Settings sections ═══ */
 const SETTINGS = [
   { id: 'user', icon: '👤', title: 'Account / Identity' },
+  { id: 'remote', icon: '📱', title: 'Remote Companion' },
   { id: 'llm', icon: '🤖', title: 'LLM Settings' },
   { id: 'memory', icon: '🧠', title: 'Memory & Context' },
   { id: 'notif', icon: '🔔', title: 'Notifications' },
@@ -101,6 +102,16 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
     this._zoom = 1;
     this._openSections = { user: true };
     this._selectedItem = null;
+    this._m7Pairing = {
+      status: 'idle',
+      claim: null,
+      error: null,
+      selectedScopes: [
+        'read:approvals', 'read:chat', 'read:events', 'read:notifications',
+        'read:operations', 'read:projects', 'read:settings', 'read:stored_information',
+      ],
+    };
+    this._m7PairingTimer = null;
 
     // v63.0: Wizard state
     this._wizardMode = null;      // null | 'create' | 'edit'
@@ -391,6 +402,59 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
         ], 'cs'),
       ];
 
+      // ═══ Remote Companion / local-only pairing authority ═══
+      case 'remote': {
+        const pairing = this._m7Pairing;
+        const scopes = [
+          'read:approvals', 'read:chat', 'read:events', 'read:notifications',
+          'read:operations', 'read:projects', 'read:settings', 'read:stored_information',
+          'write:approvals', 'write:chat', 'write:notifications', 'write:operations',
+          'write:settings', 'write:stored_information',
+        ];
+        const claim = pairing.claim;
+        return [
+          h('p', { key: 'remote-boundary', className: 'c3-hint' },
+            'Telefon se připojuje pouze přes vaši VPN. IntentSmith nevystavuje veřejný internetový endpoint.'),
+          h('h4', { key: 'remote-pair-title', className: 'c3-settings-h4' }, 'Jednorázové párování'),
+          h('p', { key: 'remote-pair-hint', className: 'c3-hint' },
+            'Vyberte oprávnění a vytvořte kód platný pět minut. Kód se neukládá do nastavení ani do historie Studia.'),
+          h('div', { key: 'remote-scopes', className: 'c3-m7-scope-list' },
+            scopes.map(scope => h('label', { key: scope, className: 'c3-toggle-row' },
+              h('input', {
+                type: 'checkbox',
+                className: 'c3-toggle',
+                checked: pairing.selectedScopes.includes(scope),
+                disabled: pairing.status === 'loading' || claim !== null,
+                onChange: () => this._m7TogglePairingScope(scope),
+              }),
+              h('span', { className: 'c3-toggle-label' }, scope)
+            ))
+          ),
+          h('button', {
+            key: 'remote-issue',
+            className: 'c3-btn-sm c3-mt-8',
+            disabled: pairing.status === 'loading' || pairing.selectedScopes.length === 0 || claim !== null,
+            onClick: () => this._m7IssuePairingClaim(),
+          }, pairing.status === 'loading' ? 'Vytvářím…' : 'Vytvořit 5min kód'),
+          pairing.error && h('p', {
+            key: 'remote-error', className: 'c3-gpu-err', role: 'alert',
+          }, pairing.error),
+          claim && h('div', { key: 'remote-claim', className: 'c3-sys-info c3-m7-pairing-claim' },
+            h('div', { className: 'c3-gpu-row' },
+              h('span', null, 'Párovací kód'),
+              h('strong', { className: 'c3-m7-pairing-code' }, claim.claimCode)
+            ),
+            h('div', { className: 'c3-gpu-row' },
+              h('span', null, 'Platí do'),
+              h('strong', null, new Date(claim.expiresAt).toLocaleTimeString())
+            ),
+            h('p', { className: 'c3-hint' },
+              'Kód opište do telefonu. Po prvním použití nebo po vypršení už nefunguje.'),
+            h('code', { className: 'c3-m7-pairing-uri' }, claim.pairingUri)
+          ),
+        ];
+      }
+
       // ═══ LLM Settings ═══
       case 'llm': {
         // GPU info card — fetched dynamically
@@ -668,6 +732,83 @@ class C3CenterViewsWidget extends react_widget_1.ReactWidget {
   }
 
   // ── v87: Settings helper methods ──────────────────────────────────────────
+
+  _m7TogglePairingScope(scope) {
+    if (this._m7Pairing.status === 'loading' || this._m7Pairing.claim !== null) return;
+    const selected = new Set(this._m7Pairing.selectedScopes);
+    if (selected.has(scope)) selected.delete(scope);
+    else selected.add(scope);
+    this._m7Pairing.selectedScopes = [...selected].sort();
+    this._m7Pairing.claim = null;
+    this._m7Pairing.error = null;
+    if (this._m7PairingTimer) clearTimeout(this._m7PairingTimer);
+    this._m7PairingTimer = null;
+    this.update();
+  }
+
+  async _m7IssuePairingClaim() {
+    if (this._m7Pairing.status === 'loading' || this._m7Pairing.selectedScopes.length === 0) return;
+    this._m7Pairing.status = 'loading';
+    this._m7Pairing.claim = null;
+    this._m7Pairing.error = null;
+    if (this._m7PairingTimer) clearTimeout(this._m7PairingTimer);
+    this._m7PairingTimer = null;
+    this.update();
+    try {
+      const requestedScopes = [...this._m7Pairing.selectedScopes].sort();
+      const response = await fetch('/api/m7/remote/pairing/claims', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scopes: requestedScopes }),
+        signal: AbortSignal.timeout(10000),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        const error = new Error('pairing-request-denied');
+        error.code = payload && payload.code;
+        error.status = response.status;
+        throw error;
+      }
+      const keys = payload && typeof payload === 'object' && !Array.isArray(payload)
+        ? Object.keys(payload).sort()
+        : [];
+      const expectedKeys = [
+        'claimCode', 'claimId', 'contract', 'expiresAt', 'pairingUri',
+        'scopes', 'subjectId', 'version',
+      ].sort();
+      const expiresAtMs = Date.parse(payload && payload.expiresAt);
+      if (JSON.stringify(keys) !== JSON.stringify(expectedKeys)
+        || payload.contract !== 'M7LocalPairingClaim'
+        || payload.version !== 1
+        || !/^[A-Za-z0-9_-]{22}$/.test(payload.claimCode || '')
+        || !/^pairing-claim:[A-Za-z0-9_-]{24}$/.test(payload.claimId || '')
+        || payload.pairingUri !== 'intentsmith://pair?code=' + payload.claimCode
+        || JSON.stringify(payload.scopes) !== JSON.stringify(requestedScopes)
+        || typeof payload.subjectId !== 'string' || payload.subjectId.length < 1
+        || !Number.isFinite(expiresAtMs)
+        || expiresAtMs <= Date.now() || expiresAtMs - Date.now() > 300000) {
+        throw new Error('pairing-response-invalid');
+      }
+      this._m7Pairing.claim = Object.freeze({ ...payload, scopes: Object.freeze([...payload.scopes]) });
+      this._m7Pairing.status = 'ready';
+      this._m7PairingTimer = setTimeout(() => {
+        this._m7Pairing.claim = null;
+        this._m7Pairing.status = 'expired';
+        this._m7Pairing.error = 'Platnost párovacího kódu vypršela. Vytvořte nový.';
+        this._m7PairingTimer = null;
+        this.update();
+      }, Math.max(1, expiresAtMs - Date.now()));
+    } catch (error) {
+      this._m7Pairing.status = 'error';
+      this._m7Pairing.error = error && error.code === 'M7_LOCAL_PAIRING_NOT_ACTIVE'
+        ? 'VPN runtime zatím není aktivní. Připojte VPN a spusťte M7 službu.'
+        : error && error.code === 'M7_LOCAL_PAIRING_AUTH_REQUIRED'
+          ? 'Párování lze vydat pouze z autentizovaného lokálního Studia.'
+          : 'Párovací kód se nepodařilo bezpečně vytvořit.';
+    }
+    this.update();
+  }
 
   async _fetchGpuInfo() {
     const el = document.getElementById('c3-gpu-info');

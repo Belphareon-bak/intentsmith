@@ -527,6 +527,11 @@ export class M7SessionAuthority {
       const claimDigest = sha256Text(claimCode);
       const expiresAtMs = nowMs + this.claimTtlMs;
       immediate(this.database, () => {
+        const superseded = this.database.prepare(`
+          UPDATE m7_remote_pairing_claims SET revoked_at_ms = ?
+          WHERE subject_id = ? AND consumed_at_ms IS NULL
+            AND revoked_at_ms IS NULL AND expires_at_ms > ?
+        `).run(nowMs, subjectId, nowMs);
         this.database.prepare(`
           INSERT INTO m7_remote_pairing_claims (
             claim_id, claim_digest, subject_id, scopes_json, issued_by,
@@ -538,7 +543,12 @@ export class M7SessionAuthority {
         );
         this.audit({
           action: 'PAIRING_CLAIM_ISSUED', actorId, subjectId, outcome: 'ALLOWED',
-          detailsDigest: digestM7SessionValue({ claimId, expiresAtMs, scopes: normalizedScopes }),
+          detailsDigest: digestM7SessionValue({
+            claimId,
+            expiresAtMs,
+            scopes: normalizedScopes,
+            supersededClaims: superseded.changes,
+          }),
           recordedAtMs: nowMs,
         });
       });

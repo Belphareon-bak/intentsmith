@@ -679,3 +679,24 @@
   margin: 0;
   tab-size: 4;
 }
+.c3-m7-scope-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 4px 12px;
+}
+
+.c3-m7-pairing-claim {
+  margin-top: 12px;
+}
+
+.c3-m7-pairing-code {
+  font-family: var(--theia-code-font-family, monospace);
+  letter-spacing: .08em;
+  user-select: text;
+}
+
+.c3-m7-pairing-uri {
+  display: block;
+  overflow-wrap: anywhere;
+  user-select: text;
+}

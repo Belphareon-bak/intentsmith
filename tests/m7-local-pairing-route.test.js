@@ -53,7 +53,6 @@ function setup({ active = true } = {}) {
     claimTtlMs: 300_000,
     clock: () => NOW,
     pairingEnabled: true,
-    randomBytes: length => Buffer.alloc(length, 0x42),
     serverIdentityPin: `sha256:${'a'.repeat(64)}`,
     serverOrigin: 'https://intentsmith.tailnet.example:7443',
   });
@@ -118,6 +117,21 @@ await testAsync('genuine local Studio authority issues one five-minute no-store 
       fixture.authorizationInputs()[0].authenticatedSubject,
       fixture.local.subject,
     );
+    const firstClaimId = res.payload.claimId;
+    const next = response();
+    await fixture.route({
+      authenticatedCredentialType: fixture.local.credentialType,
+      authenticatedSubject: fixture.local.subject,
+    }, next);
+    assert.equal(next.status, 201);
+    assert.notEqual(next.payload.claimId, firstClaimId);
+    const claims = fixture.database.prepare(`
+      SELECT claim_id AS claimId, revoked_at_ms AS revokedAtMs
+      FROM m7_remote_pairing_claims ORDER BY issued_at_ms, claim_id
+    `).all();
+    assert.equal(claims.length, 2);
+    assert.equal(claims.find(row => row.claimId === firstClaimId).revokedAtMs, NOW);
+    assert.equal(claims.find(row => row.claimId === next.payload.claimId).revokedAtMs, null);
   } finally {
     fixture.close();
   }
