@@ -680,6 +680,9 @@ await test('the physical-device runbook names the production VPN path and every 
   assert.match(tryingIt, /INTENTSMITH_M7_REMOTE_ENABLED=true/);
   assert.match(tryingIt, /odstranit proměnnou\s+`INTENTSMITH_M7_REMOTE_ENABLED`/);
   assert.match(tryingIt, /systemctl --user daemon-reload/);
+  assert.match(tryingIt, /render-m7-systemd-service\.mjs/);
+  assert.match(tryingIt, /LoadCredentialEncrypted=/);
+  assert.match(tryingIt, /nic neinstaluje/);
   assert.match(tryingIt, /Nejdřív ověř lokální loopback health/);
   assert.match(tryingIt, /--runtime-evidence \/absolute\/private\/path\/runtime-evidence\.json/);
   assert.match(tryingIt, /<sha12>-<run>/);
