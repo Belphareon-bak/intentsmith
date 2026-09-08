@@ -222,6 +222,7 @@ Chronologicky, s důvodem. Tohle je ta část, která se z kódu odvodit nedá.
 | 2026-08-08 | **Modelový self-healing smí být jen explicitně opt-in, dočasný, auditovaný a vratný local failover.** | Desired binding se nemění discovery. Automatická aktivace je povolená až po společné kanonické identitě, ochraně delete/cleanup, oddělení desired/active stavu, pravdivém verify auditu a bezpečném restore. Do té doby se L0-9 nemění a současný auto-rebind zůstává blokovaný. |
 | 2026-08-08 | **Studio v M1 při výpadku WS neposílá chat přes legacy HTTP fallback.** | Route neumí vynutit effect authority; pouhá oprava response parseru by byla false-green. M1 ukáže vratný `NOT_SENT` stav bez HTTP effectu, plná WS/HTTP parita se vrátí až nad M2 `EffectRequest/ApprovalGrant`. |
 | 2026-08-23 | **Jeden model nesmí držet většinu primárních rolí a nezávislý autor s reviewerem nesmějí být tentýž modelový artefakt.** | Segregace odpovědností je produktová vlastnost, ne maximalizace počtu různých modelů. Při současných sedmi rolích z toho plyne kapacita nejvýše tři role na model; dovoluje sdílení tam, kde nebourá nezávislou kontrolu, a omezuje zbytečné přepínání modelů na jediné GPU. |
+| 2026-09-08 | **M7 Remote Companion používá pouze VPN listener na portu 7443, systemd credentials, SPKI pin a lokální single-use pairing.** | Telefon funguje doma i venku přes VPN bez veřejného ingressu. TLS a limiter secrets nejsou v repu, DB ani serverovém env; pairing vydává jen autentizované lokální Studio na pět minut. Viz Decision 042. |
 
 ### Co to znamená pro rozsah
 
