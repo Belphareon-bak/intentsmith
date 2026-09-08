@@ -16,9 +16,31 @@ export const MOBILE_RELEASE_NATIVE_HTTP_BLOCKER =
   'CAPACITOR_HTTP_GLOBAL_FETCH_PATCH_MUST_BE_REPLACED_OR_DISABLED';
 export const MOBILE_RELEASE_AAB_SIGNER_BLOCKER =
   'MOBILE_AAB_UPLOAD_SIGNER_NOT_VERIFIED';
+export const MOBILE_RELEASE_DIRTY_SOURCE_BLOCKER =
+  'MOBILE_SOURCE_WORKTREE_DIRTY';
+
+function requireSourceDirty(value) {
+  if (typeof value !== 'boolean') {
+    throw new Error('sourceDirty must be an explicit boolean in release evidence');
+  }
+}
+
+export function describeMobileReleaseSourceProvenanceV1({ baseRevision, sourceDirty }) {
+  requireSourceDirty(sourceDirty);
+  if (typeof baseRevision !== 'string' || !/^[a-f0-9]{40}$/u.test(baseRevision)) {
+    throw new Error('source base revision must be an exact Git commit');
+  }
+  return Object.freeze({
+    baseRevision,
+    sourceRevision: sourceDirty ? null : baseRevision,
+    sourceDirty,
+    verification: sourceDirty ? 'WORKTREE_ONLY' : 'COMMITTED_SOURCE',
+  });
+}
 
 export function classifyMobileReleaseArtifact({
   debugSigned,
+  sourceDirty,
   expectedSigner,
   expectedAabSigner = null,
   aabSignerVerified = false,
@@ -27,6 +49,7 @@ export function classifyMobileReleaseArtifact({
   adapterManifestDigest,
   nativeHttpPatchEnabled,
 }) {
+  requireSourceDirty(sourceDirty);
   if (descriptorDigest !== MOBILE_RELEASE_REMOTE_PINS.descriptorDigest
       || adapterManifestDigest !== MOBILE_RELEASE_REMOTE_PINS.adapterManifestDigest) {
     throw new Error('bundled RemoteCore compatibility pin does not match the reviewed M2/M5 contract');
@@ -38,6 +61,7 @@ export function classifyMobileReleaseArtifact({
     throw new Error('CapacitorHttp patch state must be explicit in release evidence');
   }
   const releaseBlockers = [];
+  if (sourceDirty) releaseBlockers.push(MOBILE_RELEASE_DIRTY_SOURCE_BLOCKER);
   if (transportMode !== MOBILE_RELEASE_TRANSPORT.PRODUCTION) {
     releaseBlockers.push(MOBILE_RELEASE_TRANSPORT_BLOCKER);
   }
@@ -48,8 +72,10 @@ export function classifyMobileReleaseArtifact({
     releaseBlockers.push(MOBILE_RELEASE_AAB_SIGNER_BLOCKER);
   }
   const releaseTransportReady = releaseBlockers.length === 0;
-  const classification = debugSigned
-    ? 'THROWAWAY_DEBUG_SIGNED'
+  const classification = sourceDirty
+    ? 'THROWAWAY_DIRTY_SOURCE'
+    : debugSigned
+      ? 'THROWAWAY_DEBUG_SIGNED'
     : expectedSigner
       ? !expectedAabSigner || aabSignerVerified !== true
         ? 'CANDIDATE_SIGNED_AAB_UNVERIFIED'

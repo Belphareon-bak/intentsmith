@@ -32,8 +32,8 @@
 //
 // **What this still does not prove.**  A headless Chrome is not a phone.  It
 // does not prove what VoiceOver or TalkBack say out loud, how the bar behaves
-// under a real OS font setting (see the last test — the client is px-based, so
-// it does not respond to one at all), or anything about iOS Safari.  Contrast
+// under a real OS font setting (CDP font scaling is only a browser proxy), or
+// anything about iOS Safari.  Contrast
 // here is computed for opaque and alpha-composited backgrounds; a colour behind
 // `backdrop-filter` is approximated by the stack underneath it.
 //
@@ -178,8 +178,15 @@ const MEASURE = `
     return 0.2126 * r + 0.7152 * g + 0.0722 * b;
   };
   const parse = (value) => {
-    const m = String(value).match(/rgba?\\(([^)]+)\\)/);
-    if (!m) return null;
+    // colour-mix(in srgb, ...) is serialized this way by Chromium. Silently
+    // ignoring it would measure navbar labels against the wrong ancestor.
+    const srgb = String(value).match(/^color\\(srgb ([^)]+)\\)$/);
+    if (srgb) {
+      const parts = srgb[1].split(/[ \\/]+/).filter(Boolean).map(Number);
+      return { rgb: parts.slice(0, 3).map(c => c * 255), a: parts[3] ?? 1 };
+    }
+    const m = String(value).match(/^rgba?\\(([^)]+)\\)$/);
+    if (!m) throw new Error('Unmeasured CSS colour: ' + value);
     const parts = m[1].split(/[ ,\\/]+/).filter(Boolean).map(Number);
     return { rgb: parts.slice(0, 3), a: parts.length > 3 ? parts[3] : 1 };
   };
@@ -231,14 +238,6 @@ const CONTRAST = `(() => {
     // problem, and counting both would report one failure twice.
     const own = [...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim().length > 0);
     if (!own) continue;
-    // OPEN, measured separately below.  The bar's labels only became visible to
-    // this collector once the ring stopped scrolling items off screen for no
-    // reason, and the number it computes for them is not trustworthy: making
-    // the text *brighter* lowered the ratio, which means the background it
-    // resolves under the navbar is wrong.  Excluded here so one unexplained
-    // measurement does not mask every other surface; the exclusion cannot rot,
-    // because the test after this one fails the moment it stops being true.
-    if (el.classList.contains('nav-tab-label')) continue;
     const style = getComputedStyle(el);
     const fg = parse(style.color);
     if (!fg) continue;
@@ -301,7 +300,14 @@ const SURFACES = [
   ['Přehled (kořen)', `window.__is.state.route = 'overview'; window.__is.render();`],
   ['Konverzace', `window.__is.state.route = 'conversations'; window.__is.render();`],
   ['MS-13 approvaly', `window.__is.state.route = 'approvals'; window.__is.render();`],
-  ['MS-14 rozhodnutí', `window.__is.state.route = 'approval'; window.__is.state.approvalId = 'ap-1'; window.__is.render();`],
+  ['MS-14 rozhodnutí', `
+    window.__is.state.route = 'approval';
+    window.__is.state.approvalId = 'ap-1';
+    window.__is.state.approvalVerifiedAt = Date.now();
+    window.__is.render();
+    if (document.querySelectorAll('[data-act="approval-approve"], [data-act="approval-reject"]').length !== 2) {
+      throw new Error('MS-14 contrast/reflow must include both live decision controls');
+    }`],
   ['MS-20 operace', `window.__is.state.route = 'operations'; window.__is.render();`],
   ['trust bar — offline a starší data', `
     window.__is.state.route = 'conversations';
@@ -335,6 +341,9 @@ async function onEachSurface(collect) {
   await page.evaluate(ACTIVATE);
   for (const [name, setup] of SURFACES) {
     await page.evaluate(setup);
+    // Theme/selection colours transition for 120 ms. Sample the settled
+    // foreground and background together, not two interpolated theme states.
+    await new Promise(resolve => setTimeout(resolve, 160));
     const issues = await page.evaluate(collect);
     for (const issue of issues) found.push(`${name} — ${issue}`);
   }
@@ -345,6 +354,24 @@ console.log('\n=== Mobile browser accessibility (UI-DESIGN §4, §8, §10) ===')
 console.log(`  chrome: ${executablePath}`);
 
 try {
+  await test('kontrast měří i color(srgb) a průhledné vrstvy; neznámé barvy odmítá', async () => {
+    const measured = await page.evaluate(`(() => {
+      ${MEASURE}
+      const parent = document.createElement('div');
+      const child = document.createElement('span');
+      parent.style.backgroundColor = 'rgb(20, 40, 60)';
+      child.style.backgroundColor = 'color-mix(in srgb, white 50%, transparent)';
+      parent.appendChild(child); document.body.appendChild(parent);
+      try {
+        let rejectsUnknown = false;
+        try { parse('unmeasured-colour'); } catch { rejectsUnknown = true; }
+        return { rgb: effectiveBg(child), value: parse('color(srgb 0.1 0.2 0.3 / 0.4)'), rejectsUnknown };
+      } finally { parent.remove(); }
+    })()`);
+    assert.deepEqual(measured.rgb, [137.5, 147.5, 157.5]);
+    assert.deepEqual(measured.value, { rgb: [25.5, 51, 76.5], a: 0.4 });
+    assert.equal(measured.rejectsUnknown, true);
+  });
   // ── §10 contrast ──────────────────────────────────────────────────────────
 
   for (const theme of ['light', 'dark']) {
@@ -728,15 +755,11 @@ try {
     assert.equal(outcome.selectionStillMarked, true, 'and the highlight must survive it');
   });
 
-  await test('§10 OTEVŘENÉ: popisky lišty měří pod 4.5:1 a to měření je sporné', async () => {
-    // Recorded, not asserted away.  These labels were excluded from the
-    // contrast sweep above; this is what keeps that exclusion honest.  The
-    // number itself is doubtful — brightening the text *lowered* it, so the
-    // background resolved under the navbar is wrong — but "the checker cannot
-    // read this surface" is itself a defect worth holding open.
+  await test('§10 popisky lišty po ustálení motivu drží kontrast 4.5:1', async () => {
     await page.evaluate(ACTIVATE);
     await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'dark' }]);
     await page.evaluate(`window.__is.state.route = 'conversations'; window.__is.render();`);
+    await new Promise(resolve => setTimeout(resolve, 160));
     const measured = await page.evaluate(`(() => {
       ${MEASURE}
       return [...document.querySelectorAll('.nav-tab-label')]
@@ -750,9 +773,37 @@ try {
     await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'light' }]);
 
     assert.ok(measured.length >= 2, 'the labels must be on screen at all — that was the bar bug');
-    assert.ok(measured.some(m => m.ratio < 4.5),
-      'this characterisation is stale: the labels now measure above 4.5:1, so remove the '
-      + 'exclusion in CONTRAST and delete this test');
+    assert.deepEqual(measured.filter(item => item.ratio < 4.5), [],
+      `every visible label needs 4.5:1: ${JSON.stringify(measured)}`);
+  });
+
+  await test('§10 stávající obrazovky nepřetékají na 320/390 dp při 100/200% písmu', async () => {
+    const client = await page.createCDPSession();
+    const issues = [];
+    try {
+      for (const width of [320, 390]) {
+        await page.setViewport({ width, height: 844, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+        for (const size of [16, 32]) {
+          await client.send('Page.setFontSizes', { fontSizes: { standard: size, fixed: size } });
+          const found = await onEachSurface(`(() => {
+            ${MEASURE}
+            const scroll = document.querySelector('.scroll');
+            const bounds = scroll.getBoundingClientRect();
+            return [...scroll.querySelectorAll('*')].filter(el => {
+              if (!visible(el)) return false;
+              const r = el.getBoundingClientRect();
+              return r.right > bounds.right + 1 || r.left < bounds.left - 1;
+            }).map(el => label(el)).filter((value, i, values) => values.indexOf(value) === i);
+          })()`);
+          issues.push(...found.map(issue => `${width}dp/${size}px — ${issue}`));
+        }
+      }
+    } finally {
+      await client.send('Page.setFontSizes', { fontSizes: { standard: 16, fixed: 16 } });
+      await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
+      await client.detach();
+    }
+    assert.deepEqual(issues, []);
   });
 
   await test('§3.1 prstenec se ot\xe1\u010d\xed i v \u0161irok\xe9m okn\u011b, ne jen na telefonu', async () => {
@@ -1041,6 +1092,7 @@ try {
       return page.evaluate(() => ({
         root: getComputedStyle(document.documentElement).fontSize,
         body: getComputedStyle(document.body).fontSize,
+        navHeight: document.querySelector('.nav-tab').getBoundingClientRect().height,
         rowTime: (() => { const el = document.querySelector('.row-time, .ov-row-time'); return el ? getComputedStyle(el).fontSize : null; })(),
       }));
     };
@@ -1049,6 +1101,7 @@ try {
     const at100 = await sizes(16);
     const at200 = await sizes(32);
     await client.send('Page.setFontSizes', { fontSizes: { standard: 16, fixed: 16 } });
+    await client.detach();
 
     assert.equal(at100.root, '16px');
     assert.equal(at200.root, '32px', 'the browser preference did not apply — the probe itself is broken');
@@ -1064,15 +1117,8 @@ try {
 
     // Scaling the text without the box it lives in is worse than not scaling at
     // all, because the letters then collide with the frame.
-    const grew = await page.evaluate(async () => {
-      const read = () => {
-        const el = document.querySelector('.nav-tab');
-        return el ? el.getBoundingClientRect().height : null;
-      };
-      return read();
-    });
-    assert.ok(grew && grew > 48,
-      `the bar's touch target must grow with the text, measured ${Math.round(grew ?? 0)} dp`);
+    assert.ok(at200.navHeight > at100.navHeight,
+      `the bar's touch target must grow with the text: ${at100.navHeight} → ${at200.navHeight} dp`);
   });
 
   await test('žádná chyba v konzoli během celé sady', () => {

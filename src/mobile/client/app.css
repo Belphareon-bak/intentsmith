@@ -42,6 +42,7 @@ html { font-size: 100%; }
   --accent-text:   #a75337;
 
   --danger:        #b3392b;
+  --on-danger:     #ffffff;
   --danger-soft:   #fbe9e6;
   /* A state colour has to clear 4.5:1 on every "soft" surface it can land on,
      not just its own: the age zone is --warn on --danger-soft when the
@@ -86,10 +87,11 @@ html { font-size: 100%; }
     --accent-hover:  #e08a6e;
     --accent-soft:   #3d2b23;
     --on-accent:     #1f1e1d;
-    /* Dark mode never needed the split — --accent is 4.86:1 on --bg here. */
-    --accent-text:   #d97757;
+    /* Text must also clear 4.5:1 over the raised/translucent navbar. */
+    --accent-text:   #e08a6e;
 
     --danger:        #e57d6e;  --danger-soft: #3d2523;
+    --on-danger:     #1f1e1d;
     --warn:          #d9a94f;  --warn-soft:   #3a3020;
     --ok:            #7fb08d;  --ok-soft:     #23301f;
     --info:          #7fa3d9;  --info-soft:   #232c3d;
@@ -422,14 +424,15 @@ button { cursor: pointer; border: none; background: none; }
 
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.4375rem;
+  min-width: 3rem; min-height: 3rem; max-width: 100%; overflow-wrap: anywhere;
   padding: 0.625rem 1.125rem; border-radius: var(--radius);
   font-size: 0.9062rem; font-weight: 600;
   transition: background .12s, opacity .12s;
 }
-.btn-primary { background: var(--accent); color: var(--on-accent); }
+.btn-primary { background: var(--accent-text); color: var(--on-accent); }
 .btn-primary:active { background: var(--accent-hover); }
 .btn-secondary { background: var(--bg-sunken); color: var(--text); border: 1px solid var(--border-strong); }
-.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger { background: var(--danger); color: var(--on-danger); }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .btn-block { width: 100%; }
 /* §8 — "small" is about the type and the padding, never about the target: the
@@ -524,8 +527,9 @@ button { cursor: pointer; border: none; background: none; }
 .ov-tile:active { background: var(--bg-hover); }
 .ov-tile svg { width: 1.25rem; height: 1.25rem; color: var(--text-muted); }
 .ov-tile-label { font-size: 0.9375rem; font-weight: 600; }
+.ov-tile-label, .ov-tile-note { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 .ov-tile-note {
-  display: inline-flex; align-items: center; gap: 0.3125rem;
+  display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.3125rem;
   font-size: 0.75rem; color: var(--text-muted);
 }
 .ov-tile-note svg { width: 0.8125rem; height: 0.8125rem; }
@@ -652,12 +656,13 @@ body.has-navbar .composer { margin-bottom: calc(3.625rem + var(--safe-bottom)); 
 .card-head { padding: 0.8125rem 1rem 0.25rem; }
 .card-title { font-size: 0.75rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--text-faint); margin: 0; }
 .kv {
-  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem;
   padding: 0.75rem 1rem; border-top: 0.0625rem solid var(--border);
   font-size: 0.875rem;
 }
 .card-head + .kv { border-top: none; }
-.kv-key { color: var(--text-muted); flex-shrink: 0; }
+.kv > * { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.kv-key { color: var(--text-muted); }
 /* Explanatory rows are prose, not a label: they must wrap rather than run off
    the card. */
 .kv-note {
@@ -669,6 +674,7 @@ body.has-navbar .composer { margin-bottom: calc(3.625rem + var(--safe-bottom)); 
 
 .pill {
   display: inline-flex; align-items: center; gap: 0.3125rem;
+  max-width: 100%; overflow-wrap: anywhere;
   font-size: 0.7188rem; font-weight: 650; padding: 0.1875rem 0.5625rem; border-radius: 1.25rem;
 }
 .pill[data-tone="ok"]     { background: var(--ok-soft);     color: var(--ok); }

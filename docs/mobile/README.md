@@ -1,10 +1,12 @@
 # IntentSmith Mobile — vývojový rozcestník
 
-Toto je jediný vstupní bod pro vývoj mobilní aplikace. Aktuální kandidát je
-integrován z přesného zdrojového commitu `7cf1c8b7` na větev
-`codex/m7-mobile-contract-integration-20260829`. Produkční provider, listener,
-pairing a transport tím nevznikají. Aktuální milestone stav drží `ROADMAP.md`
-§11 a `SYSTEM-MAP.md`; tento rozcestník nevede druhý stavový ledger.
+Toto je jediný vstupní bod pro vývoj mobilní aplikace. Aktuální integrační
+základ `de0e8127` už obsahuje M7 VPN runtime a server wiring; samotný bundled
+klient však stále používá development režim a není produkční M7 consumer.
+Nejnovější lokální změny, přesné SHA a ověření jsou v
+[completion evidence 2026-09-08](../execution/runs/mobile/mobile-completion-20260908.md).
+Postup je v [TRYING-IT](TRYING-IT.md). Globální stav a přijetí M5/M6/M7 nadále
+vlastní `ROADMAP.md` a `SYSTEM-MAP.md`; tento rozcestník je nenahrazuje.
 
 ## Jedna implementační cesta
 
@@ -24,6 +26,9 @@ Nesmí se obnovovat. Offline, outage a retry stavy patří do
 ## Dokumentační autorita
 
 Čti dokumenty v tomto pořadí:
+
+Nejdřív současnou completion evidence a TRYING-IT uvedené výše. Následující
+materiály obsahují i historické snapshoty; datum a exact SHA jsou součástí tvrzení.
 
 1. [FINAL-PROTOTYPE.md](FINAL-PROTOTYPE.md) — zachovaný stav a důkazy přesného
    zdrojového kandidáta `7cf1c8b7`; jeho čísla nejsou stavem současné integrace.
@@ -56,9 +61,9 @@ mobilních dokumentů nesmí přepisovat aktuální stav z `ROADMAP.md` a
   s backendovými worktrees.
 - M2 `RemoteCorePort@1` a M5 adapter identity smí klient spotřebovávat pouze
   přes exact digest pin a negativní compatibility test.
-- Dokud není autoritativně přijatý M7 listener/auth/pairing/wire contract,
-  mobilní práce nesmí měnit server, DB, migrace, listener ani veřejný wire
-  surface a nesmí vydat `/m1` za produkční fallback.
+- Decision 042 je přijatá autorita pro M7 VPN implementaci, nikoli důkaz
+  provozní aktivace. Mobilní práce bez BE vlastnictví nemění server, DB,
+  migrace ani wire surface a nesmí vydat `/m1` za produkční fallback.
 - M7 connector WP doplní transport nad existujícím fail-closed seamem;
   klientská state machine a Android security boundary se neduplikují.
 - Nový alternativní klient, shell nebo stavový dokument potřebuje předem

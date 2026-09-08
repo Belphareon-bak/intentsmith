@@ -20,8 +20,10 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 import {
+  MOBILE_RELEASE_DIRTY_SOURCE_BLOCKER,
   MOBILE_RELEASE_REMOTE_PINS,
   classifyMobileReleaseArtifact,
+  describeMobileReleaseSourceProvenanceV1,
 } from '../scripts/mobile-release-policy.mjs';
 import {
   MOBILE_RELEASE_EXACT_SOURCE_ASSETS,
@@ -484,6 +486,7 @@ await test('APK and AAB native observations independently bind signer and Androi
 await test('a production signer cannot promote the legacy development transport', () => {
   const shared = {
     debugSigned: false,
+    sourceDirty: false,
     expectedSigner: 'a'.repeat(64),
     descriptorDigest: MOBILE_RELEASE_REMOTE_PINS.descriptorDigest,
     adapterManifestDigest: MOBILE_RELEASE_REMOTE_PINS.adapterManifestDigest,
@@ -531,6 +534,54 @@ await test('a production signer cannot promote the legacy development transport'
     }),
     /does not match the reviewed M2\/M5 contract/,
   );
+});
+
+await test('dirty or unspecified source provenance cannot become release ready', () => {
+  const cleanInput = {
+    debugSigned: false,
+    sourceDirty: false,
+    expectedSigner: 'a'.repeat(64),
+    expectedAabSigner: 'b'.repeat(64),
+    aabSignerVerified: true,
+    transportMode: 'remote-core-v1',
+    descriptorDigest: MOBILE_RELEASE_REMOTE_PINS.descriptorDigest,
+    adapterManifestDigest: MOBILE_RELEASE_REMOTE_PINS.adapterManifestDigest,
+    nativeHttpPatchEnabled: false,
+  };
+  const clean = classifyMobileReleaseArtifact(cleanInput);
+  assert.equal(clean.classification, 'CANDIDATE_SIGNED_UNREVIEWED');
+  assert.equal(clean.releaseTransportReady, true);
+  assert.deepEqual(clean.releaseBlockers, []);
+
+  const { sourceDirty: _sourceDirty, ...missingSourceState } = cleanInput;
+  assert.throws(() => classifyMobileReleaseArtifact(missingSourceState), /sourceDirty must be an explicit boolean/);
+  for (const sourceDirty of [undefined, null, 0, 1, '', 'false', [], {}]) {
+    assert.throws(() => classifyMobileReleaseArtifact({ ...cleanInput, sourceDirty }), /sourceDirty must be an explicit boolean/);
+  }
+  for (const debugSigned of [false, true]) {
+    const dirty = classifyMobileReleaseArtifact({ ...cleanInput, debugSigned, sourceDirty: true });
+    assert.equal(dirty.classification, 'THROWAWAY_DIRTY_SOURCE');
+    assert.equal(dirty.releaseTransportReady, false);
+    assert.deepEqual(dirty.releaseBlockers, [MOBILE_RELEASE_DIRTY_SOURCE_BLOCKER]);
+  }
+
+  const baseRevision = 'c'.repeat(40);
+  assert.deepEqual(describeMobileReleaseSourceProvenanceV1({ baseRevision, sourceDirty: false }), {
+    baseRevision, sourceRevision: baseRevision, sourceDirty: false, verification: 'COMMITTED_SOURCE',
+  });
+  assert.deepEqual(describeMobileReleaseSourceProvenanceV1({ baseRevision, sourceDirty: true }), {
+    baseRevision, sourceRevision: null, sourceDirty: true, verification: 'WORKTREE_ONLY',
+  });
+  assert.throws(() => describeMobileReleaseSourceProvenanceV1({ baseRevision }), /sourceDirty must be an explicit boolean/);
+  assert.throws(() => describeMobileReleaseSourceProvenanceV1({ baseRevision: 'not-a-commit', sourceDirty: false }), /source base revision must be an exact Git commit/);
+
+  const evidence = read('scripts/mobile-release-evidence.mjs');
+  assert.match(evidence, /sourceDirty: dirty\.length > 0/);
+  assert.match(evidence, /sourceDirty: sourceProvenance\.sourceDirty/);
+  assert.match(evidence, /source: sourceProvenance/);
+  assert.match(evidence, /declaredSourceRevision: apkObservation\.sourceRevision/);
+  assert.match(evidence, /declaredSourceRevision: aabObservation\.sourceRevision/);
+  assert.equal((evidence.match(/sourceRevision: sourceProvenance\.sourceRevision/g) || []).length, 2);
 });
 
 console.log(`\nAndroid production release boundary: ${passed} passed, ${failed} failed`);

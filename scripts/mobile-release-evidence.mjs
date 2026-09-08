@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   classifyMobileReleaseArtifact,
+  describeMobileReleaseSourceProvenanceV1,
 } from './mobile-release-policy.mjs';
 import {
   MOBILE_RELEASE_EXACT_SOURCE_ASSETS,
@@ -125,6 +126,10 @@ const dirty = run('git', ['status', '--porcelain']).output.trim().split('\n').fi
 if (dirty.length && !allowDirty) {
   throw new Error('working tree is dirty; build evidence cannot be bound to HEAD (use --allow-dirty only for throwaway proof)');
 }
+const sourceProvenance = describeMobileReleaseSourceProvenanceV1({
+  baseRevision: commit,
+  sourceDirty: dirty.length > 0,
+});
 const outputDir = path.join(ROOT, '.intentsmith-artifacts/mobile-release', commit.slice(0, 12));
 mkdirSync(outputDir, { recursive: true });
 
@@ -276,6 +281,7 @@ try {
 }
 const releasePolicy = classifyMobileReleaseArtifact({
   debugSigned,
+  sourceDirty: sourceProvenance.sourceDirty,
   expectedSigner: expectedApkSigner,
   expectedAabSigner,
   aabSignerVerified: expectedAabSigner !== null
@@ -300,8 +306,10 @@ copyFileSync(AAB, retainedAab);
 const manifest = {
   schemaVersion: 1,
   createdAt: new Date().toISOString(),
+  // commit is the Git base, not a verified source claim for a dirty build.
   commit,
   dirty,
+  source: sourceProvenance,
   classification: releasePolicy.classification,
   artifacts: {
     apk: {
@@ -318,17 +326,23 @@ const manifest = {
   android: {
     apk: {
       ...apkObservation,
+      declaredSourceRevision: apkObservation.sourceRevision,
+      sourceRevision: sourceProvenance.sourceRevision,
       expectedSignerSha256: expectedApkSigner,
       networkSecurityResource: apkNetworkSecurity.resource,
       networkSecurityTreeSha256: textDigest(apkNetworkSecurity.tree),
     },
     aab: {
       ...aabObservation,
+      declaredSourceRevision: aabObservation.sourceRevision,
+      sourceRevision: sourceProvenance.sourceRevision,
       expectedSignerSha256: expectedAabSigner,
       networkSecurityResource: aabNetworkSecurity.resource,
       networkSecurityTreeSha256: textDigest(aabNetworkSecurity.tree),
     },
+    // The embedded declaration is preserved; dirty bytes are not Git evidence.
     sourceManifestSha256: textDigest(expectedSourceManifest),
+    sourceManifestRevisionVerified: !sourceProvenance.sourceDirty,
   },
   client: {
     bundledWebDir: config.webDir,

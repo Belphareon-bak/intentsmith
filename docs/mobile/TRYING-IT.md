@@ -1,134 +1,113 @@
-# Jak si mobilní kandidát zkusit
+# Jak ověřit současného mobilního kandidáta
 
-Praktický runbook pro větev `codex/mobile-prod-client-20260826`. Aktuální
-verdikt a prod-ready mezery jsou v [FINAL-PROTOTYPE.md](FINAL-PROTOTYPE.md).
-Tento návod není release evidence a nemění backendový kontrakt.
+Vývojový vstup je [README](README.md). Přesný candidate a výsledky tohoto řezu
+uvádí [completion evidence](../execution/runs/mobile/mobile-completion-20260908.md).
+Základem je M7 integrace `de0e81275afa381dd6a73afbb699bde47971b658`;
+pracovní větev `work/mobile-completion-20260908`. Návod není release acceptance.
 
-Android aplikace obsahuje podepsanou lokální kopii `src/mobile/client`.
-Gateway poskytuje jen data; neservíruje JavaScript s přístupem k native vaultu.
-Výchozí spojení je `127.0.0.1:3336` přes USB `adb reverse`.
+## Režimy se nesmějí zaměnit
 
-## 1. Ověřit klienta bez backendových změn
+| Režim | Co lze ověřit | Co z něj neplyne |
+|---|---|---|
+| Browser a řízené fixtures | Skutečný bundled DOM, CSS, klientské chování | AndroidKeyStore, fyzický TalkBack, live BE |
+| `legacy-m1-dev` | Historický klient a development build | Produkční M7 ani fallback pro jeho výpadek |
+| M7 VPN runtime v core | Existující TLS listener, session authority a server wiring | Aktivace, hotový mobilní consumer ani device journey |
+| Debug-signed APK/AAB | Compile, lint a artifact binding | Podpis distribuovatelného releasu |
 
-    cd /home/belphareon/worktrees/is-mobile-prod-client-20260826
-    npm ci
-    npm --prefix mobile-app ci
-    npm run test:mobile
-    npm run test:registry
+Tento checkout nemá spustitelnou prototypovou gateway ani package scripts
+`mobile:seed`, `mobile:gateway`, `mobile:pair`. Neimportuj kvůli starému návodu
+legacy server nebo migrace. Pouhé přepsání `C3_MOBILE_APP_URL` na HTTPS
+nezmění `legacy-m1-dev` na M7 signed-session transport.
 
-Samostatné nejdůležitější klientské programy:
+## Ověření ve vlastním checkoutu
 
-    node --test tests/mobile-secure-credential.test.js
-    node --test tests/mobile-browser-a11y.test.js
-    node --test tests/mobile-android-release.test.js
+Příkazy spouštěj z kořene vlastního checkoutu, bez souběžného writeru/runneru:
 
-Browser režim slouží k vývoji a accessibility testům. Nemá AndroidKeyStore a
-není produkčním security boundary.
+```bash
+npm ci --offline --no-audit --no-fund
+npm --prefix mobile-app ci --offline --no-audit --no-fund
+LC_ALL=C npm run test:mobile
+npm run test:registry
+npm run test:deterministic
+git diff --check
+```
 
-## 2. Android toolchain a release build
+Offline cache musí obsahovat i Puppeteer Chromium. Chybějící runtime je
+prerekvizita, nikoli PASS. Neměň gate na skip; případné síťové provisionování
+odděl od samotného offline testu. Artefaktový adresář musí zůstat privátní
+(0700); bootstrap si jej při prvním testu vytvoří sám.
 
-Požadavky kandidáta: JDK 21, Android SDK 36, Gradle wrapper 8.14.3 a
-Capacitor 8.5.0.
+## Android build
 
-    npm run mobile:android:doctor
+Verze určují lockfile a Gradle konfigurace: Capacitor 8.5.0, JDK 21,
+SDK/target API 36, Gradle wrapper 8.14.3, AGP 8.13.0.
+`JAVA_HOME` a `ANDROID_HOME` lze nastavit na vlastní toolchain; wrapper zde
+používá výchozí `$HOME/toolchain/jdk21` a `$HOME/toolchain/android-sdk`.
 
-Produkční release build je fail-closed. Bez `mobile-app/android/keystore.properties`
-a klíče mimo repo musí skončit chybou:
+Bez produkčního klíče vytvoř pouze explicitně označený lokální throwaway:
 
-    npm run mobile:android:build
+```bash
+C3_MOBILE_ALLOW_DEBUG_SIGNING=yes-i-know npm run mobile:android:build
+```
 
-Pro lokální důkaz sestavitelnosti lze použít explicitně označený debug signer;
-takový APK/AAB se nesmí distribuovat:
+Wrapper provádí `cap sync`, generuje runtime konfiguraci, CSP a source manifest,
+potom APK i AAB. Přímé `cap sync` + Gradle samo source manifest nepřipraví.
+Build dočasně upraví network policy a po skončení ji obnoví; zkontroluj Git.
 
-    cd mobile-app
-    npx cap sync android
-    cd android
-    ./gradlew --no-daemon \
-      :app:testDebugUnitTest :app:lintRelease \
-      :app:assembleRelease :app:bundleRelease \
-      -PallowDebugSigning=true
+Signing-independent kontroly po synchronizaci assets:
 
-Evidence nad hotovým artefaktem:
+```bash
+cd mobile-app/android
+./gradlew --offline --no-daemon :app:testDebugUnitTest :app:lintRelease
+```
 
-    cd /home/belphareon/worktrees/is-mobile-prod-client-20260826
-    npm run mobile:android:evidence -- --allow-debug-signer --allow-dirty
+Evidence se vytváří nad stejným čistým commitem jako build:
 
-Bez `--allow-debug-signer` evidence skript debug certifikát odmítne; bez
-`--allow-dirty` odmítne připsat artefakt k necommitnutému HEAD. Ukládá
-manifest, SHA-256 konkrétního APK/AAB, podpis, package/SDK badging, Gradle
-dependencies, runtime audit, CycloneDX SBOM a licence do ignorovaného
-`.intentsmith-artifacts/mobile-release/<commit>/`.
+```bash
+npm run mobile:android:evidence -- --allow-debug-signer
+```
 
-## 3. Interní USB journey se současnou prototypovou gateway
+Generator používá i síťový `npm audit`; nejde o offline gate. Ověřuje oba
+archivy, signery, metadata, source manifest, network policy a ukládá kopie
+APK/AAB, SBOM a audit do `.intentsmith-artifacts/mobile-release/<short-SHA>/`.
+`--allow-dirty` je pouze diagnostika: `THROWAWAY_DIRTY_SOURCE`, ověřený
+`sourceRevision: null`, nikdy `releaseTransportReady: true`. SHA deklarované
+uvnitř archivu není u dirty buildu ověřenou Git proveniencí.
 
-Následující kroky pouze spotřebovávají zmrazený prototypový `/m1` kontrakt.
-Nejsou akceptací rozpracovaného M5/M6 ani implementací M7 transportu.
-Telefon musí mít před pairingem nastavený systémový zámek obrazovky; klient
-jinak kód neclaimne a native vault credential odmítne.
+Produkční podpis nepořizuj prototypovým `mobile:android:keystore`.
+Pro skutečný release jsou nutné oddělené očekávané APK/AAB signer digesty
+(`--expected-apk-signer-sha256`, `--expected-aab-signer-sha256`) a schválená
+distribuce. Debug build nesmí být vydáván za produkční artefakt.
 
-    npm run mobile:seed -- --db /tmp/is-demo.db
+## M7 a fyzické ověření
 
-V terminálu 1:
+[Decision 042](../decisions/042-m7-vpn-listener-and-pairing-authority.md)
+vyžaduje konkrétní VPN rozhraní, HTTPS port 7443, TLS 1.3, SHA-256 SPKI pin,
+systemd credential custody a podepsané session/invocations. Pairing vydává
+autentizované lokální Studio; kód je single-use a platí pět minut.
+Žádný fallback na HTTP, LAN, USB `/m1` nebo proxy.
 
-    C3_DB_PATH=/tmp/is-demo.db C3_MOBILE_PAIRING=on npm run mobile:gateway
+`mobile:android:doctor`, `reverse` a `run` stále popisují historickou USB `/m1`
+cestu, nikoli M7 setup. `doctor` může spustit lokální adb daemon. Těmito příkazy
+nelze prokázat VPN readiness; jejich náhrada patří do connector integration.
+Tento návod neaktivuje server, síť, credentials ani skutečné pairing.
 
-V terminálu 2:
+Na tomto hostu 2026-09-08 byl dostupný Temurin 21.0.12+8, SDK 36/build-tools
+36.0.0 a cached Gradle 8.14.3. `adb devices -l` neukázalo zařízení;
+`ip -brief address` neukázalo VPN rozhraní. To jsou časově omezená pozorování,
+nikoli nadčasové požadavky. Přítomná cache není důkaz úspěšného buildu.
 
-    npm run mobile:android:reverse
-    C3_DB_PATH=/tmp/is-demo.db C3_MOBILE_PAIRING=on npm run mobile:pair -- \
-      --scopes read:capabilities,read:chat,write:chat,read:notifications,write:notifications,read:approvals,write:approvals
+Fyzický protokol [DEVICE-MATRIX-RUN](DEVICE-MATRIX-RUN.md) zůstává historickou
+USB referencí. M7 matice musí navíc měřit SPKI mismatch, replay, session
+expiry/revokaci a VPN výpadek. Dále pairing, process death/reboot, lock/wipe,
+ambiguous mutation recovery, TalkBack, 200% font a soft keyboard.
+Prázdné řádky zůstávají `NOT_RUN`; headless browser je nenahrazuje.
 
-QR používá interní `intentsmith://pair?code=...` deep link a klient jednorázový
-kód předvyplní. Webová fallback URL zůstává ve výstupu skriptu. Custom scheme
-není verified App Link a je vhodné jen pro pilot; produkční discovery/pairing
-musí dodat M7.
+## Hranice převzetí novějšího UI
 
-Pak lze nainstalovat/spustit již podepsaný interní build:
-
-    npm run mobile:android:run
-
-`run` otevře `adb reverse`, nainstaluje APK a spustí
-`cz.intentsmith.companion`. Gateway zůstává na loopbacku a nic se neotevírá do
-Wi-Fi.
-
-## 4. Development build proti HTTPS gateway
-
-Jen pro connector/pilot po potvrzení adresy:
-
-    C3_MOBILE_APP_URL=https://mobile-gateway.example.internal \
-      npm run mobile:android:build
-
-Hodnota musí být čistý HTTP(S) origin bez credentials, path, query, fragmentu
-nebo wildcard hostu. Cleartext mimo loopback vyžaduje explicitní
-`C3_MOBILE_APP_ALLOW_CLEARTEXT=yes-i-know` a není produkční doporučení.
-Build přepíše pouze generovaný `runtime-config.js` v Android assets a po buildu
-vrátí trackovanou network policy do původního stavu.
-
-## 5. Co na fyzickém telefonu ověřit
-
-Použij [DEVICE-MATRIX-RUN.md](DEVICE-MATRIX-RUN.md). Minimálně:
-
-1. pairing vložením i deep linkem a jednorázovost kódu;
-2. Home/recents/process death/reboot a systémové odemčení;
-3. approve, reject, expire/changed precondition a nejasný výsledek;
-4. odpojení USB, gateway outage, airplane mode a reconnect;
-5. revoke/logout wipe a nové pairing identity;
-6. TalkBack, 200% font, rotaci, soft keyboard a malý displej.
-
-Prázdný řádek nebo emulátor není PASS fyzické matice.
-
-## 6. Známé produktové hranice
-
-| Oblast | Současná pravda |
-|---|---|
-| Remote síť | `BLOCKED_ON_M7` — bez production listeneru/TLS identity |
-| Párování | prototypový one-time code; custom scheme není verified App Link |
-| Push | není; klient je pull-only |
-| Projekty/search/typed run detail | čekají na autoritativní backendový kontrakt |
-| Browser storage | vývojové, ne production secure |
-| Signing/distribuce | bez produkční identity a store účtů |
-| Fyzická matice | `NOT RUN` |
-| Release review | `REVIEW_PENDING` |
-
-Správné označení dnešního výsledku je `CLIENT_P1_IMPLEMENTATION_GREEN`, ne
-`PROD_READY`.
+Donor `5cd14776` není kompatibilní jako celek: jeho `/m1` DTO a scope `memory`
+nejsou B `stored_information`; settings i project detail mají jiný tvar.
+B conversation list nemá donorový `projectId` filtr. Workers, specialisté a
+správa zařízení potřebují BE-owned capability/operation kontrakty.
+Převzetí obrazovky bez nich není hotová funkce. Chybějící data nesmějí být
+prázdný úspěch a samotný scope nenahrazuje serverovou availability capability.

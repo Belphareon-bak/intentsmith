@@ -1,5 +1,10 @@
 # Core/M7 capability handoff
 
+> Historický snapshot níže je vázaný na SHA z 2026-08-30. Na novějším
+> integračním základu `de0e8127` existuje VPN runtime a server wiring; tento
+> text není důkaz jejich absence ani aktivace. Aktuální mobilní řez a jeho
+> omezení uvádí [completion evidence](../execution/runs/mobile/mobile-completion-20260908.md).
+
 **Stav 2026-08-30:** `CORE_IMPLEMENTATION_GREEN /
 LATEST_FULL_GATE_GREEN_AT_BBA4BBF3 / REVIEW_PENDING /
 PROVIDER_NOT_ACTIVE / M7_LISTENER_ABSENT /

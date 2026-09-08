@@ -1,8 +1,10 @@
 # Prod-ready handbook — jak se mobilní companion dostane z prototypu do provozu
 
-**Stav dokumentu:** návod, ne verdikt. Kanonický stav je v
-[FINAL-PROTOTYPE.md](FINAL-PROTOTYPE.md); tohle je jeho druhá polovina — *jak*
-se každá otevřená položka zavírá.
+**Stav dokumentu:** acceptance kritéria a historické checkpointy, ne současný
+verdikt. Snapshot 2026-08-27 a `FINAL-PROTOTYPE.md` nejsou dnešní integrace.
+Aktuální řez dokládá [completion evidence](../execution/runs/mobile/mobile-completion-20260908.md),
+praktický postup [TRYING-IT](TRYING-IT.md). Globální stav vlastní
+`ROADMAP.md` a `SYSTEM-MAP.md`. Historické výsledky níže se nepřepisují.
 
 Handbook má jediné pravidlo, ze kterého plyne všechno ostatní:
 
@@ -14,7 +16,7 @@ Proto má každá položka čtyři sloupce, ne jeden: *kritérium* (co musí pla
 stane, když to selže v provozu). Poslední sloupec je tam schválně: položka,
 u které nikdo neumí říct, jak vypadá její selhání, není hotová ani promyšlená.
 
-### Aktuální klientský snapshot (2026-08-27)
+### Historický klientský snapshot (2026-08-27)
 
 Kandidát na větvi `codex/mobile-prod-client-20260826` uzavřel lokálně
 řešitelné shell/client části: Capacitor 8.5.0, API 36, JDK 21, zabalené UI bez
