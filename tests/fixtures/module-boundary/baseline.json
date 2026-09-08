@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "cfd2540e69e506e99b58734453acf41f755ee24c",
-  "sourceTree": "32afeccf9b45f2b1385ab5dabf85736f48eb2351",
+  "sourceRevision": "584707bb045f3a2fda96507dc0e32c376e43dbf6",
+  "sourceTree": "d9aa0e175a5b51f73fbe4f2136bf35976c3a2e2b",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -896,6 +896,7 @@
     "src/remote/m7-disconnected-request-pipeline.js -> src/remote/m7-session-authority.js",
     "src/remote/m7-disconnected-request-pipeline.js -> src/remote/m7-transport-admission-policy.js",
     "src/remote/m7-durable-rate-limiter.js -> src/remote/m7-transport-admission-policy.js",
+    "src/remote/m7-in-process-capability-provider.js -> src/remote/m7-mutation-mediator.js",
     "src/remote/m7-m2-approval-core-adapters.js -> src/lifecycle/m2-lifecycle-application-service.js",
     "src/remote/m7-m2-approval-core-adapters.js -> src/remote/m7-core-cursor.js",
     "src/remote/m7-notification-core-adapters.js -> src/agents/repository.js",
