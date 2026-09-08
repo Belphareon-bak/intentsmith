@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 510
+- Runnable programs: 511
 - Explicit support-module exclusions: 18
-- Profiles: offline=277, database=73, server=44, model=81, soak=15, manual=20
-- States: ACTIVE=416, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=278, database=73, server=44, model=81, soak=15, manual=20
+- States: ACTIVE=417, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -373,6 +373,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M6-RELEASE-VALIDATION-TEST` | `tests/m6-release-validation.test.js` | `C3-012` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST` | `tests/m6-runtime-evidence.test.js` | `C3-012` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |
 | `IS-T1-TESTS-M6-TECHNICAL-EVIDENCE-TEST` | `tests/m6-technical-evidence.test.js` | `C3-012` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M6-RELEASE |
+| `IS-T1-TESTS-M7-CANONICAL-JSON-PARITY-TEST` | `tests/m7-canonical-json-parity.test.js` | `C3-032` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M7-VPN-LISTENER-ACTIVATION |
 | `IS-T1-TESTS-M7-CONVERSATION-COMMAND-EXECUTOR-TEST` | `tests/m7-conversation-command-executor.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-VPN-LISTENER-ACTIVATION |
 | `IS-T1-TESTS-M7-CONVERSATION-CORE-ADAPTERS-TEST` | `tests/m7-conversation-core-adapters.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-CONVERSATION-CORE-ADAPTERS |
 | `IS-T1-TESTS-M7-CORE-COMPOSITION-TEST` | `tests/m7-core-composition.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-CORE-COMPOSITION |

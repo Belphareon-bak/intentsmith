@@ -68,6 +68,15 @@ Aktivace musí selhat, pokud interface/adresa zmizí, credential directory nebo
 mode nesedí, certifikát neodpovídá key, SPKI digest nesedí nebo HMAC nemá 32
 bajtů. Tento runbook sám systemd ani firewall nemění.
 
+Selhání M7 aktivace je záměrně terminální pro celý server, takže dočasně shodí
+i lokální Studio. Bezpečný recovery postup je odstranit proměnnou
+`INTENTSMITH_M7_REMOTE_ENABLED` z konfigurace unity (nenechávat ji prázdnou ani
+ji nenahrazovat hodnotou `1`), provést `systemctl --user daemon-reload` a
+restartovat příslušnou user unit. U system unity proveď stejné kroky bez
+`--user`. Nejdřív ověř lokální loopback health; teprve potom oprav VPN interface,
+adresu a credentials a M7 znovu explicitně zapni. Recovery neotevírá LAN ani
+public listener a nesmí obcházet validační preflight.
+
 ## 3. Postavit přesně připnutý Android kandidát
 
 Server používá proměnnou `INTENTSMITH_M7_SERVER_SPKI_SHA256`, Android build

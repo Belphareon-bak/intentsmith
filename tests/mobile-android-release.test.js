@@ -678,6 +678,9 @@ await test('the physical-device runbook names the production VPN path and every 
   const matrix = read('docs/mobile/DEVICE-MATRIX-RUN.md');
   assert.match(tryingIt, /C3_MOBILE_TRANSPORT_MODE=remote-core-v1/);
   assert.match(tryingIt, /INTENTSMITH_M7_REMOTE_ENABLED=true/);
+  assert.match(tryingIt, /odstranit proměnnou\s+`INTENTSMITH_M7_REMOTE_ENABLED`/);
+  assert.match(tryingIt, /systemctl --user daemon-reload/);
+  assert.match(tryingIt, /Nejdřív ověř lokální loopback health/);
   assert.match(tryingIt, /--runtime-evidence \/absolute\/private\/path\/runtime-evidence\.json/);
   assert.match(tryingIt, /<sha12>-<run>/);
   assert.doesNotMatch(tryingIt, /is-mobile-prod-client-20260826/);
