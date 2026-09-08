@@ -10,6 +10,9 @@ export const MOBILE_RELEASE_EXACT_SOURCE_ASSETS = Object.freeze([
   'app.css',
   'app.js',
   'manifest.webmanifest',
+  'm7-native-remote-client.js',
+  'm7-runtime-contract-v1.js',
+  'm7-ui-api-adapter.js',
   'remote-core-v1.js',
   'sw.js',
 ]);
@@ -79,6 +82,7 @@ export function renderMobileReleaseSourceManifestV1({
   sourcePackageJson,
   sourcePackageLock,
   sourceRuntimeConfig,
+  generatedRuntimeConfig = null,
   sourceIndex,
   sourceAssets,
 }) {
@@ -90,7 +94,9 @@ export function renderMobileReleaseSourceManifestV1({
   if (config.appId !== metadata.applicationId) {
     throw new Error('Capacitor appId does not match Android applicationId');
   }
-  const runtimeIdentity = readMobileSourceRuntimeIdentityV1(sourceRuntimeConfig);
+  const runtimeIdentity = generatedRuntimeConfig === null
+    ? readMobileSourceRuntimeIdentityV1(sourceRuntimeConfig)
+    : readMobileGeneratedRuntimeIdentityV1(generatedRuntimeConfig);
   const generatedRuntime = renderMobileGeneratedRuntimeConfigV1({ gatewayUrl, ...runtimeIdentity });
   const generatedIndex = renderMobileGeneratedIndexV1(sourceIndex, gatewayUrl);
   const pluginRegistry = deriveMobileCapacitorPluginRegistryV1(
@@ -125,6 +131,10 @@ export function renderMobileReleaseSourceManifestV1({
       transportMode: runtimeIdentity.transportMode,
       descriptorDigest: runtimeIdentity.descriptorDigest,
       adapterManifestDigest: runtimeIdentity.adapterManifestDigest,
+      ...(runtimeIdentity.transportMode === MOBILE_RELEASE_TRANSPORT.PRODUCTION ? {
+        serverIdentityPin: runtimeIdentity.serverIdentityPin,
+        serverOrigin: runtimeIdentity.serverOrigin,
+      } : {}),
     },
     clientAssets: assets,
   };
@@ -150,29 +160,71 @@ function renderExactSourceManifestRecord(record) {
 }
 
 export function readMobileSourceRuntimeIdentityV1(sourceRuntimeConfig) {
+  return readMobileRuntimeIdentityV1(sourceRuntimeConfig, 'source');
+}
+
+export function readMobileGeneratedRuntimeIdentityV1(generatedRuntimeConfig) {
+  return readMobileRuntimeIdentityV1(generatedRuntimeConfig, 'generated');
+}
+
+function readMobileRuntimeIdentityV1(runtimeConfig, label) {
   const transportMode = exactMatch(
-    sourceRuntimeConfig,
-    /transportMode:\s*'([^']+)'/g,
-    'source transportMode',
+    runtimeConfig,
+    /transportMode:\s*["']([^"']+)["']/g,
+    `${label} transportMode`,
   );
   const descriptorDigest = exactMatch(
-    sourceRuntimeConfig,
+    runtimeConfig,
     /descriptorDigest:\s*'(sha256:[0-9a-f]{64})'/g,
-    'source descriptorDigest',
+    `${label} descriptorDigest`,
   );
   const adapterManifestDigest = exactMatch(
-    sourceRuntimeConfig,
+    runtimeConfig,
     /adapterManifestDigest:\s*'(sha256:[0-9a-f]{64})'/g,
-    'source adapterManifestDigest',
+    `${label} adapterManifestDigest`,
   );
   if (!Object.values(MOBILE_RELEASE_TRANSPORT).includes(transportMode)) {
     throw new Error(`source transportMode is unsupported: ${transportMode}`);
   }
+  const expectedAdapter = transportMode === MOBILE_RELEASE_TRANSPORT.PRODUCTION
+    ? MOBILE_RELEASE_REMOTE_PINS.m7AdapterManifestDigest
+    : MOBILE_RELEASE_REMOTE_PINS.m5AdapterManifestDigest;
   if (descriptorDigest !== MOBILE_RELEASE_REMOTE_PINS.descriptorDigest
-      || adapterManifestDigest !== MOBILE_RELEASE_REMOTE_PINS.adapterManifestDigest) {
+      || adapterManifestDigest !== expectedAdapter) {
     throw new Error('source runtime config does not match reviewed RemoteCore pins');
   }
+  if (transportMode === MOBILE_RELEASE_TRANSPORT.PRODUCTION) {
+    const serverIdentityPin = exactMatch(
+      runtimeConfig,
+      /serverIdentityPin:\s*["'](sha256:[0-9a-f]{64})["']/g,
+      `${label} serverIdentityPin`,
+    );
+    const serverOrigin = exactMatch(
+      runtimeConfig,
+      /serverOrigin:\s*["']([^"']+)["']/g,
+      `${label} serverOrigin`,
+    );
+    const origin = requireProductionOrigin(serverOrigin);
+    return Object.freeze({
+      transportMode, descriptorDigest, adapterManifestDigest,
+      serverIdentityPin, serverOrigin: origin,
+    });
+  }
+  if (/server(?:IdentityPin|Origin):/u.test(runtimeConfig)) {
+    throw new Error('legacy runtime config must not carry M7 server authority');
+  }
   return Object.freeze({ transportMode, descriptorDigest, adapterManifestDigest });
+}
+
+function requireProductionOrigin(value) {
+  let parsed;
+  try { parsed = new URL(value); } catch { throw new Error('M7 serverOrigin is invalid'); }
+  if (parsed.protocol !== 'https:' || parsed.port !== '7443'
+    || parsed.username || parsed.password || parsed.pathname !== '/'
+    || parsed.search || parsed.hash || parsed.origin !== value) {
+    throw new Error('M7 serverOrigin must be an exact HTTPS origin on port 7443');
+  }
+  return parsed.origin;
 }
 
 function parseGeneratedGatewayUrl(generatedRuntimeConfig) {
@@ -204,23 +256,42 @@ export function renderMobileGeneratedRuntimeConfigV1({
   transportMode,
   descriptorDigest,
   adapterManifestDigest,
+  serverIdentityPin,
+  serverOrigin,
 }) {
+  const production = transportMode === MOBILE_RELEASE_TRANSPORT.PRODUCTION;
+  if (production) {
+    const origin = requireProductionOrigin(gatewayUrl);
+    if (serverOrigin !== origin || !/^sha256:[0-9a-f]{64}$/u.test(serverIdentityPin || '')) {
+      throw new Error('M7 generated runtime binding is incomplete');
+    }
+  }
   return [
     '// Generated for this Android artifact; do not edit.',
     'globalThis.IntentSmithRuntimeConfig = Object.freeze({',
     `  gatewayUrl: ${JSON.stringify(gatewayUrl)},`,
-    `  transportMode: '${transportMode}',`,
+    `  transportMode: ${JSON.stringify(transportMode)},`,
     '  remoteCore: Object.freeze({',
     `    descriptorDigest: '${descriptorDigest}',`,
     `    adapterManifestDigest: '${adapterManifestDigest}',`,
+    ...(production ? [
+      `    serverIdentityPin: ${JSON.stringify(serverIdentityPin)},`,
+      `    serverOrigin: ${JSON.stringify(serverOrigin)},`,
+    ] : []),
     '  }),',
     '});',
     '',
   ].join('\n');
 }
 
-export function renderMobileGeneratedIndexV1(sourceIndex, gatewayUrl) {
-  const directive = `connect-src 'self' ${new URL(gatewayUrl).origin}`;
+export function renderMobileGeneratedIndexV1(
+  sourceIndex,
+  gatewayUrl,
+  transportMode = MOBILE_RELEASE_TRANSPORT.DEVELOPMENT,
+) {
+  const directive = transportMode === MOBILE_RELEASE_TRANSPORT.PRODUCTION
+    ? "connect-src 'self'"
+    : `connect-src 'self' ${new URL(gatewayUrl).origin}`;
   const matches = sourceIndex.match(/connect-src\s+[^;"]+/g) || [];
   if (matches.length !== 1) {
     throw new Error('source index does not contain exactly one connect-src directive');
@@ -293,7 +364,7 @@ export function validateMobileReleaseArtifactBindingV1({
     aabBytes: aabSourceManifest,
   });
 
-  const runtimeIdentity = readMobileSourceRuntimeIdentityV1(sourceRuntimeConfig);
+  const runtimeIdentity = readMobileGeneratedRuntimeIdentityV1(apkRuntimeConfig);
   const gatewayUrl = parseGeneratedGatewayUrl(apkRuntimeConfig);
   const expectedRuntimeConfig = renderMobileGeneratedRuntimeConfigV1({
     gatewayUrl,
@@ -310,7 +381,11 @@ export function validateMobileReleaseArtifactBindingV1({
     'AAB runtime config is not the exact reviewed build-time transformation',
   );
 
-  const expectedIndex = renderMobileGeneratedIndexV1(sourceIndex, gatewayUrl);
+  const expectedIndex = renderMobileGeneratedIndexV1(
+    sourceIndex,
+    gatewayUrl,
+    runtimeIdentity.transportMode,
+  );
   assertEqual(apkIndex, expectedIndex, 'APK index does not match the exact source CSP transformation');
   assertEqual(aabIndex, expectedIndex, 'AAB index does not match the exact source CSP transformation');
 
@@ -330,9 +405,14 @@ export function validateMobileReleaseArtifactBindingV1({
     );
   }
 
-  if (runtimeIdentity.transportMode === MOBILE_RELEASE_TRANSPORT.PRODUCTION
-      && sourceAssets['app.js'].includes('remote_core_transport_not_implemented')) {
-    throw new Error('production transport mode is selected but the reviewed client still blocks it');
+  if (runtimeIdentity.transportMode === MOBILE_RELEASE_TRANSPORT.PRODUCTION) {
+    if (sourceAssets['app.js'].includes('remote_core_transport_not_implemented')) {
+      throw new Error('production transport mode is selected but the reviewed client still blocks it');
+    }
+    if (sourceManifest.remoteCore.serverOrigin !== runtimeIdentity.serverOrigin
+      || sourceManifest.remoteCore.serverIdentityPin !== runtimeIdentity.serverIdentityPin) {
+      throw new Error('mobile source manifest does not bind the M7 server authority');
+    }
   }
 
   return Object.freeze({

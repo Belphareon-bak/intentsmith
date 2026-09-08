@@ -42,10 +42,25 @@ import {
 
 const ROOT = fileURLToPath(new URL('../', import.meta.url));
 const read = relative => readFileSync(path.join(ROOT, relative), 'utf8');
+const M7_TEST_ORIGIN = 'https://100.64.0.10:7443';
+const M7_TEST_SPKI_PIN = `sha256:${'ab'.repeat(32)}`;
 
-function artifactBindingFixture(gatewayUrl = 'https://gateway.example.test:4443') {
+function artifactBindingFixture({
+  gatewayUrl = 'https://gateway.example.test:4443',
+  transportMode = 'legacy-m1-dev',
+  serverIdentityPin = null,
+} = {}) {
   const sourceRuntimeConfig = read('src/mobile/client/runtime-config.js');
-  const runtimeIdentity = readMobileSourceRuntimeIdentityV1(sourceRuntimeConfig);
+  const sourceRuntimeIdentity = readMobileSourceRuntimeIdentityV1(sourceRuntimeConfig);
+  const runtimeIdentity = transportMode === 'remote-core-v1'
+    ? {
+      transportMode,
+      descriptorDigest: MOBILE_RELEASE_REMOTE_PINS.descriptorDigest,
+      adapterManifestDigest: MOBILE_RELEASE_REMOTE_PINS.m7AdapterManifestDigest,
+      serverIdentityPin,
+      serverOrigin: gatewayUrl,
+    }
+    : sourceRuntimeIdentity;
   const sourceIndex = read('src/mobile/client/index.html');
   const sourceAssets = Object.fromEntries(MOBILE_RELEASE_EXACT_SOURCE_ASSETS.map(asset => [
     asset,
@@ -55,7 +70,7 @@ function artifactBindingFixture(gatewayUrl = 'https://gateway.example.test:4443'
     gatewayUrl,
     ...runtimeIdentity,
   });
-  const generatedIndex = renderMobileGeneratedIndexV1(sourceIndex, gatewayUrl);
+  const generatedIndex = renderMobileGeneratedIndexV1(sourceIndex, gatewayUrl, transportMode);
   const sourceCapacitorConfig = read('mobile-app/capacitor.config.json');
   const sourcePackageJson = read('mobile-app/package.json');
   const sourcePackageLock = read('mobile-app/package-lock.json');
@@ -75,6 +90,7 @@ function artifactBindingFixture(gatewayUrl = 'https://gateway.example.test:4443'
     sourcePackageJson,
     sourcePackageLock,
     sourceRuntimeConfig,
+    generatedRuntimeConfig,
     sourceIndex,
     sourceAssets,
   });
@@ -142,7 +158,7 @@ await test('APK bundles the only reviewed client and never loads server.url', ()
   assert.equal(config.server.url, undefined);
   assert.equal(config.server.androidScheme, 'https');
   assert.equal(config.android.webContentsDebuggingEnabled, false);
-  assert.equal(config.plugins.CapacitorHttp.enabled, true);
+  assert.equal(config.plugins.CapacitorHttp.enabled, false);
 });
 
 await test('Android 16 baseline and JDK 21 wrapper are pinned', () => {
@@ -210,12 +226,40 @@ await test('bundled client pins API origin and applies a restrictive CSP', () =>
   assert.match(client, /invalid_mobile_gateway_origin/);
   assert.match(client, /credentials: 'omit'/);
   assert.match(client, /redirect: 'error'/);
-  assert.match(client, /remote_core_transport_not_implemented/);
+  assert.match(client, /createM7NativeRemoteClient/);
+  assert.match(client, /createM7UiApiAdapter/);
+  assert.match(client, /remote_core_native_shell_required/);
+  assert.doesNotMatch(client, /remote_core_transport_not_implemented/);
   assert.match(client, /Nejdřív nastav zámek obrazovky telefonu/);
   assert.match(runtime, /transportMode: 'legacy-m1-dev'/);
   assert.match(remoteCore, /REMOTE_CORE_V1_PIN/);
   assert.match(remoteCore, /sha256:245abe3a13d7d60ac537c7672522872df20f855d990bee0f02b2826379b56c52/);
   assert.match(serviceWorker, /'\/remote-core-v1\.js'/);
+  assert.match(serviceWorker, /'\/m7-native-remote-client\.js'/);
+  assert.match(serviceWorker, /'\/m7-runtime-contract-v1\.js'/);
+  assert.match(serviceWorker, /'\/m7-ui-api-adapter\.js'/);
+});
+
+await test('native M7 transport is pinned, serialized and unavailable to WebView fetch', () => {
+  const build = read('mobile-app/android/app/build.gradle');
+  const activity = read('mobile-app/android/app/src/main/java/cz/intentsmith/companion/MainActivity.java');
+  const plugin = read('mobile-app/android/app/src/main/java/cz/intentsmith/companion/M7RemotePlugin.java');
+  const transport = read('mobile-app/android/app/src/main/java/cz/intentsmith/companion/M7PinnedHttpsClient.java');
+  assert.match(build, /M7_REMOTE_ORIGIN/);
+  assert.match(build, /M7_REMOTE_SPKI_PIN/);
+  assert.match(build, /org\.bouncycastle:bcprov-jdk18on:1\.79/);
+  assert.match(activity, /registerPlugin\(M7RemotePlugin\.class\)/);
+  assert.match(plugin, /private final Object serial/);
+  assert.match(plugin, /synchronized \(serial\)/);
+  assert.match(transport, /Build\.VERSION\.SDK_INT < MINIMUM_REMOTE_API/);
+  assert.match(transport, /SSLContext\.getInstance\("TLSv1\.3"\)/);
+  assert.match(transport, /openConnection\(Proxy\.NO_PROXY\)/);
+  assert.match(transport, /setInstanceFollowRedirects\(false\)/);
+  assert.match(transport, /getHeaderField\("Transfer-Encoding"\)/);
+  assert.match(transport, /declaredLength < 2/);
+  assert.match(transport, /declaredLength != responseBytes\.length/);
+  assert.match(transport, /MessageDigest\.isEqual\(expectedPin, observed\)/);
+  assert.doesNotMatch(transport, /setHostnameVerifier/);
 });
 
 await test('release script builds APK and AAB with JDK 21 and restores tracked policy', () => {
@@ -227,6 +271,13 @@ await test('release script builds APK and AAB with JDK 21 and restores tracked p
   assert.match(script, /trap restore_policy EXIT/);
   assert.match(script, /mobile-release-source-manifest\.mjs/);
   assert.match(script, /podpisový klíč není/);
+  const refused = spawnSync('bash', ['scripts/mobile-android.sh', 'reverse'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    env: { ...process.env, C3_MOBILE_TRANSPORT_MODE: 'remote-core-v1' },
+  });
+  assert.equal(refused.status, 1);
+  assert.match(refused.stderr, /adb reverse patří jen legacy-m1-dev/);
 });
 
 await test('source manifest and plugin registry are derived from the Git-pinned build graph', () => {
@@ -281,6 +332,54 @@ await test('generated Android assets pin CSP and RemoteCore identity to the arti
       read('src/mobile/client/index.html'),
       'https://gateway.example.test:4443',
     ));
+
+    const production = spawnSync('python3', ['scripts/mobile-android-configure-url.py'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        APP_DIR: temporary,
+        ANDROID_DIR: android,
+        IS_URL: M7_TEST_ORIGIN,
+        IS_TRANSPORT_MODE: 'remote-core-v1',
+        IS_M7_SPKI_PIN: M7_TEST_SPKI_PIN,
+      },
+    });
+    assert.equal(production.status, 0, `${production.stdout}${production.stderr}`);
+    const productionIdentity = {
+      transportMode: 'remote-core-v1',
+      descriptorDigest: MOBILE_RELEASE_REMOTE_PINS.descriptorDigest,
+      adapterManifestDigest: MOBILE_RELEASE_REMOTE_PINS.m7AdapterManifestDigest,
+      serverIdentityPin: M7_TEST_SPKI_PIN,
+      serverOrigin: M7_TEST_ORIGIN,
+    };
+    assert.equal(
+      readFileSync(path.join(publicAssets, 'runtime-config.js'), 'utf8'),
+      renderMobileGeneratedRuntimeConfigV1({ gatewayUrl: M7_TEST_ORIGIN, ...productionIdentity }),
+    );
+    assert.equal(
+      readFileSync(path.join(publicAssets, 'index.html'), 'utf8'),
+      renderMobileGeneratedIndexV1(
+        read('src/mobile/client/index.html'),
+        M7_TEST_ORIGIN,
+        'remote-core-v1',
+      ),
+    );
+
+    const missingPin = spawnSync('python3', ['scripts/mobile-android-configure-url.py'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        APP_DIR: temporary,
+        ANDROID_DIR: android,
+        IS_URL: M7_TEST_ORIGIN,
+        IS_TRANSPORT_MODE: 'remote-core-v1',
+        IS_M7_SPKI_PIN: '',
+      },
+    });
+    assert.notEqual(missingPin.status, 0);
+    assert.match(`${missingPin.stdout}${missingPin.stderr}`, /SPKI_PIN/);
   } finally {
     rmSync(temporary, { recursive: true, force: true });
   }
@@ -291,7 +390,7 @@ await test('release evidence binds both archives to the exact reviewed client an
   const binding = validateMobileReleaseArtifactBindingV1(fixture);
   assert.equal(binding.gatewayUrl, 'https://gateway.example.test:4443');
   assert.equal(binding.transportMode, 'legacy-m1-dev');
-  assert.equal(binding.nativeHttpPatchEnabled, true);
+  assert.equal(binding.nativeHttpPatchEnabled, false);
   assert.equal(binding.capacitorConfig.server.url, undefined);
   assert.deepEqual(validateMobileNetworkSecurityTreeV1({
     gatewayUrl: binding.gatewayUrl,
@@ -314,7 +413,7 @@ await test('release evidence binds both archives to the exact reviewed client an
 await test('stale or substituted generated release assets fail closed', () => {
   const base = artifactBindingFixture();
   const patchedConfig = JSON.parse(base.apkCapacitorConfig);
-  patchedConfig.plugins.CapacitorHttp.enabled = false;
+  patchedConfig.plugins.CapacitorHttp.enabled = true;
   assert.throws(
     () => validateMobileReleaseArtifactBindingV1({
       ...base,
@@ -397,23 +496,28 @@ await test('stale or substituted generated release assets fail closed', () => {
     /cleartext domains do not match gateway/,
   );
 
-  const productionSourceRuntime = base.sourceRuntimeConfig.replace(
-    "transportMode: 'legacy-m1-dev'",
-    "transportMode: 'remote-core-v1'",
-  );
-  const productionIdentity = readMobileSourceRuntimeIdentityV1(productionSourceRuntime);
-  const productionRuntime = renderMobileGeneratedRuntimeConfigV1({
-    gatewayUrl: 'https://gateway.example.test:4443',
-    ...productionIdentity,
+  const production = artifactBindingFixture({
+    gatewayUrl: M7_TEST_ORIGIN,
+    transportMode: 'remote-core-v1',
+    serverIdentityPin: M7_TEST_SPKI_PIN,
   });
+  const productionBinding = validateMobileReleaseArtifactBindingV1(production);
+  assert.equal(productionBinding.transportMode, 'remote-core-v1');
+  assert.equal(productionBinding.serverOrigin, M7_TEST_ORIGIN);
+  assert.equal(productionBinding.serverIdentityPin, M7_TEST_SPKI_PIN);
+  const substitutedPin = `sha256:${'cd'.repeat(32)}`;
+  const forgedManifest = production.expectedSourceManifest.replace(
+    M7_TEST_SPKI_PIN,
+    substitutedPin,
+  );
   assert.throws(
     () => validateMobileReleaseArtifactBindingV1({
-      ...base,
-      sourceRuntimeConfig: productionSourceRuntime,
-      apkRuntimeConfig: productionRuntime,
-      aabRuntimeConfig: productionRuntime,
+      ...production,
+      expectedSourceManifest: forgedManifest,
+      apkSourceManifest: forgedManifest,
+      aabSourceManifest: forgedManifest,
     }),
-    /reviewed client still blocks it/,
+    /does not bind the M7 server authority/,
   );
 });
 
@@ -445,7 +549,8 @@ await test('release evidence pins a candidate signer and labels every weaker art
   assert.match(policy, /CANDIDATE_SIGNED_UNREVIEWED/);
   assert.match(policy, /CANDIDATE_SIGNED_AAB_UNVERIFIED/);
   assert.match(policy, /CANDIDATE_SIGNED_TRANSPORT_BLOCKED/);
-  assert.match(policy, /M7_REMOTE_LISTENER_AUTH_PAIRING_AND_WIRE_TRANSPORT_NOT_IMPLEMENTED/);
+  assert.match(policy, /M7_REMOTE_PRODUCTION_TRANSPORT_NOT_SELECTED/);
+  assert.match(policy, /M7_REMOTE_DEVICE_AND_VPN_RUNTIME_EVIDENCE_NOT_RECORDED/);
   assert.match(policy, /CAPACITOR_HTTP_GLOBAL_FETCH_PATCH_MUST_BE_REPLACED_OR_DISABLED/);
   assert.match(evidence, /validateMobileAndroidObservationsV1/);
   assert.match(evidence, /bundled CSP does not pin the selected gateway origin/);
@@ -486,37 +591,55 @@ await test('a production signer cannot promote the legacy development transport'
     debugSigned: false,
     expectedSigner: 'a'.repeat(64),
     descriptorDigest: MOBILE_RELEASE_REMOTE_PINS.descriptorDigest,
-    adapterManifestDigest: MOBILE_RELEASE_REMOTE_PINS.adapterManifestDigest,
-    nativeHttpPatchEnabled: true,
+    nativeHttpPatchEnabled: false,
     expectedAabSigner: 'b'.repeat(64),
     aabSignerVerified: true,
   };
   const blocked = classifyMobileReleaseArtifact({
     ...shared,
     transportMode: 'legacy-m1-dev',
+    adapterManifestDigest: MOBILE_RELEASE_REMOTE_PINS.m5AdapterManifestDigest,
   });
   assert.equal(blocked.classification, 'CANDIDATE_SIGNED_TRANSPORT_BLOCKED');
   assert.equal(blocked.releaseTransportReady, false);
   assert.deepEqual(blocked.releaseBlockers, [
-    'M7_REMOTE_LISTENER_AUTH_PAIRING_AND_WIRE_TRANSPORT_NOT_IMPLEMENTED',
-    'CAPACITOR_HTTP_GLOBAL_FETCH_PATCH_MUST_BE_REPLACED_OR_DISABLED',
+    'M7_REMOTE_PRODUCTION_TRANSPORT_NOT_SELECTED',
   ]);
 
-  const future = classifyMobileReleaseArtifact({
+  const runtimePending = classifyMobileReleaseArtifact({
     ...shared,
     transportMode: 'remote-core-v1',
-    nativeHttpPatchEnabled: false,
+    adapterManifestDigest: MOBILE_RELEASE_REMOTE_PINS.m7AdapterManifestDigest,
+    serverOrigin: M7_TEST_ORIGIN,
+    serverIdentityPin: M7_TEST_SPKI_PIN,
   });
-  assert.equal(future.classification, 'CANDIDATE_SIGNED_UNREVIEWED');
-  assert.equal(future.releaseTransportReady, true);
-  assert.deepEqual(future.releaseBlockers, []);
+  assert.equal(runtimePending.classification, 'CANDIDATE_SIGNED_TRANSPORT_BLOCKED');
+  assert.equal(runtimePending.releaseTransportReady, false);
+  assert.deepEqual(runtimePending.releaseBlockers, [
+    'M7_REMOTE_DEVICE_AND_VPN_RUNTIME_EVIDENCE_NOT_RECORDED',
+  ]);
+
+  const verified = classifyMobileReleaseArtifact({
+    ...shared,
+    transportMode: 'remote-core-v1',
+    adapterManifestDigest: MOBILE_RELEASE_REMOTE_PINS.m7AdapterManifestDigest,
+    serverOrigin: M7_TEST_ORIGIN,
+    serverIdentityPin: M7_TEST_SPKI_PIN,
+    runtimeEvidenceVerified: true,
+  });
+  assert.equal(verified.classification, 'CANDIDATE_SIGNED_UNREVIEWED');
+  assert.equal(verified.releaseTransportReady, true);
+  assert.deepEqual(verified.releaseBlockers, []);
 
   const missingAabAuthority = classifyMobileReleaseArtifact({
     ...shared,
     expectedAabSigner: null,
     aabSignerVerified: false,
     transportMode: 'remote-core-v1',
-    nativeHttpPatchEnabled: false,
+    adapterManifestDigest: MOBILE_RELEASE_REMOTE_PINS.m7AdapterManifestDigest,
+    serverOrigin: M7_TEST_ORIGIN,
+    serverIdentityPin: M7_TEST_SPKI_PIN,
+    runtimeEvidenceVerified: true,
   });
   assert.equal(missingAabAuthority.classification, 'CANDIDATE_SIGNED_AAB_UNVERIFIED');
   assert.deepEqual(missingAabAuthority.releaseBlockers, [
@@ -528,8 +651,9 @@ await test('a production signer cannot promote the legacy development transport'
       ...shared,
       transportMode: 'remote-core-v1',
       descriptorDigest: `sha256:${'0'.repeat(64)}`,
+      adapterManifestDigest: MOBILE_RELEASE_REMOTE_PINS.m7AdapterManifestDigest,
     }),
-    /does not match the reviewed M2\/M5 contract/,
+    /does not match the reviewed contract/,
   );
 });
 

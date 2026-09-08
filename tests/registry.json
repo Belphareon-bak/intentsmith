@@ -14661,6 +14661,96 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-M7-MOBILE-UI-API-ADAPTER-TEST",
+      "path": "tests/m7-mobile-ui-api-adapter.test.js",
+      "argv": [
+        "node",
+        "tests/m7-mobile-ui-api-adapter.test.js"
+      ],
+      "capabilityId": "C3-032",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 3000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M7-VPN-LISTENER-ACTIVATION",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M7-NATIVE-REMOTE-CLIENT-TEST",
+      "path": "tests/m7-native-remote-client.test.js",
+      "argv": [
+        "node",
+        "tests/m7-native-remote-client.test.js"
+      ],
+      "capabilityId": "C3-032",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 3000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M7-VPN-LISTENER-ACTIVATION",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M7-MOBILE-APP-RUNTIME-TEST",
+      "path": "tests/m7-mobile-app-runtime.test.js",
+      "argv": [
+        "node",
+        "tests/m7-mobile-app-runtime.test.js"
+      ],
+      "capabilityId": "C3-032",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 3000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M7-VPN-LISTENER-ACTIVATION",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-M7-VPN-PRODUCTION-RUNTIME-TEST",
       "path": "tests/m7-vpn-production-runtime.test.js",
       "argv": [

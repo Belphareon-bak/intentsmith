@@ -16,6 +16,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 import {
+  MOBILE_RELEASE_TRANSPORT,
   classifyMobileReleaseArtifact,
 } from './mobile-release-policy.mjs';
 import {
@@ -250,6 +251,8 @@ const {
   transportMode,
   descriptorDigest,
   adapterManifestDigest,
+  serverIdentityPin,
+  serverOrigin,
   nativeHttpPatchEnabled,
 } = artifactBinding;
 const apkNetworkSecurity = networkSecurityObservation(aapt2, APK);
@@ -283,9 +286,13 @@ const releasePolicy = classifyMobileReleaseArtifact({
   transportMode,
   descriptorDigest,
   adapterManifestDigest,
+  serverIdentityPin,
+  serverOrigin,
   nativeHttpPatchEnabled,
 });
-const expectedConnectDirective = `connect-src 'self' ${new URL(gatewayUrl).origin}`;
+const expectedConnectDirective = transportMode === MOBILE_RELEASE_TRANSPORT.PRODUCTION
+  ? "connect-src 'self'"
+  : `connect-src 'self' ${new URL(gatewayUrl).origin}`;
 const connectDirective = apkIndex.match(/connect-src\s+[^;"]+/)?.[0] || null;
 if (connectDirective !== expectedConnectDirective) {
   throw new Error(`bundled CSP does not pin the selected gateway origin: ${connectDirective || 'missing'}`);
@@ -339,6 +346,8 @@ const manifest = {
     transportMode,
     remoteCoreDescriptorDigest: descriptorDigest,
     remoteCoreAdapterManifestDigest: adapterManifestDigest,
+    remoteCoreServerIdentityPin: serverIdentityPin ?? null,
+    remoteCoreServerOrigin: serverOrigin ?? null,
     remoteCoreModuleSha256: textDigest(apkAssets['remote-core-v1.js']),
     nativeHttpPatchEnabled,
     networkSecurityCleartextDomains,

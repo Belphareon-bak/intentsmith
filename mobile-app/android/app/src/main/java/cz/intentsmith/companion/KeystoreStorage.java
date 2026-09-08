@@ -28,6 +28,7 @@ import javax.crypto.spec.GCMParameterSpec;
 final class KeystoreStorage {
     static final String ENTRY_CREDENTIAL = "credential";
     static final String ENTRY_DOMAIN = "domain";
+    static final String ENTRY_M7_DEVICE_IDENTITY = "m7_device_identity";
 
     private static final String PREFS_FILE = "intentsmith.keystore.v2";
     private static final String KEY_ALIAS = "intentsmith_mobile_vault_v2";

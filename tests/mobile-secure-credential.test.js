@@ -248,13 +248,21 @@ await test('production shell uses bundled UI with an explicit absolute API origi
     () => apiBaseFor(native, runtime('https://user:secret@example.test/path')),
     /invalid_mobile_gateway_origin/,
   );
+  const remote = {
+    gatewayUrl: 'https://100.64.0.10:7443',
+    transportMode: MOBILE_TRANSPORT_MODE.REMOTE_CORE_V1,
+    remoteCore: {
+      descriptorDigest: REMOTE_CORE_V1_PIN.descriptorDigest,
+      adapterManifestDigest: REMOTE_CORE_V1_PIN.m7AdapterManifestDigest,
+      serverOrigin: 'https://100.64.0.10:7443',
+      serverIdentityPin: `sha256:${'a'.repeat(64)}`,
+    },
+  };
+  assert.equal(apiBaseFor(native, remote), 'https://100.64.0.10:7443');
   assert.throws(
-    () => apiBaseFor(native, {
-      ...runtime('https://future.example.test'),
-      transportMode: MOBILE_TRANSPORT_MODE.REMOTE_CORE_V1,
-    }),
-    /remote_core_transport_not_implemented/,
-    'RemoteCore mode must not silently fall back to the legacy /m1 gateway',
+    () => apiBaseFor({}, remote),
+    /remote_core_native_shell_required/,
+    'RemoteCore mode must never run through WebView fetch or a browser fallback',
   );
 });
 

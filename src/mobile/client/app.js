@@ -3,6 +3,11 @@ import {
   REMOTE_CORE_V1_PIN,
   validateMobileRuntimeConfig,
 } from './remote-core-v1.js';
+import { createM7NativeRemoteClient } from './m7-native-remote-client.js';
+import {
+  M7UiApiAdapterError,
+  createM7UiApiAdapter,
+} from './m7-ui-api-adapter.js';
 
 // IntentSmith Mobile — client
 // ==============================================================================
@@ -32,10 +37,11 @@ import {
 
 function apiBaseFor(capacitor = globalThis.Capacitor, runtime = globalThis.IntentSmithRuntimeConfig) {
   const transport = validateMobileRuntimeConfig(runtime);
-  if (transport.mode !== MOBILE_TRANSPORT_MODE.LEGACY_M1_DEVELOPMENT) {
-    // M7 has not frozen a listener/wire adapter.  Falling back to /m1 here
-    // would turn a compatibility declaration into an unauthenticated bypass.
-    throw new Error('remote_core_transport_not_implemented');
+  if (transport.mode === MOBILE_TRANSPORT_MODE.REMOTE_CORE_V1) {
+    if (capacitor?.isNativePlatform?.() !== true) {
+      throw new Error('remote_core_native_shell_required');
+    }
+    return transport.remoteCore.serverOrigin;
   }
   if (capacitor?.isNativePlatform?.() !== true) return '/m1';
   const raw = runtime?.gatewayUrl || 'http://127.0.0.1:3336';
@@ -48,6 +54,8 @@ function apiBaseFor(capacitor = globalThis.Capacitor, runtime = globalThis.Inten
   }
   return `${gateway.origin}/m1`;
 }
+const MOBILE_RUNTIME = validateMobileRuntimeConfig(globalThis.IntentSmithRuntimeConfig);
+const REMOTE_MODE = MOBILE_RUNTIME.mode === MOBILE_TRANSPORT_MODE.REMOTE_CORE_V1;
 const API = apiBaseFor();
 const MOBILE_PROTOCOL_VERSION = 'm1.2026-07-30';
 
@@ -73,7 +81,44 @@ const K = {
   journal: 'is.journal',
   drafts: 'is.drafts',
   prefs: 'is.prefs',
+  remote: 'is.remote.v1',
 };
+
+let m7RemoteClient = null;
+let m7UiApi = null;
+
+function persistedRemoteState() {
+  const value = store.get(K.remote, null);
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+}
+
+function getM7RemoteClient() {
+  if (!REMOTE_MODE) throw new Error('remote_core_mode_required');
+  if (m7RemoteClient) return m7RemoteClient;
+  const nativePlugin = globalThis.Capacitor?.Plugins?.IntentSmithRemote || null;
+  if (!secure.native || !nativePlugin) throw new Error('remote_native_transport_unavailable');
+  m7RemoteClient = createM7NativeRemoteClient({
+    nativePlugin,
+    runtime: globalThis.IntentSmithRuntimeConfig,
+    stateStore: {
+      async load() { return cloneStoredValue(persistedRemoteState()); },
+      async save(value) {
+        store.set(K.remote, cloneStoredValue(value));
+        await store.flush();
+      },
+      async clear() {
+        store.del(K.remote);
+        await store.flush();
+      },
+    },
+  });
+  return m7RemoteClient;
+}
+
+function getM7UiApi() {
+  if (!m7UiApi) m7UiApi = createM7UiApiAdapter({ client: getM7RemoteClient() });
+  return m7UiApi;
+}
 
 function storageIdentity() {
   const device = auth?.device;
@@ -81,11 +126,14 @@ function storageIdentity() {
   let origin = 'unknown-origin';
   try { origin = new URL(API, location.href).origin; } catch { /* fail-closed namespace */ }
   const transport = validateMobileRuntimeConfig(globalThis.IntentSmithRuntimeConfig);
+  const adapterManifestDigest = transport.mode === MOBILE_TRANSPORT_MODE.REMOTE_CORE_V1
+    ? REMOTE_CORE_V1_PIN.m7AdapterManifestDigest
+    : REMOTE_CORE_V1_PIN.m5AdapterManifestDigest;
   return [
     origin,
     transport.mode,
     REMOTE_CORE_V1_PIN.descriptorDigest,
-    REMOTE_CORE_V1_PIN.m5AdapterManifestDigest,
+    adapterManifestDigest,
     MOBILE_PROTOCOL_VERSION,
     device,
   ].join('|');
@@ -275,12 +323,12 @@ const secure = {
       if (state.hasCredential && !state.locked) {
         const held = await plugin.read();
         this.cache = { token: held.token || null, device: held.deviceId || null };
+      }
+      if (!state.locked) {
         if (typeof plugin.readDomain !== 'function') throw new Error('domain_store_unavailable');
         const domain = await plugin.readDomain();
         store.hydrateNative(JSON.parse(domain?.data || '{}'));
-      } else if (!state.hasCredential) {
-        store.hydrateNative({});
-      }
+      } else if (!state.hasCredential) store.hydrateNative({});
       if (!state.locked && typeof plugin.consumePairingCode === 'function') {
         try {
           const pairing = await plugin.consumePairingCode();
@@ -365,8 +413,13 @@ const auth = {
   // Reads stay synchronous.  In the shell they answer from the credential
   // hydrated at boot; in a browser they answer from `localStorage`, exactly as
   // before.  Nothing else in this file had to learn the difference.
-  get token() { return secure.shell ? secure.cache.token : store.get(K.token); },
-  get device() { return secure.shell ? secure.cache.device : store.get(K.device); },
+  get token() { return REMOTE_MODE ? null : (secure.shell ? secure.cache.token : store.get(K.token)); },
+  get device() {
+    if (REMOTE_MODE) {
+      return m7RemoteClient?.snapshot()?.deviceId || persistedRemoteState()?.deviceId || null;
+    }
+    return secure.shell ? secure.cache.device : store.get(K.device);
+  },
   get scopes() { return store.get(K.scopes, []); },
   has(scope) { return (store.get(K.scopes, []) || []).includes(scope); },
   async save({ token, deviceId, scopes }) {
@@ -410,10 +463,23 @@ const auth = {
     // wherever it actually lives.  A wipe that only cleared `localStorage`
     // would leave a working token in the Keystore of a device the user just
     // logged out.
+    if (REMOTE_MODE) {
+      let revokeError = null;
+      try { await getM7RemoteClient().revoke('logout'); } catch (error) { revokeError = error; }
+      await store.wipeDomain();
+      m7RemoteClient = null;
+      m7UiApi = null;
+      if (revokeError) throw revokeError;
+      return;
+    }
     await store.wipeDomain();
     if (secure.shell) await secure.clear();
   },
 };
+
+function hasPairedIdentity() {
+  return REMOTE_MODE ? persistedRemoteState() !== null : Boolean(auth.token);
+}
 
 // ── Cache with the FRESH / STALE / EXPIRED lifecycle (DATA-MODEL §3) ────────
 //
@@ -673,6 +739,32 @@ class ApiError extends Error {
   }
 }
 
+function m7ApiError(error) {
+  const rawCode = typeof error?.code === 'string' ? error.code : 'REMOTE_TRANSPORT_FAILED';
+  const code = rawCode === 'M7_SESSION_EXPIRED' ? 'token_expired'
+    : ['M7_SESSION_REVOKED', 'M7_SESSION_PAIRING_REVOKED'].includes(rawCode) ? 'token_revoked'
+    : ['M7_SESSION_INVALID', 'M7_SESSION_DEVICE_PROOF_INVALID', 'M7_SESSION_REPLAY_REJECTED']
+      .includes(rawCode) ? 'token_invalid'
+    : rawCode === 'M7_SESSION_SCOPE_DENIED' ? 'scope_required'
+    : rawCode === 'M7_DISCONNECTED_RATE_LIMITED' ? 'rate_limited'
+    : rawCode === 'REMOTE_SESSION_IN_FLIGHT_LIMIT' ? 'operation_limit'
+    : rawCode;
+  const status = Number.isSafeInteger(error?.status) ? error.status : null;
+  const detail = error?.detail && typeof error.detail === 'object' && !Array.isArray(error.detail)
+    ? error.detail
+    : {};
+  const kind = ['token_expired', 'token_revoked', 'token_invalid'].includes(code) ? 'auth'
+    : code === 'scope_required' ? 'scope'
+    : code === 'rate_limited' || code === 'operation_limit' || status === 429 ? 'limit'
+    : status === 409 ? 'conflict'
+    : ['REMOTE_TRANSPORT_FAILED', 'M7_REMOTE_FAILURE'].includes(rawCode) || status === null
+      ? 'offline'
+      : status >= 500 ? 'server'
+      : error instanceof M7UiApiAdapterError ? 'client'
+      : 'protocol';
+  return new ApiError(kind, { code, status, detail, body: error?.body ?? null });
+}
+
 /**
  * F-059 — `response.ok` is a range, not an answer.
  *
@@ -733,6 +825,8 @@ function lockDownSession() {
   sessionEpoch.locked = true;
   sessionEpoch.bump();
   secure.forget();
+  m7RemoteClient = null;
+  m7UiApi = null;
   // S2 in memory: conversation windows, approval bodies, diagnostics.  The
   // durable ST-DB cache is deliberately left alone — MD-07 governs its life,
   // and wiping it here would turn a lock into a logout.
@@ -758,6 +852,19 @@ async function api(path, { method = 'GET', body = null, timeoutMs = 130_000, str
   // touching the credential.
   if (sessionEpoch.locked) {
     throw new ApiError('offline', { code: 'locked' });
+  }
+
+  if (REMOTE_MODE) {
+    const issuedAt = sessionEpoch.value;
+    try {
+      const result = await getM7UiApi().request(path, { method, body, timeoutMs, strict });
+      if (sessionEpoch.value !== issuedAt) throw new ApiError('offline', { code: 'locked' });
+      return result;
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      if (sessionEpoch.value !== issuedAt) throw new ApiError('offline', { code: 'locked' });
+      throw m7ApiError(error);
+    }
   }
 
   const headers = {};
@@ -4044,7 +4151,15 @@ async function decideApproval(decision) {
   try {
     const response = await api(`/approvals/${encodeURIComponent(item.id)}/decide`, {
       method: 'POST',
-      body: { decision, operationId, payloadFingerprint: fingerprint },
+      body: {
+        decision,
+        operationId,
+        payloadFingerprint: fingerprint,
+        ...(REMOTE_MODE ? {
+          approvalViewDigest: item.approvalViewDigest,
+          revision: item.revision,
+        } : {}),
+      },
       strict: true,
     });
 
@@ -4240,6 +4355,37 @@ async function doPair() {
   render();
 
   try {
+    if (REMOTE_MODE) {
+      if (!secure.native) throw new Error('remote_native_transport_unavailable');
+      let paired;
+      try {
+        paired = await getM7RemoteClient().pair({ claimCode: code });
+      } catch (error) {
+        // A claim can be consumed while the following signed OPEN response is
+        // lost. The client persists that pairing before OPEN; continuing the
+        // same conscious pairing flow may therefore mint a fresh session but
+        // must never submit the one-time claim again.
+        const saved = persistedRemoteState();
+        if (saved?.sessionId === null && ![
+          'M7_SESSION_PAIRING_EXPIRED', 'M7_SESSION_PAIRING_INVALID',
+          'M7_SESSION_PAIRING_REVOKED', 'M7_SESSION_PAIRING_USED',
+        ].includes(error?.code)) {
+          paired = await getM7RemoteClient().resume();
+        } else {
+          throw error;
+        }
+      }
+      replaceScopes(paired.scopes);
+      await store.flush();
+      secure.pendingPairingCode = null;
+      state.session = 'active';
+      transitionRoute('conversations');
+      history.replaceState(null, '', location.pathname);
+      toast('Zařízení připojeno přes VPN');
+      await loadConversations();
+      loadDiagnostics();
+      return;
+    }
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 30_000);
     let response;
@@ -4293,7 +4439,17 @@ async function doPair() {
     await loadConversations();
     loadDiagnostics();
   } catch (error) {
-    state.error.pairing = secure.shell && secure.reason
+    const pairingCode = error?.code;
+    state.error.pairing = REMOTE_MODE && pairingCode
+      ? {
+          M7_SESSION_PAIRING_USED: 'Tento kód už byl použit. Vygeneruj ve Studiu nový.',
+          M7_SESSION_PAIRING_EXPIRED: 'Platnost kódu vypršela. Vygeneruj ve Studiu nový.',
+          M7_SESSION_PAIRING_REVOKED: 'Párování bylo odvolané. Vygeneruj ve Studiu nový kód.',
+          M7_SESSION_PAIRING_INVALID: 'Kód nesouhlasí. Zkontroluj aktuální QR ve Studiu.',
+          M7_DISCONNECTED_RATE_LIMITED: 'Příliš mnoho pokusů. Počkej a vygeneruj nový kód.',
+          REMOTE_PAIRING_REPLACEMENT_DENIED: 'Nejdřív odpoj současné zařízení.',
+        }[pairingCode] || 'VPN server není dostupný nebo jeho připnutá identita nesouhlasí.'
+      : secure.shell && secure.reason
       ? `Párování se neuložilo do bezpečného úložiště (${secure.reason}). Vygeneruj nový kód.`
       : error?.name === 'AbortError'
         ? 'Párování vypršelo bez odpovědi. Stav se neodhaduje — vygeneruj nový kód.'
@@ -4712,8 +4868,28 @@ async function confirmAbandon(operationId) {
   state.opsAbandoning = operationId;
   render();
 
+  let abandonOperationId = null;
   try {
-    const response = await api(`/operations/${encodeURIComponent(operationId)}/abandon`, { method: 'POST' });
+    let remoteBody = null;
+    if (REMOTE_MODE) {
+      const target = (state.data.operations || []).find(item => item.operationId === operationId);
+      if (!target?.revision) {
+        throw new ApiError('protocol', { code: 'operation_revision_missing' });
+      }
+      abandonOperationId = newOperationId();
+      journal.add({
+        operationId: abandonOperationId,
+        operationType: 'operation.abandon',
+        displaySummary: 'Opuštění pokusu',
+      });
+      await store.flush();
+      remoteBody = { operationId: abandonOperationId, expectedRevision: target.revision };
+    }
+    const response = await api(`/operations/${encodeURIComponent(operationId)}/abandon`, {
+      method: 'POST',
+      ...(remoteBody ? { body: remoteBody } : {}),
+    });
+    if (abandonOperationId) journal.setState(abandonOperationId, response.data.state || 'CONFIRMED');
     journal.discard(operationId);
     // The response carries the count *after* the abandon (handlers.js:445-455),
     // so the screen is corrected from the server's own numbers before anything
@@ -4728,6 +4904,10 @@ async function confirmAbandon(operationId) {
     delete state.opsNote[operationId];
     await loadOperations();
   } catch (error) {
+    if (abandonOperationId) journal.setState(
+      abandonOperationId,
+      error.kind === 'offline' ? 'UNKNOWN' : 'REJECTED',
+    );
     if (error.kind === 'auth') return handleAuthFailure(error);
     if (error.code === 'not_found') {
       // The server holds no such record, so the local entry is all there is and
@@ -4759,10 +4939,31 @@ async function confirmAbandon(operationId) {
 async function ackAll() {
   const unread = (state.data.notifications || []).filter(item => !item.read).map(item => item.id);
   if (unread.length === 0) return;
+  let operationId = null;
   try {
-    await api('/notifications/ack', { method: 'POST', body: { ids: unread } });
+    const body = { ids: unread };
+    if (REMOTE_MODE) {
+      operationId = newOperationId();
+      journal.add({
+        operationId,
+        operationType: 'notification.ack',
+        displaySummary: 'Označení oznámení jako přečtených',
+      });
+      await store.flush();
+      body.operationId = operationId;
+      body.observedThroughSeq = Math.max(
+        0,
+        ...(state.data.notifications || []).map(item => item.sequence || 0),
+      );
+    }
+    const response = await api('/notifications/ack', { method: 'POST', body });
+    if (operationId) journal.setState(operationId, response.data.state || 'CONFIRMED');
     await loadNotifications();
   } catch (error) {
+    if (operationId) journal.setState(
+      operationId,
+      error.kind === 'offline' ? 'UNKNOWN' : 'REJECTED',
+    );
     if (error.kind === 'auth') return handleAuthFailure(error);
     toast('Nepodařilo se označit jako přečtené.', 'danger');
   }
@@ -5070,7 +5271,7 @@ window.addEventListener('offline', handleWentOffline);
 window.addEventListener('hashchange', async () => {
   const code = new URLSearchParams(location.hash.slice(1)).get('pair');
   if (!code) return;
-  if (auth.token) {
+  if (hasPairedIdentity()) {
     secure.pendingPairingCode = null;
     history.replaceState(null, '', location.pathname);
     toast('Nejdřív odpoj současné zařízení, potom naskenuj nový párovací kód.');
@@ -5088,7 +5289,7 @@ window.addEventListener('intentsmithPairingLink', async () => {
   try {
     const pairing = await secure.plugin.consumePairingCode();
     if (!pairing?.code) return;
-    if (auth.token) {
+    if (hasPairedIdentity()) {
       secure.pendingPairingCode = null;
       toast('Nejdřív odpoj současné zařízení, potom naskenuj nový párovací kód.');
       return;
@@ -5191,6 +5392,53 @@ async function boot() {
   const hashCode = new URLSearchParams(location.hash.slice(1)).get('pair')
     || secure.pendingPairingCode;
 
+  if (REMOTE_MODE) {
+    const paired = hasPairedIdentity();
+    if (hashCode && !paired) {
+      state.session = 'unpaired';
+      state.data = {};
+      render();
+      return;
+    }
+    if (hashCode && paired) {
+      secure.pendingPairingCode = null;
+      history.replaceState(null, '', location.pathname);
+    }
+    if (!paired) {
+      state.session = 'unpaired';
+      render();
+      return;
+    }
+    try {
+      const session = await getM7RemoteClient().resume();
+      if (!session) throw new Error('remote_session_missing');
+      replaceScopes(session.scopes);
+      await store.flush();
+      state.session = 'active';
+      render();
+      if (hashCode) {
+        toast('Nejdřív odpoj současné zařízení, potom naskenuj nový párovací kód.');
+      }
+      await loadDiagnostics();
+      if (state.session !== 'active') return;
+      if (auth.has('read:chat')) await loadConversations();
+      if (auth.has('read:notifications')) loadNotifications();
+      if (auth.has('read:approvals')) loadApprovals();
+      reconcileOpenOperations().catch(() => {});
+    } catch (error) {
+      const normalized = m7ApiError(error);
+      state.session = ['token_revoked', 'token_invalid'].includes(normalized.code)
+        ? 'revoked'
+        : normalized.code === 'token_expired' ? 'expired' : 'unpaired';
+      state.error.security = normalized.kind === 'offline'
+        ? 'VPN server není dostupný. Relace se neprohlašuje za aktivní.'
+        : `Vzdálenou relaci nelze obnovit (${normalized.code}).`;
+      replaceScopes([]);
+      render();
+    }
+    return;
+  }
+
   if (hashCode && !auth.token) {
     state.session = 'unpaired';
     state.data = {};
@@ -5254,6 +5502,7 @@ export const __ms20 = {
   invalidateApprovalAuthority, invalidateApprovalSurface, replaceScopes, handleAuthFailure,
   MOBILE_PROTOCOL_VERSION, MAX_NOTIFICATION_PAGES,
   apiBaseFor, REMOTE_CORE_V1_PIN, MOBILE_TRANSPORT_MODE, validateMobileRuntimeConfig,
+  storageIdentity, hasPairedIdentity, boot,
   RESOLVED_JOURNAL_RETENTION_MS, DRAFT_RETENTION_MS,
   loadOperations, lookupOperation, resolveOperation, reconcileOpenOperations,
   askAbandon, cancelAbandon, confirmAbandon, isUnknownKeyAnswer,

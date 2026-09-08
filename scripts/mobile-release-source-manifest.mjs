@@ -67,6 +67,7 @@ export function buildCurrentMobileReleaseSourceManifestV1({
     sourcePackageJson: read('mobile-app/package.json'),
     sourcePackageLock: read('mobile-app/package-lock.json'),
     sourceRuntimeConfig: read('src/mobile/client/runtime-config.js'),
+    generatedRuntimeConfig,
     sourceIndex: read('src/mobile/client/index.html'),
     sourceAssets,
   });
