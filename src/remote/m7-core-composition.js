@@ -52,6 +52,7 @@ const CONFIG_KEYS = Object.freeze([
   'maxNotificationScan',
   'maxProjectScan',
   'mediateMutation',
+  'mutationMediator',
   'm2ApprovalPort',
   'notificationPort',
   'observeWorkspaceRevision',
@@ -96,6 +97,9 @@ function mergeHandlers(...groups) {
 
 export function createM7CoreComposition(configValue = {}) {
   const config = requireExactConfig(configValue);
+  if (config.mediateMutation !== undefined && config.mutationMediator !== undefined) {
+    throw new TypeError('m7-core-composition:mutation-authority-ambiguous');
+  }
   const clock = config.clock ?? Date.now;
   const journal = createM7OperationJournal(config.database, { clock });
   const projects = createM7ProjectCoreAdapters({
@@ -120,7 +124,7 @@ export function createM7CoreComposition(configValue = {}) {
     authorizeProject: config.authorizeProject,
     cursorKey: config.cursorKey,
     database: config.database,
-    mediateMutation: config.mediateMutation,
+    mediateMutation: config.mutationMediator?.mediate ?? config.mediateMutation,
     maxInformationScan: config.maxInformationScan,
     now: clock,
   });
@@ -169,6 +173,7 @@ export function createM7CoreComposition(configValue = {}) {
     externalValidators: EXTERNAL_VALIDATORS,
     handlers,
     manifests: MOBILE_REMOTE_CAPABILITY_MANIFESTS_V1,
+    mutationMediator: config.mutationMediator,
     mutationJournal: journal,
     requirements: MOBILE_REMOTE_CAPABILITY_REQUIREMENTS_V1,
     validateOperationPair: validateMobileRemoteOperationPair,

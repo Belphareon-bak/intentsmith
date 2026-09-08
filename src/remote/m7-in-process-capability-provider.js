@@ -4,6 +4,11 @@
 // listener or transport. Composition injects the exact reviewed manifests and
 // validators. The provider cannot activate itself and has no allow-all default.
 
+import {
+  consumeM7MutationMediator,
+  isGenuineM7MutationMediator,
+} from './m7-mutation-mediator.js';
+
 export const M7_IN_PROCESS_PROVIDER_STAGE = 'IMPLEMENTED_NOT_ACTIVE';
 
 export const M7_IN_PROCESS_PROVIDER_ERROR = Object.freeze({
@@ -241,12 +246,21 @@ export function createM7InProcessCapabilityProvider({
   externalValidators = {},
   handlers = {},
   manifests,
+  mutationMediator,
   mutationJournal = null,
   requirements,
   validateOperationPair,
   validatePayload,
 } = {}) {
   const resolveAuthority = requireFunction(authorityResolver, 'authority-resolver');
+  const mutationAuthority = mutationMediator === undefined
+    ? null
+    : isGenuineM7MutationMediator(mutationMediator)
+      ? consumeM7MutationMediator(mutationMediator)
+      : fail(
+        M7_IN_PROCESS_PROVIDER_ERROR.CONFIG_INVALID,
+        'm7-provider:genuine-mutation-mediator-required',
+      );
   const pairValidator = requireFunction(validateOperationPair, 'operation-pair-validator');
   const payloadValidator = requireFunction(validatePayload, 'payload-validator');
   if (!plain(handlers) || !plain(externalValidators)) fail(
@@ -372,9 +386,19 @@ export function createM7InProcessCapabilityProvider({
         );
         return cloneFrozen(value, 'result');
       };
-      const execute = async () => validateResult(
+      const executeHandler = async () => validateResult(
         await handlers[operation.operationId](request, handlerContext),
       );
+      const execute = operation.kind !== 'read' && mutationAuthority !== null
+        ? () => mutationAuthority.runAuthorized({
+          capabilityId: operation.capabilityId,
+          deviceId: authority.deviceId,
+          operationId: operation.operationId,
+          request,
+          requiredScopes: operation.requiredScopes,
+          subjectId: authority.subjectId,
+        }, executeHandler)
+        : executeHandler;
       let result;
       if (operation.kind !== 'read') {
         let executionStarted = false;

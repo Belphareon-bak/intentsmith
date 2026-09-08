@@ -31,12 +31,18 @@ import {
   createM7CoreComposition,
   M7_CORE_COMPOSITION_STAGE,
 } from '../src/remote/m7-core-composition.js';
+import { createM7MutationMediator } from '../src/remote/m7-mutation-mediator.js';
 import { createM7RunEventCoreAdapter } from '../src/remote/m7-run-event-core-adapter.js';
 import { suite, summary, test, testAsync } from './harness.js';
 
 const CURSOR_KEY = Buffer.alloc(32, 0x63);
 
-function setup({ approvalCapability = false, remainingCapabilities = false, ...overrides } = {}) {
+function setup({
+  approvalCapability = false,
+  mutationMediator = null,
+  remainingCapabilities = false,
+  ...overrides
+} = {}) {
   const root = mkdtempSync(path.join(tmpdir(), 'intentsmith-m7-composition-'));
   const projectRoot = path.join(root, 'project');
   mkdirSync(projectRoot);
@@ -171,7 +177,9 @@ function setup({ approvalCapability = false, remainingCapabilities = false, ...o
       healthComponents: [
         { componentId: 'core-composition', observe: async () => ({ status: 'ok', code: 'READY' }) },
       ],
-      mediateMutation: async intent => ({ state: 'executed', result: await intent.perform() }),
+      ...(mutationMediator === null
+        ? { mediateMutation: async intent => ({ state: 'executed', result: await intent.perform() }) }
+        : { mutationMediator }),
       ...(approvalCapability ? { m2ApprovalPort } : {}),
       ...(remainingCapabilities ? { notificationPort, runEventAdapter } : {}),
       ...overrides,
@@ -372,6 +380,36 @@ await testAsync('mutation, journal replay, recovery control and health share one
     );
     assert.equal(health.status, 'ok');
     assert.equal(validateMobileRemotePayload('RemoteHealthSnapshot@1', health).valid, true);
+  } finally {
+    fixture.close();
+  }
+});
+
+await testAsync('production mediator binds an internal write to exact provider authority', async () => {
+  const mutationMediator = createM7MutationMediator();
+  const fixture = setup({ mutationMediator });
+  try {
+    const read = await invoke(fixture.composition.provider, 'settings', 1, 'settings.read', {
+      contract: 'MobileSettingsQuery', version: 1,
+      requestId: 'request:composition:mediated-read',
+    });
+    const command = {
+      contract: 'MobileSettingUpdateCommand', version: 1,
+      requestId: 'request:composition:mediated-update',
+      operationId: 'operation:composition:mediated-update',
+      key: 'appearance.theme', value: 'light', expectedRevision: read.revision,
+    };
+    const direct = await fixture.composition.adapters.settingsInformation.updateSetting(command, {
+      deviceId: 'device:composition:001', subjectId: 'user:composition:001',
+    });
+    assert.equal(direct.outcome, 'REJECTED');
+    assert.equal(direct.error.code, 'REMOTE_M7_MUTATION_AUTHORITY_DENIED');
+
+    const result = await invoke(
+      fixture.composition.provider, 'settings', 1, 'settings.update', command,
+    );
+    assert.equal(result.outcome, 'CONFIRMED');
+    assert.equal(result.replayed, false);
   } finally {
     fixture.close();
   }
