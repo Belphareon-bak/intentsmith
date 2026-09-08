@@ -68,8 +68,8 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Decision 041 implementace dostala `REVIEW_PASSED` a trust store drží čtyři oddělené veřejné klíče. Úzký review ale našel stale M6 migration oracle a neoffline custody privátních klíčů; oracle remediation je implementovaná, custody zůstává otevřená. Osm rotací, history disposition a podepsaná M5 acceptance neproběhly. |
-| **M6 IntentSmith 1.0 release** | `CURRENT_REGISTRY_RATCHET_IMPLEMENTED_REVIEW_PENDING / CURRENT_FULL_GATE_REQUIRED / KEY_CUSTODY_CHANGES_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, application upgrade, L0-11 a soak/throughput harness jsou implementované. Locked plan pokrývá všech 411 `ACTIVE + required` programů a nightly policy je připnutá na nový deterministic scope 350 (`277 offline + 73 database`); focused ratchet je zelený, celý gate a review ještě neproběhly. 24h soak je nad starším SHA a plný throughput zatím neproběhl. |
-| **M7 Remote Companion** | `VPN_LISTENER_AND_ANDROID_IMPLEMENTATION_GREEN / REVIEW_PENDING / REAL_VPN_DEVICE_EVIDENCE_BLOCKED / NOT_ACCEPTED` | M6 + remote boundary | Přijaté varianty mají implementovaný VPN-only TLS listener, systemd credential custody, local-Studio single-use pairing a Android companion s SPKI pinem a podepsanou session/invocation cestou. Mobilní focused gate prošel `45/45` a Android Java cesta se zkompilovala offline. Produkční credentials, skutečný VPN bind/firewall, fyzický telefon, signing/distribuce a device matice neproběhly; nový registry ratchet a souvislý gate čekají na aktualizaci. |
+| **M6 IntentSmith 1.0 release** | `CURRENT_DETERMINISTIC_PHASE_PASS / CURRENT_REGISTRY_RATCHET_REVIEW_PENDING / CURRENT_FULL_GATE_REQUIRED / KEY_CUSTODY_CHANGES_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED` | M5 accepted; implementace povolena přes zavřený gate | Git-native evidence, application upgrade, L0-11 a soak/throughput harness jsou implementované. Locked plan pokrývá všech 411 `ACTIVE + required` programů a nightly policy je připnutá na 350 deterministic programů (`277 offline + 73 database`). Exact M7 candidate `07b582d1` prošel touto fází `350/350`; nový registry ratchet čeká na review. Celý vícefázový M6 candidate gate, aktuální 24h soak, plný throughput, operátorské receipts a demo stále chybějí. |
+| **M7 Remote Companion** | `VPN_LISTENER_AND_ANDROID_IMPLEMENTATION_GREEN / DETERMINISTIC_GATE_PASS / REVIEW_PENDING / REAL_VPN_DEVICE_EVIDENCE_BLOCKED / NOT_ACCEPTED` | M6 + remote boundary | Přijaté varianty mají implementovaný VPN-only TLS listener, systemd credential custody, local-Studio single-use pairing a Android companion s SPKI pinem a podepsanou session/invocation cestou. Mobilní focused gate prošel `45/45`; exact candidate `07b582d1` prošel deterministic fází `350/350`. Produkční credentials, skutečný VPN bind/firewall, fyzický telefon, release signing/distribuce a device matice neproběhly. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
 Gate 0 se znovu aktivuje pouze v M6 nad zmraženým kandidátem.
@@ -2131,8 +2131,9 @@ invocation; privátní seed je softwarový a v klidu zabalený non-exportable
 AndroidKeyStore AES-GCM klíčem, nejde tedy o tvrzení hardware-backed Ed25519.
 
 Produkční implementace je v `ae00d8f6`, exact Android importní ratchet v
-`f600c564`. Mobilní gate prošel `45/45`; native client `7/7`, Android release
-boundary `16/16`, UI adapter `4/4`, remote core `7/7`, credential boundary
+`f600c564` a content-addressed fyzická runtime-evidence hranice v `4d0f8462`.
+Mobilní gate prošel `45/45`; native client `7/7`, Android release boundary
+`18/18`, UI adapter `4/4`, remote core `7/7`, credential boundary
 `31/31`, MS20 UI `43/43`, app runtime `1/1` a browser accessibility `22/22`.
 Offline Gradle zkompiloval Java cestu a spustil `M7CanonicalJsonTest`.
 Registry má 510 programů, 411 `ACTIVE + required`, deterministic scope 350
@@ -2141,10 +2142,18 @@ module graph má 1 273 hran, 3 cykly a 28 souborů v cyklech.
 M6 locked plan zahrnuje všech 411 povinných programů; omission test navíc
 jednotlivě zamyká všech deset nových listener/Android programů. Nightly
 orchestrator používá stejný fingerprint a přesné profilové počty. Focused
-výsledky jsou candidate plan `20/20` a orchestrator self-test PASS; nový celý
-350programový běh následuje až nad čistým zmraženým kandidátem.
+výsledky jsou candidate plan `20/20` a orchestrator self-test PASS.
 
-Stav je `IMPLEMENTATION_GREEN / REVIEW_PENDING /
+Čistý exact candidate `07b582d171eb590d4c4c55ea7a8837bfdf9315e1`
+(tree `78fb2adc88ba9a9d2604f8a837bf3d0cd68503a6`) nejdřív bez otevřených
+toolchain autorit skončil pravdivě `BLOCKED / exit 2 / 342 PASS / 8 BLOCKED`.
+Všech osm jsou přesně programy požadující deklarovaný lokální PDF, Git,
+Bubblewrap nebo `prlimit`. Následný kandidátním plánem povolený běh otevřel jen
+pět exact toolchain autorit a skončil `PASS / exit 0 / 350 PASS / 0 non-PASS`.
+Finální report `2026-09-08T22-41-31-787Z` má SHA-256
+`72f8c9e7…cc96`; oba reporty zůstávají zachované.
+
+Stav je `IMPLEMENTATION_GREEN / DETERMINISTIC_GATE_PASS / REVIEW_PENDING /
 REAL_VPN_DEVICE_EVIDENCE_BLOCKED / NOT_ACCEPTED`. Nebyl měněn firewall ani
 systemd, nevznikl produkční secret, nic nebylo pushnuto ani publikováno a
 neproběhl fyzický telefon, VPN bind, TalkBack, signing/distribuce, GPU/Ollama
