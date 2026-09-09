@@ -1,15 +1,9 @@
 // Workflow Orchestrator Tests
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// Tests WorkflowOrchestrator with mock LLM to verify:
-//   1. Session lifecycle (create, states, history)
-//   2. D1 analysis → CLARIFY or READY
-//   3. D1 plan → AWAITING_APPROVAL
-//   4. Full pipeline: D1→CODE→R2→R1
-//   5. Fix loop: R2 FAIL → D2→CODE→R2
-//   6. Redesign: R1 REDESIGN → D1→CODE→R2→R1
-//   7. Max attempt limits
-//   8. JSON parsing tolerance
+// Checks session data structures, state guards, and one real-LLM start request.
+// start() covers analysis and, when ready, planning. It does not approve a plan
+// or execute implementation, reviews, fixes, or redesign.
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -123,12 +117,24 @@ console.log('\n── Start (real LLM) ──');
 
 await testAsync('start() produces a valid workflow session', async () => {
   const o = new WorkflowOrchestrator();
-  const session = await o.start('build a small REST API with one health endpoint');
-  assert.ok(session, 'start() returns a session');
-  assert.ok(o.sessions.has(session.id), 'session is registered');
+  const result = await o.start('build a small REST API with one health endpoint');
+  console.log('  start result:', JSON.stringify({
+    sessionId: result?.sessionId ?? null,
+    state: result?.state ?? null,
+    error: typeof result?.error === 'string' ? result.error.slice(0, 300) : null,
+    questionCount: Array.isArray(result?.questions) ? result.questions.length : null,
+    planStepCount: Array.isArray(result?.plan?.steps) ? result.plan.steps.length : null,
+  }));
+  assert.ok(result, 'start() returns a public result');
+  assert.ok(typeof result.sessionId === 'string' && result.sessionId.length > 0,
+    'start() returns a sessionId');
+  const session = o.getSession(result.sessionId);
+  assert.ok(session, 'returned sessionId resolves to a registered session');
+  assert.equal(session.id, result.sessionId, 'stored session identity matches the result');
+  assert.equal(session.state, result.state, 'stored state matches the public result');
   assert.ok(
-    [WorkflowState.CLARIFYING, WorkflowState.AWAITING_APPROVAL].includes(session.state),
-    `unexpected start state: ${session.state}`,
+    [WorkflowState.CLARIFYING, WorkflowState.AWAITING_APPROVAL].includes(result.state),
+    `unexpected start state: ${result.state}`,
   );
 });
 

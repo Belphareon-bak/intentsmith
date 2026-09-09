@@ -1494,6 +1494,8 @@ function _detectNegatedIntents(input) {
   return negated;
 }
 
+const KNOWN_EXTENSIONLESS_FILENAME_RE = /^(readme|makefile|dockerfile|vagrantfile|gemfile|rakefile|procfile|changelog|license|todo|contributing|authors|codeowners)$/i;
+
 // v63.0: Extract file path from user input
 // Looks for quoted paths, paths with extensions, or common filename patterns
 export function extractFilePath(input) {
@@ -1537,10 +1539,9 @@ export function extractFilePath(input) {
   if (afterKeywordDotfile) return afterKeywordDotfile[1];
 
   // 4. Known filenames without extension (readme, makefile, dockerfile, license, etc.)
-  const KNOWN_FILENAMES = /^(readme|makefile|dockerfile|vagrantfile|gemfile|rakefile|procfile|changelog|license|todo|contributing|authors|codeowners)$/i;
   for (let i = tokens.length - 1; i >= 0; i--) {
     const t = tokens[i].replace(/[,;:!?]+$/, '');
-    if (KNOWN_FILENAMES.test(t)) {
+    if (KNOWN_EXTENSIONLESS_FILENAME_RE.test(t)) {
       return t;
     }
   }
@@ -3446,7 +3447,14 @@ PRAVIDLA:
     if (intent === IntentType.FILE_EXPLAIN || intent === IntentType.FILE_READ) {
       // Detect actual file references (not just Czech words ending with period)
       const FILE_EXT_RE = /\w+\.(js|ts|py|json|md|txt|html|css|yml|yaml|toml|cfg|conf|sh|sql|go|rs|c|h|cpp|java|rb|php|vue|svelte|jsx|tsx)\b/i;
-      const hasFileRef = FILE_EXT_RE.test(input)                      // file.ext
+      const extractedFileRef = extractFilePath(input);
+      const hasProjectListingRef = intent === IntentType.FILE_READ
+        && Boolean(context.hasActiveProject || context.project?.id)
+        && extractedFileRef === '.';
+      const hasKnownFilenameRef = typeof extractedFileRef === 'string'
+        && KNOWN_EXTENSIONLESS_FILENAME_RE.test(extractedFileRef);
+      const hasFileRef = hasProjectListingRef || hasKnownFilenameRef
+        || FILE_EXT_RE.test(input)                      // file.ext
         || /[\\/][\w.-]+/.test(input)                                 // path/file
         || /otev[rř]i|open/i.test(input)                             // explicit open verb
         || /p[rř]e[cč]ti\s+(si\s+)?soubor/i.test(input)             // "přečti soubor"

@@ -217,3 +217,13 @@ creative a expertise limity, role authority, retry, cancellation a odmítnutí
 neúplné odpovědi se nemění. Původní projektový FAIL se v rekonstruovaném
 kontextu neopakoval; obě seedované varianty 128/256 skončily shodně na 102
 tokenech. Toto není přeznačení historického neúspěchu ani release acceptance.
+
+Další doložená regrese výpisu projektu: Guard12 zahazoval existujícím parserem
+rozpoznaný adresář `.` i známé názvy bez přípony. Oprava zachovává Guard9 pro
+shrnutí, vyžaduje aktivní projekt u directory listingu a nepřijímá libovolný
+neprázdný výsledek parseru. Existující file-reference suite a skutečná CRE
+matice ověřují rozpoznání i negativní větve; M2 consumer hranice se nemění.
+Workflow test nově sleduje skutečný veřejný `sessionId` a registrovanou
+session, včetně shody stavu. Povolené stavy zůstávají CLARIFYING nebo
+AWAITING_APPROVAL; FAILED se stále odmítá. Samotný test neprokazuje celý
+build/review workflow. Původní živé neúspěchy se uchovávají do přeměření.
