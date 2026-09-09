@@ -11,14 +11,24 @@ The orchestrator is locked to:
 - dependency install: `npm ci`, then the hash-locked isolated PDF runtime;
 - concurrency: `1`.
 
-The canonical registry currently contains 448 runnable programs: 223
-`offline`, 56 `database`, 42 `server`, 84 `model`, 26 `soak`, and 17 `manual`.
-Its current parsed fingerprint is
-`b8791c78ca0277ed1b1b4b301887ff5a2d85c6f16e6840e95e540860b0275d4d`.
-The sealed Gate 0 orchestrator pins that same fingerprint. Neither the renamed
-detection-only repository suite nor non-selected profiles are silently counted
-as passing. The fingerprint is SHA-256 over
-`JSON.stringify(JSON.parse(bytes))`, not a byte-level whitespace hash.
+The canonical registry contains 512 runnable programs: 279 `offline`, 73
+`database`, 44 `server`, 81 `model`, 15 `soak`, and 20 `manual`, with 19
+explicit support-module exclusions. The reviewed deterministic selection is
+352 ACTIVE required programs (`offline,database`). Its parsed fingerprint and
+the sealed orchestrator pin are
+`3ce12a0edffe7e6da0f875ce3f0b25758524641557023d00aae39d0784fdbbfc`.
+The fingerprint is SHA-256 over `JSON.stringify(JSON.parse(bytes))`, not a
+byte-level whitespace hash. Non-selected profiles are not counted as passing.
+
+The 2026-09-09 selection refresh retains all 511 programs from the prior seal
+`922f65e9e28a3dfb604148c5d5b0ecf1ad106edff9de0646724d6189407f0b40`
+without changing their metadata. It adds the required offline mobile inventory
+test ([MC2 review](review/2026-09-09-MOBILE-CONVERGENCE-REVIEW.md)) and the
+non-runnable historical model-policy fixture exclusion
+([compatibility review](review/2026-09-09-PROVIDER-AND-POLICY-COMPATIBILITY-REVIEW.md)).
+This pin identifies the reviewed registry selection; it is not Gate 0 PASS,
+M5/M6 acceptance or a signed release approval. Historical reports using the
+previous seal retain their original FAIL verdicts.
 
 ## Evidence location
 
