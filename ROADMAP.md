@@ -2329,6 +2329,12 @@ Přibyla pouze čistá závislost VRAMManageru na existujícím profilu; všechn
 předchozí hrany jsou zachované. Fyzická kalibrace většího kontextu a modelová
 kvalita zůstávají samostatné důkazy.
 
+Po integraci revidovaného projektového čtení na `3132d58c` module graph má 1 282 hran,
+stále stejné 3 cykly a 28 souborů v cyklech. Sedm přesných nových src hran
+má nezávislé review; baseline vznikla původním ratchetem nad čistým source.
+Dvě závislosti handleru do contracts leží mimo současný src→src protokol.
+Tento pin není celá M2 acceptance ani společný release verdikt.
+
 Na čistém `2be9f521` proběhlo 352/352 required deterministic programů PASS,
 původní expertise routing 43/43 a lifecycle context routing 27/27 PASS.
 LLM1 zůstává 15 PASS / 1 FAIL kvůli výstupnímu thinking limitu 512
