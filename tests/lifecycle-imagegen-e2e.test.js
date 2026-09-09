@@ -1,4 +1,4 @@
-import './helpers/isolated-test-db.js';
+import { resolveIsolatedProjectPath, resolveIsolatedArtifactPath, resolveIsolatedProjectFile, writeIsolatedProjectFile } from './helpers/isolated-test-db.js';
 
 // Lifecycle E2E Test — GPU Image Generation Setup — Real LLM (v92)
 // ══════════════════════════════════════════════════════════════════════════════
@@ -212,18 +212,21 @@ ${langHint.includes('YAML') ? 'Use clear comments explaining each setting.' : ''
         console.log(`    [EXECUTOR]   Generating ${file.path} (${langHint})...`);
         const t0 = Date.now();
         try {
+          const fullPath = resolveIsolatedProjectFile(projectPath, file.path);
           const result = await callLLM('CODE', codePrompt);
           let content = result.content || '';
           content = content.replace(/^```[\w]*\n?/, '').replace(/\n?```\s*$/, '').trim();
 
-          const fullPath = path.join(projectPath, file.path);
-          fs.mkdirSync(path.dirname(fullPath), { recursive: true });
-          fs.writeFileSync(fullPath, content);
+          writeIsolatedProjectFile(projectPath, file.path, content);
 
           const dt = ((Date.now() - t0) / 1000).toFixed(1);
           console.log(`    [EXECUTOR]   ✓ ${file.path} (${content.length} bytes, ${dt}s)`);
         } catch (err) {
           console.log(`    [EXECUTOR]   ✗ ${file.path}: ${err.message}`);
+          return {
+            sessionId: `wf-${msId}`, state: 'FAILED',
+            error: `Code generation failed for ${file.path}: ${err.message}`,
+          };
         }
       }
 
@@ -295,7 +298,7 @@ async function runTest() {
   }
 
   const SESSION_ID = 'imagegen-e2e-real';
-  const projectPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../projects/ImageGen-E2E');
+  const projectPath = resolveIsolatedProjectPath('ImageGen-E2E');
   fs.mkdirSync(projectPath, { recursive: true });
 
   cleanDB(projectPath);
@@ -1176,7 +1179,7 @@ async function runTest() {
   console.log('══════════════════════════════════════════════════════════════════════\n');
 
   try {
-    const transcriptDir = path.join(path.dirname(new URL(import.meta.url).pathname), '..', 'test-transcripts');
+    const transcriptDir = resolveIsolatedArtifactPath('test-transcripts');
     fs.mkdirSync(transcriptDir, { recursive: true });
     const transcriptPath = path.join(transcriptDir, `transcript-imagegen-${Date.now()}.json`);
     fs.writeFileSync(transcriptPath, JSON.stringify(transcript, null, 2));

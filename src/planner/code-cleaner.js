@@ -261,9 +261,10 @@ const LANG_NAMES = {
  * @param {string} error - Error message from checkSyntax
  * @param {string} filePath - Absolute path to the file
  * @param {Function} callLLM - LLM call function (role, prompt, system, opts)
+ * @param {Object} [dependencies] - Optional caller-owned file writer
  * @returns {Promise<{ repaired: boolean, content: string, attempts: number, tier: string }>}
  */
-export async function repairCode(content, error, filePath, callLLM) {
+export async function repairCode(content, error, filePath, callLLM, { writeFile = fs.writeFileSync } = {}) {
   const ext = path.extname(filePath);
   const lang = LANG_MAP[ext] || 'code';
   const langName = LANG_NAMES[ext] || 'code';
@@ -305,7 +306,7 @@ Do not include markdown fences or explanations.`;
       }
 
       content = applyPatch(content, startLine, endLine, patchedSnippet);
-      fs.writeFileSync(filePath, content);
+      writeFile(filePath, content);
 
       checkSyntax(filePath);
       logger.info('CodeCleaner', 'Snippet repair succeeded', { file: path.basename(filePath), attempt: attempt + 1 });
@@ -332,7 +333,7 @@ ${content}`;
 
     const result = await callLLM('CODE', fullRepairPrompt, null, { temperature: 0 });
     content = stripCodeFences(result.content, ext);
-    fs.writeFileSync(filePath, content);
+    writeFile(filePath, content);
 
     checkSyntax(filePath);
     logger.info('CodeCleaner', 'Full-file repair succeeded', { file: path.basename(filePath) });

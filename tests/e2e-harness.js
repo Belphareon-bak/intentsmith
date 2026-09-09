@@ -11,7 +11,7 @@
 // Import: import { TestRunner, createExecutor, ... } from './e2e-harness.js';
 // ══════════════════════════════════════════════════════════════════════════════
 
-import './helpers/isolated-test-db.js';
+import { resolveIsolatedProjectFile, writeIsolatedProjectFile } from './helpers/isolated-test-db.js';
 import fs from 'fs';
 import path from 'path';
 import { execFileSync } from 'child_process';
@@ -251,6 +251,7 @@ ${langSuffix}`;
         console.log(`    [EXECUTOR]   Generating ${file.path}...`);
         const t0 = Date.now();
         try {
+          const fullPath = resolveIsolatedProjectFile(projectPath, file.path);
           // v97: temperature 0.1 for stable generation
           const result = await generate('CODE', codePrompt, null, { temperature: 0.1 });
           let content = result.content || '';
@@ -266,9 +267,7 @@ ${langSuffix}`;
             content = stripCodeFences(retry.content || '', ext);
           }
 
-          const fullPath = path.join(projectPath, file.path);
-          fs.mkdirSync(path.dirname(fullPath), { recursive: true });
-          fs.writeFileSync(fullPath, content);
+          writeIsolatedProjectFile(projectPath, file.path, content);
 
           // Artifact validation: plaintext files must be non-empty
           const ARTIFACT_EXTS = new Set(['.txt', '.sql', '.env', '.yaml', '.yml', '.toml', '.sh', '.ini', '.cfg', '.conf']);
@@ -290,7 +289,15 @@ ${langSuffix}`;
             console.log(`    [EXECUTOR]   ✓ ${file.path} (${content.length} bytes, ${dt}s)`);
           } catch (syntaxErr) {
             console.log(`    [EXECUTOR]   ⚠ ${file.path} syntax error — attempting repair...`);
-            const repairResult = await repairCode(content, syntaxErr.stderr || syntaxErr.message, fullPath, generate);
+            const repairResult = await repairCode(
+              content, syntaxErr.stderr || syntaxErr.message, fullPath,
+              async (...args) => {
+                resolveIsolatedProjectFile(projectPath, file.path);
+                return generate(...args);
+              },
+              { writeFile: (_target, repaired) => writeIsolatedProjectFile(projectPath, file.path, repaired) },
+            );
+            resolveIsolatedProjectFile(projectPath, file.path);
             const dt = ((Date.now() - t0) / 1000).toFixed(1);
             if (repairResult.repaired) {
               console.log(`    [EXECUTOR]   ✓ ${file.path} repaired (tier: ${repairResult.tier}, ${repairResult.attempts} attempts, ${dt}s)`);

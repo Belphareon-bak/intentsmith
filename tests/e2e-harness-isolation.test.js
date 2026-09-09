@@ -201,6 +201,158 @@ test('reports generation errors as FAILED before the completion marker', () => {
   );
 });
 
+
+test('rejects generated traversal, metadata and linked paths before any model call', () => {
+  const childSource = `
+    import fs from 'fs';
+    import path from 'path';
+    const harness = await import('./tests/e2e-harness.js');
+    const guard = await import('./tests/helpers/isolated-test-db.js');
+    const projectPath = guard.resolveIsolatedProjectPath('Generated-Containment');
+    fs.mkdirSync(projectPath, { recursive: true });
+    const sentinel = path.join(process.env.HOME, 'outside-generated.js');
+    fs.writeFileSync(sentinel, 'UNCHANGED');
+    fs.symlinkSync(process.env.HOME, path.join(projectPath, 'linked-directory'));
+    fs.symlinkSync(sentinel, path.join(projectPath, 'linked-file.js'));
+    fs.linkSync(sentinel, path.join(projectPath, 'hard-linked.js'));
+    const badPaths = ['../sibling.js', '../../home/outside-generated.js', sentinel,
+      '.git/hooks/pre-commit', 'linked-directory/outside-generated.js',
+      'linked-file.js', 'hard-linked.js'];
+    const projectId = Number(harness.projects.create.run(
+      'Generated-Containment', projectPath, 'containment').lastInsertRowid);
+    harness.lifecycleRepo.save('lc-containment', projectId, 'BUILD', null, {});
+    let calls = 0;
+    for (const [index, filePath] of badPaths.entries()) {
+      const milestoneId = 'ms-containment-' + index;
+      harness.msRepo.addMilestone({ id: milestoneId, lifecycle_id: 'lc-containment',
+        roadmap_version: 1, sequence: index + 1, title: 'Containment', description: 'Containment',
+        status: 'EXECUTING', dependencies: [], estimated_loc: 1, estimated_files: 1,
+        estimated_complexity: 'LOW', local_plan: { files: [{ path: filePath }] },
+        scope_files: [filePath] });
+      const executor = harness.createExecutor(projectPath, 'Node.js', {
+        callLLM: async () => { calls++; return { content: 'export const value = 1;' }; },
+      });
+      const result = await executor.start('Generate', { milestoneId });
+      if (result.state !== 'FAILED') throw new Error('Unsafe generated path accepted: ' + filePath);
+    }
+    if (calls !== 0) throw new Error('Model called before generated path validation');
+    if (fs.readFileSync(sentinel, 'utf8') !== 'UNCHANGED') throw new Error('Outside file changed');
+    if (fs.existsSync(path.join(projectPath, '.git'))) throw new Error('Git metadata created');
+    const good = guard.resolveIsolatedProjectFile(projectPath, 'src/allowed.js');
+    fs.mkdirSync(path.dirname(good), { recursive: true });
+    fs.writeFileSync(good, 'allowed');
+    if (fs.readFileSync(good, 'utf8') !== 'allowed') throw new Error('Valid generated path failed');
+    console.log('GENERATED_CONTAINMENT_PASS ' + badPaths.length);
+  `;
+  const result = runChild(childSource);
+  assertEqual(result.signal, null, `child terminated by ${result.signal}`);
+  assertEqual(result.status, 0, result.stderr || result.stdout);
+  assertIncludes(result.stdout, 'GENERATED_CONTAINMENT_PASS 7');
+});
+
+test('rejects links introduced during generation or repair without changing outside bytes', () => {
+  const childSource = `
+    import fs from 'fs';
+    import path from 'path';
+    const harness = await import('./tests/e2e-harness.js');
+    const guard = await import('./tests/helpers/isolated-test-db.js');
+    const cases = ['file-link', 'parent-link', 'hard-link', 'repair-file-link',
+      'repair-hard-link', 'repair-microtask-link'];
+    for (const [index, kind] of cases.entries()) {
+      const projectPath = guard.resolveIsolatedProjectPath('Async-Containment-' + index);
+      fs.mkdirSync(projectPath, { recursive: true });
+      const outside = path.join(process.env.HOME, 'outside-' + index);
+      fs.mkdirSync(outside);
+      const sentinel = path.join(outside, 'target.js');
+      fs.writeFileSync(sentinel, 'UNCHANGED');
+      const relative = kind === 'parent-link' ? 'linked/target.js' : 'target.js';
+      const target = path.join(projectPath, relative);
+      const projectId = Number(harness.projects.create.run(
+        'Async-Containment-' + index, projectPath, 'containment').lastInsertRowid);
+      const lifecycleId = 'lc-async-' + index;
+      const milestoneId = 'ms-async-' + index;
+      harness.lifecycleRepo.save(lifecycleId, projectId, 'BUILD', null, {});
+      harness.msRepo.addMilestone({ id: milestoneId, lifecycle_id: lifecycleId,
+        roadmap_version: 1, sequence: 1, title: 'Containment', description: 'Containment',
+        status: 'EXECUTING', dependencies: [], estimated_loc: 1, estimated_files: 1,
+        estimated_complexity: 'LOW', local_plan: { files: [{ path: relative }] },
+        scope_files: [relative] });
+      let calls = 0;
+      const repairing = kind.startsWith('repair-');
+      const executor = harness.createExecutor(projectPath, 'Node.js', {
+        callLLM: async () => {
+          calls++;
+          await Promise.resolve();
+          if (repairing && calls === 1) return { content: 'const broken = ;' };
+          if (kind === 'repair-microtask-link') {
+            queueMicrotask(() => queueMicrotask(() => {
+              fs.unlinkSync(target);
+              fs.symlinkSync(sentinel, target);
+            }));
+          } else if (kind === 'parent-link') {
+            fs.symlinkSync(outside, path.dirname(target));
+          } else {
+            if (fs.existsSync(target)) fs.unlinkSync(target);
+            if (kind.endsWith('hard-link')) fs.linkSync(sentinel, target);
+            else fs.symlinkSync(sentinel, target);
+          }
+          return { content: 'const value = 1;' };
+        },
+      });
+      const result = await executor.start('Generate', { milestoneId });
+      if (result.state !== 'FAILED') throw new Error('Async link was accepted: ' + kind);
+      if (calls !== (repairing ? 2 : 1)) throw new Error('Unexpected model retries: ' + kind);
+      if (fs.readFileSync(sentinel, 'utf8') !== 'UNCHANGED') throw new Error('Outside bytes changed: ' + kind);
+    }
+    const goodProject = guard.resolveIsolatedProjectPath('Safe-Writer');
+    fs.mkdirSync(goodProject);
+    guard.writeIsolatedProjectFile(goodProject, 'src/allowed.js', 'long original content');
+    const good = guard.writeIsolatedProjectFile(goodProject, 'src/allowed.js', 'ok');
+    if (fs.readFileSync(good, 'utf8') !== 'ok') throw new Error('Valid overwrite failed');
+    if ((fs.statSync(good).mode & 0o777) !== 0o600) throw new Error('Writer did not create a private file');
+    console.log('ASYNC_GENERATED_CONTAINMENT_PASS ' + cases.length);
+  `;
+  const result = runChild(childSource);
+  assertEqual(result.signal, null, `child terminated by ${result.signal}`);
+  assertEqual(result.status, 0, result.stderr || result.stdout);
+  assertIncludes(result.stdout, 'ASYNC_GENERATED_CONTAINMENT_PASS 6');
+});
+
+test('snippet and full-file repairs use the supplied writer and retain the default behavior', () => {
+  const childSource = `
+    import fs from 'fs';
+    const { repairCode } = await import('./src/planner/code-cleaner.js');
+    const guard = await import('./tests/helpers/isolated-test-db.js');
+    const project = guard.resolveIsolatedProjectPath('Repair-Writer');
+    fs.mkdirSync(project);
+    let checked = 0;
+    for (const tier of ['snippet', 'full-file']) {
+      for (const custom of [false, true]) {
+        const relative = tier + '-' + custom + '.js';
+        const target = guard.writeIsolatedProjectFile(project, relative, 'const broken = ;');
+        let writes = 0;
+        const dependencies = custom ? { writeFile: (requested, content) => {
+          if (requested !== target) throw new Error('Unexpected repair target');
+          writes++;
+          guard.writeIsolatedProjectFile(project, relative, content);
+        } } : undefined;
+        const result = await repairCode('const broken = ;',
+          tier === 'snippet' ? target + ':1 SyntaxError' : 'SyntaxError without location',
+          target, async () => ({ content: 'const repaired = true;' }), dependencies);
+        if (!result.repaired || result.tier !== tier) throw new Error('Repair branch failed: ' + tier);
+        if (writes !== (custom ? 1 : 0)) throw new Error('Repair bypassed its writer: ' + tier);
+        if (fs.readFileSync(target, 'utf8') !== 'const repaired = true;') throw new Error('Repair bytes mismatch');
+        checked++;
+      }
+    }
+    console.log('REPAIR_WRITER_PASS ' + checked);
+  `;
+  const result = runChild(childSource);
+  assertEqual(result.signal, null, `child terminated by ${result.signal}`);
+  assertEqual(result.status, 0, result.stderr || result.stdout);
+  assertIncludes(result.stdout, 'REPAIR_WRITER_PASS 4');
+});
+
 process.on('exit', (code) => {
   if (code === 0) {
     fs.rmSync(runRoot, { recursive: true, force: true });

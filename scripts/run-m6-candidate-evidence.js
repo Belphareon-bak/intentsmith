@@ -773,7 +773,7 @@ function directReport({ candidateSha, fingerprint, results, startedAt, endedAt }
   };
 }
 
-async function runFreshClonePhase({
+export async function runFreshClonePhase({
   root,
   candidateSha,
   fingerprint,
@@ -907,7 +907,7 @@ async function runFreshClonePhase({
   }
 }
 
-async function cleanupFreshClone({ temporaryParent }) {
+export async function cleanupFreshClone({ temporaryParent }) {
   const resolved = path.resolve(temporaryParent);
   const temporaryRoot = path.resolve(os.tmpdir());
   if (
@@ -917,7 +917,7 @@ async function cleanupFreshClone({ temporaryParent }) {
   await rm(resolved, { recursive: true, force: false, maxRetries: 2 });
 }
 
-async function finalizeFreshCloneRelease({
+export async function finalizeFreshCloneRelease({
   root,
   candidateSha,
   evidenceRoot,

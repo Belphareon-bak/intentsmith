@@ -1,4 +1,4 @@
-import './helpers/isolated-test-db.js';
+import { resolveIsolatedProjectPath } from './helpers/isolated-test-db.js';
 
 // E2E Test — Existing Project Analysis (ai-log-analyzer) — Real LLM
 // ══════════════════════════════════════════════════════════════════════════════
@@ -236,7 +236,7 @@ async function runTest() {
     process.exit(1);
   }
 
-  const projectPath = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../projects/AI-Log-Analyzer-E2E');
+  const projectPath = resolveIsolatedProjectPath('AI-Log-Analyzer-E2E');
 
   try {
     // ═══ SETUP: Create simulated project ═════════════════════════════════════

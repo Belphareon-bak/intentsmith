@@ -136,3 +136,30 @@ GPU pilot PASS (4 requests, plná GPU residency, cancel, přirozená obnova)
 a pipeline program 17/17 PASS (2 skutečné provider inference, zbývající
 workflow/role kroky jsou stavové fixture). Přesné hashe a hranice obsahuje
 stejný run/review záznam; celý M6 release gate tím není uzavřený.
+
+## Pokračování M6 po provozním checkpointu
+
+Operátor znovu požaduje pokračovat autonomně. Již povolené sériové lokální
+modelové ověření pokračuje samostatnými existujícími fázemi M6; známý sealed
+registry FAIL nezastavuje vývoj podle `CONTRACT.md §8`. Jediný writer zůstává
+stejný. Stabilitní měření používá samostatný připnutý klon na disku, soukromou
+DB a izolovanou loopback síť. Jeho původní SHA se nikdy nepřeznačuje za nový.
+
+Konkrétní follow-up rozsah: zpřístupnění existující fresh-clone fáze, capture
+a cleanup funkcí v `scripts/run-m6-candidate-evidence.js` bez změny jejich
+těl nebo release validátorů; oprava prokázaných zápisů lifecycle testů mimo
+runner-owned projekty/artefakty v pěti dotčených testech, jejich společném
+harnessu a `tests/helpers/isolated-test-db.js`, ověřená existující isolation
+suite. Obě opravné větve `src/planner/code-cleaner.js` dostanou volitelný
+caller-owned writer, aby stejná kontrola platila přímo při opravě souboru;
+výchozí writer, algoritmus a kritéria opravy se nemění. Tato oprava sama
+nenahrazuje izolaci vykonávání generovaného kódu.
+
+Skutečný serverový běh na `193e2351` dále reprodukoval HTTP 502
+`MODEL_RESPONSE_TRUNCATED` při doporučeních k projektu. Diagnostika a případná
+minimální oprava patří do existujícího výběru answer token budgetu a jeho
+M1 chat testů; finální odmítnutí neúplné odpovědi, cancellation a persistence
+hranice se nesmějí oslabit. Kód se mění až po ověření příčiny. Původní FAIL
+se uchová, opravu prověří nezávislý reviewer a skutečný stejný uživatelský
+scénář. M5 externí custody/rotace/history ani release podpisy tím nejsou
+autorizované; nezávislá technická práce na ně nečeká.

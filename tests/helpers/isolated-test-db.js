@@ -7,12 +7,18 @@
 
 import {
   chmodSync,
+  closeSync,
+  constants,
+  fstatSync,
+  ftruncateSync,
   existsSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
+  openSync,
   realpathSync,
   rmSync,
+  writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -371,3 +377,81 @@ process.umask(0o077);
 export const isolatedTestRuntime = process.env.C3_AUDIT_RUN === '1'
   ? resolveAuditRuntime()
   : createDirectRuntime();
+
+
+// Test-only filesystem authority for real-model generated artifacts.
+// The roots are validated by the existing audit/direct bootstrap above.
+function resolveIsolatedChild(root, relative, label) {
+  if (typeof relative !== 'string' || relative.length === 0
+      || relative.includes('\0') || relative.includes('\\')
+      || path.posix.isAbsolute(relative) || path.win32.isAbsolute(relative)
+      || /^[A-Za-z]:/.test(relative)) {
+    throw new Error(`${label} must be a relative path`);
+  }
+  const parts = relative.split('/');
+  if (parts.some(part => !part || part === '.' || part === '..' || part.toLowerCase() === '.git')) {
+    throw new Error(`${label} contains a forbidden path component`);
+  }
+  root = inspectPrivateDirectory(root, `${label} root`);
+  const candidate = path.resolve(root, ...parts);
+  if (!isStrictChild(root, candidate)) throw new Error(`${label} escapes its isolated root`);
+  let current = root;
+  for (let index = 0; index < parts.length; index++) {
+    current = path.join(current, parts[index]);
+    const stat = lstatSync(current, { throwIfNoEntry: false });
+    if (!stat) continue;
+    assertCurrentUser(stat, label);
+    if (stat.isSymbolicLink()) throw new Error(`${label} must not traverse symbolic links`);
+    const last = index === parts.length - 1;
+    if ((!last && !stat.isDirectory()) || (last && !stat.isDirectory() && !stat.isFile())) {
+      throw new Error(`${label} has an unsupported filesystem entry`);
+    }
+    if (last && stat.isFile() && stat.nlink !== 1) {
+      throw new Error(`${label} must not overwrite a hard-linked file`);
+    }
+  }
+  return candidate;
+}
+
+export function resolveIsolatedProjectPath(name) {
+  if (typeof name !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(name)) {
+    throw new Error('Unsafe isolated project name');
+  }
+  return resolveIsolatedChild(isolatedTestRuntime.projects, name, 'test project');
+}
+
+export function resolveIsolatedArtifactPath(relative) {
+  return resolveIsolatedChild(isolatedTestRuntime.artifacts, relative, 'test artifact');
+}
+
+export function resolveIsolatedProjectFile(projectPath, relative) {
+  const project = path.resolve(projectPath);
+  if (!isStrictChild(isolatedTestRuntime.projects, project)) {
+    throw new Error('Generated file project must be inside the isolated projects root');
+  }
+  resolveIsolatedChild(isolatedTestRuntime.projects,
+    path.relative(isolatedTestRuntime.projects, project), 'test project');
+  return resolveIsolatedChild(project, relative, 'generated file');
+}
+
+// No asynchronous operation occurs between the final path check and the write.
+// Validate an opened file before truncating it; O_NOFOLLOW rejects final links.
+// Untrusted child-process execution still requires the outer filesystem sandbox.
+export function writeIsolatedProjectFile(projectPath, relative, content) {
+  let file = resolveIsolatedProjectFile(projectPath, relative);
+  mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
+  file = resolveIsolatedProjectFile(projectPath, relative);
+  const descriptor = openSync(file, constants.O_WRONLY | constants.O_CREAT | constants.O_NOFOLLOW, 0o600);
+  try {
+    const stat = fstatSync(descriptor);
+    assertCurrentUser(stat, 'generated file');
+    if (!stat.isFile() || stat.nlink !== 1) {
+      throw new Error('Generated file must be a regular file with one link');
+    }
+    ftruncateSync(descriptor, 0);
+    writeFileSync(descriptor, content);
+  } finally {
+    closeSync(descriptor);
+  }
+  return file;
+}
