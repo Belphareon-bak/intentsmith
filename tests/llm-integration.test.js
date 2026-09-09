@@ -77,6 +77,8 @@ async function ollamaChat(messages, options = {}) {
   const body = {
     model: options.model || CHAT_MODEL,
     messages,
+    // Match the production answer path: visible content, without extended thinking.
+    think: false,
     stream: false,
     options: {
       temperature: options.temperature ?? 0.3,

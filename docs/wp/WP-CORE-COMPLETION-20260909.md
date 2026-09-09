@@ -297,3 +297,15 @@ Workflow wrapper dále předává skutečné gateway finishReason, včetně null
 chybějícím důkazu; nemění authority, počet volání ani chyby. Celá sada má 45
 PASS. Dokončení dlouhé specifikace tím vyřešeno není: obě skutečné omezené
 varianty kompaktního/plánovacího požadavku zůstávají FAIL a nebyly nasazeny.
+
+Přeměření na čistém `2be9f521` uzavřelo původní routing sady 43/43 a 27/27
+a LLM integration 2 se všemi 17 případy. LOCAL výsledky mají odpovídající
+immutable request/result a test subject v soukromé DB; to neprokazuje obecnou
+jazykovou kvalitu ani funkční file.list. LLM integration 1 skončila 15 PASS
+/ 1 FAIL: direct 2.3 uchovalo správnou historii, ale raw provider odpověď měla
+prázdný content, 1913 znaků thinking a finishReason=length při evalCount=512.
+Původní FAIL je uchovaný. Úzká následná oprava direct helperu pouze přidává
+`think: false`, shodně s existující produkční answer cestou. Výstupní budget,
+kontext a všech 16 původních predikátů zůstávají. Nezávislé review patch
+`c84474d5` a osm inertních kontrol prošly; nový modelový běh této opravy ještě
+neproběhl. Přesné reporty a review jsou v lokálním provider-proposal adresáři.
