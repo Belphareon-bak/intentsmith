@@ -36,6 +36,48 @@ export const RESERVED_MODEL_AUTOMATION_KEYS = Object.freeze([
   'autoCleanupDays',
 ]);
 
+// These are the two historical table shapes recognized by migration 081.
+// Do not infer authority from one convenient column or silently repair an
+// unknown schema. Neither branch rewrites existing events or migration history.
+const POLICY_COLUMNS = Object.freeze([
+  'id', 'revision', 'auto_failover_enabled', 'auto_cleanup_enabled',
+  'auto_cleanup_days', 'last_event_id', 'updated_at_ms',
+]);
+const EVENT_COLUMNS_066 = Object.freeze([
+  'event_id', 'seq', 'revision', 'auto_failover_enabled', 'auto_cleanup_enabled',
+  'auto_cleanup_days', 'actor', 'source', 'request_id', 'created_at_ms',
+  'quarantined_legacy',
+]);
+const EVENT_COLUMNS_061 = Object.freeze([
+  'seq', 'event_id', 'request_id', 'schema_version', 'previous_revision',
+  'committed_revision', 'event_kind', 'actor', 'source',
+  'before_auto_failover_enabled', 'before_auto_cleanup_enabled',
+  'before_auto_cleanup_days', 'after_auto_failover_enabled',
+  'after_auto_cleanup_enabled', 'after_auto_cleanup_days',
+  'legacy_quarantine_json', 'created_at_ms',
+]);
+const SOURCE_AUTHORITY_061 = Object.freeze({
+  [POLICY_SOURCE.TYPED_ROUTE]: Object.freeze({ eventKind: 'USER_UPDATE', source: 'TYPED_API' }),
+  [POLICY_SOURCE.EXPLICIT_IMPORT]: Object.freeze({ eventKind: 'BACKUP_IMPORT', source: 'SETTINGS_IMPORT' }),
+  [POLICY_SOURCE.EXPLICIT_RESET]: Object.freeze({ eventKind: 'GLOBAL_RESET', source: 'GLOBAL_RESET' }),
+});
+
+function policySchema(db) {
+  const objects = db.prepare(`
+    SELECT type FROM sqlite_master
+    WHERE name IN ('model_automation_policy', 'model_automation_policy_events')
+  `).all();
+  if (objects.length !== 2 || objects.some(row => row.type !== 'table')) return null;
+  const columns = table => db.prepare(`PRAGMA table_xinfo(${table})`).all().map(row => row.name);
+  const exact = (actual, expected) => actual.length === expected.length
+    && expected.every(name => actual.includes(name));
+  const policy = columns('model_automation_policy');
+  const events = columns('model_automation_policy_events');
+  if (exact(policy, POLICY_COLUMNS) && exact(events, EVENT_COLUMNS_066)) return '066';
+  if (exact(policy, [...POLICY_COLUMNS, 'schema_version']) && exact(events, EVENT_COLUMNS_061)) return '061';
+  return null;
+}
+
 const VALID_SOURCES = new Set(Object.values(POLICY_SOURCE));
 
 export class ModelPolicyError extends Error {
@@ -90,14 +132,20 @@ export function readModelAutomationPolicy(db) {
 
   let row;
   let event;
+  let schema;
   try {
-    row = db.prepare(`
-      SELECT revision, auto_failover_enabled, auto_cleanup_enabled,
-             auto_cleanup_days, last_event_id
-      FROM model_automation_policy WHERE id = 1
-    `).get();
+    schema = policySchema(db);
+    if (!schema) return defaultState(ModelPolicyStatus.DB_ERROR, 'MODEL_POLICY_SCHEMA_UNSUPPORTED');
+    row = db.prepare('SELECT * FROM model_automation_policy WHERE id = 1').get();
     if (row) {
-      event = db.prepare(`
+      event = db.prepare(schema === '061' ? `
+        SELECT event_id, schema_version, previous_revision, created_at_ms,
+               committed_revision AS revision,
+               after_auto_failover_enabled AS auto_failover_enabled,
+               after_auto_cleanup_enabled AS auto_cleanup_enabled,
+               after_auto_cleanup_days AS auto_cleanup_days
+        FROM model_automation_policy_events WHERE event_id = ?
+      ` : `
         SELECT revision, auto_failover_enabled, auto_cleanup_enabled, auto_cleanup_days
         FROM model_automation_policy_events WHERE event_id = ?
       `).get(row.last_event_id);
@@ -116,8 +164,10 @@ export function readModelAutomationPolicy(db) {
     || !Number.isInteger(autoCleanupDays)
     || autoCleanupDays < 1
     || autoCleanupDays > 3650
-    || !Number.isInteger(row.revision)
-    || row.revision < 1) {
+    || !Number.isSafeInteger(row.revision)
+    || row.revision < 1
+    || (schema === '061' && (row.schema_version !== 1
+      || !Number.isSafeInteger(row.updated_at_ms) || row.updated_at_ms < 1))) {
     return defaultState(ModelPolicyStatus.MALFORMED, 'MODEL_POLICY_VALUE_INVALID');
   }
 
@@ -127,7 +177,11 @@ export function readModelAutomationPolicy(db) {
     || event.revision !== row.revision
     || event.auto_failover_enabled !== row.auto_failover_enabled
     || event.auto_cleanup_enabled !== row.auto_cleanup_enabled
-    || event.auto_cleanup_days !== row.auto_cleanup_days) {
+    || event.auto_cleanup_days !== row.auto_cleanup_days
+    || (schema === '061' && (event.schema_version !== 1
+      || event.previous_revision !== row.revision - 1
+      || event.created_at_ms !== row.updated_at_ms
+      || event.event_id !== row.last_event_id))) {
     return defaultState(ModelPolicyStatus.EVENT_MISMATCH, 'MODEL_POLICY_EVENT_MISMATCH');
   }
 
@@ -172,6 +226,15 @@ function requirePolicyValues(value) {
 
 function writePolicy(db, { values, expectedRevision, actor, source, quarantinedLegacy = null }) {
   const current = readModelAutomationPolicy(db);
+  if (!current.valid) {
+    fail('MODEL_POLICY_STATE_INVALID', 'Policy storage must be valid before a change', {
+      status: current.status, reason: current.reason,
+    }, 503);
+  }
+  const schema = policySchema(db);
+  if (schema === '061' && (!/^user:[A-Za-z0-9:._-]+$/.test(actor) || actor.length > 96)) {
+    fail('MODEL_POLICY_INPUT_INVALID', 'actor must satisfy the M1 user authority contract', { field: 'actor' }, 400);
+  }
   if (Number.isInteger(expectedRevision) && expectedRevision !== current.revision) {
     fail(
       'MODEL_POLICY_REVISION_CONFLICT',
@@ -185,50 +248,88 @@ function writePolicy(db, { values, expectedRevision, actor, source, quarantinedL
   const revision = current.revision + 1;
   const eventId = `policy-${randomUUID()}`;
   const nowMs = Date.now();
-  const seqRow = db.prepare(
-    'SELECT COALESCE(MAX(seq), 0) + 1 AS nextSeq FROM model_automation_policy_events',
-  ).get();
+  if (!Number.isSafeInteger(revision) || !Number.isSafeInteger(nowMs) || nowMs < 1) {
+    fail('MODEL_POLICY_STATE_INVALID', 'Policy revision or clock is invalid', null, 503);
+  }
+  if (schema === '061') {
+    // Migration 061 requires projection first, then its matching append-only
+    // event, inside this transaction. Its deferred FK and lineage triggers
+    // protect the interval; 066 has the opposite insertion order below.
+    const changed = db.prepare(`
+      UPDATE model_automation_policy
+      SET revision = ?, auto_failover_enabled = ?, auto_cleanup_enabled = ?,
+          auto_cleanup_days = ?, last_event_id = ?, updated_at_ms = ?
+      WHERE id = 1 AND schema_version = 1 AND revision = ? AND last_event_id = ?
+    `).run(revision, next.autoFailoverEnabled ? 1 : 0, next.autoCleanupEnabled ? 1 : 0,
+      next.autoCleanupDays, eventId, nowMs, current.revision, current.lastEventId);
+    if (changed.changes !== 1) {
+      fail('MODEL_POLICY_REVISION_CONFLICT', 'Policy changed before commit', null, 409);
+    }
+    const authority = SOURCE_AUTHORITY_061[source];
+    db.prepare(`
+      INSERT INTO model_automation_policy_events (
+        event_id, request_id, schema_version, previous_revision, committed_revision,
+        event_kind, actor, source, before_auto_failover_enabled,
+        before_auto_cleanup_enabled, before_auto_cleanup_days,
+        after_auto_failover_enabled, after_auto_cleanup_enabled, after_auto_cleanup_days,
+        legacy_quarantine_json, created_at_ms
+      ) VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)
+    `).run(eventId, `request-${randomUUID()}`, current.revision, revision,
+      authority.eventKind, actor, authority.source,
+      current.policy.autoFailoverEnabled ? 1 : 0, current.policy.autoCleanupEnabled ? 1 : 0,
+      current.policy.autoCleanupDays, next.autoFailoverEnabled ? 1 : 0,
+      next.autoCleanupEnabled ? 1 : 0, next.autoCleanupDays, nowMs);
+  } else {
+    const seqRow = db.prepare(
+      'SELECT COALESCE(MAX(seq), 0) + 1 AS nextSeq FROM model_automation_policy_events',
+    ).get();
 
-  db.prepare(`
-    INSERT INTO model_automation_policy_events (
-      event_id, seq, revision, auto_failover_enabled, auto_cleanup_enabled,
-      auto_cleanup_days, actor, source, request_id, created_at_ms, quarantined_legacy
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    eventId,
-    seqRow.nextSeq,
-    revision,
-    next.autoFailoverEnabled ? 1 : 0,
-    next.autoCleanupEnabled ? 1 : 0,
-    next.autoCleanupDays,
-    actor,
-    source,
-    `request-${randomUUID()}`,
-    nowMs,
-    quarantinedLegacy,
-  );
+    db.prepare(`
+      INSERT INTO model_automation_policy_events (
+        event_id, seq, revision, auto_failover_enabled, auto_cleanup_enabled,
+        auto_cleanup_days, actor, source, request_id, created_at_ms, quarantined_legacy
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      eventId,
+      seqRow.nextSeq,
+      revision,
+      next.autoFailoverEnabled ? 1 : 0,
+      next.autoCleanupEnabled ? 1 : 0,
+      next.autoCleanupDays,
+      actor,
+      source,
+      `request-${randomUUID()}`,
+      nowMs,
+      quarantinedLegacy,
+    );
 
-  db.prepare(`
-    INSERT INTO model_automation_policy (
-      id, revision, auto_failover_enabled, auto_cleanup_enabled,
-      auto_cleanup_days, last_event_id, updated_at_ms
-    ) VALUES (1, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET
-      revision = excluded.revision,
-      auto_failover_enabled = excluded.auto_failover_enabled,
-      auto_cleanup_enabled = excluded.auto_cleanup_enabled,
-      auto_cleanup_days = excluded.auto_cleanup_days,
-      last_event_id = excluded.last_event_id,
-      updated_at_ms = excluded.updated_at_ms
-  `).run(
-    revision,
-    next.autoFailoverEnabled ? 1 : 0,
-    next.autoCleanupEnabled ? 1 : 0,
-    next.autoCleanupDays,
-    eventId,
-    nowMs,
-  );
+    db.prepare(`
+      INSERT INTO model_automation_policy (
+        id, revision, auto_failover_enabled, auto_cleanup_enabled,
+        auto_cleanup_days, last_event_id, updated_at_ms
+      ) VALUES (1, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET
+        revision = excluded.revision,
+        auto_failover_enabled = excluded.auto_failover_enabled,
+        auto_cleanup_enabled = excluded.auto_cleanup_enabled,
+        auto_cleanup_days = excluded.auto_cleanup_days,
+        last_event_id = excluded.last_event_id,
+        updated_at_ms = excluded.updated_at_ms
+    `).run(
+      revision,
+      next.autoFailoverEnabled ? 1 : 0,
+      next.autoCleanupEnabled ? 1 : 0,
+      next.autoCleanupDays,
+      eventId,
+      nowMs,
+    );
 
+  }
+  const committed = readModelAutomationPolicy(db);
+  if (!committed.valid || committed.revision !== revision || committed.lastEventId !== eventId
+    || RESERVED_MODEL_AUTOMATION_KEYS.some(key => committed.policy[key] !== next[key])) {
+    fail('MODEL_POLICY_STATE_INVALID', 'Committed policy does not match its event', null, 503);
+  }
   return Object.freeze({
     ok: true,
     revision,

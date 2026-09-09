@@ -7,6 +7,12 @@
 // mandatory negative proofs of the decision.
 
 import { createRequire } from 'node:module';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+// Byte-identical accepted migration: 905a3422fa0a01f3f1c4656f914ee26a696549a8.
+import { up as installPolicy061 } from './fixtures/model-policy-061.js';
+import { up as installPolicy066 } from '../src/db/migrations/2026_08_22_066_model_automation_policy.js';
+import { up as repairPolicy081 } from '../src/db/migrations/2026_08_24_081_model_policy_trigger_compatibility.js';
 import Database from 'better-sqlite3';
 
 const require = createRequire(import.meta.url);
@@ -472,5 +478,176 @@ test('the Studio backup surface no longer treats a failure as success', () => {
   );
 });
 
+
+suite('M1 model automation policy — preserved 061 upgrade authority');
+
+async function withPolicy061(callback) {
+  const db = new Database(':memory:');
+  db.pragma('foreign_keys = ON');
+  try {
+    db.exec('CREATE TABLE user_settings (id INTEGER PRIMARY KEY, data TEXT NOT NULL, updated_at TEXT)');
+    db.prepare('INSERT INTO user_settings VALUES (1, ?, NULL)').run(JSON.stringify({
+      models: { autoFailoverEnabled: true, futureKey: 'preserve' }, theme: 'dark',
+    }));
+    db.transaction(() => installPolicy061(db))();
+    const events = JSON.stringify(db.prepare('SELECT * FROM model_automation_policy_events ORDER BY seq').all());
+    // Reproduce the real 066 collision and its supported 081 repair, including
+    // the original 061 constraints and trigger SQL rather than a schema mock.
+    installPolicy066(db);
+    repairPolicy081(db);
+    assertEqual(JSON.stringify(db.prepare('SELECT * FROM model_automation_policy_events ORDER BY seq').all()), events);
+    await runMigrations(db);
+    assertEqual(JSON.stringify(db.prepare('SELECT * FROM model_automation_policy_events ORDER BY seq').all()), events);
+    return await callback(db);
+  } finally {
+    db.close();
+  }
+}
+
+function policyRows(db) {
+  return JSON.stringify({
+    policy: db.prepare('SELECT * FROM model_automation_policy ORDER BY id').all(),
+    events: db.prepare('SELECT * FROM model_automation_policy_events ORDER BY seq').all(),
+  });
+}
+
+await testAsync('the accepted 061 schema remains readable after the complete current upgrade', async () => {
+  const historical = readFileSync(new URL('./fixtures/model-policy-061.js', import.meta.url));
+  assertEqual(createHash('sha256').update(historical).digest('hex'), 'c6438611c6f78549991cd18221b71e285139345016f4ad40b94b971bed4ee612');
+  await withPolicy061(async db => {
+    const state = readModelAutomationPolicy(db);
+    assertEqual(state.status, ModelPolicyStatus.VALID);
+    assertEqual(state.revision, 1);
+    assertEqual(state.policy.autoFailoverEnabled, false);
+    assertEqual(state.lastEventId, 'policy-event-migration-061');
+    const genesis = db.prepare('SELECT * FROM model_automation_policy_events').get();
+    assertEqual(genesis.source, 'MIGRATION');
+    assert(genesis.legacy_quarantine_json.includes('"autoFailoverEnabled":true'));
+    const settings = JSON.parse(db.prepare('SELECT data FROM user_settings').get().data);
+    assertEqual(settings.models.futureKey, 'preserve');
+    assertEqual(Object.hasOwn(settings.models, 'autoFailoverEnabled'), false);
+  });
+});
+
+await testAsync('061 typed writes preserve history and append exact source, revision and before/after lineage', async () => {
+  await withPolicy061(async db => {
+    const genesis = JSON.stringify(db.prepare('SELECT * FROM model_automation_policy_events').get());
+    for (const [source, eventKind, storedSource, values] of [
+      [POLICY_SOURCE.TYPED_ROUTE, 'USER_UPDATE', 'TYPED_API', { autoFailoverEnabled: true }],
+      [POLICY_SOURCE.EXPLICIT_IMPORT, 'BACKUP_IMPORT', 'SETTINGS_IMPORT', { autoCleanupDays: 30 }],
+      [POLICY_SOURCE.EXPLICIT_RESET, 'GLOBAL_RESET', 'GLOBAL_RESET', { ...DEFAULT_MODEL_AUTOMATION_POLICY }],
+    ]) {
+      const before = readModelAutomationPolicy(db);
+      const result = updateModelAutomationPolicy(db, { values, expectedRevision: before.revision, actor: 'user:upgrade-test', source });
+      const after = readModelAutomationPolicy(db);
+      const event = db.prepare('SELECT * FROM model_automation_policy_events WHERE event_id = ?').get(result.eventId);
+      const projection = db.prepare('SELECT * FROM model_automation_policy').get();
+      assertEqual(after.status, ModelPolicyStatus.VALID);
+      assertEqual(after.revision, before.revision + 1);
+      assertEqual(event.previous_revision, before.revision);
+      assertEqual(event.committed_revision, after.revision);
+      assertEqual(event.event_kind, eventKind);
+      assertEqual(event.source, storedSource);
+      assertEqual(event.actor, 'user:upgrade-test');
+      assertEqual(event.schema_version, 1);
+      assertEqual(event.legacy_quarantine_json, null);
+      assertEqual(event.created_at_ms, projection.updated_at_ms);
+      assertEqual(event.before_auto_failover_enabled, before.policy.autoFailoverEnabled ? 1 : 0);
+      assertEqual(event.before_auto_cleanup_days, before.policy.autoCleanupDays);
+      assertEqual(event.after_auto_cleanup_days, after.policy.autoCleanupDays);
+      assertEqual(event.after_auto_failover_enabled, after.policy.autoFailoverEnabled ? 1 : 0);
+    }
+    assertEqual(eventCount(db), 4);
+    assertEqual(JSON.stringify(db.prepare('SELECT * FROM model_automation_policy_events WHERE committed_revision = 1').get()), genesis);
+    assertEqual(db.prepare('SELECT COUNT(DISTINCT request_id) AS n FROM model_automation_policy_events').get().n, 4);
+    assertEqual(readModelAutomationPolicy(db).policy.autoFailoverEnabled, false);
+  });
+});
+
+await testAsync('061 rejects stale revisions and authority overrides before changing history', async () => {
+  await withPolicy061(async db => {
+    const input = { values: { autoFailoverEnabled: true }, expectedRevision: 1, actor: 'user:first', source: POLICY_SOURCE.TYPED_ROUTE };
+    updateModelAutomationPolicy(db, input);
+    const before = policyRows(db);
+    assertEqual(captureError(() => updateModelAutomationPolicy(db, input)).code, 'MODEL_POLICY_REVISION_CONFLICT');
+    for (const changed of [
+      { actor: 'system:forged' }, { actor: 'user:bad actor' }, { source: 'MIGRATION' },
+      { eventKind: 'MIGRATION_DEFAULT_OFF' }, { requestId: 'caller-owned-request' },
+    ]) {
+      const error = captureError(() => updateModelAutomationPolicy(db, { ...input, expectedRevision: 2, ...changed }));
+      assertEqual(error.code, 'MODEL_POLICY_INPUT_INVALID');
+    }
+    assertEqual(policyRows(db), before);
+  });
+});
+
+await testAsync('061 rolls back its projection when the append-only event cannot commit', async () => {
+  await withPolicy061(async db => {
+    const before = policyRows(db);
+    db.exec(`CREATE TRIGGER fail_policy_test_append BEFORE INSERT ON model_automation_policy_events
+      WHEN NEW.event_kind = 'USER_UPDATE' BEGIN SELECT RAISE(ABORT, 'TEST_EVENT_STORAGE_FAILURE'); END`);
+    const error = captureError(() => updateModelAutomationPolicy(db, {
+      values: { autoFailoverEnabled: true }, expectedRevision: 1, actor: 'user:test', source: POLICY_SOURCE.TYPED_ROUTE,
+    }));
+    assert(error.message.includes('TEST_EVENT_STORAGE_FAILURE'));
+    assertEqual(policyRows(db), before);
+    assertEqual(readModelAutomationPolicy(db).status, ModelPolicyStatus.VALID);
+    assertEqual(db.pragma('foreign_key_check').length, 0);
+  });
+});
+
+await testAsync('061 retains atomic explicit import and global reset through the existing routes', async () => {
+  await withPolicy061(async db => {
+    const harness = await miscRoutes(db);
+    try {
+      const before = policyRows(db);
+      harness.setBody({ version: 1, settings: { theme: 'invalid-import' }, policy: { autoCleanupDays: 0 } });
+      await harness.routes['POST /api/settings/import']({}, {});
+      assertEqual(harness.responses.at(-1).status, 400);
+      assertEqual(policyRows(db), before);
+      assertEqual(JSON.parse(db.prepare('SELECT data FROM user_settings').get().data).theme, 'dark');
+      harness.setBody({ version: 1, settings: { theme: 'light', models: { autoFailoverEnabled: true, keep: 2 } }, policy: { autoFailoverEnabled: true } });
+      await harness.routes['POST /api/settings/import']({}, {});
+      assertEqual(harness.responses.at(-1).status, 200);
+      assertEqual(readModelAutomationPolicy(db).policy.autoFailoverEnabled, true);
+      assertEqual(db.prepare('SELECT source FROM model_automation_policy_events WHERE committed_revision = 2').get().source, 'SETTINGS_IMPORT');
+      await harness.routes['POST /api/reset']({}, {});
+      assertEqual(harness.responses.at(-1).status, 200);
+      assertEqual(readModelAutomationPolicy(db).policy.autoFailoverEnabled, false);
+      assertEqual(readModelAutomationPolicy(db).revision, 3);
+      assertEqual(db.prepare('SELECT source FROM model_automation_policy_events WHERE committed_revision = 3').get().source, 'GLOBAL_RESET');
+    } finally { harness.restore(); }
+  });
+});
+
+await testAsync('061 refuses a mismatched event timestamp and cannot write from that invalid state', async () => {
+  await withPolicy061(async db => {
+    // Simulate corrupted projection bytes after bypassing its update guard.
+    db.exec('DROP TRIGGER trg_model_automation_projection_revision; DROP TRIGGER trg_model_automation_projection_new_event');
+    db.prepare('UPDATE model_automation_policy SET updated_at_ms = updated_at_ms + 1').run();
+    assertEqual(readModelAutomationPolicy(db).status, ModelPolicyStatus.EVENT_MISMATCH);
+    assertEqual(readModelAutomationPolicy(db).policy.autoFailoverEnabled, false);
+    const before = policyRows(db);
+    const error = captureError(() => updateModelAutomationPolicy(db, { values: { autoFailoverEnabled: true }, actor: 'user:test', source: POLICY_SOURCE.TYPED_ROUTE }));
+    assertEqual(error.code, 'MODEL_POLICY_STATE_INVALID');
+    assertEqual(policyRows(db), before);
+  });
+});
+
+await testAsync('unknown extensions of either policy schema fail closed without a compatibility write', async () => {
+  for (const withSchema of [withDb, withPolicy061]) {
+    await withSchema(async db => {
+      db.exec('ALTER TABLE model_automation_policy_events ADD COLUMN unknown_authority TEXT');
+      const before = policyRows(db);
+      const state = readModelAutomationPolicy(db);
+      assertEqual(state.status, ModelPolicyStatus.DB_ERROR);
+      assertEqual(state.reason, 'MODEL_POLICY_SCHEMA_UNSUPPORTED');
+      assertEqual(state.policy.autoFailoverEnabled, false);
+      const error = captureError(() => updateModelAutomationPolicy(db, { values: { autoFailoverEnabled: true }, actor: 'user:test', source: POLICY_SOURCE.TYPED_ROUTE }));
+      assertEqual(error.code, 'MODEL_POLICY_STATE_INVALID');
+      assertEqual(policyRows(db), before);
+    });
+  }
+});
 
 summary();

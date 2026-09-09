@@ -15,7 +15,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 ## Inventory
 
 - Runnable programs: 512
-- Explicit support-module exclusions: 18
+- Explicit support-module exclusions: 19
 - Profiles: offline=279, database=73, server=44, model=81, soak=15, manual=20
 - States: ACTIVE=418, HISTORICAL=15, BLOCKED=79
 
@@ -565,6 +565,7 @@ ledger.
 | `tests/fixtures/m2-project-context/project-a/src/shared/sharedTieBreaker-alpha.js` | Static bytewise-order fixture consumed by the M2 project-context retrieval suite. |
 | `tests/fixtures/m2-project-context/project-a/src/shared/sharedTieBreaker-beta.js` | Static bytewise-order fixture consumed by the M2 project-context retrieval suite. |
 | `tests/fixtures/m2-project-context/project-b/src/canary-b.js` | Static cross-project containment canary consumed by the M2 project-context suites. |
+| `tests/fixtures/model-policy-061.js` | Byte-identical accepted migration fixture imported by m1-model-automation-policy.test.js; no top-level test entry point. |
 | `tests/fixtures/studio-m1-electron-backend.js` | Suite-owned M1 Electron backend fixture launched only by studio-m1-electron-journey.e2e.js. |
 | `tests/harness.js` | Imported unit-test harness library with no top-level test entry point. |
 | `tests/helpers/chat-journey-response.js` | Imported model-journey response classifier with deterministic checks covered by m1-chat-contract.test.js. |

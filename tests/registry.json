@@ -51,6 +51,10 @@
       "reason": "Suite-owned M1 Electron backend fixture launched only by studio-m1-electron-journey.e2e.js."
     },
     {
+      "path": "tests/fixtures/model-policy-061.js",
+      "reason": "Byte-identical accepted migration fixture imported by m1-model-automation-policy.test.js; no top-level test entry point."
+    },
+    {
       "path": "tests/fixtures/m2-project-context/project-a/src/auth/validateSessionToken.js",
       "reason": "Static source fixture consumed by the M2 project-context retrieval and consumer suites."
     },

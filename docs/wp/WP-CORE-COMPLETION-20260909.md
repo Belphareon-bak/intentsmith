@@ -84,3 +84,14 @@ s automatickou rehydratací je samostatně vyhodnocený následný krok.
 Stop condition: drift připnutých souborů, cizí GPU/Ollama práce nebo chybějící
 skutečná admin autentizace zastaví závislou operaci. M5 rotace/custody/history,
 M7 síť/klíče/zařízení a release podpisy zůstávají mimo tuto autoritu.
+
+Při přípravě se reprodukovala podporovaná upgrade regrese modelové politiky:
+uznané M1/061 schéma zůstává po aktuálních migracích pro typed reader/writer
+nepoužitelné. Přijatý opt-in kontrakt Decision 020 tím není naplněný. Tento
+technický follow-up proto zahrnuje `src/db/model-policy.js`, existující policy
+suite a přesnou historickou 061 fixture. Oprava musí zachovat obě uznaná
+schémata, jejich vlastní pořadí zápisu, optimistic revision, auditní historii
+a odmítnutí neznámého/neplatného stavu. Ověření: původní kód se stejnými
+regresemi FAIL; opravený typed zápis/reset a rollback na fixture i soukromé
+kopii skutečné DB PASS; settings/coordinator regresní sady a nezávislé review.
+Živé policy hodnoty ani historické události se v tomto kroku nemění.
