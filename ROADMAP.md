@@ -2150,7 +2150,7 @@ vyrenderovanou dočasnou unitou prošel bez výstupu.
 
 Registry má 511 programů, 412 `ACTIVE + required`, deterministic scope 351
 (`278 offline + 73 database`) a fingerprint `922f65e9…0b40`. Autoritativní
-module graph má 1 273 hran, 3 cykly a 28 souborů v cyklech.
+module graph má 1 274 hran, 3 cykly a 28 souborů v cyklech.
 M6 locked plan zahrnuje všech 412 povinných programů; omission test navíc
 jednotlivě zamyká všech jedenáct nových listener/Android programů. Nightly
 orchestrator používá stejný fingerprint a přesné profilové počty. Focused
