@@ -45,7 +45,7 @@ const M2_TOOL_FALLBACK_SUPPRESS_ERROR_CODES = new Set([
 const ANSWER_TOKEN_BUDGET = Object.freeze({
   VERY_SHORT: 64,
   SHORT_CONVERSATION: 128,
-  STANDARD_CONVERSATION: 128,
+  STANDARD_CONVERSATION: 256,
   CREATIVE_CONTEXT_UPDATE: 128,
   COMPACT_CREATIVE: 256,
   COMPACT_NAMING: 128,
@@ -59,7 +59,7 @@ const ANSWER_TOKEN_BUDGET = Object.freeze({
 });
 
 const BRIEF_CONVERSATION_PATTERN = /^(?:ahoj|\u010dau|cau|nazdar|hi|hello|hey|d[ií]ky|d[eě]kuji|thanks?|thank you|ok(?:ay)?|dob[rř]e|jasn[eě]|rozum[ií]m|jak se m[áa][sš]|how are you)[!.,? ]*$/iu;
-const COMPACT_CREATIVE_PATTERN = /(?:\bhaiku\b|\b(?:e-?mail|mail)\b)/iu;
+const COMPACT_CREATIVE_PATTERN = /\bhaiku\b/iu;
 const COMPACT_NAMING_PATTERN = /(?:\b(?:n[aá]zev|jm[eé]no|title|name)\b.{0,50}\b(?:pro|for)\b|\b(?:n[aá]vrhy?|suggestions?)\b.{0,30}\b(?:n[aá]zev|jm[eé]n|titles?|names?)\b)/iu;
 const CREATIVE_CONTEXT_UPDATE_PATTERN = /^(?:hlavn[\p{L}]*\s+postav[\p{L}]*|t[eé]ma|the\s+(?:main\s+character|theme))\s+(?:bude|budou|je|will\s+be|is)\b/iu;
 const COUNTED_CREATIVE_PATTERN = /(?:\b(?:navrhni|vymysli|propose|suggest|give)\b.{0,50}\b[2-5]\b|\b[2-5]\b.{0,30}\b(?:varianty?|n[aá]vrhy?|options?|ideas?|items?|encounters?)\b)/iu;
@@ -239,9 +239,12 @@ function selectAnswerTokenBudget(input, intent) {
     return ANSWER_TOKEN_BUDGET.NON_CONVERSATIONAL;
   }
   const inputLength = normalizedInput.length;
-  if (inputLength <= 10) return ANSWER_TOKEN_BUDGET.VERY_SHORT;
+  // Short input is not necessarily a brief reply: a bare topic or question
+  // still receives the standard complete-answer instruction and its headroom.
   if (BRIEF_CONVERSATION_PATTERN.test(normalizedInput)) {
-    return ANSWER_TOKEN_BUDGET.SHORT_CONVERSATION;
+    return inputLength <= 10
+      ? ANSWER_TOKEN_BUDGET.VERY_SHORT
+      : ANSWER_TOKEN_BUDGET.SHORT_CONVERSATION;
   }
   if (inputLength <= 160) return ANSWER_TOKEN_BUDGET.STANDARD_CONVERSATION;
   return ANSWER_TOKEN_BUDGET.LONG_CONVERSATION;

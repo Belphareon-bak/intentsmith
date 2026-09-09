@@ -271,10 +271,19 @@ test('ANSWER model generation receives the request cancellation signal', () => {
 test('ANSWER token budgets bound short chat without constraining richer intents below authority', () => {
   assert.equal(selectAnswerTokenBudget('OK', 'CONVERSATIONAL'), 64);
   assert.equal(selectAnswerTokenBudget('Jak se máš?', 'CONVERSATIONAL'), 128);
-  assert.equal(selectAnswerTokenBudget('Co si myslíš o Pythonu?', 'CONVERSATIONAL'), 128);
+  assert.equal(selectAnswerTokenBudget('Co si myslíš o Pythonu?', 'CONVERSATIONAL'), 256);
+  for (const topic of ['Python', '?', 'DNS', 'Co je AI?']) {
+    assert.equal(selectAnswerTokenBudget(topic, 'CONVERSATIONAL'), 256);
+    assert.match(buildStandardConversationInstruction(topic, 'en', 'CONVERSATIONAL'), /at most 45 words/u);
+    assert.equal(buildBriefReplyInstruction(topic, 'en'), '');
+  }
+  assert.equal(selectAnswerTokenBudget('Thanks', 'CONVERSATIONAL'), 64);
+  assert.equal(selectAnswerTokenBudget('How are you?', 'CONVERSATIONAL'), 128);
+  assert.equal(selectAnswerTokenBudget('x'.repeat(10), 'CONVERSATIONAL'), 256);
+  assert.equal(selectAnswerTokenBudget('x'.repeat(160), 'CONVERSATIONAL'), 256);
   assert.equal(selectAnswerTokenBudget('x'.repeat(161), 'CONVERSATIONAL'), 1200);
   assert.equal(selectAnswerTokenBudget('Napiš haiku o kávě', 'CREATIVE'), 256);
-  assert.equal(selectAnswerTokenBudget('Pomoz mi napsat email', 'CREATIVE'), 256);
+  assert.equal(selectAnswerTokenBudget('Pomoz mi napsat email', 'CREATIVE'), 768);
   assert.equal(selectAnswerTokenBudget('Vymysli název pro knihovnu.', 'CREATIVE'), 128);
   assert.equal(selectAnswerTokenBudget('Téma bude námořní dobrodružství.', 'CREATIVE'), 128);
   assert.equal(selectAnswerTokenBudget('Vymysli itinerář na 3 dny.', 'CREATIVE'), 768);
@@ -282,7 +291,7 @@ test('ANSWER token budgets bound short chat without constraining richer intents 
   assert.equal(selectAnswerTokenBudget('Napiš finální verzi celého textu písně.', 'CREATIVE'), 1024);
   assert.equal(selectAnswerTokenBudget('Napiš mi funkci pro faktoriál.', 'CODE'), 512);
   assert.equal(selectAnswerTokenBudget('Napiš mi kompletní produkční API.', 'CODE'), 768);
-  assert.equal(selectAnswerTokenBudget('Help me write an e-mail', 'CREATIVE'), 256);
+  assert.equal(selectAnswerTokenBudget('Help me write an e-mail', 'CREATIVE'), 768);
   assert.equal(selectAnswerTokenBudget('napiš příběh', 'CREATIVE'), 768);
   assert.match(buildBriefReplyInstruction('Díky', 'cs'), /právě jednou krátkou/u);
   assert.match(buildBriefReplyInstruction('Thanks', 'en'), /exactly one short/u);
@@ -301,6 +310,9 @@ test('ANSWER token budgets bound short chat without constraining richer intents 
   assert.match(buildCountedCreativeInstruction('Jaké encountery mohou potkat? Navrhni 3.', 'cs', 'CREATIVE'), /Každá má nejvýše 35 slov/u);
   assert.match(buildCreativeDescriptionInstruction('Popiš prostředí temného lesa.', 'cs', 'CREATIVE'), /nejvýše 120 slovy/u);
   assert.match(buildStandardCreativeInstruction('Vymysli itinerář na 3 dny.', 'cs', 'CREATIVE'), /nejvýše 150 slov/u);
+  assert.match(buildStandardCreativeInstruction('Pomoz mi napsat email', 'cs', 'CREATIVE'), /nejvýše 150 slov/u);
+  assert.match(buildStandardCreativeInstruction('Help me write an e-mail', 'en', 'CREATIVE'), /at most 150 words/u);
+  assert.equal(buildStandardCreativeInstruction('Napiš haiku o kávě', 'cs', 'CREATIVE'), '');
   assert.equal(buildStandardCreativeInstruction('Napiš úvodní scénu povídky.', 'cs', 'CREATIVE'), '');
   assert.match(buildLongCreativeInstruction('Napiš úvodní scénu povídky.', 'cs', 'CREATIVE'), /nejvýše 180 slov/u);
   assert.equal(buildLongCreativeInstruction('Napiš finální verzi celého textu písně.', 'cs', 'CREATIVE'), '');

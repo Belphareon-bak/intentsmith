@@ -206,3 +206,14 @@ aktivní projekt a explicitní file/shell požadavky zachovávají effect author
 Čtyři nové kontroly a celá stávající C02 sada prošly (19/19); ostatní nalezené
 expertizní chyby zůstávají otevřené. Nezávislé review opravilo i původní vadný
 testový stub; původní neúspěšný probe zůstává uchovaný.
+
+Raw diagnostika přesného provideru na původním `193e2351` zachytila skutečné
+`done_reason=length` u e-mailu (256 tokenů), `Python` a `?` (64 tokenů), bez
+thinking tokenů a bez uložené assistant odpovědi. Minimální oprava zarovnává
+standardní 45slovný answer scope s rezervou 256 tokenů; 64 tokenů zůstává jen
+u skutečných krátkých pozdravů/potvrzení. E-mail využije existující standardní
+creative rozpočet 768 a jeho 150slovný scope, haiku zůstává 256. Ostatní code,
+creative a expertise limity, role authority, retry, cancellation a odmítnutí
+neúplné odpovědi se nemění. Původní projektový FAIL se v rekonstruovaném
+kontextu neopakoval; obě seedované varianty 128/256 skončily shodně na 102
+tokenech. Toto není přeznačení historického neúspěchu ani release acceptance.
