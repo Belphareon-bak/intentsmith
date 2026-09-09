@@ -92,7 +92,7 @@ entry for every supplied item ID; never invent an item, key, or version.`;
  * Used in: lifecycle-spec.js → generateSpec()
  */
 export function specDocument(request, answers, assessment) {
-  return `You are a senior software architect creating a thorough project specification. This spec is the engineering contract — it must be precise enough that an independent team could build from it.
+  return `You are a senior software architect creating a complete, concise project specification. This spec is the engineering contract — it must be precise enough that an independent team could build from it.
 
 IMPORTANT: All text content in your JSON output (descriptions, rationale, criteria) MUST be in the SAME LANGUAGE as the original request below. If the user writes in Czech, all descriptions must be in Czech. If in English, respond in English. Technical terms and identifiers stay in their original form.
 
@@ -100,13 +100,19 @@ IMPORTANT: All text content in your JSON output (descriptions, rationale, criter
 ${request}
 
 ## Clarification Answers
-${typeof answers === 'string' ? answers : JSON.stringify(answers, null, 2)}
+${typeof answers === 'string' ? answers : JSON.stringify(answers)}
 
 ## Initial Assessment (including technical decisions)
-${typeof assessment === 'string' ? assessment : JSON.stringify(assessment, null, 2)}
+${typeof assessment === 'string' ? assessment : JSON.stringify(assessment)}
 
 ## Task
 Create a complete, structured project specification. Every section must be substantive, not templated.
+
+## Compact output, complete scope
+Return one complete JSON object on one line; no formatting whitespace outside strings, markdown, preamble or schema explanation.
+Use short, concrete phrases. Keep every field, requested feature, constraint, identifier, enum, unit, default, error and verifiable acceptance condition. For revisions, preserve all still-applicable previous requirements; feedback changes only what it addresses. Never drop a requirement to shorten the document.
+State detailed rules in requirements/data_model once; elsewhere refer to stable IDs without repeating paragraphs. Every success criterion and acceptance test must still give a concrete expected outcome, not just an ID or "as above".
+Keep alternatives_considered as an array of strings as shown; keep rationale, threats, mitigations and risk contingencies explicit. Cover all supplied technical decisions and approved constraints. Minimum counts are floors, not caps. Finish all sections, including constraints, out_of_scope and acceptance_criteria.
 
 ## MANDATORY Requirements:
 - goals: minimum 3 distinct goals with clear success criteria
@@ -120,48 +126,7 @@ Create a complete, structured project specification. Every section must be subst
 
 ## Output (JSON only)
 \`\`\`json
-{
-  "title": "string",
-  "goals": [
-    { "id": "G1", "description": "string", "priority": "MUST|SHOULD|COULD", "success_criteria": "string — measurable condition" }
-  ],
-  "requirements": {
-    "functional": [
-      { "id": "R1", "description": "string — specific and testable", "goal_id": "G1", "acceptance_test": "string — how to verify" }
-    ],
-    "non_functional": [
-      { "id": "NF1", "category": "performance|security|usability|reliability|portability", "description": "string", "metric": "string — measurable target" }
-    ]
-  },
-  "tech_stack": {
-    "languages": ["string — with version"],
-    "frameworks": ["string — with version"],
-    "tools": ["string"],
-    "rationale": "string — why these specific choices over alternatives"
-  },
-  "architecture": {
-    "pattern": "string — e.g. layered CLI with plugin architecture",
-    "components": [
-      { "name": "string", "responsibility": "string", "interfaces": ["string — what it exposes"] }
-    ],
-    "data_flow": "string — how data moves through the system",
-    "data_model": "string — schema/structure description"
-  },
-  "design_decisions": [
-    { "id": "DD1", "decision": "string", "chosen": "string", "alternatives_considered": ["alternative A", "alternative B"], "rationale": "string — why this over alternatives" }
-  ],
-  "security_model": {
-    "threat_model": "string — key threats",
-    "mitigations": ["string"],
-    "sensitive_data": ["string — what data needs protection"]
-  },
-  "risks": [
-    { "id": "RISK1", "description": "string", "severity": "LOW|MEDIUM|HIGH", "likelihood": "LOW|MEDIUM|HIGH", "mitigation": "string", "contingency": "string — fallback if mitigation fails" }
-  ],
-  "constraints": ["string"],
-  "out_of_scope": ["string"],
-  "acceptance_criteria": ["string — project-level done conditions"]
-}
+{"title":"string","goals":[{"id":"G1","description":"string","priority":"MUST|SHOULD|COULD","success_criteria":"string — measurable condition"}],"requirements":{"functional":[{"id":"R1","description":"string — specific and testable","goal_id":"G1","acceptance_test":"string — how to verify"}],"non_functional":[{"id":"NF1","category":"performance|security|usability|reliability|portability","description":"string","metric":"string — measurable target"}]},"tech_stack":{"languages":["string — with version"],"frameworks":["string — with version"],"tools":["string"],"rationale":"string — why these specific choices over alternatives"},"architecture":{"pattern":"string — e.g. layered CLI with plugin architecture","components":[{"name":"string","responsibility":"string","interfaces":["string — what it exposes"]}],"data_flow":"string — how data moves through the system","data_model":"string — schema/structure description"},"design_decisions":[{"id":"DD1","decision":"string","chosen":"string","alternatives_considered":["alternative A","alternative B"],"rationale":"string — why this over alternatives"}],"security_model":{"threat_model":"string — key threats","mitigations":["string"],"sensitive_data":["string — what data needs protection"]},"risks":[{"id":"RISK1","description":"string","severity":"LOW|MEDIUM|HIGH","likelihood":"LOW|MEDIUM|HIGH","mitigation":"string","contingency":"string — fallback if mitigation fails"}],"constraints":["string"],"out_of_scope":["string"],"acceptance_criteria":["string — project-level done conditions"]}
 \`\`\``;
 }
 
