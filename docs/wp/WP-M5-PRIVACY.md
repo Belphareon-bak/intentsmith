@@ -136,3 +136,18 @@ po network-isolated generování na trvale připojeném stejném `/home` svazku 
 stejným OS účtem. Před podpisem musí být stejné keypairy přesunuty do skutečně
 offline úložiště a reviewer key musí mít oddělenou custody. Osm rotací, history
 disposition a M5 acceptance zůstávají neprovedené.
+
+## Kompatibilita podmíněné remediation — 2026-09-09
+
+Následný source review přijal rozlišení podepsané dokončené rotace a
+historicky doložené neaplikovatelnosti podle původního incidentu a
+`2026-08-07-SECRET-TYPES.md §2`; přesnou reprezentaci popisuje doplnění
+Decision 035. Všech osm kategorií, historie, oddělené role a kryptografické
+svázání zůstávají. Smíšený souhrn nepočítá N/A jako rotaci. Původní completed-v1
+vstupy se nadále ověřují beze změny. Nové regresní případy nad původním kódem
+prokázaly 39 PASS / 6 FAIL; soukromý opravený návrh 45/45 PASS včetně skutečného
+Git/CLI smíšeného řetězce a nezávislého source review.
+
+Aktuální provozní stav tím není přijat: historické použití musí doložit
+operátor, současná absence konfigurace není důkaz neaplikovatelnosti.
+Custody, skutečné operace, podpisy a history disposition zůstávají otevřené.

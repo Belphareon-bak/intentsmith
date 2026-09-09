@@ -519,9 +519,16 @@ evaluace se spouštějí řízeným hunt workflow, nikoli skrytým HTTP/WS jobem
 | `DELETE` | `/api/security/tokens/:id` | — | `{success}` or 404 | Deletes token |
 | `GET` | `/api/security/webhook-secret` | — | `{configured, source, persistence}` | Environment-only status; never emits masked material |
 | `POST` | `/api/security/webhook-secret` | — | `409 M5_PRIVACY_WEBHOOK_SECRET_ENV_ONLY` | API generation and persistence are disabled |
-| `GET` | `/api/security/privacy/remediation` | — | `PrivacyRemediationStatus@2` | Re-verifies the untrusted signed-receipt cache; never returns secret material |
+| `GET` | `/api/security/privacy/remediation` | — | `PrivacyRemediationStatus@2` / `PrivacyRemediationStatus@3` | Re-verifies the untrusted signed-receipt cache; never returns secret material |
 | `POST` | `/api/security/privacy/rotations/:categoryId/attest` | body is not parsed | `410 M5_PRIVACY_OFFLINE_SIGNATURE_REQUIRED` | Retired: production receipts require the offline Ed25519 ceremony |
 | `POST` | `/api/security/privacy/history/attest` | body is not parsed | `410 M5_PRIVACY_OFFLINE_SIGNATURE_REQUIRED` | Retired: production receipts require the offline Ed25519 ceremony |
+
+`PrivacyRemediationStatus@2` retains the completed-rotation-only response shape.
+When a signed non-applicability assessment is present, version 3 reports the
+resolved-category count against eight required categories, alongside `rotationsCompleted` and
+`rotationsNotApplicable`; it never counts an assessment as a completed rotation.
+N/A requires offline signed historical/current authority evidence; missing current
+configuration is insufficient. All eight category receipts and history remain required.
 
 ---
 

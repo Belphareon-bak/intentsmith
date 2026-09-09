@@ -189,3 +189,13 @@ všichni tři experti musí být přítomní před prvním modelovým voláním,
 účetní dialogy se tiše nevynechají. Nečekaný authority terminal nově připojí
 omezený klasifikační trace do chybové evidence; seznam očekávaných terminalů
 ani acceptance predikáty se nerozšiřují.
+
+Navazující kompatibilní M5 oprava řeší nemožnost pravdivě zaznamenat původně
+podmíněnou neaplikovatelnost credentials (`PRIVACY-INCIDENT.json`,
+`2026-08-07-SECRET-TYPES.md §2`), nikoli novou výjimku z privacy požadavku.
+Rozsah: nový striktní category-resolution validator, privacy repository,
+celý signed-bundle verifier, M5 acceptance payload a jejich tři existující
+regresní sady; příslušné API/Decision 035/WP dokumenty a census. Zachovává se
+původní completed-v1 validátor, osm kategorií, history receipt, klíče, domény,
+append-only ukládání a povinné nezávislé review. Podpisy, skutečná revokace,
+custody, history akce ani deklarace konkrétní kategorie jako N/A se neprovádějí.

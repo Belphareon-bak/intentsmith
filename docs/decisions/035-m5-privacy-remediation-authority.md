@@ -55,3 +55,24 @@ spadne na free tier.
   nesplněné.
 
 Toto rozhodnutí není nezávislé review ani M5 acceptance.
+
+## Kompatibilní upřesnění podmíněné platnosti — 2026-09-09
+
+Původní incident manifest `docs/convergence/PRIVACY-INCIDENT.json` a jeho
+review `docs/review/2026-08-07-SECRET-TYPES.md §2` podmiňují rotaci skutečnou
+platností credentials a u fixture hesel jejich reuse. Technická reprezentace
+proto nově rozlišuje dokončenou rotaci a podepsané posouzení neaplikovatelnosti;
+nevytváří povinnost rotovat neexistující účet. Všech osm kategorií i history
+receipt zůstávají povinné. Původní completed-v1 validace a receipts se nemění.
+
+`ROTATION_NOT_APPLICABLE` je samostatný payload s podepsaným historickým
+posouzením, svázaným důkazním artefaktem a tvrzením, že nezůstává lokální ani
+externí autorita. Dnešní chybějící konfigurace nestačí. Zánik dřívější autority
+vyžaduje další důkaz revokace, expirace nebo vyřazení celé dotčené authority;
+fixture důvod navíc potvrzuje nepoužití mimo testy. N/A se nikdy nepočítá jako
+provedená rotace. Smíšený souhrn používá verzi 3 a M5 acceptance payload verzi
+2; celý podpisový řetězec kontroluje počty proti osmi skutečným receipts.
+
+Jde o opravu reprezentace původně podmíněného požadavku. Žádná konkrétní
+kategorie nebyla tímto upřesněním označena N/A a nevznikl operátorský podpis,
+revokace, history disposition ani M5 acceptance.

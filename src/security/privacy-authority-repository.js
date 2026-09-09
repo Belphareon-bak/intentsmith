@@ -10,8 +10,11 @@ import {
 } from '../../contracts/m5/privacy-remediation-v1.js';
 import {
   validateSignedM5PrivacyHistoryReceipt,
-  validateSignedM5PrivacyRotationReceipt,
 } from '../../contracts/m5/signed-privacy-receipts-v1.js';
+import {
+  M5_PRIVACY_NON_APPLICABILITY_DECISION,
+  validateSignedM5PrivacyCategoryReceipt,
+} from '../../contracts/m5/signed-privacy-category-resolution-v1.js';
 import {
   createSignedAuthorityVerifier,
   verifySignedAuthorityReceiptSet,
@@ -108,34 +111,34 @@ function orderLinearChain(receipts) {
 }
 
 function validatePrivacySequence(receipts) {
-  const rotations = [];
+  const categoryResolutions = [];
   let history = null;
   for (const [index, receipt] of receipts.entries()) {
     if (receipt.domain === SIGNED_AUTHORITY_DOMAIN.M5_PRIVACY_ROTATION) {
-      const semantic = validateSignedM5PrivacyRotationReceipt(receipt);
+      const semantic = validateSignedM5PrivacyCategoryReceipt(receipt);
       if (!semantic.valid) fail(
         M5PrivacyAuthorityErrorCode.SIGNED_RECEIPT_INVALID,
-        `Signed rotation receipt is invalid: ${semantic.errors.join(',')}`,
+        `Signed category receipt is invalid: ${semantic.errors.join(',')}`,
       );
       if (history !== null || index >= M5_PRIVACY_ROTATION_CATEGORIES.length) fail(
         M5PrivacyAuthorityErrorCode.SIGNED_RECEIPT_INVALID,
-        'Signed privacy rotations must precede the history receipt',
+        'Signed privacy category resolutions must precede the history receipt',
       );
       const expectedCategory = M5_PRIVACY_ROTATION_CATEGORIES[index];
       if (receipt.payload.categoryId !== expectedCategory.categoryId) fail(
         M5PrivacyAuthorityErrorCode.SIGNED_RECEIPT_INVALID,
-        'Signed privacy rotations are not in the canonical category order',
+        'Signed privacy category resolutions are not in the canonical category order',
       );
-      rotations.push(receipt);
+      categoryResolutions.push(receipt);
     } else if (receipt.domain === SIGNED_AUTHORITY_DOMAIN.M5_PRIVACY_HISTORY) {
       const semantic = validateSignedM5PrivacyHistoryReceipt(receipt);
       if (!semantic.valid) fail(
         M5PrivacyAuthorityErrorCode.SIGNED_RECEIPT_INVALID,
         `Signed history receipt is invalid: ${semantic.errors.join(',')}`,
       );
-      if (history !== null || rotations.length !== M5_PRIVACY_ROTATION_CATEGORIES.length) fail(
+      if (history !== null || categoryResolutions.length !== M5_PRIVACY_ROTATION_CATEGORIES.length) fail(
         M5PrivacyAuthorityErrorCode.SIGNED_RECEIPT_INVALID,
-        'Signed history receipt requires all eight ordered rotations',
+        'Signed history receipt requires all eight ordered category resolutions',
       );
       history = receipt;
     } else {
@@ -145,7 +148,7 @@ function validatePrivacySequence(receipts) {
       );
     }
   }
-  return Object.freeze({ rotations: Object.freeze(rotations), history });
+  return Object.freeze({ categoryResolutions: Object.freeze(categoryResolutions), history });
 }
 
 export class M5PrivacyAuthorityRepository {
@@ -291,13 +294,39 @@ export class M5PrivacyAuthorityRepository {
   summary() {
     try {
       const authorityBindingsVerified = this.expectedBindings !== null;
-      const { rotations, history } = this.#loadVerifiedReceipts({
+      const { categoryResolutions, history } = this.#loadVerifiedReceipts({
         requireBindings: false,
       });
-      const completed = new Set(rotations.map(receipt => receipt.payload.categoryId));
+      const resolved = new Set(categoryResolutions.map(receipt => receipt.payload.categoryId));
       const missingCategoryIds = M5_PRIVACY_ROTATION_CATEGORIES
         .map(category => category.categoryId)
-        .filter(categoryId => !completed.has(categoryId));
+        .filter(categoryId => !resolved.has(categoryId));
+      const notApplicable = categoryResolutions.filter(
+        receipt => receipt.decision === M5_PRIVACY_NON_APPLICABILITY_DECISION,
+      );
+      const rotations = notApplicable.length === 0 ? categoryResolutions : Object.freeze(
+        categoryResolutions.filter(receipt => receipt.decision !== M5_PRIVACY_NON_APPLICABILITY_DECISION),
+      );
+      if (notApplicable.length > 0) return Object.freeze({
+        contract: M5_PRIVACY_KIND.REMEDIATION_STATUS,
+        version: 3,
+        authorityProtocol: 'OFFLINE_ED25519_SIGNED_RECEIPTS',
+        authorityBindingsVerified,
+        incidentId: M5_PRIVACY_INCIDENT_ID,
+        categoriesRequired: M5_PRIVACY_ROTATION_CATEGORIES.length,
+        categoriesResolved: categoryResolutions.length,
+        rotationsCompleted: rotations.length,
+        rotationsNotApplicable: notApplicable.length,
+        categoryResolutions,
+        rotations,
+        notApplicable: Object.freeze(notApplicable),
+        missingCategoryIds: Object.freeze(missingCategoryIds),
+        historyDisposition: history,
+        secretValuesRecorded: false,
+        verdict: authorityBindingsVerified && missingCategoryIds.length === 0 && history
+          ? 'OPERATOR_REMEDIATION_RECORDED'
+          : 'INCOMPLETE',
+      });
       return Object.freeze({
         contract: M5_PRIVACY_KIND.REMEDIATION_STATUS,
         version: 2,

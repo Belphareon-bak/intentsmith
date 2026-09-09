@@ -219,7 +219,22 @@ function signed({ domain, roleKey, decision, payload, previousReceiptId, index, 
   return receipt;
 }
 
-function fixture() {
+function nonApplicabilityPayload(category, evidenceDigest, assessedAtMs) {
+  const fixturePassword = category.categoryId === 'fixture-password-reuse';
+  return {
+    contract: 'M5PrivacyNonApplicabilityEvidence', version: 1,
+    incidentId: 'G0-PRIVACY-001', categoryId: category.categoryId,
+    authorityKind: category.authorityKind, assessmentCompleted: true, assessedAtMs,
+    assessmentScope: 'HISTORICAL_EXPOSURE_AND_CURRENT_AUTHORITY',
+    historicalExposureReviewed: true, remainingLocalAuthority: false,
+    remainingExternalAuthority: false, secretMaterialIncluded: false,
+    reason: fixturePassword ? 'FIXTURE_NOT_REUSED' : 'NEVER_EXISTED_IN_EXPOSURE_SCOPE',
+    assessmentEvidenceSha256: evidenceDigest,
+    ...(fixturePassword ? { fixtureReusedOutsideTests: false } : {}),
+  };
+}
+
+function fixture({ nonApplicable = [], acceptanceVersion = nonApplicable.length ? 2 : 1, m5Overrides = {} } = {}) {
   const artifactStore = new Map();
   artifactStore.set(`${evidenceHeadSha}:${M6_RELEASE_EVIDENCE_INDEX_PATH}`, {
     bytes: releaseIndexBytes,
@@ -237,11 +252,12 @@ function fixture() {
     const receipt = signed({
       domain: SIGNED_AUTHORITY_DOMAIN.M5_PRIVACY_ROTATION,
       roleKey: keys.privacy,
-      decision: 'ROTATION_COMPLETED',
+      decision: nonApplicable.includes(index) ? 'ROTATION_NOT_APPLICABLE' : 'ROTATION_COMPLETED',
       previousReceiptId,
       index,
       artifactStore,
-      payload: {
+      payload: nonApplicable.includes(index)
+        ? nonApplicabilityPayload(category, providerDigest, 1_799_999_999_000) : {
         contract: M5_SIGNED_PRIVACY_PAYLOAD.ROTATION,
         version: 1,
         incidentId: 'G0-PRIVACY-001',
@@ -325,9 +341,11 @@ function fixture() {
     artifactStore,
     payload: {
       contract: M6_ACCEPTANCE_PAYLOAD_CONTRACT.M5,
-      version: 1,
+      version: acceptanceVersion,
       reviewSectionsPassed: 9,
-      rotationsCompleted: 8,
+      rotationsCompleted: acceptanceVersion === 2 ? 8 - nonApplicable.length : 8,
+      ...(acceptanceVersion === 2 ? { categoriesResolved: 8, rotationsNotApplicable: nonApplicable.length } : {}),
+      ...m5Overrides,
       historyDisposition: M5_PRIVACY_HISTORY_DECISIONS.RETAIN_AND_ROTATE,
       privacyHistoryReceiptId: history.receiptId,
       openCriticalHigh: 0,
@@ -527,7 +545,9 @@ function signGitFixtureReceipt({
   return receipt;
 }
 
-function buildRealGitBundle({ productMutationReverted = false } = {}) {
+function buildRealGitBundle({ productMutationReverted = false, nonApplicable = [] } = {}) {
+  const acceptanceVersion = nonApplicable.length ? 2 : 1;
+  const m5Overrides = {};
   const scratchRoot = path.join(repositoryRoot, '.intentsmith-artifacts');
   mkdirSync(scratchRoot, { recursive: true });
   const root = mkdtempSync(path.join(scratchRoot, 'signed-authority-git-e2e-'));
@@ -662,10 +682,11 @@ function buildRealGitBundle({ productMutationReverted = false } = {}) {
       expectedBindings,
       evidenceHead,
       artifacts: [artifact],
-      decision: 'ROTATION_COMPLETED',
+      decision: nonApplicable.includes(indexPosition) ? 'ROTATION_NOT_APPLICABLE' : 'ROTATION_COMPLETED',
       issuedIndex: indexPosition,
       previousReceiptId,
-      payload: {
+      payload: nonApplicable.includes(indexPosition)
+        ? nonApplicabilityPayload(category, artifact.sha256, 1_899_999_999_000) : {
         contract: M5_SIGNED_PRIVACY_PAYLOAD.ROTATION,
         version: 1,
         incidentId: 'G0-PRIVACY-001',
@@ -727,9 +748,11 @@ function buildRealGitBundle({ productMutationReverted = false } = {}) {
     previousReceiptId,
     payload: {
       contract: M6_ACCEPTANCE_PAYLOAD_CONTRACT.M5,
-      version: 1,
+      version: acceptanceVersion,
       reviewSectionsPassed: 9,
-      rotationsCompleted: 8,
+      rotationsCompleted: acceptanceVersion === 2 ? 8 - nonApplicable.length : 8,
+      ...(acceptanceVersion === 2 ? { categoriesResolved: 8, rotationsNotApplicable: nonApplicable.length } : {}),
+      ...m5Overrides,
       historyDisposition: M5_PRIVACY_HISTORY_DECISIONS.RETAIN_AND_ROTATE,
       privacyHistoryReceiptId: history.receiptId,
       openCriticalHigh: 0,
@@ -837,6 +860,40 @@ await testAsync('complete 13-receipt privacy and C-E-R-A chain passes', async ()
   });
   assert.equal(verification.verdict, 'PASS', verification.errors.join('\n'));
   assert.equal(verification.receipts.length, 13);
+});
+
+await testAsync('mixed category bundle binds actual completion counts and N/A artifact bytes', async () => {
+  const value = fixture({ nonApplicable: [2, 5] });
+  const verification = await verifySignedAuthorityBundle({
+    rawReceiptsByPath: value.rawReceiptsByPath, ...value.dependencies,
+  });
+  assert.equal(verification.verdict, 'PASS', verification.errors.join('\n'));
+  assert.equal(verification.receipts[9].payload.rotationsCompleted, 6);
+  assert.equal(verification.receipts[9].payload.rotationsNotApplicable, 2);
+  const naArtifact = value.receipts[2].artifacts[0];
+  value.dependencies.artifactStore.get(`${evidenceHeadSha}:${naArtifact.path}`).bytes = Buffer.from('tampered assessment');
+  const tampered = await verifySignedAuthorityBundle({
+    rawReceiptsByPath: value.rawReceiptsByPath, ...value.dependencies,
+  });
+  assert.equal(tampered.verdict, 'FAIL');
+  assert(tampered.errors.some(error => error.includes('artifact:binding')));
+});
+
+await testAsync('signed acceptance cannot relabel N/A as completed rotations or omit a category', async () => {
+  for (const options of [
+    { nonApplicable: [2, 5], acceptanceVersion: 1 },
+    { nonApplicable: [2, 5], m5Overrides: { rotationsCompleted: 8, rotationsNotApplicable: 0 } },
+  ]) {
+    const value = fixture(options);
+    const result = await verifySignedAuthorityBundle({ rawReceiptsByPath: value.rawReceiptsByPath, ...value.dependencies });
+    assert.equal(result.verdict, 'FAIL');
+    assert(result.errors.includes('bundle:m5-category-resolution-binding'), result.errors.join('\n'));
+  }
+  const missing = fixture({ nonApplicable: [2, 5] });
+  missing.rawReceiptsByPath.delete(M5_SIGNED_PRIVACY_RECEIPT_PATHS[5]);
+  const result = await verifySignedAuthorityBundle({ rawReceiptsByPath: missing.rawReceiptsByPath, ...missing.dependencies });
+  assert.equal(result.verdict, 'BLOCKED');
+  assert.equal(result.missingPaths.length, 1);
 });
 
 await testAsync('no operator receipts remains truthfully BLOCKED', async () => {
@@ -1094,6 +1151,19 @@ await testAsync('standalone CLI validates a real Git bundle and rejects mutate-t
   } finally {
     rmSync(passing.root, { recursive: true, force: true });
     rmSync(reverted.root, { recursive: true, force: true });
+  }
+});
+
+await testAsync('standalone CLI verifies mixed completed and N/A categories from actual Git bytes', async () => {
+  const value = buildRealGitBundle({ nonApplicable: [2, 5] });
+  try {
+    const result = runStandalone(standaloneVerifierPath, value.root);
+    assert.equal(result.status, 0, `${result.stderr}\n${result.stdout}`);
+    assert.equal(result.result?.verdict, 'PASS');
+    assert.equal(result.result?.receipts[9].payload.rotationsCompleted, 6);
+    assert.equal(result.result?.receipts[9].payload.rotationsNotApplicable, 2);
+  } finally {
+    rmSync(value.root, { recursive: true, force: true });
   }
 });
 

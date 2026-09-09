@@ -12,8 +12,11 @@ import {
 } from '../../contracts/m5/privacy-remediation-v1.js';
 import {
   validateSignedM5PrivacyHistoryReceipt,
-  validateSignedM5PrivacyRotationReceipt,
 } from '../../contracts/m5/signed-privacy-receipts-v1.js';
+import {
+  M5_PRIVACY_NON_APPLICABILITY_DECISION,
+  validateSignedM5PrivacyCategoryReceipt,
+} from '../../contracts/m5/signed-privacy-category-resolution-v1.js';
 import {
   createSignedAuthorityVerifier,
   verifySignedAuthorityReceiptSet,
@@ -57,7 +60,7 @@ function historyAt(receiptEvidenceHistories, evidenceHeadSha) {
 
 function validatePathSemantic(receipt, index, verifier, expected) {
   if (index < M5_PRIVACY_ROTATION_CATEGORIES.length) {
-    const semantic = validateSignedM5PrivacyRotationReceipt(receipt);
+    const semantic = validateSignedM5PrivacyCategoryReceipt(receipt);
     if (
       semantic.valid
       && receipt.payload.categoryId !== M5_PRIVACY_ROTATION_CATEGORIES[index].categoryId
@@ -264,6 +267,17 @@ export async function verifySignedAuthorityBundle({
     previousReceiptId = receipt.receiptId;
   }
   const [m5, review, demo, gate0] = acceptance;
+  const categoryReceipts = receipts.slice(0, M5_PRIVACY_ROTATION_CATEGORIES.length);
+  const notApplicable = categoryReceipts.filter(
+    receipt => receipt.decision === M5_PRIVACY_NON_APPLICABILITY_DECISION,
+  ).length;
+  if (m5?.payload.rotationsCompleted !== categoryReceipts.length - notApplicable
+    || (m5?.payload.version === 1 && notApplicable !== 0)
+    || (m5?.payload.version === 2 && (
+      m5.payload.categoriesResolved !== categoryReceipts.length
+      || m5.payload.rotationsNotApplicable !== notApplicable
+    ))) errors.push('bundle:m5-category-resolution-binding');
+
   if (m5?.payload.privacyHistoryReceiptId !== privacyHistory?.receiptId) {
     errors.push('bundle:m5-privacy-history-binding');
   }

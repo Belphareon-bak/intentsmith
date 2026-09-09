@@ -20,6 +20,9 @@ const M5_PAYLOAD_KEYS = Object.freeze([
   'technicalReviewVerdict',
   'version',
 ]);
+const M5_PAYLOAD_KEYS_V2 = Object.freeze([
+  ...M5_PAYLOAD_KEYS, 'categoriesResolved', 'rotationsNotApplicable',
+]);
 const REVIEW_PAYLOAD_KEYS = Object.freeze([
   'blockingFindings',
   'contract',
@@ -61,13 +64,23 @@ function exactKeys(value, keys) {
 function validatePayload(receipt, errors) {
   const payload = receipt?.payload;
   if (receipt?.domain === SIGNED_AUTHORITY_DOMAIN.M5_ACCEPTANCE) {
-    if (!exactKeys(payload, M5_PAYLOAD_KEYS)) return errors.push('payload:m5:keys');
+    const keys = payload?.version === 2 ? M5_PAYLOAD_KEYS_V2 : M5_PAYLOAD_KEYS;
+    if (!exactKeys(payload, keys)) return errors.push('payload:m5:keys');
     if (
       payload.contract !== M6_ACCEPTANCE_PAYLOAD_CONTRACT.M5
-      || payload.version !== M6_ACCEPTANCE_PAYLOAD_VERSION
+      || ![M6_ACCEPTANCE_PAYLOAD_VERSION, 2].includes(payload.version)
     ) errors.push('payload:m5:contract');
     if (payload.reviewSectionsPassed !== 9) errors.push('payload:m5:review-sections');
-    if (payload.rotationsCompleted !== 8) errors.push('payload:m5:rotations');
+    if (payload.version === 2) {
+      if (payload.categoriesResolved !== 8
+        || !Number.isInteger(payload.rotationsCompleted) || payload.rotationsCompleted < 0
+        || payload.rotationsCompleted > 8
+        || !Number.isInteger(payload.rotationsNotApplicable) || payload.rotationsNotApplicable < 0
+        || payload.rotationsNotApplicable > 8
+        || payload.rotationsCompleted + payload.rotationsNotApplicable !== 8) {
+        errors.push('payload:m5:category-resolutions');
+      }
+    } else if (payload.rotationsCompleted !== 8) errors.push('payload:m5:rotations');
     if (![
       'rewrite_and_rotate',
       'new_root_and_rotate',
@@ -229,6 +242,7 @@ export function applyM6AcceptanceReceipts(releaseEvidence, rawReceipts, {
     previousReceiptId = result.receipt.receiptId;
   }
   const [m5, review, demo, gate0] = receipts;
+  if (m5?.payload.version === 2) errors.push('m5:verified-category-bundle-required');
   if (m5 && m5.payload.privacyHistoryReceiptId !== privacyHistoryReceiptId) {
     errors.push('m5:privacy-history-binding');
   }

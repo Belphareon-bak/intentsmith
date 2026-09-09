@@ -171,6 +171,33 @@ function rotationReceipt(index, previousReceiptId) {
   });
 }
 
+function nonApplicabilityReceipt(index, previousReceiptId, overrides = {}) {
+  const category = M5_PRIVACY_ROTATION_CATEGORIES[index];
+  const evidenceSha256 = digest(`non-applicability-assessment:${category.categoryId}`);
+  const endSha256 = digest(`authority-ended:${category.categoryId}`);
+  const payload = {
+    contract: 'M5PrivacyNonApplicabilityEvidence', version: 1,
+    incidentId: 'G0-PRIVACY-001', categoryId: category.categoryId,
+    authorityKind: category.authorityKind, assessmentCompleted: true,
+    assessedAtMs: NOW - 1, assessmentScope: 'HISTORICAL_EXPOSURE_AND_CURRENT_AUTHORITY',
+    historicalExposureReviewed: true, remainingLocalAuthority: false,
+    remainingExternalAuthority: false, reason: 'NEVER_EXISTED_IN_EXPOSURE_SCOPE',
+    assessmentEvidenceSha256: evidenceSha256, secretMaterialIncluded: false,
+    ...overrides,
+  };
+  const artifacts = [{ path: `docs/execution/private/assessment-${category.categoryId}.json`,
+    bytes: 128 + index, gitMode: '100644', sha256: evidenceSha256 }];
+  if (payload.reason === 'NO_AUTHORITY_REMAINS') {
+    Object.assign(payload, { authorityEndedAtMs: NOW - 2, authorityEndKind: 'REVOCATION',
+      authorityEndScope: 'ALL_EXPOSED_CREDENTIALS_AND_REUSE', authorityEndEvidenceSha256: endSha256,
+      ...overrides });
+    artifacts.push({ path: `docs/execution/private/revocation-${category.categoryId}.json`,
+      bytes: 96 + index, gitMode: '100644', sha256: endSha256 });
+  }
+  return signPrivacyReceipt({ domain: SIGNED_AUTHORITY_DOMAIN.M5_PRIVACY_ROTATION,
+    decision: 'ROTATION_NOT_APPLICABLE', previousReceiptId, nonceByte: index + 1, artifacts, payload });
+}
+
 function historyReceipt(previousReceiptId) {
   const refCensusSha256 = digest('privacy-ref-census');
   const privacyScanSha256 = digest('privacy-tree-scan');
@@ -432,6 +459,104 @@ test('remediation remains incomplete until eight signed rotations and signed his
   assert.equal(complete.historyDisposition.receiptId, history.receiptId);
   assert(!JSON.stringify(complete).includes(CANARY));
   db.close();
+});
+
+test('mixed signed category resolutions preserve truthful counts and HTTP status after repository rewire', async () => {
+  const db = openDb();
+  const authority = repository(db);
+  const initial = authority.summary();
+  assert.equal(initial.version, 2);
+  assert.equal(Object.hasOwn(initial, 'rotationsNotApplicable'), false);
+  let previous = null;
+  for (let index = 0; index < 8; index += 1) {
+    const receipt = index === 2
+      ? nonApplicabilityReceipt(index, previous, { reason: 'FIXTURE_NOT_REUSED', fixtureReusedOutsideTests: false })
+      : index === 5 ? nonApplicabilityReceipt(index, previous) : rotationReceipt(index, previous);
+    authority.importSignedReceipt(rawReceipt(receipt));
+    previous = receipt.receiptId;
+    if (index < 7) assert.equal(authority.summary().verdict, 'INCOMPLETE');
+  }
+  assert.equal(authority.summary().verdict, 'INCOMPLETE');
+  authority.importSignedReceipt(rawReceipt(historyReceipt(previous)));
+  const rewired = repository(db);
+  const status = rewired.summary();
+  assert.equal(status.version, 3);
+  assert.equal(status.categoriesRequired, 8);
+  assert.equal(status.categoriesResolved, 8);
+  assert.equal(status.rotationsCompleted, 6);
+  assert.equal(status.rotationsNotApplicable, 2);
+  assert.equal(status.rotations.length, 6);
+  assert.equal(status.notApplicable.length, 2);
+  assert.equal(Object.hasOwn(status, 'rotationCompleted'), false);
+  assert.equal(status.categoryResolutions.length, 8);
+  assert.deepEqual(status.missingCategoryIds, []);
+  assert.equal(status.verdict, 'OPERATOR_REMEDIATION_RECORDED');
+  assert(status.rotations.every(receipt => receipt.decision === 'ROTATION_COMPLETED'));
+  assert(status.notApplicable.every(receipt => !Object.hasOwn(receipt.payload, 'operationCompleted')));
+  assert.equal(computeSignedPrivacyReceiptsFingerprintV100(db), EXPECTED_SIGNED_PRIVACY_RECEIPTS_FINGERPRINT_V100);
+  const harness = routeHarness(rewired);
+  await harness.routes['GET /api/security/privacy/remediation']({ authenticatedSubject: SUBJECT }, {});
+  assert.equal(harness.calls.responses.at(-1).status, 200);
+  assert.deepEqual(harness.calls.responses.at(-1).payload, status);
+  db.close();
+});
+
+test('N/A cannot mean missing current configuration, active authority, fixture reuse, or fabricated completion', () => {
+  const invalid = [
+    { version: 2 }, { contract: 'unknown' }, { incidentId: 'unknown' },
+    { categoryId: 'unknown' }, { authorityKind: 'external' },
+    { assessmentCompleted: false }, { historicalExposureReviewed: false },
+    { assessmentScope: 'CURRENT_CONFIGURATION_ONLY' },
+    { remainingLocalAuthority: true }, { remainingExternalAuthority: true },
+    { secretMaterialIncluded: true }, { assessedAtMs: 0 }, { assessedAtMs: NOW + 2 },
+    { reason: 'CURRENT_ENV_MISSING' }, { assessmentEvidenceSha256: digest('unbound') },
+    { operationCompleted: true }, { completedAtMs: NOW - 1 },
+    { providerActionEvidenceSha256: digest('fictional-action') }, { note: CANARY },
+    { reason: 'FIXTURE_NOT_REUSED', fixtureReusedOutsideTests: false },
+    { reason: 'NO_AUTHORITY_REMAINS', authorityEndKind: 'CONFIG_REMOVED' },
+    { reason: 'NO_AUTHORITY_REMAINS', authorityEndScope: 'CURRENT_CONFIG_ONLY' },
+    { reason: 'NO_AUTHORITY_REMAINS', authorityEndedAtMs: NOW },
+    { reason: 'NO_AUTHORITY_REMAINS', authorityEndEvidenceSha256: digest('unbound-end') },
+  ];
+  for (const overrides of invalid) {
+    const db = openDb();
+    assert.throws(() => repository(db).importSignedReceipt(rawReceipt(nonApplicabilityReceipt(0, null, overrides))),
+      error => error.code === M5PrivacyAuthorityErrorCode.SIGNED_RECEIPT_INVALID, JSON.stringify(overrides));
+    assert.equal(db.prepare('SELECT count(*) n FROM m5_signed_privacy_receipts').get().n, 0);
+    db.close();
+  }
+});
+
+test('a reused fixture cannot use the non-applicable branch even in canonical category order', () => {
+  const db = openDb();
+  const authority = repository(db);
+  const first = rotationReceipt(0, null);
+  const second = rotationReceipt(1, first.receiptId);
+  authority.importSignedReceipt(rawReceipt(first));
+  authority.importSignedReceipt(rawReceipt(second));
+  const reused = nonApplicabilityReceipt(2, second.receiptId, {
+    reason: 'FIXTURE_NOT_REUSED', fixtureReusedOutsideTests: true,
+  });
+  assert.throws(() => authority.importSignedReceipt(rawReceipt(reused)),
+    error => error.code === M5PrivacyAuthorityErrorCode.SIGNED_RECEIPT_INVALID);
+  assert.equal(authority.summary().version, 2);
+  assert.equal(authority.summary().rotationCompleted, 2);
+  db.close();
+});
+
+test('past authority termination needs its own bound evidence and complete historical scope', () => {
+  for (const authorityEndKind of ['REVOCATION', 'EXPIRY', 'DECOMMISSION']) {
+    const db = openDb();
+    const authority = repository(db);
+    const receipt = nonApplicabilityReceipt(0, null, { reason: 'NO_AUTHORITY_REMAINS', authorityEndKind });
+    authority.importSignedReceipt(rawReceipt(receipt));
+    assert.equal(authority.summary().rotationsCompleted, 0);
+    assert.equal(authority.summary().rotationsNotApplicable, 1);
+    assert.equal(authority.summary().verdict, 'INCOMPLETE');
+    assert.throws(() => authority.importSignedReceipt(rawReceipt(historyReceipt(receipt.receiptId))),
+      error => error.code === M5PrivacyAuthorityErrorCode.SIGNED_RECEIPT_INVALID);
+    db.close();
+  }
 });
 
 test('undefined or malformed expected bindings cannot create a privacy PASS', () => {

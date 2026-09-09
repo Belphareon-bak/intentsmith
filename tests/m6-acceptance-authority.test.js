@@ -152,8 +152,8 @@ function signedReceipt(checkId, previousReceiptId, index, payloadOverrides = {})
   return receipt;
 }
 
-function chain() {
-  const m5 = signedReceipt('m5-acceptance', privacyHistoryReceiptId, 0);
+function chain(m5Payload = {}) {
+  const m5 = signedReceipt('m5-acceptance', privacyHistoryReceiptId, 0, m5Payload);
   const review = signedReceipt('independent-read-only-review', m5.receiptId, 1);
   const demo = signedReceipt('operator-demo-approval', review.receiptId, 2);
   const gate0 = signedReceipt('gate0-attestation', demo.receiptId, 3, {
@@ -202,6 +202,29 @@ test('four exact signed role receipts promote all external authority rows', () =
   assert.equal(result.valid, true, result.errors.join('\n'));
   assert(result.evidence.checks.every(row => row.status === 'PASS'));
   assert.equal(Object.isFrozen(result), true);
+});
+
+test('M5 v2 validates truthful category counts but cannot promote without the full category bundle', () => {
+  const payload = { version: 2, categoriesResolved: 8, rotationsCompleted: 6, rotationsNotApplicable: 2 };
+  const receipt = signedReceipt('m5-acceptance', privacyHistoryReceiptId, 0, payload);
+  assert.equal(validateM6AcceptanceReceiptRaw(raw(receipt), { verifier, expected }).valid, true);
+  for (const overrides of [
+    { categoriesResolved: 7 }, { rotationsCompleted: 8 }, { rotationsNotApplicable: -1 },
+    { rotationsNotApplicable: '2' }, { version: 3 }, { version: 1 },
+  ]) {
+    const invalid = signedReceipt('m5-acceptance', privacyHistoryReceiptId, 0, { ...payload, ...overrides });
+    assert.equal(validateM6AcceptanceReceiptRaw(raw(invalid), { verifier, expected }).valid, false);
+  }
+  assert.throws(() => signedReceipt('m5-acceptance', privacyHistoryReceiptId, 0, {
+    ...payload, rotationsCompleted: 6.5, rotationsNotApplicable: 1.5,
+  }), /canonical-number-invalid/);
+  const receipts = chain(payload);
+  const result = applyM6AcceptanceReceipts(releaseEvidence(), receipts.map(raw), {
+    verifier, expected, privacyHistoryReceiptId,
+  });
+  assert.equal(result.valid, false);
+  assert.deepEqual(result.errors, ['m5:verified-category-bundle-required']);
+  assert.equal(result.evidence, null);
 });
 
 test('wrong key, changed byte, stale candidate and unsigned legacy receipt fail closed', () => {
