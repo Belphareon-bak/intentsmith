@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import {
   createHash, generateKeyPairSync, sign,
 } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 import {
   M7_SYSTEMD_CREDENTIAL_NAMES,
@@ -14,9 +16,14 @@ import {
   isGenuineM7VpnRuntimeConfiguration,
   withM7ServiceCredentialMaterial,
 } from '../src/remote/m7-vpn-runtime-config.js';
+import {
+  parseM7SystemdServiceArgs,
+  renderM7SystemdService,
+} from '../scripts/render-m7-systemd-service.mjs';
 import { suite, summary, test } from './harness.js';
 
 const UID = 1234;
+const ROOT = fileURLToPath(new URL('../', import.meta.url)).replace(/\/$/u, '');
 const BASE_ENV = Object.freeze({
   CREDENTIALS_DIRECTORY: `/run/user/${UID}/credentials/intentsmith-m7.service`,
   INTENTSMITH_M7_BIND_ADDRESS: '100.100.20.30',
@@ -165,6 +172,20 @@ test('configured VPN address must be observed on that exact active interface', (
   }), M7_VPN_RUNTIME_CONFIG_ERROR.VPN_INTERFACE_UNAVAILABLE);
 });
 
+test('runtime rejects zone suffixes and accepts an exact VPN IPv6 address', () => {
+  for (const address of [
+    '100.100.20.30%h',
+    '100.100.20.30%% NODE_OPTIONS=--inspect',
+    '100.100.20.30%\nExecStartPre=/usr/bin/true',
+    'fd00::1%tailscale0',
+  ]) expectCode(() => config({ INTENTSMITH_M7_BIND_ADDRESS: address }, () => ({
+    tailscale0: [{ address, internal: false }],
+  })), M7_VPN_RUNTIME_CONFIG_ERROR.CONFIG_INVALID);
+  assert.equal(config({ INTENTSMITH_M7_BIND_ADDRESS: 'fd00::1' }, () => ({
+    tailscale0: [{ address: 'fd00::1', family: 'IPv6', internal: false }],
+  })).listener.bindAddress, 'fd00::1');
+});
+
 test('the interface binding is re-observed immediately before a future bind', () => {
   let current = interfaces();
   const value = config({}, () => current);
@@ -232,6 +253,104 @@ test('certificate/key mismatch and non-32-byte rate key fail closed', () => {
     io: credentialIo({ ...material, rateLimitKey: Buffer.alloc(31) }),
     now: () => Date.parse('2026-09-08T12:00:00.000Z'),
   }), M7_VPN_RUNTIME_CONFIG_ERROR.CREDENTIAL_INVALID);
+});
+
+function serviceInput(overrides = {}) {
+  return {
+    bindAddress: '100.100.20.30',
+    nodeBin: process.execPath,
+    projectRoot: ROOT,
+    rateLimitHmacCredential: '/secure/intentsmith-m7-rate-limit-hmac.cred',
+    serverOrigin: 'https://intentsmith.tailnet.example:7443',
+    serverSpkiSha256: `sha256:${'a'.repeat(64)}`,
+    tlsCertificateCredential: '/secure/intentsmith-m7-tls-certificate.cred',
+    tlsPrivateKeyCredential: '/secure/intentsmith-m7-tls-private-key.cred',
+    vpnInterface: 'tailscale0',
+    ...overrides,
+  };
+}
+
+test('renderer emits an inert user unit with encrypted credentials and exact public binding', () => {
+  const rendered = renderM7SystemdService(serviceInput());
+  assert.match(rendered, /^Description=IntentSmith M7 VPN-only Remote Companion$/mu);
+  assert.match(rendered, /^Environment=INTENTSMITH_M7_REMOTE_ENABLED=true$/mu);
+  assert.match(rendered, /^Environment=INTENTSMITH_M7_VPN_INTERFACE=tailscale0$/mu);
+  assert.match(rendered, /^Environment=INTENTSMITH_M7_BIND_ADDRESS=100\.100\.20\.30$/mu);
+  assert.match(rendered, /^LoadCredentialEncrypted=intentsmith-m7-tls-private-key\.pem:\/secure\//mu);
+  assert.match(rendered, /^LoadCredentialEncrypted=intentsmith-m7-rate-limit-hmac\.bin:\/secure\//mu);
+  assert.match(rendered, /^ExecStart=\/.*\/node .*\/src\/server\.js$/mu);
+  assert.doesNotMatch(rendered, /^LoadCredential=/mu);
+  assert.doesNotMatch(rendered, /@[A-Z_]+@/u);
+  assert.doesNotMatch(rendered, /(?:BEGIN PRIVATE KEY|rate-limit-key=)/u);
+});
+
+test('renderer rejects unsafe paths and any non-VPN public configuration', () => {
+  for (const invalid of [
+    { projectRoot: `${ROOT}/../escape` },
+    { nodeBin: '/bin/node with space' },
+    { tlsPrivateKeyCredential: '/secure/../private.cred' },
+    { vpnInterface: 'wlo1', bindAddress: '192.168.50.33' },
+    { bindAddress: '0.0.0.0' },
+    { serverOrigin: 'https://intentsmith.tailnet.example:443' },
+  ]) assert.throws(() => renderM7SystemdService(serviceInput(invalid)));
+  assert.throws(() => parseM7SystemdServiceArgs(['--project-root=/tmp', '--project-root=/tmp']));
+});
+
+test('renderer rejects directive, environment and specifier injection before emitting bytes', () => {
+  for (const bindAddress of [
+    '100.100.20.30%h',
+    '100.100.20.30%% NODE_OPTIONS=--inspect',
+    '100.100.20.30%\nExecStartPre=/usr/bin/true',
+    '100.100.20.30\tNODE_OPTIONS=--inspect',
+    'fd00::1%tailscale0',
+  ]) assert.throws(() => renderM7SystemdService(serviceInput({ bindAddress })),
+    /m7-systemd-render:bind-address-invalid/);
+  assert.match(renderM7SystemdService(serviceInput({ bindAddress: 'fd00::1' })),
+    /^Environment=INTENTSMITH_M7_BIND_ADDRESS=fd00::1$/mu);
+});
+
+test('CLI writes only the rendered unit and invalid input exits with the typed class', () => {
+  const input = serviceInput();
+  const args = [
+    `--project-root=${input.projectRoot}`,
+    `--node-bin=${input.nodeBin}`,
+    `--vpn-interface=${input.vpnInterface}`,
+    `--bind-address=${input.bindAddress}`,
+    `--server-origin=${input.serverOrigin}`,
+    `--server-spki-sha256=${input.serverSpkiSha256}`,
+    `--tls-certificate-credential=${input.tlsCertificateCredential}`,
+    `--tls-private-key-credential=${input.tlsPrivateKeyCredential}`,
+    `--rate-limit-hmac-credential=${input.rateLimitHmacCredential}`,
+  ];
+  const result = spawnSync(process.execPath, ['scripts/render-m7-systemd-service.mjs', ...args], {
+    cwd: ROOT, encoding: 'utf8', env: { PATH: process.env.PATH },
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stderr, '');
+  assert.equal(result.stdout, renderM7SystemdService(input));
+
+  const denied = spawnSync(process.execPath, [
+    'scripts/render-m7-systemd-service.mjs', ...args,
+    '--vpn-interface=tailscale0',
+  ], { cwd: ROOT, encoding: 'utf8', env: { PATH: process.env.PATH } });
+  assert.equal(denied.status, 2);
+  assert.match(denied.stderr, /^m7-systemd-render:duplicate-argument$/mu);
+  assert.equal(denied.stdout, '');
+
+  for (const bindAddress of [
+    '100.100.20.30%% NODE_OPTIONS=--inspect',
+    '100.100.20.30%h',
+    'fd00::1%tailscale0',
+  ]) {
+    const injectedArgs = args.map(argument => argument.startsWith('--bind-address=')
+      ? '--bind-address=' + bindAddress : argument);
+    const injected = spawnSync(process.execPath, [
+      'scripts/render-m7-systemd-service.mjs', ...injectedArgs,
+    ], { cwd: ROOT, encoding: 'utf8', env: { PATH: process.env.PATH } });
+    assert.equal(injected.status, 2);
+    assert.match(injected.stderr, /^m7-systemd-render:bind-address-invalid$/mu);
+    assert.equal(injected.stdout, '');
+  }
 });
 
 summary();

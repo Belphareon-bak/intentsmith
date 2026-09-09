@@ -129,6 +129,7 @@ test('M7 event, notification and request boundaries are required locked-plan mem
 
 test('M7 VPN listener and Android companion are required locked-plan members', () => {
   const programIds = [
+    'IS-T1-TESTS-M7-CANONICAL-JSON-PARITY-TEST',
     'IS-T1-TESTS-M7-CONVERSATION-COMMAND-EXECUTOR-TEST',
     'IS-T1-TESTS-M7-LOCAL-PAIRING-ROUTE-TEST',
     'IS-T1-TESTS-M7-LOCAL-PAIRING-STUDIO-TEST',

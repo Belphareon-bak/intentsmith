@@ -512,6 +512,21 @@ await test('stale or substituted generated release assets fail closed', () => {
   assert.equal(productionBinding.transportMode, 'remote-core-v1');
   assert.equal(productionBinding.serverOrigin, M7_TEST_ORIGIN);
   assert.equal(productionBinding.serverIdentityPin, M7_TEST_SPKI_PIN);
+  for (const fixture of [artifactBindingFixture(), production]) {
+    const manifest = JSON.parse(fixture.expectedSourceManifest);
+    for (const bytes of [fixture.apkIndex, fixture.aabIndex]) {
+      assert.equal(manifest.build.generatedIndexSha256,
+        'sha256:' + createHash('sha256').update(bytes, 'utf8').digest('hex'));
+    }
+    manifest.build.generatedIndexSha256 = 'sha256:' + '0'.repeat(64);
+    const wrongIndexManifest = JSON.stringify(manifest) + '\n';
+    assert.throws(() => validateMobileReleaseArtifactBindingV1({
+      ...fixture,
+      expectedSourceManifest: wrongIndexManifest,
+      apkSourceManifest: wrongIndexManifest,
+      aabSourceManifest: wrongIndexManifest,
+    }), /mobile source manifest does not hash the packaged index/);
+  }
   const substitutedPin = `sha256:${'cd'.repeat(32)}`;
   const forgedManifest = production.expectedSourceManifest.replace(
     M7_TEST_SPKI_PIN,
@@ -680,6 +695,12 @@ await test('the physical-device runbook names the production VPN path and every 
   const matrix = read('docs/mobile/DEVICE-MATRIX-RUN.md');
   assert.match(tryingIt, /C3_MOBILE_TRANSPORT_MODE=remote-core-v1/);
   assert.match(tryingIt, /INTENTSMITH_M7_REMOTE_ENABLED=true/);
+  assert.match(tryingIt, /odstranit proměnnou\s+`INTENTSMITH_M7_REMOTE_ENABLED`/);
+  assert.match(tryingIt, /systemctl --user daemon-reload/);
+  assert.match(tryingIt, /render-m7-systemd-service\.mjs/);
+  assert.match(tryingIt, /LoadCredentialEncrypted=/);
+  assert.match(tryingIt, /nic neinstaluje/);
+  assert.match(tryingIt, /Nejdřív ověř lokální loopback health/);
   assert.match(tryingIt, /--runtime-evidence \/absolute\/private\/path\/runtime-evidence\.json/);
   assert.match(tryingIt, /<sha12>-<run>/);
   assert.doesNotMatch(tryingIt, /is-mobile-prod-client-20260826/);

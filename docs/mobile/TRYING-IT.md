@@ -67,9 +67,41 @@ INTENTSMITH_M7_SERVER_ORIGIN=https://<vpn-name-or-ip>:7443
 INTENTSMITH_M7_SERVER_SPKI_SHA256=sha256:<64-lowercase-hex>
 ```
 
+Reviewovatelnou user unit lze vyrenderovat bez čtení credential bytes. Všechny
+tři vstupy jsou cesty k výstupům `systemd-creds encrypt`, nikoli plaintext:
+
+```bash
+node scripts/render-m7-systemd-service.mjs \
+  --project-root="$PWD" \
+  --node-bin="$(readlink -f "$(command -v node)")" \
+  --vpn-interface=tailscale0 \
+  --bind-address=<exact-vpn-ip> \
+  --server-origin=https://<vpn-name-or-ip>:7443 \
+  --server-spki-sha256=sha256:<64-lowercase-hex> \
+  --tls-certificate-credential=/absolute/encrypted/certificate.cred \
+  --tls-private-key-credential=/absolute/encrypted/private-key.cred \
+  --rate-limit-hmac-credential=/absolute/encrypted/rate-limit-hmac.cred \
+  > /tmp/intentsmith-m7.service
+systemd-analyze --user verify /tmp/intentsmith-m7.service
+```
+
+Generátor zapisuje unit pouze na stdout, nečte credential soubory, nevolá
+`systemctl` a nic neinstaluje. Vygenerovaná unit používá výhradně
+`LoadCredentialEncrypted=`. Její instalace a aktivace zůstává samostatným
+operátorským krokem.
+
 Aktivace musí selhat, pokud interface/adresa zmizí, credential directory nebo
 mode nesedí, certifikát neodpovídá key, SPKI digest nesedí nebo HMAC nemá 32
 bajtů. Tento runbook sám systemd ani firewall nemění.
+
+Selhání M7 aktivace je záměrně terminální pro celý server, takže dočasně shodí
+i lokální Studio. Bezpečný recovery postup je odstranit proměnnou
+`INTENTSMITH_M7_REMOTE_ENABLED` z konfigurace unity (nenechávat ji prázdnou ani
+ji nenahrazovat hodnotou `1`), provést `systemctl --user daemon-reload` a
+restartovat příslušnou user unit. U system unity proveď stejné kroky bez
+`--user`. Nejdřív ověř lokální loopback health; teprve potom oprav VPN interface,
+adresu a credentials a M7 znovu explicitně zapni. Recovery neotevírá LAN ani
+public listener a nesmí obcházet validační preflight.
 
 ## 3. Postavit přesně připnutý Android kandidát
 

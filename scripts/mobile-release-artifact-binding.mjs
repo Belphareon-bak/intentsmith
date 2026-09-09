@@ -98,7 +98,11 @@ export function renderMobileReleaseSourceManifestV1({
     ? readMobileSourceRuntimeIdentityV1(sourceRuntimeConfig)
     : readMobileGeneratedRuntimeIdentityV1(generatedRuntimeConfig);
   const generatedRuntime = renderMobileGeneratedRuntimeConfigV1({ gatewayUrl, ...runtimeIdentity });
-  const generatedIndex = renderMobileGeneratedIndexV1(sourceIndex, gatewayUrl);
+  const generatedIndex = renderMobileGeneratedIndexV1(
+    sourceIndex,
+    gatewayUrl,
+    runtimeIdentity.transportMode,
+  );
   const pluginRegistry = deriveMobileCapacitorPluginRegistryV1(
     sourcePackageJson,
     sourcePackageLock,
@@ -388,6 +392,11 @@ export function validateMobileReleaseArtifactBindingV1({
   );
   assertEqual(apkIndex, expectedIndex, 'APK index does not match the exact source CSP transformation');
   assertEqual(aabIndex, expectedIndex, 'AAB index does not match the exact source CSP transformation');
+  assertEqual(
+    sourceManifest.build.generatedIndexSha256,
+    sha256(apkIndex),
+    'mobile source manifest does not hash the packaged index',
+  );
 
   for (const asset of MOBILE_RELEASE_EXACT_SOURCE_ASSETS) {
     if (typeof sourceAssets?.[asset] !== 'string') {

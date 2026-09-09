@@ -2,6 +2,7 @@ import './helpers/isolated-test-db.js';
 
 import assert from 'node:assert/strict';
 import { createHash, generateKeyPairSync, sign } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import Database from 'better-sqlite3';
 
@@ -693,6 +694,35 @@ test('tree scanner reads every distributed runtime root and detects multiline cr
     },
   ]);
   assert(!JSON.stringify(report).includes(CANARY));
+});
+
+test('tree scanner distinguishes the exact public M7 credential name from private literals', () => {
+  const filePath = 'src/remote/m7-vpn-runtime-config.js';
+  const source = readFileSync(new URL('../src/remote/m7-vpn-runtime-config.js', import.meta.url), 'utf8');
+  const prefix = 'export const M7_SYSTEMD_CREDENTIAL_NAMES = Object.freeze({\n';
+  const start = source.indexOf(prefix);
+  const declaration = source.slice(start, source.indexOf('\n});', start) + 4);
+  const scan = (text, scannedPath = filePath) => scanM5TrackedTree({
+    candidateRevision: 'a'.repeat(40),
+    paths: [scannedPath],
+    readFile: () => Buffer.from(text, 'utf8'),
+  });
+  assert.equal(scan(source).verdict, 'PASS');
+  assert.equal(scan(declaration).verdict, 'PASS');
+  for (const [text, scannedPath] of [
+    [source.replace('intentsmith-m7-tls-private-key.pem', CANARY), filePath],
+    [source.replace('intentsmith-m7-tls-private-key.pem', 'unknown-private-key.pem'), filePath],
+    [source + '\nconst config = { privateKey: "' + CANARY + '" };', filePath],
+    [source + '\nconst config = { privateKey: "intentsmith-m7-tls-private-key.pem" };', filePath],
+    [source + '\n' + declaration, filePath],
+    [declaration, 'src/other.js'],
+  ]) {
+    const result = scan(text, scannedPath);
+    assert.equal(result.verdict, 'FAIL');
+    assert(result.findings.some(item => item.ruleId === 'M5_PRIVACY_NAMED_SECRET_LITERAL'));
+    assert.equal(result.secretValuesRecorded, false);
+    assert(!JSON.stringify(result).includes(CANARY));
+  }
 });
 
 test('sensitive tracked paths are not opened and history reachability does not expose identities', () => {

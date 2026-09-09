@@ -133,26 +133,27 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **218 675 ř.**, 591 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **235 012 ř.**, 516 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **511** (`417 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
+| `src/**/*.js` | **218 691 ř.**, 591 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **235 245 ř.**, 517 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **512** (`418 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **169 / 95** |
 | HTTP rout | ~230 |
 | **Schopností v `ACCEPTED/PASS`** | **1 z 22** (#2 CRE); #1 server/routing/DB je zatím `RUNTIME_VERIFIED` — jeho suite má 13 interních checků, zatímco behavior dokument obsahuje 16 řádků, takže tvrzení „13/13 chování“ není platný akceptační součet |
 
 Aktuální registry fingerprint je
-`8423593748b7c91ecb64215147ac8e3350fe50770529a62b66425be4d65f0ff6`.
+`17fbf752d7dfd6ddbc2da8f331c482db1ec968a50243f4f9cf41ef524d998a47`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 
-Mobilní konvergence 2026-09-09 slučuje přesně `1ab8d942` a `f812259d`.
-Přidává jeden offline inventory program: aktuální výběr je 351 deterministic
-(`278 offline + 73 database`), 412 `ACTIVE + required`. Výsledky `350/350`
-v M6/M7 řádcích níže jsou pouze důkazem dřívějšího `07b582d1`, nikoli tohoto
-merge. Zapečetěný Gate0 fingerprint zůstává na B baseline podle `CONTRACT.md`
-§8; očekávaný vývojový drift není povolením k novému release ratchetu.
-Aktuální ověření a nezávislé review viz
-[convergence evidence](docs/execution/runs/mobile/mobile-convergence-20260909.md).
+Technická integrace core 2026-09-09 přebírá mobilní `2f11e911` a B
+`0b0a4669`. Registry obsahuje 413 `ACTIVE + required`, z toho 352 deterministic
+(`279 offline + 73 database`). Nezávislé review odhalilo injekci systemd vstupu
+a chybný hash M7 indexu v Android manifestu; obě opravy i přesné rozlišení
+veřejného credential názvu v privacy scanneru jsou implementované a čekají
+na nové nezávislé review a integrační běh. Historický `f7f78d5a` zůstává
+`350 PASS / 1 FAIL`; jeho dřívější artifact-binding claim má nově potvrzenou
+vadu. Sealed policy z B (`922f65e9…0b40`, 351 deterministic) zůstává beze změny;
+rozdíl vůči sjednocenému registru je vývojový drift podle CONTRACT §8.
 
 Aktuální model-evaluation autoritu popisují
 [`MODEL-SCORING-ACTIVATION.md`](docs/MODEL-SCORING-ACTIVATION.md) a
@@ -465,8 +466,8 @@ aktuální stav je samostatný řádek `Model failover opt-in surface`.
 | Automatické online model discovery | `C3_ENABLE_ONLINE_DISCOVERY`, **default on od 2026-08-19** (operátorské rozhodnutí v `DIRECTION.md`), vypíná se hodnotou `false`. Review remediation je implementation-green na `122b5df5`, ale čeká na re-review: všechny transporty používají manual redirect, každá `Location` dostává nové rozhodnutí a neexportovaná capability váže exact Ollama/Hugging Face/WhatLLM path, query, headers, body a method profily. Opsaný scope literal není autorita. |
 | M5 performance release budget | **SECOND-REVIEW REMEDIATION IMPLEMENTED / RE-REVIEW REQUIRED:** `M5PerformanceEvidence@3` a raw v2 vážou každé GPU tvrzení na raw measurement nebo read-only census receipt a nepřijmou nečitelný či nulový RSS jako nejlepší hodnotu. Exact clean candidate `816a2a4c` má autoritativní 5min run: HTTP p95 `5,022 ms`, ProjectContext p95 `32,769 ms`, soak `300 074 ms` / `1 498` vzorků / p95 `14,314 ms`, nula chyb, peak RSS `171,859 MiB`; GPU je pravdivě `not_run_not_requested` s dostupným prázdným `nvidia-smi` censusem, nikoli měřeno. 24h soak, maximum-throughput a nové fyzické GPU měření zůstávají `NOT RUN`. |
 | M5 production hardening review | **8/9 REVIEW_PASSED / PRIVACY CHANGES_REQUIRED / KEY CUSTODY CHANGES REQUIRED / ACCEPTANCE_BLOCKED:** osm oddílů zůstává přijatých. Decision 041 byte/history implementace na `37edf30d` dostala nezávislé `REVIEW_PASSED` a trust store má čtyři rozdílné veřejné Ed25519 identity. Úzký review `d81be45f` reprodukoval stale M6 upgrade oracle `80 !== 79`; jeho remediation je implementovaná. Všechny privátní klíče ale zůstávají nešifrované na stejném trvale připojeném `/home` svazku pod účtem aplikace/workerů, takže offline custody není splněná. Osm skutečných rotací, history disposition ani M5 acceptance neproběhly. M6 gate zůstává zavřený. |
-| M6 IntentSmith 1.0 candidate | **KEY_CUSTODY_CHANGES_REQUIRED / DEVELOPMENT_REGISTRY_DRIFT / FULL_RELEASE_GATE_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED:** Decision 041 byte/history boundary a 95 migrací zůstávají beze změny. Aktuální M6 plán dynamicky pokrývá 412 `ACTIVE + required` programů. Nightly sealed policy zůstává na B: 350 deterministic (`277 offline + 73 database`), fingerprint `73782eec…5fd9`; její rozchod s aktuálním 511programovým registrem je při vývoji očekávaný podle CONTRACT §8. Starý `07b582d1` měl `350/350`; lokální mobilní merge `f7f78d5a` má `350 PASS / 1 FAIL` právě na sealed registry checku, nikoli nový PASS verdict. Celý vícefázový M6 release gate, skutečné demo, approval receipt, plný throughput a live LLM/GPU evidence neproběhly. Žádný receipt, tag, publish ani push neproběhl. |
-| M7 Remote Companion | **LOCAL_MOBILE_CONVERGENCE_VERIFIED / FULL_DETERMINISTIC_GATE_FAIL / INDEPENDENT_REVIEW_PENDING / REAL_VPN_DEVICE_EVIDENCE_BLOCKED / NOT_ACCEPTED:** VPN-only TLS 1.3 listener na portu 7443, credential vstupy, lokálně autentizované single-use pairing claimy a nativní Android HTTPS/SPKI/Ed25519 consumer jsou integrované přes přesný merge `f7f78d5a`. Zdroj B zůstává beze změny. Mobile `46/46`, browser `24/24`, release boundary `19/19`, module ratchet `13/13`, APK/AAB build, unit/lint a source binding prošly; pouze debug podpis a syntetický origin/SPKI. Fresh-clone gate: `350 PASS / 1 FAIL / 0 BLOCKED`, jediný FAIL je očekávaný Gate0 registry drift. Fyzická evidence 13 runtime kontrol zůstává povinná a chybí; bez produkčních credentialů/VPN se listener fail-closed neaktivuje. UI mapping dalších obrazovek, nezávislé review, skutečný VPN/device/TalkBack běh, signing a distribuce zbývají. Viz [mobilní review](docs/review/2026-09-09-MOBILE-CONVERGENCE-REVIEW.md). |
+| M6 IntentSmith 1.0 candidate | **INTEGRATION_VERIFICATION_PENDING / DEVELOPMENT_REGISTRY_DRIFT / FULL_RELEASE_GATE_REQUIRED / ACCEPTANCE_BLOCKED:** aktuální required set má 413 programů. Sealed policy zůstává na B; žádné schválení nového release ratchetu. Historická dílčí evidence se nepřenáší. M5 custody/rotace/history, provider response identity, živé modelové ověření, celý M6 gate, 24h soak, nezávislé review, demo a podpisový řetěz zůstávají otevřené. Historický throughput `0f9e2c64` skutečně proběhl; není důkazem současného kandidáta. |
+| M7 Remote Companion | **FOLLOWUP_INTEGRATED / REVIEW_FINDINGS_REMEDIATED / RE_REVIEW_PENDING / NOT_ACCEPTED:** společné canonical JSON vektory a inertní encrypted-systemd renderer jsou převzaté z B. Review nalezlo systemd injection přes bind address a nesoulad generated-index hashe v APK/AAB manifestu; opravy a negativní testy jsou připravené. Aktuální build/gate čekají na nové ověření. Chybějící UI mapping projektů/settings/stored information, produkční credentials, VPN/firewall/device/TalkBack, podpisy a fyzická matice 13+7 stále brání M7 přijetí. |
 | C3 Studio Google Fonts | Oba runtime link loadery, ruční preview import i archivní v7 import jsou odstraněné; hygiene zakazuje obě Google Fonts domény ve spustitelných Studio assetech. Registrovaný runner prošel ve dvou fresh-clone Electron CDP bězích na `7236d221` s nulovým egresssem. Registry zůstává pravdivě `BLOCKED`. **Měřeno 2026-08-21:** build envelope už chybějící překážkou není — `yarn install --offline` + `yarn build` trvají dohromady **54 s** a postaví všech šest artefaktů. **Vyřešeno 2026-08-22: `STUDIO_ELECTRON_BOUNDARY_PASS`.** Příčinou `electron-exited-before-cdp` byla délka `TMPDIR` — Chromium v něm zakládá unix domain sockety a `sun_path` má limit 108 bajtů, runtime root pod `.intentsmith-artifacts` má 95 znaků. Bisekce: `HOME` ani `XDG_*` nevadí, shodí to výhradně `TMPDIR`; bez namespace padá stejně, takže izolace ani D-Bus (falešná stopa) příčinou nebyly. Sada dává Electronu krátký privátní temp. Evidence: nulový egress, 65,8 s soak, boundary matice 403/403/200, čistý shutdown. |
 | C3 Studio local HTTP | Root cause byl potvrzen jako capability na wire + nepřítomný `Origin` + `Sec-Fetch-Site: cross-site`. Electron-main nyní doplňuje `Origin: null` jen pro přesný top-level file Studio request s odpovídající privátní capability; backend guard zůstal beze změny. Dva fresh-clone negativní journey na `7236d221` prokázaly startup/POST `2xx` i přesný fail-closed security trojúhelník; registry čeká jen na standardní build envelope, nikoli na další ruční journey. |
 | C3 Studio source/build | Operátor přijal funkční ručně udržovaný `lib` jako současný autoritativní runtime. Stale TS je historický archiv; package build/clean/watch ani starý v7 fix payload nesmějí runtime přepsat nebo smazat. Současný vzhled není finální UI kontrakt. |

@@ -1,13 +1,53 @@
 package cz.intentsmith.companion;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
+
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
+import org.json.JSONTokener;
 import org.junit.Test;
 
 public class M7CanonicalJsonTest {
+    @Test
+    public void sharedCanonicalCorpusMatchesNodeByteForByte() throws Exception {
+        try (InputStream stream = getClass().getResourceAsStream("/canonical-json-vectors-v1.json")) {
+            assertNotNull("shared M7 canonical JSON fixture must be on the test classpath", stream);
+            JSONObject vectorSet = new JSONObject(
+                new JSONTokener(new String(stream.readAllBytes(), StandardCharsets.UTF_8))
+            );
+            assertEquals("M7CanonicalJsonVectorSet", vectorSet.getString("contract"));
+            assertEquals(1, vectorSet.getInt("version"));
+
+            JSONArray vectors = vectorSet.getJSONArray("vectors");
+            assertEquals(9, vectors.length());
+            for (int index = 0; index < vectors.length(); index += 1) {
+                JSONObject vector = vectors.getJSONObject(index);
+                String id = vector.getString("id");
+                if (!vector.getBoolean("valid")) {
+                    assertEquals(JSONObject.NULL, vector.get("canonicalBase64"));
+                    IllegalArgumentException error = assertThrows(
+                        id,
+                        IllegalArgumentException.class,
+                        () -> M7CanonicalJson.encode(vector.get("input"))
+                    );
+                    assertNotNull(id, error.getMessage());
+                    continue;
+                }
+                assertEquals(
+                    id,
+                    vector.getString("canonicalBase64"),
+                    Base64.getEncoder().encodeToString(M7CanonicalJson.bytes(vector.get("input")))
+                );
+            }
+        }
+    }
+
     @Test
     public void canonicalJsonMatchesTheNodeWireOrderAndNfc() throws Exception {
         JSONObject value = new JSONObject();
@@ -28,6 +68,10 @@ public class M7CanonicalJsonTest {
         );
         JSONObject collision = new JSONObject().put("é", 1).put("e\u0301", 2);
         assertThrows(IllegalArgumentException.class, () -> M7CanonicalJson.encode(collision));
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> M7CanonicalJson.encode(new JSONObject().put("n", -0.0d))
+        );
     }
 
     @Test

@@ -48,10 +48,9 @@ function exactCredentialDirectory(value, effectiveUid) {
 }
 
 function canonicalIp(value) {
-  if (typeof value !== 'string' || value.length < 2 || value.length > 128) return null;
-  const zoneAt = value.indexOf('%');
-  const address = zoneAt === -1 ? value : value.slice(0, zoneAt);
-  return isIP(address) ? address.toLowerCase() : null;
+  if (typeof value !== 'string' || value.length < 2 || value.length > 128
+    || value.includes('%')) return null;
+  return isIP(value) ? value.toLowerCase() : null;
 }
 
 function permittedVpnAddress(value) {

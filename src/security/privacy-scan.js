@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 
 import {
   M5_PRIVACY_HISTORY_DECISIONS,
@@ -13,6 +14,21 @@ import {
 const SENSITIVE_PATH = /(?:^|\/)(?:\.env(?:\.|$)|[^/]+\.(?:db|sqlite|sqlite3|pem|key|p12|pfx|kdbx)(?:$|-)|(?:chats|projects)\/.*\/attachments\/)/i;
 const SECRET_FALLBACK = /process\.env\.[A-Z0-9_]*(?:SECRET|PASSWORD|PASS|TOKEN|API_KEY|PRIVATE_KEY)[A-Z0-9_]*\s*(?:\|\||\?\?)\s*(['"])[^'"\r\n]+\1/g;
 const NAMED_LITERAL = /\b[A-Za-z0-9_]*(?:secret|password|passwd|apiKey|api_key|accessToken|access_token|privateKey|private_key)[A-Za-z0-9_]*\s*(?:=|:)\s*(['"])[^'"\r\n]{8,}\1/gi;
+
+// Decision 042 names public systemd files, not their private contents. Exempt
+// only the exact reviewed declaration and the one filename field within it.
+// A changed value, a second declaration or any other assignment remains scanned.
+function publicCredentialNameOffset(source, filePath) {
+  if (filePath !== 'src/remote/m7-vpn-runtime-config.js') return -1;
+  const prefix = 'export const M7_SYSTEMD_CREDENTIAL_NAMES = Object.freeze({\n';
+  const start = source.indexOf(prefix);
+  if (start < 0 || source.indexOf(prefix, start + prefix.length) !== -1) return -1;
+  const end = source.indexOf('\n});', start);
+  if (end < 0) return -1;
+  const digest = createHash('sha256').update(source.slice(start, end + 4), 'utf8').digest('hex');
+  if (digest !== '01e69add167025433f3ec6152de035e2f6cba8c998f7bbb57f5585bdeeff9af2') return -1;
+  return start + 114;
+}
 
 function safePath(value) {
   return typeof value === 'string'
@@ -49,11 +65,11 @@ function lineIsComment(source, offset) {
   return source.slice(start, offset).trimStart().startsWith('//');
 }
 
-function addMatches(findings, source, filePath, expression, ruleId, skipComments = false) {
+function addMatches(findings, source, filePath, expression, ruleId, skipComments = false, publicNameOffset = -1) {
   expression.lastIndex = 0;
   let match;
   while ((match = expression.exec(source)) !== null) {
-    if (!skipComments || !lineIsComment(source, match.index)) {
+    if (match.index !== publicNameOffset && (!skipComments || !lineIsComment(source, match.index))) {
       findings.push(finding(ruleId, filePath, lineAtOffset(source, match.index)));
     }
     if (match[0].length === 0) expression.lastIndex += 1;
@@ -117,6 +133,7 @@ export function scanM5TrackedTree({ candidateRevision, paths, readFile } = {}) {
       NAMED_LITERAL,
       'M5_PRIVACY_NAMED_SECRET_LITERAL',
       true,
+      publicCredentialNameOffset(source, filePath),
     );
   }
   findings.sort(compareFindings);
