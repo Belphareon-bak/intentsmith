@@ -225,15 +225,16 @@ await testAsync('Config timeouts exist for all roles', async () => {
   assert(config.timeouts.R1 > 0, 'R1 timeout');
 }, ASYNC_TEST_TIMEOUT_MS);
 
-await testAsync('D1 and R1 use same model (deepseek-r1)', async () => {
-  const { default: config } = await import('../src/config.js');
-  assertEqual(config.models.D1, config.models.R1);
-  assertIncludes(config.models.D1, 'deepseek-r1');
+await testAsync('D1 and R1 resolve their own configured role bindings', async () => {
+  const { default: config, DEFAULT_MODEL_BINDINGS } = await import('../src/config.js');
+  for (const role of ['D1', 'R1']) {
+    assertEqual(config.models[role], process.env[`C3_MODEL_${role}`] || DEFAULT_MODEL_BINDINGS[role]);
+  }
 }, ASYNC_TEST_TIMEOUT_MS);
 
-await testAsync('CODE uses qwen3.5', async () => {
-  const { default: config } = await import('../src/config.js');
-  assertIncludes(config.models.CODE, 'qwen3.5');
+await testAsync('CODE resolves its configured role binding', async () => {
+  const { default: config, DEFAULT_MODEL_BINDINGS } = await import('../src/config.js');
+  assertEqual(config.models.CODE, process.env.C3_MODEL_CODE || DEFAULT_MODEL_BINDINGS.CODE);
 }, ASYNC_TEST_TIMEOUT_MS);
 
 // ═══════════════════════════════════════════════════════════════════════════════

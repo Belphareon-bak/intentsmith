@@ -63,3 +63,24 @@ Nový čistý full běh 351 PASS / 1 sealed-registry FAIL; mobile 47/47, browser
 [review výsledek](../review/2026-09-09-CORE-COMPLETION-REVIEW.md) drží přesné
 identity, raw neúspěchy a zbývající závislosti. Provider activation návrh je
 připravený; technické povolení nezměnilo provozní/živé modelové omezení.
+
+## Navazující autorizovaný krok — 2026-09-09
+
+Operátor následně odpověděl „ano potvrzuji“ na konkrétní návrh nasazení
+Ollamy, restartu systémové služby a sériového modelového ověření M6. Tím
+pro tento postup končí předchozí odklad živých LLM běhů. Schválené jsou přesné
+binary/drop-in identity, backup/rollback a zachování modelů, bindings a
+historie podle [provozního návrhu](../execution/runs/m6/core-provider-activation-proposal-20260909.md).
+Skutečná autentizace správce se tím nenahrazuje.
+
+Navazující owned rozsah: staged instalační/qualification skripty a jejich
+raw evidence; minimální oprava prokázaného zastaralého role-config oraclu v
+`tests/e2e-pipeline.test.js`; nutný census a run/review stav. Autoritou modelů
+zůstává přijatá sedmirolová konfigurace a její M1 bootstrap test. Živé role
+se nesmějí změnit proto, aby vyhověly zastaralému testu. Kvalifikace gateway
+použije pouze soukromou kopii DB a typed writer; produkční server startup
+s automatickou rehydratací je samostatně vyhodnocený následný krok.
+
+Stop condition: drift připnutých souborů, cizí GPU/Ollama práce nebo chybějící
+skutečná admin autentizace zastaví závislou operaci. M5 rotace/custody/history,
+M7 síť/klíče/zařízení a release podpisy zůstávají mimo tuto autoritu.
