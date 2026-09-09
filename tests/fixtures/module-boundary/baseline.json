@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "599ec10a940fa5a2be9bf429310dca8bae04fff0",
-  "sourceTree": "278360dc0d55a1b192955c3013bcb20418f26c22",
+  "sourceRevision": "1f68dcebba04892c3b041c89a076fcfd8a36593b",
+  "sourceTree": "5784e1cfebaeefdf31d31c7890a5da7a2e46c31f",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -681,6 +681,7 @@
     "src/media/output-storage.js -> src/core/logger.js",
     "src/media/vram-manager.js -> src/core/logger.js",
     "src/media/vram-manager.js -> src/llm/model-ctx.js",
+    "src/media/vram-manager.js -> src/llm/model-runtime-profile.js",
     "src/media/vram-manager.js -> src/system/gpu-detector.js",
     "src/media/vram-manager.js -> src/upgrade/model-identity.js",
     "src/media/vram-manager.js -> src/upgrade/model-use-authority.js",

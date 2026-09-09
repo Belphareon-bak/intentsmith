@@ -2323,6 +2323,12 @@ nový modelový výsledek této změny zůstává nezměřený.
 
 ### Navazující evidence — 2026-09-09 18:28 UTC
 
+Doplnění 19:12 UTC: po revidované opravě společného VRAM profilu na
+`1f68dceb` module graph má 1 275 hran, 3 cykly a 28 souborů v cyklech.
+Přibyla pouze čistá závislost VRAMManageru na existujícím profilu; všechny
+předchozí hrany jsou zachované. Fyzická kalibrace většího kontextu a modelová
+kvalita zůstávají samostatné důkazy.
+
 Na čistém `2be9f521` proběhlo 352/352 required deterministic programů PASS,
 původní expertise routing 43/43 a lifecycle context routing 27/27 PASS.
 LLM1 zůstává 15 PASS / 1 FAIL kvůli výstupnímu thinking limitu 512
