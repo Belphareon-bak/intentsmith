@@ -7,6 +7,7 @@ release evidence. Výchozí konfigurace zůstává explicitně development;
 produkční režim se volí při buildu. Implementace není důkaz aktivace ani prod readiness.
 Nejnovější lokální změny, přesné SHA a ověření jsou v
 [convergence evidence 2026-09-09](../execution/runs/mobile/mobile-convergence-20260909.md).
+Souhrn všech milníků je v [convergence review](../review/2026-09-09-MOBILE-CONVERGENCE-REVIEW.md).
 Postup je v [TRYING-IT](TRYING-IT.md). Globální stav a přijetí M5/M6/M7 nadále
 vlastní `ROADMAP.md` a `SYSTEM-MAP.md`; tento rozcestník je nenahrazuje.
 

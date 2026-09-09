@@ -1,6 +1,12 @@
 # WP-MOBILE-CONVERGENCE-20260909
 
-Status: IN_PROGRESS / NOT_RELEASE_ACCEPTANCE.
+Status: SCOPED_COMPLETE / INDEPENDENT_REVIEW_PENDING / NOT_RELEASE_ACCEPTANCE.
+
+Product candidate: `f7f78d5a113df0029ff16dea5bbfdf8469b6623f`.
+All three scoped milestones are implemented and verified. Ordinary deterministic
+gate remains FAIL: 350 PASS / 1 expected sealed-registry drift FAIL (CONTRACT §8).
+Results: [execution ledger](../execution/runs/mobile/mobile-convergence-20260909.md)
+and [review packet](../review/2026-09-09-MOBILE-CONVERGENCE-REVIEW.md).
 
 Authority: operator instruction to perform the proposed exact merge, compose both
 release guards, port the locale correction and verify the resulting candidate.

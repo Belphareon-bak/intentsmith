@@ -2170,6 +2170,27 @@ Povinné výsledky:
   a typed runtime events přes verzovaný kontrakt;
 - kompatibilita verzí core/companion a pravdivé degraded/offline chování.
 
+### Lokální mobilní konvergence 2026-09-09
+
+Na větvi `work/mobile-completion-20260908` je výsledný merge
+`f7f78d5a113df0029ff16dea5bbfdf8469b6623f`, přesně z `1ab8d942` a `f812259d`.
+Native companion a fyzická release evidence z B jsou integrované spolu s
+mobile accessibility a povinnou dirty-source pojistkou. Locale inventář pro
+aktuální B přidal jeden registrovaný offline program, nikoli starý `/m1` BE.
+Mobile gate `46/46`, browser `24/24`, release boundary `19/19`, skutečný
+throwaway APK/AAB build a binding prošly. Fresh-clone deterministic běh má
+`350 PASS / 1 FAIL / 0 BLOCKED`, exit 1: jediný FAIL je očekávaný rozchod
+registru se sealed Gate0 policy podle `CONTRACT.md` §8. Staré LOC/census
+problémy se neopakovaly. Raw report není převyprávěn jako PASS.
+
+Stav řezu je `SCOPED_COMPLETE / INDEPENDENT_REVIEW_PENDING / NOT_PROD_READY`.
+Aktuální inventory: 511 programů, fingerprint `84235937…0ff6`.
+Tento checkpoint nepřebírá novější B `036ba6bd..0b0a4669`, nemění přijetí M5/M6
+ani neuzavírá M7. UI mapping dalších obrazovek, fyzické VPN/device/TalkBack
+důkazy, produkční podpisy a distribuce zbývají. Podrobnosti a stav všech MM:
+[review packet](docs/review/2026-09-09-MOBILE-CONVERGENCE-REVIEW.md).
+Bez push, aktivace služeb nebo zásahu do cizího BE checkoutu.
+
 ## 12. Pravidla Work Package bez dalšího aparátu
 
 Aktivní WP se vejde do těchto osmi položek:
