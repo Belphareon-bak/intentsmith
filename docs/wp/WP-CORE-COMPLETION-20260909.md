@@ -410,3 +410,17 @@ Související M1 failover schema test zůstává kontrolou úplného migračníh
 řetězce: jeho původní 17 PASS / 3 FAIL očekávaly aktuální verzi108 a95 migrací.
 Opraveny pouze aktuální verze109, počet96 a přidán přesný název109 do seznamu;
 původní kontrola nulových nových migrací a identického schématu zůstává.
+
+
+Úplný původní offline/database běh na čistém `b21de040` skončil skutečně
+350 PASS / 2 FAIL / 0 BLOCKED; žádný výsledek se nepřeznačuje. Produkční
+consumer test ještě vyžadoval dva UNAVAILABLE terminály. Nyní ověřuje read@2
+čekající na přesné schválení, druhý symlink odmítnutý a nula grantů, execution
+claims i output bytes před schválením; obsah se nevrací. Všech 22 původních
+případů projde, před opravou 21/1. Druhý finding byl skutečný starý release
+contract pin: aktuální počet migrací95 odmítal správný upgrade96. Revidovaná
+oprava mění jen aktuální počet na96; původní56, verze, SHA a všechny ostatní
+validation guards zůstávají. Stejných8 testů doložilo7/1 →8/0 a10 úzkých
+negativních kontrol zachovalo exact count/failure-cut pravidla. Oba původní
+FAIL a opravené důkazy zůstávají v provider-proposal integration/remaining-fixes
+a m6-runtime-migration-pin-b21de040. Nový celý běh musí mít vlastní clean SHA.

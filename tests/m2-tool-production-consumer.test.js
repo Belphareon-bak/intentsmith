@@ -163,7 +163,7 @@ await testAsync('first project turn consumes persisted context without creating 
   }
 });
 
-await testAsync('active file.read and FILE_EXPLAIN deny disk and symlink reads through durable authority', async () => {
+await testAsync('active file.read awaits exact approval and FILE_EXPLAIN rejects symlink targets', async () => {
   const directory = mkdtempSync(path.join(process.env.TMPDIR, 'm2-file-read-denial-'));
   const projectRoot = path.join(directory, 'project');
   mkdirSync(projectRoot, { recursive: true, mode: 0o700 });
@@ -174,7 +174,10 @@ await testAsync('active file.read and FILE_EXPLAIN deny disk and symlink reads t
     SELECT
       (SELECT count(*) FROM tool_v1_requests) AS requests,
       (SELECT count(*) FROM tool_v1_results) AS results,
-      (SELECT count(*) FROM m2_effect_requests) AS effects
+      (SELECT count(*) FROM m2_effect_requests) AS effects,
+      (SELECT count(*) FROM m2_approval_grants) AS grants,
+      (SELECT count(*) FROM m2_effect_execution_claims) AS claims,
+      (SELECT count(*) FROM m2_file_read_outputs) AS outputs
   `).get();
   try {
     for (const [index, [filePath, intent]] of [
@@ -202,18 +205,41 @@ await testAsync('active file.read and FILE_EXPLAIN deny disk and symlink reads t
       assert.equal(response.tag.metadata.fallbackSuppressed, true);
       assert.match(response.tag.metadata.toolRequestId, /^tool:[a-f0-9]{64}$/);
       assert.doesNotMatch(response.content, /MUST_NOT_LEAK/);
+      assert.equal(response.tag.metadata.approvalRequired, index === 0);
+      const stored = db.prepare('SELECT request_json FROM tool_v1_requests WHERE request_id = ?')
+        .get(response.tag.metadata.toolRequestId);
+      assert.equal(JSON.parse(stored.request_json).toolVersion, 2);
+      if (index === 0) {
+        assert.equal(response.tag.metadata.approvalPreviewVerified, true);
+        assert.equal(response.tag.metadata.filePath, 'canary.txt');
+        assert.equal(response.tag.metadata.projectId, Number(registered.id));
+        const pendingEffect = db.prepare('SELECT request_json FROM m2_effect_requests WHERE effect_id = ?')
+          .get(response.tag.metadata.effectId);
+        const request = JSON.parse(pendingEffect.request_json);
+        assert.equal(request.kind, 'fs.read');
+        assert.equal(request.target.relativePath, 'canary.txt');
+        assert.equal(request.target.canonicalRoot, projectRoot);
+        assert.equal(db.prepare('SELECT count(*) AS n FROM tool_v1_results WHERE request_id = ?')
+          .get(response.tag.metadata.toolRequestId).n, 0);
+      }
     }
     const after = db.prepare(`
       SELECT
         (SELECT count(*) FROM tool_v1_requests) AS requests,
         (SELECT count(*) FROM tool_v1_results) AS results,
-        (SELECT count(*) FROM m2_effect_requests) AS effects
+        (SELECT count(*) FROM m2_effect_requests) AS effects,
+        (SELECT count(*) FROM m2_approval_grants) AS grants,
+        (SELECT count(*) FROM m2_effect_execution_claims) AS claims,
+        (SELECT count(*) FROM m2_file_read_outputs) AS outputs
     `).get();
     assert.deepEqual({
       requests: after.requests - before.requests,
       results: after.results - before.results,
       effects: after.effects - before.effects,
-    }, { requests: 2, results: 2, effects: 0 });
+      grants: after.grants - before.grants,
+      claims: after.claims - before.claims,
+      outputs: after.outputs - before.outputs,
+    }, { requests: 2, results: 1, effects: 1, grants: 0, claims: 0, outputs: 0 });
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
