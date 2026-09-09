@@ -1,5 +1,11 @@
 # M7 prod-readiness follow-up — independent review packet
 
+Historical review input. Subsequent independent review passed canonical
+interop/recovery and the exact B registry scope, but found P1 systemd bind
+injection in this renderer. Remediation on `70eef905` passed re-review; see
+[the exact result](2026-09-09-CORE-COMPLETION-REVIEW.md). The requested verdicts
+below describe the original packet, not current pending work or M7 acceptance.
+
 ## Requested verdicts
 
 ```text

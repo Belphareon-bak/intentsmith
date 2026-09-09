@@ -1,6 +1,9 @@
 # Mobile convergence — implementer review a předání
 
-Status: IMPLEMENTER_VERIFIED / INDEPENDENT_REVIEW_PENDING / NOT_PROD_READY.
+Historický vstup: IMPLEMENTER_VERIFIED / NOT_PROD_READY.
+Nezávislé review následně přijalo MC1/MC2 a vrátilo MC3 CHANGES_REQUIRED.
+Oprava a nové APK/AAB na `70eef905` prošly
+[navazujícím review](2026-09-09-CORE-COMPLETION-REVIEW.md).
 Jde o review vlastního implementačního řezu, nikoli nezávislé schválení releasu.
 Předchozí nezávislé verdicts se nepřenášejí na změněné merge bytes.
 
@@ -15,9 +18,9 @@ Scope: [WP](../wp/WP-MOBILE-CONVERGENCE-20260909.md).
 
 | Milník | Implementační závěr | Nezávislé review |
 |---|---|---|
-| MC1 — pinned B + obě release pojistky | VERIFIED: přesný merge, 19/19 release checks, 128 kombinací readiness | PENDING |
-| MC2 — locale inventář pro skutečné B | VERIFIED: skript, registrovaný test, JSON i Markdown; čtyři locale, negativní stale check | PENDING |
-| MC3 — výsledný candidate, build a předání | VERIFIED: mobile 46/46, Android build/unit/lint a binding; full gate 350 PASS / 1 očekávaný Gate0 drift FAIL | PENDING |
+| MC1 — pinned B + obě release pojistky | VERIFIED: přesný merge, 19/19 release checks, 128 kombinací readiness | REVIEW_PASSED |
+| MC2 — locale inventář pro skutečné B | VERIFIED: skript, registrovaný test, JSON i Markdown; čtyři locale, negativní stale check | REVIEW_PASSED |
+| MC3 — výsledný candidate, build a předání | Původní implementační claim: mobile 46/46, Android build/unit/lint a binding; full gate 350 PASS / 1 očekávaný Gate0 drift FAIL | CHANGES_REQUIRED na `f7f78d5a`: nesoulad declared index hash; opraveno a REVIEW_PASSED až na `70eef905` |
 
 ### MC1 — co se skutečně kontrolovalo
 

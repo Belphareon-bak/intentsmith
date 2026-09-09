@@ -68,8 +68,8 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Decision 041 implementace dostala `REVIEW_PASSED` a trust store drží čtyři oddělené veřejné klíče. Úzký review ale našel stale M6 migration oracle a neoffline custody privátních klíčů; oracle remediation je implementovaná, custody zůstává otevřená. Osm rotací, history disposition a podepsaná M5 acceptance neproběhly. |
-| **M6 IntentSmith 1.0 release** | `INTEGRATION_VERIFICATION_PENDING / DEVELOPMENT_REGISTRY_DRIFT / FULL_RELEASE_GATE_REQUIRED / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Současná integrace obsahuje 413 required programů, 352 deterministic. M5 externí podmínky, provider, modelové měření, celý M6 gate, 24h soak, review/demo a podpisy zbývají. Starší PASS platí jen pro původní kandidáty. |
-| **M7 Remote Companion** | `FOLLOWUP_INTEGRATED / REVIEW_FINDINGS_REMEDIATED / RE_REVIEW_PENDING / NOT_ACCEPTED` | M6 + remote boundary | Integrované mobilní release pojistky, canonical JSON corpus a systemd renderer. Dvě review vady se opravují v současném kandidátu; nová evidence a review zbývají. UI mapping, produkční konfigurace, fyzická matice 13+7 a release podpisy nejsou hotové. |
+| **M6 IntentSmith 1.0 release** | `TECHNICAL_INTEGRATION_REVIEW_PASSED / DEVELOPMENT_REGISTRY_DRIFT / FULL_RELEASE_GATE_REQUIRED / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Kandidát `70eef905`: 413 required, deterministic 351 PASS / 1 sealed-registry FAIL. M5 externí podmínky, nasazení připraveného provideru, modelové měření, celý M6 gate, 24h soak, review/demo a podpisy zbývají. |
+| **M7 Remote Companion** | `FOLLOWUP_INTEGRATED / SCOPED_REVIEW_PASSED / NOT_ACCEPTED` | M6 + remote boundary | Release pojistky, canonical JSON corpus, opravený systemd renderer i nové APK/AAB na `70eef905` prošly scoped review. Artefakty jsou throwaway debug signed. UI mapping, produkční konfigurace, fyzická matice 13+7 a release podpisy nejsou hotové. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
 Gate 0 se znovu aktivuje pouze v M6 nad zmraženým kandidátem.
@@ -2204,7 +2204,9 @@ throwaway APK/AAB build a binding prošly. Fresh-clone deterministic běh má
 registru se sealed Gate0 policy podle `CONTRACT.md` §8. Staré LOC/census
 problémy se neopakovaly. Raw report není převyprávěn jako PASS.
 
-Stav řezu je `SCOPED_COMPLETE / INDEPENDENT_REVIEW_PENDING / NOT_PROD_READY`.
+Historický stav tohoto vstupu byl `SCOPED_COMPLETE / INDEPENDENT_REVIEW_PENDING / NOT_PROD_READY`.
+Následné review přijalo MC1/MC2 a našlo MC3 hash vadu; její opravu a nové
+nezávislé ověření na `70eef905` popisuje následující checkpoint.
 Aktuální inventory: 511 programů, fingerprint `84235937…0ff6`.
 Tento checkpoint nepřebírá novější B `036ba6bd..0b0a4669`, nemění přijetí M5/M6
 ani neuzavírá M7. UI mapping dalších obrazovek, fyzické VPN/device/TalkBack
@@ -2222,8 +2224,22 @@ Nezávislé review merge `f7f78d5a` přijalo MC1/MC2, ale MC3 vrátilo
 Review B `036ba6bd..9ae1a516` přijalo canonical JSON/recovery a B registry
 scope; renderer vrátilo `CHANGES_REQUIRED` kvůli systemd injection přes
 procentní suffix v bind address. Obě konkrétní vady a potvrzený privacy
-false-positive jsou opravené s negativními kontrolami. Integrační kandidát
-čeká na čerstvý běh a nové nezávislé review; není release acceptance.
+false-positive jsou opravené s negativními kontrolami. Produktový kandidát
+`70eef905b9f779958a5ce908d6ed03fac53602f9` prošel nezávislým scoped review
+včetně skutečných nových APK/AAB. Mobile gate je 47/47, browser 24/24,
+JVM 4 M7 + 1 template PASS; lint má 0 errors / 16 warnings. Artefakty jsou
+`THROWAWAY_DEBUG_SIGNED`, fyzická runtime evidence zůstává nepřítomná.
+
+Nový fresh-clone deterministic běh je pravdivě **351 PASS / 1 FAIL / 0 BLOCKED**,
+exit 1. Jediný FAIL je očekávaný sealed Gate 0 registry drift. První běh
+349/3 zůstává zachovaný; dvě fixture chyby způsobilo umístění klonu, pro
+opravené prostředí se nezměnil test ani produkt. Current-tree privacy scan
+má 0 findings, ale historie 13/13 reachable a M5 custody/rotace/disposition
+nejsou uzavřené. Provider patch prošel novou izolovanou kompilací a mock
+regresemi; není nasazený. [Run evidence](docs/execution/runs/core-completion-20260909.md),
+[nezávislé review](docs/review/2026-09-09-CORE-COMPLETION-REVIEW.md) a
+[konkrétní provider aktivace/rollback](docs/execution/runs/m6/core-provider-activation-proposal-20260909.md)
+jsou aktuální předání. Žádná M5/M6/M7 acceptance nebyla udělena.
 
 ## 12. Pravidla Work Package bez dalšího aparátu
 

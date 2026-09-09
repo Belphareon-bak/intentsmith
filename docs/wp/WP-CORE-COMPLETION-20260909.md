@@ -52,3 +52,14 @@ aktivace služeb/VPN/firewallu, telefonu, podpisových receipts nebo publikace.
 Nález měnící schválené chování, L0 nebo potřebující dosud neudělenou externí
 autoritu zastaví jen závislou práci. Stav a výsledek jsou v existující roadmapě,
 mapě systému a run/review evidenci; tento WP se nepoužívá jako další board.
+
+## Výsledek 2026-09-09
+
+Technický rozsah uzavřen na `70eef905b9f779958a5ce908d6ed03fac53602f9`:
+`SCOPED_REVIEW_PASSED / DETERMINISTIC_BASELINE_FAIL / NOT_RELEASE_READY`.
+Nový čistý full běh 351 PASS / 1 sealed-registry FAIL; mobile 47/47, browser
+24/24, skutečný throwaway APK/AAB a nezávislé review oprav prošly.
+[Run evidence](../execution/runs/core-completion-20260909.md) a
+[review výsledek](../review/2026-09-09-CORE-COMPLETION-REVIEW.md) drží přesné
+identity, raw neúspěchy a zbývající závislosti. Provider activation návrh je
+připravený; technické povolení nezměnilo provozní/živé modelové omezení.
