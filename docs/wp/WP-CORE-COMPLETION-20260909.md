@@ -424,3 +424,19 @@ validation guards zůstávají. Stejných8 testů doložilo7/1 →8/0 a10 úzký
 negativních kontrol zachovalo exact count/failure-cut pravidla. Oba původní
 FAIL a opravené důkazy zůstávají v provider-proposal integration/remaining-fixes
 a m6-runtime-migration-pin-b21de040. Nový celý běh musí mít vlastní clean SHA.
+
+
+Aktualizace 2026-09-09 21:39 UTC: sedm hran je připnuto v `b21de040`
+a opravy integračních chyb v `7fa6f985`. Jeho původní celý offline/database
+běh má **352/352 PASS**, exit 0. Stejný čistý source prošel také původní
+fresh-clone fází **4/4 PASS**, včetně buildu, upgradu/obnovy a obou Studio
+scénářů. Předchozí 350/2 deterministic FAIL, neúplná cache i fresh-clone
+3 PASS / 1 FAIL po dalších vstupech mimo scénář zůstávají zachované.
+Opakování na soukromém Xvfb ponechalo stejné testy a produkt; sedm build
+souborů bylo zachyceno a úklid klonu/procesů potvrzen.
+[Aktuální důkazy a zbývající práce](../execution/runs/m6/core-completion-followup-20260909.md).
+Soak má jen sedmihodinový průběžný výsledek 25203/0 na starším source.
+To neuzavírá modelovou kuchařku, `file.list`, skutečné FILE_EXPLAIN,
+M5 externí podmínky, M2 konečné přijetí ani release. Hlavní profil4096
+ani výstup4000 se tím nemění; dva již předložené autoritní návrhy zůstávají
+bez odpovědi. M7 zůstává oddělené.

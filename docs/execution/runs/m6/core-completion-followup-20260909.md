@@ -1,6 +1,111 @@
 # Core completion: navazující měření M6 — 2026-09-09
 
-## Aktuální evidence checkpoint — 2026-09-09 20:04 UTC
+## Aktuální dokončený běh — 2026-09-09 21:39 UTC
+
+Na totožném čistém produktovém source `7fa6f9854e4eda94a0ba2040d318a6ff90c241c1`
+je doložen původní deterministic profil **352/352 PASS** a nyní samostatná
+původní fresh-clone fáze **4/4 PASS**, exit 0. Instalace a build byly offline;
+čtyři původní programy a jejich podmínky zůstaly beze změny. M1, upgrade
+předchozí verze s obnovou po chybě, Studio boundary a Studio M1 prošly.
+Jde o kontrolované integrační scénáře, nikoli obecný důkaz modelové kvality.
+
+[Report čtyř programů](../../../../.intentsmith-artifacts/m6/candidate-7fa6f9854e4eda94a0ba2040d318a6ff90c241c1-xvfb-02/fresh-clone/report.json),
+[validace fáze](../../../../.intentsmith-artifacts/m6/candidate-7fa6f9854e4eda94a0ba2040d318a6ff90c241c1-xvfb-02/phase-validation.json)
+a [zachycený build](../../../../.intentsmith-artifacts/m6/candidate-7fa6f9854e4eda94a0ba2040d318a6ff90c241c1-xvfb-02/release/manifest.rerun.json)
+vážou stejné SHA. Sedm skutečných build souborů má ověřené hashe. Odvozený
+manifest upravuje pouze cestu k oddělenému běhu; původní capture manifest
+zůstává zachovaný. [Záznam dokončení](../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/m2-file-read-integration-20260909/fresh-7fa6f985-xvfb-02-completion.json)
+potvrzuje úklid klonu, vlastních procesů i virtuální obrazovky.
+
+Předchozí běh na témže SHA zůstává **3 PASS / 1 FAIL**. Jeho soukromá DB
+obsahuje tři další vstupy mimo jediný vstup testu; jejich původ je UNKNOWN.
+Opakování proto použilo samostatný Xvfb, nikoli běžnou pracovní obrazovku.
+Podmínka přesně jednoho turnu zůstala stejná.
+[Nezávislý audit neúspěšného běhu](../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/m2-file-read-integration-20260909/fresh4-7fa6f985-independent-failed-review.json)
+a [dřívější selhání instalace s neúplnou cache](../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/m2-file-read-integration-20260909/fresh-install-host-cache-independent-review.json)
+se nepřepisují novým PASS.
+
+[Průběžný snapshot](../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/provider-runtime-checkpoint-20260909T213231.json)
+potvrzuje, že soak na starším `193e2351` má poslední **sedmihodinový heartbeat:
+25 203 požadavků, 0 chyb**. Stále běží; 24hodinový závěr ani přijetí aktuálního
+source tím nevzniká. Modelová kuchařka zůstává 24 PASS / 18 FAIL, hlavní
+kontext 4096 a výstupní limit SPEC 4000. `file.list`, skutečná syntéza
+FILE_EXPLAIN, oba předložené návrhy změny autority, externí podmínky M5,
+finální M2 review a společný release zůstávají otevřené. M7 je oddělený release.
+
+## Předchozí evidence checkpoint — 2026-09-09 21:11 UTC
+
+Stav: **TECHNICAL_COMPLETION_IN_PROGRESS / MODEL_FAILURES_OPEN / NOT_RELEASE_READY**.
+Poslední úplně měřený hlavní source je `7fa6f9854e4eda94a0ba2040d318a6ff90c241c1`:
+oprava čtvrté revize `361a5f88`, projektové čtení `3132d58c` a samostatný pin
+sedmi revidovaných závislostí. Hlavní profil zůstává **4096**, výstup SPEC
+**4000**. Modelová měření při 16384 níže patří pouze privátnímu `b365896f`.
+Opravy integračních chyb jsou v hlavním `7fa6f985`; jeho nový původní
+full352 skončil **352 PASS / 0 FAIL / 0 BLOCKED / 0 SKIPPED**, exit 0.
+[Fakta, zachované neúspěchy a přesné hashe](../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/followup-status-proposal-361a5f88/facts.json) oddělují source i jednotlivé reporty.
+
+| Source | Rozsah | Skutečný výsledek a hranice | Důkaz |
+|---|---|---|---|
+| `7fa6f985` | Nový původní required deterministic běh, 352 programů | **352 PASS / 0 FAIL / 0 BLOCKED / 0 SKIPPED**, exit 0; 21:03:42–21:07:51 UTC. Všech 352 unikátních ID a raw logových hashů ověřeno, source čistý a bez leaků | [nezávislé review](../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/deterministic-7fa6f985-independent-review.json), [přesný report](../../../../.intentsmith-artifacts/core-completion-20260909/deterministic-current/core-deterministic-7fa6f985-20260909-01/report.json), [fakta a raw hashe](../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/followup-status-proposal-361a5f88/facts.json) |
+| `b21de040` | Původní required deterministic běh, 352 programů | **350 PASS / 2 FAIL / 0 BLOCKED**, exit 1; 20:54:16–20:58:38 UTC. Selhaly M2-TOOL-PRODUCTION-CONSUMER a M6-RUNTIME-EVIDENCE; oba PDF parametry byly předány, všechny logy přehashované, source čistý a bez leaků | [report a 352 logových hashů](../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/followup-status-proposal-361a5f88/facts.json) |
+| `3c004e70` | Předchozí required deterministic evidence | Původní report **350 PASS / 2 BLOCKED**, exit 2; doprovodný běh obou PDF programů na stejném source **2 PASS**. Dohromady 352 unikátních programů s PASS, nikoli přepsaný původní report | [nezávislé review obou reportů](../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/deterministic-3c004e70-coverage-independent-review.json) |
+| `361a5f88` | Čtvrtá a další výslovná připomínka ke SPEC | Stejných 119 kontrol: **100 PASS / 19 FAIL → 119 PASS / 0 FAIL**, nezávisle zopakováno; lifecycle **154 PASS**, M1 karanténa **8 PASS** | [source a párové review](../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/spec-fourth-revision-fix-3c004e70/independent-release-review.json) |
+| `3132d58c`, pin `b21de040` | Produkční projektové `file.read` a trvalé výsledky | Cíleně **22 consumer / 45 broker / 17 runtime / 55 schema / 20 M1 schema / 158 artifact PASS**, nezávislé integrační review. Původní dva FAIL na b21 a nový úplný PASS na 7fa jsou uvedené výše | [integrační review](../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/m2-file-read-integration-20260909/independent-release-integration-review-3132d58c.json) |
+| privátní kompozice revidovaného M2 čtení | Celý produkční migration runner a skutečný consumer | **13 migration kontrol**, fresh i populated 108→109, nezávisle revidováno; odděleně **11 consumer kontrol** se skutečným providerem/SQLite a replay po odstranění zdrojového souboru | [migration review](../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/m2-file-read-output-proposal-6405992/production-migration-independent-release-review.json), [consumer důkaz](../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/m2-file-read-consumer-proposal-6405992e/v3/composition-02/artifacts/composition.json) |
+| `b365896f` | Původní LLM1 | **16/16 PASS**; 15 úplných POST odpovědí, všechny `stop`; čtyři přímá volání neuvádějí `num_ctx`, 11 produkčních posílá 16384; čtyři trvalé PURE/DIRECT výsledky | [nezávislé raw/DB review](../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/llm1-calibration16384-independent-audit-b365896f/review.json) |
+| `b365896f` | Původní LLM2 | **17/17 PASS**; 12 úplných POST odpovědí, všechny 16384 a `stop`; pět trvalých PURE/DIRECT výsledků | [nezávislé raw/DB review](../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/llm2-calibration16384-independent-audit-b365896f/review.json) |
+| `b365896f` | Původní fyzický T3 a následný cookbook | T3 **PASS / REVIEW_PASSED**, monitorované minimum 5377 MiB a 100% GPU residency; cookbook stále **24 PASS / 18 FAIL**, konec ve SPEC | [fyzické review](../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/physical-calibration16384-b365896f-independent-mobile.json), [cookbook audit](../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/cookbook16384-independent-audit-b365896f/review.json) |
+
+Dva deterministic FAIL mají revidované opravy v `7fa6f985`: stará kontrola
+UNAVAILABLE nyní ověřuje přesný pending read@2 bez grantu či obsahu a M6
+kontrakt připíná skutečných 96 migrací. Cílené původní sady prošly 22 a 8
+kontrolami; původní full352 na b21 zůstává FAIL. Nový původní běh
+`core-deterministic-7fa6f985-20260909-01` má samostatný skutečný **352/352 PASS** report.
+[Consumer review](../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/m2-file-read-integration-20260909/remaining-fixes/production-consumer-independent-release-review.json)
+a [M6 migration-count review](../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/m6-runtime-migration-pin-b21de040/independent-convergence-review.json)
+předcházejí samostatnému úplnému běhu; samotné focused výsledky jej nenahrazují.
+Nejde o původní PDF blokace na `3c004e70`.
+Bootstrap a schema neúspěchy z cílené integrace zůstávají zachované, včetně
+M1 schema **17 PASS / 3 FAIL → 20 PASS** po synchronizaci přesného migration oracle.
+
+Čtvrtá připomínka již není zaměněna za schválení. Každý výslovný revizní
+vstup prochází jedním existujícím `reviseSpec` voláním; nevznikla automatická
+smyčka ani nová autorita. Nevyřešená připomínka blokuje schválení.
+Oprava patří non-M1 větvi; M1/M7 karanténa zůstává beze změny.
+
+Projektové čtení nyní zobrazuje přesnou schvalovanou cestu, projekt a limit,
+po přesném grantu ukládá skutečné bytes a na reconnect je promítá z trvalého
+výsledku bez nového čtení souboru. Cílené důkazy zahrnují odmítnutí cizího
+aktéra/projektu/konverzace a související životní cyklus odstranění dat.
+**`file.list` a úplná syntéza `FILE_EXPLAIN` zůstávají otevřené**; zobrazení
+načteného souboru není jeho vysvětlením. Sedm nových src hran je připnutých:
+1282 celkem, stejné 3 cykly / 28 souborů. Integrační review není finální
+operátorské `REVIEW_PASSED` podle Decision 030 ani M2 acceptance.
+
+LLM1/LLM2 mají původní omezené jazykové, faktické a délkové aserce. SEARCH
+v LLM1 ověřuje rozhodnutí, nikoli provedení webu; LLM2 živá data neobdržel
+a počasí požádalo o souhlas. Oba běhy mají raw identity a trvalé lokální
+výsledky, ne nové záznamy `model_usage`. Neprokazují obecnou kvalitu ani
+přijetí hlavního profilu 16384; fyzický T3 má vlastní omezení níže.
+
+Cookbook při 16384 uchoval zadání, veřejné předchozí SPEC, připomínky i
+doplnění. První SPEC a následné řazení byly úplné, ale výživa třikrát
+skončila `length` při **5795 + 4000 = 9795 < 16384**; limit byl výstupních
+4000 tokenů. Pending výživa nebyla vydána za hotovou veřejnou SPEC.
+[Návrh účelově omezeného SPEC rozpočtu 6000](../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/completion-spec-budget-decision-20260909.md)
+a [návrh síťového scope bez projektu](../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/completion-network-decision-20260909.md)
+jsou předložené, **odpověď operátora chybí**. Nejsou přijaté ani aktivované;
+obecný planner a ostatní rozpočty se nemění. Projektové soubory lze dokončovat
+podle existující autority bez dalšího předběžného souhlasu.
+
+[Zachovaný šestihodinový soak prefix](../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/followup-status-proposal-361a5f88/soak-prefix.log)
+na historickém `193e2351` má `elapsedMs=21602001`, **21603 requests / 0 errors**.
+Jde o průběžný heartbeat, nikoli finální 24hodinový PASS; navazující throughput
+není uzavřený. Zbývající modelová kvalita a funkce, M5 externí
+podmínky a společný release gate/review/demo/acceptance zůstávají otevřené.
+**M6 PASS ani 413 PASS na jednom SHA doložené nejsou.**
+
+## Historický checkpoint — 2026-09-09 20:04 UTC
 
 Stav: **TECHNICAL_COMPLETION_IN_PROGRESS / MODEL_FAILURES_OPEN / NOT_RELEASE_READY**.
 Hlavní source je `6405992e54140ff754043478b8ea68281cc43812` s profilem **4096**.

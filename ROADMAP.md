@@ -68,7 +68,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Decision 041 implementace dostala `REVIEW_PASSED` a trust store drží čtyři oddělené veřejné klíče. Úzký review ale našel stale M6 migration oracle a neoffline custody privátních klíčů; oracle remediation je implementovaná, custody zůstává otevřená. Doložení všech osmi kategorií (dokončená rotace nebo podepsaně prokázaná nepoužitelnost), history disposition a podepsaná M5 acceptance zůstávají otevřené; N/A není rotace. |
-| **M6 IntentSmith 1.0 release** | `SCOPED_REVIEW_PASSED / MODEL_FAILURES_OPEN / FULL_RELEASE_GATE_REQUIRED / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Evidence k 2026-09-09 20:04 UTC: privátní `875c041a` při 8192 má původní fyzický T3 PASS / REVIEW_PASSED a opravenou původní LLM1 16/16 PASS; cookbook zůstává 26 PASS / 16 FAIL (výstupní limit SPEC 4000, chybné revize a historické falešné SPEC-F PASS). Čtyři přímá LLM1 volání neuvádějí kontext. Hlavní `6405992e` integruje revidované JSON/VRAM/retention/oracle opravy, cíleně 154/45/158 PASS bez modelu; hlavní profil 4096. Privátní `b365896f` má fyzický T3 při 16384 PASS / REVIEW_PASSED, cookbook dokončen 24 PASS / 18 FAIL: retence doložená, revize výživy třikrát na výstupním limitu 4000, kontext nevyčerpán. B/C/E web bez projektu a čtení/výpis jsou otevřená implementace, nikoli OUT z 1.0. Projektové soubory se mají dokončit podle existující autority; nové rozhodnutí v M2 čeká pouze scope webu bez projektu. Omezený SPEC rozpočet 6000 byl předložen operátorovi, odpověď chybí a limit zůstává 4000. Non-M1 čtvrtá revize zůstává vadná. Soak `193e2351` má pouze pětihodinový heartbeat 18002/0. Starší 352/352, routing 43/27, LLM2 17 a další běhy mají vlastní source. M5 externí podmínky a společný release gate/review/demo/podpisy zbývají. [Přesné důkazy a limity](docs/execution/runs/m6/core-completion-followup-20260909.md); nejde o 413 PASS na jednom SHA. |
+| **M6 IntentSmith 1.0 release** | `SCOPED_REVIEW_PASSED / MODEL_FAILURES_OPEN / FULL_RELEASE_GATE_REQUIRED / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Evidence k 2026-09-09 21:39 UTC: stejný čistý `7fa6f985` má také původní fresh-clone fázi **4/4 PASS** na odděleném Xvfb s ověřeným zachycením buildu a úklidem. Předchozí 3 PASS / 1 FAIL po třech vstupech mimo scénář zůstává zachovaný; testy ani produkt se mezi běhy nezměnily. hlavní `7fa6f985` má nový původní full352 **352 PASS / 0 FAIL / 0 BLOCKED / 0 SKIPPED**, exit 0. Původní `b21de040` zůstává 350 PASS / 2 FAIL; opravy integračních chyb mají nezávislé review a cíleně 22/8 PASS. Starší `3c004e70` má odlišný zachovaný report 350 PASS / 2 BLOCKED plus samostatné 2 PDF PASS. Oprava čtvrté revize `361a5f88` má 119/154/8 cílených PASS. Projektové čtení `3132d58c` má 22/45/17/55/20/158 cílených PASS, nezávislé integrační review a sedm připnutých hran (1282; stejné 3 cykly / 28 souborů); privátní plná migrace 13 kontrol a consumer 11. Privátní `b365896f` má LLM1 16/16 a LLM2 17/17 PASS, fyzický T3 při 16384 PASS, cookbook stále 24 PASS / 18 FAIL na výstupním limitu 4000. Hlavní profil zůstává 4096. `file.list`, úplné `FILE_EXPLAIN` a síťový scope bez projektu zbývají. Návrhy SPEC 6000 a webu čekají na odpověď; žádné přijetí ani grant. Soak `193e2351` má pouze sedmihodinový heartbeat 25203/0; není dokončený. M5 externí podmínky, finální M2 review a společný release gate/demo/acceptance zbývají. [Důkazy a limity](docs/execution/runs/m6/core-completion-followup-20260909.md); nejde o 413 PASS na jednom SHA. |
 | **M7 Remote Companion** | `FOLLOWUP_INTEGRATED / SCOPED_REVIEW_PASSED / NOT_ACCEPTED` | M6 + remote boundary | Release pojistky, canonical JSON corpus, opravený systemd renderer i nové APK/AAB na `70eef905` prošly scoped review. Artefakty jsou throwaway debug signed. UI mapping, produkční konfigurace, fyzická matice 13+7 a release podpisy nejsou hotové. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
@@ -2365,6 +2365,21 @@ projektu; dřívější požadavek na předběžný souhlas pro soubory byl př�
 čtvrtá revize v non-M1 routeru. Pětihodinový soak heartbeat 18002/0 není
 24hodinový PASS a jednotlivé source nenahrazují společný release gate.
 [Přesné výsledky, opravy a zbývající práce](docs/execution/runs/m6/core-completion-followup-20260909.md).
+
+### Navazující evidence — 2026-09-09 21:11 UTC
+
+Nový původní full352 na `7fa6f985` skončil 352 PASS / 0 FAIL / 0 BLOCKED /
+0 SKIPPED, exit 0. Původní `b21de040` má zachovaných 350 PASS / 2 FAIL / 0 BLOCKED.
+Nové dva neúspěchy nejsou staré PDF blokace `3c004e70`; opravy v `7fa6f985`
+mají nezávislé review a cíleně 22/8 PASS. Úplný PASS má svůj samostatný report a všechny raw logy. Integrovaná čtvrtá revize má cíleně
+119/154/8 PASS a projektové čtení 22/45/17/55/20/158 PASS s nezávislým
+integračním review. Privátní `b365896f` má LLM1 16/16, LLM2 17/17 a fyzický
+T3 při 16384 PASS, ale cookbook stále 24 PASS / 18 FAIL. Hlavní kontext
+4096 a výstup SPEC 4000 se nezměnily. Na návrhy SPEC 6000 ani webu bez
+projektu nepřišla odpověď. Výpis, úplné vysvětlení souboru, finální M2
+review a release acceptance zbývají; soak 21603/0 je jen šestihodinový
+heartbeat historického `193e2351`.
+[Přesné source, raw důkazy a zachované neúspěchy](docs/execution/runs/m6/core-completion-followup-20260909.md).
 
 ## 12. Pravidla Work Package bez dalšího aparátu
 
