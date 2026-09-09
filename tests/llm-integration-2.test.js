@@ -14,11 +14,57 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
+import './helpers/isolated-test-db.js';
+import * as database from '../src/db/database.js';
+import { M2ToolAuthorityRepository } from '../src/tools/m2-tool-authority-repository.js';
+
 import { suite, testAsync, assert, assertEqual, assertIncludes, summary } from './harness.js';
 
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
 const CHAT_MODEL = 'qwen3.5:27b';
 const TIMEOUT = 90_000;
+
+// This controller fixture represents an authenticated transport in its own DB.
+// It grants no effect authority: the unchanged production M2 broker owns tools.
+const TEST_SUBJECT = Object.freeze({ actorType: 'user', actorId: 'llm-integration-fixture' });
+const toolAuthority = new M2ToolAuthorityRepository(database.db);
+
+function assertDurableLocalResult(result, toolId, input) {
+  const metadata = result.metadata || {};
+  assertEqual(metadata.localComputation, true, 'Expected actual local computation');
+  assertEqual(metadata.handler, toolId, 'Expected exact local handler');
+  assertEqual(metadata.toolTerminalStatus, 'ok', 'Expected committed M2 success');
+  assert(metadata.securityBlocked !== true, 'Local result must not be a security denial');
+  assert(metadata.fallbackSuppressed !== true, 'Local result must not be fallback suppression');
+  assert(/^tool:[a-f0-9]{64}$/.test(metadata.toolRequestId || ''), 'Missing durable request ID');
+
+  const request = toolAuthority.getToolRequest(metadata.toolRequestId);
+  const terminal = toolAuthority.getToolResult(metadata.toolRequestId);
+  assert(request && terminal, 'Missing immutable ToolRequest/ToolResult');
+  assertEqual(request.actor.id, TEST_SUBJECT.actorId, 'Wrong authenticated fixture actor');
+  assertEqual(request.actor.type, 'user', 'Wrong authenticated actor type');
+  assertEqual(request.toolId, toolId, 'Wrong durable tool');
+  assertEqual(request.input.query, input, 'Wrong durable input');
+  assertEqual(request.riskClass, 'pure', 'LOCAL fixture must remain pure');
+  assertEqual(request.requiredEffectKind, null, 'LOCAL fixture must not request effects');
+  assertEqual(terminal.status, 'ok', 'Durable terminal must be successful');
+  assertEqual(terminal.effectRequestId, null, 'LOCAL fixture must not borrow effect authority');
+  assertEqual(terminal.output.subtype, toolId.slice('local.'.length), 'Wrong output subtype');
+  const projected = metadata.computationResult;
+  assert(projected && typeof projected === 'object', 'Missing actual local output');
+  if (toolId === 'local.math') {
+    assertEqual(projected.answer, terminal.output.result, 'Displayed math differs from durable output');
+  } else if (toolId === 'local.date') {
+    assertEqual(projected.timestamp, terminal.output.timestamp, 'Displayed date differs from durable output');
+  } else {
+    assertEqual(projected.answer, terminal.output.answer, 'Displayed calendar differs from durable output');
+    assertEqual(projected.date, terminal.output.date, 'Displayed calendar date differs from durable output');
+  }
+  console.log(`     M2_LOCAL_EVIDENCE ${JSON.stringify({
+    toolId, requestId: request.requestId, status: terminal.status, output: terminal.output,
+  })}`);
+}
+
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Helpers
@@ -66,7 +112,7 @@ function printLLM(label, result) {
 async function setupPipeline() {
   const { resetConversationStore, getConversationStore } = await import('../src/chat/conversation-store.js');
   resetConversationStore();
-  getConversationStore(null);
+  getConversationStore(database);
   const { ChatController } = await import('../src/chat/controller.js');
   const { getDefaultHandlers } = await import('../src/chat/handlers/index.js');
   ChatController.configure({
@@ -163,6 +209,7 @@ await testAsync('7.4 English through full pipeline → English response', async 
   const sessionId = `lang-en-${Date.now()}`;
 
   const result = await ChatController.handle({
+    authenticatedSubject: TEST_SUBJECT,
     message: 'Hello! How are you today?',
     sessionId,
   });
@@ -333,11 +380,13 @@ await testAsync('10.1 Moon phase query via full pipeline', async () => {
   const sessionId = `moon-${Date.now()}`;
 
   const result = await ChatController.handle({
+    authenticatedSubject: TEST_SUBJECT,
     message: 'kdy bude příští úplněk',
     sessionId,
   });
 
   assert(result.response, 'No response for moon query');
+  assertDurableLocalResult(result, 'local.calendar', 'kdy bude příští úplněk');
   printLLM('Moon phase', { content: result.response, model: 'local', duration: 0 });
 
   // Should contain a date and "úplněk" or days reference
@@ -355,11 +404,13 @@ await testAsync('10.2 Christmas countdown via pipeline', async () => {
   const sessionId = `xmas-${Date.now()}`;
 
   const result = await ChatController.handle({
+    authenticatedSubject: TEST_SUBJECT,
     message: 'kolik dní do Vánoc',
     sessionId,
   });
 
   assert(result.response, 'No response for Christmas query');
+  assertDurableLocalResult(result, 'local.calendar', 'kolik dní do Vánoc');
   printLLM('Christmas', { content: result.response, model: 'local', duration: 0 });
 
   // Should contain a number of days
@@ -376,11 +427,13 @@ await testAsync('10.3 Time query → current time', async () => {
   const sessionId = `time-${Date.now()}`;
 
   const result = await ChatController.handle({
+    authenticatedSubject: TEST_SUBJECT,
     message: 'kolik je hodin',
     sessionId,
   });
 
   assert(result.response, 'No response for time query');
+  assertDurableLocalResult(result, 'local.date', 'kolik je hodin');
   printLLM('Time query', { content: result.response, model: 'local', duration: 0 });
 
   // Should contain time in HH:MM format or hour reference
@@ -456,25 +509,30 @@ await testAsync('11.3 Four-step scenario: question → answer → correction →
   // Step 1: Date query
   console.log('     --- Step 1: Date query ---');
   const s1 = await ChatController.handle({
+    authenticatedSubject: TEST_SUBJECT,
     message: 'jaký je dnes den',
     sessionId,
   });
   assert(s1.response, 'Step 1: no response');
+  assertDurableLocalResult(s1, 'local.date', 'jaký je dnes den');
   printLLM('Step 1 (date)', { content: s1.response, model: 'local', duration: 0 });
 
   // Step 2: Math
   console.log('     --- Step 2: Math ---');
   const s2 = await ChatController.handle({
+    authenticatedSubject: TEST_SUBJECT,
     message: '99 * 11',
     sessionId,
   });
   assert(s2.response, 'Step 2: no response');
+  assertDurableLocalResult(s2, 'local.math', '99 * 11');
   assertIncludes(s2.response, '1089', 'Expected 99*11=1089');
   printLLM('Step 2 (math)', { content: s2.response, model: 'local', duration: 0 });
 
   // Step 3: Conversational (opinion)
   console.log('     --- Step 3: Opinion ---');
   const s3 = await ChatController.handle({
+    authenticatedSubject: TEST_SUBJECT,
     message: 'Co si myslíš o TypeScriptu?',
     sessionId,
   });
@@ -489,6 +547,7 @@ await testAsync('11.3 Four-step scenario: question → answer → correction →
   // Step 4: Another greeting (back to simple LLM)
   console.log('     --- Step 4: Farewell ---');
   const s4 = await ChatController.handle({
+    authenticatedSubject: TEST_SUBJECT,
     message: 'Díky, to je vše!',
     sessionId,
   });

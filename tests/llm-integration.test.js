@@ -16,11 +16,58 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
+import './helpers/isolated-test-db.js';
+import * as database from '../src/db/database.js';
+import { M2ToolAuthorityRepository } from '../src/tools/m2-tool-authority-repository.js';
+import { createHash } from 'node:crypto';
+
 import { suite, testAsync, assert, assertEqual, assertIncludes, summary } from './harness.js';
 
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
 const CHAT_MODEL = 'qwen3.5:27b';
 const TIMEOUT = 90_000; // 90s per LLM call (32b model can be slow)
+
+// This controller fixture represents an authenticated transport in its own DB.
+// It grants no effect authority: the unchanged production M2 broker owns tools.
+const TEST_SUBJECT = Object.freeze({ actorType: 'user', actorId: 'llm-integration-fixture' });
+const toolAuthority = new M2ToolAuthorityRepository(database.db);
+
+function assertDurableLocalResult(result, toolId, input) {
+  const metadata = result.metadata || {};
+  assertEqual(metadata.localComputation, true, 'Expected actual local computation');
+  assertEqual(metadata.handler, toolId, 'Expected exact local handler');
+  assertEqual(metadata.toolTerminalStatus, 'ok', 'Expected committed M2 success');
+  assert(metadata.securityBlocked !== true, 'Local result must not be a security denial');
+  assert(metadata.fallbackSuppressed !== true, 'Local result must not be fallback suppression');
+  assert(/^tool:[a-f0-9]{64}$/.test(metadata.toolRequestId || ''), 'Missing durable request ID');
+
+  const request = toolAuthority.getToolRequest(metadata.toolRequestId);
+  const terminal = toolAuthority.getToolResult(metadata.toolRequestId);
+  assert(request && terminal, 'Missing immutable ToolRequest/ToolResult');
+  assertEqual(request.actor.id, TEST_SUBJECT.actorId, 'Wrong authenticated fixture actor');
+  assertEqual(request.actor.type, 'user', 'Wrong authenticated actor type');
+  assertEqual(request.toolId, toolId, 'Wrong durable tool');
+  assertEqual(request.input.query, input, 'Wrong durable input');
+  assertEqual(request.riskClass, 'pure', 'LOCAL fixture must remain pure');
+  assertEqual(request.requiredEffectKind, null, 'LOCAL fixture must not request effects');
+  assertEqual(terminal.status, 'ok', 'Durable terminal must be successful');
+  assertEqual(terminal.effectRequestId, null, 'LOCAL fixture must not borrow effect authority');
+  assertEqual(terminal.output.subtype, toolId.slice('local.'.length), 'Wrong output subtype');
+  const projected = metadata.computationResult;
+  assert(projected && typeof projected === 'object', 'Missing actual local output');
+  if (toolId === 'local.math') {
+    assertEqual(projected.answer, terminal.output.result, 'Displayed math differs from durable output');
+  } else if (toolId === 'local.date') {
+    assertEqual(projected.timestamp, terminal.output.timestamp, 'Displayed date differs from durable output');
+  } else {
+    assertEqual(projected.answer, terminal.output.answer, 'Displayed calendar differs from durable output');
+    assertEqual(projected.date, terminal.output.date, 'Displayed calendar date differs from durable output');
+  }
+  console.log(`     M2_LOCAL_EVIDENCE ${JSON.stringify({
+    toolId, requestId: request.requestId, status: terminal.status, output: terminal.output,
+  })}`);
+}
+
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Helpers
@@ -53,11 +100,25 @@ async function ollamaChat(messages, options = {}) {
       throw new Error(`Ollama HTTP ${res.status}: ${await res.text()}`);
     }
 
-    const data = await res.json();
+    const raw = await res.text();
+    const data = JSON.parse(raw);
+    const content = data.message?.content || '';
+    const thinking = data.message?.thinking || '';
     return {
-      content: data.message?.content || '',
+      content,
       model: data.model,
       duration: data.total_duration ? Math.round(data.total_duration / 1e6) : 0,
+      diagnostics: {
+        responseSha256: createHash('sha256').update(raw).digest('hex'),
+        contentCharacters: content.length,
+        contentSha256: createHash('sha256').update(content).digest('hex'),
+        contentPreview: content.slice(0, 600),
+        thinkingCharacters: thinking.length,
+        thinkingSha256: createHash('sha256').update(thinking).digest('hex'),
+        finishReason: data.done_reason || null,
+        evalCount: data.eval_count ?? null,
+        responseDigest: data.digest || null,
+      },
     };
   } catch (err) {
     clearTimeout(timeoutId);
@@ -157,6 +218,7 @@ await testAsync('2.3 Multi-turn context retention', async () => {
     { role: 'user', content: 'Kolik tam žije lidí?' },
   ]);
 
+  console.log(`     DIRECT_TURN2_EVIDENCE ${JSON.stringify(turn2.diagnostics)}`);
   assert(turn2.content.length > 3, 'Turn 2 too short');
   printLLMResponse('Turn 2 (follow-up)', turn2);
 
@@ -305,10 +367,10 @@ suite('5. Full Pipeline — ChatController.handle()');
 await testAsync('5.1 Bootstrap pipeline and send greeting', async () => {
   assert(ollamaAvailable, 'Ollama not reachable — skipping');
 
-  // Initialize ConversationStore in-memory (no DB)
+  // Initialize ConversationStore in the same private durable DB as tool authority
   const { resetConversationStore, getConversationStore } = await import('../src/chat/conversation-store.js');
   resetConversationStore();
-  getConversationStore(null); // in-memory mode
+  getConversationStore(database); // same private durable DB as the M2 broker
 
   // Configure ChatController with default handlers
   const { ChatController } = await import('../src/chat/controller.js');
@@ -323,6 +385,7 @@ await testAsync('5.1 Bootstrap pipeline and send greeting', async () => {
 
   // Send a greeting through the full pipeline
   const result = await ChatController.handle({
+    authenticatedSubject: TEST_SUBJECT,
     message: 'Ahoj, jak se dnes máš?',
     sessionId,
   });
@@ -345,7 +408,7 @@ await testAsync('5.2 Multi-turn: greeting → follow-up in same session', async 
 
   const { resetConversationStore, getConversationStore } = await import('../src/chat/conversation-store.js');
   resetConversationStore();
-  getConversationStore(null);
+  getConversationStore(database);
 
   const { ChatController } = await import('../src/chat/controller.js');
   const { getDefaultHandlers } = await import('../src/chat/handlers/index.js');
@@ -360,6 +423,7 @@ await testAsync('5.2 Multi-turn: greeting → follow-up in same session', async 
   // Turn 1: greeting
   console.log('     --- Turn 1: Greeting ---');
   const turn1 = await ChatController.handle({
+    authenticatedSubject: TEST_SUBJECT,
     message: 'Ahoj! Jsem vývojář a pracuji na projektu v Node.js.',
     sessionId,
   });
@@ -373,6 +437,7 @@ await testAsync('5.2 Multi-turn: greeting → follow-up in same session', async 
   // Turn 2: follow-up (should retain context about Node.js)
   console.log('     --- Turn 2: Follow-up ---');
   const turn2 = await ChatController.handle({
+    authenticatedSubject: TEST_SUBJECT,
     message: 'Jaké frameworky bys doporučil?',
     sessionId,
   });
@@ -392,7 +457,7 @@ await testAsync('5.3 LOCAL computation through full pipeline', async () => {
 
   const { resetConversationStore, getConversationStore } = await import('../src/chat/conversation-store.js');
   resetConversationStore();
-  getConversationStore(null);
+  getConversationStore(database);
 
   const { ChatController } = await import('../src/chat/controller.js');
   const { getDefaultHandlers } = await import('../src/chat/handlers/index.js');
@@ -405,12 +470,14 @@ await testAsync('5.3 LOCAL computation through full pipeline', async () => {
   const sessionId = `llm-local-${Date.now()}`;
 
   const result = await ChatController.handle({
+    authenticatedSubject: TEST_SUBJECT,
     message: 'kolik je 256 * 3',
     sessionId,
   });
 
   console.log(`     Mode: ${result.mode}`);
   assert(result.response, 'No response for LOCAL');
+  assertDurableLocalResult(result, 'local.math', 'kolik je 256 * 3');
   printLLMResponse('LOCAL math', {
     content: result.response,
     model: 'local',
@@ -428,7 +495,7 @@ await testAsync('5.4 Date/calendar through full pipeline', async () => {
 
   const { resetConversationStore, getConversationStore } = await import('../src/chat/conversation-store.js');
   resetConversationStore();
-  getConversationStore(null);
+  getConversationStore(database);
 
   const { ChatController } = await import('../src/chat/controller.js');
   const { getDefaultHandlers } = await import('../src/chat/handlers/index.js');
@@ -441,12 +508,14 @@ await testAsync('5.4 Date/calendar through full pipeline', async () => {
   const sessionId = `llm-date-${Date.now()}`;
 
   const result = await ChatController.handle({
+    authenticatedSubject: TEST_SUBJECT,
     message: 'jaký je dnes den',
     sessionId,
   });
 
   console.log(`     Mode: ${result.mode}`);
   assert(result.response, 'No response for date query');
+  assertDurableLocalResult(result, 'local.date', 'jaký je dnes den');
   printLLMResponse('LOCAL date', {
     content: result.response,
     model: 'local',
@@ -472,7 +541,7 @@ await testAsync('6.1 LOCAL math → conversational follow-up', async () => {
 
   const { resetConversationStore, getConversationStore } = await import('../src/chat/conversation-store.js');
   resetConversationStore();
-  getConversationStore(null);
+  getConversationStore(database);
 
   const { ChatController } = await import('../src/chat/controller.js');
   const { getDefaultHandlers } = await import('../src/chat/handlers/index.js');
@@ -487,10 +556,12 @@ await testAsync('6.1 LOCAL math → conversational follow-up', async () => {
   // Turn 1: LOCAL math
   console.log('     --- Turn 1: LOCAL math ---');
   const turn1 = await ChatController.handle({
+    authenticatedSubject: TEST_SUBJECT,
     message: '125 * 8',
     sessionId,
   });
   assert(turn1.response, 'No response for math');
+  assertDurableLocalResult(turn1, 'local.math', '125 * 8');
   assertIncludes(turn1.response, '1000', 'Expected 125*8=1000');
   printLLMResponse('Math result', {
     content: turn1.response,
@@ -501,6 +572,7 @@ await testAsync('6.1 LOCAL math → conversational follow-up', async () => {
   // Turn 2: Conversational follow-up
   console.log('     --- Turn 2: Conversational ---');
   const turn2 = await ChatController.handle({
+    authenticatedSubject: TEST_SUBJECT,
     message: 'Díky! Co je nového ve světě AI?',
     sessionId,
   });
@@ -520,7 +592,7 @@ await testAsync('6.2 Three-step: greeting → math → opinion', async () => {
 
   const { resetConversationStore, getConversationStore } = await import('../src/chat/conversation-store.js');
   resetConversationStore();
-  getConversationStore(null);
+  getConversationStore(database);
 
   const { ChatController } = await import('../src/chat/controller.js');
   const { getDefaultHandlers } = await import('../src/chat/handlers/index.js');
@@ -534,7 +606,11 @@ await testAsync('6.2 Three-step: greeting → math → opinion', async () => {
 
   // Step 1: Greeting
   console.log('     --- Step 1: Greeting ---');
-  const s1 = await ChatController.handle({ message: 'Ahoj!', sessionId });
+  const s1 = await ChatController.handle({
+    authenticatedSubject: TEST_SUBJECT,
+    message: 'Ahoj!',
+    sessionId,
+  });
   assert(s1.response, 'Step 1: no response');
   printLLMResponse('Step 1', {
     content: s1.response,
@@ -544,8 +620,13 @@ await testAsync('6.2 Three-step: greeting → math → opinion', async () => {
 
   // Step 2: Math
   console.log('     --- Step 2: Math ---');
-  const s2 = await ChatController.handle({ message: '42 * 42', sessionId });
+  const s2 = await ChatController.handle({
+    authenticatedSubject: TEST_SUBJECT,
+    message: '42 * 42',
+    sessionId,
+  });
   assert(s2.response, 'Step 2: no response');
+  assertDurableLocalResult(s2, 'local.math', '42 * 42');
   assertIncludes(s2.response, '1764', 'Expected 42*42=1764');
   printLLMResponse('Step 2', {
     content: s2.response,
@@ -555,7 +636,11 @@ await testAsync('6.2 Three-step: greeting → math → opinion', async () => {
 
   // Step 3: Opinion (back to LLM)
   console.log('     --- Step 3: Opinion ---');
-  const s3 = await ChatController.handle({ message: 'Jaký je tvůj oblíbený programovací jazyk?', sessionId });
+  const s3 = await ChatController.handle({
+    authenticatedSubject: TEST_SUBJECT,
+    message: 'Jaký je tvůj oblíbený programovací jazyk?',
+    sessionId,
+  });
   assert(s3.response, 'Step 3: no response');
   assert(s3.response.length > 15, 'Step 3 response too short for opinion');
   printLLMResponse('Step 3', {

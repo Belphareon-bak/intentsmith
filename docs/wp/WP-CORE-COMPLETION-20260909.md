@@ -272,3 +272,13 @@ Aserce vyžadují stejno-volání trace, přesný zásah guardu a nulové effect
 bare-title baseline bez expertizy ověřuje absenci zásahu, nikoli jednoznačnost
 titulu. Nezávislé review zopakovalo 46 inertních kontrol; produktový Guard6
 se nemění a historický výsledek 35/43 se tím nepřeznačuje na PASS.
+
+Původní LLM integration 1/2 používaly in-memory ConversationStore bez
+ověřené identity, takže LOCAL nástroje správně končily M2 deny. Testovací
+transport nyní předává explicitní test subject a sdílí soukromou durable DB
+s brokerem. Původní případy a aserce zůstávají; LOCAL success navíc musí mít
+přesný immutable request/result, PURE riziko, nulovou effect autoritu a shodu
+zobrazené hodnoty s DB. To odmítne dvě falešně zelené kalendářové odpovědi,
+kde stará regex aserce přijala číslici „2“ nebo část slova v odmítací zprávě.
+Nezávislé review ověřilo 20 skutečných offline LOCAL kontrol a 15 inertních
+kontrol diagnostiky. Modelové přeměření obou původních sad ještě zbývá.
