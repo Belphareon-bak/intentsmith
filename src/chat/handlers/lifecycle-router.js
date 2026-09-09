@@ -418,45 +418,21 @@ async function handleSpecReviewInput(input, state, context) {
       });
     }
 
-    // v124: Track spec revision count — guard infinite revisions
-    const revisionCount = (state._specRevisionCount || 0) + 1;
-
-    if (revisionCount >= 4) {
-      // Auto-approve on 4th revision
-      logger.warn('LifecycleRouter', 'Spec revision limit reached — auto-approving', { revisionCount });
-      const { approveSpec } = await import('../../planner/lifecycle-spec.js');
-      await approveSpec(lifecycle);
-      setLcState(sessionId, { ...state, phase: 'PLANNING', _specRevisionCount: 0 });
-      const { generateRoadmap } = await import('../../planner/lifecycle-planning.js');
-      const roadmapResult = await generateRoadmap(lifecycle);
-      await lifecycle.transitionTo('PLAN_REVIEW');
-      setLcState(sessionId, { ...state, phase: 'PLAN_REVIEW', _specRevisionCount: 0 });
-      return lcResponse(
-        `**Specifikace automaticky schválena** (dosažen limit ${revisionCount} revizí).\n\n` +
-        formatRoadmap(roadmapResult),
-        { phase: 'PLAN_REVIEW', lifecycleId: state.lifecycleId }
-      );
-    }
-
     // Revision feedback — reviseSpec transitions lifecycle to SPEC and returns {questions, assessment}
     const { reviseSpec } = await import('../../planner/lifecycle-spec.js');
     const result = await reviseSpec(lifecycle, input);
 
     // Sync handoff state with lifecycle (reviseSpec transitions to SPEC)
-    setLcState(sessionId, { ...state, phase: 'SPEC', _specRevisionCount: revisionCount });
-
-    const revisionWarning = revisionCount >= 3
-      ? `\n\n⚠️ *Toto je ${revisionCount}. revize specifikace. Další revize ji automaticky schválí.*`
-      : '';
+    setLcState(sessionId, { ...state, phase: 'SPEC' });
 
     if (result.questions && result.questions.length > 0) {
-      return lcResponse(formatSpecQuestions(result.questions) + revisionWarning, {
+      return lcResponse(formatSpecQuestions(result.questions), {
         phase: 'SPEC',
         lifecycleId: state.lifecycleId,
       });
     }
 
-    return lcResponse('Specifikace se reviduje. Pošli odpovědi na upřesňující otázky.' + revisionWarning);
+    return lcResponse('Specifikace se reviduje. Pošli odpovědi na upřesňující otázky.');
   } catch (err) {
     logger.error('LifecycleHandoff', 'Spec review failed', { error: err.message });
     return lcResponse(`Chyba při review specifikace: ${err.message}`);

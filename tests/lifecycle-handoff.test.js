@@ -372,6 +372,83 @@ console.log('\n── Build handoff integration ──');
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
+// User revision count never substitutes for explicit approval. This exercises
+// the actual router, resumed lifecycle and private DB with one inert D1 call.
+// It deliberately retains downstream model errors instead of inventing a plan.
+{
+  const { mkdtempSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { default: path } = await import('node:path');
+  const { setLcState } = await import('../src/chat/handlers/lifecycle-state.js');
+  const { ProjectLifecycle } = await import('../src/planner/lifecycle.js');
+  const { validateSpec } = await import('../src/planner/lifecycle-spec.js');
+  const { projects, lifecycles, db } = await import('../src/db/database.js');
+  const projectPath = mkdtempSync(path.join(tmpdir(), 'intentsmith-revision-authority-'));
+  const projectId = Number(projects.create.run(`revision-authority-${Date.now()}`, projectPath, 'test').lastInsertRowid);
+  const spec = {
+    title: 'Recipe API', _request: 'Build a recipe API with complete nutrition.',
+    goals: [1, 2, 3].map(i => ({ id: `G${i}`, description: `Goal ${i}`, success_criteria: `Check ${i}` })),
+    requirements: [1, 2, 3, 4, 5].map(i => ({ id: `R${i}`, description: `Requirement ${i}`, acceptance_test: `Test ${i}` })),
+    tech_stack: { languages: ['Python'] }, risks: ['Unavailable provider'],
+    design_decisions: [{ decision: 'SQLite', rationale: 'Local persistence', alternatives_considered: ['PostgreSQL', 'Memory'] }],
+    acceptance_criteria: ['All declared cases pass'],
+  };
+  assert(validateSpec(spec).valid, 'revision authority fixture is a valid approvable SPEC');
+  let sequence = 0;
+  const sessions = [];
+  function setup(count, callLLM) {
+    const sessionId = `revision-authority-${Date.now()}-${sequence++}`;
+    const lifecycle = new ProjectLifecycle({ id: sessionId, projectId, projectPath });
+    lifecycle.save();
+    lifecycles.updateSpec.run(JSON.stringify(spec), lifecycle.id);
+    lifecycles.updatePhase.run('SPEC_REVIEW', lifecycle.id);
+    setLcState(sessionId, { lifecycleId: lifecycle.id, projectId, projectPath, phase: 'SPEC_REVIEW', _specRevisionCount: count });
+    sessions.push(sessionId);
+    return { sessionId, lifecycle, context: { sessionId, projectId, projectPath, project: { id: projectId, path: projectPath }, callLLM } };
+  }
+  try {
+    for (const count of [2, 3, 4, 500]) {
+      const calls = [];
+      const fixture = setup(count, async (...args) => {
+        calls.push(args);
+        return { content: JSON.stringify({ initial_assessment: { complexity: 'LOW' }, clarifying_questions: ['Which nutrition fields are required?'] }) };
+      });
+      const feedback = `Revision ${count + 1}: preserve calories, protein, carbohydrates and fat.`;
+      const response = await handleLifecycleInput(feedback, fixture.context);
+      const row = lifecycles.findById.get(fixture.lifecycle.id);
+      const retained = JSON.parse(row.spec);
+      assert(row.phase === 'SPEC', `revision ${count + 1} remains specification work, not approval`);
+      assert(calls.length === 1 && calls[0][0] === 'D1', `revision ${count + 1} makes exactly one analysis call`);
+      assert(calls.length === 1 && calls[0][1].includes(feedback), `revision ${count + 1} sends the exact user feedback`);
+      assert(calls.length === 1 && calls[0][3]?.format === 'json', `revision ${count + 1} preserves the structured call`);
+      assert(retained._request === spec._request && JSON.stringify(retained._reviewFeedback) === JSON.stringify([feedback]), `revision ${count + 1} durably retains input`);
+      assert(getActiveLifecycleHandoff(fixture.sessionId)?.phase === 'SPEC', `revision ${count + 1} keeps router and durable phase aligned`);
+      assert(!/automaticky schv[aá]l/i.test(response.content), `revision ${count + 1} never announces automatic approval`);
+    }
+    const failingCalls = [];
+    const failing = setup(3, async (...args) => { failingCalls.push(args); throw new Error('inert revision failure'); });
+    const failedFeedback = 'Fourth revision still disagrees with the current document.';
+    await handleLifecycleInput(failedFeedback, failing.context);
+    const failedRow = lifecycles.findById.get(failing.lifecycle.id);
+    assert(failedRow.phase === 'SPEC_REVIEW' && failingCalls.length === 1, 'failed fourth revision keeps review phase and one attempted call');
+    assert(JSON.stringify(JSON.parse(failedRow.spec)._reviewFeedback) === JSON.stringify([failedFeedback]), 'failed fourth revision retains exact feedback before D1');
+    await handleLifecycleInput('ano', failing.context);
+    assert(lifecycles.findById.get(failing.lifecycle.id).phase === 'SPEC_REVIEW' && failingCalls.length === 1, 'unresolved fourth feedback prevents approval without extra model call');
+    const approvedCalls = [];
+    const approved = setup(500, async (...args) => { approvedCalls.push(args); throw new Error('inert stop after explicit approval'); });
+    await handleLifecycleInput('schvaluji', approved.context);
+    assert(lifecycles.findById.get(approved.lifecycle.id).phase === 'PLANNING', 'explicit approval still authorizes the planning transition');
+    assert(approvedCalls.length <= 1, 'explicit approval does not introduce model retries');
+    const cancelled = setup(3, async () => { throw new Error('cancel must not call D1'); });
+    await handleLifecycleInput('cancel', cancelled.context);
+    assert(getActiveLifecycleHandoff(cancelled.sessionId) === null && lifecycles.findById.get(cancelled.lifecycle.id).phase === 'SPEC_REVIEW', 'cancel clears routing without approving the stored specification');
+    assert(db.prepare('SELECT COUNT(*) AS n FROM milestones WHERE lifecycle_id IN (SELECT id FROM project_lifecycles WHERE project_id = ?)').get(projectId).n === 0, 'user feedback creates no roadmap milestones');
+  } finally {
+    for (const sessionId of sessions) cancelLifecycleHandoff(sessionId);
+    rmSync(projectPath, { recursive: true, force: true });
+  }
+}
+
 // Summary
 // ════════════════════════════════════════════════════════════════════════════════
 

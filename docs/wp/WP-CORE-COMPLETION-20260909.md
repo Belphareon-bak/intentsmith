@@ -357,3 +357,16 @@ inertně. Všech 84 původních míst kontrol, prompty, scénáře a ostatní ob
 predikáty zůstaly. Nezávislé review a 43 inertních kontrol včetně skutečného
 historického draftu prošly; root zopakoval 43/43. Jde stále o zmínku požadavku,
 nikoli důkaz implementovaného řazení. Nový celý modelový cookbook ještě chybí.
+
+
+Navazující oprava non-M1 routeru odstraňuje automatické schválení při čtvrté
+připomínce i výstrahu, která je slibovala. Každý explicitní nesouhlas nyní
+vyvolá jednu stávající revizi; počet starších připomínek nenahrazuje souhlas.
+Limity modelu, JSON režim, CAS, retence a ochrana M1 zůstávají zachované.
+Stejných 119 kontrol skutečného routeru a soukromé DB doložilo baseline
+100 PASS / 19 FAIL a opravených 119 PASS / 0 FAIL; lifecycle 154/154 a M1
+quarantine 8/8 rovněž prošly bez sítě/GPU. Selhání čtvrté revize uchová
+připomínku před modelem a odmítne schválení starého dokumentu; explicitní
+schválení platné SPEC dál přechází do plánování. Důkazy a nezávislé review
+jsou v `.intentsmith-artifacts/core-completion-20260909/provider-proposal/spec-fourth-revision-fix-3c004e70/`.
+Tato úzká oprava neřeší výstupní limit 4000 v naměřeném cookbook běhu.
