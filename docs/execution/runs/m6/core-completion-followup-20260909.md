@@ -1,5 +1,87 @@
 # Core completion: navazující měření M6 — 2026-09-09
 
+## Aktuální evidence checkpoint — 2026-09-09 18:28 UTC
+
+Stav: **TECHNICAL_COMPLETION_IN_PROGRESS / MODEL_FAILURES_OPEN / NOT_RELEASE_READY**.
+Dokončené běhy této aktualizace mají hlavní měřený source
+`2be9f521a831da0c6f3ca440662611f05b70bf31`. Oprava přímého LLM1 helperu
+je samostatně v `109582d5`; kalibrace 6144 je pouze v privátním `a0b4c299`.
+[Fakta a raw hashe k 18:28:00 UTC][facts1828] tyto zdroje oddělují.
+Dokument ani jeho commit nejsou novým měřením; runtime JSON provideru se
+textem nemění. Starší checkpointy níže zůstávají historickou evidencí.
+
+| Source | Rozsah | Výsledek a hranice | Důkaz |
+|---|---|---|---|
+| `2be9f521` | Všech 352 required deterministic programů | **352 PASS**, 279 offline + 73 database, bez FAIL/TIMEOUT/BLOCKED/SKIPPED; existující dependencies, původní phase validator PASS | [report][d2be], [nezávislé review][d2ber] |
+| `2be9f521` | Původní expertise routing a lifecycle context loss, běh 02 | **2 programy PASS: 43/43 + 27/27**, 17:55:37–17:56:55 UTC, původní ID/argv, bez retry a leaků | [report a raw hashe v review][followup2r] |
+| `2be9f521` | Původní LLM1 | **15 PASS / 1 FAIL**, konec 18:06:23 UTC; jediný neúspěch 2.3 má prázdnou viditelnou odpověď při `length` | [nezávislé review a raw páry][llm1r] |
+| `2be9f521` | Původní LLM2 | **17 PASS**, konec 18:07:47 UTC; 12 úplných provider odpovědí `stop` a pět skutečných trvalých M2_LOCAL výsledků | [nezávislé review a raw/DB hashe][llm2r] |
+| `a0b4c299` | Privátní profil 6144, původní T3 pilot | **Physical PASS / REVIEW_PASSED**, 18:13:23–18:18:51 UTC; původní cookbook následně **FAIL**, konec 18:27:07 UTC; **NOT_ACTIVATED** | [report][calibration-report], [inner][calibration-inner], [root výsledek][calibration-result], [nezávislé fyzické review][calibration-physical-review] |
+
+Guard6 má ve stejném skutečném rozhodnutí povinný pozitivní witness
+`classifiedBy=llm`, `initialIntent=SEARCH`, `finalIntent=CREATIVE`, stejný
+vrácený intent a `guard6_creative_override`; jde o ANSWER bez tools/slots.
+Raw artefakt uchovává všech 39 rozhodnutí. Lifecycle 27/27 potvrzuje původní
+routing aserce, nikoli uživatelský výpis souborů: 15 dotazů vylučuje
+FILE_READ/FILE_EXPLAIN, devět dovoluje FILE_READ/FILE_EXPLAIN/LOCAL, jedna
+kontrola požaduje nenulový intent a dvě ověřují lokální formátování.
+`file.list` zůstává UNAVAILABLE. První dvouprogramový pokus skončil po chybě
+PATH preflightu vlastním SIGTERM: **1 FAIL / 1 SKIPPED**, s 13 úspěšnými
+callbacky před přerušením. Běh 02 jej nepřepisuje; nebyl to pokus bez efektů.
+
+LLM1 selhání je jiná hranice než plný kontext SPEC: přímý helper neposlal
+`think`, request měl výstupní limit 512, prompt 72 a odpověď skončila po
+512 výstupních tokenech s 1913 znaky v `thinking` a nulovým `content`.
+[Revidovaná oprava][llm1fixr], integrovaná v `109582d5`, přidává pouze
+`think:false`, shodně s produkční gateway. Všech 16 případů, původní aserce
+i limit 512 zachovává. Osm inertních kontrol prošlo; nový skutečný běh této
+opravené sady zatím není součástí checkpointu. Výsledek `2be9f521` zůstává FAIL.
+
+LLM2 raw capture potvrzuje jediný přesný model/digest, `num_ctx=4096`,
+`think:false`, 12× HTTP 200 / `stop` bez relay chyby či zkrácení. Pět dvojic
+ToolRequest/ToolResult je skutečně PURE/DIRECT a úspěšných: calendar 2,
+date 2, math 1; odpovídají logu i uloženým výstupům. Privátní DB obsahuje
+16 zpráv, žádný effect request/result/link a žádný řádek `model_usage`.
+Tento běh tedy neprokazuje trvalý audit modelového použití. Kvalitativní
+limity zůstávají: odpověď 7.1 obsahuje „nemám přístup k živým zprávám“,
+ačkoli tato aserce ověřuje pouze češtinu; 7.4 neasertuje angličtinu,
+pouze délku. PASS nepokrývá obecnou kvalitu odpovědí ani kompletní životní cyklus projektu.
+
+Pokus s dvoudílnou SPEC skončil [prokázaným neúspěchem][splitr]: foundation
+2065+1103 tokenů / `stop` prošel dílčím strukturálním validátorem, ale
+remaining 3226+870 / `length` opět vyčerpal 4096 a nedal úplný JSON.
+V částečném textu je navíc angličtina a `sensitive_data` jako string místo
+pole. To není validovaná specifikace. Kompaktní ani dělený prompt nebyl
+přijat jako produktová oprava; dělení se dál nerozšiřuje a žádná vstupní
+fakta se nevynechávají, aby výsledek prošel.
+
+Privátní `a0b4c299af5081a41d7960050bc704146de1866f` používá společný profil
+6144 pro produkt i pilot při stejném modelu/digestu, rezervě nejméně
+1024 MiB, 100% GPU residency a zákazu fallbacku. Hlavní produktový profil
+zůstává 4096. Podle Decision 009/A je to další kalibrace; označení PRIVATE
+nevytváří nový schvalovací požadavek. [Nezávislé fyzické review][calibration-physical-review]
+je uzavřené: čtyři původní requesty při 6144, minimum 5868 MiB, 100% GPU
+residency a přirozené vyprázdnění po 302810 ms. Pilot uchovává souhrn
+195 vzorků s průměrným intervalem 128,43 ms, nikoli pole všech raw vzorků.
+Produkční VRAM estimator zůstává UNKNOWN. Provozní PASS sám neprokazuje
+kvalitativní cíl. Následný [původní cookbook][cookbook6144-report] na stejném
+`a0b4c299` skončil **1 FAIL**, 18:19:16–18:27:07 UTC; [root výsledek][cookbook6144-root]
+má exit 1, neaktivní scope a čistý source. Nezávislé rozebrání jeho raw
+odpovědí k checkpointu ještě není dokončené; kvalita ani profil nejsou přijaty.
+Původní 8192 FAIL zůstává zachován. [Připravené porovnání B][bprep]
+nezjistilo prokázaného vítěze pro D1; staré skóre a metadata jiného kontextu
+nejsou přijetím 6144 ani oprávněním změnit modelový binding.
+
+[Zachovaný prefix soak logu][soak1828] na `193e2351` potvrzuje čtyřhodinový
+heartbeat: `elapsedMs=14401002`, `requests=14402`, `errors=0`, přibližně
+18:18:56 UTC. To není dokončený 24hodinový soak ani výsledek novějšího SHA.
+
+M5 externí fakta/custody/history/podpisy, skutečné dokončení dlouhého soaku,
+zbývající kvalita a společný release gate/review/demo/acceptance jsou otevřené.
+Nejde o **413 PASS na jednom SHA**, M6 PASS ani dokončený release.
+
+## Historický checkpoint — 2026-09-09 17:08 UTC
+
 Stav: **TECHNICAL_COMPLETION_IN_PROGRESS / MODEL_FAILURES_OPEN / NOT_RELEASE_READY**.
 Runtime checkpoint: **2026-09-09 17:08:54 UTC**, čistý source
 `6fccb1c2685c0a55eaf5830c76a68173543a692f`.
@@ -181,3 +263,37 @@ path recovery opravila uchování sedmi build souborů, nikoli výsledek testů.
 [cookbook]: ../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/raw-cookbook-v5-69b52278-01/root-invocation.json
 
 [d1raw]: ../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/d1-raw-context-ceiling-69b52278.json
+
+[d2be]: ../../../../.intentsmith-artifacts/core-completion-20260909/deterministic-current/core-deterministic-2be9f521-20260909-01/report.json
+
+[d2ber]: ../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/deterministic-2be9f521-independent-review.json
+
+[followup2r]: ../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/followup2-2be9f521-run02-independent-review.json
+
+[llm1r]: ../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/llm1-direct-think-proposal-2be9f521/actual-run-independent-review.json
+
+[llm1fixr]: ../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/llm1-direct-think-proposal-2be9f521/independent-review-c84474d5.json
+
+[llm2r]: ../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/llm2-2be9f521-independent-review/review.json
+
+[splitr]: ../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/spec-partition-proposal-cb6bdc3b/independent-two-part-replay-review.json
+
+[calibrationr]: ../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/calibration6144-a0b4c299-launch-review-mobile.json
+
+[bprep]: ../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/b-comparison-prep-2be9f521/handoff.json
+
+[calibration-result]: ../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/physical-calibration6144-a0b4c299-01/result.json
+
+[calibration-report]: /home/belphareon/is-m6-work09-a7ba5490/repo/.intentsmith-artifacts/core-calibration6144/gpu-pilot/core-m1-gpu-calibration6144-20260909-01/report.json
+
+[calibration-inner]: /home/belphareon/is-m6-work09-a7ba5490/repo/.intentsmith-artifacts/core-calibration6144/gpu-pilot/core-m1-gpu-calibration6144-20260909-01/runtime/tests_m1-model-gpu-pilot.test.js.aa9fc5db/artifacts/m1-model-gpu-pilot.json
+
+[facts1828]: ../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/followup-docs-proposal-2be9f521-1828/facts.json
+
+[calibration-physical-review]: /home/belphareon/worktrees/is-mobile-completion-20260908/.intentsmith-artifacts/core-completion-20260909/provider-proposal/physical-calibration6144-a0b4c299-independent-mobile.json
+
+[cookbook6144-root]: /home/belphareon/worktrees/is-mobile-completion-20260908/.intentsmith-artifacts/core-completion-20260909/provider-proposal/raw-cookbook-v5-calibration6144-a0b4c299-01/root-result.json
+
+[cookbook6144-report]: /home/belphareon/is-m6-work09-a7ba5490/repo/.intentsmith-artifacts/contained-core-cookbook-calibration6144-a0b4c299-20260909-01/gates/core-cookbook-calibration6144-a0b4c299-20260909-01/report.json
+
+[soak1828]: /home/belphareon/worktrees/is-mobile-completion-20260908/.intentsmith-artifacts/core-completion-20260909/provider-proposal/followup-docs-proposal-2be9f521-1828/soak-log-prefix-1828.log

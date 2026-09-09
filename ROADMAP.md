@@ -68,7 +68,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Decision 041 implementace dostala `REVIEW_PASSED` a trust store drží čtyři oddělené veřejné klíče. Úzký review ale našel stale M6 migration oracle a neoffline custody privátních klíčů; oracle remediation je implementovaná, custody zůstává otevřená. Doložení všech osmi kategorií (dokončená rotace nebo podepsaně prokázaná nepoužitelnost), history disposition a podepsaná M5 acceptance zůstávají otevřené; N/A není rotace. |
-| **M6 IntentSmith 1.0 release** | `SCOPED_REVIEW_PASSED / MODEL_FAILURES_OPEN / FULL_RELEASE_GATE_REQUIRED / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Provider je aktivní a ověřený. `69b52278` deterministic 352/352 PASS s existujícími dependencies; `3b026f40` skutečný fresh install + 4 journeys + 7 build souborů PASS; `6fccb1c2` persistence 36/36 PASS. Modelové vady, přerušený contained13 (2 PASS / 7 FAIL / 4 SKIPPED), cookbook diagnostika s prokázaným vyčerpáním kontextu a běžící 24h soak, M5 externí podmínky a společný release gate/review/demo/podpisy zbývají. [Checkpoint 2026-09-09](docs/execution/runs/m6/core-completion-followup-20260909.md); nejde o 413 PASS na jednom SHA. |
+| **M6 IntentSmith 1.0 release** | `SCOPED_REVIEW_PASSED / MODEL_FAILURES_OPEN / FULL_RELEASE_GATE_REQUIRED / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Evidence k 2026-09-09 18:28 UTC: `2be9f521` deterministic 352/352, původní Guard6 43/43 a lifecycle routing 27/27 PASS; LLM1 15 PASS / 1 FAIL, LLM2 17 PASS s kvalitativními limity. LLM1 helper je opraven v `109582d5`, nový modelový běh chybí. Privátní `a0b4c299` má původní fyzický T3 PASS / REVIEW_PASSED při 6144, následný cookbook FAIL (raw review pending), bez aktivace hlavního profilu 4096. Dělená SPEC zůstává neúspěšný nepřijatý pokus. Fresh4 `3b026f40`, persistence `6fccb1c2` a historické FAIL mají vlastní source; dlouhý soak, M5 externí podmínky a společný release gate/review/demo/podpisy zbývají. [Checkpoint a raw důkazy](docs/execution/runs/m6/core-completion-followup-20260909.md); nejde o 413 PASS na jednom SHA. |
 | **M7 Remote Companion** | `FOLLOWUP_INTEGRATED / SCOPED_REVIEW_PASSED / NOT_ACCEPTED` | M6 + remote boundary | Release pojistky, canonical JSON corpus, opravený systemd renderer i nové APK/AAB na `70eef905` prošly scoped review. Artefakty jsou throwaway debug signed. UI mapping, produkční konfigurace, fyzická matice 13+7 a release podpisy nejsou hotové. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
@@ -2320,6 +2320,22 @@ Samostatná v5 cookbook diagnostika na původním `69b52278` běží bez verdikt
 Guard6 oracle je integrována v `1afaf2a8` (artifact 158 PASS, registry PASS);
 nový modelový výsledek této změny zůstává nezměřený.
 [Přesné source, raw reporty, review a další postup](docs/execution/runs/m6/core-completion-followup-20260909.md).
+
+### Navazující evidence — 2026-09-09 18:28 UTC
+
+Na čistém `2be9f521` proběhlo 352/352 required deterministic programů PASS,
+původní expertise routing 43/43 a lifecycle context routing 27/27 PASS.
+LLM1 zůstává 15 PASS / 1 FAIL kvůli výstupnímu thinking limitu 512
+v přímém helperu; oprava režimu `109582d5` má source review, nový běh chybí.
+LLM2 má 17 PASS, 12 úplných provider odpovědí a pět trvalých PURE/DIRECT
+lokálních výsledků; obecnou jazykovou kvalitu ani `model_usage` neprokazuje.
+Dvoudílný pokus SPEC selhal a nebyl aplikován. Privátní `a0b4c299` má původní
+T3 physical PASS / REVIEW_PASSED při 6144, ale následný původní cookbook
+skončil FAIL v 18:27:07 UTC; jeho raw review pending. Hlavní profil 4096 se
+nezměnil. Soak na `193e2351` má čtyřhodinový heartbeat 14402 requests /
+0 errors, stále nemá finální 24hodinový výsledek. Tyto samostatné běhy
+nenahrazují společný release gate, M5 externí podmínky ani dokončení soaku.
+[Přesné raw hashe, review a omezení](docs/execution/runs/m6/core-completion-followup-20260909.md).
 
 ## 12. Pravidla Work Package bez dalšího aparátu
 
