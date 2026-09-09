@@ -262,3 +262,13 @@ Doplněný původní chat-persistence běh prošel 35 kontrolami, ale odhalil je
 nevyčkaný async callback. Oprava přidává pouze async/await před existující
 singleton kontrolu a zachovává všech 36 testů; negativní probe nově skutečně
 propadne s exit 1. Historický 35/0 výsledek zůstává uchovaný s tímto omezením.
+
+Guard6 oracle se nyní řídí doloženou podmínkou `docs/EXPERTISES.md`, „GUARD 6 — Creative Override“: pouze
+počáteční SEARCH/AMBIGUOUS s kreativní expertizou přechází na CREATIVE.
+Počáteční CONVERSATIONAL/CREATIVE zůstává beze změny a obě ANSWER větve
+používají expertizní generátor. Všech 43 kontrol a 39 původních rozhodnutí
+zůstává, včetně skutečného pozitivního SEARCH svědka a přísného C11.
+Aserce vyžadují stejno-volání trace, přesný zásah guardu a nulové effect tools;
+bare-title baseline bez expertizy ověřuje absenci zásahu, nikoli jednoznačnost
+titulu. Nezávislé review zopakovalo 46 inertních kontrol; produktový Guard6
+se nemění a historický výsledek 35/43 se tím nepřeznačuje na PASS.
