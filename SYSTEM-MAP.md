@@ -151,13 +151,18 @@ Technická integrace core 2026-09-09 přebírá mobilní `2f11e911` a B
 a chybný hash M7 indexu v Android manifestu; obě opravy i přesné rozlišení
 veřejného credential názvu v privacy scanneru prošly nezávislým review a
 integračním během na `70eef905`. Navazující `a71e5b98` opravuje podporovaný
-061/066 upgrade modelové politiky a zastaralý role-config test; nový čistý
+061/066 upgrade modelové politiky a zastaralý role-config test; tehdejší čistý
 deterministic běh má 351 PASS / 1 sealed-registry FAIL. Registry má 19
 support exclusions včetně přesné historické migrační fixture; všech 512
 spustitelných položek je zachováno. Historický `f7f78d5a` zůstává
 `350 PASS / 1 FAIL`; jeho dřívější artifact-binding claim má nově potvrzenou
-vadu. Sealed policy z B (`922f65e9…0b40`, 351 deterministic) zůstává beze změny;
-rozdíl vůči sjednocenému registru je vývojový drift podle CONTRACT §8.
+vadu. Tehdejší sealed policy z B (`922f65e9…0b40`, 351 deterministic) vysvětluje
+historický FAIL. Reviewed refresh `573c7d92` nyní připíná současný fingerprint
+`3ce12a0e…fdbbfc` a všech 352 required deterministic programů; původních 511
+programových řádků zůstalo beze změny, přibyl mobile offline program a přesná
+061 support fixture. Následný clean `69b52278` má 352 PASS / 0 ostatních stavů
+s existujícími dependencies. Historické FAIL reporty ani podmínky M6 acceptance
+se nemění; [aktuální source-specific důkazy](docs/execution/runs/m6/core-completion-followup-20260909.md).
 
 Aktuální model-evaluation autoritu popisují
 [`MODEL-SCORING-ACTIVATION.md`](docs/MODEL-SCORING-ACTIVATION.md) a
@@ -379,12 +384,15 @@ Tahle sekce není totéž co „Známý stav, který se vědomě neřeší" ní�
 věci, u kterých už operátor rozhodl, že se odkládají. Sem patří to, co blokuje
 a rozhodnuté není.
 
-Nepatří sem selhání, které `CONTRACT.md §8` označuje jako při vývoji očekávané —
-`nightly-orchestrator-self-test` a rozchod se zapečetěným fingerprintem registru.
+Historický rozchod `nightly-orchestrator-self-test` se zapečetěným registrem
+byl očekávaný vývojový stav podle `CONTRACT.md §8`. Aktuální seal refresh
+`573c7d92` a deterministic 352/352 na `69b52278` jej již uzavírají; staré
+reporty v následující chronologii zůstávají historické. Otevřené současné
+modelové výsledky shrnuje [M6 checkpoint](docs/execution/runs/m6/core-completion-followup-20260909.md).
 
 | Vada | Blokuje | Kauzalita | Priorita |
 |---|---|---|---|
-| _nic otevřeného_ | — | — | — |
+| _historický stav k 2026-08-22: nic otevřeného v této tabulce_ | — | — | — |
 
 Změřeno 2026-08-22 na `fbbe1e74`, profil `offline,database`, 234 sad:
 `{"PASS":229,"FAIL":3,"BLOCKED":2}`. Tři selhání jsou předchozí a prostředím
@@ -477,8 +485,8 @@ aktuální stav je samostatný řádek `Model failover opt-in surface`.
 | Nedostupná Ollama při klasifikaci | Opravena na jeden pokus; změřeno přibližně 80 ms místo 6 091 ms |
 | Automatické online model discovery | `C3_ENABLE_ONLINE_DISCOVERY`, **default on od 2026-08-19** (operátorské rozhodnutí v `DIRECTION.md`), vypíná se hodnotou `false`. Review remediation je implementation-green na `122b5df5`, ale čeká na re-review: všechny transporty používají manual redirect, každá `Location` dostává nové rozhodnutí a neexportovaná capability váže exact Ollama/Hugging Face/WhatLLM path, query, headers, body a method profily. Opsaný scope literal není autorita. |
 | M5 performance release budget | **SECOND-REVIEW REMEDIATION IMPLEMENTED / RE-REVIEW REQUIRED:** `M5PerformanceEvidence@3` a raw v2 vážou každé GPU tvrzení na raw measurement nebo read-only census receipt a nepřijmou nečitelný či nulový RSS jako nejlepší hodnotu. Exact clean candidate `816a2a4c` má autoritativní 5min run: HTTP p95 `5,022 ms`, ProjectContext p95 `32,769 ms`, soak `300 074 ms` / `1 498` vzorků / p95 `14,314 ms`, nula chyb, peak RSS `171,859 MiB`; GPU je pravdivě `not_run_not_requested` s dostupným prázdným `nvidia-smi` censusem, nikoli měřeno. 24h soak, maximum-throughput a nové fyzické GPU měření zůstávají `NOT RUN`. |
-| M5 production hardening review | **8/9 REVIEW_PASSED / PRIVACY CHANGES_REQUIRED / KEY CUSTODY CHANGES REQUIRED / ACCEPTANCE_BLOCKED:** osm oddílů zůstává přijatých. Decision 041 byte/history implementace na `37edf30d` dostala nezávislé `REVIEW_PASSED` a trust store má čtyři rozdílné veřejné Ed25519 identity. Úzký review `d81be45f` reprodukoval stale M6 upgrade oracle `80 !== 79`; jeho remediation je implementovaná. Všechny privátní klíče ale zůstávají nešifrované na stejném trvale připojeném `/home` svazku pod účtem aplikace/workerů, takže offline custody není splněná. Osm skutečných rotací, history disposition ani M5 acceptance neproběhly. M6 gate zůstává zavřený. |
-| M6 IntentSmith 1.0 candidate | **SCOPED_REVIEW_PASSED / DEVELOPMENT_REGISTRY_DRIFT / SYSTEM_PROVIDER_ACTIVATED / CONTROLLED_GATEWAY_VERIFIED / ACCEPTANCE_BLOCKED:** `a71e5b98` opravuje podporovaný upgrade policy; fresh-clone deterministic 351 PASS / 1 sealed-registry FAIL, exit 1, 413 ACTIVE + required programů. Systémová Ollama `0.32.14-intentsmith.1` je od 12:38 aktivní, exact binary a devítimodelový inventář nezávisle ověřeny. Clean `ceb8de93` v 12:42 prokázal dva skutečné chat response digesty, typed verification, gateway a usage/durable claims v soukromé DB, bindings nezměněny. Registrovaný GPU pilot (4 requests/residency/cancel/restoration) a pipeline program 17/17 prošly; pipeline není celý multi-role workflow. Původní v1 version failure i Node ABI failure jsou zachované a opravené. Celý M6 gate, server startup/live-DB koordinace, 24h soak, M5 custody/rotace/history a release review/demo/podpisy zbývají. [Aktuální důkazy](docs/execution/runs/m6/provider-activation-20260909.md); [předchozí privacy/mobile integrace](docs/execution/runs/core-completion-20260909.md). Historický throughput `0f9e2c64` není důkazem současného kandidáta. |
+| M5 production hardening review | **8/9 REVIEW_PASSED / PRIVACY CHANGES_REQUIRED / KEY CUSTODY CHANGES REQUIRED / ACCEPTANCE_BLOCKED:** osm oddílů zůstává přijatých. Decision 041 byte/history implementace na `37edf30d` dostala nezávislé `REVIEW_PASSED` a trust store má čtyři rozdílné veřejné Ed25519 identity. Úzký review `d81be45f` reprodukoval stale M6 upgrade oracle `80 !== 79`; jeho remediation je implementovaná. Všechny privátní klíče ale zůstávají nešifrované na stejném trvale připojeném `/home` svazku pod účtem aplikace/workerů, takže offline custody není splněná. Doložení všech osmi kategorií (dokončená rotace nebo podepsaně prokázaná nepoužitelnost), history disposition a M5 acceptance zůstávají otevřené; N/A není provedená rotace. M6 gate zůstává zavřený. |
+| M6 IntentSmith 1.0 candidate | **SCOPED_REVIEW_PASSED / MODEL_FAILURES_OPEN / SYSTEM_PROVIDER_ACTIVATED / CONTROLLED_GATEWAY_VERIFIED / ACCEPTANCE_BLOCKED:** `69b52278` má 352/352 required deterministic PASS s existujícími dependencies; `3b026f40` skutečný offline fresh install, čtyři journeys a sedm release souborů PASS; `6fccb1c2` persistence 36/36 PASS. Reviewed registry refresh odstranil současný sealed drift, staré FAIL zůstávají. Chat quality `69b52278` 33 PASS / 1 WARN, expertise 35/43 a 8 FAIL; listing routing je opraven, `file.list` zůstává UNAVAILABLE. K 17:08 UTC běžely contained13 i soak. Doplnění 17:22 UTC: contained13 na `69b52278` byl přerušen s 2 PASS / 7 FAIL / 4 SKIPPED (jeden FAIL přerušený); Cookbook diagnostika následně skončila FAIL s prokázaným vyčerpáním kontextu SPEC, dlouhý soak na `193e2351` ještě nemá verdikt. Guard6 oracle `1afaf2a8` má artifact 158 PASS + registry PASS, nový modelový běh zatím ne. Systémová Ollama `0.32.14-intentsmith.1` a devět modelových digestů znovu ověřeny; controlled gateway/GPU/pipeline důkazy na `ceb8de93` zůstávají samostatné. M5 historická fakta/custody/history/podpisy a společný M6 gate/review/demo/acceptance zůstávají otevřené. [Aktuální checkpoint a hranice](docs/execution/runs/m6/core-completion-followup-20260909.md); [předchozí runtime](docs/execution/runs/m6/provider-activation-20260909.md). Nejde o 413 PASS na jednom SHA. |
 | M7 Remote Companion | **FOLLOWUP_INTEGRATED / SCOPED_REVIEW_PASSED / NOT_ACCEPTED:** canonical JSON a inertní renderer jsou převzaté z B. Systemd injection i generated-index hash jsou opravené a nezávisle přijaté na `70eef905`, včetně nových skutečných APK/AAB. Mobile 47/47, browser 24/24, JVM 4 M7 + 1 template PASS; lint 0 errors / 16 warnings. Artefakty zůstávají throwaway debug signed bez fyzické runtime evidence. UI mapping projektů/settings/stored information, produkční credentials, VPN/firewall/device/TalkBack, podpisy a fyzická matice 13+7 zbývají. |
 | C3 Studio Google Fonts | Oba runtime link loadery, ruční preview import i archivní v7 import jsou odstraněné; hygiene zakazuje obě Google Fonts domény ve spustitelných Studio assetech. Registrovaný runner prošel ve dvou fresh-clone Electron CDP bězích na `7236d221` s nulovým egresssem. Registry zůstává pravdivě `BLOCKED`. **Měřeno 2026-08-21:** build envelope už chybějící překážkou není — `yarn install --offline` + `yarn build` trvají dohromady **54 s** a postaví všech šest artefaktů. **Vyřešeno 2026-08-22: `STUDIO_ELECTRON_BOUNDARY_PASS`.** Příčinou `electron-exited-before-cdp` byla délka `TMPDIR` — Chromium v něm zakládá unix domain sockety a `sun_path` má limit 108 bajtů, runtime root pod `.intentsmith-artifacts` má 95 znaků. Bisekce: `HOME` ani `XDG_*` nevadí, shodí to výhradně `TMPDIR`; bez namespace padá stejně, takže izolace ani D-Bus (falešná stopa) příčinou nebyly. Sada dává Electronu krátký privátní temp. Evidence: nulový egress, 65,8 s soak, boundary matice 403/403/200, čistý shutdown. |
 | C3 Studio local HTTP | Root cause byl potvrzen jako capability na wire + nepřítomný `Origin` + `Sec-Fetch-Site: cross-site`. Electron-main nyní doplňuje `Origin: null` jen pro přesný top-level file Studio request s odpovídající privátní capability; backend guard zůstal beze změny. Dva fresh-clone negativní journey na `7236d221` prokázaly startup/POST `2xx` i přesný fail-closed security trojúhelník; registry čeká jen na standardní build envelope, nikoli na další ruční journey. |

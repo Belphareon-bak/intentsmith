@@ -67,8 +67,8 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M2 Řízená práce nad projektem** | `ACCEPTED / CLOSEOUT_PASS` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
-| **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Decision 041 implementace dostala `REVIEW_PASSED` a trust store drží čtyři oddělené veřejné klíče. Úzký review ale našel stale M6 migration oracle a neoffline custody privátních klíčů; oracle remediation je implementovaná, custody zůstává otevřená. Osm rotací, history disposition a podepsaná M5 acceptance neproběhly. |
-| **M6 IntentSmith 1.0 release** | `TECHNICAL_INTEGRATION_REVIEW_PASSED / DEVELOPMENT_REGISTRY_DRIFT / FULL_RELEASE_GATE_REQUIRED / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Kandidát `70eef905`: 413 required, deterministic 351 PASS / 1 sealed-registry FAIL. M5 externí podmínky, nasazení připraveného provideru, modelové měření, celý M6 gate, 24h soak, review/demo a podpisy zbývají. |
+| **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Decision 041 implementace dostala `REVIEW_PASSED` a trust store drží čtyři oddělené veřejné klíče. Úzký review ale našel stale M6 migration oracle a neoffline custody privátních klíčů; oracle remediation je implementovaná, custody zůstává otevřená. Doložení všech osmi kategorií (dokončená rotace nebo podepsaně prokázaná nepoužitelnost), history disposition a podepsaná M5 acceptance zůstávají otevřené; N/A není rotace. |
+| **M6 IntentSmith 1.0 release** | `SCOPED_REVIEW_PASSED / MODEL_FAILURES_OPEN / FULL_RELEASE_GATE_REQUIRED / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Provider je aktivní a ověřený. `69b52278` deterministic 352/352 PASS s existujícími dependencies; `3b026f40` skutečný fresh install + 4 journeys + 7 build souborů PASS; `6fccb1c2` persistence 36/36 PASS. Modelové vady, přerušený contained13 (2 PASS / 7 FAIL / 4 SKIPPED), cookbook diagnostika s prokázaným vyčerpáním kontextu a běžící 24h soak, M5 externí podmínky a společný release gate/review/demo/podpisy zbývají. [Checkpoint 2026-09-09](docs/execution/runs/m6/core-completion-followup-20260909.md); nejde o 413 PASS na jednom SHA. |
 | **M7 Remote Companion** | `FOLLOWUP_INTEGRATED / SCOPED_REVIEW_PASSED / NOT_ACCEPTED` | M6 + remote boundary | Release pojistky, canonical JSON corpus, opravený systemd renderer i nové APK/AAB na `70eef905` prošly scoped review. Artefakty jsou throwaway debug signed. UI mapping, produkční konfigurace, fyzická matice 13+7 a release podpisy nejsou hotové. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
@@ -2298,6 +2298,28 @@ GPU pilot PASS (4 requests, plná GPU residency, cancel, přirozená obnova)
 a pipeline program 17/17 PASS (2 skutečné provider inference, zbývající
 workflow/role kroky jsou stavové fixture). Přesné hashe a hranice obsahuje
 stejný run/review záznam; celý M6 release gate tím není uzavřený.
+
+### Navazující technické měření — 2026-09-09 17:08 UTC
+
+Aktuální source checkpoint je `6fccb1c2`; dokončené běhy mají vlastní přesná
+SHA. `69b52278` má všech 352 required deterministic programů PASS s existujícími
+dependencies, `3b026f40` skutečný offline fresh install se čtyřmi journeys a
+sedmi validovanými build soubory PASS a `6fccb1c2` persistence 36/36 PASS.
+Reviewed seal refresh `573c7d92` odstranil současný registry drift bez vyřazení
+programů; staré 351 PASS / 1 sealed FAIL reporty zůstávají zachované.
+Chat quality na `69b52278` má 33 PASS / 1 WARN, expertise routing 35/43 a 8 FAIL;
+nová Guard6 oracle má source review, nový modelový verdikt zatím neexistuje.
+Listing routing oprava má focused PASS, ale `file.list` zůstává UNAVAILABLE.
+Contained13 na `69b52278` a dlouhý soak na `193e2351` ještě nemají finální
+výsledek. M5 N/A podpora má 45 focused PASS, nikoli skutečná historická fakta,
+custody, credential/history operace nebo podpisy. M6 acceptance zůstává
+blokovaná; nejde o společný 413-programový PASS na jednom kandidátu.
+Doplnění v 17:22 UTC: contained13 byl přerušen pro opakovanou D1 SPEC chybu;
+report má 2 PASS / 7 FAIL / 4 SKIPPED, včetně jednoho přerušeného programu.
+Samostatná v5 cookbook diagnostika na původním `69b52278` běží bez verdiktu.
+Guard6 oracle je integrována v `1afaf2a8` (artifact 158 PASS, registry PASS);
+nový modelový výsledek této změny zůstává nezměřený.
+[Přesné source, raw reporty, review a další postup](docs/execution/runs/m6/core-completion-followup-20260909.md).
 
 ## 12. Pravidla Work Package bez dalšího aparátu
 
