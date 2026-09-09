@@ -309,3 +309,14 @@ Původní FAIL je uchovaný. Úzká následná oprava direct helperu pouze přid
 kontext a všech 16 původních predikátů zůstávají. Nezávislé review patch
 `c84474d5` a osm inertních kontrol prošly; nový modelový běh této opravy ještě
 neproběhl. Přesné reporty a review jsou v lokálním provider-proposal adresáři.
+
+Původní cookbook na privátním `875c041a` při 8192 tokenech vytvořil úplnou
+první SPEC s 11 úspěšnými kontrolami; celý běh přesto skončil 26 PASS / 16 FAIL.
+První revize vrátila neplatný JSON i při finishReason=stop. Tři existující
+SPEC konzumenty proto nyní výslovně žádají již podporované `format: json`.
+Prompty, validace, role, model, kontext i výstupní limit 4000 zůstávají stejné.
+Nezávisle revidovaný patch `862479b4` má párovou lifecycle evidenci 124/1 →
+125/0 a 30 M1 kontrol skutečného gateway body s inertním providerem; root
+zopakoval obě sady bez sítě a GPU se stejným výsledkem. JSON režim nezaručuje
+úplnost ani věcnou kvalitu a nový živý běh ještě chybí. Samostatně se řeší
+prokázaná ztráta zadání neúspěšné revize; tato změna ji nezakrývá.

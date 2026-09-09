@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { callLLM } from '../src/planner/workflow.js';
+
 import {
   assert,
   assertEqual,
@@ -1174,6 +1176,27 @@ try {
     assertM1TerminalAudit(auditStart, request, result);
     const audit = llmGateway.getAuditLogs().slice(auditStart);
     assertEqual(JSON.stringify(audit).includes(secretCanary), false);
+    assertSemaphoreReleased();
+  });
+
+  await testAsync('workflow JSON opt-in reaches actual provider body and leaves plain outputs unchanged', async () => {
+    const bodies = [];
+    globalThis.fetch = async (_url, options) => {
+      bodies.push(JSON.parse(options.body));
+      return providerResponse({ json: { message: { content: '{"ok":true}' }, done_reason: 'stop' } });
+    };
+    const json = await callLLM('D1', 'Synthetic structured request', '', { format: 'json' });
+    const plain = await callLLM('D1', 'Synthetic structured request');
+    await callLLM('CODE', 'Synthetic raw source request');
+    assertEqual(bodies.length, 3);
+    assertEqual(bodies[0].format, 'json');
+    assertEqual(Object.hasOwn(bodies[1], 'format'), false);
+    assertEqual(Object.hasOwn(bodies[2], 'format'), false);
+    const { format, ...jsonWithoutFormat } = bodies[0];
+    assertEqual(JSON.stringify(jsonWithoutFormat), JSON.stringify(bodies[1]));
+    assertEqual(bodies[0].options.num_predict, 4000);
+    assertEqual(json.finishReason, 'stop');
+    assertEqual(json.content, plain.content);
     assertSemaphoreReleased();
   });
 

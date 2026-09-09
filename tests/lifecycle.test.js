@@ -12,8 +12,8 @@ import './helpers/isolated-test-db.js';
 // it does not contact a model or execute generated code.
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { answerSpecQuestions, validateSpec } from '../src/planner/lifecycle-spec.js';
-import { specDocument } from '../src/planner/lifecycle-prompts.js';
+import { startSpec, answerSpecQuestions, reviseSpec, validateSpec } from '../src/planner/lifecycle-spec.js';
+import { specAnalyze, specDocument } from '../src/planner/lifecycle-prompts.js';
 import { validateDependencies, checkDependencies } from '../src/planner/lifecycle-planning.js';
 import {
   ProjectPhase,
@@ -763,6 +763,24 @@ console.log('\n── SPEC clarification retention ──');
   releasePhase({ content: JSON.stringify(valid('Unexpected late spec')) });
   const phaseOutcome = await phaseResult;
   assert(phaseOutcome.error?.code === 'SPEC_DRAFT_STALE' && lifecycleRepo.findById.get(phaseLc.id).spec === pendingPhaseSpec, 'atomic draft replacement also rejects a concurrent phase change');
+
+  // All three JSON-contract consumers opt in through the existing options seam.
+  // Real private lifecycle state and functions run; D1 itself is inert.
+  const structuredCalls = [];
+  const analysis = { clarifying_questions: ['Which database?'], initial_assessment: { complexity: 'MEDIUM' } };
+  const structured = newLifecycle(async (...args) => {
+    structuredCalls.push(args);
+    return { content: JSON.stringify(structuredCalls.length === 2 ? valid('Structured spec') : analysis) };
+  });
+  await startSpec(structured, 'Build a recipe API.');
+  await answerSpecQuestions(structured, 'Use SQLite.');
+  const previous = lifecycleRepo.getSpec(structured.id);
+  await reviseSpec(structured, 'Add sorting.');
+  assert(structuredCalls.length === 3 && structuredCalls.every(args => args[0] === 'D1' && args[2] === '' && JSON.stringify(args[3]) === JSON.stringify({ format: 'json' })), 'SPEC analysis, document and revision request JSON format without token/context overrides');
+  assert(structuredCalls[0][1] === specAnalyze('Build a recipe API.', ''), 'JSON mode preserves initial analysis prompt bytes');
+  assert(structuredCalls[1][1] === specDocument('Build a recipe API.', 'Use SQLite.', { ...analysis.initial_assessment, technical_decisions: [], implicit_assumptions: [] }), 'JSON mode preserves full SPEC document prompt bytes');
+  assert(structuredCalls[2][1] === specAnalyze(`${previous?._request || ''}\n\nUser feedback on spec: Add sorting.\n\nPrevious spec: ${JSON.stringify(previous)}`, ''), 'JSON mode preserves revised analysis prompt bytes');
+  assert(lifecycleRepo.getSpec(structured.id)._phase === 'REVISING', 'valid revised JSON still commits the original revision draft');
 
   let corruptCalls = 0;
   const corrupt = newLifecycle(async () => { corruptCalls++; return { content: 'SYNTHETIC malformed' }; }, { ...draft, _clarificationAnswers: ['Saved answer', 42] });

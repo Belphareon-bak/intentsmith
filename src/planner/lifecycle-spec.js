@@ -220,7 +220,7 @@ export async function startSpec(lifecycle, request, context = {}) {
   const prompt = specAnalyze(request, projectContext, learnedProjectContext);
 
   const llm = lifecycle.callLLM || callLLM;
-  const result = await llm('D1', prompt);
+  const result = await llm('D1', prompt, '', { format: 'json' });
   const parsed = parseJSON(result.content);
 
   if (!parsed) {
@@ -286,7 +286,7 @@ export async function answerSpecQuestions(lifecycle, answers) {
   };
   const prompt = specDocument(draft._request, clarification.text, fullAssessment);
   const llm = lifecycle.callLLM || callLLM;
-  const result = await llm('D1', prompt);
+  const result = await llm('D1', prompt, '', { format: 'json' });
   if (lifecycleRepo.findById.get(lifecycle.id)?.spec !== pendingSpec) {
     throw specDraftError('SPEC_DRAFT_STALE', 'Specification draft changed while waiting for its response.');
   }
@@ -377,7 +377,7 @@ export async function reviseSpec(lifecycle, feedback) {
   const enrichedRequest = `${request}\n\nUser feedback on spec: ${feedback}\n\nPrevious spec: ${JSON.stringify(currentSpec)}`;
   const prompt = specAnalyze(enrichedRequest, '');
   const llm = lifecycle.callLLM || callLLM;
-  const result = await llm('D1', prompt);
+  const result = await llm('D1', prompt, '', { format: 'json' });
   const parsed = parseJSON(result.content);
 
   if (!parsed) {
