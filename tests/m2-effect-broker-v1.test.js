@@ -1,3 +1,5 @@
+import { up as applyFileReadOutputs } from '../src/db/migrations/2026_09_09_109_m2_file_read_outputs.js';
+import { EffectFileReadOutputRepository, readM2FileReadOutput } from '../src/effects/effect-file-read-output-repository.js';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import * as nativeFs from 'node:fs';
@@ -41,6 +43,7 @@ import {
   EffectBrokerErrorCode,
   createEffectBroker,
 } from '../src/effects/effect-broker.js';
+import { createM2FileReadPolicyPayload, M2_FILE_READ_MAX_BYTES, m2FileReadOutputEvidenceRef, createM2FileReadOutputEvidence, isM2FileReadOutputRequest, m2FileReadConversationOrigin } from '../contracts/m2/file-read-output-v1.js';
 import { createFilesystemEffectProvider } from '../src/effects/filesystem-effect-provider.js';
 import { processExecutionOwner } from '../src/effects/execution-owner.js';
 import { suite, testAsync, summary } from './harness.js';
@@ -146,9 +149,10 @@ function createManualScheduler() {
   });
 }
 
-function openDatabase(filename = ':memory:') {
+function openDatabase(filename = ':memory:', { fileReadOutputs = true } = {}) {
   const db = new Database(filename);
   db.pragma('foreign_keys = ON');
+  db.exec("CREATE TABLE IF NOT EXISTS projects(id INTEGER PRIMARY KEY, path TEXT, status TEXT); CREATE TABLE IF NOT EXISTS conversations(id TEXT PRIMARY KEY, project_id INTEGER, state TEXT);");
   const hasAuthority = Boolean(db.prepare(
     "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'm2_effect_requests'",
   ).get());
@@ -170,10 +174,11 @@ function openDatabase(filename = ':memory:') {
     applyEffectResultSemanticAuthorityV2(db);
     applyPreexecutionApprovalTerminals(db);
   }
+  if (fileReadOutputs) applyFileReadOutputs(db);
   return db;
 }
 
-async function withEnvironment(callback, { persistentDatabase = false } = {}) {
+async function withEnvironment(callback, { persistentDatabase = false, fileReadOutputs = true } = {}) {
   const directory = mkdtempSync(path.join(tmpdir(), 'intentsmith-m2-effect-broker-'));
   const projectRoot = path.join(directory, 'project');
   mkdirSync(path.join(projectRoot, 'src'), { recursive: true });
@@ -181,7 +186,9 @@ async function withEnvironment(callback, { persistentDatabase = false } = {}) {
   const clock = mutableClock();
   const revision = { value: 'wsr1:revision-a' };
   const observations = [];
-  let db = openDatabase(databasePath);
+  let db = openDatabase(databasePath, { fileReadOutputs });
+  db.prepare("INSERT INTO projects(id,path,status) VALUES(17,?,'active')").run(projectRoot);
+  db.prepare("INSERT INTO conversations(id,project_id,state) VALUES('conversation-1',17,'active')").run();
   let repository = new EffectAuthorityRepository(db, { clock: clock.now });
   let grantSequence = 0;
   let nonceSequence = 0;
@@ -1326,6 +1333,396 @@ await testAsync('filesystem beforeDigest hashes exact pre-existing bytes without
     assert.equal(result.changes.beforeDigest, expectedBeforeDigest);
     assert.equal(readFileSync(target, 'utf8'), 'valid after\n');
   });
+});
+// Exact-byte read provider regressions.
+async function withReadProviderEnvironment(callback) {
+  const directory = mkdtempSync(path.join(tmpdir(), 'intentsmith-read-provider-'));
+  const projectRoot = path.join(directory, 'project');
+  mkdirSync(projectRoot);
+  const request = {
+    kind: 'fs.read', effectId: `effect:${'a'.repeat(64)}`,
+    target: { canonicalRoot: realpathSync(projectRoot), relativePath: 'file.bin' },
+  };
+  const target = path.join(projectRoot, 'file.bin');
+  const run = (options = {}, payload = createM2FileReadPolicyPayload(), signal = null) => (
+    createFilesystemEffectProvider(options).execute({ request, payload, signal })
+  );
+  try { await callback({ directory, projectRoot, target, request, run }); }
+  finally { rmSync(directory, { recursive: true, force: true }); }
+}
+
+await testAsync('fs.read returns exact binary and empty bytes with digest evidence and no write claims', async () => {
+  await withReadProviderEnvironment(async ({ target, request, run }) => {
+    const fileSystem = { ...nativeFs, readFileSync() { assert.fail('Unbounded read'); } };
+    for (const bytes of [Buffer.from([0, 0xff, 0xfe, 10, 0xc3, 0xa9]), Buffer.alloc(0)]) {
+      writeFileSync(target, bytes);
+      const result = await run({ fileSystem });
+      assert.deepEqual(result.fileReadBytes, bytes);
+      assert.equal(result.outputDigest, `sha256:${createHash('sha256').update(bytes).digest('hex')}`);
+      assert.deepEqual(result.evidenceRefs, [m2FileReadOutputEvidenceRef(request.effectId)]);
+      assert.equal(Object.hasOwn(result, 'changes'), false);
+      assert.equal(Object.hasOwn(result, 'rollback'), false);
+      assert.deepEqual(readFileSync(target), bytes);
+    }
+  });
+});
+
+await testAsync('fs.read accepts the full 1 MiB limit and rejects one extra byte before reading', async () => {
+  await withReadProviderEnvironment(async ({ target, run }) => {
+    const bytes = Buffer.alloc(M2_FILE_READ_MAX_BYTES, 0xa5);
+    writeFileSync(target, bytes);
+    assert.deepEqual((await run()).fileReadBytes, bytes);
+    nativeFs.appendFileSync(target, Buffer.from([0]));
+    let reads = 0;
+    const fileSystem = { ...nativeFs, readSync(...args) { reads++; return nativeFs.readSync(...args); } };
+    await assert.rejects(run({ fileSystem }), { code: 'EFFECT_FS_READ_TOO_LARGE' });
+    assert.equal(reads, 0);
+  });
+});
+
+await testAsync('fs.read honors both exact policy and lower configured ceiling without truncation', async () => {
+  await withReadProviderEnvironment(async ({ target, run }) => {
+    writeFileSync(target, 'four');
+    await assert.rejects(run({}, createM2FileReadPolicyPayload(3)), { code: 'EFFECT_FS_READ_TOO_LARGE' });
+    await assert.rejects(run({ maxReadBytes: 3 }), { code: 'EFFECT_FS_READ_TOO_LARGE' });
+    assert.equal((await run({ maxReadBytes: 4 }, createM2FileReadPolicyPayload(4))).fileReadBytes.toString(), 'four');
+    for (const maxReadBytes of [0, -1, 1.5, NaN, Infinity, M2_FILE_READ_MAX_BYTES + 1]) {
+      assert.throws(() => createFilesystemEffectProvider({ maxReadBytes }), TypeError);
+    }
+  });
+});
+
+await testAsync('fs.read detects growth beyond the limit with bounded allocation and closes the descriptor', async () => {
+  await withReadProviderEnvironment(async ({ target, run }) => {
+    writeFileSync(target, Buffer.alloc(70_000));
+    let reads = 0;
+    let closed = 0;
+    const fileSystem = {
+      ...nativeFs,
+      readSync(...args) {
+        assert.ok(args[1].length <= 65_536);
+        const count = nativeFs.readSync(...args);
+        if (++reads === 1) nativeFs.appendFileSync(target, Buffer.alloc(10_000));
+        return count;
+      },
+      closeSync(fd) { closed++; return nativeFs.closeSync(fd); },
+    };
+    await assert.rejects(run({ fileSystem }, createM2FileReadPolicyPayload(70_000)), {
+      code: 'EFFECT_FS_READ_TOO_LARGE',
+    });
+    assert.equal(reads, 2);
+    assert.equal(closed, 1);
+  });
+});
+
+await testAsync('fs.read rejects missing, directory, hardlinked and retargeted names without releasing bytes', async () => {
+  await withReadProviderEnvironment(async ({ directory, projectRoot, target, run }) => {
+    await assert.rejects(run(), { code: 'EFFECT_FS_READ_NOT_FOUND' });
+    mkdirSync(target);
+    await assert.rejects(run(), error => error.reason === 'not_regular_file');
+    rmSync(target, { recursive: true });
+    const outside = path.join(directory, 'outside.bin');
+    writeFileSync(outside, 'private');
+    linkSync(outside, target);
+    await assert.rejects(run(), { code: 'EFFECT_FS_HARDLINK_REJECTED' });
+    rmSync(target);
+    symlinkSync(outside, target);
+    await assert.rejects(run(), { code: 'PROJECT_PATH_VIOLATION' });
+    rmSync(target);
+    const inside = path.join(projectRoot, 'different.bin');
+    writeFileSync(inside, 'different');
+    symlinkSync(inside, target);
+    await assert.rejects(run(), error => error.reason === 'canonical_target_mismatch');
+    assert.equal(readFileSync(outside, 'utf8'), 'private');
+  });
+});
+
+await testAsync('fs.read cancels before opening and during bounded read without returning content', async () => {
+  await withReadProviderEnvironment(async ({ target, run }) => {
+    writeFileSync(target, Buffer.alloc(70_000));
+    const before = new AbortController();
+    before.abort();
+    await assert.rejects(run({ fileSystem: { ...nativeFs, openSync() { assert.fail('opened after cancel'); } } },
+      createM2FileReadPolicyPayload(), before.signal), { code: 'EFFECT_CANCELLED' });
+    const during = new AbortController();
+    let closed = 0;
+    const fileSystem = {
+      ...nativeFs,
+      readSync(...args) { const count = nativeFs.readSync(...args); during.abort(); return count; },
+      closeSync(fd) { closed++; return nativeFs.closeSync(fd); },
+    };
+    await assert.rejects(run({ fileSystem }, createM2FileReadPolicyPayload(), during.signal), { code: 'EFFECT_CANCELLED' });
+    assert.equal(closed, 1);
+  });
+});
+
+await testAsync('fs.read rejects inode replacement and same-length mutation during read', async () => {
+  await withReadProviderEnvironment(async ({ target, run }) => {
+    for (const replace of [true, false]) {
+      writeFileSync(target, Buffer.alloc(70_000, 1));
+      let changed = false;
+      const fileSystem = {
+        ...nativeFs,
+        readSync(...args) {
+          const count = nativeFs.readSync(...args);
+          if (!changed) {
+            changed = true;
+            if (replace) { rmSync(target); writeFileSync(target, Buffer.alloc(70_000, 2)); }
+            else {
+              writeFileSync(target, Buffer.alloc(70_000, 3));
+              nativeFs.utimesSync(target, new Date(), new Date(Date.now() + 10_000));
+            }
+          }
+          return count;
+        },
+      };
+      await assert.rejects(run({ fileSystem }), { code: 'PROJECT_PATH_VIOLATION' });
+    }
+  });
+});
+
+await testAsync('fs.read rejects malformed, empty and noncanonical policy before filesystem access', async () => {
+  await withReadProviderEnvironment(async ({ run }) => {
+    const fileSystem = { ...nativeFs, realpathSync() { assert.fail('policy must be checked before I/O'); } };
+    for (const text of ['', '{}', '{"maxOutputBytes":4,"format":"bytes@1"}', '{"format":"bytes@1","maxOutputBytes":0}', '{"format":"bytes@1","maxOutputBytes":4,"extra":true}']) {
+      await assert.rejects(run({ fileSystem }, Buffer.from(text)), error => error.code !== 'ERR_ASSERTION');
+    }
+  });
+});
+
+
+suite('Immutable file.read output authority');
+
+async function prepareRead(environment, broker, overrides = {}) {
+  return broker.prepareFilesystemRead({
+    ...environment.nextIdentity(), actor: { type: 'user', id: 'user-1' },
+    origin: { surface: 'studio', sessionId: 'session-1', conversationId: m2FileReadConversationOrigin('conversation-1'), projectId: PROJECT_ID },
+    projectId: PROJECT_ID, projectRoot: environment.projectRoot,
+    relativePath: 'src/app.js', timeoutMs: 50, ...overrides,
+  });
+}
+
+function createReadBroker(environment, provider = createFilesystemEffectProvider(), extras = {}) {
+  return createEffectBroker(environment.repository, { providers: { 'fs.read': provider },
+    clock: environment.clock.now, workspaceAuthority: environment.workspaceAuthority, ...extras });
+}
+
+function readResult(request, bytes, status = 'succeeded') {
+  return {
+    contract: 'EffectResult', version: 1, effectId: request.effectId, runId: request.runId,
+    projectId: request.origin.projectId, requestDigest: computeEffectRequestDigest(request),
+    approvalGrantId: request.approvalGrantId, terminalStatus: status,
+    startedAt: new Date(BASE_MS).toISOString(), completedAt: new Date(BASE_MS).toISOString(),
+    process: { pid: null, processGroupId: null, startIdentity: null, exitCode: null, signal: null },
+    changes: { paths: [], beforeDigest: null, afterDigest: null, diffArtifact: null },
+    network: { resolvedAddresses: [], finalUrl: null, status: null, bytes: 0 },
+    rollback: { required: false, status: 'not_required', evidenceRef: null },
+    outputDigest: status === 'succeeded' ? `sha256:${createHash('sha256').update(bytes).digest('hex')}` : null,
+    errorCode: status === 'succeeded' ? null : 'EFFECT_CANCELLED',
+    evidenceRefs: [m2FileReadOutputEvidenceRef(request.effectId)], lateCompletionRejected: false,
+  };
+}
+
+await testAsync('file.read preparation binds policy and requires a grant without publishing output', async () => {
+  await withEnvironment(async environment => {
+    writeFileSync(path.join(environment.projectRoot, 'src/app.js'), 'private-byte-canary');
+    let calls = 0;
+    const broker = createReadBroker(environment, { async execute() { calls++; assert.fail('no approval'); } });
+    const prepared = await prepareRead(environment, broker);
+    assert.equal(prepared.state, 'approval_required');
+    assert.equal(prepared.request.requiredCapability, 'project.fs.read');
+    assert.equal(prepared.request.payloadBytes, createM2FileReadPolicyPayload().length);
+    assert.equal(calls, 0);
+    assert.equal(environment.db.prepare('SELECT count(*) AS n FROM m2_file_read_outputs').get().n, 0);
+    await assert.rejects(broker.execute({ effectId: prepared.effectId, grantId: 'missing', payload: createM2FileReadPolicyPayload() }));
+    assert.equal(calls, 0);
+  });
+});
+
+await testAsync('approved read stores exact binary and empty bytes; replay survives file deletion and database reopen', async () => {
+  for (const bytes of [Buffer.from([0, 255, 195, 40]), Buffer.alloc(0)]) {
+    await withEnvironment(async environment => {
+      writeFileSync(path.join(environment.projectRoot, 'src/app.js'), bytes);
+      const broker = createReadBroker(environment);
+      const prepared = await prepareRead(environment, broker);
+      const grant = issue(environment, prepared.effectId);
+      const invocation = { effectId: prepared.effectId, grantId: grant.grantId, payload: createM2FileReadPolicyPayload() };
+      const result = await broker.execute(invocation);
+      assert.equal(result.terminalStatus, 'succeeded');
+      const request = environment.repository.getEffectRequest(result.effectId);
+      const output = readM2FileReadOutput(environment.db, request, result);
+      assert.deepEqual(output.bytes, bytes);
+      assert.equal(output.evidence.byteLength, bytes.length);
+      assert.equal(JSON.stringify(result).includes('fileReadBytes'), false);
+      rmSync(path.join(environment.projectRoot, 'src/app.js'));
+      environment.reopen();
+      const reopened = createReadBroker(environment, { async execute() { assert.fail('replay read provider'); } });
+      assert.deepEqual(await reopened.execute(invocation), result);
+      assert.deepEqual(readM2FileReadOutput(environment.db, environment.repository.getEffectRequest(result.effectId), result).bytes, bytes);
+    }, { persistentDatabase: true });
+  }
+});
+
+await testAsync('generic terminal writer and direct output insertion cannot bypass atomic read authority', async () => {
+  await withEnvironment(async environment => {
+    const broker = createReadBroker(environment);
+    const prepared = await prepareRead(environment, broker);
+    const grant = issue(environment, prepared.effectId);
+    const request = { ...prepared.request, approvalGrantId: grant.grantId };
+    environment.repository.consumeApprovalGrant({ grantId: grant.grantId, request, executionOwner: processExecutionOwner });
+    const bytes = Buffer.from('private-byte-canary');
+    const result = readResult(request, bytes);
+    assert.throws(() => environment.repository.recordEffectResult(result), error => error.details?.cause?.includes('M2_FILE_READ_RESULT_OUTPUT_MISMATCH'));
+    assert.equal(environment.repository.getEffectResult(prepared.effectId), null);
+    const insertResult = () => environment.db.prepare(`
+      INSERT INTO m2_effect_results(effect_id, run_id, project_id, request_digest,
+        approval_grant_id, terminal_status, result_json, completed_at_ms) VALUES(?,?,?,?,?,?,?,?)
+    `).run(result.effectId, result.runId, result.projectId, result.requestDigest,
+      result.approvalGrantId, result.terminalStatus, canonicalStringify(result), BASE_MS);
+    assert.throws(insertResult, /M2_FILE_READ_RESULT_OUTPUT_MISMATCH/);
+    const evidence = createM2FileReadOutputEvidence(request, result, bytes);
+    const insertOutput = (metadata = evidence, payload = bytes, projectId = PROJECT_ID) => environment.db.prepare(`
+      INSERT INTO m2_file_read_outputs(effect_id, project_id, conversation_id, project_path, request_digest, metadata_json, payload)
+      VALUES(?,?,?,?,?,?,?)
+    `).run(request.effectId, projectId, 'conversation-1', environment.projectRoot, result.requestDigest, canonicalStringify(metadata), payload);
+    assert.throws(() => insertOutput(), /FOREIGN KEY constraint failed/);
+    assert.equal(environment.db.prepare('SELECT count(*) AS n FROM m2_file_read_outputs').get().n, 0);
+    assert.throws(() => insertOutput({ ...evidence, extra: true }), /REQUEST_OR_BYTES_MISMATCH/);
+    assert.throws(() => insertOutput(evidence, Buffer.from('wrong bytes')), /REQUEST_OR_BYTES_MISMATCH/);
+    assert.throws(() => insertOutput(evidence, bytes, PROJECT_ID + 1), /REQUEST_OR_BYTES_MISMATCH/);
+    const writer = new EffectFileReadOutputRepository(environment.repository);
+    const execute = environment.db.transaction(() => {
+      writer.recordSuccessfulFileRead({ request, result, bytes });
+      throw new Error('rollback-entire-authority');
+    });
+    assert.throws(execute, /rollback-entire-authority/);
+    assert.equal(environment.db.prepare('SELECT count(*) AS n FROM m2_file_read_outputs').get().n, 0);
+    assert.equal(environment.repository.getEffectResult(prepared.effectId), null);
+    writer.recordSuccessfulFileRead({ request, result, bytes });
+    assert.throws(() => environment.db.prepare('UPDATE m2_file_read_outputs SET payload = ?').run(Buffer.from('tampered')), /IMMUTABLE/);
+    assert.throws(() => environment.db.exec('DELETE FROM m2_file_read_outputs'), /IMMUTABLE/);
+    assert.equal(JSON.stringify(environment.db.prepare('SELECT result_json FROM m2_effect_results').all()).includes('private-byte-canary'), false);
+    assert.equal(JSON.stringify(environment.db.prepare('SELECT details_json FROM m2_effect_authority_events').all()).includes('private-byte-canary'), false);
+  });
+});
+
+await testAsync('failed terminal insertion rolls back file bytes and withholds success', async () => {
+  await withEnvironment(async environment => {
+    writeFileSync(path.join(environment.projectRoot, 'src/app.js'), 'private-byte-canary');
+    const broker = createReadBroker(environment);
+    const prepared = await prepareRead(environment, broker);
+    const grant = issue(environment, prepared.effectId);
+    environment.db.exec("CREATE TRIGGER fail_read_terminal BEFORE INSERT ON m2_effect_results BEGIN SELECT RAISE(ABORT, 'injected terminal storage failure'); END");
+    await assert.rejects(broker.execute({ effectId: prepared.effectId, grantId: grant.grantId, payload: createM2FileReadPolicyPayload() }), { code: 'EFFECT_RESULT_UNCOMMITTED' });
+    assert.equal(environment.db.prepare('SELECT count(*) AS n FROM m2_file_read_outputs').get().n, 0);
+    assert.equal(environment.repository.getEffectResult(prepared.effectId), null);
+    assert.ok(environment.repository.getApprovalGrant(grant.grantId).consumedAt);
+  });
+});
+
+await testAsync('invalid read provider evidence is a failed read without rollback or published bytes', async () => {
+  await withEnvironment(async environment => {
+    for (const evidence of [{}, { fileReadBytes: Buffer.from('x'), outputDigest: 'sha256:' + '0'.repeat(64), evidenceRefs: [] }]) {
+      const broker = createReadBroker(environment, { async execute() { return evidence; } });
+      const prepared = await prepareRead(environment, broker);
+      const grant = issue(environment, prepared.effectId);
+      const result = await broker.execute({ effectId: prepared.effectId, grantId: grant.grantId, payload: createM2FileReadPolicyPayload() });
+      assert.equal(result.terminalStatus, 'failed');
+      assert.equal(result.errorCode, 'EFFECT_PROVIDER_EVIDENCE_INVALID');
+      assert.equal(result.outputDigest, null);
+      assert.equal(result.rollback.required, false);
+      assert.equal(result.lateCompletionRejected, false);
+      assert.deepEqual(result.changes.paths, []);
+    }
+    assert.equal(environment.db.prepare('SELECT count(*) AS n FROM m2_file_read_outputs').get().n, 0);
+  });
+});
+
+await testAsync('read cancellation rejects late bytes without write rollback semantics', async () => {
+  await withEnvironment(async environment => {
+    const controller = new AbortController();
+    let finish;
+    let started;
+    const ready = new Promise(resolve => { started = resolve; });
+    const broker = createReadBroker(environment, { execute({ request }) {
+      started();
+      return new Promise(resolve => { finish = () => resolve({ fileReadBytes: Buffer.from('late-secret'),
+        outputDigest: `sha256:${createHash('sha256').update('late-secret').digest('hex')}`,
+        evidenceRefs: [m2FileReadOutputEvidenceRef(request.effectId)] }); });
+    } }, { terminationGraceMs: 10 });
+    const prepared = await prepareRead(environment, broker);
+    const grant = issue(environment, prepared.effectId);
+    const execution = broker.execute({ effectId: prepared.effectId, grantId: grant.grantId, payload: createM2FileReadPolicyPayload(), signal: controller.signal });
+    await ready;
+    controller.abort();
+    finish();
+    const result = await execution;
+    assert.equal(result.terminalStatus, 'cancelled');
+    assert.equal(result.outputDigest, null);
+    assert.equal(result.rollback.required, false);
+    assert.equal(result.lateCompletionRejected, false);
+    assert.equal(environment.db.prepare('SELECT count(*) AS n FROM m2_file_read_outputs').get().n, 0);
+  });
+});
+
+await testAsync('private output tampering and schema drift fail closed on readback and migration', async () => {
+  await withEnvironment(async environment => {
+    writeFileSync(path.join(environment.projectRoot, 'src/app.js'), 'private-byte-canary');
+    const broker = createReadBroker(environment);
+    const prepared = await prepareRead(environment, broker);
+    const grant = issue(environment, prepared.effectId);
+    await broker.execute({ effectId: prepared.effectId, grantId: grant.grantId, payload: createM2FileReadPolicyPayload() });
+    environment.db.exec('DROP TRIGGER trg_m2_file_read_output_no_update');
+    environment.db.prepare('UPDATE m2_file_read_outputs SET payload = ?').run(Buffer.from('tampered-byte-canary'));
+    assert.throws(() => environment.repository.getEffectResult(prepared.effectId), error => error.details?.cause?.includes('stored bytes or binding'));
+    assert.throws(() => applyFileReadOutputs(environment.db), /SOURCE_SCHEMA_MISMATCH/);
+  });
+});
+
+
+await testAsync('only the fixed read@2 policy can publish immutable output; legacy and lower leaf policies remain distinct', async () => {
+  await withEnvironment(async environment => {
+    const broker = createReadBroker(environment);
+    const prepared = await prepareRead(environment, broker);
+    assert.equal(isM2FileReadOutputRequest(prepared.request), true);
+    for (const payload of [Buffer.alloc(0), createM2FileReadPolicyPayload(4)]) {
+      const request = { ...prepared.request, payloadBytes: payload.length,
+        payloadDigest: `sha256:${createHash('sha256').update(payload).digest('hex')}` };
+      assert.equal(isM2FileReadOutputRequest(request), false);
+      assert.throws(() => createM2FileReadOutputEvidence(request, readResult(request, Buffer.from('x')), Buffer.from('x')));
+    }
+  });
+});
+
+
+await testAsync('109 upgrades populated write and legacy read authority without rewriting any historical row', async () => {
+  await withEnvironment(async environment => {
+    writeFileSync(path.join(environment.projectRoot, 'src/app.js'), 'before');
+    const broker = createBroker(environment, { provider: createFilesystemEffectProvider() });
+    const write = await prepareWrite(environment, broker);
+    const writeGrant = issue(environment, write.effectId);
+    const writeResult = await broker.execute({ effectId: write.effectId, grantId: writeGrant.grantId, payload: Buffer.from('after\n') });
+    const legacy = { ...write.request, effectId: 'effect:' + 'b'.repeat(64), idempotencyKey: 'legacy-read',
+      kind: 'fs.read', payloadBytes: 0, payloadDigest: `sha256:${createHash('sha256').update(Buffer.alloc(0)).digest('hex')}`,
+      requiredCapability: 'project.fs.read', riskClass: 'read' };
+    environment.repository.registerEffectRequest(legacy);
+    const legacyGrant = issue(environment, legacy.effectId);
+    const bound = { ...legacy, approvalGrantId: legacyGrant.grantId };
+    environment.repository.consumeApprovalGrant({ grantId: legacyGrant.grantId, request: bound, executionOwner: processExecutionOwner });
+    const legacyResult = { ...readResult(bound, Buffer.from('historical')), evidenceRefs: ['legacy-read-evidence'] };
+    environment.repository.recordEffectResult(legacyResult);
+    const tables = ['m2_effect_requests', 'm2_effect_results', 'm2_approval_grants', 'm2_effect_execution_claims', 'm2_effect_authority_events'];
+    const snapshot = () => tables.map(table => ({ table, rows: environment.db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all() }));
+    const before = snapshot();
+    applyFileReadOutputs(environment.db);
+    assert.deepEqual(snapshot(), before);
+    applyFileReadOutputs(environment.db);
+    assert.deepEqual(snapshot(), before);
+    assert.deepEqual(environment.repository.getEffectResult(write.effectId), writeResult);
+    assert.deepEqual(environment.repository.getEffectResult(legacy.effectId), legacyResult);
+    assert.equal(environment.db.prepare('SELECT count(*) AS n FROM m2_file_read_outputs').get().n, 0);
+    assert.deepEqual(environment.db.pragma('foreign_key_check'), []);
+  }, { fileReadOutputs: false });
 });
 
 summary();

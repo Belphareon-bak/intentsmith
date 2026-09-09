@@ -18,6 +18,12 @@ import { logger } from '../../core/logger.js';
 import { getLanguageContext } from './utils/language.js';
 import { synthesizeWithLLM } from './utils/synthesis.js';
 import path from 'path';
+import { createHash } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
+import { validateM2ToolRequest } from '../../../contracts/m2/tool-v1.js';
+import {
+  isM2FileReadOutputRequest, M2_FILE_READ_MAX_BYTES, m2FileReadConversationOrigin,
+} from '../../../contracts/m2/file-read-output-v1.js';
 import { config } from '../../config.js';
 
 // ─── Security constants ──────────────────────────────────────────────────────
@@ -104,7 +110,18 @@ function validateFilePath(filePath, projectPath) {
 
 // ─── Response formatting ─────────────────────────────────────────────────────
 
-function formatFileReadResponse(filePath, result, lang = 'cs') {
+function storedPathLiteral(value) {
+  // Names are data too: make control/format characters visible and contain all
+  // Markdown/HTML inside a code span whose delimiter cannot occur in the name.
+  const visible = String(value).replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu,
+    character => `\\u{${character.codePointAt(0).toString(16)}}`);
+  let longest = 0;
+  for (const match of visible.matchAll(/`+/g)) longest = Math.max(longest, match[0].length);
+  const delimiter = '`'.repeat(longest + 1);
+  return `${delimiter} ${visible} ${delimiter}`;
+}
+
+function formatFileReadResponse(filePath, result, lang = 'cs', storedBytes = false) {
   const filename = path.basename(filePath);
   const ext = path.extname(filename).slice(1);
 
@@ -164,13 +181,23 @@ function formatFileReadResponse(filePath, result, lang = 'cs') {
     pug: 'pug', jade: 'pug', ejs: 'ejs', hbs: 'handlebars',
     diff: 'diff', patch: 'diff',
   };
-  const codeLang = langMap[ext] || ext || '';
+  const codeLang = storedBytes
+    ? (Object.hasOwn(langMap, ext) ? langMap[ext] : 'text')
+    : (langMap[ext] || ext || '');
+  const displayName = storedBytes ? storedPathLiteral(filename) : `**${filename}**`;
 
   const header = lang === 'cs'
-    ? `📄 **${filename}** (${result.lines} řádků, ${Math.round(result.size / 1024) || '<1'} KB)`
-    : `📄 **${filename}** (${result.lines} lines, ${Math.round(result.size / 1024) || '<1'} KB)`;
+    ? `📄 ${displayName} (${result.lines} řádků, ${Math.round(result.size / 1024) || '<1'} KB)`
+    : `📄 ${displayName} (${result.lines} lines, ${Math.round(result.size / 1024) || '<1'} KB)`;
 
-  return `${header}\n\n\`\`\`${codeLang}\n${result.content}\n\`\`\``;
+  let fence = '```';
+  if (storedBytes) {
+    // A file cannot close its own literal display and become chat instructions.
+    let longest = 2;
+    for (const match of result.content.matchAll(/`+/g)) longest = Math.max(longest, match[0].length);
+    fence = '`'.repeat(longest + 1);
+  }
+  return `${header}\n\n${fence}${codeLang}\n${result.content}\n${fence}`;
 }
 
 function formatSecurityBlock(filePath, reason, lang = 'cs') {
@@ -198,6 +225,159 @@ function formatSecurityBlock(filePath, reason, lang = 'cs') {
         return `🔒 Access to \`${filePath}\` is blocked for security reasons.`;
       }
       return `⚠️ Cannot access file: ${reason}`;
+  }
+}
+
+function exactReadApprovalPreview(execution, context, lang) {
+  const request = execution?.request;
+  const effect = execution?.effectRequest;
+  const projectId = context?.project?.id ?? context?.projectId;
+  const matches = execution?.state === 'approval_required' && execution.result === null
+    && validateM2ToolRequest(request).valid && request.toolId === 'file.read' && request.toolVersion === 2
+    && isM2FileReadOutputRequest(effect)
+    && effect.effectId === execution.effectRequestId
+    && effect.runId === request.runId
+    && isDeepStrictEqual(effect.actor, request.actor)
+    && isDeepStrictEqual(effect.origin, request.origin)
+    && request.actor.type === context?.authenticatedSubject?.actorType
+    && request.actor.id === context?.authenticatedSubject?.actorId
+    && Number.isSafeInteger(projectId) && projectId > 0 && projectId === request.origin.projectId
+    && request.origin.conversationId === m2FileReadConversationOrigin(String(context?.conversationId ?? ''))
+    && effect.target.relativePath === request.input.path
+    && request.effectBinding?.kind === effect.kind
+    && request.effectBinding.requiredCapability === effect.requiredCapability
+    && request.effectBinding.riskClass === effect.riskClass
+    && request.effectBinding.target.relativePath === effect.target.relativePath
+    && request.effectBinding.payloadDigest === effect.payloadDigest
+    && request.effectBinding.payloadBytes === effect.payloadBytes
+    && effect.idempotencyKey === `operation:${createHash('sha256').update(request.requestId, 'utf8').digest('hex')}`;
+  if (!matches) throw Object.assign(new Error('Exact read approval preview cannot be correlated'), {
+    code: 'TOOL_READ_APPROVAL_PREVIEW_INVALID',
+  });
+  const file = storedPathLiteral(effect.target.relativePath);
+  const project = `${projectId} (${storedPathLiteral(effect.target.canonicalRoot)})`;
+  const command = storedPathLiteral(`approve effect ${effect.effectId}`);
+  const content = lang === 'cs'
+    ? `🔐 Čtení souboru ${file} v projektu ${project} čeká na schválení. Nejvýše ${M2_FILE_READ_MAX_BYTES} bajtů (1 MiB), pouze tento jeden soubor. Obsah zatím nebyl načten.\n\nPro schválení napiš ${command}.`
+    : `🔐 Reading file ${file} in project ${project} awaits approval. At most ${M2_FILE_READ_MAX_BYTES} bytes (1 MiB), only this one file. No content was loaded.\n\nTo approve, enter ${command}.`;
+  return { content, metadata: {
+    filePath: effect.target.relativePath,
+    projectId,
+    projectRoot: effect.target.canonicalRoot,
+    readMaxBytes: M2_FILE_READ_MAX_BYTES,
+    approvalPreviewVerified: true,
+  } };
+}
+
+// Read bytes come only from the durable, caller-bound content resolver. A
+// successful ToolResult reference or adapter value alone is not file content.
+export function renderM2FileReadResult(execution, context, {
+  toolExecutor,
+  decision = null,
+  requestedHandler = 'file.read',
+  expectedEffectId = null,
+} = {}) {
+  const lang = context.langCtx?.language || 'cs';
+  const requestId = execution?.request?.requestId || null;
+  const effectId = execution?.result?.effectRequestId || execution?.effectRequestId || null;
+  const metadata = {
+    handler: 'file.read',
+    requestedHandler,
+    fileOperation: false,
+    fallbackSuppressed: true,
+    approvalRequired: false,
+    toolRequestId: requestId,
+    effectId,
+    ...(decision ? { decision: decision.toJSON() } : {}),
+  };
+  try {
+    if (execution?.request?.toolId !== 'file.read'
+        || execution.request.toolVersion !== 2
+        || execution.result?.status !== 'ok'
+        || execution.result.requestId !== requestId
+        || !effectId
+        || (expectedEffectId !== null && expectedEffectId !== effectId)
+        || typeof toolExecutor?.resolveM2FileReadContent !== 'function') {
+      throw Object.assign(new Error('Stored file read terminal is unavailable'), {
+        code: 'TOOL_READ_CONTENT_AUTHORITY_REQUIRED',
+      });
+    }
+    const contentRef = execution.result.output?.contentRef;
+    const resolved = toolExecutor.resolveM2FileReadContent({ requestId, contentRef, context });
+    const { bytes, output, request, result } = resolved || {};
+    const exact = Buffer.isBuffer(bytes)
+      && request?.requestId === requestId
+      && isDeepStrictEqual(request, execution.request)
+      && isDeepStrictEqual(result, execution.result)
+      && isDeepStrictEqual(output, result.output)
+      && request.toolId === 'file.read' && request.toolVersion === 2
+      && result?.requestId === requestId && result.status === 'ok'
+      && result.requestDigest === execution.result.requestDigest
+      && result.effectRequestId === effectId && resolved.effectId === effectId
+      && output?.format === 'bytes' && output.contentRef === contentRef
+      && output.path === request.input?.path && resolved.path === output.path
+      && output.byteLength === bytes.length
+      && output.contentDigest === `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+    if (!exact) {
+      throw Object.assign(new Error('Stored file read identity or bytes do not match'), {
+        code: 'TOOL_READ_CONTENT_MISMATCH',
+      });
+    }
+    let content;
+    try {
+      // Preserve a UTF-8 BOM and every valid code point; never replace invalid bytes.
+      content = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
+      if (content.includes('\0') || !Buffer.from(content, 'utf8').equals(bytes)) throw new Error('Non-text bytes');
+    } catch {
+      throw Object.assign(new Error('Stored file bytes cannot be displayed as UTF-8 text'), {
+        code: 'TOOL_READ_CONTENT_NOT_TEXT',
+      });
+    }
+    const explanationPending = requestedHandler === 'file.explain';
+    const rendered = formatFileReadResponse(output.path, {
+      content, size: bytes.length, lines: content.split('\n').length, truncated: false,
+    }, lang, true);
+    context.sessionState?.setActiveFile?.(output.path);
+    return new TaggedResponse({
+      content: explanationPending
+        ? (lang === 'cs' ? 'Zde je ověřený obsah souboru. Vysvětlení zatím neproběhlo.\n\n'
+          : 'Here is the verified file content. An explanation has not been produced.\n\n') + rendered
+        : rendered,
+      tag: new ResponseTag({
+        speaker: ResponseSpeaker.SYSTEM,
+        mode: context.hasActiveProject ? ChatMode.PROJECT : ChatMode.CONVERSATION,
+        confidence: 1,
+        canExecute: false,
+        metadata: {
+          ...metadata,
+          fileOperation: true,
+          securityBlocked: false,
+          filePath: output.path,
+          fileSize: bytes.length,
+          fileLines: content.split('\n').length,
+          contentRef: output.contentRef,
+          contentDigest: output.contentDigest,
+          truncated: false,
+          explanationPending,
+          error: null,
+        },
+      }),
+    });
+  } catch (error) {
+    return new TaggedResponse({
+      content: error.code === 'TOOL_READ_CONTENT_NOT_TEXT'
+        ? (lang === 'cs' ? 'Soubor byl načten, ale jeho bajty nelze bezpečně zobrazit jako text UTF-8.'
+          : 'The file was read, but its bytes cannot safely be displayed as UTF-8 text.')
+        : (lang === 'cs' ? 'Ověřený uložený obsah souboru nelze bezpečně zobrazit. Čtení se neopakovalo.'
+          : 'The verified stored file content cannot safely be displayed. Reading was not repeated.'),
+      tag: new ResponseTag({
+        speaker: ResponseSpeaker.SYSTEM,
+        mode: context.hasActiveProject ? ChatMode.PROJECT : ChatMode.CONVERSATION,
+        confidence: 1,
+        canExecute: false,
+        metadata: { ...metadata, securityBlocked: true, error: error.code || 'TOOL_READ_CONTENT_UNAVAILABLE' },
+      }),
+    });
   }
 }
 
@@ -283,9 +463,8 @@ export async function handleFileDecision(input, decision, context, dependencies 
       truncated: false,
     };
   } else {
-    // A path is an input, never read authority. Until an exact fs.read effect
-    // adapter exists, the durable broker records a fail-closed Tool terminal.
-    // No stat/readdir/readFile or FILE_EXPLAIN synthesis may run on this branch.
+    // A path is an input, never read authority. Only exact durable read output
+    // can be displayed; no direct filesystem access or LLM fallback runs here.
     try {
       let executor = dependencies.toolExecutor;
       if (!executor) {
@@ -304,17 +483,27 @@ export async function handleFileDecision(input, decision, context, dependencies 
         context,
         timeoutMs: 30_000,
       });
+      if (toolId === 'file.read' && execution.result?.status === 'ok') {
+        return renderM2FileReadResult(execution, context, {
+          toolExecutor: executor,
+          decision,
+          requestedHandler: decision.intent === IntentType.FILE_EXPLAIN ? 'file.explain' : 'file.read',
+        });
+      }
       const errorCode = execution.result?.error?.code
         || (execution.state === 'in_progress' ? 'TOOL_EXECUTION_IN_PROGRESS' : null)
         || (execution.state === 'approval_required' ? 'TOOL_EFFECT_AUTHORITY_REQUIRED' : null)
         || 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE';
-      const content = execution.state === 'approval_required' && execution.effectRequestId
+      const preview = toolId === 'file.read' && execution.request?.toolVersion === 2
+        && execution.state === 'approval_required'
+        ? exactReadApprovalPreview(execution, context, lang) : null;
+      const content = preview?.content ?? (execution.state === 'approval_required' && execution.effectRequestId
         ? (lang === 'cs'
           ? `🔐 Čtení čeká na přesné schválení efektu ${execution.effectRequestId}. Obsah zatím nebyl načten.`
           : `🔐 Reading awaits exact effect approval ${execution.effectRequestId}. No content was loaded.`)
         : (lang === 'cs'
           ? '🔒 Soubor nebyl načten: chybí přesná M2 autorita pro čtení. Nebyl spuštěn diskový přístup ani náhradní LLM odpověď.'
-          : '🔒 File not loaded: exact M2 read authority is unavailable. No disk access or fallback LLM response ran.');
+          : '🔒 File not loaded: exact M2 read authority is unavailable. No disk access or fallback LLM response ran.'));
       return new TaggedResponse({
         content,
         tag: new ResponseTag({
@@ -332,6 +521,7 @@ export async function handleFileDecision(input, decision, context, dependencies 
             toolRequestId: execution.request?.requestId || null,
             effectId: execution.effectRequestId || null,
             approvalRequired: execution.state === 'approval_required',
+            ...(preview?.metadata || {}),
           },
         }),
       });

@@ -303,14 +303,49 @@ export function readProjectFile(projectRoot, filePath, {
  */
 export function readProjectFileBytes(projectRoot, filePath, {
   fileSystem = fs,
+  maxBytes = null,
+  rejectHardlinks = false,
+  requireCanonicalTarget = false,
+  signal = null,
 } = {}) {
+  if (maxBytes !== null && (!Number.isSafeInteger(maxBytes) || maxBytes < 0)) {
+    throw new TypeError('maxBytes must be a non-negative safe integer');
+  }
+  const checkCancellation = () => {
+    if (signal?.aborted) {
+      throw Object.assign(new Error('Effect cancelled during filesystem read'), {
+        code: 'EFFECT_CANCELLED',
+      });
+    }
+  };
+  const checkReadStat = (stat) => {
+    if (rejectHardlinks && stat.nlink === 0) {
+      throw new ProjectPathError('read_target_changed', { input: filePath, projectRoot });
+    }
+    if (rejectHardlinks && stat.nlink !== 1) {
+      throw Object.assign(new Error('Filesystem read target has multiple hardlinks'), {
+        code: 'EFFECT_FS_HARDLINK_REJECTED',
+      });
+    }
+    if (maxBytes !== null && stat.size > maxBytes) {
+      throw Object.assign(new Error('Filesystem read exceeds its exact byte limit'), {
+        code: 'EFFECT_FS_READ_TOO_LARGE',
+      });
+    }
+  };
+  checkCancellation();
   const before = resolveProjectTarget(projectRoot, filePath, { fileSystem });
+  if (requireCanonicalTarget && (before.projectRoot !== projectRoot
+    || before.relativePath !== filePath)) {
+    throw new ProjectPathError('canonical_target_changed', { input: filePath, projectRoot });
+  }
   const noFollow = fileSystem.constants?.O_NOFOLLOW ?? fs.constants.O_NOFOLLOW ?? 0;
   const readOnly = fileSystem.constants?.O_RDONLY ?? fs.constants.O_RDONLY;
   let descriptor;
 
   try {
-    descriptor = fileSystem.openSync(before.real, readOnly | noFollow);
+    const nonBlock = maxBytes === null ? 0 : (fileSystem.constants?.O_NONBLOCK ?? fs.constants.O_NONBLOCK ?? 0);
+    descriptor = fileSystem.openSync(before.real, readOnly | noFollow | nonBlock);
   } catch (error) {
     if (error?.code !== 'ENOENT') throw error;
     const afterMissing = revalidateProjectTarget(projectRoot, filePath, before, { fileSystem });
@@ -329,9 +364,40 @@ export function readProjectFileBytes(projectRoot, filePath, {
         target: before.real,
       });
     }
-    const bytes = fileSystem.readFileSync(descriptor);
+    checkReadStat(opened);
+    let bytes;
+    if (maxBytes === null) {
+      bytes = fileSystem.readFileSync(descriptor);
+    } else {
+      // Bound allocation and reads even if the file grows after fstat. The
+      // extra byte distinguishes an exact-limit file from an oversized one.
+      const chunks = [];
+      let length = 0;
+      for (;;) {
+        checkCancellation();
+        const chunk = Buffer.alloc(Math.min(64 * 1024, maxBytes - length + 1));
+        const count = fileSystem.readSync(descriptor, chunk, 0, chunk.length, null);
+        if (count === 0) break;
+        length += count;
+        if (length > maxBytes) {
+          throw Object.assign(new Error('Filesystem read exceeds its exact byte limit'), {
+            code: 'EFFECT_FS_READ_TOO_LARGE',
+          });
+        }
+        chunks.push(chunk.subarray(0, count));
+      }
+      bytes = Buffer.concat(chunks, length);
+      const completed = fileSystem.fstatSync(descriptor);
+      checkReadStat(completed);
+      if (opened.size !== completed.size || completed.size !== length
+        || opened.mtimeMs !== completed.mtimeMs || opened.ctimeMs !== completed.ctimeMs) {
+        throw new ProjectPathError('read_target_changed', { input: filePath, projectRoot });
+      }
+    }
+    checkCancellation();
     const after = revalidateProjectTarget(projectRoot, filePath, before, { fileSystem });
     const current = fileSystem.statSync(after.real);
+    checkReadStat(current);
     if (opened.dev !== current.dev || opened.ino !== current.ino) {
       throw changedTargetError(before, after, filePath);
     }

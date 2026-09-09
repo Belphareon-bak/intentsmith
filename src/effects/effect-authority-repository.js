@@ -1,3 +1,4 @@
+import { registerM2FileReadOutputFunctions, readM2FileReadOutput } from './effect-file-read-output-repository.js';
 import { createHash } from 'node:crypto';
 
 import {
@@ -170,6 +171,7 @@ const PRE_EXECUTION_APPROVAL_TERMINAL_CODES = Object.freeze([
 export class EffectAuthorityRepository {
   constructor(db, { clock = Date.now } = {}) {
     this.db = requireDatabase(db);
+    registerM2FileReadOutputFunctions(this.db);
     this.clock = requireClock(clock);
     this.db.function('m2_effect_result_matches_request_v1', {
       deterministic: true,
@@ -1000,6 +1002,7 @@ export class EffectAuthorityRepository {
       if (!validation.valid || !indexedIdentityMatches) {
         throw new Error(`stored EffectResult is invalid: ${validation.errors.join(',')}`);
       }
+      readM2FileReadOutput(this.db, request, result);
       return Object.freeze(result);
     } catch (error) {
       if (

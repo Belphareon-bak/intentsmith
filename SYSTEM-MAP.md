@@ -133,10 +133,10 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **219 005 ř.**, 591 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **237 626 ř.**, 518 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **219 781 ř.**, 593 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **238 598 ř.**, 518 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **512** (`418 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
-| Tabulek v čerstvé DB / aplikovaných migrací | **169 / 95** |
+| Tabulek v čerstvé DB / aplikovaných migrací | **171 / 96** |
 | HTTP rout | ~230 |
 | **Schopností v `ACCEPTED/PASS`** | **1 z 22** (#2 CRE); #1 server/routing/DB je zatím `RUNTIME_VERIFIED` — jeho suite má 13 interních checků, zatímco behavior dokument obsahuje 16 řádků, takže tvrzení „13/13 chování“ není platný akceptační součet |
 
@@ -193,7 +193,7 @@ artefaktů má současná inventory 9 modelů a 55/0/0/8 coverage
 beze změny. Důkaz:
 [`model-removal-live-20260828.json`](docs/execution/runs/model-removal-live-20260828.json).
 
-Tool census ze zdroje: **9 JavaScript soubory, 8 664 řádků, 153 top-level
+Tool census ze zdroje: **9 JavaScript soubory, 8 784 řádků, 153 top-level
 nástrojových deklarací**. Počet 213 v dřívější inventuře byl textový false count.
 
 ---

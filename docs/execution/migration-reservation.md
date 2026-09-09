@@ -234,6 +234,7 @@ záznamu selže v `artifact-validation`.
 | `2026_08_29_106_m7_m2_approval_list_index.js` | použito pro bounded owner-scoped M7 projekci přijaté M2 approval autority |
 | `2026_08_29_107_m7_notification_ack_receipts.js` | použito pro append-only per-device M7 notification ACK receipts |
 | `2026_08_30_108_m7_durable_rate_limits.js` | použito pro bounded durable M7 transport rate-limit buckety |
+| `2026_09_09_109_m2_file_read_outputs.js` | použito pro neměnné bajty projektového file.read@2 a odstranění obsahu |
 <!-- migration-source-manifest:end -->
 
 ## Navazující M7 rezervace 2026-08-29
@@ -396,3 +397,15 @@ jako volný; drží bounded durable rate-limit buckety bez listeneru.
 | **106** | `WP-M7-M2-APPROVAL-ADAPTER` | bounded owner-scoped M2 lifecycle approval list |
 | **107** | `WP-M7-EVENTS-NOTIFICATIONS-CORE-ADAPTERS` | append-only per-device notification ACK receipts |
 | **108** | `WP-M7-DURABLE-RATE-LIMITER` | bounded durable transport rate-limit buckety |
+
+
+## Projektové čtení — 2026-09-09
+
+Číslo **109** vlastní `WP-CORE-COMPLETION-20260909` pro immutable projektové
+read output bytes a jejich odstranění. Nezávislý aktuální census před commitem
+ověřil 452 lokálních refs / 333 unikátních objektů a 29 registrovaných worktree
+HEADů (25 existujících adresářů, čtyři chybějící/prunable). Commitnuté maximum
+je 108; 109 existuje na disku pouze v této integraci. Seznamy refs/HEADů se
+během kontroly nezměnily. Nejde o fetch vzdálených serverů či census libovolných
+standalone klonů. Důkaz: provider-proposal/migration109-current-census-01/census.json,
+SHA `fd43a762a5c05da78ff81ea3add3d2543b75b2c9bcf318ee6193c8a7b48c2bcc`.

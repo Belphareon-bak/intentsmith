@@ -202,6 +202,7 @@ const ALL_MIGRATIONS = [
   '2026_08_29_106_m7_m2_approval_list_index',
   '2026_08_29_107_m7_notification_ack_receipts',
   '2026_08_30_108_m7_durable_rate_limits',
+  '2026_09_09_109_m2_file_read_outputs',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -231,6 +232,7 @@ const EXPECTED_TABLES = [
   'm2_effect_result_semantic_quarantine',
   'm2_effect_preexecution_terminal_claims',
   'm2_effect_rollback_receipts',
+  'm2_file_read_outputs', 'm2_file_read_output_tombstones',
   'm4_learning_plan_evaluations',
   'm5_privacy_history_receipts', 'm5_privacy_rotation_receipts', 'm5_signed_privacy_receipts',
   'm6_model_artifact_claims', 'm6_model_artifact_events', 'm6_model_artifact_operations',
@@ -471,6 +473,7 @@ describe('T-SM0: Migration identity preflight', async () => {
       '2026_08_29_106_m7_m2_approval_list_index',
       '2026_08_29_107_m7_notification_ack_receipts',
       '2026_08_30_108_m7_durable_rate_limits',
+      '2026_09_09_109_m2_file_read_outputs',
     ]);
     assert.strictEqual(db.prepare(`
       SELECT COUNT(*) AS count FROM schema_migrations

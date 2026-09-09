@@ -2,6 +2,11 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
+  M2_FILE_READ_MAX_BYTES,
+  m2FileReadOutputEvidenceRef,
+  parseM2FileReadPolicyPayload,
+} from '../../contracts/m2/file-read-output-v1.js';
+import {
   ProjectPathError,
   readProjectFileBytes,
   writeProjectFileAtomic,
@@ -60,9 +65,40 @@ function appliedFilesystemEvidence({ request, beforeDigest, afterDigest = null, 
   });
 }
 
-export function createFilesystemEffectProvider({ fileSystem = fs } = {}) {
+export function createFilesystemEffectProvider({
+  fileSystem = fs,
+  maxReadBytes = M2_FILE_READ_MAX_BYTES,
+} = {}) {
+  if (!Number.isSafeInteger(maxReadBytes) || maxReadBytes < 1
+    || maxReadBytes > M2_FILE_READ_MAX_BYTES) {
+    throw new TypeError('maxReadBytes must be a positive integer within the file-read ceiling');
+  }
   return Object.freeze({
     async execute({ request, payload, signal }) {
+      if (request.kind === 'fs.read') {
+        const policy = parseM2FileReadPolicyPayload(payload);
+        const observation = readProjectFileBytes(
+          request.target.canonicalRoot,
+          request.target.relativePath,
+          {
+            fileSystem,
+            maxBytes: Math.min(maxReadBytes, policy.maxOutputBytes),
+            rejectHardlinks: true,
+            requireCanonicalTarget: true,
+            signal,
+          },
+        );
+        if (!observation.exists) {
+          throw Object.assign(new Error('Filesystem read target does not exist'), {
+            code: 'EFFECT_FS_READ_NOT_FOUND',
+          });
+        }
+        return Object.freeze({
+          outputDigest: digest(observation.bytes),
+          evidenceRefs: Object.freeze([m2FileReadOutputEvidenceRef(request.effectId)]),
+          fileReadBytes: Buffer.from(observation.bytes),
+        });
+      }
       if (request.kind !== 'fs.write') {
         const error = new Error(`Unsupported filesystem effect kind: ${request.kind}`);
         error.code = 'EFFECT_PROVIDER_UNSUPPORTED';

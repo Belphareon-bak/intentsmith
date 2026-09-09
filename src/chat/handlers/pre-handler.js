@@ -15,7 +15,7 @@ import { ResponseTag, TaggedResponse, ResponseSpeaker, ChatMode } from '../contr
 import { creDecisionEngine, DecisionType, IntentType, REFORMULATION_PATTERNS } from '../cre-decision.js';
 import { logger } from '../../core/logger.js';
 import { parseTodoCommand, handleTodo, handleDone } from './todo.js';
-import { handleFileDecision } from './file.js';
+import { handleFileDecision, renderM2FileReadResult } from './file.js';
 import { config } from '../../config.js';
 
 // ─── Lazy-loaded Phase modules (null if feature disabled) ────────────────────
@@ -157,109 +157,120 @@ export function parseExactEffectApproval(input) {
 // M2 effect approval is deliberately exact. Generic affirmations such as
 // "ano" or "schvaluji" never authorize a filesystem syscall; the user must
 // name the full immutable effect ID in the same authenticated conversation.
-intercepts.push({
-  name: 'm2_effect_approval',
-  modes: ['*'],
-  async fn(input, context, mode) {
-    const effectId = parseExactEffectApproval(input);
-    if (!effectId) return { handled: false };
+export async function handleExactEffectApproval(input, context, mode, dependencies = {}) {
+  const effectId = parseExactEffectApproval(input);
+  if (!effectId) return { handled: false };
 
-    // A skill-owned exact effect checkpoint must resume the skill state
-    // machine, which in turn invokes this same M2 authority and records the
-    // linked step output. The standalone interceptor remains the owner for
-    // ordinary file.write effects.
-    if (handleSkillEffectApproval) {
-      const skillResult = await handleSkillEffectApproval(input, context);
-      if (skillResult) return { handled: true, response: skillResult };
-    }
+  // A skill-owned exact effect checkpoint must resume the skill state
+  // machine, which in turn invokes this same M2 authority and records the
+  // linked step output. The standalone interceptor remains the owner for
+  // ordinary project file effects.
+  if (handleSkillEffectApproval) {
+    const skillResult = await handleSkillEffectApproval(input, context);
+    if (skillResult) return { handled: true, response: skillResult };
+  }
 
-    if (
-      context.authenticatedSubject?.actorType !== 'user'
-      || !context.authenticatedSubject.actorId
-      || !context.sessionId
-      || !context.conversationId
-    ) {
-      return {
-        handled: true,
-        response: systemResponse(
-          '🔒 Efekt nelze schválit bez ověřené identity a konverzace.',
-          mode,
-          { handler: 'effect.approval', effectId, error: 'effect_identity_required' },
-        ),
-      };
-    }
+  if (
+    context.authenticatedSubject?.actorType !== 'user'
+    || !context.authenticatedSubject.actorId
+    || !context.sessionId
+    || !context.conversationId
+  ) {
+    return {
+      handled: true,
+      response: systemResponse(
+        '🔒 Efekt nelze schválit bez ověřené identity a konverzace.',
+        mode,
+        { handler: 'effect.approval', effectId, error: 'effect_identity_required' },
+      ),
+    };
+  }
 
+  try {
+    const effectFileRuntime = dependencies.effectFileRuntime
+      || (await import('../../effects/effect-file-runtime.js')).effectFileRuntime;
+    const result = await effectFileRuntime.approveFilesystemEffect({
+      effectId,
+      conversationId: context.conversationId,
+      subjectId: context.authenticatedSubject.actorId,
+      signal: context.signal,
+    });
+    const path = result.changes?.paths?.[0] || null;
+    let toolSettlement = null;
+    let toolExecutor;
     try {
-      const { effectFileRuntime } = await import('../../effects/effect-file-runtime.js');
-      const result = await effectFileRuntime.approveFilesystemWrite({
+      toolExecutor = dependencies.toolExecutor
+        || (await import('../../executor/tool-executor.js')).toolExecutor;
+      toolSettlement = await toolExecutor.settleM2Effect({ effectId, context });
+    } catch (settlementError) {
+      logger.error('PreHandler', 'Effect completed but ToolResult settlement failed', {
         effectId,
-        conversationId: context.conversationId,
-        subjectId: context.authenticatedSubject.actorId,
-        signal: context.signal,
-      });
-      const path = result.changes?.paths?.[0] || null;
-      let toolSettlement = null;
-      try {
-        const { toolExecutor } = await import('../../executor/tool-executor.js');
-        toolSettlement = await toolExecutor.settleM2Effect({ effectId, context });
-      } catch (settlementError) {
-        logger.error('PreHandler', 'Effect completed but ToolResult settlement failed', {
-          effectId,
-          terminalStatus: result.terminalStatus,
-          code: settlementError.code || null,
-        });
-        return {
-          handled: true,
-          response: systemResponse(
-            `⚠️ Efekt \`${result.effectId}\` skončil stavem **${result.terminalStatus}**, ale jeho ToolResult se nepodařilo bezpečně uložit: ${settlementError.message}`,
-            mode,
-            {
-              handler: 'effect.approval',
-              effectId: result.effectId,
-              effectResult: result.terminalStatus,
-              toolSettlement: 'uncommitted',
-              error: settlementError.code || 'tool_result_uncommitted',
-              filePath: path,
-            },
-          ),
-        };
-      }
-      if (result.terminalStatus === 'succeeded' && path) {
-        context.sessionState?.setActiveFile?.(path);
-      }
-      const content = result.terminalStatus === 'succeeded'
-        ? `✅ Efekt \`${result.effectId}\` byl proveden${path ? `: **${path}**` : '.'}`
-        : `❌ Efekt \`${result.effectId}\` skončil stavem **${result.terminalStatus}**.`;
-      return {
-        handled: true,
-        response: systemResponse(content, mode, {
-          handler: 'effect.approval',
-          effectId: result.effectId,
-          effectResult: result.terminalStatus,
-          toolRequestId: toolSettlement?.request?.requestId || null,
-          toolResult: toolSettlement?.result?.status || null,
-          filePath: path,
-        }),
-      };
-    } catch (error) {
-      logger.warn('PreHandler', `Exact effect approval failed: ${error.message}`, {
-        effectId,
-        code: error.code || null,
+        terminalStatus: result.terminalStatus,
+        code: settlementError.code || null,
       });
       return {
         handled: true,
         response: systemResponse(
-          `❌ Efekt \`${effectId}\` nebyl proveden: ${error.message}`,
+          `⚠️ Efekt \`${result.effectId}\` skončil stavem **${result.terminalStatus}**, ale jeho ToolResult se nepodařilo bezpečně uložit: ${settlementError.message}`,
           mode,
           {
             handler: 'effect.approval',
-            effectId,
-            error: error.code || 'effect_approval_failed',
+            effectId: result.effectId,
+            effectResult: result.terminalStatus,
+            toolSettlement: 'uncommitted',
+            error: settlementError.code || 'tool_result_uncommitted',
+            filePath: path,
           },
         ),
       };
     }
-  },
+    if (result.terminalStatus === 'succeeded' && toolSettlement?.request?.toolId === 'file.read') {
+      return {
+        handled: true,
+        response: renderM2FileReadResult(toolSettlement, context, { toolExecutor, expectedEffectId: effectId }),
+      };
+    }
+    if (result.terminalStatus === 'succeeded' && path) {
+      context.sessionState?.setActiveFile?.(path);
+    }
+    const content = result.terminalStatus === 'succeeded'
+      ? `✅ Efekt \`${result.effectId}\` byl proveden${path ? `: **${path}**` : '.'}`
+      : `❌ Efekt \`${result.effectId}\` skončil stavem **${result.terminalStatus}**.`;
+    return {
+      handled: true,
+      response: systemResponse(content, mode, {
+        handler: 'effect.approval',
+        effectId: result.effectId,
+        effectResult: result.terminalStatus,
+        toolRequestId: toolSettlement?.request?.requestId || null,
+        toolResult: toolSettlement?.result?.status || null,
+        filePath: path,
+      }),
+    };
+  } catch (error) {
+    logger.warn('PreHandler', `Exact effect approval failed: ${error.message}`, {
+      effectId,
+      code: error.code || null,
+    });
+    return {
+      handled: true,
+      response: systemResponse(
+        `❌ Efekt \`${effectId}\` nebyl proveden: ${error.message}`,
+        mode,
+        {
+          handler: 'effect.approval',
+          effectId,
+          error: error.code || 'effect_approval_failed',
+        },
+      ),
+    };
+  }
+}
+
+intercepts.push({
+  name: 'm2_effect_approval',
+  modes: ['*'],
+  fn: handleExactEffectApproval,
 });
 
 // Negotiated Studio/M1 traffic is owned by the M2 lifecycle application

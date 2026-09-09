@@ -370,3 +370,43 @@ připomínku před modelem a odmítne schválení starého dokumentu; explicitn�
 schválení platné SPEC dál přechází do plánování. Důkazy a nezávislé review
 jsou v `.intentsmith-artifacts/core-completion-20260909/provider-proposal/spec-fourth-revision-fix-3c004e70/`.
 Tato úzká oprava neřeší výstupní limit 4000 v naměřeném cookbook běhu.
+
+
+Projektové čtení souboru nyní vede přes descriptor `file.read@2`, přesný
+EffectRequest a jednorázové schválení. Provider načte nejvýše 1 MiB s kontrolou
+identity souboru; bajty a úspěšný EffectResult se uloží atomicky. ToolResult
+obsahuje ověřený odkaz a digest. Chat zobrazí přesný cíl před schválením a potom
+výhradně uložené bajty ověřené proti současnému projektu, konverzaci a aktérovi.
+Replay po odstranění zdrojového souboru znovu nečte disk ani nevytváří grant.
+Neplatné UTF-8 se nevydává za text; názvy i obsah mají oddělené literální
+zobrazení. Historické `file.read@1` výsledky tím nezískávají nový obsah.
+
+Migrace 109 přidává immutable output metadata, soukromý BLOB a tombstones.
+Soft-delete/restore zachovává stávající význam; trvalé odstranění projektu či
+konverzace a existující retention hard-delete atomicky vymažou uložené bajty.
+Historický úspěch zůstává pravdivý. Skutečná plná migrace prošla 13/13 kontrol:
+96 migrací na nové DB, upgrade naplněné předchozí DB s 95 migracemi, replay
+historických výsledků, produkční ProjectContext/read provider a rollback celé
+DDL transakce při chybě zápisu migration stamp. Čerstvá DB má 171 tabulek.
+
+Authority patch `05d43d40` má nezávislé source/privacy review a 133 focused
+kontrol; consumer `536fb1ec` nezávislé root review, párových 8/14 → 22/0 a
+11 skutečných private DB/provider/handler kontrol. Root po sloučení zopakoval
+22 consumer, 45 broker a 17 runtime kontrol. První direct runtime bootstrap
+FAIL je zachován; návrat existujícího isolated helper importu na první místo
+opravil jeho pořadí bez změny predikátů. Původní schema FAIL kvůli seznamu 95
+migrací je zachován; doplněny pouze exact109 a dvě tabulky do původních oracles.
+Census a 158 artifact kontrol prošly. Sedm nových src import hran má samostatné
+review (1275 → 1282, stále stejné 3 cykly / 28 souborů); jejich připnutí následuje
+nad čistým commitem. Důkazy jsou v provider-proposal adresářích
+`m2-file-read-output-proposal-6405992`, `m2-file-read-consumer-proposal-6405992e/v3`
+a `m2-file-read-integration-20260909`.
+
+Tento výsledek neuzavírá `file.list`, skutečné vysvětlení FILE_EXPLAIN,
+projektově neomezený web, celý M2 review/acceptance ani společný release gate.
+Živá provozní DB nebyla migrována a hlavní modelový profil zůstává 4096.
+
+Související M1 failover schema test zůstává kontrolou úplného migračního
+řetězce: jeho původní 17 PASS / 3 FAIL očekávaly aktuální verzi108 a95 migrací.
+Opraveny pouze aktuální verze109, počet96 a přidán přesný název109 do seznamu;
+původní kontrola nulových nových migrací a identického schématu zůstává.

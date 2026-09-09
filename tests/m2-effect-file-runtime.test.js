@@ -1,5 +1,13 @@
 import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 
+import { pruneAllData, DEFAULT_STORAGE_CONFIG } from '../src/db/data-retention.js';
+import { computeM2ToolValueDigest, canonicalizeM2ToolValue } from '../contracts/m2/tool-v1.js';
+import { up as applyFileReadOutputs } from '../src/db/migrations/2026_09_09_109_m2_file_read_outputs.js';
+import { M2ToolAuthorityRepository } from '../src/tools/m2-tool-authority-repository.js';
+import { createM2ToolBroker } from '../src/tools/m2-tool-broker.js';
+import { createM2ToolEffectAdapter } from '../src/tools/m2-tool-effect-adapter.js';
+import { getM2ToolDescriptor, getCurrentM2ToolDescriptor } from '../src/tools/m2-tool-registry.js';
+
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import {
@@ -39,6 +47,7 @@ import { suite, testAsync, summary } from './harness.js';
 void isolatedTestRuntime;
 
 function installAuthoritySchema(database) {
+  database.exec("CREATE TABLE IF NOT EXISTS projects(id INTEGER PRIMARY KEY, path TEXT, status TEXT, updated_at TEXT); CREATE TABLE IF NOT EXISTS conversations(id TEXT PRIMARY KEY, project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL, state TEXT, deleted_at TEXT); CREATE TABLE IF NOT EXISTS messages(id INTEGER PRIMARY KEY, conversation_id TEXT REFERENCES conversations(id) ON DELETE CASCADE, content TEXT);");
   const hasAuthority = Boolean(database.prepare(
     "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'm2_effect_requests'",
   ).get());
@@ -62,6 +71,7 @@ function installAuthoritySchema(database) {
   }
   applyPreexecutionApprovalTerminals(database);
   applyEffectRollbackReceipts(database);
+  applyFileReadOutputs(database);
 }
 
 const authorityTemplatePath = path.join(
@@ -88,6 +98,8 @@ async function withEnvironment(callback) {
   const databasePath = path.join(directory, 'authority.sqlite');
   mkdirSync(path.join(projectRoot, 'notes'), { recursive: true });
   let database = openDatabase(databasePath);
+  database.prepare("INSERT INTO projects(id,path,status) VALUES(17,?,'active')").run(projectRoot);
+  database.prepare("INSERT INTO conversations(id,project_id,state) VALUES('conversation-1',17,'active')").run();
   const workspaceAuthority = Object.freeze({
     async observe() {
       return Object.freeze({
@@ -805,6 +817,238 @@ await testAsync('production defaults bind the registered ProjectContext revision
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
+});
+
+
+function insertToolResultDirect(db, value) {
+  const claim = db.prepare(`
+    SELECT * FROM tool_v1_execution_claims
+    WHERE request_id = ? ORDER BY generation DESC LIMIT 1
+  `).get(value.requestId);
+  db.prepare(`
+    INSERT INTO tool_v1_results (
+      request_id, request_digest, run_id, project_id, tool_id, tool_version,
+      status, output_schema, output_json, output_digest, effect_request_id,
+      error_json, started_at_ms, completed_at_ms, evidence_json,
+      late_completion_rejected, execution_generation, execution_owner_id,
+      result_json
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    value.requestId,
+    value.requestDigest,
+    value.runId,
+    value.projectId,
+    value.toolId,
+    value.toolVersion,
+    value.status,
+    value.outputSchema,
+    value.output === null ? null : canonicalizeM2ToolValue(value.output),
+    value.outputDigest,
+    value.effectRequestId,
+    value.error === null ? null : canonicalizeM2ToolValue(value.error),
+    Date.parse(value.startedAt),
+    Date.parse(value.completedAt),
+    canonicalizeM2ToolValue(value.evidenceRefs),
+    value.lateCompletionRejected ? 1 : 0,
+    claim.generation,
+    claim.owner_id,
+    canonicalizeM2ToolValue(value),
+  );
+}
+
+suite('file.read@2 durable runtime and content authority');
+
+await testAsync('actual tool read requires exact approval then resolves stored bytes with actor/project/conversation binding', async () => {
+  await withEnvironment(async environment => {
+    const bytes = Buffer.from('private-canary: e\u0301\n');
+    writeFileSync(path.join(environment.projectRoot, 'notes/result.md'), bytes);
+    const runtime = environment.runtime();
+    const repository = new M2ToolAuthorityRepository(environment.database);
+    const broker = createM2ToolBroker({ repository, effectAdapter: createM2ToolEffectAdapter({ effectRuntime: runtime }) });
+    const context = { sessionId: 'ws-1', conversationId: 'conversation-1', userMessageId: 10,
+      authenticatedSubject: { actorType: 'user', actorId: 'local-operator' },
+      project: { id: 17, path: environment.projectRoot } };
+    const input = { toolId: 'file.read', input: { path: 'notes/result.md' }, context };
+    const pending = await broker.execute(input);
+    assert.equal(pending.state, 'approval_required');
+    assert.equal(pending.request.toolVersion, 2);
+    assert.equal(environment.database.prepare('SELECT count(*) AS n FROM m2_file_read_outputs').get().n, 0);
+    await assert.rejects(async () => runtime.approveFilesystemWrite({ effectId: pending.effectRequestId, conversationId: context.conversationId, subjectId: 'local-operator' }), { code: 'EFFECT_RUNTIME_INPUT_INVALID' });
+    const effect = await runtime.approveFilesystemEffect({ effectId: pending.effectRequestId, conversationId: context.conversationId, subjectId: 'local-operator' });
+    assert.equal(effect.terminalStatus, 'succeeded');
+    const record = repository.recordToolResult.bind(repository);
+    let checkedSql = false;
+    repository.recordToolResult = (result, options) => {
+      for (const output of [
+        { ...result.output, contentDigest: 'sha256:' + '0'.repeat(64) },
+        { ...result.output, path: 'notes/other.md' },
+        { ...result.output, byteLength: result.output.byteLength + 1 },
+      ]) {
+        const forged = { ...result, output, outputDigest: computeM2ToolValueDigest(output) };
+        assert.throws(() => insertToolResultDirect(environment.database, forged), /M2_TOOL_LINKED_TERMINAL_PROJECTION_MISMATCH/);
+        assert.throws(() => record(forged, options), /does not exactly project/);
+      }
+      checkedSql = true;
+      return record(result, options);
+    };
+    const settled = broker.settleEffect({ effectId: effect.effectId, context });
+    assert.equal(checkedSql, true);
+    assert.equal(settled.result.status, 'ok');
+    assert.equal(settled.result.output.byteLength, bytes.length);
+    const query = { requestId: settled.request.requestId, contentRef: settled.result.output.contentRef, context };
+    const content = broker.resolveFileReadContent(query);
+    assert.deepEqual(content.bytes, bytes);
+    assert.equal(JSON.stringify(settled.result).includes('private-canary'), false);
+    assert.equal(content.output.contentDigest, effect.outputDigest);
+    assert.notEqual(settled.result.outputDigest, effect.outputDigest);
+    for (const changed of [
+      { ...context, authenticatedSubject: { actorType: 'user', actorId: 'other' } },
+      { ...context, conversationId: 'other' }, { ...context, project: { id: 18 } },
+      { ...context, project: undefined, projectId: null },
+    ]) assert.throws(() => broker.resolveFileReadContent({ ...query, context: changed }));
+    assert.throws(() => broker.resolveFileReadContent({ ...query, contentRef: query.contentRef + ':other' }));
+    rmSync(path.join(environment.projectRoot, 'notes/result.md'));
+    const replay = await broker.execute({ ...input, context: { ...context, sessionId: 'reconnected' } });
+    assert.deepEqual(replay.result, settled.result);
+    assert.deepEqual(broker.resolveFileReadContent(query).bytes, bytes);
+    assert.equal(environment.database.prepare('SELECT count(*) AS n FROM m2_approval_grants').get().n, 1);
+    assert.equal(environment.database.prepare('SELECT count(*) AS n FROM m2_effect_execution_claims').get().n, 1);
+  });
+});
+
+await testAsync('read@1 request replay retains its original version and identity without a second operation', async () => {
+  await withEnvironment(async environment => {
+    const repository = new M2ToolAuthorityRepository(environment.database);
+    const legacy = createM2ToolBroker({ repository, descriptorResolver: getM2ToolDescriptor });
+    const context = { sessionId: 'ws-1', conversationId: 'conversation-1', userMessageId: 10,
+      authenticatedSubject: { actorType: 'user', actorId: 'local-operator' },
+      project: { id: 17, path: environment.projectRoot } };
+    const input = { toolId: 'file.read', input: { path: 'notes/result.md' }, context };
+    const original = legacy.createRequest(input);
+    const current = createM2ToolBroker({ repository });
+    assert.equal(original.toolVersion, 1);
+    assert.equal(original.effectBinding.payloadBytes, 0);
+    assert.deepEqual(current.createRequest(input), original);
+    assert.throws(() => current.createRequest({ ...input, context: { ...context, project: { id: 18 } } }));
+    assert.throws(() => current.createRequest({ ...input, timeoutMs: 40_000 }));
+    assert.equal(current.createRequest({ ...input, context: { ...context, userMessageId: 11 } }).toolVersion, 2);
+    assert.equal(environment.database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n, 2);
+    assert.equal(getM2ToolDescriptor('file.list').authorityMode, 'unavailable');
+    assert.equal(getCurrentM2ToolDescriptor('file.list').authorityMode, 'unavailable');
+    assert.equal(getM2ToolDescriptor('file.read', 3), null);
+  });
+});
+
+await testAsync('dead read execution is recovered without rollback or output and cannot be re-executed', async () => {
+  await withEnvironment(async environment => {
+    const runtime = environment.runtime();
+    const prepared = await runtime.requestFilesystemRead(requestInput(environment.projectRoot));
+    const repository = new EffectAuthorityRepository(environment.database);
+    const issuer = createApprovalGrantIssuer(repository);
+    const grant = issuer.issue({ effectId: prepared.effectId, authenticatedSubject: { actorType: 'user', actorId: 'local-operator' } }).grant;
+    repository.consumeApprovalGrant({ grantId: grant.grantId, request: { ...prepared.request, approvalGrantId: grant.grantId }, executionOwner: processExecutionOwner });
+    const recovered = environment.runtime({ executionLiveness: { isProvablyDead() { return true; } } });
+    const result = await recovered.approveFilesystemRead({ effectId: prepared.effectId, conversationId: 'conversation-1', subjectId: 'local-operator' });
+    assert.equal(result.terminalStatus, 'orphaned');
+    assert.equal(result.outputDigest, null);
+    assert.equal(result.rollback.required, false);
+    assert.equal(result.lateCompletionRejected, false);
+    assert.deepEqual(result.changes.paths, []);
+    assert.equal(environment.database.prepare('SELECT count(*) AS n FROM m2_file_read_outputs').get().n, 0);
+    assert.equal(recovered.getPending(prepared.effectId), null);
+  });
+});
+
+
+async function withCompletedRead(callback) {
+  await withEnvironment(async environment => {
+    const bytes = Buffer.from('private-delete-canary');
+    writeFileSync(path.join(environment.projectRoot, 'notes/result.md'), bytes);
+    const runtime = environment.runtime();
+    const repository = new M2ToolAuthorityRepository(environment.database);
+    const broker = createM2ToolBroker({ repository, effectAdapter: createM2ToolEffectAdapter({ effectRuntime: runtime }) });
+    const context = { sessionId: 'ws-1', conversationId: 'conversation-1', userMessageId: 10,
+      authenticatedSubject: { actorType: 'user', actorId: 'local-operator' },
+      project: { id: 17, path: environment.projectRoot } };
+    const pending = await broker.execute({ toolId: 'file.read', input: { path: 'notes/result.md' }, context });
+    const effect = await runtime.approveFilesystemEffect({ effectId: pending.effectRequestId, conversationId: context.conversationId, subjectId: 'local-operator' });
+    const settled = broker.settleEffect({ effectId: effect.effectId, context });
+    assert.equal(settled.result.status, 'ok');
+    const query = { requestId: settled.request.requestId, contentRef: settled.result.output.contentRef, context };
+    await callback({ ...environment, database: environment.database, bytes, repository, broker, query, effect, settled });
+  });
+}
+
+await testAsync('soft delete and reassignment deny current content without destroying restorable history', async () => {
+  await withCompletedRead(({ database, broker, query, bytes }) => {
+    const resolve = () => broker.resolveFileReadContent(query);
+    const deny = () => assert.throws(resolve, { code: 'EFFECT_FILE_READ_CONTENT_UNAVAILABLE' });
+    database.exec("UPDATE conversations SET state='deleted' WHERE id='conversation-1'");
+    deny();
+    assert.deepEqual(database.prepare('SELECT payload FROM m2_file_read_outputs').get().payload, bytes);
+    database.exec("UPDATE conversations SET state='active' WHERE id='conversation-1'");
+    assert.deepEqual(resolve().bytes, bytes);
+    database.exec("UPDATE projects SET status='deleted' WHERE id=17");
+    deny();
+    database.exec("UPDATE projects SET status='active' WHERE id=17");
+    assert.deepEqual(resolve().bytes, bytes);
+    database.exec("INSERT INTO projects(id,path,status) VALUES(18,'/other','active'); UPDATE conversations SET project_id=18 WHERE id='conversation-1'");
+    deny();
+    assert.equal(database.prepare('SELECT count(*) AS n FROM m2_file_read_output_tombstones').get().n, 0);
+    database.exec("UPDATE conversations SET project_id=17 WHERE id='conversation-1'; UPDATE projects SET path='/moved' WHERE id=17");
+    deny();
+    database.prepare('UPDATE projects SET path=? WHERE id=17').run(query.context.project.path);
+    assert.deepEqual(resolve().bytes, bytes);
+  });
+});
+
+await testAsync('hard conversation deletion atomically purges bytes while historical success remains valid', async () => {
+  await withCompletedRead(({ database, broker, query, bytes, repository, settled, effect }) => {
+    database.prepare('INSERT INTO messages(id,conversation_id,content) VALUES(1,?,?)').run('conversation-1', bytes.toString('utf8'));
+    database.exec("UPDATE conversations SET state='deleted' WHERE id='conversation-1'");
+    const remove = () => {
+      database.prepare('DELETE FROM messages WHERE conversation_id=?').run('conversation-1');
+      database.prepare('DELETE FROM conversations WHERE id=?').run('conversation-1');
+    };
+    assert.throws(database.transaction(() => { remove(); throw new Error('rollback-delete'); }), /rollback-delete/);
+    assert.deepEqual(database.prepare('SELECT payload FROM m2_file_read_outputs').get().payload, bytes);
+    assert.equal(database.prepare('SELECT count(*) AS n FROM messages').get().n, 1);
+    database.transaction(remove)();
+    assert.equal(database.prepare('SELECT payload FROM m2_file_read_outputs').get().payload, null);
+    assert.equal(database.prepare('SELECT count(*) AS n FROM messages').get().n, 0);
+    assert.equal(database.prepare('SELECT reason FROM m2_file_read_output_tombstones').get().reason, 'CONVERSATION_REMOVED');
+    assert.deepEqual(repository.getToolResult(settled.request.requestId), settled.result);
+    assert.deepEqual(new EffectAuthorityRepository(database).getEffectResult(effect.effectId), effect);
+    assert.throws(() => broker.resolveFileReadContent(query), { code: 'EFFECT_FILE_READ_CONTENT_UNAVAILABLE' });
+    database.exec("INSERT INTO conversations(id,project_id,state) VALUES('conversation-1',17,'active')");
+    assert.throws(() => broker.resolveFileReadContent(query), { code: 'EFFECT_FILE_READ_CONTENT_UNAVAILABLE' });
+    assert.throws(() => database.exec('DELETE FROM m2_file_read_output_tombstones'), /IMMUTABLE/);
+  });
+});
+
+await testAsync('hard project deletion purges bytes and typed deletion cannot precede actual owner removal', async () => {
+  await withCompletedRead(({ database, broker, query, effect, repository, settled }) => {
+    assert.throws(() => database.prepare('INSERT INTO m2_file_read_output_tombstones VALUES(?,?,?)').run(effect.effectId, 'PROJECT_REMOVED', 1), /SCOPE_NOT_REMOVED/);
+    assert.throws(() => database.exec('UPDATE m2_file_read_outputs SET payload=NULL'), /IMMUTABLE/);
+    database.exec("UPDATE projects SET status='deleted' WHERE id=17; DELETE FROM projects WHERE id=17");
+    assert.equal(database.prepare('SELECT payload FROM m2_file_read_outputs').get().payload, null);
+    assert.equal(database.prepare('SELECT reason FROM m2_file_read_output_tombstones').get().reason, 'PROJECT_REMOVED');
+    assert.equal(database.prepare("SELECT project_id FROM conversations WHERE id='conversation-1'").get().project_id, null);
+    assert.deepEqual(repository.getToolResult(settled.request.requestId), settled.result);
+    assert.throws(() => broker.resolveFileReadContent(query), { code: 'EFFECT_FILE_READ_CONTENT_UNAVAILABLE' });
+  });
+});
+
+await testAsync('existing retention hard-delete path purges read bytes after the existing grace period', async () => {
+  await withCompletedRead(({ database, broker, query, repository, settled }) => {
+    database.exec("UPDATE conversations SET state='deleted', deleted_at=datetime('now','-30 days') WHERE id='conversation-1'; INSERT INTO messages(id,conversation_id,content) VALUES(1,'conversation-1','private-delete-canary')");
+    const stats = pruneAllData(database, { config: DEFAULT_STORAGE_CONFIG });
+    assert.ok(stats.deletedConvIds.includes('conversation-1'));
+    assert.equal(database.prepare('SELECT payload FROM m2_file_read_outputs').get().payload, null);
+    assert.equal(database.prepare('SELECT count(*) AS n FROM messages').get().n, 0);
+    assert.deepEqual(repository.getToolResult(settled.request.requestId), settled.result);
+    assert.throws(() => broker.resolveFileReadContent(query), { code: 'EFFECT_FILE_READ_CONTENT_UNAVAILABLE' });
+  });
 });
 
 summary();

@@ -609,6 +609,15 @@ export class ToolExecutor {
     return this.m2ToolBroker.settleEffect({ effectId, context });
   }
 
+  resolveM2FileReadContent(input = {}) {
+    if (!this.m2ToolBroker || typeof this.m2ToolBroker.resolveFileReadContent !== 'function') {
+      throw Object.assign(new Error('Durable M2 file content authority is unavailable'), {
+        code: 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE',
+      });
+    }
+    return this.m2ToolBroker.resolveFileReadContent(input);
+  }
+
   /**
    * Execute a CRE decision
    *

@@ -1,3 +1,4 @@
+import { registerM2FileReadOutputFunctions, readM2FileReadOutput } from '../effects/effect-file-read-output-repository.js';
 import {
   canonicalizeM2ToolValue,
   computeM2ToolRequestDigest,
@@ -87,7 +88,7 @@ function parseStored(row, column, validator, label) {
 }
 
 function registryDescriptorFor(request) {
-  const descriptor = getM2ToolDescriptor(request.toolId);
+  const descriptor = getM2ToolDescriptor(request.toolId, request.toolVersion);
   const expectedBinding = typeof descriptor?.buildEffectBinding === 'function'
     ? descriptor.buildEffectBinding(request.input)
     : null;
@@ -164,7 +165,7 @@ function requireExecutionOwner(value) {
   return value;
 }
 
-function projectionFunction(toolRequestJson, effectRequestJson, effectResultJson, toolResultJson) {
+function projectionFunction(toolRequestJson, effectRequestJson, effectResultJson, toolResultJson, evidenceJson = null) {
   try {
     const request = JSON.parse(toolRequestJson);
     const effectRequest = JSON.parse(effectRequestJson);
@@ -180,11 +181,24 @@ function projectionFunction(toolRequestJson, effectRequestJson, effectResultJson
     if (!effectMatchesToolRequest(request, descriptor, effectRequest)) return 0;
     return effectProjectionMatches(
       result,
-      projectM2EffectToolTerminal(request, descriptor, effectRequest, effectResult),
+      projectM2EffectToolTerminal(request, descriptor, effectRequest, effectResult,
+        evidenceJson === null ? null : JSON.parse(evidenceJson)),
     ) ? 1 : 0;
   } catch {
     return 0;
   }
+}
+
+export function registerM2FileReadToolProjectionFunction(database) {
+  registerM2FileReadOutputFunctions(database);
+  database.function('m2_tool_effect_projection_matches_v2', { deterministic: true },
+    (requestJson, effectRequestJson, effectResultJson, resultJson, evidenceJson) => {
+      try {
+        const request = JSON.parse(requestJson);
+        if (request.toolId !== 'file.read' || request.toolVersion !== 2) return 0;
+        return projectionFunction(requestJson, effectRequestJson, effectResultJson, resultJson, evidenceJson);
+      } catch { return 0; }
+    });
 }
 
 export class M2ToolAuthorityRepository {
@@ -200,7 +214,9 @@ export class M2ToolAuthorityRepository {
     this.executionLiveness = executionLiveness;
     this.database.function('m2_tool_effect_projection_matches_v1', {
       deterministic: true,
-    }, projectionFunction);
+    }, (requestJson, effectRequestJson, effectResultJson, resultJson) =>
+      projectionFunction(requestJson, effectRequestJson, effectResultJson, resultJson));
+    registerM2FileReadToolProjectionFunction(this.database);
     this.database.function('m2_tool_effect_operation_key_matches_v1', {
       deterministic: true,
     }, (toolRequestJson, effectRequestJson) => {
@@ -221,6 +237,50 @@ export class M2ToolAuthorityRepository {
         return 0;
       }
     });
+  }
+
+  getFileReadOutputEvidence(effectRequest, effectResult) {
+    return readM2FileReadOutput(this.database, effectRequest, effectResult)?.evidence ?? null;
+  }
+
+  resolveFileReadContent({ requestId, contentRef, actor, projectId, conversationId }) {
+    const request = this.getToolRequest(requestId);
+    if (!request || request.toolId !== 'file.read' || request.toolVersion !== 2
+      || actor?.type !== 'user' || request.actor.type !== actor.type || request.actor.id !== actor.id
+      || !Number.isSafeInteger(projectId) || projectId <= 0 || request.origin.projectId !== projectId
+      || request.origin.conversationId !== conversationId) {
+      fail(M2ToolAuthorityErrorCode.INPUT_INVALID, 'Exact file output caller is required');
+    }
+    // Check current membership using indexes before loading any private BLOB.
+    const visible = this.database.prepare(`
+      SELECT output.effect_id FROM m2_file_read_outputs output
+      JOIN m2_tool_effect_links link ON link.effect_id = output.effect_id
+      JOIN conversations conversation ON conversation.id = output.conversation_id
+      JOIN projects project ON project.id = conversation.project_id
+      WHERE link.request_id = ? AND output.project_id = ? AND project.id = output.project_id
+        AND project.path = output.project_path AND output.payload IS NOT NULL
+        AND conversation.state IN ('active', 'archived') AND project.status IN ('active', 'archived')
+        AND NOT EXISTS (SELECT 1 FROM m2_file_read_output_tombstones WHERE effect_id = output.effect_id)
+    `).get(requestId, projectId);
+    if (!visible) fail('EFFECT_FILE_READ_CONTENT_UNAVAILABLE', 'Immutable file content is unavailable for the current project conversation');
+    const result = this.getToolResult(requestId);
+    const link = this.getEffectLinkByRequest(requestId);
+    if (!result || result.status !== 'ok' || !link || result.effectRequestId !== link.effectId
+      || result.output?.contentRef !== contentRef) {
+      fail(M2ToolAuthorityErrorCode.INPUT_INVALID, 'Exact successful file output reference is required');
+    }
+    const effectResult = this.getExactEffectResult(link.effectId);
+    const output = readM2FileReadOutput(this.database, link.effectRequest, effectResult);
+    const current = this.database.prepare(`
+      SELECT conversation.id FROM conversations conversation JOIN projects project ON project.id = conversation.project_id
+      WHERE conversation.id = ? AND project.id = ? AND project.path = ?
+        AND conversation.state IN ('active', 'archived') AND project.status IN ('active', 'archived')
+    `).get(output?.conversationId, projectId, output?.projectPath);
+    if (!current || !output?.bytes || output.evidence.contentRef !== contentRef) {
+      fail('EFFECT_FILE_READ_CONTENT_UNAVAILABLE', 'Immutable file content is unavailable for the current project conversation');
+    }
+    return Object.freeze({ bytes: output.bytes, output: result.output, request, result,
+      effectId: link.effectId, path: request.input.path });
   }
 
   registerToolRequest(requestValue) {
@@ -1026,6 +1086,7 @@ export class M2ToolAuthorityRepository {
         descriptor,
         effectRequest,
         effectResult,
+        this.getFileReadOutputEvidence(effectRequest, effectResult),
       );
       if (!effectProjectionMatches(result, projection)) {
         fail(
@@ -1140,6 +1201,7 @@ export class M2ToolAuthorityRepository {
           descriptor,
           link.effectRequest,
           effectResult,
+          this.getFileReadOutputEvidence(link.effectRequest, effectResult),
         );
         if (!effectProjectionMatches(result, projection)) {
           throw new Error('stored ToolResult effect projection mismatch');

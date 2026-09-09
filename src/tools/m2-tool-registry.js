@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { createM2FileReadPolicyPayload, m2FileReadBytesDigest, validateM2FileReadOutputEvidence } from '../../contracts/m2/file-read-output-v1.js';
 
 import { isPlainRecord } from '../../contracts/m1/shared.js';
 import { isM2ProjectRelativePath } from '../../contracts/m2/effect-v1.js';
@@ -236,8 +237,8 @@ function sortedUnique(values) {
  * repository use this function so direct SQL cannot invent a different
  * failure, evidence trail, timing, or late-completion disposition.
  */
-export function projectM2EffectToolTerminal(request, descriptorValue, effectRequest, effectResult) {
-  const descriptor = descriptorValue || getM2ToolDescriptor(request?.toolId);
+export function projectM2EffectToolTerminal(request, descriptorValue, effectRequest, effectResult, outputEvidence = null) {
+  const descriptor = descriptorValue || getM2ToolDescriptor(request?.toolId, request?.toolVersion);
   if (!request || !descriptor || !effectRequest || !effectResult) return null;
   const evidenceRefs = sortedUnique([
     `effect:${effectRequest.effectId}`,
@@ -252,7 +253,7 @@ export function projectM2EffectToolTerminal(request, descriptorValue, effectRequ
 
   if (effectResult.terminalStatus === 'succeeded') {
     const output = typeof descriptor.projectEffectOutput === 'function'
-      ? descriptor.projectEffectOutput(request, effectRequest, effectResult)
+      ? descriptor.projectEffectOutput(request, effectRequest, effectResult, outputEvidence)
       : null;
     const outputErrors = descriptor.validateOutput(output);
     if (output !== null && outputErrors.length === 0) {
@@ -479,8 +480,44 @@ const DESCRIPTORS = Object.freeze([
 
 const DESCRIPTOR_MAP = new Map(DESCRIPTORS.map(value => [value.id, value]));
 
-export function getM2ToolDescriptor(toolId) {
-  return DESCRIPTOR_MAP.get(toolId) || null;
+const FILE_READ_V2 = Object.freeze({
+  ...DESCRIPTOR_MAP.get('file.read'),
+  version: 2,
+  outputSchema: 'intentsmith.tool.file-read.output@2',
+  validateOutput(value) {
+    const errors = [...validateExactInput(value,
+      ['path', 'contentRef', 'contentDigest', 'byteLength', 'format'], 'tool-output.file-read-v2')];
+    if (!isM2ProjectRelativePath(value?.path) || value?.format !== 'bytes'
+      || !/^effect:effect:[a-f0-9]{64}:file-read-output-v1$/.test(value?.contentRef ?? '')
+      || !/^sha256:[a-f0-9]{64}$/.test(value?.contentDigest ?? '')
+      || !Number.isSafeInteger(value?.byteLength) || value.byteLength < 0 || value.byteLength > 1048576) {
+      errors.push('tool-output.file-read-v2:invalid-reference');
+    }
+    return Object.freeze(errors);
+  },
+  buildEffectBinding(input) {
+    const payload = createM2FileReadPolicyPayload();
+    return effectBinding({ kind: 'fs.read', target: { type: 'filesystem', relativePath: input.path },
+      payloadDigest: m2FileReadBytesDigest(payload), payloadBytes: payload.length,
+      requiredCapability: 'project.fs.read', riskClass: 'read' });
+  },
+  projectEffectOutput(request, effectRequest, effectResult, evidence) {
+    if (!validateM2FileReadOutputEvidence(effectRequest, effectResult, evidence)
+      || evidence.path !== request.input.path) return null;
+    return Object.freeze({ path: evidence.path, contentRef: evidence.contentRef,
+      contentDigest: evidence.contentDigest, byteLength: evidence.byteLength, format: 'bytes' });
+  },
+});
+
+// Unversioned legacy imports include immutable migration076. Their @1 meaning
+// must never change when a new producer version becomes available.
+export function getM2ToolDescriptor(toolId, toolVersion = 1) {
+  if (toolId === 'file.read' && toolVersion === 2) return FILE_READ_V2;
+  return toolVersion === 1 ? DESCRIPTOR_MAP.get(toolId) || null : null;
+}
+
+export function getCurrentM2ToolDescriptor(toolId, storedVersion = null) {
+  return getM2ToolDescriptor(toolId, storedVersion ?? (toolId === 'file.read' ? 2 : 1));
 }
 
 export function listM2ToolDescriptors() {

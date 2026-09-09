@@ -2,12 +2,16 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
+import { isM2ProjectRelativePath, validateEffectRequest } from '../contracts/m2/effect-v1.js';
+import { computeM2ToolValueDigest, validateM2ToolRequest } from '../contracts/m2/tool-v1.js';
+import { createM2FileReadPolicyPayload } from '../contracts/m2/file-read-output-v1.js';
 import { suite, testAsync, summary } from './harness.js';
 
-const { handleFileWriteDecision } = await import('../src/chat/handlers/file.js');
-const { parseExactEffectApproval } = await import('../src/chat/handlers/pre-handler.js');
+const { handleFileWriteDecision, handleFileDecision, renderM2FileReadResult } = await import('../src/chat/handlers/file.js');
+const { parseExactEffectApproval, handleExactEffectApproval } = await import('../src/chat/handlers/pre-handler.js');
 const { handleToolCallDecision } = await import('../src/chat/handlers/decisions.js');
-const { toolExecutor, ExecutionStatus, ToolResult } = await import('../src/executor/tool-executor.js');
+const { toolExecutor, ToolExecutor, ExecutionStatus, ToolResult } = await import('../src/executor/tool-executor.js');
 
 function decision(filePath = 'notes/result.md') {
   const serialized = { type: 'FILE_WRITE', metadata: { handler: 'file.write', filePath } };
@@ -262,6 +266,329 @@ await testAsync('security hook is telemetry-only and authority denial comes from
   } finally {
     toolExecutor.execute = originalExecute;
   }
+});
+
+
+function readDecision(filePath = 'notes/read.md', explain = false) {
+  const value = { intent: explain ? 'FILE_EXPLAIN' : 'FILE_READ', metadata: {
+    handler: explain ? 'file.explain' : 'file.read', filePath,
+  } };
+  return { ...value, toJSON: () => value };
+}
+
+// Consumer-only DI fixture: durable identity/content validation belongs to the
+// broker suite; this fixture proves that chat uses that resolver, never value/FS.
+function storedReadFixture(bytes = Buffer.from('verified e\u0301\r\n', 'utf8')) {
+  const requestId = `tool:${'1'.repeat(64)}`;
+  const effectId = `effect:${'2'.repeat(64)}`;
+  const contentDigest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+  const output = { path: 'notes/read.md', contentRef: `read:${'3'.repeat(64)}`,
+    contentDigest, byteLength: bytes.length, format: 'bytes' };
+  const request = { requestId, toolId: 'file.read', toolVersion: 2,
+    actor: { type: 'user', id: 'user-1' }, origin: { projectId: 17, conversationId: 'conversation-1' },
+    input: { path: output.path } };
+  const result = { requestId, requestDigest: `sha256:${'4'.repeat(64)}`,
+    toolId: 'file.read', toolVersion: 2, status: 'ok', effectRequestId: effectId, output };
+  const execution = { request, result, value: { content: 'FORGED_ADAPTER_CONTENT' } };
+  const resolved = { bytes: Buffer.from(bytes), output, request, result, effectId, path: output.path };
+  return { execution, resolved, effectId, requestId, output };
+}
+
+await testAsync('read terminal displays only resolver bytes and exact caller context on replay without a file', async () => {
+  await withProject(async ({ projectRoot }) => {
+    const fixture = storedReadFixture(Buffer.from('\ufeffřádek e\u0301\r\n```\npayload\n', 'utf8'));
+    const handlerContext = context(projectRoot, { hasActiveProject: true });
+    const requests = [], resolutions = [];
+    const executor = {
+      async executeM2Tool(input) { requests.push(input); return fixture.execution; },
+      resolveM2FileReadContent(input) { resolutions.push(input); return fixture.resolved; },
+    };
+    for (let i = 0; i < 2; i++) {
+      const response = await handleFileDecision('read notes/read.md', readDecision(), handlerContext, { toolExecutor: executor });
+      assert.equal(response.tag.metadata.fileOperation, true);
+      assert.equal(response.tag.metadata.securityBlocked, false);
+      assert.equal(response.tag.metadata.approvalRequired, false);
+      assert.equal(response.tag.metadata.contentDigest, fixture.output.contentDigest);
+      assert.equal(response.tag.metadata.fileSize, fixture.resolved.bytes.length);
+      assert.equal(response.tag.canExecute, false);
+      assert.ok(response.content.includes(fixture.resolved.bytes.toString('utf8')));
+      assert.match(response.content, /````markdown\n/);
+      assert.doesNotMatch(response.content, /FORGED_ADAPTER_CONTENT/);
+      assert.equal(existsSync(path.join(projectRoot, fixture.output.path)), false);
+    }
+    assert.equal(requests.length, 2);
+    assert.ok(requests.every(x => x.context === handlerContext && x.toolId === 'file.read'));
+    assert.deepEqual(resolutions, [0, 1].map(() => ({ requestId: fixture.requestId,
+      contentRef: fixture.output.contentRef, context: handlerContext })));
+  });
+});
+
+await testAsync('read content reference, identity, bytes and UTF8 failures never leak adapter content', async () => {
+  await withProject(async ({ projectRoot }) => {
+    const fixture = storedReadFixture();
+    const handlerContext = context(projectRoot);
+    const cases = [
+      { name: 'missing resolver', executor: {}, error: 'TOOL_READ_CONTENT_AUTHORITY_REQUIRED' },
+      { name: 'foreign context denied by broker', executor: { resolveM2FileReadContent() {
+        throw Object.assign(new Error('foreign actor/project/conversation'), { code: 'TOOL_SETTLEMENT_CALLER_INVALID' });
+      } }, error: 'TOOL_SETTLEMENT_CALLER_INVALID' },
+      { name: 'changed bytes', executor: { resolveM2FileReadContent() {
+        return { ...fixture.resolved, bytes: Buffer.from('changed') };
+      } }, error: 'TOOL_READ_CONTENT_MISMATCH' },
+      { name: 'changed request', executor: { resolveM2FileReadContent() {
+        return { ...fixture.resolved, request: { ...fixture.resolved.request, actor: { type: 'user', id: 'other' } } };
+      } }, error: 'TOOL_READ_CONTENT_MISMATCH' },
+      { name: 'changed reference', executor: { resolveM2FileReadContent() {
+        return { ...fixture.resolved, output: { ...fixture.output, contentRef: 'other' } };
+      } }, error: 'TOOL_READ_CONTENT_MISMATCH' },
+      { name: 'changed effect', executor: { resolveM2FileReadContent() {
+        return { ...fixture.resolved, effectId: `effect:${'9'.repeat(64)}` };
+      } }, error: 'TOOL_READ_CONTENT_MISMATCH' },
+    ];
+    for (const item of cases) {
+      const response = renderM2FileReadResult(fixture.execution, handlerContext, { toolExecutor: item.executor });
+      assert.equal(response.tag.metadata.fileOperation, false, item.name);
+      assert.equal(response.tag.metadata.error, item.error, item.name);
+      assert.equal(response.tag.metadata.fallbackSuppressed, true, item.name);
+      assert.doesNotMatch(response.content, /FORGED_ADAPTER_CONTENT/, item.name);
+      assert.equal(response.content.includes(fixture.resolved.bytes.toString('utf8')), false, item.name);
+    }
+    for (const bytes of [Buffer.from([0xff, 0x80]), Buffer.from('binary\0data')]) {
+      const invalid = storedReadFixture(bytes);
+      const response = renderM2FileReadResult(invalid.execution, handlerContext, {
+        toolExecutor: { resolveM2FileReadContent: () => invalid.resolved },
+      });
+      assert.equal(response.tag.metadata.error, 'TOOL_READ_CONTENT_NOT_TEXT');
+      assert.equal(response.tag.metadata.fileOperation, false);
+      assert.doesNotMatch(response.content, /�/);
+    }
+  });
+});
+
+await testAsync('read approval-required, denied and list-unavailable terminals never invoke content resolver', async () => {
+  await withProject(async ({ projectRoot }) => {
+    const fixture = storedReadFixture(); let resolutions = 0;
+    for (const item of [
+      { decision: readDecision(), response: { request: fixture.execution.request, result: null,
+        state: 'approval_required', effectRequestId: fixture.effectId } },
+      { decision: readDecision(), response: { request: fixture.execution.request,
+        result: { status: 'denied', error: { code: 'TOOL_EFFECT_AUTHORITY_REQUIRED' } } } },
+      { decision: readDecision('.'), response: { request: { toolId: 'file.list' },
+        result: { status: 'unavailable', error: { code: 'TOOL_UNAVAILABLE' } } } },
+    ]) {
+      const response = await handleFileDecision('read', item.decision, context(projectRoot, { hasActiveProject: true }), {
+        toolExecutor: { executeM2Tool: async () => item.response,
+          resolveM2FileReadContent() { resolutions++; throw new Error('unexpected resolver'); } },
+      });
+      assert.equal(response.tag.metadata.fileOperation, false);
+      assert.equal(response.tag.metadata.fallbackSuppressed, true);
+    }
+    assert.equal(resolutions, 0);
+  });
+});
+
+await testAsync('durable FILE_EXPLAIN read success stays truthful about the unimplemented explanation', async () => {
+  await withProject(async ({ projectRoot }) => {
+    const fixture = storedReadFixture();
+    const response = await handleFileDecision('explain notes/read.md', readDecision('notes/read.md', true), context(projectRoot), {
+      toolExecutor: { executeM2Tool: async () => fixture.execution, resolveM2FileReadContent: () => fixture.resolved },
+    });
+    assert.equal(response.tag.metadata.handler, 'file.read');
+    assert.equal(response.tag.metadata.requestedHandler, 'file.explain');
+    assert.equal(response.tag.metadata.explanationPending, true);
+    assert.equal(response.tag.metadata.fallbackSuppressed, true);
+    assert.match(response.content, /explanation has not been produced/);
+  });
+});
+
+await testAsync('exact read approval settles and renders the same stored content, preserving write approval', async () => {
+  await withProject(async ({ projectRoot }) => {
+    const fixture = storedReadFixture(); const handlerContext = context(projectRoot);
+    const calls = [];
+    const dependencies = {
+      effectFileRuntime: { async approveFilesystemEffect(input) {
+        calls.push(['approve', input]); return { effectId: fixture.effectId, terminalStatus: 'succeeded', changes: { paths: [] } };
+      } },
+      toolExecutor: { async settleM2Effect(input) { calls.push(['settle', input]); return fixture.execution; },
+        resolveM2FileReadContent(input) { calls.push(['resolve', input]); return fixture.resolved; } },
+    };
+    const outcome = await handleExactEffectApproval(`approve effect ${fixture.effectId}`, handlerContext, 'PROJECT', dependencies);
+    assert.equal(outcome.handled, true);
+    assert.equal(outcome.response.tag.metadata.fileOperation, true);
+    assert.equal(outcome.response.tag.metadata.handler, 'file.read');
+    assert.ok(outcome.response.content.includes(fixture.resolved.bytes.toString('utf8')));
+    assert.deepEqual(calls.map(x => x[0]), ['approve', 'settle', 'resolve']);
+    assert.deepEqual(calls[0][1], { effectId: fixture.effectId, conversationId: handlerContext.conversationId,
+      subjectId: handlerContext.authenticatedSubject.actorId, signal: handlerContext.signal });
+    assert.equal(calls[1][1].context, handlerContext);
+    assert.equal(calls[2][1].context, handlerContext);
+    const write = await handleExactEffectApproval(`approve effect ${fixture.effectId}`, handlerContext, 'PROJECT', {
+      effectFileRuntime: { approveFilesystemEffect: async () => ({ effectId: fixture.effectId, terminalStatus: 'succeeded', changes: { paths: ['written.md'] } }) },
+      toolExecutor: { settleM2Effect: async () => ({ request: { toolId: 'file.write' }, result: { status: 'ok' } }),
+        resolveM2FileReadContent() { throw new Error('write must never use read resolver'); } },
+    });
+    assert.equal(write.response.tag.metadata.handler, 'effect.approval');
+    assert.match(write.response.content, /written\.md/);
+  });
+});
+
+await testAsync('approval never renders uncommitted or foreign read output and generic affirmations stay inert', async () => {
+  await withProject(async ({ projectRoot }) => {
+    const fixture = storedReadFixture(); const handlerContext = context(projectRoot);
+    let approvals = 0, resolves = 0;
+    const dependencies = {
+      effectFileRuntime: { async approveFilesystemEffect() { approvals++; return { effectId: fixture.effectId, terminalStatus: 'succeeded' }; } },
+      toolExecutor: { async settleM2Effect() { throw Object.assign(new Error('uncommitted'), { code: 'TOOL_RESULT_UNCOMMITTED' }); },
+        resolveM2FileReadContent() { resolves++; return fixture.resolved; } },
+    };
+    for (const input of ['ano', 'schvaluji']) {
+      assert.deepEqual(await handleExactEffectApproval(input, handlerContext, 'PROJECT', dependencies), { handled: false });
+    }
+    const missing = await handleExactEffectApproval(`approve effect ${fixture.effectId}`, { ...handlerContext, authenticatedSubject: null }, 'PROJECT', dependencies);
+    assert.equal(missing.response.tag.metadata.error, 'effect_identity_required');
+    assert.equal(approvals, 0);
+    const failed = await handleExactEffectApproval(`approve effect ${fixture.effectId}`, handlerContext, 'PROJECT', dependencies);
+    assert.equal(failed.response.tag.metadata.toolSettlement, 'uncommitted');
+    assert.equal(resolves, 0);
+    const otherEffect = `effect:${'9'.repeat(64)}`;
+    dependencies.toolExecutor.settleM2Effect = async () => fixture.execution;
+    const mismatch = await handleExactEffectApproval(`approve effect ${otherEffect}`, handlerContext, 'PROJECT', dependencies);
+    assert.equal(mismatch.response.tag.metadata.error, 'TOOL_READ_CONTENT_AUTHORITY_REQUIRED');
+    assert.equal(resolves, 0);
+  });
+});
+
+await testAsync('ToolExecutor forwards read resolution only to installed durable broker', async () => {
+  const input = { requestId: 'exact-request', contentRef: 'exact-ref', context: { sessionId: 'exact-session' } };
+  const expected = { bytes: Buffer.from('snapshot') }; let captured;
+  const executor = new ToolExecutor({ m2ToolBroker: { resolveFileReadContent(value) { captured = value; return expected; } } });
+  assert.equal(executor.resolveM2FileReadContent(input), expected);
+  assert.equal(captured, input);
+  const unavailable = new ToolExecutor({ m2ToolBroker: null });
+  assert.throws(() => unavailable.resolveM2FileReadContent(input), error => error.code === 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE');
+});
+
+for (const [name, expectedHeader, knownLanguage] of [
+  ['ordinary.custom-extension', '📄 ` ordinary.custom-extension ` (4 lines, <1 KB)', 'text'],
+  ['evil.\n```\n<img src=x onerror=alert(1)>', '📄 ```` evil.\\u{a}```\\u{a}<img src=x onerror=alert(1)> ```` (4 lines, <1 KB)', 'text'],
+  ['[click](https:evil.invalid)**_![image].md', '📄 ` [click](https:evil.invalid)**_![image].md ` (4 lines, <1 KB)', 'markdown'],
+  ['literal`name``.json', '📄 ``` literal`name``.json ``` (4 lines, <1 KB)', 'json'],
+  ['bidi\u202e-name.\tunknown', '📄 ` bidi\\u{202e}-name.\\u{9}unknown ` (4 lines, <1 KB)', 'text'],
+  ['prototype.__proto__', '📄 ` prototype.__proto__ ` (4 lines, <1 KB)', 'text'],
+]) {
+  await testAsync(`durable display keeps valid filename literal: ${JSON.stringify(name)}`, async () => {
+    await withProject(async ({ projectRoot }) => {
+      const bytes = Buffer.from('exact-content\r\n```\nunchanged\n', 'utf8');
+      const filePath = `notes/${name}`;
+      assert.equal(isM2ProjectRelativePath(filePath), true, name);
+      const fixture = storedReadFixture(bytes);
+      const output = { ...fixture.output, path: filePath };
+      const request = { ...fixture.execution.request, input: { path: filePath } };
+      const result = { ...fixture.execution.result, output };
+      const execution = { ...fixture.execution, request, result };
+      const resolved = { ...fixture.resolved, output, request, result, path: filePath };
+      const response = renderM2FileReadResult(execution, context(projectRoot), {
+        toolExecutor: { resolveM2FileReadContent: () => resolved },
+      });
+      assert.equal(response.tag.metadata.fileOperation, true, name);
+      assert.equal(response.tag.metadata.filePath, filePath, name);
+      assert.equal(response.content.split('\n')[0], expectedHeader, name);
+      assert.equal(response.content, `${expectedHeader}\n\n\`\`\`\`${knownLanguage}\n${bytes.toString('utf8')}\n\`\`\`\``, name);
+      assert.equal(response.tag.metadata.contentDigest, fixture.output.contentDigest, name);
+    });
+  });
+}
+
+function canonicalReadPreviewFixture(handlerContext) {
+  const stable = (prefix, value) => `${prefix}:${createHash('sha256').update(value, 'utf8').digest('hex')}`;
+  const payload = createM2FileReadPolicyPayload();
+  const effectId = `effect:${'9'.repeat(64)}`;
+  const input = { path: 'notes/read.md' };
+  const effectBinding = { kind: 'fs.read', target: { type: 'filesystem', relativePath: input.path },
+    payloadDigest: stable('sha256', payload), payloadBytes: payload.length,
+    requiredCapability: 'project.fs.read', riskClass: 'read' };
+  const request = {
+    contract: 'ToolRequest', version: 1, requestId: `tool:${'8'.repeat(64)}`,
+    runId: stable('run', handlerContext.conversationId),
+    actor: { type: 'user', id: handlerContext.authenticatedSubject.actorId },
+    origin: { surface: 'studio', sessionId: stable('session', handlerContext.conversationId),
+      conversationId: stable('conversation', handlerContext.conversationId), projectId: 17 },
+    toolId: 'file.read', toolVersion: 2, riskClass: 'read', authorityMode: 'effect',
+    inputSchema: 'intentsmith.tool.file-read.input@1', outputSchema: 'intentsmith.tool.file-read.output@2',
+    input, inputDigest: computeM2ToolValueDigest(input), requiredEffectKind: 'fs.read', effectBinding,
+    timeoutMs: 30_000, idempotencyKey: `tool-operation:${'7'.repeat(64)}`,
+    createdAt: '2026-09-09T20:00:00.000Z',
+  };
+  const effectRequest = {
+    contract: 'EffectRequest', version: 1, effectId, runId: request.runId, parentEffectId: null,
+    actor: request.actor, origin: request.origin, kind: 'fs.read',
+    target: { type: 'filesystem', canonicalRoot: handlerContext.project.path,
+      relativePath: input.path, resolvedRealpath: path.join(handlerContext.project.path, input.path) },
+    payloadDigest: effectBinding.payloadDigest, payloadBytes: payload.length,
+    workspaceRevision: 'wsr1:preview-fixture', requiredCapability: 'project.fs.read', riskClass: 'read',
+    timeoutMs: 120_000, idempotencyKey: stable('operation', request.requestId), approvalGrantId: null,
+    createdAt: request.createdAt,
+  };
+  assert.equal(validateM2ToolRequest(request).valid, true);
+  assert.equal(validateEffectRequest(effectRequest).valid, true);
+  return { request, effectRequest, effectRequestId: effectId, state: 'approval_required', result: null,
+    value: { path: 'FORGED_PREVIEW_PATH', maxBytes: 99_999_999 } };
+}
+
+await testAsync('read approval preview describes only the exact canonical file, project and policy ceiling', async () => {
+  await withProject(async ({ projectRoot }) => {
+    const handlerContext = context(projectRoot, { hasActiveProject: true });
+    const pending = canonicalReadPreviewFixture(handlerContext);
+    const response = await handleFileDecision('read', readDecision(), handlerContext, {
+      toolExecutor: { executeM2Tool: async () => pending },
+    });
+    assert.equal(response.tag.metadata.approvalRequired, true);
+    assert.equal(response.tag.metadata.approvalPreviewVerified, true);
+    assert.equal(response.tag.metadata.filePath, 'notes/read.md');
+    assert.equal(response.tag.metadata.projectId, 17);
+    assert.equal(response.tag.metadata.projectRoot, projectRoot);
+    assert.equal(response.tag.metadata.readMaxBytes, 1_048_576);
+    assert.equal(response.content, `🔐 Reading file \` notes/read.md \` in project 17 (\` ${projectRoot} \`) awaits approval. At most 1048576 bytes (1 MiB), only this one file. No content was loaded.\n\nTo approve, enter \` approve effect ${pending.effectRequestId} \`.`);
+    assert.doesNotMatch(response.content, /FORGED_PREVIEW_PATH|99999999 bytes/);
+    assert.equal(existsSync(path.join(projectRoot, 'notes/read.md')), false);
+  });
+});
+
+await testAsync('read approval preview rejects missing or uncorrelated effect, actor, conversation, project, path and policy', async () => {
+  await withProject(async ({ projectRoot }) => {
+    const handlerContext = context(projectRoot, { hasActiveProject: true });
+    const valid = canonicalReadPreviewFixture(handlerContext);
+    const changed = [
+      { ...valid, effectRequest: undefined },
+      { ...valid, effectRequestId: `effect:${'0'.repeat(64)}` },
+      { ...valid, effectRequest: { ...valid.effectRequest, actor: { type: 'user', id: 'other' } } },
+      { ...valid, effectRequest: { ...valid.effectRequest, origin: { ...valid.effectRequest.origin, conversationId: `conversation:${'0'.repeat(64)}` } } },
+      { ...valid, effectRequest: { ...valid.effectRequest, origin: { ...valid.effectRequest.origin, projectId: 18 } } },
+      { ...valid, effectRequest: { ...valid.effectRequest, target: { ...valid.effectRequest.target, relativePath: 'notes/other.md', resolvedRealpath: path.join(projectRoot, 'notes/other.md') } } },
+      { ...valid, effectRequest: { ...valid.effectRequest, payloadDigest: `sha256:${'0'.repeat(64)}` } },
+      { ...valid, effectRequest: { ...valid.effectRequest, idempotencyKey: 'different-operation' } },
+    ];
+    for (const execution of changed) {
+      const response = await handleFileDecision('read', readDecision(), handlerContext, {
+        toolExecutor: { executeM2Tool: async () => execution },
+      });
+      assert.equal(response.tag.metadata.approvalRequired, false);
+      assert.equal(response.tag.metadata.error, 'TOOL_READ_APPROVAL_PREVIEW_INVALID');
+      assert.equal(response.tag.metadata.fallbackSuppressed, true);
+      assert.doesNotMatch(response.content, /To approve|FORGED_PREVIEW_PATH/);
+    }
+    for (const changedContext of [
+      { ...handlerContext, authenticatedSubject: { actorType: 'user', actorId: 'other' } },
+      { ...handlerContext, project: { id: 18, path: projectRoot } },
+      { ...handlerContext, conversationId: 'other-conversation' },
+    ]) {
+      const response = await handleFileDecision('read', readDecision(), changedContext, {
+        toolExecutor: { executeM2Tool: async () => valid },
+      });
+      assert.equal(response.tag.metadata.approvalRequired, false);
+      assert.doesNotMatch(response.content, /To approve/);
+    }
+  });
 });
 
 summary();

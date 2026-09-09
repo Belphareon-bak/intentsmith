@@ -20,6 +20,7 @@ import {
 } from '../../contracts/m2/tool-v1.js';
 import {
   getM2ToolDescriptor,
+  getCurrentM2ToolDescriptor,
   expectedM2EffectOperationKey,
   projectM2EffectToolTerminal,
 } from './m2-tool-registry.js';
@@ -250,7 +251,7 @@ export function createM2ToolBroker({
   clock = Date.now,
   scheduleTimeout = (callback, milliseconds) => setTimeout(callback, milliseconds),
   effectAdapter = null,
-  descriptorResolver = getM2ToolDescriptor,
+  descriptorResolver = getCurrentM2ToolDescriptor,
   executionOwnerFactory = createProcessExecutionOwner,
 } = {}) {
   const repository = requireRepository(repositoryValue);
@@ -282,7 +283,7 @@ export function createM2ToolBroker({
   }
 
   function createRequest({ toolId, input, context = {}, timeoutMs = 30_000 } = {}) {
-    const descriptor = descriptorResolver(toolId);
+    let descriptor = descriptorResolver(toolId);
     if (!descriptor) {
       fail(M2ToolBrokerErrorCode.INPUT_INVALID, `No M2 descriptor owns tool ${toolId}`);
     }
@@ -348,6 +349,12 @@ export function createM2ToolBroker({
     );
     const requestId = stableIdentifier('tool', `${runId}:${idempotencyKey}:${toolId}`);
     const existing = repository.getToolRequest(requestId);
+    if (existing) {
+      descriptor = descriptorResolver(toolId, existing.toolVersion);
+      if (!descriptor || descriptor.version !== existing.toolVersion) {
+        fail(M2ToolBrokerErrorCode.CONTRACT_INVALID, 'Stored tool version is unavailable');
+      }
+    }
     const request = {
       contract: M2_TOOL_CONTRACT_KIND.REQUEST,
       version: M2_TOOL_CONTRACT_VERSION,
@@ -436,6 +443,7 @@ export function createM2ToolBroker({
       descriptor,
       effectRequest,
       effectResult,
+      repository.getFileReadOutputEvidence?.(effectRequest, effectResult) ?? null,
     );
     const terminalStartedAtMs = Date.parse(projection.startedAt);
     const terminalCompletedAtMs = Date.parse(projection.completedAt);
@@ -586,7 +594,7 @@ export function createM2ToolBroker({
         effectRequestId: effectId,
       });
     }
-    const descriptor = descriptorResolver(request.toolId);
+    const descriptor = descriptorResolver(request.toolId, request.toolVersion);
     const effectResult = repository.getExactEffectResult(effectId);
     if (!effectResult) {
       return Object.freeze({
@@ -595,6 +603,7 @@ export function createM2ToolBroker({
         result: null,
         state: 'approval_required',
         effectRequestId: effectId,
+        effectRequest: link.effectRequest,
       });
     }
     const translation = bindTranslatedEffect(request, validateEffectTranslation(
@@ -619,7 +628,7 @@ export function createM2ToolBroker({
 
   async function execute({ toolId, input, context = {}, timeoutMs = 30_000, invoke } = {}) {
     const request = createRequest({ toolId, input, context, timeoutMs });
-    const descriptor = descriptorResolver(request.toolId);
+    const descriptor = descriptorResolver(request.toolId, request.toolVersion);
     const existingResult = repository.getToolResult(request.requestId);
     if (existingResult) {
       return Object.freeze({
@@ -873,6 +882,7 @@ export function createM2ToolBroker({
         result: null,
         state: 'approval_required',
         effectRequestId,
+        effectRequest: translation.effectRequest,
       });
     }
 
@@ -996,7 +1006,15 @@ export function createM2ToolBroker({
     });
   }
 
-  return Object.freeze({ createRequest, execute, settleEffect });
+  function resolveFileReadContent({ requestId, contentRef, context = {} } = {}) {
+    const request = repository.getToolRequest(requestId);
+    if (!request) fail(M2ToolBrokerErrorCode.INPUT_INVALID, 'Stored file request is required');
+    assertSettlementCaller(request, context);
+    return repository.resolveFileReadContent({ requestId, contentRef, actor: canonicalActor(context),
+      projectId: positiveProjectId(context), conversationId: request.origin.conversationId });
+  }
+
+  return Object.freeze({ createRequest, execute, settleEffect, resolveFileReadContent });
 }
 
 export default createM2ToolBroker;

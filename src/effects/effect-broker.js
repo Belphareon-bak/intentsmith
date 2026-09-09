@@ -1,3 +1,5 @@
+import { createM2FileReadPolicyPayload, createM2FileReadOutputEvidence } from '../../contracts/m2/file-read-output-v1.js';
+import { EffectFileReadOutputRepository } from './effect-file-read-output-repository.js';
 import { createHash } from 'node:crypto';
 import {
   M2_EFFECT_CONTRACT_KIND,
@@ -208,7 +210,7 @@ function resultFromOutcome({ request, grantId, startedAtMs, completedAtMs, outco
  * the one terminal result before any success is returned to the caller.
  */
 export function createEffectBroker(repositoryValue, {
-  providers = { 'fs.write': createFilesystemEffectProvider() },
+  providers = { 'fs.write': createFilesystemEffectProvider(), 'fs.read': createFilesystemEffectProvider() },
   clock = Date.now,
   scheduleTimeout = (callback, milliseconds) => setTimeout(callback, milliseconds),
   terminationGraceMs = 1_000,
@@ -237,7 +239,8 @@ export function createEffectBroker(repositoryValue, {
     return observed;
   }
 
-  async function prepareFilesystemWrite({
+  async function prepareFilesystemEffect({
+    kind,
     runId,
     actor,
     origin,
@@ -272,7 +275,7 @@ export function createEffectBroker(repositoryValue, {
       parentEffectId: null,
       actor,
       origin,
-      kind: 'fs.write',
+      kind,
       target: {
         type: 'filesystem',
         canonicalRoot: target.projectRoot,
@@ -282,8 +285,8 @@ export function createEffectBroker(repositoryValue, {
       payloadDigest: sha256(payload),
       payloadBytes: payload.length,
       workspaceRevision: observed.workspaceRevision,
-      requiredCapability: 'project.fs.write',
-      riskClass: 'write',
+      requiredCapability: kind === 'fs.read' ? 'project.fs.read' : 'project.fs.write',
+      riskClass: kind === 'fs.read' ? 'read' : 'write',
       timeoutMs,
       idempotencyKey,
       approvalGrantId: null,
@@ -301,6 +304,14 @@ export function createEffectBroker(repositoryValue, {
       effectId: stored.effectId,
       request: stored,
     });
+  }
+
+  function prepareFilesystemWrite(input = {}) {
+    return prepareFilesystemEffect({ ...input, kind: 'fs.write' });
+  }
+
+  function prepareFilesystemRead(input = {}) {
+    return prepareFilesystemEffect({ ...input, kind: 'fs.read', content: createM2FileReadPolicyPayload() });
   }
 
   async function execute({ effectId, grantId, payload: payloadValue, signal } = {}) {
@@ -338,6 +349,14 @@ export function createEffectBroker(repositoryValue, {
 
     const startedAtMs = nowMs(clock);
     const commitOutcome = outcomeValue => {
+      const readOnly = boundRequest.kind === 'fs.read';
+      if (readOnly && outcomeValue.status !== 'succeeded') {
+        // Read cancellation/failure never publishes late bytes and cannot
+        // inherit write-style changes, rollback or provider-controlled text.
+        outcomeValue = { status: outcomeValue.status, errorCode: outcomeValue.errorCode,
+          evidence: { evidenceRefs: [`effect:${effectId}:file-read-${outcomeValue.status}`] },
+          lateCompletionRejected: false };
+      }
       let result = resultFromOutcome({
         request: boundRequest,
         grantId,
@@ -346,26 +365,35 @@ export function createEffectBroker(repositoryValue, {
         outcome: outcomeValue,
       });
       const validation = validateEffectResultForRequest(boundRequest, result);
-      if (!validation.valid) {
+      let readEvidenceValid = true;
+      if (readOnly && result.terminalStatus === 'succeeded') {
+        try { createM2FileReadOutputEvidence(boundRequest, result, outcomeValue.evidence?.fileReadBytes); }
+        catch { readEvidenceValid = false; }
+      }
+      if (!validation.valid || !readEvidenceValid) {
         result = resultFromOutcome({
           request: boundRequest,
           grantId,
           startedAtMs,
           completedAtMs: nowMs(clock),
           outcome: {
-            status: 'orphaned',
+            status: readOnly ? 'failed' : 'orphaned',
             errorCode: 'EFFECT_PROVIDER_EVIDENCE_INVALID',
-            evidence: conservativeRollbackEvidence(
+            evidence: readOnly ? { evidenceRefs: [`effect:${effectId}:file-read-evidence-invalid`] } : conservativeRollbackEvidence(
               boundRequest,
               null,
               'provider-evidence-invalid',
             ),
-            lateCompletionRejected: true,
+            lateCompletionRejected: !readOnly,
           },
         });
       }
       try {
-        repository.recordEffectResult(result);
+        if (readOnly && result.terminalStatus === 'succeeded') {
+          new EffectFileReadOutputRepository(repository).recordSuccessfulFileRead({
+            request: boundRequest, result, bytes: outcomeValue.evidence.fileReadBytes,
+          });
+        } else repository.recordEffectResult(result);
       } catch (error) {
         throw new EffectBrokerError(
           EffectBrokerErrorCode.RESULT_UNCOMMITTED,
@@ -523,7 +551,7 @@ export function createEffectBroker(repositoryValue, {
     return commitOutcome(outcome);
   }
 
-  return Object.freeze({ prepareFilesystemWrite, execute });
+  return Object.freeze({ prepareFilesystemWrite, prepareFilesystemRead, execute });
 }
 
 export const _testInternals = Object.freeze({

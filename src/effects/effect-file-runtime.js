@@ -1,3 +1,6 @@
+import { createM2FileReadPolicyPayload, M2_FILE_READ_MAX_BYTES } from '../../contracts/m2/file-read-output-v1.js';
+import { createFilesystemEffectProvider } from './filesystem-effect-provider.js';
+import { config } from '../config.js';
 import { createHash } from 'node:crypto';
 import { realpath } from 'node:fs/promises';
 import {
@@ -69,6 +72,12 @@ export function createEffectFileRuntime({
     clock,
     workspaceAuthority,
     executionOwner,
+    providers: {
+      'fs.write': createFilesystemEffectProvider(),
+      'fs.read': createFilesystemEffectProvider({
+        maxReadBytes: Math.min(M2_FILE_READ_MAX_BYTES, config.limits.maxFileSize),
+      }),
+    },
   });
   const issuer = issuerOverride || createApprovalGrantIssuer(repository, { clock });
   const activeEffects = new Set();
@@ -165,13 +174,15 @@ export function createEffectFileRuntime({
         signal: null,
       },
       changes: {
-        paths: [request.target.relativePath],
+        paths: request.kind === 'fs.read' ? [] : [request.target.relativePath],
         beforeDigest: null,
         afterDigest: null,
         diffArtifact: null,
       },
       network: { resolvedAddresses: [], finalUrl: null, status: null, bytes: 0 },
-      rollback: {
+      rollback: request.kind === 'fs.read'
+        ? { required: false, status: 'not_required', evidenceRef: null }
+        : {
         required: true,
         status: 'pending',
         evidenceRef: `effect:${effectId}:rollback-pending`,
@@ -179,7 +190,7 @@ export function createEffectFileRuntime({
       outputDigest: null,
       errorCode: 'EFFECT_RECOVERY_ORPHANED',
       evidenceRefs: [`effect:${effectId}:restart-recovery`],
-      lateCompletionRejected: true,
+      lateCompletionRejected: request.kind !== 'fs.read',
     };
     repository.recordEffectResult(result);
     database.prepare('DELETE FROM m2_pending_effect_payloads WHERE effect_id = ?').run(effectId);
@@ -311,8 +322,8 @@ export function createEffectFileRuntime({
     }
   }
 
-  const runtime = Object.freeze({
-    async requestFilesystemWrite({
+  async function requestFilesystemEffect({
+      kind,
       sessionId,
       conversationId,
       subjectId,
@@ -333,7 +344,7 @@ export function createEffectFileRuntime({
         error.code = 'EFFECT_RUNTIME_INPUT_INVALID';
         throw error;
       }
-      const payload = Buffer.from(content, 'utf8');
+      const payload = kind === 'fs.read' ? createM2FileReadPolicyPayload() : Buffer.from(content, 'utf8');
       if (surface !== 'studio' && surface !== 'skill') {
         const error = new TypeError('Filesystem effect surface is not supported by this runtime');
         error.code = 'EFFECT_RUNTIME_INPUT_INVALID';
@@ -344,7 +355,8 @@ export function createEffectFileRuntime({
         'operation',
         operationId,
       );
-      const prepared = await broker.prepareFilesystemWrite({
+      const prepare = kind === 'fs.read' ? broker.prepareFilesystemRead : broker.prepareFilesystemWrite;
+      const prepared = await prepare({
         runId,
         actor: { type: 'user', id: subjectId },
         origin: {
@@ -385,10 +397,30 @@ export function createEffectFileRuntime({
         payload,
       });
       return prepared;
-    },
+  }
 
-    async approveFilesystemWrite({ effectId, conversationId, subjectId, signal } = {}) {
+  function approveFilesystemKind(input, expectedKind) {
+    const request = repository.getEffectRequest(input.effectId);
+    if (request?.kind !== expectedKind) {
+      const error = new Error('Filesystem approval kind does not match stored request');
+      error.code = 'EFFECT_RUNTIME_INPUT_INVALID';
+      throw error;
+    }
+    return runtime.approveFilesystemEffect(input);
+  }
+
+  const runtime = Object.freeze({
+    requestFilesystemWrite(input = {}) { return requestFilesystemEffect({ ...input, kind: 'fs.write' }); },
+    requestFilesystemRead(input = {}) { return requestFilesystemEffect({ ...input, kind: 'fs.read' }); },
+
+    approveFilesystemWrite(input = {}) { return approveFilesystemKind(input, 'fs.write'); },
+    approveFilesystemRead(input = {}) { return approveFilesystemKind(input, 'fs.read'); },
+
+    async approveFilesystemEffect({ effectId, conversationId, subjectId, signal } = {}) {
       requireText(effectId, 'effectId');
+      if (!['fs.read', 'fs.write'].includes(repository.getEffectRequest(effectId)?.kind)) {
+        throw Object.assign(new Error('Filesystem approval requires a stored read/write request'), { code: 'EFFECT_RUNTIME_INPUT_INVALID' });
+      }
       requireText(conversationId, 'conversationId');
       requireActorIdentifier(subjectId);
       if (repository.getEffectInvalidation(effectId)) {
