@@ -66,8 +66,20 @@ export function inspectChatJourneyResult(input, result, { expectedLanguage = nul
   }
 
   if (!expectsLiveAuthority) {
+    const decision = result.metadata?.decision;
+    const diag = decision?.metadata?.diag;
+    const trace = {
+      type: decision?.type ?? null,
+      intent: decision?.intent ?? null,
+      tools: Array.isArray(decision?.tools) ? decision.tools.slice(0, 8) : null,
+      classifiedBy: decision?.metadata?.classifiedBy ?? null,
+      initialIntent: diag?.initialIntent ?? null,
+      finalIntent: diag?.finalIntent ?? null,
+      overrides: Array.isArray(diag?.overrides) ? diag.overrides.slice(0, 8) : null,
+    };
     throw new Error(
-      `Unexpected authority terminal ${result.metadata?.error || 'UNKNOWN'}: ${response.substring(0, 150)}`,
+      `Unexpected authority terminal ${result.metadata?.error || 'UNKNOWN'}: ${response.substring(0, 150)}`
+      + `; decision trace=${JSON.stringify(trace).slice(0, 1000)}`,
     );
   }
 

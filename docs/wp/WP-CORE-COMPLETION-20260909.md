@@ -183,3 +183,9 @@ uzavřené legacy shell hranice M3. A/B quality test před modelovými voláním
 načte dodávané specialisty původním loaderem do své soukromé DB a ověří všech
 pět požadovaných expertů. Výběr domén, počet porovnání a scoring se nemění.
 Neúspěch opinion testu nově uchová omezený text odpovědi; jeho predikát zůstává.
+
+Stejná doložená chybějící inicializace se opravuje také v comparison group B:
+všichni tři experti musí být přítomní před prvním modelovým voláním, žádné
+účetní dialogy se tiše nevynechají. Nečekaný authority terminal nově připojí
+omezený klasifikační trace do chybové evidence; seznam očekávaných terminalů
+ani acceptance predikáty se nerozšiřují.

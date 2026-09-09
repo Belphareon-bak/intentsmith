@@ -1,4 +1,5 @@
-import './helpers/isolated-test-db.js';
+import { resolveIsolatedArtifactPath } from './helpers/isolated-test-db.js';
+import { writeFileSync } from 'node:fs';
 import { installOllamaLoopbackFetchBoundary } from './helpers/ollama-loopback-fetch-boundary.js';
 import { inspectChatJourneyResult } from './helpers/chat-journey-response.js';
 
@@ -157,6 +158,25 @@ console.log(`\n${'═'.repeat(78)}`);
 console.log('  EXPERTISE COMPARISON E2E — Group B: analyst, trader, accountant');
 console.log(`${'═'.repeat(78)}`);
 
+// Match production specialist boot in the isolated test runtime. Accountant
+// has been supplied by accountant-cz since its removal from the builtin set.
+const { db } = await import('../src/db/database.js');
+const { runMigrations } = await import('../src/db/migrate.js');
+const { SpecialistLoader } = await import('../src/specialists/specialist-loader.js');
+const { specialistRuntime } = await import('../src/expertises/specialist-runtime.js');
+const { CapabilityRegistry } = await import('../src/specialists/capability-registry.js');
+const { expertiseRegistry } = await import('../src/expertises/expertise-layer.js');
+await runMigrations(db);
+const specialistLoader = new SpecialistLoader(db, specialistRuntime);
+specialistLoader.setExpertiseRegistry(expertiseRegistry);
+specialistLoader.setCapabilityRegistry(new CapabilityRegistry());
+await specialistLoader.boot();
+for (const conv of CONVERSATIONS) {
+  if (!expertiseRegistry.get(conv.expertiseId)) {
+    throw new Error(`Required expertise "${conv.expertiseId}" not found after specialist boot`);
+  }
+}
+
 let ollamaOk = false;
 try {
   const r = await fetch(`${OLLAMA_URL}/api/tags`);
@@ -199,8 +219,6 @@ console.info = (...args) => { if (!suppressPatterns.test(String(args[0]))) _orig
 
 // ─── Load expertise objects ──────────────────────────────────────────────────
 
-const { expertiseRegistry } = await import('../src/expertises/expertise-layer.js');
-
 const ChatController = await setupPipeline();
 
 // ─── Run conversations ───────────────────────────────────────────────────────
@@ -208,8 +226,7 @@ const ChatController = await setupPipeline();
 for (const conv of CONVERSATIONS) {
   const expert = expertiseRegistry.get(conv.expertiseId);
   if (!expert) {
-    _origLog(`  ⚠️  Expertise "${conv.expertiseId}" not found — skipping`);
-    continue;
+    throw new Error(`Required expertise "${conv.expertiseId}" disappeared after specialist boot`);
   }
 
   // A) General chat (no expertise)
@@ -232,7 +249,7 @@ for (const conv of CONVERSATIONS) {
       allResults.push({ expertiseId: conv.expertiseId, variant: 'chat', turn: i + 1, input: msg, response: resp, wordCount: resp.split(/\s+/).filter(w => w.length > 0).length, durationMs: dur, mode: result.mode });
     } catch (err) {
       failTurn(labelA, i + 1, msg, err.message);
-      allResults.push({ expertiseId: conv.expertiseId, variant: 'chat', turn: i + 1, input: msg, response: null, wordCount: 0, durationMs: Date.now() - t0, mode: 'error', error: err.message });
+      allResults.push({ expertiseId: conv.expertiseId, variant: 'chat', turn: i + 1, input: msg, response: null, wordCount: 0, durationMs: Date.now() - t0, mode: 'error', error: err.message, errorCode: err.code ?? null, statusCode: err.statusCode ?? null, sourceErrorType: err.sourceErrorType ?? null });
     }
   }
   ChatController.removeSession(sessionA);
@@ -258,7 +275,7 @@ for (const conv of CONVERSATIONS) {
       allResults.push({ expertiseId: conv.expertiseId, variant: 'expert', turn: i + 1, input: msg, response: resp, wordCount: resp.split(/\s+/).filter(w => w.length > 0).length, durationMs: dur, mode: result.mode });
     } catch (err) {
       failTurn(labelB, i + 1, msg, err.message);
-      allResults.push({ expertiseId: conv.expertiseId, variant: 'expert', turn: i + 1, input: msg, response: null, wordCount: 0, durationMs: Date.now() - t0, mode: 'error', error: err.message });
+      allResults.push({ expertiseId: conv.expertiseId, variant: 'expert', turn: i + 1, input: msg, response: null, wordCount: 0, durationMs: Date.now() - t0, mode: 'error', error: err.message, errorCode: err.code ?? null, statusCode: err.statusCode ?? null, sourceErrorType: err.sourceErrorType ?? null });
     }
   }
   ChatController.removeSession(sessionB);
@@ -367,4 +384,8 @@ console.log(`\n${'═'.repeat(78)}`);
 console.log(`  TEST DOKONČEN — ${failedTurns === 0 ? '✓ PASS' : `${failedTurns} FAILURES`}`);
 console.log(`${'═'.repeat(78)}\n`);
 
+const serializedResults = JSON.stringify({
+  totalTurns, passedTurns, failedTurns, expectedAuthorityTerminals, results: allResults,
+}, null, 2);
+writeFileSync(resolveIsolatedArtifactPath('expertise-comparison-b.json'), serializedResults, { mode: 0o600 });
 process.exit(failedTurns > 0 ? 1 : 0);
