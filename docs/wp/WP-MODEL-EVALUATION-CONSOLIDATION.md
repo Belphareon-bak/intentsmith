@@ -11,7 +11,16 @@
 sjednotit scoring/evaluace a pokračovat přes všechny milníky až k jednomu
 review candidate.
 
-**Stav:** `ACCEPTED / REVIEW_PASSED / SYSTEM_PROVIDER_BLOCKED`.
+**Stav při přijetí 2026-08-28:** `ACCEPTED / REVIEW_PASSED / SYSTEM_PROVIDER_BLOCKED`.
+
+**Provozní checkpoint 2026-09-09:** Systémová Ollama `0.32.14-intentsmith.1` byla aktivována a nezávisle
+ověřena. Na čistém `ceb8de93` prošly dvě řízené operace pro `qwen3.5:27b`,
+digest `7653528b…8ec06e`: typed exact verification a gateway s usage/claim
+evidencí v soukromé kopii DB. Původní absence response digestu již není
+blokátorem tohoto ověřeného rozsahu. Celý modelový panel, startup serveru,
+koordinace přes živou DB a release acceptance tím ověřeny nejsou.
+[Run a přesné identity](../execution/runs/m6/provider-activation-20260909.md).
+
 Remediační rozsah `74beafea..26ab3291` prošel nezávislým Opus max
 `REVIEW_PASSED`; čistý gate `2026-08-27T20-32-24-822Z` prošel `279/279`.
 Navazující live DB migrace, izolovaný provider sidecar, GPU-only scoring,
@@ -172,7 +181,7 @@ tohoto WP.
 | M5 — API, CLI, Studio, governor, registry a dokumentace | PASS |
 | M6 — registry, hygiene a module-boundary ratchet | PASS |
 | M7 — clean deterministic + server-owned read E2E handoff | PASS — `2026-08-27T20-32-24-822Z`, 279/279 na `79328185` |
-| M8 — provider response exact-artifact attestation | PATCH + PREFLIGHT PASS; SYSTEM OLLAMA CAPABILITY BLOCKED |
+| M8 — provider response exact-artifact attestation | Srpen: PATCH + PREFLIGHT PASS / SYSTEM BLOCKED. Září: systémová aktivace a controlled qwen3.5 typed+gateway PASS; úplný modelový panel se netvrdí. |
 | M9 — live DB 099 + installed GPU-only panel | PASS — 55 COMPLETE / 24 BLOCKED / 0 applicable MISSING |
 | M10 — versioned technical coverage + unified inventory/parser | ACCEPTED / REVIEW_PASSED / 279/279 FINAL GATE PASS |
 | M11 — suite version, interval provenance, DB rollback search and bounded evidence | ACCEPTED / REVIEW_PASSED / 279/279 FINAL GATE PASS |
@@ -192,9 +201,9 @@ applicability do versioned technical contractu, doplnila `suite_version` do
 current/reuse lookupů a ukládá skutečné start/end intervaly. Ostrý panel
 nepovýšil staré contracty: všechny nové řádky jsou
 exact-artifact/current-contract a příliš velké modely skončily `BLOCKED` se
-`score=NULL`. Systémová Ollama
-0.32.14 response digest neposkytuje, takže durable runtime není plně funkční;
+`score=NULL`. Tehdejší systémová Ollama
+0.32.14 response digest neposkytovala, takže durable runtime nebyl plně funkční;
 scoring proběhl pouze přes izolovaný a preflightem ověřený sidecar. Nezávislé
 evidence rereview rozsahu `d6137d4c..3f027938` skončilo `REVIEW_PASSED` a
 akceptační commit `cbc8b87f` prošel novým gate `279/279`; M10–M12 jsou proto
-`ACCEPTED`. Systémový provider zůstává samostatně `SYSTEM_PROVIDER_BLOCKED`.
+`ACCEPTED`. Tehdejší systémový provider zůstal samostatně `SYSTEM_PROVIDER_BLOCKED`; novější provozní checkpoint je uveden výše.

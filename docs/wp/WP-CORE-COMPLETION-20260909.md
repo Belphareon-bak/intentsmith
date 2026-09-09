@@ -106,8 +106,33 @@ zůstává otevřená. [Run](../execution/runs/m6/provider-activation-20260909.m
 a [review](../review/2026-09-09-PROVIDER-AND-POLICY-COMPATIBILITY-REVIEW.md)
 uchovávají přesné identity, pozitivní i negativní důkazy.
 
-Provider aktivace: `OPERATOR_AUTHORIZED / ADMIN_AUTHENTICATION_BLOCKED /
+Před terminálovým pokusem byl stav provider aktivace: `OPERATOR_AUTHORIZED / ADMIN_AUTHENTICATION_BLOCKED /
 NOT_INSTALLED`. Autorizovaný `pkexec` skončil `Not authorized`, exit 127;
 instalační root bootstrap nezačal. Původní service/binárka/modely/DB zůstaly
 zachované. Závislé živé modelové běhy jsou `NOT_RUN`; user-owned terminálový
 launcher je připraven pro skutečné ověření správce bez dalšího souhlasu.
+
+**Navazující skutečný pokus 12:20 UTC:** terminálová autentizace prošla,
+ale v1 chybně očekávala `0.32.14.1` místo naměřené
+`0.32.14-intentsmith.1`; proběhl ověřený rollback. Retained candidate je
+neaktivní, původní service 0.32.14 běží. Opravená v2 a její bezpečné reuse
+prošly nezávislým review a 19 cílenými kontrolami. Grafický retry čekající na
+autentizaci byl ukončen před bootstrapem; reviewed terminálový launcher v2
+je připraven. Aktuálně `RETRY_REVIEW_PASSED / ORIGINAL_SERVICE_RESTORED /
+SYSTEM_PROVIDER_BLOCKED`; inference stále `NOT_RUN`. [Přesná navazující
+evidence](../execution/runs/m6/provider-activation-20260909.md).
+
+**Dokončený provozní checkpoint 12:38–12:42 UTC:** druhý terminálový pokus
+úspěšně aktivoval přesný systémový provider bez změny target inode/bytes
+nebo devítimodelového inventáře. Nezávislé health review prošlo. Dvě následné
+řízené chat operace na clean `ceb8de93` prokázaly exact response digest a
+usage/durable claims v soukromé DB; nezávislé evidence review prošlo. Aktuálně
+`ACTIVATION_HEALTH_REVIEW_PASSED / CONTROLLED_GATEWAY_REVIEW_PASSED`.
+Historické auth/version/Node ABI neúspěchy zůstávají v run evidenci; nejsou
+aktuálním blokátorem této kvalifikace. Celá M6 matice/acceptance zůstává otevřená.
+
+Navazující registrované běhy na clean `ceb8de93` prošly nezávislým review:
+GPU pilot PASS (4 requests, plná GPU residency, cancel, přirozená obnova)
+a pipeline program 17/17 PASS (2 skutečné provider inference, zbývající
+workflow/role kroky jsou stavové fixture). Přesné hashe a hranice obsahuje
+stejný run/review záznam; celý M6 release gate tím není uzavřený.

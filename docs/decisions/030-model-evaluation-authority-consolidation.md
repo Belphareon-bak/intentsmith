@@ -1,7 +1,16 @@
 # 030 — Jedna current-contract autorita modelových evaluací
 
-**Stav:** `ACCEPTED / SYSTEM_PROVIDER_BLOCKED` · **Datum:** 2026-08-28
+**Stav rozhodnutí:** `ACCEPTED` · **Datum:** 2026-08-28
+**Provozní stav při přijetí:** `SYSTEM_PROVIDER_BLOCKED`
 **WP:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Migrace:** 082, 096, 097, 099
+
+**Provozní checkpoint 2026-09-09 (nemění obsah rozhodnutí):** Systémová Ollama `0.32.14-intentsmith.1` byla aktivována a nezávisle
+ověřena. Na čistém `ceb8de93` prošly dvě řízené operace pro `qwen3.5:27b`,
+digest `7653528b…8ec06e`: typed exact verification a gateway s usage/claim
+evidencí v soukromé kopii DB. Původní absence response digestu již není
+blokátorem tohoto ověřeného rozsahu. Celý modelový panel, startup serveru,
+koordinace přes živou DB a release acceptance tím ověřeny nejsou.
+[Run a přesné identity](../execution/runs/m6/provider-activation-20260909.md).
 
 ## Kontext
 
@@ -95,4 +104,4 @@ odstranit; C3 repo zůstává případnou historickou referencí.
   kontrolu, manifest i nový clean-clone gate `279/279` a vrátilo
   [`REVIEW_PASSED`](../review/2026-08-28-WP-MODEL-EVALUATION-EVIDENCE-REREVIEW.md).
   Scoring/evidence balík je proto `ACCEPTED`; systémový response-digest provider
-  zůstává samostatně `SYSTEM_PROVIDER_BLOCKED`.
+  tehdy zůstal samostatně `SYSTEM_PROVIDER_BLOCKED`; novější runtime checkpoint je výše.

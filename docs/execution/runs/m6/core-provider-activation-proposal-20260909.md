@@ -1,6 +1,6 @@
 # Ollama response identity — konkrétní návrh provozního kroku
 
-Stav: `OPERATOR_AUTHORIZED / ADMIN_AUTHENTICATION_BLOCKED / NOT_INSTALLED`.
+Stav: `ACTIVATED_HEALTH_VERIFIED / CONTROLLED_GATEWAY_VERIFIED / FULL_M6_REQUIRED`.
 Datum inventury a autorizovaného pokusu: 2026-09-09. Operátor následně
 výslovně přijal tento návrh slovy „ano potvrzuji“. [Výsledek pokusu a další
 ověření](provider-activation-20260909.md) jsou samostatnou evidencí provedení.
@@ -53,20 +53,35 @@ Nová binárka i tento drop-in při inventuře chyběly. Staging unit prošla
 binárku. Jde o parser/source-executable staging check; ověření finálního
 root-owned `ExecStart` musí proběhnout po instalaci a před restartem.
 
+**Aktualizace po skutečném pokusu 12:20 UTC:** admin autentizace prošla a
+kandidát se spustil, ale chybná očekávaná verze v instalačním skriptu vyvolala
+rollback. Přesná schválená binárka hlásí `0.32.14-intentsmith.1`; adresářový
+suffix `0.32.14.1` není runtime version. Potvrdil to skutečný systemd journal
+i izolovaná GET sonda stejného binary hashe. Původní služba 0.32.14 byla
+obnovena, drop-in odstraněn a exact root-owned kandidát zůstal neaktivní.
+Opravený v2 postup níže bezpečně připouští opětovné použití tohoto souboru;
+nemění schválenou binárku ani modely. Přesné hashe v2 a nový launcher jsou v
+[navazujícím run záznamu](provider-activation-20260909.md).
+
 ## Přesné pořadí v povoleném provozním okně
 
-1. Znovu ověřit všech 54 identit, aktuální unit/drop-in stav, nepřítomnost obou
-   cílových souborů, prázdné `/api/ps` a žádný NVIDIA compute proces. Při změně
+1. Znovu ověřit všech 54 identit, aktuální unit/drop-in stav, nepřítomnost
+   drop-inu a absenci target binárky nebo její přesnou schválenou root-owned
+   identitu z předchozího pokusu, prázdné `/api/ps` a žádný NVIDIA compute proces. Při změně
    identity nebo cizí aktivitě zastavit závislý krok; nic cizího neukončovat.
 2. Se správcovským potvrzením vytvořit nový root-only rollback adresář pod
    `/var/backups/` a uložit původní unit, původní binárku, inventář a ověřené
    hashe. Existující cesty se nepřepisují.
 3. Nainstalovat přesně připnutou candidate binárku jako nový root-owned `0755`
-   `/usr/local/bin/ollama-intentsmith-0.32.14.1` a připravený root-owned `0644`
-   drop-in. Původní binárka a hlavní unit zůstávají na místě. Znovu ověřit
+   `/usr/local/bin/ollama-intentsmith-0.32.14.1`, nebo bezpečně znovu použít
+   stejný již přítomný soubor bez zápisu. V2 vyžaduje `O_NOFOLLOW`, shodné
+   lstat/fstat, root:root 0755, jediný link, hash a stabilní inode až do health.
+   Vytvořit připravený root-owned `0644` drop-in. Původní binárka a hlavní unit
+   zůstávají na místě. Znovu ověřit
    nainstalované bajty a finální unit včetně drop-inu.
 4. `systemctl daemon-reload` a `systemctl restart ollama.service`; ověřit
-   výsledný `ExecStart`, UID, pouze loopback listener a `/api/version`.
+   výsledný `ExecStart`, UID, pouze loopback listener a `/api/version` přesně
+   `0.32.14-intentsmith.1`. Uložit úplné pozorování před verzovou asercí.
    Při neúspěchu použít níže uvedený rollback a zachovat chybovou evidenci.
 5. V tomtéž výslovně povoleném sériovém modelovém okně provést přesně dvě
    omezené operace na připnutém existujícím modelu: nejprve typed
@@ -93,15 +108,30 @@ konkrétního restartu a sériového živého modelového okna je zaznamenané v
 Další souhlas s tímto rozsahem není potřeba.
 
 Read-only preflight prokázal UID 1000 a `sudo -n true` skončilo exit 1 s
-`a password is required`. Autorizovaný pokus přes `pkexec` dne 2026-09-09
+`a password is required`. První autorizovaný pokus přes `pkexec` dne 2026-09-09
 v 11:11 UTC skončil exit 127: `Not authorized`. Root bootstrap nezačal;
-binárka/drop-in nejsou instalované a původní služba běží. Jde o autentizaci
+binárka/drop-in tehdy nebyly instalované a původní služba běžela. Jde o autentizaci
 správce na hostu, nikoli chybějící uživatelský souhlas nebo zamítnutí nástroje
 automatickým approval review. Připravený ověřený terminálový launcher vyžádá
 heslo pouze prostřednictvím systémového `sudo`; heslo nepatří do chatu.
+Operátorův následný terminálový pokus v 12:20 autentizaci prokazatelně
+dokončil; výše popsaný rollback vyvolala naše chybná kontrola verze. Nový
+grafický v2 pokus 12:31–12:36 zůstal čekat na autentizaci a byl ukončen před
+root bootstrapem. Pro opakování je připraven reviewed terminálový launcher v2.
 M7 VPN, firewall, TLS/HMAC klíče, telefon, M5 externí rotace,
 history disposition a release podpisy nejsou součástí tohoto zásahu.
 
 Alternativa pro jednorázové měření je dosavadní izolovaný sidecar; jeho
 výsledek ale neověří systémový origin. Pro core release je proto doporučený
 výše uvedený verzovaný systémový provider se zachovanou návratovou cestou.
+
+## Dokončená aktivace a první modelová kvalifikace
+
+Druhý terminálový pokus v 12:38 UTC skončil exit 0 a
+`ACTIVATED_HEALTH_VERIFIED`: přesný target byl znovu použit bez zápisu a běží
+jako systémová služba. V 12:42 UTC prošly dvě řízené operace pro
+`qwen3.5:27b`: typed exact verification a gateway, včetně provider response
+digestu, jednoho usage řádku a dvou uvolněných claims v soukromé DB. Živé
+bindings zůstaly zachované. Tento provozní krok už není blokovaný admin
+autentizací. Původní neúspěchy výše jsou historické; přesné aktuální důkazy
+a rozsah jsou v [run evidenci](provider-activation-20260909.md).

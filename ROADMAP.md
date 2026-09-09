@@ -2270,6 +2270,35 @@ následují sériové M6 modelové/runtime testy podle existujícího plánu.
 rozlišují opravený produktový scope, neprovedenou aktivaci a otevřenou
 M5/M6/M7 acceptance.
 
+Následující skutečný terminálový pokus v **12:20 UTC** admin autentizaci
+úspěšně dokončil. V1 však očekávala chybnou runtime verzi; systémový journal
+i izolovaná sonda exact candidate binárky potvrzují
+`0.32.14-intentsmith.1`, nikoli `0.32.14.1`. Provedený rollback obnovil
+původní Ollamu 0.32.14 a zachoval všech 9 modelů. Opravená v2 ukládá
+pozorování před asercí a bezpečně znovu použije retained root-owned binárku;
+nezávislé review má 19/19 cílených kontrol. Grafický retry čekající na auth
+byl v 12:36 ukončen před bootstrapem. Reviewed terminálový launcher v2 je
+připraven; runtime provider/model attestation zůstává `NOT_RUN`, bez dalšího
+požadavku na souhlas s již povoleným rozsahem. Aktuální evidence a hashe jsou
+ve stejném run/review záznamu výše.
+
+Druhý terminálový pokus v **12:38 UTC** potom úspěšně aktivoval přesnou
+systémovou Ollamu bez změny target inode/bytes a modelového inventáře.
+Nezávislé health review prošlo. V **12:42 UTC** dvě řízené operace pro
+`qwen3.5:27b` prokázaly provider response digest, typed verification a
+skutečnou gateway včetně usage/durable claims v soukromé DB; nezávislé
+evidence review prošlo na clean `ceb8de93`. `SYSTEM_PROVIDER_BLOCKED` kvůli
+absenci response digestu už neplatí pro tento ověřený rozsah. Úplná M6
+matice, server startup, live-DB koordinace a release acceptance zůstávají
+otevřené; všechny dřívější neúspěchy jsou zachované v run evidenci výše.
+
+
+Navazující registrované běhy na clean `ceb8de93` prošly nezávislým review:
+GPU pilot PASS (4 requests, plná GPU residency, cancel, přirozená obnova)
+a pipeline program 17/17 PASS (2 skutečné provider inference, zbývající
+workflow/role kroky jsou stavové fixture). Přesné hashe a hranice obsahuje
+stejný run/review záznam; celý M6 release gate tím není uzavřený.
+
 ## 12. Pravidla Work Package bez dalšího aparátu
 
 Aktivní WP se vejde do těchto osmi položek:
@@ -2540,7 +2569,7 @@ replay, SHA/tamper kontrolu, backup manifest i nový clean-clone gate `279/279`
 a vrátilo
 [`REVIEW_PASSED`](docs/review/2026-08-28-WP-MODEL-EVALUATION-EVIDENCE-REREVIEW.md).
 Scoring/evidence balík je proto `ACCEPTED`; systémový response-digest provider
-zůstává samostatně `SYSTEM_PROVIDER_BLOCKED`. Podrobnosti jsou v
+tehdy zůstal samostatně `SYSTEM_PROVIDER_BLOCKED`; nový provozní checkpoint je v [záznamu 2026-09-09](docs/execution/runs/m6/provider-activation-20260909.md). Historické podrobnosti jsou v
 [`model-scoring-live-20260828.md`](docs/execution/runs/model-scoring-live-20260828.md).
 Následné explicitně autorizované odstranění čtyř VRAM-blocked artefaktů
 uvolnilo 71,47 GiB bez změny DB historie nebo bindingů. Současná installed
@@ -2566,7 +2595,7 @@ release blok `298/298` a jeden souvislý offline+database gate `303/303`, bez
 FAIL, BLOCKED, TIMEOUT nebo změny source SHA. Registry, hygiene a module
 ratchet jsou zelené. Modelový chat, fyzický GPU běh, aktivace bindingů a timer
 nebyly spuštěny podle operátorského odkladu. Systémová Ollama 0.32.14 proto
-zůstává pravdivě `SYSTEM_PROVIDER_BLOCKED`. Podrobný integrační záznam je v
+tehdy zůstal pravdivě `SYSTEM_PROVIDER_BLOCKED`; nový provozní checkpoint je v [záznamu 2026-09-09](docs/execution/runs/m6/provider-activation-20260909.md). Podrobný integrační záznam je v
 [`m6-model-evaluation-integration-20260829.md`](docs/execution/runs/m6/m6-model-evaluation-integration-20260829.md).
 
 ### M6 signed operator-demo authority (2026-08-29)

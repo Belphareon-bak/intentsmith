@@ -22,10 +22,17 @@ konkrétní systémové nasazení/restart Ollamy a sériové M6 modelové okno p
 [WP-CORE-COMPLETION-20260909](WP-CORE-COMPLETION-20260909.md). Pro tento
 rozsah je původní odklad překonaný; historické `DEFERRED_MODEL_OPTIMIZATION`
 výsledky se zpětně nemění na PASS. Autorizovaný instalační pokus skončil
-`pkexec` exit 127 / `Not authorized` před root bootstrapem. Aktuální
-závislost je `ADMIN_AUTHENTICATION_BLOCKED`, nikoli chybějící souhlas;
+`pkexec` exit 127 / `Not authorized` před root bootstrapem. V této fázi byla
+závislost `ADMIN_AUTHENTICATION_BLOCKED`, nikoli chybějící souhlas;
 živé modelové běhy zůstávají `NOT_RUN`. [Evidence a navazující oprava policy](../execution/runs/m6/provider-activation-20260909.md).
 M5/release acceptance, zákaz cizích zásahů a změn živých bindings zůstávají.
+
+**Další skutečný stav 2026-09-09 12:20 UTC:** operátor admin autentizaci
+dokončil; aktivace ale vyvolala rollback kvůli chybně očekávané verzi v1.
+Připnutá binárka hlásí `0.32.14-intentsmith.1`, původní service 0.32.14 byla
+obnovena. Reviewed v2 očekávání a bezpečné opakování jsou připravené,
+provider/model kvalifikace zůstává `NOT_RUN / SYSTEM_PROVIDER_BLOCKED`.
+Podrobnosti a nový terminálový launcher jsou ve výše uvedené run evidenci.
 
 ## 1. Uživatelský výsledek a rozsah
 
@@ -242,3 +249,18 @@ artefakty. Skutečné demo nebylo spuštěno a approval nebyl vydán. Integrace 
 nemění žádný M6 acceptance verdict ani otevřený externí blocker výše. Přesné
 SHA, diagnostický FAIL a opravený PASS jsou v
 [`m6-operator-demo-authority-integration-20260829.md`](../execution/runs/m6/m6-operator-demo-authority-integration-20260829.md).
+
+**Dokončený provozní checkpoint 12:38–12:42 UTC:** druhý terminálový pokus
+úspěšně aktivoval přesný systémový provider bez změny target inode/bytes
+nebo devítimodelového inventáře. Nezávislé health review prošlo. Dvě následné
+řízené chat operace na clean `ceb8de93` prokázaly exact response digest a
+usage/durable claims v soukromé DB; nezávislé evidence review prošlo. Aktuálně
+`ACTIVATION_HEALTH_REVIEW_PASSED / CONTROLLED_GATEWAY_REVIEW_PASSED`.
+Historické auth/version/Node ABI neúspěchy zůstávají v run evidenci; nejsou
+aktuálním blokátorem této kvalifikace. Celá M6 matice/acceptance zůstává otevřená.
+
+Navazující registrované běhy na clean `ceb8de93` prošly nezávislým review:
+GPU pilot PASS (4 requests, plná GPU residency, cancel, přirozená obnova)
+a pipeline program 17/17 PASS (2 skutečné provider inference, zbývající
+workflow/role kroky jsou stavové fixture). Přesné hashe a hranice obsahuje
+stejný run/review záznam; celý M6 release gate tím není uzavřený.

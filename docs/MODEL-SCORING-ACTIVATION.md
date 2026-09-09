@@ -1,11 +1,19 @@
 # Modelové evaluace a aktivace
 
-**Stav:** současný kontrakt v136.1 · **Aktualizováno:** 2026-08-28
+**Stav:** současný kontrakt v136.1 · **Aktualizováno:** 2026-09-09
 **Implementace:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Přijetí:**
 coverage je implementačně kompletní a čistý finální gate na `53ded662` prošel
 `279/279`; evidence rereview rozsahu `d6137d4c..3f027938` skončilo
 [`REVIEW_PASSED`](review/2026-08-28-WP-MODEL-EVALUATION-EVIDENCE-REREVIEW.md),
-proto je tento scoring/evidence balík `ACCEPTED / SYSTEM_PROVIDER_BLOCKED`
+srpnový scoring/evidence balík byl přijat jako `ACCEPTED / SYSTEM_PROVIDER_BLOCKED`.
+
+**Provozní checkpoint 2026-09-09:** Systémová Ollama `0.32.14-intentsmith.1` byla aktivována a nezávisle
+ověřena. Na čistém `ceb8de93` prošly dvě řízené operace pro `qwen3.5:27b`,
+digest `7653528b…8ec06e`: typed exact verification a gateway s usage/claim
+evidencí v soukromé kopii DB. Původní absence response digestu již není
+blokátorem tohoto ověřeného rozsahu. Celý modelový panel, startup serveru,
+koordinace přes živou DB a release acceptance tím ověřeny nejsou.
+[Run a přesné identity](execution/runs/m6/provider-activation-20260909.md).
 
 Název souboru zůstává kvůli existujícím odkazům. IntentSmith už ale nemá
 samostatný „scoring“ runtime. Existuje jedna autoritativní cesta pro modelové
@@ -159,9 +167,9 @@ nim při upgradu nespadne.
   odstraněné. Jejich případné budoucí obnovení vyžaduje nové rozhodnutí,
   implementaci a current-contract review.
 
-Na hostu nainstalovaná systémová Ollama 0.32.14 ani její publikované
+Při srpnovém měření systémová Ollama 0.32.14 ani její publikované
 `ChatResponse` schema neposkytují digest obslouženého artefaktu. Systémová
-služba proto zůstává beze změny a durable runtime je dál fail-closed. Pro
+služba proto tehdy zůstala beze změny a durable runtime fail-closed. Pro
 autorizovaný live scoring byl z přesného upstream tagu `v0.32.14` sestaven
 izolovaný loopback sidecar s minimálním patchem, který vrací exact manifest
 digest v téže `/api/chat` response. Patch prošel Go testy a reálný preflight
