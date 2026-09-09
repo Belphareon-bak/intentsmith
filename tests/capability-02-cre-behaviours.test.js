@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { CREDecisionEngine, DecisionType, IntentType } from '../src/chat/cre-decision.js';
 import { config } from '../src/config.js';
 import { computeMath } from '../src/tools/local-computations.js';
+import { BUILTIN_EXPERTISES } from '../src/expertises/expertise-layer.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -77,6 +78,73 @@ async function main() {
       'x = 2 + 3 * 4', 'https://example.test/1/2/3', '1 + + 2 * 3', '2 ** 3 + 1']
       .every(input => chainEngine.classifyIntent(input) !== IntentType.LOCAL),
     'C-01d — numeric text, identifiers and unsupported expressions do not gain LOCAL authority',
+  );
+
+  // ── C-09 — a requested middleware snippet needs no project effect ────────
+  const inlineCodeEngine = new CREDecisionEngine();
+  let inlineCodeModelCalls = 0;
+  inlineCodeEngine._llmClassifyIntent = async () => {
+    inlineCodeModelCalls++;
+    throw new Error('Explicit inline middleware must use deterministic classification');
+  };
+  const inlineCodeProjectEntries = readdirSync(process.env.C3_PROJECTS_DIR).sort();
+  const developerContext = { hasActiveExpertise: true, expertise: BUILTIN_EXPERTISES.developer };
+  const middlewareInputs = [
+    'Napiš mi middleware pro JWT verifikaci v Express.js.',
+    'Write middleware for JWT verification in Express.',
+  ];
+  const middlewareDecisions = [];
+  for (const context of [{}, developerContext]) {
+    for (const input of middlewareInputs) {
+      middlewareDecisions.push(await inlineCodeEngine.decide(input, context));
+    }
+  }
+  check(
+    middlewareDecisions.every(decision => (
+      decision.type === DecisionType.ANSWER && decision.intent === IntentType.CODE
+      && decision.tools.length === 0 && decision.slots.length === 0
+      && decision.metadata.noProjectRequired === true
+      && decision.metadata.classifiedBy === 'deterministic'
+    )),
+    'C-09a — middleware snippets are CODE ANSWERs with or without developer expertise',
+  );
+  const projectMiddleware = await inlineCodeEngine.decide(middlewareInputs[0], {
+    ...developerContext, hasActiveProject: true,
+    project: { id: 'middleware-authority-check', path: process.env.C3_PROJECTS_DIR },
+  });
+  check(
+    projectMiddleware.type === DecisionType.TOOL_CALL
+      && projectMiddleware.intent === IntentType.CODE
+      && projectMiddleware.tools.includes('file.write')
+      && projectMiddleware.metadata.enforceSandbox === true
+      && projectMiddleware.metadata.noProjectRequired === undefined,
+    'C-09b — active project middleware retains its guarded tool decision',
+  );
+  const effectInputs = [
+    ['Napiš middleware do souboru src/middleware.js', IntentType.FILE_WRITE],
+    ['Přečti soubor src/middleware.js', IntentType.FILE_READ],
+    ['Spusť middleware v terminálu', IntentType.SHELL],
+  ];
+  // These existing effect routes still ask the classifier before their regex
+  // fallback. Exercise that fallback separately without allowing inference.
+  const effectFallbackEngine = new CREDecisionEngine();
+  let effectFallbackCalls = 0;
+  effectFallbackEngine._llmClassifyIntent = async () => { effectFallbackCalls++; return null; };
+  const effectDecisions = [];
+  for (const [input] of effectInputs) {
+    effectDecisions.push(await effectFallbackEngine.decide(input, developerContext));
+  }
+  check(
+    effectDecisions.every((decision, index) => (
+      decision.intent === effectInputs[index][1] && decision.type !== DecisionType.ANSWER
+      && decision.metadata.noProjectRequired === undefined
+    )),
+    `C-09c — explicit file and shell fallbacks stay effect decisions (${effectFallbackCalls} classifier fallbacks)`,
+  );
+  check(
+    inlineCodeModelCalls === 0
+      && JSON.stringify(readdirSync(process.env.C3_PROJECTS_DIR).sort()) === JSON.stringify(inlineCodeProjectEntries),
+    'C-09d — middleware decisions spend no model call and create no project artifact',
   );
 
   // ── C-03 — every decision carries its own provenance ──────────────────────

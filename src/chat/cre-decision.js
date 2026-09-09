@@ -798,7 +798,7 @@ const DETERMINISTIC_LEARNING_GOAL_PATTERNS = [
 // model pass. The later CODE authority branch still re-checks active-project
 // scope and escalates multi-file work to BUILD before any effect can start.
 const DETERMINISTIC_INLINE_CODE_PATTERNS = [
-  /^(?:napi[sš]|write|show|give)(?:\s|$).{0,60}(?:funkci|function|regex|regul[aá]rn[ií]\s+v[ýiyií]raz|jednoduch[ýiyi]\s+(?:HTTP\s+)?server|simple\s+(?:HTTP\s+)?server|skript|script)\b/iu,
+  /^(?:napi[sš]|write|show|give)(?:\s|$).{0,60}(?:funkci|function|middleware|regex|regul[aá]rn[ií]\s+v[ýiyií]raz|jednoduch[ýiyi]\s+(?:HTTP\s+)?server|simple\s+(?:HTTP\s+)?server|skript|script)\b/iu,
   /^(?:a\s+co\s+)?rekurzivn[ií]\s+verze\b/iu,
   /^recursive\s+version\b/iu,
 ];

@@ -199,3 +199,10 @@ regresní sady; příslušné API/Decision 035/WP dokumenty a census. Zachováv�
 původní completed-v1 validátor, osm kategorií, history receipt, klíče, domény,
 append-only ukládání a povinné nezávislé review. Podpisy, skutečná revokace,
 custody, history akce ani deklarace konkrétní kategorie jako N/A se neprovádějí.
+
+Doložený CODE případ požadující inline middleware doplňuje jedinou chybějící
+alternativu ve společném CRE klasifikátoru. Expertiza rozhodnutí nepřepisuje;
+aktivní projekt a explicitní file/shell požadavky zachovávají effect authority.
+Čtyři nové kontroly a celá stávající C02 sada prošly (19/19); ostatní nalezené
+expertizní chyby zůstávají otevřené. Nezávislé review opravilo i původní vadný
+testový stub; původní neúspěšný probe zůstává uchovaný.
