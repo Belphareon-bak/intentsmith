@@ -28,6 +28,9 @@ import './helpers/isolated-test-db.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { createHash } from 'node:crypto';
+import { detectLanguage } from '../src/chat/handlers/utils/language.js';
+import { validateResponseLanguage } from '../src/chat/handlers/utils/language-enforcement.js';
 import { installOllamaLoopbackFetchBoundary } from './helpers/ollama-loopback-fetch-boundary.js';
 import { AbortSource, abortWithReason } from '../src/core/abort-error.js';
 
@@ -137,6 +140,8 @@ function qualityCheck(response, input, opts = {}) {
   const len = r.length;
   const sentences = r.split(/[.!?]+/).filter(s => s.trim().length > 3).length;
   const words = r.split(/\s+/).filter(w => w.length > 0).length;
+  const language = detectLanguage(r);
+  const languageValidation = validateResponseLanguage(r, opts.expectedLang);
 
   return {
     // Basic
@@ -171,11 +176,26 @@ function qualityCheck(response, input, opts = {}) {
     isQuestion: /\?\s*$/.test(r.trim()),
     mentionsEntity: opts.entity ? new RegExp(opts.entity, 'i').test(r) : null,
     matchesExpectedLang: opts.expectedLang === 'cs' ? (/[áčďéěíňóřšťúůýž]/i.test(r) || /\b(je|to|se|na)\b/i.test(r))
-                       : opts.expectedLang === 'en' ? /\b(the|is|are|was|have)\b/i.test(r)
+                       : opts.expectedLang === 'en' ? (language.language === 'en'
+                           && language.confidence >= 0.7 && languageValidation.clean)
                        : opts.expectedLang === 'sk' ? /[ľôäŕĺ]/i.test(r) || /\b(je|nie|áno|alebo)\b/i.test(r)
                        : opts.expectedLang === 'de' ? /[äöüß]/i.test(r) || /\b(ist|und|oder|nicht)\b/i.test(r)
                        : null,
   };
+}
+
+/** Retain language evidence without assuming a short excerpt proves the whole response. */
+function languageFailure(response, expectedLang) {
+  const text = typeof response === 'string' ? response : '';
+  return JSON.stringify({
+    expectedLang,
+    detected: detectLanguage(text),
+    validation: validateResponseLanguage(text, expectedLang),
+    length: text.length,
+    sha256: createHash('sha256').update(text).digest('hex'),
+    response: text.slice(0, 8192),
+    truncated: text.length > 8192,
+  });
 }
 
 /**
@@ -216,6 +236,33 @@ async function chat(message, opts = {}) {
 }
 
 async function runHarnessSelfTest() {
+  // Explanatory English needs positive evidence from more than one pattern
+  // family. This remains a heuristic; short/ambiguous text is not accepted by
+  // default, and the content/substance assertions remain independent.
+  const languageCases = [
+    [true, 'A combustion engine burns fuel that pushes pistons, transferring power through a crankshaft.'],
+    [true, 'Plants convert sunlight into energy because chemical reactions transfer electrons between molecules.'],
+    [true, 'The engine is running.'],
+    [false, ''],
+    [false, 'qzxv blrgh nnnx kktz plrv.'],
+    [false, 'qzxv that blrgh nnnx kktz plrv.'],
+    [false, 'Spalovací motor vytváří výkon spalováním paliva uvnitř válců.'],
+    [false, 'Tento motor je dobry, protoze spaluje palivo a vytvari energii.'],
+    [false, 'Tento motor je running with fuel.'],
+    [false, 'Der Motor ist gut und erzeugt Energie.'],
+    [false, 'The engine is running. Привет'],
+    [false, 'The engine is running. 中文'],
+  ];
+  for (const [expected, response] of languageCases) {
+    assert(qualityCheck(response, '', { expectedLang: 'en' }).matchesExpectedLang === expected,
+      `English oracle self-test: ${languageFailure(response, 'en')}`);
+  }
+  const diagnosticInput = 'The engine is running.\n'.repeat(400);
+  const diagnostic = JSON.parse(languageFailure(diagnosticInput, 'en'));
+  assert(diagnostic.truncated && diagnostic.length === diagnosticInput.length
+    && diagnostic.response === diagnosticInput.slice(0, 8192)
+    && diagnostic.sha256 === createHash('sha256').update(diagnosticInput).digest('hex'),
+  'Language failure evidence must retain its explicit bound and full hash');
   const warningsBefore = warnings;
   let timeoutObserved = false;
   let lateCallbackRan = false;
@@ -344,7 +391,7 @@ await test('Factual: EN query gets EN response', async () => {
   const { quality, response } = await chat('What is photosynthesis?', { expectedLang: 'en' });
   assertQuality(quality, 'hasSubstance', 'Response too short');
   assertNoQuality(quality, 'hasExpertHijack', 'ExpertHandler hijacked EN query');
-  assert(quality.matchesExpectedLang, `Expected English response: "${response.substring(0, 100)}"`);
+  assert(quality.matchesExpectedLang, `Expected English response: ${languageFailure(response, 'en')}`);
 }, { timeout: 60000 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -541,7 +588,7 @@ await test('Lang: EN input → EN response', async () => {
   const { quality, response } = await chat('Explain how a combustion engine works', { expectedLang: 'en' });
   assertNoQuality(quality, 'hasExpertHijack', 'ExpertHandler hijacked EN query');
   assertQuality(quality, 'hasSubstance', 'Response too short');
-  assert(quality.matchesExpectedLang, `EN query got non-EN response: "${response.substring(0, 100)}"`);
+  assert(quality.matchesExpectedLang, `Expected English response: ${languageFailure(response, 'en')}`);
 }, { timeout: 60000 });
 
 await test('Lang: SK input → SK/CZ response (acceptable)', async () => {

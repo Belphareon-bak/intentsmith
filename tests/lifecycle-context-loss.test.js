@@ -8,6 +8,17 @@ import { CREDecisionEngine } from '../src/chat/cre-decision.js';
 
 const cre = new CREDecisionEngine();
 
+function decisionTrace(decision) {
+  const serialized = decision.toJSON();
+  return JSON.stringify({
+    type: serialized.type,
+    intent: serialized.intent,
+    classifiedBy: serialized.metadata?.classifiedBy ?? null,
+    diag: serialized.metadata?.diag ?? null,
+    reason: serialized.reason,
+  }).slice(0, 2400);
+}
+
 // ── GUARD 9: Meta-project queries should NOT be FILE_READ ────────────────────
 
 suite('Guard 9: Meta-project queries → CONVERSATIONAL (not FILE_READ)');
@@ -42,7 +53,7 @@ for (const q of META_PROJECT_QUERIES) {
     const d = await cre.decide(q, PROJECT_CONTEXT);
     assert(
       d.intent !== 'FILE_READ' && d.intent !== 'FILE_EXPLAIN',
-      `intent for "${q}" — expected NOT FILE_READ/FILE_EXPLAIN, got "${d.intent}"`
+      `intent for "${q}" — expected NOT FILE_READ/FILE_EXPLAIN, got "${d.intent}"; decisionTrace=${decisionTrace(d)}`
     );
   });
 }
@@ -70,7 +81,7 @@ for (const q of FILE_LISTING_QUERIES) {
     const d = await cre.decide(q, PROJECT_CONTEXT);
     assert(
       d.intent === 'FILE_READ' || d.intent === 'FILE_EXPLAIN' || d.intent === 'LOCAL',
-      `intent for "${q}" — expected FILE_READ/FILE_EXPLAIN/LOCAL, got "${d.intent}"`
+      `intent for "${q}" — expected FILE_READ/FILE_EXPLAIN/LOCAL, got "${d.intent}"; decisionTrace=${decisionTrace(d)}`
     );
   });
 }

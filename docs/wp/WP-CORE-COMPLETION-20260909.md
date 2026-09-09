@@ -235,3 +235,16 @@ vyžaduje výslovný code kontext, včetně Unicode hranice před českým slove
 kód, aby také „příčiny škod“ zůstaly běžným dotazem. Skutečně klasifikovaný
 SEARCH, file/shell autorita i code dotazy se zachovávají. Původní vadný návrh
 a neúspěšné běhy jsou uchované, finální C02 sada prošla 23/23.
+
+Navazující diagnostika zachovává všechny skutečné modelové požadavky a zbývající
+negativní výsledky. Expertise routing nově uchová serializované rozhodnutí ze
+stejného volání před asercí; Guard6 musí prokázat počáteční SEARCH, zásah guardu
+a konečný CREATIVE. Statické vysvětlení zůstává CONVERSATIONAL podle existující
+produkční větve, skutečné SEARCH negativní případy se dál ověřují. Lifecycle
+asert zprávy připojí stejný klasifikační trace bez změny očekávaných intentů.
+Dva testy vysvětlujících anglických odpovědí používají existující kladný language
+detector s confidence nejméně 0,7 a kontrolu kontaminace místo pěti slov.
+Nejde o úplný jazykový analyzátor; nejasný text neprojde automaticky. Obsahové
+predikáty zůstávají a existující harness self-test ověří pozitivní i negativní
+jazykové případy. Neúspěch uchová až 8 192 znaků a hash celé odpovědi. Původní
+100znakový výřez neprokazuje jazyk celé odpovědi, původní FAIL proto zůstává.
