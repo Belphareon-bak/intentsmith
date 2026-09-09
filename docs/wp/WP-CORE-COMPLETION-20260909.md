@@ -163,3 +163,23 @@ hranice se nesmějí oslabit. Kód se mění až po ověření příčiny. Půvo
 se uchová, opravu prověří nezávislý reviewer a skutečný stejný uživatelský
 scénář. M5 externí custody/rotace/history ani release podpisy tím nejsou
 autorizované; nezávislá technická práce na ně nečeká.
+
+Navazující testová oprava zachovává požadavek C-12 z
+`docs/behaviours/02-cre.md`: dokládá původní SEARCH, skutečný GUARD6 override
+a výsledný CREATIVE na témže modelovém rozhodnutí. Samostatný bare author
+lookup používá současný knowledge fast-path a není důkazem původního intentu
+jiného volání. Nezávislé source review a inertní pozitivní/negativní kontroly
+prošly; živý původní FAIL zůstává uchovaný do nového měření. E2E framework
+dále zapisuje svůj pevně pojmenovaný JSON report do existujícího soukromého
+artifact rootu; chyba zápisu se již nezamlčí. Produktové klasifikační větve
+ani testové acceptance podmínky se kvůli zelenému výsledku neuvolňují.
+
+Další reprodukované M6 regresní případy: čistý aritmetický řetězec
+`10 * 9 * 8` musí využít existující deterministický kalkulátor podle C-01/C-02,
+se zachováním následné M2 effect authority; oprava rozšiřuje pouze ukotvený
+vzor celočíselného výrazu a ověřuje vyloučení názvů/prozaických vstupů.
+Dva zastaralé shell source-grep testy se nahrazují skutečným ověřením přijaté
+uzavřené legacy shell hranice M3. A/B quality test před modelovými voláními
+načte dodávané specialisty původním loaderem do své soukromé DB a ověří všech
+pět požadovaných expertů. Výběr domén, počet porovnání a scoring se nemění.
+Neúspěch opinion testu nově uchová omezený text odpovědi; jeho predikát zůstává.

@@ -22,6 +22,11 @@ import { expertiseRegistry } from '../src/expertises/expertise-layer.js';
 import { buildExpertiseSystemPrompt } from '../src/chat/handlers/expertise.js';
 import { generateChatResponse } from '../src/llm/cre-bridge.js';
 import { checkForbiddenPhrases } from '../src/expertises/expertise-enforcement.js';
+import { db } from '../src/db/database.js';
+import { runMigrations } from '../src/db/migrate.js';
+import { SpecialistLoader } from '../src/specialists/specialist-loader.js';
+import { SpecialistRuntime } from '../src/expertises/specialist-runtime.js';
+import { CapabilityRegistry } from '../src/specialists/capability-registry.js';
 
 const GENERAL_SYSTEM_PROMPT = `Jsi užitečný AI asistent. Odpovídej přesně a srozumitelně v češtině.`;
 
@@ -153,6 +158,19 @@ async function callLLM(prompt, systemPrompt, temperature = 0.5) {
 }
 
 async function runABTest() {
+  // Accountant is supplied by the shipped specialist package, not by the
+  // builtin registry. Use the production loader against the isolated test DB.
+  await runMigrations(db);
+  const loader = new SpecialistLoader(db, new SpecialistRuntime());
+  loader.setExpertiseRegistry(expertiseRegistry);
+  loader.setCapabilityRegistry(new CapabilityRegistry());
+  await loader.boot();
+  for (const test of AB_TESTS) {
+    if (!expertiseRegistry.get(test.expertId)) {
+      throw new Error(`Required expert "${test.expertId}" not found after specialist boot`);
+    }
+  }
+
   console.log('\n╔══════════════════════════════════════════════════════════╗');
   console.log('║     A7: Expert A/B Quality Test — 5 domains             ║');
   console.log('╚══════════════════════════════════════════════════════════╝\n');

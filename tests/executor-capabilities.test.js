@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-import './helpers/isolated-test-db.js';
+import { resolveIsolatedArtifactPath } from './helpers/isolated-test-db.js';
+import { executeShell } from '../src/skills/steps/shell.js';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // C3-Agent — Executor Capabilities Tests v90
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Tests all 4 executor capability additions:
-//   1. Shell whitelist expansion (35+ commands, 120s timeout)
+//   1. Shell command vocabulary and closed M2 process boundary
 //   2. Build verification state in WorkflowOrchestrator
 //   3. Scaffold templates (8 total, tag matching)
 //   4. CODE→BUILD escalation (isProjectScopeBuild + CRE)
@@ -76,7 +77,7 @@ section('1. Shell whitelist expansion (10 tests)');
 // We can't import ALLOWED_COMMANDS directly (it's a const in module scope),
 // but we can test via the executeShell function's behavior.
 // Instead, re-read the source to verify the whitelist content.
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 const shellSource = readFileSync(new URL('../src/skills/steps/shell.js', import.meta.url), 'utf-8');
 
 const EXPECTED_COMMANDS = [
@@ -104,18 +105,38 @@ for (const cmd of EXPECTED_COMMANDS) {
   });
 }
 
-test('SHELL_TIMEOUT is 120_000 (120 seconds)', () => {
-  assert(
-    shellSource.includes('120_000') || shellSource.includes('120000'),
-    'SHELL_TIMEOUT should be 120000 (120 seconds)'
+// Accepted governed-skill boundary: legacy shell definitions do not acquire
+// process authority. Timeout handling belongs to an installed M2 effect, not
+// to a local child-process fallback (M3 section 4, reviewed 381011d0..13f645d1).
+await testAsync('allowed shell command without M2 translation fails closed', async () => {
+  const result = await executeShell(
+    { id: 'missing-process-authority', type: 'shell', command: 'echo test' },
+    { params: {}, stepsOutput: {} },
   );
+  assertEqual(result.status, 'error');
+  assertEqual(result.errorType, 'security');
+  assertEqual(result.retryable, false);
+  assertEqual(result.output, null);
+  assert(/M2 effect translation/.test(result.errorMessage));
 });
 
-test('timeout error message says 120s', () => {
-  assert(
-    shellSource.includes("timeout (120s)"),
-    'Error message should reference 120s timeout'
+await testAsync('caller timeout and callback cannot authorize a shell effect', async () => {
+  const sentinel = resolveIsolatedArtifactPath('executor-shell-timeout-sentinel');
+  assertEqual(existsSync(sentinel), false, 'test sentinel must start absent');
+  let calls = 0;
+  const result = await executeShell(
+    { id: 'caller-process-authority', type: 'shell', command: `touch "${sentinel}"`, timeout: 120000 },
+    {
+      params: {}, stepsOutput: {}, timeout: 120000,
+      effectAuthority: { execute() { calls++; throw new Error('caller authority invoked'); } },
+    },
   );
+  assertEqual(result.status, 'error');
+  assertEqual(result.errorType, 'security');
+  assertEqual(result.retryable, false);
+  assertEqual(result.output, null);
+  assertEqual(calls, 0);
+  assertEqual(existsSync(sentinel), false, 'unauthorized shell effect must not run');
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════

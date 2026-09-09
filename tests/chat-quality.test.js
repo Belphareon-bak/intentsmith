@@ -392,7 +392,8 @@ await test('Conv: casual question gets casual answer', async () => {
 await test('Conv: opinion question stays conversational', async () => {
   const { quality, response } = await chat('Co si myslíš o Pythonu?');
   assertQuality(quality, 'hasSubstance', 'Response too short for opinion');
-  assertNoQuality(quality, 'hasDeflection', 'Deflecting on opinion question');
+  assertNoQuality(quality, 'hasDeflection',
+    `Deflecting on opinion question; response=${JSON.stringify(response.slice(0, 600))}`);
   assertNoQuality(quality, 'hasExcessiveHeaders', 'Headers in casual opinion');
 }, { timeout: 60000 });
 

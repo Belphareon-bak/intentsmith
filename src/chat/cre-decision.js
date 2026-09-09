@@ -1761,6 +1761,7 @@ const LOCAL_DETERMINISTIC_PATTERNS = [
   // Math calculations
   /kolik je \d+/i,                                    // "kolik je 5+3"
   /^\s*\d+[\s()]*[+\-*/][\s()]*\d+[\s()=?]*\s*$/,   // ONLY standalone: "5+3", "100/4" (entire input IS the expression)
+  /^\s*\d+(?:\s*[+\-*/]\s*\d+){2,}\s*[=?]?\s*$/u, // Standalone integer chains: "10 * 9 * 8"
   /^\s*\d+\s*(?:\*\*|\^)\s*\d+\s*$/,                 // v72: standalone power: "2**10", "2^8"
   /^\s*\d+\s*!\s*$/,                                  // v72: standalone factorial: "5!", "10!"
   /vypočítej/i, /spočítej/i, /vypocitej/i, /spocitej/i, /calculate\s+\d/i,

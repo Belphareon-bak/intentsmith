@@ -136,22 +136,31 @@ async function main() {
   // GUARD 6: during a role-playing session the campaign's cursed island wins
   // over the film lookup.
   //
-  // Both halves are asserted on purpose. "Prokletý ostrov" alone is not enough:
-  // the model classifies the bare title CREATIVE by itself, so the guard never
-  // fires and the assertion would hold for the wrong reason. This phrasing is
-  // SEARCH without the expertise, so a CREATIVE result can only come from the
-  // guard.
+  // docs/behaviours/02-cre.md C-12 requires the SEARCH -> CREATIVE guard.
+  // Observe its initial intent, override and final intent on the SAME actual
+  // model-backed decision. The bare author lookup now uses the deterministic
+  // knowledge path, so keep it as diagnostic context, not proof of what the
+  // separate expertise call initially classified.
   const lookup = 'kdo napsal Prokletý ostrov';
   const bare = await cre.decide(lookup);
   const underExpertise = await cre.decide(lookup, {
     hasActiveExpertise: true,
     expertise: { id: 'dnd-master', creativeLock: true, outputBias: 'creative' },
   });
+  const creativeDecision = underExpertise.toJSON();
+  const creativeDiag = creativeDecision.metadata?.diag;
   check(
-    bare.intent === IntentType.SEARCH
-    && underExpertise.intent === IntentType.CREATIVE,
-    'C-12 — under an active creative expertise, SEARCH is rewritten to CREATIVE'
-    + ` (got ${bare.intent} bare, ${underExpertise.intent} under expertise)`,
+    creativeDecision.intent === IntentType.CREATIVE
+    && creativeDecision.metadata?.classifiedBy === 'llm'
+    && creativeDiag?.initialIntent === IntentType.SEARCH
+    && creativeDiag?.finalIntent === IntentType.CREATIVE
+    && Array.isArray(creativeDiag?.overrides)
+    && creativeDiag.overrides.includes('guard6_creative_override'),
+    'C-12 — an actual model SEARCH decision is rewritten to CREATIVE by GUARD 6'
+    + ` (bare ${bare.intent}/${bare.metadata?.classifiedBy}; expertise `
+    + `${creativeDecision.metadata?.classifiedBy}/${creativeDiag?.initialIntent}`
+    + ` -> ${creativeDiag?.finalIntent}/${creativeDecision.intent}; `
+    + `overrides ${JSON.stringify(creativeDiag?.overrides ?? null)})`,
   );
 
   // ── C-13 — FILE_WRITE needs a target or a save signal ─────────────────────

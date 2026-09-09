@@ -15,6 +15,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CREDecisionEngine, DecisionType, IntentType } from '../src/chat/cre-decision.js';
 import { config } from '../src/config.js';
+import { computeMath } from '../src/tools/local-computations.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -54,6 +55,28 @@ async function main() {
     clock.type === DecisionType.LOCAL && math.type === DecisionType.LOCAL
     && (clock.tools?.length ?? 0) === 0 && (math.tools?.length ?? 0) === 0,
     'C-02 — LOCAL is a terminal decision that calls no tool and no gateway',
+  );
+
+  const chainEngine = new CREDecisionEngine();
+  let chainModelCalls = 0;
+  chainEngine._llmClassifyIntent = async () => { chainModelCalls++; return null; };
+  const chains = [['10 * 9 * 8', 720], ['2 + 3 * 4', 14], ['100 / 5 - 2?', 18]];
+  const chainDecisions = [];
+  for (const [input] of chains) chainDecisions.push(await chainEngine.decide(input));
+  check(
+    chainModelCalls === 0 && chainDecisions.every(decision => (
+      decision.intent === IntentType.LOCAL && decision.type === DecisionType.LOCAL
+      && decision.metadata?.handler === 'local.math'
+      && decision.metadata?.classifiedBy === 'deterministic'
+      && decision.tools.length === 0
+    )) && chains.every(([input, expected]) => computeMath(input).answer === expected),
+    'C-01c — complete integer expressions route to the existing local calculator without model calls',
+  );
+  check(
+    ['byt 2+1', 'i7-14700K', 'verze 1+2+3', '10 * 9 * 8 položek',
+      'x = 2 + 3 * 4', 'https://example.test/1/2/3', '1 + + 2 * 3', '2 ** 3 + 1']
+      .every(input => chainEngine.classifyIntent(input) !== IntentType.LOCAL),
+    'C-01d — numeric text, identifiers and unsupported expressions do not gain LOCAL authority',
   );
 
   // ── C-03 — every decision carries its own provenance ──────────────────────

@@ -15,6 +15,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { writeFileSync } from 'fs';
+import { resolveIsolatedArtifactPath } from '../tests/helpers/isolated-test-db.js';
 import {
   CREDecisionEngine,
   IntentType,
@@ -662,9 +663,12 @@ export class E2ETestRunner {
       tests: this.results,
     };
 
-    try {
-      writeFileSync('e2e-report.json', JSON.stringify(report, null, 2));
-    } catch { /* ignore in restricted FS */ }
+    const serializedReport = JSON.stringify(report, null, 2);
+    writeFileSync(
+      resolveIsolatedArtifactPath('e2e-report.json'),
+      serializedReport,
+      { mode: 0o600 },
+    );
 
     console.log(`\n${'═'.repeat(60)}`);
     console.log(`  E2E: ${this.passed} pass, ${this.warnings} warn, ${this.failed} fail, ${this.skipped} skip`);
