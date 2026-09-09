@@ -1017,7 +1017,9 @@ const CODE_ANALYSIS_PATTERNS = [
   /(?:why|proč).*(?:fail|padá|nefunguje|crash|error|chyb)/i,
   /(?:explain|vysvětli).*(?:code|kód|modul|funkc|metod|class|tříd)/i,
   /(?:debug|ladění|stacktrace|exception|traceback)/i,
-  /(?:root.?cause|příčin)/i,
+  // A cause question is not itself a code request; require an explicit code
+  // anchor before the fallback classifier selects CODE_ANALYSIS intent.
+  /^(?=.*(?:root.?cause|příčin))(?=.*(?:\b(?:code|codebase|bug|stacktrace|exception|traceback)\b|(?<![\p{L}\p{N}_])k[oó]d(?:u|em)?(?=\s|[.?!,:;]|$)))/iu,
   /(?:code.?review|review.*(?:kód|code))/i,
   /(?:how.*work|jak.*funguje).*(?:code|kód|modul|systém)/i,
   /(?:what.*does|co.*dělá).*(?:this|tato|ten|tento).*(?:code|kód|funkce|metoda)/i,

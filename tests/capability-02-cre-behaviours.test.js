@@ -80,6 +80,67 @@ async function main() {
     'C-01d — numeric text, identifiers and unsupported expressions do not gain LOCAL authority',
   );
 
+  // ── C-09e–h — cause vocabulary alone does not request code analysis ────
+  const causeEngine = new CREDecisionEngine();
+  let causeFallbackCalls = 0;
+  causeEngine._llmClassifyIntent = async () => { causeFallbackCalls++; return null; };
+  const ordinaryCauseInputs = [
+    'Jaké jsou nejčastější příčiny bolesti zad u lidí kolem 35 let?',
+    'Jaké jsou příčiny bolesti zad?',
+    'Jaké jsou příčiny škod?',
+    'Jaké jsou příčiny eroze půdy?',
+    'What are common root causes of back pain?',
+  ];
+  const ordinaryCauseDecisions = [];
+  for (const input of ordinaryCauseInputs) {
+    ordinaryCauseDecisions.push(await causeEngine.decide(input));
+  }
+  check(
+    ordinaryCauseInputs.every(input => causeEngine.classifyIntent(input) === IntentType.CONVERSATIONAL)
+    && ordinaryCauseDecisions.every(decision => (
+      decision.intent === IntentType.CONVERSATIONAL
+      && decision.type === DecisionType.ANSWER && decision.tools.length === 0
+    )),
+    'C-09e — ordinary cause questions cannot acquire CODE_ANALYSIS through regex fallback',
+  );
+  const codeCauseInputs = [
+    'Jaká je příčina této chyby v kódu?',
+    'What is the root cause in this code?',
+    'Příčiny pádu aplikace v kódu',
+    'Root cause in parser code',
+  ];
+  const codeCauseDecisions = [];
+  for (const input of codeCauseInputs) {
+    codeCauseDecisions.push(await causeEngine.decide(input, {
+      hasActiveProject: true, project: { id: 'cause-regression' },
+    }));
+  }
+  check(
+    codeCauseInputs.every(input => causeEngine.classifyIntent(input) === IntentType.CODE_ANALYSIS)
+    && codeCauseDecisions.every(decision => (
+      decision.intent === IntentType.CODE_ANALYSIS && decision.type === DecisionType.TOOL_CALL
+    )) && causeFallbackCalls > 0,
+    'C-09f — explicit code cause requests retain the existing CODE_ANALYSIS tool boundary',
+  );
+  check(
+    causeEngine.classifyIntent('Přečti soubor src/main.js') === IntentType.FILE_READ
+    && causeEngine.classifyIntent('Napiš obsah do souboru src/main.js') === IntentType.FILE_WRITE
+    && causeEngine.classifyIntent('Spusť npm test') === IntentType.SHELL,
+    'C-09g — cause qualification leaves explicit file and shell classification unchanged',
+  );
+  const classifiedCauseEngine = new CREDecisionEngine();
+  let classifiedCauseCalls = 0;
+  classifiedCauseEngine._llmClassifyIntent = async () => {
+    classifiedCauseCalls++;
+    return { intent: IntentType.SEARCH, confidence: 0.95 };
+  };
+  const classifiedCause = await classifiedCauseEngine.decide(ordinaryCauseInputs[0]);
+  check(
+    classifiedCauseCalls === 1 && classifiedCause.intent === IntentType.SEARCH
+    && classifiedCause.type === DecisionType.TOOL_CALL,
+    'C-09h — regex correction does not override an accepted SEARCH classification or tool authority',
+  );
+
   // ── C-09 — a requested middleware snippet needs no project effect ────────
   const inlineCodeEngine = new CREDecisionEngine();
   let inlineCodeModelCalls = 0;

@@ -850,7 +850,7 @@ async function main() {
     'M1 chat cancel/error contract',
     ['tests/m1-chat-contract.test.js'],
   );
-  assert.match(chatContract.stdout, /RESULTS: 21 passed, 0 failed/);
+  assert.match(chatContract.stdout, /RESULTS: 29 passed, 0 failed, 0 skipped/u);
   const modelAuthority = await runChild(
     'current model registry authority',
     ['tests/model-registry-current-authority.test.js'],

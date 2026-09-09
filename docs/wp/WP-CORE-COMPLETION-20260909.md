@@ -227,3 +227,11 @@ Workflow test nově sleduje skutečný veřejný `sessionId` a registrovanou
 session, včetně shody stavu. Povolené stavy zůstávají CLARIFYING nebo
 AWAITING_APPROVAL; FAILED se stále odmítá. Samotný test neprokazuje celý
 build/review workflow. Původní živé neúspěchy se uchovávají do přeměření.
+
+Přímé běhy dále prokázaly zastaralý vnořený M1 počet a příliš obecný CODE
+pattern. M1 journey nově vyžaduje přesných 29 PASS / 0 FAIL / 0 SKIP místo
+původních 21; všech původních 21 případů zůstává zahrnuto. Výraz pro příčiny
+vyžaduje výslovný code kontext, včetně Unicode hranice před českým slovem
+kód, aby také „příčiny škod“ zůstaly běžným dotazem. Skutečně klasifikovaný
+SEARCH, file/shell autorita i code dotazy se zachovávají. Původní vadný návrh
+a neúspěšné běhy jsou uchované, finální C02 sada prošla 23/23.
