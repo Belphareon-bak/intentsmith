@@ -17,6 +17,43 @@ import { formatProjectLearningContextForPlanner } from '../code-intel/project-le
 
 const LEARNED_PATTERN_STATUSES = new Set(['conformed', 'conflict_explicit']);
 
+// Bound only the newly accumulated prior-answer prefix; the original single
+// answer and first-call prompt remain unchanged. This is a UTF-8 growth limit,
+// not an estimate of model tokens or permission to exceed its context profile.
+const MAX_PRIOR_CLARIFICATION_BYTES = 8 * 1024;
+
+function specDraftError(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+
+function clarificationContext(draft, answers) {
+  const previous = draft._clarificationAnswers ?? [];
+  if (!Array.isArray(previous) || previous.some(answer => typeof answer !== 'string')) {
+    throw specDraftError('SPEC_CLARIFICATION_HISTORY_INVALID', 'Stored specification answers are invalid.');
+  }
+  const current = typeof answers === 'string' ? answers : String(JSON.stringify(answers, null, 2));
+  const history = previous.at(-1) === current ? [...previous] : [...previous, current];
+  const prior = history.slice(0, -1).map(answer => answer + '\n\n').join('');
+  if (Buffer.byteLength(prior, 'utf8') > MAX_PRIOR_CLARIFICATION_BYTES) {
+    throw specDraftError(
+      'SPEC_CLARIFICATION_BUDGET_EXCEEDED',
+      'Specification answer history exceeds its retained-context budget; no answer was discarded or submitted.',
+    );
+  }
+  return { history, text: prior + current };
+}
+
+function replaceSpecDraft(lifecycleId, value, expectedSpec) {
+  const serialized = JSON.stringify(value);
+  const result = lifecycleRepo.updateSpecIfCurrent.run(serialized, lifecycleId, expectedSpec);
+  if (result.changes !== 1) {
+    throw specDraftError('SPEC_DRAFT_STALE', 'Specification draft changed while preparing its response.');
+  }
+  return serialized;
+}
+
 function validateLearnedPatternConformance(value, projectLearningContext) {
   const entries = value === undefined ? [] : value;
   if (!Array.isArray(entries)) {
@@ -226,11 +263,20 @@ export async function startSpec(lifecycle, request, context = {}) {
 export async function answerSpecQuestions(lifecycle, answers) {
   logger.info('LifecycleSpec', 'Processing spec answers', { lifecycleId: lifecycle.id });
 
-  // Retrieve stored draft
-  const draft = lifecycleRepo.getSpec(lifecycle.id);
+  // Read one exact lifecycle-local draft. Persist this user answer before the
+  // asynchronous model call so parse/transport failure cannot erase it.
+  const row = lifecycleRepo.findById.get(lifecycle.id);
+  let draft;
+  try { draft = JSON.parse(row?.spec); } catch { draft = null; }
   if (!draft || !draft._request) {
     throw new Error('No spec draft found — call startSpec first');
   }
+  const clarification = clarificationContext(draft, answers);
+  const pendingSpec = replaceSpecDraft(
+    lifecycle.id,
+    { ...draft, _clarificationAnswers: clarification.history },
+    row.spec,
+  );
 
   // Generate structured spec from request + answers + assessment (including technical decisions)
   const fullAssessment = {
@@ -238,9 +284,12 @@ export async function answerSpecQuestions(lifecycle, answers) {
     technical_decisions: draft._technicalDecisions || [],
     implicit_assumptions: draft._implicitAssumptions || [],
   };
-  const prompt = specDocument(draft._request, answers, fullAssessment);
+  const prompt = specDocument(draft._request, clarification.text, fullAssessment);
   const llm = lifecycle.callLLM || callLLM;
   const result = await llm('D1', prompt);
+  if (lifecycleRepo.findById.get(lifecycle.id)?.spec !== pendingSpec) {
+    throw specDraftError('SPEC_DRAFT_STALE', 'Specification draft changed while waiting for its response.');
+  }
   const spec = parseJSON(result.content);
 
   if (!spec) {
@@ -257,15 +306,21 @@ export async function answerSpecQuestions(lifecycle, answers) {
     });
 
     // Store invalid spec for reference but report issues
-    // Preserve draft fields (_request, _assessment, etc.) so answerSpecQuestions can be retried
+    // Preserve the original draft context; model output cannot replace these
+    // fields when a validation failure requires another clarification turn.
     const enrichedSpec = {
       ...spec,
       _request: draft._request,
       _assessment: draft._assessment,
+      _questions: draft._questions,
+      _technicalDecisions: draft._technicalDecisions,
+      _implicitAssumptions: draft._implicitAssumptions,
+      _learnedPatternConformance: draft._learnedPatternConformance,
+      _clarificationAnswers: clarification.history,
       _validation: validation,
       _phase: 'VALIDATION_FAILED',
     };
-    lifecycleRepo.updateSpec.run(JSON.stringify(enrichedSpec), lifecycle.id);
+    replaceSpecDraft(lifecycle.id, enrichedSpec, pendingSpec);
 
     return {
       spec,
@@ -274,8 +329,8 @@ export async function answerSpecQuestions(lifecycle, answers) {
     };
   }
 
-  // Valid spec — store it
-  lifecycleRepo.updateSpec.run(JSON.stringify(spec), lifecycle.id);
+  // Valid spec — replace only the draft used for this exact generation.
+  replaceSpecDraft(lifecycle.id, spec, pendingSpec);
 
   return {
     spec,

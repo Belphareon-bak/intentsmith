@@ -1181,6 +1181,11 @@ export const lifecycles = {
     UPDATE project_lifecycles SET spec = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
   `),
 
+  updateSpecIfCurrent: db.prepare(`
+    UPDATE project_lifecycles SET spec = ?, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ? AND spec = ? AND phase = 'SPEC'
+  `),
+
   updateConfig: db.prepare(`
     UPDATE project_lifecycles SET config = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
   `),

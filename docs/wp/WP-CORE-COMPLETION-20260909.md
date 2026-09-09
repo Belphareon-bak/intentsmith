@@ -282,3 +282,18 @@ zobrazené hodnoty s DB. To odmítne dvě falešně zelené kalendářové odpov
 kde stará regex aserce přijala číslici „2“ nebo část slova v odmítací zprávě.
 Nezávislé review ověřilo 20 skutečných offline LOCAL kontrol a 15 inertních
 kontrol diagnostiky. Modelové přeměření obou původních sad ještě zbývá.
+
+SPEC clarification oprava nyní uchová uspořádané odpovědi v původním draftu
+před D1 voláním. Opakovaný identický poslední vstup se neduplikuje; změny
+A→B→A zůstanou. Compare-and-set zápis připíná ID, přesné předchozí spec bytes
+a fázi SPEC, takže staré dokončení nepřepíše novější odpověď. Neplatný modelový
+výsledek nezahodí původní otázky, technická rozhodnutí, implicitní předpoklady
+ani learning conformance. Nový limit 8 KiB se týká pouze přidávaného prefixu
+předchozích odpovědí; první samostatný vstup se nemění. Přetečení skončí
+výslovnou chybou před modelem a zachová draft, bez ořezání obsahu. Nejde o
+odhad tokenů nebo povolení většího modelového kontextu. Párová původní sada
+106 PASS / 14 FAIL proti opraveným 120 PASS a nezávislé review jsou uchované.
+Workflow wrapper dále předává skutečné gateway finishReason, včetně null při
+chybějícím důkazu; nemění authority, počet volání ani chyby. Celá sada má 45
+PASS. Dokončení dlouhé specifikace tím vyřešeno není: obě skutečné omezené
+varianty kompaktního/plánovacího požadavku zůstávají FAIL a nebyly nasazeny.

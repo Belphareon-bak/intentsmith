@@ -7,12 +7,13 @@ import './helpers/isolated-test-db.js';
 //
 // Run: node tests/lifecycle.test.js
 //
-// NOTE: LLM-dependent functions (startSpec, generateRoadmap, etc.) are NOT
-//       tested here — those require integration tests with Ollama running.
-//       This file tests pure logic: validation, enums, state machine, deps.
+// Model quality remains covered by registered integration programs. SPEC
+// answer retention below uses the real repository and an inert callLLM seam;
+// it does not contact a model or execute generated code.
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { validateSpec } from '../src/planner/lifecycle-spec.js';
+import { answerSpecQuestions, validateSpec } from '../src/planner/lifecycle-spec.js';
+import { specDocument } from '../src/planner/lifecycle-prompts.js';
 import { validateDependencies, checkDependencies } from '../src/planner/lifecycle-planning.js';
 import {
   ProjectPhase,
@@ -652,6 +653,121 @@ console.log('\n── Index Exports ──');
   assert(typeof indexModule.WorkflowOrchestrator === 'function', 'index still exports WorkflowOrchestrator');
   assert(typeof indexModule.WorkflowState === 'object', 'index still exports WorkflowState');
   assert(typeof indexModule.workflowOrchestrator === 'object', 'index still exports workflowOrchestrator singleton');
+}
+
+
+// ─── SPEC clarification retention (real private DB, inert D1) ───────────────
+console.log('\n── SPEC clarification retention ──');
+{
+  const draft = { _phase: 'ANALYZING', _request: 'Build a recipe API.', _assessment: { complexity: 'MEDIUM' }, _technicalDecisions: [], _implicitAssumptions: [] };
+  let counter = 0;
+  const newLifecycle = (callLLM, initial = draft) => {
+    const lifecycle = new ProjectLifecycle({ id: `lc-answers-${Date.now()}-${counter++}`, projectId: testProjectId, projectPath: '/tmp/test', callLLM });
+    lifecycle.save();
+    lifecycleRepo.updateSpec.run(JSON.stringify(initial), lifecycle.id);
+    return lifecycle;
+  };
+  const failureOf = async promise => {
+    try { await promise; return null; } catch (error) { return error; }
+  };
+  const valid = title => ({
+    title,
+    goals: [1, 2, 3].map(id => ({ id: `G${id}`, description: `Goal ${id}`, success_criteria: `Check ${id}` })),
+    requirements: [1, 2, 3, 4, 5].map(id => ({ id: `R${id}`, description: `Requirement ${id}`, acceptance_test: `Test ${id}` })),
+    tech_stack: { languages: ['Python'] },
+    design_decisions: [{ id: 'DD1', decision: 'Database', rationale: 'Local use', alternatives_considered: ['SQLite', 'PostgreSQL'] }],
+    risks: [{ id: 'RISK1', description: 'Concurrent writes' }],
+    acceptance_criteria: ['All API tests pass'],
+  });
+
+  const prompts = [];
+  const malformed = async (_role, prompt) => { prompts.push(prompt); return { content: 'SYNTHETIC malformed spec' }; };
+  const first = 'Use SQLite; preserve recipes offline.';
+  const second = 'Change storage to PostgreSQL; retain recipe export.';
+  const lifecycle = newLifecycle(malformed);
+  await failureOf(answerSpecQuestions(lifecycle, first));
+  assert(prompts[0] === specDocument(draft._request, first, { ...draft._assessment, technical_decisions: [], implicit_assumptions: [] }), 'first SPEC prompt remains byte-for-byte unchanged');
+  assert(JSON.stringify(lifecycleRepo.getSpec(lifecycle.id)._clarificationAnswers) === JSON.stringify([first]), 'parse failure durably retains first clarification');
+  const resumed = ProjectLifecycle.resume(lifecycle.id, '/tmp/test');
+  resumed.callLLM = malformed;
+  await failureOf(answerSpecQuestions(resumed, second));
+  await failureOf(answerSpecQuestions(resumed, first));
+  await failureOf(answerSpecQuestions(resumed, first));
+  assert(JSON.stringify(lifecycleRepo.getSpec(lifecycle.id)._clarificationAnswers) === JSON.stringify([first, second, first]), 'resume retains A → B → A corrections and coalesces only consecutive duplicates');
+  assert(prompts[2].includes(first + '\n\n' + second + '\n\n' + first) && prompts[2] === prompts[3], 'all prior answers reach D1 once per retained turn without duplicated retry context');
+  assert(lifecycleRepo.findById.get(lifecycle.id).phase === 'SPEC', 'malformed output does not advance SPEC');
+
+  const isolatedPrompts = [];
+  const isolated = newLifecycle(async (_role, prompt) => { isolatedPrompts.push(prompt); throw new Error('SYNTHETIC transport failure'); });
+  await failureOf(answerSpecQuestions(isolated, 'Use local image files only.'));
+  assert(!isolatedPrompts[0].includes(first) && JSON.stringify(lifecycleRepo.getSpec(isolated.id)._clarificationAnswers) === JSON.stringify(['Use local image files only.']), 'transport failure retains answers only in its own lifecycle draft');
+
+  const validationPrompts = [];
+  const fullDraft = {
+    ...draft,
+    _questions: ['Must recipes remain usable offline?'],
+    _technicalDecisions: [{ area: 'Storage', decision: 'SQLite', rationale: 'Offline use', alternatives_considered: ['PostgreSQL', 'JSON files'] }],
+    _implicitAssumptions: ['Recipes contain Unicode ingredient names.'],
+    _learnedPatternConformance: [{ itemId: 'pattern-local-storage', status: 'conformed', evidence: 'Keep local storage.' }],
+  };
+  let validationRound = 0;
+  const validationLc = newLifecycle(async (_role, prompt) => {
+    validationPrompts.push(prompt);
+    return { content: JSON.stringify(validationRound++ === 0
+      ? { title: 'Incomplete', _request: 'MODEL MUST NOT REPLACE REQUEST', _assessment: {}, _questions: [], _technicalDecisions: [], _implicitAssumptions: [], _learnedPatternConformance: [], _clarificationAnswers: ['MODEL MUST NOT REPLACE ANSWERS'] }
+      : valid('Completed')) };
+  }, fullDraft);
+  const invalid = await answerSpecQuestions(validationLc, first);
+  const invalidDraft = lifecycleRepo.getSpec(validationLc.id);
+  const contextFields = ['_request', '_assessment', '_questions', '_technicalDecisions', '_implicitAssumptions', '_learnedPatternConformance'];
+  assert(contextFields.every(key => JSON.stringify(invalidDraft[key]) === JSON.stringify(fullDraft[key])), 'validation failure preserves original draft facts and conformance against model replacement');
+  const corrected = await answerSpecQuestions(validationLc, second);
+  assert(validationPrompts[1] === specDocument(fullDraft._request, first + '\n\n' + second, { ...fullDraft._assessment, technical_decisions: fullDraft._technicalDecisions, implicit_assumptions: fullDraft._implicitAssumptions }), 'validation retry receives every original technical decision and implicit assumption');
+  assert(invalid.needsMore === true && corrected.needsMore === false && validationPrompts[1].includes(first + '\n\n' + second), 'validation failure also preserves earlier clarification for correction');
+
+  // The cap applies only to added prior-answer context, never the first input.
+  let largeCalls = 0;
+  const large = newLifecycle(async () => { largeCalls++; return { content: 'SYNTHETIC malformed spec' }; });
+  const largeAnswer = 'é'.repeat(4096); // 8192 UTF-8 bytes, plus two prefix newlines.
+  await failureOf(answerSpecQuestions(large, largeAnswer));
+  assert(largeCalls === 1, 'original large single answer is not newly rejected');
+  const beforeOverflow = lifecycleRepo.findById.get(large.id).spec;
+  const overflow = await failureOf(answerSpecQuestions(large, 'Keep every earlier requirement.'));
+  assert(overflow?.code === 'SPEC_CLARIFICATION_BUDGET_EXCEEDED' && largeCalls === 1 && lifecycleRepo.findById.get(large.id).spec === beforeOverflow, 'over-budget UTF-8 history fails before model and preserves exact prior draft');
+  await failureOf(answerSpecQuestions(large, largeAnswer));
+  assert(largeCalls === 2 && JSON.stringify(lifecycleRepo.getSpec(large.id)._clarificationAnswers) === JSON.stringify([largeAnswer]), 'identical retry adds no history and still accepts the original large answer');
+
+  const boundary = newLifecycle(malformed);
+  const boundaryAnswer = 'é'.repeat(4095); // 8190 bytes + two newlines = exact8192.
+  await failureOf(answerSpecQuestions(boundary, boundaryAnswer));
+  const beforeBoundaryCalls = prompts.length;
+  await failureOf(answerSpecQuestions(boundary, 'Refinement'));
+  assert(prompts.length === beforeBoundaryCalls + 1 && lifecycleRepo.getSpec(boundary.id)._clarificationAnswers?.length === 2, 'exact UTF-8 prior-prefix boundary is accepted without dropping content');
+
+  const pending = [];
+  const concurrent = newLifecycle((_role, prompt) => new Promise(resolve => pending.push({ prompt, resolve })));
+  const older = answerSpecQuestions(concurrent, first).then(value => ({ value }), error => ({ error }));
+  const newer = answerSpecQuestions(concurrent, second).then(value => ({ value }), error => ({ error }));
+  pending[1].resolve({ content: JSON.stringify(valid('Newer complete spec')) });
+  const newerResult = await newer;
+  pending[0].resolve({ content: JSON.stringify(valid('Older stale spec')) });
+  const olderResult = await older;
+  assert(newerResult.value?.needsMore === false && olderResult.error?.code === 'SPEC_DRAFT_STALE' && lifecycleRepo.getSpec(concurrent.id).title === 'Newer complete spec', 'overlapping stale completion cannot overwrite the newer specification');
+  assert(pending[1].prompt.includes(first + '\n\n' + second), 'overlapping later turn includes the earlier persisted clarification');
+
+  let releasePhase;
+  const phaseLc = newLifecycle(() => new Promise(resolve => { releasePhase = resolve; }));
+  const phaseResult = answerSpecQuestions(phaseLc, first).then(value => ({ value }), error => ({ error }));
+  const pendingPhaseSpec = lifecycleRepo.findById.get(phaseLc.id).spec;
+  lifecycleRepo.updatePhase.run('SPEC_REVIEW', phaseLc.id);
+  releasePhase({ content: JSON.stringify(valid('Unexpected late spec')) });
+  const phaseOutcome = await phaseResult;
+  assert(phaseOutcome.error?.code === 'SPEC_DRAFT_STALE' && lifecycleRepo.findById.get(phaseLc.id).spec === pendingPhaseSpec, 'atomic draft replacement also rejects a concurrent phase change');
+
+  let corruptCalls = 0;
+  const corrupt = newLifecycle(async () => { corruptCalls++; return { content: 'SYNTHETIC malformed' }; }, { ...draft, _clarificationAnswers: ['Saved answer', 42] });
+  const corruptError = await failureOf(answerSpecQuestions(corrupt, first));
+  assert(corruptError?.code === 'SPEC_CLARIFICATION_HISTORY_INVALID' && corruptCalls === 0, 'malformed stored history fails closed before a model call');
 }
 
 // ════════════════════════════════════════════════════════════════════════════════

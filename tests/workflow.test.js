@@ -7,7 +7,10 @@ import {
   WorkflowSession,
   WorkflowState,
   ReviewVerdict,
+  callLLM,
 } from '../src/planner/workflow.js';
+import { llmGateway } from '../src/llm/gateway.js';
+import { LLMCallerRole } from '../src/llm/auth-types.js';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 suite('WorkflowState — enum completeness');
@@ -596,6 +599,65 @@ test('Has _currentStage method', () => {
   assertEqual(orch._currentStage('FINAL_REVIEWING'), 'R1');
   assertEqual(orch._currentStage('COMPLETED'), 'done');
   assertEqual(orch._currentStage('UNKNOWN'), 'unknown');
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+suite('Workflow callLLM — gateway completion evidence');
+// The real wrapper and callWithAuth run; only the gateway effect is inert.
+// No inference, persistence, retry policy or model authority is exercised here.
+
+await testAsync('preserves actual stop/length evidence and request authority', async () => {
+  const originalCall = llmGateway.call;
+  const requests = [];
+  let reason;
+  try {
+    llmGateway.call = async (prompt, options) => {
+      requests.push({ prompt, options });
+      return { content: '{"title":"Synthetic spec"}', finishReason: reason, promptEvalCount: 3061, evalCount: 1035 };
+    };
+    for (const finishReason of ['stop', 'length']) {
+      reason = finishReason;
+      const result = await callLLM('D1', 'Synthetic specification request', 'Synthetic system');
+      assertEqual(result.finishReason, finishReason);
+      assertEqual(result.content, '{"title":"Synthetic spec"}');
+      assertEqual(result.promptEvalCount, 3061);
+      assertEqual(result.evalCount, 1035);
+    }
+    assertEqual(requests.length, 2, 'one gateway call per wrapper invocation');
+    for (const { prompt, options } of requests) {
+      assertEqual(prompt, 'Synthetic specification request');
+      assertEqual(options.systemPrompt, 'Synthetic system');
+      assertEqual(options._authToken.role, LLMCallerRole.WORKFLOW_PLANNER);
+      assertEqual(options._authToken.maxTokens, 4000);
+    }
+  } finally { llmGateway.call = originalCall; }
+});
+
+await testAsync('does not invent a stop reason for legacy or absent evidence', async () => {
+  const originalCall = llmGateway.call;
+  try {
+    for (const response of ['legacy content', { content: 'missing reason' }, { content: 'explicit null', finishReason: null }]) {
+      llmGateway.call = async () => response;
+      const result = await callLLM('D1', 'Synthetic compatibility request');
+      assertEqual(result.finishReason, null);
+      assertEqual(result.content, typeof response === 'string' ? response : response.content);
+    }
+    llmGateway.call = async () => ({ content: 'Provider-specific terminal', finishReason: 'provider-specific' });
+    assertEqual((await callLLM('D1', 'Synthetic evidence request')).finishReason, 'provider-specific');
+  } finally { llmGateway.call = originalCall; }
+});
+
+await testAsync('propagates the same gateway failure without a new retry', async () => {
+  const originalCall = llmGateway.call;
+  const expected = new Error('SYNTHETIC gateway failure');
+  let calls = 0;
+  let caught;
+  try {
+    llmGateway.call = async () => { calls++; throw expected; };
+    try { await callLLM('D1', 'Synthetic failed request'); } catch (error) { caught = error; }
+    assertEqual(caught, expected);
+    assertEqual(calls, 1);
+  } finally { llmGateway.call = originalCall; }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
