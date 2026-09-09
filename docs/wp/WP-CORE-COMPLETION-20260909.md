@@ -248,3 +248,17 @@ Nejde o úplný jazykový analyzátor; nejasný text neprojde automaticky. Obsah
 predikáty zůstávají a existující harness self-test ověří pozitivní i negativní
 jazykové případy. Neúspěch uchová až 8 192 znaků a hash celé odpovědi. Původní
 100znakový výřez neprokazuje jazyk celé odpovědi, původní FAIL proto zůstává.
+
+Nové stejno-volání trace na `69b52278` prokázalo, že tři české výpisy projektu
+převádí už primární model na CONVERSATIONAL; Guard9 ani Guard12 nezasáhly.
+Úzké deterministické rozpoznání nyní vyžaduje aktivní projekt, explicitní
+výpis, existující FILE_READ pattern a parserový adresář `.`. Zahrnuje pouze
+přesný suffix existujícího `buildProjectHint(context)` na skutečné produkční
+cestě; negace, shrnutí, cizí suffix a file/shell hranice se nemění. Nová hrana
+vede na čistý existující formatter a je předmětem review. Párová sada stejných
+9 kontrol: původně 8/1, opraveně 9/0, bez modelu. Jde o správné směrování;
+M2 file.list zůstává UNAVAILABLE a funkční výpis adresáře tím prokázán není.
+Doplněný původní chat-persistence běh prošel 35 kontrolami, ale odhalil jeden
+nevyčkaný async callback. Oprava přidává pouze async/await před existující
+singleton kontrolu a zachovává všech 36 testů; negativní probe nově skutečně
+propadne s exit 1. Historický 35/0 výsledek zůstává uchovaný s tímto omezením.

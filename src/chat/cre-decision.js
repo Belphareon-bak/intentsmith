@@ -35,6 +35,7 @@ import { extractJSON } from '../llm/client.js';
 import { config } from '../config.js';
 import { featureManager } from '../core/feature-manager.js';
 import { throwIfAborted } from '../core/abort-error.js';
+import { buildProjectHint } from './handlers/utils/project-context-prompt.js';
 
 // v73: Lazy import to avoid circular dependency (followup.js → intent.js → cre-decision.js)
 let _detectFollowUpType = null;
@@ -801,6 +802,14 @@ const DETERMINISTIC_INLINE_CODE_PATTERNS = [
   /^(?:napi[sš]|write|show|give)(?:\s|$).{0,60}(?:funkci|function|middleware|regex|regul[aá]rn[ií]\s+v[ýiyií]raz|jednoduch[ýiyi]\s+(?:HTTP\s+)?server|simple\s+(?:HTTP\s+)?server|skript|script)\b/iu,
   /^(?:a\s+co\s+)?rekurzivn[ií]\s+verze\b/iu,
   /^recursive\s+version\b/iu,
+];
+
+// Explicit project listings select the existing file handler; they do not
+// grant filesystem authority. Bare topics and project summaries stay outside.
+const DETERMINISTIC_PROJECT_LISTING_PATTERNS = [
+  /^(?:jak[eé]|kter[eé]|co\s+za)\s+soubory\s+(?:jsou\s+)?v\s+(?:(?:tomto|tom|aktivn[ií]m)\s+)?projektu\s*[?!.]?$/iu,
+  /^(?:vypi[sš]|uka[zž]|zobraz)\s+(?:mi\s+)?(?:obsah|soubory|strukturu)\s+projektu\s*[?!.]?$/iu,
+  /^(?:list|show)\s+(?:the\s+)?(?:project\s+)?files\s*[?!.]?$/iu,
 ];
 
 const DETERMINISTIC_LIVE_SEARCH_PATTERNS = [
@@ -3174,6 +3183,17 @@ PRAVIDLA:
     const _text = input.trim();
     const _norm = normalizeForClassification(_text);
     const deterministicIntent = this.classifyIntent(input);
+    // ConversationHandler appends this exact context-owned formatter output.
+    // Remove only that suffix for the new listing recognizer; all later guards
+    // still receive the unchanged input and must enforce their normal rules.
+    const projectHint = buildProjectHint(context);
+    const listingInput = projectHint && _text.endsWith(projectHint)
+      ? _text.slice(0, -projectHint.length).trim()
+      : _text;
+    const isDeterministicProjectListing = Boolean(context.hasActiveProject || context.project?.id)
+      && DETERMINISTIC_PROJECT_LISTING_PATTERNS.some(pattern => pattern.test(listingInput))
+      && this.classifyIntent(listingInput) === IntentType.FILE_READ
+      && extractFilePath(listingInput) === '.';
     const isLowInformation = /^[\p{Extended_Pictographic}\p{Emoji_Presentation}\s!?.,…]+$/u.test(_text);
     const isAmbiguousTechnologyTopic = /^(?:python|javascript|typescript|java|rust|go|ruby|php|c\+\+|sql)$/iu.test(_text);
     // A numeric finance/tax question may need a specialist calculator. Keep the
@@ -3218,13 +3238,15 @@ PRAVIDLA:
           ].includes(deterministicIntent))
         || (isStableKnowledgeExplanation && deterministicIntent === IntentType.DESIGN)
       );
-    const resolvedDeterministicIntent = isDeterministicLiveSearch
-      ? IntentType.SEARCH
-      : isDeterministicInlineCode
-        ? IntentType.CODE
-        : stableConversationOverride
-          ? IntentType.CONVERSATIONAL
-          : deterministicIntent;
+    const resolvedDeterministicIntent = isDeterministicProjectListing
+      ? IntentType.FILE_READ
+      : isDeterministicLiveSearch
+        ? IntentType.SEARCH
+        : isDeterministicInlineCode
+          ? IntentType.CODE
+          : stableConversationOverride
+            ? IntentType.CONVERSATIONAL
+            : deterministicIntent;
     const isDeterministic =
       (resolvedDeterministicIntent === IntentType.CONVERSATIONAL
         && !mayRequireLocalAuthority
@@ -3235,6 +3257,7 @@ PRAVIDLA:
           || isStableDiscussion
           || isStableLearningGoal)) ||
       resolvedDeterministicIntent === IntentType.LOCAL ||
+      isDeterministicProjectListing ||
       isDeterministicInlineCode ||
       isDeterministicCreative ||
       isDeterministicLiveSearch ||

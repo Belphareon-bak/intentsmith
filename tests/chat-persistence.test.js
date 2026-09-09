@@ -763,9 +763,9 @@ describe('T9.4: Invariant enforcement', () => {
 // T9.5: ENDPOINT SESSION CONTRACT
 // ══════════════════════════════════════════════════════════════════════════════
 
-describe('T9.5: Endpoint session contract', () => {
+describe('T9.5: Endpoint session contract', async () => {
 
-  it('ConversationStore singleton can be reset (for test isolation)', async () => {
+  await it('ConversationStore singleton can be reset (for test isolation)', async () => {
     resetConversationStore();
     // After reset, importing getConversationStore should create fresh instance
     const { getConversationStore } = await import('../src/chat/conversation-store.js');
