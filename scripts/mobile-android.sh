@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
-# The phone-to-gateway path, and the build that uses it.
+# The reviewed development cable path and the M7 VPN-only production path.
 # =============================================================================
 #
-# The gateway binds loopback and refuses anything else without
-# `C3_MOBILE_ALLOW_REMOTE`, because a remote listener and production pairing are
-# an M7 boundary after M6 (`G0-R032`, ROADMAP §11).  That pushback is right, and
-# it leaves one honest way to reach the gateway from a phone: make the phone's
-# own loopback *be* the desktop's.
+# Legacy development uses the loopback gateway over `adb reverse`. Production
+# `remote-core-v1` never uses that gateway: it talks only to the dedicated TLS
+# 1.3 M7 listener at the build-pinned VPN origin and SPKI.
 #
 #   adb reverse tcp:3336 tcp:3336
 #
@@ -15,20 +13,16 @@
 # desktop, and the gateway's own binding does not change — from its side the
 # connection arrives on loopback, which is exactly what it already allows.
 #
-# That is why this is not a workaround waiting for a "real" remote mode.  It is
-# the only path that is *both* usable today and inside the boundary M7 has not
-# yet moved.
-#
 # Subcommands:
 #   reverse   open the tunnel (idempotent; safe to re-run)
 #   keystore  create the internal signing key, once
 #   build     assemble the signed release APK
 #   install   install it on the attached device
-#   run       reverse + install + launch
+#   run       install + launch; reverse is opened only for legacy development
 #   doctor    say what is and is not ready, without changing anything
 #
-# Adresa gateway se volí proměnnou C3_MOBILE_APP_URL při buildu — rozhodnutí
-# 026 (bezdrát přes VPN).  Výchozí je loopback, tedy kabel.
+# Build identity is selected by C3_MOBILE_TRANSPORT_MODE, C3_MOBILE_APP_URL and
+# C3_M7_SERVER_SPKI_PIN. The default remains explicit legacy cable mode.
 # =============================================================================
 
 set -euo pipefail
@@ -39,17 +33,20 @@ ANDROID_DIR="$APP_DIR/android"
 PORT="${C3_MOBILE_PORT:-3336}"
 APP_ID="cz.intentsmith.companion"
 
-# Kam se aplikace připojuje.  Výchozí je loopback telefonu, který přes
-# `adb reverse` vede kabelem sem.  Pro bezdrát (rozhodnutí 026) se sem dá
-# adresa v tunelu VPN:
+# Legacy development defaults to phone loopback over `adb reverse`. Production
+# uses the exact dedicated M7 origin in the VPN:
 #
-#   C3_MOBILE_APP_URL=http://100.64.1.5:3336 npm run mobile:android:build
+#   C3_MOBILE_TRANSPORT_MODE=remote-core-v1 \
+#   C3_MOBILE_APP_URL=https://100.64.1.5:7443 \
+#   C3_M7_SERVER_SPKI_PIN=sha256:<64-hex> npm run mobile:android:build
 #
 # Je to vstup **buildu**, ne skryté runtime nastavení. UI je zabalené v APK a
 # most zůstává jen na lokálním app originu; build přepisuje pouze generovaný
-# API config. Runtime výběr endpointu patří až k autentizovanému M7 pairing
-# kontraktu, aby změna adresy nemohla tiše změnit protistranu.
+# public transport identity. The remote endpoint is never accepted from a QR,
+# server response, SQLite row or WebView input.
 APP_URL="${C3_MOBILE_APP_URL:-http://127.0.0.1:$PORT}"
+TRANSPORT_MODE="${C3_MOBILE_TRANSPORT_MODE:-legacy-m1-dev}"
+M7_SPKI_PIN="${C3_M7_SERVER_SPKI_PIN:-}"
 
 # The toolchain is not assumed to be on PATH: this repo is developed on machines
 # where the Android SDK was unpacked by hand rather than installed by Studio.
@@ -84,6 +81,10 @@ cmd_doctor() {
   [ -f "$ANDROID_DIR/local.properties" ] && note "✓ local.properties" || note "✗ local.properties (spusť: $0 build)"
   [ -f "$ANDROID_DIR/keystore.properties" ] && note "✓ podpisový klíč" || note "✗ podpisový klíč není — release build selže (záměr)"
   note "· adresa v buildu: $APP_URL"
+  note "· transport: $TRANSPORT_MODE"
+  if [ "$TRANSPORT_MODE" = "remote-core-v1" ]; then
+    [ -n "$M7_SPKI_PIN" ] && note "✓ M7 SPKI pin je dodán" || note "✗ M7 SPKI pin chybí"
+  fi
   if [ -x "$ADB" ]; then
     local devices
     devices="$("$ADB" devices | awk 'NR>1 && $2=="device" {print $1}')"
@@ -92,7 +93,9 @@ cmd_doctor() {
       && note "✓ tunel      tcp:$PORT je otevřený" \
       || note "· tunel      není (spusť: $0 reverse)"
   fi
-  if curl -s -m 2 "http://127.0.0.1:$PORT/m1/health" >/dev/null 2>&1; then
+  if [ "$TRANSPORT_MODE" = "remote-core-v1" ]; then
+    note "· M7 health  ověřuje až nainstalovaná aplikace přes pinned TLS; host curl není autorita"
+  elif curl -s -m 2 "http://127.0.0.1:$PORT/m1/health" >/dev/null 2>&1; then
     note "✓ gateway    odpovídá na 127.0.0.1:$PORT"
   else
     note "✗ gateway    neodpovídá — spusť: npm run mobile:gateway"
@@ -101,6 +104,8 @@ cmd_doctor() {
 }
 
 cmd_reverse() {
+  [ "$TRANSPORT_MODE" = "legacy-m1-dev" ] \
+    || die "adb reverse patří jen legacy-m1-dev; remote-core-v1 používá VPN TLS origin"
   need_adb
   "$ADB" wait-for-device
   # Re-running is safe: adb replaces an identical mapping rather than stacking
@@ -163,6 +168,7 @@ cmd_configure_url() {
   esac
 
   APP_DIR="$APP_DIR" ANDROID_DIR="$ANDROID_DIR" IS_URL="$url" \
+    IS_TRANSPORT_MODE="$TRANSPORT_MODE" IS_M7_SPKI_PIN="$M7_SPKI_PIN" \
     python3 "$REPO_ROOT/scripts/mobile-android-configure-url.py"
   note "✓ aplikace se bude připojovat na $url"
 }
@@ -183,6 +189,13 @@ cmd_build() {
   cmd_configure_url "$APP_URL"
   node "$REPO_ROOT/scripts/mobile-release-source-manifest.mjs" >/dev/null
   local -a gradle_args=(--no-daemon :app:assembleRelease :app:bundleRelease)
+  if [ "$TRANSPORT_MODE" = "remote-core-v1" ]; then
+    gradle_args=(
+      "-PintentsmithM7Origin=$APP_URL"
+      "-PintentsmithM7SpkiPin=$M7_SPKI_PIN"
+      "${gradle_args[@]}"
+    )
+  fi
   if [ "${C3_MOBILE_ALLOW_DEBUG_SIGNING:-}" = "yes-i-know" ]; then
     gradle_args=(-PallowDebugSigning=true "${gradle_args[@]}")
     note "· release artefakty budou výslovně označené debug podpisem"
@@ -208,7 +221,9 @@ cmd_install() {
 }
 
 cmd_run() {
-  cmd_reverse
+  if [ "$TRANSPORT_MODE" = "legacy-m1-dev" ]; then
+    cmd_reverse
+  fi
   cmd_install
   need_adb
   "$ADB" shell monkey -p "$APP_ID" -c android.intent.category.LAUNCHER 1 >/dev/null

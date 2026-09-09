@@ -14,12 +14,15 @@
 //
 // ==============================================================================
 
-const SHELL = 'is-shell-v3';
+const SHELL = 'is-shell-v4';
 const ASSETS = [
   '/',
   '/index.html',
   '/app.css',
   '/app.js',
+  '/m7-native-remote-client.js',
+  '/m7-runtime-contract-v1.js',
+  '/m7-ui-api-adapter.js',
   '/remote-core-v1.js',
   '/runtime-config.js',
   '/manifest.webmanifest',

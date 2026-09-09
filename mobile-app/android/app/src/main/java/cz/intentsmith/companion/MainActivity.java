@@ -53,10 +53,10 @@ import com.getcapacitor.BridgeActivity;
  * ── What it is not ─────────────────────────────────────────────────────────
  *
  * There is no rewrite of the client here and no second implementation of any
- * screen. The WebView loads the assets bundled from `src/mobile/client`; the
- * Capacitor HTTP bridge sends API traffic to the explicitly built gateway
- * origin. The remote server therefore never supplies code that can call this
- * vault bridge.
+ * screen. The WebView loads the assets bundled from `src/mobile/client`.
+ * Production network traffic leaves only through `M7RemotePlugin`, whose
+ * origin and SPKI are build inputs; the remote server never supplies code that
+ * can call the vault or transport bridges.
  */
 public class MainActivity extends BridgeActivity {
 
@@ -72,6 +72,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         capturePairingIntent(getIntent());
         registerPlugin(VaultPlugin.class);
+        registerPlugin(M7RemotePlugin.class);
         super.onCreate(savedInstanceState);
 
         // Before anything can be drawn, and not per screen: a flag that is only

@@ -1,10 +1,12 @@
 # IntentSmith Mobile — vývojový rozcestník
 
 Toto je jediný vstupní bod pro vývoj mobilní aplikace. Aktuální integrační
-základ `de0e8127` už obsahuje M7 VPN runtime a server wiring; samotný bundled
-klient však stále používá development režim a není produkční M7 consumer.
+základ je připnutý merge mobilního `1ab8d942` a B `f812259d`. Obsahuje nativní
+M7 VPN consumer s HTTPS/SPKI pinem, session lifecycle a bindingem fyzické
+release evidence. Výchozí konfigurace zůstává explicitně development;
+produkční režim se volí při buildu. Implementace není důkaz aktivace ani prod readiness.
 Nejnovější lokální změny, přesné SHA a ověření jsou v
-[completion evidence 2026-09-08](../execution/runs/mobile/mobile-completion-20260908.md).
+[convergence evidence 2026-09-09](../execution/runs/mobile/mobile-convergence-20260909.md).
 Postup je v [TRYING-IT](TRYING-IT.md). Globální stav a přijetí M5/M6/M7 nadále
 vlastní `ROADMAP.md` a `SYSTEM-MAP.md`; tento rozcestník je nenahrazuje.
 
@@ -17,6 +19,7 @@ vlastní `ROADMAP.md` a `SYSTEM-MAP.md`; tento rozcestník je nenahrazuje.
 | Capacitor konfigurace | `mobile-app/capacitor.config.json` | `webDir` ukazuje přímo na `../src/mobile/client`; `server.url` není povolený |
 | Build a release evidence | `scripts/mobile-android.sh`, `scripts/mobile-release-evidence.mjs` | APK/AAB, signing guard, source revision, SBOM a audit |
 | Mobilní test gate | `npm run test:mobile` | Programy jsou jednotlivě vedené v `tests/registry.json` |
+| BE inventář | [BACKEND-CAPABILITY-INVENTORY.md](BACKEND-CAPABILITY-INVENTORY.md) | Locale-independent census odděluje desktop routes, M7 HTTP a nativní operace; není session authority |
 
 Starý adresář `mobile-app/www` byl odstraněný: nebyl načítaný Capacitor
 konfigurací a představoval druhou, zastaralou implementaci stejné obrazovky.
@@ -27,7 +30,7 @@ Nesmí se obnovovat. Offline, outage a retry stavy patří do
 
 Čti dokumenty v tomto pořadí:
 
-Nejdřív současnou completion evidence a TRYING-IT uvedené výše. Následující
+Nejdřív současnou convergence evidence a TRYING-IT uvedené výše. Následující
 materiály obsahují i historické snapshoty; datum a exact SHA jsou součástí tvrzení.
 
 1. [FINAL-PROTOTYPE.md](FINAL-PROTOTYPE.md) — zachovaný stav a důkazy přesného
@@ -59,13 +62,14 @@ mobilních dokumentů nesmí přepisovat aktuální stav z `ROADMAP.md` a
 
 - Mobile-client změny pokračují na jednom kandidátovi a neslučují se mechanicky
   s backendovými worktrees.
-- M2 `RemoteCorePort@1` a M5 adapter identity smí klient spotřebovávat pouze
+- M2 `RemoteCorePort@1` a M5/M7 adapter identity smí klient spotřebovávat pouze
   přes exact digest pin a negativní compatibility test.
 - Decision 042 je přijatá autorita pro M7 VPN implementaci, nikoli důkaz
   provozní aktivace. Mobilní práce bez BE vlastnictví nemění server, DB,
   migrace ani wire surface a nesmí vydat `/m1` za produkční fallback.
-- M7 connector WP doplní transport nad existujícím fail-closed seamem;
-  klientská state machine a Android security boundary se neduplikují.
+- M7 connector je `m7-native-remote-client.js` a `m7-ui-api-adapter.js` nad
+  existujícím fail-closed seamem; state machine a Android security boundary
+  se neduplikují. Nezávislé review tohoto merge a fyzická VPN/TalkBack evidence zbývají.
 - Nový alternativní klient, shell nebo stavový dokument potřebuje předem
   výslovné rozhodnutí, vlastníka a plán odstranění nahrazované cesty.
 

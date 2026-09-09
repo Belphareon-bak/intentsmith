@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 507
+- Runnable programs: 511
 - Explicit support-module exclusions: 18
-- Profiles: offline=274, database=73, server=44, model=81, soak=15, manual=20
-- States: ACTIVE=413, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=278, database=73, server=44, model=81, soak=15, manual=20
+- States: ACTIVE=417, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -382,8 +382,11 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M7-LOCAL-PAIRING-ROUTE-TEST` | `tests/m7-local-pairing-route.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-VPN-LISTENER-ACTIVATION |
 | `IS-T1-TESTS-M7-LOCAL-PAIRING-STUDIO-TEST` | `tests/m7-local-pairing-studio.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-VPN-LISTENER-ACTIVATION |
 | `IS-T1-TESTS-M7-M2-APPROVAL-CORE-ADAPTERS-TEST` | `tests/m7-m2-approval-core-adapters.test.js` | `C3-032` | T1 | `database` | 5 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-M2-APPROVAL-ADAPTER |
+| `IS-T1-TESTS-M7-MOBILE-APP-RUNTIME-TEST` | `tests/m7-mobile-app-runtime.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-VPN-LISTENER-ACTIVATION |
 | `IS-T1-TESTS-M7-MOBILE-CORE-PIN-INTEGRATION-TEST` | `tests/m7-mobile-core-pin-integration.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-REMOTE-COMPANION |
+| `IS-T1-TESTS-M7-MOBILE-UI-API-ADAPTER-TEST` | `tests/m7-mobile-ui-api-adapter.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-VPN-LISTENER-ACTIVATION |
 | `IS-T1-TESTS-M7-MUTATION-MEDIATOR-TEST` | `tests/m7-mutation-mediator.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-VPN-LISTENER-ACTIVATION |
+| `IS-T1-TESTS-M7-NATIVE-REMOTE-CLIENT-TEST` | `tests/m7-native-remote-client.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | WP-M7-VPN-LISTENER-ACTIVATION |
 | `IS-T1-TESTS-M7-NOTIFICATION-CORE-ADAPTERS-TEST` | `tests/m7-notification-core-adapters.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-EVENTS-NOTIFICATIONS-CORE-ADAPTERS |
 | `IS-T1-TESTS-M7-OPERATION-CONTROL-ADAPTERS-TEST` | `tests/m7-operation-control-adapters.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-OPERATION-CONTROL |
 | `IS-T1-TESTS-M7-OPERATION-JOURNAL-TEST` | `tests/m7-operation-journal.test.js` | `C3-032` | T1 | `database` | 3 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | WP-M7-PERSISTENT-MUTATION-JOURNAL |
@@ -407,6 +410,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-MOBILE-ANDROID-RELEASE-TEST` | `tests/mobile-android-release.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MOBILE-APPROVAL-LIFECYCLE-REGRESSION-TEST` | `tests/mobile-approval-lifecycle-regression.test.js` | `C3-032` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MOBILE-BROWSER-A11Y-TEST` | `tests/mobile-browser-a11y.test.js` | `C3-032` | T1 | `offline` | 1 min | 5 min | network:loopback | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-MOBILE-CAPABILITY-INVENTORY-TEST` | `tests/mobile-capability-inventory.test.js` | `C3-032` | T1 | `offline` | 3 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MOBILE-GATE-SELF-TEST` | `tests/mobile-gate-self-test.js` | `C3-032` | T1 | `offline` | 8 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MOBILE-MS07-HISTORY-TEST` | `tests/mobile-ms07-history.test.js` | `C3-032` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-MOBILE-MS13-APPROVALS-TEST` | `tests/mobile-ms13-approvals.test.js` | `C3-032` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

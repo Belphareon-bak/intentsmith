@@ -127,6 +127,41 @@ test('M7 event, notification and request boundaries are required locked-plan mem
   }
 });
 
+test('M7 VPN listener and Android companion are required locked-plan members', () => {
+  const programIds = [
+    'IS-T1-TESTS-M7-CONVERSATION-COMMAND-EXECUTOR-TEST',
+    'IS-T1-TESTS-M7-LOCAL-PAIRING-ROUTE-TEST',
+    'IS-T1-TESTS-M7-LOCAL-PAIRING-STUDIO-TEST',
+    'IS-T1-TESTS-M7-MOBILE-APP-RUNTIME-TEST',
+    'IS-T1-TESTS-M7-MOBILE-UI-API-ADAPTER-TEST',
+    'IS-T1-TESTS-M7-MUTATION-MEDIATOR-TEST',
+    'IS-T1-TESTS-M7-NATIVE-REMOTE-CLIENT-TEST',
+    'IS-T1-TESTS-M7-VPN-PRODUCTION-RUNTIME-TEST',
+    'IS-T1-TESTS-M7-VPN-RUNTIME-CONFIG-TEST',
+    'IS-T1-TESTS-M7-VPN-TLS-LISTENER-TEST',
+  ];
+  const byId = new Map(registry.suites.map(program => [program.id, program]));
+  const plan = buildM6CandidateExecutionPlan(registry);
+  const deterministic = plan.phases.find(
+    phase => phase.id === 'deterministic-offline-database',
+  );
+  for (const programId of programIds) {
+    const program = byId.get(programId);
+    assert.equal(program?.state, 'ACTIVE', programId);
+    assert.equal(program?.required, true, programId);
+    assert(['database', 'offline'].includes(program?.profile), programId);
+    assert.equal(deterministic.programIds.includes(programId), true, programId);
+
+    const missing = structuredClone(plan);
+    missing.phases.find(
+      phase => phase.id === 'deterministic-offline-database',
+    ).programIds = deterministic.programIds.filter(id => id !== programId);
+    const validation = validateM6CandidateExecutionPlan(missing, registry);
+    assert.equal(validation.valid, false, programId);
+    assert(validation.errors.includes(`plan:required-program-uncovered:${programId}`));
+  }
+});
+
 test('direct, runner-owned server and physical GPU programs cannot be silently omitted', () => {
   const plan = buildM6CandidateExecutionPlan(registry);
   const selected = new Set(plan.phases.flatMap(phase => phase.programIds));

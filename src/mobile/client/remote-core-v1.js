@@ -24,6 +24,7 @@ export const REMOTE_CORE_V1_PIN = deepFreeze({
   portVersion: 1,
   descriptorDigest: 'sha256:245abe3a13d7d60ac537c7672522872df20f855d990bee0f02b2826379b56c52',
   m5AdapterManifestDigest: 'sha256:34f3c20c94e1c4316ad76e8c92c1ce8b7dab0868b7685c3d5a637a6f6aa98e52',
+  m7AdapterManifestDigest: 'sha256:abe99330702ea02ccdf7b644f4114df1b910a6e83cf3229a294a90e74c0822f4',
   source: {
     descriptor: 'contracts/m2/remote-core-port-v1.js',
     m5ProductRevision: '122b5df5303e08a38cdd62a35e6577b118795c30',
@@ -343,11 +344,39 @@ export function validateMobileRuntimeConfig(runtime) {
     throw new TypeError('invalid_mobile_transport_mode');
   }
   const remote = value.remoteCore;
+  const legacy = mode === MOBILE_TRANSPORT_MODE.LEGACY_M1_DEVELOPMENT;
+  const remoteKeys = legacy
+    ? ['descriptorDigest', 'adapterManifestDigest']
+    : ['descriptorDigest', 'adapterManifestDigest', 'serverIdentityPin', 'serverOrigin'];
   if (!plain(remote)
-      || exactKeys(remote, ['descriptorDigest', 'adapterManifestDigest'], 'mobile-runtime.remoteCore').length
+      || exactKeys(remote, remoteKeys, 'mobile-runtime.remoteCore').length
       || remote.descriptorDigest !== REMOTE_CORE_V1_PIN.descriptorDigest
-      || remote.adapterManifestDigest !== REMOTE_CORE_V1_PIN.m5AdapterManifestDigest) {
+      || remote.adapterManifestDigest !== (legacy
+        ? REMOTE_CORE_V1_PIN.m5AdapterManifestDigest
+        : REMOTE_CORE_V1_PIN.m7AdapterManifestDigest)) {
     throw new TypeError('invalid_mobile_remote_core_pin');
   }
-  return deepFreeze({ mode, remoteCore: { ...remote } });
+  if (!legacy) {
+    let gateway;
+    let server;
+    try {
+      gateway = new URL(value.gatewayUrl);
+      server = new URL(remote.serverOrigin);
+    } catch {
+      throw new TypeError('invalid_mobile_remote_core_origin');
+    }
+    const exactOrigin = candidate => candidate.protocol === 'https:'
+      && candidate.port === '7443'
+      && !candidate.username && !candidate.password
+      && candidate.pathname === '/' && !candidate.search && !candidate.hash
+      && candidate.origin === candidate.href.replace(/\/$/u, '');
+    if (!exactOrigin(gateway) || !exactOrigin(server)
+      || gateway.origin !== server.origin
+      || remote.serverOrigin !== server.origin
+      || value.gatewayUrl !== gateway.origin
+      || !SHA256.test(remote.serverIdentityPin || '')) {
+      throw new TypeError('invalid_mobile_remote_core_origin');
+    }
+  }
+  return deepFreeze({ gatewayUrl: value.gatewayUrl, mode, remoteCore: { ...remote } });
 }

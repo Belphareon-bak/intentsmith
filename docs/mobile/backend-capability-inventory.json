@@ -1,0 +1,1981 @@
+{
+  "schemaVersion": 2,
+  "status": "STATIC_SOURCE_INVENTORY_NOT_SESSION_AVAILABILITY",
+  "scanner": "scripts/mobile-capability-inventory.mjs",
+  "sources": {
+    "desktop": [
+      "src/routes/**/*.js",
+      "src/server.js"
+    ],
+    "transport": "src/remote/m7-transport-admission-policy.js",
+    "requirements": "docs/mobile/contracts/remote-capability-requirements-v1.js",
+    "clientProjection": "src/mobile/client/m7-runtime-contract-v1.js",
+    "requirementsStage": "CANDIDATE_NOT_ACCEPTED"
+  },
+  "routeDigest": "d04ed0f8ca989a6f4502fe35f65882dcd1709ddabc5b8550caa4e9c62d3b157a",
+  "inventoryDigest": "d98faa42a2f541b3c0eab05e47db1d4b16b49ea250377418a5656cdbbdf18c26",
+  "summary": {
+    "desktopRouteDeclarations": 242,
+    "legacyM1Declarations": 0,
+    "m7TransportRoutes": 7,
+    "m7Operations": 17,
+    "capabilityIds": [
+      "approvals",
+      "conversations",
+      "events",
+      "notifications",
+      "projects",
+      "settings",
+      "stored_information"
+    ],
+    "controlPlaneOperations": 3
+  },
+  "desktopRoutes": [
+    {
+      "method": "GET",
+      "path": "/api/agent-extensions",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent-extensions/:id/install",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/agent-extensions/:id/instances/:agentId",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/agent-extensions/instances/:agentId",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent-extensions/instances/:agentId/disable",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent-extensions/instances/:agentId/enable",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/agent-extensions/instances/:agentId/run",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/agents",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/agents",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/agents/:id",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/agents/:id",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/agents/:id",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/agents/:id/disable",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/agents/:id/enable",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/agents/:id/run",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/agents/:id/runs",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/agents/build",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/agents/confirm",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/agents/dry-run",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/agents/refine",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/agents/schema",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/artifacts/:filename",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/attachments",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/attachments/:id",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/audit",
+      "sources": [
+        "src/routes/misc.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/autocomplete",
+      "sources": [
+        "src/routes/misc.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/autonomy/alerts/:id/acknowledge",
+      "sources": [
+        "src/routes/autonomy.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/autonomy/approve/:id",
+      "sources": [
+        "src/routes/autonomy.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/autonomy/reject/:id",
+      "sources": [
+        "src/routes/autonomy.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/autonomy/status",
+      "sources": [
+        "src/routes/autonomy.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/chat",
+      "sources": [
+        "src/routes/chat.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/chat/sessions",
+      "sources": [
+        "src/routes/chat.js"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/chat/sessions/:sessionId",
+      "sources": [
+        "src/routes/chat.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/chat/sessions/:sessionId",
+      "sources": [
+        "src/routes/chat.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/chat/sessions/stats",
+      "sources": [
+        "src/routes/chat.js"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/chat/specialist",
+      "sources": [
+        "src/routes/chat.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/chat/specialist",
+      "sources": [
+        "src/routes/chat.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/context",
+      "sources": [
+        "src/routes/misc.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/conversations",
+      "sources": [
+        "src/routes/chat.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/conversations",
+      "sources": [
+        "src/routes/chat.js"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/conversations/:id",
+      "sources": [
+        "src/routes/chat.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/conversations/:id",
+      "sources": [
+        "src/routes/chat.js"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/conversations/:id",
+      "sources": [
+        "src/routes/chat.js"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/conversations/:id/archive",
+      "sources": [
+        "src/routes/chat.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/conversations/:id/assign",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/conversations/:id/messages",
+      "sources": [
+        "src/routes/chat.js"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/conversations/:id/restore",
+      "sources": [
+        "src/routes/chat.js"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/drafts",
+      "sources": [
+        "src/routes/chat.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/drafts",
+      "sources": [
+        "src/routes/chat.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/drafts",
+      "sources": [
+        "src/routes/chat.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/expertise-schema",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/expertise-wizard/test-prompt",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/expertises",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/expertises",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/expertises/:id",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/expertises/:id",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/expertises/:id",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/expertises/route",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/export",
+      "sources": [
+        "src/routes/chat.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/extensions/expertises",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/extensions/expertises/:id",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/extensions/expertises/:id/disable",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/extensions/expertises/:id/enable",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/extensions/expertises/install",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/features",
+      "sources": [
+        "src/routes/misc.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/features/:name",
+      "sources": [
+        "src/routes/misc.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/features/reset",
+      "sources": [
+        "src/routes/misc.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/feedback",
+      "sources": [
+        "src/routes/misc.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/feedback",
+      "sources": [
+        "src/routes/misc.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/feedback/:id/attach",
+      "sources": [
+        "src/routes/misc.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/health",
+      "sources": [
+        "src/routes/misc.js",
+        "src/server.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/license/status",
+      "sources": [
+        "src/server.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/lifecycle/change/approve",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/lifecycle/change/propose",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/lifecycle/change/reject",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/lifecycle/milestone/approve",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/lifecycle/milestone/blocked",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/lifecycle/milestone/next",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/lifecycle/resume",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/lifecycle/review/acknowledge",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/lifecycle/roadmap/approve",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/lifecycle/spec/answer",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/lifecycle/spec/approve",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/lifecycle/start",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/lifecycle/status",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/logs",
+      "sources": [
+        "src/routes/misc.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/logs/export",
+      "sources": [
+        "src/routes/misc.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/m2/lifecycle/approve",
+      "sources": [
+        "src/routes/m2-lifecycle.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/m2/lifecycle/cancel",
+      "sources": [
+        "src/routes/m2-lifecycle.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/m2/lifecycle/prepare",
+      "sources": [
+        "src/routes/m2-lifecycle.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/m2/lifecycle/status",
+      "sources": [
+        "src/routes/m2-lifecycle.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/marketplace/catalog",
+      "sources": [
+        "src/routes/marketplace.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/marketplace/catalog/refresh",
+      "sources": [
+        "src/routes/marketplace.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/marketplace/export/:type/:id",
+      "sources": [
+        "src/routes/marketplace.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/marketplace/install/:type/:id",
+      "sources": [
+        "src/routes/marketplace.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/marketplace/installed",
+      "sources": [
+        "src/routes/marketplace.js"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/marketplace/installed/:type/:id",
+      "sources": [
+        "src/routes/marketplace.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/marketplace/update/:type/:id",
+      "sources": [
+        "src/routes/marketplace.js"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/media",
+      "sources": [
+        "src/routes/media.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/media/cancel",
+      "sources": [
+        "src/routes/media.js"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/media/favorite",
+      "sources": [
+        "src/routes/media.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/media/generate",
+      "sources": [
+        "src/routes/media.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/media/health",
+      "sources": [
+        "src/routes/media.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/media/history",
+      "sources": [
+        "src/routes/media.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/media/models",
+      "sources": [
+        "src/routes/media.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/media/models/refresh",
+      "sources": [
+        "src/routes/media.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/media/output",
+      "sources": [
+        "src/routes/media.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/media/status",
+      "sources": [
+        "src/routes/media.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/media/vram",
+      "sources": [
+        "src/routes/media.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/memory",
+      "sources": [
+        "src/routes/chat.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/memory",
+      "sources": [
+        "src/routes/chat.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/merge-preview",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/merge-preview",
+      "sources": [
+        "src/routes/expertises.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/:id/read",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/channels",
+      "sources": [
+        "src/routes/notifications.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/config",
+      "sources": [
+        "src/routes/notifications.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/config",
+      "sources": [
+        "src/routes/notifications.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/log",
+      "sources": [
+        "src/routes/notifications.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/read-all",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/send",
+      "sources": [
+        "src/routes/notifications.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/test",
+      "sources": [
+        "src/routes/notifications.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/verify",
+      "sources": [
+        "src/routes/notifications.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/projects",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/projects/:id",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/:id",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/projects/:id",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/projects/:id/archive",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/:id/conversations",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/:id/lifecycle",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/projects/:id/lifecycle/bind",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/:id/memory",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/projects/:id/memory",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/projects/:id/memory/:key",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/projects/:id/readme",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/projects/:id/restore",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/:id/roadmap",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/:projectId/learning/proposals",
+      "sources": [
+        "src/routes/learning.js"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/projects/:projectId/learning/proposals/:proposalId",
+      "sources": [
+        "src/routes/learning.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/:projectId/learning/proposals/:proposalId",
+      "sources": [
+        "src/routes/learning.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/projects/:projectId/learning/proposals/:proposalId/approve",
+      "sources": [
+        "src/routes/learning.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/projects/:projectId/learning/proposals/:proposalId/reject",
+      "sources": [
+        "src/routes/learning.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/projects/:projectId/learning/proposals/:proposalId/rollback",
+      "sources": [
+        "src/routes/learning.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/projects/:projectId/learning/proposals/:proposalId/weaken",
+      "sources": [
+        "src/routes/learning.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/defaults",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/projects/lifecycle/start",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/projects/open-folder",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/quality/distribution",
+      "sources": [
+        "src/routes/quality.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/quality/project/:id",
+      "sources": [
+        "src/routes/quality.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/quality/report",
+      "sources": [
+        "src/routes/quality.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/quality/summary",
+      "sources": [
+        "src/routes/quality.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/quality/volatility/:id",
+      "sources": [
+        "src/routes/quality.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/reset",
+      "sources": [
+        "src/routes/misc.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/scheduler/status",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/audit",
+      "sources": [
+        "src/routes/security.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/security/privacy/history/attest",
+      "sources": [
+        "src/routes/privacy.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/privacy/remediation",
+      "sources": [
+        "src/routes/privacy.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/security/privacy/rotations/:categoryId/attest",
+      "sources": [
+        "src/routes/privacy.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/sessions",
+      "sources": [
+        "src/routes/security.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/tokens",
+      "sources": [
+        "src/routes/security.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/security/tokens",
+      "sources": [
+        "src/routes/security.js"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/security/tokens/:id",
+      "sources": [
+        "src/routes/security.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/webhook-secret",
+      "sources": [
+        "src/routes/security.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/security/webhook-secret",
+      "sources": [
+        "src/routes/security.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "sources": [
+        "src/routes/misc.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings",
+      "sources": [
+        "src/routes/misc.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings/import",
+      "sources": [
+        "src/routes/misc.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/skills",
+      "sources": [
+        "src/routes/skills.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/skills/:id",
+      "sources": [
+        "src/routes/skills.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/skills/executions/:id",
+      "sources": [
+        "src/routes/skills.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/skills/executions/:id/cancel",
+      "sources": [
+        "src/routes/skills.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/skills/executions/:id/confirm",
+      "sources": [
+        "src/routes/skills.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/skills/executions/:id/resume",
+      "sources": [
+        "src/routes/skills.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/skills/reload",
+      "sources": [
+        "src/routes/skills.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/sources/inspect",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/sources/validate-condition",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/sources/validate-field",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/specialists",
+      "sources": [
+        "src/routes/specialists.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/specialists",
+      "sources": [
+        "src/routes/specialists.js"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/specialists/:id",
+      "sources": [
+        "src/routes/specialists.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/specialists/:id",
+      "sources": [
+        "src/routes/specialists.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/specialists/:id/disable",
+      "sources": [
+        "src/routes/specialists.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/specialists/:id/enable",
+      "sources": [
+        "src/routes/specialists.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/specialists/:id/expertises",
+      "sources": [
+        "src/routes/specialists.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/specialists/:id/expertises",
+      "sources": [
+        "src/routes/specialists.js"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/specialists/:id/expertises/:expertiseId",
+      "sources": [
+        "src/routes/specialists.js"
+      ]
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/specialists/:id/expertises/:expertiseId",
+      "sources": [
+        "src/routes/specialists.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/specialists/:id/install",
+      "sources": [
+        "src/routes/specialists.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/specialists/:id/integrity",
+      "sources": [
+        "src/routes/specialists.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/specialists/:id/update",
+      "sources": [
+        "src/routes/specialists.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/specialists/discover",
+      "sources": [
+        "src/routes/specialists.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/specialists/telemetry",
+      "sources": [
+        "src/routes/specialists.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/storage/info",
+      "sources": [
+        "src/routes/misc.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/backup",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/backups",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/catalog",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/clean",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/diagnostics",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/drain",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/governor/check",
+      "sources": [
+        "src/routes/governor.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/governor/proposals",
+      "sources": [
+        "src/routes/governor.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/governor/proposals/:id/approve",
+      "sources": [
+        "src/routes/governor.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/governor/proposals/:id/dismiss",
+      "sources": [
+        "src/routes/governor.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/governor/report",
+      "sources": [
+        "src/routes/governor.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/governor/status",
+      "sources": [
+        "src/routes/governor.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/gpu",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/gpu/refresh",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/info",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/system/models",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/candidates",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/check",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/compatibility",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/evaluations",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/info",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/overview",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/policy",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/system/models/policy",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/models/pull",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/universe",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/universe/:name",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/restore",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/shutdown-backup",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/storage",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/storage/settings",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/system/storage/settings",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/upgrades",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/upgrades/apply",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/upgrades/bindings",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/upgrades/check",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/upgrades/discovered",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/upgrades/rollback",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/vacuum",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/workspace/directory",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/workspace/file",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace/file",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/workspace/file",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace/git-status",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace/ls",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/workspace/rename",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/workspace/tree",
+      "sources": [
+        "src/routes/projects.js"
+      ]
+    }
+  ],
+  "transportRoutes": [
+    {
+      "access": "public_health",
+      "bodyBytesMaximum": 0,
+      "method": "GET",
+      "path": "/remote/v1/health",
+      "routeId": "remote-health"
+    },
+    {
+      "access": "signed_invocation",
+      "bodyBytesMaximum": 1048576,
+      "method": "POST",
+      "path": "/remote/v1/invoke",
+      "routeId": "invoke"
+    },
+    {
+      "access": "pairing_claim",
+      "bodyBytesMaximum": 16384,
+      "method": "POST",
+      "path": "/remote/v1/pairing/claim",
+      "routeId": "pairing-claim"
+    },
+    {
+      "access": "signed_session_control",
+      "bodyBytesMaximum": 16384,
+      "method": "POST",
+      "path": "/remote/v1/session/challenge",
+      "routeId": "session-challenge"
+    },
+    {
+      "access": "signed_session_control",
+      "bodyBytesMaximum": 16384,
+      "method": "POST",
+      "path": "/remote/v1/session/open",
+      "routeId": "session-open"
+    },
+    {
+      "access": "signed_session_control",
+      "bodyBytesMaximum": 16384,
+      "method": "POST",
+      "path": "/remote/v1/session/refresh",
+      "routeId": "session-refresh"
+    },
+    {
+      "access": "signed_session_control",
+      "bodyBytesMaximum": 16384,
+      "method": "POST",
+      "path": "/remote/v1/session/revoke",
+      "routeId": "session-revoke"
+    }
+  ],
+  "publicHealthOperation": {
+    "operationId": "remote-health.read",
+    "capabilityId": "m7-control-plane-prerequisite",
+    "capabilityVersion": 1,
+    "kind": "read",
+    "requestContract": "RemoteHealthQuery@1",
+    "resultContract": "RemoteHealthSnapshot@1",
+    "requiredScopes": [],
+    "method": "GET",
+    "path": "/remote/v1/health"
+  },
+  "operations": [
+    {
+      "operationId": "approval.decide",
+      "capabilityId": "approvals",
+      "capabilityVersion": 1,
+      "kind": "mutation",
+      "requestContract": "ApprovalDecisionCommand@1",
+      "resultContract": "ApprovalDecisionResult@1",
+      "requiredScopes": [
+        "write:approvals"
+      ]
+    },
+    {
+      "operationId": "approval.list",
+      "capabilityId": "approvals",
+      "capabilityVersion": 1,
+      "kind": "read",
+      "requestContract": "ApprovalListQuery@1",
+      "resultContract": "ApprovalPage@1",
+      "requiredScopes": [
+        "read:approvals"
+      ]
+    },
+    {
+      "operationId": "conversation.execute",
+      "capabilityId": "conversations",
+      "capabilityVersion": 2,
+      "kind": "command",
+      "requestContract": "ConversationCommand@1",
+      "resultContract": "ConversationResult@1",
+      "requiredScopes": [
+        "write:chat"
+      ]
+    },
+    {
+      "operationId": "conversation.history",
+      "capabilityId": "conversations",
+      "capabilityVersion": 2,
+      "kind": "read",
+      "requestContract": "ConversationHistoryQuery@1",
+      "resultContract": "ConversationHistoryPage@1",
+      "requiredScopes": [
+        "read:chat"
+      ]
+    },
+    {
+      "operationId": "conversation.list",
+      "capabilityId": "conversations",
+      "capabilityVersion": 2,
+      "kind": "read",
+      "requestContract": "ConversationListQuery@1",
+      "resultContract": "ConversationPage@1",
+      "requiredScopes": [
+        "read:chat"
+      ]
+    },
+    {
+      "operationId": "notification.ack",
+      "capabilityId": "notifications",
+      "capabilityVersion": 1,
+      "kind": "mutation",
+      "requestContract": "NotificationAckCommand@1",
+      "resultContract": "NotificationAckResult@1",
+      "requiredScopes": [
+        "write:notifications"
+      ]
+    },
+    {
+      "operationId": "notification.list",
+      "capabilityId": "notifications",
+      "capabilityVersion": 1,
+      "kind": "read",
+      "requestContract": "NotificationListQuery@1",
+      "resultContract": "NotificationPage@1",
+      "requiredScopes": [
+        "read:notifications"
+      ]
+    },
+    {
+      "operationId": "operation.abandon",
+      "capabilityId": "m7-control-plane-prerequisite",
+      "capabilityVersion": 1,
+      "kind": "mutation",
+      "requestContract": "OperationAbandonCommand@1",
+      "resultContract": "OperationAbandonResult@1",
+      "requiredScopes": [
+        "write:operations"
+      ]
+    },
+    {
+      "operationId": "operation.get",
+      "capabilityId": "m7-control-plane-prerequisite",
+      "capabilityVersion": 1,
+      "kind": "read",
+      "requestContract": "OperationLookupQuery@1",
+      "resultContract": "OperationLookupResult@1",
+      "requiredScopes": [
+        "read:operations"
+      ]
+    },
+    {
+      "operationId": "operation.list",
+      "capabilityId": "m7-control-plane-prerequisite",
+      "capabilityVersion": 1,
+      "kind": "read",
+      "requestContract": "OperationListQuery@1",
+      "resultContract": "OperationPage@1",
+      "requiredScopes": [
+        "read:operations"
+      ]
+    },
+    {
+      "operationId": "project-context.query",
+      "capabilityId": "projects",
+      "capabilityVersion": 2,
+      "kind": "read",
+      "requestContract": "RemoteProjectContextQuery@1",
+      "resultContract": "ProjectContextSnapshot@1",
+      "requiredScopes": [
+        "read:projects"
+      ]
+    },
+    {
+      "operationId": "project.list",
+      "capabilityId": "projects",
+      "capabilityVersion": 2,
+      "kind": "read",
+      "requestContract": "ProjectListQuery@1",
+      "resultContract": "ProjectPage@1",
+      "requiredScopes": [
+        "read:projects"
+      ]
+    },
+    {
+      "operationId": "run-event.list",
+      "capabilityId": "events",
+      "capabilityVersion": 1,
+      "kind": "read",
+      "requestContract": "RunEventQuery@1",
+      "resultContract": "RunEventPage@1",
+      "requiredScopes": [
+        "read:events"
+      ]
+    },
+    {
+      "operationId": "settings.read",
+      "capabilityId": "settings",
+      "capabilityVersion": 1,
+      "kind": "read",
+      "requestContract": "MobileSettingsQuery@1",
+      "resultContract": "MobileSettingsSnapshot@1",
+      "requiredScopes": [
+        "read:settings"
+      ]
+    },
+    {
+      "operationId": "settings.update",
+      "capabilityId": "settings",
+      "capabilityVersion": 1,
+      "kind": "mutation",
+      "requestContract": "MobileSettingUpdateCommand@1",
+      "resultContract": "MobileSettingUpdateResult@1",
+      "requiredScopes": [
+        "write:settings"
+      ]
+    },
+    {
+      "operationId": "stored-information.append",
+      "capabilityId": "stored_information",
+      "capabilityVersion": 1,
+      "kind": "mutation",
+      "requestContract": "StoredInformationAppendCommand@1",
+      "resultContract": "StoredInformationAppendResult@1",
+      "requiredScopes": [
+        "write:stored_information"
+      ]
+    },
+    {
+      "operationId": "stored-information.list",
+      "capabilityId": "stored_information",
+      "capabilityVersion": 1,
+      "kind": "read",
+      "requestContract": "StoredInformationListQuery@1",
+      "resultContract": "StoredInformationPage@1",
+      "requiredScopes": [
+        "read:stored_information"
+      ]
+    }
+  ]
+}

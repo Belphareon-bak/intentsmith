@@ -163,8 +163,14 @@ await test('missing transport negotiation is BLOCKED, never an empty success', a
 await test('runtime config accepts exact pins and rejects mode or digest drift', () => {
   assert.equal(validateMobileRuntimeConfig(DEFAULT_MOBILE_RUNTIME_CONFIG).mode, 'legacy-m1-dev');
   const remote = {
-    ...DEFAULT_MOBILE_RUNTIME_CONFIG,
+    gatewayUrl: 'https://100.64.0.10:7443',
     transportMode: MOBILE_TRANSPORT_MODE.REMOTE_CORE_V1,
+    remoteCore: {
+      descriptorDigest: REMOTE_CORE_V1_PIN.descriptorDigest,
+      adapterManifestDigest: REMOTE_CORE_V1_PIN.m7AdapterManifestDigest,
+      serverOrigin: 'https://100.64.0.10:7443',
+      serverIdentityPin: `sha256:${'a'.repeat(64)}`,
+    },
   };
   assert.equal(validateMobileRuntimeConfig(remote).mode, 'remote-core-v1');
   assert.throws(
@@ -187,6 +193,17 @@ await test('runtime config accepts exact pins and rejects mode or digest drift',
       remoteCore: { ...remote.remoteCore, descriptorDigest: `sha256:${'0'.repeat(64)}` },
     }),
     /invalid_mobile_remote_core_pin/,
+  );
+  assert.throws(
+    () => validateMobileRuntimeConfig({
+      ...remote,
+      remoteCore: { ...remote.remoteCore, serverOrigin: 'https://100.64.0.11:7443' },
+    }),
+    /invalid_mobile_remote_core_origin/,
+  );
+  assert.throws(
+    () => validateMobileRuntimeConfig({ ...remote, gatewayUrl: 'https://100.64.0.10' }),
+    /invalid_mobile_remote_core_origin/,
   );
 });
 
