@@ -2241,6 +2241,35 @@ regresemi; není nasazený. [Run evidence](docs/execution/runs/core-completion-2
 [konkrétní provider aktivace/rollback](docs/execution/runs/m6/core-provider-activation-proposal-20260909.md)
 jsou aktuální předání. Žádná M5/M6/M7 acceptance nebyla udělena.
 
+### Autorizované provider okno a oprava upgradu — 2026-09-09
+
+Operátor následně povolil konkrétní systémový restart a sériové modelové
+ověření. Přesně ověřený instalační/rollback skript prošel nezávislým review
+včetně chybových větví. Skutečný `pkexec` ale skončil `Not authorized`,
+exit 127, před spuštěním root bootstrapu. Nasazení je
+`ADMIN_AUTHENTICATION_BLOCKED`, původní Ollama 0.32.14 stále běží a další
+uživatelský souhlas se stejným postupem není potřeba.
+
+Příprava současně reprodukovala reálnou podporovanou upgrade vadu: čtečka
+modelové politiky odmítala uznané 061 schéma i po všech aktuálních migracích.
+Kandidát `a71e5b98a319416c5b74e0be65b0a5f6f74586eb` opravuje typed reader/writer
+pro obě uznaná schémata se zachováním auditní historie a default OFF.
+Sedm nových regresí selže na původním kódu; oprava má 23/23, settings 14/14,
+coordinator 16/16 a nezávislé scoped review. Stejný kandidát zahrnuje úzkou
+opravu zastaralého D1/R1 role-config testu; celý živý modelový program neběžel.
+
+Nový čistý běh všech 352 deterministic programů má **351 PASS / 1 FAIL**,
+exit 1; jediným FAIL zůstává sealed-registry drift. Nový fingerprint
+`3ce12a0e…bfbfc` je úplně uveden v SYSTEM-MAP; všech 512 runnable položek
+zůstalo zachovaných, přibyla pouze historická support fixture. Release
+ratchet nebyl změněn. Další závislý krok je skutečná admin autentizace,
+kontrola systémového response digestu a durable gateway na soukromé DB;
+následují sériové M6 modelové/runtime testy podle existujícího plánu.
+[Run evidence](docs/execution/runs/m6/provider-activation-20260909.md) a
+[nezávislé review](docs/review/2026-09-09-PROVIDER-AND-POLICY-COMPATIBILITY-REVIEW.md)
+rozlišují opravený produktový scope, neprovedenou aktivaci a otevřenou
+M5/M6/M7 acceptance.
+
 ## 12. Pravidla Work Package bez dalšího aparátu
 
 Aktivní WP se vejde do těchto osmi položek:

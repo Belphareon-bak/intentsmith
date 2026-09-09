@@ -95,3 +95,19 @@ a odmítnutí neznámého/neplatného stavu. Ověření: původní kód se stejn
 regresemi FAIL; opravený typed zápis/reset a rollback na fixture i soukromé
 kopii skutečné DB PASS; settings/coordinator regresní sady a nezávislé review.
 Živé policy hodnoty ani historické události se v tomto kroku nemění.
+
+## Výsledek navazujícího kroku
+
+Produktový kandidát `a71e5b98a319416c5b74e0be65b0a5f6f74586eb` obsahuje
+nezávisle přijatou kompatibilitu model-policy 061/066 a opravu role-config
+testu. Fresh-clone deterministic: 351 PASS / 1 sealed-registry FAIL, exit 1.
+Jde o `SCOPED_REVIEW_PASSED / DETERMINISTIC_BASELINE_FAIL`; M6 acceptance
+zůstává otevřená. [Run](../execution/runs/m6/provider-activation-20260909.md)
+a [review](../review/2026-09-09-PROVIDER-AND-POLICY-COMPATIBILITY-REVIEW.md)
+uchovávají přesné identity, pozitivní i negativní důkazy.
+
+Provider aktivace: `OPERATOR_AUTHORIZED / ADMIN_AUTHENTICATION_BLOCKED /
+NOT_INSTALLED`. Autorizovaný `pkexec` skončil `Not authorized`, exit 127;
+instalační root bootstrap nezačal. Původní service/binárka/modely/DB zůstaly
+zachované. Závislé živé modelové běhy jsou `NOT_RUN`; user-owned terminálový
+launcher je připraven pro skutečné ověření správce bez dalšího souhlasu.

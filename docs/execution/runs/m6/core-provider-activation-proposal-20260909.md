@@ -1,7 +1,9 @@
 # Ollama response identity — konkrétní návrh provozního kroku
 
-Stav: `PREPARED_NOT_INSTALLED / OPERATOR_WINDOW_REQUIRED`.
-Datum inventury: 2026-09-09. Tento dokument nepovoluje aktivaci.
+Stav: `OPERATOR_AUTHORIZED / ADMIN_AUTHENTICATION_BLOCKED / NOT_INSTALLED`.
+Datum inventury a autorizovaného pokusu: 2026-09-09. Operátor následně
+výslovně přijal tento návrh slovy „ano potvrzuji“. [Výsledek pokusu a další
+ověření](provider-activation-20260909.md) jsou samostatnou evidencí provedení.
 
 ## Problém a připravená změna
 
@@ -51,7 +53,7 @@ Nová binárka i tento drop-in při inventuře chyběly. Staging unit prošla
 binárku. Jde o parser/source-executable staging check; ověření finálního
 root-owned `ExecStart` musí proběhnout po instalaci a před restartem.
 
-## Přesné pořadí po povolení provozního okna
+## Přesné pořadí v povoleném provozním okně
 
 1. Znovu ověřit všech 54 identit, aktuální unit/drop-in stav, nepřítomnost obou
    cílových souborů, prázdné `/api/ps` a žádný NVIDIA compute proces. Při změně
@@ -66,10 +68,11 @@ root-owned `ExecStart` musí proběhnout po instalaci a před restartem.
 4. `systemctl daemon-reload` a `systemctl restart ollama.service`; ověřit
    výsledný `ExecStart`, UID, pouze loopback listener a `/api/version`.
    Při neúspěchu použít níže uvedený rollback a zachovat chybovou evidenci.
-5. V tomtéž výslovně povoleném sériovém modelovém okně provést jeden omezený
-   `/api/chat` na připnutém existujícím modelu, porovnat response digest se
-   skutečným artefaktem, následně ověřit IntentSmith gateway a existující
-   typed verification cestu. Uchovat raw request/response identity a stav DB.
+5. V tomtéž výslovně povoleném sériovém modelovém okně provést přesně dvě
+   omezené operace na připnutém existujícím modelu: nejprve typed
+   `verifyExact` s jedním `/api/chat`, pak IntentSmith gateway s druhým
+   `/api/chat`. Porovnat response digest se skutečným artefaktem a uchovat
+   request/response JSON identity i nový durable usage/claim stav privátní DB.
    Žádný model se nevybírá ani neaktivuje na základě skóre.
 6. `SYSTEM_PROVIDER_BLOCKED` změnit teprve podle této skutečné evidence.
    Úspěšný restart ani statické review tento stav samy neuzavírají. Další
@@ -83,15 +86,20 @@ Návrat na původní provider opět znamená `SYSTEM_PROVIDER_BLOCKED`.
 
 ## Autorita a potřebná součinnost
 
-[WP-M6-RELEASE](../../../wp/WP-M6-RELEASE.md) výslovně uchovává operátorský
-odklad živých LLM validačních běhů. Přijatý technický scope tohoto běhu
-zachovává samostatný checkpoint pro systémovou aktivaci. Je potřeba povolit
-tento konkrétní restart a vyhrazené živé modelové okno.
+[WP-M6-RELEASE](../../../wp/WP-M6-RELEASE.md) uchovává historický operátorský
+odklad živých LLM validačních běhů. Následné explicitní povolení tohoto
+konkrétního restartu a sériového živého modelového okna je zaznamenané v
+[navazujícím scope](../../../wp/WP-CORE-COMPLETION-20260909.md).
+Další souhlas s tímto rozsahem není potřeba.
 
 Read-only preflight prokázal UID 1000 a `sudo -n true` skončilo exit 1 s
-`a password is required`. `pkexec` je dostupný, ale správcovské potvrzení
-nebylo vyžádáno ani uděleno. Autonomní příprava neodstraňuje tuto skutečnou
-hostovou hranici. M7 VPN, firewall, TLS/HMAC klíče, telefon, M5 externí rotace,
+`a password is required`. Autorizovaný pokus přes `pkexec` dne 2026-09-09
+v 11:11 UTC skončil exit 127: `Not authorized`. Root bootstrap nezačal;
+binárka/drop-in nejsou instalované a původní služba běží. Jde o autentizaci
+správce na hostu, nikoli chybějící uživatelský souhlas nebo zamítnutí nástroje
+automatickým approval review. Připravený ověřený terminálový launcher vyžádá
+heslo pouze prostřednictvím systémového `sudo`; heslo nepatří do chatu.
+M7 VPN, firewall, TLS/HMAC klíče, telefon, M5 externí rotace,
 history disposition a release podpisy nejsou součástí tohoto zásahu.
 
 Alternativa pro jednorázové měření je dosavadní izolovaný sidecar; jeho

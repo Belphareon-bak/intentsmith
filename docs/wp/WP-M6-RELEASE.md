@@ -17,6 +17,16 @@ a aktivní modely se mohou změnit. Tyto řádky mají stav
 se nesmějí připnout k novému kandidátu. Modelově nezávislé kontrakty, fake
 provider testy, upgrade, soak a throughput bloky mohou pokračovat.
 
+**Aktualizace autority 2026-09-09:** operátor následně výslovně povolil
+konkrétní systémové nasazení/restart Ollamy a sériové M6 modelové okno podle
+[WP-CORE-COMPLETION-20260909](WP-CORE-COMPLETION-20260909.md). Pro tento
+rozsah je původní odklad překonaný; historické `DEFERRED_MODEL_OPTIMIZATION`
+výsledky se zpětně nemění na PASS. Autorizovaný instalační pokus skončil
+`pkexec` exit 127 / `Not authorized` před root bootstrapem. Aktuální
+závislost je `ADMIN_AUTHENTICATION_BLOCKED`, nikoli chybějící souhlas;
+živé modelové běhy zůstávají `NOT_RUN`. [Evidence a navazující oprava policy](../execution/runs/m6/provider-activation-20260909.md).
+M5/release acceptance, zákaz cizích zásahů a změn živých bindings zůstávají.
+
 ## 1. Uživatelský výsledek a rozsah
 
 Vznikne reprodukovatelný IntentSmith 1.0 release candidate, jehož hlavní
