@@ -67,6 +67,16 @@ import { getLcState, setLcState, clearLcState, initLifecycleStateDb } from '../s
 import { callLLM } from '../src/planner/workflow.js';
 import { config } from '../src/config.js';
 
+// Current public SPEC is the revision oracle; retained draft/history is not.
+function publicSpecText(spec) {
+  return (JSON.stringify(spec, (key, value) => key.startsWith('_') ? undefined : value) ?? '').toLowerCase();
+}
+
+function mentionsSpecSorting(text) {
+  // Match keyword stems at Unicode token boundaries, not e.g. 'přiřazené'.
+  return /(?:^|[^\p{L}\p{N}_])(?:sort|řaz|order)[\p{L}\p{N}_]*(?=$|[^\p{L}\p{N}_])/iu.test(text);
+}
+
 // ─── Test Infra ─────────────────────────────────────────────────────────────
 
 const transcript = [];
@@ -501,9 +511,9 @@ async function runTest() {
       if (getLcState(SESSION_ID)?.phase === 'SPEC_REVIEW') {
         const specV2 = lifecycleId ? lifecycleRepo.getSpec(lifecycleId) : null;
         if (specV2) {
-          const specStr = JSON.stringify(specV2).toLowerCase();
+          const specStr = publicSpecText(specV2);
           check(
-            specStr.includes('sort') || specStr.includes('řazen') || specStr.includes('order'),
+            mentionsSpecSorting(specStr),
             'T3-R1: revised spec mentions sorting'
           );
           check(
@@ -856,9 +866,9 @@ async function runTest() {
         check(dds.length >= 2, 'SPEC-F: ≥2 design decisions', `got: ${dds.length}`);
 
         // Revision content present
-        const specStr = JSON.stringify(finalSpec).toLowerCase();
+        const specStr = publicSpecText(finalSpec);
         check(
-          specStr.includes('sort') || specStr.includes('řazen') || specStr.includes('order'),
+          mentionsSpecSorting(specStr),
           'SPEC-F: sorting requirement present (from revision 1)'
         );
         check(

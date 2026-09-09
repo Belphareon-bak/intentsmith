@@ -21,6 +21,47 @@ const LEARNED_PATTERN_STATUSES = new Set(['conformed', 'conflict_explicit']);
 // answer and first-call prompt remain unchanged. This is a UTF-8 growth limit,
 // not an estimate of model tokens or permission to exceed its context profile.
 const MAX_PRIOR_CLARIFICATION_BYTES = 8 * 1024;
+const MAX_PRIOR_REVIEW_FEEDBACK_BYTES = 8 * 1024;
+const SPEC_INTERNAL_FIELDS = new Set([
+  '_phase', '_request', '_assessment', '_questions', '_technicalDecisions',
+  '_implicitAssumptions', '_learnedPatternConformance', '_clarificationAnswers',
+  '_validation', '_previousSpec', '_reviewFeedback',
+]);
+
+function publicSpec(spec) {
+  return Object.fromEntries(Object.entries(spec).filter(([key]) => !SPEC_INTERNAL_FIELDS.has(key)));
+}
+
+function reviewFeedbackContext(spec, feedback) {
+  const previous = spec._reviewFeedback ?? [];
+  if (!Array.isArray(previous) || previous.some(value => typeof value !== 'string')) {
+    throw specDraftError('SPEC_REVIEW_HISTORY_INVALID', 'Stored specification review feedback is invalid.');
+  }
+  const current = typeof feedback === 'string' ? feedback : String(JSON.stringify(feedback, null, 2));
+  const history = previous.at(-1) === current ? [...previous] : [...previous, current];
+  const prior = history.slice(0, -1).map(value => value + '\n\n').join('');
+  if (Buffer.byteLength(prior, 'utf8') > MAX_PRIOR_REVIEW_FEEDBACK_BYTES) {
+    throw specDraftError(
+      'SPEC_REVIEW_FEEDBACK_BUDGET_EXCEEDED',
+      'Specification review history exceeds its retained-context budget; no feedback was discarded or submitted.',
+    );
+  }
+  return { history, text: prior + current };
+}
+
+function revisionRequest(request, feedback, previousSpec) {
+  return `${request}\n\nUser feedback on spec: ${feedback}\n\nPrevious spec: ${JSON.stringify(previousSpec)}`;
+}
+
+function requestForSpecDraft(draft) {
+  if (draft._reviewFeedback === undefined) return draft._request;
+  if (!Array.isArray(draft._reviewFeedback) || draft._reviewFeedback.length === 0
+      || !draft._previousSpec || typeof draft._previousSpec !== 'object' || Array.isArray(draft._previousSpec)) {
+    throw specDraftError('SPEC_REVIEW_HISTORY_INVALID', 'Stored specification review context is invalid.');
+  }
+  const feedback = reviewFeedbackContext(draft, draft._reviewFeedback.at(-1));
+  return revisionRequest(draft._request, feedback.text, publicSpec(draft._previousSpec));
+}
 
 function specDraftError(code, message) {
   const error = new Error(message);
@@ -45,9 +86,12 @@ function clarificationContext(draft, answers) {
   return { history, text: prior + current };
 }
 
-function replaceSpecDraft(lifecycleId, value, expectedSpec) {
+function replaceSpecDraft(lifecycleId, value, expectedSpec, phase = ProjectPhase.SPEC) {
   const serialized = JSON.stringify(value);
-  const result = lifecycleRepo.updateSpecIfCurrent.run(serialized, lifecycleId, expectedSpec);
+  const statement = phase === ProjectPhase.SPEC_REVIEW
+    ? lifecycleRepo.updateReviewSpecIfCurrent
+    : lifecycleRepo.updateSpecIfCurrent;
+  const result = statement.run(serialized, lifecycleId, expectedSpec);
   if (result.changes !== 1) {
     throw specDraftError('SPEC_DRAFT_STALE', 'Specification draft changed while preparing its response.');
   }
@@ -268,7 +312,8 @@ export async function answerSpecQuestions(lifecycle, answers) {
   const row = lifecycleRepo.findById.get(lifecycle.id);
   let draft;
   try { draft = JSON.parse(row?.spec); } catch { draft = null; }
-  if (!draft || !draft._request) {
+  if (!draft || typeof draft._request !== 'string'
+      || (!draft._request && draft._reviewFeedback === undefined)) {
     throw new Error('No spec draft found — call startSpec first');
   }
   const clarification = clarificationContext(draft, answers);
@@ -284,7 +329,7 @@ export async function answerSpecQuestions(lifecycle, answers) {
     technical_decisions: draft._technicalDecisions || [],
     implicit_assumptions: draft._implicitAssumptions || [],
   };
-  const prompt = specDocument(draft._request, clarification.text, fullAssessment);
+  const prompt = specDocument(requestForSpecDraft(draft), clarification.text, fullAssessment);
   const llm = lifecycle.callLLM || callLLM;
   const result = await llm('D1', prompt, '', { format: 'json' });
   if (lifecycleRepo.findById.get(lifecycle.id)?.spec !== pendingSpec) {
@@ -317,6 +362,8 @@ export async function answerSpecQuestions(lifecycle, answers) {
       _implicitAssumptions: draft._implicitAssumptions,
       _learnedPatternConformance: draft._learnedPatternConformance,
       _clarificationAnswers: clarification.history,
+      _previousSpec: draft._previousSpec,
+      _reviewFeedback: draft._reviewFeedback,
       _validation: validation,
       _phase: 'VALIDATION_FAILED',
     };
@@ -330,7 +377,11 @@ export async function answerSpecQuestions(lifecycle, answers) {
   }
 
   // Valid spec — replace only the draft used for this exact generation.
-  replaceSpecDraft(lifecycle.id, spec, pendingSpec);
+  replaceSpecDraft(lifecycle.id, {
+    ...publicSpec(spec),
+    _request: draft._request,
+    _learnedPatternConformance: draft._learnedPatternConformance ?? [],
+  }, pendingSpec);
 
   return {
     spec,
@@ -346,6 +397,11 @@ export async function answerSpecQuestions(lifecycle, answers) {
  */
 export async function approveSpec(lifecycle) {
   const spec = lifecycleRepo.getSpec(lifecycle.id);
+  if (spec?._reviewFeedback !== undefined) {
+    if (!Array.isArray(spec._reviewFeedback) || spec._reviewFeedback.length > 0) {
+      throw specDraftError('SPEC_REVIEW_PENDING', 'Pending specification feedback must be resolved before approval.');
+    }
+  }
   const validation = validateSpec(spec);
 
   if (!validation.valid) {
@@ -370,11 +426,23 @@ export async function approveSpec(lifecycle) {
 export async function reviseSpec(lifecycle, feedback) {
   logger.info('LifecycleSpec', 'Spec revision requested', { lifecycleId: lifecycle.id });
 
-  const currentSpec = lifecycleRepo.getSpec(lifecycle.id);
-  const request = currentSpec?._request || '';
+  const row = lifecycleRepo.findById.get(lifecycle.id);
+  let currentSpec;
+  try { currentSpec = JSON.parse(row?.spec); } catch { currentSpec = null; }
+  if (!currentSpec || typeof currentSpec !== 'object' || Array.isArray(currentSpec)) {
+    throw specDraftError('SPEC_REVIEW_DRAFT_INVALID', 'No valid specification exists for review.');
+  }
+  const request = typeof currentSpec._request === 'string' ? currentSpec._request : '';
+  const retained = reviewFeedbackContext(currentSpec, feedback);
+  const previousSpec = publicSpec(currentSpec);
+  const pendingSpec = replaceSpecDraft(lifecycle.id, {
+    ...currentSpec,
+    _request: request,
+    _reviewFeedback: retained.history,
+  }, row.spec, ProjectPhase.SPEC_REVIEW);
 
-  // Re-analyze with feedback incorporated
-  const enrichedRequest = `${request}\n\nUser feedback on spec: ${feedback}\n\nPrevious spec: ${JSON.stringify(currentSpec)}`;
+  // Retain feedback before the model call; render only the actual public spec.
+  const enrichedRequest = revisionRequest(request, retained.text, previousSpec);
   const prompt = specAnalyze(enrichedRequest, '');
   const llm = lifecycle.callLLM || callLLM;
   const result = await llm('D1', prompt, '', { format: 'json' });
@@ -387,12 +455,16 @@ export async function reviseSpec(lifecycle, feedback) {
   // Update draft
   const specDraft = {
     _phase: 'REVISING',
-    _request: enrichedRequest,
+    _request: request,
     _assessment: parsed.initial_assessment || {},
     _questions: parsed.clarifying_questions || [],
-    _previousSpec: currentSpec,
+    _technicalDecisions: parsed.technical_decisions || [],
+    _implicitAssumptions: parsed.implicit_assumptions || [],
+    _learnedPatternConformance: currentSpec._learnedPatternConformance ?? [],
+    _previousSpec: previousSpec,
+    _reviewFeedback: retained.history,
   };
-  lifecycleRepo.updateSpec.run(JSON.stringify(specDraft), lifecycle.id);
+  replaceSpecDraft(lifecycle.id, specDraft, pendingSpec, ProjectPhase.SPEC_REVIEW);
 
   // Ensure phase is SPEC (may have been in SPEC_REVIEW)
   if (lifecycle.phase === ProjectPhase.SPEC_REVIEW) {

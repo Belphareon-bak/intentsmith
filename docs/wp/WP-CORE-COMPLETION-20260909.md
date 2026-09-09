@@ -335,3 +335,25 @@ kompatibilita 8192 má 47/0. Root při hlavním profilu 4096 zachoval původní
 ověřil 47/0. Fyzické 100% GPU měření zůstává samostatný T3 požadavek;
 existující 95% mediální audit není vydáván za jeho splnění. Profil hlavní
 větve se touto opravou nezvyšuje a mediální plocha se neaktivuje.
+
+Samostatná revizní oprava `f8251f9b` uchovává původní zadání i uspořádané
+připomínky před voláním modelu. Přesný compare-and-set ve fázi SPEC_REVIEW
+chrání přijetí i dokončení; stará odpověď nepřepíše novější návrh. Nevyřešené
+připomínky blokují schválení staré SPEC. Předchozí veřejná specifikace,
+technická rozhodnutí a předpoklady se předají znovu bez rekurzivní historie;
+první vstup se neořezává a překročení 8KiB prefixu se výslovně odmítne.
+Historická SPEC bez původního zadání zůstává použitelná s dostupným obsahem,
+chybějící text se nevymýšlí. Nezávislé review a párových 127/27 → 154/0 jsou
+uchované; root zopakoval 154 lifecycle a 45 workflow kontrol bez sítě/GPU.
+Zděděný limit čtvrté revize v non-M1 routeru je samostatně otevřený finding;
+tato oprava neprokazuje zachování každého vstupu na všech vstupních cestách.
+
+Cookbook test měl navíc falešné finální SPEC-F PASS: slovo „přiřazené“ uvnitř
+staré `_previousSpec` prošlo jako řazení a připomínka v interních metadatech
+jako hotová výživa. Revidovaný test `cd7489c0` nyní kontroluje aktuální veřejnou
+SPEC a Unicode hranice slov pro řazení. Obě místa kontrol jsou opravená;
+revizní T3-R větev v historickém 8k běhu neproběhla, její vada je doložená
+inertně. Všech 84 původních míst kontrol, prompty, scénáře a ostatní obsahové
+predikáty zůstaly. Nezávislé review a 43 inertních kontrol včetně skutečného
+historického draftu prošly; root zopakoval 43/43. Jde stále o zmínku požadavku,
+nikoli důkaz implementovaného řazení. Nový celý modelový cookbook ještě chybí.

@@ -12,7 +12,7 @@ import './helpers/isolated-test-db.js';
 // it does not contact a model or execute generated code.
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { startSpec, answerSpecQuestions, reviseSpec, validateSpec } from '../src/planner/lifecycle-spec.js';
+import { startSpec, answerSpecQuestions, approveSpec, reviseSpec, validateSpec } from '../src/planner/lifecycle-spec.js';
 import { specAnalyze, specDocument } from '../src/planner/lifecycle-prompts.js';
 import { validateDependencies, checkDependencies } from '../src/planner/lifecycle-planning.js';
 import {
@@ -775,17 +775,166 @@ console.log('\n── SPEC clarification retention ──');
   await startSpec(structured, 'Build a recipe API.');
   await answerSpecQuestions(structured, 'Use SQLite.');
   const previous = lifecycleRepo.getSpec(structured.id);
+  await structured.transitionTo(ProjectPhase.SPEC_REVIEW);
   await reviseSpec(structured, 'Add sorting.');
   assert(structuredCalls.length === 3 && structuredCalls.every(args => args[0] === 'D1' && args[2] === '' && JSON.stringify(args[3]) === JSON.stringify({ format: 'json' })), 'SPEC analysis, document and revision request JSON format without token/context overrides');
   assert(structuredCalls[0][1] === specAnalyze('Build a recipe API.', ''), 'JSON mode preserves initial analysis prompt bytes');
   assert(structuredCalls[1][1] === specDocument('Build a recipe API.', 'Use SQLite.', { ...analysis.initial_assessment, technical_decisions: [], implicit_assumptions: [] }), 'JSON mode preserves full SPEC document prompt bytes');
-  assert(structuredCalls[2][1] === specAnalyze(`${previous?._request || ''}\n\nUser feedback on spec: Add sorting.\n\nPrevious spec: ${JSON.stringify(previous)}`, ''), 'JSON mode preserves revised analysis prompt bytes');
+  assert(structuredCalls[2][1] === specAnalyze(`Build a recipe API.\n\nUser feedback on spec: Add sorting.\n\nPrevious spec: ${JSON.stringify(valid('Structured spec'))}`, ''), 'JSON revision prompt retains original request and public previous spec');
   assert(lifecycleRepo.getSpec(structured.id)._phase === 'REVISING', 'valid revised JSON still commits the original revision draft');
 
   let corruptCalls = 0;
   const corrupt = newLifecycle(async () => { corruptCalls++; return { content: 'SYNTHETIC malformed' }; }, { ...draft, _clarificationAnswers: ['Saved answer', 42] });
   const corruptError = await failureOf(answerSpecQuestions(corrupt, first));
   assert(corruptError?.code === 'SPEC_CLARIFICATION_HISTORY_INVALID' && corruptCalls === 0, 'malformed stored history fails closed before a model call');
+
+  // SPEC_REVIEW feedback retention uses the same real repository and phase owner.
+  const originalRequest = 'Build a recipe API with the exact original Unicode request: polévka.';
+  const initialSpec = valid('Accepted initial spec');
+  const reviewAnalysis = {
+    initial_assessment: { complexity: 'MEDIUM', required: ['Keep local recipes'] },
+    clarifying_questions: ['Which sorting order?'],
+    technical_decisions: [{ decision: 'Stable query sorting', alternatives: ['Ascending', 'Descending'] }],
+    implicit_assumptions: ['Preserve all recipe fields'],
+  };
+  const reviewLifecycle = async (callLLM, spec = { ...initialSpec, _request: originalRequest }) => {
+    const lc = newLifecycle(callLLM, spec);
+    await lc.transitionTo(ProjectPhase.SPEC_REVIEW);
+    return lc;
+  };
+  const expectedReviewRequest = (history, previous = initialSpec) => `${originalRequest}\n\nUser feedback on spec: ${history.join('\n\n')}\n\nPrevious spec: ${JSON.stringify(previous)}`;
+  const reviewA = 'Add sort=prep_time_asc and default created_at_desc.';
+  const reviewB = 'Add optional nutrition fields without removing sorting.';
+  const reviewC = 'Keep the exact requested sorting names.';
+  const reviewPrompts = [];
+  let reviewRound = 0;
+  const reviewModel = async (_role, prompt) => {
+    reviewPrompts.push(prompt);
+    const n = reviewRound++;
+    if (n === 1) throw new Error('SYNTHETIC review transport failure');
+    if (n < 4) return { content: 'SYNTHETIC malformed review JSON' };
+    if (n === 4) return { content: JSON.stringify(reviewAnalysis) };
+    return { content: JSON.stringify({ ...valid('Completed revision'), _request: 'MODEL FORGED REQUEST', _reviewFeedback: ['MODEL FORGED FEEDBACK'] }) };
+  };
+  const reviewLc = await reviewLifecycle(reviewModel);
+  await failureOf(reviseSpec(reviewLc, reviewA));
+  assert(JSON.stringify(lifecycleRepo.getSpec(reviewLc.id)._reviewFeedback) === JSON.stringify([reviewA]), 'failed review durably retains the exact first feedback before awaiting D1');
+  assert(lifecycleRepo.findById.get(reviewLc.id).phase === 'SPEC_REVIEW', 'malformed review remains in SPEC_REVIEW');
+  assert(reviewPrompts[0] === specAnalyze(expectedReviewRequest([reviewA]), ''), 'review prompt retains original request and only the full public previous spec');
+  const reviewResumed = ProjectLifecycle.resume(reviewLc.id, '/tmp/test');
+  reviewResumed.callLLM = reviewModel;
+  await failureOf(reviseSpec(reviewResumed, reviewB));
+  assert(JSON.stringify(lifecycleRepo.getSpec(reviewLc.id)._reviewFeedback) === JSON.stringify([reviewA, reviewB]), 'review transport failure after resume retains both ordered feedback turns');
+  await failureOf(reviseSpec(reviewResumed, reviewA));
+  await failureOf(reviseSpec(reviewResumed, reviewA));
+  assert(JSON.stringify(lifecycleRepo.getSpec(reviewLc.id)._reviewFeedback) === JSON.stringify([reviewA, reviewB, reviewA]), 'review keeps A to B to A and coalesces only consecutive exact duplicates');
+  assert(reviewPrompts[2] === reviewPrompts[3] && reviewPrompts[2] === specAnalyze(expectedReviewRequest([reviewA, reviewB, reviewA]), ''), 'retained review history reaches the same request exactly once per turn');
+  await reviseSpec(reviewResumed, reviewC);
+  const reviewDraft = lifecycleRepo.getSpec(reviewLc.id);
+  assert(reviewResumed.phase === 'SPEC' && lifecycleRepo.findById.get(reviewLc.id).phase === 'SPEC', 'successful revised analysis advances the real phase owner to SPEC');
+  assert(reviewDraft._request === originalRequest && JSON.stringify(reviewDraft._previousSpec) === JSON.stringify(initialSpec), 'revised draft preserves original request and full public previous spec separately');
+  assert(JSON.stringify(reviewDraft._technicalDecisions) === JSON.stringify(reviewAnalysis.technical_decisions) && JSON.stringify(reviewDraft._implicitAssumptions) === JSON.stringify(reviewAnalysis.implicit_assumptions), 'revised analysis retains all technical decisions and assumptions for the next generation');
+  const reviewAnswer = 'Use nullable nutrition and stable sorting.';
+  await answerSpecQuestions(reviewResumed, reviewAnswer);
+  assert(reviewPrompts[5] === specDocument(expectedReviewRequest([reviewA, reviewB, reviewA, reviewC]), reviewAnswer, { ...reviewAnalysis.initial_assessment, technical_decisions: reviewAnalysis.technical_decisions, implicit_assumptions: reviewAnalysis.implicit_assumptions }), 'complete revised SPEC prompt includes all retained feedback and analysis facts once');
+  const completedReview = lifecycleRepo.getSpec(reviewLc.id);
+  assert(completedReview._request === originalRequest && completedReview.title === 'Completed revision', 'valid revised SPEC preserves original request against model metadata replacement');
+  assert(completedReview._reviewFeedback === undefined && completedReview._previousSpec === undefined, 'valid revised SPEC clears resolved pending feedback and recursive previous-spec metadata');
+  await reviewResumed.transitionTo(ProjectPhase.SPEC_REVIEW);
+  reviewResumed.callLLM = async (_role, prompt) => { reviewPrompts.push(prompt); return { content: 'SYNTHETIC malformed later review' }; };
+  await failureOf(reviseSpec(reviewResumed, reviewB));
+  assert(reviewPrompts.at(-1) === specAnalyze(expectedReviewRequest([reviewB], valid('Completed revision')), ''), 'later review uses the latest public spec without nesting earlier review metadata');
+
+  const initialAccepted = newLifecycle(async () => ({ content: JSON.stringify({ ...initialSpec, _request: 'MODEL REPLACEMENT' }) }), { ...draft, _request: originalRequest });
+  await answerSpecQuestions(initialAccepted, 'Initial details');
+  assert(lifecycleRepo.getSpec(initialAccepted.id)._request === originalRequest, 'initial valid SPEC also retains exact original request');
+
+  const legacyPrompts = [];
+  const legacyReview = await reviewLifecycle(async (_role, prompt) => {
+    legacyPrompts.push(prompt);
+    return { content: JSON.stringify(legacyPrompts.length === 1 ? reviewAnalysis : valid('Legacy revision')) };
+  }, initialSpec);
+  await reviseSpec(legacyReview, reviewA);
+  const legacyResult = await answerSpecQuestions(legacyReview, reviewAnswer);
+  const legacyRequest = `\n\nUser feedback on spec: ${reviewA}\n\nPrevious spec: ${JSON.stringify(initialSpec)}`;
+  assert(legacyResult.needsMore === false && lifecycleRepo.getSpec(legacyReview.id)._request === '', 'legacy accepted SPEC without recoverable original request can still complete a revision');
+  assert(legacyPrompts[0] === specAnalyze(legacyRequest, '') && legacyPrompts[1] === specDocument(legacyRequest, reviewAnswer, { ...reviewAnalysis.initial_assessment, technical_decisions: reviewAnalysis.technical_decisions, implicit_assumptions: reviewAnalysis.implicit_assumptions }), 'legacy revision retains all available feedback and public spec without inventing the original request');
+
+  const invalidRevisionPrompts = [];
+  const invalidRevision = await reviewLifecycle(async (_role, prompt) => {
+    invalidRevisionPrompts.push(prompt);
+    const content = invalidRevisionPrompts.length === 1 ? reviewAnalysis
+      : invalidRevisionPrompts.length === 2 ? { title: 'Invalid revision', _request: 'MODEL FORGED', _reviewFeedback: ['MODEL FORGED'], _previousSpec: { title: 'MODEL FORGED' } }
+        : valid('Revision after validation failure');
+    return { content: JSON.stringify(content) };
+  });
+  await reviseSpec(invalidRevision, reviewA);
+  const invalidRevisionResult = await answerSpecQuestions(invalidRevision, reviewAnswer);
+  const invalidRevisionDraft = lifecycleRepo.getSpec(invalidRevision.id);
+  assert(invalidRevisionResult.needsMore === true && invalidRevisionDraft._request === originalRequest && JSON.stringify(invalidRevisionDraft._reviewFeedback) === JSON.stringify([reviewA]) && JSON.stringify(invalidRevisionDraft._previousSpec) === JSON.stringify(initialSpec), 'invalid revised document preserves actual review context against forged model metadata');
+  const retriedRevisionResult = await answerSpecQuestions(invalidRevision, reviewAnswer);
+  assert(retriedRevisionResult.needsMore === false && invalidRevisionPrompts[1] === invalidRevisionPrompts[2] && invalidRevisionPrompts[2] === specDocument(expectedReviewRequest([reviewA]), reviewAnswer, { ...reviewAnalysis.initial_assessment, technical_decisions: reviewAnalysis.technical_decisions, implicit_assumptions: reviewAnalysis.implicit_assumptions }), 'retry after revision validation failure reuses all retained facts exactly once');
+
+  const pendingApproval = await reviewLifecycle(async () => ({ content: 'SYNTHETIC malformed' }));
+  await failureOf(reviseSpec(pendingApproval, reviewA));
+  const approvalBefore = lifecycleRepo.findById.get(pendingApproval.id).spec;
+  const approvalError = await failureOf(approveSpec(pendingApproval));
+  assert(approvalError?.code === 'SPEC_REVIEW_PENDING' && lifecycleRepo.findById.get(pendingApproval.id).phase === 'SPEC_REVIEW' && lifecycleRepo.findById.get(pendingApproval.id).spec === approvalBefore, 'failed pending feedback cannot approve the stale previous specification');
+
+  let largeReviewCalls = 0;
+  const largeReview = await reviewLifecycle(async () => { largeReviewCalls++; return { content: 'SYNTHETIC malformed' }; });
+  await failureOf(reviseSpec(largeReview, largeAnswer));
+  assert(largeReviewCalls === 1, 'original large single review feedback is not newly capped');
+  const largeReviewBefore = lifecycleRepo.findById.get(largeReview.id).spec;
+  const largeReviewError = await failureOf(reviseSpec(largeReview, reviewB));
+  assert(largeReviewError?.code === 'SPEC_REVIEW_FEEDBACK_BUDGET_EXCEEDED' && largeReviewCalls === 1 && lifecycleRepo.findById.get(largeReview.id).spec === largeReviewBefore, 'UTF-8 review prefix overflow rejects before model without discarding or mutating prior feedback');
+  await failureOf(reviseSpec(largeReview, largeAnswer));
+  assert(largeReviewCalls === 2 && lifecycleRepo.getSpec(largeReview.id)._reviewFeedback?.length === 1, 'duplicate large review retry adds no prefix bytes');
+  let boundaryReviewCalls = 0;
+  const boundaryReview = await reviewLifecycle(async () => { boundaryReviewCalls++; return { content: 'SYNTHETIC malformed' }; });
+  await failureOf(reviseSpec(boundaryReview, boundaryAnswer));
+  await failureOf(reviseSpec(boundaryReview, reviewB));
+  assert(boundaryReviewCalls === 2 && lifecycleRepo.getSpec(boundaryReview.id)._reviewFeedback?.length === 2, 'exact 8192-byte review prefix boundary remains allowed');
+
+  const reviewPending = [];
+  const reviewConcurrent = await reviewLifecycle((_role, prompt) => new Promise(resolve => reviewPending.push({ prompt, resolve })));
+  const reviewOlder = reviseSpec(reviewConcurrent, reviewA).then(value => ({ value }), error => ({ error }));
+  const reviewNewer = reviseSpec(reviewConcurrent, reviewB).then(value => ({ value }), error => ({ error }));
+  reviewPending[1].resolve({ content: JSON.stringify(reviewAnalysis) });
+  const reviewNewerOutcome = await reviewNewer;
+  const reviewNewerBytes = lifecycleRepo.findById.get(reviewConcurrent.id).spec;
+  reviewPending[0].resolve({ content: JSON.stringify({ ...reviewAnalysis, initial_assessment: { stale: true } }) });
+  const reviewOlderOutcome = await reviewOlder;
+  assert(reviewNewerOutcome.value && reviewOlderOutcome.error?.code === 'SPEC_DRAFT_STALE' && lifecycleRepo.findById.get(reviewConcurrent.id).spec === reviewNewerBytes, 'older review completion cannot overwrite newer exact draft or phase');
+  assert(reviewPending[1].prompt === specAnalyze(expectedReviewRequest([reviewA, reviewB]), ''), 'overlapping newer review request contains earlier feedback before model completion');
+
+  let finishReviewPhase;
+  const phaseReview = await reviewLifecycle(() => new Promise(resolve => { finishReviewPhase = resolve; }));
+  const phaseReviewPending = reviseSpec(phaseReview, reviewA).then(value => ({ value }), error => ({ error }));
+  const pendingReviewBytes = lifecycleRepo.findById.get(phaseReview.id).spec;
+  lifecycleRepo.updatePhase.run('PLANNING', phaseReview.id);
+  finishReviewPhase({ content: JSON.stringify(reviewAnalysis) });
+  const phaseReviewOutcome = await phaseReviewPending;
+  assert(phaseReviewOutcome.error?.code === 'SPEC_DRAFT_STALE' && lifecycleRepo.findById.get(phaseReview.id).spec === pendingReviewBytes && lifecycleRepo.findById.get(phaseReview.id).phase === 'PLANNING', 'review completion CAS rejects changed database phase without overwriting it');
+
+  let finishReviewBytes;
+  const changedReview = await reviewLifecycle(() => new Promise(resolve => { finishReviewBytes = resolve; }));
+  const changedPending = reviseSpec(changedReview, reviewA).then(value => ({ value }), error => ({ error }));
+  const changedValue = JSON.stringify({ ...initialSpec, title: 'Newer external draft', _request: originalRequest });
+  lifecycleRepo.updateSpec.run(changedValue, changedReview.id);
+  finishReviewBytes({ content: JSON.stringify(reviewAnalysis) });
+  const changedOutcome = await changedPending;
+  assert(changedOutcome.error?.code === 'SPEC_DRAFT_STALE' && lifecycleRepo.findById.get(changedReview.id).spec === changedValue, 'review completion CAS rejects changed spec bytes even in the same phase');
+
+  let invalidReviewCalls = 0;
+  const invalidReview = await reviewLifecycle(async () => { invalidReviewCalls++; return { content: 'SYNTHETIC malformed' }; }, { ...initialSpec, _request: originalRequest, _reviewFeedback: [reviewA, 42] });
+  const invalidReviewError = await failureOf(reviseSpec(invalidReview, reviewB));
+  assert(invalidReviewError?.code === 'SPEC_REVIEW_HISTORY_INVALID' && invalidReviewCalls === 0, 'invalid stored review history fails closed before a model call');
+  const wrongReviewPhase = newLifecycle(async () => { invalidReviewCalls++; return { content: JSON.stringify(reviewAnalysis) }; }, { ...initialSpec, _request: originalRequest });
+  const wrongReviewBytes = lifecycleRepo.findById.get(wrongReviewPhase.id).spec;
+  const wrongReviewError = await failureOf(reviseSpec(wrongReviewPhase, reviewA));
+  assert(wrongReviewError?.code === 'SPEC_DRAFT_STALE' && invalidReviewCalls === 0 && lifecycleRepo.findById.get(wrongReviewPhase.id).spec === wrongReviewBytes, 'review admission CAS requires exact SPEC_REVIEW phase before any model call');
+
 }
 
 // ════════════════════════════════════════════════════════════════════════════════
