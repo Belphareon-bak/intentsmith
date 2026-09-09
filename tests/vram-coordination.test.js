@@ -4,7 +4,9 @@
 import { suite, test, testAsync, assert, assertEqual, summary } from './harness.js';
 import { VRAMManager, _estimateWeightsMb, _kvMbPer1k } from '../src/media/vram-manager.js';
 import { getVramUsage, getVramUsageAsync, _clearVramCache } from '../src/system/gpu-detector.js';
-import { clearNumCtxCache, getNumCtx } from '../src/llm/model-ctx.js';
+import { clearNumCtxCache, getNumCtx, resolveNumCtx } from '../src/llm/model-ctx.js';
+import { MODEL_RUNTIME_PROFILE } from '../src/llm/model-runtime-profile.js';
+import { getCompactionBudget } from '../src/chat/context-compact.js';
 
 const ASYNC_TEST_TIMEOUT_MS = 10_000;
 const MIB = 1024 * 1024;
@@ -218,6 +220,119 @@ await testAsync('computeNumCtx stores the profile-capped effective result', asyn
   assertEqual(mgr.getTargetNumCtx(), result);
   assertEqual(getNumCtx('qwen3.5:27b'), result);
   assertEqual(result, 4096); // committed reference-model ceiling wins over raw capacity
+});
+
+await testAsync('default reference context reaches shared gateway and compaction consumers', async () => {
+  const mgr = createManager();
+  clearNumCtxCache();
+  const result = await withIsolatedVramSources(
+    { device: comfyVramDevice() },
+    () => mgr.computeNumCtx({ modelParams: 27 }),
+  );
+  assertEqual(result, MODEL_RUNTIME_PROFILE.contextWindowTokens);
+  assertEqual(mgr.getTargetNumCtx(), result);
+  assertEqual(getNumCtx('qwen3.5:27b'), result);
+  assertEqual(resolveNumCtx('qwen3.5:27b', 32768), result);
+  assertEqual(resolveNumCtx('qwen3.5:27b', 2048), 2048);
+  assertEqual(getCompactionBudget('qwen3.5:27b').contextWindow, result);
+});
+
+await testAsync('unprofiled models and same-family neighbors keep the legacy default', async () => {
+  for (const chatModel of ['fixture:27b', 'qwen3.5:14b']) {
+    clearNumCtxCache();
+    const mgr = createManager({ chatModel });
+    const result = await withIsolatedVramSources(
+      { device: comfyVramDevice() },
+      () => mgr.computeNumCtx({ modelParams: 27 }),
+    );
+    assertEqual(result, 8192);
+    assertEqual(getNumCtx(chatModel), 8192);
+  }
+});
+
+await testAsync('reference default preserves explicit and observed lower limits', async () => {
+  const mgr = createManager();
+  clearNumCtxCache();
+  const explicit = await withIsolatedVramSources(
+    { device: comfyVramDevice() },
+    () => mgr.computeNumCtx({ modelParams: 27, maxCtx: 2048 }),
+  );
+  assertEqual(explicit, 2048);
+  const hardware = await withIsolatedVramSources(
+    { device: comfyVramDevice({ freeMb: 19600 }) },
+    () => mgr.computeNumCtx({ modelParams: 27 }),
+  );
+  assertEqual(hardware, Math.min(5120, MODEL_RUNTIME_PROFILE.contextWindowTokens));
+  assertEqual(resolveNumCtx('qwen3.5:27b', 32768), hardware);
+  const unknown = await withIsolatedVramSources({}, () => mgr.computeNumCtx());
+  assertEqual(unknown, 4096);
+});
+
+await testAsync('real reload default sends the shared profile value and releases its lease', async () => {
+  let leases = 0;
+  let releases = 0;
+  const mgr = createManager({ modelUseAuthority: {
+    acquireShared() { leases++; return { release() { releases++; } }; },
+  } });
+  const bodies = [];
+  clearNumCtxCache();
+  await withIsolatedVramSources({ device: comfyVramDevice() }, async () => {
+    const sourceFetch = globalThis.fetch;
+    globalThis.fetch = async (url, options) => {
+      if (String(url) === 'http://mock:11434/api/generate') {
+        bodies.push(JSON.parse(options.body));
+        return { ok: true, status: 200, text: async () => '{}' };
+      }
+      return sourceFetch(url, options);
+    };
+    try { await mgr.reloadOllama(); } finally { globalThis.fetch = sourceFetch; }
+  });
+  assertEqual(bodies.length, 1);
+  assertEqual(bodies[0].model, MODEL_RUNTIME_PROFILE.model);
+  assertEqual(bodies[0].options.num_ctx, MODEL_RUNTIME_PROFILE.contextWindowTokens);
+  assertEqual(resolveNumCtx(MODEL_RUNTIME_PROFILE.model), bodies[0].options.num_ctx);
+  assertEqual(leases, 1);
+  assertEqual(releases, 1);
+});
+
+await testAsync('startup audit accepts the exact reference profile without reload effects', async () => {
+  const mgr = createManager();
+  const effects = [];
+  mgr.unloadOllama = async () => { effects.push('unload'); };
+  mgr.waitForVramDrop = async () => { effects.push('wait'); return true; };
+  mgr.reloadOllama = async () => { effects.push('reload'); };
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url) => {
+    calls.push(String(url));
+    assertEqual(String(url), 'http://mock:11434/api/ps');
+    return { ok: true, json: async () => ({ models: [{ name: MODEL_RUNTIME_PROFILE.model,
+      size: 16000, size_vram: 16000, context_length: MODEL_RUNTIME_PROFILE.contextWindowTokens }] }) };
+  };
+  let result;
+  try { result = await mgr.auditOllamaModels(); } finally { globalThis.fetch = originalFetch; }
+  assertEqual(result.action, 'ok');
+  assertEqual(JSON.stringify(calls), JSON.stringify(['http://mock:11434/api/ps']));
+  assertEqual(effects.length, 0);
+});
+
+await testAsync('startup audit does not grant the reference ceiling to a family neighbor', async () => {
+  const mgr = createManager();
+  const effects = [];
+  mgr.unloadOllama = async () => { effects.push('unload'); };
+  mgr.waitForVramDrop = async () => { effects.push('wait'); return true; };
+  mgr.reloadOllama = async () => { effects.push('reload'); };
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => {
+    assertEqual(String(url), 'http://mock:11434/api/ps');
+    return { ok: true, json: async () => ({ models: [{ name: 'qwen3.5:14b',
+      size: 16000, size_vram: 16000, context_length: 16384 }] }) };
+  };
+  let result;
+  try { result = await mgr.auditOllamaModels(); } finally { globalThis.fetch = originalFetch; }
+  assertEqual(result.action, 'reloaded');
+  assert(result.details.includes('excessive ctx (16384)'));
+  assertEqual(JSON.stringify(effects), JSON.stringify(['unload', 'wait', 'reload']));
 });
 
 await testAsync('computeNumCtx respects maxCtx gateway limit', async () => {
@@ -457,7 +572,7 @@ await testAsync('returns ok when VRAM usage is fine', async () => {
             name: 'qwen3.5:27b',
             size: 18_000_000_000,         // 18 GB total
             size_vram: 17_500_000_000,    // 17.5 GB on GPU (>95%)
-            context_length: 8192,          // within gateway limit
+            context_length: Math.min(8192, MODEL_RUNTIME_PROFILE.contextWindowTokens), // within the exact profile
           }],
         }),
       };

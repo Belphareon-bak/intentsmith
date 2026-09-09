@@ -320,3 +320,18 @@ Nezávisle revidovaný patch `862479b4` má párovou lifecycle evidenci 124/1 �
 zopakoval obě sady bez sítě a GPU se stejným výsledkem. JSON režim nezaručuje
 úplnost ani věcnou kvalitu a nový živý běh ještě chybí. Samostatně se řeší
 prokázaná ztráta zadání neúspěšné revize; tato změna ji nezakrývá.
+
+Sdílený runtime profil měl druhého zastaralého konzumenta ve VRAMManageru:
+reload bez options ukládal nejvýše 8192 a startup audit větší kontext označil
+za chybný i pro přesný profil modelu. Revidovaná oprava používá existující
+čistý getter profilu pouze pro přesnou identitu; neprofilované modely drží
+8192, nižší caller/hardware limity a konzervativní fallback zůstávají.
+Nová hrana `src/media/vram-manager.js -> src/llm/model-runtime-profile.js`
+má samostatné review: 1274 → 1275 hran, žádná odstraněná, stále 3 cykly / 28
+souborů. Připnutí následuje nad čistým commitem přes existující ratchet.
+Inertní párová sada při privátním profilu 16384 doložila 44/3 → 47/0;
+kompatibilita 8192 má 47/0. Root při hlavním profilu 4096 zachoval původní
+46/1 selhání zastaralé within-limit fixture a po její úzké revidované opravě
+ověřil 47/0. Fyzické 100% GPU měření zůstává samostatný T3 požadavek;
+existující 95% mediální audit není vydáván za jeho splnění. Profil hlavní
+větve se touto opravou nezvyšuje a mediální plocha se neaktivuje.

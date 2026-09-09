@@ -4,6 +4,7 @@
 import { broadcast } from '../ws-bridge/ws-server.js';
 import { logger } from '../core/logger.js';
 import { getNumCtx, setNumCtx } from '../llm/model-ctx.js';
+import { getModelRuntimeProfile } from '../llm/model-runtime-profile.js';
 import {
   MODEL_ACTIVITY_OWNER,
   modelUseAuthority as defaultModelUseAuthority,
@@ -179,7 +180,7 @@ export class VRAMManager {
    * @param {number} [opts.modelParams]    - param count (billions)
    * @param {number} [opts.modelWeightsMb] - known weights size (from catalog)
    * @param {number} [opts.reservedMb=1024] - OS/compositor overhead
-   * @param {number} [opts.maxCtx=8192]    - gateway limit (no point loading bigger)
+   * @param {number} [opts.maxCtx]         - caller ceiling; defaults to the exact model profile or 8192
    * @returns {Promise<number>} Safe num_ctx (multiple of 1024)
    */
   async computeNumCtx(opts = {}) {
@@ -191,7 +192,9 @@ export class VRAMManager {
       return this._storeTargetNumCtx(4096);
     }
 
-    const gatewayLimit = opts.maxCtx ?? 8192;
+    const gatewayLimit = opts.maxCtx
+      ?? getModelRuntimeProfile(this._chatModel)?.contextWindowTokens
+      ?? 8192;
     const reservedMb = opts.reservedMb ?? 1024;
     const modelWeightsMb = opts.modelWeightsMb || _estimateWeightsMb(opts.modelParams);
     const kvPer1k = _kvMbPer1k(this._modelMeta, opts.modelParams);
@@ -393,9 +396,10 @@ export class VRAMManager {
       const sizeVramBytes = chatLoaded.size_vram || 0;
       const cpuSpillover = sizeBytes > 0 && sizeVramBytes < sizeBytes * 0.95;
 
-      // 2. Excessive context: context_length > gateway max (8192)
+      // 2. Excessive context: exact loaded-model profile, or the legacy ceiling.
       const contextLength = chatLoaded.context_length || 0;
-      const excessiveCtx = contextLength > 8192;
+      const contextLimit = getModelRuntimeProfile(chatLoaded.name)?.contextWindowTokens ?? 8192;
+      const excessiveCtx = contextLength > contextLimit;
 
       if (!cpuSpillover && !excessiveCtx) {
         return {
