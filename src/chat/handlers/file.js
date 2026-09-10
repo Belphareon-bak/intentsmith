@@ -25,6 +25,9 @@ import {
   isM2FileReadOutputRequest, M2_FILE_READ_MAX_BYTES, m2FileReadConversationOrigin,
 } from '../../../contracts/m2/file-read-output-v1.js';
 import { config } from '../../config.js';
+import { throwIfAborted, isAbortError } from '../../core/abort-error.js';
+import { issueFileExplainContinuation, getFileExplainContinuation } from '../file-explain-continuation.js';
+import { prepareFileExplanation, callFileExplanation } from './utils/file-explain.js';
 
 // ─── Security constants ──────────────────────────────────────────────────────
 
@@ -271,6 +274,54 @@ function exactReadApprovalPreview(execution, context, lang) {
 
 // Read bytes come only from the durable, caller-bound content resolver. A
 // successful ToolResult reference or adapter value alone is not file content.
+function resolveVerifiedM2FileText(execution, context, toolExecutor, expectedEffectId = null) {
+  const requestId = execution?.request?.requestId || null;
+  const effectId = execution?.result?.effectRequestId || execution?.effectRequestId || null;
+  if (execution?.request?.toolId !== 'file.read'
+      || execution.request.toolVersion !== 2
+      || execution.result?.status !== 'ok'
+      || execution.result.requestId !== requestId
+      || !effectId
+      || (expectedEffectId !== null && expectedEffectId !== effectId)
+      || typeof toolExecutor?.resolveM2FileReadContent !== 'function') {
+    throw Object.assign(new Error('Stored file read terminal is unavailable'), {
+      code: 'TOOL_READ_CONTENT_AUTHORITY_REQUIRED',
+    });
+  }
+  const contentRef = execution.result.output?.contentRef;
+  const resolved = toolExecutor.resolveM2FileReadContent({ requestId, contentRef, context });
+  const { bytes, output, request, result } = resolved || {};
+  const exact = Buffer.isBuffer(bytes)
+    && request?.requestId === requestId
+    && isDeepStrictEqual(request, execution.request)
+    && isDeepStrictEqual(result, execution.result)
+    && isDeepStrictEqual(output, result.output)
+    && request.toolId === 'file.read' && request.toolVersion === 2
+    && result?.requestId === requestId && result.status === 'ok'
+    && result.requestDigest === execution.result.requestDigest
+    && result.effectRequestId === effectId && resolved.effectId === effectId
+    && output?.format === 'bytes' && output.contentRef === contentRef
+    && output.path === request.input?.path && resolved.path === output.path
+    && output.byteLength === bytes.length
+    && output.contentDigest === `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+  if (!exact) {
+    throw Object.assign(new Error('Stored file read identity or bytes do not match'), {
+      code: 'TOOL_READ_CONTENT_MISMATCH',
+    });
+  }
+  let content;
+  try {
+    // Preserve a UTF-8 BOM and every valid code point; never replace invalid bytes.
+    content = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
+    if (content.includes('\0') || !Buffer.from(content, 'utf8').equals(bytes)) throw new Error('Non-text bytes');
+  } catch {
+    throw Object.assign(new Error('Stored file bytes cannot be displayed as UTF-8 text'), {
+      code: 'TOOL_READ_CONTENT_NOT_TEXT',
+    });
+  }
+  return { bytes, content, output, request, result, effectId };
+}
+
 export function renderM2FileReadResult(execution, context, {
   toolExecutor,
   decision = null,
@@ -291,48 +342,7 @@ export function renderM2FileReadResult(execution, context, {
     ...(decision ? { decision: decision.toJSON() } : {}),
   };
   try {
-    if (execution?.request?.toolId !== 'file.read'
-        || execution.request.toolVersion !== 2
-        || execution.result?.status !== 'ok'
-        || execution.result.requestId !== requestId
-        || !effectId
-        || (expectedEffectId !== null && expectedEffectId !== effectId)
-        || typeof toolExecutor?.resolveM2FileReadContent !== 'function') {
-      throw Object.assign(new Error('Stored file read terminal is unavailable'), {
-        code: 'TOOL_READ_CONTENT_AUTHORITY_REQUIRED',
-      });
-    }
-    const contentRef = execution.result.output?.contentRef;
-    const resolved = toolExecutor.resolveM2FileReadContent({ requestId, contentRef, context });
-    const { bytes, output, request, result } = resolved || {};
-    const exact = Buffer.isBuffer(bytes)
-      && request?.requestId === requestId
-      && isDeepStrictEqual(request, execution.request)
-      && isDeepStrictEqual(result, execution.result)
-      && isDeepStrictEqual(output, result.output)
-      && request.toolId === 'file.read' && request.toolVersion === 2
-      && result?.requestId === requestId && result.status === 'ok'
-      && result.requestDigest === execution.result.requestDigest
-      && result.effectRequestId === effectId && resolved.effectId === effectId
-      && output?.format === 'bytes' && output.contentRef === contentRef
-      && output.path === request.input?.path && resolved.path === output.path
-      && output.byteLength === bytes.length
-      && output.contentDigest === `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
-    if (!exact) {
-      throw Object.assign(new Error('Stored file read identity or bytes do not match'), {
-        code: 'TOOL_READ_CONTENT_MISMATCH',
-      });
-    }
-    let content;
-    try {
-      // Preserve a UTF-8 BOM and every valid code point; never replace invalid bytes.
-      content = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
-      if (content.includes('\0') || !Buffer.from(content, 'utf8').equals(bytes)) throw new Error('Non-text bytes');
-    } catch {
-      throw Object.assign(new Error('Stored file bytes cannot be displayed as UTF-8 text'), {
-        code: 'TOOL_READ_CONTENT_NOT_TEXT',
-      });
-    }
+    const { bytes, content, output } = resolveVerifiedM2FileText(execution, context, toolExecutor, expectedEffectId);
     const explanationPending = requestedHandler === 'file.explain';
     const rendered = formatFileReadResponse(output.path, {
       content, size: bytes.length, lines: content.split('\n').length, truncated: false,
@@ -378,6 +388,115 @@ export function renderM2FileReadResult(execution, context, {
         metadata: { ...metadata, securityBlocked: true, error: error.code || 'TOOL_READ_CONTENT_UNAVAILABLE' },
       }),
     });
+  }
+}
+
+// Concurrent explicit approvals never share results or start a second model
+// call for the same exact operation. This is not a durable inference claim.
+const activeFileExplanations = new Set();
+
+/** Complete only an explicitly requested explanation of the exact stored read. */
+export async function completeM2FileRead(execution, context, {
+  toolExecutor, decision = null, requestedHandler = 'file.read', expectedEffectId = null,
+  question = null, resume = false, callExplanation = callFileExplanation,
+} = {}) {
+  let wantsExplanation = requestedHandler === 'file.explain';
+  if (!wantsExplanation && (!resume || !context.conversationStore?.isDurableReady?.())) {
+    return renderM2FileReadResult(execution, context, { toolExecutor, decision, expectedEffectId });
+  }
+  let verified = false;
+  const lang = context.langCtx?.language || 'cs';
+  try {
+    throwIfAborted(context.signal);
+    const read = resolveVerifiedM2FileText(execution, context, toolExecutor, expectedEffectId);
+    verified = true;
+    const continuation = (wantsExplanation || resume) ? getFileExplainContinuation(execution, context) : null;
+    if (continuation) {
+      if (wantsExplanation && question !== null && question !== continuation.question) {
+        throw Object.assign(new Error('Replay question changed'), { code: 'TOOL_FILE_EXPLAIN_CONTEXT_MISMATCH' });
+      }
+      wantsExplanation = true;
+      question = continuation.question;
+    }
+    if (!wantsExplanation) return renderM2FileReadResult(execution, context, { toolExecutor, decision, expectedEffectId });
+    const language = continuation?.language || (lang === 'en' ? 'en' : 'cs');
+    const explainContext = { ...context, langCtx: { ...context.langCtx, language } };
+    const assertCurrent = () => {
+      throwIfAborted(context.signal);
+      const current = resolveVerifiedM2FileText(execution, context, toolExecutor, expectedEffectId);
+      if (!current.bytes.equals(read.bytes) || !isDeepStrictEqual(current.output, read.output)) {
+        throw Object.assign(new Error('Stored read changed during explanation'), { code: 'TOOL_READ_CONTENT_MISMATCH' });
+      }
+    };
+    let responseContent;
+    let model;
+    const replayed = continuation?.state === 'complete';
+    if (replayed) {
+      responseContent = continuation.content;
+      model = continuation.model;
+    } else {
+      const prepared = prepareFileExplanation({ path: read.output.path, content: read.content, question, language });
+      // One ordinary D1 call. Neither the file nor model output can supply
+      // tools, auth tokens, model options or additional filesystem paths.
+      const claimKey = JSON.stringify([execution.result.requestDigest, read.effectId,
+        execution.request.actor, execution.request.origin]);
+      if (activeFileExplanations.has(claimKey)) {
+        throw Object.assign(new Error('This exact explanation is already running'), { code: 'TOOL_FILE_EXPLAIN_BUSY' });
+      }
+      activeFileExplanations.add(claimKey);
+      try {
+        const result = await callExplanation(prepared, explainContext);
+        assertCurrent();
+        if (result?.finishReason !== 'stop' || typeof result.content !== 'string' || !result.content.trim()
+            || typeof result.model !== 'string' || !result.model) {
+          throw Object.assign(new Error('The model did not produce a complete explanation'), {
+            code: result?.finishReason === 'length' ? 'TOOL_FILE_EXPLAIN_TRUNCATED' : 'TOOL_FILE_EXPLAIN_INCOMPLETE',
+          });
+        }
+        model = result.model;
+        responseContent = `${language === 'en' ? 'Explanation of' : 'Vysvětlení souboru'} ${storedPathLiteral(read.output.path)}\n\n${result.content}`;
+      } finally { activeFileExplanations.delete(claimKey); }
+    }
+    assertCurrent();
+    const marker = issueFileExplainContinuation(execution, explainContext, question,
+      { content: responseContent, model }, assertCurrent);
+    return new TaggedResponse({ content: responseContent, tag: new ResponseTag({
+      speaker: ResponseSpeaker.SYSTEM, mode: context.hasActiveProject ? ChatMode.PROJECT : ChatMode.CONVERSATION,
+      confidence: 0.85, canExecute: false, metadata: {
+        handler: 'file.explain', requestedHandler: 'file.explain', fileOperation: true,
+        fileReadVerified: true, fallbackSuppressed: true, approvalRequired: false, securityBlocked: false,
+        toolRequestId: execution.request.requestId, effectId: read.effectId,
+        filePath: read.output.path, fileSize: read.bytes.length,
+        contentRef: read.output.contentRef, contentDigest: read.output.contentDigest,
+        explanationPending: false, explanationComplete: true, explanationReplayed: replayed,
+        model, finishReason: 'stop', truncated: false, error: null, m2FileExplain: marker,
+        ...(decision ? { decision: decision.toJSON() } : {}),
+      },
+    }) });
+  } catch (error) {
+    if (context.signal?.aborted || isAbortError(error)) throw error;
+    if (typeof error.code === 'string' && error.code.startsWith('TOOL_FILE_EXPLAIN_')) wantsExplanation = true;
+    if (!wantsExplanation) return renderM2FileReadResult(execution, context, { toolExecutor, decision, expectedEffectId });
+    const message = error.code === 'TOOL_FILE_EXPLAIN_BUSY'
+      ? (lang === 'en' ? 'This exact file explanation is already running. No second model call was started.'
+        : 'Vysvětlení tohoto přesného souboru již běží. Další modelové volání nebylo spuštěno.')
+      : error.code === 'TOOL_FILE_EXPLAIN_CONTEXT_LIMIT'
+      ? (lang === 'en' ? 'The complete file and question do not fit the current model context. No explanation was generated. Request a smaller file or a narrower, separately approved excerpt.'
+        : 'Celý soubor a dotaz se nevejdou do aktuálního kontextu modelu. Vysvětlení nevzniklo. Zvolte menší soubor nebo užší, samostatně schválený výňatek.')
+      : (lang === 'en' ? 'A complete, verified explanation is unavailable. No partial model answer or replacement file read was used.'
+        : 'Úplné ověřené vysvětlení není k dispozici. Částečná modelová odpověď ani náhradní čtení souboru nebyly použity.');
+    return new TaggedResponse({ content: message, tag: new ResponseTag({
+      speaker: ResponseSpeaker.SYSTEM, mode: context.hasActiveProject ? ChatMode.PROJECT : ChatMode.CONVERSATION,
+      confidence: 1, canExecute: false, metadata: {
+        handler: 'file.explain', requestedHandler: 'file.explain', fileOperation: false,
+        fileReadVerified: verified, fallbackSuppressed: true, approvalRequired: false,
+        explanationPending: true, explanationComplete: false, securityBlocked: !verified,
+        toolRequestId: execution?.request?.requestId || null,
+        effectId: execution?.result?.effectRequestId || execution?.effectRequestId || null,
+        error: error.code || 'TOOL_FILE_EXPLAIN_FAILED',
+        ...(decision ? { decision: decision.toJSON() } : {}),
+      },
+    }) });
   }
 }
 
@@ -484,8 +603,10 @@ export async function handleFileDecision(input, decision, context, dependencies 
         timeoutMs: 30_000,
       });
       if (toolId === 'file.read' && execution.result?.status === 'ok') {
-        return renderM2FileReadResult(execution, context, {
+        return await completeM2FileRead(execution, context, {
           toolExecutor: executor,
+          question: input,
+          callExplanation: dependencies.callExplanation,
           decision,
           requestedHandler: decision.intent === IntentType.FILE_EXPLAIN ? 'file.explain' : 'file.read',
         });
@@ -522,10 +643,13 @@ export async function handleFileDecision(input, decision, context, dependencies 
             effectId: execution.effectRequestId || null,
             approvalRequired: execution.state === 'approval_required',
             ...(preview?.metadata || {}),
+            ...(preview && decision.intent === IntentType.FILE_EXPLAIN
+              ? { m2FileExplain: issueFileExplainContinuation(execution, context, input) } : {}),
           },
         }),
       });
     } catch (error) {
+      if (context.signal?.aborted || isAbortError(error)) throw error;
       logger.warn('HandleFile', 'Durable file.read authority rejected the request', {
         code: error?.code || null,
       });

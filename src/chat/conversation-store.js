@@ -19,6 +19,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { logger } from '../core/logger.js';
+import { isIssuedFileExplainContinuation, assertFileExplainContinuationCurrent } from './file-explain-continuation.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Turn Role Types
@@ -245,6 +246,21 @@ export class ConversationStore {
       throw new Error('ConversationStore.appendTurn: content must be a non-empty string');
     }
 
+    // Reserved continuations are produced by the core, not arbitrary assistant
+    // metadata. In particular user turns, API welcome content and copied JSON
+    // cannot manufacture a request to run the explanation model on approval.
+    let metadataValue = metadata;
+    if (typeof metadata === 'string') {
+      try { metadataValue = JSON.parse(metadata); } catch { metadataValue = null; }
+    }
+    if (metadataValue?.m2FileExplain !== undefined
+        && (role !== TurnRole.ASSISTANT || !isIssuedFileExplainContinuation(metadataValue.m2FileExplain)
+          || metadataValue.m2FileExplain.conversationId !== conversationId)) {
+      throw new Error('ConversationStore: unissued file explanation continuation');
+    }
+
+    if (metadataValue?.m2FileExplain !== undefined) assertFileExplainContinuationCurrent(metadataValue.m2FileExplain);
+
     // Auto-create conversation if needed
     this.ensureConversation(conversationId);
 
@@ -369,6 +385,18 @@ export class ConversationStore {
         metadata: this.#parseMetadata(row.metadata),
         created_at: row.created_at,
       }));
+  }
+
+  /** Exact durable core continuation lookup; never consult RAM/history input. */
+  getFileExplainTurn(conversationId, requestId) {
+    if (!this.isDurableReady()) return null;
+    const row = this.#db.db.prepare(`
+      SELECT id, role, content, metadata FROM messages
+      WHERE conversation_id = ? AND role = 'assistant'
+        AND CASE WHEN json_valid(metadata) THEN json_extract(metadata, '$.m2FileExplain.requestId') END = ?
+      ORDER BY CASE WHEN json_extract(metadata, '$.m2FileExplain.state') = 'complete' THEN 1 ELSE 0 END DESC, id DESC LIMIT 1
+    `).get(conversationId, requestId);
+    return row ? { ...row, metadata: this.#parseMetadata(row.metadata) } : null;
   }
 
   /**

@@ -5,6 +5,7 @@
 // and returned by this boundary.
 
 import { logger } from '../core/logger.js';
+import { isIssuedFileExplainContinuation, assertFileExplainContinuationCurrent } from './file-explain-continuation.js';
 import { throwIfAborted } from '../core/abort-error.js';
 import {
   ChatPersistenceError,
@@ -129,11 +130,16 @@ export async function finalizeChatResponse({
   throwIfAborted(signal);
 
   try {
+    if (isIssuedFileExplainContinuation(metadata.m2FileExplain)) {
+      assertFileExplainContinuationCurrent(metadata.m2FileExplain);
+    }
     persistAssistantTurn(finalContent, {
       mode: result.mode,
       confidence: result.confidence,
       model: metadata.model,
       intent: metadata.decision?.intent,
+      ...(isIssuedFileExplainContinuation(metadata.m2FileExplain)
+        ? { m2FileExplain: metadata.m2FileExplain } : {}),
       ...(turnId === null ? {} : { m7: { turnId, status: 'ok' } }),
     });
   } catch (err) {

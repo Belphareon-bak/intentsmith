@@ -15,8 +15,9 @@ import { ResponseTag, TaggedResponse, ResponseSpeaker, ChatMode } from '../contr
 import { creDecisionEngine, DecisionType, IntentType, REFORMULATION_PATTERNS } from '../cre-decision.js';
 import { logger } from '../../core/logger.js';
 import { parseTodoCommand, handleTodo, handleDone } from './todo.js';
-import { handleFileDecision, renderM2FileReadResult } from './file.js';
+import { handleFileDecision, completeM2FileRead } from './file.js';
 import { config } from '../../config.js';
+import { isAbortError } from '../../core/abort-error.js';
 
 // ─── Lazy-loaded Phase modules (null if feature disabled) ────────────────────
 let handleBuildConfirmed, handleClarificationAnswer, handlePlanVerdict,
@@ -227,7 +228,9 @@ export async function handleExactEffectApproval(input, context, mode, dependenci
     if (result.terminalStatus === 'succeeded' && toolSettlement?.request?.toolId === 'file.read') {
       return {
         handled: true,
-        response: renderM2FileReadResult(toolSettlement, context, { toolExecutor, expectedEffectId: effectId }),
+        response: await completeM2FileRead(toolSettlement, context, {
+          toolExecutor, expectedEffectId: effectId, resume: true, callExplanation: dependencies.callExplanation,
+        }),
       };
     }
     if (result.terminalStatus === 'succeeded' && path) {
@@ -248,6 +251,7 @@ export async function handleExactEffectApproval(input, context, mode, dependenci
       }),
     };
   } catch (error) {
+    if (context.signal?.aborted || isAbortError(error)) throw error;
     logger.warn('PreHandler', `Exact effect approval failed: ${error.message}`, {
       effectId,
       code: error.code || null,
