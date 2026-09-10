@@ -137,3 +137,22 @@ senzitivní DB projekce byly odstraněny. Stav tohoto milníku je
 `BACKUP_COMPAT_IMPLEMENTATION_GREEN / REVIEW_REQUIRED`. M5 dál blokuje offline
 custody, historie, provider receipts a acceptance. FILE_EXPLAIN modelový běh
 čeká na konec odděleného soaku.
+
+### Zachovaná hranice přímého chat probe
+
+Při navazujícím ověřování 2026-09-10 přibližně v 14:35 UTC byl
+`chat-pipeline.test.js` jednou omylem spuštěn přímo bez síťového oddělení.
+Systémový provider krátce načetl `qwen3.5:27b`; textový výsledek byl 50/52 se
+selháním REPORT klasifikace a sticky SEARCH pokračování. Model byl ihned přes
+`ollama stop` odložen a následný `ollama ps` i NVIDIA compute census byly
+prázdné. Tento probe není release ani model-quality důkaz a jeho souběžný
+sběrač vrátil nekonzistentní process status; řízený loopback fake-provider
+následně potvrdil, že stejný runner při 49/52 končí exit 1.
+
+Long-soak proces nebyl zastaven a jeho poslední heartbeat zůstal 54007/0.
+Decision 038 výslovně vyjímá Ollamu/GPU z této evidence, soak běží v odděleném
+loopback-only network namespace a měří RSS vlastního server child procesu.
+Krátká cizí GPU rezidence proto není porušením jeho strojového kontraktu;
+zůstává zde uvedená, aby reviewer mohl případně požadovat přísnější opakování
+na zcela klidném hostu. FILE_EXPLAIN launcher ji nadále blokuje explicitním
+host-level process a GPU preflightem.
