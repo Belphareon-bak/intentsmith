@@ -134,6 +134,43 @@ function mapNotification(item) {
   };
 }
 
+function mapProject(item) {
+  return {
+    id: item.projectId,
+    name: item.name,
+    lifecycleStage: item.lifecycleStage,
+    updatedAt: item.updatedAt,
+    workspaceRevision: item.workspaceRevision,
+    revision: item.revision,
+  };
+}
+
+function mapSetting(item) {
+  return {
+    key: item.key,
+    category: item.category,
+    valueType: item.valueType,
+    value: clone(item.value),
+    writable: item.writable,
+    constraints: clone(item.constraints),
+    revision: item.revision,
+  };
+}
+
+function mapStoredInformation(item) {
+  return {
+    id: item.informationId,
+    kind: item.kind,
+    projectId: item.projectId,
+    summary: item.summary,
+    content: item.content,
+    tags: [...item.tags],
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+    revision: item.revision,
+  };
+}
+
 function mapOperation(item) {
   return {
     operationId: item.operationId,
@@ -255,6 +292,97 @@ export function createM7UiApiAdapter({ client, cryptoApi = globalThis.crypto } =
         hasMore: !result.caughtUp,
         nextAfterSeq: result.nextAfterSeq,
       });
+    }
+
+    if (method === 'GET' && pathname === '/projects') {
+      const cursor = url.searchParams.get('cursor');
+      const lifecycleStates = [...new Set(url.searchParams.getAll('state'))].sort();
+      const request = {
+        contract: 'ProjectListQuery', version: 1, requestId: id,
+        limit: pageLimit(url.searchParams.get('limit')),
+        ...(cursor === null ? {} : { cursor }),
+        ...(lifecycleStates.length ? { lifecycleStates } : {}),
+      };
+      const result = operationError(await invoke('project.list', request));
+      return legacy(result.items.map(mapProject), {
+        end: result.end, hasMore: !result.end, nextCursor: result.nextCursor,
+        snapshotRevision: result.snapshotRevision,
+      });
+    }
+
+    if (method === 'GET' && pathname === '/settings') {
+      const keys = [...new Set(url.searchParams.getAll('key'))].sort();
+      const result = operationError(await invoke('settings.read', {
+        contract: 'MobileSettingsQuery', version: 1, requestId: id,
+        ...(keys.length ? { keys } : {}),
+      }));
+      return legacy(result.items.map(mapSetting), { revision: result.revision });
+    }
+
+    const setting = pathname.match(/^\/settings\/([^/]+)$/);
+    if (method === 'PATCH' && setting && !url.search) {
+      const key = decodeURIComponent(setting[1]);
+      const input = requiredBody(body, ['operationId', 'expectedRevision', 'value']);
+      if (!IDENTIFIER.test(key)) fail('protocol_invalid_request', { status: 400 });
+      const result = operationError(await invoke('settings.update', {
+        contract: 'MobileSettingUpdateCommand', version: 1, requestId: id,
+        operationId: input.operationId,
+        key,
+        value: clone(input.value),
+        expectedRevision: input.expectedRevision,
+      }), 409);
+      return legacy({
+        state: result.outcome,
+        key: result.key,
+        value: clone(result.value),
+        revision: result.revision,
+        pendingApprovalId: result.pendingApprovalId || null,
+      }, { replayed: result.replayed });
+    }
+
+    if (method === 'GET' && pathname === '/memory') {
+      const cursor = url.searchParams.get('cursor');
+      const project = url.searchParams.get('projectId');
+      const projectId = project === null ? null : Number(project);
+      if (project !== null && (!Number.isSafeInteger(projectId) || projectId < 1)) {
+        fail('protocol_invalid_request', { status: 400 });
+      }
+      const result = operationError(await invoke('stored-information.list', {
+        contract: 'StoredInformationListQuery', version: 1, requestId: id,
+        limit: pageLimit(url.searchParams.get('limit')),
+        kinds: ['manual_note'],
+        ...(cursor === null ? {} : { cursor }),
+        ...(projectId === null ? {} : { projectId }),
+      }));
+      return legacy(result.items.map(mapStoredInformation), {
+        end: result.end, hasMore: !result.end, nextCursor: result.nextCursor,
+        snapshotRevision: result.snapshotRevision,
+      });
+    }
+
+    if (method === 'POST' && pathname === '/memory' && !url.search) {
+      const input = requiredBody(body, ['operationId', 'content']);
+      const projectId = input.projectId === undefined ? null : Number(input.projectId);
+      if (projectId !== null && (!Number.isSafeInteger(projectId) || projectId < 1)) {
+        fail('protocol_invalid_request', { status: 400 });
+      }
+      if (input.tags !== undefined && !Array.isArray(input.tags)) {
+        fail('protocol_invalid_request', { status: 400 });
+      }
+      const tags = input.tags === undefined ? [] : [...new Set(input.tags)].sort();
+      const result = operationError(await invoke('stored-information.append', {
+        contract: 'StoredInformationAppendCommand', version: 1, requestId: id,
+        operationId: input.operationId,
+        content: input.content,
+        tags,
+        ...(projectId === null ? {} : { projectId }),
+      }));
+      return legacy({
+        state: result.outcome,
+        informationId: result.informationId,
+        revision: result.revision,
+        pendingApprovalId: result.pendingApprovalId || null,
+      }, { replayed: result.replayed });
     }
 
     if (method === 'POST' && pathname === '/notifications/ack') {
