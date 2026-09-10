@@ -3,7 +3,8 @@
 Stav: dvě souborové schopnosti implementované; review kandidátu `ffa17a4a`
 skončilo bez blokujícího nálezu. Čtyři drobné nálezy jsou opravené v
 `cf4f4322` a úzké následné review je přijalo. Nejde o finální přijetí M2 ani
-vydání IntentSmith. Aktuální produktový kandidát je `cf4f4322`.
+vydání IntentSmith. Navazující produktový kandidát je `65bcbc4b`; jeho M5
+restore kompatibilita a test-trust commit `c108da86` čekají na review.
 Rozsah dokončeného review vůči `7dacd466`: výpis kořene projektu a vysvětlení
 schváleného souboru. Pokus o stručnější SPEC byl vrácen; původní prompt je
 byte-identický.
@@ -92,11 +93,47 @@ Skutečné modelové vysvětlení, modelová kuchařka a společná release evid
 následném kandidátu. Test-trust commit `c108da86` čeká na úzké review.
 Předchozí fresh-clone 4/4 patří source 7fa6f985; nevydáváme jej za nové měření.
 Dřívější dlouhý soak na 193e2351 pokračuje odděleně. Poslední přečtený heartbeat
-má 14 hodin aktivního času / 50407 požadavků / 0 chyb; wall-clock běh zahrnuje
+má 15 hodin aktivního času / 54007 požadavků / 0 chyb; wall-clock běh zahrnuje
 uspání stroje a není 24hodinovým výsledkem. Konečný výsledek ještě není k dispozici.
 Otevřené návrhy SPEC 6000 a projectless-web nebyly schváleny. M5 vnější
 podmínky, podpisy a M7 fyzické ověření zůstávají samostatné. Nic se neposílalo,
 nepodepisovalo, nenasazovalo ani nemigrovalo v živé databázi.
 
-Dávka je ukončena kvůli výslovnému požadavku operátora na rychlé předání.
-Další oblast se bez navazujícího zadání neotevírá.
+## Navazující autonomní milník — obnova podporované živé DB
+
+Operátor následně výslovně obnovil autonomní dokončování. Read-only inventura
+živé DB ukázala 88 migration stampů a tři historicky vydané identity `061`,
+`062` a `068`, které současný 97-souborový manifest už neobsahuje. Po aplikaci
+12 chybějících současných migrací má legitimní historie 100 stampů. Původní
+restore kontroloval jen aktuální manifest, takže by zálohu této podporované
+historie odmítl jako neznámé schéma.
+
+Commit `65bcbc4b87301e8e1279953611a99a9538a5a8a7` přidává přesný uzavřený
+seznam těchto tří historických identit. Libovolná jiná neznámá migrace zůstává
+odmítnutá. Ověření na tomto exact commitu:
+
+- `m5-data-restore`: 19/19 PASS;
+- `pre082-upgrade-regression`: 1/1 PASS;
+- `schema-migrations`: 55/55 PASS;
+- `module-boundary-ratchet`: 13/13 PASS, 1302 hran beze změny;
+- čistý `m6-previous-version-upgrade.e2e`: PASS; previous 56, úmyslně
+  přerušený upgrade 80, ověřený restore a current 97 migrací;
+- privátní projekce skutečné živé DB: 88→100 stampů, 188 tabulek a bajtově
+  shodný backup→poškození→restore, `integrity_check=ok`, 0 FK porušení.
+
+První přímý E2E pokus skončil před spuštěním produktu na prázdné offline npm
+cache (`ENOTCACHED zod 3.25.76`). Opakování použilo dříve naplněnou izolovanou
+cache a prošlo; oba výsledky zůstávají zachované. Relevantní lokální důkazy:
+
+- `provider-proposal/m5-backup-compat-65bcbc4b/m6-previous-version-upgrade.log`,
+  SHA-256 `79a35f87f5fd5bd895ec77f57b1221bf75b77dc8dce32ad42e936143e4fd5c74`;
+- dekódovaný E2E receipt, SHA-256
+  `a48c8b6ab5a9592d562193fd832261c122962f39d350c22bca7daa6ca6e9051a`;
+- `provider-proposal/m5-current-preflight-2bd1a281/migration-rehearsal/backup-restore-roundtrip.json`,
+  SHA-256 `05bbdc1d18c30710728eae5d410e644e20c336d134db820066750e47bde3f89c`.
+
+Živá DB, služba, model bindings, klíče i Git historie zůstaly beze změny;
+senzitivní DB projekce byly odstraněny. Stav tohoto milníku je
+`BACKUP_COMPAT_IMPLEMENTATION_GREEN / REVIEW_REQUIRED`. M5 dál blokuje offline
+custody, historie, provider receipts a acceptance. FILE_EXPLAIN modelový běh
+čeká na konec odděleného soaku.

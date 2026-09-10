@@ -67,8 +67,8 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M2 Řízená práce nad projektem** | `ACCEPTED / CLOSEOUT_PASS` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
-| **M5 Production hardening** | `8/9 REVIEW_PASSED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Decision 041 implementace dostala `REVIEW_PASSED` a trust store drží čtyři oddělené veřejné klíče. Úzký review ale našel stale M6 migration oracle a neoffline custody privátních klíčů; oracle remediation je implementovaná, custody zůstává otevřená. Doložení všech osmi kategorií (dokončená rotace nebo podepsaně prokázaná nepoužitelnost), history disposition a podepsaná M5 acceptance zůstávají otevřené; N/A není rotace. |
-| **M6 IntentSmith 1.0 release** | `SCOPED_REVIEW_PASSED / MODEL_FAILURES_OPEN / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Uzavřená dávka 2026-09-10 na `2ceaf152`: schvalovaný projektový výpis a FILE_EXPLAIN jsou implementované a revidované; skutečný modelový demo běh FILE_EXPLAIN zůstává NOT_RUN. Společný běh: 351 PASS / 1 FAIL v dokumentaci; po opravě samostatná kontrola 158/158 PASS. Neúspěšný stručný SPEC (14PASS/17FAIL) vrácen v 4410c360. Původní prompt, kontext 4096 a výstup 4000 zachovány. Finální M2/M5/M6 přijetí, modelová kuchařka a M7 zbývají. [Předání a důkazy](docs/execution/runs/m6/core-completion-review-20260910.md). |
+| **M5 Production hardening** | `8/9 REVIEW_PASSED / BACKUP_COMPAT_IMPLEMENTATION_GREEN / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Decision 041 implementace dostala `REVIEW_PASSED` a trust store drží čtyři oddělené veřejné klíče. `65bcbc4b` opravuje restore živé DB se třemi podporovanými historickými migration ID; cílené testy, previous-version E2E a privátní backup round-trip prošly, ale commit čeká na review. Neoffline custody privátních klíčů zůstává otevřená. Doložení všech osmi kategorií, history disposition a podepsaná M5 acceptance zůstávají otevřené; N/A není rotace. |
+| **M6 IntentSmith 1.0 release** | `SCOPED_REVIEW_PASSED / TEST_TRUST_REVIEW_REQUIRED / BACKUP_COMPAT_REVIEW_REQUIRED / MODEL_FAILURES_OPEN / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Souborové schopnosti jsou implementované a revidované; skutečný modelový demo běh FILE_EXPLAIN zůstává NOT_RUN. Test-trust commit `c108da86` má 52/52 pipeline a 46/46 output-quality PASS. Navazující `65bcbc4b` prošel previous-version upgrade/rollback E2E. Oba čekají na review. Soak na `193e2351` pokračuje, naposledy 15 hodin / 54007 požadavků / 0 chyb. Neúspěšný stručný SPEC (14PASS/17FAIL) byl vrácen. Finální M2/M5/M6 přijetí, modelová kuchařka a M7 zbývají. [Předání a důkazy](docs/execution/runs/m6/core-completion-review-20260910.md). |
 | **M7 Remote Companion** | `FOLLOWUP_INTEGRATED / SCOPED_REVIEW_PASSED / NOT_ACCEPTED` | M6 + remote boundary | Release pojistky, canonical JSON corpus, opravený systemd renderer i nové APK/AAB na `70eef905` prošly scoped review. Artefakty jsou throwaway debug signed. UI mapping, produkční konfigurace, fyzická matice 13+7 a release podpisy nejsou hotové. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
@@ -2386,9 +2386,23 @@ heartbeat historického `193e2351`.
 Navazující pokyn operátora obnovil dokončování po review souborové dávky.
 Test-only milník `c108da86` odstraňuje předčasné ukončení dvou ručních async
 chat harnessů; izolované výsledky jsou 52/52 pipeline a 46/46 output-quality
-PASS, review čeká. Oddělený soak na `193e2351` má zatím 14 hodin aktivního času /
-50407 požadavků / 0 chyb. Skutečný FILE_EXPLAIN modelový průchod poběží až po
+PASS, review čeká. Oddělený soak na `193e2351` má zatím 15 hodin aktivního času /
+54007 požadavků / 0 chyb. Skutečný FILE_EXPLAIN modelový průchod poběží až po
 jeho dokončení.
+
+Navazující M5 preflight odhalil obnovovací mezeru na skutečném produkčním
+vývoji schématu: živá DB má 88 stampů, z nichž tři historicky vydané identity
+`061`, `062` a `068` už nejsou v současném manifestu. Po aplikaci 12 chybějících
+současných migrací má korektní sjednocení 100 stampů, zatímco původní restore
+takovou vlastní zálohu odmítl. `65bcbc4b` přidává přesný uzavřený seznam těchto
+tří podporovaných identit a dál odmítá libovolnou neznámou migraci. Prošlo
+19 restore, 1 pre-082 upgrade, 55 schema a 13 boundary kontrol; přesný
+previous-version upgrade/rollback E2E prošel na čistém commitu. Privátní
+projekce živé DB navíc doložila 88→100 stampů a bajtově shodný
+backup→poškození→restore round-trip s `integrity_check=ok` a nulou FK porušení.
+Živá DB ani služba nebyly změněny. Stav je
+`BACKUP_COMPAT_IMPLEMENTATION_GREEN / REVIEW_REQUIRED`; M5 custody, historie,
+provider receipts a acceptance zůstávají blokované.
 
 ## 12. Pravidla Work Package bez dalšího aparátu
 

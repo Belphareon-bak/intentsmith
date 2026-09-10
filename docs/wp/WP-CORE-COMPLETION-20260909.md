@@ -497,6 +497,17 @@ Operátor 2026-09-10 následně výslovně obnovil autonomní dokončování pro
 První navazující test-trust milník `c108da86` opravuje dva ruční chat harnessy,
 které nečekaly na všechny asynchronní případy. Síťově izolovaný pipeline běh má
 po opravě 52/52 a output-quality 46/46 PASS; commit čeká na review. Současně
-pokračuje oddělený soak `193e2351` s posledním přečteným čtrnáctihodinovým
-heartbeatem 50407 požadavků / 0 chyb. FILE_EXPLAIN modelový demo běh zůstává
+pokračuje oddělený soak `193e2351` s posledním přečteným patnáctihodinovým
+heartbeatem 54007 požadavků / 0 chyb. FILE_EXPLAIN modelový demo běh zůstává
 do dokončení soaku `NOT_RUN`, aby se nesdílela jedna GPU autorita.
+
+Navazující M5 preflight nad read-only živou DB odhalil, že kandidátní restore
+odmítal tři historicky vydané migration identity, které současný manifest už
+neobsahuje. Produktový commit `65bcbc4b` je přijímá přesným uzavřeným seznamem
+a libovolnou další neznámou migraci dál odmítá. Prošlo 19 restore, 1 pre-082
+upgrade, 55 schema a 13 boundary kontrol i čistý previous-version
+upgrade/rollback E2E. Privátní projekce živé DB ověřila 88→100 migration stampů
+a bajtově shodný backup→poškození→restore round-trip; živá DB nebyla změněna.
+Stav je `BACKUP_COMPAT_IMPLEMENTATION_GREEN / REVIEW_REQUIRED`, nikoli M5
+acceptance. Soak mezitím dosáhl posledního přečteného stavu 15 hodin / 54007
+požadavků / 0 chyb a pokračuje; FILE_EXPLAIN proto zůstává `NOT_RUN`.
