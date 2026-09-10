@@ -613,6 +613,8 @@ test('listing metadata validates exact canonical snapshot bytes with a separate 
   assert.equal(validateM2FileListOutputEvidence(value,completed,{...evidence,path:'child'}),false);
   assert.equal(validateM2FileListOutputEvidence(value,completed,{...evidence,contentRef:evidence.contentRef.replace('file-list','file-read')}),false);
   assert.equal(validateM2FileListOutputEvidence(value,completed,{...evidence,extra:true}),false);
+  assert.equal(validateM2FileListOutputEvidence(value,completed,Object.assign(Object.create({}),evidence)),false);
+  assert.equal(validateM2FileListOutputEvidence(value,completed,Object.assign(Object.create(null),evidence)),true);
 });
 
 summary();

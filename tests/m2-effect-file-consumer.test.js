@@ -773,6 +773,18 @@ for (const [name, answer, code] of [
   });
 }
 
+await testAsync('FILE_EXPLAIN contains a non-Error model rejection in the fail-closed response', async () => {
+  await withExplainEnvironment(async e => {
+    const pending = await e.invoke(); await e.finalize(pending);
+    e.model(() => { throw 'synthetic non-Error rejection'; }); // eslint-disable-line no-throw-literal
+    const result = await e.approve(pending.tag.metadata.effectId);
+    assert.equal(result.response.tag.metadata.explanationComplete, false);
+    assert.equal(result.response.tag.metadata.error, 'TOOL_FILE_EXPLAIN_FAILED');
+    assert.equal(e.calls.length, 1);
+    assert.doesNotMatch(result.response.content, /synthetic non-Error rejection/);
+  });
+});
+
 await testAsync('FILE_EXPLAIN large files are not silently clipped and binary files never enter D1', async () => {
   for (const [content, expected] of [['x'.repeat(20_000), 'TOOL_FILE_EXPLAIN_CONTEXT_LIMIT'], [Buffer.from([0xff, 0x00]), 'TOOL_READ_CONTENT_NOT_TEXT']]) {
     await withExplainEnvironment(async e => {
@@ -900,7 +912,7 @@ await testAsync('FILE_EXPLAIN a failed model turn permits a later explicit appro
 });
 
 
-await testAsync('FILE_EXPLAIN corrupted persisted question or completion fails closed before any replacement model call', async () => {
+await testAsync('corrupt explanation metadata cannot block ordinary read resume or authorize replacement inference', async () => {
   for (const state of ['pending', 'complete']) {
     await withExplainEnvironment(async e => {
       const pending = await e.invoke(); await e.finalize(pending);
@@ -911,9 +923,14 @@ await testAsync('FILE_EXPLAIN corrupted persisted question or completion fails c
         e.database.prepare("UPDATE messages SET metadata=json_set(metadata,'$.m2FileExplain.question','FORGED_QUESTION') WHERE json_extract(metadata,'$.m2FileExplain.state')='pending'").run();
       }
       const response = (await e.approve(pending.tag.metadata.effectId)).response;
-      assert.equal(response.tag.metadata.error, 'TOOL_FILE_EXPLAIN_CONTEXT_MISMATCH');
-      assert.equal(response.tag.metadata.explanationComplete, false);
+      assert.equal(response.tag.metadata.handler, 'file.read');
+      assert.equal(response.tag.metadata.fileOperation, true);
+      assert.match(response.content, /export function add/);
       assert.doesNotMatch(response.content, /FORGED_/);
+      const explicitExplain = await e.invoke();
+      assert.equal(explicitExplain.tag.metadata.error, 'TOOL_FILE_EXPLAIN_CONTEXT_MISMATCH');
+      assert.equal(explicitExplain.tag.metadata.explanationComplete, false);
+      assert.doesNotMatch(explicitExplain.content, /FORGED_/);
       assert.equal(e.calls.length, state === 'complete' ? 1 : 0);
     });
   }

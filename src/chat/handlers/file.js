@@ -30,6 +30,7 @@ import { parseM2FileListSnapshot, M2_FILE_LIST_MAX_ENTRIES, M2_FILE_LIST_MAX_BYT
 import { throwIfAborted, isAbortError } from '../../core/abort-error.js';
 import { issueFileExplainContinuation, getFileExplainContinuation } from '../file-explain-continuation.js';
 import { prepareFileExplanation, callFileExplanation } from './utils/file-explain.js';
+import { canonicalStringify } from '../../../contracts/m2/effect-current.js';
 
 // ─── Security constants ──────────────────────────────────────────────────────
 
@@ -412,7 +413,18 @@ export async function completeM2FileRead(execution, context, {
     throwIfAborted(context.signal);
     const read = resolveVerifiedM2FileText(execution, context, toolExecutor, expectedEffectId);
     verified = true;
-    const continuation = (wantsExplanation || resume) ? getFileExplainContinuation(execution, context) : null;
+    let continuation = null;
+    try {
+      continuation = (wantsExplanation || resume) ? getFileExplainContinuation(execution, context) : null;
+    } catch (error) {
+      // A corrupt explanation continuation must not turn an otherwise valid
+      // ordinary read resume into an explanation failure. An explicit
+      // FILE_EXPLAIN request still fails closed below.
+      if (!wantsExplanation && resume && error?.code === 'TOOL_FILE_EXPLAIN_CONTEXT_MISMATCH') {
+        return renderM2FileReadResult(execution, context, { toolExecutor, decision, expectedEffectId });
+      }
+      throw error;
+    }
     if (continuation) {
       if (wantsExplanation && question !== null && question !== continuation.question) {
         throw Object.assign(new Error('Replay question changed'), { code: 'TOOL_FILE_EXPLAIN_CONTEXT_MISMATCH' });
@@ -440,8 +452,12 @@ export async function completeM2FileRead(execution, context, {
       const prepared = prepareFileExplanation({ path: read.output.path, content: read.content, question, language });
       // One ordinary D1 call. Neither the file nor model output can supply
       // tools, auth tokens, model options or additional filesystem paths.
-      const claimKey = JSON.stringify([execution.result.requestDigest, read.effectId,
-        execution.request.actor, execution.request.origin]);
+      const claimKey = canonicalStringify({
+        requestDigest: execution.result.requestDigest,
+        effectId: read.effectId,
+        actor: execution.request.actor,
+        origin: execution.request.origin,
+      });
       if (activeFileExplanations.has(claimKey)) {
         throw Object.assign(new Error('This exact explanation is already running'), { code: 'TOOL_FILE_EXPLAIN_BUSY' });
       }
@@ -477,12 +493,12 @@ export async function completeM2FileRead(execution, context, {
     }) });
   } catch (error) {
     if (context.signal?.aborted || isAbortError(error)) throw error;
-    if (typeof error.code === 'string' && error.code.startsWith('TOOL_FILE_EXPLAIN_')) wantsExplanation = true;
+    if (typeof error?.code === 'string' && error.code.startsWith('TOOL_FILE_EXPLAIN_')) wantsExplanation = true;
     if (!wantsExplanation) return renderM2FileReadResult(execution, context, { toolExecutor, decision, expectedEffectId });
-    const message = error.code === 'TOOL_FILE_EXPLAIN_BUSY'
+    const message = error?.code === 'TOOL_FILE_EXPLAIN_BUSY'
       ? (lang === 'en' ? 'This exact file explanation is already running. No second model call was started.'
         : 'Vysvětlení tohoto přesného souboru již běží. Další modelové volání nebylo spuštěno.')
-      : error.code === 'TOOL_FILE_EXPLAIN_CONTEXT_LIMIT'
+      : error?.code === 'TOOL_FILE_EXPLAIN_CONTEXT_LIMIT'
       ? (lang === 'en' ? 'The complete file and question do not fit the current model context. No explanation was generated. Request a smaller file or a narrower, separately approved excerpt.'
         : 'Celý soubor a dotaz se nevejdou do aktuálního kontextu modelu. Vysvětlení nevzniklo. Zvolte menší soubor nebo užší, samostatně schválený výňatek.')
       : (lang === 'en' ? 'A complete, verified explanation is unavailable. No partial model answer or replacement file read was used.'
@@ -495,7 +511,7 @@ export async function completeM2FileRead(execution, context, {
         explanationPending: true, explanationComplete: false, securityBlocked: !verified,
         toolRequestId: execution?.request?.requestId || null,
         effectId: execution?.result?.effectRequestId || execution?.effectRequestId || null,
-        error: error.code || 'TOOL_FILE_EXPLAIN_FAILED',
+        error: error?.code || 'TOOL_FILE_EXPLAIN_FAILED',
         ...(decision ? { decision: decision.toJSON() } : {}),
       },
     }) });

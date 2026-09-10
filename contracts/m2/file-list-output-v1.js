@@ -18,6 +18,7 @@ function reject(reason) {
 
 function exactKeys(value, keys) {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
+    && [Object.prototype, null].includes(Object.getPrototypeOf(value))
     && Object.keys(value).sort().join('\0') === [...keys].sort().join('\0');
 }
 
