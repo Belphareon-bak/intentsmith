@@ -2437,6 +2437,10 @@ function settingControl(setting, disabled) {
   return `<input id="${id}" type="text" value="${esc(setting.value)}" ${unavailable}>`;
 }
 
+function openSettingAttempt() {
+  return journal.open().find(entry => entry.operationType === 'settings.update') || null;
+}
+
 function serverSettingsCard() {
   if (!REMOTE_MODE) return '';
   if (!auth.has('read:settings')) {
@@ -2448,8 +2452,9 @@ function serverSettingsCard() {
   }
   const settings = state.data.settings;
   const error = state.error.settings;
+  const unresolvedSetting = openSettingAttempt();
   const canWrite = auth.has('write:settings') && state.conn === 'ok'
-    && state.cacheAge.settings === 'FRESH' && !state.settingsSaving;
+    && state.cacheAge.settings === 'FRESH' && !state.settingsSaving && !unresolvedSetting;
   let body;
   if (state.loading.settings && !settings) {
     body = skeletonList(3);
@@ -2475,6 +2480,7 @@ function serverSettingsCard() {
     ? 'Změny vyžadují scope write:settings.'
     : state.conn !== 'ok' ? 'Bez potvrzeného spojení nelze hodnoty měnit.'
     : state.cacheAge.settings !== 'FRESH' ? 'Před změnou je nutné načíst čerstvou revizi.'
+    : unresolvedSetting ? 'Předchozí změna nastavení ještě není rozřešená. Její stav ověř v Nerozřešených pokusech.'
     : null;
   const note = state.settingsNote
     ? `<p class="surface-note" data-tone="${esc(state.settingsNote.tone)}">${esc(state.settingsNote.text)}</p>` : '';
@@ -4954,7 +4960,7 @@ function settingValueFromInput(setting, override = undefined) {
 }
 
 async function updateSetting(key, override = undefined) {
-  if (!REMOTE_MODE || state.settingsSaving || state.conn !== 'ok'
+  if (!REMOTE_MODE || state.settingsSaving || openSettingAttempt() || state.conn !== 'ok'
     || state.cacheAge.settings !== 'FRESH' || !auth.has('write:settings')) return;
   const setting = (state.data.settings || []).find(item => item.key === key);
   if (!setting?.writable || !state.settingsRevision) return;
@@ -6377,7 +6383,7 @@ export const __ms20 = {
   scheduleNavRetraction, whenNavTurnEnds, NAV_TURN_MS,
   viewChat, threadBoundary, loadThread, loadOlderMessages, threadWindowOf, THREAD_PAGE_SIZE,
   loadConversations, loadMoreConversations, loadNotifications, LIST_PAGE_SIZE,
-  loadProjects, loadMoreProjects, loadSettings, updateSetting,
+  loadProjects, loadMoreProjects, loadSettings, updateSetting, openSettingAttempt,
   loadMemory, loadMoreMemory, addMemory, captureMemoryDraft, openMemoryAttempt,
   runSilence, runSilenceEntries, overviewRunSilence,
   approvalCountdown, approvalWindowMinutes, approvalRow, serverTimeMs,

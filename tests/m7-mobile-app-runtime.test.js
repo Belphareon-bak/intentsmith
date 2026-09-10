@@ -72,6 +72,16 @@ let nativePosts = 0;
 let browserFetches = 0;
 const invocations = [];
 let failNextOperation = null;
+let heldDomainWrite = null;
+
+function holdNextDomainWrite() {
+  let signalEntered;
+  let release;
+  const entered = new Promise(resolve => { signalEntered = resolve; });
+  const gate = new Promise(resolve => { release = resolve; });
+  heldDomainWrite = { gate, signalEntered };
+  return { entered, release };
+}
 
 const vault = {
   async getState() {
@@ -81,7 +91,16 @@ const vault = {
     };
   },
   async readDomain() { return { data: domain }; },
-  async writeDomain({ data }) { domain = data; return { stored: true }; },
+  async writeDomain({ data }) {
+    const held = heldDomainWrite;
+    heldDomainWrite = null;
+    if (held) {
+      held.signalEntered();
+      await held.gate;
+    }
+    domain = data;
+    return { stored: true };
+  },
   async clearDomain() { domain = '{}'; return { cleared: true }; },
   async consumePairingCode() { return {}; },
 };
@@ -220,6 +239,25 @@ assert.equal(settingMutation.payload.expectedRevision, settingsRevision);
 assert.equal(settingMutation.payload.value, 'light');
 assert.match(__ms20.viewDiagnostics(), /Serverová nastavení/);
 
+// Hold the durable journal write open. A second UI activation during this
+// window must observe the first journal entry even though settingsSaving has
+// not been set yet, and therefore must not create or dispatch another attempt.
+await __ms20.store.flush();
+const beforeSettingRace = invocations.filter(call => call.operationId === 'settings.update').length;
+const heldWrite = holdNextDomainWrite();
+const firstSettingAttempt = __ms20.updateSetting('appearance.theme', 'system');
+await heldWrite.entered;
+await __ms20.updateSetting('appearance.theme', 'dark');
+assert.equal(__ms20.openSettingAttempt()?.operationType, 'settings.update');
+assert.equal(__ms20.journal.open().filter(entry => entry.operationType === 'settings.update').length, 1);
+assert.equal(invocations.filter(call => call.operationId === 'settings.update').length,
+  beforeSettingRace, 'a held journal flush must prevent both settings dispatches');
+heldWrite.release();
+await firstSettingAttempt;
+assert.equal(invocations.filter(call => call.operationId === 'settings.update').length,
+  beforeSettingRace + 1, 'only the durable first settings operation may dispatch');
+assert.equal(__ms20.openSettingAttempt(), null);
+
 await __ms20.loadMemory();
 assert.match(__ms20.viewMemory(), /Dokončit mobilní obrazovky/);
 await __ms20.addMemory({ content: 'Předat milník k review.', tags: 'review, mobile', projectId: 7 });
@@ -281,4 +319,4 @@ assert.equal(__ms20.state.session, 'invalid');
 assert.equal(__ms20.hasPairedIdentity(), true);
 assert.deepEqual(__ms20.auth.scopes, []);
 
-console.log('\nM7 mobile app runtime: 6 passed, 0 failed');
+console.log('\nM7 mobile app runtime: 7 passed, 0 failed');
