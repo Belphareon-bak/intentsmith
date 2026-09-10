@@ -1,6 +1,6 @@
 # WP-M5-DATA — backup/restore round-trip
 
-**Typ:** zapisující Work Package · **Stav:** `SECOND_REVIEW_REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED`
+**Typ:** zapisující Work Package · **Stav:** `REVIEW_PASSED / BACKUP_COMPAT_REMEDIATION_REVIEW_PASSED / ACCEPTANCE_BLOCKED`
 **Product candidate:** `816a2a4c8a95b49d46f06b94b56feb64c8a40c90`
 **Remediation commit:** `c3170a12e798b41e25e675ba555ffd47b411c5ff`
 **Vlastník:** M5 integrační větev; bez upstreamu a bez push
@@ -138,3 +138,9 @@ grep -c "restore" src/core/db-backup.js      # na vstupní revizi 0
 WP je hotový, až demonstrace z bodu 5 proběhne z čerstvého klonu na pojmenovaném
 commitu a všechny tři negativní testy z bodu 6 jsou `PASS`. Podle
 `CONTRACT.md §5` se `BLOCKED` ani `NAPSÁNO` nepočítá.
+
+Aktuální projekce: operátorský výsledek 2026-08-27 přijal DATA re-review.
+Navazující restore compatibility opravy `65bcbc4b` a `b4136a43` jsou také
+nezávisle přijaté; přesný poslední výsledek je
+[`2026-09-10-M5-BACKUP-COMPAT-FOLLOWUP-REVIEW-RESULT`](../review/2026-09-10-M5-BACKUP-COMPAT-FOLLOWUP-REVIEW-RESULT.md).
+M5 acceptance zůstává blokovaná devátým PRIVACY oddílem a externími receipts.

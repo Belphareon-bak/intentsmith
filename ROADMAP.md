@@ -610,10 +610,11 @@ focused regression sady.
      defaultuje failover na `false` a zapisuje vlastněnou `models` sekci
      transakčním merge. Detection scheduler jej už konzumuje, ale typed writer
      nemá produkčního volajícího a pět legacy mutation cest může stejný blob
-     přepsat. [Rozhodnutí 020](docs/decisions/020-m1-model-failover-opt-in-surface.md)
-     je proto `CHANGES_REQUIRED`; doporučuje oddělenou revisioned
-     `model_automation_policy` autoritu a explicitní backup/import/reset
-     adaptéry. Před
+     přepsat. [Rozhodnutí 020/E](docs/decisions/020-m1-model-failover-opt-in-surface.md)
+     bylo následně operátorem přijato a je implementované jako oddělená
+     revisioned `model_automation_policy` autorita s explicitními
+     backup/import/reset adaptéry. Kompatibilita podporovaného 061/066 upgradu
+     prošla nezávislým review. Před
      aktivací je navíc nutný čerstvý role-suite proof svázaný s exaktním
      digestem; dnešní name-only score takovým důkazem není.
      **Druhý checkpoint je implementovaný:** migrace 046 vytváří oddělený
@@ -1409,7 +1410,8 @@ původní report zůstává v
 [`m5-package-20260826.md`](docs/execution/runs/m5-package-20260826.md).
 `WP-M5-DATA` má review remediation implementovanou na product commitu
 `bcfa5c8d`; druhé review jej znovu otevřelo a navazující remediation je na
-`c3170a12`. Oddíl zůstává `RE_REVIEW_REQUIRED`. Backup nyní publikuje snapshot
+`c3170a12`. Operátorský výsledek 2026-08-27 jej následně označil
+`REVIEW_PASSED`. Backup nyní publikuje snapshot
 jen po exact úplném `wal_checkpoint(TRUNCATE)`. Restore vlastní celý
 `c3.db/c3.db-wal/c3.db-shm` file-set, před výměnou vytváří durable safety
 snapshot a nepřehraje novější stale WAL. Restore-lock identita i cílený Linux
@@ -1426,7 +1428,8 @@ původní round-trip důkaz zůstává v
 [`m5-data-20260826.md`](docs/execution/runs/m5-data-20260826.md).
 `WP-M5-AUTH` má review remediation implementovanou na product commitu
 `122b5df5`; druhé review jej znovu otevřelo a tri-state WS remediation je na
-`dc6e9b12`. Oddíl zůstává `RE_REVIEW_REQUIRED`. Jediný guard běží za
+`dc6e9b12`. Operátorský výsledek 2026-08-27 jej následně označil
+`REVIEW_PASSED`. Jediný guard běží za
 exact route matchem a před každým handlerem; veřejné jsou pouze tři health/root
 GET klíče. Studio používá existující private per-process capability, admin/CLI
 timing-safe token a vydané API tokeny route-class scopes. Production HTTP bez
@@ -1482,7 +1485,8 @@ původní report zůstává v
 [`m5-outbound-20260826.md`](docs/execution/runs/m5-outbound-20260826.md).
 `WP-M5-PERF` má první review remediation na product commitu `034e00f5`;
 druhé review jej znovu otevřelo a navazující remediation je na `b020ee19`.
-Společný exact candidate je `816a2a4c`. Oddíl zůstává `RE_REVIEW_REQUIRED`.
+Společný exact candidate je `816a2a4c`. Operátorský výsledek 2026-08-27 tento
+oddíl následně označil `REVIEW_PASSED`.
 `M5PerformanceEvidence@3`
 váže raw v2 vzorky přes SHA-256/byte count a kandidát přes exact commit/tree.
 Runner před i po měření vyžaduje stejný čistý HEAD; raw i envelope publikuje

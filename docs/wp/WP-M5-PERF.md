@@ -1,6 +1,6 @@
 # WP-M5-PERF — evidence-bound production budgets
 
-**Typ:** M5 production hardening · **Stav:** `SECOND_REVIEW_REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED`
+**Typ:** M5 production hardening · **Stav:** `REVIEW_PASSED / M5_ACCEPTANCE_BLOCKED`
 
 **Product revision:** `816a2a4c8a95b49d46f06b94b56feb64c8a40c90`
 
@@ -54,4 +54,8 @@ Focused důkaz je v
 [`m5-perf-remediation-20260826.md`](../execution/runs/m5-perf-remediation-20260826.md).
 Exact-candidate pětiminutový důkaz a jeho content adresy jsou v
 [`m5-second-review-remediation-closeout-20260827.md`](../execution/runs/m5-second-review-remediation-closeout-20260827.md).
-Tento dokument není nezávislé review ani M5 acceptance.
+Nezávislý operátorský výsledek 2026-08-27 označil M5 PERF `REVIEW_PASSED` na
+exact candidate `816a2a4c`; viz
+[`2026-08-27-M5-M6-OPERATOR-REVIEW-RESULT`](../review/2026-08-27-M5-M6-OPERATOR-REVIEW-RESULT.md).
+Tento dílčí verdikt není M5 acceptance. Nové 24h soak/throughput receipts patří
+do samostatné M6 Decision 038 evidence.

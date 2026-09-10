@@ -22,11 +22,11 @@ posílá jeho sekce „Výstup" — ne sem.
 | [P6-MODULE-GRAPH](P6-MODULE-GRAPH.md) | read-only sonda | **doběhla 2026-08-07** | [MODULE-GRAPH](../review/2026-08-07-MODULE-GRAPH.md) + měřidlo a JSON |
 | [P7-ENFORCEMENT-AUDIT](P7-ENFORCEMENT-AUDIT.md) | read-only sonda | **doběhla 2026-08-07** | [ENFORCEMENT-AUDIT](../review/2026-08-07-ENFORCEMENT-AUDIT.md) |
 | [WP-M5-PACKAGE](WP-M5-PACKAGE.md) | zapisující WP | **REVIEW_PASSED** | [M5 PACKAGE + OBSERVE remediation](../execution/runs/m5-package-observe-remediation-20260826.md) |
-| [WP-M5-DATA](WP-M5-DATA.md) | zapisující WP | **second-review remediation implemented / re-review required** | [M5 DATA remediation](../execution/runs/m5-data-remediation-20260826.md) |
+| [WP-M5-DATA](WP-M5-DATA.md) | zapisující WP | **REVIEW_PASSED / backup compatibility follow-up REVIEW_PASSED** | [M5 DATA remediation](../execution/runs/m5-data-remediation-20260826.md) |
 | [WP-M5-PROCESS](WP-M5-PROCESS.md) | zapisující WP | **REVIEW_PASSED** | [M5 PROCESS remediation](../execution/runs/m5-process-remediation-20260826.md) |
 | [WP-M5-OBSERVE](WP-M5-OBSERVE.md) | zapisující WP | **REVIEW_PASSED** | [M5 PACKAGE + OBSERVE remediation](../execution/runs/m5-package-observe-remediation-20260826.md) |
 | [WP-M5-OUTBOUND](WP-M5-OUTBOUND.md) | zapisující WP | **REVIEW_PASSED** | [M5 transport remediation](../execution/runs/m5-auth-outbound-remote-remediation-20260826.md) |
-| [WP-M5-PERF](WP-M5-PERF.md) | zapisující WP | **second-review remediation implemented / re-review required** | [M5 PERF report](../execution/runs/m5-perf-20260826.md) |
+| [WP-M5-PERF](WP-M5-PERF.md) | zapisující WP | **REVIEW_PASSED** | [M5 PERF remediation](../execution/runs/m5-perf-remediation-20260826.md) |
 | [WP-M5-REMOTE-PORT](WP-M5-REMOTE-PORT.md) | zapisující WP | **REVIEW_PASSED** | [M5 transport remediation](../execution/runs/m5-auth-outbound-remote-remediation-20260826.md) |
 | [WP-M5-CONDITIONAL-SURFACES](WP-M5-CONDITIONAL-SURFACES.md) | zapisující WP | **REVIEW_PASSED** | [M5 transport remediation](../execution/runs/m5-auth-outbound-remote-remediation-20260826.md) |
 | [WP-M5-PRIVACY](WP-M5-PRIVACY.md) | zapisující WP | **second-review remediation implemented / operator remediation required / re-review required** | [M5 PRIVACY report](../execution/runs/m5-privacy-20260826.md) |
