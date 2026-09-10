@@ -15,6 +15,16 @@ import {
 const BACKUP_FORMAT_VERSION = 2;
 const BACKUP_NAME_PATTERN = /^c3-state-(\d{4}-\d{2}-\d{2})(?:T[0-9A-Z-]+)?(?:-\d{2})?\.backup$/;
 const SHA256_PATTERN = /^sha256:[0-9a-f]{64}$/;
+// These exact identities were shipped before their replacement migrations and
+// remain in real upgraded databases as historical stamps. Current migrations
+// explicitly accept and repair those schemas; restore must therefore accept
+// the same bounded history instead of rejecting a backup created by this
+// release from a supported live database.
+const SUPPORTED_HISTORICAL_MIGRATION_VERSIONS = Object.freeze([
+  '2026_08_09_061_model_automation_policy',
+  '2026_08_10_062_model_failover_proof_issuance',
+  '2026_08_22_068_model_evaluation_history',
+]);
 
 export class StateBackupError extends Error {
   constructor(code, message, details = {}) {
@@ -508,7 +518,10 @@ export function discoverSupportedMigrationVersions(projectRoot) {
       'Migration sources contain duplicate version authorities',
     );
   }
-  return versions.sort();
+  return [...new Set([
+    ...versions,
+    ...SUPPORTED_HISTORICAL_MIGRATION_VERSIONS,
+  ])].sort();
 }
 
 function assertMigrationMetadata(metadata) {

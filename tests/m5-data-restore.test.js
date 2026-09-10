@@ -35,7 +35,34 @@ test('supported restore schema uses migration version constants, not source file
   const versions = discoverSupportedMigrationVersions(root);
   assert.equal(versions.includes('2026_02_18_006'), true);
   assert.equal(versions.includes('2026_02_18_006_v67_auto_compact'), false);
+  assert.deepEqual(
+    versions.filter(version => [
+      '2026_08_09_061_model_automation_policy',
+      '2026_08_10_062_model_failover_proof_issuance',
+      '2026_08_22_068_model_evaluation_history',
+    ].includes(version)),
+    [
+      '2026_08_09_061_model_automation_policy',
+      '2026_08_10_062_model_failover_proof_issuance',
+      '2026_08_22_068_model_evaluation_history',
+    ],
+  );
+  assert.equal(versions.includes('2099_01_01_999_unknown'), false);
   assert.equal(new Set(versions).size, versions.length);
+});
+
+test('backup validation accepts only the exact supported historical migration stamps', () => {
+  const state = fixture('2026_08_09_061_model_automation_policy');
+  try {
+    state.db.prepare('INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)')
+      .run('2026_08_10_062_model_failover_proof_issuance', '2026-08-10T00:00:00Z');
+    state.db.prepare('INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)')
+      .run('2026_08_22_068_model_evaluation_history', '2026-08-22T00:00:00Z');
+    const created = backup(state);
+    assert.doesNotThrow(() => validateStateBackup(state.dataDir, created.name, {
+      projectRoot: root,
+    }));
+  } finally { cleanup(state); }
 });
 
 function fixture(migration = knownMigration) {
@@ -272,8 +299,7 @@ test('unknown migration identity is incompatible even when backup bytes are inte
       () => restoreStateBackup(state.dataDir, created.name, {
         offline: true,
         dbPath: state.dbPath,
-        projectRoot: state.projectRoot,
-        supportedMigrationVersions: [knownMigration],
+        projectRoot: root,
       }),
       error => error.code === 'BACKUP_SCHEMA_INCOMPATIBLE',
     );
