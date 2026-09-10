@@ -163,3 +163,5 @@ Custody, skutečné operace, podpisy a history disposition zůstávají otevřen
   podmínku nesplní.
 
 Stav zůstává 0/8 category receipts, bez history receiptu a bez M5 acceptance.
+Privacy-safe inventura a přesná matice dalších akcí jsou v
+[`m5-operator-remediation-preflight-20260910.md`](../execution/runs/m5-operator-remediation-preflight-20260910.md).
