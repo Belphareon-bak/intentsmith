@@ -51,6 +51,24 @@ test('supported restore schema uses migration version constants, not source file
   assert.equal(new Set(versions).size, versions.length);
 });
 
+test('supported restore schema rejects reintroduced historical version authorities', () => {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-m5-discovery-'));
+  const migrationsDir = path.join(projectRoot, 'src', 'db', 'migrations');
+  fs.mkdirSync(migrationsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(migrationsDir, 'reintroduced.js'),
+    "export const version = '2026_08_09_061_model_automation_policy';\n",
+  );
+  try {
+    assert.throws(
+      () => discoverSupportedMigrationVersions(projectRoot),
+      error => error?.code === 'BACKUP_SUPPORTED_SCHEMA_DUPLICATE',
+    );
+  } finally {
+    fs.rmSync(projectRoot, { recursive: true, force: true });
+  }
+});
+
 test('backup validation accepts only the exact supported historical migration stamps', () => {
   const state = fixture('2026_08_09_061_model_automation_policy');
   try {

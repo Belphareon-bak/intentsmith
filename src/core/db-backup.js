@@ -518,10 +518,17 @@ export function discoverSupportedMigrationVersions(projectRoot) {
       'Migration sources contain duplicate version authorities',
     );
   }
-  return [...new Set([
+  const supportedVersions = [
     ...versions,
     ...SUPPORTED_HISTORICAL_MIGRATION_VERSIONS,
-  ])].sort();
+  ];
+  if (new Set(supportedVersions).size !== supportedVersions.length) {
+    throw new StateBackupError(
+      'BACKUP_SUPPORTED_SCHEMA_DUPLICATE',
+      'Migration sources overlap supported historical version authorities',
+    );
+  }
+  return supportedVersions.sort();
 }
 
 function assertMigrationMetadata(metadata) {
