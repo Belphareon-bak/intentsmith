@@ -208,3 +208,19 @@ Reviewer key nesmí skončit ve stejné fyzické custody jako operátorské klí
 Vyžaduje samostatně držené médium nebo ekvivalentní oddělenou offline autoritu.
 Do připojení a ověření těchto prostředků zůstávají původní privátní klíče na
 online `/home` a stav `KEY_CUSTODY_CHANGES_REQUIRED` platí beze změny.
+
+## Custody A checkpoint 2026-09-10/11
+
+Autorizované `/dev/sde1` bylo převedené na celý LUKS2 svazek. Obsahuje ověřené
+kopie tří operátorských private keys a záměrně neobsahuje reviewer private key.
+Po zápisu byl svazek odpojený, zamčený a USB zařízení vypnuté. Read-only census
+2026-09-11 zjistil, že bylo médium znovu odemčené a automountnuté; žádný proces
+je nepoužíval, proto bylo znovu bezpečně odpojené, zamčené a vypnuté. Tato
+obnova stavu není druhá offline kopie ani custody receipt.
+
+Běžný online cloud nebo připojený NAS nesplňuje `offline` ani oddělenou custody
+reviewer role. Může nést další klientsky šifrovanou recovery kopii. Jako
+ekvivalent média B by mohl být posouzen jen samostatně řízený signing prostor,
+který je mimo aplikaci i worker účet a v klidu i při běžném provozu skutečně
+nedostupný; taková ekvivalence musí být před prvním podpisem doložená a
+nezávisle přijatá. Nejmenší současné riziko má samostatný malý LUKS2 USB disk.

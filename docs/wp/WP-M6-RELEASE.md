@@ -176,7 +176,10 @@ Původních třináct false-soak ACTIVE položek je překlasifikovaných podle
 skutečného runtime. Nové 24h a pětiminutové throughput programy běží nad owned
 production serverem v loopback-only Linux namespace; jejich zkrácené sondy
 prošly, ale jsou explicitně `DEV_ONLY` a release evidence je odmítá. Skutečný
-24h soak, plný maximum-throughput, nový complete candidate report a
+24h soak i plný maximum-throughput následně prošly na exact source `193e2351`;
+původní společný wrapper zůstává pravdivě FAIL po host suspendu a oba výsledky
+čekají na review. Exact současný evidence HEAD `05803dad` má nový úplný
+deterministický běh 352/352 PASS. Unified frozen candidate report a
 operátorský re-review jsou stále otevřené. Stav proto zůstává
 `TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED`.
 
