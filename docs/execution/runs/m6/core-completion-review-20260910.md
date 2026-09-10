@@ -1,10 +1,12 @@
 # Uzavřená dávka k review — 2026-09-10
 
-Stav: dvě souborové schopnosti implementované, nezávisle revidované a připravené
-k operátorskému review. Nejde o finální přijetí M2 ani vydání IntentSmith.
-Produktový kandidát: `2ceaf152e4eeca53fb4fceda30b95de64f8f0826`.
-Rozsah review vůči `7dacd466`: výpis kořene projektu a vysvětlení schváleného
-souboru. Pokus o stručnější SPEC byl vrácen; původní prompt je byte-identický.
+Stav: dvě souborové schopnosti implementované; review kandidátu `ffa17a4a`
+skončilo bez blokujícího nálezu. Čtyři drobné nálezy jsou opravené v
+`cf4f4322`; tento úzký následný commit čeká na review. Nejde o finální přijetí
+M2 ani vydání IntentSmith. Aktuální produktový kandidát je `cf4f4322`.
+Rozsah dokončeného review vůči `7dacd466`: výpis kořene projektu a vysvětlení
+schváleného souboru. Pokus o stručnější SPEC byl vrácen; původní prompt je
+byte-identický.
 
 ## 1. Výpis projektu
 
@@ -46,6 +48,16 @@ Hlavní kontext 4096 a výstup 4000 se nezměnily. Další modelový pokus nebě
 
 Společný původní běh `2ceaf152` má **351 PASS / 1 FAIL**, bez blokací či přeskočení. Jediný FAIL je dokumentační census a chybějící řádek migračního manifestu; žádný produktový program neselhal. Dokumentační údaje byly doplněny a samostatná kontrola má 158/158 PASS; původní registrovaný program je opakován v `core-documentation-closeout-20260910-01`. Původní neúspěšný report zůstává zachovaný; nejde o nový společný výsledek 352 PASS.
 
+Následné review kandidátu `ffa17a4a` nezávisle zopakovalo osm relevantních sad:
+**309 kontrol / 0 selhání**. Ověřilo také census, 97 migrací, změnu 171→173
+tabulek, 1302 hran modulového grafu, byte-identický SPEC revert, právě jeden
+modelový pokus a bezpečnostní hranice `file.list@2`. Čtyři neblokující nálezy
+jsou v `cf4f4322` opravené: prototype guard výstupního důkazu, bezpečná práce s
+non-Error rejection, nezávislost běžného read resume na metadatech vysvětlení a
+kanonický claim key. Cílené post-fix ověření má **29/29 contract, 39/39 file
+consumer, 36/36 persistence a 52/52 pipeline PASS**; běhy byly bez sítě.
+Module boundary ratchet zůstal na 1302 hranách a 3 cyklech / 28 členech.
+
 Backendový snapshot má 233 cílených PASS a 11 plných produkčních migračních
 kontrol; předintegrační FILE_EXPLAIN má 36/36 a M1 companion 29/29. To jsou
 samostatně připnuté důkazy, nesčítají se do výsledku společného kandidáta.
@@ -66,8 +78,8 @@ Lokální důkazy jsou pod `.intentsmith-artifacts/core-completion-20260909/prov
 
 ## Co zbývá mimo tuto dávku
 
-Operátorské review těchto dvou schopností; skutečné modelové vysvětlení,
-modelová kuchařka a společná release evidence na následném kandidátu.
+Úzké review opravy `cf4f4322`; skutečné modelové vysvětlení, modelová kuchařka
+a společná release evidence na následném kandidátu.
 Předchozí fresh-clone 4/4 patří source 7fa6f985; nevydáváme jej za nové měření.
 Dřívější dlouhý soak na 193e2351 pokračuje odděleně, poslední doložený heartbeat
 má 8 hodin / 28803 požadavků / 0 chyb, konečný výsledek ještě není k dispozici.
