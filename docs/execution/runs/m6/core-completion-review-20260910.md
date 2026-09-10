@@ -5,6 +5,8 @@ skončilo bez blokujícího nálezu. Čtyři drobné nálezy jsou opravené v
 `cf4f4322` a úzké následné review je přijalo. Nejde o finální přijetí M2 ani
 vydání IntentSmith. Test-trust commit `c108da86`, restore základ `65bcbc4b` i
 jeho jediný drobný follow-up `b4136a43` prošly úzkým review.
+Přesný follow-up verdikt je v
+[`M5 backup compatibility review result`](../../../review/2026-09-10-M5-BACKUP-COMPAT-FOLLOWUP-REVIEW-RESULT.md).
 Rozsah dokončeného review vůči `7dacd466`: výpis kořene projektu a vysvětlení
 schváleného souboru. Pokus o stručnější SPEC byl vrácen; původní prompt je
 byte-identický.

@@ -522,6 +522,9 @@ pre-082, 55/55 schema a 13/13 boundary; nezávislé úzké review follow-up při
 Poslední
 přečtený soak heartbeat je 16 hodin / 57608 požadavků / 0 chyb.
 
+Přesný restore follow-up verdikt:
+[`2026-09-10-M5-BACKUP-COMPAT-FOLLOWUP-REVIEW-RESULT`](../review/2026-09-10-M5-BACKUP-COMPAT-FOLLOWUP-REVIEW-RESULT.md).
+
 Operátor současně zvolil `retain_and_rotate` a budoucí celý LUKS2 disk pro
 offline custody. Výběr není 8/8 remediation, podpis ani přesun klíčů; reviewer
 key stále potřebuje oddělenou fyzickou custody.
