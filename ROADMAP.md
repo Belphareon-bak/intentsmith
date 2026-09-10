@@ -68,7 +68,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `8/9 REVIEW_PASSED / BACKUP_COMPAT_REMEDIATION_REVIEW_PASSED / HISTORY_DECISION_RECORDED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_PARTIAL / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Review přijalo restore základ `65bcbc4b` i jeho jediný follow-up `b4136a43`, který po sjednocení kontroluje kolizi source manifestu s historickým allowlistem. Cíleně prošlo 20 restore, 1 pre-082 upgrade, 55 schema a 13 boundary kontrol. Operátor zvolil `retain_and_rotate`; receipt vznikne až po doložení všech osmi kategorií. LUKS2 médium A drží ověřenou offline kopii tří operátorských klíčů a je vypnuté. Online zdroj zatím zůstává do druhé ověřené kopie; reviewer private key potřebuje jiné fyzické médium. |
-| **M6 IntentSmith 1.0 release** | `SCOPED_REVIEW_PASSED / TEST_TRUST_REVIEW_PASSED / BACKUP_COMPAT_REMEDIATION_REVIEW_PASSED / MODEL_FAILURES_OPEN / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Souborové schopnosti, test-trust `c108da86`, restore základ `65bcbc4b` i follow-up `b4136a43` jsou revidované. Skutečný modelový demo běh FILE_EXPLAIN zůstává NOT_RUN. Soak na `193e2351` pokračuje, naposledy 22 hodin / 79211 požadavků / 0 chyb. Finální M2/M5/M6 přijetí, modelová kuchařka a M7 zbývají. [Předání a důkazy](docs/execution/runs/m6/core-completion-review-20260910.md). |
+| **M6 IntentSmith 1.0 release** | `SCOPED_REVIEW_PASSED / RUNTIME_EVIDENCE_COLLECTED / REVIEW_REQUIRED / COOKBOOK_BLOCKED / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Souborové schopnosti, test-trust a restore follow-up jsou revidované. Exact `193e2351` má 24h soak PASS i samostatný maximum-throughput PASS; původní společný wrapper zůstává FAIL kvůli throughput `SKIPPED total_deadline` po suspendu. FILE_EXPLAIN na `3bda6ddb` má skutečný exact-digest approval/restart/replay PASS. Evidence čeká na review; finální M2/M5/M6 přijetí, unified frozen candidate a modelová kuchařka zbývají. [Předání a důkazy](docs/execution/runs/m6/m6-runtime-evidence-20260911.md). |
 | **M7 Remote Companion** | `UI_SURFACES_REVIEW_PASSED / HOST_GATE_GREEN / DEVICE_NOT_RUN / NOT_ACCEPTED` | M6 + remote boundary | Nezávislé re-review přijalo exact candidate `429b779f`: durable journal guard zavírá settings double-activation okno a held-flush regrese odlišuje staré bytes. Mobile 47/47, runtime 7/7, adapter 8/8, artifact validation 158/158, boundary 0 violations a Android test+lint prošly. Produkční konfigurace, fyzická matice 13+7, TalkBack a release podpisy nejsou hotové. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
@@ -2826,6 +2826,24 @@ původního chování. Stav je `REVIEW_PASSED / HOST_GATE_GREEN /
 DEVICE_NOT_RUN / NOT_ACCEPTED`. Přesný rozsah a reprodukce:
 [`WP`](docs/wp/WP-M7-MOBILE-UI-SURFACES-20260910.md) a
 [`handoff`](docs/execution/runs/mobile/m7-ui-surfaces-20260910.md).
+
+### M6 runtime evidence follow-up (2026-09-11)
+
+Owned production server na exact source `193e2351` dokončil monotonic 24h soak
+s 86,400 požadavky, 0 chyb, p95/p99 2/2 ms a RSS peak 163.539 MiB. Původní
+dvouprogramový audit přesto pravdivě skončil `FAIL`: suspend stroje překročil
+jeho wall deadline a throughput byl `SKIPPED total_deadline`. Samostatný
+registrovaný throughput follow-up následně prošel plných 300,093 ms; při
+concurrency 1,024 udržel 39,456.703 req/s, p95/p99 36/43 ms, 0 chyb a RSS peak
+204.813 MiB. Oba servery běžely pouze na `lo` a skončily bez force.
+
+Skutečný FILE_EXPLAIN na source `3bda6ddb` provedl právě jeden schválený modelový
+chat na exact `qwen3.5:27b` digest a po restartu vrátil stejný uložený answer hash
+bez další inference. DB i bindingy zůstaly čisté. Čtyři dřívější private-runner
+pokusy selhaly před inference a jsou zachované. Stav je
+`EVIDENCE_COLLECTED / REVIEW_REQUIRED / NOT_ACCEPTED`; odlišné source nejsou
+vydávány za jeden release candidate. [Důkazy](docs/execution/runs/m6/m6-runtime-evidence-20260911.md)
+a [review packet](docs/review/2026-09-11-M6-RUNTIME-EVIDENCE-REVIEW-PACKET.md).
 
 ## 14. Rozhodovací fronta — otázka až ve chvíli, kdy má data
 

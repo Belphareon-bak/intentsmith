@@ -33,7 +33,7 @@ obnovit bez další inference. Cizí metadata v historii ani uživatelský JSON
 nemohou takové navázání vytvořit. Scope a zrušení se kontrolují po modelu i
 před uložením. Neúplná odpověď, binární data či příliš velký vstup selžou.
 
-Skutečný modelový demo běh této schopnosti je **NOT_RUN**. Integrační testy
+V okamžiku uzavření této dávky byl skutečný modelový demo běh **NOT_RUN**. Integrační testy
 používají skutečnou SQLite, grant, claim, filesystem provider a chat finalizer,
 ale odpověď D1 je řízená fixture. Souběžná inference stejné operace je blokována
 v procesu; nejde o trvalou exactly-once záruku inference při pádu před uložením.
@@ -89,7 +89,7 @@ Lokální důkazy jsou pod `.intentsmith-artifacts/core-completion-20260909/prov
 - `m2-file-explain-completion-7dacd466/handoff.json` a
   `root-independent-review-final08.json`.
 
-## Co zbývá mimo tuto dávku
+## Co zbývalo mimo tuto dávku
 
 Skutečné modelové vysvětlení, modelová kuchařka a společná release evidence na
 následném kandidátu. Restore follow-up `b4136a43` úzké review přijalo.
@@ -182,3 +182,22 @@ Krátká cizí GPU rezidence proto není porušením jeho strojového kontraktu;
 zůstává zde uvedená, aby reviewer mohl případně požadovat přísnější opakování
 na zcela klidném hostu. FILE_EXPLAIN launcher ji nadále blokuje explicitním
 host-level process a GPU preflightem.
+
+## Runtime evidence follow-up — 2026-09-11
+
+Oddělený source `193e2351` dokončil 24hodinový owned-server soak: 86,400
+požadavků, 0 chyb, p95/p99 2/2 ms, RSS peak 163.539 MiB, čistý shutdown a jen
+loopback namespace. Host suspend způsobil, že původní společný wrapper po tomto
+PASS překročil wall deadline a throughput označil `SKIPPED`; wrapper proto
+zůstává `FAIL`. Chybějící throughput byl následně spuštěn samostatně přes stejný
+registrovaný audit a prošel na concurrency 1,024 se sustained 39,456.703 req/s,
+p95/p99 36/43 ms, 0 chyb, RSS peak 204.813 MiB a čistým shutdownem.
+
+Skutečný FILE_EXPLAIN approval/restart/replay na source `3bda6ddb` také prošel:
+jedno modelové volání na exact `qwen3.5:27b` digest, shodný answer hash při
+replay, jeden usage/claim, čistá privátní DB a nezměněné živé bindingy. Čtyři
+předchozí runner-only neúspěchy skončily před inference a zůstávají zachované.
+Úplný záznam a review otázky jsou v
+[`m6-runtime-evidence-20260911.md`](m6-runtime-evidence-20260911.md) a
+[`review packetu`](../../../review/2026-09-11-M6-RUNTIME-EVIDENCE-REVIEW-PACKET.md).
+Stav je `EVIDENCE_COLLECTED / REVIEW_REQUIRED / NOT_ACCEPTED`.

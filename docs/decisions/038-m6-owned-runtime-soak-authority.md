@@ -1,6 +1,6 @@
 # 038 — M6 soak evidence vzniká pouze z owned production runtime
 
-- **stav:** `IMPLEMENTED / FULL_RUN_PENDING / RE_REVIEW_REQUIRED`
+- **stav:** `IMPLEMENTED / FULL_RUN_EVIDENCE_COLLECTED / RE_REVIEW_REQUIRED`
 - **rozsah:** M6 24h stability, maximum throughput a registry klasifikace
 - **datum:** 2026-08-27
 
@@ -62,6 +62,18 @@ programy zůstávají hard-blocked i tehdy, když caller obecný blocker povolí
   saturace nebo dosažen horní concurrency limit 1 024;
 - oba: database a lifecycle recovery ready, nejvýše jeden aktivní diagnostics
   request, nulové outbound policy decision a čistý shutdown bez force.
+
+## Výsledek úplných běhů 2026-09-11
+
+Exact source `193e2351f4a967679ee237a99c673ceff216ddc1` má úplný 24hodinový
+`M6LongSoakReceipt@1` a samostatný úplný pětiminutový
+`M6MaxThroughputReceipt@1`, oba `PASS`. Původní společný wrapper zůstává `FAIL`,
+protože host suspend vyčerpal jeho wall-clock deadline a druhý program přeskočil;
+samostatné opakování přes stejné registry/audit authority jej doplnilo bez skipu.
+Přesné hodnoty, hashe i hranice jsou v
+[`m6-runtime-evidence-20260911.md`](../execution/runs/m6/m6-runtime-evidence-20260911.md).
+Výsledek čeká na nezávislé review a sám nepřijímá M6 ani nepřipíná finální release
+candidate.
 
 ## Hranice tvrzení
 

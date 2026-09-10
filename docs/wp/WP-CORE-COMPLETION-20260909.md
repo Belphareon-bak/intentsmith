@@ -525,6 +525,14 @@ přečtený soak heartbeat je 16 hodin / 57608 požadavků / 0 chyb.
 Přesný restore follow-up verdikt:
 [`2026-09-10-M5-BACKUP-COMPAT-FOLLOWUP-REVIEW-RESULT`](../review/2026-09-10-M5-BACKUP-COMPAT-FOLLOWUP-REVIEW-RESULT.md).
 
+Runtime evidence follow-up 2026-09-11: exact source `193e2351` má úplný
+24hodinový soak i samostatný maximum-throughput program `PASS`; původní společný
+wrapper pravdivě zůstává `FAIL`, protože suspend způsobil throughput
+`SKIPPED total_deadline`. FILE_EXPLAIN na novějším source `3bda6ddb` má jeden
+skutečný exact-digest modelový chat, durable restart replay a nezměněné živé
+bindingy, vše `PASS`. Jde o `EVIDENCE_COLLECTED / REVIEW_REQUIRED`, nikoli o
+společný frozen candidate nebo M2/M6 acceptance. [Přesný výsledek](../execution/runs/m6/m6-runtime-evidence-20260911.md).
+
 Operátor současně zvolil `retain_and_rotate` a budoucí celý LUKS2 disk pro
 offline custody. Výběr není 8/8 remediation, podpis ani přesun klíčů; reviewer
 key stále potřebuje oddělenou fyzickou custody.
