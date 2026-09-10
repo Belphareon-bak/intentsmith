@@ -892,6 +892,10 @@ function lockDownSession() {
   state.loading = {};
   state.error = {};
   state.opsLookup = {};
+  state.settingsSaving = null;
+  state.settingsNote = null;
+  state.memorySaving = false;
+  state.memoryNote = null;
   state.thread = { cursor: null, end: false, loadingOlder: false, stickToBottom: true };
   invalidateApprovalSurface();
   cache.purgeExpired();
@@ -1040,6 +1044,10 @@ async function handleAuthFailure(error) {
   state.data = {};
   state.cacheAge = {};
   state.cacheAt = {};
+  state.settingsSaving = null;
+  state.settingsNote = null;
+  state.memorySaving = false;
+  state.memoryNote = null;
   state.session = error.code === 'token_revoked' ? 'revoked'
     : expired ? 'expired' : 'unpaired';
   render();
@@ -1068,6 +1076,13 @@ const state = {
   serverOffsetMs: null,
   unread: 0,
   conversations: { cursor: null, end: false, loadingMore: false },
+  projects: { cursor: null, end: false, loadingMore: false },
+  memory: { cursor: null, end: false, loadingMore: false },
+  settingsRevision: null,
+  settingsSaving: null,
+  settingsNote: null,
+  memorySaving: false,
+  memoryNote: null,
   // MR-05 / SS-03.  The thread is a *window* onto the history, not the history:
   // `cursor` is the last cursor the server issued for reading further into the
   // past (never one this client computed, §8.2), `end` says the oldest message
@@ -1183,6 +1198,20 @@ function replaceScopes(scopes) {
     delete state.data.notifications;
     state.unread = 0;
     cache.del('notifications');
+  }
+  for (const [scope, dataset] of [
+    ['read:projects', 'projects'],
+    ['read:settings', 'settings'],
+    ['read:stored_information', 'memory'],
+  ]) {
+    if (!previous.has(scope) || next.includes(scope)) continue;
+    delete state.data[dataset];
+    delete state.cacheAge[dataset];
+    delete state.cacheAt[dataset];
+    if (dataset === 'settings') state.settingsRevision = null;
+    if (dataset === 'projects') state.projects = { cursor: null, end: false, loadingMore: false };
+    if (dataset === 'memory') state.memory = { cursor: null, end: false, loadingMore: false };
+    cache.del(dataset);
   }
 }
 
@@ -1348,6 +1377,9 @@ const TRUST_DATASET = {
   conversations: 'conversations',
   chat: 'thread',
   notifications: 'notifications',
+  projects: 'projects',
+  memory: 'memory',
+  diagnostics: 'settings',
   operations: 'operations',
 };
 
@@ -1372,6 +1404,19 @@ function screenLocks(route = state.route) {
       break;
     case 'notifications':
       need('read:notifications', 'zprávy');
+      break;
+    case 'projects':
+      need('read:projects', 'projekty');
+      break;
+    case 'memory':
+      need('read:stored_information', 'uložené informace');
+      if (auth.has('read:stored_information')) need('write:stored_information', 'přidání poznámky');
+      break;
+    case 'diagnostics':
+      if (REMOTE_MODE) {
+        need('read:settings', 'serverová nastavení');
+        need('read:stored_information', 'uložené informace');
+      }
       break;
     case 'approvals':
     case 'approval':
@@ -1513,12 +1558,9 @@ function withTrustBar(html) {
 const NAV_ITEMS = [
   { id: 'overview', route: 'overview', label: 'Přehled', icon: 'home', scope: null },
   { id: 'conversations', route: 'conversations', label: 'Konverzace', icon: 'chat', scope: 'read:chat' },
-  // D-UI-1 decided projects belong in the product; `MR-14` stays
-  // BLOCKED_BY_CONTRACT_AND_GATE1 and `MS-12` is not built.  So the item is
-  // locked rather than absent or tappable: §3.1 says a scope without upstream
-  // shows locked, and the WP says Projects stay "an item without a screen".
-  // It cannot appear at all until a server actually grants `read:projects`.
-  { id: 'projects', route: null, label: 'Projekty', icon: 'folder', scope: 'read:projects', locked: true },
+  // project.list exists only on the pinned M7 surface. A legacy /m1 grant still
+  // renders as locked because that transport has no truthful route to invoke.
+  { id: 'projects', route: REMOTE_MODE ? 'projects' : null, label: 'Projekty', icon: 'folder', scope: 'read:projects', locked: !REMOTE_MODE },
   { id: 'approvals', route: 'approvals', label: 'Approvaly', icon: 'shield', scope: 'read:approvals' },
   // §3.3 — MS-03, MS-04 and MS-20 live under Nastavení, which replaces the
   // former standalone "Stav" item (D-UI-3).
@@ -1536,9 +1578,11 @@ const ROUTE_SECTION = {
   notifications: 'overview',
   conversations: 'conversations',
   chat: 'conversations',
+  projects: 'projects',
   approvals: 'approvals',
   approval: 'approvals',
   diagnostics: 'settings',
+  memory: 'settings',
   operations: 'settings',
 };
 
@@ -1546,6 +1590,8 @@ const ROUTE_SECTION = {
 const SUPPORTED_SCOPES = new Set([
   'read:chat', 'write:chat', 'read:notifications',
   'read:approvals', 'write:approvals', 'read:projects',
+  'read:settings', 'write:settings',
+  'read:stored_information', 'write:stored_information',
 ]);
 
 /**
@@ -1821,8 +1867,8 @@ function overviewConversations() {
 }
 
 /**
- * The completeness condition, as code.  One row per bar item — including the
- * locked ones, which is the honest rendering of "an item without a screen".
+ * The completeness condition, as code. One row is kept for every negotiated
+ * bar item, including capabilities that still have no screen in this client.
  */
 
 /**
@@ -1846,11 +1892,10 @@ function viewOverview() {
   // (docs/mobile/design/homescreen-1_schvaleni-3.png): the tiles sit at the top,
   // under them what is waiting, then the recent conversations.
   //
-  // Two deliberate departures from that image, both because the backend cannot
-  // support it: no greeting by name, and no counts for things nothing counts.
-  // "3 agenti běží" and "8 aktivních projektů" have no data source at all
-  // (`MR-07`, `MR-14` are BLOCKED_BY_CONTRACT), and a made-up number on the
-  // root is the exact failure this whole design system exists to prevent.
+  // Two deliberate departures from that image: there is no greeting by name,
+  // and counts appear only after a current server response. The M7 project
+  // count comes from project.list; the still-unsupported agent-run count is
+  // omitted instead of being inferred (`MR-07` remains contract-blocked).
   //
   // The tiles are also what keeps §3.2 true: with the bar retracted on the root
   // the homescreen is the only map of the app, so every section has to be
@@ -1883,6 +1928,10 @@ function viewOverview() {
         const list = state.data.approvals;
         const confirmed = !state.error.approvals && Array.isArray(list);
         return { ...item, value: confirmed ? `${list.length} čeká` : null };
+      }
+      if (item.id === 'projects') {
+        const list = state.data.projects;
+        return { ...item, value: Array.isArray(list) ? `${list.length}` : null };
       }
       if (item.id === 'notifications') {
         return { ...item, value: Array.isArray(state.data.notifications) ? `${state.unread}` : null };
@@ -1941,6 +1990,52 @@ function viewOverview() {
       <ul class="ov-tiles">${upcoming}</ul>
     </section>
   </div></div>`;
+}
+
+function projectStageLabel(stage) {
+  return ({
+    active: 'Aktivní', spec: 'Specifikace', implementation: 'Implementace',
+    review: 'Review', accepted: 'Přijatý', archived: 'Archivovaný',
+  })[stage] || stage || 'Neuvedená';
+}
+
+/** M7 project.list is read-only: no lifecycle action is inferred by the phone. */
+function viewProjects() {
+  if (!REMOTE_MODE || !auth.has('read:projects')) {
+    return header({ title: 'Projekty' }) + `<div class="scroll">${statePanel(
+      'scope', 'Projekty nejsou dostupné',
+      REMOTE_MODE
+        ? 'Tato relace nemá oprávnění read:projects.'
+        : 'Tato verze připojení nemá M7 projektový kontrakt.',
+    )}</div>`;
+  }
+  const list = state.data.projects;
+  const error = state.error.projects;
+  let body;
+  if (state.loading.projects && !list) {
+    body = skeletonList();
+  } else if (error && !list) {
+    body = errorPanel(error, 'load-projects');
+  } else if (Array.isArray(list) && list.length === 0) {
+    body = statePanel('empty', 'Žádné dostupné projekty',
+      'Server pro tuto relaci nepotvrdil žádný projekt.');
+  } else if (Array.isArray(list)) {
+    body = `<div class="list">${list.map(project => `
+      <div class="row project-row">
+        <div class="row-main">
+          <div class="row-title">${esc(project.name)}</div>
+          <div class="row-sub">Lifecycle: ${esc(projectStageLabel(project.lifecycleStage))}</div>
+        </div>
+        <div class="row-time">${timeAgo(project.updatedAt)}</div>
+      </div>`).join('')}
+      ${!state.projects.end && state.projects.cursor
+        ? `<button class="btn btn-secondary load-more" data-act="load-more-projects" ${state.projects.loadingMore ? 'disabled' : ''}>${state.projects.loadingMore ? 'Načítám…' : 'Načíst další'}</button>`
+        : ''}
+    </div>`;
+  } else {
+    body = skeletonList();
+  }
+  return header({ title: 'Projekty' }) + `<div class="scroll">${body}</div>`;
 }
 
 function viewConversations() {
@@ -2307,6 +2402,106 @@ async function clearAppPin() {
   render();
 }
 
+const SETTING_COPY = Object.freeze({
+  'appearance.density': ['Hustota rozhraní', { comfortable: 'Pohodlná', compact: 'Kompaktní', spacious: 'Vzdušná' }],
+  'appearance.fontSize': ['Velikost písma', null],
+  'appearance.theme': ['Motiv', { dark: 'Tmavý', light: 'Světlý', system: 'Podle systému' }],
+  'memory.saveContext': ['Ukládat kontext', { true: 'Ano', false: 'Ne' }],
+  'memory.saveHistory': ['Ukládat historii', { true: 'Ano', false: 'Ne' }],
+});
+const MEMORY_COMPOSE_DRAFT_ID = 'compose:stored-information.append';
+
+function settingInputId(key) {
+  return `setting-${String(key).replace(/[^A-Za-z0-9_-]/g, '-')}`;
+}
+
+function settingControl(setting, disabled) {
+  const id = settingInputId(setting.key);
+  const unavailable = disabled ? 'disabled' : '';
+  if (setting.valueType === 'boolean') {
+    return `<select id="${id}" ${unavailable}>
+      <option value="true" ${setting.value === true ? 'selected' : ''}>Ano</option>
+      <option value="false" ${setting.value === false ? 'selected' : ''}>Ne</option>
+    </select>`;
+  }
+  if (setting.valueType === 'enum' && Array.isArray(setting.constraints?.enumValues)) {
+    const labels = SETTING_COPY[setting.key]?.[1] || {};
+    return `<select id="${id}" ${unavailable}>${setting.constraints.enumValues.map(value => `
+      <option value="${esc(value)}" ${value === setting.value ? 'selected' : ''}>${esc(labels[value] || value)}</option>`).join('')}</select>`;
+  }
+  if (setting.valueType === 'integer') {
+    return `<input id="${id}" type="number" value="${esc(setting.value)}"
+      min="${esc(setting.constraints?.minimum)}" max="${esc(setting.constraints?.maximum)}"
+      step="${esc(setting.constraints?.step || '1')}" ${unavailable}>`;
+  }
+  return `<input id="${id}" type="text" value="${esc(setting.value)}" ${unavailable}>`;
+}
+
+function serverSettingsCard() {
+  if (!REMOTE_MODE) return '';
+  if (!auth.has('read:settings')) {
+    return `<div class="card" data-locked="true">
+      <div class="card-head"><h3 class="card-title">Serverová nastavení</h3>
+        <span class="pill" data-tone="muted">${icon('lock')}Bez oprávnění</span></div>
+      <p class="card-note">Relace nemá scope <span class="mono">read:settings</span>.</p>
+    </div>`;
+  }
+  const settings = state.data.settings;
+  const error = state.error.settings;
+  const canWrite = auth.has('write:settings') && state.conn === 'ok'
+    && state.cacheAge.settings === 'FRESH' && !state.settingsSaving;
+  let body;
+  if (state.loading.settings && !settings) {
+    body = skeletonList(3);
+  } else if (error && !settings) {
+    body = `<p class="card-note" data-tone="danger">Nastavení se nepodařilo načíst.</p>
+      <button class="btn btn-secondary btn-sm card-action" data-act="load-settings">Zkusit načíst</button>`;
+  } else {
+    body = (settings || []).map(setting => {
+      const writable = setting.writable && canWrite;
+      return `<div class="setting-row">
+        <label for="${settingInputId(setting.key)}">
+          <span class="setting-label">${esc(SETTING_COPY[setting.key]?.[0] || setting.key)}</span>
+          <span class="setting-key mono">${esc(setting.key)}</span>
+        </label>
+        <div class="setting-action">${settingControl(setting, !writable)}
+          <button class="btn btn-secondary btn-sm" data-act="update-setting" data-key="${esc(setting.key)}"
+            ${writable ? '' : 'disabled'}>${state.settingsSaving === setting.key ? 'Ukládám…' : 'Uložit'}</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  const lockReason = !auth.has('write:settings')
+    ? 'Změny vyžadují scope write:settings.'
+    : state.conn !== 'ok' ? 'Bez potvrzeného spojení nelze hodnoty měnit.'
+    : state.cacheAge.settings !== 'FRESH' ? 'Před změnou je nutné načíst čerstvou revizi.'
+    : null;
+  const note = state.settingsNote
+    ? `<p class="surface-note" data-tone="${esc(state.settingsNote.tone)}">${esc(state.settingsNote.text)}</p>` : '';
+  return `<div class="card settings-card">
+    <div class="card-head"><h3 class="card-title">Serverová nastavení</h3></div>
+    ${note}${body}${lockReason ? `<p class="card-note setting-lock">${esc(lockReason)}</p>` : ''}
+  </div>`;
+}
+
+function memorySettingsCard() {
+  if (!REMOTE_MODE || !auth.has('read:stored_information')) {
+    return `<div class="card" data-locked="true">
+      <div class="card-head"><h3 class="card-title">Uložené informace</h3>
+        <span class="pill" data-tone="muted">${icon('lock')}${REMOTE_MODE ? 'Bez oprávnění' : 'Vyžaduje M7'}</span></div>
+      <p class="card-note">Ruční poznámky jsou dostupné jen přes chráněnou M7 relaci se scopem <span class="mono">read:stored_information</span>.</p>
+    </div>`;
+  }
+  const count = Array.isArray(state.data.memory) ? state.data.memory.length : null;
+  return `<div class="card">
+    <div class="card-head"><h3 class="card-title">Uložené informace</h3></div>
+    <div class="kv"><span class="kv-key">Ruční poznámky</span>
+      <span class="kv-val">${count === null ? 'nenačteno' : count}</span></div>
+    <div class="kv"><span class="kv-key">Číst a přidat</span>
+      <button class="btn btn-secondary btn-sm" data-act="go" data-route="memory">Otevřít</button></div>
+  </div>`;
+}
+
 function viewDiagnostics() {
   const health = state.data.health;
   const caps = state.data.capabilities;
@@ -2331,14 +2526,9 @@ function viewDiagnostics() {
       </label>
     </div>
 
-    <div class="card" data-locked="true">
-      <div class="card-head"><h3 class="card-title">Paměť</h3>
-        <span class="pill" data-tone="muted">${icon('lock')}Připravujeme</span></div>
-      <p class="card-note">Náhled na to, co si o tobě IntentSmith pamatuje, a ruční
-      poznámka. Zatím se nestaví: obsah i rozsah určuje kontraktní kolo
-      <span class="mono">DR-008</span>, doména 3 (Fáze 4, <span class="mono">MR-17</span>,
-      <span class="mono">MR-18</span>).</p>
-    </div>
+    ${serverSettingsCard()}
+
+    ${memorySettingsCard()}
 
     <div class="card">
       <div class="card-head"><h3 class="card-title">Spojení</h3></div>
@@ -2391,6 +2581,98 @@ function viewDiagnostics() {
         <button class="btn btn-danger btn-sm" data-act="logout">Odhlásit</button></div>
     </div>
   </div></div>`;
+}
+
+function memoryComposeDraft() {
+  const saved = drafts.get(MEMORY_COMPOSE_DRAFT_ID);
+  return saved && typeof saved === 'object'
+    ? {
+        content: typeof saved.content === 'string' ? saved.content : '',
+        tags: typeof saved.tags === 'string' ? saved.tags : '',
+        projectId: saved.projectId === null || Number.isSafeInteger(saved.projectId)
+          ? saved.projectId : null,
+      }
+    : { content: '', tags: '', projectId: null };
+}
+
+function openMemoryAttempt() {
+  return journal.open().find(entry => entry.operationType === 'stored-information.append') || null;
+}
+
+function viewMemory() {
+  if (!REMOTE_MODE || !auth.has('read:stored_information')) {
+    return header({ title: 'Uložené informace', left: 'back' })
+      + `<div class="scroll">${statePanel('scope', 'Uložené informace nejsou dostupné',
+        REMOTE_MODE
+          ? 'Tato relace nemá oprávnění read:stored_information.'
+          : 'Tato verze připojení nemá M7 kontrakt uložených informací.')}</div>`;
+  }
+
+  const items = state.data.memory;
+  const error = state.error.memory;
+  let list;
+  if (state.loading.memory && !items) {
+    list = skeletonList(3);
+  } else if (error && !items) {
+    list = errorPanel(error, 'load-memory');
+  } else if (Array.isArray(items) && items.length === 0) {
+    list = statePanel('empty', 'Zatím žádná ruční poznámka',
+      'Prázdný stav potvrdil server pro tuto relaci.');
+  } else if (Array.isArray(items)) {
+    list = `<div class="memory-list">${items.map(item => `
+      <article class="memory-item">
+        <div class="memory-head"><strong>${esc(item.summary)}</strong><span>${timeAgo(item.updatedAt)}</span></div>
+        <p>${esc(item.content)}</p>
+        ${item.tags?.length ? `<div class="scope-list">${item.tags.map(tag => `<span class="pill" data-tone="info">${esc(tag)}</span>`).join('')}</div>` : ''}
+        <div class="memory-meta">${item.projectId === null ? 'Bez projektu' : `Projekt ${esc(item.projectId)}`}</div>
+      </article>`).join('')}
+      ${!state.memory.end && state.memory.cursor
+        ? `<button class="btn btn-secondary load-more" data-act="load-more-memory" ${state.memory.loadingMore ? 'disabled' : ''}>${state.memory.loadingMore ? 'Načítám…' : 'Načíst další'}</button>`
+        : ''}
+    </div>`;
+  } else {
+    list = skeletonList(3);
+  }
+
+  const draft = memoryComposeDraft();
+  const openAttempt = openMemoryAttempt();
+  const canWrite = auth.has('write:stored_information') && state.conn === 'ok'
+    && !state.memorySaving && !openAttempt;
+  const projects = Array.isArray(state.data.projects) ? state.data.projects : [];
+  const note = state.memoryNote
+    ? `<p class="surface-note" data-tone="${esc(state.memoryNote.tone)}">${esc(state.memoryNote.text)}</p>` : '';
+  const blocked = openAttempt
+    ? 'Předchozí přidání ještě není rozřešené. Jeho stav zjisti v Nerozřešených pokusech; poznámka se znovu neposílá.'
+    : !auth.has('write:stored_information')
+      ? 'Přidání vyžaduje scope write:stored_information.'
+      : state.conn !== 'ok' ? 'Bez potvrzeného spojení se poznámka neodesílá.' : null;
+
+  const composer = `<section class="card memory-compose" aria-labelledby="memory-compose-h">
+    <div class="card-head"><h3 class="card-title" id="memory-compose-h">Přidat ruční poznámku</h3></div>
+    ${note}
+    <div class="field"><label for="memory-content">Obsah</label>
+      <textarea id="memory-content" rows="5" maxlength="16384" ${openAttempt ? 'disabled' : ''}>${esc(draft.content)}</textarea>
+      <p class="field-hint">Uloží se až po potvrzení serverem. Mazání a editace z telefonu nejsou dostupné.</p>
+    </div>
+    <div class="field"><label for="memory-tags">Štítky</label>
+      <input id="memory-tags" type="text" value="${esc(draft.tags)}" placeholder="např. další-krok, produkt" ${openAttempt ? 'disabled' : ''}>
+      <p class="field-hint">Nejvýše 32 štítků, oddělené čárkou.</p>
+    </div>
+    <div class="field"><label for="memory-project">Projekt</label>
+      <select id="memory-project" ${openAttempt ? 'disabled' : ''}>
+        <option value="" ${draft.projectId === null ? 'selected' : ''}>Bez projektu</option>
+        ${projects.map(project => `<option value="${esc(project.id)}" ${project.id === draft.projectId ? 'selected' : ''}>${esc(project.name)}</option>`).join('')}
+      </select>
+    </div>
+    ${blocked ? `<p class="composer-blocked" data-kind="${openAttempt ? 'limit' : state.conn !== 'ok' ? 'offline' : 'scope'}">${icon(openAttempt ? 'warn' : 'lock')}${esc(blocked)}</p>` : ''}
+    <button class="btn btn-primary btn-block" data-act="memory-add" ${canWrite ? '' : 'disabled'}>${state.memorySaving ? 'Ukládám…' : 'Přidat poznámku'}</button>
+    ${openAttempt ? '<button class="btn btn-secondary btn-block" data-act="operations">Otevřít nerozřešené pokusy</button>' : ''}
+  </section>`;
+
+  return header({ title: 'Uložené informace', left: 'back' })
+    + `<div class="scroll"><div class="container memory-screen">${composer}
+      <section aria-labelledby="memory-list-h"><h2 class="ov-h" id="memory-list-h">Ruční poznámky</h2>${list}</section>
+    </div></div>`;
 }
 
 /**
@@ -3586,12 +3868,14 @@ function render() {
   const views = {
     overview: viewOverview,
     conversations: viewConversations,
+    projects: viewProjects,
     chat: viewChat,
     notifications: viewNotifications,
     approvals: viewApprovals,
     approval: viewApproval,
     operations: viewOperations,
     diagnostics: viewDiagnostics,
+    memory: viewMemory,
   };
   // How far the thread was scrolled from its *bottom*, measured before the
   // markup is replaced.  Distance from the bottom is the stable reference when
@@ -3752,6 +4036,250 @@ async function loadMoreConversations() {
       : error.kind === 'server' || error.kind === 'protocol' ? 'server' : state.conn);
   } finally {
     state.conversations.loadingMore = false;
+    render();
+  }
+}
+
+function invalidListResponse(reason, response) {
+  return new ApiError('protocol', {
+    code: 'protocol_invalid_response', status: 200,
+    detail: { reason }, body: response,
+  });
+}
+
+async function loadProjects() {
+  if (!REMOTE_MODE || !auth.has('read:projects')) {
+    delete state.data.projects;
+    cache.del('projects');
+    render();
+    return;
+  }
+  const cached = cache.read('projects');
+  if (cached.data) {
+    state.data.projects = Array.isArray(cached.data) ? cached.data : cached.data.items;
+    state.projects = Array.isArray(cached.data)
+      ? { cursor: null, end: false, loadingMore: false }
+      : {
+          cursor: cached.data.window?.cursor || null,
+          end: cached.data.window?.end === true,
+          loadingMore: false,
+        };
+    state.cacheAge.projects = cached.status;
+    state.cacheAt.projects = cached.at;
+  } else if (cached.status === 'EXPIRED') {
+    delete state.data.projects;
+    state.cacheAge.projects = 'EXPIRED';
+    state.cacheAt.projects = cached.at;
+  }
+  state.loading.projects = true;
+  state.error.projects = null;
+  render();
+  try {
+    const response = await api(`/projects?limit=${LIST_PAGE_SIZE}`);
+    if (!auth.has('read:projects')) return;
+    if (!Array.isArray(response.data)) throw invalidListResponse('projects_not_a_list', response);
+    state.data.projects = response.data;
+    state.projects = {
+      cursor: response.nextCursor || null,
+      end: response.end !== false && !response.nextCursor,
+      loadingMore: false,
+    };
+    state.cacheAge.projects = 'FRESH';
+    state.cacheAt.projects = Date.now();
+    cache.write('projects', {
+      items: response.data,
+      window: { cursor: state.projects.cursor, end: state.projects.end },
+    });
+    setConn('ok');
+  } catch (error) {
+    if (error.kind === 'auth') return handleAuthFailure(error);
+    state.error.projects = error;
+    setConn(error.kind === 'offline' ? 'offline'
+      : error.kind === 'server' || error.kind === 'protocol' ? 'server' : state.conn);
+  } finally {
+    state.loading.projects = false;
+    render();
+  }
+}
+
+async function loadMoreProjects() {
+  const cursor = state.projects.cursor;
+  if (!cursor || state.projects.loadingMore || !REMOTE_MODE || !auth.has('read:projects')) return;
+  state.projects.loadingMore = true;
+  render();
+  try {
+    const response = await api(`/projects?limit=${LIST_PAGE_SIZE}&cursor=${encodeURIComponent(cursor)}`);
+    if (!auth.has('read:projects')) return;
+    if (!Array.isArray(response.data)) throw invalidListResponse('projects_not_a_list', response);
+    if (response.hasMore && (!response.nextCursor || response.nextCursor === cursor)) {
+      throw invalidListResponse('project_cursor_not_advancing', response);
+    }
+    const byId = new Map((state.data.projects || []).map(item => [item.id, item]));
+    for (const item of response.data) byId.set(item.id, item);
+    state.data.projects = [...byId.values()];
+    state.projects = {
+      cursor: response.nextCursor || null,
+      end: response.end !== false && !response.nextCursor,
+      loadingMore: false,
+    };
+    state.cacheAge.projects = 'FRESH';
+    state.cacheAt.projects = Date.now();
+    cache.write('projects', {
+      items: state.data.projects,
+      window: { cursor: state.projects.cursor, end: state.projects.end },
+    });
+    setConn('ok');
+  } catch (error) {
+    if (error.kind === 'auth') return handleAuthFailure(error);
+    if (['REMOTE_PROJECT_CURSOR_STALE', 'REMOTE_PROJECT_CURSOR_INVALID'].includes(error.code)) {
+      return loadProjects();
+    }
+    state.error.projects = error;
+    setConn(error.kind === 'offline' ? 'offline'
+      : error.kind === 'server' || error.kind === 'protocol' ? 'server' : state.conn);
+  } finally {
+    state.projects.loadingMore = false;
+    render();
+  }
+}
+
+async function loadSettings() {
+  if (!REMOTE_MODE || !auth.has('read:settings')) {
+    delete state.data.settings;
+    state.settingsRevision = null;
+    cache.del('settings');
+    render();
+    return;
+  }
+  const cached = cache.read('settings');
+  if (cached.data && Array.isArray(cached.data.items)) {
+    state.data.settings = cached.data.items;
+    state.settingsRevision = cached.data.revision || null;
+    state.cacheAge.settings = cached.status;
+    state.cacheAt.settings = cached.at;
+  } else if (cached.status === 'EXPIRED') {
+    delete state.data.settings;
+    state.settingsRevision = null;
+    state.cacheAge.settings = 'EXPIRED';
+    state.cacheAt.settings = cached.at;
+  }
+  state.loading.settings = true;
+  state.error.settings = null;
+  render();
+  try {
+    const response = await api('/settings');
+    if (!auth.has('read:settings')) return;
+    if (!Array.isArray(response.data) || typeof response.revision !== 'string') {
+      throw invalidListResponse('settings_snapshot_invalid', response);
+    }
+    state.data.settings = response.data;
+    state.settingsRevision = response.revision;
+    state.cacheAge.settings = 'FRESH';
+    state.cacheAt.settings = Date.now();
+    cache.write('settings', { items: response.data, revision: response.revision });
+    setConn('ok');
+  } catch (error) {
+    if (error.kind === 'auth') return handleAuthFailure(error);
+    state.error.settings = error;
+    setConn(error.kind === 'offline' ? 'offline'
+      : error.kind === 'server' || error.kind === 'protocol' ? 'server' : state.conn);
+  } finally {
+    state.loading.settings = false;
+    render();
+  }
+}
+
+async function loadMemory() {
+  if (!REMOTE_MODE || !auth.has('read:stored_information')) {
+    delete state.data.memory;
+    cache.del('memory');
+    render();
+    return;
+  }
+  const cached = cache.read('memory');
+  if (cached.data) {
+    state.data.memory = Array.isArray(cached.data) ? cached.data : cached.data.items;
+    state.memory = Array.isArray(cached.data)
+      ? { cursor: null, end: false, loadingMore: false }
+      : {
+          cursor: cached.data.window?.cursor || null,
+          end: cached.data.window?.end === true,
+          loadingMore: false,
+        };
+    state.cacheAge.memory = cached.status;
+    state.cacheAt.memory = cached.at;
+  } else if (cached.status === 'EXPIRED') {
+    delete state.data.memory;
+    state.cacheAge.memory = 'EXPIRED';
+    state.cacheAt.memory = cached.at;
+  }
+  state.loading.memory = true;
+  state.error.memory = null;
+  render();
+  try {
+    const response = await api(`/memory?limit=${LIST_PAGE_SIZE}`);
+    if (!auth.has('read:stored_information')) return;
+    if (!Array.isArray(response.data)) throw invalidListResponse('memory_not_a_list', response);
+    state.data.memory = response.data;
+    state.memory = {
+      cursor: response.nextCursor || null,
+      end: response.end !== false && !response.nextCursor,
+      loadingMore: false,
+    };
+    state.cacheAge.memory = 'FRESH';
+    state.cacheAt.memory = Date.now();
+    cache.write('memory', {
+      items: response.data,
+      window: { cursor: state.memory.cursor, end: state.memory.end },
+    });
+    setConn('ok');
+  } catch (error) {
+    if (error.kind === 'auth') return handleAuthFailure(error);
+    state.error.memory = error;
+    setConn(error.kind === 'offline' ? 'offline'
+      : error.kind === 'server' || error.kind === 'protocol' ? 'server' : state.conn);
+  } finally {
+    state.loading.memory = false;
+    render();
+  }
+}
+
+async function loadMoreMemory() {
+  const cursor = state.memory.cursor;
+  if (!cursor || state.memory.loadingMore || !REMOTE_MODE || !auth.has('read:stored_information')) return;
+  state.memory.loadingMore = true;
+  render();
+  try {
+    const response = await api(`/memory?limit=${LIST_PAGE_SIZE}&cursor=${encodeURIComponent(cursor)}`);
+    if (!auth.has('read:stored_information')) return;
+    if (!Array.isArray(response.data)) throw invalidListResponse('memory_not_a_list', response);
+    if (response.hasMore && (!response.nextCursor || response.nextCursor === cursor)) {
+      throw invalidListResponse('memory_cursor_not_advancing', response);
+    }
+    const byId = new Map((state.data.memory || []).map(item => [item.id, item]));
+    for (const item of response.data) byId.set(item.id, item);
+    state.data.memory = [...byId.values()];
+    state.memory = {
+      cursor: response.nextCursor || null,
+      end: response.end !== false && !response.nextCursor,
+      loadingMore: false,
+    };
+    state.cacheAge.memory = 'FRESH';
+    state.cacheAt.memory = Date.now();
+    cache.write('memory', {
+      items: state.data.memory,
+      window: { cursor: state.memory.cursor, end: state.memory.end },
+    });
+    setConn('ok');
+  } catch (error) {
+    if (error.kind === 'auth') return handleAuthFailure(error);
+    if (['REMOTE_STORED_INFORMATION_CURSOR_STALE', 'REMOTE_STORED_INFORMATION_CURSOR_INVALID']
+      .includes(error.code)) return loadMemory();
+    state.error.memory = error;
+    setConn(error.kind === 'offline' ? 'offline'
+      : error.kind === 'server' || error.kind === 'protocol' ? 'server' : state.conn);
+  } finally {
+    state.memory.loadingMore = false;
     render();
   }
 }
@@ -4399,6 +4927,269 @@ async function loadDiagnostics() {
     if (error.kind === 'auth') return handleAuthFailure(error);
   }
   render();
+}
+
+function settingValueFromInput(setting, override = undefined) {
+  const raw = override === undefined
+    ? document.getElementById(settingInputId(setting.key))?.value
+    : override;
+  if (setting.valueType === 'boolean') {
+    if (raw === true || raw === 'true') return true;
+    if (raw === false || raw === 'false') return false;
+    throw new ApiError('client', { code: 'protocol_invalid_request' });
+  }
+  if (setting.valueType === 'integer') {
+    const value = Number(raw);
+    const minimum = Number(setting.constraints?.minimum);
+    const maximum = Number(setting.constraints?.maximum);
+    if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+      throw new ApiError('client', { code: 'protocol_invalid_request' });
+    }
+    return value;
+  }
+  if (setting.valueType === 'enum'
+    && Array.isArray(setting.constraints?.enumValues)
+    && setting.constraints.enumValues.includes(raw)) return raw;
+  throw new ApiError('client', { code: 'protocol_invalid_request' });
+}
+
+async function updateSetting(key, override = undefined) {
+  if (!REMOTE_MODE || state.settingsSaving || state.conn !== 'ok'
+    || state.cacheAge.settings !== 'FRESH' || !auth.has('write:settings')) return;
+  const setting = (state.data.settings || []).find(item => item.key === key);
+  if (!setting?.writable || !state.settingsRevision) return;
+  const expectedRevision = state.settingsRevision;
+  let value;
+  try {
+    value = settingValueFromInput(setting, override);
+  } catch {
+    state.settingsNote = { tone: 'danger', text: 'Zadaná hodnota není v povoleném rozsahu.' };
+    return render();
+  }
+
+  const operationId = newOperationId();
+  journal.add({
+    operationId,
+    operationType: 'settings.update',
+    displaySummary: `Změna nastavení ${key}`,
+  });
+  try {
+    await store.flush();
+  } catch (error) {
+    state.error.security = `Zápis do trezoru selhal (${String(error?.message || error)}).`;
+    state.settingsNote = { tone: 'danger', text: 'Klíč změny se nepodařilo bezpečně uložit. Nic nebylo odesláno.' };
+    return render();
+  }
+  if (!auth.has('write:settings') || state.conn !== 'ok') {
+    journal.discard(operationId);
+    await store.flush().catch(() => {});
+    state.settingsNote = { tone: 'warn', text: 'Oprávnění nebo spojení se změnilo před odesláním. Nic nebylo odesláno.' };
+    return render();
+  }
+
+  state.settingsSaving = key;
+  state.settingsNote = null;
+  render();
+  try {
+    const response = await api(`/settings/${encodeURIComponent(key)}`, {
+      method: 'PATCH',
+      body: { operationId, expectedRevision, value },
+    });
+    const outcome = response.data?.state;
+    if (!OPERATION_STATES.has(outcome)) {
+      journal.setState(operationId, 'UNKNOWN', { unknownReason: 'unspecified' });
+      state.settingsNote = {
+        tone: 'danger',
+        text: 'Server nevrátil platný výsledek změny. Nic se neposílá znovu; stav ověř v Nerozřešených pokusech.',
+      };
+      setConn('server');
+      return;
+    }
+    journal.setState(operationId, outcome);
+    setConn('ok');
+    if (outcome === 'CONFIRMED') {
+      state.settingsNote = { tone: 'ok', text: 'Nastavení bylo potvrzeno serverem.' };
+      await loadSettings();
+    } else if (outcome === 'PENDING' || outcome === 'UNKNOWN') {
+      state.settingsNote = {
+        tone: 'warn',
+        text: 'Změna zůstává nerozřešená. Znovu se neposílá; její stav ověř v Nerozřešených pokusech.',
+      };
+    } else {
+      state.settingsNote = { tone: 'warn', text: 'Server změnu odmítl. Načítám jeho aktuální hodnotu.' };
+      await loadSettings();
+    }
+  } catch (error) {
+    if (error.kind === 'auth') return handleAuthFailure(error);
+    if (error.detail?.state === 'REJECTED') {
+      journal.setState(operationId, 'REJECTED');
+      state.settingsNote = error.code === 'REMOTE_SETTING_STALE_REVISION'
+        ? { tone: 'warn', text: 'Nastavení se mezitím změnilo. Serverová hodnota má přednost; načítám ji znovu.' }
+        : { tone: 'warn', text: 'Server změnu odmítl. Nic nebylo přepsáno.' };
+      await loadSettings();
+    } else {
+      journal.setState(operationId, 'UNKNOWN', { unknownReason: 'unspecified' });
+      state.settingsNote = {
+        tone: 'danger',
+        text: 'Výsledek změny není známý. Znovu se neposílá; její stav ověř v Nerozřešených pokusech.',
+      };
+      setConn(error.kind === 'offline' ? 'offline' : 'server');
+    }
+  } finally {
+    state.settingsSaving = null;
+    render();
+  }
+}
+
+function parseMemoryTags(value) {
+  const tags = [...new Set(String(value || '').split(',').map(tag => tag.trim()).filter(Boolean))]
+    .sort();
+  const valid = tags.length <= 32 && tags.every(tag => tag.normalize('NFC') === tag
+    && new TextEncoder().encode(tag).length <= 64
+    && !/[\u0000-\u001f\u007f]/u.test(tag));
+  if (!valid) throw new ApiError('client', { code: 'protocol_invalid_request' });
+  return tags;
+}
+
+function captureMemoryDraft() {
+  const content = document.getElementById('memory-content')?.value || '';
+  const tags = document.getElementById('memory-tags')?.value || '';
+  const projectRaw = document.getElementById('memory-project')?.value || '';
+  const projectId = projectRaw === '' ? null : Number(projectRaw);
+  const draft = { content, tags, projectId: Number.isSafeInteger(projectId) ? projectId : null };
+  drafts.put(MEMORY_COMPOSE_DRAFT_ID, draft);
+  return draft;
+}
+
+function memoryPayload(input) {
+  const content = String(input.content ?? '');
+  if (!content.trim() || new TextEncoder().encode(content).length > 16_384
+    || content.normalize('NFC') !== content
+    || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(content)) {
+    throw new ApiError('client', { code: 'protocol_invalid_request' });
+  }
+  const projectId = input.projectId === null || input.projectId === '' || input.projectId === undefined
+    ? null : Number(input.projectId);
+  if (projectId !== null && (!Number.isSafeInteger(projectId) || projectId < 1)) {
+    throw new ApiError('client', { code: 'protocol_invalid_request' });
+  }
+  return { content, tags: parseMemoryTags(input.tags), projectId };
+}
+
+async function addMemory(override = null) {
+  if (!REMOTE_MODE || state.memorySaving
+    || !auth.has('write:stored_information') || openMemoryAttempt()) return;
+  const input = override || captureMemoryDraft();
+  if (override) {
+    drafts.put(MEMORY_COMPOSE_DRAFT_ID, {
+      content: String(input.content ?? ''),
+      tags: String(input.tags ?? ''),
+      projectId: input.projectId ?? null,
+    });
+  }
+  if (state.conn !== 'ok') {
+    state.memoryNote = {
+      tone: 'warn',
+      text: 'Poznámka zůstala v šifrovaném draftu. Bez potvrzeného spojení se neodesílá.',
+    };
+    return render();
+  }
+  let payload;
+  try {
+    payload = memoryPayload(input);
+  } catch {
+    state.memoryNote = {
+      tone: 'danger',
+      text: 'Poznámka musí obsahovat viditelný text a nejvýše 32 platných štítků.',
+    };
+    return render();
+  }
+  drafts.put(MEMORY_COMPOSE_DRAFT_ID, {
+    content: payload.content,
+    tags: payload.tags.join(', '),
+    projectId: payload.projectId,
+  });
+  const operationId = newOperationId();
+  journal.add({
+    operationId,
+    operationType: 'stored-information.append',
+    displaySummary: 'Přidání ruční poznámky',
+  });
+  drafts.put(operationId, payload);
+  try {
+    await store.flush();
+  } catch (error) {
+    state.error.security = `Zápis do trezoru selhal (${String(error?.message || error)}).`;
+    state.memoryNote = { tone: 'danger', text: 'Draft a klíč operace se nepodařilo bezpečně uložit. Nic nebylo odesláno.' };
+    return render();
+  }
+  if (!auth.has('write:stored_information') || state.conn !== 'ok') {
+    journal.discard(operationId);
+    await store.flush().catch(() => {});
+    state.memoryNote = { tone: 'warn', text: 'Oprávnění nebo spojení se změnilo před odesláním. Poznámka zůstala v šifrovaném draftu.' };
+    return render();
+  }
+
+  state.memorySaving = true;
+  state.memoryNote = null;
+  render();
+  try {
+    const response = await api('/memory', {
+      method: 'POST',
+      body: {
+        operationId,
+        content: payload.content,
+        tags: payload.tags,
+        ...(payload.projectId === null ? {} : { projectId: payload.projectId }),
+      },
+    });
+    const outcome = response.data?.state;
+    if (!OPERATION_STATES.has(outcome)) {
+      journal.setState(operationId, 'UNKNOWN', { unknownReason: 'unspecified' });
+      drafts.drop(MEMORY_COMPOSE_DRAFT_ID);
+      state.memoryNote = {
+        tone: 'danger',
+        text: 'Server nevrátil platný výsledek. Poznámka se znovu neposílá; stav ověř v Nerozřešených pokusech.',
+      };
+      setConn('server');
+      return;
+    }
+    journal.setState(operationId, outcome);
+    setConn('ok');
+    if (outcome === 'CONFIRMED') {
+      drafts.drop(operationId);
+      drafts.drop(MEMORY_COMPOSE_DRAFT_ID);
+      state.memoryNote = { tone: 'ok', text: 'Poznámka byla potvrzena serverem.' };
+      await loadMemory();
+    } else if (outcome === 'PENDING' || outcome === 'UNKNOWN') {
+      drafts.drop(MEMORY_COMPOSE_DRAFT_ID);
+      state.memoryNote = {
+        tone: 'warn',
+        text: 'Přidání zůstává nerozřešené. Poznámka se znovu neposílá; stav ověř v Nerozřešených pokusech.',
+      };
+    } else {
+      drafts.drop(operationId);
+      state.memoryNote = { tone: 'warn', text: 'Server poznámku odmítl. Text zůstal v šifrovaném draftu.' };
+    }
+  } catch (error) {
+    if (error.kind === 'auth') return handleAuthFailure(error);
+    if (error.detail?.state === 'REJECTED') {
+      journal.setState(operationId, 'REJECTED');
+      drafts.drop(operationId);
+      state.memoryNote = { tone: 'warn', text: 'Server poznámku odmítl. Text zůstal v šifrovaném draftu.' };
+    } else {
+      journal.setState(operationId, 'UNKNOWN', { unknownReason: 'unspecified' });
+      drafts.drop(MEMORY_COMPOSE_DRAFT_ID);
+      state.memoryNote = {
+        tone: 'danger',
+        text: 'Výsledek přidání není známý. Poznámka se znovu neposílá; stav ověř v Nerozřešených pokusech.',
+      };
+      setConn(error.kind === 'offline' ? 'offline' : 'server');
+    }
+  } finally {
+    state.memorySaving = false;
+    render();
+  }
 }
 
 // ── Actions ─────────────────────────────────────────────────────────────────
@@ -5070,8 +5861,13 @@ function navigate(route) {
   // §3.2 — the root aggregates two live surfaces.  The queue is read here for
   // the same reason MS-13 reads it on entry: a remembered count is not an
   // answer about what is waiting now (D-S2, MD-07).
-  if (route === 'overview') { loadConversations(); loadApprovals(); }
+  if (route === 'overview') {
+    loadConversations();
+    loadApprovals();
+    if (REMOTE_MODE && auth.has('read:projects')) loadProjects();
+  }
   if (route === 'conversations') loadConversations();
+  if (route === 'projects') loadProjects();
   if (route === 'notifications') loadNotifications();
   // SS-01/SS-05/SS-10: entering the screen always re-reads the queue from the
   // server, including after a reconnect.  It is a read, so repeating is safe —
@@ -5087,7 +5883,15 @@ function navigate(route) {
     loadApprovals();
   }
   if (route === 'operations') loadOperations();
-  if (route === 'diagnostics') { loadDiagnostics(); loadOperations(); }
+  if (route === 'diagnostics') {
+    loadDiagnostics();
+    loadOperations();
+    if (REMOTE_MODE && auth.has('read:settings')) loadSettings();
+  }
+  if (route === 'memory') {
+    loadMemory();
+    if (auth.has('read:projects')) loadProjects();
+  }
 }
 
 function openChat(conversationId) {
@@ -5171,6 +5975,13 @@ document.addEventListener('click', event => {
     'load-operations': loadOperations,
     'load-conversations': loadConversations,
     'load-more-conversations': loadMoreConversations,
+    'load-projects': loadProjects,
+    'load-more-projects': loadMoreProjects,
+    'load-settings': loadSettings,
+    'update-setting': () => updateSetting(target.dataset.key),
+    'load-memory': loadMemory,
+    'load-more-memory': loadMoreMemory,
+    'memory-add': () => addMemory(),
     'load-thread': () => loadThread(state.conversationId),
     'load-older': () => loadOlderMessages(),
     // MD-15 — a local preference, written the moment it is changed.  There is
@@ -5198,6 +6009,13 @@ document.addEventListener('focusin', event => {
 
 document.addEventListener('input', event => {
   if (event.target.id === 'composer-input') autoGrow(event.target);
+  if (['memory-content', 'memory-tags', 'memory-project'].includes(event.target.id)) {
+    captureMemoryDraft();
+  }
+});
+
+document.addEventListener('change', event => {
+  if (event.target.id === 'memory-project') captureMemoryDraft();
 });
 
 // MR-05 — reading into the past is a scroll, not an errand.
@@ -5409,6 +6227,9 @@ async function handleVisibilityChange() {
 
   if (state.route === 'notifications') await loadNotifications();
   if (state.route === 'conversations') await loadConversations();
+  if (state.route === 'projects') await loadProjects();
+  if (state.route === 'diagnostics' && REMOTE_MODE && auth.has('read:settings')) await loadSettings();
+  if (state.route === 'memory') await loadMemory();
 }
 
 document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -5492,6 +6313,7 @@ async function boot() {
       await loadDiagnostics();
       if (state.session !== 'active') return;
       if (auth.has('read:chat')) await loadConversations();
+      if (auth.has('read:projects')) loadProjects();
       if (auth.has('read:notifications')) loadNotifications();
       if (auth.has('read:approvals')) loadApprovals();
       reconcileOpenOperations().catch(() => {});
@@ -5528,6 +6350,7 @@ async function boot() {
   await loadDiagnostics();
   if (state.session !== 'active') return;
   if (auth.has('read:chat')) await loadConversations();
+  if (REMOTE_MODE && auth.has('read:projects')) loadProjects();
   if (auth.has('read:notifications')) loadNotifications();
   // D-S2: the approval count is only honest if it is live, so it is read at
   // boot rather than inferred once the screen is opened.
@@ -5547,12 +6370,15 @@ export const __ms20 = {
   sessionEpoch, lockDownSession, unlockSession,
   render, navigate, viewOperations, ms20Entries,
   trustBar, trustZones, withTrustBar, screenLocks, serverNow,
-  viewOverview, navItems, currentSection, sectionRoute, unknownScopes, NAV_ITEMS, ROUTE_SECTION,
+  viewOverview, viewProjects, viewMemory, viewDiagnostics,
+  navItems, currentSection, sectionRoute, unknownScopes, NAV_ITEMS, ROUTE_SECTION,
   renderNavBar, navCount, newChat, layoutNavRing, normaliseNavRing, centreNavOnSelection,
   navRingIsTurningItself, NAV_TURN_CEILING_MS, NAV_TURN_QUIET_MS,
   scheduleNavRetraction, whenNavTurnEnds, NAV_TURN_MS,
   viewChat, threadBoundary, loadThread, loadOlderMessages, threadWindowOf, THREAD_PAGE_SIZE,
   loadConversations, loadMoreConversations, loadNotifications, LIST_PAGE_SIZE,
+  loadProjects, loadMoreProjects, loadSettings, updateSetting,
+  loadMemory, loadMoreMemory, addMemory, captureMemoryDraft, openMemoryAttempt,
   runSilence, runSilenceEntries, overviewRunSilence,
   approvalCountdown, approvalWindowMinutes, approvalRow, serverTimeMs,
   viewApprovals, loadApprovals, approvalsGone,

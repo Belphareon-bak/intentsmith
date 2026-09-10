@@ -1,6 +1,7 @@
 import './helpers/isolated-test-db.js';
 
 import { strict as assert } from 'node:assert';
+import { digestRemoteCoreValue } from '../src/mobile/client/remote-core-v1.js';
 
 const ORIGIN = 'https://100.64.0.10:7443';
 const PIN = `sha256:${'ab'.repeat(32)}`;
@@ -69,6 +70,8 @@ const remoteState = {
 let domain = JSON.stringify({ 'is.remote.v1': remoteState, 'is.auth.scopes': [] });
 let nativePosts = 0;
 let browserFetches = 0;
+const invocations = [];
+let failNextOperation = null;
 
 const vault = {
   async getState() {
@@ -92,8 +95,66 @@ const remote = {
     };
   },
   async identity() { throw new Error('identity must not be minted during resume'); },
-  async sign() { throw new Error('active resume must not sign'); },
-  async post() { nativePosts += 1; throw new Error('active resume must not post'); },
+  async sign({ request }) {
+    return { deviceKeyId: remoteState.deviceKeyId, deviceSignature: 'A'.repeat(86), request };
+  },
+  async post({ path, body }) {
+    nativePosts += 1;
+    if (path !== '/remote/v1/invoke') throw new Error(`unexpected native path ${path}`);
+    invocations.push(structuredClone(body));
+    if (failNextOperation === body.operationId) {
+      failNextOperation = null;
+      throw Object.assign(new Error('ambiguous native failure'), { code: 'NETWORK' });
+    }
+    const request = body.payload;
+    const now = '2026-09-10T20:00:00.000Z';
+    const payload = {
+      'project.list': {
+        contract: 'ProjectPage', version: 1, requestId: request.requestId, status: 'ok',
+        items: [{
+          projectId: 7, name: 'IntentSmith', lifecycleStage: 'implementation', updatedAt: now,
+          workspaceRevision: `wsr1:${'a'.repeat(64)}`,
+          revision: `rev:project:${'b'.repeat(64)}`,
+        }], end: true, nextCursor: null, snapshotRevision: `rev:projects:${'c'.repeat(64)}`,
+      },
+      'settings.read': {
+        contract: 'MobileSettingsSnapshot', version: 1, requestId: request.requestId, status: 'ok',
+        items: [{
+          key: 'appearance.theme', category: 'appearance', valueType: 'enum', value: 'dark',
+          writable: true, constraints: { enumValues: ['dark', 'light', 'system'] },
+          revision: `rev:setting:${'d'.repeat(64)}`,
+        }], revision: `rev:settings:${'e'.repeat(64)}`,
+      },
+      'settings.update': {
+        contract: 'MobileSettingUpdateResult', version: 1, requestId: request.requestId,
+        operationId: request.operationId, key: request.key, value: request.value,
+        revision: `rev:settings:${'f'.repeat(64)}`, outcome: 'CONFIRMED', replayed: false,
+      },
+      'stored-information.list': {
+        contract: 'StoredInformationPage', version: 1, requestId: request.requestId, status: 'ok',
+        items: [{
+          informationId: 'information:test-001', kind: 'manual_note', projectId: 7,
+          summary: 'Dokončit mobilní obrazovky', content: 'Dokončit mobilní obrazovky.',
+          tags: ['mobile'], createdAt: now, updatedAt: now,
+          revision: `rev:information:${'1'.repeat(64)}`,
+        }], end: true, nextCursor: null,
+        snapshotRevision: `rev:information-snapshot:${'2'.repeat(64)}`,
+      },
+      'stored-information.append': {
+        contract: 'StoredInformationAppendResult', version: 1, requestId: request.requestId,
+        operationId: request.operationId, informationId: 'information:test-002',
+        revision: `rev:information:${'3'.repeat(64)}`, outcome: 'CONFIRMED', replayed: false,
+      },
+    }[body.operationId];
+    if (!payload) throw new Error(`unexpected operation ${body.operationId}`);
+    return { status: 200, body: {
+      contract: 'RemoteResponseEnvelope', version: 1, requestId: body.requestId,
+      sessionId: body.sessionId, deviceId: body.deviceId, subjectId: body.subjectId,
+      sessionRevision: body.sessionRevision, acceptedCounter: body.clientCounter,
+      respondedAt: now, status: 'ok', payload,
+      payloadDigest: await digestRemoteCoreValue(payload), error: null,
+    } };
+  },
   async health({ requestId }) {
     return { status: 200, body: {
       contract: 'RemoteHealthSnapshot', version: 1, requestId, status: 'ok',
@@ -140,6 +201,59 @@ assert.equal(nativePosts, 0);
 assert.equal(browserFetches, 0);
 assert.match(__ms20.storageIdentity(), new RegExp(ADAPTER.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
 
+// The remaining M7 DTOs now terminate in real screens. Legacy transport stays
+// unchanged; these assertions run through native invoke and the UI adapter.
+__ms20.replaceScopes([
+  'read:projects', 'read:settings', 'read:stored_information',
+  'write:settings', 'write:stored_information',
+]);
+await __ms20.loadProjects();
+assert.match(__ms20.viewProjects(), /IntentSmith/);
+assert.match(__ms20.viewProjects(), /Implementace/);
+assert.equal(__ms20.navItems().find(item => item.id === 'projects').locked, false);
+
+await __ms20.loadSettings();
+const settingsRevision = __ms20.state.settingsRevision;
+await __ms20.updateSetting('appearance.theme', 'light');
+const settingMutation = invocations.find(call => call.operationId === 'settings.update');
+assert.equal(settingMutation.payload.expectedRevision, settingsRevision);
+assert.equal(settingMutation.payload.value, 'light');
+assert.match(__ms20.viewDiagnostics(), /Serverová nastavení/);
+
+await __ms20.loadMemory();
+assert.match(__ms20.viewMemory(), /Dokončit mobilní obrazovky/);
+await __ms20.addMemory({ content: 'Předat milník k review.', tags: 'review, mobile', projectId: 7 });
+const informationMutation = invocations.find(call => call.operationId === 'stored-information.append');
+assert.deepEqual(informationMutation.payload.tags, ['mobile', 'review']);
+assert.equal(__ms20.openMemoryAttempt(), null);
+assert.equal(__ms20.drafts.get('compose:stored-information.append'), null);
+assert.equal(browserFetches, 0);
+
+const guardedInvocations = invocations.length;
+__ms20.state.cacheAge.settings = 'STALE';
+await __ms20.updateSetting('appearance.theme', 'system');
+assert.equal(invocations.length, guardedInvocations, 'stale settings must not dispatch');
+__ms20.state.cacheAge.settings = 'FRESH';
+__ms20.state.conn = 'offline';
+await __ms20.addMemory({ content: 'Zůstane lokálně.', tags: 'offline', projectId: null });
+assert.equal(invocations.length, guardedInvocations, 'offline information append must not dispatch');
+assert.equal(__ms20.drafts.get('compose:stored-information.append').content, 'Zůstane lokálně.');
+
+__ms20.state.conn = 'ok';
+__ms20.drafts.drop('compose:stored-information.append');
+failNextOperation = 'stored-information.append';
+await __ms20.addMemory({ content: 'Nejasný výsledek.', tags: 'unknown', projectId: null });
+const unresolved = __ms20.openMemoryAttempt();
+assert.equal(unresolved.operationType, 'stored-information.append');
+assert.equal(unresolved.lastKnownState, 'UNKNOWN');
+assert.equal(__ms20.drafts.get(unresolved.operationId).content, 'Nejasný výsledek.');
+assert.equal(__ms20.drafts.get('compose:stored-information.append'), null);
+const afterAmbiguous = invocations.length;
+__ms20.state.conn = 'ok';
+await __ms20.addMemory({ content: 'Nesmí se odeslat.', tags: '', projectId: null });
+assert.equal(invocations.length, afterAmbiguous, 'an unresolved append must block blind resubmission');
+assert.match(__ms20.viewMemory(), /znovu neposílá/);
+
 // Losing the VPN while a validated pairing exists must not turn the device
 // into the impossible state "has a durable key but UI says unpaired". The
 // connection gate remains closed, and an online event must prove reachability
@@ -167,4 +281,4 @@ assert.equal(__ms20.state.session, 'invalid');
 assert.equal(__ms20.hasPairedIdentity(), true);
 assert.deepEqual(__ms20.auth.scopes, []);
 
-console.log('\nM7 mobile app runtime: 1 passed, 0 failed');
+console.log('\nM7 mobile app runtime: 6 passed, 0 failed');
