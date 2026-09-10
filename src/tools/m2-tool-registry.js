@@ -1,3 +1,5 @@
+import { createM2FileListPolicyPayload, M2_FILE_LIST_TARGET_TYPE } from '../../contracts/m2/file-list-snapshot-v1.js';
+import { isM2FileListOutputRequest, validateM2FileListOutputEvidence } from '../../contracts/m2/file-list-output-v1.js';
 import { createHash } from 'node:crypto';
 import { createM2FileReadPolicyPayload, m2FileReadBytesDigest, validateM2FileReadOutputEvidence } from '../../contracts/m2/file-read-output-v1.js';
 
@@ -216,6 +218,9 @@ function bindingMatchesEffect(binding, effectRequest) {
     && binding.riskClass === effectRequest.riskClass
     && binding.target?.type === effectRequest.target?.type;
   if (!common) return false;
+  if (binding.target.type === M2_FILE_LIST_TARGET_TYPE) {
+    return isM2FileListOutputRequest(effectRequest) && binding.target.relativePath === '.';
+  }
   if (binding.target.type === 'filesystem') {
     return binding.target.relativePath === effectRequest.target.relativePath;
   }
@@ -509,15 +514,49 @@ const FILE_READ_V2 = Object.freeze({
   },
 });
 
+const FILE_LIST_V2 = Object.freeze({
+  ...DESCRIPTOR_MAP.get('file.list'),
+  version: 2,
+  authorityMode: M2_TOOL_AUTHORITY_MODE.EFFECT,
+  outputSchema: 'intentsmith.tool.file-list.output@2',
+  validateOutput(value) {
+    const errors = [...validateExactInput(value,
+      ['path', 'contentRef', 'contentDigest', 'byteLength', 'format'], 'tool-output.file-list-v2')];
+    if (value?.path !== '.' || value?.format !== 'root-entries@1'
+      || !/^effect:effect:[a-f0-9]{64}:file-list-output-v1$/.test(value?.contentRef ?? '')
+      || !/^sha256:[a-f0-9]{64}$/.test(value?.contentDigest ?? '')
+      || !Number.isSafeInteger(value?.byteLength) || value.byteLength < 0 || value.byteLength > 1048576) {
+      errors.push('tool-output.file-list-v2:invalid-reference');
+    }
+    return Object.freeze(errors);
+  },
+  buildEffectBinding(input) {
+    const payload = createM2FileListPolicyPayload();
+    return effectBinding({ kind: 'fs.read', target: { type: M2_FILE_LIST_TARGET_TYPE, relativePath: input.path },
+      payloadDigest: m2FileReadBytesDigest(payload), payloadBytes: payload.length,
+      requiredCapability: 'project.fs.list', riskClass: 'read' });
+  },
+  validateEffectTranslation(request, effectRequest) {
+    return bindingMatchesEffect(request.effectBinding, effectRequest);
+  },
+  projectEffectOutput(request, effectRequest, effectResult, evidence) {
+    if (!validateM2FileListOutputEvidence(effectRequest, effectResult, evidence)
+      || evidence.path !== request.input.path) return null;
+    return Object.freeze({ path: evidence.path, contentRef: evidence.contentRef,
+      contentDigest: evidence.contentDigest, byteLength: evidence.byteLength, format: 'root-entries@1' });
+  },
+});
+
 // Unversioned legacy imports include immutable migration076. Their @1 meaning
 // must never change when a new producer version becomes available.
 export function getM2ToolDescriptor(toolId, toolVersion = 1) {
+  if (toolId === 'file.list' && toolVersion === 2) return FILE_LIST_V2;
   if (toolId === 'file.read' && toolVersion === 2) return FILE_READ_V2;
   return toolVersion === 1 ? DESCRIPTOR_MAP.get(toolId) || null : null;
 }
 
 export function getCurrentM2ToolDescriptor(toolId, storedVersion = null) {
-  return getM2ToolDescriptor(toolId, storedVersion ?? (toolId === 'file.read' ? 2 : 1));
+  return getM2ToolDescriptor(toolId, storedVersion ?? (['file.read', 'file.list'].includes(toolId) ? 2 : 1));
 }
 
 export function listM2ToolDescriptors() {

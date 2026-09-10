@@ -1,3 +1,6 @@
+import * as currentEffects from '../contracts/m2/effect-current.js';
+import { createM2FileListPolicyPayload, createM2FileListTarget, createM2FileListSnapshot } from '../contracts/m2/file-list-snapshot-v1.js';
+import { m2FileListBytesDigest, m2FileListOutputEvidenceRef, createM2FileListOutputEvidence, validateM2FileListOutputEvidence, m2FileListOutputBytesMatch } from '../contracts/m2/file-list-output-v1.js';
 import assert from 'node:assert/strict';
 import {
   M2_EFFECT_CONTRACT_KIND,
@@ -519,6 +522,97 @@ test('git.commit success is exact-path and an in-doubt failure cannot claim zero
   const checked = validateEffectResultForRequest(gitRequest, falseInDoubt);
   assert.equal(checked.valid, false);
   assert(checked.errors.includes('effect-result:git-commit-pre-effect-error-code-mismatch'));
+});
+
+suite('EffectRequest@2 exact project-root listing alongside immutable version1');
+function rootListRequest(overrides = {}) {
+  const payload = createM2FileListPolicyPayload();
+  return request({version:2,effectId:'effect:'+ 'a'.repeat(64),kind:'fs.read',riskClass:'read',
+    requiredCapability:'project.fs.list',target:createM2FileListTarget('/workspace/project'),
+    payloadBytes:payload.length,payloadDigest:m2FileListBytesDigest(payload),...overrides});
+}
+function rootListGrant(value = rootListRequest()) {
+  return grant({scope:{runId:value.runId,projectId:value.origin.projectId,effectId:value.effectId,
+    kind:value.kind,payloadDigest:value.payloadDigest,payloadBytes:value.payloadBytes,workspaceRevision:value.workspaceRevision},
+    constraints:currentEffects.deriveApprovalGrantConstraints(value)});
+}
+function rootListResult(value = rootListRequest(), overrides = {}) {
+  return result({effectId:value.effectId,requestDigest:currentEffects.computeEffectRequestDigest(value),
+    changes:{paths:[],beforeDigest:null,afterDigest:null,diffArtifact:null},...overrides});
+}
+
+test('version2 serializes the real root and old version1 still rejects it',()=>{
+  const value=rootListRequest();
+  assert.equal(currentEffects.validateEffectRequest(value).valid,true);
+  assert.equal(validateEffectRequest(value).valid,false);
+  assert.equal(validateEffectRequest({...value,version:1}).valid,false);
+  assert.deepEqual(currentEffects.decodeM2EffectContract(currentEffects.encodeM2EffectContract(value)),value);
+  assert.equal(currentEffects.computeEffectRequestDigest({...value,approvalGrantId:'grant-1'}),currentEffects.computeEffectRequestDigest(value));
+  for(const old of [request(),request({kind:'fs.read',riskClass:'read',requiredCapability:'project.fs.read'})]) {
+    assert.equal(currentEffects.computeEffectRequestDigest(old),computeEffectRequestDigest(old));
+    assert.equal(currentEffects.encodeM2EffectContract(old),encodeM2EffectContract(old));
+    assert.deepEqual(currentEffects.validateEffectRequest(old),validateEffectRequest(old));
+  }
+});
+
+test('version2 rejects every other kind capability target and caller-supplied resource policy',()=>{
+  const value=rootListRequest();
+  const mutations=[{version:3},{kind:'fs.write',riskClass:'write'},{kind:'network.request'},
+    {requiredCapability:'project.fs.read'},{riskClass:'write'},
+    {actor:{type:'model',id:'model-1'}},{actor:{type:'user',id:'../other'}},
+    {origin:{...value.origin,projectId:null}},{origin:{...value.origin,projectId:0}},
+    {origin:{...value.origin,conversationId:null}},{origin:{...value.origin,extra:true}},
+    {target:{...value.target,relativePath:'./'}},{target:{...value.target,relativePath:'child'}},
+    {target:{...value.target,type:'filesystem'}},{target:{...value.target,resolvedRealpath:'/other'}},
+    {target:{...value.target,canonicalRoot:'/workspace/project/../project'}},
+    {target:{...value.target,recursive:true}},{payloadBytes:value.payloadBytes+1},
+    {payloadDigest:DIGEST_B},{extra:true},{workspaceRevision:' '},{timeoutMs:0},{timeoutMs:86400001},
+    {createdAt:'2026-08-23T20:00:00Z'}];
+  for(const mutation of mutations)assert.equal(currentEffects.validateEffectRequest({...value,...mutation}).valid,false,JSON.stringify(mutation));
+  const smaller=createM2FileListPolicyPayload({maxEntries:1});
+  assert.equal(currentEffects.validateEffectRequest({...value,payloadBytes:smaller.length,payloadDigest:m2FileListBytesDigest(smaller)}).valid,false);
+});
+
+test('listing grant remains single-use exact actor project request root and policy with no global capability',()=>{
+  const value=rootListRequest(), permission=rootListGrant(value);
+  assert.equal(validateApprovalGrant(permission).valid,true);
+  assert.equal(currentEffects.validateApprovalGrantForRequest(value,permission).valid,true);
+  assert.equal(currentEffects.validateApprovalGrantForRequest({...value,target:createM2FileListTarget('/other')},permission).valid,false);
+  for(const changed of [{...permission,scope:{...permission.scope,projectId:18}},
+    {...permission,subject:{actorType:'user',actorId:'other'}},{...permission,singleUse:false},
+    {...permission,constraints:{...permission.constraints,allowedRealpaths:['/workspace']}},
+    {...permission,constraints:{...permission.constraints,maxBytes:value.payloadBytes+1}},
+    {...permission,constraints:{...permission.constraints,allowedBinary:'/bin/sh'}}]) {
+    assert.equal(currentEffects.validateApprovalGrantForRequest(value,changed).valid,false);
+  }
+});
+
+test('listing result cannot carry changes processes network rollback late bytes or a foreign request digest',()=>{
+  const value=rootListRequest(), completed=rootListResult(value);
+  assert.equal(currentEffects.validateEffectResultForRequest(value,completed).valid,true);
+  for(const changed of [{...completed,requestDigest:DIGEST_A},{...completed,projectId:18},
+    {...completed,process:{...completed.process,pid:123}},{...completed,network:{...completed.network,bytes:1}},
+    {...completed,changes:{...completed.changes,paths:['file']}},{...completed,rollback:{required:true,status:'pending',evidenceRef:'pending'}},
+    {...completed,lateCompletionRejected:true},{...completed,outputDigest:null},{...completed,evidenceRefs:[]}]) {
+    assert.equal(currentEffects.validateEffectResultForRequest(value,changed).valid,false);
+  }
+  for(const terminalStatus of ['cancelled','timed_out','orphaned','failed']){
+    const failure=rootListResult(value,{terminalStatus,errorCode:'EFFECT_CANCELLED',outputDigest:null});
+    assert.equal(currentEffects.validateEffectResultForRequest(value,failure).valid,true);
+    assert.equal(currentEffects.validateEffectResultForRequest(value,{...failure,outputDigest:DIGEST_B}).valid,false);
+  }
+});
+
+test('listing metadata validates exact canonical snapshot bytes with a separate immutable reference digest',()=>{
+  const value=rootListRequest();const snapshot=createM2FileListSnapshot([{nameBase64:Buffer.from('name').toString('base64'),type:'file'}]);
+  const completed=rootListResult(value,{outputDigest:snapshot.digest,evidenceRefs:[m2FileListOutputEvidenceRef(value.effectId)]});
+  const evidence=createM2FileListOutputEvidence(value,completed,snapshot.bytes);
+  assert.equal(validateM2FileListOutputEvidence(value,completed,evidence),true);
+  assert.equal(m2FileListOutputBytesMatch(value,evidence,snapshot.bytes),true);
+  for(const bytes of [Buffer.from('{}'),Buffer.from(snapshot.bytes.toString()+' '),Buffer.from(snapshot.bytes.toString().replace('file','directory'))])assert.equal(m2FileListOutputBytesMatch(value,evidence,bytes),false);
+  assert.equal(validateM2FileListOutputEvidence(value,completed,{...evidence,path:'child'}),false);
+  assert.equal(validateM2FileListOutputEvidence(value,completed,{...evidence,contentRef:evidence.contentRef.replace('file-list','file-read')}),false);
+  assert.equal(validateM2FileListOutputEvidence(value,completed,{...evidence,extra:true}),false);
 });
 
 summary();

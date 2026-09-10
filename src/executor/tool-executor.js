@@ -618,6 +618,15 @@ export class ToolExecutor {
     return this.m2ToolBroker.resolveFileReadContent(input);
   }
 
+  resolveM2FileListContent(input = {}) {
+    if (!this.m2ToolBroker || typeof this.m2ToolBroker.resolveFileListContent !== 'function') {
+      throw Object.assign(new Error('Durable M2 file content authority is unavailable'), {
+        code: 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE',
+      });
+    }
+    return this.m2ToolBroker.resolveFileListContent(input);
+  }
+
   /**
    * Execute a CRE decision
    *

@@ -919,4 +919,70 @@ await testAsync('FILE_EXPLAIN corrupted persisted question or completion fails c
   }
 });
 
+
+// The listing consumer is exercised through the actual private database runtime.
+const { renderM2FileListResult, exactM2FileListApprovalPreview } = await import('../src/chat/handlers/file.js');
+await testAsync('root listing approval renders literal names and replays its immutable snapshot after directory changes', async () => {
+  await withExplainEnvironment(async e => {
+    const root = e.ctx.project.path;
+    const { symlinkSync } = await import('node:fs');
+    writeFileSync(path.join(root, '.hidden'), 'contents must not be displayed');
+    writeFileSync(path.join(root, '`<script>\u202e.md'), 'private');
+    writeFileSync(Buffer.concat([Buffer.from(root + '/'), Buffer.from([0xff])]), 'non-text-name');
+    symlinkSync('/missing/external-target', path.join(root, 'outside-link'));
+    const invoke = () => handleFileDecision('List this project root', readDecision('.', true), e.ctx, { toolExecutor: e.executor });
+    const pending = await invoke();
+    assert.equal(pending.tag.metadata.handler, 'file.list');
+    assert.equal(pending.tag.metadata.approvalPreviewVerified, true);
+    assert.match(pending.content, /10000 entries and 1048576 bytes/);
+    assert.equal(e.database.prepare('SELECT count(*) n FROM m2_file_list_outputs').get().n, 0);
+    assert.equal(e.calls.length, 0);
+    await e.finalize(pending);
+    const effectId = pending.tag.metadata.effectId;
+    const approved = (await e.approve(effectId)).response;
+    assert.equal(approved.tag.metadata.fileOperation, true);
+    assert.equal(approved.tag.metadata.handler, 'file.list');
+    assert.equal(approved.tag.metadata.complete, true);
+    assert.equal(approved.tag.metadata.entryCount, 5);
+    assert.match(approved.content, /\.hidden/);
+    assert.match(approved.content, /\\u\{202e\}/);
+    assert.match(approved.content, /hex:ff/);
+    assert.match(approved.content, /outside-link.*symlink/);
+    assert.doesNotMatch(approved.content, /contents must not be displayed|external-target/);
+    await e.finalize(approved);
+    rmSync(root, { recursive: true }); mkdirSync(root); writeFileSync(path.join(root, 'replacement'), 'changed');
+    e.reopen();
+    const replay = (await e.approve(effectId)).response;
+    assert.equal(replay.content, approved.content);
+    assert.equal((await invoke()).content, approved.content);
+    assert.equal(e.calls.length, 0);
+    for (const table of ['m2_file_list_outputs', 'm2_approval_grants', 'm2_effect_execution_claims']) {
+      assert.equal(e.database.prepare(`SELECT count(*) n FROM ${table}`).get().n, 1);
+    }
+    assert.equal(e.database.prepare('SELECT count(*) n FROM m2_file_read_outputs').get().n, 0);
+    writeFileSync(path.join(process.env.INTENTSMITH_TEST_ARTIFACT_DIR, 'file-list-consumer.json'), JSON.stringify({ effectId, preview: pending.content, result: approved.content, replay: replay.content, modelCalls: 0 }, null, 2));
+  });
+});
+
+await testAsync('root listing rejects tampered preview, output, stale caller and cancellation without revealing names', async () => {
+  await withExplainEnvironment(async e => {
+    const pending = await e.executor.executeM2Tool({ toolId: 'file.list', input: { path: '.' }, context: e.ctx, timeoutMs: 30000 });
+    for (const mutate of [value => { value.request.toolVersion = 1; }, value => { value.effectRequest.payloadDigest = 'sha256:' + 'a'.repeat(64); }, value => { value.request.origin.projectId++; }]) {
+      const forged = structuredClone(pending); mutate(forged);
+      assert.throws(() => exactM2FileListApprovalPreview(forged, e.ctx), /cannot be verified/);
+    }
+    await e.runtime.approveFilesystemEffect({ effectId: pending.effectRequestId, conversationId: e.ctx.conversationId, subjectId: e.ctx.authenticatedSubject.actorId });
+    const execution = await e.executor.settleM2Effect({ effectId: pending.effectRequestId, context: e.ctx });
+    const controller = new AbortController(); controller.abort();
+    for (const current of [{ ...e.ctx, authenticatedSubject: { actorType: 'user', actorId: 'other' } }, { ...e.ctx, conversationId: 'other' }, { ...e.ctx, project: { ...e.ctx.project, id: 999 }, projectId: 999 }, { ...e.ctx, signal: controller.signal }]) {
+      const denied = renderM2FileListResult(execution, current, { toolExecutor: e.executor });
+      assert.equal(denied.tag.metadata.fileOperation, false); assert.doesNotMatch(denied.content, /notes/);
+    }
+    const forged = structuredClone(execution); forged.result.output.contentDigest = 'sha256:' + 'b'.repeat(64);
+    const denied = renderM2FileListResult(forged, e.ctx, { toolExecutor: e.executor });
+    assert.equal(denied.tag.metadata.fileOperation, false); assert.doesNotMatch(denied.content, /notes/);
+    assert.equal(e.calls.length, 0);
+  });
+});
+
 summary();

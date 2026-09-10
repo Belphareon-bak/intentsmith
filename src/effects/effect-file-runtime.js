@@ -1,3 +1,6 @@
+import { createM2FileListPolicyPayload } from '../../contracts/m2/file-list-snapshot-v1.js';
+import { isM2FileListOutputRequest } from '../../contracts/m2/file-list-output-v1.js';
+import { createFilesystemListEffectProvider } from './filesystem-list-effect-provider.js';
 import { createM2FileReadPolicyPayload, M2_FILE_READ_MAX_BYTES } from '../../contracts/m2/file-read-output-v1.js';
 import { createFilesystemEffectProvider } from './filesystem-effect-provider.js';
 import { config } from '../config.js';
@@ -6,7 +9,7 @@ import { realpath } from 'node:fs/promises';
 import {
   M2_EFFECT_CONTRACT_KIND,
   computeEffectRequestDigest,
-} from '../../contracts/m2/effect-v1.js';
+} from '../../contracts/m2/effect-current.js';
 import { db, projects } from '../db/database.js';
 import { readProjectFileBytes } from '../executor/project-path-authority.js';
 import { EffectAuthorityRepository } from './effect-authority-repository.js';
@@ -73,6 +76,7 @@ export function createEffectFileRuntime({
     workspaceAuthority,
     executionOwner,
     providers: {
+      'project.fs.list': createFilesystemListEffectProvider(),
       'fs.write': createFilesystemEffectProvider(),
       'fs.read': createFilesystemEffectProvider({
         maxReadBytes: Math.min(M2_FILE_READ_MAX_BYTES, config.limits.maxFileSize),
@@ -324,6 +328,7 @@ export function createEffectFileRuntime({
 
   async function requestFilesystemEffect({
       kind,
+      rootList = false,
       sessionId,
       conversationId,
       subjectId,
@@ -344,7 +349,8 @@ export function createEffectFileRuntime({
         error.code = 'EFFECT_RUNTIME_INPUT_INVALID';
         throw error;
       }
-      const payload = kind === 'fs.read' ? createM2FileReadPolicyPayload() : Buffer.from(content, 'utf8');
+      const payload = rootList ? createM2FileListPolicyPayload()
+        : kind === 'fs.read' ? createM2FileReadPolicyPayload() : Buffer.from(content, 'utf8');
       if (surface !== 'studio' && surface !== 'skill') {
         const error = new TypeError('Filesystem effect surface is not supported by this runtime');
         error.code = 'EFFECT_RUNTIME_INPUT_INVALID';
@@ -355,7 +361,8 @@ export function createEffectFileRuntime({
         'operation',
         operationId,
       );
-      const prepare = kind === 'fs.read' ? broker.prepareFilesystemRead : broker.prepareFilesystemWrite;
+      const prepare = rootList ? broker.prepareFilesystemListRoot
+        : kind === 'fs.read' ? broker.prepareFilesystemRead : broker.prepareFilesystemWrite;
       const prepared = await prepare({
         runId,
         actor: { type: 'user', id: subjectId },
@@ -401,7 +408,7 @@ export function createEffectFileRuntime({
 
   function approveFilesystemKind(input, expectedKind) {
     const request = repository.getEffectRequest(input.effectId);
-    if (request?.kind !== expectedKind) {
+    if (request?.kind !== expectedKind || isM2FileListOutputRequest(request)) {
       const error = new Error('Filesystem approval kind does not match stored request');
       error.code = 'EFFECT_RUNTIME_INPUT_INVALID';
       throw error;
@@ -412,6 +419,11 @@ export function createEffectFileRuntime({
   const runtime = Object.freeze({
     requestFilesystemWrite(input = {}) { return requestFilesystemEffect({ ...input, kind: 'fs.write' }); },
     requestFilesystemRead(input = {}) { return requestFilesystemEffect({ ...input, kind: 'fs.read' }); },
+    requestFilesystemListRoot(input = {}) { return requestFilesystemEffect({ ...input, kind: 'fs.read', rootList: true }); },
+    approveFilesystemListRoot(input = {}) {
+      if (!isM2FileListOutputRequest(repository.getEffectRequest(input.effectId))) throw Object.assign(new Error('Exact root-list request required'), { code: 'EFFECT_RUNTIME_INPUT_INVALID' });
+      return runtime.approveFilesystemEffect(input);
+    },
 
     approveFilesystemWrite(input = {}) { return approveFilesystemKind(input, 'fs.write'); },
     approveFilesystemRead(input = {}) { return approveFilesystemKind(input, 'fs.read'); },

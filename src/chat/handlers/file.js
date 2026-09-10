@@ -20,11 +20,13 @@ import { synthesizeWithLLM } from './utils/synthesis.js';
 import path from 'path';
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import { validateM2ToolRequest } from '../../../contracts/m2/tool-v1.js';
+import { validateM2ToolRequest, validateM2ToolResult, computeM2ToolRequestDigest, computeM2ToolValueDigest } from '../../../contracts/m2/tool-v1.js';
 import {
   isM2FileReadOutputRequest, M2_FILE_READ_MAX_BYTES, m2FileReadConversationOrigin,
 } from '../../../contracts/m2/file-read-output-v1.js';
 import { config } from '../../config.js';
+import { isM2FileListOutputRequest, m2FileListConversationOrigin, m2FileListOutputEvidenceRef } from '../../../contracts/m2/file-list-output-v1.js';
+import { parseM2FileListSnapshot, M2_FILE_LIST_MAX_ENTRIES, M2_FILE_LIST_MAX_BYTES } from '../../../contracts/m2/file-list-snapshot-v1.js';
 import { throwIfAborted, isAbortError } from '../../core/abort-error.js';
 import { issueFileExplainContinuation, getFileExplainContinuation } from '../file-explain-continuation.js';
 import { prepareFileExplanation, callFileExplanation } from './utils/file-explain.js';
@@ -602,6 +604,9 @@ export async function handleFileDecision(input, decision, context, dependencies 
         context,
         timeoutMs: 30_000,
       });
+      if (toolId === 'file.list' && execution.result?.status === 'ok') {
+        return renderM2FileListResult(execution, context, { toolExecutor: executor, decision });
+      }
       if (toolId === 'file.read' && execution.result?.status === 'ok') {
         return await completeM2FileRead(execution, context, {
           toolExecutor: executor,
@@ -617,7 +622,9 @@ export async function handleFileDecision(input, decision, context, dependencies 
         || 'TOOL_EFFECT_AUTHORITY_UNAVAILABLE';
       const preview = toolId === 'file.read' && execution.request?.toolVersion === 2
         && execution.state === 'approval_required'
-        ? exactReadApprovalPreview(execution, context, lang) : null;
+        ? exactReadApprovalPreview(execution, context, lang)
+        : toolId === 'file.list' && execution.request?.toolVersion === 2 && execution.state === 'approval_required'
+          ? exactM2FileListApprovalPreview(execution, context, lang) : null;
       const content = preview?.content ?? (execution.state === 'approval_required' && execution.effectRequestId
         ? (lang === 'cs'
           ? `🔐 Čtení čeká na přesné schválení efektu ${execution.effectRequestId}. Obsah zatím nebyl načten.`
@@ -643,7 +650,7 @@ export async function handleFileDecision(input, decision, context, dependencies 
             effectId: execution.effectRequestId || null,
             approvalRequired: execution.state === 'approval_required',
             ...(preview?.metadata || {}),
-            ...(preview && decision.intent === IntentType.FILE_EXPLAIN
+            ...(preview && toolId === 'file.read' && decision.intent === IntentType.FILE_EXPLAIN
               ? { m2FileExplain: issueFileExplainContinuation(execution, context, input) } : {}),
           },
         }),
@@ -1115,4 +1122,139 @@ function extractFilePathFromInput(input) {
   if (afterKeywordDotfile) return afterKeywordDotfile[1];
 
   return null;
+}
+
+// Root listing formatting shares the existing handler boundary to avoid a new controller cycle.
+function reject(code) {
+  throw Object.assign(new Error('The stored project listing cannot be verified'), { code });
+}
+
+function literal(value) {
+  const visible = String(value).replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu,
+    character => `\\u{${character.codePointAt(0).toString(16)}}`);
+  let longest = 0;
+  for (const match of visible.matchAll(/`+/g)) longest = Math.max(longest, match[0].length);
+  const delimiter = '`'.repeat(longest + 1);
+  return `${delimiter} ${visible} ${delimiter}`;
+}
+
+function matchesCurrentOrigin(request, context) {
+  const projectId = context?.project?.id ?? context?.projectId;
+  return Number.isSafeInteger(projectId) && projectId > 0
+    && projectId === request?.origin?.projectId
+    && request?.actor?.type === 'user'
+    && request.actor.type === context?.authenticatedSubject?.actorType
+    && request.actor.id === context?.authenticatedSubject?.actorId
+    && request.origin.conversationId === m2FileListConversationOrigin(String(context?.conversationId ?? ''));
+}
+
+export function exactM2FileListApprovalPreview(execution, context, lang = 'cs') {
+  const request = execution?.request;
+  const effect = execution?.effectRequest;
+  const binding = request?.effectBinding;
+  const valid = execution?.state === 'approval_required' && execution.result === null
+    && validateM2ToolRequest(request).valid && request.toolId === 'file.list' && request.toolVersion === 2
+    && matchesCurrentOrigin(request, context) && request.input.path === '.'
+    && isM2FileListOutputRequest(effect)
+    && effect.effectId === execution.effectRequestId && effect.runId === request.runId
+    && isDeepStrictEqual(effect.actor, request.actor) && isDeepStrictEqual(effect.origin, request.origin)
+    && binding?.kind === effect.kind && binding.requiredCapability === effect.requiredCapability
+    && binding.riskClass === effect.riskClass && binding.payloadDigest === effect.payloadDigest
+    && binding.payloadBytes === effect.payloadBytes && binding.target?.type === effect.target.type
+    && binding.target.relativePath === '.' && effect.target.relativePath === '.'
+    && effect.idempotencyKey === `operation:${createHash('sha256').update(request.requestId, 'utf8').digest('hex')}`;
+  if (!valid) reject('TOOL_LIST_APPROVAL_PREVIEW_INVALID');
+  if (context?.signal?.aborted) reject('TOOL_LIST_CANCELLED');
+  const root = literal(effect.target.canonicalRoot);
+  const command = literal(`approve effect ${effect.effectId}`);
+  const content = lang === 'cs'
+    ? `🔐 Výpis kořene projektu ${request.origin.projectId} (${root}) čeká na schválení. Zobrazí jména a typy přímých potomků, včetně skrytých položek. Nejvýše ${M2_FILE_LIST_MAX_ENTRIES} položek a ${M2_FILE_LIST_MAX_BYTES} bajtů (1 MiB); bez čtení obsahu souborů, rekurze a následování odkazů. Při překročení limitu výpis selže místo neúplného výsledku.\n\nPro schválení napiš ${command}.`
+    : `🔐 Listing project ${request.origin.projectId} root (${root}) awaits approval. It returns direct-child names and types, including hidden entries. At most ${M2_FILE_LIST_MAX_ENTRIES} entries and ${M2_FILE_LIST_MAX_BYTES} bytes (1 MiB); no file contents, recursion or symlink following. Exceeding a limit fails instead of returning an incomplete listing.\n\nTo approve, enter ${command}.`;
+  return { content, metadata: {
+    handler: 'file.list', projectId: request.origin.projectId,
+    projectRoot: effect.target.canonicalRoot, filePath: '.',
+    listMaxEntries: M2_FILE_LIST_MAX_ENTRIES, listMaxBytes: M2_FILE_LIST_MAX_BYTES,
+    recursive: false, approvalPreviewVerified: true,
+  } };
+}
+
+function displayName(entry, lang) {
+  const raw = Buffer.from(entry.nameBase64, 'base64');
+  try {
+    const text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(raw);
+    if (!Buffer.from(text, 'utf8').equals(raw)) throw new Error('Non-text name');
+    return literal(text);
+  } catch {
+    return `${lang === 'cs' ? 'Jméno mimo UTF-8' : 'Non-UTF-8 name'} (${literal(`hex:${raw.toString('hex')}`)})`;
+  }
+}
+
+export function renderM2FileListResult(execution, context, {
+  toolExecutor, decision = null, expectedEffectId = null,
+} = {}) {
+  const lang = context?.langCtx?.language || 'cs';
+  const requestId = execution?.request?.requestId || null;
+  const effectId = execution?.result?.effectRequestId || execution?.effectRequestId || null;
+  const metadata = { handler: 'file.list', fileOperation: false, fallbackSuppressed: true,
+    approvalRequired: false, toolRequestId: requestId, effectId,
+    ...(decision ? { decision: decision.toJSON() } : {}) };
+  try {
+    if (context?.signal?.aborted) reject('TOOL_LIST_CANCELLED');
+    if (!validateM2ToolRequest(execution?.request).valid
+      || execution.request.toolId !== 'file.list' || execution.request.toolVersion !== 2
+      || !matchesCurrentOrigin(execution.request, context)
+      || execution.request.input.path !== '.'
+      || execution.result?.status !== 'ok' || !effectId
+      || (expectedEffectId !== null && expectedEffectId !== effectId)
+      || typeof toolExecutor?.resolveM2FileListContent !== 'function') {
+      reject('TOOL_LIST_CONTENT_AUTHORITY_REQUIRED');
+    }
+    const contentRef = execution.result.output?.contentRef;
+    const resolved = toolExecutor.resolveM2FileListContent({ requestId, contentRef, context });
+    const { bytes, output, request, result } = resolved || {};
+    if (context?.signal?.aborted) reject('TOOL_LIST_CANCELLED');
+    const exact = Buffer.isBuffer(bytes) && validateM2ToolResult(result).valid
+      && isDeepStrictEqual(request, execution.request) && isDeepStrictEqual(result, execution.result)
+      && isDeepStrictEqual(output, result.output)
+      && request.requestId === requestId && result.requestId === requestId
+      && result.status === 'ok' && result.toolId === 'file.list' && result.toolVersion === 2
+      && result.runId === request.runId && result.projectId === request.origin.projectId
+      && result.requestDigest === computeM2ToolRequestDigest(request)
+      && result.outputDigest === computeM2ToolValueDigest(output)
+      && result.effectRequestId === effectId && resolved.effectId === effectId
+      && output?.format === 'root-entries@1' && output.path === '.' && resolved.path === '.'
+      && output.contentRef === contentRef && contentRef === m2FileListOutputEvidenceRef(effectId)
+      && output.byteLength === bytes.length
+      && output.contentDigest === `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+    if (!exact) reject('TOOL_LIST_CONTENT_MISMATCH');
+    const { value } = parseM2FileListSnapshot(bytes);
+    const labels = lang === 'cs'
+      ? { file: 'soubor', directory: 'adresář', symlink: 'symbolický odkaz', special: 'zvláštní položka' }
+      : { file: 'file', directory: 'directory', symlink: 'symlink', special: 'special entry' };
+    const rows = value.entries.map(entry => `- ${displayName(entry, lang)} — ${labels[entry.type]}`);
+    const heading = lang === 'cs'
+      ? `📁 Uložený výpis kořene projektu ${request.origin.projectId}: ${rows.length} položek.`
+      : `📁 Stored project ${request.origin.projectId} root listing: ${rows.length} entries.`;
+    const note = lang === 'cs'
+      ? 'Jde o uložený okamžik pozorování přímých potomků; adresář se při zobrazení znovu neprocházel.'
+      : 'This is the stored direct-child observation; displaying it did not enumerate the directory again.';
+    const empty = lang === 'cs' ? 'V okamžiku pozorování byl kořen prázdný.' : 'The root was empty when observed.';
+    return new TaggedResponse({ content: `${heading}\n\n${rows.length ? rows.join('\n') : empty}\n\n${note}`,
+      tag: new ResponseTag({ speaker: ResponseSpeaker.SYSTEM,
+        mode: context.hasActiveProject ? ChatMode.PROJECT : ChatMode.CONVERSATION,
+        confidence: 1, canExecute: false, metadata: { ...metadata, fileOperation: true,
+          securityBlocked: false, filePath: '.', projectId: request.origin.projectId,
+          entryCount: rows.length, recursive: false, complete: true,
+          contentRef, contentDigest: output.contentDigest, error: null } }) });
+  } catch (error) {
+    const cancelled = error.code === 'TOOL_LIST_CANCELLED';
+    const content = cancelled
+      ? (lang === 'cs' ? 'Zobrazení výpisu bylo zrušeno.' : 'Displaying the listing was cancelled.')
+      : (lang === 'cs' ? 'Ověřený uložený výpis projektu nelze bezpečně zobrazit. Adresář se znovu neprocházel.'
+        : 'The verified stored project listing cannot safely be displayed. The directory was not enumerated again.');
+    return new TaggedResponse({ content, tag: new ResponseTag({ speaker: ResponseSpeaker.SYSTEM,
+      mode: context?.hasActiveProject ? ChatMode.PROJECT : ChatMode.CONVERSATION,
+      confidence: 1, canExecute: false, metadata: { ...metadata, securityBlocked: !cancelled,
+        cancelled, error: error.code || 'TOOL_LIST_CONTENT_UNAVAILABLE' } }) });
+  }
 }

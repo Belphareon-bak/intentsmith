@@ -4,7 +4,7 @@ import {
   computeEffectRequestDigest,
   validateEffectRequest,
   validateEffectResultForRequest,
-} from '../../contracts/m2/effect-v1.js';
+} from '../../contracts/m2/effect-current.js';
 
 import {
   M2_TOOL_CONTRACT_KIND,
@@ -443,7 +443,8 @@ export function createM2ToolBroker({
       descriptor,
       effectRequest,
       effectResult,
-      repository.getFileReadOutputEvidence?.(effectRequest, effectResult) ?? null,
+      repository.getEffectOutputEvidence?.(effectRequest, effectResult)
+        ?? repository.getFileReadOutputEvidence?.(effectRequest, effectResult) ?? null,
     );
     const terminalStartedAtMs = Date.parse(projection.startedAt);
     const terminalCompletedAtMs = Date.parse(projection.completedAt);
@@ -1014,7 +1015,15 @@ export function createM2ToolBroker({
       projectId: positiveProjectId(context), conversationId: request.origin.conversationId });
   }
 
-  return Object.freeze({ createRequest, execute, settleEffect, resolveFileReadContent });
+  function resolveFileListContent({ requestId, contentRef, context = {} } = {}) {
+    const request = repository.getToolRequest(requestId);
+    if (!request) fail(M2ToolBrokerErrorCode.INPUT_INVALID, 'Stored listing request is required');
+    assertSettlementCaller(request, context);
+    return repository.resolveFileListContent({ requestId, contentRef, actor: canonicalActor(context),
+      projectId: positiveProjectId(context), conversationId: request.origin.conversationId });
+  }
+
+  return Object.freeze({ createRequest, execute, settleEffect, resolveFileReadContent, resolveFileListContent });
 }
 
 export default createM2ToolBroker;

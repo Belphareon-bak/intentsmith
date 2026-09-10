@@ -21,8 +21,9 @@ export function createM2ToolEffectAdapter({ effectRuntime = null } = {}) {
         });
       }
       const read = request.toolId === 'file.read' && request.toolVersion === 2 && request.requiredEffectKind === 'fs.read';
+      const list = request.toolId === 'file.list' && request.toolVersion === 2 && request.requiredEffectKind === 'fs.read';
       const write = request.toolId === 'file.write' && request.toolVersion === 1 && request.requiredEffectKind === 'fs.write';
-      if (!read && !write) {
+      if (!read && !write && !list) {
         return unavailable('No exact effect translation is installed for this tool');
       }
       const projectId = request.origin.projectId;
@@ -44,7 +45,7 @@ export function createM2ToolEffectAdapter({ effectRuntime = null } = {}) {
         const module = await import('../effects/effect-file-runtime.js');
         runtime = module.effectFileRuntime;
       }
-      const prepare = read ? runtime?.requestFilesystemRead : runtime?.requestFilesystemWrite;
+      const prepare = list ? runtime?.requestFilesystemListRoot : read ? runtime?.requestFilesystemRead : runtime?.requestFilesystemWrite;
       if (typeof prepare !== 'function') {
         return unavailable('Filesystem effect runtime is not ready');
       }

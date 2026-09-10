@@ -1,3 +1,7 @@
+import { createM2FileListTarget, createM2FileListPolicyPayload } from '../../contracts/m2/file-list-snapshot-v1.js';
+import { isM2FileListOutputRequest, createM2FileListOutputEvidence } from '../../contracts/m2/file-list-output-v1.js';
+import { EffectFileListOutputRepository } from './effect-file-list-output-repository.js';
+import { createFilesystemListEffectProvider } from './filesystem-list-effect-provider.js';
 import { createM2FileReadPolicyPayload, createM2FileReadOutputEvidence } from '../../contracts/m2/file-read-output-v1.js';
 import { EffectFileReadOutputRepository } from './effect-file-read-output-repository.js';
 import { createHash } from 'node:crypto';
@@ -8,7 +12,7 @@ import {
   validateApprovalGrantForRequest,
   validateEffectResult,
   validateEffectResultForRequest,
-} from '../../contracts/m2/effect-v1.js';
+} from '../../contracts/m2/effect-current.js';
 import { resolveProjectTarget } from '../executor/project-path-authority.js';
 import { createFilesystemEffectProvider } from './filesystem-effect-provider.js';
 import { processExecutionOwner } from './execution-owner.js';
@@ -210,7 +214,7 @@ function resultFromOutcome({ request, grantId, startedAtMs, completedAtMs, outco
  * the one terminal result before any success is returned to the caller.
  */
 export function createEffectBroker(repositoryValue, {
-  providers = { 'fs.write': createFilesystemEffectProvider(), 'fs.read': createFilesystemEffectProvider() },
+  providers = { 'fs.write': createFilesystemEffectProvider(), 'fs.read': createFilesystemEffectProvider(), 'project.fs.list': createFilesystemListEffectProvider() },
   clock = Date.now,
   scheduleTimeout = (callback, milliseconds) => setTimeout(callback, milliseconds),
   terminationGraceMs = 1_000,
@@ -241,6 +245,7 @@ export function createEffectBroker(repositoryValue, {
 
   async function prepareFilesystemEffect({
     kind,
+    rootList = false,
     runId,
     actor,
     origin,
@@ -261,7 +266,9 @@ export function createEffectBroker(repositoryValue, {
     if (signal?.aborted) {
       fail(EffectBrokerErrorCode.INPUT_INVALID, 'Effect preparation was cancelled during workspace observation');
     }
-    const target = resolveProjectTarget(observed.canonicalRoot, relativePath);
+    if (rootList && relativePath !== '.') fail(EffectBrokerErrorCode.INPUT_INVALID, 'Root listing requires explicit dot path');
+    const target = rootList ? { projectRoot: observed.canonicalRoot, relativePath: '.', real: observed.canonicalRoot }
+      : resolveProjectTarget(observed.canonicalRoot, relativePath);
     if (target.projectRoot !== observed.canonicalRoot) {
       fail(EffectBrokerErrorCode.INPUT_INVALID, 'Workspace canonical root changed during observation');
     }
@@ -269,14 +276,14 @@ export function createEffectBroker(repositoryValue, {
     const existing = repository.getEffectRequest(effectId);
     const request = {
       contract: M2_EFFECT_CONTRACT_KIND.EFFECT_REQUEST,
-      version: 1,
+      version: rootList ? 2 : 1,
       effectId,
       runId,
       parentEffectId: null,
       actor,
       origin,
       kind,
-      target: {
+      target: rootList ? createM2FileListTarget(target.projectRoot) : {
         type: 'filesystem',
         canonicalRoot: target.projectRoot,
         relativePath: target.relativePath,
@@ -285,7 +292,7 @@ export function createEffectBroker(repositoryValue, {
       payloadDigest: sha256(payload),
       payloadBytes: payload.length,
       workspaceRevision: observed.workspaceRevision,
-      requiredCapability: kind === 'fs.read' ? 'project.fs.read' : 'project.fs.write',
+      requiredCapability: rootList ? 'project.fs.list' : kind === 'fs.read' ? 'project.fs.read' : 'project.fs.write',
       riskClass: kind === 'fs.read' ? 'read' : 'write',
       timeoutMs,
       idempotencyKey,
@@ -312,6 +319,10 @@ export function createEffectBroker(repositoryValue, {
 
   function prepareFilesystemRead(input = {}) {
     return prepareFilesystemEffect({ ...input, kind: 'fs.read', content: createM2FileReadPolicyPayload() });
+  }
+
+  function prepareFilesystemListRoot(input = {}) {
+    return prepareFilesystemEffect({ ...input, kind: 'fs.read', rootList: true, content: createM2FileListPolicyPayload() });
   }
 
   async function execute({ effectId, grantId, payload: payloadValue, signal } = {}) {
@@ -350,6 +361,13 @@ export function createEffectBroker(repositoryValue, {
     const startedAtMs = nowMs(clock);
     const commitOutcome = outcomeValue => {
       const readOnly = boundRequest.kind === 'fs.read';
+      const rootList = isM2FileListOutputRequest(boundRequest);
+      // Synchronous directory syscalls can outlast the scheduled timer. Never
+      // publish listing bytes after the original total execution deadline.
+      if (rootList && outcomeValue.status === 'succeeded'
+        && nowMs(clock) >= startedAtMs + boundRequest.timeoutMs) {
+        outcomeValue = { status: 'timed_out', errorCode: 'EFFECT_TIMED_OUT' };
+      }
       if (readOnly && outcomeValue.status !== 'succeeded') {
         // Read cancellation/failure never publishes late bytes and cannot
         // inherit write-style changes, rollback or provider-controlled text.
@@ -367,7 +385,10 @@ export function createEffectBroker(repositoryValue, {
       const validation = validateEffectResultForRequest(boundRequest, result);
       let readEvidenceValid = true;
       if (readOnly && result.terminalStatus === 'succeeded') {
-        try { createM2FileReadOutputEvidence(boundRequest, result, outcomeValue.evidence?.fileReadBytes); }
+        try {
+          if (rootList) createM2FileListOutputEvidence(boundRequest, result, outcomeValue.evidence?.fileListBytes);
+          else createM2FileReadOutputEvidence(boundRequest, result, outcomeValue.evidence?.fileReadBytes);
+        }
         catch { readEvidenceValid = false; }
       }
       if (!validation.valid || !readEvidenceValid) {
@@ -390,7 +411,10 @@ export function createEffectBroker(repositoryValue, {
       }
       try {
         if (readOnly && result.terminalStatus === 'succeeded') {
-          new EffectFileReadOutputRepository(repository).recordSuccessfulFileRead({
+          if (rootList) new EffectFileListOutputRepository(repository).recordSuccessfulFileList({
+            request: boundRequest, result, bytes: outcomeValue.evidence.fileListBytes,
+          });
+          else new EffectFileReadOutputRepository(repository).recordSuccessfulFileRead({
             request: boundRequest, result, bytes: outcomeValue.evidence.fileReadBytes,
           });
         } else repository.recordEffectResult(result);
@@ -462,7 +486,12 @@ export function createEffectBroker(repositoryValue, {
       });
     }
 
-    const provider = providerFor(providers, boundRequest.kind);
+    if (isM2FileListOutputRequest(boundRequest)
+      && nowMs(clock) >= startedAtMs + boundRequest.timeoutMs) {
+      timeout.cancel(); cancellation.cancel();
+      return commitOutcome({ status: 'timed_out', errorCode: 'EFFECT_TIMED_OUT' });
+    }
+    const provider = providerFor(providers, isM2FileListOutputRequest(boundRequest) ? 'project.fs.list' : boundRequest.kind);
     if (!provider || typeof provider.execute !== 'function') {
       timeout.cancel();
       cancellation.cancel();
@@ -551,7 +580,7 @@ export function createEffectBroker(repositoryValue, {
     return commitOutcome(outcome);
   }
 
-  return Object.freeze({ prepareFilesystemWrite, prepareFilesystemRead, execute });
+  return Object.freeze({ prepareFilesystemWrite, prepareFilesystemRead, prepareFilesystemListRoot, execute });
 }
 
 export const _testInternals = Object.freeze({

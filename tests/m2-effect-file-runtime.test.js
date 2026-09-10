@@ -1,5 +1,14 @@
 import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 
+import { up as applyFileListOutputs } from '../src/db/migrations/2026_09_10_110_m2_file_list_outputs.js';
+import * as currentEffects from '../contracts/m2/effect-current.js';
+import { createM2FileListOutputEvidence } from '../contracts/m2/file-list-output-v1.js';
+import { EffectFileListOutputRepository } from '../src/effects/effect-file-list-output-repository.js';
+import { symlinkSync } from 'node:fs';
+import { ToolExecutor } from '../src/executor/tool-executor.js';
+import { createEffectBroker } from '../src/effects/effect-broker.js';
+import { createM2FileListTarget, parseM2FileListSnapshot, createM2FileListSnapshot } from '../contracts/m2/file-list-snapshot-v1.js';
+import { m2FileListOutputEvidenceRef } from '../contracts/m2/file-list-output-v1.js';
 import { pruneAllData, DEFAULT_STORAGE_CONFIG } from '../src/db/data-retention.js';
 import { computeM2ToolValueDigest, canonicalizeM2ToolValue } from '../contracts/m2/tool-v1.js';
 import { up as applyFileReadOutputs } from '../src/db/migrations/2026_09_09_109_m2_file_read_outputs.js';
@@ -71,7 +80,8 @@ function installAuthoritySchema(database) {
   }
   applyPreexecutionApprovalTerminals(database);
   applyEffectRollbackReceipts(database);
-  applyFileReadOutputs(database);
+  if (!database.prepare("SELECT name FROM sqlite_master WHERE name = 'm2_file_list_outputs'").get()) applyFileReadOutputs(database);
+  applyFileListOutputs(database);
 }
 
 const authorityTemplatePath = path.join(
@@ -934,7 +944,8 @@ await testAsync('read@1 request replay retains its original version and identity
     assert.equal(current.createRequest({ ...input, context: { ...context, userMessageId: 11 } }).toolVersion, 2);
     assert.equal(environment.database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n, 2);
     assert.equal(getM2ToolDescriptor('file.list').authorityMode, 'unavailable');
-    assert.equal(getCurrentM2ToolDescriptor('file.list').authorityMode, 'unavailable');
+    assert.equal(getCurrentM2ToolDescriptor('file.list').authorityMode, 'effect');
+    assert.equal(getCurrentM2ToolDescriptor('file.list').version, 2);
     assert.equal(getM2ToolDescriptor('file.read', 3), null);
   });
 });
@@ -1048,6 +1059,312 @@ await testAsync('existing retention hard-delete path purges read bytes after the
     assert.equal(database.prepare('SELECT count(*) AS n FROM messages').get().n, 0);
     assert.deepEqual(repository.getToolResult(settled.request.requestId), settled.result);
     assert.throws(() => broker.resolveFileReadContent(query), { code: 'EFFECT_FILE_READ_CONTENT_UNAVAILABLE' });
+  });
+});
+
+function listingServices(environment, runtime = environment.runtime()) {
+  const repository = new M2ToolAuthorityRepository(environment.database);
+  const broker = createM2ToolBroker({ repository, effectAdapter: createM2ToolEffectAdapter({ effectRuntime: runtime }) });
+  const executor = new ToolExecutor({ m2ToolBroker: broker });
+  const context = { sessionId: 'list-session', conversationId: 'conversation-1', userMessageId: 110,
+    authenticatedSubject: { actorType: 'user', actorId: 'local-operator' },
+    project: { id: 17, path: environment.projectRoot } };
+  return { runtime, repository, broker, executor, context,
+    input: { toolId: 'file.list', input: { path: '.' }, context } };
+}
+async function approvedListing(environment) {
+  const services = listingServices(environment);
+  const pending = await services.executor.executeM2Tool(services.input);
+  const result = await services.runtime.approveFilesystemListRoot({ effectId: pending.effectRequestId,
+    conversationId: 'conversation-1', subjectId: 'local-operator' });
+  const execution = await services.executor.settleM2Effect({ effectId: result.effectId, context: services.context });
+  return { ...services, pending, result, execution, query: { requestId: execution.request.requestId,
+    contentRef: execution.result.output.contentRef, context: services.context } };
+}
+
+await testAsync('root listing requires exact approval and returns persisted raw direct-child names through ToolExecutor', async () => {
+  await withEnvironment(async environment => {
+    writeFileSync(path.join(environment.projectRoot, 'žluťoučký.txt'), 'PRIVATE_FILE_BODY_CANARY');
+    writeFileSync(path.join(environment.projectRoot, 'notes', 'hidden.txt'), 'NESTED_FILE_BODY_CANARY');
+    const rawName = Buffer.from([255, 254, 46, 120]);
+    writeFileSync(Buffer.concat([Buffer.from(environment.projectRoot + '/'), rawName]), 'not returned');
+    symlinkSync('/no-such-foreign-target', path.join(environment.projectRoot, 'link'));
+    const services = listingServices(environment);
+    const pending = await services.executor.executeM2Tool(services.input);
+    assert.equal(pending.state, 'approval_required');
+    assert.equal(pending.request.toolVersion, 2);
+    assert.equal(pending.effectRequest.version, 2);
+    assert.deepEqual(pending.effectRequest.target, createM2FileListTarget(environment.projectRoot));
+    assert.equal(pending.effectRequest.requiredCapability, 'project.fs.list');
+    assert.equal(environment.database.prepare('SELECT count(*) n FROM m2_file_list_outputs').get().n, 0);
+    for (const fn of ['approveFilesystemRead','approveFilesystemWrite']) await assert.rejects(async () => services.runtime[fn]({effectId:pending.effectRequestId}), {code:'EFFECT_RUNTIME_INPUT_INVALID'});
+    await assert.rejects(services.runtime.approveFilesystemListRoot({ effectId: pending.effectRequestId,
+      conversationId:'conversation-1',subjectId:'other' }), {code:'EFFECT_PENDING_NOT_FOUND'});
+    const effect = await services.runtime.approveFilesystemListRoot({ effectId: pending.effectRequestId,
+      conversationId:'conversation-1',subjectId:'local-operator' });
+    assert.equal(effect.terminalStatus, 'succeeded');
+    const grant = new EffectAuthorityRepository(environment.database).getApprovalGrant(effect.approvalGrantId);
+    assert.deepEqual(grant.constraints.allowedRealpaths, [environment.projectRoot]);
+    let directChecked = false;
+    const record = services.repository.recordToolResult.bind(services.repository);
+    services.repository.recordToolResult = (value, options) => {
+      for (const output of [{ ...value.output, path:'notes' }, { ...value.output, byteLength:value.output.byteLength+1 },
+        { ...value.output, contentRef:value.output.contentRef.replace('file-list', 'file-read') }]) {
+        assert.throws(() => insertToolResultDirect(environment.database, { ...value,output,outputDigest:computeM2ToolValueDigest(output) }), /M2_TOOL_LINKED_TERMINAL_PROJECTION_MISMATCH/);
+      }
+      directChecked = true; return record(value, options);
+    };
+    const settled = await services.executor.settleM2Effect({ effectId: effect.effectId,context:services.context });
+    assert.equal(directChecked, true);
+    assert.equal(settled.result.status, 'ok');
+    const query = { requestId:settled.request.requestId,contentRef:settled.result.output.contentRef,context:services.context };
+    const resolved = services.executor.resolveM2FileListContent(query);
+    assert.deepEqual(resolved.request, settled.request); assert.deepEqual(resolved.result, settled.result);
+    const snapshot = parseM2FileListSnapshot(resolved.bytes);
+    assert.deepEqual(snapshot.value.entries, [
+      {nameBase64:Buffer.from('link').toString('base64'),type:'symlink'},
+      {nameBase64:Buffer.from('notes').toString('base64'),type:'directory'},
+      {nameBase64:Buffer.from('žluťoučký.txt').toString('base64'),type:'file'},
+      {nameBase64:rawName.toString('base64'),type:'file'},
+    ]);
+    assert.equal(resolved.bytes.includes(Buffer.from('PRIVATE_FILE_BODY_CANARY')), false);
+    assert.equal(resolved.bytes.includes(Buffer.from('hidden.txt')), false);
+    assert.notEqual(settled.result.outputDigest, effect.outputDigest);
+    assert.equal(snapshot.digest, effect.outputDigest);
+    rmSync(environment.projectRoot, { recursive:true }); mkdirSync(environment.projectRoot);
+    writeFileSync(path.join(environment.projectRoot,'later.txt'),'changed');
+    environment.reopen();
+    const restarted = listingServices(environment);
+    const replay = await restarted.executor.executeM2Tool({ ...services.input,context:{...services.context,sessionId:'reconnected'} });
+    assert.deepEqual(replay.result, settled.result);
+    assert.deepEqual(restarted.executor.resolveM2FileListContent(query).bytes, resolved.bytes);
+    assert.equal(environment.database.prepare('SELECT count(*) n FROM m2_approval_grants').get().n,1);
+    assert.equal(environment.database.prepare('SELECT count(*) n FROM m2_effect_execution_claims').get().n,1);
+  });
+});
+
+await testAsync('historical unavailable list@1 replays unchanged while a distinct new request uses list@2', async () => {
+  await withEnvironment(async environment => {
+    const s = listingServices(environment);
+    const old = createM2ToolBroker({repository:s.repository,descriptorResolver:getM2ToolDescriptor});
+    const original = await old.execute(s.input);
+    assert.equal(original.request.toolVersion,1); assert.equal(original.result.status,'error');
+    assert.equal(original.result.error.code,'TOOL_EFFECT_AUTHORITY_UNAVAILABLE');
+    assert.deepEqual((await s.broker.execute(s.input)).result,original.result);
+    assert.equal((await s.broker.execute({...s.input,context:{...s.context,userMessageId:111}})).request.toolVersion,2);
+    assert.equal(environment.database.prepare('SELECT count(*) n FROM tool_v1_requests').get().n,2);
+    assert.equal(getM2ToolDescriptor('file.list').authorityMode,'unavailable');
+    assert.equal(getM2ToolDescriptor('file.list',3),null);
+  });
+});
+
+await testAsync('listing resolver enforces actor/project/conversation membership and restore without implicit purge', async () => {
+  await withEnvironment(async environment => {
+    const s = await approvedListing(environment); const resolve = q => s.executor.resolveM2FileListContent(q);
+    const original = resolve(s.query).bytes;
+    for (const context of [ {...s.context,authenticatedSubject:{actorType:'user',actorId:'other'}},
+      {...s.context,conversationId:'other'}, {...s.context,project:{id:18,path:environment.projectRoot}},
+      {...s.context,project:undefined,projectId:null} ]) assert.throws(()=>resolve({...s.query,context}));
+    assert.throws(()=>resolve({...s.query,contentRef:s.query.contentRef+':foreign'}));
+    environment.database.prepare("UPDATE conversations SET state='deleted' WHERE id='conversation-1'").run();
+    assert.throws(()=>resolve(s.query));
+    assert.equal(environment.database.prepare('SELECT payload IS NOT NULL retained FROM m2_file_list_outputs').get().retained,1);
+    environment.database.prepare("UPDATE conversations SET state='active' WHERE id='conversation-1'").run();
+    assert.deepEqual(resolve(s.query).bytes,original);
+    environment.database.prepare("UPDATE projects SET status='deleted' WHERE id=17").run(); assert.throws(()=>resolve(s.query));
+    environment.database.prepare("UPDATE projects SET status='active' WHERE id=17").run(); assert.deepEqual(resolve(s.query).bytes,original);
+    environment.database.prepare("INSERT INTO projects(id,path,status) VALUES(18,?,'active')").run(environment.projectRoot+'/other');
+    environment.database.prepare("UPDATE conversations SET project_id=18 WHERE id='conversation-1'").run(); assert.throws(()=>resolve(s.query));
+    assert.equal(environment.database.prepare('SELECT count(*) n FROM m2_file_list_output_tombstones').get().n,0);
+    environment.database.prepare("UPDATE conversations SET project_id=17 WHERE id='conversation-1'").run(); assert.deepEqual(resolve(s.query).bytes,original);
+    environment.database.prepare("DELETE FROM conversations WHERE id='conversation-1'").run();
+    assert.throws(()=>resolve(s.query));
+    assert.equal(environment.database.prepare('SELECT payload FROM m2_file_list_outputs').get().payload,null);
+    assert.equal(environment.database.prepare('SELECT reason FROM m2_file_list_output_tombstones').get().reason,'CONVERSATION_REMOVED');
+    assert.deepEqual(s.repository.getToolResult(s.execution.request.requestId),s.execution.result);
+    assert.equal(new EffectAuthorityRepository(environment.database).getEffectResult(s.result.effectId).terminalStatus,'succeeded');
+  });
+});
+
+await testAsync('hard project deletion purges listing bytes and immutable metadata cannot resurrect them', async () => {
+  await withEnvironment(async environment => {
+    const s = await approvedListing(environment);
+    assert.throws(()=>environment.database.prepare('UPDATE m2_file_list_outputs SET payload=NULL').run(),/IMMUTABLE/);
+    assert.throws(()=>environment.database.prepare('DELETE FROM m2_file_list_outputs').run(),/IMMUTABLE/);
+    assert.throws(()=>environment.database.prepare("INSERT INTO m2_file_list_output_tombstones VALUES(?,'PROJECT_REMOVED',0)").run(s.result.effectId),/SCOPE_NOT_REMOVED/);
+    environment.database.prepare('DELETE FROM projects WHERE id=17').run();
+    assert.equal(environment.database.prepare('SELECT payload FROM m2_file_list_outputs').get().payload,null);
+    assert.equal(environment.database.prepare('SELECT reason FROM m2_file_list_output_tombstones').get().reason,'PROJECT_REMOVED');
+    assert.throws(()=>s.executor.resolveM2FileListContent(s.query));
+    assert.throws(()=>environment.database.prepare('DELETE FROM m2_file_list_output_tombstones').run(),/IMMUTABLE/);
+    assert.throws(()=>environment.database.prepare('UPDATE m2_file_list_outputs SET payload=?').run(Buffer.from('{}')),/IMMUTABLE/);
+    assert.equal(new EffectAuthorityRepository(environment.database).getEffectResult(s.result.effectId).terminalStatus,'succeeded');
+  });
+});
+
+await testAsync('listing commit failure publishes no bytes and a dead claim recovers without re-observation or rollback', async () => {
+  await withEnvironment(async environment => {
+    const s = listingServices(environment); const pending = await s.broker.execute(s.input);
+    environment.database.exec("CREATE TRIGGER reject_list_terminal BEFORE INSERT ON m2_effect_results BEGIN SELECT RAISE(ABORT,'forced terminal failure'); END;");
+    await assert.rejects(s.runtime.approveFilesystemListRoot({effectId:pending.effectRequestId,conversationId:'conversation-1',subjectId:'local-operator'}),{code:'EFFECT_RESULT_UNCOMMITTED'});
+    assert.equal(environment.database.prepare('SELECT count(*) n FROM m2_file_list_outputs').get().n,0);
+    assert.equal(environment.database.prepare('SELECT count(*) n FROM m2_effect_results').get().n,0);
+    environment.database.exec('DROP TRIGGER reject_list_terminal');
+    const recovered = environment.runtime({executionLiveness:{isProvablyDead:()=>true}});
+    const result = await recovered.approveFilesystemListRoot({effectId:pending.effectRequestId,conversationId:'conversation-1',subjectId:'local-operator'});
+    assert.equal(result.terminalStatus,'orphaned');assert.equal(result.outputDigest,null);
+    assert.equal(result.lateCompletionRejected,false);assert.equal(result.rollback.required,false);assert.deepEqual(result.changes.paths,[]);
+    assert.equal(environment.database.prepare('SELECT count(*) n FROM m2_file_list_outputs').get().n,0);
+    assert.equal(environment.database.prepare('SELECT count(*) n FROM m2_effect_execution_claims').get().n,1);
+  });
+});
+
+await testAsync('cancelled root listing rejects late metadata and publishes only its truthful terminal', async () => {
+  await withEnvironment(async environment => {
+    const repository = new EffectAuthorityRepository(environment.database);
+    let release, started; const ready = new Promise(resolve=>{started=resolve;});
+    const broker = createEffectBroker(repository,{workspaceAuthority:{async observe(){return {canonicalRoot:environment.projectRoot,workspaceRevision:'wsr1:runtime-integration'};}},
+      providers:{'project.fs.list':{async execute({request}){started();await new Promise(resolve=>{release=resolve;});
+        const snap=createM2FileListSnapshot([]);return {outputDigest:snap.digest,fileListBytes:snap.bytes,evidenceRefs:[m2FileListOutputEvidenceRef(request.effectId)]};}}}});
+    const runtime=environment.runtime({broker});const pending=await runtime.requestFilesystemListRoot(requestInput(environment.projectRoot,{relativePath:'.'}));
+    const controller=new AbortController();const execution=runtime.approveFilesystemListRoot({effectId:pending.effectId,conversationId:'conversation-1',subjectId:'local-operator',signal:controller.signal});
+    await ready;controller.abort();release();const terminal=await execution;
+    assert.equal(terminal.terminalStatus,'cancelled');assert.equal(terminal.outputDigest,null);assert.equal(terminal.lateCompletionRejected,false);
+    assert.equal(environment.database.prepare('SELECT count(*) n FROM m2_file_list_outputs').get().n,0);
+    assert.equal(environment.database.prepare('SELECT count(*) n FROM m2_effect_results').get().n,1);
+  });
+});
+
+function sqlInsertRow(database, table, row) {
+  assert.match(table,/^[a-z0-9_]+$/);
+  const keys=Object.keys(row);for(const key of keys)assert.match(key,/^[a-z0-9_]+$/);
+  database.prepare(`INSERT INTO ${table} (${keys.join(',')}) VALUES (${keys.map(()=>'?').join(',')})`).run(...keys.map(k=>row[k]));
+}
+await testAsync('raw SQL cannot introduce a root request outside exact version2 shape policy digest or timestamp',async()=>{
+  await withEnvironment(async environment=>{
+    const runtime=environment.runtime();const pending=await runtime.requestFilesystemListRoot(requestInput(environment.projectRoot,{relativePath:'.'}));
+    const original=environment.database.prepare('SELECT * FROM m2_effect_requests WHERE effect_id=?').get(pending.effectId);
+    const base=JSON.parse(original.request_json);let index=0;
+    for(const mutation of [{version:3},{kind:'fs.write',riskClass:'write'},{requiredCapability:'project.fs.read'},
+      {target:{...base.target,type:'filesystem'}},{target:{...base.target,relativePath:'../'}},
+      {target:{...base.target,resolvedRealpath:environment.projectRoot+'/child'}},
+      {target:{...base.target,recursive:true}},{payloadBytes:base.payloadBytes+1},{actor:{type:'model',id:'other'}},
+      {origin:{...base.origin,projectId:null}},{extra:true},{createdAt:'not a date'}]){
+      const value={...base,effectId:'effect:'+createHash('sha256').update('sql-bad-'+index++).digest('hex'),idempotencyKey:'bad:'+index,...mutation};
+      const encoded=currentEffects.canonicalStringify(value);
+      const row={...original,effect_id:value.effectId,idempotency_key:value.idempotencyKey,kind:value.kind,
+        payload_bytes:value.payloadBytes,payload_digest:value.payloadDigest,request_json:encoded,
+        request_digest:'sha256:'+createHash('sha256').update(encoded).digest('hex')};
+      assert.throws(()=>sqlInsertRow(environment.database,'m2_effect_requests',row),/M2_EFFECT_REQUEST_JSON_IDENTITY_MISMATCH/);
+    }
+    for(const changed of [{request_digest:'sha256:'+'0'.repeat(64)},{created_at_ms:original.created_at_ms+1}]){
+      const value={...base,effectId:'effect:'+createHash('sha256').update('sql-index-'+index++).digest('hex'),idempotencyKey:'index:'+index};
+      const row={...original,effect_id:value.effectId,idempotency_key:value.idempotencyKey,
+        request_json:currentEffects.canonicalStringify(value),request_digest:currentEffects.computeEffectRequestDigest(value),...changed};
+      assert.throws(()=>sqlInsertRow(environment.database,'m2_effect_requests',row),/M2_EFFECT_REQUEST_JSON_IDENTITY_MISMATCH/);
+    }
+    assert.equal(environment.database.prepare('SELECT count(*) n FROM m2_effect_requests').get().n,1);
+  });
+});
+
+await testAsync('SQL grants cannot enlarge or transplant exact root authority before a valid grant is consumed',async()=>{
+  await withEnvironment(async environment=>{
+    const runtime=environment.runtime();const pending=await runtime.requestFilesystemListRoot(requestInput(environment.projectRoot,{relativePath:'.'}));
+    const repository=new EffectAuthorityRepository(environment.database);const issue=repository.issueApprovalGrant.bind(repository);
+    let checked=false;
+    repository.issueApprovalGrant = grant => {
+      for(const change of [{constraints:{...grant.constraints,allowedRealpaths:['/']}},
+        {constraints:{...grant.constraints,allowedRealpaths:[environment.projectRoot+'/notes']}},
+        {constraints:{...grant.constraints,allowedRealpaths:[environment.projectRoot],maxBytes:grant.scope.payloadBytes+1}},
+        {subject:{actorType:'user',actorId:'other'}},{scope:{...grant.scope,projectId:18}},
+        {scope:{...grant.scope,kind:'fs.write'}},{constraints:{...grant.constraints,allowedOrigin:'https://example.invalid'}}]){
+        const bad={...grant,...change};
+        assert.throws(()=>sqlInsertRow(environment.database,'m2_approval_grants',{
+          grant_id:bad.grantId,effect_id:bad.scope.effectId,run_id:bad.scope.runId,project_id:bad.scope.projectId,
+          kind:bad.scope.kind,payload_digest:bad.scope.payloadDigest,payload_bytes:bad.scope.payloadBytes,
+          workspace_revision:bad.scope.workspaceRevision,nonce:bad.nonce,grant_json:currentEffects.canonicalStringify(bad),
+          issued_at_ms:Date.parse(bad.issuedAt),expires_at_ms:Date.parse(bad.expiresAt),consumed_at_ms:null,
+          consumed_by_effect_id:null,revoked_at_ms:null,revocation_reason:null,
+        }),/M2_APPROVAL_GRANT_SCOPE_MISMATCH/);
+      }
+      checked=true;return issue(grant);
+    };
+    const grant=createApprovalGrantIssuer(repository).issue({effectId:pending.effectId,authenticatedSubject:{actorType:'user',actorId:'local-operator'}}).grant;
+    assert.equal(checked,true);assert.equal(grant.consumedAt,null);
+    const done=await runtime.approveFilesystemListRoot({effectId:pending.effectId,conversationId:'conversation-1',subjectId:'local-operator'});
+    assert.equal(done.terminalStatus,'succeeded');
+    assert.equal(environment.database.prepare('SELECT count(*) n FROM m2_approval_grants').get().n,1);
+  });
+});
+
+await testAsync('successful list output requires exact canonical bytes and a same-transaction terminal; SQL cannot bypass it',async()=>{
+  await withEnvironment(async environment=>{
+    const runtime=environment.runtime();const pending=await runtime.requestFilesystemListRoot(requestInput(environment.projectRoot,{relativePath:'.'}));
+    const repository=new EffectAuthorityRepository(environment.database);
+    const grant=createApprovalGrantIssuer(repository).issue({effectId:pending.effectId,authenticatedSubject:{actorType:'user',actorId:'local-operator'}}).grant;
+    const request=repository.getEffectRequest(pending.effectId);
+    repository.consumeApprovalGrant({grantId:grant.grantId,request,executionOwner:processExecutionOwner});
+    const snapshot=createM2FileListSnapshot([]);const now=new Date().toISOString();
+    const completed={contract:'EffectResult',version:1,effectId:request.effectId,runId:request.runId,projectId:17,
+      requestDigest:currentEffects.computeEffectRequestDigest(request),approvalGrantId:grant.grantId,terminalStatus:'succeeded',
+      startedAt:now,completedAt:now,process:{pid:null,processGroupId:null,startIdentity:null,exitCode:null,signal:null},
+      changes:{paths:[],beforeDigest:null,afterDigest:null,diffArtifact:null},network:{resolvedAddresses:[],finalUrl:null,status:null,bytes:0},
+      rollback:{required:false,status:'not_required',evidenceRef:null},outputDigest:snapshot.digest,errorCode:null,
+      evidenceRefs:[m2FileListOutputEvidenceRef(request.effectId)],lateCompletionRejected:false};
+    const resultRow={effect_id:request.effectId,run_id:request.runId,project_id:17,request_digest:completed.requestDigest,
+      approval_grant_id:grant.grantId,terminal_status:'succeeded',result_json:currentEffects.canonicalStringify(completed),completed_at_ms:Date.parse(now)};
+    assert.throws(()=>sqlInsertRow(environment.database,'m2_effect_results',resultRow),/M2_FILE_LIST_RESULT_OUTPUT_MISMATCH/);
+    assert.throws(()=>repository.recordEffectResult(completed));
+    const metadata=createM2FileListOutputEvidence(request,completed,snapshot.bytes);
+    const row={effect_id:request.effectId,project_id:17,conversation_id:'conversation-1',project_path:environment.projectRoot,
+      request_digest:completed.requestDigest,metadata_json:currentEffects.canonicalStringify(metadata),payload:snapshot.bytes};
+    for(const mutation of [{payload:Buffer.from('{}')},{payload:null},{payload:Buffer.from(snapshot.bytes.toString()+' ')},
+      {metadata_json:currentEffects.canonicalStringify({...metadata,byteLength:metadata.byteLength+1})},
+      {metadata_json:currentEffects.canonicalStringify({...metadata,format:'bytes'})},
+      {conversation_id:'other'},{project_id:18},{project_path:environment.projectRoot+'/notes'}]) {
+      assert.throws(()=>sqlInsertRow(environment.database,'m2_file_list_outputs',{...row,...mutation}),/M2_FILE_LIST_OUTPUT_REQUEST_OR_BYTES_MISMATCH/);
+    }
+    assert.throws(()=>sqlInsertRow(environment.database,'m2_file_list_outputs',row),/FOREIGN KEY constraint failed/);
+    assert.equal(environment.database.prepare('SELECT count(*) n FROM m2_file_list_outputs').get().n,0);
+    new EffectFileListOutputRepository(repository).recordSuccessfulFileList({request,result:completed,bytes:snapshot.bytes});
+    assert.equal(repository.getEffectResult(request.effectId).terminalStatus,'succeeded');
+    assert.equal(environment.database.prepare('SELECT count(*) n FROM m2_file_list_outputs').get().n,1);
+    assert.throws(()=>sqlInsertRow(environment.database,'m2_file_list_outputs',row));
+    assert.deepEqual(environment.database.pragma('foreign_key_check'),[]);
+  });
+});
+
+await testAsync('root listing elapsed deadline fences both late synchronous workspace observation and late provider success', async () => {
+  for (const phase of ['workspace','provider']) await withEnvironment(async environment => {
+    let tick=Date.now(), observations=0,providerCalls=0;
+    const repository=new EffectAuthorityRepository(environment.database,{clock:()=>tick});
+    const broker=createEffectBroker(repository,{clock:()=>tick,workspaceAuthority:{async observe(){
+      if (++observations>1 && phase==='workspace')tick+=120001;
+      return {canonicalRoot:environment.projectRoot,workspaceRevision:'wsr1:runtime-integration'};
+    }},providers:{'project.fs.list':{async execute({request}){providerCalls++;tick+=120001;
+      const snap=createM2FileListSnapshot([]);return {outputDigest:snap.digest,fileListBytes:snap.bytes,evidenceRefs:[m2FileListOutputEvidenceRef(request.effectId)]};
+    }}}});
+    const runtime=environment.runtime({broker,clock:()=>tick});
+    const pending=await runtime.requestFilesystemListRoot(requestInput(environment.projectRoot,{relativePath:'.'}));
+    const terminal=await runtime.approveFilesystemListRoot({effectId:pending.effectId,conversationId:'conversation-1',subjectId:'local-operator'});
+    assert.equal(terminal.terminalStatus,'timed_out');assert.equal(terminal.errorCode,'EFFECT_TIMED_OUT');
+    assert.equal(terminal.outputDigest,null);assert.equal(terminal.lateCompletionRejected,false);
+    assert.equal(providerCalls,phase==='workspace'?0:1);
+    assert.equal(environment.database.prepare('SELECT count(*) n FROM m2_file_list_outputs').get().n,0);
+  });
+});
+
+await testAsync('root listing revision drift refuses provider observation while preserving single-use failure truth', async () => {
+  await withEnvironment(async environment => {
+    let observations=0,providerCalls=0;
+    const repository=new EffectAuthorityRepository(environment.database);
+    const broker=createEffectBroker(repository,{workspaceAuthority:{async observe(){return {canonicalRoot:environment.projectRoot,workspaceRevision:++observations===1?'wsr1:a':'wsr1:b'};}},
+      providers:{'project.fs.list':{async execute(){providerCalls++;assert.fail('stale root may not be enumerated');}}}});
+    const runtime=environment.runtime({broker});const pending=await runtime.requestFilesystemListRoot(requestInput(environment.projectRoot,{relativePath:'.'}));
+    const result=await runtime.approveFilesystemListRoot({effectId:pending.effectId,conversationId:'conversation-1',subjectId:'local-operator'});
+    assert.equal(result.terminalStatus,'failed');assert.equal(result.errorCode,'EFFECT_WORKSPACE_STALE');assert.equal(providerCalls,0);
+    assert.equal(environment.database.prepare('SELECT count(*) n FROM m2_file_list_outputs').get().n,0);
+    assert.equal(environment.database.prepare('SELECT count(*) n FROM m2_effect_execution_claims').get().n,1);
   });
 });
 

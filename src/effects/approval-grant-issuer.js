@@ -2,7 +2,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import {
   M2_EFFECT_CONTRACT_KIND,
   deriveApprovalGrantConstraints,
-} from '../../contracts/m2/effect-v1.js';
+} from '../../contracts/m2/effect-current.js';
 
 export const ApprovalGrantIssuerErrorCode = Object.freeze({
   INPUT_INVALID: 'APPROVAL_GRANT_ISSUER_INPUT_INVALID',

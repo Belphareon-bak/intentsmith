@@ -1,3 +1,6 @@
+import { registerM2EffectCurrentFunctions } from './effect-current-functions.js';
+import { registerM2FileListOutputFunctions, readM2FileListOutput } from './effect-file-list-output-repository.js';
+import { validateEffectResultForRequest as legacyResultPair, validateApprovalGrantForRequest as legacyGrantPair } from '../../contracts/m2/effect-v1.js';
 import { registerM2FileReadOutputFunctions, readM2FileReadOutput } from './effect-file-read-output-repository.js';
 import { createHash } from 'node:crypto';
 
@@ -12,7 +15,7 @@ import {
   validateEffectResult,
   validateEffectResultForRequest,
   validateEffectResultForRequestV1,
-} from '../../contracts/m2/effect-v1.js';
+} from '../../contracts/m2/effect-current.js';
 import {
   buildEffectSettlement,
   digestStoredEffectResult,
@@ -172,6 +175,8 @@ export class EffectAuthorityRepository {
   constructor(db, { clock = Date.now } = {}) {
     this.db = requireDatabase(db);
     registerM2FileReadOutputFunctions(this.db);
+    registerM2FileListOutputFunctions(this.db);
+    registerM2EffectCurrentFunctions(this.db);
     this.clock = requireClock(clock);
     this.db.function('m2_effect_result_matches_request_v1', {
       deterministic: true,
@@ -189,7 +194,7 @@ export class EffectAuthorityRepository {
       deterministic: true,
     }, (requestJson, resultJson) => {
       try {
-        return validateEffectResultForRequest(
+        return legacyResultPair(
           JSON.parse(requestJson),
           JSON.parse(resultJson),
         ).valid ? 1 : 0;
@@ -210,7 +215,7 @@ export class EffectAuthorityRepository {
       deterministic: true,
     }, (requestJson, grantJson) => {
       try {
-        return validateApprovalGrantForRequest(
+        return legacyGrantPair(
           JSON.parse(requestJson),
           JSON.parse(grantJson),
         ).valid ? 1 : 0;
@@ -1003,6 +1008,7 @@ export class EffectAuthorityRepository {
         throw new Error(`stored EffectResult is invalid: ${validation.errors.join(',')}`);
       }
       readM2FileReadOutput(this.db, request, result);
+      readM2FileListOutput(this.db, request, result);
       return Object.freeze(result);
     } catch (error) {
       if (

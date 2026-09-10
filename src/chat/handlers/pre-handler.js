@@ -15,7 +15,7 @@ import { ResponseTag, TaggedResponse, ResponseSpeaker, ChatMode } from '../contr
 import { creDecisionEngine, DecisionType, IntentType, REFORMULATION_PATTERNS } from '../cre-decision.js';
 import { logger } from '../../core/logger.js';
 import { parseTodoCommand, handleTodo, handleDone } from './todo.js';
-import { handleFileDecision, completeM2FileRead } from './file.js';
+import { handleFileDecision, completeM2FileRead, renderM2FileListResult } from './file.js';
 import { config } from '../../config.js';
 import { isAbortError } from '../../core/abort-error.js';
 
@@ -232,6 +232,11 @@ export async function handleExactEffectApproval(input, context, mode, dependenci
           toolExecutor, expectedEffectId: effectId, resume: true, callExplanation: dependencies.callExplanation,
         }),
       };
+    }
+    if (result.terminalStatus === 'succeeded' && toolSettlement?.request?.toolId === 'file.list') {
+      return { handled: true, response: renderM2FileListResult(toolSettlement, context, {
+        toolExecutor, expectedEffectId: effectId,
+      }) };
     }
     if (result.terminalStatus === 'succeeded' && path) {
       context.sessionState?.setActiveFile?.(path);

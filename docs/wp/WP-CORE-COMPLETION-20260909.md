@@ -440,3 +440,53 @@ To neuzavírá modelovou kuchařku, `file.list`, skutečné FILE_EXPLAIN,
 M5 externí podmínky, M2 konečné přijetí ani release. Hlavní profil4096
 ani výstup4000 se tím nemění; dva již předložené autoritní návrhy zůstávají
 bez odpovědi. M7 zůstává oddělené.
+
+### Navazující sada milníků k společnému review — zadání 2026-09-09 21:50 UTC
+
+Operátor výslovně požádal dokončit co nejvíce autonomně a předat více milníků
+společně. Vstup je čistý `7dacd466`, produktový source shodný s měřeným
+`7fa6f985`. Rozsah nadále vychází z PRODUCT §3 a přijatého D030; nevzniká
+nová produktová ani schvalovací autorita. Root vlastní integraci a GPU běhy.
+Pracovní rozpočet: 29 chráněných worktree, žádný bezpečně odstranitelný;
+soukromé testovací overlay mají oddělené kořeny a uchovají dosavadní důkazy.
+
+- **Výpis projektu:** schválit přesný kořen a dostat úplný omezený výpis jmen
+  a typů přímých potomků; trvalý výsledek, replay, současné vlastnictví a
+  mazání. Vlastník backendového řezu `verify_convergence`: nové list@2/
+  EffectRequest@2 kontrakty, broker, runtime, typed repository a migrace110.
+  Migrace110 nemá kolizi v 452 lokálních refech a 29 worktree HEADs.
+  Root doplní UI nad připnutým snapshotem po integraci FILE_EXPLAIN.
+- **Vysvětlení souboru:** po schváleném file.read@2 vytvořit skutečné
+  vysvětlení z ověřených uložených bajtů. `verify_mobile` vlastní soukromý
+  consumer řez `src/chat/handlers/file.js`, příslušnou větev pre-handleru
+  a cílené testy. Stávající read@2 autorita a modelové limity se nemění.
+- **Úplný stručnější SPEC:** `verify_release` vlastní soukromý planner prompt/
+  schema-consumer řez. Zůstává limit4000, úplné přijaté schéma, všechny
+  požadavky, cancellation a výslovné schválení; nevzniká automatické zkracování
+  požadavků ani další retries. Root změří původní kuchařku se skutečným modelem.
+
+Integrace bude sériová: nezávisle revidované consumer a planner řezy, potom
+list backend a jeho skutečné UI. Demonstrace musí obsahovat schválení →
+výsledek → restart/replay a relevantní odmítnutí špatného scope, smazaných dat,
+poškozených bajtů a zrušené/modelově selhané operace. Ověřovací vstupy:
+`node tests/m2-effect-file-consumer.test.js`,
+`node tests/m2-effect-file-runtime.test.js`,
+`node tests/m2-effect-authority-repository.test.js`,
+`node tests/m2-tool-authority-repository.test.js`,
+`node tests/m2-tool-production-consumer.test.js` a
+`node tests/lifecycle-handoff.test.js` v izolovaných prostředích; dále
+původní relevantní modelové scénáře sériově a společný deterministic profil
+nad dokončeným source. Selhání musí zachovat předchozí stav a nesmí být
+prezentované jako hotová schopnost. Stop podmínkou je skutečná potřeba změnit
+přijatou autoritní hranici či nevyřešená regrese, nikoli samotná nutnost
+nového interního verzovaného typu. Konečné operátorské přijetí je samostatné.
+
+Closeout zadán operátorem 2026-09-10: další oblasti se neotevírají.
+FILE_EXPLAIN integrován17ed11f1, nezávislý skutečný soukromý DB průchod36/36.
+Backend list má233 cílených a11 plných migračních kontrol; root integrace
+s oběma chat větvemi38/38, následná přesná úprava dvou migračních očekávání
+96→97. Přesun byte-identických list formatterů do existujícího file handleru
+zachovává3cykly/28členů; neotevírá se nová výjimka ratchetu. Společná sada
+bude připnuta po clean commitu. SPEC experimentea309 byl po skutečném
+Cookbook14PASS17FAIL vrácen4410c360; původní prompt a4000 zůstávají.
+FILE_EXPLAIN modelový demo běh NOT_RUN. Finální přijetí M2 a release čeká.

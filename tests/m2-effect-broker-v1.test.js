@@ -1725,4 +1725,185 @@ await testAsync('109 upgrades populated write and legacy read authority without 
   }, { fileReadOutputs: false });
 });
 
+import {
+  createM2FileListTarget, validateM2FileListTarget, createM2FileListEntry,
+  createM2FileListPolicyPayload, parseM2FileListPolicyPayload,
+  createM2FileListSnapshot, parseM2FileListSnapshot,
+} from '../contracts/m2/file-list-snapshot-v1.js';
+import { observeProjectRootListing } from '../src/executor/project-root-listing.js';
+import { validateEffectRequest as validateLegacyEffectRequest } from '../contracts/m2/effect-v1.js';
+import { getM2ToolDescriptor as listingLegacyDescriptor, getCurrentM2ToolDescriptor as listingCurrentDescriptor } from '../src/tools/m2-tool-registry.js';
+
+async function withListingRoot(callback) {
+  const parent = mkdtempSync(path.join(tmpdir(), 'm2-root-list-'));
+  const root = path.join(parent, 'project');
+  mkdirSync(root);
+  try { await callback(root, parent); } finally { rmSync(parent, { recursive: true, force: true }); }
+}
+function trackedListingFs() {
+  const opened = new Set(); let directoryCount = 0;
+  const fileSystem = { ...nativeFs,
+    openSync(...args) { const fd = nativeFs.openSync(...args); opened.add(fd); return fd; },
+    closeSync(fd) { opened.delete(fd); return nativeFs.closeSync(fd); },
+    opendirSync(...args) {
+      const directory = nativeFs.opendirSync(...args); directoryCount++;
+      return { readSync: () => directory.readSync(), closeSync: () => { directoryCount--; return directory.closeSync(); } };
+    },
+  };
+  return { fileSystem, assertClosed: () => { assert.equal(opened.size, 0); assert.equal(directoryCount, 0); } };
+}
+
+suite('Project root listing foundation; legacy tool remains unavailable');
+await testAsync('root listing has an explicit target and does not relax Effect@1 or enable Tool@1', async () => {
+  const target = createM2FileListTarget('/workspace/project');
+  assert.equal(validateM2FileListTarget(target), true);
+  for (const wrong of [{ ...target, relativePath: 'src' }, { ...target, type: 'filesystem' },
+    { ...target, resolvedRealpath: '/workspace/other' }, { ...target, extra: true }]) {
+    assert.equal(validateM2FileListTarget(wrong), false);
+  }
+  assert.throws(() => createM2FileListTarget('/workspace/../project'));
+  const legacy = { contract: 'EffectRequest', version: 1, effectId: 'effect-list-probe',
+    runId: 'run-list-probe', parentEffectId: null, actor: { type: 'user', id: 'local-operator' },
+    origin: { surface: 'studio', sessionId: 'list-session', conversationId: 'list-conversation', projectId: 17 },
+    kind: 'fs.read', target: { type: 'filesystem', canonicalRoot: '/workspace/project',
+      relativePath: 'file.txt', resolvedRealpath: '/workspace/project/file.txt' },
+    payloadDigest: 'sha256:' + '0'.repeat(64), payloadBytes: 0,
+    workspaceRevision: 'wsr1:root-list-probe', requiredCapability: 'project.fs.read', riskClass: 'read',
+    timeoutMs: 30000, idempotencyKey: 'root-list-probe', approvalGrantId: null,
+    createdAt: '2026-09-09T00:00:00.000Z' };
+  assert.equal(validateLegacyEffectRequest(legacy).valid, true);
+  assert.equal(validateLegacyEffectRequest({ ...legacy, target }).valid, false);
+  assert.equal(validateLegacyEffectRequest({ ...legacy, target: { ...target, type: 'filesystem' } }).valid, false);
+  assert.equal(listingLegacyDescriptor('file.list').authorityMode, 'unavailable');
+  assert.equal(listingCurrentDescriptor('file.list').version, 2);
+  assert.equal(listingCurrentDescriptor('file.read').version, 2);
+});
+await testAsync('listing policy preserves exact canonical bytes and rejects recursion and oversized controls', async () => {
+  const bytes = createM2FileListPolicyPayload();
+  const policy = parseM2FileListPolicyPayload(bytes);
+  assert.deepEqual(policy, { format: 'root-entries@1', maxEntries: 10000, maxOutputBytes: 1048576, recursive: false });
+  for (const value of [{ ...policy, recursive: true }, { ...policy, maxEntries: 10001 },
+    { ...policy, maxOutputBytes: 1048577 }, { ...policy, maxEntries: 0 }, { ...policy, extra: true }]) {
+    assert.throws(() => parseM2FileListPolicyPayload(Buffer.from(canonicalStringify(value))));
+  }
+  assert.throws(() => parseM2FileListPolicyPayload(Buffer.concat([bytes, Buffer.from(' ')])));
+});
+await testAsync('actual listing returns complete sorted names/types without child reads, recursion or symlink following', async () => {
+  await withListingRoot(root => {
+    writeFileSync(path.join(root, 'z.txt'), 'never-read-content');
+    writeFileSync(path.join(root, '.env'), 'never-read-secret');
+    mkdirSync(path.join(root, 'nested'));
+    writeFileSync(path.join(root, 'nested/hidden.txt'), 'never-descend');
+    symlinkSync('/definitely-outside-and-absent', path.join(root, 'outside-link'));
+    const tracking = trackedListingFs();
+    const f = tracking.fileSystem; const open = f.openSync;
+    f.openSync = (name, ...rest) => { assert.equal(name, root); return open(name, ...rest); };
+    // Node may internally lstat unknown Dirent types; this does not read
+    // child contents or follow symlink targets. The wrapper observes its own API only.
+    f.readFileSync = f.readSync = f.statSync = f.readlinkSync = () => assert.fail('No child content or symlink-target read');
+    const value = observeProjectRootListing(createM2FileListTarget(root), { fileSystem: f });
+    assert.deepEqual(value.value.entries.map(e => [Buffer.from(e.nameBase64, 'base64').toString(), e.type]),
+      [['.env', 'file'], ['nested', 'directory'], ['outside-link', 'symlink'], ['z.txt', 'file']]);
+    assert.equal(value.value.complete, true);
+    assert.deepEqual(parseM2FileListSnapshot(value.bytes).value, value.value);
+    assert.equal(value.digest, `sha256:${createHash('sha256').update(value.bytes).digest('hex')}`);
+    tracking.assertClosed();
+  });
+});
+await testAsync('actual POSIX byte names preserve invalid UTF8, decomposed Unicode and control characters losslessly', async () => {
+  await withListingRoot(root => {
+    const names = [Buffer.from([0xff, 0xfe]), Buffer.from('e\u0301.txt'), Buffer.from('name\n```<tag>.txt')];
+    for (const name of names) writeFileSync(Buffer.concat([Buffer.from(root + '/'), name]), 'never-read');
+    const snapshot = observeProjectRootListing(createM2FileListTarget(root));
+    assert.deepEqual(snapshot.value.entries.map(e => Buffer.from(e.nameBase64, 'base64')),
+      [...names].sort(Buffer.compare));
+    assert.ok(!snapshot.bytes.includes(Buffer.from('```')));
+  });
+});
+await testAsync('root symlink cannot substitute for canonical project root', async () => {
+  await withListingRoot((root, parent) => {
+    const alias = path.join(parent, 'alias'); symlinkSync(root, alias);
+    assert.throws(() => observeProjectRootListing(createM2FileListTarget(alias)), { code: 'EFFECT_FILE_LIST_ROOT_CHANGED' });
+  });
+});
+await testAsync('entry overflow fails explicitly and closes every owned descriptor', async () => {
+  await withListingRoot(root => {
+    writeFileSync(path.join(root, 'a'), ''); writeFileSync(path.join(root, 'b'), '');
+    const tracking = trackedListingFs();
+    assert.throws(() => observeProjectRootListing(createM2FileListTarget(root), {
+      fileSystem: tracking.fileSystem, policyBytes: createM2FileListPolicyPayload({ maxEntries: 1 }),
+    }), { code: 'EFFECT_FILE_LIST_ENTRY_LIMIT' });
+    tracking.assertClosed();
+  });
+});
+await testAsync('output byte ceiling fails instead of silently trimming a complete listing', async () => {
+  await withListingRoot(root => {
+    const tracking = trackedListingFs();
+    assert.throws(() => observeProjectRootListing(createM2FileListTarget(root), {
+      fileSystem: tracking.fileSystem, policyBytes: createM2FileListPolicyPayload({ maxOutputBytes: 1 }),
+    }), { code: 'EFFECT_FILE_LIST_INVALID' });
+    tracking.assertClosed();
+  });
+});
+await testAsync('pre-cancel makes no filesystem calls and mid-enumeration cancellation closes descriptors', async () => {
+  await withListingRoot(root => {
+    const pre = new AbortController(); pre.abort();
+    assert.throws(() => observeProjectRootListing(createM2FileListTarget(root), {
+      signal: pre.signal, fileSystem: { realpathSync: () => assert.fail('No pre-cancel IO') },
+    }), { code: 'EFFECT_CANCELLED' });
+    writeFileSync(path.join(root, 'a'), '');
+    const mid = new AbortController(); const tracking = trackedListingFs();
+    const opendir = tracking.fileSystem.opendirSync;
+    tracking.fileSystem.opendirSync = (...args) => {
+      const dir = opendir(...args); const read = dir.readSync;
+      dir.readSync = () => { const entry = read(); mid.abort(); return entry; }; return dir;
+    };
+    assert.throws(() => observeProjectRootListing(createM2FileListTarget(root), {
+      signal: mid.signal, fileSystem: tracking.fileSystem,
+    }), { code: 'EFFECT_CANCELLED' });
+    tracking.assertClosed();
+  });
+});
+await testAsync('replacement after opendir cannot return entries from a foreign replacement root', async () => {
+  await withListingRoot((root, parent) => {
+    writeFileSync(path.join(root, 'original'), '');
+    const tracking = trackedListingFs(); const opendir = tracking.fileSystem.opendirSync;
+    tracking.fileSystem.opendirSync = (...args) => {
+      const dir = opendir(...args);
+      nativeFs.renameSync(root, path.join(parent, 'original-root')); mkdirSync(root);
+      writeFileSync(path.join(root, 'foreign'), ''); return dir;
+    };
+    assert.throws(() => observeProjectRootListing(createM2FileListTarget(root), { fileSystem: tracking.fileSystem }),
+      { code: 'EFFECT_FILE_LIST_ROOT_CHANGED' });
+    tracking.assertClosed();
+  });
+});
+await testAsync('concurrent directory mutation invalidates the observed listing', async () => {
+  await withListingRoot(root => {
+    writeFileSync(path.join(root, 'original'), '');
+    const tracking = trackedListingFs(); const opendir = tracking.fileSystem.opendirSync;
+    tracking.fileSystem.opendirSync = (...args) => {
+      const dir = opendir(...args); const read = dir.readSync; let mutated = false;
+      dir.readSync = () => { const value = read(); if (!mutated) { mutated = true; writeFileSync(path.join(root, 'new-child'), ''); } return value; };
+      return dir;
+    };
+    assert.throws(() => observeProjectRootListing(createM2FileListTarget(root), { fileSystem: tracking.fileSystem }),
+      { code: 'EFFECT_FILE_LIST_ROOT_CHANGED' });
+    tracking.assertClosed();
+  });
+});
+await testAsync('canonical snapshot rejects duplicate names, forged completeness, alternate encodings and reordered bytes', async () => {
+  const a = createM2FileListEntry(Buffer.from('a'), 'file'); const b = createM2FileListEntry(Buffer.from('b'), 'directory');
+  const snapshot = createM2FileListSnapshot([b, a]);
+  assert.throws(() => createM2FileListSnapshot([a, a]));
+  for (const value of [{ ...snapshot.value, complete: false }, { ...snapshot.value, path: 'subdir' },
+    { ...snapshot.value, extra: true }, { ...snapshot.value, entries: [b, a] },
+    { ...snapshot.value, entries: [{ ...a, nameBase64: a.nameBase64 + '=' }] }]) {
+    assert.throws(() => parseM2FileListSnapshot(Buffer.from(canonicalStringify(value))));
+  }
+  for (const invalid of [Buffer.from('.'), Buffer.from('..'), Buffer.from('a/b'), Buffer.from([0])]) {
+    assert.throws(() => createM2FileListEntry(invalid, 'file'));
+  }
+});
+
 summary();
