@@ -156,12 +156,15 @@ Custody, skutečné operace, podpisy a history disposition zůstávají otevřen
 
 - History disposition je vybraná jako `retain_and_rotate`; podepsaný history
   receipt zatím nevznikl a 13 známých incident objektů zůstává dosažitelných.
-- Produkční klíče mají být přesunuty beze změny identity na celý LUKS2 svazek
-  samostatného odpojitelného média. 16 GB je pro klíče, 13 receipts a manifesty
-  více než dostatečné. Konkrétní médium zatím nebylo připojeno ani změněno.
+- Médium A je vytvořené jako celý LUKS2 svazek na přesně připnutém removable
+  USB. Tři operátorské private keys byly zkopírované, odvozené public identity
+  souhlasí s trust storem a médium je zavřené a vypnuté. Online zdroj zatím
+  zůstává kvůli chybějící druhé ověřené offline kopii.
 - Reviewer key dál vyžaduje fyzicky oddělenou custody. Jeden společný disk tuto
   podmínku nesplní.
 
 Stav zůstává 0/8 category receipts, bez history receiptu a bez M5 acceptance.
 Privacy-safe inventura a přesná matice dalších akcí jsou v
 [`m5-operator-remediation-preflight-20260910.md`](../execution/runs/m5-operator-remediation-preflight-20260910.md).
+Přesná nesenzitivní evidence média A je v
+[`m5-offline-custody-a-20260910.md`](../execution/runs/m5-offline-custody-a-20260910.md).

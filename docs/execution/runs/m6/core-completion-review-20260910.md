@@ -157,10 +157,11 @@ green a čeká na úzké review.
 
 Operátor zvolil `retain_and_rotate`. History receipt zatím nevzniká: nejprve je
 nutné doložit všech osm kategorií credentials a přesunout podpisové klíče do
-offline custody. Pro budoucí custody je určen samostatný celý LUKS2 disk;
-aktuální JV-Drive zůstává NTFS a slouží oddělenému účelu. 16 GB pro klíče,
-13 receipts a manifesty postačuje s velkou rezervou, reviewer key však vyžaduje
-fyzicky oddělenou custody.
+offline custody. Samostatné removable médium A bylo převedené na celý LUKS2
+svazek, tři operátorské klíče na něm kryptograficky ověřené a médium zavřené a
+vypnuté. Online zdroj zůstává do druhé ověřené kopie; reviewer key vyžaduje
+jiné fyzické médium. JV-Drive zůstává NTFS a slouží oddělenému účelu. Přesný
+stav drží `m5-offline-custody-a-20260910.md`.
 
 ### Zachovaná hranice přímého chat probe
 
