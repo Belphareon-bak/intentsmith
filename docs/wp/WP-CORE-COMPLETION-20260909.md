@@ -518,7 +518,8 @@ případů, a kontrolou dalších čtyř ručních async harnessů omezilo blast
 dvě opravené suity. Jediný drobný restore nález uzavírá `b4136a43`: source
 migration se stejnou identitou jako historický allowlist už neskončí tichým Set
 sloučením, ale `BACKUP_SUPPORTED_SCHEMA_DUPLICATE`. Prošlo 20/20 restore, 1/1
-pre-082, 55/55 schema a 13/13 boundary; tento follow-up čeká na review. Poslední
+pre-082, 55/55 schema a 13/13 boundary; nezávislé úzké review follow-up přijalo.
+Poslední
 přečtený soak heartbeat je 16 hodin / 57608 požadavků / 0 chyb.
 
 Operátor současně zvolil `retain_and_rotate` a budoucí celý LUKS2 disk pro

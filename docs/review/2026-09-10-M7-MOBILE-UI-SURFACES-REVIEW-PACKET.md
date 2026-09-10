@@ -1,6 +1,7 @@
 # M7 mobile UI surfaces — review packet
 
-Review status: `REVIEW_REQUIRED`.
+Review status: `CHANGES_REQUIRED` on
+`427cc13e58df4d4394700aaec85132fa2eb9354c`.
 Candidate status: `IMPLEMENTATION_GREEN / HOST_GATE_GREEN / DEVICE_NOT_RUN /
 NOT_ACCEPTED`.
 
@@ -52,3 +53,9 @@ signers, release build or distribution.
 Please return one of `REVIEW_PASSED` or `CHANGES_REQUIRED` bound to the full
 candidate hash. M7 remains `NOT_ACCEPTED` after code review until its remaining
 physical and release prerequisites are separately evidenced.
+
+The independent result is preserved in
+[`2026-09-10-M7-MOBILE-UI-SURFACES-REVIEW-RESULT`](2026-09-10-M7-MOBILE-UI-SURFACES-REVIEW-RESULT.md).
+It accepted the five review questions and found one narrow pre-dispatch race in
+settings. The remediation candidate and exact reduced range are in the
+[`re-review packet`](2026-09-10-M7-MOBILE-UI-SURFACES-REREVIEW-PACKET.md).

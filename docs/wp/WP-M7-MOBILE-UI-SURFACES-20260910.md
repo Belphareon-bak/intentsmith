@@ -4,9 +4,9 @@
 
 **Base revision:** `8a811381519eb1e409b8953eb61ee1cc57c7858f`
 
-**Product candidate:** `427cc13e58df4d4394700aaec85132fa2eb9354c`
+**Product candidate:** `429b779f26b2f66a1c378e529c082d6b436609ca`
 
-**Status:** `IMPLEMENTATION_GREEN / HOST_GATE_GREEN / REVIEW_REQUIRED /
+**Status:** `REMEDIATION_IMPLEMENTED / HOST_GATE_GREEN / RE_REVIEW_REQUIRED /
 DEVICE_NOT_RUN / NOT_ACCEPTED`
 
 ## 1. User outcome
@@ -21,9 +21,15 @@ The implementation is split into two reviewable commits:
 1. `9d12cef04c3400699901eba3c3e62861ea324bf2` maps the five core operations in
    `m7-ui-api-adapter.js` and validates their response envelopes;
 2. `427cc13e58df4d4394700aaec85132fa2eb9354c` adds the three user surfaces,
-   mutation recovery rules and runtime coverage.
+   mutation recovery rules and runtime coverage;
+3. `429b779f26b2f66a1c378e529c082d6b436609ca` closes the settings
+   double-activation window found by independent review and adds its held-flush
+   regression.
 
-Review range: `8a811381519eb1e409b8953eb61ee1cc57c7858f..427cc13e58df4d4394700aaec85132fa2eb9354c`.
+Full candidate range:
+`8a811381519eb1e409b8953eb61ee1cc57c7858f..429b779f26b2f66a1c378e529c082d6b436609ca`.
+The original review result is `CHANGES_REQUIRED` on `427cc13e`; the exact narrow
+re-review range is `427cc13e..429b779f`.
 
 ## 2. Implemented boundary
 
@@ -32,7 +38,8 @@ Review range: `8a811381519eb1e409b8953eb61ee1cc57c7858f..427cc13e58df4d4394700aa
 - Settings expose only the five server-authorized `settings@1` fields. An update
   requires `write:settings`, a confirmed connection and the exact fresh snapshot
   revision. The journal is persisted before native dispatch and the UI performs
-  no optimistic write.
+  no optimistic write. Any open settings journal entry blocks another activation
+  before, during and after the encrypted flush.
 - Stored information lists only `manual_note` rows and can append a manual note
   with optional project and validated tags. The content draft is encrypted by
   the existing native domain store before dispatch.
@@ -61,4 +68,6 @@ signer, APK/AAB release build or distribution is established by host tests.
 
 Results: [execution handoff](../execution/runs/mobile/m7-ui-surfaces-20260910.md).
 Independent review input:
-[review packet](../review/2026-09-10-M7-MOBILE-UI-SURFACES-REVIEW-PACKET.md).
+[original packet](../review/2026-09-10-M7-MOBILE-UI-SURFACES-REVIEW-PACKET.md),
+[result](../review/2026-09-10-M7-MOBILE-UI-SURFACES-REVIEW-RESULT.md) and
+[narrow re-review packet](../review/2026-09-10-M7-MOBILE-UI-SURFACES-REREVIEW-PACKET.md).

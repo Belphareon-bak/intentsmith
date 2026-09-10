@@ -3,9 +3,8 @@
 Stav: dvě souborové schopnosti implementované; review kandidátu `ffa17a4a`
 skončilo bez blokujícího nálezu. Čtyři drobné nálezy jsou opravené v
 `cf4f4322` a úzké následné review je přijalo. Nejde o finální přijetí M2 ani
-vydání IntentSmith. Test-trust commit `c108da86` a restore základ `65bcbc4b`
-prošly úzkým review. Jediný drobný restore follow-up je implementovaný v
-`b4136a43` a čeká na review.
+vydání IntentSmith. Test-trust commit `c108da86`, restore základ `65bcbc4b` i
+jeho jediný drobný follow-up `b4136a43` prošly úzkým review.
 Rozsah dokončeného review vůči `7dacd466`: výpis kořene projektu a vysvětlení
 schváleného souboru. Pokus o stručnější SPEC byl vrácen; původní prompt je
 byte-identický.
@@ -91,7 +90,7 @@ Lokální důkazy jsou pod `.intentsmith-artifacts/core-completion-20260909/prov
 ## Co zbývá mimo tuto dávku
 
 Skutečné modelové vysvětlení, modelová kuchařka a společná release evidence na
-následném kandidátu. Restore follow-up `b4136a43` čeká na úzké review.
+následném kandidátu. Restore follow-up `b4136a43` úzké review přijalo.
 Předchozí fresh-clone 4/4 patří source 7fa6f985; nevydáváme jej za nové měření.
 Dřívější dlouhý soak na 193e2351 pokračuje odděleně. Poslední přečtený heartbeat
 má 15 hodin aktivního času / 54007 požadavků / 0 chyb; wall-clock běh zahrnuje
@@ -135,9 +134,9 @@ cache a prošlo; oba výsledky zůstávají zachované. Relevantní lokální d�
 
 Živá DB, služba, model bindings, klíče i Git historie zůstaly beze změny;
 senzitivní DB projekce byly odstraněny. Review přijalo tento restore základ a
-našlo jednu drobnou mezeru v duplicate guardu; navazující `b4136a43` ji opravil
-a má 20/20 restore, 1/1 pre-082, 55/55 schema a 13/13 boundary PASS. Stav je
-`BACKUP_COMPAT_REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED`. M5 dál blokuje offline
+našlo jednu drobnou mezeru v duplicate guardu; navazující `b4136a43` ji opravil,
+má 20/20 restore, 1/1 pre-082, 55/55 schema a 13/13 boundary PASS a nezávislé
+úzké review jej přijalo. Stav je `BACKUP_COMPAT_REMEDIATION_REVIEW_PASSED`. M5 dál blokuje offline
 custody, historie, provider receipts a acceptance. FILE_EXPLAIN modelový běh
 čeká na konec odděleného soaku.
 
@@ -152,8 +151,8 @@ U `65bcbc4b` review nezávisle potvrdilo tři historické stampy, tvarovou
 kompatibilitu náhradních migrací i 88→100 restore důkaz. Drobný nález byl, že
 source migration se stejnou identitou jako historical allowlist mohl projít
 přes `Set`. `b4136a43` kontroluje duplicity po sjednocení a přidává negativní
-test se skutečně znovuzavedeným `061` ID. Tento nový commit je implementation
-green a čeká na úzké review.
+test se skutečně znovuzavedeným `061` ID. Nezávislé úzké review potvrdilo, že
+oprava je minimální a správná; follow-up má stav `REVIEW_PASSED`.
 
 Operátor zvolil `retain_and_rotate`. History receipt zatím nevzniká: nejprve je
 nutné doložit všech osm kategorií credentials a přesunout podpisové klíče do

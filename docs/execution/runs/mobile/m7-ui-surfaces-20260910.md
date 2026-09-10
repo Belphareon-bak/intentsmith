@@ -1,12 +1,14 @@
 # M7 mobile UI surfaces — 2026-09-10
 
-Status: `IMPLEMENTATION_GREEN / HOST_GATE_GREEN / REVIEW_REQUIRED /
+Status: `REMEDIATION_IMPLEMENTED / HOST_GATE_GREEN / RE_REVIEW_REQUIRED /
 DEVICE_NOT_RUN / NOT_ACCEPTED`.
 
 Authority and exact scope:
 [`WP-M7-MOBILE-UI-SURFACES-20260910`](../../../wp/WP-M7-MOBILE-UI-SURFACES-20260910.md).
-Independent review input:
-[`review packet`](../../../review/2026-09-10-M7-MOBILE-UI-SURFACES-REVIEW-PACKET.md).
+Independent review:
+[`original packet`](../../../review/2026-09-10-M7-MOBILE-UI-SURFACES-REVIEW-PACKET.md),
+[`CHANGES_REQUIRED` result](../../../review/2026-09-10-M7-MOBILE-UI-SURFACES-REVIEW-RESULT.md)
+and [`narrow re-review packet`](../../../review/2026-09-10-M7-MOBILE-UI-SURFACES-REREVIEW-PACKET.md).
 Working branch: `work/mobile-completion-20260908`; no push, tag, merge, signing,
 device install or production activation was performed.
 
@@ -16,7 +18,10 @@ device install or production activation was performed.
 - adapter commit: `9d12cef04c3400699901eba3c3e62861ea324bf2`;
 - screen/runtime commit and product candidate:
   `427cc13e58df4d4394700aaec85132fa2eb9354c`;
-- review range: `8a811381519eb1e409b8953eb61ee1cc57c7858f..427cc13e58df4d4394700aaec85132fa2eb9354c`;
+- remediation commit and current product candidate:
+  `429b779f26b2f66a1c378e529c082d6b436609ca`;
+- full candidate range: `8a811381519eb1e409b8953eb61ee1cc57c7858f..429b779f26b2f66a1c378e529c082d6b436609ca`;
+- narrow re-review range: `427cc13e58df4d4394700aaec85132fa2eb9354c..429b779f26b2f66a1c378e529c082d6b436609ca`;
 - changed paths: `src/mobile/client/app.js`, `app.css`,
   `m7-ui-api-adapter.js` and their two existing M7 tests.
 
@@ -29,8 +34,10 @@ is limited to append-only manual notes.
 Both mutation surfaces write their recovery journal before dispatch. Settings
 remain server-valued until confirmation. An ambiguous note append becomes
 `UNKNOWN`, retains its encrypted operation draft and blocks a second blind
-submission. Offline and stale-setting attempts dispatch nothing; loss of scope
-purges the protected dataset and rejects an in-flight late response.
+submission. The review-found settings race is closed by treating the durable
+open journal entry as the write lock even before `settingsSaving` is set.
+Offline and stale-setting attempts dispatch nothing; loss of scope purges the
+protected dataset and rejects an in-flight late response.
 
 ## Measured verification
 
@@ -40,7 +47,7 @@ from `src/mobile/client`.
 | Check | Result |
 |---|---|
 | `npm run test:mobile` | 47/47 PASS; includes browser accessibility and M7 runtime |
-| `tests/m7-mobile-app-runtime.test.js` | 6/6 PASS through native `/remote/v1/invoke`; browser fetch count 0 |
+| `tests/m7-mobile-app-runtime.test.js` | 7/7 PASS through native `/remote/v1/invoke`; includes held-flush race; browser fetch count 0 |
 | `tests/m7-mobile-ui-api-adapter.test.js` | 8/8 PASS |
 | Android source/package comparison | `app.js`, `app.css` and M7 adapter byte-identical |
 | Gradle `test lint`, JDK 21 / Android SDK | `BUILD SUCCESSFUL`; 172 tasks, 0 command failure |
@@ -48,7 +55,7 @@ from `src/mobile/client`.
 | Artifact/documentation validation | 158/158 PASS |
 | Physical device, VPN, TalkBack | NOT RUN |
 | Production signing/build/distribution | NOT DONE |
-| Independent review / M7 acceptance | REQUIRED / NOT ACCEPTED |
+| Independent review / M7 acceptance | original `CHANGES_REQUIRED`; remediation `RE_REVIEW_REQUIRED` / NOT ACCEPTED |
 
 Retained local logs are under
 `.intentsmith-artifacts/m7-ui-surfaces-20260910/`:
