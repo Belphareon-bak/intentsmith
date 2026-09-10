@@ -58,3 +58,13 @@ destruktivní artifact authority.
   stejnou operation identity;
 - remote/credential/path/query origin skončí bez provider efektu;
 - chat cleanup nečte inventory, nevytváří preview a nemaže.
+
+## Current-snapshot re-review handoff 2026-09-11
+
+Pozdější modelové a serverové změny významně upravily konzumenty původního
+commitu `4f300269`. Exact current snapshot `12b63e58` proto znovu prošel sedmi
+registrovanými focused programy: 232/232 případů, bez fail/timeout/block/skip;
+artifact validation 158/158 a module ratchet 13/13 také prošly. Stav zůstává
+`RE_REVIEW_REQUIRED`, dokud reviewer neověří současné bloby a call graph.
+[Přesný packet](../review/2026-09-11-M6-L0-11-CURRENT-SNAPSHOT-REVIEW-PACKET.md)
+a [run evidence](../execution/runs/m6/m6-l0-11-current-snapshot-20260911.md).

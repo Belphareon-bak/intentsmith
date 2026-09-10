@@ -163,8 +163,11 @@ Implementované, ale zatím znovu nezreviewované bloky:
   migrační počty 56 → 87, celý canary a skutečný `lo`-only network namespace;
 - L0-11 durable model artifact authority podle Decision 037.
 
-L0-11 focused důkaz aktuálně tvoří 11/11 nových adversariálních checks,
-24/24 původní model-use, 8/8 VRAM a 108/108 binding/chat compatibility.
+L0-11 current-snapshot evidence na `12b63e58` tvoří 11/11 durable
+adversariálních checks, 27/27 model-use, 8/8 VRAM, 109/109 binding application,
+15/15 current registry, 7/7 gateway signal a 55/55 schema. Registrovaný audit
+má 7/7 programů PASS; support audit má artifact 158/158 a ratchet 13/13 PASS.
+Výsledek je `RE_REVIEW_REQUIRED`, nikoli L0-11 acceptance.
 Integrované schéma má 158 tabulek / 87 migrací a registr 465 programů, z toho
 371 ACTIVE a 366 `ACTIVE + required`. Registry nyní fail-closed zakazuje required external
 program, který committed runner musí vždy hard-blockovat; přesná disposition je

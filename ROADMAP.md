@@ -2849,6 +2849,18 @@ pokusy selhaly před inference a jsou zachované. Stav je
 vydávány za jeden release candidate. [Důkazy](docs/execution/runs/m6/m6-runtime-evidence-20260911.md)
 a [review packet](docs/review/2026-09-11-M6-RUNTIME-EVIDENCE-REVIEW-PACKET.md).
 
+### M6 L0-11 current-snapshot handoff (2026-09-11)
+
+Durable model artifact authority z `4f300269` byla znovu ověřena nad exact
+current snapshotem `12b63e58`, protože pozdější model evaluation, binding,
+gateway a server commity změnily její konzumenty. Sedm registrovaných programů
+má 7/7 PASS a dohromady 232/232 případů; support audit má artifact validation
+158/158 a module ratchet 13/13 PASS. Scope pinuje 17 současných source/test blobů
+a celý živý call graph. Stav je `CURRENT_SNAPSHOT_GREEN / RE_REVIEW_REQUIRED`;
+nejde o skutečný delete/pull, L0-11 review pass ani M6 acceptance.
+[Důkazy](docs/execution/runs/m6/m6-l0-11-current-snapshot-20260911.md) a
+[review packet](docs/review/2026-09-11-M6-L0-11-CURRENT-SNAPSHOT-REVIEW-PACKET.md).
+
 ## 14. Rozhodovací fronta — otázka až ve chvíli, kdy má data
 
 | Rozhodnutí | Kdy je skutečně potřeba | Jaká evidence musí být na stole |
