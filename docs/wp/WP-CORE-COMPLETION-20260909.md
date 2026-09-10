@@ -492,3 +492,11 @@ Cookbook14PASS17FAIL vrácen v 4410c360; původní prompt a4000 zůstávají.
 FILE_EXPLAIN modelový demo běh NOT_RUN. Finální přijetí M2 a release čeká.
 
 Aktuální uzavření na žádost operátora: [dva milníky k review a vrácený SPEC experiment](../execution/runs/m6/core-completion-review-20260910.md). Společný `2ceaf152`: 351 PASS / 1 FAIL v dokumentaci, který má samostatné ověření po opravě census/manifestu; nevzniká tvrzení nového společného výsledku 352 PASS ani release.
+
+Operátor 2026-09-10 následně výslovně obnovil autonomní dokončování projektu.
+První navazující test-trust milník `c108da86` opravuje dva ruční chat harnessy,
+které nečekaly na všechny asynchronní případy. Síťově izolovaný pipeline běh má
+po opravě 52/52 a output-quality 46/46 PASS; commit čeká na review. Současně
+pokračuje oddělený soak `193e2351` s posledním přečteným čtrnáctihodinovým
+heartbeatem 50407 požadavků / 0 chyb. FILE_EXPLAIN modelový demo běh zůstává
+do dokončení soaku `NOT_RUN`, aby se nesdílela jedna GPU autorita.

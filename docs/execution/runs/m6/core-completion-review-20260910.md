@@ -62,6 +62,12 @@ dosadil `globalThis.fetch`: pět asynchronních případů pak doběhlo před p�
 boundary ratchet zůstal na 1302 hranách a 3 cyklech / 28 členech; sleduje pouze
 hrany `src/` → `src/`, nikoli nový import z `src/` do `contracts/`.
 
+Test-trust follow-up `c108da86` odstranil příčinu proměnlivého součtu:
+`chat-pipeline` i sesterský `chat-output-quality` nejprve zaregistrují případy
+a potom je sekvenčně dokončí před `summary()`. Pipeline má v síťově odděleném
+namespace **52/52 PASS**, output-quality **46/46 PASS** a žádný model nebyl
+načten. Jde o test-only kandidát čekající na review; nemění produktové chování.
+
 Backendový snapshot má 233 cílených PASS a 11 plných produkčních migračních
 kontrol; předintegrační FILE_EXPLAIN má 36/36 a M1 companion 29/29. To jsou
 samostatně připnuté důkazy, nesčítají se do výsledku společného kandidáta.
@@ -83,12 +89,11 @@ Lokální důkazy jsou pod `.intentsmith-artifacts/core-completion-20260909/prov
 ## Co zbývá mimo tuto dávku
 
 Skutečné modelové vysvětlení, modelová kuchařka a společná release evidence na
-následném kandidátu. Legacy pipeline harness navíc nečeká na všechny spuštěné
-asynchronní případy; jeho přímý součet 47/47 proto není důkazem těch pěti
-nedokončených případů.
+následném kandidátu. Test-trust commit `c108da86` čeká na úzké review.
 Předchozí fresh-clone 4/4 patří source 7fa6f985; nevydáváme jej za nové měření.
-Dřívější dlouhý soak na 193e2351 pokračuje odděleně, poslední doložený heartbeat
-má 8 hodin / 28803 požadavků / 0 chyb, konečný výsledek ještě není k dispozici.
+Dřívější dlouhý soak na 193e2351 pokračuje odděleně. Poslední přečtený heartbeat
+má 14 hodin aktivního času / 50407 požadavků / 0 chyb; wall-clock běh zahrnuje
+uspání stroje a není 24hodinovým výsledkem. Konečný výsledek ještě není k dispozici.
 Otevřené návrhy SPEC 6000 a projectless-web nebyly schváleny. M5 vnější
 podmínky, podpisy a M7 fyzické ověření zůstávají samostatné. Nic se neposílalo,
 nepodepisovalo, nenasazovalo ani nemigrovalo v živé databázi.

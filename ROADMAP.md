@@ -2381,6 +2381,15 @@ review a release acceptance zbývají; soak 21603/0 je jen šestihodinový
 heartbeat historického `193e2351`.
 [Přesné source, raw důkazy a zachované neúspěchy](docs/execution/runs/m6/core-completion-followup-20260909.md).
 
+### Obnovené autonomní dokončování — 2026-09-10
+
+Navazující pokyn operátora obnovil dokončování po review souborové dávky.
+Test-only milník `c108da86` odstraňuje předčasné ukončení dvou ručních async
+chat harnessů; izolované výsledky jsou 52/52 pipeline a 46/46 output-quality
+PASS, review čeká. Oddělený soak na `193e2351` má zatím 14 hodin aktivního času /
+50407 požadavků / 0 chyb. Skutečný FILE_EXPLAIN modelový průchod poběží až po
+jeho dokončení.
+
 ## 12. Pravidla Work Package bez dalšího aparátu
 
 Aktivní WP se vejde do těchto osmi položek:
