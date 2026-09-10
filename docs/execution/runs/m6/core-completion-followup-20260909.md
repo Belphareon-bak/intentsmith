@@ -557,3 +557,5 @@ path recovery opravila uchování sedmi build souborů, nikoli výsledek testů.
 [specbudgetdraft]: ../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/completion-spec-budget-decision-20260909.md
 
 [specbudgetr]: ../../../../.intentsmith-artifacts/core-completion-20260909/provider-proposal/completion-spec-budget-decision-20260909.mobile-review.json
+
+Aktuální uzavření na žádost operátora: [dva milníky k review a vrácený SPEC experiment](core-completion-review-20260910.md). Společný `2ceaf152`: 351 PASS / 1 FAIL v dokumentaci, který má samostatné ověření po opravě census/manifestu; nevzniká tvrzení nového společného výsledku 352 PASS ani release.

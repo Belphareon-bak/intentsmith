@@ -438,7 +438,7 @@ souborů bylo zachyceno a úklid klonu/procesů potvrzen.
 Soak má jen sedmihodinový průběžný výsledek 25203/0 na starším source.
 To neuzavírá modelovou kuchařku, `file.list`, skutečné FILE_EXPLAIN,
 M5 externí podmínky, M2 konečné přijetí ani release. Hlavní profil4096
-ani výstup4000 se tím nemění; dva již předložené autoritní návrhy zůstávají
+ani výstup 4000 se tím nemění; dva již předložené autoritní návrhy zůstávají
 bez odpovědi. M7 zůstává oddělené.
 
 ### Navazující sada milníků k společnému review — zadání 2026-09-09 21:50 UTC
@@ -488,5 +488,7 @@ s oběma chat větvemi38/38, následná přesná úprava dvou migračních oček
 96→97. Přesun byte-identických list formatterů do existujícího file handleru
 zachovává3cykly/28členů; neotevírá se nová výjimka ratchetu. Společná sada
 bude připnuta po clean commitu. SPEC experimentea309 byl po skutečném
-Cookbook14PASS17FAIL vrácen4410c360; původní prompt a4000 zůstávají.
+Cookbook14PASS17FAIL vrácen v 4410c360; původní prompt a4000 zůstávají.
 FILE_EXPLAIN modelový demo běh NOT_RUN. Finální přijetí M2 a release čeká.
+
+Aktuální uzavření na žádost operátora: [dva milníky k review a vrácený SPEC experiment](../execution/runs/m6/core-completion-review-20260910.md). Společný `2ceaf152`: 351 PASS / 1 FAIL v dokumentaci, který má samostatné ověření po opravě census/manifestu; nevzniká tvrzení nového společného výsledku 352 PASS ani release.
