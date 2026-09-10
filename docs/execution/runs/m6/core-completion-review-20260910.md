@@ -2,8 +2,8 @@
 
 Stav: dvě souborové schopnosti implementované; review kandidátu `ffa17a4a`
 skončilo bez blokujícího nálezu. Čtyři drobné nálezy jsou opravené v
-`cf4f4322`; tento úzký následný commit čeká na review. Nejde o finální přijetí
-M2 ani vydání IntentSmith. Aktuální produktový kandidát je `cf4f4322`.
+`cf4f4322` a úzké následné review je přijalo. Nejde o finální přijetí M2 ani
+vydání IntentSmith. Aktuální produktový kandidát je `cf4f4322`.
 Rozsah dokončeného review vůči `7dacd466`: výpis kořene projektu a vysvětlení
 schváleného souboru. Pokus o stručnější SPEC byl vrácen; původní prompt je
 byte-identický.
@@ -55,8 +55,12 @@ modelový pokus a bezpečnostní hranice `file.list@2`. Čtyři neblokující n�
 jsou v `cf4f4322` opravené: prototype guard výstupního důkazu, bezpečná práce s
 non-Error rejection, nezávislost běžného read resume na metadatech vysvětlení a
 kanonický claim key. Cílené post-fix ověření má **29/29 contract, 39/39 file
-consumer, 36/36 persistence a 52/52 pipeline PASS**; běhy byly bez sítě.
-Module boundary ratchet zůstal na 1302 hranách a 3 cyklech / 28 členech.
+consumer a 36/36 persistence PASS**. Přímý pipeline runner hlásí **47/47 PASS**.
+Dříve zapsaných 52/52 vzniklo jen v měřicím wrapperu, který před importem
+dosadil `globalThis.fetch`: pět asynchronních případů pak doběhlo před předčasným
+`summary()` této legacy suity. Tento výsledek se nepoužívá jako důkaz. Module
+boundary ratchet zůstal na 1302 hranách a 3 cyklech / 28 členech; sleduje pouze
+hrany `src/` → `src/`, nikoli nový import z `src/` do `contracts/`.
 
 Backendový snapshot má 233 cílených PASS a 11 plných produkčních migračních
 kontrol; předintegrační FILE_EXPLAIN má 36/36 a M1 companion 29/29. To jsou
@@ -78,8 +82,10 @@ Lokální důkazy jsou pod `.intentsmith-artifacts/core-completion-20260909/prov
 
 ## Co zbývá mimo tuto dávku
 
-Úzké review opravy `cf4f4322`; skutečné modelové vysvětlení, modelová kuchařka
-a společná release evidence na následném kandidátu.
+Skutečné modelové vysvětlení, modelová kuchařka a společná release evidence na
+následném kandidátu. Legacy pipeline harness navíc nečeká na všechny spuštěné
+asynchronní případy; jeho přímý součet 47/47 proto není důkazem těch pěti
+nedokončených případů.
 Předchozí fresh-clone 4/4 patří source 7fa6f985; nevydáváme jej za nové měření.
 Dřívější dlouhý soak na 193e2351 pokračuje odděleně, poslední doložený heartbeat
 má 8 hodin / 28803 požadavků / 0 chyb, konečný výsledek ještě není k dispozici.
