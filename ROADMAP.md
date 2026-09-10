@@ -69,7 +69,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `8/9 REVIEW_PASSED / BACKUP_COMPAT_REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED / HISTORY_DECISION_RECORDED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_PARTIAL / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Review přijalo restore základ `65bcbc4b`; jeho jediný drobný nález opravuje `b4136a43` post-union kontrolou duplicit a regresí. Cíleně prošlo 20 restore, 1 pre-082 upgrade, 55 schema a 13 boundary kontrol. Operátor zvolil `retain_and_rotate`; receipt vznikne až po doložení všech osmi kategorií. LUKS2 médium A drží ověřenou offline kopii tří operátorských klíčů a je vypnuté. Online zdroj zatím zůstává do druhé ověřené kopie; reviewer private key potřebuje jiné fyzické médium. |
 | **M6 IntentSmith 1.0 release** | `SCOPED_REVIEW_PASSED / TEST_TRUST_REVIEW_PASSED / BACKUP_COMPAT_REMEDIATION_REVIEW_REQUIRED / MODEL_FAILURES_OPEN / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Souborové schopnosti a test-trust `c108da86` jsou revidované. Restore základ `65bcbc4b` je přijatý, follow-up `b4136a43` čeká na úzké review. Skutečný modelový demo běh FILE_EXPLAIN zůstává NOT_RUN. Soak na `193e2351` pokračuje, naposledy 16 hodin / 57608 požadavků / 0 chyb. Finální M2/M5/M6 přijetí, modelová kuchařka a M7 zbývají. [Předání a důkazy](docs/execution/runs/m6/core-completion-review-20260910.md). |
-| **M7 Remote Companion** | `FOLLOWUP_INTEGRATED / SCOPED_REVIEW_PASSED / NOT_ACCEPTED` | M6 + remote boundary | Release pojistky, canonical JSON corpus, opravený systemd renderer i nové APK/AAB na `70eef905` prošly scoped review. Artefakty jsou throwaway debug signed. UI mapping, produkční konfigurace, fyzická matice 13+7 a release podpisy nejsou hotové. |
+| **M7 Remote Companion** | `UI_SURFACES_IMPLEMENTED / REVIEW_REQUIRED / NOT_ACCEPTED` | M6 + remote boundary | Release pojistky a dřívější throwaway APK/AAB jsou scoped-reviewované. Kandidát `427cc13e` nyní mapuje projekty, bezpečný settings allowlist a ruční stored information do skutečných obrazovek; mobile 47/47 a Android test+lint prošly. Produkční konfigurace, fyzická matice 13+7, TalkBack a release podpisy nejsou hotové. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
 Gate 0 se znovu aktivuje pouze v M6 nad zmraženým kandidátem.
@@ -2803,6 +2803,23 @@ oracly; po jejich přesné opravě exact candidate `1b0654f0` prošel souvislým
 offline+database gate `330/330 PASS`. Nezávislé review je pending; runtime
 composition a transport nejsou aktivní. Přesný kontrakt práce drží
 [`WP-M7-SETTINGS-INFORMATION-CORE-ADAPTERS`](docs/wp/WP-M7-SETTINGS-INFORMATION-CORE-ADAPTERS.md).
+
+### M7 project/settings/stored-information screens (2026-09-10)
+
+Pět existujících core operací je na kandidátu `427cc13e` připojených přes
+připnutý nativní transport do skutečných obrazovek. Projekty jsou pouze pro
+čtení; settings zapisují jen pět povolených klíčů proti čerstvé exact revizi;
+stored information čte a přidává pouze ruční poznámky. Journal i šifrovaný
+draft vzniknou před dispatch. Nejednoznačný append zůstane `UNKNOWN` a další
+slepé odeslání je zablokované.
+
+Mobile gate prošel 47/47, source a Android assety jsou bajtově shodné a Gradle
+`test lint` s JDK 21 skončil `BUILD SUCCESSFUL`. Jde o host evidence: fyzický
+Android/VPN/TalkBack, produkční konfigurace, signer, release build a nezávislé
+review zůstávají otevřené. Stav je `IMPLEMENTATION_GREEN / HOST_GATE_GREEN /
+REVIEW_REQUIRED / DEVICE_NOT_RUN / NOT_ACCEPTED`. Přesný rozsah a reprodukce:
+[`WP`](docs/wp/WP-M7-MOBILE-UI-SURFACES-20260910.md) a
+[`handoff`](docs/execution/runs/mobile/m7-ui-surfaces-20260910.md).
 
 ## 14. Rozhodovací fronta — otázka až ve chvíli, kdy má data
 
