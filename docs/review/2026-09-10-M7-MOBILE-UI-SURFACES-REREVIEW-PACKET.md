@@ -1,8 +1,8 @@
 # M7 mobile UI surfaces — narrow re-review packet
 
-Review status: `RE_REVIEW_REQUIRED`.
+Review status: `REVIEW_PASSED`.
 
-Candidate status: `REMEDIATION_IMPLEMENTED / HOST_GATE_GREEN /
+Candidate status: `REVIEW_PASSED / HOST_GATE_GREEN /
 DEVICE_NOT_RUN / NOT_ACCEPTED`.
 
 Review exactly:
@@ -52,5 +52,6 @@ ratchet are rerun after the documentation commit. Physical Android/VPN/pairing/
 revocation/TalkBack, production credentials, release signing and distribution
 remain outside this host-only remediation and are still `NOT RUN / NOT DONE`.
 
-Please return `REVIEW_PASSED` or `CHANGES_REQUIRED` bound to the full candidate
-hash `429b779f26b2f66a1c378e529c082d6b436609ca`.
+The independent result is `REVIEW_PASSED` on the full candidate hash
+`429b779f26b2f66a1c378e529c082d6b436609ca`; see
+[the narrow re-review result](2026-09-11-M7-MOBILE-UI-SURFACES-REREVIEW-RESULT.md).

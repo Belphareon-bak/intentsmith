@@ -1,6 +1,6 @@
 # M7 mobile UI surfaces — 2026-09-10
 
-Status: `REMEDIATION_IMPLEMENTED / HOST_GATE_GREEN / RE_REVIEW_REQUIRED /
+Status: `REVIEW_PASSED / HOST_GATE_GREEN /
 DEVICE_NOT_RUN / NOT_ACCEPTED`.
 
 Authority and exact scope:
@@ -9,6 +9,9 @@ Independent review:
 [`original packet`](../../../review/2026-09-10-M7-MOBILE-UI-SURFACES-REVIEW-PACKET.md),
 [`CHANGES_REQUIRED` result](../../../review/2026-09-10-M7-MOBILE-UI-SURFACES-REVIEW-RESULT.md)
 and [`narrow re-review packet`](../../../review/2026-09-10-M7-MOBILE-UI-SURFACES-REREVIEW-PACKET.md).
+The narrow remediation has an independent
+[`REVIEW_PASSED` result](../../../review/2026-09-11-M7-MOBILE-UI-SURFACES-REREVIEW-RESULT.md)
+on exact candidate `429b779f`.
 Working branch: `work/mobile-completion-20260908`; no push, tag, merge, signing,
 device install or production activation was performed.
 
@@ -55,7 +58,7 @@ from `src/mobile/client`.
 | Artifact/documentation validation | 158/158 PASS |
 | Physical device, VPN, TalkBack | NOT RUN |
 | Production signing/build/distribution | NOT DONE |
-| Independent review / M7 acceptance | original `CHANGES_REQUIRED`; remediation `RE_REVIEW_REQUIRED` / NOT ACCEPTED |
+| Independent review / M7 acceptance | remediation `REVIEW_PASSED` on `429b779f`; M7 NOT ACCEPTED |
 
 Retained local logs are under
 `.intentsmith-artifacts/m7-ui-surfaces-20260910/`:

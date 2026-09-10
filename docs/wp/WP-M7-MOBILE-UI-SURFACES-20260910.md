@@ -6,7 +6,7 @@
 
 **Product candidate:** `429b779f26b2f66a1c378e529c082d6b436609ca`
 
-**Status:** `REMEDIATION_IMPLEMENTED / HOST_GATE_GREEN / RE_REVIEW_REQUIRED /
+**Status:** `REVIEW_PASSED / HOST_GATE_GREEN /
 DEVICE_NOT_RUN / NOT_ACCEPTED`
 
 ## 1. User outcome
@@ -71,3 +71,6 @@ Independent review input:
 [original packet](../review/2026-09-10-M7-MOBILE-UI-SURFACES-REVIEW-PACKET.md),
 [result](../review/2026-09-10-M7-MOBILE-UI-SURFACES-REVIEW-RESULT.md) and
 [narrow re-review packet](../review/2026-09-10-M7-MOBILE-UI-SURFACES-REREVIEW-PACKET.md).
+The remediation result is
+[`REVIEW_PASSED`](../review/2026-09-11-M7-MOBILE-UI-SURFACES-REREVIEW-RESULT.md)
+on exact candidate `429b779f`.
