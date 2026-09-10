@@ -22,15 +22,38 @@ import { strict as assert } from 'assert';
 let passed = 0;
 let failed = 0;
 const failures = [];
+const pendingSuites = [];
+let registeringSuite = null;
 
 function describe(name, fn) {
-  console.log(`\n${'═'.repeat(70)}`);
-  console.log(`  ${name}`);
-  console.log(`${'═'.repeat(70)}`);
-  fn();
+  const suite = { name, tests: [] };
+  const parent = registeringSuite;
+  registeringSuite = suite;
+  try {
+    fn();
+  } finally {
+    registeringSuite = parent;
+  }
+  pendingSuites.push(suite);
 }
 
-async function it(name, fn) {
+function it(name, fn) {
+  if (!registeringSuite) throw new Error(`Test declared outside a suite: ${name}`);
+  registeringSuite.tests.push({ name, fn });
+}
+
+async function runSuites() {
+  for (const suite of pendingSuites) {
+    console.log(`\n${'═'.repeat(70)}`);
+    console.log(`  ${suite.name}`);
+    console.log(`${'═'.repeat(70)}`);
+    for (const { name, fn } of suite.tests) {
+      await runTest(name, fn);
+    }
+  }
+}
+
+async function runTest(name, fn) {
   try {
     await fn();
     passed++;
@@ -724,6 +747,7 @@ try {
   await testT3_ConversationFlow();
   await testT4_BuildHandoffStateMachine();
   await testT5_QualityPipeline();
+  await runSuites();
 } catch (err) {
   console.error(`\n💥 FATAL: Test suite crashed: ${err.message}`);
   console.error(err.stack);
