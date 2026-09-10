@@ -195,3 +195,16 @@ přesunuty na šifrované odpojené médium nebo do ekvivalentního skutečně o
 signing prostředí; reviewer key musí mít oddělenou custody. Přesun stejných
 keypairů nemění trust store. Regenerace keypairů mění product candidate a
 vyžaduje další review.
+
+## Operátorský směr custody — 2026-09-10
+
+Operátor zvolil pro produkční offline custody celý LUKS2 šifrovaný filesystem
+na jiném odpojitelném médiu; aktuální NTFS zařízení není tímto cílem. Kapacita
+16 GB je pro čtyři PKCS#8 klíče, veřejné identity, 13 receipt envelopes a jejich
+manifesty s velkou rezervou dostačující. Přesný obsah a ověření vzniknou až nad
+konkrétním médiem, proto tento zápis není custody receipt.
+
+Reviewer key nesmí skončit ve stejné fyzické custody jako operátorské klíče.
+Vyžaduje samostatně držené médium nebo ekvivalentní oddělenou offline autoritu.
+Do připojení a ověření těchto prostředků zůstávají původní privátní klíče na
+online `/home` a stav `KEY_CUSTODY_CHANGES_REQUIRED` platí beze změny.

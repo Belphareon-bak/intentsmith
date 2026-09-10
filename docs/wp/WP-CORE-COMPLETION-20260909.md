@@ -511,3 +511,16 @@ a bajtově shodný backup→poškození→restore round-trip; živá DB nebyla z
 Stav je `BACKUP_COMPAT_IMPLEMENTATION_GREEN / REVIEW_REQUIRED`, nikoli M5
 acceptance. Soak mezitím dosáhl posledního přečteného stavu 15 hodin / 54007
 požadavků / 0 chyb a pokračuje; FILE_EXPLAIN proto zůstává `NOT_RUN`.
+
+Nezávislé review následně přijalo `c108da86` i restore základ `65bcbc4b`.
+Potvrdilo, že předchozích 47 pipeline výsledků bylo podhodnocení 52 deklarovaných
+případů, a kontrolou dalších čtyř ručních async harnessů omezilo blast radius na
+dvě opravené suity. Jediný drobný restore nález uzavírá `b4136a43`: source
+migration se stejnou identitou jako historický allowlist už neskončí tichým Set
+sloučením, ale `BACKUP_SUPPORTED_SCHEMA_DUPLICATE`. Prošlo 20/20 restore, 1/1
+pre-082, 55/55 schema a 13/13 boundary; tento follow-up čeká na review. Poslední
+přečtený soak heartbeat je 16 hodin / 57608 požadavků / 0 chyb.
+
+Operátor současně zvolil `retain_and_rotate` a budoucí celý LUKS2 disk pro
+offline custody. Výběr není 8/8 remediation, podpis ani přesun klíčů; reviewer
+key stále potřebuje oddělenou fyzickou custody.

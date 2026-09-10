@@ -406,7 +406,10 @@ Zůstávají v evidenci, aby se na ně nezapomnělo:
 
 - `P-001`..`P-003` — privátní materiál je v současném stromu kontejnovaný,
   v git historii zůstává dosažitelný. Rotace credentialů a rozhodnutí o historii
-  vyžadují akci operátora, dokud se to neudělá, expozice trvá;
+  vyžadují akci operátora, dokud se to neudělá, expozice trvá. Operátor
+  2026-09-10 vybral `retain_and_rotate`: historie zůstane zachovaná a všech osm
+  kategorií musí mít doloženou rotaci nebo podepsanou historickou
+  neaplikovatelnost. Výběr sám není dokončená remediation ani podepsaný receipt;
 - `G0-R018` — legacy listener zůstává na loopbacku, což je invariant L0-10.
   Dokud platí, není z toho aktivní riziko;
 - nezapojený `validateApiToken()` a chybějící globální auth guard patří do téhož

@@ -67,8 +67,8 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M2 Řízená práce nad projektem** | `ACCEPTED / CLOSEOUT_PASS` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
-| **M5 Production hardening** | `8/9 REVIEW_PASSED / BACKUP_COMPAT_IMPLEMENTATION_GREEN / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Decision 041 implementace dostala `REVIEW_PASSED` a trust store drží čtyři oddělené veřejné klíče. `65bcbc4b` opravuje restore živé DB se třemi podporovanými historickými migration ID; cílené testy, previous-version E2E a privátní backup round-trip prošly, ale commit čeká na review. Neoffline custody privátních klíčů zůstává otevřená. Doložení všech osmi kategorií, history disposition a podepsaná M5 acceptance zůstávají otevřené; N/A není rotace. |
-| **M6 IntentSmith 1.0 release** | `SCOPED_REVIEW_PASSED / TEST_TRUST_REVIEW_REQUIRED / BACKUP_COMPAT_REVIEW_REQUIRED / MODEL_FAILURES_OPEN / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Souborové schopnosti jsou implementované a revidované; skutečný modelový demo běh FILE_EXPLAIN zůstává NOT_RUN. Test-trust commit `c108da86` má 52/52 pipeline a 46/46 output-quality PASS. Navazující `65bcbc4b` prošel previous-version upgrade/rollback E2E. Oba čekají na review. Soak na `193e2351` pokračuje, naposledy 15 hodin / 54007 požadavků / 0 chyb. Neúspěšný stručný SPEC (14PASS/17FAIL) byl vrácen. Finální M2/M5/M6 přijetí, modelová kuchařka a M7 zbývají. [Předání a důkazy](docs/execution/runs/m6/core-completion-review-20260910.md). |
+| **M5 Production hardening** | `8/9 REVIEW_PASSED / BACKUP_COMPAT_REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED / HISTORY_DECISION_RECORDED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Review přijalo restore základ `65bcbc4b`; jeho jediný drobný nález opravuje `b4136a43` post-union kontrolou duplicit a regresí. Cíleně prošlo 20 restore, 1 pre-082 upgrade, 55 schema a 13 boundary kontrol. Operátor zvolil `retain_and_rotate`; receipt vznikne až po doložení všech osmi kategorií. Privátní klíče zatím zůstávají online a reviewer custody není oddělená. |
+| **M6 IntentSmith 1.0 release** | `SCOPED_REVIEW_PASSED / TEST_TRUST_REVIEW_PASSED / BACKUP_COMPAT_REMEDIATION_REVIEW_REQUIRED / MODEL_FAILURES_OPEN / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Souborové schopnosti a test-trust `c108da86` jsou revidované. Restore základ `65bcbc4b` je přijatý, follow-up `b4136a43` čeká na úzké review. Skutečný modelový demo běh FILE_EXPLAIN zůstává NOT_RUN. Soak na `193e2351` pokračuje, naposledy 16 hodin / 57608 požadavků / 0 chyb. Finální M2/M5/M6 přijetí, modelová kuchařka a M7 zbývají. [Předání a důkazy](docs/execution/runs/m6/core-completion-review-20260910.md). |
 | **M7 Remote Companion** | `FOLLOWUP_INTEGRATED / SCOPED_REVIEW_PASSED / NOT_ACCEPTED` | M6 + remote boundary | Release pojistky, canonical JSON corpus, opravený systemd renderer i nové APK/AAB na `70eef905` prošly scoped review. Artefakty jsou throwaway debug signed. UI mapping, produkční konfigurace, fyzická matice 13+7 a release podpisy nejsou hotové. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
@@ -2403,6 +2403,25 @@ backup→poškození→restore round-trip s `integrity_check=ok` a nulou FK poru
 Živá DB ani služba nebyly změněny. Stav je
 `BACKUP_COMPAT_IMPLEMENTATION_GREEN / REVIEW_REQUIRED`; M5 custody, historie,
 provider receipts a acceptance zůstávají blokované.
+
+### Review test-trust, restore a rozhodnutí historie — 2026-09-10
+
+Nezávislé úzké review přijalo `c108da86`: starých 47 pipeline výsledků bylo
+nedůvěryhodné podhodnocení 52 deklarovaných případů. Kontrola čtyř dalších
+ručních async harnessů další ztrátu případů nenašla. Review přijalo také premisu
+a implementaci `65bcbc4b`; jediný drobný nález byl chybějící duplicate guard po
+spojení source manifestu s historickým allowlistem. `b4136a43` jej uzavírá
+fail-closed kontrolou a skutečnou reintrodukcí historického ID v testu. Aktuální
+ověření je 20/20 restore, 1/1 pre-082, 55/55 schema a 13/13 boundary; follow-up
+čeká na úzké review.
+
+Operátor zvolil `retain_and_rotate`. Třináct známých incident objektů proto
+zůstane v historii a všechna dříve použitelná credentials musí být zneplatněna;
+historicky neexistující nebo nepoužitelná autorita musí mít podepsaný důkaz N/A.
+Volba je zaznamenaná, ale 0/8 kategorií a chybějící history receipt se tím
+nemění. Pro offline klíče byl zvolen celý LUKS2 svazek na samostatném budoucím
+médiu; žádný klíč zatím přesunut nebyl a reviewer key stále vyžaduje fyzicky
+oddělenou custody.
 
 ## 12. Pravidla Work Package bez dalšího aparátu
 

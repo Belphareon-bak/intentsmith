@@ -76,3 +76,15 @@ provedená rotace. Smíšený souhrn používá verzi 3 a M5 acceptance payload 
 Jde o opravu reprezentace původně podmíněného požadavku. Žádná konkrétní
 kategorie nebyla tímto upřesněním označena N/A a nevznikl operátorský podpis,
 revokace, history disposition ani M5 acceptance.
+
+## Operátorský výběr history disposition — 2026-09-10
+
+Operátor výslovně zvolil `retain_and_rotate`. Repo historie se nebude
+přepisovat ani nahrazovat novým kořenem. Dokončená akce v budoucím
+`PrivacyHistoryReceipt@1` proto musí být `retained` a M5 acceptance musí nést
+stejnou disposition.
+
+Tento zápis zachycuje rozhodnutí, nikoli dokončení incidentu. History receipt
+nebyl podepsán a zůstává podmíněný úplným, ověřitelným řetězcem osmi category
+receipts. Aktuální stav zůstává 0/8 a známých 13 incident objektů zůstává
+dosažitelných.

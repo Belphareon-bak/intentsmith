@@ -151,3 +151,15 @@ Git/CLI smíšeného řetězce a nezávislého source review.
 Aktuální provozní stav tím není přijat: historické použití musí doložit
 operátor, současná absence konfigurace není důkaz neaplikovatelnosti.
 Custody, skutečné operace, podpisy a history disposition zůstávají otevřené.
+
+## Operátorská rozhodnutí 2026-09-10
+
+- History disposition je vybraná jako `retain_and_rotate`; podepsaný history
+  receipt zatím nevznikl a 13 známých incident objektů zůstává dosažitelných.
+- Produkční klíče mají být přesunuty beze změny identity na celý LUKS2 svazek
+  samostatného odpojitelného média. 16 GB je pro klíče, 13 receipts a manifesty
+  více než dostatečné. Konkrétní médium zatím nebylo připojeno ani změněno.
+- Reviewer key dál vyžaduje fyzicky oddělenou custody. Jeden společný disk tuto
+  podmínku nesplní.
+
+Stav zůstává 0/8 category receipts, bez history receiptu a bez M5 acceptance.
