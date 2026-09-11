@@ -236,3 +236,10 @@ na 0.34.0. Systémový upgrade zůstává samostatná instalační operace.
 C3_DB_PATH=/absolutni/provozni.db node scripts/model-upgrade-hunt.js --bootstrap --shortlist --json
 C3_DB_PATH=/absolutni/provozni.db node scripts/run-model-hunt-provider.js --run --installed-panel --role=CODE,VISION --limit=10 --scheduled --keep-inconclusive
 ```
+
+Reprodukovatelná instalace uživatelského runtime používá
+`scripts/install-user-evaluation-runtime.sh PATCHED_BINARY UPSTREAM_ARCHIVE`.
+Archiv je oficiální `ollama-linux-amd64.tar.zst` z
+[release v0.34.0](https://github.com/ollama/ollama/releases/tag/v0.34.0).
+Instalátor kontroluje oba připnuté SHA před rozbalením a odmítne přepsat
+existující runtime. Systémovou službu a modelový sklad nemění.
