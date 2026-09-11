@@ -11,6 +11,7 @@ import {
   buildCandidates, getUpgradeHints, UPGRADE_HINTS,
 } from '../src/upgrade/model-discovery.js';
 import { UpgradeManager } from '../src/upgrade/upgrade-manager.js';
+import { checkOllamaUpdate, OLLAMA_LATEST_RELEASE_URL } from '../src/upgrade/ollama-update-check.js';
 import Database from 'better-sqlite3';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -32,6 +33,96 @@ import {
 } from '../src/upgrade/gpu-evaluation-lock.js';
 
 const ASYNC_TEST_TIMEOUT_MS = 10_000;
+
+suite('Ollama release autocheck');
+const releaseFixture = (tag = 'v0.34.0') => ({
+  tag_name: tag, draft: false, prerelease: false,
+  published_at: '2026-09-05T23:49:00Z',
+  html_url: `https://github.com/ollama/ollama/releases/tag/${tag}`,
+});
+const metadataResponse = data => new Response(JSON.stringify(data));
+
+await testAsync('detects upstream updates numerically without authorizing installation or digest compatibility', async () => {
+  for (const [installed, latest, expected] of [
+    ['0.32.14-intentsmith.1', 'v0.34.0', 'UPDATE_AVAILABLE'],
+    ['0.9.0', 'v0.10.0', 'UPDATE_AVAILABLE'],
+    ['0.34.0-intentsmith.1', 'v0.34.0', 'UP_TO_DATE'],
+    ['0.34.0-rc.1', 'v0.34.0', 'UPDATE_AVAILABLE'],
+    ['0.35.0', 'v0.34.0', 'AHEAD_OF_UPSTREAM'],
+  ]) {
+    const calls = [];
+    const result = await checkOllamaUpdate({
+      enabled: true,
+      localFetch: async (url, init) => {
+        calls.push(url);
+        assertEqual(init.method, 'GET');
+        assertEqual(init.redirect, 'error');
+        return metadataResponse({ version: installed });
+      },
+      releaseFetch: async (url, init) => {
+        calls.push(url);
+        assertEqual(init.method, 'GET');
+        return metadataResponse(releaseFixture(latest));
+      },
+    });
+    assertEqual(result.status, expected);
+    assertEqual(result.compatibility.status, 'UNVERIFIED');
+    assertEqual(result.automaticInstall, false);
+    assertEqual(calls.join(','), `http://127.0.0.1:11434/api/version,${OLLAMA_LATEST_RELEASE_URL}`);
+  }
+});
+
+await testAsync('opt-out and unsupported provider origins produce no transport', async () => {
+  let calls = 0;
+  const fail = async () => { calls++; throw new Error('must not fetch'); };
+  for (const enabled of [false, undefined, 'true']) {
+    assertEqual((await checkOllamaUpdate({ enabled, localFetch: fail, releaseFetch: fail })).status, 'DISABLED');
+  }
+  const result = await checkOllamaUpdate({ enabled: true, baseUrl: 'https://example.com', localFetch: fail, releaseFetch: fail });
+  assertEqual(result.status, 'CHECK_FAILED');
+  assertEqual(calls, 0);
+});
+
+await testAsync('partial, malformed, prerelease and failed metadata never reports up-to-date', async () => {
+  for (const response of [
+    () => new Response('{}', { status: 503 }),
+    () => metadataResponse({ ...releaseFixture(), prerelease: true }),
+    () => metadataResponse({ ...releaseFixture(), draft: true }),
+    () => metadataResponse({ ...releaseFixture(), html_url: 'https://evil.test' }),
+    () => metadataResponse({ ...releaseFixture(), published_at: null }),
+    () => metadataResponse(releaseFixture('v0.35.0-rc1')),
+    () => new Response('{broken'),
+    () => new Response('x'.repeat(256 * 1024 + 1)),
+    () => { throw new Error('offline'); },
+  ]) {
+    const result = await checkOllamaUpdate({ enabled: true,
+      localFetch: async () => metadataResponse({ version: '0.32.14-intentsmith.1' }), releaseFetch: response });
+    assertEqual(result.status, 'CHECK_FAILED');
+    assertEqual(result.installed.version, '0.32.14-intentsmith.1');
+    assertEqual(result.latest, null);
+    assertEqual(result.errors.length, 1);
+  }
+  for (const installed of ['garbage', '9007199254740992.0.0', null]) {
+    const result = await checkOllamaUpdate({ enabled: true,
+      localFetch: async () => metadataResponse({ version: installed }),
+      releaseFetch: async () => metadataResponse(releaseFixture()) });
+    assertEqual(result.status, 'CHECK_FAILED');
+    assertEqual(result.latest.version, '0.34.0');
+  }
+});
+
+await testAsync('manager exposes provider result and refreshes on explicit provider check', async () => {
+  const originalFetch = globalThis.fetch;
+  let checks = 0;
+  const mgr = new UpgradeManager({ checkOllamaUpdate: async () => ({ status: 'UPDATE_AVAILABLE', check: ++checks }) });
+  globalThis.fetch = async () => metadataResponse({ models: [] });
+  try {
+    assertEqual((await mgr.checkForUpgrades()).ollamaUpdate.check, 1);
+    assertEqual((await mgr.checkForUpgrades()).ollamaUpdate.check, 1);
+    assertEqual((await mgr.checkForUpgrades({ checkProvider: true })).ollamaUpdate.check, 2);
+    assertEqual(mgr.getLastResults().ollamaUpdate.check, 2);
+  } finally { globalThis.fetch = originalFetch; }
+});
 
 test('GPU evaluation lock excludes a concurrent live process and releases cleanly', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'intentsmith-gpu-lock-test-'));

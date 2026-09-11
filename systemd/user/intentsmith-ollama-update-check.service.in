@@ -1,0 +1,10 @@
+[Unit]
+Description=IntentSmith Ollama release check (metadata only)
+
+[Service]
+Type=oneshot
+WorkingDirectory=@PROJECT_ROOT@
+ExecStart=@NODE_BIN@ @PROJECT_ROOT@/scripts/check-ollama-upgrade.js --json
+TimeoutStartSec=45s
+UMask=0077
+NoNewPrivileges=true

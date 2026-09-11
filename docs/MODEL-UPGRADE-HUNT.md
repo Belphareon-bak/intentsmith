@@ -103,7 +103,39 @@ gateway kvalifikace jsou popsány v
 Případný evaluační sidecar používá pouze `127.0.0.1:11435` po dobu
 sériového scoringu. Nemění nastavení systémové služby.
 
-## Plánovaný hunt
+## Automatická kontrola vydání Ollamy
+
+Kontrola verze provideru běží při startu `UpgradeManager`, v jeho denním
+full cycle a při explicitním `POST /api/system/upgrades/check`. Výsledek
+`ollamaUpdate` je dostupný také přes `GET /api/system/upgrades`.
+Používá lokální `GET /api/version` a jediný auditovaný upstream endpoint
+`https://api.github.com/repos/ollama/ollama/releases/latest`. Stejný přepínač
+`C3_ENABLE_ONLINE_DISCOVERY=false` vypne i tuto kontrolu.
+
+Nezávisle na běžícím serveru a GPU huntu lze spustit:
+
+```bash
+node scripts/check-ollama-upgrade.js --json
+```
+
+Šablony `systemd/user/intentsmith-ollama-update-check.{service,timer}.in`
+zajišťují denní metadata check. Při instalaci nahraď `@PROJECT_ROOT@`
+ověřeným checkoutem a `@NODE_BIN@` absolutní cestou Node. Tento timer je
+oddělený od GPU huntu a může běžet, i když je hunt vypnutý.
+Výsledek s časem kontroly leží v
+`${XDG_STATE_HOME:-~/.local/state}/intentsmith/ollama-upgrade/latest.json`,
+vedle je append-only outbound audit. `--state-dir=/absolutní/cesta` umožní
+izolovaný běh bez produktové DB.
+
+`UPDATE_AVAILABLE` znamená nové stabilní upstream vydání. `UP_TO_DATE`
+porovnává pouze verze; lokální suffix `-intentsmith.N` neznamená starší RC.
+Offline, HTTP chyba a neplatná metadata vracejí `CHECK_FAILED` (CLI exit 1),
+nikdy falešné „aktuální“. `DISABLED` neprovádí síťové požadavky.
+Kompatibilita je vždy `UNVERIFIED`: každá nová binárka potřebuje reálné
+ověření response digestu, streamingu a GPU běhu. Check nic neinstaluje,
+nerestartuje provider a nemění modely ani bindingy.
+
+## Plánovaný GPU hunt
 
 User timer používá šablony
 `systemd/user/intentsmith-model-hunt.service.in` a

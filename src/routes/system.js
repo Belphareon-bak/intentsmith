@@ -845,7 +845,7 @@ export function createSystemRoutes({
     // Discovery status. Candidate metadata is never a quality decision.
     'GET /api/system/upgrades': (req, res) => {
       try {
-        const { discovery } = upgradeManager.getLastResults();
+        const { discovery, ollamaUpdate } = upgradeManager.getLastResults();
         sendJSON(res, 200, {
           authority: {
             discoveryOnly: true,
@@ -859,6 +859,7 @@ export function createSystemRoutes({
             timestamp: discovery.timestamp,
           } : null,
           lastCheckTime: upgradeManager._lastCheckTime,
+          ollamaUpdate: ollamaUpdate ?? null,
           history: upgradeManager.getHistory(),
         });
       } catch (err) {
@@ -870,10 +871,11 @@ export function createSystemRoutes({
     'POST /api/system/upgrades/check': async (req, res) => {
       try {
         const body = await parseBody(req).catch(() => ({}));
-        const opts = {};
+        const opts = { checkProvider: true };
         if (body.fullCycle) opts.fullCycle = true;
-        const { discovery } = await upgradeManager.checkForUpgrades(opts);
+        const { discovery, ollamaUpdate } = await upgradeManager.checkForUpgrades(opts);
         sendJSON(res, 200, {
+          ollamaUpdate: ollamaUpdate ?? null,
           authority: {
             discoveryOnly: true,
             qualityRecommendation: false,

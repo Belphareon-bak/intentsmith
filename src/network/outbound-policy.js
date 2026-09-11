@@ -91,6 +91,20 @@ const MODEL_DISCOVERY_OUTBOUND_CAPABILITY = createOutboundCapability({
   validateTarget: validModelDiscoveryTarget,
 });
 
+// Provider release metadata shares the discovery opt-out, but has a separate
+// capability: model metadata consumers cannot use it to fetch GitHub content.
+const OLLAMA_RELEASE_OUTBOUND_CAPABILITY = createOutboundCapability({
+  surface: 'model-discovery',
+  scope: 'provider.release.read',
+  validateTarget: ({ url, method, headers, hasBody }) =>
+    url.href === 'https://api.github.com/repos/ollama/ollama/releases/latest'
+    && method === 'GET' && !hasBody
+    && exactHeaders(headers, [
+      ['accept', 'application/vnd.github+json'],
+      ['user-agent', 'intentsmith/1.0'],
+    ]),
+});
+
 const runtimeTransport = typeof globalThis.fetch === 'function'
   ? globalThis.fetch.bind(globalThis)
   : null;
@@ -282,6 +296,7 @@ export function createOutboundPolicy({
       init,
       MODEL_DISCOVERY_OUTBOUND_CAPABILITY,
     ),
+    ollamaReleaseFetch: (input, init) => governedFetch(input, init, OLLAMA_RELEASE_OUTBOUND_CAPABILITY),
     summary: options => audit.summary(options),
   });
 }
@@ -309,6 +324,13 @@ export function modelDiscoveryFetch(input, init) {
 
 export function getOutboundDiagnostics() {
   return productionPolicy ? productionPolicy.summary() : null;
+}
+
+export function ollamaReleaseFetch(input, init) {
+  if (!productionPolicy) {
+    throw typedError(OUTBOUND_ERROR_CODE.AUDIT_UNAVAILABLE, 'Production outbound policy is not configured');
+  }
+  return productionPolicy.ollamaReleaseFetch(input, init);
 }
 
 export const _testInternals = Object.freeze({ authorityValue, isLoopback, requestUrl });

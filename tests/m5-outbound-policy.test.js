@@ -43,6 +43,39 @@ function harness({ enabled = false, transport } = {}) {
 
 suite('M5 outbound policy and append-only audit');
 
+await testAsync('provider release metadata has an exact distinct capability, audit and opt-out', async () => {
+  const { database, calls, policy } = harness({ enabled: true });
+  const target = 'https://api.github.com/repos/ollama/ollama/releases/latest';
+  const headers = { Accept: 'application/vnd.github+json', 'User-Agent': 'intentsmith/1.0' };
+  await policy.ollamaReleaseFetch(target, { headers });
+  assert.equal(calls.length, 1);
+  assert.deepEqual(database.prepare('SELECT phase, scope, decision FROM m5_outbound_audit_events ORDER BY occurred_at_ms').all(), [
+    { phase: 'decision', scope: 'provider.release.read', decision: 'allow' },
+    { phase: 'terminal', scope: 'provider.release.read', decision: 'succeeded' },
+  ]);
+  for (const [url, init] of [
+    [target + '?private=data', { headers }], [target + '#secret', { headers }],
+    [target.replace('/latest', ''), { headers }],
+    [target.replace('/ollama/ollama/', '/other/repo/'), { headers }],
+    [target, { headers, method: 'POST' }], [target, { headers, body: 'secret' }],
+    [target, { headers: { ...headers, Authorization: 'secret' } }],
+    ['https://ollama.com/library', { headers }],
+  ]) await assert.rejects(policy.ollamaReleaseFetch(url, init), error => error.code === OUTBOUND_ERROR_CODE.TARGET_CONTRACT_DENIED);
+  await assert.rejects(policy.modelDiscoveryFetch(target, { headers }), error => error.code === OUTBOUND_ERROR_CODE.TARGET_CONTRACT_DENIED);
+  await assert.rejects(policy.fetch(target, { headers }), error => error.code === OUTBOUND_ERROR_CODE.SCOPE_REQUIRED);
+  assert.equal(calls.length, 1);
+  const disabled = harness();
+  await assert.rejects(disabled.policy.ollamaReleaseFetch(target, { headers }), error => error.code === OUTBOUND_ERROR_CODE.SURFACE_DISABLED);
+  assert.equal(disabled.calls.length, 0);
+  let redirects = 0;
+  const redirected = harness({ enabled: true, transport: async () => {
+    redirects++;
+    return new Response(null, { status: 302, headers: { location: 'https://evil.test' } });
+  } });
+  await assert.rejects(redirected.policy.ollamaReleaseFetch(target, { headers }), error => error.code === OUTBOUND_ERROR_CODE.TARGET_CONTRACT_DENIED);
+  assert.equal(redirects, 1);
+});
+
 await testAsync('hunt tag metadata is audited and bounded to the library family', async () => {
   const { database, calls, policy } = harness({ enabled: true });
   const target = 'https://ollama.com/library/devstral-small-2/tags';
