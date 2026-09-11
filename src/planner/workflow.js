@@ -35,6 +35,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { logger } from '../core/logger.js';
+import { ModelResponseTruncatedError } from '../core/chat-turn-error.js';
 import { config } from '../config.js';
 import { callWithAuth, callWithPolicy } from '../llm/gateway.js';
 import {
@@ -159,6 +160,11 @@ async function callLLM(role, prompt, systemPrompt = '', options = {}) {
       timeout,
       ...options,
     });
+    // Every CODE consumer must see a terminal failure before it can persist or
+    // apply incomplete code, including the lifecycle cookbook's test executor.
+    if (role === 'CODE' && result?.finishReason === 'length') {
+      throw new ModelResponseTruncatedError();
+    }
     return {
       content: typeof result === 'string' ? result : (result.content || ''),
       model,
@@ -510,7 +516,15 @@ export class WorkflowOrchestrator {
       throw new Error(`Session is in ${session.state}, not AWAITING_APPROVAL`);
     }
 
-    return this._executeWorkflow(session);
+    try {
+      return await this._executeWorkflow(session);
+    } catch (error) {
+      if (error?.code === 'MODEL_RESPONSE_TRUNCATED') {
+        session.transition(WorkflowState.FAILED);
+        this._persist(session);
+      }
+      throw error;
+    }
   }
 
   /**
@@ -861,6 +875,9 @@ export class WorkflowOrchestrator {
       // Retry build verification
       return this._buildVerify(session);
     } catch (err) {
+      // Truncated repair code cannot fall through to a reviewer and become a
+      // success. The approval boundary records the failed workflow terminal.
+      if (err?.code === 'MODEL_RESPONSE_TRUNCATED') throw err;
       logger.error('Workflow', `Build verification error: ${err.message}`, { sessionId: session.id });
       // Non-fatal — fall through to LLM review
       session.addStep(new StepResult({

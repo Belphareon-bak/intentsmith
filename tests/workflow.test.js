@@ -613,6 +613,29 @@ suite('Workflow callLLM — gateway completion evidence');
 // The real wrapper and callWithAuth run; only the gateway effect is inert.
 // No inference, persistence, retry policy or model authority is exercised here.
 
+await testAsync('truncated CODE fails the approved production workflow before implementation persistence or review', async () => {
+  const originalCall = llmGateway.call;
+  const orchestrator = new WorkflowOrchestrator();
+  const session = new WorkflowSession('truncated-code-fixture', 'Implement a single Python file');
+  session.state = WorkflowState.AWAITING_APPROVAL;
+  session.plan = { title: 'Fixture', steps: [{ id: 'one', action: 'create', description: 'one file' }] };
+  orchestrator.sessions.set(session.id, session);
+  let calls = 0; let reviews = 0; let error;
+  orchestrator._buildVerify = async () => { reviews++; throw new Error('incomplete code reached verification'); };
+  try {
+    // Even syntactically valid-looking bytes are incomplete when the provider
+    // reports length. Do not let content parsing override that terminal fact.
+    llmGateway.call = async () => { calls++; return { content: 'print("valid-looking")', finishReason: 'length' }; };
+    try { await orchestrator.approve(session.id); } catch (caught) { error = caught; }
+    assertEqual(error?.code, 'MODEL_RESPONSE_TRUNCATED');
+    assertEqual(session.state, WorkflowState.FAILED);
+    assertEqual(session.implementation, null);
+    assertEqual(session.history.length, 0);
+    assertEqual(reviews, 0);
+    assertEqual(calls, 1, 'truncation creates no hidden retry');
+  } finally { llmGateway.call = originalCall; }
+});
+
 await testAsync('preserves actual stop/length evidence and request authority', async () => {
   const originalCall = llmGateway.call;
   const requests = [];

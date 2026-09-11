@@ -26,7 +26,10 @@ Tento brief nezakládá přijetí budoucích technických návrhů ani release.
   `src/network/conversation-web-*.js`, migrace 111 a registrace typed writeru,
   odpovídající testy a popis scope. Změřený opakovaný 120s timeout úplného
   SPEC navíc opravuje pevný 240s budget pouze v `callSpecDocumentLLM`, se
-  zachováním ostatních modelových limitů a novým review požadavkem.
+  zachováním ostatních modelových limitů a novým review požadavkem. Tentýž
+  reálný běh odkryl předávání neúplného CODE výstupu jako implementace; rozsah
+  oprav proto zahrnuje shared typed truncation guard a FAILED terminál ve
+  workflow, bez navýšení CODE limitu či změny produkčního context profilu.
 - Zakázáno: měnit živou DB či bindingy, rotovat neidentifikované credentials,
   podepisovat nedoložené receipts, měnit klíče/cizí procesy, publikovat release,
   implementovat budoucí trénink nebo odložené plochy pouze na základě návrhu.

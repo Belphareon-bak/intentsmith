@@ -72,3 +72,9 @@ operace zachovávají dosavadní roli a timeout. Pořád jde nejvýše o jeden
 provider pokus, bez snížení obsahové validace, bez změny modelu a bez přijetí
 16384 kontextu do provozní konfigurace. Tato dodatečná změna čeká na nové
 nezávislé review a aktuální modelový výsledek. Žádná M6 acceptance.
+
+Třetí privátní běh `15426214` už dokončil oba revizní požadavky a plán.
+U nutričního SPEC raw odpověď prokázala 4417 výstupních tokenů, 6744 vstupních
+a `stop` při kontextu 16384. Běh byl později zastaven na samostatně zjištěném
+CODE truncation/syntax problému; nejde o kompletní cookbook PASS. Podrobný
+aktuální stav je v SYSTEM-MAP a závěrečném run reportu oprav.

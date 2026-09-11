@@ -133,8 +133,8 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **222 534 ř.**, 604 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **240 576 ř.**, 520 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **222 551 ř.**, 604 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **240 599 ř.**, 520 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **514** (`420 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **174 / 98** |
 | HTTP rout | ~230 |
@@ -427,8 +427,9 @@ modelové výsledky shrnuje [M6 checkpoint](docs/execution/runs/m6/core-completi
 
 | Vada | Blokuje | Kauzalita | Priorita |
 |---|---|---|---|
+| Použitelný generovaný kód, audit 2026-09-11 | Dokončení M6 projektu a release | Privátní cookbook na `15426214` s 16384 contextem a 240s SPEC budgetem dokončil SPEC, obě revize i plán. CODE poté třikrát skončil `length` na 4096 tokenech; testovací executor zapsal neúplné soubory, všechny tři měly Python syntax error. Běh byl po reprodukci zastaven, nikoli PASS. Nový společný CODE guard odmítá takový výstup před persistencí a ukončí workflow FAILED; kvalita dokončené aplikace a celý produkční executor journey dál nejsou prokázané. | P0 |
 | _historický stav k 2026-08-22: nic otevřeného v této tabulce_ | — | — | — |
-| SPEC revize a dokončení projektu, checkpoint 2026-09-09 | M6 projektový journey | Na `875c041a` cookbook 26/16 FAIL. Nový `b365896f` s JSON/retention/oracle opravami při 16384 skončil 24/18 FAIL: první SPEC a revize řazení validní, retence doložená, revize výživy třikrát na výstupním limitu 4000 při 9795 z 16384 tokenů. Žádná roadmapa ani milník; staré falešné oracle zůstávají historicky doložené. [Raw důkazy](docs/execution/runs/m6/core-completion-followup-20260909.md). | P0 |
+| SPEC revize a dokončení projektu, historický checkpoint 2026-09-09 | M6 projektový journey | Na `875c041a` cookbook 26/16 FAIL. Nový `b365896f` s JSON/retention/oracle opravami při 16384 skončil 24/18 FAIL: první SPEC a revize řazení validní, retence doložená, revize výživy třikrát na výstupním limitu 4000 při 9795 z 16384 tokenů. Žádná roadmapa ani milník; staré falešné oracle zůstávají historicky doložené. [Raw důkazy](docs/execution/runs/m6/core-completion-followup-20260909.md). | P0 |
 | Výpis/vysvětlení souboru a web bez projektu | Dokončení uživatelských M2/M6 scénářů | Projektové `file.read`, `file.list@2` a FILE_EXPLAIN jsou integrované a jejich source/follow-up review prošlo. Skutečný FILE_EXPLAIN na `3bda6ddb` navíc provedl jeden exact-digest modelový request a po restartu obnovil stejný uložený výsledek; tato runtime evidence čeká na samostatné review. Přijatý M2 milník se tím znovu neotevírá. B/C/E má 34 historických odmítnutí webu s platným aktérem a bez projektu; operátor nyní přijal jednotlivé schvalované HTTPS požadavky (Decision 044). Nový consumer je implementační candidate; všech 34 původních scénářů dosud nebylo zopakováno. [Výsledky a otevřené hranice](docs/execution/runs/m6/core-completion-followup-20260909.md). | P0 |
 
 Změřeno 2026-08-22 na `fbbe1e74`, profil `offline,database`, 234 sad:

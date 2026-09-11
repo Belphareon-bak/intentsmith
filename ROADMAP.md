@@ -2953,3 +2953,16 @@ M2 SQLite spojeních; bez ní invalidace konverzace selhala chybou chybějící
 SQL funkce. Přesný baseline zachovává dosavadní limity cyklů. Registry
 má 514 programů (420 ACTIVE / 79 BLOCKED / 15 HISTORICAL); deterministický
 výběr 279 offline + 74 database. Nový HTTP web test je samostatně v server fázi.
+
+Třetí cookbook na `15426214` prokázal kompletní SPEC, obě revize, plán čtyř
+milníků a přechod do BUILD. Poté tři CODE odpovědi skončily `length` na
+4096 tokenech a původní testovací executor je uložil jako Python soubory;
+všechny tři selhaly v nezávislém syntax parse. Běh byl explicitně zastaven
+po reprodukci, nikoli dokončen nebo přijat. `diagnostic-stop.json` zachovává
+hashes odpovědí i souborů. Sdílený `callLLM('CODE')` nyní vyhodí typed
+truncation před předáním obsahu; schválené workflow skončí FAILED a neúplná
+oprava nepropadne do review jako success. Ostatní limity zůstávají stejné.
+Použitelný generovaný projekt je stále otevřený P0 v SYSTEM-MAP.
+
+Po této dodatečné opravě module graph má 1 315 hran, stále 3 cykly / 28 členů.
+Jediná další hrana sdílí existující typed truncation error s plannerem.
