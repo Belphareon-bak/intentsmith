@@ -764,4 +764,30 @@ for (const failure of ['second-length', 'second-cancel', 'second-malformed', 'se
   });
 }
 
+await testAsync('cancel during final preparation keeps draft cancellation taxonomy and stores no plan', async () => {
+  const root = makeProject();
+  const db = openDatabase();
+  const controller = new AbortController();
+  let generated = false;
+  try {
+    const service = createService(db, root, makeClock(), {
+      projects: { findById: { get(id) {
+        if (generated) controller.abort();
+        return id === PROJECT_ID ? { id, path: root, status: 'active' } : null;
+      } } },
+      generateCodeDraft: async () => {
+        generated = true;
+        return { content: JSON.stringify({ afterContent: 'export const value = 42;\n' }), finishReason: 'stop' };
+      },
+    });
+    await service.recoverIncompleteSmallProjectChanges();
+    await assert.rejects(service.draftSmallProjectChange({ authenticatedSubject: SUBJECT,
+      projectId: PROJECT_ID, origin: ORIGIN, signal: controller.signal,
+      draft: { path: 'src/app.js', instruction: 'Change value to 42.' } }), { code: 'M2_CODE_DRAFT_CANCELLED' });
+    assert.equal(generated, true);
+    assert.equal(db.prepare('SELECT count(*) AS n FROM m2_lifecycle_operations').get().n, 0);
+    assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 1;\n');
+  } finally { db.close(); fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 summary();

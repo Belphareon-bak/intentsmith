@@ -685,9 +685,16 @@ export function createM2LifecycleApplicationService(dependencyValues) {
     });
     // The revision is an internal argument, never model-controlled. Preparation
     // re-observes it before binding before-images and approval authority.
-    return prepareSmallProjectChange({
-      authenticatedSubject, projectId, origin: transportOrigin, proposal, signal: boundedSignal,
-    }, { workspaceRevision: observed.workspaceRevision, canonicalRoot: scope.canonicalRoot });
+    try {
+      return await prepareSmallProjectChange({
+        authenticatedSubject, projectId, origin: transportOrigin, proposal, signal: boundedSignal,
+      }, { workspaceRevision: observed.workspaceRevision, canonicalRoot: scope.canonicalRoot });
+    } catch (error) {
+      // Preserve draft cancellation/timeout taxonomy during final context and
+      // planning. Do not reject after a successfully committed pending plan.
+      check();
+      throw error;
+    }
   }
 
   async function prepareSmallProjectChange({ authenticatedSubject, projectId, origin, proposal, signal = null }, generationContext = null) {
