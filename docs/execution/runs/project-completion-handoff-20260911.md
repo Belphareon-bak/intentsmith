@@ -123,6 +123,12 @@ this pass it was found automounted and unlocked, with no process using it. It
 was unmounted, LUKS-locked and powered off again. The online source still holds
 all four keys until the backup/custody set is complete.
 
+Medium B is now a separate verified LUKS2 offline copy containing exactly the
+`m6-independent-reviewer` private key plus public material. It excludes all
+three operator private keys and was locked and powered off after verification.
+The exact non-secret record is
+[`m5-offline-custody-b-20260911.md`](m5-offline-custody-b-20260911.md).
+
 Under the accepted policy, ordinary private cloud storage or an online NAS is
 not medium B. It may hold a separately client-encrypted recovery copy. Medium B
 must keep the `m6-independent-reviewer` key physically or equivalently outside
@@ -130,12 +136,12 @@ the application/worker/operator-key custody and unavailable during normal
 operation. A 4–16 GB LUKS2 USB device is ample; the existing full key/public
 manifest preflight is only 3562 bytes and medium A payload is 5462 bytes.
 
-For a robust closeout, provide two additional small media or an independently
-reviewed equivalent:
+For a robust closeout, the two-media plan is now half completed:
 
 1. a second verified offline backup of the three operator keys, allowing the
-   online operator-key source to be removed;
-2. physically separate medium B for the reviewer key.
+   online operator-key source to be removed — **still required**;
+2. physically separate medium B for the reviewer key — **completed as an
+   offline verified copy on 2026-09-11**.
 
 The next M5 work then requires private operator facts, not more repository
 coding: resolve each of the eight credential categories by actual rotation or

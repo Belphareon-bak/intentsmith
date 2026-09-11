@@ -224,3 +224,19 @@ ekvivalent média B by mohl být posouzen jen samostatně řízený signing pros
 který je mimo aplikaci i worker účet a v klidu i při běžném provozu skutečně
 nedostupný; taková ekvivalence musí být před prvním podpisem doložená a
 nezávisle přijatá. Nejmenší současné riziko má samostatný malý LUKS2 USB disk.
+
+## Custody B checkpoint 2026-09-11
+
+Operátorem autorizovaný flash disk se serialem `00000000664DFFCA` byl po
+záloze původních systémových metadat převeden na jeden LUKS2 oddíl přes
+dostupnou kapacitu. Svazek obsahuje právě reviewer private key, všechny čtyři
+veřejné SPKI identity, public ceremony manifest a Git-pinned trust store.
+Odvozená reviewer identita i trust store byly bajtově ověřené. Tři operátorské
+private keys jsou z média B vyloučené. Svazek byl odpojený, uzamčený a USB
+vypnuté. Přesná nesenzitivní evidence je v
+[`m5-offline-custody-b-20260911.md`](../execution/runs/m5-offline-custody-b-20260911.md).
+
+Online zdroj zatím zůstává, protože druhá ověřená offline kopie operátorských
+klíčů stále chybí. Custody B je ověřená offline kopie a fyzické oddělení, ale
+celkový stav zůstává `KEY_CUSTODY_PARTIAL`; tento checkpoint nevydává receipt
+ani M5 acceptance.

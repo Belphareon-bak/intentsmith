@@ -160,11 +160,15 @@ Custody, skutečné operace, podpisy a history disposition zůstávají otevřen
   USB. Tři operátorské private keys byly zkopírované, odvozené public identity
   souhlasí s trust storem a médium je zavřené a vypnuté. Online zdroj zatím
   zůstává kvůli chybějící druhé ověřené offline kopii.
-- Reviewer key dál vyžaduje fyzicky oddělenou custody. Jeden společný disk tuto
-  podmínku nesplní.
+- Médium B je vytvořené jako samostatný LUKS2 USB svazek. Obsahuje právě
+  reviewer private key; odvozená public identity souhlasí s trust storem a
+  médium je zavřené a vypnuté. Online zdroj zatím zůstává do dokončení celého
+  backup/custody setu.
 
 Stav zůstává 0/8 category receipts, bez history receiptu a bez M5 acceptance.
 Privacy-safe inventura a přesná matice dalších akcí jsou v
 [`m5-operator-remediation-preflight-20260910.md`](../execution/runs/m5-operator-remediation-preflight-20260910.md).
 Přesná nesenzitivní evidence média A je v
 [`m5-offline-custody-a-20260910.md`](../execution/runs/m5-offline-custody-a-20260910.md).
+Evidence odděleného média B je v
+[`m5-offline-custody-b-20260911.md`](../execution/runs/m5-offline-custody-b-20260911.md).
