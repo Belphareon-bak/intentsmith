@@ -521,3 +521,10 @@ Ponechány jako reference. **Autoritou je tento dokument.**
 Aktualizace souborových funkcí 2026-09-10: module graph má 1 302 hran,
 20 nových přesně revidovaných hran, žádná odebraná, stejné 3 cykly / 28 členů.
 [Předání uzavřené dávky](docs/execution/runs/m6/core-completion-review-20260910.md).
+
+Checkpoint GPU hunt / Ollama autocheck 2026-09-11 na `0cbe8e2a`:
+module graph má 1 308 hran. Šest nových explicitních hran zapojuje kontrolu vydání
+do outbound policy a existující upgrade manager; evaluační, capability a VRAM
+volání váže na společnou model-use autoritu. Žádná hrana nebyla odstraněna,
+cykly zůstávají `3` / `28`. Přesné hrany a source provenance jsou zachované
+v `tests/fixtures/module-boundary/baseline.json`; nejde o nový acceptance verdikt.
