@@ -82,6 +82,7 @@ function evaluationInterval(input = {}, durationMs = 0) {
 const RETRYABLE_TERMINAL_CODES = new Set([
   'CANDIDATE_MEASURE_FAILED',       // compatibility with prototype.1 rows
   'CANDIDATE_MEASURE_RETRYABLE',
+  'CANDIDATE_EVALUATION_RETRYABLE',
 ]);
 
 export function suiteContract(suite, opts = {}) {
