@@ -68,6 +68,10 @@ import {
 } from './m2-governance-evaluator.js';
 import { M2LifecycleAuthorityRepository } from './m2-lifecycle-authority-repository.js';
 import { compileM2ProjectChangeProposal } from './m2-proposal-compiler.js';
+import {
+  buildCodeDraftPrompt, codeDraftError, compileCodeDraftInput,
+  compileCodeDraftResult, generateCodeDraft as defaultGenerateCodeDraft,
+} from './m2-code-draft.js';
 
 const POLICY_PATH = '.c3/m2-governance-policy.json';
 const DEFAULT_APPROVAL_WINDOW_MS = 60 * 60 * 1000;
@@ -547,6 +551,7 @@ export function createM2LifecycleApplicationService(dependencyValues) {
     processProvider,
     gitProvider,
     requireRecoveryCensus = false,
+    generateCodeDraft = defaultGenerateCodeDraft,
   } = dependencies;
   const activeRuns = new Map();
   let recoveryCensusComplete = requireRecoveryCensus !== true;
@@ -603,7 +608,70 @@ export function createM2LifecycleApplicationService(dependencyValues) {
     return { actor, operation, plan };
   }
 
-  async function prepareSmallProjectChange({ authenticatedSubject, projectId, origin, proposal, signal = null }) {
+  async function draftSmallProjectChange({ authenticatedSubject, projectId, origin, draft, signal = null }) {
+    requireRecoveryCensusComplete();
+    requireSubject(authenticatedSubject);
+    const transportOrigin = normalizeOrigin(origin, projectId);
+    const compiled = compileCodeDraftInput(draft);
+    const target = compiled.changes[0].path;
+    if (!isManifestObservablePath(target)) {
+      throw codeDraftError('PATH_INVALID', 'Soubor je mimo povolený projektový kontext.');
+    }
+    const deadline = AbortSignal.timeout(120_000);
+    const boundedSignal = signal ? AbortSignal.any([signal, deadline]) : deadline;
+    const check = () => {
+      if (boundedSignal.aborted) throw codeDraftError(
+        deadline.aborted ? 'TIMEOUT' : 'CANCELLED', 'Generování návrhu bylo přerušeno.',
+      );
+    };
+    check();
+    const scope = await resolveProject(projectId);
+    const invocation = { signal: boundedSignal };
+    const observed = await observeRevision(scope, invocation, { projects });
+    const manifest = await buildManifest(scope, invocation);
+    if (manifest.revision !== observed.workspaceRevision) {
+      fail(M2LifecycleServiceErrorCode.CONTEXT_STALE, 'Workspace changed before generation');
+    }
+    const entry = manifest.entries.find(item => item.path === target);
+    if (entry && (entry.kind !== 'regular@1' || entry.size > 1600)) {
+      throw codeDraftError('CONTEXT_LIMIT_EXCEEDED', 'Vyberte malý textový soubor do 1600 bajtů.');
+    }
+    // Reject missing/invalid governance and target dirt before spending a model
+    // call. The existing planner repeats both checks before persisting a plan.
+    loadPolicySnapshot(projectId, scope.canonicalRoot, manifest.revision, readProjectFile);
+    observeGitBaseline(scope.canonicalRoot, [target], { projectId });
+    const before = readProjectFile(scope.canonicalRoot, target, {
+      maxBytes: 1600, rejectHardlinks: true, requireCanonicalTarget: true, signal: boundedSignal,
+    });
+    if (before.exists !== Boolean(entry)
+      || (entry && `sha256:${createHash('sha256').update(before.bytes).digest('hex')}` !== entry.contentDigest)) {
+      fail(M2LifecycleServiceErrorCode.CONTEXT_STALE, 'Target changed before generation');
+    }
+    const beforeContent = before.exists ? new TextDecoder('utf-8', { fatal: true }).decode(before.bytes) : null;
+    const prompt = buildCodeDraftPrompt(compiled, beforeContent);
+    check();
+    let result;
+    try {
+      result = await generateCodeDraft({
+        ...prompt, signal: boundedSignal, sessionId: transportOrigin.conversationId,
+      });
+    } catch (error) {
+      check();
+      throw error;
+    }
+    check();
+    const proposal = compileCodeDraftResult(compiled, result);
+    if (proposal.changes[0].afterContent === beforeContent) {
+      throw codeDraftError('OUTPUT_UNCHANGED', 'Model nenavrhl žádnou změnu.');
+    }
+    // The revision is an internal argument, never model-controlled. Preparation
+    // re-observes it before binding before-images and approval authority.
+    return prepareSmallProjectChange({
+      authenticatedSubject, projectId, origin: transportOrigin, proposal, signal: boundedSignal,
+    }, { workspaceRevision: observed.workspaceRevision, canonicalRoot: scope.canonicalRoot });
+  }
+
+  async function prepareSmallProjectChange({ authenticatedSubject, projectId, origin, proposal, signal = null }, generationContext = null) {
     requireRecoveryCensusComplete();
     const actor = requireSubject(authenticatedSubject);
     const compiled = compileM2ProjectChangeProposal(proposal);
@@ -611,6 +679,10 @@ export function createM2LifecycleApplicationService(dependencyValues) {
     const projectScope = await resolveProject(projectId);
     const invocation = signal == null ? {} : { signal };
     const observed = await observeRevision(projectScope, invocation, { projects });
+    if (generationContext !== null && (observed.workspaceRevision !== generationContext.workspaceRevision
+      || projectScope.canonicalRoot !== generationContext.canonicalRoot)) {
+      fail(M2LifecycleServiceErrorCode.CONTEXT_STALE, 'Workspace changed while generating the proposal');
+    }
     const identity = lifecycleIdentity(idFactory);
     const contextSnapshot = await queryContext({
       contract: PROJECT_CONTEXT_KIND.QUERY,
@@ -706,6 +778,7 @@ export function createM2LifecycleApplicationService(dependencyValues) {
       fail(M2LifecycleServiceErrorCode.INPUT_INVALID, 'Lifecycle plan is not exact', { errors: planErrors });
     }
 
+    if (signal?.aborted) fail(M2LifecycleServiceErrorCode.CANCELLED, 'Plan preparation cancelled');
     try {
       authorityTransaction(() => {
         for (const effect of planned.effectRequests) effectRepository.registerEffectRequest(effect);
@@ -1135,6 +1208,7 @@ export function createM2LifecycleApplicationService(dependencyValues) {
   }
 
   const service = Object.freeze({
+    draftSmallProjectChange,
     prepareSmallProjectChange,
     approveSmallProjectChange,
     cancelSmallProjectChange,
@@ -1208,6 +1282,7 @@ export function createDefaultM2LifecycleApplicationService({
   projects,
   clock = Date.now,
   processProvider = processSandboxProvider,
+  generateCodeDraft = defaultGenerateCodeDraft,
 } = {}) {
   if (!database || typeof database.transaction !== 'function') {
     throw new TypeError('m2-lifecycle-service:database-required');
@@ -1243,6 +1318,7 @@ export function createDefaultM2LifecycleApplicationService({
     processProvider,
     gitProvider: exactGitProvider,
     requireRecoveryCensus: true,
+    generateCodeDraft,
   });
 }
 

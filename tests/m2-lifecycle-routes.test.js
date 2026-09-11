@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
+import { EventEmitter } from 'node:events';
 
 import { suite, test, testAsync, summary } from './harness.js';
 import {
@@ -11,6 +12,7 @@ import { createM2LifecycleRoutes } from '../src/routes/m2-lifecycle.js';
 const SUBJECT = Object.freeze({ actorType: 'user', actorId: 'local-operator' });
 const SIGNAL = new AbortController().signal;
 const NEW_ROUTE_KEYS = Object.freeze([
+  'POST /api/m2/lifecycle/draft',
   'POST /api/m2/lifecycle/prepare',
   'POST /api/m2/lifecycle/approve',
   'POST /api/m2/lifecycle/cancel',
@@ -81,7 +83,7 @@ function request(body = undefined, extra = {}) {
 
 suite('M2 lifecycle HTTP routes — exact forwarding');
 
-test('route map exposes four M2 operations before the complete legacy quarantine overlay', () => {
+test('route map exposes five M2 operations before the complete legacy quarantine overlay', () => {
   const { routes } = makeHarness();
   assert.equal(Object.isFrozen(routes), true);
   assert.deepEqual(Object.keys(routes), [
@@ -288,4 +290,51 @@ await testAsync('every legacy mutating route returns exact 410 without body pars
   assert.equal(calls.status.length, 0);
 });
 
+
+await testAsync('draft forwards only authenticated input, without executing prepare or approval', async () => {
+  const calls = [];
+  const { routes } = makeHarness({ service: { async draftSmallProjectChange(input) {
+    calls.push(input); return { state: 'awaiting_approval' };
+  } } });
+  const draft = { path: 'src/app.js', instruction: 'Change value to 42' };
+  await routes['POST /api/m2/lifecycle/draft'](request({
+    projectId: 17, draft, origin: { surface: 'studio', sessionId: 'c', conversationId: 'c', projectId: 17 },
+    projectPath: '/forged', generateCodeDraft: 'forged', actor: { id: 'forged' },
+  }), {});
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].authenticatedSubject, SUBJECT);
+  assert.equal(calls[0].draft, draft);
+  assert.deepEqual(Object.keys(calls[0]).sort(), ['authenticatedSubject', 'draft', 'origin', 'projectId', 'signal']);
+  assert.equal(calls[0].signal.aborted, false);
+});
+
+for (const [code, status] of [['M2_CODE_DRAFT_OUTPUT_INCOMPLETE', 502], ['M2_CODE_DRAFT_TIMEOUT', 504], ['M2_CODE_DRAFT_CANCELLED', 409], ['M2_CODE_DRAFT_CONTEXT_LIMIT_EXCEEDED', 400]]) {
+  await testAsync(`draft error ${code} is not HTTP success`, async () => {
+    const { routes, calls } = makeHarness({ service: { async draftSmallProjectChange() {
+      throw Object.assign(new Error('draft rejected'), { code });
+    } } });
+    await routes['POST /api/m2/lifecycle/draft'](request({}), {});
+    assert.equal(calls.responses[0].status, status);
+    assert.equal(calls.responses[0].payload.code, code);
+  });
+}
+
+await testAsync('draft HTTP disconnect cancels the model signal and removes listeners', async () => {
+  let received;
+  const { routes, calls } = makeHarness({ service: { async draftSmallProjectChange(input) {
+    received = input.signal;
+    await new Promise(resolve => received.addEventListener('abort', resolve, { once: true }));
+    throw Object.assign(new Error('cancelled'), { code: 'M2_CODE_DRAFT_CANCELLED' });
+  } } });
+  const req = Object.assign(new EventEmitter(), request({}));
+  const res = new EventEmitter();
+  const pending = routes['POST /api/m2/lifecycle/draft'](req, res);
+  await new Promise(resolve => setImmediate(resolve));
+  res.emit('close');
+  await pending;
+  assert.equal(received.aborted, true);
+  assert.equal(calls.responses[0].status, 409);
+  assert.equal(req.listenerCount('aborted'), 0);
+  assert.equal(res.listenerCount('close'), 0);
+});
 summary();

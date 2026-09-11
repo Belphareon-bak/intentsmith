@@ -41,6 +41,9 @@ function originFromSearchParams(searchParams) {
 
 function statusForError(error) {
   const code = typeof error?.code === 'string' ? error.code.toUpperCase() : '';
+  if (code === 'M2_CODE_DRAFT_TIMEOUT') return 504;
+  if (code === 'M2_CODE_DRAFT_CONTEXT_LIMIT_EXCEEDED') return 400;
+  if (code.startsWith('M2_CODE_DRAFT_OUTPUT_')) return 502;
   if (code.includes('NOT_FOUND')) return 404;
   if (/(?:^|_)AUTH(?:_|$)|SUBJECT|FORBIDDEN|UNAUTHORIZED|OWNER/.test(code)) return 403;
   if (code.includes('RECOVERY_INCOMPLETE')) return 503;
@@ -120,6 +123,33 @@ export function createM2LifecycleRoutes({
 
   const errorDependencies = { sendJSON, safeError };
   const routes = {
+    'POST /api/m2/lifecycle/draft': async (req, res) => {
+      const authenticatedSubject = authenticatedUser(req);
+      if (!authenticatedSubject) return sendAuthRequired(res, sendJSON);
+      const controller = new AbortController();
+      const disconnect = () => { if (!res.writableEnded) controller.abort(); };
+      req.once?.('aborted', disconnect);
+      res.once?.('close', disconnect);
+      try {
+        if (typeof m2LifecycleService.draftSmallProjectChange !== 'function') {
+          throw Object.assign(new Error('Generování návrhu není dostupné.'), { code: 'M2_CODE_DRAFT_UNAVAILABLE' });
+        }
+        const parsed = await parseBody(req);
+        const body = isRecord(parsed) ? parsed : {};
+        const result = await m2LifecycleService.draftSmallProjectChange({
+          authenticatedSubject, projectId: body.projectId,
+          origin: originFromBody(body), draft: body.draft,
+          signal: req.signal ? AbortSignal.any([req.signal, controller.signal]) : controller.signal,
+        });
+        return sendJSON(res, 200, result);
+      } catch (error) {
+        return sendFailure(res, error, errorDependencies);
+      } finally {
+        req.removeListener?.('aborted', disconnect);
+        res.removeListener?.('close', disconnect);
+      }
+    },
+
     'POST /api/m2/lifecycle/prepare': async (req, res) => {
       const authenticatedSubject = authenticatedUser(req);
       if (!authenticatedSubject) return sendAuthRequired(res, sendJSON);

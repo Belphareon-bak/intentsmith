@@ -15601,6 +15601,36 @@
       },
       "flakeCount": 0,
       "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-TESTS-M2-CODE-DRAFT-MODEL-TEST",
+      "path": "tests/m2-code-draft-model.test.js",
+      "argv": [
+        "node",
+        "tests/m2-code-draft-model.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T3",
+      "fixture": "isolated-model-database",
+      "profile": "model",
+      "timeoutMs": 240000,
+      "expectedDurationMs": 90000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": true,
+        "gpu": true
+      },
+      "required": true,
+      "owner": "M2 bounded code draft",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
     }
   ]
 }

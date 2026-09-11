@@ -522,4 +522,106 @@ await testAsync('cancel during the focused process aborts execution, rolls bytes
   }
 });
 
+
+suite('Bounded model draft — existing M2 execution authority');
+
+for (const invalidSyntax of [false, true]) {
+  await testAsync(`draft then exact approval uses real file/syntax authority (${invalidSyntax ? 'rollback' : 'success'})`, async () => {
+    const root = makeProject();
+    const db = openDatabase();
+    let calls = 0;
+    const output = invalidSyntax ? 'export const value = ;\n' : 'export const value = 42;\n';
+    try {
+      const service = createService(db, root, makeClock(), {
+        generateCodeDraft: async ({ prompt, signal }) => {
+          calls++;
+          assert.equal(signal.aborted, false);
+          const input = JSON.parse(prompt);
+          assert.equal(input.path, 'src/app.js');
+          assert.equal(input.beforeContent, 'export const value = 1;\n');
+          return { content: JSON.stringify({ afterContent: output }), finishReason: 'stop' };
+        },
+      });
+      await service.recoverIncompleteSmallProjectChanges();
+      const planned = await service.draftSmallProjectChange({
+        authenticatedSubject: SUBJECT, projectId: PROJECT_ID, origin: ORIGIN,
+        draft: { path: 'src/app.js', instruction: 'Change the exported value to 42.' },
+      });
+      assert.equal(planned.state, 'awaiting_approval');
+      assert.equal(calls, 1);
+      assert.equal(planned.diff[0].after.content, output);
+      assert.equal(planned.plan.focusedTest.binary, process.execPath);
+      assert.equal(planned.plan.focusedTest.argv.at(-1), 'src/app.js');
+      assert.match(planned.plan.focusedTest.argv[2], /SourceTextModule/);
+      assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 1;\n');
+      assert.equal(db.prepare('SELECT count(*) AS n FROM m2_lifecycle_terminals').get().n, 0);
+      const result = await service.approveSmallProjectChange({
+        authenticatedSubject: SUBJECT, origin: ORIGIN,
+        lifecycleId: planned.lifecycleId, planDigest: planned.planDigest,
+      });
+      if (invalidSyntax) {
+        assert.notEqual(result.state, 'succeeded');
+        assert.equal(result.result.focusedTest.terminalStatus, 'failed');
+        assert.equal(result.result.rollback.status, 'succeeded');
+        assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 1;\n');
+      } else {
+        assert.equal(result.state, 'succeeded');
+        assert.equal(result.result.focusedTest.terminalStatus, 'succeeded');
+        assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), output);
+      }
+      // Reconstruct the service and recover. Neither model nor write is replayed.
+      const restarted = createService(db, root, makeClock(), {
+        generateCodeDraft: async () => { throw new Error('unexpected model replay'); },
+      });
+      await restarted.recoverIncompleteSmallProjectChanges();
+      const durable = restarted.getSmallProjectChangeStatus({
+        authenticatedSubject: SUBJECT, origin: ORIGIN, lifecycleId: planned.lifecycleId,
+      });
+      assert.equal(durable.terminal.resultDigest, result.terminal.resultDigest);
+      assert.equal(calls, 1);
+    } finally { db.close(); fs.rmSync(root, { recursive: true, force: true }); }
+  }, 60_000);
+}
+
+for (const failure of ['length', 'extra-file', 'malformed', 'unchanged', 'stale', 'cancel', 'traversal', 'ignored', 'oversize', 'forged-test']) {
+  await testAsync(`draft rejects ${failure} before plan, approval and write`, async () => {
+    const root = makeProject();
+    const db = openDatabase();
+    const controller = new AbortController();
+    let calls = 0;
+    try {
+      const service = createService(db, root, makeClock(), {
+        generateCodeDraft: async () => {
+          calls++;
+          if (failure === 'stale') fs.writeFileSync(path.join(root, 'src', 'foreign.js'), 'export const changed = true;\n');
+          if (failure === 'cancel') controller.abort();
+          const value = { afterContent: failure === 'unchanged' ? 'export const value = 1;\n' : 'export const value = 42;\n' };
+          if (failure === 'extra-file') value.path = 'src/other.js';
+          return { content: failure === 'malformed' ? '```javascript\nexport const value=42;\n```' : JSON.stringify(value),
+            finishReason: failure === 'length' ? 'length' : 'stop' };
+        },
+      });
+      await service.recoverIncompleteSmallProjectChanges();
+      const draft = { path: 'src/app.js', instruction: 'Change the exported value to 42.' };
+      if (failure === 'traversal') draft.path = '../outside.js';
+      if (failure === 'ignored') draft.path = '.c3/private.js';
+      if (failure === 'oversize') draft.instruction = 'x'.repeat(513);
+      if (failure === 'forged-test') draft.focusedTest = { binary: 'sh', argv: ['-c', 'anything'] };
+      const expected = {
+        length: 'M2_CODE_DRAFT_OUTPUT_INCOMPLETE', 'extra-file': 'M2_CODE_DRAFT_OUTPUT_INVALID',
+        malformed: 'M2_CODE_DRAFT_OUTPUT_INVALID', unchanged: 'M2_CODE_DRAFT_OUTPUT_UNCHANGED',
+        stale: 'M2_LIFECYCLE_CONTEXT_STALE', cancel: 'M2_CODE_DRAFT_CANCELLED',
+        traversal: 'M2_PROPOSAL_CHANGE_PATH_INVALID', ignored: 'M2_CODE_DRAFT_PATH_INVALID',
+        oversize: 'M2_CODE_DRAFT_INPUT_INVALID', 'forged-test': 'M2_PROPOSAL_FOCUSED_TEST_KEYS_INVALID',
+      };
+      await assert.rejects(service.draftSmallProjectChange({
+        authenticatedSubject: SUBJECT, projectId: PROJECT_ID, origin: ORIGIN, draft, signal: controller.signal,
+      }), { code: expected[failure] });
+      assert.equal(calls, ['traversal', 'ignored', 'oversize', 'forged-test'].includes(failure) ? 0 : 1);
+      assert.equal(db.prepare('SELECT count(*) AS n FROM m2_lifecycle_operations').get().n, 0);
+      assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 1;\n');
+    } finally { db.close(); fs.rmSync(root, { recursive: true, force: true }); }
+  });
+}
+
 summary();

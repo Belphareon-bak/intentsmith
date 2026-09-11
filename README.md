@@ -10,8 +10,8 @@ Spouštěné Studio UI je stále přechodný runtime, nikoli finální vzhled In
 
 **Verze:** 136.1.0, vývojový kandidát 1.0. Aktuální počty testovacích programů
 jsou v [generovaném registru](docs/convergence/TEST-REGISTRY.md):
-**514 registrovaných testovacích programů**
-(`420 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
+**515 registrovaných testovacích programů**
+(`421 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
 
 Přijaté milníky M0–M4 nejsou přijetím celého releasu. M5 ještě vyžaduje
 podepsané privacy podklady a správu operátorských klíčů; M6 úplný skutečný
@@ -340,7 +340,7 @@ intentsmith/
 │   ├── code-intel-*.test.js      #   Code Intelligence testy (339+)
 │   ├── execution-loop.test.js    #   Execution Engine testy (597+)
 │   ├── upgrade-*.test.js         #   Model Upgrade testy
-│   └── registry.json             #   Kanonický registr 514 programů
+│   └── registry.json             #   Kanonický registr 515 programů
 │
 ├── docs/                         # Aktivní dokumentace + archiv
 │   ├── ARCHITECTURE.md           #   Kompletní architektura
@@ -472,3 +472,9 @@ Systém licencí vázaný na hardware fingerprint (3 tiery: FREE / PRO / ENTERPR
 | FREE | 1 | - | - | md, txt |
 | PRO | neomezeně | ano | ano | md, txt, html, pdf, docx |
 | ENTERPRISE | neomezeně | ano | ano | vše + multi-user |
+
+Malou změnu jednoho souboru lze ve Studiu připravit příkazem
+`/m2-draft src/app.js :: popis změny`. Vyžaduje připojený Git projekt s M2
+governance policy a soubor `.js`, `.mjs` či `.cjs` do 1600 bajtů. Studio ukáže
+celý původní i navržený obsah; `/m2-approve` schválí přesný plán, `/m2-cancel`
+zruší návrh. Výchozí kontrola ověřuje syntaxi, nikoli funkční správnost.

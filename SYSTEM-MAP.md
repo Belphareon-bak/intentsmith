@@ -133,15 +133,15 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **222 553 ř.**, 604 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **240 623 ř.**, 520 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **514** (`420 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
+| `src/**/*.js` | **222 765 ř.**, 605 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **240 926 ř.**, 521 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **515** (`421 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **174 / 98** |
 | HTTP rout | ~230 |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
 Aktuální registry fingerprint je
-`a79d19aa0d80efc9f0fb6d10ff7bd5d761f60ec9e189a184eb1f27fe491860c8`.
+`bb85f822d48d34e3a09297b026583ce808bfb05d28c764935e1c67481e7d2ad6`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 
@@ -405,6 +405,15 @@ webové modelové scénáře se tím neprohlašují za přijaté.
 jsou podkladem pro posouzení neaplikovatelnosti rotace, nikoli podepsané
 receipts. Druhé fyzické médium a celý podpisový řetězec nejsou potvrzené.
 [Kontrakty po 1.0](docs/post-release/README.md) jsou pouze návrhy k review.
+
+Navazující [malý CODE draft](docs/wp/WP-BOUNDED-CODE-DRAFT-20260911.md)
+vede ze Studio příkazu `/m2-draft src/app.js :: popis změny` přes jeden omezený
+modelový požadavek do stejného strict M2 návrhu. Úplný before/after obsah se
+ukáže před `/m2-approve`; model nevolí cestu ani test. Výchozí kontrola je
+pouze syntax; API dovoluje explicitní focused test. Draft vyžaduje existující
+M2 governance, Git projekt a malý JS soubor (do 1600 bajtů), neaktivuje legacy
+milestone executor. Stav: `IMPLEMENTED_CANDIDATE / REVIEW_REQUIRED`;
+fyzický modelový důkaz je zatím `NOT_RUN`. Celý projektový builder zůstává P0.
 
 ## Otevřené release-blocking vady
 

@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 514
+- Runnable programs: 515
 - Explicit support-module exclusions: 19
-- Profiles: offline=279, database=74, server=45, model=81, soak=15, manual=20
-- States: ACTIVE=420, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=279, database=74, server=45, model=82, soak=15, manual=20
+- States: ACTIVE=421, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -305,6 +305,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T3-TESTS-M1-QUALITY-GPU-AB-TEST` | `tests/m1-quality-gpu-ab.test.js` | `C3-003` | T3 | `manual` | 10 min | 15 min | network:loopback, ollama, gpu | no | `HISTORICAL` | — | primary implementer |
 | `IS-T1-TESTS-M1-STUDIO-CLIENT-TEST` | `tests/m1-studio-client.test.js` | `C3-001` | T1 | `offline` | 30 s | 2 min | network:loopback | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-M1-VRAM-ARTIFACT-USE-TEST` | `tests/m1-vram-artifact-use.test.js` | `C3-010` | T1 | `offline` | 10 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-M2-CODE-DRAFT-MODEL-TEST` | `tests/m2-code-draft-model.test.js` | `C3-005` | T3 | `model` | 90 s | 4 min | network:loopback, temp-db, ollama, gpu | yes | `ACTIVE` | — | M2 bounded code draft |
 | `IS-T1-TESTS-M2-EFFECT-AUTHORITY-REPOSITORY-TEST` | `tests/m2-effect-authority-repository.test.js` | `C3-016` | T1 | `database` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
 | `IS-T1-TESTS-M2-EFFECT-BROKER-V1-TEST` | `tests/m2-effect-broker-v1.test.js` | `C3-016` | T1 | `database` | 3 s | 30 s | network:none, temp-db | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
 | `IS-T1-TESTS-M2-EFFECT-CONTRACT-V1-TEST` | `tests/m2-effect-contract-v1.test.js` | `C3-016` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |

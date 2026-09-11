@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
+import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -25,6 +26,7 @@ function functionSlice(name, nextName) {
 
 test('Studio has exactly one explicit M2 transport surface and no mutating legacy lifecycle calls', () => {
   for (const endpoint of [
+    '/api/m2/lifecycle/draft',
     '/api/m2/lifecycle/prepare',
     '/api/m2/lifecycle/approve',
     '/api/m2/lifecycle/cancel',
@@ -154,4 +156,67 @@ test('generic acknowledgement is guarded before edit or ordinary chat send', () 
   for (const acknowledgement of ['ano', 'ok', 'spusť']) {
     assert.match(generic, new RegExp(acknowledgement));
   }
+});
+
+
+test('Studio draft command renders complete bytes and never auto-approves the model output', async () => {
+  const session = { _projectId: 27, _convId: 'conversation-27' };
+  const pane = { msgs: [], attachments: [] };
+  const calls = [];
+  const origin = { surface: 'studio', sessionId: 'conversation-27', conversationId: 'conversation-27', projectId: 27 };
+  const view = {
+    lifecycleId: 'draft-27', state: 'awaiting_approval', planDigest: 'sha256:' + 'a'.repeat(64),
+    plan: { identity: { lifecycleId: 'draft-27' }, state: 'awaiting_approval', origin,
+      changes: [{ path: 'src/app.js', afterDigest: 'sha256:after', afterBytes: 23 }],
+      focusedTest: { binary: '/usr/bin/node', argv: ['--check', 'src/app.js'], timeoutMs: 30000 }, gitCommit: null },
+    audit: { governanceDecision: { verdict: 'allow' } },
+    diff: [{ path: 'src/app.js', before: { content: 'export const value=1;', digest: 'sha256:before' },
+      after: { content: 'export const value=42;', digest: 'sha256:after' } }],
+  };
+  const sandbox = vm.createContext({
+    _sessions: [session], _backendBase: 'http://fixture.invalid',
+    _M2_TERMINAL_STATES: { succeeded: true, failed: true, cancelled: true },
+    _sessionActive: 0, _persistSessionState() {}, renderChat() {}, _chatScrollPane() {},
+    AbortSignal, AbortController,
+    async fetch(url, options) { calls.push({ url, options }); return { ok: true, json: async () => view }; },
+  });
+  vm.runInContext(source.slice(source.indexOf('function _m2IsRecord'), source.indexOf('/* ── M4 learning')), sandbox);
+  assert.equal(sandbox._m2HandleStudioCommand(0, session, pane, null,
+    '/m2-draft src/app.js :: Change value to 42', '/m2-draft', 'src/app.js :: Change value to 42'), true);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(calls.length, 1, 'only draft request; no prepare/approval side request');
+  assert.equal(calls[0].url, 'http://fixture.invalid/api/m2/lifecycle/draft');
+  assert.deepEqual(JSON.parse(calls[0].options.body).draft, { path: 'src/app.js', instruction: 'Change value to 42' });
+  assert.equal(session._m2Pending.planDigest, view.planDigest);
+  assert.match(pane.msgs.at(-1).text, /export const value=1;/);
+  assert.match(pane.msgs.at(-1).text, /export const value=42;/);
+  assert.match(pane.msgs.at(-1).text, /pouze syntaxi/);
+  assert.match(pane.msgs.at(-1).text, /\/m2-approve/);
+  assert.equal(pane._m2Busy, false);
+});
+
+
+test('Studio can cancel an active draft without sending approval or a legacy mutation', async () => {
+  const session = { _projectId: 27, _convId: 'conversation-27' };
+  const pane = { msgs: [], attachments: [] };
+  const calls = [];
+  const sandbox = vm.createContext({
+    _sessions: [session], _backendBase: 'http://fixture.invalid', _M2_TERMINAL_STATES: {},
+    _sessionActive: 0, _persistSessionState() {}, renderChat() {}, _chatScrollPane() {}, AbortSignal, AbortController,
+    fetch(url, options) {
+      calls.push({ url, options });
+      return new Promise((_resolve, reject) => options.signal.addEventListener('abort',
+        () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' })), { once: true }));
+    },
+  });
+  vm.runInContext(source.slice(source.indexOf('function _m2IsRecord'), source.indexOf('/* ── M4 learning')), sandbox);
+  sandbox._m2HandleStudioCommand(0, session, pane, null, '/m2-draft', '/m2-draft', 'src/app.js :: Change value');
+  assert.equal(pane._m2Busy, true);
+  sandbox._m2HandleStudioCommand(0, session, pane, null, '/m2-cancel', '/m2-cancel', '');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].options.signal.aborted, true);
+  assert.equal(pane._m2Busy, false);
+  assert.equal(session._m2Pending, null);
+  assert.match(pane.msgs.at(-1).text, /M2_STUDIO_DRAFT_CANCELLED/);
 });

@@ -2976,3 +2976,11 @@ na `7a5f4104`. Serverová sada má 23/23 PASS, dvě skutečné Studio cesty maj�
 oddělený PASS na `3d088733`. Opravy jsou `IMPLEMENTED_CANDIDATE /
 INDEPENDENT_REVIEW_REQUIRED`; modelový build quality P0, M5 podpisy/custody
 a celá M6 acceptance zůstávají otevřené. Kontrakty po 1.0 jsou návrh.
+
+Navazující autorizované dokončování posouvá PRODUCT §3: modelový návrh malé
+změny jednoho JS souboru → úplný náhled → existující přesné M2 schválení,
+provedení a rollback. [Rozsah](docs/wp/WP-BOUNDED-CODE-DRAFT-20260911.md).
+Nový modelový program je registrovaný samostatně; deterministic zůstává
+353 programů. Candidate není acceptance a původní cookbook P0 zůstává otevřené.
+Po tomto přírůstku module graph má 1 320 hran, 3 cykly / 28 členů; nové hrany
+jsou přesné připojení modelového adaptéru k existujícímu compileru a gateway.
