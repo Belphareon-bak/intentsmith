@@ -10,30 +10,34 @@ receipt, release tag or publication authority.
 
 ## Exact identity and current deterministic gate
 
-The last product commit is the reviewed M7 candidate
-`429b779f26b2f66a1c378e529c082d6b436609ca`. The range from that commit through
-the measured evidence HEAD
-`05803dad0dd29e64eeddeb03a8c6f8b6c9ceff04` changes documentation only; a Git
-diff over `src`, `contracts`, `scripts`, `mobile-app`, `systemd`, `tests` and
-package manifests is empty.
+The last product commit is the unreviewed Decision 043 SPEC candidate
+`3291b5d49af5832ca8528c9c9395a18e9906fbdf`. Its parent includes the reviewed
+M7 candidate `429b779f26b2f66a1c378e529c082d6b436609ca`; the later product change
+does not touch M7 bytes. The range from `3291b5d4` through the measured evidence
+HEAD `51846695b27d5d45fedaab2b4d9d241bec03739d` changes documentation only; a
+Git diff over `src`, `contracts`, `scripts`, `mobile-app`, `systemd`, `tests`
+and package manifests is empty.
 
-One clean registered audit on `05803dad` ran every required deterministic
+One clean registered audit on `51846695` ran every required deterministic
 program with concurrency one and the exact declared local toolchains:
 
 ```text
 inventory             = 352 programs
 profiles               = 279 offline + 73 database
 result                 = 352 PASS / 0 FAIL / 0 TIMEOUT / 0 BLOCKED / 0 SKIPPED
-source revision        = 05803dad0dd29e64eeddeb03a8c6f8b6c9ceff04
+source revision        = 51846695b27d5d45fedaab2b4d9d241bec03739d
 registry fingerprint   = 3ce12a0edffe7e6da0f875ce3f0b25758524641557023d00aae39d0784fdbbfc
 inventory fingerprint  = c1a621012e464e5139fe860c3732d78fdfa83482ad966eba55c5fa7311c3110b
 options fingerprint    = 533fb61b7113b560d7e9cdb0cbaea3bb96a1f4621554c41f3836b378a94f4c20
-started/ended UTC      = 2026-09-10T23:37:01.005Z / 23:41:06.737Z
+started/ended UTC      = 2026-09-11T12:23:50.896Z / 12:28:33.433Z
 ```
 
 Report:
-`.intentsmith-artifacts/current-convergence-20260911/current-deterministic-20260911-02/report.json`,
-SHA-256 `544e244525595d9ce325c1ea852add088df9fee345a926111eafa8c4fac80091`.
+`.intentsmith-artifacts/current-convergence-20260911/current-deterministic-51846695-20260911-01/report.json`,
+SHA-256 `3591dca58b39b5de6eea935ea26d9b96308ede20d1bfdeeb56fde94234ce7417`.
+All 352 IDs and source revisions are exact; all 352 log files exist and their
+report-bound SHA-256 digests match. Details:
+[`current-deterministic-51846695-20260911.md`](current-deterministic-51846695-20260911.md).
 The audit did not include model, GPU, external-network, owned-server, soak or
 manual profiles. It is a current deterministic integration result, not a full
 M6 release verdict.
@@ -44,14 +48,15 @@ M6 release verdict.
 |---|---|---|
 | M0–M4 | accepted | no release blocker identified in this pass |
 | M5 | `8/9 REVIEW_PASSED / KEY_CUSTODY_PARTIAL / PRIVACY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED` | custody completion, eight category actions and receipts, history receipt, final M5 acceptance |
-| M6 | deterministic current tree green; runtime evidence collected; two review packets open | two product decisions, review verdicts, one frozen candidate, complete model cookbook, M5 input, signed review/demo/Gate 0 |
+| M6 | deterministic current tree green; runtime evidence collected; SPEC and two M6 review packets open | one web decision, review verdicts, one frozen candidate, complete model cookbook, M5 input, signed review/demo/Gate 0 |
 | M7 | current product delta through `429b779f` independently reviewed; host gate green | VPN/TLS/HMAC/service/firewall, release signer/build, physical Android 13+7 matrix, evidence review and distribution decision |
 
 The mobile source review chain is complete for the current product bytes:
 `70eef905` closes the VPN/listener/Android base and
-`8a811381..429b779f` covers every later M7 product change. Commits after
-`429b779f` are documentation only. M7 therefore does not currently need another
-source implementation block; it needs the physical environment.
+`8a811381..429b779f` covers every later M7 product change. The only later product
+change is the separate Decision 043 SPEC candidate; it changes no M7 path. M7
+therefore does not currently need another source implementation block; it needs
+the physical environment.
 
 ## Reviewable milestones prepared in this batch
 
@@ -65,6 +70,12 @@ source implementation block; it needs the physical environment.
    `RE_REVIEW_REQUIRED`.
 5. This evidence-only handoff adds the current full 352-program deterministic
    result and the final dependency map.
+6. `3291b5d4` implements the operation-bound complete-SPEC 6000 limit;
+   `5827c26c` hands its exact bytes to independent review.
+7. `5279da5c` records separate reviewer custody medium B and `51846695` prepares
+   all eight M5 credential actions in one operator packet.
+8. The fresh registered gate on `51846695` is 352/352 PASS and includes the SPEC
+   candidate; its exact report is linked above.
 
 No commit was pushed, tagged, merged or published.
 
@@ -117,12 +128,12 @@ is implemented only as an unreviewed candidate and has no new real-model result.
 
 ## M5 custody and receipts
 
-Current-tree privacy scan on `05803dad` is `PASS` over 2327 tracked files with
+Current-tree privacy scan on `51846695` is `PASS` over 2333 tracked files with
 zero findings. All 13 known incident objects remain reachable, so the final
 verdict remains `PASS_CURRENT_TREE_HISTORY_REMEDIATION_REQUIRED`. The retained
 scan is
-`.intentsmith-artifacts/current-convergence-20260911/preflight-05803dad/privacy-scan.json`,
-SHA-256 `47a69f09569241bba794cf0e18dc0b2f2631071b7ca46c5a0ff5e7b30a36c4a2`.
+`.intentsmith-artifacts/current-convergence-20260911/preflight-51846695/privacy-scan.json`,
+SHA-256 `f1ed4503f7e0cbd59ebe59b7e5ed0b95c1353cbcfce1b6e1bcd69cd418f5189d`.
 
 Medium A is one verified LUKS2 offline copy of the three operator keys. During
 this pass it was found automounted and unlocked, with no process using it. It
