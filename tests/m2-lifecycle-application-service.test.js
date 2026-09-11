@@ -21,6 +21,7 @@ import {
   createDefaultM2LifecycleApplicationService,
 } from '../src/lifecycle/m2-lifecycle-application-service.js';
 import { suite, testAsync, summary } from './harness.js';
+import { compileCodeDraftInput } from '../src/lifecycle/m2-code-draft.js';
 
 const PROJECT_ID = 27;
 const SUBJECT = Object.freeze({ actorType: 'user', actorId: 'operator-m2' });
@@ -524,6 +525,17 @@ await testAsync('cancel during the focused process aborts execution, rolls bytes
 
 
 suite('Bounded model draft — existing M2 execution authority');
+
+await testAsync('default syntax check accepts a CJS hashbang without evaluating its code', async () => {
+  const root = makeProject();
+  try {
+    fs.writeFileSync(path.join(root, 'src/cli.cjs'), '#!/usr/bin/env node\nthrow new Error("must not execute");\n');
+    const { focusedTest } = compileCodeDraftInput({ path: 'src/cli.cjs', instruction: 'Check CLI' });
+    execFileSync(focusedTest.binary, focusedTest.argv, { cwd: root, stdio: 'pipe', timeout: 30_000 });
+    fs.writeFileSync(path.join(root, 'src/cli.cjs'), '#!/usr/bin/env node\nconst value = ;\n');
+    assert.throws(() => execFileSync(focusedTest.binary, focusedTest.argv, { cwd: root, stdio: 'pipe', timeout: 30_000 }));
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
 
 for (const invalidSyntax of [false, true]) {
   await testAsync(`draft then exact approval uses real file/syntax authority (${invalidSyntax ? 'rollback' : 'success'})`, async () => {

@@ -418,7 +418,9 @@ try {
   // Model-evaluation consolidation had first removed one retired database
   // root from the pre-M6 baseline.
   //   126 -> 127 ConversationWebRequest adds a durable approval/output test.
-  const expectedDatabaseReachableRootTests = 127;
+  //   127 -> 128 Bounded CODE model journey imports the canonical isolation
+  //              bootstrap before the production database and lifecycle service.
+  const expectedDatabaseReachableRootTests = 128;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

@@ -138,6 +138,16 @@ async function run() {
       projectId,
     };
 
+    const rejectedDraft = await request('POST', '/api/m2/lifecycle/draft', {
+      projectId, origin,
+      draft: { path: '../outside.js', instruction: 'Change value to 42' },
+      projectPath: '/forged',
+    });
+    assert(rejectedDraft.status === 400 && rejectedDraft.data?.code === 'M2_PROPOSAL_CHANGE_PATH_INVALID',
+      'production draft HTTP endpoint rejects traversal before model invocation');
+    assert(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8') === 'module.exports = { value: 1 };\n',
+      'rejected draft preserves the original file');
+
     const prepared = await request('POST', '/api/m2/lifecycle/prepare', {
       projectId,
       origin,

@@ -7,7 +7,7 @@ const SYSTEM = 'Edit exactly one small JavaScript file. Return only JSON with on
 // during --check. Compile without evaluating or linking any generated code.
 // This fixed program is one argv-only focused process under the M2 sandbox.
 const SYNTAX_CHECK = `const fs=require('node:fs'),vm=require('node:vm');
-const file=process.argv[1],source=fs.readFileSync(file,'utf8');
+const file=process.argv[1],source=fs.readFileSync(file,'utf8').replace(/^#![^\\n]*(?:\\n|$)/,'\\n');
 const modes=file.endsWith('.mjs')?['module']:file.endsWith('.cjs')?['commonjs']:['module','commonjs'];
 let valid=false,lastError;
 for(const mode of modes){try{if(mode==='module')new vm.SourceTextModule(source);
