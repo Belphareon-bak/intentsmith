@@ -3,6 +3,7 @@ import { registerM2FileListOutputFunctions, readM2FileListOutput } from './effec
 import { validateEffectResultForRequest as legacyResultPair, validateApprovalGrantForRequest as legacyGrantPair } from '../../contracts/m2/effect-v1.js';
 import { registerM2FileReadOutputFunctions, readM2FileReadOutput } from './effect-file-read-output-repository.js';
 import { createHash } from 'node:crypto';
+import { registerConversationWebWriter } from '../network/conversation-web-repository.js';
 
 import {
   M2_EFFECT_CONTRACT_KIND,
@@ -174,6 +175,9 @@ const PRE_EXECUTION_APPROVAL_TERMINAL_CODES = Object.freeze([
 export class EffectAuthorityRepository {
   constructor(db, { clock = Date.now } = {}) {
     this.db = requireDatabase(db);
+    // Conversation/message invalidation triggers also run on reopened M2
+    // connections. Register the web guard default-off, without write authority.
+    registerConversationWebWriter(this.db);
     registerM2FileReadOutputFunctions(this.db);
     registerM2FileListOutputFunctions(this.db);
     registerM2EffectCurrentFunctions(this.db);

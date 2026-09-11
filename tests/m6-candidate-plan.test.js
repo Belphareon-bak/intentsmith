@@ -191,7 +191,7 @@ test('model and runner-owned server phases cover every runnable required program
 
   const serverPhase = plan.phases.find(item => item.id === 'runner-owned-server-programs');
   assert.deepEqual(serverPhase.programIds, M6_RUNNER_OWNED_SERVER_PROGRAMS);
-  assert.equal(serverPhase.programIds.length, 9);
+  assert.equal(serverPhase.programIds.length, 10);
   assert(serverPhase.programIds.every(id => byId.get(id).requirements.server === true));
   assert(serverPhase.programIds.every(id => byId.get(id).requirements.network === 'loopback'));
   assert.equal(serverPhase.runner, 'm6-runner-owned-server-programs');

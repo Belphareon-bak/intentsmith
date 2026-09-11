@@ -87,7 +87,7 @@ try {
 
 let executablePath;
 try {
-  executablePath = puppeteer.executablePath();
+  executablePath = await puppeteer.executablePath();
 } catch (error) {
   prerequisiteMissing(`puppeteer cannot resolve a browser (${error.message})`);
 }

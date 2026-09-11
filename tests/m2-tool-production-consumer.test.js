@@ -31,13 +31,17 @@ const {
   toolExecutor,
 } = await import('../src/executor/tool-executor.js');
 const { handleToolCallDecision } = await import('../src/chat/handlers/decisions.js');
-const { ChatController, SessionState } = await import('../src/chat/controller.js');
+const { ChatController, SessionState, ChatMode } = await import('../src/chat/controller.js');
 const { conversationHandler } = await import('../src/chat/handlers/conversation.js');
 const { handleLocalDecision } = await import('../src/chat/handlers/local.js');
 const { handleFileDecision, handleFileWriteDecision } = await import('../src/chat/handlers/file.js');
 const { projectHandler } = await import('../src/chat/handlers/project.js');
 const { preHandle } = await import('../src/chat/handlers/pre-handler.js');
 const { db, projects } = await import('../src/db/database.js');
+
+// Match the production composition; an unconfigured PROJECT handler returns
+// an error response, which must never count as a successful first turn.
+ChatController.configure({ handlers: { [ChatMode.CONVERSATION]: conversationHandler, [ChatMode.PROJECT]: projectHandler } });
 
 function decision(tool, intent = IntentType.LOCAL) {
   const value = {
@@ -156,6 +160,8 @@ await testAsync('first project turn consumes persisted context without creating 
     });
     assert.equal(typeof response.response, 'string');
     assert.equal(response.response.length > 0, true);
+    assert.match(response.response, /42/);
+    assert.equal(Boolean(response.metadata?.error), false);
     assert.equal(existsSync(path.join(directory, 'README.md')), false);
     assert.equal(existsSync(path.join(directory, 'ROADMAP.md')), false);
   } finally {

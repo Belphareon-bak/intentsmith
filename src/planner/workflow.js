@@ -212,7 +212,10 @@ async function callSpecDocumentLLM(role, prompt, systemPrompt = '', options = {}
   if (typeof model !== 'string' || model.trim() === '') {
     throw new Error('SPEC_DOCUMENT_MODEL_UNBOUND: D1 has no configured model');
   }
-  const timeout = config.timeouts?.D1 || 60000;
+  // The complete 6000-token document repeatedly hit the ordinary 120s D1
+  // deadline in the real cookbook. Bound this one operation to four minutes;
+  // ordinary analysis/revision calls retain their configured role deadline.
+  const timeout = 240000;
   const startTime = Date.now();
   const result = await callWithPolicy(token, prompt, {
     systemPrompt: '',

@@ -421,7 +421,9 @@ async function handleToolCallDecision(input, decision, context) {
     effectiveQuery = input;
   }
 
-  if (!context.hasActiveProject && !context.project
+  if (!context.hasActiveProject && !context.project && !context.projectId && !context.projectRoot
+    && context.authenticatedSubject?.actorType === 'user'
+    && context.authenticatedSubject.actorId === 'local-operator'
     && (decision.tools?.some(tool => ['web.search', 'web.scrape'].includes(tool))
       || [IntentType.REPORT, IntentType.ITEM_LOOKUP].includes(decision.intent))) {
     const { conversationWebHandler } = await import('./conversation-web.js');

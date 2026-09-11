@@ -2869,8 +2869,9 @@ revize na 4000. Process-local operation token je vázaný na exact D1 JSON
 operaci a correlation; běžný planner token 6000, zkopírovaný token, jiný účel
 nebo model a hodnota nad stropem selžou před provider efektem. `length` je
 explicitní fail-closed terminál bez retry. Inertní suity prošly 46/46, 158/158
-a 31/31. Candidate čeká na nezávislé source review; skutečný cookbook poběží
-až nad reviewed exact source a výsledek může stále selhat kvalitou nebo délkou.
+a 31/31. Původní delta prošla source review; dva následné privátní cookbook běhy
+skončily TIMEOUT a FAIL. Dodatečná oprava časového rozpočtu je candidate
+s novým review požadavkem; podrobnosti a aktuální důkazy jsou níže.
 Viz [`Decision 043`](docs/decisions/043-complete-spec-output-budget.md).
 
 ## 14. Rozhodovací fronta — otázka až ve chvíli, kdy má data
@@ -2939,3 +2940,16 @@ nutričních údajů, ale celý běh skončil `TIMEOUT` po 900 s. Registr měl
 15min timeout navzdory dokumentovanému trvání 20–40 minut. Oprava mění
 pouze runner timeout na 60 minut; test, jeho assertions i produkční
 modelové limity zůstávají stejné. Původní timeout zůstává důkazem selhání.
+
+Druhý privátní cookbook s hodinovým runner limitem skončil po 794,4 s:
+24 assertions PASS / 18 FAIL. Opakované 120s timeouty úplné revize SPEC
+zabránily vytvoření plánu a kódu. Kandidátní oprava dává pouze complete-SPEC
+operaci pevný 240s budget včetně preflight, bez caller override či retry;
+nové source review není dokončené. Třetí diagnostický běh tuto změnu ověřuje.
+
+Aktuální auditní module graph má 1 314 hran, 3 cykly / 28 členů.
+Nová hrana registruje default-off web writer funkci také na znovu otevřených
+M2 SQLite spojeních; bez ní invalidace konverzace selhala chybou chybějící
+SQL funkce. Přesný baseline zachovává dosavadní limity cyklů. Registry
+má 514 programů (420 ACTIVE / 79 BLOCKED / 15 HISTORICAL); deterministický
+výběr 279 offline + 74 database. Nový HTTP web test je samostatně v server fázi.

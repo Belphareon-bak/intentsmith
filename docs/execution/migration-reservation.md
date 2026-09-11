@@ -236,6 +236,7 @@ záznamu selže v `artifact-validation`.
 | `2026_08_30_108_m7_durable_rate_limits.js` | použito pro bounded durable M7 transport rate-limit buckety |
 | `2026_09_09_109_m2_file_read_outputs.js` | použito pro neměnné bajty projektového file.read@2 a odstranění obsahu |
 | `2026_09_10_110_m2_file_list_outputs.js` | `WP-CORE-COMPLETION-20260909` — přesný root-list output a tombstone |
+| `2026_09_11_111_conversation_web.js` | `WP-AUDIT-REMEDIATION-20260911` — jednotlivě schválený konverzační web |
 <!-- migration-source-manifest:end -->
 
 ## Navazující M7 rezervace 2026-08-29
@@ -419,3 +420,14 @@ nejvýše 109; 110 nemělo kolizi. Záznam
 `provider-proposal/migration110-census-7dacd466/census.json`, SHA256
 `522040f32c95fff900065cc8b88a924141469c777fa22efe681cc29f0d4622d0`.
 Nejde o vzdálený fetch. Aktuální zdroj obsahuje 97 aplikovaných migrací.
+
+## Konverzační web — 2026-09-11
+
+Číslo **111** vlastní `WP-AUDIT-REMEDIATION-20260911`. Kontrola před integračním
+ověřením prošla 452 lokálních refs / 333 unikátních commitů hlavního repozitáře
+a 29 registrovaných worktrees (25 existujících, čtyři chybějící). Číslo 111
+nebylo nalezeno v jejich commitech ani pracovních migracích. Jde o kontrolu
+lokálních refs, bez fetch či průzkumu libovolných standalone klonů; tento
+vlastní auditní klon již obsahoval kandidátní migraci 111. Důkaz:
+`.intentsmith-artifacts/migration111-census.json`, SHA256 `50bb41f9cb7051d116e8973e01e221aee745622388b464a6441621d51358a262`.
+Kandidát nyní obsahuje 98 migrací.

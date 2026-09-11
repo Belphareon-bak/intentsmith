@@ -693,6 +693,8 @@ await testAsync('complete SPEC alone receives operation-bound 6000 with one atte
     for (const [index, { options }] of calls.entries()) {
       assertEqual(options.format, 'json');
       assertEqual(options.retries, 1);
+      assert(options.timeout > 239000 && options.timeout <= 240000,
+        'complete SPEC keeps a bounded four-minute budget including preflight');
       assertEqual(options.correlation.modelRole, 'D1');
       assertEqual(options.correlation.purpose, 'answer');
       assertEqual(authTokenOperation(options._authToken), LLMOperation.WORKFLOW_SPEC_DOCUMENT_JSON_V1);
@@ -709,6 +711,7 @@ await testAsync('complete SPEC alone receives operation-bound 6000 with one atte
       { format: 'json', maxTokens: Number.POSITIVE_INFINITY },
       { format: 'text' },
       { format: 'json', model: 'attacker-model' },
+      { format: 'json', timeout: 900000 },
     ]) {
       let rejected = false;
       try { await callSpecDocumentLLM('D1', 'Rejected specification', '', invalidOptions); } catch { rejected = true; }

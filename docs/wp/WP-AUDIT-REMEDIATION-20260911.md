@@ -24,7 +24,9 @@ Tento brief nezakládá přijetí budoucích technických návrhů ani release.
   je výslovně schválen pro 1.0 s každým jednotlivým souhlasem (Decision 044).
   Vlastněné cesty navíc: `contracts/m2/conversation-web-v1.js`, chat consumer,
   `src/network/conversation-web-*.js`, migrace 111 a registrace typed writeru,
-  odpovídající testy a popis scope.
+  odpovídající testy a popis scope. Změřený opakovaný 120s timeout úplného
+  SPEC navíc opravuje pevný 240s budget pouze v `callSpecDocumentLLM`, se
+  zachováním ostatních modelových limitů a novým review požadavkem.
 - Zakázáno: měnit živou DB či bindingy, rotovat neidentifikované credentials,
   podepisovat nedoložené receipts, měnit klíče/cizí procesy, publikovat release,
   implementovat budoucí trénink nebo odložené plochy pouze na základě návrhu.

@@ -18,6 +18,7 @@ export const M6_DIRECT_OWNED_SERVER_PROGRAMS = Object.freeze([
 // M6 therefore runs this exact frozen set through a dedicated, serial,
 // runner-owned server fixture.
 export const M6_RUNNER_OWNED_SERVER_PROGRAMS = Object.freeze([
+  'IS-T3-TESTS-CONVERSATION-WEB-HTTP-TEST',
   'IS-T3-TESTS-ATTACHMENTS-PROJECTS-TEST',
   'IS-T3-TESTS-E2E-SPECIALISTS-TEST',
   'IS-T3-TESTS-M2-LIFECYCLE-HTTP-E2E-TEST',

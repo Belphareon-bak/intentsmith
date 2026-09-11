@@ -133,15 +133,15 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **222 078 ř.**, 600 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **240 196 ř.**, 518 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **512** (`418 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
-| Tabulek v čerstvé DB / aplikovaných migrací | **173 / 97** |
+| `src/**/*.js` | **222 534 ř.**, 604 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **240 526 ř.**, 520 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **514** (`420 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
+| Tabulek v čerstvé DB / aplikovaných migrací | **174 / 98** |
 | HTTP rout | ~230 |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
 Aktuální registry fingerprint je
-`3ce12a0edffe7e6da0f875ce3f0b25758524641557023d00aae39d0784fdbbfc`.
+`a79d19aa0d80efc9f0fb6d10ff7bd5d761f60ec9e189a184eb1f27fe491860c8`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 

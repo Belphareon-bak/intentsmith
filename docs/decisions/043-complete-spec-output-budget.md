@@ -2,7 +2,7 @@
 
 **Datum:** 2026-09-11
 
-**Stav:** `ACCEPTED / IMPLEMENTED_CANDIDATE / REVIEW_REQUIRED / MODEL_NOT_RUN`
+**Stav:** `ACCEPTED / IMPLEMENTED_CANDIDATE / RE_REVIEW_REQUIRED / MODEL_FAIL`
 
 **Rozsah:** jediná strukturovaná operace vytvoření úplného SPEC dokumentu
 
@@ -59,7 +59,16 @@ Lokální inertní výsledky před review:
 - lifecycle: 158/158 PASS;
 - M1 model contract: 31/31 PASS.
 
-Tyto výsledky dokazují autoritní a fail-closed hranici bez modelu. Skutečný
-původní cookbook na exact reviewed kandidátu musí teprve ověřit, zda 6000
-vytvoří použitelný plný dokument a zachová všechny revizní požadavky. Do té
-doby platí `MODEL_NOT_RUN` a žádná M6 acceptance.
+Původní delta `5279da5c..3291b5d4` prošla nezávislým
+[source review](../review/2026-09-11-COMPLETE-SPEC-6000-SOURCE-REVIEW.md).
+Privátní diagnostika s 16384 contextem skončila nejprve runner timeoutem
+900 s, poté při hodinovém runner limitu `FAIL` (24 assertions PASS / 18 FAIL).
+Druhý běh opakovaně skončil na 120s deadline při generování revize SPEC;
+plán ani kód nevznikly. Výstupní strop sám tento problém neřeší.
+
+V rámci explicitně zadaných oprav auditu má nyní pouze complete-SPEC operace
+pevný timeout 240 s včetně preflight; caller ho nesmí přepsat. Ostatní D1
+operace zachovávají dosavadní roli a timeout. Pořád jde nejvýše o jeden
+provider pokus, bez snížení obsahové validace, bez změny modelu a bez přijetí
+16384 kontextu do provozní konfigurace. Tato dodatečná změna čeká na nové
+nezávislé review a aktuální modelový výsledek. Žádná M6 acceptance.

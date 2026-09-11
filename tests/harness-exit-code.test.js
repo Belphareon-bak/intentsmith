@@ -417,7 +417,8 @@ try {
   //              It is likewise protected before any production import.
   // Model-evaluation consolidation had first removed one retired database
   // root from the pre-M6 baseline.
-  const expectedDatabaseReachableRootTests = 126;
+  //   126 -> 127 ConversationWebRequest adds a durable approval/output test.
+  const expectedDatabaseReachableRootTests = 127;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,
