@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "f839b3861938d7366d42eac052e266074a176fc4",
-  "sourceTree": "17f1212188193b6ffa06953293bd422eeb77ddfc",
+  "sourceRevision": "f1c83276c1fd21ad37b8b011b1675a37362b5192",
+  "sourceTree": "9fb7406141000b3975c1bc980e2e501cf24d273b",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -562,6 +562,7 @@
     "src/effects/effect-authority-repository.js -> src/effects/effect-file-list-output-repository.js",
     "src/effects/effect-authority-repository.js -> src/effects/effect-file-read-output-repository.js",
     "src/effects/effect-authority-repository.js -> src/effects/effect-rollback-settlement.js",
+    "src/effects/effect-authority-repository.js -> src/network/conversation-web-repository.js",
     "src/effects/effect-broker.js -> src/effects/effect-file-list-output-repository.js",
     "src/effects/effect-broker.js -> src/effects/effect-file-read-output-repository.js",
     "src/effects/effect-broker.js -> src/effects/execution-owner.js",
