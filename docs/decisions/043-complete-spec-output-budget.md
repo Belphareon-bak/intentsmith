@@ -78,6 +78,11 @@ provider volání a uvolněný semaphore. Po této změně M1 model contract pro
 32/32. Remediation potřebuje nové nezávislé re-review; původní verdikt se na ni
 nepřenáší.
 
+Úplný registrovaný deterministic gate na evidence HEAD `d2b03cc3` zahrnul
+produktový candidate `dca0e89b` a skončil 352/352 PASS, bez FAIL, TIMEOUT,
+BLOCKED nebo SKIPPED. Tento gate je integrační důkaz candidatu, ne jeho
+nezávislé přijetí.
+
 Tyto výsledky dokazují autoritní a fail-closed hranici bez modelu. Skutečný
 původní cookbook na exact reviewed kandidátu musí teprve ověřit, zda 6000
 vytvoří použitelný plný dokument a zachová všechny revizní požadavky. Do té

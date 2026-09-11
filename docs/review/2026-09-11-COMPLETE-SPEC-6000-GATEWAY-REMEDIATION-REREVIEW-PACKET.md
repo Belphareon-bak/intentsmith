@@ -83,6 +83,14 @@ model-use authority 27/27, gateway runtime 7/7, chat persistence 36/36,
 artifact/documentation validation 158/158 and specialist boundary 12/12; all
 PASS with zero failures. Syntax checks and `git diff --check` also passed.
 
+A subsequent clean registered gate on evidence HEAD
+`d2b03cc32baf95ade4f096b22d875c4119ee9491` included this exact product
+candidate and ran all 352 offline/database programs: 352 PASS, zero FAIL,
+TIMEOUT, BLOCKED or SKIPPED, exit 0. Its report SHA-256 is
+`023307449433ab34c4c203c6cf0d8681caa84e6a382c6097ba656de0fd8b9d4a`;
+all 352 log files exist and their report-bound hashes match. See the
+[`current gate record`](../execution/runs/current-deterministic-d2b03cc3-20260911.md).
+
 Please return `REVIEW_PASSED` or `CHANGES_REQUIRED` bound to
 `dca0e89bcc47a1dce96fbe0d3f0616aadccd3b2c`. A pass only closes this source
 finding and reopens the exact real-model SPEC cookbook. It does not claim that

@@ -1,6 +1,6 @@
 # IntentSmith project completion handoff — 2026-09-11
 
-Status: `PREVIOUS_TECHNICAL_CONVERGENCE_GREEN / ONE_OPERATOR_DECISION_REQUIRED /
+Status: `CURRENT_DETERMINISTIC_352_PASS / ONE_OPERATOR_DECISION_REQUIRED /
 SPEC_REMEDIATION_RE_REVIEW_REQUIRED /
 M5_EXTERNAL_ACTIONS_REQUIRED / M6_REVIEW_AND_ACCEPTANCE_BLOCKED /
 M7_PHYSICAL_GATE_BLOCKED`.
@@ -13,38 +13,32 @@ receipt, release tag or publication authority.
 The last product commit is the Decision 043 gateway-ceiling remediation
 `dca0e89bcc47a1dce96fbe0d3f0616aadccd3b2c`. Its history includes the reviewed
 M7 candidate `429b779f26b2f66a1c378e529c082d6b436609ca`; the later product change
-does not touch M7 bytes. The range from `3291b5d4` through the measured evidence
-HEAD `51846695b27d5d45fedaab2b4d9d241bec03739d` changes documentation only; a
-Git diff over `src`, `contracts`, `scripts`, `mobile-app`, `systemd`, `tests`
-and package manifests is empty.
+does not touch M7 bytes. The range after `3291b5d4` through independently
+inspected evidence HEAD `983121ee` changed documentation only. The next product
+delta is exactly the gateway remediation `dca0e89b`; evidence HEAD `d2b03cc3`
+adds only its handoff documents.
 
-The 352/352 result below predates `dca0e89b` and is therefore historical for
-the current product bytes. Focused verification of the remediation passes M1
-model contract 32/32, workflow 46/46, lifecycle 158/158, model-use authority
-27/27, gateway runtime 7/7, chat persistence 36/36, documentation oracle
-158/158 and specialist boundary 12/12. A new full registered gate is required
-before this handoff can return to `CURRENT_DETERMINISTIC_PASS`.
-
-One clean registered audit on `51846695` ran every required deterministic
-program with concurrency one and the exact declared local toolchains:
+One clean registered audit on evidence HEAD `d2b03cc3` ran every required
+deterministic program with concurrency one and the exact declared local
+toolchains:
 
 ```text
 inventory             = 352 programs
 profiles               = 279 offline + 73 database
 result                 = 352 PASS / 0 FAIL / 0 TIMEOUT / 0 BLOCKED / 0 SKIPPED
-source revision        = 51846695b27d5d45fedaab2b4d9d241bec03739d
+source revision        = d2b03cc32baf95ade4f096b22d875c4119ee9491
 registry fingerprint   = 3ce12a0edffe7e6da0f875ce3f0b25758524641557023d00aae39d0784fdbbfc
 inventory fingerprint  = c1a621012e464e5139fe860c3732d78fdfa83482ad966eba55c5fa7311c3110b
 options fingerprint    = 533fb61b7113b560d7e9cdb0cbaea3bb96a1f4621554c41f3836b378a94f4c20
-started/ended UTC      = 2026-09-11T12:23:50.896Z / 12:28:33.433Z
+started/ended UTC      = 2026-09-11T15:09:05.988Z / 15:14:11.804Z
 ```
 
 Report:
-`.intentsmith-artifacts/current-convergence-20260911/current-deterministic-51846695-20260911-01/report.json`,
-SHA-256 `3591dca58b39b5de6eea935ea26d9b96308ede20d1bfdeeb56fde94234ce7417`.
+`.intentsmith-artifacts/current-convergence-20260911/current-deterministic-d2b03cc3-20260911-01/report.json`,
+SHA-256 `023307449433ab34c4c203c6cf0d8681caa84e6a382c6097ba656de0fd8b9d4a`.
 All 352 IDs and source revisions are exact; all 352 log files exist and their
 report-bound SHA-256 digests match. Details:
-[`current-deterministic-51846695-20260911.md`](current-deterministic-51846695-20260911.md).
+[`current-deterministic-d2b03cc3-20260911.md`](current-deterministic-d2b03cc3-20260911.md).
 The audit did not include model, GPU, external-network, owned-server, soak or
 manual profiles. It is a current deterministic integration result, not a full
 M6 release verdict.
@@ -55,7 +49,7 @@ M6 release verdict.
 |---|---|---|
 | M0–M4 | accepted | no release blocker identified in this pass |
 | M5 | `8/9 REVIEW_PASSED / KEY_CUSTODY_PARTIAL / PRIVACY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED` | custody completion, eight category actions and receipts, history receipt, final M5 acceptance |
-| M6 | previous deterministic tree green; SPEC gateway remediation focused-green and awaiting re-review; runtime evidence collected | current full gate, one web decision, review verdicts, one frozen candidate, complete model cookbook, M5 input, signed review/demo/Gate 0 |
+| M6 | current deterministic tree green; SPEC gateway remediation awaiting re-review; runtime evidence collected | one web decision, review verdicts, one frozen candidate, complete model cookbook, M5 input, signed review/demo/Gate 0 |
 | M7 | current product delta through `429b779f` independently reviewed; host gate green | VPN/TLS/HMAC/service/firewall, release signer/build, physical Android 13+7 matrix, evidence review and distribution decision |
 
 The mobile source review chain is complete for the current product bytes:
@@ -83,8 +77,8 @@ the physical environment.
    default and live operation budgets and now awaits narrow re-review.
 7. `5279da5c` records separate reviewer custody medium B and `51846695` prepares
    all eight M5 credential actions in one operator packet.
-8. The fresh registered gate on `51846695` is 352/352 PASS and includes the SPEC
-   candidate; its exact report is linked above.
+8. The fresh registered gate on `d2b03cc3` is 352/352 PASS and includes the
+   gateway remediation; its exact report is linked above.
 
 Branch publication is transport only and grants no tag, merge, acceptance or
 release authority.
@@ -153,12 +147,13 @@ is implemented only as a remediation candidate and has no new real-model result.
 
 ## M5 custody and receipts
 
-Current-tree privacy scan on `51846695` is `PASS` over 2333 tracked files with
-zero findings. All 13 known incident objects remain reachable, so the final
-verdict remains `PASS_CURRENT_TREE_HISTORY_REMEDIATION_REQUIRED`. The retained
-scan is
-`.intentsmith-artifacts/current-convergence-20260911/preflight-51846695/privacy-scan.json`,
-SHA-256 `f1ed4503f7e0cbd59ebe59b7e5ed0b95c1353cbcfce1b6e1bcd69cd418f5189d`.
+Current-tree privacy scan on `d2b03cc3` is `PASS` over 2 336 tracked files with
+zero findings. All 13 known incident objects remain reachable exactly as
+declared by `retain_and_rotate`, so the scanner verdict is
+`PASS_CURRENT_TREE_HISTORY_RETAINED_AS_DECLARED`. The signed history receipt
+is still missing. The retained scan is
+`.intentsmith-artifacts/current-convergence-20260911/preflight-d2b03cc3/privacy-scan.json`,
+SHA-256 `d4f559b2ec5a3684197d6c42c37edf0e81e72391000bc7d9fe9c529bf36c37b4`.
 
 Medium A is one verified LUKS2 offline copy of the three operator keys. During
 this pass it was found automounted and unlocked, with no process using it. It
