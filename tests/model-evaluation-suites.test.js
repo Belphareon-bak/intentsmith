@@ -2,6 +2,7 @@
 
 import { suite, test, testAsync, assert, assertEqual, summary } from './harness.js';
 import { createHash } from 'node:crypto';
+import { MODEL_ACTIVITY_OWNER, modelUseAuthority } from '../src/upgrade/model-use-authority.js';
 import {
   MODEL_EVALUATION_ARTIFACT_ERROR,
   ModelEvaluationArtifactError,
@@ -157,6 +158,34 @@ await testAsync('direct call returns content and metrics', async () => {
   } finally {
     globalThis.fetch = original;
   }
+});
+
+await testAsync('evaluation cannot race a pull and holds its lease through response consumption', async () => {
+  const original = globalThis.fetch;
+  let calls = 0;
+  let activeDuringBody = false;
+  globalThis.fetch = async () => {
+    calls++;
+    return { ok: true, json: async () => {
+      try {
+        const conflict = modelUseAuthority.acquireExclusive({ modelName: 'fixture', owner: MODEL_ACTIVITY_OWNER.MODEL_PULL });
+        conflict.release();
+      } catch { activeDuringBody = true; }
+      return { message: { content: 'held' } };
+    } };
+  };
+  let lease = modelUseAuthority.acquireExclusive({ modelName: 'fixture', owner: MODEL_ACTIVITY_OWNER.MODEL_PULL });
+  try {
+    const runner = new ModelEvaluationRunner('http://127.0.0.1:11434');
+    const blocked = await runner._callModel('fixture', [{ role: 'user', content: 'ping' }]);
+    assert(blocked.error);
+    assertEqual(calls, 0);
+    lease.release();
+    lease = null;
+    assertEqual((await runner._callModel('fixture', [{ role: 'user', content: 'ping' }])).content, 'held');
+    assert(activeDuringBody, 'shared claim must remain active until body completion');
+    lease = modelUseAuthority.acquireExclusive({ modelName: 'fixture', owner: MODEL_ACTIVITY_OWNER.MODEL_PULL });
+  } finally { lease?.release(); globalThis.fetch = original; }
 });
 
 await testAsync('authoritative direct call accepts a response-attested artifact', async () => {

@@ -27,6 +27,7 @@
 
 import { execFileSync } from 'node:child_process';
 
+import { MODEL_ACTIVITY_OWNER, modelUseAuthority } from './model-use-authority.js';
 import { config } from '../config.js';
 import { logger } from '../core/logger.js';
 import { sameModelName } from './model-identity.js';
@@ -59,12 +60,16 @@ function baseUrl(opts = {}) {
 }
 
 async function ollama(path, init, timeoutMs, opts = {}) {
-  const res = await fetch(`${baseUrl(opts)}${path}`, {
-    ...init,
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-  if (!res.ok) throw new Error(`Ollama HTTP ${res.status} na ${path}`);
-  return res.json();
+  const modelName = init?.body ? JSON.parse(init.body).model : null;
+  const lease = modelName ? modelUseAuthority.acquireShared({ modelName, owner: MODEL_ACTIVITY_OWNER.VRAM_ARTIFACT_USE }) : null;
+  try {
+    const res = await fetch(`${baseUrl(opts)}${path}`, {
+      ...init,
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!res.ok) throw new Error(`Ollama HTTP ${res.status} na ${path}`);
+    return res.json();
+  } finally { lease?.release(); }
 }
 
 /**
@@ -235,7 +240,9 @@ export async function measureModel(modelName, opts = {}) {
     error: null,
   };
 
+  let lease;
   try {
+    lease = modelUseAuthority.acquireShared({ modelName, owner: MODEL_ACTIVITY_OWNER.VRAM_ARTIFACT_USE });
     // Měří se vždy z prázdné paměti, jinak výsledek popisuje kontenci.
     if (opts.drain !== false && !await drainResident(opts)) {
       result.error = 'GPU se před měřením nepodařilo bezpečně uvolnit';
@@ -265,7 +272,7 @@ export async function measureModel(modelName, opts = {}) {
     result.throughput = await measureThroughput(modelName, opts);
   } catch (err) {
     result.error = err.message;
-  }
+  } finally { lease?.release(); }
 
   return result;
 }

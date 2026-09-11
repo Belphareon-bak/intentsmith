@@ -39,6 +39,11 @@ npm run report:model-evaluations
 ```
 
 Disková rezerva 40 GiB se kontroluje před pullem i v ručním režimu.
+Pull používá stejný `UpgradeManager` jako server: exclusive durable claim,
+append-only provider intent/outcome a transport idle timeout. Chybějící
+injektovaná pull autorita skončí před prvním efektem. CLI při `--run` váže
+model-use autoritu na svou DB; měření, capability probe a quality request
+drží shared artifact claim. Selhaný pull nespouští ani cleanup modelu.
 `--only` pro nenainstalovaný model načte velikost jeho přesného katalogového
 tagu; neznámá velikost pull blokuje. `--limit` musí být kladné celé číslo.
 Výpis `--shortlist --only=...` ukazuje právě vybrané kandidáty.

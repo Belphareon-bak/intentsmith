@@ -4,6 +4,7 @@
 // The caller supplies an exact, versioned suite through an evaluation plan and
 // persists the resulting immutable summary through ModelEvaluationHistory.
 
+import { MODEL_ACTIVITY_OWNER, modelUseAuthority } from '../upgrade/model-use-authority.js';
 import { config } from '../config.js';
 import {
   normalizeModelDigestSha256,
@@ -67,7 +68,9 @@ export class ModelEvaluationRunner {
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     const started = Date.now();
 
+    let lease;
     try {
+      lease = modelUseAuthority.acquireShared({ modelName, owner: MODEL_ACTIVITY_OWNER.MODEL_VALIDATION });
       const response = await fetch(`${this._baseUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -136,6 +139,7 @@ export class ModelEvaluationRunner {
       };
     } finally {
       clearTimeout(timeoutId);
+      lease?.release();
     }
   }
 

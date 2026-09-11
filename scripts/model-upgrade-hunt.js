@@ -46,6 +46,9 @@ import { parseModelNameExtended } from '../src/upgrade/model-family-extensions.j
 import { fetchModels as fetchWhatllm, matchModels } from '../src/upgrade/whatllm-client.js';
 import { enrichFromHuggingFace } from '../src/upgrade/huggingface-client.js';
 import { modelRegistry } from '../src/upgrade/model-registry.js';
+import { upgradeManager } from '../src/upgrade/upgrade-manager.js';
+import { modelUseAuthority } from '../src/upgrade/model-use-authority.js';
+import { createModelArtifactAuthorityRepository } from '../src/upgrade/model-artifact-authority-repository.js';
 import {
   measureModel, drainResident, intendedNumCtx, listResident,
 } from '../src/upgrade/vram-measurement.js';
@@ -355,6 +358,12 @@ configureProductionOutboundPolicy({
 });
 installProductionOutboundGuard();
 modelEvaluationHistory.setDb(db);
+if (DO_RUN) {
+  const artifactRepository = createModelArtifactAuthorityRepository(db);
+  modelUseAuthority.bindDurableRepository(artifactRepository);
+  upgradeManager.setDb(db);
+  upgradeManager.setModelArtifactAuthorityRepository(artifactRepository);
+}
 const evaluationDecisionStore = new ModelEvaluationDecisionStore(db);
 const bindingRepository = createModelFailoverRepository(db);
 const evaluationRunner = new RoleQualityEvaluationRunner(config.ollama?.baseUrl);
@@ -683,6 +692,7 @@ for (const cand of toTry) {
   const candidateStartedAt = new Date().toISOString();
   const r = await tryCandidate(cand.name, {
     runner: evaluationRunner,
+    pullModel: (name, onProgress, authority) => upgradeManager.pullModel(name, onProgress, authority),
     skipPull: cand.installed === true,
     // Jen role, pro které je tenhle model vůbec kandidátem.
     roles: cand.roles,
