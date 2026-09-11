@@ -154,6 +154,8 @@ coding: resolve each of the eight credential categories by actual rotation or
 historically supported N/A, commit redacted action evidence, sign eight ordered
 category receipts, sign `retain_and_rotate` history, review PRIVACY, then sign
 M5 acceptance. No receipt may contain a secret or its digest/prefix/suffix.
+The exact category matrix, evidence rules and one-response fact sheet are in
+[`m5-credential-action-packet-20260911.md`](m5-credential-action-packet-20260911.md).
 
 ## Current host boundary for M7
 
