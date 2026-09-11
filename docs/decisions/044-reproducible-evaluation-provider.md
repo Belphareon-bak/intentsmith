@@ -28,6 +28,12 @@ sériového scoringu. Nemění systémovou službu. Samostatně autorizovaný
 systémový upgrade používá loopback `11434`, verzi oddělenou v `/opt` a
 zachovává původní konfiguraci pro rollback.
 
+Plánovaný sidecar běží pod uživatelským účtem, s vypnutým cloudem a vlastní
+procesní skupinou. Ukončení musí zahrnout i native GPU runnery. Systémový
+modelový sklad je pro tento účet chráněn běžnými oprávněními; wrapper není
+filesystem sandbox. Tato cesta funguje také pod systemd na hostu, kde
+AppArmor blokuje neprivilegované user namespaces. Globální policy se nemění.
+
 Identita opakovaně použitelného výsledku zahrnuje digest, roli, kontrakt sady
 a verzi Ollamy. Verze leží v append-only `metadata_json.provider`; starým
 řádkům se nedoplňuje odhad. Nová Ollama vyžaduje nové měření incumbenta i

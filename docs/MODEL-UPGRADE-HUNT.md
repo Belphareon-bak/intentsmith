@@ -212,8 +212,13 @@ ani soukromá kvalifikační kopie nejsou automaticky provozní evidence.
 ## Sidecar pro pravidelný běh
 
 `scripts/run-model-hunt-provider.js` ověří SHA binárky a soupis native
-knihoven, spustí read-only sidecar na `127.0.0.1:11435` a předá argumenty
-hunt CLI. Při ukončení dávky sidecar zastaví. Provider log a JSON report
+knihoven, spustí sidecar na `127.0.0.1:11435` a předá argumenty
+hunt CLI. Sidecar běží jako běžný uživatel s vypnutým cloudem; výchozí
+systémový modelový sklad vlastní účet `ollama` a uživatel do něj nemůže
+zapisovat. Nejde o filesystem sandbox. Vlastní procesní skupina zajišťuje
+ukončení provideru i všech jeho native runnerů; systemd navíc vlastní celou
+cgroup. Není potřeba povolovat user namespaces ani měnit AppArmor.
+Při ukončení dávky se procesy zastaví. Provider log a JSON report
 zůstanou v `~/.local/state/intentsmith/model-hunt/run-*/`.
 
 Výchozí runtime je
