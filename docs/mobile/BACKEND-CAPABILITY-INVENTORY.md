@@ -12,14 +12,14 @@ remote-health.read is a public GET /remote/v1/health prerequisite, not one of th
 The underlying requirements retain their own candidate stage. Availability and scopes must
 still be validated against the actual server/session; desktop route existence grants no remote authority.
 
-- Desktop route declarations: 242
+- Desktop route declarations: 243
 - Legacy /m1 declarations: 0
 - M7 HTTP routes: 7
 - M7 invocation operations: 17
 - Capability areas: approvals, conversations, events, notifications, projects, settings, stored_information
 - Control-plane operations (not another capability): 3
-- Desktop route digest: `d04ed0f8ca989a6f4502fe35f65882dcd1709ddabc5b8550caa4e9c62d3b157a`
-- Combined inventory digest: `d98faa42a2f541b3c0eab05e47db1d4b16b49ea250377418a5656cdbbdf18c26`
+- Desktop route digest: `fbf9ddfd007db88074c364e30ddc3c8a1b4718cec91052c7103c19acecfd921c`
+- Combined inventory digest: `d42b5fd9e84441f4b8fbd99d51004dcc283ea01d3e208b3e347f5282fe1833ee`
 
 Workers, specialists and device management have no M7 operation in this projection.
 Their desktop route declarations must not be mistaken for a mobile capability.
@@ -151,6 +151,7 @@ Their desktop route declarations must not be mistaken for a mobile capability.
 | GET | `/api/logs/export` | src/routes/misc.js |
 | POST | `/api/m2/lifecycle/approve` | src/routes/m2-lifecycle.js |
 | POST | `/api/m2/lifecycle/cancel` | src/routes/m2-lifecycle.js |
+| POST | `/api/m2/lifecycle/draft` | src/routes/m2-lifecycle.js |
 | POST | `/api/m2/lifecycle/prepare` | src/routes/m2-lifecycle.js |
 | GET | `/api/m2/lifecycle/status` | src/routes/m2-lifecycle.js |
 | GET | `/api/marketplace/catalog` | src/routes/marketplace.js |

@@ -183,8 +183,9 @@ test('model and runner-owned server phases cover every runnable required program
   const plan = buildM6CandidateExecutionPlan(registry);
   const byId = new Map(registry.suites.map(program => [program.id, program]));
   const modelPhase = plan.phases.find(item => item.id === 'model-without-server');
-  assert.equal(modelPhase.programIds.length, 44);
-  assert.equal(modelPhase.programIds.filter(id => byId.get(id).profile === 'model').length, 43);
+  assert.equal(modelPhase.programIds.length, 45);
+  assert.equal(modelPhase.programIds.filter(id => byId.get(id).profile === 'model').length, 44);
+  assert(modelPhase.programIds.includes('IS-T3-TESTS-M2-CODE-DRAFT-MODEL-TEST'));
   assert.equal(modelPhase.programIds.filter(id => byId.get(id).profile === 'server').length, 1);
   assert(modelPhase.programIds.every(id => byId.get(id).requirements.server === false));
   assert(modelPhase.programIds.every(id => byId.get(id).requirements.network !== 'external'));
