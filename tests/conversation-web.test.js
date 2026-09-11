@@ -151,7 +151,7 @@ test('canonical URL and public-address policy deny private, mapped, reserved, cr
 });
 
 function fakeTransport({ answers = [{ address: '93.184.215.14', family: 4 }], status = 200,
-  type = 'text/plain', body = Buffer.from('hello'), encoding } = {}) {
+  type = 'text/plain', body = Buffer.from('hello'), encoding, hang = false } = {}) {
   let created = 0; let ended = 0; let observed;
   const transport = createConversationWebTransport({ resolve: async () => answers,
     request(url, options, callback) {
@@ -159,6 +159,12 @@ function fakeTransport({ answers = [{ address: '93.184.215.14', family: 4 }], st
       req.destroy = error => queueMicrotask(() => req.emit('error', error));
       req.end = () => {
         ended++;
+        if (hang) {
+          options.signal.addEventListener('abort', () => req.emit('error', Object.assign(new Error('aborted'), {
+            name: 'AbortError', code: 'ABORT_ERR', cause: options.signal.reason,
+          })), { once: true });
+          return;
+        }
         options.lookup(url.hostname, {}, (error, address, family) => {
           if (error) { req.emit('error', error); return; }
           assert.equal(address, answers[0].address); assert.equal(family, 4);
@@ -178,6 +184,24 @@ await testAsync('transport pins public DNS and enforces TLS/no credential/body/p
   assert.equal(options.method, 'GET'); assert.equal(options.autoSelectFamily, false);
   assert.deepEqual(Object.keys(options.headers).sort(), ['Accept','Accept-Encoding']);
   assert.equal(options.body, undefined); assert.deepEqual(f.counts(), { created: 1, ended: 1 });
+});
+
+await testAsync('the internal web deadline is a failed request, while caller cancellation retains its origin', async () => {
+  const timeout = AbortSignal.timeout;
+  const hold = setTimeout(() => {}, 1000);
+  try {
+    AbortSignal.timeout = milliseconds => {
+      assert.equal(milliseconds, 15000);
+      return timeout.call(AbortSignal, 1);
+    };
+    const deadline = fakeTransport({ hang: true });
+    await assert.rejects(deadline.transport('https://example.com/'), { code: 'WEB_REQUEST_TIMEOUT' });
+    assert.deepEqual(deadline.counts(), { created: 1, ended: 1 });
+  } finally { AbortSignal.timeout = timeout; clearTimeout(hold); }
+  const caller = new AbortController(); const cancelled = fakeTransport({ hang: true });
+  const pending = cancelled.transport('https://example.com/', { signal: caller.signal });
+  caller.abort();
+  await assert.rejects(pending, { name: 'AbortError', code: 'ABORT_ERR' });
 });
 
 await testAsync('transport rejects private literals before socket creation and mixed DNS before connection', async () => {

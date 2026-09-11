@@ -26,6 +26,8 @@ export function createConversationWebTransport({ resolve = lookup, request = htt
     beforeConnect();
     let address;
     return new Promise((accept, reject) => {
+      const fail = error => reject(timer.aborted && !signal?.aborted
+        ? webError('WEB_REQUEST_TIMEOUT') : error);
       const req = request(url, {
         method: 'GET', agent: false, rejectUnauthorized: true, autoSelectFamily: false,
         signal: boundedSignal, maxHeaderSize: 16384,
@@ -56,11 +58,11 @@ export function createConversationWebTransport({ resolve = lookup, request = htt
           if (bytes > CONVERSATION_WEB.maxResponseBytes) response.destroy(webError('WEB_RESPONSE_TOO_LARGE'));
           else chunks.push(chunk);
         });
-        response.once('error', reject);
+        response.once('error', fail);
         response.once('end', () => accept({ bytes: Buffer.concat(chunks), status: response.statusCode, contentType,
           address: address || host }));
       });
-      req.once('error', reject);
+      req.once('error', fail);
       req.end();
     });
   };
