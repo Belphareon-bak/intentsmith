@@ -557,3 +557,13 @@ Ponechány jako reference. **Autoritou je tento dokument.**
 Aktualizace souborových funkcí 2026-09-10: module graph má 1 302 hran,
 20 nových přesně revidovaných hran, žádná odebraná, stejné 3 cykly / 28 členů.
 [Předání uzavřené dávky](docs/execution/runs/m6/core-completion-review-20260910.md).
+
+
+Závěrečné předání auditních oprav 2026-09-11:
+[run report](docs/execution/runs/audit-remediation-20260911.md).
+Na `5d7aab48` prošlo 353/353 deterministických programů; následná oprava
+rozlišení web deadline prošla cílenými DB/transport a skutečnými HTTP testy
+na `7a5f4104`. Serverová sada má 23/23 PASS, dvě skutečné Studio cesty mají
+oddělený PASS na `3d088733`. Opravy jsou `IMPLEMENTED_CANDIDATE /
+INDEPENDENT_REVIEW_REQUIRED`; modelový build quality P0, M5 podpisy/custody
+a celá M6 acceptance zůstávají otevřené. Kontrakty po 1.0 jsou návrh.
