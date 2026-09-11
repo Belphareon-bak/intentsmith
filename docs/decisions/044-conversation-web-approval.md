@@ -31,7 +31,9 @@ Výsledek je citovaný obsah, nikoli instrukce modelu či nástroji. Obnovení
 vrací uložený výsledek bez sítě. Pád po spotřebování souhlasu nikdy nezakládá
 právo požadavek znovu odeslat; nedoložený výsledek zůstává nedoložený.
 Zrušení, změna původní zprávy, smazání/archivace nebo připojení projektu
-ruší tento rozsah a znepřístupní uložený webový obsah.
+ruší tento rozsah a odstraní response bytes z webového repository. Dříve
+zobrazený úryvek ve zprávě se řídí běžnou retencí historie konverzace;
+odvolání souhlasu nevymaže kopie, které už uživatel získal.
 
 Přímé načtení používá `načti web https://…`. Vyhledávací intent nabídne jeden
 konkrétní Bing RSS GET. Je to dostupnostní závislost na veřejném endpointu,

@@ -246,7 +246,7 @@ curl -X POST http://127.0.0.1:3335/chat \
 
 ## 3. Vyvoj C3 Studio IDE
 
-C3 Studio je desktopova IDE postavena na Eclipse Theia 1.65.2 (Electron).
+C3 Studio je desktopova IDE postavena na Eclipse Theia 1.74.1 a Electron 42.11.3.
 Na cistem checkoutu nejdrive vzdy spustte
 `./scripts/install.sh --minimal`; nasledujici prikazy jsou urcene pro iteraci
 po jiz uspesne kanonicke instalaci a samy neprovadeji Electron ABI rebuild ani

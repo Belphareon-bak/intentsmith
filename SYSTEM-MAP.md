@@ -134,7 +134,7 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 | | |
 |---|---:|
 | `src/**/*.js` | **222 534 ř.**, 604 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **240 526 ř.**, 520 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **240 562 ř.**, 520 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **514** (`420 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **174 / 98** |
 | HTTP rout | ~230 |
@@ -361,7 +361,9 @@ znění v [`CONTRACT.md`](CONTRACT.md) §2.
     mimo loopback — okno 75 s pokrylo startup, idle, shutdown a 30s agent
     scheduler, **nepokrylo** 5min poll ani 24h cyklus, pro delší horizont je to
     `NOT RUN`. LLM-inicovaný web egress zůstává na M2 hranici unavailable,
-    protože query není přesnou autoritou provider fallbacku a redirectů; global
+    pro legacy automatické pipeline,
+    protože query není přesnou autoritou provider fallbacku a redirectů. Nový
+    rozsah z Decision 044 nabízí samostatné schválení jediného cíle; global
     guard navíc blokuje každý případný legacy bypass.
     `docs/review/2026-08-07-OUTBOUND-CENSUS.md`
 13. Učení nerozšiřuje authority, nemění code/config a nekříží projekt bez
@@ -387,7 +389,9 @@ klasifikace a staré FAIL důkazy se tím nemažou.
 Backend i Studio mají aktualizované lockfiles a audit 2026-09-11 bez nálezů.
 Studio používá Theia 1.74.1, Electron 42.11.3 a ověřený webpack preload entry;
 Theia 1.75 vyžaduje samostatný přechod na esbuild a není součástí této opravy.
-Úspěšný build sám ještě nenahrazuje běžící desktopový journey.
+Dva skutečné Electron journey na `3d088733` prošly: boundary s produkčním
+backendem a M1 cesta s řízeným fixture. Build, skutečné spuštění a fixture
+scénář mají oddělené důkazy; žádný z nich nenahrazuje kompletní modelový build.
 
 [Decision 044](docs/decisions/044-conversation-web-approval.md) přidává do 1.0
 web bez projektu s jednotlivým schválením. Nový consumer má samostatný

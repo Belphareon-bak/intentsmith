@@ -2,6 +2,7 @@ import './helpers/isolated-test-db.js';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { Readable } from 'node:stream';
+import { spawnSync } from 'node:child_process';
 import { db, conversations, messages } from '../src/db/database.js';
 import { createConversationWebHandler } from '../src/chat/handlers/conversation-web.js';
 import { ConversationWebRepository } from '../src/network/conversation-web-repository.js';
@@ -42,6 +43,41 @@ await testAsync('proposal sends nothing; exact persisted approval executes once 
   assert.equal(replay.response.content, first.response.content);
   const audits = db.prepare("SELECT phase FROM m5_outbound_audit_events WHERE surface = 'conversation-web' AND request_id = ? ORDER BY occurred_at_ms").all(f.repo.audit.createRequestId(f.id));
   assert.deepEqual(audits.map(row => row.phase).sort(), ['decision', 'terminal']);
+  // Read and claim through an independently opened connection in a fresh
+  // process: consumption and exact output must outlive the in-memory runtime.
+  const child = spawnSync(process.execPath, ['--input-type=module', '-e', `
+    import assert from 'node:assert/strict';
+    import Database from 'better-sqlite3';
+    import { ConversationWebRepository } from './src/network/conversation-web-repository.js';
+    const input = JSON.parse(process.argv[1]);
+    const database = new Database(input.filename);
+    const repository = new ConversationWebRepository(database);
+    const replay = repository.claim(input.id, input.approval);
+    assert.equal(replay.claimed, false);
+    assert.equal(replay.row.status, 'succeeded');
+    assert.equal(replay.row.output.toString('base64'), input.output);
+    database.close();
+  `, JSON.stringify({ filename: db.name, id: f.id, approval, output: f.body.toString('base64') })],
+  { encoding: 'utf8', timeout: 10000 });
+  assert.ifError(child.error);
+  assert.equal(child.status, 0, child.stderr);
+});
+
+await testAsync('completed web bytes are removed when their conversation or approval loses scope', async () => {
+  for (const mutate of [
+    item => conversations.softDelete.run(item.conversationId),
+    item => conversations.archive.run(item.conversationId),
+    (item, approval) => db.prepare('UPDATE messages SET content = ? WHERE id = ?').run('changed', approval.userMessageId),
+  ]) {
+    const f = fixture(); const approval = f.approve();
+    await f.handler.intercept(`schválit web ${f.id}`, approval);
+    assert.equal(f.repo.read(f.id, approval).status, 'succeeded');
+    mutate(f, approval);
+    const row = db.prepare('SELECT status, output, output_digest FROM conversation_web_requests WHERE request_id = ?').get(f.id);
+    assert.equal(row.status, 'revoked'); assert.equal(row.output, null); assert.equal(row.output_digest, null);
+    const replay = await f.handler.intercept(`schválit web ${f.id}`, approval);
+    assert.notEqual(replay.response.metadata.webStatus, 'succeeded'); assert.equal(f.calls(), 1);
+  }
 });
 
 await testAsync('generic assent, model text and forged or foreign identity never approve', async () => {

@@ -204,7 +204,7 @@ Strukturovaný přístup k větším projektům. Fáze: specifikace → roadmapa
 - [docs/STORAGE-ARCHITECTURE.md](docs/STORAGE-ARCHITECTURE.md) — persistence
 
 ### Code Intelligence
-33 modulů v `src/code-intel/` (11 634 řádků). Multi-engine code search (ripgrep → grep → Node.js fallback), symbol index, knowledge graph (9 typů uzlů, 8 typů hran), AST analýza (JS, Python, Go, Java), architecture detection (18 frameworků), drift detection, dead code detection, performance anti-pattern detection, dependency management.
+Produkční analýza používá verzovaný ProjectContext a lexikální výběr souborů. V `src/code-intel/` existují také search, symbol index, graph, AST a další analyzátory; jejich přítomnost není důkazem propojeného porozumění celému projektu. Rozsah integrace a kvalitativní oracle stanoví [Project Intelligence po 1.0](docs/post-release/project-intelligence.md).
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — architektura, code-intel moduly
 
@@ -223,12 +223,12 @@ vytvářet nové skills konverzačně.
 - [docs/skills-v1.md](docs/skills-v1.md) — kompletní specifikace
 
 ### Autonomní agenti
-Worker agenti monitorující datové zdroje (RSS, HTTP, DB), vyhodnocující podmínky a spouštějící akce. Cron/interval scheduling, notifikace přes 6 kanálů.
+Native M3 runtime a scheduler pokrývají přijaté dílčí scénáře. Úplné RSS/HTTP/DB workflow, řízení po restartu a externí výstupní kanály zatím nejsou přijaté; jejich dokončení určuje [kontrakt agentů](docs/post-release/agents.md). Starší WORKERS dokument popisuje také legacy možnosti.
 
 - [docs/WORKERS.md](docs/WORKERS.md) — architektura a konfigurace
 
 ### Paměťový systém
-Tři vrstvy: LTM s confidence decay (λ=0.01, poločas 69 dní), task memory (cross-milestone, λ=0.005, poločas 139 dní), cross-project learning (stack similarity, pattern sharing). Feedback detektor, injection ranker, pattern tracker.
+Tři vrstvy: LTM s confidence decay (λ=0.01, poločas 69 dní), task memory (cross-milestone, λ=0.005, poločas 139 dní), cross-project learning (stack similarity, pattern sharing) pouze s explicitním opt-in. Tyto paměťové mechanismy samy netrénují váhy modelu. Feedback detektor, injection ranker, pattern tracker.
 
 - [docs/MEMORY.md](docs/MEMORY.md) — architektura paměťového systému
 
@@ -241,7 +241,7 @@ Factual discovery (local, catalog, hints, online), role-specific versioned evalu
 4-vrstvý deterministický pipeline (structural → language → intent → content). Bez LLM — čistě pravidlová validace výstupů. SK→CZ transliterace (~160 pravidel), language drift detection.
 
 ### Notifikace
-6 kanálů: email (SMTP), Telegram, ntfy, webhook, desktop, push. Rate limiting, batching, digest mód, trust feedback (auto-degrade/mute).
+Pro 1.0 zůstává lokální in-app/desktop cesta. SMTP, Telegram, ntfy, webhook a další externí doručování jsou `unsupported`; existující moduly se zapojí až podle [kontraktu notifikací po releasu](docs/post-release/notifications.md).
 
 ### Nástroje
 153 registrovaných nástrojů ve 35 kategoriích. Sandboxed execution s circuit breakerem (5 selhání / 30s → quarantine), auto-retry, health monitoring.
@@ -258,7 +258,7 @@ Factual discovery (local, catalog, hints, online), role-specific versioned evalu
 | Runtime | Node.js 22 (ESM) | Žádný framework — raw `http` modul |
 | Databáze | SQLite | better-sqlite3, WAL mód, verzované migrace |
 | LLM | Ollama | Lokální inference, 7 modelových rolí (D1, D2, CODE, R1, R2, CHAT, VISION) |
-| IDE | C3 Studio | Theia 1.65.2 + Electron 37, 32 vlastních rozšíření |
+| IDE | C3 Studio | Theia 1.74.1 + Electron 42.11.3, 32 vlastních rozšíření |
 | Frontend | React (lite) | Webpack bundle v chat-panel-module.js |
 | AST | tree-sitter | JS, Python, Go, Java — symbol extraction, structural analysis |
 | Závislosti | 13 produkčních | better-sqlite3, ws, dotenv, nodemailer, puppeteer, tree-sitter, chokidar, ... |
