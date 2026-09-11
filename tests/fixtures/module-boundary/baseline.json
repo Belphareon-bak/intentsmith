@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "d8010f261404467cd9b7ecf45babd32f5b0dfc76",
-  "sourceTree": "a2e349eb0e709c2f09d7cd297c7297593daf5f11",
+  "sourceRevision": "226bc96e3ef8b3fe27acbffdce6cab8bb686f595",
+  "sourceTree": "866f3fc0d7598ab126c3a753cfc6a17a26edacff",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -746,6 +746,7 @@
     "src/mobile/client/m7-native-remote-client.js -> src/mobile/client/remote-core-v1.js",
     "src/mobile/client/m7-ui-api-adapter.js -> src/mobile/client/m7-native-remote-client.js",
     "src/network/conversation-web-repository.js -> src/network/outbound-audit-repository.js",
+    "src/network/conversation-web-repository.js -> src/security/global-auth-policy.js",
     "src/network/outbound-policy.js -> src/network/outbound-audit-repository.js",
     "src/notifications/channels/desktop.js -> src/notifications/channels/base.js",
     "src/notifications/channels/email.js -> src/notifications/channels/base.js",
