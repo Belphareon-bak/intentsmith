@@ -2984,3 +2984,16 @@ Nový modelový program je registrovaný samostatně; deterministic zůstává
 353 programů. Candidate není acceptance a původní cookbook P0 zůstává otevřené.
 Po tomto přírůstku module graph má 1 320 hran, 3 cykly / 28 členů; nové hrany
 jsou přesné připojení modelového adaptéru k existujícímu compileru a gateway.
+
+Ověření tohoto řezu: `5424f867` má **353/353 deterministic PASS**, žádný
+FAIL/TIMEOUT/BLOCKED/SKIPPED, a **2/2 skutečné Electron programy PASS**. HTTP
+lifecycle na `9e0bb04a` prošel. Fyzický model na `782ed681` při původním 4096
+kontextu vytvořil funkční opravu a šest behaviour testů prošlo přes M2 runtime.
+Stav je `IMPLEMENTED_CANDIDATE / REVIEW_REQUIRED`; nejde o přijetí celé M6.
+[Přesné identity, scope a zachované neúspěchy](docs/execution/runs/bounded-code-draft-20260911.md).
+
+Finální dependency kontrola modelového klonu našla starší instalaci; byla
+sjednocena s aktuálním lockfilem (170 ověřených balíčků, 0 neshod). Opakovaný
+modelový běh na `5424f867` zastavil před inferencí změněný sdílený inventář
+modelů; současně se objevila cizí GPU úloha. Aktuální fyzická reprodukce je
+`BLOCKED`, starší scoped PASS se nepřeznačuje za důkaz nové instalace.

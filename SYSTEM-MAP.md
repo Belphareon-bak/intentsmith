@@ -137,7 +137,7 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 | `tests/**/*.js` | **240 951 ř.**, 521 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **515** (`421 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **174 / 98** |
-| HTTP rout | ~230 |
+| HTTP rout | **243 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
 Aktuální registry fingerprint je
@@ -413,7 +413,14 @@ ukáže před `/m2-approve`; model nevolí cestu ani test. Výchozí kontrola je
 pouze syntax; API dovoluje explicitní focused test. Draft vyžaduje existující
 M2 governance, Git projekt a malý JS soubor (do 1600 bajtů), neaktivuje legacy
 milestone executor. Stav: `IMPLEMENTED_CANDIDATE / REVIEW_REQUIRED`;
-fyzický modelový důkaz je zatím `NOT_RUN`. Celý projektový builder zůstává P0.
+fyzický modelový důkaz na `782ed681` s předchozí instalací závislostí je `PASS`: jeden request na exact
+`qwen3.5:27b`, context 4096, 138 input / 68 output tokenů, následné M2
+schválení a šest skutečných funkčních případů v sandboxu. Finální `5424f867`
+má 353/353 deterministic a 2/2 Electron PASS. Opakování modelového testu po
+sjednocení 170 balíčků s aktuálním lockfilem zastavil změněný sdílený inventář
+modelů a cizí GPU práce, před inferencí (`CURRENT_MODEL_RECHECK_BLOCKED`).
+Jde o malou změnu jednoho souboru;
+celý projektový builder zůstává P0. [Přesný rozsah, původní neúspěchy a důkazy](docs/execution/runs/bounded-code-draft-20260911.md).
 
 ## Otevřené release-blocking vady
 
