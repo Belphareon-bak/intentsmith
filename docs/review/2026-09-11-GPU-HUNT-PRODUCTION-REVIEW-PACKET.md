@@ -8,7 +8,7 @@ Tento packet není acceptance M6 ani povolení automaticky měnit role.
 ## Rozsah pro review
 
 Produktová větev `work/mobile-completion-20260908`, implementační rozsah
-`e8557165b9a30876696fc80536aa45d8e4e438f1..7c693d32107cdd5f6d16405ab58ea94057a8f28e`.
+`e8557165b9a30876696fc80536aa45d8e4e438f1..67b633477ab95d0f57c0c6331bb0eee1cd619ac3`.
 Předchozí [remediation](../execution/runs/gpu-hunt-remediation-20260911.md)
 a [autocheck/pilot](../execution/runs/gpu-hunt-ollama-autocheck-20260911.md)
 zůstávají historickou evidencí svých přesných commitů. Níže uvedený provozní
@@ -27,6 +27,9 @@ checkpoint je nahrazuje pouze v otázkách nynějšího runtime, DB a timerů.
    je idempotentní; 111 již byla aplikovaná a její obsah se zpětně neměnil.
 5. Denní kontrola stabilních vydání používá schválenou outbound cestu.
    Neinstaluje neověřený upstream provider automaticky.
+6. CLI i API filtrují aktuální coverage podle provider verze. Host snapshot
+   ukládá tento filtr pod SHA-256; offline replay jej použije bez kontaktu
+   s dnešní Ollamou. Staré v1 snapshoty zůstávají přehratelné beze změny.
 
 ## Provider a upgrade
 
@@ -156,15 +159,43 @@ report `hunt-provider-final/report.json`, SHA
 `1f9c49d1cbe2374dce849501c4ade45713acd8d7a0e463ecfb9e47fb8a2eb5d4`.
 Všechny logy a source identity se ověřují podle tohoto reportu.
 Focused testy migrace 112: upgrade 68, schema 55, failover schema 20,
-M6 evidence 8 PASS. Fresh schema má 176 tabulek / 99 migrací.
+M6 evidence 8 PASS. Read-model/replay 17, artifact validation 158 a
+consolidation 16 PASS na `67b63347`. Fresh schema má 176 tabulek / 99 migrací.
+
+Live CLI před opravou filtru ukazovalo 56 COMPLETE včetně starého provideru;
+po opravě správně ukazuje **2 COMPLETE / 60 applicable MISSING / 8 N/A**.
+Všechna historická data zůstala v DB. Nový host snapshot na provozní kopii
+i skutečný offline replay CLI tento výsledek reprodukovaly, včetně SHA a
+nezměněné DB. Filtr `0.34.0-intentsmith.1` je součást nového v2 snapshot hash;
+změna filtru bez změny hash je odmítnuta. Starý v1 replay nemá dnešní provider
+filtr a nevydává se za coverage současného runtime.
 
 Předchozí chyby zůstávají dohledatelné: první provider-specific gate měl dvě
 chyby zastaralého schema censusu (opravené); další gate měl jeden FAIL kontrastu
 mobilního UI (3,73:1), zatímco následující úplný gate prošel. Pozdější běh pod
 GPU zátěží na `252d4728` zaznamenal TIMEOUT M2 effect brokeru. Příčina těchto
 časově citlivých výsledků nebyla prokázána a cizí mobile/M2 implementace se
-v tomto scope neměnila. Nejnovější přesný gate a provozní stav doplní závěrečný
-checkpoint tohoto packetu.
+v tomto scope neměnila. Gate na `7c693d32` měl 351 PASS / 1 FAIL v artifact
+validation: chyběl explicitní řádek rezervace 112 v machine-read tabulce.
+Řádek byl doplněn v `67b63347`; test nebyl oslaben.
+
+**Finální gate na čistém `67b63347`: 352 PASS / 0 FAIL / 0 TIMEOUT / 0 BLOCKED /
+0 SKIPPED.** Profil `offline,database`, run `hunt-production-reviewed-input`,
+report SHA-256
+`1aea183b879d32f3008e435a85caab0dc4b08ee40b2f8c3afb2baf0bc56dc2cc`.
+Všech 352 log hashů, source identit a unikátních ID bylo znovu ověřeno.
+M2 timeout ani mobile contrast se v tomto běhu neopakovaly; předchozí výsledky
+jsou zachované v [strojové evidenci](../execution/runs/gpu-hunt-production-20260911.json).
+
+Po tomto gate byla spuštěna úvodní dávka pod
+`intentsmith-model-hunt-bootstrap-20260911.service`: limit 13 kandidátů,
+nejvýše 12 hodin, stejný GPU lock a storage gate jako noční hunt. Plán obsahoval
+10 instalovaných modelů, poté North Mini Code 1.0 (19 GB), Gemma4 31B (20 GB)
+a Muse Glimmer 30B (20 GB). To je plán bounded dávky, nikoli 13 dokončených
+výsledků. Dávka může skončit dříve na místu na disku nebo časovém limitu.
+Výsledky se průběžně ukládají do provozní DB; již uložená COMPLETE se používají
+z historie. Pokud dávka poběží ještě ve 03:14, pravidelný tick ji bezpečně
+vynechá kvůli obsazenému sidecaru. Stav a invocation ID jsou ve strojové evidenci.
 
 ## Co má reviewer rozhodnout
 

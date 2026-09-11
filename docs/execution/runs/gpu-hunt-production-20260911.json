@@ -1,0 +1,166 @@
+{
+  "schemaVersion": "intentsmith-gpu-hunt-production-review-v1",
+  "recordedAt": "2026-09-11T21:13:57.578587+00:00",
+  "reviewStatus": "REVIEW_PENDING",
+  "implementationCommit": "67b633477ab95d0f57c0c6331bb0eee1cd619ac3",
+  "providerVersion": "0.34.0-intentsmith.1",
+  "providerBinarySha256": "8883245b864485a74ecccf62c4ce17d4538816cde4e37ea2107c2204d1d04ca7",
+  "nativeArchiveSha256": "cf95886728959aa09910bb34de5cca1cc5a8f68003b5597197d3f2c2d57c0804",
+  "upstreamSubmission": "https://github.com/ollama/ollama/issues/18394",
+  "reports": [
+    {
+      "name": "hunt-provider-production",
+      "sourceRevision": "f58495b4deb47a23ac0c7be19557ebfb657d0bb2",
+      "statusCounts": {
+        "PASS": 350,
+        "FAIL": 2,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "sha256": "f95850a9b7ba72a62b38bbdf24816f9552fa282503de238e3667e88c44c57968",
+      "verifiedLogCount": 352,
+      "uniquePrograms": 352,
+      "nonPassingPrograms": [
+        {
+          "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+          "path": "tests/m1-model-failover-schema.test.js",
+          "status": "FAIL",
+          "logSha256": "4705dc2ca5cd478b4a4c1e284f16689b6f7ace9c97ae2e9661b46ac2b657b5fc"
+        },
+        {
+          "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+          "path": "tests/m6-runtime-evidence.test.js",
+          "status": "FAIL",
+          "logSha256": "3c822ff85259d3a091565f733efa8097ba4318a48557fab9acc8fdc1157b3f19"
+        }
+      ]
+    },
+    {
+      "name": "hunt-provider-production-fixed",
+      "sourceRevision": "8c919a6b33484919d47796ddb87def5ac8163006",
+      "statusCounts": {
+        "PASS": 351,
+        "FAIL": 1,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "sha256": "ff4a95ee915da6e6db38408f5df3d722018503fb9b0e8dd3e435218c45f7b619",
+      "verifiedLogCount": 352,
+      "uniquePrograms": 352,
+      "nonPassingPrograms": [
+        {
+          "id": "IS-T1-TESTS-MOBILE-BROWSER-A11Y-TEST",
+          "path": "tests/mobile-browser-a11y.test.js",
+          "status": "FAIL",
+          "logSha256": "523166a8de9a517de2c91856200c754f6b86f005e2740fb815838a8a177ec0fe"
+        }
+      ]
+    },
+    {
+      "name": "hunt-provider-final",
+      "sourceRevision": "7dab3f3cd6b4e26fa3f58d3d09a0b70759398867",
+      "statusCounts": {
+        "PASS": 352,
+        "FAIL": 0,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "sha256": "1f9c49d1cbe2374dce849501c4ade45713acd8d7a0e463ecfb9e47fb8a2eb5d4",
+      "verifiedLogCount": 352,
+      "uniquePrograms": 352,
+      "nonPassingPrograms": []
+    },
+    {
+      "name": "hunt-provider-service",
+      "sourceRevision": "252d4728a6516ec2c37f87f72c7b8e0d3f1ddaa4",
+      "statusCounts": {
+        "PASS": 351,
+        "FAIL": 0,
+        "TIMEOUT": 1,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "sha256": "0fa5c740273ba9de24d1f57569e3e78d4af939cc3ed958715e54ed19ba8f3a3a",
+      "verifiedLogCount": 352,
+      "uniquePrograms": 352,
+      "nonPassingPrograms": [
+        {
+          "id": "IS-T1-TESTS-M2-EFFECT-BROKER-V1-TEST",
+          "path": "tests/m2-effect-broker-v1.test.js",
+          "status": "TIMEOUT",
+          "logSha256": "7c6ac82b4e652ea8f37271302cf023f2ca591b4f00a19ef8b823d5973aa2a802"
+        }
+      ]
+    },
+    {
+      "name": "hunt-production-closeout",
+      "sourceRevision": "7c693d32107cdd5f6d16405ab58ea94057a8f28e",
+      "statusCounts": {
+        "PASS": 351,
+        "FAIL": 1,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "sha256": "cf8830a146b0854f8524f69c18079ff4208a72d828459f4d882ff8aa437cb862",
+      "verifiedLogCount": 352,
+      "uniquePrograms": 352,
+      "nonPassingPrograms": [
+        {
+          "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+          "path": "tests/artifact-validation.test.js",
+          "status": "FAIL",
+          "logSha256": "93220a890ac466e75d66d1206bf11369ee6e2e1b46818df43fa81dfd1758f865"
+        }
+      ]
+    },
+    {
+      "name": "hunt-production-reviewed-input",
+      "sourceRevision": "67b633477ab95d0f57c0c6331bb0eee1cd619ac3",
+      "statusCounts": {
+        "PASS": 352,
+        "FAIL": 0,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "sha256": "1aea183b879d32f3008e435a85caab0dc4b08ee40b2f8c3afb2baf0bc56dc2cc",
+      "verifiedLogCount": 352,
+      "uniquePrograms": 352,
+      "nonPassingPrograms": []
+    }
+  ],
+  "evidenceRoot": "/home/belphareon/Projects/coworker/intentsmith-hunt-production-20260911",
+  "artifacts": {
+    "provider-qualification.json": "d82f4a92a6121874be1bd30f80798b996eb14d604412c396d563cdc4461e0ed3",
+    "sidecar-cancellation.json": "bcb9caf7de45e9c3f3a014a004e76863479763968dcd7ebf3a365514d6509870",
+    "live-service-duel.json": "290a2bfa45a9e5a620438ba1eca237de577849d8f9130bd38510fa04c11233f2",
+    "migration112-upgrade.json": "e54e42057d15dc1045dd36073cbdbaef560ababe0177015bdf39079a8ecc45ca",
+    "bootstrap-catalog.json": "1402ffe48793b95ea7b691e3643de50213471deacf5a9fece5ea3857295f7179",
+    "migration112-census.json": "81ede75bc234cf857275abb9d5b646e64f73302db7cbea0519a616873345e1c6",
+    "production-migration112.log": "d5164561136451397ef4ee757c8aa50c87c2a7db38e4a184fca99ab2cdbc1d39",
+    "provider-filter-host-snapshot.json": "f1d73e3ba57a0dcc82420061d574e3c5f58ad74ba4b47c4e8be9e0772b982df0",
+    "provider-filter-replay.json": "e9a6caa877f6d470a3a43b4dd6ba89dc3c795f3adf6f60e6c752497b9d24d386",
+    "initial-wave-plan.json": "d605f3e8ee10a474325805adce5f637325be3b3d4071e0eec4aaf1fcf9a65b7d"
+  },
+  "currentProviderCoverageBeforeBootstrap": {
+    "COMPLETE": 2,
+    "applicableMissing": 60,
+    "notApplicable": 8
+  },
+  "initialCatalog": {
+    "BOOTSTRAP": 180,
+    "installed": 10,
+    "remote": 170
+  },
+  "timers": "NEXT                            LEFT LAST PASSED UNIT                                  ACTIVATES\nSat 2026-09-12 00:00:40 CEST   46min -         - intentsmith-ollama-update-check.timer intentsmith-ollama-update-check.service\nSat 2026-09-12 03:14:44 CEST 4h 0min -         - intentsmith-model-hunt.timer          intentsmith-model-hunt.service\n\n2 timers listed.\nPass --all to see loaded but inactive timers, too.\n",
+  "bootstrap": {
+    "limit": 13,
+    "timeout": "12h",
+    "service": "intentsmith-model-hunt-bootstrap-20260911.service",
+    "status": "MainPID=996391\nActiveState=activating\nInvocationID=a07d9f3f1bc24b3eb1675c0b8b8e9f67\n"
+  }
+}

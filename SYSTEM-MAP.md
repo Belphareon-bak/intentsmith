@@ -553,3 +553,10 @@ port a ukončení všech vlastních GPU procesů byly ověřeny. Migrace 111/112
 provider-specific reuse a bootstrap katalog 180 kandidátů. Autocheck a noční
 limitovaný hunt jsou enabled; široký panel a nezávislé review zůstávají otevřené.
 [Přesný rozsah a aktuální důkazy](docs/review/2026-09-11-GPU-HUNT-PRODUCTION-REVIEW-PACKET.md).
+
+Finální source `67b63347` sjednotil i CLI coverage a SHA-bound offline replay
+podle provider verze. Clean-clone profil offline/database má **352/352 PASS**;
+aktuální coverage před širší dávkou byla 2 COMPLETE / 60 applicable MISSING /
+8 N/A. Úvodní hunt s limitem 13 kandidátů byl spuštěn pod samostatnou user
+service 2026-09-11 ve 23:14 CEST; jeho dokončení se tímto netvrdí.
+[Strojová evidence včetně předchozích neúspěšných gate](docs/execution/runs/gpu-hunt-production-20260911.json).
