@@ -417,7 +417,10 @@ try {
   //              It is likewise protected before any production import.
   // Model-evaluation consolidation had first removed one retired database
   // root from the pre-M6 baseline.
-  const expectedDatabaseReachableRootTests = 126;
+  //   126 -> 127 WP-SPECIALISTS-20260911 adds sazeni-integration: it loads
+  //              the real specialist handler after the canonical harness
+  //              bootstrap. Database isolation and mutation checks stay intact.
+  const expectedDatabaseReachableRootTests = 127;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,
