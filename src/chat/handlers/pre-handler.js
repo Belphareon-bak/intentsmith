@@ -154,7 +154,9 @@ intercepts.push({
     // Explicit commands are resolved before model classification. The runtime
     // validates the persisted conversation and original/approval user turns.
     const { conversationWebHandler } = await import('./conversation-web.js');
-    return conversationWebHandler().intercept(input, context);
+    const result = await conversationWebHandler().intercept(input, context);
+    return result.handled ? { handled: true,
+      response: systemResponse(result.response.content, 'CONVERSATION', result.response.metadata) } : result;
   },
 });
 

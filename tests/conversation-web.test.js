@@ -22,7 +22,7 @@ function fixture(options = {}) {
   const handler = createConversationWebHandler({ database: db, transport, ...options });
   const initial = context('načti web https://example.com/');
   const proposed = handler.propose('https://example.com/', initial);
-  const id = proposed.tag.metadata.webRequestId;
+  const id = proposed.metadata.webRequestId;
   return { handler, context, initial, proposed, id, body, conversationId, calls: () => calls,
     approve: () => context(`schválit web ${id}`), repo: new ConversationWebRepository(db, options) };
 }
@@ -31,10 +31,10 @@ suite('Conversation web exact approval and durable output');
 await testAsync('proposal sends nothing; exact persisted approval executes once and replay survives a new runtime', async () => {
   const f = fixture();
   assert.equal(f.calls(), 0); assert.match(f.proposed.content, /https:\/\/example.com\//);
-  assert.equal(f.proposed.tag.metadata.approvalRequired, true);
+  assert.equal(f.proposed.metadata.approvalRequired, true);
   const approval = f.approve();
   const first = await f.handler.intercept(`schválit web ${f.id}`, approval);
-  assert.equal(first.response.tag.metadata.webStatus, 'succeeded'); assert.equal(f.calls(), 1);
+  assert.equal(first.response.metadata.webStatus, 'succeeded'); assert.equal(f.calls(), 1);
   assert.deepEqual(f.repo.read(f.id, approval).output, f.body);
   assert.match(first.response.content, /````text/);
   const reopened = createConversationWebHandler({ database: db, transport: async () => { throw new Error('replay contacted network'); } });
@@ -48,7 +48,7 @@ await testAsync('generic assent, model text and forged or foreign identity never
   const f = fixture();
   assert.equal((await f.handler.intercept('ano', f.context('ano'))).handled, false);
   const fake = await f.handler.intercept(`schválit web ${f.id}`, f.context('ano'));
-  assert.equal(fake.response.tag.metadata.errorCode, 'WEB_EXACT_APPROVAL_REQUIRED');
+  assert.equal(fake.response.metadata.errorCode, 'WEB_EXACT_APPROVAL_REQUIRED');
   const foreign = fixture();
   assert.throws(() => f.repo.claim(f.id, foreign.context(`schválit web ${f.id}`)), /WEB_REQUEST_NOT_FOUND/);
   assert.throws(() => f.repo.claim(f.id, { ...f.approve(), authenticatedSubject: { actorType: 'user', actorId: 'someone' } }), /WEB_IDENTITY_REQUIRED/);
@@ -67,7 +67,7 @@ await testAsync('expiry, revoke, original-message edits, deletion and archival i
   ]) {
     const item = fixture(); const approval = item.approve(); mutate(item);
     const response = await item.handler.intercept(`schválit web ${item.id}`, approval);
-    assert.notEqual(response.response.tag.metadata.webStatus, 'succeeded'); assert.equal(item.calls(), 0);
+    assert.notEqual(response.response.metadata.webStatus, 'succeeded'); assert.equal(item.calls(), 0);
   }
 });
 
@@ -77,7 +77,7 @@ await testAsync('concurrent approval cannot repeat an in-flight request; late ca
   const controller = new AbortController();
   const pending = f.handler.intercept(`schválit web ${f.id}`, { ...f.approve(), signal: controller.signal });
   const parallel = await f.handler.intercept(`schválit web ${f.id}`, f.approve());
-  assert.equal(parallel.response.tag.metadata.webStatus, 'executing'); assert.equal(calls, 1);
+  assert.equal(parallel.response.metadata.webStatus, 'executing'); assert.equal(calls, 1);
   controller.abort(); finish({ bytes: Buffer.from('late'), status: 200, contentType: 'text/plain', address: '93.184.215.14' });
   await assert.rejects(pending);
   assert.equal(f.repo.read(f.id, f.initial).status, 'failed');
@@ -88,13 +88,13 @@ await testAsync('provider failure has no fallback and failed output commits cann
   let calls = 0;
   const f = fixture({ transport: async () => { calls++; throw new Error('offline'); } });
   const first = await f.handler.intercept(`schválit web ${f.id}`, f.approve());
-  assert.equal(first.response.tag.metadata.webStatus, 'failed');
+  assert.equal(first.response.metadata.webStatus, 'failed');
   await f.handler.intercept(`schválit web ${f.id}`, f.approve()); assert.equal(calls, 1);
   const g = fixture();
   db.exec("CREATE TRIGGER web_test_reject_output BEFORE UPDATE ON conversation_web_requests WHEN NEW.status = 'succeeded' BEGIN SELECT RAISE(ABORT,'fixture storage outage'); END");
   try {
     const failed = await g.handler.intercept(`schválit web ${g.id}`, g.approve());
-    assert.equal(failed.response.tag.metadata.webStatus, 'unavailable');
+    assert.equal(failed.response.metadata.webStatus, 'unavailable');
     assert.equal(g.repo.read(g.id, g.initial).status, 'executing');
     await g.handler.intercept(`schválit web ${g.id}`, g.approve()); assert.equal(g.calls(), 1);
   } finally { db.exec('DROP TRIGGER web_test_reject_output'); }

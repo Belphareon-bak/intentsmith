@@ -429,7 +429,11 @@ async function handleToolCallDecision(input, decision, context) {
     // One visible request only. No provider fallback, link traversal or hidden
     // scraping pipeline can inherit this conversation-scoped approval.
     const target = direct || `https://www.bing.com/search?format=rss&q=${encodeURIComponent(effectiveQuery)}`;
-    return conversationWebHandler().propose(target, context);
+    const proposal = conversationWebHandler().propose(target, context);
+    return new TaggedResponse({ content: proposal.content, tag: new ResponseTag({
+      speaker: ResponseSpeaker.SYSTEM, mode: ChatMode.CONVERSATION, confidence: 1,
+      canExecute: false, metadata: proposal.metadata,
+    }) });
   }
 
   // ════════════════════════════════════════════════════════════════════════════

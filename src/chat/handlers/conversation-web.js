@@ -1,4 +1,3 @@
-import { ResponseTag, TaggedResponse, ResponseSpeaker, ChatMode } from '../controller.js';
 import { db } from '../../db/database.js';
 import { ConversationWebRepository } from '../../network/conversation-web-repository.js';
 import { createConversationWebTransport } from '../../network/conversation-web-transport.js';
@@ -6,9 +5,9 @@ import { parseWebApproval, webError } from '../../../contracts/m2/conversation-w
 import { throwIfAborted, isAbortError } from '../../core/abort-error.js';
 
 function tagged(content, metadata) {
-  return new TaggedResponse({ content, tag: new ResponseTag({ speaker: ResponseSpeaker.SYSTEM,
-    mode: ChatMode.CONVERSATION, confidence: 1, canExecute: false,
-    metadata: { handler: 'conversation.web', ...metadata } }) });
+  // The caller owns chat presentation. Keeping this result independent of the
+  // controller prevents a new controller -> handler -> controller import cycle.
+  return Object.freeze({ content, metadata: Object.freeze({ handler: 'conversation.web', ...metadata }) });
 }
 
 function render(row) {
