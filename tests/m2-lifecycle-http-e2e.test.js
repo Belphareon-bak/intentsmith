@@ -148,6 +148,16 @@ async function run() {
     assert(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8') === 'module.exports = { value: 1 };\n',
       'rejected draft preserves the original file');
 
+    for (const [draft, expected] of [
+      [{ paths: ['src/app.js', '../outside.js'], instruction: 'Update both.' }, 'M2_PROPOSAL_CHANGE_PATH_INVALID'],
+      [{ paths: ['src/app.js', 'src/app.js'], instruction: 'Update both.' }, 'M2_PROPOSAL_CHANGE_PATH_DUPLICATE'],
+      [{ paths: ['src/app.js', '.c3/private.js'], instruction: 'Update both.' }, 'M2_CODE_DRAFT_PATH_INVALID'],
+    ]) {
+      const invalid = await request('POST', '/api/m2/lifecycle/draft', { projectId, origin, draft });
+      assert(invalid.status === 400 && invalid.data?.code === expected,
+        `production HTTP rejects multi-file scope before inference: ${expected}`);
+    }
+
     const prepared = await request('POST', '/api/m2/lifecycle/prepare', {
       projectId,
       origin,

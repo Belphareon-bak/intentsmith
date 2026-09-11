@@ -532,6 +532,10 @@ await testAsync('default syntax check accepts a CJS hashbang without evaluating 
     fs.writeFileSync(path.join(root, 'src/cli.cjs'), '#!/usr/bin/env node\nthrow new Error("must not execute");\n');
     const { focusedTest } = compileCodeDraftInput({ path: 'src/cli.cjs', instruction: 'Check CLI' });
     execFileSync(focusedTest.binary, focusedTest.argv, { cwd: root, stdio: 'pipe', timeout: 30_000 });
+    fs.writeFileSync(path.join(root, 'src/cli.cjs'), 'return; throw new Error("must not execute");\n');
+    execFileSync(focusedTest.binary, focusedTest.argv, { cwd: root, stdio: 'pipe', timeout: 30_000 });
+    fs.writeFileSync(path.join(root, 'src/cli.cjs'), '}); void 0; (function(){');
+    assert.throws(() => execFileSync(focusedTest.binary, focusedTest.argv, { cwd: root, stdio: 'pipe', timeout: 30_000 }));
     fs.writeFileSync(path.join(root, 'src/cli.cjs'), '#!/usr/bin/env node\nconst value = ;\n');
     assert.throws(() => execFileSync(focusedTest.binary, focusedTest.argv, { cwd: root, stdio: 'pipe', timeout: 30_000 }));
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
@@ -632,6 +636,117 @@ for (const failure of ['length', 'extra-file', 'malformed', 'unchanged', 'stale'
       assert.equal(calls, ['traversal', 'ignored', 'oversize', 'forged-test'].includes(failure) ? 0 : 1);
       assert.equal(db.prepare('SELECT count(*) AS n FROM m2_lifecycle_operations').get().n, 0);
       assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 1;\n');
+    } finally { db.close(); fs.rmSync(root, { recursive: true, force: true }); }
+  });
+}
+
+suite('Bounded multi-file draft — one atomic approval');
+
+for (const invalidLastFile of [false, true]) {
+  await testAsync(`three-file draft is atomic (${invalidLastFile ? 'last file syntax rolls all back' : 'functional import succeeds'})`, async () => {
+    const root = makeProject();
+    const db = openDatabase();
+    const outputs = ["import {answer} from './helper.js'; export const value = answer;\n",
+      'export const okay = true;\n', invalidLastFile ? 'export const answer = ;\n' : 'export const answer = 42;\n'];
+    const paths = ['src/app.js', 'src/extra.js', 'src/helper.js'];
+    let calls = 0;
+    try {
+      const service = createService(db, root, makeClock(), {
+        generateCodeDraft: async ({ prompt }) => {
+          const input = JSON.parse(prompt);
+          assert.equal(input.path, paths[calls]);
+          assert.equal(input.peerFiles.length, 2);
+          if (calls > 0) {
+            assert.deepEqual(input.peerFiles.find(file => file.path === paths[0]),
+              { path: paths[0], content: outputs[0], state: 'proposed' });
+          }
+          // No earlier model output may be materialized before exact approval.
+          assert.equal(fs.readFileSync(path.join(root, paths[0]), 'utf8'), 'export const value = 1;\n');
+          assert.equal(fs.existsSync(path.join(root, paths[1])), false);
+          return { content: JSON.stringify({ afterContent: outputs[calls++] }), finishReason: 'stop' };
+        },
+      });
+      await service.recoverIncompleteSmallProjectChanges();
+      const draft = { paths, instruction: 'Export value from helper and add the extra flag.' };
+      if (!invalidLastFile) draft.focusedTest = { binary: process.execPath,
+        argv: ['--experimental-default-type=module', '--input-type=module', '-e',
+          "import assert from 'node:assert/strict';import {value} from './src/app.js';import {okay} from './src/extra.js';assert.equal(value,42);assert.equal(okay,true);"],
+        environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' }, timeoutMs: 30_000 };
+      const planned = await service.draftSmallProjectChange({
+        authenticatedSubject: SUBJECT, projectId: PROJECT_ID, origin: ORIGIN, draft,
+      });
+      assert.equal(calls, 3);
+      assert.equal(planned.state, 'awaiting_approval');
+      assert.deepEqual(planned.diff.map(file => file.path), paths);
+      assert.equal(db.prepare('SELECT count(*) AS n FROM m2_lifecycle_operations').get().n, 1);
+      if (invalidLastFile) assert.deepEqual(planned.plan.focusedTest.argv.slice(-3), paths);
+      const result = await service.approveSmallProjectChange({ authenticatedSubject: SUBJECT, origin: ORIGIN,
+        lifecycleId: planned.lifecycleId, planDigest: planned.planDigest });
+      if (invalidLastFile) {
+        assert.notEqual(result.state, 'succeeded');
+        assert.equal(result.result.focusedTest.terminalStatus, 'failed');
+        assert.equal(result.result.rollback.status, 'succeeded');
+        assert.equal(fs.readFileSync(path.join(root, paths[0]), 'utf8'), 'export const value = 1;\n');
+        assert.equal(fs.existsSync(path.join(root, paths[1])), false);
+        assert.equal(fs.existsSync(path.join(root, paths[2])), false);
+      } else {
+        assert.equal(result.state, 'succeeded');
+        for (let index = 0; index < paths.length; index++)
+          assert.equal(fs.readFileSync(path.join(root, paths[index]), 'utf8'), outputs[index]);
+      }
+      const restarted = createService(db, root, makeClock(), {
+        generateCodeDraft: async () => { throw new Error('unexpected model replay'); },
+      });
+      await restarted.recoverIncompleteSmallProjectChanges();
+      const durable = restarted.getSmallProjectChangeStatus({ authenticatedSubject: SUBJECT, origin: ORIGIN,
+        lifecycleId: planned.lifecycleId });
+      assert.equal(durable.terminal.resultDigest, result.terminal.resultDigest);
+    } finally { db.close(); fs.rmSync(root, { recursive: true, force: true }); }
+  }, 60_000);
+}
+
+for (const failure of ['second-length', 'second-cancel', 'second-malformed', 'second-stale',
+  'peer-overflow', 'initial-overflow', 'duplicate', 'too-many', 'mixed-path-keys', 'ignored-second']) {
+  await testAsync(`multi-file ${failure} leaves no partial plan or effect`, async () => {
+    const root = makeProject();
+    const db = openDatabase();
+    const controller = new AbortController();
+    let calls = 0;
+    try {
+      if (failure === 'initial-overflow') {
+        for (const file of ['src/a.js', 'src/b.js']) fs.writeFileSync(path.join(root, file), '//'+ 'x'.repeat(900)+'\n');
+        git(root, ['add', '--', 'src/a.js', 'src/b.js']);
+        git(root, ['-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-m', 'large peers']);
+      }
+      const service = createService(db, root, makeClock(), {
+        generateCodeDraft: async () => {
+          calls++;
+          if (calls === 2 && failure === 'second-cancel') controller.abort();
+          if (calls === 2 && failure === 'second-stale') fs.writeFileSync(path.join(root, 'src/foreign.js'), '// foreign\n');
+          return { content: calls === 2 && failure === 'second-malformed' ? 'invalid' : JSON.stringify({
+            afterContent: failure === 'peer-overflow' ? '//'+ 'x'.repeat(2000)+'\n' : 'export const value = 42;\n',
+          }), finishReason: calls === 2 && failure === 'second-length' ? 'length' : 'stop' };
+        },
+      });
+      await service.recoverIncompleteSmallProjectChanges();
+      const draft = { paths: ['src/app.js', 'src/a.js', 'src/b.js'], instruction: 'Update these files.' };
+      if (failure === 'duplicate') draft.paths[1] = draft.paths[0];
+      if (failure === 'too-many') draft.paths.push('src/c.js');
+      if (failure === 'mixed-path-keys') draft.path = 'src/app.js';
+      if (failure === 'ignored-second') draft.paths[1] = '.c3/private.js';
+      const expected = {
+        'second-length': 'M2_CODE_DRAFT_OUTPUT_INCOMPLETE', 'second-cancel': 'M2_CODE_DRAFT_CANCELLED',
+        'second-malformed': 'M2_CODE_DRAFT_OUTPUT_INVALID', 'second-stale': 'M2_LIFECYCLE_CONTEXT_STALE',
+        'peer-overflow': 'M2_CODE_DRAFT_CONTEXT_LIMIT_EXCEEDED', 'initial-overflow': 'M2_CODE_DRAFT_CONTEXT_LIMIT_EXCEEDED',
+        duplicate: 'M2_PROPOSAL_CHANGE_PATH_DUPLICATE', 'too-many': 'M2_CODE_DRAFT_INPUT_INVALID',
+        'mixed-path-keys': 'M2_CODE_DRAFT_INPUT_INVALID', 'ignored-second': 'M2_CODE_DRAFT_PATH_INVALID',
+      };
+      await assert.rejects(service.draftSmallProjectChange({ authenticatedSubject: SUBJECT,
+        projectId: PROJECT_ID, origin: ORIGIN, draft, signal: controller.signal }), { code: expected[failure] });
+      assert.equal(calls, failure === 'second-stale' ? 3 : failure.startsWith('second-') ? 2 : failure === 'peer-overflow' ? 1 : 0);
+      assert.equal(db.prepare('SELECT count(*) AS n FROM m2_lifecycle_operations').get().n, 0);
+      assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 1;\n');
+      if (failure !== 'initial-overflow') assert.equal(fs.existsSync(path.join(root, 'src/a.js')), false);
     } finally { db.close(); fs.rmSync(root, { recursive: true, force: true }); }
   });
 }

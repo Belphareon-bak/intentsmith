@@ -613,8 +613,8 @@ export function createM2LifecycleApplicationService(dependencyValues) {
     requireSubject(authenticatedSubject);
     const transportOrigin = normalizeOrigin(origin, projectId);
     const compiled = compileCodeDraftInput(draft);
-    const target = compiled.changes[0].path;
-    if (!isManifestObservablePath(target)) {
+    const targets = compiled.changes.map(change => change.path);
+    if (targets.some(target => !isManifestObservablePath(target))) {
       throw codeDraftError('PATH_INVALID', 'Soubor je mimo povolený projektový kontext.');
     }
     const deadline = AbortSignal.timeout(120_000);
@@ -632,38 +632,57 @@ export function createM2LifecycleApplicationService(dependencyValues) {
     if (manifest.revision !== observed.workspaceRevision) {
       fail(M2LifecycleServiceErrorCode.CONTEXT_STALE, 'Workspace changed before generation');
     }
-    const entry = manifest.entries.find(item => item.path === target);
-    if (entry && (entry.kind !== 'regular@1' || entry.size > 1600)) {
-      throw codeDraftError('CONTEXT_LIMIT_EXCEEDED', 'Vyberte malý textový soubor do 1600 bajtů.');
-    }
-    // Reject missing/invalid governance and target dirt before spending a model
-    // call. The existing planner repeats both checks before persisting a plan.
+    // Reject all invalid targets and target dirt before spending any model call.
+    // The planner repeats policy/baseline checks before persisting the exact plan.
     loadPolicySnapshot(projectId, scope.canonicalRoot, manifest.revision, readProjectFile);
-    observeGitBaseline(scope.canonicalRoot, [target], { projectId });
-    const before = readProjectFile(scope.canonicalRoot, target, {
-      maxBytes: 1600, rejectHardlinks: true, requireCanonicalTarget: true, signal: boundedSignal,
-    });
-    if (before.exists !== Boolean(entry)
-      || (entry && `sha256:${createHash('sha256').update(before.bytes).digest('hex')}` !== entry.contentDigest)) {
-      fail(M2LifecycleServiceErrorCode.CONTEXT_STALE, 'Target changed before generation');
-    }
-    const beforeContent = before.exists ? new TextDecoder('utf-8', { fatal: true }).decode(before.bytes) : null;
-    const prompt = buildCodeDraftPrompt(compiled, beforeContent);
-    check();
-    let result;
-    try {
-      result = await generateCodeDraft({
-        ...prompt, signal: boundedSignal, sessionId: transportOrigin.conversationId,
+    observeGitBaseline(scope.canonicalRoot, targets, { projectId });
+    const files = targets.map(target => {
+      const entry = manifest.entries.find(item => item.path === target);
+      if (entry && (entry.kind !== 'regular@1' || entry.size > 1600)) {
+        throw codeDraftError('CONTEXT_LIMIT_EXCEEDED', 'Vyberte malé textové soubory do 1600 bajtů.');
+      }
+      const before = readProjectFile(scope.canonicalRoot, target, {
+        maxBytes: 1600, rejectHardlinks: true, requireCanonicalTarget: true, signal: boundedSignal,
       });
-    } catch (error) {
+      if (before.exists !== Boolean(entry)
+        || (entry && `sha256:${createHash('sha256').update(before.bytes).digest('hex')}` !== entry.contentDigest)) {
+        fail(M2LifecycleServiceErrorCode.CONTEXT_STALE, 'Target changed before generation');
+      }
+      return { path: target,
+        content: before.exists ? new TextDecoder('utf-8', { fatal: true }).decode(before.bytes) : null };
+    });
+    const changes = [];
+    const promptFor = index => buildCodeDraftPrompt(compiled, files[index].content, index,
+      files.filter((_, other) => other !== index).map(file => {
+        const generated = changes.find(change => change.path === file.path);
+        return { path: file.path, content: generated ? generated.afterContent : file.content,
+          state: generated ? 'proposed' : 'original' };
+      }));
+    // Preflight every initial prompt, then check again with preceding generated
+    // after-images. No truncation or partial plan if any peer exceeds the budget.
+    files.forEach((_, index) => promptFor(index));
+    for (let index = 0; index < files.length; index++) {
       check();
-      throw error;
+      const prompt = promptFor(index);
+      let result;
+      try {
+        result = await generateCodeDraft({
+          ...prompt, signal: boundedSignal, sessionId: transportOrigin.conversationId,
+        });
+      } catch (error) {
+        check();
+        throw error;
+      }
+      check();
+      const change = compileCodeDraftResult(compiled, result, index).changes[0];
+      if (change.afterContent === files[index].content) {
+        throw codeDraftError('OUTPUT_UNCHANGED', 'Model nenavrhl změnu vybraného souboru.');
+      }
+      changes.push(change);
     }
-    check();
-    const proposal = compileCodeDraftResult(compiled, result);
-    if (proposal.changes[0].afterContent === beforeContent) {
-      throw codeDraftError('OUTPUT_UNCHANGED', 'Model nenavrhl žádnou změnu.');
-    }
+    const proposal = compileM2ProjectChangeProposal({
+      intent: compiled.intent, changes, focusedTest: compiled.focusedTest,
+    });
     // The revision is an internal argument, never model-controlled. Preparation
     // re-observes it before binding before-images and approval authority.
     return prepareSmallProjectChange({

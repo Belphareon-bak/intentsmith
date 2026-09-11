@@ -28,14 +28,16 @@ try {
   fs.mkdirSync(path.join(root, 'src'), { recursive: true });
   fs.mkdirSync(path.join(root, '.c3'), { recursive: true });
   const before = 'export function isLeapYear(year) { return year % 4 === 0; }\n';
+  const beforeMonth = 'export function daysInFebruary(year) { return 28; }\n';
   fs.writeFileSync(path.join(root, 'src/calendar.mjs'), before);
+  fs.writeFileSync(path.join(root, 'src/month.mjs'), beforeMonth);
   fs.writeFileSync(path.join(root, '.c3/m2-governance-policy.json'), JSON.stringify({
     policyId: 'bounded-draft-policy', layers: [{ name: 'app', roots: ['src'] }],
     rules: [{ from: 'app', canImport: ['app'] }], externalImports: [], sourceExtensions: ['.mjs'],
     requiredChecks: ['imports.allowed', 'inventory.complete', 'layers.mapped'], unmappedFilePolicy: 'unavailable',
   }));
   git(['init', '-b', 'main']);
-  git(['add', '--', 'src/calendar.mjs', '.c3/m2-governance-policy.json']);
+  git(['add', '--', 'src/calendar.mjs', 'src/month.mjs', '.c3/m2-governance-policy.json']);
   git(['-c', 'user.name=IntentSmith Test', '-c', 'user.email=test@example.invalid', 'commit', '-m', 'baseline']);
   const projectId = 9927;
   const projects = { findById: { get: id => id === projectId ? { id, path: root, status: 'active' } : null } };
@@ -46,22 +48,25 @@ try {
   const planned = await service.draftSmallProjectChange({
     authenticatedSubject: subject, projectId, origin,
     draft: {
-      path: 'src/calendar.mjs', instruction: 'Fix isLeapYear to implement the Gregorian leap-year rule, including century years. Preserve the exported function name.',
+      paths: ['src/calendar.mjs', 'src/month.mjs'], instruction: 'Fix isLeapYear in calendar.mjs to implement the Gregorian leap-year rule, including century years. In month.mjs import isLeapYear from ./calendar.mjs and implement daysInFebruary(year) returning 29 for leap years, otherwise 28. Preserve both exported function names.',
       // This exact behaviour test is operator/fixture supplied, never invented
       // by the model. Imported code runs only inside the accepted M2 sandbox.
       focusedTest: { binary: process.execPath, argv: ['--input-type=module', '-e',
-        "import assert from 'node:assert/strict';import {isLeapYear} from './src/calendar.mjs';for(const [year,want] of [[1900,false],[2000,true],[2024,true],[2023,false],[2100,false],[2400,true]])assert.equal(isLeapYear(year),want,String(year));console.log('6 Gregorian cases passed');"],
+        "import assert from 'node:assert/strict';import {isLeapYear} from './src/calendar.mjs';import {daysInFebruary} from './src/month.mjs';for(const [year,want] of [[1900,false],[2000,true],[2024,true],[2023,false],[2100,false],[2400,true]]){assert.equal(isLeapYear(year),want,String(year));assert.equal(daysInFebruary(year),want?29:28,String(year));}console.log('12 Gregorian assertions passed');"],
       environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' }, timeoutMs: 30_000 },
     },
   });
   assert.equal(planned.state, 'awaiting_approval');
-  assert.equal(planned.diff.length, 1);
+  assert.equal(planned.diff.length, 2);
   assert.equal(planned.diff[0].path, 'src/calendar.mjs');
+  assert.equal(planned.diff[1].path, 'src/month.mjs');
+  assert.equal(fs.readFileSync(path.join(root, 'src/month.mjs'), 'utf8'), beforeMonth);
   assert.equal(fs.readFileSync(path.join(root, 'src/calendar.mjs'), 'utf8'), before);
   report.planDigest = planned.planDigest;
   report.lifecycleId = planned.lifecycleId;
   report.beforeSha256 = sha(before);
   report.afterSha256 = sha(planned.diff[0].after.content);
+  report.files = planned.diff.map(file => ({ path: file.path, beforeSha256: sha(file.before.content), afterSha256: sha(file.after.content) }));
   report.approval = 'explicit exact plan digest supplied by isolated test operator';
   const result = await service.approveSmallProjectChange({
     authenticatedSubject: subject, origin, lifecycleId: planned.lifecycleId, planDigest: planned.planDigest,
@@ -70,13 +75,14 @@ try {
   assert.equal(result.state, 'succeeded');
   assert.equal(result.result.focusedTest.terminalStatus, 'succeeded');
   assert.equal(fs.readFileSync(path.join(root, 'src/calendar.mjs'), 'utf8'), planned.diff[0].after.content);
+  assert.equal(fs.readFileSync(path.join(root, 'src/month.mjs'), 'utf8'), planned.diff[1].after.content);
   const restarted = createDefaultM2LifecycleApplicationService({ database: db, projects });
   await restarted.recoverIncompleteSmallProjectChanges();
   const durable = restarted.getSmallProjectChangeStatus({ authenticatedSubject: subject, origin, lifecycleId: planned.lifecycleId });
   assert.equal(durable.terminal.resultDigest, result.terminal.resultDigest);
   report.status = 'PASS';
-  report.behaviouralCases = 6;
-  console.log('PASS: actual CODE draft, no write before approval, exact approval, six sandboxed behaviour assertions and durable terminal');
+  report.behaviouralCases = 12;
+  console.log('PASS: actual CODE draft, no write before approval, exact approval, two files, twelve sandboxed behaviour assertions and durable terminal');
 } catch (error) {
   report.status = 'FAIL'; report.error = { code: error.code, message: error.message };
   throw error;
