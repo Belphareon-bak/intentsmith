@@ -478,3 +478,10 @@ Malou změnu jednoho souboru lze ve Studiu připravit příkazem
 governance policy a soubor `.js`, `.mjs` či `.cjs` do 1600 bajtů. Studio ukáže
 celý původní i navržený obsah; `/m2-approve` schválí přesný plán, `/m2-cancel`
 zruší návrh. Výchozí kontrola ověřuje syntaxi, nikoli funkční správnost.
+
+Malou změnu více souborů lze zadat jako
+`/m2-draft src/app.js, src/helper.js :: popis změny` (nejvýše tři JS soubory).
+Model připraví každý soubor postupně, Studio ukáže celý návrh a `/m2-approve`
+schválí jediný přesný plán. `/m2-cancel` funguje při přípravě i běžícím
+provedení. Výchozí kontrola ověřuje syntaxi všech vybraných souborů; funkční
+test lze explicitně dodat jako `draft.focusedTest` přes lifecycle API.

@@ -2997,3 +2997,15 @@ sjednocena s aktuálním lockfilem (170 ověřených balíčků, 0 neshod). Opak
 modelový běh na `5424f867` zastavil před inferencí změněný sdílený inventář
 modelů; současně se objevila cizí GPU úloha. Aktuální fyzická reprodukce je
 `BLOCKED`, starší scoped PASS se nepřeznačuje za důkaz nové instalace.
+
+### Paralelní produkční follow-up 2026-09-11
+
+Explicitní zadání operátora dovolilo souběžnou práci na malém multi-file
+draftu, opravě Studio cancellation a read-only integračním/modelovém review.
+[Vymezený WP](docs/wp/WP-MULTIFILE-DRAFT-20260911.md) posouvá stejný přijatý
+M2 lifecycle connector: 1–3 explicitní soubory, sériové omezené modelové volání,
+jeden úplný diff a approval, atomický focused test/rollback. Žádná změna
+modelového bindingu, produkčního 4096 kontextu ani effect authority.
+Integrované upstream opravy `dca0e89b` a `0e563cc8` uzavírají role-limit bypass
+a falešný COMPLETE po chybě inference; širší rozpracovaný hunt se nepřebírá.
+Kandidát čeká na společné ověření a nezávislé review.

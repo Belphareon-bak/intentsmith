@@ -133,8 +133,8 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **222 800 ř.**, 605 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **241 002 ř.**, 521 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **222 837 ř.**, 605 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **241 335 ř.**, 521 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **515** (`421 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **174 / 98** |
 | HTTP rout | **243 statických deklarací**; nejde o počet runtime ověřených cest |
@@ -583,3 +583,16 @@ na `7a5f4104`. Serverová sada má 23/23 PASS, dvě skutečné Studio cesty maj�
 oddělený PASS na `3d088733`. Opravy jsou `IMPLEMENTED_CANDIDATE /
 INDEPENDENT_REVIEW_REQUIRED`; modelový build quality P0, M5 podpisy/custody
 a celá M6 acceptance zůstávají otevřené. Kontrakty po 1.0 jsou návrh.
+
+Navazující multi-file candidate (WP-MULTIFILE-DRAFT-20260911) dovoluje 1–3
+explicitní JS cíle přes `/m2-draft src/app.js, src/helper.js :: změna`. Model
+pracuje sériově v kanonickém pořadí cest, každá odpověď obsahuje jediný soubor;
+společný 120s deadline, 4096 kontext a 1536 výstupních tokenů na požadavek
+zůstávají omezené. Všechny vstupy a následné peer after-images podléhají stejnému
+2200B stropu. Jediný připnutý M2 plán a focused process vznikají až po celé
+validní dávce. Studio nyní dovoluje durable cancel během approval/testu i při
+souběžném M1 turnu. CJS parser odmítá únik ze syntetického wrapperu pomocí
+`vm.compileFunction`. Součástí kandidátu jsou upstream role-ceiling oprava
+`dca0e89b` a failed-evaluation oprava `0e563cc8`. Stav je
+`IMPLEMENTED_CANDIDATE / INTEGRATION_VERIFICATION_PENDING / REVIEW_REQUIRED`;
+žádná nová M5/M6 acceptance. Scope je malá dávka souborů, nikoli celý builder.
