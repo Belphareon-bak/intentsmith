@@ -1,6 +1,7 @@
 # IntentSmith project completion handoff — 2026-09-11
 
-Status: `TECHNICAL_CONVERGENCE_GREEN / TWO_OPERATOR_DECISIONS_REQUIRED /
+Status: `TECHNICAL_CONVERGENCE_GREEN / ONE_OPERATOR_DECISION_REQUIRED /
+SPEC_REVIEW_REQUIRED /
 M5_EXTERNAL_ACTIONS_REQUIRED / M6_REVIEW_AND_ACCEPTANCE_BLOCKED /
 M7_PHYSICAL_GATE_BLOCKED`.
 
@@ -67,7 +68,7 @@ source implementation block; it needs the physical environment.
 
 No commit was pushed, tagged, merged or published.
 
-## Two explicit product decisions
+## Product decisions
 
 These cannot be inferred from the general instruction to finish the project,
 because they change accepted authority boundaries under `CONTRACT.md section
@@ -75,10 +76,11 @@ because they change accepted authority boundaries under `CONTRACT.md section
 
 ### Complete SPEC output budget
 
-Recommended decision: allow at most 6000 output tokens only for the internal
-complete-SPEC document path. Keep the general planner, analysis and all other
-roles at 4000. Caller input and model output cannot mint the exception; lower
-limits remain lower and truncated JSON remains an error.
+**Accepted by the operator and implemented as a review candidate on
+2026-09-11.** Decision 043 allows at most 6000 output tokens only for the
+internal complete-SPEC document path. The general planner, analysis and all
+other roles remain at 4000. Caller input and model output cannot mint the
+exception; lower limits remain lower and truncated JSON remains an error.
 
 Evidence: with a physically verified 16384 context, three nutrition-revision
 attempts ended at 5795 input + 4000 output with `length`; context was not the
@@ -87,10 +89,10 @@ limiting resource. The proposal and its independent scope review are:
 - `.intentsmith-artifacts/core-completion-20260909/provider-proposal/completion-spec-budget-decision-20260909.md`;
 - `.intentsmith-artifacts/core-completion-20260909/provider-proposal/completion-spec-budget-decision-20260909.mobile-review.json`.
 
-Rejecting the exception is valid, but then the complete-SPEC user outcome still
-needs a measured compression design under 4000 or must be removed from the 1.0
-acceptance scope. The previous concise-prompt experiment failed and was reverted
-byte-for-byte.
+The implementation has deterministic authority evidence and still needs exact
+source review followed by the original real-model cookbook. Decision acceptance
+does not claim that 6000 is sufficient. The previous concise-prompt experiment
+failed and was reverted byte-for-byte.
 
 ### Web search in a conversation without a project
 
@@ -107,7 +109,8 @@ smaller, but leaves 34 measured B/C/E search attempts denied and requires the
 - `.intentsmith-artifacts/core-completion-20260909/provider-proposal/completion-network-decision-20260909.md`;
 - `.intentsmith-artifacts/core-completion-20260909/provider-proposal/completion-network-decision-independent-review-93173e15.json`.
 
-No network scope or 6000-token exception is implemented or active.
+No projectless network scope is implemented or active. The 6000-token exception
+is implemented only as an unreviewed candidate and has no new real-model result.
 
 ## M5 custody and receipts
 
@@ -176,11 +179,12 @@ while `INTENTSMITH_M7_REMOTE_ENABLED` remains false.
 
 ## Fastest path from here
 
-1. Review the prepared M6 runtime and L0-11 packets while the two decisions are
-   answered.
-2. Implement and measure the accepted SPEC and projectless-web choices.
-3. Complete custody and the eight external credential dispositions, then M5
-   PRIVACY review and acceptance.
+1. Review the prepared M6 runtime and L0-11 packets while the remaining web
+   decision is answered.
+2. Review the implemented SPEC authority and then run its original real-model
+   cookbook; implement projectless web only after its separate decision.
+3. Add the second operator-key backup, complete the eight external credential
+   dispositions, then M5 PRIVACY review and acceptance.
 4. Freeze one exact desktop candidate and rerun its deterministic, build,
    upgrade, model/cookbook, FILE_EXPLAIN, server, soak and throughput matrix.
 5. Obtain M6 independent review, run the nine-step operator demo and issue the
@@ -188,7 +192,8 @@ while `INTENTSMITH_M7_REMOTE_ENABLED` remains false.
 6. Only after standalone bundle verification request separate approval for
    merge, tag and publication.
 
-The remaining work is now concentrated in two explicit behavior decisions,
-external credential facts/custody, two pending reviews and physical release
-evidence. No unidentified repository implementation loop remains in this
+The remaining work is now concentrated in one explicit web decision, external
+credential facts and the second operator-key backup, pending reviews and
+physical release evidence. No unidentified repository implementation loop
+remains outside the explicit SPEC review/model-measurement candidate in this
 snapshot.

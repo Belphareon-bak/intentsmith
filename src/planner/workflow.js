@@ -36,8 +36,15 @@
 
 import { logger } from '../core/logger.js';
 import { config } from '../config.js';
-import { callWithAuth } from '../llm/gateway.js';
-import { createAuthToken, LLMCallerRole } from '../llm/auth-types.js';
+import { callWithAuth, callWithPolicy } from '../llm/gateway.js';
+import {
+  LLMCallerRole,
+  LLMCapability,
+  LLMOperation,
+  OperationTokenLimits,
+  createAuthToken,
+  createSpecDocumentAuthToken,
+} from '../llm/auth-types.js';
 import { getProjectContextManager } from './project-context.js';
 
 // ─── Workflow States ────────────────────────────────────────────────────────
@@ -164,6 +171,74 @@ async function callLLM(role, prompt, systemPrompt = '', options = {}) {
     logger.error('Workflow', `LLM call failed for ${role}`, { model, error: err.message });
     throw err;
   }
+}
+
+/**
+ * Decision 043: the operation-bound output exception for a complete SPEC JSON
+ * document. Generic callLLM options cannot select this process-local token.
+ */
+async function callSpecDocumentLLM(role, prompt, systemPrompt = '', options = {}) {
+  if (role !== 'D1' || systemPrompt !== '') {
+    throw new Error('SPEC_DOCUMENT_OPERATION_INVALID: complete SPEC requires D1 and its fixed system prompt');
+  }
+  if (
+    !options
+    || typeof options !== 'object'
+    || Array.isArray(options)
+    || ![Object.prototype, null].includes(Object.getPrototypeOf(options))
+  ) {
+    throw new Error('SPEC_DOCUMENT_OPERATION_INVALID: options must be a plain object');
+  }
+  const optionsSnapshot = { ...options };
+  const keys = Object.keys(optionsSnapshot);
+  if (keys.some(key => !['format', 'maxTokens'].includes(key)) || (optionsSnapshot.format ?? 'json') !== 'json') {
+    throw new Error('SPEC_DOCUMENT_OPERATION_INVALID: complete SPEC options are fixed');
+  }
+  const ceiling = OperationTokenLimits[LLMOperation.WORKFLOW_SPEC_DOCUMENT_JSON_V1];
+  const requestedMaxTokens = optionsSnapshot.maxTokens ?? ceiling;
+  if (!Number.isSafeInteger(requestedMaxTokens) || requestedMaxTokens < 1 || requestedMaxTokens > ceiling) {
+    throw new Error('SPEC_DOCUMENT_TOKEN_LIMIT_INVALID: complete SPEC output must be between 1 and 6000 tokens');
+  }
+
+  const nonce = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+  const requestId = `workflow-spec-document-${nonce}`;
+  const conversationId = `workflow-spec-${nonce}`;
+  const turnId = `spec-document-${nonce}`;
+  const token = createSpecDocumentAuthToken({
+    decisionId: requestId,
+    auditContext: { sessionId: conversationId, stepId: turnId },
+  });
+  const model = config.models?.D1;
+  if (typeof model !== 'string' || model.trim() === '') {
+    throw new Error('SPEC_DOCUMENT_MODEL_UNBOUND: D1 has no configured model');
+  }
+  const timeout = config.timeouts?.D1 || 60000;
+  const startTime = Date.now();
+  const result = await callWithPolicy(token, prompt, {
+    systemPrompt: '',
+    model,
+    timeout,
+    format: 'json',
+    maxTokens: requestedMaxTokens,
+    capability: LLMCapability.REASONING,
+    requestType: 'm1:answer',
+    correlation: {
+      requestId,
+      conversationId,
+      turnId,
+      callerRole: LLMCallerRole.WORKFLOW_PLANNER,
+      modelRole: 'D1',
+      purpose: 'answer',
+    },
+  });
+  return {
+    content: typeof result === 'string' ? result : (result.content || ''),
+    model,
+    duration: Date.now() - startTime,
+    promptEvalCount: result?.promptEvalCount ?? 0,
+    evalCount: result?.evalCount ?? 0,
+    finishReason: result?.finishReason ?? null,
+  };
 }
 
 // ─── Prompt Templates ───────────────────────────────────────────────────────
@@ -1075,7 +1150,7 @@ export class WorkflowOrchestrator {
 
 // ─── Exported utilities (v61: used by lifecycle sub-modules) ─────────────────
 
-export { callLLM, parseJSON };
+export { callLLM, callSpecDocumentLLM, parseJSON };
 
 // ─── Singleton (no-DB default — index.js creates the DB-backed instance) ────
 

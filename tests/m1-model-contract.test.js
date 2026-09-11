@@ -25,8 +25,11 @@ import {
 import { MODEL_RUNTIME_PROFILE } from '../src/llm/model-runtime-profile.js';
 import {
   LLMCallerRole,
+  LLMOperation,
   RoleTokenLimits,
+  authTokenOperation,
   createAuthToken,
+  createSpecDocumentAuthToken,
   validateAuthToken,
 } from '../src/llm/auth-types.js';
 import {
@@ -1052,6 +1055,52 @@ try {
     assertSemaphoreReleased();
   });
 
+  await testAsync('typed adapter accepts only the exact complete-SPEC operation above planner default', async () => {
+    const priorD1 = config.models.D1;
+    let fetchCalls = 0;
+    let body = null;
+    globalThis.fetch = async (_url, options) => {
+      fetchCalls += 1;
+      body = JSON.parse(options.body);
+      return providerResponse({ json: { message: { content: '{"title":"Complete"}' }, done_reason: 'stop' } });
+    };
+    try {
+      config.models.D1 = 'fixture-model:1b';
+      const request = modelRequest('spec-document-operation', {
+        callerRole: LLMCallerRole.WORKFLOW_PLANNER,
+        modelRole: 'D1',
+        purpose: 'answer',
+        parameters: { format: 'json', maxTokens: 6000 },
+      });
+      const token = createSpecDocumentAuthToken({
+        decisionId: request.requestId,
+        auditContext: { sessionId: request.conversationId, stepId: request.turnId },
+      });
+      const result = await executeM1ModelRequest(request, { authToken: token });
+      assertEqual(result.status, 'ok');
+      assertEqual(fetchCalls, 1);
+      assertEqual(body.options.num_predict, 6000);
+      assertEqual(authTokenOperation(token), LLMOperation.WORKFLOW_SPEC_DOCUMENT_JSON_V1);
+
+      const wrongPurpose = { ...request, purpose: 'refine' };
+      const wrongResult = await executeM1ModelRequest(wrongPurpose, { authToken: token });
+      assertEqual(wrongResult.error?.code, 'MODEL_AUTHORIZATION_INVALID');
+      assertEqual(fetchCalls, 1, 'wrong operation purpose produces zero provider calls');
+
+      const ordinary = modelAuthority(request, { maxTokens: 6000 });
+      const ordinaryResult = await executeM1ModelRequest(request, { authToken: ordinary });
+      assertEqual(ordinaryResult.error?.code, 'MODEL_AUTHORIZATION_INVALID');
+      assertEqual(fetchCalls, 1, 'ordinary planner token above its role default produces zero provider calls');
+
+      const copiedResult = await executeM1ModelRequest(request, { authToken: { ...token } });
+      assertEqual(copiedResult.error?.code, 'MODEL_AUTHORIZATION_REQUIRED');
+      assertEqual(fetchCalls, 1, 'copied operation token produces zero provider calls');
+    } finally {
+      if (priorD1 === undefined) delete config.models.D1;
+      else config.models.D1 = priorD1;
+    }
+  });
+
   await testAsync('request identity and nested parameters are snapshotted before asynchronous work', async () => {
     const request = modelRequest('snapshot', {
       parameters: { maxTokens: 17, num_ctx: 4096 },
@@ -1187,14 +1236,16 @@ try {
     };
     const json = await callLLM('D1', 'Synthetic structured request', '', { format: 'json' });
     const plain = await callLLM('D1', 'Synthetic structured request');
+    await callLLM('D1', 'Synthetic caller elevation request', '', { maxTokens: 6000 });
     await callLLM('CODE', 'Synthetic raw source request');
-    assertEqual(bodies.length, 3);
+    assertEqual(bodies.length, 4);
     assertEqual(bodies[0].format, 'json');
     assertEqual(Object.hasOwn(bodies[1], 'format'), false);
-    assertEqual(Object.hasOwn(bodies[2], 'format'), false);
+    assertEqual(Object.hasOwn(bodies[3], 'format'), false);
     const { format, ...jsonWithoutFormat } = bodies[0];
     assertEqual(JSON.stringify(jsonWithoutFormat), JSON.stringify(bodies[1]));
     assertEqual(bodies[0].options.num_predict, 4000);
+    assertEqual(bodies[2].options.num_predict, 4000);
     assertEqual(json.finishReason, 'stop');
     assertEqual(json.content, plain.content);
     assertSemaphoreReleased();

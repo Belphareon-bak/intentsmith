@@ -8,7 +8,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { logger } from '../core/logger.js';
-import { callLLM, parseJSON } from './workflow.js';
+import { callLLM, callSpecDocumentLLM, parseJSON } from './workflow.js';
 import { lifecycles as lifecycleRepo } from '../db/database.js';
 import { specAnalyze, specDocument } from './lifecycle-prompts.js';
 import { ProjectPhase } from './lifecycle.js';
@@ -330,10 +330,13 @@ export async function answerSpecQuestions(lifecycle, answers) {
     implicit_assumptions: draft._implicitAssumptions || [],
   };
   const prompt = specDocument(requestForSpecDraft(draft), clarification.text, fullAssessment);
-  const llm = lifecycle.callLLM || callLLM;
+  const llm = lifecycle.callLLM || callSpecDocumentLLM;
   const result = await llm('D1', prompt, '', { format: 'json' });
   if (lifecycleRepo.findById.get(lifecycle.id)?.spec !== pendingSpec) {
     throw specDraftError('SPEC_DRAFT_STALE', 'Specification draft changed while waiting for its response.');
+  }
+  if (result.finishReason === 'length') {
+    throw specDraftError('SPEC_DOCUMENT_TRUNCATED', 'D1 exhausted the complete specification output budget.');
   }
   const spec = parseJSON(result.content);
 

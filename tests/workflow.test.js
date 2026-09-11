@@ -8,9 +8,16 @@ import {
   WorkflowState,
   ReviewVerdict,
   callLLM,
+  callSpecDocumentLLM,
 } from '../src/planner/workflow.js';
-import { llmGateway } from '../src/llm/gateway.js';
-import { LLMCallerRole } from '../src/llm/auth-types.js';
+import { callWithPolicy, llmGateway } from '../src/llm/gateway.js';
+import {
+  LLMCallerRole,
+  LLMOperation,
+  authTokenOperation,
+  createAuthToken,
+} from '../src/llm/auth-types.js';
+import { config } from '../src/config.js';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 suite('WorkflowState — enum completeness');
@@ -658,6 +665,128 @@ await testAsync('propagates the same gateway failure without a new retry', async
     assertEqual(caught, expected);
     assertEqual(calls, 1);
   } finally { llmGateway.call = originalCall; }
+});
+
+await testAsync('complete SPEC alone receives operation-bound 6000 with one attempt', async () => {
+  const originalCall = llmGateway.call;
+  const originalProfiles = llmGateway._vramFitProfiles;
+  const model = config.models?.D1 || config.models?.CHAT;
+  const calls = [];
+  try {
+    llmGateway._vramFitProfiles = Object.freeze({
+      ...originalProfiles,
+      [model.toLowerCase()]: Object.freeze({
+        modelWeightsMb: 100,
+        kvMbPer1k: 1,
+        observeVram: async () => ({ totalMb: 32768, freeMb: 32768, source: 'spec-budget-fixture' }),
+      }),
+    });
+    llmGateway.call = async (prompt, options) => {
+      calls.push({ prompt, options });
+      return { content: '{"title":"Synthetic spec"}', finishReason: 'stop', promptEvalCount: 100, evalCount: options.maxTokens };
+    };
+    const full = await callSpecDocumentLLM('D1', 'Complete specification', '', { format: 'json' });
+    const lower = await callSpecDocumentLLM('D1', 'Short specification', '', { format: 'json', maxTokens: 2000 });
+    assertEqual(full.evalCount, 6000);
+    assertEqual(lower.evalCount, 2000);
+    assertEqual(calls.length, 2, 'one provider call per complete SPEC invocation');
+    for (const [index, { options }] of calls.entries()) {
+      assertEqual(options.format, 'json');
+      assertEqual(options.retries, 1);
+      assertEqual(options.correlation.modelRole, 'D1');
+      assertEqual(options.correlation.purpose, 'answer');
+      assertEqual(authTokenOperation(options._authToken), LLMOperation.WORKFLOW_SPEC_DOCUMENT_JSON_V1);
+      assertEqual(options._authToken.maxTokens, 6000);
+      assertEqual(options.maxTokens, index === 0 ? 6000 : 2000);
+    }
+
+    for (const invalidOptions of [
+      { format: 'json', maxTokens: 6001 },
+      { format: 'json', maxTokens: 0 },
+      { format: 'json', maxTokens: -1 },
+      { format: 'json', maxTokens: 1.5 },
+      { format: 'json', maxTokens: Number.NaN },
+      { format: 'json', maxTokens: Number.POSITIVE_INFINITY },
+      { format: 'text' },
+      { format: 'json', model: 'attacker-model' },
+    ]) {
+      let rejected = false;
+      try { await callSpecDocumentLLM('D1', 'Rejected specification', '', invalidOptions); } catch { rejected = true; }
+      assert(rejected, `invalid complete SPEC options must reject: ${JSON.stringify(invalidOptions)}`);
+    }
+    assertEqual(calls.length, 2, 'invalid options produce zero provider calls');
+
+    const ordinary = createAuthToken({
+      role: LLMCallerRole.WORKFLOW_PLANNER,
+      decisionId: 'ordinary-planner-over-limit',
+      auditContext: { sessionId: 'ordinary-planner-session', stepId: 'ordinary-planner-turn' },
+      maxTokens: 6000,
+    });
+    let ordinaryError;
+    try {
+      await callWithPolicy(ordinary, 'Rejected ordinary planner', {
+        model,
+        maxTokens: 6000,
+        capability: 'reasoning',
+        correlation: {
+          requestId: ordinary.decisionId,
+          conversationId: ordinary.auditContext.sessionId,
+          turnId: ordinary.auditContext.stepId,
+          callerRole: ordinary.role,
+          modelRole: 'D1',
+          purpose: 'answer',
+        },
+      });
+    } catch (error) { ordinaryError = error; }
+    assertEqual(ordinaryError?.code, 'LLM_AUTHORIZATION_DENIED');
+    assertEqual(calls.length, 2, 'ordinary planner token at 6000 cannot reach provider');
+
+    const capturedSpecToken = calls[0].options._authToken;
+    let reboundError;
+    try {
+      await callWithPolicy(capturedSpecToken, 'Rebound specification', {
+        model,
+        systemPrompt: '',
+        format: 'json',
+        maxTokens: 6000,
+        capability: 'reasoning',
+        correlation: {
+          ...calls[0].options.correlation,
+          turnId: 'different-turn',
+        },
+      });
+    } catch (error) { reboundError = error; }
+    assertEqual(reboundError?.code, 'LLM_AUTHORIZATION_DENIED');
+    assertEqual(calls.length, 2, 'operation token cannot be rebound to another turn');
+
+    for (const mutate of [
+      options => ({ ...options, model: 'different-model:1b' }),
+      options => ({ ...options, systemPrompt: 'different system prompt' }),
+      options => ({ ...options, format: undefined }),
+      options => ({ ...options, capability: 'json_output' }),
+      options => ({ ...options, correlation: { ...options.correlation, requestId: 'different-request' } }),
+      options => ({ ...options, correlation: { ...options.correlation, conversationId: 'different-conversation' } }),
+      options => ({ ...options, correlation: { ...options.correlation, modelRole: 'R1' } }),
+      options => ({ ...options, correlation: { ...options.correlation, purpose: 'refine' } }),
+    ]) {
+      let mismatch;
+      try {
+        await callWithPolicy(capturedSpecToken, 'Mismatched specification', mutate({
+          model,
+          systemPrompt: '',
+          format: 'json',
+          maxTokens: 6000,
+          capability: 'reasoning',
+          correlation: { ...calls[0].options.correlation },
+        }));
+      } catch (error) { mismatch = error; }
+      assertEqual(mismatch?.code, 'LLM_AUTHORIZATION_DENIED');
+    }
+    assertEqual(calls.length, 2, 'every operation identity mismatch produces zero provider calls');
+  } finally {
+    llmGateway.call = originalCall;
+    llmGateway._vramFitProfiles = originalProfiles;
+  }
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════

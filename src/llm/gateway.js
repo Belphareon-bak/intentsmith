@@ -41,8 +41,11 @@ import {
   isIdentifier,
   isPlainRecord,
 } from '../../contracts/m1/shared.js';
-import { 
-  validateAuthToken, 
+import {
+  LLMOperation,
+  authTokenOperation,
+  validateAuthToken,
+  validateAuthTokenPolicy,
   hasCapability, 
   LLMCallerRole,
   LLMCapability 
@@ -253,7 +256,7 @@ function validatePolicyBoundary(token, options = {}) {
       'The model request options must be a plain record.',
     );
   }
-  const tokenValidation = validateAuthToken(token);
+  const tokenValidation = validateAuthTokenPolicy(token);
   if (!tokenValidation.valid) {
     throw new LLMGatewayError(
       LLMGatewayErrorCode.AUTHORIZATION_DENIED,
@@ -290,6 +293,28 @@ function validatePolicyBoundary(token, options = {}) {
       LLMGatewayErrorCode.AUTHORIZATION_DENIED,
       'The model request caller does not match its authorization.',
     );
+  }
+  if (authTokenOperation(token) === LLMOperation.WORKFLOW_SPEC_DOCUMENT_JSON_V1) {
+    const configuredD1 = config.models?.D1;
+    if (
+      correlation.requestId !== token.decisionId
+      || correlation.conversationId !== token.auditContext.sessionId
+      || correlation.turnId !== token.auditContext.stepId
+      || correlation.modelRole !== 'D1'
+      || correlation.purpose !== M1_MODEL_PURPOSE.ANSWER
+      || options.model !== configuredD1
+      || options.systemPrompt !== ''
+      || options.format !== 'json'
+      || options.capability !== LLMCapability.REASONING
+      || !Number.isSafeInteger(options.maxTokens)
+      || options.maxTokens < 1
+      || options.maxTokens > token.maxTokens
+    ) {
+      throw new LLMGatewayError(
+        LLMGatewayErrorCode.AUTHORIZATION_DENIED,
+        'Complete-SPEC authorization does not match the exact model operation.',
+      );
+    }
   }
   if (
     typeof options.capability !== 'string'

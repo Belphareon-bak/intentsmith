@@ -14,6 +14,9 @@ import './helpers/isolated-test-db.js';
 
 import { startSpec, answerSpecQuestions, approveSpec, reviseSpec, validateSpec } from '../src/planner/lifecycle-spec.js';
 import { specAnalyze, specDocument } from '../src/planner/lifecycle-prompts.js';
+import { config } from '../src/config.js';
+import { llmGateway } from '../src/llm/gateway.js';
+import { authTokenOperation, LLMOperation } from '../src/llm/auth-types.js';
 import { validateDependencies, checkDependencies } from '../src/planner/lifecycle-planning.js';
 import {
   ProjectPhase,
@@ -782,6 +785,38 @@ console.log('\n── SPEC clarification retention ──');
   assert(structuredCalls[1][1] === specDocument('Build a recipe API.', 'Use SQLite.', { ...analysis.initial_assessment, technical_decisions: [], implicit_assumptions: [] }), 'JSON mode preserves full SPEC document prompt bytes');
   assert(structuredCalls[2][1] === specAnalyze(`Build a recipe API.\n\nUser feedback on spec: Add sorting.\n\nPrevious spec: ${JSON.stringify(valid('Structured spec'))}`, ''), 'JSON revision prompt retains original request and public previous spec');
   assert(lifecycleRepo.getSpec(structured.id)._phase === 'REVISING', 'valid revised JSON still commits the original revision draft');
+
+  const originalGatewayCall = llmGateway.call;
+  const originalProfiles = llmGateway._vramFitProfiles;
+  const configuredD1 = config.models.D1;
+  let productionSpecCall;
+  try {
+    llmGateway._vramFitProfiles = Object.freeze({
+      ...originalProfiles,
+      [configuredD1.toLowerCase()]: Object.freeze({
+        modelWeightsMb: 100,
+        kvMbPer1k: 1,
+        observeVram: async () => ({ totalMb: 32768, freeMb: 32768, source: 'lifecycle-spec-fixture' }),
+      }),
+    });
+    llmGateway.call = async (prompt, options) => {
+      productionSpecCall = { prompt, options };
+      return { content: JSON.stringify(valid('Production-wired complete spec')), finishReason: 'stop' };
+    };
+    const productionWired = newLifecycle(null);
+    const productionResult = await answerSpecQuestions(productionWired, 'Use the production complete-document path.');
+    assert(productionResult.needsMore === false && productionSpecCall?.options.maxTokens === 6000, 'production SPEC completion selects the exact 6000-token operation');
+    assert(authTokenOperation(productionSpecCall.options._authToken) === LLMOperation.WORKFLOW_SPEC_DOCUMENT_JSON_V1 && productionSpecCall.options.correlation.modelRole === 'D1' && productionSpecCall.options.correlation.purpose === 'answer', 'production SPEC completion carries the operation identity through the gateway boundary');
+  } finally {
+    llmGateway.call = originalGatewayCall;
+    llmGateway._vramFitProfiles = originalProfiles;
+  }
+
+  const truncated = newLifecycle(async () => ({ content: JSON.stringify(valid('Truncated but parseable')), finishReason: 'length' }));
+  const truncatedError = await failureOf(answerSpecQuestions(truncated, 'Preserve every requirement.'));
+  const retainedAfterTruncation = lifecycleRepo.getSpec(truncated.id);
+  assert(truncatedError?.code === 'SPEC_DOCUMENT_TRUNCATED' && retainedAfterTruncation.title === undefined, 'length-terminal complete SPEC fails closed even when its partial bytes parse and validate');
+  assert(JSON.stringify(retainedAfterTruncation._clarificationAnswers) === JSON.stringify(['Preserve every requirement.']), 'truncation retains the exact user clarification for a later explicit retry');
 
   let corruptCalls = 0;
   const corrupt = newLifecycle(async () => { corruptCalls++; return { content: 'SYNTHETIC malformed' }; }, { ...draft, _clarificationAnswers: ['Saved answer', 42] });

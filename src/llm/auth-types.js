@@ -151,7 +151,16 @@ export const RoleTokenLimits = {
   [LLMCallerRole.LEGACY_DIRECT]: 4096
 };
 
+export const LLMOperation = Object.freeze({
+  WORKFLOW_SPEC_DOCUMENT_JSON_V1: 'workflow.spec-document.json@1',
+});
+
+export const OperationTokenLimits = Object.freeze({
+  [LLMOperation.WORKFLOW_SPEC_DOCUMENT_JSON_V1]: 6000,
+});
+
 const issuedAuthTokens = new WeakSet();
+const issuedOperationTokens = new WeakMap();
 const knownCapabilities = new Set(Object.values(LLMCapability));
 
 function isKnownRole(role) {
@@ -251,6 +260,23 @@ export function createAuthToken({
 }
 
 /**
+ * Issue the sole Decision 043 exception to the WORKFLOW_PLANNER role ceiling.
+ * Copied or serialized token fields do not retain this process-local authority.
+ */
+export function createSpecDocumentAuthToken({ decisionId, auditContext }) {
+  const operation = LLMOperation.WORKFLOW_SPEC_DOCUMENT_JSON_V1;
+  const token = createAuthToken({
+    role: LLMCallerRole.WORKFLOW_PLANNER,
+    decisionId,
+    auditContext,
+    maxTokens: OperationTokenLimits[operation],
+    capabilities: [LLMCapability.REASONING, LLMCapability.JSON_OUTPUT],
+  });
+  issuedOperationTokens.set(token, operation);
+  return token;
+}
+
+/**
  * Validate an auth token
  * 
  * @param {LLMAuthToken} token
@@ -305,6 +331,29 @@ export function validateAuthToken(token) {
   return { valid: true };
 }
 
+export function authTokenOperation(token) {
+  if (!validateAuthToken(token).valid) return null;
+  return issuedOperationTokens.get(token) ?? null;
+}
+
+/**
+ * Enforce role ceilings at the strict model policy boundary. The exact
+ * complete-SPEC token is the only operation allowed above its role default.
+ */
+export function validateAuthTokenPolicy(token) {
+  const validation = validateAuthToken(token);
+  if (!validation.valid) return validation;
+  const roleLimit = RoleTokenLimits[token.role];
+  if (token.maxTokens <= roleLimit) return { valid: true };
+  const operation = issuedOperationTokens.get(token);
+  if (
+    operation === LLMOperation.WORKFLOW_SPEC_DOCUMENT_JSON_V1
+    && token.role === LLMCallerRole.WORKFLOW_PLANNER
+    && token.maxTokens === OperationTokenLimits[operation]
+  ) return { valid: true };
+  return { valid: false, error: 'TOKEN_LIMIT_EXCEEDS_ROLE' };
+}
+
 /**
  * Check if token has required capability
  * 
@@ -320,9 +369,14 @@ export function hasCapability(token, capability) {
 export default {
   LLMCallerRole,
   LLMCapability,
+  LLMOperation,
   RoleCapabilities,
   RoleTokenLimits,
+  OperationTokenLimits,
   createAuthToken,
+  createSpecDocumentAuthToken,
+  authTokenOperation,
   validateAuthToken,
+  validateAuthTokenPolicy,
   hasCapability
 };

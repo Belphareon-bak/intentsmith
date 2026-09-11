@@ -2861,6 +2861,18 @@ nejde o skutečný delete/pull, L0-11 review pass ani M6 acceptance.
 [Důkazy](docs/execution/runs/m6/m6-l0-11-current-snapshot-20260911.md) a
 [review packet](docs/review/2026-09-11-M6-L0-11-CURRENT-SNAPSHOT-REVIEW-PACKET.md).
 
+### Complete SPEC budget Decision 043 (2026-09-11)
+
+Operátor přijal účelově omezený strop 6000 pouze pro úplný SPEC dokument.
+Implementační candidate ponechává obecný planner, počáteční analýzu i analýzu
+revize na 4000. Process-local operation token je vázaný na exact D1 JSON
+operaci a correlation; běžný planner token 6000, zkopírovaný token, jiný účel
+nebo model a hodnota nad stropem selžou před provider efektem. `length` je
+explicitní fail-closed terminál bez retry. Inertní suity prošly 46/46, 158/158
+a 31/31. Candidate čeká na nezávislé source review; skutečný cookbook poběží
+až nad reviewed exact source a výsledek může stále selhat kvalitou nebo délkou.
+Viz [`Decision 043`](docs/decisions/043-complete-spec-output-budget.md).
+
 ## 14. Rozhodovací fronta — otázka až ve chvíli, kdy má data
 
 | Rozhodnutí | Kdy je skutečně potřeba | Jaká evidence musí být na stole |

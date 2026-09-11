@@ -18,9 +18,11 @@ import {
 import {
   LLMCallerRole,
   LLMCapability,
-  RoleTokenLimits,
+  LLMOperation,
+  authTokenOperation,
   createAuthToken,
   validateAuthToken,
+  validateAuthTokenPolicy,
 } from './auth-types.js';
 import { logger } from '../core/logger.js';
 import { config } from '../config.js';
@@ -378,10 +380,25 @@ function validateM1Authority(request, authToken) {
       message: 'Model authorization does not match the request identity.',
     };
   }
-  if (authToken.maxTokens > RoleTokenLimits[authToken.role]) {
+  if (!validateAuthTokenPolicy(authToken).valid) {
     return {
       code: 'MODEL_AUTHORIZATION_INVALID',
       message: 'Model authorization exceeds the caller role token limit.',
+    };
+  }
+  const operation = authTokenOperation(authToken);
+  if (
+    operation === LLMOperation.WORKFLOW_SPEC_DOCUMENT_JSON_V1
+    && (
+      request.callerRole !== LLMCallerRole.WORKFLOW_PLANNER
+      || request.modelRole !== 'D1'
+      || request.purpose !== M1_MODEL_PURPOSE.ANSWER
+      || request.parameters?.format !== 'json'
+    )
+  ) {
+    return {
+      code: 'MODEL_AUTHORIZATION_INVALID',
+      message: 'Complete-SPEC authorization does not match the model operation.',
     };
   }
   return null;
