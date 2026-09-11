@@ -10,6 +10,7 @@ import { createConversationWebTransport, isPublicWebAddress } from '../src/netwo
 import { canonicalWebUrl, parseWebApproval, CONVERSATION_WEB } from '../contracts/m2/conversation-web-v1.js';
 import { suite, test, testAsync, summary } from './harness.js';
 import { createGlobalAuthAuthority } from '../src/security/global-auth-policy.js';
+import { createM7ConversationCommandExecutor } from '../src/remote/m7-conversation-command-executor.js';
 
 const localSubject = createGlobalAuthAuthority({ production: false }).authorize({
   routeKey: 'POST /api/chat', headers: {}, remoteAddress: '127.0.0.1',
@@ -99,6 +100,41 @@ await testAsync('generic assent, model text and forged or foreign identity never
   assert.throws(() => f.repo.claim(f.id, { ...f.approve(), authenticatedSubject: { actorType: 'user', actorId: 'someone' } }), /WEB_IDENTITY_REQUIRED/);
   assert.throws(() => f.repo.claim(f.id, { ...f.approve(), userMessageId: 999999 }), /WEB_CONVERSATION_UNAVAILABLE/);
   assert.equal(f.calls(), 0);
+});
+
+await testAsync('actual remote principal cannot propose or consume a local conversation web approval', async () => {
+  const conversationId = 'conversation:m7:web:001';
+  conversations.create.run(conversationId, null, 'M7 local web scope', null);
+  const localSubject = createGlobalAuthAuthority({ production: false }).authorize({
+    routeKey: 'POST /api/chat', headers: {}, remoteAddress: '127.0.0.1',
+  }).subject;
+  const persist = input => Number(messages.add.run(conversationId, 'user', input, null, '{}').lastInsertRowid);
+  let networkCalls = 0; let intercepted;
+  const handler = createConversationWebHandler({ database: db, transport: async () => {
+    networkCalls++;
+    throw new Error('remote web reached transport');
+  } });
+  try {
+    const proposal = handler.propose('https://example.com/', { conversationId,
+      userMessageId: persist('načti web https://example.com/'), authenticatedSubject: localSubject });
+    const id = proposal.metadata.webRequestId;
+    const executor = createM7ConversationCommandExecutor({ handleRequest: async request => {
+      // Same trusted user-turn/subject handoff as ChatController. The subject
+      // itself is supplied by the real M7 executor, not manufactured by this test.
+      intercepted = await handler.intercept(request.message, { ...request.context,
+        conversationId: request.conversationId, userMessageId: persist(request.message),
+        authenticatedSubject: request.authenticatedSubject, signal: request.signal });
+      return { response: intercepted.response.content, metadata: intercepted.response.metadata };
+    }, resolveConversationProjectId: async () => null, observeCoreEvent: () => true, timeoutMs: 1_000 });
+    for (const [index, input] of [`schválit web ${id}`, 'načti web https://example.com/another'].entries()) {
+      await executor.execute({ contract: 'ConversationCommand', version: 1, action: 'send', conversationId, input,
+        requestId: `request:m7:web:${index}`, turnId: `turn:m7:web:${index}` }, { deviceId: 'device:m7:001', subjectId: 'local-operator' });
+      assert.equal(intercepted.response.metadata.errorCode, 'WEB_LOCAL_TRANSPORT_REQUIRED');
+      assert.equal(networkCalls, 0);
+      assert.equal(db.prepare('SELECT status FROM conversation_web_requests WHERE request_id = ?').get(id).status, 'pending');
+      assert.equal(db.prepare('SELECT count(*) AS n FROM conversation_web_requests WHERE conversation_id = ?').get(conversationId).n, 1);
+    }
+  } finally { db.prepare('DELETE FROM conversations WHERE id = ?').run(conversationId); }
 });
 
 test('actor identity copies and remote principals cannot propose, claim or replay local web', () => {

@@ -3014,3 +3014,19 @@ s 12 funkčními assertions při 4096/1536. Nezávislé review, úplný projekto
 builder, spojený Studio/server/model journey a M5/M6 acceptance zbývají.
 [Review packet](docs/review/2026-09-11-PRODUCTION-FOLLOWUP-REVIEW-PACKET.md),
 [run evidence](docs/execution/runs/multifile-code-draft-20260911.md).
+
+
+### Samostatné review konverzačního webu — 2026-09-11
+
+Operátor dodal scoped review multi-file řezu na `4166056e`; upozornil na
+vynechané zavedení webu z `d050cb6e`. Samostatný webový rozsah proto začíná
+před jeho zavedením na `983121ee`, stav je `WEB_REVIEW_REQUIRED`. Nové opravy
+vynucují původní místní transportní autoritu proti M7 se stejným actor ID
+a uzavírají audit odvolaného pokusu bez obnovení bytes nebo opakovaného I/O.
+Aktuální module graph má 1 321 hran, stále 3 cykly / 28 členů.
+
+Regrese skutečného M7 executoru patří do existující databázové webové sady;
+původní offline M7 sada zachovává svůj rozsah. Dva vadné první peer případy
+potvrzují rollback celé dávky po syntaktické i funkční chybě. Nové full gate
+na `39c96957` odhalilo dvě census chyby a dva M2 timeouty; tento neúspěšný
+běh zůstává zachovaný. Po opravě evidence následuje nové úplné ověření.

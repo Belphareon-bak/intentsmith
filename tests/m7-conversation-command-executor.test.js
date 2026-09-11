@@ -10,9 +10,6 @@ import {
   M7_CONVERSATION_EXECUTOR_STAGE,
 } from '../src/remote/m7-conversation-command-executor.js';
 import { suite, summary, testAsync } from './harness.js';
-import { db, conversations, messages } from '../src/db/database.js';
-import { createConversationWebHandler } from '../src/chat/handlers/conversation-web.js';
-import { createGlobalAuthAuthority } from '../src/security/global-auth-policy.js';
 
 function command(overrides = {}) {
   const value = {
@@ -82,41 +79,6 @@ await testAsync('legacy effect metadata cannot become a false successful remote 
     assert.equal(terminal.status, 'error');
     assert.equal(terminal.error.code, code);
   }
-});
-
-await testAsync('actual remote principal cannot propose or consume a local conversation web approval', async () => {
-  const conversationId = 'conversation:m7:web:001';
-  conversations.create.run(conversationId, null, 'M7 local web scope', null);
-  const localSubject = createGlobalAuthAuthority({ production: false }).authorize({
-    routeKey: 'POST /api/chat', headers: {}, remoteAddress: '127.0.0.1',
-  }).subject;
-  const persist = input => Number(messages.add.run(conversationId, 'user', input, null, '{}').lastInsertRowid);
-  let networkCalls = 0; let intercepted;
-  const handler = createConversationWebHandler({ database: db, transport: async () => {
-    networkCalls++;
-    throw new Error('remote web reached transport');
-  } });
-  try {
-    const proposal = handler.propose('https://example.com/', { conversationId,
-      userMessageId: persist('načti web https://example.com/'), authenticatedSubject: localSubject });
-    const id = proposal.metadata.webRequestId;
-    const fixture = setup(async request => {
-      // Same trusted user-turn/subject handoff as ChatController. The subject
-      // itself is supplied by the real M7 executor, not manufactured by this test.
-      intercepted = await handler.intercept(request.message, { ...request.context,
-        conversationId: request.conversationId, userMessageId: persist(request.message),
-        authenticatedSubject: request.authenticatedSubject, signal: request.signal });
-      return { response: intercepted.response.content, metadata: intercepted.response.metadata };
-    }, { resolveConversationProjectId: async () => null });
-    for (const [index, input] of [`schválit web ${id}`, 'načti web https://example.com/another'].entries()) {
-      await fixture.executor.execute(command({ conversationId, input,
-        requestId: `request:m7:web:${index}`, turnId: `turn:m7:web:${index}` }), trusted);
-      assert.equal(intercepted.response.metadata.errorCode, 'WEB_LOCAL_TRANSPORT_REQUIRED');
-      assert.equal(networkCalls, 0);
-      assert.equal(db.prepare('SELECT status FROM conversation_web_requests WHERE request_id = ?').get(id).status, 'pending');
-      assert.equal(db.prepare('SELECT count(*) AS n FROM conversation_web_requests WHERE conversation_id = ?').get(conversationId).n, 1);
-    }
-  } finally { db.prepare('DELETE FROM conversations WHERE id = ?').run(conversationId); }
 });
 
 await testAsync('second send is busy and independent signed cancel confirms target cancellation', async () => {
