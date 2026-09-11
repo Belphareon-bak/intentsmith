@@ -53,7 +53,7 @@ import {
   measureModel, drainResident, intendedNumCtx, listResident,
 } from '../src/upgrade/vram-measurement.js';
 import { tryCandidate } from '../src/upgrade/candidate-trial.js';
-import { fetchInstalledModels, buildCandidates } from '../src/upgrade/model-discovery.js';
+import { buildCandidates } from '../src/upgrade/model-discovery.js';
 import { canonicalModelName } from '../src/upgrade/model-identity.js';
 import {
   CHAT_QUALITY_VERSION, RoleQualityEvaluationRunner, describeChatTests,
@@ -76,6 +76,7 @@ import {
   assessCandidateDownloadHeadroom, assessScheduledEvaluationReadiness,
   holdGpuEvaluationLock,
 } from '../src/upgrade/gpu-evaluation-lock.js';
+import { ModelHuntState } from '../src/upgrade/model-hunt-state.js';
 import { TASK_MARGIN_EPSILON } from '../src/upgrade/pairwise-trial.js';
 
 const args = process.argv.slice(2);
@@ -100,6 +101,8 @@ const SHOW_CHAT_TESTS = flag('show-chat-tests');
 const REMOTE_ONLY = flag('remote-only');
 const EXPORT_CHAT_HISTORY = flag('export-chat-history');
 const SCHEDULED = flag('scheduled');
+const BOOTSTRAP = flag('bootstrap');
+const INCREMENTAL_ONLY = flag('incremental-only');
 const REPORT_PATH = val('report');
 if (INSTALLED_PANEL && (REMOTE_ONLY || ONLY.length > 0)) {
   console.error('--installed-panel nelze kombinovat s --remote-only ani --only');
@@ -227,7 +230,7 @@ async function scheduledEvaluationReadiness() {
  *
  * @returns {{ perRole: Map<string, Array>, queue: Array, familiesTotal: number }}
  */
-async function buildRoleShortlists(gpu, installedNames, bindings) {
+async function buildRoleShortlists(gpu, installedNames, bindings, inventory = []) {
   const families = await fetchLibraryFamilies();
   const familyMetadata = getLibraryFamilyMetadata();
   log(`Fáze 0: ${families.length} rodin v knihovně Ollamy`);
@@ -313,6 +316,7 @@ async function buildRoleShortlists(gpu, installedNames, bindings) {
     const ranked = prioritizeCandidates(pool, {
       vramMb: gpu.vramMb,
       installed: installedNames,
+      installedDigests: new Map(inventory.map(row => [canonicalModelName(row.name), row.digest?.replace(/^sha256:/, '')])),
       externalSignalOf: e => qualityByFamily.get(e.family) ?? null,
       releaseDateOf: e => e.releaseDate ?? null,
       role,
@@ -358,6 +362,12 @@ configureProductionOutboundPolicy({
 });
 installProductionOutboundGuard();
 modelEvaluationHistory.setDb(db);
+const providerResponse = await fetch(`${config.ollama.baseUrl}/api/version`, { signal: AbortSignal.timeout(10_000) });
+if (!providerResponse.ok) throw new Error('OLLAMA_PROVIDER_VERSION_UNAVAILABLE');
+const providerVersion = (await providerResponse.json()).version;
+modelEvaluationHistory.setProviderVersion(providerVersion);
+log(`Provider: Ollama ${providerVersion}`);
+const huntState = new ModelHuntState(db);
 if (DO_RUN) {
   const artifactRepository = createModelArtifactAuthorityRepository(db);
   modelUseAuthority.bindDurableRepository(artifactRepository);
@@ -473,7 +483,7 @@ if (EXPORT_CHAT_HISTORY) {
   process.exit(0);
 }
 
-const installedRaw = await fetchInstalledModels();
+const installedRaw = await modelRegistry.getInstalled({ strict: true });
 const installed = buildCandidates(installedRaw);
 const installedNames = installed.map(m => m.name);
 log(`Nainstalováno: ${installedNames.length} modelů`);
@@ -500,8 +510,13 @@ if (!initialResponsibilityAudit.compliant) {
 // ne skrytá discovery fáze.
 const shortlist = (ONLY.length || INSTALLED_PANEL)
   ? { perRole: new Map(ROLES.map(role => [role, []])), queue: [], familiesTotal: 0 }
-  : await buildRoleShortlists(gpu, installedNames, bindings);
-const { perRole, queue: remoteQueue, familiesTotal } = shortlist;
+  : await buildRoleShortlists(gpu, installedNames, bindings, installedRaw);
+const { perRole, queue: discoveredRemoteQueue, familiesTotal } = shortlist;
+// Replacing an installed tag could silently change a desired/rollback binding.
+// Surface such revisions, but require a separate versioned import operation.
+const catalogUpdatesRequiringManualImport = discoveredRemoteQueue.filter(candidate =>
+  installedNames.some(name => canonicalModelName(name) === canonicalModelName(candidate.name)));
+const remoteQueue = discoveredRemoteQueue.filter(candidate => !catalogUpdatesRequiringManualImport.includes(candidate));
 const reusedHardwareBlocks = DO_RUN && INSTALLED_PANEL
   ? materializeCurrentHardwareBlocks({
     candidates: installed,
@@ -535,12 +550,12 @@ const installedScored = installedQueue
   .filter(candidate => candidate.evaluationState?.state === 'scored')
   .sort(byPriority);
 const queue = [
-  ...installedPending,
+  ...installedPending.filter(local => !remoteQueue.some(remote => canonicalModelName(remote.name) === canonicalModelName(local.name))),
   ...remoteQueue.sort(byPriority),
   // A fully scored local alternative can be re-compared from history, but it
   // must not consume the bounded slots ahead of genuinely unseen artifacts on
   // every scheduled tick.
-  ...installedScored,
+  ...(SCHEDULED ? [] : installedScored),
 ];
 
 log('\n══ KANDIDÁTI PODLE ROLÍ ══');
@@ -573,6 +588,7 @@ if (ONLY.length) {
       sizeGB: local?.sizeGB || remote?.sizeGB || 0,
       installed: Boolean(local),
       artifact: local?.artifact || null,
+      catalogDigest: remote?.catalogDigest || null,
       roles: ROLES,
       reasons: [local ? 'zadáno ručně; již nainstalováno' : 'zadáno ručně'],
     });
@@ -582,14 +598,31 @@ if (INSTALLED_PANEL && picked.some(candidate => candidate.installed !== true)) {
   throw new Error('installed panel obsahuje nenainstalovaný artefakt');
 }
 
+if ((DO_RUN || BOOTSTRAP) && !ONLY.length && !INSTALLED_PANEL) {
+  if (familiesTotal === 0) throw new Error('HUNT_DISCOVERY_UNAVAILABLE: bootstrap requires a catalog snapshot');
+  picked = huntState.observe(picked, { initialize: BOOTSTRAP });
+  // Keep the historical backlog visible. New arrivals get the first slots;
+  // pending bootstrap candidates continue in subsequent bounded ticks.
+  picked = picked.filter(candidate => (!INCREMENTAL_ONLY || candidate.hunt.cohort === 'INCREMENTAL')
+    && huntState.pending(candidate, huntState.evaluationKey(candidate, providerVersion, evaluationPlans, gpu)))
+    .sort((a, b) => Number(b.hunt.cohort === 'INCREMENTAL') - Number(a.hunt.cohort === 'INCREMENTAL')
+      || Number(b.installed === true) - Number(a.installed === true) || byPriority(a, b));
+}
+
 if (!DO_RUN) {
   if (AS_JSON || REPORT_PATH) {
     emitJsonArtifact({
-      gpu, familiesTotal,
+      gpu, providerVersion, familiesTotal, catalogUpdatesRequiringManualImport,
       perRole: Object.fromEntries([...perRole].map(([r, l]) => [r, l])),
       queue: picked,
     });
   } else log('\n(bez --run se nic nestahuje; --run --limit=N zkusí N nejlepších)');
+  process.exit(0);
+}
+
+if (!picked.length) {
+  emitJsonArtifact({ generatedAt: new Date().toISOString(), providerVersion, status: 'NO_PENDING_CANDIDATES', results: [], queue: [] });
+  db.close();
   process.exit(0);
 }
 
@@ -617,40 +650,6 @@ if (SCHEDULED) {
   }
 }
 
-// Referenční rychlost stávajících modelů — potřebná pro rozhodnutí při remíze.
-log('\n══ MĚŘENÍ STÁVAJÍCÍCH MODELŮ ══');
-const incumbentSpeed = {};
-const measurements = new Map();
-const historyCallbacks = createHistoryCallbacks({
-  history: modelEvaluationHistory,
-  inventory: installedRaw,
-  baseUrl: config.ollama?.baseUrl,
-  hardware: gpu,
-  measurements,
-});
-for (const name of new Set(readyRoles.map(role => bindings[role]).filter(Boolean))) {
-  const artifact = await historyCallbacks.resolveArtifact(name);
-  const matchingRole = readyRoles.find(role => canonicalModelName(bindings[role]) === canonicalModelName(name));
-  const plan = matchingRole ? evaluationPlans[matchingRole] : null;
-  const prior = plan ? modelEvaluationHistory.getComplete({
-    digestSha256: artifact.digestSha256,
-    role: matchingRole,
-    suiteName: plan.suiteName,
-    suiteVersion: plan.suiteVersion,
-    contractSha256: plan.suiteContractSha256,
-  }) : null;
-  const m = prior?.tokensPerSecond != null
-    ? { fits: true, throughput: { tokensPerSecond: prior.tokensPerSecond }, placement: { vramBytes: prior.vramBytes || 0, sizeBytes: 0 }, reused: true }
-    : await measureModel(name);
-  incumbentSpeed[name] = m.throughput?.tokensPerSecond ?? 0;
-  measurements.set(canonicalModelName(name), m);
-  const p = m.placement || {};
-  log(`  ${name.padEnd(24)} ${m.fits ? 'vejde se' : 'NEVEJDE '} ${m.reused ? '[history]' : '[new]'} `
-    + `${p.sizeBytes ? `${(p.vramBytes / 2 ** 30).toFixed(2)}/${(p.sizeBytes / 2 ** 30).toFixed(2)} GB` : '-'}  `
-    + `${incumbentSpeed[name] || '—'} tok/s`);
-}
-await drainResident();
-
 const toTry = [];
 let plannedDiskAvailableBytes = modelStorageAvailableBytes();
 for (const candidate of picked) {
@@ -672,6 +671,56 @@ for (const candidate of picked) {
   }
   toTry.push(candidate);
 }
+if (!toTry.length) {
+  emitJsonArtifact({ generatedAt: new Date().toISOString(), providerVersion, status: 'STORAGE_BLOCKED', results: [], queue: picked });
+  gpuLease.release();
+  db.close();
+  process.exit(0);
+}
+
+// Referenční rychlost stávajících modelů — potřebná pro rozhodnutí při remíze.
+log('\n══ MĚŘENÍ STÁVAJÍCÍCH MODELŮ ══');
+const incumbentSpeed = {};
+const allowedDrainModels = new Set();
+const measurementOptions = SCHEDULED ? { allowedDrainModels } : {};
+const markOwned = name => {
+  allowedDrainModels.add(name);
+  const canonical = canonicalModelName(name);
+  allowedDrainModels.add(canonical);
+  if (!canonical.includes(':')) allowedDrainModels.add(`${canonical}:latest`);
+};
+const measurements = new Map();
+const historyCallbacks = createHistoryCallbacks({
+  history: modelEvaluationHistory,
+  inventory: installedRaw,
+  baseUrl: config.ollama?.baseUrl,
+  hardware: gpu,
+  measurements,
+});
+for (const name of new Set(readyRoles.map(role => bindings[role]).filter(Boolean))) {
+  const artifact = await historyCallbacks.resolveArtifact(name);
+  const matchingRole = readyRoles.find(role => canonicalModelName(bindings[role]) === canonicalModelName(name));
+  const plan = matchingRole ? evaluationPlans[matchingRole] : null;
+  const prior = plan ? modelEvaluationHistory.getComplete({
+    digestSha256: artifact.digestSha256,
+    role: matchingRole,
+    suiteName: plan.suiteName,
+    suiteVersion: plan.suiteVersion,
+    contractSha256: plan.suiteContractSha256,
+  }) : null;
+  const m = prior?.tokensPerSecond != null
+    ? { fits: true, throughput: { tokensPerSecond: prior.tokensPerSecond }, placement: { vramBytes: prior.vramBytes || 0, sizeBytes: 0 }, reused: true }
+    : await measureModel(name, measurementOptions);
+  if (!m.reused) markOwned(name);
+  incumbentSpeed[name] = m.throughput?.tokensPerSecond ?? 0;
+  measurements.set(canonicalModelName(name), m);
+  const p = m.placement || {};
+  log(`  ${name.padEnd(24)} ${m.fits ? 'vejde se' : 'NEVEJDE '} ${m.reused ? '[history]' : '[new]'} `
+    + `${p.sizeBytes ? `${(p.vramBytes / 2 ** 30).toFixed(2)}/${(p.sizeBytes / 2 ** 30).toFixed(2)} GB` : '-'}  `
+    + `${incumbentSpeed[name] || '—'} tok/s`);
+}
+await drainResident(measurementOptions);
+
 log(`\n══ ZKOUŠKA KANDIDÁTŮ (${toTry.length}) ══`);
 
 const results = [];
@@ -691,8 +740,35 @@ for (const cand of toTry) {
   }
   const candidateStartedAt = new Date().toISOString();
   const r = await tryCandidate(cand.name, {
+    ...measurementOptions,
+    beforeMeasure: async name => {
+      await historyCallbacks.refreshArtifact(name);
+      // A long download must not turn the earlier idle check into permission
+      // to evict a model loaded by an interactive user meanwhile.
+      if (SCHEDULED) {
+        await drainResident(measurementOptions);
+        const readiness = await scheduledEvaluationReadiness();
+        if (!readiness.ready) throw Object.assign(new Error(readiness.reasons.join('; ')), { code: 'HUNT_GPU_BUSY' });
+      }
+      markOwned(name);
+    },
     runner: evaluationRunner,
-    pullModel: (name, onProgress, authority) => upgradeManager.pullModel(name, onProgress, authority),
+    pullModel: async (name, onProgress, authority) => {
+      const recovered = await upgradeManager.recoverOutstandingModelPulls(onProgress, {
+        modelNames: [name], providerOrigin: new URL(config.ollama.baseUrl).origin,
+      });
+      if (recovered.length) {
+        if (recovered.some(row => row.status !== 'RECOVERED')) throw Object.assign(new Error('Selected pull remains unresolved'), { code: 'CANDIDATE_EVALUATION_RETRYABLE' });
+        return;
+      }
+      const nowInstalled = await modelRegistry.getInstalled({ strict: true });
+      if (nowInstalled.some(row => canonicalModelName(row.name) === canonicalModelName(name))) {
+        throw Object.assign(new Error('Candidate was installed after discovery; rebuild its exact queue entry'), {
+          code: 'CANDIDATE_EVALUATION_RETRYABLE',
+        });
+      }
+      return upgradeManager.pullModel(name, onProgress, authority);
+    },
     skipPull: cand.installed === true,
     // Jen role, pro které je tenhle model vůbec kandidátem.
     roles: cand.roles,
@@ -742,6 +818,7 @@ for (const cand of toTry) {
   });
   const candidateCompletedAt = new Date().toISOString();
   results.push(r);
+  huntState.record(cand, huntState.evaluationKey(cand, providerVersion, evaluationPlans, gpu), r);
 
   if (r.error) {
     let artifact;
@@ -888,8 +965,12 @@ if (changed.length) {
 if (AS_JSON || REPORT_PATH) {
   emitJsonArtifact({
     generatedAt: new Date().toISOString(),
-    gpu,
+    gpu, providerVersion, huntCatalog: huntState.summary(), catalogUpdatesRequiringManualImport,
     perRole: Object.fromEntries([...perRole].map(([r, l]) => [r, l])),
     queue, results, proposedBindings: bindings, portfolio,
   });
 }
+
+await drainResident(measurementOptions);
+gpuLease.release();
+db.close();

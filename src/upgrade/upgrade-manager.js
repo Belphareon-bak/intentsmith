@@ -493,11 +493,13 @@ export class UpgradeManager {
     }
   }
 
-  async recoverOutstandingModelPulls(onProgress) {
+  async recoverOutstandingModelPulls(onProgress, options = {}) {
     if (!this._modelArtifactAuthorityRepository) return Object.freeze([]);
     const results = [];
     for (const operation of this._modelArtifactAuthorityRepository.listOutstandingEffects()) {
       if (operation.kind !== 'PULL') continue;
+      if (options.modelNames && !options.modelNames.includes(operation.exactName)) continue;
+      if (options.providerOrigin && operation.providerOrigin !== options.providerOrigin) continue;
       try {
         await this.pullModel(operation.exactName, onProgress, {
           baseUrl: operation.providerOrigin,

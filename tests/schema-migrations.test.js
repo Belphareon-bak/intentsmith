@@ -204,6 +204,7 @@ const ALL_MIGRATIONS = [
   '2026_08_30_108_m7_durable_rate_limits',
   '2026_09_09_109_m2_file_read_outputs',
   '2026_09_10_110_m2_file_list_outputs',
+  '2026_09_11_111_model_hunt_provider_identity',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -477,6 +478,7 @@ describe('T-SM0: Migration identity preflight', async () => {
       '2026_08_30_108_m7_durable_rate_limits',
       '2026_09_09_109_m2_file_read_outputs',
       '2026_09_10_110_m2_file_list_outputs',
+  '2026_09_11_111_model_hunt_provider_identity',
     ]);
     assert.strictEqual(db.prepare(`
       SELECT COUNT(*) AS count FROM schema_migrations

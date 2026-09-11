@@ -948,5 +948,70 @@ test('compliant incumbent remains feasible when a stronger winner conflicts with
 
 // ═══════════════════════════════════════════════════════════════════════════
 
+await testAsync('provider upgrade preserves history and forces a new exact evaluation', async () => {
+  const { runMigrations } = await import('../src/db/migrate.js');
+  const db = new Database(':memory:');
+  await runMigrations(db);
+  const history = new ModelEvaluationHistory(db);
+  const input = {
+    artifact: { modelName: 'fixture:latest', digestSha256: DIGEST_A },
+    role: 'CODE', suiteName: 'fixture', suiteVersion: '1', contractSha256: CONTRACT_A,
+    summary: summaryRow(),
+  };
+  const legacy = history.recordComplete(input);
+  history.setProviderVersion('0.34.0-intentsmith.1');
+  const key = { digestSha256: DIGEST_A, role: 'CODE', suiteName: 'fixture', suiteVersion: '1', contractSha256: CONTRACT_A };
+  assertEqual(history.getComplete(key), null);
+  const current = history.recordComplete(input);
+  assert(current.runId !== legacy.runId);
+  assertEqual(current.providerVersion, '0.34.0-intentsmith.1');
+  assertEqual(history.recordComplete(input).runId, current.runId);
+  history.setProviderVersion('0.35.0-intentsmith.1');
+  assertEqual(history.getComplete(key), null);
+  const newer = history.recordComplete(input);
+  assert(newer.runId !== current.runId);
+  assertEqual(history.count(), 3);
+  let mixed = false;
+  try {
+    db.prepare(`INSERT INTO model_evaluation_decisions
+      (decision_id, role, incumbent_run_id, candidate_run_id, policy_version, policy_contract_sha256, outcome, basis, details_json)
+      VALUES ('mixed', 'CODE', ?, ?, 'v1', ?, 'INCUMBENT', 'quality', '{}')`)
+      .run(current.runId, newer.runId, CONTRACT_A);
+  } catch (error) { mixed = /same provider/.test(error.message); }
+  assert(mixed, 'database must reject cross-provider comparisons');
+  db.close();
+});
+
+await testAsync('durable hunt separates backlog, new revisions, provider upgrades and transient retry', async () => {
+  const { runMigrations } = await import('../src/db/migrate.js');
+  const { ModelHuntState } = await import('../src/upgrade/model-hunt-state.js');
+  const db = new Database(':memory:');
+  await runMigrations(db);
+  const state = new ModelHuntState(db);
+  const candidate = { name: 'fixture:latest', catalogDigest: 'a'.repeat(12), roles: ['CODE'] };
+  let rejected = false;
+  try { state.observe([candidate]); } catch { rejected = true; }
+  assert(rejected, 'timer cannot silently initialize the backlog');
+  const [initial] = state.observe([candidate], { initialize: true });
+  assertEqual(initial.hunt.cohort, 'BOOTSTRAP');
+  const plans = { CODE: { suiteContractSha256: CONTRACT_A } };
+  const key = state.evaluationKey(initial, '0.34.0', plans, { model: 'GPU' });
+  assert(state.pending(initial, key));
+  state.record(initial, key, { stage: 'done', trials: [{ comparison: { candidateRunId: 'eval' } }] });
+  assert(!state.pending(initial, key));
+  assert(state.pending(initial, state.evaluationKey(initial, '0.35.0', plans, { model: 'GPU' })));
+  const [unchanged, changed, unknown] = state.observe([candidate, { ...candidate, catalogDigest: 'b'.repeat(12) }, { name: 'unknown' }]);
+  assertEqual(unchanged.hunt.cohort, 'BOOTSTRAP');
+  assertEqual(changed.hunt.cohort, 'INCREMENTAL');
+  assertEqual(unknown.hunt.schedulable, false);
+  state.record(changed, key, { stage: 'pull', error: 'connection reset' }, '2026-09-11T12:00:00.000Z');
+  assert(!state.pending(changed, key, Date.parse('2026-09-11T13:00:00Z')));
+  assert(state.pending(changed, key, Date.parse('2026-09-12T12:00:00Z')));
+  let immutable = false;
+  try { db.exec('DELETE FROM model_hunt_catalog'); } catch { immutable = true; }
+  assert(immutable);
+  db.close();
+});
+
 const { passed, failed } = summary();
 process.exit(failed > 0 ? 1 : 0);

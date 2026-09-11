@@ -188,7 +188,15 @@ export function createHistoryCallbacks(options) {
   };
 
   return Object.freeze({
-    resolveArtifact,
+    resolveArtifact: async model => ({
+      ...await resolveArtifact(model),
+      ...(history.providerVersion && history.providerVersion !== 'UNRECORDED'
+        ? { providerVersion: history.providerVersion } : {}),
+    }),
+    async refreshArtifact(model) {
+      artifacts.delete(canonicalModelName(model));
+      return resolveArtifact(model);
+    },
     async loadHistoricalSummary(input) {
       if (!input.suiteContractSha256) return null;
       const artifact = await resolveArtifact(input.model);

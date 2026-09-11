@@ -406,4 +406,14 @@ await testAsync('rodina bez vhodné varianty do poolu nepatří', async () => {
   clearCache();
 });
 
+test('catalog manifest revisions are discovery signals and refreshed installed tags remain candidates', () => {
+  const html = '<a href="/library/fixture:latest">fixture:latest</a><p>15GB</p><span>abcdef123456</span>';
+  const tags = parseTagsPage('fixture', html);
+  assertEqual(tags[0].catalogDigest, 'abcdef123456');
+  const ctx = { vramMb: 24576, installed: ['fixture:latest'], installedDigests: new Map([['fixture', 'a'.repeat(64)]]) };
+  assertEqual(prioritizeCandidates(tags, ctx).length, 1);
+  ctx.installedDigests.set('fixture', 'abcdef123456' + '0'.repeat(52));
+  assertEqual(prioritizeCandidates(tags, ctx).length, 0);
+});
+
 summary();

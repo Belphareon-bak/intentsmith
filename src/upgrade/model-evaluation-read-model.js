@@ -98,6 +98,8 @@ function decodeCurrentRow(row) {
   return Object.freeze({
     runId: row.run_id,
     status: row.status,
+    providerVersion: row.provider_version || null,
+    providerProvenance: row.provider_version ? 'RECORDED' : 'UNRECORDED',
     score: row.score == null ? null : Number(row.score),
     passed: Number(row.passed),
     total: Number(row.total),
@@ -108,7 +110,7 @@ function decodeCurrentRow(row) {
   });
 }
 
-function currentStatus(db, artifact, role, plan) {
+function currentStatus(db, artifact, role, plan, providerVersion = null) {
   if (!artifact.digestSha256) {
     return Object.freeze({
       status: 'BLOCKED',
@@ -121,13 +123,15 @@ function currentStatus(db, artifact, role, plan) {
   }
   const row = db.prepare(`
     SELECT run_id, status, score, passed, total, repeats, duration_ms,
-           error_code, error_message, started_at, completed_at
+           error_code, error_message, started_at, completed_at,
+           json_extract(metadata_json, '$.provider.version') AS provider_version
     FROM model_evaluation_runs
     WHERE model_digest_sha256 = ?
       AND suite_name = ?
       AND suite_version = ?
       AND suite_contract_sha256 = ?
       AND role = ?
+      AND (? IS NULL OR json_extract(metadata_json, '$.provider.version') = ?)
     ORDER BY CASE status WHEN 'COMPLETE' THEN 0 ELSE 1 END,
              completed_at DESC,
              run_id DESC
@@ -138,6 +142,7 @@ function currentStatus(db, artifact, role, plan) {
     plan.suiteVersion,
     plan.suiteContractSha256,
     role,
+    providerVersion, providerVersion,
   );
   return decodeCurrentRow(row) || Object.freeze({
     status: 'MISSING',
@@ -162,7 +167,8 @@ function decodeDecision(row, context) {
   ));
   let actionability = 'NOT_CANDIDATE_WIN';
   if (row.outcome === 'CANDIDATE') {
-    if (details.activationEligible !== true) actionability = 'PORTFOLIO_NOT_APPROVED';
+    if (context.providerVersion && row.provider_version !== context.providerVersion) actionability = 'PROVIDER_VERSION_CHANGED';
+    else if (details.activationEligible !== true) actionability = 'PORTFOLIO_NOT_APPROVED';
     else if (context.bindingAuthority.status !== 'DURABLE') {
       actionability = 'BINDING_AUTHORITY_DEGRADED';
     } else if (!bindingArtifact?.digestSha256) actionability = 'BINDING_ARTIFACT_UNRESOLVED';
@@ -173,6 +179,7 @@ function decodeDecision(row, context) {
   }
   return Object.freeze({
     decisionId: row.decision_id,
+    providerVersion: row.provider_version || null,
     role: row.role,
     outcome: row.outcome,
     basis: row.basis,
@@ -243,7 +250,7 @@ export class ModelEvaluationReadModel {
       const models = inventory.map(artifact => {
         const evaluations = {};
         for (const [role, plan] of Object.entries(this._plans)) {
-          const result = currentStatus(this._db, artifact, role, plan);
+          const result = currentStatus(this._db, artifact, role, plan, input.providerVersion || null);
           const applicability = roleApplicability(artifact, plan);
           evaluations[role] = Object.freeze({
             role,
@@ -283,7 +290,8 @@ export class ModelEvaluationReadModel {
                  candidate.model_name AS candidate_model_name,
                  candidate.model_digest_sha256 AS candidate_digest_sha256,
                  candidate.suite_name, candidate.suite_version,
-                 candidate.suite_contract_sha256
+                 candidate.suite_contract_sha256,
+                 json_extract(candidate.metadata_json, '$.provider.version') AS provider_version
           FROM model_evaluation_decisions d
           JOIN model_evaluation_runs incumbent ON incumbent.run_id = d.incumbent_run_id
           JOIN model_evaluation_runs candidate ON candidate.run_id = d.candidate_run_id
@@ -306,7 +314,7 @@ export class ModelEvaluationReadModel {
           plan.suiteVersion,
           plan.suiteContractSha256,
         ).map(row => (
-          decodeDecision(row, { inventory, binding: bindings[role], bindingAuthority })
+          decodeDecision(row, { inventory, binding: bindings[role], bindingAuthority, providerVersion: input.providerVersion || null })
         ));
         decisions.push(...roleDecisions);
         roles[role] = Object.freeze({

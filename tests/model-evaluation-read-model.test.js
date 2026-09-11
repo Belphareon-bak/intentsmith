@@ -20,6 +20,7 @@ function database() {
   db.exec(`
     CREATE TABLE model_evaluation_runs (
       run_id TEXT PRIMARY KEY,
+      metadata_json TEXT NOT NULL DEFAULT '{}',
       model_name TEXT NOT NULL,
       model_canonical_name TEXT NOT NULL,
       model_digest_sha256 TEXT,

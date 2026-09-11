@@ -158,7 +158,7 @@ export async function runCapabilityFloor(modelName, opts = {}) {
       const answer = await ask(modelName, probe.prompt, opts);
       if (!probe.check(answer)) failures.push({ id: probe.id, reason: probe.failure, answer: answer.slice(0, 120) });
     } catch (err) {
-      failures.push({ id: probe.id, reason: `${probe.failure} (${err.message})`, answer: '' });
+      failures.push({ id: probe.id, reason: `${probe.failure} (${err.message})`, answer: '', retryable: true });
     }
   }
   return { passed: failures.length === 0, failures };
@@ -240,6 +240,7 @@ export async function tryCandidate(candidateName, ctx = {}) {
       await pullModel(candidateName, ctx);
     }
 
+    if (typeof ctx.beforeMeasure === 'function') await ctx.beforeMeasure(candidateName);
     onStage('measure', candidateName);
     out.stage = 'measure';
     measurementStarted = true;
@@ -276,6 +277,7 @@ export async function tryCandidate(candidateName, ctx = {}) {
       ? { passed: true, failures: [], reused: true }
       : await runCapabilityFloor(candidateName, ctx);
     if (!out.floor.passed) {
+      if (out.floor.failures.some(failure => failure.retryable)) out.errorCode = 'CANDIDATE_EVALUATION_RETRYABLE';
       out.error = `neprošel schopnostním minimem: ${out.floor.failures.map(f => f.reason).join('; ')}`;
       if (removalAllowed) out.removed = await removeModel(candidateName, ctx);
       else out.keptReason = 'mazání je vypnuté, dokud validační sady nerozlišují';

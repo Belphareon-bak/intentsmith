@@ -214,6 +214,9 @@ export async function drainResident(opts = {}) {
       if (emptyPolls >= requiredEmptyPolls) return true;
     } else {
       emptyPolls = 0;
+      if (opts.allowedDrainModels && resident.some(name => !opts.allowedDrainModels.has(name))) {
+        throw Object.assign(new Error('GPU belongs to a model outside this hunt'), { code: 'HUNT_GPU_BUSY' });
+      }
       for (const name of resident) await unloadModel(name, opts);
     }
     await new Promise(r => setTimeout(r, opts.drainPollMs ?? 1000));

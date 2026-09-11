@@ -236,6 +236,7 @@ záznamu selže v `artifact-validation`.
 | `2026_08_30_108_m7_durable_rate_limits.js` | použito pro bounded durable M7 transport rate-limit buckety |
 | `2026_09_09_109_m2_file_read_outputs.js` | použito pro neměnné bajty projektového file.read@2 a odstranění obsahu |
 | `2026_09_10_110_m2_file_list_outputs.js` | `WP-CORE-COMPLETION-20260909` — přesný root-list output a tombstone |
+| `2026_09_11_111_model_hunt_provider_identity.js` | explicitní zadání operátora — provider identity a bootstrap hunt ledger |
 <!-- migration-source-manifest:end -->
 
 ## Navazující M7 rezervace 2026-08-29
@@ -419,3 +420,8 @@ nejvýše 109; 110 nemělo kolizi. Záznam
 `provider-proposal/migration110-census-7dacd466/census.json`, SHA256
 `522040f32c95fff900065cc8b88a924141469c777fa22efe681cc29f0d4622d0`.
 Nejde o vzdálený fetch. Aktuální zdroj obsahuje 97 aplikovaných migrací.
+
+## Rezervace GPU huntu 2026-09-11
+
+Union census 447 refs a 29 worktrees končil na 110; 111 je použita pro
+provider-specific evaluation reuse a append-only bootstrap/incremental ledger.

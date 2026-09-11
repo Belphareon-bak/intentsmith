@@ -29,6 +29,7 @@ export const MODEL_EVALUATION_ARTIFACT_ERROR = Object.freeze({
   RESPONSE_UNVERIFIED: 'MODEL_EVALUATION_RESPONSE_ARTIFACT_UNVERIFIED',
   RESPONSE_DRIFT: 'MODEL_EVALUATION_RESPONSE_ARTIFACT_DRIFT',
   RESPONSE_MODEL_MISMATCH: 'MODEL_EVALUATION_RESPONSE_MODEL_MISMATCH',
+  PROVIDER_MISMATCH: 'MODEL_EVALUATION_RESPONSE_PROVIDER_MISMATCH',
 });
 
 export class ModelEvaluationArtifactError extends Error {
@@ -50,7 +51,7 @@ function expectedArtifactIdentity(modelName, artifact) {
       { modelName },
     );
   }
-  return Object.freeze({ modelName: artifact.modelName.trim(), digestSha256 });
+  return Object.freeze({ modelName: artifact.modelName.trim(), digestSha256, providerVersion: artifact.providerVersion || null });
 }
 
 export class ModelEvaluationRunner {
@@ -92,6 +93,13 @@ export class ModelEvaluationRunner {
       const data = await response.json();
       const expected = expectedArtifactIdentity(modelName, expectedArtifact);
       if (expected) {
+        if (expected.providerVersion && data.provider_version !== expected.providerVersion) {
+          throw new ModelEvaluationArtifactError(
+            MODEL_EVALUATION_ARTIFACT_ERROR.PROVIDER_MISMATCH,
+            'The response does not attest the expected Ollama provider version.',
+            { expected: expected.providerVersion, observed: data.provider_version || null },
+          );
+        }
         if (!sameModelName(data.model, expected.modelName)) {
           throw new ModelEvaluationArtifactError(
             MODEL_EVALUATION_ARTIFACT_ERROR.RESPONSE_MODEL_MISMATCH,

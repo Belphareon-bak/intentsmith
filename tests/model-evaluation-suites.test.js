@@ -363,5 +363,24 @@ test('review rewards recall and penalizes invented findings', () => {
   assert(noisy.score < exact.score);
 });
 
+await testAsync('response-bound provider version rejects missing or changed runtime', async () => {
+  const original = globalThis.fetch;
+  const runner = new ModelEvaluationRunner('http://127.0.0.1:11434');
+  try {
+    for (const version of [undefined, '0.35.0-intentsmith.1', '0.34.0-intentsmith.1']) {
+      globalThis.fetch = async () => ({ ok: true, json: async () => ({
+        model: 'fixture:latest', digest: DIGEST_A, provider_version: version, message: { content: 'ok' },
+      }) });
+      let error = null;
+      try {
+        await runner._callModel('fixture', [{ role: 'user', content: 'ping' }], {},
+          { modelName: 'fixture:latest', digestSha256: DIGEST_A, providerVersion: '0.34.0-intentsmith.1' });
+      } catch (caught) { error = caught; }
+      if (version === '0.34.0-intentsmith.1') assertEqual(error, null);
+      else assertEqual(error?.code, MODEL_EVALUATION_ARTIFACT_ERROR.PROVIDER_MISMATCH);
+    }
+  } finally { globalThis.fetch = original; }
+});
+
 const results = summary();
 process.exit(results.failed > 0 ? 1 : 0);

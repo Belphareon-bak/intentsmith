@@ -6,5 +6,9 @@ After=ollama.service
 [Service]
 Type=oneshot
 WorkingDirectory=@PROJECT_ROOT@
+Environment="C3_DB_PATH=@DB_PATH@"
+UMask=0077
+TimeoutStartSec=12h
+NoNewPrivileges=true
 ExecStart=@NODE_BIN@ @PROJECT_ROOT@/scripts/model-upgrade-hunt.js --run --limit=2 --keep-inconclusive --scheduled
 Nice=10

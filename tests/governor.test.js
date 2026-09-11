@@ -161,6 +161,7 @@ function createTestDb() {
       digest_sha256 TEXT NOT NULL
     );
     CREATE TABLE model_evaluation_runs (
+      metadata_json TEXT NOT NULL DEFAULT '{}',
       run_id INTEGER PRIMARY KEY AUTOINCREMENT,
       model_name TEXT,
       model_canonical_name TEXT,

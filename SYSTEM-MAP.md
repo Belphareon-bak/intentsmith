@@ -133,10 +133,10 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **222 256 ř.**, 601 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **240 482 ř.**, 518 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **222 445 ř.**, 603 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **240 580 ř.**, 518 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **512** (`418 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
-| Tabulek v čerstvé DB / aplikovaných migrací | **173 / 97** |
+| Tabulek v čerstvé DB / aplikovaných migrací | **176 / 98** |
 | HTTP rout | ~230 |
 | **Schopností v `ACCEPTED/PASS`** | **1 z 22** (#2 CRE); #1 server/routing/DB je zatím `RUNTIME_VERIFIED` — jeho suite má 13 interních checků, zatímco behavior dokument obsahuje 16 řádků, takže tvrzení „13/13 chování“ není platný akceptační součet |
 
@@ -535,3 +535,8 @@ Finální kód `0e563cc8` má 352/352 deterministic PASS. Jednomodelový CODE
 pilot nad migrovanou kopií DB dokončil pull → měření → decision `INCUMBENT`;
 bindingy a původní DB se neměnily. Nezávislé review a sjednocení provozní DB
 zůstává otevřené. [Přesné výsledky a rozsah](docs/execution/runs/gpu-hunt-ollama-autocheck-20260911.md).
+
+Pravidelný GPU hunt 2026-09-11: implementace bootstrap/incremental ledgeru
+a provider-specific měření navazuje na explicitní zadání operátora.
+[Decision 044](docs/decisions/044-reproducible-evaluation-provider.md) zachycuje
+podporovanou cestu; stav zůstává `REVIEW_PENDING` do nezávislého review.

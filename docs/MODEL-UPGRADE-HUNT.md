@@ -17,9 +17,8 @@ reálnou šanci pro konkrétní roli:
 7. žádná automatická aktivace — vítěz je podklad pro ruční binding application.
 
 Discovery/ranking není score. CPU spill je diskvalifikace, ne kvalitativní
-penalizace. Run jiného digestu nebo suite contractu nelze z cache znovu použít.
-Sdílená suite cache zahrnuje contract SHA a model, takže reasoning lze bezpečně
-sdílet mezi D1/D2/R1 pouze uvnitř téhož hunt běhu.
+penalizace. Run jiného digestu, role, suite contractu nebo verze provideru nelze z cache
+znovu použít. D1/D2/R1 zůstávají samostatnými identitami i při sdílené sadě.
 
 Nerozlišující sada, příliš úzký jazykový vzorek, nestabilní úlohy, neúplný run
 nebo chybějící binding končí jako `nedostatečný důkaz`/`MISSING`/`BLOCKED`, ne
@@ -81,7 +80,8 @@ append-only opakované běhy; historii nemaž ani nepřepisuj.
 Původní patch `0cb3844557c2cbf0beac555da0147279eebd9488` je v
 [`patches/ollama/0001-chat-response-manifest-digest.patch`](../patches/ollama/0001-chat-response-manifest-digest.patch).
 [`scripts/build-ollama-evaluation-provider.sh`](../scripts/build-ollama-evaluation-provider.sh)
-obnoví přesný commit nad tagem `v0.32.14`, vyžaduje Go 1.26.7
+obnoví přesný commit nad tagem `v0.34.0` (historicky také
+`OLLAMA_PROVIDER_TAG=v0.32.14`), vyžaduje Go 1.26.7
 linux/amd64, sestaví binárku a ověří její SHA-256.
 
 ```bash
@@ -96,14 +96,14 @@ ale tag i výsledný commit se vždy ověřují. Reprodukce byla měřena s GCC
 
 MLX C kód obsahuje `__DATE__` a `__TIME__`. Recept proto připíná
 `SOURCE_DATE_EPOCH` na čas source commitu a používá novou Go cache.
-Jeho výstup má SHA-256
+Historický výstup 0.32.14 má SHA-256
 `bdd8ca1320a1332b6977a3d7bc4b26d370e4e36c10188b6983998632568b1e20`.
-Historická a nyní systémová binárka má odlišnou identitu
+Původně systémová binárka má odlišnou identitu
 `72580ab98c5c82afe9cf73e5b7400b1d3cd94ec0777f961d1aefab878146878a`;
 nový build se za ni nesmí vydávat.
 
 Jde o Go část provideru. Inference potřebuje odpovídající native payload
-Ollama 0.32.14 včetně CUDA runneru. Skript nic neinstaluje ani nespouští.
+stejné verze Ollamy včetně CUDA runneru. Skript nic neinstaluje ani nespouští.
 Runtime hledá native payload relativně k binárce: například
 `<build>/ollama` spolu s `<build>/lib/ollama/llama-server` a CUDA knihovnami.
 Samotné spuštění z `/usr/local` tuto vazbu nezajistí. Při lokálním ověření
@@ -167,3 +167,44 @@ se změří při produkčním contextu; nenulový CPU placement zapíše pouze t
 nemění binding a bez explicitního `--allow-removal` model nemaže. Dokumentace
 nepřipíná přesný příští timestamp, protože jej po každém reloadu může změnit
 `RandomizedDelaySec`.
+
+## Bootstrap a nové modely
+
+První `--bootstrap --shortlist` (nebo `--run --bootstrap --limit=N`) uloží dostupný katalog do append-only
+`model_hunt_catalog` jako `BOOTSTRAP`. Datum je čas prvního pozorování,
+nikoli vymyšlené datum vydání. Pozdější dosud neviděné modely nebo katalogové
+revize jsou `INCREMENTAL`. Výpadek discovery nesmí sám založit prázdný bootstrap.
+
+Timer dává přednost novinkám a potom dál zpracovává nevyřízený bootstrap.
+`--incremental-only` umožní explicitně odložit zbývající historický backlog;
+bez této volby se starší vhodné modely neztratí jen kvůli datu spuštění.
+`--installed-panel` nejdřív proměří chybějící role již stažených artefaktů.
+
+Výběr před stažením: jedna největší potenciálně vhodná varianta na rodinu,
+Q4 a výš; bez cloud-only, MLX na NVIDIA a NVFP4 na RTX 3090; technická
+způsobilost pro roli, externí výsledky, specializace, čerstvost a rezerva VRAM
+určují pořadí. Žádný externí žebříček nenahrazuje lokální měření. Sady,
+které nedávají dost rozlišujícího důkazu, nevytvářejí vítěze.
+
+Dokončené kombinace katalogové revize, role/sady, hardware a verze provideru
+nespotřebují další plánovaný slot. `INSUFFICIENT_EVIDENCE` je dokončené
+měření a čeká na změnu sady. Dočasné chyby mají 24hodinový odstup; CPU spill
+platí jen pro stejný provider/hardware/context. Neznámá katalogová revize
+zůstává mimo automatický pull. Změna již instalovaného tagu se objeví v
+`catalogUpdatesRequiringManualImport`, bez přepsání aktivního artefaktu.
+
+Zůstává 40 GiB disková rezerva a výchozí zákaz mazání. Bootstrap může
+pokračovat v několika vlnách; nedostatek disku je `STORAGE_BLOCKED`, nikoli
+kvalitativní verdikt. Prázdný nebo již dokončený tick neměří incumbenty.
+
+Nová měření ukládají `metadata_json.provider.version` a API/report ukazují
+`providerVersion`. Starší evidence má `UNRECORDED`. Aktuální default build
+0.34.0-intentsmith.1 má SHA
+`8883245b864485a74ecccf62c4ce17d4538816cde4e37ea2107c2204d1d04ca7`;
+linux amd64 native archive má SHA
+`cf95886728959aa09910bb34de5cca1cc5a8f68003b5597197d3f2c2d57c0804`.
+Podporovaný provider popisuje [Decision 044](decisions/044-reproducible-evaluation-provider.md).
+
+Šablona GPU service vyžaduje také `@DB_PATH@`: absolutní cestu jedné
+provozní DB, před migrací zálohované SQLite backup API. Checkout-local DB
+ani soukromá kvalifikační kopie nejsou automaticky provozní evidence.

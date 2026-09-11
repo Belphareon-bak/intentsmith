@@ -80,6 +80,8 @@ function evaluationInterval(input = {}, durationMs = 0) {
 // placement inspection. Keep that attempt as evidence, but never turn a
 // transient resource race into a permanent rejection of the exact artifact.
 const RETRYABLE_TERMINAL_CODES = new Set([
+  'HUNT_GPU_BUSY',
+  'MODEL_EVALUATION_RESPONSE_PROVIDER_MISMATCH',
   'CANDIDATE_MEASURE_FAILED',       // compatibility with prototype.1 rows
   'CANDIDATE_MEASURE_RETRYABLE',
   'CANDIDATE_EVALUATION_RETRYABLE',
@@ -154,6 +156,7 @@ export async function resolveInstalledArtifact(modelName, opts = {}) {
 export class ModelEvaluationHistory {
   constructor(db = null) {
     this._db = null;
+    this.providerVersion = 'UNRECORDED';
     if (db) this.setDb(db);
   }
 
@@ -166,6 +169,22 @@ export class ModelEvaluationHistory {
       `).get();
       if (!exists) throw new Error('model_evaluation_runs migration is not applied');
     }
+  }
+
+  setProviderVersion(version) {
+    if (typeof version !== 'string' || !/^\d+\.\d+\.\d+(?:[-+][a-zA-Z0-9.-]+)?$/.test(version)) {
+      throw new TypeError('exact Ollama provider version is required');
+    }
+    this.providerVersion = version;
+  }
+
+  #metadata(input) {
+    return {
+      ...(input.metadata || {}),
+      provider: this.providerVersion === 'UNRECORDED' ? null : {
+        name: 'ollama', version: this.providerVersion, proof: 'RESPONSE_BOUND',
+      },
+    };
   }
 
   getComplete(input) {
@@ -184,8 +203,9 @@ export class ModelEvaluationHistory {
         AND suite_contract_sha256 = ?
         AND role = ?
         AND status = 'COMPLETE'
+        AND COALESCE(json_extract(metadata_json, '$.provider.version'), 'UNRECORDED') = ?
       LIMIT 1
-    `).get(digestSha256, suiteName, suiteVersion, contractSha256, role);
+    `).get(digestSha256, suiteName, suiteVersion, contractSha256, role, this.providerVersion);
     return row ? this.#decode(row) : null;
   }
 
@@ -204,8 +224,9 @@ export class ModelEvaluationHistory {
       WHERE model_digest_sha256 = ?
         AND status = 'BLOCKED'
         AND error_code = 'CANDIDATE_VRAM_FIT_FAILED'
+        AND COALESCE(json_extract(metadata_json, '$.provider.version'), 'UNRECORDED') = ?
       ORDER BY completed_at DESC, run_id DESC
-    `).all(digestSha256);
+    `).all(digestSha256, this.providerVersion);
     for (const row of rows) {
       const decoded = this.#decode(row);
       const observed = decoded.hardware || null;
@@ -238,8 +259,9 @@ export class ModelEvaluationHistory {
         AND suite_contract_sha256 = ?
         AND role = ?
         AND status IN ('FAILED', 'BLOCKED')
+        AND COALESCE(json_extract(metadata_json, '$.provider.version'), 'UNRECORDED') = ?
       ORDER BY completed_at DESC, run_id DESC
-    `).all(digestSha256, suiteName, suiteVersion, contractSha256, role);
+    `).all(digestSha256, suiteName, suiteVersion, contractSha256, role, this.providerVersion);
     for (const row of rows) {
       const decoded = this.#decode(row);
       if (RETRYABLE_TERMINAL_CODES.has(decoded.errorCode)) continue;
@@ -313,7 +335,7 @@ export class ModelEvaluationHistory {
         Number.isSafeInteger(input.vramBytes) && input.vramBytes >= 0 ? input.vramBytes : null,
         json(tasks, []),
         json(input.hardware, {}),
-        json(input.metadata, {}),
+        json(this.#metadata(input), {}),
         interval.startedAt,
         interval.completedAt,
       );
@@ -359,7 +381,9 @@ export class ModelEvaluationHistory {
       suiteName, suiteVersion, contractSha256, role, status,
       Number.isSafeInteger(input.repeats) && input.repeats > 0 ? input.repeats : 1,
       interval.durationMs,
-      json(input.tasks, []), json(input.hardware, {}), json(input.metadata, {}),
+      json(input.tasks, []), json(input.hardware, {}),
+      json({ ...this.#metadata(input), provider: this.providerVersion === 'UNRECORDED' ? null
+        : { name: 'ollama', version: this.providerVersion, proof: 'RUN_PREFLIGHT' } }, {}),
       input.errorCode || null, input.errorMessage || null,
       interval.startedAt, interval.completedAt,
     );
@@ -407,6 +431,7 @@ export class ModelEvaluationHistory {
       tasks: parseJson(row.task_results_json, []),
       hardware: parseJson(row.hardware_json, {}),
       metadata: parseJson(row.metadata_json, {}),
+      providerVersion: parseJson(row.metadata_json, {})?.provider?.version || null,
       errorCode: row.error_code,
       errorMessage: row.error_message,
       startedAt: row.started_at,
