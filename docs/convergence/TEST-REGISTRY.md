@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 512
+- Runnable programs: 514
 - Explicit support-module exclusions: 19
-- Profiles: offline=279, database=73, server=44, model=81, soak=15, manual=20
-- States: ACTIVE=418, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=280, database=74, server=44, model=81, soak=15, manual=20
+- States: ACTIVE=420, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -489,6 +489,8 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-ROUTING-ACCURACY-TEST` | `tests/routing-accuracy.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-RSS-INTEGRATION-TEST` | `tests/rss-integration.test.js` | `C3-015` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-RUNTIME-FEEDBACK-TEST` | `tests/runtime-feedback.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-SAZENI-ENGINE-TEST` | `tests/sazeni-engine.test.js` | `C3-013` | T1 | `offline` | 2 s | 30 s | network:none | yes | `ACTIVE` | — | WP-SPECIALISTS-20260911 |
+| `IS-T1-TESTS-SAZENI-INTEGRATION-TEST` | `tests/sazeni-integration.test.js` | `C3-013` | T1 | `database` | 2 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-SPECIALISTS-20260911 |
 | `IS-T1-TESTS-SCENARIO-ENGINE-TEST` | `tests/scenario-engine.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SCHEDULER-TEST` | `tests/scheduler.test.js` | `C3-015` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SCHEMA-MIGRATIONS-TEST` | `tests/schema-migrations.test.js` | `C3-024` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

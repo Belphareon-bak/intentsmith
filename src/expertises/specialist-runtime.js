@@ -166,8 +166,9 @@ class IntentDetector {
    * @param {SpecialistConfig} specialist - Specialist configuration
    * @returns {{ tool: ToolDefinition, params: Object } | null}
    */
-  detect(input, specialist) {
-    if (!input || input.length < 5) return null;
+  detect(input, specialist, attachments = []) {
+    if (typeof input !== 'string') return null;
+    if (input.length < 5 && !specialist.tools.some(tool => tool.acceptsAllInput === true)) return null;
 
     for (const tool of specialist.tools) {
       for (const patternGroup of tool.patterns) {
@@ -180,7 +181,7 @@ class IntentDetector {
           // Extract parameters
           let params = {};
           if (tool.extractParams) {
-            params = tool.extractParams(input) || {};
+            params = tool.extractParams(input, tool.acceptsInlineAttachments === true ? attachments : []) || {};
           }
           if (specialist.globalParamExtractor) {
             params = { ...specialist.globalParamExtractor(input), ...params };
@@ -275,7 +276,7 @@ class ToolExecutor {
     const args = tool.adapter ? tool.adapter(effectiveParams) : effectiveParams;
 
     const startTime = Date.now();
-    const result = await fn(args);
+    const result = await fn(args, tool.needsTurnContext === true ? executionContext.turn : undefined);
     const duration = Date.now() - startTime;
 
     const succeeded = result?.success !== false && result?.status !== 'error';
@@ -458,13 +459,13 @@ class SpecialistRuntime {
   async tryToolExecution(
     expertiseId,
     input,
-    { sessionId, conversationId, userMessageId, project, signal = null } = {},
+    { sessionId, conversationId, userMessageId, project, signal = null, attachments = [] } = {},
   ) {
     const specialist = this.registry.getSpecialist(expertiseId);
     if (!specialist) return null;
 
     // Step 1: Try normal pattern matching
-    let match = this.detector.detect(input, specialist);
+    let match = this.detector.detect(input, specialist, attachments);
     let isContextual = false;
 
     // Step 2: Merge session params (if normal match found)
@@ -504,7 +505,7 @@ class SpecialistRuntime {
 
     logger.info('SpecialistRuntime', `Tool match: ${match.tool.id} for specialist ${expertiseId}${isContextual ? ' (contextual)' : ''}`, {
       toolId: match.tool.id,
-      inputPreview: input.slice(0, 60),
+      inputLength: input.length,
       contextual: isContextual,
     });
 
@@ -551,6 +552,10 @@ class SpecialistRuntime {
       try {
         execResult = await this.executor.execute(match.tool, match.params, {
           projectContext,
+          ...(match.tool.needsTurnContext === true ? { turn: Object.freeze({
+            now: new Date().toISOString(), signal, clock: () => performance.now(),
+            yieldTask: () => new Promise(resolve => setImmediate(resolve)),
+          }) } : {}),
         });
       } catch (error) {
         logger.warn('SpecialistRuntime', `Tool ${match.tool.id} preparation failed: ${error.message}`);

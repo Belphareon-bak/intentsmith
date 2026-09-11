@@ -1,0 +1,494 @@
+{
+  "request": {
+    "contract": "BettingRequest",
+    "version": 2,
+    "requestId": "synthetic-demo",
+    "sport": "football",
+    "competitionIds": [
+      "demo-league"
+    ],
+    "window": {
+      "timezone": "Europe/Prague",
+      "horizonHours": 24,
+      "maxSpreadHours": 8
+    },
+    "bookmakerIds": [
+      "demo-book"
+    ],
+    "ticketType": "accumulator",
+    "legOdds": {
+      "min": "1.5",
+      "max": "2"
+    },
+    "ticketOdds": {
+      "min": "3",
+      "max": "4"
+    },
+    "legs": {
+      "min": 2,
+      "max": 2
+    },
+    "probabilityFilter": {
+      "basis": "market",
+      "metric": "estimate",
+      "min": 0.2
+    },
+    "objective": "highest_probability",
+    "ticketCount": 3,
+    "diversity": {
+      "maxSharedEvents": 1
+    },
+    "exclude": {
+      "eventIds": [],
+      "participantIds": [],
+      "competitionIds": []
+    },
+    "dataMode": "imported",
+    "stake": {
+      "currency": "CZK",
+      "perTicketMinor": 10000,
+      "totalBudgetMinor": 30000
+    }
+  },
+  "snapshot": {
+    "contract": "BettingSnapshot",
+    "version": 2,
+    "snapshotId": "synthetic-20260911",
+    "generatedAt": "2026-09-11T12:00:00.000Z",
+    "dataMode": "imported",
+    "source": {
+      "id": "synthetic-fixture",
+      "version": "1"
+    },
+    "coverage": {
+      "complete": true,
+      "scope": "Synthetic example, no real bookmaker offer"
+    },
+    "events": [
+      {
+        "eventId": "e0",
+        "competitionId": "demo-league",
+        "sport": "football",
+        "kickoffAt": "2026-09-11T14:00:00.000Z",
+        "status": "scheduled",
+        "home": {
+          "id": "h0",
+          "name": "Demo domácí 0"
+        },
+        "away": {
+          "id": "a0",
+          "name": "Demo hosté 0"
+        },
+        "dependencyGroups": [],
+        "markets": [
+          {
+            "marketId": "m0",
+            "kind": "1x2",
+            "period": "regulation",
+            "bookmakerId": "demo-book",
+            "region": "CZ-DEMO",
+            "settlementRuleId": "demo-90min",
+            "sourceUpdatedAt": "2026-09-11T12:00:00.000Z",
+            "observedAt": "2026-09-11T12:00:00.000Z",
+            "availability": "open",
+            "outcomes": [
+              {
+                "outcomeId": "home",
+                "decimalOdds": "1.9"
+              },
+              {
+                "outcomeId": "draw",
+                "decimalOdds": "3.5"
+              },
+              {
+                "outcomeId": "away",
+                "decimalOdds": "4.5"
+              }
+            ],
+            "prediction": {
+              "basis": "user_estimate",
+              "probabilities": {
+                "home": 0.65,
+                "draw": 0.2,
+                "away": 0.15
+              },
+              "method": "synthetic-user-input",
+              "predictedAt": "2026-09-11T12:00:00.000Z"
+            }
+          }
+        ]
+      },
+      {
+        "eventId": "e1",
+        "competitionId": "demo-league",
+        "sport": "football",
+        "kickoffAt": "2026-09-11T16:00:00.000Z",
+        "status": "scheduled",
+        "home": {
+          "id": "h1",
+          "name": "Demo domácí 1"
+        },
+        "away": {
+          "id": "a1",
+          "name": "Demo hosté 1"
+        },
+        "dependencyGroups": [],
+        "markets": [
+          {
+            "marketId": "m1",
+            "kind": "1x2",
+            "period": "regulation",
+            "bookmakerId": "demo-book",
+            "region": "CZ-DEMO",
+            "settlementRuleId": "demo-90min",
+            "sourceUpdatedAt": "2026-09-11T12:00:00.000Z",
+            "observedAt": "2026-09-11T12:00:00.000Z",
+            "availability": "open",
+            "outcomes": [
+              {
+                "outcomeId": "home",
+                "decimalOdds": "1.9"
+              },
+              {
+                "outcomeId": "draw",
+                "decimalOdds": "3.5"
+              },
+              {
+                "outcomeId": "away",
+                "decimalOdds": "4.5"
+              }
+            ],
+            "prediction": {
+              "basis": "user_estimate",
+              "probabilities": {
+                "home": 0.65,
+                "draw": 0.2,
+                "away": 0.15
+              },
+              "method": "synthetic-user-input",
+              "predictedAt": "2026-09-11T12:00:00.000Z"
+            }
+          }
+        ]
+      },
+      {
+        "eventId": "e2",
+        "competitionId": "demo-league",
+        "sport": "football",
+        "kickoffAt": "2026-09-11T20:00:00.000Z",
+        "status": "scheduled",
+        "home": {
+          "id": "h2",
+          "name": "Demo domácí 2"
+        },
+        "away": {
+          "id": "a2",
+          "name": "Demo hosté 2"
+        },
+        "dependencyGroups": [],
+        "markets": [
+          {
+            "marketId": "m2",
+            "kind": "1x2",
+            "period": "regulation",
+            "bookmakerId": "demo-book",
+            "region": "CZ-DEMO",
+            "settlementRuleId": "demo-90min",
+            "sourceUpdatedAt": "2026-09-11T12:00:00.000Z",
+            "observedAt": "2026-09-11T12:00:00.000Z",
+            "availability": "open",
+            "outcomes": [
+              {
+                "outcomeId": "home",
+                "decimalOdds": "1.9"
+              },
+              {
+                "outcomeId": "draw",
+                "decimalOdds": "3.5"
+              },
+              {
+                "outcomeId": "away",
+                "decimalOdds": "4.5"
+              }
+            ],
+            "prediction": {
+              "basis": "user_estimate",
+              "probabilities": {
+                "home": 0.65,
+                "draw": 0.2,
+                "away": 0.15
+              },
+              "method": "synthetic-user-input",
+              "predictedAt": "2026-09-11T12:00:00.000Z"
+            }
+          }
+        ]
+      },
+      {
+        "eventId": "e3",
+        "competitionId": "demo-league",
+        "sport": "football",
+        "kickoffAt": "2026-09-12T12:00:00.000Z",
+        "status": "scheduled",
+        "home": {
+          "id": "h3",
+          "name": "Demo domácí 3"
+        },
+        "away": {
+          "id": "a3",
+          "name": "Demo hosté 3"
+        },
+        "dependencyGroups": [],
+        "markets": [
+          {
+            "marketId": "m3",
+            "kind": "1x2",
+            "period": "regulation",
+            "bookmakerId": "demo-book",
+            "region": "CZ-DEMO",
+            "settlementRuleId": "demo-90min",
+            "sourceUpdatedAt": "2026-09-11T12:00:00.000Z",
+            "observedAt": "2026-09-11T12:00:00.000Z",
+            "availability": "open",
+            "outcomes": [
+              {
+                "outcomeId": "home",
+                "decimalOdds": "1.9"
+              },
+              {
+                "outcomeId": "draw",
+                "decimalOdds": "3.5"
+              },
+              {
+                "outcomeId": "away",
+                "decimalOdds": "4.5"
+              }
+            ],
+            "prediction": {
+              "basis": "user_estimate",
+              "probabilities": {
+                "home": 0.65,
+                "draw": 0.2,
+                "away": 0.15
+              },
+              "method": "synthetic-user-input",
+              "predictedAt": "2026-09-11T12:00:00.000Z"
+            }
+          }
+        ]
+      },
+      {
+        "eventId": "e4",
+        "competitionId": "demo-league",
+        "sport": "football",
+        "kickoffAt": "2026-09-13T12:00:00.000Z",
+        "status": "scheduled",
+        "home": {
+          "id": "h4",
+          "name": "Demo domácí 4"
+        },
+        "away": {
+          "id": "a4",
+          "name": "Demo hosté 4"
+        },
+        "dependencyGroups": [],
+        "markets": [
+          {
+            "marketId": "m4",
+            "kind": "1x2",
+            "period": "regulation",
+            "bookmakerId": "demo-book",
+            "region": "CZ-DEMO",
+            "settlementRuleId": "demo-90min",
+            "sourceUpdatedAt": "2026-09-11T12:00:00.000Z",
+            "observedAt": "2026-09-11T12:00:00.000Z",
+            "availability": "open",
+            "outcomes": [
+              {
+                "outcomeId": "home",
+                "decimalOdds": "1.9"
+              },
+              {
+                "outcomeId": "draw",
+                "decimalOdds": "3.5"
+              },
+              {
+                "outcomeId": "away",
+                "decimalOdds": "4.5"
+              }
+            ],
+            "prediction": {
+              "basis": "user_estimate",
+              "probabilities": {
+                "home": 0.65,
+                "draw": 0.2,
+                "away": 0.15
+              },
+              "method": "synthetic-user-input",
+              "predictedAt": "2026-09-11T12:00:00.000Z"
+            }
+          }
+        ]
+      },
+      {
+        "eventId": "e5",
+        "competitionId": "demo-league",
+        "sport": "football",
+        "kickoffAt": "2026-09-14T12:00:00.000Z",
+        "status": "scheduled",
+        "home": {
+          "id": "h5",
+          "name": "Demo domácí 5"
+        },
+        "away": {
+          "id": "a5",
+          "name": "Demo hosté 5"
+        },
+        "dependencyGroups": [],
+        "markets": [
+          {
+            "marketId": "m5",
+            "kind": "1x2",
+            "period": "regulation",
+            "bookmakerId": "demo-book",
+            "region": "CZ-DEMO",
+            "settlementRuleId": "demo-90min",
+            "sourceUpdatedAt": "2026-09-11T12:00:00.000Z",
+            "observedAt": "2026-09-11T12:00:00.000Z",
+            "availability": "open",
+            "outcomes": [
+              {
+                "outcomeId": "home",
+                "decimalOdds": "1.9"
+              },
+              {
+                "outcomeId": "draw",
+                "decimalOdds": "3.5"
+              },
+              {
+                "outcomeId": "away",
+                "decimalOdds": "4.5"
+              }
+            ],
+            "prediction": {
+              "basis": "user_estimate",
+              "probabilities": {
+                "home": 0.65,
+                "draw": 0.2,
+                "away": 0.15
+              },
+              "method": "synthetic-user-input",
+              "predictedAt": "2026-09-11T12:00:00.000Z"
+            }
+          }
+        ]
+      },
+      {
+        "eventId": "e6",
+        "competitionId": "demo-league",
+        "sport": "football",
+        "kickoffAt": "2026-09-18T12:00:00.000Z",
+        "status": "scheduled",
+        "home": {
+          "id": "h6",
+          "name": "Demo domácí 6"
+        },
+        "away": {
+          "id": "a6",
+          "name": "Demo hosté 6"
+        },
+        "dependencyGroups": [],
+        "markets": [
+          {
+            "marketId": "m6",
+            "kind": "1x2",
+            "period": "regulation",
+            "bookmakerId": "demo-book",
+            "region": "CZ-DEMO",
+            "settlementRuleId": "demo-90min",
+            "sourceUpdatedAt": "2026-09-11T12:00:00.000Z",
+            "observedAt": "2026-09-11T12:00:00.000Z",
+            "availability": "open",
+            "outcomes": [
+              {
+                "outcomeId": "home",
+                "decimalOdds": "1.9"
+              },
+              {
+                "outcomeId": "draw",
+                "decimalOdds": "3.5"
+              },
+              {
+                "outcomeId": "away",
+                "decimalOdds": "4.5"
+              }
+            ],
+            "prediction": {
+              "basis": "user_estimate",
+              "probabilities": {
+                "home": 0.65,
+                "draw": 0.2,
+                "away": 0.15
+              },
+              "method": "synthetic-user-input",
+              "predictedAt": "2026-09-11T12:00:00.000Z"
+            }
+          }
+        ]
+      },
+      {
+        "eventId": "e7",
+        "competitionId": "demo-league",
+        "sport": "football",
+        "kickoffAt": "2026-10-11T12:00:00.000Z",
+        "status": "scheduled",
+        "home": {
+          "id": "h7",
+          "name": "Demo domácí 7"
+        },
+        "away": {
+          "id": "a7",
+          "name": "Demo hosté 7"
+        },
+        "dependencyGroups": [],
+        "markets": [
+          {
+            "marketId": "m7",
+            "kind": "1x2",
+            "period": "regulation",
+            "bookmakerId": "demo-book",
+            "region": "CZ-DEMO",
+            "settlementRuleId": "demo-90min",
+            "sourceUpdatedAt": "2026-09-11T12:00:00.000Z",
+            "observedAt": "2026-09-11T12:00:00.000Z",
+            "availability": "open",
+            "outcomes": [
+              {
+                "outcomeId": "home",
+                "decimalOdds": "1.9"
+              },
+              {
+                "outcomeId": "draw",
+                "decimalOdds": "3.5"
+              },
+              {
+                "outcomeId": "away",
+                "decimalOdds": "4.5"
+              }
+            ],
+            "prediction": {
+              "basis": "user_estimate",
+              "probabilities": {
+                "home": 0.65,
+                "draw": 0.2,
+                "away": 0.15
+              },
+              "method": "synthetic-user-input",
+              "predictedAt": "2026-09-11T12:00:00.000Z"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

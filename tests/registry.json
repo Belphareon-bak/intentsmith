@@ -15098,7 +15098,10 @@
       "quarantineExpiry": null,
       "id": "IS-T1-TESTS-MOBILE-CAPABILITY-INVENTORY-TEST",
       "path": "tests/mobile-capability-inventory.test.js",
-      "argv": ["node", "tests/mobile-capability-inventory.test.js"],
+      "argv": [
+        "node",
+        "tests/mobile-capability-inventory.test.js"
+      ],
       "fixture": "isolated-home",
       "profile": "offline",
       "timeoutMs": 120000,
@@ -15117,7 +15120,10 @@
       "required": true,
       "owner": "primary implementer",
       "state": "ACTIVE",
-      "lastGreen": {"commit": null, "artifact": null},
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
       "flakeCount": 0,
       "quarantineExpiry": null,
       "id": "IS-T1-TESTS-MOBILE-SECURE-CREDENTIAL-TEST",
@@ -15528,6 +15534,66 @@
       },
       "required": true,
       "owner": "WP-M6-RELEASE",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-SAZENI-ENGINE-TEST",
+      "path": "tests/sazeni-engine.test.js",
+      "argv": [
+        "node",
+        "tests/sazeni-engine.test.js"
+      ],
+      "capabilityId": "C3-013",
+      "tier": "T1",
+      "fixture": "offline",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 2000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-SPECIALISTS-20260911",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-SAZENI-INTEGRATION-TEST",
+      "path": "tests/sazeni-integration.test.js",
+      "argv": [
+        "node",
+        "tests/sazeni-integration.test.js"
+      ],
+      "capabilityId": "C3-013",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "database",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 2000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-SPECIALISTS-20260911",
       "state": "ACTIVE",
       "lastGreen": {
         "commit": null,

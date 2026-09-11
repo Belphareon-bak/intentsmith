@@ -138,6 +138,7 @@ export async function specialistHandler(input, context) {
           userMessageId: context.userMessageId,
           project: context.project,
           signal: context.signal || null,
+          attachments: context.attachments || [],
         }
       );
 
@@ -266,7 +267,7 @@ function specialistToolFailureResponse(toolResult, specialist) {
     },
   });
   return new TaggedResponse({
-    content: `Code review nebylo spuštěno: ${toolResult.error}`,
+    content: `Nástroj specialisty nebyl spuštěn: ${toolResult.error}`,
     tag,
   });
 }
