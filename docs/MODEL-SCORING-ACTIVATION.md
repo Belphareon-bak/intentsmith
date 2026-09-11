@@ -1,6 +1,6 @@
 # Modelové evaluace a aktivace
 
-**Stav:** současný kontrakt v136.1 · **Aktualizováno:** 2026-09-09
+**Stav:** současný kontrakt v136.1 · **Aktualizováno:** 2026-09-11
 **Implementace:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Přijetí:**
 coverage je implementačně kompletní a čistý finální gate na `53ded662` prošel
 `279/279`; evidence rereview rozsahu `d6137d4c..3f027938` skončilo
@@ -15,6 +15,14 @@ blokátorem tohoto ověřeného rozsahu. Celý modelový panel, startup serveru,
 koordinace přes živou DB a release acceptance tím ověřeny nejsou.
 [Run a přesné identity](execution/runs/m6/provider-activation-20260909.md).
 
+**Provozní checkpoint 2026-09-11 — REVIEW_PENDING:** reprodukovatelný provider
+`0.34.0-intentsmith.1` je instalován systémově a jako podporovaný ephemeral
+sidecar. Skutečná user service dokončila CODE duel nad provozní DB; oba nové
+COMPLETE řádky nesou provider verzi a response-bound digest. Verdikt je
+INCONCLUSIVE, role se nezměnila. Denní autocheck a noční bounded hunt jsou
+zapnuté. Tím není uděleno nezávislé acceptance nové delty ani přeměřen celý
+panel. [Rozsah, důkazy a omezení pro review](review/2026-09-11-GPU-HUNT-PRODUCTION-REVIEW-PACKET.md).
+
 Název souboru zůstává kvůli existujícím odkazům. IntentSmith už ale nemá
 samostatný „scoring“ runtime. Existuje jedna autoritativní cesta pro modelové
 evaluace a oddělená, ručně autorizovaná cesta pro změnu bindingu.
@@ -28,7 +36,8 @@ evaluace a oddělená, ručně autorizovaná cesta pro změnu bindingu.
    přesných Ollama artefaktech. Měření je sériové a předpokládá volný GPU slot.
 3. `model_evaluation_runs` je append-only historie. Aktuální je pouze řádek se
    shodným digestem artefaktu, rolí, suite name, suite version a dnešním suite
-   contract SHA.
+   contract SHA a verzí obsluhující Ollamy. Historické řádky bez zaznamenané
+   verze se na aktuálním provideru znovu nepoužijí; jejich historii nemažeme.
 4. `model_evaluation_decisions` je append-only rozhodnutí odkazující na oba
    přesné COMPLETE runy a na použitou politiku.
 5. `ModelEvaluationReadModel` je jediný reader pro API, CLI, Studio, governor a
@@ -48,8 +57,9 @@ evaluace a oddělená, ručně autorizovaná cesta pro změnu bindingu.
    Neattestovaná nebo driftující odpověď se nevrátí ani nezapíše jako úspěšný
    usage.
 8. Stejná response atestace platí pro nové autoritativní scoring běhy. Runner
-   dostane očekávaný `(model name, digest)`; chybějící nebo jiný response digest
-   vyhodí typovanou terminální chybu a nesmí vytvořit `COMPLETE` řádek.
+   dostane očekávaný `(model name, digest, providerVersion)`; chybějící nebo
+   jiný response digest či provider version vyhodí typovanou terminální chybu
+   a nesmí vytvořit `COMPLETE` řádek.
 
 Suite contract nehashuje zdroj wrapper closure. Hashuje explicitní skutečný
 prompt, language, rubric, grader a jeho uzavřené vstupy, options a repeats.
@@ -79,7 +89,7 @@ nevydá `READY_FOR_MANUAL_BINDING`; skóre, digesty, contracty a timestampy tím
 zůstávají plně čitelné.
 
 Každá role/artifact položka uvádí stav `COMPLETE`, `FAILED`, `BLOCKED` nebo
-`MISSING`, přesný digest, suite/version/contract, `score` a `testedAt` tam, kde
+`MISSING`, přesný digest, suite/version/contract, `providerVersion`, `score` a `testedAt` tam, kde
 existuje COMPLETE běh. Timestamp se zobrazuje; neexistuje 14denní TTL, které by
 staré či name-only skóre automaticky prohlásilo za současné.
 
@@ -98,7 +108,7 @@ měří, zatímco `preferredCategories` pouze řadí discovery kandidáty. Přij
 13artefaktový scoring snapshot má 55 COMPLETE, 24 BLOCKED a 12 raw MISSING;
 všech 12 raw MISSING je `NOT_APPLICABLE`, takže mezi 79 technicky
 kompatibilními páry je `applicable MISSING=0`. Po explicitně autorizovaném
-odstranění čtyř VRAM-blocked artefaktů má současná installed inventory 9
+odstranění čtyř VRAM-blocked artefaktů měla inventory ve snapshotu 2026-08-28 devět
 artefaktů, 55 COMPLETE, 0 BLOCKED, 8 N/A a 0 applicable MISSING. Odstraněné
 exact digesty zůstávají v append-only DB historii; důkaz odstranění je v
 [`model-removal-live-20260828.json`](execution/runs/model-removal-live-20260828.json).

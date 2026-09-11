@@ -133,7 +133,10 @@ async function main() {
   const snapshot = JSON.parse(readFileSync(options.snapshotPath, 'utf8'));
   const inventory = inventoryFromModelEvaluationSnapshot(snapshot);
   const databaseSha256Before = await sha256File(options.dbPath);
-  const report = await buildEvaluationReport({ dbPath: options.dbPath, inventory });
+  const report = await buildEvaluationReport({
+    dbPath: options.dbPath, inventory,
+    providerVersion: snapshot.readModel.inventoryProjection.providerVersion || null,
+  });
   const replaySummary = summarizeModelEvaluationReport(report);
   const databaseSha256After = await sha256File(options.dbPath);
   const comparison = compareSnapshotReplay(snapshot.readModel, replaySummary, options.expected);

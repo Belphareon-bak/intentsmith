@@ -133,8 +133,8 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **222 475 ř.**, 604 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **240 627 ř.**, 518 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **222 485 ř.**, 604 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **240 657 ř.**, 518 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **512** (`418 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **176 / 99** |
 | HTTP rout | ~230 |
@@ -184,11 +184,11 @@ offline replay nad stejnou DB reprodukuje 55/24/0/12 bez kontaktu s providerem.
 Nezávislé rereview rozsahu `d6137d4c..3f027938` zopakovalo replay, SHA/tamper
 kontrolu, manifest i clean-clone gate 279/279 a vrátilo
 [`REVIEW_PASSED`](docs/review/2026-08-28-WP-MODEL-EVALUATION-EVIDENCE-REREVIEW.md).
-Scoring/evidence balík je `ACCEPTED`; systémový response-digest provider zůstává
-samostatně `SYSTEM_PROVIDER_BLOCKED`. Evidence:
+Srpnový scoring/evidence balík je `ACCEPTED`; systémový response-digest provider
+byl v tomto snapshotu samostatně `SYSTEM_PROVIDER_BLOCKED`. Evidence:
 [`model-scoring-live-20260828.md`](docs/execution/runs/model-scoring-live-20260828.md).
 Po následném explicitně autorizovaném odstranění čtyř VRAM-blocked exact
-artefaktů má současná inventory 9 modelů a 55/0/0/8 coverage
+artefaktů měla inventory ve snapshotu 2026-08-28 devět modelů a 55/0/0/8 coverage
 (`COMPLETE/BLOCKED/applicable MISSING/N/A`); DB historie i bindingy zůstaly
 beze změny. Důkaz:
 [`model-removal-live-20260828.json`](docs/execution/runs/model-removal-live-20260828.json).
@@ -544,3 +544,12 @@ podporovanou cestu; stav zůstává `REVIEW_PENDING` do nezávislého review.
 Provider-specific hunt checkpoint 2026-09-11: module graph má 1 309 hran.
 Jediná nová hrana `model-hunt-state -> model-identity` sdílí kanonické
 jméno pro append-only discovery ledger; cykly zůstávají 3 / 28.
+
+Provozní checkpoint GPU huntu 2026-09-11 na `7c693d32`: reprodukovatelná
+Ollama `0.34.0-intentsmith.1` je instalována systémově i pro ephemeral sidecar.
+Skutečná user service dokončila CODE duel nad provozní DB: dvě provider-bound
+COMPLETE evidence a INCONCLUSIVE decision, bez změny bindingů. Start, obsazený
+port a ukončení všech vlastních GPU procesů byly ověřeny. Migrace 111/112 drží
+provider-specific reuse a bootstrap katalog 180 kandidátů. Autocheck a noční
+limitovaný hunt jsou enabled; široký panel a nezávislé review zůstávají otevřené.
+[Přesný rozsah a aktuální důkazy](docs/review/2026-09-11-GPU-HUNT-PRODUCTION-REVIEW-PACKET.md).

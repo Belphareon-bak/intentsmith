@@ -237,6 +237,7 @@ záznamu selže v `artifact-validation`.
 | `2026_09_09_109_m2_file_read_outputs.js` | použito pro neměnné bajty projektového file.read@2 a odstranění obsahu |
 | `2026_09_10_110_m2_file_list_outputs.js` | `WP-CORE-COMPLETION-20260909` — přesný root-list output a tombstone |
 | `2026_09_11_111_model_hunt_provider_identity.js` | explicitní zadání operátora — provider identity a bootstrap hunt ledger |
+| `2026_09_11_112_model_hunt_append_only.js` | explicitní zadání operátora — ochrana hunt ledgeru proti nahrazení identity |
 <!-- migration-source-manifest:end -->
 
 ## Navazující M7 rezervace 2026-08-29

@@ -358,6 +358,7 @@ export class ModelEvaluationReadModel {
       return Object.freeze({
         schemaVersion: 2,
         generatedAt: new Date().toISOString(),
+        providerVersion: input.providerVersion || null,
         authority: Object.freeze({
           status: 'READY',
           tables: Object.freeze(['model_evaluation_runs', 'model_evaluation_decisions']),

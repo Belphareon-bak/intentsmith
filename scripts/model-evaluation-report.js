@@ -37,10 +37,18 @@ async function fetchInventory(baseUrl = config.ollama?.baseUrl || 'http://127.0.
   return normalizeInstalledInventory(body.models);
 }
 
+async function fetchProviderVersion(baseUrl = config.ollama?.baseUrl || 'http://127.0.0.1:11434') {
+  const response = await fetch(`${baseUrl}/api/version`, { signal: AbortSignal.timeout(8_000) });
+  const body = response.ok ? await response.json() : null;
+  if (typeof body?.version !== 'string' || !body.version) throw new Error('Ollama provider version is unavailable');
+  return body.version;
+}
+
 export function renderEvaluationReport(readModel) {
   const lines = [
     `Autorita: ${readModel.authority.tables.join(' + ')}; current contract only; legacy fallback OFF`,
     `Vygenerováno: ${readModel.generatedAt}`,
+    `Provider filtr: ${readModel.providerVersion || 'HISTORICAL_SNAPSHOT_UNFILTERED'}`,
     `Binding autorita: ${readModel.bindingAuthority?.status || 'UNKNOWN'}${readModel.bindingAuthority?.reason ? ` (${readModel.bindingAuthority.reason})` : ''}`,
     `Coverage: applicable ${readModel.coverage?.applicableTotal ?? '—'}, `
       + `applicable MISSING ${readModel.coverage?.applicableStatusCounts?.MISSING ?? '—'}, `
@@ -73,7 +81,13 @@ export async function buildEvaluationReport(options = {}) {
     const inventory = await (options.inventory
       ? Promise.resolve(options.inventory)
       : fetchInventory(options.baseUrl));
+    // An explicit inventory is an offline historical replay. Its provider
+    // filter must come from the snapshot, never from today's live service.
+    const providerVersion = options.inventory
+      ? options.providerVersion || null
+      : await fetchProviderVersion(options.baseUrl);
     return new ModelEvaluationReadModel(db).read({
+      providerVersion,
       inventory,
       bindings: bindingState.bindings,
       bindingAuthority: {

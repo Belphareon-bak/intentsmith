@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 
 export const MODEL_EVALUATION_SNAPSHOT_INVENTORY_VERSION =
   'intentsmith-normalized-model-inventory-v1';
+const PROVIDER_SNAPSHOT_VERSION = 'intentsmith-normalized-model-inventory-v2';
 
 const STATUSES = Object.freeze(['COMPLETE', 'BLOCKED', 'MISSING', 'FAILED']);
 
@@ -28,12 +29,13 @@ function projectedArtifact(model) {
   });
 }
 
-export function createSnapshotInventoryProjection(models = []) {
+export function createSnapshotInventoryProjection(models = [], providerVersion = null) {
   if (!Array.isArray(models)) throw new TypeError('snapshot inventory models must be an array');
   const artifacts = Object.freeze(models.map(projectedArtifact));
   return Object.freeze({
-    schemaVersion: MODEL_EVALUATION_SNAPSHOT_INVENTORY_VERSION,
-    sha256: sha256Json(artifacts),
+    schemaVersion: providerVersion === null ? MODEL_EVALUATION_SNAPSHOT_INVENTORY_VERSION : PROVIDER_SNAPSHOT_VERSION,
+    ...(providerVersion === null ? {} : { providerVersion }),
+    sha256: sha256Json(providerVersion === null ? artifacts : { providerVersion, artifacts }),
     artifacts,
   });
 }
@@ -73,14 +75,21 @@ function validateProjectedArtifact(artifact, index) {
 
 export function inventoryFromModelEvaluationSnapshot(snapshot) {
   const projection = snapshot?.readModel?.inventoryProjection;
-  if (projection?.schemaVersion !== MODEL_EVALUATION_SNAPSHOT_INVENTORY_VERSION) {
+  if (![MODEL_EVALUATION_SNAPSHOT_INVENTORY_VERSION, PROVIDER_SNAPSHOT_VERSION].includes(projection?.schemaVersion)) {
     throw new TypeError('snapshot normalized inventory projection is missing or unsupported');
   }
   if (!Array.isArray(projection.artifacts)) {
     throw new TypeError('snapshot normalized inventory artifacts are missing');
   }
   projection.artifacts.forEach(validateProjectedArtifact);
-  const calculated = sha256Json(projection.artifacts);
+  const withProvider = projection.schemaVersion === PROVIDER_SNAPSHOT_VERSION;
+  if (withProvider ? (typeof projection.providerVersion !== 'string' || !projection.providerVersion)
+    : Object.hasOwn(projection, 'providerVersion')) {
+    throw new TypeError('snapshot provider filter is missing or unsupported');
+  }
+  const calculated = sha256Json(withProvider
+    ? { providerVersion: projection.providerVersion, artifacts: projection.artifacts }
+    : projection.artifacts);
   if (projection.sha256 !== calculated) {
     throw new TypeError('snapshot normalized inventory projection SHA-256 mismatch');
   }
@@ -120,7 +129,7 @@ export function summarizeModelEvaluationReport(report) {
     authority: report.authority,
     bindingAuthority: report.bindingAuthority,
     artifactCount: report.models.length,
-    inventoryProjection: createSnapshotInventoryProjection(report.models),
+    inventoryProjection: createSnapshotInventoryProjection(report.models, report.providerVersion || null),
     roles,
     totals,
     coverage: report.coverage,
