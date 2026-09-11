@@ -133,8 +133,8 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **222 765 ř.**, 605 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **240 951 ř.**, 521 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **222 800 ř.**, 605 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **241 002 ř.**, 521 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **515** (`421 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **174 / 98** |
 | HTTP rout | **243 statických deklarací**; nejde o počet runtime ověřených cest |

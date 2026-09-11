@@ -151,6 +151,16 @@ export const RoleTokenLimits = {
   [LLMCallerRole.LEGACY_DIRECT]: 4096
 };
 
+/**
+ * Maximum authority issuable for each role. Defaults stay deliberately
+ * smaller where a bounded product operation already needs a larger ceiling.
+ */
+export const RoleTokenCeilings = Object.freeze({
+  ...RoleTokenLimits,
+  [LLMCallerRole.CRE_DECISION]: 4096,
+  [LLMCallerRole.TOOL_INTERNAL]: 2048,
+});
+
 export const LLMOperation = Object.freeze({
   WORKFLOW_SPEC_DOCUMENT_JSON_V1: 'workflow.spec-document.json@1',
 });
@@ -337,13 +347,13 @@ export function authTokenOperation(token) {
 }
 
 /**
- * Enforce role ceilings at the strict model policy boundary. The exact
+ * Enforce role ceilings at every model gateway boundary. The exact
  * complete-SPEC token is the only operation allowed above its role default.
  */
 export function validateAuthTokenPolicy(token) {
   const validation = validateAuthToken(token);
   if (!validation.valid) return validation;
-  const roleLimit = RoleTokenLimits[token.role];
+  const roleLimit = RoleTokenCeilings[token.role];
   if (token.maxTokens <= roleLimit) return { valid: true };
   const operation = issuedOperationTokens.get(token);
   if (
@@ -372,6 +382,7 @@ export default {
   LLMOperation,
   RoleCapabilities,
   RoleTokenLimits,
+  RoleTokenCeilings,
   OperationTokenLimits,
   createAuthToken,
   createSpecDocumentAuthToken,
