@@ -401,6 +401,20 @@ projekt se nevymýšlí a projektové M2 kontrakty se nerozšiřují. Specifick�
 HTTP cesta a negativní transport/replay testy prošly; kompletní původní
 webové modelové scénáře se tím neprohlašují za přijaté.
 
+Samostatný [webový review packet](docs/review/2026-09-11-CONVERSATION-WEB-REVIEW-PACKET.md)
+nově zahrnuje celé zavedení od `983121ee` až po `dbe6630a`, které dřívější
+multi-file review range vynechalo. Source opravuje M7 záměnu actor ID za
+místní transportní oprávnění a doplňuje terminal audit po ztrátě scope.
+M7 dostane odmítací text, pending souhlas a 0 I/O; neposkytuje typed remote
+webový výsledek. Audit outage zůstává unavailable a není crash recovery.
+Aktuální celý profil je 353/353 PASS, web 20/20, lifecycle service 36/36,
+izolované auth/web server programy 2/2 (13 + 2 případy). První nový běh měl
+349 PASS / 2 FAIL / 2 TIMEOUT a zůstává zachovaný. Stav webu:
+`IMPLEMENTED_CANDIDATE / WEB_REVIEW_REQUIRED`; dodané scoped operátorské review
+není acceptance úplného síťového řezu. [Přesné důkazy a hranice](docs/execution/runs/conversation-web-review-20260911.md).
+Před merge s upstream `fe064ee8` zbývá společné číslování migrací 111/112
+a kolidujících dokumentů Decision 044; k žádné integraci nedošlo.
+
 [Operátorská historická fakta pro M5](docs/execution/runs/m5/operator-history-facts-20260911.md)
 jsou podkladem pro posouzení neaplikovatelnosti rotace, nikoli podepsané
 receipts. Druhé fyzické médium a celý podpisový řetězec nejsou potvrzené.

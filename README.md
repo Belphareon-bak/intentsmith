@@ -57,7 +57,7 @@ zpevňuje. Produktový kontrakt, cílový uživatel a hranice 1.0 jsou v
 - **C3 Studio IDE** — Theia + Electron, 32 rozšíření, chat panel, agent log, settings (12 sekcí), specialist focus mode, multimedia view.
 - **153 nástrojů** ve 35 kategoriích. Sandboxed execution, circuit breaker, risk assessment.
 
-Modelová inference používá lokální ověřený provider a persistence SQLite. Web bez projektu nabízí jeden viditelný HTTPS GET s přesným souhlasem: `načti web https://example.com/`, potom zobrazený příkaz `schválit web web:<digest>`. Schválení se nepřenáší na další adresu ani autonomního agenta. [Rozsah a limity](docs/decisions/044-conversation-web-approval.md).
+Modelová inference používá lokální ověřený provider a persistence SQLite. Web bez projektu nabízí jeden viditelný HTTPS GET s přesným souhlasem: `načti web https://example.com/`, potom zobrazený příkaz `schválit web web:<digest>`. Schválení se nepřenáší na další adresu ani autonomního agenta. [Rozsah a limity](docs/decisions/044-conversation-web-approval.md). [Samostatné bezpečnostní review čeká](docs/review/2026-09-11-CONVERSATION-WEB-REVIEW-PACKET.md).
 
 ---
 

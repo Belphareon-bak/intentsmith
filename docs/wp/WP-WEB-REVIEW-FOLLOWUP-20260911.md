@@ -41,3 +41,14 @@ profile with declared local toolchain prerequisites, and `git diff --check`.
 Stop new dependent implementation if an unresolved authority decision appears.
 Evidence and findings go into the dedicated packet and one unique run record;
 ROADMAP/SYSTEM-MAP keep web `REVIEW_REQUIRED` until explicit scoped acceptance.
+
+
+Handoff: implementation/test `dbe6630a`, full deterministic 353/353 PASS;
+web 20/20, lifecycle 36/36, server auth/web 2 programs (13 + 2 cases).
+The actual M7 regression lives in the existing web database suite; the M7
+executor suite retains its original offline fixtures. The initial failed run
+and its two timeouts remain preserved. Deliverables:
+[packet](../review/2026-09-11-CONVERSATION-WEB-REVIEW-PACKET.md),
+[review response](../review/2026-09-11-PRODUCTION-FOLLOWUP-REVIEW-RESPONSE.md),
+[run record](../execution/runs/conversation-web-review-20260911.md).
+Authoring/verification complete; independent web review remains required.

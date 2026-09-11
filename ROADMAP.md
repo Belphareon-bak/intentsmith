@@ -3029,4 +3029,13 @@ Regrese skutečného M7 executoru patří do existující databázové webové s
 původní offline M7 sada zachovává svůj rozsah. Dva vadné první peer případy
 potvrzují rollback celé dávky po syntaktické i funkční chybě. Nové full gate
 na `39c96957` odhalilo dvě census chyby a dva M2 timeouty; tento neúspěšný
-běh zůstává zachovaný. Po opravě evidence následuje nové úplné ověření.
+běh zůstává zachovaný. Nový source `dbe6630a` má **353/353 deterministic PASS**, web 20/20,
+peer service 36/36 a izolované serverové programy 2/2 (13 auth + 2 web případy).
+Původní M2 timeouty nejsou zametené ani vyřešené zvýšením limitu; v druhém
+celém běhu oba programy prošly za přibližně tři sekundy.
+[Samostatný web packet](docs/review/2026-09-11-CONVERSATION-WEB-REVIEW-PACKET.md),
+[vypořádání review](docs/review/2026-09-11-PRODUCTION-FOLLOWUP-REVIEW-RESPONSE.md),
+[run a zachované neúspěchy](docs/execution/runs/conversation-web-review-20260911.md).
+Nezávislé webové review zůstává otevřené. Před konsolidací s upstream `fe064ee8`
+se musí sladit kolidující migrace (111 i 112 již obsazené) a dvojí Decision 044.
+Nový PASS nepřijímá projektový builder ani celou M5/M6.
