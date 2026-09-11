@@ -227,6 +227,8 @@ function controlledStudio({ pending = true, paths = ['src/app.js'] } = {}) {
   const session = { _projectId: 27, _convId: origin.conversationId,
     _m2Pending: pending ? { lifecycleId: 'draft-27', planDigest, origin } : null };
   const pane = { msgs: [], attachments: [] };
+  session.chat = pane;
+  const textarea = { value: '', style: {} };
   const calls = [];
   const view = {
     lifecycleId: 'draft-27', state: 'awaiting_approval', planDigest,
@@ -241,20 +243,39 @@ function controlledStudio({ pending = true, paths = ['src/app.js'] } = {}) {
     _sessions: [session], _backendBase: 'http://fixture.invalid',
     _M2_TERMINAL_STATES: { succeeded: true, failed: true, cancelled: true },
     _sessionActive: 0, _persistSessionState() {}, renderChat() {}, _chatScrollPane() {}, AbortSignal, AbortController,
+    document: { getElementById() { return textarea; } }, C3WS: { hasActiveM1Turn() { return true; } },
     fetch(url, options) {
       return new Promise((resolve, reject) => calls.push({ url, options, reject,
         resolve(payload, status = 200) { resolve({ ok: status === 200, status, json: async () => payload }); } }));
     },
   });
   vm.runInContext(source.slice(source.indexOf('function _m2IsRecord'), source.indexOf('/* ── M4 learning')), sandbox);
+  vm.runInContext(functionSlice('_chatSendPane', '_chatGapChoice'), sandbox);
   return { session, pane, calls, view,
     command(cmd, arg = '') { sandbox._m2HandleStudioCommand(0, session, pane, null, cmd + ' ' + arg, cmd, arg); },
+    chatSend(text) { textarea.value = text; sandbox._chatSendPane(0); },
     terminal(state = 'cancelled') { return { ...view, state,
       terminal: { state, identity: { lifecycleId: view.lifecycleId }, planDigest } }; },
   };
 }
 
 const flushStudio = () => new Promise(resolve => setImmediate(resolve));
+
+test('actual chat entry dispatches M2 cancel despite an active M1 turn and prepared send', async () => {
+  const studio = controlledStudio();
+  studio.command('/m2-approve');
+  studio.pane._preparedSend = { unrelated: true };
+  studio.chatSend('/m2-cancel stop_from_chat_entry');
+  assert.equal(studio.calls.length, 2);
+  assert.equal(studio.calls[1].url, 'http://fixture.invalid/api/m2/lifecycle/cancel');
+  assert.equal(JSON.parse(studio.calls[1].options.body).reason, 'stop_from_chat_entry');
+  assert.equal(studio.pane._preparedSend.unrelated, true, 'M2 cancel does not alter unrelated M1 ownership');
+  studio.calls[0].resolve(studio.terminal());
+  studio.calls[1].resolve(studio.terminal());
+  await flushStudio();
+  assert.equal(studio.pane._m2Busy, false);
+  assert.equal(studio.session._m2Pending, null);
+});
 
 for (const first of ['approve', 'cancel']) {
   test(`Studio durable cancel during approval keeps both requests owned (${first} response first)`, async () => {

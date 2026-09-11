@@ -6569,6 +6569,12 @@ function _m4HandleLearningCommand(idx,s,st,ta,text,cmd,arg){
 function _chatSendPane(idx){
   var ta=document.getElementById('c3-chat-ta-'+idx);
   var s=_sessions[idx];if(!s)return;var st=s.chat;
+  // An unrelated chat turn or attachment read cannot disable cancellation of
+  // an already running M2 operation. Its dispatcher still owns exact origin.
+  var m2CancelText=ta?ta.value.trim():'';
+  if(st._m2Busy&&/^\/m2-cancel(?:\s|$)/i.test(m2CancelText)){
+    _m2HandleStudioCommand(idx,s,st,ta,m2CancelText,'/m2-cancel',m2CancelText.slice(10).trim());return;
+  }
   if(typeof C3WS!=='undefined'&&C3WS.hasActiveM1Turn&&C3WS.hasActiveM1Turn(s))return;
   if(st._preparedSend)return;
   st.acSuggestion=null;/* clear autocomplete on send */
