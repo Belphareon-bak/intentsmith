@@ -431,3 +431,14 @@ lokálních refs, bez fetch či průzkumu libovolných standalone klonů; tento
 vlastní auditní klon již obsahoval kandidátní migraci 111. Důkaz:
 `.intentsmith-artifacts/migration111-census.json`, SHA256 `50bb41f9cb7051d116e8973e01e221aee745622388b464a6441621d51358a262`.
 Kandidát nyní obsahuje 98 migrací.
+
+### Následná kolize při integračním review
+
+Read-only kontrola 2026-09-11 zachytila v konsolidačním worktree
+`is-mobile-completion-20260908` na `7c693d32107cdd5f6d16405ab58ea94057a8f28e`
+již commitnuté `111_model_hunt_provider_identity` a `112_model_hunt_append_only`.
+Zdejší 111 je stále `conversation_web`; dřívější census nezaručuje současnou
+globální volnost. Integrace je `MIGRATION_RECONCILIATION_REQUIRED`: nový
+společný census a upgrade/schema důkaz pro obě linie před merge. Ani 112
+není automaticky volná náhrada. Tento záznam žádnou migraci nepřejmenovává
+a neaplikuje na produkční DB.

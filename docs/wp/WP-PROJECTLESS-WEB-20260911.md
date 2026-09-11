@@ -1,6 +1,14 @@
 # WP — Web v konverzaci bez projektu (brief pro navazujícího workera)
 
-Stav: `DECISION_PENDING / NOT_APPROVED / NO_IMPLEMENTATION_AUTHORITY`.
+Stav: `SUPERSEDED / HISTORICAL_BRIEF` (aktualizováno po review 2026-09-11).
+
+Tento brief předcházel [Decision 044](../decisions/044-conversation-web-approval.md).
+Operátor mezitím přijal jednotlivý schvalovaný HTTPS požadavek pro 1.0.
+Níže je zachovaný historický návrh širšího rozsahu; jeho původní stav ani
+varianty nejsou aktuálními instrukcemi. Aktuální implementace vyžaduje
+samostatné bezpečnostní review podle [navazujícího WP](WP-WEB-REVIEW-FOLLOWUP-20260911.md).
+
+Původní stav: `DECISION_PENDING / NOT_APPROVED / NO_IMPLEMENTATION_AUTHORITY`.
 
 Tento dokument **není** schválením. Rozhodnutí podle `CONTRACT.md §11` dosud
 nepadlo a bez něj se neimplementuje žádný síťový rozsah. Slouží k tomu, aby

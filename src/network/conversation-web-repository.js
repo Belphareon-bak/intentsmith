@@ -1,5 +1,6 @@
 import { CONVERSATION_WEB, canonicalWebUrl, parseWebApproval, requireWebIdentity, webDigest, webError } from '../../contracts/m2/conversation-web-v1.js';
 import { OutboundAuditRepository, outboundTargetDigest } from './outbound-audit-repository.js';
+import { isLocalOperatorTransportSubject } from '../security/global-auth-policy.js';
 
 const writers = new WeakSet();
 export function registerConversationWebWriter(database) {
@@ -7,6 +8,8 @@ export function registerConversationWebWriter(database) {
 }
 
 export class ConversationWebRepository {
+  #claims = new WeakMap();
+
   constructor(database, { clock = Date.now } = {}) {
     this.database = database;
     this.clock = clock;
@@ -22,6 +25,7 @@ export class ConversationWebRepository {
 
   identity(context) {
     const subjectId = requireWebIdentity(context);
+    if (!isLocalOperatorTransportSubject(context.authenticatedSubject)) throw webError('WEB_LOCAL_TRANSPORT_REQUIRED');
     const conversation = this.database.prepare('SELECT * FROM conversations WHERE id = ?').get(context.conversationId);
     const message = this.database.prepare('SELECT * FROM messages WHERE id = ? AND conversation_id = ? AND role = ?')
       .get(context.userMessageId, context.conversationId, 'user');
@@ -73,7 +77,9 @@ export class ConversationWebRepository {
         consumed_at_ms = ?, approval_message_id = ? WHERE request_id = ? AND status = 'pending'`)
         .run(now, message.id, requestId);
       this.recordAudit(row, 'decision', 'allow', 'WEB_EXACT_REQUEST_APPROVED');
-      return { claimed: true, row: this.read(requestId, context) };
+      const claim = Object.freeze({ claimed: true, row: this.read(requestId, context) });
+      this.#claims.set(claim, Object.freeze({ ...claim.row }));
+      return claim;
     });
   }
 
@@ -96,6 +102,29 @@ export class ConversationWebRepository {
           result?.address ?? null, errorCode ? null : result.bytes, errorCode ? null : webDigest(result.bytes), errorCode, requestId);
       this.recordAudit(row, 'terminal', errorCode ? 'failed' : 'succeeded', errorCode || 'WEB_RESPONSE_COMMITTED', result?.status ?? null);
       return this.read(requestId, context);
+    });
+  }
+
+  failClaim(claim, errorCode) {
+    // Closing an attempt must survive loss of conversation scope. Only this
+    // repository's actual process-local claim can close its own audit; it can
+    // never restore revoked output, approve a request or start another effect.
+    const original = claim && this.#claims.get(claim);
+    if (!original || !/^WEB_[A-Z_]+$/.test(errorCode || '')) throw webError('WEB_CLAIM_INVALID');
+    return this.#write(() => {
+      const auditId = this.audit.createRequestId(original.request_id);
+      const terminal = this.database.prepare(`SELECT 1 FROM m5_outbound_audit_events
+        WHERE request_id = ? AND phase = 'terminal'`).get(auditId);
+      if (terminal) return;
+      const row = this.database.prepare('SELECT * FROM conversation_web_requests WHERE request_id = ?')
+        .get(original.request_id);
+      if (row && (!['executing', 'revoked'].includes(row.status)
+        || ['conversation_id', 'subject_id', 'user_message_id', 'input_digest', 'url', 'approval_message_id', 'consumed_at_ms']
+          .some(key => row[key] !== original[key]))) throw webError('WEB_CLAIM_STATE_INVALID');
+      if (row?.status === 'executing') this.database.prepare(`UPDATE conversation_web_requests
+        SET status = 'failed', output = NULL, output_digest = NULL, error_code = ?
+        WHERE request_id = ? AND status = 'executing'`).run(errorCode, original.request_id);
+      this.recordAudit(original, 'terminal', 'failed', errorCode);
     });
   }
 

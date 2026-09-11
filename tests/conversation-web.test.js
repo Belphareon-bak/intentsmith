@@ -9,6 +9,11 @@ import { ConversationWebRepository } from '../src/network/conversation-web-repos
 import { createConversationWebTransport, isPublicWebAddress } from '../src/network/conversation-web-transport.js';
 import { canonicalWebUrl, parseWebApproval, CONVERSATION_WEB } from '../contracts/m2/conversation-web-v1.js';
 import { suite, test, testAsync, summary } from './harness.js';
+import { createGlobalAuthAuthority } from '../src/security/global-auth-policy.js';
+
+const localSubject = createGlobalAuthAuthority({ production: false }).authorize({
+  routeKey: 'POST /api/chat', headers: {}, remoteAddress: '127.0.0.1',
+}).subject;
 
 let sequence = 0;
 function fixture(options = {}) {
@@ -16,7 +21,7 @@ function fixture(options = {}) {
   conversations.create.run(conversationId, null, 'Web test', null);
   const context = input => ({ conversationId, sessionId: conversationId, turnId: `turn-${sequence}`,
     userMessageId: Number(messages.add.run(conversationId, 'user', input, null, '{}').lastInsertRowid),
-    authenticatedSubject: { actorType: 'user', actorId: 'local-operator' } });
+    authenticatedSubject: localSubject });
   let calls = 0;
   const body = Buffer.from('Example content ``` </script><img src=x onerror=alert(1)>');
   const transport = options.transport || (async () => { calls++; return { bytes: body, status: 200, contentType: 'text/plain', address: '93.184.215.14' }; });
@@ -49,7 +54,11 @@ await testAsync('proposal sends nothing; exact persisted approval executes once 
     import assert from 'node:assert/strict';
     import Database from 'better-sqlite3';
     import { ConversationWebRepository } from './src/network/conversation-web-repository.js';
+    import { createGlobalAuthAuthority } from './src/security/global-auth-policy.js';
     const input = JSON.parse(process.argv[1]);
+    input.approval.authenticatedSubject = createGlobalAuthAuthority({ production: false }).authorize({
+      routeKey: 'POST /api/chat', headers: {}, remoteAddress: '127.0.0.1',
+    }).subject;
     const database = new Database(input.filename);
     const repository = new ConversationWebRepository(database);
     const replay = repository.claim(input.id, input.approval);
@@ -92,6 +101,19 @@ await testAsync('generic assent, model text and forged or foreign identity never
   assert.equal(f.calls(), 0);
 });
 
+test('actor identity copies and remote principals cannot propose, claim or replay local web', () => {
+  const f = fixture(); const approval = f.approve();
+  for (const subject of [{ actorType: 'user', actorId: 'local-operator' }, { ...localSubject },
+    JSON.parse(JSON.stringify(localSubject))]) {
+    const context = { ...approval, authenticatedSubject: subject, transport: 'local', local: true };
+    assert.throws(() => f.repo.propose('https://example.com/', context), /WEB_LOCAL_TRANSPORT_REQUIRED/);
+    assert.throws(() => f.repo.claim(f.id, context), /WEB_LOCAL_TRANSPORT_REQUIRED/);
+    assert.throws(() => f.repo.read(f.id, context), /WEB_LOCAL_TRANSPORT_REQUIRED/);
+  }
+  assert.equal(f.repo.read(f.id, approval).status, 'pending');
+  assert.equal(f.calls(), 0);
+});
+
 await testAsync('expiry, revoke, original-message edits, deletion and archival invalidate pending requests', async () => {
   let now = Date.now(); const f = fixture({ clock: () => now }); now += CONVERSATION_WEB.approvalTtlMs;
   assert.throws(() => f.repo.claim(f.id, f.approve()), /WEB_APPROVAL_EXPIRED/);
@@ -130,10 +152,74 @@ await testAsync('provider failure has no fallback and failed output commits cann
   db.exec("CREATE TRIGGER web_test_reject_output BEFORE UPDATE ON conversation_web_requests WHEN NEW.status = 'succeeded' BEGIN SELECT RAISE(ABORT,'fixture storage outage'); END");
   try {
     const failed = await g.handler.intercept(`schválit web ${g.id}`, g.approve());
-    assert.equal(failed.response.metadata.webStatus, 'unavailable');
-    assert.equal(g.repo.read(g.id, g.initial).status, 'executing');
+    assert.equal(failed.response.metadata.webStatus, 'failed');
+    assert.equal(failed.response.metadata.errorCode, 'WEB_RESULT_COMMIT_FAILED');
+    assert.equal(g.repo.read(g.id, g.initial).status, 'failed');
     await g.handler.intercept(`schválit web ${g.id}`, g.approve()); assert.equal(g.calls(), 1);
   } finally { db.exec('DROP TRIGGER web_test_reject_output'); }
+});
+
+await testAsync('revoking an executing request closes its audit without restoring bytes or retrying', async () => {
+  for (const kind of ['explicit', 'archived', 'attached-project', 'original-edited', 'approval-edited', 'deleted']) {
+    let calls = 0; let finish;
+    const f = fixture({ transport: async () => {
+      calls++;
+      return new Promise(resolve => { finish = () => resolve({ bytes: Buffer.from('late private content'),
+        status: 200, contentType: 'text/plain', address: '93.184.215.14' }); });
+    } });
+    const approval = f.approve();
+    const pending = f.handler.intercept(`schválit web ${f.id}`, approval);
+    assert.equal(calls, 1);
+    if (kind === 'explicit') await f.handler.intercept(`zrušit web ${f.id}`, f.context(`zrušit web ${f.id}`));
+    if (kind === 'archived') conversations.archive.run(f.conversationId);
+    if (kind === 'attached-project') {
+      const projectId = db.prepare("SELECT id FROM projects ORDER BY id LIMIT 1").get()?.id;
+      // The isolated fixture creates its own row if there is no project yet.
+      const id = projectId ?? Number(db.prepare("INSERT INTO projects (name, path) VALUES (?, ?)").run('web scope test', '/tmp/web-scope-fixture').lastInsertRowid);
+      db.prepare('UPDATE conversations SET project_id = ? WHERE id = ?').run(id, f.conversationId);
+    }
+    if (kind === 'original-edited') db.prepare('UPDATE messages SET content = ? WHERE id = ?').run('edited original', f.initial.userMessageId);
+    if (kind === 'approval-edited') db.prepare('UPDATE messages SET content = ? WHERE id = ?').run('edited approval', approval.userMessageId);
+    if (kind === 'deleted') db.prepare('DELETE FROM conversations WHERE id = ?').run(f.conversationId);
+    finish();
+    if (kind === 'explicit') await assert.rejects(pending, { code: 'ABORT_ERR' });
+    else {
+      const result = await pending;
+      assert.notEqual(result.response.metadata.webStatus, 'succeeded', kind);
+    }
+    const row = db.prepare('SELECT status, output FROM conversation_web_requests WHERE request_id = ?').get(f.id);
+    assert.equal(row?.status ?? 'deleted', kind === 'deleted' ? 'deleted' : 'revoked', kind);
+    assert.equal(row?.output ?? null, null, kind);
+    const auditId = f.repo.audit.createRequestId(f.id);
+    const audit = db.prepare('SELECT phase, decision FROM m5_outbound_audit_events WHERE request_id = ? ORDER BY occurred_at_ms').all(auditId);
+    assert.equal(audit.length, 2, kind);
+    assert.equal(audit.filter(item => item.phase === 'decision' && item.decision === 'allow').length, 1, kind);
+    assert.equal(audit.filter(item => item.phase === 'terminal' && item.decision === 'failed').length, 1, kind);
+    await f.handler.intercept(`schválit web ${f.id}`, approval);
+    assert.equal(calls, 1, kind);
+    assert.equal(db.prepare("SELECT count(*) AS n FROM m5_outbound_audit_events WHERE request_id = ? AND phase = 'terminal'").get(auditId).n, 1);
+  }
+});
+
+test('failure finalization requires a real local claim and audit failure rolls back state', () => {
+  const f = fixture(); const approval = f.approve();
+  assert.throws(() => f.repo.failClaim({ claimed: true, row: f.repo.read(f.id, approval) }, 'WEB_REQUEST_CANCELLED'), /WEB_CLAIM_INVALID/);
+  const claim = f.repo.claim(f.id, approval);
+  assert.throws(() => new ConversationWebRepository(db).failClaim(claim, 'WEB_REQUEST_CANCELLED'), /WEB_CLAIM_INVALID/);
+  db.exec("CREATE TRIGGER web_test_reject_terminal BEFORE INSERT ON m5_outbound_audit_events WHEN NEW.surface = 'conversation-web' AND NEW.phase = 'terminal' BEGIN SELECT RAISE(ABORT,'fixture audit outage'); END");
+  try {
+    assert.throws(() => f.repo.failClaim(claim, 'WEB_REQUEST_CANCELLED'), /fixture audit outage/);
+    assert.equal(f.repo.read(f.id, approval).status, 'executing');
+  } finally { db.exec('DROP TRIGGER web_test_reject_terminal'); }
+  f.repo.failClaim(claim, 'WEB_REQUEST_CANCELLED');
+  f.repo.failClaim(claim, 'WEB_REQUEST_CANCELLED');
+  assert.equal(f.repo.read(f.id, approval).status, 'failed');
+  assert.equal(db.prepare("SELECT count(*) AS n FROM m5_outbound_audit_events WHERE request_id = ? AND phase = 'terminal'").get(f.repo.audit.createRequestId(f.id)).n, 1);
+  const g = fixture(); const goodApproval = g.approve(); const succeededClaim = g.repo.claim(g.id, goodApproval);
+  g.repo.settle(g.id, goodApproval, { bytes: g.body, status: 200, contentType: 'text/plain', address: '93.184.215.14' });
+  g.repo.failClaim(succeededClaim, 'WEB_REQUEST_CANCELLED');
+  assert.equal(g.repo.read(g.id, goodApproval).status, 'succeeded');
+  assert.equal(db.prepare("SELECT count(*) AS n FROM m5_outbound_audit_events WHERE request_id = ? AND phase = 'terminal'").get(g.repo.audit.createRequestId(g.id)).n, 1);
 });
 
 test('direct SQL cannot grant, mutate the exact URL or invent successful output', () => {
@@ -141,6 +227,35 @@ test('direct SQL cannot grant, mutate the exact URL or invent successful output'
   assert.throws(() => db.prepare("UPDATE conversation_web_requests SET status = 'executing', approval_message_id = ?, consumed_at_ms = ? WHERE request_id = ?").run(f.approve().userMessageId, Date.now(), f.id), /WEB_TYPED_WRITER_REQUIRED/);
   assert.throws(() => db.prepare('UPDATE conversation_web_requests SET url = ? WHERE request_id = ?').run('https://attacker.example/', f.id));
   assert.equal(f.repo.read(f.id, f.initial).status, 'pending');
+});
+
+await testAsync('an unavailable terminal audit is reported without inventing success or retrying I/O', async () => {
+  let calls = 0;
+  const f = fixture({ transport: async () => { calls++; throw new Error('fixture transport failure'); } });
+  db.exec("CREATE TRIGGER web_test_reject_terminal BEFORE INSERT ON m5_outbound_audit_events WHEN NEW.surface = 'conversation-web' AND NEW.phase = 'terminal' BEGIN SELECT RAISE(ABORT,'fixture audit outage'); END");
+  try {
+    const result = await f.handler.intercept(`schválit web ${f.id}`, f.approve());
+    assert.equal(result.response.metadata.webStatus, 'unavailable');
+    assert.equal(f.repo.read(f.id, f.initial).status, 'executing');
+    assert.equal(db.prepare("SELECT count(*) AS n FROM m5_outbound_audit_events WHERE request_id = ? AND phase = 'terminal'").get(f.repo.audit.createRequestId(f.id)).n, 0);
+    const replay = await f.handler.intercept(`schválit web ${f.id}`, f.approve());
+    assert.equal(replay.response.metadata.webStatus, 'executing');
+    assert.equal(calls, 1);
+  } finally { db.exec('DROP TRIGGER web_test_reject_terminal'); }
+});
+
+test('proposal rate limit and one executing request do not consume another approval', () => {
+  let now = Date.now(); const f = fixture({ clock: () => now });
+  for (let i = 1; i < 20; i++) f.repo.propose(`https://example.com/${i}`, f.context(`fetch ${i}`));
+  assert.throws(() => f.repo.propose('https://example.com/overflow', f.context('overflow')), /WEB_RATE_LIMITED/);
+  const firstApproval = f.approve(); f.repo.claim(f.id, firstApproval);
+  now += 60001;
+  const second = f.repo.propose('https://example.com/next', f.context('next'));
+  const secondApproval = f.context(`schválit web ${second.request_id}`);
+  assert.throws(() => f.repo.claim(second.request_id, secondApproval), /UNIQUE constraint failed/);
+  assert.equal(f.repo.read(second.request_id, secondApproval).status, 'pending');
+  assert.equal(db.prepare('SELECT count(*) AS n FROM m5_outbound_audit_events WHERE request_id = ?').get(f.repo.audit.createRequestId(second.request_id)).n, 0);
+  assert.equal(f.calls(), 0);
 });
 
 test('canonical URL and public-address policy deny private, mapped, reserved, credential and non-HTTPS targets', () => {
@@ -209,6 +324,22 @@ await testAsync('transport rejects private literals before socket creation and m
   assert.equal(literal.counts().created, 0);
   const mixed = fakeTransport({ answers: [{ address: '93.184.215.14', family: 4 }, { address: '127.0.0.1', family: 4 }] });
   await assert.rejects(mixed.transport('https://example.com/'), /WEB_ADDRESS_DENIED/);
+});
+
+await testAsync('authority invalidated during DNS is checked before the pinned address is released', async () => {
+  const f = fakeTransport(); let checks = 0;
+  await assert.rejects(f.transport('https://example.com/', { beforeConnect() {
+    if (++checks === 2) throw Object.assign(new Error('revoked during DNS'), { code: 'WEB_REQUEST_REVOKED' });
+  } }), { code: 'WEB_REQUEST_REVOKED' });
+  assert.equal(checks, 2);
+  assert.deepEqual(f.counts(), { created: 1, ended: 1 });
+});
+
+await testAsync('the exact response byte ceiling is accepted without a second request', async () => {
+  const f = fakeTransport({ body: Buffer.alloc(CONVERSATION_WEB.maxResponseBytes, 97) });
+  const result = await f.transport('https://example.com/');
+  assert.equal(result.bytes.length, CONVERSATION_WEB.maxResponseBytes);
+  assert.deepEqual(f.counts(), { created: 1, ended: 1 });
 });
 
 await testAsync('redirects, compressed/binary responses and oversized bodies never trigger another request', async () => {

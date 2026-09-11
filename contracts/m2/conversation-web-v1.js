@@ -23,8 +23,8 @@ export function parseWebApproval(input) {
 }
 
 export function requireWebIdentity(context) {
-  // GlobalAuthPolicy currently authenticates one local operator. Do not infer
-  // ownership from arbitrary userId, projectId or a future remote principal.
+  // Shape check only. The repository must additionally verify the opaque local
+  // transport brand; the remote M7 principal can share the same actor ID.
   if (context?.authenticatedSubject?.actorType !== 'user'
     || context.authenticatedSubject.actorId !== 'local-operator'
     || typeof context.conversationId !== 'string' || !context.conversationId

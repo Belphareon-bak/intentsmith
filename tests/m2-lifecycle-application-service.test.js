@@ -718,6 +718,66 @@ for (const invalidLastFile of [false, true]) {
   }, 60_000);
 }
 
+for (const invalidSyntax of [true, false]) {
+  await testAsync(`bad first peer propagates as data but rolls the entire batch back (${invalidSyntax ? 'syntax' : 'functional'})`, async () => {
+    const root = makeProject();
+    const db = openDatabase();
+    const paths = ['src/app.js', 'src/copy.js', 'src/view.js'];
+    const outputs = [invalidSyntax ? 'export const value = ;\n' : 'export const value = 41;\n',
+      "import {value} from './app.js'; export const copied = value;\n",
+      "import {copied} from './copy.js'; export const displayed = copied;\n"];
+    let calls = 0;
+    try {
+      const service = createService(db, root, makeClock(), {
+        generateCodeDraft: async ({ prompt }) => {
+          const input = JSON.parse(prompt);
+          assert.equal(input.path, paths[calls]);
+          if (calls > 0) assert.deepEqual(input.peerFiles.find(file => file.path === paths[0]),
+            { path: paths[0], content: outputs[0], state: 'proposed' });
+          if (calls === 2) assert.deepEqual(input.peerFiles.find(file => file.path === paths[1]),
+            { path: paths[1], content: outputs[1], state: 'proposed' });
+          assert.equal(fs.readFileSync(path.join(root, paths[0]), 'utf8'), 'export const value = 1;\n');
+          assert.equal(fs.existsSync(path.join(root, paths[1])), false);
+          assert.equal(fs.existsSync(path.join(root, paths[2])), false);
+          return { content: JSON.stringify({ afterContent: outputs[calls++] }), finishReason: 'stop' };
+        },
+      });
+      await service.recoverIncompleteSmallProjectChanges();
+      const draft = { paths, instruction: 'Export 42 from app and propagate it through copy and view.' };
+      if (!invalidSyntax) draft.focusedTest = { binary: process.execPath,
+        argv: ['--experimental-default-type=module', '--input-type=module', '-e',
+          "import assert from 'node:assert/strict';import {displayed} from './src/view.js';assert.equal(displayed,42,'transitive peer result');"],
+        environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' }, timeoutMs: 30_000 };
+      const planned = await service.draftSmallProjectChange({
+        authenticatedSubject: SUBJECT, projectId: PROJECT_ID, origin: ORIGIN, draft,
+      });
+      assert.equal(calls, 3);
+      assert.equal(planned.state, 'awaiting_approval');
+      assert.deepEqual(planned.diff.map(file => file.after.content), outputs);
+      assert.equal(db.prepare('SELECT count(*) AS n FROM m2_lifecycle_operations').get().n, 1);
+      assert.equal(fs.readFileSync(path.join(root, paths[0]), 'utf8'), 'export const value = 1;\n');
+      const result = await service.approveSmallProjectChange({ authenticatedSubject: SUBJECT, origin: ORIGIN,
+        lifecycleId: planned.lifecycleId, planDigest: planned.planDigest });
+      assert.notEqual(result.state, 'succeeded');
+      assert.equal(result.result.focusedTest.terminalStatus, 'failed');
+      assert.equal(result.result.rollback.status, 'succeeded');
+      assert.equal(fs.readFileSync(path.join(root, paths[0]), 'utf8'), 'export const value = 1;\n');
+      assert.equal(fs.existsSync(path.join(root, paths[1])), false);
+      assert.equal(fs.existsSync(path.join(root, paths[2])), false);
+      const restarted = createService(db, root, makeClock(), {
+        generateCodeDraft: async () => { throw new Error('unexpected model replay'); },
+      });
+      await restarted.recoverIncompleteSmallProjectChanges();
+      const durable = restarted.getSmallProjectChangeStatus({ authenticatedSubject: SUBJECT,
+        origin: ORIGIN, lifecycleId: planned.lifecycleId });
+      assert.equal(durable.state, result.state);
+      assert.equal(durable.terminal.resultDigest, result.terminal.resultDigest);
+      assert.notEqual(durable.state, 'succeeded');
+      assert.equal(calls, 3);
+    } finally { db.close(); fs.rmSync(root, { recursive: true, force: true }); }
+  }, 60_000);
+}
+
 for (const failure of ['second-length', 'second-cancel', 'second-malformed', 'second-stale',
   'peer-overflow', 'initial-overflow', 'duplicate', 'too-many', 'mixed-path-keys', 'ignored-second']) {
   await testAsync(`multi-file ${failure} leaves no partial plan or effect`, async () => {

@@ -16,6 +16,7 @@ import {
   RouteAuthClass,
   assertGlobalAuthRouteTable,
   createGlobalAuthAuthority,
+  isLocalOperatorTransportSubject,
   classifyRouteAuth,
   encodeWebSocketBearerCredential,
   extractWebSocketBearerCredential,
@@ -102,6 +103,24 @@ test('per-process Studio capability authenticates without exposing admin materia
     headers: { 'x-intentsmith-local-capability': 'B'.repeat(43) },
   });
   assert.equal(rejected.allowed, false);
+});
+
+test('only actually authenticated local operator HTTP and WS subjects carry the web transport brand', () => {
+  const authority = createGlobalAuthAuthority({ localCapability: 'A'.repeat(43), production: true, adminToken: 'fixture-admin' });
+  const local = authority.authorize({ routeKey: 'POST /api/chat', remoteAddress: LOCAL,
+    headers: { 'x-intentsmith-local-capability': 'A'.repeat(43) } });
+  assert.equal(local.allowed, true);
+  assert.equal(isLocalOperatorTransportSubject(local.subject), true);
+  assert.equal(isLocalOperatorTransportSubject({ ...local.subject }), false);
+  assert.equal(isLocalOperatorTransportSubject(Object.freeze({ actorType: 'user', actorId: 'local-operator' })), false);
+  const admin = authority.authorize({ routeKey: 'POST /api/chat', remoteAddress: LOCAL,
+    headers: { authorization: 'Bearer fixture-admin' } });
+  assert.equal(admin.allowed, true);
+  assert.equal(isLocalOperatorTransportSubject(admin.subject), false);
+  const ws = authority.authorize({ routeKey: 'GET /api/ws', remoteAddress: LOCAL, headers: {},
+    websocketLocalCapability: 'A'.repeat(43) });
+  assert.equal(ws.allowed, true);
+  assert.equal(isLocalOperatorTransportSubject(ws.subject), true);
 });
 
 test('admin token is timing-safe authority and mixed credentials fail closed', () => {

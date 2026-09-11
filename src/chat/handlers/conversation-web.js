@@ -71,16 +71,18 @@ export function createConversationWebHandler({ database = db, clock = Date.now,
             if (repository.read(approvalId, context).status !== 'executing') throw webError('WEB_REQUEST_REVOKED');
           } });
           throwIfAborted(signal);
+          const row = repository.settle(approvalId, context, result);
+          return { handled: true, response: render(row) };
         } catch (error) {
           const code = signal.aborted ? 'WEB_REQUEST_CANCELLED'
-            : /^WEB_[A-Z_]+$/.test(error?.code || '') ? error.code : 'WEB_TRANSPORT_FAILED';
-          try { repository.settle(approvalId, context, null, code); } catch { /* revoked/deleted or uncommitted stays non-success */ }
+            : /^WEB_[A-Z_]+$/.test(error?.code || '') ? error.code
+              : result ? 'WEB_RESULT_COMMIT_FAILED' : 'WEB_TRANSPORT_FAILED';
+          let recorded = false;
+          try { repository.failClaim(claim, code); recorded = true; } catch { /* no durable terminal; never retry I/O */ }
           if (context.signal?.aborted || isAbortError(error)) throw error;
           return { handled: true, response: tagged(`Webový požadavek nebyl dokončen: ${code}.`,
-            { webRequestId: approvalId, webStatus: 'failed', errorCode: code }) };
+            { webRequestId: approvalId, webStatus: recorded ? 'failed' : 'unavailable', errorCode: code }) };
         } finally { active.delete(approvalId); }
-        const row = repository.settle(approvalId, context, result);
-        return { handled: true, response: render(row) };
       } catch (error) {
         if (context.signal?.aborted || isAbortError(error)) throw error;
         const code = /^WEB_[A-Z_]+$/.test(error?.code || '') ? error.code : 'WEB_AUTHORITY_UNAVAILABLE';

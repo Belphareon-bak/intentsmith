@@ -9,6 +9,14 @@ export const GLOBAL_AUTH_SCOPE_REQUIRED = 'INTENTSMITH_AUTH_SCOPE_REQUIRED';
 export const GLOBAL_AUTH_CREDENTIAL_AMBIGUOUS = 'INTENTSMITH_AUTH_CREDENTIAL_AMBIGUOUS';
 export const GLOBAL_AUTH_WS_PROTOCOL_PREFIX = 'intentsmith-auth-v1.';
 
+// Process-local transport provenance, separate from the serializable actor ID.
+// M7 conversation identities intentionally cannot manufacture this local brand.
+const localOperatorTransportSubjects = new WeakSet();
+export function isLocalOperatorTransportSubject(subject) {
+  return subject !== null && typeof subject === 'object'
+    && localOperatorTransportSubjects.has(subject);
+}
+
 export const RouteAuthClass = Object.freeze({
   PUBLIC: 'PUBLIC',
   READ: 'READ',
@@ -293,6 +301,7 @@ export function createGlobalAuthAuthority({
   function authenticatedTransportSubject(actorId) {
     const subject = Object.freeze({ actorType: 'user', actorId });
     authenticatedTransportSubjects.add(subject);
+    if (actorId === 'local-operator') localOperatorTransportSubjects.add(subject);
     return subject;
   }
 
