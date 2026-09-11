@@ -34,14 +34,15 @@ function assertChannelEnvelope(message, channel) {
   );
 }
 
-function assertAgentEventEnvelope(message, turnId) {
+function assertAgentEventEnvelope(message, turnId, conversationId) {
   assertChannelEnvelope(message, 'agent');
   assertEqual(
     Object.keys(message.data).sort().join(','),
-    'id,payload,seq,timestamp,turnId,type',
+    'conversationId,id,payload,seq,timestamp,turnId,type',
     'agent event must expose the complete semantic envelope',
   );
   assertEqual(message.data.turnId, turnId);
+  assertEqual(message.data.conversationId, conversationId);
   assert(
     typeof message.data.id === 'string' && message.data.id.startsWith('evt-'),
     'agent event id must use the evt- prefix',
@@ -108,7 +109,7 @@ async function awaitControlBarrier(client, token) {
   );
 }
 
-function assertTurnSequence(client, turnId) {
+function assertTurnSequence(client, turnId, conversationId) {
   const events = client.messages.filter(
     message => message.channel === 'agent' && message.data?.turnId === turnId,
   );
@@ -117,7 +118,7 @@ function assertTurnSequence(client, turnId) {
   assertEqual(events.at(-1).data.type, 'turn_end');
 
   for (let index = 0; index < events.length; index++) {
-    assertAgentEventEnvelope(events[index], turnId);
+    assertAgentEventEnvelope(events[index], turnId, conversationId);
     assertEqual(
       events[index].data.seq,
       index + 1,
@@ -126,8 +127,8 @@ function assertTurnSequence(client, turnId) {
   }
 }
 
-async function createReadyClient() {
-  const client = await createWsClient(10_000);
+async function createReadyClient(options = {}) {
+  const client = await createWsClient(10_000, options);
   try {
     const initialIdle = await client.waitForMessage(
       message => message.channel === 'status' && message.data?.agentStatus === 'idle',
@@ -275,9 +276,9 @@ await testAsync('LOCAL arithmetic has exact correlated event semantics and retur
       WS_TIMEOUT,
     );
     assertChannelEnvelope(idle, 'status');
-    assertEqual(JSON.stringify(idle.data), JSON.stringify({ agentStatus: 'idle' }));
+    assertEqual(JSON.stringify(idle.data), JSON.stringify({ agentStatus: 'idle', conversationId }));
 
-    assertTurnSequence(client, turnId);
+    assertTurnSequence(client, turnId, conversationId);
     assert(
       client.messages.indexOf(turnStart) < client.messages.indexOf(creDecision),
       'turn_start must precede cre_decision',
@@ -311,15 +312,14 @@ await testAsync('cancel acknowledges, terminates as cancelled_by_user, and emits
   let client;
 
   try {
-    client = await createReadyClient();
-    client.send({
+    client = await createReadyClient({ batchFrames: true });
+    client.sendBatch([{
       channel: 'chat',
       data: { content: input, conversationId },
-    });
-    client.send({
+    }, {
       channel: 'control',
       data: { action: 'cancel', conversationId },
-    });
+    }]);
 
     const turnStart = await client.waitForMessage(
       message => message.channel === 'agent'
@@ -361,7 +361,7 @@ await testAsync('cancel acknowledges, terminates as cancelled_by_user, and emits
       WS_TIMEOUT,
     );
 
-    assertTurnSequence(client, turnId);
+    assertTurnSequence(client, turnId, conversationId);
     assert(
       client.messages.indexOf(turnStart) < client.messages.indexOf(acknowledgement),
       'turn_start must precede cancel acknowledgement',

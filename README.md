@@ -8,16 +8,18 @@ fetch cesty bez deklarované autority selžou před spojením. Současný
 autoritativní C3 Studio runtime už neobsahuje implicitní Google Fonts egress.
 Spouštěné Studio UI je stále přechodný runtime, nikoli finální vzhled IntentSmithu.
 
-**Verze:** 136.1.0 | **512 registrovaných testovacích programů**
-(`418 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`)
+**Verze:** 136.1.0, vývojový kandidát 1.0. Aktuální počty testovacích programů
+jsou v [generovaném registru](docs/convergence/TEST-REGISTRY.md).
 
-> **Stav: aktivní vývoj.** Integrovaný kandidát M2–M5 a model-scoring změny
-> vyžadují nové ověření a nezávislý re-review; historické acceptance se na
-> nové migrační a integrační bajty nepřenášejí.
-> Registry řádek sám není akceptační důkaz.
-> Gate 0 a historická convergence evidence se používají až nad zmraženým
-> release kandidátem. Aktuální autorita: [PRODUCT.md](PRODUCT.md),
-> [ROADMAP.md](ROADMAP.md), [SYSTEM-MAP.md](SYSTEM-MAP.md).
+Přijaté milníky M0–M4 nejsou přijetím celého releasu. M5 ještě vyžaduje
+podepsané privacy podklady a správu operátorských klíčů; M6 úplný skutečný
+uživatelský scénář a review důkazů. Nové opravy z auditu jsou samostatný
+candidate a čekají na nezávislé review. Aktuální autorita:
+[PRODUCT](PRODUCT.md), [ROADMAP](ROADMAP.md), [SYSTEM-MAP](SYSTEM-MAP.md).
+
+[Kontrakty rozšíření po 1.0](docs/post-release/README.md) popisují skutečné
+zlepšování modelu, porozumění rozsáhlému projektu, úplné agenty a odložené
+notifikace, marketplace, média a aktualizace. Jsou návrhem k review.
 
 ---
 
@@ -35,12 +37,10 @@ zpevňuje. Produktový kontrakt, cílový uživatel a hranice 1.0 jsou v
 ### Projekty a build
 - **Životní cyklus projektů** — SPEC → PLANNING → BUILD → REVIEW → CHANGE. Checkpointy (STRUCTURAL / FUNCTIONAL / SECURITY), automatický git commit, crash recovery.
 - **Execution Engine** — iterativní fix cyklus: generuj → testuj → diagnostikuj → patchuj → testuj → konverguj. Patch engine s 3-tier anchoring, error normalizer (14 kódů, root cause analýza), fix strategy selection (DETERMINISTIC / HEURISTIC / LLM_FULL / SKIP).
-- **Code Intelligence** — 33 modulů pro analýzu kódu: symbol index, knowledge graph (9 typů uzlů, 8 typů hran), AST analýza, architecture detection, drift detection, impact analysis, performance anti-pattern detection.
+- **Code Intelligence** — současný chat používá projektově omezený snapshot, manifest a lexikální výběr souborů s kontrolou revize. AST/index/graph moduly v repozitáři existují, ale úplné porozumění rozsáhlému projektu z nich nelze odvozovat; integraci a měření stanoví [nový kontrakt](docs/post-release/project-intelligence.md).
 
 ### Agenti a automatizace
-- **Worker agenti** — RSS/HTTP/DB zdroje, deterministické podmínky a cron
-  scheduling. Externí notifikační kanály jsou v M5 produkčním profilu
-  vypnuté jako `unsupported`; lokální desktop/in-app cesta zůstává.
+- **Worker agenti** — existuje scheduler, podmínky a dílčí runtime. Úplný nativní cyklus zdroj → práce → výsledek → pause/resume/restart není přijatý. Externí RSS/HTTP/DB komunikaci neaktivuje samotné vytvoření agenta. Externí notifikace jsou v 1.0 `unsupported`; lokální desktop/in-app cesta zůstává.
 - **Skills** — deterministické workflow (JSON): 8 vykonávaných typů kroků (`llm`, `template`, `write`, `shell`, `ask`, `review`, `validate`, `transform`) a samostatná substitution helper vrstva. 14 skills včetně meta-skills a governed M3 project-note workflow.
 - **Specialisté** — rozšiřující balíčky s nástroji, expertízou, znalostní bází a scénáři. M3 candidate používá rozhodnutou strict-injection hranici, verzovaný manifest/context a rekurzivní fail-closed package scanner.
 
@@ -51,15 +51,18 @@ zpevňuje. Produktový kontrakt, cílový uživatel a hranice 1.0 jsou v
 
 ### Infrastruktura
 - **Modelová platforma** — factual discovery, versioned role-specific evaluace exact artefaktů, append-only run/decision historie a jediná ruční durable binding cesta.
-- **Marketplace** — remote package catalog pro skills, expertízy a specialisty. Transactional install/update/uninstall, dependency resolver, SHA-256 ověření, archive security.
+- **Marketplace** — legacy implementace katalogu a instalace existuje; veřejný katalog a externí instalace nejsou podporovaným 1.0 journey. [Dokončení po releasu](docs/post-release/marketplace.md).
 - **C3 Studio IDE** — Theia + Electron, 32 rozšíření, chat panel, agent log, settings (12 sekcí), specialist focus mode, multimedia view.
 - **153 nástrojů** ve 35 kategoriích. Sandboxed execution, circuit breaker, risk assessment.
 
-Vše běží lokálně přes Ollama (LLM inference) + SQLite (persistence) na jednom stroji.
+Modelová inference používá lokální ověřený provider a persistence SQLite. Web bez projektu nabízí jeden viditelný HTTPS GET s přesným souhlasem: `načti web https://example.com/`, potom zobrazený příkaz `schválit web web:<digest>`. Schválení se nepřenáší na další adresu ani autonomního agenta. [Rozsah a limity](docs/decisions/044-conversation-web-approval.md).
 
 ---
 
 ## Architektura
+
+Diagram ukazuje moduly repozitáře, včetně odložených oblastí. Podpora v 1.0
+se řídí popisem výše a SYSTEM-MAP, nikoli přítomností boxu v diagramu.
 
 ```
                     ┌──────────────────┐

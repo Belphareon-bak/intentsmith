@@ -148,6 +148,16 @@ export function setModelRegistry(_service) {}
 
 const intercepts = [];
 
+intercepts.push({
+  name: 'conversation_web', modes: ['*'],
+  async fn(input, context) {
+    // Explicit commands are resolved before model classification. The runtime
+    // validates the persisted conversation and original/approval user turns.
+    const { conversationWebHandler } = await import('./conversation-web.js');
+    return conversationWebHandler().intercept(input, context);
+  },
+});
+
 export function parseExactEffectApproval(input) {
   const match = String(input || '').trim().match(
     /^(?:schv[aá]lit\s+efekt|approve\s+effect)\s+(effect:[a-f0-9]{64})$/iu,

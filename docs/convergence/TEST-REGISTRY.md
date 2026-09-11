@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 512
+- Runnable programs: 514
 - Explicit support-module exclusions: 19
-- Profiles: offline=279, database=73, server=44, model=81, soak=15, manual=20
-- States: ACTIVE=418, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=279, database=74, server=45, model=81, soak=15, manual=20
+- States: ACTIVE=420, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -108,6 +108,8 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T3-TESTS-CONV-CZECH-NODIACRITICS-TEST` | `tests/conv-czech-nodiacritics.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-CONV-CZECH-TEST` | `tests/conv-czech.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-CONV-ENGLISH-TEST` | `tests/conv-english.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-CONVERSATION-WEB-HTTP-TEST` | `tests/conversation-web-http.test.js` | `C3-016` | T3 | `server` | 5 s | 2 min | network:loopback, temp-db, server | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-CONVERSATION-WEB-TEST` | `tests/conversation-web.test.js` | `C3-016` | T1 | `database` | 5 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-CRE-BUILD-ARBITRATION-TEST` | `tests/cre-build-arbitration.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-CRE-COMPREHENSIVE-TEST` | `tests/cre-comprehensive.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-CRE-DIALOG-SCENARIOS-TEST` | `tests/cre-dialog-scenarios.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
@@ -268,7 +270,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T2-TESTS-LIFECYCLE-BUILD-TEST` | `tests/lifecycle-build.test.js` | `C3-005` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-LIFECYCLE-CONTEXT-LOSS-TEST` | `tests/lifecycle-context-loss.test.js` | `C3-005` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-LIFECYCLE-CONVERSATION-E2E-TEST` | `tests/lifecycle-conversation-e2e.test.js` | `C3-005` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
-| `IS-T3-TESTS-LIFECYCLE-COOKBOOK-E2E-TEST` | `tests/lifecycle-cookbook-e2e.test.js` | `C3-005` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-LIFECYCLE-COOKBOOK-E2E-TEST` | `tests/lifecycle-cookbook-e2e.test.js` | `C3-005` | T3 | `model` | 40 min | 60 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-LIFECYCLE-DB-TEST` | `tests/lifecycle-db.test.js` | `C3-005` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T2-TESTS-LIFECYCLE-E2E-TEST` | `tests/lifecycle-e2e.test.js` | `C3-005` | T2 | `database` | 1 min | 5 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-LIFECYCLE-HANDOFF-TEST` | `tests/lifecycle-handoff.test.js` | `C3-005` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

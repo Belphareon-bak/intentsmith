@@ -30,6 +30,7 @@ import {
   writeSync,
 } from 'node:fs';
 import path from 'node:path';
+import { WebSocket as BatchWebSocket } from 'ws';
 
 const PRIVATE_COMPONENT = '.intentsmith-artifacts';
 const SAFE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/;
@@ -503,7 +504,7 @@ function websocketError(event, fallback) {
 }
 
 /** Creates a WS connection, performs hello handshake, resolves with client object. */
-export function createWsClient(timeoutMs = 5000) {
+export function createWsClient(timeoutMs = 5000, { batchFrames = false } = {}) {
   const handshakeTimeout = parseBoundedInteger(
     timeoutMs,
     5000,
@@ -513,7 +514,7 @@ export function createWsClient(timeoutMs = 5000) {
   );
 
   return new Promise((resolve, reject) => {
-    const ws = new NodeWebSocket(WS_URL);
+    const ws = new (batchFrames ? BatchWebSocket : NodeWebSocket)(WS_URL);
     const messages = [];
     const waiters = new Set();
     let handshakeComplete = false;
@@ -558,6 +559,14 @@ export function createWsClient(timeoutMs = 5000) {
             throw new Error('WebSocket is not open');
           }
           ws.send(JSON.stringify(data));
+        },
+        sendBatch(batch) {
+          if (ws.readyState !== NodeWebSocket.OPEN) throw new Error('WebSocket is not open');
+          // Deliver causally adjacent commands together. Frame ordering alone
+          // cannot prevent a fast failed turn from ending before a later packet.
+          ws._socket.cork();
+          try { for (const data of batch) ws.send(JSON.stringify(data)); }
+          finally { ws._socket.uncork(); }
         },
         waitForMessage(predicate, timeout = 10_000) {
           if (typeof predicate !== 'function') {

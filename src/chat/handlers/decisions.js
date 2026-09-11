@@ -421,6 +421,17 @@ async function handleToolCallDecision(input, decision, context) {
     effectiveQuery = input;
   }
 
+  if (!context.hasActiveProject && !context.project
+    && (decision.tools?.some(tool => ['web.search', 'web.scrape'].includes(tool))
+      || [IntentType.REPORT, IntentType.ITEM_LOOKUP].includes(decision.intent))) {
+    const { conversationWebHandler } = await import('./conversation-web.js');
+    const direct = String(input).match(/https:\/\/[^\s<>]+/u)?.[0];
+    // One visible request only. No provider fallback, link traversal or hidden
+    // scraping pipeline can inherit this conversation-scoped approval.
+    const target = direct || `https://www.bing.com/search?format=rss&q=${encodeURIComponent(effectiveQuery)}`;
+    return conversationWebHandler().propose(target, context);
+  }
+
   // ════════════════════════════════════════════════════════════════════════════
   // v44.4 — PROJECT GOAL ENFORCEMENT (with confirmation)
   // v44.5 — Now blocks on 2nd+ drift instead of just warning

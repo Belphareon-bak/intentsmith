@@ -664,6 +664,19 @@ export function applyAndTest(repo, task, codes, opts = {}) {
     let syntaxOk = true;
     try { execFileSync('node', ['--check', sourcePath], { stdio: 'ignore', timeout: 30_000 }); }
     catch { syntaxOk = false; }
+    // Node 22 automatic module detection can return exit 0 for an incomplete
+    // ESM file without package.json. Parse explicit modes as well; preserve
+    // valid CommonJS and the original file/package-specific check above.
+    if (syntaxOk && /\.[cm]?js$/i.test(sourcePath)) {
+      syntaxOk = ['module', 'commonjs'].some(mode => {
+        try {
+          execFileSync('node', ['--check', `--input-type=${mode}`], {
+            input: patched, stdio: ['pipe', 'ignore', 'ignore'], timeout: 30_000,
+          });
+          return true;
+        } catch { return false; }
+      });
+    }
     if (!syntaxOk) return fail('vložený kód není syntakticky platný', { applied: true });
 
     // Testových souborů může být víc a musí projít **všechny**: commit, který

@@ -144,9 +144,9 @@ const localObjectUrlCache = readFileSync(
 );
 const ideLock = readFileSync(resolve(repoRoot, 'c3-ide/yarn.lock'), 'utf8');
 assert.equal(rootPackage.packageManager, 'npm@10.9.4');
-assert.equal(rootPackage.engines?.node, '>=22.0.0 <23');
+assert.equal(rootPackage.engines?.node, '>=22.12.0 <23');
 assert.equal(idePackage.packageManager, 'yarn@1.22.22');
-assert.equal(idePackage.engines?.node, '>=22.0.0 <23');
+assert.equal(idePackage.engines?.node, '>=22.12.0 <23');
 assert.equal(idePackage.resolutions?.['@vscode/ripgrep'], '1.18.0');
 assert.equal(electronPackage.devDependencies?.['terser-webpack-plugin'], '5.3.17');
 assert.equal(electronPackage.devDependencies?.webpack, '5.109.2');
@@ -250,7 +250,7 @@ for (const workspaceKind of ['applications', 'extensions']) {
         if (dependency.startsWith('@theia/')) {
           assert.equal(
             version,
-            '1.65.2',
+            '1.74.1',
             `${workspaceKind}/${workspaceName} drifts ${dependency} to ${version}`,
           );
         }
@@ -276,7 +276,9 @@ assert.doesNotMatch(installer, /ollama pull "\$REASONING" \|\|/);
 assert.match(installer, /grep -Fqx -- "\$1"/);
 assert.match(installer, /Unknown argument: \$arg/);
 assert.match(electronWebpack, /@vscode\/ripgrep-\$\{process\.platform\}-\$\{arch\}/);
-assert.match(electronWebpack, /configs\[2\]\.entry\.preload/);
+assert.match(electronWebpack, /config\.target === 'electron-preload'/);
+assert.match(electronWebpack, /preloadConfigs\.length !== 1/);
+assert.match(electronWebpack, /preloadConfigs\[0\]\.entry\.preload/);
 assert.match(
   electronWebpack,
   /configs\[0\]\.entry\.bundle\s*=\s*\[\s*path\.resolve\(__dirname,\s*'c3-local-http-bootstrap\.js'\)/,

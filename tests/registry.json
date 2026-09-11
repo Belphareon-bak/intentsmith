@@ -4600,8 +4600,8 @@
       "tier": "T3",
       "fixture": "isolated-model-database",
       "profile": "model",
-      "timeoutMs": 900000,
-      "expectedDurationMs": 600000,
+      "timeoutMs": 3600000,
+      "expectedDurationMs": 2400000,
       "requirements": {
         "network": "loopback",
         "database": true,
@@ -15098,7 +15098,10 @@
       "quarantineExpiry": null,
       "id": "IS-T1-TESTS-MOBILE-CAPABILITY-INVENTORY-TEST",
       "path": "tests/mobile-capability-inventory.test.js",
-      "argv": ["node", "tests/mobile-capability-inventory.test.js"],
+      "argv": [
+        "node",
+        "tests/mobile-capability-inventory.test.js"
+      ],
       "fixture": "isolated-home",
       "profile": "offline",
       "timeoutMs": 120000,
@@ -15117,7 +15120,10 @@
       "required": true,
       "owner": "primary implementer",
       "state": "ACTIVE",
-      "lastGreen": {"commit": null, "artifact": null},
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
       "flakeCount": 0,
       "quarantineExpiry": null,
       "id": "IS-T1-TESTS-MOBILE-SECURE-CREDENTIAL-TEST",
@@ -15528,6 +15534,66 @@
       },
       "required": true,
       "owner": "WP-M6-RELEASE",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-CONVERSATION-WEB-TEST",
+      "path": "tests/conversation-web.test.js",
+      "argv": [
+        "node",
+        "tests/conversation-web.test.js"
+      ],
+      "capabilityId": "C3-016",
+      "tier": "T1",
+      "fixture": "isolated-db",
+      "profile": "database",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 5000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-TESTS-CONVERSATION-WEB-HTTP-TEST",
+      "path": "tests/conversation-web-http.test.js",
+      "argv": [
+        "node",
+        "tests/conversation-web-http.test.js"
+      ],
+      "capabilityId": "C3-016",
+      "tier": "T3",
+      "fixture": "owned-isolated-local-server",
+      "profile": "server",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 5000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
       "state": "ACTIVE",
       "lastGreen": {
         "commit": null,

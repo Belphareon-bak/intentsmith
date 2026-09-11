@@ -20,23 +20,26 @@ await testAsync('has version in semver format', async () => {
   assertMatch(data.version, /^\d+\.\d+\.\d+/, 'version should be semver-like');
 });
 
-await testAsync('has timestamp in ISO format', async () => {
+// WP-M5-OBSERVE: public health exposes DB/recovery readiness; diagnostics are
+// authenticated separately. Keep testing the actual accepted public contract.
+await testAsync('has boolean readiness', async () => {
   const { status, data } = await api('GET', '/api/health');
   assertEqual(status, 200);
-  assert(typeof data.timestamp === 'string', 'timestamp must be string');
-  assert(!isNaN(Date.parse(data.timestamp)), 'timestamp must be valid ISO date');
+  assertEqual(data.ready, true);
 });
 
-await testAsync('has llm boolean', async () => {
+await testAsync('reports database and completed lifecycle recovery', async () => {
   const { status, data } = await api('GET', '/api/health');
   assertEqual(status, 200);
-  assert(typeof data.llm === 'boolean', 'llm must be boolean');
+  assertEqual(JSON.stringify(data.health), JSON.stringify({ database: true, lifecycleRecovery: true }));
 });
 
-await testAsync('has cwd string', async () => {
+await testAsync('does not expose process paths or provider details', async () => {
   const { status, data } = await api('GET', '/api/health');
   assertEqual(status, 200);
-  assert(typeof data.cwd === 'string' && data.cwd.length > 0, 'cwd must be non-empty string');
+  for (const name of ['cwd', 'llm', 'databasePath', 'providerUrl']) {
+    assertEqual(Object.hasOwn(data, name), false, `public health must not expose ${name}`);
+  }
 });
 
 // ── System Info ──────────────────────────────────────────────────────────────

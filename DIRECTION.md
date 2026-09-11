@@ -265,3 +265,9 @@ Rozhodnutí o kódu patří do inventur a seznamů chování.
 
 Test: *„dá se to odvodit z kódu?"* Pokud ano, sem to nepatří. Pokud ne — pokud
 by to nový člověk nebo nový nástroj nemohl uhodnout — patří to sem.
+
+Operátor 2026-09-11 přijal web bez projektu do 1.0 se schválením každého
+konkrétního požadavku ([Decision 044](docs/decisions/044-conversation-web-approval.md)).
+Zadal také [návrhy rozšíření po 1.0](docs/post-release/README.md): skutečné
+zlepšování modelu, kontext rozsáhlého projektu, úplné agenty a odložené
+notifikace/marketplace/média/aktualizace. Technické návrhy čekají na review.

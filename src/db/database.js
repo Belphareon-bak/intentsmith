@@ -4,6 +4,7 @@
 import { config } from '../config.js';
 import { logger } from '../core/logger.js';
 import { runMigrations } from './migrate.js';
+import { registerConversationWebWriter } from '../network/conversation-web-repository.js';
 import { requireConfiguredDatabasePath } from './database-path.js';
 import { LearningAuthorityRepository } from '../memory/learning-authority-repository.js';
 import {
@@ -147,6 +148,7 @@ db.close = (...args) => {
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 db.pragma('busy_timeout = 5000');
+registerConversationWebWriter(db);
 
 logger.info('DB', 'Database initialized', { path: dbPath });
 

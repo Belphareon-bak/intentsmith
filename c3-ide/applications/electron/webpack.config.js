@@ -1,18 +1,19 @@
 // C3 Studio — tracked Theia webpack customization.
 //
 // Theia regenerates gen-webpack*.js before each build, then loads this file.
-// Keep the C3 preload bridge and adapt Theia 1.65.2's native plugin to the
+// Keep the C3 preload bridge and adapt Theia 1.74.1's native plugin to the
 // integrity-locked platform packages used by @vscode/ripgrep 1.18.0.
 // @ts-check
 const fs = require('fs');
 const path = require('path');
 const configs = require('./gen-webpack.config.js');
 const nodeConfig = require('./gen-webpack.node.config.js');
-const nativePluginPackage = require('@theia/native-webpack-plugin/package.json');
+const nativePluginPackage = require('@theia/bundle-plugin/package.json');
 
-if (!configs[2] || !configs[2].entry) {
+const preloadConfigs = configs.filter(config => config.target === 'electron-preload' && config.entry?.preload);
+if (preloadConfigs.length !== 1) {
   throw new Error(
-    'Preload config not found at configs[2] — Theia build may have changed.\n' +
+    'Exactly one Electron preload config is required — Theia build may have changed.\n' +
     'Check gen-webpack.config.js and update webpack.config.js accordingly.'
   );
 }
@@ -31,7 +32,7 @@ configs[0].entry.bundle = [
     ? generatedFrontendEntry
     : [generatedFrontendEntry]),
 ];
-configs[2].entry.preload = path.resolve(__dirname, 'c3-preload-entry.js');
+preloadConfigs[0].entry.preload = path.resolve(__dirname, 'c3-preload-entry.js');
 
 if (!nodeConfig.config || !nodeConfig.config.entry?.['electron-main']) {
   throw new Error(
@@ -52,12 +53,12 @@ const nativePlugin = nodeConfig.nativePlugin;
 if (!nativePlugin || typeof nativePlugin.copyRipgrep !== 'function') {
   throw new Error('Theia native webpack plugin does not expose copyRipgrep');
 }
-if (nativePluginPackage.version !== '1.65.2') {
+if (nativePluginPackage.version !== '1.74.1') {
   throw new Error(
-    `Unsupported @theia/native-webpack-plugin ${nativePluginPackage.version}; expected 1.65.2`
+    `Unsupported @theia/bundle-plugin ${nativePluginPackage.version}; expected 1.74.1`
   );
 }
-if (!String(nativePlugin.copyRipgrep).includes('@vscode/ripgrep/bin/rg')) {
+if (!String(nativePlugin.copyRipgrep).includes('@vscode/ripgrep-')) {
   throw new Error('Theia ripgrep compatibility hook changed; review the tracked override');
 }
 

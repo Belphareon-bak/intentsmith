@@ -13,6 +13,7 @@ import {
 } from '../../../contracts/m2/project-context-v1.js';
 import { projectContextProvider as defaultProjectContextProvider } from '../../code-intel/project-context-provider.js';
 import { logger } from '../../core/logger.js';
+import { AbortSource, abortSourceOf, createAbortError, isAbortError, throwIfAborted } from '../../core/abort-error.js';
 import {
   ChatMode,
   ResponseSpeaker,
@@ -50,6 +51,10 @@ function tagged(content, projectContext, extraMetadata = {}) {
       metadata: {
         codeAnalysis: true,
         projectContext,
+        ...(projectContext.status !== 'ok' ? {
+          error: true,
+          errorType: projectContext.error?.code || 'CODE_ANALYSIS_CONTEXT_FAILED',
+        } : {}),
         ...extraMetadata,
       },
     }),
@@ -123,17 +128,19 @@ function buildAnalysisPrompt(input, snapshot, context) {
   ].join('\n');
 }
 
-async function defaultSynthesize(prompt) {
+async function defaultSynthesize(prompt, options = {}) {
   const creBridge = await import('../../llm/cre-bridge.js');
-  return creBridge.classifyIntent(prompt, {
-    systemPrompt: 'You are a senior software engineer performing evidence-bound code analysis.',
-    rawMode: true,
-  });
+  return creBridge.analyzeProjectCode(
+    prompt,
+    'You are a senior software engineer performing evidence-bound code analysis.',
+    { signal: options.signal, deadlineAt: options.deadlineAt, sessionId: options.sessionId },
+  );
 }
 
 function responseText(value) {
   if (typeof value === 'string') return value;
-  return value?.content || value?.raw || String(value);
+  if (typeof value?.content === 'string') return value.content;
+  return typeof value?.raw === 'string' ? value.raw : '';
 }
 
 function invokeSystemStep(context, name, detail, depth) {
@@ -247,13 +254,25 @@ export async function handleCodeAnalysisDecision(
         snapshot,
         signal: context.signal,
         deadlineAt: context.deadlineAt,
+        sessionId: context.sessionId,
       });
+      throwIfAborted(context.signal);
+      if (Number.isFinite(context.deadlineAt) && Date.now() >= context.deadlineAt) {
+        throw createAbortError(AbortSource.TIMEOUT);
+      }
+      if (!responseText(llmResponse)?.trim() || llmResponse == null) {
+        throw new Error('The model returned no analysis.');
+      }
     } catch (error) {
+      throwIfAborted(context.signal);
+      if (isAbortError(error)) throw error;
       logger.error('CodeAnalysis', 'Revision-bound synthesis failed', { error: error.message });
       return tagged(
         'Projektový kontext byl načten, ale analýzu se nepodařilo dokončit.',
         metadata,
         {
+          error: true,
+          errorType: 'CODE_ANALYSIS_SYNTHESIS_FAILED',
           synthesis: {
             status: 'error',
             code: 'CODE_ANALYSIS_SYNTHESIS_FAILED',
@@ -265,6 +284,10 @@ export async function handleCodeAnalysisDecision(
     return tagged(
       `${responseText(llmResponse)}\n\n---\n*Analyzed ${files.length} file(s): ${files.join(', ')}*`,
       metadata,
+      {
+        ...(llmResponse?.finishReason ? { finishReason: llmResponse.finishReason } : {}),
+        ...(llmResponse?.model ? { model: llmResponse.model } : {}),
+      },
     );
   } catch (error) {
     logger.error('CodeAnalysis', 'Project-bound analysis failed', { error: error.message });
@@ -274,7 +297,11 @@ export async function handleCodeAnalysisDecision(
       PROJECT_CONTEXT_ERROR_CODE.INVALID_SCOPE,
       PROJECT_CONTEXT_ERROR_CODE.NOT_READY,
     ]);
-    const code = recognizedCodes.has(error?.code)
+    const code = isAbortError(error) || context.signal?.aborted
+      ? abortSourceOf(error, context.signal) === AbortSource.TIMEOUT
+        ? PROJECT_CONTEXT_ERROR_CODE.TIMEOUT
+        : PROJECT_CONTEXT_ERROR_CODE.CANCELLED
+      : recognizedCodes.has(error?.code)
       ? error.code
       : PROJECT_CONTEXT_ERROR_CODE.INTERNAL;
     const status = code === PROJECT_CONTEXT_ERROR_CODE.CANCELLED

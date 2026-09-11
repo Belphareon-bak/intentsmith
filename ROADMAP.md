@@ -2910,3 +2910,32 @@ vypadal zeleně zpětně.
 Aktualizace souborových funkcí 2026-09-10: module graph má 1 302 hran,
 20 nových přesně revidovaných hran, žádná odebraná, stejné 3 cykly / 28 členů.
 [Předání uzavřené dávky](docs/execution/runs/m6/core-completion-review-20260910.md).
+
+### Auditní opravy a navazující kontrakty — 2026-09-11
+
+Autoritou je explicitní zadání operátora po auditu `983121ee`. Vlastní
+větev oprav řeší pravdivý terminál analýzy projektu, modelový adaptér,
+search/patch-runner vady, serverové testy, runtime závislosti a instalační
+dokumentaci. Stav nového source je candidate s povinným review. Pracovní
+rozsah: [WP](docs/wp/WP-AUDIT-REMEDIATION-20260911.md).
+
+Web bez projektu patří nově do 1.0, s každým jednotlivým schválením
+([Decision 044](docs/decisions/044-conversation-web-approval.md)). Tento
+souhlas neaktivuje autonomní egress ani externí agentí zdroje.
+
+[Post-release kontrakty](docs/post-release/README.md) pokrývají skutečné
+zlepšování modelu, kontext celého rozsáhlého projektu, úplný lifecycle agentů,
+externí notifikace, marketplace, média a aktualizace produktu. Jsou
+`DRAFT FOR REVIEW / NOT IMPLEMENTED`; pořadí jejich realizace následuje
+až po produkčním releasu podle zadání operátora.
+
+M5 má nová [operátorská historická fakta](docs/execution/runs/m5/operator-history-facts-20260911.md);
+rotace nepoužitých přístupů se nevykazuje. Podepsané N/A/history podklady,
+fyzická správa signerů a nezávislé review zůstávají samostatnými výstupy.
+
+Původní complete-SPEC delta `3291b5d4` prošla source review. Privátní
+16384-context cookbook dokončil obě revize včetně původně blokujících
+nutričních údajů, ale celý běh skončil `TIMEOUT` po 900 s. Registr měl
+15min timeout navzdory dokumentovanému trvání 20–40 minut. Oprava mění
+pouze runner timeout na 60 minut; test, jeho assertions i produkční
+modelové limity zůstávají stejné. Původní timeout zůstává důkazem selhání.

@@ -3,14 +3,18 @@
   "version": "0.1.0",
   "description": "C3 Chat Panel — authoritative committed Studio runtime",
   "main": "lib/browser/chat-panel-module.js",
-  "files": ["lib", "README.md", "scripts"],
+  "files": [
+    "lib",
+    "README.md",
+    "scripts"
+  ],
   "theiaExtensions": [
     {
       "frontend": "lib/browser/chat-panel-module"
     }
   ],
   "dependencies": {
-    "@theia/core": "1.65.2",
+    "@theia/core": "1.74.1",
     "@c3/protocol": "0.1.0",
     "@c3/backend-bridge": "0.1.0"
   },

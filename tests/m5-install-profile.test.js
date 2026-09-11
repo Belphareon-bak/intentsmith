@@ -105,7 +105,7 @@ test('full preflight succeeds with exact optional interpreter and font set', () 
 test('core profile does not weaken the Node 22 boundary', () => {
   const result = verify('core', { nodeVersion: '20.19.0', nvm: true });
   assert.equal(result.status, 1, result.output);
-  assert.match(result.output, /Node\.js v20\.19\.0 \(need 22\.x\)/);
+  assert.match(result.output, /Node\.js v20\.19\.0 \(need 22\.12\+ below 23\)/);
   assert.match(result.output, /verify-only never changes the active runtime/);
   assert.equal(result.nvmCalled, false);
 });

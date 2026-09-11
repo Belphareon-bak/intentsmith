@@ -104,14 +104,14 @@ if command -v node >/dev/null 2>&1; then
   NODE_VERSION=$(node -v | sed 's/v//')
   NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
 
-  if [ "$NODE_MAJOR" -eq 22 ] 2>/dev/null; then
+  if [ "$NODE_MAJOR" -eq 22 ] 2>/dev/null && [ "$(echo "$NODE_VERSION" | cut -d. -f2)" -ge 12 ] 2>/dev/null; then
     ok "Node.js v${NODE_VERSION}"
   else
-    warn "Node.js v${NODE_VERSION} (need 22.x)"
+    warn "Node.js v${NODE_VERSION} (need 22.12+ below 23)"
     # Verification is a strictly read-only observation. It must never source or
     # invoke nvm, even when nvm could repair the active shell.
     if [ "$VERIFY_ONLY" = true ]; then
-      fail "Node.js 22.x required; verify-only never changes the active runtime"
+      fail "Node.js 22.12+ below 23 required; verify-only never changes the active runtime"
       ERRORS=$((ERRORS + 1))
     # Interactive install may use the existing nvm remediation path.
     elif command -v nvm >/dev/null 2>&1; then
@@ -119,7 +119,7 @@ if command -v node >/dev/null 2>&1; then
       nvm install 22 && nvm use 22
       NODE_VERSION=$(node -v | sed 's/v//')
       NODE_MAJOR=$(echo "$NODE_VERSION" | cut -d. -f1)
-      if [ "$NODE_MAJOR" -eq 22 ] 2>/dev/null; then
+      if [ "$NODE_MAJOR" -eq 22 ] 2>/dev/null && [ "$(echo "$NODE_VERSION" | cut -d. -f2)" -ge 12 ] 2>/dev/null; then
         ok "Node.js v${NODE_VERSION} (via nvm)"
       else
         fail "nvm install failed"
@@ -134,7 +134,7 @@ if command -v node >/dev/null 2>&1; then
       NODE_VERSION=$(node -v | sed 's/v//')
       ok "Node.js v${NODE_VERSION} (via nvm)"
     else
-      fail "Node.js 22.x required. Install via:"
+      fail "Node.js 22.12+ below 23 required. Install via:"
       echo "       curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash"
       echo "       nvm install 22"
       ERRORS=$((ERRORS + 1))

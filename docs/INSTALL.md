@@ -1,7 +1,7 @@
 # IntentSmith — instalacni prirucka
 
-**Verze:** v135.0.0
-**Datum:** 2026-07-30
+**Rozsah:** vývojový kandidát 1.0, dosud bez publikovaného release
+**Aktualizace:** 2026-09-11
 
 ---
 
@@ -36,10 +36,10 @@
 
 | Prerekvizita | Verze | Ucel |
 |-------------|-------|------|
-| Node.js | 22.x (povinne) | Backend + IDE build |
+| Node.js | 22.21.1 z `.nvmrc`; minimum 22.12.0, méně než 23 | Backend + IDE build |
 | npm | 10.9.4 | Frozen instalace BE zavislosti |
 | Yarn | 1.22.22 | Frozen IDE build (Theia workspaces) |
-| Ollama | latest | LLM inference server |
+| Ollama | `0.32.14-intentsmith.1`, přesně ověřený systémový build | LLM inference a ověřená identita artefaktu |
 | Git | 2.x+ | Lifecycle (auto-commit, diff) |
 | CPython | 3.12 + `venv` | Volitelny full profil: hash-locked PDF runtime |
 | DejaVu fonty | `fonts-dejavu-core` | Volitelny full profil: PDF export s diakritikou |
@@ -51,8 +51,8 @@
 # Node.js 22 pres nvm (doporuceno)
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
 source ~/.nvm/nvm.sh
-nvm install 22
-nvm use 22
+nvm install 22.21.1
+nvm use 22.21.1
 npm install -g npm@10.9.4
 
 # Systemove zavislosti
@@ -62,8 +62,8 @@ sudo apt install -y git python3 python3.12 python3.12-venv build-essential curl 
 # Yarn pro C3 Studio
 npm install -g yarn@1.22.22
 
-# Ollama
-curl -fsSL https://ollama.com/install.sh | sh
+# Provider: použij ověřený build popsaný níže; běžná upstream instalace
+# nedokládá IntentSmith exact-artifact/provider kontrakt.
 ```
 
 ### Instalace prerekvizit (Fedora/RHEL)
@@ -72,8 +72,8 @@ curl -fsSL https://ollama.com/install.sh | sh
 # Node.js 22 pres nvm
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
 source ~/.nvm/nvm.sh
-nvm install 22
-nvm use 22
+nvm install 22.21.1
+nvm use 22.21.1
 npm install -g npm@10.9.4
 
 # Systemove zavislosti
@@ -82,8 +82,8 @@ sudo dnf install -y git python3 python3.12 gcc gcc-c++ make curl dejavu-sans-fon
 # Yarn pro C3 Studio
 npm install -g yarn@1.22.22
 
-# Ollama
-curl -fsSL https://ollama.com/install.sh | sh
+# Provider: použij ověřený build popsaný níže; běžná upstream instalace
+# nedokládá IntentSmith exact-artifact/provider kontrakt.
 ```
 
 Gate 0 reprodukovatelnost je overena na Linux x86_64 s glibc 2.27+.
@@ -93,15 +93,27 @@ kontroluje a na jinem distribucnim layoutu failne s konkretni chybou.
 
 ---
 
+Aktuální modelový kontrakt vyžaduje systémový provider
+`0.32.14-intentsmith.1`, který vrací důkaz skutečného modelového artefaktu.
+[Záznam provideru a jeho ověření](execution/runs/m6/provider-activation-20260909.md)
+popisuje konkrétní hostový build; není to veřejný univerzální instalátor.
+Na jiném hostu je nutné dodat a ověřit stejný providerový kontrakt. Vývojový
+server může bez inference naběhnout, modelová část tím není kvalifikovaná.
+
 ## 2. Kanonicka instalace
 
 ### 2.1 Stahnuti a podporovane instalacni profily
 
 ```bash
 cd ~/Projects
-git clone --branch codex/intentsmith-1.0 --single-branch \
-  https://github.com/Belphareon-bak/intentsmith.git
+git clone https://github.com/Belphareon-bak/intentsmith.git
 cd intentsmith
+# INTENTSMITH_REVISION musí být úplné SHA konkrétního posuzovaného kandidáta.
+# Získej je z jeho run reportu / předání; žádný aktuální release tag zatím není.
+: "${INTENTSMITH_REVISION:?nastav SHA posuzovaneho kandidata}"
+git checkout --detach "$INTENTSMITH_REVISION"
+nvm install
+nvm use
 
 # Podporovany core profil: backend, C3 Studio, Electron ABI rebuild a artifact smoke
 ./scripts/install.sh --minimal

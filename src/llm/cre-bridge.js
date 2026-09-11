@@ -29,7 +29,9 @@ import { config } from '../config.js';
 import {
   AbortSource,
   abortSourceOf,
+  createAbortError,
   isAbortError,
+  throwIfAborted,
 } from '../core/abort-error.js';
 import {
   M1_CONTRACT_KIND,
@@ -587,6 +589,32 @@ export async function classifyIntent(prompt, systemPrompt = '', options = {}) {
     // attempts. A slow model is unaffected: timeouts are never retried.
     retries: 1,
     ...options
+  });
+}
+
+// Project analysis is reasoning prose, not a classification JSON response.
+// Keep the existing analyzer role budget and the gateway's artifact authority.
+export async function analyzeProjectCode(prompt, systemPrompt, options = {}) {
+  throwIfAborted(options.signal);
+  let signal = options.signal;
+  if (Number.isFinite(options.deadlineAt)) {
+    if (options.deadlineAt <= Date.now()) throw createAbortError(AbortSource.TIMEOUT);
+    const remaining = Math.max(0, Math.min(2_147_483_647, Math.ceil(options.deadlineAt - Date.now())));
+    const deadlineSignal = AbortSignal.timeout(remaining);
+    signal = signal ? AbortSignal.any([signal, deadlineSignal]) : deadlineSignal;
+  }
+  const token = createAuthToken({
+    role: LLMCallerRole.WORKFLOW_ANALYZER,
+    decisionId: generateDecisionId('code-analysis'),
+    auditContext: { sessionId: options.sessionId || generateSessionId(), goalId: null },
+    capabilities: [LLMCapability.REASONING],
+  });
+  return callWithAuth(token, prompt, {
+    systemPrompt,
+    model: config.models?.CHAT,
+    temperature: 0.1,
+    retries: 1,
+    signal,
   });
 }
 

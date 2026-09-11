@@ -4,14 +4,17 @@
   "description": "C3 Agent Event Log — Theia widget showing CRE decisions, tool calls, LLM events",
   "main": "lib/browser/agent-panel-module.js",
   "typings": "lib/browser/agent-panel-module.d.ts",
-  "files": ["lib", "src"],
+  "files": [
+    "lib",
+    "src"
+  ],
   "theiaExtensions": [
     {
       "frontend": "lib/browser/agent-panel-module"
     }
   ],
   "dependencies": {
-    "@theia/core": "1.65.2",
+    "@theia/core": "1.74.1",
     "@c3/protocol": "0.1.0",
     "@c3/backend-bridge": "0.1.0"
   },

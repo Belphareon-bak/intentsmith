@@ -14,7 +14,7 @@
     }
   ],
   "dependencies": {
-    "@theia/core": "1.65.2"
+    "@theia/core": "1.74.1"
   },
   "devDependencies": {
     "typescript": "~5.3.0",

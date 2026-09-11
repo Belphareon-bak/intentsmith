@@ -21,6 +21,10 @@ import {
 import { projectContextProvider } from '../src/code-intel/project-context-provider.js';
 import { AbortSource, abortWithReason } from '../src/core/abort-error.js';
 import { handleCodeAnalysisDecision } from '../src/chat/handlers/code-analysis.js';
+import { llmGateway } from '../src/llm/gateway.js';
+import { finalizeChatResponse } from '../src/chat/response-finalizer.js';
+import { ChatController } from '../src/chat/controller.js';
+import { throwIfTerminalChatFailure } from '../src/core/chat-turn-error.js';
 
 const fixtureRoot = fileURLToPath(
   new URL('./fixtures/m2-project-context/', import.meta.url),
@@ -240,6 +244,121 @@ await testAsync('concurrent production journeys keep project A and B prompts iso
 });
 
 suite('M2 project-context consumer — fail-closed terminal behavior');
+
+// Exercise the default bridge, not the injected classifyIntent seam which
+// previously hid malformed model options and lost terminal metadata.
+async function withAnalysisGateway(gateway, callback) {
+  const original = llmGateway.call;
+  const originalFetch = globalThis.fetch;
+  llmGateway.call = gateway;
+  globalThis.fetch = async () => { throw new Error('Unexpected network in analysis regression'); };
+  try { await callback(); } finally {
+    llmGateway.call = original;
+    globalThis.fetch = originalFetch;
+  }
+}
+
+async function productionAnalysis(context = {}) {
+  return handleCodeAnalysisDecision('validateSessionToken', { intent: 'CODE_ANALYSIS' },
+    handlerContext(1701, projectARoot, context), {
+      projectContextDependencies: {
+        projects: projectRegistry([{ id: 1701, path: projectARoot, status: 'active' }]),
+      },
+    });
+}
+
+async function finalizeAnalysis(response, persisted) {
+  return finalizeChatResponse({
+    result: response, message: 'validateSessionToken', sessionId: 'analysis-regression',
+    conversationId: 'analysis-regression', turnId: 'analysis-turn',
+    persistAssistantTurn: (content, metadata) => persisted.push({ content, metadata }),
+    dependencies: { scoreResponse: async () => ({ total: 100, dimensions: {}, issues: [] }) },
+    log: { info() {}, warn() {}, error() {} },
+  });
+}
+
+await testAsync('default bridge uses authorized reasoning prose and preserves successful output identity', async () => {
+  const abort = new AbortController();
+  let captured;
+  await withAnalysisGateway(async (prompt, options) => {
+    captured = options;
+    assert.match(prompt, /validateSessionToken/);
+    return { content: 'Verified project analysis.', model: 'fixture-model', finishReason: 'stop' };
+  }, async () => {
+    const response = await productionAnalysis({ signal: abort.signal });
+    assert.equal(typeof captured.systemPrompt, 'string');
+    assert.equal(captured._authToken.role, 'WORKFLOW_ANALYZER');
+    assert.equal(captured.format, undefined);
+    assert.equal(captured.signal, abort.signal);
+    assert.equal(response.metadata.finishReason, 'stop');
+    const persisted = [];
+    await finalizeAnalysis(response, persisted);
+    assert.equal(persisted.length, 1);
+    assert.match(persisted[0].content, /^Verified project analysis\./);
+    assert.equal(persisted[0].metadata.model, 'fixture-model');
+    assert.equal(persisted[0].metadata.m7.status, 'ok');
+  });
+});
+
+for (const scenario of [
+  { name: 'provider outage', code: 'LLM_PROVIDER_UNAVAILABLE', run: async () => { throw new Error('provider down'); } },
+  { name: 'truncated output', code: 'MODEL_RESPONSE_TRUNCATED', run: async () => ({ content: 'unfinished', finishReason: 'length' }) },
+  { name: 'empty output', code: 'LLM_PROVIDER_UNAVAILABLE', run: async () => ({ content: '' }) },
+]) {
+  await testAsync(`${scenario.name} never enters controller history or assistant persistence`, async () => {
+    await withAnalysisGateway(scenario.run, async () => {
+      const response = await productionAnalysis();
+      assert.throws(() => throwIfTerminalChatFailure(response), { code: scenario.code });
+      const persisted = [];
+      await assert.rejects(finalizeAnalysis(response, persisted), { code: scenario.code });
+      assert.equal(persisted.length, 0);
+      const controller = new ChatController({
+        sessionId: 'analysis-regression', config: { autoModeDetection: false },
+        handlers: { project: async () => response },
+      });
+      await assert.rejects(controller.process('validateSessionToken', {
+        forceMode: 'project', project: { id: 1701 }, hasActiveProject: true,
+      }), { code: scenario.code });
+    });
+  });
+}
+
+await testAsync('deadline abort reaches the real bridge while a provider is pending', async () => {
+  await withAnalysisGateway(async (_prompt, options) => {
+    assert(options.signal instanceof AbortSignal);
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(resolve, 1000);
+      options.signal.addEventListener('abort', () => {
+        clearTimeout(timer);
+        // The gateway normalizes its transport abort into the shared contract.
+        const error = new Error('deadline');
+        error.name = 'AbortError'; error.abortSource = 'timeout'; reject(error);
+      }, { once: true });
+    });
+    throw new Error('deadline was ignored');
+  }, async () => {
+    const response = await productionAnalysis({ deadlineAt: Date.now() + 100 });
+    assert.equal(metadataOf(response).status, 'timeout');
+    assert.throws(() => throwIfTerminalChatFailure(response), { name: 'AbortError', abortSource: 'timeout' });
+    const persisted = [];
+    await assert.rejects(finalizeAnalysis(response, persisted), { name: 'AbortError' });
+    assert.equal(persisted.length, 0);
+  });
+});
+
+await testAsync('a late model success after user cancellation is not persisted', async () => {
+  const abort = new AbortController();
+  await withAnalysisGateway(async () => {
+    abortWithReason(abort, AbortSource.USER);
+    return { content: 'late success', finishReason: 'stop' };
+  }, async () => {
+    const response = await productionAnalysis({ signal: abort.signal });
+    assert.equal(metadataOf(response).status, 'cancelled');
+    const persisted = [];
+    await assert.rejects(finalizeAnalysis(response, persisted), { name: 'AbortError', abortSource: 'user' });
+    assert.equal(persisted.length, 0);
+  });
+});
 
 await testAsync('a change between observation and query is stale and never reaches the model', async () => {
   await withCopiedProject(async root => {

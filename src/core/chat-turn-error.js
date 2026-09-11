@@ -1,4 +1,5 @@
 // Terminal chat failures that must not be represented as assistant responses.
+import { AbortSource, createAbortError } from './abort-error.js';
 
 export const ChatTurnErrorCode = Object.freeze({
   LLM_PROVIDER_UNAVAILABLE: 'LLM_PROVIDER_UNAVAILABLE',
@@ -21,6 +22,7 @@ const PROVIDER_FAILURE_TYPES = new Set([
   'EXPERT_LLM_FAILED',
   'DESIGN_LLM_FAILED',
   'DESIGN_CONTINUE_FAILED',
+  'CODE_ANALYSIS_SYNTHESIS_FAILED',
 ]);
 
 export class ChatTurnError extends Error {
@@ -123,6 +125,13 @@ export function chatTurnErrorPayload(error) {
 
 export function throwIfTerminalChatFailure(response) {
   const metadata = response?.metadata ?? response?.tag?.metadata;
+  if (metadata?.finishReason === 'length') {
+    throw new ModelResponseTruncatedError(metadata.finishReason);
+  }
+  if (metadata?.codeAnalysis === true) {
+    if (metadata.projectContext?.status === 'cancelled') throw createAbortError(AbortSource.USER);
+    if (metadata.projectContext?.status === 'timeout') throw createAbortError(AbortSource.TIMEOUT);
+  }
   if (metadata?.error !== true) return;
 
   if (PROVIDER_FAILURE_TYPES.has(metadata.errorType)) {

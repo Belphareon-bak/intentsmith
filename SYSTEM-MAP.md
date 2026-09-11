@@ -138,7 +138,7 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 | Registrovaných testových programů | **512** (`418 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **173 / 97** |
 | HTTP rout | ~230 |
-| **Schopností v `ACCEPTED/PASS`** | **1 z 22** (#2 CRE); #1 server/routing/DB je zatím `RUNTIME_VERIFIED` — jeho suite má 13 interních checků, zatímco behavior dokument obsahuje 16 řádků, takže tvrzení „13/13 chování“ není platný akceptační součet |
+| **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
 Aktuální registry fingerprint je
 `3ce12a0edffe7e6da0f875ce3f0b25758524641557023d00aae39d0784fdbbfc`.
@@ -206,9 +206,11 @@ blokátorem tohoto ověřeného rozsahu. Celý modelový panel, startup serveru,
 koordinace přes živou DB a release acceptance tím ověřeny nejsou.
 [Run a přesné identity](docs/execution/runs/m6/provider-activation-20260909.md).
 
-## Lehký capability picture 22/22
+## Capability picture 22/22 — historický rozsah B6
 
-Stav je nejsilnější aktuálně doložená příčka, nikoliv procento hotovosti.
+Tato tabulka zachovává dřívější rozpad B6; není souhrnem všech následných
+přijetí M2–M4 ani aktuálního auditu. Aktuální remediace je uvedena pod ní.
+Příčka není procento hotovosti.
 `BROKEN` označuje potvrzenou dílčí vadu a může stát vedle příčky. Modulový test
 sám nikdy neposouvá schopnost na `USER_JOURNEY_VERIFIED`.
 
@@ -371,6 +373,35 @@ znění v [`CONTRACT.md`](CONTRACT.md) §2.
 
 ---
 
+## Auditní remediace 2026-09-11
+
+Práce pokračuje z `983121ee` na vlastní větvi `work/audit-remediation-20260911`.
+Nové změny mají stav `IMPLEMENTED_CANDIDATE / REVIEW_REQUIRED`; nejsou novou
+acceptance M2/M5/M6. Analýza projektu nyní používá skutečný reasoning adaptér
+se string system promptem, propaguje cancel/deadline/length a neukládá
+provider failure jako assistant success. Opraveny jsou také ignorované cesty
+ripgrep, option-like dotazy a syntax check patchů na Node 22 bez package scope.
+Tři dříve padající serverové programy prošly; jejich historické registry
+klasifikace a staré FAIL důkazy se tím nemažou.
+
+Backend i Studio mají aktualizované lockfiles a audit 2026-09-11 bez nálezů.
+Studio používá Theia 1.74.1, Electron 42.11.3 a ověřený webpack preload entry;
+Theia 1.75 vyžaduje samostatný přechod na esbuild a není součástí této opravy.
+Úspěšný build sám ještě nenahrazuje běžící desktopový journey.
+
+[Decision 044](docs/decisions/044-conversation-web-approval.md) přidává do 1.0
+web bez projektu s jednotlivým schválením. Nový consumer má samostatný
+`ConversationWebRequest@1`, typed DB writer, vazbu na uložený user-turn,
+jednorázovou spotřebu, veřejný připnutý DNS cíl a uloženou odpověď. Žádný
+projekt se nevymýšlí a projektové M2 kontrakty se nerozšiřují. Specifická
+HTTP cesta a negativní transport/replay testy prošly; kompletní původní
+webové modelové scénáře se tím neprohlašují za přijaté.
+
+[Operátorská historická fakta pro M5](docs/execution/runs/m5/operator-history-facts-20260911.md)
+jsou podkladem pro posouzení neaplikovatelnosti rotace, nikoli podepsané
+receipts. Druhé fyzické médium a celý podpisový řetězec nejsou potvrzené.
+[Kontrakty po 1.0](docs/post-release/README.md) jsou pouze návrhy k review.
+
 ## Otevřené release-blocking vady
 
 Kanonické místo pro selhání, které je **předchozí, release-blocking a nezpůsobené
@@ -394,7 +425,7 @@ modelové výsledky shrnuje [M6 checkpoint](docs/execution/runs/m6/core-completi
 |---|---|---|---|
 | _historický stav k 2026-08-22: nic otevřeného v této tabulce_ | — | — | — |
 | SPEC revize a dokončení projektu, checkpoint 2026-09-09 | M6 projektový journey | Na `875c041a` cookbook 26/16 FAIL. Nový `b365896f` s JSON/retention/oracle opravami při 16384 skončil 24/18 FAIL: první SPEC a revize řazení validní, retence doložená, revize výživy třikrát na výstupním limitu 4000 při 9795 z 16384 tokenů. Žádná roadmapa ani milník; staré falešné oracle zůstávají historicky doložené. [Raw důkazy](docs/execution/runs/m6/core-completion-followup-20260909.md). | P0 |
-| Výpis/vysvětlení souboru a web bez projektu | Dokončení uživatelských M2/M6 scénářů | Projektové `file.read`, `file.list@2` a FILE_EXPLAIN jsou integrované a jejich source/follow-up review prošlo. Skutečný FILE_EXPLAIN na `3bda6ddb` navíc provedl jeden exact-digest modelový request a po restartu obnovil stejný uložený výsledek; tato runtime evidence čeká na samostatné review. Přijatý M2 milník se tím znovu neotevírá. B/C/E má 34 historických odmítnutí webu s platným aktérem a bez projektu; nový konverzační síťový scope mění authority boundary a čeká na explicitní rozhodnutí operátora. [Výsledky a otevřené hranice](docs/execution/runs/m6/core-completion-followup-20260909.md). | P0 |
+| Výpis/vysvětlení souboru a web bez projektu | Dokončení uživatelských M2/M6 scénářů | Projektové `file.read`, `file.list@2` a FILE_EXPLAIN jsou integrované a jejich source/follow-up review prošlo. Skutečný FILE_EXPLAIN na `3bda6ddb` navíc provedl jeden exact-digest modelový request a po restartu obnovil stejný uložený výsledek; tato runtime evidence čeká na samostatné review. Přijatý M2 milník se tím znovu neotevírá. B/C/E má 34 historických odmítnutí webu s platným aktérem a bez projektu; operátor nyní přijal jednotlivé schvalované HTTPS požadavky (Decision 044). Nový consumer je implementační candidate; všech 34 původních scénářů dosud nebylo zopakováno. [Výsledky a otevřené hranice](docs/execution/runs/m6/core-completion-followup-20260909.md). | P0 |
 
 Změřeno 2026-08-22 na `fbbe1e74`, profil `offline,database`, 234 sad:
 `{"PASS":229,"FAIL":3,"BLOCKED":2}`. Tři selhání jsou předchozí a prostředím

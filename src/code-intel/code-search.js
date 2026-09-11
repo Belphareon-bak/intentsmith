@@ -127,6 +127,9 @@ async function searchWithRipgrep(projectPath, query, opts) {
     '--max-count', String(opts.maxResults || MAX_RESULTS),
     '--max-filesize', '1M',
   ];
+  // A project may have no .gitignore (or live outside our own repository).
+  // These exclusions are engine policy, shared with the grep/Node fallbacks.
+  for (const directory of IGNORE_DIRS) args.push('--glob', `!**/${directory}/**`);
 
   if (opts.ignoreCase !== false) args.push('-i');
   if (opts.contextLines) {
@@ -139,7 +142,7 @@ async function searchWithRipgrep(projectPath, query, opts) {
     '--type', 'code',
   );
 
-  args.push(query, projectPath);
+  args.push('--', query, projectPath);
 
   const r = await execSearch('rg', args, projectPath);
   if (!r.ok) return { results: [], engine: 'ripgrep', error: r.stderr };

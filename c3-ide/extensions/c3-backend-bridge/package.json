@@ -4,7 +4,10 @@
   "description": "C3 Backend WebSocket bridge — Theia service (frontend proxy + backend WS client)",
   "main": "lib/common/backend-bridge-protocol.js",
   "typings": "lib/common/backend-bridge-protocol.d.ts",
-  "files": ["lib", "src"],
+  "files": [
+    "lib",
+    "src"
+  ],
   "theiaExtensions": [
     {
       "frontend": "lib/browser/backend-bridge-module",
@@ -12,7 +15,7 @@
     }
   ],
   "dependencies": {
-    "@theia/core": "1.65.2",
+    "@theia/core": "1.74.1",
     "@c3/protocol": "0.1.0"
   },
   "devDependencies": {

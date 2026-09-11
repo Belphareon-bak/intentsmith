@@ -222,20 +222,17 @@ await testAsync('cancel emits acknowledgement and a cancelled terminal event wit
   const conversationId = await createConv('E2E WS cancel');
   let client;
   try {
-    client = await createWsClient();
-    client.send({
+    client = await createWsClient(5000, { batchFrames: true });
+    client.sendBatch([{
       channel: 'chat',
       data: {
         content: 'Napiš podrobnou dlouhou esej o historii počítačů.',
         conversationId,
       },
-    });
-    // WebSocket frames are ordered. Sending cancel immediately after chat makes
-    // the test independent of model speed while still exercising an active turn.
-    client.send({
+    }, {
       channel: 'control',
       data: { action: 'cancel', conversationId },
-    });
+    }]);
 
     const turnStart = await client.waitForMessage(
       m => m.channel === 'agent'
