@@ -3,6 +3,20 @@ import { suite, testAsync, assert, assertEqual, summary, waitForServer,
 
 await waitForServer();
 suite('Conversation web through the authenticated HTTP controller');
+await testAsync('natural web search without a project proposes one visible request and accepts cancellation', async () => {
+  const conversationId = await createConv('Natural web search approval');
+  try {
+    const chat = message => api('POST', '/api/chat', { message, conversation_id: conversationId });
+    const proposal = await chat('Vyhledej na webu dokumentaci SQLite.');
+    assertEqual(proposal.status, 200);
+    assert(proposal.data.response.includes('https://www.bing.com/search?format=rss&q='), 'search names its exact provider target');
+    const id = proposal.data.response.match(/web:[a-f0-9]{64}/)?.[0];
+    assert(id, 'natural search requires an explicit per-request approval');
+    const cancelled = await chat(`zrušit web ${id}`);
+    assertEqual(cancelled.status, 200);
+    assert(cancelled.data.response.includes('WEB_USER_REVOKED'), 'proposal can be cancelled without external I/O');
+  } finally { await cleanupConversation(conversationId); }
+});
 await testAsync('a projectless request needs exact approval and a private IP is denied before network I/O', async () => {
   const conversationId = await createConv('Web approval without a project');
   try {
