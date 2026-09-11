@@ -641,12 +641,22 @@ if (readyRoles.length === 0) {
 
 // Prevent a scheduled hunt, manual pilot and CODE calibration from loading
 // different Ollama models into the same GPU between drain and measurement.
-const gpuLease = holdGpuEvaluationLock({ command: `model-upgrade-hunt ${args.join(' ')}` });
+let gpuLease;
+try {
+  gpuLease = holdGpuEvaluationLock({ command: `model-upgrade-hunt ${args.join(' ')}` });
+} catch (error) {
+  if (!SCHEDULED || error.code !== 'GPU_EVALUATION_BUSY') throw error;
+  emitJsonArtifact({ generatedAt: new Date().toISOString(), providerVersion, status: 'SCHEDULED_SKIPPED', reasons: [error.message], results: [] });
+  db.close();
+  process.exit(0);
+}
 if (SCHEDULED) {
   const readiness = await scheduledEvaluationReadiness();
   if (!readiness.ready) {
     log(`Plánovaný hunt přeskočen bez zásahu: ${readiness.reasons.join('; ')}`);
+    emitJsonArtifact({ generatedAt: new Date().toISOString(), providerVersion, status: 'SCHEDULED_SKIPPED', reasons: readiness.reasons, results: [] });
     gpuLease.release();
+    db.close();
     process.exit(0);
   }
 }
@@ -683,7 +693,7 @@ if (!toTry.length) {
 log('\n══ MĚŘENÍ STÁVAJÍCÍCH MODELŮ ══');
 const incumbentSpeed = {};
 const allowedDrainModels = new Set();
-const measurementOptions = SCHEDULED ? { allowedDrainModels } : {};
+const measurementOptions = { providerVersion, ...(SCHEDULED ? { allowedDrainModels } : {}) };
 const markOwned = name => {
   allowedDrainModels.add(name);
   const canonical = canonicalModelName(name);
@@ -711,7 +721,7 @@ for (const name of new Set(readyRoles.map(role => bindings[role]).filter(Boolean
   }) : null;
   const m = prior?.tokensPerSecond != null
     ? { fits: true, throughput: { tokensPerSecond: prior.tokensPerSecond }, placement: { vramBytes: prior.vramBytes || 0, sizeBytes: 0 }, reused: true }
-    : await measureModel(name, measurementOptions);
+    : await measureModel(name, { ...measurementOptions, expectedArtifact: artifact });
   if (!m.reused) markOwned(name);
   incumbentSpeed[name] = m.throughput?.tokensPerSecond ?? 0;
   measurements.set(canonicalModelName(name), m);
@@ -743,7 +753,7 @@ for (const cand of toTry) {
   const r = await tryCandidate(cand.name, {
     ...measurementOptions,
     beforeMeasure: async name => {
-      await historyCallbacks.refreshArtifact(name);
+      const artifact = await historyCallbacks.refreshArtifact(name);
       // A long download must not turn the earlier idle check into permission
       // to evict a model loaded by an interactive user meanwhile.
       if (SCHEDULED) {
@@ -752,6 +762,7 @@ for (const cand of toTry) {
         if (!readiness.ready) throw Object.assign(new Error(readiness.reasons.join('; ')), { code: 'HUNT_GPU_BUSY' });
       }
       markOwned(name);
+      return artifact;
     },
     runner: evaluationRunner,
     pullModel: async (name, onProgress, authority) => {

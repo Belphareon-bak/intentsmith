@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Own the evaluation sidecar only for the lifetime of one bounded hunt.
 import { createHash } from 'node:crypto';
-import { readFileSync, mkdirSync, mkdtempSync, rmSync, openSync, closeSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, openSync, closeSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,7 +20,17 @@ mkdirSync(state, { recursive: true, mode: 0o700 });
 const runDir = mkdtempSync(join(state, 'run-'));
 for (const name of ['home', 'tmp']) mkdirSync(join(runDir, name), { mode: 0o700 });
 const port = createServer();
-await new Promise((ok, fail) => { port.once('error', fail); port.listen(11435, '127.0.0.1', ok); });
+try {
+  await new Promise((ok, fail) => { port.once('error', fail); port.listen(11435, '127.0.0.1', ok); });
+} catch (error) {
+  if (error.code !== 'EADDRINUSE') throw error;
+  const result = { generatedAt: new Date().toISOString(), status: 'SCHEDULED_SKIPPED', reason: 'EVALUATION_PROVIDER_PORT_BUSY', results: [] };
+  const requested = process.argv.slice(2).find(arg => arg.startsWith('--report='))?.slice(9);
+  writeFileSync(requested || join(runDir, 'result.json'), JSON.stringify(result, null, 2) + '\n');
+  for (const name of ['home', 'tmp']) rmSync(join(runDir, name), { recursive: true, force: true });
+  console.log(JSON.stringify(result));
+  process.exit(0);
+}
 await new Promise(ok => port.close(ok));
 let provider, hunt, stopping = false;
 const stop = () => { stopping = true; hunt?.kill('SIGTERM'); provider?.kill('SIGTERM'); };
@@ -39,7 +49,7 @@ try {
   closeSync(fd);
   let ready = false;
   for (let i = 0; i < 100 && !stopping; i++) {
-    if (provider.exitCode !== null) throw new Error(`Evaluation provider exited: ${provider.exitCode}`);
+    if (provider.exitCode !== null || provider.signalCode !== null) throw new Error(`Evaluation provider exited: ${provider.exitCode}`);
     try {
       const response = await fetch('http://127.0.0.1:11435/api/version', { signal: AbortSignal.timeout(1000) });
       if (response.ok && (await response.json()).version === '0.34.0-intentsmith.1') { ready = true; break; }
@@ -57,7 +67,7 @@ try {
   const [code] = await once(hunt, 'exit');
   process.exitCode = code ?? 1;
 } finally {
-  if (provider && provider.exitCode === null) {
+  if (provider && provider.exitCode === null && provider.signalCode === null) {
     const ended = once(provider, 'exit');
     provider.kill('SIGTERM');
     await ended;

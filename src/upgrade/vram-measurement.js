@@ -30,7 +30,7 @@ import { execFileSync } from 'node:child_process';
 import { MODEL_ACTIVITY_OWNER, modelUseAuthority } from './model-use-authority.js';
 import { config } from '../config.js';
 import { logger } from '../core/logger.js';
-import { sameModelName } from './model-identity.js';
+import { sameModelName, normalizeModelDigestSha256 } from './model-identity.js';
 
 const DEFAULT_TIMEOUT = 30_000;
 const LOAD_TIMEOUT = 300_000;
@@ -68,7 +68,15 @@ async function ollama(path, init, timeoutMs, opts = {}) {
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (!res.ok) throw new Error(`Ollama HTTP ${res.status} na ${path}`);
-    return res.json();
+    const data = await res.json();
+    if (path === '/api/chat' && opts.providerVersion && data.provider_version !== opts.providerVersion) {
+      throw Object.assign(new Error('VRAM response provider version mismatch'), { code: 'CANDIDATE_MEASURE_RETRYABLE' });
+    }
+    if (path === '/api/chat' && opts.expectedArtifact
+      && normalizeModelDigestSha256(data.digest) !== opts.expectedArtifact.digestSha256) {
+      throw Object.assign(new Error('VRAM response artifact digest mismatch'), { code: 'CANDIDATE_MEASURE_RETRYABLE' });
+    }
+    return data;
   } finally { lease?.release(); }
 }
 
@@ -107,6 +115,9 @@ export async function readPlacement(modelName, opts = {}) {
   const data = await ollama('/api/ps', {}, opts.timeout ?? DEFAULT_TIMEOUT, opts);
   const entry = (data?.models || []).find(m => sameModelName(m?.name, modelName)
     || sameModelName(m?.model, modelName));
+  if (entry && opts.expectedArtifact && normalizeModelDigestSha256(entry.digest) !== opts.expectedArtifact.digestSha256) {
+    throw new Error('VRAM placement artifact digest mismatch');
+  }
   if (!entry) return { loaded: false, sizeBytes: 0, vramBytes: 0, cpuBytes: 0, fullyOnGpu: false };
 
   const sizeBytes = entry.size || 0;
@@ -288,12 +299,11 @@ export async function unloadModel(modelName, opts = {}) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: modelName,
-        messages: [{ role: 'user', content: 'ok' }],
+        messages: [],
         stream: false,
         keep_alive: 0,
-        options: { num_predict: 1 },
       }),
-    }, opts.timeout ?? DEFAULT_TIMEOUT, opts);
+    }, opts.timeout ?? DEFAULT_TIMEOUT, { ...opts, expectedArtifact: null });
     return true;
   } catch {
     return false;

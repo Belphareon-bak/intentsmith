@@ -114,6 +114,7 @@ async function ask(modelName, prompt, opts = {}) {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
+    if (opts.providerVersion && data.provider_version !== opts.providerVersion) throw new Error('Capability provider version mismatch');
     return (data?.message?.content || '').trim();
   });
 }
@@ -240,7 +241,7 @@ export async function tryCandidate(candidateName, ctx = {}) {
       await pullModel(candidateName, ctx);
     }
 
-    if (typeof ctx.beforeMeasure === 'function') await ctx.beforeMeasure(candidateName);
+    if (typeof ctx.beforeMeasure === 'function') ctx.expectedArtifact = await ctx.beforeMeasure(candidateName);
     onStage('measure', candidateName);
     out.stage = 'measure';
     measurementStarted = true;

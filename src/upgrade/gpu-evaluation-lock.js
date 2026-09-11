@@ -93,7 +93,7 @@ export function acquireGpuEvaluationLock(opts = {}) {
       if (error?.code !== 'EEXIST') throw error;
       const owner = ownerAt(lockPath);
       if (processAlive(owner?.pid)) {
-        throw new Error(`GPU evaluation is already active (pid ${owner.pid}, ${owner.command || 'unknown command'})`);
+        throw Object.assign(new Error(`GPU evaluation is already active (pid ${owner.pid}, ${owner.command || 'unknown command'})`), { code: 'GPU_EVALUATION_BUSY' });
       }
       // Exact known lock path only; never expand this cleanup to a parent.
       rmSync(lockPath, { recursive: true, force: true });

@@ -22,10 +22,12 @@ provider_staging=$(mktemp -d /opt/intentsmith/ollama/.install-XXXXXX)
 provider_dropin=/etc/systemd/system/ollama.service.d/50-intentsmith-response-digest.conf
 [[ -f "$provider_dropin" ]] || { echo 'Expected previous response-digest drop-in is missing.' >&2; exit 1; }
 cp -- "$provider_dropin" "$provider_staging/previous-service.conf"
+cp -a -- /usr/local/bin/ollama "$provider_staging/previous-client"
 rollback() {
   local result=$?
   if [[ -f "$provider_destination/previous-service.conf" ]]; then
     cp -- "$provider_destination/previous-service.conf" "$provider_dropin"
+    cp -a --remove-destination -- "$provider_destination/previous-client" /usr/local/bin/ollama
     systemctl daemon-reload
     systemctl restart ollama.service
   fi
@@ -66,5 +68,6 @@ assert r['digest'].removeprefix('sha256:')==m['digest'].removeprefix('sha256:')
 assert r['provider_version']==version
 print(json.dumps({'status':'INSTALLED','providerVersion':version,'digestProof':'PASS','inventoryCount':len(models)}))
 PY
+ln -sfn -- "$provider_destination/bin/ollama" /usr/local/bin/ollama
 trap - ERR
 printf 'Rollback: restore %s/previous-service.conf to %s, daemon-reload, restart ollama.service\n' "$provider_destination" "$provider_dropin"

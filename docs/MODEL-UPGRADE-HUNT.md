@@ -243,3 +243,10 @@ Archiv je oficiální `ollama-linux-amd64.tar.zst` z
 [release v0.34.0](https://github.com/ollama/ollama/releases/tag/v0.34.0).
 Instalátor kontroluje oba připnuté SHA před rozbalením a odmítne přepsat
 existující runtime. Systémovou službu a modelový sklad nemění.
+
+Aktuální šablona plánuje nejvýše dva kandidáty denně ve 03:00 místního času
+s náhodným odkladem do 15 minut. `Persistent=false` brání dohánění zmeškaného
+nočního běhu hned při pracovním startu počítače. Obsazený sidecar port,
+evaluační lock nebo GPU vytvoří `SCHEDULED_SKIPPED`; nevyvolají další modelový
+request. Uvolnění modelu používá prázdné `messages` + `keep_alive:0`, tedy
+provider unload bez další inference nebo změny contextu.
