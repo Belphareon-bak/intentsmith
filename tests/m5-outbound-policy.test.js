@@ -43,6 +43,39 @@ function harness({ enabled = false, transport } = {}) {
 
 suite('M5 outbound policy and append-only audit');
 
+await testAsync('hunt tag metadata is audited and bounded to the library family', async () => {
+  const { database, calls, policy } = harness({ enabled: true });
+  const target = 'https://ollama.com/library/devstral-small-2/tags';
+  const response = await policy.modelDiscoveryFetch(target, {
+    headers: { 'User-Agent': 'intentsmith/1.0' },
+  });
+  assert.equal(response.status, 200);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(database.prepare(
+    'SELECT phase, decision FROM m5_outbound_audit_events ORDER BY occurred_at_ms',
+  ).all(), [
+    { phase: 'decision', decision: 'allow' },
+    { phase: 'terminal', decision: 'succeeded' },
+  ]);
+  for (const [url, init] of [
+    [target + '?data=private', {}],
+    [target + '/extra', {}],
+    [target + '#private', {}],
+    ['https://ollama.com/api/tags', {}],
+    [target, { method: 'POST' }],
+    [target, { body: 'private' }],
+    [target, { headers: { Authorization: 'Bearer private' } }],
+  ]) {
+    await assert.rejects(policy.modelDiscoveryFetch(url, init),
+      error => error.code === OUTBOUND_ERROR_CODE.TARGET_CONTRACT_DENIED);
+  }
+  assert.equal(calls.length, 1);
+  const disabled = harness();
+  await assert.rejects(disabled.policy.modelDiscoveryFetch(target, {}),
+    error => error.code === OUTBOUND_ERROR_CODE.SURFACE_DISABLED);
+  assert.equal(disabled.calls.length, 0);
+});
+
 test('migration installs the exact fingerprinted audit authority', () => {
   const { database } = harness();
   assert.equal(

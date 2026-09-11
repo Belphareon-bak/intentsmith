@@ -38,7 +38,7 @@ import {
   installProductionOutboundGuard,
 } from '../src/network/outbound-policy.js';
 import {
-  fetchLibraryFamilies, getLibraryFamilyMetadata, prioritizeCandidates, buildCandidatePool,
+  fetchLibraryFamilies, fetchFamilyTags, getLibraryFamilyMetadata, prioritizeCandidates, buildCandidatePool,
 } from '../src/upgrade/model-sweep.js';
 import { checkRoleEligibility } from '../src/upgrade/candidate-eligibility.js';
 import { MODEL_PROFILES } from '../src/upgrade/model-profiles.js';
@@ -82,7 +82,12 @@ const val = n => { const h = args.find(a => a.startsWith(`--${n}=`)); return h ?
 const DO_RUN = flag('run');
 const AS_JSON = flag('json');
 const INSTALLED_PANEL = flag('installed-panel');
-const LIMIT = parseInt(val('limit') || (INSTALLED_PANEL ? String(Number.MAX_SAFE_INTEGER) : '3'), 10);
+const limitInput = val('limit') ?? (INSTALLED_PANEL ? String(Number.MAX_SAFE_INTEGER) : '3');
+const LIMIT = Number(limitInput);
+if (!/^\d+$/.test(limitInput) || !Number.isSafeInteger(LIMIT) || LIMIT < 1) {
+  console.error('--limit musí být kladné celé číslo.');
+  process.exit(1);
+}
 const ONLY = (val('only') || '').split(',').map(s => s.trim()).filter(Boolean);
 // Kandidát, kterého sada nerozlišila, nebyl horší — jen to nešlo změřit.
 const KEEP_INCONCLUSIVE = flag('keep-inconclusive');
@@ -545,19 +550,24 @@ queue.slice(0, 12).forEach((c, i) =>
 
 let picked = queue;
 if (ONLY.length) {
-  picked = ONLY.map((name) => {
+  picked = [];
+  for (const name of ONLY) {
     const local = installed.find(candidate => canonicalModelName(candidate.name) === canonicalModelName(name));
-    return {
+    // An explicit remote name still needs a catalog size before any pull.
+    // Unknown/private artifacts fail closed at the same storage gate.
+    const tags = local ? [] : await fetchFamilyTags(name.split(':')[0]);
+    const remote = tags.find(candidate => canonicalModelName(candidate.name) === canonicalModelName(name));
+    picked.push({
       ...(local || {}),
       name: local?.name || name,
       family: (local?.name || name).split(':')[0],
-      sizeGB: local?.sizeGB || 0,
+      sizeGB: local?.sizeGB || remote?.sizeGB || 0,
       installed: Boolean(local),
       artifact: local?.artifact || null,
       roles: ROLES,
       reasons: [local ? 'zadáno ručně; již nainstalováno' : 'zadáno ručně'],
-    };
-  });
+    });
+  }
 }
 if (INSTALLED_PANEL && picked.some(candidate => candidate.installed !== true)) {
   throw new Error('installed panel obsahuje nenainstalovaný artefakt');
@@ -568,7 +578,7 @@ if (!DO_RUN) {
     emitJsonArtifact({
       gpu, familiesTotal,
       perRole: Object.fromEntries([...perRole].map(([r, l]) => [r, l])),
-      queue,
+      queue: picked,
     });
   } else log('\n(bez --run se nic nestahuje; --run --limit=N zkusí N nejlepších)');
   process.exit(0);
@@ -636,7 +646,7 @@ const toTry = [];
 let plannedDiskAvailableBytes = modelStorageAvailableBytes();
 for (const candidate of picked) {
   if (toTry.length >= LIMIT) break;
-  if (SCHEDULED && candidate.installed !== true) {
+  if (candidate.installed !== true) {
     // Ollama catalog sizes are decimal-ish labels; treating them as GiB is a
     // conservative overestimate. Reserve cumulatively for all pulls selected
     // in this tick, because losing candidates stay on disk by default.
@@ -658,6 +668,18 @@ log(`\n══ ZKOUŠKA KANDIDÁTŮ (${toTry.length}) ══`);
 const results = [];
 for (const cand of toTry) {
   log(`\n─── ${cand.name}  (role: ${cand.roles.join(', ')}) ───`);
+  if (cand.installed !== true) {
+    // Earlier candidates and unrelated disk users may have consumed the space
+    // since queue planning. Recheck immediately before this candidate's pull.
+    const headroom = assessCandidateDownloadHeadroom({
+      diskAvailableBytes: modelStorageAvailableBytes(),
+      downloadBytes: Math.ceil(Number(cand.sizeGB) * 2 ** 30),
+    });
+    if (!headroom.ready) {
+      log(`  [storage-headroom] ${cand.name}: ${headroom.reason}`);
+      continue;
+    }
+  }
   const candidateStartedAt = new Date().toISOString();
   const r = await tryCandidate(cand.name, {
     runner: evaluationRunner,

@@ -38,6 +38,14 @@ aktuálního stavu je naproti tomu read-only:
 npm run report:model-evaluations
 ```
 
+Disková rezerva 40 GiB se kontroluje před pullem i v ručním režimu.
+`--only` pro nenainstalovaný model načte velikost jeho přesného katalogového
+tagu; neznámá velikost pull blokuje. `--limit` musí být kladné celé číslo.
+Výpis `--shortlist --only=...` ukazuje právě vybrané kandidáty.
+Metadata tagů používají auditovanou cestu
+`https://ollama.com/library/<family>/tags`; jiné cesty, query, tělo
+requestu a nepovolené hlavičky zůstávají zakázané.
+
 Poslední uchovaný factual discovery výstup je
 [model-shortlist-current-20260825.json](execution/runs/model-shortlist-current-20260825.json)
 (SHA-256 `9339a9017ee92495610391e673662b0e8ac5d767a18e2ec667aca31b829527b3`).
@@ -49,10 +57,51 @@ Jednorázový úplný panel všech kompatibilních lokálních artefaktů se spo
 node scripts/model-upgrade-hunt.js --run --installed-panel
 ```
 
-Tento režim nevolá vzdálené discovery, nepřidá do fronty nenainstalovaný model
-a znovu změří i dřívější VRAM blokace, aby se pod aktuálními suite kontrakty
-zapsal čerstvý `CANDIDATE_VRAM_FIT_FAILED`. Model s CPU offloadem nepokračuje
+Tento režim nevolá vzdálené discovery a nepřidá do fronty nenainstalovaný model.
+Použije existující COMPLETE se shodným digestem, rolí a suite kontraktem;
+rovněž přebírá dřívější VRAM blokace na stejném GPU a kontextu. Jde tedy o
+doplnění coverage, nikoli vynucené přeměření. Model s CPU offloadem nepokračuje
 do capability ani quality sad. Režim nic neaktivuje ani nemaže.
+
+`intervalIntegrity=LEGACY_UNVERIFIED` označuje nedoložený časový interval.
+Pouhý další hunt jej neopraví: cache a unikátní COMPLETE identita zachovají
+starý záznam. Přeměření stejného kontraktu vyžaduje samostatně vyřešit
+append-only opakované běhy; historii nemaž ani nepřepisuj.
+
+## Reprodukovatelný provider
+
+Původní patch `0cb3844557c2cbf0beac555da0147279eebd9488` je v
+[`patches/ollama/0001-chat-response-manifest-digest.patch`](../patches/ollama/0001-chat-response-manifest-digest.patch).
+[`scripts/build-ollama-evaluation-provider.sh`](../scripts/build-ollama-evaluation-provider.sh)
+obnoví přesný commit nad tagem `v0.32.14`, vyžaduje Go 1.26.7
+linux/amd64, sestaví binárku a ověří její SHA-256.
+
+```bash
+GO_BIN=/cesta/go1.26.7/bin/go \
+  scripts/build-ollama-evaluation-provider.sh /nova/cesta/provider-build
+```
+
+Skript potřebuje Git, C compiler a závislosti z `go.sum`. Výchozí zdroj
+je oficiální Ollama Git; `OLLAMA_SOURCE_URL` může ukázat na lokální zrcadlo,
+ale tag i výsledný commit se vždy ověřují. Reprodukce byla měřena s GCC
+13.3.0 na Ubuntu; jiné prostředí smí skončit neshodou hashe.
+
+MLX C kód obsahuje `__DATE__` a `__TIME__`. Recept proto připíná
+`SOURCE_DATE_EPOCH` na čas source commitu a používá novou Go cache.
+Jeho výstup má SHA-256
+`bdd8ca1320a1332b6977a3d7bc4b26d370e4e36c10188b6983998632568b1e20`.
+Historická a nyní systémová binárka má odlišnou identitu
+`72580ab98c5c82afe9cf73e5b7400b1d3cd94ec0777f961d1aefab878146878a`;
+nový build se za ni nesmí vydávat.
+
+Jde o Go část provideru. Inference potřebuje odpovídající native payload
+Ollama 0.32.14 včetně CUDA runneru. Skript nic neinstaluje ani nespouští.
+Nasazení nové binárky vyžaduje její runtime kvalifikaci; samotný shodný build
+hash není důkaz GPU scoringu. Dosavadní systémové nasazení a jeho omezená
+gateway kvalifikace jsou popsány v
+[`provider-activation-20260909.md`](execution/runs/m6/provider-activation-20260909.md).
+Případný evaluační sidecar používá pouze `127.0.0.1:11435` po dobu
+sériového scoringu. Nemění nastavení systémové služby.
 
 ## Plánovaný hunt
 

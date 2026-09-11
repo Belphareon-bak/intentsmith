@@ -16,6 +16,7 @@ export const OUTBOUND_ERROR_CODE = Object.freeze({
 
 const OUTBOUND_CAPABILITIES = new WeakMap();
 const MODEL_FAMILY_PATH = /^\/library\/[a-z0-9._-]+$/;
+const MODEL_FAMILY_TAGS_PATH = /^\/library\/[a-z0-9._-]+\/tags$/;
 const MAX_REDIRECTS = 4;
 
 function requestHeaderEntries(input, init) {
@@ -64,7 +65,9 @@ function validModelDiscoveryTarget({ url, method, headers, hasBody }) {
       ]);
   }
   if (url.origin === 'https://ollama.com') {
-    const exactPath = url.pathname === '/library' || MODEL_FAMILY_PATH.test(url.pathname);
+    const exactPath = url.pathname === '/library'
+      || MODEL_FAMILY_PATH.test(url.pathname)
+      || MODEL_FAMILY_TAGS_PATH.test(url.pathname);
     const allowedHeaders = headers?.length === 0
       || exactHeaders(headers, [['user-agent', 'c3-agent/1.0']])
       || exactHeaders(headers, [['user-agent', 'intentsmith/1.0']]);
