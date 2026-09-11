@@ -664,6 +664,21 @@ test('transient model-load contention stays in history but remains retryable', (
   db.close();
 });
 
+test('failed inference remains durable evidence and does not suppress another evaluation', () => {
+  const db = evaluationDb();
+  const history = new ModelEvaluationHistory(db);
+  history.recordTerminal({
+    artifact: { modelName: 'demo:latest', digestSha256: DIGEST_A }, role: 'CODE',
+    suiteName: 'code_patch', suiteVersion: 'v1', contractSha256: CONTRACT_A,
+    status: 'FAILED', errorCode: 'CANDIDATE_EVALUATION_RETRYABLE',
+    errorMessage: 'provider unavailable', hardware: { model: 'RTX 3090', vramMb: 24576 },
+  });
+  assertEqual(history.count(), 1);
+  assertEqual(history.getTerminal({ digestSha256: DIGEST_A, role: 'CODE',
+    suiteName: 'code_patch', suiteVersion: 'v1', contractSha256: CONTRACT_A }), null);
+  db.close();
+});
+
 test('measured CPU spill is reused across suite changes only on identical hardware and context', () => {
   const db = evaluationDb();
   const history = new ModelEvaluationHistory(db);

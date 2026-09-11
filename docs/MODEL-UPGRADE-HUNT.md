@@ -44,6 +44,9 @@ append-only provider intent/outcome a transport idle timeout. Chybějící
 injektovaná pull autorita skončí před prvním efektem. CLI při `--run` váže
 model-use autoritu na svou DB; měření, capability probe a quality request
 drží shared artifact claim. Selhaný pull nespouští ani cleanup modelu.
+Selhání provideru, timeout nebo neúplná sada se neagregují na nulové skóre:
+končí jako `FAILED/CANDIDATE_EVALUATION_RETRYABLE`, bez COMPLETE a bez
+quality cache. Záznam zůstane v historii, ale neblokuje nový pokus.
 `--only` pro nenainstalovaný model načte velikost jeho přesného katalogového
 tagu; neznámá velikost pull blokuje. `--limit` musí být kladné celé číslo.
 Výpis `--shortlist --only=...` ukazuje právě vybrané kandidáty.

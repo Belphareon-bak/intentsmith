@@ -101,7 +101,17 @@ async function runSuiteRepeated(
   const runs = [];
   for (let i = 0; i < repeats; i++) {
     if (i > 0 && between) await between();
-    runs.push(await runner.runSuite(suiteName, model, onProgress, expectedArtifact));
+    const run = await runner.runSuite(suiteName, model, onProgress, expectedArtifact);
+    // A transport/authority failure is not a zero-quality answer. Reject it
+    // before task aggregation drops error fields and before COMPLETE is saved.
+    if (run.cancelled || !Array.isArray(run.tests) || run.tests.length === 0
+      || (Number.isInteger(run.total) && run.total !== run.tests.length)
+      || run.tests.some(test => test.error || test.timedOut)) {
+      throw Object.assign(new Error(`Incomplete model evaluation: ${model} / ${suiteName}`), {
+        code: 'CANDIDATE_EVALUATION_RETRYABLE',
+      });
+    }
+    runs.push(run);
   }
 
   const byTask = new Map();

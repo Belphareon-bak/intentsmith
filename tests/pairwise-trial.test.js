@@ -20,6 +20,30 @@ const SUITES = Object.freeze({
   reasoning: Object.freeze({ name: 'reasoning', tests: UNIT_TASKS }),
 });
 
+await testAsync('provider failures and incomplete runs never become COMPLETE quality or cache entries', async () => {
+  for (const run of [
+    { tests: [{ name: 'x', score: 0, error: 'MODEL_USE_IN_FLIGHT' }] },
+    { tests: [{ name: 'x', score: 0, timedOut: true }] },
+    { tests: [{ name: 'x', score: 1 }], cancelled: true },
+    { tests: [{ name: 'x', score: 1 }], total: 3 },
+    { tests: [] },
+  ]) {
+    let saved = 0;
+    const cache = createSuiteCache();
+    let error;
+    try {
+      await comparePair({ runSuite: async () => run }, 'code', 'candidate', 'incumbent', {
+        repeats: 1, suiteCache: cache,
+        resolveArtifact: async modelName => ({ modelName, digestSha256: 'a'.repeat(64) }),
+        saveHistoricalSummary: async () => { saved++; },
+      });
+    } catch (caught) { error = caught; }
+    assertEqual(error?.code, 'CANDIDATE_EVALUATION_RETRYABLE');
+    assertEqual(saved, 0);
+    assertEqual(cache.size, 0);
+  }
+});
+
 /**
  * Runner, který pro každý model vrátí předepsaná skóre úloh.
  *
