@@ -102,6 +102,7 @@ const REMOTE_ONLY = flag('remote-only');
 const EXPORT_CHAT_HISTORY = flag('export-chat-history');
 const SCHEDULED = flag('scheduled');
 const BOOTSTRAP = flag('bootstrap');
+const PULL_PROVIDER_URL = process.env.INTENTSMITH_HUNT_PULL_URL || config.ollama.baseUrl;
 const INCREMENTAL_ONLY = flag('incremental-only');
 const REPORT_PATH = val('report');
 if (INSTALLED_PANEL && (REMOTE_ONLY || ONLY.length > 0)) {
@@ -755,7 +756,7 @@ for (const cand of toTry) {
     runner: evaluationRunner,
     pullModel: async (name, onProgress, authority) => {
       const recovered = await upgradeManager.recoverOutstandingModelPulls(onProgress, {
-        modelNames: [name], providerOrigin: new URL(config.ollama.baseUrl).origin,
+        modelNames: [name], providerOrigin: new URL(PULL_PROVIDER_URL).origin,
       });
       if (recovered.length) {
         if (recovered.some(row => row.status !== 'RECOVERED')) throw Object.assign(new Error('Selected pull remains unresolved'), { code: 'CANDIDATE_EVALUATION_RETRYABLE' });
@@ -767,7 +768,7 @@ for (const cand of toTry) {
           code: 'CANDIDATE_EVALUATION_RETRYABLE',
         });
       }
-      return upgradeManager.pullModel(name, onProgress, authority);
+      return upgradeManager.pullModel(name, onProgress, { ...authority, baseUrl: PULL_PROVIDER_URL });
     },
     skipPull: cand.installed === true,
     // Jen role, pro které je tenhle model vůbec kandidátem.

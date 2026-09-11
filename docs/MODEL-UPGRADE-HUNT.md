@@ -208,3 +208,31 @@ Podporovaný provider popisuje [Decision 044](decisions/044-reproducible-evaluat
 Šablona GPU service vyžaduje také `@DB_PATH@`: absolutní cestu jedné
 provozní DB, před migrací zálohované SQLite backup API. Checkout-local DB
 ani soukromá kvalifikační kopie nejsou automaticky provozní evidence.
+
+## Sidecar pro pravidelný běh
+
+`scripts/run-model-hunt-provider.js` ověří SHA binárky a soupis native
+knihoven, spustí read-only sidecar na `127.0.0.1:11435` a předá argumenty
+hunt CLI. Při ukončení dávky sidecar zastaví. Provider log a JSON report
+zůstanou v `~/.local/state/intentsmith/model-hunt/run-*/`.
+
+Výchozí runtime je
+`~/.local/share/intentsmith/evaluation-provider/0.34.0-intentsmith.1`;
+`INTENTSMITH_EVAL_RUNTIME` dovoluje explicitní jinou cestu ke stejné
+ověřené binárce. Potřebuje `bin/ollama`, odpovídající `lib/ollama` a
+`native.sha256`. Manifest vzniká z ověřeného upstream archivu při instalaci.
+
+Scoring a čtení inventory používají sidecar. Pull používá systémový
+`127.0.0.1:11434` přes stejnou durable mutation autoritu; oba procesy musí
+číst `/usr/share/ollama/.ollama/models` (nebo explicitní `OLLAMA_MODELS`).
+Každý artefakt se po pullu znovu řeší přes evaluační inventory a response
+proof. Nesdílený sklad tedy nevytvoří COMPLETE. Systémová Ollama při této
+cestě neprovádí scoring; její starší verze nezneplatňuje označené měření
+na 0.34.0. Systémový upgrade zůstává samostatná instalační operace.
+
+Šablona timer service používá tento wrapper. Před zapnutím proveď například:
+
+```bash
+C3_DB_PATH=/absolutni/provozni.db node scripts/model-upgrade-hunt.js --bootstrap --shortlist --json
+C3_DB_PATH=/absolutni/provozni.db node scripts/run-model-hunt-provider.js --run --installed-panel --role=CODE,VISION --limit=10 --scheduled --keep-inconclusive
+```
