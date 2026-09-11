@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "0cbe8e2a0116a778d3eb5e61466064a44714ce9b",
-  "sourceTree": "ebba4b96e31a3fcbd73e6de06f503a6c3584455c",
+  "sourceRevision": "ceac3bc68636d8a24c06f16423fec623724d1a9b",
+  "sourceTree": "759fad01471b66c2f5295fa0974963c95ae01c2b",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -1249,6 +1249,7 @@
     "src/upgrade/model-failover.js -> src/db/model-policy.js",
     "src/upgrade/model-failover.js -> src/upgrade/model-identity.js",
     "src/upgrade/model-family-extensions.js -> src/upgrade/model-profiles.js",
+    "src/upgrade/model-hunt-state.js -> src/upgrade/model-identity.js",
     "src/upgrade/model-inventory.js -> src/upgrade/model-family-extensions.js",
     "src/upgrade/model-inventory.js -> src/upgrade/model-identity.js",
     "src/upgrade/model-profiles.js -> src/config.js",

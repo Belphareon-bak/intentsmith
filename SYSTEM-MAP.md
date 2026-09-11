@@ -540,3 +540,7 @@ Pravidelný GPU hunt 2026-09-11: implementace bootstrap/incremental ledgeru
 a provider-specific měření navazuje na explicitní zadání operátora.
 [Decision 044](docs/decisions/044-reproducible-evaluation-provider.md) zachycuje
 podporovanou cestu; stav zůstává `REVIEW_PENDING` do nezávislého review.
+
+Provider-specific hunt checkpoint 2026-09-11: module graph má 1 309 hran.
+Jediná nová hrana `model-hunt-state -> model-identity` sdílí kanonické
+jméno pro append-only discovery ledger; cykly zůstávají 3 / 28.

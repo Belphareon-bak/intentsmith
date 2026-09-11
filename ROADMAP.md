@@ -2917,3 +2917,7 @@ do outbound policy a existující upgrade manager; evaluační, capability a VRA
 volání váže na společnou model-use autoritu. Žádná hrana nebyla odstraněna,
 cykly zůstávají `3` / `28`. Přesné hrany a source provenance jsou zachované
 v `tests/fixtures/module-boundary/baseline.json`; nejde o nový acceptance verdikt.
+
+Provider-specific hunt checkpoint 2026-09-11: module graph má 1 309 hran.
+Jediná nová hrana `model-hunt-state -> model-identity` sdílí kanonické
+jméno pro append-only discovery ledger; cykly zůstávají 3 / 28.
