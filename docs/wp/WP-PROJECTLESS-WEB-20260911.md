@@ -66,7 +66,7 @@ Per-request schvalování se na autonomii neškáluje, proto:
 
 | Etapa | Co | Kontrola | Stav |
 |---|---|---|---|
-| 1 | konverzační rozsah, jeden schválený HTTPS GET | lidské schválení každého requestu | návrh hotový, čeká na §11 |
+| 1 | konverzační rozsah, jeden schválený HTTPS GET | lidské schválení každého requestu | návrh hranice hotový; backend blokovaný na podporovaném API/službě |
 | 2 | autonomní agent | ohraničený egress + reputace, bez lidského kroku | **samostatné rozhodnutí, nezahájeno** |
 
 Etapa 2 se **nesmí** udělat roztažením grantu z etapy 1.
@@ -159,11 +159,8 @@ kritičtější, protože obsah je cizí.
 ## 7. Otevřené otázky pro operátora
 
 1. Fail-open, nebo fail-closed, když je reputační zdroj nedostupný?
-2. Zůstává etapa 1 u jediného pevného hosta, nebo se rovnou otevírá širší
-   rozsah s reputační kontrolou? (Poznámka: živá dostupnost
-   `html.duckduckgo.com` dosud nebyla ověřena — je to scraping endpoint, který
-   bývá rate-limitovaný. Ověřit dřív, než se to prohlásí za vyřešených 34
-   scénářů.)
+2. Které podporované search API nebo operátorem řízená služba bude jediným
+   stage-1 backendem? `html.duckduckgo.com` je po §8 vyřazený kandidát.
 3. Jaký konkrétní reputační zdroj, a je přijatelná jeho licence a závislost?
 4. Kategorizační allowlist ano/ne, nebo stačí ohraničení bajtů?
 
@@ -181,16 +178,36 @@ dosažitelnost transportu:
 
 Obsah nebyl výsledková stránka. Byl to interaktivní bot challenge s požadavkem
 na výběr obrázků. Endpoint je tedy z tohoto hostu dosažitelný, ale **není
-aktuálně použitelný jako bezobslužný search backend**. Tento jeden preflight
-neprokazuje dlouhodobou dostupnost ani licenci. Etapa 1 musí před implementací
-zvolit podporované rozhraní/provider nebo výslovně přijmout tuto provozní
-závislost; dosavadních 34 scénářů tím není vyřešených.
+použitelný jako bezobslužný search backend a pro etapu 1 se odmítá**. Tento
+jeden preflight neprokazuje dlouhodobou dostupnost ani licenci. Dosavadních 34
+scénářů tím není vyřešených.
 
 Soukromý raw preflight je v ignorovaném
 `.intentsmith-artifacts/projectless-web-preflight-20260911/`. Do Git se
 nepřidává, protože challenge URL obsahuje efemérní serverové hodnoty.
 
-## 9. Co se nesmí předpokládat
+## 9. Přijímací hranice stage-1 backendu
+
+Před implementací musí být vybraný přesný backend a doložené všechny body:
+
+- jde o dokumentované a podporované API nebo operátorem spravovanou službu,
+  ne scraping HTML stránky či obcházení bot challenge;
+- má stabilní HTTPS origin, zveřejněný auth model, rate limits a provozní
+  podmínky slučitelné s lokálním produktem;
+- je rozhodnuté, co poskytovatel uvidí a jak dlouho může uchovávat dotaz,
+  IP adresu a identifikátory; credential nepatří do Git ani receiptu;
+- poskytuje strojově rozlišitelné úspěchy, limity a terminální chyby bez
+  skrytého fallbacku na druhý provider;
+- jeden inertní contract test a jeden živý benigní preflight prokážou přesný
+  request/response tvar před tvrzením, že search scénáře jsou vyřešené.
+
+Přijatelné třídy řešení jsou placené či bezplatné podporované search API nebo
+vlastní operátorem spravovaný metasearch. Volba konkrétní služby je stále
+operátorské rozhodnutí, protože vytváří externí datový tok, credential,
+licenční vztah a provozní závislost. Dokud není vybraná, etapa 1 je
+`BACKEND_DECISION_BLOCKED` a žádný network contract se neimplementuje.
+
+## 10. Co se nesmí předpokládat
 
 - že přijetí tohoto briefu je přijetím rozhodnutí,
 - že schválení etapy 1 zahrnuje etapu 2,
