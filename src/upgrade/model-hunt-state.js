@@ -24,9 +24,11 @@ export class ModelHuntState {
       return candidates.map(candidate => {
         const id = huntCandidateIdentity(candidate);
         if (!id) return { ...candidate, hunt: { schedulable: false, reason: 'CATALOG_REVISION_UNKNOWN' } };
-        this.db.prepare(`INSERT OR IGNORE INTO model_hunt_catalog
+        this.db.prepare(`INSERT INTO model_hunt_catalog
           (candidate_key, model_name, revision, first_seen_at, cohort, candidate_json)
-          VALUES (?, ?, ?, ?, ?, ?)`).run(id.key, id.name, id.revision, now, cohort, JSON.stringify(candidate));
+          SELECT ?, ?, ?, ?, ?, ? WHERE NOT EXISTS
+            (SELECT 1 FROM model_hunt_catalog WHERE candidate_key = ?)`)
+          .run(id.key, id.name, id.revision, now, cohort, JSON.stringify(candidate), id.key);
         const row = this.db.prepare('SELECT cohort, first_seen_at FROM model_hunt_catalog WHERE candidate_key = ?').get(id.key);
         return { ...candidate, hunt: { key: id.key, schedulable: true, cohort: row.cohort, firstSeenAt: row.first_seen_at } };
       });

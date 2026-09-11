@@ -392,7 +392,7 @@ suite('M1 model failover schema — exact migration contract');
 await testAsync('fresh file-backed DB creates all failover tables, indexes and triggers', async () => {
   await withMigratedDb(async (db) => {
     // M7 per-device notification receipt authority is the exact current tip.
-    assertEqual(getCurrentVersion(db), '2026_09_11_111_model_hunt_provider_identity');
+    assertEqual(getCurrentVersion(db), '2026_09_11_112_model_hunt_append_only');
 
     for (const table of [
       'model_desired_bindings',
@@ -676,7 +676,7 @@ await testAsync('second migration run is a no-op with an identical schema snapsh
     const before = schemaSnapshot(db);
     const result = await runMigrations(db);
     assertEqual(result.applied.length, 0);
-    assertEqual(result.skipped.length, 98);
+    assertEqual(result.skipped.length, 99);
     assertEqual(schemaSnapshot(db), before);
   });
 });
@@ -752,10 +752,11 @@ await testAsync('migration 054 preserves pre-existing success as unconfirmed evi
         '2026_09_09_109_m2_file_read_outputs',
         '2026_09_10_110_m2_file_list_outputs',
         '2026_09_11_111_model_hunt_provider_identity',
+        '2026_09_11_112_model_hunt_append_only',
       ]),
     );
     assertEqual(result.skipped.length, 55);
-    assertEqual(getCurrentVersion(db), '2026_09_11_111_model_hunt_provider_identity');
+    assertEqual(getCurrentVersion(db), '2026_09_11_112_model_hunt_append_only');
     assertEqual(
       db.prepare(`
         SELECT COUNT(*) AS count

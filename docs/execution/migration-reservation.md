@@ -425,3 +425,8 @@ Nejde o vzdálený fetch. Aktuální zdroj obsahuje 97 aplikovaných migrací.
 
 Union census 447 refs a 29 worktrees končil na 110; 111 je použita pro
 provider-specific evaluation reuse a append-only bootstrap/incremental ledger.
+
+Navazující census 452 refs / 333 objektů a 29 worktrees měl maximum 111,
+bez souboru pod slotem 112. **112** vlastní oprava ochrany stejného hunt
+ledgeru proti `INSERT OR REPLACE`; již aplikovaná migrace 111 se nemění.
+Důkaz: `intentsmith-hunt-production-20260911/migration112-census.json`.

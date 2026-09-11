@@ -1010,6 +1010,22 @@ await testAsync('durable hunt separates backlog, new revisions, provider upgrade
   let immutable = false;
   try { db.exec('DELETE FROM model_hunt_catalog'); } catch { immutable = true; }
   assert(immutable);
+  db.pragma('recursive_triggers = OFF');
+  for (const [table, column, changed] of [
+    ['model_hunt_bootstrap', 'started_at', 'rewritten'],
+    ['model_hunt_catalog', 'cohort', 'INCREMENTAL'],
+    ['model_hunt_attempts', 'outcome', 'RETRYABLE'],
+  ]) {
+    const before = db.prepare(`SELECT * FROM ${table} LIMIT 1`).get();
+    const replaced = { ...before, [column]: changed };
+    let denied = false;
+    try {
+      db.prepare(`INSERT OR REPLACE INTO ${table} (${Object.keys(replaced).join(',')})
+        VALUES (${Object.keys(replaced).map(() => '?').join(',')})`).run(...Object.values(replaced));
+    } catch (error) { denied = /append-only/.test(error.message); }
+    assert(denied, `${table} must reject identity replacement with recursive triggers off`);
+    assertEqual(JSON.stringify(db.prepare(`SELECT * FROM ${table} LIMIT 1`).get()), JSON.stringify(before));
+  }
   db.close();
 });
 
