@@ -16,7 +16,7 @@ export function renderBettingResult(result) {
     for(const s of t.selections) lines.push(`| ${safe(s.home)} – ${safe(s.away)} | ${date(s.kickoffAt)} | ${{home:'1',draw:'X',away:'2'}[s.outcomeId]} | ${s.decimalOdds} | ${pct(s.probability)} |`);
     lines.push('',`První–poslední zápas: ${date(t.window.firstKickoffAt)} – ${date(t.window.lastKickoffAt)}; rozestup ${t.window.spreadHours} h.`);
     lines.push(`Meze při neznámé závislosti a stejných odhadech p: ${pct(t.winProbability.dependenceBounds.lower)} – ${pct(t.winProbability.dependenceBounds.upper)}. Nejde o interval statistické jistoty.`);
-    if(t.money) lines.push(`Vklad ${money(t.money.stakeMinor)}; odhad návratnosti při výhře ${money(t.money.returnMinor)}, čistý zisk ${money(t.money.profitMinor)}; při prohře ztráta ${money(t.money.maxLossMinor)}. Modelové EV ${money(t.money.expectedProfitMinor)}.`);
+    if(t.money) lines.push(`Vklad ${money(t.money.stakeMinor)}; odhad návratnosti při výhře ${money(t.money.returnMinor)}, čistý zisk ${money(t.money.profitMinor)}; při prohře ztráta ${money(t.money.maxLossMinor)}. Odhad EV ${money(t.money.expectedProfitMinor)}.`);
     if(t.expiresAt) lines.push(`Platnost snapshotu do ${date(t.expiresAt)}.`);
   }
   if(result.rejections.length) {

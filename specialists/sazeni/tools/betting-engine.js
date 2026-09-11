@@ -10,6 +10,7 @@ export function extractBettingInput(input, attachments=[]) {
   const fenced=[...input.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)];
   try {
     const supplied=attachments.filter(a=>a && (a.type==='application/json'||a.type==='text/plain'));
+    if(supplied.length!==attachments.length) fail('NEEDS_INPUT','Pro sázkaře přilož JSON nabídku; tento formát přílohy nepodporuje.');
     if(supplied.length>1||attachments.length>5||fenced.length>1) fail('INVALID_REQUEST','Přilož právě jednu JSON nabídku se zadáním.');
     if(supplied.length) {
       if(fenced.length||body.startsWith('{')) fail('INVALID_REQUEST','Použij jeden zdroj JSON zadání.');

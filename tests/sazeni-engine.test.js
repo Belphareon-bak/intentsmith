@@ -68,7 +68,8 @@ await testAsync('Czech follow-ups, inline attachments, malicious payload and saf
  const payload=clone(),p=extractBettingInput('Sestav tiket do 3 dnů, kurz od 3 do 4, úspěšnost alespoň 20 %, rozestup max 8 h',[{type:'application/json',content:JSON.stringify(payload)}]);
  const a=await runBetting(p,{now:NOW});assert.equal(a.status,'READY');assert.equal(a.effectivePreferences.window.to,'2026-09-14T12:00:00.000Z');
  assert.equal(extractBettingInput('do 24 h nebo do 3 dnů').inputError.code,'INVALID_REQUEST');assert.equal(extractBettingInput('do 0.5 h').horizonHours,.5);
- assert.equal((await runBetting({payload})).status,'NEEDS_INPUT');assert.equal(extractBettingInput('{"request":{},"snapshot":{},"now":"fake"}').inputError.code,'INVALID_REQUEST');
+ const absentClock=await runBetting({payload});assert.equal(absentClock.status,'NEEDS_INPUT');assert.equal(JSON.parse(JSON.stringify(absentClock)).generatedAt,null);
+ assert.equal(extractBettingInput('Sestav tiket',[{type:'application/pdf',content:'fake'}]).inputError.code,'NEEDS_INPUT');assert.equal(extractBettingInput('{"request":{},"snapshot":{},"now":"fake"}').inputError.code,'INVALID_REQUEST');
  payload.snapshot.events[0].home.name='=HYPERLINK("evil")';const b=await run(payload.request,payload.snapshot);assert.ok(exportBettingCSV(b).includes("'=HYPERLINK"));
 });
 summary();

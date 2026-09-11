@@ -17,10 +17,10 @@ export async function buildTickets(request, snapshot, {
   now, signal=null, maxNodes=200000, yieldTask=async()=>{},
   clock=()=>0, deadlineMs=10000, trustedLiveDigest=null, includeAlternatives=true,
 }={}) {
-  const generatedAt=now;
-  const result={contract:'BettingResult',version:2,requestId:request?.requestId??null,
+  const generatedAt=now??null;
+  const result={contract:'BettingResult',version:2,requestId:typeof request?.requestId==='string'?request.requestId:null,
     runId:null,generatedAt,effectivePreferences:null,status:'INVALID_REQUEST',
-    dataMode:request?.dataMode??null,verifiedLive:false,
+    dataMode:['imported','historical','live'].includes(request?.dataMode)?request.dataMode:null,verifiedLive:false,
     coverage:null,search:{completed:false,nodes:0,limitReason:null,optimality:'unproven'},
     warnings:[],errors:[],tickets:[],alternatives:[],evidenceRefs:[],rejections:[]};
   try {

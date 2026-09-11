@@ -133,9 +133,9 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **222 475 ř.**, 604 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **240 627 ř.**, 518 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **512** (`418 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
+| `src/**/*.js` | **222 481 ř.**, 604 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **240 743 ř.**, 520 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **514** (`420 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **176 / 99** |
 | HTTP rout | ~230 |
 | **Schopností v `ACCEPTED/PASS`** | **1 z 22** (#2 CRE); #1 server/routing/DB je zatím `RUNTIME_VERIFIED` — jeho suite má 13 interních checků, zatímco behavior dokument obsahuje 16 řádků, takže tvrzení „13/13 chování“ není platný akceptační součet |
@@ -544,3 +544,24 @@ podporovanou cestu; stav zůstává `REVIEW_PENDING` do nezávislého review.
 Provider-specific hunt checkpoint 2026-09-11: module graph má 1 309 hran.
 Jediná nová hrana `model-hunt-state -> model-identity` sdílí kanonické
 jméno pro append-only discovery ledger; cykly zůstávají 3 / 28.
+
+## Doménové prototypy — operátorské zadání 2026-09-11
+
+V izolované větvi `codex/specialists-engines-20260911` je výpočetní řez sázkaře
+implementovaný a **REVIEW_PENDING**: import JSON, tvrdá časová okna 24/72 h a
+rozestup, limity kurzů/pravděpodobností, omezený solver, deterministický chat
+a lokální export. Živý provider, kalibrovaný model, DB historie/settlement a
+Studio formulář ještě nejsou implementované; nejde o dokončení celého kontraktu
+nebo aktivaci ve sdíleném provozním checkoutu.
+Viz [sázkař](specialists/sazeni/README.md) a [WP](docs/wp/WP-SPECIALISTS-20260911.md).
+
+Reálný účetní případ PDF+HEIC potvrdil potřebu spojit přílohy s existující
+měsíční knihou a exportovat dva různé formuláře. Celá tato cesta je stále
+**NOT_IMPLEMENTED**; [kontrakt](specialists/accountant-cz/MONTHLY-VAT-CONTRACT.md)
+vymezuje zdroje, rozpory, součty a validaci. Předané podklady nejsou úplnou
+evidencí přijaté strany referenčního XML. Privátní doklady nejsou v Git.
+
+Vstupní `7c693d32` má reprodukovanou chybu evidence: rezervační seznam migrací
+neobsahuje existující `2026_09_11_112_model_hunt_append_only.js`.
+`artifact-validation.test.js` na čisté kopii vstupu: 157 PASS / 1 FAIL.
+Tato práce migrace nemění a nepřijímá je za green.
