@@ -220,3 +220,166 @@ test('Studio can cancel an active draft without sending approval or a legacy mut
   assert.equal(session._m2Pending, null);
   assert.match(pane.msgs.at(-1).text, /M2_STUDIO_DRAFT_CANCELLED/);
 });
+
+function controlledStudio({ pending = true, paths = ['src/app.js'] } = {}) {
+  const origin = { surface: 'studio', sessionId: 'conversation-27', conversationId: 'conversation-27', projectId: 27 };
+  const planDigest = 'sha256:' + 'a'.repeat(64);
+  const session = { _projectId: 27, _convId: origin.conversationId,
+    _m2Pending: pending ? { lifecycleId: 'draft-27', planDigest, origin } : null };
+  const pane = { msgs: [], attachments: [] };
+  session.chat = pane;
+  const textarea = { value: '', style: {} };
+  const calls = [];
+  const view = {
+    lifecycleId: 'draft-27', state: 'awaiting_approval', planDigest,
+    plan: { identity: { lifecycleId: 'draft-27' }, state: 'awaiting_approval', origin,
+      changes: paths.map(file => ({ path: file, afterDigest: 'sha256:after', afterBytes: 23 })),
+      focusedTest: { binary: '/usr/bin/node', argv: ['--check', paths[0]], timeoutMs: 30000 }, gitCommit: null },
+    audit: { governanceDecision: { verdict: 'allow' } },
+    diff: paths.map(file => ({ path: file, before: { content: 'export const value=1;', digest: 'sha256:before' },
+      after: { content: 'export const value=42;', digest: 'sha256:after' } })),
+  };
+  const sandbox = vm.createContext({
+    _sessions: [session], _backendBase: 'http://fixture.invalid',
+    _M2_TERMINAL_STATES: { succeeded: true, failed: true, cancelled: true },
+    _sessionActive: 0, _persistSessionState() {}, renderChat() {}, _chatScrollPane() {}, AbortSignal, AbortController,
+    document: { getElementById() { return textarea; } }, C3WS: { hasActiveM1Turn() { return true; } },
+    fetch(url, options) {
+      return new Promise((resolve, reject) => calls.push({ url, options, reject,
+        resolve(payload, status = 200) { resolve({ ok: status === 200, status, json: async () => payload }); } }));
+    },
+  });
+  vm.runInContext(source.slice(source.indexOf('function _m2IsRecord'), source.indexOf('/* ── M4 learning')), sandbox);
+  vm.runInContext(functionSlice('_chatSendPane', '_chatGapChoice'), sandbox);
+  return { session, pane, calls, view,
+    command(cmd, arg = '') { sandbox._m2HandleStudioCommand(0, session, pane, null, cmd + ' ' + arg, cmd, arg); },
+    chatSend(text) { textarea.value = text; sandbox._chatSendPane(0); },
+    terminal(state = 'cancelled') { return { ...view, state,
+      terminal: { state, identity: { lifecycleId: view.lifecycleId }, planDigest } }; },
+  };
+}
+
+const flushStudio = () => new Promise(resolve => setImmediate(resolve));
+
+test('actual chat entry dispatches M2 cancel despite an active M1 turn and prepared send', async () => {
+  const studio = controlledStudio();
+  studio.command('/m2-approve');
+  studio.pane._preparedSend = { unrelated: true };
+  studio.chatSend('/m2-cancel stop_from_chat_entry');
+  assert.equal(studio.calls.length, 2);
+  assert.equal(studio.calls[1].url, 'http://fixture.invalid/api/m2/lifecycle/cancel');
+  assert.equal(JSON.parse(studio.calls[1].options.body).reason, 'stop_from_chat_entry');
+  assert.equal(studio.pane._preparedSend.unrelated, true, 'M2 cancel does not alter unrelated M1 ownership');
+  studio.calls[0].resolve(studio.terminal());
+  studio.calls[1].resolve(studio.terminal());
+  await flushStudio();
+  assert.equal(studio.pane._m2Busy, false);
+  assert.equal(studio.session._m2Pending, null);
+});
+
+for (const first of ['approve', 'cancel']) {
+  test(`Studio durable cancel during approval keeps both requests owned (${first} response first)`, async () => {
+    const studio = controlledStudio();
+    studio.command('/m2-approve');
+    studio.command('/m2-cancel', 'operator_stop');
+    studio.command('/m2-cancel', 'duplicate');
+    assert.equal(studio.calls.length, 2, 'one approval and one durable cancellation; no duplicate cancel');
+    assert.equal(studio.calls[1].url, 'http://fixture.invalid/api/m2/lifecycle/cancel');
+    assert.deepEqual(JSON.parse(studio.calls[1].options.body), {
+      lifecycleId: studio.view.lifecycleId, reason: 'operator_stop', origin: studio.view.plan.origin,
+    });
+    assert.equal(studio.calls[0].options.signal.aborted, false, 'durable cancel must not abort approval transport');
+    const firstIndex = first === 'approve' ? 0 : 1;
+    studio.calls[firstIndex].resolve(studio.terminal());
+    await flushStudio();
+    assert.equal(studio.pane._m2Busy, true, 'remaining request still owns the busy state');
+    assert.equal(studio.session._m2Pending, null);
+    studio.command('/m2-draft', 'src/next.js :: New request');
+    assert.equal(studio.calls.length, 2, 'late completion cannot race a newly accepted command');
+    studio.calls[1 - firstIndex].resolve(studio.terminal());
+    await flushStudio();
+    assert.equal(studio.pane._m2Busy, false);
+    assert.equal(studio.pane._m2Operation, null);
+    assert.equal(studio.session._m2Pending, null);
+    assert.match(studio.pane.msgs.at(-1).text, /Terminal state: cancelled/);
+  });
+}
+
+test('Studio late older approval view cannot reopen a cancelled plan', async () => {
+  const studio = controlledStudio();
+  studio.command('/m2-approve');
+  studio.command('/m2-cancel');
+  studio.calls[1].resolve(studio.terminal());
+  await flushStudio();
+  studio.calls[0].resolve(studio.view);
+  await flushStudio();
+  assert.equal(studio.session._m2Pending, null);
+  assert.equal(studio.pane._m2Busy, false);
+  assert.match(studio.pane.msgs.at(-1).text, /Terminal state: cancelled/);
+});
+
+test('Studio cancel transport failure preserves the running approval and pending binding', async () => {
+  const studio = controlledStudio();
+  studio.command('/m2-approve');
+  studio.command('/m2-cancel');
+  studio.calls[1].reject(new Error('controlled transport failure'));
+  await flushStudio();
+  assert.equal(studio.pane._m2Busy, true);
+  assert.equal(studio.session._m2Pending.planDigest, studio.view.planDigest);
+  assert.match(studio.pane.msgs.at(-1).text, /controlled transport failure/);
+  studio.calls[0].resolve(studio.terminal('failed'));
+  await flushStudio();
+  assert.equal(studio.pane._m2Busy, false);
+  assert.equal(studio.session._m2Pending, null);
+  assert.match(studio.pane.msgs.at(-1).text, /Terminal state: failed/);
+});
+
+test('Studio concurrent cancellation cannot use a changed origin', async () => {
+  const studio = controlledStudio();
+  studio.command('/m2-approve');
+  studio.session._convId = 'different-conversation';
+  studio.command('/m2-cancel');
+  assert.equal(studio.calls.length, 1);
+  assert.match(studio.pane.msgs.at(-1).text, /M2_STUDIO_CONTEXT_CHANGED/);
+  assert.equal(studio.pane._m2Operation.cancelIssued, false);
+  studio.calls[0].resolve(studio.terminal());
+  await flushStudio();
+  assert.equal(studio.pane._m2Busy, false);
+  assert.match(studio.pane.msgs.at(-1).text, /M2_STUDIO_CONTEXT_CHANGED/);
+});
+
+test('Studio conflicting canonical responses fail visibly without restoring pending approval', async () => {
+  const studio = controlledStudio();
+  studio.command('/m2-approve');
+  studio.command('/m2-cancel');
+  studio.calls[1].resolve(studio.terminal());
+  await flushStudio();
+  studio.calls[0].resolve(studio.terminal('failed'));
+  await flushStudio();
+  assert.equal(studio.session._m2Pending, null);
+  assert.equal(studio.pane._m2Busy, false);
+  assert.match(studio.pane.msgs.at(-1).text, /M2_STUDIO_CONFLICTING_TERMINAL/);
+});
+
+for (const paths of [['src/app.js', 'src/other.js'], ['src/app.js', 'src/other.js', 'src/third.cjs']]) {
+  test(`Studio serializes ${paths.length} explicit draft paths and previews every result`, async () => {
+    const studio = controlledStudio({ pending: false, paths });
+    studio.command('/m2-draft', paths.join(', ') + ' :: Change values together');
+    assert.equal(studio.calls.length, 1);
+    assert.deepEqual(JSON.parse(studio.calls[0].options.body).draft,
+      { paths, instruction: 'Change values together' });
+    studio.calls[0].resolve(studio.view);
+    await flushStudio();
+    for (const file of paths) assert.ok(studio.pane.msgs.at(-1).text.includes('Navržený úplný obsah ' + file));
+    assert.equal(studio.session._m2Pending.planDigest, studio.view.planDigest);
+  });
+}
+
+test('Studio rejects empty, duplicate and over-limit draft path lists before HTTP', () => {
+  for (const paths of ['src/app.js,', 'src/app.js, src/app.js', 'a.js,b.js,c.js,d.js']) {
+    const studio = controlledStudio({ pending: false });
+    studio.command('/m2-draft', paths + ' :: Change values together');
+    assert.equal(studio.calls.length, 0);
+    assert.match(studio.pane.msgs.at(-1).text, /M2_STUDIO_DRAFT_INPUT_INVALID/);
+  }
+});

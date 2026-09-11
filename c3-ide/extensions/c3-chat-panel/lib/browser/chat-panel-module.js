@@ -6240,8 +6240,11 @@ function _m2BeginStudioCommand(idx,st,ta,text){
   st._m2Busy=true;st._thinking={text:'M2 lifecycle…',ts:Date.now()};
   _sessionActive=idx;_persistSessionState();renderChat();_chatScrollPane(idx);
 }
-function _m2FinishStudioCommand(idx,s,st,text,isError){
-  st._m2Busy=false;st._m2DraftController=null;st._thinking=null;
+function _m2FinishStudioCommand(idx,s,st,text,isError,operation){
+  if(st._m2Operation===operation){
+    operation.requests--;
+    if(operation.requests===0){st._m2Busy=false;st._m2DraftController=null;st._thinking=null;st._m2Operation=null;}
+  }
   st.msgs.push({role:isError?'system':'assistant',text:text,tag:isError?'M2_ERROR':'M2'});
   _persistSessionState();renderChat();_chatScrollPane(idx);
 }
@@ -6253,12 +6256,15 @@ function _m2StudioError(error){
 function _m2IsGenericApproval(text){return /^(?:ano|ok|spusť(?: to)?|spust(?: to)?|yes|approve)$/i.test(text.trim());}
 function _m2HandleStudioCommand(idx,s,st,ta,text,cmd,arg){
   if(['/m2-draft','/m2-plan','/m2-approve','/m2-status','/m2-cancel'].indexOf(cmd)<0)return false;
-  if(st._m2Busy){
+  var running=st._m2Operation;
+  var concurrentCancel=st._m2Busy&&cmd==='/m2-cancel'&&running&&running.command==='/m2-approve'&&!running.cancelIssued;
+  if(st._m2Busy&&!concurrentCancel){
     if(cmd==='/m2-cancel'&&st._m2DraftController){st._m2DraftController.abort();return true;}
     st.msgs.push({role:'system',text:'M2 požadavek už běží. Vyčkejte na jeho pravdivý HTTP výsledek.',tag:'M2_ERROR'});renderChat();
     return true;
   }
-  var pending=_m2NormalizePending(s._m2Pending);s._m2Pending=pending;
+  var pending=_m2NormalizePending(concurrentCancel?running.pending:s._m2Pending);
+  if(!concurrentCancel)s._m2Pending=pending;
   var origin;var lifecycleId;var proposal;var draft;
   try{
     if(cmd==='/m2-plan'||cmd==='/m2-draft'){
@@ -6267,8 +6273,12 @@ function _m2HandleStudioCommand(idx,s,st,ta,text,cmd,arg){
       if(!arg)throw Object.assign(new Error('Použití: /m2-plan <strict JSON proposal>'),{code:'M2_STUDIO_PROPOSAL_REQUIRED'});
       if(cmd==='/m2-draft'){
         var split=arg.indexOf(' :: ');
-        if(split<1)throw Object.assign(new Error('Použití: /m2-draft src/app.js :: popis malé změny'),{code:'M2_STUDIO_DRAFT_INPUT_INVALID'});
-        draft={path:arg.slice(0,split).trim(),instruction:arg.slice(split+4).trim()};
+        if(split<1)throw Object.assign(new Error('Použití: /m2-draft src/app.js[, src/other.js] :: popis malé změny'),{code:'M2_STUDIO_DRAFT_INPUT_INVALID'});
+        var paths=arg.slice(0,split).split(',').map(function(file){return file.trim();});
+        if(paths.length>3||paths.some(function(file,index){return !file||paths.indexOf(file)!==index;})){
+          throw Object.assign(new Error('Zadejte jeden až tři různé soubory oddělené čárkou.'),{code:'M2_STUDIO_DRAFT_INPUT_INVALID'});
+        }
+        draft=paths.length===1?{path:paths[0],instruction:arg.slice(split+4).trim()}:{paths:paths,instruction:arg.slice(split+4).trim()};
       }else{
       try{proposal=JSON.parse(arg);}catch(parseError){throw Object.assign(new Error('Proposal není validní strict JSON.'),{code:'M2_STUDIO_PROPOSAL_JSON_INVALID'});}
       if(!_m2IsRecord(proposal))throw Object.assign(new Error('Proposal musí být JSON object.'),{code:'M2_STUDIO_PROPOSAL_INVALID'});
@@ -6294,7 +6304,17 @@ function _m2HandleStudioCommand(idx,s,st,ta,text,cmd,arg){
     return true;
   }
 
-  _m2BeginStudioCommand(idx,st,ta,text);
+  var operation;
+  if(concurrentCancel){
+    operation=running;operation.cancelIssued=true;operation.requests++;
+    if(ta){ta.value='';ta.style.height='22px';}
+    st.msgs.push({role:'user',text:text,tag:'M2'});
+    st._thinking={text:'Žádám o zrušení; čekám na potvrzený stav.',ts:Date.now()};
+    _persistSessionState();renderChat();_chatScrollPane(idx);
+  }else{
+    operation={command:cmd,pending:pending,requests:1,cancelIssued:false,terminal:null};st._m2Operation=operation;
+    _m2BeginStudioCommand(idx,st,ta,text);
+  }
   var request;
   if(cmd==='/m2-draft'){st._m2DraftController=new AbortController();st._thinking.text='Připravuji návrh; zrušení: /m2-cancel';renderChat();}
   if(cmd==='/m2-plan'||cmd==='/m2-draft'){
@@ -6326,15 +6346,23 @@ function _m2HandleStudioCommand(idx,s,st,ta,text,cmd,arg){
         pending&&pending.lifecycleId===lifecycleId?pending.planDigest:null);});
   }
   request.then(function(view){
+    // Approval and durable cancellation may return in either order. A terminal
+    // result owns the display and pending state; a late older view cannot reopen it.
+    if(view.terminal||_M2_TERMINAL_STATES[view.state]){
+      if(operation.terminal&&operation.terminal.state!==view.state){
+        throw Object.assign(new Error('Server vrátil konfliktní M2 terminály; obnovte durable stav.'),{code:'M2_STUDIO_CONFLICTING_TERMINAL'});
+      }
+      operation.terminal=view;
+    }else if(operation.terminal){view=operation.terminal;}
     if(view.state==='awaiting_approval'){
       s._m2Pending=_m2NormalizePending({lifecycleId:view.lifecycleId,planDigest:view.planDigest,origin:view.plan.origin});
     }else if(view.terminal||_M2_TERMINAL_STATES[view.state]){
       if(s._m2Pending&&s._m2Pending.lifecycleId===view.lifecycleId)s._m2Pending=null;
     }
-    _m2FinishStudioCommand(idx,s,st,_m2RenderStatus(view),false);
+    _m2FinishStudioCommand(idx,s,st,_m2RenderStatus(view),false,operation);
   }).catch(function(error){
     if(st._m2DraftController&&st._m2DraftController.signal.aborted)error=Object.assign(new Error('Generování návrhu zrušeno.'),{code:'M2_STUDIO_DRAFT_CANCELLED'});
-    _m2FinishStudioCommand(idx,s,st,_m2StudioError(error),true);
+    _m2FinishStudioCommand(idx,s,st,_m2StudioError(error),true,operation);
   });
   return true;
 }
@@ -6541,6 +6569,12 @@ function _m4HandleLearningCommand(idx,s,st,ta,text,cmd,arg){
 function _chatSendPane(idx){
   var ta=document.getElementById('c3-chat-ta-'+idx);
   var s=_sessions[idx];if(!s)return;var st=s.chat;
+  // An unrelated chat turn or attachment read cannot disable cancellation of
+  // an already running M2 operation. Its dispatcher still owns exact origin.
+  var m2CancelText=ta?ta.value.trim():'';
+  if(st._m2Busy&&/^\/m2-cancel(?:\s|$)/i.test(m2CancelText)){
+    _m2HandleStudioCommand(idx,s,st,ta,m2CancelText,'/m2-cancel',m2CancelText.slice(10).trim());return;
+  }
   if(typeof C3WS!=='undefined'&&C3WS.hasActiveM1Turn&&C3WS.hasActiveM1Turn(s))return;
   if(st._preparedSend)return;
   st.acSuggestion=null;/* clear autocomplete on send */
