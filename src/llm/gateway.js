@@ -651,7 +651,7 @@ class LLMGateway {
    * @param {LLMAuthToken} token
    */
   authorize(token) {
-    const validation = validateAuthToken(token);
+    const validation = validateAuthTokenPolicy(token);
     
     if (!validation.valid) {
       throw new Error(`Invalid LLM auth token: ${validation.error}`);
@@ -688,7 +688,7 @@ class LLMGateway {
   isAuthorized() {
     if (!this.currentAuth) return false;
 
-    const validation = validateAuthToken(this.currentAuth);
+    const validation = validateAuthTokenPolicy(this.currentAuth);
     return validation.valid;
   }
 
@@ -797,7 +797,10 @@ class LLMGateway {
 
     // Use inline token if provided, otherwise fall back to singleton
     const authToken = options._authToken || this.currentAuth;
-    const isAuthorizedCall = authToken && validateAuthToken(authToken).valid;
+    const authValidation = authToken
+      ? validateAuthToken(authToken)
+      : { valid: false, error: 'NO_TOKEN' };
+    const isAuthorizedCall = authValidation.valid;
 
     // ════════════════════════════════════════════════════════════════════════
     // AUTHORIZATION CHECK
@@ -819,6 +822,27 @@ class LLMGateway {
         this.audit.log('UNAUTHENTICATED_CALL', {
           promptLength: prompt.length
         });
+      }
+    }
+
+    // A valid process-local token must never bypass its declared role ceiling
+    // through the legacy callWithAuth() path. Keep unauthenticated non-strict
+    // test calls working, but fail closed for an issued token whose policy is
+    // invalid before rate limiting or any provider effect.
+    if (isAuthorizedCall) {
+      const policyValidation = validateAuthTokenPolicy(authToken);
+      if (!policyValidation.valid) {
+        this.audit.log('AUTH_TOKEN_POLICY_DENIED', {
+          role: authToken.role,
+          decisionId: authToken.decisionId,
+          reason: policyValidation.error,
+          maxTokens: authToken.maxTokens,
+          ...safeCorrelation(options, authToken),
+        });
+        throw new LLMGatewayError(
+          LLMGatewayErrorCode.AUTHORIZATION_DENIED,
+          'The model request authorization exceeds its role policy.',
+        );
       }
     }
 

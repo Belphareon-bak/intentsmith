@@ -26,11 +26,13 @@ import { MODEL_RUNTIME_PROFILE } from '../src/llm/model-runtime-profile.js';
 import {
   LLMCallerRole,
   LLMOperation,
+  RoleTokenCeilings,
   RoleTokenLimits,
   authTokenOperation,
   createAuthToken,
   createSpecDocumentAuthToken,
   validateAuthToken,
+  validateAuthTokenPolicy,
 } from '../src/llm/auth-types.js';
 import {
   executeM1ModelRequest,
@@ -362,6 +364,55 @@ try {
     );
     assertEqual(inheritedError.code, LLMGatewayErrorCode.INVALID_REQUEST);
     assertEqual(fetchCalls, 0);
+    assertSemaphoreReleased();
+  });
+
+  await testAsync('legacy direct gateway rejects an issued token above its role ceiling before provider effects', async () => {
+    let fetchCalls = 0;
+    globalThis.fetch = async () => {
+      fetchCalls += 1;
+      throw new Error('over-limit direct request reached provider');
+    };
+    assertEqual(RoleTokenLimits[LLMCallerRole.CRE_DECISION], 2000);
+    assertEqual(RoleTokenCeilings[LLMCallerRole.CRE_DECISION], 4096);
+    assertEqual(RoleTokenLimits[LLMCallerRole.TOOL_INTERNAL], 500);
+    assertEqual(RoleTokenCeilings[LLMCallerRole.TOOL_INTERNAL], 2048);
+    for (const role of [LLMCallerRole.CRE_DECISION, LLMCallerRole.TOOL_INTERNAL]) {
+      const exactCeiling = createAuthToken({
+        role,
+        decisionId: `m1-direct-exact-ceiling-${role}`,
+        auditContext: { sessionId: `m1-direct-exact-ceiling-session-${role}` },
+        maxTokens: RoleTokenCeilings[role],
+      });
+      assertEqual(validateAuthTokenPolicy(exactCeiling).valid, true);
+    }
+    const token = createAuthToken({
+      role: LLMCallerRole.CRE_DECISION,
+      decisionId: 'm1-direct-over-limit',
+      auditContext: { sessionId: 'm1-direct-over-limit-session' },
+      maxTokens: RoleTokenCeilings[LLMCallerRole.CRE_DECISION] + 1,
+    });
+    assertEqual(validateAuthToken(token).valid, true, 'token factory only validates token structure');
+    assertEqual(validateAuthTokenPolicy(token).error, 'TOKEN_LIMIT_EXCEEDS_ROLE');
+    assertThrows(() => llmGateway.authorize(token));
+    assertEqual(llmGateway.getCurrentAuth(), null);
+
+    const auditStart = llmGateway.getAuditLogs().length;
+    const error = await capturedFailure(callWithAuth(token, 'must not be sent', {
+      model: 'fixture-model:1b',
+      maxTokens: 1,
+      retries: 1,
+      correlation: correlation('direct-over-limit'),
+    }));
+
+    assertEqual(error.code, LLMGatewayErrorCode.AUTHORIZATION_DENIED);
+    assertEqual(fetchCalls, 0);
+    const denied = llmGateway.getAuditLogs().slice(auditStart).filter(entry => (
+      entry.event === 'AUTH_TOKEN_POLICY_DENIED'
+    ));
+    assertEqual(denied.length, 1);
+    assertEqual(denied[0].reason, 'TOKEN_LIMIT_EXCEEDS_ROLE');
+    assertEqual(denied[0].maxTokens, RoleTokenCeilings[LLMCallerRole.CRE_DECISION] + 1);
     assertSemaphoreReleased();
   });
 
