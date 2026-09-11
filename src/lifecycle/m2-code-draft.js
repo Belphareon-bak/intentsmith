@@ -40,7 +40,7 @@ export function compileCodeDraftInput(draft) {
     changes: paths.map(target => ({ path: target, afterContent: '' })),
     focusedTest: draft.focusedTest ?? {
       binary: process.execPath,
-      argv: ['--experimental-vm-modules', '-e', SYNTAX_CHECK, ...paths],
+      argv: ['--experimental-vm-modules', '-e', SYNTAX_CHECK, '--', ...paths],
       environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' },
       timeoutMs: 30_000,
     },

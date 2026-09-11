@@ -541,6 +541,19 @@ await testAsync('default syntax check accepts a CJS hashbang without evaluating 
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
+await testAsync('syntax check treats option-shaped paths only as filenames', async () => {
+  const root = makeProject();
+  try {
+    for (const file of ['--eval=process.exit(0),x.js', '-leading.js']) {
+      const { focusedTest } = compileCodeDraftInput({ path: file, instruction: 'Check syntax' });
+      fs.writeFileSync(path.join(root, file), 'export const value = 42;\n');
+      execFileSync(focusedTest.binary, focusedTest.argv, { cwd: root, stdio: 'pipe', timeout: 30_000 });
+      fs.writeFileSync(path.join(root, file), 'export const value = ;\n');
+      assert.throws(() => execFileSync(focusedTest.binary, focusedTest.argv, { cwd: root, stdio: 'pipe', timeout: 30_000 }));
+    }
+  } finally { fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 for (const invalidSyntax of [false, true]) {
   await testAsync(`draft then exact approval uses real file/syntax authority (${invalidSyntax ? 'rollback' : 'success'})`, async () => {
     const root = makeProject();
