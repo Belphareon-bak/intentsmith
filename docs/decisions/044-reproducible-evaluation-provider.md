@@ -43,6 +43,31 @@ Autocheck jen hlásí nové stabilní vydání. Instalace každé nové verze vy
 přenesení patche, kontrolu checksumů a runtime test. Upstream vydání bez
 response proof není automaticky způsobilé pro scoring.
 
+## Upřesnění operátora — uchování kandidátů
+
+Operátor následně upřesnil cílové chování: až se GPU hunt osvědčí, nemá
+uchovávat kandidáta, u kterého je průkazné, že nebude vhodnější než současné
+modely. Uvolněný disk má sloužit dalším kandidátům. Toto je podmíněný požadavek
+na automatický úklid, nikoli pokyn nyní zapnout dosavadní široké mazání.
+
+Prováděcí kritéria pro navazující implementaci a review:
+
+- Podkladem je dokončené, dostatečně rozlišující opakované měření přesného
+  artefaktu proti současným modelům na stejné verzi provideru a kontraktech sad.
+  Kandidát nemá přínos v žádné relevantní roli podle platné rozhodovací politiky;
+  posuzuje se také rychlost, nároky a využití v přípustném portfoliu rolí.
+- Chybějící měření, timeout, chyba provideru ani `INSUFFICIENT_EVIDENCE`
+  nejsou průkazem nevhodnosti. Nevyřešená role brání kvalitativnímu vyřazení
+  celého modelu. Samotné označení `winner=incumbent` nestačí.
+- Bezprostředně před odstraněním se ověří přesný digest a ochrany aktivních,
+  desired i rollback bindingů a právě používaných modelů. Odstranění vede
+  existující durable artifact authority; samotný diskový tlak důkaz nenahrazuje.
+- Odstraňuje se lokální artefakt. Výsledky, důvod vyřazení a audit zůstávají
+  v DB, aby se stejný zamítnutý artefakt bez změny podmínek znovu nestahoval.
+
+Tato kritéria zatím nejsou implementovanou retention policy. Automatické
+mazání zůstává vypnuté, dokud jeho nová cesta neprokáže uvedené chování.
+
 ## Omezení
 
 Toto není nezávislé acceptance review M6. Krátký katalogový manifest ID slouží

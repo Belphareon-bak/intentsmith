@@ -211,6 +211,12 @@ repo případů, např. AUDIT-v123/RISK-REGISTER, a změřit změnu rozlišiteln
 Historické doporučení VISION se musí na nové Ollamě znovu potvrdit před
 binding application. Žádná změna aktivních rolí v této dávce neproběhla.
 
+Navazující upřesnění operátora požaduje automatické odstraňování průkazně
+nepřínosných kandidátů až po osvědčení huntu. Kritéria a rozdíl proti dnešnímu
+širokému přepínači mazání zachycuje [Decision 044](../decisions/044-reproducible-evaluation-provider.md#upřesnění-operátora--uchování-kandidátů).
+Jde o navazující implementační práci; tento packet neprokazuje její dokončení
+a současná dávka automatické mazání nepoužívá.
+
 Evidence root (lokální, obsahuje také provozní backup; není publikován):
 `/home/belphareon/Projects/coworker/intentsmith-hunt-production-20260911`.
 Klíčové soubory: `provider-qualification.json`, `build.log`, `rebuild.log`,

@@ -197,6 +197,13 @@ Zůstává 40 GiB disková rezerva a výchozí zákaz mazání. Bootstrap může
 pokračovat v několika vlnách; nedostatek disku je `STORAGE_BLOCKED`, nikoli
 kvalitativní verdikt. Prázdný nebo již dokončený tick neměří incumbenty.
 
+Po osvědčení huntu má automatický úklid uvolňovat místo po prokazatelně
+nepřínosných kandidátech. Podmíněné zadání a kritéria jsou v
+[Decision 044 — uchování kandidátů](decisions/044-reproducible-evaluation-provider.md#upřesnění-operátora--uchování-kandidátů).
+Dosavadní široký `--allow-removal` tuto policy nesplňuje; během současné
+počáteční dávky zůstává vypnutý. Nedokončený nebo nerozlišený test není důvod
+pro odstranění modelu.
+
 Nová měření ukládají `metadata_json.provider.version` a API/report ukazují
 `providerVersion`. Starší evidence má `UNRECORDED`. Aktuální default build
 0.34.0-intentsmith.1 má SHA
