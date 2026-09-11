@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "f1c83276c1fd21ad37b8b011b1675a37362b5192",
-  "sourceTree": "9fb7406141000b3975c1bc980e2e501cf24d273b",
+  "sourceRevision": "305a08f0fab7c8aaa25cc7b160d738c8f42e0ad4",
+  "sourceTree": "851defbf60a6bd02afbe5c7b94d7c68c4d2b74dc",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -912,6 +912,7 @@
     "src/planner/self-critique.js -> src/core/logger.js",
     "src/planner/self-critique.js -> src/executor/error-normalizer.js",
     "src/planner/workflow.js -> src/config.js",
+    "src/planner/workflow.js -> src/core/chat-turn-error.js",
     "src/planner/workflow.js -> src/core/logger.js",
     "src/planner/workflow.js -> src/executor/c3-tool-executor.js",
     "src/planner/workflow.js -> src/llm/auth-types.js",
