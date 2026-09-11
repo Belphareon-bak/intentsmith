@@ -94,6 +94,9 @@ source review followed by the original real-model cookbook. Decision acceptance
 does not claim that 6000 is sufficient. The previous concise-prompt experiment
 failed and was reverted byte-for-byte.
 
+Exact candidate and review questions:
+[`Complete SPEC 6000 review packet`](../../review/2026-09-11-COMPLETE-SPEC-6000-REVIEW-PACKET.md).
+
 ### Web search in a conversation without a project
 
 Recommended decision: authorize the proposed separately typed
