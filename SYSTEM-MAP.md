@@ -528,3 +528,10 @@ do outbound policy a existující upgrade manager; evaluační, capability a VRA
 volání váže na společnou model-use autoritu. Žádná hrana nebyla odstraněna,
 cykly zůstávají `3` / `28`. Přesné hrany a source provenance jsou zachované
 v `tests/fixtures/module-boundary/baseline.json`; nejde o nový acceptance verdikt.
+
+Ollama autocheck / GPU hunt, 2026-09-11: denní metadata check je zapojený
+a běží; reprodukovaný provider prošel stream/non-stream/typed GPU kvalifikací.
+Finální kód `0e563cc8` má 352/352 deterministic PASS. Jednomodelový CODE
+pilot nad migrovanou kopií DB dokončil pull → měření → decision `INCUMBENT`;
+bindingy a původní DB se neměnily. Nezávislé review a sjednocení provozní DB
+zůstává otevřené. [Přesné výsledky a rozsah](docs/execution/runs/gpu-hunt-ollama-autocheck-20260911.md).

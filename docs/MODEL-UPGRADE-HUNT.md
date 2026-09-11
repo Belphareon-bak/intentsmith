@@ -104,6 +104,11 @@ nový build se za ni nesmí vydávat.
 
 Jde o Go část provideru. Inference potřebuje odpovídající native payload
 Ollama 0.32.14 včetně CUDA runneru. Skript nic neinstaluje ani nespouští.
+Runtime hledá native payload relativně k binárce: například
+`<build>/ollama` spolu s `<build>/lib/ollama/llama-server` a CUDA knihovnami.
+Samotné spuštění z `/usr/local` tuto vazbu nezajistí. Při lokálním ověření
+lze `<build>/lib/ollama` propojit s již ověřeným `/usr/local/lib/ollama`;
+při přenosu na jiný stroj je nutné dodat odpovídající native payload.
 Nasazení nové binárky vyžaduje její runtime kvalifikaci; samotný shodný build
 hash není důkaz GPU scoringu. Dosavadní systémové nasazení a jeho omezená
 gateway kvalifikace jsou popsány v
