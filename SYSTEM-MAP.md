@@ -565,3 +565,9 @@ Vstupní `7c693d32` má reprodukovanou chybu evidence: rezervační seznam migra
 neobsahuje existující `2026_09_11_112_model_hunt_append_only.js`.
 `artifact-validation.test.js` na čisté kopii vstupu: 157 PASS / 1 FAIL.
 Tato práce migrace nemění a nepřijímá je za green.
+
+Závěrečný profil na `85f16c53`: **343 PASS / 3 FAIL / 8 BLOCKED**, exit 1.
+Nové specialistické sady 13/13 PASS. Nový registry otisk není přijatou Gate 0
+policy, proto nightly self-test zůstává FAIL do samostatného review registrační
+delta; původní policy nebyla automaticky přepsána.
+[Důkaz, přesné non-PASS a otevřené části](docs/review/2026-09-11-SPECIALISTS-IMPLEMENTATION.md).
