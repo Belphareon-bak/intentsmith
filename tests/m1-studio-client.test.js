@@ -47,6 +47,7 @@ const {
   validateConsumerRuntime,
   validatePreloadSource,
   validateProtocolRuntime,
+  validateSidebarComposition,
 } = require('../c3-ide/scripts/verify-m1-consumer-build.js');
 
 const CANONICAL_PROTOCOL_FUNCTIONS = Object.freeze([
@@ -495,6 +496,21 @@ test('postbuild guard rejects a preload bundle that lost the byte bridge', () =>
   }
 });
 
+test('postbuild refuses the duplicate sidebar in either manifest or generated frontend', () => {
+  const manifest = { dependencies: { '@c3/chat-panel': '0.1.0' } };
+  const frontend = "await load(container, require('@c3/chat-panel/lib/browser/chat-panel-module'));";
+  assert.doesNotThrow(() => validateSidebarComposition(manifest, frontend));
+  for (const section of ['dependencies', 'devDependencies', 'optionalDependencies']) {
+    assert.throws(() => validateSidebarComposition({ ...manifest,
+      [section]: { ...manifest[section], '@c3-ide/c3-sidebar': '*' },
+    }, frontend), /legacy duplicate sidebar/);
+  }
+  assert.throws(() => validateSidebarComposition(manifest,
+    frontend + "require('@c3-ide/c3-sidebar/lib/browser/sidebar-module');"), /legacy duplicate sidebar/);
+  assert.throws(() => validateSidebarComposition({}, frontend), /sidebar owner.*missing/);
+  assert.throws(() => validateSidebarComposition(manifest, ''), /missing the current sidebar/);
+});
+
 test('the shipped preload bundle really carries the byte bridge', () => {
   /* lib/ is a build artifact, so this only asserts when a build is present:
      the tracked source guard above is what runs on a fresh clone. */
@@ -509,6 +525,10 @@ test('postbuild CLI composes exact paths and byte-level evidence', () => {
     const consumerBytes = Buffer.from('module.exports = {};\n// consumer\n');
     const bundleBytes = Buffer.from(`${CANONICAL_BUNDLE_MARKERS.join('\n')}\nžluťoučký\n`);
     const preloadBytes = Buffer.from(`${CANONICAL_PRELOAD_MARKERS.join('\n')}\n`);
+    const manifestBytes = Buffer.from(JSON.stringify({ dependencies: { '@c3/chat-panel': '0.1.0' } }));
+    const frontendBytes = Buffer.from("require('@c3/chat-panel/lib/browser/chat-panel-module');\n");
+    writePostbuildFile(studioRoot, 'applications/electron/package.json', manifestBytes);
+    writePostbuildFile(studioRoot, 'applications/electron/src-gen/frontend/index.js', frontendBytes);
     writePostbuildFile(
       studioRoot,
       'extensions/c3-protocol/lib/index.js',
@@ -544,6 +564,8 @@ test('postbuild CLI composes exact paths and byte-level evidence', () => {
     assert.match(stdout, /^STUDIO_M1_BUILD_CONSUMER_PASS /);
     const evidence = JSON.parse(stdout.replace(/^STUDIO_M1_BUILD_CONSUMER_PASS /, ''));
     assert.deepEqual(evidence, {
+      applicationManifestSha256: createHash('sha256').update(manifestBytes).digest('hex'),
+      frontendEntrySha256: createHash('sha256').update(frontendBytes).digest('hex'),
       bundleBytes: bundleBytes.length,
       bundleSha256: createHash('sha256').update(bundleBytes).digest('hex'),
       preloadBytes: preloadBytes.length,
@@ -554,6 +576,13 @@ test('postbuild CLI composes exact paths and byte-level evidence', () => {
       protocolSha256: createHash('sha256').update(protocolBytes).digest('hex'),
       protocolVersion: 1,
     });
+    writePostbuildFile(studioRoot, 'applications/electron/lib/frontend/bundle.js',
+      Buffer.concat([bundleBytes, Buffer.from('[C3] SidebarWidget created')]));
+    const staleExit = runCli({ studioRoot, protocol: validPostbuildProtocol(),
+      consumer: validPostbuildConsumer(), stdout: { write() {} },
+      stderr: { write(value) { stderr += value; } } });
+    assert.equal(staleExit, 1);
+    assert.match(stderr, /production bundle contains the legacy duplicate sidebar/);
   });
 });
 

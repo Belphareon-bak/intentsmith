@@ -255,8 +255,20 @@ Scoring a čtení inventory používají sidecar. Pull používá systémový
 číst `/usr/share/ollama/.ollama/models` (nebo explicitní `OLLAMA_MODELS`).
 Každý artefakt se po pullu znovu řeší přes evaluační inventory a response
 proof. Nesdílený sklad tedy nevytvoří COMPLETE. Systémová Ollama při této
-cestě neprovádí scoring; její starší verze nezneplatňuje označené měření
-na 0.34.0. Systémový upgrade zůstává samostatná instalační operace.
+cestě neprovádí scoring. Rozdělení je podle odpovědnosti a účtu, nikoli podle
+stáří verze: při kontrole 2026-09-12 oba endpointy hlásily
+`0.34.0-intentsmith.1`. Verze `/api/version` sama neprokazuje response-bound
+identitu; tu musí dodat každá měřená odpověď. Systémový upgrade zůstává
+samostatná instalační operace.
+
+Po změně suite kontraktu se starší COMPLETE zachovají jako historie.
+Chybějící aktuální incumbent není předpokladem pro pád: párový runner jej
+doměří po kandidátovi. Pokud některá inference selže, neúplná role nevytvoří
+rozhodnutí; ostatní role pokračují a hotový kandidátův souhrn zůstane v DB.
+Příští pokus jej může znovu použít a doměřit incumbenta. Journal zůstává
+RETRYABLE s obvyklým 24h odstupem. Úplné pokrytí panelu před timerem šetří
+měření, není však podmínkou samotného spuštění duelu. Retence vyžaduje vlastní
+úplné aktuální důkazy; tento retry režim nepovoluje mazání z FAILED.
 
 Šablona timer service používá tento wrapper. Před zapnutím proveď například:
 

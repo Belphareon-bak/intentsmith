@@ -170,6 +170,27 @@ function validatePreloadSource(preloadSource) {
   }
 }
 
+// The legacy workspace remains as historical source. Loading it alongside
+// @c3/chat-panel registers c3-sidebar twice and hides the current navigation.
+function validateSidebarComposition(manifest, frontendSource) {
+  const owner = '@c3/chat-panel';
+  const legacy = '@c3-ide/c3-sidebar';
+  if (!manifest?.dependencies?.[owner]) {
+    throw new Error('Studio sidebar owner @c3/chat-panel is missing');
+  }
+  for (const section of ['dependencies', 'devDependencies', 'optionalDependencies']) {
+    if (Object.hasOwn(manifest[section] || {}, legacy)) {
+      throw new Error('Studio application loads the legacy duplicate sidebar');
+    }
+  }
+  if (!frontendSource.includes(`${owner}/lib/browser/chat-panel-module`)) {
+    throw new Error('Studio generated frontend is missing the current sidebar module');
+  }
+  if (frontendSource.includes(legacy)) {
+    throw new Error('Studio generated frontend loads the legacy duplicate sidebar');
+  }
+}
+
 function validateConsumerRuntime(consumer) {
   if (!consumer) throw new Error('Studio M1 consumer is unavailable');
   for (const name of REQUIRED_CONSUMER_FUNCTIONS) {
@@ -269,7 +290,16 @@ function verifyM1ConsumerBuild(options = {}) {
   validateBundleSource(bundleSource);
   const preloadBytes = fs.readFileSync(preloadPath);
   validatePreloadSource(preloadBytes.toString('utf8'));
+  const application = path.join(studioRoot, 'applications', 'electron');
+  const manifestBytes = fs.readFileSync(path.join(application, 'package.json'));
+  const frontendBytes = fs.readFileSync(path.join(application, 'src-gen', 'frontend', 'index.js'));
+  validateSidebarComposition(JSON.parse(manifestBytes), frontendBytes.toString('utf8'));
+  if (bundleSource.includes('[C3] SidebarWidget created')) {
+    throw new Error('Studio production bundle contains the legacy duplicate sidebar');
+  }
   return Object.freeze({
+    applicationManifestSha256: sha256(manifestBytes),
+    frontendEntrySha256: sha256(frontendBytes),
     bundleBytes: bundleMetadata.size,
     bundleSha256: sha256(bundleBytes),
     preloadBytes: preloadMetadata.size,
@@ -309,5 +339,6 @@ module.exports = {
   validatePreloadSource,
   validateConsumerRuntime,
   validateProtocolRuntime,
+  validateSidebarComposition,
   verifyM1ConsumerBuild
 };

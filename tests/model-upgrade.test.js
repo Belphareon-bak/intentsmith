@@ -27,6 +27,7 @@ import {
   auditResponsibilitySegregation, buildInstalledCandidateQueue,
   materializeCurrentHardwareBlocks, resolveCurrentBindings,
   selectResponsibilityPortfolio, recordRoleEvaluationFailures,
+  createHistoryCallbacks,
 } from '../src/upgrade/model-upgrade-prototype.js';
 import {
   acquireGpuEvaluationLock, assessCandidateDownloadHeadroom,
@@ -35,6 +36,7 @@ import {
 
 import { assessHuntRetention, huntRetentionKey, pruneRejectedHuntModels } from '../src/upgrade/model-hunt-retention.js';
 import { createRoleEvaluationPlans } from '../src/eval/role-evaluation-plan.js';
+import { trialRole } from '../src/upgrade/pairwise-trial.js';
 
 const ASYNC_TEST_TIMEOUT_MS = 10_000;
 
@@ -1065,6 +1067,73 @@ test('effective runner defaults participate in suite contracts', () => {
   assertEqual(contract(), contract({ timeout: 120000, num_predict: 512, num_ctx: 4096, temperature: 0.1, top_p: 0.9 }));
   assert(contract() !== contract({ timeout: 30000 }), 'old timeout cannot reuse current evidence');
   assert(contract() !== contract({ num_ctx: 8192 }));
+});
+
+await testAsync('rotated reasoning contract resumes a missing incumbent from durable candidate evidence', async () => {
+  // Reproduce the review concern through the real pairwise/history boundary.
+  // Synthetic responses isolate retry semantics from a live GPU or model quality.
+  const db = evaluationDb();
+  try {
+    const history = new ModelEvaluationHistory(db);
+    history.setProviderVersion('0.34.0-intentsmith.1');
+    const plan = createRoleEvaluationPlans({ codeRuntimeAvailability: { ready: true } }).R1;
+    const inventory = [{ name: 'candidate:27b', digest: DIGEST_A },
+      { name: 'incumbent:27b', digest: DIGEST_B }];
+    for (const row of inventory) history.recordComplete({
+      artifact: { modelName: row.name, digestSha256: row.digest }, role: 'R1',
+      suiteName: plan.suiteName, suiteVersion: 'v136.1-prototype.1',
+      contractSha256: CONTRACT_A, summary: summaryRow(),
+    });
+    const oldRows = db.prepare('SELECT * FROM model_evaluation_runs ORDER BY run_id').all();
+    const calls = [];
+    let failIncumbent = true;
+    const runner = { runSuite: async (suiteName, model, progress, artifact) => {
+      assertEqual(suiteName, plan.suiteName);
+      assertEqual(artifact.digestSha256, model === inventory[0].name ? DIGEST_A : DIGEST_B);
+      assertEqual(artifact.providerVersion, history.providerVersion);
+      calls.push(model);
+      if (model === inventory[1].name && failIncumbent) return {
+        total: plan.taskCount, tests: [{ name: plan.suite.tests[0].name,
+          error: 'cold load timed out', timedOut: true, durationMs: 120000 }],
+      };
+      return { total: plan.taskCount, tests: plan.suite.tests.map(task => ({
+        name: task.name, score: model === inventory[0].name ? 0.9 : 0.5,
+        language: task.language, response: 'controlled fixture',
+      })) };
+    } };
+    const run = () => trialRole(runner, 'R1', inventory[0].name, inventory[1].name, {
+      evaluationPlan: plan, repeats: plan.repeats,
+      ...createHistoryCallbacks({ history, inventory }),
+    });
+    let failure;
+    try { await run(); } catch (error) {
+      failure = { role: 'R1', ...error.evaluationFailure, error: error.message, code: error.code };
+    }
+    assertEqual(failure?.model, inventory[1].name);
+    assertEqual(calls.join(','), [inventory[0].name, inventory[0].name,
+      inventory[0].name, inventory[1].name].join(','));
+    recordRoleEvaluationFailures({ result: { model: inventory[0].name, roleErrors: [failure] },
+      history, plans: { R1: plan }, hardware: {} });
+    const key = { role: 'R1', suiteName: plan.suiteName, suiteVersion: plan.suiteVersion,
+      contractSha256: plan.suiteContractSha256 };
+    const candidateRun = history.getComplete({ ...key, digestSha256: DIGEST_A });
+    assert(candidateRun, 'candidate COMPLETE survives the missing incumbent');
+    assertEqual(history.getComplete({ ...key, digestSha256: DIGEST_B }), null);
+    assertEqual(history.getTerminal({ ...key, digestSha256: DIGEST_B }), null,
+      'retryable failure must not suppress a later attempt');
+    failIncumbent = false;
+    const result = await run(); // new callbacks, no in-memory suite cache
+    assertEqual(calls.length, 7, 'only three incumbent repeats are needed on retry');
+    assert(calls.slice(4).every(model => model === inventory[1].name));
+    assertEqual(result.comparison.candidateRunId, candidateRun.runId);
+    assertEqual(result.comparison.incumbentRunId,
+      history.getComplete({ ...key, digestSha256: DIGEST_B }).runId);
+    assertEqual(result.decision.winner, 'candidate');
+    const failed = db.prepare("SELECT model_name,role,score FROM model_evaluation_runs WHERE status='FAILED'").all();
+    assertEqual(JSON.stringify(failed), JSON.stringify([{ model_name: inventory[1].name, role: 'R1', score: null }]));
+    assertEqual(JSON.stringify(db.prepare('SELECT * FROM model_evaluation_runs WHERE suite_contract_sha256=? ORDER BY run_id').all(CONTRACT_A)),
+      JSON.stringify(oldRows), 'historical scores remain byte-for-byte unchanged');
+  } finally { db.close(); }
 });
 
 test('only the failed model and attempted role receive a terminal row', () => {
