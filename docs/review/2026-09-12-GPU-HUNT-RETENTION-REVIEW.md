@@ -1,6 +1,7 @@
 # GPU hunt: ověření VISION a úzké automatické mazání
 
-**IMPLEMENTATION_GREEN / RETENTION_ENABLED / CLEANUP_QUEUED / BASELINE_RUNNING / REVIEW_PENDING.**
+**IMPLEMENTATION_GREEN / RETENTION_ENABLED / RETENTION_COMPLETE / BASELINE_COMPLETE / QUALITY_DISCRIMINATION_OPEN / REVIEW_PENDING.**
+Aktualizováno dokončovacím checkpointem níže; původní provozní údaje z 12:57 jsou historické.
 Navazuje na [validační packet](2026-09-12-GPU-HUNT-VALIDATION-REVIEW.md).
 Autoritou pro změnu je explicitní zadání operátora z 12. 9. 2026: zapnout
 automatické mazání modelů, které se jednoznačně nehodí pro žádnou roli.
@@ -185,3 +186,73 @@ proběhl skutečný DELETE nebo skončila celá dávka.
 Nezávislé review ani acceptance M6 tento packet neuzavírá.
 
 Evidence root: `/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912`.
+
+## Dokončovací checkpoint 2026-09-12 odpoledne
+
+Živá read-only kontrola na `ee4472d5`: baseline report z 13:09:35 CEST má
+13 kandidátů, z nich 12 dokončilo kvalitativní evaluaci bez roleErrors.
+Třináctý, `gemma4:31b`, skončil na hardwarovém gate. Následná údržba
+skončila `RETENTION_COMPLETE` a první skutečné automatické odstranění
+Gemmy bylo potvrzeno ve 13:09:47. Důvod `RETENTION_PRODUCTION_GPU_UNFIT`:
+3 266 729 797 B na CPU při kontextu 32768, tedy přibližně 3.04 GiB.
+Receipt uvádí odstraněný artefakt o velikosti přibližně 18.5 GiB;
+nejde o samostatné měření změny volného místa filesystemu. Ostatní modely
+zůstaly včetně bound modelů a rollbackově chráněného `llava:13b`.
+
+Aktuálně instalováno 12 modelů. Autoritativní projekce pro současný provider
+vrací 73 použitelných model-role buněk COMPLETE, 0 FAILED/BLOCKED/MISSING
+a 11 N/A. Historická DB má 220 COMPLETE / 209 BLOCKED / 32 FAILED přes
+24 jmen modelů. Tyto historické řádky nejsou počtem aktuálně testovaných
+modelů ani aktuálním coverage.
+
+### Neúspěšný bootstrap a již dodaná oprava
+
+`intentsmith-model-hunt-bootstrap-20260911.service` skončil 09:24:22 CEST
+s `Result=exit-code`, `ExecMainStatus=1`; spotřeboval 1 h 32 min CPU.
+Není to úspěšný baseline ani selhání offline testovacího prostředí.
+[Validační packet](2026-09-12-GPU-HUNT-VALIDATION-REVIEW.md#nálezy-z-první-dávky)
+již popisoval operátorské zastavení, suspend a chybné přiřazování chyb;
+chyběl v něm přesný název jednotky a následující soupis. Samotný terminální
+systemd status nedokazuje, že poslední vypsaná chyba byla příčinou ukončení.
+
+Všech 32 historických FAILED patří předchozí implementaci:
+Devstral 7, Qwen3.6 7, Qwen3-coder 6, Qwen3-30b-a3b 6, Phi4 6.
+Poslední vznikly v 09:21:31 CEST. Původní CLI chybu incumbenta chybně
+rozmnožilo do rolí kandidáta. Tyto řádky se nepřepisují ani nepoužívají
+jako důkaz jeho nízké kvality. Oprava `ed3d57ff` z 09:35 zachycuje
+skutečnou identitu selhané inference a pokračuje další rolí; výchozí cold-load
+budget je 120 s a účastní se kontraktu. Opakovaná regrese candidate-trial
+na `ee4472d5`: 36 PASS, včetně chyby incumbenta mezi úspěšnými rolemi.
+Následný živý baseline má 0 roleErrors. To nedokazuje nemožnost budoucího
+timeoutu; nedokončený duel zůstává RETRYABLE s 24h odstupem.
+
+### Co odděluje providery
+
+Oba dnes používají `0.34.0-intentsmith.1`. Systémová služba 11434 běží jako
+uživatel `ollama` z `/opt/intentsmith/ollama/0.34.0-intentsmith.1` a vlastní
+zápis do skladu. Sidecar 11435 běží jako `belphareon`, jen po dobu dávky,
+s připnutým hashem binárky/native payloadu, vypnutým cloudem, vlastním
+procesním stromem a jeho úplným ukončením. Uživatelský účet nemá zápis
+do systémového skladu (ověřeno oprávněními a `test -w`). Wrapper není
+filesystem ani HTTP sandbox. Sdílí GPU a sklad; oddělený port sám neřeší
+kontenci, tu musí pokrývat serializace a drain. Nepřítomnost 11435 mezi
+běhy je očekávaná. Rozdíl není „patchnutý versus nepatchnutý provider“.
+
+### Otevřená kvalita a IDE
+
+Historicky 76/178 rozhodnutí INCONCLUSIVE (42.7 %); současná read-model
+projekce má 28/77 (36.4 %). Jsou to řádky rozhodnutí, nikoli deduplikované
+páry. Historická procenta nejsou kontrolovaný benchmark proti srpnu.
+Reasoning role stále potřebují rozlišující úlohy odvozené z reálných
+repo vad. Rozšíření sad není součástí této dokumentační opravy a není
+hotové. Prahy se nesnižují a neúplný důkaz nepovoluje mazání ani aktivaci.
+
+Produktový Studio zdroj má Modely LLM → Evaluace: role, model, digest,
+stav, score, čas a rozhodnutí přes GET `/api/system/models/evaluations`.
+Hunt v této dávce běžel přes CLI/systemd; ovládání jeho dávky a průběhu
+v IDE tím nebylo prokázáno. Ani tento checkpoint netvrdí nový živý Electron
+journey. Verze providera je v DB/read modelu, ale tabulka ji zatím neukazuje.
+
+SHA-bound zdroje, read-only coverage, dokončený baseline, deletion receipt,
+terminální journal a regresní log jsou v `completionFollowup` strojového
+manifestu. Původní checkpointy a neúspěšné evidence zůstávají zachované.
