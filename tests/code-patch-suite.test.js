@@ -21,6 +21,19 @@ import { suiteContract } from '../src/upgrade/model-evaluation-history.js';
 
 suite('code-patch-suite');
 
+test('historical panel importer refuses before DB or provider access instead of relabelling old scores', () => {
+  let failure;
+  try {
+    execFileSync(process.execPath, ['src/eval/import-code-panel-history.js', '/missing-legacy-panel.json', '--db=/missing-database.sqlite'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 5000 });
+  } catch (error) { failure = error; }
+  assertEqual(failure?.status, 1);
+  assert(String(failure.stderr).includes('CODE_PANEL_HISTORY_PROVENANCE_REQUIRED'));
+  assert(!String(failure.stderr).includes('ENOENT'), 'refusal precedes report and DB access');
+  const importer = readFileSync(new URL('../src/eval/import-code-panel-history.js', import.meta.url), 'utf8');
+  assert(!/^import\s/m.test(importer), 'disabled importer must not bootstrap DB/provider modules');
+});
+
 test('CODE role plan nese exact current code_patch suite', () => {
   const plan = createRoleEvaluationPlans({ repeats: 1 }).CODE;
   assertEqual(plan.suiteName, 'code_patch');

@@ -454,11 +454,13 @@ function linkDependencies(repo, work) {
 /** Spustí testový soubor v síťovém namespace bez cesty ven. */
 export function runIsolatedTest(work, testFile, timeout = DEFAULT_TEST_TIMEOUT) {
   const env = { ...process.env, C3_DB_PATH: path.join(work, 'eval-scratch.sqlite') };
-  const inner = `ip link set lo up 2>/dev/null; exec node ${JSON.stringify(testFile)} 2>&1`;
+  // Keep Node identical to the grading contract and pass filenames as literal
+  // argv. JSON quoting is not shell quoting; filenames may contain $ or quotes.
+  const inner = 'ip link set lo up 2>/dev/null; exec "$1" -- "$2" 2>&1';
   try {
-    const out = execFileSync('unshare', ['-rn', 'sh', '-c', inner], {
+    const out = execFileSync('unshare', ['-rn', 'sh', '-c', inner, 'code-patch-test', process.execPath, testFile], {
       cwd: work, timeout, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe'], env,
     });
     return { passed: true, timedOut: false, output: out || '' };
   } catch (err) {
@@ -476,6 +478,7 @@ export function runIsolatedTest(work, testFile, timeout = DEFAULT_TEST_TIMEOUT) 
           '-p', `WorkingDirectory=${work}`,
           '-E', `C3_DB_PATH=${env.C3_DB_PATH}`,
           process.execPath,
+          '--',
           testFile,
         ], {
           cwd: work, timeout, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
@@ -662,7 +665,7 @@ export function applyAndTest(repo, task, codes, opts = {}) {
     writeFileSync(sourcePath, patched);
 
     let syntaxOk = true;
-    try { execFileSync('node', ['--check', sourcePath], { stdio: 'ignore', timeout: 30_000 }); }
+    try { execFileSync(process.execPath, ['--check', sourcePath], { stdio: 'ignore', timeout: 30_000 }); }
     catch { syntaxOk = false; }
     // Node 22 automatic module detection can return exit 0 for an incomplete
     // ESM file without package.json. Parse explicit modes as well; preserve
@@ -670,7 +673,7 @@ export function applyAndTest(repo, task, codes, opts = {}) {
     if (syntaxOk && /\.[cm]?js$/i.test(sourcePath)) {
       syntaxOk = ['module', 'commonjs'].some(mode => {
         try {
-          execFileSync('node', ['--check', `--input-type=${mode}`], {
+          execFileSync(process.execPath, ['--check', `--input-type=${mode}`], {
             input: patched, stdio: ['pipe', 'ignore', 'ignore'], timeout: 30_000,
           });
           return true;

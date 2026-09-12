@@ -38,3 +38,14 @@ evaluation/history tests: pin grader/helper/lock bytes and Node version into
 the CODE hash, fail closed on missing material, preserve old history and
 require new evidence for the changed contract. No inference, activation or
 foreign-hunt change. The separate migration/decision merge remains unperformed.
+
+Direct caller review found two bypasses of that same repair: the historical
+calibration import labels old means with today's contract and artifact, and
+patch tests/parser selected Node from PATH. Root also owns those two existing
+evaluation modules and their existing code-patch tests. Refuse the legacy
+history conversion before DB/provider bootstrap because the old report format
+cannot prove its original runtime/artifact; retain diagnostic calibration and
+all stored history. Pin actual parser/test executable to process.execPath,
+use literal argv across the shell boundary and pass the private scratch DB
+environment on both isolation paths. This restores evidence provenance; no
+new history import protocol or fresh measurement is invented.

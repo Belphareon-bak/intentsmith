@@ -13,7 +13,7 @@ import path from 'node:path';
 import {
   changedLines, deriveTask, buildPrompt, extractFunctionCode, extractFunctionCodes,
   applyAndTest, verifyTask, addedTestNames, parseTestOutput, scoreFromOutput, normalizedGain,
-  runIsolatedTests,
+  runIsolatedTest, runIsolatedTests,
 } from '../src/eval/code-patch-runner.js';
 
 function git(repo, args) {
@@ -58,6 +58,25 @@ function buildFixture() {
 const fx = buildFixture();
 
 suite('code-patch-runner');
+
+test('isolated test pins Node, preserves literal argv and forwards its private DB environment', () => {
+  const work = mkdtempSync(path.join(tmpdir(), 'codepatch-node-pin-'));
+  const originalPath = process.env.PATH;
+  try {
+    const bin = path.join(work, 'bin');mkdirSync(bin);
+    writeFileSync(path.join(bin, 'node'), '#!/bin/sh\necho WRONG_NODE_FROM_PATH\nexit 91\n', { mode: 0o700 });
+    const testFile = 'literal-$UNSET-$(echo wrong)-"quoted".cjs';
+    writeFileSync(path.join(work, testFile), `const assert=require('node:assert/strict');assert.equal(process.execPath,${JSON.stringify(process.execPath)});assert.equal(process.env.C3_DB_PATH,${JSON.stringify(path.join(work, 'eval-scratch.sqlite'))});console.log('PINNED_NODE_AND_PRIVATE_DB');`);
+    process.env.PATH = bin + path.delimiter + originalPath;
+    const result = runIsolatedTest(work, testFile, 10000);
+    assert(result.passed, result.output);
+    assert(result.output.includes('PINNED_NODE_AND_PRIVATE_DB'), 'the actual test file must execute');
+    assert(!result.output.includes('WRONG_NODE_FROM_PATH'));
+  } finally {
+    if (originalPath === undefined) delete process.env.PATH;else process.env.PATH = originalPath;
+    rmSync(work, { recursive: true, force: true });
+  }
+});
 
 test('vícesouborový test po prvním timeoutu končí fail-fast', () => {
   const seen = [];
