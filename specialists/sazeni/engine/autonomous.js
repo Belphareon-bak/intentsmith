@@ -1,4 +1,5 @@
 import { LIVE_BOOKS, oddsIOSnapshot, historyTeam } from '../providers/odds-io.js';
+import {FORTUNA_PUBLIC_BOOK,fortunaPublicSnapshot,fortunaPages} from '../providers/fortuna-public.js';
 import {buildTickets,digest} from './tickets.js';
 import {validateRequest} from './contract.js';
 import {keys,fail} from './values.js';
@@ -6,17 +7,19 @@ import {LEAGUES,historyRecords,fixturesSnapshot} from '../providers/football-dat
 import {fitFootball,predictFootball,marketProbabilities} from '../models/football.js';
 import {FORECAST_POLICY} from '../models/policy.js';
 export function autonomousRequest(preferences={},now) {
-  keys(preferences,[],['horizonHours','maxSpreadHours','minOdds','maxOdds','minProbability','leagues','bookmakerIds','minLegs','maxLegs','ticketCount','objective','minLegProbability','stake'],'preferences');
-  const p={horizonHours:24,minOdds:'1.5',maxOdds:'3',minProbability:0.4,leagues:[...LEAGUES],bookmakerIds:['bet365-reference'],minLegs:1,maxLegs:3,ticketCount:3,objective:'highest_probability',...preferences};
-  const live=Array.isArray(p.bookmakerIds)&&p.bookmakerIds.length>0&&p.bookmakerIds.every(b=>LIVE_BOOKS.includes(b));
+  keys(preferences,[],['horizonHours','maxSpreadHours','minOdds','maxOdds','minProbability','leagues','bookmakerIds','minLegs','maxLegs','ticketCount','objective','minLegProbability','stake','dataSource'],'preferences');
+  const referenceBooks=['bet365-reference','betfred-reference','bwin-reference','paddypower-reference'];
+  const p={horizonHours:24,minOdds:'1.5',maxOdds:'3',minProbability:0.4,leagues:[...LEAGUES],bookmakerIds:preferences.dataSource==='reference'?['bet365-reference']:[FORTUNA_PUBLIC_BOOK],minLegs:1,maxLegs:3,ticketCount:3,objective:'highest_probability',...preferences};
+  const source=p.dataSource??(Array.isArray(p.bookmakerIds)&&p.bookmakerIds.length&&p.bookmakerIds.every(b=>referenceBooks.includes(b))?'reference':'public_web');
   const r={contract:'BettingRequest',version:3,requestId:'auto:'+digest({p,now}),sport:'football',competitionIds:p.leagues,
     window:{timezone:'Europe/Prague',horizonHours:p.horizonHours,...(p.maxSpreadHours!==undefined?{maxSpreadHours:p.maxSpreadHours}:{})},
     bookmakerIds:p.bookmakerIds,ticketType:p.maxLegs===1?'single':'accumulator',legOdds:{min:'1.01',max:p.maxOdds},ticketOdds:{min:p.minOdds,max:p.maxOdds},legs:{min:p.minLegs,max:p.maxLegs},
-    probabilityFilter:{basis:'model',metric:'estimate',min:p.minProbability},objective:p.objective,ticketCount:p.ticketCount,diversity:{maxSharedEvents:0},exclude:{eventIds:[],participantIds:[],competitionIds:[]},dataMode:live?'live':'delayed',
+    probabilityFilter:{basis:'model',metric:'estimate',min:p.minProbability},objective:p.objective,ticketCount:p.ticketCount,diversity:{maxSharedEvents:0},exclude:{eventIds:[],participantIds:[],competitionIds:[]},dataSource:source,dataMode:source==='odds_io'?'live':source==='public_web'?'observed':'delayed',
     ...(p.stake!==undefined?{stake:p.stake}:{}),...(p.minLegProbability!==undefined?{minLegProbability:p.minLegProbability}:{})};
   validateRequest(r,now);
   if(!p.leagues.every(l=>LEAGUES.includes(l)))fail('NEEDS_INPUT','Zdroj historie zatím pokrývá E0, D1, I1, SP1 a F1.','preferences.leagues');
-  if(!live&&!p.bookmakerIds.every(b=>['bet365-reference','betfred-reference','bwin-reference','paddypower-reference'].includes(b)))fail('PROVIDER_ERROR','Pro české kanceláře je nutné připojení ověřeného API; veřejný zdroj poskytuje pouze referenční kurzy.','preferences.bookmakerIds');
+  if(source==='public_web'&&(p.bookmakerIds.length!==1||p.bookmakerIds[0]!==FORTUNA_PUBLIC_BOOK))fail('PROVIDER_ERROR','Veřejný sběrač nyní podporuje Fortunu. Tipsport při ověření odmítl přístup (403); zadej Fortuna. Jiný zdroj se nezvolí automaticky.','preferences.bookmakerIds');
+  if(source==='reference'&&!p.bookmakerIds.every(b=>referenceBooks.includes(b))||source==='odds_io'&&!p.bookmakerIds.every(b=>LIVE_BOOKS.includes(b)))fail('PROVIDER_ERROR','Kancelář neodpovídá zvolenému datovému zdroji.','preferences.bookmakerIds');
   return r;
 }
 export async function runAutonomous(preferences,turn={}) {
@@ -47,11 +50,15 @@ export async function runAutonomous(preferences,turn={}) {
       const bundle=await turn.bettingData.get({kind:'live',leagues:request.competitionIds,bookmakers:request.bookmakerIds,from:turn.now,to:new Date(windowEnd).toISOString()});
       sources.push(...bundle.sourceRefs);snapshot=oddsIOSnapshot(bundle,{now:turn.now,leagues:request.competitionIds,bookmakerIds:request.bookmakerIds});
     }
+    if(request.dataMode==='observed'){
+      const bundle=await turn.bettingData.get({kind:'fortuna_public',leagues:request.competitionIds,from:turn.now,to:new Date(windowEnd).toISOString()});
+      sources.push(...bundle.sourceRefs);snapshot=fortunaPublicSnapshot(bundle,{now:turn.now,leagues:request.competitionIds});
+    }
     for(const model of models) {
       const league=model.league;
       for(const event of snapshot.events.filter(e=>e.competitionId===league)){
-        const home=request.dataMode==='live'?historyTeam(event.home.name,model.teams):event.home.name;
-        const away=request.dataMode==='live'?historyTeam(event.away.name,model.teams):event.away.name;
+        const home=request.dataMode!=='delayed'?historyTeam(event.home.name,model.teams):event.home.name;
+        const away=request.dataMode!=='delayed'?historyTeam(event.away.name,model.teams):event.away.name;
         const prediction=home&&away?predictFootball(model,home,away):null;
         if(!prediction){diagnostics.push({eventId:event.eventId,reason:'MODEL_TEAM_HISTORY_INSUFFICIENT'});continue;}
         for(const market of event.markets){
@@ -62,9 +69,9 @@ export async function runAutonomous(preferences,turn={}) {
       }
     }
     const evaluationAt=new Date(Date.parse(turn.now)+((turn.clock?.()??started)-started)).toISOString();
-    result=await buildTickets(request,snapshot,{...turn,evaluationAt,trustedModelDigest:digest(snapshot),...(request.dataMode==='live'?{trustedLiveDigest:digest(snapshot)}:{})});
-    result.analysis={autonomous:true,policy:FORECAST_POLICY,sourceRefs:sources,models:models.map(({theta,teams,counts,...rest})=>rest),diagnostics,
-      limitations:['Pravděpodobnost výběru je automaticky odvozený tržní odhad. Strukturální model nepřekonal referenci a je diagnostický.',request.dataMode==='live'?'API feed potvrzuje zdroj a stáří dat; přijetí sázky konkrétním účtem ani kalibrace na české kanceláři nebyly ověřeny.':'Veřejný feed nemá čas pořízení jednotlivého kurzu ani záruku dostupnosti v ČR.','Historický CSV benchmark používá konzervativní publikační zpoždění; nemá původní snímky dat dostupných v daný okamžik.']};
+    result=await buildTickets(request,snapshot,{...turn,evaluationAt,trustedModelDigest:digest(snapshot),...(request.dataMode==='live'?{trustedLiveDigest:digest(snapshot)}:request.dataMode==='observed'?{trustedObservedDigest:digest(snapshot)}:{})});
+    result.analysis={autonomous:true,policy:FORECAST_POLICY,sourceRefs:sources,...(request.dataMode==='observed'?{publicSourcePages:fortunaPages(request.competitionIds)}:{}),models:models.map(({theta,teams,counts,...rest})=>rest),diagnostics,
+      limitations:['Pravděpodobnost výběru je automaticky odvozený tržní odhad. Strukturální model nepřekonal referenci a je diagnostický.',request.dataMode==='live'?'API feed potvrzuje zdroj a stáří dat; přijetí sázky konkrétním účtem ani kalibrace na české kanceláři nebyly ověřeny.':request.dataMode==='observed'?'Veřejná nabídka Fortuny byla pozorována bez přihlášení. Čas poslední změny kurzu ani přijetí sázky nejsou známé.':'Veřejný referenční feed nemá čas pořízení jednotlivého kurzu ani záruku dostupnosti v ČR.','Historický CSV benchmark používá konzervativní publikační zpoždění; nemá původní snímky dat dostupných v daný okamžik.']};
     const evidence={contract:'BettingAnalysisEvidence',version:1,request,snapshot,models,policy:FORECAST_POLICY,result};
     try{result.persistence={status:'SAVED',recordId:await turn.bettingData.save(evidence)};}catch{result.status=turn.signal?.aborted?'CANCELLED':'PERSISTENCE_ERROR';result.tickets=[];result.errors.push({code:'PERSISTENCE_ERROR',fieldPath:null,message:'Výsledek nebyl spolehlivě uložen.',retryable:false,sourceRef:null});}
     return result;

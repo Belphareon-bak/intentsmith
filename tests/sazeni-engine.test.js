@@ -2,6 +2,8 @@ import fs from 'node:fs';
 import {dcObjective,scoreProbabilities,fitFootball,predictFootball,marketProbabilities} from '../specialists/sazeni/models/football.js';
 import {parseCSV,ukInstant,historyRecords} from '../specialists/sazeni/providers/football-data.js';
 import {autonomousRequest} from '../specialists/sazeni/engine/autonomous.js';
+import {fortunaPublicSnapshot} from '../specialists/sazeni/providers/fortuna-public.js';
+import {historyTeam} from '../specialists/sazeni/providers/odds-io.js';
 import assert from 'node:assert/strict';
 import { suite, testAsync, summary } from './harness.js';
 import { buildTickets, digest } from '../specialists/sazeni/engine/tickets.js';
@@ -106,5 +108,26 @@ await testAsync('autonomous request never accepts manual probabilities or provid
  assert.throws(()=>marketProbabilities([1.01,1.01,1.01]),/MARGIN/);
  const payload=clone();payload.snapshot.events[0].markets[0].prediction={basis:'model',probabilities:{home:.9,draw:.05,away:.05},method:'invented',predictedAt:NOW};assert.equal(extractBettingInput(JSON.stringify(payload)).inputError.code,'INVALID_REQUEST');
  const {request,snapshot}=clone();request.probabilityFilter.basis='model';assert.equal((await run(request,snapshot,{trustedModelDigest:'fake'})).status,'MODEL_UNAVAILABLE');
+});
+const fortunaFixture=JSON.parse(fs.readFileSync(new URL('./fixtures/betting/fortuna-public.json',import.meta.url)));
+function publicBundle(){const listing=structuredClone(fortunaFixture.listing);listing.fixtures.forEach((e,i)=>{e.startDatetime=Date.parse(NOW)+(6+i)*3600000;});return {content:JSON.stringify({selected:listing.fixtures.map(event=>({league:'E0',event})),batches:[{ids:listing.fixtures.map(e=>e.id),data:fortunaFixture.markets,sourceRef:{retrievedAt:NOW}}]})};}
+await testAsync('public observed quotes require host provenance, expire and never impersonate updated live odds',async()=>{
+ const snapshot=fortunaPublicSnapshot(publicBundle(),{now:NOW,leagues:['E0']}),request=autonomousRequest({leagues:['E0'],minOdds:'2',maxOdds:'4',minProbability:.2,minLegs:2,maxLegs:2},NOW);request.probabilityFilter.basis='market';
+ assert.equal(request.dataSource,'public_web');assert.equal((await run(request,snapshot)).status,'PROVIDER_ERROR');
+ const result=await run(request,snapshot,{trustedObservedDigest:digest(snapshot)});assert.equal(result.status,'READY',JSON.stringify(result.errors));assert.equal(result.verifiedObservation,true);assert.equal(result.verifiedLive,false);assert.ok(result.tickets[0].selections.every(s=>s.sourceUpdatedAt===null));assert.equal(result.tickets[0].expiresAt,'2026-09-11T12:02:00.000Z');assert.ok(renderBettingResult(result).includes('čas poslední změny kurzu neznámý'));
+ const old=structuredClone(snapshot);old.events.forEach(e=>e.markets.forEach(m=>m.observedAt='2026-09-11T11:57:59.000Z'));const stale=await run(request,old,{trustedObservedDigest:digest(old)});assert.equal(stale.tickets.length,0);assert.ok(stale.rejections.some(r=>r.code==='STALE_OBSERVATION'));
+ const live={...snapshot,dataMode:'live'},liveRequest={...request,dataMode:'live'};const r=await run(liveRequest,live,{trustedLiveDigest:digest(live)});assert.equal(r.tickets.length,0);assert.ok(r.rejections.some(r=>r.code==='STALE_QUOTE'));
+ let ticks=0;const expired=await run(request,snapshot,{trustedObservedDigest:digest(snapshot),clock:()=>ticks++===0?0:130000});assert.equal(expired.tickets.length,0);
+ assert.throws(()=>autonomousRequest({bookmakerIds:['Tipsport.cz']},NOW),/403/);assert.equal(autonomousRequest({dataSource:'reference'},NOW).dataMode,'delayed');assert.equal(autonomousRequest({dataSource:'odds_io',bookmakerIds:['Tipsport.cz']},NOW).dataMode,'live');
+});
+await testAsync('captured Fortuna prices map by outcome identity rather than response order and reject changed markets',async()=>{
+ const snapshot=fortunaPublicSnapshot(publicBundle(),{now:NOW,leagues:['E0']});
+ for(const e of snapshot.events){const original=fortunaFixture.markets[e.eventId][0];for(const [i,type] of ['3q','3r','3s'].entries())assert.equal(e.markets[0].outcomes[i].decimalOdds,String(original.outcomes.find(o=>o.optionTypeId==='ufo:otyp:00-'+type).odds));}
+ for(const mutate of [m=>m.outcomes[0].marketId='other',m=>m.outcomes[0].optionTypeId=m.outcomes[1].optionTypeId,m=>m.outcomes[0].longName='Other team',m=>m.marketTypeDesc='Včetně prodloužení',m=>m.outcomes[0].odds=0,m=>m.kind='LIVE']){
+  const b=publicBundle(),raw=JSON.parse(b.content);mutate(Object.values(raw.batches[0].data)[0][0]);assert.throws(()=>fortunaPublicSnapshot({content:JSON.stringify(raw)},{now:NOW,leagues:['E0']}));
+ }
+ const raw=JSON.parse(publicBundle().content);Object.values(raw.batches[0].data).forEach(ms=>ms[0].outcomes[0].displayType='LOCKED');const suspended=fortunaPublicSnapshot({content:JSON.stringify(raw)},{now:NOW,leagues:['E0']});assert.ok(suspended.events.every(e=>e.markets[0].availability==='suspended'));
+ for(const [name,team] of [['Nottingham',"Nott'm Forest"],['Bayern','Bayern Munich'],['1.FC Köln','FC Koln'],['Bremen','Werder Bremen'],['PSG','Paris SG'],['Espanyol','Espanol'],['VFB Stuttgart','Stuttgart']])assert.equal(historyTeam(name,[team]),team);
+ assert.equal(historyTeam('Nottingham',["Nott'm Forest",'Nottm Forest']),null);assert.equal(historyTeam('Unknown FC',['Chelsea']),null);
 });
 summary();

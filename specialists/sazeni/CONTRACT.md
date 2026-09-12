@@ -1,10 +1,12 @@
-# Sázkař — kontrakt v3
+# Sázkař — kontrakt v3.1
 
 Datum 2026-09-12. Autorita: operátor požaduje autonomní získávání informací,
 vylučuje ručně dodané pravděpodobnosti a zachovává omezení času, kurzu a
 teoretické úspěšnosti. Tento dokument nahrazuje v2; ruční režim byl odstraněn.
 Stav: **IMPLEMENTED_SLICE / REVIEW_PENDING**. Nejde o přijetí celého cílového
-produktu. [WP](../../docs/wp/WP-SAZENI-AUTONOMOUS-20260912.md).
+produktu. Navazující [WP](../../docs/wp/WP-SAZENI-PUBLIC-20260912.md)
+autorizuje zkoušku z veřejných českých zdrojů bez placeného klíče; výchozí
+zdroj je nyní Fortuna. Číselné kontrakty zůstávají verzí 3, resp. snapshot 2.
 
 ## 1. Veřejný vstup a význam výsledku
 
@@ -12,7 +14,7 @@ Uživatel dodává preference, nikoli vektor pravděpodobností, model, zdrojov�
 URL, hesla nebo příslib důvěryhodnosti. Podporované vstupy:
 
 - text „do 24 h, kurz od 1.5 do 3, úspěšnost alespoň 40 %“;
-- text „Tipsport, do 3 dnů, rozestup max 12 h“;
+- text „Fortuna, do 3 dnů, rozestup max 12 h“;
 - JSON `{"preferences": {...}}`, případně textové změny v další zprávě.
 
 Uzavřený `preferences` kontrakt:
@@ -24,7 +26,8 @@ Uzavřený `preferences` kontrakt:
 | `minOdds`, `maxOdds` | desetinné stringy, celý tiket, `1.5` a `3` |
 | `minProbability` | číslo 0–1, teoretický bodový odhad celého tiketu, 0.4 |
 | `leagues` | neprázdný výběr `E0/D1/I1/SP1/F1`, výchozí všech pět |
-| `bookmakerIds` | referenční nebo české API kanceláře; režimy se nemíchají |
+| `dataSource` | `public_web` (výchozí), `reference`, `odds_io` |
+| `bookmakerIds` | výchozí `iFortuna CZ`; pouze kanceláře zvoleného zdroje |
 | `minLegs`, `maxLegs` | celé 1–8, výchozí 1 a 3 |
 | `ticketCount` | celé 1–10, výchozí 3 |
 | `objective` | `highest_probability` nebo `highest_expected_value`; výchozí první |
@@ -32,8 +35,11 @@ Uzavřený `preferences` kontrakt:
 | `stake` | `{currency:'CZK',perTicketMinor,totalBudgetMinor}`, celé haléře |
 
 Referenční kanceláře: `bet365-reference`, `betfred-reference`, `bwin-reference`,
-`paddypower-reference`; výchozí první. České API: `Tipsport.cz`, `Chance.cz`,
-`iFortuna CZ`, `Betano CZ`. Neznámá pole, vlastní `probabilities`, vektor p ve
+`paddypower-reference`; výchozí první při `dataSource:reference`. Samotný výběr
+referenčních kanceláří také zvolí referenci. `public_web` podporuje jen
+`iFortuna CZ`; Tipsport při veřejné sondě vrátil 403. `odds_io` se musí zvolit
+explicitně a podporuje `Tipsport.cz`, `Chance.cz`, `iFortuna CZ`, `Betano CZ`.
+Nedostupný zdroj se automaticky nenahradí. Neznámá pole, vlastní `probabilities`, vektor p ve
 snapshotu nebo tvrzení `trusted*` se odmítnou. Text nerozumí libovolnému jazyku:
 „dnes/zítra/víkend“ žádá upřesnění. Nepodporované sporty a in-play se neprovedou.
 
@@ -50,11 +56,12 @@ ponechává kompatibilní validaci `BettingRequest@2` pro syntetický replay, al
 `user_estimate` již není platný. Zachovává pole `requestId`, sport, soutěže,
 `window`, kanceláře, `ticketType`, `legOdds`, `ticketOdds`, `legs`,
 `probabilityFilter`, cíl, různost, výluky, `dataMode` a případný peněžní limit.
+Volitelný `dataSource` vybírá výše popsanou autonomní datovou cestu.
 Úplnou strojovou autoritou jsou [validátory](engine/contract.js).
 
 `BettingSnapshot@2` je uzavřená normalizovaná nabídka s identitou zdroje,
 časem, pokrytím, událostmi, účastníky a úplnými 1X2 trhy. `dataMode` je
-`delayed/live/imported/historical`. `sourceUpdatedAt:null` znamená neznámý čas
+`observed/delayed/live/imported/historical`. `sourceUpdatedAt:null` znamená neznámý čas
 pořízení kurzu; nikdy se nenahradí časem stažení. `observedAt` je čas získání
 konkrétního snímku. Průměrné/maximální kurzy více kanceláří nejsou jedna nabídka.
 
@@ -64,7 +71,9 @@ znamená výstup výpočetní politiky, nikoli automaticky predikci z výsledků
 aktuální přijatá **implementační volba** je tržní referenční metoda.
 Solver ji přijme pouze s odpovídajícím `trustedModelDigest` předaným kódem
 hostované autonomní cesty. Vstupní JSON takovou autoritu nezíská. Živé kurzy
-navíc vyžadují `trustedLiveDigest` stejného snapshotu. Změna jediného pole
+navíc vyžadují `trustedLiveDigest` stejného snapshotu; veřejná pozorovaná nabídka
+vyžaduje `trustedObservedDigest`. Import nemůže tvrdit ani jednu autoritu.
+Změna jediného pole
 zruší původní otisk. Tato interní atestace nepotvrzuje výhodnost sázky.
 
 ## 3. Autonomní datová cesta a authority
@@ -86,25 +95,45 @@ Uzavřené dotazy capability:
 
 - `{kind:'fixtures'}`: pevná veřejná CSV nabídka;
 - `{kind:'history',league,season}`: nejvýše aktuální a čtyři předchozí sezony;
+- `{kind:'fortuna_public',leagues,from,to}`: veřejná Fortuna bez účtu/klíče;
 - `{kind:'live',leagues,bookmakers,from,to}`: konkrétní nabídka z Odds-API.io;
 - `save(BettingAnalysisEvidence@1)`: jediný výsledek vlastního běhu.
 
 Síťové efekty používají společný `createOutboundPolicy` a přesný M5 outbound
 schema/audit writer v izolované DB sázkaře. Nová surface `betting-data`, scopes
-`sports.football.read` a `sports.odds.read` jsou omezené na GET, pevné HTTPS
-originy, cesty, hlavičky a uzavřené parametry. Veřejná data dovolují kanonický
+`sports.football.read`, `sports.fortuna.public.read` a `sports.odds.read` jsou
+omezené na GET, pevné HTTPS originy, cesty, hlavičky a uzavřené parametry.
+Football-Data dovoluje kanonický
 redirect www↔non-www. Jiný origin/cesta, lokální redirect, POST a dodatečné
 parametry jsou odmítnuty. Rozšíření se nepovažuje za nezávisle přijatý M5 konektor.
 Autoritou ke konkrétnímu čtení je operátorem vyžádaná autonomní úloha sázkaře.
 
 Limity: 120 s na invokaci, 32 capability get volání, 64 HTTP požadavků,
 15 s na jednotlivý přenos, 4 MB na odpověď, 16 MB na invokaci. Veřejné HTTP
-požadavky jsou serializované s minimálním odstupem 750 ms. Cache veřejné nabídky
-1 h a historie 24 h zachovává původní čas pozorování. Chyba/429 nevytváří retry
-bouři ani falešně čerstvou cache. API snímky se pro aktuální analýzu načítají
-znovu. Žádné vytvoření účtu, předplatné nebo podání sázky není součást capability.
+požadavky jsou serializované s minimálním odstupem 750 ms. Cache Football-Data
+referenční nabídky 1 h a historie 24 h zachovává původní čas pozorování.
+Chyba/429 nevytváří retry bouři ani falešně čerstvou cache. Fortuna i Odds-API.io
+se pro každý aktuální výpočet načítají znovu. Žádné vytvoření účtu, předplatné
+nebo podání sázky není součást capability.
 
 ## 4. Zdroje a časová kvalita
+
+Fortuna: veřejný JSON kanál anonymního webu `https://api.ifortuna.cz/offer/`.
+Pouze pevné cesty `structure/api/v1_0/tournament/{id}/matches?timeFilter=all`
+pro pět známých lig a `markets/api/v1_0/fixtures/markets/overview` s nejvýše
+deseti unikátními `fixtureIds`. Žádné cookies, klíč, obecné URL či prohlížeč
+v runtime. Nejvýše 100 vybraných událostí; větší rozsah se explicitně odmítne.
+Po cenách se znovu čte seznam a ověří identita, účastníci, stav a termín.
+
+Pouze předzápasové otevřené 1X2 v základní hrací době: typ `ufo:mtyp:00-00`,
+žádné specifiers, STANDARD, prázdné tournamentStageIds a přesné znění pravidla.
+Domácí/remíza/hosté se mapují podle `optionTypeId` a ověří proti názvu týmu,
+nikoli podle pořadí v JSON. Chybné schéma selže; pozastavený trh se nevydá.
+HTTP Date a případné Age musí potvrdit čerstvou odpověď do 120 s; to **není**
+čas změny kurzu. `sourceUpdatedAt` zůstává null. `observed` vyžaduje pozorování
+nejvýše 120 s staré, rozestup pozorování nejvýše 120 s a kontrolu vypršení po
+hledání. `verifiedObservation:true` neznamená `verifiedLive:true` ani přijetí
+sázky. Report ukáže čas načtení, obnovu a odkazy na veřejnou nabídku.
 
 Football-Data CSV: skutečná veřejná data, pět lig, britský čas převedený přes
 `Europe/London`; nejednoznačná/neexistující DST hodina se odmítne. Chybějící čas
@@ -140,7 +169,7 @@ Pouze zápasy starší než 48 h a data dostupná před `asOf`; pokud existuje
 časy: 48h pravidlo je konzervativní předpoklad, ne důkaz dostupnosti tehdy.
 Trénink používá posledních 1 461 dní, recency half-life 365 dní a ridge .005.
 Nové/neznámé týmy nebo méně než deset zápasů za poslední dva roky jsou vynechány.
-API týmy se spojují jen přes jedinečné normalizované jméno a verzované aliasy;
+Týmy Fortuny i API se spojují jen přes jedinečné normalizované jméno a verzované aliasy;
 žádné fuzzy sloučení. Tato konzervativní podmínka omezuje i tržní návrhy.
 
 Chronologický benchmark: train rolling, výběr 2021–2023, kalibrace 2023–2024,
@@ -190,11 +219,15 @@ zprávy třetím osobám nebo plánované notifikace.
 
 Implementováno a lokálně ověřeno: autonomní veřejná cesta, model, benchmark,
 preference, solver, chat, export, scoped datový host, persistence a negativní
-případy. API konektor má deterministické testy a ověřený veřejný katalog;
-**LIVE_VALIDATION_BLOCKED — chybí API klíč**. Ve sdílené aplikaci se nic
-neaktivovalo. Nezávislé review: **REVIEW_PENDING**.
+případy. Veřejná Fortuna má skutečný běh s načtenými cenami a tikety:
+[evidence](../../docs/review/2026-09-12-SAZENI-PUBLIC.md).
+Tipsport při veřejné sondě vrátil 403. Samostatný agregátor Odds-API.io má
+deterministické testy a ověřený katalog, ale jeho ceny zůstávají
+**LIVE_VALIDATION_BLOCKED — chybí API klíč**. Tento blok se nevztahuje na
+ověřenou veřejnou cestu Fortuny. Ve sdílené aplikaci se nic neaktivovalo.
+Nezávislé review: **REVIEW_PENDING**.
 
-Další nutné důkazy pro kvalitní provoz: živá sonda vybraných kanceláří,
+Další nutné důkazy pro kvalitní provoz: opakované měření dostupnosti zdroje,
 prospektivní as-of sběr, vyhodnocení kalibrace po ligách/horizontech a v pásmech
 výběru, celé tikety včetně závislostí, skutečné settlement podmínky, datové licence
 pro konkrétní použití. Teprve poté případná změna predikční politiky.

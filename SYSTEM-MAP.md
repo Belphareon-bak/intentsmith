@@ -133,8 +133,8 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **222 701 ř.**, 608 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **240 853 ř.**, 520 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **222 781 ř.**, 609 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **240 926 ř.**, 520 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **514** (`420 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **176 / 99** |
 | HTTP rout | ~230 |
@@ -601,3 +601,21 @@ Deterministický profil na `13dc20d9`: **343 PASS / 3 FAIL / 8 BLOCKED**,
 žádný timeout, run `2026-09-12T08-26-42-188Z`; sázkař 24/24 případů PASS.
 Plný profil zůstává FAIL. Následné opravy soupisu hran v ROADMAP a tohoto
 reportu jsou pouze dokumentační; přesná podoba non-PASS je v odkazované evidenci.
+
+## Veřejná Fortuna — operátorské zadání 2026-09-12
+
+Sázkař 3.1 má výchozí veřejnou Fortunu bez účtu nebo placeného klíče.
+Skutečný 72h běh načetl 44 zápasů, vytvořil tři dvoupoložkové tikety a uložil
+40 zdrojových pozorování. `observed / verifiedObservation:true` zachovává
+neznámý čas poslední změny ceny; nezaměňuje jej s časem stažení ani `verifiedLive`.
+Tipsport při veřejné sondě vrátil 403. Samostatný placený agregátor stále čeká
+na klíč; tento blok neplatí pro funkční veřejnou cestu Fortuny.
+
+Nový čistý core provider jde výhradně přes uzavřený GET scope stávajícího
+hostu a outbound auditu. Žádné browser session, cookies ani obecný webový fetch
+v balíčku specialisty. Kontroluje se identita trhů, termín před i po cenách,
+pozastavení a 120s expirace. Ověřen skutečný serializovaný chat i CLI.
+Sázkařovy testy 30/30 PASS; celý profil ještě čeká na měření tohoto kandidátu.
+Stav **IMPLEMENTED_SLICE / REVIEW_PENDING**; beze změny sdíleného provozu.
+[Návod](specialists/sazeni/README.md), [kontrakt](specialists/sazeni/CONTRACT.md),
+[důkazy a přesné hranice](docs/review/2026-09-12-SAZENI-PUBLIC.md).

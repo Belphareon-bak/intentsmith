@@ -15,12 +15,12 @@ const tolerance=1e-12;
 // A pure import remains useful without any network, model or provider identity.
 export async function buildTickets(request, snapshot, {
   now, evaluationAt=now, signal=null, maxNodes=200000, yieldTask=async()=>{},
-  clock=()=>0, deadlineMs=10000, trustedLiveDigest=null, trustedModelDigest=null, includeAlternatives=true,
+  clock=()=>0, deadlineMs=10000, trustedLiveDigest=null, trustedObservedDigest=null, trustedModelDigest=null, includeAlternatives=true,
 }={}) {
   const generatedAt=evaluationAt??null;
   const result={contract:'BettingResult',version:3,requestId:typeof request?.requestId==='string'?request.requestId:null,
     runId:null,generatedAt,effectivePreferences:null,status:'INVALID_REQUEST',
-    dataMode:['imported','historical','delayed','live'].includes(request?.dataMode)?request.dataMode:null,verifiedLive:false,
+    dataMode:['imported','historical','delayed','live','observed'].includes(request?.dataMode)?request.dataMode:null,verifiedLive:false,verifiedObservation:false,
     coverage:null,search:{completed:false,nodes:0,limitReason:null,optimality:'unproven'},
     warnings:[],errors:[],tickets:[],alternatives:[],evidenceRefs:[],rejections:[]};
   try {
@@ -33,11 +33,14 @@ export async function buildTickets(request, snapshot, {
     validateSnapshot(snapshot);
     if(snapshot.dataMode!==r.dataMode) fail('INVALID_REQUEST','Režim snapshotu neodpovídá zadání.','dataMode');
     const snapshotDigest=digest(snapshot);
-    result.runId=`bet:${digest({request:r,snapshotDigest,generatedAt,engine:'3.0.0',maxNodes,deadlineMs})}`;
+    result.runId=`bet:${digest({request:r,snapshotDigest,generatedAt,engine:'3.1.0',maxNodes,deadlineMs})}`;
     result.evidenceRefs=[{snapshotId:snapshot.snapshotId,digest:snapshotDigest,source:snapshot.source}];
     result.coverage={...snapshot.coverage,events:snapshot.events.length,eligibleSelections:0};
     if(r.dataMode==='live' && trustedLiveDigest!==snapshotDigest) fail('PROVIDER_ERROR','Aktuální feed není ověřen hostem; import nelze vydat za živé kurzy.','dataMode');
     result.verifiedLive=r.dataMode==='live';
+    if(r.dataMode==='observed'&&trustedObservedDigest!==snapshotDigest)fail('PROVIDER_ERROR','Veřejnou nabídku musí načíst host; import není ověřené pozorování.','dataMode');
+    result.verifiedObservation=r.dataMode==='observed';
+    const expiring=r.dataMode==='live'||r.dataMode==='observed';
     if(instant(snapshot.generatedAt)>time+5000) fail('INVALID_REQUEST','Snapshot pochází z budoucnosti.','snapshot.generatedAt');
     if(r.probabilityFilter.basis==='model' && trustedModelDigest!==snapshotDigest) fail('MODEL_UNAVAILABLE','Pravděpodobnosti musí vypočítat autonomní engine z dat hostu; ruční predikce nejsou přijímány.','probabilityFilter.basis');
     if(r.probabilityFilter.metric==='lower_bound') fail('MODEL_UNAVAILABLE','Validovaná dolní mez celého tiketu není dostupná; bodový odhad ji nenahrazuje.','probabilityFilter.metric');
@@ -45,7 +48,8 @@ export async function buildTickets(request, snapshot, {
       ? 'Pravděpodobnost je normalizovaný tržní odhad z celého 1X2 trhu, nikoli vlastní kalibrovaná predikce.'
       : 'Pravděpodobnosti vypočítala uvedená politika autonomního enginu. Zkontroluj její zdroj a výsledky měření.');
     result.warnings.push('Součin pravděpodobností předpokládá nezávislost. Odlišné zápasy ji nezaručují.');
-    if(r.dataMode!=='live') result.warnings.push('Referenční, importované a historické kurzy nejsou potvrzenou aktuální nabídkou kanceláře.');
+    if(r.dataMode==='observed')result.warnings.push('Kurzy byly načtené z veřejné nabídky kanceláře. Čas poslední změny ceny ani přijetí sázky na účtu nejsou ověřené.');
+    else if(r.dataMode!=='live') result.warnings.push('Referenční, importované a historické kurzy nejsou potvrzenou aktuální nabídkou kanceláře.');
     const candidates=[];
     let missingData=false;
     const minLeg=decimal(r.legOdds.min),maxLeg=decimal(r.legOdds.max);
@@ -68,6 +72,7 @@ export async function buildTickets(request, snapshot, {
         const observed=instant(m.observedAt), updated=m.sourceUpdatedAt===null?null:instant(m.sourceUpdatedAt);
         if(observed>time+5000||(updated!==null&&updated>time+5000)) {reject(e.eventId,m.marketId,'FUTURE_QUOTE');missingData=true;continue;}
         if(r.dataMode==='live'&&(updated===null||time-updated>120000||time-observed>120000)) {reject(e.eventId,m.marketId,'STALE_QUOTE');missingData=true;continue;}
+        if(r.dataMode==='observed'&&time-observed>120000){reject(e.eventId,m.marketId,'STALE_OBSERVATION');missingData=true;continue;}
         let ps, method;
         if(r.probabilityFilter.basis==='market') {
           const inverse=m.outcomes.map(o=>1/number(decimal(o.decimalOdds)));
@@ -81,7 +86,7 @@ export async function buildTickets(request, snapshot, {
           const odds=decimal(o.decimalOdds);
           if(compare(odds,minLeg)<0||compare(odds,maxLeg)>0||ps[o.outcomeId]+tolerance<(r.minLegProbability??0)) continue;
           candidates.push({event:e,market:m,outcome:o,odds,p:ps[o.outcomeId],method,kickoff,
-            quoteTime:updated??observed,expiresAt:r.dataMode==='live'?Math.min(updated+120000,observed+120000,kickoff-300000):null,
+            quoteTime:r.dataMode==='observed'?observed:updated??observed,expiresAt:expiring?Math.min(r.dataMode==='live'?updated+120000:Infinity,observed+120000,kickoff-300000):null,
             id:JSON.stringify([m.marketId,o.outcomeId])});
         }
       }
@@ -118,7 +123,7 @@ export async function buildTickets(request, snapshot, {
         const minTime=Math.min(state.minTime,c.kickoff),maxTime=Math.max(state.maxTime,c.kickoff);
         const minQuote=Math.min(state.minQuote,c.quoteTime),maxQuote=Math.max(state.maxQuote,c.quoteTime);
         if(maxTime-minTime>r.window.maxSpreadHours*3600000) continue;
-        if(r.dataMode==='live'&&maxQuote-minQuote>120000) continue;
+        if(expiring&&maxQuote-minQuote>120000) continue;
         stack.push({indices:[...state.indices,i],next:i+1,odds:multiply(state.odds,c.odds),p:state.p*c.p,minTime,maxTime,minQuote,maxQuote});
       }
     }
@@ -148,7 +153,7 @@ export async function buildTickets(request, snapshot, {
         totalOdds,winProbability:{basis:r.probabilityFilter.basis,estimate:f.p,jointMethod:'independence-assumption-v1',modelInterval:null,
           dependenceBounds:{lower:Math.max(0,selected.reduce((sum,c)=>sum+c.p,0)-(selected.length-1)),upper:Math.min(...selected.map(c=>c.p))}},
         window:{firstKickoffAt:new Date(f.minTime).toISOString(),lastKickoffAt:new Date(f.maxTime).toISOString(),spreadHours:(f.maxTime-f.minTime)/3600000},
-        expiresAt:r.dataMode==='live'?new Date(Math.min(...selected.map(c=>c.expiresAt))).toISOString():null,
+        expiresAt:expiring?new Date(Math.min(...selected.map(c=>c.expiresAt))).toISOString():null,
         money:stake===null?null:{currency:'CZK',stakeMinor:stake,returnMinor:returned,profitMinor:returned-stake,maxLossMinor:stake,
           expectedProfitMinor:Math.round(stake*f.roi),payoutRule:'estimate-half-up-minor-unit'},
         expectedRoi:f.roi,constraints:[
@@ -161,7 +166,7 @@ export async function buildTickets(request, snapshot, {
       result.tickets.push(ticket);
     }
     if(signal?.aborted) {result.tickets=[];result.status='CANCELLED';return result;}
-    if(r.dataMode==='live') {
+    if(expiring) {
       const elapsed=clock()-startClock;
       result.tickets=result.tickets.filter(t=>instant(t.expiresAt)>time+elapsed);
       if(feasible.length&&!result.tickets.length) fail('INSUFFICIENT_DATA','Kurzy vypršely během výpočtu.');
@@ -183,7 +188,7 @@ export async function buildTickets(request, snapshot, {
         const remainingMs=Math.floor(deadlineMs-(clock()-startClock));
         if(remaining<1||remainingMs<1||signal?.aborted) break;
         const trial=await buildTickets({...request,...proposal.patch},snapshot,{now,evaluationAt,signal,maxNodes:remaining,
-          yieldTask,clock,deadlineMs:remainingMs,trustedLiveDigest,trustedModelDigest,includeAlternatives:false});
+          yieldTask,clock,deadlineMs:remainingMs,trustedLiveDigest,trustedObservedDigest,trustedModelDigest,includeAlternatives:false});
         remaining-=trial.search.nodes;
         result.alternatives.push({field:proposal.field,value:proposal.value,requestPatch:proposal.patch,
           status:trial.status,found:trial.tickets.length,search:trial.search,example:trial.tickets[0]??null});

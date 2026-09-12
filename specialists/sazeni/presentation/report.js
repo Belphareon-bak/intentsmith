@@ -8,10 +8,15 @@ export function renderBettingResult(result) {
   const prefs=result.effectivePreferences;
   const date=t=>new Intl.DateTimeFormat('cs-CZ',{timeZone:prefs?.window.timezone??'Europe/Prague',dateStyle:'short',timeStyle:'short'}).format(new Date(t));
   if(prefs) lines.push(`Okno začátků: ${date(prefs.window.from)} – ${date(prefs.window.to)} (${safe(prefs.window.timezone)}). Maximální rozestup ${prefs.window.maxSpreadHours} h.`);
-  lines.push(`Data: ${result.verifiedLive?'ověřený živý snapshot':result.dataMode==='delayed'?'automaticky načtená referenční nabídka; aktuální kurz v kanceláři neověřen':'import / historická nabídka, aktuální dostupnost neověřena'}.`);
+  lines.push(`Data: ${result.verifiedObservation?'veřejná nabídka Fortuny načtená bez účtu a klíče; čas poslední změny kurzu neznámý':result.verifiedLive?'ověřený živý snapshot':result.dataMode==='observed'?'veřejnou nabídku se nepodařilo ověřit':result.dataMode==='delayed'?'automaticky načtená referenční nabídka; aktuální kurz v kanceláři neověřen':'import / historická nabídka, aktuální dostupnost neověřena'}.`);
   if(result.analysis?.autonomous) {
     if(result.analysis.policy) lines.push(`Pravděpodobnosti jsou tržní odhady očištěné o marži. Vlastní model z výsledků slouží k porovnání; měření zatím neprokázalo jeho přidanou hodnotu.`);
     for(const source of result.analysis.sourceRefs??[]) if(source.resource?.endsWith(':fixtures')) lines.push(`Zdroj: ${safe(source.url)}; načteno ${date(source.retrievedAt)}; soubor aktualizován ${source.lastModified?date(source.lastModified):'neznámo'}. Čas pořízení jednotlivých kurzů zdroj neuvádí.`);
+    if(result.verifiedObservation){
+      const quotes=(result.analysis.sourceRefs??[]).filter(s=>s.resource?.startsWith('fortuna-public:markets:')).map(s=>s.retrievedAt).sort();
+      if(quotes.length)lines.push(`Kurzy načteny ${date(quotes[0])} – ${date(quotes.at(-1))}. Výběr vyprší nejpozději dvě minuty po načtení cen; spusť nový výpočet pro jejich obnovení.`);
+      for(const page of result.analysis.publicSourcePages??[])lines.push(`Nabídka ${safe(page.league)}: ${safe(page.url)}`);
+    }
     if(result.persistence) lines.push(`Výpočet uložen: ${safe(result.persistence.recordId)}.`);
   }
   for(const [i,t] of result.tickets.entries()) {
@@ -22,7 +27,7 @@ export function renderBettingResult(result) {
     lines.push('',`První–poslední zápas: ${date(t.window.firstKickoffAt)} – ${date(t.window.lastKickoffAt)}; rozestup ${t.window.spreadHours} h.`);
     if(t.selections.length>1) lines.push(`Meze při neznámé závislosti a stejných odhadech p: ${pct(t.winProbability.dependenceBounds.lower)} – ${pct(t.winProbability.dependenceBounds.upper)}. Nejde o interval statistické jistoty.`);
     if(t.money) lines.push(`Vklad ${money(t.money.stakeMinor)}; odhad návratnosti při výhře ${money(t.money.returnMinor)}, čistý zisk ${money(t.money.profitMinor)}; při prohře ztráta ${money(t.money.maxLossMinor)}. Odhad EV ${money(t.money.expectedProfitMinor)}.`);
-    if(t.expiresAt) lines.push(`Platnost snapshotu do ${date(t.expiresAt)}.`);
+    if(t.expiresAt) lines.push(`${result.verifiedObservation?'Obnovit pozorované kurzy do':'Platnost snapshotu do'} ${date(t.expiresAt)}.`);
   }
   if(result.rejections.length) {
     const counts={};for(const r of result.rejections) counts[r.code]=(counts[r.code]??0)+1;

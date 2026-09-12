@@ -1,4 +1,5 @@
 import { fetchOddsIO } from './odds-io.js';
+import {fetchFortunaPublic} from './fortuna-public.js';
 import {createOutboundPolicy} from '../network/outbound-policy.js';
 const LEAGUES=['E0','D1','I1','SP1','F1'];
 const fail=(code)=>{throw Object.assign(new Error(code),{code});};
@@ -28,6 +29,23 @@ export function createBettingDataHost({store,transport,clock=Date.now,oddsIOKey=
     async get(token,request) {
       const s=state(token);if(++s.calls>32)fail('PROVIDER_CALL_BUDGET');
       if(!request||typeof request!=='object'||Array.isArray(request))fail('PROVIDER_REQUEST_INVALID');
+      if(request.kind==='fortuna_public')return observe(s,fetchFortunaPublic(request,{now:s.now,getJSON:(url,resource)=>{
+        const action=queue.then(async()=>{
+          state(token);
+          const delay=Math.max(0,nextPublicRequestAt-clock());
+          if(delay)await new Promise((resolve,reject)=>{const finish=()=>{s.signal.removeEventListener('abort',abort);resolve();},timer=setTimeout(finish,Math.min(delay,1000)),abort=()=>{clearTimeout(timer);s.signal.removeEventListener('abort',abort);reject(Object.assign(new Error('CANCELLED'),{code:'CANCELLED'}));};s.signal.addEventListener('abort',abort,{once:true});if(s.signal.aborted)abort();});
+          state(token);nextPublicRequestAt=clock()+750;if(++s.networkCalls>64)fail('PROVIDER_CALL_BUDGET');
+          const signal=AbortSignal.any([s.signal,AbortSignal.timeout(15000)]);
+          const response=await policy.fortunaPublicFetch(url,{method:'GET',headers:{accept:'application/json'},signal});
+          if(!response.ok){await response.body?.cancel();fail(response.status===429?'PROVIDER_RATE_LIMITED':'FORTUNA_PUBLIC_HTTP_'+response.status);}
+          if(!response.headers.get('content-type')?.includes('application/json')){await response.body?.cancel();fail('FORTUNA_PUBLIC_SCHEMA_CHANGED');}
+          const serverTime=Date.parse(response.headers.get('date')),age=Number(response.headers.get('age')??0);
+          if(!Number.isFinite(serverTime)||Math.abs(clock()-serverTime)>120000||!Number.isFinite(age)||age<0||age>120){await response.body?.cancel();fail('FORTUNA_PUBLIC_RESPONSE_STALE');}
+          const bytes=await readBounded(response,4_000_000,signal);s.bytes+=bytes.length;if(s.bytes>16_000_000)fail('PROVIDER_BYTE_BUDGET');state(token);
+          // Resource records the closed query scope. No browser/session state.
+          return store.record(resource,url.origin+url.pathname,bytes,{retrievedAt:new Date(clock()).toISOString()});
+        });queue=action.catch(()=>{});return action;
+      }}));
       if(request.kind==='live') return observe(s,fetchOddsIO(request,{key:oddsIOKey,now:s.now,getJSON:async(url,resource,key)=>{
         state(token);if(++s.networkCalls>64)fail('PROVIDER_CALL_BUDGET');
         const signal=AbortSignal.any([s.signal,AbortSignal.timeout(15000)]);

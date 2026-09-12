@@ -1,17 +1,17 @@
-# Sázkař 3 — autonomní analytický engine
+# Sázkař 3.1 — autonomní analytický engine
 
 Zadáš preference. Host načte skutečné zdroje, engine vypočítá pravděpodobnosti,
 porovná je s modelem z historie a sestaví tikety. Ručně zadané pravděpodobnosti
 nepřijímá. Fotbal, předzápasové 1X2, pět nejvyšších evropských lig.
-**IMPLEMENTED_SLICE / REVIEW_PENDING**: veřejný zdroj ověřen skutečným během;
-český API konektor čeká na klíč a ověření konkrétní nabídky.
+**IMPLEMENTED_SLICE / REVIEW_PENDING**: skutečný běh ověřil veřejné kurzy
+Fortuny bez účtu a API klíče. Nezávislé přijetí ještě neproběhlo.
 
 ## Vyzkoušení bez účtu a bez připravených dat
 
 Z kořene tohoto checkoutu:
 
 ```bash
-node bin/sazeni.js --auto /tmp/sazkar-pokus-1 'do 24 h, kurz od 1.5 do 3, úspěšnost alespoň 40 %'
+node bin/sazeni.js --auto /tmp/sazkar-fortuna-1 'Fortuna, do 24 h, kurz od 1.5 do 3, úspěšnost alespoň 40 %'
 ```
 
 Výstupní adresář musí být nový. Dostaneš `tickets.md`, `tickets.csv`,
@@ -19,25 +19,24 @@ Výstupní adresář musí být nový. Dostaneš `tickets.md`, `tickets.csv`,
 ověřenou cache. Databáze `.intentsmith-artifacts/betting/analysis.sqlite` ukládá
 zdrojové snímky, hashe, čas načtení, modely, výsledek a audit síťových požadavků.
 
-Tento bezplatný režim používá **referenční kurzy Football-Data**, které nejsou
-potvrzenou aktuální nabídkou české kanceláře. Stáří souboru a chybějící čas
-konkrétního kurzu ukáže ve výstupu. Neexistující řešení ani chybějící data
-nenahrazuje vymyšleným tiketem.
+Výchozí režim načítá **veřejnou nabídku Fortuny** stejným datovým kanálem,
+který používá její anonymní web. Nepotřebuje prohlížeč, účet ani placený klíč.
+Zná čas načtení, ale zdroj neposkytuje čas poslední změny konkrétní ceny:
+výsledek má `dataMode: observed`, `verifiedObservation: true`,
+`verifiedLive: false`. Kurzy se pro každý výpočet načtou znovu a výběr vyprší
+nejpozději dvě minuty po jejich načtení. Pro obnovení spusť nový výpočet do
+nového adresáře. Nejde o potvrzení přijetí sázky.
 
-Pro třídenní akumulátory můžeš přidat soubor preferencí:
+Po stažení cen host znovu zkontroluje termíny a účastníky. Pozastavené trhy,
+neúplné 1X2 nebo prošlá data nevytvoří platný návrh. Při změně schématu či
+odmítnutí přístupu vrátí konkrétní chybu, nepřejde na jinou kancelář.
 
-```json
-{
-  "leagues": ["E0", "D1", "I1", "SP1", "F1"],
-  "minLegs": 2,
-  "maxLegs": 3,
-  "ticketCount": 3,
-  "maxSpreadHours": 12
-}
-```
+Pro třídenní akumulátory je připravený upravitelný
+[soubor preferencí](examples/fortuna-72h.json): 2–3 položky, kurz 2–4,
+teoretická úspěšnost alespoň 20 %, rozestup nejvýše 12 h a tři různé tikety.
 
 ```bash
-node bin/sazeni.js --auto /tmp/sazkar-pokus-2 'do 3 dnů, kurz od 2 do 4, úspěšnost alespoň 20 %' preferences.json
+node bin/sazeni.js --auto /tmp/sazkar-fortuna-2 'Fortuna, do 3 dnů' specialists/sazeni/examples/fortuna-72h.json
 ```
 
 Textové hodnoty mají přednost před stejnojmennými hodnotami v souboru.
@@ -45,18 +44,29 @@ Limity jsou pro celý tiket. `do 3 dnů` znamená následujících 72 hodin;
 `rozestup max 12 h` navíc omezuje vzdálenost prvního a posledního začátku.
 Konec zápasu ani vypořádání do daného času tím není garantováno.
 
-## České kanceláře
+## Další zdroje
+
+Fortuna je výchozí a ověřená cesta. Tipsport při veřejné sondě 12. 9. 2026
+vrátil HTTP 403 i v anonymním prohlížeči; veřejný sběrač pro něj nyní není
+funkční. [Záznam sondy a skutečného výpočtu](../../docs/review/2026-09-12-SAZENI-PUBLIC.md).
+
+Původní veřejná CSV reference z Football-Data zůstává dostupná přes
+`{"dataSource":"reference"}` v souboru preferencí; výchozí kancelář je potom
+`bet365-reference`. Je označená `delayed`, ukazuje stáří souboru a nepotvrzuje
+aktuální cenu u české kanceláře. Historie Football-Data slouží také k modelování
+ve výchozím režimu Fortuny.
 
 Připravený adaptér Odds-API.io podporuje `Tipsport.cz`, `Chance.cz`,
 `iFortuna CZ`, `Betano CZ`. Veřejný katalog potvrdil všechny čtyři jako aktivní
-12. 9. 2026. Samotné zápasy a kurzy vyžadují klíč poskytovatele a odpovídající
+12. 9. 2026. Zápasy a kurzy z tohoto agregátoru vyžadují klíč a odpovídající
 kanceláře v jeho plánu. Klíč nastav **v prostředí procesu** pod názvem
 `INTENTSMITH_BETTING_ODDS_IO_API_KEY`; nepatří do chatu ani JSON preferencí.
 
-Poté lze zadat například:
+Jde o samostatnou explicitní volbu, nikoli fallback veřejného sběru. Vytvoř
+`api-preferences.json` s `{"dataSource":"odds_io"}` a poté lze zadat:
 
 ```bash
-node bin/sazeni.js --auto /tmp/sazkar-tipsport-1 'Tipsport, do 24 h, kurz od 1.5 do 3, úspěšnost alespoň 40 %'
+node bin/sazeni.js --auto /tmp/sazkar-tipsport-1 'Tipsport, do 24 h, kurz od 1.5 do 3, úspěšnost alespoň 40 %' api-preferences.json
 ```
 
 Bez klíče dostaneš konkrétní `ODDS_IO_KEY_REQUIRED`. Čerstvý API snapshot má
@@ -111,4 +121,4 @@ node bin/sazeni.js tests/fixtures/betting/envelope.json /tmp/sazkar-fixture-1 --
 ```
 
 [Kontrakt](CONTRACT.md) · [výzkum](../../docs/research/2026-09-12-AUTONOMOUS-BETTING.md)
-· [pracovní zadání](../../docs/wp/WP-SAZENI-AUTONOMOUS-20260912.md)
+· [aktuální pracovní zadání](../../docs/wp/WP-SAZENI-PUBLIC-20260912.md)

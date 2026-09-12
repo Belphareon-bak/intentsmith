@@ -1,6 +1,6 @@
 {
   "id": "sazeni",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "manifestVersion": 2,
   "name": "Sázkový analytik",
   "description": "Autonomní analýza fotbalu 1X2: načítání zdrojů, měření modelu a tikety s limity kurzů, pravděpodobnosti a času.",

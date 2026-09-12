@@ -141,6 +141,17 @@ const ODDS_IO_OUTBOUND_CAPABILITY = createOutboundCapability({
   },
 });
 
+const FORTUNA_PUBLIC_OUTBOUND_CAPABILITY = createOutboundCapability({
+  surface:'betting-data',scope:'sports.fortuna.public.read',
+  validateTarget:({url,method,headers,hasBody})=>{
+    if(method!=='GET'||hasBody||url.origin!=='https://api.ifortuna.cz'||url.hash||!exactHeaders(headers,[['accept','application/json']]))return false;
+    const q=url.searchParams;
+    if(/^\/offer\/structure\/api\/v1_0\/tournament\/ufo:tour:(00-03m|00-0c6|00-06t|00-0h7|00-0bo)\/matches$/.test(url.pathname))return q.toString()==='timeFilter=all';
+    if(url.pathname!=='/offer/markets/api/v1_0/fixtures/markets/overview'||[...q.keys()].some(k=>k!=='fixtureIds'))return false;
+    const ids=q.getAll('fixtureIds');return ids.length>=1&&ids.length<=10&&new Set(ids).size===ids.length&&ids.every(id=>/^ufo:mtch:[a-z0-9]{1,8}-[a-z0-9]{1,8}$/.test(id));
+  },
+});
+
 const runtimeTransport = typeof globalThis.fetch === 'function'
   ? globalThis.fetch.bind(globalThis)
   : null;
@@ -335,6 +346,7 @@ export function createOutboundPolicy({
     ollamaReleaseFetch: (input, init) => governedFetch(input, init, OLLAMA_RELEASE_OUTBOUND_CAPABILITY),
     footballDataFetch: (input, init) => governedFetch(input, init, FOOTBALL_DATA_OUTBOUND_CAPABILITY),
     oddsIOFetch: (input, init) => governedFetch(input, init, ODDS_IO_OUTBOUND_CAPABILITY),
+    fortunaPublicFetch: (input, init) => governedFetch(input, init, FORTUNA_PUBLIC_OUTBOUND_CAPABILITY),
     summary: options => audit.summary(options),
   });
 }

@@ -24,7 +24,7 @@ export function resolveWindow(window, now) {
     anchorAt:window.horizonHours === undefined ? null : now };
 }
 export function validateRequest(request, now) {
-  keys(request, ['contract','version','requestId','sport','competitionIds','window','bookmakerIds','ticketType','legOdds','ticketOdds','legs','probabilityFilter','objective','ticketCount','diversity','exclude','dataMode'], ['minLegProbability','minExpectedRoi','targetOdds','stake'], 'request');
+  keys(request, ['contract','version','requestId','sport','competitionIds','window','bookmakerIds','ticketType','legOdds','ticketOdds','legs','probabilityFilter','objective','ticketCount','diversity','exclude','dataMode'], ['minLegProbability','minExpectedRoi','targetOdds','stake','dataSource'], 'request');
   choice(request.contract, ['BettingRequest'], 'contract');
   choice(request.version, [2,BETTING_VERSION], 'version');
   text(request.requestId, 'requestId');
@@ -54,7 +54,8 @@ export function validateRequest(request, now) {
   keys(request.diversity,['maxSharedEvents'],[],'diversity'); integer(request.diversity.maxSharedEvents,0,8,'diversity.maxSharedEvents');
   keys(request.exclude,['eventIds','participantIds','competitionIds'],[],'exclude');
   for (const [key,value] of Object.entries(request.exclude)) strings(value,`exclude.${key}`);
-  choice(request.dataMode,['imported','historical','delayed','live'],'dataMode');
+  choice(request.dataMode,['imported','historical','delayed','live','observed'],'dataMode');
+  if(request.dataSource!==undefined)choice(request.dataSource,['public_web','reference','odds_io'],'dataSource');
   if (request.stake !== undefined) {
     keys(request.stake,['currency','perTicketMinor','totalBudgetMinor'],[],'stake');
     choice(request.stake.currency,['CZK'],'stake.currency');
@@ -68,7 +69,7 @@ export function validateSnapshot(snapshot) {
   keys(snapshot,['contract','version','snapshotId','generatedAt','dataMode','source','coverage','events'],[],'snapshot');
   choice(snapshot.contract,['BettingSnapshot'],'snapshot.contract'); choice(snapshot.version,[2],'snapshot.version');
   text(snapshot.snapshotId,'snapshot.snapshotId'); instant(snapshot.generatedAt,'snapshot.generatedAt');
-  choice(snapshot.dataMode,['imported','historical','delayed','live'],'snapshot.dataMode');
+  choice(snapshot.dataMode,['imported','historical','delayed','live','observed'],'snapshot.dataMode');
   keys(snapshot.source,['id','version'],[],'snapshot.source'); text(snapshot.source.id,'snapshot.source.id'); text(snapshot.source.version,'snapshot.source.version');
   keys(snapshot.coverage,['complete','scope'],[],'snapshot.coverage');
   if (typeof snapshot.coverage.complete !== 'boolean') fail('INVALID_REQUEST','Chybí stav pokrytí.','snapshot.coverage.complete');
