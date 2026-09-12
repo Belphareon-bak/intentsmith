@@ -144,14 +144,18 @@ function memoryRepository() {
 function realAuthorityDatabase(filename = ':memory:') {
   const database = new Database(filename);
   database.pragma('foreign_keys = ON');
-  applyEffectAuthority(database);
-  applyEffectHardening(database);
-  applyEffectClaims(database);
-  applyEffectClaimTruth(database);
-  applyToolAuthority(database);
-  applyToolEffectLinks(database);
-  applyToolTruth(database);
-  applyEffectInvalidations(database);
+  // Group only empty-schema setup; every exercised durable operation and
+  // reopen below still runs after this transaction has committed.
+  database.transaction(() => {
+    applyEffectAuthority(database);
+    applyEffectHardening(database);
+    applyEffectClaims(database);
+    applyEffectClaimTruth(database);
+    applyToolAuthority(database);
+    applyToolEffectLinks(database);
+    applyToolTruth(database);
+    applyEffectInvalidations(database);
+  })();
   return database;
 }
 

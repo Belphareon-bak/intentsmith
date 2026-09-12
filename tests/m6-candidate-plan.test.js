@@ -179,6 +179,18 @@ test('direct, runner-owned server and physical GPU programs cannot be silently o
     .requiresGpuCensus, true);
 });
 
+test('built Studio composer is required in the fresh-clone phase and cannot be omitted', () => {
+  const id = 'IS-T5-TESTS-STUDIO-M2-COMPOSER-DOM-E2E';
+  const plan = buildM6CandidateExecutionPlan(registry);
+  const fresh = plan.phases.find(phase => phase.id === 'fresh-clone-install-build-studio');
+  assert.equal(fresh.programIds.includes(id), true);
+  assert.equal(fresh.runner, 'm6-fresh-clone');
+  assert.equal(plan.phases.find(phase => phase.id === 'model-without-server').programIds.includes(id), false);
+  const omitted = structuredClone(plan);
+  omitted.phases.find(phase => phase.id === fresh.id).programIds = fresh.programIds.filter(value => value !== id);
+  assert.equal(validateM6CandidateExecutionPlan(omitted, registry).valid, false);
+});
+
 test('model and runner-owned server phases cover every runnable required program', () => {
   const plan = buildM6CandidateExecutionPlan(registry);
   const byId = new Map(registry.suites.map(program => [program.id, program]));

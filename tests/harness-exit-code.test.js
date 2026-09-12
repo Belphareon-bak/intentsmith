@@ -420,7 +420,11 @@ try {
   //   126 -> 127 ConversationWebRequest adds a durable approval/output test.
   //   127 -> 128 Bounded CODE model journey imports the canonical isolation
   //              bootstrap before the production database and lifecycle service.
-  const expectedDatabaseReachableRootTests = 128;
+  //   128 -> 129 Controlled HTTP build/restart fixture adds the real M2 service
+  //              graph to m2-lifecycle-http-e2e.test.js. Its first static import
+  //              remains isolated-test-db.js; the complete unprotected set is
+  //              still empty. Verified against e87b1ca2 before repinning.
+  const expectedDatabaseReachableRootTests = 129;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

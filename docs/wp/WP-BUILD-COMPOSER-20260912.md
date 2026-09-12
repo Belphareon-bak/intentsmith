@@ -57,3 +57,12 @@ CDP reducer and focused test, plus registry/document reconciliation. Only the
 new scenario expects exactly one authenticated draft POST 503 from a project
 without governance; original M0/M1 policies must still reject that response.
 No screenshot exception, hidden response replacement or model inference.
+
+Required integration includes the new DOM program in the existing M6
+fresh-clone runner, with an exact versioned plan and omission check, and
+reconciles the registry seal/import census without altering earlier program
+metadata, deterministic selection or safety assertions. A full-profile
+timeout in the unchanged tool-broker suite is scoped to measuring and grouping
+its empty-schema setup, preserving the exact migrations, durable operations,
+reopen assertions and original timeout. This is required verification of the
+same change, not a new release capability or execution of Gate 0.
