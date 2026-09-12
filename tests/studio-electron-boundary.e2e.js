@@ -968,7 +968,7 @@ async function waitForRendererTransport(cdp) {
   fail('renderer-transport-timeout');
 }
 
-export async function waitForM1StartupLists(reducer, {
+export async function waitForM1StartupHttp(reducer, {
   now = monotonicMs, sleep = delay, timeoutMs = CDP_TIMEOUT_MS,
 } = {}) {
   // WS negotiation can finish before the UI's delayed initial HTTP batch.
@@ -976,28 +976,33 @@ export async function waitForM1StartupLists(reducer, {
   // otherwise this probe creates unrelated connection failures during startup.
   // Keep the original reducer throughout: this barrier never drops a request
   // or turns a prior failure into a passing retry.
-  const required = [
-    STUDIO_ROUTE_IDS.PROJECTS_LIST, STUDIO_ROUTE_IDS.CONVERSATIONS_LIST,
-    STUDIO_ROUTE_IDS.EXPERTISES_LIST, STUDIO_ROUTE_IDS.AGENTS_LIST,
-    STUDIO_ROUTE_IDS.MEDIA_HISTORY,
-  ];
+  const required = STUDIO_M1_POLICY.requiredHttpRoutes;
   const deadline = now() + timeoutMs;
+  let quiescent = false;
   while (true) {
     const snapshot = reducer.snapshot();
     const lists = snapshot.http.filter(row => required.includes(row.routeId)
       && row.methodClass === 'GET');
     if (lists.some(row => row.terminalClass === 'failed'
       || (row.status !== null && row.status !== 200))) {
-      fail('m1-startup-list-failed', { snapshot });
+      fail('m1-startup-http-failed', { snapshot });
     }
-    if (required.every(route => lists.some(row => row.routeId === route
-      && row.status === 200 && row.terminalClass === 'response'
+    const complete = row => row.status === 200 && row.terminalClass === 'response'
       && row.headerSource === 'extra-info' && row.responseSource === 'extra-info'
       && row.capabilityClass === 'match' && row.originClass === 'opaque'
-      && row.fetchSiteClass === 'cross-site' && row.allowOriginClass === 'opaque'))) {
-      return;
+      && row.fetchSiteClass === 'cross-site' && row.allowOriginClass === 'opaque';
+    if (required.every(route => lists.some(row => row.routeId === route))
+      && lists.every(complete)) {
+      if (quiescent) return;
+      // The later /api/health startup request can itself enqueue a project
+      // lookup. Wait for the existing quiet-window condition, then recheck
+      // the same capture so a failure during settling remains a failure.
+      await waitForNetworkQuiescence(reducer, { now, sleep });
+      quiescent = true;
+      continue;
     }
-    if (now() >= deadline) fail('m1-startup-lists-timeout', { snapshot });
+    quiescent = false;
+    if (now() >= deadline) fail('m1-startup-http-timeout', { snapshot });
     await sleep(50);
   }
 }
@@ -1846,19 +1851,19 @@ export function validateM1SoakLifecycle(result) {
     && new Set(result.terminalIdentities.map(identity => identity[2])).size === 5;
 }
 
-async function waitForNetworkQuiescence(reducer) {
-  const deadline = monotonicMs() + 5_000;
+async function waitForNetworkQuiescence(reducer, { now = monotonicMs, sleep = delay } = {}) {
+  const deadline = now() + 5_000;
   let previousEvents = -1;
-  let stableSince = monotonicMs();
-  while (monotonicMs() < deadline) {
+  let stableSince = now();
+  while (now() < deadline) {
     const events = reducer.snapshot().counts.events;
     if (events !== previousEvents) {
       previousEvents = events;
-      stableSince = monotonicMs();
-    } else if (monotonicMs() - stableSince >= 750) {
+      stableSince = now();
+    } else if (now() - stableSince >= 750) {
       return;
     }
-    await delay(100);
+    await sleep(100);
   }
   fail('network-observation-not-quiescent');
 }
@@ -2218,7 +2223,7 @@ async function runJourney({
     const networkCaptureStarted = monotonicMs();
     await cdp.send('Page.navigate', { url: originalLocation });
     await waitForRendererTransport(cdp);
-    if (m1Journey) await waitForM1StartupLists(reducer);
+    if (m1Journey) await waitForM1StartupHttp(reducer);
     if (m1Journey) await installM1SoakLifecycleMonitor(cdp);
     else await installSoakLifecycleMonitor(cdp);
     const observationStarted = monotonicMs();

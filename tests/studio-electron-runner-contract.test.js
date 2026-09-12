@@ -21,7 +21,7 @@ import {
   validateM1SoakLifecycle,
   validateM2ComposerEvidence,
   validateSoakLifecycle,
-  waitForM1StartupLists,
+  waitForM1StartupHttp,
 } from './studio-electron-boundary.e2e.js';
 import { createStudioCdpEvidenceReducer } from '../scripts/studio-cdp-evidence.js';
 
@@ -35,7 +35,7 @@ function startupListFixture() {
     backendOrigin: origin, controlPlaneOrigin: 'http://localhost:39001',
     expectedCapability: capability,
   });
-  const paths = ['/api/projects', '/api/conversations', '/api/expertises', '/api/agents', '/api/media/history'];
+  const paths = ['/api/projects', '/api/conversations', '/api/expertises', '/api/agents', '/api/media/history', '/api/health', '/health'];
   const begin = (requestId, pathname) => reducer.ingest('Network.requestWillBeSent', {
     requestId, request: { url: origin + pathname, method: 'GET', headers: {} },
   });
@@ -52,32 +52,50 @@ function startupListFixture() {
   return { reducer, paths, begin, response, wire };
 }
 
-await testAsync('M1 cannot restart its listener until all delayed startup lists have complete wire evidence', async () => {
+await testAsync('M1 waits for all startup HTTP routes and their delayed follow-up before listener restart', async () => {
   const f = startupListFixture(); let clock = 0; let ticks = 0; let restarts = 0;
   const captured = f.reducer;
-  const probe = waitForM1StartupLists(captured, {
-    now: () => clock, timeoutMs: 1_000,
+  const probe = waitForM1StartupHttp(captured, {
+    now: () => clock, timeoutMs: 3_000,
     sleep: async ms => {
       assert.equal(restarts, 0, 'restart must not race the delayed startup batch');
       clock += ms; ticks++;
       if (ticks === 1) f.paths.forEach((pathname, i) => f.begin(String(i), pathname));
       if (ticks === 2) f.paths.forEach((_pathname, i) => f.response(String(i)));
-      if (ticks === 3) f.paths.slice(0, 4).forEach((_pathname, i) => f.wire(String(i)));
-      if (ticks === 4) f.wire('4');
+      if (ticks === 3) f.paths.slice(0, 6).forEach((_pathname, i) => f.wire(String(i)));
+      if (ticks === 4) f.wire('6');
+      if (clock === 400) f.begin('late-project', '/api/projects');
+      if (clock === 1_200) { f.response('late-project'); f.wire('late-project'); }
     },
   }).then(() => { restarts++; });
   await probe;
-  assert.equal(ticks, 4); assert.equal(restarts, 1);
-  assert.equal(captured.snapshot().http.reduce((n, row) => n + row.count, 0), 5);
+  assert(clock >= 1_950, 'even an in-flight duplicate lasting longer than the quiet window must finish');
+  assert.equal(restarts, 1);
+  assert.equal(captured.snapshot().http.reduce((n, row) => n + row.count, 0), 8);
 }, 1_000);
 
 await testAsync('M1 startup wait is bounded and cannot replace missing wire evidence with a base response', async () => {
   const f = startupListFixture(); let clock = 0;
   f.paths.forEach((pathname, i) => { f.begin(String(i), pathname); f.response(String(i)); });
-  await assert.rejects(waitForM1StartupLists(f.reducer, {
+  await assert.rejects(waitForM1StartupHttp(f.reducer, {
     now: () => clock, sleep: async ms => { clock += ms; }, timeoutMs: 100,
-  }), /m1-startup-lists-timeout/);
+  }), /m1-startup-http-timeout/);
   assert.equal(clock, 100);
+}, 1_000);
+
+await testAsync('M1 rechecks failures arriving while startup HTTP settles', async () => {
+  const f = startupListFixture(); let clock = 0; let injected = false;
+  f.paths.forEach((pathname, i) => { f.begin(String(i), pathname); f.response(String(i)); f.wire(String(i)); });
+  await assert.rejects(waitForM1StartupHttp(f.reducer, {
+    now: () => clock, sleep: async ms => {
+      clock += ms;
+      if (!injected) {
+        injected = true; f.begin('late-failure', '/api/health');
+        f.reducer.ingest('Network.loadingFailed', { requestId: 'late-failure', errorText: 'net::ERR_CONNECTION_REFUSED' });
+      }
+    },
+  }), /m1-startup-http-failed/);
+  assert.equal(f.reducer.snapshot().http.filter(row => row.terminalClass === 'failed').length, 1);
 }, 1_000);
 
 for (const failure of ['connection-refused', 'canceled', 'http-error']) {
@@ -90,7 +108,7 @@ for (const failure of ['connection-refused', 'canceled', 'http-error']) {
       canceled: failure === 'canceled' });
     f.paths.forEach((pathname, i) => { f.begin(String(i), pathname); f.response(String(i)); f.wire(String(i)); });
     const before = f.reducer.snapshot();
-    await assert.rejects(waitForM1StartupLists(f.reducer), /m1-startup-list-failed/);
+    await assert.rejects(waitForM1StartupHttp(f.reducer), /m1-startup-http-failed/);
     assert.deepEqual(f.reducer.snapshot(), before, 'no capture reset or failed-request filtering');
   }, 1_000);
 }
