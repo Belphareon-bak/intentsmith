@@ -850,4 +850,171 @@ await testAsync('cancel during final preparation keeps draft cancellation taxono
   } finally { db.close(); fs.rmSync(root, { recursive: true, force: true }); }
 });
 
+function projectBlueprint() {
+  const files = [
+    ['src/app.js', 'Re-export run from cli as the public entrypoint.', ['src/cli.js']],
+    ['src/cli.js', 'Export run(commands): add takes amount/category; list, total, categories return results; unknown operation throws. Each run has a fresh service.', ['src/service.js']],
+    ['src/service.js', 'Export createService(): expose ledger add/list, total() and categories() using the totals module.', ['src/storage.js', 'src/totals.js']],
+    ['src/storage.js', 'Export createLedger(): add(amount,category) validates and stores one item; list() returns copies.', ['src/validate.js']],
+    ['src/totals.js', 'Export total(rows) and categories(rows), summing numeric amount, also grouped by category.', []],
+    ['src/validate.js', 'Export validate(amount,category), throwing for nonpositive/nonfinite amount or empty/nonstring category.', []],
+  ];
+  return {
+    instruction: 'Build a small in-memory expense ledger with a command entrypoint and no external dependencies.',
+    files: files.map(([path, instruction, dependsOn]) => ({ path, instruction, dependsOn })),
+    focusedTest: {
+      binary: process.execPath,
+      argv: ['--experimental-default-type=module', '--input-type=module', '-e',
+        "import assert from 'node:assert/strict';import {run} from './src/app.js';const results=run([['add',12,'food'],['add',8,'travel'],['add',3,'food'],['total'],['categories'],['list']]);assert.equal(results[3],23);assert.deepEqual(results[4],{food:15,travel:8});assert.equal(results[5].length,3);assert.deepEqual(run([['list'],['total']]),[[],0]);for(const amount of [0,-1,NaN,Infinity])assert.throws(()=>run([['add',amount,'food']]));assert.throws(()=>run([['add',1,'']]));assert.throws(()=>run([['unknown']]));"],
+      environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' }, timeoutMs: 30_000,
+    },
+    gitCommit: proposal().gitCommit,
+  };
+}
+
+const projectBuildOutputs = {
+  'src/app.js': "export {run} from './cli.js';\n",
+  'src/cli.js': "import {createService} from './service.js';export function run(commands){const service=createService();return commands.map(([op,...args])=>{if(!['add','list','total','categories'].includes(op))throw Error('unknown operation');return service[op](...args);});}\n",
+  'src/service.js': "import {createLedger} from './storage.js';import {total,categories} from './totals.js';export function createService(){const ledger=createLedger();return {...ledger,total:()=>total(ledger.list()),categories:()=>categories(ledger.list())};}\n",
+  'src/storage.js': "import {validate} from './validate.js';export function createLedger(){const rows=[];return {add(amount,category){validate(amount,category);rows.push({amount,category});return {amount,category};},list(){return rows.map(row=>({...row}));}};}\n",
+  'src/totals.js': "export const total=rows=>rows.reduce((sum,row)=>sum+row.amount,0);export function categories(rows){const sums={};for(const row of rows)Object.defineProperty(sums,row.category,{value:(Object.hasOwn(sums,row.category)?sums[row.category]:0)+row.amount,writable:true,enumerable:true,configurable:true});return sums;}\n",
+  'src/validate.js': "export function validate(amount,category){if(!Number.isFinite(amount)||amount<=0||typeof category!=='string'||!category.trim())throw Error('invalid expense');}\n",
+};
+const projectBuildOrder = ['src/totals.js', 'src/validate.js', 'src/storage.js', 'src/service.js', 'src/cli.js', 'src/app.js'];
+
+suite('Explicit project blueprint — existing M2 execution authority');
+
+for (const defect of [null, 'src/totals.js', 'src/app.js']) {
+  await testAsync(`six-file dependency build with fixed behavioral test: ${defect ?? 'success and exact commit'}`, async () => {
+    const root = makeProject();
+    const authorityRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-build-authority-'));
+    const databasePath = path.join(authorityRoot, 'authority.sqlite');
+    const db = openDatabase(databasePath);
+    const blueprint = projectBlueprint();
+    const beforeHead = git(root, ['rev-parse', 'HEAD']);
+    const outputs = { ...projectBuildOutputs };
+    if (defect === 'src/totals.js') outputs[defect] = outputs[defect].replace('sum+row.amount', 'sum');
+    if (defect === 'src/app.js') outputs[defect] = 'export const run=()=>[];\n';
+    const calls = [];
+    try {
+      const service = createService(db, root, makeClock(), {
+        generateCodeDraft: async ({ prompt }) => {
+          const input = JSON.parse(prompt);
+          const definition = blueprint.files.find(file => file.path === input.path);
+          assert.equal(input.path, projectBuildOrder[calls.length]);
+          assert.equal(input.fileInstruction, definition.instruction);
+          assert.equal(input.beforeContent, input.path === 'src/app.js' ? 'export const value = 1;\n' : null);
+          assert.deepEqual(input.peerFiles ?? [], definition.dependsOn.map(path => ({ path, content: outputs[path], state: 'proposed' })));
+          for (const dependency of definition.dependsOn) assert.ok(calls.includes(dependency));
+          assert.equal(Object.hasOwn(input, 'focusedTest'), false, 'fixed author test is not model output');
+          assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 1;\n');
+          for (const file of blueprint.files.slice(1)) assert.equal(fs.existsSync(path.join(root, file.path)), false);
+          calls.push(input.path);
+          return { content: JSON.stringify({ afterContent: outputs[input.path] }), finishReason: 'stop' };
+        },
+      });
+      await service.recoverIncompleteSmallProjectChanges();
+      const planned = await service.draftSmallProjectChange({ authenticatedSubject: SUBJECT, projectId: PROJECT_ID, origin: ORIGIN, draft: blueprint });
+      assert.equal(planned.state, 'awaiting_approval');
+      assert.deepEqual(calls, projectBuildOrder);
+      assert.deepEqual(planned.diff.map(file => file.path), Object.keys(outputs).sort());
+      assert.deepEqual(planned.diff.map(file => file.after.content), Object.keys(outputs).sort().map(path => outputs[path]));
+      assert.deepEqual(planned.plan.focusedTest.argv, blueprint.focusedTest.argv);
+      assert.equal(planned.plan.gitCommit.messageDigest, sha(JSON.stringify(blueprint.gitCommit.message)));
+      assert.equal(db.prepare('SELECT count(*) AS n FROM m2_lifecycle_operations').get().n, 1);
+      const result = await service.approveSmallProjectChange({ authenticatedSubject: SUBJECT, origin: ORIGIN,
+        lifecycleId: planned.lifecycleId, planDigest: planned.planDigest });
+      if (defect) {
+        assert.notEqual(result.state, 'succeeded');
+        assert.equal(result.result.focusedTest.terminalStatus, 'failed');
+        assert.equal(result.result.rollback.status, 'succeeded');
+        assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 1;\n');
+        for (const file of blueprint.files.slice(1)) assert.equal(fs.existsSync(path.join(root, file.path)), false);
+        assert.equal(git(root, ['rev-parse', 'HEAD']), beforeHead);
+      } else {
+        assert.equal(result.state, 'succeeded');
+        assert.equal(result.result.focusedTest.terminalStatus, 'succeeded');
+        assert.equal(result.result.git.status, 'committed');
+        assert.notEqual(git(root, ['rev-parse', 'HEAD']), beforeHead);
+        for (const file of blueprint.files) assert.equal(fs.readFileSync(path.join(root, file.path), 'utf8'), outputs[file.path]);
+      }
+      assert.equal(git(root, ['status', '--porcelain=v1']), '');
+      db.close();
+      // A new Node process opens the on-disk authority after execution. This
+      // proves terminal restart persistence, not a crash during an effect.
+      const restartScript = `
+        import Database from 'better-sqlite3';
+        import { createDefaultM2LifecycleApplicationService } from './src/lifecycle/m2-lifecycle-application-service.js';
+        const [databasePath,root,lifecycleId,subjectJson,originJson]=process.argv.slice(1);
+        const db=new Database(databasePath);db.pragma('foreign_keys = ON');
+        try {
+          const subject=JSON.parse(subjectJson),origin=JSON.parse(originJson);
+          const service=createDefaultM2LifecycleApplicationService({database:db,
+            projects:{findById:{get:id=>id===origin.projectId?{id,path:root,status:'active'}:null}},
+            generateCodeDraft:async()=>{throw Error('unexpected model replay');}});
+          const recovered=await service.recoverIncompleteSmallProjectChanges();
+          const view=service.getSmallProjectChangeStatus({authenticatedSubject:subject,origin,lifecycleId});
+          process.stdout.write(JSON.stringify({pid:process.pid,state:view.state,
+            resultDigest:view.terminal.resultDigest,recovered:recovered.length,
+            terminals:db.prepare('SELECT count(*) AS n FROM m2_lifecycle_terminals').get().n}));
+        } finally {db.close();}
+      `;
+      const durable = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e', restartScript, '--',
+        databasePath, root, planned.lifecycleId, JSON.stringify(SUBJECT), JSON.stringify(ORIGIN)],
+      { encoding: 'utf8', timeout: 15_000 }));
+      assert.notEqual(durable.pid, process.pid);
+      assert.equal(durable.state, result.state);
+      assert.equal(durable.resultDigest, result.terminal.resultDigest);
+      assert.equal(durable.recovered, 0);
+      assert.equal(durable.terminals, 1);
+      assert.equal(calls.length, 6);
+    } finally {
+      if (db.open) db.close();
+      fs.rmSync(root, { recursive: true, force: true });
+      fs.rmSync(authorityRoot, { recursive: true, force: true });
+    }
+  }, 60_000);
+}
+
+for (const failure of ['missing-test', 'duplicate', 'unknown-dependency', 'cycle', 'too-many', 'extra-authority', 'traversal', 'file-instruction-limit',
+  'missing-parent', 'file-parent', 'dependency-overflow', 'late-length', 'late-cancel', 'late-stale']) {
+  await testAsync(`blueprint ${failure} preserves targets and creates no partial approval`, async () => {
+    const root = makeProject();
+    const db = openDatabase();
+    const controller = new AbortController();
+    const blueprint = projectBlueprint();
+    let calls = 0;
+    try {
+      if (failure === 'missing-test') delete blueprint.focusedTest;
+      if (failure === 'duplicate') blueprint.files[1].path = blueprint.files[0].path;
+      if (failure === 'unknown-dependency') blueprint.files[0].dependsOn = ['src/unknown.js'];
+      if (failure === 'cycle') blueprint.files.at(-1).dependsOn = ['src/app.js'];
+      if (failure === 'too-many') blueprint.files = Array.from({ length: 33 }, (_, index) => ({ path: `src/p${index}.js`, instruction: 'Export a value.', dependsOn: [] }));
+      if (failure === 'extra-authority') blueprint.actor = { actorType: 'system' };
+      if (failure === 'traversal') blueprint.files[0].path = '../outside.js';
+      if (failure === 'file-instruction-limit') blueprint.files[0].instruction = 'x'.repeat(513);
+      if (failure === 'missing-parent') blueprint.files[0].path = 'src/new-area/app.js';
+      if (failure === 'file-parent') blueprint.files[0].path = 'src/app.js/nested.js';
+      const service = createService(db, root, makeClock(), { generateCodeDraft: async ({ prompt }) => {
+        const input = JSON.parse(prompt); calls++;
+        if (calls === 4 && failure === 'late-cancel') controller.abort();
+        if (calls === 4 && failure === 'late-stale') fs.writeFileSync(path.join(root, 'src/foreign.js'), '// foreign\n');
+        return { content: JSON.stringify({ afterContent: failure === 'dependency-overflow' && calls === 1 ? '//'+ 'x'.repeat(2000)+'\n' : projectBuildOutputs[input.path] }),
+          finishReason: calls === 4 && failure === 'late-length' ? 'length' : 'stop' };
+      } });
+      await service.recoverIncompleteSmallProjectChanges();
+      const expected = { 'missing-parent': 'M2_CODE_DRAFT_PARENT_UNAVAILABLE', 'file-parent': 'M2_CODE_DRAFT_PATH_INVALID', cycle: 'M2_CODE_DRAFT_DEPENDENCY_CYCLE', traversal: 'M2_PROPOSAL_CHANGE_PATH_INVALID',
+        'dependency-overflow': 'M2_CODE_DRAFT_CONTEXT_LIMIT_EXCEEDED', 'late-length': 'M2_CODE_DRAFT_OUTPUT_INCOMPLETE',
+        'late-cancel': 'M2_CODE_DRAFT_CANCELLED', 'late-stale': 'M2_LIFECYCLE_CONTEXT_STALE' };
+      await assert.rejects(service.draftSmallProjectChange({ authenticatedSubject: SUBJECT, projectId: PROJECT_ID, origin: ORIGIN,
+        draft: blueprint, signal: controller.signal }), { code: expected[failure] ?? 'M2_CODE_DRAFT_INPUT_INVALID' });
+      assert.equal(calls, failure === 'dependency-overflow' ? 3 : failure === 'late-stale' ? 6 : failure.startsWith('late-') ? 4 : 0);
+      assert.equal(db.prepare('SELECT count(*) AS n FROM m2_lifecycle_operations').get().n, 0);
+      assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 1;\n');
+      for (const file of Object.keys(projectBuildOutputs).filter(path => path !== 'src/app.js')) assert.equal(fs.existsSync(path.join(root, file)), false);
+      if (failure === 'late-stale') assert.equal(fs.readFileSync(path.join(root, 'src/foreign.js'), 'utf8'), '// foreign\n');
+    } finally { db.close(); fs.rmSync(root, { recursive: true, force: true }); }
+  });
+}
+
 summary();

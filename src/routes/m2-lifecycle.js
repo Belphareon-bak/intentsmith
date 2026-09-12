@@ -43,6 +43,7 @@ function statusForError(error) {
   const code = typeof error?.code === 'string' ? error.code.toUpperCase() : '';
   if (code === 'M2_CODE_DRAFT_TIMEOUT') return 504;
   if (code === 'M2_CODE_DRAFT_CONTEXT_LIMIT_EXCEEDED') return 400;
+  if (code === 'M2_CODE_DRAFT_DEPENDENCY_CYCLE') return 400;
   if (code.startsWith('M2_CODE_DRAFT_OUTPUT_')) return 502;
   if (code.includes('NOT_FOUND')) return 404;
   if (/(?:^|_)AUTH(?:_|$)|SUBJECT|FORBIDDEN|UNAUTHORIZED|OWNER/.test(code)) return 403;

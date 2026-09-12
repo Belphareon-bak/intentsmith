@@ -3039,3 +3039,16 @@ celém běhu oba programy prošly za přibližně tři sekundy.
 Nezávislé webové review zůstává otevřené. Před konsolidací s upstream `fe064ee8`
 se musí sladit kolidující migrace (111 i 112 již obsazené) a dvojí Decision 044.
 Nový PASS nepřijímá projektový builder ani celou M5/M6.
+
+
+### Řízený projektový plán a web runtime — 2026-09-12
+
+Operátor povolil navázat na konkrétní zbývající práce; GPU hunt dále vlastní
+sám. `/m2-build <JSON>` rozšiřuje existující M2 draft o explicitní cíle,
+závislosti a povinný pevný test. Generace jde topologicky, schválení zůstává
+jediné nad celým přesným plánem. Běžný free-text BUILD ani vytvoření nové
+adresářové struktury tento přírůstek nezavírá. [WP](docs/wp/WP-PROJECT-BUILD-WEB-20260912.md)
+a [návod](docs/PROJECT-BUILD.md). Společné ověření tohoto candidate probíhá;
+nezávislé review, fyzický model/journey, integrace cizí hunt větve a M5/M6
+acceptance zůstávají otevřené. Aktuální module graph má 1 321 hran, 3 cykly
+/ 28 členů; nevznikl nový testprogram ani produkční importní pár.

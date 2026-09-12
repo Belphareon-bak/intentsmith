@@ -636,6 +636,20 @@ export function createM2LifecycleApplicationService(dependencyValues) {
     // The planner repeats policy/baseline checks before persisting the exact plan.
     loadPolicySnapshot(projectId, scope.canonicalRoot, manifest.revision, readProjectFile);
     observeGitBaseline(scope.canonicalRoot, targets, { projectId });
+    if (compiled.buildSteps) {
+      // Existing M2 effects create files, not directories. Reject unsupported
+      // layout before inference; the exact planner still rechecks at prepare.
+      for (const parent of new Set(targets.map(target => path.dirname(path.join(scope.canonicalRoot, target))))) {
+        let resolved; let stat;
+        try { [resolved, stat] = await Promise.all([realpath(parent), defaultLstat(parent)]); } catch {
+          throw codeDraftError('PARENT_UNAVAILABLE', 'Cílové adresáře musí před generováním existovat.');
+        }
+        if (resolved !== parent || !stat.isDirectory() || stat.isSymbolicLink()) {
+          throw codeDraftError('PATH_INVALID', 'Cílový adresář musí být skutečný kanonický projektový adresář.');
+        }
+        check();
+      }
+    }
     const files = targets.map(target => {
       const entry = manifest.entries.find(item => item.path === target);
       if (entry && (entry.kind !== 'regular@1' || entry.size > 1600)) {
@@ -652,8 +666,11 @@ export function createM2LifecycleApplicationService(dependencyValues) {
         content: before.exists ? new TextDecoder('utf-8', { fatal: true }).decode(before.bytes) : null };
     });
     const changes = [];
+    const steps = compiled.buildSteps ?? files.map((_, index) => ({ index }));
     const promptFor = index => buildCodeDraftPrompt(compiled, files[index].content, index,
-      files.filter((_, other) => other !== index).map(file => {
+      files.filter((file, other) => compiled.buildSteps
+        ? steps.find(step => step.index === index).dependsOn.includes(file.path)
+        : other !== index).map(file => {
         const generated = changes.find(change => change.path === file.path);
         return { path: file.path, content: generated ? generated.afterContent : file.content,
           state: generated ? 'proposed' : 'original' };
@@ -661,7 +678,7 @@ export function createM2LifecycleApplicationService(dependencyValues) {
     // Preflight every initial prompt, then check again with preceding generated
     // after-images. No truncation or partial plan if any peer exceeds the budget.
     files.forEach((_, index) => promptFor(index));
-    for (let index = 0; index < files.length; index++) {
+    for (const { index } of steps) {
       check();
       const prompt = promptFor(index);
       let result;
@@ -682,6 +699,7 @@ export function createM2LifecycleApplicationService(dependencyValues) {
     }
     const proposal = compileM2ProjectChangeProposal({
       intent: compiled.intent, changes, focusedTest: compiled.focusedTest,
+      ...(compiled.gitCommit ? { gitCommit: compiled.gitCommit } : {}),
     });
     // The revision is an internal argument, never model-controlled. Preparation
     // re-observes it before binding before-images and approval authority.

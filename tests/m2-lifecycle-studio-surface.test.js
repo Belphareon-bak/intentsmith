@@ -221,7 +221,7 @@ test('Studio can cancel an active draft without sending approval or a legacy mut
   assert.match(pane.msgs.at(-1).text, /M2_STUDIO_DRAFT_CANCELLED/);
 });
 
-function controlledStudio({ pending = true, paths = ['src/app.js'] } = {}) {
+function controlledStudio({ pending = true, paths = ['src/app.js'], activeM1 = true } = {}) {
   const origin = { surface: 'studio', sessionId: 'conversation-27', conversationId: 'conversation-27', projectId: 27 };
   const planDigest = 'sha256:' + 'a'.repeat(64);
   const session = { _projectId: 27, _convId: origin.conversationId,
@@ -243,7 +243,7 @@ function controlledStudio({ pending = true, paths = ['src/app.js'] } = {}) {
     _sessions: [session], _backendBase: 'http://fixture.invalid',
     _M2_TERMINAL_STATES: { succeeded: true, failed: true, cancelled: true },
     _sessionActive: 0, _persistSessionState() {}, renderChat() {}, _chatScrollPane() {}, AbortSignal, AbortController,
-    document: { getElementById() { return textarea; } }, C3WS: { hasActiveM1Turn() { return true; } },
+    document: { getElementById() { return textarea; } }, C3WS: { hasActiveM1Turn() { return activeM1; } },
     fetch(url, options) {
       return new Promise((resolve, reject) => calls.push({ url, options, reject,
         resolve(payload, status = 200) { resolve({ ok: status === 200, status, json: async () => payload }); } }));
@@ -382,4 +382,56 @@ test('Studio rejects empty, duplicate and over-limit draft path lists before HTT
     assert.equal(studio.calls.length, 0);
     assert.match(studio.pane.msgs.at(-1).text, /M2_STUDIO_DRAFT_INPUT_INVALID/);
   }
+});
+
+
+for (const command of ['/m2-build', '/m2-plan']) {
+  test(`actual chat entry preserves JSON whitespace for ${command} and awaits exact approval`, async () => {
+    const paths = ['src/app.js', 'src/cli.js', 'src/domain.js', 'src/store.js'];
+    const studio = controlledStudio({ pending: false, paths, activeM1: false });
+    const focusedTest = { binary: '/usr/bin/node', argv: ['-e', "assert.equal(value, 'a  b');\tassert.equal(tab, '\\t');"],
+      environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' }, timeoutMs: 30000 };
+    const payload = command === '/m2-build'
+      ? { instruction: 'Preserve  two spaces.', files: paths.map(path => ({ path, instruction: 'Return the exact text.', dependsOn: [] })), focusedTest }
+      : { intent: 'Preserve  two spaces.', changes: paths.map(path => ({ path, afterContent: 'a  b\t\n' })), focusedTest };
+    studio.view.plan.focusedTest = focusedTest;
+    studio.chatSend(command.toUpperCase() + '   ' + JSON.stringify(payload, null, 2));
+    assert.equal(studio.calls.length, 1);
+    const sent = JSON.parse(studio.calls[0].options.body);
+    assert.deepEqual(sent[command === '/m2-build' ? 'draft' : 'proposal'], payload);
+    assert.deepEqual(sent.origin, studio.view.plan.origin);
+    assert.equal(studio.calls[0].url, 'http://fixture.invalid/api/m2/lifecycle/' + (command === '/m2-build' ? 'draft' : 'prepare'));
+    assert.equal(studio.session._m2Pending, null, 'no approval authority before response');
+    studio.calls[0].resolve(studio.view);
+    await flushStudio();
+    assert.equal(studio.session._m2Pending.planDigest, studio.view.planDigest);
+    for (const path of paths) assert.ok(studio.pane.msgs.at(-1).text.includes(path));
+    assert.ok(studio.pane.msgs.at(-1).text.includes(JSON.stringify(focusedTest.argv)));
+    assert.equal(studio.calls.length, 1, 'neither generation nor preview auto-approves');
+    studio.chatSend('/m2-approve');
+    assert.deepEqual(JSON.parse(studio.calls[1].options.body), { lifecycleId: studio.view.lifecycleId,
+      planDigest: studio.view.planDigest, origin: studio.view.plan.origin });
+    studio.calls[1].resolve(studio.terminal('failed'));
+    await flushStudio();
+    assert.equal(studio.session._m2Pending, null);
+    assert.equal(studio.pane._m2Busy, false);
+  });
+}
+
+test('Studio rejects malformed blueprint locally and can cancel a running build', async () => {
+  const studio = controlledStudio({ pending: false });
+  for (const input of ['{', '[]', '{"path":"src/app.js"}']) {
+    studio.command('/m2-build', input);
+    assert.equal(studio.calls.length, 0);
+    assert.match(studio.pane.msgs.at(-1).text, /M2_STUDIO_DRAFT_INPUT_INVALID/);
+  }
+  studio.command('/m2-build', JSON.stringify({ instruction: 'Build.', files: [], focusedTest: {} }));
+  assert.equal(studio.calls.length, 1, 'strict field validation remains server-owned');
+  studio.command('/m2-cancel');
+  assert.equal(studio.calls[0].options.signal.aborted, true);
+  studio.calls[0].reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+  await flushStudio();
+  assert.match(studio.pane.msgs.at(-1).text, /M2_STUDIO_DRAFT_CANCELLED/);
+  assert.equal(studio.session._m2Pending, null);
+  assert.equal(studio.calls.length, 1);
 });

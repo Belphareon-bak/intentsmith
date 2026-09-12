@@ -158,6 +158,17 @@ async function run() {
         `production HTTP rejects multi-file scope before inference: ${expected}`);
     }
 
+
+    for (const [draft, expected] of [
+      [{ instruction: 'Build.', files: [{ path: 'src/app.js', instruction: 'Export.', dependsOn: [] }] }, 'M2_CODE_DRAFT_INPUT_INVALID'],
+      [{ instruction: 'Build.', files: [{ path: 'src/app.js', instruction: 'Export.', dependsOn: ['src/app.js'] }], focusedTest: proposal().focusedTest }, 'M2_CODE_DRAFT_DEPENDENCY_CYCLE'],
+      [{ instruction: 'Build.', files: [{ path: 'src/app.js', instruction: 'Export.', dependsOn: ['src/unknown.js'] }], focusedTest: proposal().focusedTest }, 'M2_CODE_DRAFT_INPUT_INVALID'],
+    ]) {
+      const invalid = await request('POST', '/api/m2/lifecycle/draft', { projectId, origin, draft });
+      assert(invalid.status === 400 && invalid.data?.code === expected,
+        `production HTTP rejects incomplete or cyclic blueprint before inference: ${expected}`);
+    }
+
     const prepared = await request('POST', '/api/m2/lifecycle/prepare', {
       projectId,
       origin,

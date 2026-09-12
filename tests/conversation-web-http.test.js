@@ -1,5 +1,158 @@
 import { suite, testAsync, assert, assertEqual, summary, waitForServer,
   api, createConv, cleanupConversation } from './e2e/_helpers.js';
+import strictAssert from 'node:assert/strict';
+import https from 'node:https';
+import { readFileSync } from 'node:fs';
+import { createConversationWebTransport } from '../src/network/conversation-web-transport.js';
+
+// These are real Node TLS/HTTP sockets, with two deliberately controlled seams:
+// the resolver supplies a public fixture answer and the request adapter maps
+// that answer to this test's loopback port. No public DNS or Internet is used.
+// Production address validation and rejectUnauthorized:true remain unchanged.
+async function withLoopbackTlsFixture({ trusted = true, onRequest, onResponse = () => {},
+  beforeDnsAnswer = () => {} } = {}, run) {
+  const certificate = readFileSync(new URL('./fixtures/conversation-web/loopback-test-cert.pem', import.meta.url));
+  const key = readFileSync(new URL('./fixtures/conversation-web/loopback-test-key.pem', import.meta.url));
+  const publicFixtureAddress = '93.184.215.14';
+  const sockets = new Set();
+  const counts = { requests: 0, connections: 0, lookups: 0, transports: 0 };
+  const server = https.createServer({ cert: certificate, key }, (req, res) => {
+    counts.requests++;
+    onRequest(req, res);
+  });
+  server.on('connection', socket => {
+    counts.connections++;
+    sockets.add(socket);
+    socket.once('close', () => sockets.delete(socket));
+  });
+  // Certificate-negative cases intentionally fail the real TLS handshake.
+  server.on('tlsClientError', () => {});
+  await new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
+  try {
+    const transport = createConversationWebTransport({
+      async resolve(host, options) {
+        strictAssert.match(host, /^(?:web|wrong)\.fixture\.test$/u);
+        strictAssert.deepEqual(options, { all: true, verbatim: true });
+        counts.lookups++;
+        await beforeDnsAnswer();
+        return [{ address: publicFixtureAddress, family: 4 }];
+      },
+      request(url, options, callback) {
+        counts.transports++;
+        strictAssert.equal(url.protocol, 'https:');
+        strictAssert.equal(url.port, '');
+        strictAssert.match(url.hostname, /^(?:web|wrong)\.fixture\.test$/u);
+        strictAssert.equal(options.rejectUnauthorized, true);
+        strictAssert.equal(options.agent, false);
+        strictAssert.equal(options.autoSelectFamily, false);
+        return https.request(url, {
+          ...options,
+          // Only the fixture socket endpoint and explicit fixture CA are
+          // substituted. Hostname verification and TLS rejection still run.
+          port: server.address().port,
+          ...(trusted ? { ca: certificate } : {}),
+          lookup(host, lookupOptions, callbackLookup) {
+            options.lookup(host, lookupOptions, (error, address, family) => {
+              if (error) { callbackLookup(error); return; }
+              strictAssert.equal(address, publicFixtureAddress);
+              strictAssert.equal(family, 4);
+              callbackLookup(null, '127.0.0.1', 4);
+            });
+          },
+        }, response => { onResponse(response); callback(response); });
+      },
+    });
+    await run({ transport, counts, publicFixtureAddress });
+  } finally {
+    // Includes sockets whose TLS handshake failed; no listener or connection
+    // from this owned fixture may outlive its test.
+    for (const socket of sockets) socket.destroy();
+    await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+  }
+}
+
+suite('Conversation web real loopback TLS with controlled DNS/socket mapping');
+await testAsync('trusted fixture TLS returns exact bytes through the production transport', async () => {
+  const body = Buffer.from('Controlled TLS response: příliš žluťoučký.');
+  let requestHeaders; let requestPath; let requestMethod;
+  await withLoopbackTlsFixture({ onRequest(req, res) {
+    requestHeaders = req.headers; requestPath = req.url; requestMethod = req.method;
+    res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Content-Length': body.length });
+    res.end(body);
+  } }, async ({ transport, counts, publicFixtureAddress }) => {
+    let scopeChecks = 0;
+    const response = await transport('https://web.fixture.test/document?q=exact', {
+      beforeConnect() { scopeChecks++; },
+    });
+    strictAssert.deepEqual(response.bytes, body);
+    strictAssert.equal(response.status, 200);
+    strictAssert.equal(response.contentType, 'text/plain');
+    strictAssert.equal(response.address, publicFixtureAddress, 'logical fixture DNS address, not a public socket observation');
+    strictAssert.deepEqual(counts, { requests: 1, connections: 1, lookups: 1, transports: 1 });
+    strictAssert.equal(scopeChecks, 2);
+    strictAssert.equal(requestMethod, 'GET');
+    strictAssert.equal(requestPath, '/document?q=exact');
+    strictAssert.equal(requestHeaders['accept-encoding'], 'identity');
+    strictAssert.equal(requestHeaders.cookie, undefined);
+    strictAssert.equal(requestHeaders.authorization, undefined);
+  });
+});
+
+await testAsync('an untrusted real TLS certificate is rejected before any HTTP request', async () => {
+  await withLoopbackTlsFixture({ trusted: false, onRequest(_req, res) { res.end('must not be reached'); } },
+    async ({ transport, counts }) => {
+      await strictAssert.rejects(transport('https://web.fixture.test/document'), { code: 'DEPTH_ZERO_SELF_SIGNED_CERT' });
+      strictAssert.deepEqual(counts, { requests: 0, connections: 1, lookups: 1, transports: 1 });
+    });
+});
+
+await testAsync('a trusted fixture certificate for another hostname is rejected before HTTP', async () => {
+  await withLoopbackTlsFixture({ onRequest(_req, res) { res.end('must not be reached'); } },
+    async ({ transport, counts }) => {
+      await strictAssert.rejects(transport('https://wrong.fixture.test/document'), { code: 'ERR_TLS_CERT_ALTNAME_INVALID' });
+      strictAssert.deepEqual(counts, { requests: 0, connections: 1, lookups: 1, transports: 1 });
+    });
+});
+
+await testAsync('an interrupted real HTTPS body is rejected after partial bytes with no retry', async () => {
+  let serverSocket; let receivedBytes = 0;
+  await withLoopbackTlsFixture({
+    onRequest(_req, res) {
+      serverSocket = res.socket;
+      res.writeHead(200, { 'Content-Type': 'text/plain', 'Content-Length': 1000 });
+      res.write('partial');
+    },
+    onResponse(response) {
+      // Close the server socket only once the client actually receives body
+      // bytes. This cannot accidentally test only a pre-response disconnect.
+      response.once('data', chunk => { receivedBytes += chunk.length; serverSocket.destroy(); });
+    },
+  }, async ({ transport, counts }) => {
+    await strictAssert.rejects(transport('https://web.fixture.test/document'), { code: 'ECONNRESET' });
+    strictAssert.equal(receivedBytes, Buffer.byteLength('partial'));
+    strictAssert.deepEqual(counts, { requests: 1, connections: 1, lookups: 1, transports: 1 });
+  });
+});
+
+await testAsync('scope invalidation while resolving fixture DNS prevents the real socket connection', async () => {
+  let current = true; let scopeChecks = 0;
+  await withLoopbackTlsFixture({
+    beforeDnsAnswer() { current = false; },
+    onRequest(_req, res) { res.end('must not be reached'); },
+  }, async ({ transport, counts }) => {
+    await strictAssert.rejects(transport('https://web.fixture.test/document', {
+      beforeConnect() {
+        scopeChecks++;
+        if (!current) throw Object.assign(new Error('WEB_REQUEST_REVOKED'), { code: 'WEB_REQUEST_REVOKED' });
+      },
+    }), { code: 'WEB_REQUEST_REVOKED' });
+    strictAssert.equal(scopeChecks, 2);
+    strictAssert.deepEqual(counts, { requests: 0, connections: 0, lookups: 1, transports: 1 });
+  });
+});
 
 await waitForServer();
 suite('Conversation web through the authenticated HTTP controller');

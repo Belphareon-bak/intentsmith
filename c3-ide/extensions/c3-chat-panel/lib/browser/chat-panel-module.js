@@ -6255,7 +6255,8 @@ function _m2StudioError(error){
 }
 function _m2IsGenericApproval(text){return /^(?:ano|ok|spusť(?: to)?|spust(?: to)?|yes|approve)$/i.test(text.trim());}
 function _m2HandleStudioCommand(idx,s,st,ta,text,cmd,arg){
-  if(['/m2-draft','/m2-plan','/m2-approve','/m2-status','/m2-cancel'].indexOf(cmd)<0)return false;
+  if(['/m2-draft','/m2-build','/m2-plan','/m2-approve','/m2-status','/m2-cancel'].indexOf(cmd)<0)return false;
+  var isDraft=cmd==='/m2-draft'||cmd==='/m2-build';
   var running=st._m2Operation;
   var concurrentCancel=st._m2Busy&&cmd==='/m2-cancel'&&running&&running.command==='/m2-approve'&&!running.cancelIssued;
   if(st._m2Busy&&!concurrentCancel){
@@ -6267,10 +6268,10 @@ function _m2HandleStudioCommand(idx,s,st,ta,text,cmd,arg){
   if(!concurrentCancel)s._m2Pending=pending;
   var origin;var lifecycleId;var proposal;var draft;
   try{
-    if(cmd==='/m2-plan'||cmd==='/m2-draft'){
+    if(cmd==='/m2-plan'||isDraft){
       if(pending)throw Object.assign(new Error('Nejdřív použijte /m2-status '+pending.lifecycleId+' nebo /m2-cancel <reason>.'),{code:'M2_STUDIO_PLAN_PENDING'});
-      if(st.attachments.length>0)throw Object.assign(new Error('/m2-plan přijímá pouze strict JSON proposal bez příloh.'),{code:'M2_STUDIO_ATTACHMENTS_NOT_ALLOWED'});
-      if(!arg)throw Object.assign(new Error('Použití: /m2-plan <strict JSON proposal>'),{code:'M2_STUDIO_PROPOSAL_REQUIRED'});
+      if(st.attachments.length>0)throw Object.assign(new Error('M2 plán přijímá pouze výslovně zadané soubory bez příloh.'),{code:'M2_STUDIO_ATTACHMENTS_NOT_ALLOWED'});
+      if(!arg)throw Object.assign(new Error('Použití: /m2-plan <JSON změn>, /m2-build <JSON souborového plánu> nebo /m2-draft soubor :: zadání'),{code:'M2_STUDIO_PROPOSAL_REQUIRED'});
       if(cmd==='/m2-draft'){
         var split=arg.indexOf(' :: ');
         if(split<1)throw Object.assign(new Error('Použití: /m2-draft src/app.js[, src/other.js] :: popis malé změny'),{code:'M2_STUDIO_DRAFT_INPUT_INVALID'});
@@ -6279,6 +6280,9 @@ function _m2HandleStudioCommand(idx,s,st,ta,text,cmd,arg){
           throw Object.assign(new Error('Zadejte jeden až tři různé soubory oddělené čárkou.'),{code:'M2_STUDIO_DRAFT_INPUT_INVALID'});
         }
         draft=paths.length===1?{path:paths[0],instruction:arg.slice(split+4).trim()}:{paths:paths,instruction:arg.slice(split+4).trim()};
+      }else if(cmd==='/m2-build'){
+        try{draft=JSON.parse(arg);}catch(parseError){throw Object.assign(new Error('Souborový plán není validní JSON.'),{code:'M2_STUDIO_DRAFT_INPUT_INVALID'});}
+        if(!_m2IsRecord(draft)||!Array.isArray(draft.files))throw Object.assign(new Error('Souborový plán vyžaduje instruction, files se zadáním a závislostmi a vlastní focusedTest.'),{code:'M2_STUDIO_DRAFT_INPUT_INVALID'});
       }else{
       try{proposal=JSON.parse(arg);}catch(parseError){throw Object.assign(new Error('Proposal není validní strict JSON.'),{code:'M2_STUDIO_PROPOSAL_JSON_INVALID'});}
       if(!_m2IsRecord(proposal))throw Object.assign(new Error('Proposal musí být JSON object.'),{code:'M2_STUDIO_PROPOSAL_INVALID'});
@@ -6316,11 +6320,11 @@ function _m2HandleStudioCommand(idx,s,st,ta,text,cmd,arg){
     _m2BeginStudioCommand(idx,st,ta,text);
   }
   var request;
-  if(cmd==='/m2-draft'){st._m2DraftController=new AbortController();st._thinking.text='Připravuji návrh; zrušení: /m2-cancel';renderChat();}
-  if(cmd==='/m2-plan'||cmd==='/m2-draft'){
-    request=_m2FetchJSON(cmd==='/m2-draft'?'/api/m2/lifecycle/draft':'/api/m2/lifecycle/prepare',{method:'POST',headers:{'Content-Type':'application/json'},
+  if(isDraft){st._m2DraftController=new AbortController();st._thinking.text='Připravuji návrh; zrušení: /m2-cancel';renderChat();}
+  if(cmd==='/m2-plan'||isDraft){
+    request=_m2FetchJSON(isDraft?'/api/m2/lifecycle/draft':'/api/m2/lifecycle/prepare',{method:'POST',headers:{'Content-Type':'application/json'},
       signal:st._m2DraftController?AbortSignal.any([st._m2DraftController.signal,AbortSignal.timeout(150000)]):undefined,
-      body:JSON.stringify(cmd==='/m2-draft'?{projectId:origin.projectId,origin:origin,draft:draft}:{projectId:origin.projectId,origin:origin,proposal:proposal})},150000)
+      body:JSON.stringify(isDraft?{projectId:origin.projectId,origin:origin,draft:draft}:{projectId:origin.projectId,origin:origin,proposal:proposal})},150000)
     .then(function(view){
       _m2AssertCurrentContext(idx,s,origin);
       if(!_m2IsRecord(view)||typeof view.lifecycleId!=='string'||!view.lifecycleId)throw Object.assign(new Error('Prepare response nemá lifecycle ID.'),{code:'M2_STUDIO_INVALID_RESPONSE'});
@@ -6616,7 +6620,7 @@ function _chatSendPane(idx){
 
   /* ── Slash commands ── */
   if(t.charAt(0)==='/'){
-    var parts=t.split(/\s+/);var cmd=parts[0].toLowerCase();var arg=parts.slice(1).join(' ');
+    var commandToken=t.match(/^\S+/)[0];var cmd=commandToken.toLowerCase();var arg=t.slice(commandToken.length).trim();
     if(_m2HandleStudioCommand(idx,s,st,ta,t,cmd,arg))return;
     if(_m4HandleLearningCommand(idx,s,st,ta,t,cmd,arg))return;
     if(cmd==='/run'){

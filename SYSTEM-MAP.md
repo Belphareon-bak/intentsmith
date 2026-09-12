@@ -133,8 +133,8 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **222 884 ř.**, 605 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **241 620 ř.**, 521 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **222 957 ř.**, 605 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **242 152 ř.**, 521 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **515** (`421 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **174 / 98** |
 | HTTP rout | **243 statických deklarací**; nejde o počet runtime ověřených cest |
@@ -407,7 +407,7 @@ multi-file review range vynechalo. Source opravuje M7 záměnu actor ID za
 místní transportní oprávnění a doplňuje terminal audit po ztrátě scope.
 M7 dostane odmítací text, pending souhlas a 0 I/O; neposkytuje typed remote
 webový výsledek. Audit outage zůstává unavailable a není crash recovery.
-Aktuální celý profil je 353/353 PASS, web 20/20, lifecycle service 36/36,
+Předchozí source `dbe6630a` má celý profil 353/353 PASS, web 20/20, lifecycle service 36/36,
 izolované auth/web server programy 2/2 (13 + 2 případy). První nový běh měl
 349 PASS / 2 FAIL / 2 TIMEOUT a zůstává zachovaný. Stav webu:
 `IMPLEMENTED_CANDIDATE / WEB_REVIEW_REQUIRED`; dodané scoped operátorské review
@@ -435,6 +435,17 @@ sjednocení 170 balíčků s aktuálním lockfilem zastavil změněný sdílený
 modelů a cizí GPU práce, před inferencí (`CURRENT_MODEL_RECHECK_BLOCKED`).
 Jde o malou změnu jednoho souboru;
 celý projektový builder zůstává P0. [Přesný rozsah, původní neúspěchy a důkazy](docs/execution/runs/bounded-code-draft-20260911.md).
+
+Navazující řez 2026-09-12 přidává `/m2-build <JSON>`: explicitní souborový
+plán se závislostmi a povinným autorským testem, generovaný přes stejný M2
+náhled, schválení a execution. Cesty, test ani Git identity nevybírá model.
+Limity zůstávají malé: nejvýše 32 cílů v existujících adresářích, 2200 B
+úplného promptu, 1536 output tokenů na soubor a 120 s na celou generaci.
+Studio zachovává whitespace uvnitř JSON. Nové webové testy používají skutečné
+loopback TLS sockety a souběžné SQLite procesy; veřejný HTTPS endpoint tím
+ověřen není. [Návod a konkrétní souborový plán](docs/PROJECT-BUILD.md).
+Tento candidate čeká na společné ověření; úplný přirozenojazyčný builder,
+fyzický modelový běh a spojený Studio/server/model journey zůstávají otevřené.
 
 ## Otevřené release-blocking vady
 

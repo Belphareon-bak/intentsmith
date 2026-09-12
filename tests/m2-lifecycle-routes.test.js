@@ -296,7 +296,10 @@ await testAsync('draft forwards only authenticated input, without executing prep
   const { routes } = makeHarness({ service: { async draftSmallProjectChange(input) {
     calls.push(input); return { state: 'awaiting_approval' };
   } } });
-  const draft = { path: 'src/app.js', instruction: 'Change value to 42' };
+  const draft = { instruction: 'Preserve  exact whitespace.',
+    files: [{ path: 'src/app.js', instruction: 'Export a value.', dependsOn: [] }],
+    focusedTest: { binary: '/usr/bin/node', argv: ['-e', "assert.equal(value, 'a  b');"],
+      environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' }, timeoutMs: 30000 } };
   await routes['POST /api/m2/lifecycle/draft'](request({
     projectId: 17, draft, origin: { surface: 'studio', sessionId: 'c', conversationId: 'c', projectId: 17 },
     projectPath: '/forged', generateCodeDraft: 'forged', actor: { id: 'forged' },
@@ -308,7 +311,7 @@ await testAsync('draft forwards only authenticated input, without executing prep
   assert.equal(calls[0].signal.aborted, false);
 });
 
-for (const [code, status] of [['M2_CODE_DRAFT_OUTPUT_INCOMPLETE', 502], ['M2_CODE_DRAFT_TIMEOUT', 504], ['M2_CODE_DRAFT_CANCELLED', 409], ['M2_CODE_DRAFT_CONTEXT_LIMIT_EXCEEDED', 400]]) {
+for (const [code, status] of [['M2_CODE_DRAFT_DEPENDENCY_CYCLE', 400], ['M2_CODE_DRAFT_OUTPUT_INCOMPLETE', 502], ['M2_CODE_DRAFT_TIMEOUT', 504], ['M2_CODE_DRAFT_CANCELLED', 409], ['M2_CODE_DRAFT_CONTEXT_LIMIT_EXCEEDED', 400]]) {
   await testAsync(`draft error ${code} is not HTTP success`, async () => {
     const { routes, calls } = makeHarness({ service: { async draftSmallProjectChange() {
       throw Object.assign(new Error('draft rejected'), { code });
