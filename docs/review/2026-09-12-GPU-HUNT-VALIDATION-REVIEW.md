@@ -1,6 +1,9 @@
 # GPU hunt: dlouhý validační běh, 2026-09-12
 
 **DETERMINISTIC_GREEN / PILOTS_COMPLETE / BASELINE_RUNNING / REVIEW_PENDING.**
+Pozdější autorizaci automatického mazání, důkazy VISION a další checkpoint
+zachycuje [retention follow-up](2026-09-12-GPU-HUNT-RETENTION-REVIEW.md).
+Níže uvedené OFF a počty jsou historické údaje příslušných běhů.
 Pokračování explicitně autorizovaného GPU testování a oprav. Předchozí
 [produkční packet](2026-09-11-GPU-HUNT-PRODUCTION-REVIEW-PACKET.md) popisuje
 provider, reprodukovatelný build, migrace, timery a původní zelený offline gate.
