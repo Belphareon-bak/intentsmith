@@ -68,7 +68,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `8/9 REVIEW_PASSED / BACKUP_COMPAT_REMEDIATION_REVIEW_PASSED / HISTORY_DECISION_RECORDED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_PARTIAL / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Review přijalo restore základ `65bcbc4b` i follow-up `b4136a43`. Operátor zvolil `retain_and_rotate`; scanner zaznamenaný na vstupní hunt větvi tento dosažitelný stav potvrzuje, ale podepsaný history receipt vznikne až po doložení všech osmi kategorií. LUKS2 médium A drží ověřenou offline kopii tří operátorských klíčů a oddělené LUKS2 médium B právě reviewer key; obě jsou vypnutá. Online zdroj zatím zůstává, protože chybí druhá offline kopie operátorských klíčů a otestovaná oddělená recovery kopie reviewer key. |
-| **M6 IntentSmith 1.0 release** | `CORE_HUNT_DETERMINISTIC_353_PASS / HTTP_RESTART_PASS / STUDIO_M1_CAPTURE_FLAKE_REMAINS / DELTA_REVIEW_REQUIRED / PHYSICAL_MODEL_JOURNEY_UNPROVEN / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Společný core + commitnutý hunt má source `f80bcaa1`: 353/353 deterministic, schema 61/61, lifecycle 53/53. Runtime 71968508 má 75 + 7 HTTP a skutečné restarty. Studio composer/M0 prošly, M1 prvně selhal na neúplné network evidence a izolovaně prošel; příčina zůstává otevřená. Kolize migrací a identit rozhodnutí jsou vyřešené pro vstupy ab0565bc + 3f3a2220. Pozdější retence huntu, fyzický journey, nové CODE měření a M5/M6 acceptance zbývají. [Review packet](docs/review/2026-09-12-CORE-HUNT-INTEGRATION-REVIEW-PACKET.md). |
+| **M6 IntentSmith 1.0 release** | `RETENTION_INTEGRATED / DETERMINISTIC_353_PASS / HTTP_RESTART_PASS / STUDIO_3_PASS / DELTA_REVIEW_REQUIRED / PHYSICAL_MODEL_JOURNEY_UNPROVEN / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Společný core + dokončená retence huntu má source `ed595ad3`: 353/353 deterministic, schema 61/61, hunt 99/99. Stejný pin má 75 + 7 HTTP, dva skutečné restarty a Studio 3/3 v jedné sekvenci. Původní M1 capture failure se neopakoval, jeho příčina zůstává neprokázaná. Review celé retenční delty, fyzický journey, nové CODE měření a M5/M6 acceptance zbývají. Běžící hunt se zde nepřepínal. [Review packet](docs/review/2026-09-12-HUNT-RETENTION-INTEGRATION-REVIEW-PACKET.md). |
 | **M7 Remote Companion** | `UI_SURFACES_REVIEW_PASSED / HOST_GATE_GREEN / DEVICE_NOT_RUN / NOT_ACCEPTED` | M6 + remote boundary | Nezávislé re-review přijalo exact candidate `429b779f`: durable journal guard zavírá settings double-activation okno a held-flush regrese odlišuje staré bytes. Mobile 47/47, runtime 7/7, adapter 8/8, artifact validation 158/158, boundary 0 violations a Android test+lint prošly. Produkční konfigurace, fyzická matice 13+7, TalkBack a release podpisy nejsou hotové. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
@@ -3122,7 +3122,7 @@ M1 network capture failure zůstává neprokázaná. [Přesný scope a review](d
 a [run record](docs/execution/runs/core-hunt-integration-20260912.md).
 Nejde o přijetí release, nové retence huntu ani fyzického modelového journey.
 
-Autorizovaná retence GPU huntu 2026-09-12: module graph má 1 317 hran.
+Vstupní hunt checkpoint `ee4472d5`, 2026-09-12: module graph má 1 317 hran.
 Sedm nových hran patří `model-hunt-retention.js`, který používá existující
 role, history a pairwise autoritu; počet cyklů zůstává 3 a jejich členů 28.
 Operátor zapnutí úzkého mazání výslovně požadoval. Provedení a ochrany:
@@ -3135,5 +3135,9 @@ propojuje retention policy s existujícími role/history/pairwise autoritami.
 Kanonická provider Decision 048 obsahuje i novou autorizovanou retenci; 044
 zůstává historickým aliasem. Web migrace 113, registry 516 a schema 100 migrací
 zůstávají ve společném kandidátu. Nová regresní kontrola nepovolí odstranění
-ze starého CODE kontraktu. Stav kandidáta je VALIDATION_PENDING / REVIEW_PENDING;
-předchozí výsledky neplatí automaticky pro nově sloučený source.
+ze starého CODE kontraktu. Kandidát `ed595ad3` má **353/353 deterministic PASS**,
+Studio **3/3 PASS** v jedné sekvenci a HTTP **75 + 7 PASS** se dvěma skutečnými
+procesovými restarty. Registry zůstává 516. Stav je IMPLEMENTATION_VERIFIED /
+REVIEW_PENDING; původní M1 capture failure na 71968508 má stále neprokázanou
+příčinu. Fyzický modelový journey a M5/M6 acceptance zůstávají otevřené.
+[Celý retenční a integrační review rozsah](docs/review/2026-09-12-HUNT-RETENTION-INTEGRATION-REVIEW-PACKET.md).

@@ -735,7 +735,7 @@ M1 network capture failure zůstává neprokázaná. [Přesný scope a review](d
 a [run record](docs/execution/runs/core-hunt-integration-20260912.md).
 Nejde o přijetí release, nové retence huntu ani fyzického modelového journey.
 
-Autorizovaná retence GPU huntu 2026-09-12: module graph má 1 317 hran.
+Vstupní hunt checkpoint `ee4472d5`, 2026-09-12: module graph má 1 317 hran.
 Sedm nových hran patří `model-hunt-retention.js`, který používá existující
 role, history a pairwise autoritu; počet cyklů zůstává 3 a jejich členů 28.
 Operátor zapnutí úzkého mazání výslovně požadoval. Provedení a ochrany:
@@ -748,5 +748,9 @@ propojuje retention policy s existujícími role/history/pairwise autoritami.
 Kanonická provider Decision 048 obsahuje i novou autorizovanou retenci; 044
 zůstává historickým aliasem. Web migrace 113, registry 516 a schema 100 migrací
 zůstávají ve společném kandidátu. Nová regresní kontrola nepovolí odstranění
-ze starého CODE kontraktu. Stav kandidáta je VALIDATION_PENDING / REVIEW_PENDING;
-předchozí výsledky neplatí automaticky pro nově sloučený source.
+ze starého CODE kontraktu. Kandidát `ed595ad3` má **353/353 deterministic PASS**,
+Studio **3/3 PASS** v jedné sekvenci a HTTP **75 + 7 PASS** se dvěma skutečnými
+procesovými restarty. Registry zůstává 516. Stav je IMPLEMENTATION_VERIFIED /
+REVIEW_PENDING; původní M1 capture failure na 71968508 má stále neprokázanou
+příčinu. Fyzický modelový journey a M5/M6 acceptance zůstávají otevřené.
+[Celý retenční a integrační review rozsah](docs/review/2026-09-12-HUNT-RETENTION-INTEGRATION-REVIEW-PACKET.md).

@@ -70,3 +70,13 @@ runner. Follow-up is complete as implementation evidence when these checks
 pass and a pinned review packet records results and unresolved boundaries.
 Independent review/release acceptance, live DB, running services/models, foreign
 work and operator custody remain outside this write scope. No push/deploy.
+
+Follow-up implementation evidence: merged source `7d33e631`, explicit graph
+pin `ed595ad3`; unchanged required profile **353/353 PASS**, registry 516.
+The same pin has Studio **3/3 PASS** and HTTP **75 + 7 PASS**, including two
+real process restarts. Retention regression rejects helper-blind CODE evidence
+before any journal/deletion effect. The previous M1 capture failure remains
+unresolved; safe diagnostic classes were added without changing wire policy.
+No live hunt/model/binding/service was changed. Review remains PENDING.
+[Exact review scope](../review/2026-09-12-HUNT-RETENTION-INTEGRATION-REVIEW-PACKET.md) ·
+[Machine-readable run](../execution/runs/hunt-retention-integration-20260912.json).
