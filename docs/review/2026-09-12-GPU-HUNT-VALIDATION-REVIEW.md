@@ -1,6 +1,6 @@
 # GPU hunt: dlouhý validační běh, 2026-09-12
 
-**DETERMINISTIC_GREEN / GPU_VALIDATION_IN_PROGRESS / REVIEW_PENDING.**
+**DETERMINISTIC_GREEN / PILOTS_COMPLETE / BASELINE_RUNNING / REVIEW_PENDING.**
 Pokračování explicitně autorizovaného GPU testování a oprav. Předchozí
 [produkční packet](2026-09-11-GPU-HUNT-PRODUCTION-REVIEW-PACKET.md) popisuje
 provider, reprodukovatelný build, migrace, timery a původní zelený offline gate.
@@ -86,14 +86,13 @@ snapshotu reprodukoval 2 COMPLETE / 60 applicable MISSING / 8 N/A bez kontaktu
 s providerem. Současně běžící druhý wrapper skončil SCHEDULED_SKIPPED / PORT_BUSY.
 
 Celý offline/database gate po opravě census na `e4d5cf8b` i po doplnění
-Ornithu na finálním zdroji **`dbf1abfc9059d9127e1494145345e0d7efd86d4b`**:
+Ornithu na zdroji **`dbf1abfc9059d9127e1494145345e0d7efd86d4b`**:
 **352 PASS / 0 FAIL / 0 TIMEOUT / 0 BLOCKED / 0 SKIPPED**. Všech 352 log SHA-256,
 source revision, čisté source stromy a jedinečné test IDs byly ověřeny.
-Finální report SHA-256:
+Report tohoto checkpointu SHA-256:
 `30a7f631f6706bf90ded05cb5e6b513e00609501d276818ed981849790c839c7`.
 [Strojový manifest](../execution/runs/gpu-hunt-validation-20260912.json)
-uchovává také oba předchozí gate, runtime reporty a jejich hashe. Nová vzdálená dávka na `ab4da3b9`
-testuje North Mini Code a Ornith 1.5 v D2/CODE/R2/CHAT; výsledky budou doplněny.
+uchovává také předchozí gate, runtime reporty a jejich hashe.
 
 Evidence root:
 `/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912`.
@@ -102,3 +101,123 @@ Původní provider log:
 
 Acceptance M6 a nezávislé review zůstávají otevřené. Automatická aktivace rolí
 ani podmíněná evidence-based retence nejsou tímto během zapnuté.
+
+## První vlna nově stažených modelů
+
+Dávka `intentsmith-hunt-wave1-20260912.service` na `ab4da3b9` proběhla
+09:40:57–10:41:16 CEST, exit 0. North se stahoval přibližně 25 min 36 s,
+Ornith 9 min 8 s. Po dokončení byly GPU compute seznam, Ollama ps i port
+11435 prázdné. Zůstalo přibližně 73 GiB volných při rezervě 40 GiB.
+
+| Kandidát | GPU při 32k | D2 | CODE | R2 | CHAT |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| North Mini Code 1.0 | 17.78 GiB, bez CPU offloadu | 0.8417 | 0.0000 | 0.4569 | 0.8501 |
+| Ornith 1.5 9B | 6.23 GiB, bez CPU offloadu | 0.8500 | 0.1619 | 0.7514 | 0.8822 |
+| Současný model příslušné role | — | 0.9667 | 0.2857 | 0.7167 | 0.9125 |
+
+Osm duelů skončilo bez roleErrors: pět ponechává incumbenta na základě
+pairwise quality policy, tři jsou INSUFFICIENT_EVIDENCE (North D2, Ornith
+D2/R2). Vyšší průměr Ornithu v R2 nestačí: stabilně rozlišují jen 2/3
+požadovaných úloh. U Ornith CODE nerozhoduje vysoká jistota ztráty; aktuální
+policy pouze nenašla požadované zlepšení. Ani jeden model se nesmazal.
+
+DB ověření `wave1-db-verification.json` potvrzuje 12 jedinečných COMPLETE
+(8 kandidátských a 4 sdílené incumbent běhy), tři opakování, plný digest a
+`provider.proof=RESPONSE_BOUND`, verzi `0.34.0-intentsmith.1`. Osm append-only
+rozhodnutí odkazuje na tyto běhy. Přesné digests:
+
+- North: `d8b269ad5c7c7144ce104b83ce93bc3efb85e0f74e01be6be5f5d6f7ca90b60f`.
+- Ornith: `e5df7dcdd8a263994df62d610317e07be0d6af23f96fcbd8543273058fce575e`.
+
+Manuální `--only` pilot nepoužívá scheduler attempt journal. Následný běžný
+hunt tyto modely převezme do journalu a shodné COMPLETE může použít z cache.
+Discovery již doložilo, že jejich plné lokální digests zdědily BOOTSTRAP a
+first-seen 2026-09-11T20:26:28.369Z z katalogových otisků.
+
+CODE oracle kontrola aplikovala všech sedm skutečných opravných patchů;
+všech sedm získalo 1.000. Nízké modelové výsledky tedy nejsou vysvětlitelné
+tím, že runner nedokáže přijmout referenční opravu. Historických 0.7619
+nelze přenést na dnešní jiný provider a efektivní kontrakt.
+
+Další gate na `b639e944` zachytil **351 PASS / 1 TIMEOUT**:
+`IS-T1-TESTS-M2-EFFECT-BROKER-V1-TEST`, 30 221 ms při současné GPU/CODE
+zátěži. Samostatné opakování programu prošlo 56 kontrolami. Celý opakovaný
+gate bez současné CODE evaluace prošel **352 PASS**; původní timeout
+zůstává v manifestu a izolovaný retry jej nepřepisuje.
+
+Po první vlně current-contract read model uvádí **14 COMPLETE / 0 FAILED /
+0 BLOCKED / 59 applicable MISSING / 11 N/A** nad 12 instalovanými artefakty.
+Read-only report uvádí binding autoritu `UNVERIFIED_RUNTIME /
+MODEL_BINDING_RUNTIME_NOT_OBSERVED`: nezachycuje běžící produktovou session.
+Response-bound scoring proof tím není zneplatněn; zároveň samotná oprava
+providera nedokazuje ověření celé produktové binding application.
+
+## Finální implementační gate
+
+Implementační rozsah dnešních oprav:
+`fe064ee888a4efeb82ad0c77e5c40686f7c6fd83..3b0dcdfb2b2fce4e2ae525d86515f1ca2c961d10`.
+Původní provider/bootstrap změny jsou v předchozím packetu. Následné evidence
+commity mění jen dokumentaci a manifest.
+
+Clean-clone offline/database gate na přesném finálním implementačním zdroji
+`3b0dcdfb2b2fce4e2ae525d86515f1ca2c961d10`:
+**352 PASS / 0 FAIL / 0 TIMEOUT / 0 BLOCKED / 0 SKIPPED**.
+Všech 352 logů má ověřený SHA-256, shodnou source revision a čistý source
+strom. Report SHA-256:
+`f0475470fff1c11f2bb3f49215fe5b5586bb80a69043994d3d182c09f8b436a6`.
+CODE private-DB regrese: 56 PASS; CODE suite diagnostika: 22 PASS;
+referenční CODE opravy: 7/7 score 1.000. Nezávislé review tím není nahrazené.
+
+## VISION: dokončené porovnání na nové Ollamě
+
+Service `intentsmith-hunt-vision-validation-20260912.service` na `3b0dcdfb`
+skončila úspěšně přibližně 10:55 CEST. Oba kandidáti i incumbent mají
+response-bound COMPLETE se třemi opakováními. Po skončení se provider
+uvolnil; nezůstala GPU compute úloha ani listener na 11435.
+
+| Model | VISION score | Duel proti aktuální Llavě |
+| --- | ---: | --- |
+| llava-llama3:8b | 0.5333 | incumbent |
+| qwen3.8:latest | 0.9333 | CANDIDATE_QUALITY, 2:0, střední jistota |
+| ornith-1.5:9b | 0.9556 | CANDIDATE_QUALITY, 2:0, střední jistota |
+
+Portfolio doporučilo Ornith (6.23 GiB při 32k) pro VISION;
+`decision_53b16de8-9adc-4643-8c49-c48ad5bbe331` má activationEligible=true.
+Qwenův duel také vyhrál, ale není výsledným výběrem portfolia. Skórové
+pořadí **není** přímý důkaz převahy Ornithu nad Qwenem; oba duely používaly
+Llava incumbent. Všechny durable binding revisions zůstaly beze změny,
+VISION nadále ukazuje na `llava-llama3:8b`. Neproběhla binding application.
+
+Current-contract snapshot po VISION: **17 COMPLETE / 0 FAILED / 0 BLOCKED /
+56 applicable MISSING / 11 N/A**, 12 instalovaných modelů. SHA-bound offline
+replay reprodukoval stejné počty s `providerContacted=false`. Zdrojová DB
+zůstala při pořizování disposable projekce byte-identická. Plné run/decision
+IDs, digests, provider a časy jsou v `vision-db-verification.json` a manifestu.
+
+## Pokračující úvodní dávka a předání k review
+
+V 10:56:24 CEST byl spuštěn normální scheduler-backed hunt
+`intentsmith-hunt-baseline-validation-20260912.service`, invocation
+`6571405889e94d68a8583e925e801605`, implementace `3b0dcdfb`:
+`--run --limit=13 --keep-inconclusive --scheduled`, timeout 6 h.
+Dávka v okamžiku tohoto checkpointu **běží; není prohlášena za dokončenou**.
+Výsledný report bude `baseline.json` ve výše uvedeném evidence rootu;
+mezivýsledky jsou průběžně v DB a stav je v journalu služby:
+
+```bash
+journalctl --user -fu intentsmith-hunt-baseline-validation-20260912.service
+```
+
+Discovery před startem mělo 180 čekajících položek; všech 12 prvních byly
+lokální artefakty, následovala Gemma4 31B a další katalogoví kandidáti.
+Reálný běh znovu provádí discovery a kontrolu místa. Před startem bylo
+71.94 GiB volných. Žádný počet kandidátů neobchází diskový ani GPU gate.
+Noční timer má nadále limit dva kandidáti; přesný čas randomizuje systemd.
+Denní autocheck hlásí dostupnou verzi Ollamy, neinstaluje ji automaticky.
+
+Review má prověřit zejména nové error/proof hranice, invalidaci cache podle
+provideru a efektivních parametrů, journal po částečném duelu a záznamy
+skutečných pilotů. M6 acceptance zůstává otevřená. Nízká rozlišitelnost sad
+a pozdější bezpečná retence jsou zbývající produktová práce; legacy
+`--allow-removal` zůstává vypnutý. Tento checkpoint dokládá připravenost
+k řízenému testování, nikoli dokončenou autonomní správu všech modelů.

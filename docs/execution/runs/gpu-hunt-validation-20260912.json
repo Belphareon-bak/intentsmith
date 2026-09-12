@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-09-12T07:58:42.233964+00:00",
-  "status": "VALIDATION_IN_PROGRESS_REVIEW_PENDING",
-  "implementationSourceRevision": "dbf1abfc9059d9127e1494145345e0d7efd86d4b",
+  "generatedAt": "2026-09-12T08:57:41.146199+00:00",
+  "status": "DETERMINISTIC_GREEN_PILOTS_COMPLETE_BASELINE_RUNNING_REVIEW_PENDING",
+  "implementationSourceRevision": "3b0dcdfb2b2fce4e2ae525d86515f1ca2c961d10",
   "providerVersion": "0.34.0-intentsmith.1",
   "providerBinarySha256": "8883245b864485a74ecccf62c4ce17d4538816cde4e37ea2107c2204d1d04ca7",
   "gates": [
@@ -42,6 +42,53 @@
       "path": "/home/belphareon/is-hunt11/.intentsmith-artifacts/test-runs/hunt-validation-20260912-dbf1abfc/report.json",
       "sha256": "30a7f631f6706bf90ded05cb5e6b513e00609501d276818ed981849790c839c7",
       "sourceRevision": "dbf1abfc9059d9127e1494145345e0d7efd86d4b",
+      "counts": {
+        "PASS": 352,
+        "FAIL": 0,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "logsVerified": 352,
+      "sourceTreesClean": true,
+      "nonPassIds": []
+    },
+    {
+      "path": "/home/belphareon/is-hunt11/.intentsmith-artifacts/test-runs/hunt-validation-20260912-b639e944/report.json",
+      "sha256": "dd0716de13b34b1fec4e2d0bd2b2c8eaab9ae5541aaf864549b478dc7427a732",
+      "sourceRevision": "b639e9447d0c435076869e1e8ba1b82e8dc23c24",
+      "counts": {
+        "PASS": 351,
+        "FAIL": 0,
+        "TIMEOUT": 1,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "logsVerified": 352,
+      "sourceTreesClean": true,
+      "nonPassIds": [
+        "IS-T1-TESTS-M2-EFFECT-BROKER-V1-TEST"
+      ]
+    },
+    {
+      "path": "/home/belphareon/is-hunt11/.intentsmith-artifacts/test-runs/hunt-validation-20260912-b639e944-idle/report.json",
+      "sha256": "e353de7a7969c07f9eeb69bf045b7ccad878ab8427491591631aa408ce46dea9",
+      "sourceRevision": "b639e9447d0c435076869e1e8ba1b82e8dc23c24",
+      "counts": {
+        "PASS": 352,
+        "FAIL": 0,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "logsVerified": 352,
+      "sourceTreesClean": true,
+      "nonPassIds": []
+    },
+    {
+      "path": "/home/belphareon/is-hunt11/.intentsmith-artifacts/test-runs/hunt-validation-20260912-3b0dcdfb/report.json",
+      "sha256": "f0475470fff1c11f2bb3f49215fe5b5586bb80a69043994d3d182c09f8b436a6",
+      "sourceRevision": "3b0dcdfb2b2fce4e2ae525d86515f1ca2c961d10",
       "counts": {
         "PASS": 352,
         "FAIL": 0,
@@ -94,6 +141,82 @@
     {
       "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/busy-during-pull.json",
       "sha256": "c1b15e8f1fca04978c182b05e6516e7c597ddc3b81f9615b54d36b0eb276de56"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/wave1.json",
+      "sha256": "bd8fcac600daef5f783c3995ef5caedd8eb557c7b231613a5e0411eacecd9bfd"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/wave1-db-verification.json",
+      "sha256": "5b435861c169fff49bae81497fe302e5618ec378d06316fb726e06cfd50dfe1b"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/wave1-decision-verification.json",
+      "sha256": "0a9c8c635110b16cc477953680e0c98978e7449e2f217f0dbf2ca8702818f88d"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/wave1-service.log",
+      "sha256": "9de46e34bebb0f443ccfd60cab09cf3b51f0c40daf396e72c9ee03b3b9cafbbb"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/wave1-provider.log",
+      "sha256": "59f73ca315ad83d7f21268af56c3c4cd3045e8c0ab3be47778d844b3546e483e"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/coverage-after-wave1.json",
+      "sha256": "b76e0e1762c76f9a906766ec753ca829ae40ec688e726412ab3cae43efbacee0"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/discovery-next-baseline.json",
+      "sha256": "2e4fed7cc9fef64917f0fd5dd34694ef0948d7b589832bc1845aa2763919f52f"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/code-oracles.json",
+      "sha256": "27bf206bc7426eafb2e032596abbec53b5ba97198da200d2b23fce3b4b2fb748"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/unshare-production-unit-probe.log",
+      "sha256": "3b64fb16be7b547e7c8b27b23d8452ae03bbb7aa90bc1363717cd46cd5cc3c9a"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/code-private-db-tests.log",
+      "sha256": "d06328faa4cd32a01a2d8986c83477c29865306cc2ce2dc0c1a35fbc114f7e30"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/code-suite-final.log",
+      "sha256": "0981292d29082f1ec78ef161fb16db62046982f161437b4c1ed56be052bbff73"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/m2-broker-isolated-retry.log",
+      "sha256": "5192a0118438c1c6e20271aef25da640f1c0835995991a08d25b5c7a6b7044c5"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/vision.json",
+      "sha256": "7527b63eaa805aeeb6fa0158dbaf6bf281591af44e3a881139fc803055ed279a"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/vision-db-verification.json",
+      "sha256": "a424374f3bafe6eee9f315d593679098f4f2211cf0af54f5fb8599a2a05b52ff"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/vision-service.log",
+      "sha256": "b39de0c9d5b541cc5d22316475a964f8693d7368e7600dd236e50909ae79c94a"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/coverage-after-vision.json",
+      "sha256": "746e8f0d6b3fe7f7a04471a0fa1c8bc863e486afffd7b56f5a0e7b1473158b57"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/host-after-vision.json",
+      "sha256": "4c06c51c6f9f21d8de75800f83055165bc80112ec4396736b42dc8bcd03ee948"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/projected-after-vision.db",
+      "sha256": "b4016168fc288c0ce00b3b83915fb686a90af6eaccff3b0e6a816b2df16ed6bb"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/replay-after-vision.json",
+      "sha256": "ddfb0d2a60412e01e88f478d92f4e79ce15561fa3f2f80cce08d39769e1f23e6"
     }
   ],
   "historicalIncorrectFailureRows": 32,
@@ -250,26 +373,2328 @@
       }
     ]
   },
-  "activeWave": {
-    "sourceRevision": "ab4da3b9",
-    "unit": "intentsmith-hunt-wave1-20260912.service",
-    "candidates": [
-      "north-mini-code-1.0:latest",
-      "ornith-1.5:9b"
-    ],
-    "roles": [
-      "D2",
-      "CODE",
-      "R2",
-      "CHAT"
-    ],
-    "timeoutHours": 4,
-    "report": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/wave1.json",
-    "status": "RUNNING_DOWNLOAD"
-  },
   "minimumDiskReserveBytes": 42949672960,
   "automaticRemoval": false,
   "automaticBindingChange": false,
   "independentReview": "PENDING",
-  "m6Acceptance": "NOT_GRANTED_BY_THIS_EVIDENCE"
+  "m6Acceptance": "NOT_GRANTED_BY_THIS_EVIDENCE",
+  "completedWaves": [
+    {
+      "sourceRevision": "ab4da3b9",
+      "unit": "intentsmith-hunt-wave1-20260912.service",
+      "candidates": [
+        "north-mini-code-1.0:latest",
+        "ornith-1.5:9b"
+      ],
+      "roles": [
+        "D2",
+        "CODE",
+        "R2",
+        "CHAT"
+      ],
+      "timeoutHours": 4,
+      "report": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/wave1.json",
+      "status": "COMPLETE",
+      "result": "success",
+      "exitStatus": 0,
+      "candidateResults": 2,
+      "roleDecisions": 8,
+      "roleErrors": 0,
+      "removedModels": 0,
+      "results": [
+        {
+          "model": "north-mini-code-1.0:latest",
+          "stage": "done",
+          "measurement": {
+            "model": "north-mini-code-1.0:latest",
+            "numCtx": 32768,
+            "placement": {
+              "loaded": true,
+              "sizeBytes": 19092125777,
+              "vramBytes": 19092125777,
+              "cpuBytes": 0,
+              "fullyOnGpu": true
+            },
+            "throughput": {
+              "tokensPerSecond": 174.4,
+              "tokens": 160
+            },
+            "fits": true,
+            "error": null
+          },
+          "floor": {
+            "passed": true,
+            "failures": []
+          },
+          "roleErrors": [],
+          "removed": false,
+          "error": null,
+          "decisionRecords": [
+            {
+              "decisionId": "decision_7d2a419b-fecd-4163-a69f-1d54f1485698",
+              "role": "D2",
+              "incumbentRunId": "eval_d4ed9c26-b24d-4f74-9b9f-f1ca15c39ae0",
+              "candidateRunId": "eval_47a578f0-7fad-4ba4-b52b-c5e6cebfca8c",
+              "policyVersion": "role-pairwise-v1",
+              "policyContractSha256": "772f98f2ba9ffe70cae23a0b310970dc6554482fe642b5522f5c880ccf16f3b9",
+              "outcome": "INCONCLUSIVE",
+              "basis": "nedostatečný důkaz",
+              "details": {
+                "candidateModel": "north-mini-code-1.0:latest",
+                "incumbentModel": "qwen3.8:latest",
+                "activationEligible": false,
+                "activationBlockReason": "CANDIDATE_NOT_SELECTED_BY_PORTFOLIO",
+                "decision": {
+                  "winner": "incumbent",
+                  "reasonCode": "INSUFFICIENT_EVIDENCE",
+                  "basis": "nedostatečný důkaz",
+                  "confidence": "nedostatečná",
+                  "detail": "rozhodnutí kandidáta zablokováno: stabilně rozlišující úlohy 1/3 celkem"
+                },
+                "comparison": {
+                  "suite": "reasoning_v2",
+                  "tasks": [
+                    {
+                      "name": "reason_budget",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "reason_order",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "reason_critical_path",
+                      "language": "en",
+                      "candidateScore": 0.333,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": -0.6666666666666667,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "reason_table",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "reason_sets",
+                      "language": "en",
+                      "candidateScore": 0.4,
+                      "incumbentScore": 0.733,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0.4,
+                      "delta": -0.3333333333333333,
+                      "noise": 0.4,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "reason_rate",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "reason_logic",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "reason_transform",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    }
+                  ],
+                  "discriminating": 1,
+                  "candidateWins": 0,
+                  "incumbentWins": 1,
+                  "margin": -0.6667,
+                  "inconclusive": false,
+                  "candidateSuiteScore": 0.8416666666666667,
+                  "incumbentSuiteScore": 0.9666666666666667,
+                  "candidateRunId": "eval_47a578f0-7fad-4ba4-b52b-c5e6cebfca8c",
+                  "incumbentRunId": "eval_d4ed9c26-b24d-4f74-9b9f-f1ca15c39ae0",
+                  "repeats": 3,
+                  "unstableTasks": [
+                    "reason_sets"
+                  ]
+                },
+                "policy": {
+                  "version": "role-pairwise-v1",
+                  "role": "D2",
+                  "suiteName": "reasoning_v2",
+                  "suiteVersion": "v136.1-prototype.1",
+                  "suiteContractSha256": "51d5c0cafb91db50cba8161c77cad817d72c3962bbb1443bec39bf4f35011b70",
+                  "repeats": 3,
+                  "taskMarginEpsilon": 0.05,
+                  "scoreRoundingEpsilon": 0.0005,
+                  "improvementThreshold": 0.05,
+                  "minimumDiscriminatingTasks": 3,
+                  "minimumDiscriminatingByLanguage": {}
+                },
+                "source": "model-upgrade-hunt-v136.1"
+              },
+              "createdAt": "2026-09-12T08:41:13.219Z"
+            },
+            {
+              "decisionId": "decision_4a0de717-4aaa-49c3-8ec5-c05c59ad9424",
+              "role": "CODE",
+              "incumbentRunId": "eval_40fefd99-594e-4929-af4d-5109c3f3e4f2",
+              "candidateRunId": "eval_ff7c3b14-3e28-4d65-8d64-0e27fb8b46f8",
+              "policyVersion": "role-pairwise-v1",
+              "policyContractSha256": "a9c30458b305ac9854c15f7cea4c289918cf495ab71a0d45e4c3e3ed75fec692",
+              "outcome": "INCUMBENT",
+              "basis": "kvalita",
+              "details": {
+                "candidateModel": "north-mini-code-1.0:latest",
+                "incumbentModel": "qwen3.5:27b",
+                "activationEligible": false,
+                "activationBlockReason": "CANDIDATE_NOT_SELECTED_BY_PORTFOLIO",
+                "decision": {
+                  "winner": "incumbent",
+                  "reasonCode": "INCUMBENT_QUALITY",
+                  "basis": "kvalita",
+                  "confidence": "střední",
+                  "detail": "kandidát ztrácí 1.000 na 2 úlohách, jistota střední"
+                },
+                "comparison": {
+                  "suite": "code_patch",
+                  "tasks": [
+                    {
+                      "name": "patch_8cae1b583963",
+                      "language": null,
+                      "candidateScore": 0,
+                      "incumbentScore": 0,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "patch_0fe346cc820c",
+                      "language": null,
+                      "candidateScore": 0,
+                      "incumbentScore": 0,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "patch_6fc5e4eb7dce",
+                      "language": null,
+                      "candidateScore": 0,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": -1,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "patch_ef4ae48ec16e",
+                      "language": null,
+                      "candidateScore": 0,
+                      "incumbentScore": 0,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "patch_e8cdbe02e5de",
+                      "language": null,
+                      "candidateScore": 0,
+                      "incumbentScore": 0,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "patch_22149f55b861",
+                      "language": null,
+                      "candidateScore": 0,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": -1,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "patch_adb1258cfec0",
+                      "language": null,
+                      "candidateScore": 0,
+                      "incumbentScore": 0,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    }
+                  ],
+                  "discriminating": 2,
+                  "candidateWins": 0,
+                  "incumbentWins": 2,
+                  "margin": -1,
+                  "inconclusive": false,
+                  "candidateSuiteScore": 0,
+                  "incumbentSuiteScore": 0.2857142857142857,
+                  "candidateRunId": "eval_ff7c3b14-3e28-4d65-8d64-0e27fb8b46f8",
+                  "incumbentRunId": "eval_40fefd99-594e-4929-af4d-5109c3f3e4f2",
+                  "repeats": 3,
+                  "unstableTasks": []
+                },
+                "policy": {
+                  "version": "role-pairwise-v1",
+                  "role": "CODE",
+                  "suiteName": "code_patch",
+                  "suiteVersion": "code-patch-v136.1-prototype.1",
+                  "suiteContractSha256": "09d65ca77efd6b767a13db84b8e8a40281dc3fd89ef24296833bc4c98ba06fdb",
+                  "repeats": 3,
+                  "taskMarginEpsilon": 0.05,
+                  "scoreRoundingEpsilon": 0.0005,
+                  "improvementThreshold": 0.05,
+                  "minimumDiscriminatingTasks": 2,
+                  "minimumDiscriminatingByLanguage": {}
+                },
+                "source": "model-upgrade-hunt-v136.1"
+              },
+              "createdAt": "2026-09-12T08:41:13.221Z"
+            },
+            {
+              "decisionId": "decision_b834c8d7-1b86-4599-8b04-b0f4f65239c6",
+              "role": "R2",
+              "incumbentRunId": "eval_a9d231ae-5db6-4ddb-a613-c9990dee3f03",
+              "candidateRunId": "eval_a8f2ee13-3553-42fb-ac47-94cdf058d84a",
+              "policyVersion": "role-pairwise-v1",
+              "policyContractSha256": "9c3d8c753e6675c9a3e2eae788f88f4d07525ac1bf86e871a0eb1266183ecfa8",
+              "outcome": "INCUMBENT",
+              "basis": "kvalita",
+              "details": {
+                "candidateModel": "north-mini-code-1.0:latest",
+                "incumbentModel": "qwen3:14b",
+                "activationEligible": false,
+                "activationBlockReason": "CANDIDATE_NOT_SELECTED_BY_PORTFOLIO",
+                "decision": {
+                  "winner": "incumbent",
+                  "reasonCode": "INCUMBENT_QUALITY",
+                  "basis": "kvalita",
+                  "confidence": "vysoká",
+                  "detail": "kandidát ztrácí 0.425 na 3 úlohách, jistota vysoká"
+                },
+                "comparison": {
+                  "suite": "review_v2",
+                  "tasks": [
+                    {
+                      "name": "review_sql_null",
+                      "language": "en",
+                      "candidateScore": 0.575,
+                      "incumbentScore": 0.575,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "review_path_async",
+                      "language": "en",
+                      "candidateScore": 0.15,
+                      "incumbentScore": 0.575,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": -0.42500000000000004,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "review_command_secret",
+                      "language": "en",
+                      "candidateScore": 0.717,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0.85,
+                      "incumbentSpread": 0,
+                      "delta": -0.2833333333333333,
+                      "noise": 0.85,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "review_bounds_resource",
+                      "language": "en",
+                      "candidateScore": 0.15,
+                      "incumbentScore": 0.575,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": -0.42500000000000004,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "review_auth_race",
+                      "language": "en",
+                      "candidateScore": 0.15,
+                      "incumbentScore": 0.575,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": -0.42500000000000004,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "review_clean",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    }
+                  ],
+                  "discriminating": 3,
+                  "candidateWins": 0,
+                  "incumbentWins": 3,
+                  "margin": -0.425,
+                  "inconclusive": false,
+                  "candidateSuiteScore": 0.45694444444444443,
+                  "incumbentSuiteScore": 0.7166666666666668,
+                  "candidateRunId": "eval_a8f2ee13-3553-42fb-ac47-94cdf058d84a",
+                  "incumbentRunId": "eval_a9d231ae-5db6-4ddb-a613-c9990dee3f03",
+                  "repeats": 3,
+                  "unstableTasks": [
+                    "review_command_secret"
+                  ]
+                },
+                "policy": {
+                  "version": "role-pairwise-v1",
+                  "role": "R2",
+                  "suiteName": "review_v2",
+                  "suiteVersion": "v136.1-prototype.1",
+                  "suiteContractSha256": "20da20eb4977829cecc50f88a55cad055b524db91e2ac1405c896c7e0e1a9fc2",
+                  "repeats": 3,
+                  "taskMarginEpsilon": 0.05,
+                  "scoreRoundingEpsilon": 0.0005,
+                  "improvementThreshold": 0.05,
+                  "minimumDiscriminatingTasks": 3,
+                  "minimumDiscriminatingByLanguage": {}
+                },
+                "source": "model-upgrade-hunt-v136.1"
+              },
+              "createdAt": "2026-09-12T08:41:13.222Z"
+            },
+            {
+              "decisionId": "decision_1459d944-d012-4a46-9b5f-8fc0ad7602db",
+              "role": "CHAT",
+              "incumbentRunId": "eval_76aab33f-be67-46fb-8c99-a6e68cbdbcd6",
+              "candidateRunId": "eval_a14c8d84-47cc-4e5e-a0d5-070a59581474",
+              "policyVersion": "role-pairwise-v1",
+              "policyContractSha256": "32d4a9f124a254b53d878bd2584ea35eeb0a1ad74b905b780422bc5d8894d8b7",
+              "outcome": "INCUMBENT",
+              "basis": "kvalita",
+              "details": {
+                "candidateModel": "north-mini-code-1.0:latest",
+                "incumbentModel": "qwen3.5:27b",
+                "activationEligible": false,
+                "activationBlockReason": "CANDIDATE_NOT_SELECTED_BY_PORTFOLIO",
+                "decision": {
+                  "winner": "incumbent",
+                  "reasonCode": "INCUMBENT_QUALITY",
+                  "basis": "kvalita",
+                  "confidence": "vysoká",
+                  "detail": "kandidát ztrácí 0.157 na 12 úlohách, jistota vysoká"
+                },
+                "comparison": {
+                  "suite": "chat_v3",
+                  "tasks": [
+                    {
+                      "name": "en_grounded_summary",
+                      "language": "en",
+                      "candidateScore": 0.8,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": -0.19999999999999984,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "en_action_email",
+                      "language": "en",
+                      "candidateScore": 0.8,
+                      "incumbentScore": 0.8,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_context_correction",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_missing_context",
+                      "language": "en",
+                      "candidateScore": 0.917,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0.25,
+                      "incumbentSpread": 0,
+                      "delta": -0.08333333333333337,
+                      "noise": 0.25,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_structured_extraction",
+                      "language": "en",
+                      "candidateScore": 0.8,
+                      "incumbentScore": 0.8,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_translation_from_czech",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_instruction_priority",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_state_updates",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_capability_boundary",
+                      "language": "en",
+                      "candidateScore": 0.8,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": -0.19999999999999984,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "en_exact_markdown_table",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_professional_rewrite",
+                      "language": "en",
+                      "candidateScore": 0.833,
+                      "incumbentScore": 0.833,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_conditional_action",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_exact_csv",
+                      "language": "en",
+                      "candidateScore": 0.8,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": -0.19999999999999984,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "en_ambiguous_reference",
+                      "language": "en",
+                      "candidateScore": 0.8,
+                      "incumbentScore": 0.867,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0.19999999999999996,
+                      "delta": -0.06666666666666654,
+                      "noise": 0.19999999999999996,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_completion_vs_verification",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_quantifier_scope",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_evidence_boundary",
+                      "language": "en",
+                      "candidateScore": 0.333,
+                      "incumbentScore": 0.6,
+                      "candidateSpread": 0.2,
+                      "incumbentSpread": 0,
+                      "delta": -0.26666666666666666,
+                      "noise": 0.2,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "en_exact_yaml",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_multi_correction",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_neutral_escalation",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 0.833,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0.16666666666666663,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "en_inclusion_exclusion",
+                      "language": "en",
+                      "candidateScore": 0.6,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0.6,
+                      "incumbentSpread": 0,
+                      "delta": -0.4,
+                      "noise": 0.6,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_coherent_status_paragraph",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_customer_delay_explanation",
+                      "language": "en",
+                      "candidateScore": 0.722,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0.16666666666666674,
+                      "incumbentSpread": 0,
+                      "delta": -0.2777777777777778,
+                      "noise": 0.16666666666666674,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "en_grounded_comparison_paragraph",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "cz_grounded_summary",
+                      "language": "cs",
+                      "candidateScore": 0.4,
+                      "incumbentScore": 0.8,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": -0.4000000000000001,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "cz_exact_bullets",
+                      "language": "cs",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "cz_context_correction",
+                      "language": "cs",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "cz_professional_reply",
+                      "language": "cs",
+                      "candidateScore": 1,
+                      "incumbentScore": 0.8,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0.19999999999999984,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "cz_declension",
+                      "language": "cs",
+                      "candidateScore": 0.8,
+                      "incumbentScore": 0.867,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0.19999999999999996,
+                      "delta": -0.06666666666666654,
+                      "noise": 0.19999999999999996,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "cz_plural_agreement",
+                      "language": "cs",
+                      "candidateScore": 0.8,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": -0.19999999999999984,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "cz_formal_register",
+                      "language": "cs",
+                      "candidateScore": 0.833,
+                      "incumbentScore": 0.833,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "cz_ambiguity_clarification",
+                      "language": "cs",
+                      "candidateScore": 0.8,
+                      "incumbentScore": 0.8,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "cz_vocative_request",
+                      "language": "cs",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "cz_double_negation_counts",
+                      "language": "cs",
+                      "candidateScore": 0.6,
+                      "incumbentScore": 0.6,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "cz_grammar_correction",
+                      "language": "cs",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "cz_numeral_cases",
+                      "language": "cs",
+                      "candidateScore": 0.6,
+                      "incumbentScore": 0.8,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": -0.20000000000000018,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "cz_relative_pronoun",
+                      "language": "cs",
+                      "candidateScore": 0.8,
+                      "incumbentScore": 0.6,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0.20000000000000018,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "cz_conditional_deadline",
+                      "language": "cs",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "cz_coherent_status_paragraph",
+                      "language": "cs",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "cz_customer_explanation_paragraph",
+                      "language": "cs",
+                      "candidateScore": 0.167,
+                      "incumbentScore": 0.667,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": -0.5,
+                      "noise": 0,
+                      "discriminating": true
+                    }
+                  ],
+                  "discriminating": 12,
+                  "candidateWins": 3,
+                  "incumbentWins": 9,
+                  "margin": -0.1565,
+                  "inconclusive": false,
+                  "candidateSuiteScore": 0.850138888888889,
+                  "incumbentSuiteScore": 0.9125,
+                  "candidateRunId": "eval_a14c8d84-47cc-4e5e-a0d5-070a59581474",
+                  "incumbentRunId": "eval_76aab33f-be67-46fb-8c99-a6e68cbdbcd6",
+                  "repeats": 3,
+                  "unstableTasks": [
+                    "en_missing_context",
+                    "en_evidence_boundary",
+                    "en_inclusion_exclusion",
+                    "en_customer_delay_explanation",
+                    "en_ambiguous_reference",
+                    "cz_declension"
+                  ]
+                },
+                "policy": {
+                  "version": "role-pairwise-v1",
+                  "role": "CHAT",
+                  "suiteName": "chat_v3",
+                  "suiteVersion": "v136.1-chat.3.5",
+                  "suiteContractSha256": "da287debcb4439222f923618d609b705aba7ebab576a74e5c35dad26ffa34c0f",
+                  "repeats": 3,
+                  "taskMarginEpsilon": 0.05,
+                  "scoreRoundingEpsilon": 0.0005,
+                  "improvementThreshold": 0.04,
+                  "minimumDiscriminatingTasks": 7,
+                  "minimumDiscriminatingByLanguage": {
+                    "en": 3,
+                    "cs": 4
+                  }
+                },
+                "source": "model-upgrade-hunt-v136.1"
+              },
+              "createdAt": "2026-09-12T08:41:13.223Z"
+            }
+          ]
+        },
+        {
+          "model": "ornith-1.5:9b",
+          "stage": "done",
+          "measurement": {
+            "model": "ornith-1.5:9b",
+            "numCtx": 32768,
+            "placement": {
+              "loaded": true,
+              "sizeBytes": 6684284026,
+              "vramBytes": 6684284026,
+              "cpuBytes": 0,
+              "fullyOnGpu": true
+            },
+            "throughput": {
+              "tokensPerSecond": 112,
+              "tokens": 160
+            },
+            "fits": true,
+            "error": null
+          },
+          "floor": {
+            "passed": true,
+            "failures": []
+          },
+          "roleErrors": [],
+          "removed": false,
+          "error": null,
+          "decisionRecords": [
+            {
+              "decisionId": "decision_fed566f0-5ecb-42a7-b4ff-29db9e07cb8d",
+              "role": "D2",
+              "incumbentRunId": "eval_d4ed9c26-b24d-4f74-9b9f-f1ca15c39ae0",
+              "candidateRunId": "eval_7aed7491-6000-4e2a-b852-10a75701172c",
+              "policyVersion": "role-pairwise-v1",
+              "policyContractSha256": "772f98f2ba9ffe70cae23a0b310970dc6554482fe642b5522f5c880ccf16f3b9",
+              "outcome": "INCONCLUSIVE",
+              "basis": "nedostatečný důkaz",
+              "details": {
+                "candidateModel": "ornith-1.5:9b",
+                "incumbentModel": "qwen3.8:latest",
+                "activationEligible": false,
+                "activationBlockReason": "CANDIDATE_NOT_SELECTED_BY_PORTFOLIO",
+                "decision": {
+                  "winner": "incumbent",
+                  "reasonCode": "INSUFFICIENT_EVIDENCE",
+                  "basis": "nedostatečný důkaz",
+                  "confidence": "nedostatečná",
+                  "detail": "rozhodnutí kandidáta zablokováno: stabilně rozlišující úlohy 2/3 celkem"
+                },
+                "comparison": {
+                  "suite": "reasoning_v2",
+                  "tasks": [
+                    {
+                      "name": "reason_budget",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "reason_order",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "reason_critical_path",
+                      "language": "en",
+                      "candidateScore": 0.333,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": -0.6666666666666667,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "reason_table",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "reason_sets",
+                      "language": "en",
+                      "candidateScore": 0.8,
+                      "incumbentScore": 0.733,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0.4,
+                      "delta": 0.06666666666666676,
+                      "noise": 0.4,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "reason_rate",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "reason_logic",
+                      "language": "en",
+                      "candidateScore": 0.667,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": -0.33333333333333337,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "reason_transform",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    }
+                  ],
+                  "discriminating": 2,
+                  "candidateWins": 0,
+                  "incumbentWins": 2,
+                  "margin": -0.5,
+                  "inconclusive": false,
+                  "candidateSuiteScore": 0.8500000000000001,
+                  "incumbentSuiteScore": 0.9666666666666667,
+                  "candidateRunId": "eval_7aed7491-6000-4e2a-b852-10a75701172c",
+                  "incumbentRunId": "eval_d4ed9c26-b24d-4f74-9b9f-f1ca15c39ae0",
+                  "repeats": 3,
+                  "unstableTasks": [
+                    "reason_sets"
+                  ]
+                },
+                "policy": {
+                  "version": "role-pairwise-v1",
+                  "role": "D2",
+                  "suiteName": "reasoning_v2",
+                  "suiteVersion": "v136.1-prototype.1",
+                  "suiteContractSha256": "51d5c0cafb91db50cba8161c77cad817d72c3962bbb1443bec39bf4f35011b70",
+                  "repeats": 3,
+                  "taskMarginEpsilon": 0.05,
+                  "scoreRoundingEpsilon": 0.0005,
+                  "improvementThreshold": 0.05,
+                  "minimumDiscriminatingTasks": 3,
+                  "minimumDiscriminatingByLanguage": {}
+                },
+                "source": "model-upgrade-hunt-v136.1"
+              },
+              "createdAt": "2026-09-12T08:41:13.224Z"
+            },
+            {
+              "decisionId": "decision_0930d482-88cd-40d1-b5dd-ea3c7fdcd0f4",
+              "role": "CODE",
+              "incumbentRunId": "eval_40fefd99-594e-4929-af4d-5109c3f3e4f2",
+              "candidateRunId": "eval_f8f22a51-a3e0-48e2-b14c-b08cf0accd52",
+              "policyVersion": "role-pairwise-v1",
+              "policyContractSha256": "a9c30458b305ac9854c15f7cea4c289918cf495ab71a0d45e4c3e3ed75fec692",
+              "outcome": "INCUMBENT",
+              "basis": "kvalita",
+              "details": {
+                "candidateModel": "ornith-1.5:9b",
+                "incumbentModel": "qwen3.5:27b",
+                "activationEligible": false,
+                "activationBlockReason": "CANDIDATE_NOT_SELECTED_BY_PORTFOLIO",
+                "decision": {
+                  "winner": "incumbent",
+                  "reasonCode": "INCUMBENT_QUALITY",
+                  "basis": "kvalita",
+                  "detail": "rozdíl -0.100 nedosáhl prahu 0.05 — stávající zůstává"
+                },
+                "comparison": {
+                  "suite": "code_patch",
+                  "tasks": [
+                    {
+                      "name": "patch_8cae1b583963",
+                      "language": null,
+                      "candidateScore": 0,
+                      "incumbentScore": 0,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "patch_0fe346cc820c",
+                      "language": null,
+                      "candidateScore": 0,
+                      "incumbentScore": 0,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "patch_6fc5e4eb7dce",
+                      "language": null,
+                      "candidateScore": 0.333,
+                      "incumbentScore": 1,
+                      "candidateSpread": 1,
+                      "incumbentSpread": 0,
+                      "delta": -0.6666666666666667,
+                      "noise": 1,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "patch_ef4ae48ec16e",
+                      "language": null,
+                      "candidateScore": 0,
+                      "incumbentScore": 0,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "patch_e8cdbe02e5de",
+                      "language": null,
+                      "candidateScore": 0.8,
+                      "incumbentScore": 0,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0.8000000000000002,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "patch_22149f55b861",
+                      "language": null,
+                      "candidateScore": 0,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": -1,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "patch_adb1258cfec0",
+                      "language": null,
+                      "candidateScore": 0,
+                      "incumbentScore": 0,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    }
+                  ],
+                  "discriminating": 2,
+                  "candidateWins": 1,
+                  "incumbentWins": 1,
+                  "margin": -0.1,
+                  "inconclusive": false,
+                  "candidateSuiteScore": 0.16190476190476194,
+                  "incumbentSuiteScore": 0.2857142857142857,
+                  "candidateRunId": "eval_f8f22a51-a3e0-48e2-b14c-b08cf0accd52",
+                  "incumbentRunId": "eval_40fefd99-594e-4929-af4d-5109c3f3e4f2",
+                  "repeats": 3,
+                  "unstableTasks": [
+                    "patch_6fc5e4eb7dce"
+                  ]
+                },
+                "policy": {
+                  "version": "role-pairwise-v1",
+                  "role": "CODE",
+                  "suiteName": "code_patch",
+                  "suiteVersion": "code-patch-v136.1-prototype.1",
+                  "suiteContractSha256": "09d65ca77efd6b767a13db84b8e8a40281dc3fd89ef24296833bc4c98ba06fdb",
+                  "repeats": 3,
+                  "taskMarginEpsilon": 0.05,
+                  "scoreRoundingEpsilon": 0.0005,
+                  "improvementThreshold": 0.05,
+                  "minimumDiscriminatingTasks": 2,
+                  "minimumDiscriminatingByLanguage": {}
+                },
+                "source": "model-upgrade-hunt-v136.1"
+              },
+              "createdAt": "2026-09-12T08:41:13.225Z"
+            },
+            {
+              "decisionId": "decision_0b5fcce5-82a5-454c-a7d5-5e7815492935",
+              "role": "R2",
+              "incumbentRunId": "eval_a9d231ae-5db6-4ddb-a613-c9990dee3f03",
+              "candidateRunId": "eval_5760d505-9658-477d-80a1-9afed15e965e",
+              "policyVersion": "role-pairwise-v1",
+              "policyContractSha256": "9c3d8c753e6675c9a3e2eae788f88f4d07525ac1bf86e871a0eb1266183ecfa8",
+              "outcome": "INCONCLUSIVE",
+              "basis": "nedostatečný důkaz",
+              "details": {
+                "candidateModel": "ornith-1.5:9b",
+                "incumbentModel": "qwen3:14b",
+                "activationEligible": false,
+                "activationBlockReason": "CANDIDATE_NOT_SELECTED_BY_PORTFOLIO",
+                "decision": {
+                  "winner": "incumbent",
+                  "reasonCode": "INSUFFICIENT_EVIDENCE",
+                  "basis": "nedostatečný důkaz",
+                  "confidence": "nedostatečná",
+                  "detail": "rozhodnutí kandidáta zablokováno: stabilně rozlišující úlohy 2/3 celkem"
+                },
+                "comparison": {
+                  "suite": "review_v2",
+                  "tasks": [
+                    {
+                      "name": "review_sql_null",
+                      "language": "en",
+                      "candidateScore": 0.575,
+                      "incumbentScore": 0.575,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "review_path_async",
+                      "language": "en",
+                      "candidateScore": 0.575,
+                      "incumbentScore": 0.575,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "review_command_secret",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "review_bounds_resource",
+                      "language": "en",
+                      "candidateScore": 0.425,
+                      "incumbentScore": 0.575,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": -0.15000000000000002,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "review_auth_race",
+                      "language": "en",
+                      "candidateScore": 0.933,
+                      "incumbentScore": 0.575,
+                      "candidateSpread": 0.09999999999999998,
+                      "incumbentSpread": 0,
+                      "delta": 0.35833333333333317,
+                      "noise": 0.09999999999999998,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "review_clean",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    }
+                  ],
+                  "discriminating": 2,
+                  "candidateWins": 1,
+                  "incumbentWins": 1,
+                  "margin": 0.1042,
+                  "inconclusive": false,
+                  "candidateSuiteScore": 0.7513888888888888,
+                  "incumbentSuiteScore": 0.7166666666666668,
+                  "candidateRunId": "eval_5760d505-9658-477d-80a1-9afed15e965e",
+                  "incumbentRunId": "eval_a9d231ae-5db6-4ddb-a613-c9990dee3f03",
+                  "repeats": 3,
+                  "unstableTasks": [
+                    "review_auth_race"
+                  ]
+                },
+                "policy": {
+                  "version": "role-pairwise-v1",
+                  "role": "R2",
+                  "suiteName": "review_v2",
+                  "suiteVersion": "v136.1-prototype.1",
+                  "suiteContractSha256": "20da20eb4977829cecc50f88a55cad055b524db91e2ac1405c896c7e0e1a9fc2",
+                  "repeats": 3,
+                  "taskMarginEpsilon": 0.05,
+                  "scoreRoundingEpsilon": 0.0005,
+                  "improvementThreshold": 0.05,
+                  "minimumDiscriminatingTasks": 3,
+                  "minimumDiscriminatingByLanguage": {}
+                },
+                "source": "model-upgrade-hunt-v136.1"
+              },
+              "createdAt": "2026-09-12T08:41:13.227Z"
+            },
+            {
+              "decisionId": "decision_962d0487-7d3b-44aa-8bc9-7198fcb930e6",
+              "role": "CHAT",
+              "incumbentRunId": "eval_76aab33f-be67-46fb-8c99-a6e68cbdbcd6",
+              "candidateRunId": "eval_00cb029d-e031-4974-9999-200857f723ac",
+              "policyVersion": "role-pairwise-v1",
+              "policyContractSha256": "32d4a9f124a254b53d878bd2584ea35eeb0a1ad74b905b780422bc5d8894d8b7",
+              "outcome": "INCUMBENT",
+              "basis": "kvalita",
+              "details": {
+                "candidateModel": "ornith-1.5:9b",
+                "incumbentModel": "qwen3.5:27b",
+                "activationEligible": false,
+                "activationBlockReason": "CANDIDATE_NOT_SELECTED_BY_PORTFOLIO",
+                "decision": {
+                  "winner": "incumbent",
+                  "reasonCode": "INCUMBENT_QUALITY",
+                  "basis": "kvalita",
+                  "confidence": "vysoká",
+                  "detail": "kandidát ztrácí 0.110 na 10 úlohách, jistota vysoká"
+                },
+                "comparison": {
+                  "suite": "chat_v3",
+                  "tasks": [
+                    {
+                      "name": "en_grounded_summary",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_action_email",
+                      "language": "en",
+                      "candidateScore": 0.8,
+                      "incumbentScore": 0.8,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_context_correction",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_missing_context",
+                      "language": "en",
+                      "candidateScore": 0.75,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": -0.25,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "en_structured_extraction",
+                      "language": "en",
+                      "candidateScore": 0.8,
+                      "incumbentScore": 0.8,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_translation_from_czech",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_instruction_priority",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_state_updates",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_capability_boundary",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_exact_markdown_table",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_professional_rewrite",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 0.833,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0.16666666666666663,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "en_conditional_action",
+                      "language": "en",
+                      "candidateScore": 0.933,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0.19999999999999996,
+                      "incumbentSpread": 0,
+                      "delta": -0.06666666666666676,
+                      "noise": 0.19999999999999996,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_exact_csv",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_ambiguous_reference",
+                      "language": "en",
+                      "candidateScore": 0.8,
+                      "incumbentScore": 0.867,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0.19999999999999996,
+                      "delta": -0.06666666666666654,
+                      "noise": 0.19999999999999996,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_completion_vs_verification",
+                      "language": "en",
+                      "candidateScore": 0.6,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": -0.4,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "en_quantifier_scope",
+                      "language": "en",
+                      "candidateScore": 0.75,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": -0.25,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "en_evidence_boundary",
+                      "language": "en",
+                      "candidateScore": 0.667,
+                      "incumbentScore": 0.6,
+                      "candidateSpread": 0.20000000000000007,
+                      "incumbentSpread": 0,
+                      "delta": 0.06666666666666665,
+                      "noise": 0.20000000000000007,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_exact_yaml",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_multi_correction",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_neutral_escalation",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 0.833,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0.16666666666666663,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "en_inclusion_exclusion",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_coherent_status_paragraph",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "en_customer_delay_explanation",
+                      "language": "en",
+                      "candidateScore": 0.833,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": -0.16666666666666663,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "en_grounded_comparison_paragraph",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "cz_grounded_summary",
+                      "language": "cs",
+                      "candidateScore": 1,
+                      "incumbentScore": 0.8,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0.19999999999999984,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "cz_exact_bullets",
+                      "language": "cs",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "cz_context_correction",
+                      "language": "cs",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "cz_professional_reply",
+                      "language": "cs",
+                      "candidateScore": 0.8,
+                      "incumbentScore": 0.8,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "cz_declension",
+                      "language": "cs",
+                      "candidateScore": 1,
+                      "incumbentScore": 0.867,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0.19999999999999996,
+                      "delta": 0.1333333333333333,
+                      "noise": 0.19999999999999996,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "cz_plural_agreement",
+                      "language": "cs",
+                      "candidateScore": 0.4,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": -0.6000000000000001,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "cz_formal_register",
+                      "language": "cs",
+                      "candidateScore": 0.722,
+                      "incumbentScore": 0.833,
+                      "candidateSpread": 0.16666666666666674,
+                      "incumbentSpread": 0,
+                      "delta": -0.11111111111111116,
+                      "noise": 0.16666666666666674,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "cz_ambiguity_clarification",
+                      "language": "cs",
+                      "candidateScore": 0.867,
+                      "incumbentScore": 0.8,
+                      "candidateSpread": 0.19999999999999996,
+                      "incumbentSpread": 0,
+                      "delta": 0.06666666666666654,
+                      "noise": 0.19999999999999996,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "cz_vocative_request",
+                      "language": "cs",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "cz_double_negation_counts",
+                      "language": "cs",
+                      "candidateScore": 0.6,
+                      "incumbentScore": 0.6,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "cz_grammar_correction",
+                      "language": "cs",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "cz_numeral_cases",
+                      "language": "cs",
+                      "candidateScore": 1,
+                      "incumbentScore": 0.8,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0.19999999999999984,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "cz_relative_pronoun",
+                      "language": "cs",
+                      "candidateScore": 0.467,
+                      "incumbentScore": 0.6,
+                      "candidateSpread": 0.19999999999999996,
+                      "incumbentSpread": 0,
+                      "delta": -0.13333333333333336,
+                      "noise": 0.19999999999999996,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "cz_conditional_deadline",
+                      "language": "cs",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "cz_coherent_status_paragraph",
+                      "language": "cs",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "cz_customer_explanation_paragraph",
+                      "language": "cs",
+                      "candidateScore": 0.5,
+                      "incumbentScore": 0.667,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": -0.16666666666666663,
+                      "noise": 0,
+                      "discriminating": true
+                    }
+                  ],
+                  "discriminating": 10,
+                  "candidateWins": 4,
+                  "incumbentWins": 6,
+                  "margin": -0.11,
+                  "inconclusive": false,
+                  "candidateSuiteScore": 0.8822222222222222,
+                  "incumbentSuiteScore": 0.9125,
+                  "candidateRunId": "eval_00cb029d-e031-4974-9999-200857f723ac",
+                  "incumbentRunId": "eval_76aab33f-be67-46fb-8c99-a6e68cbdbcd6",
+                  "repeats": 3,
+                  "unstableTasks": [
+                    "en_conditional_action",
+                    "en_evidence_boundary",
+                    "cz_formal_register",
+                    "cz_ambiguity_clarification",
+                    "cz_relative_pronoun",
+                    "en_ambiguous_reference",
+                    "cz_declension"
+                  ]
+                },
+                "policy": {
+                  "version": "role-pairwise-v1",
+                  "role": "CHAT",
+                  "suiteName": "chat_v3",
+                  "suiteVersion": "v136.1-chat.3.5",
+                  "suiteContractSha256": "da287debcb4439222f923618d609b705aba7ebab576a74e5c35dad26ffa34c0f",
+                  "repeats": 3,
+                  "taskMarginEpsilon": 0.05,
+                  "scoreRoundingEpsilon": 0.0005,
+                  "improvementThreshold": 0.04,
+                  "minimumDiscriminatingTasks": 7,
+                  "minimumDiscriminatingByLanguage": {
+                    "en": 3,
+                    "cs": 4
+                  }
+                },
+                "source": "model-upgrade-hunt-v136.1"
+              },
+              "createdAt": "2026-09-12T08:41:13.227Z"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "sourceRevision": "3b0dcdfb2b2fce4e2ae525d86515f1ca2c961d10",
+      "unit": "intentsmith-hunt-vision-validation-20260912.service",
+      "status": "COMPLETE",
+      "result": "success",
+      "exitStatus": 0,
+      "roleDecisions": 2,
+      "roleErrors": 0,
+      "removedModels": 0,
+      "report": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/vision.json",
+      "results": [
+        {
+          "model": "qwen3.8:latest",
+          "stage": "done",
+          "measurement": {
+            "model": "qwen3.8:latest",
+            "numCtx": 32768,
+            "placement": {
+              "loaded": true,
+              "sizeBytes": 17399734598,
+              "vramBytes": 17399734598,
+              "cpuBytes": 0,
+              "fullyOnGpu": true
+            },
+            "throughput": {
+              "tokensPerSecond": 42,
+              "tokens": 160
+            },
+            "fits": true,
+            "error": null
+          },
+          "floor": {
+            "passed": true,
+            "failures": []
+          },
+          "roleErrors": [],
+          "removed": false,
+          "error": null,
+          "decisionRecords": [
+            {
+              "decisionId": "decision_6ee6d57a-c4ab-44f3-880b-440c8f25526f",
+              "role": "VISION",
+              "incumbentRunId": "eval_223c7bc8-06e9-4914-a939-e729859f0ae3",
+              "candidateRunId": "eval_1243bf33-ce95-4824-958e-7ea6f24134a2",
+              "policyVersion": "role-pairwise-v1",
+              "policyContractSha256": "3269ea65cde8ccb02d877ff4ed75a2c7d939ea4579befb388c2da401aa4e15fb",
+              "outcome": "CANDIDATE",
+              "basis": "kvalita",
+              "details": {
+                "candidateModel": "qwen3.8:latest",
+                "incumbentModel": "llava-llama3:8b",
+                "activationEligible": false,
+                "activationBlockReason": "CANDIDATE_NOT_SELECTED_BY_PORTFOLIO",
+                "decision": {
+                  "winner": "candidate",
+                  "reasonCode": "CANDIDATE_QUALITY",
+                  "basis": "kvalita",
+                  "confidence": "střední",
+                  "detail": "marže 1.000 ≥ práh 0.05 na 2 rozlišujících úlohách (2:0), jistota střední"
+                },
+                "comparison": {
+                  "suite": "vision_v2",
+                  "tasks": [
+                    {
+                      "name": "vision_red",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "vision_dots",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 0,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 1,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "vision_ring",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "vision_dots_cz",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 0,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 1,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "vision_no_image",
+                      "language": "en",
+                      "candidateScore": 0.667,
+                      "incumbentScore": 0.667,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    }
+                  ],
+                  "discriminating": 2,
+                  "candidateWins": 2,
+                  "incumbentWins": 0,
+                  "margin": 1,
+                  "inconclusive": false,
+                  "candidateSuiteScore": 0.9333333333333333,
+                  "incumbentSuiteScore": 0.5333333333333333,
+                  "candidateRunId": "eval_1243bf33-ce95-4824-958e-7ea6f24134a2",
+                  "incumbentRunId": "eval_223c7bc8-06e9-4914-a939-e729859f0ae3",
+                  "repeats": 3,
+                  "unstableTasks": []
+                },
+                "policy": {
+                  "version": "role-pairwise-v1",
+                  "role": "VISION",
+                  "suiteName": "vision_v2",
+                  "suiteVersion": "v136.1-prototype.1",
+                  "suiteContractSha256": "0ba4e7db594325735dcf85ad2f54edd92f6faaacdbc3a23dbaa6fc72dc1bb453",
+                  "repeats": 3,
+                  "taskMarginEpsilon": 0.05,
+                  "scoreRoundingEpsilon": 0.0005,
+                  "improvementThreshold": 0.05,
+                  "minimumDiscriminatingTasks": 2,
+                  "minimumDiscriminatingByLanguage": {}
+                },
+                "source": "model-upgrade-hunt-v136.1"
+              },
+              "createdAt": "2026-09-12T08:54:59.199Z"
+            }
+          ]
+        },
+        {
+          "model": "ornith-1.5:9b",
+          "stage": "done",
+          "measurement": {
+            "model": "ornith-1.5:9b",
+            "numCtx": 32768,
+            "placement": {
+              "loaded": true,
+              "sizeBytes": 6684284026,
+              "vramBytes": 6684284026,
+              "cpuBytes": 0,
+              "fullyOnGpu": true
+            },
+            "throughput": {
+              "tokensPerSecond": 110.1,
+              "tokens": 160
+            },
+            "fits": true,
+            "error": null
+          },
+          "floor": {
+            "passed": true,
+            "failures": []
+          },
+          "roleErrors": [],
+          "removed": false,
+          "error": null,
+          "decisionRecords": [
+            {
+              "decisionId": "decision_53b16de8-9adc-4643-8c49-c48ad5bbe331",
+              "role": "VISION",
+              "incumbentRunId": "eval_223c7bc8-06e9-4914-a939-e729859f0ae3",
+              "candidateRunId": "eval_b9084562-85a1-482d-b7ba-cae869d10de4",
+              "policyVersion": "role-pairwise-v1",
+              "policyContractSha256": "3269ea65cde8ccb02d877ff4ed75a2c7d939ea4579befb388c2da401aa4e15fb",
+              "outcome": "CANDIDATE",
+              "basis": "kvalita",
+              "details": {
+                "candidateModel": "ornith-1.5:9b",
+                "incumbentModel": "llava-llama3:8b",
+                "activationEligible": true,
+                "activationBlockReason": null,
+                "decision": {
+                  "winner": "candidate",
+                  "reasonCode": "CANDIDATE_QUALITY",
+                  "basis": "kvalita",
+                  "confidence": "střední",
+                  "detail": "marže 1.000 ≥ práh 0.05 na 2 rozlišujících úlohách (2:0), jistota střední"
+                },
+                "comparison": {
+                  "suite": "vision_v2",
+                  "tasks": [
+                    {
+                      "name": "vision_red",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "vision_dots",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 0,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 1,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "vision_ring",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 1,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 0,
+                      "noise": 0,
+                      "discriminating": false
+                    },
+                    {
+                      "name": "vision_dots_cz",
+                      "language": "en",
+                      "candidateScore": 1,
+                      "incumbentScore": 0,
+                      "candidateSpread": 0,
+                      "incumbentSpread": 0,
+                      "delta": 1,
+                      "noise": 0,
+                      "discriminating": true
+                    },
+                    {
+                      "name": "vision_no_image",
+                      "language": "en",
+                      "candidateScore": 0.778,
+                      "incumbentScore": 0.667,
+                      "candidateSpread": 0.33333333333333337,
+                      "incumbentSpread": 0,
+                      "delta": 0.11111111111111105,
+                      "noise": 0.33333333333333337,
+                      "discriminating": false
+                    }
+                  ],
+                  "discriminating": 2,
+                  "candidateWins": 2,
+                  "incumbentWins": 0,
+                  "margin": 1,
+                  "inconclusive": false,
+                  "candidateSuiteScore": 0.9555555555555555,
+                  "incumbentSuiteScore": 0.5333333333333333,
+                  "candidateRunId": "eval_b9084562-85a1-482d-b7ba-cae869d10de4",
+                  "incumbentRunId": "eval_223c7bc8-06e9-4914-a939-e729859f0ae3",
+                  "repeats": 3,
+                  "unstableTasks": [
+                    "vision_no_image"
+                  ]
+                },
+                "policy": {
+                  "version": "role-pairwise-v1",
+                  "role": "VISION",
+                  "suiteName": "vision_v2",
+                  "suiteVersion": "v136.1-prototype.1",
+                  "suiteContractSha256": "0ba4e7db594325735dcf85ad2f54edd92f6faaacdbc3a23dbaa6fc72dc1bb453",
+                  "repeats": 3,
+                  "taskMarginEpsilon": 0.05,
+                  "scoreRoundingEpsilon": 0.0005,
+                  "improvementThreshold": 0.05,
+                  "minimumDiscriminatingTasks": 2,
+                  "minimumDiscriminatingByLanguage": {}
+                },
+                "source": "model-upgrade-hunt-v136.1"
+              },
+              "createdAt": "2026-09-12T08:54:59.203Z"
+            }
+          ]
+        }
+      ],
+      "proposedBindings": {
+        "D1": "qwen3.5:27b",
+        "D2": "qwen3.8:latest",
+        "CODE": "qwen3.5:27b",
+        "R1": "qwen3.8:latest",
+        "R2": "qwen3:14b",
+        "CHAT": "qwen3.5:27b",
+        "VISION": "ornith-1.5:9b"
+      },
+      "portfolio": {
+        "bindings": {
+          "D1": "qwen3.5:27b",
+          "D2": "qwen3.8:latest",
+          "CODE": "qwen3.5:27b",
+          "R1": "qwen3.8:latest",
+          "R2": "qwen3:14b",
+          "CHAT": "qwen3.5:27b",
+          "VISION": "ornith-1.5:9b"
+        },
+        "choices": {
+          "D1": {
+            "model": "qwen3.5:27b",
+            "score": null,
+            "source": "unmeasured-incumbent",
+            "changed": false
+          },
+          "D2": {
+            "model": "qwen3.8:latest",
+            "score": null,
+            "source": "unmeasured-incumbent",
+            "changed": false
+          },
+          "CODE": {
+            "model": "qwen3.5:27b",
+            "score": null,
+            "source": "unmeasured-incumbent",
+            "changed": false
+          },
+          "R1": {
+            "model": "qwen3.8:latest",
+            "score": null,
+            "source": "unmeasured-incumbent",
+            "changed": false
+          },
+          "R2": {
+            "model": "qwen3:14b",
+            "score": null,
+            "source": "unmeasured-incumbent",
+            "changed": false
+          },
+          "CHAT": {
+            "model": "qwen3.5:27b",
+            "score": null,
+            "source": "unmeasured-incumbent",
+            "changed": false
+          },
+          "VISION": {
+            "model": "ornith-1.5:9b",
+            "score": 0.9555555555555555,
+            "source": "candidate-evaluation",
+            "changed": true
+          }
+        },
+        "audit": {
+          "compliant": true,
+          "violations": [],
+          "assignments": {
+            "qwen3.5:27b": [
+              "D1",
+              "CODE",
+              "CHAT"
+            ],
+            "qwen3.8": [
+              "D2",
+              "R1"
+            ],
+            "qwen3:14b": [
+              "R2"
+            ],
+            "ornith-1.5:9b": [
+              "VISION"
+            ]
+          }
+        },
+        "utility": 0.9505555555555555,
+        "changedRoles": [
+          "VISION"
+        ],
+        "feasible": true,
+        "repairMode": false
+      }
+    }
+  ],
+  "coverageCheckpoint": {
+    "capturedAt": "2026-09-12T08:55:39.955Z",
+    "providerVersion": "0.34.0-intentsmith.1",
+    "installedModels": 12,
+    "applicableStatusCounts": {
+      "COMPLETE": 17,
+      "FAILED": 0,
+      "BLOCKED": 0,
+      "MISSING": 56
+    },
+    "applicableTotal": 73,
+    "notApplicable": 11,
+    "total": 84,
+    "offlineReplay": "PASS",
+    "providerContactedByReplay": false,
+    "bindingRuntimeAuthority": "UNVERIFIED_RUNTIME / MODEL_BINDING_RUNTIME_NOT_OBSERVED"
+  },
+  "activeWave": {
+    "sourceRevision": "3b0dcdfb2b2fce4e2ae525d86515f1ca2c961d10",
+    "unit": "intentsmith-hunt-baseline-validation-20260912.service",
+    "invocationId": "6571405889e94d68a8583e925e801605",
+    "startedAt": "2026-09-12T08:56:24Z",
+    "status": "RUNNING",
+    "candidateLimit": 13,
+    "timeoutHours": 6,
+    "report": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/baseline.json",
+    "arguments": [
+      "--run",
+      "--limit=13",
+      "--keep-inconclusive",
+      "--scheduled"
+    ],
+    "selection": "normal journal-backed queue; installed missing suites first within bootstrap, then catalog priorities; fresh incremental revisions take precedence",
+    "removal": false,
+    "bindingChanges": false
+  },
+  "remainingReviewQuestions": [
+    "M6 independent acceptance is not established by this evidence",
+    "D2/R2 insufficiently discriminating tasks must not authorize deletion or activation",
+    "Conditional retention policy is not implemented by legacy --allow-removal; automatic deletion stays off",
+    "Manual --only pilots persist evaluation runs and decisions; normal scheduler later records attempts using matching cached COMPLETE",
+    "VISION winners were compared to llava-llama3:8b; Ornith vs Qwen3.8 superiority is not established by the portfolio score order",
+    "Production session binding runtime authority is not observed by the read-only snapshot"
+  ]
 }
