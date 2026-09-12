@@ -131,3 +131,28 @@ efekt. Zaznamenán autoritativním nástrojem nad čistým `847e2009` s jediným
 přesným `--accept-edge`, v samostatném baseline commitu; graf měří 1317 hran,
 3 cykly / 28 členů, žádná odebraná hrana. Nové přímé efekty z balíčku specialisty
 nevznikly. Žádný push, merge, aktivace sdílené aplikace nebo podání sázky.
+
+## Navazující změna: top 5–10 bez minimální úspěšnosti
+
+Autorita je navazující explicitní pokyn operátora, vstup `e5e8e537`.
+Autonomní hledání má výchozí `minProbability=0`, `ticketCount=5`, řadí podle
+pravděpodobnosti a připouští sdílené zápasy mezi alternativami. `--top 10`
+vyžádá deset výsledků; neplatné počty se odmítnou před stažením dat.
+72h předvolba i aliasy používají stejné chování. Report má přehled pořadí
+a sdílené zápasy označí. Uvnitř tiketu, v časových/kurzových limitech,
+v modelu a v limitech hledání se nic nezměnilo; hlídač/mail nejsou upravené.
+
+Skutečné 24h CLI / kurz 2–4 vrátilo pět i deset návrhů READY s dokončeným
+hledáním a sestupným pořadím. Kontrola serializovaných výstupů ověřila počet,
+nulový práh i všechny časové/kurzové podmínky. Evidence:
+`.intentsmith-artifacts/betting-ranking-20260912/live-evidence.json`,
+record IDs `17bdad03-0ca1-4154-b221-868c0e2f6d5e` a
+`be7c804e-319e-41e5-a308-ebd183f53a82` v provozní DB.
+Jde o datované ceny z 12:42–12:43 Europe/Prague, ne trvale platné nabídky.
+
+Engine 17/17, integrace 19/19 a registry 514 programů PASS. Tři neplatné
+hodnoty `--top` odmítnuty před sběrem. První artifact kontrola odhalila
+chybějící čárku v aktualizovaném census; opraven pouze zápis dokumentace.
+Opakování má přesně 157 PASS / 1 dosavadní FAIL migrace 112. Logy jsou
+v `betting-ranking-20260912`; nový celý profil čeká na čistý commit.
+Stav zůstává IMPLEMENTED_SLICE / REVIEW_PENDING.

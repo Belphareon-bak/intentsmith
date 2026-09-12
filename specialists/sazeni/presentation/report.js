@@ -19,6 +19,14 @@ export function renderBettingResult(result) {
     }
     if(result.persistence) lines.push(`Výpočet uložen: ${safe(result.persistence.recordId)}.`);
   }
+  if(prefs?.objective==='highest_probability'&&result.tickets.length) {
+    lines.push('',result.search.completed?'Pořadí podle odhadované úspěšnosti v načtené nabídce:':'Pořadí dosud nalezených návrhů; hledání není dokončené:');
+    if(prefs.probabilityFilter.min===0)lines.push('Bez minimálního prahu úspěšnosti.');
+    lines.push('','| Pořadí | Kurz tiketu | Odhad úspěšnosti | Položek |','|---:|---:|---:|---:|');
+    for(const [i,t] of result.tickets.entries())lines.push(`| ${i+1} | ${t.totalOdds} | ${pct(t.winProbability.estimate)} | ${t.selections.length} |`);
+    const events=result.tickets.flatMap(t=>t.selections.map(s=>s.eventId));
+    if(new Set(events).size<events.length)lines.push('','Návrhy jsou alternativy a sdílejí zápasy; nejsou nezávislými sázkami.');
+  }
   for(const [i,t] of result.tickets.entries()) {
     lines.push('',`**Tiket ${i+1} — kurz ${t.totalOdds}, teoretická úspěšnost ${pct(t.winProbability.estimate)}**`,
       `Kancelář: ${safe(t.bookmakerId)} (${safe(t.region)}). ${t.selections.length} ${t.selections.length===1?'položka':t.selections.length<5?'položky':'položek'}.`,

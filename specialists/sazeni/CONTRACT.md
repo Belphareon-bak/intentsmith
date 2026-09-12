@@ -1,8 +1,9 @@
 # Sázkař — kontrakt v3.2
 
 Datum 2026-09-12. Autorita: operátor požaduje autonomní získávání informací,
-vylučuje ručně dodané pravděpodobnosti a zachovává omezení času, kurzu a
-teoretické úspěšnosti. Tento dokument nahrazuje v2; ruční režim byl odstraněn.
+vylučuje ručně dodané pravděpodobnosti a zachovává omezení času a kurzu.
+Navazující pokyn požaduje top 5–10 podle odhadované úspěšnosti bez jejího
+minimálního prahu. Tento dokument nahrazuje v2; ruční režim byl odstraněn.
 Stav: **IMPLEMENTED_SLICE / REVIEW_PENDING**. Nejde o přijetí celého cílového
 produktu. Navazující [WP](../../docs/wp/WP-SAZENI-PUBLIC-20260912.md)
 autorizuje zkoušku z veřejných českých zdrojů bez placeného klíče; výchozí
@@ -13,7 +14,7 @@ zdroj je nyní Fortuna. Číselné kontrakty zůstávají verzí 3, resp. snapsh
 Uživatel dodává preference, nikoli vektor pravděpodobností, model, zdrojová
 URL, hesla nebo příslib důvěryhodnosti. Podporované vstupy:
 
-- text „do 24 h, kurz od 1.5 do 3, úspěšnost alespoň 40 %“;
+- text „do 24 h, kurz od 2 do 4“;
 - text „Fortuna, do 3 dnů, rozestup max 12 h“;
 - JSON `{"preferences": {...}}`, případně textové změny v další zprávě.
 
@@ -24,15 +25,23 @@ Uzavřený `preferences` kontrakt:
 | `horizonHours` | celé 1–720, výchozí 24 |
 | `maxSpreadHours` | celé 0–720, výchozí šířka okna |
 | `minOdds`, `maxOdds` | desetinné stringy, celý tiket, `1.5` a `3` |
-| `minProbability` | číslo 0–1, teoretický bodový odhad celého tiketu, 0.4 |
+| `minProbability` | nepovinný práh 0–1 pro celý tiket; výchozí 0, tedy bez minimální úspěšnosti |
 | `leagues` | neprázdný výběr `E0/D1/I1/SP1/F1`, výchozí všech pět |
 | `dataSource` | `public_web` (výchozí), `reference`, `odds_io` |
 | `bookmakerIds` | výchozí `iFortuna CZ`; pouze kanceláře zvoleného zdroje |
 | `minLegs`, `maxLegs` | celé 1–8, výchozí 1 a 3 |
-| `ticketCount` | celé 1–10, výchozí 3 |
+| `ticketCount` | celé 1–10, výchozí 5; CLI `--top 10` vyžádá deset |
+| `maxSharedEvents` | celé 0–8, výchozí 8; alternativy mohou sdílet zápasy, 0 vyžádá nesdílené návrhy |
 | `objective` | `highest_probability` nebo `highest_expected_value`; výchozí první |
 | `minLegProbability` | nepovinné číslo 0–1 |
 | `stake` | `{currency:'CZK',perTicketMinor,totalBudgetMinor}`, celé haléře |
+
+Výchozí pořadí je sestupné podle odhadu úspěšnosti celého tiketu. Čas a kurz
+zůstávají tvrdými omezeními, nulový práh neznamená automatické zmírnění jiných
+podmínek. Návrhy jsou alternativy; společný zápas mezi nimi není důvod k
+vyřazení lépe hodnocené varianty. Uvnitř jednoho tiketu zůstávají omezení
+duplicit a známých závislostí. Neúplné hledání má nadále SEARCH_LIMIT_REACHED
+a nesmí tvrdit, že našlo skutečné top pořadí celé nabídky.
 
 Referenční kanceláře: `bet365-reference`, `betfred-reference`, `bwin-reference`,
 `paddypower-reference`; výchozí první při `dataSource:reference`. Samotný výběr

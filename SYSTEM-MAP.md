@@ -134,7 +134,7 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 | | |
 |---|---:|
 | `src/**/*.js` | **222 917 ř.**, 612 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **240 998 ř.**, 520 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **241 000 ř.**, 520 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **514** (`420 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **176 / 99** |
 | HTTP rout | ~230 |
@@ -657,3 +657,9 @@ zůstávají zachované; příčina kolísání není prokázaná. Ostatní non-
 Module graph má 1 317 hran. Jediný nový import `watch-mail -> outbound-audit-repository`
 je zaznamenaný z čistého `847e2009` autoritativním ratchetem; žádná odebraná
 hrana, stejné 3 cykly / 28 souborů. Nejde o nezávislé přijetí konektoru.
+
+Navazující pokyn operátora: hledání už výchozí minimální úspěšnost nevyžaduje.
+Vybírá pět alternativ podle odhadované pravděpodobnosti, CLI `--top 10` vyžádá
+deset. Sdílené zápasy mezi alternativami nevyřazují lépe hodnocený návrh;
+report je označuje a zobrazuje tabulku pořadí. Časové a kurzové limity zůstávají.
+Skutečné CLI běhy pro 24 h / kurz 2–4 vrátily 5 a 10 návrhů READY.

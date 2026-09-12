@@ -5,9 +5,10 @@
   "horizonHours": 72,
   "minOdds": "2",
   "maxOdds": "4",
-  "minProbability": 0.2,
+  "minProbability": 0,
   "minLegs": 2,
   "maxLegs": 3,
   "maxSpreadHours": 12,
-  "ticketCount": 3
+  "ticketCount": 5,
+  "maxSharedEvents": 8
 }

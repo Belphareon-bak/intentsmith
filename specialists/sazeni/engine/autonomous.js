@@ -7,14 +7,14 @@ import {LEAGUES,historyRecords,fixturesSnapshot} from '../providers/football-dat
 import {fitFootball,predictFootball,marketProbabilities} from '../models/football.js';
 import {FORECAST_POLICY} from '../models/policy.js';
 export function autonomousRequest(preferences={},now) {
-  keys(preferences,[],['horizonHours','maxSpreadHours','minOdds','maxOdds','minProbability','leagues','bookmakerIds','minLegs','maxLegs','ticketCount','objective','minLegProbability','stake','dataSource'],'preferences');
+  keys(preferences,[],['horizonHours','maxSpreadHours','minOdds','maxOdds','minProbability','leagues','bookmakerIds','minLegs','maxLegs','ticketCount','maxSharedEvents','objective','minLegProbability','stake','dataSource'],'preferences');
   const referenceBooks=['bet365-reference','betfred-reference','bwin-reference','paddypower-reference'];
-  const p={horizonHours:24,minOdds:'1.5',maxOdds:'3',minProbability:0.4,leagues:[...LEAGUES],bookmakerIds:preferences.dataSource==='reference'?['bet365-reference']:[FORTUNA_PUBLIC_BOOK],minLegs:1,maxLegs:3,ticketCount:3,objective:'highest_probability',...preferences};
+  const p={horizonHours:24,minOdds:'1.5',maxOdds:'3',minProbability:0,leagues:[...LEAGUES],bookmakerIds:preferences.dataSource==='reference'?['bet365-reference']:[FORTUNA_PUBLIC_BOOK],minLegs:1,maxLegs:3,ticketCount:5,maxSharedEvents:8,objective:'highest_probability',...preferences};
   const source=p.dataSource??(Array.isArray(p.bookmakerIds)&&p.bookmakerIds.length&&p.bookmakerIds.every(b=>referenceBooks.includes(b))?'reference':'public_web');
   const r={contract:'BettingRequest',version:3,requestId:'auto:'+digest({p,now}),sport:'football',competitionIds:p.leagues,
     window:{timezone:'Europe/Prague',horizonHours:p.horizonHours,...(p.maxSpreadHours!==undefined?{maxSpreadHours:p.maxSpreadHours}:{})},
     bookmakerIds:p.bookmakerIds,ticketType:p.maxLegs===1?'single':'accumulator',legOdds:{min:'1.01',max:p.maxOdds},ticketOdds:{min:p.minOdds,max:p.maxOdds},legs:{min:p.minLegs,max:p.maxLegs},
-    probabilityFilter:{basis:'model',metric:'estimate',min:p.minProbability},objective:p.objective,ticketCount:p.ticketCount,diversity:{maxSharedEvents:0},exclude:{eventIds:[],participantIds:[],competitionIds:[]},dataSource:source,dataMode:source==='odds_io'?'live':source==='public_web'?'observed':'delayed',
+    probabilityFilter:{basis:'model',metric:'estimate',min:p.minProbability},objective:p.objective,ticketCount:p.ticketCount,diversity:{maxSharedEvents:p.maxSharedEvents},exclude:{eventIds:[],participantIds:[],competitionIds:[]},dataSource:source,dataMode:source==='odds_io'?'live':source==='public_web'?'observed':'delayed',
     ...(p.stake!==undefined?{stake:p.stake}:{}),...(p.minLegProbability!==undefined?{minLegProbability:p.minLegProbability}:{})};
   validateRequest(r,now);
   if(!p.leagues.every(l=>LEAGUES.includes(l)))fail('NEEDS_INPUT','Zdroj historie zatím pokrývá E0, D1, I1, SP1 a F1.','preferences.leagues');

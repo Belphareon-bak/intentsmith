@@ -24,9 +24,10 @@ const controller=new AbortController();process.once('SIGINT',()=>controller.abor
 const HELP=`Sázkař — veřejná Fortuna, bez účtu a datového API klíče
 
   sazkar                       jednoduché menu
-  sazkar hledej                návrhy do 24 hodin
-  sazkar hledej --profil 72h    2–3 položky, kurz 2–4, p≥20 %, rozestup ≤12 h
-  sazkar hledej 'do 24 h, kurz od 2 do 4, úspěšnost alespoň 30 %'
+  sazkar hledej                top 5 podle odhadu úspěšnosti, do 24 hodin
+  sazkar hledej --profil 72h    top 5, 2–3 položky, kurz 2–4, rozestup ≤12 h
+  sazkar hledej 'do 24 h, kurz od 2 do 4'
+  sazkar hledej --top 10 'do 24 h, kurz od 2 do 4'
   sazkar posledni              poslední uložený report
   sazkar historie              posledních deset výpočtů
   sazkar stav                  stav sběru a odesílání
@@ -63,8 +64,10 @@ async function openStore(){
 }
 function option(args,name,fallback){const i=args.indexOf(name);if(i<0)return fallback;if(i===args.length-1)throw new Error('Chybí hodnota '+name);const value=args[i+1];args.splice(i,2);return value;}
 async function search(args){
-  const profile=option(args,'--profil','24h');if(!['24h','72h'].includes(profile)||args.some(a=>a.startsWith('--')))throw new Error('Použij profil 24h nebo 72h; další omezení zadej česky.');
+  const profile=option(args,'--profil','24h'),top=option(args,'--top','5');if(!/^(?:[1-9]|10)$/.test(top))throw new Error('--top musí být celé číslo od 1 do 10.');
+  if(!['24h','72h'].includes(profile)||args.some(a=>a.startsWith('--')))throw new Error('Použij profil 24h nebo 72h; další omezení zadej česky.');
   const preferences=profile==='72h'?JSON.parse(await fs.readFile(path.join(repo,'specialists/sazeni/examples/fortuna-72h.json'),'utf8')):{};
+  preferences.ticketCount=Number(top);
   const params=extractBettingInput(args.join(' ')||'Fortuna');params.payload={preferences};
   const {store,bridge}=await openStore();let token;
   try{

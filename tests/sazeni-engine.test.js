@@ -106,6 +106,8 @@ await testAsync('CSV parser rejects ambiguous time, corrupt scores, duplicates a
 await testAsync('autonomous request never accepts manual probabilities or provider/model authority',async()=>{
  for(const p of [{probabilities:{home:.9}},{snapshot:{}},{trustedLiveDigest:'x'},{modelWeight:1}])assert.throws(()=>autonomousRequest(p,NOW));
  const r=autonomousRequest({horizonHours:72,minOdds:'2',maxOdds:'4',minProbability:.4},NOW);assert.equal(r.version,3);assert.equal(r.probabilityFilter.basis,'model');assert.equal(r.window.horizonHours,72);
+ const ranked=autonomousRequest({},NOW);assert.equal(ranked.probabilityFilter.min,0);assert.equal(ranked.ticketCount,5);assert.equal(ranked.objective,'highest_probability');assert.equal(ranked.diversity.maxSharedEvents,8);
+ assert.equal(autonomousRequest({ticketCount:10,maxSharedEvents:0},NOW).diversity.maxSharedEvents,0);assert.throws(()=>autonomousRequest({ticketCount:11},NOW));assert.throws(()=>autonomousRequest({maxSharedEvents:9},NOW));
  assert.throws(()=>marketProbabilities([1.01,1.01,1.01]),/MARGIN/);
  const payload=clone();payload.snapshot.events[0].markets[0].prediction={basis:'model',probabilities:{home:.9,draw:.05,away:.05},method:'invented',predictedAt:NOW};assert.equal(extractBettingInput(JSON.stringify(payload)).inputError.code,'INVALID_REQUEST');
  const {request,snapshot}=clone();request.probabilityFilter.basis='model';assert.equal((await run(request,snapshot,{trustedModelDigest:'fake'})).status,'MODEL_UNAVAILABLE');

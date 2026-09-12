@@ -14,8 +14,9 @@ adresáře. Bez parametrů otevře jednoduché menu. Příkazy:
 | Příkaz / alias | Co udělá |
 |---|---|
 | `sazkar` / `sk` | menu |
-| `sazkar hledej` / `sk24` | návrhy do 24 h, kurz 1,5–3, p≥40 % |
-| `sazkar hledej --profil 72h` / `sk72` | 2–3 položky do 72 h, kurz 2–4, p≥20 %, rozestup ≤12 h |
+| `sazkar hledej` / `sk24` | top 5 podle odhadu úspěšnosti, do 24 h, kurz 1,5–3 |
+| `sazkar hledej --profil 72h` / `sk72` | top 5, 2–3 položky do 72 h, kurz 2–4, rozestup ≤12 h |
+| `sazkar hledej --top 10` / `sk24 --top 10` | deset nejlépe hodnocených návrhů |
 | `sazkar posledni` / `skposledni` | poslední uložený report; ceny mohou být již prošlé |
 | `sazkar historie` | posledních deset výpočtů |
 | `sazkar stav` / `skstav` | poslední sběr, stav plánovače a upozornění |
@@ -32,8 +33,16 @@ source ~/.bash_aliases
 Vlastní požadavek například:
 
 ```bash
-sazkar hledej 'do 24 h, kurz od 2 do 4, úspěšnost alespoň 30 %'
+sazkar hledej 'do 24 h, kurz od 2 do 4'
+sazkar hledej --top 10 'do 24 h, kurz od 2 do 4'
 ```
+
+Úspěšnost nemusíš zadávat: výchozí hledání nemá její minimální práh a řadí
+podle vypočteného odhadu od nejvyššího. `--top` přijímá 1–10, výchozí je 5;
+funguje i s profilem 72 h. V úvodu výsledku je tabulka pořadí, kurzů a odhadů.
+Nejlepší varianty mohou sdílet zápasy, proto jde o alternativy k výběru.
+Při nedostatku použitelných dat ukáže méně návrhů; při dosažení limitu hledání
+výslovně označí neúplný výsledek. Kurz ani časové okno kvůli počtu neuvolní.
 
 Výstupní adresáře se vytvářejí automaticky pod `~/.local/state/sazkar/results/`.
 Každý obsahuje Markdown, CSV, JSON výsledku a zadání. Soukromá databáze
@@ -99,7 +108,7 @@ referenci, časově doložené informace a prospektivní ověření predikční 
 Z kořene tohoto checkoutu:
 
 ```bash
-node bin/sazeni.js --auto /tmp/sazkar-fortuna-1 'Fortuna, do 24 h, kurz od 1.5 do 3, úspěšnost alespoň 40 %'
+node bin/sazeni.js --auto /tmp/sazkar-fortuna-1 'Fortuna, do 24 h, kurz od 1.5 do 3'
 ```
 
 Výstupní adresář musí být nový. Dostaneš `tickets.md`, `tickets.csv`,
@@ -121,7 +130,8 @@ odmítnutí přístupu vrátí konkrétní chybu, nepřejde na jinou kancelář.
 
 Pro třídenní akumulátory je připravený upravitelný
 [soubor preferencí](examples/fortuna-72h.json): 2–3 položky, kurz 2–4,
-teoretická úspěšnost alespoň 20 %, rozestup nejvýše 12 h a tři různé tikety.
+bez minimálního prahu úspěšnosti, rozestup nejvýše 12 h a pět alternativ
+seřazených podle odhadu úspěšnosti.
 
 ```bash
 node bin/sazeni.js --auto /tmp/sazkar-fortuna-2 'Fortuna, do 3 dnů' specialists/sazeni/examples/fortuna-72h.json

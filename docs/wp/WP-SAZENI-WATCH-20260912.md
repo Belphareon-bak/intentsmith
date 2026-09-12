@@ -26,3 +26,15 @@ worktree `is-specialists-engines-20260911`; žádný další checkout.
 - Hranice výsledku: nevymýšlet zdrojové datum vypsání, +EV ani úspěšné
   doručení. Chybějící SMTP konfiguraci ponechat viditelnou; registry/review
   baseline nebo datové nedostatky nepřeklasifikovat na PASS.
+
+## Navazující úprava zadání operátora: žebříček bez prahu úspěšnosti
+
+Vstup čistý `e5e8e537`. Operátor chce místo zadávání minimální úspěšnosti
+nejlepších 5–10 návrhů podle vypočtené pravděpodobnosti. Rozsah navazuje
+na CLI a čistý specialista: výchozí nulový práh, pět výsledků, volba `--top`,
+pořadí podle pravděpodobnosti bez vyřazování sdílených zápasů mezi alternativami,
+přehled ve výstupu, stejné časové/kurzové limity a současné aliasy. Upravitelné
+zůstávají explicitní pokročilé preference; hlídač/mail tento dodatek nemění.
+Ověření: stávající engine/integrace, registry, deterministický profil a skutečné
+CLI pro pět i deset výsledků včetně zachování řazení a omezení. Bez změny
+numerického modelu, budgetů hledání, sdíleného checkoutu, GPU nebo cizích procesů.
