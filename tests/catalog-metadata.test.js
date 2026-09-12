@@ -249,6 +249,8 @@ test('nové coding, vision a negenerativní rodiny se nepropadnou do unknown', (
   assertEqual(parseModelNameExtended('glm-ocr:latest').category, 'ocr');
   assertEqual(parseModelNameExtended('granite4.1-guardian:8b').category, 'safety');
   assertEqual(parseModelNameExtended('medgemma:27b').category, 'vision');
+  assert(checkRoleEligibility(parseModelNameExtended('ornith-1.5:9b'), 'VISION').eligible);
+  assert(!checkRoleEligibility(parseModelNameExtended('ornith-1.5:9b'), 'R1').eligible);
 });
 
 test('glm má rodinu a verzi', () => {

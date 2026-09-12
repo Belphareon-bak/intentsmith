@@ -47,6 +47,15 @@ Jeho PASS není důkazem, že delší hunt nemá provozní vady.
    Opakování v 09:35 CEST potvrdilo UP_TO_DATE / 0.34.0. Service nyní opakuje
    chybu po 5 minutách, nejvýše 3 pokusy za 30 minut. Neinstaluje aktualizace.
 
+8. Oficiální [katalog Ornith 1.5](https://ollama.com/library/ornith-1.5)
+   potvrzuje Text/Image pro 9B. Parser to nyní rozpoznává, takže VISION jej
+   nevyloučí kvůli chybějícímu jménu rodiny. Parametrový gate pro R1 zůstává.
+   [North Mini Code](https://ollama.com/library/north-mini-code-1.0) je 30B/3B
+   MoE zaměřený na agentic coding; deklarované externí výsledky pouze odůvodňují
+   jeho výběr ke stažení. Výrobce doporučuje thinking. Současný hunt měří
+   produkční `think:false`; neprokazuje nejlepší dosažitelnou kvalitu ve všech
+   možných režimech, což je další důvod nyní neodstraňovat kandidáty automaticky.
+
 ## Validace
 
 Focused: candidate 36, pairwise 37, upgrade 70, consolidation 16, read model 17,
