@@ -4,6 +4,7 @@ import {parseCSV,ukInstant,historyRecords} from '../specialists/sazeni/providers
 import {autonomousRequest} from '../specialists/sazeni/engine/autonomous.js';
 import {fortunaPublicSnapshot} from '../specialists/sazeni/providers/fortuna-public.js';
 import {historyTeam} from '../specialists/sazeni/providers/odds-io.js';
+import {watchQuotes,findOpportunities,validateWatchPreferences} from '../specialists/sazeni/engine/opportunities.js';
 import assert from 'node:assert/strict';
 import { suite, testAsync, summary } from './harness.js';
 import { buildTickets, digest } from '../specialists/sazeni/engine/tickets.js';
@@ -129,5 +130,25 @@ await testAsync('captured Fortuna prices map by outcome identity rather than res
  const raw=JSON.parse(publicBundle().content);Object.values(raw.batches[0].data).forEach(ms=>ms[0].outcomes[0].displayType='LOCKED');const suspended=fortunaPublicSnapshot({content:JSON.stringify(raw)},{now:NOW,leagues:['E0']});assert.ok(suspended.events.every(e=>e.markets[0].availability==='suspended'));
  for(const [name,team] of [['Nottingham',"Nott'm Forest"],['Bayern','Bayern Munich'],['1.FC Köln','FC Koln'],['Bremen','Werder Bremen'],['PSG','Paris SG'],['Espanyol','Espanol'],['VFB Stuttgart','Stuttgart']])assert.equal(historyTeam(name,[team]),team);
  assert.equal(historyTeam('Nottingham',["Nott'm Forest",'Nottm Forest']),null);assert.equal(historyTeam('Unknown FC',['Chelsea']),null);
+});
+await testAsync('watch distinguishes first observation from opening, horizon entry, outage and rescheduling',async()=>{
+ const p={minOdds:1.01,maxOdds:100,minProbability:0},snapshot=fortunaPublicSnapshot(publicBundle(),{now:NOW,leagues:['E0']});
+ const quotes=watchQuotes(snapshot,{now:NOW,from:NOW,to:'2026-09-14T12:00:00.000Z',preferences:p});
+ assert.equal(quotes.length,6);assert.deepEqual(findOpportunities(quotes,{now:NOW,preferences:p}),[]);
+ const previousScan={at:'2026-09-11T11:45:00.000Z',from:'2026-09-11T11:45:00.000Z',to:'2026-09-14T11:45:00.000Z'};
+ const fresh=findOpportunities(quotes,{now:NOW,preferences:p,previousScan});assert.equal(fresh.length,6);assert.ok(fresh.every(s=>s.kind==='NEWLY_OBSERVED'&&s.openingAt===null&&s.expectedValue===null));
+ assert.deepEqual(findOpportunities(quotes,{now:NOW,preferences:p,previousScan:{...previousScan,to:'2026-09-11T13:00:00.000Z'}}),[]);
+ assert.deepEqual(findOpportunities(quotes,{now:NOW,preferences:p,previousScan:{...previousScan,at:'2026-09-11T09:00:00.000Z'}}),[]);
+ const q=quotes[0];assert.deepEqual(findOpportunities([q],{now:NOW,preferences:p,previousScan,history:{old:{firstSeenAt:previousScan.at,last:{...q,key:'old',kickoffAt:'2026-09-11T21:00:00.000Z'}}}}),[]);
+ assert.throws(()=>validateWatchPreferences({intervalMinutes:1}));assert.throws(()=>validateWatchPreferences({minImprovement:0}));
+});
+await testAsync('watch price improvement is timestamped and remains an unverified signal with cooldown',async()=>{
+ const p={minOdds:1.01,maxOdds:100,minProbability:0},snapshot=fortunaPublicSnapshot(publicBundle(),{now:NOW,leagues:['E0']});
+ const q=watchQuotes(snapshot,{now:NOW,from:NOW,to:'2026-09-14T12:00:00.000Z',preferences:p})[0],previousScan={at:'2026-09-11T11:45:00.000Z',from:'2026-09-11T11:45:00.000Z',to:'2026-09-14T11:45:00.000Z'};
+ const h={firstSeenAt:previousScan.at,last:{...q,observedAt:previousScan.at,decimalOdds:q.decimalOdds/1.1,marketProbability:q.marketProbability+.02}};
+ const signals=findOpportunities([q],{now:NOW,preferences:p,previousScan,history:{[q.key]:h}});assert.equal(signals.length,1);assert.equal(signals[0].kind,'PRICE_IMPROVED');assert.equal(signals[0].valueStatus,'UNVERIFIED');assert.equal(signals[0].expectedValue,null);assert.ok(Math.abs(signals[0].improvement-.1)<1e-10);
+ assert.deepEqual(findOpportunities([q],{now:NOW,preferences:p,previousScan,history:{[q.key]:{...h,lastAlert:{at:previousScan.at,price:h.last.decimalOdds}}}}),[]);
+ assert.deepEqual(findOpportunities([{...q,availability:'suspended'}],{now:NOW,preferences:p,previousScan,history:{[q.key]:h}}),[]);
+ const old=structuredClone(snapshot);old.events.forEach(e=>e.markets.forEach(m=>m.observedAt=previousScan.at));assert.throws(()=>watchQuotes(old,{now:NOW,from:NOW,to:'2026-09-14T12:00:00.000Z',preferences:p}),/STALE/);
 });
 summary();

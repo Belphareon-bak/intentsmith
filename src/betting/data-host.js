@@ -82,7 +82,7 @@ export function createBettingDataHost({store,transport,clock=Date.now,oddsIOKey=
         return store.record(resource,url,bytes,{retrievedAt:new Date(clock()).toISOString(),lastModified:response.headers.get('last-modified')});
       });queue=action.catch(()=>{});return observe(s,action);
     },
-    async save(token,record){const s=state(token);if(!record||record.contract!=='BettingAnalysisEvidence'||record.version!==1)fail('PERSISTENCE_ERROR');const id=store.recordRun({...record,hostInvocation:{...s.identity,startedAt:s.now,sourceObservationIds:[...s.sourceObservationIds]}});s.finished=true;return id;},
+    async save(token,record){const s=state(token);if(!record||!['BettingAnalysisEvidence','BettingWatchEvidence'].includes(record.contract)||record.version!==1)fail('PERSISTENCE_ERROR');const id=store.recordRun({...record,hostInvocation:{...s.identity,startedAt:s.now,sourceObservationIds:[...s.sourceObservationIds]}});s.finished=true;return id;},
   });
   return Object.freeze({host,capability,diagnostics:()=>policy.summary()});
 }

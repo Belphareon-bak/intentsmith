@@ -1,4 +1,4 @@
-# Sázkař — kontrakt v3.1
+# Sázkař — kontrakt v3.2
 
 Datum 2026-09-12. Autorita: operátor požaduje autonomní získávání informací,
 vylučuje ručně dodané pravděpodobnosti a zachovává omezení času, kurzu a
@@ -98,6 +98,8 @@ Uzavřené dotazy capability:
 - `{kind:'fortuna_public',leagues,from,to}`: veřejná Fortuna bez účtu/klíče;
 - `{kind:'live',leagues,bookmakers,from,to}`: konkrétní nabídka z Odds-API.io;
 - `save(BettingAnalysisEvidence@1)`: jediný výsledek vlastního běhu.
+- `save(BettingWatchEvidence@1)`: pozorování vlastního hlídacího běhu, stejná
+  vazba na hostovou invokaci a zdrojové observation ID; bez ručních predikcí.
 
 Síťové efekty používají společný `createOutboundPolicy` a přesný M5 outbound
 schema/audit writer v izolované DB sázkaře. Nová surface `betting-data`, scopes
@@ -232,8 +234,68 @@ prospektivní as-of sběr, vyhodnocení kalibrace po ligách/horizontech a v pá
 výběru, celé tikety včetně závislostí, skutečné settlement podmínky, datové licence
 pro konkrétní použití. Teprve poté případná změna predikční politiky.
 
-Cílové rozšíření, aktuálně neimplementované: xG, zranění a sestavy s doloženým
+Samostatné lokální plánování a mailová capability jsou popsány v §8; přímé
+e-mailové doručení dosud nebylo provozně ověřeno. Cílové rozšíření, aktuálně neimplementované: xG, zranění a sestavy s doloženým
 časem publikace; historie výsledků/settlement a přesné refund/void případy;
-trvalé plánované úlohy a explicitně nastavené doručování; formulář ve Studiu;
+integrace plánování a doručování do aplikace; formulář ve Studiu;
 portfolio risk a závislostní model; další sporty a trhy. Žádná z těchto položek
 není nahrazena textem LLM nebo prohlášením „všechny informace prozkoumány“.
+
+## 8. Standalone CLI a průběžný hlídač
+
+Autorita: operátor výslovně požaduje CLI/aliasy, samostatný pravidelný sběr
+a upozornění e-mailem. `bin/sazkar.js` je hostový operátorský vstup, nikoli
+nová obcházka CRE pro příchozí chat. Launcher `~/.local/bin/sazkar` a aliasy
+spouštějí konkrétní checkout. Produktový balíček má pouze čistou analytiku
+`engine/opportunities.js`; nemá přímý přístup k síti, DB, SMTP nebo systemd.
+
+`BettingWatchPreferences@1`: horizonHours 1–168, pět podporovaných lig,
+minOdds/maxOdds pro jednotlivý tip (>1 až 100), minProbability 0–1,
+minImprovement 0,01–1, intervalMinutes 5–120, maxAlertsPerDay 1–20.
+Výchozí hodnoty jsou 72 h, 1,5–3, 0,4, 0,05, 15 min, 4 pokusy za 24 h.
+Neznámá pole jsou neplatná. Jde o signály jednotlivých cen, nikoli filtr
+společné pravděpodobnosti akumulátoru.
+
+`BettingWatchSignal@1`: stabilní identita zápasu/trhu/výsledku, stará a nová
+cena s pozorovacími časy, firstSeenAt, openingAt:null, hoursToKickoff,
+důvod, vypršení; `valueStatus:UNVERIFIED` a `expectedValue:null`.
+`NEWLY_OBSERVED` vyžaduje předchozí úspěšný sběr stejného scope do 2,5násobku
+intervalu a předchozí pokrytí času začátku. První běh, vstup do posunutého
+okna, přeložení nebo dlouhá mezera nejsou doklad nového vypsání.
+`PRICE_IMPROVED` vyžaduje zvýšení ceny nad mez proti blízkému otevřenému
+pozorování. Opakování stejného tipu má šestihodinový cooldown a musí překonat
+i poslední oznámenou cenu. Součet inverzních cen mimo 1–1,3 se pro tyto běžné
+signály vyřazuje; arbitrage/boosted nabídky nejsou tímto pravidlem modelovány.
+
+Core uchovává surové snímky a hostovou evidenci, dále odvozenou časovou řadu,
+stav sběrů a doručovací frontu. Běh hlídače chrání obnovitelný lease;
+první vytvoření DB/tabulek používá transakční zámek. Selhání sítě nezaloží
+úspěšný baseline. Při zdrojové chybě platí původní fail-closed pravidla.
+Zdroj se každým během znovu čte, ale diagnostický DC model se znovu netrénuje.
+
+SMTP je samostatná omezená hostová capability. Používá uživatelem lokálně
+nastavený server, port 465/587 s vynuceným TLS a ověřením certifikátu,
+jednoho příjemce a pevný renderer; žádné přílohy, obecné textové zprávy,
+LLM-generované směrování, cookies nebo automatické čtení C3 SMTP prostředí.
+Audit používá přesný stávající M5 writer/schema, surface `betting-notifications`,
+scopes `sports.betting.email.notify` a `sports.betting.email.test`, method SMTP.
+Secret není v auditu; identita příjemce/nastavení je hashovaná. Tato capability
+není nezávisle přijatým M5 konektorem.
+
+Bez konfigurace zůstávají signály lokální. Zapnutí timeru ani změna zdrojových
+cen nevyplňuje příjemce. Před doručením se znovu načte aktuální opt-in a
+konfigurace; vazba fronty zahrnuje příjemce, SMTP i preference. Prošlé a cizímu
+nastavení odpovídající zprávy se nevydají. Nejvýše jedna zpráva při odečtu,
+podle největšího cenového zlepšení a pak tržního odhadu, s denním limitem.
+To není ranking podle prokázaného EV.
+
+Claim ve frontě je transakční. Pád či nejasný SMTP výsledek po zahájení přenosu
+vede na `unknown` bez automatického opakování. `sent` znamená přijetí SMTP
+serverem, nikoli prokázané doručení do schránky. Přímý `mail test` je explicitně
+vyžádaný test bez sázkového signálu; nevyžaduje zapnuté pozadí.
+
+Vlastní user timer je opt-in, trvale vypnutelný a nezasahuje jiné jednotky.
+Při spánku PC neprobíhá sběr ani dohánění starých mailů. Lokální stav je pod
+`~/.local/state/sazkar`, soukromá konfigurace pod `~/.config/sazkar`; oba
+adresáře 700, data a tajemství 600. Limit DB 512 MiB zastaví další sběr místo
+neomezeného růstu. [Výzkum a další přijímací důkazy](../../docs/research/SAZKAR-MARKET-TIMING.md).

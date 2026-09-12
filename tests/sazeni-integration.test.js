@@ -7,6 +7,9 @@ import {createOutboundPolicy} from '../src/network/outbound-policy.js';
 import {runAutonomous} from '../specialists/sazeni/engine/autonomous.js';
 import {oddsIOSnapshot} from '../specialists/sazeni/providers/odds-io.js';
 import {fortunaPublicSnapshot} from '../specialists/sazeni/providers/fortuna-public.js';
+import {BettingWatchStore} from '../src/betting/watch-store.js';
+import {scanBettingWatch} from '../src/betting/watch.js';
+import {sendWatchMail,validateWatchMail,watchRecipientHash} from '../src/betting/watch-mail.js';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import { suite, testAsync, summary } from './harness.js';
@@ -159,5 +162,53 @@ await testAsync('actual chat handler emits public Fortuna prices and observation
   const wire=JSON.parse(JSON.stringify(response)),r=wire.tag.metadata.toolResults[0].data;assert.equal(r.status,'READY',JSON.stringify(r.errors));assert.equal(r.verifiedObservation,true);assert.equal(wire.tag.metadata.deterministicPresentation,true);assert.ok(wire.content.includes('bez účtu a klíče'));assert.ok(wire.content.includes(r.tickets[0].totalOdds));assert.ok(wire.content.includes('čas poslední změny kurzu neznámý'));assert.equal(wire.tag.can_execute,false);
   const record=JSON.parse(store.database.prepare('SELECT record_json FROM betting_runs').get().record_json);assert.equal(record.hostInvocation.conversationId,'conversation-public');assert.equal(record.hostInvocation.userMessageId,789);
  }finally{sazkar.unregister(ctx(specialistRuntime));specialistRuntime.setBettingDataHost(null);store.close();}
+});
+await testAsync('watch persists independent observations, restarts without opening spam and records changed prices',async()=>{
+ const store=new BettingDataStore(':memory:');let ms=Date.parse(FIXED),changed=false;
+ const bridge=createBettingDataHost({store,clock:()=>ms,transport:publicTransport({clock:()=>ms,count:()=>ms+=1000,change:({u,data})=>{if(changed&&u.pathname.endsWith('/overview')){const o=Object.values(data)[0][0].outcomes.find(o=>o.optionTypeId==='ufo:otyp:00-3q');o.odds=Number((o.odds*1.06).toFixed(2));}}})});
+ const preferences={leagues:['E0'],minOdds:1.01,maxOdds:100,minProbability:0};let watch=new BettingWatchStore(store),lease;
+ try{
+  const first=await scanBettingWatch({bridge,watch,preferences,clock:()=>ms});lease=first.lease;assert.equal(first.signals.length,0);assert.equal(first.quotes,6);watch.release(lease);lease=null;
+  changed=true;ms+=15*60000;watch=new BettingWatchStore(store);
+  const second=await scanBettingWatch({bridge,watch,preferences,clock:()=>ms});lease=second.lease;assert.equal(second.signals.length,1);assert.equal(second.signals[0].kind,'PRICE_IMPROVED');assert.equal(watch.status().observations,12);assert.equal(watch.alerts()[0].status,'local');
+  const record=JSON.parse(store.database.prepare('SELECT record_json FROM betting_runs WHERE id=?').get(second.runId).record_json);assert.equal(record.contract,'BettingWatchEvidence');assert.equal(record.hostInvocation.sourceObservationIds.length,3);
+  assert.throws(()=>watch.acquire(ms),/ALREADY_RUNNING/);watch.release(lease);lease=null;ms+=15*60000;
+  const third=await scanBettingWatch({bridge,watch,preferences,clock:()=>ms});lease=third.lease;assert.equal(third.signals.length,0);assert.equal(watch.alerts().length,1);
+ }finally{if(lease)watch.release(lease);store.close();}
+});
+await testAsync('mail requires one configured recipient, fresh evidence, TLS and durable at-most-once claims',async()=>{
+ const store=new BettingDataStore(':memory:'),watch=new BettingWatchStore(store),ms=Date.parse(FIXED),lease=watch.acquire(ms),config={host:'smtp.example.com',port:465,user:'operator@example.com',from:'operator@example.com',to:'recipient@example.com'},hash=watchRecipientHash(config);let network=0;
+ const q={key:'q',eventId:'e',competitionId:'E0',home:{name:'Home'},away:{name:'Away'},outcomeId:'home',decimalOdds:2,marketProbability:.45,observedAt:FIXED,expiresAt:new Date(ms+120000).toISOString()};
+ const signal={contract:'BettingWatchSignal',version:1,id:'a'.repeat(64),kind:'PRICE_IMPROVED',quote:q,previous:{decimalOdds:1.8},improvement:1/9,hoursToKickoff:12,reason:'Testované zlepšení ceny.',valueStatus:'UNVERIFIED'};
+ try{
+  watch.save({token:lease,now:FIXED,scope:'scope',from:FIXED,to:new Date(ms+86400000).toISOString(),runId:'fixture',quotes:[q],signals:[signal],recipientHash:hash});
+  assert.throws(()=>validateWatchMail({...config,to:'one@example.com,two@example.com'}));assert.throws(()=>validateWatchMail({...config,port:25}));
+  const createTransport=options=>{assert.equal(options.requireTLS,true);assert.equal(options.tls.rejectUnauthorized,true);return {sendMail:async msg=>{network++;assert.deepEqual(msg.envelope.to,[config.to]);assert.equal(msg.disableFileAccess,true);assert.equal(msg.disableUrlAccess,true);assert.ok(msg.text.includes('kladné')||msg.text.includes('výhodu'));return {accepted:[config.to],rejected:[],messageId:'test-id'};},close(){}};};
+  await assert.rejects(sendWatchMail({store,config,password:'fixture-password',signal:{...signal,quote:{...q,expiresAt:FIXED}},clock:()=>ms,createTransport}),/EXPIRED/);assert.equal(network,0);
+  const claimed=watch.claimMail({token:lease,now:FIXED,recipientHash:hash,maxPerDay:4});assert.equal(claimed.id,signal.id);assert.equal(watch.claimMail({token:lease,now:FIXED,recipientHash:hash,maxPerDay:4}),null);
+  const outcome=await sendWatchMail({store,config,password:'fixture-password',signal:claimed.signal,clock:()=>ms,createTransport});watch.finishMail(claimed.id,outcome);assert.equal(watch.alerts()[0].status,'sent');assert.equal(network,1);
+  assert.equal(store.database.prepare("SELECT count(*) n FROM m5_outbound_audit_events WHERE scope='sports.betting.email.notify'").get().n,2);
+  assert.ok(!JSON.stringify(store.database.prepare('SELECT * FROM m5_outbound_audit_events').all()).includes('fixture-password'));
+ }finally{watch.release(lease);store.close();}
+});
+await testAsync('watch never resends ambiguous SMTP attempts and expires pending alerts after downtime',async()=>{
+ const store=new BettingDataStore(':memory:'),watch=new BettingWatchStore(store),ms=Date.parse(FIXED);let lease=watch.acquire(ms);
+ try{
+  for(const [id,status] of [['uncertain','sending'],['stale','pending']])store.database.prepare('INSERT INTO betting_watch_alerts(id,at,expires_at,payload,status,recipient_hash) VALUES(?,?,?,?,?,?)').run(id,FIXED,new Date(ms+120000).toISOString(),'{}',status,'hash');
+  watch.release(lease);lease=watch.acquire(ms+200000);assert.equal(watch.alerts().find(a=>a.id==='uncertain').status,'unknown');
+  assert.equal(watch.claimMail({token:lease,now:new Date(ms+200000).toISOString(),recipientHash:'hash',maxPerDay:4}),null);assert.equal(watch.alerts().find(a=>a.id==='stale').status,'expired');
+ }finally{watch.release(lease);store.close();}
+});
+await testAsync('watch daily mail limit and changed preferences cannot release an older pending signal',async()=>{
+ const store=new BettingDataStore(':memory:'),watch=new BettingWatchStore(store),ms=Date.parse(FIXED),lease=watch.acquire(ms),config={host:'smtp.example.com',port:465,user:'operator@example.com',from:'operator@example.com',to:'recipient@example.com'};
+ const old=watchRecipientHash(config,{minProbability:.4}),current=watchRecipientHash(config,{minProbability:.8});assert.notEqual(old,current);
+ try{
+  const insert=store.database.prepare('INSERT INTO betting_watch_alerts(id,at,expires_at,payload,status,recipient_hash) VALUES(?,?,?,?,?,?)');
+  insert.run('old',FIXED,new Date(ms+120000).toISOString(),'{}','pending',old);
+  assert.equal(watch.claimMail({token:lease,now:FIXED,recipientHash:current,maxPerDay:4}),null);assert.equal(watch.alerts()[0].status,'expired');
+  for(let i=0;i<4;i++)insert.run('sent'+i,FIXED,new Date(ms+120000).toISOString(),'{}','sent',current);
+  insert.run('pending',FIXED,new Date(ms+120000).toISOString(),'{}','pending',current);
+  assert.equal(watch.claimMail({token:lease,now:FIXED,recipientHash:current,maxPerDay:4}),null);
+ }finally{watch.release(lease);store.close();}
 });
 summary();

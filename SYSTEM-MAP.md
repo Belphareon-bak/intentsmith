@@ -133,8 +133,8 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **222 781 ř.**, 609 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **240 926 ř.**, 520 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **222 917 ř.**, 612 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **240 998 ř.**, 520 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **514** (`420 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **176 / 99** |
 | HTTP rout | ~230 |
@@ -630,3 +630,21 @@ Závěrečné skutečné běhy stejné `4cd363d0`: 72 h / 44 událostí / 3 akum
 24 h / 25 událostí / 3 singly, oba READY a uložené. Všechny zdrojové hashe a
 exportované ceny byly porovnány s původními odpověďmi. Následná změna reportů
 je pouze dokumentační; stav zůstává IMPLEMENTED_SLICE / REVIEW_PENDING.
+
+## Sázkař CLI a průběžné sledování — 2026-09-12
+
+Operátor požaduje aliasy/CLI a automatická upozornění s výzkumem časování cen.
+Nainstalované `sazkar` a `sk*` skutečně spustily výpočet z běžného adresáře;
+interaktivní menu, historie a vlastní user timer prošly runtime ověřením.
+Sběr probíhá po 15 minutách bez nového pokynu a ukládá časovou historii
+Fortuny. První sběr a další automatický běh po 132 výběrech nedávaly falešná
+upozornění na opening. Vypnutí a znovuzapnutí timeru byly ověřeny.
+
+Signály NEWLY_OBSERVED / PRICE_IMPROVED mají přesnou časovou/identitní evidenci,
+ale +EV zůstává UNVERIFIED. Odchozí SMTP má lokální konfiguraci, jediného
+příjemce, TLS, audit, expiraci, deduplikaci a denní limit. Skutečný e-mail je
+MAIL_CONFIGURATION_REQUIRED; lokální historie funguje bez něj.
+Změny jsou ve vlastní pracovní větvi, **IMPLEMENTED_SLICE / REVIEW_PENDING**.
+Focused 17 + 19 případů PASS; nový celý profil zatím neměřen.
+[Ovládání](specialists/sazeni/README.md), [evidence](docs/review/2026-09-12-SAZENI-WATCH.md),
+[výzkum a párové měření 7 228 zápasů](docs/research/SAZKAR-MARKET-TIMING.md).

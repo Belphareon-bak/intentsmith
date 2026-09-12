@@ -16,13 +16,14 @@ export class BettingDataStore {
     const version=this.database.pragma('user_version',{simple:true});
     if(version!==0&&version!==1)throw new Error('BETTING_STORE_SCHEMA_VERSION');
     if(version===0)this.database.transaction(()=>{
+      if(this.database.pragma('user_version',{simple:true})===1)return;
       installOutboundAudit(this.database);
       this.database.exec(`CREATE TABLE betting_blobs(sha256 TEXT PRIMARY KEY, content BLOB NOT NULL, CHECK(length(sha256)=64));
         CREATE TABLE betting_observations(id TEXT PRIMARY KEY, resource TEXT NOT NULL, retrieved_at TEXT NOT NULL, last_modified TEXT, sha256 TEXT NOT NULL REFERENCES betting_blobs(sha256), url TEXT NOT NULL);
         CREATE INDEX betting_observations_resource ON betting_observations(resource,retrieved_at);
         CREATE TABLE betting_runs(id TEXT PRIMARY KEY, occurred_at TEXT NOT NULL, record_json TEXT NOT NULL CHECK(json_valid(record_json)));
         PRAGMA user_version=1;`);
-    })();
+    }).immediate();
     // Reuse the exact authoritative outbound schema and fingerprint validator.
     installOutboundAudit(this.database);
   }

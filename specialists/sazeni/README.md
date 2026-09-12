@@ -1,10 +1,98 @@
-# Sázkař 3.1 — autonomní analytický engine
+# Sázkař 3.2 — autonomní analytický engine
 
 Zadáš preference. Host načte skutečné zdroje, engine vypočítá pravděpodobnosti,
 porovná je s modelem z historie a sestaví tikety. Ručně zadané pravděpodobnosti
 nepřijímá. Fotbal, předzápasové 1X2, pět nejvyšších evropských lig.
 **IMPLEMENTED_SLICE / REVIEW_PENDING**: skutečný běh ověřil veřejné kurzy
 Fortuny bez účtu a API klíče. Nezávislé přijetí ještě neproběhlo.
+
+## Pohodlné ovládání z terminálu
+
+Na tomto počítači je nainstalovaný příkaz `sazkar`, který funguje z libovolného
+adresáře. Bez parametrů otevře jednoduché menu. Příkazy:
+
+| Příkaz / alias | Co udělá |
+|---|---|
+| `sazkar` / `sk` | menu |
+| `sazkar hledej` / `sk24` | návrhy do 24 h, kurz 1,5–3, p≥40 % |
+| `sazkar hledej --profil 72h` / `sk72` | 2–3 položky do 72 h, kurz 2–4, p≥20 %, rozestup ≤12 h |
+| `sazkar posledni` / `skposledni` | poslední uložený report; ceny mohou být již prošlé |
+| `sazkar historie` | posledních deset výpočtů |
+| `sazkar stav` / `skstav` | poslední sběr, stav plánovače a upozornění |
+| `sazkar hlidat start` / `skhlidej` | zapne pravidelný veřejný sběr |
+| `sazkar hlidat stop` / `skstop` | vypne pravidelný sběr i automatický mail |
+| `sazkar upozorneni` | historie zaznamenaných signálů |
+
+V novém terminálu budou aliasy dostupné automaticky. V již otevřeném:
+
+```bash
+source ~/.bash_aliases
+```
+
+Vlastní požadavek například:
+
+```bash
+sazkar hledej 'do 24 h, kurz od 2 do 4, úspěšnost alespoň 30 %'
+```
+
+Výstupní adresáře se vytvářejí automaticky pod `~/.local/state/sazkar/results/`.
+Každý obsahuje Markdown, CSV, JSON výsledku a zadání. Soukromá databáze
+`~/.local/state/sazkar/analysis.sqlite` uchovává zdroje, výsledky, historii
+cen, signály a audit. Starší výzkumná DB v checkoutu zůstává historickou evidencí.
+Launcher odkazuje na tuto pracovní větev, kterou je potřeba pro běh zachovat.
+
+Na jiném checkoutu se instalace provede z jeho kořene:
+
+```bash
+node scripts/install-sazkar.mjs --install
+```
+
+Instalátor zachovává cizí příkazy/aliasy a nevytváří automatické předplatné
+nebo účet. User timer se zapíná samostatným příkazem výše.
+
+## Průběžné sledování a e-mail
+
+Hlídač čte Fortunu každých 15 minut, výchozí okno má 72 hodin. První odečet,
+dlouhý výpadek nebo změna filtrů založí výchozí stav bez hromadného rozeslání.
+Oznámí nově zachycenou nabídku v již sledovaném okně nebo zlepšení ceny
+alespoň o 5 %. Filtry jednotlivého tipu jsou kurz 1,5–3 a tržní odhad ≥40 %.
+Skutečný okamžik vypsání zdroj neuvádí. Signál neznamená prokázané +EV;
+vyšší cenu může doprovázet zhoršení šance výsledku.
+
+```bash
+sazkar hlidat jednou
+sazkar hlidat nastav --interval 15 --hodin 72 --zlepseni 5 --uspesnost 40 --max-mailu 4
+```
+
+Interval lze nastavit na 5–120 minut, okno na 1–168 hodin. Větší nabídka může
+narazit na existující limit 100 zápasů; rozsah se tiše neořízne. Opakování
+téhož tipu má cooldown šest hodin a musí překonat poslední oznámenou cenu.
+Nejvýše jeden nejlepší signál při odečtu a výchozí čtyři e-mailové pokusy za
+24 hodin. Fronta nevydává starou cenu za čerstvou a po výpadku ji nedosílá.
+
+Nastavení e-mailu probíhá lokálně; heslo se zadává skrytě:
+
+```bash
+sazkar mail nastav
+sazkar mail test
+```
+
+Zadává se SMTP server, TLS port 465/587, účet, odesílatel a jediný příjemce.
+Použij pověření určené poskytovatelem pro SMTP, případně heslo aplikace.
+Heslo je v `~/.config/sazkar/smtp-password` s právy 600; do chatu ani Git
+nepatří. `mail test` odešle výslovně označený test bez fiktivních tipů.
+SMTP přijetí ještě nepotvrzuje doručení do schránky; ověř skutečné přijetí.
+Nejasný výsledek přenosu se automaticky neopakuje a je označený `unknown`.
+
+Bez mailu funguje sběr a lokální historie. Aktuální instalace má sběr zapnutý,
+ale skutečné odesílání je **MAIL_CONFIGURATION_REQUIRED**. User timer běží
+v uživatelské systemd relaci; při vypnutém/uspaném počítači nesbírá a neslibuje
+zachycení krátkých cenových oken. Nastavení přetrvává restart příkazu.
+Databáze má limit 512 MiB; při jeho dosažení se další sběr zastaví s chybou.
+
+[Výzkum načasování a hodnotových doporučení](../../docs/research/SAZKAR-MARKET-TIMING.md)
+vysvětluje měření 7 228 zápasů i potřebný další krok: čerstvou nezávislou
+referenci, časově doložené informace a prospektivní ověření predikční výhody.
 
 ## Vyzkoušení bez účtu a bez připravených dat
 
@@ -110,8 +198,8 @@ pravidlo vypořádání. Pořadí jednotlivých tiketů a následný výběr rů
 není společná optimalizace portfolia. Kurzy a peníze počítá přes racionální
 BigInt; peníze jsou celé haléře. Report nevytváří ani nepřepisuje LLM.
 
-Samostatný formulář ve Studiu, automatické vyhodnocení výsledků, plánované
-rozesílání, zranění/sestavy/xG a prokázaná predikční výhoda zatím nejsou hotové.
+Samostatný formulář ve Studiu, automatické vyhodnocení výsledků,
+zranění/sestavy/xG a prokázaná predikční výhoda zatím nejsou hotové.
 Sázky se nepodávají. Změny nejsou aktivované ve sdíleném provozním checkoutu.
 
 Syntetický historický solver lze stále reprodukovat bez sítě:
