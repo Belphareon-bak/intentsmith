@@ -41,7 +41,7 @@ function makeRuntime(artifactRoot) {
     xdgState: path.join(root, 'xdg-state'),
     temp: path.join(root, 'tmp'),
     npmCache: path.join(root, 'npm-cache'),
-    projects: path.join(root, 'projects'),
+    projects: path.join(root, 'home', 'projects'),
     artifacts: path.join(root, 'artifacts'),
     database: path.join(root, 'm1.sqlite'),
     portFile: path.join(root, 'server-port.json'),
@@ -633,8 +633,9 @@ async function parent(out) {
         const bytes = Buffer.concat(chunks); const body = bytes.length ? JSON.parse(bytes) : null;
         row = { at: new Date().toISOString(), method: incoming.method, path: incoming.url, body, requestSha256: sha256(bytes) }; requests.push(row);
         const allowedRead = incoming.method === 'GET' && ['/api/tags', '/api/ps', '/api/version'].includes(incoming.url);
-        const allowedModel = incoming.method === 'POST' && ['/api/show', '/api/chat', '/api/generate'].includes(incoming.url) && body?.model === EXPECTED_MODEL;
-        assert.ok(allowedRead || allowedModel, 'provider request outside fixed qualification scope');
+        const allowedModel = incoming.method === 'POST' && ['/api/chat', '/api/generate'].includes(incoming.url) && body?.model === EXPECTED_MODEL;
+        const allowedShow = incoming.method === 'POST' && incoming.url === '/api/show' && (body?.model || body?.name) === EXPECTED_MODEL;
+        assert.ok(allowedRead || allowedModel || allowedShow, 'provider request outside fixed qualification scope');
         if (['/api/chat', '/api/generate'].includes(incoming.url)) loaded = true;
         const request = http.request({ hostname: '127.0.0.1', port: 11434, path: incoming.url, method: incoming.method,
           headers: { 'Content-Type': 'application/json', 'Content-Length': bytes.length } }, response => {
