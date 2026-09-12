@@ -202,7 +202,7 @@ test('Studio can cancel an active draft without sending approval or a legacy mut
   const calls = [];
   const sandbox = vm.createContext({
     _sessions: [session], _backendBase: 'http://fixture.invalid', _M2_TERMINAL_STATES: {},
-    _sessionActive: 0, _persistSessionState() {}, renderChat() {}, _chatScrollPane() {}, AbortSignal, AbortController,
+    _sessionActive: 0, _persistSessionState() {}, renderChat() {}, _chatScrollPane() {}, AbortSignal, AbortController, TextEncoder,
     fetch(url, options) {
       calls.push({ url, options });
       return new Promise((_resolve, reject) => options.signal.addEventListener('abort',
@@ -242,8 +242,9 @@ function controlledStudio({ pending = true, paths = ['src/app.js'], activeM1 = t
   const sandbox = vm.createContext({
     _sessions: [session], _backendBase: 'http://fixture.invalid',
     _M2_TERMINAL_STATES: { succeeded: true, failed: true, cancelled: true },
-    _sessionActive: 0, _persistSessionState() {}, renderChat() {}, _chatScrollPane() {}, AbortSignal, AbortController,
-    document: { getElementById() { return textarea; } }, C3WS: { hasActiveM1Turn() { return activeM1; } },
+    _sessionActive: 0, _persistSessionState() {}, renderChat() {}, _chatScrollPane() {}, AbortSignal, AbortController, TextEncoder,
+    document: { getElementById() { return textarea; } }, C3WS: { hasActiveM1Turn(value) { assert.equal(value, session);return activeM1; } },
+    C: {}, _fs: value => value, h: (type, props, ...children) => ({ type, props, children }),
     fetch(url, options) {
       return new Promise((resolve, reject) => calls.push({ url, options, reject,
         resolve(payload, status = 200) { resolve({ ok: status === 200, status, json: async () => payload }); } }));
@@ -251,7 +252,14 @@ function controlledStudio({ pending = true, paths = ['src/app.js'], activeM1 = t
   });
   vm.runInContext(source.slice(source.indexOf('function _m2IsRecord'), source.indexOf('/* ── M4 learning')), sandbox);
   vm.runInContext(functionSlice('_chatSendPane', '_chatGapChoice'), sandbox);
-  return { session, pane, calls, view,
+  return { session, pane, calls, view, textarea,
+    openComposer() { sandbox._m2OpenComposer(0); return pane._m2Composer; },
+    submitComposer(form = pane._m2Composer) { sandbox._m2SubmitComposer(0, session, pane, form); },
+    actionButtons() {
+      const buttons = [];const visit = node => { if (!node || typeof node !== 'object') return;
+        if (node.type === 'button') buttons.push(node);(node.children || []).forEach(visit); };
+      visit(sandbox._m2ActionsUI(0, session, pane));return buttons;
+    },
     command(cmd, arg = '') { sandbox._m2HandleStudioCommand(0, session, pane, null, cmd + ' ' + arg, cmd, arg); },
     chatSend(text) { textarea.value = text; sandbox._chatSendPane(0); },
     terminal(state = 'cancelled') { return { ...view, state,
@@ -433,5 +441,161 @@ test('Studio rejects malformed blueprint locally and can cancel a running build'
   await flushStudio();
   assert.match(studio.pane.msgs.at(-1).text, /M2_STUDIO_DRAFT_CANCELLED/);
   assert.equal(studio.session._m2Pending, null);
+  assert.equal(studio.calls.length, 1);
+});
+
+function fillComposer(studio) {
+  const form = studio.openComposer();
+  Object.assign(form, { instruction: 'Keep a  b and\ttabs.', binary: '/usr/bin/node',
+    argv: ['--input-type=module', '-e', 'assert.equal("a  b", "a  b");\n// $HOME; $(false)', ''],
+    files: [
+      { path: 'src/app.js', instruction: 'Export the helper.', dependencies: 'src/helper.js' },
+      { path: 'src/helper.js', instruction: 'Keep the value.', dependencies: '' },
+    ] });
+  return form;
+}
+
+test('build composer opens without HTTP or consuming the ordinary chat draft', () => {
+  const studio = controlledStudio({ pending: false, activeM1: false });
+  studio.textarea.value = 'Popis změny s  mezerami';
+  studio.command('/m2-build');
+  assert.equal(studio.pane._m2Composer.instruction, studio.textarea.value);
+  assert.equal(studio.pane._m2ComposerOpen, true);
+  assert.equal(studio.calls.length, 0);
+  assert.equal(studio.pane.msgs.length, 0);
+  assert.doesNotMatch(source, /Lifecycle: PROPOSED → SPEC|lifecycle SPEC\. Popište/);
+});
+
+test('composer sends literal file/test inputs through the existing draft surface and never auto-approves', async () => {
+  const studio = controlledStudio({ pending: false, activeM1: false, paths: ['src/app.js', 'src/helper.js'] });
+  const form = fillComposer(studio);
+  studio.textarea.value = 'ordinary draft';
+  studio.submitComposer();
+  assert.equal(studio.calls.length, 1);
+  const call = studio.calls[0];
+  assert.equal(call.url, 'http://fixture.invalid/api/m2/lifecycle/draft');
+  const body = JSON.parse(call.options.body);
+  assert.deepEqual(body.origin, studio.view.plan.origin);
+  assert.equal(body.draft.instruction, form.instruction);
+  assert.deepEqual(body.draft.focusedTest.argv, form.argv);
+  assert.equal(body.draft.focusedTest.binary, '/usr/bin/node');
+  assert.deepEqual(body.draft.files[0].dependsOn, ['src/helper.js']);
+  assert.equal(studio.textarea.value, 'ordinary draft');
+  call.resolve(studio.view);
+  await flushStudio();
+  assert.match(studio.pane.msgs.at(-1).text, /Původní obsah src\/helper.js/);
+  assert.match(studio.pane.msgs.at(-1).text, /Navržený úplný obsah src\/app.js/);
+  assert.equal(studio.pane._m2ComposerOpen, false);
+  assert.equal(studio.pane._m2Composer, form, 'retain operator input');
+  studio.chatSend('ano');
+  assert.equal(studio.calls.length, 1, 'ordinary yes does not approve');
+  studio.command('/m2-approve');
+  assert.equal(studio.calls[1].url, 'http://fixture.invalid/api/m2/lifecycle/approve');
+  assert.equal(JSON.parse(studio.calls[1].options.body).planDigest, studio.view.planDigest);
+  studio.calls[1].resolve(studio.terminal());
+  await flushStudio();
+});
+
+for (const status of [400, 409, 503]) {
+  test(`composer retains every field after HTTP ${status}, and retry requires a new submit`, async () => {
+    const studio = controlledStudio({ pending: false, activeM1: false });
+    const form = fillComposer(studio);
+    const before = JSON.stringify({ ...form, error: null });
+    studio.submitComposer();
+    studio.calls[0].resolve({ code: 'M2_LIFECYCLE_POLICY_UNAVAILABLE', error: 'Policy unavailable' }, status);
+    await flushStudio();
+    assert.match(form.error, /M2_LIFECYCLE_POLICY_UNAVAILABLE/);
+    assert.equal(JSON.stringify({ ...form, error: null }), before);
+    assert.equal(studio.pane._m2ComposerOpen, true);
+    assert.equal(studio.pane._m2Busy, false);
+    assert.equal(studio.calls.length, 1);
+  });
+}
+
+test('composer refuses stale conversation/project context without sending or rebinding its input', () => {
+  for (const field of ['_convId', '_projectId']) {
+    const studio = controlledStudio({ pending: false, activeM1: false });
+    const form = fillComposer(studio);
+    studio.session[field] = field === '_convId' ? 'other-conversation' : 99;
+    studio.submitComposer();
+    assert.equal(studio.calls.length, 0);
+    assert.match(form.error, /kontext.*změnil/);
+    assert.deepEqual(JSON.parse(JSON.stringify(form.origin)), studio.view.plan.origin);
+  }
+});
+
+test('composer rejects incomplete, cyclic and oversized input before generation', () => {
+  for (const mutate of [
+    form => { form.binary = ''; },
+    form => { form.instruction = 'ž'.repeat(257); },
+    form => { form.files[1].dependencies = 'src/app.js'; },
+    form => { form.files[0].dependencies = 'src/missing.js'; },
+    form => { form.files[1].path = form.files[0].path; },
+    form => { form.timeoutMs = 'Infinity'; },
+  ]) {
+    const studio = controlledStudio({ pending: false, activeM1: false });
+    const form = fillComposer(studio);mutate(form);studio.submitComposer();
+    assert.equal(studio.calls.length, 0);
+    assert.equal(typeof form.error, 'string');
+    assert.equal(studio.pane._m2Composer, form);
+  }
+});
+
+test('composer cancellation and late error keep new form and normal chat input intact', async () => {
+  const studio = controlledStudio({ pending: false, activeM1: false });
+  const oldForm = fillComposer(studio);studio.submitComposer();
+  studio.command('/m2-cancel');
+  assert.equal(studio.calls[0].options.signal.aborted, true);
+  const replacement = { ...oldForm, instruction: 'New input', error: null };
+  studio.pane._m2Composer = replacement;
+  studio.calls[0].reject(new Error('cancelled'));
+  await flushStudio();
+  assert.equal(replacement.error, null);
+  assert.equal(studio.pane._m2Composer, replacement);
+  assert.equal(studio.pane._m2Busy, false);
+  assert.equal(studio.session._m2Pending, null);
+});
+
+test('composer does not bypass existing pending-plan, attachment or active-send boundaries', () => {
+  for (const options of [{ pending: true, activeM1: false }, { pending: false, activeM1: true }]) {
+    const studio = controlledStudio(options);studio.openComposer();
+    assert.equal(studio.pane._m2Composer, undefined);
+    assert.equal(studio.calls.length, 0);
+  }
+  const studio = controlledStudio({ pending: false, activeM1: false });
+  const form = fillComposer(studio);
+  studio.pane._preparedSend = {};studio.submitComposer();
+  assert.equal(studio.calls.length, 0);
+  assert.match(form.error, /probíhající/);
+  studio.pane._preparedSend = null;studio.pane.attachments.push({ name: 'other.txt' });
+  studio.submitComposer();
+  assert.equal(studio.calls.length, 0);
+  assert.match(studio.pane.msgs.at(-1).text, /M2_STUDIO_ATTACHMENTS_NOT_ALLOWED/);
+});
+
+test('restored approval button requires loading and displaying its exact plan before becoming enabled', async () => {
+  const studio = controlledStudio({ activeM1: false });
+  let buttons = studio.actionButtons();
+  assert.equal(buttons[1].props.disabled, true, 'persisted binding alone does not enable the button');
+  buttons[0].props.onClick();
+  assert.match(studio.calls[0].url, /\/api\/m2\/lifecycle\/status\?/);
+  studio.calls[0].resolve(studio.view);await flushStudio();
+  buttons = studio.actionButtons();
+  assert.equal(buttons[1].props.disabled, false);
+  assert.match(studio.pane.msgs.at(-1).text, /Navržený úplný obsah/);
+  buttons[1].props.onClick();
+  assert.equal(studio.calls.length, 2);
+  assert.equal(studio.calls[1].url, 'http://fixture.invalid/api/m2/lifecycle/approve');
+  assert.equal(JSON.parse(studio.calls[1].options.body).planDigest, studio.view.planDigest);
+  assert.equal(studio.actionButtons()[1].props.disabled, true);
+  studio.calls[1].resolve(studio.terminal());await flushStudio();
+  assert.deepEqual(studio.actionButtons(), []);
+});
+
+test('changing a loaded plan digest disables its approval button', async () => {
+  const studio = controlledStudio({ activeM1: false });
+  studio.command('/m2-status');studio.calls[0].resolve(studio.view);await flushStudio();
+  studio.session._m2Pending = { ...studio.session._m2Pending, planDigest: 'sha256:' + 'b'.repeat(64) };
+  assert.equal(studio.actionButtons()[1].props.disabled, true);
   assert.equal(studio.calls.length, 1);
 });

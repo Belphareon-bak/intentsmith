@@ -1,6 +1,9 @@
 import https from 'node:https';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
+// Security boundary: ipaddr.js 2.4.0 classifies the addresses we allow below.
+// Any dependency update requires SSRF/DNS-pinning re-review, including IPv4,
+// IPv6 and special-use ranges; a routine lockfile bump is not sufficient.
 import ipaddr from 'ipaddr.js';
 import { CONVERSATION_WEB, canonicalWebUrl, webError } from '../../contracts/m2/conversation-web-v1.js';
 

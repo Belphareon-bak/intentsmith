@@ -35,6 +35,10 @@
       "reason": "Imported direct-run database isolation bootstrap, not a standalone test."
     },
     {
+      "path": "tests/helpers/m2-http-build-fixture.js",
+      "reason": "Owned child HTTP composition for generation, effects and process restart in m2-lifecycle-http-e2e.test.js; not a standalone suite."
+    },
+    {
       "path": "tests/helpers/m7-durable-rate-limit-racer.js",
       "reason": "Suite-owned cross-process SQLite race helper launched only by m7-durable-rate-limiter.test.js."
     },

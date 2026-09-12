@@ -43,7 +43,7 @@ function buildResponse(content, metadata = {}) {
 
 function m2LifecycleAuthorityRequiredResponse() {
   return buildResponse(
-    '🔒 Legacy build/lifecycle handoff nelze z M1 Studia spustit. Použij přesný M2 lifecycle plán a schválení.',
+    'V připojeném projektu otevři ve Studiu „Připravit změnu“ (nebo /m2-build). Zadej cíl, konkrétní soubory a test. Model navrhne obsah; úplnou změnu uvidíš před samostatným schválením. Cílové adresáře a povolené cesty projektu musí být připravené.',
     {
       handler: 'm2.lifecycle.authority',
       m2LifecycleRequired: true,

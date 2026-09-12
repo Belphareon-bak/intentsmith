@@ -15,7 +15,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 ## Inventory
 
 - Runnable programs: 515
-- Explicit support-module exclusions: 19
+- Explicit support-module exclusions: 20
 - Profiles: offline=279, database=74, server=45, model=82, soak=15, manual=20
 - States: ACTIVE=421, HISTORICAL=15, BLOCKED=79
 
@@ -573,6 +573,7 @@ ledger.
 | `tests/harness.js` | Imported unit-test harness library with no top-level test entry point. |
 | `tests/helpers/chat-journey-response.js` | Imported model-journey response classifier with deterministic checks covered by m1-chat-contract.test.js. |
 | `tests/helpers/isolated-test-db.js` | Imported direct-run database isolation bootstrap, not a standalone test. |
+| `tests/helpers/m2-http-build-fixture.js` | Owned child HTTP composition for generation, effects and process restart in m2-lifecycle-http-e2e.test.js; not a standalone suite. |
 | `tests/helpers/m6-owned-runtime-probe.js` | Imported M6 owned-server and loopback namespace harness, not a standalone test. |
 | `tests/helpers/m7-durable-rate-limit-racer.js` | Suite-owned cross-process SQLite race helper launched only by m7-durable-rate-limiter.test.js. |
 | `tests/helpers/ollama-loopback-fetch-boundary.js` | Imported fail-closed M6 model-test transport boundary, not a standalone test. |

@@ -1543,8 +1543,8 @@ function centerProjectWizard(){
         h('div',{style:{display:'flex',justifyContent:'space-between',fontSize:_fs(12)}},h('span',{style:{color:C.tx3}},'Scaffolding'),h('span',{style:{color:C.tx2,fontSize:_fs(10.5)}},scaffoldHints[d.type]||'')),
         d.description?h('div',{style:{fontSize:_fs(11),color:C.tx2,marginTop:4,padding:8,background:C.bg3,borderRadius:6,whiteSpace:'pre-wrap'}},d.description):null),
       h('div',{style:{marginTop:16,padding:10,background:C.accentBg,borderRadius:8,border:'1px solid '+C.accent+'33'}},
-        h('div',{style:{fontSize:_fs(11),color:C.accentText,fontWeight:600}},'Lifecycle: PROPOSED → SPEC'),
-        h('div',{style:{fontSize:_fs(10),color:C.tx3,marginTop:4}},'Po vytvoření: git init, scaffolding dle typu, lifecycle SPEC. Popište specifikaci v chatu.')));
+        h('div',{style:{fontSize:_fs(11),color:C.accentText,fontWeight:600}},'Projekt pro řízenou práci'),
+        h('div',{style:{fontSize:_fs(10),color:C.tx3,marginTop:4}},'Po vytvoření vznikne Git projekt se zvoleným základem. Změny připravíte v chatu tlačítkem Připravit změnu; projekt musí mít nastavené povolené cesty. Každý výsledný plán schvalujete zvlášť.')));
   }
   var totalSteps=d.mode==='create'?WIZARD_STEPS.length:1;
   var headerTitle=step===0?'Projekt':d.mode==='create'?'Nový projekt':'Otevřít projekt';
@@ -6253,9 +6253,106 @@ function _m2StudioError(error){
   var status=error&&error.status?' HTTP '+error.status:'';
   return 'M2 chyba ['+code+status+']: '+(error&&error.message?error.message:String(error));
 }
+function _m2OpenComposer(idx){
+  var s=_sessions[idx];var st=s&&s.chat;
+  if(!st)return;
+  try{
+    var origin=_m2StudioOrigin(s);
+    if(st._m2Busy||st._preparedSend||(typeof C3WS!=='undefined'&&C3WS.hasActiveM1Turn(s)))throw new Error('Nejdřív dokončete nebo zrušte probíhající požadavek.');
+    if(_m2NormalizePending(s._m2Pending))throw new Error('Nejdřív zkontrolujte nebo zrušte připravený plán.');
+    if(!st._m2Composer){
+      var ta=document.getElementById('c3-chat-ta-'+idx);
+      st._m2Composer={origin:origin,instruction:ta?ta.value:'',files:[{path:'',instruction:'',dependencies:''}],binary:'',argv:[],timeoutMs:'30000',error:null};
+    }
+    st._m2ComposerOpen=true;
+  }catch(error){st.msgs.push({role:'system',text:_m2StudioError(error),tag:'M2_ERROR'});}
+  renderChat();
+}
+function _m2ComposerDraft(form){
+  function required(value,label){if(typeof value!=='string'||!value.trim())throw new Error('Vyplňte '+label+'.');return value;}
+  function instruction(value,label){required(value,label);if(new TextEncoder().encode(value).length>512)throw new Error(label+' přesahuje 512 bajtů.');return value;}
+  var files=form.files.map(function(file){return {path:required(file.path,'cestu souboru'),instruction:instruction(file.instruction,'zadání souboru'),
+    dependsOn:file.dependencies?file.dependencies.split('\n').map(function(value){return value.trim();}).filter(Boolean):[]};});
+  if(!files.length||files.length>32)throw new Error('Plán musí obsahovat 1–32 souborů.');
+  var paths=files.map(function(file){return file.path;});
+  if(new Set(paths).size!==paths.length)throw new Error('Každý soubor zadejte pouze jednou.');
+  files.forEach(function(file){if(new Set(file.dependsOn).size!==file.dependsOn.length||file.dependsOn.some(function(dependency){return paths.indexOf(dependency)<0;}))throw new Error('Závislosti musí jednou odkazovat na soubory tohoto plánu.');});
+  var resolved=new Set();
+  while(resolved.size<files.length){var next=files.find(function(file){return !resolved.has(file.path)&&file.dependsOn.every(function(dependency){return resolved.has(dependency);});});
+    if(!next)throw new Error('Závislosti souborů obsahují cyklus.');resolved.add(next.path);}
+  var timeoutMs=Number(form.timeoutMs);
+  if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>3600000)throw new Error('Časový limit testu musí být 1–3600000 ms.');
+  return {instruction:instruction(form.instruction,'celkové zadání'),files:files,
+    focusedTest:{binary:required(form.binary,'úplnou cestu programu pro test'),argv:form.argv.slice(),
+      environment:{LANG:'C.UTF-8',LC_ALL:'C.UTF-8',NO_COLOR:'1'},timeoutMs:timeoutMs}};
+}
+function _m2SubmitComposer(idx,s,st,form){
+  try{
+    if(st._m2Composer!==form||s.chat!==st)throw new Error('Rozepsaný návrh již není aktivní.');
+    _m2AssertCurrentContext(idx,s,form.origin);
+    if(st._m2Busy||st._preparedSend||(typeof C3WS!=='undefined'&&C3WS.hasActiveM1Turn(s)))throw new Error('Nejdřív dokončete nebo zrušte probíhající požadavek.');
+    var draft=_m2ComposerDraft(form);form.error=null;
+    var arg=JSON.stringify(draft);
+    _m2HandleStudioCommand(idx,s,st,null,'/m2-build '+arg,'/m2-build',arg);
+    if(st._m2Operation&&st._m2Operation.command==='/m2-build')st._m2Operation.composer=form;
+  }catch(error){form.error=error.message;renderChat();}
+}
+function _m2ComposerUI(idx,s,st){
+  var form=st._m2Composer;if(!st._m2ComposerOpen||!form)return null;
+  var current=false;try{current=s.chat===st&&_sessions[idx]===s&&_m2SameOrigin(form.origin,_m2StudioOrigin(s));}catch(error){}
+  var locked=!current||!!st._m2Busy||!!_m2NormalizePending(s._m2Pending);
+  var prefix='m2-build-'+idx+'-';
+  var inputStyle={width:'100%',boxSizing:'border-box',padding:'6px 8px',borderRadius:5,border:'1px solid '+C.border2,background:C.bg3,color:C.tx1,fontFamily:C.font,fontSize:_fs(12)};
+  var buttonStyle={padding:'5px 9px',borderRadius:5,border:'1px solid '+C.border2,background:C.bg3,color:C.tx1,cursor:'pointer',fontSize:_fs(11)};
+  function field(label,id,value,change,multiline,placeholder){return h('label',{htmlFor:prefix+id,style:{display:'block',marginBottom:8,fontSize:_fs(11),color:C.tx2}},label,
+    h(multiline?'textarea':'input',{id:prefix+id,style:inputStyle,value:value,disabled:locked,rows:multiline?2:undefined,placeholder:placeholder||'',
+      onChange:function(event){change(event.target.value);form.error=null;renderChat();}}));}
+  return h('section',{'aria-label':'Připravit změnu projektu',style:{padding:10,borderTop:'1px solid '+C.border,background:C.bg2,maxHeight:'55vh',overflowY:'auto',flexShrink:0},onClick:function(event){event.stopPropagation();}},
+    h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}},h('strong',{style:{fontSize:_fs(13),color:C.tx1}},'Připravit změnu'),
+      h('button',{type:'button',style:buttonStyle,onClick:function(){st._m2ComposerOpen=false;renderChat();}},'Skrýt')),
+    h('p',{style:{fontSize:_fs(11),color:C.tx2}},'Popište cíl a vyberte soubory. Model připraví návrh; zápis a test spustíte až schválením výsledné změny. Projekt musí mít povolené změny a cílové adresáře musí existovat.'),
+    !current?h('p',{role:'alert',style:{color:C.red}},'Konverzace nebo projekt se změnily. Tento návrh nelze odeslat; vraťte se do původní konverzace nebo jej zahoďte.'):null,
+    field('Co chcete změnit?', 'instruction',form.instruction,function(value){form.instruction=value;},true),
+    form.files.map(function(file,index){return h('fieldset',{key:index,disabled:locked,style:{border:'1px solid '+C.border2,borderRadius:6,padding:8,margin:'0 0 8px'}},
+      h('legend',{style:{color:C.tx2,fontSize:_fs(11)}},'Soubor '+(index+1)),
+      field('Cesta v projektu','file-'+index+'-path',file.path,function(value){file.path=value;},false,'src/app.js'),
+      field('Zadání souboru','file-'+index+'-instruction',file.instruction,function(value){file.instruction=value;},true),
+      field('Závislosti — jedna cesta z plánu na řádek','file-'+index+'-dependencies',file.dependencies,function(value){file.dependencies=value;},true),
+      h('button',{type:'button',style:buttonStyle,disabled:locked||form.files.length===1,onClick:function(){form.files.splice(index,1);renderChat();}},'Odebrat soubor'));}),
+    h('button',{type:'button',id:prefix+'add-file',style:buttonStyle,disabled:locked||form.files.length>=32,onClick:function(){form.files.push({path:'',instruction:'',dependencies:''});renderChat();}},'Přidat soubor'),
+    h('h4',{style:{color:C.tx1,margin:'12px 0 8px'}},'Ověření výsledku'),
+    field('Úplná cesta programu pro test','binary',form.binary,function(value){form.binary=value;},false,'/usr/bin/node'),
+    h('p',{style:{fontSize:_fs(11),color:C.tx2}},'Zvolte test funkčního chování. Každý argument je samostatná hodnota, bez shellového překladu. Mezery a uvozovky se zachovají.'),
+    form.argv.map(function(value,index){return h('div',{key:index,style:{display:'flex',alignItems:'center',gap:5}},
+      h('div',{style:{flex:1}},field('Argument '+(index+1),'arg-'+index,value,function(next){form.argv[index]=next;},true)),
+      h('button',{type:'button',style:buttonStyle,disabled:locked,'aria-label':'Odebrat argument '+(index+1),onClick:function(){form.argv.splice(index,1);renderChat();}},'×'));}),
+    h('button',{type:'button',id:prefix+'add-arg',style:buttonStyle,disabled:locked,onClick:function(){form.argv.push('');renderChat();}},'Přidat argument'),
+    field('Časový limit testu (ms)','timeout',form.timeoutMs,function(value){form.timeoutMs=value;},false),
+    h('details',{style:{color:C.tx2,fontSize:_fs(11),marginBottom:8}},h('summary',null,'Prostředí testu'),h('pre',null,'LANG=C.UTF-8\nLC_ALL=C.UTF-8\nNO_COLOR=1')),
+    form.error?h('p',{role:'alert',style:{color:C.red}},form.error):null,
+    h('div',{style:{display:'flex',gap:8}},
+      h('button',{type:'button',id:prefix+'submit',style:Object.assign({},buttonStyle,{background:C.accentBg,color:C.accentText}),disabled:locked,onClick:function(){_m2SubmitComposer(idx,s,st,form);}},'Vygenerovat návrh'),
+      h('button',{type:'button',style:buttonStyle,disabled:!!st._m2Busy,onClick:function(){st._m2Composer=null;st._m2ComposerOpen=false;renderChat();}},'Zahodit zadání')));
+}
+function _m2ActionsUI(idx,s,st){
+  var pending=_m2NormalizePending(s._m2Pending);
+  if(!pending&&!st._m2DraftController)return null;
+  var viewed=s._m2PresentedPlan;
+  var canApprove=pending&&viewed&&viewed.lifecycleId===pending.lifecycleId&&viewed.planDigest===pending.planDigest&&_m2SameOrigin(viewed.origin,pending.origin);
+  function action(label,cmd,disabled){return h('button',{type:'button',disabled:disabled,
+    style:{padding:'5px 8px',borderRadius:5,border:'1px solid '+C.border2,background:C.bg3,color:C.tx1,cursor:'pointer',fontSize:_fs(11)},
+    onClick:function(){_m2HandleStudioCommand(idx,s,st,null,cmd,cmd,'');}},label);}
+  return h('div',{'aria-label':'Akce připravené změny',style:{padding:'6px 10px',borderTop:'1px solid '+C.border,fontSize:_fs(11),color:C.tx2},onClick:function(event){event.stopPropagation();}},
+    h('div',null,pending?(canApprove?'Před schválením zkontrolujte úplné obsahy souborů a test v návrhu výše.':'Nejdřív načtěte uložený plán a prohlédněte změny.'): 'Připravuji návrh souborů.'),
+    h('div',{style:{display:'flex',gap:6,flexWrap:'wrap',marginTop:5}},
+      pending?action('Načíst stav a plán','/m2-status',!!st._m2Busy):null,
+      pending?action('Schválit zobrazené změny','/m2-approve',!canApprove||!!st._m2Busy):null,
+      action('Zrušit','/m2-cancel',!!st._m2Busy&&!st._m2DraftController&&!(st._m2Operation&&st._m2Operation.command==='/m2-approve'&&!st._m2Operation.cancelIssued))));
+}
 function _m2IsGenericApproval(text){return /^(?:ano|ok|spusť(?: to)?|spust(?: to)?|yes|approve)$/i.test(text.trim());}
 function _m2HandleStudioCommand(idx,s,st,ta,text,cmd,arg){
   if(['/m2-draft','/m2-build','/m2-plan','/m2-approve','/m2-status','/m2-cancel'].indexOf(cmd)<0)return false;
+  if(cmd==='/m2-build'&&!arg){_m2OpenComposer(idx);return true;}
   var isDraft=cmd==='/m2-draft'||cmd==='/m2-build';
   var running=st._m2Operation;
   var concurrentCancel=st._m2Busy&&cmd==='/m2-cancel'&&running&&running.command==='/m2-approve'&&!running.cancelIssued;
@@ -6360,12 +6457,15 @@ function _m2HandleStudioCommand(idx,s,st,ta,text,cmd,arg){
     }else if(operation.terminal){view=operation.terminal;}
     if(view.state==='awaiting_approval'){
       s._m2Pending=_m2NormalizePending({lifecycleId:view.lifecycleId,planDigest:view.planDigest,origin:view.plan.origin});
+      s._m2PresentedPlan=s._m2Pending;
+      if(operation.composer&&st._m2Composer===operation.composer)st._m2ComposerOpen=false;
     }else if(view.terminal||_M2_TERMINAL_STATES[view.state]){
       if(s._m2Pending&&s._m2Pending.lifecycleId===view.lifecycleId)s._m2Pending=null;
     }
     _m2FinishStudioCommand(idx,s,st,_m2RenderStatus(view),false,operation);
   }).catch(function(error){
     if(st._m2DraftController&&st._m2DraftController.signal.aborted)error=Object.assign(new Error('Generování návrhu zrušeno.'),{code:'M2_STUDIO_DRAFT_CANCELLED'});
+    if(operation.composer&&st._m2Composer===operation.composer)operation.composer.error=_m2StudioError(error);
     _m2FinishStudioCommand(idx,s,st,_m2StudioError(error),true,operation);
   });
   return true;
@@ -6827,6 +6927,8 @@ function _chatPaneUI(idx,opts){
       'BUSY · '+st._delivery.text):
     st._delivery&&st._delivery.status==='ATTACH_REFUSED'?h('div',{style:{padding:'5px 10px',borderTop:'1px solid '+C.border,background:C.redBg,color:C.red,fontSize:_fs(10),lineHeight:'1.35',flexShrink:0}},
       'Nepřipojeno · '+st._delivery.text):null,
+    _m2ActionsUI(idx,s,st),
+    _m2ComposerUI(idx,s,st),
     /* INPUT */
     h('div',{style:{padding:6,borderTop:'1px solid '+C.border,flexShrink:0},onClick:function(ev){ev.stopPropagation();}},
       h('div',{style:{background:C.bg2,border:'1px solid '+(st._dragOver?C.accent:st.editingIdx!==null?C.accent:C.border2),borderRadius:10,overflow:'visible',position:'relative',transition:'border-color 0.15s'},
@@ -6871,6 +6973,8 @@ function _chatPaneUI(idx,opts){
               }else{
                 var inp=document.createElement('input');inp.type='file';inp.multiple=true;inp.style.display='none';document.body.appendChild(inp);inp.onchange=function(){if(inp.files){for(var j=0;j<inp.files.length;j++){st.attachments.push({name:inp.files[j].name,size:Math.round(inp.files[j].size/1024)+' KB',file:inp.files[j]});}renderChat();}document.body.removeChild(inp);};inp.click();
                             }}},svgEl(I.attach,12)),
+          s._projectId&&s._convId?h('button',{type:'button',id:'m2-build-'+idx+'-open',style:{background:C.accentBg,color:C.accentText,border:'1px solid '+C.border2,borderRadius:4,cursor:'pointer',padding:'3px 6px',fontSize:_fs(10)},
+            disabled:!!st._m2Busy||!!st._preparedSend||!!_m2NormalizePending(s._m2Pending),onClick:function(){_m2OpenComposer(idx);}},'Připravit změnu'):null,
           /* Edit mode toggle */
           h('div',{style:{display:'flex',alignItems:'center',gap:1,padding:'1px 2px',borderRadius:4,background:C.bg3,flexShrink:0},onClick:function(ev){ev.stopPropagation();}},
             h('div',{style:{padding:'2px 6px',borderRadius:3,fontSize:_fs(9),fontWeight:600,cursor:'pointer',color:st.editMode==='auto'?C.tx1:C.tx4,background:st.editMode==='auto'?C.bg4:'transparent'},

@@ -4,10 +4,16 @@
 // deliberately not exercised: the only mutating authority is the strict M2
 // prepare -> exact approval -> terminal chain.
 
-import './helpers/isolated-test-db.js';
+import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
+import strictAssert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import {
+  HTTP_BUILD_PROJECT_ID, HTTP_BUILD_BEFORE, HTTP_BUILD_OUTPUTS, httpBuildBlueprint,
+  startControlledM2HttpFixture, stopControlledM2HttpFixture, controlledM2Request,
+} from './helpers/m2-http-build-fixture.js';
 
 const BASE = process.env.C3_URL || 'http://127.0.0.1:3335';
 const RUN_ID = `m2-lifecycle-http-${Date.now()}`;
@@ -101,6 +107,137 @@ function proposal() {
       },
     },
   };
+}
+
+async function controlledHttpBuildRestart(defect) {
+  const fixtureRoot = fs.mkdtempSync(path.join(isolatedTestRuntime.artifacts, 'm2-http-build-restart-'));
+  const root = path.join(fixtureRoot, 'project');
+  fs.mkdirSync(path.join(root, 'src'), { recursive: true });
+  fs.mkdirSync(path.join(root, '.c3'));
+  fs.writeFileSync(path.join(root, 'src/app.mjs'), HTTP_BUILD_BEFORE);
+  fs.writeFileSync(path.join(root, '.c3/m2-governance-policy.json'), JSON.stringify({
+    policyId: 'm2-http-build-fixture', layers: [{ name: 'app', roots: ['src'] }],
+    rules: [{ from: 'app', canImport: ['app'] }], externalImports: [], sourceExtensions: ['.mjs'],
+    requiredChecks: ['imports.allowed', 'inventory.complete', 'layers.mapped'], unmappedFilePolicy: 'unavailable',
+  }));
+  git(root, ['init', '-b', 'main']);
+  git(root, ['add', '--', 'src/app.mjs', '.c3/m2-governance-policy.json']);
+  git(root, ['-c', 'user.name=IntentSmith Test', '-c', 'user.email=test@example.invalid', 'commit', '-m', 'controlled HTTP baseline']);
+  const baselineHead = git(root, ['rev-parse', 'HEAD']);
+  const origin = { surface: 'http', projectId: HTTP_BUILD_PROJECT_ID,
+    sessionId: `${RUN_ID}-${defect ? 'rollback' : 'success'}`, conversationId: `${RUN_ID}-${defect ? 'rollback' : 'success'}` };
+  const evidence = { fixture: 'controlled-auth-project-registry-and-model',
+    scope: 'production M2 routes/service and real SQLite/Git/bwrap over two HTTP child processes; not src/server.js startup or physical model',
+    sourceRevision: process.env.INTENTSMITH_TEST_SOURCE_REVISION ?? null,
+    scenario: defect ? 'failed behavioural test and rollback' : 'successful build and exact commit',
+    baselineHead, fixtureRoot, status: 'RUNNING' };
+  let server;
+  const check = (condition, description) => {
+    assert(condition, `controlled HTTP ${defect ? 'rollback' : 'success'}: ${description}`);
+    strictAssert.ok(condition, description);
+  };
+  const fileSnapshot = () => Object.keys(HTTP_BUILD_OUTPUTS).sort().map(relative => {
+    const file = path.join(root, relative);
+    if (!fs.existsSync(file)) return { path: relative, exists: false };
+    const stat = fs.statSync(file, { bigint: true });
+    return { path: relative, exists: true, sha256: createHash('sha256').update(fs.readFileSync(file)).digest('hex'),
+      inode: String(stat.ino), modifiedNs: String(stat.mtimeNs) };
+  });
+  try {
+    server = await startControlledM2HttpFixture({ fixtureRoot, defect });
+    evidence.firstPid = server.child.pid;
+    const denied = await controlledM2Request(server, 'POST', '/api/m2/lifecycle/draft', {
+      projectId: HTTP_BUILD_PROJECT_ID, origin, draft: httpBuildBlueprint(),
+    }, 'wrong-fixture-token');
+    check(denied.status === 403, 'unauthenticated fixture request cannot generate a plan');
+    const empty = await controlledM2Request(server, 'GET', '/fixture/evidence');
+    check(empty.data.generationCalls.length === 0 && empty.data.authority.every(table => table.count === 0),
+      'unauthenticated request has no model or authority effects');
+    const planned = await controlledM2Request(server, 'POST', '/api/m2/lifecycle/draft', {
+      projectId: HTTP_BUILD_PROJECT_ID, origin, draft: httpBuildBlueprint(),
+    });
+    check(planned.status === 200 && planned.data.state === 'awaiting_approval', 'HTTP generation prepares a single plan for both dependent files');
+    check(JSON.stringify(planned.data.diff.map(file => file.path)) === JSON.stringify(Object.keys(HTTP_BUILD_OUTPUTS).sort()), 'complete preview contains exactly both targets');
+    const outputs = { ...HTTP_BUILD_OUTPUTS };
+    if (defect) outputs['src/calendar.mjs'] = 'export const isLeapYear = year => year % 4 === 0;\n';
+    check(planned.data.diff.every(file => file.after.content === outputs[file.path]), 'preview contains the complete generated fixture bytes');
+    check(fs.readFileSync(path.join(root, 'src/app.mjs'), 'utf8') === HTTP_BUILD_BEFORE
+      && !fs.existsSync(path.join(root, 'src/calendar.mjs')) && git(root, ['rev-parse', 'HEAD']) === baselineHead,
+    'generation and preview leave project files and Git unchanged');
+    const approve = { lifecycleId: planned.data.lifecycleId, planDigest: planned.data.planDigest, origin };
+    const wrongDigest = await controlledM2Request(server, 'POST', '/api/m2/lifecycle/approve', {
+      ...approve, planDigest: `sha256:${'0'.repeat(64)}`,
+    });
+    check(wrongDigest.status === 409 && wrongDigest.data.code === 'M2_LIFECYCLE_PLAN_DIGEST_MISMATCH', 'wrong plan digest fails before execution');
+    check(fs.readFileSync(path.join(root, 'src/app.mjs'), 'utf8') === HTTP_BUILD_BEFORE
+      && !fs.existsSync(path.join(root, 'src/calendar.mjs')), 'rejected approval preserves all target bytes');
+    const completed = await controlledM2Request(server, 'POST', '/api/m2/lifecycle/approve', approve);
+    check(completed.status === 200, 'exact approval returns a truthful terminal over HTTP');
+    if (defect) {
+      check(completed.data.state !== 'succeeded' && completed.data.result.focusedTest.terminalStatus === 'failed', 'real behavioural test rejects the generated century-rule defect');
+      check(completed.data.result.rollback.status === 'succeeded', 'rollback succeeds for the whole two-file change');
+      check(fs.readFileSync(path.join(root, 'src/app.mjs'), 'utf8') === HTTP_BUILD_BEFORE
+        && !fs.existsSync(path.join(root, 'src/calendar.mjs')) && git(root, ['rev-parse', 'HEAD']) === baselineHead,
+      'rollback restores the old entrypoint, removes the new dependency and preserves Git HEAD');
+    } else {
+      check(completed.data.state === 'succeeded' && completed.data.result.focusedTest.terminalStatus === 'succeeded', 'six real sandboxed behavioural assertions pass');
+      check(completed.data.result.git.status === 'committed' && git(root, ['rev-parse', 'HEAD']) !== baselineHead, 'approved exact Git commit completes');
+      check(Object.entries(outputs).every(([relative, content]) => fs.readFileSync(path.join(root, relative), 'utf8') === content), 'approved bytes of both generated files are on disk');
+    }
+    check(git(root, ['status', '--porcelain=v1']) === '', 'terminal leaves a clean fixture Git worktree');
+    const statusQuery = new URLSearchParams({ id: planned.data.lifecycleId, surface: origin.surface,
+      sessionId: origin.sessionId, conversationId: origin.conversationId, projectId: String(HTTP_BUILD_PROJECT_ID) });
+    const statusPath = `/api/m2/lifecycle/status?${statusQuery}`;
+    const beforeRestart = await controlledM2Request(server, 'GET', statusPath);
+    check(beforeRestart.status === 200 && beforeRestart.raw === completed.raw, 'HTTP status preserves the byte-identical terminal before shutdown');
+    const beforeAuthority = await controlledM2Request(server, 'GET', '/fixture/evidence');
+    check(JSON.stringify(beforeAuthority.data.generationCalls) === JSON.stringify(['src/calendar.mjs', 'src/app.mjs']), 'fixture generation followed dependency order exactly once');
+    const beforeFiles = fileSnapshot();
+    const beforeHead = git(root, ['rev-parse', 'HEAD']);
+    const token = server.token;
+    const firstStopped = await stopControlledM2HttpFixture(server);
+    evidence.firstExit = firstStopped;
+    check(firstStopped.code === 0 && firstStopped.signal === null && firstStopped.forced === false, 'first server process exits cleanly before restart');
+    server = null;
+    server = await startControlledM2HttpFixture({ fixtureRoot, defect, restart: true, token });
+    evidence.secondPid = server.child.pid;
+    check(server.child.pid !== evidence.firstPid && server.child.pid !== process.pid, 'restart starts a distinct child process');
+    check(server.ready.databasePath === beforeAuthority.data.databasePath && server.ready.recovered === 0, 'new process opens the same database with no incomplete operation to replay');
+    const durable = await controlledM2Request(server, 'GET', statusPath);
+    check(durable.status === 200 && durable.raw === beforeRestart.raw, 'full durable HTTP status is byte-identical after process restart');
+    const duplicate = await controlledM2Request(server, 'POST', '/api/m2/lifecycle/approve', approve);
+    check(duplicate.status === 200 && duplicate.raw === durable.raw, 'repeat exact approval returns the durable terminal without new execution');
+    const afterAuthority = await controlledM2Request(server, 'GET', '/fixture/evidence');
+    check(afterAuthority.data.generationCalls.length === 0, 'restarted process performs no model regeneration');
+    check(JSON.stringify(afterAuthority.data.authority) === JSON.stringify(beforeAuthority.data.authority), 'every durable authority table retains the same rows and hashes after reads and repeated approval');
+    check(JSON.stringify(fileSnapshot()) === JSON.stringify(beforeFiles), 'restart/repeated approval preserves file contents, inodes and modification times');
+    check(git(root, ['rev-parse', 'HEAD']) === beforeHead && git(root, ['status', '--porcelain=v1']) === '', 'restart/repeated approval preserves exact Git HEAD and clean state');
+    evidence.resultDigest = completed.data.terminal.resultDigest;
+    evidence.lifecycleId = planned.data.lifecycleId;
+    evidence.databasePath = server.ready.databasePath;
+    evidence.terminalState = durable.data.state;
+    evidence.authorityBefore = beforeAuthority.data.authority;
+    evidence.authorityAfter = afterAuthority.data.authority;
+    evidence.fileSnapshot = beforeFiles;
+    evidence.finalHead = beforeHead;
+    evidence.modelFixtureCalls = beforeAuthority.data.generationCalls;
+    evidence.modelFixtureCallsAfterRestart = afterAuthority.data.generationCalls;
+    evidence.status = 'PASS';
+  } catch (error) {
+    evidence.status = 'FAIL'; evidence.error = error.stack || error.message;
+    throw error;
+  } finally {
+    if (server) {
+      evidence.lastServerOutput = server.output();
+      evidence.lastExit = await stopControlledM2HttpFixture(server);
+      if (evidence.lastExit.code !== 0 || evidence.lastExit.signal !== null || evidence.lastExit.forced) {
+        evidence.status = 'FAIL';
+        assert(false, 'controlled HTTP restarted fixture must exit cleanly');
+      }
+    }
+    fs.writeFileSync(path.join(fixtureRoot, 'evidence.json'), JSON.stringify(evidence, null, 2) + '\n', { mode: 0o600 });
+    console.log(`  Controlled fixture evidence: ${path.join(fixtureRoot, 'evidence.json')}`);
+  }
 }
 
 async function run() {
@@ -219,6 +356,11 @@ async function run() {
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
+
+  // Separate controlled composition: preserve the original production-server
+  // checks above and join generation/approval/effects with a real process restart.
+  await controlledHttpBuildRestart(false);
+  await controlledHttpBuildRestart(true);
 
   console.log('\n══════════════════════════════════════════════════════════');
   console.log(`  M2 Lifecycle HTTP E2E: ${passed}/${passed + failed} PASS, ${failed} FAIL`);

@@ -1,14 +1,35 @@
 # Řízené sestavení projektu ve Studiu
 
-Stav: implementovaný kandidát pro review. Rozsah produktu určuje PRODUCT.md;
-tento návod popisuje konkrétní dostupný přírůstek, nezakládá release acceptance.
+Rozsah produktu určuje PRODUCT.md. Tento návod popisuje dostupný ohraničený
+builder; úplný autonomní builder a fyzický modelový průchod zůstávají neověřené.
 
-V připojeném projektu vložte do chatu příkaz `/m2-build` následovaný JSON
-plánem níže. Model navrhne úplný obsah každého souboru podle jeho zadání a již
-navržených přímých závislostí. Studio ukáže všechny původní a navržené obsahy
-a přesný test. Teprve `/m2-approve` schválí uložený plán; při neúspěšném
-testu M2 vrací všechny změny. `/m2-cancel` zruší generování nebo požádá
-o zrušení existující operace; `/m2-status` načte uložený stav.
+V chatu připojeného projektu klikněte na **Připravit změnu**. Stejný formulář
+otevře `/m2-build` bez argumentu. Rozpracovaný text chatu se do cíle zkopíruje
+a v chatu zůstane. JSON není nutné psát.
+
+1. Napište celkový cíl a pro každý soubor cestu v projektu a jeho zadání.
+   Přidejte další soubory podle potřeby. Přímé závislosti uveďte po jedné cestě
+   na řádek; musí to být jiné soubory téhož plánu bez cyklů.
+2. Zadejte úplnou cestu programu pro funkční test a jeho jednotlivé argumenty.
+   Například program `/usr/bin/node` s argumenty `--test` a
+   `tests/app.test.js`. Testovací soubor musí být připravený v projektu.
+   Celý inline program patří do jediného argumentu za `-e`; formulář zachovává
+   mezery, uvozovky a prázdné argumenty a neprovádí shellové rozdělování.
+3. Klikněte **Vygenerovat návrh**. Model navrhne úplný obsah každého souboru
+   s kontextem jeho přímých závislostí. Při chybě zůstává zadání ve formuláři;
+   opravte příčinu uvedenou ve zprávě a odešlete jej znovu. Skrýt zachová zadání,
+   Zahodit zadání jej odstraní. Rozepsaný formulář nepřežívá restart Studia.
+4. Prohlédněte všechny původní a navržené obsahy a přesný test. Až tlačítko
+   **Schválit zobrazené změny** nebo `/m2-approve` spustí uložený plán. Při
+   neúspěšném testu M2 vrací všechny změny. Obecné „ano“ nic neschválí.
+5. Tlačítkem **Zrušit** nebo `/m2-cancel` zastavíte generování nebo požádáte
+   o zrušení prováděné operace. **Načíst stav a plán** či `/m2-status` obnoví
+   uložený stav. Po restartu Studia musí tlačítko schválení nejprve načíst
+   a zobrazit obnovený plán. Přepnutí projektu/konverzace staré zadání nepřeváže.
+
+Pokročilý vstup `/m2-build <JSON>` zůstává dostupný, včetně volitelného
+Git commitu a vlastního prostředí testu. Formulář používá prostředí uvedené
+v jeho detailu a Git commit nevyžaduje; nemění stávající HTTP kontrakt.
 
 ## Předpoklady a meze
 
@@ -24,7 +45,8 @@ o zrušení existující operace; `/m2-status` načte uložený stav.
   že každý model v tomto čase zvládne 32 souborů. Překročení nevytvoří dílčí plán.
 - `focusedTest` je povinný explicitní program/argv/environment/timeout.
   Zvolte skutečné funkční assertions; samotná přítomnost testu nezaručuje jeho
-  kvalitu. Model jeho obsah neurčuje. Volitelný `gitCommit` používá stejný
+  kvalitu. Model jeho obsah neurčuje. Program nemá allowlist binárek;
+  ohraničení zajišťuje schválený M2 procesový sandbox. Volitelný `gitCommit` používá stejný
   strict tvar jako `/m2-plan` (message a explicitní author/committer identity).
 
 Pro malou změnu 1–3 JS souborů zůstává `/m2-draft src/app.js :: zadání`.
