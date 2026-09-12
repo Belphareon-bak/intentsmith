@@ -31,6 +31,14 @@ pro sázení. Databáze vlastní větve:
 `.intentsmith-artifacts/betting/analysis.sqlite`. Akumulátorový běh má record ID
 `c13dc085-7ce4-4f72-bdba-7a7ddb87aff7`.
 
+Závěrečné zopakování na `13dc20d9` v 08:27 UTC vytvořilo stejné tři
+dvoupoložkové návrhy. Výstup je v
+`/home/belphareon/Projects/coworker/intentsmith-specialists-20260911/try-auto-final-20260912/`.
+Record `03e6d6f8-6443-4ea5-b189-420227390685` má ověřenou hostovou vazbu
+`sazeni.ticket_builder / operator:true` a všech 26 source observation ID.
+Kurzy 2.034 / 2.052 / 2.0574; bodové odhady 45.18 / 44.00 / 43.67 %;
+rozestupy 5.5 / 1.75 / 0 hodin. Jde opět o datovanou referenční nabídku.
+
 ## Kontroly a hranice důkazu
 
 - Numerika a solver: 13/13 top-level testů; zahrnují 20 nezávisle enumerovaných
@@ -94,7 +102,27 @@ Osm registrovaných BLOCKED: `chat-export-budget`, `export-pdf-docx`,
 `m5-process-hardening`, `workspace-budget`. Jde o jejich deklarované a zatím
 nepotvrzené toolchain předpoklady; není to tvrzení, že systém nemá Git.
 
-Závěrečný profil po hardeningu a zaznamenání hran bude doplněn po jeho doběhu.
+Závěrečný plný profil na čistém
+`13dc20d9bffb2ffdb687ce775cf5176f478e15ce`:
+**343 PASS / 3 FAIL / 8 BLOCKED / 0 TIMEOUT / 0 SKIPPED**, verdict FAIL,
+exit 1. Run `2026-09-12T08-26-42-188Z`, od 08:26:42 do 08:32:17 UTC;
+raw `.intentsmith-artifacts/test-runs/2026-09-12T08-26-42-188Z/report.json`.
+Obě sady sázkaře, outbound a module-boundary ratchet prošly.
+Registry otisk se nezměnil. Plný profil se neoznačuje jako PASS.
+
+Vnitřní log artifact-validation ukázal kromě známého chybějícího rezervačního
+manifestu ještě opomenutý číselník hran v ROADMAP: **156 PASS / 2 FAIL**.
+Následná změna je pouze dokumentační: doplňuje 1 315 hran a tento report,
+nemění zdrojový kód ani test. Cílená kontrola dokumentace po opravě je uvedena
+níže; není zpětným přepsáním výsledku plného profilu.
+
+`node tests/artifact-validation.test.js` po dokumentační opravě:
+**157 PASS / 1 FAIL / 0 SKIPPED**, exit 1. ROADMAP census již PASS; jediná
+zbývající assertion je přesně známá chybějící rezervace migrace 112.
+Log `.intentsmith-artifacts/betting-research-20260912/artifact-final-docs.log`.
+`git diff --check` PASS. Poslední commit doplňuje pouze ROADMAP, SYSTEM-MAP
+a tuto implementační evidenci; celý profil nad ním opakován nebyl.
+
 Kód není aktivovaný ve sdíleném provozním checkoutu. Chybí skutečný API klíč,
 živá validace českých kanceláří, nezávislé review a prospektivní důkaz kvality.
 Settlement, plánované doručování, Studio formulář a rozšířené datové zdroje

@@ -2921,3 +2921,10 @@ v `tests/fixtures/module-boundary/baseline.json`; nejde o nový acceptance verdi
 Provider-specific hunt checkpoint 2026-09-11: module graph má 1 309 hran.
 Jediná nová hrana `model-hunt-state -> model-identity` sdílí kanonické
 jméno pro append-only discovery ledger; cykly zůstávají 3 / 28.
+
+Autonomní sázkař 2026-09-12: module graph má 1 315 hran. Šest přesně
+zaznamenaných core spojů zavádí datový host, izolovanou evidenci a existující
+outbound policy; žádná odebraná hrana, stejné 3 cykly / 28 členů. Veřejná
+autonomní cesta je spuštěná, český live feed čeká na API klíč a validaci.
+Stav `IMPLEMENTED_SLICE / REVIEW_PENDING`; nejde o nezávislé přijetí.
+[Kontrakt a aktuální důkazy](docs/review/2026-09-12-SAZENI-AUTONOMOUS.md).

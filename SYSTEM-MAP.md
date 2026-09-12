@@ -596,3 +596,8 @@ Autonomní sázkař v3 přidává šest deklarovaných core importů: aktuální
 má 1 315 hran, 3 cykly / 28 souborů. Přesný seznam byl zaznamenán samostatně
 z čistého `52c3ffb9` bez zvýšení limitů; toto není nezávislé přijetí konektoru.
 [Implementační evidence a non-PASS](docs/review/2026-09-12-SAZENI-AUTONOMOUS.md).
+
+Deterministický profil na `13dc20d9`: **343 PASS / 3 FAIL / 8 BLOCKED**,
+žádný timeout, run `2026-09-12T08-26-42-188Z`; sázkař 24/24 případů PASS.
+Plný profil zůstává FAIL. Následné opravy soupisu hran v ROADMAP a tohoto
+reportu jsou pouze dokumentační; přesná podoba non-PASS je v odkazované evidenci.
