@@ -103,17 +103,21 @@ function clone(value) {
 function openDb(filename = ':memory:') {
   const db = new Database(filename);
   db.pragma('foreign_keys = ON');
-  const installed = db.prepare(`
-    SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'm2_effect_requests'
-  `).get();
-  if (!installed) {
-    applyEffectAuthority(db);
-    applyEffectAuthorityHardening(db);
-    applyEffectExecutionClaims(db);
-    applyEffectClaimTruth(db);
-    applyExecutionAuthority(db);
-  }
-  applyLifecycleAuthority(db);
+  // Build the empty fixture schema in one durable commit. Tested effects,
+  // approvals and reopen windows execute after this setup transaction ends.
+  db.transaction(() => {
+    const installed = db.prepare(`
+      SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'm2_effect_requests'
+    `).get();
+    if (!installed) {
+      applyEffectAuthority(db);
+      applyEffectAuthorityHardening(db);
+      applyEffectExecutionClaims(db);
+      applyEffectClaimTruth(db);
+      applyExecutionAuthority(db);
+    }
+    applyLifecycleAuthority(db);
+  })();
   return db;
 }
 

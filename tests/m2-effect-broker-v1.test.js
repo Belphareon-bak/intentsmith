@@ -152,29 +152,33 @@ function createManualScheduler() {
 function openDatabase(filename = ':memory:', { fileReadOutputs = true } = {}) {
   const db = new Database(filename);
   db.pragma('foreign_keys = ON');
-  db.exec("CREATE TABLE IF NOT EXISTS projects(id INTEGER PRIMARY KEY, path TEXT, status TEXT); CREATE TABLE IF NOT EXISTS conversations(id TEXT PRIMARY KEY, project_id INTEGER, state TEXT);");
-  const hasAuthority = Boolean(db.prepare(
-    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'm2_effect_requests'",
-  ).get());
-  if (!hasAuthority) {
-    applyEffectAuthorityMigration(db);
-    applyEffectAuthorityHardening(db);
-    applyEffectExecutionClaims(db);
-  }
-  const hasInvalidations = Boolean(db.prepare(
-    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'm2_effect_invalidations'",
-  ).get());
-  if (!hasInvalidations) {
-    applyEffectClaimTruth(db);
-    applyToolAuthority(db);
-    applyToolEffectLinks(db);
-    applyToolTruth(db);
-    applyEffectInvalidations(db);
-    applyEffectSemanticAuthority(db);
-    applyEffectResultSemanticAuthorityV2(db);
-    applyPreexecutionApprovalTerminals(db);
-  }
-  if (fileReadOutputs) applyFileReadOutputs(db);
+  // Build the empty fixture schema in one durable commit. Tested effects,
+  // approvals and reopen windows execute after this setup transaction ends.
+  db.transaction(() => {
+    db.exec("CREATE TABLE IF NOT EXISTS projects(id INTEGER PRIMARY KEY, path TEXT, status TEXT); CREATE TABLE IF NOT EXISTS conversations(id TEXT PRIMARY KEY, project_id INTEGER, state TEXT);");
+    const hasAuthority = Boolean(db.prepare(
+      "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'm2_effect_requests'",
+    ).get());
+    if (!hasAuthority) {
+      applyEffectAuthorityMigration(db);
+      applyEffectAuthorityHardening(db);
+      applyEffectExecutionClaims(db);
+    }
+    const hasInvalidations = Boolean(db.prepare(
+      "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'm2_effect_invalidations'",
+    ).get());
+    if (!hasInvalidations) {
+      applyEffectClaimTruth(db);
+      applyToolAuthority(db);
+      applyToolEffectLinks(db);
+      applyToolTruth(db);
+      applyEffectInvalidations(db);
+      applyEffectSemanticAuthority(db);
+      applyEffectResultSemanticAuthorityV2(db);
+      applyPreexecutionApprovalTerminals(db);
+    }
+    if (fileReadOutputs) applyFileReadOutputs(db);
+  })();
   return db;
 }
 

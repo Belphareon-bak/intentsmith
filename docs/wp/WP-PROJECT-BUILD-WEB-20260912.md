@@ -37,3 +37,12 @@ exact module baseline and diff check. Preserve old/new failed evidence.
 New execution authority, release scope or a weaker accepted criterion stops
 only dependent work. Physical model and joined release acceptance remain
 separate, explicitly unproven until their prerequisites and review are met.
+
+
+Verification follow-up: two full runs on d09c9998 reproduced 30s timeouts in
+unchanged effect-broker/lifecycle-authority repository programs. Root also owns
+setup-only transaction grouping in those two existing test helpers. No timeout,
+assertion, production durability or tested effect boundary changes. Isolated
+on-disk setup probes compare exact sqlite_master and unchanged foreign_keys,
+synchronous and journal mode before accepting the fixture optimization. Prior
+non-PASS profiles remain evidence; rerun the complete profile on a new clean pin.
