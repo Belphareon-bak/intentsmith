@@ -1,5 +1,11 @@
 # Konverzační web: samostatný bezpečnostní review packet
 
+Navazující stav 2026-09-12: [nový packet](2026-09-12-PROJECT-BUILD-WEB-REVIEW-PACKET.md)
+rozšiřuje celý webový review range do `877a3005` o skutečné lokální TLS/stream,
+procesové a display testy. Níže zůstává původní připnutý důkaz na `dbe6630a`;
+jeho tehdejší nepokryté testy nejsou aktuálním censusem. Nezávislé webové
+acceptance zůstává otevřené.
+
 Stav: `IMPLEMENTED_CANDIDATE / WEB_REVIEW_REQUIRED`. Přijatý rozsah určuje
 [Decision 044](../decisions/044-conversation-web-approval.md), nikoli tento packet.
 Opravy vynucují existující místní schválení; neaktivují vzdálený ani autonomní web.

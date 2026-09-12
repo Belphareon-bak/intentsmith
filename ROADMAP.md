@@ -68,7 +68,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `8/9 REVIEW_PASSED / BACKUP_COMPAT_REMEDIATION_REVIEW_PASSED / HISTORY_DECISION_RECORDED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_PARTIAL / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Review přijalo restore základ `65bcbc4b` i jeho jediný follow-up `b4136a43`. Operátor zvolil `retain_and_rotate`; receipt vznikne až po doložení všech osmi kategorií. LUKS2 médium A drží ověřenou offline kopii tří operátorských klíčů a oddělené LUKS2 médium B právě reviewer key; obě jsou vypnutá. Online zdroj zatím zůstává, protože chybí druhá offline kopie operátorských klíčů. |
-| **M6 IntentSmith 1.0 release** | `CURRENT_DETERMINISTIC_353_PASS / BOUNDED_CODE_MODEL_PASS / REVIEW_REQUIRED / FULL_PROJECT_BUILD_UNPROVEN / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Společný auditový candidate `c6c9ee3a`: 353/353 deterministic, 24/24 HTTP kroků, Studio build + 2/2 Electron, skutečný CODE service journey se dvěma soubory a 12 funkčními assertions při 4096/1536. Jde o malý doložený přírůstek; úplný builder, spojený Studio/server/DURABLE binding/model/restart, nezávislé review, konsolidace a M5 externí podmínky zůstávají otevřené. Starší scoped runtime/soak důkazy zůstávají v historii svých revizí. [Aktuální review packet](docs/review/2026-09-11-PRODUCTION-FOLLOWUP-REVIEW-PACKET.md). |
+| **M6 IntentSmith 1.0 release** | `CURRENT_DETERMINISTIC_353_PASS / CONTROLLED_PROJECT_BUILD_PASS / REVIEW_REQUIRED / FULL_PROJECT_BUILD_UNPROVEN / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Kandidát `877a3005`: 353/353 deterministic, šestisouborový řízený M2 build/test/rollback/restart, 27 + 7 HTTP kontrol a 2/2 Electron (HTTP/UI bytes z `d09c9998` beze změny). Kladná modelová generace je v tomto řezu fixture; starší fyzický dvousouborový CODE důkaz zůstává historický. Free-text builder, spojený Studio/server/model journey, nezávislé review, integrace huntu a M5/M6 externí podmínky zůstávají otevřené. [Aktuální review packet](docs/review/2026-09-12-PROJECT-BUILD-WEB-REVIEW-PACKET.md). |
 | **M7 Remote Companion** | `UI_SURFACES_REVIEW_PASSED / HOST_GATE_GREEN / DEVICE_NOT_RUN / NOT_ACCEPTED` | M6 + remote boundary | Nezávislé re-review přijalo exact candidate `429b779f`: durable journal guard zavírá settings double-activation okno a held-flush regrese odlišuje staré bytes. Mobile 47/47, runtime 7/7, adapter 8/8, artifact validation 158/158, boundary 0 violations a Android test+lint prošly. Produkční konfigurace, fyzická matice 13+7, TalkBack a release podpisy nejsou hotové. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
@@ -3048,7 +3048,12 @@ sám. `/m2-build <JSON>` rozšiřuje existující M2 draft o explicitní cíle,
 závislosti a povinný pevný test. Generace jde topologicky, schválení zůstává
 jediné nad celým přesným plánem. Běžný free-text BUILD ani vytvoření nové
 adresářové struktury tento přírůstek nezavírá. [WP](docs/wp/WP-PROJECT-BUILD-WEB-20260912.md)
-a [návod](docs/PROJECT-BUILD.md). Společné ověření tohoto candidate probíhá;
-nezávislé review, fyzický model/journey, integrace cizí hunt větve a M5/M6
+a [návod](docs/PROJECT-BUILD.md). Na `877a3005` prošel celý profil **353/353**;
+service 53/53, Studio VM 24/24, routes 14/14, web 23/23. HTTP má 27 + 7
+kontrol, Electron 2/2 na shodných runtime bytes z `d09c9998`. Dva předchozí
+celé běhy měly 352 PASS / 1 TIMEOUT a 351 PASS / 2 TIMEOUT; po prokázané
+optimalizaci setupu dvou testových schémat zůstaly limity i assertions stejné.
+[Přesné piny, neúspěchy a důkazy](docs/execution/runs/project-build-web-20260912.md).
+Nezávislé review, fyzický model/journey, integrace cizí hunt větve a M5/M6
 acceptance zůstávají otevřené. Aktuální module graph má 1 321 hran, 3 cykly
 / 28 členů; nevznikl nový testprogram ani produkční importní pár.

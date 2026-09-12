@@ -46,3 +46,10 @@ assertion, production durability or tested effect boundary changes. Isolated
 on-disk setup probes compare exact sqlite_master and unchanged foreign_keys,
 synchronous and journal mode before accepting the fixture optimization. Prior
 non-PASS profiles remain evidence; rerun the complete profile on a new clean pin.
+
+
+Result: runtime d09c9998, final verified source 877a3005, full deterministic 353/353
+PASS after the retained two non-PASS runs. Details and boundaries in
+[run](../execution/runs/project-build-web-20260912.md) and
+[review packet](../review/2026-09-12-PROJECT-BUILD-WEB-REVIEW-PACKET.md).
+Review/physical-model/joined-product acceptance remains open.
