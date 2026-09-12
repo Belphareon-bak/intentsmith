@@ -1176,6 +1176,29 @@ await testAsync('rejection journal prevents re-download but releases changed art
 });
 
 
+await testAsync('changed retention conditions release a completed catalog duel once and preserve retry backoff', async () => {
+  const { runMigrations } = await import('../src/db/migrate.js');
+  const { ModelHuntState } = await import('../src/upgrade/model-hunt-state.js');
+  const db = new Database(':memory:'); await runMigrations(db);
+  const state = new ModelHuntState(db); const f = retentionFixture();
+  const full = { ...f.inventory[0], artifact: { digestSha256: f.inventory[0].digest } };
+  const [catalog] = state.observe([{ name: full.name, catalogDigest: full.artifact.digestSha256.slice(0, 12) }], { initialize: true });
+  const completed = { trials: [{ comparison: { candidateRunId: 'exact-run' } }] };
+  const sameTimestamp = '2026-09-12T10:00:00.000Z'; const now = Date.parse(sameTimestamp);
+  state.record(catalog, 'duel', completed, sameTimestamp);
+  state.recordRetention(full, 'retention:old', { status: 'APPROVED' }, sameTimestamp);
+  state.recordRetention(full, 'retention:old', { status: 'DELETED' }, sameTimestamp);
+  assert(!state.pending(catalog, 'duel', now, { retentionKey: 'retention:old' }));
+  assert(!state.pending(catalog, 'duel', now));
+  assert(state.pending(catalog, 'duel', now, { retentionKey: 'retention:new' }));
+  state.record(catalog, 'duel', { error: 'temporary provider failure' }, sameTimestamp);
+  assert(!state.pending(catalog, 'duel', now + 2, { retentionKey: 'retention:new' }));
+  assert(state.pending(catalog, 'duel', now + 86400_001, { retentionKey: 'retention:new' }));
+  state.record(catalog, 'duel', completed, new Date(now + 86400_002).toISOString());
+  assert(!state.pending(catalog, 'duel', now + 86400_003, { retentionKey: 'retention:new' }));
+  db.close();
+});
+
 await testAsync('VISION sends four PNG image requests and one no-image control through the actual runner', async () => {
   const original = globalThis.fetch; const requests = [];
   try {

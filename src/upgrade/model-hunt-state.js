@@ -47,11 +47,25 @@ export class ModelHuntState {
     return hash([providerVersion, hardware, [...candidate.roles].sort().map(role => [role, plans[role]?.suiteContractSha256])]);
   }
 
-  pending(candidate, evaluationKey, now = Date.now()) {
+  pending(candidate, evaluationKey, now = Date.now(), { retentionKey = null } = {}) {
     if (!candidate.hunt?.schedulable) return false;
-    const row = this.db.prepare(`SELECT outcome, completed_at FROM model_hunt_attempts
-      WHERE candidate_key = ? AND evaluation_key = ? ORDER BY completed_at DESC, attempt_id DESC LIMIT 1`)
+    if (retentionKey && this.isRejected(candidate, retentionKey)) return false;
+    const row = this.db.prepare(`SELECT rowid AS sequence, outcome, completed_at FROM model_hunt_attempts
+      WHERE candidate_key = ? AND evaluation_key = ? ORDER BY completed_at DESC, rowid DESC LIMIT 1`)
       .get(candidate.hunt.key, evaluationKey);
+    // A changed retention condition can release an artifact even when its
+    // old duel was COMPLETE. A subsequent attempt consumes that release;
+    // its normal completion/retry rules then apply. Row order avoids clock ties.
+    if (retentionKey && row) {
+      const id = huntCandidateIdentity(candidate);
+      const released = id && this.db.prepare(`SELECT 1 FROM model_hunt_attempts a
+        JOIN model_hunt_catalog c ON c.candidate_key = a.candidate_key
+        WHERE c.model_name = ? AND a.evaluation_key <> ? AND a.rowid > ?
+          AND (c.revision = ? OR (? = 12 AND substr(c.revision, 1, 12) = ?))
+          AND json_extract(a.result_json, '$.retention.status') = 'APPROVED' LIMIT 1`)
+        .get(id.name, retentionKey, row.sequence, id.revision, id.revision.length, id.revision);
+      if (released) return true;
+    }
     return !row || (row.outcome === 'RETRYABLE' && now - Date.parse(row.completed_at) >= 24 * 3600_000);
   }
 

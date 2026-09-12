@@ -678,8 +678,8 @@ if ((DO_RUN || BOOTSTRAP) && !ONLY.length && !INSTALLED_PANEL) {
   // Keep the historical backlog visible. New arrivals get the first slots;
   // pending bootstrap candidates continue in subsequent bounded ticks.
   picked = picked.filter(candidate => (!INCREMENTAL_ONLY || candidate.hunt.cohort === 'INCREMENTAL')
-    && !huntState.isRejected(candidate, rejectionKey)
-    && huntState.pending(candidate, huntState.evaluationKey(candidate, providerVersion, evaluationPlans, gpu)))
+    && huntState.pending(candidate, huntState.evaluationKey(candidate, providerVersion, evaluationPlans, gpu),
+      Date.now(), { retentionKey: rejectionKey }))
     .sort((a, b) => Number(b.hunt.cohort === 'INCREMENTAL') - Number(a.hunt.cohort === 'INCREMENTAL')
       || Number(b.installed === true) - Number(a.installed === true) || byPriority(a, b));
 }
