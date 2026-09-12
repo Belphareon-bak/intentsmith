@@ -585,13 +585,15 @@ async function inside(configurationPath) {
     assert.equal(marker.statusCode, 201, marker.raw);
     await shutdown();
     const originalBackup = path.join(path.dirname(runtime.database), 'backups', backup.json.name);
-    const corruptName = backup.json.name.replace('.backup', '-corrupt.backup');
+    // Keep a canonical backup name so the negative reaches content validation.
+    const corruptName = backup.json.name.replace('.backup', '-99.backup');
     fs.cpSync(originalBackup, path.join(path.dirname(originalBackup), corruptName), { recursive: true });
     fs.appendFileSync(path.join(path.dirname(originalBackup), corruptName, 'c3.db'), 'damaged-copy');
     const restore = name => spawnSync(process.execPath, ['scripts/restore-state-backup.js', '--data-dir', path.dirname(runtime.database), '--backup', name, '--db-path', runtime.database],
       { cwd: SOURCE_ROOT, env: serverEnvironment(runtime, 'offline-restore', provider), encoding: 'utf8', timeout: 30000 });
     const digestBeforeRejectedRestore = sha256(readFileSync(runtime.database));
     const rejected = restore(corruptName); assert.equal(rejected.status, 1);
+    assert.equal(JSON.parse(rejected.stderr).code, 'BACKUP_CONTENT_MISMATCH');
     assert.equal(sha256(readFileSync(runtime.database)), digestBeforeRejectedRestore);
     evidence.corruptBackupRejected = { exit: rejected.status, stderr: rejected.stderr };
     const restored = restore(backup.json.name); assert.equal(restored.status, 0, restored.stderr);
