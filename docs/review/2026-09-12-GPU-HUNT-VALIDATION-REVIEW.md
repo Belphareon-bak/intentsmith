@@ -43,6 +43,10 @@ Jeho PASS není důkazem, že delší hunt nemá provozní vady.
 6. Mezi dvěma různými skutečně měřenými modely se požaduje dokončený drain.
    Refresh artefaktu po pullu zachová očekávanou verzi providera i pro VRAM gate.
 
+7. Denní metadata check po ranním suspendu selhal na dostupnosti upstreamu.
+   Opakování v 09:35 CEST potvrdilo UP_TO_DATE / 0.34.0. Service nyní opakuje
+   chybu po 5 minutách, nejvýše 3 pokusy za 30 minut. Neinstaluje aktualizace.
+
 ## Validace
 
 Focused: candidate 36, pairwise 37, upgrade 70, consolidation 16, read model 17,

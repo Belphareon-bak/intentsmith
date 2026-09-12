@@ -132,7 +132,9 @@ node scripts/check-ollama-upgrade.js --json
 ```
 
 Šablony `systemd/user/intentsmith-ollama-update-check.{service,timer}.in`
-zajišťují denní metadata check. Při instalaci nahraď `@PROJECT_ROOT@`
+zajišťují denní metadata check. Při chybě se kontrola opakuje po pěti minutách,
+nejvýše tři pokusy v třicetiminutovém okně. To pokrývá dočasný výpadek sítě
+po probuzení hostu; `CHECK_FAILED` se do úspěšné kontroly nezamlčuje. Při instalaci nahraď `@PROJECT_ROOT@`
 ověřeným checkoutem a `@NODE_BIN@` absolutní cestou Node. Tento timer je
 oddělený od GPU huntu a může běžet, i když je hunt vypnutý.
 Výsledek s časem kontroly leží v

@@ -1,8 +1,12 @@
 [Unit]
 Description=IntentSmith Ollama release check (metadata only)
+StartLimitIntervalSec=30min
+StartLimitBurst=3
 
 [Service]
 Type=oneshot
+Restart=on-failure
+RestartSec=5min
 WorkingDirectory=@PROJECT_ROOT@
 ExecStart=@NODE_BIN@ @PROJECT_ROOT@/scripts/check-ollama-upgrade.js --json
 TimeoutStartSec=45s
