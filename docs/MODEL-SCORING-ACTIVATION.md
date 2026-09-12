@@ -23,6 +23,14 @@ INCONCLUSIVE, role se nezměnila. Denní autocheck a noční bounded hunt jsou
 zapnuté. Tím není uděleno nezávislé acceptance nové delty ani přeměřen celý
 panel. [Rozsah, důkazy a omezení pro review](review/2026-09-11-GPU-HUNT-PRODUCTION-REVIEW-PACKET.md).
 
+**Provozní checkpoint 2026-09-12 18:53 CEST — REVIEW_PENDING:** repo panel
+D1/D2/R1/R2 dokončil 12 kandidátů bez roleErrors. Aktuální historie má
+30 reasoning a 12 review COMPLETE; 38 panelových duelů obsahuje 13 případů
+INSUFFICIENT_EVIDENCE. Portfolio doporučilo Devstral pro R2; bindingy hunt
+neaktivuje. Společný core kandidát prošel úplným 353/353 gate a produkčním
+Studio buildem včetně ochrany před dvojím sidebar widgetem.
+[Přesné revize, FAILED historie a evidence](review/2026-09-12-HUNT-REVIEW-FOLLOWUP.md).
+
 Název souboru zůstává kvůli existujícím odkazům. IntentSmith už ale nemá
 samostatný „scoring“ runtime. Existuje jedna autoritativní cesta pro modelové
 evaluace a oddělená, ručně autorizovaná cesta pro změnu bindingu.

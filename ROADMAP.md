@@ -2429,6 +2429,14 @@ oddělenou custody.
 
 ## 12. Pravidla Work Package bez dalšího aparátu
 
+Checkpoint `WP-HUNT-REVIEW-FOLLOWUP-20260912`: engineering předání na
+`20e5a022` zahrnuje repo scoring a opravený sidebar ve společném core stromu,
+353/353 deterministických sad, produkční Studio build a DB regresi obnovy
+duelu při rotaci kontraktu. Skutečný repo panel skončil 18:53 CEST bez
+roleErrors; doporučení R2 je samostatné od aktivace. Tři historické provozní
+připomínky byly ověřeny a propojeny s již existující opravou; nezávislé
+review a M5/M6 zůstávají otevřené. [Předání](docs/review/2026-09-12-HUNT-REVIEW-FOLLOWUP.md).
+
 Aktivní WP se vejde do těchto osmi položek:
 
 1. uživatelský výsledek;

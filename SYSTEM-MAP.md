@@ -131,9 +131,15 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 ## Rozsah
 
-Census integrace core/hunt `16fed51f` + dokončené retence `ee4472d5`, 2026-09-12;
+Census core/hunt s repo scoringem a regresním follow-up `20e5a022`, 2026-09-12;
 rozpracované změny nejsou přijatý release. Předchozí čísla a výsledky mají
 v historii vlastní přesné piny.
+
+Společný kandidát včetně sidebar opravy `9d5e207a`: **353/353 PASS** a
+produkční Studio build na čistém `20e5a022`. Změna kontraktu + timeout
+incumbenta má DB retry regresi. Panel D1/D2/R1/R2 je dokončený (12 kandidátů,
+0 roleErrors); 13/38 duelů má nedostatečný důkaz. Stav je
+**REVIEW_PENDING**, nikoli release acceptance. [Evidence a hranice](docs/review/2026-09-12-HUNT-REVIEW-FOLLOWUP.md).
 
 | | |
 |---|---:|
