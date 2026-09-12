@@ -2,6 +2,7 @@
 
 import { suite, test, testAsync, assert, assertEqual, summary } from './harness.js';
 import { createHash } from 'node:crypto';
+import { runInNewContext } from 'node:vm';
 import { MODEL_ACTIVITY_OWNER, modelUseAuthority } from '../src/upgrade/model-use-authority.js';
 import {
   MODEL_EVALUATION_ARTIFACT_ERROR,
@@ -10,6 +11,7 @@ import {
 } from '../src/eval/model-evaluation-runner.js';
 import {
   ROLE_QUALITY_SUITES,
+  REPOSITORY_REASONING_CASES,
   chatV3Suite,
   reasoningV2Suite,
   reviewV2Suite,
@@ -345,6 +347,64 @@ test('Czech grammar cases distinguish correct inflection', () => {
   const bad = task.grade('Děkuji Eva Šímová za pomoc a dokument pošlu Jan Kříž zítra.');
   assertEqual(good.score, 1);
   assert(bad.score < good.score);
+});
+
+test('repository fixtures bind exact excerpt bytes and reject malformed or invented outputs', () => {
+  for (const fixture of REPOSITORY_REASONING_CASES) {
+    assertEqual(createHash('sha256').update(fixture.source.code).digest('hex'), fixture.source.sha256);
+    assert(/^[a-f0-9]{40}$/.test(fixture.source.revision));
+    assertEqual(fixture.source.code.split('\n').length - 1, fixture.source.endLine - fixture.source.startLine + 1);
+    for (const [suiteValue, prefix, expected] of [
+      [reasoningV2Suite, 'reason', fixture.expected], [reviewV2Suite, 'review', fixture.reviewExpected],
+    ]) {
+      const task = suiteValue.tests.find(t => t.name === `${prefix}_repo_${fixture.id}`);
+      assertEqual(task.grade(JSON.stringify(expected)).score, 1);
+      assertEqual(task.grade(JSON.stringify({ ...expected, invented: true })).score, 0);
+      assertEqual(task.grade('not JSON').score, 0);
+      assertEqual(task.grade('{}').score, 0);
+    }
+  }
+});
+
+test('captured before and after history code execute the claimed error and persistence boundaries', () => {
+  for (const id of ['history_late_guard', 'history_early_guard']) {
+    const fixture = REPOSITORY_REASONING_CASES.find(f => f.id === id);
+    const emitted = [];
+    const context = {
+      emitted,
+      throwIfAborted() {},
+      throwIfTerminalChatFailure(value) { if (value.metadata.error) throw Object.assign(new Error('provider'), { typed: true }); },
+      isChatTurnError: error => error.typed === true,
+    };
+    const source = `class Controller {
+      #ensureTagged(response) { return response; }
+      #addToHistory(response) { emitted.push(response); }
+      #createErrorResponse(message) { return { message }; }
+      process(response) { const targetMode = 'chat'; const pendingConfirmation = null; const context = {}; try {
+        ${fixture.source.code}
+    }
+    let rejected = false; let durable = false;
+    try {
+      const result = new Controller().process({ metadata: { error: true } });
+      try { throwIfTerminalChatFailure(result); durable = true; } catch {}
+    } catch { rejected = true; }
+    ({ inMemoryAssistantAdded: emitted.length > 0, durableAssistantAdded: durable, directProcessRejects: rejected });`;
+    const observed = runInNewContext(source, context);
+    for (const key of Object.keys(observed)) assertEqual(observed[key], fixture.expected[key], id + '/' + key);
+  }
+});
+
+await testAsync('captured audit code reproduces false clean for a process error without invoking npm', async () => {
+  const fixture = REPOSITORY_REASONING_CASES.find(f => f.id === 'audit_error_envelope');
+  const excerpt = fixture.source.code.slice(0, fixture.source.code.lastIndexOf('  },'))
+    .replace("const { execSync } = await import('node:child_process');", 'const execSync = fakeExec;');
+  const output = await runInNewContext(`(async function() { ${excerpt} })()`, {
+    params: { cwd: '/fixture', fix: false },
+    fakeExec: () => '{"error":{"code":"ENOTFOUND"}}',
+  });
+  assertEqual(output.clean, fixture.expected.clean);
+  assertEqual(output.summary.total, fixture.expected.total);
+  assertEqual(Object.hasOwn(output, 'error'), fixture.expected.reportsError);
 });
 
 test('reasoning awards exact intermediate results', () => {

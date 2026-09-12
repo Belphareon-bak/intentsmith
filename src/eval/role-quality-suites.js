@@ -628,18 +628,146 @@ function jsonReasoningTask(name, prompt, expected, rubric) {
   });
 }
 
+// Immutable excerpts from real repairs, not claims about current product defects.
+// Source bytes, revision, line range, scenario and oracle all enter the contract.
+export const REPOSITORY_REASONING_CASES = Object.freeze([
+  {
+    "id": "audit_error_envelope",
+    "source": {
+      "revision": "bae8106d0c137437162c05b03d441d7824a888b1",
+      "path": "src/tools/registry.js",
+      "startLine": 4715,
+      "endLine": 4753,
+      "sha256": "0a4ac18fb53b946b37b46114f82266ecd8057bf95265770eead33501fca59d74",
+      "code": "    try {\n      const { execSync } = await import('node:child_process');\n      const cwd = params.cwd || process.cwd();\n\n      if (params.fix) {\n        const output = execSync('npm audit fix --json 2>/dev/null || true', { cwd, encoding: 'utf-8', timeout: 60000 });\n        try { return JSON.parse(output); } catch { return { output }; }\n      }\n\n      const output = execSync('npm audit --json 2>/dev/null || true', { cwd, encoding: 'utf-8', timeout: 30000 });\n      let audit;\n      try { audit = JSON.parse(output); } catch { return { error: 'Could not parse audit output', code: 'VULN_ERROR' }; }\n\n      const vulns = audit.vulnerabilities || {};\n      const summary = { critical: 0, high: 0, moderate: 0, low: 0, info: 0, total: 0 };\n      const details = [];\n\n      for (const [name, info] of Object.entries(vulns)) {\n        const sev = info.severity || 'info';\n        summary[sev] = (summary[sev] || 0) + 1;\n        summary.total++;\n        details.push({\n          name,\n          severity: sev,\n          title: info.via?.[0]?.title || info.via?.[0] || 'Unknown',\n          fixAvailable: !!info.fixAvailable,\n          range: info.range,\n        });\n      }\n\n      details.sort((a, b) => {\n        const order = { critical: 0, high: 1, moderate: 2, low: 3, info: 4 };\n        return (order[a.severity] || 5) - (order[b.severity] || 5);\n      });\n\n      return { summary, vulnerabilities: details.slice(0, 50), clean: summary.total === 0 };\n    } catch (err) { return { error: err.message, code: 'VULN_ERROR' }; }\n  },\n};\n"
+    },
+    "context": "Analyze only the non-fix path, with params.fix=false. The command emits {\"error\":{\"code\":\"ENOTFOUND\"}} and npm exits 1. execSync observes the shell command exactly as written. Ignore severity sorting and capability declarations outside this excerpt.",
+    "question": "Trace the result. Return ONLY JSON with keys clean (boolean returned by this code), total (number in summary), reportsError (whether the returned object has its own error field), trustworthy (whether this proves no vulnerabilities).",
+    "expected": {
+      "clean": true,
+      "total": 0,
+      "reportsError": false,
+      "trustworthy": false
+    },
+    "reviewExpected": {
+      "defect": "false_success",
+      "line": 4728,
+      "effect": "error_reported_clean"
+    }
+  },
+  {
+    "id": "history_late_guard",
+    "source": {
+      "revision": "570782eb68b72301ba61899a0263e8470f4b5f53",
+      "path": "src/chat/controller.js",
+      "startLine": 603,
+      "endLine": 623,
+      "sha256": "e6d4ac06f9d21ecdbc9e0466afb8e9d9fbe5015b4ad9134ce8f40668e58c7919",
+      "code": "      // Ensure response is properly tagged\n      let taggedResponse = this.#ensureTagged(response, targetMode, pendingConfirmation);\n\n      // QGv2 runs inside synthesizeWithLLM() (synthesis.js) where it has\n      // full context (intent, searchSubType, sourceUrls). Running it again\n      // here would be redundant — synthesis.js is the single canonical call site.\n\n      // Add to history\n      this.#addToHistory(taggedResponse);\n\n      return taggedResponse;\n    } catch (error) {\n      if (context.signal?.aborted) {\n        throwIfAborted(context.signal);\n      }\n      return this.#createErrorResponse(\n        `Handler error: ${error.message}`,\n        targetMode\n      );\n    }\n  }\n"
+    },
+    "context": "This is the end of process(). ensureTagged preserves metadata.error=true. addToHistory appends immediately to in-memory response history. The outer handle() awaits process(), then throws on metadata.error before writing any assistant turn to the durable store. The user turn was already saved. No cancellation occurs.",
+    "question": "For this provider error, return ONLY JSON with booleans inMemoryAssistantAdded, durableAssistantAdded, userTurnRetained, directProcessRejects. directProcessRejects means process() itself throws to its caller.",
+    "expected": {
+      "inMemoryAssistantAdded": true,
+      "durableAssistantAdded": false,
+      "userTurnRetained": true,
+      "directProcessRejects": false
+    },
+    "reviewExpected": {
+      "defect": "history_contamination",
+      "line": 611,
+      "effect": "failed_output_in_memory"
+    }
+  },
+  {
+    "id": "history_early_guard",
+    "source": {
+      "revision": "34e2c78b8cc5d2efbff64d77d6713556ed92b755",
+      "path": "src/chat/controller.js",
+      "startLine": 606,
+      "endLine": 634,
+      "sha256": "9b5bd3adf2a4dfbd2aaa4478f98131097f9c00481fce5e35ad6d5799708f7cdc",
+      "code": "      // Ensure response is properly tagged\n      let taggedResponse = this.#ensureTagged(response, targetMode, pendingConfirmation);\n      // Terminal handler output must not enter the in-memory response history.\n      // Re-throw the typed error from the catch below so direct process() callers\n      // receive the same fail-closed contract as ChatController.handle().\n      throwIfTerminalChatFailure(taggedResponse);\n\n      // QGv2 runs inside synthesizeWithLLM() (synthesis.js) where it has\n      // full context (intent, searchSubType, sourceUrls). Running it again\n      // here would be redundant — synthesis.js is the single canonical call site.\n\n      // Add to history\n      this.#addToHistory(taggedResponse);\n\n      return taggedResponse;\n    } catch (error) {\n      if (context.signal?.aborted) {\n        throwIfAborted(context.signal);\n      }\n      if (isChatTurnError(error)) {\n        throw error;\n      }\n      return this.#createErrorResponse(\n        `Handler error: ${error.message}`,\n        targetMode\n      );\n    }\n  }\n\n"
+    },
+    "context": "This is the end of process(). ensureTagged preserves metadata.error=true. throwIfTerminalChatFailure throws a typed chat-turn error for that metadata. isChatTurnError recognizes it. addToHistory appends immediately. The outer handle awaits process before persisting assistant output. The user turn is already saved. No cancellation occurs. Review only provider-error propagation and history contamination.",
+    "question": "For this provider error, return ONLY JSON with booleans inMemoryAssistantAdded, durableAssistantAdded, userTurnRetained, directProcessRejects.",
+    "expected": {
+      "inMemoryAssistantAdded": false,
+      "durableAssistantAdded": false,
+      "userTurnRetained": true,
+      "directProcessRejects": true
+    },
+    "reviewExpected": {
+      "defect": "none",
+      "line": 0,
+      "effect": "typed_error_without_assistant_history"
+    }
+  },
+  {
+    "id": "immutable_refinement",
+    "source": {
+      "revision": "265b87729628c7d21d9fea5ccef1c282ebd94170",
+      "path": "src/chat/controller.js",
+      "startLine": 2028,
+      "endLine": 2052,
+      "sha256": "c9175f0d0f283d9ffb6bc82218c4af0c421f1e15e6e142e599db61dc1a426fed",
+      "code": "      if (improvement.improved) {\n        result.content = improvement.response;\n        logger.info('ChatController', 'Self-refinement applied', {\n          originalScore: improvement.telemetry.originalScore,\n          finalScore: improvement.telemetry.finalScore,\n          delta: improvement.telemetry.finalScore - improvement.telemetry.originalScore,\n        });\n      }\n    } catch (err) {\n      logger.warn('ChatController', `Self-refinement failed (non-fatal): ${err.message}`);\n    }\n  } else if (synthesisScore !== null) {\n    logger.debug('ChatController', `Skipping selfRefine: synthesis score ${synthesisScore} >= 75`);\n  }\n  throwIfAborted(signal);\n\n  // Telemetry: always score the FINAL output (after any refinement) — no drift\n  try {\n    const { scoreResponse } = await import('./quality/response-scorer.js');\n    const intent = result.tag?.metadata?.decision?.intent || 'CONVERSATIONAL';\n    const finalScore = scoreResponse(result.content || '', {\n      query: message, intent, lang: 'cs',\n    });\n    _qualityScore = {\n      total: finalScore.total,\n"
+    },
+    "context": "This excerpt executes in an ES module. result is frozen; content is a getter with no setter and returns \"original\". improvement.improved=true and improvement.response=\"improved\". The preceding try is active. There is no cancellation and logging/scoring do not throw. scoreResponse records its first argument.",
+    "question": "Return ONLY JSON with contentAfter (string), appliedLog (whether Self-refinement applied is logged), warningLog (whether Self-refinement failed is logged), scoredText (string).",
+    "expected": {
+      "contentAfter": "original",
+      "appliedLog": false,
+      "warningLog": true,
+      "scoredText": "original"
+    },
+    "reviewExpected": {
+      "defect": "immutable_write",
+      "line": 2029,
+      "effect": "refinement_discarded"
+    }
+  }
+]);
+
+function repositoryTask(fixture, review = false) {
+  const source = fixture.source;
+  const code = source.code.split('\n').map((line, index) => `${source.startLine + index} ${line}`).join('\n');
+  const expected = review ? fixture.reviewExpected : fixture.expected;
+  const question = review
+    ? 'Return ONLY JSON {"defect":string,"line":number,"effect":string}. Defect must be one of false_success, history_contamination, immutable_write, none. Effect must be one of error_reported_clean, failed_output_in_memory, refinement_discarded, typed_error_without_assistant_history. For false_success identify the line that defaults missing vulnerability data to an empty collection. For other defects identify the causal line, not its later symptom; for no defect use line 0. Evaluate only the stated scenario.'
+    : fixture.question;
+  return textTask({
+    name: `${review ? 'review' : 'reason'}_repo_${fixture.id}`, language: 'en',
+    prompt: `${fixture.context}\n${question}\nSource: ${source.path}@${source.revision}\n${code}`,
+    rubric: ['exact JSON keys', 'trace actual control flow and effects', 'do not invent effects or defects'],
+    gradeMaterial: { source, context: fixture.context, expected },
+    grade: response => {
+      const obj = parseJson(response);
+      const schema = !!obj && !Array.isArray(obj)
+        && Object.keys(obj).sort().join(',') === Object.keys(expected).sort().join(',');
+      if (!schema) return { passed: false, score: 0, detail: { schema: false } };
+      return checklist(Object.entries(expected).map(([key, value]) => ({
+        id: key, ok: review && key === 'line' && value !== 0
+          ? Number.isInteger(obj[key]) && Math.abs(obj[key] - value) <= 1
+          : JSON.stringify(obj[key]) === JSON.stringify(value),
+      })));
+    },
+  });
+}
+
 export const reasoningV2Suite = Object.freeze({
-  name: 'reasoning_v2', version: ROLE_QUALITY_VERSION,
+  name: 'reasoning_v2', version: 'v136.1-reasoning-repo.1',
   description: 'Deterministic multi-part reasoning and constraint following',
   roles: ['D1', 'D2', 'R1'],
   tests: Object.freeze([
+    ...REPOSITORY_REASONING_CASES.map(fixture => repositoryTask(fixture)),
     jsonReasoningTask('reason_budget', 'A service costs $750 before tax. Apply a 12% discount, then 20% tax to the discounted price. Return ONLY JSON {"discounted":number,"tax":number,"total":number}.', { discounted: 660, tax: 132, total: 792 }, ['660 discounted', '132 tax', '792 total', 'valid JSON']),
     jsonReasoningTask('reason_order', 'Four jobs obey: D before A, A before B, and B before C. Return ONLY JSON {"order":[...]} with the unique valid order.', { order: ['D', 'A', 'B', 'C'] }, ['D,A,B,C', 'valid JSON']),
     jsonReasoningTask('reason_critical_path', 'Task A takes 2h. After A, B takes 3h and C takes 4h in parallel. D takes 1h after both B and C. Return ONLY JSON {"duration":number,"critical":[...]}.', { duration: 7, critical: ['A', 'C', 'D'] }, ['7 hours', 'critical path A,C,D', 'valid JSON']),
     jsonReasoningTask('reason_table', 'Data: North sold 12 in Q1 and 18 in Q2; South sold 15 in Q1 and 14 in Q2. Return ONLY JSON {"north_total":number,"south_total":number,"winner":string,"difference":number}.', { north_total: 30, south_total: 29, winner: 'North', difference: 1 }, ['30', '29', 'North', 'difference 1']),
     jsonReasoningTask('reason_sets', 'There are 40 users. 24 use feature A, 19 use feature B, and 11 use both. Return ONLY JSON {"a_only":number,"b_only":number,"either":number,"neither":number}.', { a_only: 13, b_only: 8, either: 32, neither: 8 }, ['A only 13', 'B only 8', 'either 32', 'neither 8']),
     jsonReasoningTask('reason_rate', 'One machine makes 18 parts in 6 minutes. At the same constant rate, return ONLY JSON {"per_minute":number,"in_25_minutes":number,"minutes_for_90":number}.', { per_minute: 3, in_25_minutes: 75, minutes_for_90: 30 }, ['3/min', '75 in 25 min', '30 min for 90']),
-    jsonReasoningTask('reason_logic', 'Exactly one statement is true: (A) The key is in box 1. (B) The key is not in box 1. Statement A is false. Return ONLY JSON {"true_statement":"A"|"B","box":number}.', { true_statement: 'B', box: 2 }, ['B true', 'box 2']),
+    jsonReasoningTask('reason_logic', 'The key is in exactly one of two boxes, numbered 1 and 2. Exactly one statement is true: (A) The key is in box 1. (B) The key is not in box 1. Statement A is false. Return ONLY JSON {"true_statement":"A"|"B","box":number}.', { true_statement: 'B', box: 2 }, ['B true', 'box 2']),
     jsonReasoningTask('reason_transform', 'Start with 5. Multiply by 4, subtract 6, divide by 2, then square the result. Return ONLY JSON {"after_multiply":number,"after_subtract":number,"after_divide":number,"result":number}.', { after_multiply: 20, after_subtract: 14, after_divide: 7, result: 49 }, ['20', '14', '7', '49']),
   ]),
 });
@@ -696,9 +824,10 @@ function reviewTask(name, code, expected) {
 }
 
 export const reviewV2Suite = Object.freeze({
-  name: 'review_v2', version: ROLE_QUALITY_VERSION,
+  name: 'review_v2', version: 'v136.1-review-repo.1',
   description: 'Known-defect recall with false-positive penalty', roles: ['R2'],
   tests: Object.freeze([
+    ...REPOSITORY_REASONING_CASES.map(fixture => repositoryTask(fixture, true)),
     reviewTask('review_sql_null', '1 function load(id) {\n2   const row = db.query("SELECT * FROM users WHERE id=" + id);\n3   return row.name.toUpperCase();\n4 }', [{ line: 2, kind: 'sql_injection' }, { line: 3, kind: 'null_dereference' }]),
     reviewTask('review_path_async', '1 async function save(name, data) {\n2   const target = join("/srv/uploads", name);\n3   fs.promises.writeFile(target, data);\n4   return { saved: true };\n5 }', [{ line: 2, kind: 'path_traversal' }, { line: 3, kind: 'missing_await' }]),
     reviewTask('review_command_secret', '1 const TOKEN = "prod-secret-123";\n2 function archive(file) {\n3   return exec("tar czf out.tgz " + file);\n4 }', [{ line: 1, kind: 'secret_exposure' }, { line: 3, kind: 'command_injection' }]),
