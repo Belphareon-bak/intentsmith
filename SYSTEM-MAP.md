@@ -619,3 +619,7 @@ Sázkařovy testy 30/30 PASS; celý profil ještě čeká na měření tohoto ka
 Stav **IMPLEMENTED_SLICE / REVIEW_PENDING**; beze změny sdíleného provozu.
 [Návod](specialists/sazeni/README.md), [kontrakt](specialists/sazeni/CONTRACT.md),
 [důkazy a přesné hranice](docs/review/2026-09-12-SAZENI-PUBLIC.md).
+
+Module graph po této změně má 1 316 hran, 3 cykly / 28 souborů. Samostatně
+zaznamenaná jediná nová hrana `data-host -> betting/fortuna-public` pochází
+z čistého `cd3e01bd`; žádný nový specialistický import interního core.

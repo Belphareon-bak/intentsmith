@@ -2928,3 +2928,12 @@ outbound policy; žádná odebraná hrana, stejné 3 cykly / 28 členů. Veřejn
 autonomní cesta je spuštěná, český live feed čeká na API klíč a validaci.
 Stav `IMPLEMENTED_SLICE / REVIEW_PENDING`; nejde o nezávislé přijetí.
 [Kontrakt a aktuální důkazy](docs/review/2026-09-12-SAZENI-AUTONOMOUS.md).
+
+Veřejná Fortuna 2026-09-12: module graph má 1 316 hran. Jediná přidaná hrana
+`src/betting/data-host.js -> src/betting/fortuna-public.js` drží sběr konkrétní
+veřejné nabídky v core hostu; balíček dostává jen scoped capability. Záznam
+z čistého `cd3e01bd` autoritativním nástrojem s jedním přesným `--accept-edge`;
+žádná odebraná hrana a stejné 3 cykly / 28 členů. Skutečný výpočet z Fortuny
+bez klíče je funkční; Tipsport veřejnou sondu odmítl 403. Nejde o nezávislé
+přijetí nebo aktivaci sdíleného provozu.
+[Důkazy a stav kontrol](docs/review/2026-09-12-SAZENI-PUBLIC.md).

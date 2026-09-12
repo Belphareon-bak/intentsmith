@@ -75,6 +75,17 @@ Reprodukovatelný [návod](../../specialists/sazeni/README.md) a
 
 ## Kontroly a zbývající hranice
 
+Implementace `cd3e01bd65069c3b98b1c892307a311ba597af11`. Z čisté revize byl
+samostatně zaznamenán přesně jeden core spoj
+`src/betting/data-host.js -> src/betting/fortuna-public.js` pomocí
+`scripts/module-boundary-ratchet.mjs --write-baseline --accept-edge`.
+Důvod: orchestrace veřejných dotazů zůstává v hostu; balíček neprovádí efekty.
+Graf **1315 → 1316**, nic odebráno, stále 3 cykly / 28 souborů. Změna seznamu
+neznamená nezávislé přijetí konektoru. Log `boundary-record.log`.
+Stávající `m5-outbound-policy` má 12/12 PASS (`outbound.log`). Registry se
+nezměnilo: 514 programů, SHA-256
+`2322ef86b7eabbf1b3a2b0bd513d2fba08d19320fd8290a47798e79823117993`.
+
 `sazeni-engine`: **15/15 PASS**; `sazeni-integration`: **15/15 PASS**.
 Logy `engine.log` a `integration.log` ve výše uvedeném vlastním adresáři.
 Ověřena vazba identity výsledků na původní JSON, expirace, nezfalšovaná
