@@ -554,10 +554,10 @@ const installedScored = installedQueue
 const queue = [
   ...installedPending.filter(local => !remoteQueue.some(remote => canonicalModelName(remote.name) === canonicalModelName(local.name))),
   ...remoteQueue.sort(byPriority),
-  // A fully scored local alternative can be re-compared from history, but it
-  // must not consume the bounded slots ahead of genuinely unseen artifacts on
-  // every scheduled tick.
-  ...(SCHEDULED ? [] : installedScored),
+  // Candidate COMPLETE is not a completed duel: the incumbent may have failed.
+  // Keep these behind unseen artifacts; the durable attempt ledger below
+  // suppresses completed duels and applies retry backoff to incomplete ones.
+  ...installedScored,
 ];
 
 log('\n══ KANDIDÁTI PODLE ROLÍ ══');

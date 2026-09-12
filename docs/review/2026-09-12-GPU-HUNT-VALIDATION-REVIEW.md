@@ -37,7 +37,10 @@ Jeho PASS není důkazem, že delší hunt nemá provozní vady.
    parametry se nově účastní suite contract SHA-256. Změna kontraktu vyžaduje
    nové měření; stará COMPLETE se nebudou vydávat za výsledky nového nastavení.
    Prompty, grading, prahy a požadavek response-bound identity se nemění.
-5. Mezi dvěma různými skutečně měřenými modely se požaduje dokončený drain.
+5. Fronta ponechá již změřeného kandidáta, pokud duel nebyl dokončen.
+   O opakování rozhoduje durable journal s 24h odstupem, ne samotné vlastní
+   COMPLETE kandidáta; neúspěšný incumbent tedy duel neztratí z fronty.
+6. Mezi dvěma různými skutečně měřenými modely se požaduje dokončený drain.
    Refresh artefaktu po pullu zachová očekávanou verzi providera i pro VRAM gate.
 
 ## Validace
