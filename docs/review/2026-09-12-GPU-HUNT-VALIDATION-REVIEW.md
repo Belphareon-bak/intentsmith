@@ -1,6 +1,6 @@
 # GPU hunt: dlouhý validační běh, 2026-09-12
 
-**IMPLEMENTATION_CANDIDATE / VALIDATION_IN_PROGRESS / REVIEW_PENDING.**
+**DETERMINISTIC_GREEN / GPU_VALIDATION_IN_PROGRESS / REVIEW_PENDING.**
 Pokračování explicitně autorizovaného GPU testování a oprav. Předchozí
 [produkční packet](2026-09-11-GPU-HUNT-PRODUCTION-REVIEW-PACKET.md) popisuje
 provider, reprodukovatelný build, migrace, timery a původní zelený offline gate.
@@ -70,7 +70,18 @@ R1 runtime retry na `794f1e57` dokončil Phi4 vs Qwen3.8 ve třech opakováních
 bez chyb a bez mazání. COMPLETE: `eval_b38990fd-a001-43d3-92e6-3b287ab57aa8`
 (Phi4 0.875) a `eval_32646596-2845-4821-b90d-e7980880759d` (Qwen3.8 0.95).
 Tři stabilně rozlišující úlohy, marže kandidáta -0.200, incumbent quality win.
-Service skončila exit 0 a uvolnila GPU i port. Nová vzdálená dávka na `ab4da3b9`
+Service skončila exit 0 a uvolnila GPU i port. Offline replay současného
+snapshotu reprodukoval 2 COMPLETE / 60 applicable MISSING / 8 N/A bez kontaktu
+s providerem. Současně běžící druhý wrapper skončil SCHEDULED_SKIPPED / PORT_BUSY.
+
+Celý offline/database gate po opravě census na `e4d5cf8b` i po doplnění
+Ornithu na finálním zdroji **`dbf1abfc9059d9127e1494145345e0d7efd86d4b`**:
+**352 PASS / 0 FAIL / 0 TIMEOUT / 0 BLOCKED / 0 SKIPPED**. Všech 352 log SHA-256,
+source revision, čisté source stromy a jedinečné test IDs byly ověřeny.
+Finální report SHA-256:
+`30a7f631f6706bf90ded05cb5e6b513e00609501d276818ed981849790c839c7`.
+[Strojový manifest](../execution/runs/gpu-hunt-validation-20260912.json)
+uchovává také oba předchozí gate, runtime reporty a jejich hashe. Nová vzdálená dávka na `ab4da3b9`
 testuje North Mini Code a Ornith 1.5 v D2/CODE/R2/CHAT; výsledky budou doplněny.
 
 Evidence root:

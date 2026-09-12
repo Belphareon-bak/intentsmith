@@ -1,0 +1,275 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-12T07:58:42.233964+00:00",
+  "status": "VALIDATION_IN_PROGRESS_REVIEW_PENDING",
+  "implementationSourceRevision": "dbf1abfc9059d9127e1494145345e0d7efd86d4b",
+  "providerVersion": "0.34.0-intentsmith.1",
+  "providerBinarySha256": "8883245b864485a74ecccf62c4ce17d4538816cde4e37ea2107c2204d1d04ca7",
+  "gates": [
+    {
+      "path": "/home/belphareon/is-hunt11/.intentsmith-artifacts/test-runs/hunt-validation-20260912-794f1e57/report.json",
+      "sha256": "f9b1a653ca4bd1e52286ec1b955aa94b12cc50f16ffe6503b73ba4d3c10f9d31",
+      "sourceRevision": "794f1e57b4d9bb45241f7870ccb97271ff9da136",
+      "counts": {
+        "PASS": 351,
+        "FAIL": 1,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "logsVerified": 352,
+      "sourceTreesClean": true,
+      "nonPassIds": [
+        "IS-T1-TESTS-ARTIFACT-VALIDATION"
+      ]
+    },
+    {
+      "path": "/home/belphareon/is-hunt11/.intentsmith-artifacts/test-runs/hunt-validation-20260912-e4d5cf8b/report.json",
+      "sha256": "5dd5948b236dbc25556109e41b2b099f4056610e10f388dddfcf1c11755becd4",
+      "sourceRevision": "e4d5cf8b2f528cda1d7d33cdb06be980d75b070c",
+      "counts": {
+        "PASS": 352,
+        "FAIL": 0,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "logsVerified": 352,
+      "sourceTreesClean": true,
+      "nonPassIds": []
+    },
+    {
+      "path": "/home/belphareon/is-hunt11/.intentsmith-artifacts/test-runs/hunt-validation-20260912-dbf1abfc/report.json",
+      "sha256": "30a7f631f6706bf90ded05cb5e6b513e00609501d276818ed981849790c839c7",
+      "sourceRevision": "dbf1abfc9059d9127e1494145345e0d7efd86d4b",
+      "counts": {
+        "PASS": 352,
+        "FAIL": 0,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "logsVerified": 352,
+      "sourceTreesClean": true,
+      "nonPassIds": []
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/bootstrap-before-fix.log",
+      "sha256": "f5a17212c4458c5cee0611dd62934f2ce22209b41366ff9b2ca4410bfe834d99"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/bootstrap-provider.log",
+      "sha256": "846e62062a29b2c8e38eee65c9c165122b146e5afb489f1dde6b7e4028f205b6"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/runs-before-r1-retry.json",
+      "sha256": "74004adf4aecf7743c9b89d4e80d1f642e17ff60c5189588f5a9777e048a82ee"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/r1-retry.json",
+      "sha256": "2d7ee4a7f63d73f34496f8b0b79c73281f3f54578fb0fd804dfdea30ba74a120"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/ollama-autocheck-retry.json",
+      "sha256": "53cd35b3e0bb40dd40183ecb1a1947242dbb9b2b82844d58fa24f7c412bc8553"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/coverage-after-r1.json",
+      "sha256": "84d9cfd630b0544350f9b21726af389e8d6bc86a265f9a36e75907cf97d14a91"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/host-after-r1.json",
+      "sha256": "ac165ceb0710ea45a64390774c756b8540d4e1e5de2463483a3daf96e6be55a5"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/projected-after-r1.db",
+      "sha256": "cd0fa111d4b544b10c8a45894b0c1a833d200a99568143d761c4fed771b7e65b"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/replay-after-r1.json",
+      "sha256": "f07d940dbeece16590b50d7e8f0b74f78ed98c4ac28321d78b564f21926343a8"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/busy-during-pull.json",
+      "sha256": "c1b15e8f1fca04978c182b05e6516e7c597ddc3b81f9615b54d36b0eb276de56"
+    }
+  ],
+  "historicalIncorrectFailureRows": 32,
+  "r1Retry": {
+    "sourceRevision": "794f1e57b4d9bb45241f7870ccb97271ff9da136",
+    "unit": "intentsmith-hunt-r1-validation-20260912.service",
+    "result": "success",
+    "candidate": "phi4:14b",
+    "incumbent": "qwen3.8:latest",
+    "candidateRunId": "eval_b38990fd-a001-43d3-92e6-3b287ab57aa8",
+    "incumbentRunId": "eval_32646596-2845-4821-b90d-e7980880759d",
+    "decisionRecords": [
+      {
+        "decisionId": "decision_352b9d1f-d842-4e3a-bec6-b1d99ae9c285",
+        "role": "R1",
+        "incumbentRunId": "eval_32646596-2845-4821-b90d-e7980880759d",
+        "candidateRunId": "eval_b38990fd-a001-43d3-92e6-3b287ab57aa8",
+        "policyVersion": "role-pairwise-v1",
+        "policyContractSha256": "0ac2c06d8899869195316e6c14eb33ceae2ddafd585a59eeebff12c69f7d6dad",
+        "outcome": "INCUMBENT",
+        "basis": "kvalita",
+        "details": {
+          "candidateModel": "phi4:14b",
+          "incumbentModel": "qwen3.8:latest",
+          "activationEligible": false,
+          "activationBlockReason": "CANDIDATE_NOT_SELECTED_BY_PORTFOLIO",
+          "decision": {
+            "winner": "incumbent",
+            "reasonCode": "INCUMBENT_QUALITY",
+            "basis": "kvalita",
+            "confidence": "vysoká",
+            "detail": "kandidát ztrácí 0.200 na 3 úlohách, jistota vysoká"
+          },
+          "comparison": {
+            "suite": "reasoning_v2",
+            "tasks": [
+              {
+                "name": "reason_budget",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "reason_order",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "reason_critical_path",
+                "language": "en",
+                "candidateScore": 0.333,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": -0.6666666666666667,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "reason_table",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "reason_sets",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 0.6,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0.4,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "reason_rate",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              },
+              {
+                "name": "reason_logic",
+                "language": "en",
+                "candidateScore": 0.667,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": -0.33333333333333337,
+                "noise": 0,
+                "discriminating": true
+              },
+              {
+                "name": "reason_transform",
+                "language": "en",
+                "candidateScore": 1,
+                "incumbentScore": 1,
+                "candidateSpread": 0,
+                "incumbentSpread": 0,
+                "delta": 0,
+                "noise": 0,
+                "discriminating": false
+              }
+            ],
+            "discriminating": 3,
+            "candidateWins": 1,
+            "incumbentWins": 2,
+            "margin": -0.2,
+            "inconclusive": false,
+            "candidateSuiteScore": 0.8750000000000001,
+            "incumbentSuiteScore": 0.95,
+            "candidateRunId": "eval_b38990fd-a001-43d3-92e6-3b287ab57aa8",
+            "incumbentRunId": "eval_32646596-2845-4821-b90d-e7980880759d",
+            "repeats": 3,
+            "unstableTasks": []
+          },
+          "policy": {
+            "version": "role-pairwise-v1",
+            "role": "R1",
+            "suiteName": "reasoning_v2",
+            "suiteVersion": "v136.1-prototype.1",
+            "suiteContractSha256": "51d5c0cafb91db50cba8161c77cad817d72c3962bbb1443bec39bf4f35011b70",
+            "repeats": 3,
+            "taskMarginEpsilon": 0.05,
+            "scoreRoundingEpsilon": 0.0005,
+            "improvementThreshold": 0.06,
+            "minimumDiscriminatingTasks": 3,
+            "minimumDiscriminatingByLanguage": {}
+          },
+          "source": "model-upgrade-hunt-v136.1"
+        },
+        "createdAt": "2026-09-12T07:40:12.769Z"
+      }
+    ]
+  },
+  "activeWave": {
+    "sourceRevision": "ab4da3b9",
+    "unit": "intentsmith-hunt-wave1-20260912.service",
+    "candidates": [
+      "north-mini-code-1.0:latest",
+      "ornith-1.5:9b"
+    ],
+    "roles": [
+      "D2",
+      "CODE",
+      "R2",
+      "CHAT"
+    ],
+    "timeoutHours": 4,
+    "report": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/wave1.json",
+    "status": "RUNNING_DOWNLOAD"
+  },
+  "minimumDiskReserveBytes": 42949672960,
+  "automaticRemoval": false,
+  "automaticBindingChange": false,
+  "independentReview": "PENDING",
+  "m6Acceptance": "NOT_GRANTED_BY_THIS_EVIDENCE"
+}
