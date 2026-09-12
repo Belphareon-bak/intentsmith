@@ -25,7 +25,7 @@ import { textTask } from '../src/eval/role-quality-suites.js';
 import {
   auditResponsibilitySegregation, buildInstalledCandidateQueue,
   materializeCurrentHardwareBlocks, resolveCurrentBindings,
-  selectResponsibilityPortfolio,
+  selectResponsibilityPortfolio, recordRoleEvaluationFailures,
 } from '../src/upgrade/model-upgrade-prototype.js';
 import {
   acquireGpuEvaluationLock, assessCandidateDownloadHeadroom,
@@ -999,6 +999,10 @@ await testAsync('durable hunt separates backlog, new revisions, provider upgrade
   assert(state.pending(initial, key));
   state.record(initial, key, { stage: 'done', trials: [{ comparison: { candidateRunId: 'eval' } }] });
   assert(!state.pending(initial, key));
+  state.record(initial, key, { stage: 'done', roleErrors: [{ role: 'CODE', error: 'incumbent timeout' }],
+    trials: [{ comparison: { candidateRunId: 'eval' } }] }, '2099-01-01T00:00:00.000Z');
+  assertEqual(db.prepare('SELECT outcome FROM model_hunt_attempts ORDER BY completed_at DESC LIMIT 1').get().outcome, 'RETRYABLE');
+  assert(state.pending(initial, key, Date.parse('2099-01-03T00:00:00Z')), 'partial success must be retried');
   assert(state.pending(initial, state.evaluationKey(initial, '0.35.0', plans, { model: 'GPU' })));
   const [unchanged, changed, unknown] = state.observe([candidate, { ...candidate, catalogDigest: 'b'.repeat(12) }, { name: 'unknown' }]);
   assertEqual(unchanged.hunt.cohort, 'BOOTSTRAP');
@@ -1027,6 +1031,30 @@ await testAsync('durable hunt separates backlog, new revisions, provider upgrade
     assertEqual(JSON.stringify(db.prepare(`SELECT * FROM ${table} LIMIT 1`).get()), JSON.stringify(before));
   }
   db.close();
+});
+
+test('effective runner defaults participate in suite contracts', () => {
+  const task = textTask({ name: 'default-options', prompt: 'hello', rubric: [], grade: () => ({ score: 1 }) });
+  const contract = options => suiteContract({ name: 'defaults', tests: [{ ...task, options }] }).sha256;
+  assertEqual(contract(), contract({ timeout: 120000, num_predict: 512, num_ctx: 4096, temperature: 0.1, top_p: 0.9 }));
+  assert(contract() !== contract({ timeout: 30000 }), 'old timeout cannot reuse current evidence');
+  assert(contract() !== contract({ num_ctx: 8192 }));
+});
+
+test('only the failed model and attempted role receive a terminal row', () => {
+  const writes = [];
+  const failure = { role: 'R1', model: 'incumbent', artifact: { modelName: 'incumbent', digestSha256: DIGEST_B },
+    code: 'MODEL_EVALUATION_RESPONSE_ARTIFACT_UNVERIFIED', error: 'missing proof',
+    startedAt: '2026-09-12T08:00:00.000Z', completedAt: '2026-09-12T08:00:01.000Z' };
+  recordRoleEvaluationFailures({ result: { model: 'candidate', roleErrors: [failure, { role: 'CODE', error: 'drain' }] },
+    plans: { R1: { suiteName: 'reasoning', suiteVersion: 'v1', suiteContractSha256: CONTRACT_A, repeats: 3 } },
+    history: { recordTerminal: row => { writes.push(row); return row; } }, hardware: { model: 'GPU' } });
+  assertEqual(writes.length, 1);
+  assertEqual(writes[0].artifact.modelName, 'incumbent');
+  assertEqual(writes[0].role, 'R1');
+  assertEqual(writes[0].durationMs, 1000);
+  assertEqual(writes[0].errorCode, 'CANDIDATE_EVALUATION_RETRYABLE');
+  assertEqual(writes[0].metadata.failure.code, failure.code);
 });
 
 const { passed, failed } = summary();

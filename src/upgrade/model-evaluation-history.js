@@ -5,6 +5,7 @@
 // digest and the same hash of prompts, graders, options and repetitions.
 
 import { createHash, randomUUID } from 'node:crypto';
+import { DEFAULT_MODEL_EVALUATION_OPTIONS } from '../eval/model-evaluation-runner.js';
 import {
   canonicalModelName,
   normalizeModelDigestSha256,
@@ -105,7 +106,8 @@ export function suiteContract(suite, opts = {}) {
       name: test.name,
       language: test.language ?? null,
       weight: test.weight ?? 1,
-      options: stableValue(test.options || {}),
+      options: stableValue(Object.fromEntries(Object.entries(DEFAULT_MODEL_EVALUATION_OPTIONS)
+        .map(([key, value]) => [key, test.options?.[key] ?? value]))),
       promptAndGradingInputs: stableValue(test.contractMaterial),
       rubric: stableValue(test.rubric || []),
       grade: String(test.grade),

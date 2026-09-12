@@ -5,6 +5,9 @@ Autorita: explicitní zadání operátora obnovit scoring, rozšířit počáte�
 panel, zapnout pravidelný hunt, ověřit/aktualizovat Ollamu a commitnout/pushnout.
 Tento packet není acceptance M6 ani povolení automaticky měnit role.
 
+Aktualizace 2026-09-12: dlouhý běh našel chyby cold-load timeoutu a přiřazení
+FAILED; viz [validační follow-up](2026-09-12-GPU-HUNT-VALIDATION-REVIEW.md).
+
 ## Rozsah pro review
 
 Produktová větev `work/mobile-completion-20260908`, implementační rozsah

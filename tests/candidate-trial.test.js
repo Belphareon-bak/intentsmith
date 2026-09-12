@@ -462,8 +462,9 @@ await testAsync('scoring zachová fail-closed reason code z runneru', async () =
     runner: { runSuite: async () => { throw error; } },
     roles: ['CODE'], bindings: { CODE: 'inc:7b' },
   });
-  assertEqual(r.errorCode, 'MODEL_EVALUATION_RESPONSE_ARTIFACT_UNVERIFIED');
-  assertEqual(r.stage, 'trial');
+  assertEqual(r.roleErrors[0].code, 'MODEL_EVALUATION_RESPONSE_ARTIFACT_UNVERIFIED');
+  assertEqual(r.stage, 'done');
+  assertEqual(r.trials[0].failed, true);
   restore();
 });
 
@@ -569,6 +570,41 @@ await testAsync('allowRemoval mazání zapne', async () => {
   });
   assertEqual(r.removed, true);
   restore();
+});
+
+await testAsync('incumbent failure is attributed exactly and later candidate roles still run without deletion', async () => {
+  stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:27b' });
+  try {
+    let removed = 0;
+    const runner = fakeRunner({});
+    const original = runner.runSuite;
+    runner.runSuite = async (suite, model, ...args) => {
+      if (model === 'broken:27b') return { total: 1, tests: [
+        { name: 'cold_load', score: 0, error: 'aborted', timedOut: true, durationMs: 120000 },
+      ] };
+      return original.call(runner, suite, model, ...args);
+    };
+    const result = await tryCandidate('cand:27b', {
+      ...FAST_DRAIN, runner, allowRemoval: true, keepInconclusive: true,
+      deleteModel: async () => { removed++; },
+      roles: ['D1', 'R1', 'CODE'],
+      bindings: { D1: 'ok:27b', R1: 'broken:27b', CODE: 'ok:27b' },
+      trialOpts: { repeats: 1,
+        resolveArtifact: async modelName => ({ modelName, digestSha256: 'a'.repeat(64) }),
+      },
+    });
+    assertEqual(result.roleErrors.length, 1);
+    const failure = result.roleErrors[0];
+    assertEqual(failure.role, 'R1');
+    assertEqual(failure.model, 'broken:27b');
+    assertEqual(failure.artifact.modelName, 'broken:27b');
+    assertEqual(failure.repeat, 1);
+    assertEqual(failure.failedTasks[0].timedOut, true);
+    assert(result.decisions.D1 && result.decisions.CODE, 'completed roles on either side survive');
+    assert(!result.decisions.R1);
+    assertEqual(result.removed, false);
+    assertEqual(removed, 0);
+  } finally { restore(); }
 });
 
 summary();

@@ -12,7 +12,8 @@ import {
 } from '../upgrade/model-identity.js';
 
 export const DEFAULT_MODEL_EVALUATION_OPTIONS = Object.freeze({
-  timeout: 30_000,
+  // Includes cold loading: production loads exceeded the former 30s budget.
+  timeout: 120_000,
   num_predict: 512,
   num_ctx: 4096,
   temperature: 0.1,

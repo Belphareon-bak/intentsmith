@@ -193,6 +193,7 @@ export async function tryCandidate(candidateName, ctx = {}) {
     measurement: null,
     floor: null,
     trials: [],
+    roleErrors: [],
     decisions: {},
     removed: false,
     keptReason: null,
@@ -314,21 +315,38 @@ export async function tryCandidate(candidateName, ctx = {}) {
         onStage('roleSkipped', candidateName, { role, reason: eligibility.reason });
         continue;
       }
-      const result = await trialRole(runner, role, candidateName, incumbent, {
-        evaluationPlan,
-        threshold: ROLE_IMPROVEMENT_THRESHOLDS[role] ?? 0.05,
-        speed: {
-          candidate: out.measurement.throughput?.tokensPerSecond ?? 0,
-          incumbent: incumbentSpeed[incumbent] ?? 0,
-        },
-        between: () => drainResident(ctx),
-        suiteCache,
-        ...ctx.trialOpts,
-      });
-      out.trials.push(result);
-      if (!result.skipped) {
-        out.decisions[role] = result.decision;
-        onStage('roleDecided', candidateName, { role, decision: result.decision });
+      try {
+        const result = await trialRole(runner, role, candidateName, incumbent, {
+          evaluationPlan,
+          threshold: ROLE_IMPROVEMENT_THRESHOLDS[role] ?? 0.05,
+          speed: {
+            candidate: out.measurement.throughput?.tokensPerSecond ?? 0,
+            incumbent: incumbentSpeed[incumbent] ?? 0,
+          },
+          between: async () => {
+            if (ctx.drain !== false && !await drainResident(ctx)) {
+              throw Object.assign(new Error('GPU drain did not complete before role evaluation'), {
+                code: 'HUNT_GPU_BUSY',
+              });
+            }
+          },
+          suiteCache,
+          ...ctx.trialOpts,
+        });
+        out.trials.push(result);
+        if (!result.skipped) {
+          out.decisions[role] = result.decision;
+          onStage('roleDecided', candidateName, { role, decision: result.decision });
+        }
+      } catch (error) {
+        const failure = {
+          role, candidate: candidateName, incumbent,
+          ...error.evaluationFailure,
+          error: error.message, code: error.code || 'CANDIDATE_EVALUATION_RETRYABLE',
+        };
+        out.roleErrors.push(failure);
+        out.trials.push({ role, failed: true, error: failure.error });
+        onStage('roleFailed', candidateName, failure);
       }
     }
 
@@ -346,7 +364,9 @@ export async function tryCandidate(candidateName, ctx = {}) {
         || d.reasonCode === 'INSUFFICIENT_EVIDENCE'
       ));
 
-    if (!out.accepted && removalAllowed && !(out.inconclusive && ctx.keepInconclusive)) {
+    if (out.roleErrors.length) {
+      out.keptReason = 'neúplné měření rolí — ponechán k opakování';
+    } else if (!out.accepted && removalAllowed && !(out.inconclusive && ctx.keepInconclusive)) {
       out.removed = await removeModel(candidateName, ctx);
     } else if (!out.accepted) {
       out.keptReason = removalAllowed
@@ -356,7 +376,7 @@ export async function tryCandidate(candidateName, ctx = {}) {
   } catch (err) {
     out.error = err.message;
     out.errorCode = typeof err.code === 'string' ? err.code : null;
-    if (removalAllowed && out.stage !== 'pull') out.removed = await removeModel(candidateName, ctx);
+    out.keptReason = 'provozní chyba — ponechán k opakování';
   } finally {
     if (measurementStarted) await unloadModel(candidateName, ctx).catch(() => {});
   }

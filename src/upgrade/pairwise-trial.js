@@ -101,15 +101,31 @@ async function runSuiteRepeated(
   const runs = [];
   for (let i = 0; i < repeats; i++) {
     if (i > 0 && between) await between();
-    const run = await runner.runSuite(suiteName, model, onProgress, expectedArtifact);
-    // A transport/authority failure is not a zero-quality answer. Reject it
-    // before task aggregation drops error fields and before COMPLETE is saved.
-    if (run.cancelled || !Array.isArray(run.tests) || run.tests.length === 0
-      || (Number.isInteger(run.total) && run.total !== run.tests.length)
-      || run.tests.some(test => test.error || test.timedOut)) {
-      throw Object.assign(new Error(`Incomplete model evaluation: ${model} / ${suiteName}`), {
-        code: 'CANDIDATE_EVALUATION_RETRYABLE',
-      });
+    let run;
+    try {
+      run = await runner.runSuite(suiteName, model, onProgress, expectedArtifact);
+      // Transport/authority failure is not zero-quality evidence.
+      if (run.cancelled || !Array.isArray(run.tests) || run.tests.length === 0
+        || (Number.isInteger(run.total) && run.total !== run.tests.length)
+        || run.tests.some(test => test.error || test.timedOut)) {
+        throw Object.assign(new Error(`Incomplete model evaluation: ${model} / ${suiteName}`), {
+          code: 'CANDIDATE_EVALUATION_RETRYABLE',
+        });
+      }
+    } catch (error) {
+      // Attach identity where the failing inference actually happened. An
+      // incumbent timeout must never become a failure of the candidate.
+      error.evaluationFailure = {
+        model, artifact: expectedArtifact, suiteName, repeat: i + 1,
+        startedAt, completedAt: new Date().toISOString(),
+        cancelled: !!run?.cancelled, total: run?.total ?? null,
+        completedTasks: run?.tests?.length ?? 0,
+        failedTasks: (run?.tests || []).filter(test => test.error || test.timedOut)
+          .map(test => ({ name: test.name, error: test.error || null,
+            timedOut: !!test.timedOut, durationMs: test.durationMs ?? null })),
+        detail: error.detail || null,
+      };
+      throw error;
     }
     runs.push(run);
   }
@@ -227,7 +243,6 @@ export async function comparePair(runner, suiteName, candidate, incumbent, opts 
   // evaluation plan; unit runners may expose their own deterministic suites.
 
   const cache = opts.suiteCache;
-  const candidateCached = cache?.has(cacheKey(suiteName, candidate, opts));
   const incumbentCached = cache?.has(cacheKey(suiteName, incumbent, opts));
 
   // Pořadí je záměrné: oba modely projdou tutéž sadu, ale každý zvlášť, aby
@@ -235,7 +250,7 @@ export async function comparePair(runner, suiteName, candidate, incumbent, opts 
   // na `qwen3.5:27b`, který vedle jiného modelu vyšel jako přetékající.
   const candidateRun = await runSuiteCached(runner, suiteName, candidate, cache, opts);
   // Uvolnit paměť má smysl jen když se druhý model bude skutečně spouštět.
-  if (opts.between && !incumbentCached && !candidateCached) await opts.between();
+  if (opts.between && !incumbentCached) await opts.between();
   const incumbentRun = await runSuiteCached(runner, suiteName, incumbent, cache, opts);
 
   const byName = new Map(incumbentRun.tasks.map(t => [t.name, t]));

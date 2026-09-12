@@ -53,7 +53,8 @@ export class ModelHuntState {
       && result.measurement?.fits === false;
     const floorFailure = result.stage === 'floor' && result.floor?.passed === false
       && !result.floor.failures.some(failure => failure.retryable);
-    const completed = !result.error && result.trials?.some(trial => !trial.skipped)
+    const completed = !result.error && !result.roleErrors?.length
+      && result.trials?.some(trial => !trial.skipped)
       && result.trials.filter(trial => !trial.skipped).every(trial => trial.comparison?.candidateRunId);
     const outcome = completed ? 'COMPLETE' : (cpuSpill || floorFailure ? 'BLOCKED' : 'RETRYABLE');
     this.db.prepare(`INSERT INTO model_hunt_attempts

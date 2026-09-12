@@ -66,6 +66,7 @@ import {
   auditResponsibilitySegregation,
   buildInstalledCandidateQueue,
   createHistoryCallbacks,
+  recordRoleEvaluationFailures,
   evaluationStateForArtifact,
   materializeCurrentHardwareBlocks,
   resolveCurrentBindings,
@@ -820,6 +821,9 @@ for (const cand of toTry) {
           + `${info.tokensPerSecond ?? '—'} tok/s`);
       } else if (stage === 'floorPassed') {
         log(`  ✓ schopnostní minimum prošlo (${info.probes} kontroly)`);
+      } else if (stage === 'roleFailed') {
+        log(`     ${info.role} FAILED (${info.model || 'preparation'}): ${info.error}`);
+        for (const task of info.failedTasks || []) log(`       ${task.name}: ${task.error || 'timeout'}`);
       } else if (stage === 'roleDecided') {
         const d = info.decision;
         log(`     ${info.role.padEnd(7)} ${d.winner === 'candidate' ? 'KANDIDÁT' : 'stávající'}  (${d.basis}) ${d.detail}`);
@@ -829,6 +833,7 @@ for (const cand of toTry) {
     },
   });
   const candidateCompletedAt = new Date().toISOString();
+  r.failureRecords = recordRoleEvaluationFailures({ result: r, history: modelEvaluationHistory, plans: evaluationPlans, hardware: gpu });
   results.push(r);
   huntState.record(cand, huntState.evaluationKey(cand, providerVersion, evaluationPlans, gpu), r);
 
@@ -841,7 +846,7 @@ for (const cand of toTry) {
       // row is evidence only and will never suppress a future artifact.
       artifact = { modelName: cand.name };
     }
-    for (const role of cand.roles) {
+    for (const role of r.stage === 'trial' ? [] : cand.roles) {
       const plan = evaluationPlans[role];
       if (!plan) continue;
       const measuredCpuSpill = r.stage === 'measure'
@@ -880,6 +885,8 @@ for (const cand of toTry) {
     const won = Object.entries(r.decisions).filter(([, d]) => d.winner === 'candidate').map(([x]) => x);
     log(`  → kvalitativní kandidát pro role: ${won.join(', ')}; finální portfolio určí segregace`);
     incumbentSpeed[cand.name] = t ?? 0;
+  } else if (r.roleErrors.length) {
+    log(`  → NEÚPLNÉ: ${r.roleErrors.length} rolí selhalo; ostatní výsledky zachovány, kandidát ponechán`);
   } else if (r.inconclusive) {
     log('  → NEROZHODNUTO — sada kandidáta neodlišila od stávajícího, takže');
     log(`     to neznamená, že je horší. ${r.removed ? 'Smazán.' : 'Ponechán na disku.'}`);

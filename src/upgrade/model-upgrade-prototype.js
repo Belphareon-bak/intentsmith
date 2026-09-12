@@ -195,7 +195,7 @@ export function createHistoryCallbacks(options) {
     }),
     async refreshArtifact(model) {
       artifacts.delete(canonicalModelName(model));
-      return resolveArtifact(model);
+      return this.resolveArtifact(model);
     },
     async loadHistoricalSummary(input) {
       if (!input.suiteContractSha256) return null;
@@ -250,6 +250,26 @@ export function createHistoryCallbacks(options) {
       });
     },
   });
+}
+
+// Only an attempted inference with its captured identity gets an evaluation
+// failure row. Preparation/persistence failures remain in the hunt journal.
+export function recordRoleEvaluationFailures({ result, history, plans, hardware }) {
+  return (result.roleErrors || []).filter(failure => failure.artifact && failure.model)
+    .map(failure => {
+      const plan = plans[failure.role];
+      return history.recordTerminal({
+        artifact: failure.artifact, role: failure.role,
+        suiteName: plan.suiteName, suiteVersion: plan.suiteVersion,
+        contractSha256: plan.suiteContractSha256, repeats: plan.repeats,
+        status: 'FAILED', hardware,
+        errorCode: 'CANDIDATE_EVALUATION_RETRYABLE', errorMessage: failure.error,
+        startedAt: failure.startedAt, completedAt: failure.completedAt,
+        durationMs: Date.parse(failure.completedAt) - Date.parse(failure.startedAt),
+        metadata: { source: 'model-upgrade-hunt-v136.1', stage: 'trial',
+          candidate: result.model, failure },
+      });
+    });
 }
 
 export function evaluationStateForArtifact(artifact, roles, plans, history, hardware = null) {
