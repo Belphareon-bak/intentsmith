@@ -66,13 +66,14 @@ importů může soubor vypadat takto:
   "layers": [{ "name": "app", "roots": ["src"] }],
   "rules": [{ "from": "app", "canImport": ["app"] }],
   "externalImports": [],
-  "sourceExtensions": [".js", ".mjs", ".cjs"],
+  "sourceExtensions": [".cjs", ".js", ".mjs"],
   "requiredChecks": ["imports.allowed", "inventory.complete", "layers.mapped"],
   "unmappedFilePolicy": "unavailable"
 }
 ```
 
 Pravidla upravte podle skutečných vrstev a dovolených importů projektu;
+seznamy přípon, názvů vrstev, pravidel a importů udržujte seřazené bez duplicit.
 prázdné `externalImports` záměrně neumožňují externí knihovny. Uložte výchozí
 soubory, test a pravidla do Git commitu a začněte s čistým pracovním stromem.
 Studio registrací projektu tato pravidla nevytváří. Tato příprava probíhá
@@ -86,8 +87,9 @@ modelů; opakování formuláře samo nepřepne binding ani neinstaluje model.
 
 ## Příklad: šest modulů evidence výdajů
 
-Připravený projekt má adresář `src/`, který governance dovoluje. Po příkazu
-`/m2-build` vložte tento JSON. Jde o paměťovou aplikaci s příkazovým
+Připravený projekt má adresář `src/`, který governance dovoluje. Odešlete jednu
+chatovou zprávu začínající `/m2-build ` a pokračující tímto JSON; samotný
+`/m2-build` otevře formulář. Jde o paměťovou aplikaci s příkazovým
 entrypointem; test kontroluje přidávání, součty, kategorie, čerstvý stav,
 neplatné vstupy a neznámý příkaz. JSON lze napsat na více řádcích.
 

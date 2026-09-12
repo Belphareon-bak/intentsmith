@@ -1,6 +1,6 @@
 # Modelové evaluace a aktivace
 
-**Stav:** současný kontrakt v136.1 · **Aktualizováno:** 2026-09-09
+**Stav:** současný kontrakt v136.1 · **Aktualizováno:** 2026-09-12
 **Implementace:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Přijetí:**
 coverage je implementačně kompletní a čistý finální gate na `53ded662` prošel
 `279/279`; evidence rereview rozsahu `d6137d4c..3f027938` skončilo
@@ -58,6 +58,22 @@ VISION přidává SHA-256 dekódovaných image bytes a CODE přesný výstup
 zastaví sestavení plánu; starý run se proto po sémantické změně promptu nemůže
 znovu vydávat za current.
 
+CODE od `332e7d3d` navíc připíná SHA256 konkrétních bytes sedmi souborů:
+`code-patch-suite.js`, `code-patch-runner.js`, `function-span.js`,
+`code-task-extractor.js`, `build-code-suite.js`, `model-evaluation-runner.js`
+a kořenového `package-lock.json`, spolu s verzí Node. Chybějící soubor blokuje
+sestavení kontraktu; ostatních šest rolí se tím nemění. Parser i spouštěný
+test od `834b134a` používají `process.execPath`. Lock hash není sám o sobě
+attestací nainstalovaných dependencies; instalace musí odpovídat locku.
+
+Staré CODE COMPLETE se neztrácí, ale změněný grading runtime vyžaduje nové
+měření. `src/eval/import-code-panel-history.js` odmítá historický agregovaný
+panel chybou `CODE_PANEL_HISTORY_PROVENANCE_REQUIRED` ještě před DB/provider
+bootstrapem: tento formát nemá původní grader kontrakt a přesnou artefaktovou
+provenienci. Diagnostická kalibrace a existující DB historie zůstávají dostupné.
+[Rozsah opravy a důkazy](review/2026-09-12-BUILD-COMPOSER-CODE-REVIEW-PACKET.md)
+nejsou novým GPU měřením, aktivací bindingu ani přijetím celé evaluace.
+
 Discovery prior je pouze levné pořadí kandidátů. Katalog, universe, raw runtime
 telemetry ani externí benchmark se neukládají jako lokální quality score a
 nesmějí být zobrazeny jako důkaz kvality. Telemetry nesmí vytvářet blacklist,
@@ -100,7 +116,8 @@ všech 12 raw MISSING je `NOT_APPLICABLE`, takže mezi 79 technicky
 kompatibilními páry je `applicable MISSING=0`. Po explicitně autorizovaném
 odstranění čtyř VRAM-blocked artefaktů má současná installed inventory 9
 artefaktů, 55 COMPLETE, 0 BLOCKED, 8 N/A a 0 applicable MISSING. Odstraněné
-exact digesty zůstávají v append-only DB historii; důkaz odstranění je v
+exact digesty zůstávají v append-only DB historii; jde o tehdejší snapshot
+z 2026-08-28, nikoli dnešní census nebo měření nového CODE kontraktu. Důkaz odstranění je v
 [`model-removal-live-20260828.json`](execution/runs/model-removal-live-20260828.json).
 Přesná data a timestampy jsou v
 [`model-scoring-live-20260828.md`](execution/runs/model-scoring-live-20260828.md).

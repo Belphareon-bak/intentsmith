@@ -68,7 +68,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `8/9 REVIEW_PASSED / BACKUP_COMPAT_REMEDIATION_REVIEW_PASSED / HISTORY_DECISION_RECORDED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_PARTIAL / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Review přijalo restore základ `65bcbc4b` i jeho jediný follow-up `b4136a43`. Operátor zvolil `retain_and_rotate`; receipt vznikne až po doložení všech osmi kategorií. LUKS2 médium A drží ověřenou offline kopii tří operátorských klíčů a oddělené LUKS2 médium B právě reviewer key; obě jsou vypnutá. Online zdroj zatím zůstává, protože chybí druhá offline kopie operátorských klíčů. |
-| **M6 IntentSmith 1.0 release** | `CURRENT_DETERMINISTIC_353_PASS / CONTROLLED_PROJECT_BUILD_PASS / REVIEW_REQUIRED / FULL_PROJECT_BUILD_UNPROVEN / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Kandidát `877a3005`: 353/353 deterministic, šestisouborový řízený M2 build/test/rollback/restart, 27 + 7 HTTP kontrol a 2/2 Electron (HTTP/UI bytes z `d09c9998` beze změny). Kladná modelová generace je v tomto řezu fixture; starší fyzický dvousouborový CODE důkaz zůstává historický. Free-text builder, spojený Studio/server/model journey, nezávislé review, integrace huntu a M5/M6 externí podmínky zůstávají otevřené. [Aktuální review packet](docs/review/2026-09-12-PROJECT-BUILD-WEB-REVIEW-PACKET.md). |
+| **M6 IntentSmith 1.0 release** | `CURRENT_DETERMINISTIC_353_PASS / COMPOSER_RUNTIME_VERIFIED / HTTP_PROCESS_RESTART_PASS / DELTA_REVIEW_REQUIRED / FULL_PROJECT_BUILD_UNPROVEN / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Source `a10e3e0d`: 353/353 deterministic a 75 + 7 HTTP; Studio formulář, build a 3/3 Electron na nezměněných produktových/probe bytes z `9462ec0b`. HTTP success i rollback přežijí nový proces nad stejnou DB; model/auth kompozice je řízená fixture. Dodané review webu/builderu na `e87b1ca2` nemá blocker. Nová delta vyžaduje review; free-text builder, spojený fyzický Studio/server/model journey, integrace huntu a M5/M6 externí podmínky zbývají. [Aktuální packet](docs/review/2026-09-12-BUILD-COMPOSER-CODE-REVIEW-PACKET.md). |
 | **M7 Remote Companion** | `UI_SURFACES_REVIEW_PASSED / HOST_GATE_GREEN / DEVICE_NOT_RUN / NOT_ACCEPTED` | M6 + remote boundary | Nezávislé re-review přijalo exact candidate `429b779f`: durable journal guard zavírá settings double-activation okno a held-flush regrese odlišuje staré bytes. Mobile 47/47, runtime 7/7, adapter 8/8, artifact validation 158/158, boundary 0 violations a Android test+lint prošly. Produkční konfigurace, fyzická matice 13+7, TalkBack a release podpisy nejsou hotové. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
@@ -3057,3 +3057,30 @@ optimalizaci setupu dvou testových schémat zůstaly limity i assertions stejn�
 Nezávislé review, fyzický model/journey, integrace cizí hunt větve a M5/M6
 acceptance zůstávají otevřené. Aktuální module graph má 1 321 hran, 3 cykly
 / 28 členů; nevznikl nový testprogram ani produkční importní pár.
+
+### Použitelný Studio builder a CODE provenience — 2026-09-12
+
+Operátor požádal pokračovat bez mikropředání a dodal review webu/builderu
+na `e87b1ca2` bez blockeru. [Přesný výsledek a jeho výluky](docs/review/2026-09-12-WEB-BUILDER-OPERATOR-REVIEW.md)
+zůstávají oddělené od nové delty. Studio nyní nabízí formulář **Připravit změnu**
+pro cíl, soubory, dependencies a doslovné testové argv; stejné M2 API zobrazí
+úplný plán a čeká na výslovné schválení. Opraveny jsou stale origin/approval
+callback i souběh s odesíláním; chyba zachová rozepsané zadání.
+
+CODE cache reuse váže grader/helper/lock bytes a Node verzi; historický panel
+bez této provenience se před DB importem odmítne. Parser/test používá stejný
+Node executable. Historie ani bindingy se nemažou a měření jiných rolí se
+nepřeznačují. Po integraci huntu je nutné nové CODE měření pro společný kontrakt.
+
+Na `a10e3e0d` **353/353 deterministic**, **75 + 7 HTTP**. Nový fyzický DOM
+odmítací scénář a dosavadní M0/M1 Electron prošly **3/3** na `9462ec0b`;
+produktové/probe bytes zůstaly stejné. HTTP dva skutečné restartované procesy
+ověřují success i rollback vadného prvního peeru, se stejnými durable tabulkami
+bez nových efektů. Model/auth/registry jsou řízené fixture. První full run
+**349 PASS / 3 FAIL / 1 TIMEOUT** je zachovaný; opraveny registry/import census,
+M6 fresh-clone membership a změřený setup tool-broker schématu bez změny
+assertions či 30s limitu. [Run record](docs/execution/runs/build-composer-completion-20260912.md),
+[review packet](docs/review/2026-09-12-BUILD-COMPOSER-CODE-REVIEW-PACKET.md),
+[návod](docs/PROJECT-BUILD.md). Nové testy ani spolupracující review nenahrazují
+celý fyzický modelový journey, nezávislé přijetí delty, integraci huntu nebo
+M5/M6 acceptance. Aktuální module graph: 1315 hran, 3 cykly / 28 členů.
