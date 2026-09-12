@@ -12,7 +12,9 @@ import {
 } from '../src/upgrade/model-discovery.js';
 import { UpgradeManager } from '../src/upgrade/upgrade-manager.js';
 import Database from 'better-sqlite3';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { createRoleEvaluationPlans } from '../src/eval/role-evaluation-plan.js';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { up as upLegacyEvaluationSchema } from '../src/db/migrations/2026_03_12_034_v123_validation_results.js';
@@ -502,6 +504,23 @@ test('history reuse requires the exact suite version as well as the contract SHA
     suiteVersion: 'foreign-v1', contractSha256: CONTRACT_A,
   }), null);
   db.close();
+});
+
+test('a pre-runtime-pin CODE result remains historical and cannot satisfy the current grading contract', () => {
+  const db = evaluationDb();
+  try {
+    const history = new ModelEvaluationHistory(db);
+    const plan = createRoleEvaluationPlans({ repeats: 1 }).CODE;
+    const codeFixtureSha256 = createHash('sha256').update(readFileSync(new URL('../src/eval/code-suite-tasks.json', import.meta.url))).digest('hex');
+    const oldContract = suiteContract(plan.suite, { version: plan.suiteVersion, repeats: 1, extra: { codeFixtureSha256 } }).sha256;
+    assert(oldContract !== plan.suiteContractSha256, 'the old helper-blind key must change');
+    const key = { digestSha256: DIGEST_A, role: 'CODE', suiteName: plan.suiteName, suiteVersion: plan.suiteVersion };
+    history.recordComplete({ artifact: { modelName: 'fixture:code', digestSha256: DIGEST_A },
+      role: 'CODE', suiteName: plan.suiteName, suiteVersion: plan.suiteVersion, contractSha256: oldContract, summary: summaryRow() });
+    assert(history.getComplete({ ...key, contractSha256: oldContract }), 'preserve the original measurement');
+    assertEqual(history.getComplete({ ...key, contractSha256: plan.suiteContractSha256 }), null);
+    assertEqual(history.count(), 1, 'no mutation, deletion or fabricated re-evaluation');
+  } finally { db.close(); }
 });
 
 test('history persists the real supplied measurement interval', () => {

@@ -2,6 +2,9 @@
 
 import { suite, test, testAsync, assert, assertEqual, summary } from './harness.js';
 import { createHash } from 'node:crypto';
+import strictAssert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { suiteContract } from '../src/upgrade/model-evaluation-history.js';
 import {
   MODEL_EVALUATION_ARTIFACT_ERROR,
   ModelEvaluationArtifactError,
@@ -20,6 +23,7 @@ import {
   MINIMUM_ROLE_TASK_COUNTS,
   MODEL_EVALUATION_APPLICABILITY_VERSION,
   createRoleEvaluationPlans,
+  codeGradingRuntimeContract,
 } from '../src/eval/role-evaluation-plan.js';
 import { generateSyntheticPng, getSyntheticTestImages } from '../src/eval/synthetic-images.js';
 import { MODEL_PROFILES } from '../src/upgrade/model-profiles.js';
@@ -51,6 +55,38 @@ test('shared reasoning roles use the same exact contract', () => {
   assert(plans.D1.suite === plans.D2.suite && plans.D2.suite === plans.R1.suite);
   assertEqual(plans.D1.suiteContractSha256, plans.D2.suiteContractSha256);
   assertEqual(plans.D2.suiteContractSha256, plans.R1.suiteContractSha256);
+});
+
+test('CODE reuse pins the actual grader/helper/lock bytes and Node runtime', () => {
+  const fixtureSha256 = createHash('sha256').update(readFileSync(new URL('../src/eval/code-suite-tasks.json', import.meta.url))).digest('hex');
+  const hash = runtime => suiteContract(plans.CODE.suite, { version: plans.CODE.suiteVersion, repeats: 1,
+    extra: { codeFixtureSha256: fixtureSha256, codeGradingRuntime: runtime } }).sha256;
+  const runtime = codeGradingRuntimeContract();
+  assertEqual(runtime.nodeVersion, process.version);
+  assertEqual(hash(runtime), plans.CODE.suiteContractSha256, 'the production plan uses the complete runtime contract');
+  for (const relative of Object.keys(runtime.sources)) {
+    assertEqual(runtime.sources[relative], createHash('sha256').update(readFileSync(new URL(relative, new URL('../src/eval/role-evaluation-plan.js', import.meta.url)))).digest('hex'));
+    const changed = codeGradingRuntimeContract(url => {
+      const bytes = readFileSync(url);
+      return url.pathname.endsWith(relative.replace(/^.*\//, '/')) ? Buffer.concat([bytes, Buffer.from('\nchanged')]) : bytes;
+    });
+    assert(hash(changed) !== plans.CODE.suiteContractSha256, `${relative} must invalidate a cached CODE grade`);
+  }
+  assert(hash({ ...runtime, nodeVersion: 'changed-node-runtime' }) !== plans.CODE.suiteContractSha256);
+  for (const [role, plan] of Object.entries(plans)) {
+    if (role === 'CODE') continue;
+    assertEqual(plan.suiteContractSha256, suiteContract(plan.suite, { version: plan.suiteVersion, repeats: 1, extra: null }).sha256,
+      `${role} retains its existing contract`);
+  }
+});
+
+test('unreadable CODE grading material fails closed instead of reusing an unknown grader', () => {
+  for (const name of ['/code-patch-runner.js', '/function-span.js', '/package-lock.json']) {
+    strictAssert.throws(() => codeGradingRuntimeContract(url => {
+      if (url.pathname.endsWith(name)) throw Object.assign(new Error('missing grader material'), { code: 'ENOENT' });
+      return readFileSync(url);
+    }), /missing grader material/);
+  }
 });
 
 test('discovery presentation cannot drift from versioned technical applicability', () => {

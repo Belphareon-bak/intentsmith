@@ -60,9 +60,28 @@ function fileSha256(url) {
   return createHash('sha256').update(readFileSync(fileURLToPath(url))).digest('hex');
 }
 
+// grade.toString() does not include the helper that applies and tests a patch.
+// Cache reuse must change when that grading implementation or its installed
+// dependency contract changes. Reads fail closed; never reuse a name-only or
+// unknown-source grade. The reader argument is only a deterministic test seam;
+// production plans always read these fixed local files with the default reader.
+export function codeGradingRuntimeContract(readSource = readFileSync) {
+  const files = [
+    './code-patch-suite.js', './code-patch-runner.js', './function-span.js',
+    './code-task-extractor.js', './build-code-suite.js', './model-evaluation-runner.js',
+    '../../package-lock.json',
+  ];
+  return Object.freeze({
+    version: 1, nodeVersion: process.version,
+    sources: Object.freeze(Object.fromEntries(files.map(relative => [relative,
+      createHash('sha256').update(readSource(new URL(relative, import.meta.url))).digest('hex')]))),
+  });
+}
+
 export function createRoleEvaluationPlans(opts = {}) {
   const repeats = opts.repeats ?? DEFAULT_REPEATS;
   const codeFixtureSha256 = opts.codeFixtureSha256 || fileSha256(CODE_FIXTURE_URL);
+  const codeGradingRuntime = codeGradingRuntimeContract();
   const codeRuntime = opts.codeRuntimeAvailability || codePatchRuntimeAvailability();
   const plans = {};
   for (const [role, suiteName] of Object.entries(ROLE_SUITE_NAMES)) {
@@ -73,7 +92,7 @@ export function createRoleEvaluationPlans(opts = {}) {
     const contract = suiteContract(suite, {
       version: suiteVersion,
       repeats,
-      extra: suiteName === 'code_patch' ? { codeFixtureSha256 } : null,
+      extra: suiteName === 'code_patch' ? { codeFixtureSha256, codeGradingRuntime } : null,
     });
     const minimumTaskCount = MINIMUM_ROLE_TASK_COUNTS[role];
     const minimumDiscriminatingTasks = MINIMUM_ROLE_DISCRIMINATION[role];
