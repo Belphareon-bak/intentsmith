@@ -76,6 +76,7 @@ Dosavadní 343 PASS / 3 FAIL / 8 BLOCKED se nepovažují za green.
 
 Jediný nový core import `src/betting/watch-mail.js -> src/network/outbound-audit-repository.js`
 zapojuje přesný existující M5 audit writer pro explicitně konfigurovaný SMTP
-efekt. Bude zaznamenán samostatným baseline commitem; graf měří 1317 hran,
+efekt. Zaznamenán autoritativním nástrojem nad čistým `847e2009` s jediným
+přesným `--accept-edge`, v samostatném baseline commitu; graf měří 1317 hran,
 3 cykly / 28 členů, žádná odebraná hrana. Nové přímé efekty z balíčku specialisty
 nevznikly. Žádný push, merge, aktivace sdílené aplikace nebo podání sázky.

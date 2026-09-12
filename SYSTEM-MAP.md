@@ -648,3 +648,7 @@ Změny jsou ve vlastní pracovní větvi, **IMPLEMENTED_SLICE / REVIEW_PENDING**
 Focused 17 + 19 případů PASS; nový celý profil zatím neměřen.
 [Ovládání](specialists/sazeni/README.md), [evidence](docs/review/2026-09-12-SAZENI-WATCH.md),
 [výzkum a párové měření 7 228 zápasů](docs/research/SAZKAR-MARKET-TIMING.md).
+
+Module graph má 1 317 hran. Jediný nový import `watch-mail -> outbound-audit-repository`
+je zaznamenaný z čistého `847e2009` autoritativním ratchetem; žádná odebraná
+hrana, stejné 3 cykly / 28 souborů. Nejde o nezávislé přijetí konektoru.

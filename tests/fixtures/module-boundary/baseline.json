@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "cd3e01bd65069c3b98b1c892307a311ba597af11",
-  "sourceTree": "b6ecd7fbc3f66d7e204a1cb8148d9a383b87cefa",
+  "sourceRevision": "847e20096d1de8dc936fe7ae4d408518d25c7a08",
+  "sourceTree": "621999d54b27677e8b4a342e79bf7018de3b1638",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -83,6 +83,7 @@
     "src/betting/data-store.js -> src/db/migrations/2026_08_26_089_m5_outbound_audit.js",
     "src/betting/default-host.js -> src/betting/data-host.js",
     "src/betting/default-host.js -> src/betting/data-store.js",
+    "src/betting/watch-mail.js -> src/network/outbound-audit-repository.js",
     "src/channels/cli-adapter.js -> src/channels/types.js",
     "src/channels/cli-adapter.js -> src/core/logger.js",
     "src/channels/index.js -> src/channels/cli-adapter.js",

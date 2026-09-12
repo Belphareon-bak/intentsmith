@@ -2937,3 +2937,12 @@ z čistého `cd3e01bd` autoritativním nástrojem s jedním přesným `--accept-
 bez klíče je funkční; Tipsport veřejnou sondu odmítl 403. Nejde o nezávislé
 přijetí nebo aktivaci sdíleného provozu.
 [Důkazy a stav kontrol](docs/review/2026-09-12-SAZENI-PUBLIC.md).
+
+CLI a hlídání kurzů 2026-09-12: module graph má 1 317 hran. Jediný nový spoj
+`src/betting/watch-mail.js -> src/network/outbound-audit-repository.js`
+používá existující M5 audit writer pro explicitně nastavená SMTP upozornění.
+Baseline je zaznamenaná z čistého `847e2009` s jediným přesným `--accept-edge`;
+žádná odebraná hrana, stejné 3 cykly / 28 členů. Uživatelský timer skutečně
+sbírá veřejné kurzy Fortuny; mail čeká na lokální konfiguraci. Stav zůstává
+`IMPLEMENTED_SLICE / REVIEW_PENDING`, bez důkazu predikční výhody.
+[Důkazy a ovládání](docs/review/2026-09-12-SAZENI-WATCH.md).
