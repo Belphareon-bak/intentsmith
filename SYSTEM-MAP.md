@@ -645,7 +645,12 @@ ale +EV zůstává UNVERIFIED. Odchozí SMTP má lokální konfiguraci, jedinéh
 příjemce, TLS, audit, expiraci, deduplikaci a denní limit. Skutečný e-mail je
 MAIL_CONFIGURATION_REQUIRED; lokální historie funguje bez něj.
 Změny jsou ve vlastní pracovní větvi, **IMPLEMENTED_SLICE / REVIEW_PENDING**.
-Focused 17 + 19 případů PASS; nový celý profil zatím neměřen.
+Focused 17 + 19 případů PASS, stejné případy prošly i v celém profilu.
+Čistý `60030f10`, run `2026-09-12T10-25-08-204Z`: **342 PASS / 3 FAIL /
+1 TIMEOUT / 8 BLOCKED**, exit 1. Jediná změna proti předchozímu profilu je
+30s timeout nezměněné sady `m2-effect-broker-v1`; samostatné opakování
+stejným runnerem a limitem prošlo za 27 761 ms. Původní TIMEOUT a celý FAIL
+zůstávají zachované; příčina kolísání není prokázaná. Ostatní non-PASS stejné.
 [Ovládání](specialists/sazeni/README.md), [evidence](docs/review/2026-09-12-SAZENI-WATCH.md),
 [výzkum a párové měření 7 228 zápasů](docs/research/SAZKAR-MARKET-TIMING.md).
 
