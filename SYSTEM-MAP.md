@@ -591,3 +591,8 @@ plánované doručování, Studio formulář a rozšířené zdroje xG/sestav ne
 [reprodukovatelný výzkum a benchmark](docs/research/2026-09-12-AUTONOMOUS-BETTING.md),
 [pracovní zadání](docs/wp/WP-SAZENI-AUTONOMOUS-20260912.md).
 Předchozí datované výsledky testů zůstávají historickou evidencí svých revizí.
+
+Autonomní sázkař v3 přidává šest deklarovaných core importů: aktuální graf
+má 1 315 hran, 3 cykly / 28 souborů. Přesný seznam byl zaznamenán samostatně
+z čistého `52c3ffb9` bez zvýšení limitů; toto není nezávislé přijetí konektoru.
+[Implementační evidence a non-PASS](docs/review/2026-09-12-SAZENI-AUTONOMOUS.md).
