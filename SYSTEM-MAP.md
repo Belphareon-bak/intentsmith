@@ -134,7 +134,7 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 | | |
 |---|---:|
 | `src/**/*.js` | **222 781 ř.**, 605 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **240 963 ř.**, 518 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **240 979 ř.**, 518 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **512** (`418 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **176 / 99** |
 | HTTP rout | ~230 |

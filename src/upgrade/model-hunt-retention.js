@@ -161,7 +161,7 @@ export async function pruneRejectedHuntModels({ registry, journal, getInventory,
     } catch (error) {
       if (approved) journal.recordRetention({ ...candidate, artifact: approved.artifact }, approved.key, { status: 'DELETE_FAILED', proof: approved,
         error: error.message, code: error.code || null });
-      results.push({ model: candidate.name, status: 'KEPT', reason: error.code || error.message });
+      results.push({ model: candidate.name, status: approved ? 'DELETE_FAILED' : 'KEPT', reason: error.code || error.message });
     }
   }
   return results;

@@ -1154,6 +1154,22 @@ await testAsync('retention audits authorization before deletion and preserves th
   assertEqual(results.filter(r => r.status === 'DELETED').length, 1);
 });
 
+await testAsync('an unconfirmed deletion is reported as failed, never as a confirmed kept model', async () => {
+  const f = retentionFixture(); const events = [];
+  const results = await pruneRejectedHuntModels({ ...f,
+    registry: { deleteRejectedModel: async (_name, _options, recheck) => {
+      await recheck({ inventory: f.inventory, artifact: { digestSha256: f.inventory[0].digest } });
+      throw Object.assign(new Error('provider outcome unknown'), { code: 'MODEL_DELETE_PROVIDER_UNAVAILABLE' });
+    } },
+    journal: { recordRetention: (_candidate, _key, data) => events.push(data.status) },
+    getInventory: async () => f.inventory, getBindings: () => f.bindings,
+    getProviderVersion: async () => f.history.providerVersion, assertIdle: async () => {},
+  });
+  assertEqual(events.join(','), 'APPROVED,DELETE_FAILED');
+  assertEqual(results[0].status, 'DELETE_FAILED');
+  assertEqual(results[0].reason, 'MODEL_DELETE_PROVIDER_UNAVAILABLE');
+});
+
 await testAsync('rejection journal prevents re-download but releases changed artifact and evaluation conditions', async () => {
   const { runMigrations } = await import('../src/db/migrate.js');
   const { ModelHuntState } = await import('../src/upgrade/model-hunt-state.js');
