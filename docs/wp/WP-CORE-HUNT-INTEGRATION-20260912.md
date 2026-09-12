@@ -40,3 +40,33 @@ preserves SQL/schema/durable assertions and the 60s limit. This WP remains
 `REVIEW_PENDING`, separate from release acceptance and later foreign retention.
 [Run](../execution/runs/core-hunt-integration-20260912.md) ·
 [Review packet](../review/2026-09-12-CORE-HUNT-INTEGRATION-REVIEW-PACKET.md).
+
+
+## Authorized follow-up: completed hunt and Studio capture, 2026-09-12
+
+Operator explicitly asks to connect the remaining hunt or do other outstanding
+work. Inputs: verified core `16fed51f` and completed committed hunt `ee4472d5`
+(clean foreign checkout when inventoried). Reuse this one owned checkout on
+`work/hunt-retention-integration-20260912`; no extra worktree. Root owns merge
+resolution, current documentation, explicit graph repin, retention integration
+regressions and diagnosis/remediation of the observed Studio M1 capture failure.
+The existing model registry/authority connector stays the mutation boundary;
+no additional activation, deletion, binding or authority is performed here.
+
+Retain web 113, its exact retired-stamp adoption, canonical provider Decision
+048 plus historical alias, CODE runtime provenance and both setup optimizations.
+Review the complete all-role retention call path and provider/claim rechecks.
+Run focused model/history/registry/schema and unchanged full deterministic +
+registry gates on a clean pin. For the observed Studio failure, establish a
+specific cause before changing behavior; keep strict network assertions, add
+an appropriate regression if a defect is established, and run built Electron
+probes on fixed bytes. Retain original failures and separate controlled runtime
+from a physical model journey. CPU work continues if GPU is occupied.
+
+Verification: `npm run test:registry`; `npm run test:deterministic` with the
+existing git/bwrap/bubblewrap/prlimit/python-pdf-runtime allowances and explicit
+local PDF Python; registered model/registry/schema tests; private no-GPU Studio
+runner. Follow-up is complete as implementation evidence when these checks
+pass and a pinned review packet records results and unresolved boundaries.
+Independent review/release acceptance, live DB, running services/models, foreign
+work and operator custody remain outside this write scope. No push/deploy.
