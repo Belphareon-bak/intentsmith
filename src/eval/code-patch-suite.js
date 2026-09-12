@@ -259,7 +259,7 @@ export function buildTests(repo = REPO_ROOT, tasks = null) {
  * Runner s vlastními parametry volání.
  *
  * Výchozí hodnoty runneru jsou `num_ctx` 4096, `num_predict` 512 a timeout
- * 30 s. Vadná
+ * 120 s. Vadná
  * funkce se do 4096 tokenů nevejde, odpověď se do 512 tokenů nevejde a studené
  * načtení modelu s 2000 tokeny odpovědi trvalo změřeně 122 s.  Bez vlastních
  * parametrů by se tedy jako „selhání modelu" počítalo uříznuté generování.
@@ -327,7 +327,7 @@ export class CodePatchEvaluationRunner extends ModelEvaluationRunner {
     if (result.error) {
       return {
         name: testDef.name, passed: false, score: 0, response: '',
-        durationMs: result.durationMs, evalTokens: 0, error: result.error,
+        durationMs: result.durationMs, evalTokens: 0, error: result.error, timedOut: !!result.timedOut,
       };
     }
 

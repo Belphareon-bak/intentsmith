@@ -13,7 +13,7 @@ import path from 'node:path';
 import {
   changedLines, deriveTask, buildPrompt, extractFunctionCode, extractFunctionCodes,
   applyAndTest, verifyTask, addedTestNames, parseTestOutput, scoreFromOutput, normalizedGain,
-  runIsolatedTests,
+  runIsolatedTest, runIsolatedTests,
 } from '../src/eval/code-patch-runner.js';
 
 function git(repo, args) {
@@ -643,6 +643,22 @@ test('rozporný název testu se počítá jako spadlý', () => {
   const parsed = parseTestOutput('  ✅ stejny nazev\n  ❌ stejny nazev: rozbite\n');
   assert(!parsed.passed.has('stejny nazev'), 'rozporný název zůstal mezi prošlými');
   assert(parsed.failed.has('stejny nazev'), 'rozporný název chybí mezi spadlými');
+});
+
+test('isolated model tests receive a private database instead of the parent database', () => {
+  const work = mkdtempSync(path.join(tmpdir(), 'codepatch-env-'));
+  const original = process.env.C3_DB_PATH;
+  try {
+    process.env.C3_DB_PATH = '/not-a-real-path/parent-production.sqlite';
+    writeFileSync(path.join(work, 'environment.cjs'), 'process.stdout.write(process.env.C3_DB_PATH);');
+    const result = runIsolatedTest(work, 'environment.cjs', 15000);
+    assert(result.passed, result.output);
+    assertEqual(result.output.trim(), path.join(work, 'eval-scratch.sqlite'));
+  } finally {
+    if (original === undefined) delete process.env.C3_DB_PATH;
+    else process.env.C3_DB_PATH = original;
+    rmSync(work, { recursive: true, force: true });
+  }
 });
 
 summary();

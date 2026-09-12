@@ -458,7 +458,7 @@ export function runIsolatedTest(work, testFile, timeout = DEFAULT_TEST_TIMEOUT) 
   try {
     const out = execFileSync('unshare', ['-rn', 'sh', '-c', inner], {
       cwd: work, timeout, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
-      stdio: ['ignore', 'pipe', 'pipe'],
+      stdio: ['ignore', 'pipe', 'pipe'], env,
     });
     return { passed: true, timedOut: false, output: out || '' };
   } catch (err) {

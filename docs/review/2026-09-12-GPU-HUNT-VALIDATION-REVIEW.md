@@ -60,6 +60,13 @@ Jeho PASS není důkazem, že delší hunt nemá provozní vady.
    cohort/first-seen. Stažení historického kandidáta jej neoznačí INCREMENTAL.
    Lokální klíč zůstává z plného digestu a kvalitativní proof se nezkracuje.
 
+10. CODE executor nyní předává privátní `C3_DB_PATH` i větvi `unshare`.
+    Fallback přes systemd ji předával již dříve. Probe se stejným
+    `NoNewPrivileges=true` jako hunt na tomto hostu potvrdila odmítnutí
+    `unshare` při zápisu `uid_map`; dnešní služba tedy používá správně
+    izolovaný fallback. Regrese ověřuje, že dítě dostane vlastní DB místo
+    cesty rodiče. CODE runner také zachová `timedOut` v diagnostice inference.
+
 ## Validace
 
 Focused: candidate 36, pairwise 37, upgrade 70, consolidation 16, read model 17,
