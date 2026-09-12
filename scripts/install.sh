@@ -644,7 +644,11 @@ echo ""
 echo "    3. Try your first prompt in the chat panel"
 echo ""
 
-if [ "$OLLAMA_OK" = false ]; then
+if [ "$OFFLINE" = true ]; then
+  echo -e "  ${YELLOW}Note:${NC} Ollama availability was not checked in offline mode."
+  echo "       Verify your local provider before using model-backed IntentSmith features."
+  echo ""
+elif [ "$OLLAMA_OK" = false ]; then
   echo -e "  ${YELLOW}Note:${NC} Ollama is not running. Start it before model-backed IntentSmith features:"
   echo "       ollama serve &"
   echo ""
