@@ -49,3 +49,11 @@ all stored history. Pin actual parser/test executable to process.execPath,
 use literal argv across the shell boundary and pass the private scratch DB
 environment on both isolation paths. This restores evidence provenance; no
 new history import protocol or fresh measurement is invented.
+
+The existing Electron network scenario intentionally excludes DOM observation.
+Reuse its isolation/cleanup in a separately registered `studio-m2-composer-dom`
+entry and explicit DOM helper. Root owns the shared runner, its contract test,
+CDP reducer and focused test, plus registry/document reconciliation. Only the
+new scenario expects exactly one authenticated draft POST 503 from a project
+without governance; original M0/M1 policies must still reject that response.
+No screenshot exception, hidden response replacement or model inference.

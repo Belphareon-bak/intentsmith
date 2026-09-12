@@ -81,6 +81,10 @@
     {
       "path": "tests/run-all.js",
       "reason": "Aggregate compatibility entry point; registering it as a child suite would recurse into the registry runner."
+    },
+    {
+      "path": "tests/helpers/studio-m2-composer-dom.js",
+      "reason": "Explicit visual DOM probe invoked only by studio-m2-composer-dom.e2e.js through the shared Electron harness; not a standalone suite."
     }
   ],
   "suites": [
@@ -15628,6 +15632,41 @@
       },
       "required": true,
       "owner": "M2 bounded code draft",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T5-TESTS-STUDIO-M2-COMPOSER-DOM-E2E",
+      "path": "tests/studio-m2-composer-dom.e2e.js",
+      "argv": [
+        "node",
+        "tests/studio-m2-composer-dom.e2e.js"
+      ],
+      "capabilityId": "C3-001",
+      "tier": "T5",
+      "fixture": "isolated-home-owned-loopback-electron-composer-dom",
+      "profile": "server",
+      "timeoutMs": 300000,
+      "expectedDurationMs": 120000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false,
+        "toolchain": [
+          "linux-user-network-namespace",
+          "iproute2",
+          "x11-display"
+        ]
+      },
+      "required": true,
+      "owner": "primary implementer",
       "state": "ACTIVE",
       "lastGreen": {
         "commit": null,

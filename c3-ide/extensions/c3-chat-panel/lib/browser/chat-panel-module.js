@@ -6305,7 +6305,7 @@ function _m2ComposerUI(idx,s,st){
   var inputStyle={width:'100%',boxSizing:'border-box',padding:'6px 8px',borderRadius:5,border:'1px solid '+C.border2,background:C.bg3,color:C.tx1,fontFamily:C.font,fontSize:_fs(12)};
   var buttonStyle={padding:'5px 9px',borderRadius:5,border:'1px solid '+C.border2,background:C.bg3,color:C.tx1,cursor:'pointer',fontSize:_fs(11)};
   function field(label,id,value,change,multiline,placeholder){return h('label',{htmlFor:prefix+id,style:{display:'block',marginBottom:8,fontSize:_fs(11),color:C.tx2}},label,
-    h(multiline?'textarea':'input',{id:prefix+id,style:inputStyle,value:value,disabled:locked,rows:multiline?2:undefined,placeholder:placeholder||'',
+    h(multiline?'textarea':'input',{id:prefix+id,style:inputStyle,value:value,disabled:locked,autoFocus:id==='instruction'&&current&&!locked,rows:multiline?2:undefined,placeholder:placeholder||'',
       onChange:function(event){change(event.target.value);form.error=null;renderChat();}}));}
   return h('section',{'aria-label':'Připravit změnu projektu',style:{padding:10,borderTop:'1px solid '+C.border,background:C.bg2,maxHeight:'55vh',overflowY:'auto',flexShrink:0},onClick:function(event){event.stopPropagation();}},
     h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:8}},h('strong',{style:{fontSize:_fs(13),color:C.tx1}},'Připravit změnu'),
@@ -6339,9 +6339,25 @@ function _m2ActionsUI(idx,s,st){
   if(!pending&&!st._m2DraftController)return null;
   var viewed=s._m2PresentedPlan;
   var canApprove=pending&&viewed&&viewed.lifecycleId===pending.lifecycleId&&viewed.planDigest===pending.planDigest&&_m2SameOrigin(viewed.origin,pending.origin);
-  function action(label,cmd,disabled){return h('button',{type:'button',disabled:disabled,
+  function sendBusy(){return !!st._preparedSend||(typeof C3WS!=='undefined'&&C3WS.hasActiveM1Turn(s));}
+  function action(label,cmd,disabled){return h('button',{type:'button',disabled:disabled||(cmd!=='/m2-cancel'&&sendBusy()),
     style:{padding:'5px 8px',borderRadius:5,border:'1px solid '+C.border2,background:C.bg3,color:C.tx1,cursor:'pointer',fontSize:_fs(11)},
-    onClick:function(){_m2HandleStudioCommand(idx,s,st,null,cmd,cmd,'');}},label);}
+    onClick:function(){
+      // React may not have committed a newly loaded plan yet. This button is
+      // authority only for the exact binding captured by its own render.
+      if(cmd==='/m2-approve'){
+        var live=_m2NormalizePending(s._m2Pending);var shown=s._m2PresentedPlan;
+        if(!canApprove||!live||live.lifecycleId!==pending.lifecycleId||live.planDigest!==pending.planDigest||!_m2SameOrigin(live.origin,pending.origin)
+          ||!shown||shown.lifecycleId!==pending.lifecycleId||shown.planDigest!==pending.planDigest||!_m2SameOrigin(shown.origin,pending.origin)){
+          st.msgs.push({role:'system',text:'Zobrazený plán se změnil. Načtěte a zkontrolujte aktuální návrh před schválením.',tag:'M2_ERROR'});renderChat();return;
+        }
+      }
+      // Recheck at click time too: a previously rendered button may outlive
+      // the start of a normal chat/attachment send. Cancellation stays usable.
+      if(cmd!=='/m2-cancel'&&sendBusy()){
+        st.msgs.push({role:'system',text:'Nejdřív dokončete nebo zrušte probíhající chatový požadavek.',tag:'M2_ERROR'});renderChat();return;
+      }
+      _m2HandleStudioCommand(idx,s,st,null,cmd,cmd,'');}},label);}
   return h('div',{'aria-label':'Akce připravené změny',style:{padding:'6px 10px',borderTop:'1px solid '+C.border,fontSize:_fs(11),color:C.tx2},onClick:function(event){event.stopPropagation();}},
     h('div',null,pending?(canApprove?'Před schválením zkontrolujte úplné obsahy souborů a test v návrhu výše.':'Nejdřív načtěte uložený plán a prohlédněte změny.'): 'Připravuji návrh souborů.'),
     h('div',{style:{display:'flex',gap:6,flexWrap:'wrap',marginTop:5}},

@@ -11,6 +11,7 @@ export const STUDIO_ROUTE_IDS = Object.freeze({
   AGENTS_LIST: 'agents-list',
   MEDIA_HISTORY: 'media-history',
   SETTINGS: 'settings',
+  M2_LIFECYCLE_DRAFT: 'm2-lifecycle-draft',
   SYSTEM_INFO: 'system-info',
   WORKSPACE: 'workspace',
   CHAT: 'chat',
@@ -42,6 +43,12 @@ export const STUDIO_M1_POLICY = Object.freeze({
   ...STUDIO_M0_POLICY,
   requiredBackendWebSocketCount: 2,
   requiredClosedBackendWebSocketCount: 1,
+});
+
+// Only the separately registered composer DOM scenario expects this rejection.
+export const STUDIO_M2_COMPOSER_POLICY = Object.freeze({
+  ...STUDIO_M0_POLICY,
+  requiredM2DraftPolicyRejection: true,
 });
 
 const CAPABILITY_PATTERN = /^[A-Za-z0-9_-]{43}$/;
@@ -182,6 +189,7 @@ function classifyBackendPath(pathname) {
     ['/api/agents', STUDIO_ROUTE_IDS.AGENTS_LIST],
     ['/api/media/history', STUDIO_ROUTE_IDS.MEDIA_HISTORY],
     ['/api/settings', STUDIO_ROUTE_IDS.SETTINGS],
+    ['/api/m2/lifecycle/draft', STUDIO_ROUTE_IDS.M2_LIFECYCLE_DRAFT],
     ['/api/system/info', STUDIO_ROUTE_IDS.SYSTEM_INFO],
     ['/api/workspace', STUDIO_ROUTE_IDS.WORKSPACE],
     ['/chat', STUDIO_ROUTE_IDS.CHAT],
@@ -902,6 +910,12 @@ export function evaluateStudioCdpEvidence(
   }
 
   const actualHttp = snapshot.http.filter(record => record.methodClass !== 'OPTIONS');
+  if (policy.requiredM2DraftPolicyRejection === true) {
+    const drafts = actualHttp.filter(record => record.routeId === STUDIO_ROUTE_IDS.M2_LIFECYCLE_DRAFT);
+    if (drafts.length !== 1 || drafts[0].count !== 1 || drafts[0].methodClass !== 'POST' || drafts[0].status !== 503) {
+      failures.push(failure('m2-draft-policy-rejection-missing-or-duplicated'));
+    }
+  }
   for (const routeId of policy.requiredHttpRoutes) {
     if (!actualHttp.some(record => (
       record.routeId === routeId && record.methodClass === 'GET'
@@ -945,10 +959,14 @@ export function evaluateStudioCdpEvidence(
     const mediaDisabled = record.routeId === STUDIO_ROUTE_IDS.MEDIA_HISTORY
       && record.methodClass === 'GET'
       && record.status === 404;
+    const m2DraftPolicyRejection = policy.requiredM2DraftPolicyRejection === true
+      && record.routeId === STUDIO_ROUTE_IDS.M2_LIFECYCLE_DRAFT
+      && record.methodClass === 'POST'
+      && record.status === 503;
     if (
       record.redirected
       || record.terminalClass !== 'response'
-      || (!mediaDisabled && record.statusClass !== '2xx')
+      || (!mediaDisabled && !m2DraftPolicyRejection && record.statusClass !== '2xx')
     ) {
       failures.push(failure('http-status-contract-failed', { routeId: record.routeId }));
     }

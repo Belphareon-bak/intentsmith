@@ -253,6 +253,7 @@ function controlledStudio({ pending = true, paths = ['src/app.js'], activeM1 = t
   vm.runInContext(source.slice(source.indexOf('function _m2IsRecord'), source.indexOf('/* ── M4 learning')), sandbox);
   vm.runInContext(functionSlice('_chatSendPane', '_chatGapChoice'), sandbox);
   return { session, pane, calls, view, textarea,
+    setActiveM1(value) { activeM1 = value; },
     openComposer() { sandbox._m2OpenComposer(0); return pane._m2Composer; },
     submitComposer(form = pane._m2Composer) { sandbox._m2SubmitComposer(0, session, pane, form); },
     actionButtons() {
@@ -595,7 +596,29 @@ test('restored approval button requires loading and displaying its exact plan be
 test('changing a loaded plan digest disables its approval button', async () => {
   const studio = controlledStudio({ activeM1: false });
   studio.command('/m2-status');studio.calls[0].resolve(studio.view);await flushStudio();
+  const oldApprove = studio.actionButtons()[1];
   studio.session._m2Pending = { ...studio.session._m2Pending, planDigest: 'sha256:' + 'b'.repeat(64) };
   assert.equal(studio.actionButtons()[1].props.disabled, true);
+  studio.session._m2PresentedPlan = studio.session._m2Pending;
+  assert.equal(studio.actionButtons()[1].props.disabled, false, 'new render belongs to the new exact binding');
+  oldApprove.props.onClick();
   assert.equal(studio.calls.length, 1);
+  assert.match(studio.pane.msgs.at(-1).text, /Zobrazený plán se změnil/);
+});
+
+test('action buttons preserve chat/attachment send exclusion even when the rendered button is stale', async () => {
+  for (const kind of ['model-turn', 'prepared-attachment']) {
+    const studio = controlledStudio({ activeM1: false });
+    studio.command('/m2-status');studio.calls[0].resolve(studio.view);await flushStudio();
+    const oldButtons = studio.actionButtons();
+    if (kind === 'model-turn') studio.setActiveM1(true);else studio.pane._preparedSend = {};
+    assert.equal(studio.actionButtons()[0].props.disabled, true);
+    assert.equal(studio.actionButtons()[1].props.disabled, true);
+    oldButtons[0].props.onClick();oldButtons[1].props.onClick();
+    assert.equal(studio.calls.length, 1, 'no status or approval overlaps the pending send');
+    const cancel = studio.actionButtons()[2];
+    assert.equal(cancel.props.disabled, false, 'cancel remains usable');
+    cancel.props.onClick();assert.match(studio.calls[1].url, /\/cancel$/);
+    studio.calls[1].resolve(studio.terminal());await flushStudio();
+  }
 });

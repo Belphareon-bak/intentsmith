@@ -10,8 +10,8 @@ Spouštěné Studio UI je stále přechodný runtime, nikoli finální vzhled In
 
 **Verze:** 136.1.0, vývojový kandidát 1.0. Aktuální počty testovacích programů
 jsou v [generovaném registru](docs/convergence/TEST-REGISTRY.md):
-**515 registrovaných testovacích programů**
-(`421 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
+**516 registrovaných testovacích programů**
+(`422 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
 
 Přijaté milníky M0–M4 nejsou přijetím celého releasu. M5 ještě vyžaduje
 podepsané privacy podklady a správu operátorských klíčů; M6 úplný skutečný
@@ -333,14 +333,14 @@ intentsmith/
 │   ├── report-gen.json           #   Generování reportů
 │   └── summarizer.json           #   Sumarizace textu
 │
-├── tests/                        # Testy a kanonický registr 511 programů
+├── tests/                        # Testy a kanonický registr 516 programů
 │   ├── harness.js                #   Custom ESM test harness
 │   ├── cre-*.test.js             #   CRE testy (401+)
 │   ├── lifecycle-*.test.js       #   Lifecycle testy (103+)
 │   ├── code-intel-*.test.js      #   Code Intelligence testy (339+)
 │   ├── execution-loop.test.js    #   Execution Engine testy (597+)
 │   ├── upgrade-*.test.js         #   Model Upgrade testy
-│   └── registry.json             #   Kanonický registr 515 programů
+│   └── registry.json             #   Kanonický registr 516 programů
 │
 ├── docs/                         # Aktivní dokumentace + archiv
 │   ├── ARCHITECTURE.md           #   Kompletní architektura

@@ -19,6 +19,7 @@ import {
   validateFunctional,
   validateM1Functional,
   validateM1SoakLifecycle,
+  validateM2ComposerEvidence,
   validateSoakLifecycle,
 } from './studio-electron-boundary.e2e.js';
 
@@ -726,6 +727,70 @@ test('runner source has no soak-duration override or process.env spread', () => 
   assert.match(source, /networkPolicy\.requiredSoakMs/);
   assert.match(source, /--user[\s\S]*--map-root-user[\s\S]*--net/);
   assert.match(source, /detached: false/);
+});
+
+test('separate visual DOM journey requires explicit opt-in and keeps default M0/M1 evidence unchanged', () => {
+  const source = fs.readFileSync(new URL('./studio-electron-boundary.e2e.js', import.meta.url), 'utf8');
+  const entry = fs.readFileSync(new URL('./studio-m2-composer-dom.e2e.js', import.meta.url), 'utf8');
+  const probe = fs.readFileSync(new URL('./helpers/studio-m2-composer-dom.js', import.meta.url), 'utf8');
+  assert.match(entry, /await runStudioM2ComposerDomJourney\(\)/);
+  assert.match(source, /runStudioM2ComposerDomJourney\(\) \{\s*await outerMain\(\{ m2ComposerJourney: true \}\)/);
+  assert.match(source, /const m2ComposerJourney = options\.m2ComposerJourney === true/);
+  assert.match(source, /if \(m2ComposerJourney\) childEnv\[M2_COMPOSER_JOURNEY_ENV\] = '1'/);
+  assert.match(source, /const composerProbe = m2ComposerJourney\s*\? await import\('\.\/helpers\/studio-m2-composer-dom\.js'\)\s*: null/);
+  assert.match(source, /if \(m1Journey && m2ComposerJourney\) fail/);
+  assert.match(probe, /document\.getElementById/);
+  assert.match(probe, /HTMLTextAreaElement\.prototype/);
+  assert.match(probe, /dispatchEvent\(new Event\('input'/);
+  assert.doesNotMatch(probe, /window\._c3|_m2HandleStudioCommand|_m2SubmitComposer|\.onClick\(|fetch\s*=/);
+});
+
+test('composer PASS evidence requires actual rejection, exact input, context checks and zero model or approval effects', () => {
+  const valid = {
+    "scope": "built-dom-production-authenticated-policy-rejection",
+    "status": 503,
+    "errorCode": "M2_LIFECYCLE_POLICY_UNAVAILABLE",
+    "fixtureRegistrationRequests": 3,
+    "draftRequests": 1,
+    "approvalRequests": 0,
+    "unexpectedMutationRequests": 0,
+    "modelProviderRequests": 0,
+    "originExact": true,
+    "literalArgvExact": true,
+    "contextInvalidated": true,
+    "discarded": true,
+    "inputRetained": true,
+    "focusRetained": true,
+    "ordinaryChatRetained": true,
+    "targetFilesAbsent": true
+  };
+  assert.equal(validateM2ComposerEvidence(valid), true);
+  assert.equal(validateM2ComposerEvidence(null), false);
+  for (const [key, value] of Object.entries(valid)) {
+    assert.equal(validateM2ComposerEvidence({ ...valid, [key]: typeof value === 'boolean' ? false : null }), false, key);
+  }
+  const args = {
+    sourceRevision: SHA, observationDurationMs: 65_050, networkCaptureDurationMs: 78_050,
+    snapshot: validSnapshot(), networkVerdict: { verdict: 'PASS', failures: [] },
+    negative: [], functional: validFunctional(),
+    byteBridge: { exposed: true, pick: 'function', read: 'function', forgedOk: false, forgedCode: 'M1_BRIDGE_TOKEN_UNKNOWN', pathApis: [] },
+    soakMonitor: validSoak(), positiveBoundaryStatus: 200,
+    buildDigests: { electronMainSha256: DIGEST, frontendBundleSha256: DIGEST, frontendIndexSha256: DIGEST, preloadSha256: DIGEST },
+    shutdown: { electron: validExit(), backend: validExit({ requestedSignal: 'SIGTERM' }) },
+    portFileRemoved: true, logDigests: { backend: DIGEST, electron: DIGEST },
+    buildComposer: { ...valid, rawPayload: 'PRIVATE_COMPOSER_CANARY' },
+  };
+  const ordinary = successEvidence(args);
+  assert.equal(ordinary.uiEvaluation, 'excluded-non-final-ui');
+  assert.equal(ordinary.evidenceType, 'intentsmith.studio-electron-boundary');
+  assert.equal(Object.hasOwn(ordinary, 'buildComposer'), false);
+  const evidence = successEvidence({ ...args, m2ComposerJourney: true });
+  assert.equal(evidence.evidenceType, 'intentsmith.studio-m2-composer-dom');
+  assert.equal(evidence.uiEvaluation, 'built-dom-composer-policy-rejection');
+  assert.deepEqual(evidence.buildComposer, valid);
+  assert.equal(JSON.stringify(evidence).includes('PRIVATE_COMPOSER_CANARY'), false);
+  assert.throws(() => successEvidence({ ...args, m2ComposerJourney: true, buildComposer: null }), /composer-evidence-contract-failed/);
+  assert.throws(() => successEvidence({ ...args, m2ComposerJourney: true, m1Journey: true }), /composer-evidence-contract-failed/);
 });
 
 summary();

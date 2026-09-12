@@ -53,6 +53,37 @@ Pro malou změnu 1–3 JS souborů zůstává `/m2-draft src/app.js :: zadání`
 Pro ručně hotové obsahy slouží `/m2-plan <JSON změn>`. Běžný volný text
 SPEC→BUILD ještě tímto příkazem není automaticky napojen na úplný builder.
 
+## Příprava malého JavaScript projektu
+
+Nejprve v editoru připravte adresář `src/` a funkční test, například
+`tests/app.test.js`. Vlastní pravidla projektu uložte do
+`.c3/m2-governance-policy.json`. Pro jednu aplikační vrstvu bez externích
+importů může soubor vypadat takto:
+
+```json
+{
+  "policyId": "local-app",
+  "layers": [{ "name": "app", "roots": ["src"] }],
+  "rules": [{ "from": "app", "canImport": ["app"] }],
+  "externalImports": [],
+  "sourceExtensions": [".js", ".mjs", ".cjs"],
+  "requiredChecks": ["imports.allowed", "inventory.complete", "layers.mapped"],
+  "unmappedFilePolicy": "unavailable"
+}
+```
+
+Pravidla upravte podle skutečných vrstev a dovolených importů projektu;
+prázdné `externalImports` záměrně neumožňují externí knihovny. Uložte výchozí
+soubory, test a pravidla do Git commitu a začněte s čistým pracovním stromem.
+Studio registrací projektu tato pravidla nevytváří. Tato příprava probíhá
+v editoru a Gitu pod vaší správou; formulář generování ji neprovádí.
+
+Pokud se návrh odmítne, zkontrolujte příčinu zobrazenou ve formuláři: chybějící
+policy opravte v uvedeném souboru, chybějící adresář vytvořte před generací,
+příliš velký kontext rozdělte do menších změn. Při změně pracovního stromu
+vytvořte nový návrh nad aktuálním stavem. Chybějící model řešte ve správě
+modelů; opakování formuláře samo nepřepne binding ani neinstaluje model.
+
 ## Příklad: šest modulů evidence výdajů
 
 Připravený projekt má adresář `src/`, který governance dovoluje. Po příkazu

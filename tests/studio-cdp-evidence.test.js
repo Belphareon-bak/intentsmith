@@ -6,6 +6,7 @@ import { suite, test, summary } from './harness.js';
 import {
   STUDIO_M0_POLICY,
   STUDIO_M1_POLICY,
+  STUDIO_M2_COMPOSER_POLICY,
   STUDIO_ROUTE_IDS,
   classifyNetworkTarget,
   createStudioCdpEvidenceReducer,
@@ -957,6 +958,44 @@ test('non-Network UI events do not become part of the evidence contract', () => 
   target.ingest('Page.frameNavigated', { url: 'file:///home/alice/UI_SECRET' });
   target.ingest('DOM.documentUpdated', { value: 'UI_SECRET' });
   assert.deepEqual(target.snapshot(), before);
+});
+
+test('composer policy accepts one exact authenticated POST draft 503 while M0/M1 still reject it', () => {
+  const target = completeObservation();
+  ingestHttp(target, { path: '/api/m2/lifecycle/draft', method: 'POST', status: 503 });
+  const snapshot = target.snapshot();
+  assert.equal(evaluateStudioCdpEvidence(snapshot, STUDIO_M2_COMPOSER_POLICY).verdict, 'PASS');
+  for (const policy of [STUDIO_M0_POLICY, STUDIO_M1_POLICY]) {
+    assert.equal(failureCodes(evaluateStudioCdpEvidence(snapshot, policy)).has('http-status-contract-failed'), true);
+  }
+  const record = snapshot.http.find(item => item.routeId === STUDIO_ROUTE_IDS.M2_LIFECYCLE_DRAFT);
+  assert.equal(record.status, 503);
+  assert.equal(record.capabilityClass, 'match');
+  assert.equal(record.originClass, 'opaque');
+});
+
+test('composer policy fails on absent, duplicate, different-path, different-method and different-status rejection', () => {
+  assert.equal(evaluateStudioCdpEvidence(completeObservation().snapshot(), STUDIO_M2_COMPOSER_POLICY).verdict, 'FAIL');
+  for (const overrides of [
+    { path: '/api/m2/lifecycle/approve' }, { method: 'GET' }, { status: 200 }, { status: 500 },
+    { wireHeaders: actualHeaders({ [CAPABILITY_HEADER]: WRONG_CAPABILITY }) },
+    { wireHeaders: actualHeaders({ Origin: 'https://example.invalid' }) },
+    { wireHeaders: actualHeaders({ 'Sec-Fetch-Site': 'same-origin' }) },
+    { wireResponseHeaders: responseHeaders({ 'Access-Control-Allow-Origin': '*' }) },
+  ]) {
+    const target = completeObservation();
+    ingestHttp(target, { path: '/api/m2/lifecycle/draft', method: 'POST', status: 503, ...overrides });
+    assert.equal(evaluateStudioCdpEvidence(target.snapshot(), STUDIO_M2_COMPOSER_POLICY).verdict, 'FAIL', JSON.stringify(overrides));
+  }
+  const duplicate = completeObservation();
+  for (const id of ['draft-one', 'draft-two']) {
+    ingestHttp(duplicate, { id, path: '/api/m2/lifecycle/draft', method: 'POST', status: 503 });
+  }
+  assert.equal(evaluateStudioCdpEvidence(duplicate.snapshot(), STUDIO_M2_COMPOSER_POLICY).verdict, 'FAIL');
+  const unrelatedError = completeObservation();
+  ingestHttp(unrelatedError, { path: '/api/m2/lifecycle/draft', method: 'POST', status: 503 });
+  ingestHttp(unrelatedError, { path: '/api/m2/lifecycle/approve', method: 'POST', status: 503 });
+  assert.equal(evaluateStudioCdpEvidence(unrelatedError.snapshot(), STUDIO_M2_COMPOSER_POLICY).verdict, 'FAIL');
 });
 
 summary();
