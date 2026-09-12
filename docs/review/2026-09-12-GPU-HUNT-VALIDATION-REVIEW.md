@@ -52,7 +52,17 @@ Jeho PASS není důkazem, že delší hunt nemá provozní vady.
 Focused: candidate 36, pairwise 37, upgrade 70, consolidation 16, read model 17,
 vše bez selhání. Regrese pokrývá chybu incumbenta mezi dvěma úspěšnými rolemi,
 správnou identitu FAILED, zákaz mazání a RETRYABLE přes dílčí COMPLETE.
-Celý offline/database gate a nové GPU běhy budou doplněny po dokončení.
+První clean-clone offline/database gate na `794f1e57`: **351 PASS / 1 FAIL**.
+Selhal pouze artifact-validation kvůli neaktualizovanému počtu modulových hran
+v ROADMAP po přidání importu výchozích parametrů (1 309 → 1 310). Census je
+opraven následným dokumentačním commitem; původní neúspěšný report zůstává.
+
+R1 runtime retry na `794f1e57` dokončil Phi4 vs Qwen3.8 ve třech opakováních,
+bez chyb a bez mazání. COMPLETE: `eval_b38990fd-a001-43d3-92e6-3b287ab57aa8`
+(Phi4 0.875) a `eval_32646596-2845-4821-b90d-e7980880759d` (Qwen3.8 0.95).
+Tři stabilně rozlišující úlohy, marže kandidáta -0.200, incumbent quality win.
+Service skončila exit 0 a uvolnila GPU i port. Nová vzdálená dávka na `ab4da3b9`
+testuje North Mini Code a Ornith 1.5 v D2/CODE/R2/CHAT; výsledky budou doplněny.
 
 Evidence root:
 `/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912`.

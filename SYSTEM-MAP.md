@@ -560,3 +560,8 @@ aktuální coverage před širší dávkou byla 2 COMPLETE / 60 applicable MISSI
 8 N/A. Úvodní hunt s limitem 13 kandidátů byl spuštěn pod samostatnou user
 service 2026-09-11 ve 23:14 CEST; jeho dokončení se tímto netvrdí.
 [Strojová evidence včetně předchozích neúspěšných gate](docs/execution/runs/gpu-hunt-production-20260911.json).
+
+Validační oprava GPU huntu 2026-09-12: module graph má 1 310 hran.
+Nová hrana `model-evaluation-history -> model-evaluation-runner` zahrnuje
+efektivní výchozí parametry inference do suite contract hash. Cykly zůstávají
+3 / 28. Timeout cold loadu a per-role chyby mají [samostatný review follow-up](docs/review/2026-09-12-GPU-HUNT-VALIDATION-REVIEW.md); acceptance je otevřená.

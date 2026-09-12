@@ -2921,3 +2921,8 @@ v `tests/fixtures/module-boundary/baseline.json`; nejde o nový acceptance verdi
 Provider-specific hunt checkpoint 2026-09-11: module graph má 1 309 hran.
 Jediná nová hrana `model-hunt-state -> model-identity` sdílí kanonické
 jméno pro append-only discovery ledger; cykly zůstávají 3 / 28.
+
+Validační oprava GPU huntu 2026-09-12: module graph má 1 310 hran.
+Nová hrana `model-evaluation-history -> model-evaluation-runner` zahrnuje
+efektivní výchozí parametry inference do suite contract hash. Cykly zůstávají
+3 / 28. Timeout cold loadu a per-role chyby mají [samostatný review follow-up](docs/review/2026-09-12-GPU-HUNT-VALIDATION-REVIEW.md); acceptance je otevřená.
