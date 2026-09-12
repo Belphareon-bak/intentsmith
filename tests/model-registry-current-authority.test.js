@@ -319,6 +319,49 @@ await testAsync('delete revalidates exact provider name and digest before one ef
   assertEqual(drift.deletes.length, 0);
 });
 
+
+for (const scenario of ['allow', 'proof-changed', 'binding-changed', 'digest-changed', 'rollback-protected']) {
+  await testAsync(`hunt deletion checks inside the mutation owner: ${scenario}`, async () => {
+    const db = createTestDb(); let locked = false; let effects = 0; let reads = 0; let checks = 0;
+    const priorBaseUrl = config.ollama.baseUrl;
+    let protectedNames = scenario === 'rollback-protected' ? ['delete-fixture:latest'] : [];
+    try {
+      config.ollama.baseUrl = 'http://127.0.0.1:11435';
+      for (const role of Object.keys(config.models)) config.models[role] = `safe-${role.toLowerCase()}`;
+      const registry = new ModelRegistry();
+      registry.init({ db, modelMutationBaseUrl: 'http://127.0.0.1:11434', modelBindingApplication: {
+        getProtectedModelNames: () => protectedNames,
+        runExclusiveModelMutation: async (_input, callback) => { locked = true; try { return await callback(); } finally { locked = false; } },
+      } });
+      globalThis.fetch = async (url, request = {}) => {
+        assert(locked, 'provider effect must be inside the mutation owner');
+        assert(url.startsWith('http://127.0.0.1:11434/'), 'mutation uses writable system provider');
+        if (url.endsWith('/api/tags')) {
+          reads++;
+          return { ok: true, json: async () => ({ models: [{ name: 'delete-fixture:latest', size: GiB,
+            digest: scenario === 'digest-changed' && reads > 1 ? DIGEST_B : DIGEST_A }] }) };
+        }
+        if (url.endsWith('/api/delete')) { effects++; assertEqual(JSON.parse(request.body).name, 'delete-fixture:latest'); return { ok: true }; }
+        throw new Error('unexpected provider call');
+      };
+      let error;
+      try {
+        await registry.deleteRejectedModel('delete-fixture', { source: 'AUTO_CLEANUP', expectedDigestSha256: DIGEST_A },
+          async ({ inventory, artifact }) => {
+            assert(locked); assertEqual(reads, 2); checks++;
+            assertEqual(inventory.length, 1); assertEqual(artifact.digestSha256, DIGEST_A);
+            if (scenario === 'proof-changed') throw new Error('RETENTION_RECHECK_FAILED');
+            if (scenario === 'binding-changed') protectedNames = ['delete-fixture'];
+          });
+      } catch (e) { error = e; }
+      assertEqual(effects, scenario === 'allow' ? 1 : 0);
+      assertEqual(Boolean(error), scenario !== 'allow');
+      if (scenario === 'rollback-protected') { assertEqual(reads, 0); assertEqual(checks, 0); }
+      if (scenario === 'digest-changed') assertEqual(checks, 0);
+    } finally { db.close(); restoreBindings(); config.ollama.baseUrl = priorBaseUrl; globalThis.fetch = originalFetch; }
+  });
+}
+
 suite('registry evaluation and retention read path');
 
 await testAsync('overview exposes exact evaluation score, digest and timestamp', async () => {

@@ -166,7 +166,8 @@ Před opětovným spuštěním timeru po změně scoring kontraktů se musí sho
 prázdný sdílený GPU slot a dostatečnou diskovou rezervu. Každý stažený artefakt
 se změří při produkčním contextu; nenulový CPU placement zapíše pouze terminal
 `BLOCKED/CANDIDATE_VRAM_FIT_FAILED` a nepustí model do quality sad. Timer nikdy
-nemění binding a bez explicitního `--allow-removal` model nemaže. Dokumentace
+nemění binding. Operátorem autorizované `--prune-rejected` odstraňuje pouze
+artefakty s ověřenou celkovou nevhodností; detail je níže. Dokumentace
 nepřipíná přesný příští timestamp, protože jej po každém reloadu může změnit
 `RandomizedDelaySec`.
 
@@ -199,16 +200,25 @@ platí jen pro stejný provider/hardware/context. Neznámá katalogová revize
 zůstává mimo automatický pull. Změna již instalovaného tagu se objeví v
 `catalogUpdatesRequiringManualImport`, bez přepsání aktivního artefaktu.
 
-Zůstává 40 GiB disková rezerva a výchozí zákaz mazání. Bootstrap může
+Zůstává 40 GiB disková rezerva. Ruční běh bez `--prune-rejected` nic nemaže. Bootstrap může
 pokračovat v několika vlnách; nedostatek disku je `STORAGE_BLOCKED`, nikoli
 kvalitativní verdikt. Prázdný nebo již dokončený tick neměří incumbenty.
 
-Po osvědčení huntu má automatický úklid uvolňovat místo po prokazatelně
-nepřínosných kandidátech. Podmíněné zadání a kritéria jsou v
-[Decision 044 — uchování kandidátů](decisions/044-reproducible-evaluation-provider.md#upřesnění-operátora--uchování-kandidátů).
-Dosavadní široký `--allow-removal` tuto policy nesplňuje; během současné
-počáteční dávky zůstává vypnutý. Nedokončený nebo nerozlišený test není důvod
-pro odstranění modelu.
+Operátor 2026-09-12 výslovně autorizoval úzké automatické mazání.
+`--prune-rejected` provede úklid před discovery i po dokončení dávky;
+`--run --prune-rejected --prune-only --scheduled` provede jen úklid bez inference.
+Noční service používá `--prune-rejected`. Kritéria a zbývající review:
+[Decision 044 — uchování kandidátů](decisions/044-reproducible-evaluation-provider.md#výslovná-aktivace-operátorem-2026-09-12).
+
+K odstranění vede buď ověřený CPU spill při produkčním kontextu, nebo jasná
+prohra ve všech použitelných rolích na aktuálním provideru, GPU, kontextu a
+sadách proti aktuálním digestům incumbentů. Chybějící data, timeout, remíza,
+INSUFFICIENT_EVIDENCE, vítězství v jedné roli a chráněný rollback znamenají
+ponechat. Podmínky se znovu ověří uvnitř registry těsně před efektem.
+Historie a rejection receipt zůstávají v DB; stejné zamítnuté katalogové revize
+se za stejných podmínek znovu nestahují. Nedostatek místa sám mazání nepovoluje.
+Starý CLI `--allow-removal` je alias této úzké cesty, nikoli povolení inline
+mazání částečných candidate trials. Serverový age-based cleanup zůstává oddělený.
 
 Nová měření ukládají `metadata_json.provider.version` a API/report ukazují
 `providerVersion`. Starší evidence má `UNRECORDED`. Aktuální default build

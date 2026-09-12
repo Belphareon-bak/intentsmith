@@ -73,4 +73,29 @@ export class ModelHuntState {
   summary() {
     return this.db.prepare(`SELECT cohort, count(*) AS observed FROM model_hunt_catalog GROUP BY cohort`).all();
   }
+
+  recordRetention(candidate, key, retention, now = new Date().toISOString()) {
+    if (!key.startsWith('retention:') || !['APPROVED', 'DELETED', 'DELETE_FAILED'].includes(retention.status)) {
+      throw new Error('HUNT_RETENTION_RECORD_INVALID');
+    }
+    const [observed] = this.observe([candidate]);
+    if (!observed.hunt?.key) throw new Error('HUNT_RETENTION_IDENTITY_MISSING');
+    this.db.prepare(`INSERT INTO model_hunt_attempts
+      (attempt_id, candidate_key, evaluation_key, outcome, completed_at, result_json)
+      VALUES (?, ?, ?, 'BLOCKED', ?, ?)`).run(`hunt_${randomUUID()}`, observed.hunt.key,
+      key, now, JSON.stringify({ retention }));
+  }
+
+  isRejected(candidate, key) {
+    const id = huntCandidateIdentity(candidate);
+    if (!id || !key) return false;
+    // A catalog fingerprint schedules work; a full installed digest must
+    // match exactly. Do not mistake a changed local artifact for an old one.
+    return Boolean(this.db.prepare(`SELECT 1 FROM model_hunt_attempts a
+      JOIN model_hunt_catalog c ON c.candidate_key = a.candidate_key
+      WHERE c.model_name = ? AND a.evaluation_key = ?
+        AND (c.revision = ? OR (? = 12 AND substr(c.revision, 1, 12) = ?))
+        AND json_extract(a.result_json, '$.retention.status') = 'APPROVED'
+      LIMIT 1`).get(id.name, key, id.revision, id.revision.length, id.revision));
+  }
 }

@@ -21,7 +21,7 @@ import { up as upEvaluationHistory } from '../src/db/migrations/2026_08_22_070_m
 import {
   ModelEvaluationHistory, suiteContract,
 } from '../src/upgrade/model-evaluation-history.js';
-import { textTask } from '../src/eval/role-quality-suites.js';
+import { textTask, RoleQualityEvaluationRunner } from '../src/eval/role-quality-suites.js';
 import {
   auditResponsibilitySegregation, buildInstalledCandidateQueue,
   materializeCurrentHardwareBlocks, resolveCurrentBindings,
@@ -31,6 +31,9 @@ import {
   acquireGpuEvaluationLock, assessCandidateDownloadHeadroom,
   assessScheduledEvaluationReadiness,
 } from '../src/upgrade/gpu-evaluation-lock.js';
+
+import { assessHuntRetention, huntRetentionKey, pruneRejectedHuntModels } from '../src/upgrade/model-hunt-retention.js';
+import { createRoleEvaluationPlans } from '../src/eval/role-evaluation-plan.js';
 
 const ASYNC_TEST_TIMEOUT_MS = 10_000;
 
@@ -1061,6 +1064,156 @@ test('only the failed model and attempted role receive a terminal row', () => {
   assertEqual(writes[0].errorCode, 'CANDIDATE_EVALUATION_RETRYABLE');
   assertEqual(writes[0].metadata.failure.code, failure.code);
 });
+
+
+function retentionFixture() {
+  const bindings = { D1: 'qwen3.5:27b', CODE: 'qwen3.5:27b', CHAT: 'qwen3.5:27b',
+    D2: 'qwen3.8:latest', R1: 'qwen3.8:latest', R2: 'qwen3:14b', VISION: 'llava-llama3:8b' };
+  const inventory = ['llava:13b', ...new Set(Object.values(bindings))].map((name, i) => ({
+    name, digest: (i + 1).toString(16).repeat(64), capabilities: ['completion', 'vision'],
+    details: { parameter_size: '13B' }, size: 1024,
+  }));
+  const plans = createRoleEvaluationPlans({ codeRuntimeAvailability: { ready: true } });
+  const hardware = { model: 'test GPU', vramMb: 24576, numCtx: 32768 };
+  const rows = new Map();
+  for (const [role, plan] of Object.entries(plans)) for (const m of inventory) {
+    const loser = m.name === 'llava:13b';
+    rows.set(`${m.digest}:${role}`, { runId: `${m.name}-${role}`, status: 'COMPLETE', role,
+      artifact: { modelName: m.name, digestSha256: m.digest },
+      suiteName: plan.suiteName, suiteVersion: plan.suiteVersion, contractSha256: plan.suiteContractSha256,
+      repeats: 3, score: loser ? 0.2 : 1,
+      tasks: plan.suite.tests.map(t => ({ name: t.name, language: t.language, mean: loser ? 0.2 : 1, spread: 0 })),
+      hardware: { ...hardware }, metadata: { provider: { version: '0.34.0', proof: 'RESPONSE_BOUND' } },
+      tokensPerSecond: loser ? 100 : 40, vramBytes: 1024,
+    });
+  }
+  return { modelName: 'llava:13b', inventory, bindings, plans, hardware, rows,
+    history: { providerVersion: '0.34.0', getComplete: ({ digestSha256, role }) => rows.get(`${digestSha256}:${role}`) } };
+}
+
+await testAsync('retention requires clear repeated losses in every applicable role without inference', async () => {
+  const f = retentionFixture();
+  const result = await assessHuntRetention(f);
+  assert(result.eligible);
+  assertEqual(result.roles.join(','), 'D2,CODE,R2,CHAT,VISION');
+  assertEqual(result.trials.length, 5);
+  assert(result.trials.every(t => t.comparison.candidateRunId && t.comparison.incumbentRunId));
+});
+
+for (const [label, change] of [
+  ['missing VISION despite complete CODE', f => f.rows.delete(`${f.inventory[0].digest}:VISION`)],
+  ['failed role', f => { f.rows.get(`${f.inventory[0].digest}:R2`).status = 'FAILED'; }],
+  ['blocked role', f => { f.rows.get(`${f.inventory[0].digest}:R2`).status = 'BLOCKED'; }],
+  ['older provider', f => { f.rows.get(`${f.inventory[0].digest}:CODE`).metadata.provider.version = '0.32.14'; }],
+  ['unattested response', f => { f.rows.get(`${f.inventory[0].digest}:CODE`).metadata.provider.proof = 'RUN_PREFLIGHT'; }],
+  ['different GPU', f => { f.rows.get(`${f.inventory[0].digest}:CODE`).hardware.model = 'other GPU'; }],
+  ['different context', f => { f.rows.get(`${f.inventory[0].digest}:CODE`).hardware.numCtx = 4096; }],
+  ['old suite', f => { f.rows.get(`${f.inventory[0].digest}:CODE`).contractSha256 = 'f'.repeat(64); }],
+  ['single repetition', f => { f.rows.get(`${f.inventory[0].digest}:CODE`).repeats = 1; }],
+  ['missing task', f => { f.rows.get(`${f.inventory[0].digest}:CODE`).tasks.pop(); }],
+  ['unresolved suite', f => { f.plans = { ...f.plans, CODE: { ...f.plans.CODE, decisionReady: false } }; }],
+  ['vision win', f => { const r = f.rows.get(`${f.inventory[0].digest}:VISION`); r.score = 1; r.tasks.forEach(t => { t.mean = 1; }); }],
+  ['noisy results', f => { f.rows.get(`${f.inventory[0].digest}:CODE`).tasks.forEach(t => { t.spread = 1; }); }],
+  ['capabilities unavailable', f => { delete f.inventory[0].capabilities; }],
+  ['protected current binding', f => { f.bindings.VISION = f.modelName; }],
+]) await testAsync(`retention keeps candidate: ${label}`, async () => {
+  const f = retentionFixture(); change(f); assertEqual((await assessHuntRetention(f)).eligible, false);
+});
+
+await testAsync('retention rechecks binding/evidence drift immediately before the registry effect', async () => {
+  const f = retentionFixture(); let effects = 0; const audit = [];
+  const registry = { deleteRejectedModel: async (name, options, recheck) => {
+    f.rows.delete(`${f.inventory[0].digest}:VISION`);
+    await recheck({ inventory: f.inventory, artifact: { digestSha256: options.expectedDigestSha256 } });
+    effects++; return { deleted: name };
+  } };
+  const result = await pruneRejectedHuntModels({ ...f, registry,
+    journal: { recordRetention: (...row) => audit.push(row) },
+    getInventory: async () => f.inventory, getBindings: () => f.bindings,
+    getProviderVersion: async () => f.history.providerVersion, assertIdle: async () => {},
+  });
+  assertEqual(effects, 0); assertEqual(audit.length, 0);
+  assert(result.every(r => r.status === 'KEPT'));
+});
+
+await testAsync('retention audits authorization before deletion and preserves the exact artifact receipt', async () => {
+  const f = retentionFixture(); const events = [];
+  const results = await pruneRejectedHuntModels({ ...f,
+    registry: { deleteRejectedModel: async (name, options, recheck) => {
+      assertEqual(options.expectedDigestSha256, f.inventory[0].digest);
+      await recheck({ inventory: f.inventory, artifact: { digestSha256: options.expectedDigestSha256 } });
+      events.push('effect'); return { deleted: name, digestSha256: options.expectedDigestSha256 };
+    } },
+    journal: { recordRetention: (candidate, _key, r) => {
+      assertEqual(candidate.artifact.digestSha256, f.inventory[0].digest); events.push(r.status);
+    } },
+    getInventory: async () => f.inventory, getBindings: () => f.bindings,
+    getProviderVersion: async () => f.history.providerVersion, assertIdle: async () => {},
+  });
+  assertEqual(events.join(','), 'APPROVED,effect,DELETED');
+  assertEqual(results.filter(r => r.status === 'DELETED').length, 1);
+});
+
+await testAsync('rejection journal prevents re-download but releases changed artifact and evaluation conditions', async () => {
+  const { runMigrations } = await import('../src/db/migrate.js');
+  const { ModelHuntState } = await import('../src/upgrade/model-hunt-state.js');
+  const db = new Database(':memory:'); await runMigrations(db);
+  const state = new ModelHuntState(db); const f = retentionFixture();
+  const full = { ...f.inventory[0], artifact: { digestSha256: f.inventory[0].digest } };
+  const catalog = { name: full.name, catalogDigest: full.artifact.digestSha256.slice(0, 12) };
+  state.observe([catalog], { initialize: true });
+  const key = huntRetentionKey({ ...f, providerVersion: f.history.providerVersion });
+  state.recordRetention(full, key, { status: 'APPROVED', proof: { runIds: ['exact-run'] } });
+  assert(state.isRejected(catalog, key)); assert(state.isRejected(full, key));
+  assert(!state.isRejected({ ...full, artifact: { digestSha256: full.artifact.digestSha256.slice(0, 12) + 'f'.repeat(52) } }, key));
+  for (const changed of [
+    { providerVersion: '0.35.0' }, { hardware: { ...f.hardware, numCtx: 4096 } },
+    { inventory: f.inventory.map((m, i) => i === 1 ? { ...m, digest: 'f'.repeat(64) } : m) },
+    { plans: { ...f.plans, CODE: { ...f.plans.CODE, suiteContractSha256: 'f'.repeat(64) } } },
+  ]) assert(!state.isRejected(catalog, huntRetentionKey({ ...f, providerVersion: f.history.providerVersion, ...changed })));
+  assertEqual(db.prepare('SELECT count(*) AS n FROM model_hunt_attempts').get().n, 1);
+  db.close();
+});
+
+
+await testAsync('VISION sends four PNG image requests and one no-image control through the actual runner', async () => {
+  const original = globalThis.fetch; const requests = [];
+  try {
+    globalThis.fetch = async (_url, options) => {
+      const body = JSON.parse(options.body); requests.push(body);
+      return { ok: true, json: async () => ({ model: body.model, digest: DIGEST_A,
+        provider_version: '0.34.0', message: { content: '{}' } }) };
+    };
+    const runner = new RoleQualityEvaluationRunner('http://127.0.0.1:11435');
+    await runner.runSuite('vision_v2', 'qwen3.8:latest', null, {
+      modelName: 'qwen3.8:latest', digestSha256: DIGEST_A, providerVersion: '0.34.0',
+    });
+    assertEqual(requests.length, 5);
+    const images = requests.flatMap(r => r.messages.flatMap(m => m.images || []));
+    assertEqual(images.length, 4);
+    assert(images.every(i => Buffer.from(i, 'base64').subarray(1, 4).toString() === 'PNG'));
+    assertEqual(requests.filter(r => r.messages.every(m => !m.images?.length)).length, 1);
+  } finally { globalThis.fetch = original; }
+});
+
+
+for (const scenario of ['verified-spill', 'transient-error', 'unverified-provider', 'different-context', 'contradictory-complete']) {
+  await testAsync(`hardware retention: ${scenario}`, async () => {
+    const f = retentionFixture();
+    const block = { runId: 'placement', status: 'BLOCKED', errorCode: 'CANDIDATE_VRAM_FIT_FAILED',
+      artifact: { modelName: f.modelName, digestSha256: f.inventory[0].digest }, hardware: { ...f.hardware },
+      metadata: { numCtx: 32768, sizeBytes: 3000, vramBytes: 2000, cpuBytes: 1000,
+        provider: { version: '0.34.0', proof: 'RUN_PREFLIGHT' } } };
+    f.history.getHardwareBlock = () => block;
+    if (scenario !== 'contradictory-complete') f.rows.clear();
+    if (scenario === 'transient-error') block.errorCode = 'CANDIDATE_MEASURE_RETRYABLE';
+    if (scenario === 'unverified-provider') block.metadata.provider.version = '0.32.14';
+    if (scenario === 'different-context') block.metadata.numCtx = 4096;
+    const result = await assessHuntRetention(f);
+    assertEqual(result.eligible, scenario === 'verified-spill');
+    if (result.eligible) assertEqual(result.placementEvidence.runId, 'placement');
+  });
+}
 
 const { passed, failed } = summary();
 process.exit(failed > 0 ? 1 : 0);

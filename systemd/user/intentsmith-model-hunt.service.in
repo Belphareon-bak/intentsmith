@@ -12,5 +12,5 @@ TimeoutStartSec=12h
 TimeoutStopSec=15s
 KillMode=control-group
 NoNewPrivileges=true
-ExecStart=@NODE_BIN@ @PROJECT_ROOT@/scripts/run-model-hunt-provider.js --run --limit=2 --keep-inconclusive --scheduled
+ExecStart=@NODE_BIN@ @PROJECT_ROOT@/scripts/run-model-hunt-provider.js --run --limit=2 --keep-inconclusive --prune-rejected --scheduled
 Nice=10

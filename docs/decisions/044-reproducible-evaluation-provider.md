@@ -65,8 +65,37 @@ Prováděcí kritéria pro navazující implementaci a review:
 - Odstraňuje se lokální artefakt. Výsledky, důvod vyřazení a audit zůstávají
   v DB, aby se stejný zamítnutý artefakt bez změny podmínek znovu nestahoval.
 
-Tato kritéria zatím nejsou implementovanou retention policy. Automatické
-mazání zůstává vypnuté, dokud jeho nová cesta neprokáže uvedené chování.
+### Výslovná aktivace operátorem, 2026-09-12
+
+Operátor nyní požaduje zapnout automatické mazání modelů, které se průkazně
+nehodí pro žádnou roli. Nahrazuje tím předchozí podmínku čekat s aktivací.
+Implementace `--prune-rejected` má dvě úzké větve:
+
+- Stejný artefakt, provider a GPU/context mají ověřený
+  `CANDIDATE_VRAM_FIT_FAILED` s kladným CPU offloadem. Provozní timeout nestačí;
+  protichůdné current COMPLETE odstranění blokuje.
+- Kandidát jasně prohraje všechny technicky použitelné role proti aktuálním
+  přesným bindingům. Každá role má tři opakování, aktuální kontrakt, dostatek
+  stabilně rozlišujících úloh, většinu incumbenta, zápornou marži alespoň
+  ve výši role threshold a také celkovou score ztrátu alespoň v této výši.
+  Samotné `INCUMBENT_QUALITY` nestačí. Rychlost a VRAM se zaznamenají;
+  současná quality-first policy rychlostí nepřebíjí průkaznou kvalitativní prohru.
+
+Obě větve zachovají aktivní, desired a rollback modely. Před efektem se uvnitř
+registry mutation owneru a exclusive durable artifact claimu opakuje proof,
+provider, klid GPU a binding ochrana. Systémový provider 11434 vlastní zápis
+modelového skladu; sidecar 11435 slouží evaluaci. Žádná binding application,
+rollback změna ani odstraňování historie nejsou součástí tohoto zadání.
+
+Append-only hunt journal uchová schválení, důkazy a výsledek odstranění.
+Scheduler neopakuje stažení zamítnuté katalogové revize, dokud se nezmění
+provider, GPU/context, sada/policy nebo přesní incumbenti. Katalogový otisk
+pouze plánuje; lokální mazání stále vyžaduje plný digest. Ruční `--only`
+zůstává explicitním diagnostickým override scheduleru.
+
+Serverový starší age-based auto-cleanup se tímto nezapíná. CLI legacy spelling
+`--allow-removal` nyní vede stejnou úzkou cestou; inline mazání v candidate trial
+CLI nikdy nezapíná. Nezávislé review zůstává PENDING.
 
 ## Omezení
 

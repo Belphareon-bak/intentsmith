@@ -12,9 +12,8 @@
 //   node scripts/model-upgrade-hunt.js --shortlist          jen fáze 0+1 (nic nestahuje)
 //   node scripts/model-upgrade-hunt.js --role=CODE --run    jen jedna role
 //
-// Mazání kandidátů je od 2026-08-20 **vypnuté**, dokud validační sady
-// nerozlišují — verdikt „neuspěl" dnes často znamená „nešlo změřit".
-// Zapíná se vědomě: --allow-removal
+// --prune-rejected removes only exact artifacts clearly losing every
+// applicable role. --prune-only performs this maintenance without inference.
 //   node scripts/model-upgrade-hunt.js --run --limit=3      zkusí 3 nejlepší kandidáty
 //   node scripts/model-upgrade-hunt.js --run --only=qwen3.8:27b
 //   node scripts/model-upgrade-hunt.js --run --installed-panel
@@ -54,7 +53,7 @@ import {
 } from '../src/upgrade/vram-measurement.js';
 import { tryCandidate } from '../src/upgrade/candidate-trial.js';
 import { buildCandidates } from '../src/upgrade/model-discovery.js';
-import { canonicalModelName } from '../src/upgrade/model-identity.js';
+import { canonicalModelName, normalizeModelDigestSha256 } from '../src/upgrade/model-identity.js';
 import {
   CHAT_QUALITY_VERSION, RoleQualityEvaluationRunner, describeChatTests,
 } from '../src/eval/role-quality-suites.js';
@@ -78,6 +77,8 @@ import {
   holdGpuEvaluationLock,
 } from '../src/upgrade/gpu-evaluation-lock.js';
 import { ModelHuntState } from '../src/upgrade/model-hunt-state.js';
+import { huntRetentionKey, pruneRejectedHuntModels } from '../src/upgrade/model-hunt-retention.js';
+import { createModelBindingApplication, createOllamaModelBindingProvider } from '../src/upgrade/model-binding-application.js';
 import { TASK_MARGIN_EPSILON } from '../src/upgrade/pairwise-trial.js';
 
 const args = process.argv.slice(2);
@@ -96,8 +97,11 @@ if (!/^\d+$/.test(limitInput) || !Number.isSafeInteger(LIMIT) || LIMIT < 1) {
 const ONLY = (val('only') || '').split(',').map(s => s.trim()).filter(Boolean);
 // Kandidát, kterého sada nerozlišila, nebyl horší — jen to nešlo změřit.
 const KEEP_INCONCLUSIVE = flag('keep-inconclusive');
-// Mazání je vypnuté, dokud sady nerozlišují (pravidlo z 2026-08-20).
-const ALLOW_REMOVAL = flag('allow-removal');
+// The legacy CLI spelling now also selects the narrow proof-based path.
+const PRUNE_REJECTED = flag('prune-rejected') || flag('allow-removal');
+const PRUNE_ONLY = flag('prune-only');
+if (PRUNE_ONLY && (!PRUNE_REJECTED || !DO_RUN)) throw new Error('--prune-only requires --run --prune-rejected');
+const retentionSweeps = [];
 const SHOW_CHAT_TESTS = flag('show-chat-tests');
 const REMOTE_ONLY = flag('remote-only');
 const EXPORT_CHAT_HISTORY = flag('export-chat-history');
@@ -120,6 +124,7 @@ if (AS_JSON) {
   logger.error = () => {};
 }
 const emitJsonArtifact = payload => {
+  if (PRUNE_REJECTED) payload = { ...payload, retentionSweeps };
   if (REPORT_PATH) writeFileSync(REPORT_PATH, `${JSON.stringify(payload, null, 2)}\n`);
   if (AS_JSON) console.log(JSON.stringify(payload, null, 2));
 };
@@ -381,6 +386,71 @@ const bindingRepository = createModelFailoverRepository(db);
 const evaluationRunner = new RoleQualityEvaluationRunner(config.ollama?.baseUrl);
 const evaluationPlans = createRoleEvaluationPlans();
 
+const currentBindingNames = inventory => {
+  const names = resolveCurrentBindings(config.models, bindingRepository, ALL_ROLES).bindings;
+  if (inventory) for (const role of ALL_ROLES) {
+    const desired = bindingRepository.getDesired(role);
+    const installed = inventory.find(row => canonicalModelName(row.name) === canonicalModelName(names[role]));
+    if (!desired || desired.digestSha256 !== normalizeModelDigestSha256(installed?.digest)
+      || canonicalModelName(desired.modelName) !== canonicalModelName(names[role])) throw new Error('RETENTION_BINDING_DRIFT');
+  }
+  return names;
+};
+const retentionContext = inventory => ({ inventory, bindings: currentBindingNames(inventory),
+  plans: evaluationPlans, hardware: gpu, providerVersion });
+async function assertRetentionIdle() {
+  for (const baseUrl of new Set([config.ollama.baseUrl, PULL_PROVIDER_URL])) {
+    const response = await fetch(`${baseUrl}/api/ps`, { signal: AbortSignal.timeout(8000) });
+    const body = response.ok ? await response.json() : null;
+    if (!Array.isArray(body?.models)) throw new Error('RETENTION_RESIDENCY_UNKNOWN');
+    if (body.models.length) throw Object.assign(new Error('Retention requires idle Ollama'), { code: 'HUNT_GPU_BUSY' });
+  }
+  if (execFileSync('nvidia-smi', ['--query-compute-apps=pid', '--format=csv,noheader'], { encoding: 'utf8', timeout: 8000 }).trim()) {
+    throw Object.assign(new Error('Retention requires an idle GPU compute slot'), { code: 'HUNT_GPU_BUSY' });
+  }
+}
+async function runRetention(phase) {
+  await assertRetentionIdle();
+  const rows = await pruneRejectedHuntModels({
+    registry: modelRegistry, journal: huntState, history: modelEvaluationHistory,
+    getInventory: () => modelRegistry.getInstalled({ strict: true, baseUrl: PULL_PROVIDER_URL }),
+    getBindings: currentBindingNames,
+    getProviderVersion: async () => {
+      const response = await fetch(`${PULL_PROVIDER_URL}/api/version`, { signal: AbortSignal.timeout(8000) });
+      if (!response.ok) throw new Error('RETENTION_PROVIDER_UNAVAILABLE');
+      return (await response.json()).version;
+    },
+    assertIdle: assertRetentionIdle, plans: evaluationPlans, hardware: gpu,
+  });
+  retentionSweeps.push({ phase, completedAt: new Date().toISOString(), results: rows });
+  for (const row of rows) log(`  [retention] ${row.model}: ${row.status} ${row.reason || row.proof?.reason || ''}`);
+}
+if (DO_RUN && PRUNE_REJECTED) {
+  const artifactRepository = createModelArtifactAuthorityRepository(db);
+  const application = createModelBindingApplication({
+    repository: bindingRepository, runtime: upgradeManager.createBindingRuntimePort(),
+    provider: createOllamaModelBindingProvider({ baseUrl: PULL_PROVIDER_URL }), modelUseAuthority,
+  });
+  modelRegistry.init({ db, upgradeManager, bindingRepository, modelBindingApplication: application,
+    modelUseAuthority, modelArtifactAuthorityRepository: artifactRepository,
+    requireDurableModelUseAuthority: true, modelMutationBaseUrl: PULL_PROVIDER_URL });
+  let cleanupLease;
+  try {
+    cleanupLease = holdGpuEvaluationLock({ command: 'model-upgrade-hunt retention' });
+    await runRetention('before-hunt');
+  } catch (error) {
+    if (!SCHEDULED || !['GPU_EVALUATION_BUSY', 'HUNT_GPU_BUSY'].includes(error.code)) throw error;
+    emitJsonArtifact({ generatedAt: new Date().toISOString(), providerVersion, status: 'SCHEDULED_SKIPPED', reasons: [error.message], results: [] });
+    db.close();
+    process.exit(0);
+  } finally { cleanupLease?.release(); }
+  if (PRUNE_ONLY) {
+    emitJsonArtifact({ generatedAt: new Date().toISOString(), providerVersion, status: 'RETENTION_COMPLETE', results: [] });
+    db.close();
+    process.exit(0);
+  }
+}
+
 if (EXPORT_CHAT_HISTORY) {
   const plan = evaluationPlans.CHAT;
   const selected = new Set(ONLY.map(canonicalModelName));
@@ -603,9 +673,12 @@ if (INSTALLED_PANEL && picked.some(candidate => candidate.installed !== true)) {
 if ((DO_RUN || BOOTSTRAP) && !ONLY.length && !INSTALLED_PANEL) {
   if (familiesTotal === 0) throw new Error('HUNT_DISCOVERY_UNAVAILABLE: bootstrap requires a catalog snapshot');
   picked = huntState.observe(picked, { initialize: BOOTSTRAP });
+  let rejectionKey = null;
+  try { rejectionKey = huntRetentionKey(retentionContext(installedRaw)); } catch { /* No matching proof can be reused. */ }
   // Keep the historical backlog visible. New arrivals get the first slots;
   // pending bootstrap candidates continue in subsequent bounded ticks.
   picked = picked.filter(candidate => (!INCREMENTAL_ONLY || candidate.hunt.cohort === 'INCREMENTAL')
+    && !huntState.isRejected(candidate, rejectionKey)
     && huntState.pending(candidate, huntState.evaluationKey(candidate, providerVersion, evaluationPlans, gpu)))
     .sort((a, b) => Number(b.hunt.cohort === 'INCREMENTAL') - Number(a.hunt.cohort === 'INCREMENTAL')
       || Number(b.installed === true) - Number(a.installed === true) || byPriority(a, b));
@@ -790,7 +863,9 @@ for (const cand of toTry) {
     candidateCapabilities: cand.capabilities,
     bindings,
     keepInconclusive: KEEP_INCONCLUSIVE,
-    allowRemoval: ALLOW_REMOVAL,
+    // Removal happens only after an independent all-role proof and registry
+    // recheck. A restricted or partial candidate trial cannot authorize it.
+    allowRemoval: false,
     // Mazání vlastní model-registry; candidate-trial ho dostane injekcí,
     // aby neobcházel kanonickou identitu a exclusive mutation autoritu.
     deleteModel: (name, options) => modelRegistry.deleteModel(name, options),
@@ -981,6 +1056,18 @@ if (changed.length) {
   }
 }
 
+await drainResident(measurementOptions);
+if (PRUNE_REJECTED) {
+  await runRetention('after-hunt');
+  for (const row of retentionSweeps.at(-1).results) {
+    const result = results.find(item => canonicalModelName(item.model) === canonicalModelName(row.model));
+    if (result) {
+      result.retention = row;
+      if (row.status === 'DELETED') { result.removed = true; result.keptReason = null; }
+    }
+  }
+}
+
 if (AS_JSON || REPORT_PATH) {
   emitJsonArtifact({
     generatedAt: new Date().toISOString(),
@@ -990,6 +1077,5 @@ if (AS_JSON || REPORT_PATH) {
   });
 }
 
-await drainResident(measurementOptions);
 gpuLease.release();
 db.close();

@@ -2926,3 +2926,10 @@ Validační oprava GPU huntu 2026-09-12: module graph má 1 310 hran.
 Nová hrana `model-evaluation-history -> model-evaluation-runner` zahrnuje
 efektivní výchozí parametry inference do suite contract hash. Cykly zůstávají
 3 / 28. Timeout cold loadu a per-role chyby mají [samostatný review follow-up](docs/review/2026-09-12-GPU-HUNT-VALIDATION-REVIEW.md); acceptance je otevřená.
+
+Autorizovaná retence GPU huntu 2026-09-12: module graph má 1 317 hran.
+Sedm nových hran patří `model-hunt-retention.js`, který používá existující
+role, history a pairwise autoritu; počet cyklů zůstává 3 a jejich členů 28.
+Operátor zapnutí úzkého mazání výslovně požadoval. Provedení a ochrany:
+`docs/decisions/044-reproducible-evaluation-provider.md`; M6 review se tím
+nepřeznačuje na přijaté.
