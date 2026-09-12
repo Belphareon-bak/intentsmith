@@ -67,8 +67,8 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M2 Řízená práce nad projektem** | `ACCEPTED / CLOSEOUT_PASS` | M1 accepted | Záměr se změní v přesně schválený patch, test a audit. |
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
-| **M5 Production hardening** | `8/9 REVIEW_PASSED / BACKUP_COMPAT_REMEDIATION_REVIEW_PASSED / HISTORY_DECISION_RECORDED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_PARTIAL / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Review přijalo restore základ `65bcbc4b` i jeho jediný follow-up `b4136a43`. Operátor zvolil `retain_and_rotate`; receipt vznikne až po doložení všech osmi kategorií. LUKS2 médium A drží ověřenou offline kopii tří operátorských klíčů a oddělené LUKS2 médium B právě reviewer key; obě jsou vypnutá. Online zdroj zatím zůstává, protože chybí druhá offline kopie operátorských klíčů. |
-| **M6 IntentSmith 1.0 release** | `CURRENT_DETERMINISTIC_353_PASS / COMPOSER_RUNTIME_VERIFIED / HTTP_PROCESS_RESTART_PASS / DELTA_REVIEW_REQUIRED / FULL_PROJECT_BUILD_UNPROVEN / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Source `a10e3e0d`: 353/353 deterministic a 75 + 7 HTTP; Studio formulář, build a 3/3 Electron na nezměněných produktových/probe bytes z `9462ec0b`. HTTP success i rollback přežijí nový proces nad stejnou DB; model/auth kompozice je řízená fixture. Dodané review webu/builderu na `e87b1ca2` nemá blocker. Nová delta vyžaduje review; free-text builder, spojený fyzický Studio/server/model journey, integrace huntu a M5/M6 externí podmínky zbývají. [Aktuální packet](docs/review/2026-09-12-BUILD-COMPOSER-CODE-REVIEW-PACKET.md). |
+| **M5 Production hardening** | `8/9 REVIEW_PASSED / BACKUP_COMPAT_REMEDIATION_REVIEW_PASSED / HISTORY_DECISION_RECORDED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_PARTIAL / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Review přijalo restore základ `65bcbc4b` i follow-up `b4136a43`. Operátor zvolil `retain_and_rotate`; scanner zaznamenaný na vstupní hunt větvi tento dosažitelný stav potvrzuje, ale podepsaný history receipt vznikne až po doložení všech osmi kategorií. LUKS2 médium A drží ověřenou offline kopii tří operátorských klíčů a oddělené LUKS2 médium B právě reviewer key; obě jsou vypnutá. Online zdroj zatím zůstává, protože chybí druhá offline kopie operátorských klíčů a otestovaná oddělená recovery kopie reviewer key. |
+| **M6 IntentSmith 1.0 release** | `CORE_HUNT_INTEGRATION_VALIDATING / DELTA_REVIEW_REQUIRED / PHYSICAL_MODEL_JOURNEY_UNPROVEN / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Integrace `ab0565bc` + commitnutého huntu `3f3a2220` řeší migrace 111/112/113 a identitu provider rozhodnutí 048. Fresh/base/web/hunt upgrade prošel se zachováním dat; nové společné full ověření probíhá. Předchozí 353/353, 75 + 7 HTTP a 3/3 Studio runtime mají vlastní source piny a nejsou automaticky výsledkem merge. Probíhající hunt a pozdější retenční změny zůstávají u jejich vlastníka. [Integrační záznam](docs/execution/runs/core-hunt-integration-20260912.md). |
 | **M7 Remote Companion** | `UI_SURFACES_REVIEW_PASSED / HOST_GATE_GREEN / DEVICE_NOT_RUN / NOT_ACCEPTED` | M6 + remote boundary | Nezávislé re-review přijalo exact candidate `429b779f`: durable journal guard zavírá settings double-activation okno a held-flush regrese odlišuje staré bytes. Mobile 47/47, runtime 7/7, adapter 8/8, artifact validation 158/158, boundary 0 violations a Android test+lint prošly. Produkční konfigurace, fyzická matice 13+7, TalkBack a release podpisy nejsou hotové. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
@@ -3084,3 +3084,19 @@ assertions či 30s limitu. [Run record](docs/execution/runs/build-composer-compl
 [návod](docs/PROJECT-BUILD.md). Nové testy ani spolupracující review nenahrazují
 celý fyzický modelový journey, nezávislé přijetí delty, integraci huntu nebo
 M5/M6 acceptance. Aktuální module graph: 1315 hran, 3 cykly / 28 členů.
+
+Checkpoint GPU hunt / Ollama autocheck 2026-09-11 na `0cbe8e2a`:
+module graph má 1 308 hran. Šest nových explicitních hran zapojuje kontrolu vydání
+do outbound policy a existující upgrade manager; evaluační, capability a VRAM
+volání váže na společnou model-use autoritu. Žádná hrana nebyla odstraněna,
+cykly zůstávají `3` / `28`. Přesné hrany a source provenance jsou zachované
+v `tests/fixtures/module-boundary/baseline.json`; nejde o nový acceptance verdikt.
+
+Provider-specific hunt checkpoint 2026-09-11: module graph má 1 309 hran.
+Jediná nová hrana `model-hunt-state -> model-identity` sdílí kanonické
+jméno pro append-only discovery ledger; cykly zůstávají 3 / 28.
+
+Validační oprava GPU huntu 2026-09-12: module graph má 1 310 hran.
+Nová hrana `model-evaluation-history -> model-evaluation-runner` zahrnuje
+efektivní výchozí parametry inference do suite contract hash. Cykly zůstávají
+3 / 28. Timeout cold loadu a per-role chyby mají [samostatný review follow-up](docs/review/2026-09-12-GPU-HUNT-VALIDATION-REVIEW.md); acceptance je otevřená.

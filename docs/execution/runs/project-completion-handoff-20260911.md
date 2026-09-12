@@ -1,7 +1,7 @@
 # IntentSmith project completion handoff — 2026-09-11
 
-Status: `TECHNICAL_CONVERGENCE_GREEN / ONE_OPERATOR_DECISION_REQUIRED /
-SPEC_REVIEW_REQUIRED /
+Status: `CURRENT_DETERMINISTIC_352_PASS / ONE_OPERATOR_DECISION_REQUIRED /
+SPEC_REMEDIATION_RE_REVIEW_REQUIRED /
 M5_EXTERNAL_ACTIONS_REQUIRED / M6_REVIEW_AND_ACCEPTANCE_BLOCKED /
 M7_PHYSICAL_GATE_BLOCKED`.
 
@@ -10,34 +10,35 @@ receipt, release tag or publication authority.
 
 ## Exact identity and current deterministic gate
 
-The last product commit is the unreviewed Decision 043 SPEC candidate
-`3291b5d49af5832ca8528c9c9395a18e9906fbdf`. Its parent includes the reviewed
+The last product commit is the Decision 043 gateway-ceiling remediation
+`dca0e89bcc47a1dce96fbe0d3f0616aadccd3b2c`. Its history includes the reviewed
 M7 candidate `429b779f26b2f66a1c378e529c082d6b436609ca`; the later product change
-does not touch M7 bytes. The range from `3291b5d4` through the measured evidence
-HEAD `51846695b27d5d45fedaab2b4d9d241bec03739d` changes documentation only; a
-Git diff over `src`, `contracts`, `scripts`, `mobile-app`, `systemd`, `tests`
-and package manifests is empty.
+does not touch M7 bytes. The range after `3291b5d4` through independently
+inspected evidence HEAD `983121ee` changed documentation only. The next product
+delta is exactly the gateway remediation `dca0e89b`; evidence HEAD `d2b03cc3`
+adds only its handoff documents.
 
-One clean registered audit on `51846695` ran every required deterministic
-program with concurrency one and the exact declared local toolchains:
+One clean registered audit on evidence HEAD `d2b03cc3` ran every required
+deterministic program with concurrency one and the exact declared local
+toolchains:
 
 ```text
 inventory             = 352 programs
 profiles               = 279 offline + 73 database
 result                 = 352 PASS / 0 FAIL / 0 TIMEOUT / 0 BLOCKED / 0 SKIPPED
-source revision        = 51846695b27d5d45fedaab2b4d9d241bec03739d
+source revision        = d2b03cc32baf95ade4f096b22d875c4119ee9491
 registry fingerprint   = 3ce12a0edffe7e6da0f875ce3f0b25758524641557023d00aae39d0784fdbbfc
 inventory fingerprint  = c1a621012e464e5139fe860c3732d78fdfa83482ad966eba55c5fa7311c3110b
 options fingerprint    = 533fb61b7113b560d7e9cdb0cbaea3bb96a1f4621554c41f3836b378a94f4c20
-started/ended UTC      = 2026-09-11T12:23:50.896Z / 12:28:33.433Z
+started/ended UTC      = 2026-09-11T15:09:05.988Z / 15:14:11.804Z
 ```
 
 Report:
-`.intentsmith-artifacts/current-convergence-20260911/current-deterministic-51846695-20260911-01/report.json`,
-SHA-256 `3591dca58b39b5de6eea935ea26d9b96308ede20d1bfdeeb56fde94234ce7417`.
+`.intentsmith-artifacts/current-convergence-20260911/current-deterministic-d2b03cc3-20260911-01/report.json`,
+SHA-256 `023307449433ab34c4c203c6cf0d8681caa84e6a382c6097ba656de0fd8b9d4a`.
 All 352 IDs and source revisions are exact; all 352 log files exist and their
 report-bound SHA-256 digests match. Details:
-[`current-deterministic-51846695-20260911.md`](current-deterministic-51846695-20260911.md).
+[`current-deterministic-d2b03cc3-20260911.md`](current-deterministic-d2b03cc3-20260911.md).
 The audit did not include model, GPU, external-network, owned-server, soak or
 manual profiles. It is a current deterministic integration result, not a full
 M6 release verdict.
@@ -48,7 +49,7 @@ M6 release verdict.
 |---|---|---|
 | M0–M4 | accepted | no release blocker identified in this pass |
 | M5 | `8/9 REVIEW_PASSED / KEY_CUSTODY_PARTIAL / PRIVACY_CHANGES_REQUIRED / ACCEPTANCE_BLOCKED` | custody completion, eight category actions and receipts, history receipt, final M5 acceptance |
-| M6 | deterministic current tree green; runtime evidence collected; SPEC and two M6 review packets open | one web decision, review verdicts, one frozen candidate, complete model cookbook, M5 input, signed review/demo/Gate 0 |
+| M6 | current deterministic tree green; SPEC gateway remediation awaiting re-review; runtime evidence collected | one web decision, review verdicts, one frozen candidate, complete model cookbook, M5 input, signed review/demo/Gate 0 |
 | M7 | current product delta through `429b779f` independently reviewed; host gate green | VPN/TLS/HMAC/service/firewall, release signer/build, physical Android 13+7 matrix, evidence review and distribution decision |
 
 The mobile source review chain is complete for the current product bytes:
@@ -71,13 +72,16 @@ the physical environment.
 5. This evidence-only handoff adds the current full 352-program deterministic
    result and the final dependency map.
 6. `3291b5d4` implements the operation-bound complete-SPEC 6000 limit;
-   `5827c26c` hands its exact bytes to independent review.
+   its first review returned `CHANGES_REQUIRED` for a pre-existing legacy
+   gateway ceiling gap. `dca0e89b` closes that gap while preserving all prior
+   default and live operation budgets and now awaits narrow re-review.
 7. `5279da5c` records separate reviewer custody medium B and `51846695` prepares
    all eight M5 credential actions in one operator packet.
-8. The fresh registered gate on `51846695` is 352/352 PASS and includes the SPEC
-   candidate; its exact report is linked above.
+8. The fresh registered gate on `d2b03cc3` is 352/352 PASS and includes the
+   gateway remediation; its exact report is linked above.
 
-No commit was pushed, tagged, merged or published.
+Branch publication is transport only and grants no tag, merge, acceptance or
+release authority.
 
 ## Product decisions
 
@@ -87,11 +91,20 @@ because they change accepted authority boundaries under `CONTRACT.md section
 
 ### Complete SPEC output budget
 
-**Accepted by the operator and implemented as a review candidate on
+**Accepted by the operator and implemented as a remediation candidate on
 2026-09-11.** Decision 043 allows at most 6000 output tokens only for the
 internal complete-SPEC document path. The general planner, analysis and all
-other roles remain at 4000. Caller input and model output cannot mint the
-exception; lower limits remain lower and truncated JSON remains an error.
+other ordinary D1 paths remain at 4000. Caller input and model output cannot
+mint the exception; lower limits remain lower and truncated JSON remains an
+error.
+
+The first independent source review accepted the SPEC binding and returned
+`CHANGES_REQUIRED` for an older sibling path: `callWithAuth()` did not enforce
+the declared role ceiling. Candidate `dca0e89b` separates ordinary defaults
+from maximum role ceilings and enforces the latter in `authorize()`,
+`isAuthorized()` and `call()`. Its new regression proves an issued token one
+above ceiling makes zero provider calls. This remediation is focused-green but
+is not accepted until independent re-review.
 
 Evidence: with a physically verified 16384 context, three nutrition-revision
 attempts ended at 5795 input + 4000 output with `length`; context was not the
@@ -105,8 +118,9 @@ source review followed by the original real-model cookbook. Decision acceptance
 does not claim that 6000 is sufficient. The previous concise-prompt experiment
 failed and was reverted byte-for-byte.
 
-Exact candidate and review questions:
-[`Complete SPEC 6000 review packet`](../../review/2026-09-11-COMPLETE-SPEC-6000-REVIEW-PACKET.md).
+Review result and current re-review questions:
+[`first review result`](../../review/2026-09-11-COMPLETE-SPEC-6000-REVIEW-RESULT.md)
+and [`gateway remediation packet`](../../review/2026-09-11-COMPLETE-SPEC-6000-GATEWAY-REMEDIATION-REREVIEW-PACKET.md).
 
 ### Web search in a conversation without a project
 
@@ -123,17 +137,23 @@ smaller, but leaves 34 measured B/C/E search attempts denied and requires the
 - `.intentsmith-artifacts/core-completion-20260909/provider-proposal/completion-network-decision-20260909.md`;
 - `.intentsmith-artifacts/core-completion-20260909/provider-proposal/completion-network-decision-independent-review-93173e15.json`.
 
+The live DuckDuckGo HTML preflight returned an interactive bot challenge. It is
+therefore rejected as an unattended backend. Stage 1 now requires a supported
+API or an operator-controlled service with documented availability, privacy
+and rate-limit behavior before implementation begins.
+
 No projectless network scope is implemented or active. The 6000-token exception
-is implemented only as an unreviewed candidate and has no new real-model result.
+is implemented only as a remediation candidate and has no new real-model result.
 
 ## M5 custody and receipts
 
-Current-tree privacy scan on `51846695` is `PASS` over 2333 tracked files with
-zero findings. All 13 known incident objects remain reachable, so the final
-verdict remains `PASS_CURRENT_TREE_HISTORY_REMEDIATION_REQUIRED`. The retained
-scan is
-`.intentsmith-artifacts/current-convergence-20260911/preflight-51846695/privacy-scan.json`,
-SHA-256 `f1ed4503f7e0cbd59ebe59b7e5ed0b95c1353cbcfce1b6e1bcd69cd418f5189d`.
+Current-tree privacy scan on `d2b03cc3` is `PASS` over 2 336 tracked files with
+zero findings. All 13 known incident objects remain reachable exactly as
+declared by `retain_and_rotate`, so the scanner verdict is
+`PASS_CURRENT_TREE_HISTORY_RETAINED_AS_DECLARED`. The signed history receipt
+is still missing. The retained scan is
+`.intentsmith-artifacts/current-convergence-20260911/preflight-d2b03cc3/privacy-scan.json`,
+SHA-256 `d4f559b2ec5a3684197d6c42c37edf0e81e72391000bc7d9fe9c529bf36c37b4`.
 
 Medium A is one verified LUKS2 offline copy of the three operator keys. During
 this pass it was found automounted and unlocked, with no process using it. It
@@ -159,6 +179,14 @@ For a robust closeout, the two-media plan is now half completed:
    online operator-key source to be removed — **still required**;
 2. physically separate medium B for the reviewer key — **completed as an
    offline verified copy on 2026-09-11**.
+
+Independent review deliberately verified only that medium B and its mapper were
+absent; it did not weaken custody by remounting the disk to reproduce the
+contents. Before the remaining online reviewer-key source is removed, a new
+checkpoint must test both the known medium-B passphrase and an independently
+encrypted recovery copy. A client-side encrypted archive on a private cloud or
+NAS can serve as recovery, but does not replace offline medium B and must keep
+its decryption authority separately.
 
 The next M5 work then requires private operator facts, not more repository
 coding: resolve each of the eight credential categories by actual rotation or

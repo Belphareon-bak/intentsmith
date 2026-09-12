@@ -11,6 +11,7 @@ import {
   buildCandidates, getUpgradeHints, UPGRADE_HINTS,
 } from '../src/upgrade/model-discovery.js';
 import { UpgradeManager } from '../src/upgrade/upgrade-manager.js';
+import { checkOllamaUpdate, OLLAMA_LATEST_RELEASE_URL } from '../src/upgrade/ollama-update-check.js';
 import Database from 'better-sqlite3';
 import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -26,7 +27,7 @@ import { textTask } from '../src/eval/role-quality-suites.js';
 import {
   auditResponsibilitySegregation, buildInstalledCandidateQueue,
   materializeCurrentHardwareBlocks, resolveCurrentBindings,
-  selectResponsibilityPortfolio,
+  selectResponsibilityPortfolio, recordRoleEvaluationFailures,
 } from '../src/upgrade/model-upgrade-prototype.js';
 import {
   acquireGpuEvaluationLock, assessCandidateDownloadHeadroom,
@@ -34,6 +35,96 @@ import {
 } from '../src/upgrade/gpu-evaluation-lock.js';
 
 const ASYNC_TEST_TIMEOUT_MS = 10_000;
+
+suite('Ollama release autocheck');
+const releaseFixture = (tag = 'v0.34.0') => ({
+  tag_name: tag, draft: false, prerelease: false,
+  published_at: '2026-09-05T23:49:00Z',
+  html_url: `https://github.com/ollama/ollama/releases/tag/${tag}`,
+});
+const metadataResponse = data => new Response(JSON.stringify(data));
+
+await testAsync('detects upstream updates numerically without authorizing installation or digest compatibility', async () => {
+  for (const [installed, latest, expected] of [
+    ['0.32.14-intentsmith.1', 'v0.34.0', 'UPDATE_AVAILABLE'],
+    ['0.9.0', 'v0.10.0', 'UPDATE_AVAILABLE'],
+    ['0.34.0-intentsmith.1', 'v0.34.0', 'UP_TO_DATE'],
+    ['0.34.0-rc.1', 'v0.34.0', 'UPDATE_AVAILABLE'],
+    ['0.35.0', 'v0.34.0', 'AHEAD_OF_UPSTREAM'],
+  ]) {
+    const calls = [];
+    const result = await checkOllamaUpdate({
+      enabled: true,
+      localFetch: async (url, init) => {
+        calls.push(url);
+        assertEqual(init.method, 'GET');
+        assertEqual(init.redirect, 'error');
+        return metadataResponse({ version: installed });
+      },
+      releaseFetch: async (url, init) => {
+        calls.push(url);
+        assertEqual(init.method, 'GET');
+        return metadataResponse(releaseFixture(latest));
+      },
+    });
+    assertEqual(result.status, expected);
+    assertEqual(result.compatibility.status, 'UNVERIFIED');
+    assertEqual(result.automaticInstall, false);
+    assertEqual(calls.join(','), `http://127.0.0.1:11434/api/version,${OLLAMA_LATEST_RELEASE_URL}`);
+  }
+});
+
+await testAsync('opt-out and unsupported provider origins produce no transport', async () => {
+  let calls = 0;
+  const fail = async () => { calls++; throw new Error('must not fetch'); };
+  for (const enabled of [false, undefined, 'true']) {
+    assertEqual((await checkOllamaUpdate({ enabled, localFetch: fail, releaseFetch: fail })).status, 'DISABLED');
+  }
+  const result = await checkOllamaUpdate({ enabled: true, baseUrl: 'https://example.com', localFetch: fail, releaseFetch: fail });
+  assertEqual(result.status, 'CHECK_FAILED');
+  assertEqual(calls, 0);
+});
+
+await testAsync('partial, malformed, prerelease and failed metadata never reports up-to-date', async () => {
+  for (const response of [
+    () => new Response('{}', { status: 503 }),
+    () => metadataResponse({ ...releaseFixture(), prerelease: true }),
+    () => metadataResponse({ ...releaseFixture(), draft: true }),
+    () => metadataResponse({ ...releaseFixture(), html_url: 'https://evil.test' }),
+    () => metadataResponse({ ...releaseFixture(), published_at: null }),
+    () => metadataResponse(releaseFixture('v0.35.0-rc1')),
+    () => new Response('{broken'),
+    () => new Response('x'.repeat(256 * 1024 + 1)),
+    () => { throw new Error('offline'); },
+  ]) {
+    const result = await checkOllamaUpdate({ enabled: true,
+      localFetch: async () => metadataResponse({ version: '0.32.14-intentsmith.1' }), releaseFetch: response });
+    assertEqual(result.status, 'CHECK_FAILED');
+    assertEqual(result.installed.version, '0.32.14-intentsmith.1');
+    assertEqual(result.latest, null);
+    assertEqual(result.errors.length, 1);
+  }
+  for (const installed of ['garbage', '9007199254740992.0.0', null]) {
+    const result = await checkOllamaUpdate({ enabled: true,
+      localFetch: async () => metadataResponse({ version: installed }),
+      releaseFetch: async () => metadataResponse(releaseFixture()) });
+    assertEqual(result.status, 'CHECK_FAILED');
+    assertEqual(result.latest.version, '0.34.0');
+  }
+});
+
+await testAsync('manager exposes provider result and refreshes on explicit provider check', async () => {
+  const originalFetch = globalThis.fetch;
+  let checks = 0;
+  const mgr = new UpgradeManager({ checkOllamaUpdate: async () => ({ status: 'UPDATE_AVAILABLE', check: ++checks }) });
+  globalThis.fetch = async () => metadataResponse({ models: [] });
+  try {
+    assertEqual((await mgr.checkForUpgrades()).ollamaUpdate.check, 1);
+    assertEqual((await mgr.checkForUpgrades()).ollamaUpdate.check, 1);
+    assertEqual((await mgr.checkForUpgrades({ checkProvider: true })).ollamaUpdate.check, 2);
+    assertEqual(mgr.getLastResults().ollamaUpdate.check, 2);
+  } finally { globalThis.fetch = originalFetch; }
+});
 
 test('GPU evaluation lock excludes a concurrent live process and releases cleanly', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'intentsmith-gpu-lock-test-'));
@@ -875,6 +966,120 @@ test('compliant incumbent remains feasible when a stronger winner conflicts with
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
+
+await testAsync('provider upgrade preserves history and forces a new exact evaluation', async () => {
+  const { runMigrations } = await import('../src/db/migrate.js');
+  const db = new Database(':memory:');
+  await runMigrations(db);
+  const history = new ModelEvaluationHistory(db);
+  const input = {
+    artifact: { modelName: 'fixture:latest', digestSha256: DIGEST_A },
+    role: 'CODE', suiteName: 'fixture', suiteVersion: '1', contractSha256: CONTRACT_A,
+    summary: summaryRow(),
+  };
+  const legacy = history.recordComplete(input);
+  history.setProviderVersion('0.34.0-intentsmith.1');
+  const key = { digestSha256: DIGEST_A, role: 'CODE', suiteName: 'fixture', suiteVersion: '1', contractSha256: CONTRACT_A };
+  assertEqual(history.getComplete(key), null);
+  const current = history.recordComplete(input);
+  assert(current.runId !== legacy.runId);
+  assertEqual(current.providerVersion, '0.34.0-intentsmith.1');
+  assertEqual(history.recordComplete(input).runId, current.runId);
+  history.setProviderVersion('0.35.0-intentsmith.1');
+  assertEqual(history.getComplete(key), null);
+  const newer = history.recordComplete(input);
+  assert(newer.runId !== current.runId);
+  assertEqual(history.count(), 3);
+  let mixed = false;
+  try {
+    db.prepare(`INSERT INTO model_evaluation_decisions
+      (decision_id, role, incumbent_run_id, candidate_run_id, policy_version, policy_contract_sha256, outcome, basis, details_json)
+      VALUES ('mixed', 'CODE', ?, ?, 'v1', ?, 'INCUMBENT', 'quality', '{}')`)
+      .run(current.runId, newer.runId, CONTRACT_A);
+  } catch (error) { mixed = /same provider/.test(error.message); }
+  assert(mixed, 'database must reject cross-provider comparisons');
+  db.close();
+});
+
+await testAsync('durable hunt separates backlog, new revisions, provider upgrades and transient retry', async () => {
+  const { runMigrations } = await import('../src/db/migrate.js');
+  const { ModelHuntState } = await import('../src/upgrade/model-hunt-state.js');
+  const db = new Database(':memory:');
+  await runMigrations(db);
+  const state = new ModelHuntState(db);
+  const candidate = { name: 'fixture:latest', catalogDigest: 'a'.repeat(12), roles: ['CODE'] };
+  let rejected = false;
+  try { state.observe([candidate]); } catch { rejected = true; }
+  assert(rejected, 'timer cannot silently initialize the backlog');
+  const [initial] = state.observe([candidate], { initialize: true });
+  assertEqual(initial.hunt.cohort, 'BOOTSTRAP');
+  const [materialized] = state.observe([{ ...candidate, installed: true,
+    artifact: { digestSha256: 'a'.repeat(12) + 'c'.repeat(52) } }]);
+  assertEqual(materialized.hunt.cohort, 'BOOTSTRAP', 'download must not turn backlog into new discovery');
+  assertEqual(materialized.hunt.firstSeenAt, initial.hunt.firstSeenAt);
+  assert(materialized.hunt.key !== initial.hunt.key, 'full artifact scheduling identity remains distinct');
+  const plans = { CODE: { suiteContractSha256: CONTRACT_A } };
+  const key = state.evaluationKey(initial, '0.34.0', plans, { model: 'GPU' });
+  assert(state.pending(initial, key));
+  state.record(initial, key, { stage: 'done', trials: [{ comparison: { candidateRunId: 'eval' } }] });
+  assert(!state.pending(initial, key));
+  state.record(initial, key, { stage: 'done', roleErrors: [{ role: 'CODE', error: 'incumbent timeout' }],
+    trials: [{ comparison: { candidateRunId: 'eval' } }] }, '2099-01-01T00:00:00.000Z');
+  assertEqual(db.prepare('SELECT outcome FROM model_hunt_attempts ORDER BY completed_at DESC LIMIT 1').get().outcome, 'RETRYABLE');
+  assert(state.pending(initial, key, Date.parse('2099-01-03T00:00:00Z')), 'partial success must be retried');
+  assert(state.pending(initial, state.evaluationKey(initial, '0.35.0', plans, { model: 'GPU' })));
+  const [unchanged, changed, unknown] = state.observe([candidate, { ...candidate, catalogDigest: 'b'.repeat(12) }, { name: 'unknown' }]);
+  assertEqual(unchanged.hunt.cohort, 'BOOTSTRAP');
+  assertEqual(changed.hunt.cohort, 'INCREMENTAL');
+  assertEqual(unknown.hunt.schedulable, false);
+  state.record(changed, key, { stage: 'pull', error: 'connection reset' }, '2026-09-11T12:00:00.000Z');
+  assert(!state.pending(changed, key, Date.parse('2026-09-11T13:00:00Z')));
+  assert(state.pending(changed, key, Date.parse('2026-09-12T12:00:00Z')));
+  let immutable = false;
+  try { db.exec('DELETE FROM model_hunt_catalog'); } catch { immutable = true; }
+  assert(immutable);
+  db.pragma('recursive_triggers = OFF');
+  for (const [table, column, changed] of [
+    ['model_hunt_bootstrap', 'started_at', 'rewritten'],
+    ['model_hunt_catalog', 'cohort', 'INCREMENTAL'],
+    ['model_hunt_attempts', 'outcome', 'RETRYABLE'],
+  ]) {
+    const before = db.prepare(`SELECT * FROM ${table} LIMIT 1`).get();
+    const replaced = { ...before, [column]: changed };
+    let denied = false;
+    try {
+      db.prepare(`INSERT OR REPLACE INTO ${table} (${Object.keys(replaced).join(',')})
+        VALUES (${Object.keys(replaced).map(() => '?').join(',')})`).run(...Object.values(replaced));
+    } catch (error) { denied = /append-only/.test(error.message); }
+    assert(denied, `${table} must reject identity replacement with recursive triggers off`);
+    assertEqual(JSON.stringify(db.prepare(`SELECT * FROM ${table} LIMIT 1`).get()), JSON.stringify(before));
+  }
+  db.close();
+});
+
+test('effective runner defaults participate in suite contracts', () => {
+  const task = textTask({ name: 'default-options', prompt: 'hello', rubric: [], grade: () => ({ score: 1 }) });
+  const contract = options => suiteContract({ name: 'defaults', tests: [{ ...task, options }] }).sha256;
+  assertEqual(contract(), contract({ timeout: 120000, num_predict: 512, num_ctx: 4096, temperature: 0.1, top_p: 0.9 }));
+  assert(contract() !== contract({ timeout: 30000 }), 'old timeout cannot reuse current evidence');
+  assert(contract() !== contract({ num_ctx: 8192 }));
+});
+
+test('only the failed model and attempted role receive a terminal row', () => {
+  const writes = [];
+  const failure = { role: 'R1', model: 'incumbent', artifact: { modelName: 'incumbent', digestSha256: DIGEST_B },
+    code: 'MODEL_EVALUATION_RESPONSE_ARTIFACT_UNVERIFIED', error: 'missing proof',
+    startedAt: '2026-09-12T08:00:00.000Z', completedAt: '2026-09-12T08:00:01.000Z' };
+  recordRoleEvaluationFailures({ result: { model: 'candidate', roleErrors: [failure, { role: 'CODE', error: 'drain' }] },
+    plans: { R1: { suiteName: 'reasoning', suiteVersion: 'v1', suiteContractSha256: CONTRACT_A, repeats: 3 } },
+    history: { recordTerminal: row => { writes.push(row); return row; } }, hardware: { model: 'GPU' } });
+  assertEqual(writes.length, 1);
+  assertEqual(writes[0].artifact.modelName, 'incumbent');
+  assertEqual(writes[0].role, 'R1');
+  assertEqual(writes[0].durationMs, 1000);
+  assertEqual(writes[0].errorCode, 'CANDIDATE_EVALUATION_RETRYABLE');
+  assertEqual(writes[0].metadata.failure.code, failure.code);
+});
 
 const { passed, failed } = summary();
 process.exit(failed > 0 ? 1 : 0);

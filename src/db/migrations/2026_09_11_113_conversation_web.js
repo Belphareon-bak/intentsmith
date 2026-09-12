@@ -1,6 +1,6 @@
 import { registerConversationWebWriter } from '../../network/conversation-web-repository.js';
 
-export const version = '2026_09_11_111_conversation_web';
+export const version = '2026_09_11_113_conversation_web';
 export const description = 'Single-use conversation HTTPS approval and durable bounded response';
 
 export function up(database) {

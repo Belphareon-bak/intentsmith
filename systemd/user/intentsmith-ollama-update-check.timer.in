@@ -1,0 +1,11 @@
+[Unit]
+Description=Check for Ollama releases daily without installing them
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=30m
+Persistent=true
+Unit=intentsmith-ollama-update-check.service
+
+[Install]
+WantedBy=timers.target

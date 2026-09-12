@@ -61,6 +61,29 @@ Nesenzitivní výsledek helperu má SHA-256
 Tyto soukromé provozní artefakty zůstávají v ignorovaném
 `.intentsmith-artifacts/custody-b-20260911/`.
 
+## Nezávislé review a recovery checkpoint
+
+Následný nezávislý reviewer ověřil na evidence HEAD `983121ee`, že zařízení
+není v `/dev`, žádný LUKS mapper není otevřený a Git diff neobsahuje klíčový
+materiál. Správně médium znovu nepřipojil: tvrzení o sedmi souborech, 3 205
+bajtech a jediném reviewer private key proto reprodukuje tento nesenzitivní
+ceremony záznam, nikoli druhé otevření šifrovaného svazku. To je explicitní
+hranice review, ne nový důkaz obsahu média.
+
+Před odstraněním online zdroje `m6-independent-reviewer` key musí proběhnout
+samostatný recovery checkpoint. Custodian musí prokázat, že zná heslo k médiu B
+a že existuje druhá obnovitelná, odděleně šifrovaná kopie reviewer key. Tou může
+být druhé offline médium nebo client-side šifrovaný recovery archiv v privátním
+cloudu či NAS; dešifrovací autorita nesmí být uložená společně s archivem ani
+dostupná application/worker/operator-key cestě. Recovery se musí otestovat na
+dočasném izolovaném cíli, porovnat odvozený public SPKI s trust storem a po
+testu bezpečně odstranit obnovenou pracovní kopii.
+
+Tento checkpoint je `NOT_RUN` a blokuje pouze odstranění posledního online
+zdroje. Neanuluje ověřenou offline kopii na médiu B a není důvod médium kvůli
+němu nyní zapínat. Samotný hash, připomínka hesla nebo neotestovaný archiv
+nejsou recovery důkaz.
+
 ## Zbývající hranice
 
 Médium B nyní prokazuje fyzicky oddělenou šifrovanou offline kopii reviewer
@@ -69,6 +92,7 @@ ověřená offline kopie tří operátorských klíčů a není připravená bez
 obnova. Tento krok proto sám neuzavírá celou custody ani M5:
 
 - chybí druhá offline kopie tří operátorských private keys;
+- chybí otestovaná oddělená recovery kopie reviewer private key;
 - online zdroj nebyl autorizovaně odstraněný;
 - osm credential category akcí a receiptů nebylo provedeno;
 - history, M5 acceptance a tři M6 receipts nebyly podepsané.

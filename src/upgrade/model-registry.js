@@ -566,7 +566,14 @@ export class ModelRegistry {
     }
     const installed = installedInput || await this.getInstalled();
     const bindingState = this.getBindingState(installed);
+    let providerVersion = 'UNAVAILABLE';
+    try {
+      const response = await fetch(`${config.ollama.baseUrl}/api/version`, { signal: AbortSignal.timeout(8000) });
+      const body = response.ok ? await response.json() : null;
+      if (typeof body?.version === 'string' && body.version) providerVersion = body.version;
+    } catch { /* Unknown provider cannot turn old evidence into current evidence. */ }
     return this._evaluationReadModel.read({
+      providerVersion,
       inventory: installed,
       bindings: bindingState.bindings,
       bindingAuthority: {

@@ -131,17 +131,21 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 ## Rozsah
 
+Census integrace core `ab0565bc` + commitnutého huntu `3f3a2220`, 2026-09-12;
+rozpracované změny nejsou přijatý release. Předchozí čísla a výsledky mají
+v historii vlastní přesné piny.
+
 | | |
 |---|---:|
-| `src/**/*.js` | **222 925 ř.**, 605 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **243 144 ř.**, 524 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **223 359 ř.**, 609 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **243 760 ř.**, 524 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **516** (`422 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
-| Tabulek v čerstvé DB / aplikovaných migrací | **174 / 98** |
+| Tabulek v čerstvé DB / aplikovaných migrací | **177 / 100** |
 | HTTP rout | **243 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
 Aktuální registry fingerprint je
-`bb85f822d48d34e3a09297b026583ce808bfb05d28c764935e1c67481e7d2ad6`.
+`162b890b97142127fdd4859bc48a02056a837b3fd2773e26d8a130e0e55f4deb`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 
@@ -184,11 +188,11 @@ offline replay nad stejnou DB reprodukuje 55/24/0/12 bez kontaktu s providerem.
 Nezávislé rereview rozsahu `d6137d4c..3f027938` zopakovalo replay, SHA/tamper
 kontrolu, manifest i clean-clone gate 279/279 a vrátilo
 [`REVIEW_PASSED`](docs/review/2026-08-28-WP-MODEL-EVALUATION-EVIDENCE-REREVIEW.md).
-Scoring/evidence balík je `ACCEPTED`; systémový response-digest provider zůstává
-samostatně `SYSTEM_PROVIDER_BLOCKED`. Evidence:
+Srpnový scoring/evidence balík je `ACCEPTED`; systémový response-digest provider
+byl v tomto snapshotu samostatně `SYSTEM_PROVIDER_BLOCKED`. Evidence:
 [`model-scoring-live-20260828.md`](docs/execution/runs/model-scoring-live-20260828.md).
 Po následném explicitně autorizovaném odstranění čtyř VRAM-blocked exact
-artefaktů má současná inventory 9 modelů a 55/0/0/8 coverage
+artefaktů měla inventory ve snapshotu 2026-08-28 devět modelů a 55/0/0/8 coverage
 (`COMPLETE/BLOCKED/applicable MISSING/N/A`); DB historie i bindingy zůstaly
 beze změny. Důkaz:
 [`model-removal-live-20260828.json`](docs/execution/runs/model-removal-live-20260828.json).
@@ -603,13 +607,13 @@ aktuální stav je samostatný řádek `Model failover opt-in surface`.
 | Model deletion and retention authority | **M6 L0-11 IMPLEMENTED / CURRENT_SNAPSHOT_GREEN / RE_REVIEW_REQUIRED:** produkční `modelUseAuthority` se před binding rehydrate váže na SQLite repository z migrace 098. Shared use a exclusive pull/delete claims nesou boot ID, PID, UID a `/proc` start ticks; `BEGIN IMMEDIATE` dává jediného winnera, živý nebo nečitelný owner blokuje a pouze prokazatelně mrtvý/reused owner dostane terminál `OWNER_GONE_RECOVERED`. Gateway, registry validation, binding cutover/verification a VRAM drží shared claim do `finally`; pull/delete drží exclusive claim. Provider intent je durable před prvním efektem a terminál je append-only `SUCCEEDED`, `FAILED` nebo `ORPHANED`. Orphan i intent-only crash fence blokují další use/mutace; 120s pull idle timeout abortuje reader a startup smí obnovit jen stejný exact pull/origin/operation, po úspěchu přidá `RECONCILED_SUCCEEDED`. Destruktivní origin je pouze uncredentialed HTTP loopback; remote/path/query origin selže před inventory. Legacy chat cleanup vrací `MODEL_CLEANUP_CHAT_RETIRED` bez preview/inventory/efektu. Exact current snapshot `12b63e58` má 232 focused a 171 support PASS; [review packet](docs/review/2026-09-11-M6-L0-11-CURRENT-SNAPSHOT-REVIEW-PACKET.md) čeká na verdikt. Delete orphan zůstává bezpečně blokující, nikoli falešně dokončený. |
 | Referenční modelový runtime profil | **B3-PROFILE ACCEPTED / GPU PASS:** fyzický T3 na clean source `31859488` ověřil exact `qwen3.5:27b`, digest `7653528b…ec06e`, `num_ctx=4096`, plnou GPU residency, zakázaný fallback a mid-generation cancel bez false success. Finální B6 provider audit na `d518d7ec` pozoroval jen bezpečný adaptivní kontext `1024/4096`, nikdy hodnotu nad profilem, 8 chat requestů na přesný model a nulový refinement prompt. Malý non-Ollama desktop workload se posuzuje relativně a nebyl ukončen; cizí Ollama, nedostatek VRAM a vysoká utilization zůstávají fail-closed. Sdílená media VRAM authority patří až do M2 a zůstává ve findingu 003. |
 | Model failover opt-in surface | **020/E ACCEPTED / IMPLEMENTED / COMPATIBILITY_REVIEW_PASSED:** operátor přijal oddělenou revisioned `model_automation_policy` autoritu a legacy drop korekce. Dedicated storage, append-only audit, typed GET/PUT a explicitní import/reset cesta jsou implementované; `a71e5b98` navíc zachovává autoritu přes podporované 061/066 upgrady a tento compatibility scope prošel nezávislým review. Automatic failover zůstává default-off do splnění samostatné proof/activation autority; tato oprava statusu jej neaktivuje. Viz [`020`](docs/decisions/020-m1-model-failover-opt-in-surface.md) a [reconciliation](docs/execution/runs/status-reconciliation-20260911.md). |
-| Complete SPEC output authority | **DECISION 043 ACCEPTED / IMPLEMENTED_CANDIDATE / REVIEW_REQUIRED / MODEL_NOT_RUN:** pouze `workflow.spec-document.json@1` dostává immutable process-local strop 6000. Strict policy váže D1/answer/reasoning/JSON/configured model i request/conversation/turn; běžný planner a analysis zůstávají 4000. `length` selže i pro parseable validní JSON, bez retry, se zachovaným upřesněním. Inertní suity mají workflow 46/46, lifecycle 158/158 a M1 contract 31/31 PASS. Skutečný cookbook na exact reviewed source zbývá. |
+| Complete SPEC output authority | **DECISION 043 ACCEPTED / REMEDIATION_CANDIDATE / RE_REVIEW_REQUIRED / MODEL_NOT_RUN:** pouze identity-bound `workflow.spec-document.json@1` smí překročit vlastní `WORKFLOW_PLANNER` ceiling 4000 na 6000. První review přijalo SPEC binding a vrátilo `CHANGES_REQUIRED` za starší legacy `callWithAuth` bypass role ceilings. `dca0e89b` odděluje nezměněné defaulty od maximálních ceilings, vynucuje policy v `authorize`/`isAuthorized`/`call` a regrese vyžaduje nula provider volání pro token o jeden nad ceiling. M1 contract je 32/32; workflow 46/46, lifecycle 158/158 a úplný current gate na `d2b03cc3` 352/352 PASS. Skutečný cookbook čeká na úzký re-review. |
 | Token streaming neexistuje — `onLLMToken` je konzument bez producenta | Odpověď přichází celá |
 | Nedostupná Ollama při klasifikaci | Opravena na jeden pokus; změřeno přibližně 80 ms místo 6 091 ms |
 | Automatické online model discovery | `C3_ENABLE_ONLINE_DISCOVERY`, **default on od 2026-08-19** (operátorské rozhodnutí v `DIRECTION.md`), vypíná se hodnotou `false`. Review remediation je implementation-green na `122b5df5`, ale čeká na re-review: všechny transporty používají manual redirect, každá `Location` dostává nové rozhodnutí a neexportovaná capability váže exact Ollama/Hugging Face/WhatLLM path, query, headers, body a method profily. Opsaný scope literal není autorita. |
 | M5 performance release budget | **REVIEW_PASSED na `816a2a4c`:** operátorský výsledek 2026-08-27 výslovně přijal M5 PERF re-review. `M5PerformanceEvidence@3` a raw v2 vážou každé GPU tvrzení na raw measurement nebo read-only census receipt a nepřijmou nečitelný či nulový RSS jako nejlepší hodnotu. Exact clean candidate má autoritativní 5min run: HTTP p95 `5,022 ms`, ProjectContext p95 `32,769 ms`, soak `300 074 ms` / `1 498` vzorků / p95 `14,314 ms`, nula chyb, peak RSS `171,859 MiB`; GPU je pravdivě `not_run_not_requested`. Nové 24h/maximum-throughput běhy jsou samostatná M6 Decision 038 evidence ve stavu `REVIEW_REQUIRED`, nikoli změna tohoto M5 verdiktu. |
-| M5 production hardening review | **8/9 REVIEW_PASSED / BACKUP_COMPAT_REMEDIATION_REVIEW_PASSED / HISTORY_DECISION_RECORDED / PRIVACY CHANGES REQUIRED / KEY CUSTODY PARTIAL / ACCEPTANCE_BLOCKED:** osm oddílů zůstává přijatých. Decision 041 byte/history implementace na `37edf30d` dostala nezávislé `REVIEW_PASSED` a trust store má čtyři rozdílné veřejné Ed25519 identity. Review přijalo restore opravu `65bcbc4b` i follow-up `b4136a43`. Operátor vybral `retain_and_rotate`; history receipt ještě nebyl vydán. Přesně připnuté LUKS2 médium A drží ověřenou offline kopii tří operátorských private keys. Fyzicky oddělené LUKS2 médium B drží ověřenou offline kopii právě reviewer private key a vylučuje tři operátorské private keys. Obě média jsou zavřená a vypnutá. Online zdroj zůstává do druhé ověřené kopie operátorských klíčů. Všech osm credential kategorií, podepsaná history disposition a M5 acceptance zůstávají otevřené. M6 gate zůstává zavřený. |
-| M6 IntentSmith 1.0 candidate | **CURRENT_DETERMINISTIC_353_PASS / COMPOSER_RUNTIME_VERIFIED / HTTP_PROCESS_RESTART_PASS / DELTA_REVIEW_REQUIRED / FULL_PROJECT_BUILD_UNPROVEN / ACCEPTANCE_BLOCKED:** `a10e3e0d` má 353/353 deterministic a 75 + 7 HTTP. Studio nabízí skutečný formulář pro explicitní soubory/test a kontrolované schválení; build + 3/3 Electron jsou na nezměněných runtime bytes z `9462ec0b`. Success i rollback vadného peeru prošly novým HTTP procesem nad stejnou DB, s řízeným modelem/auth/registry. Dodané review e87 webu/builderu je bez blockeru. Nová delta, free-text builder, spojený fyzický journey, integrace huntu a M5/M6 externí podmínky zbývají. [Aktuální packet](docs/review/2026-09-12-BUILD-COMPOSER-CODE-REVIEW-PACKET.md). |
+| M5 production hardening review | **8/9 REVIEW_PASSED / BACKUP_COMPAT_REMEDIATION_REVIEW_PASSED / HISTORY_DECISION_RECORDED / PRIVACY CHANGES REQUIRED / KEY CUSTODY PARTIAL / ACCEPTANCE_BLOCKED:** osm oddílů zůstává přijatých. Decision 041 byte/history implementace na `37edf30d` dostala nezávislé `REVIEW_PASSED` a trust store má čtyři rozdílné veřejné Ed25519 identity. Review přijalo restore opravu `65bcbc4b` i follow-up `b4136a43`. Operátor vybral `retain_and_rotate`; current scanner vrací `PASS_CURRENT_TREE_HISTORY_RETAINED_AS_DECLARED`, ale podepsaný history receipt ještě nebyl vydán. Přesně připnuté LUKS2 médium A drží ověřenou offline kopii tří operátorských private keys. Fyzicky oddělené LUKS2 médium B drží ověřenou offline kopii právě reviewer private key a vylučuje tři operátorské private keys. Obě média jsou zavřená a vypnutá. Online zdroj zůstává do druhé ověřené kopie operátorských klíčů a otestované oddělené recovery kopie reviewer key. Všech osm credential kategorií, podepsaná history disposition a M5 acceptance zůstávají otevřené. M6 gate zůstává zavřený. |
+| M6 IntentSmith 1.0 candidate | **CORE_HUNT_INTEGRATION_VALIDATING / DELTA_REVIEW_REQUIRED / PHYSICAL_MODEL_JOURNEY_UNPROVEN / ACCEPTANCE_BLOCKED:** vlastní `ab0565bc` + commitnutý hunt `3f3a2220`; web 113 adoptuje přesnou původní 111 bez replay, hunt 111/112 zůstávají. Šest nových upgrade/adoption regresí prošlo; nové společné full ověření probíhá. Starší runtime výsledky se automaticky nepřenášejí na merge. [Integrační záznam](docs/execution/runs/core-hunt-integration-20260912.md). |
 | M7 Remote Companion | **UI_SURFACES_REVIEW_PASSED / HOST_GATE_GREEN / DEVICE_NOT_RUN / NOT_ACCEPTED:** canonical JSON, systemd renderer a dřívější throwaway APK/AAB jsou scoped-reviewované. Nezávislé narrow re-review přijalo exact candidate `429b779f`: durable journal guard zavírá settings double-activation okno a held-flush regrese odlišuje staré bytes. Mobile 47/47, runtime 7/7, adapter 8/8, artifact validation 158/158, boundary 0 violations a Android `test lint` prošly; zabalené assety jsou bajtově shodné se zdrojem. Fyzický Android/VPN/pairing/revocation/TalkBack, produkční konfigurace a credentials, signer, release build, distribuce a matice 13+7 zbývají. [Přesný handoff](docs/execution/runs/mobile/m7-ui-surfaces-20260910.md) a [review result](docs/review/2026-09-11-M7-MOBILE-UI-SURFACES-REREVIEW-RESULT.md). |
 | C3 Studio Google Fonts | Oba runtime link loadery, ruční preview import i archivní v7 import jsou odstraněné; hygiene zakazuje obě Google Fonts domény ve spustitelných Studio assetech. Registrovaný runner prošel ve dvou fresh-clone Electron CDP bězích na `7236d221` s nulovým egresssem. Registry zůstává pravdivě `BLOCKED`. **Měřeno 2026-08-21:** build envelope už chybějící překážkou není — `yarn install --offline` + `yarn build` trvají dohromady **54 s** a postaví všech šest artefaktů. **Vyřešeno 2026-08-22: `STUDIO_ELECTRON_BOUNDARY_PASS`.** Příčinou `electron-exited-before-cdp` byla délka `TMPDIR` — Chromium v něm zakládá unix domain sockety a `sun_path` má limit 108 bajtů, runtime root pod `.intentsmith-artifacts` má 95 znaků. Bisekce: `HOME` ani `XDG_*` nevadí, shodí to výhradně `TMPDIR`; bez namespace padá stejně, takže izolace ani D-Bus (falešná stopa) příčinou nebyly. Sada dává Electronu krátký privátní temp. Evidence: nulový egress, 65,8 s soak, boundary matice 403/403/200, čistý shutdown. |
 | C3 Studio local HTTP | Root cause byl potvrzen jako capability na wire + nepřítomný `Origin` + `Sec-Fetch-Site: cross-site`. Electron-main nyní doplňuje `Origin: null` jen pro přesný top-level file Studio request s odpovídající privátní capability; backend guard zůstal beze změny. Dva fresh-clone negativní journey na `7236d221` prokázaly startup/POST `2xx` i přesný fail-closed security trojúhelník; registry čeká jen na standardní build envelope, nikoli na další ruční journey. |
@@ -675,3 +679,47 @@ ani spojený Studio/server/DURABLE binding/model/restart průchod.
 [Review packet](docs/review/2026-09-11-PRODUCTION-FOLLOWUP-REVIEW-PACKET.md) a
 [úplný běh](docs/execution/runs/multifile-code-draft-20260911.md) zachovávají
 původní neúspěchy, scope a otevřené M5/M6 podmínky.
+
+Checkpoint GPU hunt / Ollama autocheck 2026-09-11 na `0cbe8e2a`:
+module graph má 1 308 hran. Šest nových explicitních hran zapojuje kontrolu vydání
+do outbound policy a existující upgrade manager; evaluační, capability a VRAM
+volání váže na společnou model-use autoritu. Žádná hrana nebyla odstraněna,
+cykly zůstávají `3` / `28`. Přesné hrany a source provenance jsou zachované
+v `tests/fixtures/module-boundary/baseline.json`; nejde o nový acceptance verdikt.
+
+Ollama autocheck / GPU hunt, 2026-09-11: denní metadata check je zapojený
+a běží; reprodukovaný provider prošel stream/non-stream/typed GPU kvalifikací.
+Finální kód `0e563cc8` má 352/352 deterministic PASS. Jednomodelový CODE
+pilot nad migrovanou kopií DB dokončil pull → měření → decision `INCUMBENT`;
+bindingy a původní DB se neměnily. Nezávislé review a sjednocení provozní DB
+zůstává otevřené. [Přesné výsledky a rozsah](docs/execution/runs/gpu-hunt-ollama-autocheck-20260911.md).
+
+Pravidelný GPU hunt 2026-09-11: implementace bootstrap/incremental ledgeru
+a provider-specific měření navazuje na explicitní zadání operátora.
+[Decision 048](docs/decisions/048-reproducible-evaluation-provider.md) zachycuje
+podporovanou cestu; stav zůstává `REVIEW_PENDING` do nezávislého review.
+
+Provider-specific hunt checkpoint 2026-09-11: module graph má 1 309 hran.
+Jediná nová hrana `model-hunt-state -> model-identity` sdílí kanonické
+jméno pro append-only discovery ledger; cykly zůstávají 3 / 28.
+
+Provozní checkpoint GPU huntu 2026-09-11 na `7c693d32`: reprodukovatelná
+Ollama `0.34.0-intentsmith.1` je instalována systémově i pro ephemeral sidecar.
+Skutečná user service dokončila CODE duel nad provozní DB: dvě provider-bound
+COMPLETE evidence a INCONCLUSIVE decision, bez změny bindingů. Start, obsazený
+port a ukončení všech vlastních GPU procesů byly ověřeny. Migrace 111/112 drží
+provider-specific reuse a bootstrap katalog 180 kandidátů. Autocheck a noční
+limitovaný hunt jsou enabled; široký panel a nezávislé review zůstávají otevřené.
+[Přesný rozsah a aktuální důkazy](docs/review/2026-09-11-GPU-HUNT-PRODUCTION-REVIEW-PACKET.md).
+
+Finální source `67b63347` sjednotil i CLI coverage a SHA-bound offline replay
+podle provider verze. Clean-clone profil offline/database má **352/352 PASS**;
+aktuální coverage před širší dávkou byla 2 COMPLETE / 60 applicable MISSING /
+8 N/A. Úvodní hunt s limitem 13 kandidátů byl spuštěn pod samostatnou user
+service 2026-09-11 ve 23:14 CEST; jeho dokončení se tímto netvrdí.
+[Strojová evidence včetně předchozích neúspěšných gate](docs/execution/runs/gpu-hunt-production-20260911.json).
+
+Validační oprava GPU huntu 2026-09-12: module graph má 1 310 hran.
+Nová hrana `model-evaluation-history -> model-evaluation-runner` zahrnuje
+efektivní výchozí parametry inference do suite contract hash. Cykly zůstávají
+3 / 28. Timeout cold loadu a per-role chyby mají [samostatný review follow-up](docs/review/2026-09-12-GPU-HUNT-VALIDATION-REVIEW.md); acceptance je otevřená.

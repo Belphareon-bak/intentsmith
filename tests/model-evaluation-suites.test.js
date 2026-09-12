@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import strictAssert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { suiteContract } from '../src/upgrade/model-evaluation-history.js';
+import { MODEL_ACTIVITY_OWNER, modelUseAuthority } from '../src/upgrade/model-use-authority.js';
 import {
   MODEL_EVALUATION_ARTIFACT_ERROR,
   ModelEvaluationArtifactError,
@@ -195,6 +196,34 @@ await testAsync('direct call returns content and metrics', async () => {
   }
 });
 
+await testAsync('evaluation cannot race a pull and holds its lease through response consumption', async () => {
+  const original = globalThis.fetch;
+  let calls = 0;
+  let activeDuringBody = false;
+  globalThis.fetch = async () => {
+    calls++;
+    return { ok: true, json: async () => {
+      try {
+        const conflict = modelUseAuthority.acquireExclusive({ modelName: 'fixture', owner: MODEL_ACTIVITY_OWNER.MODEL_PULL });
+        conflict.release();
+      } catch { activeDuringBody = true; }
+      return { message: { content: 'held' } };
+    } };
+  };
+  let lease = modelUseAuthority.acquireExclusive({ modelName: 'fixture', owner: MODEL_ACTIVITY_OWNER.MODEL_PULL });
+  try {
+    const runner = new ModelEvaluationRunner('http://127.0.0.1:11434');
+    const blocked = await runner._callModel('fixture', [{ role: 'user', content: 'ping' }]);
+    assert(blocked.error);
+    assertEqual(calls, 0);
+    lease.release();
+    lease = null;
+    assertEqual((await runner._callModel('fixture', [{ role: 'user', content: 'ping' }])).content, 'held');
+    assert(activeDuringBody, 'shared claim must remain active until body completion');
+    lease = modelUseAuthority.acquireExclusive({ modelName: 'fixture', owner: MODEL_ACTIVITY_OWNER.MODEL_PULL });
+  } finally { lease?.release(); globalThis.fetch = original; }
+});
+
 await testAsync('authoritative direct call accepts a response-attested artifact', async () => {
   const original = globalThis.fetch;
   globalThis.fetch = async () => ({
@@ -368,6 +397,25 @@ test('review rewards recall and penalizes invented findings', () => {
   const noisy = task.grade('{"findings":[{"line":2,"kind":"sql_injection"},{"line":3,"kind":"secret_exposure"}]}');
   assertEqual(exact.score, 1);
   assert(noisy.score < exact.score);
+});
+
+await testAsync('response-bound provider version rejects missing or changed runtime', async () => {
+  const original = globalThis.fetch;
+  const runner = new ModelEvaluationRunner('http://127.0.0.1:11434');
+  try {
+    for (const version of [undefined, '0.35.0-intentsmith.1', '0.34.0-intentsmith.1']) {
+      globalThis.fetch = async () => ({ ok: true, json: async () => ({
+        model: 'fixture:latest', digest: DIGEST_A, provider_version: version, message: { content: 'ok' },
+      }) });
+      let error = null;
+      try {
+        await runner._callModel('fixture', [{ role: 'user', content: 'ping' }], {},
+          { modelName: 'fixture:latest', digestSha256: DIGEST_A, providerVersion: '0.34.0-intentsmith.1' });
+      } catch (caught) { error = caught; }
+      if (version === '0.34.0-intentsmith.1') assertEqual(error, null);
+      else assertEqual(error?.code, MODEL_EVALUATION_ARTIFACT_ERROR.PROVIDER_MISMATCH);
+    }
+  } finally { globalThis.fetch = original; }
 });
 
 const results = summary();

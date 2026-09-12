@@ -211,6 +211,15 @@ export function parseTagsPage(family, html) {
       pendingTag = null;
     }
   }
+  // Catalog pages repeat desktop/mobile cards. A short manifest ID is only
+  // a discovery revision signal; evaluation still resolves the full digest.
+  const links = [...String(html).matchAll(/href="\/library\/([a-z0-9._-]+:[a-z0-9._-]+)"/gi)];
+  for (let i = 0; i < links.length; i++) {
+    const name = links[i][1].toLowerCase();
+    const block = String(html).slice(links[i].index, links[i + 1]?.index ?? String(html).length);
+    const digest = block.match(/>\s*([a-f0-9]{12,64})\s*<\/span>/i)?.[1]?.toLowerCase();
+    if (digest && out.has(name)) out.get(name).catalogDigest = digest;
+  }
   return [...out.values()];
 }
 
@@ -262,6 +271,7 @@ export function prioritizeCandidates(pool, ctx = {}) {
   const {
     vramMb = 0,
     installed = [],
+    installedDigests = new Map(),
     externalSignalOf = () => null,
     releaseDateOf = () => null,
     // Role, pro kterou se seznam staví.  Když je zadaná, uplatní se filtr
@@ -283,7 +293,10 @@ export function prioritizeCandidates(pool, ctx = {}) {
 
   for (const entry of pool) {
     const key = canonicalModelName(entry.name);
-    if (key && installedKeys.has(key)) continue;
+    if (key && installedKeys.has(key)) {
+      const installedDigest = installedDigests.get(key);
+      if (!entry.catalogDigest || !installedDigest || installedDigest.startsWith(entry.catalogDigest)) continue;
+    }
     if (!mightFit(entry.sizeGB, vramMb)) continue;
 
     // Nezpůsobilý kandidát se do seznamu role vůbec nedostane — vision role

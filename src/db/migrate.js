@@ -41,6 +41,10 @@ const HISTORICAL_NUMERIC_SLOT_COLLISIONS = new Map([
 // run. This preserves applied_at while keeping one collision-free manifest.
 const RETIRED_MIGRATION_IDENTITY_ADOPTIONS = Object.freeze([
   Object.freeze({
+    retired: '2026_09_11_111_conversation_web',
+    canonical: '2026_09_11_113_conversation_web',
+  }),
+  Object.freeze({
     retired: '2026_08_23_070_m2_effect_authority',
     canonical: '2026_08_23_092_m2_effect_authority',
   }),

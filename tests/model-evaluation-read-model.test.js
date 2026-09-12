@@ -20,6 +20,7 @@ function database() {
   db.exec(`
     CREATE TABLE model_evaluation_runs (
       run_id TEXT PRIMARY KEY,
+      metadata_json TEXT NOT NULL DEFAULT '{}',
       model_name TEXT NOT NULL,
       model_canonical_name TEXT NOT NULL,
       model_digest_sha256 TEXT,
@@ -487,6 +488,36 @@ test('missing provider digest is BLOCKED, not MISSING or PASS', () => {
   }).models[0].evaluations.D1;
   assertEqual(row.status, 'BLOCKED');
   assertEqual(row.errorCode, 'ARTIFACT_DIGEST_MISSING');
+  db.close();
+});
+
+test('provider-filtered coverage replays offline and its filter cannot be tampered', () => {
+  const db = database();
+  const plans = createRoleEvaluationPlans({ repeats: 1 });
+  insert(db, { runId: 'legacy-provider', digest: DIGEST, plan: plans.CODE, score: 0.9 });
+  const reader = new ModelEvaluationReadModel(db, { plans });
+  const inventory = [{ name: 'fixture:latest', digest: DIGEST, params: 14 }];
+  const providerVersion = '0.34.0-intentsmith.1';
+  const missing = reader.read({ inventory, providerVersion });
+  assertEqual(missing.models[0].evaluations.CODE.status, 'MISSING');
+  assert(renderEvaluationReport(missing).includes(`Provider filtr: ${providerVersion}`));
+  insert(db, { runId: 'current-provider', digest: DIGEST, plan: plans.CODE, score: 0.4 });
+  db.prepare('UPDATE model_evaluation_runs SET metadata_json = ? WHERE run_id = ?')
+    .run(JSON.stringify({ provider: { version: providerVersion } }), 'current-provider');
+  const result = reader.read({ inventory, providerVersion });
+  assertEqual(result.models[0].evaluations.CODE.score, 0.4);
+  const snapshot = { readModel: summarizeModelEvaluationReport(result) };
+  const replayInventory = inventoryFromModelEvaluationSnapshot(snapshot);
+  const replay = summarizeModelEvaluationReport(reader.read({
+    inventory: replayInventory, providerVersion: snapshot.readModel.inventoryProjection.providerVersion,
+  }));
+  assertEqual(replay.inventoryProjection.sha256, snapshot.readModel.inventoryProjection.sha256);
+  assertEqual(JSON.stringify(replay.coverage), JSON.stringify(snapshot.readModel.coverage));
+  const tampered = JSON.parse(JSON.stringify(snapshot));
+  tampered.readModel.inventoryProjection.providerVersion = '0.35.0';
+  let denied = false;
+  try { inventoryFromModelEvaluationSnapshot(tampered); } catch (error) { denied = /SHA-256 mismatch/.test(error.message); }
+  assert(denied);
   db.close();
 });
 

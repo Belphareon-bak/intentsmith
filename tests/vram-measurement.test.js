@@ -7,7 +7,7 @@ import { suite, test, testAsync, assert, assertEqual, summary } from './harness.
 
 import {
   readPlacement, measureThroughput, measureModel, listResident,
-  drainResident, intendedNumCtx,
+  drainResident, intendedNumCtx, unloadModel,
 } from '../src/upgrade/vram-measurement.js';
 
 const GB = 2 ** 30;
@@ -224,6 +224,33 @@ await testAsync('listResident při výpadku vrátí prázdno', async () => {
   globalThis.fetch = async () => { throw new Error('down'); };
   assertEqual((await listResident()).length, 0);
   restore();
+});
+
+await testAsync('unload never starts inference or changes context size', async () => {
+  const seen = stubFetch({ '/api/chat': { done: true, done_reason: 'unload' } });
+  try {
+    assert(await unloadModel('fixture'));
+    assertEqual(seen.length, 1);
+    assertEqual(seen[0].body.messages.length, 0);
+    assertEqual(seen[0].body.keep_alive, 0);
+    assertEqual(seen[0].body.options, undefined);
+  } finally { restore(); }
+});
+
+await testAsync('wrong provider or artifact cannot become a VRAM placement verdict', async () => {
+  for (const response of [
+    { digest: 'a'.repeat(64), provider_version: 'wrong' },
+    { digest: 'b'.repeat(64), provider_version: '0.34.0-intentsmith.1' },
+  ]) {
+    stubFetch({ '/api/chat': response });
+    try {
+      const result = await measureModel('fixture', { drain: false,
+        providerVersion: '0.34.0-intentsmith.1', expectedArtifact: { digestSha256: 'a'.repeat(64) } });
+      assert(result.error);
+      assertEqual(result.placement, null);
+      assertEqual(result.fits, false);
+    } finally { restore(); }
+  }
 });
 
 summary();

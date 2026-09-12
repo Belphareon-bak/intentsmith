@@ -17,6 +17,7 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
+import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 import { strict as assert } from 'assert';
 import Database from 'better-sqlite3';
 import fs from 'fs';
@@ -65,6 +66,10 @@ import {
 import { up as up066ModelPolicy } from '../src/db/migrations/2026_08_22_066_model_automation_policy.js';
 import { up as repairModelPolicyTriggers } from '../src/db/migrations/2026_08_24_081_model_policy_trigger_compatibility.js';
 import { up as repairModelProofTriggers } from '../src/db/migrations/2026_08_24_081_model_proof_trigger_compatibility.js';
+import { ConversationWebRepository } from '../src/network/conversation-web-repository.js';
+import { createGlobalAuthAuthority } from '../src/security/global-auth-policy.js';
+import { ModelEvaluationHistory } from '../src/upgrade/model-evaluation-history.js';
+import { ModelHuntState } from '../src/upgrade/model-hunt-state.js';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -204,7 +209,9 @@ const ALL_MIGRATIONS = [
   '2026_08_30_108_m7_durable_rate_limits',
   '2026_09_09_109_m2_file_read_outputs',
   '2026_09_10_110_m2_file_list_outputs',
-      '2026_09_11_111_conversation_web',
+  '2026_09_11_111_model_hunt_provider_identity',
+  '2026_09_11_112_model_hunt_append_only',
+      '2026_09_11_113_conversation_web',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -478,7 +485,9 @@ describe('T-SM0: Migration identity preflight', async () => {
       '2026_08_30_108_m7_durable_rate_limits',
       '2026_09_09_109_m2_file_read_outputs',
       '2026_09_10_110_m2_file_list_outputs',
-      '2026_09_11_111_conversation_web',
+  '2026_09_11_111_model_hunt_provider_identity',
+  '2026_09_11_112_model_hunt_append_only',
+      '2026_09_11_113_conversation_web',
     ]);
     assert.strictEqual(db.prepare(`
       SELECT COUNT(*) AS count FROM schema_migrations
@@ -1457,6 +1466,159 @@ describe('T-SM11: historical model trigger compatibility repairs', async () => {
     assert.ok(selectedTriggerNames(db).includes('trg_model_failover_proofs_require_artifacts'));
     db.close();
   });
+});
+
+describe('T-SM11: Core / hunt branch upgrades converge without losing evidence', async () => {
+  const manifest = await migrationTestInternals.discoverMigrations();
+  const retiredWeb = '2026_09_11_111_conversation_web';
+  const canonicalWeb = '2026_09_11_113_conversation_web';
+  const huntVersions = ['2026_09_11_111_model_hunt_provider_identity', '2026_09_11_112_model_hunt_append_only'];
+  const base = manifest.filter(m => m.version !== canonicalWeb && !huntVersions.includes(m.version));
+  const web = manifest.find(m => m.version === canonicalWeb);
+  // The web body is unchanged from ab0565bc; only its exported identity moved.
+  // Both original manifests use the actual migrations, not a handcrafted schema.
+  const origins = {
+    fresh: [], base,
+    web: [...base, { ...web, version: retiredWeb, file: `${retiredWeb}.js` }],
+    hunt: manifest.filter(m => m.version !== canonicalWeb),
+  };
+  const reference = freshDb();
+  await runMigrations(reference);
+  const schema = db => db.prepare(`SELECT type, name, tbl_name, sql FROM sqlite_master
+    WHERE name NOT LIKE 'sqlite_%' ORDER BY type, name`).all();
+  const expectedSchema = schema(reference);
+  reference.close();
+  const localSubject = createGlobalAuthAuthority({ production: false }).authorize({
+    routeKey: 'POST /api/chat', headers: {}, remoteAddress: '127.0.0.1',
+  }).subject;
+  const legacyAppliedAt = '2026-09-11 12:34:56';
+  const tables = ['conversations', 'messages', 'conversation_web_requests', 'm5_outbound_audit_events',
+    'model_evaluation_runs', 'model_hunt_catalog', 'model_hunt_attempts', 'model_hunt_bootstrap'];
+  const rows = db => Object.fromEntries(tables.filter(table => hasTable(db, table))
+    .map(table => [table, db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all()]));
+  const evaluationInput = {
+    artifact: { modelName: 'upgrade-fixture:latest', digestSha256: 'a'.repeat(64) },
+    role: 'CODE', suiteName: 'upgrade-fixture', suiteVersion: '1', contractSha256: 'c'.repeat(64),
+    summary: { score: 0.75, runs: 1, tasks: [{ name: 'fixture', mean: 0.75, spread: 0, scores: [0.75] }] },
+    startedAt: '2026-09-11T12:00:00.000Z', completedAt: '2026-09-11T12:00:01.000Z', durationMs: 1000,
+  };
+
+  for (const [origin, originalManifest] of Object.entries(origins)) {
+    await it(`${origin} database: real upgrade, exact rows/schema, reopen, no replay and guarded writes`, async () => {
+      const directory = fs.mkdtempSync(path.join(isolatedTestRuntime.artifacts, `schema-${origin}-`));
+      const filename = path.join(directory, 'upgrade.sqlite');
+      let db = new Database(filename);
+      let webContext;
+      let webId;
+      let seededRun;
+      try {
+        db.pragma('foreign_keys = ON');
+        // Batch only initial fixture construction; the upgrade below uses the
+        // production runner and its real per-migration disk transactions.
+        if (originalManifest.length) db.transaction(() => migrationTestInternals.runMigrationPlan(db, originalManifest))();
+        if (origin !== 'fresh') {
+          const history = new ModelEvaluationHistory(db);
+          if (origin === 'hunt') history.setProviderVersion('0.34.0-intentsmith.1');
+          seededRun = history.recordComplete(evaluationInput);
+        }
+        if (origin === 'web') {
+          db.prepare('UPDATE schema_migrations SET applied_at = ? WHERE version = ?').run(legacyAppliedAt, retiredWeb);
+          db.prepare('INSERT INTO conversations (id, project_id, title, summary) VALUES (?, NULL, ?, NULL)')
+            .run('upgrade-web', 'Upgrade fixture');
+          const context = content => ({ conversationId: 'upgrade-web', sessionId: 'upgrade-web', turnId: 'upgrade-turn',
+            authenticatedSubject: localSubject,
+            userMessageId: Number(db.prepare('INSERT INTO messages (conversation_id, role, content, tokens, metadata) VALUES (?, ?, ?, NULL, ?)')
+              .run('upgrade-web', 'user', content, '{}').lastInsertRowid) });
+          const repo = new ConversationWebRepository(db, { clock: () => 1000 });
+          const initial = context('načti web https://example.com/');
+          webId = repo.propose('https://example.com/', initial).request_id;
+          webContext = context(`schválit web ${webId}`);
+          assert.equal(repo.claim(webId, webContext).claimed, true);
+          repo.settle(webId, webContext, { bytes: Buffer.from([0, 0xff, 0xc3, 0xa9, 10]),
+            status: 200, contentType: 'text/plain', address: '93.184.215.14' });
+          repo.propose('https://example.com/pending', context('načti web https://example.com/pending'));
+        }
+        if (origin === 'hunt') {
+          const state = new ModelHuntState(db);
+          const [candidate] = state.observe([{ name: 'upgrade-fixture:latest', catalogDigest: 'a'.repeat(12), roles: ['CODE'] }],
+            { initialize: true, now: '2026-09-11T12:00:00.000Z' });
+          const key = state.evaluationKey(candidate, '0.34.0-intentsmith.1',
+            { CODE: { suiteContractSha256: evaluationInput.contractSha256 } }, { fixture: true });
+          state.record(candidate, key, { trials: [{ comparison: { candidateRunId: seededRun.runId } }] }, '2026-09-11T12:00:01.000Z');
+          state.record(candidate, key, { stage: 'pull', error: 'fixture transient failure' }, '2026-09-11T12:00:02.000Z');
+        }
+        const before = rows(db);
+        const result = await runMigrations(db);
+        assert.deepEqual(result.applied, origin === 'fresh' ? ALL_MIGRATIONS
+          : origin === 'base' ? [...huntVersions, canonicalWeb]
+          : origin === 'web' ? huntVersions : [canonicalWeb]);
+        assert.deepEqual(schema(db), expectedSchema);
+        for (const [table, originalRows] of Object.entries(before)) assert.deepEqual(rows(db)[table], originalRows, `${origin}: ${table}`);
+        assert.deepEqual(db.pragma('foreign_key_check'), []);
+        if (origin === 'web') {
+          assert.equal(db.prepare('SELECT applied_at FROM schema_migrations WHERE version = ?').get(canonicalWeb).applied_at, legacyAppliedAt);
+          assert.equal(db.prepare('SELECT 1 FROM schema_migrations WHERE version = ?').get(retiredWeb), undefined);
+        }
+        const upgradedRows = rows(db);
+        const stamps = db.prepare('SELECT * FROM schema_migrations ORDER BY version').all();
+        db.close();
+        db = new Database(filename);
+        db.pragma('foreign_keys = ON');
+        const reopened = await runMigrations(db);
+        assert.deepEqual(reopened.applied, []);
+        assert.equal(reopened.skipped.length, MIGRATION_COUNT);
+        assert.deepEqual(schema(db), expectedSchema);
+        assert.deepEqual(rows(db), upgradedRows);
+        assert.deepEqual(db.prepare('SELECT * FROM schema_migrations ORDER BY version').all(), stamps);
+        assert.deepEqual(db.pragma('foreign_key_check'), []);
+        const repo = new ConversationWebRepository(db);
+        assert.equal(db.prepare('SELECT conversation_web_writer() AS enabled').get().enabled, 0);
+        if (origin === 'web') {
+          assert.equal(repo.read(webId, webContext).status, 'succeeded');
+          assert.deepEqual(repo.read(webId, webContext).output, Buffer.from([0, 0xff, 0xc3, 0xa9, 10]));
+          assert.equal(repo.claim(webId, webContext).claimed, false, 'persisted approval stays consumed after reopen');
+          assert.throws(() => db.prepare('UPDATE conversation_web_requests SET status = ? WHERE request_id = ?')
+            .run('failed', webId), /writer|immutable|transition/i);
+        }
+        const history = new ModelEvaluationHistory(db);
+        history.setProviderVersion('0.35.0-intentsmith.1');
+        const key = { digestSha256: evaluationInput.artifact.digestSha256, role: evaluationInput.role,
+          suiteName: evaluationInput.suiteName, suiteVersion: evaluationInput.suiteVersion, contractSha256: evaluationInput.contractSha256 };
+        assert.equal(history.getComplete(key), null, 'a new provider cannot reuse the previous measurement');
+        const current = history.recordComplete(evaluationInput);
+        assert.equal(history.getComplete(key).runId, current.runId);
+        if (seededRun) {
+          assert.notEqual(current.runId, seededRun.runId);
+          assert.deepEqual(db.prepare('SELECT * FROM model_evaluation_runs WHERE run_id = ?').get(seededRun.runId),
+            upgradedRows.model_evaluation_runs[0]);
+        }
+        if (origin === 'hunt') {
+          db.pragma('recursive_triggers = OFF');
+          for (const table of ['model_hunt_catalog', 'model_hunt_attempts', 'model_hunt_bootstrap']) {
+            assert.throws(() => db.exec(`DELETE FROM ${table}`), /append.only/i);
+            assert.throws(() => db.exec(`INSERT OR REPLACE INTO ${table} SELECT * FROM ${table}`), /append.only|replace|immutable/i);
+            assert.deepEqual(rows(db)[table], upgradedRows[table]);
+          }
+        }
+      } finally { if (db.open) db.close(); }
+    });
+  }
+
+  for (const scenario of ['missing canonical', 'foreign slot 111']) {
+    await it(`web identity adoption fails before mutation: ${scenario}`, () => {
+      const db = freshDb();
+      try {
+        db.transaction(() => migrationTestInternals.runMigrationPlan(db, origins.web))();
+        if (scenario === 'foreign slot 111') db.prepare('INSERT INTO schema_migrations (version) VALUES (?)')
+          .run('2026_09_11_111_unknown_owner');
+        const before = db.serialize();
+        const plan = scenario === 'missing canonical' ? manifest.filter(m => m.version !== canonicalWeb) : manifest;
+        assert.throws(() => migrationTestInternals.runMigrationPlan(db, plan),
+          scenario === 'missing canonical' ? /canonical identity .*113_conversation_web is absent/ : /Duplicate migration numeric slot 111/);
+        assert.deepEqual(db.serialize(), before, 'failed preflight must not change any persisted byte');
+      } finally { db.close(); }
+    });
+  }
 });
 
 // ─── Runner ──────────────────────────────────────────────────────────────────

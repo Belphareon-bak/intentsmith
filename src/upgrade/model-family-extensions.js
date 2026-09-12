@@ -25,6 +25,8 @@ export const EXTRA_MODEL_FAMILIES = Object.freeze([
   { prefix: 'qwq',         family: 'qwq',        category: 'reasoning' },
   { prefix: 'devstral',    family: 'devstral',   category: 'code' },
   { prefix: 'north-mini-code', family: 'north-code', category: 'code' },
+  // Verified 2026-09-12: https://ollama.com/library/ornith-1.5 (Text, Image).
+  { prefix: 'ornith-1.5', family: 'ornith', category: 'vision' },
   { prefix: 'kimi-k2.7-code', family: 'kimi-code', category: 'code' },
   { prefix: 'minicpm-v',   family: 'minicpm-v',  category: 'vision' },
   { prefix: 'embeddinggemma', family: 'gemma-embedding', category: 'embedding' },

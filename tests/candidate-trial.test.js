@@ -9,6 +9,7 @@ import {
   runCapabilityFloor, tryCandidate, removeModel, CAPABILITY_FLOOR,
   REMOVAL_ENABLED_BY_DEFAULT,
 } from '../src/upgrade/candidate-trial.js';
+import { UpgradeManager } from '../src/upgrade/upgrade-manager.js';
 import { createRoleEvaluationPlans } from '../src/eval/role-evaluation-plan.js';
 
 const EVALUATION_PLANS = createRoleEvaluationPlans({ repeats: 1 });
@@ -33,10 +34,7 @@ function stubOllama({ answers = {}, placement, pullFails = false, currentModel =
 
     if (path === '/api/pull') {
       if (pullFails) return { ok: false, status: 500 };
-      return {
-        ok: true,
-        body: { getReader: () => ({ read: async () => ({ done: true, value: undefined }) }) },
-      };
+      return new Response('{"status":"success"}\n');
     }
     if (path === '/api/delete') return { ok: true, status: 200, json: async () => ({}) };
     if (path === '/api/ps') {
@@ -80,7 +78,9 @@ const SPILLS = { size: 29 * GB, size_vram: 21 * GB };
 // Mazání vlastní model-registry a candidate-trial ho dostává injekcí, stejně
 // jako v `scripts/model-upgrade-hunt.js`.  Bez ní se fail-closed nemaže, takže
 // scénáře, které mazání očekávají, musí autoritu dodat.
+const testPullManager = new UpgradeManager();
 const FAST_DRAIN = {
+  pullModel: (...args) => testPullManager.pullModel(...args),
   // These unit cases hold their synthetic /api/ps placement forever. The
   // drain contract has its own tests; skip it here instead of inheriting a
   // real concurrently used GPU or timing out on the immutable stub.
@@ -108,6 +108,15 @@ function fakeRunner(scores) {
 // ─── Schopnostní minimum ────────────────────────────────────────────────────
 
 suite('runCapabilityFloor');
+
+await testAsync('missing pull authority fails before download, model load and cleanup', async () => {
+  const seen = stubOllama();
+  try {
+    const result = await tryCandidate('cand:7b', { roles: [] });
+    assertEqual(result.errorCode, 'MODEL_PULL_AUTHORITY_REQUIRED');
+    assertEqual(seen.length, 0);
+  } finally { restore(); }
+});
 
 test('minimum obsahuje jen binární, jednoznačné kontroly', () => {
   // Krátká sada nesmí být zkrácené hodnocení kvality — nesmí umět vyřadit
@@ -234,11 +243,12 @@ await testAsync('selhání stahování nesmaže nic cizího', async () => {
   assertEqual(r.stage, 'pull');
   assert(r.error, 'chyba se musí propsat');
   assert(!seen.some(s => s.path === '/api/delete'), 'nestažený model se nemaže');
+  assert(!seen.some(s => s.path === '/api/chat'), 'failed pull cannot load a model for cleanup');
   restore();
 });
 
 await testAsync('stahování nemá kvalitativní timeout', async () => {
-  // Pojistka proti zaseknutí je hodina; nesmí to být kritérium vyřazení.
+  // Transport idle timeout vlastní pull autorita; není kritériem kvality.
   const seen = stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:7b' });
   await tryCandidate('cand:7b', {
     ...FAST_DRAIN, runner: fakeRunner({}), roles: [], bindings: {} });
@@ -452,8 +462,9 @@ await testAsync('scoring zachová fail-closed reason code z runneru', async () =
     runner: { runSuite: async () => { throw error; } },
     roles: ['CODE'], bindings: { CODE: 'inc:7b' },
   });
-  assertEqual(r.errorCode, 'MODEL_EVALUATION_RESPONSE_ARTIFACT_UNVERIFIED');
-  assertEqual(r.stage, 'trial');
+  assertEqual(r.roleErrors[0].code, 'MODEL_EVALUATION_RESPONSE_ARTIFACT_UNVERIFIED');
+  assertEqual(r.stage, 'done');
+  assertEqual(r.trials[0].failed, true);
   restore();
 });
 
@@ -559,6 +570,41 @@ await testAsync('allowRemoval mazání zapne', async () => {
   });
   assertEqual(r.removed, true);
   restore();
+});
+
+await testAsync('incumbent failure is attributed exactly and later candidate roles still run without deletion', async () => {
+  stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:27b' });
+  try {
+    let removed = 0;
+    const runner = fakeRunner({});
+    const original = runner.runSuite;
+    runner.runSuite = async (suite, model, ...args) => {
+      if (model === 'broken:27b') return { total: 1, tests: [
+        { name: 'cold_load', score: 0, error: 'aborted', timedOut: true, durationMs: 120000 },
+      ] };
+      return original.call(runner, suite, model, ...args);
+    };
+    const result = await tryCandidate('cand:27b', {
+      ...FAST_DRAIN, runner, allowRemoval: true, keepInconclusive: true,
+      deleteModel: async () => { removed++; },
+      roles: ['D1', 'R1', 'CODE'],
+      bindings: { D1: 'ok:27b', R1: 'broken:27b', CODE: 'ok:27b' },
+      trialOpts: { repeats: 1,
+        resolveArtifact: async modelName => ({ modelName, digestSha256: 'a'.repeat(64) }),
+      },
+    });
+    assertEqual(result.roleErrors.length, 1);
+    const failure = result.roleErrors[0];
+    assertEqual(failure.role, 'R1');
+    assertEqual(failure.model, 'broken:27b');
+    assertEqual(failure.artifact.modelName, 'broken:27b');
+    assertEqual(failure.repeat, 1);
+    assertEqual(failure.failedTasks[0].timedOut, true);
+    assert(result.decisions.D1 && result.decisions.CODE, 'completed roles on either side survive');
+    assert(!result.decisions.R1);
+    assertEqual(result.removed, false);
+    assertEqual(removed, 0);
+  } finally { restore(); }
 });
 
 summary();

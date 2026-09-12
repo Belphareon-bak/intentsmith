@@ -98,3 +98,7 @@ U nutričního SPEC raw odpověď prokázala 4417 výstupních tokenů, 6744 vst
 a `stop` při kontextu 16384. Běh byl později zastaven na samostatně zjištěném
 CODE truncation/syntax problému; nejde o kompletní cookbook PASS. Podrobný
 aktuální stav je v SYSTEM-MAP a závěrečném run reportu oprav.
+
+Samostatný hunt vstup má také historický deterministic důkaz na
+`d2b03cc3`: 352/352 PASS včetně gateway remediation `dca0e89b`.
+Tento důkaz nenahrazuje výše uvedené modelové neúspěchy ani nový společný gate.

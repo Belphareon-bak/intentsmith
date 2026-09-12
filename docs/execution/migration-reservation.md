@@ -236,7 +236,9 @@ záznamu selže v `artifact-validation`.
 | `2026_08_30_108_m7_durable_rate_limits.js` | použito pro bounded durable M7 transport rate-limit buckety |
 | `2026_09_09_109_m2_file_read_outputs.js` | použito pro neměnné bajty projektového file.read@2 a odstranění obsahu |
 | `2026_09_10_110_m2_file_list_outputs.js` | `WP-CORE-COMPLETION-20260909` — přesný root-list output a tombstone |
-| `2026_09_11_111_conversation_web.js` | `WP-AUDIT-REMEDIATION-20260911` — jednotlivě schválený konverzační web |
+| `2026_09_11_111_model_hunt_provider_identity.js` | explicitní zadání operátora — provider identity a bootstrap hunt ledger |
+| `2026_09_11_112_model_hunt_append_only.js` | explicitní zadání operátora — ochrana hunt ledgeru proti nahrazení identity |
+| `2026_09_11_113_conversation_web.js` | `WP-AUDIT-REMEDIATION-20260911` — jednotlivě schválený konverzační web |
 <!-- migration-source-manifest:end -->
 
 ## Navazující M7 rezervace 2026-08-29
@@ -442,3 +444,37 @@ globální volnost. Integrace je `MIGRATION_RECONCILIATION_REQUIRED`: nový
 společný census a upgrade/schema důkaz pro obě linie před merge. Ani 112
 není automaticky volná náhrada. Tento záznam žádnou migraci nepřejmenovává
 a neaplikuje na produkční DB.
+
+## Rezervace GPU huntu 2026-09-11
+
+Union census 447 refs a 29 worktrees končil na 110; 111 je použita pro
+provider-specific evaluation reuse a append-only bootstrap/incremental ledger.
+
+Navazující census 452 refs / 333 objektů a 29 worktrees měl maximum 111,
+bez souboru pod slotem 112. **112** vlastní oprava ochrany stejného hunt
+ledgeru proti `INSERT OR REPLACE`; již aplikovaná migrace 111 se nemění.
+Důkaz: `intentsmith-hunt-production-20260911/migration112-census.json`.
+
+## Společná integrace core a huntu — 2026-09-12
+
+`WP-CORE-HUNT-INTEGRATION-20260912` spojuje vlastní `ab0565bc` a commitnutý
+hunt `3f3a2220`. Nový lokální census prochází dostupnou commitnutou historii
+migrací/rozhodnutí a soubory 30 registrovaných worktrees hlavního repozitáře
+plus tento vlastní klon (31 adresářových záznamů, čtyři chybějící). Nenašel
+obsazenou migraci 113 ani rozhodnutí 048. Nejde o vzdálený fetch, kontrolu
+libovolných klonů nebo zásah do živého huntu. Důkaz a přesné vstupy:
+`.intentsmith-artifacts/core-hunt-integration-20260912/identity-census.json`.
+
+Hunt zachovává plné identity `111_model_hunt_provider_identity` a
+`112_model_hunt_append_only`. Web dostává kanonickou identitu
+`2026_09_11_113_conversation_web`. Jeho tělo se nemění. Migrační runner adoptuje
+výhradně původní `2026_09_11_111_conversation_web` na 113 před kontrolou sjednocení
+historie s manifestem; zachová `applied_at` a již aplikované tělo nespouští znovu.
+Jiný suffix pod 111 není výjimka a zůstává fail-closed. Chybějící kanonický cíl
+nebo kolize historie se odmítne před změnou DB. Nový manifest má **100 migrací**.
+Výše uvedený integrační blocker zachycuje stav před touto změnou; jeho uzavření
+vyžaduje nový důkaz fresh/web/hunt upgrade, nikoli dřívější zelené běhy.
+
+Provider rozhodnutí dostává kanonické číslo **048**; web zachovává **044**.
+Původní provider cesta je historický alias s odkazem na původní commit a nový
+dokument. Žádné pravomoci nebo historické review se tím nemění.

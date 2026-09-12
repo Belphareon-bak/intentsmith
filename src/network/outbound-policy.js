@@ -16,6 +16,7 @@ export const OUTBOUND_ERROR_CODE = Object.freeze({
 
 const OUTBOUND_CAPABILITIES = new WeakMap();
 const MODEL_FAMILY_PATH = /^\/library\/[a-z0-9._-]+$/;
+const MODEL_FAMILY_TAGS_PATH = /^\/library\/[a-z0-9._-]+\/tags$/;
 const MAX_REDIRECTS = 4;
 
 function requestHeaderEntries(input, init) {
@@ -64,7 +65,9 @@ function validModelDiscoveryTarget({ url, method, headers, hasBody }) {
       ]);
   }
   if (url.origin === 'https://ollama.com') {
-    const exactPath = url.pathname === '/library' || MODEL_FAMILY_PATH.test(url.pathname);
+    const exactPath = url.pathname === '/library'
+      || MODEL_FAMILY_PATH.test(url.pathname)
+      || MODEL_FAMILY_TAGS_PATH.test(url.pathname);
     const allowedHeaders = headers?.length === 0
       || exactHeaders(headers, [['user-agent', 'c3-agent/1.0']])
       || exactHeaders(headers, [['user-agent', 'intentsmith/1.0']]);
@@ -86,6 +89,20 @@ const MODEL_DISCOVERY_OUTBOUND_CAPABILITY = createOutboundCapability({
   surface: 'model-discovery',
   scope: 'model.metadata.read',
   validateTarget: validModelDiscoveryTarget,
+});
+
+// Provider release metadata shares the discovery opt-out, but has a separate
+// capability: model metadata consumers cannot use it to fetch GitHub content.
+const OLLAMA_RELEASE_OUTBOUND_CAPABILITY = createOutboundCapability({
+  surface: 'model-discovery',
+  scope: 'provider.release.read',
+  validateTarget: ({ url, method, headers, hasBody }) =>
+    url.href === 'https://api.github.com/repos/ollama/ollama/releases/latest'
+    && method === 'GET' && !hasBody
+    && exactHeaders(headers, [
+      ['accept', 'application/vnd.github+json'],
+      ['user-agent', 'intentsmith/1.0'],
+    ]),
 });
 
 const runtimeTransport = typeof globalThis.fetch === 'function'
@@ -279,6 +296,7 @@ export function createOutboundPolicy({
       init,
       MODEL_DISCOVERY_OUTBOUND_CAPABILITY,
     ),
+    ollamaReleaseFetch: (input, init) => governedFetch(input, init, OLLAMA_RELEASE_OUTBOUND_CAPABILITY),
     summary: options => audit.summary(options),
   });
 }
@@ -306,6 +324,13 @@ export function modelDiscoveryFetch(input, init) {
 
 export function getOutboundDiagnostics() {
   return productionPolicy ? productionPolicy.summary() : null;
+}
+
+export function ollamaReleaseFetch(input, init) {
+  if (!productionPolicy) {
+    throw typedError(OUTBOUND_ERROR_CODE.AUDIT_UNAVAILABLE, 'Production outbound policy is not configured');
+  }
+  return productionPolicy.ollamaReleaseFetch(input, init);
 }
 
 export const _testInternals = Object.freeze({ authorityValue, isLoopback, requestUrl });

@@ -240,3 +240,15 @@ Online zdroj zatím zůstává, protože druhá ověřená offline kopie operát
 klíčů stále chybí. Custody B je ověřená offline kopie a fyzické oddělení, ale
 celkový stav zůstává `KEY_CUSTODY_PARTIAL`; tento checkpoint nevydává receipt
 ani M5 acceptance.
+
+Následný nezávislý reviewer správně ponechal vypnuté médium zavřené. Ověřil
+jeho nepřítomnost, zavřený mapper a čistý repo diff; sedm souborů uvnitř proto
+zůstává doložených ceremony záznamem a nebylo druhým připojením reprodukováno.
+
+Online zdroj reviewer key nesmí být odstraněný, dokud custodian neprokáže
+znalost medium-B hesla a úspěšnou obnovu z druhé odděleně šifrované recovery
+kopie proti připnutému public SPKI. Recovery kopie může být na druhém offline
+médiu nebo jako client-side šifrovaný archiv v privátním cloudu či NAS, ale
+dešifrovací autorita musí zůstat zvlášť a mimo běžnou application/worker/
+operator-key custody. Tento recovery test je `NOT_RUN`; do jeho dokončení se
+poslední online kopie zachová.

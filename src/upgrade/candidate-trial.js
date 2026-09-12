@@ -23,6 +23,7 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
+import { MODEL_ACTIVITY_OWNER, modelUseAuthority } from './model-use-authority.js';
 import { config } from '../config.js';
 import { logger } from '../core/logger.js';
 import { measureModel, drainResident, unloadModel } from './vram-measurement.js';
@@ -32,7 +33,6 @@ import { ROLE_IMPROVEMENT_THRESHOLDS } from '../eval/role-evaluation-plan.js';
 import { checkRoleEligibility } from './candidate-eligibility.js';
 import { createRoleEvaluationPlans } from '../eval/role-evaluation-plan.js';
 
-const PULL_TIMEOUT = 60 * 60 * 1000;  // hodina; jen pojistka proti zaseknutí
 const PROBE_TIMEOUT = 120_000;
 
 /**
@@ -56,35 +56,14 @@ function baseUrl(opts = {}) {
  * timeout je tu jen proto, aby se běh nezasekl navěky.
  */
 export async function pullModel(modelName, opts = {}) {
-  const res = await fetch(`${baseUrl(opts)}/api/pull`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: modelName, stream: true }),
-    signal: AbortSignal.timeout(opts.timeout ?? PULL_TIMEOUT),
-  });
-  if (!res.ok) throw new Error(`Ollama HTTP ${res.status} při stahování`);
-
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
-  let lastStatus = '';
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
-    for (const line of lines) {
-      if (!line.trim()) continue;
-      let evt;
-      try { evt = JSON.parse(line); } catch { continue; }
-      if (evt.error) throw new Error(evt.error);
-      if (evt.status && evt.status !== lastStatus) {
-        lastStatus = evt.status;
-        opts.onProgress?.(evt);
-      }
-    }
+  if (typeof opts.pullModel !== 'function') {
+    throw Object.assign(new Error('Candidate pull requires the provider mutation authority'), {
+      code: 'MODEL_PULL_AUTHORITY_REQUIRED',
+    });
   }
+  await opts.pullModel(modelName, opts.onProgress, {
+    baseUrl: baseUrl(opts), source: 'USER_REQUEST',
+  });
   return true;
 }
 
@@ -120,21 +99,24 @@ export async function removeModel(modelName, opts = {}) {
 }
 
 async function ask(modelName, prompt, opts = {}) {
-  const res = await fetch(`${baseUrl(opts)}/api/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: modelName,
-      messages: [{ role: 'user', content: prompt }],
-      stream: false,
-      think: false,
-      options: { temperature: 0.1, num_predict: 512, num_ctx: 4096 },
-    }),
-    signal: AbortSignal.timeout(opts.timeout ?? PROBE_TIMEOUT),
+  return modelUseAuthority.runShared({ modelName, owner: MODEL_ACTIVITY_OWNER.MODEL_VALIDATION }, async () => {
+    const res = await fetch(`${baseUrl(opts)}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: modelName,
+        messages: [{ role: 'user', content: prompt }],
+        stream: false,
+        think: false,
+        options: { temperature: 0.1, num_predict: 512, num_ctx: 4096 },
+      }),
+      signal: AbortSignal.timeout(opts.timeout ?? PROBE_TIMEOUT),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (opts.providerVersion && data.provider_version !== opts.providerVersion) throw new Error('Capability provider version mismatch');
+    return (data?.message?.content || '').trim();
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  return (data?.message?.content || '').trim();
 }
 
 /**
@@ -177,7 +159,7 @@ export async function runCapabilityFloor(modelName, opts = {}) {
       const answer = await ask(modelName, probe.prompt, opts);
       if (!probe.check(answer)) failures.push({ id: probe.id, reason: probe.failure, answer: answer.slice(0, 120) });
     } catch (err) {
-      failures.push({ id: probe.id, reason: `${probe.failure} (${err.message})`, answer: '' });
+      failures.push({ id: probe.id, reason: `${probe.failure} (${err.message})`, answer: '', retryable: true });
     }
   }
   return { passed: failures.length === 0, failures };
@@ -211,6 +193,7 @@ export async function tryCandidate(candidateName, ctx = {}) {
     measurement: null,
     floor: null,
     trials: [],
+    roleErrors: [],
     decisions: {},
     removed: false,
     keptReason: null,
@@ -249,6 +232,7 @@ export async function tryCandidate(candidateName, ctx = {}) {
     return out;
   }
 
+  let measurementStarted = false;
   try {
     if (ctx.skipPull === true) {
       out.stage = 'measure';
@@ -258,8 +242,10 @@ export async function tryCandidate(candidateName, ctx = {}) {
       await pullModel(candidateName, ctx);
     }
 
+    if (typeof ctx.beforeMeasure === 'function') ctx.expectedArtifact = await ctx.beforeMeasure(candidateName);
     onStage('measure', candidateName);
     out.stage = 'measure';
+    measurementStarted = true;
     out.measurement = await measureModel(candidateName, ctx);
 
     if (out.measurement.error) {
@@ -293,6 +279,7 @@ export async function tryCandidate(candidateName, ctx = {}) {
       ? { passed: true, failures: [], reused: true }
       : await runCapabilityFloor(candidateName, ctx);
     if (!out.floor.passed) {
+      if (out.floor.failures.some(failure => failure.retryable)) out.errorCode = 'CANDIDATE_EVALUATION_RETRYABLE';
       out.error = `neprošel schopnostním minimem: ${out.floor.failures.map(f => f.reason).join('; ')}`;
       if (removalAllowed) out.removed = await removeModel(candidateName, ctx);
       else out.keptReason = 'mazání je vypnuté, dokud validační sady nerozlišují';
@@ -328,21 +315,38 @@ export async function tryCandidate(candidateName, ctx = {}) {
         onStage('roleSkipped', candidateName, { role, reason: eligibility.reason });
         continue;
       }
-      const result = await trialRole(runner, role, candidateName, incumbent, {
-        evaluationPlan,
-        threshold: ROLE_IMPROVEMENT_THRESHOLDS[role] ?? 0.05,
-        speed: {
-          candidate: out.measurement.throughput?.tokensPerSecond ?? 0,
-          incumbent: incumbentSpeed[incumbent] ?? 0,
-        },
-        between: () => drainResident(ctx),
-        suiteCache,
-        ...ctx.trialOpts,
-      });
-      out.trials.push(result);
-      if (!result.skipped) {
-        out.decisions[role] = result.decision;
-        onStage('roleDecided', candidateName, { role, decision: result.decision });
+      try {
+        const result = await trialRole(runner, role, candidateName, incumbent, {
+          evaluationPlan,
+          threshold: ROLE_IMPROVEMENT_THRESHOLDS[role] ?? 0.05,
+          speed: {
+            candidate: out.measurement.throughput?.tokensPerSecond ?? 0,
+            incumbent: incumbentSpeed[incumbent] ?? 0,
+          },
+          between: async () => {
+            if (ctx.drain !== false && !await drainResident(ctx)) {
+              throw Object.assign(new Error('GPU drain did not complete before role evaluation'), {
+                code: 'HUNT_GPU_BUSY',
+              });
+            }
+          },
+          suiteCache,
+          ...ctx.trialOpts,
+        });
+        out.trials.push(result);
+        if (!result.skipped) {
+          out.decisions[role] = result.decision;
+          onStage('roleDecided', candidateName, { role, decision: result.decision });
+        }
+      } catch (error) {
+        const failure = {
+          role, candidate: candidateName, incumbent,
+          ...error.evaluationFailure,
+          error: error.message, code: error.code || 'CANDIDATE_EVALUATION_RETRYABLE',
+        };
+        out.roleErrors.push(failure);
+        out.trials.push({ role, failed: true, error: failure.error });
+        onStage('roleFailed', candidateName, failure);
       }
     }
 
@@ -360,7 +364,9 @@ export async function tryCandidate(candidateName, ctx = {}) {
         || d.reasonCode === 'INSUFFICIENT_EVIDENCE'
       ));
 
-    if (!out.accepted && removalAllowed && !(out.inconclusive && ctx.keepInconclusive)) {
+    if (out.roleErrors.length) {
+      out.keptReason = 'neúplné měření rolí — ponechán k opakování';
+    } else if (!out.accepted && removalAllowed && !(out.inconclusive && ctx.keepInconclusive)) {
       out.removed = await removeModel(candidateName, ctx);
     } else if (!out.accepted) {
       out.keptReason = removalAllowed
@@ -370,9 +376,9 @@ export async function tryCandidate(candidateName, ctx = {}) {
   } catch (err) {
     out.error = err.message;
     out.errorCode = typeof err.code === 'string' ? err.code : null;
-    if (removalAllowed && out.stage !== 'pull') out.removed = await removeModel(candidateName, ctx);
+    out.keptReason = 'provozní chyba — ponechán k opakování';
   } finally {
-    await unloadModel(candidateName, ctx).catch(() => {});
+    if (measurementStarted) await unloadModel(candidateName, ctx).catch(() => {});
   }
 
   return out;

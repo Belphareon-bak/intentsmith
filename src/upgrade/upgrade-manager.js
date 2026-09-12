@@ -21,6 +21,7 @@ import {
   modelUseAuthority,
 } from './model-use-authority.js';
 import { requireLoopbackModelProviderOrigin } from './model-provider-origin.js';
+import { checkOllamaUpdate } from './ollama-update-check.js';
 
 export const MODEL_PULL_IDLE_TIMEOUT_MS = 120_000;
 
@@ -68,6 +69,8 @@ async function _ensureOnlineDiscovery() {
 export class UpgradeManager {
   constructor(options = {}) {
     this._lastDiscovery = null;
+    this._lastOllamaUpdate = null;
+    this._checkOllamaUpdate = options.checkOllamaUpdate || checkOllamaUpdate;
     this._lastCheckTime = null;
     this._modelHash = null;
     this._recheckInterval = null;
@@ -490,11 +493,13 @@ export class UpgradeManager {
     }
   }
 
-  async recoverOutstandingModelPulls(onProgress) {
+  async recoverOutstandingModelPulls(onProgress, options = {}) {
     if (!this._modelArtifactAuthorityRepository) return Object.freeze([]);
     const results = [];
     for (const operation of this._modelArtifactAuthorityRepository.listOutstandingEffects()) {
       if (operation.kind !== 'PULL') continue;
+      if (options.modelNames && !options.modelNames.includes(operation.exactName)) continue;
+      if (options.providerOrigin && operation.providerOrigin !== options.providerOrigin) continue;
       try {
         await this.pullModel(operation.exactName, onProgress, {
           baseUrl: operation.providerOrigin,
@@ -557,6 +562,13 @@ export class UpgradeManager {
    * @returns {Promise<{discovery: DiscoveryResult}>}
    */
   async checkForUpgrades(opts = {}) {
+    if (!this._lastOllamaUpdate || opts.fullCycle || opts.checkProvider) {
+      this._lastOllamaUpdate = await this._checkOllamaUpdate({
+        enabled: config.features?.onlineDiscovery === true,
+        baseUrl: opts.baseUrl || config.ollama?.baseUrl,
+      });
+      logger.info('UpgradeManager', `Ollama release check: ${this._lastOllamaUpdate.status}`, this._lastOllamaUpdate);
+    }
     const discovery = await discover({
       ...opts,
       includeCatalog: opts.fullCycle || false,
@@ -629,7 +641,7 @@ export class UpgradeManager {
       stats: discovery.stats,
     });
 
-    return { discovery };
+    return { discovery, ollamaUpdate: this._lastOllamaUpdate };
   }
 
   /**
@@ -639,6 +651,7 @@ export class UpgradeManager {
   getLastResults() {
     return {
       discovery: this._lastDiscovery,
+      ollamaUpdate: this._lastOllamaUpdate,
     };
   }
 

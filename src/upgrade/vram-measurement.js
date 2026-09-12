@@ -27,9 +27,10 @@
 
 import { execFileSync } from 'node:child_process';
 
+import { MODEL_ACTIVITY_OWNER, modelUseAuthority } from './model-use-authority.js';
 import { config } from '../config.js';
 import { logger } from '../core/logger.js';
-import { sameModelName } from './model-identity.js';
+import { sameModelName, normalizeModelDigestSha256 } from './model-identity.js';
 
 const DEFAULT_TIMEOUT = 30_000;
 const LOAD_TIMEOUT = 300_000;
@@ -59,12 +60,24 @@ function baseUrl(opts = {}) {
 }
 
 async function ollama(path, init, timeoutMs, opts = {}) {
-  const res = await fetch(`${baseUrl(opts)}${path}`, {
-    ...init,
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-  if (!res.ok) throw new Error(`Ollama HTTP ${res.status} na ${path}`);
-  return res.json();
+  const modelName = init?.body ? JSON.parse(init.body).model : null;
+  const lease = modelName ? modelUseAuthority.acquireShared({ modelName, owner: MODEL_ACTIVITY_OWNER.VRAM_ARTIFACT_USE }) : null;
+  try {
+    const res = await fetch(`${baseUrl(opts)}${path}`, {
+      ...init,
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!res.ok) throw new Error(`Ollama HTTP ${res.status} na ${path}`);
+    const data = await res.json();
+    if (path === '/api/chat' && opts.providerVersion && data.provider_version !== opts.providerVersion) {
+      throw Object.assign(new Error('VRAM response provider version mismatch'), { code: 'CANDIDATE_MEASURE_RETRYABLE' });
+    }
+    if (path === '/api/chat' && opts.expectedArtifact
+      && normalizeModelDigestSha256(data.digest) !== opts.expectedArtifact.digestSha256) {
+      throw Object.assign(new Error('VRAM response artifact digest mismatch'), { code: 'CANDIDATE_MEASURE_RETRYABLE' });
+    }
+    return data;
+  } finally { lease?.release(); }
 }
 
 /**
@@ -102,6 +115,9 @@ export async function readPlacement(modelName, opts = {}) {
   const data = await ollama('/api/ps', {}, opts.timeout ?? DEFAULT_TIMEOUT, opts);
   const entry = (data?.models || []).find(m => sameModelName(m?.name, modelName)
     || sameModelName(m?.model, modelName));
+  if (entry && opts.expectedArtifact && normalizeModelDigestSha256(entry.digest) !== opts.expectedArtifact.digestSha256) {
+    throw new Error('VRAM placement artifact digest mismatch');
+  }
   if (!entry) return { loaded: false, sizeBytes: 0, vramBytes: 0, cpuBytes: 0, fullyOnGpu: false };
 
   const sizeBytes = entry.size || 0;
@@ -209,6 +225,9 @@ export async function drainResident(opts = {}) {
       if (emptyPolls >= requiredEmptyPolls) return true;
     } else {
       emptyPolls = 0;
+      if (opts.allowedDrainModels && resident.some(name => !opts.allowedDrainModels.has(name))) {
+        throw Object.assign(new Error('GPU belongs to a model outside this hunt'), { code: 'HUNT_GPU_BUSY' });
+      }
       for (const name of resident) await unloadModel(name, opts);
     }
     await new Promise(r => setTimeout(r, opts.drainPollMs ?? 1000));
@@ -235,7 +254,9 @@ export async function measureModel(modelName, opts = {}) {
     error: null,
   };
 
+  let lease;
   try {
+    lease = modelUseAuthority.acquireShared({ modelName, owner: MODEL_ACTIVITY_OWNER.VRAM_ARTIFACT_USE });
     // Měří se vždy z prázdné paměti, jinak výsledek popisuje kontenci.
     if (opts.drain !== false && !await drainResident(opts)) {
       result.error = 'GPU se před měřením nepodařilo bezpečně uvolnit';
@@ -265,7 +286,7 @@ export async function measureModel(modelName, opts = {}) {
     result.throughput = await measureThroughput(modelName, opts);
   } catch (err) {
     result.error = err.message;
-  }
+  } finally { lease?.release(); }
 
   return result;
 }
@@ -278,12 +299,11 @@ export async function unloadModel(modelName, opts = {}) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: modelName,
-        messages: [{ role: 'user', content: 'ok' }],
+        messages: [],
         stream: false,
         keep_alive: 0,
-        options: { num_predict: 1 },
       }),
-    }, opts.timeout ?? DEFAULT_TIMEOUT, opts);
+    }, opts.timeout ?? DEFAULT_TIMEOUT, { ...opts, expectedArtifact: null });
     return true;
   } catch {
     return false;

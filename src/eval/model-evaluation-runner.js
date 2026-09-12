@@ -4,6 +4,7 @@
 // The caller supplies an exact, versioned suite through an evaluation plan and
 // persists the resulting immutable summary through ModelEvaluationHistory.
 
+import { MODEL_ACTIVITY_OWNER, modelUseAuthority } from '../upgrade/model-use-authority.js';
 import { config } from '../config.js';
 import {
   normalizeModelDigestSha256,
@@ -11,7 +12,8 @@ import {
 } from '../upgrade/model-identity.js';
 
 export const DEFAULT_MODEL_EVALUATION_OPTIONS = Object.freeze({
-  timeout: 30_000,
+  // Includes cold loading: production loads exceeded the former 30s budget.
+  timeout: 120_000,
   num_predict: 512,
   num_ctx: 4096,
   temperature: 0.1,
@@ -28,6 +30,7 @@ export const MODEL_EVALUATION_ARTIFACT_ERROR = Object.freeze({
   RESPONSE_UNVERIFIED: 'MODEL_EVALUATION_RESPONSE_ARTIFACT_UNVERIFIED',
   RESPONSE_DRIFT: 'MODEL_EVALUATION_RESPONSE_ARTIFACT_DRIFT',
   RESPONSE_MODEL_MISMATCH: 'MODEL_EVALUATION_RESPONSE_MODEL_MISMATCH',
+  PROVIDER_MISMATCH: 'MODEL_EVALUATION_RESPONSE_PROVIDER_MISMATCH',
 });
 
 export class ModelEvaluationArtifactError extends Error {
@@ -49,7 +52,7 @@ function expectedArtifactIdentity(modelName, artifact) {
       { modelName },
     );
   }
-  return Object.freeze({ modelName: artifact.modelName.trim(), digestSha256 });
+  return Object.freeze({ modelName: artifact.modelName.trim(), digestSha256, providerVersion: artifact.providerVersion || null });
 }
 
 export class ModelEvaluationRunner {
@@ -67,7 +70,9 @@ export class ModelEvaluationRunner {
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     const started = Date.now();
 
+    let lease;
     try {
+      lease = modelUseAuthority.acquireShared({ modelName, owner: MODEL_ACTIVITY_OWNER.MODEL_VALIDATION });
       const response = await fetch(`${this._baseUrl}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -89,6 +94,13 @@ export class ModelEvaluationRunner {
       const data = await response.json();
       const expected = expectedArtifactIdentity(modelName, expectedArtifact);
       if (expected) {
+        if (expected.providerVersion && data.provider_version !== expected.providerVersion) {
+          throw new ModelEvaluationArtifactError(
+            MODEL_EVALUATION_ARTIFACT_ERROR.PROVIDER_MISMATCH,
+            'The response does not attest the expected Ollama provider version.',
+            { expected: expected.providerVersion, observed: data.provider_version || null },
+          );
+        }
         if (!sameModelName(data.model, expected.modelName)) {
           throw new ModelEvaluationArtifactError(
             MODEL_EVALUATION_ARTIFACT_ERROR.RESPONSE_MODEL_MISMATCH,
@@ -136,6 +148,7 @@ export class ModelEvaluationRunner {
       };
     } finally {
       clearTimeout(timeoutId);
+      lease?.release();
     }
   }
 

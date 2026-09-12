@@ -1,9 +1,8 @@
 [Unit]
-Description=Score up to two unseen IntentSmith model candidates every 48 hours
+Description=Score up to two unseen IntentSmith model candidates nightly
 
 [Timer]
-OnBootSec=30m
-OnUnitActiveSec=48h
+OnCalendar=*-*-* 03:00:00
 RandomizedDelaySec=15m
 AccuracySec=5m
 Persistent=false
