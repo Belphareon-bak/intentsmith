@@ -113,6 +113,10 @@ Export: `.intentsmith-artifacts/hunt-review-followup-review-20260912/`,
 Bundle je určen pro lokální review/integraci do huntu na `5e3521ef`.
 Nový fyzický Studio→model journey se zde nespouštěl; předchozí je samostatně
 připnutý v [production journey packetu](2026-09-12-PRODUCTION-JOURNEY-REVIEW-PACKET.md).
+Z cizího dokumentačního commitu `68f5080c` byl navíc převzat
+[review receipt předchozího journey](2026-09-12-PRODUCTION-JOURNEY-REVIEW-RECEIPT.md):
+NO_BLOCKING_FINDINGS pro `b5ecf516..dc81a0f0`; fyzický běh recenzent neopakoval.
+Receipt výslovně nepřijímá pozdější hunt ani tento integrační rozsah.
 CODE kontrakt této core větve zůstává `6ee5ab47…7035`; hunt checkout má
 `09d65ca7…6fdb`. Jejich CODE skóre se nesmějí zaměnit. Nové reasoning/R2,
 CHAT a VISION kontrakty jsou mezi větvemi shodné.
