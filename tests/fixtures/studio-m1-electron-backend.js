@@ -109,6 +109,7 @@ function restartListener() {
   });
 }
 
+let scoringReads = 0;
 const server = http.createServer((request, response) => {
   const access = authorize(request);
   if (!access.allowed) {
@@ -171,6 +172,27 @@ const server = http.createServer((request, response) => {
   }
   if (request.method === 'GET' && target.pathname === '/api/media/history') {
     sendJson(request, response, 200, { generations: [] });
+    return;
+  }
+  if (request.method === 'GET' && target.pathname === '/api/system/models/evaluations') {
+    scoringReads++;
+    sendJson(request, response, 200, {
+      schemaVersion: 2, generatedAt: new Date(1700000000000 + scoringReads * 1000).toISOString(),
+      providerVersion: 'fixture-ollama-1', bindingAuthority: { status: 'UNVERIFIED_RUNTIME' },
+      coverage: { applicableTotal: 2, applicableStatusCounts: { COMPLETE: 1, BLOCKED: 1, MISSING: 0 }, notApplicable: 0 },
+      roles: { R2: {
+        role: 'R2', suiteName: 'review_fixture', suiteVersion: '1', suiteContractSha256: 'c'.repeat(64),
+        binding: null, decisions: [], artifacts: [
+          { model: 'scoring-fixture-' + scoringReads, digestSha256: 'a'.repeat(64), status: 'COMPLETE', score: 0.875,
+            providerVersion: 'fixture-ollama-1', testedAt: '2026-09-12T10:00:00Z', intervalIntegrity: 'VERIFIED' },
+          { model: 'unmeasured-fixture', digestSha256: 'b'.repeat(64), status: 'BLOCKED', score: null, providerVersion: null },
+        ],
+      } },
+    });
+    return;
+  }
+  if (request.method === 'GET' && target.pathname === '/api/system/models') {
+    sendJson(request, response, 200, { models: [] });
     return;
   }
   if (request.method === 'GET' && target.pathname === '/api/system/info') {
