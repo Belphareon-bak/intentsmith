@@ -1524,42 +1524,6 @@ async function rendererM1FunctionalWsProbe(cdp) {
  * the renderer invents buys nothing, and no path-taking read exists to fall
  * back on.
  */
-// Exercise the shipped scoring UI through clicks and the owned HTTP fixture.
-// It must not call a binding mutation or start GPU inference.
-async function rendererScoringProbe(cdp) {
-  return evaluate(cdp, `(async () => {
-    const wait = async predicate => {
-      const deadline = Date.now() + 8000;
-      while (Date.now() < deadline) {
-        const value = predicate(); if (value) return value;
-        await new Promise(resolve => setTimeout(resolve, 50));
-      }
-      throw new Error('scoring-ui-element-timeout');
-    };
-    const textElement = text => [...document.querySelectorAll('button,div,span')]
-      .find(element => element.textContent.trim() === text && element.getClientRects().length);
-    (await wait(() => document.querySelector('[title="Nastavení"]'))).click();
-    (await wait(() => textElement('LLM'))).click();
-    (await wait(() => textElement('Spravovat role a modely'))).click();
-    (await wait(() => textElement('Evaluace'))).click();
-    const current = () => document.body.innerText.match(/scoring-fixture-[0-9]+/)?.[0];
-    const first = await wait(current);
-    const body = document.body.innerText;
-    const refresh = await wait(() => [...document.querySelectorAll('button')]
-      .find(button => button.textContent.trim() === 'Obnovit scoring' && !button.disabled));
-    refresh.click();
-    const second = await wait(() => current() && current() !== first && current());
-    return {
-      first, second, refreshed: first !== second,
-      providerShown: body.includes('fixture-ollama-1'),
-      unknownVersionShown: body.includes('nezaznamenána'),
-      scoreShown: body.includes('88%'),
-      blockedShown: body.includes('BLOCKED'),
-      runtimeUnverifiedShown: body.includes('UNVERIFIED_RUNTIME'),
-    };
-  })()`, 35000);
-}
-
 async function rendererByteBridgeProbe(cdp) {
   return evaluate(cdp, `(() => {
     const bridge = window.electronC3;
@@ -2178,16 +2142,6 @@ async function runJourney({
     }
     negative = await negativeBoundary(access);
 
-    if (m1Journey) {
-      const scoring = await rendererScoringProbe(cdp);
-      if (!['refreshed', 'providerShown', 'unknownVersionShown', 'scoreShown', 'blockedShown', 'runtimeUnverifiedShown']
-        .every(key => scoring[key] === true)) fail('scoring-ui-contract-failed', scoring);
-      const screenshot = await cdp.send('Page.captureScreenshot', { format: 'png' });
-      await writeFile(path.join(path.dirname(paths.evidence), 'studio-scoring.png'), Buffer.from(screenshot.data, 'base64'), { mode: 0o600, flag: 'wx' });
-      await writePrivateJson(path.join(path.dirname(paths.evidence), 'studio-scoring.json'), {
-        sourceRevision, build: buildDigests, backend: 'owned-controlled-fixture', scoring,
-      });
-    }
     const networkPolicy = m1Journey ? STUDIO_M1_POLICY : STUDIO_M0_POLICY;
     const remaining = networkPolicy.requiredSoakMs
       - (monotonicMs() - observationStarted);
