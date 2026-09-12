@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import os from 'node:os';
+import {createDefaultBettingBridge} from '../src/betting/default-host.js';
 import {BettingDataStore} from '../src/betting/data-store.js';
 import {createBettingDataHost} from '../src/betting/data-host.js';
 import {createOutboundPolicy} from '../src/network/outbound-policy.js';
@@ -57,7 +58,7 @@ await testAsync('real data host, autonomous preferences, cache, evidence databas
   const data=bridge.host.forTurn(token),result=await runAutonomous({leagues:['E0'],horizonHours:24,minOdds:'1.5',maxOdds:'4',minProbability:.2},{now:FIXED,bettingData:data,clock:()=>clock-Date.parse(FIXED)});
   assert.equal(result.status,'READY',JSON.stringify(result.errors));assert.equal(result.persistence.status,'SAVED');assert.equal(result.analysis.autonomous,true);assert.equal(result.analysis.models.length,1);assert.equal(calls,6);
   assert.equal(store.database.prepare('SELECT count(*) n FROM betting_runs').get().n,1);assert.equal(store.database.prepare("SELECT count(*) n FROM m5_outbound_audit_events WHERE decision='succeeded'").get().n,6);
-  const persisted=JSON.parse(store.database.prepare('SELECT record_json FROM betting_runs').get().record_json);assert.equal(persisted.snapshot.events[0].markets[0].prediction.basis,'model');assert.ok(persisted.models[0].trainingDigest);
+  const persisted=JSON.parse(store.database.prepare('SELECT record_json FROM betting_runs').get().record_json);assert.equal(persisted.snapshot.events[0].markets[0].prediction.basis,'model');assert.ok(persisted.models[0].trainingDigest);assert.equal(persisted.hostInvocation.extensionId,'sazeni');assert.equal(persisted.hostInvocation.sourceObservationIds.length,6);
   await assert.rejects(data.get({kind:'fixtures'}),/EXPIRED/);bridge.host.closeInvocation(token);
   token=bridge.host.openInvocation({extensionId:'sazeni',toolId:'sazeni.ticket_builder',operator:true});const cached=await bridge.host.forTurn(token).get({kind:'fixtures'});assert.equal(cached.sourceRef.cacheHit,true);assert.equal(calls,6);
   await assert.rejects(bridge.host.forTurn(token).get({kind:'fixtures',url:'https://evil.invalid'}),/INVALID/);bridge.host.closeInvocation(token);await assert.rejects(bridge.capability.get(token,{kind:'fixtures'}),/EXPIRED/);
@@ -82,12 +83,13 @@ await testAsync('Czech live adapter uses exact identities, timestamps, scoped AP
  const key='test_key_not_a_credential',store=new BettingDataStore(':memory:');
  const event={id:1,home:'A',away:'B',homeId:1,awayId:2,date:'2026-09-12T14:00:00Z',sport:{slug:'football'},league:{slug:'england-premier-league'},status:'pending'};
  const odds={...event,bookmakers:{'Tipsport.cz':[{name:'Moneyline',updatedAt:FIXED,odds:[{home:'1.9',draw:'3.5',away:'4.5'}]}]}};
- const bridge=createBettingDataHost({store,clock:()=>Date.parse(FIXED),oddsIOKey:key,transport:async(url)=>new Response(JSON.stringify(new URL(url).pathname.endsWith('/bookmakers')?[{name:'Tipsport.cz',active:true}]:new URL(url).pathname.endsWith('/events')?[event]:[odds]))});
+ const bridge=createBettingDataHost({store,clock:()=>Date.parse(FIXED),oddsIOKey:key,transport:async(url)=>String(url).includes('football-data.co.uk')?new Response(historyCSV(Number(/mmz4281\/(\d{2})/.exec(String(url))[1]))):new Response(JSON.stringify(new URL(url).pathname.endsWith('/bookmakers')?[{name:'Tipsport.cz',active:true}]:new URL(url).pathname.endsWith('/events')?[event]:[odds]))});
  const token=bridge.host.openInvocation({extensionId:'sazeni',toolId:'sazeni.ticket_builder',operator:true});
  try {const bundle=await bridge.capability.get(token,{kind:'live',leagues:['E0'],bookmakers:['Tipsport.cz'],from:FIXED,to:'2026-09-13T08:00:00.000Z'});
   const snapshot=oddsIOSnapshot(bundle,{now:FIXED,leagues:['E0'],bookmakerIds:['Tipsport.cz']});assert.equal(snapshot.dataMode,'live');assert.equal(snapshot.events[0].markets[0].region,'CZ');assert.equal(snapshot.events[0].markets[0].sourceUpdatedAt,FIXED);
   assert.ok(!JSON.stringify(store.database.prepare('SELECT * FROM betting_observations').all()).includes(key));assert.ok(!JSON.stringify(store.database.prepare('SELECT * FROM m5_outbound_audit_events').all()).includes(key));
   const tampered=JSON.parse(bundle.content);tampered.odds[0].awayId=3;assert.throws(()=>oddsIOSnapshot({...bundle,content:JSON.stringify(tampered)},{now:FIXED,leagues:['E0'],bookmakerIds:['Tipsport.cz']}),/IDENTITY/);
+  const autonomous=await runAutonomous({leagues:['E0'],bookmakerIds:['Tipsport.cz']},{now:FIXED,bettingData:bridge.host.forTurn(token)});assert.equal(autonomous.status,'READY',JSON.stringify(autonomous.errors));assert.equal(autonomous.verifiedLive,true);assert.equal(autonomous.tickets[0].bookmakerId,'Tipsport.cz');assert.equal(autonomous.persistence.status,'SAVED');
  }finally{bridge.host.closeInvocation(token);store.close();}
 });
 
@@ -99,5 +101,13 @@ await testAsync('actual chat handler accepts preferences without an imported sna
  try {const result=await specialistHandler(JSON.stringify({preferences:{leagues:['E0'],horizonHours:72,minOdds:'1.5',maxOdds:'3',minProbability:.4}}),{specialist:{id:'sazeni',primaryExpertiseId:'sazeni',name:'Sázkař',domain:'sports_betting',expertiseCollection:[]},sessionId:'autonomous-handler',conversationId:'conversation-auto',userMessageId:456,sessionState:{get:()=>null,clearSpecialist:()=>{}}});
   const wire=JSON.parse(JSON.stringify(result)),data=wire.tag.metadata.toolResults[0].data;assert.equal(data.status,'READY',JSON.stringify(data.errors));assert.equal(data.analysis.autonomous,true);assert.equal(data.persistence.status,'SAVED');assert.equal(wire.tag.metadata.deterministicPresentation,true);assert.ok(wire.content.includes('1.9'));assert.equal(wire.tag.can_execute,false);
  }finally{sazkar.unregister(ctx(specialistRuntime));specialistRuntime.setBettingDataHost(null);store.close();}
+});
+
+await testAsync('extension capability cannot initialize storage without a core invocation',async()=>{
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'is-betting-lazy-'));try{const bridge=createDefaultBettingBridge(root);await assert.rejects(bridge.capability.get({}, {kind:'fixtures'}),/SCOPE_EXPIRED/);assert.deepEqual(fs.readdirSync(root),[]);}finally{fs.rmSync(root,{recursive:true,force:true});}
+});
+await testAsync('odds scope rejects non-RFC3339 strings carrying free text before transmission',async()=>{
+ const store=new BettingDataStore(':memory:');let calls=0;const policy=createOutboundPolicy({database:store.database,logger:{warn(){},error(){}},enabledSurfaces:{'betting-data':true},transport:async()=>{calls++;return new Response('[]');}});
+ try{const u=new URL('https://api.odds-api.io/v3/events');for(const [k,v] of Object.entries({apiKey:'test',sport:'football',league:'england-premier-league',status:'pending',limit:'100',skip:'0',from:'2026-09-12 (private annotation)',to:'2026-09-13'}))u.searchParams.set(k,v);await assert.rejects(policy.oddsIOFetch(u,{headers:{accept:'application/json'}}));assert.equal(calls,0);}finally{store.close();}
 });
 summary();

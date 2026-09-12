@@ -74,6 +74,7 @@ await testAsync('Czech follow-ups, inline attachments, malicious payload and saf
  const absentClock=await runBetting({payload});assert.equal(absentClock.status,'NEEDS_INPUT');assert.equal(JSON.parse(JSON.stringify(absentClock)).generatedAt,null);
  assert.equal(extractBettingInput('Sestav tiket',[{type:'application/pdf',content:'fake'}]).inputError.code,'NEEDS_INPUT');assert.equal(extractBettingInput('{"request":{},"snapshot":{},"now":"fake"}').inputError.code,'INVALID_REQUEST');
  payload.snapshot.events[0].home.name='=HYPERLINK("evil")';const b=await run(payload.request,payload.snapshot);assert.ok(exportBettingCSV(b).includes("'=HYPERLINK"));
+ const otherBook=await runBetting({payload,...extractBettingInput('Tipsport')},{now:NOW});assert.equal(otherBook.tickets.length,0);assert.deepEqual(otherBook.effectivePreferences.bookmakerIds,['Tipsport.cz']);
 });
 
 await testAsync('Dixon–Coles gradient matches independent central differences and preserves probability mass',async()=>{

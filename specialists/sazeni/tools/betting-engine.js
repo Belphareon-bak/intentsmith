@@ -54,6 +54,7 @@ export async function runBetting(params={}, turn={}) {
   let request=params.payload?.request, snapshot=params.payload?.snapshot;
   if(request && typeof request==='object') {
     request={...request};
+    if(params.bookmakerIds!==null&&params.bookmakerIds!==undefined)request.bookmakerIds=params.bookmakerIds;
     if(params.horizonHours!==null&&params.horizonHours!==undefined) request.window={timezone:request.window?.timezone??'Europe/Prague',horizonHours:params.horizonHours,...(request.window?.maxSpreadHours!==undefined?{maxSpreadHours:request.window.maxSpreadHours}:{})};
     if(params.maxSpreadHours!==null&&params.maxSpreadHours!==undefined) request.window={...request.window,maxSpreadHours:params.maxSpreadHours};
     if(params.minOdds!==null&&params.minOdds!==undefined) request.ticketOdds={min:params.minOdds,max:params.maxOdds};

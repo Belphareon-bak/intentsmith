@@ -28,6 +28,7 @@ export function renderBettingResult(result) {
     const counts={};for(const r of result.rejections) counts[r.code]=(counts[r.code]??0)+1;
     lines.push('',`Vyřazené nabídky: ${Object.entries(counts).map(([k,v])=>`${k}: ${v}`).join(', ')}.`);
   }
+  if(result.status==='INSUFFICIENT_DATA'&&result.search.completed)lines.push('V načtené nabídce není vyhovující tiket. Pokrytí zdroje není úplné; nelze tvrdit, že neexistuje jinde.');
   if(result.status==='NO_SOLUTION') lines.push('Uprav minimální kurz nebo úspěšnost, počet položek či časové okno. Žádný limit nebyl změněn automaticky.');
   for(const a of result.alternatives) lines.push(`Samostatně přepočtená alternativa: ${safe(a.field)} → ${safe(a.value)}; ${a.found} návrhů (${safe(a.status)}). Vyžaduje nové zadání; nebyla použita automaticky.`);
   for(const warning of result.warnings) lines.push('',safe(warning));

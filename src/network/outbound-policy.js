@@ -113,6 +113,11 @@ const FOOTBALL_DATA_OUTBOUND_CAPABILITY = createOutboundCapability({
     && exactHeaders(headers, [['accept','text/csv']]),
 });
 
+const bettingInstant = value => typeof value === 'string'
+  && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/.test(value)
+  && Number.isFinite(Date.parse(value))
+  && new Date(value).toISOString() === value.replace(/Z$/,value.includes('.')?'Z':'.000Z');
+
 const ODDS_IO_OUTBOUND_CAPABILITY = createOutboundCapability({
   surface: 'betting-data', scope: 'sports.odds.read',
   validateTarget: ({url,method,headers,hasBody}) => {
@@ -127,7 +132,7 @@ const ODDS_IO_OUTBOUND_CAPABILITY = createOutboundCapability({
       && q.get('sport') === 'football' && q.get('status') === 'pending' && q.get('limit') === '100'
       && /^(0|100|200|300|400)$/.test(q.get('skip'))
       && ['england-premier-league','germany-bundesliga','italy-serie-a','spain-la-liga','france-ligue-1'].includes(q.get('league'))
-      && Number.isFinite(Date.parse(q.get('from'))) && Number.isFinite(Date.parse(q.get('to')))
+      && bettingInstant(q.get('from')) && bettingInstant(q.get('to'))
       && Date.parse(q.get('to'))>Date.parse(q.get('from')) && Date.parse(q.get('to'))-Date.parse(q.get('from'))<=30*86400000;
     if(url.pathname === '/v3/odds/multi') return ks.sort().join(',') === 'apiKey,bookmakers,eventIds'
       && /^(\d{1,12})(,\d{1,12}){0,9}$/.test(q.get('eventIds'))

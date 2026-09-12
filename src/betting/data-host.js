@@ -16,18 +16,19 @@ export function createBettingDataHost({store,transport,clock=Date.now,oddsIOKey=
       if(extensionId!=='sazeni'||!/^sazeni\.(ticket_builder|odds_compare|match_analysis|value_finder)$/.test(toolId??'')||(!operator&&(!conversationId||!Number.isSafeInteger(Number(userMessageId))||Number(userMessageId)<=0)))fail('BETTING_TURN_REQUIRED');
       const token=Object.freeze(Object.create(null)),controller=new AbortController();
       const scopedSignal=signal?AbortSignal.any([signal,controller.signal,AbortSignal.timeout(120000)]):AbortSignal.any([controller.signal,AbortSignal.timeout(120000)]);
-      scopes.set(token,{start:clock(),now:new Date(clock()).toISOString(),signal:scopedSignal,controller,calls:0,networkCalls:0,bytes:0,finished:false});return token;
+      scopes.set(token,{start:clock(),now:new Date(clock()).toISOString(),signal:scopedSignal,controller,calls:0,networkCalls:0,bytes:0,finished:false,identity:Object.freeze({extensionId,toolId,conversationId:operator?null:String(conversationId),userMessageId:operator?null:Number(userMessageId),operator}),sourceObservationIds:new Set()});return token;
     },
     closeInvocation(token){const s=scopes.get(token);if(s)s.controller.abort();return scopes.delete(token);},
     forTurn(token){return Object.freeze({liveConfigured:Boolean(oddsIOKey),get:request=>capability.get(token,request),save:record=>capability.save(token,record)});},
   });
   function state(token){const s=scopes.get(token);if(!s||s.finished)fail('BETTING_SCOPE_EXPIRED');if(s.signal.aborted)fail('CANCELLED');if(clock()-s.start>120000)fail('PROVIDER_DEADLINE');return s;}
+  async function observe(s,promise){const value=await promise;for(const ref of value.sourceRefs??[value.sourceRef])if(ref?.observationId)s.sourceObservationIds.add(ref.observationId);return value;}
   const capability=Object.freeze({
     contract:'BettingDataCapability',version:1,
     async get(token,request) {
       const s=state(token);if(++s.calls>32)fail('PROVIDER_CALL_BUDGET');
       if(!request||typeof request!=='object'||Array.isArray(request))fail('PROVIDER_REQUEST_INVALID');
-      if(request.kind==='live') return fetchOddsIO(request,{key:oddsIOKey,now:s.now,getJSON:async(url,resource,key)=>{
+      if(request.kind==='live') return observe(s,fetchOddsIO(request,{key:oddsIOKey,now:s.now,getJSON:async(url,resource,key)=>{
         state(token);if(++s.networkCalls>64)fail('PROVIDER_CALL_BUDGET');
         const signal=AbortSignal.any([s.signal,AbortSignal.timeout(15000)]);
         const response=await policy.oddsIOFetch(url,{method:'GET',headers:{accept:'application/json'},signal});
@@ -36,7 +37,7 @@ export function createBettingDataHost({store,transport,clock=Date.now,oddsIOKey=
         if(bytes.includes(Buffer.from(key)))fail('PROVIDER_CREDENTIAL_ECHO');state(token);
         // Query scope is in resource; the credential-bearing URL is never stored.
         return store.record(resource,url.origin+url.pathname,bytes,{retrievedAt:new Date(clock()).toISOString()});
-      }});
+      }}));
       let resource,remote,ttl;
       if(request.kind==='fixtures'&&Object.keys(request).join(',')==='kind'){resource='football-data:fixtures';remote='fixtures.csv';ttl=3600000;}
       else if(request.kind==='history'&&Object.keys(request).sort().join(',')==='kind,league,season'&&LEAGUES.includes(request.league)&&Number.isInteger(request.season)){
@@ -44,7 +45,7 @@ export function createBettingDataHost({store,transport,clock=Date.now,oddsIOKey=
         if(request.season<current-4||request.season>current)fail('PROVIDER_SEASON_OUT_OF_SCOPE');
         remote=`mmz4281/${request.season}${request.season+1}/${request.league}.csv`;resource='football-data:'+remote;ttl=86400000;
       }else fail('PROVIDER_REQUEST_INVALID');
-      const cached=store.latest(resource);if(cached&&clock()-Date.parse(cached.sourceRef.retrievedAt)<ttl&&Date.parse(cached.sourceRef.retrievedAt)<=clock())return structuredClone({...cached,sourceRef:{...cached.sourceRef,cacheHit:true}});
+      const cached=store.latest(resource);if(cached&&clock()-Date.parse(cached.sourceRef.retrievedAt)<ttl&&Date.parse(cached.sourceRef.retrievedAt)<=clock())return observe(s,structuredClone({...cached,sourceRef:{...cached.sourceRef,cacheHit:true}}));
       // Serialize requests across turns; no retry storm or cache freshness fiction.
       const action=queue.then(async()=>{
         state(token);
@@ -61,9 +62,9 @@ export function createBettingDataHost({store,transport,clock=Date.now,oddsIOKey=
         if(!bytes.subarray(0,3000).includes(Buffer.from('HomeTeam')))fail('PROVIDER_SCHEMA_CHANGED');
         state(token);
         return store.record(resource,url,bytes,{retrievedAt:new Date(clock()).toISOString(),lastModified:response.headers.get('last-modified')});
-      });queue=action.catch(()=>{});return action;
+      });queue=action.catch(()=>{});return observe(s,action);
     },
-    async save(token,record){const s=state(token);if(!record||record.contract!=='BettingAnalysisEvidence'||record.version!==1)fail('PERSISTENCE_ERROR');const id=store.recordRun(record);s.finished=true;return id;},
+    async save(token,record){const s=state(token);if(!record||record.contract!=='BettingAnalysisEvidence'||record.version!==1)fail('PERSISTENCE_ERROR');const id=store.recordRun({...record,hostInvocation:{...s.identity,startedAt:s.now,sourceObservationIds:[...s.sourceObservationIds]}});s.finished=true;return id;},
   });
   return Object.freeze({host,capability,diagnostics:()=>policy.summary()});
 }
