@@ -1,5 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
 import Database from 'better-sqlite3';
-import { suite, test, assert, assertEqual, summary } from './harness.js';
+import { suite, test, testAsync, assert, assertEqual, summary } from './harness.js';
 import { createRoleEvaluationPlans } from '../src/eval/role-evaluation-plan.js';
 import {
   ModelEvaluationReadModel,
@@ -529,6 +531,59 @@ test('schema absence fails closed with typed 503', () => {
   assertEqual(error.code, 'MODEL_EVALUATION_SCHEMA_MISSING');
   assertEqual(error.httpStatus, 503);
   db.close();
+});
+
+const studioSource = readFileSync(new URL('../c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js', import.meta.url), 'utf8');
+function studioFunction(name, endMarker) {
+  const start = studioSource.indexOf('function ' + name + '(');
+  const end = studioSource.indexOf(endMarker, start);
+  assert(start >= 0 && end > start, 'literal shipped Studio function must exist');
+  return studioSource.slice(start, end);
+}
+
+test('shipped scoring renderer shows exact recorded provider and never invents a legacy version', () => {
+  const render = studioFunction('_renderEvaluationsTab', '/* ═');
+  const context = {
+    _evaluationLoading: false, _assigningRole: null,
+    _evaluationData: { coverage: {}, bindingAuthority: { status: 'UNVERIFIED_RUNTIME' }, roles: {
+      R2: { suiteName: 'review_v2', suiteVersion: 'test', suiteContractSha256: 'c'.repeat(64),
+        artifacts: [
+          { model: 'measured:1', digestSha256: DIGEST, status: 'COMPLETE', score: 0.75, providerVersion: '0.34.0-intentsmith.1' },
+          { model: 'historical:1', digestSha256: OLD_DIGEST, status: 'BLOCKED', score: null },
+        ] },
+    } },
+    C: {}, _fs: n => n, h: (tag, props, ...children) => ({ tag, props, children }),
+  };
+  const tree = runInNewContext(render + ';_renderEvaluationsTab()', context);
+  const text = JSON.stringify(tree);
+  assert(text.includes('0.34.0-intentsmith.1'));
+  assert(text.includes('nezaznamenána'));
+  assert(text.includes('75%'));
+  assert(text.includes('BLOCKED'));
+  assert(text.includes('UNVERIFIED_RUNTIME'));
+});
+
+await testAsync('scoring refresh rejects HTTP errors and recovers on the next explicit read', async () => {
+  const source = studioFunction('_loadEvaluationData', '/* Installed models cache');
+  let succeed = false; let calls = 0;
+  const context = {
+    _evaluationLoading: false, _evaluationData: null, _backendBase: 'http://127.0.0.1:1234',
+    AbortSignal, renderCenter() {},
+    fetch: async url => {
+      assertEqual(url, 'http://127.0.0.1:1234/api/system/models/evaluations'); calls++;
+      return { ok: succeed, status: succeed ? 200 : 503, json: async () => ({ providerVersion: 'exact', roles: {} }) };
+    },
+  };
+  runInNewContext(source + ';_loadEvaluationData();_loadEvaluationData()', context);
+  await new Promise(resolve => setImmediate(resolve));
+  assertEqual(calls, 1);
+  assertEqual(context._evaluationData.error, 'Evaluace HTTP 503');
+  succeed = true;
+  runInNewContext('_loadEvaluationData()', context);
+  await new Promise(resolve => setImmediate(resolve));
+  assertEqual(calls, 2);
+  assertEqual(context._evaluationData.providerVersion, 'exact');
+  assertEqual(context._evaluationLoading, false);
 });
 
 const results = summary();
