@@ -68,7 +68,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `8/9 REVIEW_PASSED / BACKUP_COMPAT_REMEDIATION_REVIEW_PASSED / HISTORY_DECISION_RECORDED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_PARTIAL / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Review přijalo restore základ `65bcbc4b` i follow-up `b4136a43`. Operátor zvolil `retain_and_rotate`; scanner zaznamenaný na vstupní hunt větvi tento dosažitelný stav potvrzuje, ale podepsaný history receipt vznikne až po doložení všech osmi kategorií. LUKS2 médium A drží ověřenou offline kopii tří operátorských klíčů a oddělené LUKS2 médium B právě reviewer key; obě jsou vypnutá. Online zdroj zatím zůstává, protože chybí druhá offline kopie operátorských klíčů a otestovaná oddělená recovery kopie reviewer key. |
-| **M6 IntentSmith 1.0 release** | `CORE_HUNT_INTEGRATION_VALIDATING / DELTA_REVIEW_REQUIRED / PHYSICAL_MODEL_JOURNEY_UNPROVEN / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Integrace `ab0565bc` + commitnutého huntu `3f3a2220` řeší migrace 111/112/113 a identitu provider rozhodnutí 048. Fresh/base/web/hunt upgrade prošel se zachováním dat; nové společné full ověření probíhá. Předchozí 353/353, 75 + 7 HTTP a 3/3 Studio runtime mají vlastní source piny a nejsou automaticky výsledkem merge. Probíhající hunt a pozdější retenční změny zůstávají u jejich vlastníka. [Integrační záznam](docs/execution/runs/core-hunt-integration-20260912.md). |
+| **M6 IntentSmith 1.0 release** | `CORE_HUNT_DETERMINISTIC_353_PASS / HTTP_RESTART_PASS / STUDIO_M1_CAPTURE_FLAKE_REMAINS / DELTA_REVIEW_REQUIRED / PHYSICAL_MODEL_JOURNEY_UNPROVEN / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Společný core + commitnutý hunt má source `f80bcaa1`: 353/353 deterministic, schema 61/61, lifecycle 53/53. Runtime 71968508 má 75 + 7 HTTP a skutečné restarty. Studio composer/M0 prošly, M1 prvně selhal na neúplné network evidence a izolovaně prošel; příčina zůstává otevřená. Kolize migrací a identit rozhodnutí jsou vyřešené pro vstupy ab0565bc + 3f3a2220. Pozdější retence huntu, fyzický journey, nové CODE měření a M5/M6 acceptance zbývají. [Review packet](docs/review/2026-09-12-CORE-HUNT-INTEGRATION-REVIEW-PACKET.md). |
 | **M7 Remote Companion** | `UI_SURFACES_REVIEW_PASSED / HOST_GATE_GREEN / DEVICE_NOT_RUN / NOT_ACCEPTED` | M6 + remote boundary | Nezávislé re-review přijalo exact candidate `429b779f`: durable journal guard zavírá settings double-activation okno a held-flush regrese odlišuje staré bytes. Mobile 47/47, runtime 7/7, adapter 8/8, artifact validation 158/158, boundary 0 violations a Android test+lint prošly. Produkční konfigurace, fyzická matice 13+7, TalkBack a release podpisy nejsou hotové. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
@@ -3110,3 +3110,14 @@ před testovanými operacemi, bez změny assertions nebo 60s limitu. Nový celý
 probíhá. HTTP na 71968508 prošlo 75 + 7 kroky; Studio má 2/3 v prvním běhu a
 M1 samostatně následně PASS. Původní M1 network evidence failure zůstává
 zachovaný, není vydávaný za vyřešenou příčinu. [Integrační záznam](docs/execution/runs/core-hunt-integration-20260912.md).
+
+
+Uzavření společné technické integrace core/hunt 2026-09-12 na `f80bcaa1`:
+**353/353 deterministic PASS**, lifecycle 53/53 za 18,1 s, schema 61/61.
+Migrations 100 / fresh tables 177 včetně sqlite_sequence; registry 516 se
+stejným fingerprintem 162b890b…. Aktuální module graph má 1 323 hran, 3 cykly /
+28 členů. První 351 PASS / 1 FAIL / 1 TIMEOUT a Studio 2 PASS / 1 FAIL jsou
+zachované; izolované M1 opakování prošlo bez zásahu do policy. Příčina prvního
+M1 network capture failure zůstává neprokázaná. [Přesný scope a review](docs/review/2026-09-12-CORE-HUNT-INTEGRATION-REVIEW-PACKET.md)
+a [run record](docs/execution/runs/core-hunt-integration-20260912.md).
+Nejde o přijetí release, nové retence huntu ani fyzického modelového journey.

@@ -29,3 +29,14 @@ clean integrated pin. CPU/private SQLite tests only while foreign hunt runs.
 Record conflicts, failed runs, exact pins and remaining physical-model and
 external release conditions in the canonical map/roadmap and scoped handoff.
 No new authority or connector, no claim of whole-release acceptance.
+
+
+Implementation closeout: merged source cc826997, explicit graph pin 71968508,
+final source/test f80bcaa1. Required deterministic 353/353, schema 61/61,
+HTTP 75 + 7 with two actual process restarts; Studio composer and M0 passed,
+M1 failed its first evidence capture and passed isolated repetition. Original
+failure is retained and its cause is unresolved. Lifecycle setup optimization
+preserves SQL/schema/durable assertions and the 60s limit. This WP remains
+`REVIEW_PENDING`, separate from release acceptance and later foreign retention.
+[Run](../execution/runs/core-hunt-integration-20260912.md) ·
+[Review packet](../review/2026-09-12-CORE-HUNT-INTEGRATION-REVIEW-PACKET.md).

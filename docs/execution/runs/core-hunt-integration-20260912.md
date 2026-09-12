@@ -1,6 +1,6 @@
 # Core + committed hunt integration — 2026-09-12
 
-State: `IMPLEMENTATION_CANDIDATE / VALIDATION_IN_PROGRESS / REVIEW_PENDING`.
+State: `IMPLEMENTATION_VERIFIED / REVIEW_PENDING / STUDIO_M1_CAPTURE_FLAKE_REMAINS / ACCEPTANCE_BLOCKED`.
 Authority and ownership: [WP](../../wp/WP-CORE-HUNT-INTEGRATION-20260912.md).
 Inputs: owned `ab0565bc7a8f47e452c4f41a3f65b3d8564ad5fe` and committed hunt
 `3f3a22203b51905a6bf834cb39f5e7f76b2306f2`. The foreign checkout subsequently
@@ -116,3 +116,33 @@ terminálem. Policy jej správně odmítla. Izolované M1 opakování
 ukončení; příčina prvního neúplného záznamu není prokázána ani opravená.
 **Nejde o 3/3 úspěšnou společnou sekvenci**. První FAIL log a oba JSON výstupy
 zůstávají v review. GPU devices byly skryté a žádná inference se nespustila.
+
+
+## Finální ověření source f80bcaa1
+
+`f80bcaa1769667acaeb4e7ad310058ca25973d64`, čistý checkout po celou dobu:
+`core-hunt-integration-20260912-02` má **353 PASS / 0 FAIL / 0 TIMEOUT /
+0 BLOCKED / 0 SKIPPED**. Report SHA256
+`c949dcbc3d08f7265325ebcb7fd4978e90249d72b1d9dd2122838e397a293bea`.
+Lifecycle service **53/53 za 18 110 ms**; schema **61/61 za 11 872 ms**;
+model-upgrade 71/71, model-evaluation-suites 24/24, web 23/23 a artifact
+validation 158/158. Registry reconcilace a validace drží 516 programů a
+nezměněný fingerprint; required deterministic set nebyl změněný.
+
+Nové číslo řádků tests je 243 764 v 524 JS souborech; src má 223 359 řádků
+v 609 JS souborech. Graph zahrnující ostatní JS přípony má 611 zdrojových
+souborů a 1323 hran. Po runtime pinu 71968508 se změnil jen setup jedné jiné
+unit fixture a dokumentace; Studio/HTTP probe i produktové bytes jsou stejné.
+
+Během práce foreign hunt postoupil až na `d2e8c538` s dirty review dokumenty;
+nová retence nebyla přebírána do tohoto připnutého kandidáta. Její integrace
+patří k dalšímu konkrétnímu source checkpointu. Totéž platí pro fyzický
+modelový journey a nové CODE měření podle společného kontraktu. Neproběhl
+push/deploy, změna živé DB/bindingů, podpis ani manipulace s klíči.
+
+[Reviewer packet](../../review/2026-09-12-CORE-HUNT-INTEGRATION-REVIEW-PACKET.md)
+uvádí oba diff pohledy, důkazy i nevyřešenou příčinu M1 capture failure.
+Přenositelný bundle, manifest a archiv jsou v
+`.intentsmith-artifacts/core-hunt-review-20260912/`; `handoff.json` uvádí finální
+dokumentační commit a hashe přenosu. Historické chyby včetně obou chyb formátu
+censusu zůstávají v raw logách, žádná assertion nebyla odstraněná.
