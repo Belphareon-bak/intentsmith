@@ -32,3 +32,28 @@ DPHKH1 + DPHDP3. Navazuje na přijatý směr M3; není release WP.
 8. Ověření: nové focused testy + příslušné existující specialist boundary,
    runtime/handler, registry a deterministic profily podle změn. Výsledek
    průběžně patří do implementačního reportu, nikoli do tohoto zadání.
+
+## Pokračování účetního, autorizováno operátorem 2026-09-12
+
+Autorita: „tak implementuj a pokračuj … tvorbou daňového přiznání“ a reálný
+`repiznn2025.zip`. Vstup 8654e67a; stejný checkout a vlastník. Výsledek:
+lokální CLI pro měsíční DPH/KH a roční OSVČ, import složky, dohledatelné návrhy
+dokladů, trvalý seznam podkladů/rozhodnutí, termíny a validované výstupní balíčky.
+Soukromé podklady slouží jako místní regresní příklady; nejsou tréninkovou sadou
+odesílanou ven. Chybějící podklady se nedopočítávají z referenčního podání.
+
+Vlastněné cesty navíc: `src/accounting/**`, `bin/ucetni.js`,
+`scripts/install-ucetni*`, `specialists/accountant-cz/**`, nové účetní testy
+a jejich přidané registry záznamy, příslušný návod a stav v SYSTEM-MAP.
+Connector: čisté doménové funkce a lokální CLI host; M1/M2/M3 veřejné rozhraní
+se nemění. Host drží scoped soubory, lokální OCR, privátní stav a export;
+specialista neimportuje core. Bez podávání na úřady, změn živé DB nebo GPU.
+
+Demo: skutečné PDF+HEIC a rozbor ročního ZIP; syntetická úplná měsíční/roční
+evidence musí vytvořit výstupy, neúplná musí vypsat konkrétní požadavky.
+Negativní cesty: duplicitní import, nejisté OCR, neznámá platba přes rok,
+neoprávněná sleva, chybějící potvrzení, nepodporovaný režim, chybná XML,
+ZIP traversal a neplatná privátní cesta. Úplná parity s účetní je závislá na
+úplné evidenci; její absence neblokuje implementaci a pravdivé draft výstupy.
+Ověření: nové registrované účetní journey testy, stávající package/boundary,
+`npm run test:registry`, `npm run test:deterministic`, `git diff --check`.

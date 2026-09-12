@@ -15601,6 +15601,70 @@
       },
       "flakeCount": 0,
       "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-TEST",
+      "path": "tests/accountant-workflow.test.js",
+      "argv": [
+        "node",
+        "tests/accountant-workflow.test.js"
+      ],
+      "capabilityId": "C3-014",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 500,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-SPECIALISTS-20260911 accountant continuation",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+      "path": "tests/accountant-workflow-integration.test.js",
+      "argv": [
+        "node",
+        "tests/accountant-workflow-integration.test.js"
+      ],
+      "capabilityId": "C3-014",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 15000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false,
+        "toolchain": [
+          "python-pdf-runtime",
+          "accountant-ocr-runtime"
+        ]
+      },
+      "required": true,
+      "owner": "WP-SPECIALISTS-20260911 accountant continuation",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
     }
   ]
 }

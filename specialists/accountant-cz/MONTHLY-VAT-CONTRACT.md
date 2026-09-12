@@ -1,6 +1,9 @@
 # Účetní: měsíční podklady → kontrolní hlášení a přiznání DPH
 
-Stav: **CONTRACT_DRAFT / NOT_IMPLEMENTED**. Datum: 2026-09-11.
+Stav: **IMPLEMENTED_SLICE / REVIEW_PENDING**. Aktualizace: 2026-09-12.
+Lokální CLI nyní implementuje import a export běžných tuzemských plnění;
+[rozsah, použití a omezení](WORKFLOW.md). Plný kontrakt a chatová integrace
+nejsou přijaty jako dokončené.
 Adresát: operátor a implementátor účetního specialisty. Autorita: reálný příklad
 operátora „posílám dokumenty ke kontrolnímu hlášení za květen“, PDF faktura a HEIC
 s několika účtenkami, dva následné XML soubory od účetní; operátor potvrdil, že
@@ -27,7 +30,7 @@ viditelně v sekci „Potřebuji doplnit“. Výsledek bez úplné evidence se o
 rozpracovaný; samotná existence dvou souborů není úspěch. Automatické podání na
 FÚ není součástí tohoto příkladu.
 
-## Zjištění v živém kódu a skutečné meze prototypu
+## Historická zjištění před implementací CLI (2026-09-11)
 
 `index.js` registruje pět kalkulaček. `ledger/ledger-engine.js` a
 `ledger/ledger-repository.js` poskytují knihu a záznamy s auditní stopou.

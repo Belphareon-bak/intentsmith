@@ -133,15 +133,15 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **222 917 ř.**, 612 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **241 000 ř.**, 520 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **514** (`420 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
+| `src/**/*.js` | **223 177 ř.**, 616 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **241 111 ř.**, 522 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **516** (`422 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **176 / 99** |
 | HTTP rout | ~230 |
 | **Schopností v `ACCEPTED/PASS`** | **1 z 22** (#2 CRE); #1 server/routing/DB je zatím `RUNTIME_VERIFIED` — jeho suite má 13 interních checků, zatímco behavior dokument obsahuje 16 řádků, takže tvrzení „13/13 chování“ není platný akceptační součet |
 
 Aktuální registry fingerprint je
-`3ce12a0edffe7e6da0f875ce3f0b25758524641557023d00aae39d0784fdbbfc`.
+`4c0e463e77ff21ae1b537b431ca28efea2f40b00baa4af04a5d9030850270546`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 
@@ -555,9 +555,9 @@ Studio formulář ještě nejsou implementované; nejde o dokončení celého ko
 nebo aktivaci ve sdíleném provozním checkoutu.
 Viz [sázkař](specialists/sazeni/README.md) a [WP](docs/wp/WP-SPECIALISTS-20260911.md).
 
-Reálný účetní případ PDF+HEIC potvrdil potřebu spojit přílohy s existující
-měsíční knihou a exportovat dva různé formuláře. Celá tato cesta je stále
-**NOT_IMPLEMENTED**; [kontrakt](specialists/accountant-cz/MONTHLY-VAT-CONTRACT.md)
+Reálný účetní případ PDF+HEIC má od 2026-09-12 lokální importní a exportní
+řez **IMPLEMENTED_SLICE / REVIEW_PENDING** v `src/accounting` a
+`specialists/accountant-cz/workflow`; [kontrakt](specialists/accountant-cz/MONTHLY-VAT-CONTRACT.md)
 vymezuje zdroje, rozpory, součty a validaci. Předané podklady nejsou úplnou
 evidencí přijaté strany referenčního XML. Privátní doklady nejsou v Git.
 
@@ -670,3 +670,21 @@ nezměněná `m2-lifecycle-authority-repository`; samostatně 13/13 PASS za
 7 771 ms bez změny limitu. Předchozí broker v tomto celém běhu prošel.
 Příčina kolísání není prokázaná; celý profil zůstává FAIL. Podrobnosti
 a přesné non-PASS jsou v [evidenci](docs/review/2026-09-12-SAZENI-WATCH.md).
+
+
+### Účetní CLI 2026-09-12
+
+Implementace v izolovaném specialistickém checkoutu: PDF/HEIC/ZIP import,
+trvalá evidence a průvodce podklady, úhradami přes přelom roku, slevami a odpočty.
+Pět XSD exportů (DPHKH1, DPHDP3, DPFDP7, ČSSZ 2025, OZP), PDF/ZIP, náhled,
+srovnání se vzorem a lokální timer. Rozsah: běžné tuzemské měsíční DPH a hlavní
+OSVČ 2025 s paušálními výdaji/OZP; skutečné výdaje a další režimy nejsou hotové.
+XML validace není přijetí úřadem. Chat ani stará SQL účetní kniha nejsou napojené.
+[Použití a přesné meze](specialists/accountant-cz/WORKFLOW.md).
+
+Module graph: 1 321 hran, přibyly čtyři interní importy v `src/accounting`
+(service/preview -> store/worker), nic odebráno, stále 3 cykly / 28 členů.
+Specialist boundary scanner: 5 balíčků, 54 souborů, 0 violations/scanErrors.
+Module ratchet nové čtyři hrany dosud nepřijal; baseline ani zapečetěná Gate 0
+policy nejsou přepsané kvůli green výsledku. Stav zůstává REVIEW_PENDING.
+[Ověření a známé mezery](docs/review/2026-09-12-ACCOUNTANT-WORKFLOW.md).

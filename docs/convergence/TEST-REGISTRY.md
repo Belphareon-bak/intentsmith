@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 514
+- Runnable programs: 516
 - Explicit support-module exclusions: 19
-- Profiles: offline=280, database=74, server=44, model=81, soak=15, manual=20
-- States: ACTIVE=420, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=282, database=74, server=44, model=81, soak=15, manual=20
+- States: ACTIVE=422, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -51,6 +51,8 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-ACCOUNTANT-E2E-TEST` | `tests/accountant-e2e.test.js` | `C3-014` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-ACCOUNTANT-SELF-CONTAINED-TEST` | `tests/accountant-self-contained.test.js` | `C3-014` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-ACCOUNTANT-TOOLS-TEST` | `tests/accountant-tools.test.js` | `C3-014` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST` | `tests/accountant-workflow-integration.test.js` | `C3-014` | T1 | `offline` | 15 s | 2 min | network:none, toolchain:python-pdf-runtime, toolchain:accountant-ocr-runtime | yes | `ACTIVE` | — | WP-SPECIALISTS-20260911 accountant continuation |
+| `IS-T1-TESTS-ACCOUNTANT-WORKFLOW-TEST` | `tests/accountant-workflow.test.js` | `C3-014` | T1 | `offline` | 500 ms | 2 min | network:none | yes | `ACTIVE` | — | WP-SPECIALISTS-20260911 accountant continuation |
 | `IS-T3-TESTS-ADVERSARIAL-CRE-TEST` | `tests/adversarial-cre.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-AGENT-LOG-UX-TEST` | `tests/agent-log-ux.test.js` | `C3-015` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-AGENT-RUNNER-TEST` | `tests/agent-runner.test.js` | `C3-015` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
