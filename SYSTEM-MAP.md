@@ -615,7 +615,9 @@ Nový čistý core provider jde výhradně přes uzavřený GET scope stávajíc
 hostu a outbound auditu. Žádné browser session, cookies ani obecný webový fetch
 v balíčku specialisty. Kontroluje se identita trhů, termín před i po cenách,
 pozastavení a 120s expirace. Ověřen skutečný serializovaný chat i CLI.
-Sázkařovy testy 30/30 PASS; celý profil ještě čeká na měření tohoto kandidátu.
+Sázkařovy testy 30/30 PASS. Celý profil na čisté `4cd363d0`, run
+`2026-09-12T09-11-34-677Z`: **343 PASS / 3 FAIL / 8 BLOCKED**, exit 1,
+žádný timeout. Stejné stavy jako předchozí profil; přesné non-PASS jsou v evidenci.
 Stav **IMPLEMENTED_SLICE / REVIEW_PENDING**; beze změny sdíleného provozu.
 [Návod](specialists/sazeni/README.md), [kontrakt](specialists/sazeni/CONTRACT.md),
 [důkazy a přesné hranice](docs/review/2026-09-12-SAZENI-PUBLIC.md).
@@ -623,3 +625,8 @@ Stav **IMPLEMENTED_SLICE / REVIEW_PENDING**; beze změny sdíleného provozu.
 Module graph po této změně má 1 316 hran, 3 cykly / 28 souborů. Samostatně
 zaznamenaná jediná nová hrana `data-host -> betting/fortuna-public` pochází
 z čistého `cd3e01bd`; žádný nový specialistický import interního core.
+
+Závěrečné skutečné běhy stejné `4cd363d0`: 72 h / 44 událostí / 3 akumulátory,
+24 h / 25 událostí / 3 singly, oba READY a uložené. Všechny zdrojové hashe a
+exportované ceny byly porovnány s původními odpověďmi. Následná změna reportů
+je pouze dokumentační; stav zůstává IMPLEMENTED_SLICE / REVIEW_PENDING.

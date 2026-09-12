@@ -73,6 +73,24 @@ z přibližně 08:57 UTC; ceny již vypršely, nejde o právě platný tiket.
 Reprodukovatelný [návod](../../specialists/sazeni/README.md) a
 [72h preference](../../specialists/sazeni/examples/fortuna-72h.json).
 
+Závěrečné běhy z čisté `4cd363d065e81c7de3c81f7e4b8ef19dd5f00cd6`:
+
+| Běh / UTC | Výsledek | Uložené ID |
+|---|---|---|
+| 72 h / 09:12:04 | 44 událostí, 3 dvoupoložkové tikety, 40 zdrojů | `ffde438d-f9d7-4031-8f42-b51f6d1ac0ad` |
+| 24 h / 09:13:03 | 25 událostí, 3 jednopoložkové tikety, 38 zdrojů | `076453e1-b912-4609-b01e-42d1c3158ee0` |
+
+72h kurzy: **2.047 / 2.0088 / 2.0648**, bodové odhady
+**45.37 / 45.16 / 44.20 %**, rozestupy **5.5 / 0 / 1.75 h**.
+Změna první ceny proti původnímu pokusu pochází z nové odpovědi Fortuny.
+24h kurzy: **1.51 / 1.6 / 1.67**, odhady **63.49 / 60.23 / 57.59 %**.
+Výstupy pod `/home/belphareon/Projects/coworker/intentsmith-specialists-20260911/`:
+`try-fortuna-public-20260912/` a `try-fortuna-24h-20260912/`.
+Oba běhy mají exit 0 a `SAVED`. Soubor `demo-verification.json` v adresáři sondy
+zaznamenává opětovné ověření všech 78 zdrojových hashů, hostové vazby a všech
+devíti exportovaných cen proti původním JSON trhům. Také tyto cenové snímky
+již vypršely; pro aktuální nabídku je nutné zopakovat výpočet.
+
 ## Kontroly a zbývající hranice
 
 Implementace `cd3e01bd65069c3b98b1c892307a311ba597af11`. Z čisté revize byl
@@ -83,7 +101,7 @@ Důvod: orchestrace veřejných dotazů zůstává v hostu; balíček neprovád�
 Graf **1315 → 1316**, nic odebráno, stále 3 cykly / 28 souborů. Změna seznamu
 neznamená nezávislé přijetí konektoru. Log `boundary-record.log`.
 Stávající `m5-outbound-policy` má 12/12 PASS (`outbound.log`). Registry se
-nezměnilo: 514 programů, SHA-256
+nezměnilo: 514 programů, normalizovaný registry fingerprint (SHA-256)
 `2322ef86b7eabbf1b3a2b0bd513d2fba08d19320fd8290a47798e79823117993`.
 
 `sazeni-engine`: **15/15 PASS**; `sazeni-integration`: **15/15 PASS**.
@@ -94,7 +112,32 @@ uzavřený outbound scope, persistence a skutečný serializovaný chat handler.
 Původní referenční a placený provider testy zachovávají původní assertions;
 nově výslovně vybírají zdroj, protože výchozí se na pokyn operátora změnil.
 
-Celý deterministický profil tohoto kandidátu ještě čeká na spuštění.
-Předchozí revize měla 343 PASS / 3 FAIL / 8 BLOCKED; tyto stavy nelze přejmenovat
-na úspěch. Přesný nový výsledek bude doplněn po běhu. Nezávislé review je pending.
+Celý `npm run test:deterministic` na čisté `4cd363d0`:
+**343 PASS / 3 FAIL / 8 BLOCKED / 0 TIMEOUT / 0 SKIPPED**, exit **1**.
+Run `2026-09-12T09-11-34-677Z`, 09:11:34–09:16:29 UTC;
+raw `.intentsmith-artifacts/test-runs/2026-09-12T09-11-34-677Z/report.json`.
+Sázkař má i v tomto profilu 15 + 15 PASS, module-boundary 13/13 PASS.
+Stavy všech 354 programů jsou stejné jako v předchozím plném profilu.
+
+Přesné non-PASS, bez překlasifikování:
+
+- `artifact-validation`: interně **157 PASS / 1 FAIL**; pouze dosavadní
+  chybějící rezervace migrace `2026_09_11_112_model_hunt_append_only.js`.
+  Nové soupisy počtů souborů/řádků a hran prošly.
+- `nightly-orchestrator-self-test`: registry fingerprint neodpovídá dříve
+  nezávisle přijaté Gate 0 policy. Tento WP registry ani policy neměnil.
+- `mobile-browser-a11y`: runner FAIL; uvnitř BLOCKED kvůli nepřítomnému Chrome
+  v projektové `node_modules/.cache/puppeteer/...`. Sonda použila existující
+  globální Chrome; testový profil nebyl přepnut nebo překlasifikován.
+- BLOCKED `chat-export-budget`, `export-pdf-docx`: `python-pdf-runtime`.
+- BLOCKED `m2-execution-git-preservation`, `workspace-budget`: `git`.
+- BLOCKED `m2-execution-process-supervision`: `bwrap`.
+- BLOCKED `m2-execution-project-change`, `m2-lifecycle-application-service`:
+  `bwrap` a `git`.
+- BLOCKED `m5-process-hardening`: `bubblewrap` a `prlimit`.
+
+BLOCKED jsou nepřijaté předpoklady daného testového profilu, nikoli tvrzení,
+že na hostiteli neexistuje Git. Celý projekt tedy není green. Následný commit
+mění jen tento report, SYSTEM-MAP a výsledek WP; produktový kód je přesně ten
+z testované revize. Nezávislé review je **REVIEW_PENDING**.
 Žádný push, merge, aktivace sdíleného checkoutu, účet, nákup nebo podání sázky.

@@ -24,3 +24,10 @@ veřejnými zdroji, zejména Tipsport/Fortuna; výběr ponechal implementátorov
   Pokud oba zdroje znemožní veřejný sběr, doložit konkrétní odpovědi a
   ponechat již funkční veřejný referenční režim; žádné obcházení přístupových
   kontrol, registrace nebo objednávka služby.
+
+Výsledek 2026-09-12: veřejná Fortuna je výchozí, runtime ověřen pro 24 i 72 h,
+bez klíče nebo prohlížeče v produktu. Tipsport veřejnou sondu odmítl 403.
+Implementace `cd3e01bd`, přesná importní evidence `4cd363d0`; cílené sady
+30/30 PASS, celý profil 343 PASS / 3 FAIL / 8 BLOCKED (exit 1), bez nové změny
+stavů. **IMPLEMENTED_SLICE / REVIEW_PENDING**, nikoli provozní přijetí.
+[Důkazy, návody a přesné non-PASS](../review/2026-09-12-SAZENI-PUBLIC.md).
