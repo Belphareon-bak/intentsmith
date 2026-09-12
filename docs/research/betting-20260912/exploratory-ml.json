@@ -1,0 +1,81 @@
+{
+  "plan": {
+    "status": "EXPLORATORY_REUSED_HOLDOUT_NOT_CONFIRMATORY",
+    "features": "prior Elo + exponentially smoothed goals, shots, shots on target (missing observations leave the previous average unchanged), league, prior appearances; targets never features",
+    "featureOrigin": "24h before kickoff; results released after 48h; no current match statistics",
+    "train": "2016-2021",
+    "selection": "2021-2023",
+    "calibration": "2023-2024",
+    "test": "2024-2026 (previously inspected in DC experiment)",
+    "models": [
+      "logistic C .1/1/10",
+      "histgradientboosting leaves 7/15, l2=10, minleaf=100, 150 iterations"
+    ],
+    "market": "pre-closing Bet365; original observation time unavailable",
+    "seed": 20260912
+  },
+  "selection": [
+    {
+      "name": "logistic-C0.1",
+      "n": 3652,
+      "logLoss": 0.9879296888849846,
+      "brier": 0.5882400033511946,
+      "accuracy": 0.5312157721796276
+    },
+    {
+      "name": "logistic-C1",
+      "n": 3652,
+      "logLoss": 0.9879657682134255,
+      "brier": 0.5882520632154232,
+      "accuracy": 0.5309419496166484
+    },
+    {
+      "name": "logistic-C10",
+      "n": 3652,
+      "logLoss": 0.9879696254129855,
+      "brier": 0.588253385351849,
+      "accuracy": 0.5309419496166484
+    },
+    {
+      "name": "hgb-leaves7",
+      "n": 3652,
+      "logLoss": 0.9924604119597813,
+      "brier": 0.5909037478147188,
+      "accuracy": 0.5213581599123768
+    },
+    {
+      "name": "hgb-leaves15",
+      "n": 3652,
+      "logLoss": 0.9998885106809251,
+      "brier": 0.5953096718741714,
+      "accuracy": 0.517250821467689
+    }
+  ],
+  "selected": "logistic-C0.1",
+  "calibration": {
+    "weight": 0.0,
+    "temperature": 0.85,
+    "loss": 0.952327658451581
+  },
+  "test": {
+    "model": {
+      "n": 3504,
+      "logLoss": 0.9843273942118442,
+      "brier": 0.58661108626867,
+      "accuracy": 0.5302511415525114
+    },
+    "market": {
+      "n": 3504,
+      "logLoss": 0.9718802253384454,
+      "brier": 0.5780525452829569,
+      "accuracy": 0.533675799086758
+    },
+    "pool": {
+      "n": 3504,
+      "logLoss": 0.9719721185337797,
+      "brier": 0.5784129569028557,
+      "accuracy": 0.533675799086758
+    }
+  },
+  "promotion": "NONE: exploratory comparison, no provider/timepoint-matched prospective validation"
+}

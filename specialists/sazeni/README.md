@@ -1,79 +1,114 @@
-# Sázkař 2.0 — implementační prototyp
+# Sázkař 3 — autonomní analytický engine
 
-Výpočetní engine pro předzápasový fotbal 1X2. Sestavuje singly/akumulátory ze
-zadané nabídky a splňuje meze kurzu, počtu položek, pravděpodobnosti, času a
-rozpočtu. Stav integrace: **IMPLEMENTED_SLICE / REVIEW_PENDING**, nikoli živá
-služba či přijatý celý kontrakt.
+Zadáš preference. Host načte skutečné zdroje, engine vypočítá pravděpodobnosti,
+porovná je s modelem z historie a sestaví tikety. Ručně zadané pravděpodobnosti
+nepřijímá. Fotbal, předzápasové 1X2, pět nejvyšších evropských lig.
+**IMPLEMENTED_SLICE / REVIEW_PENDING**: veřejný zdroj ověřen skutečným během;
+český API konektor čeká na klíč a ověření konkrétní nabídky.
 
-## Vyzkoušení
+## Vyzkoušení bez účtu a bez připravených dat
 
-Z kořene tohoto checkoutu, s novým výstupním adresářem:
+Z kořene tohoto checkoutu:
 
 ```bash
-node bin/sazeni.js tests/fixtures/betting/envelope.json /tmp/sazkar-demo-1 --now 2026-09-11T12:00:00.000Z
+node bin/sazeni.js --auto /tmp/sazkar-pokus-1 'do 24 h, kurz od 1.5 do 3, úspěšnost alespoň 40 %'
 ```
 
-Demo je syntetické: obsahuje zápasy za 2, 4, 8, 24, 48, 72, 168 a 720 hodin.
-Vzniknou `input.json`, `result.json`, `tickets.md`, `tickets.csv`. Pevný čas je
-jen reprodukce dodané nabídky. Bez `--now` bere CLI skutečný čas. Staré zápasy
-proto v režimu `imported` později nevybere. Existující adresář nepřepisuje.
+Výstupní adresář musí být nový. Dostaneš `tickets.md`, `tickets.csv`,
+`result.json` a zadání `input.json`. První běh stahuje historii; další využije
+ověřenou cache. Databáze `.intentsmith-artifacts/betting/analysis.sqlite` ukládá
+zdrojové snímky, hashe, čas načtení, modely, výsledek a audit síťových požadavků.
 
-V chatu zapni specialistu `sazeni` z tohoto balíčku, přilož JSON envelope nebo
-ho vlož jako JSON blok. Zadej například:
+Tento bezplatný režim používá **referenční kurzy Football-Data**, které nejsou
+potvrzenou aktuální nabídkou české kanceláře. Stáří souboru a chybějící čas
+konkrétního kurzu ukáže ve výstupu. Neexistující řešení ani chybějící data
+nenahrazuje vymyšleným tiketem.
 
-> Sestav tiket do 24 h, kurz od 3 do 4, úspěšnost alespoň 20 %, rozestup max 8 h.
+Pro třídenní akumulátory můžeš přidat soubor preferencí:
 
-Následné „do 3 dnů“ v téže relaci přepočítá časové okno. JSON poskytuje ligy,
-kanceláře, limity položek a metodu pravděpodobnosti; z pouhých názvů týmů engine
-nenajde živé kurzy. Parametry si chat pamatuje 30 minut v procesu. Nový JSON
-resetuje předchozí textové úpravy. „Dnes/zítra/víkend“ se zatím vyjasňují, místo
-aby se tiše odhadla hranice. Pro zadání s přílohou používej „sestav tiket“;
-obecné „analyzuj soubor“ zachytává stávající host FILE_EXPLAIN před specialistou.
+```json
+{
+  "leagues": ["E0", "D1", "I1", "SP1", "F1"],
+  "minLegs": 2,
+  "maxLegs": 3,
+  "ticketCount": 3,
+  "maxSpreadHours": 12
+}
+```
 
-## Čas a čísla
+```bash
+node bin/sazeni.js --auto /tmp/sazkar-pokus-2 'do 3 dnů, kurz od 2 do 4, úspěšnost alespoň 20 %' preferences.json
+```
 
-`window: {timezone: "Europe/Prague", horizonHours: 24, maxSpreadHours: 8}`
-znamená všechny začátky v následujících 24 h a nejvýše 8 h mezi prvním a posledním
-zápasem každého tiketu. `horizonHours: 72` jsou 3 × 24 h i přes změnu letního času.
-Alternativně lze zadat `from` a `to` v UTC; relativní a absolutní okno se nemíchají.
-Rozsah je nejvýše 30 dnů. Hraniční čas je včetně; v importu/živém režimu musí do
-začátku zbývat alespoň 5 minut. Tato okna omezují **začátky**, negarantují konec
-zápasu ani vypořádání do jejich horní hranice.
+Textové hodnoty mají přednost před stejnojmennými hodnotami v souboru.
+Limity jsou pro celý tiket. `do 3 dnů` znamená následujících 72 hodin;
+`rozestup max 12 h` navíc omezuje vzdálenost prvního a posledního začátku.
+Konec zápasu ani vypořádání do daného času tím není garantováno.
 
-Kurzy jsou desetinné řetězce. Peníze jsou celé haléře; součin kurzů a výplata se
-počítají přes racionální BigInt, výplata je odhad zaokrouhlený na haléře. Filtr
-pravděpodobnosti používá číslo 0–1. Součin odhadů předpokládá nezávislost; report
-ukazuje také meze při neznámé závislosti. Stejný zápas, společný tým či explicitní
-závislost se nekombinují; každému tiketu patří jedna kancelář, region a pravidlo
-vypořádání. Mezi tikety lze omezit počet společných událostí.
+## České kanceláře
 
-`market` normalizuje převrácené kurzy celého 1X2 trhu dané kanceláře.
-`user_estimate` používá explicitně dodaný vektor p se součtem 1. Ani jeden není
-kalibrovaná predikce. `model` a `lower_bound` vrátí `MODEL_UNAVAILABLE`, dokud
-není přijatý modelový artefakt. Automatický fallback metodu nemění.
+Připravený adaptér Odds-API.io podporuje `Tipsport.cz`, `Chance.cz`,
+`iFortuna CZ`, `Betano CZ`. Veřejný katalog potvrdil všechny čtyři jako aktivní
+12. 9. 2026. Samotné zápasy a kurzy vyžadují klíč poskytovatele a odpovídající
+kanceláře v jeho plánu. Klíč nastav **v prostředí procesu** pod názvem
+`INTENTSMITH_BETTING_ODDS_IO_API_KEY`; nepatří do chatu ani JSON preferencí.
 
-## Data, výstup a hranice
+Poté lze zadat například:
 
-Validátory: [engine/contract.js](engine/contract.js). Kompletní příklad:
-[envelope.json](../../tests/fixtures/betting/envelope.json). Čistý adaptér
-[providers/odds-api-import.js](providers/odds-api-import.js) převede lokálně
-dodaný The Odds API v4 JSON. Vyžaduje konfiguraci regionu a settlement pravidla
-kanceláře; chybějící nebo neúplný trh odmítá. Nemá síť ani credentials a výsledek
-zůstává `imported` s neúplným pokrytím.
+```bash
+node bin/sazeni.js --auto /tmp/sazkar-tipsport-1 'Tipsport, do 24 h, kurz od 1.5 do 3, úspěšnost alespoň 40 %'
+```
 
-V chatu se předá vypočtený `BettingResult` a deterministický Markdown bez LLM
-přepisování čísel. CLI export dovoluje soukromou reprodukci. Search prochází
-nejvýše 200 kandidátů, 200 000 stavů a 10 sekund v hostu. Přepočtené alternativy
-sdílejí zbývající rozpočet, jsou oddělené od platných tiketů a vyžadují změnu zadání.
-`SEARCH_LIMIT_REACHED` se nevydává za neexistenci řešení. `within_snapshot`
-znamená úplné pořadí jednotlivých tiketů v dodaném snapshotu, ne společné optimum
-portfolia; různost a peněžní rozpočet se aplikují následným postupným výběrem.
+Bez klíče dostaneš konkrétní `ODDS_IO_KEY_REQUIRED`. Čerstvý API snapshot má
+úplný trh 1X2, shodné identifikátory účastníků a aktualizaci nejvýše dvě minuty
+starou; přijetí sázky konkrétním účtem stále neověřuje. České zápasy mimo
+podporovaných pět zahraničních lig zatím nejsou součástí modelového pokrytí.
+Služba je nezávislý agregátor, nikoli oficiální API kanceláří. Nákup ani
+registrace nebyly provedeny. Aktuální omezení bezplatných klíčů a ceny jsou
+v [průzkumu](../../docs/research/2026-09-12-AUTONOMOUS-BETTING.md).
 
-Živý datový host, DB historie/settlement, kalibrovaný model, formulář ve Studiu
-a automatické doručování ještě nejsou implementované. Původní pomocné
-kalkulačky/scénář zůstaly v balíčku jako legacy zdroje, ale registrace a manifest
-vedou na nový engine. Čtyři staré veřejné tool ID zůstávají registrované;
-přímé CRE volání bez hostového času vrátí NEEDS_INPUT. Sázky se nepodávají.
+## Chat a pravděpodobnosti
 
-Testy: `node tests/sazeni-engine.test.js`, `node tests/sazeni-integration.test.js`.
-Celkový zamýšlený rozsah a zdroje: [CONTRACT.md](CONTRACT.md).
+V aplikaci **spuštěné z této větve** zapni specialistu `sazeni`. Zadej stejný
+text jako výše, příloha není potřeba. Host musí mít konverzaci a uloženou
+uživatelskou zprávu; přímé CRE volání bez času a datového hostu nevytváří
+predikci. Následné „do 3 dnů“ přepočítá okno. Volbu lig a další parametry lze
+vložit jako `{"preferences": {...}}`. Relace si pamatuje preference 30 minut;
+nový JSON je resetuje. Zpráva s nepodporovanou přílohou vrací chybu.
+
+Výchozí metoda je **automaticky odvozený tržní odhad očištěný o marži**.
+Dixon–Coles se trénuje samostatně z načtené historie a uchovává pro srovnání.
+Měření na 3 306 společných testovacích zápasech nepodpořilo jeho použití místo
+tržní reference ani kalibrované kombinace. Proto jej engine nepředstírá jako
+lepší predikci. Detaily, kalibrace, pokrytí a další experimenty jsou v průzkumu.
+
+Procenta jsou bodové teoretické odhady. Součin položek předpokládá nezávislost;
+engine vylučuje společný zápas/tým či známou závislost a u akumulátoru ukazuje
+meze při neznámé závislosti. Validovaná statistická dolní mez není dostupná.
+Zadaných „40 %“ tedy není záruka ani certifikované minimum skutečné šance.
+
+## Ověření a omezení
+
+```bash
+node tests/sazeni-engine.test.js
+node tests/sazeni-integration.test.js
+```
+
+Solver má nejvýše 200 kandidátů, 200 000 stavů a 10 sekund; celý datový běh
+120 sekund. Limity tiše nerozšiřuje. Každý tiket má jednu kancelář, region a
+pravidlo vypořádání. Pořadí jednotlivých tiketů a následný výběr různých tiketů
+není společná optimalizace portfolia. Kurzy a peníze počítá přes racionální
+BigInt; peníze jsou celé haléře. Report nevytváří ani nepřepisuje LLM.
+
+Samostatný formulář ve Studiu, automatické vyhodnocení výsledků, plánované
+rozesílání, zranění/sestavy/xG a prokázaná predikční výhoda zatím nejsou hotové.
+Sázky se nepodávají. Změny nejsou aktivované ve sdíleném provozním checkoutu.
+
+Syntetický historický solver lze stále reprodukovat bez sítě:
+
+```bash
+node bin/sazeni.js tests/fixtures/betting/envelope.json /tmp/sazkar-fixture-1 --now 2026-09-11T12:00:00.000Z
+```
+
+[Kontrakt](CONTRACT.md) · [výzkum](../../docs/research/2026-09-12-AUTONOMOUS-BETTING.md)
+· [pracovní zadání](../../docs/wp/WP-SAZENI-AUTONOMOUS-20260912.md)

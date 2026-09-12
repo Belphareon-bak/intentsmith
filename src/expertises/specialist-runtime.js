@@ -376,6 +376,7 @@ class SpecialistRuntime {
     this._telemetry = null;
     /** @type {{openInvocation: Function}|null} strict-injected ProjectContext host */
     this._projectContextHost = null;
+    this._bettingDataHost = null;
   }
 
   /**
@@ -456,6 +457,8 @@ class SpecialistRuntime {
    * @param {{ sessionId?: string, conversationId?: string, userMessageId?: number, project?: Object, signal?: AbortSignal }} [options={}] - Session context options
    * @returns {Promise<{ toolType: string, result: any, params: Object } | null>}
    */
+  setBettingDataHost(host) { this._bettingDataHost = host; }
+
   async tryToolExecution(
     expertiseId,
     input,
@@ -519,6 +522,7 @@ class SpecialistRuntime {
     // Track execution for busy guard
     this._executingCount.set(expertiseId, (this._executingCount.get(expertiseId) || 0) + 1);
     let projectContext = null;
+    let bettingToken = null;
     try {
       if (match.tool.needsProjectContext === true) {
         if (!this._projectContextHost) {
@@ -548,11 +552,16 @@ class SpecialistRuntime {
         }
       }
 
+      if(match.tool.needsBettingData === true && this._bettingDataHost && !match.params.payload?.snapshot && !match.params.inputError) {
+        bettingToken = this._bettingDataHost.openInvocation({extensionId:specialist.extensionId || expertiseId,
+          toolId:match.tool.id,conversationId,userMessageId,signal});
+      }
       let execResult;
       try {
         execResult = await this.executor.execute(match.tool, match.params, {
           projectContext,
           ...(match.tool.needsTurnContext === true ? { turn: Object.freeze({
+            ...(bettingToken ? {bettingData:this._bettingDataHost.forTurn(bettingToken)} : {}),
             now: new Date().toISOString(), signal, clock: () => performance.now(),
             yieldTask: () => new Promise(resolve => setImmediate(resolve)),
           }) } : {}),
@@ -637,6 +646,7 @@ class SpecialistRuntime {
         expertiseEvidence: execResult.expertiseEvidence,
       };
     } finally {
+      if (bettingToken !== null) this._bettingDataHost?.closeInvocation(bettingToken);
       if (projectContext !== null) {
         this._projectContextHost?.closeInvocation?.(projectContext);
       }

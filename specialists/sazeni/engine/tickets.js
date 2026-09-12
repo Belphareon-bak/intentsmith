@@ -14,17 +14,18 @@ const tolerance=1e-12;
 // All authority-bearing inputs are host options, never fields in a user request.
 // A pure import remains useful without any network, model or provider identity.
 export async function buildTickets(request, snapshot, {
-  now, signal=null, maxNodes=200000, yieldTask=async()=>{},
-  clock=()=>0, deadlineMs=10000, trustedLiveDigest=null, includeAlternatives=true,
+  now, evaluationAt=now, signal=null, maxNodes=200000, yieldTask=async()=>{},
+  clock=()=>0, deadlineMs=10000, trustedLiveDigest=null, trustedModelDigest=null, includeAlternatives=true,
 }={}) {
-  const generatedAt=now??null;
-  const result={contract:'BettingResult',version:2,requestId:typeof request?.requestId==='string'?request.requestId:null,
+  const generatedAt=evaluationAt??null;
+  const result={contract:'BettingResult',version:3,requestId:typeof request?.requestId==='string'?request.requestId:null,
     runId:null,generatedAt,effectivePreferences:null,status:'INVALID_REQUEST',
-    dataMode:['imported','historical','live'].includes(request?.dataMode)?request.dataMode:null,verifiedLive:false,
+    dataMode:['imported','historical','delayed','live'].includes(request?.dataMode)?request.dataMode:null,verifiedLive:false,
     coverage:null,search:{completed:false,nodes:0,limitReason:null,optimality:'unproven'},
     warnings:[],errors:[],tickets:[],alternatives:[],evidenceRefs:[],rejections:[]};
   try {
-    const time=instant(now,'now');
+    const time=instant(evaluationAt,'evaluationAt');
+    if(time<instant(now,'now')||time-instant(now)>120000) fail('INVALID_REQUEST','Čas výpočtu je mimo povolené okno hostu.');
     integer(maxNodes,1,200000,'maxNodes'); integer(deadlineMs,1,10000,'deadlineMs');
     const r=validateRequest(request,now);
     result.effectivePreferences=r;
@@ -32,19 +33,19 @@ export async function buildTickets(request, snapshot, {
     validateSnapshot(snapshot);
     if(snapshot.dataMode!==r.dataMode) fail('INVALID_REQUEST','Režim snapshotu neodpovídá zadání.','dataMode');
     const snapshotDigest=digest(snapshot);
-    result.runId=`bet:${digest({request:r,snapshotDigest,generatedAt:now,engine:'2.0.0',maxNodes,deadlineMs})}`;
+    result.runId=`bet:${digest({request:r,snapshotDigest,generatedAt,engine:'3.0.0',maxNodes,deadlineMs})}`;
     result.evidenceRefs=[{snapshotId:snapshot.snapshotId,digest:snapshotDigest,source:snapshot.source}];
     result.coverage={...snapshot.coverage,events:snapshot.events.length,eligibleSelections:0};
     if(r.dataMode==='live' && trustedLiveDigest!==snapshotDigest) fail('PROVIDER_ERROR','Aktuální feed není ověřen hostem; import nelze vydat za živé kurzy.','dataMode');
     result.verifiedLive=r.dataMode==='live';
     if(instant(snapshot.generatedAt)>time+5000) fail('INVALID_REQUEST','Snapshot pochází z budoucnosti.','snapshot.generatedAt');
-    if(r.probabilityFilter.basis==='model') fail('MODEL_UNAVAILABLE','Modelový filtr čeká na přijatý kalibrační artefakt. Použij explicitně tržní nebo ruční režim.','probabilityFilter.basis');
+    if(r.probabilityFilter.basis==='model' && trustedModelDigest!==snapshotDigest) fail('MODEL_UNAVAILABLE','Pravděpodobnosti musí vypočítat autonomní engine z dat hostu; ruční predikce nejsou přijímány.','probabilityFilter.basis');
     if(r.probabilityFilter.metric==='lower_bound') fail('MODEL_UNAVAILABLE','Validovaná dolní mez celého tiketu není dostupná; bodový odhad ji nenahrazuje.','probabilityFilter.metric');
     result.warnings.push(r.probabilityFilter.basis==='market'
       ? 'Pravděpodobnost je normalizovaný tržní odhad z celého 1X2 trhu, nikoli vlastní kalibrovaná predikce.'
-      : 'Pravděpodobnosti dodal uživatel; nejsou nezávisle kalibrované.');
+      : 'Pravděpodobnosti vypočítala uvedená politika autonomního enginu. Zkontroluj její zdroj a výsledky měření.');
     result.warnings.push('Součin pravděpodobností předpokládá nezávislost. Odlišné zápasy ji nezaručují.');
-    if(r.dataMode!=='live') result.warnings.push('Ručně dodané/historické kurzy nejsou potvrzenou aktuální nabídkou kanceláře.');
+    if(r.dataMode!=='live') result.warnings.push('Referenční, importované a historické kurzy nejsou potvrzenou aktuální nabídkou kanceláře.');
     const candidates=[];
     let missingData=false;
     const minLeg=decimal(r.legOdds.min),maxLeg=decimal(r.legOdds.max);
@@ -73,7 +74,7 @@ export async function buildTickets(request, snapshot, {
           const sum=inverse.reduce((a,b)=>a+b,0);
           ps=Object.fromEntries(m.outcomes.map((o,i)=>[o.outcomeId,inverse[i]/sum]));method='market-normalized-v1';
         } else {
-          if(m.prediction?.basis!=='user_estimate'||instant(m.prediction.predictedAt)>time+5000) {reject(e.eventId,m.marketId,'PROBABILITY_MISSING');missingData=true;continue;}
+          if(m.prediction?.basis!=='model'||instant(m.prediction.predictedAt)>time+5000) {reject(e.eventId,m.marketId,'PROBABILITY_MISSING');missingData=true;continue;}
           ps=m.prediction.probabilities;method=m.prediction.method;
         }
         for(const o of m.outcomes) {
@@ -181,8 +182,8 @@ export async function buildTickets(request, snapshot, {
       for(const proposal of proposals) {
         const remainingMs=Math.floor(deadlineMs-(clock()-startClock));
         if(remaining<1||remainingMs<1||signal?.aborted) break;
-        const trial=await buildTickets({...request,...proposal.patch},snapshot,{now,signal,maxNodes:remaining,
-          yieldTask,clock,deadlineMs:remainingMs,trustedLiveDigest,includeAlternatives:false});
+        const trial=await buildTickets({...request,...proposal.patch},snapshot,{now,evaluationAt,signal,maxNodes:remaining,
+          yieldTask,clock,deadlineMs:remainingMs,trustedLiveDigest,trustedModelDigest,includeAlternatives:false});
         remaining-=trial.search.nodes;
         result.alternatives.push({field:proposal.field,value:proposal.value,requestPatch:proposal.patch,
           status:trial.status,found:trial.tickets.length,search:trial.search,example:trial.tickets[0]??null});

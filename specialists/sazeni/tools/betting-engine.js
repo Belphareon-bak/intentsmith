@@ -1,7 +1,8 @@
+import { runAutonomous } from '../engine/autonomous.js';
 import { buildTickets } from '../engine/tickets.js';
 import { keys, fail } from '../engine/values.js';
 
-const EMPTY_HINTS={horizonHours:null,maxSpreadHours:null,minOdds:null,maxOdds:null,minProbability:null};
+const EMPTY_HINTS={horizonHours:null,maxSpreadHours:null,minOdds:null,maxOdds:null,minProbability:null,bookmakerIds:null};
 // Text is a convenience input, never a model prediction or provider attestation.
 // A complete JSON envelope is the canonical input; follow-ups change only named fields.
 export function extractBettingInput(input, attachments=[]) {
@@ -10,7 +11,7 @@ export function extractBettingInput(input, attachments=[]) {
   const fenced=[...input.matchAll(/```(?:json)?\s*([\s\S]*?)```/g)];
   try {
     const supplied=attachments.filter(a=>a && (a.type==='application/json'||a.type==='text/plain'));
-    if(supplied.length!==attachments.length) fail('NEEDS_INPUT','Pro sázkaře přilož JSON nabídku; tento formát přílohy nepodporuje.');
+    if(supplied.length!==attachments.length) fail('NEEDS_INPUT','Tento formát přílohy sázkař nepodporuje. Zadej preference textem; nabídku a historii si načte sám.');
     if(supplied.length>1||attachments.length>5||fenced.length>1) fail('INVALID_REQUEST','Přilož právě jednu JSON nabídku se zadáním.');
     if(supplied.length) {
       if(fenced.length||body.startsWith('{')) fail('INVALID_REQUEST','Použij jeden zdroj JSON zadání.');
@@ -21,10 +22,14 @@ export function extractBettingInput(input, attachments=[]) {
     if(supplied.length||fenced.length||body.startsWith('{')) {
       if(new TextEncoder().encode(body).length>1_000_000) fail('INVALID_REQUEST','JSON nabídka překračuje limit 1 MB.');
       const payload=JSON.parse(body);
-      keys(payload,['request','snapshot'],[],'input');
+      if(Object.hasOwn(payload,'preferences')) keys(payload,['preferences'],[],'input');
+      else {keys(payload,['request','snapshot'],[],'input');if(payload.snapshot?.events?.some(e=>e.markets?.some(m=>m.prediction))) fail('INVALID_REQUEST','Pravděpodobnosti z přílohy nejsou přijímány; engine je vypočítá sám.');}
       Object.assign(params,EMPTY_HINTS,{payload,inputError:null});
     }
     const normalized=prose.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+    if(/\b(hokej|tenis|basketbal|basketball|tennis|hockey|live|in.play)\b/.test(normalized)) fail('NEEDS_INPUT','Tato verze analyzuje fotbal 1X2 před začátkem zápasu.');
+    const books=[...normalized.matchAll(/\b(tipsport|chance|fortuna|betano)(?:\.cz)?\b/g)].map(m=>({tipsport:'Tipsport.cz',chance:'Chance.cz',fortuna:'iFortuna CZ',betano:'Betano CZ'}[m[1]]));
+    if(books.length)params.bookmakerIds=[...new Set(books)];
     const windows=[...normalized.matchAll(/(?:do|behem|pristi(?:ch)?)\s+(\d+(?:[.,]\d+)?)\s*(h(?:odin(?:y|u)?)?|dn(?:u|y|i|e)?|dny|days?|hours?)(?![a-z])/g)];
     if(windows.length>1) fail('INVALID_REQUEST','Zadej jedno časové okno.');
     if(windows.length) params.horizonHours=Number(windows[0][1].replace(',','.'))*(windows[0][2].startsWith('d')?24:1);
@@ -41,6 +46,11 @@ export function extractBettingInput(input, attachments=[]) {
 }
 
 export async function runBetting(params={}, turn={}) {
+  if(!params.inputError&&!params.payload?.snapshot&&turn.now) {
+    const preferences={...(params.payload?.preferences??{})};
+    for(const k of ['horizonHours','maxSpreadHours','minOdds','maxOdds','minProbability','bookmakerIds'])if(params[k]!==null&&params[k]!==undefined)preferences[k]=params[k];
+    return runAutonomous(preferences,turn);
+  }
   let request=params.payload?.request, snapshot=params.payload?.snapshot;
   if(request && typeof request==='object') {
     request={...request};

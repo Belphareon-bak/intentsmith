@@ -104,17 +104,7 @@
                 "outcomeId": "away",
                 "decimalOdds": "4.5"
               }
-            ],
-            "prediction": {
-              "basis": "user_estimate",
-              "probabilities": {
-                "home": 0.65,
-                "draw": 0.2,
-                "away": 0.15
-              },
-              "method": "synthetic-user-input",
-              "predictedAt": "2026-09-11T12:00:00.000Z"
-            }
+            ]
           }
         ]
       },
@@ -157,17 +147,7 @@
                 "outcomeId": "away",
                 "decimalOdds": "4.5"
               }
-            ],
-            "prediction": {
-              "basis": "user_estimate",
-              "probabilities": {
-                "home": 0.65,
-                "draw": 0.2,
-                "away": 0.15
-              },
-              "method": "synthetic-user-input",
-              "predictedAt": "2026-09-11T12:00:00.000Z"
-            }
+            ]
           }
         ]
       },
@@ -210,17 +190,7 @@
                 "outcomeId": "away",
                 "decimalOdds": "4.5"
               }
-            ],
-            "prediction": {
-              "basis": "user_estimate",
-              "probabilities": {
-                "home": 0.65,
-                "draw": 0.2,
-                "away": 0.15
-              },
-              "method": "synthetic-user-input",
-              "predictedAt": "2026-09-11T12:00:00.000Z"
-            }
+            ]
           }
         ]
       },
@@ -263,17 +233,7 @@
                 "outcomeId": "away",
                 "decimalOdds": "4.5"
               }
-            ],
-            "prediction": {
-              "basis": "user_estimate",
-              "probabilities": {
-                "home": 0.65,
-                "draw": 0.2,
-                "away": 0.15
-              },
-              "method": "synthetic-user-input",
-              "predictedAt": "2026-09-11T12:00:00.000Z"
-            }
+            ]
           }
         ]
       },
@@ -316,17 +276,7 @@
                 "outcomeId": "away",
                 "decimalOdds": "4.5"
               }
-            ],
-            "prediction": {
-              "basis": "user_estimate",
-              "probabilities": {
-                "home": 0.65,
-                "draw": 0.2,
-                "away": 0.15
-              },
-              "method": "synthetic-user-input",
-              "predictedAt": "2026-09-11T12:00:00.000Z"
-            }
+            ]
           }
         ]
       },
@@ -369,17 +319,7 @@
                 "outcomeId": "away",
                 "decimalOdds": "4.5"
               }
-            ],
-            "prediction": {
-              "basis": "user_estimate",
-              "probabilities": {
-                "home": 0.65,
-                "draw": 0.2,
-                "away": 0.15
-              },
-              "method": "synthetic-user-input",
-              "predictedAt": "2026-09-11T12:00:00.000Z"
-            }
+            ]
           }
         ]
       },
@@ -422,17 +362,7 @@
                 "outcomeId": "away",
                 "decimalOdds": "4.5"
               }
-            ],
-            "prediction": {
-              "basis": "user_estimate",
-              "probabilities": {
-                "home": 0.65,
-                "draw": 0.2,
-                "away": 0.15
-              },
-              "method": "synthetic-user-input",
-              "predictedAt": "2026-09-11T12:00:00.000Z"
-            }
+            ]
           }
         ]
       },
@@ -475,17 +405,7 @@
                 "outcomeId": "away",
                 "decimalOdds": "4.5"
               }
-            ],
-            "prediction": {
-              "basis": "user_estimate",
-              "probabilities": {
-                "home": 0.65,
-                "draw": 0.2,
-                "away": 0.15
-              },
-              "method": "synthetic-user-input",
-              "predictedAt": "2026-09-11T12:00:00.000Z"
-            }
+            ]
           }
         ]
       }

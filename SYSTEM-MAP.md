@@ -133,8 +133,8 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 | | |
 |---|---:|
-| `src/**/*.js` | **222 481 ř.**, 604 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **240 743 ř.**, 520 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **222 694 ř.**, 608 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **240 842 ř.**, 520 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **514** (`420 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **176 / 99** |
 | HTTP rout | ~230 |
@@ -571,3 +571,23 @@ Nové specialistické sady 13/13 PASS. Nový registry otisk není přijatou Gate
 policy, proto nightly self-test zůstává FAIL do samostatného review registrační
 delta; původní policy nebyla automaticky přepsána.
 [Důkaz, přesné non-PASS a otevřené části](docs/review/2026-09-11-SPECIALISTS-IMPLEMENTATION.md).
+
+## Autonomní sázkař — operátorské zadání 2026-09-12
+
+Navazující v3 nahrazuje ruční pravděpodobnosti autonomním čtením zdrojů.
+Veřejná cesta preference → CSV nabídka/historie → model/politika → solver →
+SQLite evidence → chat/export byla spuštěna pro 24 i 72 h. Data mají explicitní
+referenční režim; nejde o potvrzenou českou nabídku. Scope `betting-data` používá
+stávající outbound policy a M5 audit schema v izolované DB sázkaře; balíček
+zůstává bez interních `src/**` importů a efektů. API konektor českých kanceláří
+má ověřený veřejný katalog a syntetické transportní testy, ale čeká na skutečný
+API klíč a živé ověření. Žádná změna sdíleného checkoutu nebo živé DB.
+
+**IMPLEMENTED_SLICE / REVIEW_PENDING**, **LIVE_VALIDATION_BLOCKED**.
+Predikční výhoda vlastního modelu není prokázaná: aktuální politika ponechává
+tržní referenci a uchovává strukturální model pro diagnostiku. Settlement,
+plánované doručování, Studio formulář a rozšířené zdroje xG/sestav nejsou hotové.
+[Kontrakt v3](specialists/sazeni/CONTRACT.md),
+[reprodukovatelný výzkum a benchmark](docs/research/2026-09-12-AUTONOMOUS-BETTING.md),
+[pracovní zadání](docs/wp/WP-SAZENI-AUTONOMOUS-20260912.md).
+Předchozí datované výsledky testů zůstávají historickou evidencí svých revizí.

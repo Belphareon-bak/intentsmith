@@ -1,6 +1,6 @@
 import { keys, text, integer, probability, choice, strings, instant, decimal, compare, fail } from './values.js';
 
-export const BETTING_VERSION = 2;
+export const BETTING_VERSION = 3;
 export const BETTING_STATUSES = Object.freeze(['READY', 'NEEDS_INPUT', 'INVALID_REQUEST', 'INSUFFICIENT_DATA', 'MODEL_UNAVAILABLE', 'NO_SOLUTION', 'SEARCH_LIMIT_REACHED', 'CANCELLED', 'PROVIDER_ERROR', 'PERSISTENCE_ERROR', 'INTERNAL_ERROR']);
 export function resolveWindow(window, now) {
   const nowMs = instant(now, 'now');
@@ -26,7 +26,7 @@ export function resolveWindow(window, now) {
 export function validateRequest(request, now) {
   keys(request, ['contract','version','requestId','sport','competitionIds','window','bookmakerIds','ticketType','legOdds','ticketOdds','legs','probabilityFilter','objective','ticketCount','diversity','exclude','dataMode'], ['minLegProbability','minExpectedRoi','targetOdds','stake'], 'request');
   choice(request.contract, ['BettingRequest'], 'contract');
-  choice(request.version, [BETTING_VERSION], 'version');
+  choice(request.version, [2,BETTING_VERSION], 'version');
   text(request.requestId, 'requestId');
   choice(request.sport, ['football'], 'sport');
   strings(request.competitionIds, 'competitionIds', {empty:false});
@@ -40,7 +40,7 @@ export function validateRequest(request, now) {
   integer(request.legs.min,1,8,'legs.min'); integer(request.legs.max,request.legs.min,8,'legs.max');
   if (request.ticketType === 'single' && (request.legs.min !== 1 || request.legs.max !== 1)) fail('INVALID_REQUEST','Single má jednu položku.','legs');
   keys(request.probabilityFilter,['basis','metric','min'],[],'probabilityFilter');
-  choice(request.probabilityFilter.basis,['market','user_estimate','model'],'probabilityFilter.basis');
+  choice(request.probabilityFilter.basis,['market','model'],'probabilityFilter.basis');
   choice(request.probabilityFilter.metric,['estimate','lower_bound'],'probabilityFilter.metric');
   probability(request.probabilityFilter.min,'probabilityFilter.min');
   if (request.minLegProbability !== undefined) probability(request.minLegProbability,'minLegProbability');
@@ -54,7 +54,7 @@ export function validateRequest(request, now) {
   keys(request.diversity,['maxSharedEvents'],[],'diversity'); integer(request.diversity.maxSharedEvents,0,8,'diversity.maxSharedEvents');
   keys(request.exclude,['eventIds','participantIds','competitionIds'],[],'exclude');
   for (const [key,value] of Object.entries(request.exclude)) strings(value,`exclude.${key}`);
-  choice(request.dataMode,['imported','historical','live'],'dataMode');
+  choice(request.dataMode,['imported','historical','delayed','live'],'dataMode');
   if (request.stake !== undefined) {
     keys(request.stake,['currency','perTicketMinor','totalBudgetMinor'],[],'stake');
     choice(request.stake.currency,['CZK'],'stake.currency');
@@ -68,7 +68,7 @@ export function validateSnapshot(snapshot) {
   keys(snapshot,['contract','version','snapshotId','generatedAt','dataMode','source','coverage','events'],[],'snapshot');
   choice(snapshot.contract,['BettingSnapshot'],'snapshot.contract'); choice(snapshot.version,[2],'snapshot.version');
   text(snapshot.snapshotId,'snapshot.snapshotId'); instant(snapshot.generatedAt,'snapshot.generatedAt');
-  choice(snapshot.dataMode,['imported','historical','live'],'snapshot.dataMode');
+  choice(snapshot.dataMode,['imported','historical','delayed','live'],'snapshot.dataMode');
   keys(snapshot.source,['id','version'],[],'snapshot.source'); text(snapshot.source.id,'snapshot.source.id'); text(snapshot.source.version,'snapshot.source.version');
   keys(snapshot.coverage,['complete','scope'],[],'snapshot.coverage');
   if (typeof snapshot.coverage.complete !== 'boolean') fail('INVALID_REQUEST','Chybí stav pokrytí.','snapshot.coverage.complete');
@@ -98,7 +98,7 @@ export function validateSnapshot(snapshot) {
       if(outcomes.size!==3) fail('INVALID_REQUEST','Duplicitní výsledek trhu.',q);
       if(m.prediction!==undefined) {
         keys(m.prediction,['basis','probabilities','method','predictedAt'],['modelRef'],q+'.prediction');
-        choice(m.prediction.basis,['user_estimate','model'],q+'.prediction.basis'); text(m.prediction.method,q+'.prediction.method'); instant(m.prediction.predictedAt,q+'.prediction.predictedAt');
+        choice(m.prediction.basis,['model'],q+'.prediction.basis'); text(m.prediction.method,q+'.prediction.method'); instant(m.prediction.predictedAt,q+'.prediction.predictedAt');
         keys(m.prediction.probabilities,['home','draw','away'],[],q+'.prediction.probabilities');
         const ps=Object.values(m.prediction.probabilities); ps.forEach(v=>probability(v,q+'.prediction.probabilities'));
         if(Math.abs(ps.reduce((a,b)=>a+b,0)-1)>1e-9) fail('INVALID_REQUEST','Součet pravděpodobností trhu není 1.',q+'.prediction.probabilities');

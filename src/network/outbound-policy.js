@@ -105,6 +105,37 @@ const OLLAMA_RELEASE_OUTBOUND_CAPABILITY = createOutboundCapability({
     ]),
 });
 
+const FOOTBALL_DATA_OUTBOUND_CAPABILITY = createOutboundCapability({
+  surface: 'betting-data', scope: 'sports.football.read',
+  validateTarget: ({url,method,headers,hasBody}) => method === 'GET' && !hasBody
+    && ['https://www.football-data.co.uk','https://football-data.co.uk'].includes(url.origin) && !url.search && !url.hash
+    && (url.pathname === '/fixtures.csv' || /^\/mmz4281\/\d{4}\/(E0|D1|I1|SP1|F1)\.csv$/.test(url.pathname))
+    && exactHeaders(headers, [['accept','text/csv']]),
+});
+
+const ODDS_IO_OUTBOUND_CAPABILITY = createOutboundCapability({
+  surface: 'betting-data', scope: 'sports.odds.read',
+  validateTarget: ({url,method,headers,hasBody}) => {
+    if(method !== 'GET' || hasBody || url.origin !== 'https://api.odds-api.io' || url.hash
+      || !exactHeaders(headers, [['accept','application/json']])) return false;
+    const q=url.searchParams, ks=[...q.keys()];
+    if(new Set(ks).size !== ks.length) return false;
+    if(url.pathname === '/v3/bookmakers') return ks.length === 0;
+    const key=q.get('apiKey');if(!key || key.length>256 || !/^[A-Za-z0-9_-]+$/.test(key)) return false;
+    const books=['Tipsport.cz','Chance.cz','iFortuna CZ','Betano CZ'];
+    if(url.pathname === '/v3/events') return ks.sort().join(',') === 'apiKey,from,league,limit,skip,sport,status,to'
+      && q.get('sport') === 'football' && q.get('status') === 'pending' && q.get('limit') === '100'
+      && /^(0|100|200|300|400)$/.test(q.get('skip'))
+      && ['england-premier-league','germany-bundesliga','italy-serie-a','spain-la-liga','france-ligue-1'].includes(q.get('league'))
+      && Number.isFinite(Date.parse(q.get('from'))) && Number.isFinite(Date.parse(q.get('to')))
+      && Date.parse(q.get('to'))>Date.parse(q.get('from')) && Date.parse(q.get('to'))-Date.parse(q.get('from'))<=30*86400000;
+    if(url.pathname === '/v3/odds/multi') return ks.sort().join(',') === 'apiKey,bookmakers,eventIds'
+      && /^(\d{1,12})(,\d{1,12}){0,9}$/.test(q.get('eventIds'))
+      && q.get('bookmakers').split(',').length<=4 && q.get('bookmakers').split(',').every(b=>books.includes(b));
+    return false;
+  },
+});
+
 const runtimeTransport = typeof globalThis.fetch === 'function'
   ? globalThis.fetch.bind(globalThis)
   : null;
@@ -297,6 +328,8 @@ export function createOutboundPolicy({
       MODEL_DISCOVERY_OUTBOUND_CAPABILITY,
     ),
     ollamaReleaseFetch: (input, init) => governedFetch(input, init, OLLAMA_RELEASE_OUTBOUND_CAPABILITY),
+    footballDataFetch: (input, init) => governedFetch(input, init, FOOTBALL_DATA_OUTBOUND_CAPABILITY),
+    oddsIOFetch: (input, init) => governedFetch(input, init, ODDS_IO_OUTBOUND_CAPABILITY),
     summary: options => audit.summary(options),
   });
 }

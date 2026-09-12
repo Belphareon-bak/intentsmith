@@ -1,9 +1,9 @@
 {
   "id": "sazeni",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "manifestVersion": 2,
   "name": "Sázkový analytik",
-  "description": "Návrhy tiketů z importované nabídky, s limity kurzů, pravděpodobností a času. Fotbal 1X2.",
+  "description": "Autonomní analýza fotbalu 1X2: načítání zdrojů, měření modelu a tikety s limity kurzů, pravděpodobnosti a času.",
   "author": "c3-core",
   "domain": "sports_betting",
   "type": "domain",
@@ -51,5 +51,17 @@
     "default_currency": "CZK",
     "default_stake_unit": 100
   },
-  "enabledByDefault": true
+  "enabledByDefault": true,
+  "optionalCapabilities": [
+    "sports.football-data.v1",
+    "code-intel.project-context.v1",
+    "specialist.registry.auto-select.v1",
+    "specialist.registry.capability.v1",
+    "specialist.registry.cre.v1",
+    "specialist.registry.expertise.v1",
+    "specialist.knowledge-base.v1",
+    "core.logger.v1",
+    "specialist.registry.scenario.v1",
+    "specialist.registry.tool-executor.v1"
+  ]
 }

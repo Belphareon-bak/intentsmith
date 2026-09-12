@@ -5,17 +5,17 @@ import { renderBettingResult } from './presentation/report.js';
 const TOOL_IDS=['sazeni.ticket_builder','sazeni.odds_compare','sazeni.match_analysis','sazeni.value_finder'];
 const EXPERTISE={
   id:'sazeni',name:'Sázkový analytik',icon:'📊',domain:'sports_betting',isCustom:true,
-  description:'Výpočet tiketů z doložené nabídky, časových a pravděpodobnostních limitů.',
+  description:'Autonomní analýza načtených dat a výpočet tiketů s časovými a pravděpodobnostními limity.',
   tools:TOOL_IDS,primaryProblemTypes:['analysis','comparison'],allowedRepresentations:['tabular','report'],
   planningDepth:'medium',reviewPolicy:'self',dataUsagePolicy:'controlled',outputBias:'analytical',
-  temperature:0,systemPrompt:'Číselné výsledky poskytuje výhradně betting engine. Bez podkladů požádej o BettingRequest a BettingSnapshot. Modelové pravděpodobnosti ani živé kurzy nevymýšlej.',
+  temperature:0,systemPrompt:'Číselné výsledky poskytuje výhradně betting engine. Uživatel zadává pouze preference; zdroje načítá host a pravděpodobnosti počítá engine. Modelové pravděpodobnosti ani živé kurzy nevymýšlej.',
   styleRules:{tone:'professional',toolEnforcement:true,strictToolEnforcement:true},
 };
 export function buildToolDefinitions() {
   return TOOL_IDS.map(id=>({id,name:'Výpočet tiketů',description:EXPERTISE.description,
     modulePath:fileURLToPath(new URL('./tools/betting-engine.js',import.meta.url)),functionName:'runBetting',
     patterns:[{priority:10,patterns:[/[\s\S]*/]}],extractParams:extractBettingInput,
-    acceptsAllInput:true,acceptsInlineAttachments:true,needsTurnContext:true,failClosed:true,
+    acceptsAllInput:true,acceptsInlineAttachments:true,needsTurnContext:true,needsBettingData:true,failClosed:true,
     renderResult:({result})=>renderBettingResult(result),
   }));
 }
