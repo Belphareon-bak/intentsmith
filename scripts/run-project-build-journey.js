@@ -353,8 +353,13 @@ async function stopLiteralStudio(studio) {
   ) {
     await delay(25);
   }
-  if (studio.exitCode === null && studio.signal === null) studio.child.kill('SIGTERM');
-  while (studio.exitCode === null && studio.signal === null) await delay(25);
+  if (studio.exitCode === null && studio.signal === null) {
+    studio.child.kill('SIGTERM');
+    const cleanupDeadline = Date.now() + SERVER_STOP_TIMEOUT_MS;
+    while (Date.now() < cleanupDeadline && studio.exitCode === null && studio.signal === null) await delay(25);
+    if (studio.exitCode === null && studio.signal === null) studio.child.kill('SIGKILL');
+    throw new Error('Studio required forced cleanup');
+  }
   assert.equal(studio.signal, null, `literal Studio stopped by ${studio.signal}`);
   assert.equal(studio.exitCode, 0, studio.stderr.slice(-2_000));
   rmSync(studio.electronTmp, { recursive: true, force: true });
@@ -400,7 +405,7 @@ async function fillComposer(studio, projectPath) {
     await change('instruction', 'Implement Gregorian leap year checking. Keep two small ES modules, no external dependencies.');
     const files = [
       { path: 'src/app.mjs', instruction: 'Re-export isLeapYear from ./calendar.mjs.', dependsOn: ['src/calendar.mjs'] },
-      { path: 'src/calendar.mjs', instruction: 'Export isLeapYear(year): true for integer Gregorian leap years (divisible by 4 except centuries unless divisible by 400), false otherwise.', dependsOn: [] },
+      { path: 'src/calendar.mjs', instruction: 'Export isLeapYear(year): accept only integer numbers, false for all other types. True if divisible by 4 except centuries unless divisible by 400, false otherwise.', dependsOn: [] },
     ];
     for (let i = 0; i < files.length; i++) {
       if (i) await click('add-file');
@@ -409,7 +414,7 @@ async function fillComposer(studio, projectPath) {
       await change('file-' + i + '-dependencies', files[i].dependsOn.join('\n'));
     }
     await change('binary', '/usr/bin/node');
-    const argv = ['--input-type=module', '-e', "import assert from 'node:assert/strict';import {isLeapYear} from './src/app.mjs';for(const y of [2000,2024,2400])assert.equal(isLeapYear(y),true);for(const y of [1900,2100,2023,2024.5])assert.equal(isLeapYear(y),false);"];
+    const argv = ['--input-type=module', '-e', "import assert from 'node:assert/strict';import {isLeapYear} from './src/app.mjs';for(const y of [2000,2024,2400])assert.equal(isLeapYear(y),true);for(const y of [1900,2100,2023,2024.5,'2024',null,undefined,NaN,Infinity])assert.equal(isLeapYear(y),false);"];
     for (let i = 0; i < argv.length; i++) { await click('add-arg'); await change('arg-' + i, argv[i]); }
     await change('timeout', '30000');
     await click('submit');
@@ -500,17 +505,29 @@ async function inside(configurationPath) {
   git(['-c', 'user.name=IntentSmith Qualification', '-c', 'user.email=qualification@example.invalid', 'commit', '-m', 'calendar baseline'], project);
   const baseline = git(['rev-parse', 'HEAD'], project);
   const evidence = { status: 'RUNNING', sourceRevision: cfg.revision, runtime, baseline, network: JSON.parse(network),
-    fixtureSetup: 'private Git baseline, governance, API registration and initial session selection; no mocked model or approval', processes: [] };
+    fixtureSetup: 'private Git baseline, governance, API registration and initial session selection; no mocked model or approval',
+    rendererCaptureScope: 'after negotiated startup; this is not the registered 65-second full-network boundary probe', processes: [], bindings: [] };
   let server, studio;
   const boot = async () => {
     server = await startServer(runtime, randomBytes(20).toString('hex'), provider);
+    evidence.processes.push({ serverPid: server.child.pid });
     studio = await startLiteralStudio(runtime);
-    evidence.processes.push({ serverPid: server.child.pid, studioLauncherPid: studio.child.pid });
+    evidence.processes.at(-1).studioLauncherPid = studio.child.pid;
     await trackNetwork(studio, rows);
   };
   const shutdown = async () => {
     if (studio) { await stopLiteralStudio(studio); studio = null; evidence.processes.at(-1).studioExit = 0; }
     if (server) { await stopServer(server); server = null; evidence.processes.at(-1).serverExit = 0; }
+    const { default: Database } = await import('better-sqlite3');
+    const db = new Database(runtime.database, { readonly: true, fileMustExist: true });
+    try {
+      const binding = db.prepare("SELECT * FROM model_desired_bindings WHERE role = 'CODE'").get();
+      assert.equal(binding.model_name, EXPECTED_MODEL); assert.equal(binding.digest_sha256, EXPECTED_DIGEST);
+      assert.equal(binding.source, 'CONFIG_DEFAULT');
+      evidence.bindings.push(binding);
+      assert.equal(db.pragma('quick_check', { simple: true }), 'ok');
+      assert.deepEqual(db.pragma('foreign_key_check'), []);
+    } finally { db.close(); }
   };
   const currentStatus = async pending => {
     const query = new URLSearchParams({ id: pending.lifecycleId, ...pending.origin });
@@ -527,6 +544,7 @@ async function inside(configurationPath) {
     evidence.pending = pending;
     const plan = await currentStatus(pending); save(out, 'prepared-plan.json', plan);
     assert.equal(plan.state, 'awaiting_approval'); assert.equal(plan.diff.length, 2);
+    assert.deepEqual(plan.plan.focusedTest.argv, evidence.fixture.argv);
     assert.ok(plan.diff.every(file => preview.text.includes(file.path) && file.after.content.trim().split('\n').every(line => preview.text.includes(line.trim()))), 'visible complete preview');
     assert.equal(readFileSync(path.join(project, 'src/app.mjs'), 'utf8'), before);
     assert.equal(existsSync(path.join(project, 'src/calendar.mjs')), false);
@@ -586,6 +604,9 @@ async function inside(configurationPath) {
     await sendStatus(studio, pending.lifecycleId);
     await waitUntil(() => ui(studio, () => !window._sessions[0].chat._m2Busy && document.body.innerText.includes('M2 CANONICAL TERMINAL')), 'terminal after restore');
     await capture(studio, out, 'backup-restored-terminal');
+    assert.ok(evidence.bindings.every(binding => JSON.stringify(binding) === JSON.stringify(evidence.bindings[0])), 'restarts preserve exact durable binding');
+    assert.equal(rows.filter(row => row.method === 'POST' && new URL(row.url).pathname === '/api/m2/lifecycle/draft').length, 1);
+    assert.equal(rows.filter(row => row.method === 'POST' && new URL(row.url).pathname === '/api/m2/lifecycle/approve').length, 1);
     evidence.status = 'PASS';
   } catch (error) {
     evidence.status = 'FAIL'; evidence.error = { message: error.message, stack: error.stack };
@@ -605,6 +626,10 @@ async function parent(out) {
   mkdirSync(out, { mode: 0o700 });
   const revision = git(['rev-parse', 'HEAD']);
   const evidence = { status: 'RUNNING', sourceRevision: revision, startedAt: new Date().toISOString(), model: EXPECTED_MODEL, digest: EXPECTED_DIGEST };
+  evidence.build = Object.fromEntries(['package-lock.json', 'c3-ide/yarn.lock', 'scripts/run-project-build-journey.js',
+    'c3-ide/applications/electron/lib/frontend/bundle.js', 'c3-ide/applications/electron/lib/backend/electron-main.js',
+    'c3-ide/applications/electron/lib/frontend/index.html', 'c3-ide/applications/electron/lib/frontend/preload.js']
+    .map(relative => [relative, sha256(readFileSync(path.join(SOURCE_ROOT, relative)))]));
   const requests = [], upstreamOrigin = 'http://127.0.0.1:11434';
   let lease, proxy, child, loaded = false, socketRoot;
   const upstream = async endpoint => {
