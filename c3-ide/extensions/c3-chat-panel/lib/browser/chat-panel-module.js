@@ -2861,7 +2861,7 @@ function _upgradeCheck(){
 function _loadEvaluationData(){
   if(_evaluationLoading)return;_evaluationLoading=true;
   fetch(_backendBase+'/api/system/models/evaluations',{signal:AbortSignal.timeout(10000)})
-    .then(function(r){return r.json();})
+    .then(function(r){if(!r.ok)throw new Error('Evaluace HTTP '+r.status);return r.json();})
     .then(function(d){_evaluationData=d;_evaluationLoading=false;renderCenter();})
     .catch(function(e){_evaluationData={error:e.message};_evaluationLoading=false;renderCenter();});
 }
@@ -3056,6 +3056,7 @@ function _renderEvaluationsTab(){
               h('th',{style:{textAlign:'left',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font}},'Stav'),
               h('th',{style:{textAlign:'right',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font}},'Score'),
               h('th',{style:{textAlign:'left',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font}},'Testováno'),
+              h('th',{style:{textAlign:'left',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font}},'Ollama'),
               h('th',{style:{textAlign:'center',padding:'4px 6px',color:C.tx3,fontWeight:600,fontFamily:C.font}},''))),
             h('tbody',null,artifacts.map(function(row){
               var isCur=row.isCurrentBinding;var isApplicable=row.applicable!==false;
@@ -3066,6 +3067,7 @@ function _renderEvaluationsTab(){
                 h('td',{style:{padding:'4px 6px',color:color,fontWeight:600},title:isApplicable?'':(row.applicabilityReason||row.applicabilityReasonCode||'technicky nekompatibilní')},displayStatus),
                 h('td',{style:{padding:'4px 6px',textAlign:'right',color:isApplicable&&row.status==='COMPLETE'?C.tx1:C.tx4,fontWeight:600}},isApplicable&&row.score!=null?Math.round(row.score*100)+'%':'\u2014'),
                 h('td',{style:{padding:'4px 6px',color:row.intervalIntegrity==='LEGACY_UNVERIFIED'?'#eab308':C.tx3},title:row.testedAtProvenance||row.intervalIntegrity||''},tested(row)),
+                h('td',{style:{padding:'4px 6px',color:C.tx3}},row.providerVersion||'nezaznamenána'),
                 h('td',{style:{padding:'4px 6px',textAlign:'center'}},
                   !isApplicable?h('span',{style:{fontSize:_fs(8),color:C.tx4},title:row.applicabilityReason||row.applicabilityReasonCode},'mimo scope'):
                   isCur?h('span',{style:{fontSize:_fs(8),color:C.accent,fontWeight:600}},'\u2713'):
@@ -3253,7 +3255,7 @@ function centerUpgrades(){
     h('div',{style:{display:'flex',gap:6,padding:'10px 18px',borderBottom:'1px solid '+C.border,flexWrap:'wrap'}},
       h('button',{style:tabStyle('overview'),onClick:function(){_upgradeTab='overview';renderCenter();}},'P\u0159ehled'),
       h('button',{style:tabStyle('roles'),onClick:function(){_upgradeTab='roles';renderCenter();}},'Role (7)'),
-      h('button',{style:tabStyle('evaluations'),onClick:function(){_upgradeTab='evaluations';renderCenter();}},'Evaluace'),
+      h('button',{style:tabStyle('evaluations'),onClick:function(){_upgradeTab='evaluations';_loadEvaluationData();renderCenter();}},'Evaluace'),
       h('button',{style:tabStyle('history'),onClick:function(){_upgradeTab='history';renderCenter();}},'Historie'),
       h('button',{style:tabStyle('discovered'),onClick:function(){_upgradeTab='discovered';renderCenter();}},'Kandid\u00E1ti'),
       h('button',{style:tabStyle('governor'),onClick:function(){_upgradeTab='governor';_governorData=null;_loadGovernorData();renderCenter();}},'Spr\u00E1vce')),
@@ -3288,7 +3290,13 @@ function centerUpgrades(){
       /* ── Roles tab (v133) ── */
       _upgradeTab==='roles'?_renderRolesTab():null,
       /* ── Exact-contract evaluations tab ── */
-      _upgradeTab==='evaluations'?_renderEvaluationsTab():null,
+      _upgradeTab==='evaluations'?h('div',null,
+        h('div',{style:{display:'flex',alignItems:'center',gap:12,marginBottom:12}},
+          h('button',{disabled:_evaluationLoading,onClick:function(){_loadEvaluationData();renderCenter();},
+            style:{cursor:_evaluationLoading?'wait':'pointer',padding:'5px 12px'}},_evaluationLoading?'Načítám…':'Obnovit scoring'),
+          h('span',{style:{fontSize:_fs(10),color:C.tx3}},
+            _evaluationData&&_evaluationData.generatedAt?'Data k '+new Date(_evaluationData.generatedAt).toLocaleString('cs-CZ'):'')),
+        _renderEvaluationsTab()):null,
 
       /* ── History tab ── */
       _upgradeTab==='history'?h('div',null,

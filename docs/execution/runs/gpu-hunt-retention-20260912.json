@@ -649,5 +649,100 @@
       "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/tmpfs-external-fixtures-evidence"
     ],
     "diskVerificationCheckoutRetainedForQueuedCleanup": "/home/belphareon/is-hunt11"
+  },
+  "completionFollowup": {
+    "checkedAt": "2026-09-12T15:38:22.505116+00:00",
+    "sourceRevision": "ee4472d568f8caa762890e734ddea29f0d22e73f",
+    "status": [
+      "BASELINE_COMPLETE",
+      "RETENTION_COMPLETE",
+      "QUALITY_DISCRIMINATION_OPEN",
+      "REVIEW_PENDING"
+    ],
+    "installedModels": 12,
+    "coverage": {
+      "applicableStatusCounts": {
+        "COMPLETE": 73,
+        "FAILED": 0,
+        "BLOCKED": 0,
+        "MISSING": 0
+      },
+      "applicableTotal": 73,
+      "notApplicable": 11,
+      "total": 84
+    },
+    "historicalRunCounts": {
+      "BLOCKED": 209,
+      "COMPLETE": 220,
+      "FAILED": 32
+    },
+    "historicalFailedModels": [
+      {
+        "model": "devstral-small-2:latest",
+        "count": 7,
+        "firstCompletedAt": "2026-09-11T21:18:17.477Z",
+        "lastCompletedAt": "2026-09-11T21:18:17.477Z"
+      },
+      {
+        "model": "phi4:14b",
+        "count": 6,
+        "firstCompletedAt": "2026-09-12T07:21:31.264Z",
+        "lastCompletedAt": "2026-09-12T07:21:31.264Z"
+      },
+      {
+        "model": "qwen3-30b-a3b:latest",
+        "count": 6,
+        "firstCompletedAt": "2026-09-11T21:38:06.855Z",
+        "lastCompletedAt": "2026-09-11T21:38:06.855Z"
+      },
+      {
+        "model": "qwen3-coder:latest",
+        "count": 6,
+        "firstCompletedAt": "2026-09-11T21:23:26.753Z",
+        "lastCompletedAt": "2026-09-11T21:23:26.753Z"
+      },
+      {
+        "model": "qwen3.6:27b-mtp-q4_k_m",
+        "count": 7,
+        "firstCompletedAt": "2026-09-11T21:32:20.401Z",
+        "lastCompletedAt": "2026-09-11T21:32:20.401Z"
+      }
+    ],
+    "currentDecisionRows": {
+      "INCONCLUSIVE": 28,
+      "INCUMBENT": 40,
+      "CANDIDATE": 9
+    },
+    "bootstrap": {
+      "unit": "intentsmith-model-hunt-bootstrap-20260911.service",
+      "terminal": "exit-code / status=1/FAILURE",
+      "terminalAt": "2026-09-12T09:24:22+02:00",
+      "priorReportDisposition": "operator-stopped; not successful completion",
+      "remediationCommit": "ed3d57fff3c394062fa27fe14f00fd88b5ca31ac",
+      "newBaselineRoleErrors": 0
+    },
+    "deletedModel": "gemma4:31b",
+    "artifacts": [
+      {
+        "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/coverage-completed.json",
+        "sha256": "bf4c7605ed97407eb7e810ea0b00afbf33f01c13e6c473fd96d80a9507565a94"
+      },
+      {
+        "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/cleanup-after-baseline.json",
+        "sha256": "88421cedf2980f1692fd84c9f54fdf2eea514a7bdc265f936a53ded8eaafa446"
+      },
+      {
+        "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/bootstrap-terminal-followup.log",
+        "sha256": "3dd5258bcc6ff5c7e39c0c65931785e70a6f2de522a26b1a6b5f7ae1ad2ca3fb"
+      },
+      {
+        "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/candidate-followup.log",
+        "sha256": "e9f0adfe34345d874658a56db65c68a9dd7496ef55cbf2bf863923037389ebea"
+      },
+      {
+        "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/baseline.json",
+        "sha256": "cd1bee91bd4ac81b0f07227bda5fd37f95bf7d47c299b8baa7519624a6602a0e"
+      }
+    ]
   }
 }

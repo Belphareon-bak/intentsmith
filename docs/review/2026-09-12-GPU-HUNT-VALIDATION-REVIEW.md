@@ -23,7 +23,8 @@ Jeho PASS není důkazem, že delší hunt nemá provozní vady.
   evidence vadného běhu; nelze je použít k odůvodnění smazání kandidáta.
 - Běh zahrnoval suspend hostu mezi 2026-09-11 23:54 a 2026-09-12 09:20 CEST.
   Jeho celkový čas ani jeden přes suspend měřený interval nejsou čistý GPU čas.
-- Dávka byla operátorsky zastavena 09:24 CEST, unit skončil nenulovým statusem;
+- Dávka `intentsmith-model-hunt-bootstrap-20260911.service` byla operátorsky
+  zastavena 09:24 CEST; terminální stav v 09:24:22 byl `status=1/FAILURE`;
   provider i native runner se uklidily a NVIDIA compute seznam byl prázdný.
 
 ## Oprava pro rereview
