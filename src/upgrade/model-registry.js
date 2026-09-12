@@ -175,9 +175,12 @@ export class ModelRegistry {
     modelArtifactAuthorityRepository,
     requireDurableModelUseAuthority = false,
     modelStorageFreeBytes,
+    modelMutationBaseUrl,
   }) {
     this._db = db;
     this._upgradeManager = upgradeManager;
+    this._modelMutationBaseUrl = modelMutationBaseUrl
+      ? requireLoopbackModelProviderOrigin(modelMutationBaseUrl).origin : null;
     this._modelBindingApplication = modelBindingApplication || null;
     this._bindingRepository = bindingRepository || null;
     if (bindingStartupAuthority !== undefined && bindingStartupAuthority !== null) {
@@ -797,6 +800,18 @@ export class ModelRegistry {
 
   /** Delete one exact artifact through the binding application's mutation owner. */
   async deleteModel(name, options = {}) {
+    return this.#deleteModel(name, options);
+  }
+
+  /** Internal hunt port: caller data cannot supply this eligibility callback. */
+  async deleteRejectedModel(name, options, recheck) {
+    if (typeof recheck !== 'function' || !normalizeModelDigestSha256(options?.expectedDigestSha256)) {
+      registryFail('MODEL_RETENTION_PROOF_REQUIRED', 'Exact artifact and retention recheck are required', 400);
+    }
+    return this.#deleteModel(name, options, recheck);
+  }
+
+  async #deleteModel(name, options = {}, retentionRecheck = null) {
     if (typeof name !== 'string' || !canonicalModelName(name)) {
       registryFail('MODEL_DELETE_INPUT_INVALID', 'Model name is invalid', 400);
     }
@@ -825,7 +840,7 @@ export class ModelRegistry {
     let provider;
     try {
       provider = requireLoopbackModelProviderOrigin(
-        config.ollama?.baseUrl || 'http://127.0.0.1:11434',
+        this._modelMutationBaseUrl || config.ollama?.baseUrl || 'http://127.0.0.1:11434',
       );
     } catch (error) {
       registryFail(
@@ -853,6 +868,11 @@ export class ModelRegistry {
             digestSha256: planned.digestSha256,
           });
           this.#assertDeleteAllowed(observed.exactName);
+
+          if (retentionRecheck) {
+            await retentionRecheck({ artifact: observed, inventory: secondInventory });
+            this.#assertDeleteAllowed(observed.exactName);
+          }
 
           const observedModel = secondInventory.find(model => (
             model.name === observed.exactName

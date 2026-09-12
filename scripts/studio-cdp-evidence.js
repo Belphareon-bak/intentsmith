@@ -506,6 +506,7 @@ function createHttpSlot(expectedCapability) {
     responseBase: null,
     responseExtra: [],
     failed: false,
+    failure: null,
     redirect: false,
   };
 }
@@ -649,7 +650,23 @@ export function createStudioCdpEvidenceReducer({
       });
       return;
     }
-    if (method === 'Network.loadingFailed') slot.failed = true;
+    if (method === 'Network.loadingFailed') {
+      slot.failed = true;
+      // Persist only closed diagnostic classes, never Chromium's raw error text
+      // (which can contain a URL, local path or credentials). Failed requests
+      // still fail the same wire-evidence policy, including canceled requests.
+      const failures = new Map([
+        ['net::ERR_ABORTED', 'aborted'],
+        ['net::ERR_CONNECTION_REFUSED', 'connection-refused'],
+        ['net::ERR_CONNECTION_RESET', 'connection-reset'],
+        ['net::ERR_CONNECTION_CLOSED', 'connection-closed'],
+        ['net::ERR_NETWORK_CHANGED', 'network-changed'],
+        ['net::ERR_TIMED_OUT', 'timed-out'],
+        ['net::ERR_BLOCKED_BY_CLIENT', 'blocked-by-client'],
+        ['net::ERR_FAILED', 'failed'],
+      ]);
+      slot.failure = { reason: failures.get(params?.errorText) || 'other', canceled: params?.canceled === true };
+    }
   }
 
   function ingestWebSocket(method, params) {
@@ -755,6 +772,7 @@ export function createStudioCdpEvidenceReducer({
           status: wire.status,
           statusClass: wire.statusClass,
           terminalClass: slot.failed ? 'failed' : wire.status === null ? 'missing' : 'response',
+          ...(slot.failure ? { failure: slot.failure } : {}),
           responseSource: wire.responseSource,
           redirected: slot.redirect,
         });
@@ -767,6 +785,7 @@ export function createStudioCdpEvidenceReducer({
         status: wire.status,
         statusClass: wire.statusClass,
         terminalClass: slot.failed ? 'failed' : wire.status === null ? 'missing' : 'response',
+        ...(slot.failure ? { failure: slot.failure } : {}),
         originClass: wire.originClass,
         fetchSiteClass: wire.fetchSiteClass,
         capabilityClass: wire.capabilityClass,

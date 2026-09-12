@@ -1,0 +1,653 @@
+{
+  "schemaVersion": "intentsmith-gpu-hunt-retention-review-v1",
+  "generatedAt": "2026-09-12T10:59:22.020623+00:00",
+  "implementationRange": {
+    "baseExclusive": "3f3a22203b51905a6bf834cb39f5e7f76b2306f2",
+    "headInclusive": "d2e8c538e5fc6dd2ab5354e4aef6185628535ad6"
+  },
+  "branch": "work/mobile-completion-20260908",
+  "status": [
+    "IMPLEMENTATION_GREEN",
+    "RETENTION_ENABLED",
+    "CLEANUP_QUEUED",
+    "BASELINE_RUNNING",
+    "REVIEW_PENDING"
+  ],
+  "operatorAuthorization": "2026-09-12 explicit request to enable automatic deletion only for models unequivocally unsuitable for every applicable role; no binding or rollback retirement",
+  "policy": "all-role-loss-or-production-gpu-unfit-v1",
+  "validation": {
+    "finalGate": {
+      "runId": "retention-d2e8c538-final",
+      "sourceRevision": "d2e8c538e5fc6dd2ab5354e4aef6185628535ad6",
+      "startedAt": "2026-09-12T10:51:06.307Z",
+      "endedAt": "2026-09-12T10:54:26.643Z",
+      "statusCounts": {
+        "PASS": 352,
+        "FAIL": 0,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "verdict": "PASS",
+      "reportPath": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/final-gate-evidence/report.json",
+      "originalReportPath": "/run/user/1000/is-retention-src/.intentsmith-artifacts/test-runs/retention-d2e8c538-final/report.json",
+      "reportSha256": "cfe8bdb71dadea2ed894cf6a3fc805f4f8894471583501c83a4599e5675a4c25",
+      "allLogHashesVerified": true,
+      "archivedLogHashesVerified": true,
+      "allSourceTreesClean": true,
+      "uniqueIds": 352,
+      "nonPass": [],
+      "fixtureStorage": "tmpfs; complete clean git checkout with same dependencies",
+      "sourceTree": "b85612c664419abcafc6e37ec6d6eeadd7d923dd"
+    },
+    "allFullGateAttempts": [
+      {
+        "runId": "hunt-retention-20260912-1b6f7e08",
+        "sourceRevision": "1b6f7e08d185c5c0c54c30ca674430ed34188b45",
+        "startedAt": "2026-09-12T09:59:09.137Z",
+        "endedAt": "2026-09-12T10:08:17.765Z",
+        "statusCounts": {
+          "PASS": 349,
+          "FAIL": 0,
+          "TIMEOUT": 3,
+          "BLOCKED": 0,
+          "SKIPPED": 0
+        },
+        "verdict": "FAIL",
+        "reportPath": "/home/belphareon/is-hunt11/.intentsmith-artifacts/test-runs/hunt-retention-20260912-1b6f7e08/report.json",
+        "reportSha256": "2dd806aa3c7bb5bbd0855f5457da15e1061cd74dac0fe4ef30b571328fd0c342",
+        "allLogHashesVerified": true,
+        "allSourceTreesClean": true,
+        "uniqueIds": 352,
+        "nonPass": [
+          {
+            "id": "IS-T1-TESTS-M2-EFFECT-AUTHORITY-REPOSITORY-TEST",
+            "status": "TIMEOUT",
+            "durationMs": 30498,
+            "logPath": ".intentsmith-artifacts/test-runs/hunt-retention-20260912-1b6f7e08/logs/tests_m2-effect-authority-repository.test.js.fbda346c.log"
+          },
+          {
+            "id": "IS-T1-TESTS-M2-EFFECT-BROKER-V1-TEST",
+            "status": "TIMEOUT",
+            "durationMs": 37764,
+            "logPath": ".intentsmith-artifacts/test-runs/hunt-retention-20260912-1b6f7e08/logs/tests_m2-effect-broker-v1.test.js.606c7170.log"
+          },
+          {
+            "id": "IS-T1-TESTS-M2-LIFECYCLE-APPLICATION-SERVICE-TEST",
+            "status": "TIMEOUT",
+            "durationMs": 65120,
+            "logPath": ".intentsmith-artifacts/test-runs/hunt-retention-20260912-1b6f7e08/logs/tests_m2-lifecycle-application-service.test.js.1a72c253.log"
+          }
+        ]
+      },
+      {
+        "runId": "hunt-retention-20260912-1b6f7e08-retry",
+        "sourceRevision": "1b6f7e08d185c5c0c54c30ca674430ed34188b45",
+        "startedAt": "2026-09-12T10:13:19.462Z",
+        "endedAt": "2026-09-12T10:21:26.486Z",
+        "statusCounts": {
+          "PASS": 351,
+          "FAIL": 0,
+          "TIMEOUT": 1,
+          "BLOCKED": 0,
+          "SKIPPED": 0
+        },
+        "verdict": "FAIL",
+        "reportPath": "/home/belphareon/is-hunt11/.intentsmith-artifacts/test-runs/hunt-retention-20260912-1b6f7e08-retry/report.json",
+        "reportSha256": "c6277cdc22f1fce37e6a81e40a59cb8e53a6bdc9d5e8aa90e610cadf5c5b3d7b",
+        "allLogHashesVerified": true,
+        "allSourceTreesClean": true,
+        "uniqueIds": 352,
+        "nonPass": [
+          {
+            "id": "IS-T1-TESTS-M2-TOOL-BROKER-V1-TEST",
+            "status": "TIMEOUT",
+            "durationMs": 30231,
+            "logPath": ".intentsmith-artifacts/test-runs/hunt-retention-20260912-1b6f7e08-retry/logs/tests_m2-tool-broker-v1.test.js.ce3c9391.log"
+          }
+        ]
+      },
+      {
+        "runId": "hunt-retention-20260912-1cbcd8ad",
+        "sourceRevision": "1cbcd8ad7f041fabebb3499d7598b879feea6295",
+        "startedAt": "2026-09-12T10:23:25.264Z",
+        "endedAt": "2026-09-12T10:28:44.736Z",
+        "statusCounts": {
+          "PASS": 352,
+          "FAIL": 0,
+          "TIMEOUT": 0,
+          "BLOCKED": 0,
+          "SKIPPED": 0
+        },
+        "verdict": "PASS",
+        "reportPath": "/home/belphareon/is-hunt11/.intentsmith-artifacts/test-runs/hunt-retention-20260912-1cbcd8ad/report.json",
+        "reportSha256": "242f84029d88568255aa65b6ac3f41b0dbcc2af2d653f939755da5667200cc07",
+        "allLogHashesVerified": true,
+        "allSourceTreesClean": true,
+        "uniqueIds": 352,
+        "nonPass": []
+      },
+      {
+        "runId": "hunt-retention-20260912-d2e8c538",
+        "sourceRevision": "d2e8c538e5fc6dd2ab5354e4aef6185628535ad6",
+        "startedAt": "2026-09-12T10:29:47.949Z",
+        "endedAt": "2026-09-12T10:36:20.807Z",
+        "statusCounts": {
+          "PASS": 351,
+          "FAIL": 0,
+          "TIMEOUT": 1,
+          "BLOCKED": 0,
+          "SKIPPED": 0
+        },
+        "verdict": "FAIL",
+        "reportPath": "/home/belphareon/is-hunt11/.intentsmith-artifacts/test-runs/hunt-retention-20260912-d2e8c538/report.json",
+        "reportSha256": "7ed251346dbf7aac7134a48432136cef29c8dbcd39c96e8b8fda84abad74c58b",
+        "allLogHashesVerified": true,
+        "allSourceTreesClean": true,
+        "uniqueIds": 352,
+        "nonPass": [
+          {
+            "id": "IS-T1-TESTS-M2-EFFECT-BROKER-V1-TEST",
+            "status": "TIMEOUT",
+            "durationMs": 30046,
+            "logPath": ".intentsmith-artifacts/test-runs/hunt-retention-20260912-d2e8c538/logs/tests_m2-effect-broker-v1.test.js.606c7170.log"
+          }
+        ]
+      },
+      {
+        "runId": "hunt-retention-20260912-d2e8c538-tmpfs",
+        "sourceRevision": "d2e8c538e5fc6dd2ab5354e4aef6185628535ad6",
+        "startedAt": "2026-09-12T10:37:30.741Z",
+        "endedAt": "2026-09-12T10:38:26.091Z",
+        "statusCounts": {
+          "PASS": 75,
+          "FAIL": 277,
+          "TIMEOUT": 0,
+          "BLOCKED": 0,
+          "SKIPPED": 0
+        },
+        "verdict": "FAIL",
+        "reportPath": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/tmpfs-invalid-path-evidence/report.json",
+        "originalReportPath": "/run/user/1000/intentsmith-retention-gate/hunt-retention-20260912-d2e8c538-tmpfs/report.json",
+        "reportSha256": "4150c32ded39cd62c348d4b5c61ad4ee707182e82d56d72ab69f26467bce13c2",
+        "allLogHashesVerified": true,
+        "allSourceTreesClean": true,
+        "uniqueIds": 352,
+        "failedPrivatePathChecks": 277,
+        "cause": "Operator-selected tmpfs out-dir omitted required .intentsmith-artifacts path component"
+      },
+      {
+        "runId": "retention-d2e8c538-tmpfs-private",
+        "sourceRevision": "d2e8c538e5fc6dd2ab5354e4aef6185628535ad6",
+        "startedAt": "2026-09-12T10:38:46.694Z",
+        "endedAt": "2026-09-12T10:42:08.579Z",
+        "statusCounts": {
+          "PASS": 350,
+          "FAIL": 2,
+          "TIMEOUT": 0,
+          "BLOCKED": 0,
+          "SKIPPED": 0
+        },
+        "verdict": "FAIL",
+        "reportPath": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/tmpfs-external-fixtures-evidence/report.json",
+        "originalReportPath": "/run/user/1000/.intentsmith-artifacts/hunt-retention/retention-d2e8c538-tmpfs-private/report.json",
+        "reportSha256": "0b84450dd811ebd65d529e4e4642ae2ce08c1b941fa00502ed8b6093d50a4c33",
+        "allLogHashesVerified": true,
+        "allSourceTreesClean": true,
+        "uniqueIds": 352,
+        "nonPass": [
+          {
+            "id": "IS-T1-TESTS-CODE-PATCH-RUNNER-TEST",
+            "status": "FAIL",
+            "durationMs": 1273,
+            "logPath": "../../../run/user/1000/.intentsmith-artifacts/hunt-retention/retention-d2e8c538-tmpfs-private/logs/tests_code-patch-runner.test.js.4e53faba.log"
+          },
+          {
+            "id": "IS-T1-TESTS-CODE-SEARCH-TEST",
+            "status": "FAIL",
+            "durationMs": 177,
+            "logPath": "../../../run/user/1000/.intentsmith-artifacts/hunt-retention/retention-d2e8c538-tmpfs-private/logs/tests_code-search.test.js.ba05e7f6.log"
+          }
+        ],
+        "fixtureStorage": "tmpfs outside git checkout"
+      },
+      {
+        "runId": "retention-d2e8c538-ram-checkout",
+        "sourceRevision": "d2e8c538e5fc6dd2ab5354e4aef6185628535ad6",
+        "startedAt": "2026-09-12T10:47:06.642Z",
+        "endedAt": "2026-09-12T10:50:25.756Z",
+        "statusCounts": {
+          "PASS": 351,
+          "FAIL": 1,
+          "TIMEOUT": 0,
+          "BLOCKED": 0,
+          "SKIPPED": 0
+        },
+        "verdict": "FAIL",
+        "reportPath": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/tmpfs-nested-checkout-evidence/report.json",
+        "originalReportPath": "/run/user/1000/.intentsmith-artifacts/retention-src/.intentsmith-artifacts/test-runs/retention-d2e8c538-ram-checkout/report.json",
+        "reportSha256": "15e18c87c953d30f74874e0244db0fc893678421ef1c9c1ba08bf899f4c50ce0",
+        "allLogHashesVerified": true,
+        "allSourceTreesClean": true,
+        "uniqueIds": 352,
+        "nonPass": [
+          {
+            "id": "IS-T2-TESTS-E2E-HARNESS-ISOLATION-TEST",
+            "status": "FAIL",
+            "durationMs": 820,
+            "logPath": ".intentsmith-artifacts/test-runs/retention-d2e8c538-ram-checkout/logs/tests_e2e-harness-isolation.test.js.965b7f17.log"
+          }
+        ],
+        "fixtureStorage": "tmpfs; entire git checkout incorrectly nested under .intentsmith-artifacts"
+      },
+      {
+        "runId": "retention-d2e8c538-final",
+        "sourceRevision": "d2e8c538e5fc6dd2ab5354e4aef6185628535ad6",
+        "startedAt": "2026-09-12T10:51:06.307Z",
+        "endedAt": "2026-09-12T10:54:26.643Z",
+        "statusCounts": {
+          "PASS": 352,
+          "FAIL": 0,
+          "TIMEOUT": 0,
+          "BLOCKED": 0,
+          "SKIPPED": 0
+        },
+        "verdict": "PASS",
+        "reportPath": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/final-gate-evidence/report.json",
+        "originalReportPath": "/run/user/1000/is-retention-src/.intentsmith-artifacts/test-runs/retention-d2e8c538-final/report.json",
+        "reportSha256": "cfe8bdb71dadea2ed894cf6a3fc805f4f8894471583501c83a4599e5675a4c25",
+        "allLogHashesVerified": true,
+        "archivedLogHashesVerified": true,
+        "allSourceTreesClean": true,
+        "uniqueIds": 352,
+        "nonPass": [],
+        "fixtureStorage": "tmpfs; complete clean git checkout with same dependencies",
+        "sourceTree": "b85612c664419abcafc6e37ec6d6eeadd7d923dd"
+      }
+    ],
+    "focusedCases": {
+      "modelUpgrade": 97,
+      "modelRegistry": 20,
+      "bindingApplication": 109,
+      "candidateTrial": 36,
+      "pairwiseTrial": 37,
+      "artifactValidation": 158
+    },
+    "independentReview": "PENDING",
+    "m6Acceptance": "UNCHANGED_PENDING"
+  },
+  "visionEvidence": {
+    "officialSource": "https://ollama.com/library/qwen3.8",
+    "capabilitiesFile": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/qwen-capabilities.json",
+    "livePilotRunId": "eval_1243bf33-ce95-4824-958e-7ea6f24134a2",
+    "qwen38Score": 0.9333333333333333,
+    "incumbentLlavaScore": 0.5333333333333333,
+    "imageTransportRegression": "four PNG-bearing requests and one no-image control through actual runner with mocked HTTP"
+  },
+  "coverageCheckpoint": {
+    "observedAt": "2026-09-12T10:17:10.043Z",
+    "providerVersion": "0.34.0-intentsmith.1",
+    "coverage": {
+      "applicableStatusCounts": {
+        "COMPLETE": 73,
+        "FAILED": 0,
+        "BLOCKED": 0,
+        "MISSING": 0
+      },
+      "applicableTotal": 73,
+      "notApplicable": 11,
+      "total": 84
+    },
+    "bindingAuthority": {
+      "status": "UNVERIFIED_RUNTIME",
+      "durableRoles": [
+        "CHAT",
+        "CODE",
+        "D1",
+        "D2",
+        "R1",
+        "R2",
+        "VISION"
+      ],
+      "verifiedRoles": [],
+      "reason": "MODEL_BINDING_RUNTIME_NOT_OBSERVED",
+      "failures": []
+    }
+  },
+  "retentionPreview": {
+    "observedAt": "2026-09-12T10:32:57.768Z",
+    "eligibleUnprotected": 0,
+    "rows": [
+      {
+        "model": "ornith-1.5:9b",
+        "protected": false,
+        "eligible": false,
+        "reason": "RETENTION_ROLE_NOT_CLEARLY_LOST"
+      },
+      {
+        "model": "north-mini-code-1.0:latest",
+        "protected": false,
+        "eligible": false,
+        "reason": "RETENTION_ROLE_NOT_CLEARLY_LOST"
+      },
+      {
+        "model": "devstral-small-2:latest",
+        "protected": false,
+        "eligible": false,
+        "reason": "RETENTION_ROLE_NOT_CLEARLY_LOST"
+      },
+      {
+        "model": "qwen3.6:27b-mtp-q4_k_m",
+        "protected": false,
+        "eligible": false,
+        "reason": "RETENTION_ROLE_NOT_CLEARLY_LOST"
+      },
+      {
+        "model": "phi4:14b",
+        "protected": false,
+        "eligible": false,
+        "reason": "RETENTION_ROLE_NOT_CLEARLY_LOST"
+      },
+      {
+        "model": "qwen3.8:latest",
+        "protected": true,
+        "eligible": false,
+        "reason": "RETENTION_BOUND"
+      },
+      {
+        "model": "qwen3-coder:latest",
+        "protected": false,
+        "eligible": false,
+        "reason": "RETENTION_ROLE_NOT_CLEARLY_LOST"
+      },
+      {
+        "model": "llava-llama3:8b",
+        "protected": true,
+        "eligible": false,
+        "reason": "RETENTION_BOUND"
+      },
+      {
+        "model": "qwen3:14b",
+        "protected": true,
+        "eligible": false,
+        "reason": "RETENTION_BOUND"
+      },
+      {
+        "model": "qwen3.5:27b",
+        "protected": true,
+        "eligible": false,
+        "reason": "RETENTION_BOUND"
+      },
+      {
+        "model": "llava:13b",
+        "protected": true,
+        "eligible": true,
+        "reason": "RETENTION_ALL_APPLICABLE_ROLES_LOST"
+      },
+      {
+        "model": "qwen3-30b-a3b:latest",
+        "protected": true,
+        "eligible": false,
+        "reason": "RETENTION_ROLE_NOT_CLEARLY_LOST"
+      }
+    ]
+  },
+  "runtime": {
+    "observedAt": "2026-09-12T10:57:09.128265+00:00",
+    "implementationRevision": "d2e8c538e5fc6dd2ab5354e4aef6185628535ad6",
+    "scheduledHunt": {
+      "ExecStart": "{ path=/home/belphareon/.nvm/versions/node/v22.21.1/bin/node ; argv[]=/home/belphareon/.nvm/versions/node/v22.21.1/bin/node /home/belphareon/worktrees/is-mobile-completion-20260908/scripts/run-model-hunt-provider.js --run --limit=2 --keep-inconclusive --prune-rejected --scheduled ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; status=0/0 }",
+      "LoadState": "loaded",
+      "FragmentPath": "/home/belphareon/.config/systemd/user/intentsmith-model-hunt.service"
+    },
+    "huntTimerActive": "active",
+    "huntTimerEnabled": "enabled",
+    "cleanup": {
+      "status": "QUEUED_AFTER_BASELINE",
+      "unit": "intentsmith-hunt-retention-after-baseline-20260912.service",
+      "properties": {
+        "TimeoutStartUSec": "20min",
+        "MainPID": "0",
+        "ExecStart": "{ path=/home/belphareon/.nvm/versions/node/v22.21.1/bin/node ; argv[]=/home/belphareon/.nvm/versions/node/v22.21.1/bin/node /home/belphareon/is-hunt11/scripts/run-model-hunt-provider.js --run --prune-rejected --prune-only --scheduled --report=/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/cleanup-after-baseline.json ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; status=0/0 }",
+        "Environment": "C3_DB_PATH=/home/belphareon/Projects/intentsmith/data/c3.db",
+        "WorkingDirectory": "/home/belphareon/is-hunt11",
+        "After": "-.mount intentsmith-hunt-baseline-validation-20260912.service app.slice home.mount basic.target",
+        "ActiveState": "inactive",
+        "SubState": "dead",
+        "Job": "17229"
+      },
+      "sourceRevision": "d2e8c538e5fc6dd2ab5354e4aef6185628535ad6",
+      "reportExpected": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/cleanup-after-baseline.json"
+    },
+    "jobs": "JOB   UNIT                                                       TYPE  STATE\n17229 intentsmith-hunt-retention-after-baseline-20260912.service start waiting\n9806  intentsmith-hunt-baseline-validation-20260912.service      start running\n\n2 jobs listed.",
+    "baseline": {
+      "MainPID": "1413403",
+      "ExecStart": "{ path=/home/belphareon/.nvm/versions/node/v22.21.1/bin/node ; argv[]=/home/belphareon/.nvm/versions/node/v22.21.1/bin/node /home/belphareon/worktrees/is-mobile-completion-20260908/scripts/run-model-hunt-provider.js --run --limit=13 --keep-inconclusive --scheduled --report=/home/belphareon/Projects/coworker/intentsmith-hunt-validation-20260912/baseline.json ; ignore_errors=no ; start_time=[n/a] ; stop_time=[n/a] ; pid=0 ; code=(null) ; status=0/0 }",
+      "ActiveState": "activating",
+      "SubState": "start"
+    },
+    "timers": "NEXT                         LEFT LAST                               PASSED UNIT                                  ACTIVATES\nSun 2026-09-13 00:23:18 CEST  11h Sat 2026-09-12 09:20:24 CEST 3h 36min ago intentsmith-ollama-update-check.timer intentsmith-ollama-update-check.service\nSun 2026-09-13 03:02:13 CEST  14h Sat 2026-09-12 09:20:24 CEST 3h 36min ago intentsmith-model-hunt.timer          intentsmith-model-hunt.service\n\n2 timers listed.\nPass --all to see loaded but inactive timers, too.",
+    "bindingsUnchanged": true,
+    "desiredBindings": [
+      {
+        "role": "CHAT",
+        "model_name": "qwen3.5:27b",
+        "canonical_name": "qwen3.5:27b",
+        "digest_sha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+        "binding_revision": 3,
+        "source": "USER_APPLY",
+        "actor": "user:model-upgrade-hunt",
+        "observed_at_ms": 1787488666486,
+        "updated_at_ms": 1787488666486,
+        "last_event_id": "evt_f1815839-ca4b-4f28-9e52-ea28629bdbae"
+      },
+      {
+        "role": "CODE",
+        "model_name": "qwen3.5:27b",
+        "canonical_name": "qwen3.5:27b",
+        "digest_sha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+        "binding_revision": 1,
+        "source": "CONFIG_DEFAULT",
+        "actor": "system:binding-application",
+        "observed_at_ms": 1787727776043,
+        "updated_at_ms": 1787727776043,
+        "last_event_id": "evt_5bbc2e1e-576d-46d4-b324-c3d0fc00b748"
+      },
+      {
+        "role": "D1",
+        "model_name": "qwen3.5:27b",
+        "canonical_name": "qwen3.5:27b",
+        "digest_sha256": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+        "binding_revision": 4,
+        "source": "USER_APPLY",
+        "actor": "user:model-upgrade-hunt",
+        "observed_at_ms": 1787469324405,
+        "updated_at_ms": 1787469324405,
+        "last_event_id": "evt_6e6769fd-3b8a-4192-975d-c22f324517fc"
+      },
+      {
+        "role": "D2",
+        "model_name": "qwen3.8:latest",
+        "canonical_name": "qwen3.8",
+        "digest_sha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+        "binding_revision": 3,
+        "source": "USER_APPLY",
+        "actor": "user:model-upgrade-hunt",
+        "observed_at_ms": 1787443193621,
+        "updated_at_ms": 1787443193621,
+        "last_event_id": "evt_413f5de6-1e38-45fc-8cb2-9476482a840b"
+      },
+      {
+        "role": "R1",
+        "model_name": "qwen3.8:latest",
+        "canonical_name": "qwen3.8",
+        "digest_sha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+        "binding_revision": 3,
+        "source": "USER_APPLY",
+        "actor": "user:model-upgrade-hunt",
+        "observed_at_ms": 1787443193634,
+        "updated_at_ms": 1787443193634,
+        "last_event_id": "evt_13fe5514-059f-4890-8654-39d0e028e5bb"
+      },
+      {
+        "role": "R2",
+        "model_name": "qwen3:14b",
+        "canonical_name": "qwen3:14b",
+        "digest_sha256": "bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8",
+        "binding_revision": 2,
+        "source": "USER_APPLY",
+        "actor": "user:local-operator",
+        "observed_at_ms": 1787347845238,
+        "updated_at_ms": 1787347845238,
+        "last_event_id": "evt_eeac9846-abea-4aa2-b9cf-c5232f32a6ab"
+      },
+      {
+        "role": "VISION",
+        "model_name": "llava-llama3:8b",
+        "canonical_name": "llava-llama3:8b",
+        "digest_sha256": "44c161b1f46523301da9c0cc505afa4a4a0cc62f580581d98a430bb21acd46de",
+        "binding_revision": 2,
+        "source": "USER_APPLY",
+        "actor": "user:local-operator",
+        "observed_at_ms": 1787347845260,
+        "updated_at_ms": 1787347845260,
+        "last_event_id": "evt_640560c3-6999-4f86-9a78-d3fdb5584e42"
+      }
+    ],
+    "historyRows": 454,
+    "retentionJournalRows": 0,
+    "installedArtifacts": 12,
+    "removedSinceCheckpoint": [],
+    "diskAvailableBytes": 57704833024,
+    "serviceSha256": "6b6e2b888ef9cd2b5e97df1a69aae3bf13fcc12e048f9edf47947acff2547fb4"
+  },
+  "artifactRoot": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912",
+  "artifacts": [
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/qwen-capabilities.json",
+      "sha256": "629f62d2c1aa29c6d88adac8370eb7a159ba3acc272d016d0f5709d5e928bc7b"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/preview-final.json",
+      "sha256": "5843ccc056d3648994e9e5e4d1601683d7aa480d895ffa2ab6034b8fba28ef00"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/preview-final.log",
+      "sha256": "4fd0c2d04a1669897aadbc944681425e293919adb491cb2882817cffa5f22f1a"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/coverage-before-cleanup.json",
+      "sha256": "0e3519d62813802290fd5d03276ef564a87cd5b51dfe83dc7e9e007ce7d8f04f"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/before-cleanup.json",
+      "sha256": "710bbffffbab055974548e0dcb4b86506894e860677b4996fe207f1dcfe81177"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/runtime-enabled.json",
+      "sha256": "d35d2f9fc4f54181854d78ce80b794bd2244e045c9353d2a2a32dd1a8298ea5e"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/busy-cleanup.json",
+      "sha256": "2efe2a2b256308712929bfced7e7236c420f56a48c4ef45b8062f71e54d3209d"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/busy-cleanup.log",
+      "sha256": "78eee201aab6048111d685387f531d0603bfab145b203175402190b1c8ec0d92"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/installed-hunt-service-before.txt",
+      "sha256": "609e209975f31775ba12a14fc9086a022958bb1c56f802f0c875eee0d52ad9bf"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/installed-hunt-service-after.txt",
+      "sha256": "6b6e2b888ef9cd2b5e97df1a69aae3bf13fcc12e048f9edf47947acff2547fb4"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/model-upgrade-delete-failure.log",
+      "sha256": "7a025201f2d9b396f1f3e68639ef9b43eb16d2f44324b378920bcc76b34a55c4"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/registry-first.log",
+      "sha256": "5514c3d33da26a07b8720db1a15ed35c210f0d230d0188d11a5bee5c06d30101"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/binding-application.log",
+      "sha256": "53fc79094b288db186f69aacd56f1ae158f34b60f5801e52b5423c8c48933ef8"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/candidate.log",
+      "sha256": "73fc873b02dae94744486abbddc88072f26ebcfc8c080de41051fb8cc9fc472b"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/pairwise.log",
+      "sha256": "43f1ea2e5bec38f8f3a89cdce41e39d2741b68e7ccf7217bf058f475bd47d990"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/artifact-delete-failure.log",
+      "sha256": "c0a807e407aa0d3a378c7083f25a8877ebfaf34eb5023edb118853dc46744669"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/tmpfs-source-path-probe.log",
+      "sha256": "feb63a8e856c6a8a8b3d0511d906bc03c95c91a5349b272b0e7ba44dac2f1805"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/tmpfs-private-root-probe.log",
+      "sha256": "72bd9e61f355b2e9badd4489d4c5d66d97effbc2c223a224f5cf9f9d0c9be99c"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/offline-first-summary.json",
+      "sha256": "4f0aa4566b31cb834fc669c2b93c2409522894abf14c3ce95a479ef19fd20765"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/offline-retry-summary.json",
+      "sha256": "d1560a663463e81b0bf38a21c76838e859654732ec4f4dd02ae6e843c5140f99"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/offline-reschedule-summary.json",
+      "sha256": "e2894c394fa3c817a59495dd66282899de88e51d6450a6adde3379b68b196e62"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/offline-final-disk-summary.json",
+      "sha256": "8c6697e42ca353b4026c32a23f25502a9bbc0d748e7268ab362335a490efa8ea"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/offline-invalid-tmpfs-summary.json",
+      "sha256": "3ff26e802dbc99470fc44db772a3bf842236ab3951bc148d2711d28582a4e23b"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/offline-external-tmpfs-summary.json",
+      "sha256": "bbf73931c03c2fb8b8d3a38ae118aabb90a9577bd49feb7cea5d9b8c0b20c78f"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/offline-nested-tmpfs-summary.json",
+      "sha256": "216b5038dee0e118e7fe1067f70d74f03dc3867468bc112c97665cfc62f7350e"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/offline-final-summary.json",
+      "sha256": "1251789c4bf3d5b9cc038a7ad37b85f0a9906fe1c7a1a5414b559491deba3baf"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/artifact-final-docs.log",
+      "sha256": "c0a807e407aa0d3a378c7083f25a8877ebfaf34eb5023edb118853dc46744669"
+    },
+    {
+      "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/temporary-checkout-cleanup.json",
+      "sha256": "10c43ffd915051dbfb0d6fc03fe270f95ed282105c45ed48de578957990c44d9"
+    }
+  ],
+  "temporaryCheckoutCleanup": {
+    "completedAt": "2026-09-12T11:01:59.415805+00:00",
+    "verifiedArchivedEntries": 24720,
+    "temporaryRamDirectoriesRemoved": true,
+    "evidenceArchives": [
+      "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/tmpfs-path-probe-evidence",
+      "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/tmpfs-nested-checkout-evidence",
+      "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/tmpfs-private-root-probe-evidence",
+      "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/final-gate-evidence",
+      "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/tmpfs-invalid-path-evidence",
+      "/home/belphareon/Projects/coworker/intentsmith-hunt-retention-20260912/tmpfs-external-fixtures-evidence"
+    ],
+    "diskVerificationCheckoutRetainedForQueuedCleanup": "/home/belphareon/is-hunt11"
+  }
+}

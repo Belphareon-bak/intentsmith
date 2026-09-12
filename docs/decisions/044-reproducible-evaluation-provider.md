@@ -14,3 +14,7 @@ ke kanonické politice; nejde o nový souhlas ani o zvýšení stavu na přijat�
 ## Upřesnění operátora — uchování kandidátů
 
 Původní kotva vede na [stejné upřesnění v Decision 048](048-reproducible-evaluation-provider.md#upřesnění-operátora--uchování-kandidátů).
+
+## Výslovná aktivace operátorem, 2026-09-12
+
+Historická kotva vede na [aktivaci v Decision 048](048-reproducible-evaluation-provider.md#výslovná-aktivace-operátorem-2026-09-12).

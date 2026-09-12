@@ -131,14 +131,14 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 ## Rozsah
 
-Census integrace core `ab0565bc` + commitnutého huntu `3f3a2220`, 2026-09-12;
+Census integrace core/hunt `16fed51f` + dokončené retence `ee4472d5`, 2026-09-12;
 rozpracované změny nejsou přijatý release. Předchozí čísla a výsledky mají
 v historii vlastní přesné piny.
 
 | | |
 |---|---:|
-| `src/**/*.js` | **223 359 ř.**, 609 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **243 764 ř.**, 524 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **223 586 ř.**, 610 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **244 043 ř.**, 524 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **516** (`422 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 100** |
 | HTTP rout | **243 statických deklarací**; nejde o počet runtime ověřených cest |
@@ -734,3 +734,19 @@ zachované; izolované M1 opakování prošlo bez zásahu do policy. Příčina 
 M1 network capture failure zůstává neprokázaná. [Přesný scope a review](docs/review/2026-09-12-CORE-HUNT-INTEGRATION-REVIEW-PACKET.md)
 a [run record](docs/execution/runs/core-hunt-integration-20260912.md).
 Nejde o přijetí release, nové retence huntu ani fyzického modelového journey.
+
+Autorizovaná retence GPU huntu 2026-09-12: module graph má 1 317 hran.
+Sedm nových hran patří `model-hunt-retention.js`, který používá existující
+role, history a pairwise autoritu; počet cyklů zůstává 3 a jejich členů 28.
+Operátor zapnutí úzkého mazání výslovně požadoval. Provedení a ochrany:
+`docs/decisions/048-reproducible-evaluation-provider.md`; M6 review se tím
+nepřeznačuje na přijaté.
+
+Navazující integrace dokončené retence 2026-09-12 (`16fed51f` + `ee4472d5`):
+aktuální module graph má 1 330 hran, 3 cykly / 28 členů. Sedm nových hran
+propojuje retention policy s existujícími role/history/pairwise autoritami.
+Kanonická provider Decision 048 obsahuje i novou autorizovanou retenci; 044
+zůstává historickým aliasem. Web migrace 113, registry 516 a schema 100 migrací
+zůstávají ve společném kandidátu. Nová regresní kontrola nepovolí odstranění
+ze starého CODE kontraktu. Stav kandidáta je VALIDATION_PENDING / REVIEW_PENDING;
+předchozí výsledky neplatí automaticky pro nově sloučený source.

@@ -998,4 +998,24 @@ test('composer policy fails on absent, duplicate, different-path, different-meth
   assert.equal(evaluateStudioCdpEvidence(unrelatedError.snapshot(), STUDIO_M2_COMPOSER_POLICY).verdict, 'FAIL');
 });
 
+test('loading failures expose only closed diagnostic classes and never relax wire policy', () => {
+  for (const [errorText, reason, canceled] of [
+    ['net::ERR_ABORTED', 'aborted', true],
+    ['net::ERR_CONNECTION_REFUSED', 'connection-refused', false],
+    ['net::ERR_CONNECTION_RESET', 'connection-reset', false],
+    ['net::ERR_FAILED', 'failed', false],
+    ['https://user:SECRET@example.invalid/private', 'other', false],
+  ]) {
+    const target = completeObservation();
+    ingestHttp(target, { id: 'diagnostic', path: '/api/projects' });
+    target.ingest('Network.loadingFailed', { requestId: 'diagnostic', errorText, canceled });
+    const snapshot = target.snapshot();
+    const failed = snapshot.http.find(row => row.failure);
+    assert.deepEqual(failed.failure, { reason, canceled });
+    assert.equal(failed.terminalClass, 'failed');
+    assert.equal(evaluateStudioCdpEvidence(snapshot).verdict, 'FAIL');
+    assert(!JSON.stringify(snapshot).includes('SECRET'));
+  }
+});
+
 summary();
