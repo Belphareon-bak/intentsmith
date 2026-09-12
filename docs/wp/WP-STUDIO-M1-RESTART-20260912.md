@@ -35,3 +35,14 @@ PDF Python and git/bwrap/bubblewrap/prlimit/python-pdf-runtime allowances), and
 Completion: bounded diagnosis, any supported remediation tested, and an exact
 handoff retaining limitations. Independent review and whole-release acceptance
 remain separate. No push/deployment.
+
+Implementation evidence completed on `1a6645aa`: runner 27/27, reducer 63/63,
+unchanged required deterministic 353/353 PASS and built Studio 3/3 PASS. The
+same 200ms delay fails the original order and passes the final startup guard.
+The intermediate list-only attempt failed delayed health and remains preserved.
+The final gate observes all seven existing policy routes, in-flight duplicates
+and quiet-window failures; it never resets capture or weakens final assertions.
+Historical attribution remains uncertain; reproduced race remediation is proven.
+Production/UI/policy/fixture/registry bytes remain equal to 055b2396.
+[Review packet](../review/2026-09-12-STUDIO-M1-RESTART-REVIEW-PACKET.md).
+Independent review and release acceptance remain outside this closeout.

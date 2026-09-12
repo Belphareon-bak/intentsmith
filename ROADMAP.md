@@ -68,7 +68,7 @@ na řadě. Pro všech 22 schopností se udržuje jen lehký obraz.
 | **M3 Modulární platforma** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | Všech sedm oddílů má operátorské `REVIEW_PASSED`; legacy agent mutační surface je fail-closed odstavený a native extension cesta zůstává jedinou spustitelnou autoritou. |
 | **M4 Auditovatelné self-learning** | `ACCEPTED / REVIEW_PASSED` | M2 accepted | První same-project smyčka je implementačně, integračně i operátorsky přijatá na exact candidatu `286f5ba8`. |
 | **M5 Production hardening** | `8/9 REVIEW_PASSED / BACKUP_COMPAT_REMEDIATION_REVIEW_PASSED / HISTORY_DECISION_RECORDED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_PARTIAL / ACCEPTANCE_BLOCKED / M6_GATE_CLOSED` | M3 + M4 accepted | Review přijalo restore základ `65bcbc4b` i follow-up `b4136a43`. Operátor zvolil `retain_and_rotate`; scanner zaznamenaný na vstupní hunt větvi tento dosažitelný stav potvrzuje, ale podepsaný history receipt vznikne až po doložení všech osmi kategorií. LUKS2 médium A drží ověřenou offline kopii tří operátorských klíčů a oddělené LUKS2 médium B právě reviewer key; obě jsou vypnutá. Online zdroj zatím zůstává, protože chybí druhá offline kopie operátorských klíčů a otestovaná oddělená recovery kopie reviewer key. |
-| **M6 IntentSmith 1.0 release** | `RETENTION_INTEGRATED / DETERMINISTIC_353_PASS / HTTP_RESTART_PASS / STUDIO_3_PASS / DELTA_REVIEW_REQUIRED / PHYSICAL_MODEL_JOURNEY_UNPROVEN / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Společný core + dokončená retence huntu má source `ed595ad3`: 353/353 deterministic, schema 61/61, hunt 99/99. Stejný pin má 75 + 7 HTTP, dva skutečné restarty a Studio 3/3 v jedné sekvenci. Původní M1 capture failure se neopakoval, jeho příčina zůstává neprokázaná. Review celé retenční delty, fyzický journey, nové CODE měření a M5/M6 acceptance zbývají. Běžící hunt se zde nepřepínal. [Review packet](docs/review/2026-09-12-HUNT-RETENTION-INTEGRATION-REVIEW-PACKET.md). |
+| **M6 IntentSmith 1.0 release** | `RETENTION_INTEGRATED / DETERMINISTIC_353_PASS / STUDIO_3_PASS / STARTUP_RESTART_RACE_REMEDIATED / DELTA_REVIEW_REQUIRED / PHYSICAL_MODEL_JOURNEY_UNPROVEN / ACCEPTANCE_BLOCKED` | M5 accepted; technická práce povolena přes zavřený gate | Hunt je integrovaný; `1a6645aa` má 353/353 deterministic a Studio 3/3. Ověřený souběh startup HTTP s řízeným M1 restartem je opraven v pořadí testu; kontrolní 200ms zpoždění nyní PASS. Historická příčina 71968508 zůstává nejistá. Produktový kód se od 055b2396 neměnil; HTTP 75 + 7 a skutečné restarty zůstávají na ed595ad3. Review retence i nové testové opravy, fyzický journey, CODE měření a M5/M6 acceptance zbývají. [Nový review packet](docs/review/2026-09-12-STUDIO-M1-RESTART-REVIEW-PACKET.md). |
 | **M7 Remote Companion** | `UI_SURFACES_REVIEW_PASSED / HOST_GATE_GREEN / DEVICE_NOT_RUN / NOT_ACCEPTED` | M6 + remote boundary | Nezávislé re-review přijalo exact candidate `429b779f`: durable journal guard zavírá settings double-activation okno a held-flush regrese odlišuje staré bytes. Mobile 47/47, runtime 7/7, adapter 8/8, artifact validation 158/158, boundary 0 violations a Android test+lint prošly. Produkční konfigurace, fyzická matice 13+7, TalkBack a release podpisy nejsou hotové. |
 
 `M0` je produktový milník této roadmapy, nikoliv historická release **Gate 0**.
@@ -3141,3 +3141,13 @@ procesovými restarty. Registry zůstává 516. Stav je IMPLEMENTATION_VERIFIED 
 REVIEW_PENDING; původní M1 capture failure na 71968508 má stále neprokázanou
 příčinu. Fyzický modelový journey a M5/M6 acceptance zůstávají otevřené.
 [Celý retenční a integrační review rozsah](docs/review/2026-09-12-HUNT-RETENTION-INTEGRATION-REVIEW-PACKET.md).
+
+Studio M1 startup/restart follow-up 2026-09-12, source `1a6645aa`: řízené
+zpoždění reprodukovalo pět connection refusal a stejnou chybnou wire signaturu
+jako historický 71968508. První čekání jen na seznamy nestačilo (`api-health`
+FAIL); finální čekání na všech sedm povinných HTTP rodin a ustálení nyní
+prochází stejným 200ms zpožděním. Běžné Studio 3/3 a celý deterministic 353/353
+PASS. Síťová policy, UI, produktový kód, registry i 65s pozorování jsou zachované.
+Opravený reprodukovaný souběh není zpětný důkaz příčiny historického běhu.
+Review zůstává PENDING; fyzický modelový journey není součástí těchto důkazů.
+[Scope, neúspěšné pokusy a důkazy](docs/review/2026-09-12-STUDIO-M1-RESTART-REVIEW-PACKET.md).

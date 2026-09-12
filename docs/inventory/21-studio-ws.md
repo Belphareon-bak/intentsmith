@@ -228,3 +228,13 @@ Raw profil, testovací DB, capability a logy nejsou commitnuté. Registrovaná T
 sada zůstává `BLOCKED`, dokud nightly/audit orchestrátor neumí dodat frozen
 install a production-build envelope. Capability #21 tím není `PASS`: M1 stále
 musí ověřit multi-panel korelaci, scoped cancel, reconnect a provider failure.
+
+## M1 startup a řízený restart — 2026-09-12
+
+Source `1a6645aa`: opravená sekvence ověřovacího scénáře čeká na sedm
+povinných HTTP rodin včetně health a navazujících požadavků před zastavením
+listeneru. Reprodukovaný souběh je pokryt řízeným před/po experimentem,
+šesti novými regresními případy, Studio 3/3 a deterministic 353/353 PASS.
+Produkt, UI a síťová policy se nemění. Historický 71968508 má shodnou chybovou
+signaturu, ale chybí časování pro jistou zpětnou atribuci. Stav REVIEW_PENDING.
+[Samostatný review rozsah](../review/2026-09-12-STUDIO-M1-RESTART-REVIEW-PACKET.md).

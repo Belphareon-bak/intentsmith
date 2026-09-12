@@ -754,3 +754,13 @@ procesovými restarty. Registry zůstává 516. Stav je IMPLEMENTATION_VERIFIED 
 REVIEW_PENDING; původní M1 capture failure na 71968508 má stále neprokázanou
 příčinu. Fyzický modelový journey a M5/M6 acceptance zůstávají otevřené.
 [Celý retenční a integrační review rozsah](docs/review/2026-09-12-HUNT-RETENTION-INTEGRATION-REVIEW-PACKET.md).
+
+Studio M1 startup/restart follow-up 2026-09-12, source `1a6645aa`: řízené
+zpoždění reprodukovalo pět connection refusal a stejnou chybnou wire signaturu
+jako historický 71968508. První čekání jen na seznamy nestačilo (`api-health`
+FAIL); finální čekání na všech sedm povinných HTTP rodin a ustálení nyní
+prochází stejným 200ms zpožděním. Běžné Studio 3/3 a celý deterministic 353/353
+PASS. Síťová policy, UI, produktový kód, registry i 65s pozorování jsou zachované.
+Opravený reprodukovaný souběh není zpětný důkaz příčiny historického běhu.
+Review zůstává PENDING; fyzický modelový journey není součástí těchto důkazů.
+[Scope, neúspěšné pokusy a důkazy](docs/review/2026-09-12-STUDIO-M1-RESTART-REVIEW-PACKET.md).
