@@ -56,6 +56,10 @@ Jeho PASS není důkazem, že delší hunt nemá provozní vady.
    produkční `think:false`; neprokazuje nejlepší dosažitelnou kvalitu ve všech
    možných režimech, což je další důvod nyní neodstraňovat kandidáty automaticky.
 
+9. Při přechodu katalogového otisku na plný lokální digest se dědí původní
+   cohort/first-seen. Stažení historického kandidáta jej neoznačí INCREMENTAL.
+   Lokální klíč zůstává z plného digestu a kvalitativní proof se nezkracuje.
+
 ## Validace
 
 Focused: candidate 36, pairwise 37, upgrade 70, consolidation 16, read model 17,

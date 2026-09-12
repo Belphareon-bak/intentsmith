@@ -994,6 +994,11 @@ await testAsync('durable hunt separates backlog, new revisions, provider upgrade
   assert(rejected, 'timer cannot silently initialize the backlog');
   const [initial] = state.observe([candidate], { initialize: true });
   assertEqual(initial.hunt.cohort, 'BOOTSTRAP');
+  const [materialized] = state.observe([{ ...candidate, installed: true,
+    artifact: { digestSha256: 'a'.repeat(12) + 'c'.repeat(52) } }]);
+  assertEqual(materialized.hunt.cohort, 'BOOTSTRAP', 'download must not turn backlog into new discovery');
+  assertEqual(materialized.hunt.firstSeenAt, initial.hunt.firstSeenAt);
+  assert(materialized.hunt.key !== initial.hunt.key, 'full artifact scheduling identity remains distinct');
   const plans = { CODE: { suiteContractSha256: CONTRACT_A } };
   const key = state.evaluationKey(initial, '0.34.0', plans, { model: 'GPU' });
   assert(state.pending(initial, key));

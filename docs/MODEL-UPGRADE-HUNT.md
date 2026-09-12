@@ -177,6 +177,10 @@ První `--bootstrap --shortlist` (nebo `--run --bootstrap --limit=N`) uloží do
 nikoli vymyšlené datum vydání. Pozdější dosud neviděné modely nebo katalogové
 revize jsou `INCREMENTAL`. Výpadek discovery nesmí sám založit prázdný bootstrap.
 
+Po stažení si plný digest převezme původní cohort a čas pozorování odpovídajícího
+katalogového otisku stejného jména. Z historického modelu se samotným stažením
+nestane novinka; plný digest pro scoring a lokální journal zůstává zachovaný.
+
 Timer dává přednost novinkám a potom dál zpracovává nevyřízený bootstrap.
 `--incremental-only` umožní explicitně odložit zbývající historický backlog;
 bez této volby se starší vhodné modely neztratí jen kvůli datu spuštění.
