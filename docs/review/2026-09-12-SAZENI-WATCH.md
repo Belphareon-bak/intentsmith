@@ -150,9 +150,30 @@ record IDs `17bdad03-0ca1-4154-b221-868c0e2f6d5e` a
 `be7c804e-319e-41e5-a308-ebd183f53a82` v provozní DB.
 Jde o datované ceny z 12:42–12:43 Europe/Prague, ne trvale platné nabídky.
 
+Na čistém `465c2345` prošel také skutečný alias `sk72 --top 10`: deset
+návrhů READY, úplně prohledáno 3 502 uzlů, nulový práh, 2–3 položky,
+kurz 2–4 a rozestup nejvýše 12 h ověřeny v serializovaném výsledku.
+Record `e7aeb4a9-c38c-436c-af63-bd0dac716b63`, výstup
+`~/.local/state/sazkar/results/2026-09-12T10-45-09.683Z-e5c66879/`;
+`alias72-evidence.json` a `alias72-top10.log`.
+
 Engine 17/17, integrace 19/19 a registry 514 programů PASS. Tři neplatné
 hodnoty `--top` odmítnuty před sběrem. První artifact kontrola odhalila
 chybějící čárku v aktualizovaném census; opraven pouze zápis dokumentace.
 Opakování má přesně 157 PASS / 1 dosavadní FAIL migrace 112. Logy jsou
-v `betting-ranking-20260912`; nový celý profil čeká na čistý commit.
+v `betting-ranking-20260912`.
+
+Celý profil na čistém `465c2345`, run `2026-09-12T10-44-34-943Z`, má
+**342 PASS / 3 FAIL / 1 TIMEOUT / 8 BLOCKED**, exit 1. Engine 17/17,
+integrace 19/19 a module ratchet 13/13 PASS. Registry otisk nezměněn.
+Tři FAIL a osm BLOCKED mají stejné příčiny jako výše, artifact validation
+157/158. Předchozí `m2-effect-broker-v1` tentokrát prošel 56/56 za 18 699 ms;
+nový timeout po 30 029 ms má `m2-lifecycle-authority-repository.test.js`.
+Celé `src`, kontrakty M2, tato sada a harness jsou proti vstupu beze změny.
+Samostatné opakování stejným registry runnerem bez změny 30s limitu,
+run `2026-09-12T10-50-35-138Z`, prošlo **13/13 za 7 771 ms** na stejné
+čisté revizi. Příčina kolísání není prokázaná; původní timeout a celý FAIL
+zůstávají zachované. Přesné změny programových stavů jsou uložené
+v `profile-comparison.json`, opakování v `m2-timeout-recheck.log`.
+Následný closeout mění pouze dokumentaci. `git diff --check` PASS.
 Stav zůstává IMPLEMENTED_SLICE / REVIEW_PENDING.

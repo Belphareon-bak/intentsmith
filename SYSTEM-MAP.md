@@ -663,3 +663,10 @@ Vybírá pět alternativ podle odhadované pravděpodobnosti, CLI `--top 10` vy�
 deset. Sdílené zápasy mezi alternativami nevyřazují lépe hodnocený návrh;
 report je označuje a zobrazuje tabulku pořadí. Časové a kurzové limity zůstávají.
 Skutečné CLI běhy pro 24 h / kurz 2–4 vrátily 5 a 10 návrhů READY.
+Stejně prošel skutečný `sk72 --top 10`. Nový celý profil na `465c2345`,
+run `2026-09-12T10-44-34-943Z`: **342 PASS / 3 FAIL / 1 TIMEOUT / 8 BLOCKED**.
+Sázkař 36/36, module ratchet 13/13 a registry PASS. Nový 30s timeout má
+nezměněná `m2-lifecycle-authority-repository`; samostatně 13/13 PASS za
+7 771 ms bez změny limitu. Předchozí broker v tomto celém běhu prošel.
+Příčina kolísání není prokázaná; celý profil zůstává FAIL. Podrobnosti
+a přesné non-PASS jsou v [evidenci](docs/review/2026-09-12-SAZENI-WATCH.md).
