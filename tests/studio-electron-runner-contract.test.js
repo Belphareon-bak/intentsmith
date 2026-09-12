@@ -21,10 +21,79 @@ import {
   validateM1SoakLifecycle,
   validateM2ComposerEvidence,
   validateSoakLifecycle,
+  waitForM1StartupLists,
 } from './studio-electron-boundary.e2e.js';
+import { createStudioCdpEvidenceReducer } from '../scripts/studio-cdp-evidence.js';
 
 const SHA = 'a'.repeat(40);
 const DIGEST = 'b'.repeat(64);
+
+function startupListFixture() {
+  const origin = 'http://127.0.0.1:47831';
+  const capability = 'A'.repeat(43);
+  const reducer = createStudioCdpEvidenceReducer({
+    backendOrigin: origin, controlPlaneOrigin: 'http://localhost:39001',
+    expectedCapability: capability,
+  });
+  const paths = ['/api/projects', '/api/conversations', '/api/expertises', '/api/agents', '/api/media/history'];
+  const begin = (requestId, pathname) => reducer.ingest('Network.requestWillBeSent', {
+    requestId, request: { url: origin + pathname, method: 'GET', headers: {} },
+  });
+  const response = (requestId, status = 200) => reducer.ingest('Network.responseReceived', {
+    requestId, response: { status, headers: {} },
+  });
+  const wire = (requestId, status = 200) => {
+    reducer.ingest('Network.requestWillBeSentExtraInfo', { requestId, headers: {
+      Origin: 'null', 'Sec-Fetch-Site': 'cross-site', 'X-IntentSmith-Local-Capability': capability,
+    } });
+    reducer.ingest('Network.responseReceivedExtraInfo', { requestId, statusCode: status,
+      headers: { 'Access-Control-Allow-Origin': 'null' } });
+  };
+  return { reducer, paths, begin, response, wire };
+}
+
+await testAsync('M1 cannot restart its listener until all delayed startup lists have complete wire evidence', async () => {
+  const f = startupListFixture(); let clock = 0; let ticks = 0; let restarts = 0;
+  const captured = f.reducer;
+  const probe = waitForM1StartupLists(captured, {
+    now: () => clock, timeoutMs: 1_000,
+    sleep: async ms => {
+      assert.equal(restarts, 0, 'restart must not race the delayed startup batch');
+      clock += ms; ticks++;
+      if (ticks === 1) f.paths.forEach((pathname, i) => f.begin(String(i), pathname));
+      if (ticks === 2) f.paths.forEach((_pathname, i) => f.response(String(i)));
+      if (ticks === 3) f.paths.slice(0, 4).forEach((_pathname, i) => f.wire(String(i)));
+      if (ticks === 4) f.wire('4');
+    },
+  }).then(() => { restarts++; });
+  await probe;
+  assert.equal(ticks, 4); assert.equal(restarts, 1);
+  assert.equal(captured.snapshot().http.reduce((n, row) => n + row.count, 0), 5);
+}, 1_000);
+
+await testAsync('M1 startup wait is bounded and cannot replace missing wire evidence with a base response', async () => {
+  const f = startupListFixture(); let clock = 0;
+  f.paths.forEach((pathname, i) => { f.begin(String(i), pathname); f.response(String(i)); });
+  await assert.rejects(waitForM1StartupLists(f.reducer, {
+    now: () => clock, sleep: async ms => { clock += ms; }, timeoutMs: 100,
+  }), /m1-startup-lists-timeout/);
+  assert.equal(clock, 100);
+}, 1_000);
+
+for (const failure of ['connection-refused', 'canceled', 'http-error']) {
+  await testAsync(`M1 retains startup ${failure} even if a later request succeeds`, async () => {
+    const f = startupListFixture();
+    f.begin('failed', f.paths[0]);
+    if (failure === 'http-error') { f.response('failed', 503); f.wire('failed', 503); }
+    else f.reducer.ingest('Network.loadingFailed', { requestId: 'failed',
+      errorText: failure === 'canceled' ? 'net::ERR_ABORTED' : 'net::ERR_CONNECTION_REFUSED',
+      canceled: failure === 'canceled' });
+    f.paths.forEach((pathname, i) => { f.begin(String(i), pathname); f.response(String(i)); f.wire(String(i)); });
+    const before = f.reducer.snapshot();
+    await assert.rejects(waitForM1StartupLists(f.reducer), /m1-startup-list-failed/);
+    assert.deepEqual(f.reducer.snapshot(), before, 'no capture reset or failed-request filtering');
+  }, 1_000);
+}
 
 function validFunctional(overrides = {}) {
   return {

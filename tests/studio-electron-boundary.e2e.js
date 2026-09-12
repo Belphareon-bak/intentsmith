@@ -968,6 +968,40 @@ async function waitForRendererTransport(cdp) {
   fail('renderer-transport-timeout');
 }
 
+export async function waitForM1StartupLists(reducer, {
+  now = monotonicMs, sleep = delay, timeoutMs = CDP_TIMEOUT_MS,
+} = {}) {
+  // WS negotiation can finish before the UI's delayed initial HTTP batch.
+  // Complete that observed batch before deliberately stopping its listener;
+  // otherwise this probe creates unrelated connection failures during startup.
+  // Keep the original reducer throughout: this barrier never drops a request
+  // or turns a prior failure into a passing retry.
+  const required = [
+    STUDIO_ROUTE_IDS.PROJECTS_LIST, STUDIO_ROUTE_IDS.CONVERSATIONS_LIST,
+    STUDIO_ROUTE_IDS.EXPERTISES_LIST, STUDIO_ROUTE_IDS.AGENTS_LIST,
+    STUDIO_ROUTE_IDS.MEDIA_HISTORY,
+  ];
+  const deadline = now() + timeoutMs;
+  while (true) {
+    const snapshot = reducer.snapshot();
+    const lists = snapshot.http.filter(row => required.includes(row.routeId)
+      && row.methodClass === 'GET');
+    if (lists.some(row => row.terminalClass === 'failed'
+      || (row.status !== null && row.status !== 200))) {
+      fail('m1-startup-list-failed', { snapshot });
+    }
+    if (required.every(route => lists.some(row => row.routeId === route
+      && row.status === 200 && row.terminalClass === 'response'
+      && row.headerSource === 'extra-info' && row.responseSource === 'extra-info'
+      && row.capabilityClass === 'match' && row.originClass === 'opaque'
+      && row.fetchSiteClass === 'cross-site' && row.allowOriginClass === 'opaque'))) {
+      return;
+    }
+    if (now() >= deadline) fail('m1-startup-lists-timeout', { snapshot });
+    await sleep(50);
+  }
+}
+
 async function rendererSettingsPost(cdp) {
   const result = await evaluate(cdp, `(async () => {
     try {
@@ -2184,6 +2218,7 @@ async function runJourney({
     const networkCaptureStarted = monotonicMs();
     await cdp.send('Page.navigate', { url: originalLocation });
     await waitForRendererTransport(cdp);
+    if (m1Journey) await waitForM1StartupLists(reducer);
     if (m1Journey) await installM1SoakLifecycleMonitor(cdp);
     else await installSoakLifecycleMonitor(cdp);
     const observationStarted = monotonicMs();

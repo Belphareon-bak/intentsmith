@@ -138,7 +138,7 @@ v historii vlastní přesné piny.
 | | |
 |---|---:|
 | `src/**/*.js` | **223 586 ř.**, 610 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **244 043 ř.**, 524 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **244 147 ř.**, 524 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **516** (`422 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 100** |
 | HTTP rout | **243 statických deklarací**; nejde o počet runtime ověřených cest |
