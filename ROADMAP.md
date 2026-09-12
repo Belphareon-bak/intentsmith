@@ -3100,3 +3100,13 @@ Validační oprava GPU huntu 2026-09-12: module graph má 1 310 hran.
 Nová hrana `model-evaluation-history -> model-evaluation-runner` zahrnuje
 efektivní výchozí parametry inference do suite contract hash. Cykly zůstávají
 3 / 28. Timeout cold loadu a per-role chyby mají [samostatný review follow-up](docs/review/2026-09-12-GPU-HUNT-VALIDATION-REVIEW.md); acceptance je otevřená.
+
+
+Společná integrace core/hunt 2026-09-12: source `cc826997` a explicitní baseline
+`71968508`. Aktuální module graph má 1 323 hran, 3 cykly / 28 členů. První
+společný profil skončil 351 PASS / 1 FAIL / 1 TIMEOUT; neaktuální počty roadmapy
+jsou opravené a naměřený setup lifecycle fixture se dávkuje v jedné transakci
+před testovanými operacemi, bez změny assertions nebo 60s limitu. Nový celý běh
+probíhá. HTTP na 71968508 prošlo 75 + 7 kroky; Studio má 2/3 v prvním běhu a
+M1 samostatně následně PASS. Původní M1 network evidence failure zůstává
+zachovaný, není vydávaný za vyřešenou příčinu. [Integrační záznam](docs/execution/runs/core-hunt-integration-20260912.md).

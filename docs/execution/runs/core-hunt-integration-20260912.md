@@ -82,3 +82,37 @@ schema census, graph/delta and logs. Previous core/hunt runs remain separate
 historical evidence. This integration is not physical Studio→HTTP→model→
 approval→execution→restart proof, M5 key custody, independent acceptance or
 deployment. Full validation and a pinned reviewer handoff follow below.
+
+
+## První společný pin a následná remediace
+
+Merge `cc8269976d55d6dd94b3e859bc5f23dac303088c`, baseline commit
+`71968508eacb68c1e6216eefc5c723c60e525e91`. Audit
+`core-hunt-integration-20260912-01`: **351 PASS / 1 FAIL / 1 TIMEOUT**,
+žádné BLOCKED/SKIPPED. FAIL je starý počet hran v roadmapě po explicitním
+repinu. TIMEOUT je `m2-lifecycle-application-service` na 60 707 ms. Stejný
+nezměněný test samostatně v nightly runneru prošel za 34 496 ms; dřívější
+core-only a10 běh za 25 732 ms. Souběžná zátěž je možný přispěvatel, nikoli
+prokázaná jediná příčina.
+
+Konkrétní měření šesti setup migrací ukázalo **1 630,72 ms → 12,75 ms** při
+jedné inicializační transakci. Počet 115 schema objektů, SQL statement digest
+`904c5b6ad2262f708e7416c1b4dabe12c110f0650f165b55d992d060badc2304`, schéma i
+reopen zůstávají stejné, FK=ON a synchronous=FULL; setup vrací spojení mimo
+transakci. Změna zasahuje pouze `openDatabase` v lifecycle testu. Produkční
+migrace, assertions, testované durable operace a 60s limit jsou beze změny.
+Raw důkaz: `service-setup-profile.json` a jeho reprodukovatelný profiler.
+
+HTTP run `2026-09-12T10-15-03-161Z` na 71968508: **75 lifecycle + 7 web PASS**.
+Success restart PID `1611866 → 1612126`, rollback `1612140 → 1612288`; všechny
+procesy exit 0 bez vynucení. Zachovaly se lifecycle rows a souborové výsledky.
+Model/auth/project registry jsou řízené fixture; není to fyzický model.
+
+Studio první běh `core-hunt-studio-runtime-20260912-01` na 71968508: composer
+DOM a M0 PASS, M1 FAIL `network-evidence-failed`. U pěti list route rodin
+obsahuje záznam vedle úspěchů i request bez wire/response evidence a s failed
+terminálem. Policy jej správně odmítla. Izolované M1 opakování
+`core-hunt-m1-serial-20260912-01` na stejném source prošlo včetně čistého
+ukončení; příčina prvního neúplného záznamu není prokázána ani opravená.
+**Nejde o 3/3 úspěšnou společnou sekvenci**. První FAIL log a oba JSON výstupy
+zůstávají v review. GPU devices byly skryté a žádná inference se nespustila.

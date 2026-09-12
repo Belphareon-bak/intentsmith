@@ -94,12 +94,16 @@ function openDatabase(databasePath = ':memory:') {
     WHERE type = 'table' AND name = 'm2_lifecycle_operations'
   `).get();
   if (!installed) {
-    applyEffectAuthority(db);
-    applyEffectAuthorityHardening(db);
-    applyEffectExecutionClaims(db);
-    applyEffectClaimTruth(db);
-    applyExecutionAuthority(db);
-    applyLifecycleAuthority(db);
+    // Group only initial schema construction. All tested lifecycle operations
+    // run after this commit, with foreign_keys already enabled above.
+    db.transaction(() => {
+      applyEffectAuthority(db);
+      applyEffectAuthorityHardening(db);
+      applyEffectExecutionClaims(db);
+      applyEffectClaimTruth(db);
+      applyExecutionAuthority(db);
+      applyLifecycleAuthority(db);
+    })();
   }
   return db;
 }
