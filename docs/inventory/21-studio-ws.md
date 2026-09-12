@@ -1,5 +1,14 @@
 # Inventura #21 — Studio a WS bridge
 
+Aktuální navazující důkaz 2026-09-12 na `dc81a0f0`: **BOUNDED_PHYSICAL_BUILD_PASS**.
+Instalované Studio spojilo DOM formulář, skutečný server, durable CODE binding,
+dvě fyzické generace, kompletní preview, explicitní approval, 12 funkčních
+kontrol a nové procesy. Po restartu před schválením vyžaduje nové zobrazení
+plánu; po provedení i DB restore vrací stejný terminál. Registry se nemění.
+Jde o ohraničený kalendářový projekt, nikoli plný autonomní builder ani nový
+65s network census. [Provenance a review](../review/2026-09-12-PRODUCTION-JOURNEY-REVIEW-PACKET.md).
+Historická inventura a její checkpointy pokračují níže.
+
 **Pořadí 8** · **2026-08-02** · `17a8b9a8` · 5 souborů, **1 271 řádků** + `c3-ide/`
 
 | Soubor | Ř. |

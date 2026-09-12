@@ -1,7 +1,7 @@
 # IntentSmith — instalacni prirucka
 
 **Rozsah:** vývojový kandidát 1.0, dosud bez publikovaného release
-**Aktualizace:** 2026-09-11
+**Aktualizace:** 2026-09-12
 
 ---
 
@@ -39,8 +39,10 @@
 | Node.js | 22.21.1 z `.nvmrc`; minimum 22.12.0, méně než 23 | Backend + IDE build |
 | npm | 10.9.4 | Frozen instalace BE zavislosti |
 | Yarn | 1.22.22 | Frozen IDE build (Theia workspaces) |
-| Ollama | `0.32.14-intentsmith.1`, přesně ověřený systémový build | LLM inference a ověřená identita artefaktu |
+| Ollama | `0.34.0-intentsmith.1`, přesně ověřený build podle Decision 048 | LLM inference a ověřená identita artefaktu |
 | Git | 2.x+ | Lifecycle (auto-commit, diff) |
+| bubblewrap + util-linux | `/usr/bin/bwrap`, `/usr/bin/prlimit` | Povinné ohraničení procesových efektů |
+| Python 3 + psmisc | `/usr/bin/python3` s `pidfd_open`, `/usr/bin/fuser` | Recovery procesů a offline obnova databáze |
 | CPython | 3.12 + `venv` | Volitelny full profil: hash-locked PDF runtime |
 | DejaVu fonty | `fonts-dejavu-core` | Volitelny full profil: PDF export s diakritikou |
 | build-essential | - | Kompilace better-sqlite3 |
@@ -57,7 +59,7 @@ npm install -g npm@10.9.4
 
 # Systemove zavislosti
 sudo apt update
-sudo apt install -y git python3 python3.12 python3.12-venv build-essential curl fonts-dejavu-core psmisc
+sudo apt install -y git python3 python3.12 python3.12-venv build-essential curl fonts-dejavu-core psmisc bubblewrap util-linux
 
 # Yarn pro C3 Studio
 npm install -g yarn@1.22.22
@@ -77,7 +79,7 @@ nvm use 22.21.1
 npm install -g npm@10.9.4
 
 # Systemove zavislosti
-sudo dnf install -y git python3 python3.12 gcc gcc-c++ make curl dejavu-sans-fonts psmisc
+sudo dnf install -y git python3 python3.12 gcc gcc-c++ make curl dejavu-sans-fonts psmisc bubblewrap util-linux
 
 # Yarn pro C3 Studio
 npm install -g yarn@1.22.22
@@ -94,9 +96,10 @@ kontroluje a na jinem distribucnim layoutu failne s konkretni chybou.
 ---
 
 Aktuální modelový kontrakt vyžaduje systémový provider
-`0.32.14-intentsmith.1`, který vrací důkaz skutečného modelového artefaktu.
-[Záznam provideru a jeho ověření](execution/runs/m6/provider-activation-20260909.md)
-popisuje konkrétní hostový build; není to veřejný univerzální instalátor.
+`0.34.0-intentsmith.1`, který vrací důkaz skutečného modelového artefaktu.
+[Decision 048](decisions/048-reproducible-evaluation-provider.md) popisuje
+reprodukovatelný provider a jeho ověření. [Starší hostový záznam](execution/runs/m6/provider-activation-20260909.md)
+patří k předchozí verzi `0.32.14-intentsmith.1`; není aktuálním instalačním pinem.
 Na jiném hostu je nutné dodat a ověřit stejný providerový kontrakt. Vývojový
 server může bez inference naběhnout, modelová část tím není kvalifikovaná.
 
@@ -144,6 +147,13 @@ Pro cache-only instalaci bez sondy Ollamy nebo modelovych operaci pouzijte
 Yarn artefakt v tomto rezimu instalaci zastavi; installer nikdy neprejde na
 sitovy fallback.
 
+Cache musí zahrnovat i samotný Yarn, pokud jej spouští Corepack, Electron
+a hlavičky Node/Electron pro nativní build. Nový privátní HOME tyto cache
+automaticky nepřebírá. `ENOTCACHED` znamená chybějící balíček v cache;
+samo o sobě nedokazuje chybu lockfile. Připravte cache pro stejné lockfiles
+a verze toolchainu před odpojením sítě. Offline instalace dostupnost Ollamy
+nekontroluje; závěrečná zpráva to uvádí výslovně.
+
 Installer failne pri
 nesouladu locku, neuspesnem Electron rebuild nebo chybejicim/ABI-nekompatibilnim
 IDE artefaktu. Pouziva `npm ci`, frozen Yarn 1.22.22 a v profilu `full`
@@ -152,7 +162,7 @@ tracked Theia webpack konfiguraci a integrity-locked ripgrep platform package.
 Rucni `npm ci`, PDF installer nebo `yarn build` jsou jen dilci vyvojove kroky.
 
 `--minimal` preskoci pouze stahovani modelu. Interaktivni rezim se na primarni
-model zepta; `--full` vyzada oba dokumentovane modely a pri chybe skonci
+model zepta; `--full` vyzada chybejici modely vychoziho portfolia roli a pri chybe skonci
 nenulove. Ollama tagy jsou promenlive externi artefakty, takze `--full` neni
 bitove reprodukovatelny modelovy provisioner. Audit musi zaznamenat digest
 skutecne pouziteho modelu.

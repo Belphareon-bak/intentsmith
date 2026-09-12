@@ -458,7 +458,17 @@ zachovala skutečnou persistenci, všechny assertions a původní limity.
 journey zůstávají otevřené. Cizí hunt větev byla později pozorována na `dbf1abfc`
 čistá; integrační kolize 111/112 a Decision 044 trvají.
 
-## Aktuální navazující Studio/CODE řez — 2026-09-12
+## Navazující Studio/CODE řezy — 2026-09-12
+
+Aktuální výsledek na `dc81a0f0`: **BOUNDED_PHYSICAL_BUILD_PASS / INSTALL_PASS /
+CURRENT_CODE_MEASURED / REVIEW_PENDING**. Jedna skutečná cesta spojuje instalované
+Studio, produkční server, durable CODE binding a lokální model, schválené zápisy,
+12 funkčních assertions, nové procesy a obnovu SQLite. Povinný deterministic je
+353/353. Modelový benchmark 7×3 dává Qwenu 3.5 0,333333 a Qwen Coderu 0,114286;
+správné referenční opravy projdou 7/7, původní vady zůstanou 7/7 červené.
+[Exact source, install provenance a zbývající hranice](docs/review/2026-09-12-PRODUCTION-JOURNEY-REVIEW-PACKET.md).
+
+Následující odstavce zachovávají dřívější checkpointy tohoto dne:
 
 Operátorem dodané [review webu a builderu na e87](docs/review/2026-09-12-WEB-BUILDER-OPERATOR-REVIEW.md)
 nenašlo blocker. Zápis výslovně zachovává výluky a nepřisuzuje neuvedenou
@@ -489,10 +499,10 @@ SQL, schéma, durability i všechny 34 tool-broker assertions a 30s limit.
 
 Read-only preflight e87 proti hunt `3b0dcdfb` doložil kolizi migrace 111,
 Decision 044 a devět textových konfliktů; oprava CODE reuse je už v této větvi.
-Hunt byl později čistý na `3f3a2220` se dvěma běžícími procesy. Není integrován.
-Nová schema adopce musí zachovat původní web `applied_at` a projít oběma upgrade
-liniemi. Úplný fyzický modelový journey, přirozenojazyčný builder, review nové
-delty a M5/M6 externí podmínky nejsou uzavřené.
+Hunt byl tehdy čistý na `3f3a2220` se dvěma běžícími procesy a nebyl integrován.
+Navazující integrace v této větvi zachovala web `applied_at` a ověřila obě upgrade
+linie. Ohraničený fyzický build je nyní doložen; přirozenojazyčný builder, review
+nových delt a M5/M6 externí podmínky zůstávají otevřené.
 
 ## Otevřené release-blocking vady
 
@@ -515,6 +525,7 @@ modelové výsledky shrnuje [M6 checkpoint](docs/execution/runs/m6/core-completi
 
 | Vada | Blokuje | Kauzalita | Priorita |
 |---|---|---|---|
+| Aktuální CODE kvalita, měření 2026-09-12 | Spolehlivost větších projektových změn | Exact Qwen 3.5 dosáhl 0,333333 a Qwen Coder 0,114286 na novém kontraktu 6ee5ab47…, 7 úloh × 3 opakování. Všech 7 gold kontrol projde a 7 broken kontrol selže; nejde o důkaz obecné kvality. Malý dvousouborový Studio journey prošel. Zůstává potřeba kvalitnější model/kontext a větší uživatelský scénář; měření samo binding neaktivovalo. [Raw evidence a meze](docs/review/2026-09-12-PRODUCTION-JOURNEY-REVIEW-PACKET.md). | P0 |
 | Použitelný generovaný kód, audit 2026-09-11 | Dokončení M6 projektu a release | Privátní cookbook na `15426214` s 16384 contextem a 240s SPEC budgetem dokončil SPEC, obě revize i plán. CODE poté třikrát skončil `length` na 4096 tokenech; testovací executor zapsal neúplné soubory, všechny tři měly Python syntax error. Běh byl po reprodukci zastaven, nikoli PASS. Nový společný CODE guard odmítá takový výstup před persistencí a ukončí workflow FAILED; kvalita dokončené aplikace a celý produkční executor journey dál nejsou prokázané. | P0 |
 | _historický stav k 2026-08-22: nic otevřeného v této tabulce_ | — | — | — |
 | SPEC revize a dokončení projektu, historický checkpoint 2026-09-09 | M6 projektový journey | Na `875c041a` cookbook 26/16 FAIL. Nový `b365896f` s JSON/retention/oracle opravami při 16384 skončil 24/18 FAIL: první SPEC a revize řazení validní, retence doložená, revize výživy třikrát na výstupním limitu 4000 při 9795 z 16384 tokenů. Žádná roadmapa ani milník; staré falešné oracle zůstávají historicky doložené. [Raw důkazy](docs/execution/runs/m6/core-completion-followup-20260909.md). | P0 |
@@ -613,7 +624,7 @@ aktuální stav je samostatný řádek `Model failover opt-in surface`.
 | Automatické online model discovery | `C3_ENABLE_ONLINE_DISCOVERY`, **default on od 2026-08-19** (operátorské rozhodnutí v `DIRECTION.md`), vypíná se hodnotou `false`. Review remediation je implementation-green na `122b5df5`, ale čeká na re-review: všechny transporty používají manual redirect, každá `Location` dostává nové rozhodnutí a neexportovaná capability váže exact Ollama/Hugging Face/WhatLLM path, query, headers, body a method profily. Opsaný scope literal není autorita. |
 | M5 performance release budget | **REVIEW_PASSED na `816a2a4c`:** operátorský výsledek 2026-08-27 výslovně přijal M5 PERF re-review. `M5PerformanceEvidence@3` a raw v2 vážou každé GPU tvrzení na raw measurement nebo read-only census receipt a nepřijmou nečitelný či nulový RSS jako nejlepší hodnotu. Exact clean candidate má autoritativní 5min run: HTTP p95 `5,022 ms`, ProjectContext p95 `32,769 ms`, soak `300 074 ms` / `1 498` vzorků / p95 `14,314 ms`, nula chyb, peak RSS `171,859 MiB`; GPU je pravdivě `not_run_not_requested`. Nové 24h/maximum-throughput běhy jsou samostatná M6 Decision 038 evidence ve stavu `REVIEW_REQUIRED`, nikoli změna tohoto M5 verdiktu. |
 | M5 production hardening review | **8/9 REVIEW_PASSED / BACKUP_COMPAT_REMEDIATION_REVIEW_PASSED / HISTORY_DECISION_RECORDED / PRIVACY CHANGES REQUIRED / KEY CUSTODY PARTIAL / ACCEPTANCE_BLOCKED:** osm oddílů zůstává přijatých. Decision 041 byte/history implementace na `37edf30d` dostala nezávislé `REVIEW_PASSED` a trust store má čtyři rozdílné veřejné Ed25519 identity. Review přijalo restore opravu `65bcbc4b` i follow-up `b4136a43`. Operátor vybral `retain_and_rotate`; current scanner vrací `PASS_CURRENT_TREE_HISTORY_RETAINED_AS_DECLARED`, ale podepsaný history receipt ještě nebyl vydán. Přesně připnuté LUKS2 médium A drží ověřenou offline kopii tří operátorských private keys. Fyzicky oddělené LUKS2 médium B drží ověřenou offline kopii právě reviewer private key a vylučuje tři operátorské private keys. Obě média jsou zavřená a vypnutá. Online zdroj zůstává do druhé ověřené kopie operátorských klíčů a otestované oddělené recovery kopie reviewer key. Všech osm credential kategorií, podepsaná history disposition a M5 acceptance zůstávají otevřené. M6 gate zůstává zavřený. |
-| M6 IntentSmith 1.0 candidate | **CORE_HUNT_DETERMINISTIC_353_PASS / HTTP_RESTART_PASS / STUDIO_M1_CAPTURE_FLAKE_REMAINS / DELTA_REVIEW_REQUIRED / PHYSICAL_MODEL_JOURNEY_UNPROVEN / ACCEPTANCE_BLOCKED:** source `f80bcaa1` má 353/353 deterministic, schema 61/61 a lifecycle 53/53. Web 113 adoptuje přesnou starou 111 bez replay; hunt 111/112 zůstávají. Runtime 71968508 má 75 + 7 HTTP a restarty; Studio composer/M0 PASS, M1 prvně FAIL a izolovaně PASS, příčina capture failure neprokázaná. Pozdější retence huntu, fyzický modelový journey a vnější acceptance zbývají. [Review packet](docs/review/2026-09-12-CORE-HUNT-INTEGRATION-REVIEW-PACKET.md). |
+| M6 IntentSmith 1.0 candidate | **DETERMINISTIC_353_PASS / FRESH_INSTALL_PASS / BOUNDED_PHYSICAL_BUILD_PASS / CURRENT_CODE_MEASURED / REVIEW_PENDING / ACCEPTANCE_BLOCKED:** source `dc81a0f0` spojuje skutečné Studio, model, schválení, sandbox, restarty a DB restore. Odděleně jsou doložené schema upgrady 61/61 a dva current-contract CODE modely. Celý autonomní projekt, obecná kvalita CODE, přijetí nových delt a vnější M5/M6 podmínky zůstávají otevřené. [Review packet](docs/review/2026-09-12-PRODUCTION-JOURNEY-REVIEW-PACKET.md). |
 | M7 Remote Companion | **UI_SURFACES_REVIEW_PASSED / HOST_GATE_GREEN / DEVICE_NOT_RUN / NOT_ACCEPTED:** canonical JSON, systemd renderer a dřívější throwaway APK/AAB jsou scoped-reviewované. Nezávislé narrow re-review přijalo exact candidate `429b779f`: durable journal guard zavírá settings double-activation okno a held-flush regrese odlišuje staré bytes. Mobile 47/47, runtime 7/7, adapter 8/8, artifact validation 158/158, boundary 0 violations a Android `test lint` prošly; zabalené assety jsou bajtově shodné se zdrojem. Fyzický Android/VPN/pairing/revocation/TalkBack, produkční konfigurace a credentials, signer, release build, distribuce a matice 13+7 zbývají. [Přesný handoff](docs/execution/runs/mobile/m7-ui-surfaces-20260910.md) a [review result](docs/review/2026-09-11-M7-MOBILE-UI-SURFACES-REREVIEW-RESULT.md). |
 | C3 Studio Google Fonts | Oba runtime link loadery, ruční preview import i archivní v7 import jsou odstraněné; hygiene zakazuje obě Google Fonts domény ve spustitelných Studio assetech. Registrovaný runner prošel ve dvou fresh-clone Electron CDP bězích na `7236d221` s nulovým egresssem. Registry zůstává pravdivě `BLOCKED`. **Měřeno 2026-08-21:** build envelope už chybějící překážkou není — `yarn install --offline` + `yarn build` trvají dohromady **54 s** a postaví všech šest artefaktů. **Vyřešeno 2026-08-22: `STUDIO_ELECTRON_BOUNDARY_PASS`.** Příčinou `electron-exited-before-cdp` byla délka `TMPDIR` — Chromium v něm zakládá unix domain sockety a `sun_path` má limit 108 bajtů, runtime root pod `.intentsmith-artifacts` má 95 znaků. Bisekce: `HOME` ani `XDG_*` nevadí, shodí to výhradně `TMPDIR`; bez namespace padá stejně, takže izolace ani D-Bus (falešná stopa) příčinou nebyly. Sada dává Electronu krátký privátní temp. Evidence: nulový egress, 65,8 s soak, boundary matice 403/403/200, čistý shutdown. |
 | C3 Studio local HTTP | Root cause byl potvrzen jako capability na wire + nepřítomný `Origin` + `Sec-Fetch-Site: cross-site`. Electron-main nyní doplňuje `Origin: null` jen pro přesný top-level file Studio request s odpovídající privátní capability; backend guard zůstal beze změny. Dva fresh-clone negativní journey na `7236d221` prokázaly startup/POST `2xx` i přesný fail-closed security trojúhelník; registry čeká jen na standardní build envelope, nikoli na další ruční journey. |

@@ -1,5 +1,16 @@
 # Inventura #1 — Server, routing, DB, migrace
 
+Aktuální navazující kvalifikace 2026-09-12: čistá core instalace a idempotentní
+opakování skutečného instalátoru prošly offline nad připravenými lockfile
+caches; nativní moduly a Studio byly sestavené znovu. Na `dc81a0f0` čtyři nové
+procesy `src/server.js` zachovaly přesnou CODE vazbu, schválený plán/terminál
+a validní DB. HTTP backup → offline CLI restore obnovil exact SQLite bytes;
+poškození pod platným názvem vrací `BACKUP_CONTENT_MISMATCH` bez změny cíle.
+Schema 61/61 zahrnuje fresh/base/web/hunt upgrade linie, 100 migrací a close/reopen.
+Nejde o přijetí starého/vydaného release ani M5/M6 podpisovou autoritu.
+[Exact source a důkazy](../review/2026-09-12-PRODUCTION-JOURNEY-REVIEW-PACKET.md).
+Historická inventura pokračuje níže.
+
 **Schopnost:** #1 podle `CONTRACT.md` §6 · **Datum:** 2026-08-01
 **Commit:** `17a8b9a8` · **Stav:** k schválení operátorem
 

@@ -1,7 +1,10 @@
 # Řízené sestavení projektu ve Studiu
 
 Rozsah produktu určuje PRODUCT.md. Tento návod popisuje dostupný ohraničený
-builder; úplný autonomní builder a fyzický modelový průchod zůstávají neověřené.
+builder. Dvousouborový fyzický průchod ze skutečně nainstalovaného Studia byl
+ověřen na `dc81a0f0`, včetně schválení, funkčního testu, restartů a obnovy DB.
+[Rozsah a důkazy](review/2026-09-12-PRODUCTION-JOURNEY-REVIEW-PACKET.md).
+Úplný autonomní builder tím prokázaný není.
 
 V chatu připojeného projektu klikněte na **Připravit změnu**. Stejný formulář
 otevře `/m2-build` bez argumentu. Rozpracovaný text chatu se do cíle zkopíruje

@@ -43,3 +43,18 @@ DB and scoped network/model transport; relevant registered focused suites;
 git/bwrap/bubblewrap/prlimit/python-pdf-runtime allowances and existing PDF Python.
 No tracked edits during source-pinned runtime or full suite. Exact review handoff
 retains failures, source/build provenance, cleanup and open external conditions.
+
+Engineering qualification completed on `dc81a0f0`: joined physical two-file
+Studio build/approval/restarts/DB restore PASS; twelve behavioural assertions;
+real offline core install and idempotent repeat PASS; schema upgrades 61/61;
+required deterministic 353/353 and unchanged registry 516. Installer now reports
+unprobed Ollama accurately. The first fixture failure, weaker invalid-name
+negative and incomplete-cache install attempts remain in the evidence.
+
+Fresh-dependency CODE measurements use current 6ee5ab47… contract, seven tasks,
+three repeats, exact digest and provider: Qwen 3.5 score 0.333333, Qwen Coder
+0.114286. Seven gold and seven broken oracle controls distinguish correctly.
+A third candidate stops before inference on the operator's live hunt lock.
+No model activation, live DB write, deletion, deployment or foreign change.
+Independent review, broader code quality and external M5/M6 acceptance remain.
+[Exact review packet](../review/2026-09-12-PRODUCTION-JOURNEY-REVIEW-PACKET.md).
