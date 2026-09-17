@@ -1,4 +1,4 @@
-import { readFile, writeFile, rename, mkdir, mkdtemp, rm, lstat, stat } from 'node:fs/promises';
+import { readFile, writeFile, rename, mkdir, mkdtemp, rm, lstat, stat, chmod } from 'node:fs/promises';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createRequire } from 'node:module';
@@ -10,11 +10,13 @@ const require = createRequire(import.meta.url);
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const installationFile = process.env.INTENTSMITH_INSTALLATION_FILE || join(homedir(), '.config/intentsmith/installation.json');
 
-export async function writePrivate(file, content) {
+export async function writePrivate(file, content, mode = 0o600) {
+  if (![0o600, 0o755].includes(mode)) throw new Error('DESKTOP_FILE_MODE_UNSUPPORTED');
   await mkdir(dirname(file), { recursive: true, mode: 0o700 });
   const tmp = `${file}.${process.pid}.tmp`;
-  await writeFile(tmp, content, { mode: 0o600 });
+  await writeFile(tmp, content, { mode });
   await rename(tmp, file);
+  await chmod(file, mode);
 }
 export function quotedPath(value) {
   if (typeof value !== 'string' || !value.startsWith('/') || /[\r\n\0"\\$%`]/.test(value)) throw new Error('DESKTOP_PATH_UNSUPPORTED');
@@ -57,6 +59,22 @@ export async function verifyDesktopUnits(files) {
     // Ignored EnvironmentFile is a warning with exit 0: it is still a bad install.
     if (result.stderr.trim()) throw new Error(`DESKTOP_UNIT_VALIDATION: ${result.stderr.trim()}`);
   } finally { await rm(dir, { recursive: true, force: true }); }
+}
+
+export async function refreshDesktopCaches(applicationsDirectory, { run = exec } = {}) {
+  const refreshed = [], warnings = [];
+  const attempt = async (command, args) => {
+    try { await run(command, args, { timeout: 30000 }); refreshed.push(command); return true; }
+    catch (error) {
+      if (error.code !== 'ENOENT') warnings.push(`${command}: ${error.message}`);
+      return false;
+    }
+  };
+  await attempt('/usr/bin/update-desktop-database', [applicationsDirectory]);
+  for (const command of ['/usr/bin/kbuildsycoca6','/usr/bin/kbuildsycoca5']) {
+    if (await attempt(command, ['--noincremental'])) break;
+  }
+  return { refreshed, warnings };
 }
 
 export async function waitForBackend(config, { timeoutMs = 30000, fetchImpl = fetch } = {}) {

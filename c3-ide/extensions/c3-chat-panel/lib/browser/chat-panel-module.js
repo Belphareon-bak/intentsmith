@@ -23,7 +23,7 @@ try { require("./terminal-client"); } catch(e) { console.warn('[C3] terminal-cli
 /* ═══ COLORS ═══ */
 var _C_DEFAULT={bg0:'#09090b',bg1:'#0f0f12',bg2:'#17171b',bg3:'#202025',bg4:'#2a292f',bg5:'#35343c',
   tx1:'#f4f1ea',tx2:'#b9b2a7',tx3:'#a18d6e',tx4:'#8c7d67',
-  accent:'#d4a85f',accentText:'#e7c27a',accentBg:'rgba(212,168,95,0.12)',onAccent:'#17120a',
+  accent:'#d4a85f',accentText:'#e7c27a',accentDim:'#9b6b32',accentBg:'rgba(212,168,95,0.12)',onAccent:'#17120a',
   success:'#5ecf91',successBg:'rgba(94,207,145,0.12)',
   red:'#f87171',redBg:'rgba(239,68,68,0.1)',amber:'#fbbf24',amberBg:'rgba(251,191,36,0.1)',
   blue:'#60a5fa',blueBg:'rgba(96,165,250,0.1)',purple:'#a78bfa',purpleBg:'rgba(167,139,250,0.1)',
@@ -2601,7 +2601,7 @@ function _applyTheme(themeId){
   d.setProperty('--c3-border',C.border);d.setProperty('--c3-border2',C.border2);
 }
 function _applyAccent(){
-  var _ctm=_appearanceMode();var p=(_ctm!=='clean'&&_C_THEMES[_ctm])?_mkPalette(_C_THEMES[_ctm].accent):_getPalette();var ai=(_settingsVals.activeInt||100)/100;var pi=(_settingsVals.passiveInt!=null?_settingsVals.passiveInt:50)/100;
+  var _ctm=_appearanceMode();var _theme=_C_THEMES[_ctm];var p=(_ctm!=='clean'&&_theme)?{accent:_theme.accent,text:_theme.accentText,dim:_theme.accentDim||_cl(_theme.accent,'#000000',0.3)}:_getPalette();var ai=(_settingsVals.activeInt||100)/100;var pi=(_settingsVals.passiveInt!=null?_settingsVals.passiveInt:50)/100;
   C.accent=_cl(p.dim,p.accent,ai);C.accentText=_cl(p.dim,p.text,ai);
   var ac=_hp(p.accent);C.accentBg='rgba('+ac[0]+','+ac[1]+','+ac[2]+','+(0.12*ai).toFixed(3)+')';C.onAccent=_onColor(C.accent);
   /* Passive copy stays readable and only picks up a restrained accent tint. */

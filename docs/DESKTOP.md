@@ -4,6 +4,9 @@ Desktopová instalace nabízí aplikaci **IntentSmith** v nabídce aplikací.
 Ikona spustí backendovou uživatelskou službu nebo se k ní připojí. Opětovné
 spuštění nevytváří další backend. Zavření Studia backend ani hunt nezastavuje;
 služby lze zastavit explicitně. Chyba spuštění Studia se ukáže v dialogu.
+Instalátor zapisuje launcher jako spustitelný soubor a obnoví jak obecnou
+desktopovou databázi, tak KDE cache; po aktualizaci proto není nutné se
+odhlašovat ani cache obnovovat ručně.
 
 Na Kubuntu/Ubuntu s `kernel.apparmor_restrict_unprivileged_userns=1` může
 Chromium skončit ještě před otevřením okna, pokud instalace nemá použitelný

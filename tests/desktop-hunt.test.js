@@ -1,7 +1,7 @@
 import './helpers/isolated-test-db.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, rm, symlink } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, rm, symlink, lstat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFile } from 'node:child_process';
@@ -11,7 +11,7 @@ import { createHuntControl } from '../src/system/hunt-control.js';
 import { analyzeHuntDecisions } from '../src/upgrade/model-hunt-diagnostics.js';
 import { createGlobalAuthAuthority } from '../src/security/global-auth-policy.js';
 import { createSystemRoutes } from '../src/routes/system.js';
-import { ROOT, renderDesktopInstallation, resolveElectronSandboxArgs, verifyDesktopUnits, waitForBackend } from '../scripts/desktop-runtime.mjs';
+import { ROOT, refreshDesktopCaches, renderDesktopInstallation, resolveElectronSandboxArgs, verifyDesktopUnits, waitForBackend, writePrivate } from '../scripts/desktop-runtime.mjs';
 const exec = promisify(execFile);
 const revision = 'a'.repeat(40);
 const capability = 'c'.repeat(43);
@@ -58,6 +58,22 @@ test('desktop and hunt use one environment, bounded commands, and persistent sch
   await assert.rejects(verifyDesktopUnits({...files,backend:files.backend.replace(
     'EnvironmentFile=/home/user/.config/intentsmith/runtime.env',
     'EnvironmentFile="/home/user/.config/intentsmith/runtime.env"')}),/DESKTOP_UNIT_VALIDATION/);
+});
+
+test('desktop entry is executable and both generic and KDE caches are refreshed', async t => {
+  const {home}=await fixture(t),desktop=join(home,'intentsmith.desktop');
+  await writePrivate(desktop,'[Desktop Entry]\n',0o755);
+  assert.equal((await lstat(desktop)).mode & 0o777,0o755);
+  await assert.rejects(writePrivate(join(home,'bad'),'bad',0o777),/DESKTOP_FILE_MODE_UNSUPPORTED/);
+  const calls=[];
+  const cache=await refreshDesktopCaches(join(home,'applications'),{run:async(command,args)=>{
+    calls.push([command,args]);if(command.endsWith('kbuildsycoca6')){const error=new Error('missing');error.code='ENOENT';throw error;}
+  }});
+  assert.deepEqual(calls.map(call=>call[0]),['/usr/bin/update-desktop-database','/usr/bin/kbuildsycoca6','/usr/bin/kbuildsycoca5']);
+  assert.deepEqual(cache.refreshed,['/usr/bin/update-desktop-database','/usr/bin/kbuildsycoca5']);
+  assert.deepEqual(cache.warnings,[]);
+  const installer=await readFile(join(ROOT,'scripts/install-desktop.mjs'),'utf8');
+  assert.match(installer,/intentsmith\.desktop'\),files\.desktop,0o755/);
 });
 
 test('desktop launcher offers a bounded fallback for the Kubuntu AppArmor sandbox conflict', async t => {

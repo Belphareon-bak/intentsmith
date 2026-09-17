@@ -596,6 +596,9 @@ test('default Studio identity uses the accessible IntentSmith brand system', () 
   assert.match(source, /'Styl vzhledu'/);
   assert.match(source, /localStorage\.getItem\('c3-theme-mode'\)\|\|'intentsmith'/,
     'new profiles select the visible IntentSmith appearance');
+  assert.match(source, /accentDim:'#9b6b32'/);
+  assert.match(source, /text:_theme\.accentText/,
+    'the explicit brand mode keeps the reviewed logo accent text token at runtime');
   assert.match(source, /a\?'IntentSmith':'System'/);
   assert.match(source, /widgetName:'IntentSmith Navigation'/);
   assert.match(source, /widgetName:'IntentSmith Chat'/);

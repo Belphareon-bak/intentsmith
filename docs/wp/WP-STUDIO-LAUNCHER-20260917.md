@@ -37,8 +37,9 @@ integrované ani nasazené; proto se nevydává za dostupný produktový vzhled.
 
 ## Ověření kandidáta
 
-- `node --test tests/desktop-hunt.test.js`: **10/10 PASS**; zahrnuje potvrzený
-  a zapamatovaný Kubuntu fallback i explicitní jednorázový override.
+- `node --test tests/desktop-hunt.test.js`: **11/11 PASS**; zahrnuje potvrzený
+  a zapamatovaný Kubuntu fallback, explicitní jednorázový override, mód `0755`
+  launcheru a obnovu obecné i KDE desktop cache.
 - `node tests/m1-studio-client.test.js`: **131 PASS / 0 FAIL / 0 SKIP** po
   produkčním buildu; samostatná volba `intentsmith`, volba `clean`, viditelný
   nadpis a výchozí ID jsou připnuté testem.

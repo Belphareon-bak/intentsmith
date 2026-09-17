@@ -8,7 +8,7 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import Database from 'better-sqlite3';
 import { runMigrations } from '../src/db/migrate.js';
-import { ROOT, renderDesktopInstallation, verifyDesktopUnits, writePrivate, waitForBackend } from './desktop-runtime.mjs';
+import { ROOT, refreshDesktopCaches, renderDesktopInstallation, verifyDesktopUnits, writePrivate, waitForBackend } from './desktop-runtime.mjs';
 const exec = promisify(execFile);
 const arg = name => process.argv.find(v => v.startsWith(`--${name}=`))?.slice(name.length + 3);
 const systemctl = args => exec('/usr/bin/systemctl', ['--user', ...args], { timeout: 40000 });
@@ -76,7 +76,7 @@ const targets = [
   [join(units,'intentsmith-backend.service'),files.backend],
   [join(units,'intentsmith-model-hunt.service'),files.hunt],
   [join(units,'intentsmith-model-hunt.timer'),files.timer],
-  [join(homedir(),'.local/share/applications/intentsmith.desktop'),files.desktop],
+  [join(homedir(),'.local/share/applications/intentsmith.desktop'),files.desktop,0o755],
   [adminFile,adminEnvironment],
 ];
 const previous = [];
@@ -90,12 +90,13 @@ await systemctl(['stop','intentsmith-model-hunt.timer']);
 // Recheck after stopping scheduling. A manual start in between is a real conflict.
 const after = (await systemctl(['show','intentsmith-model-hunt.service','--property=ActiveState','--value'])).stdout.trim();
 if (!['inactive','failed'].includes(after)) throw new Error('HUNT_STARTED_DURING_INSTALL: timer stopped; resume after the run');
-for (const [file,content] of targets) await writePrivate(file,content);
+for (const [file,content,mode] of targets) await writePrivate(file,content,mode);
 await systemctl(['daemon-reload']);
 await systemctl(['enable','intentsmith-backend.service']);
 await systemctl(['reset-failed','intentsmith-backend.service']);
 await systemctl(['restart','intentsmith-backend.service']);
 await waitForBackend(config);
 await systemctl(['enable','--now','intentsmith-model-hunt.timer']);
+const desktopCache = await refreshDesktopCaches(join(homedir(),'.local/share/applications'));
 console.log(JSON.stringify({ installed:true, revision, dbPath, backup,
-  launcher: join(homedir(),'.local/share/applications/intentsmith.desktop') },null,2));
+  launcher: join(homedir(),'.local/share/applications/intentsmith.desktop'), desktopCache },null,2));
