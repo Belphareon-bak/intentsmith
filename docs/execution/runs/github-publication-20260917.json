@@ -11,7 +11,13 @@
     "observedBaseRevision": "68f5080c10d9916cc59aa4bbfc477bf252dbe3f1",
     "defaultBranch": "main",
     "observedDefaultRevision": "6676902c5f6fe7a5d66aba0d79cb502e0f3a60e4",
-    "defaultBranchIntegration": "NOT_PERFORMED_DIVERGED_HISTORY"
+    "defaultBranchIntegration": "NOT_PERFORMED_DIVERGED_HISTORY",
+    "verifiedPublishedRevision": "01e2846fcc9c08177b5da84054d3338d94d0dab7",
+    "pullRequestCreation": {
+      "status": "NOT_CREATED",
+      "reason": "GitHub integration HTTP 403: Resource not accessible by integration",
+      "preparedDescription": "docs/review/2026-09-17-PUBLICATION-PR.md"
+    }
   },
   "deterministic": {
     "runId": "github-publication-20260917-02",
@@ -79,8 +85,8 @@
     "validation": "PASS"
   },
   "documentationLinks": {
-    "checkedFiles": 4,
-    "checkedRelativeTargets": 237,
+    "checkedFiles": 5,
+    "checkedRelativeTargets": 241,
     "missing": []
   },
   "priorReviewExport": {

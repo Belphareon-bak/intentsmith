@@ -28,3 +28,8 @@ shodné s `20e5a022`. Původní běh na `fd216540` po obnovení checkpointu
 skončil 352 PASS / 1 FAIL a zůstává v evidenci včetně raw logů.
 [Přenositelný souhrn](../execution/runs/github-publication-20260917.json)
 uchovává revize a SHA-256; runtime DB ani privátní raw archiv se nepublikují.
+
+Větev je na GitHubu, SHA `01e2846f` ověřeno přes vzdálený ref. Založení
+draft PR odmítla GitHub integrace HTTP 403 `Resource not accessible by integration`.
+[Připravený popis a compare odkaz](../review/2026-09-17-PUBLICATION-PR.md)
+umožňují založení PR po vyřešení oprávnění; PR ani merge se netvrdí jako hotové.
