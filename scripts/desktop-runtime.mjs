@@ -28,7 +28,7 @@ export function renderDesktopInstallation(config) {
     INTENTSMITH_INSTALLATION_FILE: join(configDirectory, 'installation.json'),
     INTENTSMITH_HUNT_STATE_DIR: join(stateDirectory, 'model-hunt'),
     INTENTSMITH_PDF_PYTHON: config.pdfPython,
-  }).filter(([,v]) => v).map(([k,v]) => `${k}=${quotedPath(v)}`).join('\n') + '\nC3_HOST=127.0.0.1\nC3_PORT=0\n';
+  }).filter(([,v]) => v).map(([k,v]) => `${k}=${quotedPath(v)}`).join('\n') + '\nNODE_ENV=production\nC3_HOST=127.0.0.1\nC3_PORT=0\n';
   // These directives consume a single literal path, not ExecStart's argv grammar.
   // Quoting them becomes part of the path and systemd rejects/ignores the value.
   const common = `WorkingDirectory=${sourceRoot}\nEnvironmentFile=${envFile}\nUMask=0077\nKillMode=control-group\n`;
@@ -49,7 +49,9 @@ export async function verifyDesktopUnits(files) {
       const file = join(dir, name);
       await writeFile(file, files[key], { mode: 0o600 }); paths.push(file);
     }
-    const result = await exec('/usr/bin/systemd-analyze', ['--user','--generators=no','--man=no','verify',...paths], { timeout: 15000 });
+    const result = await exec('/usr/bin/systemd-analyze', ['--user','--generators=no','--man=no','verify',...paths], {
+      timeout: 15000, env: { ...process.env, XDG_RUNTIME_DIR: dir },
+    });
     // Ignored EnvironmentFile is a warning with exit 0: it is still a bad install.
     if (result.stderr.trim()) throw new Error(`DESKTOP_UNIT_VALIDATION: ${result.stderr.trim()}`);
   } finally { await rm(dir, { recursive: true, force: true }); }
@@ -67,7 +69,13 @@ export async function waitForBackend(config, { timeoutMs = 30000, fetchImpl = fe
           signal: AbortSignal.timeout(2000), redirect: 'error',
         });
         const data = await response.json();
-        if (response.ok && data.installation?.revision === config.revision && data.installation?.dbPath === config.dbPath) return access;
+        if (response.ok && data.installation?.revision === config.revision && data.installation?.dbPath === config.dbPath) {
+          const uncredentialed = await fetchImpl(`${access.backendUrl}/api/system/models/hunt`, {
+            signal: AbortSignal.timeout(2000), redirect: 'error',
+          });
+          if ([401,403].includes(uncredentialed.status)) return access;
+          throw new Error('DESKTOP_AUTH_BOUNDARY_UNVERIFIED');
+        }
       } catch { /* backend may still be migrating/starting; no unauthenticated fallback */ }
     }
     await new Promise(ok => setTimeout(ok, 200));

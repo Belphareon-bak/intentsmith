@@ -42,6 +42,7 @@ test('desktop and hunt use one environment, bounded commands, and persistent sch
   const files=renderDesktopInstallation({sourceRoot:'/opt/Intent Smith',node:'/usr/bin/node',dbPath:'/data/user/c3.db',
     configDirectory:'/home/user/.config/intentsmith',stateDirectory:'/home/user/.local/state/intentsmith',icon:'/opt/icon.png'});
   assert.match(files.environment,/C3_DB_PATH="\/data\/user\/c3.db"/);
+  assert.match(files.environment,/\nNODE_ENV=production\n/);
   for(const unit of [files.backend,files.hunt]) {
     assert.match(unit,/WorkingDirectory=\/opt\/Intent Smith\n/);
     assert.match(unit,/EnvironmentFile=\/home\/user\/.config\/intentsmith\/runtime.env\n/);
@@ -107,10 +108,13 @@ test('launcher verifies authenticated installation revision and DB rather than a
   await writeFile(join(config.stateDirectory,'backend.port.json'),JSON.stringify({host:'127.0.0.1',port:34567,localCapability:capability}),{mode:0o600});
   const access=await waitForBackend(config,{fetchImpl:async(url,options)=>{
     assert.equal(url,'http://127.0.0.1:34567/api/system/models/hunt');
+    if (!options.headers) return {status:401};
     assert.equal(options.headers['x-intentsmith-local-capability'],capability);
     return {ok:true,json:async()=>({installation:{revision,dbPath:config.dbPath}})};
   }});assert.equal(access.port,34567);
   await assert.rejects(waitForBackend(config,{timeoutMs:1,fetchImpl:async()=>({ok:true,json:async()=>({status:'ok'})})}),/Backend/);
+  await assert.rejects(waitForBackend(config,{timeoutMs:1,fetchImpl:async()=>({ok:true,status:200,
+    json:async()=>({installation:{revision,dbPath:config.dbPath}})})}),/Backend/);
 });
 
 test('legacy launcher preserves attached backend and its port file on Studio failure',async t=>{
