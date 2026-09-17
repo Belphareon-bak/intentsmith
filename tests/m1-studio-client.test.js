@@ -99,6 +99,10 @@ const CHAT_PANEL = new URL(
   '../c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js',
   import.meta.url,
 );
+const STUDIO_THEME = new URL(
+  '../c3-ide/extensions/c3-chat-panel/lib/browser/styles/c3-theme.css',
+  import.meta.url,
+);
 const ANDROID_LIFECYCLE = new URL(
   './lifecycle-android-app-e2e.test.js',
   import.meta.url,
@@ -553,6 +557,48 @@ test('sidebar startup preserves narrow content panels while hiding activity bars
       assert.equal(bar.style.display, 'none', 'activity bar is still hidden');
     }
   }
+});
+
+test('default Studio identity uses the accessible IntentSmith brand system', () => {
+  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
+  const css = fs.readFileSync(STUDIO_THEME, 'utf8');
+  const palette = {
+    canvas: '#09090b',
+    text: '#f4f1ea',
+    muted: '#8c7d67',
+    accent: '#d4a85f',
+    onAccent: '#17120a',
+    success: '#5ecf91',
+  };
+  const luminance = hex => hex.match(/[\da-f]{2}/gi).map(value => {
+    const channel = Number.parseInt(value, 16) / 255;
+    return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  }).reduce((total, channel, index) => total + channel * [0.2126, 0.7152, 0.0722][index], 0);
+  const contrast = (left, right) => {
+    const values = [luminance(left), luminance(right)].sort((a, b) => b - a);
+    return (values[0] + 0.05) / (values[1] + 0.05);
+  };
+
+  assert.ok(contrast(palette.text, palette.canvas) >= 7, 'primary copy is AAA on the canvas');
+  assert.ok(contrast(palette.muted, palette.canvas) >= 4.5, 'quiet copy stays readable');
+  assert.ok(contrast(palette.accent, palette.canvas) >= 7, 'brand accent is readable on the canvas');
+  assert.ok(contrast(palette.onAccent, palette.accent) >= 7, 'primary actions use dark copy on gold');
+  assert.notEqual(palette.accent, palette.success, 'brand selection and success remain different meanings');
+
+  for (const token of Object.values(palette)) {
+    assert.ok(source.includes(token), `runtime owns brand token ${token}`);
+    assert.ok(css.includes(token), `Theia chrome owns brand token ${token}`);
+  }
+  assert.match(source, /Active:\{b:C\.successBg,c:C\.success\}/);
+  assert.match(source, /COMPLETE:C\.success/);
+  assert.match(source, /label:'IntentSmith',desc:'Výchozí brand'/);
+  assert.match(source, /a\?'IntentSmith':'System'/);
+  assert.match(source, /widgetName:'IntentSmith Navigation'/);
+  assert.match(source, /widgetName:'IntentSmith Chat'/);
+  assert.match(source, /label:'IntentSmith: Toggle Sidebar',category:'IntentSmith'/);
+  assert.match(source, /label:'IntentSmith: Toggle Chat',category:'IntentSmith'/);
+  assert.doesNotMatch(source, /linear-gradient\(135deg,#22c55e,#16a34a\)/,
+    'assistant identity no longer uses the old green brand gradient');
 });
 
 test('the shipped preload bundle really carries the byte bridge', () => {
