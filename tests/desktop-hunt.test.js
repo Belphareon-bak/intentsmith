@@ -44,6 +44,7 @@ test('suite progress counts completed tasks across repeats and keeps model ident
   for(const model of ['candidate','incumbent']){
     const rows=events.filter(e=>e.model===model);
     assert.deepEqual(rows.map(e=>e.completedTests),[0,1,2,2,3,4,4,5,6]);
+    assert.deepEqual(rows.map(e=>e.percent),[0,16,33,33,50,66,66,83,100]);
     assert.ok(rows.every(e=>e.totalTests===6));assert.equal(rows[0].etaMs,null);
     assert.equal(rows.at(-1).repeat,3);assert.equal(rows.at(-1).etaMs,0);
   }

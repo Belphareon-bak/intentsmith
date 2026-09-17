@@ -107,7 +107,7 @@ async function runSuiteRepeated(
         const total = event.totalTests;
         const completed = i * total + (event.status === 'running' ? event.currentTest - 1 : event.currentTest);
         const elapsedMs = Date.now() - started;
-        onProgress?.({ ...event, model, repeat: i + 1, repeats,
+        onProgress?.({ ...event, model, repeat: i + 1, repeats, percent: Math.floor(completed / (repeats * total) * 100),
           completedTests: completed, totalTests: repeats * total, testsPerRepeat: total,
           elapsedMs, etaMs: completed > 0 ? Math.max(0, elapsedMs / completed * (repeats * total - completed)) : null });
       }, expectedArtifact);
