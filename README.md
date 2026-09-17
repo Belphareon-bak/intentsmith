@@ -24,7 +24,13 @@ jejich [nezávislé review zůstává otevřené](docs/review/2026-09-12-HUNT-RE
 Opravy revize 17. 9.: přepínače automatické paměti mají skutečné konzumenty,
 legacy učení je projektově oddělené a agentí ovládání ověřuje native výsledek.
 Chat bez historie zůstává nepodporovaný a API jej už nepotvrzuje; dřívější
-vypnutí blokuje nové tahy. [Rozsah oprav a limity](docs/review/2026-09-17-PRIVACY-AGENT-REMEDIATION.md).
+vypnutí blokuje nové tahy. Následné re-review našlo únik do kompatibilního logu
+a chybějící kontrolu pracovní paměti; [navazující oprava a důkazy](docs/review/2026-09-17-PRIVACY-PANELS-REREVIEW.md)
+zachovávají původní verdikt `CHANGES_REQUIRED` do nového nezávislého přijetí.
+`memory.saveContext=false` blokuje automatické obnovení i zápis projektového
+cíle, aktivního souboru a artefaktu, také v otevřených relacích. Výslovně nově
+zadaný cíl může řídit aktuální relaci bez uložení do pracovní paměti. Dříve
+uložené položky se nemažou; existující historie chatu je samostatná funkce.
 Aktuální autorita:
 [PRODUCT](PRODUCT.md), [ROADMAP](ROADMAP.md), [SYSTEM-MAP](SYSTEM-MAP.md).
 
@@ -34,9 +40,12 @@ Zachovává také instalovanou opravu časového kontextu `58d7cced`.
 Účetní výstupy vyžadují kontrolu; živý Sázkař má aktuálně nedostupný zdroj
 historie. Nezávislé review této integrace zůstává otevřené.
 
-**Předchozí zveřejněný kandidát pro review:** větev
-[`work/review-remediation-20260917`](https://github.com/Belphareon-bak/intentsmith/tree/work/review-remediation-20260917),
-[opravy soukromí a agentů](docs/review/2026-09-17-PRIVACY-AGENT-REMEDIATION.md).
+
+**Převzatý kandidát soukromí a panelů:** větev
+[`work/privacy-panels-rereview-20260917`](https://github.com/Belphareon-bak/intentsmith/tree/work/privacy-panels-rereview-20260917),
+[opravy re-review a bočních panelů](docs/review/2026-09-17-PRIVACY-PANELS-REREVIEW.md).
+Zachovává [opravu obecného časového kontextu](docs/review/2026-09-17-CHAT-CLOCK-REVIEW.md).
+Obsahuje také [opravy soukromí a agentů](docs/review/2026-09-17-PRIVACY-AGENT-REMEDIATION.md).
 Předchozí desktopová revize zůstává na `work/desktop-hunt-20260917`.
 Předchozí společný core/hunt je na `work/hunt-review-followup-20260912`.
 [Publikační ověření z 2026-09-17](docs/execution/runs/github-publication-20260917.json)
@@ -47,18 +56,26 @@ Dokončený repo panel z 2026-09-12 má 12 kandidátů bez chyb rolí;
 binding neaktivuje. Přesné kontrakty, výsledky a omezení jsou v
 [modelové dokumentaci](docs/MODEL-SCORING-ACTIVATION.md).
 
-**Lokální aplikace nainstalována (2026-09-17):** IntentSmith má ikonu,
+**Historický instalační checkpoint (2026-09-17):** IntentSmith má ikonu,
 backendovou uživatelskou službu a záložku **Modely → GPU hunt** se stavem,
 poslední známou frontou, výsledkem a ovládáním. Backend, Studio i hunt běží
-ze stejného pinu `1da840c0` nad původní DB; timer má `Persistent=true`.
+ze stejného pinu `58d7cced` nad původní DB; timer má `Persistent=true`.
 Spuštění přes ikonu, opakované otevření, zavření okna, restart backendu,
 HTTP 401/200 a zrušení huntu jsou fyzicky ověřené. [Návod](docs/DESKTOP.md).
-Aktuální celý profil na `1da840c0`: **354 PASS / 1 FAIL** — pouze očekávaná
+Předchozí celý profil na `1da840c0`: **354 PASS / 1 FAIL** — pouze očekávaná
 release pečeť podle `CONTRACT.md §8`, nikoli úplný PASS. Nezávislé review
 nové delty zůstává otevřené. Kalibrační diagnostika rozlišila 7 duelů omezených
 variabilitou a 6 s malým rozdílem; nová GPU měření blokuje nesoulad načteného
 ovladače NVIDIA a nainstalovaných knihoven. Historie skóre i bindingy zůstaly
 beze změny. Podrobnosti a neúspěšné pokusy zachovává review packet.
+
+**Časový kontext:** interaktivní modelové odpovědi dostávají aktuální datum,
+časové pásmo a kalendářní včera/dnes/zítra při každém dotazu, včetně expertiz,
+specialistů a vysvětlování souborů. Nainstalovaný model skutečně odpověděl
+správnými daty 16./17./18. září 2026 na obecný deníkový úkol. Úplný profil
+`58d7cced`: **353 PASS / 2 FAIL** (dokumentační text a release seal);
+dokumentační kontrola je následně opravená a ověřená samostatně.
+[Podrobnosti a limity](docs/review/2026-09-17-CHAT-CLOCK-REVIEW.md).
 
 [Kontrakty rozšíření po 1.0](docs/post-release/README.md) popisují skutečné
 zlepšování modelu, porozumění rozsáhlému projektu, úplné agenty a odložené

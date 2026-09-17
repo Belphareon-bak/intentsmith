@@ -15,7 +15,7 @@ const { longTermMemory } = await import('../src/memory/long-term.js');
 const { chatMemory } = await import('../src/memory/chat-memory.js');
 const { updateUserSettings, readChatMemoryPolicy } = await import('../src/db/user-settings.js');
 const { preHandle } = await import('../src/chat/handlers/pre-handler.js');
-const { ChatController, ChatMode, createTaggedResponse } = await import('../src/chat/controller.js');
+const { ChatController, ChatMode, SessionState, createTaggedResponse } = await import('../src/chat/controller.js');
 const { getConversationStore } = await import('../src/chat/conversation-store.js');
 longTermMemory.db = database.db;
 longTermMemory.init();
@@ -165,6 +165,54 @@ test('projectless learning stays in the same conversation and disabling LTM remo
   settings({ 'c3.memory.ltmEnabled': false });
   const response = await ChatController.handle({ message: 'no learned memory', sessionId: 'privacy:A2', conversationId: 'privacy:A2' });
   assert.equal(response.response, 'No project memory');
+});
+
+test('context opt-out suppresses project working memory in fresh, warm and restored sessions without deleting it', async () => {
+  const { projectHandler } = await import('../src/chat/handlers/project.js');
+  settings({});
+  SessionState.initProjectMemoryDb(database.projectMemory);
+  ChatController.configure({ handlers: { [ChatMode.PROJECT]: projectHandler, [ChatMode.CONVERSATION]: projectHandler } });
+  const pid = project('working-memory-privacy');
+  const fields = { goal: 'SAVED_WORKING_GOAL_CANARY', activeFile: 'SAVED_WORKING_FILE_CANARY', lastArtifactId: 'SAVED_WORKING_ARTIFACT_CANARY' };
+  for (const [field, value] of Object.entries(fields)) database.projectMemory.set.run(pid, `wm:${field}`, value, 'working_memory');
+  const savedRows = () => database.projectMemory.listByCategory.all(pid, 'working_memory');
+  const before = savedRows();
+  const ask = id => ChatController.handle({ message: 'Jaký je stav projektu?', sessionId: id, conversationId: id, context: { projectId: pid } });
+  const enabled = await ask('privacy:wm:warm');
+  for (const value of Object.values(fields)) assert.ok(enabled.response.includes(value), 'positive control uses the actual project handler');
+  const storedState = store.loadSessionState('privacy:wm:warm');
+  assert.ok(storedState.includes(fields.goal));
+
+  updateUserSettings(database.db, () => ({ memory: { saveContext: false } }));
+  for (const id of ['privacy:wm:warm', 'privacy:wm:fresh']) {
+    const result = await ask(id);
+    assert.doesNotMatch(JSON.stringify(result), /SAVED_WORKING_/, id);
+    assert.doesNotMatch(store.loadSessionState(id), /SAVED_WORKING_/, 'serialized session must not carry hidden working memory');
+  }
+  store.ensureConversation('privacy:wm:restored', { projectId: pid });
+  store.saveSessionState('privacy:wm:restored', JSON.stringify({ ...JSON.parse(storedState), sessionId: 'privacy:wm:restored' }));
+  assert.doesNotMatch(JSON.stringify(await ask('privacy:wm:restored')), /SAVED_WORKING_/);
+  assert.deepEqual(savedRows(), before, 'restoration and opt-out neither rewrite nor delete saved project rows');
+
+  // An explicit goal still guides this live session (including drift checks),
+  // but cannot become persisted context while saving context is disabled.
+  const live = ChatController.getState('privacy:wm:fresh');
+  live.setProjectGoal('EXPLICIT_VOLATILE_GOAL').setActiveFile('EXPLICIT_VOLATILE_FILE').setLastArtifact('EXPLICIT_VOLATILE_ARTIFACT');
+  live.incrementDriftCount();
+  const explicit = await ask('privacy:wm:fresh');
+  assert.match(explicit.response, /EXPLICIT_VOLATILE_GOAL/);
+  assert.equal(live.shouldBlockDrift(), true);
+  assert.deepEqual(savedRows(), before);
+  assert.doesNotMatch(store.loadSessionState('privacy:wm:fresh'), /EXPLICIT_VOLATILE_/);
+  const reloaded = SessionState.loadFromStorage('privacy:wm:fresh');
+  assert.equal(reloaded.projectGoal, null);
+  assert.equal(reloaded.activeFile, null);
+
+  updateUserSettings(database.db, () => ({ memory: { saveContext: true } }));
+  const reenabled = await ask('privacy:wm:fresh');
+  for (const value of Object.values(fields)) assert.ok(reenabled.response.includes(value));
+  assert.doesNotMatch(reenabled.response, /EXPLICIT_VOLATILE_/);
+  assert.deepEqual(savedRows(), before);
 });
 
 test('shipped Studio handler uses native routes, reports actual outcomes and preserves enabled state', async () => {

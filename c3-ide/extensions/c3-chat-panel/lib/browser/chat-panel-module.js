@@ -603,15 +603,9 @@ class C3SidebarWidget extends react_widget_1.ReactWidget {
       /* Hide activity bars via JS (CSS can't override Theia's inline widths on SplitPanel children) */
       document.querySelectorAll('.theia-app-sidebar-container').forEach(function(el){
         el.style.cssText='display:none!important;width:0!important;min-width:0!important;max-width:0!important;overflow:hidden!important;flex:0 0 0!important;padding:0!important;';
-        /* Also collapse the parent SplitPanel child */
-        var parent=el.parentElement;
-        if(parent&&parent.classList.contains('lm-SplitPanel-child')){
-          var w=parent.style.width?parseInt(parent.style.width):parent.getBoundingClientRect().width;
-          /* Only collapse if it's narrow (activity bar area, not our sidebar) */
-          if(w<60||parent.getBoundingClientRect().width<60){
-            parent.style.cssText='width:0!important;min-width:0!important;max-width:0!important;flex:0 0 0!important;';
-          }
-        }
+        /* The parent SplitPanel child contains the complete navigation/chat
+           panel. Its initial width can be below 60px before layout settles;
+           preserve its Lumino geometry and hide only this activity bar. */
       });
       /* Also hide the TabBar elements */
       document.querySelectorAll('.theia-app-sides').forEach(function(el){

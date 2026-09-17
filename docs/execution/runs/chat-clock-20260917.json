@@ -1,0 +1,144 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-17T13:59:55.605Z",
+  "status": "IMPLEMENTED_INSTALLED_REVIEW_REQUIRED",
+  "reviewBase": "e0b75ee4a19b561b9f4236b437bd9cc9c8f6e572",
+  "runtimeRevision": "58d7cced4863663e86440c735fbb91fe3b3edcdb",
+  "releaseAcceptance": false,
+  "deterministic": {
+    "sourceRevision": "58d7cced4863663e86440c735fbb91fe3b3edcdb",
+    "startedAt": "2026-09-17T13:50:30.261Z",
+    "endedAt": "2026-09-17T13:56:35.692Z",
+    "statusCounts": {
+      "PASS": 353,
+      "FAIL": 2,
+      "TIMEOUT": 0,
+      "BLOCKED": 0,
+      "SKIPPED": 0
+    },
+    "verdict": "FAIL",
+    "reportSha256": "fcd0712546b24556a900c1fa68eba5493c4173b7a29c1b00576d32ae0b682e5a",
+    "verifiedSuiteLogs": 355,
+    "nonPass": [
+      {
+        "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+        "status": "FAIL"
+      },
+      {
+        "id": "IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST",
+        "status": "FAIL"
+      }
+    ],
+    "followup": "Documentation-only fix of ROADMAP exact module graph phrase; artifact-validation 158/158 PASS. No full-profile rerun after documentation-only fix. Release seal remains FAIL."
+  },
+  "focused": {
+    "cre": 26,
+    "modelContract": 34,
+    "fileConsumer": 39,
+    "httpPersistence": 36,
+    "chatFixes": 58,
+    "allListedPassed": true,
+    "freshInstalledSnapshot": [
+      "modelContract 34/34",
+      "httpPersistence 36/36"
+    ],
+    "additionalModelPipeline": {
+      "pass": 50,
+      "fail": 2,
+      "failures": [
+        "summary about AI expected REPORT",
+        "ambiguous follow-up expected sticky SEARCH"
+      ],
+      "baselineComparison": false
+    }
+  },
+  "clockCases": [
+    "local midnight",
+    "UTC/local date disagreement",
+    "Europe/Prague and America/Los_Angeles",
+    "spring and autumn DST",
+    "leap day",
+    "year boundary",
+    "arbitrary task and caller messages array",
+    "vision and project analysis",
+    "file explanation prompt budget"
+  ],
+  "physicalModel": {
+    "at": "2026-09-17T13:56:39.827Z",
+    "conversationId": "clock-verification-20260917-1789653349894",
+    "model": "qwen3.5:27b",
+    "intent": "CREATIVE",
+    "httpStatus": 200,
+    "elapsedMs": 49933,
+    "status": "PASS",
+    "clock": {
+      "utc": "2026-09-17T13:55:49.883Z",
+      "timeZone": "Europe/Prague",
+      "localTime": "15:55:49",
+      "yesterday": "2026-09-16 (Wednesday)",
+      "today": "2026-09-17 (Thursday)",
+      "tomorrow": "2026-09-18 (Friday)"
+    },
+    "response": "Deníkové záznamy 2026-09-16: Včerejší události a úvahy  \nDnešní pohled na svět 2026-09-17: Co se dnes stalo  \nPlány do budoucnosti 2026-09-18: Zítřejší naděje",
+    "interpretation": "One normal installed chat turn, not a scoring panel or universal model accuracy guarantee"
+  },
+  "installation": {
+    "installed": true,
+    "revision": "58d7cced4863663e86440c735fbb91fe3b3edcdb",
+    "dbPath": "/home/belphareon/Projects/intentsmith/data/c3.db",
+    "backup": "/home/belphareon/.local/state/intentsmith/installation-backups/2026-09-17T13-54-40-845Z",
+    "launcher": "/home/belphareon/.local/share/applications/intentsmith.desktop"
+  },
+  "studio": {
+    "sourceBytesIdenticalTo": "1da840c08b320e47392650d363080efb39027a03",
+    "buildReused": true,
+    "consumerGuard": "PASS",
+    "launchedViaGtkIcon": true
+  },
+  "retention": {
+    "before": {
+      "at": "2026-09-17T13:53:59.003Z",
+      "quickCheck": "ok",
+      "foreignKeyViolations": 0,
+      "tables": {
+        "user_settings": {
+          "count": 1,
+          "sha256": "6ebfcc9f261447188d2fb91c9897c11aa5a35b113518a50d54797a6e5cd6280f"
+        },
+        "model_evaluation_runs": {
+          "count": 503,
+          "sha256": "59fc0d9c7836203a5d5f60e8bc51b36222540290b421847bd1697d60b5531639"
+        },
+        "model_hunt_attempts": {
+          "count": 21,
+          "sha256": "3eae0aece52cd870078c87744a2decd0b4a869ab1346ebab86c1e79336cd8a01"
+        }
+      }
+    },
+    "after": {
+      "at": "2026-09-17T13:56:06.966Z",
+      "quickCheck": "ok",
+      "foreignKeyViolations": 0,
+      "tables": {
+        "user_settings": {
+          "count": 1,
+          "sha256": "6ebfcc9f261447188d2fb91c9897c11aa5a35b113518a50d54797a6e5cd6280f"
+        },
+        "model_evaluation_runs": {
+          "count": 503,
+          "sha256": "59fc0d9c7836203a5d5f60e8bc51b36222540290b421847bd1697d60b5531639"
+        },
+        "model_hunt_attempts": {
+          "count": 21,
+          "sha256": "3eae0aece52cd870078c87744a2decd0b4a869ab1346ebab86c1e79336cd8a01"
+        }
+      }
+    },
+    "note": "Existing settings, model evaluation and hunt tables unchanged. One new owned diagnostic conversation intentionally retained as evidence."
+  },
+  "publication": {
+    "repository": "Belphareon-bak/intentsmith",
+    "branch": "work/chat-date-context-20260917"
+  },
+  "evidenceRoot": ".intentsmith-artifacts/chat-date-20260917/"
+}

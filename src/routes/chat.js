@@ -787,8 +787,8 @@ export function createChatRoutes(deps) {
 
         const effectiveProjectId = storedProjectId ?? requestedProjectId;
 
-        // v56.0: No manual DB writes here — ChatController.handle persists via ConversationStore
-        logger.info('Server', `[ChatController] Processing: "${message.substring(0, 50)}..."`);
+        // Never log input before the controller's privacy preflight. Even a
+        // rejected compatibility request must leave no message preview behind.
 
         let expertise;
         if (body.expertise_id !== undefined) {

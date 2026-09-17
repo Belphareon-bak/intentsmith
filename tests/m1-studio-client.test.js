@@ -511,6 +511,50 @@ test('postbuild refuses the duplicate sidebar in either manifest or generated fr
   assert.throws(() => validateSidebarComposition(manifest, ''), /missing the current sidebar/);
 });
 
+test('sidebar startup preserves narrow content panels while hiding activity bars', () => {
+  const source = fs.readFileSync(new URL(
+    '../c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js', import.meta.url,
+  ), 'utf8');
+  const start = source.indexOf('class C3SidebarWidget extends ');
+  const end = source.indexOf('inversify_1.decorate(', start);
+  assert.ok(start >= 0 && end > start, 'actual sidebar lifecycle is available');
+  for (const width of [0, 32, 240, 420]) {
+    const originalStyle = `position:absolute;top:0;left:0;width:${width}px;height:910px;`;
+    const parents = ['left', 'right'].map(side => ({
+      id: `theia-${side}-content-panel`,
+      style: { width: `${width}px`, cssText: originalStyle },
+      classList: { contains: name => name === 'lm-SplitPanel-child' },
+      getBoundingClientRect: () => ({ width }),
+    }));
+    const activityBars = parents.map(parentElement => ({
+      parentElement,
+      style: { cssText: '', setProperty(name, value) { this[name] = value; } },
+    }));
+    const callbacks = [];
+    const context = {
+      react_widget_1: { ReactWidget: class {
+        constructor() { this.node = { style: {} }; this.title = {}; }
+      } },
+      C3_SIDEBAR_ID: 'c3-sidebar', _sidebarWidget: null, _centerContainer: null,
+      _createRoot: () => ({ render() {} }), h() {}, SidebarApp() {},
+      setTimeout: callback => callbacks.push(callback), setInterval() {}, clearInterval() {},
+      document: {
+        getElementById: id => id === 'theia-main-content-panel' ? null : {},
+        querySelectorAll: selector => selector === '.theia-app-sidebar-container' ? activityBars : [],
+      },
+    };
+    vm.runInNewContext(`${source.slice(start, end)}\nnew C3SidebarWidget().onAfterAttach();`, context);
+    assert.equal(callbacks.length, 1);
+    callbacks[0]();
+    for (const parent of parents) {
+      assert.equal(parent.style.cssText, originalStyle, `${parent.id}: preserve layout at ${width}px`);
+    }
+    for (const bar of activityBars) {
+      assert.equal(bar.style.display, 'none', 'activity bar is still hidden');
+    }
+  }
+});
+
 test('the shipped preload bundle really carries the byte bridge', () => {
   /* lib/ is a build artifact, so this only asserts when a build is present:
      the tracked source guard above is what runs on a fresh clone. */

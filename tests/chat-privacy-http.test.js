@@ -2,7 +2,7 @@ import { isolatedTestRuntime as r } from './helpers/isolated-test-db.js';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { spawn } from 'node:child_process';
-import { readFileSync, existsSync, writeFileSync } from 'node:fs';
+import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
 import { request } from 'node:http';
 
@@ -20,7 +20,7 @@ const env = { PATH: process.env.PATH, LANG: 'C.UTF-8', TZ: 'UTC',
   C3_ENABLE_LIFECYCLE: 'false', C3_ENABLE_COMFYUI: 'false', C3_ENABLE_AUTONOMY: 'false',
   C3_ENABLE_SKILLS: 'false', C3_ENABLE_TELEMETRY: 'false', C3_ENABLE_ONLINE_DISCOVERY: 'false',
   C3_MODEL_UNIVERSE_ENABLED: 'false', C3_LIFECYCLE_AUTO_COMMIT: 'false', C3_UPDATE_REPO: '',
-  C3_LOG_LEVEL: 'warn', OLLAMA_URL: 'invalid://privacy-no-provider',
+  C3_LOG_LEVEL: 'info', OLLAMA_URL: 'invalid://privacy-no-provider',
   INTENTSMITH_TEST_SERVER_NONCE: 'privacy-review-isolated-server-20260917-0001' };
 let child, identity, output = '';
 function api(method, pathname, body) {
@@ -79,6 +79,38 @@ test('real HTTP settings/chat reject unsupported privacy, preserve existing opt-
     assert.deepEqual((await api('GET', '/api/settings')).body, disabled);
     assert.equal((await api('GET', '/api/conversations/privacy:http:normal/messages')).body.messages.length, 2);
 
+    // Exercise the production project handler and a real process restart, not
+    // merely an injected context observer. Existing history stays independent.
+    const projectPath = `${r.projects}/working-memory`;
+    mkdirSync(projectPath, { recursive: true });
+    const projectId = Number(database.projects.create.run('Working memory privacy', projectPath, '').lastInsertRowid);
+    for (const field of ['goal', 'activeFile', 'lastArtifactId']) {
+      database.projectMemory.set.run(projectId, `wm:${field}`, `HTTP_SAVED_CONTEXT_${field}`, 'working_memory');
+    }
+    const originalMemory = database.projectMemory.listByCategory.all(projectId, 'working_memory');
+    const projectChat = id => api('POST', '/chat', { session_id: id, projectId, message: 'Jaký je stav projektu?' });
+    assert.equal((await api('POST', '/api/settings', { memory: { saveContext: true } })).status, 200);
+    const positive = await projectChat('privacy:http:wm:warm');
+    assert.equal(positive.status, 200);
+    for (const field of ['goal', 'activeFile', 'lastArtifactId']) assert.ok(positive.body.response.includes(`HTTP_SAVED_CONTEXT_${field}`));
+    // Leave a second serialized session untouched until the process restart.
+    assert.equal((await projectChat('privacy:http:wm:cold')).status, 200);
+    assert.equal((await api('POST', '/api/settings', { memory: { saveContext: false } })).status, 200);
+    for (const id of ['privacy:http:wm:warm', 'privacy:http:wm:new']) {
+      const hidden = await projectChat(id);
+      assert.equal(hidden.status, 200);
+      assert.doesNotMatch(JSON.stringify(hidden.body), /HTTP_SAVED_CONTEXT_/);
+    }
+    const memoryPid = child.pid;
+    await stop(); await start();
+    assert.notEqual(child.pid, memoryPid);
+    const cold = await projectChat('privacy:http:wm:cold');
+    assert.equal(cold.status, 200);
+    assert.doesNotMatch(JSON.stringify(cold.body), /HTTP_SAVED_CONTEXT_/);
+    assert.deepEqual(database.projectMemory.listByCategory.all(projectId, 'working_memory'), originalMemory);
+    assert.equal((await api('POST', '/api/settings', { memory: { saveContext: true } })).status, 200);
+    assert.match((await projectChat('privacy:http:wm:cold')).body.response, /HTTP_SAVED_CONTEXT_goal/);
+
     // Represent the old release's already-persisted opt-out, without allowing
     // the new writer to claim it can create a private conversation mode.
     database.db.prepare('UPDATE user_settings SET data = ? WHERE id = 1').run(JSON.stringify({ memory: { saveHistory: false } }));
@@ -87,11 +119,24 @@ test('real HTTP settings/chat reject unsupported privacy, preserve existing opt-
     assert.equal(blocked.status, 409); assert.equal(blocked.body.error.code, 'CHAT_PRIVACY_UNAVAILABLE');
     assert.equal(database.db.prepare('SELECT count(*) AS n FROM conversations WHERE id = ?').get('privacy:http:blocked').n, 0);
     assert.equal(database.db.prepare('SELECT count(*) AS n FROM messages WHERE content LIKE ?').get('%PRIVATE_HTTP_CANARY%').n, 0);
+    for (const [path, body, canary] of [
+      ['/api/chat', { conversation_id: 'privacy:http:compat', message: 'PRIVATE_COMPAT_HTTP_CANARY' }, 'PRIVATE_COMPAT_HTTP_CANARY'],
+      ['/chat', { session_id: 'privacy:http:legacy', message: 'PRIVATE_LEGACY_HTTP_CANARY' }, 'PRIVATE_LEGACY_HTTP_CANARY'],
+    ]) {
+      const denied = await api('POST', path, body);
+      assert.equal(denied.status, 409);
+      assert.match(JSON.stringify(denied.body), /CHAT_PRIVACY_UNAVAILABLE/);
+      assert.equal(database.db.prepare('SELECT count(*) AS n FROM messages WHERE content LIKE ?').get(`%${canary}%`).n, 0);
+      assert.equal(database.db.prepare('SELECT count(*) AS n FROM conversations WHERE id = ?').get(body.conversation_id || body.session_id).n, 0);
+    }
     assert.equal((await api('GET', '/api/settings')).body.memory.saveHistory, false);
     await stop(); await start();
     assert.equal((await api('POST', '/api/chat', command('privacy:http:blocked:restart'))).status, 409);
     assert.equal((await api('POST', '/api/settings', { memory: { saveHistory: true } })).status, 200);
     assert.equal((await api('POST', '/api/chat', command('privacy:http:recovered'))).body.status, 'ok');
+    await stop(); // stdout/stderr drained before checking absence
+    assert.match(output, /INFO/, 'positive control: info logging was actually enabled');
+    assert.doesNotMatch(output, /PRIVATE_(?:HTTP|COMPAT_HTTP|LEGACY_HTTP)_CANARY/);
   } finally {
     await stop();
     writeFileSync(`${r.artifacts}/privacy-http-server.log`, output);
