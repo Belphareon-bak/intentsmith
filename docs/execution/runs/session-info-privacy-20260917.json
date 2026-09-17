@@ -2369,7 +2369,8 @@
         15102,
         15148
       ]
-    }
+    },
+    "startupLogSnapshotAt": "2026-09-17T20:36:49.986665+00:00"
   },
   "installedSourcePrivacyTests": {
     "memoryPass": 11,
@@ -2393,7 +2394,8 @@
     "Initial installed-test command raced artifact-directory creation; no test started.",
     "Next installed test correctly refused a non-private artifact root; corrected directory mode, retained failure log, then both suites passed.",
     "Initial non-detached gtk-launch returned without a lasting window. Direct launcher and later detached desktop launch produced visible Studio.",
-    "First window probe encountered an unrelated namespace PID 2; corrected probe skips inaccessible foreign processes."
+    "First window probe encountered an unrelated namespace PID 2; corrected probe skips inaccessible foreign processes.",
+    "Initial evidence record referenced the still-growing Studio log. Final checksum audit caught the drift; the reference now binds a separate immutable snapshot, leaving the live log intact."
   ],
   "artifacts": [
     {
@@ -2449,8 +2451,8 @@
       "sha256": "ce0970f891d0c150ba5bc65d9e7376f195c9530bfbf76a733c8a0192fe8709d2"
     },
     {
-      "path": ".intentsmith-artifacts/session-info-privacy-20260917/studio-launch-detached.log",
-      "sha256": "e82601011866211748b794755eb512e41d9ef3c6a187c3ce5faccf2e9f0e70ba"
+      "path": ".intentsmith-artifacts/session-info-privacy-20260917/studio-launch-detached-snapshot.log",
+      "sha256": "37a2a2b172ac75e323171ad54e457cdbe4a3be13c991f1a68c0f0a50daa7a92e"
     },
     {
       "path": ".intentsmith-artifacts/session-info-privacy-20260917/db-after.json",
