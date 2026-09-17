@@ -41,6 +41,7 @@ const EXACT_TOOLCHAIN_EXECUTABLES = Object.freeze({
   'linux-user-network-namespace': '/usr/bin/unshare',
   prlimit: '/usr/bin/prlimit',
   'systemd-analyze': '/usr/bin/systemd-analyze',
+  openssl: '/usr/bin/openssl',
 });
 const TERMINATION_GRACE_MS = 2_000;
 const ACTIVE_SUITE_CHILDREN = new Map();

@@ -2,8 +2,26 @@ import { suite, testAsync, assert, assertEqual, summary, waitForServer,
   api, createConv, cleanupConversation } from './e2e/_helpers.js';
 import strictAssert from 'node:assert/strict';
 import https from 'node:https';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { createConversationWebTransport } from '../src/network/conversation-web-transport.js';
+
+function createEphemeralTlsIdentity() {
+  const directory = mkdtempSync(path.join(tmpdir(), 'is-web-tls-'));
+  try {
+    execFileSync('/usr/bin/openssl', ['req', '-x509', '-newkey', 'ec',
+      '-pkeyopt', 'ec_paramgen_curve:P-256', '-nodes', '-days', '2',
+      '-subj', '/CN=web.fixture.test', '-addext', 'subjectAltName=DNS:web.fixture.test',
+      '-keyout', path.join(directory, 'key.pem'), '-out', path.join(directory, 'cert.pem')],
+    { stdio: 'pipe', timeout: 10_000, env: { PATH: '/usr/bin:/bin', OPENSSL_CONF: '/dev/null' } });
+    return { certificate: readFileSync(path.join(directory, 'cert.pem')),
+      key: readFileSync(path.join(directory, 'key.pem')) };
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+}
 
 // These are real Node TLS/HTTP sockets, with two deliberately controlled seams:
 // the resolver supplies a public fixture answer and the request adapter maps
@@ -11,8 +29,7 @@ import { createConversationWebTransport } from '../src/network/conversation-web-
 // Production address validation and rejectUnauthorized:true remain unchanged.
 async function withLoopbackTlsFixture({ trusted = true, onRequest, onResponse = () => {},
   beforeDnsAnswer = () => {} } = {}, run) {
-  const certificate = readFileSync(new URL('./fixtures/conversation-web/loopback-test-cert.pem', import.meta.url));
-  const key = readFileSync(new URL('./fixtures/conversation-web/loopback-test-key.pem', import.meta.url));
+  const { certificate, key } = createEphemeralTlsIdentity();
   const publicFixtureAddress = '93.184.215.14';
   const sockets = new Set();
   const counts = { requests: 0, connections: 0, lookups: 0, transports: 0 };
