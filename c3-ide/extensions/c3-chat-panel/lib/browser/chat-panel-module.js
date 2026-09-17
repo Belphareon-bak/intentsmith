@@ -3140,10 +3140,10 @@ function _loadDiscoveredData(){
 var _candidateFilter={fit:'fit',sort:'params-desc',budgetGiB:''};
 function _filteredCandidates(data){
   var budget=_candidateFilter.budgetGiB!==''?Number(_candidateFilter.budgetGiB)*1024:data.vramBudgetMb;
-  if(!(budget>0))budget=null;
+  if(!Number.isFinite(budget)||!(budget>0))budget=null;
   var rows=(data.candidates||[]).filter(function(m){
     if(_candidateFilter.fit==='installed'&&!m.installed)return false;
-    if(_candidateFilter.fit==='fit'&&(!budget||!(m.vramMb>0)||m.vramMb>budget))return false;
+    if(_candidateFilter.fit==='fit'&&budget&&(!(m.vramMb>0)||m.vramMb>budget))return false;
     return true;
   });
   var sort=_candidateFilter.sort,field=sort.split('-')[0],dir=sort.endsWith('-asc')?1:-1;
@@ -3153,7 +3153,7 @@ function _filteredCandidates(data){
     if(ak!==bk)return ak?-1:1;
     return (ak?(av-bv)*dir:0)||a.name.localeCompare(b.name);
   });
-  return {rows:rows,budgetMb:budget};
+  return {rows:rows,budgetMb:budget,fitUnavailable:_candidateFilter.fit==='fit'&&!budget};
 }
 function _renderDiscoveredTab(){
   var toast=_discoverMsg?h('div',{style:{marginBottom:12,padding:'8px 14px',borderRadius:6,fontSize:_fs(11),fontWeight:600,
@@ -3170,7 +3170,7 @@ function _renderDiscoveredTab(){
     h('div',{style:{display:'flex',gap:14,flexWrap:'wrap',alignItems:'flex-end',marginBottom:14,padding:12,
       background:C.bg2,border:'1px solid '+C.border,borderRadius:8,fontSize:_fs(10),color:C.tx3}},
       h('label',{style:{display:'flex',flexDirection:'column',gap:5}},'Zobrazit',h('select',{style:_modelFieldStyle(),value:_candidateFilter.fit,onChange:function(e){_candidateFilter.fit=e.target.value;renderCenter();}},
-        h('option',{value:'fit'},'V limitu VRAM (odhad)'),h('option',{value:'all'},'Všechny modely'),h('option',{value:'installed'},'Pouze stažené'))),
+        h('option',{value:'fit'},selection.fitUnavailable?'Všechny · limit VRAM nezjištěn':'V limitu VRAM (odhad)'),h('option',{value:'all'},'Všechny modely'),h('option',{value:'installed'},'Pouze stažené'))),
       h('label',{style:{display:'flex',flexDirection:'column',gap:5}},'Limit VRAM · GiB (odhad)',h('input',{type:'number',min:1,max:512,step:0.5,
         value:_candidateFilter.budgetGiB,placeholder:_discoveredData.vramBudgetMb?(_discoveredData.vramBudgetMb/1024).toFixed(1):'Nezjištěno',
         style:Object.assign({},_modelFieldStyle(),{width:120}),onChange:function(e){_candidateFilter.budgetGiB=e.target.value;renderCenter();}})),
@@ -3178,15 +3178,17 @@ function _renderDiscoveredTab(){
         h('option',{value:'params-desc'},'Parametry: největší'),h('option',{value:'params-asc'},'Parametry: nejmenší'),
         h('option',{value:'vramMb-asc'},'VRAM: nejnižší'),h('option',{value:'contextWindow-desc'},'Kontext: největší'),h('option',{value:'name-asc'},'Název'))),
       h('span',{style:{marginLeft:'auto',paddingBottom:7,whiteSpace:'nowrap'}},candidates.length+' / '+(_discoveredData.candidates||[]).length+' modelů')),
-    !selection.budgetMb?h('p',{role:'status',style:{color:C.amber}},'Kapacitu GPU nelze zjistit. Zadej vlastní limit odhadu nebo zvol Všechny modely. Neznámá VRAM není ověřená vhodnost.'):null,
-    candidates.length===0?h('div',{style:{color:C.tx4,padding:20,textAlign:'center'}},'Žádní kandidáti'):
+    _discoveredData.gpuVramMb>0?h('p',{style:{fontSize:_fs(10),color:C.tx3}},'GPU: '+(_discoveredData.gpuVramMb/1024).toFixed(1)+' GiB dedikované VRAM · zdroj: '+(_discoveredData.gpuCapacitySource||'systém')+' · automatický limit 80 % (rezerva pro kontext a systém).'):null,
+    !selection.budgetMb?h('p',{role:'status',style:{color:C.amber}},'Limit VRAM není k dispozici. Katalog zůstává viditelný; vejití modelů na GPU není ověřené. Pro filtrování lze zadat vlastní kladný limit.'):null,
+    candidates.length===0?h('div',{style:{color:C.tx4,padding:20,textAlign:'center'}},(_discoveredData.candidates||[]).length?'Zvolenému filtru neodpovídá žádný model.':'Katalog zatím neobsahuje žádné modely.'):
     candidates.map(function(m){
       var ps=_pullState[m.name];var pulling=ps&&ps.status&&ps.status!=='done'&&ps.status!=='error';
       return h('div',{key:m.canonicalName,style:{background:C.bg2,border:'1px solid '+C.border,borderRadius:8,padding:'10px 12px',marginBottom:8}},
         h('div',{style:{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}},
           h('span',{style:{fontSize:_fs(11),fontWeight:700,color:C.tx1,fontFamily:C.mono}},m.name),
           h('span',{style:{fontSize:_fs(8),padding:'2px 6px',borderRadius:4,background:'rgba(234,179,8,0.12)',color:'#eab308'}},'Nevyhodnoceno'),
-          m.fitsVram===false?h('span',{style:{fontSize:_fs(8),color:'#ef4444'}},'Mimo VRAM budget'):null,
+          !selection.budgetMb||!(m.vramMb>0)?h('span',{style:{fontSize:_fs(8),color:C.amber}},'Vejití na GPU neověřeno'):
+            m.vramMb>selection.budgetMb?h('span',{style:{fontSize:_fs(8),color:C.red}},'Nad limitem VRAM (odhad)'):null,
           h('span',{style:{flex:1}}),
           m.installed?h('button',{style:_modelButtonStyle(false,false),onClick:function(){_openModelTests(m.name);}},'Testy modelu…'):null,
           !m.installed?h('button',{style:_modelButtonStyle(true,pulling),

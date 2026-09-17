@@ -8,7 +8,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import vm from 'node:vm';
 import { createHuntControl } from '../src/system/hunt-control.js';
-import { analyzeHuntDecisions, inspectHuntGpu } from '../src/upgrade/model-hunt-diagnostics.js';
+import { analyzeHuntDecisions, inspectHuntGpu, readNvidiaDisplayCapacity } from '../src/upgrade/model-hunt-diagnostics.js';
 import { acquireGpuEvaluationLock } from '../src/upgrade/gpu-evaluation-lock.js';
 import { createGlobalAuthAuthority } from '../src/security/global-auth-policy.js';
 import { createSystemRoutes } from '../src/routes/system.js';
@@ -219,6 +219,25 @@ test('selected installed evaluation pins artifact and role, forbids effects on d
   assert.equal(launched.length,1);
 });
 
+test('display capacity survives NVML failure without authorizing inference or summing GPUs',async()=>{
+  const run=async(command,args,options)=>{
+    if(command==='nvidia-smi')throw Object.assign(new Error('exit 18'),{stderr:'Driver/library version mismatch'});
+    assert.equal(command,'nvidia-settings');assert.deepEqual(args,['-t','-q','[gpu]/TotalDedicatedGPUMemory']);
+    assert.equal(options.timeout,3000);
+    return {stdout:'24103\n8192\n',stderr:'ERROR: An internal driver error occurred'};
+  };
+  const gpu=await inspectHuntGpu({run});
+  const capacity=await readNvidiaDisplayCapacity({run,platform:'linux'});
+  assert.equal(gpu.available,false);assert.equal(gpu.code,'GPU_DRIVER_LIBRARY_MISMATCH');
+  assert.deepEqual(capacity,{vramMb:24103,source:'nvidia-settings'});
+  assert.equal(Object.hasOwn(capacity,'available'),false);
+  for(const stdout of ['', 'N/A', '0', '-1', '24103\nN/A', 'Infinity', '9007199254740992']) {
+    assert.equal(await readNvidiaDisplayCapacity({run:async()=>({stdout}),platform:'linux'}),null);
+  }
+  assert.equal(await readNvidiaDisplayCapacity({run:async()=>{throw new Error('no display');},platform:'linux'}),null);
+  assert.equal(await readNvidiaDisplayCapacity({run:async()=>{assert.fail('not Linux');},platform:'darwin'}),null);
+});
+
 test('provider wrapper preserves an active run and incomplete ownership blocks a concurrent claimant',async t=>{
   const {home}=await fixture(t),state=join(home,'hunt'),lockPath=join(state,'provider.lock');
   await mkdir(state);
@@ -253,9 +272,18 @@ test('candidate filtering keeps estimates separate from unknown capacity and sor
   vm.runInContext('_candidateFilter.sort="params-asc"',context);
   assert.equal(vm.runInContext('_filteredCandidates(data).rows.map(m=>m.name).join(",")',context),'small,medium');
   context.data.vramBudgetMb=null;
-  assert.equal(vm.runInContext('_filteredCandidates(data).rows.length',context),0);
+  assert.equal(vm.runInContext('_filteredCandidates(data).rows.length',context),4);
+  assert.equal(vm.runInContext('_filteredCandidates(data).fitUnavailable',context),true);
+  for(const invalid of ['-1','0','Infinity','bad']) {
+    context.invalid=invalid;vm.runInContext('_candidateFilter.budgetGiB=invalid',context);
+    assert.equal(vm.runInContext('_filteredCandidates(data).budgetMb',context),null);
+    assert.equal(vm.runInContext('_filteredCandidates(data).rows.length',context),4);
+  }
   vm.runInContext('_candidateFilter.budgetGiB="24"',context);
   assert.equal(vm.runInContext('_filteredCandidates(data).rows.length',context),2);
+  assert.equal(vm.runInContext('_filteredCandidates(data).fitUnavailable',context),false);
+  vm.runInContext('_candidateFilter.budgetGiB="1"',context);
+  assert.equal(vm.runInContext('_filteredCandidates(data).rows.length',context),0);
   vm.runInContext('_candidateFilter.fit="all"',context);
   assert.equal(vm.runInContext('_filteredCandidates(data).rows.at(-1).name',context),'unknown');
 });

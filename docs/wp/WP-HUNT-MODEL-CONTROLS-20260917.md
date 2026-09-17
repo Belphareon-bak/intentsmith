@@ -22,3 +22,8 @@ měření při nefunkčním GPU ověřeno. [Review packet a meze](../review/2026
 Následné zadání operátora: sjednotit vzhled tlačítek a vysvětlit neúspěšný
 test Qwenu přímo u modelu. Dodáno a instalováno na `08f8d1c5`; backend
 a GPU policy beze změny. [Ověření a pokračující blokace GPU](../review/2026-09-17-HUNT-MODEL-CONTROLS-FOLLOWUP.md).
+
+Následná oprava podle snímku a námitky operátora: zjistit dedikovanou VRAM
+i při selhání NVML přes živé NV-CONTROL (`nvidia-settings`) pouze pro katalog.
+Zachovat GPU preflight pro scoring; při neznámé kapacitě neschovávat katalog.
+Ověřit náhradní zdroj, nedostupný zdroj, ruční limit a skutečný renderer.

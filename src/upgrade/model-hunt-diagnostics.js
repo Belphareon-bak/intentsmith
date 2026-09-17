@@ -42,3 +42,18 @@ export async function inspectHuntGpu({ run = promisify(execFile) } = {}) {
         : 'Stav NVIDIA GPU nelze ověřit. Zkontroluj ovladač; měření ani automatické mazání se nespustí.' };
   }
 }
+
+// Inventory only: NV-CONTROL can still report dedicated capacity through the
+// running X server when NVML fails. This is neither free VRAM nor CUDA health.
+export async function readNvidiaDisplayCapacity({ run = promisify(execFile), platform = process.platform } = {}) {
+  if (platform !== 'linux') return null;
+  try {
+    const { stdout } = await run('nvidia-settings', ['-t', '-q', '[gpu]/TotalDedicatedGPUMemory'], {
+      timeout: 3000, maxBuffer: 16384,
+    });
+    const rows = stdout.trim().split(/\r?\n/);
+    if (!rows.length || rows.some(row => !/^\d+$/.test(row.trim()) || !Number.isSafeInteger(Number(row)) || Number(row) <= 0)) return null;
+    // Match the catalog's existing largest-single-GPU budget, never sum GPUs.
+    return { vramMb: Math.max(...rows.map(Number)), source: 'nvidia-settings' };
+  } catch { return null; }
+}

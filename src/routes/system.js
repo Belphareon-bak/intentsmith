@@ -18,6 +18,7 @@ import { broadcast, getWebSocketBridgeHealth } from '../ws-bridge/ws-server.js';
 import { getOutboundDiagnostics } from '../network/outbound-policy.js';
 import { modelUniverseStore } from '../upgrade/model-universe-store.js';
 import { createHuntControl } from '../system/hunt-control.js';
+import { readNvidiaDisplayCapacity } from '../upgrade/model-hunt-diagnostics.js';
 import { isLocalOperatorTransportSubject } from '../security/global-auth-policy.js';
 import {
   POLICY_SOURCE,
@@ -1254,6 +1255,14 @@ export function createSystemRoutes({
           const profile = await getSystemProfile();
           gpuVramMb = Math.max(0, ...(profile.gpus || []).map(gpu => gpu.vram_mb || 0));
         } catch (_) {}
+        let gpuCapacitySource = gpuVramMb > 0 ? 'system-profile' : null;
+        if (!(gpuVramMb > 0)) {
+          const displayCapacity = await readNvidiaDisplayCapacity();
+          if (displayCapacity) {
+            gpuVramMb = displayCapacity.vramMb;
+            gpuCapacitySource = displayCapacity.source;
+          }
+        }
         const vramBudgetMb = gpuVramMb > 0 ? Math.round(gpuVramMb * 0.8) : null;
 
         const merged = new Map();
@@ -1300,6 +1309,7 @@ export function createSystemRoutes({
             evaluationsEndpoint: '/api/system/models/evaluations',
           },
           gpuVramMb,
+          gpuCapacitySource,
           vramBudgetMb,
           candidates,
         });
