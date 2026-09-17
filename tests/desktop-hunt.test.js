@@ -11,7 +11,7 @@ import { createHuntControl } from '../src/system/hunt-control.js';
 import { analyzeHuntDecisions } from '../src/upgrade/model-hunt-diagnostics.js';
 import { createGlobalAuthAuthority } from '../src/security/global-auth-policy.js';
 import { createSystemRoutes } from '../src/routes/system.js';
-import { ROOT, renderDesktopInstallation, waitForBackend } from '../scripts/desktop-runtime.mjs';
+import { ROOT, renderDesktopInstallation, verifyDesktopUnits, waitForBackend } from '../scripts/desktop-runtime.mjs';
 const exec = promisify(execFile);
 const revision = 'a'.repeat(40);
 const capability = 'c'.repeat(43);
@@ -38,19 +38,23 @@ async function fixture(t) {
   return {home,config,file};
 }
 
-test('desktop and hunt use one environment, bounded commands, and persistent scheduling', () => {
+test('desktop and hunt use one environment, bounded commands, and persistent scheduling', async () => {
   const files=renderDesktopInstallation({sourceRoot:'/opt/Intent Smith',node:'/usr/bin/node',dbPath:'/data/user/c3.db',
     configDirectory:'/home/user/.config/intentsmith',stateDirectory:'/home/user/.local/state/intentsmith',icon:'/opt/icon.png'});
   assert.match(files.environment,/C3_DB_PATH="\/data\/user\/c3.db"/);
   for(const unit of [files.backend,files.hunt]) {
-    assert.match(unit,/WorkingDirectory="\/opt\/Intent Smith"/);
-    assert.match(unit,/EnvironmentFile="\/home\/user\/.config\/intentsmith\/runtime.env"/);
+    assert.match(unit,/WorkingDirectory=\/opt\/Intent Smith\n/);
+    assert.match(unit,/EnvironmentFile=\/home\/user\/.config\/intentsmith\/runtime.env\n/);
     assert.match(unit,/KillMode=control-group/);
   }
   assert.match(files.hunt,/--limit=2 .*--scheduled/);
   assert.match(files.timer,/Persistent=true/);
   assert.match(files.desktop,/Terminal=false/);
   assert.throws(()=>renderDesktopInstallation({sourceRoot:'/bad\nExecStart=attack'}),/DESKTOP_PATH_UNSUPPORTED/);
+  await verifyDesktopUnits(files);
+  await assert.rejects(verifyDesktopUnits({...files,backend:files.backend.replace(
+    'EnvironmentFile=/home/user/.config/intentsmith/runtime.env',
+    'EnvironmentFile="/home/user/.config/intentsmith/runtime.env"')}),/DESKTOP_UNIT_VALIDATION/);
 });
 
 test('hunt status shows observed queue, failures and the actual timer independently', async t => {

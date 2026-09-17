@@ -1,8 +1,8 @@
-import { readFile, writeFile, rename, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, rename, mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createRequire } from 'node:module';
-import { homedir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 const exec = promisify(execFile);
@@ -29,7 +29,9 @@ export function renderDesktopInstallation(config) {
     INTENTSMITH_HUNT_STATE_DIR: join(stateDirectory, 'model-hunt'),
     INTENTSMITH_PDF_PYTHON: config.pdfPython,
   }).filter(([,v]) => v).map(([k,v]) => `${k}=${quotedPath(v)}`).join('\n') + '\nC3_HOST=127.0.0.1\nC3_PORT=0\n';
-  const common = `WorkingDirectory=${quotedPath(sourceRoot)}\nEnvironmentFile=${quotedPath(envFile)}\nUMask=0077\nKillMode=control-group\n`;
+  // These directives consume a single literal path, not ExecStart's argv grammar.
+  // Quoting them becomes part of the path and systemd rejects/ignores the value.
+  const common = `WorkingDirectory=${sourceRoot}\nEnvironmentFile=${envFile}\nUMask=0077\nKillMode=control-group\n`;
   return {
     environment: env,
     backend: `[Unit]\nDescription=IntentSmith backend\nStartLimitIntervalSec=120\nStartLimitBurst=3\n\n[Service]\nType=simple\n${common}ExecStart=${quotedPath(node)} ${quotedPath(join(sourceRoot,'src/server.js'))}\nRestart=on-failure\nRestartSec=3\nTimeoutStopSec=30\n\n[Install]\nWantedBy=default.target\n`,
@@ -37,6 +39,20 @@ export function renderDesktopInstallation(config) {
     timer: '[Unit]\nDescription=IntentSmith nightly model hunt\n\n[Timer]\nOnCalendar=*-*-* 03:00:00\nRandomizedDelaySec=15m\nAccuracySec=5m\nPersistent=true\nUnit=intentsmith-model-hunt.service\n\n[Install]\nWantedBy=timers.target\n',
     desktop: `[Desktop Entry]\nType=Application\nName=IntentSmith\nComment=Lokální AI pracovní prostředí\nExec=${quotedPath(node)} ${quotedPath(join(sourceRoot,'scripts/desktop-runtime.mjs'))}\nIcon=${icon}\nTerminal=false\nCategories=Development;Utility;\nStartupNotify=true\nStartupWMClass=IntentSmith\n`,
   };
+}
+
+export async function verifyDesktopUnits(files) {
+  const dir = await mkdtemp(join(tmpdir(), 'intentsmith-units-'));
+  try {
+    const paths = [];
+    for (const [key, name] of [['backend','intentsmith-backend.service'], ['hunt','intentsmith-model-hunt.service'], ['timer','intentsmith-model-hunt.timer']]) {
+      const file = join(dir, name);
+      await writeFile(file, files[key], { mode: 0o600 }); paths.push(file);
+    }
+    const result = await exec('/usr/bin/systemd-analyze', ['--user','--generators=no','--man=no','verify',...paths], { timeout: 15000 });
+    // Ignored EnvironmentFile is a warning with exit 0: it is still a bad install.
+    if (result.stderr.trim()) throw new Error(`DESKTOP_UNIT_VALIDATION: ${result.stderr.trim()}`);
+  } finally { await rm(dir, { recursive: true, force: true }); }
 }
 
 export async function waitForBackend(config, { timeoutMs = 30000, fetchImpl = fetch } = {}) {

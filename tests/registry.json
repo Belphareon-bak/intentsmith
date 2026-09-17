@@ -15693,7 +15693,10 @@
         "database": false,
         "server": false,
         "ollama": false,
-        "gpu": false
+        "gpu": false,
+        "toolchain": [
+          "systemd-analyze"
+        ]
       },
       "required": true,
       "owner": "WP-DESKTOP-HUNT-20260917",

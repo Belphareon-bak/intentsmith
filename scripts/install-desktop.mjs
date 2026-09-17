@@ -7,7 +7,7 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import Database from 'better-sqlite3';
 import { runMigrations } from '../src/db/migrate.js';
-import { ROOT, renderDesktopInstallation, writePrivate, waitForBackend } from './desktop-runtime.mjs';
+import { ROOT, renderDesktopInstallation, verifyDesktopUnits, writePrivate, waitForBackend } from './desktop-runtime.mjs';
 const exec = promisify(execFile);
 const arg = name => process.argv.find(v => v.startsWith(`--${name}=`))?.slice(name.length + 3);
 const systemctl = args => exec('/usr/bin/systemctl', ['--user', ...args], { timeout: 40000 });
@@ -25,6 +25,8 @@ const stateDirectory = join(homedir(), '.local/state/intentsmith');
 const config = { schemaVersion: 1, revision, sourceRoot, node: process.execPath, dbPath, configDirectory, stateDirectory,
   icon: join(sourceRoot,'c3-ide/applications/electron/resources/intentsmith-icon.png'), pdfPython: process.env.INTENTSMITH_PDF_PYTHON || null };
 const files = renderDesktopInstallation(config);
+// Validate with systemd itself before touching the timer, live DB or configuration.
+await verifyDesktopUnits(files);
 if (!process.argv.includes('--apply')) {
   console.log(JSON.stringify({ config, files, next: 'Repeat with --apply to back up and install' }, null, 2));
   process.exit(0);
