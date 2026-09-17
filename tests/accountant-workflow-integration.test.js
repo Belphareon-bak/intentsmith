@@ -11,7 +11,8 @@ import {worker} from '../src/accounting/worker.js';
 import {importPaths,answer,reviewDocument,compute,exportCase} from '../src/accounting/service.js';
 import {ANNUAL_FACTS} from '../specialists/accountant-cz/workflow/annual.js';
 
-if(process.env.INTENTSMITH_PDF_PYTHON)process.env.UCETNI_RUNTIME_DIR=path.resolve(path.dirname(process.env.INTENTSMITH_PDF_PYTHON),'../..');
+// Accounting OCR and generic chat PDF export have independent pinned runtimes.
+// The audit runner forwards only the declared UCETNI_RUNTIME_DIR toolchain.
 const execute=promisify(execFile),root=await fs.mkdtemp(path.join(process.env.INTENTSMITH_TEST_ARTIFACT_DIR??os.tmpdir(),'accountant-journey-')),store=new AccountingStore(path.join(root,'state'));
 const profile={firstName:'Test',lastName:'Příklad',dic:'7001010007',birthNumber:'7001010007',taxOffice:'451',taxOfficeBranch:'2001',street:'Testovací',houseNumber:'1',city:'Praha',postalCode:'11000',confirmed:true,vatPayer:true,nace:'620100',csszOffice:'101',socialVariableSymbol:'12345678',healthInsurer:'207'};
 let invoiceId,supportId;

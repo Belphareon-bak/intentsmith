@@ -12,19 +12,31 @@ skutečný server/SQLite/Ollamu i kontrolované negativní terminály.**
 Neutrální dokument, nezávislý na nástroji.
 Pravidla vývoje: [`CONTRACT.md`](CONTRACT.md) · Detail: [`docs/inventory/`](docs/inventory/)
 
-**Nainstalovaná oprava specialistů ve Studiu, 2026-09-17:** `3f005fc0` integruje
-účetní dokumentový workflow a autonomního Sázkaře, zachovává časový kontext
-i souběžné opravy soukromí a panelů `3bbf8bc1`. Poslední delta 6/6 focused
-PASS a skutečné Electron PDF/HEIC journey PASS. Celý profil na `be0f5d65`: 356 PASS /
+**Aktuální společná instalace 2026-09-17:** `3f005fc0` spojuje specialisty,
+opravný commit `3bbf8bc1` (privacy/panely) a obecný časový kontext.
+Privacy + Studio focused PASS; fyzická geometrie a vstupy chatu ověřeny
+přes skutečnou ikonu i reload běžného profilu. Profil společného zdroje
+na `e564f22c` má **357 PASS / 1 FAIL / 1 BLOCKED**: release pečeť a oddělený
+OCR runtime. OCR program samostatně ve svém prostředí PASS. Produktové
+zdroje jsou shodné s instalovaným `3f005fc0`; 354/1 níže patří předchozímu
+`3bbf8bc1`. Neúspěšný profil z dlouhé instalační cesty a kolísání heap testu
+jsou zachované v [navazujícím packetu](docs/review/2026-09-17-PRIVACY-PANELS-REREVIEW.md).
+
+**Oprava specialistů ve Studiu, 2026-09-17:** kandidát `be0f5d65` integruje
+účetní dokumentový workflow a autonomního Sázkaře, zachovává instalovanou
+opravu časového kontextu `58d7cced`. Čistý instalační snapshot: 7/7 focused
+PASS a skutečné Electron PDF/HEIC journey PASS. Celý profil: 356 PASS /
 2 FAIL / 1 BLOCKED (release seal, dokumentační formát LOC, oddělený OCR
 toolchain). Oprava formátu a konečný stav instalace mají vlastní záznam v
 [review packetu](docs/review/2026-09-17-STUDIO-SPECIALISTS.md).
 Živý sázkař je PROVIDER_BLOCKED na zdroji historie; integrace REVIEW_PENDING.
 
-**Re-review R1–R3, pracovní kandidát 2026-09-17:** logování kompatibilního
+**Re-review R1–R3, původní ověřený kandidát `3bbf8bc1`, 2026-09-17:** logování kompatibilního
 chatu a projektová pracovní paměť mají navazující regresní opravu; panelový
 commit `4fca7e67` je integrován jako `da0c9120`. 36 privacy/settings testů
-a produkční Studio build PASS. Kompletní profil a instalace zatím pending.
+a produkční Studio build PASS. Úplný profil **354 PASS / 1 FAIL**, jen známá
+release pečeť. Fyzické panely: 240/416 px, dostupné také po reloadu, ověřeno
+v privátním i běžném profilu. Sledované DB tabulky mají nezměněné hashe.
 Nové nezávislé přijetí zůstává otevřené, původní verdikt je `CHANGES_REQUIRED`.
 [Packet](docs/review/2026-09-17-PRIVACY-PANELS-REREVIEW.md).
 
@@ -200,8 +212,8 @@ incumbenta má DB retry regresi. Panel D1/D2/R1/R2 je dokončený (12 kandidát�
 
 | | |
 |---|---:|
-| `src/**/*.js` | **224 975 ř.**, 627 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **245 915 ř.**, 531 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **224 977 ř.**, 627 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **246 001 ř.**, 531 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **523** (`429 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 100** |
 | HTTP rout | **245 statických deklarací**; nejde o počet runtime ověřených cest |

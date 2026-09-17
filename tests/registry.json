@@ -15598,7 +15598,10 @@
         "database": true,
         "server": true,
         "ollama": false,
-        "gpu": false
+        "gpu": false,
+        "toolchain": [
+          "openssl"
+        ]
       },
       "required": true,
       "owner": "primary implementer",

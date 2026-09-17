@@ -336,6 +336,8 @@ test('deterministic phase opens only exact locally preflighted toolchains', () =
     'toolchain:git',
     'toolchain:bubblewrap',
     'toolchain:prlimit',
+    'toolchain:systemd-analyze',
+    'toolchain:accountant-ocr-runtime',
   ]);
   const source = readFileSync(
     path.join(repositoryRoot, 'scripts', 'nightly-audit.js'),

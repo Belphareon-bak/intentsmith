@@ -5,9 +5,12 @@ import { createHash, randomUUID } from 'node:crypto';
 import {
   chmodSync,
   existsSync,
+  lstatSync,
+  mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -38,6 +41,15 @@ function createProject() {
 
 function removeProject(projectRoot) {
   rmSync(projectRoot, { recursive: true, force: true });
+}
+
+function createSocketFixture() {
+  // Linux sun_path is 108 bytes. Audit TMPDIR and installed release paths can
+  // exceed it; use a private, short fixture (not a checkout) for real sockets.
+  const root = realpathSync(mkdtempSync('/tmp/is-m2-socket-'));
+  const projectRoot = path.join(root, 'project');
+  mkdirSync(projectRoot, { mode: 0o700 });
+  return { root, projectRoot };
 }
 
 function writeScript(projectRoot, name, source) {
@@ -251,8 +263,8 @@ await testAsync('read-only project and outside root reject writes while private 
 }, 30_000);
 
 await testAsync('pathname Unix sockets outside the exact project are absent from the sandbox', async () => {
-  const projectRoot = createProject();
-  const socketPath = path.join(REPOSITORY_ROOT, `.m2-host-socket-${randomUUID()}.sock`);
+  const { root, projectRoot } = createSocketFixture();
+  const socketPath = path.join(root, 'host.sock');
   let connections = 0;
   const server = createServer(socket => {
     connections += 1;
@@ -263,6 +275,8 @@ await testAsync('pathname Unix sockets outside the exact project are absent from
       server.once('error', reject);
       server.listen(socketPath, resolve);
     });
+    assert(Buffer.byteLength(socketPath) < 108);
+    assert(lstatSync(socketPath).isSocket(), 'exact host socket exists before isolation');
     const scriptPath = writeScript(projectRoot, 'unix-socket.cjs', [
       "'use strict';",
       "const fs = require('node:fs');",
@@ -285,13 +299,12 @@ await testAsync('pathname Unix sockets outside the exact project are absent from
     assert.equal(connections, 0);
   } finally {
     if (server.listening) await new Promise(resolve => server.close(resolve));
-    removeProject(projectRoot);
-    rmSync(socketPath, { force: true });
+    removeProject(root);
   }
 }, 30_000);
 
 await testAsync('pathname Unix sockets inside the read-only project cannot produce host effects', async () => {
-  const projectRoot = createProject();
+  const { root, projectRoot } = createSocketFixture();
   const socketPath = path.join(projectRoot, 'host.sock');
   let connections = 0;
   const server = createServer(socket => {
@@ -303,6 +316,8 @@ await testAsync('pathname Unix sockets inside the read-only project cannot produ
       server.once('error', reject);
       server.listen(socketPath, resolve);
     });
+    assert(Buffer.byteLength(socketPath) < 108);
+    assert(lstatSync(socketPath).isSocket(), 'exact project socket exists before isolation');
     const scriptPath = writeScript(projectRoot, 'project-unix-socket.cjs', [
       "'use strict';",
       "const fs = require('node:fs');",
@@ -323,7 +338,7 @@ await testAsync('pathname Unix sockets inside the read-only project cannot produ
     assert.equal(connections, 0);
   } finally {
     if (server.listening) await new Promise(resolve => server.close(resolve));
-    removeProject(projectRoot);
+    removeProject(root);
   }
 }, 30_000);
 

@@ -1,9 +1,10 @@
 # Loopback HTTPS test identity
 
-`loopback-test-cert.pem` and `loopback-test-key.pem` are public, inert test
-fixtures for the reserved hostname `web.fixture.test`. The key is not a product,
-operator or deployment credential. Never install the certificate in a trust
-store or use this identity outside these tests.
+The suite generates a fresh ephemeral self-signed identity for the reserved
+hostname `web.fixture.test` with the declared `/usr/bin/openssl` toolchain.
+Its private temporary directory is removed immediately after reading the pair,
+including on failure. No certificate or private key is stored in Git. Never
+install the certificate in a trust store or use this identity outside tests.
 
 The registered conversation-web HTTP suite serves this identity only on an
 ephemeral `127.0.0.1` port. Its explicitly injected request seam maps the

@@ -43,6 +43,7 @@ const originalStudioDisplay = process.env.INTENTSMITH_STUDIO_DISPLAY;
 const originalStudioXauthority = process.env.INTENTSMITH_STUDIO_XAUTHORITY;
 const originalDisplay = process.env.DISPLAY;
 const originalXauthority = process.env.XAUTHORITY;
+const originalAccountantRuntime = process.env.UCETNI_RUNTIME_DIR;
 const EXECUTION_FIXTURE_TIMEOUT_MS = 1_000;
 let permissiveUmaskActive = false;
 const modelFixtureOnly = process.argv.slice(2).includes('--model-fixture-only');
@@ -1126,6 +1127,43 @@ assert.deepEqual(
   ['toolchain:x11-display:invalid-xauthority'],
 );
 
+// Independent OCR runtime survives HOME isolation only for its declared suite.
+const accountantRoot = await makeTempDirectory(path.join(os.tmpdir(), 'c3-audit-accountant-'));
+await mkdir(path.join(accountantRoot, 'tests'));
+await writeFile(path.join(accountantRoot, 'tests', 'runtime.test.js'), `
+import { writeFileSync } from 'node:fs';
+import path from 'node:path';
+writeFileSync(path.join(process.env.INTENTSMITH_TEST_ARTIFACT_DIR, 'runtime.json'),
+  JSON.stringify({ runtime: process.env.UCETNI_RUNTIME_DIR }));
+`);
+const accountantRequirements = { network: 'none', database: false, server: false,
+  ollama: false, gpu: false, toolchain: ['accountant-ocr-runtime'] };
+await writeFixtureRegistry(accountantRoot, ['tests/runtime.test.js'], { requirements: accountantRequirements });
+const runAccountant = (runId, allowed = true) => runAudit({
+  root: accountantRoot, outDir: 'data/artifacts/audit-runs', runId, allowDirty: true,
+  allowBlockers: new Set(allowed ? ['toolchain:accountant-ocr-runtime'] : []),
+});
+delete process.env.UCETNI_RUNTIME_DIR;
+const missingAccountant = await runAccountant('missing');
+assert.deepEqual(missingAccountant.results[0].blockedBy, ['toolchain:accountant-ocr-runtime:invalid-runtime']);
+const accountantRuntime = path.join(accountantRoot, 'ocr');
+await mkdir(path.join(accountantRuntime, 'venv/bin'), { recursive: true });
+await mkdir(path.join(accountantRuntime, 'tessdata'));
+await symlink(process.execPath, path.join(accountantRuntime, 'venv/bin/python'));
+process.env.UCETNI_RUNTIME_DIR = accountantRuntime;
+assert.equal((await runAccountant('missing-models')).verdict, 'BLOCKED');
+for (const language of ['ces', 'eng']) await writeFile(path.join(accountantRuntime, 'tessdata', language + '.traineddata'), 'fixture');
+assert.equal((await runAccountant('not-authorized', false)).verdict, 'BLOCKED');
+const accountantAllowed = await runAccountant('allowed');
+assert.equal(accountantAllowed.verdict, 'PASS');
+assert.deepEqual(accountantAllowed.results[0].environment.forwardedToolchainKeys, ['UCETNI_RUNTIME_DIR']);
+assert.deepEqual(JSON.parse(await readFile(path.join(accountantAllowed.results[0].environment.artifacts, 'runtime.json'))), { runtime: accountantRuntime });
+await writeFixtureRegistry(accountantRoot, ['tests/runtime.test.js']);
+const accountantUndeclared = await runAccountant('undeclared');
+assert.equal(accountantUndeclared.verdict, 'PASS');
+assert.deepEqual(JSON.parse(await readFile(path.join(accountantUndeclared.results[0].environment.artifacts, 'runtime.json'))), {});
+restoreEnvironmentValue('UCETNI_RUNTIME_DIR', originalAccountantRuntime);
+
 const logOpenFailureRoot = await makeTempDirectory(
   path.join(os.tmpdir(), 'c3-audit-runner-log-open-failure-'),
 );
@@ -1355,6 +1393,7 @@ console.log(
   delete process.env.INTENTSMITH_PDF_PYTHON;
   delete process.env.C3_PDF_PYTHON;
   restoreEnvironmentValue('INTENTSMITH_STUDIO_DISPLAY', originalStudioDisplay);
+  restoreEnvironmentValue('UCETNI_RUNTIME_DIR', originalAccountantRuntime);
   restoreEnvironmentValue('INTENTSMITH_STUDIO_XAUTHORITY', originalStudioXauthority);
   restoreEnvironmentValue('DISPLAY', originalDisplay);
   restoreEnvironmentValue('XAUTHORITY', originalXauthority);

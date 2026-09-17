@@ -34,7 +34,8 @@ uložené položky se nemažou; existující historie chatu je samostatná funkc
 Aktuální autorita:
 [PRODUCT](PRODUCT.md), [ROADMAP](ROADMAP.md), [SYSTEM-MAP](SYSTEM-MAP.md).
 
-**Lokální integrace specialistů:** `codex/specialists-studio-20260917`,
+**Integrovaní specialisté ve společné instalaci `3f005fc0`:** původní větev
+`codex/specialists-studio-20260917`,
 [oprava seznamu, PDF/HEIC a dokumentového workflow](docs/review/2026-09-17-STUDIO-SPECIALISTS.md).
 Nainstalovaný snapshot `3f005fc0` zachovává časový kontext i opravy soukromí
 a rozměrů panelů z `3bbf8bc1`. Nový bundle se načte po zavření a spuštění IDE.
@@ -42,7 +43,7 @@ a rozměrů panelů z `3bbf8bc1`. Nový bundle se načte po zavření a spuště
 historie. Nezávislé review této integrace zůstává otevřené.
 
 
-**Převzatý kandidát soukromí a panelů:** větev
+**Společný kandidát specialistů, soukromí a panelů:** větev
 [`work/privacy-panels-rereview-20260917`](https://github.com/Belphareon-bak/intentsmith/tree/work/privacy-panels-rereview-20260917),
 [opravy re-review a bočních panelů](docs/review/2026-09-17-PRIVACY-PANELS-REREVIEW.md).
 Zachovává [opravu obecného časového kontextu](docs/review/2026-09-17-CHAT-CLOCK-REVIEW.md).

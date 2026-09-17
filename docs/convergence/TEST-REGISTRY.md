@@ -112,7 +112,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T3-TESTS-CONV-CZECH-NODIACRITICS-TEST` | `tests/conv-czech-nodiacritics.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-CONV-CZECH-TEST` | `tests/conv-czech.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-CONV-ENGLISH-TEST` | `tests/conv-english.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
-| `IS-T3-TESTS-CONVERSATION-WEB-HTTP-TEST` | `tests/conversation-web-http.test.js` | `C3-016` | T3 | `server` | 5 s | 2 min | network:loopback, temp-db, server | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-CONVERSATION-WEB-HTTP-TEST` | `tests/conversation-web-http.test.js` | `C3-016` | T3 | `server` | 5 s | 2 min | network:loopback, temp-db, server, toolchain:openssl | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-CONVERSATION-WEB-TEST` | `tests/conversation-web.test.js` | `C3-016` | T1 | `database` | 5 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-CRE-BUILD-ARBITRATION-TEST` | `tests/cre-build-arbitration.test.js` | `C3-003` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-CRE-COMPREHENSIVE-TEST` | `tests/cre-comprehensive.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |

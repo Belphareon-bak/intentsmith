@@ -56,6 +56,8 @@ export function buildM6CandidateExecutionPlan(registry) {
         'toolchain:git',
         'toolchain:bubblewrap',
         'toolchain:prlimit',
+        'toolchain:systemd-analyze',
+        'toolchain:accountant-ocr-runtime',
       ],
       requiresCleanCandidate: true,
       requiresFreshClone: false,
