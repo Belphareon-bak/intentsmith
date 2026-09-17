@@ -88,6 +88,9 @@ const val = n => { const h = args.find(a => a.startsWith(`--${n}=`)); return h ?
 const DO_RUN = flag('run');
 const AS_JSON = flag('json');
 const INSTALLED_PANEL = flag('installed-panel');
+const EVALUATE_INSTALLED = flag('evaluate-installed');
+const EXPECTED_DIGEST = val('expected-digest');
+const EXPECTED_CONTRACT = val('expected-contract');
 const limitInput = val('limit') ?? (INSTALLED_PANEL ? String(Number.MAX_SAFE_INTEGER) : '3');
 const LIMIT = Number(limitInput);
 if (!/^\d+$/.test(limitInput) || !Number.isSafeInteger(LIMIT) || LIMIT < 1) {
@@ -148,6 +151,9 @@ const emitJsonArtifact = payload => {
  */
 const ROLE_FILTER = (val('role') || '').split(',').map(r => r.trim().toUpperCase()).filter(Boolean);
 const ALL_ROLES = Object.keys(config.models);
+if (EVALUATE_INSTALLED && (!DO_RUN || ONLY.length !== 1 || ROLE_FILTER.length !== 1 || !ALL_ROLES.includes(ROLE_FILTER[0])
+  || !/^[a-f0-9]{64}$/.test(EXPECTED_DIGEST || '') || !/^[a-f0-9]{64}$/.test(EXPECTED_CONTRACT || '')
+  || PRUNE_REJECTED || REMOTE_ONLY || INSTALLED_PANEL)) throw new Error('MODEL_EVALUATION_REQUEST_INVALID');
 const unknownRoles = ROLE_FILTER.filter(r => !ALL_ROLES.includes(r));
 if (unknownRoles.length) {
   console.error(`Neznámá role: ${unknownRoles.join(', ')}. Dostupné: ${ALL_ROLES.join(', ')}`);
@@ -399,6 +405,7 @@ const evaluationDecisionStore = new ModelEvaluationDecisionStore(db);
 const bindingRepository = createModelFailoverRepository(db);
 const evaluationRunner = new RoleQualityEvaluationRunner(config.ollama?.baseUrl);
 const evaluationPlans = createRoleEvaluationPlans();
+if (EVALUATE_INSTALLED && evaluationPlans[ROLE_FILTER[0]].suiteContractSha256 !== EXPECTED_CONTRACT) throw new Error('MODEL_EVALUATION_CONTRACT_CHANGED');
 
 const currentBindingNames = inventory => {
   const names = resolveCurrentBindings(config.models, bindingRepository, ALL_ROLES).bindings;
@@ -663,6 +670,7 @@ if (ONLY.length) {
   picked = [];
   for (const name of ONLY) {
     const local = installed.find(candidate => canonicalModelName(candidate.name) === canonicalModelName(name));
+    if (EVALUATE_INSTALLED && (!local || local.artifact?.digestSha256 !== EXPECTED_DIGEST)) throw new Error('MODEL_EVALUATION_ARTIFACT_CHANGED');
     // An explicit remote name still needs a catalog size before any pull.
     // Unknown/private artifacts fail closed at the same storage gate.
     const tags = local ? [] : await fetchFamilyTags(name.split(':')[0]);
@@ -799,7 +807,7 @@ const historyCallbacks = createHistoryCallbacks({
   hardware: gpu,
   measurements,
 });
-for (const name of new Set(readyRoles.map(role => bindings[role]).filter(Boolean))) {
+for (const name of new Set(EVALUATE_INSTALLED ? [] : readyRoles.map(role => bindings[role]).filter(Boolean))) {
   const artifact = await historyCallbacks.resolveArtifact(name);
   const matchingRole = readyRoles.find(role => canonicalModelName(bindings[role]) === canonicalModelName(name));
   const plan = matchingRole ? evaluationPlans[matchingRole] : null;
@@ -846,6 +854,7 @@ for (const cand of toTry) {
     ...measurementOptions,
     beforeMeasure: async name => {
       const artifact = await historyCallbacks.refreshArtifact(name);
+      if (EVALUATE_INSTALLED && artifact.digestSha256 !== EXPECTED_DIGEST) throw new Error('MODEL_EVALUATION_ARTIFACT_CHANGED');
       // A long download must not turn the earlier idle check into permission
       // to evict a model loaded by an interactive user meanwhile.
       if (SCHEDULED) {
@@ -857,6 +866,7 @@ for (const cand of toTry) {
       return artifact;
     },
     runner: evaluationRunner,
+    evaluationOnly: EVALUATE_INSTALLED,
     pullModel: async (name, onProgress, authority) => {
       const recovered = await upgradeManager.recoverOutstandingModelPulls(onProgress, {
         modelNames: [name], providerOrigin: new URL(PULL_PROVIDER_URL).origin,
@@ -917,6 +927,8 @@ for (const cand of toTry) {
       } else if (stage === 'roleFailed') {
         log(`     ${info.role} FAILED (${info.model || 'preparation'}): ${info.error}`);
         for (const task of info.failedTasks || []) log(`       ${task.name}: ${task.error || 'timeout'}`);
+      } else if (stage === 'roleEvaluated') {
+        log(`     ${info.role}: skóre ${info.score}${info.reused ? ' (aktuální uložené měření)' : ''}`);
       } else if (stage === 'roleDecided') {
         const d = info.decision;
         log(`     ${info.role.padEnd(7)} ${d.winner === 'candidate' ? 'KANDIDÁT' : 'stávající'}  (${d.basis}) ${d.detail}`);
@@ -929,7 +941,7 @@ for (const cand of toTry) {
   r.failureRecords = recordRoleEvaluationFailures({ result: r, history: modelEvaluationHistory, plans: evaluationPlans, hardware: gpu });
   results.push(r);
   publishProgress('evaluating', null, results.map(item => item.model));
-  huntState.record(cand, huntState.evaluationKey(cand, providerVersion, evaluationPlans, gpu), r);
+  if (!EVALUATE_INSTALLED) huntState.record(cand, huntState.evaluationKey(cand, providerVersion, evaluationPlans, gpu), r);
 
   if (r.error) {
     let artifact;

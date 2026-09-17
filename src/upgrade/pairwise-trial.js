@@ -396,6 +396,16 @@ export function decideRole(comparison, _speed = {}, threshold = 0.05, evidence =
 /**
  * Kompletní souboj pro jednu roli: porovná a rozhodne.
  */
+// The same response-bound, append-only suite path without manufacturing a duel.
+export async function evaluateRole(runner, role, model, opts = {}) {
+  const plan = opts.evaluationPlan;
+  if (!plan || plan.decisionReady === false) throw new Error('MODEL_EVALUATION_PLAN_UNAVAILABLE');
+  return runSuiteCached(runner, plan.suiteName, model, opts.suiteCache, {
+    ...opts, role, suite: plan.suite, suiteVersion: plan.suiteVersion,
+    suiteContractSha256: plan.suiteContractSha256,
+  });
+}
+
 export async function trialRole(runner, role, candidate, incumbent, opts = {}) {
   const plan = opts.evaluationPlan || null;
   if (!plan) {

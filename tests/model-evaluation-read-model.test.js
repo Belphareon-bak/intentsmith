@@ -502,6 +502,7 @@ test('provider-filtered coverage replays offline and its filter cannot be tamper
   const providerVersion = '0.34.0-intentsmith.1';
   const missing = reader.read({ inventory, providerVersion });
   assertEqual(missing.models[0].evaluations.CODE.status, 'MISSING');
+  assertEqual(missing.models[0].evaluations.CODE.missingReason, 'PROVIDER_CHANGED');
   assert(renderEvaluationReport(missing).includes(`Provider filtr: ${providerVersion}`));
   insert(db, { runId: 'current-provider', digest: DIGEST, plan: plans.CODE, score: 0.4 });
   db.prepare('UPDATE model_evaluation_runs SET metadata_json = ? WHERE run_id = ?')
@@ -544,7 +545,7 @@ function studioFunction(name, endMarker) {
 test('shipped scoring renderer shows exact recorded provider and never invents a legacy version', () => {
   const render = studioFunction('_renderEvaluationsTab', '/* ═');
   const context = {
-    _evaluationLoading: false, _assigningRole: null,
+    _evaluationLoading: false, _assigningRole: null, _evaluationModelFilter: '', _modelTestPending: false,
     _evaluationData: { coverage: {}, bindingAuthority: { status: 'UNVERIFIED_RUNTIME' }, roles: {
       R2: { suiteName: 'review_v2', suiteVersion: 'test', suiteContractSha256: 'c'.repeat(64),
         artifacts: [

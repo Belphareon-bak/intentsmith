@@ -208,6 +208,7 @@ test('model evaluation tab renders every decision instead of only the latest row
     },
     _fs: value => value,
     _evaluationLoading: false,
+    _evaluationModelFilter: '', _modelTestPending: false,
     _assigningRole: null,
     _assignModel: () => {},
     _evaluationData: {

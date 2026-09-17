@@ -318,6 +318,15 @@ export function createSystemRoutes({
       try { return sendJSON(res, 200, await huntControl.status()); }
       catch (error) { return sendJSON(res, 503, { code: 'HUNT_UNAVAILABLE', error: error.message }); }
     },
+    'POST /api/system/models/evaluate': async (req, res) => {
+      if (!isLocalOperatorTransportSubject(req.authenticatedSubject)) {
+        return sendJSON(res, 403, { code: 'HUNT_LOCAL_TRANSPORT_REQUIRED' });
+      }
+      try {
+        const body = await parseBody(req);
+        return sendJSON(res, 202, await huntControl.evaluate(body, await modelRegistry.getEvaluations()));
+      } catch (error) { return sendJSON(res, error.httpStatus || 503, { code: error.code || 'MODEL_EVALUATION_FAILED', error: error.message }); }
+    },
     'POST /api/system/models/hunt/control': async (req, res) => {
       if (!isLocalOperatorTransportSubject(req.authenticatedSubject)) {
         return sendJSON(res, 403, { code: 'HUNT_LOCAL_TRANSPORT_REQUIRED' });

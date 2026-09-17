@@ -8,7 +8,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import vm from 'node:vm';
 import { createHuntControl } from '../src/system/hunt-control.js';
-import { analyzeHuntDecisions } from '../src/upgrade/model-hunt-diagnostics.js';
+import { analyzeHuntDecisions, inspectHuntGpu } from '../src/upgrade/model-hunt-diagnostics.js';
 import { createGlobalAuthAuthority } from '../src/security/global-auth-policy.js';
 import { createSystemRoutes } from '../src/routes/system.js';
 import { ROOT, refreshDesktopCaches, renderDesktopInstallation, resolveElectronSandboxArgs, verifyDesktopUnits, waitForBackend, writePrivate } from '../scripts/desktop-runtime.mjs';
@@ -108,7 +108,7 @@ test('hunt status shows observed queue, failures and the actual timer independen
   await writeFile(join(config.stateDirectory,'model-hunt/current.json'),JSON.stringify({runId:'run-abc',status:'SCHEDULED_SKIPPED',reasons:['GPU_BUSY']}),{mode:0o600});
   await writeFile(join(config.stateDirectory,'model-hunt/run-abc/progress.json'),JSON.stringify({updatedAt:'2026-09-17T00:00:00Z',queue:[{name:'fixture',state:'PENDING'}]}),{mode:0o600});
   let drift=false;
-  const control=createHuntControl({installationFile:file,databasePath:config.dbPath,run:async args=>{calls.push(args);return {stdout:'LoadState=loaded\nActiveState='+ (args[1].endsWith('.timer')?'active':'inactive')+'\n'+
+  const control=createHuntControl({installationFile:file,databasePath:config.dbPath,inspectGpu:async()=>({available:true}),run:async args=>{calls.push(args);return {stdout:'LoadState=loaded\nActiveState='+ (args[1].endsWith('.timer')?'active':'inactive')+'\n'+
     `WorkingDirectory=${drift?'/wrong':ROOT}\nExecStart={ path=${process.execPath} ; argv[]=${process.execPath} ${ROOT}/scripts/run-model-hunt-provider.js ; }\nEnvironmentFiles=${config.configDirectory}/runtime.env (ignore_errors=no)\n`};}});
   const value=await control.status();
   assert.equal(value.state,'WAITING');assert.equal(value.current.status,'SCHEDULED_SKIPPED');
@@ -183,4 +183,74 @@ test('Studio hunt renders queue and skip reason, and cancelled confirmation send
   assert.equal(fetches,0);
   const rendered=JSON.stringify(vm.runInContext('_renderHuntTab()',context));
   assert.match(rendered,/GPU_BUSY/);assert.match(rendered,/candidate/);assert.match(rendered,/Přeskočeno/);
+});
+
+test('GPU mismatch and unknown probe are actionable blockers, never zero-VRAM success',async()=>{
+  const mismatch=await inspectHuntGpu({run:async()=>{throw Object.assign(new Error('exit 18'),{stdout:'Failed to initialize NVML: Driver/library version mismatch\n'});}});
+  assert.equal(mismatch.available,false);assert.equal(mismatch.code,'GPU_DRIVER_LIBRARY_MISMATCH');assert.match(mismatch.message,/restartuj/);
+  const unknown=await inspectHuntGpu({run:async()=>({stdout:'595.91, N/A'})});
+  assert.equal(unknown.available,false);assert.equal(unknown.vramMb,null);
+  const good=await inspectHuntGpu({run:async()=>({stdout:'595.91, 24576\n'})});
+  assert.equal(good.available,true);assert.equal(good.vramMb,24576);
+});
+
+test('selected installed evaluation pins artifact and role, forbids effects on drift/busy/broken GPU',async t=>{
+  const {config,file}=await fixture(t);let launched=[],active=false,available=true;
+  const control=createHuntControl({installationFile:file,databasePath:config.dbPath,
+    inspectGpu:async()=>({available,code:'GPU_PROBE_UNAVAILABLE',message:'GPU unavailable'}),
+    launch:async args=>{launched.push(args);},run:async args=>({stdout:
+      `LoadState=loaded\nActiveState=${active?'active':'inactive'}\nWorkingDirectory=${ROOT}\nExecStart={ path=${process.execPath} ; argv[]=${process.execPath} ${ROOT}/scripts/run-model-hunt-provider.js ; }\nEnvironmentFiles=${config.configDirectory}/runtime.env (ignore_errors=no)\n`})});
+  const request={model:'fixture:7b',role:'CODE',digestSha256:'d'.repeat(64),suiteContractSha256:'e'.repeat(64)};
+  const evaluations={roles:{CODE:{suiteContractSha256:request.suiteContractSha256,decisionReady:true,artifacts:[{model:request.model,digestSha256:request.digestSha256,applicable:true}]}}};
+  await control.evaluate(request,evaluations);
+  assert.equal(launched.length,1);assert.ok(launched[0].includes('--evaluate-installed'));
+  assert.ok(launched[0].includes('--expected-digest='+request.digestSha256));
+  assert.ok(launched[0].includes('--expected-contract='+request.suiteContractSha256));
+  assert.ok(launched[0].includes('--scheduled'));assert.ok(!launched[0].includes('--prune-rejected'));
+  await assert.rejects(control.evaluate({...request,argv:['--prune-rejected']},evaluations),/INVALID/);
+  await assert.rejects(control.evaluate({...request,model:'--help'},evaluations),/INVALID/);
+  await assert.rejects(control.evaluate({...request,digestSha256:'f'.repeat(64)},evaluations),/IDENTITY/);
+  await assert.rejects(control.evaluate({...request,suiteContractSha256:'f'.repeat(64)},evaluations),/IDENTITY/);
+  active=true;await assert.rejects(control.evaluate(request,evaluations),/ALREADY_RUNNING/);
+  active=false;available=false;await assert.rejects(control.evaluate(request,evaluations),/GPU unavailable/);
+  assert.equal(launched.length,1);
+});
+
+test('selected evaluation HTTP rejects a remote or forged subject before reading inventory',async()=>{
+  let effects=0;
+  const routes=createSystemRoutes({db:{},sendJSON:(_r,status,value)=>({status,value}),parseBody:async()=>{effects++;return {};},huntControl:{evaluate:async()=>{effects++;}}});
+  const result=await routes['POST /api/system/models/evaluate']({authenticatedSubject:{actorType:'user',actorId:'local-operator'}},{});
+  assert.equal(result.status,403);assert.equal(effects,0);
+});
+
+test('candidate filtering keeps estimates separate from unknown capacity and sorts numeric values',async()=>{
+  const source=await readFile(join(ROOT,'c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
+  const start=source.indexOf('var _candidateFilter='),end=source.indexOf('function _renderDiscoveredTab()',start);
+  const context=vm.createContext({});vm.runInContext(source.slice(start,end),context);
+  context.data={vramBudgetMb:20*1024,candidates:[
+    {name:'large',params:30,vramMb:25*1024},{name:'small',params:7,vramMb:5*1024},
+    {name:'medium',params:14,vramMb:10*1024},{name:'unknown',params:null,vramMb:null},
+  ]};
+  assert.equal(vm.runInContext('_filteredCandidates(data).rows.map(m=>m.name).join(",")',context),'medium,small');
+  vm.runInContext('_candidateFilter.sort="params-asc"',context);
+  assert.equal(vm.runInContext('_filteredCandidates(data).rows.map(m=>m.name).join(",")',context),'small,medium');
+  context.data.vramBudgetMb=null;
+  assert.equal(vm.runInContext('_filteredCandidates(data).rows.length',context),0);
+  vm.runInContext('_candidateFilter.budgetGiB="24"',context);
+  assert.equal(vm.runInContext('_filteredCandidates(data).rows.length',context),2);
+  vm.runInContext('_candidateFilter.fit="all"',context);
+  assert.equal(vm.runInContext('_filteredCandidates(data).rows.at(-1).name',context),'unknown');
+});
+
+test('Studio selected test sends the current exact artifact and role, no arbitrary arguments',async()=>{
+  const source=await readFile(join(ROOT,'c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
+  const start=source.indexOf('function _testInstalledModel('),end=source.indexOf('\nsetInterval(',start);
+  const calls=[];const context=vm.createContext({AbortSignal,confirm:()=>true,renderCenter(){},_loadHuntStatus(){},
+    _modelTestPending:false,_modelTestMessage:null,_backendBase:'http://fixture',_canonicalModelIdentity:n=>n,
+    fetch:async(url,options)=>{calls.push({url,options});return {ok:true,json:async()=>url.endsWith('/evaluations')?{roles:{CODE:{suiteContractSha256:'e'.repeat(64),artifacts:[{model:'fixture:7b',digestSha256:'d'.repeat(64)}]}}}:{accepted:true}};}});
+  vm.runInContext(source.slice(start,end)+';_testInstalledModel("fixture:7b","CODE");_testInstalledModel("fixture:7b","CODE");',context);
+  await new Promise(r=>setImmediate(r));assert.equal(calls.length,2);
+  assert.ok(calls[1].url.endsWith('/models/evaluate'));
+  assert.deepEqual(JSON.parse(calls[1].options.body),{model:'fixture:7b',role:'CODE',digestSha256:'d'.repeat(64),suiteContractSha256:'e'.repeat(64)});
+  assert.equal(context._modelTestPending,false);assert.equal(context._upgradeTab,'hunt');
 });

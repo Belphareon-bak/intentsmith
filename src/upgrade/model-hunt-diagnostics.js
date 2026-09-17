@@ -1,3 +1,6 @@
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
 // Diagnose recorded evidence; this never changes a score, policy or model binding.
 export function analyzeHuntDecisions(results = []) {
   const cases = [];
@@ -23,4 +26,19 @@ export function analyzeHuntDecisions(results = []) {
     variabilityLimited: cases.filter(c => c.diagnosis === 'VARIABILITY_LIMITED').length,
     smallObservedDifference: cases.filter(c => c.diagnosis === 'SMALL_OBSERVED_DIFFERENCE').length,
     cases, limitation: 'Diagnostic of recorded tasks only; more repeats or new tasks require a new exact contract and incumbent baseline.' };
+}
+
+// Unknown GPU state must never authorize inference or retention.
+export async function inspectHuntGpu({ run = promisify(execFile) } = {}) {
+  try {
+    const { stdout } = await run('nvidia-smi', ['--query-gpu=driver_version,memory.total', '--format=csv,noheader,nounits'], { timeout: 5000, maxBuffer: 16384 });
+    const rows = stdout.trim().split('\n').map(line => line.split(',').map(s => s.trim()));
+    if (!rows.length || rows.some(row => !/^[0-9.]+$/.test(row[0]) || !(Number(row[1]) > 0))) throw new Error('Invalid GPU response');
+    return { available: true, vramMb: Math.max(...rows.map(row => Number(row[1]))), driverVersion: rows[0][0], code: null, message: null };
+  } catch (error) {
+    const mismatch = /Driver\/library version mismatch/i.test(String(error.stdout || '') + String(error.stderr || '') + error.message);
+    return { available: false, vramMb: null, code: mismatch ? 'GPU_DRIVER_LIBRARY_MISMATCH' : 'GPU_PROBE_UNAVAILABLE',
+      message: mismatch ? 'NVIDIA ovladač a knihovna NVML mají rozdílné verze. Ulož práci a restartuj počítač; potom měření spusť znovu.'
+        : 'Stav NVIDIA GPU nelze ověřit. Zkontroluj ovladač; měření ani automatické mazání se nespustí.' };
+  }
 }

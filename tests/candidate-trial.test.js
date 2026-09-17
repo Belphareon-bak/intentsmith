@@ -607,4 +607,25 @@ await testAsync('incumbent failure is attributed exactly and later candidate rol
   } finally { restore(); }
 });
 
+await testAsync('selected installed test measures only the requested role and persists without a duel, pull or deletion', async () => {
+  const seen = stubOllama({ answers: GOOD_ANSWERS, placement: FITS, currentModel: 'cand:27b' });
+  try {
+    const calls = [], saved = [], runner = fakeRunner({});
+    const original = runner.runSuite;
+    runner.runSuite = async (suite, model, ...args) => { calls.push({suite,model}); return original(suite,model,...args); };
+    const result = await tryCandidate('cand:27b', {
+      ...FAST_DRAIN, runner, skipPull: true, evaluationOnly: true, allowRemoval: false,
+      roles: ['CODE'], bindings: { CODE: 'different:27b' },
+      trialOpts: { repeats: 3, resolveArtifact: async modelName => ({modelName,digestSha256:'a'.repeat(64)}),
+        saveHistoricalSummary: async value => { saved.push(value); return {runId:'saved'}; } },
+    });
+    assertEqual(result.roleErrors.length,0);assertEqual(calls.length,3);
+    assert(calls.every(c=>c.model==='cand:27b'&&c.suite==='code_patch'));
+    assertEqual(saved.length,1);assertEqual(saved[0].role,'CODE');assertEqual(saved[0].summary.runs,3);
+    assertEqual(result.trials[0].evaluation.historyRunId,'saved');
+    assertEqual(Object.keys(result.decisions).length,0);assertEqual(result.removed,false);
+    assert(!seen.some(c=>c.path==='/api/pull'||c.path==='/api/delete'));
+  } finally { restore(); }
+});
+
 summary();
