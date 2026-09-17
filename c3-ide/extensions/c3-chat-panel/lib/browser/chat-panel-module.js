@@ -713,10 +713,10 @@ function SidebarApp(props){
   var _curS=_sessions[_sessionActive];
   var _showWT=_wtRoot&&_curS&&_curS._projectId;
   return h('div',{style:{display:'flex',flexDirection:'column',position:'absolute',top:0,left:0,right:0,bottom:0,background:C.bg1,fontFamily:C.font,borderRight:'1px solid '+C.border,overflow:'hidden'}},
-    /* Header with C3 Studio + collapse */
+    /* Header with IntentSmith + collapse */
     h('div',{style:{display:'flex',alignItems:'center',padding:'6px 8px 2px',flexShrink:0}},
-      h('div',{style:{width:22,height:22,background:'linear-gradient(135deg,'+C.accent+','+C.accentText+')',borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:_fs(8),color:'#fff',flexShrink:0}},'C3'),
-      h('span',{style:{fontSize:_fs(11),fontWeight:700,color:C.tx1,marginLeft:6,flex:1}},'C3 Studio'),
+      h('img',{src:'../../resources/intentsmith-icon.png',alt:'',style:{width:26,height:26,objectFit:'contain',flexShrink:0}}),
+      h('span',{style:{fontSize:_fs(11),fontWeight:700,color:C.tx1,marginLeft:6,flex:1}},'IntentSmith'),
       h('div',{style:{cursor:'pointer',padding:4,borderRadius:4,color:C.tx4},title:'Sbalit (Ctrl+B)',
         onMouseEnter:function(e){e.currentTarget.style.color=C.tx2;},onMouseLeave:function(e){e.currentTarget.style.color=C.tx4;},
         onClick:function(){set({collapsed:true});}},svgEl('<polyline points="15 18 9 12 15 6"/>',14))),
@@ -2437,14 +2437,16 @@ function _renderHuntTab(){
   var labels={RUNNING:'Běží',STOPPING:'Zastavuje se',WAITING:'Čeká na další termín',PAUSED:'Plánovač pozastaven',FAILED:'Běh selhal',
     COMPLETE:'Dokončeno',CANCELLED:'Zastaveno',SCHEDULED_SKIPPED:'Přeskočeno',NO_PENDING_CANDIDATES:'Žádný čekající kandidát',REPORT_MISSING:'Chybí výsledek'};
   var running=d&&(d.state==='RUNNING'||d.state==='STOPPING');
-  function button(label,action,disabled){return h('button',{disabled:!d||_huntActionPending||disabled,
-    onClick:function(){_controlHunt(action);},style:{padding:'7px 12px',cursor:'pointer'}},label);}
-  return h('div',{'data-testid':'hunt-panel'},
+  function controlStyle(disabled){return {padding:'8px 14px',cursor:disabled?'default':'pointer',background:C.bg3,
+    color:C.tx1,border:'1px solid '+C.border2,borderRadius:6,fontFamily:C.font,fontSize:_fs(12),opacity:disabled?0.45:1};}
+  function button(label,action,disabled){disabled=!d||_huntActionPending||disabled;return h('button',{disabled:disabled,
+    onClick:function(){_controlHunt(action);},style:controlStyle(disabled)},label);}
+  return h('div',{'data-testid':'hunt-panel',style:{maxWidth:960,padding:'8px 0',fontSize:_fs(12),lineHeight:1.6,color:C.tx2}},
     h('h3',null,'GPU hunt'),
     h('p',{role:'status'},_huntError?'Aktuální stav není ověřen':d?(labels[d.state]||d.state):(_huntLoading?'Načítám provoz huntu…':'Provoz huntu není dostupný.')),
     _huntError?h('p',{role:'alert',style:{color:'#ef4444'}},'Stav nelze ověřit: '+_huntError):null,
     h('div',{style:{display:'flex',gap:8,flexWrap:'wrap',marginBottom:14}},
-      h('button',{onClick:_loadHuntStatus,disabled:_huntLoading},'Obnovit'),
+      h('button',{onClick:_loadHuntStatus,disabled:_huntLoading,style:controlStyle(_huntLoading)},'Obnovit'),
       button('Spustit nyní','start',running||Boolean(_huntError)),button('Zastavit běh','stop',!running||Boolean(_huntError)),
       button(d&&d.timer.ActiveState==='active'?'Pozastavit plánovač':'Obnovit plánovač',d&&d.timer.ActiveState==='active'?'pause':'resume',Boolean(_huntError))),
     d?h('p',null,'Další termín: '+(d.timer.NextElapseUSecRealtime||'nenaplánován')):null,
@@ -3772,8 +3774,8 @@ function settingsAboutPanel(){
   });
   return h('div',{style:{padding:'30px 0'}},
     h('div',{style:{textAlign:'center'}},
-      h('div',{style:{width:64,height:64,background:'linear-gradient(135deg,#22c55e,#16a34a)',borderRadius:18,display:'inline-flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:_fs(26),color:'#fff',marginBottom:14}},'C3'),
-      h('div',{style:{fontSize:_fs(17),fontWeight:700,color:C.tx1,marginBottom:4}},'C3 Studio'),
+      h('img',{src:'../../resources/intentsmith-icon.png',alt:'',style:{width:80,height:80,objectFit:'contain',marginBottom:14}}),
+      h('div',{style:{fontSize:_fs(17),fontWeight:700,color:C.tx1,marginBottom:4}},'IntentSmith'),
       h('div',{style:{fontSize:_fs(13),color:C.accent,fontWeight:600,marginBottom:16}},'v'+(_serverHealth.version||'...')),
       h('div',{style:{fontSize:_fs(11),color:C.tx4,marginBottom:20}},'Made with \u2764\ufe0f by Belfik')),
     h('div',{style:{borderTop:'1px solid '+C.border,paddingTop:16,marginBottom:20,textAlign:'center'}},
@@ -4350,7 +4352,7 @@ function centerMultimedia(){
 
 // ═══ MEDIA MODULE END ═════════════════════════════════════════════════════════
 
-function centerWelcome(){return h('div',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:12}},h('div',{style:{width:48,height:48,background:'linear-gradient(135deg,#22c55e,#16a34a)',borderRadius:14,display:'flex',alignItems:'center',justifyContent:'center',fontWeight:800,fontSize:_fs(20),color:'#fff'}},'C3'),h('div',{style:{fontSize:_fs(16),fontWeight:700,color:C.tx1}},'C3 Studio'),h('div',{style:{fontSize:_fs(12),color:C.tx3}},'Vyber sekci v levém panelu'));}
+function centerWelcome(){return h('div',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center',flexDirection:'column',gap:12}},h('img',{src:'../../resources/intentsmith-icon.png',alt:'',style:{width:80,height:80,objectFit:'contain'}}),h('div',{style:{fontSize:_fs(16),fontWeight:700,color:C.tx1}},'IntentSmith'),h('div',{style:{fontSize:_fs(12),color:C.tx3}},'Vyber sekci v levém panelu'));}
 
 /* ═══════════════════════════════════════════════════════════
    I3: KEYBOARD SHORTCUTS — scoped, no collisions
@@ -5108,7 +5110,7 @@ function _mkSession(){return{
   _lifecycleResumed:false, /* guard: lifecycle resume message shown only once */
   _m2Pending:null,       /* exact durable {lifecycleId,planDigest,origin} awaiting explicit approval */
   _label:'',             /* v90: snapshot label for relay header — persisted */
-  chat:{msgs:[{role:'system',text:'C3 Studio připraven. Začni psát zprávu.'}],ctx:0,expertise:'Výchozí',specialist:null,showExpertises:false,showAllExpertises:false,attachments:[],editMode:'ask',editingIdx:null,editOriginalText:null,acSuggestion:null,acLoading:false,_thinking:null,_delivery:null,_sendContextToken:{},_sendTurnToken:{},_preparedSend:null},
+  chat:{msgs:[{role:'system',text:'IntentSmith připraven. Začni psát zprávu.'}],ctx:0,expertise:'Výchozí',specialist:null,showExpertises:false,showAllExpertises:false,attachments:[],editMode:'ask',editingIdx:null,editOriginalText:null,acSuggestion:null,acLoading:false,_thinking:null,_delivery:null,_sendContextToken:{},_sendTurnToken:{},_preparedSend:null},
   bottom:'split', /* 'agent' | 'terminal' | 'split' | 'mix' */
   log:[],
   term:[{text:'$ ',ts:new Date().toISOString(),type:'prompt'}],
@@ -5251,7 +5253,7 @@ function _closeDialogAction(choice){
     s.chat.msgs=[];
     s.chat.ctx=0;s.chat.expertise='Výchozí';s.chat.attachments=[];s.chat._thinking=null;s.chat._delivery=null;
     var _now=new Date();
-    s.log=[{time:_now.toLocaleTimeString('cs-CZ'),type:'SYSTEM',cls:'system',text:'C3 Studio připraven. Začni psát zprávu.',active:true,ts:_now.toISOString()}];
+    s.log=[{time:_now.toLocaleTimeString('cs-CZ'),type:'SYSTEM',cls:'system',text:'IntentSmith připraven. Začni psát zprávu.',active:true,ts:_now.toISOString()}];
     s.term=[{text:'$ ',ts:_now.toISOString(),type:'prompt'}];
     _perSessionTree[idx]=null;
     if(idx===_sessionActive){_wtRoot='';_wtRawTree=null;FILES=[];renderSidebar();}

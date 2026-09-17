@@ -96,4 +96,5 @@ await systemctl(['reset-failed','intentsmith-backend.service']);
 await systemctl(['restart','intentsmith-backend.service']);
 await waitForBackend(config);
 await systemctl(['enable','--now','intentsmith-model-hunt.timer']);
-console.log(JSON.stringify({ installed:true, revision, dbPath, backup, launcher: targets.at(-1)[0] },null,2));
+console.log(JSON.stringify({ installed:true, revision, dbPath, backup,
+  launcher: join(homedir(),'.local/share/applications/intentsmith.desktop') },null,2));

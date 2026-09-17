@@ -5,7 +5,9 @@ import { readFileSync, writeFileSync, renameSync, mkdirSync, mkdtempSync, rmSync
 import { homedir } from 'node:os';
 import { resolve, join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawn, execFileSync } from 'node:child_process';
+import { spawn, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { readFile } from 'node:fs/promises';
 import { once } from 'node:events';
 import { createServer } from 'node:net';
 import { analyzeHuntDecisions } from '../src/upgrade/model-hunt-diagnostics.js';
@@ -42,6 +44,7 @@ try {
 await new Promise(ok => port.close(ok));
 publish({ status: 'RUNNING', phase: 'provider-start' });
 let provider, hunt, providerError, stopping = false;
+const cancellation = new AbortController();
 const delay = ms => new Promise(ok => setTimeout(ok, ms));
 // Ollama's native runners inherit its process group. Killing only the Go
 // parent can leave a llama-server holding GPU memory after cancellation.
@@ -50,12 +53,15 @@ const signalProviderGroup = signal => {
   try { process.kill(-provider.pid, signal); return true; }
   catch (error) { if (error.code === 'ESRCH') return false; throw error; }
 };
-const stop = () => { stopping = true; hunt?.kill('SIGTERM'); };
+const stop = () => { stopping = true; cancellation.abort(); hunt?.kill('SIGTERM'); };
 process.on('SIGTERM', stop);
 process.on('SIGINT', stop);
 try {
-  if (createHash('sha256').update(readFileSync(binary)).digest('hex') !== expected) throw new Error('EVALUATION_PROVIDER_BINARY_MISMATCH');
-  execFileSync('sha256sum', ['--check', '--quiet', 'native.sha256'], { cwd: runtime, timeout: 60_000 });
+  if (createHash('sha256').update(await readFile(binary)).digest('hex') !== expected) throw new Error('EVALUATION_PROVIDER_BINARY_MISMATCH');
+  await promisify(execFile)('sha256sum', ['--check', '--quiet', 'native.sha256'], {
+    cwd: runtime, timeout: 60_000, signal: cancellation.signal,
+  });
+  if (stopping) throw new Error('HUNT_CANCELLED');
   const fd = openSync(join(runDir, 'provider.log'), 'w', 0o600);
   provider = spawn(binary, ['serve'], {
     detached: true,
@@ -80,6 +86,7 @@ try {
     } catch { /* startup */ }
     await delay(100);
   }
+  if (stopping) throw new Error('HUNT_CANCELLED');
   if (!ready) throw new Error('EVALUATION_PROVIDER_START_FAILED');
   const args = process.argv.slice(2);
   const reportArgs = args.some(arg => arg.startsWith('--report=')) ? [] : [`--report=${join(runDir, 'result.json')}`];

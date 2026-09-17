@@ -19,7 +19,11 @@ Výběr lepšího modelu není jeho automatická aktivace.
 
 Instalace a skutečně sdílená DB jsou zapsané v
 `~/.config/intentsmith/installation.json`. Backend a hunt používají stejný
-`runtime.env`; adaptér odmítne ovládání při rozdílu zdroje nebo DB. Zdroj je
+`runtime.env`; adaptér odmítne ovládání při rozdílu zdroje nebo DB. Backend je
+spuštěný s `NODE_ENV=production`. Instalátor vytvoří soukromý `admin.env`
+s náhodným administrátorským údajem (práva 0600), další instalace jej zachová.
+Studio používá vlastní privátní lokální capability z port file. Připravenost
+vyžaduje úspěch s capability i odmítnutí požadavku bez ní. Zdroj je
 samostatný čistý detached checkout konkrétní revize, nezávislý na pracovních
 větvích. Data zůstávají na explicitně vybrané původní cestě, nekopírují se
 potichu do nové prázdné DB. Starší CODE skóre z jiného kontraktu není baseline.

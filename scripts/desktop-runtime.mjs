@@ -2,7 +2,7 @@ import { readFile, writeFile, rename, mkdir, mkdtemp, rm } from 'node:fs/promise
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createRequire } from 'node:module';
-import { homedir, tmpdir } from 'node:os';
+import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 const exec = promisify(execFile);
@@ -42,7 +42,8 @@ export function renderDesktopInstallation(config) {
 }
 
 export async function verifyDesktopUnits(files) {
-  const dir = await mkdtemp(join(tmpdir(), 'intentsmith-units-'));
+  // systemd expands user socket paths here; deep test TMPDIR exceeds sun_path.
+  const dir = await mkdtemp('/tmp/is-units-');
   try {
     const paths = [];
     for (const [key, name] of [['backend','intentsmith-backend.service'], ['hunt','intentsmith-model-hunt.service'], ['timer','intentsmith-model-hunt.timer']]) {

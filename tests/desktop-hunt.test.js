@@ -133,7 +133,7 @@ test('Studio hunt renders queue and skip reason, and cancelled confirmation send
   let fetches=0;
   const context=vm.createContext({setInterval(){},confirm:()=>false,fetch:()=>{fetches++;},
     _backendBase:'http://fixture',_centerState:{view:'upgrades'},_upgradeTab:'hunt',renderCenter(){},
-    C:{tx3:'#888',border:'#333'},h:(tag,props,...children)=>({tag,props,children})});
+    _fs:n=>n,C:{tx3:'#888',border:'#333'},h:(tag,props,...children)=>({tag,props,children})});
   vm.runInContext(source.slice(start,end),context);
   vm.runInContext("_huntData={state:'WAITING',timer:{ActiveState:'active'},installation:{revision:'abcdef123456'},current:{status:'SCHEDULED_SKIPPED',reasons:['GPU_BUSY']},queue:[{name:'candidate',roles:['CODE'],state:'PENDING'}]};_controlHunt('start');",context);
   assert.equal(fetches,0);

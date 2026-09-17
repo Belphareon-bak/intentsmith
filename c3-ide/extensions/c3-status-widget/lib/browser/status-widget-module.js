@@ -43,8 +43,8 @@ let C3StatusBarContribution = class C3StatusBarContribution {
     try {
       // C3 brand
       this.statusBar.setElement('c3-brand', {
-        text: '$(c3) C3 Studio',
-        tooltip: 'C3 Studio',
+        text: '$(c3) IntentSmith',
+        tooltip: 'IntentSmith',
         alignment: browser_1.StatusBarAlignment.LEFT,
         priority: 1000
       });
@@ -52,7 +52,7 @@ let C3StatusBarContribution = class C3StatusBarContribution {
       // Version (placeholder — updated dynamically from backend)
       this.statusBar.setElement('c3-version', {
         text: 'v...',
-        tooltip: 'C3 Studio version',
+        tooltip: 'IntentSmith version',
         alignment: browser_1.StatusBarAlignment.LEFT,
         priority: 999
       });
@@ -117,13 +117,13 @@ let C3StatusBarContribution = class C3StatusBarContribution {
           this._versionFetched = true;
           this.statusBar.setElement('c3-version', {
             text: 'v' + data.version,
-            tooltip: 'C3 Studio v' + data.version,
+            tooltip: 'IntentSmith v' + data.version,
             alignment: browser_1.StatusBarAlignment.LEFT,
             priority: 999
           });
           this.statusBar.setElement('c3-brand', {
-            text: '$(c3) C3 Studio',
-            tooltip: 'C3 Studio v' + data.version,
+            text: '$(c3) IntentSmith',
+            tooltip: 'IntentSmith v' + data.version,
             alignment: browser_1.StatusBarAlignment.LEFT,
             priority: 1000
           });
