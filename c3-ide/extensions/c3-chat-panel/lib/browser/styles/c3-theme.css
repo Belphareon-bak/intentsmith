@@ -3,11 +3,11 @@
    ═══════════════════════════════════════════════════════════ */
 
 :root {
-  --c3-bg0:#09090b;--c3-bg1:#0f0f12;--c3-bg2:#17171b;--c3-bg3:#202025;--c3-bg4:#2a292f;--c3-bg5:#35343c;
+  --c3-bg0:#09090b;--c3-bg1:#141416;--c3-bg2:#1b1b1e;--c3-bg3:#232326;--c3-bg4:#2d2c30;--c3-bg5:#38373c;
   --c3-tx1:#f4f1ea;--c3-tx2:#b9b2a7;--c3-tx3:#a18d6e;--c3-tx4:#8c7d67;
   --c3-accent:#d4a85f;--c3-accent-dim:#9b6b32;--c3-accent-bg:rgba(212,168,95,0.12);--c3-accent-text:#e7c27a;
   --c3-on-accent:#17120a;--c3-success:#5ecf91;--c3-success-bg:rgba(94,207,145,0.12);
-  --c3-border:rgba(231,194,122,0.10);--c3-border2:rgba(231,194,122,0.18);
+  --c3-border:rgba(231,194,122,0.08);--c3-border2:rgba(231,194,122,0.15);
 }
 
 /* ─── Global ─── */
@@ -29,8 +29,9 @@ body, .theia-ApplicationShell {
   border-bottom: 1px solid var(--c3-border) !important;
   font-size: 12px !important;
   color: var(--c3-tx3) !important;
-  letter-spacing: 0.1px !important;
 }
+html[data-c3-appearance="intentsmith"] .p-MenuBar,
+html[data-c3-appearance="intentsmith"] #theia\:menubar { letter-spacing: 0.1px !important; }
 .p-MenuBar-item {
   padding: 2px 8px !important;
   border-radius: 3px !important;
@@ -93,6 +94,9 @@ body, .theia-ApplicationShell {
 /* ─── Left side panel (sidebar content area) ─── */
 #theia-left-side-panel {
   background: var(--c3-bg1) !important;
+  border: none !important;
+}
+html[data-c3-appearance="intentsmith"] #theia-left-side-panel {
   border-right: 1px solid var(--c3-border) !important;
 }
 /* Force sidebar widget to fill full panel height (Theia layout manager
@@ -181,8 +185,11 @@ body, .theia-ApplicationShell {
 
 /* ─── Bottom Panel ─── */
 #theia-bottom-content-panel {
-  background: var(--c3-bg0) !important;
+  background: var(--c3-bg1) !important;
   border-top: 1px solid var(--c3-border) !important;
+}
+html[data-c3-appearance="intentsmith"] #theia-bottom-content-panel {
+  background: var(--c3-bg0) !important;
 }
 
 /* ─── Status Bar ─── */
@@ -215,9 +222,14 @@ body, .theia-ApplicationShell {
   color: var(--c3-tx1) !important;
 }
 .theia-input:focus, input[type="text"]:focus, textarea:focus {
+  border-color: rgba(34,197,94,0.4) !important;
+  outline: none !important;
+}
+html[data-c3-appearance="intentsmith"] .theia-input:focus,
+html[data-c3-appearance="intentsmith"] input[type="text"]:focus,
+html[data-c3-appearance="intentsmith"] textarea:focus {
   border-color: rgba(212,168,95,0.55) !important;
   box-shadow: 0 0 0 2px rgba(212,168,95,0.10) !important;
-  outline: none !important;
 }
 button.theia-button {
   background: var(--c3-bg3) !important;
@@ -228,6 +240,9 @@ button.theia-button {
 button.theia-button.main {
   background: var(--c3-accent) !important;
   border-color: transparent !important;
+  color: #fff !important;
+}
+html[data-c3-appearance="intentsmith"] button.theia-button.main {
   color: var(--c3-on-accent) !important;
   font-weight: 700 !important;
 }
@@ -282,7 +297,8 @@ button.theia-button.main {
 #c3-sidebar, #c3-chat-panel, #c3-agent-panel, #c3-center-view {
   background: var(--c3-bg1) !important;
 }
-#c3-chat-panel, #c3-agent-panel {
+html[data-c3-appearance="intentsmith"] #c3-chat-panel,
+html[data-c3-appearance="intentsmith"] #c3-agent-panel {
   border-left: 1px solid var(--c3-border) !important;
 }
 

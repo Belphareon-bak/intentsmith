@@ -564,6 +564,7 @@ test('default Studio identity uses the accessible IntentSmith brand system', () 
   const css = fs.readFileSync(STUDIO_THEME, 'utf8');
   const palette = {
     canvas: '#09090b',
+    panel: '#141416',
     text: '#f4f1ea',
     muted: '#8c7d67',
     accent: '#d4a85f',
@@ -592,7 +593,7 @@ test('default Studio identity uses the accessible IntentSmith brand system', () 
   assert.match(source, /Active:\{b:C\.successBg,c:C\.success\}/);
   assert.match(source, /COMPLETE:C\.success/);
   assert.match(source, /id:'intentsmith',label:'IntentSmith',desc:'Výchozí brand'/);
-  assert.match(source, /id:'clean',label:'Clean',desc:'Neutrální bez efektů'/);
+  assert.match(source, /id:'clean',label:'Clean',desc:'Původní přizpůsobitelný'/);
   assert.match(source, /'Styl vzhledu'/);
   assert.match(source, /localStorage\.getItem\('c3-theme-mode'\)\|\|'intentsmith'/,
     'new profiles select the visible IntentSmith appearance');
@@ -606,6 +607,32 @@ test('default Studio identity uses the accessible IntentSmith brand system', () 
   assert.match(source, /label:'IntentSmith: Toggle Chat',category:'IntentSmith'/);
   assert.doesNotMatch(source, /linear-gradient\(135deg,#22c55e,#16a34a\)/,
     'assistant identity no longer uses the old green brand gradient');
+});
+
+test('IntentSmith and Clean keep independent palettes and background authority', () => {
+  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
+  const css = fs.readFileSync(STUDIO_THEME, 'utf8');
+  const brand = source.match(/var _C_DEFAULT=\{[\s\S]*?\};/u)?.[0] || '';
+  const clean = source.match(/var _C_CLEAN=\{[\s\S]*?\};/u)?.[0] || '';
+
+  assert.match(brand, /bg0:'#09090b',bg1:'#141416',bg2:'#1b1b1e'/,
+    'brand surfaces are neutral near-black, with panels visibly above the canvas');
+  assert.match(brand, /accent:'#d4a85f',accentText:'#e7c27a'/,
+    'IntentSmith retains the logo-derived gold accent');
+  assert.match(clean, /bg0:'#0c0c0f',bg1:'#111114',bg2:'#18181c'/,
+    'Clean restores its original dark surface ramp');
+  assert.match(clean, /tx3:'#5e8a6d',tx4:'#436b52'/,
+    'Clean restores its original passive copy colors');
+  assert.match(clean, /accent:'#22c55e',accentText:'#4ade80',accentDim:'#16a34a'/,
+    'Clean restores its original green default accent');
+  assert.match(source, /if\(isClean\)\{[\s\S]*?_bgPresets\[bi\][\s\S]*?C\.bg1=_cl\(baseBg,bt,0\.04\)/u,
+    'only Clean consumes the saved customizable background');
+  assert.match(source, /\}else\{\s*C\.bg0=tc\.bg0;C\.bg1=tc\.bg1;C\.bg2=tc\.bg2/u,
+    'IntentSmith uses its owned surface ramp instead of the saved Clean background');
+  assert.match(source, /appearanceMode==='clean'\?h\(React\.Fragment/u,
+    'editable accent and background controls are explicitly scoped to Clean');
+  assert.match(css, /html\[data-c3-appearance="intentsmith"\] #theia-left-side-panel/u,
+    'brand-only chrome details are scoped away from Clean');
 });
 
 test('the shipped preload bundle really carries the byte bridge', () => {

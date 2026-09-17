@@ -21,19 +21,19 @@ try { require("./agent-log-renderer"); } catch(e) { console.warn('[C3] agent-log
 try { require("./terminal-client"); } catch(e) { console.warn('[C3] terminal-client.js not loaded:', e.message); }
 
 /* ═══ COLORS ═══ */
-var _C_DEFAULT={bg0:'#09090b',bg1:'#0f0f12',bg2:'#17171b',bg3:'#202025',bg4:'#2a292f',bg5:'#35343c',
+var _C_DEFAULT={bg0:'#09090b',bg1:'#141416',bg2:'#1b1b1e',bg3:'#232326',bg4:'#2d2c30',bg5:'#38373c',
   tx1:'#f4f1ea',tx2:'#b9b2a7',tx3:'#a18d6e',tx4:'#8c7d67',
   accent:'#d4a85f',accentText:'#e7c27a',accentDim:'#9b6b32',accentBg:'rgba(212,168,95,0.12)',onAccent:'#17120a',
   success:'#5ecf91',successBg:'rgba(94,207,145,0.12)',
   red:'#f87171',redBg:'rgba(239,68,68,0.1)',amber:'#fbbf24',amberBg:'rgba(251,191,36,0.1)',
   blue:'#60a5fa',blueBg:'rgba(96,165,250,0.1)',purple:'#a78bfa',purpleBg:'rgba(167,139,250,0.1)',
   cyan:'#22d3ee',cyanBg:'rgba(34,211,238,0.1)',
-  border:'rgba(255,255,255,0.06)',border2:'rgba(255,255,255,0.1)',
+  border:'rgba(231,194,122,0.08)',border2:'rgba(231,194,122,0.15)',
   font:"'Plus Jakarta Sans',-apple-system,sans-serif",mono:"'JetBrains Mono','Fira Code',monospace"};
 var _C_CLEAN={bg0:'#0c0c0f',bg1:'#111114',bg2:'#18181c',bg3:'#1f2025',bg4:'#27282e',bg5:'#2f3038',
-  tx1:'#ececef',tx2:'#a1a1aa',tx3:'#71717a',tx4:'#52525b',
-  accent:'#d4a85f',accentText:'#e7c27a',accentBg:'rgba(212,168,95,0.12)',onAccent:'#17120a',
-  success:'#5ecf91',successBg:'rgba(94,207,145,0.12)',
+  tx1:'#ececef',tx2:'#a1a1aa',tx3:'#5e8a6d',tx4:'#436b52',
+  accent:'#22c55e',accentText:'#4ade80',accentDim:'#16a34a',accentBg:'rgba(34,197,94,0.08)',onAccent:'#ffffff',
+  success:'#22c55e',successBg:'rgba(34,197,94,0.08)',
   red:'#f87171',redBg:'rgba(239,68,68,0.1)',amber:'#fbbf24',amberBg:'rgba(251,191,36,0.1)',
   blue:'#60a5fa',blueBg:'rgba(96,165,250,0.1)',purple:'#a78bfa',purpleBg:'rgba(167,139,250,0.1)',
   cyan:'#22d3ee',cyanBg:'rgba(34,211,238,0.1)',
@@ -89,6 +89,7 @@ function _applyColorTheme(themeId){
   var g=_PRO_GLASS[themeId];
   if(g){C.bg0=g.bg0;C.bg1=g.bg1;C.bg2=g.bg2;C.bg3=g.bg3;C.bg4=g.bg4;C.bg5=g.bg5;}
   var r=document.documentElement;
+  r.setAttribute('data-c3-appearance',themeId||'intentsmith');
   /* For pro themes: c3 CSS vars → transparent (structural wrappers must not add another glass layer).
      Only React inline styles (C.bg*) provide the single glass layer.
      For clean theme: c3 CSS vars = C.bg* (solid hex, normal behavior). */
@@ -2557,7 +2558,7 @@ function _injectCustomCSS(css){
   _customStyleEl.textContent='.c3-root {\n'+(css||'')+'\n}';
 }
 var _accentPalettes=[
-  {accent:'#d4a85f',text:'#e7c27a',dim:'#9b6b32'},
+  {accent:'#22c55e',text:'#4ade80',dim:'#16a34a'},
   {accent:'#3b82f6',text:'#60a5fa',dim:'#2563eb'},
   {accent:'#8b5cf6',text:'#a78bfa',dim:'#7c3aed'},
   {accent:'#ec4899',text:'#f472b6',dim:'#db2777'},
@@ -2572,27 +2573,31 @@ var _fontFamilies=[
   {label:'Systémové',val:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}];
 var _bgPresets=[
   {label:'Výchozí',bg:null},
-  {label:'Antracit',bg:'#121214'},
+  {label:'Antracit',bg:'#14141e'},
   {label:'Noční modř',bg:'#0c1525'},
   {label:'Custom',bg:null},
   {label:'Custom',bg:null}];
-var _darkC={bg0:'#09090b',bg1:'#0f0f12',bg2:'#17171b',bg3:'#202025',bg4:'#2a292f',bg5:'#35343c',tx1:'#f4f1ea',tx2:'#b9b2a7',border:'rgba(231,194,122,0.10)',border2:'rgba(231,194,122,0.18)'};
-var _lightC={bg0:'#f7f4ee',bg1:'#f0ebe2',bg2:'#e8e1d6',bg3:'#ddd4c7',bg4:'#d0c4b4',bg5:'#c0b29f',tx1:'#211d17',tx2:'#5c5348',border:'rgba(83,61,30,0.10)',border2:'rgba(83,61,30,0.18)'};
+var _cleanDarkC={bg0:'#0c0c0f',bg1:'#111114',bg2:'#18181c',bg3:'#1f2025',bg4:'#27282e',bg5:'#2f3038',tx1:'#ececef',tx2:'#a1a1aa',border:'rgba(255,255,255,0.06)',border2:'rgba(255,255,255,0.1)'};
+var _cleanLightC={bg0:'#f5f5f7',bg1:'#eaeaec',bg2:'#e0e0e3',bg3:'#d4d4d8',bg4:'#c8c8cc',bg5:'#bbbbc0',tx1:'#18181b',tx2:'#52525b',border:'rgba(0,0,0,0.08)',border2:'rgba(0,0,0,0.15)'};
+var _brandLightC={bg0:'#f7f4ee',bg1:'#f0ebe2',bg2:'#e8e1d6',bg3:'#ddd4c7',bg4:'#d0c4b4',bg5:'#c0b29f',tx1:'#211d17',tx2:'#5c5348',border:'rgba(83,61,30,0.10)',border2:'rgba(83,61,30,0.18)'};
 try{var _sv=localStorage.getItem('c3-settings');if(_sv){var _p=JSON.parse(_sv);Object.assign(_settingsVals,_p);}}catch(e){}
 function _saveSV(){try{localStorage.setItem('c3-settings',JSON.stringify(_settingsVals));}catch(e){}}
 function _getPalette(){var idx=_settingsVals.accentIdx;if(idx>=100){var cc=idx===100?_settingsVals.custom1:_settingsVals.custom2;return cc?_mkPalette(cc):_accentPalettes[0];}return _accentPalettes[idx]||_accentPalettes[0];}
 function _isLight(){var t=_settingsVals.theme;if(t==='light')return true;if(t==='system')try{return!window.matchMedia('(prefers-color-scheme:dark)').matches;}catch(e){return false;}return false;}
 function _applyTheme(themeId){
-  var lt=_isLight();var tc=themeId==='clean'?(lt?_lightC:{bg0:_C_CLEAN.bg0,bg1:_C_CLEAN.bg1,bg2:_C_CLEAN.bg2,bg3:_C_CLEAN.bg3,bg4:_C_CLEAN.bg4,bg5:_C_CLEAN.bg5,tx1:_C_CLEAN.tx1,tx2:_C_CLEAN.tx2,border:_C_CLEAN.border,border2:_C_CLEAN.border2}):(lt?_lightC:_darkC);
+  var lt=_isLight();var isClean=themeId==='clean';var tc=isClean?(lt?_cleanLightC:_cleanDarkC):(lt?_brandLightC:_C_DEFAULT);
   var bi=_settingsVals.bgIdx||0;
-  var baseBg;
-  if(bi===3){baseBg=_settingsVals.bgCustom1||tc.bg0;}
-  else if(bi===4){baseBg=_settingsVals.bgCustom2||tc.bg0;}
-  else if(bi>0&&_bgPresets[bi]&&_bgPresets[bi].bg){baseBg=_bgPresets[bi].bg;}
-  else{baseBg=tc.bg0;}
-  C.bg0=baseBg;
-  var bt=lt?'#000000':'#ffffff';
-  C.bg1=_cl(baseBg,bt,0.025);C.bg2=_cl(baseBg,bt,0.055);C.bg3=_cl(baseBg,bt,0.095);C.bg4=_cl(baseBg,bt,0.135);C.bg5=_cl(baseBg,bt,0.18);
+  var baseBg=tc.bg0;
+  if(isClean){
+    if(bi===3){baseBg=_settingsVals.bgCustom1||tc.bg0;}
+    else if(bi===4){baseBg=_settingsVals.bgCustom2||tc.bg0;}
+    else if(bi>0&&_bgPresets[bi]&&_bgPresets[bi].bg){baseBg=_bgPresets[bi].bg;}
+    C.bg0=baseBg;
+    var bt=lt?'#000000':'#ffffff';
+    C.bg1=_cl(baseBg,bt,0.04);C.bg2=_cl(baseBg,bt,0.08);C.bg3=_cl(baseBg,bt,0.13);C.bg4=_cl(baseBg,bt,0.18);C.bg5=_cl(baseBg,bt,0.24);
+  }else{
+    C.bg0=tc.bg0;C.bg1=tc.bg1;C.bg2=tc.bg2;C.bg3=tc.bg3;C.bg4=tc.bg4;C.bg5=tc.bg5;
+  }
   C.tx1=tc.tx1;C.tx2=tc.tx2;C.border=tc.border;C.border2=tc.border2;
   var d=document.documentElement.style;
   d.setProperty('--c3-bg0',C.bg0);d.setProperty('--c3-bg1',C.bg1);d.setProperty('--c3-bg2',C.bg2);
@@ -2601,11 +2606,16 @@ function _applyTheme(themeId){
   d.setProperty('--c3-border',C.border);d.setProperty('--c3-border2',C.border2);
 }
 function _applyAccent(){
-  var _ctm=_appearanceMode();var _theme=_C_THEMES[_ctm];var p=(_ctm!=='clean'&&_theme)?{accent:_theme.accent,text:_theme.accentText,dim:_theme.accentDim||_cl(_theme.accent,'#000000',0.3)}:_getPalette();var ai=(_settingsVals.activeInt||100)/100;var pi=(_settingsVals.passiveInt!=null?_settingsVals.passiveInt:50)/100;
+  var _ctm=_appearanceMode();var _theme=_C_THEMES[_ctm];var isClean=_ctm==='clean';var p=(!isClean&&_theme)?{accent:_theme.accent,text:_theme.accentText,dim:_theme.accentDim||_cl(_theme.accent,'#000000',0.3)}:_getPalette();var ai=(_settingsVals.activeInt||100)/100;var pi=(_settingsVals.passiveInt!=null?_settingsVals.passiveInt:50)/100;
   C.accent=_cl(p.dim,p.accent,ai);C.accentText=_cl(p.dim,p.text,ai);
-  var ac=_hp(p.accent);C.accentBg='rgba('+ac[0]+','+ac[1]+','+ac[2]+','+(0.12*ai).toFixed(3)+')';C.onAccent=_onColor(C.accent);
-  /* Passive copy stays readable and only picks up a restrained accent tint. */
-  C.tx3=_cl(_isLight()?'#514a41':'#a18d6e',p.text,pi*0.18);C.tx4=_cl(_isLight()?'#665f55':'#8c7d67',p.accent,pi*0.08);
+  var ac=_hp(p.accent);C.accentBg='rgba('+ac[0]+','+ac[1]+','+ac[2]+','+((isClean?0.08:0.12)*ai).toFixed(3)+')';C.onAccent=_onColor(C.accent);
+  if(isClean){
+    /* Preserve the original Clean palette and its stronger user-selected tint. */
+    C.tx3=_cl('#71717a',p.text,pi*0.6);C.tx4=_cl('#52525b',p.accent,pi*0.4);
+  }else{
+    /* Brand copy stays readable and only picks up a restrained gold tint. */
+    C.tx3=_cl(_isLight()?'#514a41':'#a18d6e',p.text,pi*0.18);C.tx4=_cl(_isLight()?'#665f55':'#8c7d67',p.accent,pi*0.08);
+  }
   var d=document.documentElement.style;
   d.setProperty('--c3-accent',C.accent);d.setProperty('--c3-accent-text',C.accentText);
   d.setProperty('--c3-accent-bg',C.accentBg);d.setProperty('--c3-accent-dim',p.dim);
@@ -2718,6 +2728,7 @@ function _settingsToggle(label,desc,val,onChange){
 }
 function settingsAppearance(){
   var sv=_settingsVals;
+  var appearanceMode=_appearanceMode();
   function _sl(val,min,max,step,onChange,unit){
     return h('div',{style:{display:'flex',alignItems:'center',gap:8}},
       h('input',{type:'range',min:min,max:max,step:step,value:val,onChange:function(e){onChange(parseFloat(e.target.value));},
@@ -2738,7 +2749,7 @@ function settingsAppearance(){
   function _appearancePicker(){
     return h('div',{style:{display:'flex',flexWrap:'wrap',gap:6,marginBottom:16}},
       [{id:'intentsmith',label:'IntentSmith',desc:'Výchozí brand',clr:'#e7c27a'},
-       {id:'clean',label:'Clean',desc:'Neutrální bez efektů',clr:'#d4d4d8'},
+       {id:'clean',label:'Clean',desc:'Původní přizpůsobitelný',clr:'#4ade80'},
        {id:'matrix',label:'Matrix',desc:'Neon terminal',clr:'#00ff6a'},
        {id:'japanese',label:'Japanese',desc:'Červená aurora',clr:'#f87171'},
        {id:'midnight',label:'Midnight',desc:'Vesmírné sklo',clr:'#93c5fd'}
@@ -2769,18 +2780,22 @@ function settingsAppearance(){
     /* Appearance style — visible before detailed color controls */
     h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:8}},'Styl vzhledu'),
     _appearancePicker(),
-    /* Accent */
-    h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6}},'Accent'),
-    h('div',{style:{display:'flex',flexWrap:'wrap',gap:8,marginBottom:16}},
-      _accentPalettes.map(function(p,i){return _cpDot(p.accent,sv.accentIdx===i,function(){sv.accentIdx=i;_saveSV();_applyAllSettings();},i);}),
-      _cpCustom('c3-cp1',sv.custom1,sv.accentIdx===100,function(v){sv.custom1=v;sv.accentIdx=100;_saveSV();_applyAllSettings();}),
-      _cpCustom('c3-cp2',sv.custom2,sv.accentIdx===101,function(v){sv.custom2=v;sv.accentIdx=101;_saveSV();_applyAllSettings();})),
-    /* Background */
-    h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6}},'Pozadí'),
-    h('div',{style:{display:'flex',flexWrap:'wrap',gap:8,marginBottom:16}},
-      _bgPresets.slice(0,3).map(function(bp,i){return _cpDot(bp.bg,sv.bgIdx===i,function(){sv.bgIdx=i;_saveSV();_applyAllSettings();},('bg'+i));}),
-      _cpCustom('c3-bgc1',sv.bgCustom1,sv.bgIdx===3,function(v){sv.bgCustom1=v;sv.bgIdx=3;_saveSV();_applyAllSettings();}),
-      _cpCustom('c3-bgc2',sv.bgCustom2,sv.bgIdx===4,function(v){sv.bgCustom2=v;sv.bgIdx=4;_saveSV();_applyAllSettings();})),
+    /* Clean keeps the original editable palette. Brand/pro styles own theirs. */
+    appearanceMode==='clean'?h(React.Fragment,null,
+      h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6}},'Accent'),
+      h('div',{style:{display:'flex',flexWrap:'wrap',gap:8,marginBottom:16}},
+        _accentPalettes.map(function(p,i){return _cpDot(p.accent,sv.accentIdx===i,function(){sv.accentIdx=i;_saveSV();_applyAllSettings();},i);}),
+        _cpCustom('c3-cp1',sv.custom1,sv.accentIdx===100,function(v){sv.custom1=v;sv.accentIdx=100;_saveSV();_applyAllSettings();}),
+        _cpCustom('c3-cp2',sv.custom2,sv.accentIdx===101,function(v){sv.custom2=v;sv.accentIdx=101;_saveSV();_applyAllSettings();})),
+      h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6}},'Pozadí'),
+      h('div',{style:{display:'flex',flexWrap:'wrap',gap:8,marginBottom:16}},
+        _bgPresets.slice(0,3).map(function(bp,i){return _cpDot(bp.bg,sv.bgIdx===i,function(){sv.bgIdx=i;_saveSV();_applyAllSettings();},('bg'+i));}),
+        _cpCustom('c3-bgc1',sv.bgCustom1,sv.bgIdx===3,function(v){sv.bgCustom1=v;sv.bgIdx=3;_saveSV();_applyAllSettings();}),
+        _cpCustom('c3-bgc2',sv.bgCustom2,sv.bgIdx===4,function(v){sv.bgCustom2=v;sv.bgIdx=4;_saveSV();_applyAllSettings();}))
+    ):h('div',{style:{display:'flex',alignItems:'center',gap:10,padding:'9px 11px',marginBottom:16,border:'1px solid '+C.border,borderRadius:8,background:C.bg2}},
+      appearanceMode==='intentsmith'?h('div',{style:{display:'flex',gap:4,flexShrink:0}},
+        ['#09090b','#141416','#d4a85f'].map(function(color){return h('span',{key:color,style:{width:12,height:12,borderRadius:'50%',background:color,border:'1px solid '+C.border2}});})):null,
+      h('div',{style:{fontSize:_fs(9.5),lineHeight:1.4,color:C.tx3}},appearanceMode==='intentsmith'?'IntentSmith používá vlastní zlatou a antracitovou paletu. Volba Téma stále přepíná tmavou a světlou variantu.':'Barvy a pozadí určuje zvolený efektový styl.')),
     /* Intensity sliders */
     h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:8}},'Intenzita podsvícení'),
     h('div',{style:{marginBottom:4}},h('span',{style:{fontSize:_fs(10),color:C.tx3}},'Aktivní prvky')),
