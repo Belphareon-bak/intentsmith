@@ -890,4 +890,5 @@ preflight zůstává samostatný. Přesný module graph: 1 360 hran, 3 cykly /
 28 členů; jediná nová hrana `routes/system -> upgrade/model-hunt-diagnostics`.
 Při neznámém limitu se katalog neschovává. Fyzický renderer s řízeným backendem
 ověřil viditelnost katalogu, ruční filtr a negativní test. Scoring zůstává
-BLOCKED; konečná instalační evidence následuje v review.
+BLOCKED. Instalováno `d4dea0bb`, živé API má 24103 MiB a 49/71 v limitu.
+[Review a přesné výsledky kontrol](docs/review/2026-09-17-VRAM-CAPACITY-FALLBACK.md).

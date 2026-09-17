@@ -27,3 +27,7 @@ Následná oprava podle snímku a námitky operátora: zjistit dedikovanou VRAM
 i při selhání NVML přes živé NV-CONTROL (`nvidia-settings`) pouze pro katalog.
 Zachovat GPU preflight pro scoring; při neznámé kapacitě neschovávat katalog.
 Ověřit náhradní zdroj, nedostupný zdroj, ruční limit a skutečný renderer.
+
+Náhradní kapacita a viditelný katalog jsou instalované na `d4dea0bb`; živé API
+vrací 24103 MiB a 49/71 kandidátů v 80% limitu. GPU scoring je stále BLOCKED.
+[Review, oba plné profily a následná oprava dokumentačního počtu](../review/2026-09-17-VRAM-CAPACITY-FALLBACK.md).
