@@ -1,8 +1,8 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
 **Specialisté ve Studiu, 2026-09-17:** dostupný seznam balíčků, potvrzená
-aktivace a skutečný PDF/HEIC import v konverzaci. Integrovaný module graph má
-1 358 hran, 3 cykly / 28 členů, včetně souběžné opravy časového kontextu.
+aktivace a skutečný PDF/HEIC import v konverzaci. Integrovaný module graph má 1 358 hran,
+3 cykly / 28 členů, včetně souběžné opravy časového kontextu.
 [Důkazy a omezení](docs/review/2026-09-17-STUDIO-SPECIALISTS.md):
 účetní doklady jsou návrhy ke kontrole; živý sázkař má PROVIDER_BLOCKED na
 historii football-data.co.uk. Nezávislé review zůstává otevřené.
