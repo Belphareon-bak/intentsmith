@@ -34,7 +34,7 @@ export function renderDesktopInstallation(config) {
   const common = `WorkingDirectory=${sourceRoot}\nEnvironmentFile=${envFile}\nUMask=0077\nKillMode=control-group\n`;
   return {
     environment: env,
-    backend: `[Unit]\nDescription=IntentSmith backend\nStartLimitIntervalSec=120\nStartLimitBurst=3\n\n[Service]\nType=simple\n${common}ExecStart=${quotedPath(node)} ${quotedPath(join(sourceRoot,'src/server.js'))}\nRestart=on-failure\nRestartSec=3\nTimeoutStopSec=30\n\n[Install]\nWantedBy=default.target\n`,
+    backend: `[Unit]\nDescription=IntentSmith backend\nStartLimitIntervalSec=120\nStartLimitBurst=3\n\n[Service]\nType=simple\n${common}EnvironmentFile=${join(configDirectory,'admin.env')}\nExecStart=${quotedPath(node)} ${quotedPath(join(sourceRoot,'src/server.js'))}\nRestart=on-failure\nRestartSec=3\nTimeoutStopSec=30\n\n[Install]\nWantedBy=default.target\n`,
     hunt: `[Unit]\nDescription=IntentSmith bounded GPU hunt\n\n[Service]\nType=oneshot\n${common}ExecStart=${quotedPath(node)} ${quotedPath(join(sourceRoot,'scripts/run-model-hunt-provider.js'))} --run --limit=2 --keep-inconclusive --prune-rejected --scheduled\nTimeoutStartSec=12h\nTimeoutStopSec=15s\nNoNewPrivileges=true\nNice=10\n`,
     timer: '[Unit]\nDescription=IntentSmith nightly model hunt\n\n[Timer]\nOnCalendar=*-*-* 03:00:00\nRandomizedDelaySec=15m\nAccuracySec=5m\nPersistent=true\nUnit=intentsmith-model-hunt.service\n\n[Install]\nWantedBy=timers.target\n',
     desktop: `[Desktop Entry]\nType=Application\nName=IntentSmith\nComment=Lokální AI pracovní prostředí\nExec=${quotedPath(node)} ${quotedPath(join(sourceRoot,'scripts/desktop-runtime.mjs'))}\nIcon=${icon}\nTerminal=false\nCategories=Development;Utility;\nStartupNotify=true\nStartupWMClass=IntentSmith\n`,

@@ -2,7 +2,8 @@
 // Register an already built, clean, detached installation. Never builds in a live checkout.
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { readFile, mkdir, realpath, chmod, copyFile } from 'node:fs/promises';
+import { readFile, mkdir, realpath, chmod, copyFile, lstat } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import Database from 'better-sqlite3';
@@ -45,6 +46,17 @@ if (!['inactive','failed',''].includes(backendState)) {
   throw new Error('BACKEND_ACTIVE: stop the existing backend deliberately before changing installations');
 }
 const stamp = new Date().toISOString().replace(/[:.]/g,'-');
+const adminFile = join(configDirectory,'admin.env');
+let adminEnvironment;
+try {
+  const metadata = await lstat(adminFile);
+  if (!metadata.isFile() || metadata.uid !== process.getuid() || (metadata.mode & 0o077)) throw new Error('ADMIN_CREDENTIAL_FILE_UNSAFE');
+  adminEnvironment = await readFile(adminFile,'utf8');
+  if (!/^C3_ADMIN_TOKEN=[A-Za-z0-9_-]{43,128}\n$/.test(adminEnvironment)) throw new Error('ADMIN_CREDENTIAL_FILE_INVALID');
+} catch (error) {
+  if (error.code !== 'ENOENT') throw error;
+  adminEnvironment = `C3_ADMIN_TOKEN=${randomBytes(32).toString('base64url')}\n`;
+}
 const backup = join(stateDirectory,'installation-backups',stamp);
 await mkdir(backup, { recursive: true, mode: 0o700 });
 const db = new Database(dbPath, { readonly: true, fileMustExist: true });
@@ -64,6 +76,7 @@ const targets = [
   [join(units,'intentsmith-model-hunt.service'),files.hunt],
   [join(units,'intentsmith-model-hunt.timer'),files.timer],
   [join(homedir(),'.local/share/applications/intentsmith.desktop'),files.desktop],
+  [adminFile,adminEnvironment],
 ];
 const previous = [];
 for (let i=0;i<targets.length;i++) {
@@ -79,6 +92,7 @@ if (!['inactive','failed'].includes(after)) throw new Error('HUNT_STARTED_DURING
 for (const [file,content] of targets) await writePrivate(file,content);
 await systemctl(['daemon-reload']);
 await systemctl(['enable','intentsmith-backend.service']);
+await systemctl(['reset-failed','intentsmith-backend.service']);
 await systemctl(['restart','intentsmith-backend.service']);
 await waitForBackend(config);
 await systemctl(['enable','--now','intentsmith-model-hunt.timer']);
