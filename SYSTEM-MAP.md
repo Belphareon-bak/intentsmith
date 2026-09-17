@@ -883,3 +883,11 @@ lokální OCR, privátní evidence a kontrolované exporty. Sázkař používá 
 připravený autonomní engine s veřejnou Fortunou. Detailní konečný důkaz je
 v `docs/review/2026-09-17-STUDIO-SPECIALISTS.md`; integrace zůstává
 **REVIEW_PENDING**, nejde o nové přijetí celého produktu.
+
+Katalog modelů, následná oprava 2026-09-17: `40990f46` doplňuje náhradní
+čtení dedikované VRAM přes živé NV-CONTROL pouze pro katalog. NVIDIA/NVML
+preflight zůstává samostatný. Přesný module graph: 1 360 hran, 3 cykly /
+28 členů; jediná nová hrana `routes/system -> upgrade/model-hunt-diagnostics`.
+Při neznámém limitu se katalog neschovává. Fyzický renderer s řízeným backendem
+ověřil viditelnost katalogu, ruční filtr a negativní test. Scoring zůstává
+BLOCKED; konečná instalační evidence následuje v review.

@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "294069e89640d06efb8327248eb587dc9d2613a7",
-  "sourceTree": "f7d01a49017d8039b58cad140c15802c119da7c7",
+  "sourceRevision": "40990f4639d526ae6cc28c38545e2fc9cbda7db8",
+  "sourceTree": "a312f865c44f6029576be3007fcfb2a1b5d5c970",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -1057,6 +1057,7 @@
     "src/routes/system.js -> src/system/model-compatibility.js",
     "src/routes/system.js -> src/upgrade/candidate-eligibility.js",
     "src/routes/system.js -> src/upgrade/model-catalog.js",
+    "src/routes/system.js -> src/upgrade/model-hunt-diagnostics.js",
     "src/routes/system.js -> src/upgrade/model-identity.js",
     "src/routes/system.js -> src/upgrade/model-profiles.js",
     "src/routes/system.js -> src/upgrade/model-universe-store.js",
