@@ -417,12 +417,14 @@ await testAsync('timeout kills a real SIGTERM-ignoring child and grandchild proc
 await testAsync('cancellation kills the whole owned group and cannot become success', async () => {
   const projectRoot = createProject();
   try {
+    const readyToken = `m2-cancel-ready-${randomUUID()}`;
     const scriptPath = writeScript(projectRoot, 'cancel.cjs', [
       "'use strict';",
       "const { spawn } = require('node:child_process');",
       "process.on('SIGTERM', () => {});",
       "const grandchild = spawn(process.execPath, ['-e', \"process.on('SIGTERM',()=>{});setInterval(()=>{},1000)\"], { stdio: 'ignore' });",
       "process.stdout.write('ready:' + grandchild.pid);",
+      `process.title = ${JSON.stringify(readyToken)};`,
       'setInterval(() => {}, 1000);',
     ].join('\n'));
     const controller = new AbortController();
@@ -432,11 +434,20 @@ await testAsync('cancellation kills the whole owned group and cannot become succ
       killGraceMs: 3_000,
     });
     const run = provider.run(
-      processSpec(projectRoot, [scriptPath], { timeoutMs: 5_000 }),
+      processSpec(projectRoot, [scriptPath], { timeoutMs: 10_000 }),
       { recordSupervisorIdentity: durableRecorder(), signal: controller.signal },
     );
-    setTimeout(() => controller.abort(), 300);
+    // Cancel a demonstrably running process tree, not a 300ms startup guess.
+    // The unique title appears only after the real child writes its ready PID.
+    let ready = false;
+    try {
+      const deadline = Date.now() + 8_000;
+      while (!(ready = processWithTokenExists(readyToken)) && Date.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, 20));
+      }
+    } finally { controller.abort(); }
     const result = await run;
+    assert.equal(ready, true, 'sandbox target must reach readiness before cancellation');
     assertCleanTerminal(result, 'cancelled');
     assert.match(result.stdout, /^ready:\d+$/);
     assert.equal(result.cleanup.groupState, 'empty');
