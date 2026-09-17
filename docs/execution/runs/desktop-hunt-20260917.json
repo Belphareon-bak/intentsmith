@@ -1,0 +1,807 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-17T10:43:55.787304+00:00",
+  "status": "LOCAL_INSTALLATION_VERIFIED_REVIEW_PENDING",
+  "runtimeRevision": "9d13bb530f955199df7a7dc01f1caf1ec93fa09d",
+  "verificationRevision": "2587ae56e00c864b797a460fd69e770c944c8da9",
+  "reviewBase": "5dedbfe8b6276ef94785ef9d394287ebe53e1514",
+  "runtimeDiffAfterPin": "Only test readiness and SYSTEM-MAP census changed after runtime pin. Final documentation does not change runtime.",
+  "releaseAcceptance": false,
+  "deterministicRuns": [
+    {
+      "runId": "desktop-hunt-20260917-01",
+      "sourceRevision": "12e04d60e0c130efd9ca01a01441048caac9e548",
+      "registryHash": "f66a7586c765b159d987721548b9c7ac6dc7cfbd7a7cc7085421f31e8634821c",
+      "startedAt": "2026-09-17T09:56:06.496Z",
+      "endedAt": "2026-09-17T10:01:26.260Z",
+      "statusCounts": {
+        "PASS": 351,
+        "FAIL": 3,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL",
+      "interruptionSignal": null,
+      "reportSha256": "2d04496fad6c7b112483cfd2ec7edd1ec726d40efaefc638b79647ff5b5b5163",
+      "verifiedLogs": 354,
+      "failures": [
+        "IS-T1-TESTS-HARNESS-EXIT-CODE-TEST",
+        "IS-T1-TESTS-MOBILE-CAPABILITY-INVENTORY-TEST",
+        "IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST"
+      ]
+    },
+    {
+      "runId": "desktop-hunt-20260917-02",
+      "sourceRevision": "f6818b09f8ea10b02d0e71528b74d0d00d33b23e",
+      "registryHash": "f66a7586c765b159d987721548b9c7ac6dc7cfbd7a7cc7085421f31e8634821c",
+      "startedAt": "2026-09-17T10:11:45.412Z",
+      "endedAt": "2026-09-17T10:16:34.321Z",
+      "statusCounts": {
+        "PASS": 353,
+        "FAIL": 1,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL",
+      "interruptionSignal": null,
+      "reportSha256": "11030fc6ca71b90ff3154a788b7ba5dae1f6c1cd377d9f347d16154c5677f40e",
+      "verifiedLogs": 354,
+      "failures": [
+        "IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST"
+      ]
+    },
+    {
+      "runId": "desktop-hunt-20260917-03",
+      "sourceRevision": "42b414f7927fd7a1c789a9ed9c2eaab1239af6d6",
+      "registryHash": "dd9f05c85e942d97a2fb4f81daffda7ef3e9a321efa0d6e33435ce2649ca6dcb",
+      "startedAt": "2026-09-17T10:18:10.955Z",
+      "endedAt": "2026-09-17T10:19:38.107Z",
+      "statusCounts": {
+        "PASS": 124,
+        "FAIL": 2,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 228
+      },
+      "verdict": "FAIL",
+      "interruptionSignal": "SIGTERM",
+      "reportSha256": "372f1a2f2a8acabda92ad52f19e4e5d53149e5f86363699c80319236ff20d376",
+      "verifiedLogs": 126,
+      "failures": [
+        "IS-T1-TESTS-DESKTOP-HUNT-TEST",
+        "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST"
+      ]
+    },
+    {
+      "runId": "desktop-hunt-20260917-04",
+      "sourceRevision": "9d13bb530f955199df7a7dc01f1caf1ec93fa09d",
+      "registryHash": "dd9f05c85e942d97a2fb4f81daffda7ef3e9a321efa0d6e33435ce2649ca6dcb",
+      "startedAt": "2026-09-17T10:30:39.618Z",
+      "endedAt": "2026-09-17T10:35:38.200Z",
+      "statusCounts": {
+        "PASS": 352,
+        "FAIL": 2,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL",
+      "interruptionSignal": null,
+      "reportSha256": "fbd1af40dc821cb151fc36e4fbd62c6ba9691d3b510906183dc8b1c8d47ccbc9",
+      "verifiedLogs": 354,
+      "failures": [
+        "IS-T1-TESTS-M2-EXECUTION-PROCESS-SUPERVISION-TEST",
+        "IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST"
+      ]
+    },
+    {
+      "runId": "desktop-hunt-20260917-05",
+      "sourceRevision": "2587ae56e00c864b797a460fd69e770c944c8da9",
+      "registryHash": "dd9f05c85e942d97a2fb4f81daffda7ef3e9a321efa0d6e33435ce2649ca6dcb",
+      "startedAt": "2026-09-17T10:38:10.172Z",
+      "endedAt": "2026-09-17T10:41:58.602Z",
+      "statusCounts": {
+        "PASS": 353,
+        "FAIL": 1,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL",
+      "interruptionSignal": null,
+      "reportSha256": "1cef99753872face08e665c7bdb62d712b915bc9ddd96ede42a6bbaae5059ebe",
+      "verifiedLogs": 354,
+      "failures": [
+        "IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST"
+      ]
+    }
+  ],
+  "verifiedAuditLogs": 1542,
+  "build": {
+    "revision": "9d13bb530f955199df7a7dc01f1caf1ec93fa09d",
+    "bundleSha256": "4ae1a03a2c024b796ee95e929e9e7530042dd1e04acac1ac4aca111fcfd7a073",
+    "freshDependencyInstallRevision": "12e04d60e0c130efd9ca01a01441048caac9e548",
+    "dependencyManifestsUnchangedSinceFreshInstall": true
+  },
+  "desktopJourney": {
+    "startedAt": "2026-09-17T10:33:45.491Z",
+    "revision": "9d13bb530f955199df7a7dc01f1caf1ec93fa09d",
+    "backendBefore": 318030,
+    "ui": {
+      "title": "IntentSmith",
+      "logo": [
+        {
+          "loaded": true,
+          "width": 1254
+        }
+      ],
+      "hunt": "GPU hunt\n\nČeká na další termín\n\nObnovit\nSpustit nyní\nZastavit běh\nPozastavit plánovač\n\nDalší termín: Fri 2026-09-18 03:06:24 CEST\n\nPoslední běh\n\nZastaveno · 17. 9. 2026 12:32:23\n\nThe operation was aborted\n\nPoslední známá fronta\n\nFronta se objeví po sestavení plánu huntu.\n\nInstalace 9d13bb530f95 · aplikace a hunt sdílejí data. Doporučení nemění aktivní role."
+    },
+    "auth": {
+      "withoutCredential": 401,
+      "withCredential": 200
+    },
+    "backendAfterRepeatedIcon": 318030,
+    "backendAfterWindowClose": 318030,
+    "backendAfterRestart": 324798,
+    "reinstall": {
+      "installed": true,
+      "unchanged": true,
+      "revision": "9d13bb530f955199df7a7dc01f1caf1ec93fa09d",
+      "dbPath": "/home/belphareon/Projects/intentsmith/data/c3.db"
+    },
+    "status": "PASS",
+    "finishedAt": "2026-09-17T10:33:51.854Z"
+  },
+  "databasePreservation": {
+    "at": "2026-09-17",
+    "quickCheck": "ok",
+    "foreignKeyViolations": 0,
+    "tables": {
+      "model_hunt_attempts": {
+        "beforeCount": 21,
+        "afterCount": 21,
+        "beforeSha256": "fc8cf80d19295806fb239f023a53f8f67c3240205c0f5e1fb8a358c1e15baf06",
+        "afterSha256": "fc8cf80d19295806fb239f023a53f8f67c3240205c0f5e1fb8a358c1e15baf06",
+        "unchanged": true
+      },
+      "model_desired_bindings": {
+        "beforeCount": 7,
+        "afterCount": 7,
+        "beforeSha256": "740ae5b3ca6607cdc4e238900921dfb05670bf451b8b9ac8fb80e60db5523892",
+        "afterSha256": "740ae5b3ca6607cdc4e238900921dfb05670bf451b8b9ac8fb80e60db5523892",
+        "unchanged": true
+      },
+      "model_evaluation_runs": {
+        "beforeCount": 503,
+        "afterCount": 503,
+        "beforeSha256": "ede425226ef90ed16f0cdb4235a7a938605ecaac92cc22beaacbe58750266ed7",
+        "afterSha256": "ede425226ef90ed16f0cdb4235a7a938605ecaac92cc22beaacbe58750266ed7",
+        "unchanged": true
+      }
+    }
+  },
+  "calibration": {
+    "schemaVersion": 1,
+    "sourceGeneratedAt": "2026-09-12T16:53:05.996Z",
+    "sourceSha256": "e12cef01127caca23090023d110ba8081816ca1d5fdfda110e9f2095ecd03410",
+    "evaluated": 38,
+    "insufficient": 13,
+    "variabilityLimited": 7,
+    "smallObservedDifference": 6,
+    "cases": [
+      {
+        "model": "north-mini-code-1.0:latest",
+        "role": "D1",
+        "suiteContractSha256": "2bbda86b76ff4ecf99121193eb32e72a00049d1f8ca632410495d512a998f3b2",
+        "discriminating": 2,
+        "minimum": 3,
+        "noiseLimited": [
+          "reason_repo_audit_error_envelope",
+          "reason_repo_history_late_guard",
+          "reason_repo_immutable_refinement"
+        ],
+        "closeScores": [
+          "reason_repo_history_early_guard",
+          "reason_budget",
+          "reason_order",
+          "reason_table",
+          "reason_rate",
+          "reason_logic",
+          "reason_transform"
+        ],
+        "unstableTasks": [
+          "reason_repo_audit_error_envelope",
+          "reason_repo_history_late_guard",
+          "reason_repo_immutable_refinement"
+        ],
+        "diagnosis": "VARIABILITY_LIMITED"
+      },
+      {
+        "model": "qwen3-coder:latest",
+        "role": "D1",
+        "suiteContractSha256": "2bbda86b76ff4ecf99121193eb32e72a00049d1f8ca632410495d512a998f3b2",
+        "discriminating": 2,
+        "minimum": 3,
+        "noiseLimited": [
+          "reason_logic"
+        ],
+        "closeScores": [
+          "reason_repo_audit_error_envelope",
+          "reason_repo_history_late_guard",
+          "reason_repo_history_early_guard",
+          "reason_repo_immutable_refinement",
+          "reason_budget",
+          "reason_order",
+          "reason_table",
+          "reason_rate",
+          "reason_transform"
+        ],
+        "unstableTasks": [
+          "reason_logic"
+        ],
+        "diagnosis": "VARIABILITY_LIMITED"
+      },
+      {
+        "model": "qwen3-coder:latest",
+        "role": "D2",
+        "suiteContractSha256": "2bbda86b76ff4ecf99121193eb32e72a00049d1f8ca632410495d512a998f3b2",
+        "discriminating": 2,
+        "minimum": 3,
+        "noiseLimited": [],
+        "closeScores": [
+          "reason_repo_audit_error_envelope",
+          "reason_repo_history_late_guard",
+          "reason_repo_history_early_guard",
+          "reason_budget",
+          "reason_order",
+          "reason_table",
+          "reason_sets",
+          "reason_rate",
+          "reason_logic",
+          "reason_transform"
+        ],
+        "unstableTasks": [
+          "reason_critical_path"
+        ],
+        "diagnosis": "SMALL_OBSERVED_DIFFERENCE"
+      },
+      {
+        "model": "qwen3-coder:latest",
+        "role": "R1",
+        "suiteContractSha256": "2bbda86b76ff4ecf99121193eb32e72a00049d1f8ca632410495d512a998f3b2",
+        "discriminating": 2,
+        "minimum": 3,
+        "noiseLimited": [],
+        "closeScores": [
+          "reason_repo_audit_error_envelope",
+          "reason_repo_history_late_guard",
+          "reason_repo_history_early_guard",
+          "reason_budget",
+          "reason_order",
+          "reason_table",
+          "reason_sets",
+          "reason_rate",
+          "reason_logic",
+          "reason_transform"
+        ],
+        "unstableTasks": [],
+        "diagnosis": "SMALL_OBSERVED_DIFFERENCE"
+      },
+      {
+        "model": "qwen3.6:27b-mtp-q4_k_m",
+        "role": "D1",
+        "suiteContractSha256": "2bbda86b76ff4ecf99121193eb32e72a00049d1f8ca632410495d512a998f3b2",
+        "discriminating": 2,
+        "minimum": 3,
+        "noiseLimited": [],
+        "closeScores": [
+          "reason_repo_audit_error_envelope",
+          "reason_repo_history_late_guard",
+          "reason_repo_history_early_guard",
+          "reason_budget",
+          "reason_order",
+          "reason_table",
+          "reason_sets",
+          "reason_rate",
+          "reason_logic",
+          "reason_transform"
+        ],
+        "unstableTasks": [],
+        "diagnosis": "SMALL_OBSERVED_DIFFERENCE"
+      },
+      {
+        "model": "qwen3.6:27b-mtp-q4_k_m",
+        "role": "D2",
+        "suiteContractSha256": "2bbda86b76ff4ecf99121193eb32e72a00049d1f8ca632410495d512a998f3b2",
+        "discriminating": 2,
+        "minimum": 3,
+        "noiseLimited": [
+          "reason_critical_path"
+        ],
+        "closeScores": [
+          "reason_repo_audit_error_envelope",
+          "reason_repo_history_late_guard",
+          "reason_repo_history_early_guard",
+          "reason_budget",
+          "reason_order",
+          "reason_table",
+          "reason_rate",
+          "reason_logic",
+          "reason_transform"
+        ],
+        "unstableTasks": [
+          "reason_critical_path"
+        ],
+        "diagnosis": "VARIABILITY_LIMITED"
+      },
+      {
+        "model": "phi4:14b",
+        "role": "D1",
+        "suiteContractSha256": "2bbda86b76ff4ecf99121193eb32e72a00049d1f8ca632410495d512a998f3b2",
+        "discriminating": 1,
+        "minimum": 3,
+        "noiseLimited": [],
+        "closeScores": [
+          "reason_repo_audit_error_envelope",
+          "reason_repo_history_late_guard",
+          "reason_repo_history_early_guard",
+          "reason_repo_immutable_refinement",
+          "reason_budget",
+          "reason_order",
+          "reason_table",
+          "reason_sets",
+          "reason_rate",
+          "reason_logic",
+          "reason_transform"
+        ],
+        "unstableTasks": [],
+        "diagnosis": "SMALL_OBSERVED_DIFFERENCE"
+      },
+      {
+        "model": "qwen3.5:27b",
+        "role": "D2",
+        "suiteContractSha256": "2bbda86b76ff4ecf99121193eb32e72a00049d1f8ca632410495d512a998f3b2",
+        "discriminating": 2,
+        "minimum": 3,
+        "noiseLimited": [
+          "reason_critical_path"
+        ],
+        "closeScores": [
+          "reason_repo_audit_error_envelope",
+          "reason_repo_history_late_guard",
+          "reason_repo_history_early_guard",
+          "reason_budget",
+          "reason_order",
+          "reason_table",
+          "reason_rate",
+          "reason_logic",
+          "reason_transform"
+        ],
+        "unstableTasks": [
+          "reason_critical_path"
+        ],
+        "diagnosis": "VARIABILITY_LIMITED"
+      },
+      {
+        "model": "qwen3.5:27b",
+        "role": "R1",
+        "suiteContractSha256": "2bbda86b76ff4ecf99121193eb32e72a00049d1f8ca632410495d512a998f3b2",
+        "discriminating": 2,
+        "minimum": 3,
+        "noiseLimited": [
+          "reason_critical_path"
+        ],
+        "closeScores": [
+          "reason_repo_audit_error_envelope",
+          "reason_repo_history_late_guard",
+          "reason_repo_history_early_guard",
+          "reason_budget",
+          "reason_order",
+          "reason_table",
+          "reason_rate",
+          "reason_logic",
+          "reason_transform"
+        ],
+        "unstableTasks": [
+          "reason_critical_path"
+        ],
+        "diagnosis": "VARIABILITY_LIMITED"
+      },
+      {
+        "model": "qwen3.5:27b",
+        "role": "R2",
+        "suiteContractSha256": "764f9d51735a7082e2359c45834c26d37cadf050c71a9ce963020724714c7383",
+        "discriminating": 2,
+        "minimum": 3,
+        "noiseLimited": [
+          "review_path_async"
+        ],
+        "closeScores": [
+          "review_repo_audit_error_envelope",
+          "review_repo_history_early_guard",
+          "review_sql_null",
+          "review_command_secret",
+          "review_bounds_resource",
+          "review_auth_race",
+          "review_clean"
+        ],
+        "unstableTasks": [
+          "review_path_async"
+        ],
+        "diagnosis": "VARIABILITY_LIMITED"
+      },
+      {
+        "model": "qwen3:14b",
+        "role": "D2",
+        "suiteContractSha256": "2bbda86b76ff4ecf99121193eb32e72a00049d1f8ca632410495d512a998f3b2",
+        "discriminating": 2,
+        "minimum": 3,
+        "noiseLimited": [],
+        "closeScores": [
+          "reason_repo_audit_error_envelope",
+          "reason_repo_history_late_guard",
+          "reason_repo_history_early_guard",
+          "reason_budget",
+          "reason_order",
+          "reason_table",
+          "reason_sets",
+          "reason_rate",
+          "reason_logic",
+          "reason_transform"
+        ],
+        "unstableTasks": [
+          "reason_critical_path"
+        ],
+        "diagnosis": "SMALL_OBSERVED_DIFFERENCE"
+      },
+      {
+        "model": "qwen3:14b",
+        "role": "R1",
+        "suiteContractSha256": "2bbda86b76ff4ecf99121193eb32e72a00049d1f8ca632410495d512a998f3b2",
+        "discriminating": 2,
+        "minimum": 3,
+        "noiseLimited": [],
+        "closeScores": [
+          "reason_repo_audit_error_envelope",
+          "reason_repo_history_late_guard",
+          "reason_repo_history_early_guard",
+          "reason_budget",
+          "reason_order",
+          "reason_table",
+          "reason_sets",
+          "reason_rate",
+          "reason_logic",
+          "reason_transform"
+        ],
+        "unstableTasks": [],
+        "diagnosis": "SMALL_OBSERVED_DIFFERENCE"
+      },
+      {
+        "model": "qwen3.8:latest",
+        "role": "D1",
+        "suiteContractSha256": "2bbda86b76ff4ecf99121193eb32e72a00049d1f8ca632410495d512a998f3b2",
+        "discriminating": 2,
+        "minimum": 3,
+        "noiseLimited": [
+          "reason_critical_path"
+        ],
+        "closeScores": [
+          "reason_repo_audit_error_envelope",
+          "reason_repo_history_late_guard",
+          "reason_repo_history_early_guard",
+          "reason_budget",
+          "reason_order",
+          "reason_table",
+          "reason_rate",
+          "reason_logic",
+          "reason_transform"
+        ],
+        "unstableTasks": [
+          "reason_critical_path"
+        ],
+        "diagnosis": "VARIABILITY_LIMITED"
+      }
+    ],
+    "limitation": "Diagnostic of recorded tasks only; more repeats or new tasks require a new exact contract and incumbent baseline."
+  },
+  "taskCalibration": {
+    "sourceSha256": "e12cef01127caca23090023d110ba8081816ca1d5fdfda110e9f2095ecd03410",
+    "note": "Comparison frequencies, not independent samples: an incumbent run can recur across duels.",
+    "tasks": [
+      {
+        "name": "reason_repo_audit_error_envelope",
+        "comparisons": 27,
+        "discriminating": 2,
+        "bothPerfect": 0,
+        "variable": 2,
+        "roles": [
+          "D1",
+          "D2",
+          "R1"
+        ]
+      },
+      {
+        "name": "reason_repo_history_late_guard",
+        "comparisons": 27,
+        "discriminating": 8,
+        "bothPerfect": 18,
+        "variable": 1,
+        "roles": [
+          "D1",
+          "D2",
+          "R1"
+        ]
+      },
+      {
+        "name": "reason_repo_history_early_guard",
+        "comparisons": 27,
+        "discriminating": 2,
+        "bothPerfect": 25,
+        "variable": 0,
+        "roles": [
+          "D1",
+          "D2",
+          "R1"
+        ]
+      },
+      {
+        "name": "reason_repo_immutable_refinement",
+        "comparisons": 27,
+        "discriminating": 22,
+        "bothPerfect": 0,
+        "variable": 1,
+        "roles": [
+          "D1",
+          "D2",
+          "R1"
+        ]
+      },
+      {
+        "name": "reason_budget",
+        "comparisons": 27,
+        "discriminating": 4,
+        "bothPerfect": 22,
+        "variable": 1,
+        "roles": [
+          "D1",
+          "D2",
+          "R1"
+        ]
+      },
+      {
+        "name": "reason_order",
+        "comparisons": 27,
+        "discriminating": 0,
+        "bothPerfect": 27,
+        "variable": 0,
+        "roles": [
+          "D1",
+          "D2",
+          "R1"
+        ]
+      },
+      {
+        "name": "reason_critical_path",
+        "comparisons": 27,
+        "discriminating": 23,
+        "bothPerfect": 0,
+        "variable": 13,
+        "roles": [
+          "D1",
+          "D2",
+          "R1"
+        ]
+      },
+      {
+        "name": "reason_table",
+        "comparisons": 27,
+        "discriminating": 4,
+        "bothPerfect": 20,
+        "variable": 3,
+        "roles": [
+          "D1",
+          "D2",
+          "R1"
+        ]
+      },
+      {
+        "name": "reason_sets",
+        "comparisons": 27,
+        "discriminating": 19,
+        "bothPerfect": 2,
+        "variable": 0,
+        "roles": [
+          "D1",
+          "D2",
+          "R1"
+        ]
+      },
+      {
+        "name": "reason_rate",
+        "comparisons": 27,
+        "discriminating": 2,
+        "bothPerfect": 25,
+        "variable": 0,
+        "roles": [
+          "D1",
+          "D2",
+          "R1"
+        ]
+      },
+      {
+        "name": "reason_logic",
+        "comparisons": 27,
+        "discriminating": 0,
+        "bothPerfect": 25,
+        "variable": 2,
+        "roles": [
+          "D1",
+          "D2",
+          "R1"
+        ]
+      },
+      {
+        "name": "reason_transform",
+        "comparisons": 27,
+        "discriminating": 1,
+        "bothPerfect": 26,
+        "variable": 0,
+        "roles": [
+          "D1",
+          "D2",
+          "R1"
+        ]
+      },
+      {
+        "name": "review_repo_audit_error_envelope",
+        "comparisons": 11,
+        "discriminating": 5,
+        "bothPerfect": 0,
+        "variable": 0,
+        "roles": [
+          "R2"
+        ]
+      },
+      {
+        "name": "review_repo_history_late_guard",
+        "comparisons": 11,
+        "discriminating": 7,
+        "bothPerfect": 0,
+        "variable": 1,
+        "roles": [
+          "R2"
+        ]
+      },
+      {
+        "name": "review_repo_history_early_guard",
+        "comparisons": 11,
+        "discriminating": 6,
+        "bothPerfect": 0,
+        "variable": 1,
+        "roles": [
+          "R2"
+        ]
+      },
+      {
+        "name": "review_repo_immutable_refinement",
+        "comparisons": 11,
+        "discriminating": 10,
+        "bothPerfect": 0,
+        "variable": 2,
+        "roles": [
+          "R2"
+        ]
+      },
+      {
+        "name": "review_sql_null",
+        "comparisons": 11,
+        "discriminating": 4,
+        "bothPerfect": 0,
+        "variable": 1,
+        "roles": [
+          "R2"
+        ]
+      },
+      {
+        "name": "review_path_async",
+        "comparisons": 11,
+        "discriminating": 4,
+        "bothPerfect": 0,
+        "variable": 2,
+        "roles": [
+          "R2"
+        ]
+      },
+      {
+        "name": "review_command_secret",
+        "comparisons": 11,
+        "discriminating": 5,
+        "bothPerfect": 6,
+        "variable": 1,
+        "roles": [
+          "R2"
+        ]
+      },
+      {
+        "name": "review_bounds_resource",
+        "comparisons": 11,
+        "discriminating": 5,
+        "bothPerfect": 0,
+        "variable": 1,
+        "roles": [
+          "R2"
+        ]
+      },
+      {
+        "name": "review_auth_race",
+        "comparisons": 11,
+        "discriminating": 8,
+        "bothPerfect": 0,
+        "variable": 2,
+        "roles": [
+          "R2"
+        ]
+      },
+      {
+        "name": "review_clean",
+        "comparisons": 11,
+        "discriminating": 5,
+        "bothPerfect": 6,
+        "variable": 0,
+        "roles": [
+          "R2"
+        ]
+      }
+    ]
+  },
+  "gpuBlocker": {
+    "observed": "NVML_DRIVER_LIBRARY_VERSION_MISMATCH",
+    "loadedKernelModule": "595.84",
+    "moduleOnDisk": "595.91.07",
+    "nvmlLibrary": "595.91",
+    "newModelMeasurements": false
+  },
+  "proofDigests": {
+    "desktop-journey.json": "63656e3d6f8110473e605af842a23048d0d0d9598dacb23c7ef001e67dd22a50",
+    "hunt-ui-controls.json": "4b40db18e67f56c30708f198ffdf47cd097d43377e1d9cf7d839ac5bf0f2c8fe",
+    "hunt-ui-cancel-01-failed.json": "aa5b37b1b292fcaed4befcec31358936f42975630b5ff629efc382326da3aa8a",
+    "hunt-ui-cancel.json": "f0fb40422c04491b7cb86dfcad58965ea0565742302e3bd67207daf864340823",
+    "panel-diagnostics.json": "6800493c0a2dec281953262bdd5a1e2dd6df973a7965eddf5a01da25c08105cb",
+    "panel-task-diagnostics.json": "9c07ccb3cb2a346ab645d6fbe51f3746c7f0723524d7500241e6716623437afe",
+    "db-integrity-final.json": "086cb6fa9654029d7214520f5c2d6ab9941e865165f7aade9a5ffb5f3f7950eb",
+    "live-migration-probe.json": "347479ee28089f724e3fd8e06c326bce739da1dccf65130c28c5c67d7a19f1d6",
+    "error-window.txt": "bc4d6afaa044533a0184ff5f82758a07d07f6d832f65e62eb7357df101e76692",
+    "studio-build-03.log": "ff54c1c244f15177eb9d29a4ea135eb133865ed313bd15646ad2224339d59436",
+    "registry-final.log": "b84a39160dcbdeae6b1e189ed73e21487f0f6bcbbe2c7b2600deb49cdb21eaf6",
+    "boundary-final.log": "7138361609b1cd70d83a03b49eacd5777176f5404790db382e6c8ceee2af644a",
+    "installation-apply.log": "1d5ac5aa0cff53f5c1e54589875abcef45a74b63d20bc85b8655dd5fc43fa6de",
+    "installation-apply-02.log": "9e318d49a7e72142371f82d59a1a02ace9aadfd323e5bf0e0e08bb1987b8bda1",
+    "installation-apply-03.log": "9b8a6bdf287242b6c52e3d711a19138dbc7baba4f299b2676ad71a4aa7534e43",
+    "installation-apply-04.log": "a482dad5da08766a860b32cfcfda5c76f33a0f8e0676884590460067d689ae46",
+    "installation-apply-05.log": "a257878d5d5fb412d84694f8e7cfac060265ae2c306fae9a985975bf4d3a8ded",
+    "fresh-install-01.log": "02a5aebd45004ae6f2641233b75ee342f3bcbf87bd3e00dbcd030930941f7e82",
+    "artifact-final.log": "27c6f459d24407f8062ade6f2b2de4e4527684dc96e694cbd13bcac785465913",
+    "artifact-final-02.log": "c0a807e407aa0d3a378c7083f25a8877ebfaf34eb5023edb118853dc46744669",
+    "live-systemd.json": "c8400464a220efb50c510012d0b998fc721816b949e4048c552de06f81f8af0f",
+    "process-supervision-02.log": "37950dc8687d87a764375917a7202467bd95aae0b49b2b7a230b85acafe783a2"
+  },
+  "privateArtifactRoot": ".intentsmith-artifacts/desktop-hunt-20260917",
+  "pending": [
+    "independent review of new desktop/hunt control delta",
+    "physical calibration after GPU driver consistency is restored",
+    "Gate 0 registry release seal and existing M5/M6 acceptance conditions"
+  ],
+  "postDocumentationValidation": {
+    "artifactAssertions": {
+      "pass": 158,
+      "fail": 0
+    },
+    "localLinks": {
+      "checked": 252,
+      "missing": 0
+    }
+  }
+}

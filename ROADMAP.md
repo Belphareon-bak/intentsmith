@@ -1,22 +1,18 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-Desktopový checkpoint `262b60d1` implementuje společnou instalaci, lokální
-ovládání huntu a Studio záložku; fyzická instalace se ověřuje samostatně.
-Přesný module graph má 1 332 hran, 3 cykly / 28 členů. Dvě nové hrany
-z `routes/system` vedou do lokální transportní autority a pevného systemd
-adaptéru. Nevzniká obecný shell ani vzdálená řídicí pravomoc.
+**Provozní checkpoint 2026-09-17:** společná připnutá instalace a DB,
+desktopová ikona, připojení ke službě a stav/ovládání huntu jsou lokálně
+nainstalované a fyzicky ověřené na `9d13bb53`. Timer je persistentní,
+backend běží v produkčním režimu; zavření Studia jej nevypíná. Starý launcher
+zachovává vlastnictví port file i chybový exit status. Přesný module graph má 1 332 hran,
+3 cykly / 28 členů; nové lokální ovládání není obecný shell ani M7 oprávnění.
 
-**Provozní doplnění, 2026-09-17:** po společném core/hunt kandidátu zbývá
-sjednotit instalaci a DB, dodat desktopový start/připojení k backendové
-uživatelské službě, zpřístupnit stav/frontu/ovládání huntu a dále kalibrovat
-testy (poslední panel má 13/38 nedostatečně průkazných duelů).
-Jde o otevřenou práci; publikovaný zdroj není nasazená instalace.
-`scripts/run.sh` dnes při již běžícím backendu odmítne start; jeho EXIT úklid
-navíc bez ověření vlastnictví maže port file a přepisuje exit status na 0.
-Desktopový launcher musí zachovat cizí backend i původní chybu, zobrazit ji
-v okně a být ověřen opakovaným spuštěním i ukončením.
-Publikační kontrola společného zdroje `26a038db` má 353/353 PASS, registry
-516 programů a zachovaný původní FAIL; [souhrn ověření](docs/execution/runs/github-publication-20260917.json).
+Finální profil na testovacím follow-up `2587ae56`: **353 PASS / 1 FAIL**,
+pouze release seal podle `CONTRACT.md §8`. Nová delta je **REVIEW_PENDING**.
+Další fyzickou kalibraci (13/38 neprůkazných duelů, z toho 7 s variabilitou)
+blokuje aktuální nesoulad ovladače NVIDIA/NVML; kontrakty ani rozhodovací
+laťka se kvůli tomu nemění. [Review a důkazy](docs/review/2026-09-17-DESKTOP-HUNT-REVIEW.md),
+[návod k aplikaci](docs/DESKTOP.md).
 
 **Verze:** 4 · **Datum:** 2026-08-08 · **Vlastník:** operátor ·
 **Stav: PŘIJATO OPERÁTOREM 2026-08-21** společně s `PRODUCT.md`.

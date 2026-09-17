@@ -144,9 +144,13 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 ## Rozsah
 
-Census core/hunt s repo scoringem a regresním follow-up `20e5a022`, 2026-09-12;
-rozpracované změny nejsou přijatý release. Předchozí čísla a výsledky mají
-v historii vlastní přesné piny.
+Census desktop/hunt implementace `9d13bb53` s testovacím follow-up `2587ae56`,
+2026-09-17. Společná instalace, produkční backend, GTK desktop launcher a GUI
+huntu jsou fyzicky ověřené. Finální profil: **353 PASS / 1 release-seal FAIL**.
+Obsah 503 modelových evaluací, 21 hunt attempts a 7 desired bindings se proti
+předinstalační záloze nezměnil. Novou kalibraci blokuje ovladač GPU; nová delta
+není nezávisle přijatá. [Přesný aktuální packet](docs/review/2026-09-17-DESKTOP-HUNT-REVIEW.md).
+Následující dřívější výsledky si zachovávají vlastní piny.
 
 Společný kandidát včetně sidebar opravy `9d5e207a`: **353/353 PASS** a
 produkční Studio build na čistém `20e5a022`. Změna kontraktu + timeout

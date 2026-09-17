@@ -28,3 +28,9 @@ se nepřepisuje ani neslučuje napříč kontrakty. Bindingy se samy neaktivují
 Stop: nevysvětlitelná změna provozní DB, neobnovitelná migrace, aktivní cizí
 GPU práce, nutnost oslabit autoritu/containment nebo chybějící oprávnění.
 Předání rozliší implementaci, lokální instalaci, fyzický důkaz a nezávislé review.
+
+Stav 2026-09-17: **LOCAL_INSTALLATION_VERIFIED / REVIEW_PENDING**. Runtime
+`9d13bb53`, testovací follow-up `2587ae56` (353 PASS / 1 očekávaný release-seal
+FAIL). První tři provozní oblasti jsou implementované a fyzicky ověřené;
+kalibrační diagnostika je hotová, nová modelová kalibrace je blokovaná
+nesouladem ovladače GPU. [Review a kompletní hranice](../review/2026-09-17-DESKTOP-HUNT-REVIEW.md).

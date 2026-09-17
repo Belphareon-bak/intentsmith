@@ -18,14 +18,16 @@ podepsané privacy podklady a správu operátorských klíčů. Ohraničený fyz
 scénář Studio → model → schválení dvou souborů → test → restart → obnova DB
 prošel a jeho [review nemá blokující nález](docs/review/2026-09-12-PRODUCTION-JOURNEY-REVIEW-RECEIPT.md).
 M6 stále vyžaduje zbývající release důkazy a přijetí; tento scénář neprokazuje
-obecnou autonomní kvalitu rozsáhlých změn. Poslední společné core/hunt změny
+obecnou autonomní kvalitu rozsáhlých změn. Předchozí společné core/hunt změny
 mají celý gate **353/353 PASS** a produkční Studio build na `20e5a022`,
 jejich [nezávislé review zůstává otevřené](docs/review/2026-09-12-HUNT-REVIEW-FOLLOWUP.md).
 Aktuální autorita:
 [PRODUCT](PRODUCT.md), [ROADMAP](ROADMAP.md), [SYSTEM-MAP](SYSTEM-MAP.md).
 
-**Pracovní kandidát pro review:** větev
-[`work/hunt-review-followup-20260912`](https://github.com/Belphareon-bak/intentsmith/tree/work/hunt-review-followup-20260912).
+**Aktuální pracovní kandidát pro review:** větev
+[`work/desktop-hunt-20260917`](https://github.com/Belphareon-bak/intentsmith/tree/work/desktop-hunt-20260917),
+[desktop/hunt packet](docs/review/2026-09-17-DESKTOP-HUNT-REVIEW.md).
+Předchozí společný core/hunt je na `work/hunt-review-followup-20260912`.
 [Publikační ověření z 2026-09-17](docs/execution/runs/github-publication-20260917.json)
 má **353/353 PASS** na `26a038db`; původní běh 352 PASS / 1 FAIL je zachovaný.
 Opravený test řídí čas kolem hranice stáří dat, produktová kontrola se nemění.
@@ -34,14 +36,18 @@ Dokončený repo panel z 2026-09-12 má 12 kandidátů bez chyb rolí;
 binding neaktivuje. Přesné kontrakty, výsledky a omezení jsou v
 [modelové dokumentaci](docs/MODEL-SCORING-ACTIVATION.md).
 
-**Provozní dohotovení (2026-09-17):** měření a retence modelů ještě nejsou
-pohodlná desktopová aplikace. Následuje společná instalace a DB pro aplikaci
-i hunt, start/připojení Studia jednou ikonou, stav/fronta/ovládání huntu v GUI
-a další kalibrace rozlišitelnosti testů. Instalovaný timer stále míří na
-mobilní checkout s jiným CODE kontraktem a má `Persistent=false`.
-Publikace společné větve na GitHubu sama nepřepíná lokální instalaci ani
-nepřepočítává skóre. Doporučená varianta je backend jako uživatelská služba,
-Studio jako samostatná aplikace; přístup z mobilu zůstává v hranicích M7.
+**Lokální aplikace nainstalována (2026-09-17):** IntentSmith má ikonu,
+backendovou uživatelskou službu a záložku **Modely → GPU hunt** se stavem,
+poslední známou frontou, výsledkem a ovládáním. Backend, Studio i hunt běží
+ze stejného pinu `9d13bb53` nad původní DB; timer má `Persistent=true`.
+Spuštění přes ikonu, opakované otevření, zavření okna, restart backendu,
+HTTP 401/200 a zrušení huntu jsou fyzicky ověřené. [Návod](docs/DESKTOP.md).
+Finální celý profil na `2587ae56`: **353 PASS / 1 FAIL** — pouze očekávaná
+release pečeť podle `CONTRACT.md §8`, nikoli úplný PASS. Nezávislé review
+nové delty zůstává otevřené. Kalibrační diagnostika rozlišila 7 duelů omezených
+variabilitou a 6 s malým rozdílem; nová GPU měření blokuje nesoulad načteného
+ovladače NVIDIA a nainstalovaných knihoven. Historie skóre i bindingy zůstaly
+beze změny. Podrobnosti a neúspěšné pokusy zachovává review packet.
 
 [Kontrakty rozšíření po 1.0](docs/post-release/README.md) popisují skutečné
 zlepšování modelu, porozumění rozsáhlému projektu, úplné agenty a odložené

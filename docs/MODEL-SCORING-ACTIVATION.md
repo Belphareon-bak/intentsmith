@@ -1,6 +1,6 @@
 # Modelové evaluace a aktivace
 
-**Stav:** současný kontrakt v136.1 · **Aktualizováno:** 2026-09-12
+**Stav:** současný kontrakt v136.1 · **Aktualizováno:** 2026-09-17
 **Implementace:** `WP-MODEL-EVALUATION-CONSOLIDATION` · **Přijetí:**
 coverage je implementačně kompletní a čistý finální gate na `53ded662` prošel
 `279/279`; evidence rereview rozsahu `d6137d4c..3f027938` skončilo
@@ -30,6 +30,14 @@ INSUFFICIENT_EVIDENCE. Portfolio doporučilo Devstral pro R2; bindingy hunt
 neaktivuje. Společný core kandidát prošel úplným 353/353 gate a produkčním
 Studio buildem včetně ochrany před dvojím sidebar widgetem.
 [Přesné revize, FAILED historie a evidence](review/2026-09-12-HUNT-REVIEW-FOLLOWUP.md).
+
+**Provozní checkpoint 2026-09-17 — REVIEW_PENDING:** aplikace i hunt nyní
+sdílejí instalaci `9d13bb53` a původní DB. Studio nabízí lokální start/stop,
+pause/resume, stav, poslední známou frontu a výsledky; timer je persistentní.
+Všech 503 evaluation runs, 21 hunt attempts a 7 desired bindings zůstalo
+zachovaných. Aktuální diagnostika rozlišuje 7 neprůkazných duelů s variabilitou
+a 6 s malým rozdílem. Nové fyzické přeměření blokuje NVIDIA/NVML mismatch;
+žádné staré skóre se nepovyšuje na jiný kontrakt. [Desktop/hunt review](review/2026-09-17-DESKTOP-HUNT-REVIEW.md).
 
 Název souboru zůstává kvůli existujícím odkazům. IntentSmith už ale nemá
 samostatný „scoring“ runtime. Existuje jedna autoritativní cesta pro modelové
