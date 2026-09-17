@@ -22,11 +22,14 @@ mkdirSync(state, { recursive: true, mode: 0o700 });
 const runDir = mkdtempSync(join(state, 'run-'));
 mkdirSync(join(runDir, 'tmp'), { mode: 0o700 });
 const startedAt = new Date().toISOString();
+const argument = name => process.argv.slice(2).find(value => value.startsWith(`--${name}=`))?.slice(name.length + 3) || null;
+const request = { kind: process.argv.includes('--evaluate-installed') ? 'evaluation' : 'hunt',
+  model: argument('only'), role: argument('role') };
 const currentFile = join(state, 'current.json');
 const publish = values => {
   const next = `${currentFile}.${process.pid}.tmp`;
   writeFileSync(next, JSON.stringify({ schemaVersion: 1, runId: basename(runDir), startedAt,
-    sourceRoot: root, ...values }) + '\n', { mode: 0o600 });
+    sourceRoot: root, request, ...values }) + '\n', { mode: 0o600 });
   renameSync(next, currentFile);
 };
 // Manual and scheduled units must not race for the provider or overwrite the
@@ -122,9 +125,11 @@ try {
   catch { /* Missing report is explicit; a successful exit alone is not a completed measurement. */ }
   publish({ status: stopping ? 'CANCELLED' : code !== 0 ? 'FAILED' : report?.status || (report ? 'COMPLETE' : 'REPORT_MISSING'),
     finishedAt: new Date().toISOString(), exitCode: code,
+    code: report?.code || /Error:\s*([A-Z][A-Z0-9_]{3,})/.exec(failureOutput)?.[1] || null,
     error: code !== 0 ? (report?.error || failureOutput.trim() || 'Proces měření skončil bez výsledku; podrobnosti jsou v systémovém logu.') : null,
     reasons: report?.reasons || [], diagnostics: analyzeHuntDecisions(report?.results || []), results: (report?.results || []).map(r => ({
       model: r.model, stage: r.stage, error: r.error || null, roleErrors: r.roleErrors?.length || 0,
+      roleFailures: (r.roleErrors || []).map(f => ({ role: f.role, model: f.model, code: f.code, error: f.error, failedTasks: f.failedTasks || [] })),
       evaluations: (r.trials || []).filter(t => t.evaluation).map(t => ({role:t.role, score:t.evaluation.score, reused:t.evaluation.reused === true})),
       decisions: (r.trials || []).map(t => ({ role: t.role, reason: t.decision?.reasonCode, winner: t.decision?.winner })),
     })) });

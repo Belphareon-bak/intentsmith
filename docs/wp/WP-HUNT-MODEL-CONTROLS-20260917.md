@@ -31,3 +31,11 @@ Ověřit náhradní zdroj, nedostupný zdroj, ruční limit a skutečný rendere
 Náhradní kapacita a viditelný katalog jsou instalované na `d4dea0bb`; živé API
 vrací 24103 MiB a 49/71 kandidátů v 80% limitu. GPU scoring je stále BLOCKED.
 [Review, oba plné profily a následná oprava dokumentačního počtu](../review/2026-09-17-VRAM-CAPACITY-FALLBACK.md).
+
+Navazující zadání operátora 17. 9. večer: opravit odmítnutí platného digestu
+při ruční evaluaci, zobrazit konkrétní fázi, model/roli/úlohu, skutečný počet
+hotových testů, čas a podložený odhad zbývajícího času. Chyby shrnout lidsky,
+raw detail ponechat rozbalitelný; oddělit běžící pokus od historického selhání.
+Autorita digestu ani skórovací kontrakt se nemění. Ověřit pozitivní i negativní
+identitu, opakování a průběh v reálném rendereru, poté jeden živý CODE běh
+na vybraném Qwen3.5:27b přes instalovanou HTTP cestu. Zachovat cizí soak.

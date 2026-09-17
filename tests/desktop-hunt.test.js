@@ -8,6 +8,9 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import vm from 'node:vm';
 import { createHuntControl } from '../src/system/hunt-control.js';
+import { buildCandidates } from '../src/upgrade/model-discovery.js';
+import { canonicalModelName } from '../src/upgrade/model-identity.js';
+import { comparePair } from '../src/upgrade/pairwise-trial.js';
 import { analyzeHuntDecisions, inspectHuntGpu, readNvidiaDisplayCapacity } from '../src/upgrade/model-hunt-diagnostics.js';
 import { acquireGpuEvaluationLock } from '../src/upgrade/gpu-evaluation-lock.js';
 import { createGlobalAuthAuthority } from '../src/security/global-auth-policy.js';
@@ -16,6 +19,70 @@ import { ROOT, refreshDesktopCaches, renderDesktopInstallation, resolveElectronS
 const exec = promisify(execFile);
 const revision = 'a'.repeat(40);
 const capability = 'c'.repeat(43);
+test('manual CLI selection consumes the actual normalized inventory digest and rejects drift before pull',async()=>{
+  const source=await readFile(join(ROOT,'scripts/model-upgrade-hunt.js'),'utf8');
+  const block=source.slice(source.indexOf('let picked = queue;'),source.indexOf('if (INSTALLED_PANEL && picked.some'));
+  const digest='d'.repeat(64),installed=buildCandidates([{name:'qwen3.5:27b',digest:'sha256:'+digest,size:1000,details:{parameter_size:'27B'}}]);
+  const select=(name,expected)=>vm.runInNewContext('(async()=>{'+block+'return picked;})()',{
+    queue:[],ONLY:[name],EVALUATE_INSTALLED:true,EXPECTED_DIGEST:expected,installed,ROLES:['CODE'],canonicalModelName,
+    fetchFamilyTags:()=>{assert.fail('must not pull or discover');},
+  });
+  const rows=await select('qwen3.5:27b',digest);
+  assert.equal(rows[0].artifact.digestSha256,digest);assert.equal(rows[0].installed,true);
+  await assert.rejects(select('qwen3.5:27b','e'.repeat(64)),/ARTIFACT_CHANGED/);
+  await assert.rejects(select('missing:7b',digest),/ARTIFACT_CHANGED/);
+});
+
+test('suite progress counts completed tasks across repeats and keeps model identity and unknown ETA',async()=>{
+  const events=[];
+  const runner={runSuite:async(suite,model,onProgress)=>{
+    for(let i=0;i<2;i++)onProgress({suite,testName:'task-'+i,status:'running',currentTest:i+1,totalTests:2});
+    onProgress({suite,status:'complete',currentTest:2,totalTests:2});
+    return {tests:[{name:'task-0',score:1},{name:'task-1',score:1}],total:2,score:1};
+  }};
+  await comparePair(runner,'fixture','candidate','incumbent',{repeats:3,onProgress:e=>events.push(e)});
+  for(const model of ['candidate','incumbent']){
+    const rows=events.filter(e=>e.model===model);
+    assert.deepEqual(rows.map(e=>e.completedTests),[0,1,2,2,3,4,4,5,6]);
+    assert.ok(rows.every(e=>e.totalTests===6));assert.equal(rows[0].etaMs,null);
+    assert.equal(rows.at(-1).repeat,3);assert.equal(rows.at(-1).etaMs,0);
+  }
+});
+
+test('latest completed manual evaluation is not overridden by an older failed hunt service',async t=>{
+  const {config,file}=await fixture(t);
+  await mkdir(join(config.stateDirectory,'model-hunt'));
+  const current=join(config.stateDirectory,'model-hunt/current.json');
+  await writeFile(current,JSON.stringify({status:'COMPLETE',request:{kind:'evaluation',model:'fixture'}}),{mode:0o600});
+  const control=createHuntControl({installationFile:file,databasePath:config.dbPath,inspectGpu:async()=>({available:true}),
+    run:async args=>({stdout:`LoadState=loaded\nActiveState=${args[1].endsWith('.timer')?'active':args[1].includes('model-hunt')?'failed':'inactive'}\nWorkingDirectory=${ROOT}\nExecStart={ path=${process.execPath} ; argv[]=${ROOT}/scripts/run-model-hunt-provider.js ; }\nEnvironmentFiles=${config.configDirectory}/runtime.env (ignore_errors=no)\n`})});
+  assert.equal((await control.status()).state,'WAITING');
+  await writeFile(current,JSON.stringify({status:'FAILED'}),{mode:0o600});
+  assert.equal((await control.status()).state,'FAILED');
+});
+
+test('Studio progress exposes real task counts and ETA, with raw failures only in collapsed details',async()=>{
+  const source=await readFile(join(ROOT,'c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
+  const helpers=source.slice(source.indexOf('function _modelButtonStyle('),source.indexOf('var _huntSubmittedAt='));
+  const render=source.slice(source.indexOf('function _huntDuration('),source.indexOf('var _discoveredData='));
+  const context=vm.createContext({C:{},_fs:n=>n,h:(tag,props,...children)=>({tag,props,children}),
+    _huntActionPending:false,_huntError:null,_huntLoading:false,_loadHuntStatus(){}});
+  vm.runInContext(helpers+render,context);
+  context._huntData={state:'RUNNING',timer:{},current:{status:'RUNNING',startedAt:new Date(Date.now()-60000).toISOString(),request:{kind:'evaluation',model:'fixture',role:'CODE'}},
+    progress:{phase:'tasks',activeModel:'fixture',updatedAt:new Date().toISOString(),detail:{role:'CODE',testName:'patch_real_fix',repeat:2,repeats:3,completedTests:3,totalTests:9,etaMs:120000}}};
+  const tree=()=>vm.runInContext('_renderHuntTab()',context);
+  const nodes=(node)=>!node||typeof node!=='object'?[]:Array.isArray(node)?node.flatMap(nodes):[node,...nodes(node.children)];
+  const progress=nodes(tree()).find(n=>n.tag==='progress');
+  assert.equal(progress.props.value,33);assert.match(JSON.stringify(tree()),/3 \/ 9 provedených/);
+  assert.match(JSON.stringify(tree()),/patch_real_fix/);assert.match(JSON.stringify(tree()),/do konce této sady/);
+  context._huntData.progress.detail={};
+  assert.equal(nodes(tree()).find(n=>n.tag==='progress').props.value,undefined);
+  context._huntData.state='FAILED';context._huntData.current={status:'FAILED',code:'MODEL_EVALUATION_ARTIFACT_CHANGED',error:'Error: MODEL_EVALUATION_ARTIFACT_CHANGED\nprivate-stack.js:673'};
+  assert.equal(nodes(tree()).filter(n=>n.tag==='progress').length,0);
+  const details=nodes(tree()).find(n=>n.tag==='details'&&JSON.stringify(n).includes('private-stack.js:673'));
+  assert.ok(details);assert.notEqual(details.props.open,true);
+  assert.match(JSON.stringify(tree()),/Obnov seznam modelů/);
+});
 test('calibration diagnostic separates a stable near-tie from noise without overriding decisions',()=>{
   const data=[{model:'fixture',trials:[{role:'D1',decision:{reasonCode:'INSUFFICIENT_EVIDENCE'},
     policy:{minimumDiscriminatingTasks:3},comparison:{discriminating:2,tasks:[

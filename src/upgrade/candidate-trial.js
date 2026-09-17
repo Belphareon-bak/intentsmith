@@ -154,7 +154,9 @@ export const CAPABILITY_FLOOR = Object.freeze([
 
 export async function runCapabilityFloor(modelName, opts = {}) {
   const failures = [];
-  for (const probe of (opts.probes || CAPABILITY_FLOOR)) {
+  const probes = opts.probes || CAPABILITY_FLOOR;
+  for (const [index, probe] of probes.entries()) {
+    opts.onStage?.('floor', modelName, { probe: probe.id, currentProbe: index + 1, totalProbes: probes.length });
     try {
       const answer = await ask(modelName, probe.prompt, opts);
       if (!probe.check(answer)) failures.push({ id: probe.id, reason: probe.failure, answer: answer.slice(0, 120) });
@@ -332,6 +334,7 @@ export async function tryCandidate(candidateName, ctx = {}) {
           },
           suiteCache,
           ...ctx.trialOpts,
+          onProgress: value => ctx.trialOpts?.onProgress?.({ ...value, role }),
         };
         if (ctx.evaluationOnly) {
           const evaluation = await evaluateRole(runner, role, candidateName, roleOptions);

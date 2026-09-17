@@ -103,7 +103,14 @@ async function runSuiteRepeated(
     if (i > 0 && between) await between();
     let run;
     try {
-      run = await runner.runSuite(suiteName, model, onProgress, expectedArtifact);
+      run = await runner.runSuite(suiteName, model, event => {
+        const total = event.totalTests;
+        const completed = i * total + (event.status === 'running' ? event.currentTest - 1 : event.currentTest);
+        const elapsedMs = Date.now() - started;
+        onProgress?.({ ...event, model, repeat: i + 1, repeats,
+          completedTests: completed, totalTests: repeats * total, testsPerRepeat: total,
+          elapsedMs, etaMs: completed > 0 ? Math.max(0, elapsedMs / completed * (repeats * total - completed)) : null });
+      }, expectedArtifact);
       // Transport/authority failure is not zero-quality evidence.
       if (run.cancelled || !Array.isArray(run.tests) || run.tests.length === 0
         || (Number.isInteger(run.total) && run.total !== run.tests.length)

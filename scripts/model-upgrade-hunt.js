@@ -114,12 +114,12 @@ const PULL_PROVIDER_URL = process.env.INTENTSMITH_HUNT_PULL_URL || config.ollama
 const INCREMENTAL_ONLY = flag('incremental-only');
 const REPORT_PATH = val('report');
 let progressQueue = [];
-function publishProgress(phase, activeModel = null, completed = []) {
+function publishProgress(phase, activeModel = null, completed = [], detail = null) {
   const file = process.env.INTENTSMITH_HUNT_PROGRESS_FILE;
   if (!file) return;
   const next = `${file}.${process.pid}.tmp`;
   writeFileSync(next, JSON.stringify({ schemaVersion: 1, phase, activeModel,
-    updatedAt: new Date().toISOString(), queue: progressQueue.slice(0, 100).map(c => ({
+    detail, updatedAt: new Date().toISOString(), queue: progressQueue.slice(0, 100).map(c => ({
       name: c.name, roles: c.roles,
       state: completed.includes(c.name) ? 'FINISHED' : c.name === activeModel ? 'RUNNING' : 'PENDING',
     })), queueTotal: progressQueue.length }) + '\n', { mode: 0o600 });
@@ -670,7 +670,7 @@ if (ONLY.length) {
   picked = [];
   for (const name of ONLY) {
     const local = installed.find(candidate => canonicalModelName(candidate.name) === canonicalModelName(name));
-    if (EVALUATE_INSTALLED && (!local || local.artifact?.digestSha256 !== EXPECTED_DIGEST)) throw new Error('MODEL_EVALUATION_ARTIFACT_CHANGED');
+    if (EVALUATE_INSTALLED && (!local || local.digestSha256 !== EXPECTED_DIGEST)) throw new Error('MODEL_EVALUATION_ARTIFACT_CHANGED');
     // An explicit remote name still needs a catalog size before any pull.
     // Unknown/private artifacts fail closed at the same storage gate.
     const tags = local ? [] : await fetchFamilyTags(name.split(':')[0]);
@@ -681,7 +681,7 @@ if (ONLY.length) {
       family: (local?.name || name).split(':')[0],
       sizeGB: local?.sizeGB || remote?.sizeGB || 0,
       installed: Boolean(local),
-      artifact: local?.artifact || null,
+      artifact: local ? { modelName: local.name, digestSha256: local.digestSha256 } : null,
       catalogDigest: remote?.catalogDigest || null,
       roles: ROLES,
       reasons: [local ? 'zadáno ručně; již nainstalováno' : 'zadáno ručně'],
@@ -834,6 +834,7 @@ await drainResident(measurementOptions);
 log(`\n══ ZKOUŠKA KANDIDÁTŮ (${toTry.length}) ══`);
 
 const results = [];
+progressQueue = toTry;
 for (const cand of toTry) {
   publishProgress('evaluating', cand.name, results.map(r => r.model));
   log(`\n─── ${cand.name}  (role: ${cand.roles.join(', ')}) ───`);
@@ -868,6 +869,7 @@ for (const cand of toTry) {
     runner: evaluationRunner,
     evaluationOnly: EVALUATE_INSTALLED,
     pullModel: async (name, onProgress, authority) => {
+      onProgress = value => publishProgress('pull', name, results.map(r => r.model), { download: value });
       const recovered = await upgradeManager.recoverOutstandingModelPulls(onProgress, {
         modelNames: [name], providerOrigin: new URL(PULL_PROVIDER_URL).origin,
       });
@@ -901,6 +903,7 @@ for (const cand of toTry) {
     evaluationPlans,
     trialOpts: {
       repeats: 3,
+      onProgress: value => publishProgress('tasks', value.model || cand.name, results.map(r => r.model), value),
       resolveArtifact: historyCallbacks.resolveArtifact,
       loadHistoricalSummary: historyCallbacks.loadHistoricalSummary,
       saveHistoricalSummary: historyCallbacks.saveHistoricalSummary,
@@ -912,6 +915,7 @@ for (const cand of toTry) {
       ).state === 'scored';
     },
     onStage: (stage, m, info = {}) => {
+      publishProgress(stage, m, results.map(r => r.model), info);
       if (stage === 'measured') {
         measurements.set(canonicalModelName(m), {
           fits: info.fits,
@@ -1102,6 +1106,8 @@ if (PRUNE_REJECTED) {
 if (AS_JSON || REPORT_PATH) {
   emitJsonArtifact({
     generatedAt: new Date().toISOString(),
+    ...(EVALUATE_INSTALLED ? { status: results.some(r => r.error || r.roleErrors?.length) ? 'FAILED'
+      : results.some(r => r.trials?.some(t => t.evaluation)) ? 'COMPLETE' : 'BLOCKED' } : {}),
     gpu, providerVersion, huntCatalog: huntState.summary(), catalogUpdatesRequiringManualImport,
     perRole: Object.fromEntries([...perRole].map(([r, l]) => [r, l])),
     queue, results, proposedBindings: bindings, portfolio,
