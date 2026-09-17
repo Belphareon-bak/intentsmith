@@ -1,0 +1,2286 @@
+{
+  "schemaVersion": 1,
+  "status": "IMPLEMENTED_INSTALLED_REVIEW_REQUIRED",
+  "reviewBase": "ba7c72d641594699cd435ce9417ee7c32d746487",
+  "runtimeRevision": "3bbf8bc1b354bbee187d5fe51a21b00072b4d3d9",
+  "panelOriginalCommit": "4fca7e67c0b853fb85fc6ea9ba702e5a9d00f815",
+  "panelIntegratedCommit": "da0c912047caa28b20b3f7520f527b4c2a19262f",
+  "releaseAcceptance": false,
+  "priorIndependentVerdict": "CHANGES_REQUIRED",
+  "deterministicRun": {
+    "runId": "privacy-panels-rereview-20260917",
+    "sourceRevision": "3bbf8bc1b354bbee187d5fe51a21b00072b4d3d9",
+    "registryHash": "04252cb29ea270886c049b01034c2bfec034a77d22ec4675decf593ae052ecb6",
+    "startedAt": "2026-09-17T14:14:12.191Z",
+    "endedAt": "2026-09-17T14:19:40.988Z",
+    "statusCounts": {
+      "PASS": 354,
+      "FAIL": 1,
+      "TIMEOUT": 0,
+      "BLOCKED": 0,
+      "SKIPPED": 0
+    },
+    "verdict": "FAIL",
+    "exitCode": 1,
+    "reportPath": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/report.json",
+    "reportSha256": "3ac69940292f2255598872214e5f3469c5a361f95786ca72fef0cc186770a4eb",
+    "verifiedLogs": 355,
+    "nonPass": [
+      {
+        "id": "IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST",
+        "status": "FAIL"
+      }
+    ]
+  },
+  "suiteLogs": [
+    {
+      "id": "IS-T1-TESTS-ACCOUNTANT-E2E-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_accountant-e2e.test.js.5894dad6.log",
+      "sha256": "408b540ff3e51fe4c214c5d21731445cda29ae269e3d6efb97fa6303b3348f6b"
+    },
+    {
+      "id": "IS-T1-TESTS-ACCOUNTANT-SELF-CONTAINED-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_accountant-self-contained.test.js.1403a6bb.log",
+      "sha256": "38484eba72cfeceeb511fa351a9a0ab2910e127781fc85cd22674d2459409484"
+    },
+    {
+      "id": "IS-T1-TESTS-ACCOUNTANT-TOOLS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_accountant-tools.test.js.5ee165c9.log",
+      "sha256": "49fdab29d91043cb22032c3a4a261eaa72c892a48fd215fd12ce0db4e5534991"
+    },
+    {
+      "id": "IS-T1-TESTS-AGENT-LOG-UX-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_agent-log-ux.test.js.f748fd9e.log",
+      "sha256": "cef4a6db032eb69866d01e427e29801a694b73da8308948551c8d61add8d77b3"
+    },
+    {
+      "id": "IS-T1-TESTS-AGENT-RUNNER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_agent-runner.test.js.7b7332cf.log",
+      "sha256": "acd814396153ec42d5d0b42da3687a4135fc7fd13c994c3d82315d3283ac8f6f"
+    },
+    {
+      "id": "IS-T1-TESTS-AGENT-SOURCES-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_agent-sources.test.js.b407225b.log",
+      "sha256": "edb8dde67f6c8617d647d12abde2ddc1024c4a764d49dfaff8e5fc197e9205df"
+    },
+    {
+      "id": "IS-T1-TESTS-AGENT-WIZARD-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_agent-wizard.test.js.7f8b6590.log",
+      "sha256": "8d10899f0efbf61bcd94f199fae4a1a50aa9e02ab4c28db022079969d0de3228"
+    },
+    {
+      "id": "IS-T1-TESTS-API-CONTRACT-REGISTRY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_api-contract-registry.test.js.c8533c3a.log",
+      "sha256": "8d3a4cc59c628a8037dd5c32a7cb7752225e087c6dfeed6aaba7042fa61e05b9"
+    },
+    {
+      "id": "IS-T1-TESTS-ARCHITECT-SMOKE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_architect-smoke.test.js.ca5ac490.log",
+      "sha256": "1e9fb7adea60ebbab935a2c342d2d5077cf8bf019faf58f58b1de5a6b1a0a485"
+    },
+    {
+      "id": "IS-T1-TESTS-ARCHITECTURE-CHECK-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_architecture-check.test.js.d9613b1b.log",
+      "sha256": "1fbde9984605f2a3fd0a1a7241a1ac154f132fbaaad22f3c85d880acc78d15e2"
+    },
+    {
+      "id": "IS-T1-TESTS-ARCHITECTURE-DETECTOR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_architecture-detector.test.js.4c355f52.log",
+      "sha256": "8422cc569b32ea17226f6ad2e2c32341622690aad38b3a83e28ccfff96e389b5"
+    },
+    {
+      "id": "IS-T1-TESTS-ARCHITECTURE-GOVERNANCE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_architecture-governance.test.js.fa59f229.log",
+      "sha256": "546f9a9bbfd08dbda5e53b79ba79bdd984c3d56affca6d58590a3c92790aa315"
+    },
+    {
+      "id": "IS-T1-TESTS-ARCHITECTURE-POLICY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_architecture-policy.test.js.d4a20908.log",
+      "sha256": "0079daac98cc6a48bab34abc15e65786d24b5aa892a90bc4a968e8b30a87f02c"
+    },
+    {
+      "id": "IS-T2-TESTS-ARCHIVE-LIFECYCLE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_archive-lifecycle.test.js.8dae37af.log",
+      "sha256": "841d48b97685cebc2e8f1ded3d8cb34f6b0201b6d7a08985f541439ba09837a7"
+    },
+    {
+      "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_artifact-validation.test.js.9a54c027.log",
+      "sha256": "eea7fbf29134255422dadb3c63bef91d8b6fbb6a895b5f52301a34bb4ff26bb6"
+    },
+    {
+      "id": "IS-T1-TESTS-AST-ANALYZER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_ast-analyzer.test.js.b4c16ce1.log",
+      "sha256": "45966a0d0b52a75d090dd43a9b3db190f770a0e79090d02e8379559be099d4c8"
+    },
+    {
+      "id": "IS-T1-TESTS-AUDIT-SUMMARY-SELF-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_audit-summary-self-test.js.20930c4d.log",
+      "sha256": "53fbb4acdd726a4180289e974e2d064efb40e80f927eb42b668af3aada15e505"
+    },
+    {
+      "id": "IS-T1-TESTS-AUTO-EXPERTISE-SELECT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_auto-expertise-select.test.js.ee2c4f1a.log",
+      "sha256": "3f2282d2bf3a1e31153f1023e17387478a3e4085095d962bcd02eda25a3dd07f"
+    },
+    {
+      "id": "IS-T1-TESTS-BUILD-HANDOFF-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_build-handoff.test.js.5ce2d1af.log",
+      "sha256": "e87683877acbd9fabda2296cd5a56f1c344d4b2f01d56af723b676539bae2b0e"
+    },
+    {
+      "id": "IS-T1-TESTS-BUILD-PATTERNS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_build-patterns.test.js.b080ecfa.log",
+      "sha256": "3ce860f58c61265666a168518897e60d65dce74c4021ff5358071c971b1c02c2"
+    },
+    {
+      "id": "IS-T1-TESTS-BUILD-STRATEGY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_build-strategy.test.js.80fccc14.log",
+      "sha256": "cc7775b8e538e6339f0f22a1bdae39483e1c1312f09b39d5194a2738f44bc31a"
+    },
+    {
+      "id": "IS-T1-TESTS-CANDIDATE-TRIAL-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_candidate-trial.test.js.6ee0db64.log",
+      "sha256": "e3c2a808816d17f1546e95375e1305c03d17693606451c7ed43d109363a9bb6c"
+    },
+    {
+      "id": "IS-T1-TESTS-CAPABILITY-01-SERVER-BEHAVIOURS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_capability-01-server-behaviours.test.js.34508a22.log",
+      "sha256": "e5bc22462592eb99b79eb2841ad7f509a032e040e4ace40eeaf1e42ef7d8e8e8"
+    },
+    {
+      "id": "IS-T1-TESTS-CAPABILITY-02-CRE-BEHAVIOURS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_capability-02-cre-behaviours.test.js.b108029d.log",
+      "sha256": "db5b4f183b29baaa6e50e629d26f9bae3f79e816ad15eaa3aded9469dd6e7ece"
+    },
+    {
+      "id": "IS-T1-TESTS-CAPABILITY-ENFORCER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_capability-enforcer.test.js.94d2683e.log",
+      "sha256": "3df339add4bc4f07734ad8288c79b71dc3fe02e336ff60e2922ed94c3cb90c04"
+    },
+    {
+      "id": "IS-T1-TESTS-CAPABILITY-REGISTRY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_capability-registry.test.js.650c678f.log",
+      "sha256": "d7beaf61a6d3bace4e22a29e67d1591feaa716003edbd1d29494074f8d784d7c"
+    },
+    {
+      "id": "IS-T1-TESTS-CAPABILITY-SANDBOX-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_capability-sandbox.test.js.48ff887a.log",
+      "sha256": "6d5d7cab7e7c9f86fae4203d4adfb3def8188843d1a4ec14974ea77b45799661"
+    },
+    {
+      "id": "IS-T1-TESTS-CATALOG-METADATA-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_catalog-metadata.test.js.25c6d790.log",
+      "sha256": "e0cd89af4035d1421779e79b3f9d01999a86ec760809e056a493b960b1b6f044"
+    },
+    {
+      "id": "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_chat-export-budget.test.js.56739be3.log",
+      "sha256": "84d93ab254746f31ec9bcbe20a63acad01ba31562747f198fa34282430dd72d6"
+    },
+    {
+      "id": "IS-T1-TESTS-CHAT-FIXES-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_chat-fixes.test.js.baa9bbb9.log",
+      "sha256": "63b8e913e8f93cb456f2158d7d30ad679d66eda8be44d3f5b573efe1e569deb2"
+    },
+    {
+      "id": "IS-T1-TESTS-CHAT-MEMORY-PRIVACY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_chat-memory-privacy.test.js.71ec8b73.log",
+      "sha256": "1aa2212f003bf0837e0bbc33fb69d64b50b243beae84530c84f569059b5bc804"
+    },
+    {
+      "id": "IS-T1-TESTS-CHAT-OUTPUT-QUALITY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_chat-output-quality.test.js.7ef60198.log",
+      "sha256": "a98b5ffb50db695a9a523d154d3e2de2875268fd417de3a727abc659f00f419b"
+    },
+    {
+      "id": "IS-T1-TESTS-CHAT-SEARCH-QUALITY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_chat-search-quality.test.js.8d05878c.log",
+      "sha256": "161d1eb035c5d4c33977ab8108270f889e2cbd090199e9dd38e82619761f3c7c"
+    },
+    {
+      "id": "IS-T1-TESTS-CHAT-SYNTHESIS-HARDENING-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_chat-synthesis-hardening.test.js.afbec6c0.log",
+      "sha256": "5213b0fbbc7934abcf11294322e987fd16b8a3dd09ac032505a2ae8eae72aa94"
+    },
+    {
+      "id": "IS-T1-TESTS-CHUNKER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_chunker.test.js.5cd49644.log",
+      "sha256": "e0e2b5a262b3482d7b4beac459300da6abe5c1457910e65775912db109d332e9"
+    },
+    {
+      "id": "IS-T1-TESTS-CIRCUIT-BREAKER-V55-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_circuit-breaker-v55.test.js.3cfa0f99.log",
+      "sha256": "b2bf1a15dd2aec6add45067bc1f84d09ad75bd253ec3f292b5fa81b4149f00b2"
+    },
+    {
+      "id": "IS-T1-TESTS-CODE-ANALYZER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_code-analyzer.test.js.e14aa774.log",
+      "sha256": "30748652c089d2c1474e6149ae143849b4fcf66e9d43700d4861c66868b7ad07"
+    },
+    {
+      "id": "IS-T1-TESTS-CODE-EVOLUTION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_code-evolution.test.js.9588e102.log",
+      "sha256": "160a3e6aa4a6d9613b29c23f700c0606d5c78ee1c2ce0cf9525ee523d5794e97"
+    },
+    {
+      "id": "IS-T1-TESTS-CODE-PATCH-RUNNER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_code-patch-runner.test.js.4e53faba.log",
+      "sha256": "3adcbac9100fb7004602ef9121eb00e7f048e3a0c98e1eab3d06654d5889862d"
+    },
+    {
+      "id": "IS-T1-TESTS-CODE-PATCH-SUITE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_code-patch-suite.test.js.3b160b71.log",
+      "sha256": "304e27f69736e3b8d6762915b088aa7f36c83541cfc595dbf8b4751bbe627192"
+    },
+    {
+      "id": "IS-T1-TESTS-CODE-SEARCH-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_code-search.test.js.ba05e7f6.log",
+      "sha256": "b886044e01e66a7d2689c4149c5eddb1a358a85ef3dd59e8b26741bde7614b3d"
+    },
+    {
+      "id": "IS-T1-TESTS-CODE-TASK-EXTRACTOR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_code-task-extractor.test.js.b32be2e5.log",
+      "sha256": "f9dbd45b8e336ac98294d193fbf6d550cb929ff1c1cbb90948c935e3475da814"
+    },
+    {
+      "id": "IS-T1-TESTS-CONCEPT-REGISTRY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_concept-registry.test.js.7fb9b136.log",
+      "sha256": "4dde0a884e92c3c09c33fda984967e932c4ce9da03ece16f6c640842cf8492f2"
+    },
+    {
+      "id": "IS-T1-TESTS-CONTEXT-BUILDER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_context-builder.test.js.d92d331f.log",
+      "sha256": "3ca38528767b3ae3665b66828b6efb83bd68f1414086093ac1aaa3561897328d"
+    },
+    {
+      "id": "IS-T1-TESTS-CONTEXT-COMPACT-MODEL-CTX-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_context-compact-model-ctx.test.js.b50dda24.log",
+      "sha256": "51ba402b0426da4225cea50f27fc84f05a466ecc773b11a8137d616473fe845e"
+    },
+    {
+      "id": "IS-T1-TESTS-CONTEXT-DELTA-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_context-delta.test.js.45374093.log",
+      "sha256": "02ab7b24769ff4fa5bc0b70101553f1f58b9f7c47cbb1b1a0d2a56f91ad73a03"
+    },
+    {
+      "id": "IS-T1-TESTS-CONTEXT-ENGINE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_context-engine.test.js.4fec1a25.log",
+      "sha256": "70fed6bdd78d4339c3cb313dcaa529dcb6642185b9ddda5f06688082591d0468"
+    },
+    {
+      "id": "IS-T1-TESTS-CONTEXT-OPTIMIZER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_context-optimizer.test.js.8f41abad.log",
+      "sha256": "494843f4377f8146d8601c61f48e23b6d6ffca56e24199c942bebd2fb50222f7"
+    },
+    {
+      "id": "IS-T1-TESTS-CONTINUOUS-IMPROVEMENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_continuous-improvement.test.js.348117fa.log",
+      "sha256": "d87cdda705a321f608e8bfb734e37b945a2d690d956da9f2a7b3f6d4b3c87cc7"
+    },
+    {
+      "id": "IS-T1-TESTS-CONVERSATION-WEB-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_conversation-web.test.js.9bd93c0a.log",
+      "sha256": "373aa937ea6ddff9bb17a0f5a9c4977c1403fbc9b5d68a3a133b6bad90776c39"
+    },
+    {
+      "id": "IS-T3-TESTS-CRE-BUILD-ARBITRATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_cre-build-arbitration.test.js.5ba9f4c2.log",
+      "sha256": "75510b136cc37237a152720273033698a8cb9bf7216424367b9d83848149bf6b"
+    },
+    {
+      "id": "IS-T3-TESTS-CRE-FILE-REFERENCE-GUARD-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_cre-file-reference-guard.test.js.97f62c4c.log",
+      "sha256": "ebeb19d10672e3f0626801191efb5865788f588962e85344d7d21745509b6bd8"
+    },
+    {
+      "id": "IS-T1-TESTS-CRE-GATEKEEPER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_cre-gatekeeper.test.js.b49de5a1.log",
+      "sha256": "385ec5d804b52f47fc9dbf1fc576c1a62ac58360906e966aab5bba3d7882e5ba"
+    },
+    {
+      "id": "IS-T3-TESTS-CRE-REPORT-STICKY-BREAK-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_cre-report-sticky-break.test.js.4c60541b.log",
+      "sha256": "7fba9e28926db2cbe94e8a0b986225a6dd34aa04bb487f671e89abb33c2f1f26"
+    },
+    {
+      "id": "IS-T1-TESTS-CREATE-EXPERTISE-INTEGRATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_create-expertise-integration.test.js.ae897e02.log",
+      "sha256": "077c287592c2dab9cabed459466a41d25915ebaf20d10ac69f19c4f1c99a98c9"
+    },
+    {
+      "id": "IS-T1-TESTS-CREATE-SPECIALIST-SKILL-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_create-specialist-skill.test.js.11d6ccc1.log",
+      "sha256": "2a8add7860f937b690e7a4830202f4b5c86068675b18a68e6d05fced2ba5ba7e"
+    },
+    {
+      "id": "IS-T1-TESTS-CRITIC-AGENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_critic-agent.test.js.9695f52d.log",
+      "sha256": "5310714716aa00be49f38b91157f42ac7beb5cc652853714464b4c95d1947eea"
+    },
+    {
+      "id": "IS-T1-TESTS-CROSS-PROJECT-LEARNER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_cross-project-learner.test.js.4218a0bf.log",
+      "sha256": "59c81b2c75ac89d13bed853e2ae6a5c9e5919173386ccce598283e515783473e"
+    },
+    {
+      "id": "IS-T1-TESTS-DB-AUTOREPAIR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_db-autorepair.test.js.d1655e67.log",
+      "sha256": "b84cbb1ed3061e8c8cc8e2b2d05d723e0355e9e3de1a8cbb6b074aafd30d69bb"
+    },
+    {
+      "id": "IS-T1-TESTS-DEAD-CODE-DETECTOR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_dead-code-detector.test.js.2e572168.log",
+      "sha256": "1c9645ae602bff84a2e9bd407b1bf23fa3422688097a993cc418633c572b4d67"
+    },
+    {
+      "id": "IS-T1-TESTS-DEBUG-AGENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_debug-agent.test.js.e8205e39.log",
+      "sha256": "939fc16d8e19340ac1b5962bbc1130765f13167da2c48fda4c7a6a6b9116be1e"
+    },
+    {
+      "id": "IS-T1-TESTS-DEPENDENCY-MANAGER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_dependency-manager.test.js.b48e6f16.log",
+      "sha256": "30bc065cb61e8f9a16f84ba1c7e46db4b4f9352ee821bb073a1c4f638c169502"
+    },
+    {
+      "id": "IS-T1-TESTS-DESKTOP-HUNT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_desktop-hunt.test.js.49df83af.log",
+      "sha256": "ddc3b5a1294c46b7716f1eec7b4f0b113542342706570b2971f9339b4ca2289a"
+    },
+    {
+      "id": "IS-T1-TESTS-DETERMINISTIC-ANSWER-LATENCY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_deterministic-answer-latency.test.js.9276f549.log",
+      "sha256": "d5569b6353a9551fd0b4eb15ebc16006d9a4d4a8dabfcc09b49310256c2acd71"
+    },
+    {
+      "id": "IS-T1-TESTS-DOMAINS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_domains.test.js.40d7987e.log",
+      "sha256": "da5362b5098727f9dfc2e99632fd4ec6a283544bc52d427396e73d790df9438b"
+    },
+    {
+      "id": "IS-T1-TESTS-DRIFT-DETECTOR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_drift-detector.test.js.5bf78ec2.log",
+      "sha256": "f2e3f089d4c80734a158a5586c21632596d6ea36505dffbfab6a70a245e12af6"
+    },
+    {
+      "id": "IS-T2-TESTS-E2E-HARNESS-ISOLATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_e2e-harness-isolation.test.js.965b7f17.log",
+      "sha256": "73b85a466455a4c7453fac1c552e8c081012d8ee113f5b0287cec47cc6a6e768"
+    },
+    {
+      "id": "IS-T1-E2E-HELPERS-SELF-CHECK",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_e2e__helpers.self-check.js.f45fd526.log",
+      "sha256": "bb64127e495a6c3e624ffdfe2aa2b54ed467c2d9fa8b88221460cccde36ef7ba"
+    },
+    {
+      "id": "IS-T1-TESTS-ERROR-NORMALIZER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_error-normalizer.test.js.b713fc63.log",
+      "sha256": "a8fb0e50e180d40f7934d83a720bef2e5f1c1a5a4db50dbfdc6c941793e4ca28"
+    },
+    {
+      "id": "IS-T1-TESTS-EXECUTION-GRAPH-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_execution-graph.test.js.166af7ca.log",
+      "sha256": "4f2ccac296ce2930a5f3487ec14d403c5e908ee739922fde9d61b8c2b743798c"
+    },
+    {
+      "id": "IS-T1-TESTS-EXECUTION-LOOP-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_execution-loop.test.js.eca94dc0.log",
+      "sha256": "7f6cb16ea325046ce8f28395d7ad7994b6d91564c1a360570de33df5cca7a926"
+    },
+    {
+      "id": "IS-T1-TESTS-EXECUTION-TRACE-STRESS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_execution-trace-stress.test.js.3884abfb.log",
+      "sha256": "e3e86763228b14263079131b6bef38134fed5e385e7dea9aefd46eab098e9f32"
+    },
+    {
+      "id": "IS-T1-TESTS-EXPERTISE-DISCOVERY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_expertise-discovery.test.js.a4992039.log",
+      "sha256": "1953d6c13c948e2b3c94633b02272524f98e21fa6e6fa0040b269489fc342fb2"
+    },
+    {
+      "id": "IS-T1-TESTS-EXPERTISE-INTEGRATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_expertise-integration.test.js.f04c0b04.log",
+      "sha256": "03c1d4c0fce791e019af88c7a00362a9c38cf4772aec3a5bacf45d920c625ce6"
+    },
+    {
+      "id": "IS-T1-TESTS-EXPERTISE-SYSTEM-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_expertise-system.test.js.ad383929.log",
+      "sha256": "a9988dfea5ccad4d518b2e3dde107603cb6afa4e1e60f0454ff29caed5afed72"
+    },
+    {
+      "id": "IS-T1-TESTS-EXPERTISE-WIZARD-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_expertise-wizard.test.js.c6b93dcf.log",
+      "sha256": "eda182903a0273e43e457473dda731a04f999ea814ca82593a4c85c04534d575"
+    },
+    {
+      "id": "IS-T1-TESTS-EXPLORATION-AGENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_exploration-agent.test.js.d64f8a78.log",
+      "sha256": "84a80982e1751f3924fba3dc740f420fd40bbe9d326a662218222b9ec37260da"
+    },
+    {
+      "id": "IS-T1-TESTS-EXPORT-PDF-DOCX-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_export-pdf-docx.test.js.30056cec.log",
+      "sha256": "cc322c0a05f75ebf4d13dade47f6e9f21d987bbcc6009bd8a3d78cade960c755"
+    },
+    {
+      "id": "IS-T1-TESTS-FILE-DISCOVERY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_file-discovery.test.js.96264527.log",
+      "sha256": "1dd87b2161eaeeac832d8659c0e2634dcb1bbdcb8529f768137e19c2aeff4815"
+    },
+    {
+      "id": "IS-T1-TESTS-FILE-WRITE-EXTRACT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_file-write-extract.test.js.2a88b307.log",
+      "sha256": "97ea1aa46f74dece4e08fcbb284f853193d4e1a8142f4c7e6d4a9e85c6aa90db"
+    },
+    {
+      "id": "IS-T1-TESTS-FIX-STRATEGY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_fix-strategy.test.js.c6fbfb8e.log",
+      "sha256": "96d5841b4699b3247bc27be942fbd7428c9123f230436804a70104bce38134b6"
+    },
+    {
+      "id": "IS-T1-TESTS-FUNCTION-SPAN-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_function-span.test.js.731bd2c6.log",
+      "sha256": "86c3ea97aa67e3708d5e24cbbf91979942b2b3a8753b166aefd877a08bb0a58e"
+    },
+    {
+      "id": "IS-T1-TESTS-GOVERNOR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_governor.test.js.cb9c8aef.log",
+      "sha256": "6db4cc994c8d8a688ad482b7cefca6af393444555596224057329b1980d6c120"
+    },
+    {
+      "id": "IS-T1-TESTS-GRAPH-QUERY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_graph-query.test.js.debaf6cf.log",
+      "sha256": "073d7d057442ef63346e143f98eeaa6e72ad3829d40eabb0ec21fefa52c29aad"
+    },
+    {
+      "id": "IS-T1-TESTS-GRAPH-RETRIEVAL-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_graph-retrieval.test.js.52fd7404.log",
+      "sha256": "b382356b8d374c41908ef60dcbcf0627397ae5839cc9fe2442343e91455e0fbc"
+    },
+    {
+      "id": "IS-T1-TESTS-GRAPH-SYNC-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_graph-sync.test.js.e6f547c7.log",
+      "sha256": "bc75b7e23879b5911f0d58affdabc2e12aec306ed4a9ced42d7873c4de92acf9"
+    },
+    {
+      "id": "IS-T1-TESTS-HARNESS-EXIT-CODE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_harness-exit-code.test.js.a34d228f.log",
+      "sha256": "df587ab7ffa6482193b401988459a1e35ab5833264f6a7fadeb02372dc54ee33"
+    },
+    {
+      "id": "IS-T1-TESTS-HUGGINGFACE-CLIENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_huggingface-client.test.js.28b6ea99.log",
+      "sha256": "8bc13b3fe82e5fb8d7b710a140441c473c5f6ad9ddc04ca07251007d82d64b94"
+    },
+    {
+      "id": "IS-T1-TESTS-IMPACT-ANALYZER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_impact-analyzer.test.js.610b1e67.log",
+      "sha256": "0ae4dd1a1455a98cd9f9010c6efd3239141841f80b6555cece0ff5422c2b442c"
+    },
+    {
+      "id": "IS-T1-TESTS-IMPORT-MAP-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_import-map.test.js.4bf97966.log",
+      "sha256": "fa769d5600e82999575d000547b0b11d36c464e01ab2da49a5b356a2b4530c5d"
+    },
+    {
+      "id": "IS-T1-TESTS-IMPROVEMENT-LOOPS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_improvement-loops.test.js.c93525e7.log",
+      "sha256": "a77b20785deb57e5331453d5bc08de3f16c3309dc57fa807bc4f9093c8ba1ce3"
+    },
+    {
+      "id": "IS-T1-TESTS-INTENT-CONTEXT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_intent-context.test.js.c509e386.log",
+      "sha256": "ba18d49887e460a3444a6c860dff22c971129eac8b46a6c540459a0edb6b5eee"
+    },
+    {
+      "id": "IS-T1-TESTS-KNOWLEDGE-BASE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_knowledge-base.test.js.26010c8c.log",
+      "sha256": "f09299c209f6c955c2b68e8d88e78be7545677917ac47076da0ddc330c5ead35"
+    },
+    {
+      "id": "IS-T1-TESTS-KNOWLEDGE-GRAPH-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_knowledge-graph.test.js.253a294c.log",
+      "sha256": "d93788e6dfca4a1f56f4d2ce2caf9fa1afb013dd1abaf8cc3103a4c1379b3ef8"
+    },
+    {
+      "id": "IS-T1-TESTS-LARGE-PROJECT-SCALING-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_large-project-scaling.test.js.843011ff.log",
+      "sha256": "fca1ccf901f039941f718a618562401c6afcab0f98f440da311f5ad566b7e6fc"
+    },
+    {
+      "id": "IS-T1-TESTS-LEDGER-ANNUAL-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_ledger-annual.test.js.778c0979.log",
+      "sha256": "a924fd5100d362ca3b1862754ba33fc6bf81969fa5d5ea1de0b070f2b84a3477"
+    },
+    {
+      "id": "IS-T1-TESTS-LEDGER-COMPLIANCE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_ledger-compliance.test.js.177966a2.log",
+      "sha256": "68bc03153636e383592d8ac835bafe1d42f1a382e4734982d04a8a999bb43899"
+    },
+    {
+      "id": "IS-T1-TESTS-LEDGER-CORE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_ledger-core.test.js.59eacff6.log",
+      "sha256": "5e08362be02ed6de0f36031a32e2b410c30ebba4dcb4a6e2c370e659124ce6ae"
+    },
+    {
+      "id": "IS-T1-TESTS-LEDGER-INSURANCE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_ledger-insurance.test.js.26716931.log",
+      "sha256": "ba38c1922b43b0078795bf1d9870aa07cf9f403911bcd9e8c99ab12f316fd06d"
+    },
+    {
+      "id": "IS-T1-TESTS-LEDGER-REPORTS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_ledger-reports.test.js.5240a784.log",
+      "sha256": "5ed42b0c5d63d700cc1ebc438a53b0a694c184f30361db82d207aa6d9dd4f470"
+    },
+    {
+      "id": "IS-T1-TESTS-LEDGER-REWIRE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_ledger-rewire.test.js.fa095236.log",
+      "sha256": "48f137a9fdc92af825e85e6d9871ad38f23c4ead16d2ccc6c5d9eb6a32806e60"
+    },
+    {
+      "id": "IS-T1-TESTS-LEDGER-VAT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_ledger-vat.test.js.2d81aa9f.log",
+      "sha256": "82e0da84036e095991ee3b698a1d65103d470d6c63ada689eaafee2760c31437"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-BLOCKED-MILESTONE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_lifecycle-blocked-milestone.test.js.094bea94.log",
+      "sha256": "296cbbbf4aadc0112f80bf535a84703d979c1ed46d83e8d69d50c2a0a2fc8ab7"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-BUILD-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_lifecycle-build.test.js.6a4c4eb0.log",
+      "sha256": "541677801fe82618119b654314457f9ad8371a7deeeee6581f41d45103c2c34c"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-CONVERSATION-E2E-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_lifecycle-conversation-e2e.test.js.ee4ca3a6.log",
+      "sha256": "6a3974d9f294099eb7745b5b9edb795bef5421374c19fdd4ffd18b09c57f524a"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-DB-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_lifecycle-db.test.js.14493c75.log",
+      "sha256": "211f921adbe33c221d9728a7af5be6f7a8b584f504fc6e750b3fa9c022ecfacd"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-E2E-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_lifecycle-e2e.test.js.7a764790.log",
+      "sha256": "c69f2ec210dcc215c8f1ead65877da5742f7f66f6ac2014a62ca6509163c50be"
+    },
+    {
+      "id": "IS-T1-TESTS-LIFECYCLE-HANDOFF-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_lifecycle-handoff.test.js.d2704efb.log",
+      "sha256": "79e6ad746746c10ac8310ae45003a67b93dac1066b0837521fd3d6b5ff8cfaa9"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-HUMAN-FRICTION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_lifecycle-human-friction.test.js.56124424.log",
+      "sha256": "7c35a215a69b3ca1f95e78a08dcf860a992caa96f6a7cf03145b1132e80ae302"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-INVARIANTS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_lifecycle-invariants.test.js.36fc15aa.log",
+      "sha256": "2a3dcd7f8e6da3c906eea876afec852ec8c8f25b133e7c93ad8ee51a65914534"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-LLM-REALISTIC-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_lifecycle-llm-realistic.test.js.5e88868a.log",
+      "sha256": "a1b8b531c92328fe79227b96213c013db2773b69a1dd101a1bf26a0662dc989e"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-REVIEW-CHANGE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_lifecycle-review-change.test.js.faa90132.log",
+      "sha256": "55a8621a413fd9cb875bb303968b1916c7c0b00dc9f4bac3e0bfa7fe7fc4e7bd"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-STRESS-ADVANCED-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_lifecycle-stress-advanced.test.js.5ac1e452.log",
+      "sha256": "052e8f7b577d1cd097748c5312e8c2a0eedc136fcdd62af54c0fa002661ca778"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_lifecycle.test.js.52956fcb.log",
+      "sha256": "03103c735fc251eb5496ce588d1a113390114461160e73fdcc4057e2f901b5bf"
+    },
+    {
+      "id": "IS-T1-TESTS-LLM-GATEWAY-RUNTIME-SIGNAL-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_llm-gateway-runtime-signal.test.js.0b940a7a.log",
+      "sha256": "225bb773a128ba5291333683811c667be72133579c25cc842ec9c128834b17fc"
+    },
+    {
+      "id": "IS-T1-TESTS-LOCAL-MATH-NONFINITE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_local-math-nonfinite.test.js.019feb01.log",
+      "sha256": "e7213fe4960d2bb281480c77a5dcfb68a9a0dabda314740382f0c2b0505a8de5"
+    },
+    {
+      "id": "IS-T2-TESTS-M1-CHAT-CONTRACT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m1-chat-contract.test.js.ca2e48b5.log",
+      "sha256": "b9652dcdde32df7fb1510e013c5b47fd9f478dacbc042f6501c19c5a311165a8"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-CONTRACT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m1-contract.test.js.998aa76f.log",
+      "sha256": "2e2404ae3406220594dfacf8fedae8da5b17d28a7009cdaf0cb45609d4d9f0d3"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-AUTOMATION-POLICY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m1-model-automation-policy.test.js.13f235f4.log",
+      "sha256": "8f32ee8fa5924bfb7e3986c13c2357d0b828d32405b2d1f274ef34200f33456d"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-BINDING-APPLICATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m1-model-binding-application.test.js.96cefee4.log",
+      "sha256": "e658a7c206a2c01924108cb566944b79459e73895ccfea1edf5935fe9facb92c"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-BINDING-REPOSITORY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m1-model-binding-repository.test.js.6b2a3128.log",
+      "sha256": "3ee6efd1bd4feebdf3fa0b449b4142c8a92ba65485c700243fcf9e1cb77fa640"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-BINDING-STORAGE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m1-model-binding-storage.test.js.d31f186e.log",
+      "sha256": "069d8ce90c4c45ad386a2fc0b2ae4646518bde38dabc34d00952bf5d3e30a3ed"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-CONTRACT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m1-model-contract.test.js.a8bcca69.log",
+      "sha256": "8fdb27b7e8745358ef7b6c2705578bd58cbafdb2353b824db5e327f87365f368"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-COORDINATOR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m1-model-failover-coordinator.test.js.30405fa4.log",
+      "sha256": "3c8cca4b93f3ef2c32ed09415d2d11ed7474f651b9ebaff2443fb86cbbfa49ac"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-DETECTION-REPOSITORY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m1-model-failover-detection-repository.test.js.8fe33847.log",
+      "sha256": "082cd7818f439d3c081c29c9883c19fb108a41d0f2f04eb150281da2c416c83a"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-PROOF-ARTIFACTS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m1-model-failover-proof-artifacts.test.js.fcc67211.log",
+      "sha256": "bf1daa37566face165148cd32d199840f8fd7dd9e14d497b781bc120ef2da8cb"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m1-model-failover-schema.test.js.48a6c16b.log",
+      "sha256": "b0ce47d9dbfc054342ae76e2d297c7c900bcb3099d7506171fab527a2766d6fe"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-SETTINGS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m1-model-settings.test.js.ec00af34.log",
+      "sha256": "d46f695f2380c98d9ad1299bfc2a4e2f9753739345dfe099da51a68c96966b34"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-USE-AUTHORITY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m1-model-use-authority.test.js.1decaa60.log",
+      "sha256": "70087beed78677fff955c8b491d79ac2aee2c4691075d83233fdd98efbe6d23f"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-QUALITY-CONTRACT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m1-quality-contract.test.js.48723e78.log",
+      "sha256": "bfbcf46e411ea61187ca083b2c9d7bf08552cb33e92cbe74af3bfd2b8f426e17"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-STUDIO-CLIENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m1-studio-client.test.js.a839f16b.log",
+      "sha256": "0680ede9ce75f3e572ebfb7b63988405842cf4140ddf16dd871cf17104d09ab6"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-VRAM-ARTIFACT-USE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m1-vram-artifact-use.test.js.13f25518.log",
+      "sha256": "8898cac54442ebec5d080e825814e9796fc8d39400829d22c9744c379fb31ba8"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EFFECT-AUTHORITY-REPOSITORY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-effect-authority-repository.test.js.fbda346c.log",
+      "sha256": "12c2525721a561f9b945bb00a822d66baa5cb6813f23c6e945b6f9ca28b5a001"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EFFECT-BROKER-V1-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-effect-broker-v1.test.js.606c7170.log",
+      "sha256": "89556c45a917b78f63e9c5323133dd4fb865bd4fd4feb31c5cb800cb044546e8"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EFFECT-CONTRACT-V1-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-effect-contract-v1.test.js.6dc251f9.log",
+      "sha256": "1f10d0fbcc43545f1395c07f3a4a04744d5582607a67d3310801d4e2c8d69c28"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EFFECT-EXECUTION-OWNER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-effect-execution-owner.test.js.a1097a45.log",
+      "sha256": "278593814fcb9545a50feeee501fdc72bc81d7ada8b39e05dc3b2ff69dbc4a20"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EFFECT-FILE-CONSUMER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-effect-file-consumer.test.js.351c4b65.log",
+      "sha256": "2b1ad4a56cbb3cd19003553199a5ab43ffa9f0a224355d7a3b8f88956853ed33"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EFFECT-FILE-RUNTIME-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-effect-file-runtime.test.js.598972ff.log",
+      "sha256": "f85a9125dc070dbe2fca9bcb507364b5eda3dd066b1b34ed799634a8e485b444"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EXECUTION-AUTHORITY-REPOSITORY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-execution-authority-repository.test.js.ed35dc26.log",
+      "sha256": "a19db00d18386f2f07120cc4457be67248179370e64853ae2d6a04e965d9876d"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EXECUTION-CONTRACT-V1-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-execution-contract-v1.test.js.62f3b9eb.log",
+      "sha256": "82be5e48ac41e91d6c191299bd9e121e9acac4b4428eda309919bdec6c5e979f"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EXECUTION-GIT-PRESERVATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-execution-git-preservation.test.js.11b275be.log",
+      "sha256": "fad028929ce53c07c26452073b46fda38a9e0b773aa96309c772c41c49779849"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EXECUTION-PROCESS-SUPERVISION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-execution-process-supervision.test.js.acd09b66.log",
+      "sha256": "fe28e3f08d2da8646c78cd557eed11b13443490ef132f9f3d8620358681b0cae"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EXECUTION-PROJECT-CHANGE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-execution-project-change.test.js.a53d03c7.log",
+      "sha256": "1b15c364159bd8fa16d36ed00c97d290d2e80e5cddee7ced6f630fbc62b67b09"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-GOVERNANCE-CONTRACT-V1-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-governance-contract-v1.test.js.a877dfcd.log",
+      "sha256": "7a75dc084f2aea08b9fa6617cda2ae889521e9d8e400e47ec063b4a6b39ccc4e"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-GOVERNANCE-EVALUATOR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-governance-evaluator.test.js.8ae217b6.log",
+      "sha256": "b7909df5e465605c298c44dfc21f009f079e9a9b6f865d64c5559c5155bebe39"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-APPLICATION-SERVICE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-lifecycle-application-service.test.js.1a72c253.log",
+      "sha256": "13fc9947d2667d9b7c73aeab2cdbf68d59f58b3fa8829a9b41ff4d44e8bf488d"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-AUTHORITY-REPOSITORY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-lifecycle-authority-repository.test.js.a86849aa.log",
+      "sha256": "f493f01ddc6a37b0d768df9a5a24973de03cc6e7355687cd8e07c9182207dda5"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-CONTRACT-V1-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-lifecycle-contract-v1.test.js.b74c85da.log",
+      "sha256": "74de60f90475edd275f5cc768a5f049fbc766346e2bd129e7647f074755cea7f"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-PROPOSAL-COMPILER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-lifecycle-proposal-compiler.test.js.744ad0e4.log",
+      "sha256": "86fe2df8b6176844dcf8f5cdca19ac2558dcacec7d6d49a3d1e640689bb7f302"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-ROUTES-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-lifecycle-routes.test.js.0c94ab24.log",
+      "sha256": "561af4d89ef615ccaa630a6012d58c411fb5bd8ea681272612527fdcbfda382e"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-STUDIO-SURFACE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-lifecycle-studio-surface.test.js.0e60553a.log",
+      "sha256": "3b9cc39dc78e846545e4d480fada9d0b181ddc8f885a75c5cc959c50cab1d7c3"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-SURFACE-RETIREMENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-lifecycle-surface-retirement.test.js.a7607ce4.log",
+      "sha256": "a20ec3591a3a2689d72e4c67d4c51d9af1a1088d571b880af6d9020d06be6b2b"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-NEGOTIATED-LIFECYCLE-QUARANTINE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-negotiated-lifecycle-quarantine.test.js.73ba5d5d.log",
+      "sha256": "f54fcbe23c1fca5bb0e06df8e773cfaa20b40903e64c236f5c3096b57064b91d"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-PROJECT-CONTEXT-BOUNDARY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-project-context-boundary.test.js.4adfd6d4.log",
+      "sha256": "74a954d18f957b81db46e87f4511d38ce390dcd1d1dce6cbd001bb74d5196d6a"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-PROJECT-CONTEXT-CONSUMER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-project-context-consumer.test.js.94ff0a07.log",
+      "sha256": "2ce33dbecf51116793b74b8a4588060dd0c1bf3168645e3fa14a98b6d160bed9"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-PROJECT-CONTEXT-CONTRACT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-project-context-contract.test.js.8a826e82.log",
+      "sha256": "61459797e3cfda07ca0598a6244b49ac2ad67a7c06164a871b1d89473f13b677"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-PROJECT-CONTEXT-RETRIEVAL-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-project-context-retrieval.test.js.3680830c.log",
+      "sha256": "fe92560beb6ee19061a6cccba2102ce2d7926ab7448362f76582d9e586232dca"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-REMOTE-CORE-PORT-BOUNDARY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-remote-core-port-boundary.test.js.e818266d.log",
+      "sha256": "2c3cb00f92a6537093ddc04731d22b29f5d36d13c3e764ffa36462b193e74862"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-REMOTE-CORE-PORT-CONTRACT-V1-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-remote-core-port-contract-v1.test.js.331394d6.log",
+      "sha256": "26360c54415cc9d0d975d53da1cb100217c04783baa2525692a7084a5e2adab9"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-TOOL-AUTHORITY-REPOSITORY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-tool-authority-repository.test.js.2f54b988.log",
+      "sha256": "e7d7bdebb2bb19023dd14ac7551f801f1f9eb3760683e50fe4c6242b0a1eccb1"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-TOOL-BROKER-V1-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-tool-broker-v1.test.js.ce3c9391.log",
+      "sha256": "def1dd19f1f80c5b72db67084aadb6090678470fae0bb1e6ebf94c9af25e417d"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-TOOL-CONTRACT-V1-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-tool-contract-v1.test.js.20002f30.log",
+      "sha256": "2a736f228bcaa630534370d5013301f8c7146c4e87f317cef1193383386fb0f8"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-TOOL-PRODUCTION-CONSUMER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m2-tool-production-consumer.test.js.97d359cd.log",
+      "sha256": "4afb62a0170c33a452af13bc6b32bc8d3bcd1d002a16defcf9f10fde843b490b"
+    },
+    {
+      "id": "IS-T1-TESTS-M3-CODE-REVIEW-SPECIALIST-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m3-code-review-specialist.test.js.69c5bf24.log",
+      "sha256": "f5eff171a4c2c53538522ff848ff822310d4e2935afad4ef8de444ecc53ae4b8"
+    },
+    {
+      "id": "IS-T1-TESTS-M3-EXPERTISE-EXTENSION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m3-expertise-extension.test.js.0cadd29f.log",
+      "sha256": "3198380ddc06ae006f59f4e915cf1fc882d3952e4749939c0cb51734c907dc89"
+    },
+    {
+      "id": "IS-T1-TESTS-M3-EXTENSION-CONTRACT-V1-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m3-extension-contract-v1.test.js.6196d1c7.log",
+      "sha256": "65b1d0e87b6958a7ac55c9449b51531f70abca7c6ba25169a9b22d20823a7387"
+    },
+    {
+      "id": "IS-T1-TESTS-M3-LEGACY-AGENT-SURFACE-RETIREMENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m3-legacy-agent-surface-retirement.test.js.1f903705.log",
+      "sha256": "1738dee49a5d9027fac3fc3edd15644034093b8e900c96d29af76c8a95bb9fd6"
+    },
+    {
+      "id": "IS-T1-TESTS-M3-PROJECT-HEALTH-AGENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m3-project-health-agent.test.js.89ca5dbe.log",
+      "sha256": "51b30f48a7dd4f5f20f909984b2569cc6d218e27c961567732193b3793a915ec"
+    },
+    {
+      "id": "IS-T1-TESTS-M3-SKILL-EFFECT-AUTHORITY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m3-skill-effect-authority.test.js.90d6abad.log",
+      "sha256": "68a9b2ea444e199e4a22024362f730291fe1c0db5ae9143c821859c19235d708"
+    },
+    {
+      "id": "IS-T1-TESTS-M4-LEARNING-API-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m4-learning-api.test.js.d38d9233.log",
+      "sha256": "c1f1b3c012b8f465ab20a6fbdff41e2d9db4065422fad7b3d5dcb83e30d18727"
+    },
+    {
+      "id": "IS-T1-TESTS-M4-LEARNING-AUTHORITY-REPOSITORY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m4-learning-authority-repository.test.js.b4e8600c.log",
+      "sha256": "6b0122451dfdcb025755cc076201732be84af4943a5128831897d6daa96e8637"
+    },
+    {
+      "id": "IS-T1-TESTS-M4-LEARNING-CONTRACT-V1-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m4-learning-contract-v1.test.js.a8e58962.log",
+      "sha256": "1d6e8a0d54609975ff2fb7185a687300a1aec2b44108dfae32f8eec0f3896628"
+    },
+    {
+      "id": "IS-T3-TESTS-M4-LEARNING-JOURNEY-E2E-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m4-learning-journey-e2e.test.js.f763a019.log",
+      "sha256": "f835f829aef33a7de582d161342fb1bbf9a4e4983636104f8ec36dcc312d9735"
+    },
+    {
+      "id": "IS-T1-TESTS-M4-LEARNING-OUTCOME-EVALUATOR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m4-learning-outcome-evaluator.test.js.9af5e10e.log",
+      "sha256": "101ddb1adf0dd8e8a1e3c45041fddd23fa5dc73e5e03f64a7fe38462ac32c921"
+    },
+    {
+      "id": "IS-T1-TESTS-M4-LEARNING-PATTERN-PRODUCER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m4-learning-pattern-producer.test.js.8c94c60b.log",
+      "sha256": "6015b1f85b1c622ff514d5f2bd0066e089f5d5b5e6b4b115b361fd27e531f3b4"
+    },
+    {
+      "id": "IS-T1-TESTS-M4-LEARNING-STUDIO-SURFACE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m4-learning-studio-surface.test.js.2f719a0e.log",
+      "sha256": "1891bb58fc8570713c3544bee4827bfdd5ddcb18f209b0858e31631f6811cdb7"
+    },
+    {
+      "id": "IS-T1-TESTS-M4-PROJECT-LEARNING-CONTEXT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m4-project-learning-context.test.js.fe2aa47a.log",
+      "sha256": "725e525f3379af58102001f3fb76d99d9ea91651e037769b0834b85753a7b8ed"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-CONDITIONAL-SURFACES-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m5-conditional-surfaces.test.js.c10e5bf3.log",
+      "sha256": "6d208463cc40763a79fa508f722c77cbfdcdce719fda3a713342fe8d221dbe46"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-DATA-RESTORE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m5-data-restore.test.js.abd1e68b.log",
+      "sha256": "aa52db61fc58ab52b781867b6177b1d0483914bd5b0660372af278a67527ba0a"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-INSTALL-PROFILE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m5-install-profile.test.js.3197eac0.log",
+      "sha256": "d3e3fcb177cb245cb79211eb0c8a4057b46f9ba8441855962a90687a400c6c7b"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-OBSERVABILITY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m5-observability.test.js.32ca3222.log",
+      "sha256": "f81aa632093208155c49783f643123f890ed423c84bef723605c044a21c6b6e2"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-OUTBOUND-POLICY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m5-outbound-policy.test.js.efbd97d2.log",
+      "sha256": "5a647163b11bec383da8288b28314b7dafc07b685ad327fb6ada9b38c28da5a0"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-PERFORMANCE-BUDGET-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m5-performance-budget.test.js.e15e50b5.log",
+      "sha256": "296fa111f99da991706e04ba697fbc959ab14496b43b3464fd44f5d28e5064a8"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-PRIVACY-REMEDIATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m5-privacy-remediation.test.js.3f394ce8.log",
+      "sha256": "92f9cd032da7b8c4baf324f47bb9280a28dc78b7ee71d9092771b28ea4d219ba"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-PROCESS-HARDENING-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m5-process-hardening.test.js.b964dd68.log",
+      "sha256": "eb34077dd36e6d3cb8b33a9a266b60d3fba8fa37e2ca25c90e3490a9a27992ef"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-REMOTE-CORE-ADAPTER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m5-remote-core-adapter.test.js.4328babc.log",
+      "sha256": "5a2ba29f7bf4cfff2b61b6e7e8ee0cc86b73d56d213c7ca0704584aa14bd3002"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-ACCEPTANCE-AUTHORITY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m6-acceptance-authority.test.js.4aadeacd.log",
+      "sha256": "ce7e8923f441add6b9ef3e2037d7cfbc970e405b48d6d626571baada26f85518"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-CANDIDATE-PLAN-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m6-candidate-plan.test.js.dc8c9ce7.log",
+      "sha256": "473e9928d215a49ff4ceef1d5e891efb43d23f1b5d7f3815e22d9a8dcd6acee6"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-L0-EVIDENCE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m6-l0-evidence.test.js.b2ad5108.log",
+      "sha256": "ac29cf101b7800726895ac8dcf279442635bb92c376a08d4d6c73c2d600aa039"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-MODEL-ARTIFACT-AUTHORITY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m6-model-artifact-authority.test.js.1cd51e21.log",
+      "sha256": "3d3220f8a1465fc7cfa6585fd7e44a4e5bd2f3a518a66740c3765cf9547bbbd6"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-MODEL-DISCOVERY-JOURNEY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m6-model-discovery-journey.test.js.a03b9269.log",
+      "sha256": "62e4de709d154c50196bd9dcd623cf2fa5c915e20790550796fddbf611f4b113"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-OPERATOR-DEMO-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m6-operator-demo.test.js.28fb911e.log",
+      "sha256": "7fb0e0db35be8a10581aff0ec2e67afe0f6224420b67518d31dcda04cf16feff"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-PLATFORM-JOURNEY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m6-platform-journey.test.js.74df06a5.log",
+      "sha256": "0c6acebd215cfd8a5a8a9ba2bf10ee1a868f81143494b7e474e304a2c9c48d28"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-RELEASE-ARTIFACT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m6-release-artifact.test.js.a2ff816b.log",
+      "sha256": "99cd25ef9e13e5cfaae72819d1148012e1e0c2f49a98ba25593b6ef604639018"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-RELEASE-VALIDATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m6-release-validation.test.js.8867f75b.log",
+      "sha256": "251fabf98d241985326fb4c57894192b2b798bc17eab6a75907246651a053a5e"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m6-runtime-evidence.test.js.0db6f126.log",
+      "sha256": "46ecc6e9c02cf6b03020f755d6f4234cf2e0fe12fdebd6388229b20c178d833f"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-TECHNICAL-EVIDENCE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m6-technical-evidence.test.js.dbf843b8.log",
+      "sha256": "7c8b741ec99bd33d711796557710a6db6fb7ab3840e3eeba5f4f9be61cd059a4"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-CANONICAL-JSON-PARITY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-canonical-json-parity.test.js.779912b1.log",
+      "sha256": "f42bb0728dbd713e2018bbfd2756e93ac5fccb6c3bec6d7a5919dc648046a7c5"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-CONVERSATION-COMMAND-EXECUTOR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-conversation-command-executor.test.js.d662a021.log",
+      "sha256": "eb0064d1dfd37674926c362632f5bd88ce7161ccfaf80417fc5213bcc815c889"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-CONVERSATION-CORE-ADAPTERS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-conversation-core-adapters.test.js.d96c8b72.log",
+      "sha256": "5cf4ef6878d3282b06b098f1398f6a575e7f809b2b76a792e7ce5828b5013db6"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-CORE-COMPOSITION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-core-composition.test.js.2b5e07db.log",
+      "sha256": "58b841580d413731d78c0deae95efb89434b1df4b759da934b9629f1225a18ea"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-DISCONNECTED-REQUEST-PIPELINE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-disconnected-request-pipeline.test.js.4361f964.log",
+      "sha256": "74b16b176d11c63fdf1ea6879d0956d629c856367a943e53ac1ce1b5b40c4d4d"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-DURABLE-RATE-LIMITER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-durable-rate-limiter.test.js.32485a8e.log",
+      "sha256": "d3ed0b609cc4d3adaf7ac27b9e41e782a7059d52ae105e588fdff1a03730f8f7"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-IN-PROCESS-CAPABILITY-PROVIDER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-in-process-capability-provider.test.js.f8b9cde8.log",
+      "sha256": "9fe2b8a413fa9ae6037c462bd7c95536c52fe85448d48adc8adc773f6b9c27dd"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-LOCAL-PAIRING-ROUTE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-local-pairing-route.test.js.7e46b40b.log",
+      "sha256": "3ca98e6416c444f29e990eb35cb70642d3554c8a7ea7dba2c7cf238b677a14cc"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-LOCAL-PAIRING-STUDIO-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-local-pairing-studio.test.js.572f7692.log",
+      "sha256": "dfdead1155b14176035de6da3ae754bfb9e68151c493159b271706a787a0a6df"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-M2-APPROVAL-CORE-ADAPTERS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-m2-approval-core-adapters.test.js.12c96c74.log",
+      "sha256": "8944e18f512189c368ad8c070f7a3c87711f5ccb2f7e6ca833eb4e318a5ace2c"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-MOBILE-APP-RUNTIME-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-mobile-app-runtime.test.js.6ad6d05e.log",
+      "sha256": "0d6b9b362a5f503b35a9557e026d1e0e05241b44768a3cad9dfb6e311e32492f"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-MOBILE-CORE-PIN-INTEGRATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-mobile-core-pin-integration.test.js.082d1156.log",
+      "sha256": "31fdc090119a96b9d5c8ad306ee7584e5673cc10a3c40b0f8a1518cb59033dcb"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-MOBILE-UI-API-ADAPTER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-mobile-ui-api-adapter.test.js.1a215f23.log",
+      "sha256": "f164e35208ab75f01d144c2d1b3bd02f4ae007d08dc52ec54002b92de8a7e0d4"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-MUTATION-MEDIATOR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-mutation-mediator.test.js.7b109ce6.log",
+      "sha256": "2f89508911761af43962c2bfeff022b9daa62fdc44e4be718bbffbe00c3c7260"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-NATIVE-REMOTE-CLIENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-native-remote-client.test.js.5edc41e3.log",
+      "sha256": "1e72d22be57598bcacee53063ab91eacee8f8c1f61a510739f8c50db0dca2f55"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-NOTIFICATION-CORE-ADAPTERS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-notification-core-adapters.test.js.ef074412.log",
+      "sha256": "1bc94c67f3e4322c65e26aac7900f865bebe2bb676bb291a4464cf77fdffd176"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-OPERATION-CONTROL-ADAPTERS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-operation-control-adapters.test.js.04d13ffc.log",
+      "sha256": "5fd99be6902fef9340458f2bfd24d3c1a11fc7a9093d79b5a8503efc3c020f0e"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-OPERATION-JOURNAL-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-operation-journal.test.js.5b628c4f.log",
+      "sha256": "f8e6a6cee9ac7f3c20913820a8356a87475cee8767a26810feafc546d11f4f88"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-PROJECT-CORE-ADAPTERS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-project-core-adapters.test.js.eb2adf66.log",
+      "sha256": "22a1147ab4e49610ae138ec7ef76618d21054841e694a7767e27868444774f4d"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-REMOTE-HEALTH-ADAPTER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-remote-health-adapter.test.js.32985334.log",
+      "sha256": "20894c1862311829c0ad3e015afba77ca2434b10faa2baf5491f35a63a893148"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-RUN-EVENT-CORE-ADAPTER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-run-event-core-adapter.test.js.07053bd8.log",
+      "sha256": "d3873e31659f43cb7b88030a381cca68414f9a341d18a9ce3d6a857cb94530de"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-SESSION-AUTHORITY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-session-authority.test.js.06f5a8e3.log",
+      "sha256": "d5d7f5f62c27dbb3eea3b9eac7dd87e9e3788523e14f063f3b9fdc2cc238c6cc"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-SETTINGS-INFORMATION-CORE-ADAPTERS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-settings-information-core-adapters.test.js.a71ce126.log",
+      "sha256": "f10fea2cf4c3b7cb7e377b7f1e596c05803d1bb702aa01d9eed42c6c9186aa1c"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-TRANSPORT-ADMISSION-POLICY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-transport-admission-policy.test.js.5bd65e6e.log",
+      "sha256": "97d70b7c4c3c7e8bb421392df8fd1c7e22e70b46b703b62decbfaf005b3dfd75"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-VPN-PRODUCTION-RUNTIME-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-vpn-production-runtime.test.js.dca7e897.log",
+      "sha256": "67730f093fa10401ff8771f235d7859824751b139aea12003e629d80e4714b5b"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-VPN-RUNTIME-CONFIG-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-vpn-runtime-config.test.js.fde44a7e.log",
+      "sha256": "d19e30693ee9b0dc08a259665e5750ba691156b9ba7a298f3765da1b614b06fa"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-VPN-TLS-LISTENER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_m7-vpn-tls-listener.test.js.21c4b96e.log",
+      "sha256": "e5979e0bacfbfb25578fa5c665da0e7f798f6c066afda450bf08a90ecc785200"
+    },
+    {
+      "id": "IS-T1-TESTS-MANIFEST-V2-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_manifest-v2.test.js.3e768afb.log",
+      "sha256": "7018347bf9e787ca7e3356de40300fa04bf96168062d03b1e6aa37d5f53aec37"
+    },
+    {
+      "id": "IS-T1-TESTS-MARKETPLACE-CATALOG-V125-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_marketplace-catalog-v125.test.js.97de319e.log",
+      "sha256": "dd93875a5aa6ed4afe47ac37852a3a7d6a693e14732880fcf37b2b46d453157c"
+    },
+    {
+      "id": "IS-T1-TESTS-MARKETPLACE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_marketplace.test.js.145d7584.log",
+      "sha256": "d952bc5c0370f86ce6e43fc457c41fc5d3a5dcc40f5e898a51211b1466bc5d52"
+    },
+    {
+      "id": "IS-T1-TESTS-MERGE-COMPATIBILITY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_merge-compatibility.test.js.5f130be0.log",
+      "sha256": "1b8a2e4619111c27191a67d216f3ba705c998d58a7e71b67584858c91c8a7e49"
+    },
+    {
+      "id": "IS-T1-TESTS-MERGE-ENFORCEMENT-INTEGRATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_merge-enforcement-integration.test.js.0b068ac4.log",
+      "sha256": "246e95df1a142b7199ae1ecfa526ccdf63a2fef51ab4d9fc0e4e403c694faf5a"
+    },
+    {
+      "id": "IS-T1-TESTS-MERGE-ENGINE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_merge-engine.test.js.823c00c2.log",
+      "sha256": "8957902e3013afa199665b477beaff53a1fb544c6a8b2a22c4bd426ae2ffe667"
+    },
+    {
+      "id": "IS-T1-TESTS-METRICS-COLLECTOR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_metrics-collector.test.js.d48129a5.log",
+      "sha256": "03b95de63c27e03fc7be4111b6d94476ea9bd364beba00969e1cf5cc625a2b82"
+    },
+    {
+      "id": "IS-T1-TESTS-MILESTONE-SIZE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_milestone-size.test.js.6d7afcc7.log",
+      "sha256": "858f5cc8d520cb29a7885c5ea1eb41ea275c9ef511f5d700176e1b15b5950dd6"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-ANDROID-RELEASE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_mobile-android-release.test.js.83cb5702.log",
+      "sha256": "163c6539f982b4007bd845ec43b14d9d2b721099d9f3ee31070c87ba7aa95d11"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-APPROVAL-LIFECYCLE-REGRESSION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_mobile-approval-lifecycle-regression.test.js.382f9ce2.log",
+      "sha256": "084f80fe750eb8e96d6d542b3948dc280ee776e765bd94099d82c97d40f26f49"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-BROWSER-A11Y-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_mobile-browser-a11y.test.js.1de6224d.log",
+      "sha256": "ac641b7a0cd819c1a5b24f2cb653df0dc5d7a152954b2cef1d36070c915b5f5d"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-CAPABILITY-INVENTORY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_mobile-capability-inventory.test.js.46fb71d6.log",
+      "sha256": "97e728507ac5f1717b69cef25502fdb12e19da530be872b1abce279616a10382"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-GATE-SELF-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_mobile-gate-self-test.js.8d8d09c3.log",
+      "sha256": "52615214f7fb230cd84f08b0d424d714b632d280adac78fd5dedd16431d400da"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-MS07-HISTORY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_mobile-ms07-history.test.js.9079945f.log",
+      "sha256": "81711dcb0972775f98e14ecd89c7dbd1dd50911b5fbcde75fda8abf9059208e2"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-MS13-APPROVALS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_mobile-ms13-approvals.test.js.da425472.log",
+      "sha256": "1dbb7ebe227870bef82597d1659c5e1af34b3c4abfadb46b13415970876cebc7"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-MS14-DECISION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_mobile-ms14-decision.test.js.f6fb816a.log",
+      "sha256": "bb12ff8793e7c69fb5c7c2a5f2958ef046aa60819be866a2ffdbefb09b2f85b6"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-MS20-UI-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_mobile-ms20-ui.test.js.a0b9eb4f.log",
+      "sha256": "e13dcbe17dbc8cfe9220eee9ff809ba41dce6d05c77534f2e47f553e0858fda8"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-NAVBAR-RING-TURN-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_mobile-navbar-ring-turn.test.js.50271dbf.log",
+      "sha256": "6cc019d89f63a92ea69534e9a37d97929d5a7aaacc95fad2bf92d20d24c33b6d"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-NAVBAR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_mobile-navbar.test.js.7c4f1227.log",
+      "sha256": "763fe1636270923cccf232aa1566bd288bd6713a336f352866814922f28d9197"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-OVERVIEW-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_mobile-overview.test.js.37551d17.log",
+      "sha256": "6f13258da54336fee48d021fa8bf85a7bf1ab4c98e38c5e97b769daab9e82047"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-REMOTE-CAPABILITY-CONTRACT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_mobile-remote-capability-contract.test.js.e64c218a.log",
+      "sha256": "386450dbaa7ccbc738ecbebc316e88cf01c2f5b2a96f706057a3be4279e7a863"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-REMOTE-CAPABILITY-PROVIDER-CONTRACT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_mobile-remote-capability-provider-contract.test.js.778bf1cc.log",
+      "sha256": "a2a349c892e148aa73a60a96391f34023c4b25aa7291c7e6919dd7e187cfa6ab"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-REMOTE-CORE-SIMULATOR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_mobile-remote-core-simulator.test.js.79ba563d.log",
+      "sha256": "971364f7ae3eaee307b07268966be3ee520e76de52bdc9b6bd32a6a253fc830c"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-REMOTE-CORE-V1-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_mobile-remote-core-v1.test.js.d45ee5b2.log",
+      "sha256": "beabf1a4042ab5387b17b7aaf988b608bafc844351399dff52d022f831438b7c"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-REMOTE-SESSION-CONTRACT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_mobile-remote-session-contract.test.js.bdd0f7a4.log",
+      "sha256": "74a4283ca6b104763b21c4e2870606e43c87ba069a795f0a2f7d9e72518a2d67"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-RUN-SILENCE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_mobile-run-silence.test.js.1924ac8e.log",
+      "sha256": "86eb23ec1d76522e52c193a60dc80d4060071b001f03c6bc4de68dfbe570ce46"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-SECURE-CREDENTIAL-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_mobile-secure-credential.test.js.a1f840f5.log",
+      "sha256": "1023b37db00fcc9f343a439a58a5329490c8fc4e05145f25ac09cd9295bd29d6"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-TRUST-BAR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_mobile-trust-bar.test.js.ad6effc4.log",
+      "sha256": "f39add269c1b86344ab049c25f09bc309f6696b0d79a394877c1b88030684437"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-CATALOG-REGISTRY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_model-catalog-registry.test.js.a4208391.log",
+      "sha256": "679f590154d0c265bff54939970e39d307d0d40fe6c22389c27918bc2dfe3775"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-CTX-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_model-ctx.test.js.c0c98746.log",
+      "sha256": "9e51f648833d23147d53a262805c1366e5e0208b03e4f3b6a6815b3991dde66f"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-EVALUATION-CONSOLIDATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_model-evaluation-consolidation.test.js.d30bd50b.log",
+      "sha256": "3eb4fbea6a7390ec307aa885d8f81e18f7c0dee7129a45ec541ce15743cb888c"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-EVALUATION-READ-MODEL-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_model-evaluation-read-model.test.js.b8fc9f01.log",
+      "sha256": "286973de3e34415360d5094388f25ad56c57c932506e9ca8887461761ead93bb"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-EVALUATION-SUITES-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_model-evaluation-suites.test.js.27a3b5d4.log",
+      "sha256": "965254b16bcbc9d5100611427646e403a8dab699d6f4f5a37d48c3d77833baa2"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-REGISTRY-CURRENT-AUTHORITY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_model-registry-current-authority.test.js.e3bf6cfd.log",
+      "sha256": "f03f659ebcecb68bd79bb24d66d3564c3315c6ff4905a698f17b20ae17f10ccb"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-SIMILARITY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_model-similarity.test.js.38b5a255.log",
+      "sha256": "b4b73b308c40d6c4f5ba6a2e8135e08f1c9250400c930f48c915f8cef63a208d"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-SWEEP-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_model-sweep.test.js.15949b01.log",
+      "sha256": "cfc975fea9237fe0919e8619b35de6b3da5aa3b1324805f71e6257affcea13c7"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-UNIVERSE-STORE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_model-universe-store.test.js.e53440f2.log",
+      "sha256": "004a3e9a5613f3b24fd94379206a9d44ab59c3e9719fcc9d82826dafefe10d90"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-UPGRADE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_model-upgrade.test.js.2c7522c3.log",
+      "sha256": "839d08e33356d43a5f23eaf18d26d4e16cf3e4190445b9ee4ad0adb42f30506e"
+    },
+    {
+      "id": "IS-T1-TESTS-MODULE-BOUNDARY-RATCHET-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_module-boundary-ratchet.test.js.bcb6a2a7.log",
+      "sha256": "a848d9c64f21fec023b6b13fb75408d7802b7895b2823cb4a0a0f2699667780d"
+    },
+    {
+      "id": "IS-T1-TESTS-MODULES-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_modules.test.js.0d9853e3.log",
+      "sha256": "2ee827eec7ad398bd9622e5d0a652cee640adf0ca337b4c754dda324c6870399"
+    },
+    {
+      "id": "IS-T1-TESTS-MULTI-SOURCE-INTEGRATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_multi-source-integration.test.js.c7dc01b1.log",
+      "sha256": "d1dbac75c88b5ad229d3da6d2db81c08b5ffe920e1b84406f8a97f9abf71a0e7"
+    },
+    {
+      "id": "IS-T1-TESTS-MULTIMEDIA-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_multimedia.test.js.e1b762ed.log",
+      "sha256": "74372e6b89c98d696293450425a04433e8f28663804584183a2055f98697ae19"
+    },
+    {
+      "id": "IS-T1-TESTS-NIGHTLY-AUDIT-RUNNER-SELF-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_nightly-audit-runner-self-test.js.eaa62b18.log",
+      "sha256": "e4d174f36e59309d00cb5b19247419af5f159e9b25ef8b5aabe233d63b431818"
+    },
+    {
+      "id": "IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST",
+      "status": "FAIL",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_nightly-orchestrator-self-test.js.a5ce7dd7.log",
+      "sha256": "6ea9de34d700aef303c3cf6d27e9d9f80eee938cc92f1f1e53176cd7f4cd25ea"
+    },
+    {
+      "id": "IS-T1-TESTS-NOTIFICATIONS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_notifications.test.js.4e47e960.log",
+      "sha256": "8b0bd665c94a8ebbc6028ec915cf058d2b0a491cde7ca18401cc62b3985cb658"
+    },
+    {
+      "id": "IS-T1-TESTS-ONLINE-DISCOVERY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_online-discovery.test.js.aa15fbb5.log",
+      "sha256": "a7bbf0dd46fb9c91a717c6d408d5578d9c0e56f61e947b4afb5ad54b0315459d"
+    },
+    {
+      "id": "IS-T1-TESTS-OUTBOUND-NETWORK-OPTIN-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_outbound-network-optin.test.js.940a735b.log",
+      "sha256": "9da78c8414e7265fecae3358492435ff732c78360f288ed86103c50293980af3"
+    },
+    {
+      "id": "IS-T1-TESTS-OUTPUT-GATE",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_output-gate.js.c0084381.log",
+      "sha256": "43138c87367af39b9300e35743415e795b55296e57c3ce327c7c5791e7dfce7f"
+    },
+    {
+      "id": "IS-T1-TESTS-PAIRWISE-TRIAL-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_pairwise-trial.test.js.c9619511.log",
+      "sha256": "bd3a31a86dede6ca96f8ec7e22b23e46a6719f10a3bb75b622cee1b68e60cbd6"
+    },
+    {
+      "id": "IS-T1-TESTS-PATCH-ENGINE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_patch-engine.test.js.4a81491a.log",
+      "sha256": "4ba4e3db1dac02f5f81f941ffdacb307b5d50618c96bd87d5ae5ee4255392ffc"
+    },
+    {
+      "id": "IS-T1-TESTS-PATTERN-MINER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_pattern-miner.test.js.b1a72d1b.log",
+      "sha256": "238a2930b49db010b4cd2d5ddde581e9e8a78b43c822e584b3ae9ba3ccfde2fc"
+    },
+    {
+      "id": "IS-T1-TESTS-PERF-ANALYZER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_perf-analyzer.test.js.210cd8d3.log",
+      "sha256": "61fa6ffed33d33c19bf20e805fc8b550a173d5ca10069ca666177186e5c045f7"
+    },
+    {
+      "id": "IS-T2-TESTS-PILOT-C1C2C3-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_pilot-c1c2c3.test.js.ea164072.log",
+      "sha256": "ca39ca06a913a1e9657ce8ed4b47490729ec27ae93a0fcce02223528a8ab4b88"
+    },
+    {
+      "id": "IS-T1-TESTS-PRE082-UPGRADE-REGRESSION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_pre082-upgrade-regression.test.js.05d1b506.log",
+      "sha256": "476795c5119e4eafc71fed12beb6bca14cf95a09c442244fa7ac725526984e12"
+    },
+    {
+      "id": "IS-T1-TESTS-PROJECT-KB-DECOMPOSER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_project-kb-decomposer.test.js.e12475a4.log",
+      "sha256": "2ad7bf63a136f626944b11977fe29ae059bb57e38a6105e7ff63df00bf004a83"
+    },
+    {
+      "id": "IS-T2-TESTS-PROJECT-LIFECYCLE-CHANGE-MGMT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_project-lifecycle-change-mgmt.test.js.0b16d3c9.log",
+      "sha256": "fa7e477d723a5747c9df07940e8d9f91092d0f038ba0686ca9aad109347bb831"
+    },
+    {
+      "id": "IS-T2-TESTS-PROJECT-LIFECYCLE-ENTRY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_project-lifecycle-entry.test.js.aec6f3b7.log",
+      "sha256": "be85643414209eb26a294ebcc318178d088952c9f89248553a5ccb621a0326a7"
+    },
+    {
+      "id": "IS-T2-TESTS-PROJECT-LIFECYCLE-EXPERTISE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_project-lifecycle-expertise.test.js.4c8f42ae.log",
+      "sha256": "13d99cf1d8a715ebc7c009dc782e5959c52ca6879e389ce438831e939fed00db"
+    },
+    {
+      "id": "IS-T2-TESTS-PROJECT-LIFECYCLE-HAPPY-PATH-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_project-lifecycle-happy-path.test.js.692206b9.log",
+      "sha256": "6bebddf6594aa1ee82706da2a8f93266de214532e29bd869da724e049c6e5c72"
+    },
+    {
+      "id": "IS-T2-TESTS-PROJECT-LIFECYCLE-INTERCEPT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_project-lifecycle-intercept.test.js.ee1f91f2.log",
+      "sha256": "07f93e7a0cee556a92465e0a374f8a4377fb496a0eb7b810a437d10327a6d350"
+    },
+    {
+      "id": "IS-T2-TESTS-PROJECT-LIFECYCLE-INTERRUPTS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_project-lifecycle-interrupts.test.js.c2a0fe3c.log",
+      "sha256": "d1f1efd40413f93741f545ba58588cc3a3581438b20cad3acaeb1f0e1644979e"
+    },
+    {
+      "id": "IS-T2-TESTS-PROJECT-LIFECYCLE-KLICENKA-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_project-lifecycle-klicenka.test.js.2e54d87a.log",
+      "sha256": "f977f01621c665adea19e9e999dede6701886581812a4ba4d0bdd9fb8e3a5ce0"
+    },
+    {
+      "id": "IS-T1-TESTS-PROJECT-WELCOME-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_project-welcome.test.js.6737c372.log",
+      "sha256": "46d41e0ba0a4997ce3207e21a9b625fea47208bf72e1f58ca6f9cdc2b6342569"
+    },
+    {
+      "id": "IS-T1-TESTS-PROMPT-BUILDER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_prompt-builder.test.js.1f5d4f90.log",
+      "sha256": "6452b03864b5678a0d5aec9ee42af2a786c34e3e575434b9e1614d6dc6048ca5"
+    },
+    {
+      "id": "IS-T1-TESTS-QG-IDEMPOTENCE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_qg-idempotence.test.js.6cd4c52d.log",
+      "sha256": "f1455cae1d30db47282fffebab6920c499c06596bbe2881bb37e7b0d946c4ecf"
+    },
+    {
+      "id": "IS-T1-TESTS-QUALITY-GATE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_quality-gate.test.js.aee41042.log",
+      "sha256": "2ee885485a01c7f868b3384052e3956421579b1b1382ebf91af15c377a7c5347"
+    },
+    {
+      "id": "IS-T1-TESTS-QUALITY-GATES-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_quality-gates.test.js.73c54b4f.log",
+      "sha256": "d5e07b3dd9f6251c165cec4d05b4d7625197491d0597d3c6579fb29eb60d67fb"
+    },
+    {
+      "id": "IS-T2-TESTS-QUALITY-REPORT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_quality-report.test.js.45224b34.log",
+      "sha256": "3ea382c0766873609b39622195761d56640a178652e42abc46d3fe146d215ab7"
+    },
+    {
+      "id": "IS-T1-TESTS-QUALITY-SCORE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_quality-score.test.js.7893f2bd.log",
+      "sha256": "3964ed78332ef032f3e9fa0fdd781bb8dddfd61a7eaab2b21a0152e809a303d8"
+    },
+    {
+      "id": "IS-T1-TESTS-QUALITY-SPRINT-Q-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_quality-sprint-q.test.js.ee20f99d.log",
+      "sha256": "a12a83766194777e7df065361af54231e2c4ab47552bbecf4bc03f52d391fceb"
+    },
+    {
+      "id": "IS-T2-TESTS-QUALITY-TELEMETRY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_quality-telemetry.test.js.14fa2429.log",
+      "sha256": "fe2948c2881eef16b9f17d59dc4c60d4b7b2c692833e1b701395a770bfda2751"
+    },
+    {
+      "id": "IS-T1-TESTS-QUERY-EXPANDER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_query-expander.test.js.e465477c.log",
+      "sha256": "60e1ef27411bc041e69b182ad1d6285182b1fcc1a7e1f59027862b0ea41835d1"
+    },
+    {
+      "id": "IS-T1-TESTS-REFACTOR-AGENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_refactor-agent.test.js.a157fcc0.log",
+      "sha256": "ec0678dff4ed6617484b41d2ce8fd9993646bc53635e435668ef4f51349ba5da"
+    },
+    {
+      "id": "IS-T1-TESTS-REGRESSION-PREDICTOR-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_regression-predictor.test.js.ef5a75ef.log",
+      "sha256": "a69e5f7c6cf1265b5e9d6b3ea3b4bddaaaec0062e9807724bfde2cc11d0924a8"
+    },
+    {
+      "id": "IS-T1-TESTS-REPOSITORY-HYGIENE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_repository-hygiene.test.js.a3416d42.log",
+      "sha256": "a9057c90d8d021eba2bed18e48dfe0fcd884797b6443108b4d4cff1db8792a43"
+    },
+    {
+      "id": "IS-T1-TESTS-RESPONSE-SCORER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_response-scorer.test.js.9dd70714.log",
+      "sha256": "84aada627144d1f7e0557361e3bfbe60e744e5de5111043ef70ebd6af590ede6"
+    },
+    {
+      "id": "IS-T1-TESTS-RISK-ANALYZER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_risk-analyzer.test.js.d28a1095.log",
+      "sha256": "4441aea3e0ed0ccca7a0058899727de71e959e26a7ed1a8bf1cf55f0c365415a"
+    },
+    {
+      "id": "IS-T1-TESTS-ROUTES-SMOKE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_routes-smoke.test.js.29cdbe08.log",
+      "sha256": "8c029c19e60236ffb932f45fb64e311a8dca2bf242c905ae6d5ddf61a4b153b3"
+    },
+    {
+      "id": "IS-T1-TESTS-ROUTING-ACCURACY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_routing-accuracy.test.js.2de4c86a.log",
+      "sha256": "1bf9191e40b8d21bc994c26be17fad120698ab575924b8ecaf1bd59ebdd1d806"
+    },
+    {
+      "id": "IS-T1-TESTS-RSS-INTEGRATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_rss-integration.test.js.2fce094c.log",
+      "sha256": "1ae1fc0dce52475946fe64843913990ce4a1e745152ce7ecbef414730223bd0d"
+    },
+    {
+      "id": "IS-T1-TESTS-RUNTIME-FEEDBACK-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_runtime-feedback.test.js.d2024b96.log",
+      "sha256": "ea8eb046796435841f5456670f3d8513e373db81bd8c3fcb8aa879d60c2971fe"
+    },
+    {
+      "id": "IS-T1-TESTS-SCENARIO-ENGINE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_scenario-engine.test.js.b8bcfe18.log",
+      "sha256": "528dd9c4ef6e972c4280060a49e7c318a8405861a853724d82372ee8cad8c9a8"
+    },
+    {
+      "id": "IS-T1-TESTS-SCHEDULER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_scheduler.test.js.773fbbe5.log",
+      "sha256": "3c04f3e87866928c8d3662f19b54bc6b3d88f455aa8214b563b2ec8e461b0992"
+    },
+    {
+      "id": "IS-T1-TESTS-SCHEMA-MIGRATIONS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_schema-migrations.test.js.923a63bd.log",
+      "sha256": "909014f9d425f6b547df7de45186d812779cac42f9909d8d7a98e2aaace1bac8"
+    },
+    {
+      "id": "IS-T1-TESTS-SCOPE-LIMITER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_scope-limiter.test.js.f75754fe.log",
+      "sha256": "5a0f33b7e6f4ca014d0abaee2d995fe071a3739844965e40cb48e86f8638a576"
+    },
+    {
+      "id": "IS-T1-TESTS-SEARCH-QUALITY-A123-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_search-quality-a123.test.js.9dbc0432.log",
+      "sha256": "98ae2e863a281ecacdd560001a6a18c9b9135043bd95071acf6429e6ad9c5ded"
+    },
+    {
+      "id": "IS-T1-TESTS-SECURITY-HARDENING-V126-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_security-hardening-v126.test.js.773d902f.log",
+      "sha256": "f285fd8b2c193a6c991352a6abde6352a6466df433ee491900374b0b8e20298b"
+    },
+    {
+      "id": "IS-T1-TESTS-SECURITY-HARDENING-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_security-hardening.test.js.42294018.log",
+      "sha256": "6a848cc94d1a0470006525fedae475a88a68cf3c7cc990428a934149a9899fec"
+    },
+    {
+      "id": "IS-T1-TESTS-SELF-CRITIQUE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_self-critique.test.js.952c17f0.log",
+      "sha256": "16ab5de2e5d9e9bf776b77340e6ca55620fe753adb8bdbdb5a35cbc083d6bf5d"
+    },
+    {
+      "id": "IS-T1-TESTS-SEMANTIC-INDEX-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_semantic-index.test.js.cac8e58f.log",
+      "sha256": "be45232915e583073b76eb5d6549d979684fc17de78fc0dec76842d62a955af8"
+    },
+    {
+      "id": "IS-T1-TESTS-SERVER-SHUTDOWN-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_server-shutdown.test.js.11b72456.log",
+      "sha256": "5ee7c03e065b20b06ec1d313864685d72cf15765660e40dde2f4983c29204e34"
+    },
+    {
+      "id": "IS-T1-TESTS-SESSION-CONTEXT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_session-context.test.js.14a290a1.log",
+      "sha256": "8d84ad1a42df6397cc249dff4ac877cb6c5d6e5043f975d059143fe94cd29461"
+    },
+    {
+      "id": "IS-T1-TESTS-SIGNATURE-CACHE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_signature-cache.test.js.7275b5f4.log",
+      "sha256": "e50fb42b8425407142abeeb00187c508237921fa98120b09cf4a058266ec7dd2"
+    },
+    {
+      "id": "IS-T1-TESTS-SIGNATURE-MAP-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_signature-map.test.js.4f903ced.log",
+      "sha256": "941a0b6974df6edb00af2c37a76da4221670168b060d5970172aba41cc30c2bc"
+    },
+    {
+      "id": "IS-T1-TESTS-SIGNED-AUTHORITY-BUNDLE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_signed-authority-bundle.test.js.36ce9ab8.log",
+      "sha256": "6f32e0bb5d1793e12386bfdabd1ff07e00c76c334438f50d6cdefbbe42288753"
+    },
+    {
+      "id": "IS-T1-TESTS-SIGNED-AUTHORITY-RECEIPT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_signed-authority-receipt.test.js.13231b5b.log",
+      "sha256": "556c52f747fe56fe3701dec6530ffb97d3097965a096245f23012dcc3e0db521"
+    },
+    {
+      "id": "IS-T1-TESTS-SKILL-META-DETECTION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_skill-meta-detection.test.js.31ea2408.log",
+      "sha256": "c32f39ca9171518b1369a919fb8526c8fb26a512c190b0c1defc8c82213c0336"
+    },
+    {
+      "id": "IS-T2-TESTS-SMOKE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_smoke.test.js.035ee810.log",
+      "sha256": "f68baf769036fe7a91304c3f4dd356505bb1e3fb2c755b687b6d821a98e5a0ce"
+    },
+    {
+      "id": "IS-T5-TESTS-SOAK-ATTACHMENT-HEAVY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_soak_attachment-heavy.test.js.028d4a9f.log",
+      "sha256": "8e8209dc27599c4d9e09989f3743d554b465831e81e4f887e152ba3f368eff21"
+    },
+    {
+      "id": "IS-T5-TESTS-SOAK-BREAK-PATTERN-PROBE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_soak_break-pattern-probe.test.js.32abfca0.log",
+      "sha256": "39d6e5d933f89b90369c5400be14c31f8ff408c7cf14436a4dc4515d49ab2a70"
+    },
+    {
+      "id": "IS-T5-TESTS-SOAK-FOLLOWUP-LOAD-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_soak_followup-load.test.js.9d0a2bbb.log",
+      "sha256": "22d152a21be686ef6124ff384b32f2737e52d8e041a03183066b8c9c215e6cb5"
+    },
+    {
+      "id": "IS-T5-TESTS-SOAK-MIXED-SESSION-SIMULATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_soak_mixed-session-simulation.test.js.1854ca93.log",
+      "sha256": "ae33d53a82e496e8dbf43afaf9e0b1446a55b409f41925f764646ed3c1bab4f1"
+    },
+    {
+      "id": "IS-T5-TESTS-SOAK-SHORT-INPUT-STRESS-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_soak_short-input-stress.test.js.5c6da97c.log",
+      "sha256": "f44addb00e57a529158324d535b0dedc8f82b1a741f752d02adb6514057527a5"
+    },
+    {
+      "id": "IS-T1-TESTS-SPECIALIST-BOUNDARY-RATCHET-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_specialist-boundary-ratchet.test.js.fe5330e3.log",
+      "sha256": "82b43b6ff36ca13259d65cfb48c121fae994ee1acdf4fb669cd48bc0c43342a3"
+    },
+    {
+      "id": "IS-T1-TESTS-SPECIALIST-HANDLER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_specialist-handler.test.js.d87a4b91.log",
+      "sha256": "7aaa64dae7b920148f8c286dbdd44eaf7807def846b6d209622dd4ddd591c000"
+    },
+    {
+      "id": "IS-T1-TESTS-SPECIALIST-LOADER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_specialist-loader.test.js.a3a77659.log",
+      "sha256": "025078a3a66e65a585e5379da7e8dc5315bbe5ecfb11795b22c4dbf53a7e9cf4"
+    },
+    {
+      "id": "IS-T1-TESTS-SPECIALIST-REGISTRIES-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_specialist-registries.test.js.bf24136d.log",
+      "sha256": "fd0545d98e3d79b02b5303cfcd24a3be76566bb9dac381dead2a993fce4c05bc"
+    },
+    {
+      "id": "IS-T1-TESTS-SPECIALIST-RUNTIME-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_specialist-runtime.test.js.a85c3247.log",
+      "sha256": "81d5ebbc887f0f8137da0169d00f9dacca96fc8d411e99e02d2b2d61a577c6a8"
+    },
+    {
+      "id": "IS-T1-TESTS-STORAGE-ARCHITECTURE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_storage-architecture.test.js.ab625acc.log",
+      "sha256": "44c3855bf96e408117458c2d7edcc14a43fc98011136b66f4a7cdd7395eec698"
+    },
+    {
+      "id": "IS-T1-TESTS-STUDIO-CDP-EVIDENCE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_studio-cdp-evidence.test.js.9c641f6c.log",
+      "sha256": "af2d6a9b9393b9b627417cb53c8f70d0dc07d0917d9b68f90baf26e9be7adc27"
+    },
+    {
+      "id": "IS-T1-TESTS-STUDIO-ELECTRON-RUNNER-CONTRACT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_studio-electron-runner-contract.test.js.6ca72b4c.log",
+      "sha256": "c02f9583c5409f410ff6b0fe03d3088e9dc69e748df21a0296d53d05f979898b"
+    },
+    {
+      "id": "IS-T1-TESTS-SYMBOL-INDEX-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_symbol-index.test.js.3f5b6b47.log",
+      "sha256": "dedb1293ac991bd46bbd3b38e50a72b4c5eefed3ca804819b0831aae8d29aa0c"
+    },
+    {
+      "id": "IS-T1-TESTS-TASK-MEMORY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_task-memory.test.js.fecbeace.log",
+      "sha256": "0778b6ac32e72376eb51fb90290a914ec64311fc0834f81b9c63e0e21632dd4b"
+    },
+    {
+      "id": "IS-T2-TESTS-TELEMETRY-AGGREGATION-VERSION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_telemetry-aggregation-version.test.js.cb07bde9.log",
+      "sha256": "5f168e773e8c61983d1d8a8ad2e9555a4d60d105179aafcb4d9c5c06df562026"
+    },
+    {
+      "id": "IS-T1-TESTS-TELEMETRY-SOAK-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_telemetry-soak.test.js.ce4d8b6f.log",
+      "sha256": "18ee179d1179a210859a84b8ff8caced80a7ed344d2f9c9fbf399895f8bc02f7"
+    },
+    {
+      "id": "IS-T1-TESTS-TELEMETRY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_telemetry.test.js.fc6a4cbb.log",
+      "sha256": "7c6f5a8b9ac52aeaae41089eb406b38a38694f51b2ca1a693716acca11e1e6b9"
+    },
+    {
+      "id": "IS-T1-TESTS-TEST-COVERAGE-EXPLORER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_test-coverage-explorer.test.js.6399b7e8.log",
+      "sha256": "156eb257a135611a61887951aeb2e46d60173bc92e1d2a1f79c2a9595cf1bb77"
+    },
+    {
+      "id": "IS-T1-TESTS-TIMEOUT-POLICY-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_timeout-policy.test.js.d35141af.log",
+      "sha256": "204ee9a78dd0c639f8c91da83701c111edf1700e02dd85114a582eeb8fdee272"
+    },
+    {
+      "id": "IS-T1-TESTS-TOOL-ADAPTER-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_tool-adapter.test.js.28116845.log",
+      "sha256": "d2286052bdef84dea5b6281e53596c789417655799c19e6c55a8dc94c6f7be09"
+    },
+    {
+      "id": "IS-T1-TESTS-TOOL-ENFORCEMENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_tool-enforcement.test.js.4fdf838a.log",
+      "sha256": "1f67e7e084afb3b904b8e7cb0e9e14c2b6cffd95b9369b9a478210b5c0adddc9"
+    },
+    {
+      "id": "IS-T1-TESTS-TOOL-REGISTRY-E2E-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_tool-registry-e2e.test.js.17b582ac.log",
+      "sha256": "10886df6c785112d12f833d3b2d1ded0b484459b1478d2a09eccc401fd5a4f1d"
+    },
+    {
+      "id": "IS-T1-TESTS-TRUST-FEEDBACK-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_trust-feedback.test.js.2a3eab25.log",
+      "sha256": "72d675fd041936b4c9e9b2f3715cbb9423b7d9e6ad2ad15e62b65f26ac5932e3"
+    },
+    {
+      "id": "IS-T1-TESTS-UPGRADE-UX-V125-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_upgrade-ux-v125.test.js.3c8c114b.log",
+      "sha256": "3a6ad006a3480abf117142128bf360bbc29f562566865b3d3bca3c4e5dc4194c"
+    },
+    {
+      "id": "IS-T1-TESTS-V583-TIER1-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_v583-tier1.test.js.7e11e0df.log",
+      "sha256": "b8588b8e1bcf6f79c90f9b0f49b97e58ad5544e1043a602c318673f620112713"
+    },
+    {
+      "id": "IS-T3-TESTS-VRAM-COORDINATION-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_vram-coordination.test.js.ce95bd63.log",
+      "sha256": "e7cf470b9a915a8ca6f97c6df92df5a3006ca9f0a385fb66edec2a1b5f08684d"
+    },
+    {
+      "id": "IS-T1-TESTS-VRAM-MEASUREMENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_vram-measurement.test.js.a8bd317d.log",
+      "sha256": "abd42fc31db20f5885e80a36f73689d61dce195502019ccc134482f7d186b83b"
+    },
+    {
+      "id": "IS-T1-TESTS-WHATLLM-CLIENT-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_whatllm-client.test.js.8c50c891.log",
+      "sha256": "eb337d2ec61c8480826519b4fa0db9d14b4513ce26ffbe403b709f3e7c683c05"
+    },
+    {
+      "id": "IS-T1-TESTS-WORKERS-PHASE-B-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_workers-phase-b.test.js.1401de1c.log",
+      "sha256": "cbefc8a5ce64e773e6f0f260df59766dd3644ae63cfcfb1eed92c0768a1f8c9d"
+    },
+    {
+      "id": "IS-T1-TESTS-WORKFLOW-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_workflow.test.js.fd67265b.log",
+      "sha256": "8ec0933e59e00094d715974207aff88502df3a75b7225575b6da0f742d889e5b"
+    },
+    {
+      "id": "IS-T1-TESTS-WORKSPACE-BUDGET-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_workspace-budget.test.js.c7909519.log",
+      "sha256": "5d7c04e5824b1e08824d07248ac8b519ab75c3a50fb5129e92326fc7243bd509"
+    },
+    {
+      "id": "IS-T1-TESTS-WS-BRIDGE-TEST",
+      "status": "PASS",
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/deterministic/privacy-panels-rereview-20260917/logs/tests_ws-bridge.test.js.5d681a8b.log",
+      "sha256": "2ac1b2343a0569e5cbdb0dc8d361e3046267db633f90def2bb9ad3629cc318d1"
+    }
+  ],
+  "databaseBefore": {
+    "at": "2026-09-17T14:15:07.727Z",
+    "quickCheck": "ok",
+    "foreignKeyViolations": 0,
+    "tables": {
+      "project_memory": {
+        "count": 10,
+        "sha256": "43d05e05f99eb1701328046c7103b60a8ec07a1a0cf97e5b6e7fd17e7098b53b"
+      },
+      "user_settings": {
+        "count": 1,
+        "sha256": "6ebfcc9f261447188d2fb91c9897c11aa5a35b113518a50d54797a6e5cd6280f"
+      },
+      "memory": {
+        "count": 28,
+        "sha256": "71dd9cece02ba86b5c20563a4b9fa0d42f4bbdd360376e9c7b11a62de536beb5"
+      },
+      "model_desired_bindings": {
+        "count": 7,
+        "sha256": "40b3178fc481a804eb91b9deceaf68a8f618b0c6ef0f61b0200f2abf73faad2b"
+      },
+      "model_evaluation_runs": {
+        "count": 503,
+        "sha256": "59fc0d9c7836203a5d5f60e8bc51b36222540290b421847bd1697d60b5531639"
+      },
+      "model_hunt_attempts": {
+        "count": 21,
+        "sha256": "3eae0aece52cd870078c87744a2decd0b4a869ab1346ebab86c1e79336cd8a01"
+      }
+    }
+  },
+  "databaseAfter": {
+    "at": "2026-09-17T14:21:23.751Z",
+    "quickCheck": "ok",
+    "foreignKeyViolations": 0,
+    "tables": {
+      "project_memory": {
+        "count": 10,
+        "sha256": "43d05e05f99eb1701328046c7103b60a8ec07a1a0cf97e5b6e7fd17e7098b53b"
+      },
+      "user_settings": {
+        "count": 1,
+        "sha256": "6ebfcc9f261447188d2fb91c9897c11aa5a35b113518a50d54797a6e5cd6280f"
+      },
+      "memory": {
+        "count": 28,
+        "sha256": "71dd9cece02ba86b5c20563a4b9fa0d42f4bbdd360376e9c7b11a62de536beb5"
+      },
+      "model_desired_bindings": {
+        "count": 7,
+        "sha256": "40b3178fc481a804eb91b9deceaf68a8f618b0c6ef0f61b0200f2abf73faad2b"
+      },
+      "model_evaluation_runs": {
+        "count": 503,
+        "sha256": "59fc0d9c7836203a5d5f60e8bc51b36222540290b421847bd1697d60b5531639"
+      },
+      "model_hunt_attempts": {
+        "count": 21,
+        "sha256": "3eae0aece52cd870078c87744a2decd0b4a869ab1346ebab86c1e79336cd8a01"
+      }
+    }
+  },
+  "artifacts": {
+    "http-before.log": {
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/http-before.log",
+      "sha256": "b4a47b6da8b1fca4a955df20404990d9371804c89832e703f1a8f129c9ef0064"
+    },
+    "memory-before.log": {
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/memory-before.log",
+      "sha256": "dc738831ae63fe97cb472f16500669fec7e89ee13d2165d65458b549a4f2b91c"
+    },
+    "privacy-focused.log": {
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/privacy-focused.log",
+      "sha256": "2984cf21fb446f86b4c19e9eba67e4614c79fbe0c05cc35836027b8f3597907c"
+    },
+    "session-studio-focused.log": {
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/session-studio-focused.log",
+      "sha256": "1d5a62ad70d8b4b14427c2b8c10fb11d8d7b22a61d07cae7b1a1304b0d44b448"
+    },
+    "studio-build.log": {
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/studio-build.log",
+      "sha256": "c68d90b17d129846e7e75e01475a97a3d33c394751b6f94f802ff38ce6cd31cb"
+    },
+    "registry.log": {
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/registry.log",
+      "sha256": "27e2e22d8a569f98d9a00400f81480d2269e0a174e7a4d51c61749d9aa695327"
+    },
+    "boundary.log": {
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/boundary.log",
+      "sha256": "f61396f34bab307d1452b939ea601515203b6f609136571d4256d7845bf82a43"
+    },
+    "artifact-validation.log": {
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/artifact-validation.log",
+      "sha256": "c0a807e407aa0d3a378c7083f25a8877ebfaf34eb5023edb118853dc46744669"
+    },
+    "snapshot-privacy.log": {
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/snapshot-privacy.log",
+      "sha256": "f5c759ff7b1799b7741cca3849be4151146d3d72036f94eeda12eb33e16f569d"
+    },
+    "install-apply.log": {
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/install-apply.log",
+      "sha256": "eb94e64738cc5b61b4309a9af003ea63367f02c69a669571146402233cd95af5"
+    },
+    "panels-fixed-integrated.json": {
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/panels-fixed-integrated.json",
+      "sha256": "06bca862d0dd63b987069bcaba3e316a10faa3be2322e8820655f47d9f1ea4e0"
+    },
+    "installed-http.json": {
+      "path": ".intentsmith-artifacts/privacy-panels-rereview-20260917/installed-http.json",
+      "sha256": "1418185b57c9c6a7ec94199c6e23f57b31f848d0c79714781cd5f74b4c384a89"
+    }
+  },
+  "limitations": [
+    "Release seal remains FAIL per CONTRACT section 8; no pin changed",
+    "Independent re-review of these fixes is still required",
+    "Existing conversation history remains independent of the project-context switch",
+    "No new physical model inference or GPU calibration in this run",
+    "Main branch and specialist integration remain separate work"
+  ]
+}

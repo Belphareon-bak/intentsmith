@@ -3,8 +3,9 @@
 **Re-review R1–R3, 2026-09-17:** pracovní kandidát odstraňuje preview odmítnuté
 zprávy z kompatibilního HTTP logu, řídí obnovení/zápis pracovní paměti projektu
 přepínačem kontextu a integruje panelovou opravu `4fca7e67` jako `da0c9120`.
-36 privacy/settings testů a Studio build prošly; úplný profil a instalace
-jsou zatím pending. Původní `CHANGES_REQUIRED` není přijetím nového kandidáta.
+Runtime `3bbf8bc1` je nainstalovaný; úplný profil **354 PASS / 1 FAIL**
+(jen známá release pečeť). Privacy/settings, Studio build a fyzická kontrola
+panelů prošly. Původní `CHANGES_REQUIRED` není přijetím nového kandidáta.
 [Přesný rozsah a průběžné důkazy](docs/review/2026-09-17-PRIVACY-PANELS-REREVIEW.md).
 
 **Časový kontext chatu, 2026-09-17:** obecné interaktivní požadavky nyní

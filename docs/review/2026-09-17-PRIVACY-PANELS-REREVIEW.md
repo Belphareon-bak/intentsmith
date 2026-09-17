@@ -1,6 +1,6 @@
 # Re-review R1–R3: soukromí a viditelnost panelů
 
-Stav: **IMPLEMENTED / VALIDATION_IN_PROGRESS / REVIEW_REQUIRED**.
+Stav: **IMPLEMENTED / INSTALLED / REVIEW_REQUIRED**.
 Původní nezávislé `CHANGES_REQUIRED` je zachované. Výchozí source `ba7c72d6`,
 větev `work/privacy-panels-rereview-20260917`. Autorita je operátorovo předané
 re-review, rozsah v [WP](../wp/WP-PRIVACY-PANELS-REREVIEW-20260917.md).
@@ -47,14 +47,60 @@ Activity bar se dál skrývá, celý rodič navigace/chatu už nedostane nulové
 maximum šířky. Profil ani nastavení se nemažou. Převzatý lifecycle test
 pokrývá startovací šířky 0/32/240/420 px na obou stranách.
 
-## Dosavadní ověření
+## Ověření
 
 - Privacy + související settings: **36/36 PASS**, včetně skutečného HTTP.
 - Produkční Studio build a consumer/protocol/preload kontrola: **PASS**.
 - Registr: **519**, nezměněný hash
   `04252cb29ea270886c049b01034c2bfec034a77d22ec4675decf593ae052ecb6`.
 - Module boundary: **1 339 hran**, žádná přidaná/odebraná, 3 cykly / 28 členů.
-- Úplný profil, fyzický integrovaný Electron a instalace: pending.
+- Session context **66/66**, chat fixes **58/58**, Studio **127/127 PASS**.
+- Čistý instalační snapshot: privacy **11/11 PASS**, consumer guard PASS.
+- Úplný profil na `3bbf8bc1`: **354 PASS / 1 FAIL / 0 TIMEOUT / 0 BLOCKED /
+  0 SKIPPED**, celkový verdikt **FAIL**. Jediné selhání je
+  `IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST`:
+  `registry hash differs from the reviewed Gate 0 policy`.
+- Fyzický Electron v privátním profilu: startup, Nastavení, reload PASS;
+  levý rodič 240 px, pravý 416 px, oba ve viewportu, hit-testing i vstup chatu
+  dostupné. Ověření běžného nainstalovaného profilu přes GTK ikonu také PASS:
+  otevřené Nastavení a reload, stejné šířky a dostupné oba vstupy chatu.
+
+## Instalace, data a přesné review piny
+
+Runtime: **`3bbf8bc1b354bbee187d5fe51a21b00072b4d3d9`**.
+Review rozsah **`ba7c72d6..3bbf8bc1`** zahrnuje i převzatou panelovou opravu.
+Následný dokumentační commit obsahuje výsledky, nemění produktový zdroj.
+[Strojový záznam](../execution/runs/privacy-panels-rereview-20260917.json)
+obsahuje ověřený hash úplného reportu a všech **355 suite logů**.
+
+Čistý detached snapshot používá stejné ověřené závislosti a Studio build;
+nejde o nové stažení balíčků. Bundle SHA-256:
+`c49fc709d3f5085142b913e3205b6621f735fb010f57eae1ec3b572d8b0f9bda`.
+Instalátor provedl zálohu a migration probe, sjednotil backend/Studio/hunt
+na nový pin a spustil backend. Záloha:
+`~/.local/state/intentsmith/installation-backups/2026-09-17T14-20-39-295Z/`.
+Hunt zůstal inactive, timer active/persistent. Diagnostické Studio bylo
+po ověření zavřeno a znovu otevřeno běžnou ikonou bez debug portu.
+
+DB `quick_check=ok`, 0 FK porušení. Obsah 10 řádků `project_memory`,
+28 položek `memory`, 7 desired bindings, 503 evaluací, 21 hunt pokusů
+i nastavení má stejné hashe před/po aktualizaci. Žádné skutečné modelové
+měření tento běh nespouštěl. API bez capability vrací 401, s ní 200.
+
+Zachované diagnostické neúspěchy: první kontrola PID čekala pole argv,
+Electron má přepsaný procesový titulek; identita byla následně ověřena také
+přes `/proc/PID/exe` a okno zavřeno standardní WM zprávou. Backend mezitím
+prodělal krátký dodatečný restart. První CDP připojení před připraveností
+narazilo na starý port. První navigační sonda klikla na již otevřené Nastavení,
+čímž podle existujícího UI přepnula do konverzačního focusu; upravená sonda
+rozlišuje aktuální pohled. Tyto pokusy nejsou vydávané za PASS.
+Privátní Electron sonda uchovává také chyby vypnutých vedlejších endpointů
+a vynuceného úklidu vlastních procesů; nejde o důkaz funkčnosti těchto ploch.
+
+Zdroj a dokumentace jsou určeny ke zveřejnění na
+[`work/privacy-panels-rereview-20260917`](https://github.com/Belphareon-bak/intentsmith/tree/work/privacy-panels-rereview-20260917).
+GitHub `main`, integrace specialistů a nezávislé re-review zůstávají samostatné
+otevřené kroky. Původní review výsledky se nepřepisují.
 
 Lokální důkazy jsou v `.intentsmith-artifacts/privacy-panels-rereview-20260917/`.
 `http-before.log` a `memory-before.log` jsou očekávané FAIL na původním

@@ -12,10 +12,12 @@ skutečný server/SQLite/Ollamu i kontrolované negativní terminály.**
 Neutrální dokument, nezávislý na nástroji.
 Pravidla vývoje: [`CONTRACT.md`](CONTRACT.md) · Detail: [`docs/inventory/`](docs/inventory/)
 
-**Re-review R1–R3, pracovní kandidát 2026-09-17:** logování kompatibilního
+**Re-review R1–R3, nainstalovaný kandidát `3bbf8bc1`, 2026-09-17:** logování kompatibilního
 chatu a projektová pracovní paměť mají navazující regresní opravu; panelový
 commit `4fca7e67` je integrován jako `da0c9120`. 36 privacy/settings testů
-a produkční Studio build PASS. Kompletní profil a instalace zatím pending.
+a produkční Studio build PASS. Úplný profil **354 PASS / 1 FAIL**, jen známá
+release pečeť. Fyzické panely: 240/416 px, dostupné také po reloadu, ověřeno
+v privátním i běžném profilu. Sledované DB tabulky mají nezměněné hashe.
 Nové nezávislé přijetí zůstává otevřené, původní verdikt je `CHANGES_REQUIRED`.
 [Packet](docs/review/2026-09-17-PRIVACY-PANELS-REREVIEW.md).
 
