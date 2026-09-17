@@ -129,9 +129,16 @@ nejde o selhání produktové akce.
 | F2 agentí ovládání | Native autorita a pravdivé výsledky; legacy pouze čtení. Nezávislé re-review zbývá. |
 | F3 paměť mezi projekty | Scoped čtení/učení a regrese; žádný claim nového fyzického modelového testu. Nezávislé re-review zbývá. |
 | F4 release gate | Vývojové regrese opravené; release seal zůstává FAIL podle CONTRACT §8. |
-| F5 GitHub/integrace | Specialistických 17 commitů publikováno, privacy větev připravena k review. Specialistická integrace, čtyři účetní hrany a sjednocení výchozí GitHub větve zůstávají otevřené. |
+| F5 GitHub/integrace | Specialistických 17 commitů publikováno, privacy větev publikována k review. Specialistická integrace, čtyři účetní hrany a sjednocení výchozí GitHub větve zůstávají otevřené. |
 | F6 dokumentace | README, INSTALL, DESKTOP, ROADMAP, SYSTEM-MAP a registry aktualizované; historické reporty zachované. |
 
 Další release práce je nezávislé re-review tohoto rozsahu, řízená integrace
 specialistů a M5/M6 acceptance. Tento zápis je důkaz implementace a instalace,
 nikoli schválení bezpečnostní hranice ani přijetí celého produktu.
+
+Publikace ověřena přes `git ls-remote`: pracovní větev
+[`work/review-remediation-20260917`](https://github.com/Belphareon-bak/intentsmith/tree/work/review-remediation-20260917)
+obsahuje `1286db2e` (runtime `1da840c0` + závěrečná dokumentace).
+Specialistický kandidát je samostatně na
+[`review/specialists-engines-20260917`](https://github.com/Belphareon-bak/intentsmith/tree/review/specialists-engines-20260917),
+exact `ff313081`. Následující publikační receipt nemění produktový kód.

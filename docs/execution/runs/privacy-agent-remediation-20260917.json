@@ -201,7 +201,10 @@
     "branch": "work/review-remediation-20260917",
     "specialistsBranch": "review/specialists-engines-20260917",
     "specialistsRevision": "ff313081096ef0f800afd2196e729a1497a26f64",
-    "specialistsIntegrated": false
+    "specialistsIntegrated": false,
+    "verifiedPublishedRevision": "1286db2e4d1dda003f5876b6e0e463c52407e460",
+    "verifiedAt": "2026-09-17T12:31:37.802218+00:00",
+    "method": "git push followed by git ls-remote; GitHub default main unchanged"
   },
   "evidenceRoot": ".intentsmith-artifacts/review-remediation-20260917/"
 }
