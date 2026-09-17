@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "e6e0b891304a87950fe0690463ae6d89d3da25bd",
-  "sourceTree": "413b1b6234ab77e303f7943475ca69c8b23a7ba5",
+  "sourceRevision": "294069e89640d06efb8327248eb587dc9d2613a7",
+  "sourceTree": "f7d01a49017d8039b58cad140c15802c119da7c7",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -1240,6 +1240,7 @@
     "src/system/governor/system-governor.js -> src/system/governor/improvement-planner.js",
     "src/system/governor/system-governor.js -> src/system/governor/safety-guard.js",
     "src/system/gpu-detector.js -> src/core/logger.js",
+    "src/system/hunt-control.js -> src/upgrade/model-hunt-diagnostics.js",
     "src/telemetry/specialist-telemetry.js -> src/core/logger.js",
     "src/tools/http-client.js -> src/core/logger.js",
     "src/tools/m2-tool-authority-repository.js -> src/effects/effect-file-list-output-repository.js",

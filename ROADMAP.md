@@ -1,7 +1,7 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
 **Specialisté ve Studiu, 2026-09-17:** dostupný seznam balíčků, potvrzená
-aktivace a skutečný PDF/HEIC import v konverzaci. Integrovaný module graph má 1 358 hran,
+aktivace a skutečný PDF/HEIC import v konverzaci. Integrovaný module graph má 1 359 hran,
 3 cykly / 28 členů, včetně souběžné opravy časového kontextu.
 Nainstalovaný `3f005fc0` zachovává i privacy/panel delta `3bbf8bc1`.
 [Důkazy a omezení](docs/review/2026-09-17-STUDIO-SPECIALISTS.md):
