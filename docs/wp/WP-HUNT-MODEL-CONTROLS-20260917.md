@@ -18,3 +18,7 @@ Dodáno a instalováno na `09cbd0d6`; `REVIEW_PENDING`, fyzický scoring je
 `BLOCKED` kvůli NVIDIA 595.84 / NVML 595.91. Offline/database 358 PASS / 1 FAIL
 (nezměněná release registry pečeť), řízený fyzický Electron PASS, živé odmítnutí
 měření při nefunkčním GPU ověřeno. [Review packet a meze](../review/2026-09-17-HUNT-MODEL-CONTROLS.md).
+
+Následné zadání operátora: sjednotit vzhled tlačítek a vysvětlit neúspěšný
+test Qwenu přímo u modelu. Dodáno a instalováno na `08f8d1c5`; backend
+a GPU policy beze změny. [Ověření a pokračující blokace GPU](../review/2026-09-17-HUNT-MODEL-CONTROLS-FOLLOWUP.md).

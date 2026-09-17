@@ -1,5 +1,8 @@
 # Studio: výběr kandidátů, test instalovaného modelu a blokace GPU
 
+Následná instalace `08f8d1c5` upravuje vzhled a místní hlášení chyb:
+[followup](2026-09-17-HUNT-MODEL-CONTROLS-FOLLOWUP.md). Níže je původní rozsah.
+
 Stav: **IMPLEMENTED / INSTALLED / REVIEW_PENDING / PHYSICAL_SCORING_BLOCKED**.
 Autorita je operátorův požadavek a tři snímky Studia z 17. 9. 2026.
 Produktový rozsah pro review: `c2989a3e..09cbd0d6`.
