@@ -110,6 +110,11 @@ function safeBaseEnvironment() {
   const pdfPython = resolvePdfPythonInterpreter(process.env);
   environment.INTENTSMITH_PDF_PYTHON = pdfPython;
   environment.C3_PDF_PYTHON = pdfPython;
+  // Independent, declared toolchain. nightly-audit validates it before use
+  // and forwards it only to suites that require accountant-ocr-runtime.
+  if (process.env.UCETNI_RUNTIME_DIR !== undefined) {
+    environment.UCETNI_RUNTIME_DIR = process.env.UCETNI_RUNTIME_DIR;
+  }
   return environment;
 }
 

@@ -1,5 +1,30 @@
 # IntentSmith Gate 0 Deterministic Audit
 
+## Development validation with the accountant runtime
+
+The accountant OCR worker and the chat PDF exporter have separate pinned
+Python environments. Configure both explicitly when including the accountant
+integration suite in the offline/database run:
+
+```bash
+INTENTSMITH_PDF_PYTHON="$HOME/.local/share/intentsmith/python/pdf/bin/python" \
+UCETNI_RUNTIME_DIR="$HOME/.local/share/ucetni" \
+node scripts/nightly-audit.js --profile=offline,database \
+  --allow-blocker=toolchain:git,toolchain:bwrap,toolchain:bubblewrap,toolchain:prlimit,toolchain:python-pdf-runtime,toolchain:systemd-analyze,toolchain:accountant-ocr-runtime
+```
+
+The runner checks the OCR directory, executable and both language data files
+before forwarding `UCETNI_RUNTIME_DIR` exclusively to declaring suites. Missing
+prerequisites remain BLOCKED. A successful preflight is not proof that Python
+packages work: the real document integration must also pass. M6 forwards the
+same independent runtime through its isolated execution environment.
+
+The registry counts and seal below describe the historical reviewed Gate 0
+selection, not the current development registry. The release seal is not
+updated by a development validation run (`CONTRACT.md §8`).
+
+## Historical reviewed Gate 0 selection
+
 Status: reviewed one-shot verification candidate. Systemd installation and
 activation are disabled during Gate 0 and are not release evidence.
 

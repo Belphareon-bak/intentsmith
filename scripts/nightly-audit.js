@@ -250,6 +250,27 @@ async function prepareToolchainEnvironment(suite, opts, hostEnv = process.env) {
     }
   }
 
+  if (declared.has('accountant-ocr-runtime')
+    && opts.allowBlockers.has('toolchain:accountant-ocr-runtime')) {
+    const runtime = hostEnv.UCETNI_RUNTIME_DIR;
+    try {
+      if (typeof runtime !== 'string' || !path.isAbsolute(runtime)
+        || await realpath(runtime) !== runtime) throw new Error('invalid runtime');
+      const directory = await lstat(runtime);
+      if (!directory.isDirectory() || directory.isSymbolicLink()) throw new Error('invalid runtime');
+      const python = await lstat(await realpath(path.join(runtime, 'venv/bin/python')));
+      if (!python.isFile() || (python.mode & 0o111) === 0) throw new Error('invalid interpreter');
+      for (const language of ['ces', 'eng']) {
+        const data = await lstat(path.join(runtime, 'tessdata', `${language}.traineddata`));
+        if (!data.isFile() || data.isSymbolicLink() || data.size === 0) throw new Error('missing OCR data');
+      }
+    } catch {
+      return { ...result, ok: false, blockers: ['toolchain:accountant-ocr-runtime:invalid-runtime'] };
+    }
+    result.env.UCETNI_RUNTIME_DIR = runtime;
+    result.forwardedKeys.push('UCETNI_RUNTIME_DIR');
+  }
+
   if (!declared.has('x11-display')) return result;
   if (!opts.allowBlockers.has('toolchain:x11-display')) return result;
 
@@ -287,10 +308,12 @@ async function prepareToolchainEnvironment(suite, opts, hostEnv = process.env) {
   return {
     ...result,
     env: {
+      ...result.env,
       INTENTSMITH_STUDIO_DISPLAY: display,
       INTENTSMITH_STUDIO_XAUTHORITY: xauthority,
     },
     forwardedKeys: [
+      ...result.forwardedKeys,
       'INTENTSMITH_STUDIO_DISPLAY',
       'INTENTSMITH_STUDIO_XAUTHORITY',
     ],

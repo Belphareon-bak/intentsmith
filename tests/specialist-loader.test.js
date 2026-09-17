@@ -12,6 +12,17 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { spawnSync } from 'node:child_process';
+
+// Measure retained objects, not V8's timing of its next automatic collection.
+// Keep direct node invocation equivalent to registry/npm execution.
+if (typeof global.gc !== 'function') {
+  const child = spawnSync(process.execPath, ['--expose-gc', ...process.argv.slice(1)], {
+    stdio: 'inherit', env: process.env, timeout: 120_000,
+  });
+  if (child.error) throw child.error;
+  process.exit(child.status ?? 1);
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -559,6 +570,7 @@ console.log('\n── 16. Stress test: 200 enable/disable cycles ──');
 
   await loader.boot();
 
+  global.gc();
   const heapBefore = process.memoryUsage().heapUsed;
   const CYCLES = 200;
 
@@ -567,8 +579,7 @@ console.log('\n── 16. Stress test: 200 enable/disable cycles ──');
     await loader.enable('accountant-cz');
   }
 
-  // Force GC if available
-  if (global.gc) global.gc();
+  global.gc();
 
   const heapAfter = process.memoryUsage().heapUsed;
   const heapDeltaMB = (heapAfter - heapBefore) / 1024 / 1024;
