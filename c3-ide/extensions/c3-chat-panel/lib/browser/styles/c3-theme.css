@@ -1,12 +1,13 @@
 /* ═══════════════════════════════════════════════════════════
-   C3 Studio v7 — Theia Chrome Overrides (FIXED)
+   IntentSmith Studio — Theia chrome and brand tokens
    ═══════════════════════════════════════════════════════════ */
 
 :root {
-  --c3-bg0:#0c0c0f;--c3-bg1:#111114;--c3-bg2:#18181c;--c3-bg3:#1f2025;--c3-bg4:#27282e;--c3-bg5:#2f3038;
-  --c3-tx1:#ececef;--c3-tx2:#a1a1aa;--c3-tx3:#5e8a6d;--c3-tx4:#436b52;
-  --c3-accent:#22c55e;--c3-accent-dim:#16a34a;--c3-accent-bg:rgba(34,197,94,0.08);--c3-accent-text:#4ade80;
-  --c3-border:rgba(255,255,255,0.06);--c3-border2:rgba(255,255,255,0.1);
+  --c3-bg0:#09090b;--c3-bg1:#141416;--c3-bg2:#1b1b1e;--c3-bg3:#232326;--c3-bg4:#2d2c30;--c3-bg5:#38373c;
+  --c3-tx1:#f4f1ea;--c3-tx2:#b9b2a7;--c3-tx3:#a18d6e;--c3-tx4:#8c7d67;
+  --c3-accent:#d4a85f;--c3-accent-dim:#9b6b32;--c3-accent-bg:rgba(212,168,95,0.12);--c3-accent-text:#e7c27a;
+  --c3-on-accent:#17120a;--c3-success:#5ecf91;--c3-success-bg:rgba(94,207,145,0.12);
+  --c3-border:rgba(231,194,122,0.08);--c3-border2:rgba(231,194,122,0.15);
 }
 
 /* ─── Global ─── */
@@ -29,6 +30,8 @@ body, .theia-ApplicationShell {
   font-size: 12px !important;
   color: var(--c3-tx3) !important;
 }
+html[data-c3-appearance="intentsmith"] .p-MenuBar,
+html[data-c3-appearance="intentsmith"] #theia\:menubar { letter-spacing: 0.1px !important; }
 .p-MenuBar-item {
   padding: 2px 8px !important;
   border-radius: 3px !important;
@@ -92,6 +95,9 @@ body, .theia-ApplicationShell {
 #theia-left-side-panel {
   background: var(--c3-bg1) !important;
   border: none !important;
+}
+html[data-c3-appearance="intentsmith"] #theia-left-side-panel {
+  border-right: 1px solid var(--c3-border) !important;
 }
 /* Force sidebar widget to fill full panel height (Theia layout manager
    miscalculates when we hide the TabBar, leaving a gap at the bottom) */
@@ -182,6 +188,9 @@ body, .theia-ApplicationShell {
   background: var(--c3-bg1) !important;
   border-top: 1px solid var(--c3-border) !important;
 }
+html[data-c3-appearance="intentsmith"] #theia-bottom-content-panel {
+  background: var(--c3-bg0) !important;
+}
 
 /* ─── Status Bar ─── */
 #theia-statusBar, .theia-statusBar {
@@ -216,6 +225,12 @@ body, .theia-ApplicationShell {
   border-color: rgba(34,197,94,0.4) !important;
   outline: none !important;
 }
+html[data-c3-appearance="intentsmith"] .theia-input:focus,
+html[data-c3-appearance="intentsmith"] input[type="text"]:focus,
+html[data-c3-appearance="intentsmith"] textarea:focus {
+  border-color: rgba(212,168,95,0.55) !important;
+  box-shadow: 0 0 0 2px rgba(212,168,95,0.10) !important;
+}
 button.theia-button {
   background: var(--c3-bg3) !important;
   border: 1px solid var(--c3-border2) !important;
@@ -226,6 +241,10 @@ button.theia-button.main {
   background: var(--c3-accent) !important;
   border-color: transparent !important;
   color: #fff !important;
+}
+html[data-c3-appearance="intentsmith"] button.theia-button.main {
+  color: var(--c3-on-accent) !important;
+  font-weight: 700 !important;
 }
 
 /* ─── Split handles ─── */
@@ -277,6 +296,10 @@ button.theia-button.main {
 /* ─── Widget sizing ─── */
 #c3-sidebar, #c3-chat-panel, #c3-agent-panel, #c3-center-view {
   background: var(--c3-bg1) !important;
+}
+html[data-c3-appearance="intentsmith"] #c3-chat-panel,
+html[data-c3-appearance="intentsmith"] #c3-agent-panel {
+  border-left: 1px solid var(--c3-border) !important;
 }
 
 /* ─── Pro Theme overrides: make Theia panels transparent for bg images ─── */

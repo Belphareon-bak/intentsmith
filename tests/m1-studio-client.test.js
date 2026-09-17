@@ -99,6 +99,10 @@ const CHAT_PANEL = new URL(
   '../c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js',
   import.meta.url,
 );
+const STUDIO_THEME = new URL(
+  '../c3-ide/extensions/c3-chat-panel/lib/browser/styles/c3-theme.css',
+  import.meta.url,
+);
 const ANDROID_LIFECYCLE = new URL(
   './lifecycle-android-app-e2e.test.js',
   import.meta.url,
@@ -553,6 +557,82 @@ test('sidebar startup preserves narrow content panels while hiding activity bars
       assert.equal(bar.style.display, 'none', 'activity bar is still hidden');
     }
   }
+});
+
+test('default Studio identity uses the accessible IntentSmith brand system', () => {
+  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
+  const css = fs.readFileSync(STUDIO_THEME, 'utf8');
+  const palette = {
+    canvas: '#09090b',
+    panel: '#141416',
+    text: '#f4f1ea',
+    muted: '#8c7d67',
+    accent: '#d4a85f',
+    onAccent: '#17120a',
+    success: '#5ecf91',
+  };
+  const luminance = hex => hex.match(/[\da-f]{2}/gi).map(value => {
+    const channel = Number.parseInt(value, 16) / 255;
+    return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  }).reduce((total, channel, index) => total + channel * [0.2126, 0.7152, 0.0722][index], 0);
+  const contrast = (left, right) => {
+    const values = [luminance(left), luminance(right)].sort((a, b) => b - a);
+    return (values[0] + 0.05) / (values[1] + 0.05);
+  };
+
+  assert.ok(contrast(palette.text, palette.canvas) >= 7, 'primary copy is AAA on the canvas');
+  assert.ok(contrast(palette.muted, palette.canvas) >= 4.5, 'quiet copy stays readable');
+  assert.ok(contrast(palette.accent, palette.canvas) >= 7, 'brand accent is readable on the canvas');
+  assert.ok(contrast(palette.onAccent, palette.accent) >= 7, 'primary actions use dark copy on gold');
+  assert.notEqual(palette.accent, palette.success, 'brand selection and success remain different meanings');
+
+  for (const token of Object.values(palette)) {
+    assert.ok(source.includes(token), `runtime owns brand token ${token}`);
+    assert.ok(css.includes(token), `Theia chrome owns brand token ${token}`);
+  }
+  assert.match(source, /Active:\{b:C\.successBg,c:C\.success\}/);
+  assert.match(source, /COMPLETE:C\.success/);
+  assert.match(source, /id:'intentsmith',label:'IntentSmith',desc:'Výchozí brand'/);
+  assert.match(source, /id:'clean',label:'Clean',desc:'Původní přizpůsobitelný'/);
+  assert.match(source, /'Styl vzhledu'/);
+  assert.match(source, /localStorage\.getItem\('c3-theme-mode'\)\|\|'intentsmith'/,
+    'new profiles select the visible IntentSmith appearance');
+  assert.match(source, /accentDim:'#9b6b32'/);
+  assert.match(source, /text:_theme\.accentText/,
+    'the explicit brand mode keeps the reviewed logo accent text token at runtime');
+  assert.match(source, /a\?'IntentSmith':'System'/);
+  assert.match(source, /widgetName:'IntentSmith Navigation'/);
+  assert.match(source, /widgetName:'IntentSmith Chat'/);
+  assert.match(source, /label:'IntentSmith: Toggle Sidebar',category:'IntentSmith'/);
+  assert.match(source, /label:'IntentSmith: Toggle Chat',category:'IntentSmith'/);
+  assert.doesNotMatch(source, /linear-gradient\(135deg,#22c55e,#16a34a\)/,
+    'assistant identity no longer uses the old green brand gradient');
+});
+
+test('IntentSmith and Clean keep independent palettes and background authority', () => {
+  const source = fs.readFileSync(CHAT_PANEL, 'utf8');
+  const css = fs.readFileSync(STUDIO_THEME, 'utf8');
+  const brand = source.match(/var _C_DEFAULT=\{[\s\S]*?\};/u)?.[0] || '';
+  const clean = source.match(/var _C_CLEAN=\{[\s\S]*?\};/u)?.[0] || '';
+
+  assert.match(brand, /bg0:'#09090b',bg1:'#141416',bg2:'#1b1b1e'/,
+    'brand surfaces are neutral near-black, with panels visibly above the canvas');
+  assert.match(brand, /accent:'#d4a85f',accentText:'#e7c27a'/,
+    'IntentSmith retains the logo-derived gold accent');
+  assert.match(clean, /bg0:'#0c0c0f',bg1:'#111114',bg2:'#18181c'/,
+    'Clean restores its original dark surface ramp');
+  assert.match(clean, /tx3:'#5e8a6d',tx4:'#436b52'/,
+    'Clean restores its original passive copy colors');
+  assert.match(clean, /accent:'#22c55e',accentText:'#4ade80',accentDim:'#16a34a'/,
+    'Clean restores its original green default accent');
+  assert.match(source, /if\(isClean\)\{[\s\S]*?_bgPresets\[bi\][\s\S]*?C\.bg1=_cl\(baseBg,bt,0\.04\)/u,
+    'only Clean consumes the saved customizable background');
+  assert.match(source, /\}else\{\s*C\.bg0=tc\.bg0;C\.bg1=tc\.bg1;C\.bg2=tc\.bg2/u,
+    'IntentSmith uses its owned surface ramp instead of the saved Clean background');
+  assert.match(source, /appearanceMode==='clean'\?h\(React\.Fragment/u,
+    'editable accent and background controls are explicitly scoped to Clean');
+  assert.match(css, /html\[data-c3-appearance="intentsmith"\] #theia-left-side-panel/u,
+    'brand-only chrome details are scoped away from Clean');
 });
 
 test('the shipped preload bundle really carries the byte bridge', () => {

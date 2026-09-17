@@ -4,6 +4,30 @@ Desktopová instalace nabízí aplikaci **IntentSmith** v nabídce aplikací.
 Ikona spustí backendovou uživatelskou službu nebo se k ní připojí. Opětovné
 spuštění nevytváří další backend. Zavření Studia backend ani hunt nezastavuje;
 služby lze zastavit explicitně. Chyba spuštění Studia se ukáže v dialogu.
+Instalátor zapisuje launcher jako spustitelný soubor a obnoví jak obecnou
+desktopovou databázi, tak KDE cache; po aktualizaci proto není nutné se
+odhlašovat ani cache obnovovat ručně.
+
+Na Kubuntu/Ubuntu s `kernel.apparmor_restrict_unprivileged_userns=1` může
+Chromium skončit ještě před otevřením okna, pokud instalace nemá použitelný
+setuid helper ani AppArmor profil. Launcher tento konkrétní stav ověří před
+spuštěním. Ukáže postup instalace vygenerovaného profilu
+`~/.config/intentsmith/intentsmith.apparmor`, nebo po výslovném potvrzení
+uloží soukromý marker `~/.config/intentsmith/allow-no-sandbox` a přidá
+`--no-sandbox`. Druhá varianta ubírá jednu vrstvu izolace Chromia; bez souhlasu
+se nezapne. Marker lze smazat a vrátit se k sandboxovanému startu. Pro jediný
+diagnostický start lze použít `INTENTSMITH_NO_SANDBOX=1`.
+
+Trvalá AppArmor oprava pro právě instalovanou revizi:
+
+```bash
+sudo install -m 644 ~/.config/intentsmith/intentsmith.apparmor /etc/apparmor.d/intentsmith
+sudo apparmor_parser -r /etc/apparmor.d/intentsmith
+rm -f ~/.config/intentsmith/allow-no-sandbox
+```
+
+Profil obsahuje přesnou cestu k Electronu dané instalované revize. Po instalaci
+nové revize se proto musí znovu nainstalovat i nově vygenerovaný profil.
 
 Ve Studiu otevři **Modely → GPU hunt**. Záložka ukáže stav služby, další termín,
 důvod přeskočení či chybu, poslední výsledky a čas poslední známé fronty.
