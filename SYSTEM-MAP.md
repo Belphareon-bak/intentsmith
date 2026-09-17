@@ -12,10 +12,10 @@ skutečný server/SQLite/Ollamu i kontrolované negativní terminály.**
 Neutrální dokument, nezávislý na nástroji.
 Pravidla vývoje: [`CONTRACT.md`](CONTRACT.md) · Detail: [`docs/inventory/`](docs/inventory/)
 
-**Oprava specialistů ve Studiu, 2026-09-17:** kandidát `be0f5d65` integruje
-účetní dokumentový workflow a autonomního Sázkaře, zachovává instalovanou
-opravu časového kontextu `58d7cced`. Čistý instalační snapshot: 7/7 focused
-PASS a skutečné Electron PDF/HEIC journey PASS. Celý profil: 356 PASS /
+**Nainstalovaná oprava specialistů ve Studiu, 2026-09-17:** `3f005fc0` integruje
+účetní dokumentový workflow a autonomního Sázkaře, zachovává časový kontext
+i souběžné opravy soukromí a panelů `3bbf8bc1`. Poslední delta 6/6 focused
+PASS a skutečné Electron PDF/HEIC journey PASS. Celý profil na `be0f5d65`: 356 PASS /
 2 FAIL / 1 BLOCKED (release seal, dokumentační formát LOC, oddělený OCR
 toolchain). Oprava formátu a konečný stav instalace mají vlastní záznam v
 [review packetu](docs/review/2026-09-17-STUDIO-SPECIALISTS.md).

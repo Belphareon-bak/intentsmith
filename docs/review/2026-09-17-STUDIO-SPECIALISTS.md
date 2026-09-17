@@ -122,3 +122,40 @@ Tentýž čistý klon prošel i skutečným Electron journey se soukromými podk
 pravdivá chyba nedostupné historie. Model provider byl vypnutý, živá DB se
 nepoužila. `npm run test:registry` a build consumer guard: PASS. Součty různých
 běhů se nevydávají za jeden zelený celý profil; release seal se nepřepisuje.
+
+## Nainstalovaný výsledek
+
+Před aplikací byla zjištěna další souběžná instalace `3bbf8bc1`; kontrola
+revize zastavila její přepsání. Původní kandidát `e894fc57` nebyl nasazen.
+Merge `3f005fc097c82cd9fef49ca946758d005ef00235` zachovává navíc opravu
+soukromí pracovní paměti, odstranění odmítnutých vstupů z logu a rozměry
+bočních panelů. Produktové konflikty nevznikly, dokumentace obou stran byla
+zachována a census přeměřen. Graf má stále 1 358 hran.
+
+Na tomto posledním source: **6/6 focused PASS**, včetně skutečného HTTP
+soukromí, projektové paměti, účetního importu/exportu, M1 klienta, graph
+ratchet a artifact-validation. Run `2026-09-17T14-22-33-240Z`.
+Celý profil na tomto posledním merge znovu neběžel; jeho předchozí plný běh
+na `be0f5d65` a obě neúspěšné položky jsou výše. První dvě ruční focused
+invokace měly chybné registry ID a skončily před spuštěním; následné správné
+invokace prošly, žádná sada se kvůli nim nepřeklasifikovala.
+
+Nový produkční build a consumer kontrola PASS, frontend SHA256
+`b9360142ae6043d984b56d49f36efba0a922442bc73ea95331d8e69b65f7177e`.
+Opakovaný skutečný Electron průchod v čistém detached instalačním snapshotu
+`3f005fc0`, soukromý `run-qk1oy4`: viditelných 2 soubory / 7 návrhů, průvodce,
+Sázkař a jeho PROVIDER_BLOCKED odpověď. Data/OCR nebyly odeslány modelu.
+
+Instalace byla aplikována 2026-09-17 14:24 UTC přes existující
+`install-desktop.mjs`, po kontrole neaktivního huntu a přesné předchozí revize.
+DB a konfigurace jsou zazálohovány v
+`~/.local/state/intentsmith/installation-backups/2026-09-17T14-24-42-963Z`.
+Backend i launcher míří na čistý snapshot `3f005fc0`, původní DB zůstává.
+`desktop-runtime.mjs --check`: PASS. Živá autentizovaná API kontrola potvrzuje
+Účetní 2.1.0 se šesti nástroji a Sázkaře 3.2.0 se čtyřmi; chráněné API bez
+credential vrací 401. Původní instalace zůstávají zachované.
+
+Uživatel musí zavřít a znovu spustit okno IDE pro nový bundle, znovu vybrat
+přílohy a odeslat zadání. Běžící okno nebylo násilně ukončeno. Výsledek je
+**INSTALLED / IMPLEMENTATION_VERIFIED / REVIEW_PENDING**; živý výpočet
+Sázkaře zůstává **PROVIDER_BLOCKED**. [Strojový záznam](../execution/runs/studio-specialists-20260917.json).

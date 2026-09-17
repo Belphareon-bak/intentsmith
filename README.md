@@ -36,7 +36,8 @@ Aktuální autorita:
 
 **Lokální integrace specialistů:** `codex/specialists-studio-20260917`,
 [oprava seznamu, PDF/HEIC a dokumentového workflow](docs/review/2026-09-17-STUDIO-SPECIALISTS.md).
-Zachovává také instalovanou opravu časového kontextu `58d7cced`.
+Nainstalovaný snapshot `3f005fc0` zachovává časový kontext i opravy soukromí
+a rozměrů panelů z `3bbf8bc1`. Nový bundle se načte po zavření a spuštění IDE.
 Účetní výstupy vyžadují kontrolu; živý Sázkař má aktuálně nedostupný zdroj
 historie. Nezávislé review této integrace zůstává otevřené.
 
