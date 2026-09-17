@@ -174,15 +174,15 @@ incumbenta má DB retry regresi. Panel D1/D2/R1/R2 je dokončený (12 kandidát�
 
 | | |
 |---|---:|
-| `src/**/*.js` | **223 955 ř.**, 613 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **244 892 ř.**, 527 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **519** (`425 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
+| `src/**/*.js` | **224 802 ř.**  626 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **245 420 ř.**  531 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **523** (`429 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 100** |
 | HTTP rout | **245 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
 Aktuální registry fingerprint je
-`04252cb29ea270886c049b01034c2bfec034a77d22ec4675decf593ae052ecb6`.
+`f29ced20ed0c8e847d8f28ff92a19231c75b78328d18ede86f8bd5c4cb35a4c4`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 
@@ -819,3 +819,15 @@ PASS. Síťová policy, UI, produktový kód, registry i 65s pozorování jsou z
 Opravený reprodukovaný souběh není zpětný důkaz příčiny historického běhu.
 Review zůstává PENDING; fyzický modelový journey není součástí těchto důkazů.
 [Scope, neúspěšné pokusy a důkazy](docs/review/2026-09-12-STUDIO-M1-RESTART-REVIEW-PACKET.md).
+
+## Specialisté ve Studiu — oprava 2026-09-17
+
+Integrace větve `ff313081` do provozní linie `e0b75ee4`: seznam podle
+`/api/specialists`, potvrzená aktivace ID balíčku a vazba na stabilní konverzaci.
+M1 inline dokumenty mají samostatný limit 10 MiB / dávka 20 MiB a rámec
+zahrnující base64 režii; obsah se nedoplňuje čtením libovolné cesty na backendu.
+Účetní dokumentový host má jednorázovou autoritu pro konkrétní konverzaci,
+lokální OCR, privátní evidence a kontrolované exporty. Sázkař používá již
+připravený autonomní engine s veřejnou Fortunou. Detailní konečný důkaz je
+v `docs/review/2026-09-17-STUDIO-SPECIALISTS.md`; integrace zůstává
+**REVIEW_PENDING**, nejde o nové přijetí celého produktu.

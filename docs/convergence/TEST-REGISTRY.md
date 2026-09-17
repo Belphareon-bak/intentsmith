@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 519
+- Runnable programs: 523
 - Explicit support-module exclusions: 21
-- Profiles: offline=280, database=75, server=47, model=82, soak=15, manual=20
-- States: ACTIVE=425, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=283, database=76, server=47, model=82, soak=15, manual=20
+- States: ACTIVE=429, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -51,6 +51,8 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-ACCOUNTANT-E2E-TEST` | `tests/accountant-e2e.test.js` | `C3-014` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-ACCOUNTANT-SELF-CONTAINED-TEST` | `tests/accountant-self-contained.test.js` | `C3-014` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-ACCOUNTANT-TOOLS-TEST` | `tests/accountant-tools.test.js` | `C3-014` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST` | `tests/accountant-workflow-integration.test.js` | `C3-014` | T1 | `offline` | 15 s | 2 min | network:none, toolchain:python-pdf-runtime, toolchain:accountant-ocr-runtime | yes | `ACTIVE` | — | WP-SPECIALISTS-20260911 accountant continuation |
+| `IS-T1-TESTS-ACCOUNTANT-WORKFLOW-TEST` | `tests/accountant-workflow.test.js` | `C3-014` | T1 | `offline` | 500 ms | 2 min | network:none | yes | `ACTIVE` | — | WP-SPECIALISTS-20260911 accountant continuation |
 | `IS-T3-TESTS-ADVERSARIAL-CRE-TEST` | `tests/adversarial-cre.test.js` | `C3-003` | T3 | `model` | 10 min | 15 min | network:loopback, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-AGENT-LOG-UX-TEST` | `tests/agent-log-ux.test.js` | `C3-015` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-AGENT-RUNNER-TEST` | `tests/agent-runner.test.js` | `C3-015` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
@@ -495,6 +497,8 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-ROUTING-ACCURACY-TEST` | `tests/routing-accuracy.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-RSS-INTEGRATION-TEST` | `tests/rss-integration.test.js` | `C3-015` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-RUNTIME-FEEDBACK-TEST` | `tests/runtime-feedback.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-SAZENI-ENGINE-TEST` | `tests/sazeni-engine.test.js` | `C3-013` | T1 | `offline` | 2 s | 30 s | network:none | yes | `ACTIVE` | — | WP-SPECIALISTS-20260911 |
+| `IS-T1-TESTS-SAZENI-INTEGRATION-TEST` | `tests/sazeni-integration.test.js` | `C3-013` | T1 | `database` | 2 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-SPECIALISTS-20260911 |
 | `IS-T1-TESTS-SCENARIO-ENGINE-TEST` | `tests/scenario-engine.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SCHEDULER-TEST` | `tests/scheduler.test.js` | `C3-015` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SCHEMA-MIGRATIONS-TEST` | `tests/schema-migrations.test.js` | `C3-024` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

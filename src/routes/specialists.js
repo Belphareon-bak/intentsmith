@@ -108,7 +108,10 @@ export function createSpecialistRoutes(deps) {
         const installed = specialistLoader.getInstalled();
         const result = installed.map(row => ({
           id: row.id,
-          name: row.name,
+          name: specialistLoader.getManifest(row.id)?.name || row.name,
+          description: specialistLoader.getManifest(row.id)?.description || row.domain,
+          icon: row.id === 'accountant-cz' ? '🧮' : row.id === 'sazeni' ? '📊' : '🤖',
+          expertiseId: resolveExpertiseId(row.id),
           version: row.version,
           domain: row.domain,
           type: row.type,

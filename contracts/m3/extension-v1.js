@@ -22,6 +22,7 @@ export const EXTENSION_KIND = Object.freeze({
 
 export const EXTENSION_HOST_CAPABILITY = Object.freeze({
   PROJECT_CONTEXT: 'code-intel.project-context.v1',
+  BETTING_DATA: 'sports.football-data.v1',
   LOGGER: 'core.logger.v1',
   SPECIALIST_RUNTIME: 'specialist.runtime.v1',
   TOOL_ADAPTER: 'specialist.tool-adapter.v1',

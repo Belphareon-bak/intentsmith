@@ -1,0 +1,547 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
+            xmlns="http://xmlns.vzp.cz/prehledOSVC/v0"
+            targetNamespace="http://xmlns.vzp.cz/prehledOSVC/v0" elementFormDefault="qualified">
+  <xsd:annotation>
+    <xsd:documentation>$Revision: 04 $</xsd:documentation>
+    <xsd:documentation>$Date: 2025-09-26 $</xsd:documentation>
+    <xsd:documentation>$Author: Všeobecná zdravotní pojišťovna ČR, Michal Holinka $</xsd:documentation>
+    <xsd:documentation>
+        Definice "Přehledu OSVČ", určená k podání na portálech ZP, 
+        případně zasláním do datové schránky príslušné ZP
+        platná od 1.1.2026,
+        definuje základní syntaktické validace podání, podání samo musí být vyplněno vzhledem k průběžným 
+        změnám legislativy vždy podle poučení k formuláři OSVČ pro příslušné rok uvedený v záhlaví. 
+        Tento metodický pokyn vydává Všeobecná zdravotní pojišťovna ČR na svých WWW stránkách 
+        v návaznosti na změny legislativy ČR.
+        Verze 04 po zapracování změn z připomínek ZP 24.09.2025
+    </xsd:documentation>
+  </xsd:annotation>
+  
+  <xsd:element name="prehledOSVC" type="prehledOSVCTyp"/>
+  <xsd:complexType name="prehledOSVCTyp">
+    <xsd:sequence>
+      
+      <xsd:element name="identifikacePredmetuPodaniText" type="string60Typ"
+                   fixed="Přehled OSVČ pro ZP 2026+">
+        <xsd:annotation>
+          <xsd:documentation>Tag pro pohodlné rozpoznání předmětu a verze podání liským uživatelem.Musí být uveden formou konstanty v každém zaslaném dokumentu podání dle XSD.(Konstanta k verzi)</xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+      
+      <xsd:element name="identifikacePredmetuPodaniKod" type="string60Typ" fixed="3e0520e9-2dea-4073-8252-ed57cb5d1c89">
+        <xsd:annotation>
+          <xsd:documentation>Tag pro spolehlivé a přesné rozpoznání předmětu a verze podání strojovým rozpoznáváním na úrovni souboru.Musí být uveden formou konstanty v každém zaslaném dokumentu podání dle definičního XSD.</xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+      
+      <xsd:element name="interniIdentifikacePodaniPodavatele" type="string60Typ" minOccurs="0">
+        <xsd:annotation>
+          <xsd:documentation>
+          Nepovinný údaj pro uložení interního identifikátoru podání u podavatele. 
+          Doporučen unikátní řetězec pro snadné rozpoznání / korelaci odpovědí.
+          </xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+      <xsd:element name="kodZdravotniPojistovny" type="kodZdravotniPojistovnyTyp">
+        <xsd:annotation>
+          <xsd:documentation>
+          Povinný údaj - identifikace zdravotní pojišťovny, které je podání učeno. 
+          </xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+      <xsd:element name="rokPrehledu" type="rokTyp" minOccurs="1" maxOccurs="1">
+        <xsd:annotation>
+          <xsd:documentation>Rok přehledu v záhlaví formuláře, tj. rok za který je přehled podáván.
+          </xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+      <xsd:element name="typPrehledu" type="prehledTyp" minOccurs="1" maxOccurs="1">
+        <xsd:annotation>
+          <xsd:documentation>Typ přehledu</xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+      <xsd:element name="pojistenec" type="pojistenecTyp">
+        <xsd:annotation>
+          <xsd:documentation>Identifikace pojištěnce</xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+      <xsd:element name="prohlaseniRezimPojistneho" type="seznamProhlaseniRezimPojTyp"/>
+      <xsd:element name="prohlaseniPojistenceDP" type="priznaniDPTyp">
+        <xsd:annotation>
+          <xsd:documentation>Způsob podání daňového přiznání</xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+      <xsd:element name="stanovenePojistneOSVC" type="seznamRadkuHodnotTyp">
+        <xsd:annotation>
+          <xsd:documentation>
+          Tato část je tvořena seznamem rádků ze sekce 4. Pojistné OSVČ.
+             Klíč řádku v této sekci může nabývat hodnot z metodiky pro vyplnění POSVC pro přílušný rok. 
+             Způsob stanovení hodnot a výpočtu se může měnit a pro každý rok je vždy vydán v poučení
+             
+             Následné řádky jsou pro ilustraci pro příslušný rok podání 2024:
+              kod - klíč řádku  3 – daňový základ příslušného roku + 
+              kod - klíč řádku  4 – počet měsíců trvání samostatné výdělečné činnosti v příslušném roce 
+              kod - klíč řádku  5 – z řádku 4 počet měsíců, kdy byla OSVČ pojištěna u příslušné ZP
+              kod - klíč řádku  6 - počet měsíců, ve kterých pro OSVČ platil minimální vyměřovací základ pro příslušný rok
+              kod - klíč řádku 14 - vyměřovací základ OSVČ za příslušný rok 
+              kod - klíč řádku 16 – pojistné za příslušný rok 
+              Konec ilustrace
+                                                                                       
+          </xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+      
+      <xsd:element name="vyrovnaniZalohPojistne" type="vyrovnaniPreplatkuTyp">
+        <xsd:annotation>
+          <xsd:documentation>
+          Způsob vyrovnání záloh - přeplatku, případně informace o výši nedoplatku, 
+          odpovídá části 6. Nová výše zálohy formuláře PDF
+                       
+          </xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+      
+      <xsd:element name="vyseZalohy" type="vyseZalohyTyp">
+        <xsd:annotation>
+          <xsd:documentation>Nastavení nové výše zálohy</xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+      <xsd:element name="dokumentPrilohy" type="dokumentTyp" minOccurs="0" maxOccurs="12">
+        <xsd:annotation>
+          <xsd:documentation>
+          K prohlášení, v případě, že byl pojištěnec na nemocenské je nutno přidat přílohy s potvrzením nemocenské
+          </xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="seznamProhlaseniRezimPojTyp">
+    <xsd:sequence>
+      <xsd:element name="prohlaseni" minOccurs="1" maxOccurs="unbounded">
+        <xsd:annotation>
+          <xsd:documentation>Prohlášením se rozumí sada příznaků reprezentovaných zaškrtávacími poli.
+          </xsd:documentation>
+        </xsd:annotation>
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="klicProhlaseni">
+              <xsd:annotation>
+                <xsd:documentation>
+                Klíč v této sekci může nabývat těchto hodnot:
+                        prohlaseniAa – pojištenec neměl povinnost platit zálohy z důvodu zaměstnání
+                        prohlaseniAb – pojištěnec neměl povinnost platit zálohy z důvodu nemoci
+                        
+                        prohlaseniBa – pojištenec neměl stanoven vyměřovací základ z důvodu: plátcem pojistného byl i stát
+                        prohlaseniBb – pojištenec neměl stanoven vyměřovací základ z důvodu: v zaměstnání bylo odvedeno pojistné vypočtené alespoň z minimálního vyměřovacího základu platného pro zaměstnance
+                        prohlaseniBc – pojištenec neměl stanoven vyměřovací základ z důvodu: OSVČ pobírala nemocenské z nemocenského pojištění osob samostatně výdělečně činných
+                        prohlaseniBd – pojištenec neměl stanoven vyměřovací základ z důvodu: OSVČ byla osobou s těžkým tělesným, smyslovým nebo mentálním postižením, která je držitelem průkazu ZTP nebo ZTP/P podle zvláštního právního předpisu
+                        prohlaseniBe – pojištenec neměl stanoven vyměřovací základ z důvodu: OSVČ dosáhla věku potřebného pro nárok na starobní důchod, avšak nesplnila další podmínky pro jeho přiznání
+                        prohlaseniBf – pojištenec neměl stanoven vyměřovací základ z důvodu: OSVČ celodenně osobně a řádně pečovala alespoň o jedno dítě do 7 let nebo nejméně o dvě děti do 15 let věku. RČ dítěte či dětí bude uvedeno v elementu rodneCisloDitete
+                        
+                        prohlaseniPp – pojištenec měsíce v paušálním režimu pro OSVČ v režimu paušální daně                    
+                </xsd:documentation>
+              </xsd:annotation>
+              <xsd:simpleType>
+                <xsd:restriction base="xsd:string">
+                  <xsd:minLength value="1"/>
+                  <xsd:maxLength value="30"/>
+                </xsd:restriction>
+              </xsd:simpleType>
+            </xsd:element>
+            <xsd:element name="seznamMesicu" minOccurs="0">
+              <xsd:complexType>
+                <xsd:sequence>
+                  <xsd:element name="mesic" type="cisloKalendarnihoMesiceTyp" minOccurs="0" maxOccurs="12"/>
+                </xsd:sequence>
+              </xsd:complexType>
+            </xsd:element>
+            <xsd:element name="rodneCisloDitete" minOccurs="0" maxOccurs="20" type="cisloPojistenceTyp">
+              <xsd:annotation>
+                <xsd:documentation>Vyplněné jen pro prohlášení typu Bf</xsd:documentation>
+              </xsd:annotation>
+            </xsd:element>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+    </xsd:sequence>
+  </xsd:complexType>
+  
+  <xsd:complexType name="pojistenecTyp">
+    <xsd:sequence>
+      <xsd:element name="cisloPojistence" type="cisloPojistenceTyp">
+        <xsd:annotation>
+          <xsd:documentation/>
+        </xsd:annotation>
+      </xsd:element>
+      <xsd:element name="ic" type="icoTyp" minOccurs="0">
+        <xsd:annotation>
+          <xsd:documentation>IČO, pokud má pojištěnec přiděleno (je podnikající fyzická osoba)</xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+      <xsd:element name="prijmeni" type="prijmeniJmenoPlneTyp"/>
+      <xsd:element name="jmeno" type="prijmeniJmenoPlneTyp"/>
+      <xsd:element name="titul" type="string60Typ" minOccurs="0"/>
+      <xsd:element name="adresa">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="ulice" type="string60Typ" minOccurs="0"/>
+            <xsd:element name="cisloDomu" type="string10Typ"/>
+            <xsd:element name="psc" type="string10Typ"/>
+            <xsd:element name="obec" type="string60Typ"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="bankovniSpojeni" minOccurs="0">
+        <xsd:annotation>
+          <xsd:documentation>Pole bankovní spojení je nepovinné.Výjímka v případě povinné požadavku na vrácení přeplatku na BÚ musí být vyplněno. </xsd:documentation>
+        </xsd:annotation>
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="cisloUctu" type="string16Typ">
+              <xsd:annotation>
+                <xsd:documentation>Číslo účtu včetně případného předčíslí</xsd:documentation>
+              </xsd:annotation>
+            </xsd:element>
+            <xsd:element name="kodBanky" type="string4Typ"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+      <xsd:element name="telefon" type="telefonTyp" minOccurs="0"/>
+      <xsd:element name="email" type="emailTyp" minOccurs="0"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="priznaniDPTyp">
+    <xsd:sequence>
+      <xsd:element name="zpusobPodaniDP" type="zpusobPodaniDPTyp">
+        <xsd:annotation>
+          <xsd:documentation>Způsob podání daňového přehledu - prohlášení pojištěnce, 
+          reprezentuje výběr jedné možnosti
+          </xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+      <xsd:element name="datumPodaniOdlozenéhoDP" type="xsd:date" minOccurs="0">
+        <xsd:annotation>
+          <xsd:documentation>Vyplňuje se jen pro odkladFO = datum na které je podání odloženo</xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="seznamRadkuHodnotTyp">
+    <xsd:sequence>
+      <xsd:element name="radekHodnoty" maxOccurs="100">
+        <xsd:annotation>
+          <xsd:documentation>
+            Řádek přehledu: 
+            Sestává vždy z dvojice Klič řádku a hodnota. Je identifikován hodnotou klíče. 
+            Hodnota obsahuje příslušnou číselnou hodnotu uváděnou na řádku POSVČ.
+            Klíče řádku a hodnot a významy pro jednotlivé řádky jsou stanoveny na základě konkrétního vzhledu formulářů
+            Přehledu OSVČ pro jednotlivé roky vždy v Poučení pro Přehled OSVČ pro daný rok vydávané VZP ČR 
+            na jejích www stránkách. Hodnoty klíčů musí být uvedeny přesně.
+          </xsd:documentation>
+        </xsd:annotation>
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="klicRadku" type="kodRadkuTyp"/>
+            <xsd:element name="hodnotaRadku" type="ciselnaHodnotaTyp"></xsd:element>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="vyrovnaniPreplatkuTyp">
+    <xsd:sequence>
+      <xsd:element name="seznamRadku" type="seznamRadkuHodnotTyp">
+        <xsd:annotation>
+          <xsd:documentation>
+          Klíč řádku v této sekci může nabývat hodnot z metodiky pro vyplnění POSVC pro přílušný rok. 
+                   
+          Způsob stanovení hodnot a výpočtu se může měnit a pro každý rok je vždy vydán v poučení
+             Následné řádky jsou pro ilustraci pro příslušný rok podání 2024:
+              kod - klíč řádku 41 – Úhrn zaplacených záloh na pojistné v roce 2024 
+              kod - klíč řádku 41 – Přeplatek/ doplatek: řádek 41 - rádek 16 
+          Konec ilustrace
+          
+          </xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+      <xsd:element name="zpusobVraceniPreplatku" minOccurs="0">
+        <xsd:annotation>
+          <xsd:documentation>Pro doplatek nebude element v xml obsažený</xsd:documentation>
+        </xsd:annotation>
+        <xsd:simpleType>
+          <xsd:restriction base="xsd:string">
+            <xsd:enumeration value="preplatekNevracet">
+              <xsd:annotation>
+                <xsd:documentation>Nežádám o vrácení přeplatku (přeplatek bude použit na úhrady záloh v dalším období)
+                </xsd:documentation>
+              </xsd:annotation>
+            </xsd:enumeration>
+            <xsd:enumeration value="preplatekZpusobK">
+              <xsd:annotation>
+                <xsd:documentation>
+                Žádám o vrácení přeplatku na bankovni účet, v tomto případě musí být vyplněn na přehledu běžný účet.
+                </xsd:documentation>
+              </xsd:annotation>
+            </xsd:enumeration>
+            <xsd:enumeration value="preplatekZpusobS">
+              <xsd:annotation>
+                <xsd:documentation>Žádám o vrácení přepletku složenkou</xsd:documentation>
+              </xsd:annotation>
+            </xsd:enumeration>
+          </xsd:restriction>
+        </xsd:simpleType>
+      </xsd:element>
+      <xsd:element name="castkaPreplatkuVratit" type="ciselnaHodnotaTyp" minOccurs="0">
+        <xsd:annotation>
+          <xsd:documentation>Vyplňuje se pro preplatekZpusobK, preplatekZpusobS</xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="vyseZalohyTyp">
+    <xsd:sequence>
+      <xsd:element name="seznamRadkuSekceZalohy" type="seznamRadkuHodnotTyp">
+        <xsd:annotation>
+          <xsd:documentation>
+            Ilustrace pro rok 2024 Klíč v této sekci může nabývat těchto hodnot:
+            klič řádku = 51 – výpočet 0,135 x 0,5 x Řádek 3 / Řádek 4 (zaokr. na Kč nahoru)
+          </xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+      <xsd:element name="typZalohy">
+        <xsd:annotation>
+          <xsd:documentation>Typ zvolené nové zálohy</xsd:documentation>
+        </xsd:annotation>
+        <xsd:simpleType>
+          <xsd:restriction base="xsd:string">
+            <xsd:enumeration value="zalohaMinimalni">
+              <xsd:annotation>
+                <xsd:documentation>Minimální záloha </xsd:documentation>
+              </xsd:annotation>
+            </xsd:enumeration>
+            <xsd:enumeration value="zalohaVypoctena">
+              <xsd:annotation>
+                <xsd:documentation>Záloha bude vypočtena</xsd:documentation>
+              </xsd:annotation>
+            </xsd:enumeration>
+            <xsd:enumeration value="zalohaNulova">
+              <xsd:annotation>
+                <xsd:documentation>Záloha 0 Kč</xsd:documentation>
+              </xsd:annotation>
+            </xsd:enumeration>
+          </xsd:restriction>
+        </xsd:simpleType>
+      </xsd:element>
+      <xsd:element name="novaVyseZalohy" type="ciselnaHodnotaTyp">
+        <xsd:annotation>
+          <xsd:documentation>Vyse zalohy dle zvoleneho typu</xsd:documentation>
+        </xsd:annotation>
+      </xsd:element>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:complexType name="dokumentTyp">
+    <xsd:sequence>
+      <xsd:element name="nazev" type="nazevSouboruTyp"/>
+      <xsd:element name="mime" type="mimeTyp"/>
+      <xsd:element name="obsah" type="xsd:base64Binary"/>
+    </xsd:sequence>
+  </xsd:complexType>
+  <xsd:simpleType name="rokTyp">
+    <xsd:restriction base="xsd:int">
+      <xsd:minInclusive value="2025"/>
+      <xsd:maxInclusive value="2099"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="prehledTyp">
+    <xsd:restriction base="xsd:string">
+      <xsd:enumeration value="radny">
+        <xsd:annotation>
+          <xsd:documentation>Řádný přehled OSVČ</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="opravny">
+        <xsd:annotation>
+          <xsd:documentation>Opravný přehled OSVČ</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+    </xsd:restriction>
+  </xsd:simpleType>
+  
+<xsd:simpleType name="cisloKalendarnihoMesiceTyp">
+  <xsd:restriction base="xsd:int">
+    <xsd:pattern value="([1-9]|1[0-2])"/>
+  </xsd:restriction>
+</xsd:simpleType>
+  
+  <xsd:simpleType name="string60Typ">
+    <xsd:restriction base="xsd:string">
+      <xsd:maxLength value="60"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="string10Typ">
+    <xsd:restriction base="xsd:string">
+      <xsd:maxLength value="10"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="string16Typ">
+    <xsd:restriction base="xsd:string">
+      <xsd:maxLength value="16"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="string4Typ">
+    <xsd:restriction base="xsd:string">
+      <xsd:maxLength value="4"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="string512Typ">
+    <xsd:restriction base="xsd:string">
+      <xsd:maxLength value="512"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="string1000Typ">
+    <xsd:restriction base="xsd:string">
+      <xsd:maxLength value="1000"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="cisloPojistenceTyp">
+    <xsd:annotation>
+      <xsd:documentation>Číslo pojištěnce (rodné číslo):- U zaměstnanců s trvalým pobytem na území ČR se zásadně vyplňuje číslo pojištěnce z průkazu pojištěnce. Ve většině případů jetoto číslo shodné s rodným číslem. Existují však případy, kdy jde o zvláštní číslo přidělené zdravotní pojišťovnou.</xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:string">
+    <!-- Rodné číslo, cislo poj: 9 nebo 10 číslic -->
+        <xsd:pattern value="\d{9}"/>
+        <xsd:pattern value="\d{10}"/>
+        </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="icoTyp">
+    <xsd:annotation>
+      <xsd:documentation>IČO má vždy 8 číslic.Prvních 7 číslic tvoří pořadové číslo.Poslední číslice je kontrolní číslice, která se počítá podle váženého součtu předchozích číslic.Rozšíření na 10 znaků pro případ, že je třeba využít číslo plátce přidělené ZP</xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:string">
+        <!-- IČ: 8 číslic -->
+        <xsd:pattern value="\d{8}"/>
+        <!-- Identifikační číslo plátce : 10 číslic -->
+        <xsd:pattern value="\d{10}"/>
+         
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="prijmeniJmenoPlneTyp">
+    <xsd:restriction base="xsd:string">
+      <xsd:maxLength value="100"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="telefonTyp">
+    <xsd:restriction base="xsd:string">
+      <xsd:pattern value="\d{1,30}"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="emailTyp">
+    <xsd:annotation>
+      <xsd:documentation>http://www.regular-expressions.info/email.html</xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:string">
+      <xsd:pattern value="[a-z0-9,!#\\$%&amp;'\*\+/=\?\^_`\{\|}~-]+(\.[a-z0-9,!#\\$%&amp;'\*\+/=\?\^_`\{\|}~-]+)*@[a-z0-9-]+(\.[a-z0-9-]+)*\.([a-z]{2,})"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="ciselnaHodnotaTyp">
+    <xsd:restriction base="xsd:decimal">
+      <xsd:totalDigits value="14"/>
+      <xsd:fractionDigits value="2"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="nazevSouboruTyp">
+    <xsd:restriction base="xsd:string">
+      <xsd:minLength value="1"/>
+      <xsd:maxLength value="100"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="mimeTyp">
+    <xsd:restriction base="xsd:string">
+      <xsd:minLength value="1"/>
+      <xsd:maxLength value="200"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="kodZdravotniPojistovnyTyp">
+    <xsd:annotation>
+      <xsd:documentation>
+    Identifikuje, které ZP je podání určeno 
+    Kódy ZP k 1.1.2026 a zkratk příslušné ZP
+    111 = VZP
+    201 = VoZP
+    205 = ČPZP
+    207 = OZP
+    209 = ZPŠ
+    211 = ZPMV
+    213 = RBP
+    </xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:string">
+      <xsd:enumeration value="111"/>
+      <xsd:enumeration value="201"/>
+      <xsd:enumeration value="205"/>
+      <xsd:enumeration value="207"/>
+      <xsd:enumeration value="209"/>
+      <xsd:enumeration value="211"/>
+      <xsd:enumeration value="213"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="kodRadkuTyp">
+    <xsd:annotation>
+      <xsd:documentation>
+    Identifikuje, význam řádku ve formuláři POSVČ dle metodiky vydané VZP ČR v poučení pro příslušný rok.
+    </xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:int">
+      <xsd:minInclusive value="1"/>
+      <xsd:maxInclusive value="99"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="zpusobPodaniTyp">
+    <xsd:annotation>
+      <xsd:documentation>
+      Zpusob podání identifikuje, zda subjekt podává přímo podání přímo sám za sebe 
+      nebo podání je provádeno prostřednictvím zmocněné osoby (např. externí účetní, poradce ap.)
+      S = sám za sebe
+      Z = prostřednictvím zmocněnce</xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:string">
+      <xsd:enumeration value="S"/>
+      <xsd:enumeration value="Z"/>
+    </xsd:restriction>
+  </xsd:simpleType>
+  <xsd:simpleType name="zpusobPodaniDPTyp">
+    <xsd:annotation>
+      <xsd:documentation>Způsob podání daňového přehledu - prohlášení pojištěnce, 
+          reprezentuje výběr jedné možnosti
+          </xsd:documentation>
+    </xsd:annotation>
+    <xsd:restriction base="xsd:string">
+      <xsd:enumeration value="priznaniDPFO">
+        <xsd:annotation>
+          <xsd:documentation>Povinnost podávat daňové přiznání k 1.4.</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="danovyPoradce">
+        <xsd:annotation>
+          <xsd:documentation>Daňové přiznání podává daňový poradce po 1.4.</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="elektronicky">
+        <xsd:annotation>
+          <xsd:documentation>Daňové přiznání podávám elektronicky po 1.4.</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="nepovinnostPriznaniDPFO">
+        <xsd:annotation>
+          <xsd:documentation>Není povinnost podávat daňové přiznání</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+      <xsd:enumeration value="odkladFO ">
+        <xsd:annotation>
+          <xsd:documentation>Daňové přiznání podáno s odkladem</xsd:documentation>
+        </xsd:annotation>
+      </xsd:enumeration>
+    </xsd:restriction>
+  </xsd:simpleType>
+</xsd:schema>

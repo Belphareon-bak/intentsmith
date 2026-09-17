@@ -4819,6 +4819,11 @@ function base64Image(bytes, mime = 'image/png') {
 }
 
 const ATTACHMENT_CASES = [
+  { label: 'PDF inline', input: [{name:'invoice.pdf',type:'application/pdf',content:base64Image(33000,'application/pdf')}],expect:true },
+  { label: 'realistic 6715 KiB HEIC and PDF pair', input: [{name:'receipts.heic',type:'image/heic',content:base64Image(6715*1024,'image/heic')},{name:'invoice.pdf',type:'application/pdf',content:base64Image(33000,'application/pdf')}],expect:true },
+  { label: 'document over ceiling', input: [{name:'large.heic',type:'image/heic',content:base64Image(10*1024*1024+1,'image/heic')}],expect:'M1_ATTACHMENT_ITEM_TOO_LARGE' },
+  { label: 'invalid PDF bytes', input: [{name:'invoice.pdf',type:'application/pdf',content:'not a data URL'}],expect:'M1_ATTACHMENT_SHAPE_INVALID' },
+  { label: 'truncated document base64', input: [{name:'invoice.pdf',type:'application/pdf',content:'data:application/pdf;base64,a'}],expect:'M1_ATTACHMENT_SHAPE_INVALID' },
   { label: 'empty collection', input: [], expect: true },
   {
     label: 'inline text',
@@ -5400,5 +5405,29 @@ test('the shipped preload exposes the byte bridge and no path-taking read', () =
   );
 });
 
+
+await testAsync('Studio specialist list uses enabled package IDs independently of expertise flags', async () => {
+  const source=fs.readFileSync(CHAT_PANEL,'utf8');const start=source.indexOf('function _fetchSpecialists(){'),end=source.indexOf('function _fetchExpertises(){',start);
+  const calls=[];const context=vm.createContext({AbortSignal,console,_backendBase:'http://127.0.0.1:1',SPECIALISTS:[],NAV:[{},{},{},{}],renderCenter(){},
+    fetch:async url=>{calls.push(url);return {ok:true,json:async()=>({ok:true,specialists:[{id:'accountant-cz',name:'Účetní',status:'enabled',type:'domain'},{id:'sazeni',name:'Sázkař',status:'enabled',type:'domain'},{id:'disabled',name:'Zakázaný',status:'disabled',type:'domain'},{id:'utility',status:'enabled',type:'utility'}]})};}});
+  vm.runInContext(source.slice(start,end),context);await context._fetchSpecialists();
+  assert.equal(calls[0],'http://127.0.0.1:1/api/specialists');assert.deepEqual(Array.from(context.SPECIALISTS,s=>s.id),['accountant-cz','sazeni']);assert.equal(context.NAV[2].badge,2);
+});
+await testAsync('PDF and large HEIC picked by the native byte bridge become complete inline documents',async()=>{
+  for(const [name,mime,size] of [['invoice.pdf','application/pdf',33000],['receipts.heic','image/heic',6715*1024]]){
+    const bytes=new Uint8Array(size);const harness=panelPickHarness({picked:{files:[{name,token:'doc',size,type:mime}]},reads:new Map([['doc',{ok:true,bytes,size}]])});
+    await new Promise(resolve=>harness.functions._chatPickAttachments(harness.st,harness.bridge,resolve));
+    const read=await new Promise(resolve=>harness.functions._readAttachments(harness.st.attachments,resolve));
+    assert.equal(read[0].type,'document');assert(read[0].content.startsWith('data:'+mime+';base64,'));assert.equal(Buffer.from(read[0].content.split(',')[1],'base64').length,size);
+  }
+});
+
+test('specialist focus repaints the center conversation on chat changes',()=>{
+  const source=fs.readFileSync(CHAT_PANEL,'utf8'),a=source.indexOf('function renderChat(){'),b=source.indexOf('function _chatScrollPane',a);let focus=true,center=0,side=0;
+  const ctx=vm.createContext({isFocusActive:()=>focus,renderCenter:()=>center++,_chatContainer:{},_chatRoot:{render:()=>side++},h:()=>null,ChatApp:()=>null});
+  vm.runInContext(source.slice(a,b),ctx);ctx.renderChat();assert.equal(center,1);assert.equal(side,1);
+  focus=false;ctx.renderChat();assert.equal(center,1);assert.equal(side,2);
+  focus=true;ctx._chatContainer=null;ctx.renderChat();assert.equal(center,2);
+});
 
 summary();

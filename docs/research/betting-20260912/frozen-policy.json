@@ -1,0 +1,18 @@
+{
+  "modelSpec": {
+    "id": "dc-ridge-v1",
+    "halfLifeDays": 365,
+    "ridge": 0.005,
+    "lookbackDays": 1461,
+    "minTeamMatches": 10,
+    "maxIterations": 500,
+    "tolerance": 0.00001
+  },
+  "calibration": {
+    "modelWeight": 0,
+    "temperature": 0.85,
+    "marketMethod": "market",
+    "loss": 0.9564779307557059
+  },
+  "selectedWithoutTest": true
+}

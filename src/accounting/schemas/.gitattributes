@@ -1,0 +1,5 @@
+# Official vendored schemas/examples: preserve original bytes and their SHA-256,
+# including upstream CRLF and whitespace in annotations. Application code keeps
+# normal repository whitespace checks.
+*.xsd -text -whitespace
+*.xml -text -whitespace

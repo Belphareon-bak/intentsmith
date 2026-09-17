@@ -428,7 +428,8 @@ try {
   //              local authority. isolated-test-db.js is its first import.
   //   130 -> 132 Review regressions exercise scoped chat memory and the real
   //              HTTP settings/chat server; both start with the isolation anchor.
-  const expectedDatabaseReachableRootTests = 132;
+  // 132 -> 133: sazeni-integration also starts with the isolation bootstrap.
+  const expectedDatabaseReachableRootTests = 133;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

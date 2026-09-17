@@ -1,8 +1,8 @@
 {
   "id": "accountant-cz",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "manifestVersion": 2,
-  "name": "Ucetni specialista (CZ)",
+  "name": "Účetní",
   "description": "OSVC danova evidence, DPH, pojistne, compliance, reporty",
   "author": "c3-core",
   "domain": "finance",
@@ -13,8 +13,13 @@
     "specialist.runtime.v1",
     "specialist.tool-adapter.v1"
   ],
-
   "tools": [
+    {
+      "id": "accountant.document_workflow",
+      "name": "Doklady a přiznání",
+      "module": "./tools/document-workflow.js",
+      "function": "runDocumentWorkflow"
+    },
     {
       "id": "accountant.tax_calculator",
       "name": "Danova kalkulacka",
@@ -46,7 +51,6 @@
       "function": "compareTaxEntities"
     }
   ],
-
   "capabilities": [
     "tax.calculate",
     "tax.compare",
@@ -54,18 +58,17 @@
     "salary.compute",
     "deadline.check"
   ],
-
-  "expertises": ["accountant"],
+  "expertises": [
+    "accountant"
+  ],
   "defaultExpertise": "./expertise.json",
-
-  "knowledge_packs": ["tax-rates"],
-
+  "knowledge_packs": [
+    "tax-rates"
+  ],
   "migrations": [],
-
   "settings": {
     "default_entity_type": "osvc",
     "default_tax_regime": "actual"
   },
-
   "enabledByDefault": true
 }

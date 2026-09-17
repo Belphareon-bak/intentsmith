@@ -166,8 +166,9 @@ class IntentDetector {
    * @param {SpecialistConfig} specialist - Specialist configuration
    * @returns {{ tool: ToolDefinition, params: Object } | null}
    */
-  detect(input, specialist) {
-    if (!input || input.length < 5) return null;
+  detect(input, specialist, attachments = []) {
+    if (typeof input !== 'string') return null;
+    if (input.length < 5 && !specialist.tools.some(tool => tool.acceptsAllInput === true)) return null;
 
     for (const tool of specialist.tools) {
       for (const patternGroup of tool.patterns) {
@@ -180,7 +181,7 @@ class IntentDetector {
           // Extract parameters
           let params = {};
           if (tool.extractParams) {
-            params = tool.extractParams(input) || {};
+            params = tool.extractParams(input, tool.acceptsInlineAttachments === true ? attachments : []) || {};
           }
           if (specialist.globalParamExtractor) {
             params = { ...specialist.globalParamExtractor(input), ...params };
@@ -275,7 +276,7 @@ class ToolExecutor {
     const args = tool.adapter ? tool.adapter(effectiveParams) : effectiveParams;
 
     const startTime = Date.now();
-    const result = await fn(args);
+    const result = await fn(args, tool.needsTurnContext === true ? executionContext.turn : undefined);
     const duration = Date.now() - startTime;
 
     const succeeded = result?.success !== false && result?.status !== 'error';
@@ -375,6 +376,7 @@ class SpecialistRuntime {
     this._telemetry = null;
     /** @type {{openInvocation: Function}|null} strict-injected ProjectContext host */
     this._projectContextHost = null;
+    this._bettingDataHost = null;
   }
 
   /**
@@ -455,16 +457,19 @@ class SpecialistRuntime {
    * @param {{ sessionId?: string, conversationId?: string, userMessageId?: number, project?: Object, signal?: AbortSignal }} [options={}] - Session context options
    * @returns {Promise<{ toolType: string, result: any, params: Object } | null>}
    */
+  setAccountingHost(host) { this._accountingHost = host; }
+  setBettingDataHost(host) { this._bettingDataHost = host; }
+
   async tryToolExecution(
     expertiseId,
     input,
-    { sessionId, conversationId, userMessageId, project, signal = null } = {},
+    { sessionId, conversationId, userMessageId, project, signal = null, attachments = [] } = {},
   ) {
     const specialist = this.registry.getSpecialist(expertiseId);
     if (!specialist) return null;
 
     // Step 1: Try normal pattern matching
-    let match = this.detector.detect(input, specialist);
+    let match = this.detector.detect(input, specialist, attachments);
     let isContextual = false;
 
     // Step 2: Merge session params (if normal match found)
@@ -504,7 +509,7 @@ class SpecialistRuntime {
 
     logger.info('SpecialistRuntime', `Tool match: ${match.tool.id} for specialist ${expertiseId}${isContextual ? ' (contextual)' : ''}`, {
       toolId: match.tool.id,
-      inputPreview: input.slice(0, 60),
+      inputLength: input.length,
       contextual: isContextual,
     });
 
@@ -518,6 +523,8 @@ class SpecialistRuntime {
     // Track execution for busy guard
     this._executingCount.set(expertiseId, (this._executingCount.get(expertiseId) || 0) + 1);
     let projectContext = null;
+    let bettingToken = null;
+    let accountingTurn = null;
     try {
       if (match.tool.needsProjectContext === true) {
         if (!this._projectContextHost) {
@@ -547,10 +554,25 @@ class SpecialistRuntime {
         }
       }
 
+      if(match.tool.needsBettingData === true && this._bettingDataHost && !match.params.payload?.snapshot && !match.params.inputError) {
+        bettingToken = this._bettingDataHost.openInvocation({extensionId:specialist.extensionId || expertiseId,
+          toolId:match.tool.id,conversationId,userMessageId,signal});
+      }
+      if (match.tool.needsAccountingWorkflow === true) {
+        if (!this._accountingHost) throw new Error('Účetní workflow není dostupné.');
+        accountingTurn = this._accountingHost.openInvocation({extensionId:specialist.extensionId || expertiseId,
+          toolId:match.tool.id,conversationId,projectId:project?.id ?? null,userMessageId,attachments,signal});
+      }
       let execResult;
       try {
         execResult = await this.executor.execute(match.tool, match.params, {
           projectContext,
+          ...(match.tool.needsTurnContext === true ? { turn: Object.freeze({
+            ...(bettingToken ? {bettingData:this._bettingDataHost.forTurn(bettingToken)} : {}),
+            ...(accountingTurn ? {accounting: accountingTurn.run} : {}),
+            now: new Date().toISOString(), signal, clock: () => performance.now(),
+            yieldTask: () => new Promise(resolve => setImmediate(resolve)),
+          }) } : {}),
         });
       } catch (error) {
         logger.warn('SpecialistRuntime', `Tool ${match.tool.id} preparation failed: ${error.message}`);
@@ -632,6 +654,8 @@ class SpecialistRuntime {
         expertiseEvidence: execResult.expertiseEvidence,
       };
     } finally {
+      accountingTurn?.close();
+      if (bettingToken !== null) this._bettingDataHost?.closeInvocation(bettingToken);
       if (projectContext !== null) {
         this._projectContextHost?.closeInvocation?.(projectContext);
       }

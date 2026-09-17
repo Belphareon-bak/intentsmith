@@ -52,10 +52,10 @@ it('non-existent specialist returns false', () => {
   assert(!specialistRuntime.isSpecialist('nonexistent'));
 });
 
-it('accountant has 5 tools', () => {
+it('accountant has 6 tools', () => {
   const config = specialistRuntime.getSpecialistConfig('accountant');
   assert(config);
-  assert.equal(config.tools.length, 5);
+  assert.equal(config.tools.length, 6);
   assert.equal(config.domain, 'finance');
 });
 

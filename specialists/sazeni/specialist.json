@@ -1,59 +1,67 @@
 {
   "id": "sazeni",
-  "version": "1.0.0",
+  "version": "3.2.0",
   "manifestVersion": 2,
-  "name": "Sázkový analytik",
-  "description": "Komplexní analýza sportovních sázek — porovnání kurzů, statistická analýza, value betting, konstrukce tiketů",
+  "name": "Sázkař",
+  "description": "Autonomní analýza fotbalu 1X2: načítání zdrojů, měření modelu a tikety s limity kurzů, pravděpodobnosti a času.",
   "author": "c3-core",
   "domain": "sports_betting",
   "type": "domain",
   "engine": ">=121.0.0",
   "entry": "./index.js",
-
   "tools": [
     {
       "id": "sazeni.odds_compare",
       "name": "Porovnání kurzů",
-      "module": "./tools/odds-compare.js",
-      "function": "compareOdds"
+      "module": "./tools/betting-engine.js",
+      "function": "runBetting"
     },
     {
       "id": "sazeni.match_analysis",
       "name": "Analýza zápasu",
-      "module": "./tools/match-analysis.js",
-      "function": "analyzeMatch"
+      "module": "./tools/betting-engine.js",
+      "function": "runBetting"
     },
     {
       "id": "sazeni.ticket_builder",
       "name": "Sestavení tiketu",
-      "module": "./tools/ticket-builder.js",
-      "function": "buildTicket"
+      "module": "./tools/betting-engine.js",
+      "function": "runBetting"
     },
     {
       "id": "sazeni.value_finder",
       "name": "Value Bet Finder",
-      "module": "./tools/value-finder.js",
-      "function": "findValue"
+      "module": "./tools/betting-engine.js",
+      "function": "runBetting"
     }
   ],
-
   "capabilities": [
     "betting.odds_compare",
     "betting.match_analysis",
     "betting.ticket_build",
     "betting.value_find"
   ],
-
-  "expertises": ["sazeni"],
-
-  "knowledge_packs": ["betting-fundamentals"],
+  "expertises": [
+    "sazeni"
+  ],
+  "knowledge_packs": [],
   "migrations": [],
-
   "settings": {
     "default_sport": "football",
     "default_currency": "CZK",
     "default_stake_unit": 100
   },
-
-  "enabledByDefault": true
+  "enabledByDefault": true,
+  "optionalCapabilities": [
+    "sports.football-data.v1",
+    "code-intel.project-context.v1",
+    "specialist.registry.auto-select.v1",
+    "specialist.registry.capability.v1",
+    "specialist.registry.cre.v1",
+    "specialist.registry.expertise.v1",
+    "specialist.knowledge-base.v1",
+    "core.logger.v1",
+    "specialist.registry.scenario.v1",
+    "specialist.registry.tool-executor.v1"
+  ]
 }

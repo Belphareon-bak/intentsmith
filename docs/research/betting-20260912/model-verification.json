@@ -1,0 +1,56 @@
+[
+  {
+    "league": "E0",
+    "asOf": "2024-01-01T00:00:00.000Z",
+    "rows": 1509,
+    "scipySuccess": true,
+    "scipyMessage": "CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH",
+    "objectiveDifference": 1.169591534733172e-09,
+    "maxParameterDifference": 0.0001419605181434691
+  },
+  {
+    "league": "E0",
+    "asOf": "2026-07-01T00:00:00.000Z",
+    "rows": 1520,
+    "scipySuccess": true,
+    "scipyMessage": "CONVERGENCE: NORM OF PROJECTED GRADIENT <= PGTOL",
+    "objectiveDifference": 1.585042741503173e-08,
+    "maxParameterDifference": 0.0006720609886248785
+  },
+  {
+    "league": "D1",
+    "asOf": "2024-01-01T00:00:00.000Z",
+    "rows": 1214,
+    "scipySuccess": true,
+    "scipyMessage": "CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH",
+    "objectiveDifference": 1.2809257210477654e-08,
+    "maxParameterDifference": 0.0007265350063264397
+  },
+  {
+    "league": "D1",
+    "asOf": "2026-07-01T00:00:00.000Z",
+    "rows": 1224,
+    "scipySuccess": true,
+    "scipyMessage": "CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH",
+    "objectiveDifference": 7.263174506277892e-09,
+    "maxParameterDifference": 0.0004054264981745992
+  },
+  {
+    "league": "I1",
+    "asOf": "2024-01-01T00:00:00.000Z",
+    "rows": 1525,
+    "scipySuccess": true,
+    "scipyMessage": "CONVERGENCE: RELATIVE REDUCTION OF F <= FACTR*EPSMCH",
+    "objectiveDifference": 1.4675940462893777e-09,
+    "maxParameterDifference": 0.00018693785398042617
+  },
+  {
+    "league": "I1",
+    "asOf": "2026-07-01T00:00:00.000Z",
+    "rows": 1520,
+    "scipySuccess": true,
+    "scipyMessage": "CONVERGENCE: NORM OF PROJECTED GRADIENT <= PGTOL",
+    "objectiveDifference": 2.4801386278028303e-08,
+    "maxParameterDifference": 0.0008545454392670515
+  }
+]
