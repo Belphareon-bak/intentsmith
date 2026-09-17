@@ -13,3 +13,8 @@ existující testy. Zachovat cizí checkout a aktivní procesy. Žádný restart
 Ověření: focused testy vstupů a transportu, GPU failure před inference,
 připnutí digestu a sady, reálný build a UI; fyzické skórování jen po funkčním
 GPU preflightu. Commit/push podle trvajícího zadání operátora.
+
+Dodáno a instalováno na `09cbd0d6`; `REVIEW_PENDING`, fyzický scoring je
+`BLOCKED` kvůli NVIDIA 595.84 / NVML 595.91. Offline/database 358 PASS / 1 FAIL
+(nezměněná release registry pečeť), řízený fyzický Electron PASS, živé odmítnutí
+měření při nefunkčním GPU ověřeno. [Review packet a meze](../review/2026-09-17-HUNT-MODEL-CONTROLS.md).

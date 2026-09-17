@@ -210,6 +210,13 @@ incumbenta má DB retry regresi. Panel D1/D2/R1/R2 je dokončený (12 kandidát�
 0 roleErrors); 13/38 duelů má nedostatečný důkaz. Stav je
 **REVIEW_PENDING**, nikoli release acceptance. [Evidence a hranice](docs/review/2026-09-12-HUNT-REVIEW-FOLLOWUP.md).
 
+Studio model controls jsou instalované na `09cbd0d6`: filtr odhadované VRAM,
+řazení kandidátů, test konkrétního instalovaného modelu/role a vysvětlení
+chybějícího aktuálního skóre. Offline/database **358 PASS / 1 FAIL** (registry
+release pečeť), řízený fyzický Electron PASS. Živé GPU měření je **BLOCKED**
+na nesouladu NVIDIA 595.84 / NVML 595.91; nové inference skóre nevzniklo.
+**REVIEW_PENDING** — [přesný rozsah, instalace a evidence](docs/review/2026-09-17-HUNT-MODEL-CONTROLS.md).
+
 | | |
 |---|---:|
 | `src/**/*.js` | **224 982 ř.**, 627 `.js` souborů v pracovním kandidátu |
