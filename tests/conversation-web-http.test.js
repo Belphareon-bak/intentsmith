@@ -1,3 +1,4 @@
+import './helpers/isolated-test-db.js';
 import { suite, testAsync, assert, assertEqual, summary, waitForServer,
   api, createConv, cleanupConversation } from './e2e/_helpers.js';
 import strictAssert from 'node:assert/strict';
