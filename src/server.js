@@ -222,21 +222,14 @@ longTermMemory.db = db.db;
 longTermMemory.init();
 logger.info('Server', 'LongTermMemory initialized (SQLite)');
 
-// v86: Wire preferences engine to LTM for cross-session persistence
-import { preferenceEngine } from './memory/preferences.js';
-preferenceEngine.longTermMemory = longTermMemory;
-preferenceEngine.preferences._ltm = longTermMemory;
-preferenceEngine.loadFromMemory(longTermMemory);
-logger.info('Server', 'PreferenceEngine loaded from LTM');
+// Automatic preferences and patterns are resolved per conversation by chat-memory.
+// Historical unscoped values are preserved but never loaded into live chat.
 
 // v88: Wire SessionState to projectMemory DB for working memory persistence
 import { SessionState } from './chat/controller.js';
 SessionState.initProjectMemoryDb(db.projectMemory);
 
-// v86 M2: Wire pattern tracker to LTM for cross-conversation learning
-import { patternTracker } from './memory/pattern-tracker.js';
-patternTracker.wire(longTermMemory);
-logger.info('Server', 'PatternTracker wired to LTM');
+
 
 // v92: Storage architecture — configurable retention, drain, auto-clean
 import { pruneAllData, compactDatabase, autoClean, getStorageConfig } from './db/data-retention.js';

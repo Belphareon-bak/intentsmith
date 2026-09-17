@@ -15754,7 +15754,7 @@
       "requirements": {
         "network": "loopback",
         "database": true,
-        "server": true,
+        "server": false,
         "ollama": false,
         "gpu": false
       },

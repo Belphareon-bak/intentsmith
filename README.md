@@ -10,8 +10,8 @@ Spouštěné Studio UI je stále přechodný runtime, nikoli finální vzhled In
 
 **Verze:** 136.1.0, vývojový kandidát 1.0. Aktuální počty testovacích programů
 jsou v [generovaném registru](docs/convergence/TEST-REGISTRY.md):
-**517 registrovaných testovacích programů**
-(`423 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
+**519 registrovaných testovacích programů**
+(`425 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
 
 Přijaté milníky M0–M4 nejsou přijetím celého releasu. M5 ještě vyžaduje
 podepsané privacy podklady a správu operátorských klíčů. Ohraničený fyzický
@@ -21,6 +21,10 @@ M6 stále vyžaduje zbývající release důkazy a přijetí; tento scénář ne
 obecnou autonomní kvalitu rozsáhlých změn. Předchozí společné core/hunt změny
 mají celý gate **353/353 PASS** a produkční Studio build na `20e5a022`,
 jejich [nezávislé review zůstává otevřené](docs/review/2026-09-12-HUNT-REVIEW-FOLLOWUP.md).
+Opravy revize 17. 9.: přepínače automatické paměti mají skutečné konzumenty,
+legacy učení je projektově oddělené a agentí ovládání ověřuje native výsledek.
+Chat bez historie zůstává nepodporovaný a API jej už nepotvrzuje; dřívější
+vypnutí blokuje nové tahy. [Rozsah oprav a limity](docs/review/2026-09-17-PRIVACY-AGENT-REMEDIATION.md).
 Aktuální autorita:
 [PRODUCT](PRODUCT.md), [ROADMAP](ROADMAP.md), [SYSTEM-MAP](SYSTEM-MAP.md).
 

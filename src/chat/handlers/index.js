@@ -113,13 +113,16 @@ export const isWizardTrigger = _wizardExports.isWizardTrigger || null;
 export const WIZARD_PATTERNS = _wizardExports.WIZARD_PATTERNS || null;
 
 // ─── Feedback & Preferences API (v45.0) ─────────────────────────────────────
-import { preferenceEngine } from '../../memory/preferences.js';
+import { chatMemory } from '../../memory/chat-memory.js';
 import { ChatMode } from '../controller.js';
 import { conversationHandler } from './conversation.js';
 import { projectHandler } from './project.js';
 import { FollowUpType } from './utils/followup.js';
 
 export function recordFeedback(type, context = {}) {
+  const memory = chatMemory(context);
+  if (!memory.policy.feedback || !memory.ltm) return;
+  const preferenceEngine = memory.preferences;
   if (type === 'positive') {
     preferenceEngine.recordPositiveFeedback(context);
   } else if (type === 'negative') {
@@ -127,8 +130,8 @@ export function recordFeedback(type, context = {}) {
   }
 }
 
-export function getUserPreferences() {
-  return preferenceEngine.getStats();
+export function getUserPreferences(context = {}) {
+  return chatMemory(context).preferences.getStats();
 }
 
 export function getDefaultHandlers() {

@@ -144,6 +144,9 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 
 ## Rozsah
 
+Aktuální tabulka zahrnuje opravy soukromí/agentů z 17. 9. (519 programů).
+Historické výsledky níže nadále patří svým přesným source pinům.
+
 Census desktop/hunt implementace `9d13bb53` s testovacím follow-up `2587ae56`,
 2026-09-17. Společná instalace, produkční backend, GTK desktop launcher a GUI
 huntu jsou fyzicky ověřené. Finální profil: **353 PASS / 1 release-seal FAIL**.
@@ -160,15 +163,15 @@ incumbenta má DB retry regresi. Panel D1/D2/R1/R2 je dokončený (12 kandidát�
 
 | | |
 |---|---:|
-| `src/**/*.js` | **223 847 ř.**, 612 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **244 552 ř.**, 525 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **517** (`423 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
+| `src/**/*.js` | **223 955 ř.**, 613 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **244 892 ř.**, 527 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **519** (`425 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 100** |
 | HTTP rout | **245 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
 Aktuální registry fingerprint je
-`dd9f05c85e942d97a2fb4f81daffda7ef3e9a321efa0d6e33435ce2649ca6dcb`.
+`04252cb29ea270886c049b01034c2bfec034a77d22ec4675decf593ae052ecb6`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 
@@ -528,6 +531,13 @@ linie. Ohraničený fyzický build je nyní doložen; přirozenojazyčný builde
 nových delt a M5/M6 externí podmínky zůstávají otevřené.
 
 ## Otevřené release-blocking vady
+
+Revize F1/F2/F3 z 17. 9.: implementované kandidátní opravy společné paměťové
+policy, projektového namespace a native Studio ovládání mají cílené důkazy.
+Historie zůstává durable; soukromý režim bez historie není implementovaný,
+nové vypnutí se odmítá a starší vypnutí blokuje chat před persistencí. Staré
+nescopované LTM záznamy se do nového kontextu nepřebírají. Nejde o novou M4/M5
+acceptance. [Samostatný remediation packet](docs/review/2026-09-17-PRIVACY-AGENT-REMEDIATION.md).
 
 Kanonické místo pro selhání, které je **předchozí, release-blocking a nezpůsobené
 právě rozpracovanou změnou** — `CONTRACT.md §10`,

@@ -93,7 +93,7 @@ export function readUserSettings(db) {
 // ephemeral conversation contract exists, never acknowledge a privacy mode
 // which the product cannot provide. Existing false values are retained and
 // cause chat to fail closed, rather than being silently switched back on.
-export function validateMemorySettings(settings) {
+export function validateMemorySettings(settings, previous = {}) {
   const memory = settings?.memory;
   if (memory !== undefined && !isPlainObject(memory)) {
     throw new UserSettingsError('MEMORY_SETTINGS_INVALID', 'Memory settings must be an object.');
@@ -109,7 +109,8 @@ export function validateMemorySettings(settings) {
       throw new UserSettingsError('MEMORY_SETTINGS_INVALID', `c3.memory.${key} must be boolean.`);
     }
   }
-  if (memory?.saveHistory === false) {
+  if (memory?.saveHistory === false
+    || (previous.memory?.saveHistory === false && memory?.saveHistory !== true)) {
     throw new UserSettingsError('CHAT_EPHEMERAL_UNSUPPORTED',
       'Chat bez ukládání historie zatím není podporován. Historie a provozní žurnál se ukládají lokálně; vypnutí nebylo provedeno.');
   }
@@ -236,7 +237,7 @@ export function updateUserSettings(db, updater) {
       );
     }
 
-    validateMemorySettings(next);
+    validateMemorySettings(next, current.settings);
 
     let serialized;
     try {

@@ -82,6 +82,7 @@ test('real HTTP settings/chat reject unsupported privacy, preserve existing opt-
     // Represent the old release's already-persisted opt-out, without allowing
     // the new writer to claim it can create a private conversation mode.
     database.db.prepare('UPDATE user_settings SET data = ? WHERE id = 1').run(JSON.stringify({ memory: { saveHistory: false } }));
+    assert.equal((await api('POST', '/api/settings', { appearance: { theme: 'dark' } })).status, 400);
     const blocked = await api('POST', '/api/chat', { ...command('privacy:http:blocked'), input: 'PRIVATE_HTTP_CANARY' });
     assert.equal(blocked.status, 409); assert.equal(blocked.body.error.code, 'CHAT_PRIVACY_UNAVAILABLE');
     assert.equal(database.db.prepare('SELECT count(*) AS n FROM conversations WHERE id = ?').get('privacy:http:blocked').n, 0);

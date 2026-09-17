@@ -1,5 +1,11 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**Remediace nezávislé revize 2026-09-17:** F1/F2/F3 mají implementované
+opravy a nové regresní důkazy; nepodporovaný režim bez historie je explicitně
+odmítnutý. Přesný module graph má 1 337 hran, 3 cykly / 28 členů.
+Nezávislá acceptance a release zůstávají otevřené.
+[Scope, ověření a GitHub](docs/review/2026-09-17-PRIVACY-AGENT-REMEDIATION.md).
+
 **Provozní checkpoint 2026-09-17:** společná připnutá instalace a DB,
 desktopová ikona, připojení ke službě a stav/ovládání huntu jsou lokálně
 nainstalované a fyzicky ověřené na `9d13bb53`. Timer je persistentní,
