@@ -34,6 +34,9 @@ ji pouze ověří. Při chybě po zastavení timeru nejprve oprav konfiguraci a
 ověř backend; automatický hunt se zapíná až po úspěšném ověření.
 
 Diagnostika služby: `journalctl --user -u intentsmith-backend.service -n 50`.
+Pro lokální automatizované ověření okna lze launcher spustit s
+`INTENTSMITH_STUDIO_INSPECT=1`: pouze tento explicitní režim otevře Chromium
+debugger na náhodném loopback portu. Běžná ikona debugger nezapíná.
 Úplné vypnutí: `systemctl --user stop intentsmith-model-hunt.timer
 intentsmith-model-hunt.service intentsmith-backend.service` (jeden příkaz).
 Soubory DB, uložená měření a backupy se tím nemažou.

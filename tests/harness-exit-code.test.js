@@ -424,7 +424,9 @@ try {
   //              graph to m2-lifecycle-http-e2e.test.js. Its first static import
   //              remains isolated-test-db.js; the complete unprotected set is
   //              still empty. Verified against e87b1ca2 before repinning.
-  const expectedDatabaseReachableRootTests = 129;
+  //   129 -> 130 Desktop hunt exercises the actual system routes and branded
+  //              local authority. isolated-test-db.js is its first import.
+  const expectedDatabaseReachableRootTests = 130;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

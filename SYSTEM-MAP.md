@@ -157,7 +157,7 @@ incumbenta má DB retry regresi. Panel D1/D2/R1/R2 je dokončený (12 kandidát�
 | | |
 |---|---:|
 | `src/**/*.js` | **223 847 ř.**, 612 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **244 531 ř.**, 525 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **244 533 ř.**, 525 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **517** (`423 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 100** |
 | HTTP rout | **245 statických deklarací**; nejde o počet runtime ověřených cest |

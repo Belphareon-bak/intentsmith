@@ -90,7 +90,8 @@ try {
     stdio: 'inherit',
   });
   const [code] = await once(hunt, 'exit');
-  process.exitCode = code ?? 1;
+  // An operator cancellation is a recorded cancellation, not a crashed unit.
+  process.exitCode = stopping ? 0 : code ?? 1;
   let report = null;
   try { report = JSON.parse(readFileSync(args.find(arg => arg.startsWith('--report='))?.slice(9) || join(runDir, 'result.json'), 'utf8')); }
   catch { /* Missing report is explicit; a successful exit alone is not a completed measurement. */ }
@@ -102,7 +103,8 @@ try {
     })) });
 } catch (error) {
   publish({ status: stopping ? 'CANCELLED' : 'FAILED', finishedAt: new Date().toISOString(), error: error.message });
-  throw error;
+  if (!stopping) throw error;
+  process.exitCode = 0;
 } finally {
   signalProviderGroup('SIGTERM');
   for (let i = 0; i < 50 && signalProviderGroup(0); i++) await delay(100);

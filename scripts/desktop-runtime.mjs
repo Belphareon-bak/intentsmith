@@ -70,7 +70,10 @@ async function main() {
     const env = { ...process.env, C3_PORT_FILE: join(config.stateDirectory,'backend.port.json'),
       INTENTSMITH_INSTALLATION_FILE: installationFile };
     delete env.ELECTRON_RUN_AS_NODE;
-    const child = spawn(config.node, [join(config.sourceRoot,'c3-ide/applications/electron/scripts/launch.js'), '--class=IntentSmith'],
+    // Explicit local diagnostics only; the ordinary desktop launch has no CDP listener.
+    const diagnostics = process.env.INTENTSMITH_STUDIO_INSPECT === '1'
+      ? ['--remote-debugging-address=127.0.0.1', '--remote-debugging-port=0'] : [];
+    const child = spawn(config.node, [join(config.sourceRoot,'c3-ide/applications/electron/scripts/launch.js'), '--class=IntentSmith', ...diagnostics],
       { cwd: config.sourceRoot, env, stdio: 'inherit' });
     for (const signal of ['SIGINT','SIGTERM']) process.once(signal, () => child.kill(signal));
     const code = await new Promise((ok, fail) => { child.once('error', fail); child.once('exit', code => ok(code ?? 1)); });
