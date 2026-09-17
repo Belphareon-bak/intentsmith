@@ -1,5 +1,18 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**Specialisté ve Studiu, 2026-09-17:** dostupný seznam balíčků, potvrzená
+aktivace a skutečný PDF/HEIC import v konverzaci. Integrovaný module graph má
+1 358 hran, 3 cykly / 28 členů, včetně souběžné opravy časového kontextu.
+[Důkazy a omezení](docs/review/2026-09-17-STUDIO-SPECIALISTS.md):
+účetní doklady jsou návrhy ke kontrole; živý sázkař má PROVIDER_BLOCKED na
+historii football-data.co.uk. Nezávislé review zůstává otevřené.
+
+**Časový kontext chatu, 2026-09-17:** obecné interaktivní požadavky nyní
+obsahují čerstvé datum/čas, časové pásmo a kalendářní včera/dnes/zítra.
+Lokální datumové follow-upy nepropadají modelu bez hodin. Graph má 1 339 hran,
+3 cykly / 28 členů. [Review a stav instalace](docs/review/2026-09-17-CHAT-CLOCK-REVIEW.md).
+Nezávislé re-review zůstává otevřené.
+
 **Remediace nezávislé revize 2026-09-17:** F1/F2/F3 mají implementované
 opravy a nové regresní důkazy; nepodporovaný režim bez historie je explicitně
 odmítnutý. Přesný module graph má 1 337 hran, 3 cykly / 28 členů.

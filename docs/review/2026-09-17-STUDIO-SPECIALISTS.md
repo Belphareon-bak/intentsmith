@@ -82,3 +82,26 @@ Export je lokální cesta, zatím bez samostatného download panelu.
 Dokončení přiznání vyžaduje chybějící údaje a schválení evidence.
 Nezávislé review integrace zůstává otevřené. Původní instalace a cizí
 worktree zůstávají zachované; případná změna instalace má samostatný záznam.
+
+## Integrační checkpoint
+
+Implementace `da4fe7cb`, explicitně revidovaný boundary pin `81b873d8`:
+19 přidaných hran, žádná odebraná, 1 356 celkem, 3 cykly / 28 členů.
+Veškeré nové závislosti jsou hostitelská kompozice, bounded přílohy,
+abort, lokální persistence a existující auditovaná síťová autorita.
+Následující merge zachovává i mezitím nainstalovaný časový kontext
+`58d7cced` (dvě další čisté importní hrany, výsledně 1 358).
+
+Konečná soukromá Electron sonda `run-1sV6AB` prošla celým UI průchodem
+včetně obou specialistů; PROVIDER_BLOCKED není zahrnut do tvrzení o
+funkčním živém výpočtu. Původní běhy a jejich neúspěchy zůstávají zachované.
+
+První úplný offline/database profil na `81b873d8`, běh
+`2026-09-17T14-07-18-977Z`: **348 PASS / 4 FAIL / 7 BLOCKED**.
+FAIL: zastaralá kardinalita/verze v accountant-self-contained, dokumentační
+LOC/graph census, nesprávně zvolené účetní PDF prostředí pro obecný export
+(charset-normalizer 3.5.1 místo připnutého 3.4.4), očekávaný release seal.
+BLOCKED byly dostupné nástroje bez explicitního opt-in (git, bwrap,
+bubblewrap, prlimit, systemd-analyze); nejedná se o PASS těchto programů.
+Kontrola identity všech pěti původních kalkulačních adaptérů zůstává,
+nový dokumentový nástroj má vlastní kontrolu požadované scoped autority.

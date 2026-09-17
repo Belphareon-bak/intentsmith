@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { CREDecisionEngine, DecisionType, IntentType } from '../src/chat/cre-decision.js';
 import { config } from '../src/config.js';
 import { computeMath } from '../src/tools/local-computations.js';
+import { formatDateReferenceResponse } from '../src/chat/handlers/utils/local-i18n.js';
 import { BUILTIN_EXPERTISES } from '../src/expertises/expertise-layer.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -43,6 +44,31 @@ async function main() {
   // throw or hang rather than silently succeed.
   const clock = await cre.decide('kolik je hodin?');
   const math = await cre.decide('kolik je 17 * 23?');
+
+  const dateEngine = new CREDecisionEngine();
+  let dateModelCalls = 0;
+  dateEngine._llmClassifyIntent = async () => { dateModelCalls++; return null; };
+  const dateQueries = ['a datum?', 'datum', 'and the date?', 'jaké je dnes datum?',
+    'jaké datum bylo včera?', 'jaký den bude zítra?', "what is today's date?", 'what was the date yesterday?'];
+  const dateDecisions = [];
+  for (const input of dateQueries) dateDecisions.push(await dateEngine.decide(input));
+  check(dateModelCalls === 0 && dateDecisions.every(d => d.type === DecisionType.LOCAL && d.metadata.handler === 'local.date'),
+    'C-01 date follow-ups and adjacent-day questions use the local clock without a model');
+  check(['a datum vydání?', 'date parser', 'jaké datum bude za 14 dní?', 'what date was the moon landing?']
+    .every(input => dateEngine.classifyIntent(input) !== IntentType.LOCAL),
+    'C-01 subject dates and arbitrary offsets are not silently answered with today');
+  const previousTimezone = process.env.TZ;
+  process.env.TZ = 'Europe/Prague';
+  try {
+    const exact = new Date('2026-03-29T21:30:00Z');
+    check(formatDateReferenceResponse('jaké datum bylo včera?', 'cs', exact).includes('28. 3. 2026')
+      && formatDateReferenceResponse('jaké datum bude zítra?', 'cs', exact).includes('30. 3. 2026')
+      && formatDateReferenceResponse('datum včera, dnes a zítra', 'cs', exact).split('\n').length === 3,
+      'C-01 relative date output uses civil days and the committed timestamp across DST');
+  } finally {
+    if (previousTimezone === undefined) delete process.env.TZ;
+    else process.env.TZ = previousTimezone;
+  }
 
   check(
     clock.intent === IntentType.LOCAL && math.intent === IntentType.LOCAL,

@@ -37,7 +37,11 @@ import {
 import {
   executeM1ModelRequest,
   mapM1ModelFailure,
+  generateChatResponse,
+  analyzeImages,
+  analyzeProjectCode,
 } from '../src/llm/cre-bridge.js';
+import { clockContext } from '../src/llm/clock-context.js';
 import { config } from '../src/config.js';
 import { validateModelResult } from '../contracts/m1/index.js';
 import { modelUniverseStore } from '../src/upgrade/model-universe-store.js';
@@ -187,6 +191,74 @@ try {
   llmGateway._vramFitProfiles = FIT_VRAM_PROFILES;
 
   suite('M1 model gateway policy — exact provider outcome');
+
+  test('request clock resolves civil days across zones, DST, leap day and year boundary', () => {
+    const cases = [
+      ['2026-09-17T22:30:00Z', 'Europe/Prague', '2026-09-17', '2026-09-18', '2026-09-19'],
+      ['2026-09-17T01:00:00Z', 'America/Los_Angeles', '2026-09-15', '2026-09-16', '2026-09-17'],
+      ['2026-03-29T21:30:00Z', 'Europe/Prague', '2026-03-28', '2026-03-29', '2026-03-30'],
+      ['2026-10-25T22:30:00Z', 'Europe/Prague', '2026-10-24', '2026-10-25', '2026-10-26'],
+      ['2028-03-01T10:00:00Z', 'Europe/Prague', '2028-02-29', '2028-03-01', '2028-03-02'],
+      ['2026-12-31T23:30:00Z', 'Europe/Prague', '2026-12-31', '2027-01-01', '2027-01-02'],
+    ];
+    for (const [instant, zone, yesterday, today, tomorrow] of cases) {
+      const context = clockContext(new Date(instant), zone);
+      assertEqual(context.yesterday.slice(0, 10), yesterday);
+      assertEqual(context.today.slice(0, 10), today);
+      assertEqual(context.tomorrow.slice(0, 10), tomorrow);
+      assertEqual(context.timeZone, zone);
+      assertEqual(context.utc, new Date(instant).toISOString());
+    }
+  });
+
+  await testAsync('every interactive model request carries fresh clock facts on the actual provider wire', async () => {
+    const bodies = [];
+    const NativeDate = globalThis.Date;
+    const previousTimezone = process.env.TZ;
+    let instant = '2026-09-17T21:59:59.900Z';
+    globalThis.Date = class extends NativeDate {
+      constructor(...args) { super(...(args.length ? args : [instant])); }
+    };
+    process.env.TZ = 'Europe/Prague';
+    globalThis.fetch = async (_url, options) => {
+      bodies.push(JSON.parse(options.body));
+      return providerResponse({ json: { message: { content: 'controlled output' }, response: 'controlled vision output', done_reason: 'stop' } });
+    };
+    try {
+      // General tasks, not date keywords: chat, specialist persona, and a
+      // caller-supplied message list must all receive the same trusted clock.
+      await generateChatResponse('Navrhni pracovní plán.', 'You are a planner.', { model: 'fixture-model:1b', maxTokens: 64, retries: 1 });
+      instant = '2026-09-17T22:00:00.100Z';
+      await generateChatResponse('Rozvrhni přípravu na zítřek.', 'You are an accountant.', { model: 'fixture-model:1b', maxTokens: 64, retries: 1 });
+      const messages = Object.freeze([{ role: 'user', content: 'Compare yesterday and tomorrow.' }]);
+      await generateChatResponse('unused', '', { model: 'fixture-model:1b', messages, maxTokens: 64, retries: 1 });
+      assertEqual(bodies.length, 3);
+      assert(bodies[0].messages[0].content.includes('Today / dnes: 2026-09-17 (Thursday)'));
+      assert(bodies[1].messages[0].content.includes('Today / dnes: 2026-09-18 (Friday)'));
+      assert(bodies[1].messages[0].content.includes('Yesterday / včera: 2026-09-17'));
+      assert(bodies[1].messages[0].content.includes('Tomorrow / zítra: 2026-09-19'));
+      assert(bodies[1].messages[0].content.includes('Europe/Prague'));
+      assert(bodies[1].messages[0].content.includes('You are an accountant.'));
+      assertEqual(bodies[2].messages[0].role, 'system');
+      assert(bodies[2].messages[0].content.includes('Preserve explicit historical'));
+      assertEqual(bodies[2].messages[1].content, messages[0].content);
+      assertEqual(messages.length, 1, 'caller message array must not be mutated');
+      await analyzeImages('Explain this chart.', ['fixture-image'], 'Describe only supplied data.');
+      assert(bodies[3].system.includes('Today / dnes: 2026-09-18'));
+      assert(bodies[3].system.includes('Describe only supplied data.'));
+      const previousChat = config.models.CHAT;
+      try {
+        config.models.CHAT = 'fixture-model:1b';
+        await analyzeProjectCode('Explain the project.', 'Only analyze the supplied code.');
+        assert(bodies[4].messages[0].content.includes('Today / dnes: 2026-09-18'));
+      } finally { config.models.CHAT = previousChat; }
+    } finally {
+      globalThis.Date = NativeDate;
+      if (previousTimezone === undefined) delete process.env.TZ;
+      else process.env.TZ = previousTimezone;
+      globalThis.fetch = originalFetch;
+    }
+  });
 
   await testAsync('reference profile caps both policy and legacy provider wires', async () => {
     const providerBodies = [];

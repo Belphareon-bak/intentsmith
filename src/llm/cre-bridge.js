@@ -41,6 +41,7 @@ import {
   validateModelResult,
 } from '../../contracts/m1/index.js';
 import { isPlainRecord } from '../../contracts/m1/shared.js';
+import { withClockContext, clockSystemPrompt } from './clock-context.js';
 
 // Session counter for unique IDs
 let sessionCounter = 0;
@@ -610,7 +611,7 @@ export async function analyzeProjectCode(prompt, systemPrompt, options = {}) {
     capabilities: [LLMCapability.REASONING],
   });
   return callWithAuth(token, prompt, {
-    systemPrompt,
+    ...withClockContext(systemPrompt),
     model: config.models?.CHAT,
     temperature: 0.1,
     retries: 1,
@@ -644,7 +645,7 @@ export async function generateChatResponse(prompt, systemPrompt = '', options = 
     temperature: options.temperature ?? 0.5,
     top_p: options.top_p ?? 0.75,
     repeat_penalty: options.repeat_penalty ?? 1.1,
-    ...options
+    ...withClockContext(systemPrompt, options)
   });
 }
 
@@ -746,7 +747,7 @@ export async function analyzeImages(prompt, images, systemPrompt = '', options =
   const body = {
     model,
     prompt,
-    system: systemPrompt,
+    system: `${clockSystemPrompt()}\n\n${systemPrompt}`,
     images,
     stream: false,
     options: {

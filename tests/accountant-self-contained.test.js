@@ -144,8 +144,13 @@ await testAsync('tools registered into runtime', async () => {
   assert(spec, 'accountant specialist should be registered');
   assertEqual(spec.domain, 'finance');
   assert(spec.tools.length >= 5, `expected >=5 tools, got ${spec.tools.length}`);
-  assert(spec.tools.every(tool => tool.toolAdapter instanceof ToolAdapter),
-    'all adapters must preserve the injected ToolAdapter identity');
+  const calculators=spec.tools.filter(tool=>tool.id!=='accountant.document_workflow');
+  assertEqual(calculators.length,5);
+  assert(calculators.every(tool => tool.toolAdapter instanceof ToolAdapter),
+    'all calculator adapters must preserve the injected ToolAdapter identity');
+  const documents=spec.tools.find(tool=>tool.id==='accountant.document_workflow');
+  assert(documents?.needsTurnContext===true && documents.needsAccountingWorkflow===true,
+    'document workflow must require the scoped host invocation');
 });
 
 await testAsync('missing ToolAdapter capability fails declaratively', async () => {
@@ -385,8 +390,8 @@ test('manifest has defaultExpertise path', () => {
   assert(manifest.defaultExpertise, 'should have defaultExpertise path');
 });
 
-test('manifest version bumped to 2.0.0', () => {
-  assertEqual(manifest.version, '2.0.0');
+test('manifest version includes the Studio document workflow', () => {
+  assertEqual(manifest.version, '2.1.0');
 });
 
 // ─── Summary ─────────────────────────────────────────────────────────────────
