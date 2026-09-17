@@ -29,3 +29,8 @@ po přepnutí, přímou serializaci, neexistující relaci, re-enable a zachová
 Práce probíhá ve vlastní větvi `work/production-closeout-20260917` nad
 integračním `d1fa2991`, který zachovává instalované změny `d4dea0bb` i M5
 inventář. Běžící soak a cizí checkouty zůstávají nedotčené.
+
+Výsledek follow-up: instalovaný `365a4f1d`, společná serializace opravená,
+obě HTTP čtecí plochy ověřené před dalším tahem. Úplný profil 358 PASS /
+1 FAIL (release pečeť), sledované DB tabulky zachované. Nezávislé přijetí
+zůstává otevřené. [Packet a přesné review piny](../review/2026-09-17-SESSION-INFO-PRIVACY.md).

@@ -12,11 +12,12 @@ skutečný server/SQLite/Ollamu i kontrolované negativní terminály.**
 Neutrální dokument, nezávislý na nástroji.
 Pravidla vývoje: [`CONTRACT.md`](CONTRACT.md) · Detail: [`docs/inventory/`](docs/inventory/)
 
-**Navazující privacy review, 2026-09-17:** informační API relací obcházelo
+**Aktuální instalace po privacy review, 2026-09-17: `365a4f1d`.** Informační API relací obcházelo
 `saveContext=false` do dalšího tahu chatu. Policy nyní platí přímo při
 serializaci bez vytváření relace či změny lifecycle; negativní reprodukce
-a cílené HTTP/in-process regrese jsou doložené. Úplný profil a instalace
-čekají na připnutého kandidáta, nezávislé přijetí zůstává otevřené.
+a cílené HTTP/in-process regrese jsou doložené. Úplný profil **358 PASS /
+1 FAIL** (release pečeť); čistá instalace, zachování sledovaných DB tabulek
+a spuštění Studia ověřené. Nezávislé přijetí zůstává otevřené.
 [Packet](docs/review/2026-09-17-SESSION-INFO-PRIVACY.md).
 
 **Navazující M5 inventář, 2026-09-17:** 15 známých historických objektů
@@ -24,10 +25,10 @@ a cílené HTTP/in-process regrese jsou doložené. Úplný profil a instalace
 je zachovaný; zářijové odstranění je samostatný záznam. Nový podpis nesmí
 použít starý scan 13/13. [Remediace a meze review](docs/review/2026-09-17-M5-TLS-HISTORY-REMEDIATION.md).
 Osm starších instalací obsahuje zbytkové kopie stejného páru; jejich obsah
-se nemění a nepočítá se jako nové Git objekty. Aktivní `d4dea0bb` je bez
+se nemění a nepočítá se jako nové Git objekty. V době inventury aktivní `d4dea0bb` je bez
 páru. Původní soak přerušen restartem hostu 21:20 (FAIL/SIGTERM), nový
 24h běh na `d4dea0bb` začal 21:26 CEST a není dosud PASS. Tato větev
-nemění živou instalaci. [Inventura](docs/execution/runs/m5-tls-residual-copies-20260917.json).
+v inventarizačním kroku neměnila živou instalaci. [Inventura](docs/execution/runs/m5-tls-residual-copies-20260917.json).
 
 **Předchozí společná instalace 2026-09-17:** `c2989a3e` spojuje opravy
 soukromí/panelů, specialisty, časový kontext a Studio design `023af4dd`.

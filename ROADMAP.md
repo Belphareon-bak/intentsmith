@@ -2,7 +2,8 @@
 
 **Navazující privacy review, 2026-09-17:** uzavřít únik projektové pracovní
 paměti přes informační API relací před dalším tahem chatu. Oprava společné
-serializace a cílené regrese hotové; následuje úplný profil, instalace a
+serializace je nainstalovaná na `365a4f1d`; cílené regrese PASS, úplný profil
+**358 PASS / 1 FAIL** (release pečeť), sledovaná data zachovaná. Zbývá
 nezávislé přijetí. Integrovaný module graph má 1 360 hran, 3 cykly / 28 členů. [Packet](docs/review/2026-09-17-SESSION-INFO-PRIVACY.md).
 
 **Navazující M5 review, 2026-09-17:** čtyři closeout opravy nezávisle ověřené,
@@ -10,7 +11,7 @@ nový nález je neúplný historický inventář. Doplnění 13 → 15 zachováv
 containment a vyřazuje zveřejněný TLS pár. Podpisy a acceptance zůstávají
 otevřené; nový scan musí vázat doplněný manifest. [Remediace a review scope](docs/review/2026-09-17-M5-TLS-HISTORY-REMEDIATION.md).
 Další re-review potvrdilo opravu a identifikovalo 8 zbytkových instalovaných
-kopií páru, ponechaných beze změn. Aktivní `d4dea0bb` je bez páru. Původní
+kopií páru, ponechaných beze změn. Tehdy aktivní `d4dea0bb` je bez páru. Původní
 soak přerušen restartem 21:20 (FAIL/SIGTERM); nový 24h běh na `d4dea0bb`
 spuštěn 21:26 CEST. Podepsané vypořádání a výsledek soaku zůstávají otevřené.
 
