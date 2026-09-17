@@ -591,7 +591,11 @@ test('default Studio identity uses the accessible IntentSmith brand system', () 
   }
   assert.match(source, /Active:\{b:C\.successBg,c:C\.success\}/);
   assert.match(source, /COMPLETE:C\.success/);
-  assert.match(source, /label:'IntentSmith',desc:'Výchozí brand'/);
+  assert.match(source, /id:'intentsmith',label:'IntentSmith',desc:'Výchozí brand'/);
+  assert.match(source, /id:'clean',label:'Clean',desc:'Neutrální bez efektů'/);
+  assert.match(source, /'Styl vzhledu'/);
+  assert.match(source, /localStorage\.getItem\('c3-theme-mode'\)\|\|'intentsmith'/,
+    'new profiles select the visible IntentSmith appearance');
   assert.match(source, /a\?'IntentSmith':'System'/);
   assert.match(source, /widgetName:'IntentSmith Navigation'/);
   assert.match(source, /widgetName:'IntentSmith Chat'/);

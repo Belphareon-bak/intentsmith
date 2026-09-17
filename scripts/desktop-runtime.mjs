@@ -1,4 +1,4 @@
-import { readFile, writeFile, rename, mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { readFile, writeFile, rename, mkdir, mkdtemp, rm, lstat, stat } from 'node:fs/promises';
 import { execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createRequire } from 'node:module';
@@ -38,6 +38,7 @@ export function renderDesktopInstallation(config) {
     hunt: `[Unit]\nDescription=IntentSmith bounded GPU hunt\n\n[Service]\nType=oneshot\n${common}ExecStart=${quotedPath(node)} ${quotedPath(join(sourceRoot,'scripts/run-model-hunt-provider.js'))} --run --limit=2 --keep-inconclusive --prune-rejected --scheduled\nTimeoutStartSec=12h\nTimeoutStopSec=15s\nNoNewPrivileges=true\nNice=10\n`,
     timer: '[Unit]\nDescription=IntentSmith nightly model hunt\n\n[Timer]\nOnCalendar=*-*-* 03:00:00\nRandomizedDelaySec=15m\nAccuracySec=5m\nPersistent=true\nUnit=intentsmith-model-hunt.service\n\n[Install]\nWantedBy=timers.target\n',
     desktop: `[Desktop Entry]\nType=Application\nName=IntentSmith\nComment=Lokální AI pracovní prostředí\nExec=${quotedPath(node)} ${quotedPath(join(sourceRoot,'scripts/desktop-runtime.mjs'))}\nIcon=${icon}\nTerminal=false\nCategories=Development;Utility;\nStartupNotify=true\nStartupWMClass=IntentSmith\n`,
+    apparmor: `# IntentSmith Electron profile for this exact installed revision.\nabi <abi/4.0>,\ninclude <tunables/global>\n\nprofile intentsmith ${quotedPath(join(sourceRoot,'c3-ide/node_modules/electron/dist/electron'))} flags=(unconfined) {\n  userns,\n  include if exists <local/intentsmith>\n}\n`,
   };
 }
 
@@ -84,6 +85,73 @@ export async function waitForBackend(config, { timeoutMs = 30000, fetchImpl = fe
   throw new Error('Backend se nepodařilo ověřit. Podrobnosti: journalctl --user -u intentsmith-backend.service -n 50');
 }
 
+function sandboxError(message) {
+  const error = new Error(message);
+  error.code = 'INTENTSMITH_SANDBOX_UNAVAILABLE';
+  return error;
+}
+
+async function safePrivateMarker(file, lstatImpl) {
+  try {
+    const metadata = await lstatImpl(file);
+    return metadata.isFile() && metadata.uid === process.getuid() && !(metadata.mode & 0o077);
+  } catch (error) {
+    if (error.code === 'ENOENT') return false;
+    throw error;
+  }
+}
+
+export async function resolveElectronSandboxArgs(config, options = {}) {
+  const environment = options.env || process.env;
+  if (environment.INTENTSMITH_NO_SANDBOX === '1') return ['--no-sandbox'];
+  if ((options.platform || process.platform) !== 'linux') return [];
+  const readFileImpl = options.readFileImpl || readFile;
+  const lstatImpl = options.lstatImpl || lstat;
+  const statImpl = options.statImpl || stat;
+  const run = options.run || exec;
+  const marker = join(config.configDirectory, 'allow-no-sandbox');
+  if (await safePrivateMarker(marker, lstatImpl)) return ['--no-sandbox'];
+
+  let restricted = false;
+  try {
+    restricted = (await readFileImpl(options.restrictFile || '/proc/sys/kernel/apparmor_restrict_unprivileged_userns', 'utf8')).trim() === '1';
+  } catch { /* kernels without this AppArmor switch do not need the fallback */ }
+  if (!restricted) return [];
+
+  const electron = join(config.sourceRoot, 'c3-ide/node_modules/electron/dist/electron');
+  const chromeSandbox = join(config.sourceRoot, 'c3-ide/node_modules/electron/dist/chrome-sandbox');
+  try {
+    const metadata = await statImpl(chromeSandbox);
+    if (metadata.uid === 0 && (metadata.mode & 0o4000)) return [];
+  } catch { /* a missing helper still needs the explicit no-sandbox fallback */ }
+
+  const profileFile = options.profileFile || '/etc/apparmor.d/intentsmith';
+  try {
+    const profile = await readFileImpl(profileFile, 'utf8');
+    if (profile.includes(electron)) return [];
+  } catch { /* no matching system profile */ }
+
+  const generatedProfile = join(config.configDirectory, 'intentsmith.apparmor');
+  const howTo = `Bezpečnější trvalá oprava (vyžaduje heslo správce):\n\n  sudo install -m 644 ${generatedProfile} /etc/apparmor.d/intentsmith\n  sudo apparmor_parser -r /etc/apparmor.d/intentsmith\n\nPotom spusťte IntentSmith znovu.`;
+  if (!environment.DISPLAY && !environment.WAYLAND_DISPLAY) {
+    throw sandboxError(`Chromium sandbox je na tomto systému blokovaný.\n\n${howTo}\n\nJednorázová náhrada: INTENTSMITH_NO_SANDBOX=1`);
+  }
+  const dialog = options.dialog || '/usr/bin/kdialog';
+  try {
+    await run(dialog, ['--title','IntentSmith','--warningyesno',
+      'Chromium se na tomto systému nemůže zapouzdřit, takže se IntentSmith z nabídky nespustí.\n\nSpustit ho teď bez sandboxu? Aplikace poběží, ale přijde o jednu vrstvu izolace Chromia. Volba se zapamatuje.\n\nZvolíte-li Ne, ukážu bezpečnější trvalou opravu.'],
+      { env: environment, timeout: 120000 });
+  } catch (error) {
+    if (error.code === 1) {
+      try { await run(dialog, ['--title','IntentSmith','--msgbox',howTo], { env: environment, timeout: 120000 }); } catch {}
+      throw sandboxError('Spuštění bez Chromium sandboxu bylo odmítnuto. Použijte zobrazený AppArmor postup.');
+    }
+    throw sandboxError(`Nelze zobrazit volbu opravy Chromium sandboxu.\n\n${howTo}\n\nJednorázová náhrada: INTENTSMITH_NO_SANDBOX=1`);
+  }
+  await writePrivate(marker, 'Uživatel potvrdil spuštění bez Chromium sandboxu.\n');
+  return ['--no-sandbox'];
+}
+
 async function main() {
   let config;
   try {
@@ -95,17 +163,18 @@ async function main() {
     const env = { ...process.env, C3_PORT_FILE: join(config.stateDirectory,'backend.port.json'),
       INTENTSMITH_INSTALLATION_FILE: installationFile };
     delete env.ELECTRON_RUN_AS_NODE;
+    const sandboxArgs = await resolveElectronSandboxArgs(config, { env });
     // Explicit local diagnostics only; the ordinary desktop launch has no CDP listener.
     const diagnostics = process.env.INTENTSMITH_STUDIO_INSPECT === '1'
       ? ['--remote-debugging-address=127.0.0.1', '--remote-debugging-port=0'] : [];
-    const child = spawn(config.node, [join(config.sourceRoot,'c3-ide/applications/electron/scripts/launch.js'), '--class=IntentSmith', ...diagnostics],
+    const child = spawn(config.node, [join(config.sourceRoot,'c3-ide/applications/electron/scripts/launch.js'), '--class=IntentSmith', ...sandboxArgs, ...diagnostics],
       { cwd: config.sourceRoot, env, stdio: 'inherit' });
     for (const signal of ['SIGINT','SIGTERM']) process.once(signal, () => child.kill(signal));
     const code = await new Promise((ok, fail) => { child.once('error', fail); child.once('exit', code => ok(code ?? 1)); });
     if (code) throw new Error(`Studio skončilo s chybou ${code}. Backend zůstává spravovaný službou.`);
   } catch (error) {
     console.error(error.message);
-    if (!process.argv.includes('--check')) {
+    if (!process.argv.includes('--check') && error.code !== 'INTENTSMITH_SANDBOX_UNAVAILABLE') {
       const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;
       try {
         const sourceRoot = config?.sourceRoot || ROOT;

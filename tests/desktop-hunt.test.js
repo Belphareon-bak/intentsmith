@@ -11,7 +11,7 @@ import { createHuntControl } from '../src/system/hunt-control.js';
 import { analyzeHuntDecisions } from '../src/upgrade/model-hunt-diagnostics.js';
 import { createGlobalAuthAuthority } from '../src/security/global-auth-policy.js';
 import { createSystemRoutes } from '../src/routes/system.js';
-import { ROOT, renderDesktopInstallation, verifyDesktopUnits, waitForBackend } from '../scripts/desktop-runtime.mjs';
+import { ROOT, renderDesktopInstallation, resolveElectronSandboxArgs, verifyDesktopUnits, waitForBackend } from '../scripts/desktop-runtime.mjs';
 const exec = promisify(execFile);
 const revision = 'a'.repeat(40);
 const capability = 'c'.repeat(43);
@@ -51,11 +51,39 @@ test('desktop and hunt use one environment, bounded commands, and persistent sch
   assert.match(files.hunt,/--limit=2 .*--scheduled/);
   assert.match(files.timer,/Persistent=true/);
   assert.match(files.desktop,/Terminal=false/);
+  assert.match(files.apparmor,/profile intentsmith "\/opt\/Intent Smith\/c3-ide\/node_modules\/electron\/dist\/electron" flags=\(unconfined\)/);
+  assert.match(files.apparmor,/\n  userns,\n/);
   assert.throws(()=>renderDesktopInstallation({sourceRoot:'/bad\nExecStart=attack'}),/DESKTOP_PATH_UNSUPPORTED/);
   await verifyDesktopUnits(files);
   await assert.rejects(verifyDesktopUnits({...files,backend:files.backend.replace(
     'EnvironmentFile=/home/user/.config/intentsmith/runtime.env',
     'EnvironmentFile="/home/user/.config/intentsmith/runtime.env"')}),/DESKTOP_UNIT_VALIDATION/);
+});
+
+test('desktop launcher offers a bounded fallback for the Kubuntu AppArmor sandbox conflict', async t => {
+  const {home,config}=await fixture(t);
+  config.sourceRoot=join(home,'source');
+  const electronDir=join(config.sourceRoot,'c3-ide/node_modules/electron/dist');
+  const restricted=join(home,'restricted-userns'),profile=join(home,'missing-profile');
+  await mkdir(electronDir,{recursive:true});
+  await writeFile(join(electronDir,'chrome-sandbox'),'fixture',{mode:0o755});
+  await writeFile(restricted,'1\n');
+  const calls=[];
+  const args=await resolveElectronSandboxArgs(config,{env:{DISPLAY:':0'},restrictFile:restricted,profileFile:profile,
+    run:async(file,argv)=>{calls.push({file,argv});}});
+  assert.deepEqual(args,['--no-sandbox']);
+  assert.equal(calls.length,1);assert.match(calls[0].argv.at(-1),/jednu vrstvu izolace/);
+  assert.match(await readFile(join(config.configDirectory,'allow-no-sandbox'),'utf8'),/potvrdil/);
+  const remembered=await resolveElectronSandboxArgs(config,{env:{DISPLAY:':0'},restrictFile:restricted,profileFile:profile,
+    run:async()=>{throw new Error('remembered choice must not prompt');}});
+  assert.deepEqual(remembered,['--no-sandbox']);
+});
+
+test('desktop launcher keeps sandbox when available and supports an explicit one-shot override', async t => {
+  const {home,config}=await fixture(t);
+  assert.deepEqual(await resolveElectronSandboxArgs(config,{env:{INTENTSMITH_NO_SANDBOX:'1'}}),['--no-sandbox']);
+  const unrestricted=join(home,'unrestricted-userns');await writeFile(unrestricted,'0\n');
+  assert.deepEqual(await resolveElectronSandboxArgs(config,{env:{},restrictFile:unrestricted}),[]);
 });
 
 test('hunt status shows observed queue, failures and the actual timer independently', async t => {

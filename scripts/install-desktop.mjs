@@ -72,6 +72,7 @@ const units = join(homedir(),'.config/systemd/user');
 const targets = [
   [join(configDirectory,'installation.json'), JSON.stringify(config,null,2)+'\n'],
   [join(configDirectory,'runtime.env'), files.environment],
+  [join(configDirectory,'intentsmith.apparmor'), files.apparmor],
   [join(units,'intentsmith-backend.service'),files.backend],
   [join(units,'intentsmith-model-hunt.service'),files.hunt],
   [join(units,'intentsmith-model-hunt.timer'),files.timer],

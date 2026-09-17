@@ -30,8 +30,18 @@ var _C_DEFAULT={bg0:'#09090b',bg1:'#0f0f12',bg2:'#17171b',bg3:'#202025',bg4:'#2a
   cyan:'#22d3ee',cyanBg:'rgba(34,211,238,0.1)',
   border:'rgba(255,255,255,0.06)',border2:'rgba(255,255,255,0.1)',
   font:"'Plus Jakarta Sans',-apple-system,sans-serif",mono:"'JetBrains Mono','Fira Code',monospace"};
+var _C_CLEAN={bg0:'#0c0c0f',bg1:'#111114',bg2:'#18181c',bg3:'#1f2025',bg4:'#27282e',bg5:'#2f3038',
+  tx1:'#ececef',tx2:'#a1a1aa',tx3:'#71717a',tx4:'#52525b',
+  accent:'#d4a85f',accentText:'#e7c27a',accentBg:'rgba(212,168,95,0.12)',onAccent:'#17120a',
+  success:'#5ecf91',successBg:'rgba(94,207,145,0.12)',
+  red:'#f87171',redBg:'rgba(239,68,68,0.1)',amber:'#fbbf24',amberBg:'rgba(251,191,36,0.1)',
+  blue:'#60a5fa',blueBg:'rgba(96,165,250,0.1)',purple:'#a78bfa',purpleBg:'rgba(167,139,250,0.1)',
+  cyan:'#22d3ee',cyanBg:'rgba(34,211,238,0.1)',
+  border:'rgba(255,255,255,0.06)',border2:'rgba(255,255,255,0.1)',
+  font:"'Plus Jakarta Sans',-apple-system,sans-serif",mono:"'JetBrains Mono','Fira Code',monospace"};
 var _C_THEMES={
-  clean:_C_DEFAULT,
+  intentsmith:_C_DEFAULT,
+  clean:_C_CLEAN,
   matrix:{bg0:'#010208',bg1:'#020410',bg2:'#040818',bg3:'#06101e',bg4:'#0a1428',bg5:'#0e1a32',
     tx1:'#b0ffb0',tx2:'#408050',tx3:'#22c55e',tx4:'#0d6832',
     accent:'#00ff6a',accentText:'#66ffaa',accentBg:'rgba(0,255,106,0.1)',
@@ -58,6 +68,8 @@ var _C_THEMES={
     font:"'Inter','Plus Jakarta Sans',sans-serif",mono:"'JetBrains Mono','Fira Code',monospace"}
 };
 var C=Object.assign({},_C_DEFAULT);
+function _appearanceMode(){try{return localStorage.getItem('c3-theme-mode')||'intentsmith';}catch(e){return'intentsmith';}}
+function _isProTheme(themeId){return themeId!=='intentsmith'&&themeId!=='clean';}
 /* Font-size scaling — _fs(base) returns scaled px value, containers stay fixed */
 var _fsScale=1;
 function _fs(b){return Math.round(b*_fsScale*10)/10;}
@@ -146,7 +158,7 @@ var _themesUrl=(function(){try{return new URL('../../../../themes/',window.locat
 function _injectProThemeCSS(themeId){
   var sid='c3-pro-theme-css';var ex=document.getElementById(sid);
   if(!ex){ex=document.createElement('style');ex.id=sid;document.head.appendChild(ex);}
-  if(!themeId||themeId==='clean'){ex.textContent='';return;}
+  if(!themeId||!_isProTheme(themeId)){ex.textContent='';return;}
   /* Targeted transparency on Theia wrapper containers only.
      Background image goes on body directly. React inline styles (C.bg*) provide glass. */
   function _pro(B,BLUR){return '\
@@ -244,7 +256,7 @@ function _injectProThemeCSS(themeId){
 ';
   }
   /* Common pro theme glass rules based on sliders */
-  if(css&&themeId&&themeId!=='clean'){
+  if(css&&themeId&&_isProTheme(themeId)){
     var svo=_settingsVals;
     var bgDimAlpha=(svo.bgDim!=null?svo.bgDim:30)/100;
     var tileAlpha=(svo.tileOpacity!=null?svo.tileOpacity:80)/100;
@@ -2570,8 +2582,8 @@ try{var _sv=localStorage.getItem('c3-settings');if(_sv){var _p=JSON.parse(_sv);O
 function _saveSV(){try{localStorage.setItem('c3-settings',JSON.stringify(_settingsVals));}catch(e){}}
 function _getPalette(){var idx=_settingsVals.accentIdx;if(idx>=100){var cc=idx===100?_settingsVals.custom1:_settingsVals.custom2;return cc?_mkPalette(cc):_accentPalettes[0];}return _accentPalettes[idx]||_accentPalettes[0];}
 function _isLight(){var t=_settingsVals.theme;if(t==='light')return true;if(t==='system')try{return!window.matchMedia('(prefers-color-scheme:dark)').matches;}catch(e){return false;}return false;}
-function _applyTheme(){
-  var lt=_isLight();var tc=lt?_lightC:_darkC;
+function _applyTheme(themeId){
+  var lt=_isLight();var tc=themeId==='clean'?(lt?_lightC:{bg0:_C_CLEAN.bg0,bg1:_C_CLEAN.bg1,bg2:_C_CLEAN.bg2,bg3:_C_CLEAN.bg3,bg4:_C_CLEAN.bg4,bg5:_C_CLEAN.bg5,tx1:_C_CLEAN.tx1,tx2:_C_CLEAN.tx2,border:_C_CLEAN.border,border2:_C_CLEAN.border2}):(lt?_lightC:_darkC);
   var bi=_settingsVals.bgIdx||0;
   var baseBg;
   if(bi===3){baseBg=_settingsVals.bgCustom1||tc.bg0;}
@@ -2589,7 +2601,7 @@ function _applyTheme(){
   d.setProperty('--c3-border',C.border);d.setProperty('--c3-border2',C.border2);
 }
 function _applyAccent(){
-  var _ctm=localStorage.getItem('c3-theme-mode');var p=(_ctm&&_ctm!=='clean'&&_C_THEMES[_ctm])?_mkPalette(_C_THEMES[_ctm].accent):_getPalette();var ai=(_settingsVals.activeInt||100)/100;var pi=(_settingsVals.passiveInt!=null?_settingsVals.passiveInt:50)/100;
+  var _ctm=_appearanceMode();var p=(_ctm!=='clean'&&_C_THEMES[_ctm])?_mkPalette(_C_THEMES[_ctm].accent):_getPalette();var ai=(_settingsVals.activeInt||100)/100;var pi=(_settingsVals.passiveInt!=null?_settingsVals.passiveInt:50)/100;
   C.accent=_cl(p.dim,p.accent,ai);C.accentText=_cl(p.dim,p.text,ai);
   var ac=_hp(p.accent);C.accentBg='rgba('+ac[0]+','+ac[1]+','+ac[2]+','+(0.12*ai).toFixed(3)+')';C.onAccent=_onColor(C.accent);
   /* Passive copy stays readable and only picks up a restrained accent tint. */
@@ -2622,11 +2634,11 @@ function _applyFont(){
   if(fs!==13){css+='#c3-chat-panel .c3-chat-msg-text{font-size:'+fs+'px!important;}';}
   ex.textContent=css;
 }
-function _applyAllSettings(){_applyTheme();var _ctm=localStorage.getItem('c3-theme-mode');if(_ctm&&_ctm!=='clean'){_applyColorTheme(_ctm);}_applyAccent();_injectProThemeCSS(_ctm||'clean');_applyFont();_injectCustomCSS(_settingsVals.customCSS);renderCenter();renderChat();renderAgent();if(typeof renderSidebar==='function')renderSidebar();}
+function _applyAllSettings(){var _ctm=_appearanceMode();_applyColorTheme(_ctm);if(!_isProTheme(_ctm))_applyTheme(_ctm);_applyAccent();_injectProThemeCSS(_ctm);_applyFont();_injectCustomCSS(_settingsVals.customCSS);renderCenter();renderChat();renderAgent();if(typeof renderSidebar==='function')renderSidebar();}
 /* Apply saved settings on load */
-_applyTheme();_applyAccent();setTimeout(function(){_applyFont();_injectCustomCSS(_settingsVals.customCSS);_applyAllSettings();},600);
+var _initialAppearance=_appearanceMode();_applyColorTheme(_initialAppearance);if(!_isProTheme(_initialAppearance))_applyTheme(_initialAppearance);_applyAccent();setTimeout(function(){_applyFont();_injectCustomCSS(_settingsVals.customCSS);_applyAllSettings();},600);
 /* Restore Pro theme from localStorage */
-try{var _tm=localStorage.getItem('c3-theme-mode');if(_tm&&_tm!=='clean'){document.body.classList.add('theme-pro-'+_tm);_applyColorTheme(_tm);_injectProThemeCSS(_tm);}}catch(e){}
+try{var _tm=_appearanceMode();if(_isProTheme(_tm)){document.body.classList.add('theme-pro-'+_tm);_applyColorTheme(_tm);_injectProThemeCSS(_tm);}}catch(e){}
 
 function centerSettings(){
   var selSi=_centerState.settingsSection;
@@ -2723,6 +2735,28 @@ function settingsAppearance(){
         val?null:h('span',{style:{fontSize:_fs(9),color:'#fff',textShadow:'0 0 2px #000',display:'flex',width:'100%',height:'100%',alignItems:'center',justifyContent:'center'}},'+')),
       h('input',{id:id,type:'color',value:val||'#ff6b6b',style:{position:'absolute',opacity:0,width:0,height:0,pointerEvents:'none'},onChange:function(e){onChange(e.target.value);}}));
   }
+  function _appearancePicker(){
+    return h('div',{style:{display:'flex',flexWrap:'wrap',gap:6,marginBottom:16}},
+      [{id:'intentsmith',label:'IntentSmith',desc:'Výchozí brand',clr:'#e7c27a'},
+       {id:'clean',label:'Clean',desc:'Neutrální bez efektů',clr:'#d4d4d8'},
+       {id:'matrix',label:'Matrix',desc:'Neon terminal',clr:'#00ff6a'},
+       {id:'japanese',label:'Japanese',desc:'Červená aurora',clr:'#f87171'},
+       {id:'midnight',label:'Midnight',desc:'Vesmírné sklo',clr:'#93c5fd'}
+      ].map(function(pm){
+        var current=_appearanceMode();
+        var isSel=current===pm.id;
+        return h('div',{key:pm.id,style:{flex:'0 0 calc(50% - 3px)',padding:'8px 6px',borderRadius:8,border:'2px solid '+(isSel?pm.clr:'rgba(255,255,255,0.08)'),background:isSel?'rgba(255,255,255,0.05)':C.bg3,cursor:'pointer',textAlign:'center',transition:'all 0.2s ease'},
+          onClick:function(){
+            document.body.className=document.body.className.replace(/\btheme-pro[\w-]*/g,'').trim();
+            if(_isProTheme(pm.id)){document.body.classList.add('theme-pro-'+pm.id);}
+            localStorage.setItem('c3-theme-mode',pm.id);
+            _applyColorTheme(pm.id);
+            _applyAllSettings();
+          }},
+          h('div',{style:{fontSize:_fs(11),fontWeight:isSel?700:500,color:isSel?pm.clr:C.tx2,marginBottom:1}},pm.label),
+          h('div',{style:{fontSize:_fs(8),color:C.tx4}},pm.desc));
+      }));
+  }
   return h('div',null,
     /* Theme */
     h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6}},'Téma'),
@@ -2732,6 +2766,9 @@ function settingsAppearance(){
         style:{flex:1,padding:'10px 6px',borderRadius:8,border:'2px solid '+(sel?C.accent:C.border),background:sel?C.accentBg:C.bg3,cursor:'pointer',textAlign:'center'}},
         h('div',{style:{fontSize:_fs(18),marginBottom:4}},t.icon),
         h('div',{style:{fontSize:_fs(11),color:sel?C.accentText:C.tx2,fontWeight:sel?700:400}},t.label));})),
+    /* Appearance style — visible before detailed color controls */
+    h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:8}},'Styl vzhledu'),
+    _appearancePicker(),
     /* Accent */
     h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6}},'Accent'),
     h('div',{style:{display:'flex',flexWrap:'wrap',gap:8,marginBottom:16}},
@@ -2751,7 +2788,7 @@ function settingsAppearance(){
     h('div',{style:{marginBottom:4}},h('span',{style:{fontSize:_fs(10),color:C.tx3}},'Neaktivní prvky')),
     h('div',{style:{marginBottom:16}},_sl(sv.passiveInt,0,100,5,function(v){sv.passiveInt=v;_saveSV();_applyAllSettings();},'%')),
     /* Pro theme glass sliders (only visible for pro themes) */
-    (function(){var _ctm=localStorage.getItem('c3-theme-mode');if(!_ctm||_ctm==='clean')return null;return h(React.Fragment,null,
+    (function(){var _ctm=_appearanceMode();if(!_isProTheme(_ctm))return null;return h(React.Fragment,null,
       h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:8,marginTop:4}},'Průhlednost'),
       h('div',{style:{marginBottom:4}},h('span',{style:{fontSize:_fs(10),color:C.tx3}},'Dlaždice')),
       h('div',{style:{marginBottom:10}},_sl(sv.tileOpacity,0,100,5,function(v){sv.tileOpacity=v;_saveSV();_applyAllSettings();},'%')),
@@ -2788,28 +2825,6 @@ function settingsAppearance(){
           onClick:function(){sv.visualMode=vm.id;_saveSV();_applyAllSettings();}},
           h('div',{style:{fontSize:_fs(12),fontWeight:isSel?700:400,color:isSel?C.accentText:C.tx2,marginBottom:2}},vm.label),
           h('div',{style:{fontSize:_fs(9),color:C.tx4}},vm.desc));
-      })),
-    /* Pro Theme Styles (5 variants) */
-    h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:8,marginTop:16}},'Režim efektů'),
-    h('div',{style:{display:'flex',flexWrap:'wrap',gap:6,marginBottom:8}},
-      [{id:'clean',label:'IntentSmith',desc:'Výchozí brand',clr:C.accentText},
-       {id:'matrix',label:'Matrix',desc:'Neon terminal',clr:'#00ff6a'},
-       {id:'japanese',label:'Japanese',desc:'Červená aurora',clr:'#f87171'},
-       {id:'midnight',label:'Midnight',desc:'Vesmírné sklo',clr:'#93c5fd'}
-      ].map(function(pm){
-        var current=localStorage.getItem('c3-theme-mode')||'clean';
-        var isSel=current===pm.id;
-        return h('div',{key:pm.id,style:{flex:'0 0 calc(50% - 3px)',padding:'8px 6px',borderRadius:8,border:'2px solid '+(isSel?pm.clr:'rgba(255,255,255,0.08)'),background:isSel?'rgba(255,255,255,0.05)':C.bg3,cursor:'pointer',textAlign:'center',transition:'all 0.2s ease'},
-          onClick:function(){
-            document.body.className=document.body.className.replace(/\btheme-pro[\w-]*/g,'').trim();
-            if(pm.id!=='clean'){document.body.classList.add('theme-pro-'+pm.id);}
-            localStorage.setItem('c3-theme-mode',pm.id);
-            if(pm.id==='clean'){Object.keys(_C_DEFAULT).forEach(function(k){C[k]=_C_DEFAULT[k];});}
-            else{_applyColorTheme(pm.id);}
-            _applyAllSettings();
-          }},
-          h('div',{style:{fontSize:_fs(11),fontWeight:isSel?700:500,color:isSel?pm.clr:C.tx2,marginBottom:1}},pm.label),
-          h('div',{style:{fontSize:_fs(8),color:C.tx4}},pm.desc));
       })),
     /* I2: Custom CSS */
     h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6,marginTop:16}},'Vlastní CSS'),
