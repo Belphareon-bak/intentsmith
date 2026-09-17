@@ -14,10 +14,22 @@ jsou v [generovaném registru](docs/convergence/TEST-REGISTRY.md):
 (`422 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
 
 Přijaté milníky M0–M4 nejsou přijetím celého releasu. M5 ještě vyžaduje
-podepsané privacy podklady a správu operátorských klíčů; M6 úplný skutečný
-uživatelský scénář a review důkazů. Nové opravy z auditu jsou samostatný
-candidate a čekají na nezávislé review. Aktuální autorita:
+podepsané privacy podklady a správu operátorských klíčů. Ohraničený fyzický
+scénář Studio → model → schválení dvou souborů → test → restart → obnova DB
+prošel a jeho [review nemá blokující nález](docs/review/2026-09-12-PRODUCTION-JOURNEY-REVIEW-RECEIPT.md).
+M6 stále vyžaduje zbývající release důkazy a přijetí; tento scénář neprokazuje
+obecnou autonomní kvalitu rozsáhlých změn. Poslední společné core/hunt změny
+mají celý gate **353/353 PASS** a produkční Studio build na `20e5a022`,
+jejich [nezávislé review zůstává otevřené](docs/review/2026-09-12-HUNT-REVIEW-FOLLOWUP.md).
+Aktuální autorita:
 [PRODUCT](PRODUCT.md), [ROADMAP](ROADMAP.md), [SYSTEM-MAP](SYSTEM-MAP.md).
+
+**Pracovní kandidát pro review:** větev
+[`work/hunt-review-followup-20260912`](https://github.com/Belphareon-bak/intentsmith/tree/work/hunt-review-followup-20260912).
+Dokončený repo panel z 2026-09-12 má 12 kandidátů bez chyb rolí;
+13 z 38 duelů mělo nedostatečný důkaz. Doporučení Devstralu pro R2 samo
+binding neaktivuje. Přesné kontrakty, výsledky a omezení jsou v
+[modelové dokumentaci](docs/MODEL-SCORING-ACTIVATION.md).
 
 [Kontrakty rozšíření po 1.0](docs/post-release/README.md) popisují skutečné
 zlepšování modelu, porozumění rozsáhlému projektu, úplné agenty a odložené
@@ -57,7 +69,7 @@ zpevňuje. Produktový kontrakt, cílový uživatel a hranice 1.0 jsou v
 - **C3 Studio IDE** — Theia + Electron, 32 rozšíření, chat panel, agent log, settings (12 sekcí), specialist focus mode, multimedia view.
 - **153 nástrojů** ve 35 kategoriích. Sandboxed execution, circuit breaker, risk assessment.
 
-Modelová inference používá lokální ověřený provider a persistence SQLite. Web bez projektu nabízí jeden viditelný HTTPS GET s přesným souhlasem: `načti web https://example.com/`, potom zobrazený příkaz `schválit web web:<digest>`. Schválení se nepřenáší na další adresu ani autonomního agenta. [Rozsah a limity](docs/decisions/044-conversation-web-approval.md). [Samostatné bezpečnostní review čeká](docs/review/2026-09-11-CONVERSATION-WEB-REVIEW-PACKET.md).
+Modelová inference používá lokální ověřený provider a persistence SQLite. Web bez projektu nabízí jeden viditelný HTTPS GET s přesným souhlasem: `načti web https://example.com/`, potom zobrazený příkaz `schválit web web:<digest>`. Schválení se nepřenáší na další adresu ani autonomního agenta. [Rozsah a limity](docs/decisions/044-conversation-web-approval.md). [Review webu a builderu na `e87b1ca2` nemá blokující nález](docs/review/2026-09-12-WEB-BUILDER-OPERATOR-REVIEW.md); pozdější delty mají samostatný review rozsah.
 
 ---
 

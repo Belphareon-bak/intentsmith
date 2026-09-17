@@ -12,6 +12,16 @@ skutečný server/SQLite/Ollamu i kontrolované negativní terminály.**
 Neutrální dokument, nezávislý na nástroji.
 Pravidla vývoje: [`CONTRACT.md`](CONTRACT.md) · Detail: [`docs/inventory/`](docs/inventory/)
 
+**Současný společný kandidát (publikační kontrola 2026-09-17):** runtime
+`20e5a022`, poslední předávaný dokumentační stav `9c02dec3`, větev
+`work/hunt-review-followup-20260912`. Úplný deterministický gate má 353/353 PASS
+a produkční Studio build prošel. Fyzický dvousouborový build/restart/restore
+má [ohraničený review receipt](docs/review/2026-09-12-PRODUCTION-JOURNEY-REVIEW-RECEIPT.md);
+novější [hunt/core delta](docs/review/2026-09-12-HUNT-REVIEW-FOLLOWUP.md) zůstává
+REVIEW_PENDING. Údaje o modelovém panelu jsou měření z 2026-09-12, nikoli
+nově spuštěné modelové testy z 2026-09-17. Starší checkpointy níže zůstávají
+historickou evidencí svých přesných revizí.
+
 > Čísla níže jsou **změřená**, ne převzatá. Kde se rozcházejí se starší
 > dokumentací, platí tento dokument.
 
