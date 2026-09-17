@@ -824,6 +824,7 @@ export class SessionState {
 
   // v44.2+ - Project working memory (contextual state)
   #projectWorkingMemory; // { goal, activeFile, lastArtifactId }
+  #saveProjectContext = true;
 
   // v44.3 - Expertise lock (CRE cannot override when locked)
   #expertiseLocked;      // When true, CRE cannot auto-change expertise
@@ -1077,21 +1078,45 @@ export class SessionState {
   // v44.2+ - Project Working Memory Methods
   // ─────────────────────────────────────────────────────────────────────────────
 
+  /** Apply the current privacy setting to cached state, not just DB reads. */
+  applyContextPolicy(enabled) {
+    if (this.#saveProjectContext !== enabled) {
+      // Do not erase project_memory. A later explicit opt-in may restore it.
+      // Goals explicitly supplied while disabled remain local to that period.
+      this.clearProjectWorkingMemory();
+      this.#saveProjectContext = enabled;
+    }
+    return this;
+  }
+
+  /** Restore without write-through: reading a session must not mutate its project. */
+  restoreProjectWorkingMemory(memory) {
+    if (!this.#saveProjectContext) return this;
+    for (const field of ['goal', 'activeFile', 'lastArtifactId']) {
+      if (typeof memory?.[field] === 'string') this.#projectWorkingMemory[field] = memory[field];
+    }
+    if (Number.isSafeInteger(memory?.driftCount) && memory.driftCount >= 0) {
+      this.#projectWorkingMemory.driftCount = memory.driftCount;
+    }
+    return this;
+  }
+
   /**
    * v88: Write-through working memory field to DB (non-fatal).
    * @param {string} field
    * @param {*} value
    */
   _persistWorkingMemory(field, value) {
-    const db = SessionState._projectMemoryDb;
+    if (!readChatMemoryPolicy(db.db).context) return;
+    const projectMemoryDb = SessionState._projectMemoryDb;
     const pid = this.#project?.id;
-    if (!db || !pid) return;
+    if (!projectMemoryDb || !pid) return;
     try {
       const key = `wm:${field}`;
       if (value == null) {
-        db.delete.run(pid, key);
+        projectMemoryDb.delete.run(pid, key);
       } else {
-        db.set.run(pid, key, String(value), 'working_memory');
+        projectMemoryDb.set.run(pid, key, String(value), 'working_memory');
       }
     } catch { /* non-fatal */ }
   }
@@ -1273,7 +1298,9 @@ export class SessionState {
   saveToStorage() {
     try {
       const store = getConversationStore();
-      return store.saveSessionState(this.#sessionId, JSON.stringify(this.toJSON()));
+      const snapshot = this.toJSON();
+      if (!readChatMemoryPolicy(db.db).context) delete snapshot.projectWorkingMemory;
+      return store.saveSessionState(this.#sessionId, JSON.stringify(snapshot));
     } catch (err) {
       logger.debug('SessionState', `saveToStorage failed: ${err.message}`);
       return false;
@@ -1317,6 +1344,7 @@ export class SessionState {
    */
   static fromJSON(json) {
     const state = new SessionState(json.sessionId);
+    state.applyContextPolicy(readChatMemoryPolicy(db.db).context);
     if (json.project) state.setProject(json.project);
     // v44.3 - Restore expertise with locked state (backward compat: fallback to old keys)
     // v87: Auto-selected expertise is NOT restored — will be re-evaluated from input
@@ -1338,17 +1366,7 @@ export class SessionState {
       state.setPendingDecision(json.pendingDecision, json.awaitingSlots || []);
     }
     // v44.2+ - Restore project working memory (AFTER project is set)
-    if (json.projectWorkingMemory) {
-      if (json.projectWorkingMemory.goal) {
-        state.setProjectGoal(json.projectWorkingMemory.goal);
-      }
-      if (json.projectWorkingMemory.activeFile) {
-        state.setActiveFile(json.projectWorkingMemory.activeFile);
-      }
-      if (json.projectWorkingMemory.lastArtifactId) {
-        state.setLastArtifact(json.projectWorkingMemory.lastArtifactId);
-      }
-    }
+    state.restoreProjectWorkingMemory(json.projectWorkingMemory);
     // v58.0 - Restore active design project
     if (json.activeDesignProject) {
       state.setActiveDesignProject(json.activeDesignProject);
@@ -1567,7 +1585,7 @@ class ChatSessionManager {
         this.#states.set(sessionId, new SessionState(sessionId));
       }
     }
-    return this.#states.get(sessionId);
+    return this.#states.get(sessionId).applyContextPolicy(readChatMemoryPolicy(db.db).context);
   }
 
   /**
@@ -1908,16 +1926,11 @@ ChatController.handle = async function(request) {
   }
 
   // v88: Restore working memory from DB if project is active and WM is empty
-  if (state.hasActiveProject && !state.projectGoal) {
+  if (memory.policy.context && state.hasActiveProject && !state.projectGoal) {
     try {
       const wmRows = db.projectMemory.listByCategory.all(state.project.id, 'working_memory');
       if (wmRows && wmRows.length > 0) {
-        for (const row of wmRows) {
-          const field = row.key.replace('wm:', '');
-          if (field === 'goal' && row.value) state.setProjectGoal(row.value);
-          else if (field === 'activeFile' && row.value) state.setActiveFile(row.value);
-          else if (field === 'lastArtifactId' && row.value) state.setLastArtifact(row.value);
-        }
+        state.restoreProjectWorkingMemory(Object.fromEntries(wmRows.map(row => [row.key.replace('wm:', ''), row.value])));
       }
     } catch { /* non-fatal */ }
   }

@@ -12,7 +12,14 @@ skutečný server/SQLite/Ollamu i kontrolované negativní terminály.**
 Neutrální dokument, nezávislý na nástroji.
 Pravidla vývoje: [`CONTRACT.md`](CONTRACT.md) · Detail: [`docs/inventory/`](docs/inventory/)
 
-**Aktuální lokální instalace 2026-09-17:** `58d7cced`, větev
+**Re-review R1–R3, pracovní kandidát 2026-09-17:** logování kompatibilního
+chatu a projektová pracovní paměť mají navazující regresní opravu; panelový
+commit `4fca7e67` je integrován jako `da0c9120`. 36 privacy/settings testů
+a produkční Studio build PASS. Kompletní profil a instalace zatím pending.
+Nové nezávislé přijetí zůstává otevřené, původní verdikt je `CHANGES_REQUIRED`.
+[Packet](docs/review/2026-09-17-PRIVACY-PANELS-REREVIEW.md).
+
+**Dosavadní lokální instalace 2026-09-17:** `58d7cced`, větev
 `work/chat-date-context-20260917`. Časový kontext v každé interaktivní
 modelové odpovědi je odvozený ze skutečných hodin a lokálního časového pásma.
 Fyzický model přes instalovaný HTTP backend správně použil včera/dnes/zítra
@@ -184,8 +191,8 @@ incumbenta má DB retry regresi. Panel D1/D2/R1/R2 je dokončený (12 kandidát�
 
 | | |
 |---|---:|
-| `src/**/*.js` | **224 023 ř.**, 614 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **245 017 ř.**, 527 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **224 036 ř.**, 614 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **245 154 ř.**, 527 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **519** (`425 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 100** |
 | HTTP rout | **245 statických deklarací**; nejde o počet runtime ověřených cest |
@@ -552,6 +559,12 @@ linie. Ohraničený fyzický build je nyní doložen; přirozenojazyčný builde
 nových delt a M5/M6 externí podmínky zůstávají otevřené.
 
 ## Otevřené release-blocking vady
+
+Re-review R1/R2 doložilo obsah odmítnutého kompatibilního požadavku v logu
+a obnovu pracovní paměti při `saveContext=false`. Opravy ve větvi
+`work/privacy-panels-rereview-20260917` jsou implementované, nové nezávislé
+přijetí zůstává otevřené. R3 (panely) je do stejného kandidáta integrováno.
+[Reprodukce, rozsah opravy a instalační stav](docs/review/2026-09-17-PRIVACY-PANELS-REREVIEW.md).
 
 Revize F1/F2/F3 z 17. 9.: implementované kandidátní opravy společné paměťové
 policy, projektového namespace a native Studio ovládání mají cílené důkazy.

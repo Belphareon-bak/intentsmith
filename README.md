@@ -24,13 +24,20 @@ jejich [nezávislé review zůstává otevřené](docs/review/2026-09-12-HUNT-RE
 Opravy revize 17. 9.: přepínače automatické paměti mají skutečné konzumenty,
 legacy učení je projektově oddělené a agentí ovládání ověřuje native výsledek.
 Chat bez historie zůstává nepodporovaný a API jej už nepotvrzuje; dřívější
-vypnutí blokuje nové tahy. [Rozsah oprav a limity](docs/review/2026-09-17-PRIVACY-AGENT-REMEDIATION.md).
+vypnutí blokuje nové tahy. Následné re-review našlo únik do kompatibilního logu
+a chybějící kontrolu pracovní paměti; [navazující oprava a důkazy](docs/review/2026-09-17-PRIVACY-PANELS-REREVIEW.md)
+zachovávají původní verdikt `CHANGES_REQUIRED` do nového nezávislého přijetí.
+`memory.saveContext=false` blokuje automatické obnovení i zápis projektového
+cíle, aktivního souboru a artefaktu, také v otevřených relacích. Výslovně nově
+zadaný cíl může řídit aktuální relaci bez uložení do pracovní paměti. Dříve
+uložené položky se nemažou; existující historie chatu je samostatná funkce.
 Aktuální autorita:
 [PRODUCT](PRODUCT.md), [ROADMAP](ROADMAP.md), [SYSTEM-MAP](SYSTEM-MAP.md).
 
 **Aktuální pracovní kandidát pro review:** větev
-[`work/chat-date-context-20260917`](https://github.com/Belphareon-bak/intentsmith/tree/work/chat-date-context-20260917),
-[oprava obecného časového kontextu](docs/review/2026-09-17-CHAT-CLOCK-REVIEW.md).
+[`work/privacy-panels-rereview-20260917`](https://github.com/Belphareon-bak/intentsmith/tree/work/privacy-panels-rereview-20260917),
+[opravy re-review a bočních panelů](docs/review/2026-09-17-PRIVACY-PANELS-REREVIEW.md).
+Zachovává [opravu obecného časového kontextu](docs/review/2026-09-17-CHAT-CLOCK-REVIEW.md).
 Obsahuje také [opravy soukromí a agentů](docs/review/2026-09-17-PRIVACY-AGENT-REMEDIATION.md).
 Předchozí desktopová revize zůstává na `work/desktop-hunt-20260917`.
 Předchozí společný core/hunt je na `work/hunt-review-followup-20260912`.
