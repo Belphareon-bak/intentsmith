@@ -45,10 +45,29 @@ integrované ani nasazené; proto se nevydává za dostupný produktový vzhled.
   nadpis a výchozí ID jsou připnuté testem.
 - `cd c3-ide && corepack yarn build`: **PASS** s pouze existujícími webpack
   upozorněními na velikost; bundle SHA-256
-  `81e8f5fe6efd12347829e64602b757cbf600253120b98e76e5e5b5bd6cbf6609`.
+  `be5b698e73983140066e37e0b84fe63b61d72d84da6862d264dc95c42a35837b`.
 - `apparmor_parser -Q -T`: **PASS** nad vygenerovaným profilem; test registry
   platný pro 523 spustitelných programů; `git diff --check`: **PASS**.
 
-Stav kandidáta: **BUILD_VERIFIED / DEPLOYMENT_PENDING**. Nabídkový start a
-instalovaná revize nejsou PASS, dokud neprojdou řízeným install/apply a živým
-ověřením v KDE relaci.
+## Nasazení a živé ověření
+
+- Čistý detached snapshot `fdfbc54e100d192b0acf53a474892863b41a08ce`
+  byl nasazen autoritativním installerem nad původní DB a zachovaným PDF
+  Pythonem. Backup před migrací:
+  `/home/belphareon/.local/state/intentsmith/installation-backups/2026-09-17T15-03-27-146Z`.
+- Installer obnovil `update-desktop-database` i `kbuildsycoca5` bez varování;
+  launcher má mód `0755`. `gtk-launch intentsmith.desktop` skutečně spustil
+  Electron z revize `fdfbc54e`, backend handshake i Studio startup doběhly.
+- Živý DOM důkaz: `mode=intentsmith`, volby `IntentSmith` i `Clean` jsou
+  viditelné, brand tokeny jsou `#d4a85f`, `#e7c27a`, `#17120a` a success
+  `#5ecf91`; levý panel 240 px, pravý 416 px. Screenshot a JSON jsou mimo git v
+  `/home/belphareon/Projects/intentsmith-design-launcher-20260917-evidence/`.
+- Systémový AppArmor profil nebyl nainstalován, protože neinteraktivní `sudo`
+  není dostupné. Trvalý `allow-no-sandbox` marker nebyl vytvořen. Běžný první
+  start proto zobrazí volbu: správní instalace přesného profilu, nebo výslovně
+  potvrzený fallback bez Chromium sandboxu. End-to-end test menu použil pouze
+  jednorázový environment override.
+
+Stav: **DEPLOYED_AND_LIVE_VERIFIED / SYSTEM_APPARMOR_PROFILE_NOT_INSTALLED**.
+Funkční nabídková cesta, Appearance i panely jsou ověřené; bezpečnější trvalé
+odstranění fallback dialogu stále vyžaduje uživatelovo `sudo` heslo.
