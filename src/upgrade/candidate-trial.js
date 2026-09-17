@@ -27,7 +27,7 @@ import { MODEL_ACTIVITY_OWNER, modelUseAuthority } from './model-use-authority.j
 import { config } from '../config.js';
 import { logger } from '../core/logger.js';
 import { measureModel, drainResident, unloadModel } from './vram-measurement.js';
-import { trialRole, createSuiteCache } from './pairwise-trial.js';
+import { trialRole, evaluateRole, createSuiteCache } from './pairwise-trial.js';
 import { parseModelNameExtended } from './model-family-extensions.js';
 import { ROLE_IMPROVEMENT_THRESHOLDS } from '../eval/role-evaluation-plan.js';
 import { checkRoleEligibility } from './candidate-eligibility.js';
@@ -183,7 +183,7 @@ export async function tryCandidate(candidateName, ctx = {}) {
     onStage = () => {},
   } = ctx;
 
-  const removalAllowed = allowRemoval && !keepOnFailure;
+  const removalAllowed = allowRemoval && !keepOnFailure && !ctx.evaluationOnly;
 
   const out = {
     model: candidateName,
@@ -303,7 +303,7 @@ export async function tryCandidate(candidateName, ctx = {}) {
     const suiteCache = createSuiteCache();
     for (const role of runnableRoles) {
       const incumbent = bindings[role];
-      if (!incumbent) continue;
+      if (!incumbent && !ctx.evaluationOnly) continue;
       const evaluationPlan = evaluationPlans[role] || null;
 
       // Nezpůsobilá role se nesoutěží.  Textový model nemá co dělat v souboji
@@ -316,7 +316,7 @@ export async function tryCandidate(candidateName, ctx = {}) {
         continue;
       }
       try {
-        const result = await trialRole(runner, role, candidateName, incumbent, {
+        const roleOptions = {
           evaluationPlan,
           threshold: ROLE_IMPROVEMENT_THRESHOLDS[role] ?? 0.05,
           speed: {
@@ -332,7 +332,14 @@ export async function tryCandidate(candidateName, ctx = {}) {
           },
           suiteCache,
           ...ctx.trialOpts,
-        });
+        };
+        if (ctx.evaluationOnly) {
+          const evaluation = await evaluateRole(runner, role, candidateName, roleOptions);
+          out.trials.push({ role, evaluation });
+          onStage('roleEvaluated', candidateName, { role, score: evaluation.score, reused: evaluation.reused === true });
+          continue;
+        }
+        const result = await trialRole(runner, role, candidateName, incumbent, roleOptions);
         out.trials.push(result);
         if (!result.skipped) {
           out.decisions[role] = result.decision;

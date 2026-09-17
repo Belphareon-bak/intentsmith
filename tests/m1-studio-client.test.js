@@ -208,6 +208,7 @@ test('model evaluation tab renders every decision instead of only the latest row
     },
     _fs: value => value,
     _evaluationLoading: false,
+    _evaluationModelFilter: '', _modelTestPending: false, _modelTestTarget: null,
     _assigningRole: null,
     _assignModel: () => {},
     _evaluationData: {
@@ -272,8 +273,9 @@ test('model evaluation tab renders every decision instead of only the latest row
     },
     h: (tag, props, ...children) => ({ tag, props, children }),
   };
+  const helpers = source.slice(source.indexOf('function _modelButtonStyle('), source.indexOf('var _huntData='));
   vm.runInNewContext(
-    `${source.slice(start, end)}\nmodule.exports=_renderEvaluationsTab();`,
+    `${helpers}${source.slice(start, end)}\nmodule.exports=_renderEvaluationsTab();`,
     context,
     { filename: `${CHAT_PANEL.pathname}#evaluation-render` },
   );

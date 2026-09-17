@@ -144,12 +144,21 @@ function currentStatus(db, artifact, role, plan, providerVersion = null) {
     role,
     providerVersion, providerVersion,
   );
-  return decodeCurrentRow(row) || Object.freeze({
-    status: 'MISSING',
-    score: null,
-    runId: null,
-    errorCode: null,
-    errorMessage: null,
+  if (row) return decodeCurrentRow(row);
+  const previous = db.prepare(`SELECT suite_name, suite_version, suite_contract_sha256, completed_at,
+      json_extract(metadata_json, '$.provider.version') AS provider_version
+    FROM model_evaluation_runs WHERE model_digest_sha256 = ? AND role = ? AND status = 'COMPLETE'
+    ORDER BY completed_at DESC LIMIT 1`).get(artifact.digestSha256, role);
+  const missingReason = !previous ? 'NOT_EVALUATED'
+    : (previous.suite_contract_sha256 !== plan.suiteContractSha256 || previous.suite_name !== plan.suiteName || previous.suite_version !== plan.suiteVersion) ? 'SUITE_CHANGED' : 'PROVIDER_CHANGED';
+  return Object.freeze({
+    status: 'MISSING', score: null, runId: null, errorCode: null, errorMessage: null,
+    missingReason,
+    missingExplanation: missingReason === 'SUITE_CHANGED'
+      ? 'Model je stažený, ale uložené měření patří starší testovací sadě. Spusť test pro aktuální sadu.'
+      : missingReason === 'PROVIDER_CHANGED'
+        ? 'Uložené měření nemá požadovanou verzi Ollamy. Spusť aktuální test.'
+        : 'Model je stažený, ale pro tuto roli zatím nemá odpovídající měření. Spusť test.',
     ...unavailableInterval(),
   });
 }

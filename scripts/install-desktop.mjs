@@ -34,6 +34,8 @@ if (!process.argv.includes('--apply')) {
 }
 const hunt = (await systemctl(['show','intentsmith-model-hunt.service','--property=ActiveState','--value'])).stdout.trim();
 if (!['inactive','failed'].includes(hunt)) throw new Error('HUNT_ACTIVE: installation will not interrupt an existing run');
+const evaluation = (await systemctl(['show','intentsmith-model-evaluation.service','--property=ActiveState','--value'])).stdout.trim();
+if (!['inactive','failed',''].includes(evaluation)) throw new Error('EVALUATION_ACTIVE: installation will not interrupt a selected model test');
 const backendState = (await systemctl(['show','intentsmith-backend.service','--property=ActiveState','--value'])).stdout.trim();
 if (!['inactive','failed',''].includes(backendState)) {
   let previous;
@@ -90,6 +92,8 @@ await systemctl(['stop','intentsmith-model-hunt.timer']);
 // Recheck after stopping scheduling. A manual start in between is a real conflict.
 const after = (await systemctl(['show','intentsmith-model-hunt.service','--property=ActiveState','--value'])).stdout.trim();
 if (!['inactive','failed'].includes(after)) throw new Error('HUNT_STARTED_DURING_INSTALL: timer stopped; resume after the run');
+const evaluationAfter = (await systemctl(['show','intentsmith-model-evaluation.service','--property=ActiveState','--value'])).stdout.trim();
+if (!['inactive','failed',''].includes(evaluationAfter)) throw new Error('EVALUATION_STARTED_DURING_INSTALL: timer stopped; resume after the run');
 for (const [file,content,mode] of targets) await writePrivate(file,content,mode);
 await systemctl(['daemon-reload']);
 await systemctl(['enable','intentsmith-backend.service']);

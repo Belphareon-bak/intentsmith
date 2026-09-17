@@ -10,7 +10,8 @@ import { promisify } from 'node:util';
 import { readFile } from 'node:fs/promises';
 import { once } from 'node:events';
 import { createServer } from 'node:net';
-import { analyzeHuntDecisions } from '../src/upgrade/model-hunt-diagnostics.js';
+import { analyzeHuntDecisions, inspectHuntGpu } from '../src/upgrade/model-hunt-diagnostics.js';
+import { holdGpuEvaluationLock } from '../src/upgrade/gpu-evaluation-lock.js';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const runtime = process.env.INTENTSMITH_EVAL_RUNTIME || join(homedir(), '.local/share/intentsmith/evaluation-provider/0.34.0-intentsmith.1');
@@ -28,6 +29,19 @@ const publish = values => {
     sourceRoot: root, ...values }) + '\n', { mode: 0o600 });
   renameSync(next, currentFile);
 };
+// Manual and scheduled units must not race for the provider or overwrite the
+// active run's status. The child separately owns the shared GPU evaluation lock.
+const providerLease = (() => {
+  try { return holdGpuEvaluationLock({ lockPath: join(state, 'provider.lock') }); }
+  catch (error) {
+    if (error.code !== 'GPU_EVALUATION_BUSY') throw error;
+    const result = { generatedAt: new Date().toISOString(), status: 'SCHEDULED_SKIPPED', reason: 'EVALUATION_PROVIDER_BUSY', results: [] };
+    writeFileSync(join(runDir, 'result.json'), JSON.stringify(result) + '\n', { mode: 0o600 });
+    rmSync(join(runDir, 'tmp'), { recursive: true, force: true });
+    console.log(JSON.stringify(result));
+    process.exit(0);
+  }
+})();
 const port = createServer();
 try {
   await new Promise((ok, fail) => { port.once('error', fail); port.listen(11435, '127.0.0.1', ok); });
@@ -57,6 +71,8 @@ const stop = () => { stopping = true; cancellation.abort(); hunt?.kill('SIGTERM'
 process.on('SIGTERM', stop);
 process.on('SIGINT', stop);
 try {
+  const gpu = await inspectHuntGpu();
+  if (!gpu.available) throw Object.assign(new Error(gpu.message), { code: gpu.code });
   if (createHash('sha256').update(await readFile(binary)).digest('hex') !== expected) throw new Error('EVALUATION_PROVIDER_BINARY_MISMATCH');
   await promisify(execFile)('sha256sum', ['--check', '--quiet', 'native.sha256'], {
     cwd: runtime, timeout: 60_000, signal: cancellation.signal,
@@ -90,12 +106,14 @@ try {
   if (!ready) throw new Error('EVALUATION_PROVIDER_START_FAILED');
   const args = process.argv.slice(2);
   const reportArgs = args.some(arg => arg.startsWith('--report=')) ? [] : [`--report=${join(runDir, 'result.json')}`];
+  let failureOutput = '';
   hunt = spawn(process.execPath, [join(root, 'scripts/model-upgrade-hunt.js'), ...args, ...reportArgs], {
     cwd: root,
     env: { ...process.env, OLLAMA_URL: 'http://127.0.0.1:11435', INTENTSMITH_HUNT_PULL_URL: 'http://127.0.0.1:11434',
       INTENTSMITH_HUNT_PROGRESS_FILE: join(runDir, 'progress.json') },
-    stdio: 'inherit',
+    stdio: ['inherit', 'inherit', 'pipe'],
   });
+  hunt.stderr.on('data', chunk => { process.stderr.write(chunk); failureOutput = (failureOutput + chunk.toString()).slice(-8192); });
   const [code] = await once(hunt, 'exit');
   // An operator cancellation is a recorded cancellation, not a crashed unit.
   process.exitCode = stopping ? 0 : code ?? 1;
@@ -104,13 +122,18 @@ try {
   catch { /* Missing report is explicit; a successful exit alone is not a completed measurement. */ }
   publish({ status: stopping ? 'CANCELLED' : code !== 0 ? 'FAILED' : report?.status || (report ? 'COMPLETE' : 'REPORT_MISSING'),
     finishedAt: new Date().toISOString(), exitCode: code,
+    error: code !== 0 ? (report?.error || failureOutput.trim() || 'Proces měření skončil bez výsledku; podrobnosti jsou v systémovém logu.') : null,
     reasons: report?.reasons || [], diagnostics: analyzeHuntDecisions(report?.results || []), results: (report?.results || []).map(r => ({
       model: r.model, stage: r.stage, error: r.error || null, roleErrors: r.roleErrors?.length || 0,
+      evaluations: (r.trials || []).filter(t => t.evaluation).map(t => ({role:t.role, score:t.evaluation.score, reused:t.evaluation.reused === true})),
       decisions: (r.trials || []).map(t => ({ role: t.role, reason: t.decision?.reasonCode, winner: t.decision?.winner })),
     })) });
 } catch (error) {
-  publish({ status: stopping ? 'CANCELLED' : 'FAILED', finishedAt: new Date().toISOString(), error: error.message });
-  if (!stopping) throw error;
+  const blocked = ['GPU_DRIVER_LIBRARY_MISMATCH','GPU_PROBE_UNAVAILABLE'].includes(error.code);
+  const result = { status: stopping ? 'CANCELLED' : blocked ? 'BLOCKED' : 'FAILED', finishedAt: new Date().toISOString(), error: error.message, code: error.code || null, results: [] };
+  publish(result);
+  writeFileSync(join(runDir,'result.json'), JSON.stringify(result) + '\n', {mode:0o600});
+  if (!stopping && !blocked) throw error;
   process.exitCode = 0;
 } finally {
   signalProviderGroup('SIGTERM');
@@ -119,4 +142,5 @@ try {
   // Keep logs/results as evidence. The service cgroup also owns every child,
   // including on an uncatchable wrapper failure (systemd KillMode=control-group).
   rmSync(join(runDir, 'tmp'), { recursive: true, force: true });
+  providerLease.release();
 }
