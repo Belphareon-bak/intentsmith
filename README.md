@@ -16,8 +16,10 @@ jsou v [generovaném registru](docs/convergence/TEST-REGISTRY.md):
 **Navazující M5 review, 2026-09-17:** historický inventář doplněn o zveřejněný
 TLS testovací klíč a certifikát: 15 známých objektů. Pár je trvale vyřazený;
 nový podpis vyžaduje čerstvé důkazy nad doplněným manifestem. [Remediace](docs/review/2026-09-17-M5-TLS-HISTORY-REMEDIATION.md).
-Při kontrole 20:43 CEST běží aplikace z novějšího `09cbd0d6`, samostatný
-24h soak pokračuje na `c2989a3e`; tato větev nemění živou instalaci.
+Osm starších instalací obsahuje zbytkové kopie páru; jsou inventarizované
+a ponechané beze změn. Aktivní `d4dea0bb` je bez starého páru. Restart hostu
+21:20 přerušil původní soak (FAIL/SIGTERM); nový 24h běh na `d4dea0bb`
+začal 21:26 CEST a není dosud PASS. Tato větev nemění živou instalaci.
 
 **Předchozí instalace a validační checkpoint, 2026-09-17:** backend, Studio
 a hunt jsou sjednocené na `c2989a3e`. Úplný offline/database profil:

@@ -18,6 +18,12 @@ Follow-up `6546d648`: scanner 15/15 a 0 current-tree nálezů; celý profil
 privacy 24/24. [Remediace a scope dalšího review](../review/2026-09-17-M5-TLS-HISTORY-REMEDIATION.md).
 Nová delta je REREVIEW_REQUIRED; custody/podpisy a 24h soak zůstávají otevřené.
 
+Následné re-review potvrdilo remediaci a našlo 8 zbytkových kopií páru ve
+starších instalacích. Kopie inventarizované, beze změn; jejich vypořádání
+zůstává samostatné. Aktivní `d4dea0bb` je bez starého páru. Restart hostu
+21:20 přerušil původní soak (FAIL/SIGTERM); nový nezkrácený běh na `d4dea0bb`
+spuštěn 21:26 CEST. [Časová evidence](../execution/runs/m5-tls-residual-copies-20260917.json).
+
 - Vstup: vlastní čistý `9b031278` + nasazený `023af4dd`; zachovat obě linie.
 - Výsledek: sjednocený ověřený kandidát, opravené pozorované regrese,
   proveditelná release validace a nezávisle revidovatelný přesný rozsah.

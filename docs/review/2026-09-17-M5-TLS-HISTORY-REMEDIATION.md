@@ -52,13 +52,46 @@ je ve strojovém záznamu, nikoli odvozený z dřívějšího počtu pěti.
   Podpis history disposition je stále **PENDING**.
 - Pár je **RETIRED_PUBLISHED_NEVER_REUSE**. Klíč se považuje za kompromitovaný
   zveřejněním, nesmí se obnovit ani používat v testech nebo provozu; certifikát
-  se nesmí znovu zavést do trust store. Testy již generují nové dočasné páry.
+  se nesmí znovu zavést do trust store. Testy v opraveném aktuálním stromu
+  generují nové dočasné páry; níže uvedené starší instalace je negenerují.
   Repo dokládá fixture použití, nikoli univerzální tvrzení o všech externích
   instalacích. Nevzniká vymyšlená revokace u poskytovatele ani N/A podpis.
 - Historické scany 13/13 zůstávají důkazem tehdy kontrolovaného podmnožinového
   rozsahu. **Nestačí pro nový podpis**: ten musí vázat čerstvý scan nad
   kandidátem s doplněným manifestem a odpovídající census refů. Známých 15 je
   stále minimum, nikoli tvrzení o kompletním forenzním prohledání historie.
+
+## Následné re-review: zbytkové kopie v instalacích
+
+Operátorem předané re-review potvrdilo inventář v2, dosažitelnost obou
+blobů, odstranění z aktuálního stromu a publikaci `6546d648` + `376fe172`.
+Zároveň správně rozšířilo lokální zjištění: **osm starších instalací stále
+obsahuje původní pár a jejich testy na něj odkazují**. Záznam o generování
+nových párů se na tyto historické suity nevztahuje.
+
+Nezávisle znovu ověřeno 17. 9. po 21:24 CEST, v 13 přímých adresářích
+`~/.local/share/intentsmith/releases/`: `023af4dd`, `fdfbc54e`, `3f005fc0`,
+`02f5f128`, `58d7cced`, `3bbf8bc1`, `1da840c0`, `9d13bb53`.
+Všech osm obsahuje stejné dva bloby z tabulky výše, včetně stejných délek;
+žádný není symlink. Aktivní instalace `d4dea0bb` starý pár neobsahuje.
+Jde o 8 kopií jednoho páru, nikoli dalších 16 objektů incident manifestu:
+počet unikátních známých objektů zůstává **15**.
+
+Disposition lokálních kopií: **PRESERVED_RESIDUAL_COPY_DISPOSITION_PENDING**.
+Adresáře ani PEM soubory nebyly odstraněny či upraveny. Vazby jednotlivých
+snapshotů na rollback/upgrade receipts a pečetě nebyly v této inventuře
+ověřované; nelze předpokládat bezpečnost jejich mazání nebo úprav. Pár zůstává
+vyřazený i v těchto kopiích a staré suity se s ním nesmějí znovu spouštět.
+Jejich případné odstranění či vyřazení celého snapshotu je samostatný krok
+po kontrole těchto vazeb, nikoli součást tohoto dokumentačního doplnění.
+
+Operátor doložil anonymní HTTP 200 z GitHub API veřejného repozitáře. Retence
+historie proto neznamená soukromou karanténu ani odvolání zveřejnění. Podpis
+musí zbytkové kopie výslovně zahrnout do rozsahu ponechaného stavu; nesmí
+tvrdit globální odstranění páru. Žádný podpis ani M5 acceptance zde nevznikl.
+
+[Strojová inventura kopií a procesů](../execution/runs/m5-tls-residual-copies-20260917.json)
+obsahuje přesné cesty, Git identity a čas kontroly bez hodnot klíče.
 
 ## Ověření a provoz
 
@@ -95,6 +128,16 @@ k samostatné instalaci či k rozběhnutému soaku.
 Pozdější inventura zachytila další souběžnou instalaci `08f8d1c5`; přesný čas
 je ve strojovém záznamu. Tato remediace nemění `src/` ani Studio a nerestartuje
 uživatelskou aplikaci. Soak zůstává v běhu i po dokončení nového profilu.
+
+**Pozdější provozní změna po restartu hostu:** původní soak skončil
+17. 9. ve 21:20 CEST po SIGTERM s verdiktem **FAIL**, přibližně po 2 h 50 min.
+Boot journal a `uptime` potvrzují restart. Původní report zůstává zachovaný;
+nejde o 24h PASS a odpracovaný čas se nepřičítá k novému běhu. Nový skutečný
+24h soak začal **17. 9. 21:26:19 CEST** na aktuálním čistém `d4dea0bb`,
+supervisor PID 15102. Má privátní DB a Linux namespace pouze s loopbackem;
+není to test modelů. Výsledek je RUNNING_NOT_PASS, očekávané dokončení
+nejdříve 18. 9. po 21:26 CEST. Po restartu funguje dotaz `nvidia-smi` na
+ovladači 595.91.07; tato inventura nové modelové měření nespouští.
 
 Zdroj a důkazy:
 [`work/production-closeout-20260917`](https://github.com/Belphareon-bak/intentsmith/tree/work/production-closeout-20260917).

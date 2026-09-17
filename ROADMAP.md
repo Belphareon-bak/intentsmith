@@ -4,7 +4,10 @@
 nový nález je neúplný historický inventář. Doplnění 13 → 15 zachovává původní
 containment a vyřazuje zveřejněný TLS pár. Podpisy a acceptance zůstávají
 otevřené; nový scan musí vázat doplněný manifest. [Remediace a review scope](docs/review/2026-09-17-M5-TLS-HISTORY-REMEDIATION.md).
-Instalace při kontrole 20:43 CEST `09cbd0d6`; soak stále na `c2989a3e`.
+Další re-review potvrdilo opravu a identifikovalo 8 zbytkových instalovaných
+kopií páru, ponechaných beze změn. Aktivní `d4dea0bb` je bez páru. Původní
+soak přerušen restartem 21:20 (FAIL/SIGTERM); nový 24h běh na `d4dea0bb`
+spuštěn 21:26 CEST. Podepsané vypořádání a výsledek soaku zůstávají otevřené.
 
 **Předchozí production closeout, 2026-09-17:** instalovaný kandidát `c2989a3e`
 zachovává všechny níže uvedené opravy i aktuální Studio design. Opravené

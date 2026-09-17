@@ -16,8 +16,11 @@ Pravidla vývoje: [`CONTRACT.md`](CONTRACT.md) · Detail: [`docs/inventory/`](do
 (původních 13 + testovací TLS klíč a veřejný certifikát). Červencový containment
 je zachovaný; zářijové odstranění je samostatný záznam. Nový podpis nesmí
 použít starý scan 13/13. [Remediace a meze review](docs/review/2026-09-17-M5-TLS-HISTORY-REMEDIATION.md).
-Při kontrole 20:43 CEST je živá instalace `09cbd0d6`; tato větev ji nemění.
-24h soak na `c2989a3e` pokračuje, není PASS.
+Osm starších instalací obsahuje zbytkové kopie stejného páru; jejich obsah
+se nemění a nepočítá se jako nové Git objekty. Aktivní `d4dea0bb` je bez
+páru. Původní soak přerušen restartem hostu 21:20 (FAIL/SIGTERM), nový
+24h běh na `d4dea0bb` začal 21:26 CEST a není dosud PASS. Tato větev
+nemění živou instalaci. [Inventura](docs/execution/runs/m5-tls-residual-copies-20260917.json).
 
 **Předchozí společná instalace 2026-09-17:** `c2989a3e` spojuje opravy
 soukromí/panelů, specialisty, časový kontext a Studio design `023af4dd`.
