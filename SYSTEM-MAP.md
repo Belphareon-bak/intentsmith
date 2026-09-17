@@ -12,7 +12,22 @@ skutečný server/SQLite/Ollamu i kontrolované negativní terminály.**
 Neutrální dokument, nezávislý na nástroji.
 Pravidla vývoje: [`CONTRACT.md`](CONTRACT.md) · Detail: [`docs/inventory/`](docs/inventory/)
 
-**Re-review R1–R3, nainstalovaný kandidát `3bbf8bc1`, 2026-09-17:** logování kompatibilního
+**Aktuální společná instalace 2026-09-17:** `3f005fc0` spojuje specialisty,
+opravný commit `3bbf8bc1` (privacy/panely) a obecný časový kontext.
+Privacy + Studio focused PASS; fyzická geometrie a vstupy chatu ověřeny
+přes skutečnou ikonu i reload běžného profilu. Celý profil společné revize
+se ověřuje samostatně; 354/1 níže patří pouze předchozímu `3bbf8bc1`.
+
+**Oprava specialistů ve Studiu, 2026-09-17:** kandidát `be0f5d65` integruje
+účetní dokumentový workflow a autonomního Sázkaře, zachovává instalovanou
+opravu časového kontextu `58d7cced`. Čistý instalační snapshot: 7/7 focused
+PASS a skutečné Electron PDF/HEIC journey PASS. Celý profil: 356 PASS /
+2 FAIL / 1 BLOCKED (release seal, dokumentační formát LOC, oddělený OCR
+toolchain). Oprava formátu a konečný stav instalace mají vlastní záznam v
+[review packetu](docs/review/2026-09-17-STUDIO-SPECIALISTS.md).
+Živý sázkař je PROVIDER_BLOCKED na zdroji historie; integrace REVIEW_PENDING.
+
+**Re-review R1–R3, původní ověřený kandidát `3bbf8bc1`, 2026-09-17:** logování kompatibilního
 chatu a projektová pracovní paměť mají navazující regresní opravu; panelový
 commit `4fca7e67` je integrován jako `da0c9120`. 36 privacy/settings testů
 a produkční Studio build PASS. Úplný profil **354 PASS / 1 FAIL**, jen známá
@@ -21,7 +36,7 @@ v privátním i běžném profilu. Sledované DB tabulky mají nezměněné hash
 Nové nezávislé přijetí zůstává otevřené, původní verdikt je `CHANGES_REQUIRED`.
 [Packet](docs/review/2026-09-17-PRIVACY-PANELS-REREVIEW.md).
 
-**Dosavadní lokální instalace 2026-09-17:** `58d7cced`, větev
+**Předchozí lokální instalace 2026-09-17:** `58d7cced`, větev
 `work/chat-date-context-20260917`. Časový kontext v každé interaktivní
 modelové odpovědi je odvozený ze skutečných hodin a lokálního časového pásma.
 Fyzický model přes instalovaný HTTP backend správně použil včera/dnes/zítra
@@ -193,15 +208,15 @@ incumbenta má DB retry regresi. Panel D1/D2/R1/R2 je dokončený (12 kandidát�
 
 | | |
 |---|---:|
-| `src/**/*.js` | **224 036 ř.**, 614 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **245 154 ř.**, 527 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **519** (`425 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
+| `src/**/*.js` | **224 883 ř.**, 627 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **245 698 ř.**, 531 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **523** (`429 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 100** |
 | HTTP rout | **245 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
 Aktuální registry fingerprint je
-`04252cb29ea270886c049b01034c2bfec034a77d22ec4675decf593ae052ecb6`.
+`f29ced20ed0c8e847d8f28ff92a19231c75b78328d18ede86f8bd5c4cb35a4c4`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 
@@ -844,3 +859,15 @@ PASS. Síťová policy, UI, produktový kód, registry i 65s pozorování jsou z
 Opravený reprodukovaný souběh není zpětný důkaz příčiny historického běhu.
 Review zůstává PENDING; fyzický modelový journey není součástí těchto důkazů.
 [Scope, neúspěšné pokusy a důkazy](docs/review/2026-09-12-STUDIO-M1-RESTART-REVIEW-PACKET.md).
+
+## Specialisté ve Studiu — oprava 2026-09-17
+
+Integrace větve `ff313081` do provozní linie `e0b75ee4`: seznam podle
+`/api/specialists`, potvrzená aktivace ID balíčku a vazba na stabilní konverzaci.
+M1 inline dokumenty mají samostatný limit 10 MiB / dávka 20 MiB a rámec
+zahrnující base64 režii; obsah se nedoplňuje čtením libovolné cesty na backendu.
+Účetní dokumentový host má jednorázovou autoritu pro konkrétní konverzaci,
+lokální OCR, privátní evidence a kontrolované exporty. Sázkař používá již
+připravený autonomní engine s veřejnou Fortunou. Detailní konečný důkaz je
+v `docs/review/2026-09-17-STUDIO-SPECIALISTS.md`; integrace zůstává
+**REVIEW_PENDING**, nejde o nové přijetí celého produktu.

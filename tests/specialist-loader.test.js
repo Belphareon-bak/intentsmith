@@ -128,9 +128,9 @@ console.log('── 1. Discovery ──');
   assert(manifests.some(m => m.id === 'accountant-cz'), 'discovers accountant-cz');
 
   const accountant = manifests.find(m => m.id === 'accountant-cz');
-  assertEq(accountant.version, '2.0.0', 'accountant-cz version is 2.0.0');
+  assertEq(accountant.version, '2.1.0', 'accountant-cz version is 2.1.0');
   assertEq(accountant.domain, 'finance', 'accountant-cz domain is finance');
-  assert(accountant.tools.length === 5, 'accountant-cz has 5 tools in manifest');
+  assert(accountant.tools.length === 6, 'accountant-cz has 6 tools in manifest');
   assertEq(accountant.enabledByDefault, true, 'accountant-cz enabledByDefault is true');
   const extensionManifest = loader.getExtensionManifest('accountant-cz');
   assertEq(extensionManifest.contract, 'ExtensionManifest', 'discovery canonicalizes manifest');
@@ -194,7 +194,7 @@ console.log('\n── 4. InstallPending ──');
 
   const row = rows.find(r => r.id === 'accountant-cz');
   assert(row !== undefined, 'accountant-cz row exists in DB');
-  assertEq(row.version, '2.0.0', 'version stored correctly');
+  assertEq(row.version, '2.1.0', 'version stored correctly');
   assertEq(row.domain, 'finance', 'domain stored correctly');
   assertEq(row.status, 'enabled', 'status is enabled (enabledByDefault)');
   const storedManifest = JSON.parse(row.manifest_json);
@@ -229,7 +229,7 @@ console.log('\n── 5. EnableAll ──');
 
   const config = runtime._registered.get('accountant');
   assert(config !== undefined, 'accountant config exists');
-  assertEq(config.tools.length, 5, '5 tools registered');
+  assertEq(config.tools.length, 6, '6 tools registered');
   assertEq(config.domain, 'finance', 'domain is finance');
 
   // Verify tool IDs
@@ -938,7 +938,7 @@ console.log('\n── 26. Manifest data isolation ──');
   assert(logManifest !== null, 'logger manifest exists');
   assertEq(accManifest.domain, 'finance', 'accountant domain = finance');
   assertEq(logManifest.domain, 'utility', 'logger domain = utility');
-  assertEq(accManifest.tools.length, 5, 'accountant has 5 tools in manifest');
+  assertEq(accManifest.tools.length, 6, 'accountant has 6 tools in manifest');
   assertEq(logManifest.tools.length, 1, 'logger has 1 tool in manifest');
 
   // Disable one — manifest still accessible (DB data persists)

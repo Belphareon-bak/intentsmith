@@ -208,6 +208,7 @@ export const config = {
     maxDisplayLines: parseInt(process.env.C3_MAX_DISPLAY_LINES || '500'),
     maxTextAttachment: parseInt(process.env.C3_MAX_TEXT_ATTACHMENT || String(1024 * 1024)), // 1 MB
     maxImageAttachment: parseInt(process.env.C3_MAX_IMAGE_ATTACHMENT || String(5242880)),   // 5 MB
+    maxDocumentAttachment: parseInt(process.env.C3_MAX_DOCUMENT_ATTACHMENT || String(10 * 1024 * 1024)), // PDF/HEIC, measured 6.56 MiB receipt photo
     maxBodySize: parseInt(process.env.C3_MAX_BODY_SIZE || String(6291456)),                 // 6 MB
     maxTreeDepth: parseInt(process.env.C3_MAX_TREE_DEPTH || '5'),
   },

@@ -29,14 +29,19 @@ export function createM1AttachmentLimits(limits = {}) {
   const maxImageBytes = Number.isInteger(limits.maxImageAttachment) && limits.maxImageAttachment > 0
     ? limits.maxImageAttachment
     : 5 * 1024 * 1024;
+  const maxDocumentBytes = Number.isInteger(limits.maxDocumentAttachment) && limits.maxDocumentAttachment > 0
+    ? limits.maxDocumentAttachment : 10 * 1024 * 1024;
+  const maxAggregateBytes = Math.max(maxImageBytes + 3 * maxTextBytes, 2 * maxDocumentBytes);
   return Object.freeze({
     maxCount: 5,
+    maxDocumentBytes,
     maxTextBytes,
     maxImageBytes,
     // One oversized image plus a few text files, and never more than the frame.
-    maxAggregateBytes: maxImageBytes + (3 * maxTextBytes),
+    maxAggregateBytes: maxImageBytes + 3 * maxTextBytes,
+    maxDocumentAggregateBytes: maxAggregateBytes,
     // The serialized frame ceiling the WS server enforces as maxPayload.
-    maxFrameBytes: maxImageBytes + (3 * maxTextBytes) + (1024 * 1024),
+    maxFrameBytes: Math.ceil(maxAggregateBytes * 4 / 3) + (1024 * 1024),
   });
 }
 
@@ -84,6 +89,7 @@ export function m1AttachmentByteLength(attachment) {
 
 function attachmentKind(attachment) {
   const type = typeof attachment?.type === 'string' ? attachment.type : '';
+  if (['application/pdf', 'image/heic', 'image/heif'].includes(type)) return 'document';
   if (M1_ATTACHMENT_IMAGE_TYPES.includes(type)) return 'image';
   if (type === '' || type.startsWith('text/') || type === 'application/json') return 'text';
   return null;
@@ -110,6 +116,7 @@ export function validateM1Attachments(value, limits) {
 
   const normalized = [];
   let aggregate = 0;
+  const aggregateLimit = value.some(a => attachmentKind(a) === 'document') ? ceilings.maxDocumentAggregateBytes : ceilings.maxAggregateBytes;
   for (let index = 0; index < value.length; index += 1) {
     const attachment = value[index];
     if (!isPlainRecord(attachment)) {
@@ -142,12 +149,15 @@ export function validateM1Attachments(value, limits) {
     if (bytes === null) {
       return { ok: false, code: M1_ATTACHMENT_REJECTION.SHAPE, index };
     }
-    const itemCeiling = kind === 'image' ? ceilings.maxImageBytes : ceilings.maxTextBytes;
+    if (kind === 'document' && ((attachment.content.length - ('data:'+attachment.type+';base64,').length) % 4 !== 0 || !new RegExp('^data:' + attachment.type + ';base64,[A-Za-z0-9+/]*={0,2}$').test(attachment.content))) {
+      return { ok: false, code: M1_ATTACHMENT_REJECTION.SHAPE, index };
+    }
+    const itemCeiling = kind === 'document' ? ceilings.maxDocumentBytes : kind === 'image' ? ceilings.maxImageBytes : ceilings.maxTextBytes;
     if (bytes > itemCeiling) {
       return { ok: false, code: M1_ATTACHMENT_REJECTION.ITEM_BYTES, index };
     }
     aggregate += bytes;
-    if (aggregate > ceilings.maxAggregateBytes) {
+    if (aggregate > aggregateLimit) {
       return { ok: false, code: M1_ATTACHMENT_REJECTION.AGGREGATE_BYTES, index };
     }
     const item = { name: attachment.name, content: attachment.content };

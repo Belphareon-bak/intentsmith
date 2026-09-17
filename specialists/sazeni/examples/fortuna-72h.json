@@ -1,0 +1,14 @@
+{
+  "dataSource": "public_web",
+  "bookmakerIds": ["iFortuna CZ"],
+  "leagues": ["E0", "D1", "I1", "SP1", "F1"],
+  "horizonHours": 72,
+  "minOdds": "2",
+  "maxOdds": "4",
+  "minProbability": 0,
+  "minLegs": 2,
+  "maxLegs": 3,
+  "maxSpreadHours": 12,
+  "ticketCount": 5,
+  "maxSharedEvents": 8
+}

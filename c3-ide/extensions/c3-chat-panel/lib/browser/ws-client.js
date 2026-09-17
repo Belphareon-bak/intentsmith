@@ -140,12 +140,16 @@ function _m1AttachmentLimits() {
     ? _MAX_TEXT_SIZE : 1024 * 1024;
   var image = (typeof _MAX_IMG_SIZE === 'number' && _MAX_IMG_SIZE > 0)
     ? _MAX_IMG_SIZE : 5 * 1024 * 1024;
+  var documentBytes = typeof _MAX_DOC_SIZE === 'number' ? _MAX_DOC_SIZE : 10 * 1024 * 1024;
+  var aggregate = Math.max(image + 3 * text, 2 * documentBytes);
   return {
     maxCount: 5,
+    maxDocumentBytes: documentBytes,
     maxTextBytes: text,
     maxImageBytes: image,
-    maxAggregateBytes: image + (3 * text),
-    maxFrameBytes: image + (3 * text) + (1024 * 1024)
+    maxAggregateBytes: image + 3 * text,
+    maxDocumentAggregateBytes: aggregate,
+    maxFrameBytes: Math.ceil(aggregate * 4 / 3) + (1024 * 1024)
   };
 }
 
@@ -163,6 +167,7 @@ function validateM1Attachments(value, limits) {
   if (value.length === 0) return { ok: true, attachments: [] };
   if (value.length > limits.maxCount) return { ok: false, code: 'M1_ATTACHMENT_COUNT_EXCEEDED' };
   var aggregate = 0;
+  var aggregateLimit = value.some(function(a){return a && ['application/pdf','image/heic','image/heif'].indexOf(a.type)>=0;}) ? limits.maxDocumentAggregateBytes : limits.maxAggregateBytes;
   var normalized = [];
   for (var i = 0; i < value.length; i++) {
     var item = value[i];
@@ -174,17 +179,19 @@ function validateM1Attachments(value, limits) {
       return { ok: false, code: 'M1_ATTACHMENT_SHAPE_INVALID' };
     }
     if (typeof item.content !== 'string') return { ok: false, code: 'M1_ATTACHMENT_SHAPE_INVALID' };
+    var isDocument = ['application/pdf', 'image/heic', 'image/heif'].indexOf(item.type) >= 0;
     var isImage = _M1_IMAGE_TYPES.indexOf(item.type) >= 0;
     var isText = item.type === undefined || item.type === ''
       || item.type === 'application/json' || String(item.type).slice(0, 5) === 'text/';
-    if (!isImage && !isText) return { ok: false, code: 'M1_ATTACHMENT_TYPE_UNSUPPORTED' };
+    if (!isImage && !isText && !isDocument) return { ok: false, code: 'M1_ATTACHMENT_TYPE_UNSUPPORTED' };
+    if (isDocument && ((item.content.length - ('data:'+item.type+';base64,').length) % 4 !== 0 || !new RegExp('^data:' + item.type + ';base64,[A-Za-z0-9+/]*={0,2}$').test(item.content))) return {ok:false,code:'M1_ATTACHMENT_SHAPE_INVALID'};
     var bytes = _m1AttachmentBytes(item.content);
     if (bytes === null) return { ok: false, code: 'M1_ATTACHMENT_SHAPE_INVALID' };
-    if (bytes > (isImage ? limits.maxImageBytes : limits.maxTextBytes)) {
+    if (bytes > (isDocument ? limits.maxDocumentBytes : isImage ? limits.maxImageBytes : limits.maxTextBytes)) {
       return { ok: false, code: 'M1_ATTACHMENT_ITEM_TOO_LARGE' };
     }
     aggregate += bytes;
-    if (aggregate > limits.maxAggregateBytes) {
+    if (aggregate > aggregateLimit) {
       return { ok: false, code: 'M1_ATTACHMENT_AGGREGATE_TOO_LARGE' };
     }
     var out = { name: item.name, content: item.content };
@@ -202,7 +209,7 @@ function _m1InlineAttachment(item) {
   if (!item || typeof item !== 'object') return null;
   if (typeof item.content !== 'string') return null;
   if (typeof item.name !== 'string' || !item.name) return null;
-  if (item.type === 'image') {
+  if (item.type === 'image' || item.type === 'document') {
     var dataUrl = /^data:([^;,]+);base64,/.exec(item.content);
     if (!dataUrl) return null;
     return { name: item.name, type: dataUrl[1], content: item.content };

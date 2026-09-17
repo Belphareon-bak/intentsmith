@@ -1,0 +1,19 @@
+{
+  "acquiredAt": "2026-09-12",
+  "rawDataRetainedOutsideGit": ".intentsmith-artifacts/betting-research-20260912/data",
+  "publicCatalog": {
+    "url": "https://api.odds-api.io/v3/bookmakers",
+    "sha256": "32d7c220cc5b5c5558fc5a6f92add70fdd69d455713d57e2449139eb923fbb39",
+    "entries": 283,
+    "czechActive": [
+      "Tipsport.cz",
+      "Chance.cz",
+      "iFortuna CZ",
+      "Betano CZ"
+    ]
+  },
+  "openapi": {
+    "url": "https://docs.odds-api.io/api-reference/openapi.json",
+    "sha256": "6d13f021a415f280b4b3b954d46ee6dbadb94632f3afd7d121ccde8251a591a5"
+  }
+}

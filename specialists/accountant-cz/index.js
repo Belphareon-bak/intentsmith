@@ -363,6 +363,13 @@ function buildToolDefinitions(toolsDir, ToolAdapter) {
         return params;
       },
     },
+    {
+      id: 'accountant.document_workflow', name: 'Doklady a přiznání',
+      modulePath: path.join(toolsDir, 'document-workflow.js'), functionName: 'runDocumentWorkflow',
+      patterns: [{priority:1,patterns:[/kontroln[ií]\s+hl[aá][sš]en|p[rř]izn[aá]n|^(?:stav|podklady|doklady|odpov[eě][dď]|doklad|export|pr[uů]vodce|n[aá]pov[eě]da)(?:\s|$)|📎/i]}],
+      extractParams: input => ({input}), needsTurnContext:true, needsAccountingWorkflow:true,
+      acceptsAllInput:true, failClosed:true, renderResult:({result})=>result.text,
+    },
   ];
 }
 

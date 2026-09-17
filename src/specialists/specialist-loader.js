@@ -1,3 +1,7 @@
+import { config } from '../config.js';
+import { createM1AttachmentLimits } from '../ws-bridge/m1-attachment-policy.js';
+import { createAccountingChatHost } from '../accounting/chat-host.js';
+import { createDefaultBettingBridge } from '../betting/default-host.js';
 // v74: Specialist Loader — MVP
 // ══════════════════════════════════════════════════════════════════════════════
 //
@@ -282,7 +286,10 @@ export class SpecialistLoader {
     this.projectRoot = path.resolve(options.projectRoot || path.resolve(__dirname, '..', '..'));
     this.baseDir = options.baseDir || path.join(this.projectRoot, 'specialists');
     this.engineVersion = options.engineVersion || _readPackageVersion();
+    const bettingBridge = createDefaultBettingBridge(this.projectRoot);
+    this.runtime?.setAccountingHost?.(createAccountingChatHost({limits:createM1AttachmentLimits(config.limits)}));
     this._extensionHostCapabilities = Object.freeze({
+      [EXTENSION_HOST_CAPABILITY.BETTING_DATA]: bettingBridge.capability,
       [EXTENSION_HOST_CAPABILITY.PROJECT_CONTEXT]: specialistProjectContextBridge.capability,
       ...(options.extensionHostCapabilities || {}),
     });
@@ -293,6 +300,8 @@ export class SpecialistLoader {
     ) {
       this.runtime.setProjectContextHost(specialistProjectContextBridge.host);
     }
+
+    if(this._extensionHostCapabilities[EXTENSION_HOST_CAPABILITY.BETTING_DATA] === bettingBridge.capability) this.runtime?.setBettingDataHost?.(bettingBridge.host);
 
     /** @type {Map<string, { manifest: Object, extensionManifest: Object, dir: string }>} */
     this._discovered = new Map();

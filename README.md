@@ -10,8 +10,8 @@ Spouštěné Studio UI je stále přechodný runtime, nikoli finální vzhled In
 
 **Verze:** 136.1.0, vývojový kandidát 1.0. Aktuální počty testovacích programů
 jsou v [generovaném registru](docs/convergence/TEST-REGISTRY.md):
-**519 registrovaných testovacích programů**
-(`425 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
+**523 registrovaných testovacích programů**
+(`429 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
 
 Přijaté milníky M0–M4 nejsou přijetím celého releasu. M5 ještě vyžaduje
 podepsané privacy podklady a správu operátorských klíčů. Ohraničený fyzický
@@ -34,7 +34,15 @@ uložené položky se nemažou; existující historie chatu je samostatná funkc
 Aktuální autorita:
 [PRODUCT](PRODUCT.md), [ROADMAP](ROADMAP.md), [SYSTEM-MAP](SYSTEM-MAP.md).
 
-**Aktuální pracovní kandidát pro review:** větev
+**Integrovaní specialisté ve společné instalaci `3f005fc0`:** původní větev
+`codex/specialists-studio-20260917`,
+[oprava seznamu, PDF/HEIC a dokumentového workflow](docs/review/2026-09-17-STUDIO-SPECIALISTS.md).
+Zachovává také instalovanou opravu časového kontextu `58d7cced`.
+Účetní výstupy vyžadují kontrolu; živý Sázkař má aktuálně nedostupný zdroj
+historie. Nezávislé review této integrace zůstává otevřené.
+
+
+**Společný kandidát specialistů, soukromí a panelů:** větev
 [`work/privacy-panels-rereview-20260917`](https://github.com/Belphareon-bak/intentsmith/tree/work/privacy-panels-rereview-20260917),
 [opravy re-review a bočních panelů](docs/review/2026-09-17-PRIVACY-PANELS-REREVIEW.md).
 Zachovává [opravu obecného časového kontextu](docs/review/2026-09-17-CHAT-CLOCK-REVIEW.md).
@@ -49,7 +57,7 @@ Dokončený repo panel z 2026-09-12 má 12 kandidátů bez chyb rolí;
 binding neaktivuje. Přesné kontrakty, výsledky a omezení jsou v
 [modelové dokumentaci](docs/MODEL-SCORING-ACTIVATION.md).
 
-**Lokální aplikace nainstalována (2026-09-17):** IntentSmith má ikonu,
+**Historický instalační checkpoint (2026-09-17):** IntentSmith má ikonu,
 backendovou uživatelskou službu a záložku **Modely → GPU hunt** se stavem,
 poslední známou frontou, výsledkem a ovládáním. Backend, Studio i hunt běží
 ze stejného pinu `58d7cced` nad původní DB; timer má `Persistent=true`.
@@ -384,14 +392,14 @@ intentsmith/
 │   ├── report-gen.json           #   Generování reportů
 │   └── summarizer.json           #   Sumarizace textu
 │
-├── tests/                        # Testy a kanonický registr 519 programů
+├── tests/                        # Testy a kanonický registr 523 programů
 │   ├── harness.js                #   Custom ESM test harness
 │   ├── cre-*.test.js             #   CRE testy (401+)
 │   ├── lifecycle-*.test.js       #   Lifecycle testy (103+)
 │   ├── code-intel-*.test.js      #   Code Intelligence testy (339+)
 │   ├── execution-loop.test.js    #   Execution Engine testy (597+)
 │   ├── upgrade-*.test.js         #   Model Upgrade testy
-│   └── registry.json             #   Kanonický registr 519 programů
+│   └── registry.json             #   Kanonický registr 523 programů
 │
 ├── docs/                         # Aktivní dokumentace + archiv
 │   ├── ARCHITECTURE.md           #   Kompletní architektura

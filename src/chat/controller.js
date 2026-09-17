@@ -1794,8 +1794,13 @@ ChatController.handle = async function(request) {
         },
       };
     }
+    if (attachments.some(a => ['application/pdf','image/heic','image/heif'].includes(a.type))
+      && sessionManager.getState(request.conversationId || sessionId).specialist?.id !== 'accountant-cz') {
+      return {response:'PDF a HEIC v této verzi zpracovává specialista Účetní. Vyber ho a odešli zprávu s přílohami znovu.',
+        mode:ChatMode.CONVERSATION,confidence:1,metadata:{error:'DOCUMENT_SPECIALIST_REQUIRED',fallbackSuppressed:true}};
+    }
     const attachmentBlocks = attachments
-      .filter(a => typeof a.content === 'string')
+      .filter(a => typeof a.content === 'string' && !['application/pdf','image/heic','image/heif'].includes(a.type))
       .map(a => `\n--- Příloha: ${a.name} (${a.size}) ---\n${a.content}\n---`);
     if (attachmentBlocks.length > 0) {
       message = message + attachmentBlocks.join('');

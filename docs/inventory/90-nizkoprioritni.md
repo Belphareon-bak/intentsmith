@@ -27,6 +27,12 @@ rekurzivní ani fail-closed.
 
 ---
 
+Aktualizace doménového řezu 2026-09-11: stará inventura výše není stavem
+M3 přijatého později v SYSTEM-MAP. Operátorsky požadovaný `sazeni` má nyní
+výpočetní/importní/chatový prototyp s 24h/72h a spread limity, **REVIEW_PENDING**.
+Účetní PDF/HEIC → dvě XML je stále **NOT_IMPLEMENTED**, nyní s kontraktem
+odvozeným ze skutečných podkladů. [Přesný důkaz a non-PASS](../review/2026-09-11-SPECIALISTS-IMPLEMENTATION.md).
+
 ## #14 — Agenti a scheduler · 6 531 ř.
 
 `runner.js` 1 339 · `api.js` 857 · `repository.js` 678 · `schema.js` 619 · `conditions.js` 551
