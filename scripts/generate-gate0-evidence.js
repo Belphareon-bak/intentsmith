@@ -1369,7 +1369,7 @@ The disputed commit was neither accepted wholesale nor reverted wholesale.
 
 - Incident: \`${privacy.incidentId}\`
 - Status: **${privacy.status}**
-- Current-tree tracked private paths removed: ${privacy.currentTreeContainment.trackedPathsRemoved}
+- Current-tree tracked incident paths removed: ${privacy.currentTreeContainment.trackedPathsRemoved + (privacy.additionalTreeContainment || []).reduce((total, event) => total + event.trackedPathsRemoved, 0)}
 - Affected Git objects remain reachable: ${privacy.history.affectedObjectsRemainReachable}
 - History rewritten: ${privacy.history.historyRewritten}
 - Personal content inspected: ${privacy.assessment.personalContentInspected}

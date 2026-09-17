@@ -18,6 +18,11 @@ negativní důkaz se nemaže.
 
 ## R2 — pracovní paměť projektu
 
+**Navazující nezávislé review:** původní `3bbf8bc1` minul informační GET API
+otevřených relací před dalším tahem. Tvrzení níže o serializaci platilo jen
+pro storage, nikoli pro všechny výstupy `toJSON()`. Oprava společné hranice
+a negativní důkaz jsou v [navazujícím packetu](2026-09-17-SESSION-INFO-PRIVACY.md).
+
 `SessionState` uplatňuje současnou policy při získání živého stavu i obnově
 uložené relace. Změna přepínače odstraní cache cíle/souboru/artefaktu před
 dalším tahem; při vypnutí se nečte projektová `working_memory`. Obnova je

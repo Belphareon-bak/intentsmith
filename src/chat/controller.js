@@ -1261,7 +1261,7 @@ export class SessionState {
   }
 
   /**
-   * Serialize to JSON for storage
+   * Serialize for storage and session-info API using the current privacy policy.
    */
   toJSON() {
     return {
@@ -1278,8 +1278,10 @@ export class SessionState {
       awaitingClarification: this.#awaitingClarification,
       awaitingSlots: this.#awaitingSlots,
       lastUserInput: this.#lastUserInput,
-      // v44.2+ - Project working memory
-      projectWorkingMemory: this.#projectWorkingMemory,
+      // Do not require getState(): read-only inspection must not touch lifecycle
+      // or create a missing session, and must honor opt-out before the next turn.
+      ...(readChatMemoryPolicy(db.db).context
+        ? { projectWorkingMemory: this.#projectWorkingMemory } : {}),
       // v58.0 - DESIGN project state
       activeDesignProject: this.#activeDesignProject,
       // v91 D5 - Specialist
@@ -1299,7 +1301,6 @@ export class SessionState {
     try {
       const store = getConversationStore();
       const snapshot = this.toJSON();
-      if (!readChatMemoryPolicy(db.db).context) delete snapshot.projectWorkingMemory;
       return store.saveSessionState(this.#sessionId, JSON.stringify(snapshot));
     } catch (err) {
       logger.debug('SessionState', `saveToStorage failed: ${err.message}`);

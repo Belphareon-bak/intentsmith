@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "incidentId": "G0-PRIVACY-001",
   "status": "CONFIRMED_COMPROMISE",
   "assessmentDate": "2026-07-30",
@@ -25,6 +25,19 @@
     "historyRewritten": false,
     "remediationAuthority": "operator decision required"
   },
+  "additionalTreeContainment": [
+    {
+      "sourceCommit": "779f4f5aad7ee5162d77186e6ec4e68e98475faa",
+      "gitBlobs": [
+        "bce19952f2b7d4ef8a655f60f7f4cba00e8474be",
+        "dff0160bda022551778706f820f6a2651b5a2b00"
+      ],
+      "trackedPathsRemoved": 2,
+      "trackedBytesRemoved": 2985,
+      "method": "removed-test-identity-without-quarantine",
+      "userDataDeleted": false
+    }
+  ],
   "trackedObjectManifest": [
     {
       "path": "chats/conv-1768165091450-n9ss37evx/attachments/0649bdce5d5899a4.png",
@@ -103,6 +116,18 @@
       "gitBlob": "61deebf0cefec47ffbf0ae47447d5ade5f1922c0",
       "bytes": 421,
       "category": "user project state"
+    },
+    {
+      "path": "tests/fixtures/conversation-web/loopback-test-key.pem",
+      "gitBlob": "bce19952f2b7d4ef8a655f60f7f4cba00e8474be",
+      "bytes": 1704,
+      "category": "published loopback TLS test private key; retired; reuse forbidden"
+    },
+    {
+      "path": "tests/fixtures/conversation-web/loopback-test-cert.pem",
+      "gitBlob": "dff0160bda022551778706f820f6a2651b5a2b00",
+      "bytes": 1281,
+      "category": "public certificate of retired loopback TLS test identity; reuse forbidden"
     }
   ],
   "rotationInventory": [

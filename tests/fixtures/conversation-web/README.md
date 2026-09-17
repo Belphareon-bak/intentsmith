@@ -3,7 +3,12 @@
 The suite generates a fresh ephemeral self-signed identity for the reserved
 hostname `web.fixture.test` with the declared `/usr/bin/openssl` toolchain.
 Its private temporary directory is removed immediately after reading the pair,
-including on failure. No certificate or private key is stored in Git. Never
+including on failure. No certificate or private key is stored in the current
+Git tree. The former pair remains published in Git history and is permanently
+retired: never restore, trust, or reuse it, including in tests. Both blobs are
+listed in `docs/convergence/PRIVACY-INCIDENT.json`; the disposition and pending
+signature scope are recorded in `docs/review/2026-09-17-M5-TLS-HISTORY-REMEDIATION.md`.
+Never
 install the certificate in a trust store or use this identity outside tests.
 
 The registered conversation-web HTTP suite serves this identity only on an

@@ -95,7 +95,46 @@ test('real HTTP settings/chat reject unsupported privacy, preserve existing opt-
     for (const field of ['goal', 'activeFile', 'lastArtifactId']) assert.ok(positive.body.response.includes(`HTTP_SAVED_CONTEXT_${field}`));
     // Leave a second serialized session untouched until the process restart.
     assert.equal((await projectChat('privacy:http:wm:cold')).status, 200);
+    const infoIds = ['privacy:http:wm:warm', 'privacy:http:wm:cold'];
+    const beforeInfo = new Map();
+    for (const id of infoIds) {
+      const info = await api('GET', `/api/chat/sessions/${id}`);
+      assert.equal(info.status, 200);
+      assert.match(JSON.stringify(info.body.state.projectWorkingMemory), /HTTP_SAVED_CONTEXT_goal/);
+      beforeInfo.set(id, info.body);
+    }
+    const originalSessionRows = database.db.prepare('SELECT * FROM session_state ORDER BY session_id').all();
+    const beforeList = await api('GET', '/api/chat/sessions');
+    assert.equal(beforeList.status, 200);
+    assert.match(JSON.stringify(beforeList.body), /HTTP_SAVED_CONTEXT_goal/);
     assert.equal((await api('POST', '/api/settings', { memory: { saveContext: false } })).status, 200);
+    // Inspect both GET surfaces before another chat turn could clear the cache.
+    for (const id of infoIds) {
+      const info = await api('GET', `/api/chat/sessions/${id}`);
+      assert.equal(info.status, 200);
+      assert.equal(Object.hasOwn(info.body.state, 'projectWorkingMemory'), false);
+      assert.doesNotMatch(JSON.stringify(info.body), /HTTP_SAVED_CONTEXT_/);
+      const before = beforeInfo.get(id);
+      assert.equal(info.body.lifecycle.lastActivity, before.lifecycle.lastActivity);
+      assert.equal(info.body.lifecycle.createdAt, before.lifecycle.createdAt);
+      assert.equal(info.body.state.updatedAt, before.state.updatedAt);
+      assert.ok(info.body.lifecycle.idleMs >= before.lifecycle.idleMs);
+      assert.ok(info.body.lifecycle.expiresIn <= before.lifecycle.expiresIn);
+    }
+    const hiddenList = await api('GET', '/api/chat/sessions');
+    assert.equal(hiddenList.status, 200);
+    assert.doesNotMatch(JSON.stringify(hiddenList.body), /HTTP_SAVED_CONTEXT_/);
+    assert.equal(hiddenList.body.total, beforeList.body.total);
+    for (const id of infoIds) {
+      const row = hiddenList.body.sessions.find(value => value.sessionId === id);
+      assert.ok(row);
+      assert.equal(Object.hasOwn(row.state, 'projectWorkingMemory'), false);
+      assert.equal(row.lifecycle.lastActivity, beforeInfo.get(id).lifecycle.lastActivity);
+    }
+    assert.equal((await api('GET', '/api/chat/sessions/privacy:http:missing')).status, 404);
+    assert.equal((await api('GET', '/api/chat/sessions')).body.total, beforeList.body.total);
+    assert.deepEqual(database.db.prepare('SELECT * FROM session_state ORDER BY session_id').all(), originalSessionRows);
+    assert.deepEqual(database.projectMemory.listByCategory.all(projectId, 'working_memory'), originalMemory);
     for (const id of ['privacy:http:wm:warm', 'privacy:http:wm:new']) {
       const hidden = await projectChat(id);
       assert.equal(hidden.status, 200);

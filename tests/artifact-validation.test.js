@@ -84,6 +84,7 @@ import {
   GATE0_ATTESTATION_OUTPUTS,
   GATE0_BOUND_OUTPUTS,
   resolveGate0AttestationChain,
+  validateEvidenceIndexShape,
   validateGate0ApprovedAttestation,
   validateGate0Attestation,
   validateGate0RevalidationDisjointness,
@@ -1149,7 +1150,9 @@ test('privacy projection binds the incident without republishing private paths',
   );
   const evidence = buildPrivacyIncidentEvidence(privacyBytes);
   assertEqual(evidence.status, 'CONFIRMED_COMPROMISE');
-  assertEqual(evidence.trackedPathsRemoved, 13);
+  assertEqual(evidence.schemaVersion, 2);
+  assertEqual(evidence.trackedPathsRemoved, 15);
+  assertEqual(evidence.trackedBytesRemoved, 7620348);
   assertEqual(evidence.historyReachable, true);
   assert(!JSON.stringify(evidence).includes('trackedObjectManifest'));
   assert(!JSON.stringify(evidence).includes('attachments/'));
@@ -1165,6 +1168,42 @@ test('privacy projection binds the incident without republishing private paths',
   assertThrows(() => buildPrivacyIncidentEvidence(
     Buffer.from(JSON.stringify(unknown)),
   ));
+});
+
+test('privacy inventory preserves v1 evidence and binds later containment without inventing quarantine', () => {
+  const current = JSON.parse(readFileSync(
+    new URL('../docs/convergence/PRIVACY-INCIDENT.json', import.meta.url), 'utf8',
+  ));
+  const project = value => buildPrivacyIncidentEvidence(Buffer.from(JSON.stringify(value)));
+  const legacy = structuredClone(current);
+  const laterBlobs = new Set(legacy.additionalTreeContainment.flatMap(event => event.gitBlobs));
+  legacy.schemaVersion = 1;
+  legacy.trackedObjectManifest = legacy.trackedObjectManifest.filter(item => !laterBlobs.has(item.gitBlob));
+  delete legacy.additionalTreeContainment;
+  const prior = project(legacy);
+  assertEqual(prior.schemaVersion, 1);
+  assertEqual(prior.trackedPathsRemoved, 13);
+  assertEqual(prior.trackedBytesRemoved, 7617363);
+  assert(project(current).sha256 !== prior.sha256);
+
+  for (const mutate of [
+    value => { value.schemaVersion = 3; },
+    value => { delete value.additionalTreeContainment; },
+    value => { value.additionalTreeContainment = []; },
+    value => { value.additionalTreeContainment.push(structuredClone(value.additionalTreeContainment[0])); },
+    value => { value.additionalTreeContainment[0].gitBlobs[1] = value.additionalTreeContainment[0].gitBlobs[0]; },
+    value => { value.additionalTreeContainment[0].gitBlobs[0] = '0'.repeat(40); },
+    value => { value.additionalTreeContainment[0].trackedBytesRemoved += 1; },
+    value => { value.additionalTreeContainment[0].trackedPathsRemoved += 1; },
+    value => { value.additionalTreeContainment[0].method = 'silently-quarantined'; },
+    value => { value.additionalTreeContainment[0].userDataDeleted = true; },
+    value => { value.additionalTreeContainment[0].unreviewedOverride = true; },
+    value => { value.trackedObjectManifest.pop(); },
+  ]) {
+    const invalid = structuredClone(current);
+    mutate(invalid);
+    assertThrows(() => project(invalid));
+  }
 });
 
 test('risk policy validity is a generated Gate 0 clause', () => {
@@ -2523,6 +2562,17 @@ function validApprovedAttestationFixture() {
     worktreeClean: true,
   };
 }
+
+test('Gate 0 index accepts the expanded incident projection and rejects unknown schema versions', () => {
+  const fixture = validApprovedAttestationFixture().pendingAttestation;
+  fixture.evidenceIndex.privacyIncident = buildPrivacyIncidentEvidence(readFileSync(
+    new URL('../docs/convergence/PRIVACY-INCIDENT.json', import.meta.url),
+  ));
+  assertEqual(validateEvidenceIndexShape(fixture.evidenceIndex, fixture.expectedRegistryFacts).length, 0);
+  fixture.evidenceIndex.privacyIncident.schemaVersion = 3;
+  assert(validateEvidenceIndexShape(fixture.evidenceIndex, fixture.expectedRegistryFacts)
+    .includes('evidence index privacy incident section is invalid'));
+});
 
 test('approved attestation validates the complete candidate-review chain', () => {
   const fixture = validApprovedAttestationFixture();

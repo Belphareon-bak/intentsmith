@@ -12,7 +12,36 @@ skutečný server/SQLite/Ollamu i kontrolované negativní terminály.**
 Neutrální dokument, nezávislý na nástroji.
 Pravidla vývoje: [`CONTRACT.md`](CONTRACT.md) · Detail: [`docs/inventory/`](docs/inventory/)
 
-**Aktuální společná instalace 2026-09-17:** `3f005fc0` spojuje specialisty,
+**Aktuální instalace po privacy review, 2026-09-17: `365a4f1d`.** Informační API relací obcházelo
+`saveContext=false` do dalšího tahu chatu. Policy nyní platí přímo při
+serializaci bez vytváření relace či změny lifecycle; negativní reprodukce
+a cílené HTTP/in-process regrese jsou doložené. Úplný profil **358 PASS /
+1 FAIL** (release pečeť); čistá instalace, zachování sledovaných DB tabulek
+a spuštění Studia ověřené. Nezávislé přijetí zůstává otevřené.
+[Packet](docs/review/2026-09-17-SESSION-INFO-PRIVACY.md).
+
+**Navazující M5 inventář, 2026-09-17:** 15 známých historických objektů
+(původních 13 + testovací TLS klíč a veřejný certifikát). Červencový containment
+je zachovaný; zářijové odstranění je samostatný záznam. Nový podpis nesmí
+použít starý scan 13/13. [Remediace a meze review](docs/review/2026-09-17-M5-TLS-HISTORY-REMEDIATION.md).
+Osm starších instalací obsahuje zbytkové kopie stejného páru; jejich obsah
+se nemění a nepočítá se jako nové Git objekty. V době inventury aktivní `d4dea0bb` je bez
+páru. Původní soak přerušen restartem hostu 21:20 (FAIL/SIGTERM), nový
+24h běh na `d4dea0bb` začal 21:26 CEST a není dosud PASS. Tato větev
+v inventarizačním kroku neměnila živou instalaci. [Inventura](docs/execution/runs/m5-tls-residual-copies-20260917.json).
+
+**Předchozí společná instalace 2026-09-17:** `c2989a3e` spojuje opravy
+soukromí/panelů, specialisty, časový kontext a Studio design `023af4dd`.
+Celý offline/database profil: **358 PASS / 1 FAIL / 0 BLOCKED**; jediný
+FAIL je release pečeť, bez změny její autority. Šest HTTP programů / 134
+kontrol, Studio build v čistém klonu, privacy scanner aktuálního stromu,
+skutečné otevření ikonou a reload PASS. Sledované DB tabulky nezměněné.
+Pětiminutový health throughput PASS; 24h soak od 18:29 CEST teprve běží.
+GPU/NVML a provider Sázkaře jsou BLOCKED, nezávislé přijetí a M5/M6 otevřené.
+[Packet a přesné meze](docs/review/2026-09-17-PRODUCTION-CLOSEOUT.md),
+[checksumy důkazů](docs/execution/runs/production-closeout-20260917.json).
+
+**Předchozí společná instalace 2026-09-17:** `3f005fc0` spojuje specialisty,
 opravný commit `3bbf8bc1` (privacy/panely) a obecný časový kontext.
 Privacy + Studio focused PASS; fyzická geometrie a vstupy chatu ověřeny
 přes skutečnou ikonu i reload běžného profilu. Profil společného zdroje
@@ -220,8 +249,8 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **225 007 ř.**, 627 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **246 067 ř.**, 531 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **225 008 ř.**, 627 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **246 205 ř.**, 531 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **523** (`429 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 100** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |

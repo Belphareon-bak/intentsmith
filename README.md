@@ -6,12 +6,30 @@ porozumění projektům a řízené provádění práce na vlastním hardwaru. C
 přesný origin/scope gate a append-only audit, zatímco všechny ostatní externí
 fetch cesty bez deklarované autority selžou před spojením. Současný
 autoritativní C3 Studio runtime už neobsahuje implicitní Google Fonts egress.
-Spouštěné Studio UI je stále přechodný runtime, nikoli finální vzhled IntentSmithu.
+Studio používá Theia runtime s motivy a ovládáním IntentSmithu.
 
 **Verze:** 136.1.0, vývojový kandidát 1.0. Aktuální počty testovacích programů
 jsou v [generovaném registru](docs/convergence/TEST-REGISTRY.md):
 **523 registrovaných testovacích programů**
 (`429 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
+
+**Navazující M5 review, 2026-09-17:** historický inventář doplněn o zveřejněný
+TLS testovací klíč a certifikát: 15 známých objektů. Pár je trvale vyřazený;
+nový podpis vyžaduje čerstvé důkazy nad doplněným manifestem. [Remediace](docs/review/2026-09-17-M5-TLS-HISTORY-REMEDIATION.md).
+Osm starších instalací obsahuje zbytkové kopie páru; jsou inventarizované
+a ponechané beze změn. Aktivní `d4dea0bb` je bez starého páru. Restart hostu
+21:20 přerušil původní soak (FAIL/SIGTERM); nový 24h běh na `d4dea0bb`
+začal 21:26 CEST a není dosud PASS. Tato větev nemění živou instalaci.
+
+**Předchozí instalace a validační checkpoint, 2026-09-17:** backend, Studio
+a hunt jsou sjednocené na `c2989a3e`. Úplný offline/database profil:
+**358 PASS / 1 FAIL / 0 BLOCKED**; jediný FAIL je neobnovená release pečeť.
+Dalších 6 HTTP programů / 134 kontrol, produkční Studio build a 5minutové
+měření health endpointu prošly. Skutečný 24hodinový test stability běží od
+18:29 CEST; výsledek dosud není známý. GPU testy blokuje nesoulad NVIDIA
+ovladače a knihoven. **Release není přijatý**: chybí zbývající M5/M6 důkazy
+a nezávislé review. [Přesný stav a reprodukce](docs/review/2026-09-17-PRODUCTION-CLOSEOUT.md),
+[aktuální větev](https://github.com/Belphareon-bak/intentsmith/tree/work/production-closeout-20260917).
 
 Přijaté milníky M0–M4 nejsou přijetím celého releasu. M5 ještě vyžaduje
 podepsané privacy podklady a správu operátorských klíčů. Ohraničený fyzický
@@ -34,16 +52,16 @@ uložené položky se nemažou; existující historie chatu je samostatná funkc
 Aktuální autorita:
 [PRODUCT](PRODUCT.md), [ROADMAP](ROADMAP.md), [SYSTEM-MAP](SYSTEM-MAP.md).
 
-**Integrovaní specialisté ve společné instalaci `3f005fc0`:** původní větev
+**Předchozí integrační checkpoint specialistů `3f005fc0`:** původní větev
 `codex/specialists-studio-20260917`,
 [oprava seznamu, PDF/HEIC a dokumentového workflow](docs/review/2026-09-17-STUDIO-SPECIALISTS.md).
-Nainstalovaný snapshot `3f005fc0` zachovává časový kontext i opravy soukromí
-a rozměrů panelů z `3bbf8bc1`. Nový bundle se načte po zavření a spuštění IDE.
+Snapshot `3f005fc0` zachoval časový kontext i opravy soukromí
+a rozměrů panelů z `3bbf8bc1`; vše obsahuje aktuální instalace uvedená výše.
 Účetní výstupy vyžadují kontrolu; živý Sázkař má aktuálně nedostupný zdroj
 historie. Nezávislé review této integrace zůstává otevřené.
 
 
-**Společný kandidát specialistů, soukromí a panelů:** větev
+**Předchozí společný kandidát specialistů, soukromí a panelů:** větev
 [`work/privacy-panels-rereview-20260917`](https://github.com/Belphareon-bak/intentsmith/tree/work/privacy-panels-rereview-20260917),
 [opravy re-review a bočních panelů](docs/review/2026-09-17-PRIVACY-PANELS-REREVIEW.md).
 Zachovává [opravu obecného časového kontextu](docs/review/2026-09-17-CHAT-CLOCK-REVIEW.md).

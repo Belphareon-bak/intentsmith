@@ -1,0 +1,311 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-09-17T19:27:12.863123+00:00",
+  "scope": "Exact former loopback TLS pair paths in immediate installed release directories; not a general secret scan",
+  "releaseRoot": "/home/belphareon/.local/share/intentsmith/releases",
+  "releaseDirectoriesExamined": 13,
+  "releaseNames": [
+    "023af4dd877c0477496e041c50b3c3ba4d2ed56d",
+    "02f5f128f9cd595ae672ed148570ddf7c8517a72",
+    "08f8d1c5e8dd888650e4dad4d301110177a28b69",
+    "09cbd0d6f578c89327c9b5eab869b489d813550d",
+    "1da840c08b320e47392650d363080efb39027a03",
+    "3bbf8bc1b354bbee187d5fe51a21b00072b4d3d9",
+    "3f005fc097c82cd9fef49ca946758d005ef00235",
+    "58d7cced4863663e86440c735fbb91fe3b3edcdb",
+    "779f4f5a-candidate",
+    "9d13bb530f955199df7a7dc01f1caf1ec93fa09d",
+    "c2989a3e1a36fe61c080aa57e4ce33b41f4d4735",
+    "d4dea0bb3dce1c3f0b0622da4639463bdd2d0743",
+    "fdfbc54e100d192b0acf53a474892863b41a08ce"
+  ],
+  "knownResidualReleaseCopies": 8,
+  "uniqueGitBlobs": 2,
+  "incidentKnownObjectsRemains": 15,
+  "copies": [
+    {
+      "release": "023af4dd877c0477496e041c50b3c3ba4d2ed56d",
+      "activeAtCapture": false,
+      "files": [
+        {
+          "path": "023af4dd877c0477496e041c50b3c3ba4d2ed56d/tests/fixtures/conversation-web/loopback-test-key.pem",
+          "gitBlob": "bce19952f2b7d4ef8a655f60f7f4cba00e8474be",
+          "bytes": 1704,
+          "symlink": false
+        },
+        {
+          "path": "023af4dd877c0477496e041c50b3c3ba4d2ed56d/tests/fixtures/conversation-web/loopback-test-cert.pem",
+          "gitBlob": "dff0160bda022551778706f820f6a2651b5a2b00",
+          "bytes": 1281,
+          "symlink": false
+        }
+      ],
+      "historicalTestReferences": [
+        "loopback-test-key.pem",
+        "loopback-test-cert.pem"
+      ],
+      "disposition": "PRESERVED_RESIDUAL_COPY_DISPOSITION_PENDING",
+      "rollbackReceiptRelationshipsIndividuallyValidated": false,
+      "modifiedByThisTask": false
+    },
+    {
+      "release": "02f5f128f9cd595ae672ed148570ddf7c8517a72",
+      "activeAtCapture": false,
+      "files": [
+        {
+          "path": "02f5f128f9cd595ae672ed148570ddf7c8517a72/tests/fixtures/conversation-web/loopback-test-key.pem",
+          "gitBlob": "bce19952f2b7d4ef8a655f60f7f4cba00e8474be",
+          "bytes": 1704,
+          "symlink": false
+        },
+        {
+          "path": "02f5f128f9cd595ae672ed148570ddf7c8517a72/tests/fixtures/conversation-web/loopback-test-cert.pem",
+          "gitBlob": "dff0160bda022551778706f820f6a2651b5a2b00",
+          "bytes": 1281,
+          "symlink": false
+        }
+      ],
+      "historicalTestReferences": [
+        "loopback-test-key.pem",
+        "loopback-test-cert.pem"
+      ],
+      "disposition": "PRESERVED_RESIDUAL_COPY_DISPOSITION_PENDING",
+      "rollbackReceiptRelationshipsIndividuallyValidated": false,
+      "modifiedByThisTask": false
+    },
+    {
+      "release": "1da840c08b320e47392650d363080efb39027a03",
+      "activeAtCapture": false,
+      "files": [
+        {
+          "path": "1da840c08b320e47392650d363080efb39027a03/tests/fixtures/conversation-web/loopback-test-key.pem",
+          "gitBlob": "bce19952f2b7d4ef8a655f60f7f4cba00e8474be",
+          "bytes": 1704,
+          "symlink": false
+        },
+        {
+          "path": "1da840c08b320e47392650d363080efb39027a03/tests/fixtures/conversation-web/loopback-test-cert.pem",
+          "gitBlob": "dff0160bda022551778706f820f6a2651b5a2b00",
+          "bytes": 1281,
+          "symlink": false
+        }
+      ],
+      "historicalTestReferences": [
+        "loopback-test-key.pem",
+        "loopback-test-cert.pem"
+      ],
+      "disposition": "PRESERVED_RESIDUAL_COPY_DISPOSITION_PENDING",
+      "rollbackReceiptRelationshipsIndividuallyValidated": false,
+      "modifiedByThisTask": false
+    },
+    {
+      "release": "3bbf8bc1b354bbee187d5fe51a21b00072b4d3d9",
+      "activeAtCapture": false,
+      "files": [
+        {
+          "path": "3bbf8bc1b354bbee187d5fe51a21b00072b4d3d9/tests/fixtures/conversation-web/loopback-test-key.pem",
+          "gitBlob": "bce19952f2b7d4ef8a655f60f7f4cba00e8474be",
+          "bytes": 1704,
+          "symlink": false
+        },
+        {
+          "path": "3bbf8bc1b354bbee187d5fe51a21b00072b4d3d9/tests/fixtures/conversation-web/loopback-test-cert.pem",
+          "gitBlob": "dff0160bda022551778706f820f6a2651b5a2b00",
+          "bytes": 1281,
+          "symlink": false
+        }
+      ],
+      "historicalTestReferences": [
+        "loopback-test-key.pem",
+        "loopback-test-cert.pem"
+      ],
+      "disposition": "PRESERVED_RESIDUAL_COPY_DISPOSITION_PENDING",
+      "rollbackReceiptRelationshipsIndividuallyValidated": false,
+      "modifiedByThisTask": false
+    },
+    {
+      "release": "3f005fc097c82cd9fef49ca946758d005ef00235",
+      "activeAtCapture": false,
+      "files": [
+        {
+          "path": "3f005fc097c82cd9fef49ca946758d005ef00235/tests/fixtures/conversation-web/loopback-test-key.pem",
+          "gitBlob": "bce19952f2b7d4ef8a655f60f7f4cba00e8474be",
+          "bytes": 1704,
+          "symlink": false
+        },
+        {
+          "path": "3f005fc097c82cd9fef49ca946758d005ef00235/tests/fixtures/conversation-web/loopback-test-cert.pem",
+          "gitBlob": "dff0160bda022551778706f820f6a2651b5a2b00",
+          "bytes": 1281,
+          "symlink": false
+        }
+      ],
+      "historicalTestReferences": [
+        "loopback-test-key.pem",
+        "loopback-test-cert.pem"
+      ],
+      "disposition": "PRESERVED_RESIDUAL_COPY_DISPOSITION_PENDING",
+      "rollbackReceiptRelationshipsIndividuallyValidated": false,
+      "modifiedByThisTask": false
+    },
+    {
+      "release": "58d7cced4863663e86440c735fbb91fe3b3edcdb",
+      "activeAtCapture": false,
+      "files": [
+        {
+          "path": "58d7cced4863663e86440c735fbb91fe3b3edcdb/tests/fixtures/conversation-web/loopback-test-key.pem",
+          "gitBlob": "bce19952f2b7d4ef8a655f60f7f4cba00e8474be",
+          "bytes": 1704,
+          "symlink": false
+        },
+        {
+          "path": "58d7cced4863663e86440c735fbb91fe3b3edcdb/tests/fixtures/conversation-web/loopback-test-cert.pem",
+          "gitBlob": "dff0160bda022551778706f820f6a2651b5a2b00",
+          "bytes": 1281,
+          "symlink": false
+        }
+      ],
+      "historicalTestReferences": [
+        "loopback-test-key.pem",
+        "loopback-test-cert.pem"
+      ],
+      "disposition": "PRESERVED_RESIDUAL_COPY_DISPOSITION_PENDING",
+      "rollbackReceiptRelationshipsIndividuallyValidated": false,
+      "modifiedByThisTask": false
+    },
+    {
+      "release": "9d13bb530f955199df7a7dc01f1caf1ec93fa09d",
+      "activeAtCapture": false,
+      "files": [
+        {
+          "path": "9d13bb530f955199df7a7dc01f1caf1ec93fa09d/tests/fixtures/conversation-web/loopback-test-key.pem",
+          "gitBlob": "bce19952f2b7d4ef8a655f60f7f4cba00e8474be",
+          "bytes": 1704,
+          "symlink": false
+        },
+        {
+          "path": "9d13bb530f955199df7a7dc01f1caf1ec93fa09d/tests/fixtures/conversation-web/loopback-test-cert.pem",
+          "gitBlob": "dff0160bda022551778706f820f6a2651b5a2b00",
+          "bytes": 1281,
+          "symlink": false
+        }
+      ],
+      "historicalTestReferences": [
+        "loopback-test-key.pem",
+        "loopback-test-cert.pem"
+      ],
+      "disposition": "PRESERVED_RESIDUAL_COPY_DISPOSITION_PENDING",
+      "rollbackReceiptRelationshipsIndividuallyValidated": false,
+      "modifiedByThisTask": false
+    },
+    {
+      "release": "fdfbc54e100d192b0acf53a474892863b41a08ce",
+      "activeAtCapture": false,
+      "files": [
+        {
+          "path": "fdfbc54e100d192b0acf53a474892863b41a08ce/tests/fixtures/conversation-web/loopback-test-key.pem",
+          "gitBlob": "bce19952f2b7d4ef8a655f60f7f4cba00e8474be",
+          "bytes": 1704,
+          "symlink": false
+        },
+        {
+          "path": "fdfbc54e100d192b0acf53a474892863b41a08ce/tests/fixtures/conversation-web/loopback-test-cert.pem",
+          "gitBlob": "dff0160bda022551778706f820f6a2651b5a2b00",
+          "bytes": 1281,
+          "symlink": false
+        }
+      ],
+      "historicalTestReferences": [
+        "loopback-test-key.pem",
+        "loopback-test-cert.pem"
+      ],
+      "disposition": "PRESERVED_RESIDUAL_COPY_DISPOSITION_PENDING",
+      "rollbackReceiptRelationshipsIndividuallyValidated": false,
+      "modifiedByThisTask": false
+    }
+  ],
+  "activeInstallation": {
+    "revision": "d4dea0bb3dce1c3f0b0622da4639463bdd2d0743",
+    "sourceRoot": "/home/belphareon/.local/share/intentsmith/releases/d4dea0bb3dce1c3f0b0622da4639463bdd2d0743",
+    "oldPairAbsent": true
+  },
+  "releaseDirectoriesChanged": false,
+  "secretValuesRecorded": false,
+  "independentReviewRecorded": {
+    "remediationClaimsConfirmedOn": "6546d648 + 376fe172",
+    "newObservation": "Eight installed snapshots retain the exact published pair; copied content is not additional unique Git objects",
+    "globalM5Acceptance": false
+  },
+  "previousSoak": {
+    "candidate": "c2989a3e1a36fe61c080aa57e4ce33b41f4d4735",
+    "startedAt": "2026-09-17T16:29:38.105Z",
+    "endedAt": "2026-09-17T19:20:01.730Z",
+    "statusCounts": {
+      "PASS": 0,
+      "FAIL": 1,
+      "TIMEOUT": 0,
+      "BLOCKED": 0,
+      "SKIPPED": 0
+    },
+    "verdict": "FAIL",
+    "interruptionSignal": "SIGTERM",
+    "reportPath": "/home/belphareon/.local/share/intentsmith/releases/c2989a3e1a36fe61c080aa57e4ce33b41f4d4735/.intentsmith-artifacts/production-closeout-20260917/performance/c2989a3e-soak24h-local/report.json",
+    "reportSha256": "5c7b5fba37cfa40d4dbf83d4a059485186a5cbe06f1911ba96497dd5bab5be14",
+    "hostBootStartedLocal": "2026-09-17 21:20:28",
+    "oldDurationNotCreditedToNewRun": true
+  },
+  "replacementSoak": {
+    "stateAtCapture": {
+      "candidate": "d4dea0bb3dce1c3f0b0622da4639463bdd2d0743",
+      "startedAt": "2026-09-17T19:26:19.296Z",
+      "pid": 15102,
+      "results": [],
+      "current": {
+        "id": "IS-T5-TESTS-M6-LONG-SOAK-E2E",
+        "runId": "d4dea0bb-soak24h-after-reboot",
+        "startedAt": "2026-09-17T19:26:19.296Z",
+        "argv": [
+          "scripts/nightly-audit.js",
+          "--suite=IS-T5-TESTS-M6-LONG-SOAK-E2E",
+          "--allow-blocker=server,toolchain:linux-user-network-namespace,toolchain:iproute2",
+          "--timeout-minutes=1500",
+          "--deadline-hours=30",
+          "--concurrency=1",
+          "--out-dir=.intentsmith-artifacts/production-soak-reboot-20260917/performance",
+          "--run-id=d4dea0bb-soak24h-after-reboot"
+        ]
+      }
+    },
+    "statePath": "/home/belphareon/.local/share/intentsmith/releases/d4dea0bb3dce1c3f0b0622da4639463bdd2d0743/.intentsmith-artifacts/production-soak-reboot-20260917/performance-job-local.json",
+    "supervisorAlive": true,
+    "status": "RUNNING_NOT_PASS",
+    "requiredDurationHours": 24,
+    "scheduledOnCurrentInstalledCandidate": true,
+    "runtimeVerifiedAt": "2026-09-17T19:29:20.586861+00:00",
+    "serverPid": 15148,
+    "differentNetworkNamespace": true,
+    "interfaces": [
+      "lo"
+    ],
+    "privateDatabaseFiles": [
+      "/home/belphareon/.local/share/intentsmith/releases/d4dea0bb3dce1c3f0b0622da4639463bdd2d0743/.intentsmith-artifacts/production-soak-reboot-20260917/performance/d4dea0bb-soak24h-after-reboot/runtime/tests_m6-long-soak.e2e.js.32e8a5f5/runtime/intentsmith-test.sqlite",
+      "/home/belphareon/.local/share/intentsmith/releases/d4dea0bb3dce1c3f0b0622da4639463bdd2d0743/.intentsmith-artifacts/production-soak-reboot-20260917/performance/d4dea0bb-soak24h-after-reboot/runtime/tests_m6-long-soak.e2e.js.32e8a5f5/runtime/intentsmith-test.sqlite-shm",
+      "/home/belphareon/.local/share/intentsmith/releases/d4dea0bb3dce1c3f0b0622da4639463bdd2d0743/.intentsmith-artifacts/production-soak-reboot-20260917/performance/d4dea0bb-soak24h-after-reboot/runtime/tests_m6-long-soak.e2e.js.32e8a5f5/runtime/intentsmith-test.sqlite-wal",
+      "/home/belphareon/.local/share/intentsmith/releases/d4dea0bb3dce1c3f0b0622da4639463bdd2d0743/.intentsmith-artifacts/production-soak-reboot-20260917/performance/d4dea0bb-soak24h-after-reboot/runtime/tests_m6-long-soak.e2e.js.32e8a5f5/runtime/intentsmith-test.sqlite.restore.lease"
+    ]
+  },
+  "gpuObservation": {
+    "source": "nvidia-smi after reboot",
+    "driverVersion": "595.91.07",
+    "querySucceeded": true,
+    "newModelValidationRunByThisTask": false
+  },
+  "residualCopiesVerifiedUnchangedAfterDocumentation": true,
+  "documentationValidation": {
+    "program": "tests/artifact-validation.test.js",
+    "pass": 160,
+    "fail": 0,
+    "path": ".intentsmith-artifacts/m5-tls-history-20260917/residual-copy-doc-validation.log",
+    "sha256": "f52f3b750d7cd8d7f751d21f040b6e178db02e7090f12d6ed38b3f50e3b68476"
+  }
+}
