@@ -179,7 +179,8 @@ test('Studio hunt renders queue and skip reason, and cancelled confirmation send
   const context=vm.createContext({setInterval(){},confirm:()=>false,fetch:()=>{fetches++;},
     _backendBase:'http://fixture',_centerState:{view:'upgrades'},_upgradeTab:'hunt',renderCenter(){},
     _fs:n=>n,C:{tx3:'#888',border:'#333'},h:(tag,props,...children)=>({tag,props,children})});
-  vm.runInContext(source.slice(start,end),context);
+  const helpers=source.slice(source.indexOf('function _modelButtonStyle('),source.indexOf('var _huntData='));
+  vm.runInContext(helpers+source.slice(start,end),context);
   vm.runInContext("_huntData={state:'WAITING',timer:{ActiveState:'active'},installation:{revision:'abcdef123456'},current:{status:'SCHEDULED_SKIPPED',reasons:['GPU_BUSY']},queue:[{name:'candidate',roles:['CODE'],state:'PENDING'}]};_controlHunt('start');",context);
   assert.equal(fetches,0);
   const rendered=JSON.stringify(vm.runInContext('_renderHuntTab()',context));
@@ -270,4 +271,22 @@ test('Studio selected test sends the current exact artifact and role, no arbitra
   assert.ok(calls[1].url.endsWith('/models/evaluate'));
   assert.deepEqual(JSON.parse(calls[1].options.body),{model:'fixture:7b',role:'CODE',digestSha256:'d'.repeat(64),suiteContractSha256:'e'.repeat(64)});
   assert.equal(context._modelTestPending,false);assert.equal(context._upgradeTab,'hunt');
+});
+
+test('selected test failure stays next to the selected model and role with its actual GPU reason',async()=>{
+  const source=await readFile(join(ROOT,'c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
+  const start=source.indexOf('function _testInstalledModel('),end=source.indexOf('\nsetInterval(',start);
+  const helpers=source.slice(source.indexOf('function _modelButtonStyle('),source.indexOf('var _huntData='));
+  const context=vm.createContext({AbortSignal,confirm:()=>true,renderCenter(){},_modelTestPending:false,
+    _backendBase:'http://fixture',_canonicalModelIdentity:n=>n,_upgradeTab:'evaluations',C:{},_fs:n=>n,
+    h:(tag,props,...children)=>({tag,props,children}),fetch:async url=>url.endsWith('/evaluations')
+      ?{ok:true,json:async()=>({roles:{CODE:{suiteContractSha256:'e'.repeat(64),artifacts:[{model:'qwen3.5:27b',digestSha256:'d'.repeat(64)}]}}})}
+      :{ok:false,status:503,json:async()=>({code:'GPU_DRIVER_LIBRARY_MISMATCH',error:'NVIDIA a NVML mají rozdílné verze; restartuj počítač.'})}});
+  vm.runInContext(helpers+source.slice(start,end)+';_testInstalledModel("qwen3.5:27b","CODE");',context);
+  await new Promise(r=>setImmediate(r));
+  assert.equal(context._modelTestPending,false);assert.equal(context._upgradeTab,'evaluations');
+  const feedback=vm.runInContext('_modelTestFeedback("qwen3.5:27b","CODE")',context);
+  assert.equal(feedback.props.role,'alert');assert.match(feedback.children.join(''),/qwen3\.5:27b \(CODE\).*nespustil.*NVML.*restartuj/);
+  assert.equal(vm.runInContext('_modelTestFeedback("different:7b","CODE")',context),null);
+  assert.equal(vm.runInContext('_modelTestFeedback("qwen3.5:27b","D1")',context),null);
 });

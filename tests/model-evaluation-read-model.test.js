@@ -545,7 +545,7 @@ function studioFunction(name, endMarker) {
 test('shipped scoring renderer shows exact recorded provider and never invents a legacy version', () => {
   const render = studioFunction('_renderEvaluationsTab', '/* ═');
   const context = {
-    _evaluationLoading: false, _assigningRole: null, _evaluationModelFilter: '', _modelTestPending: false,
+    _evaluationLoading: false, _assigningRole: null, _evaluationModelFilter: '', _modelTestPending: false, _modelTestTarget: null,
     _evaluationData: { coverage: {}, bindingAuthority: { status: 'UNVERIFIED_RUNTIME' }, roles: {
       R2: { suiteName: 'review_v2', suiteVersion: 'test', suiteContractSha256: 'c'.repeat(64),
         artifacts: [
@@ -555,7 +555,8 @@ test('shipped scoring renderer shows exact recorded provider and never invents a
     } },
     C: {}, _fs: n => n, h: (tag, props, ...children) => ({ tag, props, children }),
   };
-  const tree = runInNewContext(render + ';_renderEvaluationsTab()', context);
+  const helpers = studioSource.slice(studioSource.indexOf('function _modelButtonStyle('), studioSource.indexOf('var _huntData='));
+  const tree = runInNewContext(helpers + render + ';_renderEvaluationsTab()', context);
   const text = JSON.stringify(tree);
   assert(text.includes('0.34.0-intentsmith.1'));
   assert(text.includes('nezaznamenána'));

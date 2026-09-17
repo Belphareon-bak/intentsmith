@@ -220,7 +220,7 @@ na nesouladu NVIDIA 595.84 / NVML 595.91; nové inference skóre nevzniklo.
 | | |
 |---|---:|
 | `src/**/*.js` | **224 982 ř.**, 627 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **246 018 ř.**, 531 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **246 039 ř.**, 531 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **523** (`429 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 100** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |

@@ -2429,6 +2429,26 @@ var _bCfg=null;var _bCfgLoading=false;var _gpuInfo=null;var _ollamaModels=null;v
 var _upgradeData=null;var _upgradeLoading=false;var _upgradeMsg=null;
 var _evaluationData=null;var _evaluationLoading=false;var _upgradeTab='overview';
 var _modelTestPending=false;var _modelTestMessage=null;var _evaluationModelFilter='';
+var _modelTestTarget=null;var _modelTestFailed=false;
+function _modelButtonStyle(primary,disabled){
+  return {padding:'5px 12px',minHeight:28,borderRadius:6,border:'1px solid '+(primary&&!disabled?C.accent:C.border2),
+    background:disabled?C.bg4:primary?C.accent:C.bg3,color:disabled?C.tx4:primary?C.onAccent:C.tx2,
+    fontFamily:C.font,fontSize:_fs(11),fontWeight:primary?600:400,cursor:disabled?'default':'pointer',
+    display:'inline-flex',alignItems:'center',justifyContent:'center',gap:6,whiteSpace:'nowrap',opacity:disabled?0.65:1};
+}
+function _modelFieldStyle(){
+  return {background:C.bg3,color:C.tx1,border:'1px solid '+C.border2,borderRadius:6,padding:'6px 10px',
+    minHeight:30,fontFamily:C.font,fontSize:_fs(11),colorScheme:_settingsVals.theme==='light'?'light':'dark'};
+}
+function _modelTestFeedback(model,role){
+  if(!_modelTestTarget||_modelTestTarget.role!==role||_canonicalModelIdentity(_modelTestTarget.model)!==_canonicalModelIdentity(model))return null;
+  var text=_modelTestPending?'Ověřuji model a spouštím test…':_modelTestMessage;
+  if(!text)return null;
+  return h('div',{'data-testid':'model-test-feedback',role:_modelTestFailed?'alert':'status',
+    style:{marginTop:8,padding:'8px 10px',maxWidth:480,whiteSpace:'normal',textAlign:'left',fontFamily:C.font,
+      fontSize:_fs(11),fontWeight:400,lineHeight:1.5,borderRadius:6,border:'1px solid '+C.border2,
+      background:_modelTestFailed?C.redBg:C.bg3,color:_modelTestFailed?C.red:C.tx2}},text);
+}
 var _huntData=null;var _huntLoading=false;var _huntActionPending=false;var _huntError=null;
 function _loadHuntStatus(){
   if(_huntLoading)return;
@@ -2460,7 +2480,7 @@ function _openModelTests(model){
 function _testInstalledModel(model,role){
   if(_modelTestPending)return;
   if(!confirm('Otestovat '+model+' pro roli '+role+'? Použije GPU, uloží skóre a ponechá přiřazení rolí. Aktuální platné měření může znovu použít.'))return;
-  _modelTestPending=true;_modelTestMessage=null;renderCenter();
+  _modelTestPending=true;_modelTestMessage=null;_modelTestTarget={model:model,role:role};_modelTestFailed=false;renderCenter();
   fetch(_backendBase+'/api/system/models/evaluations',{signal:AbortSignal.timeout(15000)})
     .then(function(r){if(!r.ok)throw new Error('Nelze ověřit aktuální modely');return r.json();})
     .then(function(d){var rd=d.roles&&d.roles[role];var row=rd&&(rd.artifacts||[]).find(function(a){return _canonicalModelIdentity(a.model)===_canonicalModelIdentity(model);});
@@ -2469,7 +2489,7 @@ function _testInstalledModel(model,role){
         body:JSON.stringify({model:row.model,role:role,digestSha256:row.digestSha256,suiteContractSha256:rd.suiteContractSha256}),signal:AbortSignal.timeout(20000)});})
     .then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(d.error||d.code||('HTTP '+r.status));return d;});})
     .then(function(){_upgradeTab='hunt';_modelTestMessage='Požadavek na měření přijat. Průběh je v GPU huntu; po dokončení obnov scoring.';_loadHuntStatus();})
-    .catch(function(e){_modelTestMessage=e.message;})
+    .catch(function(e){_modelTestFailed=true;_modelTestMessage='Test '+model+' ('+role+') se nespustil. '+e.message;})
     .finally(function(){_modelTestPending=false;renderCenter();});
 }
 setInterval(function(){if(_centerState.view==='upgrades'&&_upgradeTab==='hunt')_loadHuntStatus();},5000);
@@ -2478,16 +2498,14 @@ function _renderHuntTab(){
   var labels={RUNNING:'Běží',STOPPING:'Zastavuje se',WAITING:'Čeká na další termín',PAUSED:'Plánovač pozastaven',FAILED:'Běh selhal',
     COMPLETE:'Dokončeno',CANCELLED:'Zastaveno',SCHEDULED_SKIPPED:'Přeskočeno',NO_PENDING_CANDIDATES:'Žádný čekající kandidát',BLOCKED:'Měření blokované',REPORT_MISSING:'Chybí výsledek'};
   var running=d&&(d.state==='RUNNING'||d.state==='STOPPING');
-  function controlStyle(disabled){return {padding:'8px 14px',cursor:disabled?'default':'pointer',background:C.bg3,
-    color:C.tx1,border:'1px solid '+C.border2,borderRadius:6,fontFamily:C.font,fontSize:_fs(12),opacity:disabled?0.45:1};}
   function button(label,action,disabled){disabled=!d||_huntActionPending||disabled;return h('button',{disabled:disabled,
-    onClick:function(){_controlHunt(action);},style:controlStyle(disabled)},label);}
+    onClick:function(){_controlHunt(action);},style:_modelButtonStyle(action==='start',disabled)},label);}
   return h('div',{'data-testid':'hunt-panel',style:{maxWidth:960,padding:'8px 0',fontSize:_fs(12),lineHeight:1.6,color:C.tx2}},
     h('h3',null,'GPU hunt'),
     h('p',{role:'status'},_huntError?'Aktuální stav není ověřen':d?(labels[d.state]||d.state):(_huntLoading?'Načítám provoz huntu…':'Provoz huntu není dostupný.')),
     _huntError?h('p',{role:'alert',style:{color:'#ef4444'}},'Stav nelze ověřit: '+_huntError):null,
     h('div',{style:{display:'flex',gap:8,flexWrap:'wrap',marginBottom:14}},
-      h('button',{onClick:_loadHuntStatus,disabled:_huntLoading,style:controlStyle(_huntLoading)},'Obnovit'),
+      h('button',{onClick:_loadHuntStatus,disabled:_huntLoading,style:_modelButtonStyle(false,_huntLoading)},'Obnovit'),
       button('Spustit nyní','start',running||Boolean(_huntError)||Boolean(d&&d.gpu&&!d.gpu.available)),button('Zastavit běh','stop',!running||Boolean(_huntError)),
       button(d&&d.timer.ActiveState==='active'?'Pozastavit plánovač':'Obnovit plánovač',d&&d.timer.ActiveState==='active'?'pause':'resume',Boolean(_huntError))),
     d&&d.gpu&&!d.gpu.available?h('p',{role:'alert',style:{color:C.amber}},d.gpu.message):null,
@@ -3149,16 +3167,17 @@ function _renderDiscoveredTab(){
   return h('div',null,toast,
     h('div',{style:{fontSize:_fs(10),color:C.tx3,lineHeight:1.5,marginBottom:12}},
       'VRAM je katalogový odhad. Skutečné umístění na GPU ověří až měření s produkčním kontextem. Katalogová hodnota není skóre kvality.'),
-    h('div',{style:{display:'flex',gap:12,flexWrap:'wrap',alignItems:'center',marginBottom:12}},
-      h('label',null,'Zobrazit ',h('select',{value:_candidateFilter.fit,onChange:function(e){_candidateFilter.fit=e.target.value;renderCenter();}},
+    h('div',{style:{display:'flex',gap:14,flexWrap:'wrap',alignItems:'flex-end',marginBottom:14,padding:12,
+      background:C.bg2,border:'1px solid '+C.border,borderRadius:8,fontSize:_fs(10),color:C.tx3}},
+      h('label',{style:{display:'flex',flexDirection:'column',gap:5}},'Zobrazit',h('select',{style:_modelFieldStyle(),value:_candidateFilter.fit,onChange:function(e){_candidateFilter.fit=e.target.value;renderCenter();}},
         h('option',{value:'fit'},'V limitu VRAM (odhad)'),h('option',{value:'all'},'Všechny modely'),h('option',{value:'installed'},'Pouze stažené'))),
-      h('label',null,'Limit odhadu VRAM (GiB) ',h('input',{type:'number',min:1,max:512,step:0.5,
+      h('label',{style:{display:'flex',flexDirection:'column',gap:5}},'Limit VRAM · GiB (odhad)',h('input',{type:'number',min:1,max:512,step:0.5,
         value:_candidateFilter.budgetGiB,placeholder:_discoveredData.vramBudgetMb?(_discoveredData.vramBudgetMb/1024).toFixed(1):'Nezjištěno',
-        style:{width:95},onChange:function(e){_candidateFilter.budgetGiB=e.target.value;renderCenter();}})),
-      h('label',null,'Řadit ',h('select',{value:_candidateFilter.sort,onChange:function(e){_candidateFilter.sort=e.target.value;renderCenter();}},
+        style:Object.assign({},_modelFieldStyle(),{width:120}),onChange:function(e){_candidateFilter.budgetGiB=e.target.value;renderCenter();}})),
+      h('label',{style:{display:'flex',flexDirection:'column',gap:5}},'Řadit podle',h('select',{style:_modelFieldStyle(),value:_candidateFilter.sort,onChange:function(e){_candidateFilter.sort=e.target.value;renderCenter();}},
         h('option',{value:'params-desc'},'Parametry: největší'),h('option',{value:'params-asc'},'Parametry: nejmenší'),
         h('option',{value:'vramMb-asc'},'VRAM: nejnižší'),h('option',{value:'contextWindow-desc'},'Kontext: největší'),h('option',{value:'name-asc'},'Název'))),
-      h('span',null,candidates.length+' / '+(_discoveredData.candidates||[]).length)),
+      h('span',{style:{marginLeft:'auto',paddingBottom:7,whiteSpace:'nowrap'}},candidates.length+' / '+(_discoveredData.candidates||[]).length+' modelů')),
     !selection.budgetMb?h('p',{role:'status',style:{color:C.amber}},'Kapacitu GPU nelze zjistit. Zadej vlastní limit odhadu nebo zvol Všechny modely. Neznámá VRAM není ověřená vhodnost.'):null,
     candidates.length===0?h('div',{style:{color:C.tx4,padding:20,textAlign:'center'}},'Žádní kandidáti'):
     candidates.map(function(m){
@@ -3167,10 +3186,10 @@ function _renderDiscoveredTab(){
         h('div',{style:{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}},
           h('span',{style:{fontSize:_fs(11),fontWeight:700,color:C.tx1,fontFamily:C.mono}},m.name),
           h('span',{style:{fontSize:_fs(8),padding:'2px 6px',borderRadius:4,background:'rgba(234,179,8,0.12)',color:'#eab308'}},'Nevyhodnoceno'),
-          m.installed?h('button',{onClick:function(){_openModelTests(m.name);}},'Testy modelu…'):null,
           m.fitsVram===false?h('span',{style:{fontSize:_fs(8),color:'#ef4444'}},'Mimo VRAM budget'):null,
           h('span',{style:{flex:1}}),
-          !m.installed?h('button',{style:{background:'#2563eb',color:'#fff',border:'none',borderRadius:5,padding:'4px 10px',fontSize:_fs(9),cursor:'pointer'},
+          m.installed?h('button',{style:_modelButtonStyle(false,false),onClick:function(){_openModelTests(m.name);}},'Testy modelu…'):null,
+          !m.installed?h('button',{style:_modelButtonStyle(true,pulling),
             disabled:pulling,onClick:function(){_pullModel(m.name);}},pulling?'Stahuji...':'Stáhnout'):null),
         h('div',{style:{display:'flex',gap:10,marginTop:5,color:C.tx4,fontSize:_fs(9),flexWrap:'wrap'}},
           m.params?h('span',null,m.params+'B'):null,m.vramMb?h('span',null,(m.vramMb/1024).toFixed(1)+' GiB VRAM (odhad)'):null,
@@ -3230,20 +3249,20 @@ function _renderEvaluationsTab(){
               var isCur=row.isCurrentBinding;var isApplicable=row.applicable!==false;
               var displayStatus=isApplicable?row.status:'N/A';var color=isApplicable?(statusColor[row.status]||C.tx4):C.tx4;
               return h('tr',{key:row.model+row.digestSha256,style:{borderBottom:'1px solid '+C.border,background:isCur?C.accentBg:'transparent'}},
-                h('td',{style:{padding:'4px 6px',color:isCur?C.accent:C.tx2,fontWeight:isCur?700:400}},row.model+(isCur?' *':'')),
+                h('td',{style:{padding:'4px 6px',color:isCur?C.accent:C.tx2,fontWeight:isCur?700:400},title:isCur?'Model přiřazený k této roli':undefined},row.model+(isCur?' *':'')),
                 h('td',{style:{padding:'4px 6px',color:C.tx4},title:row.digestSha256||'digest chybí'},row.digestSha256?row.digestSha256.slice(0,12):'\u2014'),
-                h('td',{style:{padding:'4px 6px',color:color,fontWeight:600},title:isApplicable?(row.missingExplanation||row.errorMessage||''):(row.applicabilityReason||row.applicabilityReasonCode||'technicky nekompatibilní')},displayStatus==='MISSING'?'Chybí aktuální test':displayStatus),
+                h('td',{style:{padding:'4px 6px',color:color,fontWeight:600},title:isApplicable?(row.missingExplanation||row.errorMessage||''):(row.applicabilityReason||row.applicabilityReasonCode||'technicky nekompatibilní')},displayStatus==='MISSING'?'Chybí aktuální test':displayStatus,
+                  _modelTestFeedback(row.model,role)),
                 h('td',{style:{padding:'4px 6px',textAlign:'right',color:isApplicable&&row.status==='COMPLETE'?C.tx1:C.tx4,fontWeight:600}},isApplicable&&row.score!=null?Math.round(row.score*100)+'%':'\u2014'),
                 h('td',{style:{padding:'4px 6px',color:row.intervalIntegrity==='LEGACY_UNVERIFIED'?'#eab308':C.tx3},title:row.testedAtProvenance||row.intervalIntegrity||''},tested(row)),
                 h('td',{style:{padding:'4px 6px',color:C.tx3}},row.providerVersion||'nezaznamenána'),
-                h('td',{style:{padding:'4px 6px',textAlign:'center'}},
-                  isApplicable?h('button',{disabled:_modelTestPending,onClick:function(){_testInstalledModel(row.model,role);}},'Otestovat'):null,
+                h('td',{style:{padding:'6px',textAlign:'center'}},h('div',{style:{display:'flex',gap:6,alignItems:'center',justifyContent:'flex-end',flexWrap:'wrap'}},
+                  isApplicable?h('button',{style:_modelButtonStyle(false,_modelTestPending),disabled:_modelTestPending,onClick:function(){_testInstalledModel(row.model,role);}},'Otestovat'):null,
                   !isApplicable?h('span',{style:{fontSize:_fs(8),color:C.tx4},title:row.applicabilityReason||row.applicabilityReasonCode},'mimo scope'):
                   isCur?h('span',{style:{fontSize:_fs(8),color:C.accent,fontWeight:600}},'\u2713'):
                   _assigningRole===role?h('span',{style:{fontSize:_fs(8),color:'#3b82f6'}},'...'):
-                  h('button',{style:{background:'none',border:'1px solid rgba(59,130,246,0.3)',borderRadius:4,padding:'1px 8px',
-                    color:'#3b82f6',fontSize:_fs(8),cursor:'pointer',fontFamily:C.font,whiteSpace:'nowrap'},
-                    onClick:function(){_assignModel(role,row.model);}},'\u2190 Přiřadit')));
+                  h('button',{style:_modelButtonStyle(false,false),
+                    onClick:function(){_assignModel(role,row.model);}},'\u2190 Přiřadit'))));
             })))));
     }));
 }
@@ -3389,7 +3408,8 @@ function _renderRolesTab(){
           h('span',{style:{fontWeight:700,fontSize:_fs(13),color:scoreColor,minWidth:40,textAlign:'right'}},scorePct),
           scoreVal!=null&&scoreVal>=0.7?h('span',{style:{color:C.accent}},'\u2705'):
             scoreVal!=null&&scoreVal<0.4?h('span',{style:{color:'#ef4444'}},'\u26A0'):null),
-        installed?h('button',{disabled:_modelTestPending,onClick:function(){_testInstalledModel(current,role);},style:{marginTop:8}},'Otestovat '+role):null,
+        installed?h('div',{style:{marginTop:10}},h('button',{disabled:_modelTestPending,onClick:function(){_testInstalledModel(current,role);},style:_modelButtonStyle(true,_modelTestPending)},'Otestovat '+role),
+          _modelTestFeedback(current,role)):null,
         installed&&(!roleEval||roleEval.status==='MISSING')?h('p',{style:{fontSize:_fs(11),color:C.tx3}},roleEval&&roleEval.missingExplanation||'Model je stažený; chybí měření pro aktuální sadu testů.'):null,
         /* Warnings */
         !installed?h('div',{style:{marginTop:6,fontSize:_fs(10),color:'#ef4444'}},'\u26A0 Model nen\u00ED nainstalovan\u00FD!'):null,
@@ -3455,7 +3475,8 @@ function centerUpgrades(){
         :h('button',{style:{padding:'4px 12px',borderRadius:4,border:'1px solid #ef4444',background:'transparent',
           color:'#ef4444',cursor:'pointer',fontSize:_fs(10),fontFamily:C.font},
           onClick:function(){_rollbackConfirm=true;renderCenter();}},'Rollback')):null):null,
-    _modelTestMessage?h('p',{role:'status',style:{padding:'8px 18px'}},_modelTestMessage):null,
+    _modelTestMessage&&_upgradeTab==='hunt'?h('div',{role:_modelTestFailed?'alert':'status',style:{margin:'12px 18px 0',padding:'8px 12px',borderRadius:6,
+      border:'1px solid '+C.border2,fontSize:_fs(11),lineHeight:1.5,background:_modelTestFailed?C.redBg:C.bg3,color:_modelTestFailed?C.red:C.tx2}},_modelTestMessage):null,
     /* body */
     h('div',{style:{flex:1,overflowY:'auto',padding:18}},
       /* ── Overview tab (v133) ── */
@@ -3467,11 +3488,11 @@ function centerUpgrades(){
       _upgradeTab==='evaluations'?h('div',null,
         h('div',{style:{display:'flex',alignItems:'center',gap:12,marginBottom:12}},
           h('button',{disabled:_evaluationLoading,onClick:function(){_loadEvaluationData();renderCenter();},
-            style:{cursor:_evaluationLoading?'wait':'pointer',padding:'5px 12px'}},_evaluationLoading?'Načítám…':'Obnovit scoring'),
+            style:_modelButtonStyle(false,_evaluationLoading)},_evaluationLoading?'Načítám…':'Obnovit scoring'),
           h('span',{style:{fontSize:_fs(10),color:C.tx3}},
             _evaluationData&&_evaluationData.generatedAt?'Data k '+new Date(_evaluationData.generatedAt).toLocaleString('cs-CZ'):'')),
-        _evaluationModelFilter?h('p',null,'Model: '+_evaluationModelFilter+' ',h('button',{onClick:function(){_evaluationModelFilter='';renderCenter();}},'Všechny modely')):null,
-        h('p',{style:{fontSize:_fs(11),color:C.tx3}},'Chybí aktuální test = model je stažený, ale nemá měření pro tuto sadu a verzi Ollamy. Historické skóre se nepřebírá. Test může použít již platné měření.'),
+        _evaluationModelFilter?h('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:12,fontSize:_fs(11),color:C.tx2}},'Model: '+_evaluationModelFilter+' ',h('button',{style:_modelButtonStyle(false,false),onClick:function(){_evaluationModelFilter='';renderCenter();}},'Všechny modely')):null,
+        h('p',{style:{fontSize:_fs(11),color:C.tx3,lineHeight:1.5}},'Hvězdička * označuje model přiřazený roli. Chybí aktuální test = model je stažený, ale nemá měření pro tuto sadu a verzi Ollamy. Test může použít již platné měření.'),
         _renderEvaluationsTab()):null,
 
       /* ── History tab ── */
