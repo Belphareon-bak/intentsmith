@@ -1,5 +1,15 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**Provozní doplnění, 2026-09-17:** po společném core/hunt kandidátu zbývá
+sjednotit instalaci a DB, dodat desktopový start/připojení k backendové
+uživatelské službě, zpřístupnit stav/frontu/ovládání huntu a dále kalibrovat
+testy (poslední panel má 13/38 nedostatečně průkazných duelů).
+Jde o otevřenou práci; publikovaný zdroj není nasazená instalace.
+`scripts/run.sh` dnes při již běžícím backendu odmítne start; jeho EXIT úklid
+navíc bez ověření vlastnictví maže port file a přepisuje exit status na 0.
+Desktopový launcher musí zachovat cizí backend i původní chybu, zobrazit ji
+v okně a být ověřen opakovaným spuštěním i ukončením.
+
 **Verze:** 4 · **Datum:** 2026-08-08 · **Vlastník:** operátor ·
 **Stav: PŘIJATO OPERÁTOREM 2026-08-21** společně s `PRODUCT.md`.
 

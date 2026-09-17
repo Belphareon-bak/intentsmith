@@ -31,6 +31,15 @@ Dokončený repo panel z 2026-09-12 má 12 kandidátů bez chyb rolí;
 binding neaktivuje. Přesné kontrakty, výsledky a omezení jsou v
 [modelové dokumentaci](docs/MODEL-SCORING-ACTIVATION.md).
 
+**Provozní dohotovení (2026-09-17):** měření a retence modelů ještě nejsou
+pohodlná desktopová aplikace. Následuje společná instalace a DB pro aplikaci
+i hunt, start/připojení Studia jednou ikonou, stav/fronta/ovládání huntu v GUI
+a další kalibrace rozlišitelnosti testů. Instalovaný timer stále míří na
+mobilní checkout s jiným CODE kontraktem a má `Persistent=false`.
+Publikace společné větve na GitHubu sama nepřepíná lokální instalaci ani
+nepřepočítává skóre. Doporučená varianta je backend jako uživatelská služba,
+Studio jako samostatná aplikace; přístup z mobilu zůstává v hranicích M7.
+
 [Kontrakty rozšíření po 1.0](docs/post-release/README.md) popisují skutečné
 zlepšování modelu, porozumění rozsáhlému projektu, úplné agenty a odložené
 notifikace, marketplace, média a aktualizace. Jsou návrhem k review.

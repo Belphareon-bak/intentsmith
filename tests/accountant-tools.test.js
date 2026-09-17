@@ -442,10 +442,24 @@ await test('fmtCZK formats correctly', () => {
 
 console.log('\n📅 9. Staleness & Verification');
 
-await test('checkStaleness — 2024 not stale (recently verified)', () => {
-  const r = checkStaleness(2024, 365); // 365 day tolerance
-  assert(!r.stale, `should not be stale with 365d tolerance`);
-  assert(r.confidence === 'high');
+await test('checkStaleness — 2024 freshness expires after the tolerance', () => {
+  const originalNow = Date.now;
+  const verifiedAt = Date.parse(RATES[2024]._meta.verified_at);
+  // Control elapsed time, not the verification metadata or production policy.
+  // The old wall-clock assertion expired on 2026-09-16.
+  try {
+    for (const [elapsedDays, expectedStale] of [[364, false], [365, false], [365.5, false], [366, true]]) {
+      Date.now = () => verifiedAt + elapsedDays * 86_400_000;
+      const r = checkStaleness(2024, 365);
+      assert(r.stale === expectedStale, `freshness at ${elapsedDays} days`);
+      assert(r.days_since_verification === Math.floor(elapsedDays));
+      assert(r.confidence === 'high');
+      assert(r.warnings.some(w => w.includes('limit 365')) === expectedStale,
+        `staleness warning at ${elapsedDays} days`);
+    }
+  } finally {
+    Date.now = originalNow;
+  }
 });
 
 await test('checkStaleness — 2025 has medium confidence', () => {
