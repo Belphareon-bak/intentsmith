@@ -142,7 +142,7 @@ function projectSetting(definition, document) {
     category: definition.category,
     valueType: definition.valueType,
     value,
-    writable: true,
+    writable: definition.key !== 'memory.saveHistory' || value === false,
     constraints: structuredClone(definition.constraints),
   };
   return {
@@ -433,6 +433,10 @@ export function createM7SettingsInformationCoreAdapters({
     const definition = SETTING_BY_KEY.get(request.key);
     if (!definition) return settingFailure(
       request, before.revision, 'REMOTE_SETTING_UNKNOWN', 'The setting is not in the mobile allowlist.',
+    );
+    if (request.key === 'memory.saveHistory' && request.value === false) return settingFailure(
+      request, before.revision, 'REMOTE_SETTING_VALUE_INVALID',
+      'Chat bez ukládání historie zatím není podporován. Historie se ukládá lokálně.',
     );
     if (!valueValid(definition, request.value)) return settingFailure(
       request, before.revision, 'REMOTE_SETTING_VALUE_INVALID', 'The requested value is invalid.',

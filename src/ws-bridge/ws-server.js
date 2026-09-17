@@ -360,6 +360,7 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
           session = createSessionAdapter({
             send: safeSend,
             handleRequest: (request) => chatController.handle(request),
+            assertChatAllowed: () => chatController.assertPersistence?.(),
             logger,
             // The subject is minted by the global upgrade guard. Message body
             // fields cannot manufacture or replace transport authority.

@@ -2406,8 +2406,8 @@ const SETTING_COPY = Object.freeze({
   'appearance.density': ['Hustota rozhraní', { comfortable: 'Pohodlná', compact: 'Kompaktní', spacious: 'Vzdušná' }],
   'appearance.fontSize': ['Velikost písma', null],
   'appearance.theme': ['Motiv', { dark: 'Tmavý', light: 'Světlý', system: 'Podle systému' }],
-  'memory.saveContext': ['Ukládat kontext', { true: 'Ano', false: 'Ne' }],
-  'memory.saveHistory': ['Ukládat historii', { true: 'Ano', false: 'Ne' }],
+  'memory.saveContext': ['Automatická paměť a učení (historie se ukládá samostatně)', { true: 'Ano', false: 'Ne' }],
+  'memory.saveHistory': ['Historie se ukládá lokálně (režim bez historie není podporován)', { true: 'Ano', false: 'Ne' }],
 });
 const MEMORY_COMPOSE_DRAFT_ID = 'compose:stored-information.append';
 

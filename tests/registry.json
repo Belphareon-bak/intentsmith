@@ -15707,6 +15707,66 @@
       },
       "flakeCount": 0,
       "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-CHAT-MEMORY-PRIVACY-TEST",
+      "path": "tests/chat-memory-privacy.test.js",
+      "argv": [
+        "node",
+        "tests/chat-memory-privacy.test.js"
+      ],
+      "capabilityId": "C3-015",
+      "tier": "T1",
+      "fixture": "isolated-home",
+      "profile": "database",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-REVIEW-REMEDIATION-20260917",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-TESTS-CHAT-PRIVACY-HTTP-TEST",
+      "path": "tests/chat-privacy-http.test.js",
+      "argv": [
+        "node",
+        "tests/chat-privacy-http.test.js"
+      ],
+      "capabilityId": "C3-015",
+      "tier": "T3",
+      "fixture": "isolated-home",
+      "profile": "server",
+      "timeoutMs": 90000,
+      "expectedDurationMs": 5000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": true,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-REVIEW-REMEDIATION-20260917",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
     }
   ]
 }

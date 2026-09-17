@@ -89,6 +89,47 @@ export function readUserSettings(db) {
   }
 }
 
+// Chat history is also the durable execution/recovery journal. Until an
+// ephemeral conversation contract exists, never acknowledge a privacy mode
+// which the product cannot provide. Existing false values are retained and
+// cause chat to fail closed, rather than being silently switched back on.
+export function validateMemorySettings(settings) {
+  const memory = settings?.memory;
+  if (memory !== undefined && !isPlainObject(memory)) {
+    throw new UserSettingsError('MEMORY_SETTINGS_INVALID', 'Memory settings must be an object.');
+  }
+  for (const key of ['saveHistory', 'saveContext']) {
+    if (memory?.[key] !== undefined && typeof memory[key] !== 'boolean') {
+      throw new UserSettingsError('MEMORY_SETTINGS_INVALID', `memory.${key} must be boolean.`);
+    }
+  }
+  for (const key of ['ltmEnabled', 'learningEnabled', 'feedbackDetection', 'patternTracking']) {
+    const value = settings?.[`c3.memory.${key}`];
+    if (value !== undefined && typeof value !== 'boolean') {
+      throw new UserSettingsError('MEMORY_SETTINGS_INVALID', `c3.memory.${key} must be boolean.`);
+    }
+  }
+  if (memory?.saveHistory === false) {
+    throw new UserSettingsError('CHAT_EPHEMERAL_UNSUPPORTED',
+      'Chat bez ukládání historie zatím není podporován. Historie a provozní žurnál se ukládají lokálně; vypnutí nebylo provedeno.');
+  }
+}
+
+export function readChatMemoryPolicy(db) {
+  const document = readUserSettings(db);
+  const settings = document.settings;
+  let valid = [UserSettingsStatus.VALID, UserSettingsStatus.MISSING].includes(document.status);
+  try { validateMemorySettings(settings); } catch { valid = false; }
+  const context = valid && settings.memory?.saveContext !== false;
+  const ltm = context && settings['c3.memory.ltmEnabled'] !== false;
+  const learning = ltm && settings['c3.memory.learningEnabled'] !== false;
+  return Object.freeze({
+    history: valid, context, ltm, learning,
+    feedback: learning && settings['c3.memory.feedbackDetection'] !== false,
+    patterns: learning && settings['c3.memory.patternTracking'] !== false,
+  });
+}
+
 function validateModelSettings(models) {
   if (models === undefined) {
     return { valid: true, settings: { ...DEFAULT_MODEL_SETTINGS }, reason: null };
@@ -194,6 +235,8 @@ export function updateUserSettings(db, updater) {
         'Settings updater must return a plain object',
       );
     }
+
+    validateMemorySettings(next);
 
     let serialized;
     try {

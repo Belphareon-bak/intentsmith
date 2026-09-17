@@ -504,12 +504,14 @@ function fetchBackendData(){
   /* Expertises — separate specialists (is_specialist or is_builtin+tools) */
   _fetchExpertises();
   /* Workers (agents) */
-  if(!_agentsForbidden){fetch(_backendBase+'/api/agents',{signal:AbortSignal.timeout(3000)}).then(function(r){if(r.status===403){_agentsForbidden=true;return{agents:[]};}if(!r.ok)return{agents:[]};return r.json();}).then(function(data){
+  if(!_agentsForbidden){fetch(_backendBase+'/api/agents?all=true',{signal:AbortSignal.timeout(3000)}).then(function(r){if(r.status===403){_agentsForbidden=true;return{agents:[]};}if(!r.ok)return{agents:[]};return r.json();}).then(function(data){
     var items=Array.isArray(data)?data:(data.agents||[]);
     if(items.length>0){WORKERS=items.map(function(a){
       var sched=a.definition&&a.definition.schedule?a.definition.schedule:null;
       var cronStr=sched?(sched.type==='cron'?_s(sched.value):_s(sched.value||sched.type)):_s(a.schedule||a.cron)||'';
-      return{id:a.id,name:_s(a.name),status:a.enabled===false?'Paused':(_s(a.status)||'Running'),
+      var binding=a.definition&&a.definition.m3_extension;
+      var native=!!(binding&&binding.contract==='M3AgentExtensionBinding'&&binding.version===1);
+      return{id:a.id,name:_s(a.name),native:native,enabled:a.enabled===true,status:native?(a.enabled===true?'Plánování povoleno':'Pozastaveno'):'Legacy — pouze čtení',
         cron:cronStr,lastRun:_s(a.lastRun)||'',desc:_s(a.description||a.desc)||''};
     });}else{WORKERS=[];}
     NAV[4].badge=WORKERS.length;NAV[4].recent=WORKERS.slice(0,3).map(function(w){return w.name;});renderCenter();
@@ -1314,7 +1316,8 @@ function centerSpecs(){
   }))));
 }
 
-function centerWorkers(){return h(React.Fragment,null,viewHead('Workeri',true,function(){_addNew('workers');},_mpNavBtn('skills')),h('div',{style:{flex:1,overflowY:'auto',padding:18}},grid(WORKERS.map(function(w){return card({name:w.name,emoji:'⚙️',desc:w.desc,status:w.status},function(){setDetail({name:w.name,fields:[{k:'Status',v:w.status,a:w.status==='Running'},{k:'Cron',v:w.cron},{k:'Poslední běh',v:w.lastRun},{k:'Popis',v:w.desc}],tags:['Worker',w.status],actions:['Spustit','Pozastavit','Editovat']});});}))));}
+function _workerDetail(w){return {name:w.name,_itemId:w.id,fields:[{k:'Status',v:w.status},{k:'Cron',v:w.cron},{k:'Poslední běh',v:w.lastRun},{k:'Popis',v:w.desc}],tags:['Worker',w.status],actions:w.native?['Spustit',w.enabled?'Pozastavit':'Povolit']:[]};}
+function centerWorkers(){return h(React.Fragment,null,viewHead('Workeri',false,null,_mpNavBtn('skills')),h('div',{style:{flex:1,overflowY:'auto',padding:18}},h('p',null,'Ovládání je dostupné pro nainstalované M3 agenty. Legacy záznamy jsou pouze ke čtení. Pozastavení zakáže další plánované běhy; právě běžící úlohu neruší.'),grid(WORKERS.map(function(w){return card({name:w.name,emoji:'⚙️',desc:w.desc,status:w.status},function(){setDetail(_workerDetail(w));});}))));}
 
 /* ═══ PROJECT CREATION WIZARD ═══ */
 function _wizardCanNext(){
@@ -2495,7 +2498,25 @@ var _secTokens=null;var _secAudit=null;var _secAuditType='all';var _secWebhook=n
 var _fbCategory='other';var _fbMessage='';var _fbSending=false;var _fbSent=false;var _fbAttachLast=false;var _fbCooldown=0;
 var _fbFiles=[];var _fbAttachLogs=false;
 function _loadBCfg(cb){if(_bCfg&&!_bCfgLoading){if(cb)cb();return;}_bCfgLoading=true;fetch(_backendBase+'/api/settings',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_bCfg=d||{};_bCfgLoading=false;if(cb)cb();renderCenter();}).catch(function(){_bCfg=_bCfg||{};_bCfgLoading=false;if(cb)cb();});}
-function _saveBCfg(){if(!_bCfg)return;clearTimeout(_bCfgSaveTimer);_bCfgSaveTimer=setTimeout(function(){fetch(_backendBase+'/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(_bCfg),signal:AbortSignal.timeout(3000)}).catch(function(){});},500);}
+var _bCfgSaveVersion=0;var _bCfgSaveChain=Promise.resolve();var _bCfgError=null;
+function _saveBCfg(){
+  if(!_bCfg)return;var version=++_bCfgSaveVersion;clearTimeout(_bCfgSaveTimer);
+  _bCfgSaveTimer=setTimeout(function(){
+    var body=JSON.stringify(_bCfg);
+    _bCfgSaveChain=_bCfgSaveChain.then(function(){
+      return fetch(_backendBase+'/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:body,signal:AbortSignal.timeout(5000)})
+        .then(function(r){return r.json().then(function(data){if(!r.ok||data.success!==true)throw new Error(data.error||'HTTP '+r.status);});})
+        .then(function(){if(version===_bCfgSaveVersion){_bCfgError=null;renderCenter();}})
+        .catch(function(error){
+          if(version!==_bCfgSaveVersion)return;
+          _bCfgError='Nastavení nebylo uloženo: '+error.message;renderCenter();
+          if(window._c3)window._c3.agentLog('TOOL','❌ '+_bCfgError);
+          return fetch(_backendBase+'/api/settings',{signal:AbortSignal.timeout(3000)}).then(function(r){if(!r.ok)throw new Error('read failed');return r.json();})
+            .then(function(data){if(version===_bCfgSaveVersion){_bCfg=data;renderCenter();}}).catch(function(){});
+        });
+    });
+  },500);
+}
 function _bVal(key,def){return _bCfg&&_bCfg[key]!=null?_bCfg[key]:def;}
 function _bSet(key,val){if(!_bCfg)_bCfg={};_bCfg[key]=val;_saveBCfg();renderCenter();}
 /* v91: Feature flags loader */
@@ -3474,7 +3495,10 @@ if(typeof C3Bus!=='undefined'){C3Bus.on('governor:report',function(){_governorDa
 function settingsMemory(){
   if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
   return h('div',null,
-    _cfgToggle('Dlouhodobá paměť (LTM)','C3 si pamatuje vaše preference, korekce a poznatky napříč konverzacemi','c3.memory.ltmEnabled',true),
+    _bCfgError?h('p',{role:'alert'},_bCfgError):null,
+    _bCfg.memory&&_bCfg.memory.saveHistory===false?h('div',{role:'alert'},'Chat je zastaven kvůli dříve vypnuté historii. Režim bez historie není podporován. ',h('button',{onClick:function(){if(window.confirm('Povolit lokální ukládání historie a obnovit chat?')){_bCfg.memory.saveHistory=true;_saveBCfg();renderCenter();}}},'Povolit ukládání historie')):null,
+    h('p',{style:{color:C.tx2}},'Historie konverzací a provozní žurnál se ukládají lokálně. Chat bez historie zatím není podporován. Přepínače níže ovládají automatickou paměť a učení; již uložené záznamy nemažou.'),
+    _cfgToggle('Dlouhodobá paměť (LTM)','Korekce, preference a vzorce se používají pouze uvnitř stejného projektu, bez projektu pouze uvnitř konverzace','c3.memory.ltmEnabled',true),
     _cfgToggle('Učení z preferencí','C3 se adaptuje na váš styl komunikace a pracovní postupy','c3.memory.learningEnabled',true),
     _cfgToggle('Detekce zpětné vazby','Automaticky rozpozná pochvalu, kritiku nebo opravu v konverzaci a upraví své chování','c3.memory.feedbackDetection',true),
     _cfgToggle('Sledování vzorců','Rozpoznává opakující se sekvence úloh a navrhuje efektivnější postupy','c3.memory.patternTracking',true),
@@ -4852,14 +4876,23 @@ function _detailActionHandler(d,a){
     if(cid5){fetch(_backendBase+'/api/conversations/'+cid5+'?hard=true',{method:'DELETE',signal:AbortSignal.timeout(3000)}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);c3.agentLog('TOOL','Konverzace '+d.name+' trvale smazána.');fetchBackendData();}).catch(function(e){c3.agentLog('TOOL','❌ Chyba mazání: '+(e.message||e));fetchBackendData();});}
     else if(pid5){fetch(_backendBase+'/api/projects/'+pid5+'?hard=true',{method:'DELETE',signal:AbortSignal.timeout(3000)}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);c3.agentLog('TOOL','Projekt '+d.name+' trvale smazán.');fetchBackendData();}).catch(function(e){c3.agentLog('TOOL','❌ Chyba mazání: '+(e.message||e));fetchBackendData();});}
     _centerState.detail=null;_centerState.detailConversations=null;renderCenter();
-  }else if(a==='Spustit'){
-    var wid=null;var w2=WORKERS.find(function(w){return w.name===d.name;});if(w2&&w2.id)wid=w2.id;
-    if(wid){fetch(_backendBase+'/api/agents/'+wid+'/run',{method:'POST',signal:AbortSignal.timeout(5000)}).then(function(){c3.agentLog('TOOL','Worker '+d.name+' spusten.');fetchBackendData();}).catch(function(){c3.agentLog('TOOL','Worker '+d.name+' — backend nedostupny.');});}
-    else{c3.agentLog('TOOL','Worker '+d.name+' spusten.');}
-  }else if(a==='Pozastavit'){
-    var wid2=null;var w3=WORKERS.find(function(w){return w.name===d.name;});if(w3&&w3.id)wid2=w3.id;
-    if(wid2){fetch(_backendBase+'/api/agents/'+wid2+'/disable',{method:'POST',signal:AbortSignal.timeout(3000)}).then(function(){c3.agentLog('TOOL','Worker '+d.name+' pozastaven.');fetchBackendData();}).catch(function(){c3.agentLog('TOOL','Worker '+d.name+' — backend nedostupny.');});}
-    else{c3.agentLog('TOOL','Worker '+d.name+' pozastaven.');}
+  }else if(a==='Spustit'||a==='Pozastavit'||a==='Povolit'){
+    var worker=d._itemId?WORKERS.find(function(w){return w.id===d._itemId;}):WORKERS.find(function(w){return w.name===d.name;});
+    if(!worker||!worker.id||!worker.native){c3.agentLog('TOOL','❌ Agent nemá ověřené native ovládání. Legacy záznam je pouze ke čtení.');return;}
+    var action=a==='Spustit'?'run':a==='Povolit'?'enable':'disable';
+    c3.agentLog('TOOL','Požadavek pro agenta '+d.name+' probíhá…');
+    return fetch(_backendBase+'/api/agent-extensions/instances/'+encodeURIComponent(worker.id)+'/'+action,{method:'POST',signal:AbortSignal.timeout(action==='run'?300000:5000)})
+      .then(function(r){return r.json().then(function(body){if(!r.ok)throw new Error(body.error||body.code||'HTTP '+r.status);return body;});})
+      .then(function(body){
+        if(action==='run'){
+          if(body.status!=='success')throw new Error('Běh nebyl úspěšně dokončen: '+(body.status||'neplatná odpověď')+(body.reason?' — '+body.reason:''));
+          c3.agentLog('TOOL','Agent '+d.name+' dokončil běh.');
+        }else{
+          if(body.id!==worker.id||body.enabled!==(action==='enable'))throw new Error('Server nepotvrdil požadovaný stav agenta.');
+          c3.agentLog('TOOL','Plánování agenta '+d.name+(body.enabled?' povoleno.':' pozastaveno. Právě běžící úloha může pokračovat.'));
+        }
+        fetchBackendData();
+      }).catch(function(error){c3.agentLog('TOOL','❌ Agent '+d.name+': '+error.message+' Stav ověřte obnovením přehledu.');fetchBackendData();});
   }else if(a==='Přidat do projektu'){
     /* Show project picker overlay in detail */
     _centerState._projectPicker={convName:d.name,projects:PROJECTS.filter(function(p){return p.status!=='archived';}),show:true};
@@ -5089,7 +5122,7 @@ window.addEventListener('c3-nav',function(e){
     else if(view==='projects'){item=PROJECTS.find(function(x){return x.name.indexOf(name)>=0;});if(item)setDetail({name:item.name,_itemId:item.id,fields:[{k:'Status',v:item.status,a:item.status==='Active'},{k:'Cesta',v:item.path||''},{k:'Popis',v:item.desc||''},{k:'Vytvořeno',v:item.created}],tags:item.tags,actions:['Otevřít','Editovat','Archivovat']});}
     else if(view==='chats'){item=CONVERSATIONS.find(function(x){return x.title.indexOf(name)>=0;});if(item)setDetail({name:item.title,fields:[{k:'Expertyza',v:item.expertise},{k:'Čas',v:item.time}],tags:['Chat',item.expertise],actions:['Otevřít','Archivovat']});}
     else if(view==='specialists'){item=SPECIALISTS.find(function(x){return x.name.indexOf(name)>=0;});if(item)setDetail({name:item.name,fields:[{k:'Oblast',v:item.desc}],tags:item.tags,actions:['Otevřít','Editovat']});}
-    else if(view==='workers'){item=WORKERS.find(function(x){return x.name.indexOf(name)>=0;});if(item)setDetail({name:item.name,fields:[{k:'Status',v:item.status,a:item.status==='Running'},{k:'Cron',v:item.cron},{k:'Popis',v:item.desc}],tags:['Worker',item.status],actions:['Spustit','Pozastavit','Editovat']});}
+    else if(view==='workers'){item=WORKERS.find(function(x){return x.name.indexOf(name)>=0;});if(item)setDetail(_workerDetail(item));}
   }
 });
 

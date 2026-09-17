@@ -74,7 +74,7 @@ import {
   isExplicitFactQuery,
 } from './design.js';
 // v86 M2: Pattern tracking (cross-conversation learning)
-import { patternTracker } from '../../memory/pattern-tracker.js';
+import { chatMemory } from '../../memory/chat-memory.js';
 
 // v57.3: Patterns for date-correction detection
 const DATE_CORRECTION_PATTERNS = [
@@ -490,7 +490,7 @@ export async function conversationHandler(input, context) {
 
   // v86 M2: Record turn for pattern tracking (cross-conversation learning)
   try {
-    patternTracker.recordTurn(decision.intent, input);
+    chatMemory(context).patterns?.recordTurn(decision.intent, input);
   } catch (_) {}
 
   // ════════════════════════════════════════════════════════════════════════════

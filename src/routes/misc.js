@@ -12,6 +12,7 @@ import {
   updateModelAutomationPolicy,
 } from '../db/model-policy.js';
 import { inspectM5UserSettingsPrivacy } from '../security/user-settings-privacy.js';
+import { validateMemorySettings, UserSettingsError } from '../db/user-settings.js';
 
 function rejectSensitiveSettings(settings, sendJSON, res) {
   const privacy = inspectM5UserSettingsPrivacy(settings);
@@ -92,6 +93,7 @@ export function createMiscRoutes(deps) {
         // `models`. Foreign keys inside `models` survive untouched.
         const { settings, ignoredReservedKeys } = stripReservedAutomationKeys(body);
         if (rejectSensitiveSettings(settings, sendJSON, res)) return;
+        validateMemorySettings(settings);
 
         db.db.prepare(`
           INSERT OR REPLACE INTO user_settings (id, data, updated_at)
@@ -108,6 +110,7 @@ export function createMiscRoutes(deps) {
           ignoredReservedKeys,
         });
       } catch (err) {
+        if (err instanceof UserSettingsError) return sendJSON(res, 400, { error: err.message, code: err.code });
         sendJSON(res, 500, safeError(err));
       }
     },
@@ -137,6 +140,7 @@ export function createMiscRoutes(deps) {
         `);
         const sanitized = stripReservedAutomationKeys(settings).settings;
         if (rejectSensitiveSettings(sanitized, sendJSON, res)) return;
+        validateMemorySettings(sanitized);
         const apply = db.db.transaction(() => {
           db.db.prepare(`
             INSERT OR REPLACE INTO user_settings (id, data, updated_at)
@@ -158,6 +162,7 @@ export function createMiscRoutes(deps) {
           policy: readModelAutomationPolicy(db.db).policy,
         });
       } catch (err) {
+        if (err instanceof UserSettingsError) return sendJSON(res, 400, { error: err.message, code: err.code });
         sendJSON(res, err?.httpStatus || 500, safeError(err));
       }
     },

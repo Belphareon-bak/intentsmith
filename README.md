@@ -418,7 +418,7 @@ Backend vystavuje REST API na `http://127.0.0.1:3335`:
 | `/api/chat` | Chat | Konverzace, zprávy, export |
 | `/api/projects` | Projects | Projekty, lifecycle, roadmapa |
 | `/api/expertises` | Expertises | CRUD, merge preview, schema |
-| `/api/agents` | Agents | CRUD, dry-run, scheduling |
+| `/api/agents` | Agents | Read-only legacy inventory; mutations return 410. Native control: `/api/agent-extensions/instances/:agentId/{run,enable,disable}` |
 | `/api/skills` | Skills | CRUD, reload, execution |
 | `/api/specialists` | Specialists | Enable/disable, discovery |
 | `/api/notifications` | Notifications | Kanály, test, trust |

@@ -413,7 +413,7 @@ tag sam o sobe neni dostatecna identita pro audit scoringu.
 
 | Promenna | Default | Popis |
 |----------|---------|-------|
-| `C3_ADMIN_TOKEN` | (prazdne) | Token pro /api/agents endpointy |
+| `C3_ADMIN_TOKEN` | (prazdne) | Produkční admin credential; desktop installer jej spravuje v privátním admin.env |
 | `C3_LICENSE_KEY` | (prazdne) | Licencni klic |
 | `C3_LOG_LEVEL` | info | Uroven logovani (debug/info/warn/error) |
 | `C3_TRACE` | 0 | Execution tracing (1 = zapnuto) |
@@ -436,7 +436,7 @@ tag sam o sobe neni dostatecna identita pro audit scoringu.
 ```bash
 cd ~/Projects/intentsmith
 
-# Integrita kanonickeho registru (263 programu)
+# Integrita kanonickeho registru (aktualni pocet vypise validator)
 npm run test:registry
 
 # Povinne deterministicke profily offline + database
@@ -575,3 +575,22 @@ mkdir -p ~/Projects/intentsmith/data
 ---
 
 *Posledni aktualizace: v135.0.0 (2026-07-30)*
+
+
+### Historie a automatická paměť
+
+Chat ukládá historii a provozní žurnál lokálně. Režim bez historie zatím není
+podporován: nové `memory.saveHistory=false` vrací chybu bez změny nastavení.
+Pokud je tato hodnota uložená ze starší verze, nový chat skončí
+`CHAT_PRIVACY_UNAVAILABLE` před uložením obsahu. Uživatel může ve Studiu,
+v Nastavení → Paměť, výslovně povolit ukládání a pokračovat. Historická data
+se touto opravou nemažou ani se nastavení samo nepřepíná.
+
+`memory.saveContext=false` vypne automatickou legacy paměť/učení a použití
+uloženého projektového kontextu; historie konverzace se ukládá samostatně.
+`c3.memory.ltmEnabled`, `learningEnabled`, `feedbackDetection` a
+`patternTracking` omezují odpovídající čtení/učení při každém požadavku.
+Automatická paměť má oddělené namespace pro projekty; bez projektu se váže
+na konverzaci. Staré nescopované LTM záznamy zůstávají v databázi, ale do
+nových chatových kontextů se nepřebírají. Explicitní M4 návrhy a jejich
+schvalování mají vlastní kontrakt; tyto přepínače nejsou univerzální mazání.

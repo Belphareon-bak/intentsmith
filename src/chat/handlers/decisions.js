@@ -19,7 +19,7 @@ import {
 } from '../cre-decision.js';
 import { toolExecutor, ExecutionStatus } from '../../executor/tool-executor.js';
 import { logger } from '../../core/logger.js';
-import { preferenceEngine, Structure, FollowUpStyle } from '../../memory/preferences.js';
+import { Structure, FollowUpStyle } from '../../memory/preferences.js';
 import { synthesizeWithLLM } from './utils/synthesis.js';
 import { getLanguageContext, inferUserLanguageFromHistory } from './utils/language.js';
 import { enforceOutputContract, buildOutputGateRetryPrompt } from './utils/output-gate.js';
@@ -30,7 +30,7 @@ import { buildStrictLanguageInstruction, validateResponseLanguage, buildLanguage
 import { FollowUpType, detectFollowUpType, getPreviousToolData } from './utils/followup.js';
 import { assessGoalAlignment } from './clarification.js';
 import { buildReportFallback } from './report.js';
-import { patternTracker } from '../../memory/pattern-tracker.js';
+import { chatMemory } from '../../memory/chat-memory.js';
 // v93.1: Extracted modules — re-exported for backward compatibility
 import { enrichSearchQuery, isMetaContinuation, buildConversationContext } from './utils/search-enrichment.js';
 import { handleAskUserDecision, formatClarificationRequest } from './ask-user.js';
@@ -344,7 +344,7 @@ async function handleToolCallDecision(input, decision, context) {
       });
 
       // v45.0: Get optimized preferences from engine
-      const optimizedPrefs = preferenceEngine.getPreferencesForSynthesis(decision.intent);
+      const optimizedPrefs = chatMemory(context).preferences.getPreferencesForSynthesis(decision.intent);
 
       // v45.0 KOLO 3: Detect ResponseIntent from format change request
       const responseIntent = detectResponseIntent(input, {
@@ -900,7 +900,7 @@ async function handleToolCallDecision(input, decision, context) {
     const primaryTool = decision.tools?.[0];
     const toolSuccess = executionResult.status !== ExecutionStatus.FAILED;
     if (primaryTool) {
-      patternTracker.recordTurn(decision.intent, input, { tool: primaryTool, toolSuccess });
+      chatMemory(context).patterns?.recordTurn(decision.intent, input, { tool: primaryTool, toolSuccess });
     }
   } catch (_) {}
 
@@ -912,7 +912,7 @@ async function handleToolCallDecision(input, decision, context) {
   // ════════════════════════════════════════════════════════════════════════════
 
   // v45.0: Get optimized preferences from engine
-  const optimizedPrefs = preferenceEngine.getPreferencesForSynthesis(decision.intent);
+  const optimizedPrefs = chatMemory(context).preferences.getPreferencesForSynthesis(decision.intent);
 
   // v45.0 KOLO 3: Detect ResponseIntent from user input
   const responseIntent = detectResponseIntent(input, {

@@ -20,12 +20,14 @@ import { getLTMContextForSynthesis } from './ltm-context.js';
 import { maybeCompact } from './context-compact.js';
 import { maybeInitContext } from './context-init.js';
 import { getMemoryBank } from '../memory/memory-bank.js';
-import { longTermMemory } from '../memory/long-term.js';
+import { chatMemory } from '../memory/chat-memory.js';
+import { readChatMemoryPolicy } from '../db/user-settings.js';
 import { buildBudgetedContext } from './context-budget.js';
 import db from '../db/database.js';
 import { isAbortError, throwIfAborted } from '../core/abort-error.js';
 import {
   ChatProcessingError,
+  ChatPrivacyError,
   isChatTurnError,
   throwIfTerminalChatFailure,
 } from '../core/chat-turn-error.js';
@@ -1728,7 +1730,12 @@ export async function resolveRegisteredExpertise(candidate) {
  * @param {Object} [request.context] - Additional context
  * @returns {Promise<{response: string, mode: string, confidence: number, metadata: Object}>}
  */
+ChatController.assertPersistence = function() {
+  if (!readChatMemoryPolicy(db.db).history) throw new ChatPrivacyError();
+};
+
 ChatController.handle = async function(request) {
+  ChatController.assertPersistence();
   let {
     message, sessionId, userId, authenticatedSubject,
     project, expertise, signal, context = {},
@@ -1824,11 +1831,12 @@ ChatController.handle = async function(request) {
   // Load history from DB (NOT from RAM)
   const dbHistory = store.buildHandlerHistory(dbConversationId, 10);
 
-  // v86: Build LTM context from persistent singleton (read-only, never affects routing)
+  const memory = chatMemory({ conversationId: dbConversationId });
+  // Only the durable conversation scope may contribute automatic memory.
   let ltmContext = '';
   try {
-    if (longTermMemory.initialized) {
-      ltmContext = getLTMContextForSynthesis(longTermMemory);
+    if (memory.ltm) {
+      ltmContext = getLTMContextForSynthesis(memory.ltm);
     }
   } catch (err) {
     logger.warn('ChatController', `LTM context extraction failed: ${err.message}`);
@@ -1838,7 +1846,7 @@ ChatController.handle = async function(request) {
   let memoryBankContext = '';
   try {
     const projectId = context.projectId || state.project?.id;
-    if (projectId) {
+    if (projectId && memory.policy.context) {
       const bank = getMemoryBank(db);
       if (bank) {
         memoryBankContext = bank.buildContext(projectId);
@@ -1852,7 +1860,7 @@ ChatController.handle = async function(request) {
   let contextInitBlock = '';
   try {
     const projectId = context.projectId || state.project?.id;
-    if (projectId) {
+    if (projectId && memory.policy.context) {
       const bank = getMemoryBank();
       contextInitBlock = maybeInitContext(dbConversationId, state.project, bank, db);
     }
@@ -1864,7 +1872,7 @@ ChatController.handle = async function(request) {
   let projectAnalysis = '';
   try {
     const projectId = context.projectId || state.project?.id;
-    if (projectId) {
+    if (projectId && memory.policy.context) {
       const row = db.projectMemory.get.get(projectId, 'last_analysis');
       if (row?.value) projectAnalysis = row.value;
     }
@@ -2058,7 +2066,7 @@ ChatController.handle = async function(request) {
     // v86 — LTM context for synthesis (now populated from persistent singleton)
     ltmContext,
     // v86 — LTM singleton reference for reinforcement + writes
-    ltm: longTermMemory.initialized ? longTermMemory : null,
+    ltm: memory.ltm,
     // v86 — Budget-aware context builder (call after CRE decides intent)
     buildBudgetedContext: (intent) => buildBudgetedContext(dbConversationId, intent, {
       store,
@@ -2066,11 +2074,11 @@ ChatController.handle = async function(request) {
       summarizer: null, // TODO: wire LLM summarizer for on-demand summary
     }),
     // v67.0 — Memory Bank context for synthesis
-    memoryBankContext,
+    memoryBankContext: memory.policy.context ? memoryBankContext : '',
     // v67.0 — Context Init block (first turn only)
-    contextInitBlock,
+    contextInitBlock: memory.policy.context ? contextInitBlock : '',
     // v88.2 — Cached project analysis (structure, stack, git, etc.)
-    projectAnalysis,
+    projectAnalysis: memory.policy.context ? projectAnalysis : '',
     // v56.0 Sprint 3 — ConversationStore reference
     conversationStore: store,
     // v63.0: AbortSignal for cancel propagation (from server req.on('close'))

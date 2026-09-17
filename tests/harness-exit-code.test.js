@@ -426,7 +426,9 @@ try {
   //              still empty. Verified against e87b1ca2 before repinning.
   //   129 -> 130 Desktop hunt exercises the actual system routes and branded
   //              local authority. isolated-test-db.js is its first import.
-  const expectedDatabaseReachableRootTests = 130;
+  //   130 -> 132 Review regressions exercise scoped chat memory and the real
+  //              HTTP settings/chat server; both start with the isolation anchor.
+  const expectedDatabaseReachableRootTests = 132;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

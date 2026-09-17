@@ -18,6 +18,7 @@ import { parseTodoCommand, handleTodo, handleDone } from './todo.js';
 import { handleFileDecision, completeM2FileRead, renderM2FileListResult } from './file.js';
 import { config } from '../../config.js';
 import { isAbortError } from '../../core/abort-error.js';
+import { chatMemory } from '../../memory/chat-memory.js';
 
 // ─── Lazy-loaded Phase modules (null if feature disabled) ────────────────────
 let handleBuildConfirmed, handleClarificationAnswer, handlePlanVerdict,
@@ -29,7 +30,7 @@ let handleSkillConfirmation, handleSkillEffectApproval, handleGovernedSkillTrigg
 
 // Feedback detection (M3)
 let detectFeedback, classifyFeedback, FeedbackSignal;
-let preferenceEngine, longTermMemory, MemoryKind, MemorySource;
+let MemoryKind, MemorySource;
 
 let _initialized = false;
 
@@ -43,10 +44,7 @@ async function _initModules() {
     detectFeedback = fb.detectFeedback;
     classifyFeedback = fb.classifyFeedback;
     FeedbackSignal = fb.FeedbackSignal;
-    const pref = await import('../../memory/preferences.js');
-    preferenceEngine = pref.preferenceEngine;
     const ltm = await import('../../memory/long-term.js');
-    longTermMemory = ltm.longTermMemory;
     MemoryKind = ltm.MemoryKind;
     MemorySource = ltm.MemorySource;
   } catch (err) {
@@ -377,6 +375,9 @@ intercepts.push({
   async fn(input, context, _mode) {
     if (!detectFeedback || !context.sessionState?.lastDecision) return { handled: false };
     try {
+      const memory = chatMemory(context);
+      if (!memory.policy.feedback || !memory.ltm) return { handled: false };
+      const preferenceEngine = memory.preferences;
       const feedback = detectFeedback(input, context.sessionState);
       if (feedback.type === FeedbackSignal.NEUTRAL) return { handled: false };
 
@@ -400,14 +401,15 @@ intercepts.push({
         });
       }
 
-      if (feedback.type === FeedbackSignal.CORRECTION && feedback.correctionData && longTermMemory.initialized) {
-        longTermMemory.write({
+      if (feedback.type === FeedbackSignal.CORRECTION && feedback.correctionData && memory.ltm) {
+        memory.ltm.write({
           kind: MemoryKind.CORRECTION,
           key: `corr_${Date.now()}`,
           value: {
             original: feedback.correctionData.original,
             corrected: feedback.correctionData.corrected,
             context: lastIntent,
+            provenance: { conversationId: context.conversationId, scope: memory.scope },
           },
           confidence: 0.8,
           source: MemorySource.CORRECTED,

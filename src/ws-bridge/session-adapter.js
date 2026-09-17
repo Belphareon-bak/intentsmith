@@ -198,6 +198,7 @@ export function createSessionAdapter({
   staleClock = null,
   m1CancelConfirmationTimeoutMs = M1_CANCEL_CONFIRMATION_TIMEOUT_MS,
   observeCoreEvent = null,
+  assertChatAllowed = null,
 }) {
   if (observeCoreEvent !== null && typeof observeCoreEvent !== 'function') {
     throw new TypeError('WSSession observeCoreEvent must be a function or null');
@@ -447,9 +448,9 @@ export function createSessionAdapter({
       return sendAgentEvent(type, turnId, payload, requestConversationId);
     };
 
-    sendTurnEvent(AgentEventType.TURN_START, { input: content });
-
     try {
+      assertChatAllowed?.();
+      sendTurnEvent(AgentEventType.TURN_START, { input: content });
       // ═══════════════════════════════════════════════════════════════
       // Build request with IDE event hooks injected into context.
       // ChatController.handle() passes context → fullContext → handler.

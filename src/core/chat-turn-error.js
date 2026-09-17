@@ -67,6 +67,14 @@ export class ChatProcessingError extends ChatTurnError {
   }
 }
 
+export class ChatPrivacyError extends ChatTurnError {
+  constructor() {
+    super('Chat je zastaven: ukládání historie je vypnuté nebo nastavení soukromí nelze ověřit. Režim bez historie zatím není podporován. Zkontrolujte nastavení paměti.', {
+      code: 'CHAT_PRIVACY_UNAVAILABLE', statusCode: 409, recoverable: false,
+    });
+  }
+}
+
 export class ChatPersistenceError extends ChatTurnError {
   constructor(cause = null) {
     super(ChatTurnErrorMessage.CHAT_PERSISTENCE_FAILED, {
