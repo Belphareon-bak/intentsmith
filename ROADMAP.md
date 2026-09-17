@@ -14,6 +14,9 @@ Oprava `3bbf8bc1` je zahrnutá v instalovaném společném `3f005fc0`; původní
 profil na `3bbf8bc1` má **354 PASS / 1 FAIL**
 (jen známá release pečeť). Privacy/settings, Studio build a fyzická kontrola
 panelů prošly. Původní `CHANGES_REQUIRED` není přijetím nového kandidáta.
+Společný produktový zdroj `3f005fc0` / dokumentační integrace `e564f22c`:
+**357 PASS / 1 FAIL / 1 BLOCKED**, release seal a oddělený OCR runtime;
+OCR integrace samostatně PASS. Kolísání heap testu zůstává doložené.
 [Přesný rozsah a průběžné důkazy](docs/review/2026-09-17-PRIVACY-PANELS-REREVIEW.md).
 
 **Časový kontext chatu, 2026-09-17:** obecné interaktivní požadavky nyní

@@ -15,8 +15,12 @@ Pravidla vývoje: [`CONTRACT.md`](CONTRACT.md) · Detail: [`docs/inventory/`](do
 **Aktuální společná instalace 2026-09-17:** `3f005fc0` spojuje specialisty,
 opravný commit `3bbf8bc1` (privacy/panely) a obecný časový kontext.
 Privacy + Studio focused PASS; fyzická geometrie a vstupy chatu ověřeny
-přes skutečnou ikonu i reload běžného profilu. Celý profil společné revize
-se ověřuje samostatně; 354/1 níže patří pouze předchozímu `3bbf8bc1`.
+přes skutečnou ikonu i reload běžného profilu. Profil společného zdroje
+na `e564f22c` má **357 PASS / 1 FAIL / 1 BLOCKED**: release pečeť a oddělený
+OCR runtime. OCR program samostatně ve svém prostředí PASS. Produktové
+zdroje jsou shodné s instalovaným `3f005fc0`; 354/1 níže patří předchozímu
+`3bbf8bc1`. Neúspěšný profil z dlouhé instalační cesty a kolísání heap testu
+jsou zachované v [navazujícím packetu](docs/review/2026-09-17-PRIVACY-PANELS-REREVIEW.md).
 
 **Oprava specialistů ve Studiu, 2026-09-17:** kandidát `be0f5d65` integruje
 účetní dokumentový workflow a autonomního Sázkaře, zachovává instalovanou
