@@ -215,6 +215,55 @@ test('context opt-out suppresses project working memory in fresh, warm and resto
   assert.deepEqual(savedRows(), before);
 });
 
+test('session info and direct serialization honor context opt-out without touching lifecycle or creating sessions', () => {
+  const realNow = Date.now;
+  let now = 1_800_000_000_000;
+  const id = 'privacy:info:warm';
+  try {
+    Date.now = () => now;
+    settings({ memory: { saveContext: true } });
+    ChatController.getSessionManager().getSession(id);
+    const live = ChatController.getState(id);
+    live.setProject({ id: a, name: 'privacy-A' });
+    live.setProjectGoal('INFO_CONTEXT_GOAL').setActiveFile('INFO_CONTEXT_FILE').setLastArtifact('INFO_CONTEXT_ARTIFACT');
+    live.incrementDriftCount();
+    live.saveToStorage();
+    const persisted = store.loadSessionState(id);
+    const projectRows = database.projectMemory.listByCategory.all(a, 'working_memory');
+    const before = ChatController.getSessionInfo(id);
+    assert.match(JSON.stringify(before), /INFO_CONTEXT_GOAL/);
+    const active = ChatController.getActiveSessions();
+
+    settings({ memory: { saveContext: false } });
+    now += 1000;
+    const hidden = ChatController.getSessionInfo(id); // no getState or new chat turn
+    assert.equal(hidden.exists, true);
+    assert.equal(Object.hasOwn(hidden.state, 'projectWorkingMemory'), false);
+    assert.doesNotMatch(JSON.stringify(hidden), /INFO_CONTEXT_/);
+    assert.equal(hidden.state.updatedAt, before.state.updatedAt);
+    assert.deepEqual(hidden.lifecycle, { ...before.lifecycle,
+      idleMs: before.lifecycle.idleMs + 1000, ageMs: before.lifecycle.ageMs + 1000,
+      expiresIn: before.lifecycle.expiresIn - 1000 });
+    assert.equal(Object.hasOwn(live.toJSON(), 'projectWorkingMemory'), false);
+    assert.doesNotMatch(JSON.stringify(live), /INFO_CONTEXT_/);
+    assert.equal(live.projectGoal, 'INFO_CONTEXT_GOAL', 'inspection does not mutate cached state');
+    assert.equal(store.loadSessionState(id), persisted, 'inspection does not rewrite serialized storage');
+    assert.deepEqual(database.projectMemory.listByCategory.all(a, 'working_memory'), projectRows);
+    assert.deepEqual(ChatController.getSessionInfo('privacy:info:missing'),
+      { exists: false, mode: null, state: null, lifecycle: null });
+    assert.deepEqual(ChatController.getActiveSessions(), active);
+
+    settings({ memory: { saveContext: 'invalid' } });
+    assert.equal(Object.hasOwn(ChatController.getSessionInfo(id).state, 'projectWorkingMemory'), false);
+    settings({ memory: { saveContext: true } });
+    assert.deepEqual(ChatController.getSessionInfo(id).state.projectWorkingMemory, before.state.projectWorkingMemory);
+  } finally {
+    Date.now = realNow;
+    settings({});
+    ChatController.removeSession(id);
+  }
+});
+
 test('shipped Studio handler uses native routes, reports actual outcomes and preserves enabled state', async () => {
   const { AgentRepository, initAgentTables } = await import('../src/agents/repository.js');
   initAgentTables(database.db);
