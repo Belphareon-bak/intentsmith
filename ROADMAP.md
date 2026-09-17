@@ -1,5 +1,11 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+Desktopový checkpoint `262b60d1` implementuje společnou instalaci, lokální
+ovládání huntu a Studio záložku; fyzická instalace se ověřuje samostatně.
+Přesný module graph má 1 332 hran, 3 cykly / 28 členů. Dvě nové hrany
+z `routes/system` vedou do lokální transportní autority a pevného systemd
+adaptéru. Nevzniká obecný shell ani vzdálená řídicí pravomoc.
+
 **Provozní doplnění, 2026-09-17:** po společném core/hunt kandidátu zbývá
 sjednotit instalaci a DB, dodat desktopový start/připojení k backendové
 uživatelské službě, zpřístupnit stav/frontu/ovládání huntu a dále kalibrovat
