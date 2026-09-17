@@ -12,7 +12,18 @@ skutečný server/SQLite/Ollamu i kontrolované negativní terminály.**
 Neutrální dokument, nezávislý na nástroji.
 Pravidla vývoje: [`CONTRACT.md`](CONTRACT.md) · Detail: [`docs/inventory/`](docs/inventory/)
 
-**Současný společný kandidát (publikační kontrola 2026-09-17):** runtime
+**Aktuální lokální instalace a opravy revize 2026-09-17:** `1da840c0`,
+větev `work/review-remediation-20260917`. Automatické učení respektuje
+nastavení i projektovou hranici; Studio potvrzuje pouze skutečné native
+agentí výsledky. Režim bez historie není implementovaný, API jej odmítá
+a již uložené false blokuje nový chat. Úplný profil: **354 PASS / 1 FAIL**,
+jen očekávaný release seal. Produkční Studio build, 10 nových regresí
+v čistém instalačním snapshotu a spuštění přes ikonu jsou ověřené.
+[Review packet](docs/review/2026-09-17-PRIVACY-AGENT-REMEDIATION.md),
+[strojový záznam](docs/execution/runs/privacy-agent-remediation-20260917.json).
+Stav **IMPLEMENTED / INSTALLED / REVIEW_REQUIRED**, nikoli přijatý release.
+
+**Předchozí společný kandidát (publikační kontrola 2026-09-17):** runtime
 `20e5a022`, publikační kontrola zdroje `26a038db`, větev
 `work/hunt-review-followup-20260912`. Nový úplný deterministický profil má
 353/353 PASS; [run record](docs/execution/runs/github-publication-20260917.json)
@@ -147,12 +158,12 @@ výsledek, ale brání vydávat ručně splněnou prerekvizitu za nightly readin
 Aktuální tabulka zahrnuje opravy soukromí/agentů z 17. 9. (519 programů).
 Historické výsledky níže nadále patří svým přesným source pinům.
 
-Census desktop/hunt implementace `9d13bb53` s testovacím follow-up `2587ae56`,
+Předchozí desktop/hunt checkpoint `9d13bb53` s testovacím follow-up `2587ae56`,
 2026-09-17. Společná instalace, produkční backend, GTK desktop launcher a GUI
 huntu jsou fyzicky ověřené. Finální profil: **353 PASS / 1 release-seal FAIL**.
 Obsah 503 modelových evaluací, 21 hunt attempts a 7 desired bindings se proti
 předinstalační záloze nezměnil. Novou kalibraci blokuje ovladač GPU; nová delta
-není nezávisle přijatá. [Přesný aktuální packet](docs/review/2026-09-17-DESKTOP-HUNT-REVIEW.md).
+není nezávisle přijatá. [Packet tohoto checkpointu](docs/review/2026-09-17-DESKTOP-HUNT-REVIEW.md).
 Následující dřívější výsledky si zachovávají vlastní piny.
 
 Společný kandidát včetně sidebar opravy `9d5e207a`: **353/353 PASS** a

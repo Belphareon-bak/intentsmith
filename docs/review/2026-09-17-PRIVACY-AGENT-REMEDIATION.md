@@ -80,3 +80,58 @@ INSTALL místo zastaralého pevného počtu odkazuje na skutečný registry
 validator. README/SYSTEM-MAP/ROADMAP přebírají aktuální počty, nikoli historické
 souhrny jako claim hotového releasu. Přesné závěrečné piny, instalace a nové
 výsledky jsou doplněné níže po dokončení ověření.
+
+## Závěrečné ověření a lokální aktualizace
+
+Přesný runtime/source pin: **`1da840c08b320e47392650d363080efb39027a03`**.
+Review rozsah `4ee13105..1da840c0`; pozdější dokumentační commit mění pouze
+zápis výsledků. [Strojový záznam](../execution/runs/privacy-agent-remediation-20260917.json)
+obsahuje časy, hashe reportů a ověřené hashe všech existujících suite logů.
+
+- Úplný profil `privacy-1da840c0`: **354 PASS / 1 FAIL / 0 BLOCKED /
+  0 TIMEOUT / 0 SKIPPED**, celkový verdikt **FAIL**. Jediný neúspěch:
+  `IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST`, přesně
+  `registry hash differs from the reviewed Gate 0 policy`.
+- Registry: **519 = 425 ACTIVE + 79 BLOCKED + 15 HISTORICAL**;
+  fingerprint `04252cb29ea270886c049b01034c2bfec034a77d22ec4675decf593ae052ecb6`.
+  Module graph **1 337 hran / 3 cykly / 28 členů**, bez nové neakceptované hrany.
+- Čistý detached instalační snapshot `1da840c0`: nové regrese **10/10 PASS**.
+  Build a závislosti jsou přeneseny z ověřeného sestavení, nejde o nové
+  stažení balíčků. Consumer guard zde znovu prošel. První ruční pokus použil
+  chybnou cestu ke guard skriptu; opakování ze správného `c3-ide/` prošlo.
+- Lokální instalátor provedl zálohu, migration probe, přepnutí společného
+  backend/Studio/hunt pinu a opětovné spuštění služby. Backend běží v produkčním
+  režimu. Timer zůstává persistentní, hunt nebyl spuštěný ani přerušený.
+- Skutečné Studio spuštěné přes GTK ikonu ukázalo nové vysvětlení historie
+  i projektové hranice. Existujících šest legacy agentů je pouze ke čtení;
+  otevřený detail nemá nefunkční akční tlačítka. Native agenta produkční DB
+  neobsahuje; jeho run/enable/disable důkaz je izolovaný service/runner test,
+  nikoli předstírané kliknutí na produkční instanci.
+- API bez credential vrací **401**, s lokální capability **200**.
+  Opakované otevření ikony zachovalo backend PID. Diagnostické Studio bylo
+  uzavřeno a aplikace znovu spuštěna běžnou ikonou bez debug portu.
+- DB `quick_check=ok`, žádné FK porušení. Hash obsahu 503 evaluací, 21 hunt
+  pokusů, 7 desired bindings, 28 položek paměti i user settings se nezměnil.
+  Žádné nové modelové/GPU měření tento packet netvrdí.
+
+Lokální raw evidence je v
+`.intentsmith-artifacts/review-remediation-20260917/`; předchozí neúspěšné
+běhy a fixturové chyby zůstávají zachované. CDP kontrola po opakovaném spuštění
+ikony narazila na přepsaný dočasný DevTools port soubor; pokračovala přes
+ověřený port živého procesu. Jedna diagnostická DOM selekce byla opravena;
+nejde o selhání produktové akce.
+
+## Co z revize ještě není uzavřené
+
+| Nález | Stav po opravě |
+|---|---|
+| F1 soukromí | Implementováno a ověřeno; ephemeral chat nepodporovaný, zvolená auditní varianta explicitního odmítnutí. Nezávislé re-review zbývá. |
+| F2 agentí ovládání | Native autorita a pravdivé výsledky; legacy pouze čtení. Nezávislé re-review zbývá. |
+| F3 paměť mezi projekty | Scoped čtení/učení a regrese; žádný claim nového fyzického modelového testu. Nezávislé re-review zbývá. |
+| F4 release gate | Vývojové regrese opravené; release seal zůstává FAIL podle CONTRACT §8. |
+| F5 GitHub/integrace | Specialistických 17 commitů publikováno, privacy větev připravena k review. Specialistická integrace, čtyři účetní hrany a sjednocení výchozí GitHub větve zůstávají otevřené. |
+| F6 dokumentace | README, INSTALL, DESKTOP, ROADMAP, SYSTEM-MAP a registry aktualizované; historické reporty zachované. |
+
+Další release práce je nezávislé re-review tohoto rozsahu, řízená integrace
+specialistů a M5/M6 acceptance. Tento zápis je důkaz implementace a instalace,
+nikoli schválení bezpečnostní hranice ani přijetí celého produktu.

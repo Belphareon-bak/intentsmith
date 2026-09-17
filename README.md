@@ -29,8 +29,9 @@ Aktuální autorita:
 [PRODUCT](PRODUCT.md), [ROADMAP](ROADMAP.md), [SYSTEM-MAP](SYSTEM-MAP.md).
 
 **Aktuální pracovní kandidát pro review:** větev
-[`work/desktop-hunt-20260917`](https://github.com/Belphareon-bak/intentsmith/tree/work/desktop-hunt-20260917),
-[desktop/hunt packet](docs/review/2026-09-17-DESKTOP-HUNT-REVIEW.md).
+[`work/review-remediation-20260917`](https://github.com/Belphareon-bak/intentsmith/tree/work/review-remediation-20260917),
+[opravy soukromí a agentů](docs/review/2026-09-17-PRIVACY-AGENT-REMEDIATION.md).
+Předchozí desktopová revize zůstává na `work/desktop-hunt-20260917`.
 Předchozí společný core/hunt je na `work/hunt-review-followup-20260912`.
 [Publikační ověření z 2026-09-17](docs/execution/runs/github-publication-20260917.json)
 má **353/353 PASS** na `26a038db`; původní běh 352 PASS / 1 FAIL je zachovaný.
@@ -43,10 +44,10 @@ binding neaktivuje. Přesné kontrakty, výsledky a omezení jsou v
 **Lokální aplikace nainstalována (2026-09-17):** IntentSmith má ikonu,
 backendovou uživatelskou službu a záložku **Modely → GPU hunt** se stavem,
 poslední známou frontou, výsledkem a ovládáním. Backend, Studio i hunt běží
-ze stejného pinu `9d13bb53` nad původní DB; timer má `Persistent=true`.
+ze stejného pinu `1da840c0` nad původní DB; timer má `Persistent=true`.
 Spuštění přes ikonu, opakované otevření, zavření okna, restart backendu,
 HTTP 401/200 a zrušení huntu jsou fyzicky ověřené. [Návod](docs/DESKTOP.md).
-Finální celý profil na `2587ae56`: **353 PASS / 1 FAIL** — pouze očekávaná
+Aktuální celý profil na `1da840c0`: **354 PASS / 1 FAIL** — pouze očekávaná
 release pečeť podle `CONTRACT.md §8`, nikoli úplný PASS. Nezávislé review
 nové delty zůstává otevřené. Kalibrační diagnostika rozlišila 7 duelů omezených
 variabilitou a 6 s malým rozdílem; nová GPU měření blokuje nesoulad načteného
@@ -367,14 +368,14 @@ intentsmith/
 │   ├── report-gen.json           #   Generování reportů
 │   └── summarizer.json           #   Sumarizace textu
 │
-├── tests/                        # Testy a kanonický registr 516 programů
+├── tests/                        # Testy a kanonický registr 519 programů
 │   ├── harness.js                #   Custom ESM test harness
 │   ├── cre-*.test.js             #   CRE testy (401+)
 │   ├── lifecycle-*.test.js       #   Lifecycle testy (103+)
 │   ├── code-intel-*.test.js      #   Code Intelligence testy (339+)
 │   ├── execution-loop.test.js    #   Execution Engine testy (597+)
 │   ├── upgrade-*.test.js         #   Model Upgrade testy
-│   └── registry.json             #   Kanonický registr 516 programů
+│   └── registry.json             #   Kanonický registr 519 programů
 │
 ├── docs/                         # Aktivní dokumentace + archiv
 │   ├── ARCHITECTURE.md           #   Kompletní architektura

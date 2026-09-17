@@ -50,3 +50,16 @@ neprůkazných. U 7 rozdíl překrývá variabilita, u 6 je pozorovaný rozdíl 
 `node scripts/analyze-hunt-panel.mjs /cesta/panel.json` vytváří opakovatelný
 rozbor s hashem vstupu. Diagnostika neoslabuje prahy a nepřepisuje skóre;
 změna úloh/opakování vyžaduje nový kontrakt a doměření incumbentů.
+
+## Paměť a agentí ovládání
+
+V **Nastavení → Memory** přepínače řídí automatickou paměť a učení.
+Konverzační historie se ukládá lokálně; režim bez historie zatím není
+podporovaný. Pokud jej starší verze uložila jako vypnutý, nový chat zůstane
+zablokovaný, dokud uživatel výslovně nepovolí ukládání. Vypnutí automatického
+učení nemaže dříve uložené záznamy.
+
+V **Workeri** lze native agenta spustit, pozastavit či povolit. Pozastavení
+zastaví další plánování, nikoli právě běžící úlohu. Neúspěšný, přeskočený
+nebo částečný běh se nehlásí jako úspěch. Starší legacy záznamy jsou pouze
+ke čtení. [Rozsah opravy a ověření](review/2026-09-17-PRIVACY-AGENT-REMEDIATION.md).

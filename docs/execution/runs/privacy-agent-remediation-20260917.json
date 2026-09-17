@@ -1,0 +1,207 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-17T12:29:41.650Z",
+  "status": "IMPLEMENTED_INSTALLED_REVIEW_REQUIRED",
+  "reviewBase": "4ee13105917439e3d0e13020d313b7c3bbc44a11",
+  "runtimeRevision": "1da840c08b320e47392650d363080efb39027a03",
+  "releaseAcceptance": false,
+  "scope": [
+    "F1 shared memory settings policy and honest unsupported history mode",
+    "F2 actual native agent outcomes in Studio",
+    "F3 durable project/conversation namespace for automatic legacy memory",
+    "F5 publish 17 specialist commits separately",
+    "F6 active documentation reconciliation"
+  ],
+  "limitations": [
+    "History-free chat remains unsupported; historical false blocks new turns until explicit true",
+    "Legacy stored memory retained but not automatically reassigned to projects",
+    "Native agent service/runner proven with actual SQLite and shipped UI handler in isolation, not a production instance",
+    "No new physical model inference or GPU calibration; NVIDIA/NVML mismatch remains",
+    "Release seal not repinned; full profile verdict remains FAIL",
+    "Specialist integration and four accounting imports await independent boundary review",
+    "GitHub main has unrelated history and remains unchanged"
+  ],
+  "deterministicRuns": [
+    {
+      "runId": "privacy-a4011362",
+      "sourceRevision": "a4011362713a56207836ad3e90bf1e6f775f56ec",
+      "registryHash": "17add9dbaae043b27ec96195b80b80bb77faeb3aea64eae964ba9379dd85b136",
+      "startedAt": "2026-09-17T12:09:26.572Z",
+      "endedAt": "2026-09-17T12:13:56.363Z",
+      "statusCounts": {
+        "PASS": 351,
+        "FAIL": 3,
+        "TIMEOUT": 0,
+        "BLOCKED": 1,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "reportSha256": "7388dcd642179644655b2fe9a74650f1154905fa5af6d3cdd2ce523c430e6836",
+      "verifiedLogs": 354,
+      "nonPass": [
+        {
+          "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+          "status": "FAIL",
+          "blockers": []
+        },
+        {
+          "id": "IS-T1-TESTS-DESKTOP-HUNT-TEST",
+          "status": "BLOCKED",
+          "blockers": [
+            "toolchain:systemd-analyze"
+          ]
+        },
+        {
+          "id": "IS-T1-TESTS-M6-CANDIDATE-PLAN-TEST",
+          "status": "FAIL",
+          "blockers": []
+        },
+        {
+          "id": "IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST",
+          "status": "FAIL",
+          "blockers": []
+        }
+      ]
+    },
+    {
+      "runId": "privacy-1da840c0",
+      "sourceRevision": "1da840c08b320e47392650d363080efb39027a03",
+      "registryHash": "04252cb29ea270886c049b01034c2bfec034a77d22ec4675decf593ae052ecb6",
+      "startedAt": "2026-09-17T12:18:14.917Z",
+      "endedAt": "2026-09-17T12:23:09.328Z",
+      "statusCounts": {
+        "PASS": 354,
+        "FAIL": 1,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "reportSha256": "769cc1254dafc89cbdc9035e848a37294038d9ea2a787cea298856ed7aa69d4e",
+      "verifiedLogs": 355,
+      "nonPass": [
+        {
+          "id": "IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST",
+          "status": "FAIL",
+          "blockers": []
+        }
+      ]
+    }
+  ],
+  "focused": {
+    "privacyDatabaseAndStudioAssertions": 9,
+    "realHttpRestartTests": 1,
+    "actualProcessRestarts": 2,
+    "adjacentFocusedAssertions": 36,
+    "artifactAssertions": 158,
+    "freshDetachedSnapshotPrivacyTests": 10,
+    "dependencyProvenance": "Dependencies and successful production build copied from controlled working installation; not a new package download/install"
+  },
+  "studioBuild": {
+    "sourceRevision": "a4011362713a56207836ad3e90bf1e6f775f56ec",
+    "status": "PASS",
+    "sourceUnchangedThroughRuntimeRevision": true,
+    "bundleSha256": "c9ad004136d0959e696fb1e8b3e331c424c794eda7106e52b7a69a9fcd59ac21"
+  },
+  "installation": {
+    "installed": true,
+    "revision": "1da840c08b320e47392650d363080efb39027a03",
+    "dbPath": "/home/belphareon/Projects/intentsmith/data/c3.db",
+    "backup": "/home/belphareon/.local/state/intentsmith/installation-backups/2026-09-17T12-24-09-283Z",
+    "launcher": "/home/belphareon/.local/share/applications/intentsmith.desktop"
+  },
+  "physicalStudio": {
+    "at": "2026-09-17T12:25:57.589Z",
+    "revision": "1da840c08b320e47392650d363080efb39027a03",
+    "memory": {
+      "title": "IntentSmith",
+      "historyUnsupported": true,
+      "scopedMemory": true
+    },
+    "auth": {
+      "withoutCredential": 401,
+      "withCredential": 200
+    },
+    "backendPID": 473960,
+    "backendAfterRepeatedIcon": 473960,
+    "legacyAgent": {
+      "legacyReadonly": true,
+      "unsupportedActionButtons": []
+    },
+    "nativeAgentProof": "isolated actual service/runner with shipped UI handler; no native agent installed in production DB",
+    "status": "PASS"
+  },
+  "retention": {
+    "before": {
+      "at": "2026-09-17T12:23:55.480Z",
+      "quickCheck": "ok",
+      "foreignKeyViolations": 0,
+      "tables": {
+        "user_settings": {
+          "count": 1,
+          "sha256": "6ebfcc9f261447188d2fb91c9897c11aa5a35b113518a50d54797a6e5cd6280f"
+        },
+        "model_evaluation_runs": {
+          "count": 503,
+          "sha256": "59fc0d9c7836203a5d5f60e8bc51b36222540290b421847bd1697d60b5531639"
+        },
+        "model_hunt_attempts": {
+          "count": 21,
+          "sha256": "3eae0aece52cd870078c87744a2decd0b4a869ab1346ebab86c1e79336cd8a01"
+        }
+      }
+    },
+    "after": {
+      "at": "2026-09-17T12:24:39.532Z",
+      "quickCheck": "ok",
+      "foreignKeyViolations": 0,
+      "tables": {
+        "user_settings": {
+          "count": 1,
+          "sha256": "6ebfcc9f261447188d2fb91c9897c11aa5a35b113518a50d54797a6e5cd6280f"
+        },
+        "model_evaluation_runs": {
+          "count": 503,
+          "sha256": "59fc0d9c7836203a5d5f60e8bc51b36222540290b421847bd1697d60b5531639"
+        },
+        "model_hunt_attempts": {
+          "count": 21,
+          "sha256": "3eae0aece52cd870078c87744a2decd0b4a869ab1346ebab86c1e79336cd8a01"
+        }
+      }
+    },
+    "additional": {
+      "backup": {
+        "model_desired_bindings": {
+          "count": 7,
+          "sha256": "40b3178fc481a804eb91b9deceaf68a8f618b0c6ef0f61b0200f2abf73faad2b"
+        },
+        "memory": {
+          "count": 28,
+          "sha256": "71dd9cece02ba86b5c20563a4b9fa0d42f4bbdd360376e9c7b11a62de536beb5"
+        }
+      },
+      "after": {
+        "model_desired_bindings": {
+          "count": 7,
+          "sha256": "40b3178fc481a804eb91b9deceaf68a8f618b0c6ef0f61b0200f2abf73faad2b"
+        },
+        "memory": {
+          "count": 28,
+          "sha256": "71dd9cece02ba86b5c20563a4b9fa0d42f4bbdd360376e9c7b11a62de536beb5"
+        }
+      },
+      "unchanged": true
+    }
+  },
+  "publication": {
+    "repository": "Belphareon-bak/intentsmith",
+    "branch": "work/review-remediation-20260917",
+    "specialistsBranch": "review/specialists-engines-20260917",
+    "specialistsRevision": "ff313081096ef0f800afd2196e729a1497a26f64",
+    "specialistsIntegrated": false
+  },
+  "evidenceRoot": ".intentsmith-artifacts/review-remediation-20260917/"
+}
