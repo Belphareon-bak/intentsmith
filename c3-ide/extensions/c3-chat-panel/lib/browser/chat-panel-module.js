@@ -2438,7 +2438,7 @@ function _modelButtonStyle(primary,disabled){
 }
 function _modelFieldStyle(){
   return {background:C.bg3,color:C.tx1,border:'1px solid '+C.border2,borderRadius:6,padding:'6px 10px',
-    minHeight:30,fontFamily:C.font,fontSize:_fs(11),colorScheme:_settingsVals.theme==='light'?'light':'dark'};
+    boxSizing:'border-box',height:30,fontFamily:C.font,fontSize:_fs(11),colorScheme:_settingsVals.theme==='light'?'light':'dark'};
 }
 function _modelTestFeedback(model,role){
   if(!_modelTestTarget||_modelTestTarget.role!==role||_canonicalModelIdentity(_modelTestTarget.model)!==_canonicalModelIdentity(model))return null;
