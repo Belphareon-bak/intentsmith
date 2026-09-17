@@ -5,6 +5,14 @@ Release closeout zůstává otevřený. Autorita: výslovné zadání operátora
 produkční práci autonomně; PRODUCT §5 a ROADMAP §10. Tento dokument nepřidává
 release požadavky ani nepřijímá vlastní implementaci.
 
+**Navazující review 2026-09-17:** operátor dodal nezávislou revizi přesného
+rozsahu `9b031278..c2989a3e`. Čtyři opravy jsou potvrzené, ale historický
+inventář M5 opomněl testovací TLS klíč a certifikát. Aktivní remediace doplní
+oba objekty, jejich oddělený zářijový containment a disposition podle dříve
+zvoleného `retain_and_rotate`; související validační projekce musí obsáhnout
+celý inventář a zachovat červencový záznam beze změny. Podpisy a přijetí
+zůstávají otevřené. Ostatní review plochy operátor výslovně neověřoval.
+
 - Vstup: vlastní čistý `9b031278` + nasazený `023af4dd`; zachovat obě linie.
 - Výsledek: sjednocený ověřený kandidát, opravené pozorované regrese,
   proveditelná release validace a nezávisle revidovatelný přesný rozsah.

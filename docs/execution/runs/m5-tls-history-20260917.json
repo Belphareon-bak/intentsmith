@@ -1,0 +1,117 @@
+{
+  "capturedAt": "2026-09-17T18:48:24.663351+00:00",
+  "knownInventoryBefore": 13,
+  "knownInventoryAfter": 15,
+  "objects": [
+    {
+      "path": "tests/fixtures/conversation-web/loopback-test-key.pem",
+      "gitBlob": "bce19952f2b7d4ef8a655f60f7f4cba00e8474be",
+      "bytes": 1704,
+      "objectType": "blob",
+      "kind": "private-key",
+      "containsPrivateKeyHeader": true,
+      "containsCertificateHeader": false,
+      "introducedIn": "d09c9998d6d1bc41c61bdae0de8ae34cd18e64fd",
+      "removedFromCurrentTreeIn": "779f4f5aad7ee5162d77186e6ec4e68e98475faa",
+      "introducedCommitReachableFromHead": true,
+      "removedCommitReachableFromHead": true,
+      "currentPathTracked": false,
+      "historyDisposition": "retain_and_rotate",
+      "dispositionAuthority": "docs/decisions/035-m5-privacy-remediation-authority.md#operátorský-výběr-history-disposition--2026-09-10",
+      "identityStatus": "RETIRED_PUBLISHED_NEVER_REUSE",
+      "signedDisposition": "PENDING"
+    },
+    {
+      "path": "tests/fixtures/conversation-web/loopback-test-cert.pem",
+      "gitBlob": "dff0160bda022551778706f820f6a2651b5a2b00",
+      "bytes": 1281,
+      "objectType": "blob",
+      "kind": "public-certificate",
+      "containsPrivateKeyHeader": false,
+      "containsCertificateHeader": true,
+      "introducedIn": "d09c9998d6d1bc41c61bdae0de8ae34cd18e64fd",
+      "removedFromCurrentTreeIn": "779f4f5aad7ee5162d77186e6ec4e68e98475faa",
+      "introducedCommitReachableFromHead": true,
+      "removedCommitReachableFromHead": true,
+      "currentPathTracked": false,
+      "historyDisposition": "retain_and_rotate",
+      "dispositionAuthority": "docs/decisions/035-m5-privacy-remediation-authority.md#operátorský-výběr-history-disposition--2026-09-10",
+      "identityStatus": "RETIRED_PUBLISHED_NEVER_REUSE",
+      "signedDisposition": "PENDING"
+    }
+  ],
+  "remoteIntroductionReachability": [
+    {
+      "ref": "refs/heads/work/chat-date-context-20260917",
+      "revision": "ba7c72d641594699cd435ce9417ee7c32d746487",
+      "matchesRemote": true
+    },
+    {
+      "ref": "refs/heads/work/desktop-hunt-20260917",
+      "revision": "4ee13105917439e3d0e13020d313b7c3bbc44a11",
+      "matchesRemote": true
+    },
+    {
+      "ref": "refs/heads/work/hunt-review-followup-20260912",
+      "revision": "5dedbfe8b6276ef94785ef9d394287ebe53e1514",
+      "matchesRemote": true
+    },
+    {
+      "ref": "refs/heads/work/privacy-panels-rereview-20260917",
+      "revision": "9b031278f6eb7c7cc2771057fbd86c2783dc5206",
+      "matchesRemote": true
+    },
+    {
+      "ref": "refs/heads/work/production-closeout-20260917",
+      "revision": "63fe1d4e925c0389e97bb8c0be920ef8e92a0acd",
+      "matchesRemote": true
+    },
+    {
+      "ref": "refs/heads/work/review-remediation-20260917",
+      "revision": "e0b75ee4a19b561b9f4236b437bd9cc9c8f6e572",
+      "matchesRemote": true
+    }
+  ],
+  "secretValuesRecorded": false,
+  "personalContentInspected": false,
+  "universalHistoryCompletenessClaimed": false,
+  "operatorReview": {
+    "candidate": "c2989a3e1a36fe61c080aa57e4ce33b41f4d4735",
+    "range": "9b031278..c2989a3e",
+    "finding": "M5_TLS_HISTORY_INVENTORY_INCOMPLETE",
+    "otherReviewPacketsCovered": false,
+    "releaseAcceptance": false
+  },
+  "liveInstallationObserved": {
+    "revision": "08f8d1c5e8dd888650e4dad4d301110177a28b69",
+    "sourceRoot": "/home/belphareon/.local/share/intentsmith/releases/08f8d1c5e8dd888650e4dad4d301110177a28b69",
+    "changedByThisTask": false
+  },
+  "soakAtCapture": {
+    "supervisorPid": 870665,
+    "alive": true,
+    "current": {
+      "id": "IS-T5-TESTS-M6-LONG-SOAK-E2E",
+      "runId": "c2989a3e-soak24h-local",
+      "startedAt": "2026-09-17T16:29:38.030Z",
+      "argv": [
+        "scripts/nightly-audit.js",
+        "--suite=IS-T5-TESTS-M6-LONG-SOAK-E2E",
+        "--allow-blocker=server,toolchain:linux-user-network-namespace,toolchain:iproute2",
+        "--timeout-minutes=1500",
+        "--deadline-hours=30",
+        "--concurrency=1",
+        "--out-dir=.intentsmith-artifacts/production-closeout-20260917/performance",
+        "--run-id=c2989a3e-soak24h-local"
+      ]
+    },
+    "serverPid": 883280,
+    "serverAlive": true,
+    "candidate": "c2989a3e1a36fe61c080aa57e4ce33b41f4d4735",
+    "status": "RUNNING_NOT_PASS"
+  },
+  "schemaVersion": 1,
+  "status": "IMPLEMENTED_VALIDATION_PENDING_REREVIEW_REQUIRED",
+  "releaseAcceptance": false,
+  "independentReviewOfRemediation": "PENDING"
+}

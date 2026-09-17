@@ -155,6 +155,7 @@ export function buildPrivacyIncidentEvidence(privacyBytes) {
     'history',
     'trackedObjectManifest',
     'rotationInventory',
+    ...(privacy.schemaVersion === 2 ? ['additionalTreeContainment'] : []),
   ], 'privacy incident');
   requireExactKeys(privacy.assessment, [
     'repositoryWasPublic',
@@ -179,7 +180,7 @@ export function buildPrivacyIncidentEvidence(privacyBytes) {
     'remediationAuthority',
   ], 'privacy history');
   if (
-    privacy.schemaVersion !== 1
+    ![1, 2].includes(privacy.schemaVersion)
     || !/^G0-[A-Z0-9-]+$/.test(privacy.incidentId || '')
     || privacy.status !== 'CONFIRMED_COMPROMISE'
     || privacy.assessment?.personalContentInspected !== false
@@ -232,9 +233,46 @@ export function buildPrivacyIncidentEvidence(privacyBytes) {
     trackedBlobs.add(item.gitBlob);
     trackedBytes += item.bytes;
   }
+  let containedPaths = privacy.currentTreeContainment.trackedPathsRemoved;
+  let containedBytes = privacy.currentTreeContainment.trackedBytesRemoved;
+  if (privacy.schemaVersion === 2) {
+    if (!Array.isArray(privacy.additionalTreeContainment)
+      || privacy.additionalTreeContainment.length === 0) {
+      throw new EvidenceInfrastructureError('privacy additional containment must be a nonempty array');
+    }
+    const containedBlobs = new Set();
+    const bytesByBlob = new Map(privacy.trackedObjectManifest.map(item => [item.gitBlob, item.bytes]));
+    for (const [index, event] of privacy.additionalTreeContainment.entries()) {
+      requireExactKeys(event, [
+        'sourceCommit', 'gitBlobs', 'trackedPathsRemoved', 'trackedBytesRemoved',
+        'method', 'userDataDeleted',
+      ], `privacy additionalTreeContainment[${index}]`);
+      if (!/^[a-f0-9]{40}$/.test(event.sourceCommit || '')
+        || event.method !== 'removed-test-identity-without-quarantine'
+        || event.userDataDeleted !== false
+        || !Array.isArray(event.gitBlobs) || event.gitBlobs.length === 0
+        || event.trackedPathsRemoved !== event.gitBlobs.length
+        || !Number.isSafeInteger(event.trackedBytesRemoved) || event.trackedBytesRemoved < 1) {
+        throw new EvidenceInfrastructureError('privacy additional containment is invalid');
+      }
+      let eventBytes = 0;
+      for (const blob of event.gitBlobs) {
+        if (!bytesByBlob.has(blob) || containedBlobs.has(blob)) {
+          throw new EvidenceInfrastructureError('privacy additional containment object is unknown or duplicated');
+        }
+        containedBlobs.add(blob);
+        eventBytes += bytesByBlob.get(blob);
+      }
+      if (eventBytes !== event.trackedBytesRemoved) {
+        throw new EvidenceInfrastructureError('privacy additional containment bytes disagree with manifest');
+      }
+      containedPaths += event.trackedPathsRemoved;
+      containedBytes += event.trackedBytesRemoved;
+    }
+  }
   if (
-    trackedPaths.size !== privacy.currentTreeContainment.trackedPathsRemoved
-    || trackedBytes !== privacy.currentTreeContainment.trackedBytesRemoved
+    trackedPaths.size !== containedPaths
+    || trackedBytes !== containedBytes
   ) {
     throw new EvidenceInfrastructureError(
       'privacy tracked-object totals disagree with containment metadata',
@@ -274,8 +312,8 @@ export function buildPrivacyIncidentEvidence(privacyBytes) {
     sha256: sha256(asBuffer(privacyBytes)),
     incidentId: privacy.incidentId,
     status: privacy.status,
-    trackedPathsRemoved: privacy.currentTreeContainment.trackedPathsRemoved,
-    trackedBytesRemoved: privacy.currentTreeContainment.trackedBytesRemoved,
+    trackedPathsRemoved: containedPaths,
+    trackedBytesRemoved: containedBytes,
     historyReachable: privacy.history.affectedObjectsRemainReachable,
     historyRewritten: privacy.history.historyRewritten,
     personalContentInspected: privacy.assessment.personalContentInspected,

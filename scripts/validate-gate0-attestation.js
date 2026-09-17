@@ -931,7 +931,7 @@ export function validateEvidenceIndexShape(index, expectedRegistryFacts) {
       'rotationCategories',
     ])
     || index.privacyIncident.path !== PRIVACY_INCIDENT_PATH
-    || index.privacyIncident.schemaVersion !== 1
+    || ![1, 2].includes(index.privacyIncident.schemaVersion)
     || !/^[a-f0-9]{64}$/.test(index.privacyIncident.sha256 || '')
     || index.privacyIncident.status !== 'CONFIRMED_COMPROMISE'
     || !Number.isInteger(index.privacyIncident.trackedPathsRemoved)

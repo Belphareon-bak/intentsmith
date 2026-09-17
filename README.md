@@ -13,7 +13,13 @@ jsou v [generovaném registru](docs/convergence/TEST-REGISTRY.md):
 **523 registrovaných testovacích programů**
 (`429 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
 
-**Aktuální instalace a validační checkpoint, 2026-09-17:** backend, Studio
+**Navazující M5 review, 2026-09-17:** historický inventář doplněn o zveřejněný
+TLS testovací klíč a certifikát: 15 známých objektů. Pár je trvale vyřazený;
+nový podpis vyžaduje čerstvé důkazy nad doplněným manifestem. [Remediace](docs/review/2026-09-17-M5-TLS-HISTORY-REMEDIATION.md).
+Při kontrole 20:43 CEST běží aplikace z novějšího `09cbd0d6`, samostatný
+24h soak pokračuje na `c2989a3e`; tato větev nemění živou instalaci.
+
+**Předchozí instalace a validační checkpoint, 2026-09-17:** backend, Studio
 a hunt jsou sjednocené na `c2989a3e`. Úplný offline/database profil:
 **358 PASS / 1 FAIL / 0 BLOCKED**; jediný FAIL je neobnovená release pečeť.
 Dalších 6 HTTP programů / 134 kontrol, produkční Studio build a 5minutové

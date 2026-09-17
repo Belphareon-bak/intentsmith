@@ -7,6 +7,12 @@ Větev `work/production-closeout-20260917`; rozsah nového review
 `9b031278..c2989a3e`. Pozdější evidence commit mění pouze dokumentaci.
 [WP](../wp/WP-PRODUCTION-CLOSEOUT-20260917.md).
 
+**Navazující nezávislé review:** potvrzuje výše uvedený rozsah a čtyři opravy,
+ale odhalilo dva dosažitelné TLS objekty mimo tehdejší historický inventář
+13/13. Ten není úplným podkladem pro nový podpis. [Remediace a přesné hranice
+review](2026-09-17-M5-TLS-HISTORY-REMEDIATION.md); původní měření níže zůstává
+historickou evidencí `c2989a3e`, nikoli přijetím nové delty.
+
 ## Co se opravilo
 
 1. Účetní OCR už neodvozuje cestu z nesouvisejícího PDF interpreteru.

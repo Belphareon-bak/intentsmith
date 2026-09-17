@@ -1,6 +1,12 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktuální production closeout, 2026-09-17:** instalovaný kandidát `c2989a3e`
+**Navazující M5 review, 2026-09-17:** čtyři closeout opravy nezávisle ověřené,
+nový nález je neúplný historický inventář. Doplnění 13 → 15 zachovává původní
+containment a vyřazuje zveřejněný TLS pár. Podpisy a acceptance zůstávají
+otevřené; nový scan musí vázat doplněný manifest. [Remediace a review scope](docs/review/2026-09-17-M5-TLS-HISTORY-REMEDIATION.md).
+Instalace při kontrole 20:43 CEST `09cbd0d6`; soak stále na `c2989a3e`.
+
+**Předchozí production closeout, 2026-09-17:** instalovaný kandidát `c2989a3e`
 zachovává všechny níže uvedené opravy i aktuální Studio design. Opravené
 OCR prostředí, retained-heap měření, dlouhé Unix socket cesty a generování
 privátních TLS fixtur: **358 PASS / 1 FAIL / 0 BLOCKED** v celém

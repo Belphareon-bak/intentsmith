@@ -12,7 +12,14 @@ skutečný server/SQLite/Ollamu i kontrolované negativní terminály.**
 Neutrální dokument, nezávislý na nástroji.
 Pravidla vývoje: [`CONTRACT.md`](CONTRACT.md) · Detail: [`docs/inventory/`](docs/inventory/)
 
-**Aktuální společná instalace 2026-09-17:** `c2989a3e` spojuje opravy
+**Navazující M5 inventář, 2026-09-17:** 15 známých historických objektů
+(původních 13 + testovací TLS klíč a veřejný certifikát). Červencový containment
+je zachovaný; zářijové odstranění je samostatný záznam. Nový podpis nesmí
+použít starý scan 13/13. [Remediace a meze review](docs/review/2026-09-17-M5-TLS-HISTORY-REMEDIATION.md).
+Při kontrole 20:43 CEST je živá instalace `09cbd0d6`; tato větev ji nemění.
+24h soak na `c2989a3e` pokračuje, není PASS.
+
+**Předchozí společná instalace 2026-09-17:** `c2989a3e` spojuje opravy
 soukromí/panelů, specialisty, časový kontext a Studio design `023af4dd`.
 Celý offline/database profil: **358 PASS / 1 FAIL / 0 BLOCKED**; jediný
 FAIL je release pečeť, bez změny její autority. Šest HTTP programů / 134
@@ -224,7 +231,7 @@ incumbenta má DB retry regresi. Panel D1/D2/R1/R2 je dokončený (12 kandidát�
 | | |
 |---|---:|
 | `src/**/*.js` | **224 885 ř.**, 627 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **245 908 ř.**, 531 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **245 958 ř.**, 531 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **523** (`429 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 100** |
 | HTTP rout | **245 statických deklarací**; nejde o počet runtime ověřených cest |
