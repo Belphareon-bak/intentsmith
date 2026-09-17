@@ -1,6 +1,8 @@
 # M5 — doplnění zveřejněné TLS testovací identity do historie
 
-**Stav: IMPLEMENTED / VALIDATION_PENDING / REREVIEW_REQUIRED.**
+**Stav: IMPLEMENTED / VALIDATED / REREVIEW_REQUIRED.**
+Implementace `6546d6486da9c6bb89b6c177576d3115bc92af2e`, review rozsah
+`63fe1d4e..6546d648`; navazující commit doplňuje pouze důkazy a dokumentaci.
 Autorita: nález v operátorem předaném nezávislém review
 `9b031278..c2989a3e`, PRODUCT §5, aktivní
 [WP](../wp/WP-PRODUCTION-CLOSEOUT-20260917.md).
@@ -60,17 +62,42 @@ je ve strojovém záznamu, nikoli odvozený z dřívějšího počtu pěti.
 
 ## Ověření a provoz
 
-Přesné výsledky a hashe vzniknou po ověření čistého implementačního commitu
+Na čistém implementačním `6546d648`:
+
+- Scanner: aktuální strom 0 nálezů, **15 checked / 15 reachable**.
+  Bez argumentu `PASS_CURRENT_TREE_HISTORY_REMEDIATION_REQUIRED`; s existující
+  disposition `retain_and_rotate` `PASS_CURRENT_TREE_HISTORY_RETAINED_AS_DECLARED`.
+  Druhá varianta není podepsaný history receipt ani potvrzení rotací.
+- Celý offline/database profil: **358 PASS / 1 FAIL / 0 BLOCKED / 0 TIMEOUT**,
+  359 programů, verdict **FAIL**. Jediný non-PASS je stejný
+  `nightly-orchestrator-self-test` kvůli zapečetěnému registry hashi.
+- Artifact validation **160/160**, privacy remediation **24/24**.
+- Registry 523, stejný fingerprint
+  `f0358f4af7bc6b702b2c8b08f10c472364c9cf0a699bfe3f76c7189cb1c777f1`.
+  Module boundary 1 358 hran, bez přidané či odebrané hrany.
+- Hash manifestu `bcf08f11dd675a02ce29adae964c1efc09d6538a6a12d7e35506c9927d621855`.
+  Projekce váže celý tento obsah; ověřeny shodné původní položky, metadata
+  obou nových Git blobů i jejich nepřítomnost ve stromu odstraňujícího commitu.
+
+Přesné výsledky, hashe úplného reportu a ověřeného seznamu všech 359 logů jsou
 ve [strojovém záznamu](../execution/runs/m5-tls-history-20260917.json).
 Původní artefakty jsou oddělené v `.intentsmith-artifacts/m5-tls-history-20260917/`.
 První focused běh odhalil zastaralý LOC census po rozšíření regresního testu;
 selhání je zachované a dokumentační počet opravený, kontrola se nevypínala.
+Nová indexová regrese nejprve použila approved schema-8 fixture pro kontrolu
+pending schema-7; chybná fixture je opravená a tento neúspěšný log zachovaný.
 
 24h soak na `c2989a3e` pokračoval při kontrole 17. 9. 20:43 CEST
 (supervisor 870665, server 883280), není dosud PASS. Živá aplikace mezitím
 běží z `09cbd0d6`; její souběžné změny ani běžící procesy tato remediace
 nepřepisuje. Nové výsledky M5 se vztahují k této větvi, nikoli automaticky
 k samostatné instalaci či k rozběhnutému soaku.
+Pozdější inventura zachytila další souběžnou instalaci `08f8d1c5`; přesný čas
+je ve strojovém záznamu. Tato remediace nemění `src/` ani Studio a nerestartuje
+uživatelskou aplikaci. Soak zůstává v běhu i po dokončení nového profilu.
+
+Zdroj a důkazy:
+[`work/production-closeout-20260917`](https://github.com/Belphareon-bak/intentsmith/tree/work/production-closeout-20260917).
 
 ## Další nezávislé review
 

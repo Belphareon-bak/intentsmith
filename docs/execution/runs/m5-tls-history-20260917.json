@@ -111,7 +111,260 @@
     "status": "RUNNING_NOT_PASS"
   },
   "schemaVersion": 1,
-  "status": "IMPLEMENTED_VALIDATION_PENDING_REREVIEW_REQUIRED",
+  "status": "IMPLEMENTED_VALIDATED_REREVIEW_REQUIRED",
   "releaseAcceptance": false,
-  "independentReviewOfRemediation": "PENDING"
+  "independentReviewOfRemediation": "PENDING",
+  "implementationRevision": "6546d6486da9c6bb89b6c177576d3115bc92af2e",
+  "implementationReviewRange": "63fe1d4e..6546d648",
+  "validatedAt": "2026-09-17T18:57:56.462240+00:00",
+  "manifestVerification": {
+    "candidateRevision": "6546d6486da9c6bb89b6c177576d3115bc92af2e",
+    "manifestSha256": "bcf08f11dd675a02ce29adae964c1efc09d6538a6a12d7e35506c9927d621855",
+    "priorManifestSha256": "4d2fb74d74cbb65f84c61bf6e30da2cd220266fc618cb006b64a55185e62adf6",
+    "objects": 15,
+    "bytes": 7620348,
+    "knownOriginalObjectsPreserved": true,
+    "originalContainmentPreserved": true,
+    "newObjectGitMetadataVerified": true,
+    "bothAbsentFromRemovalTree": true,
+    "releaseSealChanged": false,
+    "productRuntimeChanged": false,
+    "raw": {
+      "path": ".intentsmith-artifacts/m5-tls-history-20260917/manifest-verification.json",
+      "sha256": "8f5160392b8ee38c7789ff53032f4b8761e8ffe3c9bf67cac29adff80c4cd16a"
+    }
+  },
+  "incidentProjection": {
+    "path": "docs/convergence/PRIVACY-INCIDENT.json",
+    "schemaVersion": 2,
+    "sha256": "bcf08f11dd675a02ce29adae964c1efc09d6538a6a12d7e35506c9927d621855",
+    "incidentId": "G0-PRIVACY-001",
+    "status": "CONFIRMED_COMPROMISE",
+    "trackedPathsRemoved": 15,
+    "trackedBytesRemoved": 7620348,
+    "historyReachable": true,
+    "historyRewritten": false,
+    "personalContentInspected": false,
+    "rotationCategories": [
+      "license signing and validation secrets",
+      "administrative and issued API credentials",
+      "notification credentials",
+      "model and provider credentials",
+      "license and agent credentials",
+      "fixture passwords reused outside tests",
+      "project-scoped external credentials",
+      "ephemeral authorization material"
+    ],
+    "raw": {
+      "path": ".intentsmith-artifacts/m5-tls-history-20260917/incident-projection.json",
+      "sha256": "490ef7ed32d7ea7b97d1d5fa1b79a924dd52446109a25c5c2e432ea94b22cfd1"
+    }
+  },
+  "scans": {
+    "default": {
+      "contract": "M5PrivacyScanEvidence",
+      "version": 2,
+      "treeScan": {
+        "contract": "PrivacyTreeScan",
+        "version": 1,
+        "candidateRevision": "6546d6486da9c6bb89b6c177576d3115bc92af2e",
+        "scannedFiles": 2555,
+        "contentReadFiles": 1177,
+        "distributionManifestDigest": "sha256:31511d3f244aa1b8afc63a456c864c597731d2d914573a5692150cfc1a493893",
+        "findings": [],
+        "verdict": "PASS",
+        "secretValuesRecorded": false
+      },
+      "historyReachability": {
+        "checkedObjects": 15,
+        "reachableObjects": 15,
+        "unreachableObjects": 0,
+        "anyReachable": true,
+        "allReachable": true,
+        "declaredRefCount": 389,
+        "declaredRefDigest": "sha256:4a3e228164c7efb98a6561c1aa1b5614bad94c5dbd75ac660a4efe0903f62d49",
+        "declaredDisposition": null,
+        "verdict": "HISTORY_REMEDIATION_REQUIRED",
+        "personalContentInspected": false,
+        "objectIdentitiesReported": false,
+        "secretValuesRecorded": false
+      },
+      "verdict": "PASS_CURRENT_TREE_HISTORY_REMEDIATION_REQUIRED",
+      "secretValuesRecorded": false,
+      "raw": {
+        "path": ".intentsmith-artifacts/m5-tls-history-20260917/privacy-scan-default.json",
+        "sha256": "a8a7cd70c56d2833b739bedb3b6737c0586baef0e340621d4052d57a37645457"
+      }
+    },
+    "retained": {
+      "contract": "M5PrivacyScanEvidence",
+      "version": 2,
+      "treeScan": {
+        "contract": "PrivacyTreeScan",
+        "version": 1,
+        "candidateRevision": "6546d6486da9c6bb89b6c177576d3115bc92af2e",
+        "scannedFiles": 2555,
+        "contentReadFiles": 1177,
+        "distributionManifestDigest": "sha256:31511d3f244aa1b8afc63a456c864c597731d2d914573a5692150cfc1a493893",
+        "findings": [],
+        "verdict": "PASS",
+        "secretValuesRecorded": false
+      },
+      "historyReachability": {
+        "checkedObjects": 15,
+        "reachableObjects": 15,
+        "unreachableObjects": 0,
+        "anyReachable": true,
+        "allReachable": true,
+        "declaredRefCount": 389,
+        "declaredRefDigest": "sha256:4a3e228164c7efb98a6561c1aa1b5614bad94c5dbd75ac660a4efe0903f62d49",
+        "declaredDisposition": "retain_and_rotate",
+        "verdict": "HISTORY_RETAINED_AS_DECLARED",
+        "personalContentInspected": false,
+        "objectIdentitiesReported": false,
+        "secretValuesRecorded": false
+      },
+      "verdict": "PASS_CURRENT_TREE_HISTORY_RETAINED_AS_DECLARED",
+      "secretValuesRecorded": false,
+      "raw": {
+        "path": ".intentsmith-artifacts/m5-tls-history-20260917/privacy-scan-retained.json",
+        "sha256": "499c4b9f9c9418466c502bbd3cb814e085be87b3f88f0dab92001071f4e2805f"
+      }
+    }
+  },
+  "validation": {
+    "deterministic": {
+      "sourceRevision": "6546d6486da9c6bb89b6c177576d3115bc92af2e",
+      "registryHash": "f0358f4af7bc6b702b2c8b08f10c472364c9cf0a699bfe3f76c7189cb1c777f1",
+      "startedAt": "2026-09-17T18:52:01.384Z",
+      "endedAt": "2026-09-17T18:56:41.059Z",
+      "statusCounts": {
+        "PASS": 358,
+        "FAIL": 1,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL",
+      "exitCode": 1,
+      "options": {
+        "concurrency": 1,
+        "failFast": false,
+        "timeoutMs": 600000,
+        "deadlineMs": 28800000,
+        "profiles": [
+          "database",
+          "offline"
+        ],
+        "ids": [],
+        "exclude": [],
+        "allowBlockers": [
+          "toolchain:accountant-ocr-runtime",
+          "toolchain:bubblewrap",
+          "toolchain:bwrap",
+          "toolchain:git",
+          "toolchain:prlimit",
+          "toolchain:python-pdf-runtime",
+          "toolchain:systemd-analyze"
+        ],
+        "noBlock": false
+      },
+      "report": {
+        "path": ".intentsmith-artifacts/m5-tls-history-20260917/deterministic/6546d648/report.json",
+        "sha256": "a499a552fc4bb2f39a8efb9767a5518c0419f2880ac03b6cbd11ac0f941eaf01"
+      },
+      "verifiedLogs": 359,
+      "suiteLogManifest": {
+        "path": ".intentsmith-artifacts/m5-tls-history-20260917/verified-suite-logs.json",
+        "sha256": "8a418945af05db2e92ae3d597c50a2620317f60eef9e9d5c8c81e79d7ffe2651"
+      },
+      "nonPass": [
+        {
+          "id": "IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST",
+          "status": "FAIL"
+        }
+      ]
+    },
+    "focused": [
+      {
+        "program": "tests/artifact-validation.test.js",
+        "pass": 160,
+        "fail": 0,
+        "log": {
+          "path": ".intentsmith-artifacts/m5-tls-history-20260917/artifact-validation-fixed.log",
+          "sha256": "f52f3b750d7cd8d7f751d21f040b6e178db02e7090f12d6ed38b3f50e3b68476"
+        }
+      },
+      {
+        "program": "tests/m5-privacy-remediation.test.js",
+        "pass": 24,
+        "fail": 0,
+        "log": {
+          "path": ".intentsmith-artifacts/m5-tls-history-20260917/privacy-focused.log",
+          "sha256": "0591ceaa679e1c892c6c641db2c1235eea7b01b2e5bfda417d326bf8da28db2f"
+        }
+      }
+    ],
+    "registry": {
+      "programs": 523,
+      "raw": {
+        "path": ".intentsmith-artifacts/m5-tls-history-20260917/registry.log",
+        "sha256": "2bd15f34bbbe66ab2dd098ff110065fc06f0de17cd1198edbbaf33f72dcab6a2"
+      }
+    },
+    "boundary": {
+      "edges": 1358,
+      "added": 0,
+      "removed": 0,
+      "raw": {
+        "path": ".intentsmith-artifacts/m5-tls-history-20260917/boundary.log",
+        "sha256": "9bf27f6b5be567ec4bef7b2f0a1ab7d33d7fabd14ba437d36399c8e78c08651d"
+      }
+    }
+  },
+  "preservedNegativeEvidence": [
+    {
+      "reason": "Documentation LOC census was stale after adding regression coverage. Fixed without relaxing census.",
+      "raw": {
+        "path": ".intentsmith-artifacts/m5-tls-history-20260917/artifact-validation-initial.log",
+        "sha256": "ab53df8ab8681648a9495b7470635220179d94099dd38e024202a5acecdbceae"
+      }
+    },
+    {
+      "reason": "New index regression initially passed an approved schema-8 fixture to the schema-7 shape validator; corrected to pendingAttestation fixture.",
+      "raw": {
+        "path": ".intentsmith-artifacts/m5-tls-history-20260917/artifact-validation-final.log",
+        "sha256": "41780f5d2fbbaa04d42acc4074089c981024961467c9a417133056abc1fd9a85"
+      }
+    }
+  ],
+  "publication": {
+    "remote": "github",
+    "branch": "work/production-closeout-20260917",
+    "documentationCommitFollowsImplementation": true,
+    "releaseSealChanged": false
+  },
+  "soakFinalObservation": {
+    "capturedAt": "2026-09-17T18:57:56.465369+00:00",
+    "supervisorPid": 870665,
+    "alive": true,
+    "current": {
+      "id": "IS-T5-TESTS-M6-LONG-SOAK-E2E",
+      "runId": "c2989a3e-soak24h-local",
+      "startedAt": "2026-09-17T16:29:38.030Z",
+      "argv": [
+        "scripts/nightly-audit.js",
+        "--suite=IS-T5-TESTS-M6-LONG-SOAK-E2E",
+        "--allow-blocker=server,toolchain:linux-user-network-namespace,toolchain:iproute2",
+        "--timeout-minutes=1500",
+        "--deadline-hours=30",
+        "--concurrency=1",
+        "--out-dir=.intentsmith-artifacts/production-closeout-20260917/performance",
+        "--run-id=c2989a3e-soak24h-local"
+      ]
+    },
+    "candidate": "c2989a3e1a36fe61c080aa57e4ce33b41f4d4735",
+    "status": "RUNNING_NOT_PASS",
+    "changedByThisTask": false
+  }
 }

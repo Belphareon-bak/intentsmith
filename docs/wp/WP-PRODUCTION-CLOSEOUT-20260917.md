@@ -13,6 +13,11 @@ zvoleného `retain_and_rotate`; související validační projekce musí obsáhn
 celý inventář a zachovat červencový záznam beze změny. Podpisy a přijetí
 zůstávají otevřené. Ostatní review plochy operátor výslovně neověřoval.
 
+Follow-up `6546d648`: scanner 15/15 a 0 current-tree nálezů; celý profil
+358 PASS / 1 FAIL (stejná pečeť), 0 BLOCKED; artifact validation 160/160,
+privacy 24/24. [Remediace a scope dalšího review](../review/2026-09-17-M5-TLS-HISTORY-REMEDIATION.md).
+Nová delta je REREVIEW_REQUIRED; custody/podpisy a 24h soak zůstávají otevřené.
+
 - Vstup: vlastní čistý `9b031278` + nasazený `023af4dd`; zachovat obě linie.
 - Výsledek: sjednocený ověřený kandidát, opravené pozorované regrese,
   proveditelná release validace a nezávisle revidovatelný přesný rozsah.
