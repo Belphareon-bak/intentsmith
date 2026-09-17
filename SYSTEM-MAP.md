@@ -212,15 +212,15 @@ incumbenta má DB retry regresi. Panel D1/D2/R1/R2 je dokončený (12 kandidát�
 
 | | |
 |---|---:|
-| `src/**/*.js` | **224 977 ř.**, 627 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **246 001 ř.**, 531 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **224 982 ř.**, 627 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **246 018 ř.**, 531 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **523** (`429 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 100** |
-| HTTP rout | **245 statických deklarací**; nejde o počet runtime ověřených cest |
+| HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
 Aktuální registry fingerprint je
-`f29ced20ed0c8e847d8f28ff92a19231c75b78328d18ede86f8bd5c4cb35a4c4`.
+`f0358f4af7bc6b702b2c8b08f10c472364c9cf0a699bfe3f76c7189cb1c777f1`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 

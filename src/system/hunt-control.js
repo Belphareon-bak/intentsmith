@@ -75,7 +75,7 @@ export function createHuntControl({ installationFile = process.env.INTENTSMITH_I
         schemaVersion: 1, generatedAt: new Date().toISOString(),
         installation: { revision: installed.revision, sourceRoot: installed.sourceRoot, dbPath: installed.dbPath },
         state: active ? (activeService.ActiveState === 'deactivating' ? 'STOPPING' : 'RUNNING')
-          : service.ActiveState === 'failed' ? 'FAILED' : timer.ActiveState === 'active' ? 'WAITING' : 'PAUSED',
+          : !gpu.available ? 'BLOCKED' : service.ActiveState === 'failed' ? 'FAILED' : timer.ActiveState === 'active' ? 'WAITING' : 'PAUSED',
         service, timer, evaluation, gpu, current, progress,
         // A stored plan is explicitly dated, never passed off as a fresh discovery.
         queue: progress?.queue || [], queueObservedAt: progress?.updatedAt || null,

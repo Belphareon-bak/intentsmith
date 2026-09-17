@@ -92,6 +92,11 @@ export function acquireGpuEvaluationLock(opts = {}) {
     } catch (error) {
       if (error?.code !== 'EEXIST') throw error;
       const owner = ownerAt(lockPath);
+      // Another process can still be writing its owner after mkdir succeeds.
+      // Missing or malformed ownership is not evidence that the lease is dead.
+      if (!Number.isSafeInteger(owner?.pid) || owner.pid <= 0) {
+        throw Object.assign(new Error('GPU evaluation ownership is unavailable'), { code: 'GPU_EVALUATION_BUSY' });
+      }
       if (processAlive(owner?.pid)) {
         throw Object.assign(new Error(`GPU evaluation is already active (pid ${owner.pid}, ${owner.command || 'unknown command'})`), { code: 'GPU_EVALUATION_BUSY' });
       }

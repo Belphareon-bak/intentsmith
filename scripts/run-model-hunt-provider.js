@@ -11,6 +11,7 @@ import { readFile } from 'node:fs/promises';
 import { once } from 'node:events';
 import { createServer } from 'node:net';
 import { analyzeHuntDecisions, inspectHuntGpu } from '../src/upgrade/model-hunt-diagnostics.js';
+import { holdGpuEvaluationLock } from '../src/upgrade/gpu-evaluation-lock.js';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const runtime = process.env.INTENTSMITH_EVAL_RUNTIME || join(homedir(), '.local/share/intentsmith/evaluation-provider/0.34.0-intentsmith.1');
@@ -28,6 +29,19 @@ const publish = values => {
     sourceRoot: root, ...values }) + '\n', { mode: 0o600 });
   renameSync(next, currentFile);
 };
+// Manual and scheduled units must not race for the provider or overwrite the
+// active run's status. The child separately owns the shared GPU evaluation lock.
+const providerLease = (() => {
+  try { return holdGpuEvaluationLock({ lockPath: join(state, 'provider.lock') }); }
+  catch (error) {
+    if (error.code !== 'GPU_EVALUATION_BUSY') throw error;
+    const result = { generatedAt: new Date().toISOString(), status: 'SCHEDULED_SKIPPED', reason: 'EVALUATION_PROVIDER_BUSY', results: [] };
+    writeFileSync(join(runDir, 'result.json'), JSON.stringify(result) + '\n', { mode: 0o600 });
+    rmSync(join(runDir, 'tmp'), { recursive: true, force: true });
+    console.log(JSON.stringify(result));
+    process.exit(0);
+  }
+})();
 const port = createServer();
 try {
   await new Promise((ok, fail) => { port.once('error', fail); port.listen(11435, '127.0.0.1', ok); });
@@ -128,4 +142,5 @@ try {
   // Keep logs/results as evidence. The service cgroup also owns every child,
   // including on an uncatchable wrapper failure (systemd KillMode=control-group).
   rmSync(join(runDir, 'tmp'), { recursive: true, force: true });
+  providerLease.release();
 }

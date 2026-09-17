@@ -9,6 +9,7 @@ import { promisify } from 'node:util';
 import vm from 'node:vm';
 import { createHuntControl } from '../src/system/hunt-control.js';
 import { analyzeHuntDecisions, inspectHuntGpu } from '../src/upgrade/model-hunt-diagnostics.js';
+import { acquireGpuEvaluationLock } from '../src/upgrade/gpu-evaluation-lock.js';
 import { createGlobalAuthAuthority } from '../src/security/global-auth-policy.js';
 import { createSystemRoutes } from '../src/routes/system.js';
 import { ROOT, refreshDesktopCaches, renderDesktopInstallation, resolveElectronSandboxArgs, verifyDesktopUnits, waitForBackend, writePrivate } from '../scripts/desktop-runtime.mjs';
@@ -213,7 +214,23 @@ test('selected installed evaluation pins artifact and role, forbids effects on d
   await assert.rejects(control.evaluate({...request,suiteContractSha256:'f'.repeat(64)},evaluations),/IDENTITY/);
   active=true;await assert.rejects(control.evaluate(request,evaluations),/ALREADY_RUNNING/);
   active=false;available=false;await assert.rejects(control.evaluate(request,evaluations),/GPU unavailable/);
+  assert.equal((await control.status()).state,'BLOCKED');
   assert.equal(launched.length,1);
+});
+
+test('provider wrapper preserves an active run and incomplete ownership blocks a concurrent claimant',async t=>{
+  const {home}=await fixture(t),state=join(home,'hunt'),lockPath=join(state,'provider.lock');
+  await mkdir(state);
+  const current='{"status":"RUNNING","runId":"run-owner"}\n';
+  await writeFile(join(state,'current.json'),current,{mode:0o600});
+  await mkdir(lockPath);
+  assert.throws(()=>acquireGpuEvaluationLock({lockPath}),error=>error.code==='GPU_EVALUATION_BUSY');
+  await rm(lockPath,{recursive:true});
+  const lease=acquireGpuEvaluationLock({lockPath});t.after(()=>lease.release());
+  const result=await exec(process.execPath,[join(ROOT,'scripts/run-model-hunt-provider.js'),'--run'],{
+    env:{...process.env,INTENTSMITH_HUNT_STATE_DIR:state,INTENTSMITH_EVAL_RUNTIME:join(home,'must-not-be-read')},timeout:10000});
+  assert.equal(JSON.parse(result.stdout).reason,'EVALUATION_PROVIDER_BUSY');
+  assert.equal(await readFile(join(state,'current.json'),'utf8'),current);
 });
 
 test('selected evaluation HTTP rejects a remote or forged subject before reading inventory',async()=>{
