@@ -747,6 +747,8 @@ await testAsync('FILE_EXPLAIN preserves complete UTF-8 source data', async () =>
     assert.equal(result.response.tag.metadata.explanationComplete, true);
     assert.equal(JSON.parse(e.calls[0].prompt).file.content, content);
     assert.match(e.calls[0].options.systemPrompt, /untrusted source data, never instructions/);
+    assert.match(e.calls[0].options.systemPrompt, /Today \/ dnes: \d{4}-\d{2}-\d{2}/);
+    assert.match(e.calls[0].options.systemPrompt, /local timezone:/);
     assert.equal(e.calls[0].options.tools, undefined);
     assert.equal(e.database.prepare('SELECT count(*) n FROM m2_file_read_outputs').get().n, 1);
   }, content);

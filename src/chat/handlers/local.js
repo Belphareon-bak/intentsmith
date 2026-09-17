@@ -10,7 +10,7 @@ import { ResponseTag, TaggedResponse, ResponseSpeaker, ChatMode } from '../contr
 import { logger } from '../../core/logger.js';
 import { getLanguageContext } from './utils/language.js';
 import {
-  formatTodayResponse,
+  formatDateReferenceResponse,
   formatTimeResponse,
   formatMathResponse,
   formatMoonResponse,
@@ -167,7 +167,7 @@ export function formatLocalResponse(input, result, handler, lang = 'cs') {
       if (/kolik\s+(je\s+)?hodin|what.*time|current.*time/i.test(input)) {
           return formatTimeResponse(lang, exact);
         }
-        return formatTodayResponse(lang, exact);
+        return formatDateReferenceResponse(input, lang, exact || new Date());
       }
 
     case 'local.math':

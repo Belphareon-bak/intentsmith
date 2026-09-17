@@ -1747,13 +1747,18 @@ const CONVERSATIONAL_PATTERNS = [
 // v44.7 - Extended with more patterns for deterministic local computation
 const LOCAL_DETERMINISTIC_PATTERNS = [
   // Date/time questions
+  // Short date follow-ups are clock queries too. Anchor the whole utterance:
+  // "a datum vydání?" or "date parser" must keep their actual subject.
+  /^(?:(?:a|a co|and|and what about)\s+)?(?:datum|(?:the\s+)?date)(?:\s+(?:dnes|dneska|v[cč]era|z[ií]tra|today|yesterday|tomorrow))?[\s?!.,]*$/i,
   /kolik\s+(?:(?:je|to)\s+)?(?:hodin|dn[ií]|t[ýy]dn|m[eě]s[ií]c)/i,  // "kolik dní/hodin" (v72: tightened — won't match "kolik kalorií...za hodinu")
   /kdy.*bude.*([úu]pln[eě]k|nov|m[eě]s[ií]c)/i,  // "kdy bude úplněk/uplnek"
   /kdy.*uplnek/i,                         // "kdy bude uplnek" (without diacritics)
-  /jak[ýyéae].*(\bden\b|\bdatum\b|\brok\b|m[eě]s[ií]c)/i, // "jaký/jaky je dnes den" (v62.2: \b prevents "kroky"→"rok" false match)
-  /dnes.*datum/i,                          // "jaké je dnes datum"
-  /kolik[áa]t[ée]ho/i,                    // "kolikátého/kolikateho je"
-  /what\s+(is\s+(the\s+)?)?\bday\b/i, /what.*\bdate\b/i, /what.*\btime\b/i,
+  // Only the supported clock reference belongs in LOCAL. Historical dates,
+  // event dates and arbitrary offsets go to the grounded model, not "today".
+  /^(?:a\s+)?(?:jak[ýyée]|kter[ýyée])\s+(?:(?:je|byl[oa]?|bude)\s+)?(?:(?:dnes|dneska|v[cč]era|z[ií]tra)\s+)?(?:den(?:\s+v\s+t[ýy]dnu)?|datum|rok|m[eě]s[ií]c)(?:\s+(?:je|byl[oa]?|bude))?(?:\s+(?:dnes|dneska|v[cč]era|z[ií]tra))?[\s?!.,]*$/i,
+  /^(?:a\s+)?kolik[áa]t[ée]ho(?:\s+(?:je|bylo|bude))?(?:\s+(?:dnes|dneska|v[cč]era|z[ií]tra))?[\s?!.,]*$/i,
+  /^what(?:['’]s|\s+(?:is|was|will\s+be))?\s+(?:the\s+)?(?:(?:today|yesterday|tomorrow)['’]s\s+)?(?:day(?:\s+of\s+the\s+week)?|date)(?:\s+(?:is|was|will\s+be))?(?:\s+(?:today|yesterday|tomorrow))?[\s?!.,]*$/i,
+  /what.*\btime\b/i,
   // Calendar/astronomy (deterministic calculations)
   /fáze měsíce/i, /moon phase/i,
   /za kolik dn[ií]/i,                     // "za kolik dní/dni bude..."
@@ -1780,12 +1785,11 @@ const LOCAL_DETERMINISTIC_PATTERNS = [
   // v44.7 FIX 3: Additional LOCAL patterns
   /napi[sš]\s*(mi\s+)?č[ií]slo/i,         // "napiš číslo", "napiš mi číslo"
   /bez\s*odkaz[ůu]/i,                     // "bez odkazů"
-  /jen\s*datum/i,                         // "jen datum"
-  /pouze\s*datum/i,                       // "pouze datum"
-  /rovnou\s*(č[ií]slo|datum|odpov)/i,    // "rovnou číslo", "rovnou odpověď"
+  /^(?:jen|pouze|rovnou)\s+datum[\s?!.,]*$/i,
+  /rovnou\s*(č[ií]slo|odpov)/i,    // "rovnou číslo", "rovnou odpověď"
   /přímou\s*odpověď/i,                    // "přímou odpověď"
   /kolik\s+(je\s+)?hodin/i,               // "kolik je hodin" (v72: tightened — won't match "za hodinu")
-  /current.*time/i, /current.*date/i,    // English variants
+  /current.*time/i, /^(?:current|today['’]s)\s+date[\s?!.,]*$/i,
 ];
 
 // v45.0 - ITEM_LOOKUP patterns: queries for specific items/listings with count constraints

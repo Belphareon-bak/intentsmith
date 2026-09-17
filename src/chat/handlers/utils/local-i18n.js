@@ -98,6 +98,24 @@ export function formatTodayResponse(lang = 'cs', exactDate = null) {
   return `📊 **${l.today} ${formatDate(now, lang)}**`;
 }
 
+/** Calendar-relative dates use the committed local tool timestamp. */
+export function formatDateReferenceResponse(input, lang, exactDate) {
+  const text = input.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  const references = [
+    { offset: -1, pattern: /\b(?:vcera|yesterday|gestern)\b/, labels: { cs: 'Včera bylo', sk: 'Včera bolo', en: 'Yesterday was', de: 'Gestern war' } },
+    { offset: 0, pattern: /\b(?:dnes|dneska|today|heute)\b/, labels: { cs: 'Dnes je', sk: 'Dnes je', en: 'Today is', de: 'Heute ist' } },
+    { offset: 1, pattern: /\b(?:zitra|zajtra|tomorrow|morgen)\b/, labels: { cs: 'Zítra bude', sk: 'Zajtra bude', en: 'Tomorrow is', de: 'Morgen ist' } },
+  ].filter(reference => reference.pattern.test(text));
+  if (!references.length) return formatTodayResponse(lang, exactDate);
+  return references.map(reference => {
+    const date = new Date(exactDate);
+    // Noon avoids a skipped/repeated local midnight on a timezone transition.
+    date.setHours(12, 0, 0, 0);
+    date.setDate(date.getDate() + reference.offset);
+    return `📊 **${reference.labels[lang] || reference.labels.en} ${formatDate(date, lang)}**`;
+  }).join('\n');
+}
+
 /**
  * Format "what time is it" response.
  * @param {string} lang

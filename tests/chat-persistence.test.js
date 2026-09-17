@@ -480,6 +480,31 @@ describe('T9.2: Session restart survival (real process + SQLite)', async () => {
       assert.equal(responseB.json.status, 'ok');
       assert.ok(responseB.json.response.content.includes('4'));
 
+      // The screenshot regression is a real two-turn HTTP exchange. The
+      // isolated server has no model provider and uses UTC; no inferred date
+      // or fixture model answer can make these assertions pass.
+      const dateInputs = ['kolik je hodin?', 'a datum?', 'jaké datum bylo včera?', 'jaký den bude zítra?'];
+      for (const [index, input] of dateInputs.entries()) {
+        const before = new Date();
+        const result = await requestOwnedServer(firstServer, 'POST', '/api/chat', {
+          ...commandA, conversationId: 'm1-date-followup',
+          requestId: `m1-date-request-${index}`, turnId: `m1-date-turn-${index}`, input,
+        });
+        const after = new Date();
+        assert.equal(result.statusCode, 200, result.raw);
+        assert.equal(result.json.status, 'ok');
+        if (index === 0) assert.match(result.json.response.content, /Aktuální čas/);
+        else {
+          const offset = index === 2 ? -1 : index === 3 ? 1 : 0;
+          const dates = [before, after].map(now => {
+            now.setUTCDate(now.getUTCDate() + offset);
+            return `${now.getUTCDate()}. ${now.getUTCMonth() + 1}. ${now.getUTCFullYear()}`;
+          });
+          assert.ok(dates.some(date => result.json.response.content.includes(date)), result.raw);
+          assert.match(result.json.response.content, index === 2 ? /Včera bylo/ : index === 3 ? /Zítra bude/ : /Dnes je/);
+        }
+      }
+
       const beforeA = exactMessages(
         await requestOwnedServer(
           firstServer,

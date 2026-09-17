@@ -238,3 +238,14 @@ Zavést health check do gateway znamená sáhnout na #3, která svým seznamem
 chování zatím neprošla. **Navrhuji to nedělat teď** a zařadit jako chování
 schopnosti #3 (5. v pořadí) — s tou opravou, že se dostupnost má odvozovat
 z odpovědi endpointu, ne z počtu modelů.
+
+## Regrese časového kontextu, 2026-09-17
+
+Operátor doložil správný čas a vymyšlené datum v navazujícím dotazu.
+Doplněné chování: interaktivní modelový požadavek má aktuální datum/čas a
+časové pásmo nezávisle na formulaci dotazu; včera/dnes/zítra znamenají
+kalendářní dny. Aktuálnost není odvozená ze staré odpovědi v historii.
+`a datum?` a podporované relativní date queries jsou lokální; nesouvisející
+datum či obecný výpočet se nesmějí tiše změnit na dnešek.
+Ověření: CRE deterministic, M1 model contract a skutečný HTTP persistence
+runner. [Rozsah a limity důkazu](../review/2026-09-17-CHAT-CLOCK-REVIEW.md).
