@@ -12,7 +12,16 @@ skutečný server/SQLite/Ollamu i kontrolované negativní terminály.**
 Neutrální dokument, nezávislý na nástroji.
 Pravidla vývoje: [`CONTRACT.md`](CONTRACT.md) · Detail: [`docs/inventory/`](docs/inventory/)
 
-**Aktuální lokální instalace a opravy revize 2026-09-17:** `1da840c0`,
+**Oprava specialistů ve Studiu, 2026-09-17:** kandidát `be0f5d65` integruje
+účetní dokumentový workflow a autonomního Sázkaře, zachovává instalovanou
+opravu časového kontextu `58d7cced`. Čistý instalační snapshot: 7/7 focused
+PASS a skutečné Electron PDF/HEIC journey PASS. Celý profil: 356 PASS /
+2 FAIL / 1 BLOCKED (release seal, dokumentační formát LOC, oddělený OCR
+toolchain). Oprava formátu a konečný stav instalace mají vlastní záznam v
+[review packetu](docs/review/2026-09-17-STUDIO-SPECIALISTS.md).
+Živý sázkař je PROVIDER_BLOCKED na zdroji historie; integrace REVIEW_PENDING.
+
+**Předchozí lokální instalace a opravy revize 2026-09-17:** `1da840c0`,
 větev `work/review-remediation-20260917`. Automatické učení respektuje
 nastavení i projektovou hranici; Studio potvrzuje pouze skutečné native
 agentí výsledky. Režim bez historie není implementovaný, API jej odmítá
@@ -174,8 +183,8 @@ incumbenta má DB retry regresi. Panel D1/D2/R1/R2 je dokončený (12 kandidát�
 
 | | |
 |---|---:|
-| `src/**/*.js` | **224 870 ř.**  627 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **245 561 ř.**  531 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **224 870 ř.**, 627 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **245 561 ř.**, 531 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **523** (`429 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 100** |
 | HTTP rout | **245 statických deklarací**; nejde o počet runtime ověřených cest |

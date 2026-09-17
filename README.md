@@ -28,7 +28,13 @@ vypnutí blokuje nové tahy. [Rozsah oprav a limity](docs/review/2026-09-17-PRIV
 Aktuální autorita:
 [PRODUCT](PRODUCT.md), [ROADMAP](ROADMAP.md), [SYSTEM-MAP](SYSTEM-MAP.md).
 
-**Aktuální pracovní kandidát pro review:** větev
+**Lokální integrace specialistů:** `codex/specialists-studio-20260917`,
+[oprava seznamu, PDF/HEIC a dokumentového workflow](docs/review/2026-09-17-STUDIO-SPECIALISTS.md).
+Zachovává také instalovanou opravu časového kontextu `58d7cced`.
+Účetní výstupy vyžadují kontrolu; živý Sázkař má aktuálně nedostupný zdroj
+historie. Nezávislé review této integrace zůstává otevřené.
+
+**Předchozí zveřejněný kandidát pro review:** větev
 [`work/review-remediation-20260917`](https://github.com/Belphareon-bak/intentsmith/tree/work/review-remediation-20260917),
 [opravy soukromí a agentů](docs/review/2026-09-17-PRIVACY-AGENT-REMEDIATION.md).
 Předchozí desktopová revize zůstává na `work/desktop-hunt-20260917`.

@@ -105,3 +105,20 @@ BLOCKED byly dostupné nástroje bez explicitního opt-in (git, bwrap,
 bubblewrap, prlimit, systemd-analyze); nejedná se o PASS těchto programů.
 Kontrola identity všech pěti původních kalkulačních adaptérů zůstává,
 nový dokumentový nástroj má vlastní kontrolu požadované scoped autority.
+
+Na `be0f5d65` byl s explicitně povolenými dostupnými nástroji a připnutým
+obecným PDF runtime zopakován celý profil (`2026-09-17T14-13-27-189Z`):
+**356 PASS / 2 FAIL / 1 BLOCKED**. FAIL je release seal a jediná dokumentační
+kontrola chybějící čárky v LOC tabulce (opraveno následně bez změny počtů).
+Účetní OCR integrace je v tomto běhu BLOCKED záměrně bez svého toolchain
+opt-in; její jiné Python závislosti nesmějí nahrazovat připnutý obecný PDF
+export. V čistém detached instalačním klonu téhož SHA proběhla samostatně
+se svým explicitním OCR runtime: **7/7 focused programů PASS**, včetně
+M1 UI, obou specialist runtime cest a graph ratchet. Run:
+`2026-09-17T14-13-53-751Z`.
+
+Tentýž čistý klon prošel i skutečným Electron journey se soukromými podklady
+(`run-L6gO28`): import, viditelná odpověď, průvodce, viditelný Sázkař i
+pravdivá chyba nedostupné historie. Model provider byl vypnutý, živá DB se
+nepoužila. `npm run test:registry` a build consumer guard: PASS. Součty různých
+běhů se nevydávají za jeden zelený celý profil; release seal se nepřepisuje.
