@@ -140,6 +140,24 @@ version mismatch; načtený kernel modul 595.84, modul na disku 595.91.07 a
 NVML 595.91. Běžící aplikace nebyly kvůli tomu restartovány ani ovladač
 odpojen. Kalibrace kvality zůstává **BLOCKED**, samotná diagnostika je hotová.
 
+## Publikace a poslední kontrola
+
+Větev `work/desktop-hunt-20260917` je na GitHubu; zdroj `f3cce10b` byl
+ověřen přes `git ls-remote`, následný receipt je dokumentační. Draft PR
+konektor odmítl 403 (Resource not accessible by integration).
+[Připravený popis a compare link](2026-09-17-DESKTOP-HUNT-PR.md).
+
+První screenshot ukazuje výzvu Theia ke změně titulkového pruhu ze starého
+profilu. Po skutečném zavření a novém spuštění je `restartDialog=false`,
+titulek IntentSmith a původní volba `custom` zůstala zachovaná; čistý výsledek
+je v `hunt-ui-ready.png`. Diagnostická okna i CDP listenery byly zavřeny,
+produkční backend a timer zůstaly aktivní.
+
+Soukromý archiv `desktop-hunt-evidence.tar.gz` a Git bundle
+`desktop-hunt-source.bundle` jsou pod `.intentsmith-artifacts/desktop-hunt-20260917/`.
+Archiv obsahuje reporty a logy pěti běhů, UI/instalační důkazy a diagnostiku;
+nezahrnuje provozní DB, její kopie ani credential soubory.
+
 ## Hranice předání
 
 Lokální app/service/hunt ovládání je ověřené. Nezávislé review nové delty,

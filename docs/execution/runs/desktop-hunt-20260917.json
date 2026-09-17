@@ -786,7 +786,9 @@
     "artifact-final.log": "27c6f459d24407f8062ade6f2b2de4e4527684dc96e694cbd13bcac785465913",
     "artifact-final-02.log": "c0a807e407aa0d3a378c7083f25a8877ebfaf34eb5023edb118853dc46744669",
     "live-systemd.json": "c8400464a220efb50c510012d0b998fc721816b949e4048c552de06f81f8af0f",
-    "process-supervision-02.log": "37950dc8687d87a764375917a7202467bd95aae0b49b2b7a230b85acafe783a2"
+    "process-supervision-02.log": "37950dc8687d87a764375917a7202467bd95aae0b49b2b7a230b85acafe783a2",
+    "titlebar-restart-after.json": "239c4e3abc3a1d4a264e87603e857ba1bc18828e0d2d414cae8caf08ddb26679",
+    "hunt-ui-ready.png": "4b719334e12b461117799601b97f4712fd2173b48bb444b69f66f0d0cb0399c1"
   },
   "privateArtifactRoot": ".intentsmith-artifacts/desktop-hunt-20260917",
   "pending": [
@@ -803,5 +805,18 @@
       "checked": 252,
       "missing": 0
     }
+  },
+  "publication": {
+    "remote": "github",
+    "branch": "work/desktop-hunt-20260917",
+    "verifiedSourceRevision": "f3cce10b4c18ba3d7ce5acb6bf55346227208a0e",
+    "pullRequestCreated": false,
+    "pullRequestError": "403 Resource not accessible by integration",
+    "receiptFollowup": "documentation only"
+  },
+  "finalColdStart": {
+    "title": "IntentSmith",
+    "restartDialog": false,
+    "backendStillActiveAfterClosing": true
   }
 }

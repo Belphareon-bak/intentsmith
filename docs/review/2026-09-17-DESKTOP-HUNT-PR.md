@@ -3,6 +3,13 @@
 Cíl PR: `work/hunt-review-followup-20260912`; head:
 `work/desktop-hunt-20260917`. Výchozí main zůstává samostatná historická linie.
 
+**SOURCE_PUBLISHED / PR_NOT_CREATED / REVIEW_PENDING.** Zdroj `f3cce10b`
+byl publikován a ověřen přes `git ls-remote`; následuje pouze tento
+publikační receipt. GitHub connector odmítl vytvoření draft PR: HTTP 403,
+`Resource not accessible by integration`. Kódové review tím neproběhlo.
+
+[Připravit PR](https://github.com/Belphareon-bak/intentsmith/compare/work%2Fhunt-review-followup-20260912...work%2Fdesktop-hunt-20260917?expand=1).
+
 ## Popis pro PR
 
 Aplikace a noční hunt nyní používají stejnou připnutou instalaci a původní DB.
