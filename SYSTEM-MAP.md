@@ -13,9 +13,12 @@ Neutrální dokument, nezávislý na nástroji.
 Pravidla vývoje: [`CONTRACT.md`](CONTRACT.md) · Detail: [`docs/inventory/`](docs/inventory/)
 
 **Současný společný kandidát (publikační kontrola 2026-09-17):** runtime
-`20e5a022`, poslední předávaný dokumentační stav `9c02dec3`, větev
-`work/hunt-review-followup-20260912`. Úplný deterministický gate má 353/353 PASS
-a produkční Studio build prošel. Fyzický dvousouborový build/restart/restore
+`20e5a022`, publikační kontrola zdroje `26a038db`, větev
+`work/hunt-review-followup-20260912`. Nový úplný deterministický profil má
+353/353 PASS; [run record](docs/execution/runs/github-publication-20260917.json)
+zachovává i původní 352 PASS / 1 FAIL a opravu kalendářní závislosti testu.
+Produktové zdroje jsou shodné s `20e5a022`, jeho produkční Studio build
+prošel 2026-09-12. Fyzický dvousouborový build/restart/restore
 má [ohraničený review receipt](docs/review/2026-09-12-PRODUCTION-JOURNEY-REVIEW-RECEIPT.md);
 novější [hunt/core delta](docs/review/2026-09-12-HUNT-REVIEW-FOLLOWUP.md) zůstává
 REVIEW_PENDING. Údaje o modelovém panelu jsou měření z 2026-09-12, nikoli

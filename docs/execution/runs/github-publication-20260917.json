@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Source publication and documentation synchronization; not release acceptance",
+  "verifiedSourceRevision": "26a038db237f4280ff47323e032a6fbca0a16d26",
+  "runtimeSourceRevision": "20e5a02255fb18e2795ded184c581675aa7135eb",
+  "productSourcesUnchanged": true,
+  "github": {
+    "repository": "Belphareon-bak/intentsmith",
+    "reviewBranch": "work/hunt-review-followup-20260912",
+    "baseBranch": "work/mobile-completion-20260908",
+    "observedBaseRevision": "68f5080c10d9916cc59aa4bbfc477bf252dbe3f1",
+    "defaultBranch": "main",
+    "observedDefaultRevision": "6676902c5f6fe7a5d66aba0d79cb502e0f3a60e4",
+    "defaultBranchIntegration": "NOT_PERFORMED_DIVERGED_HISTORY"
+  },
+  "deterministic": {
+    "runId": "github-publication-20260917-02",
+    "startedAt": "2026-09-17T09:20:31.967Z",
+    "endedAt": "2026-09-17T09:24:39.597Z",
+    "profiles": [
+      "database",
+      "offline"
+    ],
+    "allowedPrerequisites": [
+      "toolchain:bubblewrap",
+      "toolchain:bwrap",
+      "toolchain:git",
+      "toolchain:prlimit",
+      "toolchain:python-pdf-runtime"
+    ],
+    "counts": {
+      "PASS": 353,
+      "FAIL": 0,
+      "TIMEOUT": 0,
+      "BLOCKED": 0,
+      "SKIPPED": 0
+    },
+    "verdict": "PASS",
+    "reportSha256": "38284806a0cfcfec82e1bab34afe8b88b5d52958cf52cea15525c2e964a772a1",
+    "verifiedRawLogs": 353
+  },
+  "preservedBaseline": {
+    "runId": "github-publication-20260917-01",
+    "sourceRevision": "fd216540a35844f194d8cb34f22ee62b2733cd20",
+    "counts": {
+      "PASS": 352,
+      "FAIL": 1,
+      "TIMEOUT": 0,
+      "BLOCKED": 0,
+      "SKIPPED": 0
+    },
+    "verdict": "FAIL",
+    "reportSha256": "d53e083db4a3b1c458db12df28014d3eae4923d3cc5f381dd26c336782125e15",
+    "verifiedRawLogs": 353,
+    "resumedAfterSessionInterruption": true,
+    "failure": {
+      "id": "IS-T1-TESTS-ACCOUNTANT-TOOLS-TEST",
+      "reason": "Uncontrolled wall clock exceeded the 365-day test tolerance after verified_at 2025-09-15",
+      "fix": "Control Date.now only within the synchronous test; assert fresh at days 364, 365 and 365.5, stale at day 366; restore clock in finally",
+      "productionMetadataAndPolicyChanged": false
+    }
+  },
+  "focused": {
+    "accountantTools": {
+      "passed": 81,
+      "failed": 0,
+      "logSha256": "dfbecaf1ca2bf1ee242243f65c738de4d8f9895dd4865d3a67ffa85b92625ade"
+    },
+    "artifactValidation": {
+      "passed": 158,
+      "failed": 0,
+      "skipped": 0,
+      "logSha256": "c0a807e407aa0d3a378c7083f25a8877ebfaf34eb5023edb118853dc46744669"
+    }
+  },
+  "registry": {
+    "programs": 516,
+    "sha256": "162b890b97142127fdd4859bc48a02056a837b3fd2773e26d8a130e0e55f4deb",
+    "validation": "PASS"
+  },
+  "documentationLinks": {
+    "checkedFiles": 4,
+    "checkedRelativeTargets": 237,
+    "missing": []
+  },
+  "priorReviewExport": {
+    "head": "9c02dec3a2161d9cf5cfebeb28a44ed69018e916",
+    "artifacts": 393,
+    "verifiedArchiveEntries": 393,
+    "files": {
+      "source.bundle": {
+        "bytes": 513450,
+        "sha256": "9d663a233c1414bea212f46f2ff7fe3c20f82eaf66da2c48a007f59a7b308293"
+      },
+      "manifest.json": {
+        "bytes": 96692,
+        "sha256": "d849a0654f5091eccfc8c9139341c2e518016e70a7ca00b89dbb9957f2552808"
+      },
+      "evidence.tar.gz": {
+        "bytes": 3548869,
+        "sha256": "34f01838d8aaab9a88d2468306b3b33b951082e1afc1749edb072017b29d3cf2"
+      }
+    },
+    "location": "Local .intentsmith-artifacts/hunt-review-followup-review-20260912; raw archive not published"
+  },
+  "installationState": "Not switched: local hunt still uses mobile checkout; runtime unification and desktop launcher remain open",
+  "modelMeasurements": "No new inference in publication task; measurements in linked packets are dated 2026-09-12",
+  "reviewState": "HUNT_CORE_DELTA_REVIEW_PENDING",
+  "releaseAcceptance": "BLOCKED",
+  "scope": "Recorded no-blocking reviews cover only their original web/builder and bounded physical journey ranges.",
+  "rawEvidencePolicy": "This public summary contains no runtime DB, credential, home directory contents or full test output."
+}

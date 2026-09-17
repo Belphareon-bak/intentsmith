@@ -26,6 +26,9 @@ Aktuální autorita:
 
 **Pracovní kandidát pro review:** větev
 [`work/hunt-review-followup-20260912`](https://github.com/Belphareon-bak/intentsmith/tree/work/hunt-review-followup-20260912).
+[Publikační ověření z 2026-09-17](docs/execution/runs/github-publication-20260917.json)
+má **353/353 PASS** na `26a038db`; původní běh 352 PASS / 1 FAIL je zachovaný.
+Opravený test řídí čas kolem hranice stáří dat, produktová kontrola se nemění.
 Dokončený repo panel z 2026-09-12 má 12 kandidátů bez chyb rolí;
 13 z 38 duelů mělo nedostatečný důkaz. Doporučení Devstralu pro R2 samo
 binding neaktivuje. Přesné kontrakty, výsledky a omezení jsou v

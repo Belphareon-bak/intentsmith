@@ -21,3 +21,10 @@ služeb, cizích checkoutů ani review/acceptance verdiktů.
 Ověření: dokumentové odkazy, `git diff --check`, registry, celý deterministický
 profil a shoda vzdáleného SHA po push. Stop podmínka: nečekaný vzdálený drift,
 potřeba force-push nebo neveřejný provozní materiál ve zveřejňovaném diffu.
+
+Ověřený zdroj `26a038db`: 353/353 deterministic PASS, registry 516,
+accountant tools 81/81, artifact validation 158/158. Produktové zdroje jsou
+shodné s `20e5a022`. Původní běh na `fd216540` po obnovení checkpointu
+skončil 352 PASS / 1 FAIL a zůstává v evidenci včetně raw logů.
+[Přenositelný souhrn](../execution/runs/github-publication-20260917.json)
+uchovává revize a SHA-256; runtime DB ani privátní raw archiv se nepublikují.

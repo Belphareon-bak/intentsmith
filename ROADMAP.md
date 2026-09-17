@@ -9,6 +9,8 @@ Jde o otevřenou práci; publikovaný zdroj není nasazená instalace.
 navíc bez ověření vlastnictví maže port file a přepisuje exit status na 0.
 Desktopový launcher musí zachovat cizí backend i původní chybu, zobrazit ji
 v okně a být ověřen opakovaným spuštěním i ukončením.
+Publikační kontrola společného zdroje `26a038db` má 353/353 PASS, registry
+516 programů a zachovaný původní FAIL; [souhrn ověření](docs/execution/runs/github-publication-20260917.json).
 
 **Verze:** 4 · **Datum:** 2026-08-08 · **Vlastník:** operátor ·
 **Stav: PŘIJATO OPERÁTOREM 2026-08-21** společně s `PRODUCT.md`.
