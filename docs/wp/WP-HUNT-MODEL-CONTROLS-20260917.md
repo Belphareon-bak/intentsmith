@@ -39,3 +39,11 @@ raw detail ponechat rozbalitelný; oddělit běžící pokus od historického se
 Autorita digestu ani skórovací kontrakt se nemění. Ověřit pozitivní i negativní
 identitu, opakování a průběh v reálném rendereru, poté jeden živý CODE běh
 na vybraném Qwen3.5:27b přes instalovanou HTTP cestu. Zachovat cizí soak.
+
+Oprava ruční evaluace a průběh jsou instalované na `2f150ce7`. Živý
+Qwen3.5:27b/CODE na předchozím 8d1da07e dokončil 7 × 3 úloh, skóre 2/7;
+aktuální API potvrzuje COMPLETE pro přesný kontrakt. Zachována všechna
+starší měření, rozhodnutí a přiřazení. Dva úplné profily shodně 358 PASS /
+1 FAIL (release registry pečeť), fyzický řízený Electron PASS.
+Stav LIVE_MANUAL_EVALUATION_PASS / REVIEW_PENDING.
+[Review packet a rozsah důkazů](../review/2026-09-17-EVALUATION-PROGRESS.md).

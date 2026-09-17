@@ -1,5 +1,12 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**Ruční evaluace a průběh Studia, 2026-09-17:** instalováno `2f150ce7`,
+opraveno falešné odmítnutí digestu. Qwen3.5:27b/CODE prošel úplnou sadou 7 × 3,
+v DB i API je COMPLETE se skóre 2/7; žádné přepnutí rolí. Nový panel má
+skutečný průběh a ETA. Dva úplné profily 358 PASS / 1 FAIL (release pečeť),
+řízený fyzický Electron PASS. Zbývá nezávislé přijetí.
+[Packet](docs/review/2026-09-17-EVALUATION-PROGRESS.md).
+
 **Navazující privacy review, 2026-09-17:** uzavřít únik projektové pracovní
 paměti přes informační API relací před dalším tahem chatu. Oprava společné
 serializace je nainstalovaná na `365a4f1d`; cílené regrese PASS, úplný profil
