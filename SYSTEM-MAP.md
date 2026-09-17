@@ -12,7 +12,18 @@ skutečný server/SQLite/Ollamu i kontrolované negativní terminály.**
 Neutrální dokument, nezávislý na nástroji.
 Pravidla vývoje: [`CONTRACT.md`](CONTRACT.md) · Detail: [`docs/inventory/`](docs/inventory/)
 
-**Aktuální společná instalace 2026-09-17:** `3f005fc0` spojuje specialisty,
+**Aktuální společná instalace 2026-09-17:** `c2989a3e` spojuje opravy
+soukromí/panelů, specialisty, časový kontext a Studio design `023af4dd`.
+Celý offline/database profil: **358 PASS / 1 FAIL / 0 BLOCKED**; jediný
+FAIL je release pečeť, bez změny její autority. Šest HTTP programů / 134
+kontrol, Studio build v čistém klonu, privacy scanner aktuálního stromu,
+skutečné otevření ikonou a reload PASS. Sledované DB tabulky nezměněné.
+Pětiminutový health throughput PASS; 24h soak od 18:29 CEST teprve běží.
+GPU/NVML a provider Sázkaře jsou BLOCKED, nezávislé přijetí a M5/M6 otevřené.
+[Packet a přesné meze](docs/review/2026-09-17-PRODUCTION-CLOSEOUT.md),
+[checksumy důkazů](docs/execution/runs/production-closeout-20260917.json).
+
+**Předchozí společná instalace 2026-09-17:** `3f005fc0` spojuje specialisty,
 opravný commit `3bbf8bc1` (privacy/panely) a obecný časový kontext.
 Privacy + Studio focused PASS; fyzická geometrie a vstupy chatu ověřeny
 přes skutečnou ikonu i reload běžného profilu. Profil společného zdroje

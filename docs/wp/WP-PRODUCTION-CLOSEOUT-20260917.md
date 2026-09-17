@@ -1,6 +1,7 @@
 # WP — production closeout 2026-09-17
 
-**Stav:** IN_PROGRESS. Autorita: výslovné zadání operátora dokončit zbývající
+**Stav:** IMPLEMENTED_INSTALLED / SOAK_RUNNING / REVIEW_REQUIRED.
+Release closeout zůstává otevřený. Autorita: výslovné zadání operátora dokončit zbývající
 produkční práci autonomně; PRODUCT §5 a ROADMAP §10. Tento dokument nepřidává
 release požadavky ani nepřijímá vlastní implementaci.
 
@@ -27,3 +28,19 @@ release požadavky ani nepřijímá vlastní implementaci.
 - Stop pouze konkrétního efektu: cizí writer, nedostupná fyzická GPU/key-custody
   podmínka, nový rozsah nebo oslabení hranice. Ostatní práce pokračuje.
   Release PASS nelze vydat bez požadovaného nezávislého review a přijetí.
+
+## Výsledek tohoto průchodu
+
+- Kandidát `c2989a3e`, integrační merge `adcccef8`; backend, Studio a hunt
+  používají stejný instalovaný pin. Obě původní linie jsou zachované.
+- Reprodukce vedly k opravě izolace OCR runtime, retained-heap měření,
+  skutečných Unix socket fixtur a generování TLS identity mimo Git strom.
+  Plný profil: 358 PASS / 1 FAIL / 0 BLOCKED, pouze release seal.
+- HTTP 6 programů / 134 kontrol PASS; Studio build a fyzické panely/reload
+  PASS; data zachována; aktuální privacy scan bez nálezů.
+- Pětiminutový throughput na přesném kandidátu PASS; 24h soak pokračuje
+  od 2026-09-17 18:29 CEST. GPU, provider a M5 custody/podpisové podmínky
+  se nesimulují ani nevydávají za hotové.
+- [Review packet](../review/2026-09-17-PRODUCTION-CLOSEOUT.md) a
+  [strojový záznam](../execution/runs/production-closeout-20260917.json)
+  obsahují i negativní běhy. Toto není nezávislé přijetí vlastní změny.
