@@ -10,8 +10,8 @@ Spouštěné Studio UI je stále přechodný runtime, nikoli finální vzhled In
 
 **Verze:** 136.1.0, vývojový kandidát 1.0. Aktuální počty testovacích programů
 jsou v [generovaném registru](docs/convergence/TEST-REGISTRY.md):
-**516 registrovaných testovacích programů**
-(`422 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
+**517 registrovaných testovacích programů**
+(`423 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
 
 Přijaté milníky M0–M4 nejsou přijetím celého releasu. M5 ještě vyžaduje
 podepsané privacy podklady a správu operátorských klíčů. Ohraničený fyzický

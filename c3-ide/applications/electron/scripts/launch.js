@@ -19,6 +19,7 @@ console.log('[C3 Launcher] App:', appPath);
 console.log('[C3 Launcher] DISPLAY:', env.DISPLAY || '(not set)');
 
 const child = spawn(electronPath, args, {
+  cwd: appPath,
   stdio: 'inherit',
   env,
   windowsHide: false,

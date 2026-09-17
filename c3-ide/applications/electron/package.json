@@ -9,7 +9,7 @@
     "target": "electron",
     "frontend": {
       "config": {
-        "applicationName": "C3 Studio",
+        "applicationName": "IntentSmith",
         "defaultTheme": "dark",
         "preferences": {
           "editor.fontSize": 14,
@@ -18,6 +18,17 @@
           "workbench.colorTheme": "dark",
           "files.enableTrash": false,
           "window.menuBarVisibility": "visible"
+        },
+        "electron": {
+          "windowOptions": {
+            "icon": "resources/intentsmith-icon.png"
+          },
+          "splashScreenOptions": {
+            "content": "resources/splash.html",
+            "width": 520,
+            "height": 300,
+            "maxDuration": 30000
+          }
         }
       }
     },

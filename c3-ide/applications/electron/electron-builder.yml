@@ -1,8 +1,8 @@
 # Native modules already rebuilt by install.sh (electron-rebuild --only)
 npmRebuild: false
 
-appId: com.c3.studio
-productName: C3 Studio
+appId: com.intentsmith.studio
+productName: IntentSmith
 directories:
   output: dist
 
@@ -13,6 +13,7 @@ files:
   - c3-preload.js
   - c3-preload-entry.js
   - package.json
+  - resources/**/*
   - "!**/test/**"
   - "!**/tests/**"
   - "!**/*.map"
@@ -26,6 +27,7 @@ extraMetadata:
   main: "lib/backend/electron-main.js"
 
 linux:
+  icon: resources/intentsmith-icon.png
   target:
     - AppImage
     - dir

@@ -47,7 +47,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_ROOT"
 
-PORT_FILE="$HOME/.c3/port"
+INSTALLATION_FILE="${INTENTSMITH_INSTALLATION_FILE:-$HOME/.config/intentsmith/installation.json}"
+if [ "$BACKEND_ONLY" = false ] && [ "$DEV_MODE" = false ] && [ -f "$INSTALLATION_FILE" ]; then
+  export INTENTSMITH_INSTALLATION_FILE="$INSTALLATION_FILE"
+  exec node "$PROJECT_ROOT/scripts/desktop-runtime.mjs"
+fi
+PORT_FILE="${C3_PORT_FILE:-$HOME/.c3/port}"
+export C3_PORT_FILE="$PORT_FILE"
 LOG_FILE="$PROJECT_ROOT/.c3-backend.log"
 if [ -n "${XDG_DATA_HOME:-}" ]; then
   PDF_DATA_HOME="$XDG_DATA_HOME"
@@ -90,9 +96,11 @@ echo ""
 
 # ── Cleanup function ────────────────────────────────────────────────────────
 BACKEND_PID=""
+ATTACHED_BACKEND=false
 CLEANUP_DONE=false
 
 cleanup() {
+  local exit_status=$?
   if [ "$CLEANUP_DONE" = true ]; then return; fi
   CLEANUP_DONE=true
   echo ""
@@ -114,16 +122,18 @@ cleanup() {
     fi
   fi
 
-  # Clean up port file
-  if [ -f "$PORT_FILE" ]; then
-    rm -f "$PORT_FILE"
+  # Never remove an attached backend's discovery/capability file.
+  if [ -n "$BACKEND_PID" ] && [ -f "$PORT_FILE" ]; then
+    node -e 'const fs=require("fs");const [file,pid]=process.argv.slice(1);try{if(JSON.parse(fs.readFileSync(file,"utf8")).pid===Number(pid))fs.unlinkSync(file)}catch{}' -- "$PORT_FILE" "$BACKEND_PID"
   fi
 
   ok "Stopped."
-  exit 0
+  return "$exit_status"
 }
 
-trap cleanup SIGINT SIGTERM EXIT
+trap 'exit 130' SIGINT
+trap 'exit 143' SIGTERM
+trap cleanup EXIT
 
 # ════════════════════════════════════════════════════════════════════════════
 # 1. Pre-flight checks
@@ -156,9 +166,13 @@ if [ -f "$PORT_FILE" ]; then
   EXISTING_CMD=$(ps -p "$EXISTING_PID" -o comm= 2>/dev/null || echo "")
   if [ -n "$EXISTING_PID" ] && kill -0 "$EXISTING_PID" 2>/dev/null && [ "$EXISTING_CMD" = "node" ]; then
     EXISTING_PORT=$(node -e "try{console.log(JSON.parse(require('fs').readFileSync('$PORT_FILE','utf8')).port)}catch(e){console.log('?')}" 2>/dev/null || echo "?")
-    fail "C3 backend already running (PID ${EXISTING_PID}, port ${EXISTING_PORT})"
-    echo "       Stop it first: ./scripts/stop.sh"
-    exit 1
+    ASSIGNED_PORT=$(node -e 'const a=require("./c3-ide/applications/electron/c3-local-access.js").readLocalAccess();if(!a)process.exit(1);console.log(a.port)')
+    if ! curl --max-time 3 -sf "http://127.0.0.1:${ASSIGNED_PORT}/api/health" >/dev/null; then
+      fail "Existing backend failed its health check; it was left untouched"
+      exit 1
+    fi
+    ATTACHED_BACKEND=true
+    ok "Connecting to existing backend (PID ${EXISTING_PID}, port ${ASSIGNED_PORT})"
   else
     # Stale port file — remove it
     rm -f "$PORT_FILE"
@@ -231,6 +245,7 @@ echo ""
 # ════════════════════════════════════════════════════════════════════════════
 echo -e "${BOLD}── Starting Backend ──${NC}"
 
+if [ "$ATTACHED_BACKEND" = false ]; then
 # Log rotation — keep one previous log
 if [ -f "$LOG_FILE" ]; then
   mv "$LOG_FILE" "${LOG_FILE}.old"
@@ -282,6 +297,7 @@ if [ -z "$ASSIGNED_PORT" ]; then
 fi
 
 ok "Backend running (PID ${BACKEND_PID}, port ${ASSIGNED_PORT})"
+fi
 
 # ════════════════════════════════════════════════════════════════════════════
 # 3. Health Check
@@ -324,7 +340,7 @@ if [ "$BACKEND_ONLY" = true ]; then
   ok "Backend running. Press Ctrl+C to stop."
   echo ""
   # Wait indefinitely (cleanup trap handles shutdown)
-  wait "$BACKEND_PID" 2>/dev/null || true
+  if [ -n "$BACKEND_PID" ]; then wait "$BACKEND_PID"; fi
 else
   echo -e "${BOLD}── Starting IDE ──${NC}"
   info "Launching C3 Studio (Electron)..."
@@ -338,5 +354,5 @@ else
   fi
 
   # Start IDE in foreground — when it exits, cleanup runs
-  yarn --cwd c3-ide/applications/electron start $ELECTRON_ARGS || true
+  yarn --cwd c3-ide/applications/electron start $ELECTRON_ARGS
 fi

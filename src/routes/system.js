@@ -17,6 +17,8 @@ import { canonicalModelName } from '../upgrade/model-identity.js';
 import { broadcast, getWebSocketBridgeHealth } from '../ws-bridge/ws-server.js';
 import { getOutboundDiagnostics } from '../network/outbound-policy.js';
 import { modelUniverseStore } from '../upgrade/model-universe-store.js';
+import { createHuntControl } from '../system/hunt-control.js';
+import { isLocalOperatorTransportSubject } from '../security/global-auth-policy.js';
 import {
   POLICY_SOURCE,
   readModelAutomationPolicy,
@@ -232,6 +234,7 @@ export function createSystemRoutes({
   productionObservability = null,
   m2LifecycleService = null,
   conditionalSurfaces = null,
+  huntControl = createHuntControl(),
 }) {
   const rawDb = db.db || db; // unwrap: db wrapper → raw better-sqlite3 instance
   const dataDir = config.db?.path ? path.dirname(path.resolve(config.db.path)) : path.resolve('./data');
@@ -308,6 +311,25 @@ export function createSystemRoutes({
   };
 
   return {
+    'GET /api/system/models/hunt': async (req, res) => {
+      if (!isLocalOperatorTransportSubject(req.authenticatedSubject)) {
+        return sendJSON(res, 403, { code: 'HUNT_LOCAL_TRANSPORT_REQUIRED' });
+      }
+      try { return sendJSON(res, 200, await huntControl.status()); }
+      catch (error) { return sendJSON(res, 503, { code: 'HUNT_UNAVAILABLE', error: error.message }); }
+    },
+    'POST /api/system/models/hunt/control': async (req, res) => {
+      if (!isLocalOperatorTransportSubject(req.authenticatedSubject)) {
+        return sendJSON(res, 403, { code: 'HUNT_LOCAL_TRANSPORT_REQUIRED' });
+      }
+      try {
+        const body = await parseBody(req);
+        if (!body || Object.keys(body).length !== 1 || typeof body.action !== 'string') {
+          return sendJSON(res, 400, { code: 'HUNT_ACTION_INVALID' });
+        }
+        return sendJSON(res, 202, await huntControl.control(body.action));
+      } catch (error) { return sendJSON(res, error.httpStatus || 503, { code: 'HUNT_CONTROL_FAILED', error: error.message }); }
+    },
     'GET /api/system/diagnostics': (_req, res) => {
       if (!productionObservability || typeof productionObservability.snapshot !== 'function'
         || !m2LifecycleService || typeof m2LifecycleService.getRecoveryCensusStatus !== 'function') {

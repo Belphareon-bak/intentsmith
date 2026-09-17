@@ -25,7 +25,7 @@
 
 import Database from 'better-sqlite3';
 import { resolve, dirname } from 'node:path';
-import { existsSync, readFileSync, statfsSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, statfsSync, writeFileSync, renameSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
@@ -110,6 +110,19 @@ const BOOTSTRAP = flag('bootstrap');
 const PULL_PROVIDER_URL = process.env.INTENTSMITH_HUNT_PULL_URL || config.ollama.baseUrl;
 const INCREMENTAL_ONLY = flag('incremental-only');
 const REPORT_PATH = val('report');
+let progressQueue = [];
+function publishProgress(phase, activeModel = null, completed = []) {
+  const file = process.env.INTENTSMITH_HUNT_PROGRESS_FILE;
+  if (!file) return;
+  const next = `${file}.${process.pid}.tmp`;
+  writeFileSync(next, JSON.stringify({ schemaVersion: 1, phase, activeModel,
+    updatedAt: new Date().toISOString(), queue: progressQueue.slice(0, 100).map(c => ({
+      name: c.name, roles: c.roles,
+      state: completed.includes(c.name) ? 'FINISHED' : c.name === activeModel ? 'RUNNING' : 'PENDING',
+    })), queueTotal: progressQueue.length }) + '\n', { mode: 0o600 });
+  renameSync(next, file);
+}
+publishProgress('discovery');
 if (INSTALLED_PANEL && (REMOTE_ONLY || ONLY.length > 0)) {
   console.error('--installed-panel nelze kombinovat s --remote-only ani --only');
   process.exit(1);
@@ -124,6 +137,7 @@ if (AS_JSON) {
   logger.error = () => {};
 }
 const emitJsonArtifact = payload => {
+  publishProgress(payload.status || 'finished', null, (payload.results || []).map(r => r.model));
   if (PRUNE_REJECTED) payload = { ...payload, retentionSweeps };
   if (REPORT_PATH) writeFileSync(REPORT_PATH, `${JSON.stringify(payload, null, 2)}\n`);
   if (AS_JSON) console.log(JSON.stringify(payload, null, 2));
@@ -684,6 +698,8 @@ if ((DO_RUN || BOOTSTRAP) && !ONLY.length && !INSTALLED_PANEL) {
       || Number(b.installed === true) - Number(a.installed === true) || byPriority(a, b));
 }
 
+progressQueue = picked;
+publishProgress('planned');
 if (!DO_RUN) {
   if (AS_JSON || REPORT_PATH) {
     emitJsonArtifact({
@@ -765,6 +781,7 @@ if (!toTry.length) {
 
 // Referenční rychlost stávajících modelů — potřebná pro rozhodnutí při remíze.
 log('\n══ MĚŘENÍ STÁVAJÍCÍCH MODELŮ ══');
+publishProgress('incumbents');
 const incumbentSpeed = {};
 const allowedDrainModels = new Set();
 const measurementOptions = { providerVersion, ...(SCHEDULED ? { allowedDrainModels } : {}) };
@@ -810,6 +827,7 @@ log(`\n══ ZKOUŠKA KANDIDÁTŮ (${toTry.length}) ══`);
 
 const results = [];
 for (const cand of toTry) {
+  publishProgress('evaluating', cand.name, results.map(r => r.model));
   log(`\n─── ${cand.name}  (role: ${cand.roles.join(', ')}) ───`);
   if (cand.installed !== true) {
     // Earlier candidates and unrelated disk users may have consumed the space
@@ -910,6 +928,7 @@ for (const cand of toTry) {
   const candidateCompletedAt = new Date().toISOString();
   r.failureRecords = recordRoleEvaluationFailures({ result: r, history: modelEvaluationHistory, plans: evaluationPlans, hardware: gpu });
   results.push(r);
+  publishProgress('evaluating', null, results.map(item => item.model));
   huntState.record(cand, huntState.evaluationKey(cand, providerVersion, evaluationPlans, gpu), r);
 
   if (r.error) {
