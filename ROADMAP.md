@@ -2,7 +2,7 @@
 
 **Časový kontext chatu, 2026-09-17:** obecné interaktivní požadavky nyní
 obsahují čerstvé datum/čas, časové pásmo a kalendářní včera/dnes/zítra.
-Lokální datumové follow-upy nepropadají modelu bez hodin. Graph má 1 339 hran,
+Lokální datumové follow-upy nepropadají modelu bez hodin. Přesný module graph má 1 339 hran,
 3 cykly / 28 členů. [Review a stav instalace](docs/review/2026-09-17-CHAT-CLOCK-REVIEW.md).
 Nezávislé re-review zůstává otevřené.
 

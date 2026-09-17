@@ -12,7 +12,17 @@ skutečný server/SQLite/Ollamu i kontrolované negativní terminály.**
 Neutrální dokument, nezávislý na nástroji.
 Pravidla vývoje: [`CONTRACT.md`](CONTRACT.md) · Detail: [`docs/inventory/`](docs/inventory/)
 
-**Aktuální lokální instalace a opravy revize 2026-09-17:** `1da840c0`,
+**Aktuální lokální instalace 2026-09-17:** `58d7cced`, větev
+`work/chat-date-context-20260917`. Časový kontext v každé interaktivní
+modelové odpovědi je odvozený ze skutečných hodin a lokálního časového pásma.
+Fyzický model přes instalovaný HTTP backend správně použil včera/dnes/zítra
+ve tvůrčím zadání (16./17./18. 9. 2026). HTTP sequence bez modelu i kontrola
+provider payloadu prošly. Celý profil **353 PASS / 2 FAIL** (dokumentační
+fráze opravena v následném dokumentačním commitu; release seal zůstává).
+[Packet](docs/review/2026-09-17-CHAT-CLOCK-REVIEW.md),
+[run record](docs/execution/runs/chat-clock-20260917.json). REVIEW_REQUIRED.
+
+**Předchozí lokální instalace a opravy revize 2026-09-17:** `1da840c0`,
 větev `work/review-remediation-20260917`. Automatické učení respektuje
 nastavení i projektovou hranici; Studio potvrzuje pouze skutečné native
 agentí výsledky. Režim bez historie není implementovaný, API jej odmítá

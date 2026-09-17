@@ -29,8 +29,9 @@ Aktuální autorita:
 [PRODUCT](PRODUCT.md), [ROADMAP](ROADMAP.md), [SYSTEM-MAP](SYSTEM-MAP.md).
 
 **Aktuální pracovní kandidát pro review:** větev
-[`work/review-remediation-20260917`](https://github.com/Belphareon-bak/intentsmith/tree/work/review-remediation-20260917),
-[opravy soukromí a agentů](docs/review/2026-09-17-PRIVACY-AGENT-REMEDIATION.md).
+[`work/chat-date-context-20260917`](https://github.com/Belphareon-bak/intentsmith/tree/work/chat-date-context-20260917),
+[oprava obecného časového kontextu](docs/review/2026-09-17-CHAT-CLOCK-REVIEW.md).
+Obsahuje také [opravy soukromí a agentů](docs/review/2026-09-17-PRIVACY-AGENT-REMEDIATION.md).
 Předchozí desktopová revize zůstává na `work/desktop-hunt-20260917`.
 Předchozí společný core/hunt je na `work/hunt-review-followup-20260912`.
 [Publikační ověření z 2026-09-17](docs/execution/runs/github-publication-20260917.json)
@@ -44,15 +45,23 @@ binding neaktivuje. Přesné kontrakty, výsledky a omezení jsou v
 **Lokální aplikace nainstalována (2026-09-17):** IntentSmith má ikonu,
 backendovou uživatelskou službu a záložku **Modely → GPU hunt** se stavem,
 poslední známou frontou, výsledkem a ovládáním. Backend, Studio i hunt běží
-ze stejného pinu `1da840c0` nad původní DB; timer má `Persistent=true`.
+ze stejného pinu `58d7cced` nad původní DB; timer má `Persistent=true`.
 Spuštění přes ikonu, opakované otevření, zavření okna, restart backendu,
 HTTP 401/200 a zrušení huntu jsou fyzicky ověřené. [Návod](docs/DESKTOP.md).
-Aktuální celý profil na `1da840c0`: **354 PASS / 1 FAIL** — pouze očekávaná
+Předchozí celý profil na `1da840c0`: **354 PASS / 1 FAIL** — pouze očekávaná
 release pečeť podle `CONTRACT.md §8`, nikoli úplný PASS. Nezávislé review
 nové delty zůstává otevřené. Kalibrační diagnostika rozlišila 7 duelů omezených
 variabilitou a 6 s malým rozdílem; nová GPU měření blokuje nesoulad načteného
 ovladače NVIDIA a nainstalovaných knihoven. Historie skóre i bindingy zůstaly
 beze změny. Podrobnosti a neúspěšné pokusy zachovává review packet.
+
+**Časový kontext:** interaktivní modelové odpovědi dostávají aktuální datum,
+časové pásmo a kalendářní včera/dnes/zítra při každém dotazu, včetně expertiz,
+specialistů a vysvětlování souborů. Nainstalovaný model skutečně odpověděl
+správnými daty 16./17./18. září 2026 na obecný deníkový úkol. Úplný profil
+`58d7cced`: **353 PASS / 2 FAIL** (dokumentační text a release seal);
+dokumentační kontrola je následně opravená a ověřená samostatně.
+[Podrobnosti a limity](docs/review/2026-09-17-CHAT-CLOCK-REVIEW.md).
 
 [Kontrakty rozšíření po 1.0](docs/post-release/README.md) popisují skutečné
 zlepšování modelu, porozumění rozsáhlému projektu, úplné agenty a odložené

@@ -42,3 +42,47 @@ Raw logy: `.intentsmith-artifacts/chat-date-20260917/`.
 
 První dokumentační kontrola měla chybný oddělovač v LOC tabulce (157/158);
 formát tabulky byl opravený, samotná validační podmínka se neměnila.
+
+## Závěrečný stav
+
+Runtime **`58d7cced4863663e86440c735fbb91fe3b3edcdb`**, review rozsah
+`e0b75ee4..58d7cced`. Následný dokumentační commit mění pouze výsledky,
+aktuální odkazy a přesnou census frázi v ROADMAP.
+[Strojový záznam](../execution/runs/chat-clock-20260917.json).
+
+Celý profil na tomto SHA: **353 PASS / 2 FAIL / 0 BLOCKED / 0 TIMEOUT**.
+FAIL jsou `artifact-validation` (text „Graph má“ místo „module graph má“)
+a `nightly-orchestrator-self-test` (release seal). Dokumentační oprava následně
+prošla **158/158**; žádná assertion se kvůli ní neupravovala. Celý profil po
+čistě dokumentační opravě znovu neběžel a jeho původní FAIL se nepřepisuje.
+Registry zůstává **519**, fingerprint `04252cb29ea270886c049b01034c2bfec034a77d22ec4675decf593ae052ecb6`.
+Module boundary **1 339 hran, 3 cykly / 28 členů**, finální kontrola PASS.
+
+V čistém detached instalačním snapshotu znovu prošly model contract **34/34**
+a skutečný HTTP/persistence **36/36**; file consumer prošel **39/39**.
+Studio ani závislosti se proti `1da840c0` nezměnily byte-for-byte, byl použit
+ověřený build a instalátor opět zkontroloval jeho consumer hash. Instalace
+provedla zálohu a migration probe, potom restart backendu a běžné spuštění
+Studia ikonou. Backend, Studio a hunt mají společný pin; timer je aktivní,
+hunt zůstal nečinný. Historie 503 evaluací, 21 hunt pokusů a settings má stejné
+hashe jako před aktualizací, SQLite kontrola je OK.
+
+### Skutečný modelový dotaz přes nainstalovaný backend
+
+Samostatná diagnostická konverzace požádala o tři deníkové nadpisy pro
+včerejšek, dnešek a zítřek, každý s ISO datem. Uložená metadata dokládají
+**`qwen3.5:27b`, intent `CREATIVE`**. HTTP **200**, odpověď za **49 933 ms**:
+
+> Deníkové záznamy 2026-09-16: Včerejší události a úvahy
+> Dnešní pohled na svět 2026-09-17: Co se dnes stalo
+> Plány do budoucnosti 2026-09-18: Zítřejší naděje
+
+Všechna tři data odpovídají referenci `Europe/Prague` v okamžiku dotazu.
+To je skutečný modelový výsledek obecného úkolu, nikoli odpověď lokálního
+nástroje nebo stubu. Není to nový hunt panel, důkaz obecné neomylnosti modelů
+ani splnění latency SLO. Nová diagnostická konverzace je záměrně zachovaná;
+žádná původní konverzace nebyla přepsána. Nezávislé re-review stále zbývá.
+
+Zdroj i tento packet jsou publikované na
+[`work/chat-date-context-20260917`](https://github.com/Belphareon-bak/intentsmith/tree/work/chat-date-context-20260917).
+Výchozí GitHub větev `main` se tím nemění; jde o kandidáta k review.
