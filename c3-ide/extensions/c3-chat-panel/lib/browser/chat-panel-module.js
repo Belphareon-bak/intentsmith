@@ -1201,8 +1201,8 @@ function _addNew(view){
   if(view==='projects'){
     _wizardSaveLayout();
     _projectWizard={active:true,step:0,data:{name:'',path:'',description:'',type:'general',pathMode:'auto',mode:'create'},saving:false,defaultDir:_settingsVals.projectsDir||''};
-    if(!_projectWizard.defaultDir){
-      /* First use or not configured — fetch from backend, offer to save */
+    {
+      /* The backend owns the effective default; refresh it on every creation. */
       fetch(_backendBase+'/api/projects/defaults',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(j){
         if(j.defaultDir){_projectWizard.defaultDir=j.defaultDir;if(!_settingsVals.projectsDir){_settingsVals.projectsDir=j.defaultDir;_saveSV();}renderCenter();}
       }).catch(function(){});
@@ -1393,7 +1393,7 @@ function _doOpenExistingProject(folderPath){
   _projectWizard.saving=true;renderCenter();
   _smartRouteToRelay(function(_ti){
     fetch(_backendBase+'/api/projects/open-folder',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({folderPath:folderPath}),signal:AbortSignal.timeout(15000)})
+      body:JSON.stringify({folderPath:folderPath}),signal:AbortSignal.timeout(30000)})
     .then(function(r){if(!r.ok)return r.json().then(function(e){throw new Error((e.error||'Server error '+r.status)+(e.details?' ['+e.details+']':''));});return r.json();})
     .then(function(res){
       _projectWizard.active=false;_projectWizard.saving=false;_wizardRestoreLayout();
@@ -1410,16 +1410,18 @@ function _doOpenExistingProject(folderPath){
         _ts._conversationFocus=false; /* v122.3 */
         /* Reset session for new project context */
         _ts._convId=null;_ts._agentId=null;_ts._lifecycleResumed=false;_ts._m2Pending=null;
+        _ts.chat._projectWorkProposal=null;_ts.chat._m2Composer=null;_ts.chat._m2ComposerOpen=false;
         _ts.chat.msgs=[{role:'system',text:'Projekt: '+projName}];
         _ts.chat.ctx=0;
         /* Create conversation for the project. M2 lifecycle starts only via explicit /m2-plan. */
         fetch(_backendBase+'/api/conversations',{method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({project_id:proj.id,title:projName,welcomeMessage:_welcomeMsg}),signal:AbortSignal.timeout(5000)})
-        .then(function(r){return r.json();}).then(function(cd){
+        .then(function(r){return r.json().then(function(cd){if(!r.ok)throw new Error(cd.error||'Konverzaci se nepodařilo uložit.');return cd;});}).then(function(cd){
           var conv=cd.conversation||cd;
+          if(!conv||!conv.id)throw new Error('Server nepotvrdil uloženou konverzaci.');
           if(conv&&conv.id){_ts._convId=conv.id;_persistSessionState();renderChat();}
           if(_welcomeMsg){_ts.chat.msgs.push({role:'assistant',text:_welcomeMsg,tag:'PROJECT'});renderChat();_chatScrollPane(_ti);}
-        }).catch(function(){});
+        }).catch(function(err){_ts.chat.msgs.push({role:'system',tag:'ERROR',text:'Projekt je uložený, ale konverzace se neotevřela: '+err.message+' Otevři projekt znovu.'});_persistSessionState();renderChat();});
         _persistSessionState();
       }
       if(window._c3){
@@ -1431,22 +1433,25 @@ function _doOpenExistingProject(folderPath){
       _centerState.view='chats';_centerState.detail=null;
       fetchBackendData();renderCenter();renderChat();
     }).catch(function(err){
-      _projectWizard.saving=false;_projectWizard.active=false;_wizardRestoreLayout();
+      _projectWizard.saving=false;_projectWizard.error=err.message||String(err);
       if(window._c3)window._c3.agentLog('TOOL','❌ Chyba při otevírání: '+(err.message||err));
+      if(!_projectWizard.active){_sessions[_sessionActive].chat.msgs.push({role:'system',tag:'ERROR',text:'Projekt se nepodařilo otevřít: '+_projectWizard.error});renderChat();}
       fetchBackendData();renderCenter();
     });
   });
 }
 function _wizardSubmit(){
   if(_projectWizard.saving)return;
-  _projectWizard.saving=true;renderCenter();
+  _projectWizard.saving=true;_projectWizard.error=null;renderCenter();
   var d=_projectWizard.data;
-  var slug=d.name.replace(/[^a-zA-Z0-9-_]/g,'-').toLowerCase();
   var sendPath=d.pathMode==='custom'?d.path.trim():'';
-  if(!sendPath&&d.pathMode==='auto'&&_projectWizard.defaultDir){sendPath=_projectWizard.defaultDir+'/'+slug;}
-  fetch(_backendBase+'/api/projects',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({name:d.name.trim(),path:sendPath||null,description:d.description.trim(),type:d.type,autoPath:!sendPath}),signal:AbortSignal.timeout(15000)})
-  .then(function(r){return r.json();})
+  return fetch(_backendBase+'/api/projects',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({name:d.name.trim(),path:sendPath||null,description:d.description.trim(),type:d.type,autoPath:!sendPath}),signal:AbortSignal.timeout(30000)})
+  .then(function(r){return r.json().then(function(value){
+    if(!r.ok)throw new Error(value.error||'Vytvoření projektu selhalo (HTTP '+r.status+').');
+    if(!Number.isSafeInteger(value.id)||!value.project||value.project.id!==value.id||typeof value.path!=='string')throw new Error('Server nepotvrdil uložený projekt. Ověř seznam projektů před opakováním.');
+    return value;
+  });})
   .then(function(created){
     _projectWizard.active=false;_projectWizard.saving=false;_wizardRestoreLayout();
     var realPath=created.path||sendPath;
@@ -1461,18 +1466,20 @@ function _wizardSubmit(){
       _ts._label=projName;
       if(realPath){_wtRoot=realPath;_loadWorkspaceTree(realPath);}
       /* Reset session for new project */
-      _ts._lifecycleResumed=false;_ts._m2Pending=null;
+      _ts._convId=null;_ts._agentId=null;_ts._lifecycleResumed=false;_ts._m2Pending=null;
+      _ts.chat._projectWorkProposal=null;_ts.chat._m2Composer=null;_ts.chat._m2ComposerOpen=false;
       _ts.log=[];_ts.term=[{text:'$ ',ts:new Date().toISOString(),type:'prompt'}];
       _ts.chat.msgs=[{role:'system',text:'Projekt: '+projName}];
       /* Create conversation for the project. M2 lifecycle starts only via explicit /m2-plan. */
       if(projId){
         fetch(_backendBase+'/api/conversations',{method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({project_id:projId,title:projName,welcomeMessage:_welcomeMsg}),signal:AbortSignal.timeout(5000)})
-        .then(function(r){return r.json();}).then(function(cd){
+        .then(function(r){return r.json().then(function(cd){if(!r.ok)throw new Error(cd.error||'Konverzaci se nepodařilo uložit.');return cd;});}).then(function(cd){
           var conv=cd.conversation||cd;
+          if(!conv||!conv.id)throw new Error('Server nepotvrdil uloženou konverzaci.');
           if(conv&&conv.id){_ts._convId=conv.id;_persistSessionState();renderChat();}
           if(_welcomeMsg){_ts.chat.msgs.push({role:'assistant',text:_welcomeMsg,tag:'PROJECT'});renderChat();_chatScrollPane(_ti);}
-        }).catch(function(){});
+        }).catch(function(err){_ts.chat.msgs.push({role:'system',tag:'ERROR',text:'Projekt je uložený, ale konverzace se neotevřela: '+err.message+' Otevři projekt znovu.'});_persistSessionState();renderChat();});
       }
       var scaff=created.scaffold?created.scaffold.join(', '):'';
       if(window._c3){
@@ -1485,7 +1492,7 @@ function _wizardSubmit(){
   }).catch(function(err){
     _projectWizard.saving=false;
     if(window._c3)window._c3.agentLog('TOOL','❌ Chyba při vytváření projektu: '+(err.message||err));
-    _projectWizard.active=false;_wizardRestoreLayout();fetchBackendData();renderCenter();
+    _projectWizard.error=err.message||String(err);renderCenter();
   });
 }
 function centerProjectWizard(){
@@ -1524,7 +1531,7 @@ function centerProjectWizard(){
             h('div',{style:{fontSize:_fs(12.5),fontWeight:700,color:sel?C.accentText:C.tx1}},pt.label),
             h('div',{style:{fontSize:_fs(10.5),color:C.tx3,marginTop:2}},pt.desc));})));
   }else if(step===3){
-    var slug=d.name.replace(/[^a-zA-Z0-9-_]/g,'-').toLowerCase();
+    var slug=d.name.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').toLowerCase();
     var autoDir=_projectWizard.defaultDir?((_projectWizard.defaultDir)+'/'+slug):'(načítám...)';
     var isAuto=d.pathMode==='auto';
     var tabStyle=function(active){return{flex:1,padding:'8px 0',textAlign:'center',fontSize:_fs(12),fontWeight:600,cursor:'pointer',borderRadius:'8px 8px 0 0',background:active?C.bg3:'transparent',color:active?C.tx1:C.tx4,border:'1px solid '+(active?C.border:'transparent'),borderBottom:active?'1px solid '+C.bg3:'1px solid '+C.border,marginBottom:-1};};
@@ -1553,21 +1560,22 @@ function centerProjectWizard(){
         onChange:function(e){d.description=e.target.value;renderCenter();}}));
   }else if(step===5){
     var pt=PROJECT_TYPES.find(function(t){return t.id===d.type;})||PROJECT_TYPES[0];
-    var slug2=d.name.replace(/[^a-zA-Z0-9-_]/g,'-').toLowerCase();
+    var slug2=d.name.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').toLowerCase();
     var displayPath=d.pathMode==='auto'?(_projectWizard.defaultDir+'/'+slug2):d.path;
-    var scaffoldHints={general:'git init, README.md (prázdný projekt)',webapp:'package.json, src/, public/, git init',api:'package.json, src/index.js (API), git init',automation:'package.json, scripts/main.js, git init',data:'package.json, data/, notebooks/, src/pipeline.js, git init'};
+    var scaffoldHint='Node.js 22, src/, public/, test/, scripts/, pravidla M2 a první Git commit';
     content=h('div',{style:stepStyle},
       h('div',{style:labelStyle},'Souhrn'),
       h('div',{style:{display:'flex',flexDirection:'column',gap:10,marginTop:8}},
         h('div',{style:{display:'flex',justifyContent:'space-between',fontSize:_fs(12)}},h('span',{style:{color:C.tx3}},'Název'),h('span',{style:{color:C.tx1,fontWeight:600}},d.name)),
         h('div',{style:{display:'flex',justifyContent:'space-between',fontSize:_fs(12)}},h('span',{style:{color:C.tx3}},'Typ'),h('span',{style:{color:C.tx1}},pt.icon+' '+pt.label)),
         h('div',{style:{display:'flex',justifyContent:'space-between',fontSize:_fs(12),gap:8}},h('span',{style:{color:C.tx3,flexShrink:0}},'Cesta'),h('span',{style:{color:C.tx2,fontFamily:C.mono,fontSize:_fs(11),textAlign:'right',wordBreak:'break-all'}},displayPath)),
-        h('div',{style:{display:'flex',justifyContent:'space-between',fontSize:_fs(12)}},h('span',{style:{color:C.tx3}},'Scaffolding'),h('span',{style:{color:C.tx2,fontSize:_fs(10.5)}},scaffoldHints[d.type]||'')),
+        h('div',{style:{display:'flex',justifyContent:'space-between',fontSize:_fs(12)}},h('span',{style:{color:C.tx3}},'Scaffolding'),h('span',{style:{color:C.tx2,fontSize:_fs(10.5)}},scaffoldHint)),
         d.description?h('div',{style:{fontSize:_fs(11),color:C.tx2,marginTop:4,padding:8,background:C.bg3,borderRadius:6,whiteSpace:'pre-wrap'}},d.description):null),
       h('div',{style:{marginTop:16,padding:10,background:C.accentBg,borderRadius:8,border:'1px solid '+C.accent+'33'}},
         h('div',{style:{fontSize:_fs(11),color:C.accentText,fontWeight:600}},'Projekt pro řízenou práci'),
-        h('div',{style:{fontSize:_fs(10),color:C.tx3,marginTop:4}},'Po vytvoření vznikne Git projekt se zvoleným základem. Změny připravíte v chatu tlačítkem Připravit změnu; projekt musí mít nastavené povolené cesty. Každý výsledný plán schvalujete zvlášť.')));
+        h('div',{style:{fontSize:_fs(10),color:C.tx3,marginTop:4}},'Vznikne základ Node.js bez dalších závislostí, s připravenými pravidly změn. Popište cíl v chatu; návrh otevřete přes Připravit navržený krok. Implementace a funkční test zatím chybí. Každou změnu schvalujete zvlášť.')));
   }
+  if(w.error)content=h(React.Fragment,null,content,h('p',{role:'alert',style:{color:C.red||C.tx1,padding:12}},w.error));
   var totalSteps=d.mode==='create'?WIZARD_STEPS.length:1;
   var headerTitle=step===0?'Projekt':d.mode==='create'?'Nový projekt':'Otevřít projekt';
   return h(React.Fragment,null,

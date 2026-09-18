@@ -655,3 +655,24 @@ test('action buttons preserve chat/attachment send exclusion even when the rende
     studio.calls[1].resolve(studio.terminal());await flushStudio();
   }
 });
+
+test('project wizard preserves the draft and current sessions when creation is rejected or unconfirmed', async () => {
+  for (const [status, payload] of [[409, { error: 'Projekt tohoto názvu už existuje.' }], [500, { error: 'Storage unavailable' }], [201, { path: '/unconfirmed' }]]) {
+    const data = { name: 'Fan', pathMode: 'auto', path: '', description: 'RPM widget', type: 'general' };
+    const wizard = { active: true, step: 5, data, saving: false, defaultDir: '/stale/default' };
+    let routes = 0; const logs = []; const requests = [];
+    const context = vm.createContext({ _projectWizard: wizard, AbortSignal, _backendBase: '',
+      renderCenter() {}, _wizardRestoreLayout() { throw Error('must preserve form'); },
+      _smartRouteToRelay() { routes++; }, window: { _c3: { agentLog: (...args) => logs.push(args) } },
+      fetch: async (url, options) => { requests.push({ url, body: JSON.parse(options.body) });
+        return { ok: status < 300, status, json: async () => payload }; },
+    });
+    vm.runInContext(functionSlice('_wizardSubmit', 'centerProjectWizard'), context);
+    await vm.runInContext('_wizardSubmit()', context);
+    assert.equal(wizard.active, true); assert.equal(wizard.saving, false);
+    assert.equal(wizard.data, data); assert.ok(wizard.error);
+    assert.equal(routes, 0, 'failed creation must not relabel or detach any existing conversation');
+    assert.equal(requests.length, 1); assert.equal(requests[0].body.path, null, 'backend owns automatic default directory');
+    assert.equal(logs.some(row => row.join(' ').includes('Projekt vytvořen:')), false);
+  }
+});
