@@ -16,11 +16,14 @@ zkouška tento provozní problém neodhalila. Profil a postup připravené, vyž
 heslo správce. REVIEW_PENDING, bez tvrzení production-ready.
 [Packet a přesné meze](docs/review/2026-09-18-PROJECT-FLOW.md).
 
-**Detail měření a kandidáti, 2026-09-18:** navazuje na osm požadavků operátora.
-Řazení tabulek, rozpad úloh, konkrétní historické měření, aktualizovaný multimodální
-katalog a opravené zdroje Správce. Řízený Electron 7/7 záložek; instalace a úplný
-profil ještě čekají. Šest dostupných zdrojů není šest doložených kvalitativních
-měření. [Rozsah a evidence](docs/review/2026-09-18-MODEL-DETAILS.md). REVIEW_PENDING.
+**Detail měření a kandidáti, 2026-09-18:** instalováno `2ca3cca1`.
+Řazení a propojování tabulek, vysvětlený rozpad úloh, detail konkrétního měření,
+aktualizovaný katalog (API 82 kandidátů, 26 VISION, 13 vydaných v roce 2026)
+a šest dostupných diagnostických zdrojů. Instalované Studio ověřeno proklikáním
+7/7 záložek; 516 měření / 234 rozhodnutí / 7 bindingů beze změny.
+Úplný profil 358 PASS / 1 zděděný FAIL release pečeti. Šest dostupných zdrojů
+neznamená šest změřených kvalit; širší quick/full benchmark zůstává mimo tuto
+změnu. [Rozsah a evidence](docs/review/2026-09-18-MODEL-DETAILS.md). REVIEW_PENDING.
 
 **Obnova modelového pracoviště, 2026-09-18:** operátor znovu otevřel vadu po
 restartu backendu: HTTP zůstávalo na starém portu i po úspěšném WS reconnectu.
@@ -299,8 +302,8 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **225 536 ř.**, 631 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **247 100 ř.**, 533 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **225 624 ř.**, 631 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **247 186 ř.**, 533 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **525** (`431 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 102** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |

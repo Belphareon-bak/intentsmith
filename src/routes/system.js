@@ -1123,6 +1123,11 @@ export function createSystemRoutes({
       }
     },
 
+    'GET /api/system/models/downloads': async (_req, res) => {
+      try { sendJSON(res, 200, { downloads: upgradeManager.getModelPulls() }); }
+      catch (error) { sendJSON(res, 503, { error: error.message }); }
+    },
+
     // Pull model and hydrate factual metadata. Quality evaluation is a
     // separate exact-contract workflow owned by model-upgrade-hunt.
     'POST /api/system/models/pull': async (req, res) => {
@@ -1131,17 +1136,25 @@ export function createSystemRoutes({
         const { name } = body;
         if (!name) return sendJSON(res, 400, { error: 'Missing required field: name' });
 
-        // Respond immediately — progress via WebSocket
-        sendJSON(res, 200, { ok: true, started: true, model: name });
+        const existing = upgradeManager.getModelPulls().find(row => row.canonicalName === canonicalModelName(name));
+        if (existing && !['done', 'error'].includes(existing.status)) {
+          return sendJSON(res, 200, { ok: true, started: false, model: name, download: existing });
+        }
+        const authority = existing && ['INTENT_ONLY', 'ORPHANED'].includes(existing.state)
+          ? { source: 'RECOVERY', recoveryOperationId: existing.operationId } : { source: 'USER_HTTP' };
+        const pull = upgradeManager.pullModel(name, progress => {
+          broadcast('control', { action: 'model_pull_progress', model: name, ...progress });
+        }, authority);
+        const accepted = upgradeManager.getModelPulls().find(row =>
+          row.canonicalName === canonicalModelName(name) && !['done', 'error'].includes(row.status));
+        // Claim/identity failures happen before provider I/O and are returned
+        // to the caller rather than falsely acknowledging a started download.
+        if (!accepted) await pull;
+        sendJSON(res, 200, { ok: true, started: true, model: name, download: accepted });
 
-        // Fire-and-forget: pull + metadata hydration
         (async () => {
           try {
-            broadcast('control', { action: 'model_pull_progress', model: name, status: 'starting', percent: 0, text: `${name} — Zahajuji stahování...` });
-
-            await upgradeManager.pullModel(name, (progress) => {
-              broadcast('control', { action: 'model_pull_progress', model: name, ...progress });
-            }, { source: 'USER_HTTP' });
+            await pull;
 
             broadcast('control', { action: 'model_pull_progress', model: name, status: 'pulled', percent: 100, text: `${name} — Staženo. Načítám metadata...` });
 

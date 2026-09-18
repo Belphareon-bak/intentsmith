@@ -4536,6 +4536,20 @@ test('twelve failed reconnects stop at the exact cap and emit exhaustion once', 
   );
 });
 
+test('explicit reconnect renews the retry budget after exhaustion without replaying user requests', () => {
+  const clock = controlledTimers();
+  const { client, socket, sockets } = loadClient([session()], {
+    autoHandshake:false, clearTimeout:clock.clearTimeout, setTimeout:clock.setTimeout,
+  });
+  socket.readyState=1;socket.onopen();socket.close();
+  for(let i=0;i<12;i++) {clock.run(clock.active()[0]);const s=sockets.at(-1);s.readyState=1;s.onopen();s.close();}
+  assert.equal(clock.active().length,0);
+  client.wsReconnect();
+  assert.equal(sockets.length,14);
+  const current=sockets.at(-1);current.readyState=1;current.onopen();current.close();
+  assert.equal(clock.active()[0].delay,1000);
+});
+
 test('constructor failures use the same bounded scheduler without recursion', () => {
   const clock = controlledTimers();
   let constructCalls = 0;

@@ -411,6 +411,21 @@ export class ModelArtifactAuthorityRepository {
     }
   }
 
+  listRecentPulls() {
+    return this._db.prepare(`
+      SELECT o.operation_id AS operationId, o.exact_name AS exactName,
+        o.canonical_name AS canonicalName, o.created_at_ms AS createdAtMs,
+        COALESCE(e.recorded_at_ms, o.created_at_ms) AS updatedAtMs,
+        COALESCE(e.status, 'INTENT_ONLY') AS state, e.error_code AS errorCode
+      FROM m6_model_artifact_operations o
+      LEFT JOIN m6_model_artifact_events e ON e.event_id = (
+        SELECT event_id FROM m6_model_artifact_events
+        WHERE operation_id = o.operation_id ORDER BY sequence DESC LIMIT 1
+      )
+      WHERE o.kind = 'PULL' ORDER BY o.created_at_ms DESC LIMIT 100
+    `).all();
+  }
+
   listOutstandingEffects() {
     return Object.freeze(this._db.prepare(`
       SELECT o.operation_id AS operationId, o.kind, o.exact_name AS exactName,
@@ -443,5 +458,6 @@ export function createModelArtifactAuthorityRepository(db, options) {
     ),
     reconcileSucceeded: operationId => repository.reconcileSucceeded(operationId),
     listOutstandingEffects: () => repository.listOutstandingEffects(),
+    listRecentPulls: () => repository.listRecentPulls(),
   });
 }

@@ -586,6 +586,9 @@ export class OllamaModelBindingProvider {
           messages: [{ role: 'user', content: 'ping' }],
           stream: false,
           think: false,
+          // An identity probe must not leave a runner idle on the GPU for
+          // Ollama's default keep-alive, blocking an already queued evaluation.
+          keep_alive: 0,
           options: { num_predict: 1, num_ctx: 512 },
         }),
         redirect: 'error',

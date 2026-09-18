@@ -171,6 +171,14 @@ test('scheduled GPU readiness requires an idle host with RAM headroom', () => {
   }).ready, 'low model-storage headroom must block a scheduled run');
 });
 
+test('installed-only evaluation reserves working space instead of requiring download headroom', () => {
+  const snapshot={residentModels:[],computeProcesses:[],memoryAvailableBytes:12*2**30,diskAvailableBytes:20*2**30};
+  assert(assessScheduledEvaluationReadiness(snapshot,{installedOnly:true}).ready);
+  assert(!assessScheduledEvaluationReadiness(snapshot).ready);
+  assert(!assessScheduledEvaluationReadiness({...snapshot,diskAvailableBytes:1*2**30},{installedOnly:true}).ready);
+  assert(!assessScheduledEvaluationReadiness({...snapshot,computeProcesses:['foreign']},{installedOnly:true}).ready);
+});
+
 test('scheduled candidate pull preserves 40 GiB after cumulative download', () => {
   assert(assessCandidateDownloadHeadroom({
     diskAvailableBytes: 60 * 2 ** 30,

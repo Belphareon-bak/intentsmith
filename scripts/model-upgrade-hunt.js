@@ -242,7 +242,7 @@ async function scheduledEvaluationReadiness() {
     computeProcesses: gpuComputeProcesses(),
     memoryAvailableBytes: memoryAvailableBytes(),
     diskAvailableBytes: modelStorageAvailableBytes(),
-  });
+  }, { installedOnly: EVALUATE_INSTALLED });
 }
 
 // ─── Fáze 0 + 1 ─────────────────────────────────────────────────────────────
