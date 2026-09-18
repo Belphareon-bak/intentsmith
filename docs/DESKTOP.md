@@ -1,5 +1,7 @@
 # IntentSmith na tomto počítači
 
+Ovládání relací, souborů a specialistů: [Práce ve Studiu](IDE-WORKSPACE.md).
+
 Desktopová instalace nabízí aplikaci **IntentSmith** v nabídce aplikací.
 Ikona spustí backendovou uživatelskou službu nebo se k ní připojí. Opětovné
 spuštění nevytváří další backend. Zavření Studia backend ani hunt nezastavuje;

@@ -16,7 +16,9 @@
   "dependencies": {
     "@theia/core": "1.74.1",
     "@intentsmith/protocol": "0.1.0",
-    "@intentsmith/backend-bridge": "0.1.0"
+    "@intentsmith/backend-bridge": "0.1.0",
+    "@theia/filesystem": "1.74.1",
+    "@theia/monaco-editor-core": "1.108.201"
   },
   "scripts": {
     "build": "node scripts/authoritative-lib-contract.cjs verify",

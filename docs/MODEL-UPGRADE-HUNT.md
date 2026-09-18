@@ -123,7 +123,7 @@ full cycle a při explicitním `POST /api/system/upgrades/check`. Výsledek
 `ollamaUpdate` je dostupný také přes `GET /api/system/upgrades`.
 Používá lokální `GET /api/version` a jediný auditovaný upstream endpoint
 `https://api.github.com/repos/ollama/ollama/releases/latest`. Stejný přepínač
-`C3_ENABLE_ONLINE_DISCOVERY=false` vypne i tuto kontrolu.
+`INTENTSMITH_ENABLE_ONLINE_DISCOVERY=false` vypne i tuto kontrolu.
 
 Nezávisle na běžícím serveru a GPU huntu lze spustit:
 
@@ -273,8 +273,8 @@ měření, není však podmínkou samotného spuštění duelu. Retence vyžaduj
 Šablona timer service používá tento wrapper. Před zapnutím proveď například:
 
 ```bash
-C3_DB_PATH=/absolutni/provozni.db node scripts/model-upgrade-hunt.js --bootstrap --shortlist --json
-C3_DB_PATH=/absolutni/provozni.db node scripts/run-model-hunt-provider.js --run --installed-panel --role=CODE,VISION --limit=10 --scheduled --keep-inconclusive
+INTENTSMITH_DB_PATH=/absolutni/provozni.db node scripts/model-upgrade-hunt.js --bootstrap --shortlist --json
+INTENTSMITH_DB_PATH=/absolutni/provozni.db node scripts/run-model-hunt-provider.js --run --installed-panel --role=CODE,VISION --limit=10 --scheduled --keep-inconclusive
 ```
 
 Reprodukovatelná instalace uživatelského runtime používá

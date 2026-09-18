@@ -287,8 +287,8 @@ function _injectProThemeCSS(themeId){
     css+=B+' .intentsmith-card{background:rgba('+pbc[0]+','+pbc[1]+','+pbc[2]+','+tileAlpha.toFixed(2)+')!important;}\n';
     /* Sidebar/panel glass — target both outer container AND inner React div (which has inline background) */
     var panelRgba='rgba('+pbc[0]+','+pbc[1]+','+pbc[2]+','+panelAlpha.toFixed(2)+')';
-    css+=B+' #c3-sidebar,'+B+' #c3-chat-panel,'+B+' #c3-agent-panel,'+B+' #theia-bottom-content-panel{background:'+panelRgba+'!important;backdrop-filter:blur(20px)!important;}\n';
-    css+=B+' #c3-sidebar>div,'+B+' #c3-chat-panel>div,'+B+' #c3-agent-panel>div{background:transparent!important;}\n';
+    css+=B+' #intentsmith-sidebar,'+B+' #intentsmith-chat-panel,'+B+' #intentsmith-agent-panel,'+B+' #theia-bottom-content-panel{background:'+panelRgba+'!important;backdrop-filter:blur(20px)!important;}\n';
+    css+=B+' #intentsmith-sidebar>div,'+B+' #intentsmith-chat-panel>div,'+B+' #intentsmith-agent-panel>div{background:transparent!important;}\n';
   }
   ex.textContent=css;
 }
@@ -633,7 +633,7 @@ class IntentSmithSidebarWidget extends react_widget_1.ReactWidget {
          preserve Lumino's layout styles while hiding the element. */
       if(!document.getElementById('intentsmith-strip-hide')){
         var ss=document.createElement('style');ss.id='intentsmith-strip-hide';
-        ss.textContent='.theia-sidepanel-toolbar{display:none!important;height:0!important;max-height:0!important;min-height:0!important;overflow:hidden!important;visibility:hidden!important;opacity:0!important;}.theia-sidepanel-toolbar~*{top:0!important;height:100%!important;}.lm-TabBar-toolbar{display:none!important;height:0!important;overflow:hidden!important;}#theia-right-side-panel .lm-TabBar~*,#theia-bottom-content-panel .lm-TabBar~*{top:0!important;height:100%!important;}#theia-right-side-panel .lm-DockPanel-widget,#theia-bottom-content-panel .lm-DockPanel-widget{top:0!important;height:100%!important;}.lm-Widget:focus,.lm-Widget:focus-visible,#c3-sidebar:focus,#c3-chat-panel:focus,#c3-agent-panel:focus{outline:none!important;box-shadow:none!important;}button:focus-visible,input:focus-visible,textarea:focus-visible,[role=tab]:focus-visible{outline:2px solid var(--intentsmith-accent,#d4a85f)!important;outline-offset:-2px;}#theia-top-panel,.p-MenuBar,#theia\\:menubar,.theia-app-header{background:var(--intentsmith-bg1,#0f0f12)!important;border-color:var(--intentsmith-border,rgba(231,194,122,0.10))!important;}#theia-left-side-panel,#theia-right-side-panel,#theia-bottom-content-panel{background:var(--intentsmith-bg1,#0f0f12)!important;}input[type=range]{-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;background:var(--intentsmith-bg4,#2a292f);outline:none;}input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--intentsmith-accent,#d4a85f);cursor:pointer;border:2px solid var(--intentsmith-bg1,#0f0f12);}body{border:1px solid var(--intentsmith-border2,rgba(231,194,122,0.18))!important;box-sizing:border-box!important;}#theia-right-side-panel{border-left:1px solid var(--intentsmith-border2,rgba(231,194,122,0.18))!important;}#theia-bottom-content-panel{border-top:1px solid var(--intentsmith-border2,rgba(231,194,122,0.18))!important;}@keyframes intentsmith-ac-pulse{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}@keyframes intentsmith-pulse{0%{transform:translateX(-100%)}100%{transform:translateX(400%)}}@keyframes intentsmith-thinking-dot{0%,80%,100%{opacity:0.2;transform:scale(0.8)}40%{opacity:1;transform:scale(1)}}.lm-TabBar-tabCloseIcon,.lm-TabBar-tabCloseIcon::before,.p-TabBar-tabCloseIcon,.p-TabBar-tabCloseIcon::before{font-family:"codicon"!important;}';
+        ss.textContent='.theia-sidepanel-toolbar{display:none!important;height:0!important;max-height:0!important;min-height:0!important;overflow:hidden!important;visibility:hidden!important;opacity:0!important;}.theia-sidepanel-toolbar~*{top:0!important;height:100%!important;}.lm-TabBar-toolbar{display:none!important;height:0!important;overflow:hidden!important;}#theia-right-side-panel .lm-TabBar~*,#theia-bottom-content-panel .lm-TabBar~*{top:0!important;height:100%!important;}#theia-right-side-panel .lm-DockPanel-widget,#theia-bottom-content-panel .lm-DockPanel-widget{top:0!important;height:100%!important;}.lm-Widget:focus,.lm-Widget:focus-visible,#intentsmith-sidebar:focus,#intentsmith-chat-panel:focus,#intentsmith-agent-panel:focus{outline:none!important;box-shadow:none!important;}button:focus-visible,input:focus-visible,textarea:focus-visible,[role=tab]:focus-visible{outline:2px solid var(--intentsmith-accent,#d4a85f)!important;outline-offset:-2px;}#theia-top-panel,.p-MenuBar,#theia\\:menubar,.theia-app-header{background:var(--intentsmith-bg1,#0f0f12)!important;border-color:var(--intentsmith-border,rgba(231,194,122,0.10))!important;}#theia-left-side-panel,#theia-right-side-panel,#theia-bottom-content-panel{background:var(--intentsmith-bg1,#0f0f12)!important;}input[type=range]{-webkit-appearance:none;appearance:none;height:6px;border-radius:3px;background:var(--intentsmith-bg4,#2a292f);outline:none;}input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--intentsmith-accent,#d4a85f);cursor:pointer;border:2px solid var(--intentsmith-bg1,#0f0f12);}body{border:1px solid var(--intentsmith-border2,rgba(231,194,122,0.18))!important;box-sizing:border-box!important;}#theia-right-side-panel{border-left:1px solid var(--intentsmith-border2,rgba(231,194,122,0.18))!important;}#theia-bottom-content-panel{border-top:1px solid var(--intentsmith-border2,rgba(231,194,122,0.18))!important;}@keyframes intentsmith-ac-pulse{0%{transform:translateX(-100%)}100%{transform:translateX(350%)}}@keyframes intentsmith-pulse{0%{transform:translateX(-100%)}100%{transform:translateX(400%)}}@keyframes intentsmith-thinking-dot{0%,80%,100%{opacity:0.2;transform:scale(0.8)}40%{opacity:1;transform:scale(1)}}.lm-TabBar-tabCloseIcon,.lm-TabBar-tabCloseIcon::before,.p-TabBar-tabCloseIcon,.p-TabBar-tabCloseIcon::before{font-family:"codicon"!important;}';
         document.head.appendChild(ss);
       }
       /* v92: Focus Mode CSS — layout override when specialist is active */
@@ -2732,13 +2732,13 @@ function _applyFont(){
     var el=document.getElementById(id);if(el){el.style.zoom='';el.style.fontFamily=ff.val;}});
   var sid='intentsmith-font-override';var ex=document.getElementById(sid);
   if(!ex){ex=document.createElement('style');ex.id=sid;document.head.appendChild(ex);}
-  var css='#c3-center-mount span,#c3-center-mount div,#c3-center-mount p,#c3-center-mount button,'+
-    '#c3-center-mount label,#c3-center-mount h3,#c3-center-mount h4,'+
-    '#c3-sidebar span,#c3-sidebar div,#c3-sidebar button,'+
-    '#c3-chat-panel span,#c3-chat-panel div,#c3-chat-panel textarea,#c3-chat-panel input,'+
-    '#c3-agent-panel span,#c3-agent-panel div{font-family:'+ff.val+';}\n'+
+  var css='#intentsmith-center-mount span,#intentsmith-center-mount div,#intentsmith-center-mount p,#intentsmith-center-mount button,'+
+    '#intentsmith-center-mount label,#intentsmith-center-mount h3,#intentsmith-center-mount h4,'+
+    '#intentsmith-sidebar span,#intentsmith-sidebar div,#intentsmith-sidebar button,'+
+    '#intentsmith-chat-panel span,#intentsmith-chat-panel div,#intentsmith-chat-panel textarea,#intentsmith-chat-panel input,'+
+    '#intentsmith-agent-panel span,#intentsmith-agent-panel div{font-family:'+ff.val+';}\n'+
     '.codicon,.codicon *{font-family:"codicon"!important;}\n';
-  if(fs!==13){css+='#c3-chat-panel .intentsmith-chat-msg-text{font-size:'+fs+'px!important;}';}
+  if(fs!==13){css+='#intentsmith-chat-panel .intentsmith-chat-msg-text{font-size:'+fs+'px!important;}';}
   ex.textContent=css;
 }
 function _applyAllSettings(){var _ctm=_appearanceMode();_applyColorTheme(_ctm);if(!_isProTheme(_ctm))_applyTheme(_ctm);_applyAccent();_injectProThemeCSS(_ctm);_applyFont();_injectCustomCSS(_settingsVals.customCSS);renderCenter();renderChat();renderAgent();if(typeof renderSidebar==='function')renderSidebar();}
@@ -4578,7 +4578,7 @@ var editor=owner._editor||_editorState;
     if(data.error)throw new Error(data.error);
     var tab={id:'file-'+Date.now()+'-'+Math.random().toString(36).slice(2,6),type:'file',path:path,
       label:path.split('/').pop(),content:data.content||'',hash:data.hash||null,
-      dirty:false,scrollTop:0,deleted:false,externalChange:false};
+      originalContent:data.content||'',dirty:false,scrollTop:0,deleted:false,externalChange:false};
     editor.tabs.push(tab);
     editor.activeTabId=tab.id;
     editor.active=true;owner._chatCollapsed=true;
@@ -4621,7 +4621,7 @@ function _refreshFileTab(tab){
   .then(function(data){
     if(data.error)return;
     if(data.hash&&data.hash===tab.hash)return;
-    tab.content=data.content||'';tab.hash=data.hash||null;
+    tab.content=data.content||'';tab.originalContent=tab.content;tab.hash=data.hash||null;
     tab.dirty=false;tab.externalChange=false;
     renderCenter();
   }).catch(function(){});
@@ -4745,9 +4745,47 @@ function centerEditor(idx){
       ):h('div',{style:{flex:1,display:'flex',alignItems:'center',justifyContent:'center',color:C.tx4,fontSize:_fs(12)}},'Dvojklik na soubor ve Working Tree pro otevření')));
 }
 
+/* Manual editing uses Theia's existing local file service; no model or chat
+   path invokes this operation. The operator saves explicitly and stale content
+   is rejected before the provider's mtime/etag check. */
+async function _saveWorkspaceFile(tab){
+  if(!tab||tab.type!=='file'||!tab.path||tab.path[0]!=='/'||tab._saving)return;
+  tab._saving=true;tab._saveError=null;renderCenter();
+  try{
+    if(!window._intentsmithFileService)throw Error('Souborová služba není dostupná.');
+    var service=window._intentsmithFileService,uri=new (require('@theia/core/lib/common/uri').default)(tab.path);
+    var current=await service.read(uri);
+    if(current.value!==tab.originalContent)throw Error('Soubor se změnil na disku. Uložení bylo zastaveno; nejprve změny porovnej.');
+    var content=tab.content;
+    await service.write(uri,content,{mtime:current.mtime,etag:current.etag,encoding:current.encoding});
+    tab.originalContent=content;tab.dirty=tab.content!==content;tab.externalChange=false;_fetchGitStatus();
+  }catch(e){tab._saveError=e.message||'Uložení selhalo.';}
+  finally{tab._saving=false;renderCenter();}
+}
+function WorkspaceFileEditor(props){
+  var tab=props.tab,node=React.useRef(null);
+  React.useEffect(function(){
+    var editor,model,change;try{
+      var monaco=require('@theia/monaco-editor-core');
+      var ext=tab.path.split('.').pop().toLowerCase();var language={js:'javascript',mjs:'javascript',json:'json',ts:'typescript',md:'markdown',py:'python',css:'css',html:'html'}[ext]||'plaintext';
+      model=monaco.editor.createModel(tab.content||'',language);
+      editor=monaco.editor.create(node.current,{model:model,automaticLayout:true,minimap:{enabled:false},fontSize:13,scrollBeyondLastLine:false,theme:'vs-dark'});
+      if(tab._editorViewState)editor.restoreViewState(tab._editorViewState);
+      change=model.onDidChangeContent(function(){var dirty=tab.dirty;tab.content=model.getValue();tab.dirty=tab.content!==tab.originalContent;if(tab.dirty!==dirty)renderCenter();});
+      editor.addCommand(monaco.KeyMod.CtrlCmd|monaco.KeyCode.KeyS,function(){_saveWorkspaceFile(tab);});
+    }catch(e){tab._saveError='Editor se nepodařilo otevřít: '+e.message;renderCenter();}
+    return function(){if(editor){tab._editorViewState=editor.saveViewState();editor.dispose();}if(change)change.dispose();if(model)model.dispose();};
+  },[tab.id]);
+  return h('div',{ref:node,'data-file-editor':tab.id,style:{flex:1,minHeight:80,overflow:'hidden'}});
+}
 function _renderFileContent(tab){
   var lines=(tab.content||'').split('\n');
   return h(React.Fragment,null,
+    tab.path&&tab.path[0]==='/'?h('div',{style:{display:'flex',alignItems:'center',gap:8,padding:'4px 10px',borderBottom:'1px solid '+C.border,flexShrink:0}},
+      _workspaceButton(tab.editing?'Náhled':'Upravit','Přepnout editor souboru',function(){tab.editing=!tab.editing;renderCenter();}),
+      _workspaceButton(tab._saving?'Ukládám…':'Uložit','Uložit ruční změny (Ctrl+S)',function(){_saveWorkspaceFile(tab);},{disabled:!tab.dirty||tab._saving}),
+      h('span',{style:{fontSize:_fs(10),color:C.tx3}},tab.dirty?'Neuložené změny':'Soubor na disku')):null,
+    tab._saveError?h('div',{role:'alert',style:{padding:8,color:C.red}},tab._saveError):null,
     /* External change banner */
     tab.externalChange?h('div',{style:{display:'flex',alignItems:'center',gap:8,padding:'6px 12px',background:C.amberBg,borderBottom:'1px solid '+C.border,fontSize:_fs(11),flexShrink:0}},
       h('span',{style:{color:C.amber,flex:1}},'Soubor byl změněn externě.'),
@@ -4756,7 +4794,7 @@ function _renderFileContent(tab){
       h('button',{style:{padding:'2px 8px',borderRadius:4,border:'1px solid '+C.border2,background:'transparent',color:C.tx3,cursor:'pointer',fontSize:_fs(10)},
         onClick:function(){tab.externalChange=false;renderCenter();}},'Ignorovat')):null,
     /* Code view */
-    h('div',{id:'intentsmith-editor-scroll',style:{flex:1,overflow:'auto',background:C.bg0},
+    tab.editing?h(WorkspaceFileEditor,{key:tab.id,tab:tab}):h('div',{id:'intentsmith-editor-scroll',style:{flex:1,overflow:'auto',background:C.bg0},
       onScroll:function(e){tab.scrollTop=e.target.scrollTop;}},
       h('table',{style:{borderCollapse:'collapse',width:'100%',fontFamily:C.mono,fontSize:_fs(12),lineHeight:'1.6'}},
         h('tbody',null,lines.map(function(line,i){
@@ -6078,7 +6116,7 @@ function _attachCeilingFor(name){
 }
 
 function _attachSizeLabel(bytes){
-  return Math.round(bytes/1024)+' KB';
+  return bytes<1024?bytes+' B':Math.ceil(bytes/1024)+' KiB';
 }
 
 /* A refusal is reported against the file the user named, not swallowed. The item
@@ -7433,7 +7471,7 @@ function SpecialistFilesApp(s,id){
     h('div',{style:{padding:8,display:'flex',flexWrap:'wrap'}},_workspaceButton('+ Přidat soubory','Přidat soubory specialistovi',function(){_pickSpecialistFiles(s,id);}),
       _workspaceButton('Sdílet…','Převzít soubor jiného specialisty',async function(){try{var list=[];for(var key of Object.keys(_specialistWorkspaces)){if(key!==id)for(var f of await _specialistFileStore.list(key))list.push({owner:key,file:f});}s._shareFiles=list;renderChat();}catch(e){s._filesError=e.message;renderChat();}})),
     s._filesError?h('p',{role:'alert',style:{padding:10,color:C.red}},s._filesError):null,
-    s._shareFiles?h('div',{style:{padding:10,borderBottom:'1px solid '+C.border}},h('p',null,'Vyber soubor ke zkopírování do tohoto prostoru.'),s._shareFiles.length?s._shareFiles.map(function(c){return _workspaceButton(c.file.name+' · '+c.owner,'Sdílet '+c.file.name,async function(){try{await _specialistFileStore.share(c.owner,id,c.file.id);s._shareFiles=null;await _loadSpecialistFiles(s,id);}catch(e){s._filesError=e.message;renderChat();}});}):h('p',null,'Žádné soubory k převzetí.'),_workspaceButton('Zavřít','Zavřít sdílení',function(){s._shareFiles=null;renderChat();})):null,
+    s._shareFiles?h('div',{style:{padding:10,borderBottom:'1px solid '+C.border}},h('p',null,'Vyber soubor ke zkopírování do tohoto prostoru.'),s._shareFiles.length?s._shareFiles.map(function(c){return _workspaceButton(c.file.name+' · '+((SPECIALISTS.find(function(spec){return _specialistKey(spec)===c.owner;})||{}).name||c.owner),'Sdílet '+c.file.name,async function(){try{await _specialistFileStore.share(c.owner,id,c.file.id);s._shareFiles=null;await _loadSpecialistFiles(s,id);}catch(e){s._filesError=e.message;renderChat();}});}):h('p',null,'Žádné soubory k převzetí.'),_workspaceButton('Zavřít','Zavřít sdílení',function(){s._shareFiles=null;renderChat();})):null,
     h('div',{style:{overflowY:'auto',flex:1,padding:8}},s._filesLoading?h('p',null,'Načítám soubory…'):(s._storedFiles||[]).length?(s._storedFiles||[]).map(function(f){return h('div',{key:f.id,style:{padding:'10px 0',borderBottom:'1px solid '+C.border}},
       h('div',{style:{overflowWrap:'anywhere',fontSize:12}},f.name),h('div',{style:{color:C.tx2,fontSize:11,marginTop:4}},_attachSizeLabel(f.size)),
       _workspaceButton('Náhled','Otevřít '+f.name,function(){_previewSpecialistFile(s,id,f);}),
@@ -7935,30 +7973,9 @@ exports.default = new inversify_1.ContainerModule(function(bind){
   var _URI = require("@theia/core/lib/common/uri").default;
   bind(IntentSmithSidebarWidget).toSelf();
   bind(browser_1.WidgetFactory).toDynamicValue(function(ctx){
-    // Expose OpenerService for file editing via Monaco editor (runs when sidebar factory is resolved)
-    if(!window._intentsmithOpenFileInEditor){
-      try{
-        var openerService=ctx.container.get(browser_1.OpenerService);
-        window._intentsmithOpenFileInEditor=function(filePath){_openFileTab(filePath);return;
-
-          try{
-            var uri=new _URI(filePath);
-            // Hide center container so Monaco editor is visible
-            if(_centerContainer)_centerContainer.style.display='none';
-            openerService.getOpener(uri).then(function(opener){
-              return opener.open(uri,{mode:'activate'});
-            }).catch(function(err){
-              console.error('[IntentSmith] Opener error:',err);
-              if(_centerContainer)_centerContainer.style.display='';
-            });
-          }catch(err){
-            console.warn('[IntentSmith] Editor open failed:',err);
-            if(_centerContainer)_centerContainer.style.display='';
-          }
-        };
-        console.log('[IntentSmith] OpenerService ready — file editing via Monaco enabled');
-      }catch(e){console.warn('[IntentSmith] OpenerService not available:',e);}
-    }
+    // Keep both preview and manual editing inside the owning workspace.
+    window._intentsmithOpenFileInEditor=function(filePath){_openFileTab(filePath);};
+    window._intentsmithFileService=ctx.container.get(require('@theia/filesystem/lib/browser/file-service').FileService);
     return{id:INTENTSMITH_SIDEBAR_ID,createWidget:function(){return ctx.container.get(IntentSmithSidebarWidget);}};
   }).inSingletonScope();
   browser_1.bindViewContribution(bind,IntentSmithSidebarContrib);

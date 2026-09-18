@@ -121,3 +121,16 @@ test('desktop upgrades preserve the exact administrator credential under the can
   const config={sourceRoot:'/source',node:'/node',dbPath:'/data/legacy.db',stateDirectory:'/state',configDirectory:'/config',icon:'/icon.png'};
   const env=renderDesktopInstallation(config).environment;assert.match(env,/INTENTSMITH_HOST=127\.0\.0\.1/);assert.match(env,/INTENTSMITH_PORT=0/);assert.doesNotMatch(env,/\nC3_/);
 });
+test('manual file save refuses an externally changed file and retains the unsaved editor',async()=>{
+  const writes=[];const c=vm.createContext({window:{_intentsmithFileService:{read:async()=>({value:'external edit'}),write:async(...args)=>writes.push(args)}},require:()=>({default:class URI{constructor(path){this.path=path;}}}),renderCenter(){},_fetchGitStatus(){}});
+  vm.runInContext('async '+fn('_saveWorkspaceFile'),c);
+  const tab={type:'file',path:'/project/file.js',originalContent:'original',content:'my edit',dirty:true};await c._saveWorkspaceFile(tab);
+  assert.equal(writes.length,0);assert.equal(tab.dirty,true);assert.equal(tab.content,'my edit');assert.match(tab._saveError,/změnil na disku/);
+});
+test('manual save keeps edits made while the previous save is still in flight',async()=>{
+  let finish,write;const c=vm.createContext({window:{_intentsmithFileService:{read:async()=>({value:'original',mtime:123,etag:'exact-read',encoding:'utf8'}),write:async(uri,content,opts)=>{write={uri,content,opts};await new Promise(resolve=>finish=resolve);}}},require:()=>({default:class URI{constructor(path){this.path=path;}}}),renderCenter(){},_fetchGitStatus(){}});
+  vm.runInContext('async '+fn('_saveWorkspaceFile'),c);const tab={type:'file',path:'/project/file.js',originalContent:'original',content:'first edit',dirty:true};
+  const pending=c._saveWorkspaceFile(tab);await new Promise(resolve=>setImmediate(resolve));tab.content='newer edit';finish();await pending;
+  assert.equal(write.uri.path,'/project/file.js');assert.equal(write.content,'first edit');assert.equal(write.opts.etag,'exact-read');assert.equal(write.opts.mtime,123);
+  assert.equal(tab.originalContent,'first edit');assert.equal(tab.content,'newer edit');assert.equal(tab.dirty,true);assert.equal(tab._saving,false);
+});

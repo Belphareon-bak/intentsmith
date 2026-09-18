@@ -201,9 +201,9 @@ TrustTracker.recordFeedback()
 
 | Kanal | Transport | Env |
 |-------|-----------|-----|
-| Email | SMTP (nodemailer) | C3_SMTP_HOST, C3_SMTP_PORT, C3_SMTP_USER, C3_SMTP_PASS |
-| Telegram | Bot API, MarkdownV2 | C3_TELEGRAM_BOT_TOKEN, C3_TELEGRAM_CHAT_ID |
-| Push | ntfy.sh (JSON body, UTF-8) | C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN |
+| Email | SMTP (nodemailer) | INTENTSMITH_SMTP_HOST, INTENTSMITH_SMTP_PORT, INTENTSMITH_SMTP_USER, INTENTSMITH_SMTP_PASS |
+| Telegram | Bot API, MarkdownV2 | INTENTSMITH_TELEGRAM_BOT_TOKEN, INTENTSMITH_TELEGRAM_CHAT_ID |
+| Push | ntfy.sh (JSON body, UTF-8) | INTENTSMITH_NTFY_SERVER, INTENTSMITH_NTFY_TOPIC, INTENTSMITH_NTFY_TOKEN |
 
 ## Trust Feedback Loop
 

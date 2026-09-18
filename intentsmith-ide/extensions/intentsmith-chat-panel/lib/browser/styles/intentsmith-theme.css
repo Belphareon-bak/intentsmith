@@ -294,11 +294,11 @@ html[data-intentsmith-appearance="intentsmith"] button.theia-button.main {
 .xterm-viewport { background: var(--intentsmith-bg0) !important; }
 
 /* ─── Widget sizing ─── */
-#c3-sidebar, #c3-chat-panel, #c3-agent-panel, #c3-center-view {
+#intentsmith-sidebar, #intentsmith-chat-panel, #intentsmith-agent-panel, #intentsmith-center-view {
   background: var(--intentsmith-bg1) !important;
 }
-html[data-intentsmith-appearance="intentsmith"] #c3-chat-panel,
-html[data-intentsmith-appearance="intentsmith"] #c3-agent-panel {
+html[data-intentsmith-appearance="intentsmith"] #intentsmith-chat-panel,
+html[data-intentsmith-appearance="intentsmith"] #intentsmith-agent-panel {
   border-left: 1px solid var(--intentsmith-border) !important;
 }
 

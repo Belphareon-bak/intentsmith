@@ -4,7 +4,7 @@
 
 ## Connection
 
-**Endpoint:** `ws://host:3335/c3/ws`
+**Endpoint:** `ws://host:3335/intentsmith/ws`
 
 ### Handshake
 
@@ -258,7 +258,7 @@ Events: `add`, `change`, `unlink`. Batched with 100ms debounce. Ignores `node_mo
 | `ws-client.js` | 364 | WS transport, handshake, reconnect, send functions |
 | `agent-client.js` | 280 | Agent event formatting, execution tracking |
 | `terminal-client.js` | 212 | Command routing, output parsing, execution lock |
-| `event-bus.js` | ~50 | Central Pub/Sub dispatcher (`C3Bus`) |
+| `event-bus.js` | ~50 | Central Pub/Sub dispatcher (`IntentSmithBus`) |
 | `agent-log-renderer.js` | 366 | Turn grouping, event pairing, React rendering |
 
 ## Client Send Functions
@@ -274,7 +274,7 @@ wsIsReady()                                // Connection status
 wsHasFeature(name)                         // Feature check
 ```
 
-## Client Events (C3Bus)
+## Client Events (IntentSmithBus)
 
 | Event | Source | Description |
 |-------|--------|-------------|

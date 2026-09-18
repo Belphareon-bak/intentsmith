@@ -1,5 +1,7 @@
 # IntentSmith
 
+Nové rozvržení a ovládání: [pracovní prostory IDE](docs/IDE-WORKSPACE.md).
+
 Nové projektové flow a import: [ověřený rozsah a provozní blok](docs/review/2026-09-18-PROJECT-FLOW.md). Nasazený kandidát `5e46fca7` ještě není production-ready.
 
 Local-first AI pracovní prostředí pro technického power usera: konverzace,

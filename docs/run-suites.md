@@ -26,7 +26,7 @@ neprovedený test. Chyběl kus, který sady **spustí**.
    `makeSuiteEnvironment()` je proto z `nightly-audit.js` exportovaná, aby
    existoval jediný zdroj pravdy o tvaru prostředí;
 2. spustí `src/server.js` v té izolaci na efemérním portu;
-3. počká na `C3_PORT_FILE` a doplní sadám `C3_URL` na skutečný port;
+3. počká na `INTENTSMITH_PORT_FILE` a doplní sadám `INTENTSMITH_URL` na skutečný port;
 4. každou sadu spustí s **jejím vlastním stropem z registru**;
 5. zapíše `report.json`.
 
@@ -55,6 +55,6 @@ generování odpovědi **49,6 s**, celkem 76,2 s s teplým modelem — proti
 ## Známé prostředí
 
 Sady vyžadují kompletní izolaci včetně `HOME` uvnitř `.intentsmith-artifacts`.
-Bez `C3_AUDIT_RUN=1` si bootstrap `tests/helpers/isolated-test-db.js` vyrobí
+Bez `INTENTSMITH_AUDIT_RUN=1` si bootstrap `tests/helpers/isolated-test-db.js` vyrobí
 vlastní privátní root a injektované cesty přepíše — test pak kouká jinam než
 server. Skript tohle nastavuje sám; ručnímu spouštění to dělá potíže.

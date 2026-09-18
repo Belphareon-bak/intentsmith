@@ -1,4 +1,4 @@
-# C3 Agent — API Reference
+# IntentSmith — API Reference
 
 > **v135** | 272 route definitions / 251 unique keys across 20 source files
 > Generated from source code analysis. All routes are HTTP/1.1, JSON bodies (unless noted).
@@ -45,7 +45,7 @@
 | **Local access boundary** | `evaluateLegacyLocalAccess()` runs before routing and rejects non-loopback peer, host, origin or invalid opaque-origin capability with `403 LEGACY_LOCAL_ACCESS_REQUIRED`. IntentSmith remains loopback-only. |
 | **Global auth guard** | `authorizeGlobalRequest()` runs after exact route matching and before every handler. Only `GET /`, `GET /health` and `GET /api/health` are public. Unauthenticated production requests return typed 401; an insufficient API-token scope returns typed 403. |
 | CORS | `OPTIONS *` → 204 with `Access-Control-Allow-*` headers |
-| Rate limit | Tiered per-IP sliding window (v125): Tier 0 exempt (OPTIONS, health, WS), Tier 1 read 600/min (GET), Tier 2 write 120/min (POST/PUT/DELETE). Disabled on localhost. Proxy: `C3_TRUST_PROXY=true` |
+| Rate limit | Tiered per-IP sliding window (v125): Tier 0 exempt (OPTIONS, health, WS), Tier 1 read 600/min (GET), Tier 2 write 120/min (POST/PUT/DELETE). Disabled on localhost. Proxy: `INTENTSMITH_TRUST_PROXY=true` |
 | Path traversal guard | Static file serving + workspace + project paths validated against root. conversationId + package ID sanitized (v126) |
 | Security headers | `X-Content-Type-Options`, `X-Frame-Options`, CSP |
 
@@ -54,7 +54,7 @@
 | Credential | Mechanism |
 |-------|-----------|
 | Studio HTTP | Private per-process capability in `X-IntentSmith-Local-Capability`; accepted only for the exact loopback backend origin |
-| Studio WS | Stejná capability v subprotocolu `c3-local-v1.*`; subject se binduje při upgradu |
+| Studio WS | Stejná capability v subprotocolu `intentsmith-local-v1.*` (kompatibilně také `c3-local-v1.*`); subject se binduje při upgradu |
 | Admin/CLI | `Authorization: Bearer …` nebo `X-Admin-Token`; comparison je timing-safe |
 | Vydaný API token | Bearer token ověřený přes hash, expiry a route-class scope |
 | Development | Explicitní non-production loopback bypass; v production neexistuje |
@@ -447,7 +447,7 @@ Lifecycle endpoints are spread across projects and expertises routes:
 | Method | Path | Body / Query | Response | Side Effects |
 |--------|------|-------------|----------|-------------|
 | `GET` | `/api/notifications/config` | — | SMTP config + `credentialPersistence: environment_only`; password is only a configured sentinel | — |
-| `POST` | `/api/notifications/config` | `{emailEnabled, smtpHost, smtpPort, smtpUser, smtpFrom, emailRecipient, ...}` | `{success, credentialPersistence}` | Saves non-secret config; rejects `smtpPass`; runtime credential comes only from `C3_SMTP_PASS` |
+| `POST` | `/api/notifications/config` | `{emailEnabled, smtpHost, smtpPort, smtpUser, smtpFrom, emailRecipient, ...}` | `{success, credentialPersistence}` | Saves non-secret config; rejects `smtpPass`; runtime credential comes only from `INTENTSMITH_SMTP_PASS` |
 | `GET` | `/api/notifications/channels` | — | `{channels: [{name, configured}]}` | — |
 | `POST` | `/api/notifications/test` | `{channel, recipient?}` | Test result | Sends test notification |
 | `POST` | `/api/notifications/verify` | `{channel}` | Verify result | Verifies channel config |
@@ -577,7 +577,7 @@ configuration is insufficient. All eight category receipts and history remain re
 | `GET` | `/api/feedback` | — | Feedback rows (100 max) | — |
 | `GET` | `/api/scheduler/status` | — | `{status, next_run, active_agents}` | — |
 
-### Debug (requires `C3_TRACE=1`)
+### Debug (requires `INTENTSMITH_TRACE=1`)
 
 | Method | Path | Response |
 |--------|------|----------|
