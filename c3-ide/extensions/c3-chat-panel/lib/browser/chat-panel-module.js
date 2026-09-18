@@ -2557,7 +2557,7 @@ function _renderHuntTab(){
       h('div',{role:'status',style:{color:C.accent,fontWeight:600}},d.state==='STOPPING'?'Zastavování měření…':phases[phase]||'Připravuji měření…'),
       h('div',{style:{fontSize:_fs(16),fontWeight:700,marginTop:6}},model||'Ověřuji vybraný model',detail.role?' · '+detail.role:activeRequest&&activeRequest.role?' · '+activeRequest.role:''),
       detail.testName?h('p',{style:{margin:'8px 0',fontFamily:C.mono,fontSize:_fs(11)}},detail.testName+' · opakování '+detail.repeat+'/'+detail.repeats):null,
-      detail.reasons?h('p',{style:{color:C.amber}},detail.reasons.join('; ')+'. Test se spustí automaticky po uvolnění prostředků (nejvýše 30 minut).'):null,
+      detail.reasons?h('p',{style:{color:C.amber}},detail.reasons.map(function(reason){return /GPU evaluation is already active/.test(reason)?'GPU právě používá jiný testovací běh':reason;}).join('; ')+'. Test se spustí automaticky po uvolnění prostředků (nejvýše 30 minut).'):null,
       detail.currentProbe?h('p',null,'Základní kontrola '+detail.currentProbe+'/'+detail.totalProbes+' · '+detail.probe):null,
       h('progress',{max:100,value:counted?percent:undefined,'aria-label':'Průběh aktuální testovací sady',style:{display:'block',width:'100%',height:12,margin:'14px 0 8px',accentColor:C.accent}}),
       h('div',{style:{display:'flex',gap:16,flexWrap:'wrap',justifyContent:'space-between',color:C.tx3}},
@@ -3257,7 +3257,7 @@ function _renderDiscoveredTab(){
     })));
 }
 
-var _evaluationRoleFilter='all',_roleChoices={},_assignmentMessage=null;
+var _evaluationRoleFilter='all',_roleChoices={},_assignmentMessage=null,_qualityExpanded={};
 function _modelTable(headers,rows){
   return h('div',{style:{overflowX:'auto',border:'1px solid '+C.border,borderRadius:8,marginBottom:14}},
     h('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:_fs(11),textAlign:'left'}},
@@ -3269,12 +3269,18 @@ function _modelScore(row){return row&&row.status==='COMPLETE'&&Number.isFinite(r
 function _modelStatus(row){return row.applicable===false?'Mimo roli':({COMPLETE:'Změřeno',MISSING:'Nezměřeno',FAILED:'Test selhal',BLOCKED:'Blokováno'}[row.status]||row.status);}
 function _taskLabel(task,rd){var d=(rd.tasks||[]).find(function(t){return t.name===task.name;});return d?d.label:task.name.replace(/_/g,' ');}
 function _qualityDetail(row,rd){
-  var tasks=row.tasks||[];if(!tasks.length)return h('span',{style:{color:C.tx4}},row.missingExplanation||row.errorMessage||'Podrobnosti měření zatím chybí.');
-  return h('details',null,h('summary',{style:{cursor:'pointer',color:C.accent}},'Výsledky '+tasks.length+' úloh'),
+  var tasks=row.tasks||[];
+  return h('div',{'data-testid':'model-task-detail',style:{padding:'4px 0 12px'}},
+    h('strong',null,row.model+' · výsledky '+tasks.length+' úloh'),
     h('p',{style:{color:C.tx3}},'Skóre je průměr úloh této role. Rozdíl ukazuje rozsah výsledků opakování; nejde o obecnou úspěšnost modelu.'),
-    _modelTable(['Úloha','Výsledky opakování','Vyhodnocení'],tasks.map(function(t){return h('tr',{key:t.name},
-      _modelCell(h('div',null,_taskLabel(t,rd),h('div',{style:{fontSize:_fs(10),color:C.tx3}},((rd.tasks||[]).find(function(c){return c.name===t.name;})||{}).requirements?.map(function(r){return typeof r==='string'?r:r.label||r.name||'';}).join('; ')||''))),_modelCell((t.scores||[]).map(function(v){return Math.round(v*100)+' %';}).join(' / ')),
-      _modelCell((t.details||[]).map(function(d,i){return d?h('div',{key:i},(i+1)+'. '+(d.reason||''),d.syntaxOk===false?' · neplatná syntaxe':'',d.applied===false?' · opravu nelze použít':'',d.targeted!=null?' · kontroly '+d.targetedPassed+'/'+d.targeted:'',d.regressions?' · regrese '+d.regressions:''):null;})));
+    _modelTable(['Úloha','Výsledky opakování','Vyhodnocení'],tasks.map(function(t){
+      var catalog=(rd.tasks||[]).find(function(c){return c.name===t.name;})||{},requirements=catalog.requirements||[];
+      return h('tr',{key:t.name},
+        _modelCell(h('div',{style:{maxWidth:620}},_taskLabel(t,rd),requirements.length?h('details',{style:{marginTop:6,color:C.tx3,fontSize:_fs(10)}},
+          h('summary',{style:{cursor:'pointer'}},'Co se ověřuje · '+requirements.length+' kontrol'),
+          h('ul',null,requirements.map(function(r,i){return h('li',{key:i},typeof r==='string'?r:r.label||r.name||'');}))):null)),
+        _modelCell((t.scores||[]).map(function(v){return Math.round(v*100)+' %';}).join(' / '),{style:{padding:10,borderTop:'1px solid '+C.border,whiteSpace:'nowrap',verticalAlign:'top'}}),
+        _modelCell((t.details||[]).map(function(d,i){return d?h('div',{key:i},(i+1)+'. '+(d.reason||''),d.syntaxOk===false?' · neplatná syntaxe':'',d.applied===false?' · opravu nelze použít':'',d.targeted!=null?' · kontroly '+d.targetedPassed+'/'+d.targeted:'',d.regressions?' · regrese '+d.regressions:''):null;})));
     })));
 }
 function _renderEvaluationsTab(){
@@ -3289,15 +3295,17 @@ function _renderEvaluationsTab(){
       return h('section',{key:role,style:{marginBottom:26}},
         h('h3',{style:{fontSize:_fs(14)}},role+' · '+rd.suiteName),
         h('p',{style:{color:C.tx3,fontSize:_fs(11)}},'Aktuální model: '+(rd.binding||'nepřiřazen')+' · změřeno '+rows.filter(function(a){return a.status==='COMPLETE';}).length+'/'+rows.length+' místních modelů · '+rd.taskCount+' úloh × '+rd.repeats+' opakování · silné úlohy ≥ 80 %, slabé < 50 %'),
-        _modelTable(['Model','Skóre','Silné výsledky / slabé výsledky','Detail','Akce'],rows.map(function(row){
+        _modelTable(['Model','Skóre','Silné výsledky / slabé výsledky','Detail','Akce'],rows.flatMap(function(row){
           var tasks=row.tasks||[],strong=tasks.filter(function(t){return t.mean>=0.8&&t.spread<=0.2;}),weak=tasks.filter(function(t){return t.mean<0.5;});
           var describe=function(list){return list.length?list.slice(0,2).map(function(t){return _taskLabel(t,rd);}).join('; ')+(list.length>2?' a '+(list.length-2)+' další':''):'Zatím bez důkazu';};
-          return h('tr',{key:row.model,style:{background:row.isCurrentBinding?C.accentBg:undefined}},
+          var key=role+'|'+row.model,expanded=!!_qualityExpanded[key];
+          var main=h('tr',{key:row.model,style:{background:row.isCurrentBinding?C.accentBg:undefined}},
             _modelCell(h('div',null,h('strong',null,row.model),row.isCurrentBinding?h('div',{style:{color:C.accent,fontSize:_fs(9)}},'Aktuálně přiřazený'):null,
               h('div',{style:{color:row.status==='COMPLETE'?C.success:C.tx3}},_modelStatus(row)),_modelTestFeedback(row.model,role))),
             _modelCell(h('div',null,h('strong',null,_modelScore(row)),row.status==='COMPLETE'&&Number.isFinite(row.passed)&&Number.isFinite(row.total)?h('div',{style:{color:C.tx3}},row.passed+'/'+row.total+' úloh nad prahem'):null)),
             _modelCell(tasks.length?h('div',{style:{maxWidth:300,fontSize:_fs(10)}},h('div',{style:{color:C.success}},'Silné: '+describe(strong)),h('div',{style:{marginTop:5,color:C.amber}},'Slabé: '+describe(weak))):row.status==='COMPLETE'?'Chybí podrobnosti výsledku':'Čeká na měření'),
-            _modelCell(_qualityDetail(row,rd)),_modelCell(h('button',{style:_modelButtonStyle(false,_modelTestPending),disabled:_modelTestPending,onClick:function(){_testInstalledModel(row.model,role);}},'Nový test')));
+            _modelCell(tasks.length?h('button',{style:_modelButtonStyle(false,false),'aria-expanded':expanded,onClick:function(){_qualityExpanded[key]=!expanded;renderCenter();}},(expanded?'Skrýt detail':'Výsledky '+tasks.length+' úloh')):'—'),_modelCell(h('button',{style:_modelButtonStyle(false,_modelTestPending),disabled:_modelTestPending,onClick:function(){_testInstalledModel(row.model,role);}},'Nový test')));
+          return expanded?[main,h('tr',{key:key+'-detail'},h('td',{colSpan:5,style:{padding:14,borderTop:'1px solid '+C.border,background:C.bg2}},_qualityDetail(row,rd)))]:[main];
         })),
         h('details',null,h('summary',{style:{cursor:'pointer',color:C.accent}},'Matice výsledků jednotlivých úloh'),
           _modelTable(['Model'].concat((rd.tasks||[]).map(function(t){return h('span',{title:t.label},t.label);})),rows.filter(function(row){return row.status==='COMPLETE';}).map(function(row){return h('tr',{key:row.model},_modelCell(row.model),(rd.tasks||[]).map(function(t){var result=(row.tasks||[]).find(function(x){return x.name===t.name;});return _modelCell(result?Math.round(result.mean*100)+' %':'—',{key:t.name,title:result?'Rozdíl opakování: '+Math.round(result.spread*100)+' bodů':'Chybí detail',style:{padding:10,borderTop:'1px solid '+C.border,color:result&&result.mean>=0.8?C.success:C.amber}});}));})))
