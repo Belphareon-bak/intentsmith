@@ -5297,13 +5297,14 @@ function _initBusSubscriptions() {
     var s = _sessions[ev.sessionIdx] || _sessions[0];
     s.chat._thinking = null; /* v90: response arrived — clear thinking indicator */
     s.chat.msgs.push({role:'assistant', text:ev.content, tag:ev.tag||'LLM'});
+    s._history=null;
     /* Update session convId from backend response (new conversation or first message) */
     var respConvId = ev.metadata && ev.metadata.conversationId;
     if (respConvId && !s._convId) { s._convId = respConvId; _persistSessionState(); }
     if (ev.metadata && typeof ev.metadata.contextPercent === 'number') s.chat.ctx = ev.metadata.contextPercent;
     /* v65.0: If SHELL intent — switch to split/terminal so user sees output */
     if (ev.metadata && ev.metadata.shellCommand) {
-      if (s.bottom !== 'split' && s.bottom !== 'terminal') { s.bottom = 'split'; }
+      if (s.bottom !== 'terminal') { s.bottom = 'terminal'; }
       renderAgent();
     }
     /* v88+v122.2: Refresh expertises after create-expertise or create-specialist skill completes */
@@ -5316,6 +5317,7 @@ function _initBusSubscriptions() {
     var s = _sessions[ev.sessionIdx] || null;
     if (!s || !s.chat) return;
     var result = ev.result || {};
+    s._history=null;
     if (ev.action === 'cancel') {
       var cancelError = result.error || {};
       var cancelText = ev.status === 'cancelled'
@@ -7354,8 +7356,9 @@ function _loadSpecialistFiles(s,id){
   s._filesLoading=true;return _specialistFileStore.list(id).then(function(files){if(_specialistKey(s.chat.specialist)!==id)return;s._storedFiles=files;s._filesError=null;}).catch(function(e){s._filesError=e.message;}).finally(function(){s._filesLoading=false;renderChat();});
 }
 function _pickSpecialistFiles(s,id){
-  var input=document.createElement('input');input.type='file';input.multiple=true;
-  input.onchange=async function(){try{for(var file of input.files||[])await _specialistFileStore.put(id,file);await _loadSpecialistFiles(s,id);}catch(e){s._filesError=e.message;renderChat();}};input.click();
+  var input=document.createElement('input');input.type='file';input.multiple=true;input.hidden=true;
+  document.body.appendChild(input);input.oncancel=function(){input.remove();};
+  input.onchange=async function(){try{for(var file of input.files||[])await _specialistFileStore.put(id,file);await _loadSpecialistFiles(s,id);}catch(e){s._filesError=e.message;renderChat();}finally{input.remove();}};input.click();
 }
 function _previewSpecialistFile(s,id,file){
   return _specialistFileStore.get(id,file.id).then(async function(row){

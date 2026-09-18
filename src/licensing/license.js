@@ -182,12 +182,13 @@ export function validateLicenseKey(key, opts = {}) {
   try {
     requireLicenseSecret(secret);
     // 1. Parse key format
-    if (!key || !key.startsWith('IntentSmith-')) {
+    const prefix = typeof key === 'string' && ['IntentSmith-', 'C3-'].find(value => key.startsWith(value));
+    if (!prefix) {
       return { valid: false, tier: TIERS.FREE, features: TIER_FEATURES.FREE, error: 'Invalid key format' };
     }
 
     // Decode hex → payload.signature
-    const hex = key.slice(3).replace(/-/g, '');
+    const hex = key.slice(prefix.length).replace(/-/g, '');
     let decoded;
     try {
       decoded = Buffer.from(hex, 'hex').toString('utf-8');

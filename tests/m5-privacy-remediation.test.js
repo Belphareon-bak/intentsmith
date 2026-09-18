@@ -934,6 +934,9 @@ test('license authority fails closed without a strong caller-owned secret', () =
   assert.equal(invalid.valid, false);
   assert.equal(invalid.tier, 'FREE');
   const key = generateLicenseKey({ ...input, secret: 'fixture-only-authority-material-32+' });
+  assert.equal(validateLicenseKey(key.replace(/^IntentSmith-/, 'C3-'), {
+    secret: 'fixture-only-authority-material-32+', hwFingerprint: input.hwFingerprint,
+  }).valid, true, 'previously issued keys retain the same signed payload authority');
   assert.equal(validateLicenseKey(key, {
     secret: 'fixture-only-authority-material-32+',
     hwFingerprint: input.hwFingerprint,

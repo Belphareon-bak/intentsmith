@@ -36,7 +36,7 @@ available by importing this package.
 
 ## Forbidden shortcuts
 
-- Legacy `/api/*`, `/m1/*` a `/c3/ws` are not M7 transport adapters.
+- Legacy `/api/*`, `/m1/*` a `/intentsmith/ws` (včetně kompatibilního `/c3/ws`) are not M7 transport adapters.
 - A phone cannot assert actor, subject, scope, grant, token, device identity,
   endpoint, `canonicalRoot` or an absolute host path.
 - A provider cannot import a listener or route and cannot bypass the M1/M2

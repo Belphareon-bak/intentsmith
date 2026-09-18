@@ -1,6 +1,6 @@
 import './helpers/isolated-test-db.js';
 
-// Pilot C1-C2-IntentSmith — Real-world Quality Score Distribution Test
+// Pilot C1-C2-C3 — Real-world Quality Score Distribution Test
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // 3 different use cases scored through the full pipeline:
@@ -909,7 +909,7 @@ function makeIntentSmithChange3_OfflineMode() {
 
 async function run() {
   console.log('═'.repeat(70));
-  console.log('  PILOT C1-C2-IntentSmith — Quality Score Distribution Test');
+  console.log('  PILOT C1-C2-C3 — Quality Score Distribution Test');
   console.log('═'.repeat(70));
 
   cleanDB();
@@ -1332,7 +1332,7 @@ async function run() {
   cleanDB();
 
   console.log('\n' + '═'.repeat(70));
-  console.log(`  Pilot C1-C2-IntentSmith: ${passed} passed, ${failed} failed`);
+  console.log(`  Pilot C1-C2-C3: ${passed} passed, ${failed} failed`);
   console.log('═'.repeat(70));
 
   if (failures.length > 0) {

@@ -383,8 +383,8 @@ export async function main(argv = process.argv.slice(2)) {
       attestationRule: GATE0_PENDING_ATTESTATION_RULE,
     },
     sourceRefs: {
-      intentsmithInput: 'ffd21cf119865259ea1847af989acb24916bebe3',
-      intentsmithParent: 'a7b90e36aa80310305703f54f2332e1c0e7f9e8f',
+      c3Input: 'ffd21cf119865259ea1847af989acb24916bebe3',
+      c3Parent: 'a7b90e36aa80310305703f54f2332e1c0e7f9e8f',
       intentSmithDonor: '6676902c5f6fe7a5d66aba0d79cb502e0f3a60e4',
       localValidationCandidate: candidateSha,
     },
@@ -648,7 +648,7 @@ export function buildGate0Clauses({
         + `${validatorEvidence(dispositionValidation)}`,
     },
     {
-      id: 'G0-IntentSmith',
+      id: 'G0-C3',
       label: 'registry',
       result: registryValidation.passed ? 'PASS' : 'FAIL',
       evidence: `${runnablePrograms} runnable programs and ${explicitSupportExclusions} explicit support exclusions; ${validatorEvidence(registryValidation)}`,
@@ -1491,7 +1491,7 @@ ${pilotEvidence.map(item => (
 - Soak requirement guard: ${soakEvidence.verdict}, exit
   ${soakEvidence.exitCode}, prerequisites \`${soakEvidence.blockedBy.join(', ')}\`;
   replay \`${formatPortableInvocation(soakEvidence.execution.portableReplay)}\`.
-- Registry and disposition validator exits: ${clauses.find(clause => clause.id === 'G0-IntentSmith')?.result === 'PASS' ? 0 : 1} and ${clauses.find(clause => clause.id === 'G0-C2')?.result === 'PASS' ? 0 : 1}.
+- Registry and disposition validator exits: ${clauses.find(clause => clause.id === 'G0-C3')?.result === 'PASS' ? 0 : 1} and ${clauses.find(clause => clause.id === 'G0-C2')?.result === 'PASS' ? 0 : 1}.
 - Clean install exits: ${installLogs.map(log => `${log.kind}=${log.exitCode}`).join(', ')};
   replay \`${formatPortableInvocation(installLogs[0].execution.portableReplay)}\`.
 - Disposition: ${dispositionReport.records} rows; terminals

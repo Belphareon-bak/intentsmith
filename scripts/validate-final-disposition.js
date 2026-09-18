@@ -37,7 +37,7 @@ const repairedPathMappings = new Map([
   ['tests/TEST-INVENTORY.md', 'tests/registry.json'],
   ['tests/TEST-REGISTRY.md', 'docs/convergence/TEST-REGISTRY.md'],
   [
-    'tests/packages/intentsmith-backend -> tests/_legacy/packages/intentsmith-backend',
+    'tests/packages/c3-backend -> tests/_legacy/packages/c3-backend',
     'tests/_legacy/packages/intentsmith-backend.md',
   ],
 ]);

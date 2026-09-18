@@ -9,7 +9,7 @@
 
 1. [Pozadavky na system](#1-pozadavky-na-system)
 2. [Kanonicka instalace](#2-kanonicka-instalace)
-3. [Vyvoj C3 Studio IDE](#3-vyvoj-c3-studio-ide)
+3. [Vyvoj IntentSmith IDE](#3-vyvoj-c3-studio-ide)
 4. [Docker (unsupported legacy cesta)](#4-docker-unsupported-legacy-cesta)
 5. [Konfigurace (.env)](#5-konfigurace)
 6. [Overeni instalace](#6-overeni-instalace)
@@ -61,7 +61,7 @@ npm install -g npm@10.9.4
 sudo apt update
 sudo apt install -y git python3 python3.12 python3.12-venv build-essential curl fonts-dejavu-core psmisc bubblewrap util-linux
 
-# Yarn pro C3 Studio
+# Yarn pro IntentSmith
 npm install -g yarn@1.22.22
 
 # Provider: použij ověřený build popsaný níže; běžná upstream instalace
@@ -81,7 +81,7 @@ npm install -g npm@10.9.4
 # Systemove zavislosti
 sudo dnf install -y git python3 python3.12 gcc gcc-c++ make curl dejavu-sans-fonts psmisc bubblewrap util-linux
 
-# Yarn pro C3 Studio
+# Yarn pro IntentSmith
 npm install -g yarn@1.22.22
 
 # Provider: použij ověřený build popsaný níže; běžná upstream instalace
@@ -118,7 +118,7 @@ git checkout --detach "$INTENTSMITH_REVISION"
 nvm install
 nvm use
 
-# Podporovany core profil: backend, C3 Studio, Electron ABI rebuild a artifact smoke
+# Podporovany core profil: backend, IntentSmith, Electron ABI rebuild a artifact smoke
 ./scripts/install.sh --minimal
 ```
 
@@ -175,13 +175,13 @@ absolutni override je `INTENTSMITH_PDF_PYTHON`.
 
 1. Na bezicim puvodnim releasu vytvorte a overte backup podle sekce
    [State backup](STORAGE-ARCHITECTURE.md#state-backup).
-2. Ukoncete IntentSmith a C3 Studio.
+2. Ukoncete IntentSmith a IntentSmith.
 3. Prejdete na presny podepsany release commit bez lokalnich produktovych zmen.
 4. Znovu spustte stejny profil, napriklad
    `./scripts/install.sh --profile=core --minimal --offline` (pokud je release
    dependency cache predem naplnena), jinak stejny prikaz bez `--offline`.
 5. Spustte produkt a overte verejny health endpoint prikazem
-   `curl --fail http://127.0.0.1:${C3_PORT:-3335}/api/health`, migracni stav a
+   `curl --fail http://127.0.0.1:${INTENTSMITH_PORT:-3335}/api/health`, migracni stav a
    otevreni puvodniho projektu. Pri selhani obnovte predchozi release commit a
    overeny backup.
 
@@ -197,9 +197,9 @@ cp .env.example .env
 # Uprav podle potreby; sablona nastavuje dokumentovane porty a modelove tagy
 # Dulezite promenne:
 #   OLLAMA_URL    — adresa Ollama serveru (default: http://127.0.0.1:11434)
-#   C3_PORT       — port backendu (default: 3335)
-#   C3_DB_PATH    — cesta k SQLite databazi (default: ./data/c3.db)
-#   C3_ADMIN_TOKEN — povinna tajna hodnota pro production start; neposilejte ji
+#   INTENTSMITH_PORT       — port backendu (default: 3335)
+#   INTENTSMITH_DB_PATH    — cesta k SQLite databazi (default: ./data/intentsmith.db)
+#   INTENTSMITH_ADMIN_TOKEN — povinna tajna hodnota pro production start; neposilejte ji
 #                    do Git, logu ani prikazove historie
 ```
 
@@ -224,7 +224,7 @@ ollama pull llava-llama3:8b      # VISION
 ```bash
 cd ~/Projects/intentsmith
 
-# Backend + C3 Studio
+# Backend + IntentSmith
 ./scripts/run.sh
 
 # Pouze backend
@@ -254,9 +254,9 @@ curl -X POST http://127.0.0.1:3335/chat \
 
 ---
 
-## 3. Vyvoj C3 Studio IDE
+## 3. Vyvoj IntentSmith IDE
 
-C3 Studio je desktopova IDE postavena na Eclipse Theia 1.74.1 a Electron 42.11.3.
+IntentSmith je desktopova IDE postavena na Eclipse Theia 1.74.1 a Electron 42.11.3.
 Na cistem checkoutu nejdrive vzdy spustte
 `./scripts/install.sh --minimal`; nasledujici prikazy jsou urcene pro iteraci
 po jiz uspesne kanonicke instalaci a samy neprovadeji Electron ABI rebuild ani
@@ -302,7 +302,7 @@ yarn start
 ### 3.4 UI fonty
 
 Kanonicky source tree neobsahuje lokalne bundlovane Plus Jakarta Sans ani
-JetBrains Mono a installer je nestahuje. C3 Studio pouzije systemove fallbacky.
+JetBrains Mono a installer je nestahuje. IntentSmith pouzije systemove fallbacky.
 Nestahujte promenlive Google Fonts archivy primo do produkcniho stromu. Budouci
 bundling musi byt samostatna reviewovana zmena s pevnou verzi, hashem, licenci a
 regresnim build testem. DejaVu fonty overovane installerem patri pouze k PDF
@@ -313,24 +313,24 @@ exportu.
 Pokud IDE po aktualizaci zobrazuje stary layout nebo nereaguje na nove panely:
 
 ```bash
-# Nejdrive C3 Studio ukoncete. Stav se nemaze, ale presune do casovane zalohy.
-C3_STUDIO_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/C3 Studio"
+# Nejdrive IntentSmith ukoncete. Stav se nemaze, ale presune do casovane zalohy.
+INTENTSMITH_STUDIO_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/IntentSmith"
 INTENTSMITH_LAYOUT_BACKUP_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/intentsmith/backups/c3-studio-layout-$(date -u +%Y%m%dT%H%M%SZ)"
 mkdir -p "$INTENTSMITH_LAYOUT_BACKUP_DIR"
 
 for name in "Local Storage" "IndexedDB" "storage.json"; do
-  if [ -e "$C3_STUDIO_CONFIG/$name" ]; then
-    mv -- "$C3_STUDIO_CONFIG/$name" "$INTENTSMITH_LAYOUT_BACKUP_DIR/"
+  if [ -e "$INTENTSMITH_STUDIO_CONFIG/$name" ]; then
+    mv -- "$INTENTSMITH_STUDIO_CONFIG/$name" "$INTENTSMITH_LAYOUT_BACKUP_DIR/"
   fi
 done
 
 printf 'Zaloha IDE stavu: %s\n' "$INTENTSMITH_LAYOUT_BACKUP_DIR"
 ```
 
-Po restartu se vytvori novy stav. Pro obnovu C3 Studio znovu ukoncete,
+Po restartu se vytvori novy stav. Pro obnovu IntentSmith znovu ukoncete,
 presunte pripadne nove vytvorene cesty stejnym postupem do dalsi zalohy a
 zkopirujte pozadovane polozky z puvodni zalohy zpet do
-`$C3_STUDIO_CONFIG`. Zalozni adresar nema byt soucasti Git repozitare.
+`$INTENTSMITH_STUDIO_CONFIG`. Zalozni adresar nema byt soucasti Git repozitare.
 
 ---
 
@@ -359,25 +359,25 @@ Vsechny promenne se nacitaji z `.env` souboru v koreni projektu.
 
 | Promenna | Vestaveny fallback | Popis |
 |----------|---------|-------|
-| `C3_PORT` | 0 | Port HTTP serveru (0 = dynamicky prirazeny OS, bez konfliktu) |
-| `C3_HOST` | 127.0.0.1 | Bind adresa |
-| `C3_PORT_FILE` | ~/.c3/port | Port file pro IDE discovery (JSON: port, host, pid, started) |
-| `C3_TRUST_PROXY` | false | Duveryhodnost X-Forwarded-For hlavicek (pro reverse proxy) |
+| `INTENTSMITH_PORT` | 0 | Port HTTP serveru (0 = dynamicky prirazeny OS, bez konfliktu) |
+| `INTENTSMITH_HOST` | 127.0.0.1 | Bind adresa |
+| `INTENTSMITH_PORT_FILE` | ~/.intentsmith/port | Port file pro IDE discovery (JSON: port, host, pid, started) |
+| `INTENTSMITH_TRUST_PROXY` | false | Duveryhodnost X-Forwarded-For hlavicek (pro reverse proxy) |
 | `OLLAMA_URL` | http://127.0.0.1:11434 | Adresa Ollama serveru |
-| `C3_DB_PATH` | ./data/c3.db | Cesta k SQLite databazi |
-| `C3_PROJECTS_DIR` | ./projects | Adresar pro nove projekty |
+| `INTENTSMITH_DB_PATH` | ./data/intentsmith.db | Cesta k SQLite databazi |
+| `INTENTSMITH_PROJECTS_DIR` | ./projects | Adresar pro nove projekty |
 
 ### Modely
 
 | Promenna | Vestaveny fallback | Role |
 |----------|---------|------|
-| `C3_MODEL_CHAT` | qwen3.5:27b | Obecna konverzace |
-| `C3_MODEL_CODE` | qwen3.5:27b | Generovani kodu |
-| `C3_MODEL_D1` | qwen3.5:27b | Hluboka analyza |
-| `C3_MODEL_D2` | qwen3.8:latest | Opravy |
-| `C3_MODEL_R1` | qwen3.8:latest | Finalni review |
-| `C3_MODEL_R2` | qwen3:14b | Rychly review |
-| `C3_MODEL_VISION` | llava-llama3:8b | Analyza obrazku |
+| `INTENTSMITH_MODEL_CHAT` | qwen3.5:27b | Obecna konverzace |
+| `INTENTSMITH_MODEL_CODE` | qwen3.5:27b | Generovani kodu |
+| `INTENTSMITH_MODEL_D1` | qwen3.5:27b | Hluboka analyza |
+| `INTENTSMITH_MODEL_D2` | qwen3.8:latest | Opravy |
+| `INTENTSMITH_MODEL_R1` | qwen3.8:latest | Finalni review |
+| `INTENTSMITH_MODEL_R2` | qwen3:14b | Rychly review |
+| `INTENTSMITH_MODEL_VISION` | llava-llama3:8b | Analyza obrazku |
 
 `.env.example`, setup wizard a vestavene fallbacky pouzivaji stejne portfolio.
 Autoritativni runtime binding je navic evidovan jako exact-artifact zaznam v DB;
@@ -387,45 +387,45 @@ tag sam o sobe neni dostatecna identita pro audit scoringu.
 
 | Promenna | Default | Popis |
 |----------|---------|-------|
-| `C3_ENABLE_AGENTS` | true | Worker agenty |
-| `C3_ENABLE_LIFECYCLE` | true | Project Lifecycle |
-| `C3_ENABLE_EXPERTISES` | true | Expertise System |
+| `INTENTSMITH_ENABLE_AGENTS` | true | Worker agenty |
+| `INTENTSMITH_ENABLE_LIFECYCLE` | true | Project Lifecycle |
+| `INTENTSMITH_ENABLE_EXPERTISES` | true | Expertise System |
 
 ### Lifecycle
 
 | Promenna | Default | Popis |
 |----------|---------|-------|
-| `C3_LIFECYCLE_REVIEW_FREQ` | 3 | Review po N milnicich |
-| `C3_MAX_MILESTONE_LOC` | 2000 | Max LOC na milnik |
-| `C3_MAX_MILESTONE_FILES` | 10 | Max souboru na milnik |
-| `C3_MAX_MILESTONE_RETRIES` | 3 | Max opakovani pred BLOCKED |
-| `C3_LIFECYCLE_AUTO_COMMIT` | true | Auto-commit pri PASS |
+| `INTENTSMITH_LIFECYCLE_REVIEW_FREQ` | 3 | Review po N milnicich |
+| `INTENTSMITH_MAX_MILESTONE_LOC` | 2000 | Max LOC na milnik |
+| `INTENTSMITH_MAX_MILESTONE_FILES` | 10 | Max souboru na milnik |
+| `INTENTSMITH_MAX_MILESTONE_RETRIES` | 3 | Max opakovani pred BLOCKED |
+| `INTENTSMITH_LIFECYCLE_AUTO_COMMIT` | true | Auto-commit pri PASS |
 
 ### Notifikace (volitelne)
 
 | Skupina | Promenne | Popis |
 |---------|----------|-------|
-| Email | `C3_SMTP_HOST`, `C3_SMTP_PORT`, `C3_SMTP_USER`, `C3_SMTP_PASS`, `C3_SMTP_FROM` | SMTP notifikace |
-| Telegram | `C3_TELEGRAM_BOT_TOKEN`, `C3_TELEGRAM_CHAT_ID` | Telegram bot |
-| ntfy | `C3_NTFY_SERVER`, `C3_NTFY_TOPIC`, `C3_NTFY_TOKEN` | Push notifikace |
+| Email | `INTENTSMITH_SMTP_HOST`, `INTENTSMITH_SMTP_PORT`, `INTENTSMITH_SMTP_USER`, `INTENTSMITH_SMTP_PASS`, `INTENTSMITH_SMTP_FROM` | SMTP notifikace |
+| Telegram | `INTENTSMITH_TELEGRAM_BOT_TOKEN`, `INTENTSMITH_TELEGRAM_CHAT_ID` | Telegram bot |
+| ntfy | `INTENTSMITH_NTFY_SERVER`, `INTENTSMITH_NTFY_TOPIC`, `INTENTSMITH_NTFY_TOKEN` | Push notifikace |
 
 ### Bezpecnost
 
 | Promenna | Default | Popis |
 |----------|---------|-------|
-| `C3_ADMIN_TOKEN` | (prazdne) | Produkční admin credential; desktop installer jej spravuje v privátním admin.env |
-| `C3_LICENSE_KEY` | (prazdne) | Licencni klic |
-| `C3_LOG_LEVEL` | info | Uroven logovani (debug/info/warn/error) |
-| `C3_TRACE` | 0 | Execution tracing (1 = zapnuto) |
+| `INTENTSMITH_ADMIN_TOKEN` | (prazdne) | Produkční admin credential; desktop installer jej spravuje v privátním admin.env |
+| `INTENTSMITH_LICENSE_KEY` | (prazdne) | Licencni klic |
+| `INTENTSMITH_LOG_LEVEL` | info | Uroven logovani (debug/info/warn/error) |
+| `INTENTSMITH_TRACE` | 0 | Execution tracing (1 = zapnuto) |
 
 ### Multi-session (v125, pripraveno)
 
 | Promenna | Default | Popis |
 |----------|---------|-------|
-| `C3_MAX_CONCURRENT_LLM` | 1 | Max soucasnych LLM volani (1 = single GPU) |
-| `C3_LLM_QUEUE_TIMEOUT` | 300000 | Timeout fronty pro LLM slot (ms, 5 min) |
-| `C3_GPU_AUTO_SCALE` | false | Auto-detekce GPU a nastaveni maxConcurrentLLM |
-| `C3_LLM_PROVIDER` | ollama | LLM provider ('ollama' jediny implementovany) |
+| `INTENTSMITH_MAX_CONCURRENT_LLM` | 1 | Max soucasnych LLM volani (1 = single GPU) |
+| `INTENTSMITH_LLM_QUEUE_TIMEOUT` | 300000 | Timeout fronty pro LLM slot (ms, 5 min) |
+| `INTENTSMITH_GPU_AUTO_SCALE` | false | Auto-detekce GPU a nastaveni maxConcurrentLLM |
+| `INTENTSMITH_LLM_PROVIDER` | ollama | LLM provider ('ollama' jediny implementovany) |
 
 ---
 
@@ -481,7 +481,7 @@ curl -s http://127.0.0.1:11434/api/tags | python3 -m json.tool
 ### 6.4 IDE — overeni
 
 1. Spust produkt: `./scripts/run.sh`
-2. Over, ze C3 Studio otevreno a backend bezi
+2. Over, ze IntentSmith otevreno a backend bezi
 3. Zkontroluj status bar — zeleny indikator = backend pripojeny
 4. Otevri chat panel — napsat zpravu → mela by prijit odpoved
 
@@ -531,7 +531,7 @@ sudo systemctl enable ollama  # autostart po restartu
 
 ### IDE neukazuje nove panely po aktualizaci
 
-Ukoncete C3 Studio a pouzijte nedestruktivni zalohovaci postup v
+Ukoncete IntentSmith a pouzijte nedestruktivni zalohovaci postup v
 [sekci 3.5](#35-layout-cache-po-aktualizaci). Pak IDE restartujte.
 
 ### Port 3335 je obsazeny
@@ -541,7 +541,7 @@ Ukoncete C3 Studio a pouzijte nedestruktivni zalohovaci postup v
 lsof -i :3335
 
 # Nebo zmenit port v .env
-echo "C3_PORT=3336" >> .env
+echo "INTENTSMITH_PORT=3336" >> .env
 ```
 
 ### Frozen Yarn install v intentsmith-ide selhava
@@ -562,7 +562,7 @@ Zmenu `yarn.lock` je nutne samostatne reviewovat.
 nvidia-smi
 
 # Pokud neni dostatek VRAM, pouzij mensi model
-echo "C3_MODEL_CHAT=qwen3.5:14b" >> .env
+echo "INTENTSMITH_MODEL_CHAT=qwen3.5:14b" >> .env
 ```
 
 ### Backend pada pri startu s `SQLITE_CANTOPEN`
@@ -594,3 +594,7 @@ Automatická paměť má oddělené namespace pro projekty; bez projektu se vá�
 na konverzaci. Staré nescopované LTM záznamy zůstávají v databázi, ale do
 nových chatových kontextů se nepřebírají. Explicitní M4 návrhy a jejich
 schvalování mají vlastní kontrakt; tyto přepínače nejsou univerzální mazání.
+
+### Kompatibilita názvů po aktualizaci Studia
+
+Kanonické prostředí používá `INTENTSMITH_*`, adresář `intentsmith-ide` a nové klíče nastavení `intentsmith.*`. Backend přijímá staré proměnné `C3_*` jako fallback; explicitní nová hodnota má přednost. Existující instalace nad `data/c3.db` zůstává na stejné databázi. Migrace 115 zachová původní nastavení; Studio převádí lokální klíče při načtení bez mazání původních. Staré licenční klíče, lokální capability a WebSocket alias zachovávají totožnou kontrolu autority. Historické důkazy a názvy externích repozitářů se nemění.

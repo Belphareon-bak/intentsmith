@@ -70,7 +70,7 @@ assert.equal(
   'tracked IntentSmith Studio authoritative-lib contract is missing',
 );
 assert.equal(
-  trackedSet.has('docs/archive/intentsmith-studio/intentsmith-chat-panel-ts-prototype/README.md'),
+  trackedSet.has('docs/archive/c3-studio/c3-chat-panel-ts-prototype/README.md'),
   true,
   'archived chat-panel prototype provenance is missing',
 );

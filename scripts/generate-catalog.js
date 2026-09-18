@@ -22,7 +22,7 @@ const ROOT = join(__dirname, '..');
 // ─── CLI args ────────────────────────────────────────────────────────────────
 
 const args = process.argv.slice(2);
-let repo = 'C3studio/IntentSmith-agent';
+let repo = 'C3studio/C3-agent';
 let branch = 'master';
 
 for (let i = 0; i < args.length; i++) {

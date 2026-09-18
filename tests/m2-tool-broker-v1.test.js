@@ -389,7 +389,7 @@ test('real SQLite stores one NFC input before digest and effect-binding derivati
     assert.equal(webRequest.input.query, 'Café IntentSmith');
     assert.equal(
       webRequest.effectBinding.target.url,
-      'https://html.duckduckgo.com/html/?q=Caf%IntentSmith%A9%20IntentSmith',
+      'https://html.duckduckgo.com/html/?q=Caf%C3%A9%20IntentSmith',
     );
     assert.deepEqual(repository.getToolRequest(webRequest.requestId), webRequest);
   } finally {

@@ -133,7 +133,7 @@ export function buildGate0ExecutionPlan({
   const auditOverrides = {
     ...overrides,
     INTENTSMITH_PDF_PYTHON: pdfPython,
-    INTENTSMITH_PDF_PYTHON: pdfPython,
+    C3_PDF_PYTHON: pdfPython, // Historical child toolchains use the same interpreter.
   };
   // Keep the plan host-independent. The runner and the rendered replay both
   // materialize this fixed allowlist, using an empty value when the host does

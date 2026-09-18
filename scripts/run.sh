@@ -52,7 +52,7 @@ if [ "$BACKEND_ONLY" = false ] && [ "$DEV_MODE" = false ] && [ -f "$INSTALLATION
   export INTENTSMITH_INSTALLATION_FILE="$INSTALLATION_FILE"
   exec node "$PROJECT_ROOT/scripts/desktop-runtime.mjs"
 fi
-PORT_FILE="${INTENTSMITH_PORT_FILE:-$HOME/.intentsmith/port}"
+PORT_FILE="${INTENTSMITH_PORT_FILE:-${C3_PORT_FILE:-$HOME/.intentsmith/port}}"
 export INTENTSMITH_PORT_FILE="$PORT_FILE"
 LOG_FILE="$PROJECT_ROOT/.intentsmith-backend.log"
 if [ -n "${XDG_DATA_HOME:-}" ]; then
@@ -63,16 +63,16 @@ fi
 DEFAULT_PDF_PYTHON="$PDF_DATA_HOME/intentsmith/python/pdf/bin/python"
 
 if [ -n "${INTENTSMITH_PDF_PYTHON:-}" ] &&
-   [ -n "${INTENTSMITH_PDF_PYTHON:-}" ] &&
-   [ "$INTENTSMITH_PDF_PYTHON" != "$INTENTSMITH_PDF_PYTHON" ]; then
-  fail "Conflicting INTENTSMITH_PDF_PYTHON and INTENTSMITH_PDF_PYTHON values"
+   [ -n "${C3_PDF_PYTHON:-}" ] &&
+   [ "$INTENTSMITH_PDF_PYTHON" != "$C3_PDF_PYTHON" ]; then
+  fail "Conflicting INTENTSMITH_PDF_PYTHON and C3_PDF_PYTHON values"
   exit 1
 fi
 
 if [ -n "${INTENTSMITH_PDF_PYTHON:-}" ]; then
   PDF_PYTHON="$INTENTSMITH_PDF_PYTHON"
-elif [ -n "${INTENTSMITH_PDF_PYTHON:-}" ]; then
-  PDF_PYTHON="$INTENTSMITH_PDF_PYTHON"
+elif [ -n "${C3_PDF_PYTHON:-}" ]; then
+  PDF_PYTHON="$C3_PDF_PYTHON"
 else
   PDF_PYTHON="$DEFAULT_PDF_PYTHON"
 fi

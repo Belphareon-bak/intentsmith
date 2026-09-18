@@ -106,12 +106,12 @@ public listener a nesmí obcházet validační preflight.
 ## 3. Postavit přesně připnutý Android kandidát
 
 Server používá proměnnou `INTENTSMITH_M7_SERVER_SPKI_SHA256`, Android build
-záměrně používá `C3_M7_SERVER_SPKI_PIN`. Hodnoty musí být bajtově stejné.
+záměrně používá `INTENTSMITH_M7_SERVER_SPKI_PIN`. Hodnoty musí být bajtově stejné.
 
 ```bash
-C3_MOBILE_TRANSPORT_MODE=remote-core-v1 \
-C3_MOBILE_APP_URL=https://<vpn-name-or-ip>:7443 \
-C3_M7_SERVER_SPKI_PIN=sha256:<64-lowercase-hex> \
+INTENTSMITH_MOBILE_TRANSPORT_MODE=remote-core-v1 \
+INTENTSMITH_MOBILE_APP_URL=https://<vpn-name-or-ip>:7443 \
+INTENTSMITH_M7_SERVER_SPKI_PIN=sha256:<64-lowercase-hex> \
 npm run mobile:android:build
 ```
 
@@ -123,7 +123,7 @@ Na testovaný telefon instaluj přesně vzniklý APK; `remote-core-v1` nikdy
 neotevírá `adb reverse`:
 
 ```bash
-C3_MOBILE_TRANSPORT_MODE=remote-core-v1 npm run mobile:android:run
+INTENTSMITH_MOBILE_TRANSPORT_MODE=remote-core-v1 npm run mobile:android:run
 ```
 
 ## 4. Vydat jednorázové párování
