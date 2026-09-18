@@ -16,3 +16,7 @@ Důkaz: skutečné Electron snímky proti předlohám, všechny sekce a záložk
 běžné a menší šířce; původní callbacky, cílené regrese, build a povinný profil.
 Před instalací ověřit live SHA a rozpracované hunt/evaluation; zachovat cizí
 práci a credentials/profil, neupravovat Gate 0. Zveřejnit review packet.
+
+Výsledek: `0ef67a56` nasazeno; INSTALLED_RUNTIME_VERIFIED / REVIEW_PENDING.
+Důkazy a hranice: [review packet](../review/2026-09-18-IDE-DESIGN-REFINEMENT.md).
+Úplný profil 359 PASS / 1 FAIL (původní Gate 0 pečeť). Provozní data zachována.

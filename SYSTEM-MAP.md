@@ -1,5 +1,11 @@
 # IntentSmith — mapa systému
 
+**Studio — dotažení předloh, 2026-09-18:** nasazeno `0ef67a56`.
+Sémantická paleta, barevná navigace/role, 12 sekčních přehledů, kompaktní
+karty, miniatury stylů a živý náhled. Electron v šířce 960/1400, text
+0/100 %, kandidáti a restart ověřeny. 359 PASS / 1 FAIL (stávající Gate 0).
+REVIEW_PENDING. [Snímky a důkazy](docs/review/2026-09-18-IDE-DESIGN-REFINEMENT.md).
+
 **IDE vzhled, 2026-09-18:** nasazeno `9ab808f1`, zachováno novější hodnocení
 z `230778ad`. Dvě ikony rozložení, výraznost veškerého textu, 12 kategorií /
 33 záložek nastavení a volitelný styl Studio. Skutečný Electron, min/max textu
