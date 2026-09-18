@@ -1552,9 +1552,10 @@ describe('T-SM11: Core / hunt branch upgrades converge without losing evidence',
         }
         const before = rows(db);
         const result = await runMigrations(db);
+        const repeatedMeasurement = '2026_09_18_114_model_evaluation_remeasure';
         assert.deepEqual(result.applied, origin === 'fresh' ? ALL_MIGRATIONS
-          : origin === 'base' ? [...huntVersions, canonicalWeb]
-          : origin === 'web' ? huntVersions : [canonicalWeb]);
+          : origin === 'base' ? [...huntVersions, canonicalWeb, repeatedMeasurement]
+          : origin === 'web' ? [...huntVersions, repeatedMeasurement] : [canonicalWeb, repeatedMeasurement]);
         assert.deepEqual(schema(db), expectedSchema);
         for (const [table, originalRows] of Object.entries(before)) assert.deepEqual(rows(db)[table], originalRows, `${origin}: ${table}`);
         assert.deepEqual(db.pragma('foreign_key_check'), []);
