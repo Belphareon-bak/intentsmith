@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — Auto Expertise Selection Tests v87
+// IntentSmith-Agent — Auto Expertise Selection Tests v87
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Tests for the deterministic vocabulary-based expertise matcher.

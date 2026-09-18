@@ -1,4 +1,4 @@
-// C3-Agent v57.3 — Czech Tax Rates Data Model
+// IntentSmith-Agent v57.3 — Czech Tax Rates Data Model
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // INVARIANT: Rok je KLÍČ k celé logice, ne jen parametr.

@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — Automatic Expertise Selection v88
+// IntentSmith-Agent — Automatic Expertise Selection v88
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Deterministic, vocabulary-based expertise matcher. Runs <1ms per call.

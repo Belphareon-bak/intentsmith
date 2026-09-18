@@ -15,7 +15,7 @@ import {
   startControlledM2HttpFixture, stopControlledM2HttpFixture, controlledM2Request,
 } from './helpers/m2-http-build-fixture.js';
 
-const BASE = process.env.C3_URL || 'http://127.0.0.1:3335';
+const BASE = process.env.INTENTSMITH_URL || 'http://127.0.0.1:3335';
 const RUN_ID = `m2-lifecycle-http-${Date.now()}`;
 const TIMEOUT_MS = 300_000;
 const HOME = process.env.HOME;
@@ -66,13 +66,13 @@ function git(root, args) {
 
 function writeGovernanceFixture(root) {
   fs.mkdirSync(path.join(root, 'src'), { recursive: true });
-  fs.mkdirSync(path.join(root, '.c3'), { recursive: true });
+  fs.mkdirSync(path.join(root, '.intentsmith'), { recursive: true });
   fs.writeFileSync(path.join(root, '.gitignore'), 'node_modules/\n');
   fs.writeFileSync(path.join(root, 'README.md'), '# Isolated HTTP lifecycle fixture\n');
   fs.writeFileSync(path.join(root, 'ROADMAP.md'), 'Verify a reviewed change and rollback.\n');
   git(root, ['init', '--template=', '-b', 'main']);
   fs.writeFileSync(path.join(root, 'src', 'app.js'), 'module.exports = { value: 1 };\n');
-  fs.writeFileSync(path.join(root, '.c3', 'm2-governance-policy.json'), `${JSON.stringify({
+  fs.writeFileSync(path.join(root, '.intentsmith', 'm2-governance-policy.json'), `${JSON.stringify({
     policyId: 'm2-policy-v1',
     layers: [{ name: 'app', roots: ['src'] }],
     rules: [{ from: 'app', canImport: ['app'] }],
@@ -82,7 +82,7 @@ function writeGovernanceFixture(root) {
     unmappedFilePolicy: 'unavailable',
   }, null, 2)}\n`);
   git(root, ['add', '--', '.gitignore', 'README.md', 'ROADMAP.md', 'src/app.js']);
-  git(root, ['add', '-f', '--', '.c3/m2-governance-policy.json']);
+  git(root, ['add', '-f', '--', '.intentsmith/m2-governance-policy.json']);
   git(root, [
     '-c', 'user.name=IntentSmith Test',
     '-c', 'user.email=intentsmith@example.invalid',
@@ -118,15 +118,15 @@ async function controlledHttpBuildRestart(defect) {
   const fixtureRoot = fs.mkdtempSync(path.join(isolatedTestRuntime.artifacts, 'm2-http-build-restart-'));
   const root = path.join(fixtureRoot, 'project');
   fs.mkdirSync(path.join(root, 'src'), { recursive: true });
-  fs.mkdirSync(path.join(root, '.c3'));
+  fs.mkdirSync(path.join(root, '.intentsmith'));
   fs.writeFileSync(path.join(root, 'src/app.mjs'), HTTP_BUILD_BEFORE);
-  fs.writeFileSync(path.join(root, '.c3/m2-governance-policy.json'), JSON.stringify({
+  fs.writeFileSync(path.join(root, '.intentsmith/m2-governance-policy.json'), JSON.stringify({
     policyId: 'm2-http-build-fixture', layers: [{ name: 'app', roots: ['src'] }],
     rules: [{ from: 'app', canImport: ['app'] }], externalImports: [], sourceExtensions: ['.mjs'],
     requiredChecks: ['imports.allowed', 'inventory.complete', 'layers.mapped'], unmappedFilePolicy: 'unavailable',
   }));
   git(root, ['init', '-b', 'main']);
-  git(root, ['add', '--', 'src/app.mjs', '.c3/m2-governance-policy.json']);
+  git(root, ['add', '--', 'src/app.mjs', '.intentsmith/m2-governance-policy.json']);
   git(root, ['-c', 'user.name=IntentSmith Test', '-c', 'user.email=test@example.invalid', 'commit', '-m', 'controlled HTTP baseline']);
   const baselineHead = git(root, ['rev-parse', 'HEAD']);
   const origin = { surface: 'http', projectId: HTTP_BUILD_PROJECT_ID,
@@ -288,7 +288,7 @@ async function run() {
     for (const [draft, expected] of [
       [{ paths: ['src/app.js', '../outside.js'], instruction: 'Update both.' }, 'M2_PROPOSAL_CHANGE_PATH_INVALID'],
       [{ paths: ['src/app.js', 'src/app.js'], instruction: 'Update both.' }, 'M2_PROPOSAL_CHANGE_PATH_DUPLICATE'],
-      [{ paths: ['src/app.js', '.c3/private.js'], instruction: 'Update both.' }, 'M2_CODE_DRAFT_PATH_INVALID'],
+      [{ paths: ['src/app.js', '.intentsmith/private.js'], instruction: 'Update both.' }, 'M2_CODE_DRAFT_PATH_INVALID'],
     ]) {
       const invalid = await request('POST', '/api/m2/lifecycle/draft', { projectId, origin, draft });
       assert(invalid.status === 400 && invalid.data?.code === expected,

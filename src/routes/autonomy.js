@@ -2,7 +2,7 @@
 
 export function createAutonomyRoutes(deps) {
   // Statements come from deps like every other route module, so importing this
-  // file does not require C3_DB_PATH to be set.
+  // file does not require INTENTSMITH_DB_PATH to be set.
   const { telemetryMetrics, telemetryAlerts, telemetryImprovements } = deps.db;
   const { sendJSON, safeError, logger, creEngine } = deps;
 

@@ -556,9 +556,9 @@ async function sendMessage(text = null) {
   const msg = text || input.value.trim();
   if (!msg || state.isLoading) return;
 
-  // v45.0 - Log user action to C3 visibility layer
-  if (typeof addC3Action === 'function') {
-    addC3Action({
+  // v45.0 - Log user action to IntentSmith visibility layer
+  if (typeof addIntentSmithAction === 'function') {
+    addIntentSmithAction({
       type: 'info',
       message: `User: ${msg.substring(0, 50)}${msg.length > 50 ? '...' : ''}`,
     });
@@ -617,7 +617,7 @@ async function sendMessage(text = null) {
       expertise: state.currentExpertise || null,
       project: state.currentProject || null,
       // v45.0 - Include user-provided files from drag & drop
-      userContext: typeof c3State !== 'undefined' ? c3State.userProvidedFiles : [],
+      userContext: typeof intentsmithState !== 'undefined' ? intentsmithState.userProvidedFiles : [],
     }, { signal });
 
     removeMessage(typingId);
@@ -640,9 +640,9 @@ async function sendMessage(text = null) {
       // Use expertise from response metadata, response state, or current state
       const responseExpertise = res.metadata?.expertise || res.state?.expertise || state.currentExpertise;
 
-      // v45.0 - Process C3 visibility layer
-      if (typeof processC3Response === 'function') {
-        processC3Response(res);
+      // v45.0 - Process IntentSmith visibility layer
+      if (typeof processIntentSmithResponse === 'function') {
+        processIntentSmithResponse(res);
       }
 
       // v44.5 - Check for structured fallback (tool failure with options)
@@ -1443,7 +1443,7 @@ function updateSettings() {
 
 function loadModelSettings() {
   // Load from localStorage
-  const saved = localStorage.getItem('c3-settings');
+  const saved = localStorage.getItem('intentsmith-settings');
   if (saved) {
     try {
       appSettings = { ...appSettings, ...JSON.parse(saved) };
@@ -1467,7 +1467,7 @@ function loadModelSettings() {
 }
 
 function saveModelSettings() {
-  localStorage.setItem('c3-settings', JSON.stringify(appSettings));
+  localStorage.setItem('intentsmith-settings', JSON.stringify(appSettings));
 }
 
 // Memory functions
@@ -1577,7 +1577,7 @@ function exportMemory() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'c3-memory.json';
+  a.download = 'intentsmith-memory.json';
   a.click();
   URL.revokeObjectURL(url);
 }

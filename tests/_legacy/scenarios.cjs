@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ═══════════════════════════════════════════════════════════════════════════════
-// C3-Agent Real-World Scenario Tests — 20 System Behavior Tests
+// IntentSmith-Agent Real-World Scenario Tests — 20 System Behavior Tests
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // Tests SYSTEM BEHAVIOR, not functions.
@@ -23,7 +23,7 @@ const fs = require('fs');
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 
-const C3_URL = process.env.C3_URL || 'http://127.0.0.1:3335';
+const INTENTSMITH_URL = process.env.INTENTSMITH_URL || 'http://127.0.0.1:3335';
 const TIMEOUT_MS = parseInt(process.env.SCENARIO_TIMEOUT || '120000');
 const VERBOSE = process.argv.includes('--verbose') || process.argv.includes('-v');
 const SAVE_TO = process.argv.find((a, i) => process.argv[i - 1] === '--save');
@@ -41,7 +41,7 @@ function chatRequest(message, sessionId) {
   return new Promise((resolve, reject) => {
     const sid = sessionId || `scenario-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const data = JSON.stringify({ message, session_id: sid });
-    const url = new URL('/chat', C3_URL);
+    const url = new URL('/chat', INTENTSMITH_URL);
 
     const req = http.request({
       hostname: url.hostname,
@@ -513,10 +513,10 @@ async function runScenario(scenario) {
 
 async function main() {
   console.log('╔══════════════════════════════════════════════════════════════╗');
-  console.log('║       C3-AGENT REAL-WORLD SCENARIO TESTS (20)              ║');
+  console.log('║       IntentSmith-AGENT REAL-WORLD SCENARIO TESTS (20)              ║');
   console.log('╚══════════════════════════════════════════════════════════════╝');
   console.log();
-  console.log(`  Server:  ${C3_URL}`);
+  console.log(`  Server:  ${INTENTSMITH_URL}`);
   console.log(`  Filter:  ${SECTION_FILTER ? `section ${SECTION_FILTER}` : ID_FILTER ? `id ${ID_FILTER}` : 'ALL'}`);
   console.log();
 
@@ -662,7 +662,7 @@ async function main() {
   if (SAVE_TO) {
     const output = {
       timestamp: new Date().toISOString(),
-      config: { server: C3_URL },
+      config: { server: INTENTSMITH_URL },
       summary: {
         automated: { total: automated.length, passed: scenariosPassed },
         checks: { total: totalChecks, passed: passedChecks },

@@ -10,7 +10,7 @@ function createWindow() {
     height: 900,
     minWidth: 800,
     minHeight: 600,
-    title: 'C3 IDE — Test Client',
+    title: 'IntentSmith IDE — Test Client',
     backgroundColor: '#1e1e2e',
     webPreferences: {
       nodeIntegration: false,
@@ -35,7 +35,7 @@ function createWindow() {
   // ─── Menu ────────────────────────────────────────────
   const menu = Menu.buildFromTemplate([
     {
-      label: 'C3',
+      label: 'IntentSmith',
       submenu: [
         {
           label: 'WS Bridge Test',

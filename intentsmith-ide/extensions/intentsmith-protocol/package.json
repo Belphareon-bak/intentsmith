@@ -1,0 +1,17 @@
+{
+  "name": "@intentsmith/protocol",
+  "version": "0.1.0",
+  "description": "Shared types between IntentSmith IDE and IntentSmith Backend",
+  "main": "lib/index.js",
+  "typings": "lib/index.d.ts",
+  "files": ["lib", "src"],
+  "scripts": {
+    "build": "tsc -b",
+    "watch": "tsc -b -w",
+    "clean": "rimraf lib"
+  },
+  "devDependencies": {
+    "typescript": "~5.3.0",
+    "rimraf": "^5.0.0"
+  }
+}

@@ -20,11 +20,11 @@ const revision = (await exec('git', ['-C',sourceRoot,'rev-parse','HEAD'])).stdou
 const dirty = (await exec('git', ['-C',sourceRoot,'status','--porcelain'])).stdout.trim();
 const branch = (await exec('git', ['-C',sourceRoot,'branch','--show-current'])).stdout.trim();
 if (dirty || branch) throw new Error('Installation must be a clean detached source snapshot');
-await exec(process.execPath, [join(sourceRoot,'c3-ide/scripts/verify-m1-consumer-build.js')], { cwd: join(sourceRoot,'c3-ide'), timeout: 15000 });
+await exec(process.execPath, [join(sourceRoot,'intentsmith-ide/scripts/verify-m1-consumer-build.js')], { cwd: join(sourceRoot,'intentsmith-ide'), timeout: 15000 });
 const configDirectory = join(homedir(), '.config/intentsmith');
 const stateDirectory = join(homedir(), '.local/state/intentsmith');
 const config = { schemaVersion: 1, revision, sourceRoot, node: process.execPath, dbPath, configDirectory, stateDirectory,
-  icon: join(sourceRoot,'c3-ide/applications/electron/resources/intentsmith-icon.png'), pdfPython: process.env.INTENTSMITH_PDF_PYTHON || null };
+  icon: join(sourceRoot,'intentsmith-ide/applications/electron/resources/intentsmith-icon.png'), pdfPython: process.env.INTENTSMITH_PDF_PYTHON || null };
 const files = renderDesktopInstallation(config);
 // Validate with systemd itself before touching the timer, live DB or configuration.
 await verifyDesktopUnits(files);
@@ -54,10 +54,10 @@ try {
   const metadata = await lstat(adminFile);
   if (!metadata.isFile() || metadata.uid !== process.getuid() || (metadata.mode & 0o077)) throw new Error('ADMIN_CREDENTIAL_FILE_UNSAFE');
   adminEnvironment = await readFile(adminFile,'utf8');
-  if (!/^C3_ADMIN_TOKEN=[A-Za-z0-9_-]{43,128}\n$/.test(adminEnvironment)) throw new Error('ADMIN_CREDENTIAL_FILE_INVALID');
+  if (!/^INTENTSMITH_ADMIN_TOKEN=[A-Za-z0-9_-]{43,128}\n$/.test(adminEnvironment)) throw new Error('ADMIN_CREDENTIAL_FILE_INVALID');
 } catch (error) {
   if (error.code !== 'ENOENT') throw error;
-  adminEnvironment = `C3_ADMIN_TOKEN=${randomBytes(32).toString('base64url')}\n`;
+  adminEnvironment = `INTENTSMITH_ADMIN_TOKEN=${randomBytes(32).toString('base64url')}\n`;
 }
 const backup = join(stateDirectory,'installation-backups',stamp);
 await mkdir(backup, { recursive: true, mode: 0o700 });

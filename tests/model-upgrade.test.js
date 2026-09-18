@@ -427,8 +427,8 @@ test('covers major model families', () => {
   assert(families.includes('phi'), 'should have phi');
 });
 
-test('UPGRADE_HINTS covers current C3 models', () => {
-  // C3 currently uses: deepseek-r1-32b, qwen3-30b-a3b, qwen3.5:27b, llava:13b
+test('UPGRADE_HINTS covers current IntentSmith models', () => {
+  // IntentSmith currently uses: deepseek-r1-32b, qwen3-30b-a3b, qwen3.5:27b, llava:13b
   // deepseek-r1-32b should have hint
   const r1Hints = getUpgradeHints('deepseek-r1-32b');
   assert(r1Hints.length > 0, 'deepseek-r1-32b should have upgrade hints');

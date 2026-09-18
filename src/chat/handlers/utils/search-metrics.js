@@ -1,4 +1,4 @@
-// C3-Agent v55.2 — Search Metrics & Usefulness Tracking
+// IntentSmith-Agent v55.2 — Search Metrics & Usefulness Tracking
 // ══════════════════════════════════════════════════════════════════════════════
 // Sprint 1.1: Track search quality end-to-end
 //

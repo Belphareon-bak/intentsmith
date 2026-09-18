@@ -10,7 +10,7 @@ echo.
 REM Check if package.json exists
 if not exist "package.json" (
   echo ❌ Error: package.json not found!
-  echo    Please run this script from the c3-ide root directory.
+  echo    Please run this script from the intentsmith-ide root directory.
   pause
   exit /b 1
 )

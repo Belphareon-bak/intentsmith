@@ -1655,7 +1655,7 @@ function viewPairing({ error = null, busy = false } = {}) {
       <div class="pair-steps">
         <strong>Na desktopu:</strong>
         <ol>
-          <li>Spusť gateway s <code>C3_MOBILE_PAIRING=on</code></li>
+          <li>Spusť gateway s <code>INTENTSMITH_MOBILE_PAIRING=on</code></li>
           <li><code>node scripts/mobile-pair.js</code></li>
           <li>Naskenuj zobrazený QR kód</li>
         </ol>
@@ -5270,7 +5270,7 @@ async function doPair() {
       state.error.pairing = {
         pairing_already_used: 'Tento kód už byl použit. Vygeneruj na desktopu nový.',
         pairing_expired: 'Platnost kódu vypršela. Vygeneruj nový.',
-        pairing_disabled: 'Párování je na serveru vypnuté (C3_MOBILE_PAIRING=on).',
+        pairing_disabled: 'Párování je na serveru vypnuté (INTENTSMITH_MOBILE_PAIRING=on).',
         token_invalid: 'Kód nesouhlasí. Zkontroluj, že jsi naskenoval aktuální QR.',
         rate_limited: 'Příliš mnoho pokusů. Vygeneruj nový kód.',
       }[payload?.error?.code] || `Párování selhalo (${payload?.error?.code || response.status}).`;

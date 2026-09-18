@@ -73,12 +73,12 @@ function check(condition, name, detail = '') {
 // ─── Data: Enhanced Spec with trade-offs ────────────────────────────────────
 
 const SPEC_V1 = {
-  title: 'Klíčenka — Secure Keychain for C3',
+  title: 'Klíčenka — Secure Keychain for IntentSmith',
   goals: [
     { id: 'G1', description: 'AES-256-GCM encryption/decryption', priority: 'MUST', success_criteria: 'Encrypt/decrypt round-trip with no data loss' },
     { id: 'G2', description: 'File-based encrypted credential store', priority: 'MUST', success_criteria: 'CRUD operations on encrypted store file' },
     { id: 'G3', description: 'CLI interface for credential management', priority: 'MUST', success_criteria: 'All commands work from terminal' },
-    { id: 'G4', description: 'C3 config integration', priority: 'SHOULD', success_criteria: 'C3 can read credentials from keychain' },
+    { id: 'G4', description: 'IntentSmith config integration', priority: 'SHOULD', success_criteria: 'IntentSmith can read credentials from keychain' },
   ],
   requirements: {
     functional: [
@@ -88,7 +88,7 @@ const SPEC_V1 = {
       { id: 'R4', description: 'CRUD operations: add, get, list, remove', goal_id: 'G2', acceptance_test: 'Each op modifies store correctly' },
       { id: 'R5', description: 'CLI commands: add, get, list, remove, export, import', goal_id: 'G3', acceptance_test: 'CLI exits 0 on success, 1 on failure' },
       { id: 'R6', description: 'Export/import for backup', goal_id: 'G3', acceptance_test: 'Export → import round-trip preserves all entries' },
-      { id: 'R7', description: 'C3 config reads credentials from store', goal_id: 'G4', acceptance_test: 'config.getSecret() returns decrypted value' },
+      { id: 'R7', description: 'IntentSmith config reads credentials from store', goal_id: 'G4', acceptance_test: 'config.getSecret() returns decrypted value' },
     ],
     non_functional: [
       { id: 'NF1', category: 'security', description: 'Master password never stored in plaintext', metric: 'No plaintext password in memory after derivation' },
@@ -108,7 +108,7 @@ const SPEC_V1 = {
       { name: 'crypto.js', responsibility: 'Encryption/decryption + key derivation', interfaces: ['encrypt()', 'decrypt()', 'deriveKey()'] },
       { name: 'store.js', responsibility: 'Credential CRUD on encrypted file', interfaces: ['add()', 'get()', 'list()', 'remove()'] },
       { name: 'cli.js', responsibility: 'CLI argument parsing + command dispatch', interfaces: ['main()'] },
-      { name: 'integration.js', responsibility: 'C3 config bridge', interfaces: ['getSecret()'] },
+      { name: 'integration.js', responsibility: 'IntentSmith config bridge', interfaces: ['getSecret()'] },
     ],
     data_flow: 'CLI → Store → Crypto → File',
     data_model: 'JSON file: { salt, entries: { key: { iv, ciphertext, tag } } }',
@@ -134,7 +134,7 @@ const SPEC_V1 = {
     'All CLI commands work end-to-end',
     'Encrypted file cannot be decrypted without master password',
     'Round-trip export/import preserves all data',
-    'C3 config integration reads secrets successfully',
+    'IntentSmith config integration reads secrets successfully',
   ],
 };
 
@@ -190,14 +190,14 @@ const ROADMAP_V1 = {
       deliverables: ['src/cli.js', 'bin/klicenka', 'tests/contracts/cli.test.js', 'tests/contracts/current.test.js'],
     },
     {
-      id: 'ms-4', title: 'C3 Integration', status: 'PENDING',
-      description: 'C3 configuration bridge source scaffold',
+      id: 'ms-4', title: 'IntentSmith Integration', status: 'PENDING',
+      description: 'IntentSmith configuration bridge source scaffold',
       dependencies: ['ms-2'], dependency_rationale: 'Integration reads from Store',
       estimated_loc: 80, estimated_files: 3, estimated_complexity: 'LOW',
       goals_addressed: ['G4'], requirements_addressed: ['R7'],
-      risk: { description: 'C3 config API changes', mitigation: 'Version-locked import', fallback: 'Fallback to env vars' },
+      risk: { description: 'IntentSmith config API changes', mitigation: 'Version-locked import', fallback: 'Fallback to env vars' },
       test_strategy: { type: 'source-contract', description: 'Validate getSecret store-wiring markers', command: 'node tests/contracts/current.test.js', specific_tests: ['store import present', 'getSecret export present'], expected_test_count: 2 },
-      acceptance_criteria: ['C3 bridge import and export interfaces are declared'],
+      acceptance_criteria: ['IntentSmith bridge import and export interfaces are declared'],
       deliverables: ['src/integration.js', 'tests/contracts/integration.test.js', 'tests/contracts/current.test.js'],
     },
   ],
@@ -306,14 +306,14 @@ const MS_PLANS = {
   },
   'ms-4': {
     milestone_id: 'ms-4',
-    technical_approach: 'Create a C3 bridge source scaffold exposing getSecret through the store interface.',
+    technical_approach: 'Create a IntentSmith bridge source scaffold exposing getSecret through the store interface.',
     files: [
-      { path: 'src/integration.js', action: 'create', purpose: 'C3 integration' },
+      { path: 'src/integration.js', action: 'create', purpose: 'IntentSmith integration' },
       { path: 'tests/contracts/integration.test.js', action: 'create', purpose: 'Executable integration source contract' },
       { path: 'tests/contracts/current.test.js', action: 'modify', purpose: 'Stable milestone contract entry point' },
     ],
     implementation_steps: [
-      { step: 1, action: 'Create the C3 configuration bridge', file: 'src/integration.js', validation: 'Bridge module exports getSecret' },
+      { step: 1, action: 'Create the IntentSmith configuration bridge', file: 'src/integration.js', validation: 'Bridge module exports getSecret' },
       { step: 2, action: 'Connect getSecret to the credential-store get export', file: 'src/integration.js', validation: 'Source imports get from the store module' },
       { step: 3, action: 'Create executable bridge source-contract checks', file: 'tests/contracts/integration.test.js', validation: 'getSecret import and export markers are present' },
     ],
@@ -378,7 +378,7 @@ function createFakeLLM() {
 
       return {
         content: JSON.stringify({
-          core_goal: 'Build a secure credential keychain for C3',
+          core_goal: 'Build a secure credential keychain for IntentSmith',
           implicit_assumptions: [
             'Single-user desktop usage',
             'Master password is the only auth factor',
@@ -572,7 +572,7 @@ export function list(store) { /* return keys */ }
 export function remove(store, key, password) { /* remove + rewrite */ }
 export default { add, get, list, remove };
 `,
-    'src/integration.js': `// C3 config bridge — getSecret()
+    'src/integration.js': `// IntentSmith config bridge — getSecret()
 import { get } from './store.js';
 export function getSecret(key) { return get(defaultStore, key, masterPassword); }
 export default { getSecret };
@@ -740,7 +740,7 @@ async function run() {
 
     console.log('\n═══ PHASE 1: SPEC WITH CONFLICT ════════════════════════════════════');
 
-    const userRequest = 'Chci kličenu pro C3, musí být rychlá, bezpečná a přenosná';
+    const userRequest = 'Chci kličenu pro IntentSmith, musí být rychlá, bezpečná a přenosná';
     const r1 = handleLifecycleBuildDetected(userRequest, { intent: 'BUILD' }, context);
     logTurn(userRequest, r1);
 
@@ -942,7 +942,7 @@ async function run() {
       'CLI Interface',
       'Encryption Engine',
       'Credential Store',
-      'C3 Integration',
+      'IntentSmith Integration',
     ]), 'RC.8: persisted milestone sequence matches the revised roadmap',
     `DB: ${revisedDbOrder.join(' → ')}`);
 

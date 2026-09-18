@@ -1,5 +1,5 @@
 export const MISSING_DATABASE_PATH_MESSAGE =
-  'C3_DB_PATH must be set before importing src/db/database.js';
+  'INTENTSMITH_DB_PATH must be set before importing src/db/database.js';
 
 export function requireConfiguredDatabasePath(configuredPath) {
   if (typeof configuredPath !== 'string' || configuredPath.trim() === '') {

@@ -14,13 +14,13 @@ const {
   sanitizeEnv, isEnvSensitive,
   SessionTokenManager, RateLimiter, InputValidator, WsSecurityGuard,
   ProcessIsolation,
-} = require('../packages/c3-backend/sprint7-integration.cjs');
+} = require('../packages/intentsmith-backend/sprint7-integration.cjs');
 
 let testCount = 0, passCount = 0;
 function test(name, fn) { testCount++; try { fn(); passCount++; console.log('  ✅ ' + name); } catch (e) { console.log('  ❌ ' + name + ': ' + e.message); } }
 
 // Create a temp project dir for sandbox tests
-const projectRoot = path.join(os.tmpdir(), 'c3-s7-project-' + Date.now());
+const projectRoot = path.join(os.tmpdir(), 'intentsmith-s7-project-' + Date.now());
 const subDir = path.join(projectRoot, 'src');
 fs.mkdirSync(subDir, { recursive: true });
 

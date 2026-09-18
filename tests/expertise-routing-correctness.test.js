@@ -3,7 +3,7 @@ import { resolveIsolatedArtifactPath } from './helpers/isolated-test-db.js';
 import { writeFileSync } from 'node:fs';
 
 // ══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — Expertise Routing Correctness Tests v87
+// IntentSmith-Agent — Expertise Routing Correctness Tests v87
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // PURPOSE: Verify GUARD 6 — Creative Override in CRE decide().

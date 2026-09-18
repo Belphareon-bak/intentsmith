@@ -165,7 +165,7 @@ function policy(overrides = {}) {
     policyId: 'policy-1',
     projectId: 17,
     workspaceRevision: BEFORE_REVISION,
-    policyPath: '.c3/architecture-policy.json',
+    policyPath: '.intentsmith/architecture-policy.json',
     layers: [
       { name: 'controller', roots: ['src/controllers'] },
       { name: 'service', roots: ['src/services'] },
@@ -501,7 +501,7 @@ test('scan has no 200-file false-pass limit', () => {
 });
 
 test('policy changed in same request is terminally denied under the old snapshot', () => {
-  const policyPath = '.c3/architecture-policy.json';
+  const policyPath = '.intentsmith/architecture-policy.json';
   const oldPolicyBytes = '{"serviceCanImport":[]}\n';
   const relaxedPolicyBytes = '{"serviceCanImport":["controller"]}\n';
   const changes = [change(policyPath, oldPolicyBytes, relaxedPolicyBytes, 'policy')];

@@ -1,6 +1,6 @@
 // tests/e2e/92-code-analysis-depth.e2e.js — Deep Code Analysis & Refactoring Quality
 // ══════════════════════════════════════════════════════════════════════════════
-// Tier 3+: Tests C3's ability to perform deep code analysis — understanding
+// Tier 3+: Tests IntentSmith's ability to perform deep code analysis — understanding
 // code structure, finding bugs, suggesting refactors, and explaining complex
 // patterns. This is about analytical quality, not generation.
 //

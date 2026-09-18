@@ -1,6 +1,6 @@
 // tests/e2e/91-multi-turn-project-build.e2e.js — Multi-Turn Iterative Project Building
 // ══════════════════════════════════════════════════════════════════════════════
-// Tier 3+: Tests C3's ability to iteratively build a complex project across
+// Tier 3+: Tests IntentSmith's ability to iteratively build a complex project across
 // multiple conversation turns — simulating how a real user would work.
 //
 // Scenario: Build a Python Flask todo-app in 5 phases:

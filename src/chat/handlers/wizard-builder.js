@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — B9: Agent Builder Wizard
+// IntentSmith-Agent — B9: Agent Builder Wizard
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // Conversational agent creation through chat interface.

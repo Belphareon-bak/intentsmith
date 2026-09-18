@@ -7,8 +7,8 @@
 // Run: node tests/e2e-notifications.test.js
 //
 // Required env vars:
-//   C3_SMTP_HOST, C3_SMTP_PORT, C3_SMTP_USER, C3_SMTP_PASS, C3_SMTP_FROM
-//   C3_TELEGRAM_BOT_TOKEN, C3_TELEGRAM_CHAT_ID
+//   INTENTSMITH_SMTP_HOST, INTENTSMITH_SMTP_PORT, INTENTSMITH_SMTP_USER, INTENTSMITH_SMTP_PASS, INTENTSMITH_SMTP_FROM
+//   INTENTSMITH_TELEGRAM_BOT_TOKEN, INTENTSMITH_TELEGRAM_CHAT_ID
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { EmailChannel } from '../src/notifications/channels/email.js';
@@ -49,14 +49,14 @@ const logger = {
 };
 
 const testNotification = {
-  title: 'C3 E2E Test',
-  body: `Toto je testovaci notifikace z C3 E2E testu.\nCas: ${new Date().toLocaleString('cs-CZ', { timeZone: 'Europe/Prague' })}`,
+  title: 'IntentSmith E2E Test',
+  body: `Toto je testovaci notifikace z IntentSmith E2E testu.\nCas: ${new Date().toLocaleString('cs-CZ', { timeZone: 'Europe/Prague' })}`,
   priority: 'normal',
   agentId: 'e2e-test',
 };
 
-const hasSmtp = !!(process.env.C3_SMTP_HOST && process.env.C3_SMTP_USER && process.env.C3_SMTP_PASS);
-const hasTelegram = !!(process.env.C3_TELEGRAM_BOT_TOKEN && process.env.C3_TELEGRAM_CHAT_ID);
+const hasSmtp = !!(process.env.INTENTSMITH_SMTP_HOST && process.env.INTENTSMITH_SMTP_USER && process.env.INTENTSMITH_SMTP_PASS);
+const hasTelegram = !!(process.env.INTENTSMITH_TELEGRAM_BOT_TOKEN && process.env.INTENTSMITH_TELEGRAM_CHAT_ID);
 
 console.log('\n══════ B0: E2E Notification Verification ══════');
 console.log(`  SMTP configured: ${hasSmtp ? 'YES' : 'NO'}`);
@@ -78,7 +78,7 @@ if (hasSmtp) {
 
   // 1.2 Send real email
   try {
-    const recipient = process.env.C3_SMTP_FROM || process.env.C3_SMTP_USER;
+    const recipient = process.env.INTENTSMITH_SMTP_FROM || process.env.INTENTSMITH_SMTP_USER;
     const sendResult = await email.send({ ...testNotification, recipient });
     assert(sendResult.delivered === true, 'Email send() delivers', `delivered=${sendResult.delivered}, error=${sendResult.error}`);
     if (sendResult.delivered) {
@@ -88,8 +88,8 @@ if (hasSmtp) {
     fail('Email send() delivers', `threw: ${err.message}`);
   }
 } else {
-  skip('Email verify()', 'C3_SMTP_* not set');
-  skip('Email send()', 'C3_SMTP_* not set');
+  skip('Email verify()', 'INTENTSMITH_SMTP_* not set');
+  skip('Email send()', 'INTENTSMITH_SMTP_* not set');
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -108,7 +108,7 @@ if (hasTelegram) {
 
   // 2.2 Send real Telegram message
   try {
-    const chatId = process.env.C3_TELEGRAM_CHAT_ID;
+    const chatId = process.env.INTENTSMITH_TELEGRAM_CHAT_ID;
     const sendResult = await telegram.send({ ...testNotification, recipient: chatId });
     assert(sendResult.delivered === true, 'Telegram send() delivers', `delivered=${sendResult.delivered}, error=${sendResult.error}`);
     if (sendResult.delivered) {
@@ -125,7 +125,7 @@ if (hasTelegram) {
       body: 'Cena: 1.500 Kc (sleva -20%) [Praha].\nDalsi radek s ~tildem~ a `kodem`.',
       priority: 'high',
       agentId: 'e2e-markdown-test',
-      recipient: process.env.C3_TELEGRAM_CHAT_ID,
+      recipient: process.env.INTENTSMITH_TELEGRAM_CHAT_ID,
     };
     const sendResult = await telegram.send(specialNotification);
     assert(sendResult.delivered === true, 'Telegram send() handles special chars', `delivered=${sendResult.delivered}, error=${sendResult.error}`);
@@ -133,9 +133,9 @@ if (hasTelegram) {
     fail('Telegram send() handles special chars', `threw: ${err.message}`);
   }
 } else {
-  skip('Telegram verify()', 'C3_TELEGRAM_* not set');
-  skip('Telegram send()', 'C3_TELEGRAM_* not set');
-  skip('Telegram special chars', 'C3_TELEGRAM_* not set');
+  skip('Telegram verify()', 'INTENTSMITH_TELEGRAM_* not set');
+  skip('Telegram send()', 'INTENTSMITH_TELEGRAM_* not set');
+  skip('Telegram special chars', 'INTENTSMITH_TELEGRAM_* not set');
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -150,26 +150,26 @@ console.log('\n── 3. Notification Router ──');
   // 3.1 testChannel for telegram
   if (hasTelegram) {
     try {
-      const result = await router.testChannel('telegram', process.env.C3_TELEGRAM_CHAT_ID);
+      const result = await router.testChannel('telegram', process.env.INTENTSMITH_TELEGRAM_CHAT_ID);
       assert(result.ok === true || result.delivered === true, 'Router testChannel(telegram) succeeds', `result=${JSON.stringify(result)}`);
     } catch (err) {
       fail('Router testChannel(telegram)', `threw: ${err.message}`);
     }
   } else {
-    skip('Router testChannel(telegram)', 'C3_TELEGRAM_* not set');
+    skip('Router testChannel(telegram)', 'INTENTSMITH_TELEGRAM_* not set');
   }
 
   // 3.2 testChannel for email
   if (hasSmtp) {
     try {
-      const recipient = process.env.C3_SMTP_FROM || process.env.C3_SMTP_USER;
+      const recipient = process.env.INTENTSMITH_SMTP_FROM || process.env.INTENTSMITH_SMTP_USER;
       const result = await router.testChannel('email', recipient);
       assert(result.ok === true || result.delivered === true, 'Router testChannel(email) succeeds', `result=${JSON.stringify(result)}`);
     } catch (err) {
       fail('Router testChannel(email)', `threw: ${err.message}`);
     }
   } else {
-    skip('Router testChannel(email)', 'C3_SMTP_* not set');
+    skip('Router testChannel(email)', 'INTENTSMITH_SMTP_* not set');
   }
 }
 
@@ -183,7 +183,7 @@ if (hasTelegram) {
     const ctx = {
       agent_id: 'e2e-pipeline-test',
       channel: 'telegram',
-      recipient: process.env.C3_TELEGRAM_CHAT_ID,
+      recipient: process.env.INTENTSMITH_TELEGRAM_CHAT_ID,
       title: 'Pipeline E2E Test',
       body: 'Tato zprava prosla celym pipeline: policy → router → telegram.',
       priority: 'normal',
@@ -202,8 +202,8 @@ if (hasTelegram) {
     fail('Pipeline E2E', `threw: ${err.message}`);
   }
 } else {
-  skip('Pipeline E2E (telegram)', 'C3_TELEGRAM_* not set');
-  skip('Pipeline decision check', 'C3_TELEGRAM_* not set');
+  skip('Pipeline E2E (telegram)', 'INTENTSMITH_TELEGRAM_* not set');
+  skip('Pipeline decision check', 'INTENTSMITH_TELEGRAM_* not set');
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -212,7 +212,7 @@ console.log('\n── 5. Full Pipeline (Email) ──');
 if (hasSmtp) {
   try {
     const { pipeline } = createNotificationPipeline();
-    const recipient = process.env.C3_SMTP_FROM || process.env.C3_SMTP_USER;
+    const recipient = process.env.INTENTSMITH_SMTP_FROM || process.env.INTENTSMITH_SMTP_USER;
 
     const ctx = {
       agent_id: 'e2e-pipeline-email',
@@ -232,7 +232,7 @@ if (hasSmtp) {
     fail('Pipeline E2E email', `threw: ${err.message}`);
   }
 } else {
-  skip('Pipeline E2E (email)', 'C3_SMTP_* not set');
+  skip('Pipeline E2E (email)', 'INTENTSMITH_SMTP_* not set');
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -249,8 +249,8 @@ if (failures.length > 0) {
 const allSkipped = skipped > 0 && passed === 0 && failed === 0;
 if (allSkipped) {
   console.log('\n⚠️  All tests skipped. Set environment variables to run E2E tests.');
-  console.log('   C3_SMTP_HOST, C3_SMTP_PORT, C3_SMTP_USER, C3_SMTP_PASS');
-  console.log('   C3_TELEGRAM_BOT_TOKEN, C3_TELEGRAM_CHAT_ID');
+  console.log('   INTENTSMITH_SMTP_HOST, INTENTSMITH_SMTP_PORT, INTENTSMITH_SMTP_USER, INTENTSMITH_SMTP_PASS');
+  console.log('   INTENTSMITH_TELEGRAM_BOT_TOKEN, INTENTSMITH_TELEGRAM_CHAT_ID');
 }
 console.log('');
 

@@ -5,14 +5,14 @@ import { createHash, randomUUID } from 'node:crypto';
 import { parseModelName } from './model-profiles.js';
 
 const IDEMPOTENCY_TTL_MS = parseInt(
-  process.env.C3_MODEL_UNIVERSE_IDEMPOTENCY_TTL_MS || String(24 * 60 * 60 * 1000),
+  (process.env.INTENTSMITH_MODEL_UNIVERSE_IDEMPOTENCY_TTL_MS ?? process.env['C3_MODEL_UNIVERSE_IDEMPOTENCY_TTL_MS']) || String(24 * 60 * 60 * 1000),
   10
 );
 const IDEMPOTENCY_BUCKET_MS = parseInt(
-  process.env.C3_MODEL_UNIVERSE_IDEMPOTENCY_BUCKET_MS || '60000',
+  (process.env.INTENTSMITH_MODEL_UNIVERSE_IDEMPOTENCY_BUCKET_MS ?? process.env['C3_MODEL_UNIVERSE_IDEMPOTENCY_BUCKET_MS']) || '60000',
   10
 );
-const RECONCILE_DELAY_MS = parseInt(process.env.C3_MODEL_UNIVERSE_RECONCILE_DELAY_MS || '1000', 10);
+const RECONCILE_DELAY_MS = parseInt((process.env.INTENTSMITH_MODEL_UNIVERSE_RECONCILE_DELAY_MS ?? process.env['C3_MODEL_UNIVERSE_RECONCILE_DELAY_MS']) || '1000', 10);
 
 function asPositiveInt(value, fallback) {
   const n = Number.parseInt(String(value ?? ''), 10);
@@ -24,14 +24,14 @@ function asRatio(value, fallback) {
   return Number.isFinite(n) && n > 0 && n <= 1 ? n : fallback;
 }
 
-const SIGNAL_FLUSH_INTERVAL_MS = asPositiveInt(process.env.C3_MODEL_SIGNAL_FLUSH_INTERVAL_MS, 10000);
-const SIGNAL_BATCH_SIZE = asPositiveInt(process.env.C3_MODEL_SIGNAL_BATCH_SIZE, 100);
-const SIGNAL_BUFFER_MAX = asPositiveInt(process.env.C3_MODEL_SIGNAL_BUFFER_MAX, 2000);
-const SIGNAL_BASE_SAMPLE_RATE = asPositiveInt(process.env.C3_MODEL_SIGNAL_SAMPLE_RATE, 1);
-const SIGNAL_PRESSURE_SAMPLE_RATE = asPositiveInt(process.env.C3_MODEL_SIGNAL_PRESSURE_SAMPLE_RATE, 10);
-const SIGNAL_HIGH_WATERMARK_RATIO = asRatio(process.env.C3_MODEL_SIGNAL_HIGH_WATERMARK_RATIO, 0.8);
-const FEATURE_UNIVERSE_ENABLED = (process.env.C3_MODEL_UNIVERSE_ENABLED || 'true') !== 'false';
-const FEATURE_MIRROR_DISCOVERED = (process.env.C3_DISCOVERY_MIRROR_DISCOVERED_MODELS || 'true') !== 'false';
+const SIGNAL_FLUSH_INTERVAL_MS = asPositiveInt((process.env.INTENTSMITH_MODEL_SIGNAL_FLUSH_INTERVAL_MS ?? process.env['C3_MODEL_SIGNAL_FLUSH_INTERVAL_MS']), 10000);
+const SIGNAL_BATCH_SIZE = asPositiveInt((process.env.INTENTSMITH_MODEL_SIGNAL_BATCH_SIZE ?? process.env['C3_MODEL_SIGNAL_BATCH_SIZE']), 100);
+const SIGNAL_BUFFER_MAX = asPositiveInt((process.env.INTENTSMITH_MODEL_SIGNAL_BUFFER_MAX ?? process.env['C3_MODEL_SIGNAL_BUFFER_MAX']), 2000);
+const SIGNAL_BASE_SAMPLE_RATE = asPositiveInt((process.env.INTENTSMITH_MODEL_SIGNAL_SAMPLE_RATE ?? process.env['C3_MODEL_SIGNAL_SAMPLE_RATE']), 1);
+const SIGNAL_PRESSURE_SAMPLE_RATE = asPositiveInt((process.env.INTENTSMITH_MODEL_SIGNAL_PRESSURE_SAMPLE_RATE ?? process.env['C3_MODEL_SIGNAL_PRESSURE_SAMPLE_RATE']), 10);
+const SIGNAL_HIGH_WATERMARK_RATIO = asRatio((process.env.INTENTSMITH_MODEL_SIGNAL_HIGH_WATERMARK_RATIO ?? process.env['C3_MODEL_SIGNAL_HIGH_WATERMARK_RATIO']), 0.8);
+const FEATURE_UNIVERSE_ENABLED = ((process.env.INTENTSMITH_MODEL_UNIVERSE_ENABLED ?? process.env['C3_MODEL_UNIVERSE_ENABLED']) || 'true') !== 'false';
+const FEATURE_MIRROR_DISCOVERED = ((process.env.INTENTSMITH_DISCOVERY_MIRROR_DISCOVERED_MODELS ?? process.env['C3_DISCOVERY_MIRROR_DISCOVERED_MODELS']) || 'true') !== 'false';
 
 const METADATA_STATES = new Set(['STABLE', 'PARTIAL', 'UNSTABLE']);
 

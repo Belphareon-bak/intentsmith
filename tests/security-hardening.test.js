@@ -434,7 +434,7 @@ await testAsync('A3: requireAdminAuth is embedded in api.js', async () => {
   const fs = await import('fs');
   const apiCode = fs.readFileSync(new URL('../src/agents/api.js', import.meta.url), 'utf8');
   assert.ok(apiCode.includes('requireAdminAuth'), 'Should contain requireAdminAuth function');
-  assert.ok(apiCode.includes('C3_ADMIN_TOKEN'), 'Should reference C3_ADMIN_TOKEN env var');
+  assert.ok(apiCode.includes('INTENTSMITH_ADMIN_TOKEN'), 'Should reference INTENTSMITH_ADMIN_TOKEN env var');
   assert.ok(
     (apiCode.match(/requireAdminAuth\(req\)/g) || []).length >= 3,
     'Should guard all 3 secrets endpoints'
@@ -449,7 +449,7 @@ console.log('\n═══ Config Env Var Overrides ═══');
 await testAsync('A4: config.js uses process.env for model overrides', async () => {
   const fs = await import('fs');
   const configCode = fs.readFileSync(new URL('../src/config.js', import.meta.url), 'utf8');
-  const envVars = ['C3_MODEL_D1', 'C3_MODEL_D2', 'C3_MODEL_CODE', 'C3_MODEL_R1', 'C3_MODEL_R2', 'C3_MODEL_CHAT', 'C3_MODEL_VISION'];
+  const envVars = ['INTENTSMITH_MODEL_D1', 'INTENTSMITH_MODEL_D2', 'INTENTSMITH_MODEL_CODE', 'INTENTSMITH_MODEL_R1', 'INTENTSMITH_MODEL_R2', 'INTENTSMITH_MODEL_CHAT', 'INTENTSMITH_MODEL_VISION'];
   for (const v of envVars) {
     assert.ok(configCode.includes(v), `Should contain ${v} env var override`);
   }

@@ -1,6 +1,6 @@
 // tests/e2e/96-project-workflow-quality.e2e.js — Project Workflow Quality
 // ══════════════════════════════════════════════════════════════════════════════
-// Tier 3+: Tests that C3's project workflow produces high-quality output
+// Tier 3+: Tests that IntentSmith's project workflow produces high-quality output
 // across the full lifecycle: analysis → planning → implementation.
 //
 // Unlike functional tests (does the API return 200?), these test the QUALITY

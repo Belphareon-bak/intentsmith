@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ═══════════════════════════════════════════════════════════════════════════════
-// C3-Agent v57.2 — Trust Feedback Loop Tests (Self-contained, mock DB)
+// IntentSmith-Agent v57.2 — Trust Feedback Loop Tests (Self-contained, mock DB)
 // ═══════════════════════════════════════════════════════════════════════════════
 // Run: node tests/trust-feedback.test.js
 

@@ -453,7 +453,7 @@ function linkDependencies(repo, work) {
 
 /** Spustí testový soubor v síťovém namespace bez cesty ven. */
 export function runIsolatedTest(work, testFile, timeout = DEFAULT_TEST_TIMEOUT) {
-  const env = { ...process.env, C3_DB_PATH: path.join(work, 'eval-scratch.sqlite') };
+  const env = { ...process.env, INTENTSMITH_DB_PATH: path.join(work, 'eval-scratch.sqlite') };
   // Keep Node identical to the grading contract and pass filenames as literal
   // argv. JSON quoting is not shell quoting; filenames may contain $ or quotes.
   const inner = 'ip link set lo up 2>/dev/null; exec "$1" -- "$2" 2>&1';
@@ -476,7 +476,7 @@ export function runIsolatedTest(work, testFile, timeout = DEFAULT_TEST_TIMEOUT) 
           '--user', '--wait', '--pipe', '--quiet', '--collect', '--unit', unit,
           '-p', 'PrivateNetwork=yes',
           '-p', `WorkingDirectory=${work}`,
-          '-E', `C3_DB_PATH=${env.C3_DB_PATH}`,
+          '-E', `INTENTSMITH_DB_PATH=${env.INTENTSMITH_DB_PATH}`,
           process.execPath,
           '--',
           testFile,

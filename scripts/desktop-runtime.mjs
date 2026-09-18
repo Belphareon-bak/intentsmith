@@ -26,7 +26,7 @@ export function renderDesktopInstallation(config) {
   const { sourceRoot, node, dbPath, stateDirectory, configDirectory, icon } = config;
   for (const v of [sourceRoot, node, dbPath, stateDirectory, configDirectory, icon]) quotedPath(v);
   const envFile = join(configDirectory, 'runtime.env');
-  const env = Object.entries({ C3_DB_PATH: dbPath, C3_PORT_FILE: join(stateDirectory, 'backend.port.json'),
+  const env = Object.entries({ INTENTSMITH_DB_PATH: dbPath, INTENTSMITH_PORT_FILE: join(stateDirectory, 'backend.port.json'),
     INTENTSMITH_INSTALLATION_FILE: join(configDirectory, 'installation.json'),
     INTENTSMITH_HUNT_STATE_DIR: join(stateDirectory, 'model-hunt'),
     INTENTSMITH_PDF_PYTHON: config.pdfPython,
@@ -40,7 +40,7 @@ export function renderDesktopInstallation(config) {
     hunt: `[Unit]\nDescription=IntentSmith bounded GPU hunt\n\n[Service]\nType=oneshot\n${common}ExecStart=${quotedPath(node)} ${quotedPath(join(sourceRoot,'scripts/run-model-hunt-provider.js'))} --run --limit=2 --keep-inconclusive --prune-rejected --scheduled\nTimeoutStartSec=12h\nTimeoutStopSec=15s\nNoNewPrivileges=true\nNice=10\n`,
     timer: '[Unit]\nDescription=IntentSmith nightly model hunt\n\n[Timer]\nOnCalendar=*-*-* 03:00:00\nRandomizedDelaySec=15m\nAccuracySec=5m\nPersistent=true\nUnit=intentsmith-model-hunt.service\n\n[Install]\nWantedBy=timers.target\n',
     desktop: `[Desktop Entry]\nType=Application\nName=IntentSmith\nComment=Lokální AI pracovní prostředí\nExec=${quotedPath(node)} ${quotedPath(join(sourceRoot,'scripts/desktop-runtime.mjs'))}\nIcon=${icon}\nTerminal=false\nCategories=Development;Utility;\nStartupNotify=true\nStartupWMClass=IntentSmith\n`,
-    apparmor: `# IntentSmith Electron profile for this exact installed revision.\nabi <abi/4.0>,\ninclude <tunables/global>\n\nprofile intentsmith ${quotedPath(join(sourceRoot,'c3-ide/node_modules/electron/dist/electron'))} flags=(unconfined) {\n  userns,\n  include if exists <local/intentsmith>\n}\n`,
+    apparmor: `# IntentSmith Electron profile for this exact installed revision.\nabi <abi/4.0>,\ninclude <tunables/global>\n\nprofile intentsmith ${quotedPath(join(sourceRoot,'intentsmith-ide/node_modules/electron/dist/electron'))} flags=(unconfined) {\n  userns,\n  include if exists <local/intentsmith>\n}\n`,
   };
 }
 
@@ -78,7 +78,7 @@ export async function refreshDesktopCaches(applicationsDirectory, { run = exec }
 }
 
 export async function waitForBackend(config, { timeoutMs = 30000, fetchImpl = fetch } = {}) {
-  const { readLocalAccess } = require(join(config.sourceRoot, 'c3-ide/applications/electron/c3-local-access.js'));
+  const { readLocalAccess } = require(join(config.sourceRoot, 'intentsmith-ide/applications/electron/intentsmith-local-access.js'));
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     const access = readLocalAccess({ portFile: join(config.stateDirectory, 'backend.port.json') });
@@ -136,8 +136,8 @@ export async function resolveElectronSandboxArgs(config, options = {}) {
   } catch { /* kernels without this AppArmor switch do not need the fallback */ }
   if (!restricted) return [];
 
-  const electron = join(config.sourceRoot, 'c3-ide/node_modules/electron/dist/electron');
-  const chromeSandbox = join(config.sourceRoot, 'c3-ide/node_modules/electron/dist/chrome-sandbox');
+  const electron = join(config.sourceRoot, 'intentsmith-ide/node_modules/electron/dist/electron');
+  const chromeSandbox = join(config.sourceRoot, 'intentsmith-ide/node_modules/electron/dist/chrome-sandbox');
   try {
     const metadata = await statImpl(chromeSandbox);
     if (metadata.uid === 0 && (metadata.mode & 0o4000)) return [];
@@ -178,14 +178,14 @@ async function main() {
     await exec('/usr/bin/systemctl', ['--user','start','intentsmith-backend.service'], { timeout: 35000 });
     await waitForBackend(config);
     if (process.argv.includes('--check')) { console.log(`IntentSmith ${config.revision}: backend připraven`); return; }
-    const env = { ...process.env, C3_PORT_FILE: join(config.stateDirectory,'backend.port.json'),
+    const env = { ...process.env, INTENTSMITH_PORT_FILE: join(config.stateDirectory,'backend.port.json'),
       INTENTSMITH_INSTALLATION_FILE: installationFile };
     delete env.ELECTRON_RUN_AS_NODE;
     const sandboxArgs = await resolveElectronSandboxArgs(config, { env });
     // Explicit local diagnostics only; the ordinary desktop launch has no CDP listener.
     const diagnostics = process.env.INTENTSMITH_STUDIO_INSPECT === '1'
       ? ['--remote-debugging-address=127.0.0.1', '--remote-debugging-port=0'] : [];
-    const child = spawn(config.node, [join(config.sourceRoot,'c3-ide/applications/electron/scripts/launch.js'), '--class=IntentSmith', ...sandboxArgs, ...diagnostics],
+    const child = spawn(config.node, [join(config.sourceRoot,'intentsmith-ide/applications/electron/scripts/launch.js'), '--class=IntentSmith', ...sandboxArgs, ...diagnostics],
       { cwd: config.sourceRoot, env, stdio: 'inherit' });
     for (const signal of ['SIGINT','SIGTERM']) process.once(signal, () => child.kill(signal));
     const code = await new Promise((ok, fail) => { child.once('error', fail); child.once('exit', code => ok(code ?? 1)); });
@@ -196,7 +196,7 @@ async function main() {
       const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;
       try {
         const sourceRoot = config?.sourceRoot || ROOT;
-        await exec(join(sourceRoot,'c3-ide/node_modules/electron/dist/electron'),
+        await exec(join(sourceRoot,'intentsmith-ide/node_modules/electron/dist/electron'),
           [join(sourceRoot,'scripts/desktop-error.cjs'), error.message], { env, timeout: 0 });
       } catch { /* original failure remains nonzero if no graphical session exists */ }
     }

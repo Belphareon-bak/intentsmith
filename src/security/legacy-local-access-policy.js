@@ -1,11 +1,11 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 
 export const LEGACY_LOCAL_ACCESS_REQUIRED =
-  'C3_LEGACY_LOCAL_ACCESS_REQUIRED';
+  'INTENTSMITH_LEGACY_LOCAL_ACCESS_REQUIRED';
 export const LEGACY_LOCAL_CAPABILITY_HEADER =
   'X-IntentSmith-Local-Capability';
-export const LEGACY_LOCAL_WS_PROTOCOL = 'c3-v1';
-export const LEGACY_LOCAL_WS_CAPABILITY_PREFIX = 'c3-local-v1.';
+export const LEGACY_LOCAL_WS_PROTOCOL = 'intentsmith-v1';
+export const LEGACY_LOCAL_WS_CAPABILITY_PREFIX = 'intentsmith-local-v1.';
 
 const CAPABILITY_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const LOCAL_AUTHORITY_HOSTS = new Set(['127.0.0.1', 'localhost']);
@@ -148,14 +148,16 @@ export function parseLegacyLocalWebSocketCapability(rawProtocols) {
   const matches = rawProtocols
     .split(',')
     .map(value => value.trim())
-    .filter(value => value.startsWith('c3-local-v1'));
+    .filter(value => value.startsWith('intentsmith-local-v1') || value.startsWith('c3-local-v1'));
   if (matches.length === 0) {
     return Object.freeze({ state: 'absent', token: null });
   }
-  if (matches.length !== 1 || !matches[0].startsWith(LEGACY_LOCAL_WS_CAPABILITY_PREFIX)) {
+  const prefix = matches[0].startsWith('c3-local-v1.')
+    ? 'c3-local-v1.' : LEGACY_LOCAL_WS_CAPABILITY_PREFIX;
+  if (matches.length !== 1 || !matches[0].startsWith(prefix)) {
     return Object.freeze({ state: 'ambiguous', token: null });
   }
-  const token = matches[0].slice(LEGACY_LOCAL_WS_CAPABILITY_PREFIX.length);
+  const token = matches[0].slice(prefix.length);
   return isValidLegacyLocalCapability(token)
     ? Object.freeze({ state: 'valid', token })
     : Object.freeze({ state: 'ambiguous', token: null });

@@ -287,7 +287,7 @@ function registryIssues(entry) {
 
 function staticIssues({ baseUrl, sourceRevision, registryEntry }) {
   const issues = [];
-  if (process.env.C3_AUDIT_RUN !== '1') issues.push('audit-run-boundary-missing');
+  if (process.env.INTENTSMITH_AUDIT_RUN !== '1') issues.push('audit-run-boundary-missing');
   if (baseUrl !== 'http://127.0.0.1:11434') issues.push('provider-not-exact-loopback-http');
   if (!/^[a-f0-9]{40}$/.test(sourceRevision)) issues.push('source-revision-unbound');
   if (config.models?.CHAT !== MODEL) issues.push('runtime-chat-binding-drift');

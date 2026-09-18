@@ -394,7 +394,7 @@ export function formatEvolutionReport(result) {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const IGNORED_PATHS = /(?:^|[/\\])(node_modules|\.git|dist|build|__pycache__|venv|\.c3|vendor|target|\.next|coverage)[/\\]/;
+const IGNORED_PATHS = /(?:^|[/\\])(node_modules|\.git|dist|build|__pycache__|venv|\.intentsmith|vendor|target|\.next|coverage)[/\\]/;
 
 function isIgnoredPath(filePath) {
   return IGNORED_PATHS.test(filePath);

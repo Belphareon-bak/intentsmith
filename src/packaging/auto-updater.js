@@ -27,19 +27,19 @@ import { logger } from '../core/logger.js';
 
 const UPDATE_CONFIG = {
   // GitHub repository (user/repo)
-  repository: process.env.C3_UPDATE_REPO || '',
+  repository: (process.env.INTENTSMITH_UPDATE_REPO ?? process.env['C3_UPDATE_REPO']) || '',
   
   // Check interval (ms) — default 24 hours
-  checkInterval: parseInt(process.env.C3_UPDATE_INTERVAL || '86400000'),
+  checkInterval: parseInt((process.env.INTENTSMITH_UPDATE_INTERVAL ?? process.env['C3_UPDATE_INTERVAL']) || '86400000'),
   
   // Auto-apply updates (false = notify only)
-  autoApply: process.env.C3_AUTO_UPDATE === 'true',
+  autoApply: (process.env.INTENTSMITH_AUTO_UPDATE ?? process.env['C3_AUTO_UPDATE']) === 'true',
   
   // Staging directory for downloads
-  stagingDir: process.env.C3_UPDATE_STAGING || './data/updates',
+  stagingDir: (process.env.INTENTSMITH_UPDATE_STAGING ?? process.env['C3_UPDATE_STAGING']) || './data/updates',
   
   // Backup directory
-  backupDir: process.env.C3_UPDATE_BACKUP || './data/backups',
+  backupDir: (process.env.INTENTSMITH_UPDATE_BACKUP ?? process.env['C3_UPDATE_BACKUP']) || './data/backups',
   
   // Current version (from package.json)
   currentVersion: null,
@@ -93,7 +93,7 @@ export async function checkForUpdates(options = {}) {
     const resp = await fetch(apiUrl, {
       headers: {
         'Accept': 'application/vnd.github.v3+json',
-        'User-Agent': 'C3-Agent-Updater',
+        'User-Agent': 'IntentSmith-Agent-Updater',
       },
       signal: AbortSignal.timeout(10000),
     });
@@ -161,7 +161,7 @@ export async function downloadUpdate(downloadUrl, options = {}) {
 
   try {
     const resp = await fetch(downloadUrl, {
-      headers: { 'User-Agent': 'C3-Agent-Updater' },
+      headers: { 'User-Agent': 'IntentSmith-Agent-Updater' },
       signal: AbortSignal.timeout(120000), // 2 min timeout
     });
 

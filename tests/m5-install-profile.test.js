@@ -117,7 +117,7 @@ test('documented upgrade references and smoke commands match real files and rout
   assert.doesNotMatch(installDoc, /docs\/STORAGE\.md|\/api\/status/);
   assert.match(
     installDoc,
-    /curl --fail http:\/\/127\.0\.0\.1:\$\{C3_PORT:-3335\}\/api\/health/,
+    /curl --fail http:\/\/127\.0\.0\.1:\$\{INTENTSMITH_PORT:-3335\}\/api\/health/,
   );
   const serverSource = readFileSync(path.join(root, 'src', 'server.js'), 'utf8');
   assert.match(serverSource, /'GET \/api\/health': healthHandler/);
@@ -156,7 +156,7 @@ test('legacy Docker disposition is inert by default and cannot widen the listene
   const dockerfile = readFileSync(path.join(root, 'docker', 'Dockerfile'), 'utf8');
   const compose = readFileSync(path.join(root, 'docker', 'docker-compose.yml'), 'utf8');
   assert.doesNotMatch(dockerfile, /npm ci[^\n]*\|\|[^\n]*npm install/);
-  assert.doesNotMatch(`${dockerfile}\n${compose}`, /C3_HOST=0\.0\.0\.0/);
+  assert.doesNotMatch(`${dockerfile}\n${compose}`, /INTENTSMITH_HOST=0\.0\.0\.0/);
   assert.equal((compose.match(/profiles: \["unsupported"\]/g) || []).length, 3);
   assert.match(compose, /UNSUPPORTED LEGACY DISPOSITION/);
   assert.doesNotMatch(`${dockerfile}\n${compose}`, /\/api\/status/);

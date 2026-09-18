@@ -31,7 +31,7 @@ function parseArgs(argv) {
     if (!match || Object.hasOwn(values, match[1])) {
       throw new Error(
         'Usage: node scripts/model-evaluation-snapshot-replay.js '
-        + '--snapshot=/path/snapshot.json --db=/path/c3.db '
+        + '--snapshot=/path/snapshot.json --db=/path/intentsmith.db '
         + '--expect-complete=N --expect-blocked=N '
         + '--expect-applicable-missing=N --expect-not-applicable=N '
         + '[--out=/new/evidence.json]',

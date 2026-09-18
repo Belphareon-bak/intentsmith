@@ -2,7 +2,7 @@
 # C.3 Architect Mode - Initialize Project
 # Usage: init-architect.sh <project-name>
 # 
-# Creates the .c3-architect structure in current directory
+# Creates the .intentsmith-architect structure in current directory
 
 set -e
 
@@ -13,7 +13,7 @@ if [ -z "$PROJECT_NAME" ]; then
     exit 1
 fi
 
-ARCHITECT_DIR=".c3-architect"
+ARCHITECT_DIR=".intentsmith-architect"
 
 # Check if already initialized
 if [ -d "$ARCHITECT_DIR" ]; then

@@ -24,11 +24,11 @@ import {
   estimateVram, buildFamilyMetadataModels, inheritFromNearest, extractLibraryName,
 } from './model-metadata-estimator.js';
 
-const MAX_FAMILY_FETCHES = readIntEnv('C3_DISCOVERY_MAX_FAMILIES', 8, 1, 200);
-const MAX_VARIANTS_PER_FAMILY = readIntEnv('C3_DISCOVERY_MAX_VARIANTS_PER_FAMILY', 6, 1, 30);
-const HIGH_PRIORITY_RATIO = readFloatEnv('C3_DISCOVERY_HIGH_PRIORITY_RATIO', 0.70, 0, 1);
-const REGISTRY_SEED_LIMIT = readIntEnv('C3_DISCOVERY_REGISTRY_SEED_LIMIT', 50, 1, 200);
-const KNOWN_FAMILY_LIMIT = readIntEnv('C3_DISCOVERY_KNOWN_FAMILY_LIMIT', 120, 1, 1000);
+const MAX_FAMILY_FETCHES = readIntEnv('INTENTSMITH_DISCOVERY_MAX_FAMILIES', 8, 1, 200);
+const MAX_VARIANTS_PER_FAMILY = readIntEnv('INTENTSMITH_DISCOVERY_MAX_VARIANTS_PER_FAMILY', 6, 1, 30);
+const HIGH_PRIORITY_RATIO = readFloatEnv('INTENTSMITH_DISCOVERY_HIGH_PRIORITY_RATIO', 0.70, 0, 1);
+const REGISTRY_SEED_LIMIT = readIntEnv('INTENTSMITH_DISCOVERY_REGISTRY_SEED_LIMIT', 50, 1, 200);
+const KNOWN_FAMILY_LIMIT = readIntEnv('INTENTSMITH_DISCOVERY_KNOWN_FAMILY_LIMIT', 120, 1, 1000);
 const STALE_DAYS = 30;
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24h
 const MIN_USEFUL_PARAMS = 3; // Skip models < 3B (too small for production)
@@ -454,7 +454,7 @@ export class OnlineDiscovery {
       const url = `https://ollama.com/library/${encodeURIComponent(family)}`;
       const res = await modelDiscoveryFetch(url, {
         signal: AbortSignal.timeout(10000),
-        headers: { 'User-Agent': 'c3-agent/1.0' },
+        headers: { 'User-Agent': 'intentsmith-agent/1.0' },
       });
       if (!res.ok) return null;
       return await res.text();

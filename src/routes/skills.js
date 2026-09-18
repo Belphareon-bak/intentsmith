@@ -5,7 +5,7 @@ import { confirmAndExecute, resume, cancel, getStatus } from '../skills/runner.j
 
 export function createSkillRoutes(deps) {
   // Statements come from deps like every other route module, so importing this
-  // file does not require C3_DB_PATH to be set.
+  // file does not require INTENTSMITH_DB_PATH to be set.
   const { skillExecutions, skillSteps } = deps.db;
   const { sendJSON, safeError, logger } = deps;
 

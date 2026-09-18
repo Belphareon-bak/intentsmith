@@ -258,7 +258,7 @@ function renderMarkdown(title, date, turns, scope) {
     lines.push('');
   }
 
-  lines.push('*Exportováno z C3-Agent v57.2*');
+  lines.push('*Exportováno z IntentSmith-Agent v57.2*');
   return lines.join('\n');
 }
 
@@ -322,7 +322,7 @@ function renderHTML(title, date, turns, scope) {
   <h1>${escapeHTML(title)}</h1>
   <div class="meta">${date} | ${turns.length} zpráv</div>
 ${turnHTML}
-  <footer>Exportováno z C3-Agent v57.2</footer>
+  <footer>Exportováno z IntentSmith-Agent v57.2</footer>
 </body>
 </html>`;
 }
@@ -345,7 +345,7 @@ function renderText(title, date, turns, scope) {
     lines.push('');
   }
 
-  lines.push('Exportováno z C3-Agent v57.2');
+  lines.push('Exportováno z IntentSmith-Agent v57.2');
   return lines.join('\n');
 }
 
@@ -365,7 +365,7 @@ async function renderPDF(title, date, turns, scope) {
   const os = await import('os');
   const path = await import('path');
 
-  const tmpPath = path.join(os.tmpdir(), `c3-pdf-${Date.now()}.pdf`);
+  const tmpPath = path.join(os.tmpdir(), `intentsmith-pdf-${Date.now()}.pdf`);
   const formattedTurns = turns.map(t => ({
     role: t.role || 'user',
     content: t.content || '',
@@ -399,7 +399,7 @@ async function renderDOCX(title, date, turns, scope) {
   const os = await import('os');
   const path = await import('path');
 
-  const tmpPath = path.join(os.tmpdir(), `c3-docx-${Date.now()}.docx`);
+  const tmpPath = path.join(os.tmpdir(), `intentsmith-docx-${Date.now()}.docx`);
   const formattedTurns = turns.map(t => ({
     role: t.role || 'user',
     content: t.content || '',
@@ -432,7 +432,7 @@ async function renderXLSX(title, date, turns, scope) {
   try {
     const ExcelJS = await import('exceljs');
     const workbook = new ExcelJS.default.Workbook();
-    workbook.creator = 'C3-Agent v57.2';
+    workbook.creator = 'IntentSmith-Agent v57.2';
     workbook.created = new Date();
 
     const sheet = workbook.addWorksheet('Konverzace', {
@@ -479,7 +479,7 @@ async function renderXLSX(title, date, turns, scope) {
 
     // Footer row
     sheet.addRow({});
-    const footerRow = sheet.addRow({ content: `Exportováno z C3-Agent v57.2 | ${title} | ${date} | ${turns.length} zpráv` });
+    const footerRow = sheet.addRow({ content: `Exportováno z IntentSmith-Agent v57.2 | ${title} | ${date} | ${turns.length} zpráv` });
     footerRow.font = { italic: true, color: { argb: 'FF999999' }, size: 9 };
 
     // Auto-height for content rows (approximate)

@@ -1,4 +1,4 @@
-// C3 WS Bridge — Public API
+// IntentSmith WS Bridge — Public API
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // v59.0 — IDE ↔ Backend WebSocket bridge

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ═══════════════════════════════════════════════════════════════════════════════
-// C3 Agent — Chat Quality Tests (CQT) v56.2
+// IntentSmith Agent — Chat Quality Tests (CQT) v56.2
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // NOT correctness tests. These test whether responses are *acceptable*.

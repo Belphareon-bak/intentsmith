@@ -128,7 +128,7 @@ test('exact route, method, TLS, HTTP version and Host are required', () => {
     { target: '/remote/v1/session/open?x=1' },
     { target: '/api/status' },
     { target: '/m1/chat' },
-    { target: '/c3/ws' },
+    { target: '/intentsmith/ws' },
     { method: 'GET', target: '/remote/v1/session/open' },
     { rawHeaders: ['Host', 'evil.example', 'Content-Type', 'application/json', 'Content-Length', '128'] },
   ]) expectCode(() => policy.admit(request(invalid)), invalid.tlsVersion || invalid.socketEncrypted === false || invalid.httpVersion

@@ -5,7 +5,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { logger } from '../core/logger.js';
 
-const ARCHITECT_DIR = '.c3-architect';
+const ARCHITECT_DIR = '.intentsmith-architect';
 
 /**
  * Context Loader - manages what context AI sees

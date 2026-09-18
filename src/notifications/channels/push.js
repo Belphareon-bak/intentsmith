@@ -5,9 +5,9 @@
 // No external dependencies — uses native fetch.
 //
 // Config from environment:
-//   C3_NTFY_SERVER  — Server URL (default: https://ntfy.sh)
-//   C3_NTFY_TOPIC   — Default topic name
-//   C3_NTFY_TOKEN   — Optional auth token for private servers
+//   INTENTSMITH_NTFY_SERVER  — Server URL (default: https://ntfy.sh)
+//   INTENTSMITH_NTFY_TOPIC   — Default topic name
+//   INTENTSMITH_NTFY_TOKEN   — Optional auth token for private servers
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { NotificationChannel } from './base.js';
@@ -30,9 +30,9 @@ export class PushChannel extends NotificationChannel {
   constructor({ logger }) {
     super();
     this.logger = logger;
-    this.serverUrl = (process.env.C3_NTFY_SERVER || 'https://ntfy.sh').replace(/\/+$/, '');
-    this.defaultTopic = process.env.C3_NTFY_TOPIC || '';
-    this.token = process.env.C3_NTFY_TOKEN || '';
+    this.serverUrl = ((process.env.INTENTSMITH_NTFY_SERVER ?? process.env['C3_NTFY_SERVER']) || 'https://ntfy.sh').replace(/\/+$/, '');
+    this.defaultTopic = (process.env.INTENTSMITH_NTFY_TOPIC ?? process.env['C3_NTFY_TOPIC']) || '';
+    this.token = (process.env.INTENTSMITH_NTFY_TOKEN ?? process.env['C3_NTFY_TOKEN']) || '';
   }
 
   get name() {
@@ -42,7 +42,7 @@ export class PushChannel extends NotificationChannel {
   async send(notification) {
     const topic = notification.recipient || this.defaultTopic;
     if (!topic) {
-      return { delivered: false, error: 'No topic configured (set C3_NTFY_TOPIC or provide recipient)' };
+      return { delivered: false, error: 'No topic configured (set INTENTSMITH_NTFY_TOPIC or provide recipient)' };
     }
 
     const url = `${this.serverUrl}`;
@@ -52,7 +52,7 @@ export class PushChannel extends NotificationChannel {
     // Use JSON body instead of HTTP headers to support UTF-8 (Czech diacritics etc.)
     const body = {
       topic,
-      title: notification.title || 'C3 Notification',
+      title: notification.title || 'IntentSmith Notification',
       message: notification.body || '',
       priority,
       tags,
@@ -88,7 +88,7 @@ export class PushChannel extends NotificationChannel {
 
   async verify() {
     if (!this.defaultTopic) {
-      return { ok: false, error: 'No topic configured (set C3_NTFY_TOPIC)' };
+      return { ok: false, error: 'No topic configured (set INTENTSMITH_NTFY_TOPIC)' };
     }
 
     try {

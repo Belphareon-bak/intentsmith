@@ -1,4 +1,4 @@
-// C3 WS Bridge — File Watcher
+// IntentSmith WS Bridge — File Watcher
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // v59.0 — chokidar wrapper with batch dedup and lifecycle management.
@@ -36,7 +36,7 @@ export function watchProject(projectPath, onChange) {
   const callbacks = new Set([onChange]);
 
   const watcher = chokidar.watch(projectPath, {
-    ignored: [/node_modules/, /\.git/, /\.c3/],
+    ignored: [/node_modules/, /\.git/, /\.intentsmith/],
     persistent: true,
     ignoreInitial: true,
     awaitWriteFinish: { stabilityThreshold: 300 },

@@ -1,4 +1,4 @@
-// C3-Agent v60 — T6: Output Quality Gate Tests
+// IntentSmith-Agent v60 — T6: Output Quality Gate Tests
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Tests for D6 enforcement module (handlers/utils/output-gate.js)
@@ -508,7 +508,7 @@ async function testT6_5_RetryPrompt() {
 // RUN ALL TESTS
 // ══════════════════════════════════════════════════════════════════════════════
 
-console.log('\n\uD83E\uDDEA C3-Agent v60 \u2014 T6: Output Quality Gate Tests\n');
+console.log('\n\uD83E\uDDEA IntentSmith-Agent v60 \u2014 T6: Output Quality Gate Tests\n');
 console.log(`Running from: ${process.cwd()}`);
 console.log(`Time: ${new Date().toISOString()}\n`);
 

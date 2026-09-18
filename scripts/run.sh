@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# C3 Studio — Run Script (F4a, v129.2)
+# IntentSmith Studio — Run Script (F4a, v129.2)
 # ══════════════════════════════════════════════════════════════════════════════
 #
 # Starts the backend server and IDE in one command.
@@ -52,9 +52,9 @@ if [ "$BACKEND_ONLY" = false ] && [ "$DEV_MODE" = false ] && [ -f "$INSTALLATION
   export INTENTSMITH_INSTALLATION_FILE="$INSTALLATION_FILE"
   exec node "$PROJECT_ROOT/scripts/desktop-runtime.mjs"
 fi
-PORT_FILE="${C3_PORT_FILE:-$HOME/.c3/port}"
-export C3_PORT_FILE="$PORT_FILE"
-LOG_FILE="$PROJECT_ROOT/.c3-backend.log"
+PORT_FILE="${INTENTSMITH_PORT_FILE:-$HOME/.intentsmith/port}"
+export INTENTSMITH_PORT_FILE="$PORT_FILE"
+LOG_FILE="$PROJECT_ROOT/.intentsmith-backend.log"
 if [ -n "${XDG_DATA_HOME:-}" ]; then
   PDF_DATA_HOME="$XDG_DATA_HOME"
 else
@@ -63,16 +63,16 @@ fi
 DEFAULT_PDF_PYTHON="$PDF_DATA_HOME/intentsmith/python/pdf/bin/python"
 
 if [ -n "${INTENTSMITH_PDF_PYTHON:-}" ] &&
-   [ -n "${C3_PDF_PYTHON:-}" ] &&
-   [ "$INTENTSMITH_PDF_PYTHON" != "$C3_PDF_PYTHON" ]; then
-  fail "Conflicting INTENTSMITH_PDF_PYTHON and C3_PDF_PYTHON values"
+   [ -n "${INTENTSMITH_PDF_PYTHON:-}" ] &&
+   [ "$INTENTSMITH_PDF_PYTHON" != "$INTENTSMITH_PDF_PYTHON" ]; then
+  fail "Conflicting INTENTSMITH_PDF_PYTHON and INTENTSMITH_PDF_PYTHON values"
   exit 1
 fi
 
 if [ -n "${INTENTSMITH_PDF_PYTHON:-}" ]; then
   PDF_PYTHON="$INTENTSMITH_PDF_PYTHON"
-elif [ -n "${C3_PDF_PYTHON:-}" ]; then
-  PDF_PYTHON="$C3_PDF_PYTHON"
+elif [ -n "${INTENTSMITH_PDF_PYTHON:-}" ]; then
+  PDF_PYTHON="$INTENTSMITH_PDF_PYTHON"
 else
   PDF_PYTHON="$DEFAULT_PDF_PYTHON"
 fi
@@ -90,7 +90,7 @@ export PYTHONNOUSERSITE=1
 
 echo ""
 echo -e "${BOLD}═══════════════════════════════════════════════════════════${NC}"
-echo -e "${BOLD} C3 Studio${NC}"
+echo -e "${BOLD} IntentSmith Studio${NC}"
 echo -e "${BOLD}═══════════════════════════════════════════════════════════${NC}"
 echo ""
 
@@ -166,7 +166,7 @@ if [ -f "$PORT_FILE" ]; then
   EXISTING_CMD=$(ps -p "$EXISTING_PID" -o comm= 2>/dev/null || echo "")
   if [ -n "$EXISTING_PID" ] && kill -0 "$EXISTING_PID" 2>/dev/null && [ "$EXISTING_CMD" = "node" ]; then
     EXISTING_PORT=$(node -e "try{console.log(JSON.parse(require('fs').readFileSync('$PORT_FILE','utf8')).port)}catch(e){console.log('?')}" 2>/dev/null || echo "?")
-    ASSIGNED_PORT=$(node -e 'const a=require("./c3-ide/applications/electron/c3-local-access.js").readLocalAccess();if(!a)process.exit(1);console.log(a.port)')
+    ASSIGNED_PORT=$(node -e 'const a=require("./intentsmith-ide/applications/electron/intentsmith-local-access.js").readLocalAccess();if(!a)process.exit(1);console.log(a.port)')
     if ! curl --max-time 3 -sf "http://127.0.0.1:${ASSIGNED_PORT}/api/health" >/dev/null; then
       fail "Existing backend failed its health check; it was left untouched"
       exit 1
@@ -343,7 +343,7 @@ if [ "$BACKEND_ONLY" = true ]; then
   if [ -n "$BACKEND_PID" ]; then wait "$BACKEND_PID"; fi
 else
   echo -e "${BOLD}── Starting IDE ──${NC}"
-  info "Launching C3 Studio (Electron)..."
+  info "Launching IntentSmith Studio (Electron)..."
   echo ""
 
   # Detect if running as root (common in containers) — Electron needs --no-sandbox
@@ -354,5 +354,5 @@ else
   fi
 
   # Start IDE in foreground — when it exits, cleanup runs
-  yarn --cwd c3-ide/applications/electron start $ELECTRON_ARGS
+  yarn --cwd intentsmith-ide/applications/electron start $ELECTRON_ARGS
 fi

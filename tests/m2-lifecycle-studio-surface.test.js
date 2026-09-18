@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const studioPath = path.join(
   root,
-  'c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js',
+  'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js',
 );
 const source = await readFile(studioPath, 'utf8');
 
@@ -176,7 +176,7 @@ test('Studio draft command renders complete bytes and never auto-approves the mo
   const sandbox = vm.createContext({
     _sessions: [session], _backendBase: 'http://fixture.invalid',
     _M2_TERMINAL_STATES: { succeeded: true, failed: true, cancelled: true },
-    _sessionActive: 0, _persistSessionState() {}, renderChat() {}, _chatScrollPane() {},
+    _sessionActive: 0, _persistSessionState() {}, _showWorkspace() {}, renderChat() {}, _chatScrollPane() {},
     AbortSignal, AbortController,
     async fetch(url, options) { calls.push({ url, options }); return { ok: true, json: async () => view }; },
   });
@@ -202,7 +202,7 @@ test('Studio can cancel an active draft without sending approval or a legacy mut
   const calls = [];
   const sandbox = vm.createContext({
     _sessions: [session], _backendBase: 'http://fixture.invalid', _M2_TERMINAL_STATES: {},
-    _sessionActive: 0, _persistSessionState() {}, renderChat() {}, _chatScrollPane() {}, AbortSignal, AbortController, TextEncoder,
+    _sessionActive: 0, _persistSessionState() {}, _showWorkspace() {}, renderChat() {}, _chatScrollPane() {}, AbortSignal, AbortController, TextEncoder,
     fetch(url, options) {
       calls.push({ url, options });
       return new Promise((_resolve, reject) => options.signal.addEventListener('abort',
@@ -242,8 +242,8 @@ function controlledStudio({ pending = true, paths = ['src/app.js'], activeM1 = t
   const sandbox = vm.createContext({
     _sessions: [session], _backendBase: 'http://fixture.invalid',
     _M2_TERMINAL_STATES: { succeeded: true, failed: true, cancelled: true },
-    _sessionActive: 0, _persistSessionState() {}, renderChat() {}, _chatScrollPane() {}, AbortSignal, AbortController, TextEncoder,
-    document: { getElementById() { return textarea; } }, C3WS: { hasActiveM1Turn(value) { assert.equal(value, session);return activeM1; } },
+    _sessionActive: 0, _persistSessionState() {}, _showWorkspace() {}, renderChat() {}, _chatScrollPane() {}, AbortSignal, AbortController, TextEncoder,
+    document: { getElementById() { return textarea; } }, IntentSmithWS: { hasActiveM1Turn(value) { assert.equal(value, session);return activeM1; } },
     C: {}, _fs: value => value, h: (type, props, ...children) => ({ type, props, children }),
     fetch(url, options) {
       return new Promise((resolve, reject) => calls.push({ url, options, reject,
@@ -662,8 +662,8 @@ test('project wizard preserves the draft and current sessions when creation is r
     const wizard = { active: true, step: 5, data, saving: false, defaultDir: '/stale/default' };
     let routes = 0; const logs = []; const requests = [];
     const context = vm.createContext({ _projectWizard: wizard, AbortSignal, _backendBase: '',
-      renderCenter() {}, _wizardRestoreLayout() { throw Error('must preserve form'); },
-      _smartRouteToRelay() { routes++; }, window: { _c3: { agentLog: (...args) => logs.push(args) } },
+      _showWorkspace() {}, renderCenter() {}, _wizardRestoreLayout() { throw Error('must preserve form'); },
+      _smartRouteToRelay() { routes++; }, window: { _intentsmith: { agentLog: (...args) => logs.push(args) } },
       fetch: async (url, options) => { requests.push({ url, body: JSON.parse(options.body) });
         return { ok: status < 300, status, json: async () => payload }; },
     });
@@ -682,7 +682,7 @@ test('opening a registered project clears foreign context and ignores stale asyn
   const session = { _projectId: 1, _convId: 'old-conversation', _agentId: 'old-agent',
     chat: { msgs: [], _projectWorkProposal: { old: true }, _m2Composer: { old: true } } };
   const context = vm.createContext({ _sessions: [session], _backendBase: '', AbortSignal,
-    _chatInvalidatePreparedSends() {}, _loadWorkspaceTree() {}, _syncFocusClass() {}, _persistSessionState() {},
+    _showWorkspace() {}, _chatInvalidatePreparedSends() {}, _loadWorkspaceTree() {}, _syncFocusClass() {}, _persistSessionState() {},
     renderChat() {}, _chatScrollPane() {}, requestAnimationFrame(fn) { fn(); },
     fetch(url) { return new Promise(resolve => calls.push({ url, resolve(body, status = 200) {
       resolve({ ok: status >= 200 && status < 300, status, json: async () => body });

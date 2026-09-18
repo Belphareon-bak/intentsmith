@@ -164,7 +164,7 @@ function policy(overrides = {}) {
     policyId: 'policy-1',
     projectId: 17,
     workspaceRevision: BEFORE_REVISION,
-    policyPath: '.c3/architecture-policy.json',
+    policyPath: '.intentsmith/architecture-policy.json',
     layers: [
       { name: 'controller', roots: ['src/controllers'] },
       { name: 'service', roots: ['src/services'] },

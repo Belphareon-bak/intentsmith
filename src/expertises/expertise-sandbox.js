@@ -1,4 +1,4 @@
-// C3 Expert Sandbox — Offline Simulation + Baseline Comparison
+// IntentSmith Expert Sandbox — Offline Simulation + Baseline Comparison
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Pure functions for measuring expert config characteristics without LLM calls.

@@ -599,7 +599,7 @@ export class UpgradeManager {
                 .map(name => extractLibraryName(name))
                 .filter(Boolean)
             )];
-            const envSeedFamilies = String(process.env.C3_DISCOVERY_SEED_FAMILIES || '')
+            const envSeedFamilies = String((process.env.INTENTSMITH_DISCOVERY_SEED_FAMILIES ?? process.env['C3_DISCOVERY_SEED_FAMILIES']) || '')
               .split(',')
               .map(s => s.trim())
               .filter(Boolean);

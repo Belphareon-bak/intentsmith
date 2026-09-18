@@ -4,7 +4,7 @@
   "manifestVersion": 2,
   "name": "Účetní",
   "description": "OSVC danova evidence, DPH, pojistne, compliance, reporty",
-  "author": "c3-core",
+  "author": "intentsmith-core",
   "domain": "finance",
   "type": "domain",
   "engine": ">=121.0.0",

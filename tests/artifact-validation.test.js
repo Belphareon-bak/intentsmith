@@ -459,7 +459,7 @@ test('root README rejects drift from the committed registry', () => {
 
 test('minimal install keeps the projects directory inside the configured boundary', () => {
   assert(installScript.includes(
-    'PROJECTS_DIR="${C3_PROJECTS_DIR:-$PROJECT_ROOT/projects}"',
+    'PROJECTS_DIR="${INTENTSMITH_PROJECTS_DIR:-$PROJECT_ROOT/projects}"',
   ));
   assert(installScript.includes(
     'mkdir -p "$PROJECT_ROOT/data" "$PROJECTS_DIR"',
@@ -2242,7 +2242,7 @@ function validAttestationFixture() {
     report: {
       schemaVersion: 3,
       sourceRepository: {
-        identity: 'github.com/Belphareon-bak/C3-agent',
+        identity: 'github.com/Belphareon-bak/IntentSmith-agent',
       },
       sourceRange: {
         base: 'a7b90e36aa80310305703f54f2332e1c0e7f9e8f',
@@ -2322,8 +2322,8 @@ function validAttestationFixture() {
         attestationRule: GATE0_PENDING_ATTESTATION_RULE,
       },
       sourceRefs: {
-        c3Input: 'ffd21cf119865259ea1847af989acb24916bebe3',
-        c3Parent: 'a7b90e36aa80310305703f54f2332e1c0e7f9e8f',
+        intentsmithInput: 'ffd21cf119865259ea1847af989acb24916bebe3',
+        intentsmithParent: 'a7b90e36aa80310305703f54f2332e1c0e7f9e8f',
         intentSmithDonor: '6676902c5f6fe7a5d66aba0d79cb502e0f3a60e4',
         localValidationCandidate: candidateSha,
       },
@@ -2968,7 +2968,7 @@ test('post-commit attestation rejects stale schema and dirty review state', () =
   assertEqual(validateGate0Attestation(contradictory).valid, false);
 
   const lineageDrift = validAttestationFixture();
-  lineageDrift.evidenceIndex.sourceRefs.c3Parent = '9'.repeat(40);
+  lineageDrift.evidenceIndex.sourceRefs.intentsmithParent = '9'.repeat(40);
   assertEqual(validateGate0Attestation(lineageDrift).valid, false);
 });
 
@@ -3148,7 +3148,7 @@ function dispositionReport(errors = []) {
   return {
     schemaVersion: 3,
     sourceRepository: {
-      identity: 'github.com/Belphareon-bak/C3-agent',
+      identity: 'github.com/Belphareon-bak/IntentSmith-agent',
     },
     sourceRange: {
       base: 'a7b90e36aa80310305703f54f2332e1c0e7f9e8f',
@@ -3715,7 +3715,7 @@ test('the candidate producer installs owned-process termination handling', () =>
 
 test('the candidate evidence producer rejects seeded ignored install outputs', () => {
   assertThrows(() => assertPristineIgnoredState(
-    '!! c3-ide/node_modules/seeded-package/index.js',
+    '!! intentsmith-ide/node_modules/seeded-package/index.js',
   ));
   assertEqual(assertPristineIgnoredState('').clean, true);
 });
@@ -3726,15 +3726,15 @@ test('every producer phase rejects ignored runtime paths outside its allowlist',
   const allowed = [
     '!! .intentsmith-artifacts/',
     '!! node_modules/',
-    '!! c3-ide/extensions/example/node_modules/',
-    '!! c3-ide/applications/electron/lib/',
+    '!! intentsmith-ide/extensions/example/node_modules/',
+    '!! intentsmith-ide/applications/electron/lib/',
   ].join('\n');
   assertEqual(
     assertAllowedIgnoredState(allowed, evidenceRoot).unexpectedPathCount,
     0,
   );
   assertThrows(() => assertAllowedIgnoredState(
-    `${allowed}\n!! data/c3.db`,
+    `${allowed}\n!! data/intentsmith.db`,
     evidenceRoot,
   ));
   assertThrows(() => assertAllowedIgnoredState(
@@ -3742,7 +3742,7 @@ test('every producer phase rejects ignored runtime paths outside its allowlist',
     evidenceRoot,
   ));
   assertThrows(() => assertAllowedIgnoredState(
-    `${allowed}\n!! data/node_modules/c3.db`,
+    `${allowed}\n!! data/node_modules/intentsmith.db`,
     evidenceRoot,
   ));
   assertThrows(() => assertAllowedIgnoredState(

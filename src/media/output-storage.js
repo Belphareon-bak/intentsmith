@@ -8,7 +8,7 @@ import { logger } from '../core/logger.js';
 
 export class MediaOutputStorage {
   constructor({ baseDir, maxGB = 10 } = {}) {
-    this._baseDir = baseDir || path.join(os.homedir(), '.c3', 'media');
+    this._baseDir = baseDir || path.join(os.homedir(), '.intentsmith', 'media');
     this._maxBytes = maxGB * 1024 * 1024 * 1024;
     this._db = null;
   }

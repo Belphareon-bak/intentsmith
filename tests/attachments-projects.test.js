@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — v82 Attachment & Project Opening Tests
+// IntentSmith-Agent — v82 Attachment & Project Opening Tests
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Tests:
@@ -32,18 +32,18 @@ function isLoopbackHostname(hostname) {
 function requireLoopbackBaseUrl(raw) {
   if (typeof raw !== 'string' || raw.trim() === '') {
     throw new Error(
-      'C3_URL is required and must identify the runner-owned loopback server',
+      'INTENTSMITH_URL is required and must identify the runner-owned loopback server',
     );
   }
   if (raw !== raw.trim()) {
-    throw new Error('C3_URL must not contain leading or trailing whitespace');
+    throw new Error('INTENTSMITH_URL must not contain leading or trailing whitespace');
   }
 
   let url;
   try {
     url = new URL(raw);
   } catch {
-    throw new Error('C3_URL must be an absolute loopback HTTP origin');
+    throw new Error('INTENTSMITH_URL must be an absolute loopback HTTP origin');
   }
 
   if (
@@ -58,13 +58,13 @@ function requireLoopbackBaseUrl(raw) {
     || raw.replace(/\/$/, '') !== url.origin
   ) {
     throw new Error(
-      'C3_URL must be an explicit http://127.x.x.x:<port> or http://[::1]:<port> origin',
+      'INTENTSMITH_URL must be an explicit http://127.x.x.x:<port> or http://[::1]:<port> origin',
     );
   }
 
   const port = Number(url.port);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error('C3_URL contains an invalid TCP port');
+    throw new Error('INTENTSMITH_URL contains an invalid TCP port');
   }
   return url.origin;
 }
@@ -110,7 +110,7 @@ function requireOwnedServerBaseUrl({
     || !isStrictChild(isolatedTestRuntime.runtime, absolutePortFile)
   ) {
     throw new Error(
-      'C3_PORT_FILE must be the isolated runtime server attestation',
+      'INTENTSMITH_PORT_FILE must be the isolated runtime server attestation',
     );
   }
 
@@ -135,7 +135,7 @@ function requireOwnedServerBaseUrl({
       fs.constants.O_RDONLY | noFollow,
     );
   } catch (error) {
-    throw new Error(`Cannot open runner-owned C3_PORT_FILE: ${error.message}`);
+    throw new Error(`Cannot open runner-owned INTENTSMITH_PORT_FILE: ${error.message}`);
   }
 
   let metadata;
@@ -143,15 +143,15 @@ function requireOwnedServerBaseUrl({
   try {
     metadata = fs.fstatSync(descriptor);
     if (!metadata.isFile()) {
-      throw new Error('C3_PORT_FILE must be a regular file');
+      throw new Error('INTENTSMITH_PORT_FILE must be a regular file');
     }
-    assertCurrentUser(metadata, 'C3_PORT_FILE');
+    assertCurrentUser(metadata, 'INTENTSMITH_PORT_FILE');
     if (process.platform !== 'win32' && (metadata.mode & 0o077) !== 0) {
-      throw new Error('C3_PORT_FILE must not be accessible by group or others');
+      throw new Error('INTENTSMITH_PORT_FILE must not be accessible by group or others');
     }
     value = JSON.parse(fs.readFileSync(descriptor, 'utf8'));
   } catch (error) {
-    throw new Error(`Invalid runner-owned C3_PORT_FILE: ${error.message}`);
+    throw new Error(`Invalid runner-owned INTENTSMITH_PORT_FILE: ${error.message}`);
   } finally {
     fs.closeSync(descriptor);
   }
@@ -162,7 +162,7 @@ function requireOwnedServerBaseUrl({
     || typeof value !== 'object'
     || !isLoopbackHostname(value.host)
   ) {
-    throw new Error('C3_PORT_FILE must contain a canonical loopback endpoint');
+    throw new Error('INTENTSMITH_PORT_FILE must contain a canonical loopback endpoint');
   }
 
   const attestedPid = Number(value.pid);
@@ -176,7 +176,7 @@ function requireOwnedServerBaseUrl({
     || attestedPort > 65535
   ) {
     throw new Error(
-      'C3_PORT_FILE does not match the expected server PID/port/capability',
+      'INTENTSMITH_PORT_FILE does not match the expected server PID/port/capability',
     );
   }
 
@@ -192,7 +192,7 @@ function requireOwnedServerBaseUrl({
     `http://${authority}:${attestedPort}`,
   );
   if (attestedUrl !== baseUrl) {
-    throw new Error('C3_URL does not match the runner-owned port attestation');
+    throw new Error('INTENTSMITH_URL does not match the runner-owned port attestation');
   }
   return baseUrl;
 }
@@ -256,12 +256,12 @@ function removeOwnedTempFile(candidate) {
 
 // Resolve the server boundary before this suite creates fixtures or calls fetch.
 const BASE = SELF_CHECK_ONLY
-  ? requireLoopbackBaseUrl(process.env.C3_URL)
+  ? requireLoopbackBaseUrl(process.env.INTENTSMITH_URL)
   : requireOwnedServerBaseUrl({
-    rawUrl: process.env.C3_URL,
-    auditRun: process.env.C3_AUDIT_RUN,
+    rawUrl: process.env.INTENTSMITH_URL,
+    auditRun: process.env.INTENTSMITH_AUDIT_RUN,
     runtimeMode: isolatedTestRuntime.mode,
-    portFilePath: process.env.C3_PORT_FILE,
+    portFilePath: process.env.INTENTSMITH_PORT_FILE,
     expectedPidRaw: process.env.INTENTSMITH_TEST_SERVER_PID,
     expectedNonce: process.env.INTENTSMITH_TEST_SERVER_NONCE,
   });
@@ -270,13 +270,13 @@ const TEST_TMP_ROOT = isolatedTestRuntime.temp;
 
 suite('0. Runner-owned server and filesystem boundary');
 
-test('C3_URL is the explicit normalized loopback origin', () => {
-  assertEqual(BASE, requireLoopbackBaseUrl(process.env.C3_URL));
+test('INTENTSMITH_URL is the explicit normalized loopback origin', () => {
+  assertEqual(BASE, requireLoopbackBaseUrl(process.env.INTENTSMITH_URL));
   assertEqual(requireLoopbackBaseUrl('http://127.0.0.42:4567/'), 'http://127.0.0.42:4567');
   assertEqual(requireLoopbackBaseUrl('http://[::1]:3335'), 'http://[::1]:3335');
 });
 
-test('C3_URL rejects missing, named-host, non-HTTP, and path-bearing values', () => {
+test('INTENTSMITH_URL rejects missing, named-host, non-HTTP, and path-bearing values', () => {
   for (const invalid of [
     undefined,
     '',
@@ -292,7 +292,7 @@ test('C3_URL rejects missing, named-host, non-HTTP, and path-bearing values', ()
   ]) {
     assertThrows(
       () => requireLoopbackBaseUrl(invalid),
-      `Unsafe C3_URL was accepted: ${String(invalid)}`,
+      `Unsafe INTENTSMITH_URL was accepted: ${String(invalid)}`,
     );
   }
 });
@@ -302,10 +302,10 @@ test('full suite requires a private matching live server attestation', () => {
     assertEqual(
       BASE,
       requireOwnedServerBaseUrl({
-        rawUrl: process.env.C3_URL,
-        auditRun: process.env.C3_AUDIT_RUN,
+        rawUrl: process.env.INTENTSMITH_URL,
+        auditRun: process.env.INTENTSMITH_AUDIT_RUN,
         runtimeMode: isolatedTestRuntime.mode,
-        portFilePath: process.env.C3_PORT_FILE,
+        portFilePath: process.env.INTENTSMITH_PORT_FILE,
         expectedPidRaw: process.env.INTENTSMITH_TEST_SERVER_PID,
         expectedNonce: process.env.INTENTSMITH_TEST_SERVER_NONCE,
       }),
@@ -377,7 +377,7 @@ test('full suite requires a private matching live server attestation', () => {
         ...valid,
         rawUrl: 'http://127.0.0.1:4568',
       }),
-      'Full suite accepted a C3_URL/port-file mismatch',
+      'Full suite accepted a INTENTSMITH_URL/port-file mismatch',
     );
   } finally {
     const current = fs.lstatSync(portFile);
@@ -399,7 +399,7 @@ test('fixtures round-trip inside the isolated runtime roots', () => {
     PROJECT_FIXTURE_ROOT,
     fs.realpathSync(process.env.INTENTSMITH_TEST_PROJECTS_DIR),
   );
-  assertEqual(PROJECT_FIXTURE_ROOT, fs.realpathSync(process.env.C3_PROJECTS_DIR));
+  assertEqual(PROJECT_FIXTURE_ROOT, fs.realpathSync(process.env.INTENTSMITH_PROJECTS_DIR));
   assertEqual(TEST_TMP_ROOT, fs.realpathSync(process.env.TMPDIR));
 
   const projectDir = makeOwnedDir(PROJECT_FIXTURE_ROOT, 'boundary-project');
@@ -644,7 +644,7 @@ suite('4. Backend attachment reading (fs.readFileSync)');
 
 test('Read real file via path', () => {
   const tmpFile = makeOwnedTempFile(
-    'c3-test-attachment',
+    'intentsmith-test-attachment',
     '.js',
     'const hello = "world";\nconsole.log(hello);\n',
   );
@@ -670,7 +670,7 @@ test('Read real file via path', () => {
 test('Read missing file returns error message', () => {
   const missingPath = path.join(
     TEST_TMP_ROOT,
-    `c3-nonexistent-file-${process.pid}-${Date.now()}.js`,
+    `intentsmith-nonexistent-file-${process.pid}-${Date.now()}.js`,
   );
   const attachment = { name: 'missing.js', size: '0 B', type: 'text', path: missingPath, content: null };
   if (!attachment.content && attachment.path) {
@@ -739,7 +739,7 @@ test('Attachments without content are filtered out', () => {
 test('Path-based reading enriches null content', () => {
   // Simulate the full backend flow
   const tmpFile = makeOwnedTempFile(
-    'c3-enrich-test',
+    'intentsmith-enrich-test',
     '.txt',
     'Hello from attachment!',
   );
@@ -780,7 +780,7 @@ async function runAsyncTests() {
 suite('6. Project opening — API integration');
 
 await testAsync('POST /api/projects/open-folder with valid path', async () => {
-  const tmpDir = makeOwnedDir(PROJECT_FIXTURE_ROOT, 'c3-proj-test');
+  const tmpDir = makeOwnedDir(PROJECT_FIXTURE_ROOT, 'intentsmith-proj-test');
   try {
     const resp = await fetch(`${BASE}/api/projects/open-folder`, {
       method: 'POST',
@@ -793,7 +793,7 @@ await testAsync('POST /api/projects/open-folder with valid path', async () => {
     assert(data.project, 'Response should have project');
     assert(data.project.id, 'Project should have id');
     assert(data.project.path, 'Project should have path');
-    assertIncludes(data.project.path, 'c3-proj-test-', 'Path should match temp dir');
+    assertIncludes(data.project.path, 'intentsmith-proj-test-', 'Path should match temp dir');
   } finally {
     removeOwnedDir(tmpDir);
   }
@@ -802,7 +802,7 @@ await testAsync('POST /api/projects/open-folder with valid path', async () => {
 await testAsync('POST /api/projects/open-folder with nonexistent path returns error', async () => {
   const nonexistentPath = path.join(
     TEST_TMP_ROOT,
-    `c3-nonexistent-path-${process.pid}-${Date.now()}`,
+    `intentsmith-nonexistent-path-${process.pid}-${Date.now()}`,
   );
   const resp = await fetch(`${BASE}/api/projects/open-folder`, {
     method: 'POST',
@@ -816,7 +816,7 @@ await testAsync('POST /api/projects/open-folder with nonexistent path returns er
 });
 
 await testAsync('POST /api/projects/open-folder idempotent (same folder twice)', async () => {
-  const tmpDir = makeOwnedDir(PROJECT_FIXTURE_ROOT, 'c3-idem-test');
+  const tmpDir = makeOwnedDir(PROJECT_FIXTURE_ROOT, 'intentsmith-idem-test');
   try {
     // Open first time
     const resp1 = await fetch(`${BASE}/api/projects/open-folder`, {
@@ -849,7 +849,7 @@ suite('7. Chat with attachments — E2E');
 
 await testAsync('POST /chat with path-based attachment', async () => {
   const tmpFile = makeOwnedTempFile(
-    'c3-chat-attach',
+    'intentsmith-chat-attach',
     '.js',
     'function greet(name) { return "Hello " + name; }\n',
   );
@@ -899,7 +899,7 @@ await testAsync('POST /chat with inline content attachment', async () => {
 
 await testAsync('POST /chat with mixed attachments (path + inline)', async () => {
   const tmpFile = makeOwnedTempFile(
-    'c3-mixed',
+    'intentsmith-mixed',
     '.py',
     'def add(a, b):\n    return a + b\n',
   );

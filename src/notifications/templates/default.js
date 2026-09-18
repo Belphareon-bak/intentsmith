@@ -27,7 +27,7 @@ export function toHTML(notification) {
       ${escapeHTML(notification.body).replace(/\n/g, '<br>')}
     </div>
     <div style="padding: 12px 24px; background: #f9f9f9; font-size: 11px; color: #999; border-top: 1px solid #eee;">
-      p(AI)assistant — C3 Agent Platform
+      p(AI)assistant — IntentSmith Agent Platform
     </div>
   </div>
 </body>

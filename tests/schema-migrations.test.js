@@ -1,4 +1,4 @@
-// C3-Agent v135.0 — Schema Migration Tests
+// IntentSmith-Agent v135.0 — Schema Migration Tests
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // T-SM0:  Migration identity manifest fails before the first DB mutation
@@ -1629,7 +1629,7 @@ describe('T-SM11: Core / hunt branch upgrades converge without losing evidence',
 
 async function run() {
   console.log('\n' + '═'.repeat(70));
-  console.log(`  C3-Agent v135.0 — Schema Migration Tests (${MIGRATION_COUNT} migrations)`);
+  console.log(`  IntentSmith-Agent v135.0 — Schema Migration Tests (${MIGRATION_COUNT} migrations)`);
   console.log('═'.repeat(70));
 
   for (const test of pendingTests) {

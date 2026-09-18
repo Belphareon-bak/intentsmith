@@ -274,14 +274,14 @@ await test('release script builds APK and AAB with JDK 21 and restores tracked p
   assert.match(script, /toolchain\/jdk21/);
   assert.match(script, /npx cap sync android/);
   assert.match(script, /:app:assembleRelease :app:bundleRelease/);
-  assert.match(script, /C3_MOBILE_ALLOW_DEBUG_SIGNING/);
+  assert.match(script, /INTENTSMITH_MOBILE_ALLOW_DEBUG_SIGNING/);
   assert.match(script, /trap restore_policy EXIT/);
   assert.match(script, /mobile-release-source-manifest\.mjs/);
   assert.match(script, /podpisový klíč není/);
   const refused = spawnSync('bash', ['scripts/mobile-android.sh', 'reverse'], {
     cwd: ROOT,
     encoding: 'utf8',
-    env: { ...process.env, C3_MOBILE_TRANSPORT_MODE: 'remote-core-v1' },
+    env: { ...process.env, INTENTSMITH_MOBILE_TRANSPORT_MODE: 'remote-core-v1' },
   });
   assert.equal(refused.status, 1);
   assert.match(refused.stderr, /adb reverse patří jen legacy-m1-dev/);
@@ -693,7 +693,7 @@ await test('physical VPN runtime evidence is canonical, artifact-bound and fail-
 await test('the physical-device runbook names the production VPN path and every runtime check', () => {
   const tryingIt = read('docs/mobile/TRYING-IT.md');
   const matrix = read('docs/mobile/DEVICE-MATRIX-RUN.md');
-  assert.match(tryingIt, /C3_MOBILE_TRANSPORT_MODE=remote-core-v1/);
+  assert.match(tryingIt, /INTENTSMITH_MOBILE_TRANSPORT_MODE=remote-core-v1/);
   assert.match(tryingIt, /INTENTSMITH_M7_REMOTE_ENABLED=true/);
   assert.match(tryingIt, /odstranit proměnnou\s+`INTENTSMITH_M7_REMOTE_ENABLED`/);
   assert.match(tryingIt, /systemctl --user daemon-reload/);

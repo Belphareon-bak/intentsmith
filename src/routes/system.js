@@ -26,17 +26,17 @@ import {
   updateModelAutomationPolicy,
 } from '../db/model-policy.js';
 
-const FEATURE_UNIVERSE_ENABLED = (process.env.C3_MODEL_UNIVERSE_ENABLED || 'true') !== 'false';
+const FEATURE_UNIVERSE_ENABLED = ((process.env.INTENTSMITH_MODEL_UNIVERSE_ENABLED ?? process.env['C3_MODEL_UNIVERSE_ENABLED']) || 'true') !== 'false';
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const FEATURE_UNIVERSE_MIRROR = (process.env.C3_DISCOVERY_MIRROR_DISCOVERED_MODELS || 'true') !== 'false';
-const SHOW_ATTEMPT_TIMEOUT_MS = parseInt(process.env.C3_MODEL_SHOW_ATTEMPT_TIMEOUT_MS || '2000', 10);
-const SHOW_MAX_TOTAL_MS = parseInt(process.env.C3_MODEL_SHOW_MAX_TOTAL_MS || '5000', 10);
-const SHOW_RETRY_DELAY_MS = parseInt(process.env.C3_MODEL_SHOW_RETRY_DELAY_MS || '250', 10);
-const MAX_SHOW_ATTEMPTS = parseInt(process.env.C3_MODEL_SHOW_MAX_ATTEMPTS || '3', 10);
-const CONTEXT_TOLERANCE = parseFloat(process.env.C3_MODEL_CONTEXT_TOLERANCE || '0.05');
-const PARTIAL_MAX_AGE_MS = parseInt(process.env.C3_MODEL_PARTIAL_MAX_AGE_MS || String(60 * 60 * 1000), 10);
-const RECOMPUTE_DELAY_MS = parseInt(process.env.C3_MODEL_RECOMPUTE_DELAY_MS || '15000', 10);
-const RECOMPUTE_RETRY_MS = parseInt(process.env.C3_MODEL_RECOMPUTE_RETRY_MS || String(5 * 60 * 1000), 10);
+const FEATURE_UNIVERSE_MIRROR = ((process.env.INTENTSMITH_DISCOVERY_MIRROR_DISCOVERED_MODELS ?? process.env['C3_DISCOVERY_MIRROR_DISCOVERED_MODELS']) || 'true') !== 'false';
+const SHOW_ATTEMPT_TIMEOUT_MS = parseInt((process.env.INTENTSMITH_MODEL_SHOW_ATTEMPT_TIMEOUT_MS ?? process.env['C3_MODEL_SHOW_ATTEMPT_TIMEOUT_MS']) || '2000', 10);
+const SHOW_MAX_TOTAL_MS = parseInt((process.env.INTENTSMITH_MODEL_SHOW_MAX_TOTAL_MS ?? process.env['C3_MODEL_SHOW_MAX_TOTAL_MS']) || '5000', 10);
+const SHOW_RETRY_DELAY_MS = parseInt((process.env.INTENTSMITH_MODEL_SHOW_RETRY_DELAY_MS ?? process.env['C3_MODEL_SHOW_RETRY_DELAY_MS']) || '250', 10);
+const MAX_SHOW_ATTEMPTS = parseInt((process.env.INTENTSMITH_MODEL_SHOW_MAX_ATTEMPTS ?? process.env['C3_MODEL_SHOW_MAX_ATTEMPTS']) || '3', 10);
+const CONTEXT_TOLERANCE = parseFloat((process.env.INTENTSMITH_MODEL_CONTEXT_TOLERANCE ?? process.env['C3_MODEL_CONTEXT_TOLERANCE']) || '0.05');
+const PARTIAL_MAX_AGE_MS = parseInt((process.env.INTENTSMITH_MODEL_PARTIAL_MAX_AGE_MS ?? process.env['C3_MODEL_PARTIAL_MAX_AGE_MS']) || String(60 * 60 * 1000), 10);
+const RECOMPUTE_DELAY_MS = parseInt((process.env.INTENTSMITH_MODEL_RECOMPUTE_DELAY_MS ?? process.env['C3_MODEL_RECOMPUTE_DELAY_MS']) || '15000', 10);
+const RECOMPUTE_RETRY_MS = parseInt((process.env.INTENTSMITH_MODEL_RECOMPUTE_RETRY_MS ?? process.env['C3_MODEL_RECOMPUTE_RETRY_MS']) || String(5 * 60 * 1000), 10);
 const CRITICAL_FIELDS = ['model', 'parameters', 'context_length', 'quantization', 'modality'];
 const MODEL_BINDING_HTTP_STATUS = Object.freeze({
   MODEL_BINDING_APPLICATION_INPUT_INVALID: 400,

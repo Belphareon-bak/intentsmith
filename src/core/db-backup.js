@@ -13,7 +13,7 @@ import {
 } from './database-restore-lock.js';
 
 const BACKUP_FORMAT_VERSION = 2;
-const BACKUP_NAME_PATTERN = /^c3-state-(\d{4}-\d{2}-\d{2})(?:T[0-9A-Z-]+)?(?:-\d{2})?\.backup$/;
+const BACKUP_NAME_PATTERN = /^(?:intentsmith|c3)-state-(\d{4}-\d{2}-\d{2})(?:T[0-9A-Z-]+)?(?:-\d{2})?\.backup$/;
 const SHA256_PATTERN = /^sha256:[0-9a-f]{64}$/;
 // These exact identities were shipped before their replacement migrations and
 // remain in real upgraded databases as historical stamps. Current migrations
@@ -279,7 +279,7 @@ function replaceDatabaseFileSet(stagingPath, targetDbPath) {
 /**
  * Create an immutable state backup. V2 preserves code-bearing skills and
  * specialists as archival evidence, but automatic restore intentionally owns
- * only c3.db; release code is never downgraded by data recovery.
+ * only intentsmith.db; release code is never downgraded by data recovery.
  */
 export function createStateBackup(db, dataDir, opts = {}) {
   const projectRoot = opts.projectRoot || path.dirname(dataDir);
@@ -298,18 +298,18 @@ export function createStateBackup(db, dataDir, opts = {}) {
 
   try {
     fs.mkdirSync(backupsDir, { recursive: true, mode: 0o700 });
-    allocated = uniquePath(backupsDir, `c3-state-${timestamp}`, '.backup');
+    allocated = uniquePath(backupsDir, `intentsmith-state-${timestamp}`, '.backup');
     stats.name = allocated.name;
     stats.path = allocated.target;
     stagingPath = path.join(backupsDir, `.partial-${allocated.name}-${randomUUID()}`);
     fs.mkdirSync(stagingPath, { mode: 0o700 });
 
-    const dbSourcePath = path.resolve(opts.dbPath || db.name || path.join(dataDir, 'c3.db'));
+    const dbSourcePath = path.resolve(opts.dbPath || db.name || path.join(dataDir, 'intentsmith.db'));
     if (!fs.existsSync(dbSourcePath)) {
       throw new StateBackupError('BACKUP_DATABASE_MISSING', 'Database source file is missing');
     }
     const checkpoint = checkpointWalForBackup(db, opts);
-    const dbBackupPath = path.join(stagingPath, 'c3.db');
+    const dbBackupPath = path.join(stagingPath, 'intentsmith.db');
     fs.copyFileSync(dbSourcePath, dbBackupPath, fs.constants.COPYFILE_EXCL);
     fs.chmodSync(dbBackupPath, 0o600);
     fsyncFile(dbBackupPath);
@@ -342,7 +342,7 @@ export function createStateBackup(db, dataDir, opts = {}) {
     }
 
     const configDst = path.join(stagingPath, 'config');
-    for (const name of ['c3-setup.json', 'design-defaults.json']) {
+    for (const name of ['intentsmith-setup.json', 'c3-setup.json', 'design-defaults.json']) {
       const src = path.join(dataDir, name);
       if (!fs.existsSync(src)) continue;
       if (!fs.lstatSync(src).isFile()) {
@@ -627,11 +627,12 @@ export function validateStateBackup(dataDir, backupName, opts = {}) {
   if (metadata.content_fingerprint !== sha256Bytes(JSON.stringify(actual))) {
     throw new StateBackupError('BACKUP_CONTENT_FINGERPRINT_MISMATCH', 'Backup content fingerprint is invalid');
   }
-  if (!seen.has('c3.db')) {
-    throw new StateBackupError('BACKUP_DATABASE_MISSING', 'Backup does not contain c3.db');
+  const databaseNames = ['intentsmith.db', 'c3.db'].filter(name => seen.has(name));
+  if (databaseNames.length !== 1) {
+    throw new StateBackupError('BACKUP_DATABASE_MISSING', 'Backup must contain exactly one declared database');
   }
 
-  const backupDbPath = path.join(backupPath, 'c3.db');
+  const backupDbPath = path.join(backupPath, databaseNames[0]);
   let backupDb;
   try {
     backupDb = new Database(backupDbPath, { readonly: true, fileMustExist: true });
@@ -684,7 +685,7 @@ export function restoreStateBackup(dataDir, backupName, opts = {}) {
     );
   }
   const resolvedDataDir = path.resolve(dataDir);
-  const targetDbPath = path.resolve(opts.dbPath || path.join(resolvedDataDir, 'c3.db'));
+  const targetDbPath = path.resolve(opts.dbPath || path.join(resolvedDataDir, 'intentsmith.db'));
   if (path.dirname(targetDbPath) !== resolvedDataDir) {
     throw new StateBackupError(
       'DATABASE_RESTORE_TARGET_OUTSIDE_DATA_DIR',
@@ -694,7 +695,7 @@ export function restoreStateBackup(dataDir, backupName, opts = {}) {
 
   const restoreLockOptions = opts.restoreLockOptions || {};
   const lease = acquireDatabaseRestoreLock(targetDbPath, restoreLockOptions);
-  const stagingPath = path.join(resolvedDataDir, `.c3.db.restore-${randomUUID()}.tmp`);
+  const stagingPath = path.join(resolvedDataDir, `.intentsmith.db.restore-${randomUUID()}.tmp`);
   try {
     assertDatabaseFileClosed(targetDbPath, {
       ...restoreLockOptions,

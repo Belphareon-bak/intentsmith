@@ -333,11 +333,11 @@ test('runner uses an explicit non-visual CDP surface and never observes UI state
       'Runtime.evaluate',
     ],
   );
-  assert.match(source, /window\.C3WS/);
-  assert.match(source, /window\.C3Bus/);
-  assert.equal(source.includes('window._c3'), false);
+  assert.match(source, /window\.IntentSmithWS/);
+  assert.match(source, /window\.IntentSmithBus/);
+  assert.equal(source.includes('window._intentsmith'), false);
   assert.match(source, /client\.sendChat/);
-  assert.doesNotMatch(source, /window\.C3WS\.send\('chat'/);
+  assert.doesNotMatch(source, /window\.IntentSmithWS\.send\('chat'/);
   assert.match(source, /uiEvaluation: 'excluded-non-final-ui'/);
 });
 
@@ -416,10 +416,10 @@ test('process-group parser handles Linux command names containing spaces', () =>
 test('CDP target must be the exact built Studio file and debug authority', () => {
   const target = {
     type: 'page',
-    url: 'file:///repo/c3-ide/applications/electron/lib/frontend/index.html?port=4567',
+    url: 'file:///repo/intentsmith-ide/applications/electron/lib/frontend/index.html?port=4567',
     webSocketDebuggerUrl: 'ws://127.0.0.1:9222/devtools/page/fixture-id',
   };
-  const expected = '/repo/c3-ide/applications/electron/lib/frontend/index.html';
+  const expected = '/repo/intentsmith-ide/applications/electron/lib/frontend/index.html';
   assert.equal(exactStudioPageTarget(target, 9222, expected), true);
   assert.equal(exactStudioPageTarget({
     ...target,
@@ -432,7 +432,7 @@ test('CDP target must be the exact built Studio file and debug authority', () =>
 });
 
 test('Theia control-plane authority is derived only from the exact file target', () => {
-  const expected = '/repo/c3-ide/applications/electron/lib/frontend/index.html';
+  const expected = '/repo/intentsmith-ide/applications/electron/lib/frontend/index.html';
   assert.equal(
     theiaControlPlaneOriginFromEntrypoint(
       `file://${expected}?port=4567`,
@@ -829,7 +829,7 @@ test('separate visual DOM journey requires explicit opt-in and keeps default M0/
   assert.match(probe, /document\.getElementById/);
   assert.match(probe, /HTMLTextAreaElement\.prototype/);
   assert.match(probe, /dispatchEvent\(new Event\('input'/);
-  assert.doesNotMatch(probe, /window\._c3|_m2HandleStudioCommand|_m2SubmitComposer|\.onClick\(|fetch\s*=/);
+  assert.doesNotMatch(probe, /window\._intentsmith|_m2HandleStudioCommand|_m2SubmitComposer|\.onClick\(|fetch\s*=/);
 });
 
 test('composer PASS evidence requires actual rejection, exact input, context checks and zero model or approval effects', () => {

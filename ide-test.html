@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>C3 IDE</title>
+<title>IntentSmith IDE</title>
 <style>
   :root {
     --bg: #1e1e2e;
@@ -338,14 +338,14 @@
 
 <!-- ═══ Status Bar ════════════════════════════════ -->
 <div id="statusbar">
-  <span class="sb-accent">C3 v59.0</span>
+  <span class="sb-accent">IntentSmith v59.0</span>
   <span id="sb-view">WS Bridge</span>
   <span id="sb-ws-status">WS: disconnected</span>
 </div>
 
 <script>
 const BASE_URL = 'http://127.0.0.1:3335';
-const WS_URL = 'ws://127.0.0.1:3335/c3/ws';
+const WS_URL = 'ws://127.0.0.1:3335/intentsmith/ws';
 const PROTOCOL_VERSION = 1;
 
 // ═══ View Switching ══════════════════════════════
@@ -461,7 +461,7 @@ function connect() {
   ws = new WebSocket(WS_URL);
 
   ws.onopen = () => {
-    ws.send(JSON.stringify({ type: 'hello', protocolVersion: PROTOCOL_VERSION, ideVersion: 'c3-ide-1.0' }));
+    ws.send(JSON.stringify({ type: 'hello', protocolVersion: PROTOCOL_VERSION, ideVersion: 'intentsmith-ide-1.0' }));
   };
 
   ws.onmessage = (event) => {

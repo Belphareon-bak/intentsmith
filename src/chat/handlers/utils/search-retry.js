@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — Search Auto-Retry (A2)
+// IntentSmith-Agent — Search Auto-Retry (A2)
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // When search returns POOR or EMPTY results, automatically reformulate the

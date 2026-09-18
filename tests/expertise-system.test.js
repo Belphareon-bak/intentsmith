@@ -1,4 +1,4 @@
-// C3-Agent v57.0 — Expert System Tests
+// IntentSmith-Agent v57.0 — Expert System Tests
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // T10.1: ExpertiseStore CRUD
@@ -559,7 +559,7 @@ describe('T10.7: Builtin experts', () => {
 async function runTests() {
   console.log('\n');
   console.log('╔══════════════════════════════════════════════════════════════════════╗');
-  console.log('║           C3-Agent v57.0 — Expert System Tests                       ║');
+  console.log('║           IntentSmith-Agent v57.0 — Expert System Tests                       ║');
   console.log('╚══════════════════════════════════════════════════════════════════════╝');
 
   for (const test of pendingTests) {

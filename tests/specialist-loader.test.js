@@ -1042,7 +1042,7 @@ export function down(db) {}
 
 console.log('\n── 27. Update: v1.0.0 → v1.0.1 with cache bust ──');
 {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-update-'));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-update-'));
 
   try {
     const db = createTestDb();
@@ -1103,7 +1103,7 @@ console.log('\n── 27. Update: v1.0.0 → v1.0.1 with cache bust ──');
 
 console.log('\n── 28. Update with migration ──');
 {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-update-'));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-update-'));
 
   try {
     const db = createTestDb();
@@ -1158,7 +1158,7 @@ console.log('\n── 28. Update with migration ──');
 
 console.log('\n── 29. Update when disabled ──');
 {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-update-'));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-update-'));
 
   try {
     const db = createTestDb();
@@ -1206,7 +1206,7 @@ console.log('\n── 29. Update when disabled ──');
 
 console.log('\n── 30. Update one, other unaffected ──');
 {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-update-'));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-update-'));
 
   try {
     const db = createTestDb();
@@ -1254,7 +1254,7 @@ console.log('\n── 30. Update one, other unaffected ──');
 
 console.log('\n── 31. Same version = noop ──');
 {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-update-'));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-update-'));
 
   try {
     const db = createTestDb();
@@ -1288,7 +1288,7 @@ console.log('\n── 31. Same version = noop ──');
 
 console.log('\n── 32. Downgrade rejected ──');
 {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-update-'));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-update-'));
 
   try {
     const db = createTestDb();
@@ -1328,7 +1328,7 @@ console.log('\n── 32. Downgrade rejected ──');
 
 console.log('\n── 33. Major version update ──');
 {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-update-'));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-update-'));
 
   try {
     const db = createTestDb();
@@ -1365,7 +1365,7 @@ console.log('\n── 33. Major version update ──');
 
 console.log('\n── 34. Update → disable → re-enable: still new code ──');
 {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-update-'));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-update-'));
 
   try {
     const db = createTestDb();
@@ -1499,7 +1499,7 @@ export function unregister(ctx) {}
 
 console.log('\n── 36. Reversibility check: migrations with down() ──');
 {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-rollback-'));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-rollback-'));
 
   try {
     const db = createTestDb();
@@ -1543,7 +1543,7 @@ console.log('\n── 36. Reversibility check: migrations with down() ──');
 
 console.log('\n── 37. Reversibility check: migration without down() ──');
 {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-rollback-'));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-rollback-'));
 
   try {
     const db = createTestDb();
@@ -1579,7 +1579,7 @@ console.log('\n── 37. Reversibility check: migration without down() ──')
 
 console.log('\n── 38. Re-enable failure: migration rollback ──');
 {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-rollback-'));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-rollback-'));
 
   try {
     const db = createTestDb();
@@ -1649,7 +1649,7 @@ console.log('\n── 38. Re-enable failure: migration rollback ──');
 
 console.log('\n── 39. Re-enable failure: irreversible migration stays ──');
 {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-rollback-'));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-rollback-'));
 
   try {
     const db = createTestDb();
@@ -1702,7 +1702,7 @@ console.log('\n── 39. Re-enable failure: irreversible migration stays ──
 
 console.log('\n── 40. DB version committed after re-enable, not before ──');
 {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-rollback-'));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-rollback-'));
 
   try {
     const db = createTestDb();
@@ -1744,7 +1744,7 @@ console.log('\n── 40. DB version committed after re-enable, not before ─�
 
 console.log('\n── 41. Recovery: re-enable old code after failed update ──');
 {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-rollback-'));
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-rollback-'));
 
   try {
     const db = createTestDb();

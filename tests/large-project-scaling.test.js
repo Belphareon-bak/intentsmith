@@ -444,15 +444,15 @@ await testAsync('per-file lock prevents concurrent reindex', async () => {
 
 suite('Scaling — Snapshot Persistence');
 
-await testAsync('_saveToFile creates .c3 directory', async () => {
+await testAsync('_saveToFile creates .intentsmith directory', async () => {
   const { _saveToFile } = await import('../src/planner/project-knowledge-base.js');
   const dir = tmpDir();
   try {
     const snapshot = { projectPath: dir, timestamp: new Date().toISOString(), moduleMap: {} };
     await _saveToFile(dir, snapshot);
 
-    assert(fs.existsSync(path.join(dir, '.c3')), '.c3 directory should exist');
-    assert(fs.existsSync(path.join(dir, '.c3/snapshot.json')), 'snapshot.json should exist');
+    assert(fs.existsSync(path.join(dir, '.intentsmith')), '.intentsmith directory should exist');
+    assert(fs.existsSync(path.join(dir, '.intentsmith/snapshot.json')), 'snapshot.json should exist');
   } finally { cleanup(dir); }
 });
 
@@ -483,8 +483,8 @@ await testAsync('_loadFromFile returns null for corrupted JSON', async () => {
   const { _loadFromFile } = await import('../src/planner/project-knowledge-base.js');
   const dir = tmpDir();
   try {
-    fs.mkdirSync(path.join(dir, '.c3'), { recursive: true });
-    fs.writeFileSync(path.join(dir, '.c3/snapshot.json'), 'not valid json{{{');
+    fs.mkdirSync(path.join(dir, '.intentsmith'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.intentsmith/snapshot.json'), 'not valid json{{{');
 
     const loaded = await _loadFromFile(dir);
     assertEqual(loaded, null);
@@ -495,8 +495,8 @@ await testAsync('_loadFromFile returns null for wrong schema version', async () 
   const { _loadFromFile, SNAPSHOT_SCHEMA_VERSION } = await import('../src/planner/project-knowledge-base.js');
   const dir = tmpDir();
   try {
-    fs.mkdirSync(path.join(dir, '.c3'), { recursive: true });
-    fs.writeFileSync(path.join(dir, '.c3/snapshot.json'), JSON.stringify({
+    fs.mkdirSync(path.join(dir, '.intentsmith'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.intentsmith/snapshot.json'), JSON.stringify({
       schemaVersion: 999, // wrong version
       projectPath: dir,
     }));

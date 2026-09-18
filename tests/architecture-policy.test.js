@@ -25,7 +25,7 @@ const TMP = mkdtempSync(
 
 async function setup() {
   await mkdir(TMP, { recursive: true });
-  await mkdir(join(TMP, '.c3'), { recursive: true });
+  await mkdir(join(TMP, '.intentsmith'), { recursive: true });
 }
 
 async function cleanup() {
@@ -318,7 +318,7 @@ test('includes known dirs for standard layers', () => {
 
 suite('Architecture Policy — Load/Save');
 
-await testAsync('saves and loads policy from .c3/', async () => {
+await testAsync('saves and loads policy from .intentsmith/', async () => {
   await setup();
   const policy = {
     layers: ['controller', 'service'],
@@ -334,7 +334,7 @@ await testAsync('saves and loads policy from .c3/', async () => {
 
 await testAsync('loads policy from ARCHITECTURE.json fallback', async () => {
   await setup();
-  // No .c3/architecture-policy.json — but ARCHITECTURE.json exists
+  // No .intentsmith/architecture-policy.json — but ARCHITECTURE.json exists
   const acf = {
     layers: ['ui', 'model'],
     rules: [{ from: 'ui', canImport: ['model'] }],
@@ -358,7 +358,7 @@ await testAsync('returns null when no policy source exists', async () => {
 await testAsync('rejects invalid policy file', async () => {
   await setup();
   // Write an invalid policy
-  await writeFile(join(TMP, '.c3', 'architecture-policy.json'), JSON.stringify({
+  await writeFile(join(TMP, '.intentsmith', 'architecture-policy.json'), JSON.stringify({
     layers: [],  // empty — invalid
     rules: [],
   }), 'utf-8');

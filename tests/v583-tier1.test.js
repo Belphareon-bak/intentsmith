@@ -2,7 +2,7 @@
 import './helpers/isolated-test-db.js';
 
 // ══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — v58.3 Tests
+// IntentSmith-Agent — v58.3 Tests
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // 1.1: DESIGN close signal ("hotovo", "to je vše")
@@ -45,7 +45,7 @@ function assert(label, condition) {
 function ci(input) { return engine.classifyIntent(input); }
 
 console.log('══════════════════════════════════════════════════════════');
-console.log('  C3-Agent v58.3 — Tier 1 Restructure + Feature Tests');
+console.log('  IntentSmith-Agent v58.3 — Tier 1 Restructure + Feature Tests');
 console.log('══════════════════════════════════════════════════════════\n');
 
 // ═══════════════════════════════════════════════════════════════════════════

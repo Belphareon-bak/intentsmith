@@ -1,7 +1,7 @@
 // tests/e2e/90-large-project-generation.e2e.js — Large Project Code Generation & Consistency
 // ══════════════════════════════════════════════════════════════════════════════
 // Tier 3+: Comprehensive test for multi-file project generation via chat.
-// Tests that C3 can:
+// Tests that IntentSmith can:
 //   1. Generate a coherent multi-file project structure
 //   2. Produce complete, non-placeholder code
 //   3. Maintain import consistency across files
@@ -155,7 +155,7 @@ try {
   let generationResponse = '';
   let codeBlocks = [];
 
-  await testAsync('ask C3 to generate complete Node.js REST API project', async () => {
+  await testAsync('ask IntentSmith to generate complete Node.js REST API project', async () => {
     convId = await createConv('large-project');
     created.push(convId);
 

@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "name": "Dummy Logger",
   "description": "Minimal specialist for platform integration testing. Logs events with timestamps.",
-  "author": "c3-core",
+  "author": "intentsmith-core",
   "domain": "utility",
   "type": "utility",
   "engine": ">=65.0.0",

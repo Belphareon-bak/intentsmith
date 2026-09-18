@@ -9,9 +9,9 @@
 //   node scripts/start-workers.js
 //
 // Required env vars for notifications:
-//   C3_TELEGRAM_BOT_TOKEN, C3_TELEGRAM_CHAT_ID     (for Telegram)
-//   C3_SMTP_HOST, C3_SMTP_USER, C3_SMTP_PASS       (for Email)
-//   C3_NTFY_TOPIC                                   (for Push)
+//   INTENTSMITH_TELEGRAM_BOT_TOKEN, INTENTSMITH_TELEGRAM_CHAT_ID     (for Telegram)
+//   INTENTSMITH_SMTP_HOST, INTENTSMITH_SMTP_USER, INTENTSMITH_SMTP_PASS       (for Email)
+//   INTENTSMITH_NTFY_TOPIC                                   (for Push)
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -27,10 +27,10 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const DB_PATH = resolve(__dirname, '../data/c3.db');
+const DB_PATH = resolve(__dirname, '../data/intentsmith.db');
 
 console.log('═══════════════════════════════════════════════════════════');
-console.log(' C3 Worker Manager — Phase B');
+console.log(' IntentSmith Worker Manager — Phase B');
 console.log('═══════════════════════════════════════════════════════════\n');
 
 // ── Database setup ───────────────────────────────────────────────────────────
@@ -52,9 +52,9 @@ for (const name of router.getAvailableChannels()) {
   console.log(`  - ${name}`);
 }
 
-const hasTelegram = !!(process.env.C3_TELEGRAM_BOT_TOKEN && process.env.C3_TELEGRAM_CHAT_ID);
-const hasEmail = !!(process.env.C3_SMTP_HOST && process.env.C3_SMTP_USER);
-const hasPush = !!process.env.C3_NTFY_TOPIC;
+const hasTelegram = !!((process.env.INTENTSMITH_TELEGRAM_BOT_TOKEN ?? process.env['C3_TELEGRAM_BOT_TOKEN']) && (process.env.INTENTSMITH_TELEGRAM_CHAT_ID ?? process.env['C3_TELEGRAM_CHAT_ID']));
+const hasEmail = !!((process.env.INTENTSMITH_SMTP_HOST ?? process.env['C3_SMTP_HOST']) && (process.env.INTENTSMITH_SMTP_USER ?? process.env['C3_SMTP_USER']));
+const hasPush = !!(process.env.INTENTSMITH_NTFY_TOPIC ?? process.env['C3_NTFY_TOPIC']);
 
 console.log(`\n  Telegram: ${hasTelegram ? '✅ configured' : '❌ not configured'}`);
 console.log(`  Email: ${hasEmail ? '✅ configured' : '❌ not configured'}`);
@@ -62,7 +62,7 @@ console.log(`  Push: ${hasPush ? '✅ configured' : '❌ not configured'}`);
 
 if (!hasTelegram && !hasEmail && !hasPush) {
   console.log('\n⚠️  No notification channels configured. Agents will run but cannot deliver notifications.');
-  console.log('   Set C3_TELEGRAM_BOT_TOKEN + C3_TELEGRAM_CHAT_ID for Telegram notifications.');
+  console.log('   Set INTENTSMITH_TELEGRAM_BOT_TOKEN + INTENTSMITH_TELEGRAM_CHAT_ID for Telegram notifications.');
 }
 
 // ── Register worker agents ───────────────────────────────────────────────────

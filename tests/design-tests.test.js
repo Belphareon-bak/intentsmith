@@ -2,7 +2,7 @@
 import './helpers/isolated-test-db.js';
 
 // ══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — DESIGN Intent Tests v58.0
+// IntentSmith-Agent — DESIGN Intent Tests v58.0
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Tests DESIGN classification, disambiguation, follow-ups, forbidden phrases.
@@ -59,7 +59,7 @@ function decide(input, context = {}) {
 }
 
 console.log('══════════════════════════════════════════════════════════');
-console.log('  C3-Agent DESIGN Tests v58.0');
+console.log('  IntentSmith-Agent DESIGN Tests v58.0');
 console.log('══════════════════════════════════════════════════════════\n');
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -4,10 +4,10 @@
 
 ```bash
 # JS modul (všechno v jednom — sidebar, center views, detail panel, chat, agent log, status)
-cp chat-panel-module-V2.js ~/Projects/c3-agent-wip/c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js
+cp chat-panel-module-V2.js ~/Projects/c3-agent-wip/intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js
 
 # CSS theme (Theia chrome overrides — menubar, activity bar, tabs, status bar, right sidebar hide)
-cp c3-theme.css ~/Projects/c3-agent-wip/c3-ide/extensions/c3-chat-panel/lib/browser/styles/c3-theme.css
+cp c3-theme.css ~/Projects/c3-agent-wip/intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/styles/intentsmith-theme.css
 ```
 
 ## 2. Smaž layout cache (POVINNÉ)
@@ -21,7 +21,7 @@ rm -f ~/.config/"C3 Studio"/storage.json
 ## 3. Build & Run
 
 ```bash
-cd ~/Projects/c3-agent-wip/c3-ide
+cd ~/Projects/c3-agent-wip/intentsmith-ide
 yarn clean && yarn build && yarn start
 ```
 
@@ -34,18 +34,18 @@ Electron nemá přístup ke Google Fonts CDN. Je potřeba bundlovat lokálně.
 ### Stažení fontů:
 
 ```bash
-mkdir -p ~/Projects/c3-agent-wip/c3-ide/extensions/c3-chat-panel/lib/browser/styles/fonts
+mkdir -p ~/Projects/c3-agent-wip/intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/styles/fonts
 
 # Plus Jakarta Sans
 cd /tmp
 wget "https://fonts.google.com/download?family=Plus+Jakarta+Sans" -O pjs.zip
 unzip pjs.zip -d pjs
-cp pjs/static/*.ttf ~/Projects/c3-agent-wip/c3-ide/extensions/c3-chat-panel/lib/browser/styles/fonts/
+cp pjs/static/*.ttf ~/Projects/c3-agent-wip/intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/styles/fonts/
 
 # JetBrains Mono
 wget "https://fonts.google.com/download?family=JetBrains+Mono" -O jbm.zip
 unzip jbm.zip -d jbm
-cp jbm/static/*.ttf ~/Projects/c3-agent-wip/c3-ide/extensions/c3-chat-panel/lib/browser/styles/fonts/
+cp jbm/static/*.ttf ~/Projects/c3-agent-wip/intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/styles/fonts/
 ```
 
 ### Alternativně (rychlejší):

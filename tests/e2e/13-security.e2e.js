@@ -41,7 +41,7 @@ try {
   // ── API Tokens: CRUD ──────────────────────────────────────────────────────
   suite('API Token CRUD');
 
-  await testAsync('create token returns c3_ prefixed token', async () => {
+  await testAsync('create token returns intentsmith_ prefixed token', async () => {
     const { status, data } = await api('POST', '/api/security/tokens', {
       name: 'e2e-test-token',
       scopes: ['read:chat'],
@@ -49,7 +49,7 @@ try {
     });
     assertEqual(status, 201);
     assert(data.token, 'plaintext token required');
-    assert(data.token.startsWith('c3_'), `token must start with c3_, got ${data.token.substring(0, 5)}`);
+    assert(data.token.startsWith('intentsmith_'), `token must start with intentsmith_, got ${data.token.substring(0, 5)}`);
     assert(data.id, 'token id required');
     assert(data.name === 'e2e-test-token', 'name should match');
     assert(data.expires_at, 'expires_at required when expiresIn set');

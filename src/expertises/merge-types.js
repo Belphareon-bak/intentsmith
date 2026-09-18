@@ -1,4 +1,4 @@
-// C3 Merge Engine v2 — Types and Constants
+// IntentSmith Merge Engine v2 — Types and Constants
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Pure definitions, no side effects.

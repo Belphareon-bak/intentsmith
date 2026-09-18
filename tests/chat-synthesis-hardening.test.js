@@ -1,6 +1,6 @@
 import './helpers/isolated-test-db.js';
 
-// C3-Agent v55.2 — Sprint 2 Tests: Synthesis Hardening
+// IntentSmith-Agent v55.2 — Sprint 2 Tests: Synthesis Hardening
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // T8.1: D6 gate for ANSWER path

@@ -154,8 +154,8 @@ ve zbytku dokumentace.
 
 | Dokument | Popis |
 |----------|-------|
-| [C3-STUDIO-IDE.md](../c3-ide/docs/C3-STUDIO-IDE.md) | C3 Studio IDE dokumentace |
-| [C3-STUDIO-ROADMAP.md](../c3-ide/docs/C3-STUDIO-ROADMAP.md) | IDE integration roadmap |
+| [C3-STUDIO-IDE.md](../intentsmith-ide/docs/IntentSmith-STUDIO-IDE.md) | C3 Studio IDE dokumentace |
+| [C3-STUDIO-ROADMAP.md](../intentsmith-ide/docs/IntentSmith-STUDIO-ROADMAP.md) | IDE integration roadmap |
 
 ### Další
 
@@ -358,7 +358,7 @@ intentsmith/
 │   ├── system/                       # GPU detection, model compatibility
 │   └── tools/                        # Tool registry + HTTP client
 │
-├── c3-ide/                           # C3 Studio IDE — Theia 1.65.2 + Electron 37
+├── intentsmith-ide/                           # C3 Studio IDE — Theia 1.65.2 + Electron 37
 │   ├── extensions/                   # 32 vlastnich rozsireni
 │   │   ├── c3-chat-panel/            # Chat panel + transport layer (4,000+ ř.)
 │   │   ├── c3-center-views/          # Center views + Expertise Wizard

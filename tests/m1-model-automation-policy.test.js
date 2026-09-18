@@ -458,7 +458,7 @@ await testAsync('the failover coordinator reads only this authority', async () =
 test('the Studio backup surface no longer treats a failure as success', () => {
   const fs = require('node:fs');
   const source = fs.readFileSync(
-    new URL('../c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js', import.meta.url),
+    new URL('../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js', import.meta.url),
     'utf8',
   );
   const start = source.indexOf("'Zálohujte svá nastavení");

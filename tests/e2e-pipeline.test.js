@@ -228,13 +228,13 @@ await testAsync('Config timeouts exist for all roles', async () => {
 await testAsync('D1 and R1 resolve their own configured role bindings', async () => {
   const { default: config, DEFAULT_MODEL_BINDINGS } = await import('../src/config.js');
   for (const role of ['D1', 'R1']) {
-    assertEqual(config.models[role], process.env[`C3_MODEL_${role}`] || DEFAULT_MODEL_BINDINGS[role]);
+    assertEqual(config.models[role], process.env[`INTENTSMITH_MODEL_${role}`] || DEFAULT_MODEL_BINDINGS[role]);
   }
 }, ASYNC_TEST_TIMEOUT_MS);
 
 await testAsync('CODE resolves its configured role binding', async () => {
   const { default: config, DEFAULT_MODEL_BINDINGS } = await import('../src/config.js');
-  assertEqual(config.models.CODE, process.env.C3_MODEL_CODE || DEFAULT_MODEL_BINDINGS.CODE);
+  assertEqual(config.models.CODE, process.env.INTENTSMITH_MODEL_CODE || DEFAULT_MODEL_BINDINGS.CODE);
 }, ASYNC_TEST_TIMEOUT_MS);
 
 // ═══════════════════════════════════════════════════════════════════════════════

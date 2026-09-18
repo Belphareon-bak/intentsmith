@@ -385,7 +385,7 @@ function handleMetrics(res) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// AUDIT EXPORT HANDLERS (C3.1)
+// AUDIT EXPORT HANDLERS (IntentSmith.1)
 // ════════════════════════════════════════════════════════════════════════════
 
 function handleAuditExport(url, res) {
@@ -496,7 +496,7 @@ async function router(req, res) {
     return handleMetrics(res);
   }
 
-  // Audit export endpoints (C3.1)
+  // Audit export endpoints (IntentSmith.1)
   if (method === 'GET' && path === '/audit/export') {
     return handleAuditExport(url, res);
   }

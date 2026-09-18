@@ -76,7 +76,7 @@ test('unsupported flags require strict true and are never promoted to supported'
     comfyui: true,
     externalNotifications: true,
     marketplace: true,
-  }, { C3_UPDATE_REPO: 'owner/repository' });
+  }, { INTENTSMITH_UPDATE_REPO: 'owner/repository' });
   for (const id of [
     'core-auto-update', 'external-notifications', 'marketplace', 'media-comfyui',
   ]) {
@@ -87,7 +87,7 @@ test('unsupported flags require strict true and are never promoted to supported'
 });
 
 test('one normalized manifest predicate is the only runtime enablement authority', () => {
-  const whitespace = status({}, { C3_UPDATE_REPO: '   ' });
+  const whitespace = status({}, { INTENTSMITH_UPDATE_REPO: '   ' });
   assert.equal(isM5ConditionalSurfaceEnabled(whitespace, 'core-auto-update'), false);
   assert.equal(isM5ConditionalSurfaceEnabled(whitespace, 'model-discovery'), true);
   assert.throws(
@@ -114,7 +114,7 @@ test('production rejects every requested unsupported surface with a typed census
   }
   assert.throws(
     () => assertM5ProductionConditionalSurfaces(
-      status({}, { C3_UPDATE_REPO: 'private-owner/private-repository' }),
+      status({}, { INTENTSMITH_UPDATE_REPO: 'private-owner/private-repository' }),
       { production: true },
     ),
     error => error.code === M5_CONDITIONAL_SURFACE_ERROR
@@ -153,10 +153,10 @@ test('production environment parsing rejects an unsupported request before optio
     env: {
       ...process.env,
       NODE_ENV: 'production',
-      C3_ENABLE_MARKETPLACE: 'true',
-      C3_ENABLE_COMFYUI: 'false',
-      C3_ENABLE_EXTERNAL_NOTIFICATIONS: 'false',
-      C3_UPDATE_REPO: '',
+      INTENTSMITH_ENABLE_MARKETPLACE: 'true',
+      INTENTSMITH_ENABLE_COMFYUI: 'false',
+      INTENTSMITH_ENABLE_EXTERNAL_NOTIFICATIONS: 'false',
+      INTENTSMITH_UPDATE_REPO: '',
     },
   });
   assert.notEqual(result.status, 0);
@@ -178,12 +178,12 @@ test('server checks release disposition before notification, marketplace, media 
     'config.features.externalNotifications === true',
     'config.features.marketplace === true',
     'config.features.comfyui !== false',
-    'if (process.env.C3_UPDATE_REPO)',
+    'if (process.env.INTENTSMITH_UPDATE_REPO)',
   ]) assert.equal(source.includes(forbidden), false, forbidden);
   assert.equal(source.includes('conditionalSurfaces,'), true);
 
   const serialized = JSON.stringify(status({}, {
-    C3_UPDATE_REPO: 'credential-shaped/private-value',
+    INTENTSMITH_UPDATE_REPO: 'credential-shaped/private-value',
   }));
   assert.equal(serialized.includes('credential-shaped/private-value'), false);
 });

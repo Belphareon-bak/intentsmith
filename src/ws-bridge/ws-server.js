@@ -1,4 +1,4 @@
-// C3 WS Bridge — WebSocket Server
+// IntentSmith WS Bridge — WebSocket Server
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // v59.0 — Attaches a WebSocket server to an existing HTTP server.
@@ -11,7 +11,7 @@
 //   });
 //
 // Protocol:
-//   1. Client connects to ws://host:port/c3/ws
+//   1. Client connects to ws://host:port/intentsmith/ws
 //   2. Client sends { type: 'hello', protocolVersion: 1, ideVersion: '...' }
 //   3. Server replies hello_ack or hello_reject
 //   4. Post-handshake: channeled messages { channel: 'chat'|'control'|'terminal', data: {...} }
@@ -118,7 +118,7 @@ function createLegacyWebSocketVerifyClient({
     }
 
     const authorization = authAuthority.authorize({
-      routeKey: 'WS /c3/ws',
+      routeKey: 'WS /intentsmith/ws',
       routeClass: RouteAuthClass.MUTATE,
       headers: info.req?.headers ?? {},
       remoteAddress: info.req?.socket?.remoteAddress,
@@ -221,13 +221,13 @@ export function getWebSocketBridgeHealth() {
 }
 
 /**
- * Attach a C3 WebSocket server to an existing HTTP server.
+ * Attach a IntentSmith WebSocket server to an existing HTTP server.
  *
  * @param {import('http').Server} httpServer — Existing Express/Node HTTP server
  * @param {Object} chatController — ChatController module (must have .handle(request))
  * @param {Object} logger — Logger instance with .info(), .warn(), .error()
  * @param {Object} [options]
- * @param {string} [options.path='/c3/ws'] — WebSocket endpoint path
+ * @param {string} [options.path='/intentsmith/ws'] — WebSocket endpoint path
  * @param {string[]} [options.allowedOrigins=[]] — Explicit local browser origins
  * @param {string} options.localCapability — Per-process opaque-origin capability
  * @param {string} [options.adminToken] — Runtime admin credential; never logged
@@ -238,7 +238,7 @@ export function getWebSocketBridgeHealth() {
  * @returns {WebSocketServer}
  */
 export function attachWebSocketServer(httpServer, chatController, logger, options = {}) {
-  const wsPath = options.path || '/c3/ws';
+  const wsPath = options.path || '/intentsmith/ws';
   const m1WireSupported = options.m1WireSupported === true;
   _bridgeLogger = logger || console;
   if (!isValidLegacyLocalCapability(options.localCapability)) {
@@ -265,6 +265,18 @@ export function attachWebSocketServer(httpServer, chatController, logger, option
       logger,
     }),
   });
+
+  // Previous Studio installations use the same authenticated transport under
+  // the old product name. Both paths share verifyClient and the same session.
+  const canonicalShouldHandle = wss.shouldHandle.bind(wss);
+  wss.shouldHandle = req => {
+    if (!options.path) {
+      try {
+        if (new URL(req.url, 'http://localhost').pathname === '/c3/ws') return true;
+      } catch { return false; }
+    }
+    return canonicalShouldHandle(req);
+  };
 
   logger.info('WSBridge', `WebSocket server attached at ${wsPath}`);
 

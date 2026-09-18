@@ -137,7 +137,7 @@ test('missing cache → null', () => {
 
 test('corrupt cache → null', () => {
   const dir = mkTmpDir();
-  const cacheDir = path.join(dir, '.c3');
+  const cacheDir = path.join(dir, '.intentsmith');
   fs.mkdirSync(cacheDir, { recursive: true });
   fs.writeFileSync(path.join(cacheDir, 'dependency-cache.json'), 'not json');
   assertEqual(loadCache(dir), null, 'corrupt → null');
@@ -148,10 +148,10 @@ test('null path → null', () => {
   assertEqual(loadCache(null), null, 'null → null');
 });
 
-test('creates .c3 directory if needed', () => {
+test('creates .intentsmith directory if needed', () => {
   const dir = mkTmpDir();
   saveCache(dir, { packages: [], timestamp: Date.now() });
-  assert(fs.existsSync(path.join(dir, '.c3')), '.c3 dir created');
+  assert(fs.existsSync(path.join(dir, '.intentsmith')), '.intentsmith dir created');
   cleanup(dir);
 });
 
@@ -249,7 +249,7 @@ await testAsync('maxPackagesPerRun respected', async () => {
   const fakeBin = path.join(dir, 'fake-bin');
   const invocationLog = path.join(dir, 'npm-invocations.jsonl');
   const previousPath = process.env.PATH;
-  const previousLog = process.env.C3_TEST_NPM_LOG;
+  const previousLog = process.env.INTENTSMITH_TEST_NPM_LOG;
 
   try {
     fs.writeFileSync(path.join(dir, 'package.json'), '{}');
@@ -260,7 +260,7 @@ await testAsync('maxPackagesPerRun respected', async () => {
       [
         '#!/usr/bin/env node',
         "const fs = require('node:fs');",
-        "fs.appendFileSync(process.env.C3_TEST_NPM_LOG, JSON.stringify(process.argv.slice(2)) + '\\n');",
+        "fs.appendFileSync(process.env.INTENTSMITH_TEST_NPM_LOG, JSON.stringify(process.argv.slice(2)) + '\\n');",
         'process.exit(17);',
         '',
       ].join('\n'),
@@ -276,7 +276,7 @@ await testAsync('maxPackagesPerRun respected', async () => {
     saveCache(dir, { packages: pkgs, timestamp: Date.now() });
 
     process.env.PATH = `${fakeBin}${path.delimiter}${previousPath || ''}`;
-    process.env.C3_TEST_NPM_LOG = invocationLog;
+    process.env.INTENTSMITH_TEST_NPM_LOG = invocationLog;
 
     const result = await runUpgradeCycle(dir, { useCache: true, maxPackagesPerRun: 3 });
     const invocations = fs.readFileSync(invocationLog, 'utf8')
@@ -299,8 +299,8 @@ await testAsync('maxPackagesPerRun respected', async () => {
   } finally {
     if (previousPath === undefined) delete process.env.PATH;
     else process.env.PATH = previousPath;
-    if (previousLog === undefined) delete process.env.C3_TEST_NPM_LOG;
-    else process.env.C3_TEST_NPM_LOG = previousLog;
+    if (previousLog === undefined) delete process.env.INTENTSMITH_TEST_NPM_LOG;
+    else process.env.INTENTSMITH_TEST_NPM_LOG = previousLog;
     cleanup(dir);
   }
 });

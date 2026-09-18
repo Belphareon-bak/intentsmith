@@ -1,6 +1,6 @@
 import './helpers/isolated-test-db.js';
 
-// C3-Agent v45.0 — Chat Pipeline Quality Tests
+// IntentSmith-Agent v45.0 — Chat Pipeline Quality Tests
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // 5 klíčových testů pokrývajících celý chat flow:
@@ -737,7 +737,7 @@ async function testT5_QualityPipeline() {
 // RUN ALL TESTS
 // ══════════════════════════════════════════════════════════════════════════════
 
-console.log('\n🧪 C3-Agent v45.0 — Chat Pipeline Quality Tests\n');
+console.log('\n🧪 IntentSmith-Agent v45.0 — Chat Pipeline Quality Tests\n');
 console.log(`Running from: ${process.cwd()}`);
 console.log(`Time: ${new Date().toISOString()}\n`);
 

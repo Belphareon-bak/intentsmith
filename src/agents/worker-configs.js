@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — B8: Pre-built Worker Configurations
+// IntentSmith-Agent — B8: Pre-built Worker Configurations
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // Ready-to-deploy agent definitions for 3 common use cases:

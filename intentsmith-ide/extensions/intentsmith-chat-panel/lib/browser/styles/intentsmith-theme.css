@@ -1,0 +1,342 @@
+/* ═══════════════════════════════════════════════════════════
+   IntentSmith Studio — Theia chrome and brand tokens
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  --intentsmith-bg0:#09090b;--intentsmith-bg1:#141416;--intentsmith-bg2:#1b1b1e;--intentsmith-bg3:#232326;--intentsmith-bg4:#2d2c30;--intentsmith-bg5:#38373c;
+  --intentsmith-tx1:#f4f1ea;--intentsmith-tx2:#b9b2a7;--intentsmith-tx3:#a18d6e;--intentsmith-tx4:#8c7d67;
+  --intentsmith-accent:#d4a85f;--intentsmith-accent-dim:#9b6b32;--intentsmith-accent-bg:rgba(212,168,95,0.12);--intentsmith-accent-text:#e7c27a;
+  --intentsmith-on-accent:#17120a;--intentsmith-success:#5ecf91;--intentsmith-success-bg:rgba(94,207,145,0.12);
+  --intentsmith-border:rgba(231,194,122,0.08);--intentsmith-border2:rgba(231,194,122,0.15);
+}
+
+/* ─── Global ─── */
+body, .theia-ApplicationShell {
+  background: var(--intentsmith-bg0) !important;
+  color: var(--intentsmith-tx1) !important;
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+
+/* ─── Scrollbars ─── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--intentsmith-bg5); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--intentsmith-tx4); }
+
+/* ─── Menu Bar ─── */
+.p-MenuBar, #theia\:menubar {
+  background: var(--intentsmith-bg1) !important;
+  border-bottom: 1px solid var(--intentsmith-border) !important;
+  font-size: 12px !important;
+  color: var(--intentsmith-tx3) !important;
+}
+html[data-intentsmith-appearance="intentsmith"] .p-MenuBar,
+html[data-intentsmith-appearance="intentsmith"] #theia\:menubar { letter-spacing: 0.1px !important; }
+.p-MenuBar-item {
+  padding: 2px 8px !important;
+  border-radius: 3px !important;
+  color: var(--intentsmith-tx3) !important;
+}
+.p-MenuBar-item:hover, .p-MenuBar-item.p-mod-active {
+  background: var(--intentsmith-bg3) !important;
+  color: var(--intentsmith-tx2) !important;
+}
+.p-Menu {
+  background: var(--intentsmith-bg2) !important;
+  border: 1px solid var(--intentsmith-border2) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4) !important;
+}
+.p-Menu-item:hover { background: var(--intentsmith-bg3) !important; }
+.p-Menu-item .p-Menu-itemLabel { color: var(--intentsmith-tx1) !important; }
+.p-Menu-itemShortcut { color: var(--intentsmith-tx4) !important; }
+
+/* ═══════════════════════════════════════════════════════════
+   HIDE BOTH ACTIVITY BARS — aggressive, target all layers
+   ═══════════════════════════════════════════════════════════ */
+.theia-app-sides {
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+}
+.theia-app-sidebar-container {
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  flex: 0 0 0px !important;
+  overflow: hidden !important;
+}
+/* Ensure right side panel (chat container) stays visible and sized.
+   min-width: 0 allows snap-collapse to fully hide the panel.
+   Snap-collapse threshold (280px) is enforced via JS on handle drag. */
+#theia-right-side-panel {
+  display: block !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
+/* Force SplitPanel children containing activity bars to collapse */
+.lm-SplitPanel-child:has(.theia-app-sidebar-container) {
+  min-width: 0 !important;
+}
+/* Override inline width set by Theia layout manager on sidebar containers */
+.lm-BoxPanel-child.theia-app-sidebar-container {
+  display: none !important;
+  width: 0 !important;
+  min-width: 0 !important;
+  flex: 0 0 0px !important;
+}
+
+/* ─── Left side panel (sidebar content area) ─── */
+#theia-left-side-panel {
+  background: var(--intentsmith-bg1) !important;
+  border: none !important;
+}
+html[data-intentsmith-appearance="intentsmith"] #theia-left-side-panel {
+  border-right: 1px solid var(--intentsmith-border) !important;
+}
+/* Force sidebar widget to fill full panel height (Theia layout manager
+   miscalculates when we hide the TabBar, leaving a gap at the bottom) */
+#theia-left-side-panel > .lm-DockPanel-widget {
+  top: 0 !important;
+  height: 100% !important;
+}
+.theia-side-panel {
+  background: var(--intentsmith-bg1) !important;
+}
+/* Hide side panel title bars + tab bars (IntentSmith brand header replaces them) */
+#theia-left-side-panel > .theia-sidepanel-toolbar,
+#theia-right-side-panel > .theia-sidepanel-toolbar,
+#theia-left-side-panel > .p-TabBar,
+#theia-right-side-panel > .p-TabBar,
+#theia-bottom-content-panel > .p-TabBar,
+#theia-left-side-panel > .lm-TabBar,
+#theia-right-side-panel > .lm-TabBar,
+#theia-bottom-content-panel > .lm-TabBar,
+/* Broader descendant selectors — catch nested tab bars Theia may inject */
+#theia-left-side-panel .p-TabBar,
+#theia-left-side-panel .lm-TabBar,
+#theia-left-side-panel .theia-sidepanel-toolbar,
+#theia-right-side-panel .p-TabBar,
+#theia-right-side-panel .lm-TabBar,
+#theia-right-side-panel .theia-sidepanel-toolbar,
+#theia-bottom-content-panel .lm-TabBar,
+#theia-bottom-content-panel .theia-sidepanel-toolbar {
+  display: none !important;
+  height: 0 !important;
+  max-height: 0 !important;
+  overflow: hidden !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  min-height: 0 !important;
+}
+
+/* Disable drag & drop on right and bottom panels */
+#theia-right-side-panel .p-SplitPanel-handle,
+#theia-bottom-content-panel .p-SplitPanel-handle,
+#theia-right-side-panel .lm-SplitPanel-handle,
+#theia-bottom-content-panel .lm-SplitPanel-handle {
+  pointer-events: none !important;
+  cursor: default !important;
+}
+#theia-right-side-panel .p-TabBar-tab,
+#theia-bottom-content-panel .p-TabBar-tab,
+#theia-right-side-panel .lm-TabBar-tab,
+#theia-bottom-content-panel .lm-TabBar-tab {
+  -webkit-user-drag: none !important;
+  cursor: default !important;
+}
+
+/* ─── Editor Tabs ─── */
+.p-TabBar-tab, .lm-TabBar-tab {
+  background: var(--intentsmith-bg1) !important;
+  color: var(--intentsmith-tx3) !important;
+  border: none !important;
+  border-right: 1px solid var(--intentsmith-border) !important;
+  font-size: 12px !important;
+}
+.p-TabBar-tab:hover, .lm-TabBar-tab:hover {
+  background: var(--intentsmith-bg2) !important;
+  color: var(--intentsmith-tx2) !important;
+}
+.p-TabBar-tab.p-mod-current, .lm-TabBar-tab.lm-mod-current {
+  background: var(--intentsmith-bg2) !important;
+  color: var(--intentsmith-tx1) !important;
+  border-bottom: 2px solid var(--intentsmith-accent) !important;
+}
+.p-TabBar, .lm-TabBar {
+  background: var(--intentsmith-bg1) !important;
+  border-bottom: 1px solid var(--intentsmith-border) !important;
+}
+.p-TabBar-tab .p-TabBar-tabCloseIcon:hover,
+.lm-TabBar-tab .lm-TabBar-tabCloseIcon:hover {
+  color: var(--intentsmith-accent-text) !important;
+}
+
+/* ─── Editor Area ─── */
+.p-DockPanel, .p-DockPanel-widget, .lm-DockPanel, .lm-DockPanel-widget {
+  background: var(--intentsmith-bg0) !important;
+}
+
+/* ─── Bottom Panel ─── */
+#theia-bottom-content-panel {
+  background: var(--intentsmith-bg1) !important;
+  border-top: 1px solid var(--intentsmith-border) !important;
+}
+html[data-intentsmith-appearance="intentsmith"] #theia-bottom-content-panel {
+  background: var(--intentsmith-bg0) !important;
+}
+
+/* ─── Status Bar ─── */
+#theia-statusBar, .theia-statusBar {
+  background: var(--intentsmith-bg1) !important;
+  border-top: 1px solid var(--intentsmith-border) !important;
+  font-size: 10px !important;
+  color: var(--intentsmith-tx4) !important;
+  height: 24px !important;
+}
+.theia-statusBar .area .element {
+  color: var(--intentsmith-tx4) !important;
+  font-size: 10px !important;
+}
+.theia-statusBar .area .element:hover {
+  background: var(--intentsmith-bg3) !important;
+}
+.theia-statusBar .area.left .element:first-of-type {
+  font-weight: 800 !important;
+  color: var(--intentsmith-accent-text) !important;
+  letter-spacing: 1px !important;
+  opacity: 0.6 !important;
+}
+
+/* ─── Inputs & Buttons ─── */
+.theia-input, input[type="text"], textarea {
+  background: var(--intentsmith-bg3) !important;
+  border: 1px solid var(--intentsmith-border2) !important;
+  border-radius: 6px !important;
+  color: var(--intentsmith-tx1) !important;
+}
+.theia-input:focus, input[type="text"]:focus, textarea:focus {
+  border-color: rgba(34,197,94,0.4) !important;
+  outline: none !important;
+}
+html[data-intentsmith-appearance="intentsmith"] .theia-input:focus,
+html[data-intentsmith-appearance="intentsmith"] input[type="text"]:focus,
+html[data-intentsmith-appearance="intentsmith"] textarea:focus {
+  border-color: rgba(212,168,95,0.55) !important;
+  box-shadow: 0 0 0 2px rgba(212,168,95,0.10) !important;
+}
+button.theia-button {
+  background: var(--intentsmith-bg3) !important;
+  border: 1px solid var(--intentsmith-border2) !important;
+  color: var(--intentsmith-tx2) !important;
+  border-radius: 6px !important;
+}
+button.theia-button.main {
+  background: var(--intentsmith-accent) !important;
+  border-color: transparent !important;
+  color: #fff !important;
+}
+html[data-intentsmith-appearance="intentsmith"] button.theia-button.main {
+  color: var(--intentsmith-on-accent) !important;
+  font-weight: 700 !important;
+}
+
+/* ─── Split handles ─── */
+/* Horizontal handles (left↔center↔right) — must have width to be grabbable */
+#theia-left-right-split-panel > .lm-SplitPanel-handle,
+#theia-left-right-split-panel > .p-SplitPanel-handle {
+  min-width: 4px !important;
+  width: 4px !important;
+  cursor: col-resize !important;
+  background: var(--intentsmith-border) !important;
+  transition: background 0.15s ease !important;
+}
+#theia-left-right-split-panel > .lm-SplitPanel-handle:hover,
+#theia-left-right-split-panel > .p-SplitPanel-handle:hover {
+  background: var(--intentsmith-accent) !important;
+}
+/* Vertical handles (center↔bottom) */
+#theia-bottom-split-panel > .lm-SplitPanel-handle,
+#theia-bottom-split-panel > .p-SplitPanel-handle {
+  min-height: 4px !important;
+  height: 4px !important;
+  cursor: row-resize !important;
+  background: var(--intentsmith-border) !important;
+  transition: background 0.15s ease !important;
+}
+#theia-bottom-split-panel > .lm-SplitPanel-handle:hover,
+#theia-bottom-split-panel > .p-SplitPanel-handle:hover {
+  background: var(--intentsmith-accent) !important;
+}
+/* All other handles — transparent default */
+.p-SplitPanel-handle, .lm-SplitPanel-handle {
+  background: transparent !important;
+}
+.p-SplitPanel-handle:hover, .lm-SplitPanel-handle:hover {
+  background: var(--intentsmith-accent) !important;
+}
+/* Force overflow clipping on all split panel children — prevents content bleed */
+#theia-left-right-split-panel > .lm-SplitPanel-child,
+#theia-bottom-split-panel > .lm-SplitPanel-child {
+  overflow: hidden !important;
+}
+
+/* ─── Terminal ─── */
+.terminal-wrapper, .xterm {
+  background: var(--intentsmith-bg0) !important;
+}
+.xterm-viewport { background: var(--intentsmith-bg0) !important; }
+
+/* ─── Widget sizing ─── */
+#c3-sidebar, #c3-chat-panel, #c3-agent-panel, #c3-center-view {
+  background: var(--intentsmith-bg1) !important;
+}
+html[data-intentsmith-appearance="intentsmith"] #c3-chat-panel,
+html[data-intentsmith-appearance="intentsmith"] #c3-agent-panel {
+  border-left: 1px solid var(--intentsmith-border) !important;
+}
+
+/* ─── Pro Theme overrides: make Theia panels transparent for bg images ─── */
+body.theme-pro-matrix .theia-ApplicationShell,
+body.theme-pro-japanese .theia-ApplicationShell,
+body.theme-pro-midnight .theia-ApplicationShell {
+  background: transparent !important;
+}
+body.theme-pro-matrix .p-DockPanel,
+body.theme-pro-matrix .p-DockPanel-widget,
+body.theme-pro-japanese .p-DockPanel,
+body.theme-pro-japanese .p-DockPanel-widget,
+body.theme-pro-midnight .p-DockPanel,
+body.theme-pro-midnight .p-DockPanel-widget,
+body.theme-pro-matrix .lm-DockPanel,
+body.theme-pro-matrix .lm-DockPanel-widget,
+body.theme-pro-japanese .lm-DockPanel,
+body.theme-pro-japanese .lm-DockPanel-widget,
+body.theme-pro-midnight .lm-DockPanel,
+body.theme-pro-midnight .lm-DockPanel-widget {
+  background: transparent !important;
+}
+
+/* ─── Sidebar collapse/expand ─── */
+#theia-left-side-panel {
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+.lm-SplitPanel-child:has(#theia-left-side-panel) {
+  transition: width 0.15s ease !important;
+  min-width: 0 !important;
+}
+
+/* ─── Right panel collapse/expand (mirrors left panel) ─── */
+.lm-SplitPanel-child:has(#theia-right-side-panel) {
+  transition: width 0.15s ease !important;
+}
+
+/* ─── Hide Welcome tab ─── */
+.theia-WelcomeView { display: none !important; }

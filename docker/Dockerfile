@@ -30,7 +30,7 @@ FROM node:22-alpine AS production
 WORKDIR /app
 
 # Security: non-root user
-RUN addgroup -S c3 && adduser -S c3 -G c3
+RUN addgroup -S intentsmith && adduser -S intentsmith -G intentsmith
 
 # System deps for native modules
 RUN apk add --no-cache curl git
@@ -41,15 +41,15 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/package.json ./
 
 # Data directory
-RUN mkdir -p /data /projects && chown -R c3:c3 /data /projects /app
+RUN mkdir -p /data /projects && chown -R intentsmith:intentsmith /data /projects /app
 
-USER c3
+USER intentsmith
 
 # Environment
 ENV NODE_ENV=production \
-    C3_PORT=3335 \
-    C3_HOST=127.0.0.1 \
-    C3_DB_PATH=/data/c3.db \
+    INTENTSMITH_PORT=3335 \
+    INTENTSMITH_HOST=127.0.0.1 \
+    INTENTSMITH_DB_PATH=/data/intentsmith.db \
     OLLAMA_URL=http://ollama:11434
 
 EXPOSE 3335

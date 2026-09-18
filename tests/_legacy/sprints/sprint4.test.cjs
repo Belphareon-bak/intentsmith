@@ -7,7 +7,7 @@ const assert = require('assert');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { DiffService, GitService, parseDiffStats, calculateSetStatus, applyUnifiedDiff, atomicWrite, atomicWriteJson } = require('../packages/c3-backend/sprint4-integration.cjs');
+const { DiffService, GitService, parseDiffStats, calculateSetStatus, applyUnifiedDiff, atomicWrite, atomicWriteJson } = require('../packages/intentsmith-backend/sprint4-integration.cjs');
 
 let testCount = 0, passCount = 0;
 function test(name, fn) { testCount++; try { fn(); passCount++; console.log('  ✅ ' + name); } catch (e) { console.log('  ❌ ' + name + ': ' + e.message); } }
@@ -106,14 +106,14 @@ test('standard message format', () => {
 
 test('fallback subject', () => {
   const ctx = { sprintNumber: 2 };
-  const subject = ctx.subject || 'feat: C3 Sprint ' + ctx.sprintNumber + ' changes';
-  assert.strictEqual(subject, 'feat: C3 Sprint 2 changes');
+  const subject = ctx.subject || 'feat: IntentSmith Sprint ' + ctx.sprintNumber + ' changes';
+  assert.strictEqual(subject, 'feat: IntentSmith Sprint 2 changes');
 });
 
 // ── 5. DiffService Lifecycle (async) ─────────────────────
 async function runAsync() {
   console.log('\n--- 5. DiffService Lifecycle ---');
-  const testDir = path.join(os.tmpdir(), 'c3-s4-test-' + Date.now());
+  const testDir = path.join(os.tmpdir(), 'intentsmith-s4-test-' + Date.now());
   await fs.promises.mkdir(path.join(testDir, 'lib'), { recursive: true });
   await fs.promises.writeFile(path.join(testDir, 'lib', 'main.dart'), 'void main() {\n  print("hello");\n}\n');
   const ds = new DiffService(testDir);
@@ -218,7 +218,7 @@ async function runAsync() {
   // ── Rehydration ──
   console.log('\n--- 9. Rehydration ---');
   await asyncTest('rehydrate pending change set', async () => {
-    const freshDir = path.join(os.tmpdir(), 'c3-rehydrate-' + Date.now());
+    const freshDir = path.join(os.tmpdir(), 'intentsmith-rehydrate-' + Date.now());
     await fs.promises.mkdir(freshDir, { recursive: true });
     const dsA = new DiffService(freshDir);
     await dsA.createChangeSet('Pending', [
@@ -235,7 +235,7 @@ async function runAsync() {
   // ── Git Integration ──
   console.log('\n--- 10. Git Integration ---');
   await asyncTest('git service on non-repo returns false', async () => {
-    const noGitDir = path.join(os.tmpdir(), 'c3-nogit-' + Date.now());
+    const noGitDir = path.join(os.tmpdir(), 'intentsmith-nogit-' + Date.now());
     await fs.promises.mkdir(noGitDir, { recursive: true });
     const gs = new GitService(noGitDir);
     assert.strictEqual(await gs.isGitRepo(), false);
@@ -244,7 +244,7 @@ async function runAsync() {
   });
 
   await asyncTest('git service on real repo', async () => {
-    const gitDir = path.join(os.tmpdir(), 'c3-gitrepo-' + Date.now());
+    const gitDir = path.join(os.tmpdir(), 'intentsmith-gitrepo-' + Date.now());
     await fs.promises.mkdir(gitDir, { recursive: true });
     const gs = new GitService(gitDir);
     // Init repo
@@ -259,9 +259,9 @@ async function runAsync() {
     assert.strictEqual(await gs.isClean(), true);
     // Create sprint branch
     const branch = await gs.createSprintBranch(1);
-    assert.strictEqual(branch, 'c3/sprint-1');
+    assert.strictEqual(branch, 'intentsmith/sprint-1');
     const cur = await gs.getCurrentBranch();
-    assert.strictEqual(cur, 'c3/sprint-1');
+    assert.strictEqual(cur, 'intentsmith/sprint-1');
     // Auto-commit
     await fs.promises.writeFile(path.join(gitDir, 'feature.dart'), 'class Feature {}\n');
     const result = await gs.autoCommit(['feature.dart'], {

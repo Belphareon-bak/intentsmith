@@ -1,4 +1,4 @@
-// C3-Agent Handler Utilities Type Definitions
+// IntentSmith-Agent Handler Utilities Type Definitions
 // Generated for v55.1
 
 // ═══════════════════════════════════════════════════════════════════════════

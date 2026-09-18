@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════════════════
-// C3-Agent Tracer Hooks — ESM resolve/load interceptor
+// IntentSmith-Agent Tracer Hooks — ESM resolve/load interceptor
 // Runs in a worker thread, communicates via MessagePort
 // ══════════════════════════════════════════════════════════════════════════════
 

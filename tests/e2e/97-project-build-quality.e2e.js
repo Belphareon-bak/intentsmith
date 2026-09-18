@@ -1,6 +1,6 @@
 // tests/e2e/97-project-build-quality.e2e.js — Iterative Project Build Quality
 // ══════════════════════════════════════════════════════════════════════════════
-// Tier 3+: Tests C3's ability to plan, build, align, and test complete projects
+// Tier 3+: Tests IntentSmith's ability to plan, build, align, and test complete projects
 // through iterative feedback cycles.
 //
 // Projects:

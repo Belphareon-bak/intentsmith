@@ -7,7 +7,7 @@ porozumění projektům a řízené provádění práce na vlastním hardwaru. C
 žádný tichý outbound; operátorsky ponechané default-on model discovery prochází
 přesný origin/scope gate a append-only audit, zatímco všechny ostatní externí
 fetch cesty bez deklarované autority selžou před spojením. Současný
-autoritativní C3 Studio runtime už neobsahuje implicitní Google Fonts egress.
+autoritativní IntentSmith Studio runtime už neobsahuje implicitní Google Fonts egress.
 Studio používá Theia runtime s motivy a ovládáním IntentSmithu.
 
 **Verze:** 136.1.0, vývojový kandidát 1.0. Aktuální počty testovacích programů
@@ -107,7 +107,7 @@ notifikace, marketplace, média a aktualizace. Jsou návrhem k review.
 
 ## Co je IntentSmith
 
-IntentSmith zachovává funkční backend a C3 Studio IDE z C3 a evolučně je
+IntentSmith zachovává funkční backend a IntentSmith Studio IDE z IntentSmith a evolučně je
 zpevňuje. Produktový kontrakt, cílový uživatel a hranice 1.0 jsou v
 [PRODUCT.md](PRODUCT.md).
 
@@ -134,7 +134,7 @@ zpevňuje. Produktový kontrakt, cílový uživatel a hranice 1.0 jsou v
 ### Infrastruktura
 - **Modelová platforma** — factual discovery, versioned role-specific evaluace exact artefaktů, append-only run/decision historie a jediná ruční durable binding cesta.
 - **Marketplace** — legacy implementace katalogu a instalace existuje; veřejný katalog a externí instalace nejsou podporovaným 1.0 journey. [Dokončení po releasu](docs/post-release/marketplace.md).
-- **C3 Studio IDE** — Theia + Electron, 32 rozšíření, chat panel, agent log, settings (12 sekcí), specialist focus mode, multimedia view.
+- **IntentSmith Studio IDE** — Theia + Electron, 32 rozšíření, chat panel, agent log, settings (12 sekcí), specialist focus mode, multimedia view.
 - **153 nástrojů** ve 35 kategoriích. Sandboxed execution, circuit breaker, risk assessment.
 
 Modelová inference používá lokální ověřený provider a persistence SQLite. Web bez projektu nabízí jeden viditelný HTTPS GET s přesným souhlasem: `načti web https://example.com/`, potom zobrazený příkaz `schválit web web:<digest>`. Schválení se nepřenáší na další adresu ani autonomního agenta. [Rozsah a limity](docs/decisions/044-conversation-web-approval.md). [Review webu a builderu na `e87b1ca2` nemá blokující nález](docs/review/2026-09-12-WEB-BUILDER-OPERATOR-REVIEW.md); pozdější delty mají samostatný review rozsah.
@@ -148,7 +148,7 @@ se řídí popisem výše a SYSTEM-MAP, nikoli přítomností boxu v diagramu.
 
 ```
                     ┌──────────────────┐
-                    │   C3 Studio IDE  │
+                    │   IntentSmith Studio IDE  │
                     │  (Electron/Theia)│
                     └────────┬─────────┘
                              │ WebSocket + REST
@@ -207,7 +207,7 @@ git clone --branch codex/intentsmith-1.0 --single-branch \
   https://github.com/Belphareon-bak/intentsmith.git
 cd intentsmith
 
-# 2. Kanonická instalace backendu i C3 Studio
+# 2. Kanonická instalace backendu i IntentSmith Studio
 ./scripts/install.sh --minimal
 
 # 3. Kanonické mapování portu a modelů
@@ -219,7 +219,7 @@ ollama pull qwen3.8:latest       # D2 + R1
 ollama pull qwen3:14b            # R2
 ollama pull llava-llama3:8b      # VISION
 
-# 5. Start backendu a C3 Studio
+# 5. Start backendu a IntentSmith Studio
 ./scripts/run.sh
 ```
 
@@ -242,7 +242,7 @@ vývojovém režimu použijte `npm run dev`.
 | DejaVu fonts | `fonts-dejavu-core` | PDF export s českou/slovenskou diakritikou |
 | build-essential | - | C++ kompilátor pro native moduly |
 | Git | 2.x+ | Lifecycle (auto-commit, diff, tagging) |
-| Yarn | 1.22.22 | Povinná frozen instalace C3 Studio |
+| Yarn | 1.22.22 | Povinná frozen instalace IntentSmith Studio |
 | bubblewrap | system package | Linux namespace/seccomp sandbox pro governed focused test |
 | util-linux `prlimit` | system package | CPU, address-space, file-size, FD a core-dump limity procesu |
 | GPU | 12+ GB VRAM | Doporučeno pro 32B modely (8B modely běží na 8 GB) |
@@ -338,7 +338,7 @@ Pro 1.0 zůstává lokální in-app/desktop cesta. SMTP, Telegram, ntfy, webhook
 | Runtime | Node.js 22 (ESM) | Žádný framework — raw `http` modul |
 | Databáze | SQLite | better-sqlite3, WAL mód, verzované migrace |
 | LLM | Ollama | Lokální inference, 7 modelových rolí (D1, D2, CODE, R1, R2, CHAT, VISION) |
-| IDE | C3 Studio | Theia 1.74.1 + Electron 42.11.3, 32 vlastních rozšíření |
+| IDE | IntentSmith Studio | Theia 1.74.1 + Electron 42.11.3, 32 vlastních rozšíření |
 | Frontend | React (lite) | Webpack bundle v chat-panel-module.js |
 | AST | tree-sitter | JS, Python, Go, Java — symbol extraction, structural analysis |
 | Závislosti | 13 produkčních | better-sqlite3, ws, dotenv, nodemailer, puppeteer, tree-sitter, chokidar, ... |
@@ -385,9 +385,9 @@ intentsmith/
 │   ├── ui/                       #   Architect web UI
 │   └── server.js                 #   Entry point (startup, routing, shutdown)
 │
-├── c3-ide/                       # IDE (Theia + Electron)
+├── intentsmith-ide/                       # IDE (Theia + Electron)
 │   ├── extensions/               #   32 vlastních rozšíření
-│   │   └── c3-chat-panel/        #     Hlavní chat widget (4,000+ ř.)
+│   │   └── intentsmith-chat-panel/        #     Hlavní chat widget (4,000+ ř.)
 │   └── applications/electron/    #   Electron wrapper + webpack
 │
 ├── specialists/                  # Specialist balíčky (self-contained pluginy)
@@ -431,7 +431,7 @@ intentsmith/
 │   └── ...                       #   20+ dalších dokumentů
 │
 ├── data/                         # Runtime data (gitignored)
-│   ├── c3.db                     #   SQLite databáze
+│   ├── intentsmith.db                     #   SQLite databáze
 │   ├── history/                  #   JSONL archiv konverzací
 │   └── backups/                  #   Automatické zálohy
 │
@@ -448,12 +448,12 @@ vestavěné fallbacky z `src/config.js`.
 
 | Sekce | Klíčové proměnné | Vestavěný fallback |
 |-------|------------------|---------|
-| Server | `C3_PORT`, `C3_HOST` | `0` (dynamický), `127.0.0.1` |
-| Modely | `C3_MODEL_CHAT`, `C3_MODEL_CODE`, `C3_MODEL_D1` | qwen3.5:27b pro všechny tři role |
-| Databáze | `C3_DB_PATH` | `./data/c3.db` |
-| Features | `C3_ENABLE_LIFECYCLE`, `C3_ENABLE_SKILLS`, ... | vše zapnuto |
-| Bezpečnost | `C3_ADMIN_TOKEN` | - (localhost bypass v dev) |
-| Notifikace | `C3_SMTP_*`, `C3_TELEGRAM_*`, `C3_NTFY_*` | - (volitelné) |
+| Server | `INTENTSMITH_PORT`, `INTENTSMITH_HOST` | `0` (dynamický), `127.0.0.1` |
+| Modely | `INTENTSMITH_MODEL_CHAT`, `INTENTSMITH_MODEL_CODE`, `INTENTSMITH_MODEL_D1` | qwen3.5:27b pro všechny tři role |
+| Databáze | `INTENTSMITH_DB_PATH` | `./data/intentsmith.db` |
+| Features | `INTENTSMITH_ENABLE_LIFECYCLE`, `INTENTSMITH_ENABLE_SKILLS`, ... | vše zapnuto |
+| Bezpečnost | `INTENTSMITH_ADMIN_TOKEN` | - (localhost bypass v dev) |
+| Notifikace | `INTENTSMITH_SMTP_*`, `INTENTSMITH_TELEGRAM_*`, `INTENTSMITH_NTFY_*` | - (volitelné) |
 
 Kompletní reference: [.env.example](.env.example)
 

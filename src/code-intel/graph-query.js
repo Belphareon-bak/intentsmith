@@ -1,7 +1,7 @@
 // Graph Query v109 (F7) — Structured graph debugging queries
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// Developer-facing API for inspecting C3's knowledge graph decisions:
+// Developer-facing API for inspecting IntentSmith's knowledge graph decisions:
 //   - Path queries: Why does A affect B?
 //   - Impact radius: What files are affected by changes to X?
 //   - Cycle detection: Are there circular dependencies?

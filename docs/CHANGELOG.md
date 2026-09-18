@@ -2079,7 +2079,7 @@ Oprava celého project creation/opening workflow. Lifecycle engine byl nedosaži
 | File | Changes |
 |------|---------|
 | `src/chat/handlers/project.js` | Lifecycle/build intercepts, systemResponse helper |
-| `c3-ide/.../chat-panel-module.js` | Session ID fix, lifecycle bind in open-folder |
+| `intentsmith-ide/.../chat-panel-module.js` | Session ID fix, lifecycle bind in open-folder |
 | `src/chat/handlers/utils/readme-generator.js` | `ensureRoadmap()` function |
 | `src/routes/projects.js` | README/ROADMAP guarantee, project analysis |
 | `src/chat/controller.js` | WM DB persistence (write-through + restore) |
@@ -2264,7 +2264,7 @@ Deterministický systém maker/receptů pro opakující se postupy. C3 automatic
 | `src/server.js` | Registry init + routes + FeatureManager init |
 | `src/ws-bridge/session-adapter.js` | sync_settings control |
 | `src/routes/misc.js` | POST /api/settings → FeatureManager |
-| `c3-ide/extensions/c3-settings/` | IDE preference toggle + sync listener |
+| `intentsmith-ide/extensions/intentsmith-settings/` | IDE preference toggle + sync listener |
 
 ---
 
@@ -2699,7 +2699,7 @@ Agent Builder Wizard — kompletní UI pro tvorbu a editaci worker agentů v IDE
 |--------|-------|
 | `src/routes/agents.js` | +`GET /api/agents/schema`, normalize v dry-run (~90 řádků) |
 | `src/agents/schema.js` | +`normalizeAgentDefinition()` (~75 řádků) |
-| `c3-ide/.../chat-panel-module.js` | +agent wizard state, funkce, rendering (~350 řádků) |
+| `intentsmith-ide/.../chat-panel-module.js` | +agent wizard state, funkce, rendering (~350 řádků) |
 
 ---
 

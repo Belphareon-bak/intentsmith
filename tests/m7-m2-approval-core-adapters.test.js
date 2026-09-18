@@ -64,9 +64,9 @@ function git(root, args) {
 function makeProject() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-m7-m2-approval-'));
   fs.mkdirSync(path.join(root, 'src'));
-  fs.mkdirSync(path.join(root, '.c3'));
+  fs.mkdirSync(path.join(root, '.intentsmith'));
   fs.writeFileSync(path.join(root, 'src', 'app.js'), 'export const value = 1;\n');
-  fs.writeFileSync(path.join(root, '.c3', 'm2-governance-policy.json'), `${JSON.stringify({
+  fs.writeFileSync(path.join(root, '.intentsmith', 'm2-governance-policy.json'), `${JSON.stringify({
     policyId: 'm2-policy-v1',
     layers: [{ name: 'app', roots: ['src'] }],
     rules: [{ from: 'app', canImport: ['app'] }],
@@ -76,7 +76,7 @@ function makeProject() {
     unmappedFilePolicy: 'unavailable',
   }, null, 2)}\n`);
   git(root, ['init', '-b', 'main']);
-  git(root, ['add', '--', '.c3/m2-governance-policy.json', 'src/app.js']);
+  git(root, ['add', '--', '.intentsmith/m2-governance-policy.json', 'src/app.js']);
   git(root, [
     '-c', 'user.name=IntentSmith Test', '-c', 'user.email=intentsmith@example.invalid',
     'commit', '-m', 'baseline',

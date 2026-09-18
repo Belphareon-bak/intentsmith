@@ -1,7 +1,7 @@
 // Model Profiles v103 — Role-Based Model Requirements & Registry
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// Defines what C3 needs from each model slot:
+// Defines what IntentSmith needs from each model slot:
 //   - Role description and current binding
 //   - Model family preferences (deepseek, qwen, llama, codestral…)
 //   - Hardware/capability requirements
@@ -98,7 +98,7 @@ export function parseModelName(modelName) {
 // ─── Role Profiles ──────────────────────────────────────────────────────────
 
 /**
- * Profile for each model role in C3.
+ * Profile for each model role in IntentSmith.
  * Profiles define requirements and preferences for upgrade candidates.
  */
 export const MODEL_PROFILES = {

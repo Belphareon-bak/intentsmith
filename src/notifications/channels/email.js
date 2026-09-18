@@ -8,7 +8,7 @@ import { toHTML, toPlainText } from '../templates/default.js';
  * Email channel using nodemailer SMTP.
  *
  * Config from environment:
- *   C3_SMTP_HOST, C3_SMTP_PORT, C3_SMTP_USER, C3_SMTP_PASS, C3_SMTP_FROM
+ *   INTENTSMITH_SMTP_HOST, INTENTSMITH_SMTP_PORT, INTENTSMITH_SMTP_USER, INTENTSMITH_SMTP_PASS, INTENTSMITH_SMTP_FROM
  */
 export class EmailChannel extends NotificationChannel {
   constructor({ logger }) {
@@ -17,11 +17,11 @@ export class EmailChannel extends NotificationChannel {
     this.transporter = null;
 
     this.config = {
-      host: process.env.C3_SMTP_HOST,
-      port: parseInt(process.env.C3_SMTP_PORT || '587'),
-      user: process.env.C3_SMTP_USER,
-      pass: process.env.C3_SMTP_PASS,
-      from: process.env.C3_SMTP_FROM || process.env.C3_SMTP_USER,
+      host: (process.env.INTENTSMITH_SMTP_HOST ?? process.env['C3_SMTP_HOST']),
+      port: parseInt((process.env.INTENTSMITH_SMTP_PORT ?? process.env['C3_SMTP_PORT']) || '587'),
+      user: (process.env.INTENTSMITH_SMTP_USER ?? process.env['C3_SMTP_USER']),
+      pass: (process.env.INTENTSMITH_SMTP_PASS ?? process.env['C3_SMTP_PASS']),
+      from: (process.env.INTENTSMITH_SMTP_FROM ?? process.env['C3_SMTP_FROM']) || (process.env.INTENTSMITH_SMTP_USER ?? process.env['C3_SMTP_USER']),
     };
   }
 
@@ -55,7 +55,7 @@ export class EmailChannel extends NotificationChannel {
 
   async send(notification) {
     if (!this.config.host || !this.config.user) {
-      return { delivered: false, error: 'SMTP not configured (set C3_SMTP_HOST, C3_SMTP_USER)' };
+      return { delivered: false, error: 'SMTP not configured (set INTENTSMITH_SMTP_HOST, INTENTSMITH_SMTP_USER)' };
     }
 
     try {
@@ -63,7 +63,7 @@ export class EmailChannel extends NotificationChannel {
       const info = await transporter.sendMail({
         from: this.config.from,
         to: notification.recipient,
-        subject: `[C3] ${notification.title}`,
+        subject: `[IntentSmith] ${notification.title}`,
         text: toPlainText(notification),
         html: toHTML(notification),
       });

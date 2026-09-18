@@ -428,8 +428,8 @@ console.log('\n═══ IX. Feature Flag ═══');
 
 test('IX.1 — config.features.telemetry exists and defaults to true', () => {
   assert.equal(typeof config.features.telemetry, 'boolean');
-  // Default is true (unless C3_ENABLE_TELEMETRY is 'false')
-  if (!process.env.C3_ENABLE_TELEMETRY) {
+  // Default is true (unless INTENTSMITH_ENABLE_TELEMETRY is 'false')
+  if (!process.env.INTENTSMITH_ENABLE_TELEMETRY) {
     assert.equal(config.features.telemetry, true);
   }
 });

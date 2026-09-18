@@ -21,19 +21,19 @@ const {
   LEGACY_LOCAL_CAPABILITY_HEADER,
   installLegacyLocalFetch,
 } = require(
-  '../c3-ide/applications/electron/c3-local-http-bootstrap.js',
+  '../intentsmith-ide/applications/electron/intentsmith-local-http-bootstrap.js',
 );
 const {
   normalizeLocalAccess: normalizeNodeLocalAccess,
   readLocalAccess: readNodeLocalAccess,
-} = require('../c3-ide/applications/electron/c3-local-access.js');
+} = require('../intentsmith-ide/applications/electron/intentsmith-local-access.js');
 const {
   installOnSession: installLocalOriginNormalizerOnSession,
   normalizeOpaqueStudioRequest,
-} = require('../c3-ide/applications/electron/c3-local-origin-normalizer.js');
+} = require('../intentsmith-ide/applications/electron/intentsmith-local-origin-normalizer.js');
 const {
   createLegacyLocalObjectUrlCache,
-} = require('../c3-ide/shared/legacy-local-object-url-cache.js');
+} = require('../intentsmith-ide/shared/legacy-local-object-url-cache.js');
 
 // SECTION 1: Tiered Rate Limiting
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -108,37 +108,37 @@ function probeServerConfig(env) {
   return JSON.parse(probe.stdout);
 }
 
-test('config port honors C3_PORT or uses dynamic port 0', () => {
-  const expected = Number.parseInt(process.env.C3_PORT || '0', 10);
+test('config port honors INTENTSMITH_PORT or uses dynamic port 0', () => {
+  const expected = Number.parseInt(process.env.INTENTSMITH_PORT || '0', 10);
   assertEqual(config.server.port, expected);
 });
 
 test('config portFile honors the isolated override or default', () => {
   assert(typeof config.server.portFile === 'string', 'portFile should be a string');
   assert(config.server.portFile.length > 0, 'portFile should not be empty');
-  const expected = process.env.C3_PORT_FILE || path.join(os.homedir(), '.c3', 'port');
+  const expected = process.env.INTENTSMITH_PORT_FILE || path.join(os.homedir(), '.intentsmith', 'port');
   assertEqual(config.server.portFile, expected);
 });
 
-test('portFile defaults to ~/.c3/port when no override exists', () => {
-  const isolatedHome = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-port-default-'));
+test('portFile defaults to ~/.intentsmith/port when no override exists', () => {
+  const isolatedHome = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-port-default-'));
   try {
     const probed = probeServerConfig({ HOME: isolatedHome });
     assertEqual(probed.port, 0);
-    assertEqual(probed.portFile, path.join(isolatedHome, '.c3', 'port'));
+    assertEqual(probed.portFile, path.join(isolatedHome, '.intentsmith', 'port'));
   } finally {
     fs.rmSync(isolatedHome, { recursive: true, force: true });
   }
 });
 
 test('server config honors explicit port and port-file overrides', () => {
-  const isolatedHome = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-port-override-'));
+  const isolatedHome = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-port-override-'));
   try {
     const overridePath = path.join(isolatedHome, 'runtime', 'override.port');
     const probed = probeServerConfig({
       HOME: isolatedHome,
-      C3_PORT: '45678',
-      C3_PORT_FILE: overridePath,
+      INTENTSMITH_PORT: '45678',
+      INTENTSMITH_PORT_FILE: overridePath,
     });
     assertEqual(probed.port, 45678);
     assertEqual(probed.portFile, overridePath);
@@ -148,7 +148,7 @@ test('server config honors explicit port and port-file overrides', () => {
 });
 
 test('port file write/read roundtrip is private for new and stale files', () => {
-  const tmpFile = path.join(os.tmpdir(), `c3-test-port-${process.pid}`);
+  const tmpFile = path.join(os.tmpdir(), `intentsmith-test-port-${process.pid}`);
   const portData = { port: 54321, host: '127.0.0.1', pid: process.pid, started: new Date().toISOString() };
 
   try {
@@ -242,8 +242,8 @@ test('server wires the test capability after resolving the bound port', () => {
 });
 
 test('private port file writer refuses a symlink without changing its target', () => {
-  const target = path.join(os.tmpdir(), `c3-test-port-target-${process.pid}`);
-  const link = path.join(os.tmpdir(), `c3-test-port-link-${process.pid}`);
+  const target = path.join(os.tmpdir(), `intentsmith-test-port-target-${process.pid}`);
+  const link = path.join(os.tmpdir(), `intentsmith-test-port-link-${process.pid}`);
   try {
     fs.writeFileSync(target, 'unchanged', { encoding: 'utf8', mode: 0o600 });
     fs.symlinkSync(target, link);
@@ -267,7 +267,7 @@ test('private port file writer refuses a symlink without changing its target', (
 });
 
 test('port file cleanup on missing file does not crash', () => {
-  const fakePath = path.join(os.tmpdir(), 'c3-nonexistent-port-file');
+  const fakePath = path.join(os.tmpdir(), 'intentsmith-nonexistent-port-file');
   // Should not throw
   try {
     if (fs.existsSync(fakePath)) fs.unlinkSync(fakePath);
@@ -289,16 +289,16 @@ await testAsync('port 0 is valid for dynamic allocation', async () => {
   });
 });
 
-test('FE _backendBase discovery pattern (window.electronC3)', () => {
+test('FE _backendBase discovery pattern (window.electronIntentSmith)', () => {
   // Simulate the FE discovery pattern used in chat-panel-module.js
   const globalObj = {};
 
-  // Case 1: electronC3 available
-  globalObj.electronC3 = { getBackendUrl: () => 'http://127.0.0.1:45678' };
+  // Case 1: electronIntentSmith available
+  globalObj.electronIntentSmith = { getBackendUrl: () => 'http://127.0.0.1:45678' };
   const discovered = (function(win) {
     try {
-      if (win.electronC3) {
-        var url = win.electronC3.getBackendUrl();
+      if (win.electronIntentSmith) {
+        var url = win.electronIntentSmith.getBackendUrl();
         if (url) return url;
       }
     } catch(e) {}
@@ -306,11 +306,11 @@ test('FE _backendBase discovery pattern (window.electronC3)', () => {
   })(globalObj);
   assertEqual(discovered, 'http://127.0.0.1:45678');
 
-  // Case 2: electronC3 not available → fallback
+  // Case 2: electronIntentSmith not available → fallback
   const fallback = (function(win) {
     try {
-      if (win.electronC3) {
-        var url = win.electronC3.getBackendUrl();
+      if (win.electronIntentSmith) {
+        var url = win.electronIntentSmith.getBackendUrl();
         if (url) return url;
       }
     } catch(e) {}
@@ -318,12 +318,12 @@ test('FE _backendBase discovery pattern (window.electronC3)', () => {
   })({});
   assertEqual(fallback, 'http://127.0.0.1:3335');
 
-  // Case 3: electronC3 returns null → fallback
-  globalObj.electronC3 = { getBackendUrl: () => null };
+  // Case 3: electronIntentSmith returns null → fallback
+  globalObj.electronIntentSmith = { getBackendUrl: () => null };
   const nullCase = (function(win) {
     try {
-      if (win.electronC3) {
-        var url = win.electronC3.getBackendUrl();
+      if (win.electronIntentSmith) {
+        var url = win.electronIntentSmith.getBackendUrl();
         if (url) return url;
       }
     } catch(e) {}
@@ -339,7 +339,7 @@ function createLocalFetchScope(getLocalAccess) {
     Request,
     URL,
     location: { href: 'file:///opt/intentsmith/index.html' },
-    electronC3: { getLocalAccess },
+    electronIntentSmith: { getLocalAccess },
     fetch: async function nativeFetch(...args) {
       calls.push(args);
       return { ok: true, status: 200 };
@@ -503,7 +503,7 @@ await testAsync('Electron local fetch canonicalizes the explicit default HTTP po
 });
 
 test('Electron Node-side local access reader accepts only a private regular port file', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-local-access-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-local-access-'));
   const portFile = path.join(root, 'port');
   const symlink = path.join(root, 'port-link');
   const capability = 'F'.repeat(43);
@@ -748,7 +748,7 @@ test('Electron main owns one bounded onBeforeSendHeaders normalizer', () => {
   assertEqual(filter.urls.length, 2);
   assertEqual(typeof listener, 'function');
 
-  const priorPortFile = process.env.C3_PORT_FILE;
+  const priorPortFile = process.env.INTENTSMITH_PORT_FILE;
   const priorTheiaProjectPath = process.env.THEIA_APP_PROJECT_PATH;
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'normalizer-session-'));
   const portFile = path.join(root, 'port');
@@ -759,7 +759,7 @@ test('Electron main owns one bounded onBeforeSendHeaders normalizer', () => {
       localCapability: capability,
     }), { mode: 0o600 });
     fs.chmodSync(portFile, 0o600);
-    process.env.C3_PORT_FILE = portFile;
+    process.env.INTENTSMITH_PORT_FILE = portFile;
     process.env.THEIA_APP_PROJECT_PATH = '/opt/intentsmith';
     let callbackResult;
     listener(createOpaqueStudioRequest(capability), result => {
@@ -767,8 +767,8 @@ test('Electron main owns one bounded onBeforeSendHeaders normalizer', () => {
     });
     assertEqual(callbackResult.requestHeaders.Origin, 'null');
   } finally {
-    if (priorPortFile === undefined) delete process.env.C3_PORT_FILE;
-    else process.env.C3_PORT_FILE = priorPortFile;
+    if (priorPortFile === undefined) delete process.env.INTENTSMITH_PORT_FILE;
+    else process.env.INTENTSMITH_PORT_FILE = priorPortFile;
     if (priorTheiaProjectPath === undefined) delete process.env.THEIA_APP_PROJECT_PATH;
     else process.env.THEIA_APP_PROJECT_PATH = priorTheiaProjectPath;
     fs.rmSync(root, { recursive: true, force: true });
@@ -1210,11 +1210,11 @@ await testAsync('media retain and clear revoke completed URLs and cancel pending
   );
 });
 
-test('C3_READY stdout format', () => {
-  // The server prints C3_READY:<port> — verify the format
+test('INTENTSMITH_READY stdout format', () => {
+  // The server prints INTENTSMITH_READY:<port> — verify the format
   const port = 12345;
-  const readyLine = `C3_READY:${port}`;
-  assert(readyLine.startsWith('C3_READY:'), 'should start with C3_READY:');
+  const readyLine = `INTENTSMITH_READY:${port}`;
+  assert(readyLine.startsWith('INTENTSMITH_READY:'), 'should start with INTENTSMITH_READY:');
   const parsed = parseInt(readyLine.split(':')[1], 10);
   assertEqual(parsed, 12345, 'should parse port number from ready line');
 });

@@ -3,9 +3,9 @@
 // Real product E2E: existing project with files → PROPOSED → COMPLETED
 //
 // Key differences from Test 1:
-//   - Pre-existing project files (README.md, package.json, .c3/project.json)
+//   - Pre-existing project files (README.md, package.json, .intentsmith/project.json)
 //   - P3 analyzer tested: existing files detected and injected as context
-//   - 4 milestones: Encryption Engine, Credential Store, CLI, C3 Integration
+//   - 4 milestones: Encryption Engine, Credential Store, CLI, IntentSmith Integration
 //   - Verifies existing project analysis, git history, ROADMAP, README
 //
 // Run: node tests/project-lifecycle-klicenka.test.js
@@ -70,7 +70,7 @@ function check(condition, name, detail = '') {
 
 const EXISTING_README = `# Klíčenka
 
-Šifrované úložiště citlivých údajů pro C3.
+Šifrované úložiště citlivých údajů pro IntentSmith.
 
 ## Plánované funkce
 
@@ -84,13 +84,13 @@ const EXISTING_PACKAGE = {
   name: 'klicenka',
   version: '0.1.0',
   type: 'module',
-  description: 'Secure credential keychain for C3',
+  description: 'Secure credential keychain for IntentSmith',
   main: 'src/index.js',
   scripts: {},
   dependencies: {},
 };
 
-const EXISTING_C3_CONFIG = {
+const EXISTING_INTENTSMITH_CONFIG = {
   name: 'klicenka',
   type: 'general',
   description: 'Šifrované úložiště citlivých údajů',
@@ -99,12 +99,12 @@ const EXISTING_C3_CONFIG = {
 };
 
 const SPEC = {
-  title: 'Klíčenka — Secure Keychain for C3',
+  title: 'Klíčenka — Secure Keychain for IntentSmith',
   goals: [
     { id: 'G1', description: 'AES-256-GCM encryption/decryption', priority: 'MUST', success_criteria: 'Encrypt then decrypt roundtrip returns original plaintext' },
     { id: 'G2', description: 'File-based encrypted credential store', priority: 'MUST', success_criteria: 'Store file contains only encrypted data, no plaintext credentials' },
     { id: 'G3', description: 'CLI interface for credential management', priority: 'MUST', success_criteria: 'All CRUD commands execute successfully via CLI' },
-    { id: 'G4', description: 'C3 config integration', priority: 'SHOULD', success_criteria: 'C3 config resolves credentials from keychain store' },
+    { id: 'G4', description: 'IntentSmith config integration', priority: 'SHOULD', success_criteria: 'IntentSmith config resolves credentials from keychain store' },
   ],
   requirements: [
     { id: 'R1', description: 'AES-256-GCM encrypt/decrypt with IV', type: 'functional', goal_id: 'G1', acceptance_test: 'Encrypt "secret" and decrypt; verify output equals "secret"' },
@@ -113,7 +113,7 @@ const SPEC = {
     { id: 'R4', description: 'CRUD operations: add, get, list, remove', type: 'functional', goal_id: 'G2', acceptance_test: 'Add key, get it back, list shows it, remove deletes it' },
     { id: 'R5', description: 'CLI commands: add, get, list, remove, export, import', type: 'functional', goal_id: 'G3', acceptance_test: 'Run each CLI command and verify exit code 0' },
     { id: 'R6', description: 'Export/import for backup', type: 'functional', goal_id: 'G3', acceptance_test: 'Export store, delete it, import backup, verify data intact' },
-    { id: 'R7', description: 'C3 config reads credentials from store', type: 'functional', goal_id: 'G4', acceptance_test: 'C3 config getter resolves credential key to decrypted value' },
+    { id: 'R7', description: 'IntentSmith config reads credentials from store', type: 'functional', goal_id: 'G4', acceptance_test: 'IntentSmith config getter resolves credential key to decrypted value' },
   ],
   tech_stack: {
     languages: ['JavaScript'],
@@ -152,7 +152,7 @@ const SPEC = {
     'Encrypt/decrypt roundtrip preserves plaintext',
     'Store file contains no plaintext credentials',
     'All CLI commands execute with exit code 0',
-    'C3 config resolves credentials from store',
+    'IntentSmith config resolves credentials from store',
   ],
 };
 
@@ -214,8 +214,8 @@ const ROADMAP = {
     },
     {
       id: 'ms-4',
-      title: 'C3 Integration',
-      description: 'Integration module for C3 config system',
+      title: 'IntentSmith Integration',
+      description: 'Integration module for IntentSmith config system',
       dependencies: ['ms-2'],
       estimated_loc: 80,
       estimated_files: 3,
@@ -223,11 +223,11 @@ const ROADMAP = {
       goals_addressed: ['G4'],
       requirements_addressed: ['R7'],
       deliverables: ['src/integration.js', 'src/index.js', 'tests/integration-source.test.js'],
-      acceptance_criteria: ['C3 credential lookup and package exports are syntactically valid'],
+      acceptance_criteria: ['IntentSmith credential lookup and package exports are syntactically valid'],
       test_strategy: {
         type: 'structural',
         command: 'node tests/integration-source.test.js',
-        specific_tests: ['C3 integration module parses successfully', 'Package export module parses successfully'],
+        specific_tests: ['IntentSmith integration module parses successfully', 'Package export module parses successfully'],
       },
     },
   ],
@@ -299,12 +299,12 @@ const MS_PLANS = {
   'ms-4': {
     milestone_id: 'ms-4',
     files: [
-      { path: 'src/integration.js', action: 'create', purpose: 'C3 integration' },
+      { path: 'src/integration.js', action: 'create', purpose: 'IntentSmith integration' },
       { path: 'src/index.js', action: 'create', purpose: 'Main export' },
       { path: 'tests/integration-source.test.js', action: 'create', purpose: 'Integration source syntax contract' },
     ],
     implementation_steps: [
-      { step: 1, action: 'Create C3 integration module', file: 'src/integration.js' },
+      { step: 1, action: 'Create IntentSmith integration module', file: 'src/integration.js' },
       { step: 2, action: 'Create main index export', file: 'src/index.js' },
       { step: 3, action: 'Validate credential lookup handling', file: 'src/integration.js' },
       { step: 4, action: 'Validate integration and package export syntax', file: 'tests/integration-source.test.js' },
@@ -486,12 +486,12 @@ console.log('CLI source syntax checks passed');
 
 const DEFAULT_STORE_PATH = '.klicenka.json';
 
-export function getC3Credential(key, storePath = DEFAULT_STORE_PATH) {
+export function getIntentSmithCredential(key, storePath = DEFAULT_STORE_PATH) {
   const store = new CredentialStore(storePath, process.env.KLICENKA_PASS || 'default');
   return store.get(key);
 }
 
-export function listC3Credentials(storePath = DEFAULT_STORE_PATH) {
+export function listIntentSmithCredentials(storePath = DEFAULT_STORE_PATH) {
   const store = new CredentialStore(storePath, process.env.KLICENKA_PASS || 'default');
   return store.list();
 }
@@ -499,7 +499,7 @@ export function listC3Credentials(storePath = DEFAULT_STORE_PATH) {
     'src/index.js': `export { deriveKey, encrypt, decrypt } from './crypto.js';
 export { CredentialStore } from './store.js';
 export { runCLI } from './cli.js';
-export { getC3Credential, listC3Credentials } from './integration.js';
+export { getIntentSmithCredential, listIntentSmithCredentials } from './integration.js';
 `,
     'tests/integration-source.test.js': `import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -529,7 +529,7 @@ function createFakeLLM() {
       }
       return {
         content: JSON.stringify({
-          core_goal: 'Build a secure credential keychain for C3',
+          core_goal: 'Build a secure credential keychain for IntentSmith',
           implicit_assumptions: [
             'Single-user desktop usage',
             'Master password is the only auth factor',
@@ -696,12 +696,12 @@ async function run() {
   const SESSION_ID = 'klicenka-e2e';
 
   // Unique temporary project path: never overwrite a user's projects/ tree.
-  const projectPath = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-klicenka-'));
+  const projectPath = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-klicenka-'));
   const projectName = path.basename(projectPath);
 
   // ─── Register project in DB ───────────────────────────────────────────────
   const project = projects.getOrCreate(projectName, projectPath,
-    'Šifrované úložiště citlivých údajů pro C3 — Secure Keychain');
+    'Šifrované úložiště citlivých údajů pro IntentSmith — Secure Keychain');
   const projectId = Number(project.id);
 
   // ─── Create conversation linked to project ────────────────────────────────
@@ -723,8 +723,8 @@ async function run() {
   // Write existing project files BEFORE lifecycle starts
   fs.writeFileSync(path.join(projectPath, 'README.md'), EXISTING_README);
   fs.writeFileSync(path.join(projectPath, 'package.json'), JSON.stringify(EXISTING_PACKAGE, null, 2));
-  fs.mkdirSync(path.join(projectPath, '.c3'), { recursive: true });
-  fs.writeFileSync(path.join(projectPath, '.c3/project.json'), JSON.stringify(EXISTING_C3_CONFIG, null, 2));
+  fs.mkdirSync(path.join(projectPath, '.intentsmith'), { recursive: true });
+  fs.writeFileSync(path.join(projectPath, '.intentsmith/project.json'), JSON.stringify(EXISTING_INTENTSMITH_CONFIG, null, 2));
 
   // Git init with existing files committed
   execSync('git init', { cwd: projectPath, stdio: 'pipe' });
@@ -735,7 +735,7 @@ async function run() {
 
   check(fs.existsSync(path.join(projectPath, 'README.md')), 'Setup.1: README.md exists before lifecycle');
   check(fs.existsSync(path.join(projectPath, 'package.json')), 'Setup.2: package.json exists before lifecycle');
-  check(fs.existsSync(path.join(projectPath, '.c3/project.json')), 'Setup.3: .c3/project.json exists before lifecycle');
+  check(fs.existsSync(path.join(projectPath, '.intentsmith/project.json')), 'Setup.3: .intentsmith/project.json exists before lifecycle');
 
   try {
     const gitLog = execSync('git log --oneline', { cwd: projectPath, encoding: 'utf8' });
@@ -760,7 +760,7 @@ async function run() {
 
     console.log('\n═══ PHASE 1: PROPOSED ═══════════════════════════════════════════════');
 
-    const userRequest = 'Chci vytvořit šifrované úložiště citlivých údajů (klíčenku) pro C3 s AES-256 encryption, CLI a file-based store';
+    const userRequest = 'Chci vytvořit šifrované úložiště citlivých údajů (klíčenku) pro IntentSmith s AES-256 encryption, CLI a file-based store';
     const r1 = handleLifecycleBuildDetected(userRequest, { intent: 'BUILD' }, context);
     logTurn(userRequest, r1);
 
@@ -788,14 +788,14 @@ async function run() {
         'P3.5: context includes package.json info');
       check(capturedProjectContext.includes('Git') || capturedProjectContext.includes('commit'),
         'P3.6: context includes git info');
-      check(capturedProjectContext.includes('.c3') || capturedProjectContext.includes('project.json'),
-        'P3.7: context includes .c3/project.json info');
+      check(capturedProjectContext.includes('.intentsmith') || capturedProjectContext.includes('project.json'),
+        'P3.7: context includes .intentsmith/project.json info');
     } else {
       // Skip dependent checks
       check(false, 'P3.4: context includes README info', 'capturedProjectContext is null');
       check(false, 'P3.5: context includes package.json info', 'capturedProjectContext is null');
       check(false, 'P3.6: context includes git info', 'capturedProjectContext is null');
-      check(false, 'P3.7: context includes .c3/project.json info', 'capturedProjectContext is null');
+      check(false, 'P3.7: context includes .intentsmith/project.json info', 'capturedProjectContext is null');
     }
 
     // Answer spec questions → SPEC_REVIEW
@@ -825,7 +825,7 @@ async function run() {
       check(rmContent.includes('Encryption Engine'), 'Plan.3: ROADMAP has ms-1 title');
       check(rmContent.includes('Credential Store'), 'Plan.4: ROADMAP has ms-2 title');
       check(rmContent.includes('CLI'), 'Plan.5: ROADMAP has ms-3 title');
-      check(rmContent.includes('C3 Integration'), 'Plan.6: ROADMAP has ms-4 title');
+      check(rmContent.includes('IntentSmith Integration'), 'Plan.6: ROADMAP has ms-4 title');
       check(rmContent.includes('v1'), 'Plan.7: ROADMAP is version 1');
     }
 
@@ -891,7 +891,7 @@ async function run() {
       logTurn('pokračovat', rReview);
     }
 
-    console.log('\n═══ PHASE 8: BUILD — Milestone 4 (C3 Integration) ═════════════════');
+    console.log('\n═══ PHASE 8: BUILD — Milestone 4 (IntentSmith Integration) ═════════════════');
 
     const s8 = getLcState(SESSION_ID);
     check(s8?.currentMilestoneId === scopeId(s8.lifecycleId, 'ms-4'), 'MS4.1: auto-advanced to scoped ms-4',

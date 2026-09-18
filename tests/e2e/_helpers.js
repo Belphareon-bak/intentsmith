@@ -174,63 +174,63 @@ function ensurePrivateChildDirectory(root, childName) {
 function readRunnerPortFile(filePath) {
   const absolute = path.resolve(filePath);
   if (!pathHasPrivateComponent(absolute)) {
-    throw new Error(`C3_PORT_FILE must be inside a ${PRIVATE_COMPONENT} directory`);
+    throw new Error(`INTENTSMITH_PORT_FILE must be inside a ${PRIVATE_COMPONENT} directory`);
   }
 
   const stat = lstatSync(absolute);
   if (stat.isSymbolicLink() || !stat.isFile()) {
-    throw new Error('C3_PORT_FILE must name an existing non-symlink regular file');
+    throw new Error('INTENTSMITH_PORT_FILE must name an existing non-symlink regular file');
   }
-  assertOwnedByCurrentUser(stat, 'C3_PORT_FILE');
+  assertOwnedByCurrentUser(stat, 'INTENTSMITH_PORT_FILE');
   if ((stat.mode & 0o077) !== 0) {
-    throw new Error('C3_PORT_FILE must not be accessible by group or other users');
+    throw new Error('INTENTSMITH_PORT_FILE must not be accessible by group or other users');
   }
 
   const real = realpathSync(absolute);
   if (!pathHasPrivateComponent(real)) {
-    throw new Error(`C3_PORT_FILE resolves outside a ${PRIVATE_COMPONENT} directory`);
+    throw new Error(`INTENTSMITH_PORT_FILE resolves outside a ${PRIVATE_COMPONENT} directory`);
   }
 
   let value;
   try {
     value = JSON.parse(readFileSync(real, 'utf8'));
   } catch (error) {
-    throw new Error(`C3_PORT_FILE is not valid JSON: ${error.message}`);
+    throw new Error(`INTENTSMITH_PORT_FILE is not valid JSON: ${error.message}`);
   }
   if (!value || typeof value !== 'object' || !isLoopbackHostname(value.host)) {
-    throw new Error('C3_PORT_FILE must identify a loopback host');
+    throw new Error('INTENTSMITH_PORT_FILE must identify a loopback host');
   }
-  const port = parseBoundedInteger(value.port, null, 1, 65535, 'C3_PORT_FILE port');
+  const port = parseBoundedInteger(value.port, null, 1, 65535, 'INTENTSMITH_PORT_FILE port');
   if (!Number.isSafeInteger(Number(value.pid)) || Number(value.pid) < 1) {
-    throw new Error('C3_PORT_FILE must identify the runner-owned server PID');
+    throw new Error('INTENTSMITH_PORT_FILE must identify the runner-owned server PID');
   }
 
   const host = String(value.host).replace(/^\[|\]$/g, '');
   const authority = host === '::1' ? `[${host}]` : host;
-  return validateLoopbackBaseUrl(`http://${authority}:${port}`, 'C3_PORT_FILE');
+  return validateLoopbackBaseUrl(`http://${authority}:${port}`, 'INTENTSMITH_PORT_FILE');
 }
 
 function resolveBaseUrl() {
-  if (process.env.C3_URL) {
-    return validateLoopbackBaseUrl(process.env.C3_URL, 'C3_URL');
+  if (process.env.INTENTSMITH_URL) {
+    return validateLoopbackBaseUrl(process.env.INTENTSMITH_URL, 'INTENTSMITH_URL');
   }
 
-  if (process.env.C3_PORT && process.env.C3_PORT !== '0') {
-    const port = parseBoundedInteger(process.env.C3_PORT, null, 1, 65535, 'C3_PORT');
+  if (process.env.INTENTSMITH_PORT && process.env.INTENTSMITH_PORT !== '0') {
+    const port = parseBoundedInteger(process.env.INTENTSMITH_PORT, null, 1, 65535, 'INTENTSMITH_PORT');
     return `http://127.0.0.1:${port}`;
   }
 
-  if (process.env.C3_PORT_FILE) {
-    return readRunnerPortFile(process.env.C3_PORT_FILE);
+  if (process.env.INTENTSMITH_PORT_FILE) {
+    return readRunnerPortFile(process.env.INTENTSMITH_PORT_FILE);
   }
 
   throw new Error(
-    'A runner-owned loopback endpoint is required via C3_URL, C3_PORT, or C3_PORT_FILE',
+    'A runner-owned loopback endpoint is required via INTENTSMITH_URL, INTENTSMITH_PORT, or INTENTSMITH_PORT_FILE',
   );
 }
 
 export const BASE_URL = resolveBaseUrl();
-export const WS_URL = `${BASE_URL.replace(/^http:/, 'ws:')}/c3/ws`;
+export const WS_URL = `${BASE_URL.replace(/^http:/, 'ws:')}/intentsmith/ws`;
 
 function resolveApiUrl(apiPath) {
   if (

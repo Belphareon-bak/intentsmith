@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ═══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — B6: Multi-Source Integration Tests
+// IntentSmith-Agent — B6: Multi-Source Integration Tests
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // Tests the actual AgentRunner with multi-source agent definitions using

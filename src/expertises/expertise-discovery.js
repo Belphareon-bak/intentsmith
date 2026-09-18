@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — Expertise Discovery v91 (D5)
+// IntentSmith-Agent — Expertise Discovery v91 (D5)
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Scoped vocabulary matching within a specialist's expertise collection.

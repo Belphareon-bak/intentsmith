@@ -1,4 +1,4 @@
-// C3-Agent v57.3 — Chat Fix Tests
+// IntentSmith-Agent v57.3 — Chat Fix Tests
 // ══════════════════════════════════════════════════════════════════════════════
 // Tests for:
 //   Fix 1: REPORT patterns (no-diacritics Czech, bare "report")

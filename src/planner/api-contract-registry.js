@@ -277,7 +277,7 @@ export async function updateConsumerCounts(lifecycleId, projectPath) {
 
   // Scan project for imports referencing these files
   const { readdir } = await import('fs/promises');
-  const SKIP = new Set(['node_modules', '.git', 'dist', 'build', '__pycache__', 'vendor', '.venv', '.c3']);
+  const SKIP = new Set(['node_modules', '.git', 'dist', 'build', '__pycache__', 'vendor', '.venv', '.intentsmith']);
   const consumers = new Map(); // "filePath::exportName" → count
 
   async function walk(dir, depth = 0) {

@@ -1903,7 +1903,7 @@ const SELF_REFERENCE_PATTERNS = [
 // ════════════════════════════════════════════════════════════════════════════════
 // v56.2 Sprint A — STATEMENT PATTERNS
 // ════════════════════════════════════════════════════════════════════════════════
-// Declarative user statements (NOT questions). The user is telling C3 something
+// Declarative user statements (NOT questions). The user is telling IntentSmith something
 // about themselves. Should be CONVERSATIONAL (acknowledge + optionally store).
 // Must be checked BEFORE the question-word catch-all.
 // ════════════════════════════════════════════════════════════════════════════════
@@ -2497,7 +2497,7 @@ PRAVIDLA:
       const result = await llmClassify(userPrompt, systemPrompt, {
         sessionId: context.sessionId || `cre-classify-${Date.now()}`,
         // v71.1: Use FAST model if available, otherwise CHAT (qwen3.5:27b).
-        // Set C3_MODEL_FAST env var to use a dedicated classification model.
+        // Set INTENTSMITH_MODEL_FAST env var to use a dedicated classification model.
         model: config.models?.FAST || config.models?.CHAT,
         format: 'json',
         temperature: 0.1,

@@ -1,14 +1,14 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — B4: ntfy.sh Push Notification Channel
+// IntentSmith-Agent — B4: ntfy.sh Push Notification Channel
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // Simple push notifications via ntfy.sh (or self-hosted ntfy server).
 // No account needed — just a topic URL. Works on Android, iOS, desktop.
 //
 // Config env vars:
-//   C3_NTFY_URL   — server URL (default: https://ntfy.sh)
-//   C3_NTFY_TOPIC — topic name (required)
-//   C3_NTFY_TOKEN — auth token (optional, for private topics)
+//   INTENTSMITH_NTFY_URL   — server URL (default: https://ntfy.sh)
+//   INTENTSMITH_NTFY_TOPIC — topic name (required)
+//   INTENTSMITH_NTFY_TOKEN — auth token (optional, for private topics)
 //
 // Extends NotificationChannel base class from notifications/channels/base.js
 //
@@ -16,7 +16,7 @@
 
 // ─── Priority Mapping ────────────────────────────────────────────────────────
 //
-// C3 priority → ntfy priority (1-5):
+// IntentSmith priority → ntfy priority (1-5):
 //   urgent   → 5 (max)
 //   high     → 4
 //   normal   → 3 (default)
@@ -53,9 +53,9 @@ export class NtfyChannel {
    * @param {object} [options.logger] - Logger instance
    */
   constructor(options = {}) {
-    this.serverUrl = options.serverUrl || process.env.C3_NTFY_URL || 'https://ntfy.sh';
-    this.topic = options.topic || process.env.C3_NTFY_TOPIC || null;
-    this.token = options.token || process.env.C3_NTFY_TOKEN || null;
+    this.serverUrl = options.serverUrl || (process.env.INTENTSMITH_NTFY_URL ?? process.env['C3_NTFY_URL']) || 'https://ntfy.sh';
+    this.topic = options.topic || (process.env.INTENTSMITH_NTFY_TOPIC ?? process.env['C3_NTFY_TOPIC']) || null;
+    this.token = options.token || (process.env.INTENTSMITH_NTFY_TOKEN ?? process.env['C3_NTFY_TOKEN']) || null;
     this.logger = options.logger || { info: () => {}, error: () => {}, warn: () => {} };
     this._lastError = null;
   }
@@ -68,7 +68,7 @@ export class NtfyChannel {
    */
   async verify() {
     if (!this.topic) {
-      return { ok: false, error: 'No topic configured (C3_NTFY_TOPIC)' };
+      return { ok: false, error: 'No topic configured (INTENTSMITH_NTFY_TOPIC)' };
     }
 
     try {
@@ -84,7 +84,7 @@ export class NtfyChannel {
       }
 
       if (res.status === 401 || res.status === 403) {
-        return { ok: false, error: 'Authentication failed — check C3_NTFY_TOKEN' };
+        return { ok: false, error: 'Authentication failed — check INTENTSMITH_NTFY_TOKEN' };
       }
 
       return { ok: false, error: `Server returned ${res.status}` };
@@ -126,7 +126,7 @@ export class NtfyChannel {
 
     const body = {
       topic,
-      title: notification.title || 'C3-Agent',
+      title: notification.title || 'IntentSmith-Agent',
       message: notification.body || '',
       priority: Number(priority),
       tags: tags.split(','),
@@ -179,7 +179,7 @@ export class NtfyChannel {
   async test(topic) {
     return this.send({
       recipient: topic || this.topic,
-      title: '🧪 C3-Agent Test',
+      title: '🧪 IntentSmith-Agent Test',
       body: `Test notification sent at ${new Date().toISOString()}`,
       priority: 'low',
       agentId: 'test',

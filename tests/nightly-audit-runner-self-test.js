@@ -96,7 +96,7 @@ assert.equal(requireConfiguredDatabasePath('  /owned/test.sqlite  '), '/owned/te
 
 const databaseImportUrl = pathToFileURL(path.join(sourceRoot, 'src', 'db', 'database.js')).href;
 const databaseProbeEnvironment = { ...process.env };
-delete databaseProbeEnvironment.C3_DB_PATH;
+delete databaseProbeEnvironment.INTENTSMITH_DB_PATH;
 delete databaseProbeEnvironment.NODE_OPTIONS;
 const rejectedDatabaseImport = spawnSync(
   process.execPath,
@@ -128,7 +128,7 @@ const runtimeBootstrapProbe = spawnSync(
   [
     '--input-type=module',
     '--eval',
-    `await import(${JSON.stringify(runtimeEnvironmentUrl)}); process.stdout.write(process.env.C3_DB_PATH);`,
+    `await import(${JSON.stringify(runtimeEnvironmentUrl)}); process.stdout.write(process.env.INTENTSMITH_DB_PATH);`,
   ],
   {
     cwd: sourceRoot,
@@ -140,12 +140,12 @@ assert.ifError(runtimeBootstrapProbe.error);
 assert.equal(runtimeBootstrapProbe.status, 0, runtimeBootstrapProbe.stderr);
 assert.equal(
   runtimeBootstrapProbe.stdout,
-  path.join(sourceRoot, 'data', 'c3.db'),
+  path.join(sourceRoot, 'data', 'intentsmith.db'),
   'the product runtime bootstrap must preserve the explicit project-local default',
 );
 
 const databaseProbeRoot = await makeTempDirectory(
-  path.join(os.tmpdir(), 'c3-database-import-probe-'),
+  path.join(os.tmpdir(), 'intentsmith-database-import-probe-'),
 );
 const isolatedDatabasePath = path.join(databaseProbeRoot, 'probe.sqlite');
 const acceptedDatabaseImport = spawnSync(
@@ -159,8 +159,8 @@ const acceptedDatabaseImport = spawnSync(
     cwd: sourceRoot,
     env: {
       ...databaseProbeEnvironment,
-      C3_DB_PATH: isolatedDatabasePath,
-      C3_LOG_LEVEL: 'error',
+      INTENTSMITH_DB_PATH: isolatedDatabasePath,
+      INTENTSMITH_LOG_LEVEL: 'error',
     },
     encoding: 'utf8',
   },
@@ -330,7 +330,7 @@ assert.match(
 );
 
 const modelPreflightRoot = await makeTempDirectory(
-  path.join(os.tmpdir(), 'c3-audit-runner-model-preflight-'),
+  path.join(os.tmpdir(), 'intentsmith-audit-runner-model-preflight-'),
 );
 await mkdir(path.join(modelPreflightRoot, 'tests'), { recursive: true });
 await writeFile(
@@ -424,7 +424,7 @@ await assert.rejects(
   /audit root is not an exact Git worktree root/,
 );
 
-const root = await makeTempDirectory(path.join(os.tmpdir(), 'c3-audit-runner-'));
+const root = await makeTempDirectory(path.join(os.tmpdir(), 'intentsmith-audit-runner-'));
 const testsDir = path.join(root, 'tests');
 await mkdir(testsDir, { recursive: true });
 
@@ -439,9 +439,9 @@ writeFileSync(path.join(process.env.TMPDIR, 'observed-env.json'), JSON.stringify
   XDG_STATE_HOME: process.env.XDG_STATE_HOME,
   npm_config_cache: process.env.npm_config_cache,
   NPM_CACHE_MODE: statSync(process.env.npm_config_cache).mode & 0o777,
-  C3_DB_PATH: process.env.C3_DB_PATH,
+  INTENTSMITH_DB_PATH: process.env.INTENTSMITH_DB_PATH,
   INTENTSMITH_PDF_PYTHON: process.env.INTENTSMITH_PDF_PYTHON,
-  C3_PDF_PYTHON: process.env.C3_PDF_PYTHON,
+  INTENTSMITH_PDF_PYTHON: process.env.INTENTSMITH_PDF_PYTHON,
   DISPLAY: process.env.DISPLAY,
   XAUTHORITY: process.env.XAUTHORITY,
   INTENTSMITH_STUDIO_DISPLAY: process.env.INTENTSMITH_STUDIO_DISPLAY,
@@ -522,7 +522,7 @@ await assert.rejects(
 process.env.TEST_SECRET_SENTINEL = 'must-not-reach-child';
 const expectedPdfPython = path.join(root, 'private-pdf-runtime', 'bin', 'python');
 process.env.INTENTSMITH_PDF_PYTHON = expectedPdfPython;
-process.env.C3_PDF_PYTHON = expectedPdfPython;
+process.env.INTENTSMITH_PDF_PYTHON = expectedPdfPython;
 process.umask(0o022);
 permissiveUmaskActive = true;
 const run = await runAudit({
@@ -537,7 +537,7 @@ const run = await runAudit({
 });
 delete process.env.TEST_SECRET_SENTINEL;
 delete process.env.INTENTSMITH_PDF_PYTHON;
-delete process.env.C3_PDF_PYTHON;
+delete process.env.INTENTSMITH_PDF_PYTHON;
 assert.equal(process.umask(), 0o022, 'audit runner must restore its parent umask');
 
 assert.equal(run.inventory.total, 6);
@@ -600,9 +600,9 @@ assert.equal(
   path.dirname(byPath.get('tests/pass.test.js').environment.npmCache),
   byPath.get('tests/pass.test.js').environment.artifacts,
 );
-assert.equal(observedEnv.C3_DB_PATH, byPath.get('tests/pass.test.js').environment.database);
+assert.equal(observedEnv.INTENTSMITH_DB_PATH, byPath.get('tests/pass.test.js').environment.database);
 assert.equal(observedEnv.INTENTSMITH_PDF_PYTHON, expectedPdfPython);
-assert.equal(observedEnv.C3_PDF_PYTHON, expectedPdfPython);
+assert.equal(observedEnv.INTENTSMITH_PDF_PYTHON, expectedPdfPython);
 assert.equal(observedEnv.DISPLAY, undefined);
 assert.equal(observedEnv.XAUTHORITY, undefined);
 assert.equal(observedEnv.INTENTSMITH_STUDIO_DISPLAY, undefined);
@@ -613,7 +613,7 @@ assert.equal(observedEnv.TEST_SECRET_SENTINEL, undefined);
 assert.equal(observedEnv.UMASK, 0o077);
 assert.deepEqual(
   byPath.get('tests/pass.test.js').environment.forwardedRuntimeKeys,
-  ['INTENTSMITH_PDF_PYTHON', 'C3_PDF_PYTHON'],
+  ['INTENTSMITH_PDF_PYTHON', 'INTENTSMITH_PDF_PYTHON'],
 );
 assert.equal(byPath.get('tests/pass.test.js').environment.pdfPython, expectedPdfPython);
 assert.equal(byPath.get('tests/pass.test.js').environment.sourceRevision, 'unknown');
@@ -784,7 +784,7 @@ await assert.rejects(
   /Invalid run-id/
 );
 
-const dirtyGuardRoot = await makeTempDirectory(path.join(os.tmpdir(), 'c3-audit-runner-dirty-'));
+const dirtyGuardRoot = await makeTempDirectory(path.join(os.tmpdir(), 'intentsmith-audit-runner-dirty-'));
 await mkdir(path.join(dirtyGuardRoot, 'tests'), { recursive: true });
 await writeFile(path.join(dirtyGuardRoot, 'tests', 'pass.test.js'), 'console.log("dirty fixture");\n');
 await writeFixtureRegistry(dirtyGuardRoot, ['tests/pass.test.js']);
@@ -822,7 +822,7 @@ assert.equal(cleanGuardRun.results[0].sourceTree.clean, true);
 assert.equal(cleanGuardRun.results[0].cleanup.checked, true);
 assert.equal(cleanGuardRun.results[0].cleanup.terminated, true);
 
-const failFastRoot = await makeTempDirectory(path.join(os.tmpdir(), 'c3-audit-runner-failfast-'));
+const failFastRoot = await makeTempDirectory(path.join(os.tmpdir(), 'intentsmith-audit-runner-failfast-'));
 await mkdir(path.join(failFastRoot, 'tests'), { recursive: true });
 await writeFile(path.join(failFastRoot, 'tests', 'a-fail.test.js'), 'process.exit(9);\n');
 const failFastLatePidPath = path.join(failFastRoot, 'late-pass.pid');
@@ -875,7 +875,7 @@ assert.notEqual(path.join(failFastRoot, resumedLateResult.logPath), staleLateLog
 assert.equal(await readFile(staleLateLog, 'utf8'), 'stale partial log\n');
 assert.ok(Number(await readFile(failFastLatePidPath, 'utf8')) > 0);
 
-const deadlineResumeRoot = await makeTempDirectory(path.join(os.tmpdir(), 'c3-audit-runner-deadline-resume-'));
+const deadlineResumeRoot = await makeTempDirectory(path.join(os.tmpdir(), 'intentsmith-audit-runner-deadline-resume-'));
 await mkdir(path.join(deadlineResumeRoot, 'tests'), { recursive: true });
 await writeFile(path.join(deadlineResumeRoot, 'tests', 'a-timeout.test.js'), `
 process.on('SIGTERM', () => {});
@@ -913,7 +913,7 @@ assert.equal(deadlineResumed.statusCounts.TIMEOUT, 1);
 assert.equal(deadlineResumed.statusCounts.PASS, 1);
 assert.equal(deadlineResumed.statusCounts.SKIPPED, 0);
 
-const deadlineRoot = await makeTempDirectory(path.join(os.tmpdir(), 'c3-audit-runner-deadline-'));
+const deadlineRoot = await makeTempDirectory(path.join(os.tmpdir(), 'intentsmith-audit-runner-deadline-'));
 await mkdir(path.join(deadlineRoot, 'tests'), { recursive: true });
 await writeFile(path.join(deadlineRoot, 'tests', 'deadline.test.js'), `
 process.on('SIGTERM', () => {});
@@ -945,7 +945,7 @@ const childPid = Number(await readFile(path.join(root, 'child.pid'), 'utf8'));
 assert.ok(Number.isInteger(childPid) && childPid > 0);
 await waitForProcessExit(childPid);
 
-const blockedRoot = await makeTempDirectory(path.join(os.tmpdir(), 'c3-audit-runner-blocked-'));
+const blockedRoot = await makeTempDirectory(path.join(os.tmpdir(), 'intentsmith-audit-runner-blocked-'));
 await mkdir(path.join(blockedRoot, 'tests'), { recursive: true });
 await writeFile(path.join(blockedRoot, 'tests', 'model.test.js'), 'console.log("must not run");\n');
 await writeFixtureRegistry(blockedRoot, ['tests/model.test.js'], {
@@ -977,7 +977,7 @@ assert.equal(blockedRun.exitCode, 2);
 assert.deepEqual(blockedRun.results[0].blockedBy, ['server']);
 
 const toolchainRoot = await makeTempDirectory(
-  path.join(os.tmpdir(), 'c3-audit-runner-toolchain-'),
+  path.join(os.tmpdir(), 'intentsmith-audit-runner-toolchain-'),
 );
 await mkdir(path.join(toolchainRoot, 'tests'), { recursive: true });
 await writeFile(path.join(toolchainRoot, 'tests', 'toolchain.test.js'), `
@@ -1128,7 +1128,7 @@ assert.deepEqual(
 );
 
 // Independent OCR runtime survives HOME isolation only for its declared suite.
-const accountantRoot = await makeTempDirectory(path.join(os.tmpdir(), 'c3-audit-accountant-'));
+const accountantRoot = await makeTempDirectory(path.join(os.tmpdir(), 'intentsmith-audit-accountant-'));
 await mkdir(path.join(accountantRoot, 'tests'));
 await writeFile(path.join(accountantRoot, 'tests', 'runtime.test.js'), `
 import { writeFileSync } from 'node:fs';
@@ -1165,7 +1165,7 @@ assert.deepEqual(JSON.parse(await readFile(path.join(accountantUndeclared.result
 restoreEnvironmentValue('UCETNI_RUNTIME_DIR', originalAccountantRuntime);
 
 const logOpenFailureRoot = await makeTempDirectory(
-  path.join(os.tmpdir(), 'c3-audit-runner-log-open-failure-'),
+  path.join(os.tmpdir(), 'intentsmith-audit-runner-log-open-failure-'),
 );
 const logOpenFailurePidPath = path.join(logOpenFailureRoot, 'must-not-start.pid');
 const occupiedLogPath = path.join(logOpenFailureRoot, 'occupied.log');
@@ -1197,7 +1197,7 @@ await assert.rejects(
 await assert.rejects(() => stat(logOpenFailurePidPath), /ENOENT/);
 
 const logFailureRoot = await makeTempDirectory(
-  path.join(os.tmpdir(), 'c3-audit-runner-log-failure-'),
+  path.join(os.tmpdir(), 'intentsmith-audit-runner-log-failure-'),
 );
 const logFailurePidPath = path.join(logFailureRoot, 'active-suite.pid');
 await mkdir(path.join(logFailureRoot, 'tests'), { recursive: true });
@@ -1241,7 +1241,7 @@ const logFailureSuitePid = Number(await readFile(logFailurePidPath, 'utf8'));
 await waitForProcessExit(logFailureSuitePid);
 
 const logReadFailureRoot = await makeTempDirectory(
-  path.join(os.tmpdir(), 'c3-audit-runner-log-read-failure-'),
+  path.join(os.tmpdir(), 'intentsmith-audit-runner-log-read-failure-'),
 );
 await mkdir(path.join(logReadFailureRoot, 'tests'), { recursive: true });
 await writeFile(
@@ -1271,7 +1271,7 @@ assert.equal(logReadFailureRun.results[0].logReadError?.code, 'ENOENT');
 assert.equal(logReadFailureRun.results[0].logSha256, null);
 
 const interruptedDryRoot = await makeTempDirectory(
-  path.join(os.tmpdir(), 'c3-audit-runner-interrupted-dry-'),
+  path.join(os.tmpdir(), 'intentsmith-audit-runner-interrupted-dry-'),
 );
 await mkdir(path.join(interruptedDryRoot, 'tests'), { recursive: true });
 await writeFile(
@@ -1310,7 +1310,7 @@ assert.equal(interruptedDryReport.interruptionSignal, 'SIGTERM');
 assert.equal(interruptedDryReport.verdict, 'FAIL');
 assert.equal(interruptedDryReport.exitCode, 1);
 
-const signalRoot = await makeTempDirectory(path.join(os.tmpdir(), 'c3-audit-runner-signal-'));
+const signalRoot = await makeTempDirectory(path.join(os.tmpdir(), 'intentsmith-audit-runner-signal-'));
 const signalReadyPath = path.join(signalRoot, 'suite-ready.pid');
 await mkdir(path.join(signalRoot, 'tests'), { recursive: true });
 await writeFile(path.join(signalRoot, 'tests', 'a-ignore-signal.test.js'), `
@@ -1391,7 +1391,7 @@ console.log(
 } finally {
   delete process.env.TEST_SECRET_SENTINEL;
   delete process.env.INTENTSMITH_PDF_PYTHON;
-  delete process.env.C3_PDF_PYTHON;
+  delete process.env.INTENTSMITH_PDF_PYTHON;
   restoreEnvironmentValue('INTENTSMITH_STUDIO_DISPLAY', originalStudioDisplay);
   restoreEnvironmentValue('UCETNI_RUNTIME_DIR', originalAccountantRuntime);
   restoreEnvironmentValue('INTENTSMITH_STUDIO_XAUTHORITY', originalStudioXauthority);

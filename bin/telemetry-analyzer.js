@@ -36,7 +36,7 @@ for (const a of args) {
   if (m) flags[m[1]] = m[2] ?? true;
 }
 
-const dbPath = flags.db || process.env.C3_DB_PATH || resolve(PROJECT_ROOT, 'data/c3.db');
+const dbPath = flags.db || (process.env.INTENTSMITH_DB_PATH ?? process.env['C3_DB_PATH']) || resolve(PROJECT_ROOT, 'data/intentsmith.db');
 const sinceDate = flags.since || null;
 const sessionFilter = flags.session || null;
 const jsonOutput = flags.json === true;

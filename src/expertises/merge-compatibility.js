@@ -1,4 +1,4 @@
-// C3 Merge Engine v2 — Compatibility Check
+// IntentSmith Merge Engine v2 — Compatibility Check
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Pairwise 5D conflict detection for expertise combinations.

@@ -473,7 +473,7 @@ tools['fs.glob'] = {
         if (depth > 10 || results.length >= maxResults) return;
         const entries = await fsP.readdir(dir, { withFileTypes: true });
         for (const e of entries) {
-          if (['node_modules', '.git', '.c3'].includes(e.name)) continue;
+          if (['node_modules', '.git', '.intentsmith'].includes(e.name)) continue;
           const full = pathM.join(dir, e.name);
           const rel = pathM.relative(cwd, full);
           if (e.isDirectory()) { await walk(full, depth + 1); }
@@ -1649,7 +1649,7 @@ tools['fs.find'] = {
     const pathM = await import('path');
     try {
       const results = [];
-      const skip = new Set(['node_modules', '.git', '.c3', 'dist', 'build', '.next', '__pycache__']);
+      const skip = new Set(['node_modules', '.git', '.intentsmith', 'dist', 'build', '.next', '__pycache__']);
       async function walk(d, depth) {
         if (depth > maxDepth || results.length >= maxResults) return;
         let entries;
@@ -1845,7 +1845,7 @@ tools['text.search'] = {
     const fsP = await import('fs/promises');
     const pathM = await import('path');
     try {
-      const skip = new Set(['node_modules', '.git', 'dist', 'build', '.c3', '__pycache__']);
+      const skip = new Set(['node_modules', '.git', 'dist', 'build', '.intentsmith', '__pycache__']);
       let flags = 'gm'; if (!caseSensitive) flags += 'i';
       const searchPat = wholeWord ? `\\b${pattern}\\b` : pattern;
       const re = new RegExp(searchPat, flags);
@@ -3087,7 +3087,7 @@ tools['test.detect'] = {
       try { await fsP.access(pathM.join(root, 'pyproject.toml')); frameworks.push({ name: 'pytest', command: 'pytest' }); } catch {}
       // Node built-in test runner
       if (scripts.test?.includes('node --test')) frameworks.push({ name: 'node:test', command: 'node --test' });
-      // Custom C3 test harness
+      // Custom IntentSmith test harness
       try {
         const testDir = await fsP.readdir(pathM.join(root, 'tests'));
         if (testDir.some(f => f.endsWith('.test.js') || f.endsWith('.test.mjs'))) {
@@ -3227,7 +3227,7 @@ tools['code.analyze'] = {
     const fsP = await import('fs/promises');
     const pathM = await import('path');
     try {
-      const skip = new Set(['node_modules', '.git', 'dist', 'build', '.c3', '__pycache__', '.next', 'vendor', 'coverage']);
+      const skip = new Set(['node_modules', '.git', 'dist', 'build', '.intentsmith', '__pycache__', '.next', 'vendor', 'coverage']);
       const langExts = { js: 'JavaScript', mjs: 'JavaScript', cjs: 'JavaScript', ts: 'TypeScript', tsx: 'TypeScript', jsx: 'JavaScript', py: 'Python', rb: 'Ruby', go: 'Go', rs: 'Rust', java: 'Java', cpp: 'C++', c: 'C', cs: 'C#', php: 'PHP', swift: 'Swift', kt: 'Kotlin', scala: 'Scala', dart: 'Dart', vue: 'Vue', svelte: 'Svelte', css: 'CSS', scss: 'SCSS', html: 'HTML', sql: 'SQL', sh: 'Shell', yaml: 'YAML', yml: 'YAML', json: 'JSON', md: 'Markdown', xml: 'XML' };
       const stats = { totalFiles: 0, totalLines: 0, totalBlank: 0, totalComment: 0, totalCode: 0, languages: {}, largestFiles: [] };
       async function walk(d, depth) {
@@ -3663,10 +3663,10 @@ tools['workspace.snapshot'] = {
     try {
       const root = pathM.resolve(dir);
       const snapshotName = name || `snapshot-${new Date().toISOString().replace(/[:.]/g, '-')}`;
-      const snapshotDir = pathM.join(root, '.c3', 'snapshots');
+      const snapshotDir = pathM.join(root, '.intentsmith', 'snapshots');
       await fsP.mkdir(snapshotDir, { recursive: true });
       // Capture file list with hashes
-      const skip = new Set(['node_modules', '.git', '.c3', 'dist', 'build']);
+      const skip = new Set(['node_modules', '.git', '.intentsmith', 'dist', 'build']);
       const files = {};
       async function walk(d, depth) {
         if (depth > 5) return;
@@ -3708,12 +3708,12 @@ tools['workspace.restore'] = {
     const { execSync } = await import('child_process');
     try {
       const root = pathM.resolve(dir);
-      const snapshotPath = pathM.join(root, '.c3', 'snapshots', `${name}.json`);
+      const snapshotPath = pathM.join(root, '.intentsmith', 'snapshots', `${name}.json`);
       const snapshot = JSON.parse(await fsP.readFile(snapshotPath, 'utf-8'));
       const changes = { added: [], modified: [], deleted: [] };
       // Compare current state
       const currentFiles = {};
-      const skip = new Set(['node_modules', '.git', '.c3', 'dist', 'build']);
+      const skip = new Set(['node_modules', '.git', '.intentsmith', 'dist', 'build']);
       async function walk(d, depth) {
         if (depth > 5) return;
         let entries; try { entries = await fsP.readdir(d, { withFileTypes: true }); } catch { return; }
@@ -3752,7 +3752,7 @@ tools['workspace.snapshots'] = {
     const fsP = await import('fs/promises');
     const pathM = await import('path');
     try {
-      const snapshotDir = pathM.join(pathM.resolve(dir), '.c3', 'snapshots');
+      const snapshotDir = pathM.join(pathM.resolve(dir), '.intentsmith', 'snapshots');
       let files;
       try { files = await fsP.readdir(snapshotDir); } catch { return { snapshots: [], count: 0 }; }
       const snapshots = [];

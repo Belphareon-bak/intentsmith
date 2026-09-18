@@ -1,6 +1,6 @@
 // 200-s1-minic3-p1.e2e.js — S1 MiniC3: Phase 1 — Architecture Discussion (10 turns)
 // ══════════════════════════════════════════════════════════════════════════════
-// Realistic multi-turn architecture planning for a C3-like chat agent.
+// Realistic multi-turn architecture planning for a IntentSmith-like chat agent.
 // Creates project + conversation, saves state for subsequent phases.
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -18,7 +18,7 @@ const TURN_TIMEOUT = 600_000;
 
 const TURNS = [
   {
-    prompt: 'Chci postavit zjednodušeného chatovacího agenta podobného C3. Musí mít REST API pro chat, konverzační historii v SQLite, jednoduchý intent classifier (deterministický, ne přes LLM), a tool executor. Co bys navrhl za architekturu? Jaké moduly a soubory? Jakým způsobem bude fungovat pipeline od přijetí zprávy po odpověď?',
+    prompt: 'Chci postavit zjednodušeného chatovacího agenta podobného IntentSmith. Musí mít REST API pro chat, konverzační historii v SQLite, jednoduchý intent classifier (deterministický, ne přes LLM), a tool executor. Co bys navrhl za architekturu? Jaké moduly a soubory? Jakým způsobem bude fungovat pipeline od přijetí zprávy po odpověď?',
     expectedFiles: null,
     type: 'planning',
     verify: (r) => hasKeywords(r.response, ['sqlite', 'intent', 'tool', 'api', 'pipeline'], 3),
@@ -115,7 +115,7 @@ await testAsync('Phase 1: 10-turn architecture planning', async () => {
   const state = initState(SUITE_ID);
 
   // Create project + conversation
-  const project = await createProject('minic3', 'MiniC3 — simplified C3 chat agent replica');
+  const project = await createProject('minic3', 'MiniC3 — simplified IntentSmith chat agent replica');
   state.projectId = project.id;
   state.projectPath = project.path;
 

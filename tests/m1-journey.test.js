@@ -113,12 +113,12 @@ function assertFreshInstalledSource() {
 
   for (const relative of [
     'node_modules/.package-lock.json',
-    'c3-ide/node_modules/electron/package.json',
-    'c3-ide/applications/electron/lib/backend/electron-main.js',
-    'c3-ide/applications/electron/lib/frontend/bundle.js',
-    'c3-ide/applications/electron/lib/frontend/index.html',
-    'c3-ide/applications/electron/lib/frontend/preload.js',
-    'c3-ide/applications/electron/scripts/launch.js',
+    'intentsmith-ide/node_modules/electron/package.json',
+    'intentsmith-ide/applications/electron/lib/backend/electron-main.js',
+    'intentsmith-ide/applications/electron/lib/frontend/bundle.js',
+    'intentsmith-ide/applications/electron/lib/frontend/index.html',
+    'intentsmith-ide/applications/electron/lib/frontend/preload.js',
+    'intentsmith-ide/applications/electron/scripts/launch.js',
   ]) {
     const absolute = path.join(SOURCE_ROOT, relative);
     assert.ok(existsSync(absolute), `fresh install/build output missing: ${relative}`);
@@ -199,29 +199,29 @@ function serverEnvironment(runtime, nonce, providerUrl) {
     CI: '1',
     DOTENV_CONFIG_PATH: path.join(runtime.root, 'no-dotenv-file'),
     DOTENV_CONFIG_QUIET: 'true',
-    C3_HOST: '127.0.0.1',
-    C3_PORT: '0',
-    C3_PORT_FILE: runtime.portFile,
-    C3_DB_PATH: runtime.database,
-    C3_PROJECTS_DIR: runtime.projects,
+    INTENTSMITH_HOST: '127.0.0.1',
+    INTENTSMITH_PORT: '0',
+    INTENTSMITH_PORT_FILE: runtime.portFile,
+    INTENTSMITH_DB_PATH: runtime.database,
+    INTENTSMITH_PROJECTS_DIR: runtime.projects,
     INTENTSMITH_TEST_PROJECTS_DIR: runtime.projects,
     INTENTSMITH_TEST_ARTIFACT_DIR: runtime.artifacts,
     INTENTSMITH_TEST_SERVER_NONCE: nonce,
-    C3_CORS_ORIGINS: 'http://localhost:3000',
-    C3_ENABLE_AGENTS: 'false',
-    C3_ENABLE_EXPERTISES: 'false',
-    C3_ENABLE_LIFECYCLE: 'false',
-    C3_ENABLE_COMFYUI: 'false',
-    C3_ENABLE_AUTONOMY: 'false',
-    C3_ENABLE_SKILLS: 'false',
-    C3_ENABLE_TELEMETRY: 'false',
-    C3_ENABLE_ONLINE_DISCOVERY: 'false',
-    C3_MODEL_UNIVERSE_ENABLED: 'false',
-    C3_LIFECYCLE_AUTO_COMMIT: 'false',
-    C3_UPDATE_REPO: '',
-    C3_TRACE: '0',
-    C3_LOG_LEVEL: 'warn',
-    C3_MODEL_CHAT: EXPECTED_MODEL,
+    INTENTSMITH_CORS_ORIGINS: 'http://localhost:3000',
+    INTENTSMITH_ENABLE_AGENTS: 'false',
+    INTENTSMITH_ENABLE_EXPERTISES: 'false',
+    INTENTSMITH_ENABLE_LIFECYCLE: 'false',
+    INTENTSMITH_ENABLE_COMFYUI: 'false',
+    INTENTSMITH_ENABLE_AUTONOMY: 'false',
+    INTENTSMITH_ENABLE_SKILLS: 'false',
+    INTENTSMITH_ENABLE_TELEMETRY: 'false',
+    INTENTSMITH_ENABLE_ONLINE_DISCOVERY: 'false',
+    INTENTSMITH_MODEL_UNIVERSE_ENABLED: 'false',
+    INTENTSMITH_LIFECYCLE_AUTO_COMMIT: 'false',
+    INTENTSMITH_UPDATE_REPO: '',
+    INTENTSMITH_TRACE: '0',
+    INTENTSMITH_LOG_LEVEL: 'warn',
+    INTENTSMITH_MODEL_CHAT: EXPECTED_MODEL,
     OLLAMA_URL: providerUrl,
   };
 }
@@ -470,7 +470,7 @@ async function waitForLiteralStudioTarget(userData, childState) {
   const activePortFile = path.join(userData, 'DevToolsActivePort');
   const expectedEntrypoint = path.join(
     SOURCE_ROOT,
-    'c3-ide/applications/electron/lib/frontend/index.html',
+    'intentsmith-ide/applications/electron/lib/frontend/index.html',
   );
   const deadline = Date.now() + SERVER_START_TIMEOUT_MS;
   while (Date.now() < deadline) {
@@ -510,7 +510,7 @@ async function startLiteralStudio(runtime) {
   const electronTmp = mkdtempSync('/tmp/is-m1-lit-');
   chmodSync(electronTmp, 0o700);
   const child = spawn(process.execPath, [
-    'c3-ide/applications/electron/scripts/launch.js',
+    'intentsmith-ide/applications/electron/scripts/launch.js',
     '--no-sandbox',
     '--remote-debugging-port=0',
     `--user-data-dir=${userData}`,
@@ -531,7 +531,7 @@ async function startLiteralStudio(runtime) {
       NODE_ENV: 'test',
       NODE_NO_WARNINGS: '1',
       NO_COLOR: '1',
-      C3_PORT_FILE: runtime.portFile,
+      INTENTSMITH_PORT_FILE: runtime.portFile,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -555,8 +555,8 @@ async function startLiteralStudio(runtime) {
     const deadline = Date.now() + SERVER_START_TIMEOUT_MS;
     while (Date.now() < deadline) {
       const ready = await evaluateRenderer(cdp, `(() => ({
-        negotiated: window.C3WS?.isReady?.() === true
-          && window.C3WS?.isM1WireNegotiated?.() === true,
+        negotiated: window.IntentSmithWS?.isReady?.() === true
+          && window.IntentSmithWS?.isM1WireNegotiated?.() === true,
         sessions: Array.isArray(window._sessions) ? window._sessions.length : 0
       }))()`);
       if (ready?.negotiated && ready.sessions >= 1) {
@@ -577,7 +577,7 @@ async function startLiteralStudio(runtime) {
 
 async function literalStudioTurn(studio, conversationId, prompt, label) {
   const expression = `(async () => {
-    const client = window.C3WS;
+    const client = window.IntentSmithWS;
     const pane = window._sessions?.[0];
     if (!client?.isReady?.() || !client?.isM1WireNegotiated?.() || !pane) {
       return { resultClass: 'not-ready' };
@@ -597,7 +597,7 @@ async function literalStudioTurn(studio, conversationId, prompt, label) {
         if (settled) return;
         settled = true;
         clearTimeout(timer);
-        window.C3Bus.off('chat:terminal', onTerminal);
+        window.IntentSmithBus.off('chat:terminal', onTerminal);
         resolve(value);
       };
       const onTerminal = event => {
@@ -614,7 +614,7 @@ async function literalStudioTurn(studio, conversationId, prompt, label) {
         });
       };
       const timer = setTimeout(() => finish({ resultClass: 'timeout' }), 300000);
-      window.C3Bus.on('chat:terminal', onTerminal);
+      window.IntentSmithBus.on('chat:terminal', onTerminal);
       if (!client.sendChat(${JSON.stringify(prompt)}, pane, 0)) {
         finish({ resultClass: 'send-rejected' });
       }

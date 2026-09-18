@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — B0: E2E Notification Verification
+// IntentSmith-Agent — B0: E2E Notification Verification
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // End-to-end verification of notification delivery:
@@ -37,11 +37,11 @@
  */
 export async function verifyEmail(config = {}) {
   const {
-    smtpHost = process.env.C3_SMTP_HOST,
-    smtpPort = process.env.C3_SMTP_PORT || 587,
-    smtpUser = process.env.C3_SMTP_USER,
-    smtpPass = process.env.C3_SMTP_PASS,
-    recipient = process.env.C3_TEST_EMAIL,
+    smtpHost = (process.env.INTENTSMITH_SMTP_HOST ?? process.env['C3_SMTP_HOST']),
+    smtpPort = (process.env.INTENTSMITH_SMTP_PORT ?? process.env['C3_SMTP_PORT']) || 587,
+    smtpUser = (process.env.INTENTSMITH_SMTP_USER ?? process.env['C3_SMTP_USER']),
+    smtpPass = (process.env.INTENTSMITH_SMTP_PASS ?? process.env['C3_SMTP_PASS']),
+    recipient = (process.env.INTENTSMITH_TEST_EMAIL ?? process.env['C3_TEST_EMAIL']),
   } = config;
 
   const result = {
@@ -52,7 +52,7 @@ export async function verifyEmail(config = {}) {
   };
 
   if (!result.configured) {
-    result.error = 'Missing SMTP config: C3_SMTP_HOST, C3_SMTP_USER, C3_SMTP_PASS, C3_TEST_EMAIL';
+    result.error = 'Missing SMTP config: INTENTSMITH_SMTP_HOST, INTENTSMITH_SMTP_USER, INTENTSMITH_SMTP_PASS, INTENTSMITH_TEST_EMAIL';
     return result;
   }
 
@@ -74,9 +74,9 @@ export async function verifyEmail(config = {}) {
     const info = await transport.sendMail({
       from: smtpUser,
       to: recipient,
-      subject: `[C3-Agent E2E Test] ${new Date().toISOString()}`,
-      text: `This is an automated E2E verification from C3-Agent.\nTimestamp: ${new Date().toISOString()}\nIf you received this, email delivery works.`,
-      html: `<h3>C3-Agent E2E Test</h3><p>✅ Email delivery verified at ${new Date().toISOString()}</p>`,
+      subject: `[IntentSmith-Agent E2E Test] ${new Date().toISOString()}`,
+      text: `This is an automated E2E verification from IntentSmith-Agent.\nTimestamp: ${new Date().toISOString()}\nIf you received this, email delivery works.`,
+      html: `<h3>IntentSmith-Agent E2E Test</h3><p>✅ Email delivery verified at ${new Date().toISOString()}</p>`,
     });
 
     result.sent = true;
@@ -96,8 +96,8 @@ export async function verifyEmail(config = {}) {
  */
 export async function verifyTelegram(config = {}) {
   const {
-    botToken = process.env.C3_TELEGRAM_BOT_TOKEN,
-    chatId = process.env.C3_TELEGRAM_CHAT_ID,
+    botToken = (process.env.INTENTSMITH_TELEGRAM_BOT_TOKEN ?? process.env['C3_TELEGRAM_BOT_TOKEN']),
+    chatId = (process.env.INTENTSMITH_TELEGRAM_CHAT_ID ?? process.env['C3_TELEGRAM_CHAT_ID']),
   } = config;
 
   const result = {
@@ -108,7 +108,7 @@ export async function verifyTelegram(config = {}) {
   };
 
   if (!result.configured) {
-    result.error = 'Missing Telegram config: C3_TELEGRAM_BOT_TOKEN, C3_TELEGRAM_CHAT_ID';
+    result.error = 'Missing Telegram config: INTENTSMITH_TELEGRAM_BOT_TOKEN, INTENTSMITH_TELEGRAM_CHAT_ID';
     return result;
   }
 
@@ -117,7 +117,7 @@ export async function verifyTelegram(config = {}) {
     const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
     const body = {
       chat_id: chatId,
-      text: `✅ *C3-Agent E2E Test*\n\nNotification delivery verified.\n📅 ${new Date().toISOString()}`,
+      text: `✅ *IntentSmith-Agent E2E Test*\n\nNotification delivery verified.\n📅 ${new Date().toISOString()}`,
       parse_mode: 'Markdown',
     };
 
@@ -151,9 +151,9 @@ export async function verifyTelegram(config = {}) {
  */
 export async function verifyNtfy(config = {}) {
   const {
-    serverUrl = process.env.C3_NTFY_URL || 'https://ntfy.sh',
-    topic = process.env.C3_NTFY_TOPIC,
-    token = process.env.C3_NTFY_TOKEN,
+    serverUrl = (process.env.INTENTSMITH_NTFY_URL ?? process.env['C3_NTFY_URL']) || 'https://ntfy.sh',
+    topic = (process.env.INTENTSMITH_NTFY_TOPIC ?? process.env['C3_NTFY_TOPIC']),
+    token = (process.env.INTENTSMITH_NTFY_TOKEN ?? process.env['C3_NTFY_TOKEN']),
   } = config;
 
   const result = {
@@ -164,7 +164,7 @@ export async function verifyNtfy(config = {}) {
   };
 
   if (!result.configured) {
-    result.error = 'Missing ntfy config: C3_NTFY_TOPIC';
+    result.error = 'Missing ntfy config: INTENTSMITH_NTFY_TOPIC';
     return result;
   }
 
@@ -172,7 +172,7 @@ export async function verifyNtfy(config = {}) {
   try {
     const url = `${serverUrl}/${topic}`;
     const headers = {
-      'Title': 'C3-Agent E2E Test',
+      'Title': 'IntentSmith-Agent E2E Test',
       'Priority': '3',
       'Tags': 'white_check_mark,robot',
     };
@@ -181,7 +181,7 @@ export async function verifyNtfy(config = {}) {
     const res = await fetch(url, {
       method: 'POST',
       headers,
-      body: `✅ C3-Agent E2E notification verified at ${new Date().toISOString()}`,
+      body: `✅ IntentSmith-Agent E2E notification verified at ${new Date().toISOString()}`,
     });
 
     if (res.ok) {

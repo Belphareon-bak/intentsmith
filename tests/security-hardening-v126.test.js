@@ -6,10 +6,10 @@ import path from 'path';
 import os from 'os';
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// Section 1: Workspace Path Traversal (C3)
+// Section 1: Workspace Path Traversal (IntentSmith)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-suite('C3: Workspace null root path traversal');
+suite('IntentSmith: Workspace null root path traversal');
 
 // Simulate the fixed workspace path logic
 function resolveWorkspacePath(dataRoot, dataPath) {
@@ -155,7 +155,7 @@ test('path to root → blocked', () => {
 });
 
 test('relative path resolving outside home → blocked', () => {
-  // This resolves from CWD which is /home/user/Projects/c3-agent-wip
+  // This resolves from CWD which is /home/user/Projects/intentsmith-agent-wip
   // Going up enough should land outside home
   const result = validateCustomPath('/var/log/evil');
   assert(!result.valid, 'Path to /var should be blocked');

@@ -832,7 +832,7 @@ async function main() {
     const staticIssues = validateStaticSafety({
       baseUrl,
       sourceRevision,
-      auditRun: process.env.C3_AUDIT_RUN,
+      auditRun: process.env.INTENTSMITH_AUDIT_RUN,
       registryEntry,
       chatModel: config.models?.CHAT,
     });

@@ -652,8 +652,8 @@ export function validateEvidenceIndexShape(index, expectedRegistryFacts) {
     || index.candidate.branch.includes('..')
     || !Array.isArray(index.repositoryBlockers)
     || !isDeepStrictEqual(index.sourceRefs, {
-      c3Input: 'ffd21cf119865259ea1847af989acb24916bebe3',
-      c3Parent: 'a7b90e36aa80310305703f54f2332e1c0e7f9e8f',
+      intentsmithInput: 'ffd21cf119865259ea1847af989acb24916bebe3',
+      intentsmithParent: 'a7b90e36aa80310305703f54f2332e1c0e7f9e8f',
       intentSmithDonor: '6676902c5f6fe7a5d66aba0d79cb502e0f3a60e4',
       localValidationCandidate: index.candidate?.sha,
     })
@@ -754,7 +754,7 @@ export function validateEvidenceIndexShape(index, expectedRegistryFacts) {
       'node scripts/validate-final-disposition.js --json',
     )
     || (registryValidation?.exitCode === 0)
-      !== (clauseById.get('G0-C3')?.result === 'PASS')
+      !== (clauseById.get('G0-IntentSmith')?.result === 'PASS')
     || (dispositionValidation?.exitCode === 0)
       !== (clauseById.get('G0-C2')?.result === 'PASS')
   ) {

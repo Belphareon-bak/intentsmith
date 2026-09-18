@@ -15,7 +15,7 @@
         "url": "https://www.cssz.cz/web/cz/osvc-platba-pojistneho",
         "method": "GET",
         "headers": {
-          "User-Agent": "C3-Agent/59.0"
+          "User-Agent": "IntentSmith-Agent/59.0"
         }
       }
     },
@@ -26,7 +26,7 @@
         "url": "https://www.vzp.cz/platci/informace/osvc/platba-pojistneho",
         "method": "GET",
         "headers": {
-          "User-Agent": "C3-Agent/59.0"
+          "User-Agent": "IntentSmith-Agent/59.0"
         }
       }
     },
@@ -37,7 +37,7 @@
         "url": "https://www.mpsv.cz/minimalni-mzda",
         "method": "GET",
         "headers": {
-          "User-Agent": "C3-Agent/59.0"
+          "User-Agent": "IntentSmith-Agent/59.0"
         }
       }
     },
@@ -48,7 +48,7 @@
         "url": "https://www.financnisprava.cz/cs/dane/dane/dan-z-prijmu",
         "method": "GET",
         "headers": {
-          "User-Agent": "C3-Agent/59.0"
+          "User-Agent": "IntentSmith-Agent/59.0"
         }
       }
     },
@@ -59,7 +59,7 @@
         "url": "https://www.financnisprava.cz/cs/dane/dane/dan-z-pridane-hodnoty",
         "method": "GET",
         "headers": {
-          "User-Agent": "C3-Agent/59.0"
+          "User-Agent": "IntentSmith-Agent/59.0"
         }
       }
     },
@@ -70,7 +70,7 @@
         "url": "https://www.financnisprava.cz/cs/dane/dane/pausalni-dan",
         "method": "GET",
         "headers": {
-          "User-Agent": "C3-Agent/59.0"
+          "User-Agent": "IntentSmith-Agent/59.0"
         }
       }
     }

@@ -806,9 +806,9 @@ export class WorkflowOrchestrator {
     logger.info('Workflow', 'Build verification', { sessionId: session.id, command: buildCmd, attempt: session.buildFixAttempts });
 
     try {
-      // Lazy-load C3ToolExecutor to avoid circular dependency
-      const { C3ToolExecutor } = await import('../executor/c3-tool-executor.js');
-      const executor = new C3ToolExecutor();
+      // Lazy-load IntentSmithToolExecutor to avoid circular dependency
+      const { IntentSmithToolExecutor } = await import('../executor/intentsmith-tool-executor.js');
+      const executor = new IntentSmithToolExecutor();
 
       const result = await executor.execute({
         correlationId: `build-verify-${session.id}-${session.buildFixAttempts}`,

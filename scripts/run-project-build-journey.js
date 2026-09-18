@@ -87,30 +87,30 @@ function serverEnvironment(runtime, nonce, providerUrl, models = {}) {
     CI: '1',
     DOTENV_CONFIG_PATH: path.join(runtime.root, 'no-dotenv-file'),
     DOTENV_CONFIG_QUIET: 'true',
-    C3_HOST: '127.0.0.1',
-    C3_PORT: '0',
-    C3_PORT_FILE: runtime.portFile,
-    C3_DB_PATH: runtime.database,
-    C3_PROJECTS_DIR: runtime.projects,
+    INTENTSMITH_HOST: '127.0.0.1',
+    INTENTSMITH_PORT: '0',
+    INTENTSMITH_PORT_FILE: runtime.portFile,
+    INTENTSMITH_DB_PATH: runtime.database,
+    INTENTSMITH_PROJECTS_DIR: runtime.projects,
     INTENTSMITH_TEST_PROJECTS_DIR: runtime.projects,
     INTENTSMITH_TEST_ARTIFACT_DIR: runtime.artifacts,
     INTENTSMITH_TEST_SERVER_NONCE: nonce,
-    C3_CORS_ORIGINS: 'http://localhost:3000',
-    C3_ENABLE_AGENTS: 'false',
-    C3_ENABLE_EXPERTISES: 'false',
-    C3_ENABLE_LIFECYCLE: 'false',
-    C3_ENABLE_COMFYUI: 'false',
-    C3_ENABLE_AUTONOMY: 'false',
-    C3_ENABLE_SKILLS: 'false',
-    C3_ENABLE_TELEMETRY: 'false',
-    C3_ENABLE_ONLINE_DISCOVERY: 'false',
-    C3_MODEL_UNIVERSE_ENABLED: 'false',
-    C3_LIFECYCLE_AUTO_COMMIT: 'false',
-    C3_UPDATE_REPO: '',
-    C3_TRACE: '0',
-    C3_LOG_LEVEL: 'warn',
-    C3_MODEL_CHAT: models.CHAT || EXPECTED_MODEL, C3_MODEL_CODE: models.CODE || EXPECTED_MODEL,
-    C3_MODEL_D1: models.D1 || EXPECTED_MODEL,
+    INTENTSMITH_CORS_ORIGINS: 'http://localhost:3000',
+    INTENTSMITH_ENABLE_AGENTS: 'false',
+    INTENTSMITH_ENABLE_EXPERTISES: 'false',
+    INTENTSMITH_ENABLE_LIFECYCLE: 'false',
+    INTENTSMITH_ENABLE_COMFYUI: 'false',
+    INTENTSMITH_ENABLE_AUTONOMY: 'false',
+    INTENTSMITH_ENABLE_SKILLS: 'false',
+    INTENTSMITH_ENABLE_TELEMETRY: 'false',
+    INTENTSMITH_ENABLE_ONLINE_DISCOVERY: 'false',
+    INTENTSMITH_MODEL_UNIVERSE_ENABLED: 'false',
+    INTENTSMITH_LIFECYCLE_AUTO_COMMIT: 'false',
+    INTENTSMITH_UPDATE_REPO: '',
+    INTENTSMITH_TRACE: '0',
+    INTENTSMITH_LOG_LEVEL: 'warn',
+    INTENTSMITH_MODEL_CHAT: models.CHAT || EXPECTED_MODEL, INTENTSMITH_MODEL_CODE: models.CODE || EXPECTED_MODEL,
+    INTENTSMITH_MODEL_D1: models.D1 || EXPECTED_MODEL,
     OLLAMA_URL: providerUrl,
   };
 }
@@ -236,7 +236,7 @@ async function waitForLiteralStudioTarget(userData, childState) {
   const activePortFile = path.join(userData, 'DevToolsActivePort');
   const expectedEntrypoint = path.join(
     SOURCE_ROOT,
-    'c3-ide/applications/electron/lib/frontend/index.html',
+    'intentsmith-ide/applications/electron/lib/frontend/index.html',
   );
   const deadline = Date.now() + SERVER_START_TIMEOUT_MS;
   while (Date.now() < deadline) {
@@ -277,7 +277,7 @@ async function startLiteralStudio(runtime) {
   const electronTmp = mkdtempSync('/tmp/is-m1-lit-');
   chmodSync(electronTmp, 0o700);
   const child = spawn(process.execPath, [
-    'c3-ide/applications/electron/scripts/launch.js',
+    'intentsmith-ide/applications/electron/scripts/launch.js',
     '--no-sandbox', '--disable-gpu',
     '--remote-debugging-port=0',
     `--user-data-dir=${userData}`,
@@ -298,7 +298,7 @@ async function startLiteralStudio(runtime) {
       NODE_ENV: 'test',
       NODE_NO_WARNINGS: '1',
       NO_COLOR: '1',
-      C3_PORT_FILE: runtime.portFile,
+      INTENTSMITH_PORT_FILE: runtime.portFile,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -322,8 +322,8 @@ async function startLiteralStudio(runtime) {
     const deadline = Date.now() + SERVER_START_TIMEOUT_MS;
     while (Date.now() < deadline) {
       const ready = await evaluateRenderer(cdp, `(() => ({
-        negotiated: window.C3WS?.isReady?.() === true
-          && window.C3WS?.isM1WireNegotiated?.() === true,
+        negotiated: window.IntentSmithWS?.isReady?.() === true
+          && window.IntentSmithWS?.isM1WireNegotiated?.() === true,
         sessions: Array.isArray(window._sessions) ? window._sessions.length : 0
       }))()`);
       if (ready?.negotiated && ready.sessions >= 1) {
@@ -392,7 +392,7 @@ async function fillComposer(studio, projectPath) {
     const pane = window._sessions[0];
     pane._convId = conversation.id; pane._projectId = project.id; pane._agentId = null;
     pane._conversationFocus = false; pane.chat._thinking = null; pane.chat.attachments = [];
-    window.C3Bus.emit('session:changed', { idx: 0 });
+    window.IntentSmithBus.emit('session:changed', { idx: 0 });
     const pause = () => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     const el = id => document.getElementById('m2-build-0-' + id);
     const click = async id => { if (!el(id) || el(id).disabled) throw new Error('disabled ' + id); el(id).click(); await pause(); };
@@ -433,7 +433,7 @@ async function clickAction(studio, label) {
 
 async function sendStatus(studio, id) {
   return ui(studio, ({ id }) => {
-    const textarea = document.getElementById('c3-chat-ta-0');
+    const textarea = document.getElementById('intentsmith-chat-ta-0');
     if (!textarea) throw new Error('chat input unavailable');
     Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(textarea, '/m2-status ' + id);
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
@@ -495,10 +495,10 @@ async function inside(configurationPath) {
   await new Promise(resolve => bridge.listen(0, '127.0.0.1', resolve));
   const provider = 'http://127.0.0.1:' + bridge.address().port;
   const runtime = makeRuntime(out), project = path.join(runtime.projects, 'calendar');
-  mkdirSync(path.join(project, 'src'), { recursive: true }); mkdirSync(path.join(project, '.c3'));
+  mkdirSync(path.join(project, 'src'), { recursive: true }); mkdirSync(path.join(project, '.intentsmith'));
   const before = 'export const isLeapYear = () => false;\n';
   writeFileSync(path.join(project, 'src/app.mjs'), before);
-  writeFileSync(path.join(project, '.c3/m2-governance-policy.json'), JSON.stringify({
+  writeFileSync(path.join(project, '.intentsmith/m2-governance-policy.json'), JSON.stringify({
     policyId: 'calendar-local', layers: [{ name: 'app', roots: ['src'] }], rules: [{ from: 'app', canImport: ['app'] }],
     externalImports: [], sourceExtensions: ['.mjs'], requiredChecks: ['imports.allowed', 'inventory.complete', 'layers.mapped'], unmappedFilePolicy: 'unavailable',
   }));
@@ -589,7 +589,7 @@ async function inside(configurationPath) {
     // Keep a canonical backup name so the negative reaches content validation.
     const corruptName = backup.json.name.replace('.backup', '-99.backup');
     fs.cpSync(originalBackup, path.join(path.dirname(originalBackup), corruptName), { recursive: true });
-    fs.appendFileSync(path.join(path.dirname(originalBackup), corruptName, 'c3.db'), 'damaged-copy');
+    fs.appendFileSync(path.join(path.dirname(originalBackup), corruptName, 'intentsmith.db'), 'damaged-copy');
     const restore = name => spawnSync(process.execPath, ['scripts/restore-state-backup.js', '--data-dir', path.dirname(runtime.database), '--backup', name, '--db-path', runtime.database],
       { cwd: SOURCE_ROOT, env: serverEnvironment(runtime, 'offline-restore', provider), encoding: 'utf8', timeout: 30000 });
     const digestBeforeRejectedRestore = sha256(readFileSync(runtime.database));
@@ -598,7 +598,7 @@ async function inside(configurationPath) {
     assert.equal(sha256(readFileSync(runtime.database)), digestBeforeRejectedRestore);
     evidence.corruptBackupRejected = { exit: rejected.status, stderr: rejected.stderr };
     const restored = restore(backup.json.name); assert.equal(restored.status, 0, restored.stderr);
-    assert.equal(sha256(readFileSync(runtime.database)), sha256(readFileSync(path.join(originalBackup, 'c3.db'))));
+    assert.equal(sha256(readFileSync(runtime.database)), sha256(readFileSync(path.join(originalBackup, 'intentsmith.db'))));
     evidence.backupRestore = { backup: backup.json, result: JSON.parse(restored.stdout), exactDatabaseBytes: true };
     await boot();
     const afterRestore = await currentStatus(pending); assert.deepEqual(afterRestore.terminal, terminal.terminal);
@@ -629,9 +629,9 @@ async function parent(out) {
   mkdirSync(out, { mode: 0o700 });
   const revision = git(['rev-parse', 'HEAD']);
   const evidence = { status: 'RUNNING', sourceRevision: revision, startedAt: new Date().toISOString(), model: EXPECTED_MODEL, digest: EXPECTED_DIGEST };
-  evidence.build = Object.fromEntries(['package-lock.json', 'c3-ide/yarn.lock', 'scripts/run-project-build-journey.js',
-    'c3-ide/applications/electron/lib/frontend/bundle.js', 'c3-ide/applications/electron/lib/backend/electron-main.js',
-    'c3-ide/applications/electron/lib/frontend/index.html', 'c3-ide/applications/electron/lib/frontend/preload.js']
+  evidence.build = Object.fromEntries(['package-lock.json', 'intentsmith-ide/yarn.lock', 'scripts/run-project-build-journey.js',
+    'intentsmith-ide/applications/electron/lib/frontend/bundle.js', 'intentsmith-ide/applications/electron/lib/backend/electron-main.js',
+    'intentsmith-ide/applications/electron/lib/frontend/index.html', 'intentsmith-ide/applications/electron/lib/frontend/preload.js']
     .map(relative => [relative, sha256(readFileSync(path.join(SOURCE_ROOT, relative)))]));
   const requests = [], upstreamOrigin = 'http://127.0.0.1:11434';
   let lease, proxy, child, loaded = false, socketRoot;

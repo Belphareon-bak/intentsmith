@@ -14,9 +14,9 @@
 import { createInterface } from 'readline';
 import { randomUUID } from 'crypto';
 import {
-  C3InputEvent,
-  C3OutputEvent,
-  C3ErrorEvent,
+  IntentSmithInputEvent,
+  IntentSmithOutputEvent,
+  IntentSmithErrorEvent,
   ChannelType,
   ContentType,
   ChannelCapabilities,
@@ -31,8 +31,8 @@ import { logger } from '../core/logger.js';
  * CLI Adapter — Reference implementation for Channel Adapter contract.
  *
  * Features:
- * - stdin → C3InputEvent
- * - C3OutputEvent → stdout
+ * - stdin → IntentSmithInputEvent
+ * - IntentSmithOutputEvent → stdout
  * - No rate limiting (local development)
  * - No authentication (trusted environment)
  *
@@ -172,7 +172,7 @@ export class CLIAdapter {
 
   /**
    * Register message callback
-   * @param {Function} callback - (C3InputEvent) => Promise<void>
+   * @param {Function} callback - (IntentSmithInputEvent) => Promise<void>
    */
   onMessage(callback) {
     if (typeof callback !== 'function') {
@@ -183,10 +183,10 @@ export class CLIAdapter {
 
   /**
    * Send response to stdout
-   * @param {C3OutputEvent} event
+   * @param {IntentSmithOutputEvent} event
    */
   sendResponse(event) {
-    if (!(event instanceof C3OutputEvent)) {
+    if (!(event instanceof IntentSmithOutputEvent)) {
       logger.error('CLIAdapter', 'sendResponse: Invalid event type');
       return;
     }
@@ -207,10 +207,10 @@ export class CLIAdapter {
 
   /**
    * Send error to stdout
-   * @param {C3ErrorEvent} event
+   * @param {IntentSmithErrorEvent} event
    */
   sendError(event) {
-    if (!(event instanceof C3ErrorEvent)) {
+    if (!(event instanceof IntentSmithErrorEvent)) {
       logger.error('CLIAdapter', 'sendError: Invalid event type');
       return;
     }
@@ -269,8 +269,8 @@ export class CLIAdapter {
       process.exit(0);
     }
 
-    // Create C3InputEvent
-    const event = new C3InputEvent({
+    // Create IntentSmithInputEvent
+    const event = new IntentSmithInputEvent({
       correlationId: randomUUID(),
       timestamp: Date.now(),
       source: {
@@ -300,7 +300,7 @@ export class CLIAdapter {
         await this.#messageCallback(event);
       } catch (error) {
         logger.error('CLIAdapter', `Callback error: ${error.message}`);
-        this.sendError(C3ErrorEvent.internal(event.correlationId, {
+        this.sendError(IntentSmithErrorEvent.internal(event.correlationId, {
           error: error.message,
         }));
       }

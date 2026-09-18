@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ══════════════════════════════════════════════════════════════════════════════
-// C3-Agent E2E Quality Deep — v61.3
+// IntentSmith-Agent E2E Quality Deep — v61.3
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // 36 testů pokrývající 4 reálné use-case:
@@ -23,7 +23,7 @@ const fs = require('fs');
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 
-const C3_URL = process.env.C3_URL || 'http://127.0.0.1:3335';
+const INTENTSMITH_URL = process.env.INTENTSMITH_URL || 'http://127.0.0.1:3335';
 const SEARCH_TIMEOUT_MS = parseInt(process.env.E2E_TIMEOUT || '120000');  // 2min for search
 const LOCAL_TIMEOUT_MS = 150000;  // 150s for local LLM (v62.2b: increased — lang retries add time)
 const VERBOSE = process.argv.includes('--verbose') || process.argv.includes('-v');
@@ -37,7 +37,7 @@ function chatRequest(message, sessionId = null, timeoutMs = SEARCH_TIMEOUT_MS) {
   return new Promise((resolve, reject) => {
     const sid = sessionId || `e2e-deep-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const data = JSON.stringify({ message, session_id: sid });
-    const url = new URL('/chat', C3_URL);
+    const url = new URL('/chat', INTENTSMITH_URL);
 
     const req = http.request({
       hostname: url.hostname,
@@ -66,7 +66,7 @@ function chatRequest(message, sessionId = null, timeoutMs = SEARCH_TIMEOUT_MS) {
 
 function apiRequest(method, path) {
   return new Promise((resolve, reject) => {
-    const url = new URL(path, C3_URL);
+    const url = new URL(path, INTENTSMITH_URL);
     const req = http.request({
       hostname: url.hostname, port: url.port, path: url.pathname,
       method, timeout: 15000,
@@ -765,18 +765,18 @@ const TESTS = [
 
 async function runAllTests() {
   console.log('\n\x1b[1m╔══════════════════════════════════════════════════════════╗');
-  console.log('║       C3-Agent E2E Quality Deep — v61.3                 ║');
+  console.log('║       IntentSmith-Agent E2E Quality Deep — v61.3                 ║');
   console.log('╚══════════════════════════════════════════════════════════╝\x1b[0m\n');
 
   // ── Health check ──
   try {
     const health = await apiRequest('GET', '/api/health');
     if (health.status !== 200) throw new Error(`Status ${health.status}`);
-    console.log(`\x1b[32m  Backend OK: ${C3_URL}\x1b[0m`);
+    console.log(`\x1b[32m  Backend OK: ${INTENTSMITH_URL}\x1b[0m`);
     if (health.body?.version) console.log(`  Version: ${health.body.version}`);
     console.log('');
   } catch (err) {
-    console.error(`\x1b[31m  Backend nedostupný: ${C3_URL}\x1b[0m`);
+    console.error(`\x1b[31m  Backend nedostupný: ${INTENTSMITH_URL}\x1b[0m`);
     console.error(`  Spusť: node src/server.js`);
     console.error(`  Error: ${err.message}`);
     process.exit(1);

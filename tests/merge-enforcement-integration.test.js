@@ -1,4 +1,4 @@
-// C3-Agent v63.0 — Merge → Enforcement Integration Test (🔴3)
+// IntentSmith-Agent v63.0 — Merge → Enforcement Integration Test (🔴3)
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Critical test: merge 2 expertises → create synthetic enforcement config
@@ -269,7 +269,7 @@ describe('T-EI5: quickCheck with merged config', async () => {
 
 // ─── Run All Tests ────────────────────────────────────────────────────────────
 
-console.log('\n🔬 C3 Merge → Enforcement Integration — Test Suite (🔴3)');
+console.log('\n🔬 IntentSmith Merge → Enforcement Integration — Test Suite (🔴3)');
 console.log('═'.repeat(70));
 
 for (const test of pendingTests) {

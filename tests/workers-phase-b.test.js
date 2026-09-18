@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ═══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — Phase B: Workers & Notifications Tests
+// IntentSmith-Agent — Phase B: Workers & Notifications Tests
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // B0: E2E notification verification
@@ -583,7 +583,7 @@ await t('weather agent → ntfy channel flow', async () => {
   const agent = weatherMonitor({ channel: 'ntfy', city: 'Ostrava' });
   eq(agent.definition.action.channel, 'ntfy');
 
-  const ch = new NtfyChannel({ topic: 'c3-test' });
+  const ch = new NtfyChannel({ topic: 'intentsmith-test' });
   // Verify channel can accept the agent's notification format
   ok(ch.name === 'ntfy', 'Channel ready');
 });

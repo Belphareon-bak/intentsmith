@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ══════════════════════════════════════════════════════════════════════════════
-// quality-report.js — C3 Quality Score Report CLI
+// quality-report.js — IntentSmith Quality Score Report CLI
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Reads quality_scores from SQLite and produces aggregate reports.
@@ -34,7 +34,7 @@ for (const a of args) {
   if (m) flags[m[1]] = m[2] ?? true;
 }
 
-const dbPath = flags.db || process.env.C3_DB_PATH || resolve(PROJECT_ROOT, 'data/c3.db');
+const dbPath = flags.db || (process.env.INTENTSMITH_DB_PATH ?? process.env['C3_DB_PATH']) || resolve(PROJECT_ROOT, 'data/intentsmith.db');
 const sinceDays = flags.since ? parseInt(flags.since, 10) : 30;
 const artifactType = flags.type || null;
 const projectId = flags.project || null;
@@ -45,7 +45,7 @@ const csvOutput = flags.csv === true;
 
 function printHelp() {
   console.log(`
-C3 Quality Score Report
+IntentSmith Quality Score Report
 ═══════════════════════
 
 Usage:
@@ -204,7 +204,7 @@ if (projectId) {
 
   // Text output
   console.log('\u2550'.repeat(60));
-  console.log(`  C3 Quality Report — ${projectId}`);
+  console.log(`  IntentSmith Quality Report — ${projectId}`);
   console.log('\u2550'.repeat(60));
   console.log();
   console.log(`  Total scores: ${parsed.length}`);
@@ -355,7 +355,7 @@ if (csvOutput) {
 // ─── Text output ────────────────────────────────────────────────────────────
 
 console.log('\u2550'.repeat(60));
-console.log('  C3 Quality Score Report');
+console.log('  IntentSmith Quality Score Report');
 console.log('\u2550'.repeat(60));
 console.log();
 console.log(`  Projects analyzed: ${summary.projects_analyzed}`);

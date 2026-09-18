@@ -8,7 +8,7 @@ import { MODULE_SECTIONS, DEFAULT_INHERITANCE_MODE, MAX_INHERITANCE_DEPTH } from
 // - volí strategii práce
 // - určuje kdy plánovat, kdy iterovat
 // - řídí styl, hloubku, kontrolu
-// - používá C3 Core jako engine
+// - používá IntentSmith Core jako engine
 //
 // Expert NENÍ:
 // - background agent (to jsou scrapers, data layer)

@@ -2,7 +2,7 @@
 import './helpers/isolated-test-db.js';
 
 // ══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — Adversarial CRE Classification Tests v87
+// IntentSmith-Agent — Adversarial CRE Classification Tests v87
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // PURPOSE: Stress-test CRE intent classification against:

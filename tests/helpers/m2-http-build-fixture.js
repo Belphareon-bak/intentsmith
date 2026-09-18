@@ -54,7 +54,7 @@ export async function startControlledM2HttpFixture({ fixtureRoot, defect = false
   const config = { fixtureRoot, defect, restart, token: token ?? randomBytes(32).toString('hex') };
   fs.writeFileSync(configPath, JSON.stringify(config), { flag: 'wx', mode: 0o600 });
   const child = spawn(process.execPath, [HELPER_PATH, '--serve', configPath], {
-    cwd: isolatedTestRuntime.repositoryRoot, env: { ...process.env, C3_AUDIT_RUN: '1' },
+    cwd: isolatedTestRuntime.repositoryRoot, env: { ...process.env, INTENTSMITH_AUDIT_RUN: '1' },
     stdio: ['ignore', 'pipe', 'pipe', 'ipc'],
   });
   let output = '';

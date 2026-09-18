@@ -1,4 +1,4 @@
-// C3-Agent v63.0 — Expertise Wizard Backend Tests
+// IntentSmith-Agent v63.0 — Expertise Wizard Backend Tests
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // T-WZ1: Modules validation
@@ -417,7 +417,7 @@ describe('T-WZ5: Edge cases', async () => {
 
 // ─── Run All Tests ────────────────────────────────────────────────────────────
 
-console.log('\n🔬 C3 Expertise Wizard — Backend Test Suite');
+console.log('\n🔬 IntentSmith Expertise Wizard — Backend Test Suite');
 console.log('═'.repeat(70));
 
 for (const test of pendingTests) {

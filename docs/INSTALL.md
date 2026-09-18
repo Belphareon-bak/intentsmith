@@ -265,20 +265,20 @@ jeho smoke test.
 ### 3.1 Instalace IDE zavislosti
 
 ```bash
-cd ~/Projects/intentsmith/c3-ide
+cd ~/Projects/intentsmith/intentsmith-ide
 
 # Uzamcena instalace zavislosti (Theia + extensions)
 yarn install --frozen-lockfile --non-interactive
 ```
 
-`c3-ide/yarn.lock` je soucasti source of truth. Frozen instalace nesmi pri
+`intentsmith-ide/yarn.lock` je soucasti source of truth. Frozen instalace nesmi pri
 selhani prejit na novy dependency resolution. Samostatny Yarn krok neni
 ekvivalent `install.sh`.
 
 ### 3.2 Build IDE
 
 ```bash
-cd ~/Projects/intentsmith/c3-ide
+cd ~/Projects/intentsmith/intentsmith-ide
 
 # Cisty build
 yarn build
@@ -292,7 +292,7 @@ yarn clean && yarn build
 ### 3.3 Spusteni IDE
 
 ```bash
-cd ~/Projects/intentsmith/c3-ide
+cd ~/Projects/intentsmith/intentsmith-ide
 yarn start
 ```
 
@@ -498,7 +498,7 @@ cd ~/Projects/intentsmith
 ```
 
 Po predchozi uspesne kanonicke instalaci lze pro pouhou vyvojovou iteraci
-spustit `cd c3-ide && yarn build`.
+spustit `cd intentsmith-ide && yarn build`.
 
 ### `better-sqlite3` kompilace selhava
 
@@ -544,10 +544,10 @@ lsof -i :3335
 echo "C3_PORT=3336" >> .env
 ```
 
-### Frozen Yarn install v c3-ide selhava
+### Frozen Yarn install v intentsmith-ide selhava
 
 ```bash
-cd ~/Projects/intentsmith/c3-ide
+cd ~/Projects/intentsmith/intentsmith-ide
 yarn --version  # musi byt 1.22.22
 yarn install --frozen-lockfile --non-interactive
 ```

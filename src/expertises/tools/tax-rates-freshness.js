@@ -1,4 +1,4 @@
-// C3-Agent v57.3 — Tax Rates Freshness & Verification Strategy
+// IntentSmith-Agent v57.3 — Tax Rates Freshness & Verification Strategy
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Modul pro ověřování aktuálnosti daňových sazeb.

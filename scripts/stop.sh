@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# C3 Studio — Stop Script (F4a, v129.2)
+# IntentSmith Studio — Stop Script (F4a, v129.2)
 # ══════════════════════════════════════════════════════════════════════════════
 #
-# Stops a running C3 backend instance.
+# Stops a running IntentSmith backend instance.
 #
 # Usage:
 #   ./scripts/stop.sh
@@ -22,7 +22,7 @@ warn() { echo -e "  ${YELLOW}⚠${NC} $1"; }
 fail() { echo -e "  ${RED}✗${NC} $1"; }
 info() { echo -e "  ${BLUE}→${NC} $1"; }
 
-PORT_FILE="$HOME/.c3/port"
+PORT_FILE="$HOME/.intentsmith/port"
 
 # Load nvm if needed (for node -e used below)
 NODE_MAJOR=$(node -v 2>/dev/null | sed 's/v//' | cut -d. -f1 || echo "0")
@@ -34,12 +34,12 @@ if [ "$NODE_MAJOR" -lt 22 ] 2>/dev/null && [ -f "$HOME/.nvm/nvm.sh" ]; then
 fi
 
 echo ""
-echo -e "${BOLD}── C3 Studio — Stop ──${NC}"
+echo -e "${BOLD}── IntentSmith Studio — Stop ──${NC}"
 echo ""
 
 if [ ! -f "$PORT_FILE" ]; then
   info "No port file found at ${PORT_FILE}"
-  info "C3 backend is not running (or was started differently)"
+  info "IntentSmith backend is not running (or was started differently)"
   exit 0
 fi
 
@@ -71,7 +71,7 @@ if [ "$PID_CMD" != "node" ]; then
   exit 0
 fi
 
-info "Stopping C3 backend (PID ${PID}, port ${PORT})..."
+info "Stopping IntentSmith backend (PID ${PID}, port ${PORT})..."
 
 # Send SIGTERM for graceful shutdown
 kill -TERM "$PID" 2>/dev/null || true

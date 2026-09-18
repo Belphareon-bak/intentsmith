@@ -9,7 +9,7 @@ Jde o ohraničený kalendářový projekt, nikoli plný autonomní builder ani n
 65s network census. [Provenance a review](../review/2026-09-12-PRODUCTION-JOURNEY-REVIEW-PACKET.md).
 Historická inventura a její checkpointy pokračují níže.
 
-**Pořadí 8** · **2026-08-02** · `17a8b9a8` · 5 souborů, **1 271 řádků** + `c3-ide/`
+**Pořadí 8** · **2026-08-02** · `17a8b9a8` · 5 souborů, **1 271 řádků** + `intentsmith-ide/`
 
 | Soubor | Ř. |
 |---|---:|
@@ -37,13 +37,13 @@ Nic prokazatelného.
 | **W-1** | **Terminal channel přijímá `{type:"exec", command}`** (`session-adapter.js:398`) po handshaku, který ověřuje pouze `protocolVersion` (`ws-server.js:126`). Na loopbacku neškodné, mimo něj je to RCE — to je `G0-R018` a invariant L0-10. | Nic k rozhodnutí teď (bezpečnost je odložená), ale **musí to zůstat viditelné**, protože to je nejtvrdší omezení celého produktu. |
 | **W-2** | **Rehydrate vrací předložené conversation ID bez ověření v DB.** | Vada, nebo záměr? Klient si může říct o cizí konverzaci. |
 | **W-3** | **Token streaming neexistuje** — `onLLMToken` je konzument bez producenta, komentář v kódu říká *„reserved for future use"*. Odpověď přichází až celá. | Je streaming v rozsahu 1.0? Ovlivňuje to vnímanou rychlost víc než cokoli jiného. |
-| **W-4** | **`c3-ide/` (Theia/Electron) je produktová plocha, ale není ještě kompletně inventarizovaný.** WP-M0-E už změřil fresh-clone install, build, boot, WS, deterministický chat, outbound a local HTTP boundary; hluboká inventura 139 souborů a 20+ rozšíření zůstává součástí #21. | ~~Vlastní inventura pro IDE, nebo se 1.0 opře o web UI `/architect`?~~ **Uzavřeno 2026-08-02: IDE je plocha produktu, web UI je legacy.** Otevřená už není volba produktu, ale source disposition a oprava dvou níže doložených Studio vad. Viz `DIRECTION.md` §3 a WP-M0-E níže. |
+| **W-4** | **`intentsmith-ide/` (Theia/Electron) je produktová plocha, ale není ještě kompletně inventarizovaný.** WP-M0-E už změřil fresh-clone install, build, boot, WS, deterministický chat, outbound a local HTTP boundary; hluboká inventura 139 souborů a 20+ rozšíření zůstává součástí #21. | ~~Vlastní inventura pro IDE, nebo se 1.0 opře o web UI `/architect`?~~ **Uzavřeno 2026-08-02: IDE je plocha produktu, web UI je legacy.** Otevřená už není volba produktu, ale source disposition a oprava dvou níže doložených Studio vad. Viz `DIRECTION.md` §3 a WP-M0-E níže. |
 
 ## WP-M0-E — fresh-clone Studio probe (2026-08-03)
 
 **Výsledek: `COMPLETED_WITH_PRODUCT_FAIL`.** Probe běžel v disposable klonu
 na `df8f10399888726e7c5258d42bd00bdcb3cc1d25`. Produktový strom od
-`ac320335` byl beze změny (`git diff --quiet ac320335..df8f1039 -- src c3-ide
+`ac320335` byl beze změny (`git diff --quiet ac320335..df8f1039 -- src intentsmith-ide
 package.json package-lock.json`, exit `0`). Osm rozpracovaných inventur v
 hlavním checkoutu zůstalo read-only.
 
@@ -52,13 +52,13 @@ hlavním checkoutu zůstalo read-only.
 | Příkaz / kontrola | Výsledek |
 |---|---|
 | `npm ci` | exit `0`, 233 balíčků; audit hlásí 3 moderate, 6 high a 1 critical nález. `audit fix` nebyl spuštěn. |
-| z `c3-ide/`: `corepack yarn install --frozen-lockfile` | exit `0`, Yarn `1.22.22`, lockfile beze změny |
-| z `c3-ide/`: `corepack yarn build` | exit `0`, production Theia build, 5 webpack warnings, pracovní strom po buildu čistý |
-| z `c3-ide/`: `corepack yarn workspace @c3/chat-panel build` | **exit `1`**, šest `TS2307` na neexistující `c3-ide/extensions/lib/utils/cn` |
+| z `intentsmith-ide/`: `corepack yarn install --frozen-lockfile` | exit `0`, Yarn `1.22.22`, lockfile beze změny |
+| z `intentsmith-ide/`: `corepack yarn build` | exit `0`, production Theia build, 5 webpack warnings, pracovní strom po buildu čistý |
+| z `intentsmith-ide/`: `corepack yarn workspace @c3/chat-panel build` | **exit `1`**, šest `TS2307` na neexistující `intentsmith-ide/extensions/lib/utils/cn` |
 
-Příkazy musí běžet z `c3-ide/`. `corepack yarn --version` spuštěný z kořene
+Příkazy musí běžet z `intentsmith-ide/`. `corepack yarn --version` spuštěný z kořene
 repozitáře končí exit `1`, protože kořenový `packageManager` je `npm`; pouhé
-`--cwd c3-ide` se vyhodnotí až pozdě.
+`--cwd intentsmith-ide` se vyhodnotí až pozdě.
 
 Zelený Theia build nekompiluje `@c3/chat-panel` z TS. Package i Theia entrypoint
 ukazují na commitnutý `lib/browser/chat-panel-module.js`. Ten zůstal po buildu
@@ -206,7 +206,7 @@ odmítne obě Google Fonts domény v každém trackovaném `.js`, `.css` a `.htm
 Studio assetu včetně archivního payloadu.
 
 První disposable build scan byl správně odmítnut, protože sdílený
-`c3-ide/node_modules` nesl workspace symlink do staršího klonu a zabalil jeho
+`intentsmith-ide/node_modules` nesl workspace symlink do staršího klonu a zabalil jeho
 chat-panel. Po vlastní frozen Yarn instalaci v prospective exportu, čistém
 application buildu (exit `0`, pět existujících warnings) a kontrole výsledného
 frontend bundle nezůstala žádná Google Fonts doména. Následný fresh-profile

@@ -2,9 +2,9 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 
 export const MANIFEST_SCHEMA_VERSION = 1;
-export const MANIFEST_TYPE = 'intentsmith.c3-final-diff';
-export const SOURCE_REPOSITORY_IDENTITY = 'github.com/Belphareon-bak/C3-agent';
-export const SOURCE_REPOSITORY_URL = 'https://github.com/Belphareon-bak/C3-agent';
+export const MANIFEST_TYPE = 'intentsmith.intentsmith-final-diff';
+export const SOURCE_REPOSITORY_IDENTITY = 'github.com/Belphareon-bak/IntentSmith-agent';
+export const SOURCE_REPOSITORY_URL = 'https://github.com/Belphareon-bak/IntentSmith-agent';
 export const SOURCE_OBJECT_FORMAT = 'sha1';
 export const SOURCE_BASE = 'a7b90e36aa80310305703f54f2332e1c0e7f9e8f';
 export const SOURCE_HEAD = 'ffd21cf119865259ea1847af989acb24916bebe3';
@@ -223,7 +223,7 @@ export function compareManifestToSource(manifest, sourceRepo) {
     return errors.map(error => `generated source manifest: ${error}`);
   }
   if (JSON.stringify(manifest) !== JSON.stringify(generated)) {
-    return ['committed manifest differs from the supplied C3 source repository'];
+    return ['committed manifest differs from the supplied IntentSmith source repository'];
   }
   return [];
 }
@@ -293,10 +293,10 @@ function assertSourceRepository(sourceRepo) {
     },
   ).trim();
   if (revParse(SOURCE_BASE) !== SOURCE_BASE) {
-    throw new Error(`C3 source repository does not resolve base ${SOURCE_BASE}`);
+    throw new Error(`IntentSmith source repository does not resolve base ${SOURCE_BASE}`);
   }
   if (revParse(SOURCE_HEAD) !== SOURCE_HEAD) {
-    throw new Error(`C3 source repository does not resolve head ${SOURCE_HEAD}`);
+    throw new Error(`IntentSmith source repository does not resolve head ${SOURCE_HEAD}`);
   }
   const objectFormat = execFileSync(
     'git',
@@ -308,7 +308,7 @@ function assertSourceRepository(sourceRepo) {
     },
   ).trim();
   if (objectFormat !== SOURCE_OBJECT_FORMAT) {
-    throw new Error(`C3 source repository object format is ${objectFormat}`);
+    throw new Error(`IntentSmith source repository object format is ${objectFormat}`);
   }
   const origin = execFileSync(
     'git',

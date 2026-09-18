@@ -73,7 +73,7 @@ import {
   compileCodeDraftResult, generateCodeDraft as defaultGenerateCodeDraft,
 } from './m2-code-draft.js';
 
-const POLICY_PATH = '.c3/m2-governance-policy.json';
+const POLICY_PATH = '.intentsmith/m2-governance-policy.json';
 const DEFAULT_APPROVAL_WINDOW_MS = 60 * 60 * 1000;
 const MAX_CONTEXT_FILES = 24;
 const MAX_CONTEXT_BYTES = 256 * 1024;

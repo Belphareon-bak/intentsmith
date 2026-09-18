@@ -7,7 +7,7 @@ const assert = require('assert');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { MultiProjectService, ChatSearchService, TokenDashboardService, slugify } = require('../packages/c3-backend/sprint6-integration.cjs');
+const { MultiProjectService, ChatSearchService, TokenDashboardService, slugify } = require('../packages/intentsmith-backend/sprint6-integration.cjs');
 
 let testCount = 0, passCount = 0;
 function test(name, fn) { testCount++; try { fn(); passCount++; console.log('  ✅ ' + name); } catch (e) { console.log('  ❌ ' + name + ': ' + e.message); } }
@@ -26,7 +26,7 @@ test('empty → projekt', () => { assert.strictEqual(slugify('!!!'), 'projekt');
 async function runAsync() {
 
   console.log('\n--- 2. MultiProjectService ---');
-  const wsDir = path.join(os.tmpdir(), 'c3-s6-ws-' + Date.now());
+  const wsDir = path.join(os.tmpdir(), 'intentsmith-s6-ws-' + Date.now());
   const mps = new MultiProjectService();
 
   await asyncTest('scan empty workspace', async () => {
@@ -90,7 +90,7 @@ async function runAsync() {
     assert.strictEqual(ws.projects.length, 1);
     assert.strictEqual(ws.activeProjectSlug, null); // Was deactivated
     // Verify trash
-    const trashDir = path.join(wsDir, '.c3', 'trash');
+    const trashDir = path.join(wsDir, '.intentsmith', 'trash');
     const trashEntries = await fs.promises.readdir(trashDir);
     assert.ok(trashEntries.some(e => e.startsWith('e-shop-backend')));
   });

@@ -3,7 +3,7 @@
 //
 // Detects outdated packages and orchestrates safe upgrades:
 //   - Multi-package-manager support (npm, yarn, pnpm, go, pip, cargo)
-//   - .c3/dependency-cache.json (TTL 24h) for offline/fast access
+//   - .intentsmith/dependency-cache.json (TTL 24h) for offline/fast access
 //   - maxPackagesPerRun limit (default 5)
 //   - Patch/minor only — NEVER auto-upgrades major versions
 //   - Rollback on test failure
@@ -30,7 +30,7 @@ export const PackageManager = Object.freeze({
 
 const MAX_PACKAGES_PER_RUN = 5;
 const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
-const CACHE_FILE = '.c3/dependency-cache.json';
+const CACHE_FILE = '.intentsmith/dependency-cache.json';
 const COMMAND_TIMEOUT = 30_000; // 30s for outdated commands
 
 // ─── Package Manager Detection ──────────────────────────────────────────────
@@ -383,7 +383,7 @@ export function loadCache(projectPath) {
  */
 export function saveCache(projectPath, data) {
   if (!projectPath || !data) return;
-  const cacheDir = path.join(projectPath, '.c3');
+  const cacheDir = path.join(projectPath, '.intentsmith');
   const cachePath = path.join(projectPath, CACHE_FILE);
   try {
     if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });

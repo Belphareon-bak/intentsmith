@@ -22,8 +22,8 @@ const trackedSet = new Set(tracked);
 const forbiddenStudioFontHosts = /fonts\.(?:googleapis|gstatic)\.com/i;
 for (const relative of tracked) {
   const isRunnableStudioAsset = (
-    relative.startsWith('c3-ide/')
-    || relative.startsWith('docs/archive/c3-studio/v7-fix-payload/')
+    relative.startsWith('intentsmith-ide/')
+    || relative.startsWith('docs/archive/intentsmith-studio/v7-fix-payload/')
   ) && /\.(?:css|html|js)$/.test(relative);
   if (!isRunnableStudioAsset) continue;
   assert.doesNotMatch(
@@ -34,115 +34,115 @@ for (const relative of tracked) {
 }
 for (const lockPath of [
   'package-lock.json',
-  'c3-ide/yarn.lock',
+  'intentsmith-ide/yarn.lock',
   'requirements/pdf-export.lock',
 ]) {
   assert.equal(trackedSet.has(lockPath), true, `required dependency lock is not tracked: ${lockPath}`);
 }
 assert.equal(
-  trackedSet.has('c3-ide/applications/electron/webpack.config.js'),
+  trackedSet.has('intentsmith-ide/applications/electron/webpack.config.js'),
   true,
-  'tracked C3 Studio webpack hardening config is missing',
+  'tracked IntentSmith Studio webpack hardening config is missing',
 );
 assert.equal(
-  trackedSet.has('c3-ide/applications/electron/c3-local-http-bootstrap.js'),
+  trackedSet.has('intentsmith-ide/applications/electron/intentsmith-local-http-bootstrap.js'),
   true,
-  'tracked C3 Studio local HTTP bootstrap is missing',
+  'tracked IntentSmith Studio local HTTP bootstrap is missing',
 );
 assert.equal(
-  trackedSet.has('c3-ide/applications/electron/c3-local-access.js'),
+  trackedSet.has('intentsmith-ide/applications/electron/intentsmith-local-access.js'),
   true,
-  'tracked C3 Studio private local-access reader is missing',
+  'tracked IntentSmith Studio private local-access reader is missing',
 );
 assert.equal(
-  trackedSet.has('c3-ide/applications/electron/c3-local-origin-normalizer.js'),
+  trackedSet.has('intentsmith-ide/applications/electron/intentsmith-local-origin-normalizer.js'),
   true,
-  'tracked C3 Studio opaque-origin normalizer is missing',
+  'tracked IntentSmith Studio opaque-origin normalizer is missing',
 );
 assert.equal(
-  trackedSet.has('c3-ide/shared/legacy-local-object-url-cache.js'),
+  trackedSet.has('intentsmith-ide/shared/legacy-local-object-url-cache.js'),
   true,
   'tracked legacy local media object-URL cache is missing',
 );
 assert.equal(
-  trackedSet.has('c3-ide/extensions/c3-chat-panel/scripts/authoritative-lib-contract.cjs'),
+  trackedSet.has('intentsmith-ide/extensions/intentsmith-chat-panel/scripts/authoritative-lib-contract.cjs'),
   true,
-  'tracked C3 Studio authoritative-lib contract is missing',
+  'tracked IntentSmith Studio authoritative-lib contract is missing',
 );
 assert.equal(
-  trackedSet.has('docs/archive/c3-studio/c3-chat-panel-ts-prototype/README.md'),
+  trackedSet.has('docs/archive/intentsmith-studio/intentsmith-chat-panel-ts-prototype/README.md'),
   true,
   'archived chat-panel prototype provenance is missing',
 );
 assert.equal(
-  tracked.some(file => file.startsWith('c3-ide/extensions/c3-chat-panel/src/')),
+  tracked.some(file => file.startsWith('intentsmith-ide/extensions/intentsmith-chat-panel/src/')),
   false,
   'stale chat-panel TypeScript must not remain in the active workspace',
 );
 assert.equal(
-  trackedSet.has('c3-ide/extensions/c3-chat-panel/tsconfig.json'),
+  trackedSet.has('intentsmith-ide/extensions/intentsmith-chat-panel/tsconfig.json'),
   false,
   'stale chat-panel TypeScript build config must not remain active',
 );
 assert.equal(
-  trackedSet.has('c3-ide/lib/utils/cn.ts'),
+  trackedSet.has('intentsmith-ide/lib/utils/cn.ts'),
   false,
   'orphaned chat-panel TypeScript support must not remain in generated lib',
 );
 
 const rootPackage = JSON.parse(readFileSync(resolve(repoRoot, 'package.json'), 'utf8'));
-const idePackage = JSON.parse(readFileSync(resolve(repoRoot, 'c3-ide/package.json'), 'utf8'));
+const idePackage = JSON.parse(readFileSync(resolve(repoRoot, 'intentsmith-ide/package.json'), 'utf8'));
 const electronPackage = JSON.parse(readFileSync(
-  resolve(repoRoot, 'c3-ide/applications/electron/package.json'),
+  resolve(repoRoot, 'intentsmith-ide/applications/electron/package.json'),
   'utf8',
 ));
 const chatPanelPackage = JSON.parse(readFileSync(
-  resolve(repoRoot, 'c3-ide/extensions/c3-chat-panel/package.json'),
+  resolve(repoRoot, 'intentsmith-ide/extensions/intentsmith-chat-panel/package.json'),
   'utf8',
 ));
 const installer = readFileSync(resolve(repoRoot, 'scripts/install.sh'), 'utf8');
 const electronWebpack = readFileSync(
-  resolve(repoRoot, 'c3-ide/applications/electron/webpack.config.js'),
+  resolve(repoRoot, 'intentsmith-ide/applications/electron/webpack.config.js'),
   'utf8',
 );
 const electronLocalHttpBootstrap = readFileSync(
   resolve(
     repoRoot,
-    'c3-ide/applications/electron/c3-local-http-bootstrap.js',
+    'intentsmith-ide/applications/electron/intentsmith-local-http-bootstrap.js',
   ),
   'utf8',
 );
 const electronLocalAccess = readFileSync(
-  resolve(repoRoot, 'c3-ide/applications/electron/c3-local-access.js'),
+  resolve(repoRoot, 'intentsmith-ide/applications/electron/intentsmith-local-access.js'),
   'utf8',
 );
 const electronLocalOriginNormalizer = readFileSync(
-  resolve(repoRoot, 'c3-ide/applications/electron/c3-local-origin-normalizer.js'),
+  resolve(repoRoot, 'intentsmith-ide/applications/electron/intentsmith-local-origin-normalizer.js'),
   'utf8',
 );
 const electronPreload = readFileSync(
-  resolve(repoRoot, 'c3-ide/applications/electron/c3-preload.js'),
+  resolve(repoRoot, 'intentsmith-ide/applications/electron/intentsmith-preload.js'),
   'utf8',
 );
 const chatPanelRuntime = readFileSync(
   resolve(
     repoRoot,
-    'c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js',
+    'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js',
   ),
   'utf8',
 );
 const centerViewsRuntime = readFileSync(
   resolve(
     repoRoot,
-    'c3-ide/extensions/c3-center-views/lib/browser/center-views-module.js',
+    'intentsmith-ide/extensions/intentsmith-center-views/lib/browser/center-views-module.js',
   ),
   'utf8',
 );
 const localObjectUrlCache = readFileSync(
-  resolve(repoRoot, 'c3-ide/shared/legacy-local-object-url-cache.js'),
+  resolve(repoRoot, 'intentsmith-ide/shared/legacy-local-object-url-cache.js'),
   'utf8',
 );
-const ideLock = readFileSync(resolve(repoRoot, 'c3-ide/yarn.lock'), 'utf8');
+const ideLock = readFileSync(resolve(repoRoot, 'intentsmith-ide/yarn.lock'), 'utf8');
 assert.equal(rootPackage.packageManager, 'npm@10.9.4');
 assert.equal(rootPackage.engines?.node, '>=22.12.0 <23');
 assert.equal(idePackage.packageManager, 'yarn@1.22.22');
@@ -174,12 +174,12 @@ const chatPanelRuntimeFiles = [
   'lib/browser/agent-log-renderer.js',
   'lib/browser/chat-panel-module.js',
   'lib/browser/event-bus.js',
-  'lib/browser/styles/c3-chat.css',
-  'lib/browser/styles/c3-theme.css',
+  'lib/browser/styles/intentsmith-chat.css',
+  'lib/browser/styles/intentsmith-theme.css',
   'lib/browser/terminal-client.js',
   'lib/browser/ws-client.js',
 ];
-const chatPanelRoot = resolve(repoRoot, 'c3-ide/extensions/c3-chat-panel');
+const chatPanelRoot = resolve(repoRoot, 'intentsmith-ide/extensions/intentsmith-chat-panel');
 const authoritativeLibContract = resolve(
   chatPanelRoot,
   'scripts/authoritative-lib-contract.cjs',
@@ -223,8 +223,8 @@ for (const [mode, expectedStatus] of [
 }
 
 for (const retiredFixer of [
-  'c3-ide/fix-extensions.sh',
-  'c3-ide/fixes/apply-fixes.sh',
+  'intentsmith-ide/fix-extensions.sh',
+  'intentsmith-ide/fixes/apply-fixes.sh',
 ]) {
   const result = spawnSync('bash', [resolve(repoRoot, retiredFixer)], {
     cwd: repoRoot,
@@ -235,7 +235,7 @@ for (const retiredFixer of [
   assert.match(result.stderr, /retired/i);
 }
 for (const workspaceKind of ['applications', 'extensions']) {
-  const workspaceRoot = resolve(repoRoot, 'c3-ide', workspaceKind);
+  const workspaceRoot = resolve(repoRoot, 'intentsmith-ide', workspaceKind);
   for (const workspaceName of readdirSync(workspaceRoot)) {
     const packagePath = resolve(workspaceRoot, workspaceName, 'package.json');
     if (!existsSync(packagePath)) {
@@ -261,9 +261,9 @@ for (const workspaceKind of ['applications', 'extensions']) {
 assert.match(installer, /\bnpm ci\b/);
 assert.match(installer, /export COREPACK_ENABLE_DOWNLOAD_PROMPT=0/);
 assert.match(installer, /yarn install --frozen-lockfile --non-interactive/);
-assert.match(installer, /YARN_VERSION="\$\(cd c3-ide && yarn --version\)"/);
-assert.match(installer, /\(cd c3-ide && yarn build /);
-assert.match(installer, /c3-ide\/node_modules\/\.bin\/electron-rebuild/);
+assert.match(installer, /YARN_VERSION="\$\(cd intentsmith-ide && yarn --version\)"/);
+assert.match(installer, /\(cd intentsmith-ide && yarn build /);
+assert.match(installer, /intentsmith-ide\/node_modules\/\.bin\/electron-rebuild/);
 assert.match(installer, /find-git-repositories,drivelist,keytar,ssh2,cpu-features/);
 assert.match(installer, /ELECTRON_RUN_AS_NODE=1/);
 assert.match(installer, /ripgrep 15\.0\.0/);
@@ -281,13 +281,13 @@ assert.match(electronWebpack, /preloadConfigs\.length !== 1/);
 assert.match(electronWebpack, /preloadConfigs\[0\]\.entry\.preload/);
 assert.match(
   electronWebpack,
-  /configs\[0\]\.entry\.bundle\s*=\s*\[\s*path\.resolve\(__dirname,\s*'c3-local-http-bootstrap\.js'\)/,
+  /configs\[0\]\.entry\.bundle\s*=\s*\[\s*path\.resolve\(__dirname,\s*'intentsmith-local-http-bootstrap\.js'\)/,
 );
 assert.match(
   electronWebpack,
-  /nodeConfig\.config\.entry\['electron-main'\]\s*=\s*\[\s*path\.resolve\(__dirname,\s*'c3-local-origin-normalizer\.js'\)/,
+  /nodeConfig\.config\.entry\['electron-main'\]\s*=\s*\[\s*path\.resolve\(__dirname,\s*'intentsmith-local-origin-normalizer\.js'\)/,
 );
-assert.match(electronPreload, /require\('\.\/c3-local-access'\)/);
+assert.match(electronPreload, /require\('\.\/intentsmith-local-access'\)/);
 assert.match(electronPreload, /readLocalAccess\(\)/);
 assert.match(electronLocalAccess, /fs\.constants\.O_NOFOLLOW/);
 assert.match(electronLocalAccess, /\(stat\.mode\s*&\s*0o777\)\s*!==\s*0o600/);
@@ -304,7 +304,7 @@ assert.match(
   /headers\.delete\(LEGACY_LOCAL_CAPABILITY_HEADER\)/,
 );
 assert.doesNotMatch(chatPanelRuntime, /\b_apiBase\b/);
-assert.doesNotMatch(chatPanelRuntime, /window\._c3BackendUrl/);
+assert.doesNotMatch(chatPanelRuntime, /window\._intentsmithBackendUrl/);
 assert.doesNotMatch(
   chatPanelRuntime,
   /src:\s*_backendBase\s*\+\s*['"]\/api\/media\/output/,
@@ -327,7 +327,7 @@ assert.match(chatPanelRuntime, /_mediaOutputCache\.invalidateWhere/);
 assert.match(chatPanelRuntime, /_mediaOutputCache\.retain\(activeTargets\)/);
 assert.match(
   chatPanelRuntime,
-  /C3Bus\.on\('comfyui:complete',function\(ev\)\{[\s\S]*?_mediaRevokeOutputUrls\(ev\.generationId\);[\s\S]*?MediaAPI\.loadData\(\);/,
+  /IntentSmithBus\.on\('comfyui:complete',function\(ev\)\{[\s\S]*?_mediaRevokeOutputUrls\(ev\.generationId\);[\s\S]*?MediaAPI\.loadData\(\);/,
 );
 assert.match(
   centerViewsRuntime,
@@ -337,7 +337,7 @@ assert.match(centerViewsRuntime, /this\._mmOutputCache\.invalidateWhere/);
 assert.match(centerViewsRuntime, /this\._mmOutputCache\.retain\(activeTargets\)/);
 assert.match(
   centerViewsRuntime,
-  /window\.C3Bus\.on\('comfyui:complete', function\(d\) \{[\s\S]*?self\._mmRevokeOutputUrls\(d\.generationId\);[\s\S]*?self\._mmFetchHistory\(\);/,
+  /window\.IntentSmithBus\.on\('comfyui:complete', function\(d\) \{[\s\S]*?self\._mmRevokeOutputUrls\(d\.generationId\);[\s\S]*?self\._mmFetchHistory\(\);/,
 );
 assert.match(centerViewsRuntime, /dispose\(\)\s*\{\s*this\._mmOutputCache\.clear\(\)/);
 assert.match(centerViewsRuntime, /\?\s*h\('img',\s*\{\s*src:\s*thumbUrl/);
@@ -375,7 +375,7 @@ for (const platformPackage of [
 assert.doesNotMatch(ideLock, /1\.15\.14/);
 
 const exactGeneratedLeaks = new Set([
-  '.c3-backend.log.old',
+  '.intentsmith-backend.log.old',
   'login.html',
   'templates/admin/dashboard.html',
   'templates/products/detail.html',

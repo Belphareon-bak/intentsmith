@@ -2,7 +2,7 @@
 
 ## Cil
 
-Overit, ze C3 Lifecycle Engine:
+Overit, ze IntentSmith Lifecycle Engine:
 1. Korektne vytvari a spravuje novy projekt
 2. Korektne pokracuje v existujicim projektu
 3. Konzistentne vytvari a aktualizuje dokumentaci (README, ROADMAP)
@@ -53,7 +53,7 @@ README je zdroj pravdy pro cloveka.
 Pri otevreni projektu musi engine nacist:
 - README.md
 - ROADMAP.md
-- .c3/project.json
+- .intentsmith/project.json
 - git log
 - package.json
 - strukturu zdrojoveho kodu
@@ -136,21 +136,21 @@ PROPOSED -> SPEC -> SPEC_REVIEW -> PLANNING -> PLAN_REVIEW -> BUILD -> COMPLETED
 **Projekt:** Secure Keychain
 
 **Cil:**
-Sifrovane uloziste citlivych udaju pro C3.
+Sifrovane uloziste citlivych udaju pro IntentSmith.
 
 **Pozadovany produkt:**
 - AES-256-GCM encryption
 - PBKDF2 / scrypt key derivation
 - File-based encrypted store
 - CLI (add/get/list/remove/export/import)
-- Integrace do C3 configu
+- Integrace do IntentSmith configu
 - Unit testy
 
 **Milniky:**
 - MS-1: Encryption engine
 - MS-2: Credential store
 - MS-3: CLI
-- MS-4: C3 integration
+- MS-4: IntentSmith integration
 
 **Overuje:**
 - Existujici projekt je analyzovan

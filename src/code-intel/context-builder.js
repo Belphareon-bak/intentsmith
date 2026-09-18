@@ -508,7 +508,7 @@ export async function buildHierarchicalContext(projectPath, opts = {}) {
   const maxTokens = opts.maxTokens || 5000;
   const maxDepth = opts.maxDepth || 4;
 
-  const SKIP = new Set(['node_modules', '.git', 'dist', 'build', '__pycache__', 'vendor', '.venv', '.c3', 'coverage', '.next', 'target']);
+  const SKIP = new Set(['node_modules', '.git', 'dist', 'build', '__pycache__', 'vendor', '.venv', '.intentsmith', 'coverage', '.next', 'target']);
 
   const hierarchy = {
     project: path.basename(projectPath),

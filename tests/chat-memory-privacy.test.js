@@ -5,10 +5,10 @@ import { mkdirSync, readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import Database from 'better-sqlite3';
 
-process.env.C3_ENABLE_LIFECYCLE = 'false';
-process.env.C3_ENABLE_AGENTS = 'false';
-process.env.C3_ENABLE_SKILLS = 'false';
-process.env.C3_ENABLE_ONLINE_DISCOVERY = 'false';
+process.env.INTENTSMITH_ENABLE_LIFECYCLE = 'false';
+process.env.INTENTSMITH_ENABLE_AGENTS = 'false';
+process.env.INTENTSMITH_ENABLE_SKILLS = 'false';
+process.env.INTENTSMITH_ENABLE_ONLINE_DISCOVERY = 'false';
 process.env.OLLAMA_URL = 'invalid://privacy-regression-no-provider';
 const { default: database } = await import('../src/db/database.js');
 const { longTermMemory } = await import('../src/memory/long-term.js');
@@ -43,7 +43,7 @@ test('unsupported history opt-out is rejected atomically by the shared writer', 
     { code: 'CHAT_EPHEMERAL_UNSUPPORTED' });
   assert.deepEqual(JSON.parse(database.db.prepare('SELECT data FROM user_settings').get().data), { retained: 'sentinel' });
   for (const invalid of ['false', null, 0]) {
-    assert.throws(() => updateUserSettings(database.db, () => ({ 'c3.memory.ltmEnabled': invalid })),
+    assert.throws(() => updateUserSettings(database.db, () => ({ 'intentsmith.memory.ltmEnabled': invalid })),
       { code: 'MEMORY_SETTINGS_INVALID' });
   }
 });
@@ -81,14 +81,14 @@ test('Studio rejects disabled history before emitting content to progress observ
 });
 
 test('Studio settings save rejects failed HTTP and reloads persisted values', async () => {
-  const source = readFileSync(new URL('../c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js', import.meta.url), 'utf8');
   const start = source.indexOf('var _bCfgSaveVersion=');
   const end = source.indexOf('\nfunction _bVal', start);
-  const persisted = { 'c3.memory.ltmEnabled': true };
+  const persisted = { 'intentsmith.memory.ltmEnabled': true };
   const logs = [];
-  const sandbox = vm.createContext({ _bCfg: { 'c3.memory.ltmEnabled': false }, _bCfgSaveTimer: null,
+  const sandbox = vm.createContext({ _bCfg: { 'intentsmith.memory.ltmEnabled': false }, _bCfgSaveTimer: null,
     _backendBase: 'http://controlled', AbortSignal, renderCenter() {}, clearTimeout() {},
-    setTimeout(fn) { fn(); }, window: { _c3: { agentLog: (_kind, message) => logs.push(message) } },
+    setTimeout(fn) { fn(); }, window: { _intentsmith: { agentLog: (_kind, message) => logs.push(message) } },
     fetch: async (_url, options) => options.method === 'POST'
       ? { ok: false, status: 400, json: async () => ({ error: 'Rejected settings' }) }
       : { ok: true, status: 200, json: async () => persisted },
@@ -96,15 +96,15 @@ test('Studio settings save rejects failed HTTP and reloads persisted values', as
   vm.runInContext(source.slice(start, end), sandbox);
   vm.runInContext('_saveBCfg()', sandbox);
   await sandbox._bCfgSaveChain;
-  assert.equal(sandbox._bCfg['c3.memory.ltmEnabled'], true);
+  assert.equal(sandbox._bCfg['intentsmith.memory.ltmEnabled'], true);
   assert.match(sandbox._bCfgError, /nebylo uloženo/);
   assert.match(logs.join('\n'), /Rejected settings/);
 });
 
 test('each learning opt-out prevents the real feedback intercept from writing a correction', async () => {
   for (const disabled of [
-    { memory: { saveContext: false } }, { 'c3.memory.ltmEnabled': false },
-    { 'c3.memory.learningEnabled': false }, { 'c3.memory.feedbackDetection': false },
+    { memory: { saveContext: false } }, { 'intentsmith.memory.ltmEnabled': false },
+    { 'intentsmith.memory.learningEnabled': false }, { 'intentsmith.memory.feedbackDetection': false },
   ]) {
     settings(disabled);
     const before = count();
@@ -114,7 +114,7 @@ test('each learning opt-out prevents the real feedback intercept from writing a 
 });
 
 test('malformed storage fails closed and disabled pattern tracking drops buffered input', () => {
-  settings({ 'c3.memory.patternTracking': false });
+  settings({ 'intentsmith.memory.patternTracking': false });
   assert.equal(chatMemory(context('privacy:A')).patterns, null);
   settings({ memory: { saveContext: false } });
   assert.equal(chatMemory(context('privacy:A')).ltm, null);
@@ -162,7 +162,7 @@ test('projectless learning stays in the same conversation and disabling LTM remo
   await preHandle('actually I meant FREE_PRIVATE_CANARY', context('privacy:free1'), ChatMode.CONVERSATION);
   assert.match(JSON.stringify(chatMemory(context('privacy:free1')).ltm.queryByKind('correction')), /FREE_PRIVATE_CANARY/);
   assert.doesNotMatch(JSON.stringify(chatMemory(context('privacy:free2')).ltm.queryByKind('correction')), /FREE_PRIVATE_CANARY/);
-  settings({ 'c3.memory.ltmEnabled': false });
+  settings({ 'intentsmith.memory.ltmEnabled': false });
   const response = await ChatController.handle({ message: 'no learned memory', sessionId: 'privacy:A2', conversationId: 'privacy:A2' });
   assert.equal(response.response, 'No project memory');
 });
@@ -285,13 +285,13 @@ test('shipped Studio handler uses native routes, reports actual outcomes and pre
   let routeResponse;
   const routes = createAgentPlatformRoutes({ agentExtensionService: service,
     sendJSON: (_res, status, body) => { routeResponse = { status, body }; } });
-  const source = readFileSync(new URL('../c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js', import.meta.url), 'utf8');
   const start = source.indexOf('function _detailActionHandler(d,a){');
   const end = source.indexOf('function _assignConvToProject(', start);
   assert.ok(start >= 0 && end > start);
   let calls = [], logs = [], override = null;
   const worker = { id: 'privacy-native', name: 'Scoped agent', native: true };
-  const sandbox = vm.createContext({ window: { _c3: { agentLog: (_type, message) => logs.push(message) } },
+  const sandbox = vm.createContext({ window: { _intentsmith: { agentLog: (_type, message) => logs.push(message) } },
     WORKERS: [worker], _backendBase: 'http://controlled', AbortSignal,
     fetchBackendData() {}, encodeURIComponent,
     fetch: async (url, options) => {

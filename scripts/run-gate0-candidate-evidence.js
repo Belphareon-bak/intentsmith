@@ -251,11 +251,11 @@ export function assertAllowedIgnoredState(statusPorcelain, evidenceRoot) {
       || filePath.startsWith(`${evidenceRoot}/`)
       || filePath === 'node_modules/'
       || filePath.startsWith('node_modules/')
-      || filePath === 'c3-ide/node_modules/'
-      || filePath.startsWith('c3-ide/node_modules/')
-      || /^c3-ide\/(?:applications|extensions)\/[^/]+\/node_modules\//.test(filePath)
-      || /^c3-ide\/applications\/electron\/(?:lib|src-gen|dist)\//.test(filePath)
-      || /^c3-ide\/applications\/electron\/gen-webpack[^/]*\.js$/.test(filePath)
+      || filePath === 'intentsmith-ide/node_modules/'
+      || filePath.startsWith('intentsmith-ide/node_modules/')
+      || /^intentsmith-ide\/(?:applications|extensions)\/[^/]+\/node_modules\//.test(filePath)
+      || /^intentsmith-ide\/applications\/electron\/(?:lib|src-gen|dist)\//.test(filePath)
+      || /^intentsmith-ide\/applications\/electron\/gen-webpack[^/]*\.js$/.test(filePath)
     )
   ));
   if (!allowed) {
@@ -327,12 +327,12 @@ export async function assertOwnedExecutionBoundary(
   const candidateRoot = path.join(sourceRoot, evidenceRoot);
   const fileTargets = new Set([
     'GIT_CONFIG_GLOBAL',
-    'C3_DB_PATH',
-    'C3_PORT_FILE',
+    'INTENTSMITH_DB_PATH',
+    'INTENTSMITH_PORT_FILE',
   ]);
   for (const [key, value] of Object.entries(recipe.environmentOverrides)) {
     if (!path.isAbsolute(value)) continue;
-    if (['INTENTSMITH_PDF_PYTHON', 'C3_PDF_PYTHON'].includes(key)) continue;
+    if (['INTENTSMITH_PDF_PYTHON', 'INTENTSMITH_PDF_PYTHON'].includes(key)) continue;
     if (fileTargets.has(key)) {
       await assertPrivateDirectoryPath(
         candidateRoot,
@@ -367,12 +367,12 @@ export async function assertOwnedExecutionBoundary(
 export async function assertOwnedDependencyRoots(sourceRoot) {
   const directoryCandidates = [
     'node_modules',
-    'c3-ide/node_modules',
-    'c3-ide/applications/electron/lib',
-    'c3-ide/applications/electron/src-gen',
-    'c3-ide/applications/electron/dist',
+    'intentsmith-ide/node_modules',
+    'intentsmith-ide/applications/electron/lib',
+    'intentsmith-ide/applications/electron/src-gen',
+    'intentsmith-ide/applications/electron/dist',
   ];
-  for (const collection of ['c3-ide/applications', 'c3-ide/extensions']) {
+  for (const collection of ['intentsmith-ide/applications', 'intentsmith-ide/extensions']) {
     const absoluteCollection = path.join(sourceRoot, collection);
     let entries;
     try {
@@ -396,7 +396,7 @@ export async function assertOwnedDependencyRoots(sourceRoot) {
   }
   const electronRoot = path.join(
     sourceRoot,
-    'c3-ide',
+    'intentsmith-ide',
     'applications',
     'electron',
   );
@@ -553,9 +553,9 @@ async function prepareExecutionDirectories(sourceRoot, plan) {
     directories.add(path.dirname(path.join(sourceRoot, recipe.logPath)));
     for (const [key, value] of Object.entries(recipe.environmentOverrides)) {
       if (!path.isAbsolute(value)) continue;
-      if (['GIT_CONFIG_GLOBAL', 'C3_DB_PATH', 'C3_PORT_FILE'].includes(key)) {
+      if (['GIT_CONFIG_GLOBAL', 'INTENTSMITH_DB_PATH', 'INTENTSMITH_PORT_FILE'].includes(key)) {
         directories.add(path.dirname(value));
-      } else if (!['INTENTSMITH_PDF_PYTHON', 'C3_PDF_PYTHON'].includes(key)) {
+      } else if (!['INTENTSMITH_PDF_PYTHON', 'INTENTSMITH_PDF_PYTHON'].includes(key)) {
         directories.add(value);
       }
     }
@@ -654,7 +654,7 @@ export async function captureToolchain(sourceRoot, environment) {
     // bootstrap the isolated cache and mutate the state being measured.
     // The install logs independently prove the effective versions.
     npmVersion: await packageManagerVersion('package.json', 'npm'),
-    yarnVersion: await packageManagerVersion('c3-ide/package.json', 'yarn'),
+    yarnVersion: await packageManagerVersion('intentsmith-ide/package.json', 'yarn'),
     pythonVersion: version(
       'python3.12',
       ['-c', 'import platform; print(platform.python_version())'],

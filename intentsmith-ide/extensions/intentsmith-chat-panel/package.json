@@ -1,0 +1,26 @@
+{
+  "name": "@intentsmith/chat-panel",
+  "version": "0.1.0",
+  "description": "IntentSmith Chat Panel — authoritative committed Studio runtime",
+  "main": "lib/browser/chat-panel-module.js",
+  "files": [
+    "lib",
+    "README.md",
+    "scripts"
+  ],
+  "theiaExtensions": [
+    {
+      "frontend": "lib/browser/chat-panel-module"
+    }
+  ],
+  "dependencies": {
+    "@theia/core": "1.74.1",
+    "@intentsmith/protocol": "0.1.0",
+    "@intentsmith/backend-bridge": "0.1.0"
+  },
+  "scripts": {
+    "build": "node scripts/authoritative-lib-contract.cjs verify",
+    "watch": "node scripts/authoritative-lib-contract.cjs reject-watch",
+    "clean": "node scripts/authoritative-lib-contract.cjs preserve-clean"
+  }
+}

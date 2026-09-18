@@ -1,0 +1,92 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import vm from 'node:vm';
+import fs from 'node:fs';
+import Database from 'better-sqlite3';
+import { up } from '../src/db/migrations/2026_09_18_115_intentsmith_setting_names.js';
+
+const source=fs.readFileSync(new URL('../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js',import.meta.url),'utf8');
+function fn(name){const start=source.indexOf('function '+name+'(');assert.ok(start>=0,name);let end=source.indexOf('\nfunction ',start+1);const next=source.indexOf('\nvar ',start+1);if(next>=0&&(end<0||next<end))end=next;return source.slice(start,end<0?undefined:end);}
+function harness(){
+  const context=vm.createContext({Date,Math,Array,Number,JSON,alert(){},confirm:()=>true,
+    _sessionActive:0,_sessionCount:3,_perSessionTree:{},_wtRoot:'/old',_wtRawTree:null,FILES:[],
+    _persistSessionState(){},_renderAll(){},renderCenter(){},renderChat(){},_rememberSpecialistFiles(){},
+    _showWorkspace(){},_chatCancelPreparedSend(){return false;},_chatInvalidatePreparedSends(st){st._sendContextToken={};},
+    IntentSmithWS:{hasActiveM1Turn:s=>!!s.busy},IntentSmithTerminal:{isExecuting:()=>false},IntentSmithAgent:{isExecuting:()=>false},
+  });
+  for(const name of ['_mkSession','_workspaceSessionIndices','_workspaceBusy','_closeWorkspaceConversation','_closeWorkspaceSession','_normalizePersistedSessionState'])vm.runInContext(fn(name),context);
+  context._sessions=[context._mkSession(),context._mkSession(),context._mkSession()];
+  context._editorState=context._sessions[0]._editor;
+  context._switchSession=idx=>{context._sessionActive=idx;context._editorState=context._sessions[idx]._editor;};
+  return context;
+}
+test('closing a conversation keeps its column, file editor and other session identities',()=>{
+  const c=harness(),closed=c._sessions[0],other=c._sessions[1],editor=closed._editor,token=closed.chat._sendContextToken;
+  closed._convId='private-conversation';closed._projectId=17;closed.chat.specialist={id:'accountant-cz'};closed.chat._delivery={status:'NOT_SENT'};
+  editor.tabs.push({id:'file',content:'unsaved file',dirty:true});
+  assert.equal(c._closeWorkspaceConversation(0),true);
+  assert.equal(c._sessionCount,3);assert.equal(c._sessions[0]._closed,false);assert.equal(c._sessions[0]._convId,null);
+  assert.equal(c._sessions[0]._projectId,null);assert.equal(c._sessions[0].chat.specialist,null);
+  assert.equal(c._sessions[0]._editor,editor);assert.equal(c._sessions[1],other);
+  assert.notEqual(closed.chat._sendContextToken,token);assert.equal(c._sessions[0].chat._delivery,null);
+});
+test('closing a tab never moves another active transport into its index',()=>{
+  const c=harness();c._sessionActive=2;const owner=c._sessions[2];owner.busy=true;owner._convId='other-active';
+  assert.equal(c._closeWorkspaceSession(0),true);assert.equal(c._sessions[2],owner);assert.equal(c._sessionActive,2);
+  assert.equal(c._sessions[0]._closed,true);assert.equal(c._sessionCount,3);
+  assert.equal(c._closeWorkspaceSession(2),false);assert.equal(c._sessions[2]._convId,'other-active');
+});
+test('closing the last tab retains an empty workspace and dirty editor close is cancellable',()=>{
+  const c=harness();c._sessions[1]._closed=true;c._sessions[2]._closed=true;
+  c._sessions[0]._editor.tabs.push({dirty:true});c.confirm=()=>false;
+  assert.equal(c._closeWorkspaceSession(0),false);assert.equal(c._sessions[0]._closed,false);
+  c.confirm=()=>true;assert.equal(c._closeWorkspaceSession(0),true);
+  assert.equal(c._sessions[0]._closed,false);assert.equal(c._sessionActive,0);
+});
+test('new session editors, output modes and attachment queues are independent',()=>{
+  const c=harness(),a=c._sessions[0],b=c._sessions[1];
+  a._editor.tabs.push({id:'a'});a.chat.attachments.push({name:'private'});a.log.push({text:'log a'});a.term.push({text:'output a'});
+  assert.equal(b._editor.tabs.length,0);assert.equal(b.chat.attachments.length,0);assert.equal(b.log.length,0);assert.equal(b.term.length,1);
+});
+test('settings migration preserves old values, explicit canonical overrides and timestamps',()=>{
+  const db=new Database(':memory:');try{
+    db.exec('CREATE TABLE user_settings(id INTEGER PRIMARY KEY,data TEXT,updated_at TEXT)');
+    db.prepare('INSERT INTO user_settings VALUES(1,?,?)').run(JSON.stringify({'c3.notif.emailEnabled':true,'intentsmith.notif.emailEnabled':false,'c3.notif.emailRecipient':'local-test','memory.saveContext':false}),'original');
+    db.transaction(()=>up(db))();db.transaction(()=>up(db))();
+    const row=db.prepare('SELECT * FROM user_settings').get(),data=JSON.parse(row.data);
+    assert.equal(data['intentsmith.notif.emailEnabled'],false);assert.equal(data['c3.notif.emailEnabled'],true);
+    assert.equal(data['intentsmith.notif.emailRecipient'],'local-test');assert.equal(data['memory.saveContext'],false);assert.equal(row.updated_at,'original');
+  }finally{db.close();}
+});
+test('history and menu surfaces contain no second copy of chat or output panels',()=>{
+  assert.match(fn('ChatApp'),/WorkspaceContextApp/);
+  assert.doesNotMatch(fn('ChatApp'),/_chatPaneUI|_bottomPane/);
+  assert.match(fn('CenterApp'),/if\(_workspaceShown\(\)\)return WorkspaceApp\(\)/);
+  assert.match(fn('_bottomPane'),/\['terminal','agent','audit'\]/);
+});
+
+test('old and new WebSocket capability names share strict duplicate rejection',async()=>{
+  const {parseLegacyLocalWebSocketCapability}=await import('../src/security/legacy-local-access-policy.js');
+  const token='A'.repeat(43);
+  for(const prefix of ['c3-local-v1.','intentsmith-local-v1.'])assert.deepEqual(parseLegacyLocalWebSocketCapability(prefix+token),{state:'valid',token});
+  assert.equal(parseLegacyLocalWebSocketCapability('c3-local-v1.'+token+', intentsmith-local-v1.'+token).state,'ambiguous');
+  assert.equal(parseLegacyLocalWebSocketCapability('c3-local-v11.'+token).state,'ambiguous');
+});
+test('canonical environment values win; an old installation remains readable',async()=>{
+  const {spawnSync}=await import('node:child_process');
+  const code=`const {config}=await import('./src/config.js');console.log(JSON.stringify({path:config.db.path,agents:config.features.agents}));`;
+  for(const canonical of [false,true]){
+    const env={...process.env,C3_DB_PATH:'/legacy/project.sqlite',C3_ENABLE_AGENTS:'true'};
+    delete env.INTENTSMITH_DB_PATH;delete env.INTENTSMITH_ENABLE_AGENTS;
+    if(canonical){env.INTENTSMITH_DB_PATH='/canonical/project.sqlite';env.INTENTSMITH_ENABLE_AGENTS='false';}
+    const p=spawnSync(process.execPath,['--input-type=module','-e',code],{cwd:new URL('..',import.meta.url),env,encoding:'utf8'});
+    assert.equal(p.status,0,p.stderr);const result=JSON.parse(p.stdout.trim().split('\n').at(-1));
+    assert.deepEqual(result,canonical?{path:'/canonical/project.sqlite',agents:false}:{path:'/legacy/project.sqlite',agents:true});
+  }
+});
+test('draft snapshots cannot copy a closed conversation draft into its replacement',()=>{
+  const c=harness();vm.runInContext(fn('_snapshotWorkspaceDrafts'),c);
+  const old=c._sessions[0];c._workspaceTextareas={0:{session:old,node:{value:'private draft'}}};
+  c._snapshotWorkspaceDrafts();assert.equal(old.chat._draft,'private draft');
+  c._closeWorkspaceConversation(0);c._snapshotWorkspaceDrafts();assert.equal(c._sessions[0].chat._draft,undefined);
+});

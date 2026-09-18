@@ -49,12 +49,12 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 // ─── Snapshot Persistence ───────────────────────────────────────────────────
 
-const SNAPSHOT_FILE = '.c3/snapshot.json';
+const SNAPSHOT_FILE = '.intentsmith/snapshot.json';
 const SNAPSHOT_SCHEMA_VERSION = 1;
 
 async function _saveToFile(projectPath, snapshot) {
   try {
-    const dir = path.join(projectPath, '.c3');
+    const dir = path.join(projectPath, '.intentsmith');
     await mkdir(dir, { recursive: true });
     const data = { schemaVersion: SNAPSHOT_SCHEMA_VERSION, ...snapshot };
     await writeFile(path.join(projectPath, SNAPSHOT_FILE), JSON.stringify(data), 'utf8');
@@ -72,7 +72,7 @@ async function _loadFromFile(projectPath) {
 
     // Invalidate if architecture policy is newer than snapshot
     try {
-      const policyPath = path.join(projectPath, '.c3/architecture-policy.json');
+      const policyPath = path.join(projectPath, '.intentsmith/architecture-policy.json');
       const policyStat = await stat(policyPath);
       if (data.timestamp && policyStat.mtime > new Date(data.timestamp)) {
         logger.info('ProjectKB', 'Snapshot invalidated: architecture policy is newer');

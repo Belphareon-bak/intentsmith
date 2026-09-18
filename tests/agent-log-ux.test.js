@@ -13,10 +13,10 @@ const ASYNC_TEST_TIMEOUT_MS = 10_000;
 
 // CJS modules from IDE extension
 const { formatAgentEvent } = require(
-  '../c3-ide/extensions/c3-chat-panel/lib/browser/agent-client.js'
+  '../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/agent-client.js'
 );
 const { groupByTurn, pairEvents, render } = require(
-  '../c3-ide/extensions/c3-chat-panel/lib/browser/agent-log-renderer.js'
+  '../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/agent-log-renderer.js'
 );
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

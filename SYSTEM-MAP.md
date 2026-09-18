@@ -266,8 +266,8 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **225 336 ř.**, 630 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **246 729 ř.**, 532 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **225 388 ř.**, 631 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **246 829 ř.**, 533 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **524** (`430 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 101** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |
@@ -405,7 +405,7 @@ adresáře** — u čtyř schopností kód leží jinde, než by název adresá�
 | 3 | LLM gateway | 2,9k | `llm/` |
 | 5 | Quality Gate v2 | 2,9k | `chat/quality/` |
 | 6 | Chat pipeline | 20,4k | `chat/handlers/` (45), `chat/controller.js` |
-| 21 | Studio + WS | 1,3k + **14,9k** | `ws-bridge/` + **`c3-ide/` (139 souborů TS/TSX, 20+ rozšíření)** — Theia IDE je **plocha produktu**, viz `DIRECTION.md` |
+| 21 | Studio + WS | 1,3k + **14,9k** | `ws-bridge/` + **`intentsmith-ide/` (139 souborů TS/TSX, 20+ rozšíření)** — Theia IDE je **plocha produktu**, viz `DIRECTION.md` |
 | 7 | Expertizy | 9,5k | `expertises/` **mimo** specialist-runtime, scenario-engine, knowledge-base |
 | 16 | Nástroje | 7,6k | `tools/` — legacy `registry.js` drží **153 registrovaných nástrojů**; M2 typed authority je v `m2-tool-*.js` |
 | 9 | Skills | 1,8k | `skills/` — 8 vykonávaných step typů + samostatná substitution helper vrstva |

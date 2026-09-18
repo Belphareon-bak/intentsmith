@@ -86,7 +86,7 @@ restartu obnovit.
 
 1. `src/executor/tool-executor.js` — aktivní chatový executor.
 2. `src/tools/registry.js` — 153 deklarovaných nástrojů a jejich metadata.
-3. `src/executor/c3-tool-executor.js` — lifecycle, test a build executor.
+3. `src/executor/intentsmith-tool-executor.js` — lifecycle, test a build executor.
 
 Nejsou složené za jedním authority portem.
 

@@ -38,7 +38,7 @@ import {
 import { checkDependencies, rawId, writeRoadmapFile } from './lifecycle-planning.js';
 import { MilestoneStatus, CheckpointMode } from './lifecycle.js';
 import { ensureReadme, ensureArchitectureDoc, appendReadmeChangelog } from '../chat/handlers/utils/readme-generator.js';
-import { C3ToolExecutor } from '../executor/c3-tool-executor.js';
+import { IntentSmithToolExecutor } from '../executor/intentsmith-tool-executor.js';
 import {
   isProjectPathError,
   readProjectFile,
@@ -1153,7 +1153,7 @@ async function runTests(lifecycle, milestone) {
   });
 
   try {
-    const executor = new C3ToolExecutor();
+    const executor = new IntentSmithToolExecutor();
     const result = await executor.execute({
       correlationId: `test-${milestone.id}-${Date.now()}`,
       tool: 'shell',
@@ -1326,7 +1326,7 @@ async function milestoneCheckpoint(lifecycle, milestone, wfResult, testResults, 
 const ENGINE_MANAGED_FILES = new Set(['ROADMAP.md', 'README.md', 'ARCHITECTURE.md', 'ARCHITECTURE.json', '.gitignore']);
 
 // Generated/artifact directories — always ignored in scope check
-const SCOPE_IGNORE_DIRS = ['__pycache__', '.pytest_cache', 'node_modules', '.git', '.venv', '__pypackages__', '.mypy_cache', '.c3'];
+const SCOPE_IGNORE_DIRS = ['__pycache__', '.pytest_cache', 'node_modules', '.git', '.venv', '__pypackages__', '.mypy_cache', '.intentsmith'];
 
 function findingKey(value) {
   if (value == null) return '';

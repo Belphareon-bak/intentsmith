@@ -29,19 +29,19 @@ const PDF_RUNTIME_VERSIONS = Object.freeze({
 /**
  * Resolve the private, reproducible Python interpreter used by PDF export.
  *
- * INTENTSMITH_PDF_PYTHON is the canonical override. C3_PDF_PYTHON remains a
- * compatibility alias while C3 configuration names are migrated.
+ * INTENTSMITH_PDF_PYTHON is the canonical override. INTENTSMITH_PDF_PYTHON remains a
+ * compatibility alias while IntentSmith configuration names are migrated.
  *
  * @param {NodeJS.ProcessEnv} [env=process.env]
  * @returns {string}
  */
 export function resolvePdfPythonInterpreter(env = process.env) {
   const canonical = env.INTENTSMITH_PDF_PYTHON?.trim();
-  const legacy = env.C3_PDF_PYTHON?.trim();
+  const legacy = env.INTENTSMITH_PDF_PYTHON?.trim();
 
   if (canonical && legacy && canonical !== legacy) {
     throw new Error(
-      'Conflicting INTENTSMITH_PDF_PYTHON and C3_PDF_PYTHON values'
+      'Conflicting INTENTSMITH_PDF_PYTHON and INTENTSMITH_PDF_PYTHON values'
     );
   }
 

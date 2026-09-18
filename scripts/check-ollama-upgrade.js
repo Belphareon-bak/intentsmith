@@ -12,7 +12,7 @@ import { checkOllamaUpdate } from '../src/upgrade/ollama-update-check.js';
 
 const args = process.argv.slice(2);
 if (args.includes('--help')) {
-  console.log('Usage: node scripts/check-ollama-upgrade.js [--json] [--state-dir=/absolute/path]\nDiscovery opt-out: C3_ENABLE_ONLINE_DISCOVERY=false. Never installs an update.');
+  console.log('Usage: node scripts/check-ollama-upgrade.js [--json] [--state-dir=/absolute/path]\nDiscovery opt-out: INTENTSMITH_ENABLE_ONLINE_DISCOVERY=false. Never installs an update.');
   process.exit(0);
 }
 if (args.some(arg => arg !== '--json' && !arg.startsWith('--state-dir='))

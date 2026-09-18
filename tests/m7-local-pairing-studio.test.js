@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const studioPath = path.join(
   root,
-  'c3-ide/extensions/c3-center-views/lib/browser/center-views-module.js',
+  'intentsmith-ide/extensions/intentsmith-center-views/lib/browser/center-views-module.js',
 );
 const source = await readFile(studioPath, 'utf8');
 

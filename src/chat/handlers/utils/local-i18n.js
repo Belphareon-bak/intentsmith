@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — Local Handler i18n (Q4)
+// IntentSmith-Agent — Local Handler i18n (Q4)
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // Fix: Local handler always returns Czech ("📊 **Dnes je pondělí, 9. 2. 2026**")

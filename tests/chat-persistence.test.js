@@ -1,4 +1,4 @@
-// C3-Agent v56.0 — Sprint 3 Tests: Persistence & Memory
+// IntentSmith-Agent v56.0 — Sprint 3 Tests: Persistence & Memory
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // T9.1: ConversationStore CRUD
@@ -102,28 +102,28 @@ function ownedServerEnvironment(nonce) {
     CI: '1',
     DOTENV_CONFIG_PATH: `${isolatedTestRuntime.runtime}/no-dotenv-file`,
     DOTENV_CONFIG_QUIET: 'true',
-    C3_HOST: '127.0.0.1',
-    C3_PORT: '0',
-    C3_PORT_FILE: isolatedTestRuntime.portFile,
-    C3_DB_PATH: isolatedTestRuntime.database,
-    C3_PROJECTS_DIR: isolatedTestRuntime.projects,
+    INTENTSMITH_HOST: '127.0.0.1',
+    INTENTSMITH_PORT: '0',
+    INTENTSMITH_PORT_FILE: isolatedTestRuntime.portFile,
+    INTENTSMITH_DB_PATH: isolatedTestRuntime.database,
+    INTENTSMITH_PROJECTS_DIR: isolatedTestRuntime.projects,
     INTENTSMITH_TEST_PROJECTS_DIR: isolatedTestRuntime.projects,
     INTENTSMITH_TEST_ARTIFACT_DIR: isolatedTestRuntime.artifacts,
     INTENTSMITH_TEST_SERVER_NONCE: nonce,
-    C3_CORS_ORIGINS: 'http://localhost:3000',
-    C3_ENABLE_AGENTS: 'false',
-    C3_ENABLE_EXPERTISES: 'false',
-    C3_ENABLE_LIFECYCLE: 'false',
-    C3_ENABLE_COMFYUI: 'false',
-    C3_ENABLE_AUTONOMY: 'false',
-    C3_ENABLE_SKILLS: 'false',
-    C3_ENABLE_TELEMETRY: 'false',
-    C3_ENABLE_ONLINE_DISCOVERY: 'false',
-    C3_MODEL_UNIVERSE_ENABLED: 'false',
-    C3_LIFECYCLE_AUTO_COMMIT: 'false',
-    C3_UPDATE_REPO: '',
-    C3_TRACE: '0',
-    C3_LOG_LEVEL: 'warn',
+    INTENTSMITH_CORS_ORIGINS: 'http://localhost:3000',
+    INTENTSMITH_ENABLE_AGENTS: 'false',
+    INTENTSMITH_ENABLE_EXPERTISES: 'false',
+    INTENTSMITH_ENABLE_LIFECYCLE: 'false',
+    INTENTSMITH_ENABLE_COMFYUI: 'false',
+    INTENTSMITH_ENABLE_AUTONOMY: 'false',
+    INTENTSMITH_ENABLE_SKILLS: 'false',
+    INTENTSMITH_ENABLE_TELEMETRY: 'false',
+    INTENTSMITH_ENABLE_ONLINE_DISCOVERY: 'false',
+    INTENTSMITH_MODEL_UNIVERSE_ENABLED: 'false',
+    INTENTSMITH_LIFECYCLE_AUTO_COMMIT: 'false',
+    INTENTSMITH_UPDATE_REPO: '',
+    INTENTSMITH_TRACE: '0',
+    INTENTSMITH_LOG_LEVEL: 'warn',
     OLLAMA_URL: 'invalid://m1-chat-restart-no-provider',
   };
 }
@@ -671,13 +671,13 @@ describe('T9.3: LTM Context Builder', () => {
     const block = buildLTMPromptBlock([
       { kind: MemoryKind.PREFERENCE, key: 'verbose', value: true },
       { kind: MemoryKind.STYLE, key: 'style', value: 'stručně a věcně' },
-      { kind: MemoryKind.PROJECT, key: 'c3-agent', value: 'Node.js orchestrátor' },
+      { kind: MemoryKind.PROJECT, key: 'intentsmith-agent', value: 'Node.js orchestrátor' },
     ]);
 
     assert.ok(block.includes('KONTEXT O UŽIVATELI'));
     assert.ok(block.includes('Preference: verbose'));
     assert.ok(block.includes('Styl: stručně a věcně'));
-    assert.ok(block.includes('Projekt: c3-agent'));
+    assert.ok(block.includes('Projekt: intentsmith-agent'));
   });
 
   it('buildLTMPromptBlock returns empty string for no facts', async () => {

@@ -12,7 +12,7 @@ echo ""
 # Check if we're in the right directory
 if [ ! -f "package.json" ]; then
   echo "❌ Error: package.json not found!"
-  echo "   Please run this script from the c3-ide root directory."
+  echo "   Please run this script from the intentsmith-ide root directory."
   exit 1
 fi
 

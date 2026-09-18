@@ -2,7 +2,7 @@
 import './helpers/isolated-test-db.js';
 
 // ══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — DESIGN Sprint 3+4 Tests v58.0
+// IntentSmith-Agent — DESIGN Sprint 3+4 Tests v58.0
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Sprint 3: SessionState integration, BUILD transition, project lifecycle
@@ -48,7 +48,7 @@ function classifyIntent(input) { return engine.classifyIntent(input); }
 function decide(input, ctx = {}) { return engine.decide(input, ctx); }
 
 console.log('══════════════════════════════════════════════════════════');
-console.log('  C3-Agent DESIGN Sprint 3+4 Tests v58.0');
+console.log('  IntentSmith-Agent DESIGN Sprint 3+4 Tests v58.0');
 console.log('══════════════════════════════════════════════════════════\n');
 
 // ═══════════════════════════════════════════════════════════════════════════

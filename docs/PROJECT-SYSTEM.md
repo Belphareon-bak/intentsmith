@@ -587,7 +587,7 @@ Pro dosažení parity s IDE AI asistenty C3 potřebuje:
 | Soubor | Účel |
 |--------|------|
 | `src/chat/handlers/file.js` | FILE_READ/FILE_EXPLAIN handler |
-| `src/executor/c3-tool-executor.js` | Shell/file sandbox |
+| `src/executor/intentsmith-tool-executor.js` | Shell/file sandbox |
 
 ### Lifecycle Engine
 | Soubor | Účel |

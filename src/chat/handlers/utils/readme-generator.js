@@ -166,7 +166,7 @@ export function generateReadme(projectPath, opts = {}) {
     sections.push(entries.map(e => `- \`${e}\``).join('\n') + '\n');
   }
 
-  sections.push(`---\n> Automaticky vygenerováno C3 Studio (v91.0)\n`);
+  sections.push(`---\n> Automaticky vygenerováno IntentSmith Studio (v91.0)\n`);
 
   return sections.join('\n');
 }
@@ -238,7 +238,7 @@ export function ensureReadme(projectPath, opts = {}) {
     if (fs.existsSync(readmePath)) {
       const existing = fs.readFileSync(readmePath, 'utf-8');
       // Only regenerate if it's our auto-generated one
-      if (!existing.includes('Automaticky vygenerováno C3 Studio')) {
+      if (!existing.includes('Automaticky vygenerováno IntentSmith Studio')) {
         return { written: false, path: readmePath, reason: 'user_readme_exists' };
       }
     }
@@ -297,7 +297,7 @@ function generateRoadmapScaffold(name, type) {
   const lines = [
     `# ROADMAP — ${name}`,
     '',
-    '> Automaticky vygenerováno C3 Studio. Lifecycle engine aktualizuje po dokončení každé fáze.',
+    '> Automaticky vygenerováno IntentSmith Studio. Lifecycle engine aktualizuje po dokončení každé fáze.',
     '',
     '## Fáze projektu',
     '',
@@ -339,7 +339,7 @@ export function ensureArchitectureDoc(projectPath, spec) {
     // Don't overwrite user-created architecture docs
     if (fs.existsSync(archPath)) {
       const existing = fs.readFileSync(archPath, 'utf-8');
-      if (!existing.includes('Automaticky vygenerováno C3 Studio')) {
+      if (!existing.includes('Automaticky vygenerováno IntentSmith Studio')) {
         return { written: false, path: archPath, reason: 'user_doc_exists' };
       }
     }
@@ -375,7 +375,7 @@ export function appendReadmeChangelog(projectPath, milestone, diffInfo = {}) {
     const changelogHeader = '## Changelog';
     if (!content.includes(changelogHeader)) {
       // Insert before the footer
-      const footer = '---\n> Automaticky vygenerováno C3 Studio';
+      const footer = '---\n> Automaticky vygenerováno IntentSmith Studio';
       const footerIdx = content.indexOf(footer);
       if (footerIdx >= 0) {
         content = content.substring(0, footerIdx) + changelogHeader + '\n\n' + content.substring(footerIdx);
@@ -496,7 +496,7 @@ function _generateArchitectureDoc(spec, projectName) {
     lines.push('');
   }
 
-  lines.push(`---\n> Automaticky vygenerováno C3 Studio (v91.0)\n`);
+  lines.push(`---\n> Automaticky vygenerováno IntentSmith Studio (v91.0)\n`);
   return lines.join('\n');
 }
 

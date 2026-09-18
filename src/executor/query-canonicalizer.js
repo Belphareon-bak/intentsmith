@@ -1,4 +1,4 @@
-// C3-Agent v56.2.2 — Query Canonicalizer
+// IntentSmith-Agent v56.2.2 — Query Canonicalizer
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // PURPOSE: Transform sanitized search queries into effective search queries.

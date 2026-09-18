@@ -13,7 +13,7 @@ import { generateNewProjectWelcome, generateExistingProjectWelcome } from '../sr
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-const TMP = path.join(os.tmpdir(), 'c3-test-welcome-' + Date.now());
+const TMP = path.join(os.tmpdir(), 'intentsmith-test-welcome-' + Date.now());
 
 function mkProject(name, files = {}) {
   const dir = path.join(TMP, name);
@@ -30,19 +30,19 @@ function cleanup() {
   try { fs.rmSync(TMP, { recursive: true, force: true }); } catch {}
 }
 
-// ─── C3 markers ─────────────────────────────────────────────────────────────
+// ─── IntentSmith markers ─────────────────────────────────────────────────────────────
 
-const C3_README = `# TestProject
+const INTENTSMITH_README = `# TestProject
 
 Popis projektu.
 
 ---
-> Automaticky vygenerováno C3 Studio (v67.0)
+> Automaticky vygenerováno IntentSmith Studio (v67.0)
 `;
 
-const C3_ROADMAP_IN_PROGRESS = `# ROADMAP — TestProject
+const INTENTSMITH_ROADMAP_IN_PROGRESS = `# ROADMAP — TestProject
 
-> Automaticky vygenerováno C3 Studio.
+> Automaticky vygenerováno IntentSmith Studio.
 
 ## Fáze projektu
 
@@ -54,9 +54,9 @@ const C3_ROADMAP_IN_PROGRESS = `# ROADMAP — TestProject
 | 4 | Review | ⬜ Čeká | Kontrola kvality |
 `;
 
-const C3_ROADMAP_ALL_DONE = `# ROADMAP — Done
+const INTENTSMITH_ROADMAP_ALL_DONE = `# ROADMAP — Done
 
-> Automaticky vygenerováno C3 Studio.
+> Automaticky vygenerováno IntentSmith Studio.
 
 | # | Fáze | Status | Popis |
 |---|------|--------|-------|
@@ -66,9 +66,9 @@ const C3_ROADMAP_ALL_DONE = `# ROADMAP — Done
 | 4 | Review | ✅ Hotovo | Done |
 `;
 
-const C3_ROADMAP_ALL_PENDING = `# ROADMAP — Pending
+const INTENTSMITH_ROADMAP_ALL_PENDING = `# ROADMAP — Pending
 
-> Automaticky vygenerováno C3 Studio.
+> Automaticky vygenerováno IntentSmith Studio.
 
 | # | Fáze | Status | Popis |
 |---|------|--------|-------|
@@ -76,9 +76,9 @@ const C3_ROADMAP_ALL_PENDING = `# ROADMAP — Pending
 | 2 | Plánování | ⬜ Čeká | TBD |
 `;
 
-const C3_ROADMAP_MULTI_IP = `# ROADMAP
+const INTENTSMITH_ROADMAP_MULTI_IP = `# ROADMAP
 
-> Automaticky vygenerováno C3 Studio.
+> Automaticky vygenerováno IntentSmith Studio.
 
 | # | Fáze | Status | Popis |
 |---|------|--------|-------|
@@ -90,7 +90,7 @@ const C3_ROADMAP_MULTI_IP = `# ROADMAP
 
 const FOREIGN_README = `# Some Project
 
-A project not created by C3.
+A project not created by IntentSmith.
 `;
 
 const FOREIGN_ROADMAP = `# Roadmap
@@ -107,8 +107,8 @@ suite('Suite 1: ROADMAP phase parsing');
 
 test('1.1 Single ⏳ → correct currentPhase, IN_PROGRESS', () => {
   const dir = mkProject('s1-single-ip', {
-    'README.md': C3_README,
-    'ROADMAP.md': C3_ROADMAP_IN_PROGRESS,
+    'README.md': INTENTSMITH_README,
+    'ROADMAP.md': INTENTSMITH_ROADMAP_IN_PROGRESS,
   });
   const state = readProjectState(dir);
   assertEqual(state.currentPhase, 'Plánování');
@@ -118,8 +118,8 @@ test('1.1 Single ⏳ → correct currentPhase, IN_PROGRESS', () => {
 
 test('1.2 All ⬜ → first pending is current, PENDING', () => {
   const dir = mkProject('s1-all-pending', {
-    'README.md': C3_README,
-    'ROADMAP.md': C3_ROADMAP_ALL_PENDING,
+    'README.md': INTENTSMITH_README,
+    'ROADMAP.md': INTENTSMITH_ROADMAP_ALL_PENDING,
   });
   const state = readProjectState(dir);
   assertEqual(state.currentPhase, 'Specifikace');
@@ -128,8 +128,8 @@ test('1.2 All ⬜ → first pending is current, PENDING', () => {
 
 test('1.3 Multiple ⏳ → first used, IN_PROGRESS', () => {
   const dir = mkProject('s1-multi-ip', {
-    'README.md': C3_README,
-    'ROADMAP.md': C3_ROADMAP_MULTI_IP,
+    'README.md': INTENTSMITH_README,
+    'ROADMAP.md': INTENTSMITH_ROADMAP_MULTI_IP,
   });
   const state = readProjectState(dir);
   assertEqual(state.currentPhase, 'Plan');
@@ -138,8 +138,8 @@ test('1.3 Multiple ⏳ → first used, IN_PROGRESS', () => {
 
 test('1.4 All ✅ → COMPLETED, currentPhase null', () => {
   const dir = mkProject('s1-all-done', {
-    'README.md': C3_README,
-    'ROADMAP.md': C3_ROADMAP_ALL_DONE,
+    'README.md': INTENTSMITH_README,
+    'ROADMAP.md': INTENTSMITH_ROADMAP_ALL_DONE,
   });
   const state = readProjectState(dir);
   assertEqual(state.currentPhase, null);
@@ -149,8 +149,8 @@ test('1.4 All ✅ → COMPLETED, currentPhase null', () => {
 
 test('1.5 No phases found → UNKNOWN', () => {
   const dir = mkProject('s1-no-phases', {
-    'README.md': C3_README,
-    'ROADMAP.md': '# ROADMAP\n\n> Automaticky vygenerováno C3 Studio.\n\nNo table here.\n',
+    'README.md': INTENTSMITH_README,
+    'ROADMAP.md': '# ROADMAP\n\n> Automaticky vygenerováno IntentSmith Studio.\n\nNo table here.\n',
   });
   const state = readProjectState(dir);
   assertEqual(state.phaseStatus, PhaseStatus.UNKNOWN);
@@ -159,8 +159,8 @@ test('1.5 No phases found → UNKNOWN', () => {
 
 test('1.6 Completed + pending phases listed correctly', () => {
   const dir = mkProject('s1-mixed', {
-    'README.md': C3_README,
-    'ROADMAP.md': C3_ROADMAP_IN_PROGRESS,
+    'README.md': INTENTSMITH_README,
+    'ROADMAP.md': INTENTSMITH_ROADMAP_IN_PROGRESS,
   });
   const state = readProjectState(dir);
   assertEqual(state.completedPhases.length, 1);
@@ -176,34 +176,34 @@ test('1.6 Completed + pending phases listed correctly', () => {
 
 suite('Suite 2: State type derivation');
 
-test('2.1 C3 README + C3 ROADMAP → FULL', () => {
+test('2.1 IntentSmith README + IntentSmith ROADMAP → FULL', () => {
   const dir = mkProject('s2-full', {
-    'README.md': C3_README,
-    'ROADMAP.md': C3_ROADMAP_IN_PROGRESS,
+    'README.md': INTENTSMITH_README,
+    'ROADMAP.md': INTENTSMITH_ROADMAP_IN_PROGRESS,
   });
   const state = readProjectState(dir);
   assertEqual(state.stateType, StateType.FULL);
-  assert(state.hasC3Structure, 'hasC3Structure should be true');
+  assert(state.hasIntentSmithStructure, 'hasIntentSmithStructure should be true');
 });
 
-test('2.2 Foreign README + C3 ROADMAP → HYBRID', () => {
+test('2.2 Foreign README + IntentSmith ROADMAP → HYBRID', () => {
   const dir = mkProject('s2-hybrid', {
     'README.md': FOREIGN_README,
-    'ROADMAP.md': C3_ROADMAP_IN_PROGRESS,
+    'ROADMAP.md': INTENTSMITH_ROADMAP_IN_PROGRESS,
   });
   const state = readProjectState(dir);
   assertEqual(state.stateType, StateType.HYBRID);
-  assert(state.hasC3Structure, 'hasC3Structure should be true (ROADMAP is C3)');
+  assert(state.hasIntentSmithStructure, 'hasIntentSmithStructure should be true (ROADMAP is IntentSmith)');
 });
 
-test('2.3 C3 README + foreign ROADMAP → HYBRID', () => {
+test('2.3 IntentSmith README + foreign ROADMAP → HYBRID', () => {
   const dir = mkProject('s2-hybrid2', {
-    'README.md': C3_README,
+    'README.md': INTENTSMITH_README,
     'ROADMAP.md': FOREIGN_ROADMAP,
   });
   const state = readProjectState(dir);
   assertEqual(state.stateType, StateType.HYBRID);
-  assert(state.hasC3Structure, 'hasC3Structure should be true (README is C3)');
+  assert(state.hasIntentSmithStructure, 'hasIntentSmithStructure should be true (README is IntentSmith)');
 });
 
 test('2.4 Foreign + foreign → FOREIGN', () => {
@@ -213,7 +213,7 @@ test('2.4 Foreign + foreign → FOREIGN', () => {
   });
   const state = readProjectState(dir);
   assertEqual(state.stateType, StateType.FOREIGN);
-  assert(!state.hasC3Structure, 'hasC3Structure should be false');
+  assert(!state.hasIntentSmithStructure, 'hasIntentSmithStructure should be false');
 });
 
 test('2.5 No README + no ROADMAP → EMPTY', () => {
@@ -224,9 +224,9 @@ test('2.5 No README + no ROADMAP → EMPTY', () => {
   assert(!state.hasRoadmap, 'hasRoadmap should be false');
 });
 
-test('2.6 C3 README only → HYBRID', () => {
+test('2.6 IntentSmith README only → HYBRID', () => {
   const dir = mkProject('s2-readme-only', {
-    'README.md': C3_README,
+    'README.md': INTENTSMITH_README,
   });
   const state = readProjectState(dir);
   assertEqual(state.stateType, StateType.HYBRID);
@@ -238,10 +238,10 @@ test('2.6 C3 README only → HYBRID', () => {
 
 suite('Suite 3: Summary + description extraction');
 
-test('3.1 .c3/project.json description takes priority', () => {
+test('3.1 .intentsmith/project.json description takes priority', () => {
   const dir = mkProject('s3-meta', {
-    'README.md': C3_README,
-    '.c3/project.json': JSON.stringify({ name: 'MetaProject', description: 'From meta' }),
+    'README.md': INTENTSMITH_README,
+    '.intentsmith/project.json': JSON.stringify({ name: 'MetaProject', description: 'From meta' }),
   });
   const state = readProjectState(dir);
   assertEqual(state.description, 'From meta');
@@ -291,10 +291,10 @@ test('3.6 README summary truncates at 200 chars', () => {
   assert(state.summary.endsWith('...'), 'Should end with ...');
 });
 
-test('3.7 Invalid .c3/project.json → no crash', () => {
+test('3.7 Invalid .intentsmith/project.json → no crash', () => {
   const dir = mkProject('s3-bad-json', {
-    'README.md': C3_README,
-    '.c3/project.json': '{invalid json!!!',
+    'README.md': INTENTSMITH_README,
+    '.intentsmith/project.json': '{invalid json!!!',
   });
   const state = readProjectState(dir);
   assertEqual(state.summary, 'Popis projektu.');
@@ -311,15 +311,15 @@ test('4.1 BOM in README → stripped correctly', () => {
     'README.md': '\uFEFF# BOMProject\n\nBOM description.\n',
   });
   const state = readProjectState(dir);
-  assertEqual(state.name, 's4-bom'); // no .c3/project.json, uses dirname
+  assertEqual(state.name, 's4-bom'); // no .intentsmith/project.json, uses dirname
   assertEqual(state.summary, 'BOM description.');
 });
 
 test('4.2 CRLF line endings → phases still parsed', () => {
-  const crlf = C3_ROADMAP_IN_PROGRESS.replace(/\n/g, '\r\n');
+  const crlf = INTENTSMITH_ROADMAP_IN_PROGRESS.replace(/\n/g, '\r\n');
   const dir = mkProject('s4-crlf', {
     'ROADMAP.md': crlf,
-    'README.md': C3_README,
+    'README.md': INTENTSMITH_README,
   });
   const state = readProjectState(dir);
   assertEqual(state.phaseStatus, PhaseStatus.IN_PROGRESS);
@@ -329,7 +329,7 @@ test('4.2 CRLF line endings → phases still parsed', () => {
 test('4.3 Extra spaces in table → tolerant parse', () => {
   const messy = `# ROADMAP
 
-> Automaticky vygenerováno C3 Studio.
+> Automaticky vygenerováno IntentSmith Studio.
 
 |  #  |   Fáze   |   Status   |  Popis  |
 |-----|----------|------------|---------|
@@ -338,7 +338,7 @@ test('4.3 Extra spaces in table → tolerant parse', () => {
 `;
   const dir = mkProject('s4-spaces', {
     'ROADMAP.md': messy,
-    'README.md': C3_README,
+    'README.md': INTENTSMITH_README,
   });
   const state = readProjectState(dir);
   // Spec is ✅ (completed), Plan is ⏳ (in progress) → currentPhase = Plan
@@ -430,8 +430,8 @@ suite('Suite 6: Welcome generator — existing project');
 
 test('6.1 FULL IN_PROGRESS — phases + next action', () => {
   const dir = mkProject('s6-full-ip', {
-    'README.md': C3_README,
-    'ROADMAP.md': C3_ROADMAP_IN_PROGRESS,
+    'README.md': INTENTSMITH_README,
+    'ROADMAP.md': INTENTSMITH_ROADMAP_IN_PROGRESS,
   });
   const state = readProjectState(dir);
   const welcome = generateExistingProjectWelcome(state);
@@ -442,8 +442,8 @@ test('6.1 FULL IN_PROGRESS — phases + next action', () => {
 
 test('6.2 FULL COMPLETED — new cycle + audit', () => {
   const dir = mkProject('s6-full-done', {
-    'README.md': C3_README,
-    'ROADMAP.md': C3_ROADMAP_ALL_DONE,
+    'README.md': INTENTSMITH_README,
+    'ROADMAP.md': INTENTSMITH_ROADMAP_ALL_DONE,
   });
   const state = readProjectState(dir);
   const welcome = generateExistingProjectWelcome(state);
@@ -454,21 +454,21 @@ test('6.2 FULL COMPLETED — new cycle + audit', () => {
 test('6.3 HYBRID — suggests fixing structure', () => {
   const dir = mkProject('s6-hybrid', {
     'README.md': FOREIGN_README,
-    'ROADMAP.md': C3_ROADMAP_IN_PROGRESS,
+    'ROADMAP.md': INTENTSMITH_ROADMAP_IN_PROGRESS,
   });
   const state = readProjectState(dir);
   const welcome = generateExistingProjectWelcome(state);
   assertIncludes(welcome, 'aktualizovat');
 });
 
-test('6.4 FOREIGN — offers C3 structure', () => {
+test('6.4 FOREIGN — offers IntentSmith structure', () => {
   const dir = mkProject('s6-foreign', {
     'README.md': FOREIGN_README,
     'ROADMAP.md': FOREIGN_ROADMAP,
   });
   const state = readProjectState(dir);
   const welcome = generateExistingProjectWelcome(state);
-  assertIncludes(welcome, 'C3 strukturu');
+  assertIncludes(welcome, 'IntentSmith strukturu');
 });
 
 test('6.5 EMPTY — offers scaffold', () => {
@@ -483,8 +483,8 @@ test('6.6 No empty sections in any welcome variant', () => {
   // Check that no welcome has consecutive empty lines (= empty section)
   const variants = [
     generateNewProjectWelcome({ name: 'T1' }),
-    generateExistingProjectWelcome(readProjectState(mkProject('s6-no-empty-1', { 'README.md': C3_README, 'ROADMAP.md': C3_ROADMAP_IN_PROGRESS }))),
-    generateExistingProjectWelcome(readProjectState(mkProject('s6-no-empty-2', { 'README.md': C3_README, 'ROADMAP.md': C3_ROADMAP_ALL_DONE }))),
+    generateExistingProjectWelcome(readProjectState(mkProject('s6-no-empty-1', { 'README.md': INTENTSMITH_README, 'ROADMAP.md': INTENTSMITH_ROADMAP_IN_PROGRESS }))),
+    generateExistingProjectWelcome(readProjectState(mkProject('s6-no-empty-2', { 'README.md': INTENTSMITH_README, 'ROADMAP.md': INTENTSMITH_ROADMAP_ALL_DONE }))),
     generateExistingProjectWelcome(readProjectState(mkProject('s6-no-empty-3', { 'README.md': FOREIGN_README, 'ROADMAP.md': FOREIGN_ROADMAP }))),
     generateExistingProjectWelcome(readProjectState(mkProject('s6-no-empty-4', {}))),
   ];
@@ -496,9 +496,9 @@ test('6.6 No empty sections in any welcome variant', () => {
 test('6.7 All welcome variants ≤ 600 chars', () => {
   const variants = [
     generateNewProjectWelcome({ name: 'T1', description: 'Desc', type: 'webapp' }),
-    generateExistingProjectWelcome(readProjectState(mkProject('s6-len-1', { 'README.md': C3_README, 'ROADMAP.md': C3_ROADMAP_IN_PROGRESS }))),
-    generateExistingProjectWelcome(readProjectState(mkProject('s6-len-2', { 'README.md': C3_README, 'ROADMAP.md': C3_ROADMAP_ALL_DONE }))),
-    generateExistingProjectWelcome(readProjectState(mkProject('s6-len-3', { 'README.md': FOREIGN_README, 'ROADMAP.md': C3_ROADMAP_IN_PROGRESS }))),
+    generateExistingProjectWelcome(readProjectState(mkProject('s6-len-1', { 'README.md': INTENTSMITH_README, 'ROADMAP.md': INTENTSMITH_ROADMAP_IN_PROGRESS }))),
+    generateExistingProjectWelcome(readProjectState(mkProject('s6-len-2', { 'README.md': INTENTSMITH_README, 'ROADMAP.md': INTENTSMITH_ROADMAP_ALL_DONE }))),
+    generateExistingProjectWelcome(readProjectState(mkProject('s6-len-3', { 'README.md': FOREIGN_README, 'ROADMAP.md': INTENTSMITH_ROADMAP_IN_PROGRESS }))),
     generateExistingProjectWelcome(readProjectState(mkProject('s6-len-4', { 'README.md': FOREIGN_README, 'ROADMAP.md': FOREIGN_ROADMAP }))),
     generateExistingProjectWelcome(readProjectState(mkProject('s6-len-5', {}))),
   ];

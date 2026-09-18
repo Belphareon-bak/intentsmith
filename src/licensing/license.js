@@ -8,7 +8,7 @@
 //   2. License key = base64(JSON { tier, hwHash, expiry, features }) + HMAC signature
 //   3. Validation: re-derive fingerprint, verify HMAC, check expiry
 //
-// Key format: C3-XXXX-XXXX-XXXX-XXXX (base64url encoded, 4 groups)
+// Key format: IntentSmith-XXXX-XXXX-XXXX-XXXX (base64url encoded, 4 groups)
 //
 // Tiers:
 //   - FREE: basic chat, 1 project, no agents, no export
@@ -29,7 +29,7 @@ import { logger } from '../core/logger.js';
 
 // Signing/validation authority is operator-owned. A missing secret must never
 // silently fall back to a repository-known value.
-const LICENSE_SECRET = process.env.C3_LICENSE_SECRET || null;
+const LICENSE_SECRET = (process.env.INTENTSMITH_LICENSE_SECRET ?? process.env['C3_LICENSE_SECRET']) || null;
 
 function requireLicenseSecret(secret) {
   if (typeof secret !== 'string' || secret.length < 32) {
@@ -156,13 +156,13 @@ export function generateLicenseKey({
   // Encode combined payload+sig as hex to avoid base64url dash collision
   const combined = Buffer.from(payloadB64 + '.' + signature).toString('hex');
   
-  // Format as C3-XXXXXXXX-XXXXXXXX-...
+  // Format as IntentSmith-XXXXXXXX-XXXXXXXX-...
   const chunks = [];
   for (let i = 0; i < combined.length; i += 8) {
     chunks.push(combined.slice(i, i + 8));
   }
 
-  return 'C3-' + chunks.join('-');
+  return 'IntentSmith-' + chunks.join('-');
 }
 
 // ─── License Key Validation ─────────────────────────────────────────────────
@@ -170,7 +170,7 @@ export function generateLicenseKey({
 /**
  * Validate a license key against the current machine's fingerprint.
  *
- * @param {string} key - License key (C3-XXXX-XXXX-...)
+ * @param {string} key - License key (IntentSmith-XXXX-XXXX-...)
  * @param {Object} [opts]
  * @param {string} [opts.hwFingerprint] - Override fingerprint (for testing)
  * @param {string} [opts.secret] - Override HMAC secret
@@ -182,7 +182,7 @@ export function validateLicenseKey(key, opts = {}) {
   try {
     requireLicenseSecret(secret);
     // 1. Parse key format
-    if (!key || !key.startsWith('C3-')) {
+    if (!key || !key.startsWith('IntentSmith-')) {
       return { valid: false, tier: TIERS.FREE, features: TIER_FEATURES.FREE, error: 'Invalid key format' };
     }
 
@@ -284,7 +284,7 @@ export class LicenseManager {
   /**
    * Get current license status (cached).
    */
-  getStatus(key = process.env.C3_LICENSE_KEY) {
+  getStatus(key = (process.env.INTENTSMITH_LICENSE_KEY ?? process.env['C3_LICENSE_KEY'])) {
     if (!key) {
       return { valid: false, tier: TIERS.FREE, features: TIER_FEATURES.FREE };
     }
@@ -302,7 +302,7 @@ export class LicenseManager {
   /**
    * Check if a specific feature is allowed.
    */
-  hasFeature(feature, key = process.env.C3_LICENSE_KEY) {
+  hasFeature(feature, key = (process.env.INTENTSMITH_LICENSE_KEY ?? process.env['C3_LICENSE_KEY'])) {
     const status = this.getStatus(key);
     return !!status.features?.[feature];
   }
@@ -310,7 +310,7 @@ export class LicenseManager {
   /**
    * Get current tier.
    */
-  getTier(key = process.env.C3_LICENSE_KEY) {
+  getTier(key = (process.env.INTENTSMITH_LICENSE_KEY ?? process.env['C3_LICENSE_KEY'])) {
     return this.getStatus(key).tier;
   }
 

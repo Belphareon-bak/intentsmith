@@ -30,7 +30,7 @@ function runSuite(file, requiredNames) {
   const result = spawnSync(process.execPath, [file], {
     cwd: root,
     encoding: 'utf8',
-    env: { ...process.env, C3_LOG_LEVEL: 'error' },
+    env: { ...process.env, INTENTSMITH_LOG_LEVEL: 'error' },
   });
   assert.equal(result.error, undefined, `${file} could not start: ${result.error?.message}`);
   assert.equal(result.status, 0,

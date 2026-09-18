@@ -12,7 +12,7 @@
  *   package.json          → "version": "X.Y.Z"  (+ description line)
  *   README.md             → **Verze:** X.Y.Z
  *   CLAUDE.md             → **Verze:** vX.Y.Z  (line 3 + footer)
- *   docs/README.md        → # C3-Agent vX.Y.Z  (line 1 + footer)
+ *   docs/README.md        → # IntentSmith-Agent vX.Y.Z  (line 1 + footer)
  *   docs/ARCHITECTURE.md  → Architecture vMAJOR (line 1), **Version:** vX.Y.Z (line 3), footer
  *   docs/ROADMAP.md       → **Verze kódu:** vX.Y.Z  (line 6 + footer)
  *   docs/API-REFERENCE.md → > **vMAJOR** |
@@ -111,7 +111,7 @@ patchFile('CLAUDE.md', [
 // ── 4. docs/README.md ────────────────────────────────────────────────────
 
 patchFile('docs/README.md', [
-  [/# C3-Agent v\d+\.\d+\.\d+/, `# C3-Agent v${version}`],
+  [/# IntentSmith-Agent v\d+\.\d+\.\d+/, `# IntentSmith-Agent v${version}`],
   [/\*Posledni aktualizace:\s*v\d+\.\d+\.\d+\s*\(\d{4}-\d{2}-\d{2}\)\*/,
     `*Posledni aktualizace: v${version} (${today})*`],
 ]);

@@ -1,11 +1,11 @@
 // v89 — Project State Reader
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// Deterministic parser: README + ROADMAP + .c3/project.json → structured state.
+// Deterministic parser: README + ROADMAP + .intentsmith/project.json → structured state.
 // Tolerant regex — handles malformed tables, extra spaces, CRLF, BOM.
 // No LLM calls. All file I/O is graceful — missing files are noted, never fatal.
 //
-// v90+ direction: .c3/state.json will be the machine-readable source of truth.
+// v90+ direction: .intentsmith/state.json will be the machine-readable source of truth.
 // This parser will then only be needed for onboarding foreign projects.
 //
 // ══════════════════════════════════════════════════════════════════════════════
@@ -29,9 +29,9 @@ export const PhaseStatus = Object.freeze({
 // ─── State type enum ────────────────────────────────────────────────────────
 
 export const StateType = Object.freeze({
-  FULL: 'FULL',       // C3 README + C3 ROADMAP
-  HYBRID: 'HYBRID',   // Mix of C3 and foreign/missing
-  FOREIGN: 'FOREIGN', // Both exist but neither is C3-generated
+  FULL: 'FULL',       // IntentSmith README + IntentSmith ROADMAP
+  HYBRID: 'HYBRID',   // Mix of IntentSmith and foreign/missing
+  FOREIGN: 'FOREIGN', // Both exist but neither is IntentSmith-generated
   EMPTY: 'EMPTY',     // Neither exists
 });
 
@@ -63,11 +63,11 @@ function safeReadJson(filePath) {
   }
 }
 
-// ─── C3 marker detection ────────────────────────────────────────────────────
+// ─── IntentSmith marker detection ────────────────────────────────────────────────────
 
-function isC3Generated(content) {
+function isIntentSmithGenerated(content) {
   if (!content) return false;
-  return content.includes('Automaticky vygenerováno C3') || content.includes('C3 Studio');
+  return content.includes('Automaticky vygenerováno IntentSmith') || content.includes('IntentSmith Studio');
 }
 
 // ─── ROADMAP phase parser ───────────────────────────────────────────────────
@@ -232,7 +232,7 @@ export function readProjectState(projectPath) {
       hasRoadmap: false,
       hasPhases: false,
       stateType: StateType.EMPTY,
-      hasC3Structure: false,
+      hasIntentSmithStructure: false,
       stack: [],
       summary: 'Projekt bez popisu',
     };
@@ -241,12 +241,12 @@ export function readProjectState(projectPath) {
   // 1. Read files
   const readmeContent = safeReadFile(path.join(projectPath, 'README.md'));
   const roadmapContent = safeReadFile(path.join(projectPath, 'ROADMAP.md'));
-  const c3Meta = safeReadJson(path.join(projectPath, '.c3', 'project.json'));
+  const intentsmithMeta = safeReadJson(path.join(projectPath, '.intentsmith', 'project.json'));
 
   const hasReadme = readmeContent !== null;
   const hasRoadmap = roadmapContent !== null;
-  const readmeIsC3 = isC3Generated(readmeContent);
-  const roadmapIsC3 = isC3Generated(roadmapContent);
+  const readmeIsC3 = isIntentSmithGenerated(readmeContent);
+  const roadmapIsC3 = isIntentSmithGenerated(roadmapContent);
 
   // 2. Parse ROADMAP phases
   const { phases, hasPhases } = parseRoadmapPhases(roadmapContent);
@@ -256,21 +256,21 @@ export function readProjectState(projectPath) {
 
   // 3. Description — deterministic priority
   let description;
-  if (c3Meta?.description) {
-    description = c3Meta.description;
+  if (intentsmithMeta?.description) {
+    description = intentsmithMeta.description;
   } else {
     description = extractReadmeSummary(readmeContent) || 'Projekt bez popisu';
   }
 
   // 4. Name
-  const name = c3Meta?.name || path.basename(projectPath);
+  const name = intentsmithMeta?.name || path.basename(projectPath);
 
   // 5. Type
-  const type = c3Meta?.type || null;
+  const type = intentsmithMeta?.type || null;
 
   // 6. State type
   const stateType = deriveStateType(hasReadme, readmeIsC3, hasRoadmap, roadmapIsC3);
-  const hasC3Structure = readmeIsC3 || roadmapIsC3;
+  const hasIntentSmithStructure = readmeIsC3 || roadmapIsC3;
 
   // 7. Stack — from actual files
   const stack = detectStack(projectPath);
@@ -290,7 +290,7 @@ export function readProjectState(projectPath) {
     hasRoadmap,
     hasPhases,
     stateType,
-    hasC3Structure,
+    hasIntentSmithStructure,
     stack,
     summary,
   };

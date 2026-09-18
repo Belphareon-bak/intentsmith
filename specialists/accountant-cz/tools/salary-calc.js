@@ -1,4 +1,4 @@
-// C3-Agent v57.3 — Czech Salary Calculator
+// IntentSmith-Agent v57.3 — Czech Salary Calculator
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // DETERMINISTICKÝ výpočet. Žádný LLM.

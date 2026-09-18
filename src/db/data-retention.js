@@ -341,7 +341,7 @@ export function pruneAllData(db, opts = {}) {
 /**
  * Full auto-clean: prune DB tables + clean orphaned JSONL + prune old history + compact.
  * @param {import('better-sqlite3').Database} db
- * @param {string} dataDir - base data directory (contains c3.db)
+ * @param {string} dataDir - base data directory (contains intentsmith.db)
  * @param {{ config?: object }} opts
  */
 export function autoClean(db, dataDir, opts = {}) {

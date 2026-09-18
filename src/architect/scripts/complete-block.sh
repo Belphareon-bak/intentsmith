@@ -17,13 +17,13 @@ if [ -z "$BLOCK_PATH" ]; then
     exit 1
 fi
 
-ARCHITECT_DIR=".c3-architect"
+ARCHITECT_DIR=".intentsmith-architect"
 ROADMAP_FILE="$ARCHITECT_DIR/roadmap/main.md"
 STATE_FILE="$ARCHITECT_DIR/state.json"
 
 # Check if architect dir exists
 if [ ! -d "$ARCHITECT_DIR" ]; then
-    echo "Error: .c3-architect directory not found"
+    echo "Error: .intentsmith-architect directory not found"
     exit 1
 fi
 

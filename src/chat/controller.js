@@ -1849,6 +1849,7 @@ ChatController.handle = async function(request) {
   // INVARIANT: Persist user turn BEFORE processing
   const persistedUserTurn = store.appendTurn(dbConversationId, TurnRole.USER, message, {
     timestamp: Date.now(),
+    specialistId: state.specialist?.id || null,
     m7: { turnId: durableTurnId, status: 'ok' },
   });
 

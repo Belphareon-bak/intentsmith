@@ -276,7 +276,7 @@ export class SpecialistLoader {
    * @param {Object} runtime - SpecialistRuntime instance
    * @param {Object} [options]
    * @param {string} [options.baseDir] - specialists/ directory path
-   * @param {string} [options.engineVersion] - current C3 engine version
+   * @param {string} [options.engineVersion] - current IntentSmith engine version
    */
   constructor(db, runtime, options = {}) {
     this.db = db;

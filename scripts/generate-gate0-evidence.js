@@ -383,8 +383,8 @@ export async function main(argv = process.argv.slice(2)) {
       attestationRule: GATE0_PENDING_ATTESTATION_RULE,
     },
     sourceRefs: {
-      c3Input: 'ffd21cf119865259ea1847af989acb24916bebe3',
-      c3Parent: 'a7b90e36aa80310305703f54f2332e1c0e7f9e8f',
+      intentsmithInput: 'ffd21cf119865259ea1847af989acb24916bebe3',
+      intentsmithParent: 'a7b90e36aa80310305703f54f2332e1c0e7f9e8f',
       intentSmithDonor: '6676902c5f6fe7a5d66aba0d79cb502e0f3a60e4',
       localValidationCandidate: candidateSha,
     },
@@ -648,7 +648,7 @@ export function buildGate0Clauses({
         + `${validatorEvidence(dispositionValidation)}`,
     },
     {
-      id: 'G0-C3',
+      id: 'G0-IntentSmith',
       label: 'registry',
       result: registryValidation.passed ? 'PASS' : 'FAIL',
       evidence: `${runnablePrograms} runnable programs and ${explicitSupportExclusions} explicit support exclusions; ${validatorEvidence(registryValidation)}`,
@@ -1197,7 +1197,7 @@ ${outcome.repositoryBlockers.length > 0
 - Supported program-language files are discovered regardless of filename;
   ${explicitSupportExclusions} support/aggregate files are explicit reasoned
   exclusions.
-- The operator-owned ignored \`data/c3.db\` remains untouched (\`D-022\`).
+- The operator-owned ignored \`data/intentsmith.db\` remains untouched (\`D-022\`).
 
 ## Next action
 
@@ -1394,7 +1394,7 @@ ${rotationRows}
 - Registry discovery covers every supported program-language file independent
   of its filename; ${explicitSupportExclusions} support/aggregate files are
   explicit reasoned exclusions.
-- Runtime database access now requires an explicit non-empty \`C3_DB_PATH\`;
+- Runtime database access now requires an explicit non-empty \`INTENTSMITH_DB_PATH\`;
   authoritative registry runs bind a distinct isolated path (\`G0-R012\`).
 - All current direct-run temp creators use the private bootstrap-owned runtime
   boundary; the former shared-\`/tmp\` convention is closed (\`G0-R014\`).
@@ -1469,7 +1469,7 @@ ${reviewDiffStat}
 ## Invariants
 
 - Do not weaken A9 or production score thresholds.
-- No source/test run may touch operator \`data/c3.db\`.
+- No source/test run may touch operator \`data/intentsmith.db\`.
 - \`KNOWN_DEFECTIVE\` and \`BLOCKED\` suites never count green.
 - Audit child exits, log hashes, source SHA, cleanup, and clean-tree evidence
   determine the verdict; printed assertion totals do not.
@@ -1491,7 +1491,7 @@ ${pilotEvidence.map(item => (
 - Soak requirement guard: ${soakEvidence.verdict}, exit
   ${soakEvidence.exitCode}, prerequisites \`${soakEvidence.blockedBy.join(', ')}\`;
   replay \`${formatPortableInvocation(soakEvidence.execution.portableReplay)}\`.
-- Registry and disposition validator exits: ${clauses.find(clause => clause.id === 'G0-C3')?.result === 'PASS' ? 0 : 1} and ${clauses.find(clause => clause.id === 'G0-C2')?.result === 'PASS' ? 0 : 1}.
+- Registry and disposition validator exits: ${clauses.find(clause => clause.id === 'G0-IntentSmith')?.result === 'PASS' ? 0 : 1} and ${clauses.find(clause => clause.id === 'G0-C2')?.result === 'PASS' ? 0 : 1}.
 - Clean install exits: ${installLogs.map(log => `${log.kind}=${log.exitCode}`).join(', ')};
   replay \`${formatPortableInvocation(installLogs[0].execution.portableReplay)}\`.
 - Disposition: ${dispositionReport.records} rows; terminals
@@ -1504,7 +1504,7 @@ ${pilotEvidence.map(item => (
 
 - Registry discovery is extension-based and every support/aggregate file is an
   explicit reasoned exclusion.
-- Runtime DB access fails closed without an explicit \`C3_DB_PATH\`, and the
+- Runtime DB access fails closed without an explicit \`INTENTSMITH_DB_PATH\`, and the
   authoritative runner supplies isolated DB paths (\`G0-R012\`).
 - ${stateCounts.KNOWN_DEFECTIVE || 0} recovered E2E suites remain
   \`KNOWN_DEFECTIVE\`; ${stateCounts.BLOCKED || 0} remain registry-\`BLOCKED\`.

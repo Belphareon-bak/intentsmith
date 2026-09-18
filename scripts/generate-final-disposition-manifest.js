@@ -19,7 +19,7 @@ const outputPath = path.join(
 try {
   const options = parseArgs(process.argv.slice(2));
   const sourceRepo = options.get('source-repo');
-  if (!sourceRepo) throw new Error('--source-repo=<C3 checkout> is required');
+  if (!sourceRepo) throw new Error('--source-repo=<IntentSmith checkout> is required');
   const manifest = createDiffManifest(loadSourceRecords(path.resolve(sourceRepo)));
   const serialized = `${JSON.stringify(manifest, null, 2)}\n`;
 
@@ -29,9 +29,9 @@ try {
   } else {
     const committed = readFileSync(outputPath, 'utf8');
     if (committed !== serialized) {
-      throw new Error('committed manifest differs from the supplied C3 source repository');
+      throw new Error('committed manifest differs from the supplied IntentSmith source repository');
     }
-    console.log(`Manifest matches C3 source (${manifest.recordCount} records)`);
+    console.log(`Manifest matches IntentSmith source (${manifest.recordCount} records)`);
   }
 } catch (error) {
   console.error(error?.stack || error);

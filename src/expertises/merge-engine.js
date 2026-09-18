@@ -1,4 +1,4 @@
-// C3 Merge Engine v2 — Core Pure Function
+// IntentSmith Merge Engine v2 — Core Pure Function
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // mergeExpertisePrompt() — 15-step pure function that merges N expertises

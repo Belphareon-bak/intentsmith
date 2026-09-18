@@ -44,8 +44,8 @@ function deepFreeze(value) {
 
 function enabledMap({ config, environment }) {
   return {
-    'core-auto-update': typeof environment.C3_UPDATE_REPO === 'string'
-      && environment.C3_UPDATE_REPO.trim().length > 0,
+    'core-auto-update': typeof environment.INTENTSMITH_UPDATE_REPO === 'string'
+      && environment.INTENTSMITH_UPDATE_REPO.trim().length > 0,
     'external-notifications': config.features.externalNotifications === true,
     marketplace: config.features.marketplace === true,
     'media-comfyui': config.features.comfyui === true,

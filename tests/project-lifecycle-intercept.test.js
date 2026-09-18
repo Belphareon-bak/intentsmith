@@ -23,7 +23,7 @@ suite('ensureRoadmap — scaffold ROADMAP.md');
 
 const { ensureRoadmap, ensureReadme } = await import('../src/chat/handlers/utils/readme-generator.js');
 
-const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-test-roadmap-'));
+const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-test-roadmap-'));
 
 test('ensureRoadmap creates ROADMAP.md in empty dir', () => {
   const dir = path.join(tmpDir, 'proj-new');
@@ -211,8 +211,8 @@ function cleanupTestProject(name) {
   } catch { /* ok */ }
 }
 
-const testPath1 = '/tmp/c3-test-collision-' + Date.now() + '/proj1';
-const testPath2 = '/tmp/c3-test-collision-' + Date.now() + '/proj2';
+const testPath1 = '/tmp/intentsmith-test-collision-' + Date.now() + '/proj1';
+const testPath2 = '/tmp/intentsmith-test-collision-' + Date.now() + '/proj2';
 const testName = 'CollisionTest-' + Date.now();
 
 test('archive adds suffix to name', () => {
@@ -282,8 +282,8 @@ test('restore with name collision keeps suffixed name', () => {
 });
 
 test('getOrCreate returns conflict flag for duplicate active name', () => {
-  const testPath3 = '/tmp/c3-test-collision-' + Date.now() + '/proj3';
-  const testPath4 = '/tmp/c3-test-collision-' + Date.now() + '/proj4';
+  const testPath3 = '/tmp/intentsmith-test-collision-' + Date.now() + '/proj3';
+  const testPath4 = '/tmp/intentsmith-test-collision-' + Date.now() + '/proj4';
   const name3 = 'UniqueTest-' + Date.now();
 
   const proj = projRepo.getOrCreate(name3, testPath3, 'first');

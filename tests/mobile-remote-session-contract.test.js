@@ -368,7 +368,7 @@ await test('threat model and limits cover all release-mandated remote abuse clas
   ]) assert.equal(threats.has(threat), true, threat);
   assert.deepEqual(
     MOBILE_REMOTE_SESSION_CONTRACT_V1.listenerBoundary.forbiddenPathPrefixes,
-    ['/api/', '/c3/ws', '/m1/'],
+    ['/api/', '/intentsmith/ws', '/m1/'],
   );
   assert.equal(MOBILE_REMOTE_SESSION_CONTRACT_V1.resourceLimits.pageItemsMaximum, 100);
   assert.equal(MOBILE_REMOTE_SESSION_CONTRACT_V1.resourceLimits.inFlightPerSessionMaximum, 1);

@@ -21,8 +21,8 @@
 #   run       install + launch; reverse is opened only for legacy development
 #   doctor    say what is and is not ready, without changing anything
 #
-# Build identity is selected by C3_MOBILE_TRANSPORT_MODE, C3_MOBILE_APP_URL and
-# C3_M7_SERVER_SPKI_PIN. The default remains explicit legacy cable mode.
+# Build identity is selected by INTENTSMITH_MOBILE_TRANSPORT_MODE, INTENTSMITH_MOBILE_APP_URL and
+# INTENTSMITH_M7_SERVER_SPKI_PIN. The default remains explicit legacy cable mode.
 # =============================================================================
 
 set -euo pipefail
@@ -30,23 +30,23 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP_DIR="$REPO_ROOT/mobile-app"
 ANDROID_DIR="$APP_DIR/android"
-PORT="${C3_MOBILE_PORT:-3336}"
+PORT="${INTENTSMITH_MOBILE_PORT:-3336}"
 APP_ID="cz.intentsmith.companion"
 
 # Legacy development defaults to phone loopback over `adb reverse`. Production
 # uses the exact dedicated M7 origin in the VPN:
 #
-#   C3_MOBILE_TRANSPORT_MODE=remote-core-v1 \
-#   C3_MOBILE_APP_URL=https://100.64.1.5:7443 \
-#   C3_M7_SERVER_SPKI_PIN=sha256:<64-hex> npm run mobile:android:build
+#   INTENTSMITH_MOBILE_TRANSPORT_MODE=remote-core-v1 \
+#   INTENTSMITH_MOBILE_APP_URL=https://100.64.1.5:7443 \
+#   INTENTSMITH_M7_SERVER_SPKI_PIN=sha256:<64-hex> npm run mobile:android:build
 #
 # Je to vstup **buildu**, ne skryté runtime nastavení. UI je zabalené v APK a
 # most zůstává jen na lokálním app originu; build přepisuje pouze generovaný
 # public transport identity. The remote endpoint is never accepted from a QR,
 # server response, SQLite row or WebView input.
-APP_URL="${C3_MOBILE_APP_URL:-http://127.0.0.1:$PORT}"
-TRANSPORT_MODE="${C3_MOBILE_TRANSPORT_MODE:-legacy-m1-dev}"
-M7_SPKI_PIN="${C3_M7_SERVER_SPKI_PIN:-}"
+APP_URL="${INTENTSMITH_MOBILE_APP_URL:-http://127.0.0.1:$PORT}"
+TRANSPORT_MODE="${INTENTSMITH_MOBILE_TRANSPORT_MODE:-legacy-m1-dev}"
+M7_SPKI_PIN="${INTENTSMITH_M7_SERVER_SPKI_PIN:-}"
 
 # The toolchain is not assumed to be on PATH: this repo is developed on machines
 # where the Android SDK was unpacked by hand rather than installed by Studio.
@@ -127,7 +127,7 @@ cmd_keystore() {
   # ceremony and must never be mistaken for one.  What it buys is a stable
   # signature so that reinstalling the app keeps its data instead of being
   # rejected as a different app.
-  local pass="${C3_ANDROID_KEY_PASS:-intentsmith-prototype}"
+  local pass="${INTENTSMITH_ANDROID_KEY_PASS:-intentsmith-prototype}"
   "$JAVA_HOME/bin/keytool" -genkeypair -v \
     -keystore "$keyfile" -alias internal \
     -keyalg RSA -keysize 4096 -validity 3650 \
@@ -157,10 +157,10 @@ cmd_configure_url() {
       # Stejná pojistka, jakou má gateway na své straně: nešifrovaný provoz
       # mimo loopback je vědomé rozhodnutí, ne překlep v proměnné.  Uvnitř VPN
       # je obhajitelný, protože šifruje tunel — ale musí se to vyslovit.
-      if [ "${C3_MOBILE_APP_ALLOW_CLEARTEXT:-}" != "yes-i-know" ]; then
+      if [ "${INTENTSMITH_MOBILE_APP_ALLOW_CLEARTEXT:-}" != "yes-i-know" ]; then
         die "Adresa $url je nešifrovaná a míří mimo loopback.
   Uvnitř VPN je to obhajitelné (tunel šifruje), jinde ne.
-  Vědomé povolení: C3_MOBILE_APP_ALLOW_CLEARTEXT=yes-i-know"
+  Vědomé povolení: INTENTSMITH_MOBILE_APP_ALLOW_CLEARTEXT=yes-i-know"
       fi
       note "· cleartext mimo loopback povolen vědomě"
       ;;
@@ -196,7 +196,7 @@ cmd_build() {
       "${gradle_args[@]}"
     )
   fi
-  if [ "${C3_MOBILE_ALLOW_DEBUG_SIGNING:-}" = "yes-i-know" ]; then
+  if [ "${INTENTSMITH_MOBILE_ALLOW_DEBUG_SIGNING:-}" = "yes-i-know" ]; then
     gradle_args=(-PallowDebugSigning=true "${gradle_args[@]}")
     note "· release artefakty budou výslovně označené debug podpisem"
   fi

@@ -1,4 +1,4 @@
-// C3-Agent v57.2 — Sprint 4 Tests: Context Budget & Export (incl. PDF/DOCX)
+// IntentSmith-Agent v57.2 — Sprint 4 Tests: Context Budget & Export (incl. PDF/DOCX)
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // T10.1: Context Budget
@@ -428,7 +428,7 @@ describe('T10.3: Export Pipeline', async () => {
     assert.ok(content.includes('**Uživatel:**'));
     assert.ok(content.includes('**Asistent:**'));
     assert.ok(content.includes('Jak se máš?'));
-    assert.ok(content.includes('Exportováno z C3-Agent'));
+    assert.ok(content.includes('Exportováno z IntentSmith-Agent'));
   });
 
   await it('HTML export produces valid HTML with CSS', async () => {

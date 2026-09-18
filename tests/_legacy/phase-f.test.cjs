@@ -16,7 +16,7 @@ const path = require('path');
 // TEST HELPERS
 // ════════════════════════════════════════════════════════════════════════════════
 
-const LICENSE_SECRET = 'c3-agent-license-v1-test-secret';
+const LICENSE_SECRET = 'intentsmith-agent-license-v1-test-secret';
 
 function generateFingerprint() {
   const components = [
@@ -44,16 +44,16 @@ function generateLicenseKey({ hwFingerprint, tier = 'PRO', expiry = null, owner 
   const signature = hmac.digest('hex').slice(0, 32);
   // Use hex encoding for the full key to avoid base64url dash collision
   const combined = Buffer.from(payloadB64 + '.' + signature).toString('hex');
-  // Format as C3-XXXX-XXXX-...
+  // Format as IntentSmith-XXXX-XXXX-...
   const chunks = [];
   for (let i = 0; i < combined.length; i += 8) chunks.push(combined.slice(i, i + 8));
-  return 'C3-' + chunks.join('-');
+  return 'IntentSmith-' + chunks.join('-');
 }
 
 function validateLicenseKey(key, opts = {}) {
   const secret = opts.secret || LICENSE_SECRET;
   try {
-    if (!key?.startsWith('C3-')) return { valid: false, error: 'Invalid format' };
+    if (!key?.startsWith('IntentSmith-')) return { valid: false, error: 'Invalid format' };
     // Reconstruct hex string, decode to get payload.signature
     const hex = key.slice(3).replace(/-/g, '');
     const decoded = Buffer.from(hex, 'hex').toString('utf-8');
@@ -111,23 +111,23 @@ describe('T1-T15: License Key Generation', () => {
 
   it('T3: generate PRO key', () => {
     const key = generateLicenseKey({ hwFingerprint: fp, tier: 'PRO' });
-    assert.ok(key.startsWith('C3-'));
+    assert.ok(key.startsWith('IntentSmith-'));
     assert.ok(key.length > 20);
   });
 
   it('T4: generate FREE key', () => {
     const key = generateLicenseKey({ hwFingerprint: fp, tier: 'FREE' });
-    assert.ok(key.startsWith('C3-'));
+    assert.ok(key.startsWith('IntentSmith-'));
   });
 
   it('T5: generate ENTERPRISE key', () => {
     const key = generateLicenseKey({ hwFingerprint: fp, tier: 'ENTERPRISE' });
-    assert.ok(key.startsWith('C3-'));
+    assert.ok(key.startsWith('IntentSmith-'));
   });
 
   it('T6: key with expiry', () => {
     const key = generateLicenseKey({ hwFingerprint: fp, expiry: '2030-12-31' });
-    assert.ok(key.startsWith('C3-'));
+    assert.ok(key.startsWith('IntentSmith-'));
   });
 
   it('T7: key with owner', () => {
@@ -160,7 +160,7 @@ describe('T1-T15: License Key Generation', () => {
     const key = generateLicenseKey({ hwFingerprint: fp });
     assert.ok(key.includes('-'));
     const parts = key.split('-');
-    assert.ok(parts.length >= 3); // C3 + at least 2 chunks
+    assert.ok(parts.length >= 3); // IntentSmith + at least 2 chunks
   });
 
   it('T13: key payload is valid JSON', () => {
@@ -282,7 +282,7 @@ describe('T16-T35: License Key Validation', () => {
     assert.equal(result.valid, false);
   });
 
-  it('T29: key without C3- prefix fails', () => {
+  it('T29: key without IntentSmith- prefix fails', () => {
     const key = generateLicenseKey({ hwFingerprint: fp });
     const noPrefix = key.slice(3);
     const result = validateLicenseKey(noPrefix, { hwFingerprint: fp });
@@ -346,7 +346,7 @@ describe('T16-T35: License Key Validation', () => {
 // ════════════════════════════════════════════════════════════════════════════════
 
 describe('T36-T50: Setup Wizard', () => {
-  const tmpDir = path.join(os.tmpdir(), `c3-test-setup-${Date.now()}`);
+  const tmpDir = path.join(os.tmpdir(), `intentsmith-test-setup-${Date.now()}`);
 
   before(() => { fs.mkdirSync(tmpDir, { recursive: true }); });
 
@@ -354,7 +354,7 @@ describe('T36-T50: Setup Wizard', () => {
   class SetupWizard {
     constructor(dir) {
       this.dataDir = dir;
-      this.setupPath = path.join(dir, 'c3-setup.json');
+      this.setupPath = path.join(dir, 'intentsmith-setup.json');
       this.config = {
         version: 1, completed: false, completedAt: null,
         ollama: { url: 'http://127.0.0.1:11434', models: { CHAT: 'qwen3.5:27b' }, verified: false },
@@ -393,7 +393,7 @@ describe('T36-T50: Setup Wizard', () => {
       return this.save();
     }
     toEnvVars() {
-      return { OLLAMA_URL: this.config.ollama.url, C3_LANG: this.config.language };
+      return { OLLAMA_URL: this.config.ollama.url, INTENTSMITH_LANG: this.config.language };
     }
     writeEnvFile(p = path.join(this.dataDir, '.env')) {
       const env = this.toEnvVars();
@@ -504,11 +504,11 @@ describe('T36-T50: Setup Wizard', () => {
 
   it('T48: license key stored in config', () => {
     const w = new SetupWizard(path.join(tmpDir, 'w13'));
-    w.config.license.key = 'C3-TEST-KEY';
+    w.config.license.key = 'IntentSmith-TEST-KEY';
     w.save();
     const w2 = new SetupWizard(path.join(tmpDir, 'w13'));
     w2.load();
-    assert.equal(w2.config.license.key, 'C3-TEST-KEY');
+    assert.equal(w2.config.license.key, 'IntentSmith-TEST-KEY');
   });
 
   it('T49: default ollama URL is localhost', () => {
@@ -593,7 +593,7 @@ describe('T51-T65: Version Comparison', () => {
 // ════════════════════════════════════════════════════════════════════════════════
 
 describe('T66-T75: Obfuscation Pipeline', () => {
-  const testDir = path.join(os.tmpdir(), `c3-obf-test-${Date.now()}`);
+  const testDir = path.join(os.tmpdir(), `intentsmith-obf-test-${Date.now()}`);
   const inputDir = path.join(testDir, 'input');
   const outputDir = path.join(testDir, 'output');
 
@@ -707,8 +707,8 @@ describe('T76-T85: Docker Configuration', () => {
     assert.ok(dockerCompose.includes('ollama/ollama'));
   });
 
-  it('T77: docker-compose has c3 service', () => {
-    assert.ok(dockerCompose.includes('c3:'));
+  it('T77: docker-compose has intentsmith service', () => {
+    assert.ok(dockerCompose.includes('intentsmith:'));
   });
 
   it('T78: docker-compose has GPU reservation', () => {
@@ -722,7 +722,7 @@ describe('T76-T85: Docker Configuration', () => {
 
   it('T80: docker-compose has persistent volumes', () => {
     assert.ok(dockerCompose.includes('ollama_data'));
-    assert.ok(dockerCompose.includes('c3_data'));
+    assert.ok(dockerCompose.includes('intentsmith_data'));
   });
 
   it('T81: docker-compose pulls models on init', () => {
@@ -738,7 +738,7 @@ describe('T76-T85: Docker Configuration', () => {
 
   it('T83: Dockerfile runs as non-root', () => {
     assert.ok(dockerfile.includes('adduser'));
-    assert.ok(dockerfile.includes('USER c3'));
+    assert.ok(dockerfile.includes('USER intentsmith'));
   });
 
   it('T84: Dockerfile has healthcheck', () => {

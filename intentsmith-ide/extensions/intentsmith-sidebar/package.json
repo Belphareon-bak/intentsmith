@@ -1,0 +1,15 @@
+{
+  "name": "@intentsmith-ide/intentsmith-sidebar",
+  "version": "0.1.0",
+  "description": "IntentSmith Studio — Sidebar navigation",
+  "license": "MIT",
+  "main": "lib/browser/sidebar-module",
+  "theiaExtensions": [
+    {
+      "frontend": "lib/browser/sidebar-module"
+    }
+  ],
+  "dependencies": {
+    "@theia/core": "1.74.1"
+  }
+}

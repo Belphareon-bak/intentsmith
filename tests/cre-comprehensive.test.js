@@ -2,7 +2,7 @@
 import './helpers/isolated-test-db.js';
 
 // ══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — Comprehensive Chat System Tests v57.3
+// IntentSmith-Agent — Comprehensive Chat System Tests v57.3
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // PURPOSE: Proactive bug discovery, not reactive fixing.

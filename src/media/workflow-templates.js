@@ -63,7 +63,7 @@ const WORKFLOW_TEMPLATES = {
     },
     '7': {
       class_type: 'SaveImage',
-      inputs: { images: ['6', 0], filename_prefix: 'c3_gen' },
+      inputs: { images: ['6', 0], filename_prefix: 'intentsmith_gen' },
     },
   },
 
@@ -110,7 +110,7 @@ const WORKFLOW_TEMPLATES = {
     },
     '8': {
       class_type: 'SaveImage',
-      inputs: { images: ['7', 0], filename_prefix: 'c3_img2img' },
+      inputs: { images: ['7', 0], filename_prefix: 'intentsmith_img2img' },
     },
   },
 
@@ -154,7 +154,7 @@ const WORKFLOW_TEMPLATES = {
     },
     '7': {
       class_type: 'SaveAnimatedWEBP',
-      inputs: { images: ['6', 0], filename_prefix: 'c3_vid', fps: 12, lossless: false, quality: 85, method: 'default' },
+      inputs: { images: ['6', 0], filename_prefix: 'intentsmith_vid', fps: 12, lossless: false, quality: 85, method: 'default' },
     },
   },
 };

@@ -191,13 +191,13 @@ try {
   );
   assert.equal(receivedEnvironment.keys.includes(SECRET_KEY), false);
   assert.match(receivedEnvironment.HOME, /runtime\/home$/);
-  assert.match(receivedEnvironment.C3_DB_PATH, /runtime\/intentsmith-nightly\.sqlite$/);
-  assert.match(receivedEnvironment.C3_PROJECTS_DIR, /runtime\/projects$/);
-  assert.equal(receivedEnvironment.C3_LIFECYCLE_AUTO_COMMIT, 'false');
-  assert.equal(receivedEnvironment.C3_ENABLE_AUTONOMY, 'false');
+  assert.match(receivedEnvironment.INTENTSMITH_DB_PATH, /runtime\/intentsmith-nightly\.sqlite$/);
+  assert.match(receivedEnvironment.INTENTSMITH_PROJECTS_DIR, /runtime\/projects$/);
+  assert.equal(receivedEnvironment.INTENTSMITH_LIFECYCLE_AUTO_COMMIT, 'false');
+  assert.equal(receivedEnvironment.INTENTSMITH_ENABLE_AUTONOMY, 'false');
   assert.match(receivedEnvironment.INTENTSMITH_PDF_PYTHON, /\.venv\/pdf\/bin\/python$/);
   assert.equal(
-    receivedEnvironment.C3_PDF_PYTHON,
+    receivedEnvironment.INTENTSMITH_PDF_PYTHON,
     receivedEnvironment.INTENTSMITH_PDF_PYTHON,
   );
   assert.equal(receivedEnvironment.PYTHONNOUSERSITE, '1');
@@ -918,12 +918,12 @@ const report = {
 await writeFile(path.join(runDir, 'env.json'), JSON.stringify({
   keys: Object.keys(process.env).sort(),
   HOME: process.env.HOME,
-  C3_DB_PATH: process.env.C3_DB_PATH,
-  C3_PROJECTS_DIR: process.env.C3_PROJECTS_DIR,
-  C3_LIFECYCLE_AUTO_COMMIT: process.env.C3_LIFECYCLE_AUTO_COMMIT,
-  C3_ENABLE_AUTONOMY: process.env.C3_ENABLE_AUTONOMY,
+  INTENTSMITH_DB_PATH: process.env.INTENTSMITH_DB_PATH,
+  INTENTSMITH_PROJECTS_DIR: process.env.INTENTSMITH_PROJECTS_DIR,
+  INTENTSMITH_LIFECYCLE_AUTO_COMMIT: process.env.INTENTSMITH_LIFECYCLE_AUTO_COMMIT,
+  INTENTSMITH_ENABLE_AUTONOMY: process.env.INTENTSMITH_ENABLE_AUTONOMY,
   INTENTSMITH_PDF_PYTHON: process.env.INTENTSMITH_PDF_PYTHON,
-  C3_PDF_PYTHON: process.env.C3_PDF_PYTHON,
+  INTENTSMITH_PDF_PYTHON: process.env.INTENTSMITH_PDF_PYTHON,
   PYTHONNOUSERSITE: process.env.PYTHONNOUSERSITE,
   UMASK: process.umask()
 }, null, 2), { mode: 0o600 });

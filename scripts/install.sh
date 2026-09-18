@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# IntentSmith + C3 Studio — reproducible install
+# IntentSmith + IntentSmith Studio — reproducible install
 # ══════════════════════════════════════════════════════════════════════════════
 #
 # Idempotent setup: can be re-run safely at any time.
@@ -85,7 +85,7 @@ cd "$PROJECT_ROOT"
 
 echo ""
 echo -e "${BOLD}═══════════════════════════════════════════════════════════${NC}"
-echo -e "${BOLD} IntentSmith + C3 Studio — Install${NC}"
+echo -e "${BOLD} IntentSmith + IntentSmith Studio — Install${NC}"
 echo -e "${BOLD}═══════════════════════════════════════════════════════════${NC}"
 echo ""
 echo -e "  Project: ${PROJECT_ROOT}"
@@ -259,12 +259,12 @@ fi
 echo ""
 
 # Yarn is a core prerequisite because the supported Linux package includes the
-# committed C3 Studio Electron application. Check it before any mutation so
+# committed IntentSmith Studio Electron application. Check it before any mutation so
 # --verify-only is a complete read-only core preflight.
-echo -e "${BOLD}── C3 Studio Toolchain ──${NC}"
+echo -e "${BOLD}── IntentSmith Studio Toolchain ──${NC}"
 YARN_VERSION=""
 if command -v yarn >/dev/null 2>&1; then
-  YARN_VERSION="$(cd c3-ide && yarn --version)"
+  YARN_VERSION="$(cd intentsmith-ide && yarn --version)"
 fi
 if [ "$YARN_VERSION" = "1.22.22" ]; then
   ok "yarn $YARN_VERSION"
@@ -420,7 +420,7 @@ ok "yarn $YARN_VERSION"
 
 info "Running frozen Yarn install for IDE..."
 install_ide_dependencies() {
-  cd c3-ide
+  cd intentsmith-ide
   if [ "$OFFLINE" = true ]; then
     yarn install --frozen-lockfile --non-interactive --offline
   else
@@ -431,7 +431,7 @@ if install_ide_dependencies 2>&1 | tail -3; then
   ok "IDE dependencies installed"
 else
   fail "Frozen IDE dependency installation failed"
-  echo "       Do not regenerate c3-ide/yarn.lock without review."
+  echo "       Do not regenerate intentsmith-ide/yarn.lock without review."
   exit 1
 fi
 
@@ -445,7 +445,7 @@ echo -e "${BOLD}── Electron Native Modules ──${NC}"
 info "Rebuilding native modules for Electron ABI..."
 # Theia's canonical native set plus native watchers used by this application.
 REBUILD_MODULES="node-pty,native-keymap,find-git-repositories,drivelist,keytar,ssh2,cpu-features,nsfw,@parcel/watcher,@vscode/watcher"
-ELECTRON_REBUILD_BIN="$PROJECT_ROOT/c3-ide/node_modules/.bin/electron-rebuild"
+ELECTRON_REBUILD_BIN="$PROJECT_ROOT/intentsmith-ide/node_modules/.bin/electron-rebuild"
 ELECTRON_REBUILD_ARGS=(-f --only "$REBUILD_MODULES")
 if [ "$OFFLINE" = true ]; then
   # The fresh-clone runner provisions exact Electron headers locally. Avoid a
@@ -456,14 +456,14 @@ if [ ! -x "$ELECTRON_REBUILD_BIN" ]; then
   fail "Locked local electron-rebuild binary is missing"
   exit 1
 fi
-if (cd c3-ide/applications/electron && "$ELECTRON_REBUILD_BIN" "${ELECTRON_REBUILD_ARGS[@]}" 2>&1 | tail -5); then
+if (cd intentsmith-ide/applications/electron && "$ELECTRON_REBUILD_BIN" "${ELECTRON_REBUILD_ARGS[@]}" 2>&1 | tail -5); then
   ok "Native modules rebuilt for Electron"
 else
   warn "electron-rebuild had errors — retrying..."
-  if (cd c3-ide/applications/electron && "$ELECTRON_REBUILD_BIN" "${ELECTRON_REBUILD_ARGS[@]}" 2>&1 | tail -5); then
+  if (cd intentsmith-ide/applications/electron && "$ELECTRON_REBUILD_BIN" "${ELECTRON_REBUILD_ARGS[@]}" 2>&1 | tail -5); then
     ok "Native modules rebuilt for Electron (second attempt)"
   else
-    fail "electron-rebuild failed; C3 Studio native modules are not trustworthy"
+    fail "electron-rebuild failed; IntentSmith Studio native modules are not trustworthy"
     exit 1
   fi
 fi
@@ -483,11 +483,11 @@ else
   fi
 fi
 
-info "Building C3 Studio from the tracked Theia webpack configuration..."
-if (cd c3-ide && yarn build 2>&1 | tail -8); then
-  ok "C3 Studio build complete"
+info "Building IntentSmith Studio from the tracked Theia webpack configuration..."
+if (cd intentsmith-ide && yarn build 2>&1 | tail -8); then
+  ok "IntentSmith Studio build complete"
 else
-  fail "C3 Studio build failed"
+  fail "IntentSmith Studio build failed"
   exit 1
 fi
 
@@ -499,21 +499,21 @@ echo ""
 echo -e "${BOLD}── Build Artifacts ──${NC}"
 
 for artifact in \
-  c3-ide/applications/electron/lib/frontend/bundle.js \
-  c3-ide/applications/electron/lib/frontend/preload.js \
-  c3-ide/applications/electron/lib/backend/main.js \
-  c3-ide/applications/electron/lib/backend/native/rg; do
+  intentsmith-ide/applications/electron/lib/frontend/bundle.js \
+  intentsmith-ide/applications/electron/lib/frontend/preload.js \
+  intentsmith-ide/applications/electron/lib/backend/main.js \
+  intentsmith-ide/applications/electron/lib/backend/native/rg; do
   if [ ! -s "$artifact" ]; then
-    fail "Required C3 Studio artifact is missing or empty: $artifact"
+    fail "Required IntentSmith Studio artifact is missing or empty: $artifact"
     exit 1
   fi
 done
-if [ ! -x c3-ide/applications/electron/lib/backend/native/rg ]; then
+if [ ! -x intentsmith-ide/applications/electron/lib/backend/native/rg ]; then
   fail "Bundled ripgrep artifact is not executable"
   exit 1
 fi
 RIPGREP_VERSION="$(
-  c3-ide/applications/electron/lib/backend/native/rg --version 2>/dev/null |
+  intentsmith-ide/applications/electron/lib/backend/native/rg --version 2>/dev/null |
     head -1
 )"
 case "$RIPGREP_VERSION" in
@@ -524,7 +524,7 @@ case "$RIPGREP_VERSION" in
     ;;
 esac
 
-ELECTRON_BIN="$PROJECT_ROOT/c3-ide/node_modules/electron/dist/electron"
+ELECTRON_BIN="$PROJECT_ROOT/intentsmith-ide/node_modules/electron/dist/electron"
 if [ ! -x "$ELECTRON_BIN" ]; then
   fail "Locked local Electron runtime is missing"
   exit 1
@@ -537,12 +537,12 @@ while IFS= read -r -d '' native_binding; do
     exit 1
   fi
   NATIVE_SMOKE_COUNT=$((NATIVE_SMOKE_COUNT + 1))
-done < <(find c3-ide/applications/electron/lib/backend/native -type f -name '*.node' -print0)
+done < <(find intentsmith-ide/applications/electron/lib/backend/native -type f -name '*.node' -print0)
 if [ "$NATIVE_SMOKE_COUNT" -eq 0 ]; then
   fail "No bundled native bindings were found for Electron ABI smoke"
   exit 1
 fi
-ok "C3 Studio artifacts and $NATIVE_SMOKE_COUNT Electron ABI bindings verified"
+ok "IntentSmith Studio artifacts and $NATIVE_SMOKE_COUNT Electron ABI bindings verified"
 
 echo ""
 
@@ -551,7 +551,7 @@ echo ""
 # ════════════════════════════════════════════════════════════════════════════
 echo -e "${BOLD}── Data Directories ──${NC}"
 
-PROJECTS_DIR="${C3_PROJECTS_DIR:-$PROJECT_ROOT/projects}"
+PROJECTS_DIR="${INTENTSMITH_PROJECTS_DIR:-$PROJECT_ROOT/projects}"
 mkdir -p "$PROJECT_ROOT/data" "$PROJECTS_DIR"
 ok "data/ directory ready"
 ok "projects/ directory ready"
@@ -636,7 +636,7 @@ fi
 echo ""
 echo -e "  ${GREEN}Next steps:${NC}"
 echo ""
-echo "    1. Start IntentSmith with C3 Studio:"
+echo "    1. Start IntentSmith with IntentSmith Studio:"
 echo "       ./scripts/run.sh"
 echo ""
 echo "    2. The IDE will open automatically"

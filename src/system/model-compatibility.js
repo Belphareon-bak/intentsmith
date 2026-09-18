@@ -29,7 +29,7 @@ const VRAM_RECOMMENDATIONS = [
   { vram_label: '8 GB',     max_vram: 8192,  recommended: 'qwen3.5:9b (Q4_K_M)',  note: 'Good for basic tasks' },
   { vram_label: '12 GB',    max_vram: 12288, recommended: 'qwen3.5:9b (Q4_K_M)',  note: 'Good balance' },
   { vram_label: '16 GB',    max_vram: 16384, recommended: 'qwen3.5:9b (Q4_K_M)',  note: 'Comfortable for 9B' },
-  { vram_label: '24 GB',    max_vram: 24576, recommended: 'qwen3.5:27b (Q4_K_M)', note: 'Best for C3 (current default)' },
+  { vram_label: '24 GB',    max_vram: 24576, recommended: 'qwen3.5:27b (Q4_K_M)', note: 'Best for IntentSmith (current default)' },
   { vram_label: '48 GB',    max_vram: 49152, recommended: 'llama3.1:70b (Q4_K_M)', note: 'Maximum capability' },
 ];
 

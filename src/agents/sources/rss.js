@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — B5: RSS/Atom Source Adapter
+// IntentSmith-Agent — B5: RSS/Atom Source Adapter
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // Source adapter for RSS 2.0 and Atom feeds.

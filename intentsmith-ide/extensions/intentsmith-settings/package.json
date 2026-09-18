@@ -1,0 +1,27 @@
+{
+  "name": "@intentsmith/settings",
+  "version": "0.1.0",
+  "description": "IntentSmith Settings — preferences panel",
+  "main": "lib/browser/settings-module.js",
+  "files": [
+    "lib",
+    "src"
+  ],
+  "theiaExtensions": [
+    {
+      "frontend": "lib/browser/settings-module"
+    }
+  ],
+  "dependencies": {
+    "@theia/core": "1.74.1"
+  },
+  "devDependencies": {
+    "typescript": "~5.3.0",
+    "rimraf": "^5.0.0"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "watch": "tsc -b -w",
+    "clean": "rimraf lib"
+  }
+}

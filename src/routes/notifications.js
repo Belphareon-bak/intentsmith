@@ -16,16 +16,16 @@ export function createNotificationRoutes({ notificationRouter, notificationEmitt
         const row = rawDb.prepare('SELECT data FROM user_settings WHERE id = 1').get();
         const s = row ? JSON.parse(row.data) : {};
         sendJSON(res, 200, {
-          emailEnabled: s['c3.notif.emailEnabled'] || false,
-          smtpHost: s['c3.notif.smtpHost'] || '',
-          smtpPort: s['c3.notif.smtpPort'] || 587,
-          smtpUser: s['c3.notif.smtpUser'] || '',
-          smtpPass: process.env.C3_SMTP_PASS ? '*****' : '',
+          emailEnabled: s['intentsmith.notif.emailEnabled'] || false,
+          smtpHost: s['intentsmith.notif.smtpHost'] || '',
+          smtpPort: s['intentsmith.notif.smtpPort'] || 587,
+          smtpUser: s['intentsmith.notif.smtpUser'] || '',
+          smtpPass: (process.env.INTENTSMITH_SMTP_PASS ?? process.env['C3_SMTP_PASS']) ? '*****' : '',
           credentialPersistence: 'environment_only',
-          smtpFrom: s['c3.notif.smtpFrom'] || '',
-          emailRecipient: s['c3.notif.emailRecipient'] || '',
-          emailOnLifecycle: s['c3.notif.emailOnLifecycle'] !== false,
-          emailOnWorker: s['c3.notif.emailOnWorker'] !== false,
+          smtpFrom: s['intentsmith.notif.smtpFrom'] || '',
+          emailRecipient: s['intentsmith.notif.emailRecipient'] || '',
+          emailOnLifecycle: s['intentsmith.notif.emailOnLifecycle'] !== false,
+          emailOnWorker: s['intentsmith.notif.emailOnWorker'] !== false,
         });
       } catch (err) {
         sendJSON(res, 500, { error: 'Failed to read notification config' });
@@ -57,14 +57,14 @@ export function createNotificationRoutes({ notificationRouter, notificationEmitt
         const current = existing ? JSON.parse(existing.data) : {};
 
         const settingsMap = {
-          emailEnabled: 'c3.notif.emailEnabled',
-          smtpHost: 'c3.notif.smtpHost',
-          smtpPort: 'c3.notif.smtpPort',
-          smtpUser: 'c3.notif.smtpUser',
-          smtpFrom: 'c3.notif.smtpFrom',
-          emailRecipient: 'c3.notif.emailRecipient',
-          emailOnLifecycle: 'c3.notif.emailOnLifecycle',
-          emailOnWorker: 'c3.notif.emailOnWorker',
+          emailEnabled: 'intentsmith.notif.emailEnabled',
+          smtpHost: 'intentsmith.notif.smtpHost',
+          smtpPort: 'intentsmith.notif.smtpPort',
+          smtpUser: 'intentsmith.notif.smtpUser',
+          smtpFrom: 'intentsmith.notif.smtpFrom',
+          emailRecipient: 'intentsmith.notif.emailRecipient',
+          emailOnLifecycle: 'intentsmith.notif.emailOnLifecycle',
+          emailOnWorker: 'intentsmith.notif.emailOnWorker',
         };
 
         for (const [key, settingKey] of Object.entries(settingsMap)) {
@@ -72,7 +72,7 @@ export function createNotificationRoutes({ notificationRouter, notificationEmitt
             current[settingKey] = body[key];
           }
         }
-        delete current['c3.notif.smtpPass'];
+        delete current['intentsmith.notif.smtpPass'];
         delete current.webhookSecret;
 
         rawDb.prepare('INSERT OR REPLACE INTO user_settings (id, data, updated_at) VALUES (1, ?, datetime(\'now\'))').run(JSON.stringify(current));
@@ -83,7 +83,7 @@ export function createNotificationRoutes({ notificationRouter, notificationEmitt
             host: body.smtpHost,
             port: body.smtpPort,
             user: body.smtpUser,
-            pass: process.env.C3_SMTP_PASS,
+            pass: (process.env.INTENTSMITH_SMTP_PASS ?? process.env['C3_SMTP_PASS']),
             from: body.smtpFrom,
           });
         }

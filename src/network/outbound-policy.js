@@ -69,7 +69,7 @@ function validModelDiscoveryTarget({ url, method, headers, hasBody }) {
       || MODEL_FAMILY_PATH.test(url.pathname)
       || MODEL_FAMILY_TAGS_PATH.test(url.pathname);
     const allowedHeaders = headers?.length === 0
-      || exactHeaders(headers, [['user-agent', 'c3-agent/1.0']])
+      || exactHeaders(headers, [['user-agent', 'intentsmith-agent/1.0']])
       || exactHeaders(headers, [['user-agent', 'intentsmith/1.0']]);
     return ['GET', 'HEAD'].includes(method)
       && exactPath

@@ -45,10 +45,10 @@ legacyDb.exec(`
 `);
 legacyDb.close();
 
-process.env.C3_DB_PATH = dbPath;
-process.env.C3_LOG_LEVEL = 'warn';
-process.env.C3_AUTONOMY_INTERVAL = '900000';
-process.env.C3_AUTONOMY_MIN_TURNS = '10';
+process.env.INTENTSMITH_DB_PATH = dbPath;
+process.env.INTENTSMITH_LOG_LEVEL = 'warn';
+process.env.INTENTSMITH_AUTONOMY_INTERVAL = '900000';
+process.env.INTENTSMITH_AUTONOMY_MIN_TURNS = '10';
 
 let db;
 let close;

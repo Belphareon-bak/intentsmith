@@ -24,13 +24,13 @@ import { logger } from './logger.js';
 
 // IDE setting key → feature flag name mapping
 const SETTING_KEY_MAP = {
-  'c3.features.skills': 'skills',
-  'c3.features.agents': 'agents',
-  'c3.features.lifecycle': 'lifecycle',
-  'c3.features.expertises': 'expertises',
-  'c3.features.telemetry': 'telemetry',
-  'c3.features.specialistTelemetry': 'specialistTelemetry',
-  'c3.features.autonomy': 'autonomy',
+  'intentsmith.features.skills': 'skills',
+  'intentsmith.features.agents': 'agents',
+  'intentsmith.features.lifecycle': 'lifecycle',
+  'intentsmith.features.expertises': 'expertises',
+  'intentsmith.features.telemetry': 'telemetry',
+  'intentsmith.features.specialistTelemetry': 'specialistTelemetry',
+  'intentsmith.features.autonomy': 'autonomy',
 };
 
 class FeatureManager {
@@ -91,9 +91,9 @@ class FeatureManager {
   }
 
   /**
-   * Apply settings object from IDE (maps c3.features.X → feature name).
+   * Apply settings object from IDE (maps intentsmith.features.X → feature name).
    * Only processes known feature keys.
-   * @param {Object} settings — e.g. { 'c3.features.skills': false }
+   * @param {Object} settings — e.g. { 'intentsmith.features.skills': false }
    */
   applySettings(settings) {
     if (!settings || typeof settings !== 'object') return;

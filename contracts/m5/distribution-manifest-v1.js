@@ -7,7 +7,7 @@ export const M5_DISTRIBUTION_MANIFEST = Object.freeze({
   runtimeRoots: Object.freeze([
     'agent-extensions',
     'bin',
-    'c3-ide',
+    'intentsmith-ide',
     'contracts',
     'marketplace',
     'scripts',

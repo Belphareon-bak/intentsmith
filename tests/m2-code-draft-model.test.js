@@ -11,7 +11,7 @@ import { config } from '../src/config.js';
 import { MODEL_RUNTIME_PROFILE } from '../src/llm/model-runtime-profile.js';
 import { createDefaultM2LifecycleApplicationService } from '../src/lifecycle/m2-lifecycle-application-service.js';
 
-assert.equal(process.env.C3_AUDIT_RUN, '1', 'requires isolated registered audit runner');
+assert.equal(process.env.INTENTSMITH_AUDIT_RUN, '1', 'requires isolated registered audit runner');
 assert.equal(config.models.CODE, MODEL_RUNTIME_PROFILE.model);
 assert.equal(MODEL_RUNTIME_PROFILE.contextWindowTokens, 4096, 'production context, no diagnostic uplift');
 const root = resolveIsolatedProjectPath('bounded-code-draft');
@@ -26,18 +26,18 @@ const git = args => execFileSync('/usr/bin/git', args, { cwd: root, encoding: 'u
 } }).trim();
 try {
   fs.mkdirSync(path.join(root, 'src'), { recursive: true });
-  fs.mkdirSync(path.join(root, '.c3'), { recursive: true });
+  fs.mkdirSync(path.join(root, '.intentsmith'), { recursive: true });
   const before = 'export function isLeapYear(year) { return year % 4 === 0; }\n';
   const beforeMonth = 'export function daysInFebruary(year) { return 28; }\n';
   fs.writeFileSync(path.join(root, 'src/calendar.mjs'), before);
   fs.writeFileSync(path.join(root, 'src/month.mjs'), beforeMonth);
-  fs.writeFileSync(path.join(root, '.c3/m2-governance-policy.json'), JSON.stringify({
+  fs.writeFileSync(path.join(root, '.intentsmith/m2-governance-policy.json'), JSON.stringify({
     policyId: 'bounded-draft-policy', layers: [{ name: 'app', roots: ['src'] }],
     rules: [{ from: 'app', canImport: ['app'] }], externalImports: [], sourceExtensions: ['.mjs'],
     requiredChecks: ['imports.allowed', 'inventory.complete', 'layers.mapped'], unmappedFilePolicy: 'unavailable',
   }));
   git(['init', '-b', 'main']);
-  git(['add', '--', 'src/calendar.mjs', 'src/month.mjs', '.c3/m2-governance-policy.json']);
+  git(['add', '--', 'src/calendar.mjs', 'src/month.mjs', '.intentsmith/m2-governance-policy.json']);
   git(['-c', 'user.name=IntentSmith Test', '-c', 'user.email=test@example.invalid', 'commit', '-m', 'baseline']);
   const projectId = 9927;
   const projects = { findById: { get: id => id === projectId ? { id, path: root, status: 'active' } : null } };

@@ -22,19 +22,19 @@ test('defaults include bounded long-running CHAT and first CODE call', () => {
 });
 
 test('positive timeout scale is applied consistently', () => {
-  const timeouts = resolveRoleTimeouts({ C3_TIMEOUT_SCALE: '0.5' });
+  const timeouts = resolveRoleTimeouts({ INTENTSMITH_TIMEOUT_SCALE: '0.5' });
   assertEqual(timeouts.CHAT, 300_000);
   assertEqual(timeouts.CODE_FIRST, 90_000);
 });
 
 test('invalid and non-positive scales cannot disable timeouts', () => {
-  assertEqual(resolveRoleTimeouts({ C3_TIMEOUT_SCALE: 'invalid' }).CHAT, 600_000);
-  assertEqual(resolveRoleTimeouts({ C3_TIMEOUT_SCALE: '0' }).CHAT, 600_000);
-  assertEqual(resolveRoleTimeouts({ C3_TIMEOUT_SCALE: '-2' }).CHAT, 600_000);
+  assertEqual(resolveRoleTimeouts({ INTENTSMITH_TIMEOUT_SCALE: 'invalid' }).CHAT, 600_000);
+  assertEqual(resolveRoleTimeouts({ INTENTSMITH_TIMEOUT_SCALE: '0' }).CHAT, 600_000);
+  assertEqual(resolveRoleTimeouts({ INTENTSMITH_TIMEOUT_SCALE: '-2' }).CHAT, 600_000);
 });
 
 test('extreme timeout scale is capped', () => {
-  assertEqual(resolveRoleTimeouts({ C3_TIMEOUT_SCALE: '1000' }).CHAT, 6_000_000);
+  assertEqual(resolveRoleTimeouts({ INTENTSMITH_TIMEOUT_SCALE: '1000' }).CHAT, 6_000_000);
 });
 
 suite('Timeout Policy — HTTP server');
@@ -48,9 +48,9 @@ test('HTTP defaults remain finite', () => {
 
 test('zero and malformed HTTP values fall back instead of disabling protection', () => {
   const policy = resolveHttpTimeoutPolicy({
-    C3_HTTP_REQUEST_TIMEOUT_MS: '0',
-    C3_HTTP_HEADERS_TIMEOUT_MS: 'forever',
-    C3_HTTP_KEEPALIVE_TIMEOUT_MS: '-1',
+    INTENTSMITH_HTTP_REQUEST_TIMEOUT_MS: '0',
+    INTENTSMITH_HTTP_HEADERS_TIMEOUT_MS: 'forever',
+    INTENTSMITH_HTTP_KEEPALIVE_TIMEOUT_MS: '-1',
   });
   assertEqual(policy.requestTimeoutMs, HTTP_TIMEOUT_DEFAULTS.requestTimeoutMs);
   assertEqual(policy.headersTimeoutMs, HTTP_TIMEOUT_DEFAULTS.headersTimeoutMs);
@@ -59,9 +59,9 @@ test('zero and malformed HTTP values fall back instead of disabling protection',
 
 test('HTTP overrides are bounded and headers cannot exceed request timeout', () => {
   const policy = resolveHttpTimeoutPolicy({
-    C3_HTTP_REQUEST_TIMEOUT_MS: '30000',
-    C3_HTTP_HEADERS_TIMEOUT_MS: '120000',
-    C3_HTTP_KEEPALIVE_TIMEOUT_MS: '999999',
+    INTENTSMITH_HTTP_REQUEST_TIMEOUT_MS: '30000',
+    INTENTSMITH_HTTP_HEADERS_TIMEOUT_MS: '120000',
+    INTENTSMITH_HTTP_KEEPALIVE_TIMEOUT_MS: '999999',
   });
   assertEqual(policy.requestTimeoutMs, 30_000);
   assertEqual(policy.headersTimeoutMs, 30_000);

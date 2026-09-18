@@ -504,7 +504,7 @@ await testAsync('bootstrap defaults share one complete seven-role portfolio', as
   );
   const wizardEnv = wizard.toEnvVars();
   for (const [role, modelName] of Object.entries(DEFAULT_MODEL_BINDINGS)) {
-    assertEqual(wizardEnv[`C3_MODEL_${role}`], modelName);
+    assertEqual(wizardEnv[`INTENTSMITH_MODEL_${role}`], modelName);
   }
 });
 
@@ -546,7 +546,7 @@ await testAsync('wizard v1 config migrates legacy defaults and preserves user ov
   );
   mkdirSync(parent, { recursive: true });
   const dataDir = mkdtempSync(path.join(parent, 'v1-'));
-  const setupPath = path.join(dataDir, 'c3-setup.json');
+  const setupPath = path.join(dataDir, 'intentsmith-setup.json');
   writeFileSync(setupPath, JSON.stringify({
     version: 1,
     completed: true,
@@ -578,7 +578,7 @@ await testAsync('wizard v1 config migrates legacy defaults and preserves user ov
   assertEqual(migrated.ollama.models.VISION, DEFAULT_MODEL_BINDINGS.VISION);
   assertEqual(Object.keys(migrated.ollama.models).length, 7);
   assertEqual(JSON.parse(readFileSync(setupPath, 'utf8')).version, 2);
-  assertEqual(Object.keys(wizard.toEnvVars()).filter(key => key.startsWith('C3_MODEL_')).length, 7);
+  assertEqual(Object.keys(wizard.toEnvVars()).filter(key => key.startsWith('INTENTSMITH_MODEL_')).length, 7);
 });
 
 await testAsync('startup reconciliation persists every installed configured role without a binding operation', async () => {

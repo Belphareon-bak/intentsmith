@@ -42,11 +42,11 @@ const REQUIRED_AUDIT_ENV = [
   'TMP',
   'TEMP',
   'npm_config_cache',
-  'C3_DB_PATH',
-  'C3_PROJECTS_DIR',
+  'INTENTSMITH_DB_PATH',
+  'INTENTSMITH_PROJECTS_DIR',
   'INTENTSMITH_TEST_PROJECTS_DIR',
   'INTENTSMITH_TEST_ARTIFACT_DIR',
-  'C3_PORT_FILE',
+  'INTENTSMITH_PORT_FILE',
 ];
 
 function isStrictChild(root, candidate) {
@@ -140,7 +140,7 @@ function resolveAuditRuntime() {
   );
   if (missing.length > 0) {
     throw new Error(
-      `C3_AUDIT_RUN requires complete runner-owned isolation: ${missing.join(', ')}`,
+      `INTENTSMITH_AUDIT_RUN requires complete runner-owned isolation: ${missing.join(', ')}`,
     );
   }
 
@@ -184,22 +184,22 @@ function resolveAuditRuntime() {
     'INTENTSMITH_TEST_PROJECTS_DIR',
   );
   const configuredProjects = inspectPrivateDirectory(
-    process.env.C3_PROJECTS_DIR,
-    'C3_PROJECTS_DIR',
+    process.env.INTENTSMITH_PROJECTS_DIR,
+    'INTENTSMITH_PROJECTS_DIR',
   );
   if (configuredProjects !== projects) {
-    throw new Error('C3_PROJECTS_DIR must equal INTENTSMITH_TEST_PROJECTS_DIR');
+    throw new Error('INTENTSMITH_PROJECTS_DIR must equal INTENTSMITH_TEST_PROJECTS_DIR');
   }
 
-  assertPrivateFileParent(process.env.C3_DB_PATH, 'C3_DB_PATH');
-  assertPrivateFileParent(process.env.C3_PORT_FILE, 'C3_PORT_FILE');
+  assertPrivateFileParent(process.env.INTENTSMITH_DB_PATH, 'INTENTSMITH_DB_PATH');
+  assertPrivateFileParent(process.env.INTENTSMITH_PORT_FILE, 'INTENTSMITH_PORT_FILE');
 
   return Object.freeze({
     mode: 'audit',
     repositoryRoot: REPOSITORY_ROOT,
     root: null,
     temp,
-    runtime: path.dirname(process.env.C3_DB_PATH),
+    runtime: path.dirname(process.env.INTENTSMITH_DB_PATH),
     projects,
     artifacts,
     home,
@@ -208,8 +208,8 @@ function resolveAuditRuntime() {
     xdgData,
     xdgState,
     npmCache,
-    database: process.env.C3_DB_PATH,
-    portFile: process.env.C3_PORT_FILE,
+    database: process.env.INTENTSMITH_DB_PATH,
+    portFile: process.env.INTENTSMITH_PORT_FILE,
   });
 }
 
@@ -294,14 +294,14 @@ function createDirectRuntime() {
     TMP: temp,
     TEMP: temp,
     NODE_ENV: 'test',
-    C3_DB_PATH: database,
-    C3_PROJECTS_DIR: projects,
+    INTENTSMITH_DB_PATH: database,
+    INTENTSMITH_PROJECTS_DIR: projects,
     INTENTSMITH_TEST_PROJECTS_DIR: projects,
     INTENTSMITH_TEST_ARTIFACT_DIR: artifacts,
-    C3_PORT: '0',
-    C3_PORT_FILE: portFile,
-    C3_LIFECYCLE_AUTO_COMMIT: 'false',
-    C3_ENABLE_AUTONOMY: 'false',
+    INTENTSMITH_PORT: '0',
+    INTENTSMITH_PORT_FILE: portFile,
+    INTENTSMITH_LIFECYCLE_AUTO_COMMIT: 'false',
+    INTENTSMITH_ENABLE_AUTONOMY: 'false',
     INTENTSMITH_DIRECT_TEST_RUN: '1',
   });
 
@@ -374,7 +374,7 @@ function createDirectRuntime() {
 
 process.umask(0o077);
 
-export const isolatedTestRuntime = process.env.C3_AUDIT_RUN === '1'
+export const isolatedTestRuntime = process.env.INTENTSMITH_AUDIT_RUN === '1'
   ? resolveAuditRuntime()
   : createDirectRuntime();
 

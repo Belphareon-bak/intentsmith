@@ -1,4 +1,4 @@
-// C3: Realistic LLM Lifecycle Test — Full Pipeline Verification
+// IntentSmith: Realistic LLM Lifecycle Test — Full Pipeline Verification
 // ══════════════════════════════════════════════════════════════════════════════
 // Tests the FULL lifecycle pipeline with realistic LLM simulation covering:
 //   1. Happy path: SPEC → PLANNING → BUILD (3 milestones) → COMPLETED
@@ -97,7 +97,7 @@ function cleanDB() {
 
 function initProjectDir() {
   const p = fs.mkdtempSync(path.join(os.tmpdir(), 'lc-llm-realistic-'));
-  execSync('git init && git config user.email "test@c3.dev" && git config user.name "C3 Test" && git commit --allow-empty -m "init"',
+  execSync('git init && git config user.email "test@intentsmith.dev" && git config user.name "IntentSmith Test" && git commit --allow-empty -m "init"',
     { cwd: p, stdio: 'pipe' });
   return p;
 }
@@ -539,12 +539,12 @@ function createExecutor(projectPath) {
 
 async function run() {
   console.log('══════════════════════════════════════════════════════════════════════');
-  console.log('  C3: Realistic LLM Lifecycle Test');
+  console.log('  IntentSmith: Realistic LLM Lifecycle Test');
   console.log('══════════════════════════════════════════════════════════════════════');
 
   cleanDB();
 
-  const SID = 'c3-llm-test';
+  const SID = 'intentsmith-llm-test';
   const projectPath = initProjectDir();
   const fakeLLM = createLLM();
   const fakeExecutor = createExecutor(projectPath);
@@ -944,7 +944,7 @@ async function run() {
   // ═══ Summary ═══════════════════════════════════════════════════════════════
 
   console.log(`\n${'═'.repeat(70)}`);
-  console.log(`  C3 Realistic LLM Lifecycle: ${passed} passed, ${failed} failed`);
+  console.log(`  IntentSmith Realistic LLM Lifecycle: ${passed} passed, ${failed} failed`);
   if (failures.length > 0) {
     console.log(`\n  FAILURES:`);
     for (const f of failures) console.log(`    ❌ ${f}`);

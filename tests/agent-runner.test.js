@@ -1,4 +1,4 @@
-// C3-Agent v57.0 — Agent Runner Tests
+// IntentSmith-Agent v57.0 — Agent Runner Tests
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Tests for mark_seen transactional action and runner execution flow.
@@ -293,7 +293,7 @@ function createMockRepository() {
 async function runTests() {
   console.log('\n');
   console.log('╔══════════════════════════════════════════════════════════════════════╗');
-  console.log('║       C3-Agent v57.0 — Agent Runner Tests                            ║');
+  console.log('║       IntentSmith-Agent v57.0 — Agent Runner Tests                            ║');
   console.log('╚══════════════════════════════════════════════════════════════════════╝');
 
   await describe('T12.0: notification read-all repository contract', async () => {

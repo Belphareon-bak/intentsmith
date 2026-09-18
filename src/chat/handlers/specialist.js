@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — Specialist Handler v91 (D5)
+// IntentSmith-Agent — Specialist Handler v91 (D5)
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Pipeline: Tool dispatch → Expertise discovery → Gap detection → Fallback
