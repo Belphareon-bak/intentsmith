@@ -1,9 +1,10 @@
 # Inventura #18a — Správa modelů
 
-**IDE a GPU hunt, 2026-09-18:** implementované opravy operátorových reprodukcí:
-řazení hlavičkou, celé použitelné role v jedné evaluaci, číselné matice,
-kandidáti ze skutečného hunt katalogu, záložky/kontext/sloupce/soubory a seznamy.
-Cílené kontroly a skutečné GUI PASS; úplný profil a nasazení zatím probíhají.
+**IDE a GPU hunt, 2026-09-18:** nasazeno `576719bf`. Řazení hlavičkou,
+celé použitelné role v jedné evaluaci, číselné matice, 249 kandidátů ze
+sloučeného katalogu, záložky/kontext/sloupce/soubory a zarovnané seznamy.
+119 cílených/navazujících Node testů, 20 kontrol instalovaného GUI PASS;
+úplný profil 359 PASS / 1 FAIL (nezměněná Gate 0 pečeť). Data zachovaná.
 REVIEW_PENDING. [Rozsah a důkaz](../review/2026-09-18-IDE-HUNT-POLISH.md).
 
 **Schopnost:** #18a (pořadí 4) · **Datum:** 2026-08-02 · **Commit:** `17a8b9a8`
