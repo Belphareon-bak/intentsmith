@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "6266f2777d77e4d7746f349b5afde1bfea0ecba0",
-  "sourceTree": "9817df6c74bf6c5ce2be2adaa5a3bcf3273a6d17",
+  "sourceRevision": "2f95483aeb9e1851a48148eb28b91d66b433001c",
+  "sourceTree": "70742ea849ec7ea3a4549ea2812347e2651aeeac",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "2a05aa6b5779af3b430cbfbefd4ef593a8a80f02",
@@ -300,6 +300,7 @@
     "src/chat/handlers/project-collaboration.js -> src/lifecycle/m2-code-draft.js",
     "src/chat/handlers/project-collaboration.js -> src/lifecycle/m2-lifecycle-authority-repository.js",
     "src/chat/handlers/project-collaboration.js -> src/llm/auth-types.js",
+    "src/chat/handlers/project-collaboration.js -> src/llm/clock-context.js",
     "src/chat/handlers/project-collaboration.js -> src/llm/gateway.js",
     "src/chat/handlers/project-collaboration.js -> src/llm/model-ctx.js",
     "src/chat/handlers/project-collaboration.js -> src/planner/project-onboarding.js",
