@@ -29,3 +29,9 @@ přenesených závislostech terser, napraveno offline frozen-lockfile instalací
 Fyzické důkazy, úplný profil a CODE výsledek budou doplněny po běhu do
 `coworker/intentsmith-model-download-journey-20260918`. Žádný nový model zatím
 nebyl vybrán ani aktivován v rámci tohoto běhu.
+
+První úplný profil: 357 PASS / 3 FAIL. Dvě regrese identifikované: callback
+binding provideru očekává původní `success` událost; nový čistý parser přidal
+nepřipnutou import hranu. Zachována původní událost (finální `done` až po EOF
+s success receipt), parser ponechán uvnitř existujícího upgrade-manager modulu.
+Třetí FAIL je zděděná release registry pečeť. Následuje nové ověření.

@@ -21,8 +21,7 @@ import {
 } from '../src/upgrade/model-use-authority.js';
 import { requireLoopbackModelProviderOrigin } from '../src/upgrade/model-provider-origin.js';
 import { ModelRegistry } from '../src/upgrade/model-registry.js';
-import { createModelPullProgress } from '../src/upgrade/model-pull-progress.js';
-import { UpgradeManager } from '../src/upgrade/upgrade-manager.js';
+import { createModelPullProgress, UpgradeManager } from '../src/upgrade/upgrade-manager.js';
 import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 import { suite, summary, test, testAsync } from './harness.js';
 
@@ -104,7 +103,7 @@ test('actual Ollama pulling events count multiple layers and exclude resumed byt
   assert.equal(next.totalBytes, 1200);
   assert.equal(next.completedBytes, 1000);
   assert.equal(next.percent, 83);
-  assert.equal(parse({status:'success'}).status, 'verifying');
+  assert.equal(parse({status:'success'}).status, 'success');
 });
 
 await testAsync('durable download reader restores success without a websocket or live in-memory state', async () => {
