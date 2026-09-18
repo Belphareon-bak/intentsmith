@@ -120,7 +120,7 @@ const TASK_LABELS = {
   reason_sets: 'Průniky a rozdíly množin', reason_rate: 'Rychlost práce a doba dokončení',
   reason_logic: 'Logický úsudek', reason_transform: 'Vícekroková transformace',
   review_sql_null: 'SQL injection a prázdná hodnota', review_path_async: 'Bezpečnost cest a asynchronní volání',
-  review_command_secret: 'Příkazová injekce a únik tajemství', review_bounds_resource: 'Meze indexů a únik prostředků',
+  'review_command_secret': 'Příkazová injekce a únik tajemství', review_bounds_resource: 'Meze indexů a únik prostředků',
   review_auth_race: 'Obcházení oprávnění a souběh', review_clean: 'Správný kód bez falešných nálezů',
   vision_red: 'Barva a jednolitost obrazu', vision_dots: 'Počet objektů a barvy',
   vision_ring: 'Tvar, popředí a pozadí', vision_dots_cz: 'Počet a barvy v češtině',
