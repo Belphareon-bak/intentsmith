@@ -1,5 +1,13 @@
 # IntentSmith — mapa systému
 
+**IDE pracovní prostor, 2026-09-18:** nasazeno `c52b03ff`, pojmenované relace,
+samostatné sloupce chatu/souborů/výstupů, historie a knihovny specialistů,
+centrální katalogy a nastavení. Aktivní názvy IntentSmith, kompatibilita starých
+dat zachovaná. 106 cílených testů PASS, produkční build a skutečné GUI PASS;
+úplný profil 359 PASS / 1 FAIL (nezměněná Gate 0 pečeť). REVIEW_PENDING,
+M2 systemd AppArmor a M5 historie stále otevřené.
+[Review a meze](docs/review/2026-09-18-IDE-WORKSPACE.md).
+
 **Projektový flow, 2026-09-18:** nasazeno `5e46fca7`, nový projekt → návrh →
 přesný M2 krok; existující cizí projekt → čtecí analýza → cíl a priority.
 Úplný gate 358 PASS / 1 FAIL (nezměněná release pečeť), Studio build PASS.

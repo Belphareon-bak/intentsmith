@@ -1,5 +1,13 @@
 # Inventura #21 — Studio a WS bridge
 
+**IDE pracovní prostor, 2026-09-18:** nasazeno `c52b03ff`, pojmenované relace,
+samostatné sloupce chatu/souborů/výstupů, historie a knihovny specialistů,
+centrální katalogy a nastavení. Aktivní názvy IntentSmith, kompatibilita starých
+dat zachovaná. 106 cílených testů PASS, produkční build a skutečné GUI PASS;
+úplný profil 359 PASS / 1 FAIL (nezměněná Gate 0 pečeť). REVIEW_PENDING,
+M2 systemd AppArmor a M5 historie stále otevřené.
+[Review a meze](../review/2026-09-18-IDE-WORKSPACE.md).
+
 Aktuální navazující důkaz 2026-09-12 na `dc81a0f0`: **BOUNDED_PHYSICAL_BUILD_PASS**.
 Instalované Studio spojilo DOM formulář, skutečný server, durable CODE binding,
 dvě fyzické generace, kompletní preview, explicitní approval, 12 funkčních

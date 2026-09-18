@@ -1,7 +1,7 @@
 # IntentSmith IDE — pracovní prostor
 
 Autorita: explicitní zadání operátora 2026-09-18 (body 1–4 a přejmenování C3).
-Stav: IN_PROGRESS. Základ `4ebdfd39`, větev `work/ide-workspace-20260918`.
+Stav: IMPLEMENTED / INSTALLED / REVIEW_PENDING. Základ `4ebdfd39`, větev `work/ide-workspace-20260918`.
 Vlastník: Codex; vlastní checkout `intentsmith-audit-20260911-FNF2jj/snapshot`.
 GPU hunt a cizí rozpracovaný hlavní checkout zůstávají ve vlastnictví druhého workera.
 
@@ -17,7 +17,13 @@ GPU hunt a cizí rozpracovaný hlavní checkout zůstávají ve vlastnictví dru
 6. Názvy IntentSmith: aktivní aplikace, balíčky, soubory, události, konfigurace;
    existující uložená data převést kompatibilně, historické důkazy nepřepisovat.
 
-Ověření: cílené regrese izolace relací, obnovy a kompatibility, produkční build,
-skutečné Electron ovládání a snímky. Závěrečný deterministický profil ponechá
-případný známý nesoulad operátorské Gate 0 pečeti červený. Review není nahrazeno
-vlastními testy. Výsledky a nezajištěné části budou doplněny po ověření.
+Ověřeno: 106/106 cílených Node testů, produkční build a skutečné GUI scénáře.
+Úplný offline,database profil na `c52b03ff`: 359 PASS / 1 FAIL (Gate 0 pečeť).
+Nasazení s ověřenou zálohou, zachováním dat, HTTP autoritou a launcher check.
+Nezávislé review, M5 history disposition a systemd M2 AppArmor zůstávají otevřené.
+[Návod](../IDE-WORKSPACE.md), [review a přesné meze](../review/2026-09-18-IDE-WORKSPACE.md),
+[strojová evidence](../execution/runs/ide-workspace-20260918.json).
+
+Poslední přenosná oprava launcheru `0534a111` čeká s přepnutím instalace
+na doběh samostatného GPU měření. Na tomto PC profil zachovává kompatibilní odkaz;
+backend a GUI bundle jsou proti nasazené revizi beze změny.
