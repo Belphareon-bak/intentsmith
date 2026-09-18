@@ -50,10 +50,10 @@ var _C_CLEAN={bg0:'#0c0c0f',bg1:'#111114',bg2:'#18181c',bg3:'#1f2025',bg4:'#2728
   border:'rgba(255,255,255,0.06)',border2:'rgba(255,255,255,0.1)',
   font:"'Plus Jakarta Sans',-apple-system,sans-serif",mono:"'JetBrains Mono','Fira Code',monospace"};
 var _C_STUDIO=Object.assign({},_C_DEFAULT,{
-  bg0:'#0b1016',bg1:'#101720',bg2:'#171f2b',bg3:'#202a3a',bg4:'#2b3548',bg5:'#354157',
-  tx1:'#edf1fa',tx2:'#b8c4da',tx3:'#92a4c3',tx4:'#7e91b1',
-  accent:'#8876f7',accentText:'#c3b9ff',accentDim:'#5646ae',accentBg:'rgba(136,118,247,0.17)',onAccent:'#ffffff',
-  success:'#4edda0',successBg:'rgba(78,221,160,0.12)',blue:'#70b8ff',cyan:'#5bd7dc',purple:'#b49cff',
+  bg0:'#090d11',bg1:'#0d1319',bg2:'#121b23',bg3:'#1b2232',bg4:'#2a3343',bg5:'#384257',
+  tx1:'#e9edf4',tx2:'#bcc6d5',tx3:'#94a2b6',tx4:'#7f8ca1',
+  accent:'#8170ef',accentText:'#c0b8ff',accentDim:'#5342ad',accentBg:'rgba(129,112,239,0.18)',onAccent:'#ffffff',
+  success:'#42dca3',successBg:'rgba(66,220,163,0.12)',blue:'#5aaafa',cyan:'#58d3df',purple:'#ae96ff',amber:'#e8bc59',red:'#ee7c8e',
   border:'rgba(151,177,221,0.12)',border2:'rgba(151,177,221,0.24)'});
 var _C_THEMES={
   intentsmith:_C_DEFAULT,
@@ -343,6 +343,19 @@ var CONVERSATIONS=[];
 /* Specialists = expertises with deterministic tools (is_specialist from backend or default) */
 var SPECIALISTS=EXPERTISES.filter(function(e){return e.isSpecialist;}).map(function(e){return{emoji:e.emoji,name:e.name,desc:e.desc,domain:e.domain,tags:[e.domain||'','Specialista'].filter(Boolean)};});
 var WORKERS=[];
+Object.assign(I,{
+  chip:'<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 1v5m6-5v5M9 18v5m6-5v5M1 9h5m-5 6h5m12-6h5m-5 6h5"/>',
+  database:'<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 4 16 4 16 0V5M4 12c0 4 16 4 16 0"/>',
+  bell:'<path d="M18 8a6 6 0 00-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>',
+  code:'<path d="M8 6l-6 6 6 6m8-12l6 6-6 6M14 3l-4 18"/>',
+  palette:'<path d="M21 12a9 9 0 10-9 9h1a2 2 0 000-4h-1a2 2 0 010-4h6a3 3 0 003-1z"/><circle cx="7" cy="10" r=".7"/><circle cx="10" cy="6" r=".7"/><circle cx="15" cy="6" r=".7"/>',
+  monitor:'<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/>',
+  archive:'<path d="M4 9v12h16V9M9 13h6"/><rect x="2" y="3" width="20" height="6" rx="1"/>',
+  sliders:'<path d="M4 3v18M12 3v18M20 3v18"/><path d="M1 8h6m2 8h6m2-10h6"/>',
+  shield:'<path d="M12 2l9 4v6c0 6-9 10-9 10S3 18 3 12V6z"/><path d="M8 12l3 3 5-6"/>',
+  info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v1"/>'
+});
+
 var SETTINGS_SECTIONS=[{icon:'👤',title:'Account',desc:'Identita a profil'},{icon:'🤖',title:'LLM',desc:'Modely a inference'},{icon:'🧠',title:'Memory',desc:'Paměť a kontext'},{icon:'🔔',title:'Notifications',desc:'Upozornění'},{icon:'📄',title:'Output',desc:'Formátování výstupu'},{icon:'🎨',title:'Appearance',desc:'Vzhled a přizpůsobení'},{icon:'🖥️',title:'System',desc:'Systém a diagnostika'},{icon:'📦',title:'Storage',desc:'Data a úložiště'},{icon:'💾',title:'Backup',desc:'Zálohy a export'},{icon:'🎛️',title:'Feature Flags',desc:'Runtime přepínače'},{icon:'🔒',title:'Security',desc:'Tokeny a audit log'},{icon:'ℹ️',title:'About',desc:'O aplikaci'}];
 var FILES=[];
 var _collapsedDirs={};var _wtRoot='';var _wtLoading=false;var _wtRenaming=null;var _wtNewInput=null;
@@ -745,7 +758,7 @@ function SidebarApp(props){
         return h('div',{key:item.id,title:item.label,style:{width:34,height:34,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:6,cursor:'pointer',color:isA?C.accentText:C.tx3,background:isA?C.accentBg:'transparent',boxShadow:isA?'inset 2px 0 0 '+C.accent:'none',marginBottom:2,transition:'background 0.12s,color 0.12s'},
           onMouseEnter:function(e){if(!isA)e.currentTarget.style.background=C.bg3;},onMouseLeave:function(e){e.currentTarget.style.background=isA?C.accentBg:'transparent';},
           onClick:function(){_wizardGuardNav(item.id,set);}},
-          h('span',{style:{display:'flex'},dangerouslySetInnerHTML:{__html:svg(I[item.icon],18)}}));
+          h('span',{'data-nav-icon':item.id,style:{display:'flex',color:_appearanceMode()==='studio'?_designTone({chats:'amber',projects:'rose',specialists:'violet',expertises:'cyan',workers:'mint',marketplace:'blue',multimedia:'violet'}[item.id]):undefined},dangerouslySetInnerHTML:{__html:svg(I[item.icon],18)}}));
       }),
       h('div',{style:{flex:1}}),
       h('div',{title:'Nastavení',style:{width:34,height:34,display:'flex',alignItems:'center',justifyContent:'center',borderRadius:6,cursor:'pointer',color:s.active==='settings'?C.accentText:C.tx3,background:s.active==='settings'?C.accentBg:'transparent',boxShadow:s.active==='settings'?'inset 2px 0 0 '+C.accent:'none',marginBottom:4,transition:'background 0.12s, color 0.12s'},
@@ -773,7 +786,7 @@ function SidebarApp(props){
           onMouseEnter:function(e){if(!isA){e.currentTarget.style.background=C.bg3;e.currentTarget.style.color=C.tx2;}},
           onMouseLeave:function(e){e.currentTarget.style.background=isA?C.accentBg:'transparent';e.currentTarget.style.color=isA?C.accentText:C.tx3;},
           onClick:function(){_wizardGuardNav(item.id,set);}},
-          h('span',{style:{flexShrink:0,display:'flex'},dangerouslySetInnerHTML:{__html:svg(I[item.icon],20)}}),
+          h('span',{'data-nav-icon':item.id,style:{flexShrink:0,display:'flex',color:_appearanceMode()==='studio'?_designTone({chats:'amber',projects:'rose',specialists:'violet',expertises:'cyan',workers:'mint',marketplace:'blue',multimedia:'violet'}[item.id]):undefined,background:_appearanceMode()==='studio'?_rgba(_designTone({chats:'amber',projects:'rose',specialists:'violet',expertises:'cyan',workers:'mint',marketplace:'blue',multimedia:'violet'}[item.id]),0.09):undefined,padding:_appearanceMode()==='studio'?4:0,borderRadius:5},dangerouslySetInnerHTML:{__html:svg(I[item.icon],18)}}),
           h('span',{style:{fontSize:_fs(13.5),fontWeight:600,flex:1}},item.label),
           item.badge?h('span',{style:{fontSize:_fs(9),fontFamily:C.mono,background:C.bg4,padding:'1px 6px',borderRadius:8,color:C.tx3}},item.badge):null,
           item.recent?h('span',{style:{flexShrink:0,display:'flex',padding:2,cursor:'pointer',transform:isO?'rotate(180deg)':'none',transition:'transform 0.15s'},
@@ -2683,8 +2696,8 @@ function _resetFeatureFlags(){fetch(_backendUrl()+'/api/features/reset',{method:
 function _iI(text){return h('span',{style:{display:'inline-flex',alignItems:'center',justifyContent:'center',width:14,height:14,borderRadius:'50%',background:C.bg4,color:C.tx3,fontSize:'8px',fontWeight:700,cursor:'help',marginLeft:5,verticalAlign:'middle',flexShrink:0},title:text},'i');}
 function _lI(text,info){return h('span',{style:{display:'inline-flex',alignItems:'center'}},text,_iI(info));}
 /* v87.3: Backend config field helpers */
-function _cfgInput(label,key,def,type,hint){var v=_bVal(key,def);return h('div',{style:{marginBottom:12}},h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6,display:'flex',alignItems:'center'}},label),type==='textarea'?h('textarea',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'7px 9px',color:C.tx1,fontFamily:C.font,fontSize:_fs(12),outline:'none',resize:'vertical',lineHeight:'1.5',minHeight:60,boxSizing:'border-box'},value:v||'',onChange:function(e){_bSet(key,e.target.value);}}):h('input',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'6px 9px',color:C.tx1,fontFamily:C.font,fontSize:_fs(12),outline:'none',boxSizing:'border-box'},value:v!=null?String(v):'',onChange:function(e){_bSet(key,type==='number'?parseFloat(e.target.value)||0:e.target.value);}}),hint?h('div',{style:{fontSize:_fs(9),color:C.tx4,marginTop:3}},hint):null);}
-function _cfgSelect(label,key,def,opts){var v=_bVal(key,def);return h('div',{style:{marginBottom:12}},h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6,display:'flex',alignItems:'center'}},label),h('select',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'6px 9px',color:C.tx1,fontFamily:C.font,fontSize:_fs(12),outline:'none',boxSizing:'border-box'},value:v,onChange:function(e){_bSet(key,e.target.value);}},opts.map(function(o){return h('option',{key:o,value:o},o);})));}
+function _cfgInput(label,key,def,type,hint){var v=_bVal(key,def);return h('div',{style:{marginBottom:12}},h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6,display:'flex',alignItems:'center'}},label),type==='textarea'?h('textarea',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'7px 9px',color:C.tx1,fontFamily:C.font,fontSize:_fs(12),outline:'none',resize:'vertical',lineHeight:'1.5',minHeight:60,boxSizing:'border-box'},value:v||'',onChange:function(e){_bSet(key,e.target.value);}}):h('input',{style:{width:'100%',background:C.bg0,border:'1px solid '+C.border2,borderRadius:5,padding:'8px 10px',color:C.tx1,fontFamily:C.font,fontSize:_fs(12),outline:'none',boxSizing:'border-box'},value:v!=null?String(v):'',onChange:function(e){_bSet(key,type==='number'?parseFloat(e.target.value)||0:e.target.value);}}),hint?h('div',{style:{fontSize:_fs(9),color:C.tx4,marginTop:3}},hint):null);}
+function _cfgSelect(label,key,def,opts){var v=_bVal(key,def);return h('div',{style:{marginBottom:12}},h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6,display:'flex',alignItems:'center'}},label),h('select',{style:{width:'100%',background:C.bg0,border:'1px solid '+C.border2,borderRadius:5,padding:'8px 10px',color:C.tx1,fontFamily:C.font,fontSize:_fs(12),outline:'none',boxSizing:'border-box'},value:v,onChange:function(e){_bSet(key,e.target.value);}},opts.map(function(o){return h('option',{key:o,value:o},o);})));}
 function _cfgToggle(label,desc,key,def){return _settingsToggle(label,desc,!!_bVal(key,def),function(nv){_bSet(key,nv);});}
 function _cfgSlider(label,key,def,min,max,step,unit,hint,fmt){var v=_bVal(key,def);var disp=fmt?fmt(v):v+(unit||'');return h('div',{style:{marginBottom:12}},h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6,display:'flex',alignItems:'center'}},label),h('div',{style:{display:'flex',alignItems:'center',gap:8}},h('input',{type:'range',min:min,max:max,step:step,value:v,onChange:function(e){_bSet(key,parseFloat(e.target.value));},style:{flex:1,cursor:'pointer',accentColor:C.accent}}),h('span',{style:{fontSize:_fs(11),color:C.tx3,minWidth:52,textAlign:'right',fontFamily:C.mono}},disp)),hint?h('div',{style:{fontSize:_fs(9),color:C.tx4,marginTop:3}},hint):null);}
 var _backupMsg=null;var _notifChannels=null;
@@ -2825,7 +2838,7 @@ function centerSettings(){
     h('div',{className:'intentsmith-settings',style:{display:'flex',flex:1,minHeight:0,overflow:'hidden'}},
       h('nav',{className:'intentsmith-settings-nav',style:{width:190,minWidth:160,flexShrink:0,boxSizing:'border-box',borderRight:'1px solid '+C.border,padding:12,overflowY:'auto'},'aria-label':'Kategorie nastavení'},
         h('input',{value:_settingsSearch,placeholder:'Hledat kategorii', 'aria-label':'Hledat v nastavení',style:{width:'100%',boxSizing:'border-box',padding:8,marginBottom:12,border:'1px solid '+C.border2,borderRadius:4,background:C.bg2,color:C.tx1},onChange:function(e){_settingsSearch=e.target.value;renderCenter();}}),
-        SETTINGS_SECTIONS.map(function(section,index){var title=_settingsLabels[section.title]||section.title;if((title+' '+section.desc).toLocaleLowerCase().indexOf(_settingsSearch.toLocaleLowerCase())<0)return null;return h('button',{key:section.title,'aria-current':index===si?'page':undefined,style:{display:'block',width:'100%',textAlign:'left',border:0,borderRadius:4,padding:'10px 12px',marginBottom:2,background:index===si?C.bg3:'transparent',color:index===si?C.tx1:C.tx2,fontSize:13,cursor:'pointer'},onClick:function(){_centerState.settingsSection=index;renderCenter();}},title);})),
+        SETTINGS_SECTIONS.map(function(section,index){var title=_settingsLabels[section.title]||section.title;if((title+' '+section.desc).toLocaleLowerCase().indexOf(_settingsSearch.toLocaleLowerCase())<0)return null;return h('button',{key:section.title,'aria-current':index===si?'page':undefined,style:{display:'flex',alignItems:'center',gap:9,width:'100%',textAlign:'left',border:'1px solid '+(index===si?_rgba(C.accent,0.35):'transparent'),borderRadius:5,padding:'7px 8px',marginBottom:3,background:index===si?C.accentBg:'transparent',color:index===si?C.tx1:C.tx2,fontSize:_fs(11.5),cursor:'pointer'},onClick:function(){_centerState.settingsSection=index;renderCenter();}},_designIcon(_settingsDesign[section.title].icon,_settingsDesign[section.title].tone,24),h('span',null,title));})),
       settingsDetailPanel(sec,si)));
 }
 
@@ -2847,41 +2860,131 @@ function settingsDetailPanel(sec,si){
     default:panelBody=h('div',{style:{padding:12,color:C.tx3}},'Žádná nastavení.');
   }
   return h('div',{style:{flex:1,minWidth:0,background:C.bg1,borderLeft:'1px solid '+C.border,display:'flex',flexDirection:'column',flexShrink:0,overflow:'hidden'}},
-    h('div',{style:{padding:'10px 14px',borderBottom:'1px solid '+C.border,display:'flex',alignItems:'center',gap:8,flexShrink:0}},
-
-      h('span',{style:{fontSize:_fs(13.5),fontWeight:700,flex:1,color:C.tx1}},_settingsLabels[sec.title]||sec.title),
+    h('div',{style:{padding:'16px 20px',borderBottom:'1px solid '+C.border,display:'flex',alignItems:'center',gap:12,flexShrink:0}},
+      _designIcon(_settingsDesign[sec.title].icon,_settingsDesign[sec.title].tone,40),
+      h('div',{style:{flex:1,minWidth:0}},h('div',{style:{fontSize:_fs(17),fontWeight:650,color:C.tx1}},_settingsLabels[sec.title]||sec.title),h('div',{style:{fontSize:_fs(11),color:C.tx3,marginTop:4}},_settingsDesign[sec.title].subtitle)),
       h('button',{style:{background:'none',border:'none',color:C.tx4,cursor:'pointer',padding:2,borderRadius:4,display:'flex'},
         title:'Zpět do pracovního prostoru','aria-label':'Zpět do pracovního prostoru',onClick:function(){_showWorkspace();}},svgEl(I.close,15))),
     h('div',{className:'intentsmith-settings-detail',style:{flex:1,minHeight:0,overflowY:'auto',padding:'16px 20px'}},panelBody));
 }
 
 var _settingsTabs={};
-function _settingsCard(title,content){
-  return h('section',{key:title,className:'intentsmith-settings-card','aria-label':title,style:{minWidth:0,alignSelf:'start',border:'1px solid '+C.border2,borderRadius:8,background:C.bg2,overflow:'hidden'}},
-    h('h3',{style:{margin:0,padding:'12px 16px',fontSize:_fs(12),fontWeight:600,color:C.tx1,borderBottom:'1px solid '+C.border}},title),
-    h('div',{style:{padding:16,minWidth:0}},content));
+/* A stable meaning for each accent; saturation is reserved for controls and symbols. */
+function _designTone(tone){
+  var colors={violet:C.accent,blue:C.blue,mint:C.success,amber:C.amber,rose:C.red,cyan:C.cyan};
+  return colors[tone]||C.accent;
+}
+var _settingsDesign={
+  Account:{icon:'users',tone:'blue',subtitle:'Váš profil, jazyk a pracovní složka'},
+  LLM:{icon:'chip',tone:'violet',subtitle:'Modely, jejich role a parametry inference'},
+  Memory:{icon:'database',tone:'cyan',subtitle:'Historie, kontext a automatické učení'},
+  Notifications:{icon:'bell',tone:'amber',subtitle:'Kanály oznámení a čas pro soustředění'},
+  Output:{icon:'code',tone:'blue',subtitle:'Čitelný text, zdrojový kód a rozsah odpovědí'},
+  Appearance:{icon:'palette',tone:'violet',subtitle:'Paleta, písmo a rozvržení pracovního prostředí'},
+  System:{icon:'monitor',tone:'mint',subtitle:'Spouštění, diagnostika a provozní limity'},
+  Storage:{icon:'database',tone:'cyan',subtitle:'Přehled databáze a její údržba'},
+  Backup:{icon:'archive',tone:'amber',subtitle:'Export, obnova a výchozí nastavení'},
+  'Feature Flags':{icon:'sliders',tone:'violet',subtitle:'Dostupné subsystémy a jejich běhové přepínače'},
+  Security:{icon:'shield',tone:'mint',subtitle:'Přístupové tokeny, relace a audit'},
+  About:{icon:'info',tone:'blue',subtitle:'Verze aplikace a zpětná vazba'}
+};
+function _designIcon(icon,tone,size){
+  return h('span',{className:'intentsmith-design-icon','data-tone':tone,style:{color:_designTone(tone),background:_rgba(_designTone(tone),0.10),width:size||28,height:size||28,display:'inline-flex',alignItems:'center',justifyContent:'center',borderRadius:6,flexShrink:0}},svgEl(I[icon]||I.settings,(size||28)>32?21:15));
+}
+function _designBadge(label,tone){var color=_designTone(tone);return h('span',{className:'intentsmith-design-badge','data-tone':tone,style:{color:color,background:_rgba(color,0.08),border:'1px solid '+_rgba(color,0.35)}},label);}
+function _modelRoleBadge(role){var tone={D1:'violet',D2:'violet',CODE:'blue',R1:'mint',R2:'mint',CHAT:'amber',VISION:'cyan'}[role]||'blue';return h('span',{key:role},_designBadge(role,tone));}
+function _settingsFact(label,value,tone){
+  return h('div',{key:label,className:'intentsmith-settings-fact'},h('span',{style:{color:C.tx3}},label),h('strong',{style:{color:tone?_designTone(tone):C.tx1}},value==null?'—':String(value)));
+}
+function _settingsMeter(label,value,total,unit,tone){
+  var valid=Number.isFinite(value)&&Number.isFinite(total)&&total>0,pct=valid?Math.max(0,Math.min(100,value/total*100)):0,color=_designTone(tone);
+  return h('div',{className:'intentsmith-settings-meter'},_settingsFact(label,valid?value.toLocaleString('cs-CZ')+(unit||''):'Nezjištěno',tone),h('div',{className:'intentsmith-meter-track',style:{background:C.bg4}},h('span',{style:{width:pct+'%',background:color}})));
+}
+function _settingsDial(value,total,label,tone){
+  var valid=Number.isFinite(value)&&Number.isFinite(total)&&total>0,pct=valid?Math.round(value/total*100):0,color=_designTone(tone);
+  return h('div',{className:'intentsmith-settings-dial-wrap'},h('div',{className:'intentsmith-settings-dial',style:{background:'conic-gradient('+color+' '+Math.min(100,Math.max(0,pct))+'%, '+C.bg4+' 0)'}},h('div',{style:{background:C.bg2,color:C.tx1}},h('strong',null,valid?(value>0&&pct===0?'<1%':pct+'%'):'—'))),h('div',{style:{color:C.tx2,fontSize:_fs(11),lineHeight:1.5}},label));
+}
+function _settingsOverview(section,tab){
+  var body=[],title='Aktuální nastavení',meta=_settingsDesign[section]||_settingsDesign.System;
+  function fact(k,v,t){body.push(_settingsFact(k,v,t));}
+  if(section==='Appearance')return h(React.Fragment,null,tab==='preview'?null:_settingsCard('Živý náhled',[_appearancePreview()],{icon:'monitor',tone:'blue'}),_settingsCard('Role barev',[_paletteLegend()],{icon:'palette',tone:'violet'}));
+  if(section==='Account'){
+    title='Místní profil';var name=_bVal('intentsmith.account.displayName','')||'Váš profil';
+    body.push(h('div',{className:'intentsmith-profile-preview'},h('div',{className:'intentsmith-profile-avatar',style:{color:C.accentText,borderColor:C.accent,background:C.accentBg}},name.split(/\s+/).slice(0,2).map(function(w){return w[0];}).join('').toUpperCase()),h('div',null,h('strong',{style:{color:C.tx1}},name),h('div',{style:{marginTop:6}},_designBadge('Lokální','blue')))));
+    fact('Jazyk',_bVal('intentsmith.language','cs').toUpperCase());fact('Časové pásmo',_bVal('intentsmith.account.timezone','Europe/Prague'));
+  }else if(section==='LLM'){
+    title='Modelový přehled';fact('Přiřazené role',_roleBindings?Object.keys(_roleBindings).filter(function(k){return !!_roleBindings[k];}).length+' / 7':'Načítám…','violet');
+    ['CHAT','CODE','VISION'].forEach(function(role){body.push(h('div',{key:role,className:'intentsmith-role-summary'},_modelRoleBadge(role),h('span',{style:{color:C.tx1}},_roleBindings&&_roleBindings[role]||'Nepřiřazeno')));});
+    fact('Kontext',_bVal('intentsmith.llm.contextWindow',32768).toLocaleString('cs-CZ')+' tok.');
+  }else if(section==='Memory'){
+    title='Rozpočet kontextu';var chat=Number(_bVal('intentsmith.memory.contextBudgetChat',60));body.push(_settingsDial(chat,100,'Nastavený podíl pro chat','cyan'));
+    body.push(_settingsMeter('Kód',Number(_bVal('intentsmith.memory.contextBudgetCode',40)),100,' %','blue'));
+    fact('Max. LTM záznamů',_bVal('intentsmith.memory.ltmMaxEntries',1000));fact('Poločas paměti',_bVal('intentsmith.memory.ltmDecayHalfLife',69)+' dní');
+  }else if(section==='Notifications'){
+    title='Nastavení doručování';fact('Desktop',_bVal('intentsmith.notif.desktopEnabled',true)?'Zapnuto':'Vypnuto','mint');fact('Tichý režim',_bVal('intentsmith.notif.quietEnabled',false)?'Zapnuto':'Vypnuto','amber');fact('Tiché hodiny',_bVal('intentsmith.notif.quietFrom','22:00')+' – '+_bVal('intentsmith.notif.quietTo','07:00'));
+    body.push(h('p',{className:'intentsmith-settings-hint'},'Dostupnost externích kanálů se ověřuje u backendu.'));
+  }else if(section==='Output'){
+    title='Ukázka výstupu';body.push(h('div',{className:'intentsmith-output-example',style:{background:C.bg0,color:C.tx1}},h('div',{style:{color:C.blue,fontSize:10,marginBottom:12}},'JAVASCRIPT'),h('code',null,h('span',{style:{color:C.purple}},'function '),'hello() {',h('br'),h('span',{style:{color:C.blue}},'  return '),h('span',{style:{color:C.success}},'"Ahoj, světe"'),';',h('br'),'}')));fact('Nastavený limit',_bVal('intentsmith.output.maxResponseLength',8192).toLocaleString('cs-CZ')+' tok.');
+  }else if(section==='System'){
+    title='Běhové prostředí';var mem=_sysInfo&&_sysInfo.memory;
+    if(mem)body.push(_settingsDial(mem.process_mb,mem.total_mb,'Podíl procesu na celkové RAM systému','mint'));
+    fact('Platforma',_sysInfo&&!_sysInfo.error?[_sysInfo.platform,_sysInfo.arch].filter(Boolean).join(' / '):'Nezjištěno');fact('Node',_sysInfo&&_sysInfo.node_version);fact('Běh backendu',_sysInfo&&Number.isFinite(_sysInfo.uptime_seconds)?Math.round(_sysInfo.uptime_seconds/60)+' min':'Nezjištěno');
+  }else if(section==='Storage'){
+    title='Databáze';var db=_sysInfo&&_sysInfo.db,tables=db&&db.tables;
+    body.push(h('div',{className:'intentsmith-settings-big-number',style:{color:C.tx1}},db?db.size_mb+' MB':'—'));fact('Migrace',db&&db.migrations);
+    if(tables){var entries=Object.keys(tables).sort(function(a,b){return tables[b]-tables[a];}).slice(0,4),max=Math.max.apply(null,[1].concat(entries.map(function(k){return tables[k];})));body.push(h('p',{className:'intentsmith-settings-hint'},'Počet záznamů v největších tabulkách'));entries.forEach(function(k,i){body.push(h('div',{key:k},_settingsMeter(k,tables[k],max,'',['blue','cyan','violet','mint'][i])));});}
+  }else if(section==='Backup'){
+    title='Co záloha obsahuje';body.push(_designIcon('archive','amber',46),h('p',{style:{color:C.tx1}},'Nastavení aplikace v JSON'),h('p',{className:'intentsmith-settings-hint'},'Export je určený pro přenos nastavení. Nezahrnuje projekty, zprávy ani kopii databáze.'));
+    if(_backupMsg)body.push(_designBadge(_backupMsg.text,_backupMsg.ok?'mint':'rose'));
+  }else if(section==='Feature Flags'){
+    title='Stav přepínačů';var enabled=_featureFlags?_FF_META.filter(function(f){return !!_featureFlags[f.key];}).length:null;body.push(_settingsDial(enabled,_FF_META.length,'Podíl zapnutých přepínačů','violet'));fact('Zapnuto',enabled,'mint');fact('Vypnuto',enabled==null?null:_FF_META.length-enabled);body.push(h('p',{className:'intentsmith-settings-hint'},'Zapnutí přepínače samo o sobě nedokládá připravenost dané funkce.'));
+  }else if(section==='Security'){
+    title='Přístup a relace';fact('API tokeny',_secTokens&&_secTokens.length,'blue');fact('Aktivní relace',_secSessions&&_secSessions.count,'mint');fact('Webhook podpis',_secWebhook?(_secWebhook.configured?'Nastaven':'Nenastaven'):'Načítám…');body.push(h('p',{className:'intentsmith-settings-hint'},'Podrobnosti a změny oprávnění jsou v příslušných záložkách.'));
+  }else{
+    title='IntentSmith';body.push(h('img',{src:'../../resources/intentsmith-icon.png',alt:'',style:{width:56,height:56,objectFit:'contain'}}));fact('Verze',_serverHealth.version||'Nezjištěno','blue');body.push(h('p',{className:'intentsmith-settings-hint'},'Pracovní prostředí pro konverzace, projekty a specialisty.'));
+  }
+  return _settingsCard(title,body,{icon:meta.icon,tone:meta.tone});
+}
+function _paletteLegend(){
+  return h('div',{className:'intentsmith-palette-legend'},[['violet','Výběr a soustředění'],['blue','Modely a nástroje'],['mint','Úspěch a aktivní stav'],['amber','Upozornění'],['rose','Chyba a odebrání']].map(function(item){return h('div',{key:item[0]},h('span',{style:{background:_designTone(item[0])}}),h('span',{style:{color:C.tx2}},item[1]));}));
+}
+function _appearanceQuickControls(){
+  return [['Výraznost veškerého textu','textIntensity',0],['Zvýraznění aktivních prvků','activeInt',10]].map(function(item){var value=_settingsVals[item[1]];return h('label',{key:item[1],className:'intentsmith-quick-slider'},h('span',{style:{color:C.tx2}},item[0]),h('output',{style:{color:C.accentText}},value+' %'),h('input',{type:'range','aria-label':item[0],min:item[2],max:100,step:5,value:value,onChange:function(e){_settingsVals[item[1]]=Number(e.target.value);_saveSV();_applyAllSettings();}}));});
+}
+
+function _settingsCard(title,content,meta){
+  var known={'Téma':['monitor','violet'],'Styl vzhledu':['palette','violet'],'Čitelnost':['sliders','blue'],'Rodina písma':['code','blue'],'Barevná paleta':['palette','violet'],'Zvýraznění a efekty':['sliders','violet'],'Panely':['monitor','blue'],'Oddělení prvků':['split','blue'],'Identita a jazyk':['users','blue'],'Pracovní složka':['folder','amber'],'Modelové pracoviště':['chip','violet'],'Přiřazení rolí':['chip','blue'],'Generování a kontext':['sliders','violet'],'Časové limity':['worker','amber'],'Grafická karta':['chip','mint'],'Ukládání':['database','cyan'],'Komprese historie':['archive','blue'],'Automatická paměť':['expert','cyan'],'Dlouhodobá paměť':['database','cyan'],'V aplikaci':['bell','amber'],'Externí kanály':['send','blue'],'Nerušit':['bell','amber'],'Pracovní relace':['monitor','mint'],'Místní formát':['info','blue'],'Logování':['code','blue'],'Využití úložiště':['database','cyan'],'Záloha nastavení':['archive','amber'],'API tokeny':['shield','mint'],'Záznamy':['code','blue'],'Text a kód':['code','blue']};
+  var pair=known[title]||['settings','violet'];meta=meta||{icon:pair[0],tone:pair[1]};
+  return h('section',{key:title,className:'intentsmith-settings-card','aria-label':title,style:{minWidth:0,alignSelf:'start',border:'1px solid '+C.border2,borderRadius:7,background:C.bg2,overflow:'hidden'}},
+    h('div',{className:'intentsmith-settings-card-heading',style:{borderBottom:'1px solid '+C.border}},_designIcon(meta.icon,meta.tone,26),h('h3',{style:{margin:0,fontSize:_fs(12),fontWeight:600,color:C.tx1}},title)),
+    h('div',{className:'intentsmith-settings-card-content',style:{padding:16,minWidth:0}},content));
 }
 function _settingsPage(section,pages){
   var active=pages.find(function(p){return p.id===_settingsTabs[section];})||pages[0];
   var prefix='intentsmith-settings-'+section.replace(/ /g,'-');
   function select(page,focus){_settingsTabs[section]=page.id;renderCenter();if(focus)setTimeout(function(){var b=document.getElementById(prefix+'-'+page.id);if(b)b.focus();},0);}
-  return h('div',{className:'intentsmith-settings-page','data-settings-section':section,style:{maxWidth:1280,margin:'0 auto',minWidth:0}},
-    h('div',{role:'tablist','aria-label':_settingsLabels[section]||section,style:{display:'flex',flexWrap:'wrap',gap:6,marginBottom:18}},pages.map(function(p,i){return h('button',{key:p.id,id:prefix+'-'+p.id,role:'tab','aria-controls':prefix+'-panel','aria-selected':active===p,tabIndex:active===p?0:-1,style:{border:'1px solid '+(active===p?C.accent:C.border2),borderRadius:5,padding:'8px 13px',background:active===p?C.accentBg:C.bg0,color:active===p?C.accentText:C.tx2,fontSize:_fs(11),cursor:'pointer'},onClick:function(){select(p,false);},onKeyDown:function(e){var n=e.key==='ArrowRight'?(i+1)%pages.length:e.key==='ArrowLeft'?(i+pages.length-1)%pages.length:e.key==='Home'?0:e.key==='End'?pages.length-1:-1;if(n>=0){e.preventDefault();select(pages[n],true);}}},p.label);})),
-    h('div',{id:prefix+'-panel',role:'tabpanel','aria-labelledby':prefix+'-'+active.id,className:'intentsmith-settings-cards',style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,340px),1fr))',gap:16,alignItems:'start'}},active.cards));
+  return h('div',{className:'intentsmith-settings-page','data-settings-section':section,'data-settings-tab':active.id,style:{maxWidth:1400,margin:'0 auto',minWidth:0}},
+    h('div',{role:'tablist','aria-label':_settingsLabels[section]||section,className:'intentsmith-settings-tabs',style:{display:'flex',flexWrap:'wrap',gap:4,marginBottom:20}},pages.map(function(p,i){return h('button',{key:p.id,id:prefix+'-'+p.id,role:'tab','aria-controls':prefix+'-panel','aria-selected':active===p,tabIndex:active===p?0:-1,style:{border:'1px solid '+(active===p?C.accent:C.border2),borderRadius:5,padding:'8px 13px',background:active===p?C.accentBg:'transparent',color:active===p?C.accentText:C.tx2,fontSize:_fs(11),cursor:'pointer'},onClick:function(){select(p,false);},onKeyDown:function(e){var n=e.key==='ArrowRight'?(i+1)%pages.length:e.key==='ArrowLeft'?(i+pages.length-1)%pages.length:e.key==='Home'?0:e.key==='End'?pages.length-1:-1;if(n>=0){e.preventDefault();select(pages[n],true);}}},p.label);})),
+    h('div',{id:prefix+'-panel',role:'tabpanel','aria-labelledby':prefix+'-'+active.id,className:'intentsmith-settings-body'},h('div',{className:'intentsmith-settings-cards'},active.cards),h('aside',{className:'intentsmith-settings-overview','aria-label':'Přehled '+(_settingsLabels[section]||section)},_settingsOverview(section,active.id))));
 }
 function _appearancePreview(){
-  return h('div',{'data-testid':'appearance-preview',style:{background:C.bg0,border:'1px solid '+C.border2,borderRadius:6,overflow:'hidden',fontSize:_fs(12),lineHeight:1.7}},
-    h('div',{style:{background:C.bg3,padding:'8px 12px',color:C.tx1,borderBottom:'2px solid '+C.accent}},'Projekt / widget.js'),
-    h('div',{style:{padding:14}},h('strong',{style:{color:C.tx1}},'IntentSmith'),h('p',{style:{color:C.tx2,margin:'4px 0 12px'}},'Náhled chatu, souboru a výstupů. Výraznost se mění v celém IDE.'),
-      h('pre',{style:{fontFamily:C.mono,margin:0,padding:10,background:C.bg2}},h('span',{style:{color:C.purple}},'const '),h('span',{style:{color:C.tx1}},'widget = '),h('span',{style:{color:C.success}},'"IntentSmith"'),h('span',{style:{color:C.tx1}},';')),
-      h('div',{style:{marginTop:12,color:C.tx3}},'Terminál · Log · Audit'),h('div',{style:{fontFamily:C.mono,color:C.blue}},'$ npm test'),h('div',{style:{color:C.success}},'Ukázka: kontrola dokončena'),h('div',{style:{color:C.red}},'Ukázka: soubor nenalezen')));
+  return h('div',{'data-testid':'appearance-preview',className:'intentsmith-live-preview',style:{background:C.bg0,border:'1px solid '+C.border2,color:C.tx1}},
+    h('div',{className:'intentsmith-preview-top',style:{background:C.bg1,borderBottom:'1px solid '+C.border}},svgEl(I.monitor,12),h('span',null,'Pracovní prostor'),h('span',{style:{marginLeft:'auto',color:C.tx4}},'···')),
+    h('div',{className:'intentsmith-preview-tree',style:{borderBottom:'1px solid '+C.border}},
+      [['folder','widget','amber',0],['folder','src','blue',10],['code','main.ts','blue',20],['folder','components','violet',20],['code','README.md','mint',10]].map(function(row,i){return h('div',{key:row[1],style:{paddingLeft:8+row[3],display:'flex',gap:7,alignItems:'center',paddingTop:5,paddingBottom:5,background:i===2?C.accentBg:undefined,borderLeft:i===2?'2px solid '+C.accent:'2px solid transparent'}},h('span',{style:{display:'flex',color:_designTone(row[2])}},svgEl(I[row[0]],13)),h('span',{style:{color:i===2?C.accentText:C.tx2}},row[1]));})),
+    h('div',{style:{padding:12}},h('div',{style:{display:'flex',alignItems:'center',gap:6,marginBottom:8}},_designIcon('chat','violet',22),h('strong',null,'IntentSmith')),
+      h('p',{style:{color:C.tx2,margin:'4px 0 12px',lineHeight:1.6}},'Náhled chatu, souboru a výstupů.'),
+      h('pre',{style:{fontFamily:C.mono,margin:0,padding:10,background:C.bg2,fontSize:11}},h('span',{style:{color:C.purple}},'const '),h('span',{style:{color:C.tx1}},'widget = '),h('br'),h('span',{style:{color:C.success}},'  "IntentSmith"'),h('span',{style:{color:C.tx1}},';'))),
+    h('div',{style:{display:'flex',gap:12,padding:'7px 12px',borderTop:'1px solid '+C.border,borderBottom:'1px solid '+C.border,color:C.tx3}},h('span',null,'Terminál'),h('span',{style:{color:C.accentText,borderBottom:'2px solid '+C.accent}},'Log'),h('span',null,'Audit')),
+    h('div',{style:{padding:12,lineHeight:1.7,fontSize:10}},h('div',{style:{fontFamily:C.mono,color:C.blue}},'$ npm test'),h('div',{style:{color:C.success}},'Ukázka: kontrola dokončena'),h('div',{style:{color:C.red}},'Ukázka: soubor nenalezen')),
+    h('div',{style:{padding:'5px 10px',fontSize:9,borderTop:'1px solid '+C.border,color:C.tx3}},'Živý náhled · změny se projeví okamžitě'));
 }
 function _settingsToggle(label,desc,val,onChange){
-  return h('div',{style:{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:'1px solid '+C.border,marginBottom:4}},
+  return h('div',{className:'intentsmith-setting-switch-row',style:{display:'flex',alignItems:'center',gap:10,padding:'10px 0',borderBottom:'1px solid '+C.border,marginBottom:4}},
     h('div',{style:{flex:1}},
       h('div',{style:{fontSize:_fs(12),color:C.tx1,fontWeight:500}},label),
       desc?h('div',{style:{fontSize:_fs(10),color:C.tx4,marginTop:2}},desc):null),
-    h('button',{type:'button',role:'switch','aria-label':label,'aria-checked':!!val,onClick:function(){onChange(!val);},style:{border:0,padding:0,width:36,height:20,borderRadius:10,background:val?C.accent:C.bg4,cursor:'pointer',position:'relative',transition:'background 0.2s',flexShrink:0}},
+    h('button',{type:'button',role:'switch','aria-label':label,'aria-checked':!!val,onClick:function(){onChange(!val);},style:{border:0,padding:0,width:36,height:20,borderRadius:10,background:val?(_appearanceMode()==='studio'?C.success:C.accent):C.bg4,cursor:'pointer',position:'relative',transition:'background 0.2s',flexShrink:0}},
       h('div',{style:{width:16,height:16,borderRadius:'50%',background:'#fff',position:'absolute',top:2,left:val?18:2,transition:'left 0.2s',boxShadow:'0 1px 3px rgba(0,0,0,0.3)'}})));
 }
 function settingsAppearance(){
@@ -2905,7 +3008,7 @@ function settingsAppearance(){
       h('input',{id:id,type:'color',value:val||'#ff6b6b',style:{position:'absolute',opacity:0,width:0,height:0,pointerEvents:'none'},onChange:function(e){onChange(e.target.value);}}));
   }
   function _appearancePicker(){
-    return h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(125px,1fr))',gap:8}},
+    return h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(86px,1fr))',gap:8}},
       [{id:'intentsmith',label:'IntentSmith',desc:'Výchozí brand',clr:'#e7c27a'},
        {id:'studio',label:'Studio',desc:'Fialová, modrá, mátová',clr:'#b49cff'},
        {id:'clean',label:'Clean',desc:'Původní přizpůsobitelný',clr:'#4ade80'},
@@ -2915,7 +3018,7 @@ function settingsAppearance(){
       ].map(function(pm){
         var current=_appearanceMode();
         var isSel=current===pm.id;
-        return h('button',{type:'button','aria-label':'Styl '+pm.label,'aria-pressed':isSel,key:pm.id,style:{minWidth:0,padding:'8px 8px',borderRadius:8,border:'2px solid '+(isSel?pm.clr:'rgba(255,255,255,0.08)'),background:isSel?'rgba(255,255,255,0.05)':C.bg3,cursor:'pointer',textAlign:'center',transition:'all 0.2s ease'},
+        return h('button',{type:'button','aria-label':'Styl '+pm.label,'aria-pressed':isSel,key:pm.id,style:{minWidth:0,padding:'7px 5px',borderRadius:6,border:'1px solid '+(isSel?pm.clr:C.border2),background:isSel?'rgba(255,255,255,0.05)':C.bg3,cursor:'pointer',textAlign:'center',transition:'all 0.2s ease'},
           onClick:function(){
             document.body.className=document.body.className.replace(/\btheme-pro[\w-]*/g,'').trim();
             if(_isProTheme(pm.id)){document.body.classList.add('theme-pro-'+pm.id);}
@@ -2923,7 +3026,7 @@ function settingsAppearance(){
             _applyColorTheme(pm.id);
             _applyAllSettings();
           }},
-          h('div',{'aria-hidden':true,style:{height:44,display:'flex',gap:4,padding:5,marginBottom:8,borderRadius:4,background:_C_THEMES[pm.id].bg0}},h('div',{style:{width:16,borderRadius:2,background:_C_THEMES[pm.id].bg3}}),h('div',{style:{flex:1,display:'flex',flexDirection:'column',gap:5,padding:5}},[70,100,45].map(function(w,i){return h('span',{key:i,style:{height:3,width:w+'%',background:i===0?pm.clr:_C_THEMES[pm.id].tx2,opacity:i===0?1:0.4}});}))),
+          h('div',{'aria-hidden':true,style:{height:58,display:'flex',gap:3,padding:4,marginBottom:8,borderRadius:3,background:_C_THEMES[pm.id].bg0,border:'1px solid '+_C_THEMES[pm.id].border2}},h('div',{style:{width:13,display:'flex',flexDirection:'column',gap:6,paddingTop:4,alignItems:'center',background:_C_THEMES[pm.id].bg1}},['amber','success','purple'].map(function(c,i){return h('span',{key:c,style:{width:5,height:5,borderRadius:1,background:pm.id==='studio'?_C_STUDIO[c]:pm.clr,opacity:0.9-i*0.12}});})),h('div',{style:{flex:1,display:'flex',flexDirection:'column',gap:5,padding:4}},h('span',{style:{height:9,background:pm.clr,borderRadius:1,opacity:0.8}}),[100,70,88].map(function(w,i){return h('span',{key:i,style:{height:3,width:w+'%',background:_C_THEMES[pm.id].tx2,opacity:0.3}});}),h('span',{style:{alignSelf:'flex-end',height:7,width:'45%',background:pm.id==='studio'?_C_STUDIO.success:pm.clr,borderRadius:1}}))),
           h('div',{style:{fontSize:_fs(11),fontWeight:isSel?700:500,color:isSel?pm.clr:C.tx2,marginBottom:1}},pm.label),
           h('div',{style:{fontSize:_fs(8),color:C.tx4}},pm.desc));
       }));
@@ -2935,7 +3038,7 @@ function settingsAppearance(){
         style:{flex:1,padding:'10px 6px',borderRadius:8,border:'2px solid '+(sel?C.accent:C.border),background:sel?C.accentBg:C.bg3,cursor:'pointer',textAlign:'center'}},
         h('div',{style:{fontSize:_fs(18),marginBottom:4}},t.icon),
         h('div',{style:{fontSize:_fs(11),color:sel?C.accentText:C.tx2,fontWeight:sel?700:400}},t.label));}))]),
-_settingsCard('Styl vzhledu',[_appearancePicker()])]},
+_settingsCard('Styl vzhledu',[_appearancePicker()]),_settingsCard('Intenzita a čitelnost',[_appearanceQuickControls()],{icon:'sliders',tone:'blue'})]},
 {id:"font",label:"Písmo",cards:[_settingsCard("Čitelnost",[h('div',{style:{marginBottom:4}},h('span',{style:{fontSize:_fs(10),color:C.tx3}},'Výraznost textu')),
 h('p',{style:{fontSize:_fs(11),color:C.tx2,lineHeight:1.6,margin:'0 0 12px'}},'Platí pro všechen text: chat, navigaci, záložky, nastavení, soubory, terminál i log. Nižší hodnota text zjemní, vyšší jej zvýrazní. Barvy stavů a kódu zůstávají odlišené.'),
 h('div',{style:{marginBottom:16}},_sl(sv.textIntensity,0,100,5,function(v){sv.textIntensity=v;_saveSV();_applyTextIntensity();renderCenter();},'%','Výraznost veškerého textu')),
@@ -2946,8 +3049,7 @@ _settingsCard("Rodina písma",[h('div',{style:{display:'flex',flexDirection:'col
       return h('button',{type:'button','aria-pressed':sel,key:i,onClick:function(){sv.fontIdx=i;_saveSV();_applyAllSettings();},
         style:{padding:'8px 10px',borderRadius:8,border:'2px solid '+(sel?C.accent:C.border),background:sel?C.accentBg:C.bg3,cursor:'pointer',display:'flex',alignItems:'center',gap:8}},
         h('div',{style:{width:16,height:16,borderRadius:'50%',border:'2px solid '+(sel?C.accent:C.border2),background:sel?C.accent:'transparent',flexShrink:0}}),
-        h('span',{style:{fontSize:_fs(12),fontFamily:ff.val,color:sel?C.accentText:C.tx2}},ff.label));}))]),
-_settingsCard("Živý náhled",[_appearancePreview()])]},
+        h('span',{style:{fontSize:_fs(12),fontFamily:ff.val,color:sel?C.accentText:C.tx2}},ff.label));}))])]},
 {id:"colors",label:"Barvy a prvky",cards:[_settingsCard("Barevná paleta",[appearanceMode==='clean'?h(React.Fragment,null,
       h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6}},'Accent'),
       h('div',{style:{display:'flex',flexWrap:'wrap',gap:8,marginBottom:16}},
@@ -3008,7 +3110,7 @@ _cfgInput('Popis / Bio','intentsmith.account.description','','textarea','Kontext
 _cfgSelect('Jazyk UI','intentsmith.language','cs',['cs','en'])])]},
 {id:"projects",label:"Projekty",cards:[_settingsCard("Pracovní složka",[h('div',{style:{marginBottom:12}},
       h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6}},'Složka projektů'),
-      h('input',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'6px 9px',color:C.tx1,fontFamily:C.mono,fontSize:_fs(12),outline:'none',boxSizing:'border-box'},
+      h('input',{style:{width:'100%',background:C.bg0,border:'1px solid '+C.border2,borderRadius:5,padding:'8px 10px',color:C.tx1,fontFamily:C.mono,fontSize:_fs(12),outline:'none',boxSizing:'border-box'},
         value:_settingsVals.projectsDir||'',placeholder:'/home/user/Projects',
         onChange:function(e){_settingsVals.projectsDir=e.target.value;_saveSV();renderCenter();}}),
       h('div',{style:{fontSize:_fs(9),color:C.tx4,marginTop:3}},'Výchozí složka pro nové projekty'))])]}
@@ -3375,10 +3477,10 @@ function _renderDiscoveredTab(){
       return h('tr',{key:m.canonicalName||m.name},
         _modelCell(h('div',null,h('strong',null,m.name),h('div',{style:{fontSize:_fs(9),color:C.tx3}},m.installed?'Stažený':'Katalog · kvalita nezměřena'))),
         _modelCell(m.params?m.params+' B':'—'),_modelCell(h('div',null,m.vramMb?(m.vramMb/1024).toFixed(1)+' GiB':'Neznámá',fit?h('div',{style:{color:C.amber}},fit):null)),
-        _modelCell(fCtx(m.contextWindow)),_modelCell((m.eligibleRoles||[]).join(' · ')),
+        _modelCell(fCtx(m.contextWindow)),_modelCell(h('div',{className:'intentsmith-role-badges'},(m.eligibleRoles||[]).map(_modelRoleBadge))),
         _modelCell(h('div',null,m.releaseDate&&Number.isFinite(Date.parse(m.releaseDate))?new Date(m.releaseDate).toLocaleDateString('cs-CZ'):'Vydání nedoloženo',h('div',{style:{fontSize:_fs(9),color:C.tx3}},m.releaseDateSource?h('a',{href:m.releaseDateSource,target:'_blank',rel:'noreferrer',style:{color:C.accent}},'Zdroj vydání ↗'):m.releaseDate?'Starší katalogový údaj':m.discoveredAt?'Objeveno '+new Date(m.discoveredAt).toLocaleDateString('cs-CZ'):'Zdroj datum neuvádí'))),
         _modelCell(h('div',null,m.installed?h('button',{style:_modelButtonStyle(false,false),onClick:function(){_evaluationRoleFilter='all';_openModelTests(m.name);}},'Testy modelu…'):
-          h('button',{style:_modelButtonStyle(true,pulling),disabled:pulling,onClick:function(){_pullModel(m.name);}},pulling?'Stahuji…':'Stáhnout'),
+          h('button',{style:Object.assign({},_modelButtonStyle(true,pulling),_appearanceMode()==='studio'&&!pulling?{background:C.success,color:'#07251b',borderColor:C.success}:{}),disabled:pulling,onClick:function(){_pullModel(m.name);}},pulling?'Stahuji…':'Stáhnout'),
           ps?h('div',{style:{marginTop:5,color:ps.status==='error'?C.red:C.tx3}},ps.text):null)));
     })));
 }
