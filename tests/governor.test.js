@@ -1101,6 +1101,8 @@ await testAsync('approveProposal sets status to approved', async () => {
     assert(result.success, 'Should succeed');
     const updated = db.prepare("SELECT status FROM governor_proposals WHERE id = ?").get(proposals[0].id);
     assertEqual(updated.status, 'approved');
+    assertEqual(result.executed,false);assertEqual(result.execution,'MANUAL_ACTION_REQUIRED');
+    assert(systemGovernor.getProposals('all').some(p=>p.id===proposals[0].id&&p.status==='approved'));
   }
   db.close();
 });

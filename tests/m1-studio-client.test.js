@@ -172,7 +172,10 @@ test('settings never invent installed models from the default portfolio', () => 
   assert.doesNotMatch(source, /if\(models\.length===0\)models=\[/);
   assert.match(source, /function _isInstalledModel\(models,target\)/);
   assert.match(source, /var installed=_isInstalledModel\(models,m\)/);
-  assert.match(source, /var installed=_isInstalledModel\(installedModels,current\)/);
+  const roles = source.slice(source.indexOf('function _renderRolesTab('),source.indexOf('function centerUpgrades('));
+  assert.match(roles,/rows=\(rd.artifacts\|\|\[\]\)/);
+  assert.match(roles,/Model není v místním inventáři/);
+  assert.match(roles,/bound\?h\('button'/);
 });
 
 test('required Android T3 portfolio preflight fails when any exact model is missing', () => {
@@ -187,9 +190,9 @@ test('required Android T3 portfolio preflight fails when any exact model is miss
   assert.match(preflight, /return missing\.length === 0/);
 });
 
-test('model evaluation tab renders every decision instead of only the latest row', () => {
+test('history renders every decision and unverified interval while quality stays role specific', () => {
   const source = fs.readFileSync(CHAT_PANEL, 'utf8');
-  const start = source.indexOf('function _renderEvaluationsTab()');
+  const start = source.indexOf('var _evaluationRoleFilter=');
   const end = source.indexOf('/* ═══════════════════════════════════════════════════════════', start);
   assert.notEqual(start, -1);
   assert.notEqual(end, -1);
@@ -207,6 +210,7 @@ test('model evaluation tab renders every decision instead of only the latest row
       tx4: '#777',
     },
     _fs: value => value,
+    _settingsVals: {}, _huntDuration:()=> '2 min',
     _evaluationLoading: false,
     _evaluationModelFilter: '', _modelTestPending: false, _modelTestTarget: null,
     _assigningRole: null,
@@ -273,9 +277,11 @@ test('model evaluation tab renders every decision instead of only the latest row
     },
     h: (tag, props, ...children) => ({ tag, props, children }),
   };
+  context._evaluationData.decisions=context._evaluationData.roles.CODE.decisions;
+  context._evaluationData.history=[{...context._evaluationData.roles.CODE.artifacts[1],runId:'history-row',role:'CODE',durationMs:null}];
   const helpers = source.slice(source.indexOf('function _modelButtonStyle('), source.indexOf('var _huntData='));
   vm.runInNewContext(
-    `${helpers}${source.slice(start, end)}\nmodule.exports=_renderEvaluationsTab();`,
+    `${helpers}${source.slice(start, end)}\nmodule.exports={quality:_renderEvaluationsTab(),history:_renderEvaluationHistory()};`,
     context,
     { filename: `${CHAT_PANEL.pathname}#evaluation-render` },
   );
@@ -285,19 +291,18 @@ test('model evaluation tab renders every decision instead of only the latest row
     if (Array.isArray(value)) return value.map(flatten).join(' ');
     return flatten(value.children);
   };
-  const rendered = flatten(context.module.exports);
-  assert.match(rendered, /CANDIDATE/);
+  const rendered = flatten(context.module.exports.history);
+  assert.match(rendered, /Lepší kandidát/);
   assert.match(rendered, /qwen3\.8:latest/);
-  assert.match(rendered, /INCUMBENT/);
+  assert.match(rendered, /Zůstává současný/);
   assert.match(rendered, /qwen3-coder:latest/);
-  assert.match(rendered, /Binding autorita: DEGRADED/);
-  assert.match(rendered, /doporučení a aktivace z evaluace jsou neakční/);
-  assert.match(rendered, /Technicky kompatibilní coverage: 1 · MISSING 0 · N\/A 1/);
-  assert.match(rendered, /text-only:7b/);
-  assert.match(rendered, /N\/A/);
-  assert.match(rendered, /mimo scope/);
-  assert.match(rendered, /historický údaj, interval neověřen/);
-  assert.doesNotMatch(rendered, /← Přiřadit/);
+  assert.match(rendered, /historické \/ nelze přímo použít/);
+  assert.match(rendered, /Neověřený interval/);
+  const quality=flatten(context.module.exports.quality);
+  assert.match(quality,/qwen3\.5:27b/);
+  assert.doesNotMatch(quality,/text-only:7b/,'inapplicable artifact cannot be offered for this role');
+  assert.doesNotMatch(quality,/← Přiřadit/);
+
 });
 
 function validPostbuildProtocol() {
@@ -593,7 +598,7 @@ test('default Studio identity uses the accessible IntentSmith brand system', () 
     assert.ok(css.includes(token), `Theia chrome owns brand token ${token}`);
   }
   assert.match(source, /Active:\{b:C\.successBg,c:C\.success\}/);
-  assert.match(source, /COMPLETE:C\.success/);
+  assert.match(source, /row.status==='COMPLETE'\?C\.success/);
   assert.match(source, /id:'intentsmith',label:'IntentSmith',desc:'Výchozí brand'/);
   assert.match(source, /id:'clean',label:'Clean',desc:'Původní přizpůsobitelný'/);
   assert.match(source, /'Styl vzhledu'/);

@@ -129,6 +129,18 @@ export function acquireGpuEvaluationLock(opts = {}) {
   throw new Error(`Unable to acquire GPU evaluation lock at ${lockPath}`);
 }
 
+// Manual requests may wait without disturbing the current owner. Schedulers still fail fast.
+export async function waitForGpuReadiness({ probe, deadline, now = Date.now,
+  pause = ms => new Promise(resolve => setTimeout(resolve, ms)), onWait = () => {} }) {
+  let state = await probe();
+  while (!state.ready && now() < deadline) {
+    onWait(state);
+    await pause(Math.min(5000, deadline - now()));
+    state = await probe();
+  }
+  return state;
+}
+
 export function holdGpuEvaluationLock(opts = {}) {
   const lease = acquireGpuEvaluationLock(opts);
   process.once('exit', () => lease.release());

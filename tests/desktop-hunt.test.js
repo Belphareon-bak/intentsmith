@@ -7,12 +7,13 @@ import { join } from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import vm from 'node:vm';
+import { createGpuProfileCache } from '../src/system/gpu-detector.js';
 import { createHuntControl } from '../src/system/hunt-control.js';
 import { buildCandidates } from '../src/upgrade/model-discovery.js';
 import { canonicalModelName } from '../src/upgrade/model-identity.js';
 import { comparePair } from '../src/upgrade/pairwise-trial.js';
 import { analyzeHuntDecisions, inspectHuntGpu, readNvidiaDisplayCapacity } from '../src/upgrade/model-hunt-diagnostics.js';
-import { acquireGpuEvaluationLock } from '../src/upgrade/gpu-evaluation-lock.js';
+import { acquireGpuEvaluationLock, waitForGpuReadiness } from '../src/upgrade/gpu-evaluation-lock.js';
 import { createGlobalAuthAuthority } from '../src/security/global-auth-policy.js';
 import { createSystemRoutes } from '../src/routes/system.js';
 import { ROOT, refreshDesktopCaches, renderDesktopInstallation, resolveElectronSandboxArgs, verifyDesktopUnits, waitForBackend, writePrivate } from '../scripts/desktop-runtime.mjs';
@@ -65,7 +66,7 @@ test('latest completed manual evaluation is not overridden by an older failed hu
 test('Studio progress exposes real task counts and ETA, with raw failures only in collapsed details',async()=>{
   const source=await readFile(join(ROOT,'c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
   const helpers=source.slice(source.indexOf('function _modelButtonStyle('),source.indexOf('var _huntSubmittedAt='));
-  const render=source.slice(source.indexOf('function _huntDuration('),source.indexOf('var _discoveredData='));
+  const render=source.slice(source.indexOf('function _renderRecentHunts('),source.indexOf('var _discoveredData='));
   const context=vm.createContext({C:{},_fs:n=>n,h:(tag,props,...children)=>({tag,props,children}),
     _huntActionPending:false,_huntError:null,_huntLoading:false,_loadHuntStatus(){}});
   vm.runInContext(helpers+render,context);
@@ -181,7 +182,7 @@ test('hunt status shows observed queue, failures and the actual timer independen
     `WorkingDirectory=${drift?'/wrong':ROOT}\nExecStart={ path=${process.execPath} ; argv[]=${process.execPath} ${ROOT}/scripts/run-model-hunt-provider.js ; }\nEnvironmentFiles=${config.configDirectory}/runtime.env (ignore_errors=no)\n`};}});
   const value=await control.status();
   assert.equal(value.state,'WAITING');assert.equal(value.current.status,'SCHEDULED_SKIPPED');
-  assert.equal(value.queue[0].name,'fixture');assert.equal(value.queueObservedAt,'2026-09-17T00:00:00Z');
+  assert.deepEqual(value.queue,[]);assert.equal(value.lastPlan[0].name,'fixture');assert.equal(value.queueObservedAt,'2026-09-17T00:00:00Z');
   await control.control('start');assert.deepEqual(calls.at(-1),['start','--no-block','intentsmith-model-hunt.service']);
   const count=calls.length;await assert.rejects(control.control('start; reboot'),/HUNT_ACTION_INVALID/);assert.equal(calls.length,count);
   await control.control('pause');assert.deepEqual(calls.at(-1),['disable','--now','intentsmith-model-hunt.timer']);
@@ -385,4 +386,40 @@ test('selected test failure stays next to the selected model and role with its a
   assert.equal(feedback.props.role,'alert');assert.match(feedback.children.join(''),/qwen3\.5:27b \(CODE\).*nespustil.*NVML.*restartuj/);
   assert.equal(vm.runInContext('_modelTestFeedback("different:7b","CODE")',context),null);
   assert.equal(vm.runInContext('_modelTestFeedback("qwen3.5:27b","D1")',context),null);
+});
+
+
+test('GPU inventory survives restart and refreshes daily without discarding last known capacity on failure', async t => {
+  const {home}=await fixture(t),file=join(home,'gpu.json');let clock=1000,calls=0,available=true;
+  const detect=()=>{calls++;return {gpus:[{gpu_model:'RTX fixture',vram_mb:available?24576:0}]};};
+  const opts={file,host:'test-host',now:()=>clock,detect};
+  const first=createGpuProfileCache(opts);assert.equal(first().gpus[0].vram_mb,24576);assert.equal(calls,1);
+  for(let i=0;i<10;i++)first();assert.equal(calls,1);
+  const restarted=createGpuProfileCache(opts);assert.equal(restarted().detectedAt,new Date(1000).toISOString());assert.equal(calls,1);
+  clock+=86400001;available=false;const stale=restarted();assert.equal(calls,2);assert.equal(stale.gpus[0].vram_mb,24576);assert.equal(stale.inventoryStale,true);
+  assert.equal(createGpuProfileCache(opts)().gpus[0].vram_mb,24576);assert.equal(calls,2);
+  available=true;assert.equal(restarted(true).inventoryStale,false);assert.equal(calls,3);
+  assert.equal((await lstat(file)).mode&0o777,0o600);
+});
+
+test('manual GPU wait observes the owner until release and respects a bounded deadline',async()=>{
+  let clock=0,probes=0;const waits=[];
+  const result=await waitForGpuReadiness({deadline:20000,now:()=>clock,pause:async ms=>{clock+=ms;},
+    probe:async()=>({ready:++probes>=3,reasons:['foreign owner']}),onWait:s=>waits.push(s.reasons[0])});
+  assert.equal(result.ready,true);assert.equal(probes,3);assert.deepEqual(waits,['foreign owner','foreign owner']);
+  clock=0;probes=0;
+  const expired=await waitForGpuReadiness({deadline:6000,now:()=>clock,pause:async ms=>{clock+=ms;},probe:async()=>({ready:false,reasons:['busy']})});
+  assert.equal(expired.ready,false);assert.equal(clock,6000);
+});
+
+test('hunt retains the last five results and does not present an old plan as queued work',async t=>{
+  const {config,file}=await fixture(t);const base=join(config.stateDirectory,'model-hunt');await mkdir(base);
+  for(let i=0;i<7;i++){const dir=join(base,'run-test'+i);await mkdir(dir);await writeFile(join(dir,i<3?'result.json':'summary.json'),JSON.stringify({runId:'run-test'+i,status:i===6?'FAILED':'COMPLETE',generatedAt:'2026-09-18T00:00:0'+i+'Z',finishedAt:i<3?undefined:'2026-09-18T00:00:0'+i+'Z',results:[]}),{mode:0o600});}
+  await writeFile(join(base,'current.json'),JSON.stringify({runId:'run-test6',status:'FAILED',finishedAt:'2026-09-18T00:00:06Z'}),{mode:0o600});
+  await writeFile(join(base,'run-test6/progress.json'),JSON.stringify({queue:[{name:'already tried'}]}),{mode:0o600});
+  let probes=0;const control=createHuntControl({installationFile:file,databasePath:config.dbPath,inspectGpu:async()=>{probes++;return {available:true};},
+    readInventory:()=>({gpus:[{vram_mb:24576}]}),run:async args=>({stdout:`LoadState=loaded\nActiveState=${args[1].endsWith('.timer')?'active':'inactive'}\nWorkingDirectory=${ROOT}\nExecStart={ path=${process.execPath} ; argv[]=${ROOT}/scripts/run-model-hunt-provider.js ; }\nEnvironmentFiles=${config.configDirectory}/runtime.env (ignore_errors=no)\n`})});
+  const result=await control.status();assert.equal(result.recent.length,5);assert.equal(result.recent[0].runId,'run-test6');assert.equal(result.recent.at(-1).runId,'run-test2');
+  assert.deepEqual(result.queue,[]);assert.equal(result.lastPlan.length,1);assert.equal(result.gpuInventory.gpus[0].vram_mb,24576);
+  await control.status();assert.equal(probes,1);await control.status({freshGpu:true});assert.equal(probes,2);
 });

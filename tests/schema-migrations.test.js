@@ -212,6 +212,7 @@ const ALL_MIGRATIONS = [
   '2026_09_11_111_model_hunt_provider_identity',
   '2026_09_11_112_model_hunt_append_only',
       '2026_09_11_113_conversation_web',
+  '2026_09_18_114_model_evaluation_remeasure',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -488,6 +489,7 @@ describe('T-SM0: Migration identity preflight', async () => {
   '2026_09_11_111_model_hunt_provider_identity',
   '2026_09_11_112_model_hunt_append_only',
       '2026_09_11_113_conversation_web',
+  '2026_09_18_114_model_evaluation_remeasure',
     ]);
     assert.strictEqual(db.prepare(`
       SELECT COUNT(*) AS count FROM schema_migrations
@@ -1473,14 +1475,15 @@ describe('T-SM11: Core / hunt branch upgrades converge without losing evidence',
   const retiredWeb = '2026_09_11_111_conversation_web';
   const canonicalWeb = '2026_09_11_113_conversation_web';
   const huntVersions = ['2026_09_11_111_model_hunt_provider_identity', '2026_09_11_112_model_hunt_append_only'];
-  const base = manifest.filter(m => m.version !== canonicalWeb && !huntVersions.includes(m.version));
+  const historicalManifest = manifest.filter(m => m.version <= canonicalWeb);
+  const base = historicalManifest.filter(m => m.version !== canonicalWeb && !huntVersions.includes(m.version));
   const web = manifest.find(m => m.version === canonicalWeb);
   // The web body is unchanged from ab0565bc; only its exported identity moved.
   // Both original manifests use the actual migrations, not a handcrafted schema.
   const origins = {
     fresh: [], base,
     web: [...base, { ...web, version: retiredWeb, file: `${retiredWeb}.js` }],
-    hunt: manifest.filter(m => m.version !== canonicalWeb),
+    hunt: historicalManifest.filter(m => m.version !== canonicalWeb),
   };
   const reference = freshDb();
   await runMigrations(reference);
@@ -1549,9 +1552,10 @@ describe('T-SM11: Core / hunt branch upgrades converge without losing evidence',
         }
         const before = rows(db);
         const result = await runMigrations(db);
+        const repeatedMeasurement = '2026_09_18_114_model_evaluation_remeasure';
         assert.deepEqual(result.applied, origin === 'fresh' ? ALL_MIGRATIONS
-          : origin === 'base' ? [...huntVersions, canonicalWeb]
-          : origin === 'web' ? huntVersions : [canonicalWeb]);
+          : origin === 'base' ? [...huntVersions, canonicalWeb, repeatedMeasurement]
+          : origin === 'web' ? [...huntVersions, repeatedMeasurement] : [canonicalWeb, repeatedMeasurement]);
         assert.deepEqual(schema(db), expectedSchema);
         for (const [table, originalRows] of Object.entries(before)) assert.deepEqual(rows(db)[table], originalRows, `${origin}: ${table}`);
         assert.deepEqual(db.pragma('foreign_key_check'), []);

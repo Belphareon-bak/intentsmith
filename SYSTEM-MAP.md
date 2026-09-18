@@ -12,7 +12,15 @@ skutečný server/SQLite/Ollamu i kontrolované negativní terminály.**
 Neutrální dokument, nezávislý na nástroji.
 Pravidla vývoje: [`CONTRACT.md`](CONTRACT.md) · Detail: [`docs/inventory/`](docs/inventory/)
 
-**Aktuální instalace po privacy review, 2026-09-17: `365a4f1d`.** Informační API relací obcházelo
+**Aktuální instalace po opravě evaluace, 2026-09-17: `2f150ce7`.** Ruční
+výběr modelu už ověřuje skutečné pole digestu v inventáři; Studio zobrazuje
+fázi, úlohu, opakování, počty a podložený odhad času. Živý Qwen3.5:27b/CODE
+na 8d1da07e dokončil 21 vyhodnocení, skóre 2/7, RESPONSE_BOUND; finální API
+vrací stejné COMPLETE skóre. Historie a bindingy zachované. Dva úplné profily
+358 PASS / 1 FAIL (release pečeť), řízený fyzický Electron PASS, REVIEW_PENDING.
+[Packet](docs/review/2026-09-17-EVALUATION-PROGRESS.md).
+
+**Předchozí instalace po privacy review, 2026-09-17: `365a4f1d`.** Informační API relací obcházelo
 `saveContext=false` do dalšího tahu chatu. Policy nyní platí přímo při
 serializaci bez vytváření relace či změny lifecycle; negativní reprodukce
 a cílené HTTP/in-process regrese jsou doložené. Úplný profil **358 PASS /
@@ -249,10 +257,10 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **225 019 ř.**, 627 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **246 273 ř.**, 531 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **225 119 ř.**, 628 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **246 352 ř.**, 531 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **523** (`429 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
-| Tabulek v čerstvé DB / aplikovaných migrací | **177 / 100** |
+| Tabulek v čerstvé DB / aplikovaných migrací | **177 / 101** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 

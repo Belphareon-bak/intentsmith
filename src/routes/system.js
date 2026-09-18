@@ -235,7 +235,7 @@ export function createSystemRoutes({
   productionObservability = null,
   m2LifecycleService = null,
   conditionalSurfaces = null,
-  huntControl = createHuntControl(),
+  huntControl = createHuntControl({ readInventory: getSystemProfile }),
 }) {
   const rawDb = db.db || db; // unwrap: db wrapper → raw better-sqlite3 instance
   const dataDir = config.db?.path ? path.dirname(path.resolve(config.db.path)) : path.resolve('./data');
@@ -1250,9 +1250,10 @@ export function createSystemRoutes({
           logger.warn('System', `Cannot fetch installed candidates from Ollama: ${error.message}`);
         }
 
-        let gpuVramMb = 0;
+        let gpuVramMb = 0, gpuInventory = null;
         try {
           const profile = await getSystemProfile();
+          gpuInventory = profile;
           gpuVramMb = Math.max(0, ...(profile.gpus || []).map(gpu => gpu.vram_mb || 0));
         } catch (_) {}
         let gpuCapacitySource = gpuVramMb > 0 ? 'system-profile' : null;
@@ -1309,7 +1310,7 @@ export function createSystemRoutes({
             evaluationsEndpoint: '/api/system/models/evaluations',
           },
           gpuVramMb,
-          gpuCapacitySource,
+          gpuCapacitySource, gpuInventory,
           vramBudgetMb,
           candidates,
         });

@@ -43,7 +43,7 @@ export function createGovernorRoutes({ sendJSON, parseBody }) {
     // ── Pending Proposals ───────────────────────────────────────────────────
     'GET /api/system/governor/proposals': (req, res) => {
       try {
-        const proposals = systemGovernor.getProposals('pending');
+        const proposals = systemGovernor.getProposals('all');
         sendJSON(res, 200, { proposals });
       } catch (e) {
         sendJSON(res, 503, { error: 'Governor not initialized' });

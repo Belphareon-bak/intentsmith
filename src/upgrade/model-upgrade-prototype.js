@@ -240,6 +240,7 @@ export function createHistoryCallbacks(options) {
         suiteVersion: input.suiteVersion,
         contractSha256: input.suiteContractSha256,
         summary: input.summary,
+        fresh: input.fresh === true,
         durationMs: input.summary.durationMs,
         startedAt: input.summary.startedAt,
         completedAt: input.summary.completedAt,
@@ -481,3 +482,12 @@ export default {
   buildInstalledCandidateQueue,
   resolveCurrentBindings,
 };
+
+export function prioritizeRoleGaps(candidates, roleScores) {
+  const gap = role => 1 - (Number.isFinite(roleScores[role]) ? roleScores[role] : 0);
+  return candidates.map(candidate => {
+    const roles = [...candidate.roles].sort((a,b) => gap(b)-gap(a));
+    return { ...candidate, roles, roleUrgency: Math.max(0, ...roles.map(gap)),
+      priorityRole: roles[0] || null, roleScores: Object.fromEntries(roles.map(r => [r, roleScores[r] ?? null])) };
+  }).sort((a,b) => b.roleUrgency-a.roleUrgency || b.priority-a.priority || a.sizeGB-b.sizeGB);
+}
