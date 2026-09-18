@@ -134,3 +134,17 @@ test('manual save keeps edits made while the previous save is still in flight',a
   assert.equal(write.uri.path,'/project/file.js');assert.equal(write.content,'first edit');assert.equal(write.opts.etag,'exact-read');assert.equal(write.opts.mtime,123);
   assert.equal(tab.originalContent,'first edit');assert.equal(tab.content,'newer edit');assert.equal(tab.dirty,true);assert.equal(tab._saving,false);
 });
+
+test('split terminal rendering never steals focus; explicit focus stays with its live active owner',()=>{
+  const c=harness(),timers=[],focused=[];Object.assign(c,{C:{},_fs:x=>x,
+    h:(tag,props,...children)=>({tag,props:props||{},children}),setTimeout:cb=>timers.push(cb),
+    document:{getElementById:id=>({focus:()=>focused.push(id)})}});
+  for(const name of ['_terminalContent','_focusTerminalInput'])vm.runInContext(fn(name),c);
+  function mount(node){if(!node||typeof node!=='object')return;if(Array.isArray(node)){node.forEach(mount);return;}
+    assert.notEqual(node.props.autoFocus,true);if(node.props.ref)node.props.ref({focus:()=>focused.push('render')});node.children.forEach(mount);}
+  for(let n=0;n<5;n++){mount(c._terminalContent(c._sessions[0],0));mount(c._terminalContent(c._sessions[1],1));}
+  assert.equal(timers.length,0);assert.equal(focused.length,0);
+  c._focusTerminalInput(0,c._sessions[0]);c._sessionActive=1;timers.shift()();assert.equal(focused.length,0);
+  c._focusTerminalInput(1,c._sessions[1]);c._sessions[1]=c._mkSession();timers.shift()();assert.equal(focused.length,0);
+  c._focusTerminalInput(1,c._sessions[1]);timers.shift()();assert.deepEqual(focused,['intentsmith-term-input-1']);
+});

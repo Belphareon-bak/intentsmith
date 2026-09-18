@@ -7389,21 +7389,21 @@ function _workspaceResize(e,idx){
 }
 function WorkspaceApp(){
   _ensureSessions();var open=_workspaceSessionIndices();var visible=_workspaceSplit?open:[_sessionActive];
-  return h('main',{id:'intentsmith-workspace',style:{height:'100%',display:'flex',flexDirection:'column',background:C._solidBg0||C.bg0,color:C.tx1,fontFamily:C.font}},
+  return h('main',{id:'intentsmith-workspace',style:{height:'100%',width:'100%',minWidth:0,minHeight:0,contain:'size layout',display:'flex',flexDirection:'column',background:C._solidBg0||C.bg0,color:C.tx1,fontFamily:C.font}},
     h('div',{role:'tablist','aria-label':'Pracovní relace',style:{display:'flex',minHeight:36,borderBottom:'1px solid '+C.border,background:C.bg2,overflowX:'auto',flexShrink:0}},
       open.map(function(idx){var s=_sessions[idx];var title=s._label||(s.chat.specialist&&s.chat.specialist.name)||'Nová relace';return h('div',{key:idx,style:{display:'flex',borderRight:'1px solid '+C.border,borderBottom:'2px solid '+(_sessionActive===idx?C.accent:'transparent'),background:_sessionActive===idx?C.bg1:'transparent',maxWidth:250,flexShrink:0}},
         _workspaceButton(title,title,function(){_switchSession(idx);_showWorkspace();},{role:'tab','aria-selected':_sessionActive===idx,'data-session-tab':idx}),
         _workspaceButton('×','Zavřít relaci '+title,function(){_closeWorkspaceSession(idx);}));}),
       _workspaceButton('+','Nová relace',function(){_addWorkspaceSession();},{id:'intentsmith-new-session'}),
       h('div',{style:{flex:1}}),_workspaceButton(_workspaceSplit?'Jedna relace':'Vedle sebe','Rozdělit pracovní prostor',function(){_workspaceSplit=!_workspaceSplit;renderCenter();},{'aria-pressed':_workspaceSplit,id:'intentsmith-split-sessions'})),
-    h('div',{style:{display:'flex',flex:1,minHeight:0,overflowX:'auto'}},visible.map(function(idx){
+    h('div',{style:{display:'flex',flex:1,minWidth:0,minHeight:0,overflowX:'auto'}},visible.map(function(idx){
       var s=_sessions[idx];if(!s||s._closed)return null;var editor=s._editor;var fileOpen=editor&&editor.active&&editor.tabs.length>0;
       var chat=h('section',{'aria-label':'Chat relace','data-session-chat':idx,style:{display:'flex',flexDirection:'column',minHeight:0,flex:fileOpen?(s._chatCollapsed?'0 0 34px':'0 0 36%'):1}},
         fileOpen?h('div',{style:{display:'flex',height:34,background:C.bg2,alignItems:'center',flexShrink:0}},_workspaceButton(s._chatCollapsed?'Rozbalit chat':'Sbalit chat','Přepnout zobrazení chatu',function(){s._chatCollapsed=!s._chatCollapsed;renderCenter();}),h('div',{style:{flex:1}}),_workspaceButton(s._chatPosition==='top'?'Chat dolů':'Chat nahoru','Změnit umístění chatu',function(){s._chatPosition=s._chatPosition==='top'?'bottom':'top';renderCenter();})):null,
         h('div',{style:{display:fileOpen&&s._chatCollapsed?'none':'flex',flex:1,minHeight:0}},_chatPaneUI(idx)));
-      return h('section',{key:idx,'data-session-column':idx,onMouseDownCapture:function(){_switchSession(idx);},onFocusCapture:function(){_switchSession(idx);},style:{flex:'1 0 0',minWidth:_workspaceSplit?360:0,display:'flex',flexDirection:'column',overflow:'hidden',borderRight:'1px solid '+C.border2}},
+      return h('section',{key:idx,'data-session-column':idx,onMouseDownCapture:function(){_switchSession(idx);},onFocusCapture:function(){_switchSession(idx);},style:{flex:_workspaceSplit?'1 0 360px':'1 1 0px',minWidth:_workspaceSplit?360:0,contain:'inline-size',display:'flex',flexDirection:'column',overflow:'hidden',borderRight:'1px solid '+C.border2}},
         s._chatPosition==='top'?chat:null,
-        fileOpen?h('section',{'aria-label':'Soubory relace',style:{display:'flex',flex:1,flexDirection:'column',minHeight:80,overflow:'hidden'}},centerEditor(idx)):null,
+        fileOpen?h('section',{'aria-label':'Soubory relace',style:{display:'flex',flex:1,minWidth:0,flexDirection:'column',minHeight:80,overflow:'hidden'}},centerEditor(idx)):null,
         s._chatPosition!=='top'?chat:null,
         h('div',{role:'separator','aria-label':'Výška výstupů',onMouseDown:function(e){_workspaceResize(e,idx);},style:{height:5,cursor:'row-resize',background:C.border,flexShrink:0}}),
         h('section',{'aria-label':'Výstupy relace','data-session-output':idx,style:{height:s._outputHeight||210,minHeight:90,display:'flex',flexShrink:0}},_bottomPane(idx)));
@@ -7513,7 +7513,7 @@ var _agentContainer=null;
 var _turnCollapsed={};
 var _scrollOnNewOnly=false;
 var _agentRoot=null;
-function renderAgent(){if(_workspaceShown())renderCenter();if(!_agentContainer)return;if(!_agentRoot)_agentRoot=_createRoot(_agentContainer);_agentRoot.render(h(AgentApp,null));_agentScrollBottom();}
+function renderAgent(){if(_workspaceShown())renderCenter();}
 function _agentScrollBottom(){if(_scrollOnNewOnly){_scrollOnNewOnly=false;return;}setTimeout(function(){if(!_agentContainer)return;var divs=_agentContainer.querySelectorAll('div');for(var i=0;i<divs.length;i++){var d=divs[i];if(d.style.overflowY==='auto'&&d.scrollHeight>d.clientHeight+20){d.scrollTop=d.scrollHeight;}}},80);}
 
 function _agentLogContent(s){
@@ -7606,6 +7606,13 @@ function _termTabComplete(idx,el){
   }).catch(function(){/* ignore abort/network errors */});
 }
 
+/* Focus is a user action, never a render side effect: split terminals must not steal it. */
+function _focusTerminalInput(idx,owner){
+  setTimeout(function(){
+    if(_sessionActive!==idx||_sessions[idx]!==owner||owner._closed)return;
+    var el=document.getElementById('intentsmith-term-input-'+idx);if(el&&!el.disabled)el.focus();
+  },0);
+}
 function _terminalContent(s,idx){
   var isExec=typeof IntentSmithTerminal!=='undefined'&&IntentSmithTerminal.isExecuting(idx);
   return h('div',{style:{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}},
@@ -7617,16 +7624,15 @@ function _terminalContent(s,idx){
     /* Terminal input */
     h('div',{style:{display:'flex',alignItems:'center',gap:4,padding:'3px 6px',borderTop:'1px solid '+C.border,background:C.bg2,flexShrink:0}},
       h('span',{style:{color:C.accentText,fontFamily:C.mono,fontSize:_fs(11),flexShrink:0}},'$'),
-      h('input',{id:'intentsmith-term-input-'+idx,key:'term-input-'+idx,autoFocus:true,
+      h('input',{id:'intentsmith-term-input-'+idx,key:'term-input-'+idx,
         style:{flex:1,background:'none',border:'none',outline:'none',color:C.tx1,fontFamily:C.mono,fontSize:_fs(11.5)},
         placeholder:isExec?'Čekám na dokončení...':'Zadej příkaz...',disabled:isExec,
-        ref:function(el){if(el&&!isExec)setTimeout(function(){el.focus();},50);},
         onKeyDown:function(e){
           /* Enter — execute command */
           if(e.key==='Enter'){
             var v=e.target.value.trim();
             if(v){_termExec(idx,v);e.target.value='';renderAgent();
-              setTimeout(function(){var el=document.getElementById('intentsmith-term-input-'+idx);if(el&&!el.disabled)el.focus();},100);}
+              _focusTerminalInput(idx,s);}
             return;
           }
           /* Tab — autocomplete file/dir names */
@@ -7740,7 +7746,7 @@ function _bottomPane(idx){
   /* Split/Mix together, then gap, then Terminal/Log/Audit */
   var grpA=[];
   var grpB=[{k:'terminal',l:'Terminal'},{k:'agent',l:'Log'},{k:'audit',l:'Audit'}];
-  function setMode(m){s.bottom=m;renderAgent();}
+  function setMode(m){s.bottom=m;renderAgent();if(m==='terminal')_focusTerminalInput(idx,s);}
   function _tab(m,mi){var active=mode===m.k;return h(React.Fragment,{key:m.k},
     mi>0?h('div',{style:{width:1,background:C.border}}):null,
     h('div',{style:{display:'flex',alignItems:'center',padding:'0 8px',fontSize:_fs(12),fontWeight:600,color:active?C.tx1:C.tx4,cursor:'pointer',borderBottom:'2px solid '+(active?C.accent:'transparent'),gap:3},
@@ -7762,23 +7768,6 @@ function _bottomPane(idx){
     mode==='split'?_splitContent(s,idx):mode==='agent'?_agentLogContent(s):mode==='terminal'?_terminalContent(s,idx):mode==='audit'?_auditContent(s):_mixedContent(s));
 }
 
-function AgentApp(){
-  var sc=_sessionCount;_ensureSessions();
-  return h('div',{style:{display:'flex',flexDirection:'column',height:'100%',width:'100%',background:C.bg1,fontFamily:C.font}},
-    /* Top bar — synced session count */
-    h('div',{style:{height:22,display:'flex',alignItems:'center',justifyContent:'flex-end',borderBottom:'1px solid '+C.border,flexShrink:0,padding:'0 6px',gap:2}},
-      h('span',{style:{fontSize:_fs(9),color:C.tx4,marginRight:4}},'Relace'),
-      [1,2,3].map(function(n){
-        return h('div',{key:n,style:{width:18,height:16,display:'flex',alignItems:'center',justifyContent:'center',fontSize:_fs(9),fontWeight:600,borderRadius:3,cursor:'pointer',
-          color:sc===n?C.tx1:C.tx4,background:sc===n?C.bg4:'transparent'},
-          onClick:function(){_setSessionCount(n);}},n);
-      })),
-    /* Split panels — one per session */
-    h('div',{style:{display:'flex',flex:1,overflow:'hidden'}},
-      Array.from({length:sc},function(_,i){
-        return h('div',{key:'w'+i,style:{flex:1,display:'flex',borderRight:i<sc-1?'2px solid '+C.border2:'none',overflow:'hidden'}},_bottomPane(i));
-      })));
-}
 
 class IntentSmithAgentWidget extends react_widget_1.ReactWidget {
   constructor(){super();this.id=INTENTSMITH_AGENT_ID;this.title.label='';this.title.iconClass='';this.title.closable=false;this.node.tabIndex=-1;this.node.style.cssText='height:100%;width:100%;outline:none;';}

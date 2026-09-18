@@ -250,7 +250,8 @@ for (const workspaceKind of ['applications', 'extensions']) {
         if (dependency.startsWith('@theia/')) {
           assert.equal(
             version,
-            '1.74.1',
+            // Monaco core follows the VS Code version pinned by Theia 1.74.1.
+            dependency === '@theia/monaco-editor-core' ? '1.108.201' : '1.74.1',
             `${workspaceKind}/${workspaceName} drifts ${dependency} to ${version}`,
           );
         }
