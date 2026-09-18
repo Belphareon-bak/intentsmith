@@ -12,7 +12,15 @@ skutečný server/SQLite/Ollamu i kontrolované negativní terminály.**
 Neutrální dokument, nezávislý na nástroji.
 Pravidla vývoje: [`CONTRACT.md`](CONTRACT.md) · Detail: [`docs/inventory/`](docs/inventory/)
 
-**Aktuální instalace po opravě evaluace, 2026-09-17: `2f150ce7`.** Ruční
+**Modelové pracoviště Studia, 2026-09-18:** instalováno `9298ef46`.
+Uložená denní GPU inventura, skutečný nový ruční test, čekání na GPU,
+tabulky rolí a kandidátů, detail úloh, historie a vysvětlený Správce.
+Hunt dává přednost slabým/chybějícím rolím. Úplný profil 358 PASS / 1 FAIL
+(zděděná release pečeť), řízený fyzický Electron PASS; nové živé CODE měření
+čeká na cizí GPU lock, dosavadní skóre není nový výsledek. REVIEW_PENDING.
+[Review a průběžná živá evidence](docs/review/2026-09-18-MODEL-WORKSPACE.md).
+
+**Předchozí instalace po opravě evaluace, 2026-09-17: `2f150ce7`.** Ruční
 výběr modelu už ověřuje skutečné pole digestu v inventáři; Studio zobrazuje
 fázi, úlohu, opakování, počty a podložený odhad času. Živý Qwen3.5:27b/CODE
 na 8d1da07e dokončil 21 vyhodnocení, skóre 2/7, RESPONSE_BOUND; finální API

@@ -56,3 +56,8 @@ gpu-detector, governor read/actions, evaluation read model a jejich testy.
 Schválení doporučení nezískává nový executor; UI vysvětlí skutečný manuální
 účinek. Uložená kapacita nikdy nenahradí aktuální kontrolu GPU před inferencí.
 Prokázat fixture HTTP/Electron a živé nové CODE měření bez změny bindingů.
+
+Dodáno a instalováno na `9298ef46`. Úplný profil 358 PASS / 1 FAIL
+(zděděná release registry pečeť), fyzický renderer a běžný launcher ověřené.
+Živé nové CODE měření z GUI je přijato a čeká na cizí GPU lock; inference
+z tohoto checkpointu ještě není PASS. [Review a živý checkpoint](../review/2026-09-18-MODEL-WORKSPACE.md).

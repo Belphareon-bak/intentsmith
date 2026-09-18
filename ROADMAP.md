@@ -1,6 +1,14 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Ruční evaluace a průběh Studia, 2026-09-17:** instalováno `2f150ce7`,
+**Modelové pracoviště Studia, 2026-09-18:** instalováno `9298ef46`.
+Uložená denní GPU inventura, skutečný nový ruční test, čekání na GPU,
+tabulky rolí a kandidátů, detail úloh, historie a vysvětlený Správce.
+Hunt dává přednost slabým/chybějícím rolím. Úplný profil 358 PASS / 1 FAIL
+(zděděná release pečeť), řízený fyzický Electron PASS; nové živé CODE měření
+čeká na cizí GPU lock, dosavadní skóre není nový výsledek. REVIEW_PENDING.
+[Review a průběžná živá evidence](docs/review/2026-09-18-MODEL-WORKSPACE.md).
+
+**Předchozí ruční evaluace a průběh Studia, 2026-09-17:** instalováno `2f150ce7`,
 opraveno falešné odmítnutí digestu. Qwen3.5:27b/CODE prošel úplnou sadou 7 × 3,
 v DB i API je COMPLETE se skóre 2/7; žádné přepnutí rolí. Nový panel má
 skutečný průběh a ETA. Dva úplné profily 358 PASS / 1 FAIL (release pečeť),
