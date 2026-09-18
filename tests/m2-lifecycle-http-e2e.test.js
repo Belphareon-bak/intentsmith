@@ -256,12 +256,7 @@ async function run() {
     const health = await request('GET', '/api/health');
     assert(health.status === 200 && health.data?.status === 'ok', 'owned server health is ready');
 
-    const created = await request('POST', '/api/projects', {
-      name: RUN_ID,
-      description: 'Isolated M2 lifecycle HTTP evidence project',
-      type: 'general',
-      path: root,
-    });
+    const created = await request('POST', '/api/projects/open-folder', { folderPath: root, name: RUN_ID });
     assert(created.status === 201, `project registration returned 201 (got ${created.status})`);
     const projectId = created.data?.project?.id;
     assert(Number.isSafeInteger(projectId), `project registry returned an integer id (${projectId})`);

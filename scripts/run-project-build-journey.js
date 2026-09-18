@@ -71,7 +71,7 @@ function safeBaseEnvironment() {
   return env;
 }
 
-function serverEnvironment(runtime, nonce, providerUrl) {
+function serverEnvironment(runtime, nonce, providerUrl, models = {}) {
   return {
     ...safeBaseEnvironment(),
     HOME: runtime.home,
@@ -109,15 +109,16 @@ function serverEnvironment(runtime, nonce, providerUrl) {
     C3_UPDATE_REPO: '',
     C3_TRACE: '0',
     C3_LOG_LEVEL: 'warn',
-    C3_MODEL_CHAT: EXPECTED_MODEL, C3_MODEL_CODE: EXPECTED_MODEL,
+    C3_MODEL_CHAT: models.CHAT || EXPECTED_MODEL, C3_MODEL_CODE: models.CODE || EXPECTED_MODEL,
+    C3_MODEL_D1: models.D1 || EXPECTED_MODEL,
     OLLAMA_URL: providerUrl,
   };
 }
 
-async function startServer(runtime, nonce, providerUrl) {
+async function startServer(runtime, nonce, providerUrl, models = {}) {
   const child = spawn(process.execPath, ['src/server.js'], {
     cwd: SOURCE_ROOT,
-    env: serverEnvironment(runtime, nonce, providerUrl),
+    env: serverEnvironment(runtime, nonce, providerUrl, models),
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   ownedChildren.add(child);
@@ -386,7 +387,7 @@ async function fillComposer(studio, projectPath) {
       const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const result = await r.json(); if (r.status !== 201) throw new Error(JSON.stringify(result)); return result;
     };
-    const project = (await post('/api/projects', { name: 'Physical calendar build', type: 'general', path: projectPath })).project;
+    const project = (await post('/api/projects/open-folder', { folderPath: projectPath })).project;
     const conversation = (await post('/api/conversations', { title: 'Calendar build', project_id: project.id })).conversation;
     const pane = window._sessions[0];
     pane._convId = conversation.id; pane._projectId = project.id; pane._agentId = null;
@@ -719,6 +720,10 @@ async function parent(out) {
   if (evidence.status !== 'PASS') process.exitCode = 1;
 }
 
+export { makeRuntime, startServer, stopServer, requestJson, startLiteralStudio, stopLiteralStudio,
+  evaluateRenderer, waitUntil, clickAction, capture, trackNetwork };
+
+if (process.argv[1] && path.resolve(process.argv[1]) === self) {
 if (process.argv[2] === '--inside' && process.argv.length === 4) {
   await inside(process.argv[3]);
 } else if (process.argv[2] === '--run' && process.argv.length === 4) {
@@ -729,4 +734,6 @@ if (process.argv[2] === '--inside' && process.argv.length === 4) {
   console.log('Requires a clean source, built Studio, private Xvfb DISPLAY/XAUTHORITY and idle GPU/Ollama. No pulls, live DB or binding changes.');
   console.log('Usage: node scripts/run-project-build-journey.js --run <new absolute .intentsmith-artifacts directory>');
   if (process.argv.length !== 2) process.exitCode = 2;
+}
+
 }

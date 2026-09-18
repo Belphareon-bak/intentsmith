@@ -1923,7 +1923,7 @@ ChatController.handle = async function(request) {
       try {
         const proj = db.projects.findById.get(pid);
         if (proj) {
-          state.setProject({ id: proj.id, name: proj.name, path: proj.path, description: proj.description || '' });
+          state.setProject({ id: proj.id, name: proj.name, path: proj.path, description: proj.description || '', is_external: proj.is_external || 0 });
         }
       } catch (err) {
         logger.warn('ChatController', `Project lookup failed: ${err.message}`);

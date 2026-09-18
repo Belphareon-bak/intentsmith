@@ -1,7 +1,9 @@
 // H9: Projects, Workspace & Attachments routes
-import { generateReadme, ensureReadme, ensureRoadmap } from '../chat/handlers/utils/readme-generator.js';
-import { readProjectState } from '../chat/handlers/utils/project-state-reader.js';
-import { generateNewProjectWelcome, generateExistingProjectWelcome } from '../chat/handlers/utils/welcome-generator.js';
+import { ensureReadme } from '../chat/handlers/utils/readme-generator.js';
+import { generateNewProjectWelcome } from '../chat/handlers/utils/welcome-generator.js';
+
+import { initializeNewProject, inspectProject, importedProjectWelcome } from '../planner/project-onboarding.js';
+import { readChatMemoryPolicy } from '../db/user-settings.js';
 
 export function createProjectRoutes(deps) {
   const { db, parseBody, sendJSON, safeError, safeParseInt, sendStaticFile, logger, path, config } = deps;
@@ -68,162 +70,48 @@ export function createProjectRoutes(deps) {
 
     'POST /api/projects': async (req, res) => {
       const body = await parseBody(req);
-      const { name, description, type, path: customPath, autoPath } = body;
-
-      if (!name) {
-        return sendJSON(res, 400, { error: 'name is required' });
+      const { name, description = '', type = 'general', path: customPath } = body;
+      if (typeof name !== 'string' || !name.trim() || name.length > 120
+          || /[\x00-\x1f]/.test(name) || typeof description !== 'string' || description.length > 4000
+          || !['general', 'webapp', 'api', 'automation', 'data'].includes(type)
+          || (customPath != null && typeof customPath !== 'string')) {
+        return sendJSON(res, 400, { error: 'Zadej název, popis a podporovaný typ projektu.' });
       }
-
       try {
-        const fs = await import('fs/promises');
-        const pathModule = await import('path');
-        const os = await import('os');
-        const { config } = await import('../config.js');
-        const { execFile } = await import('child_process');
-        const { promisify } = await import('util');
-        const execFileAsync = promisify(execFile);
-
-        // Resolve project path
-        const slug = name.replace(/[^a-zA-Z0-9-_]/g, '-').toLowerCase();
-        let projectPath;
-        if (customPath && customPath.trim()) {
-          projectPath = pathModule.resolve(customPath.trim());
-          // v126: Security — custom path must be within user's home directory
-          const homeDir = os.homedir();
-          if (!projectPath.startsWith(homeDir + pathModule.sep) && projectPath !== homeDir) {
-            return sendJSON(res, 400, { error: 'Project path must be within home directory' });
-          }
-        } else {
-          const projectsDir = pathModule.resolve(config.projects.defaultDir);
-          await fs.mkdir(projectsDir, { recursive: true });
-          projectPath = pathModule.join(projectsDir, slug);
+        const fs = await import('node:fs/promises');
+        const pathModule = await import('node:path');
+        const os = await import('node:os');
+        const projectName = name.trim();
+        // All collisions are checked BEFORE creating or writing anything.
+        const collision = db.projects.findByName.get(projectName);
+        if (collision && !['archived', 'deleted'].includes(collision.status)) {
+          return sendJSON(res, 409, { error: 'Projekt tohoto názvu už existuje.', existingProject: collision });
         }
-
-        // Create directory structure
-        await fs.mkdir(projectPath, { recursive: true });
-        await fs.mkdir(pathModule.join(projectPath, '.c3'), { recursive: true });
-
-        // Scaffolding per project type
-        const projectType = type || 'general';
-        const scaffoldLog = [];
-
-        // git init (all types)
-        try {
-          await execFileAsync('git', ['init'], { cwd: projectPath, timeout: 10000 });
-          await fs.writeFile(pathModule.join(projectPath, '.gitignore'), 'node_modules/\n.env\n.c3/\ndist/\nbuild/\n*.log\n');
-          scaffoldLog.push('git init');
-        } catch (e) { scaffoldLog.push('git init skipped: ' + e.message); }
-
-        // Type-specific scaffolding
-        if (projectType === 'webapp' || projectType === 'api') {
-          // npm init + basic package.json
-          const pkg = {
-            name: slug,
-            version: '0.1.0',
-            description: description || '',
-            type: 'module',
-            scripts: {
-              start: projectType === 'webapp' ? 'vite dev' : 'node src/index.js',
-              build: projectType === 'webapp' ? 'vite build' : 'echo "no build step"',
-              test: 'echo "no tests yet" && exit 0',
-              dev: projectType === 'webapp' ? 'vite dev' : 'node --watch src/index.js',
-            },
-            dependencies: {},
-            devDependencies: {},
-          };
-          await fs.writeFile(pathModule.join(projectPath, 'package.json'), JSON.stringify(pkg, null, 2) + '\n');
-          scaffoldLog.push('package.json');
-
-          if (projectType === 'webapp') {
-            await fs.mkdir(pathModule.join(projectPath, 'src'), { recursive: true });
-            await fs.mkdir(pathModule.join(projectPath, 'public'), { recursive: true });
-            await fs.writeFile(pathModule.join(projectPath, 'src', 'index.js'), '// Entry point\nconsole.log("Hello from ' + name + '");\n');
-            await fs.writeFile(pathModule.join(projectPath, 'public', 'index.html'), '<!DOCTYPE html>\n<html lang="cs"><head><meta charset="UTF-8"><title>' + name + '</title></head><body><div id="app"></div><script type="module" src="/src/index.js"></script></body></html>\n');
-            scaffoldLog.push('src/ + public/');
-          } else {
-            await fs.mkdir(pathModule.join(projectPath, 'src'), { recursive: true });
-            await fs.writeFile(pathModule.join(projectPath, 'src', 'index.js'), '// ' + name + ' — API server\nimport http from "http";\nconst server = http.createServer((req, res) => { res.writeHead(200); res.end("OK"); });\nserver.listen(3000, () => console.log("Listening on :3000"));\n');
-            scaffoldLog.push('src/index.js (API)');
-          }
-        } else if (projectType === 'automation') {
-          await fs.mkdir(pathModule.join(projectPath, 'scripts'), { recursive: true });
-          const pkg = { name: slug, version: '0.1.0', type: 'module', scripts: { start: 'node scripts/main.js' }, dependencies: {} };
-          await fs.writeFile(pathModule.join(projectPath, 'package.json'), JSON.stringify(pkg, null, 2) + '\n');
-          await fs.writeFile(pathModule.join(projectPath, 'scripts', 'main.js'), '// ' + name + ' — automation entry\nconsole.log("Running...");\n');
-          scaffoldLog.push('package.json + scripts/main.js');
-        } else if (projectType === 'data') {
-          await fs.mkdir(pathModule.join(projectPath, 'data'), { recursive: true });
-          await fs.mkdir(pathModule.join(projectPath, 'notebooks'), { recursive: true });
-          await fs.mkdir(pathModule.join(projectPath, 'src'), { recursive: true });
-          const pkg = { name: slug, version: '0.1.0', type: 'module', scripts: { start: 'node src/pipeline.js' }, dependencies: {} };
-          await fs.writeFile(pathModule.join(projectPath, 'package.json'), JSON.stringify(pkg, null, 2) + '\n');
-          await fs.writeFile(pathModule.join(projectPath, 'src', 'pipeline.js'), '// ' + name + ' — data pipeline\nconsole.log("Pipeline start");\n');
-          scaffoldLog.push('package.json + data/ + notebooks/ + src/pipeline.js');
-        } else {
-          // general — empty project, no package.json
-          scaffoldLog.push('(prázdný projekt)');
+        const slug = projectName.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
+        if (!slug) return sendJSON(res, 400, { error: 'Název musí obsahovat písmeno nebo číslici.' });
+        const requested = customPath?.trim()
+          ? pathModule.resolve(customPath.trim())
+          : pathModule.resolve(config.projects.defaultDir, slug);
+        // Resolve the parent rather than following an existing target symlink.
+        // The normal default directory may be created; a custom parent must exist.
+        if (!customPath?.trim()) await fs.mkdir(pathModule.dirname(requested), { recursive: true });
+        const parent = await fs.realpath(pathModule.dirname(requested));
+        const home = await fs.realpath(os.homedir());
+        if (customPath?.trim() && parent !== home && !parent.startsWith(home + pathModule.sep)) {
+          return sendJSON(res, 400, { error: 'Project path must be within home directory' });
         }
-
-        // Write .c3/project.json metadata
-        const meta = { name, type: projectType, description: description || '', created: new Date().toISOString(), lifecycle: 'SPEC' };
-        await fs.writeFile(pathModule.join(projectPath, '.c3', 'project.json'), JSON.stringify(meta, null, 2) + '\n');
-        scaffoldLog.push('.c3/project.json');
-
-        // v67.0: README-first — generate structured README.md
-        const readmeContent = generateReadme(projectPath, { name, description });
-        await fs.writeFile(pathModule.join(projectPath, 'README.md'), readmeContent);
-        scaffoldLog.push('README.md');
-
-        // v88: ROADMAP scaffold — lifecycle engine replaces after planning
-        const rmResult = ensureRoadmap(projectPath, { name, type: projectType });
-        if (rmResult.written) scaffoldLog.push('ROADMAP.md');
-
-        // Create in DB with lifecycle SPEC
-        const project = db.projects.getOrCreate(name, projectPath, description || '');
-
-        // v88.1: Check for name collision
-        if (project._nameConflict) {
-          return sendJSON(res, 409, {
-            error: `Projekt s názvem "${name}" již existuje (id: ${project.id}).`,
-            existingProject: { id: project.id, name: project.name, path: project.path },
-          });
-        }
-
-        // v88: Analyze project state and persist to project_memory
-        try {
-          const { analyzeExistingProject } = await import('../planner/lifecycle-analyzer.js');
-          if (project?.id) {
-            const analysis = await analyzeExistingProject(projectPath, project.id, db);
-            if (analysis) {
-              db.projectMemory.set.run(project.id, 'last_analysis', analysis, 'system');
-            }
-          }
-        } catch (err) {
-          logger.warn('Projects', `Initial analysis failed (non-fatal): ${err.message}`);
-        }
-
-        // `projects.status` is archive authority (active/archived/deleted), not
-        // lifecycle state. SPEC belongs to `project_lifecycles.phase`; writing
-        // it here made a newly created project unavailable to ProjectContext
-        // and invisible from the active-project list.
-
-        // v89: Generate welcome message for new project
-        let welcomeMessage = null;
-        try {
-          welcomeMessage = generateNewProjectWelcome({ name, description, type: projectType });
-        } catch { /* non-fatal */ }
-
-        sendJSON(res, 201, {
-          id: project?.id,
-          project,
-          path: projectPath,
-          type: projectType,
-          lifecycle: 'SPEC',
-          scaffold: scaffoldLog,
-          welcomeMessage,
-        });
+        const projectPath = pathModule.join(parent, pathModule.basename(requested));
+        if (db.projects.findByPath.get(projectPath)) return sendJSON(res, 409, { error: 'Cesta už patří projektu. Použij Otevřít složku.' });
+        const scaffold = await initializeNewProject(projectPath, { name: projectName, description, type });
+        const project = db.projects.getOrCreate(projectName, projectPath, description);
+        if (project._nameConflict) return sendJSON(res, 409, { error: 'Název mezitím obsadil jiný projekt.', path: projectPath });
+        sendJSON(res, 201, { id: project.id, project, path: projectPath, type,
+          lifecycle: 'SPEC', scaffold, welcomeMessage: generateNewProjectWelcome({ name: projectName, description, type }) });
       } catch (err) {
-        sendJSON(res, 500, safeError(err));
+        const conflict = err.code === 'EEXIST';
+        sendJSON(res, conflict ? 409 : 500, conflict
+          ? { error: 'Složka už existuje. Pro existující projekt použij Otevřít složku; jeho soubory nebyly změněné.' }
+          : { ...safeError(err), ...(err.projectPath ? { path: err.projectPath, incompleteCreation: true } : {}) });
       }
     },
 
@@ -442,7 +330,6 @@ export function createProjectRoutes(deps) {
       try {
         const fsPromises = await import('fs/promises');
         const pathModule = await import('path');
-        const fsConstants = await import('fs');
 
         // 1. Normalize path (resolve to absolute, follow symlinks)
         let normalizedPath;
@@ -461,125 +348,24 @@ export function createProjectRoutes(deps) {
           return sendJSON(res, 400, { error: 'Path is not a directory' });
         }
 
-        // 3. Check write permissions
+        // Import never writes to the repository or executes repository code.
+        const projectName = typeof name === 'string' && name.trim() ? name.trim() : pathModule.basename(normalizedPath);
+        const { project, wasExisting } = db.projects.registerExternal(projectName, normalizedPath, '');
+        let analysis = null;
+        let analysisError = null;
         try {
-          await fsPromises.access(normalizedPath, fsConstants.constants.W_OK);
-        } catch (err) {
-          return sendJSON(res, 400, {
-            error: 'No write access to directory',
-            details: 'The folder must be writable to store project metadata'
-          });
-        }
-
-        // 4. Check if already registered in DB
-        const existingProject = db.projects.findByPath.get(normalizedPath);
-        if (existingProject) {
-          // Update last_active and return existing project
-          db.projects.touch(existingProject.id);
-          return sendJSON(res, 200, {
-            project: existingProject,
-            status: 'already_registered',
-            message: 'Project was already registered'
-          });
-        }
-
-        // 5. Detect existing metadata directories
-        const c3Path = pathModule.join(normalizedPath, '.c3');
-        const c3ArchitectPath = pathModule.join(normalizedPath, '.c3-architect');
-
-        let hasC3 = false;
-        let hasC3Architect = false;
-        let metadataState = null;
-
-        try {
-          await fsPromises.access(c3Path);
-          hasC3 = true;
-        } catch { /* doesn't exist */ }
-
-        try {
-          await fsPromises.access(c3ArchitectPath);
-          hasC3Architect = true;
-          // Try to read existing state
-          try {
-            const statePath = pathModule.join(c3ArchitectPath, 'state.json');
-            const stateContent = await fsPromises.readFile(statePath, 'utf-8');
-            metadataState = JSON.parse(stateContent);
-          } catch { /* state.json doesn't exist or invalid */ }
-        } catch { /* doesn't exist */ }
-
-        // 6. Bootstrap metadata if missing
-        let bootstrapped = false;
-        if (!hasC3 && !hasC3Architect) {
-          // Create minimal .c3-architect structure
-          await fsPromises.mkdir(c3ArchitectPath, { recursive: true });
-          await fsPromises.mkdir(pathModule.join(c3ArchitectPath, 'roadmap'), { recursive: true });
-
-          // Derive name from folder name if not provided
-          const derivedName = name || pathModule.basename(normalizedPath);
-
-          // Create minimal state.json
-          const initialState = {
-            projectName: derivedName,
-            createdAt: new Date().toISOString(),
-            phase: 'discovery',
-            version: '1.0.0',
-            isExternal: true
-          };
-
-          await fsPromises.writeFile(
-            pathModule.join(c3ArchitectPath, 'state.json'),
-            JSON.stringify(initialState, null, 2),
-            'utf-8'
-          );
-
-          bootstrapped = true;
-          metadataState = initialState;
-        }
-
-        // 7. Register in DB (is_external = 1)
-        const projectName = name || metadataState?.projectName || pathModule.basename(normalizedPath);
-        const description = metadataState?.description || `External project: ${normalizedPath}`;
-
-        const { project, wasExisting } = db.projects.registerExternal(projectName, normalizedPath, description);
-
-        // v88: Ensure README + ROADMAP exist for opened projects
-        const readmeResult = ensureReadme(normalizedPath, { name: projectName, description });
-        const roadmapResult = ensureRoadmap(normalizedPath, { name: projectName });
-
-        // v88: Analyze existing project state and persist
-        let analysisContext = null;
-        try {
-          const { analyzeExistingProject } = await import('../planner/lifecycle-analyzer.js');
-          if (project?.id) {
-            analysisContext = await analyzeExistingProject(normalizedPath, project.id, db);
-            if (analysisContext) {
-              db.projectMemory.set.run(project.id, 'last_analysis', analysisContext, 'system');
-            }
+          analysis = await inspectProject(project);
+          if (readChatMemoryPolicy(db.db).context) {
+            db.projectMemory.set.run(project.id, 'last_analysis', JSON.stringify(analysis), 'system');
           }
         } catch (err) {
-          logger.warn('Projects', `Open-folder analysis failed (non-fatal): ${err.message}`);
+          analysisError = err.code || 'PROJECT_ANALYSIS_UNAVAILABLE';
+          logger.warn('Projects', 'Open-folder analysis unavailable', { code: analysisError });
         }
-
-        // v89: Generate welcome message for existing project
-        let welcomeMessage = null;
-        try {
-          const projectState = readProjectState(normalizedPath);
-          welcomeMessage = generateExistingProjectWelcome(projectState);
-        } catch { /* non-fatal */ }
-
-        sendJSON(res, 201, {
-          project,
-          status: 'registered',
-          welcomeMessage,
-          metadata: {
-            hasC3,
-            hasC3Architect,
-            bootstrapped,
-            state: metadataState,
-            readmeCreated: readmeResult.written,
-            roadmapCreated: roadmapResult.written,
-            analysisAvailable: !!analysisContext,
-          }
+        sendJSON(res, wasExisting ? 200 : 201, {
+          project, status: wasExisting ? 'already_registered' : 'registered',
+          welcomeMessage: importedProjectWelcome(project, analysis), analysis, analysisError,
+          metadata: { bootstrapped: false, readmeCreated: false, roadmapCreated: false, analysisAvailable: !!analysis },
         });
 
       } catch (err) {

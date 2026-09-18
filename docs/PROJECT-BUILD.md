@@ -1,10 +1,60 @@
-# Řízené sestavení projektu ve Studiu
+# Práce s novým a existujícím projektem ve Studiu
 
 Rozsah produktu určuje PRODUCT.md. Tento návod popisuje dostupný ohraničený
 builder. Dvousouborový fyzický průchod ze skutečně nainstalovaného Studia byl
 ověřen na `dc81a0f0`, včetně schválení, funkčního testu, restartů a obnovy DB.
 [Rozsah a důkazy](review/2026-09-12-PRODUCTION-JOURNEY-REVIEW-PACKET.md).
-Úplný autonomní builder tím prokázaný není.
+Úplný autonomní builder tím prokázaný není. Následující postup zahrnuje opravu
+projektového flow z 18. září 2026; důkazy staršího průchodu neověřují tuto změnu.
+
+## Nový projekt
+
+**Projekty → Nový** vytvoří nový adresář, minimální projekt pro Node.js 22,
+adresáře `src`, `public`, `test`, `scripts`, pravidla M2 a výchozí Git commit.
+Existující adresář se nepřepisuje. Projekt zatím nemá implementaci; první
+`npm test` záměrně selže, dokud nevznikne skutečný funkční test.
+
+V projektovém chatu popište požadovaný výsledek. IntentSmith naváže na cíl
+a předchozí zprávy, načte omezený kontext souborů, navrhne priority a podle
+potřeby se doptá. Krátké „a jak?“ patří ke stejnému projektu. Pro podporovaný
+malý JavaScript krok může nabídnout **Připravit navržený krok**. Tlačítko otevře
+editovatelný seznam souborů a test; generování a schválení jsou další dva kroky.
+
+Test v takovém návrhu je `node --test test/acceptance.test.mjs`. Model může
+navrhnout jeho assertions, takže úspěch testu sám nedokazuje splnění celého cíle.
+Prohlédněte změny a ověřte i skutečný výsledek. Součástí návrhu je lokální Git
+commit po úspěšném provedení, aby další krok mohl vycházet z čistého stavu.
+Commit se nikam nepublikuje.
+
+Při chybě testu se změny vrátí a Studio ukáže omezený výstup testu. V další
+zprávě lze požádat o opravu. Se zapnutým ukládáním kontextu může plánovač použít
+uložený výsledek a vadný návrh ze stejného projektu, konverzace a uživatele;
+odlišuje vrácený návrh od aktuálních souborů. Jde o návaznost práce, nikoli
+přetrénování modelu nebo sdílení poznatků mezi projekty. Při `saveContext=false`
+se tento audit do modelového kontextu nečte. Schvalovací a prováděcí audit
+zůstává provozním záznamem M2; přepínač jej nemaže.
+
+## Existující projekt vytvořený mimo IntentSmith
+
+Použijte **Otevřít složku**. Import registruje adresář a provede omezenou
+statickou analýzu: inventář povolených textových souborů, vybrané ukázky,
+přítomnost dokumentace, manifestu a testů. Nezapisuje do repozitáře, nezakládá
+Git ani pravidla M2, neinstaluje závislosti a nespouští cizí kód. Funguje i pro
+adresář pouze ke čtení. Opětovné otevření aktualizuje přehled téhož projektu.
+
+Úvod uvede známá fakta a omezení a zeptá se na cíl a zamýšlené pokračování.
+V chatu lze požádat o silné/slabé stránky a priority dokončení či optimalizace.
+Model vidí vybrané ukázky podle svého schváleného kontextového okna, nikoli
+automaticky všechny soubory rozsáhlého repozitáře. Neověřené závěry musí
+označit; testy nejsou provedené pouhým nalezením testovacích souborů.
+
+Před první řízenou změnou cizího projektu je nutný čistý Git stav a pravidla
+odpovídající jeho skutečné struktuře, viz příprava níže. Automatický návrh
+spustitelného kroku je nyní omezený na malé projekty Node.js; jiné jazyky lze
+analyzovat a plánovat, nikoli tímto formulářem obecně sestavit. Další nový
+widget je samostatný nový projekt, nikoli zkouška importu existujícího projektu.
+
+## Generování a schválení kroku
 
 V chatu připojeného projektu klikněte na **Připravit změnu**. Stejný formulář
 otevře `/m2-build` bez argumentu. Rozpracovaný text chatu se do cíle zkopíruje
@@ -21,7 +71,8 @@ a v chatu zůstane. JSON není nutné psát.
 3. Klikněte **Vygenerovat návrh**. Model navrhne úplný obsah každého souboru
    s kontextem jeho přímých závislostí. Při chybě zůstává zadání ve formuláři;
    opravte příčinu uvedenou ve zprávě a odešlete jej znovu. Skrýt zachová zadání,
-   Zahodit zadání jej odstraní. Rozepsaný formulář nepřežívá restart Studia.
+   Zahodit zadání jej odstraní. Rozepsaný formulář nepřežívá restart Studia;
+   návrh z chatu a identita připraveného plánu se obnovují s relací.
 4. Prohlédněte všechny původní a navržené obsahy a přesný test. Až tlačítko
    **Schválit zobrazené změny** nebo `/m2-approve` spustí uložený plán. Při
    neúspěšném testu M2 vrací všechny změny. Obecné „ano“ nic neschválí.
@@ -32,7 +83,8 @@ a v chatu zůstane. JSON není nutné psát.
 
 Pokročilý vstup `/m2-build <JSON>` zůstává dostupný, včetně volitelného
 Git commitu a vlastního prostředí testu. Formulář používá prostředí uvedené
-v jeho detailu a Git commit nevyžaduje; nemění stávající HTTP kontrakt.
+v jeho detailu. Ruční zadání Git commit nevyžaduje; nabídka z projektového
+chatu jej obsahuje. Stávající M2 HTTP kontrakt se nemění.
 
 ## Předpoklady a meze
 
@@ -40,21 +92,27 @@ v jeho detailu a Git commit nevyžaduje; nemění stávající HTTP kontrakt.
   cílové adresáře již existují. Běžná registrace sama governance nezakládá.
 - Aktivní lokální model pro roli CODE a stávající M2 procesový sandbox.
   Žádné automatické změny modelového bindingu ani oprávnění.
-- 1–32 explicitních textových cílů v povoleném projektovém kontextu, původní
-  soubor do 1600 B. Závislosti odkazují pouze na jiné cíle téhož plánu; bez cyklů.
-- Celkové zadání a každé souborové zadání do 512 B. Každý úplný prompt včetně
-  systému a přímých dependencies do 2200 B; výstup souboru do 8192 B a zároveň
-  modelový limit 1536 tokenů. Celá generace má 120 s. Limit 32 není příslib,
-  že každý model v tomto čase zvládne 32 souborů. Překročení nevytvoří dílčí plán.
+- 1–32 explicitních textových cílů; původní i generovaný soubor v projektovém
+  builderu do 16 384 B. Přirozený plánovač navrhuje nejvýše šest malých souborů.
+  Závislosti odkazují pouze na jiné cíle téhož plánu; bez cyklů.
+- Celkové i jednotlivé zadání do 512 B. Projektový prompt má strop 32 000 B,
+  dále omezený skutečným schváleným kontextem modelu CODE. Výstup používá
+  nejvýše 4096 tokenů (menší okno limit snižuje). Context preflight před prvním
+  modelovým voláním kontroluje všechny vstupní soubory; úplné generované peers
+  mohou další prompt zvětšit, proto se limit kontroluje znovu před každým voláním.
+  Generování má až 120 s na soubor, celkově nejvýše 960 s. Chyba nevytvoří dílčí
+  plán. Menší model nemusí složitý krok zvládnout; rozdělte jej na menší moduly.
 - `focusedTest` je povinný explicitní program/argv/environment/timeout.
-  Zvolte skutečné funkční assertions; samotná přítomnost testu nezaručuje jeho
-  kvalitu. Model jeho obsah neurčuje. Program nemá allowlist binárek;
-  ohraničení zajišťuje schválený M2 procesový sandbox. Volitelný `gitCommit` používá stejný
-  strict tvar jako `/m2-plan` (message a explicitní author/committer identity).
+  Samotná přítomnost testu nezaručuje jeho kvalitu. V návrhu z chatu vybírá
+  program a argumenty backend; model smí navrhovat obsah testovacího souboru.
+  U ručního zadání program nemá allowlist binárek; ohraničení zajišťuje
+  schválený M2 procesový sandbox. `gitCommit` používá strict tvar jako `/m2-plan`
+  (message a explicitní author/committer identity).
 
 Pro malou změnu 1–3 JS souborů zůstává `/m2-draft src/app.js :: zadání`.
-Pro ručně hotové obsahy slouží `/m2-plan <JSON změn>`. Běžný volný text
-SPEC→BUILD ještě tímto příkazem není automaticky napojen na úplný builder.
+Malý draft zachovává původní limity: 1600 B vstup, 2200 B prompt, 8192 B
+výstup a 1536 tokenů, 120 s. Pro ručně hotové obsahy slouží `/m2-plan <JSON změn>`.
+Volný text v projektovém chatu nabízí návrh; provedení vyžaduje samostatné schválení.
 
 ## Příprava malého JavaScript projektu
 
@@ -79,7 +137,8 @@ Pravidla upravte podle skutečných vrstev a dovolených importů projektu;
 seznamy přípon, názvů vrstev, pravidel a importů udržujte seřazené bez duplicit.
 prázdné `externalImports` záměrně neumožňují externí knihovny. Uložte výchozí
 soubory, test a pravidla do Git commitu a začněte s čistým pracovním stromem.
-Studio registrací projektu tato pravidla nevytváří. Tato příprava probíhá
+Import existujícího projektu tato pravidla nevytváří. U nově založeného
+projektu je základ připravený automaticky. U importu tato příprava probíhá
 v editoru a Gitu pod vaší správou; formulář generování ji neprovádí.
 
 Pokud se návrh odmítne, zkontrolujte příčinu zobrazenou ve formuláři: chybějící

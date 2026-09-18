@@ -260,6 +260,8 @@ export function createChatRoutes(deps) {
           requestId: body.requestId,
           conversationId: body.conversationId,
           turnId: body.turnId,
+          m2LifecycleOnly: true,
+          projectId: db?.conversations?.findById?.get(body.conversationId)?.project_id ?? null,
         },
       });
       throwIfAborted(abortController.signal);
@@ -269,6 +271,7 @@ export function createChatRoutes(deps) {
         response: {
           content: controllerResult.response,
           metadata: {
+            ...(controllerResult.metadata || {}),
             mode: controllerResult.mode,
             confidence: controllerResult.confidence,
           },

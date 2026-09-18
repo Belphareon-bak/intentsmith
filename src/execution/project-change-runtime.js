@@ -1111,6 +1111,17 @@ export async function executeProjectChange({
           focused,
           effectStartedAt: processStartedAt,
           effectCompletedAt: processCompletedAt,
+          // Bounded test diagnostics belong to the existing project execution
+          // audit. They are data, never instructions or another effect grant.
+          // Full-stream digests remain in `focused`; previews may be truncated.
+          ...(typeof processOutcome.stdout === 'string' || typeof processOutcome.stderr === 'string' ? {
+            testOutput: {
+              stdout: Buffer.from(processOutcome.stdout || '').subarray(0, 4096).toString('utf8'),
+              stderr: Buffer.from(processOutcome.stderr || '').subarray(0, 4096).toString('utf8'),
+              truncated: !!processOutcome.outputTruncated || Buffer.byteLength(processOutcome.stdout || '') > 4096
+                || Buffer.byteLength(processOutcome.stderr || '') > 4096,
+            },
+          } : {}),
         },
       });
     }

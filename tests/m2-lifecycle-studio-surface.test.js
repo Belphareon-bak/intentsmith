@@ -38,7 +38,7 @@ test('Studio has exactly one explicit M2 transport surface and no mutating legac
   assert.doesNotMatch(source, /api\/projects\/lifecycle\/start/);
   assert.doesNotMatch(source, /lifecycle\/bind/);
   assert.doesNotMatch(source, /Lifecycle aktivovan|Lifecycle obnoven|Lifecycle: SPEC|Lifecycle: faze/);
-  assert.match(source, /M2 lifecycle je neaktivní; plán připravíte explicitním \/m2-plan <JSON>\./);
+  assert.match(source, /Popište cíl v chatu\./);
 });
 
 test('all Studio lifecycle HTTP success is gated by Response.ok and typed errors retain status/code', () => {
@@ -255,6 +255,7 @@ function controlledStudio({ pending = true, paths = ['src/app.js'], activeM1 = t
   return { session, pane, calls, view, textarea,
     setActiveM1(value) { activeM1 = value; },
     openComposer() { sandbox._m2OpenComposer(0); return pane._m2Composer; },
+    normalizeWorkProposal(value) { return sandbox._m2NormalizeWorkProposal(value); },
     submitComposer(form = pane._m2Composer) { sandbox._m2SubmitComposer(0, session, pane, form); },
     actionButtons() {
       const buttons = [];const visit = node => { if (!node || typeof node !== 'object') return;
@@ -269,6 +270,38 @@ function controlledStudio({ pending = true, paths = ['src/app.js'], activeM1 = t
 }
 
 const flushStudio = () => new Promise(resolve => setImmediate(resolve));
+
+test('project chat proposal opens an editable composer and submits only on explicit preparation', async () => {
+  const studio = controlledStudio({ pending: false, activeM1: false,
+    paths: ['src/index.mjs', 'test/acceptance.test.mjs'] });
+  const offered = { origin: studio.view.plan.origin, proposal: { kind: 'ProjectWorkProposal@1', projectId: 27,
+    workspaceRevision: 'wsr1:fixture', draft: { instruction: 'Show RPM history', files: [
+      { path: 'src/index.mjs', instruction: 'Implement history', dependsOn: [] },
+      { path: 'test/acceptance.test.mjs', instruction: 'Assert history eviction', dependsOn: ['src/index.mjs'] },
+    ], focusedTest: { binary: '/usr/bin/node', argv: ['--test', 'test/acceptance.test.mjs'], timeoutMs: 30000 },
+    gitCommit: { message: 'Reviewed step', identity: { authorName: 'Test' } } } } };
+  studio.pane._projectWorkProposal = studio.normalizeWorkProposal(JSON.parse(JSON.stringify(offered)));
+  const form = studio.openComposer();
+  assert.equal(form.instruction, 'Show RPM history');
+  assert.equal(form.files[1].dependencies, 'src/index.mjs');
+  assert.equal(studio.calls.length, 0, 'opening/reloading a suggestion never sends effects');
+  form.instruction = 'Show RPM history with unavailable sensor state';
+  studio.submitComposer(form);
+  assert.equal(studio.calls.length, 1);
+  const body = JSON.parse(studio.calls[0].options.body);
+  assert.equal(body.draft.instruction, form.instruction);
+  assert.deepEqual(body.draft.gitCommit, offered.proposal.draft.gitCommit);
+  assert.match(studio.calls[0].url, /\/draft$/);
+  studio.calls[0].resolve(studio.view); await flushStudio();
+  assert.equal(studio.session._m2Pending.lifecycleId, studio.view.lifecycleId);
+  assert.equal(studio.calls.length, 1, 'generation does not approve execution');
+
+  const foreign = controlledStudio({ pending: false, activeM1: false });
+  foreign.pane._projectWorkProposal = { ...offered, origin: { ...offered.origin, conversationId: 'another' } };
+  assert.equal(foreign.openComposer().instruction, '');
+  assert.equal(foreign.calls.length, 0);
+  assert.equal(foreign.normalizeWorkProposal({ proposal: {}, origin: {} }), null);
+});
 
 test('actual chat entry dispatches M2 cancel despite an active M1 turn and prepared send', async () => {
   const studio = controlledStudio();

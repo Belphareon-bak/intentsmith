@@ -405,7 +405,8 @@ test('5.1 New project with description', () => {
   assertIncludes(welcome, '**TestApp**');
   assertIncludes(welcome, 'webapp');
   assertIncludes(welcome, 'An app for testing.');
-  assertIncludes(welcome, 'Specifikace');
+  assertIncludes(welcome, 'Připravit navržený krok');
+  assertIncludes(welcome, 'samostatně');
   assert(welcome.length <= 600, 'Welcome should be ≤600 chars');
 });
 
