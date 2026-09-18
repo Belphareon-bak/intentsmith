@@ -76,8 +76,9 @@ export async function inspectProject(project, { signal } = {}) {
   const manifest = await buildProjectContextManifest({ projectId: project.id, canonicalRoot },
     { signal, deadlineAt: Date.now() + 15_000 });
   const regular = manifest.entries.filter(entry => entry.kind === 'regular@1');
+  const isTest = name => /(^|\/)(test|tests)\/|\.(test|spec)\.|(^|\/)test_[^/]+\.py$|(^|\/)[^/]+_test\.(py|go)$/.test(name);
   const priority = entry => /(^|\/)(readme[^/]*|package.json|pyproject.toml|cargo.toml|go.mod)$/i.test(entry.path) ? 0
-    : /(^|\/)(test|tests)\//.test(entry.path) ? 1 : 2;
+    : isTest(entry.path) ? 1 : 2;
   const selected = [...regular].sort((a, b) => priority(a) - priority(b) || a.path.localeCompare(b.path));
   const excerpts = [];
   let used = 0;
@@ -97,7 +98,7 @@ export async function inspectProject(project, { signal } = {}) {
   const gaps = [];
   if (names.some(name => /(^|\/)readme/i.test(name))) facts.push('README je přítomné; popis je tvrzení autora, ne ověření funkčnosti.');
   else gaps.push('Chybí README s cílem a postupem spuštění.');
-  if (names.some(name => /(^|\/)(test|tests)\/|\.(test|spec)\./.test(name))) facts.push('Repozitář obsahuje testovací soubory; testy zatím nebyly spuštěné.');
+  if (names.some(isTest)) facts.push('Repozitář obsahuje testovací soubory; testy zatím nebyly spuštěné.');
   else gaps.push('V pozorované části nebyly nalezené testovací soubory.');
   if (names.some(name => /(^|\/)(package.json|pyproject.toml|cargo.toml)$/i.test(name))) facts.push('Je přítomný manifest projektu. Závislosti nebyly instalované.');
   const setup = {};

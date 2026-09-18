@@ -60,6 +60,10 @@ test('foreign repository inspection preserves files and presents scope and goal 
   assert.equal(response.metadata.projectSetupRequired, true);
   assert.match(response.content, /Git základ/);
   assert.deepEqual(await fs.readdir(foreign), before);
+  await fs.writeFile(path.join(foreign, 'test_app.py'), 'def test_add(): assert 1 + 1 == 2\n');
+  const withPythonTest = await inspectProject(imported);
+  assert.ok(withPythonTest.facts.some(fact => fact.includes('testovací soubory')));
+  assert.ok(!withPythonTest.gaps.some(gap => gap.includes('testovací soubory')));
 });
 
 test('inspection refuses escaped links and hard-linked contents', async t => {

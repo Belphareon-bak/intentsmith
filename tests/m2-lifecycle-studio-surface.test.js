@@ -676,3 +676,30 @@ test('project wizard preserves the draft and current sessions when creation is r
     assert.equal(logs.some(row => row.join(' ').includes('Projekt vytvořen:')), false);
   }
 });
+
+test('opening a registered project clears foreign context and ignores stale asynchronous responses', async () => {
+  const calls = [];
+  const session = { _projectId: 1, _convId: 'old-conversation', _agentId: 'old-agent',
+    chat: { msgs: [], _projectWorkProposal: { old: true }, _m2Composer: { old: true } } };
+  const context = vm.createContext({ _sessions: [session], _backendBase: '', AbortSignal,
+    _chatInvalidatePreparedSends() {}, _loadWorkspaceTree() {}, _syncFocusClass() {}, _persistSessionState() {},
+    renderChat() {}, _chatScrollPane() {}, requestAnimationFrame(fn) { fn(); },
+    fetch(url) { return new Promise(resolve => calls.push({ url, resolve(body, status = 200) {
+      resolve({ ok: status >= 200 && status < 300, status, json: async () => body });
+    } })); },
+  });
+  vm.runInContext(functionSlice('_openRegisteredProject', '_wizardCanNext'), context);
+  const first = vm.runInContext('_openRegisteredProject(0,{id:2,name:"External",path:"/external"})', context);
+  assert.equal(session._convId, null); assert.equal(session._agentId, null);
+  assert.equal(session.chat._projectWorkProposal, null); assert.equal(session.chat._m2Composer, null);
+  const second = vm.runInContext('_openRegisteredProject(0,{id:3,name:"Next",path:"/next"})', context);
+  calls[0].resolve({ conversations: [{ id: 'stale', project_id: 2 }] }); await first;
+  assert.equal(calls.length, 2, 'stale response must not even load another history');
+  calls[1].resolve({ conversations: [{ id: 'current', project_id: 3 }] }); await flushStudio();
+  calls[2].resolve([{ role: 'user', content: 'Existing project goal' }]); await second;
+  assert.equal(session._convId, 'current'); assert.equal(session.chat.msgs.at(-1).text, 'Existing project goal');
+  const failed = vm.runInContext('_openRegisteredProject(0,{id:4,name:"Failed",path:"/failed"})', context);
+  calls[3].resolve({ error: 'HTTP failure' }, 500); await failed;
+  assert.equal(session._convId, null); assert.equal(session.chat.msgs.at(-1).tag, 'ERROR');
+  assert.match(session.chat.msgs.at(-1).text, /HTTP failure/);
+});
