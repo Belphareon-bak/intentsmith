@@ -31,7 +31,7 @@ export const MINIMUM_ROLE_TASK_COUNTS = Object.freeze({
   CODE: 6,
   R2: 6,
   CHAT: 40,
-  VISION: 5,
+  VISION: 13,
 });
 
 // A replacement needs a trend, not one lucky task. CHAT keeps stronger
@@ -78,10 +78,21 @@ export function codeGradingRuntimeContract(readSource = readFileSync) {
   });
 }
 
+export function textGradingRuntimeContract(readSource = readFileSync) {
+  const files = ['./role-quality-suites.js', './model-evaluation-runner.js',
+    './fixtures/vision/manifest.json'];
+  return Object.freeze({
+    version: 1, nodeVersion: process.version,
+    sources: Object.freeze(Object.fromEntries(files.map(relative => [relative,
+      createHash('sha256').update(readSource(new URL(relative, import.meta.url))).digest('hex')]))),
+  });
+}
+
 export function createRoleEvaluationPlans(opts = {}) {
   const repeats = opts.repeats ?? DEFAULT_REPEATS;
   const codeFixtureSha256 = opts.codeFixtureSha256 || fileSha256(CODE_FIXTURE_URL);
   const codeGradingRuntime = codeGradingRuntimeContract();
+  const textGradingRuntime = textGradingRuntimeContract();
   const codeRuntime = opts.codeRuntimeAvailability || codePatchRuntimeAvailability();
   const plans = {};
   for (const [role, suiteName] of Object.entries(ROLE_SUITE_NAMES)) {
@@ -92,7 +103,7 @@ export function createRoleEvaluationPlans(opts = {}) {
     const contract = suiteContract(suite, {
       version: suiteVersion,
       repeats,
-      extra: suiteName === 'code_patch' ? { codeFixtureSha256, codeGradingRuntime } : null,
+      extra: suiteName === 'code_patch' ? { codeFixtureSha256, codeGradingRuntime } : { textGradingRuntime },
     });
     const minimumTaskCount = MINIMUM_ROLE_TASK_COUNTS[role];
     const minimumDiscriminatingTasks = MINIMUM_ROLE_DISCRIMINATION[role];
@@ -112,6 +123,7 @@ export function createRoleEvaluationPlans(opts = {}) {
       taskCount: suite.tests.length,
       minimumTaskCount,
       decisionReady: suite.tests.length >= minimumTaskCount
+        && (role !== 'VISION' || new Set(suite.tests.flatMap(t => t.contractMaterial?.prompt?.imageDigests || [])).size >= 10)
         && (role !== 'CODE' || codeRuntime.ready),
       runtimeBlockCode: role === 'CODE' ? codeRuntime.code : null,
       runtimeBlockReason: role === 'CODE' ? codeRuntime.reason : null,

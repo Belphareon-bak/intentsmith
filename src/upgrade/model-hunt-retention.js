@@ -9,7 +9,7 @@ import { trialRole } from './pairwise-trial.js';
 import { ROLE_IMPROVEMENT_THRESHOLDS } from '../eval/role-evaluation-plan.js';
 import { auditResponsibilitySegregation } from './model-upgrade-prototype.js';
 
-export const HUNT_RETENTION_POLICY = 'all-role-loss-or-production-gpu-unfit-v1';
+export const HUNT_RETENTION_POLICY = 'all-role-loss-context-aware-v2';
 const keep = (reason, detail = {}) => ({ eligible: false, reason, ...detail });
 
 export function huntRetentionKey({ inventory, bindings, plans, hardware, providerVersion }) {
@@ -81,7 +81,10 @@ export async function assessHuntRetention(input) {
       return validRun(row, artifact, role, plan, hardware, providerVersion);
     });
     if (contradictory) return keep('RETENTION_PLACEMENT_CONTRADICTED');
-    return { eligible: true, reason: 'RETENTION_PRODUCTION_GPU_UNFIT', policy: HUNT_RETENTION_POLICY,
+    // Failure at the desired production context proves only that placement.
+    // Evaluation and real roles can use smaller contexts. Without measurements
+    // of those contexts, this is not proof that the artifact is useless.
+    return { eligible: false, reason: 'RETENTION_CONTEXT_SPECIFIC_GPU_UNFIT', policy: HUNT_RETENTION_POLICY,
       key, artifact, roles, providerVersion, hardware, placementEvidence: block };
   }
   const trials = [];

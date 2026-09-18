@@ -7,6 +7,7 @@ import {
   chatV3Suite, reasoningV2Suite, reviewV2Suite, visionV2Suite,
 } from '../../src/eval/role-quality-suites.js';
 import { suiteContract } from '../../src/upgrade/model-evaluation-history.js';
+import { textGradingRuntimeContract } from '../../src/eval/role-evaluation-plan.js';
 
 const args = process.argv.slice(2);
 if (args.length && (args.length !== 2 || args[0] !== '--snapshot')) {
@@ -37,9 +38,9 @@ const probes = [
     accepts: score => score < 1,
   },
   {
-    id: 'invented-image-colors-full-credit', suite: visionV2Suite, task: 'vision_dots',
-    response: JSON.stringify({ count: 3, colors: ['red', 'green', 'blue', 'yellow', 'black'] }),
-    expectation: 'Colors absent from the three colored dots must not receive full credit.',
+    id: 'invented-image-colors-full-credit', suite: visionV2Suite, task: 'vision_count',
+    response: JSON.stringify({ total: 5, red: 3, blue: 1, colors: ['red', 'green', 'blue', 'yellow', 'black'] }),
+    expectation: 'Colors absent from the five colored circles must not receive full credit.',
     accepts: score => score < 1,
   },
   {
@@ -74,14 +75,16 @@ const seam = 'const score = clamp01((earned / total) - penalty);';
 let helperContract;
 if (mutantSource.includes(seam)) {
   mutantSource = mutantSource.replace(seam, 'const score = 0;');
+  mutantSource = mutantSource.replaceAll('import.meta.url', JSON.stringify(sourceUrl.href));
   const mutant = await import(`data:text/javascript;base64,${Buffer.from(mutantSource).toString('base64')}`);
-  const observe = suite => ({
-    sha256: suiteContract(suite, { repeats: 3 }).sha256,
+  const observe = (suite, runtime) => ({
+    sha256: suiteContract(suite, { version: suite.version, repeats: 3, extra: { textGradingRuntime: runtime } }).sha256,
     score: suite.tests.find(row => row.name === 'reason_budget')
       .grade('{"discounted":660,"tax":132,"total":792}').score,
   });
-  const original = observe(reasoningV2Suite);
-  const modifiedHelper = observe(mutant.reasoningV2Suite);
+  const original = observe(reasoningV2Suite, textGradingRuntimeContract());
+  const modifiedHelper = observe(mutant.reasoningV2Suite, textGradingRuntimeContract(url =>
+    url.href === sourceUrl.href ? Buffer.from(sourceBytes.toString().replace(seam, 'const score = 0;')) : readFileSync(url)));
   helperContract = { original, modifiedHelper, sourceFileModified: false,
     defectObserved: original.sha256 === modifiedHelper.sha256 && original.score !== modifiedHelper.score };
 } else {

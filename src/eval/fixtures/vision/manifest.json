@@ -1,0 +1,264 @@
+{
+  "version": "vision-synthetic.2",
+  "provenance": {
+    "kind": "synthetic",
+    "generator": "scripts/manual/build-vision-fixtures.py",
+    "pillow": "10.2.0",
+    "fontSha256": "ae7b7855e115a5966d8b1b3f80f254ccc117ec86f9965e202ee2940453837280"
+  },
+  "tasks": [
+    {
+      "name": "vision_color",
+      "image": "color.png",
+      "label": "Barva a jednolitost plochy",
+      "difficulty": "basic",
+      "skill": "color",
+      "question": "Name the dominant color in English. Is the entire image uniform? Return ONLY a JSON object with exactly these fields and types: {\"color\": \"string\", \"uniform\": \"boolean\"}.",
+      "expected": {
+        "color": "red",
+        "uniform": true
+      },
+      "rules": {},
+      "width": 480,
+      "height": 360,
+      "sha256": "43f2c2a13716f365dda375e559322ebb65b4d9f6938945f4fe44824279634442"
+    },
+    {
+      "name": "vision_count",
+      "image": "count.png",
+      "label": "Počet objektů podle barvy",
+      "difficulty": "basic",
+      "skill": "counting",
+      "question": "Count all circles, red circles, and blue circles. List the distinct colors in English; order does not matter. Return ONLY a JSON object with exactly these fields and types: {\"total\": \"number\", \"red\": \"number\", \"blue\": \"number\", \"colors\": \"array of strings\"}.",
+      "expected": {
+        "total": 5,
+        "red": 3,
+        "blue": 1,
+        "colors": [
+          "red",
+          "green",
+          "blue"
+        ]
+      },
+      "rules": {
+        "colors": "set"
+      },
+      "width": 1000,
+      "height": 720,
+      "sha256": "dfadab8d84ae96701978e5df26400f510ea2cd4c1cffd111d513f72a00e2cf25"
+    },
+    {
+      "name": "vision_ring",
+      "image": "ring.png",
+      "label": "Tvar, popředí a pozadí",
+      "difficulty": "basic",
+      "skill": "shape",
+      "question": "Name the shape (choose ring, filled disk, triangle or square), foreground color and background color in English. Return ONLY a JSON object with exactly these fields and types: {\"shape\": \"string\", \"foreground\": \"string\", \"background\": \"string\"}.",
+      "expected": {
+        "shape": "ring",
+        "foreground": "black",
+        "background": "white"
+      },
+      "rules": {
+        "shape": {
+          "aliases": [
+            "circle",
+            "circular ring"
+          ]
+        }
+      },
+      "width": 1000,
+      "height": 720,
+      "sha256": "8136c8a8dbb57b3134983587f1a6cfaedadf0cc6979b3abfe1eff15243bdd640"
+    },
+    {
+      "name": "vision_spatial",
+      "image": "spatial.png",
+      "label": "Prostorové vztahy mezi objekty",
+      "difficulty": "intermediate",
+      "skill": "spatial",
+      "question": "Which label is directly below B, which is directly left of B, and which is directly right of B? Return ONLY a JSON object with exactly these fields and types: {\"below\": \"string\", \"left\": \"string\", \"right\": \"string\"}.",
+      "expected": {
+        "below": "D",
+        "left": "A",
+        "right": "C"
+      },
+      "rules": {},
+      "width": 1000,
+      "height": 720,
+      "sha256": "555c71e965a67785885ef4709dca8a11896ae04f08f529aeadef79623c30cce1"
+    },
+    {
+      "name": "vision_area",
+      "image": "area.png",
+      "label": "Řazení objektů podle plochy",
+      "difficulty": "intermediate",
+      "skill": "size",
+      "question": "List rectangle labels from smallest to largest visible area. Also name the largest. Return ONLY a JSON object with exactly these fields and types: {\"order\": \"array of strings\", \"largest\": \"string\"}.",
+      "expected": {
+        "order": [
+          "P",
+          "R",
+          "Q"
+        ],
+        "largest": "Q"
+      },
+      "rules": {
+        "order": "sequence"
+      },
+      "width": 1000,
+      "height": 720,
+      "sha256": "1a0e0083299edcd218d6093f874e0d984cd8ec3a876d31be5c0595df15b5ebde"
+    },
+    {
+      "name": "vision_invoice",
+      "image": "invoice.png",
+      "label": "České OCR a rozlišení dat faktury",
+      "difficulty": "intermediate",
+      "skill": "ocr",
+      "question": "Read invoice ID, supplier (preserve Czech accents), due date as YYYY-MM-DD, and total as a JSON number in CZK. Do not confuse issue date with due date. Return ONLY a JSON object with exactly these fields and types: {\"id\": \"string\", \"supplier\": \"string\", \"due\": \"string\", \"total\": \"number\"}.",
+      "expected": {
+        "id": "CZ-2026-0418",
+        "supplier": "Žlutý most s.r.o.",
+        "due": "2026-10-02",
+        "total": 12480.5
+      },
+      "rules": {},
+      "width": 1000,
+      "height": 720,
+      "sha256": "6976b87fed3790833beacc91ae3420e9b97d0a08be9bb164b947876bb5120bee"
+    },
+    {
+      "name": "vision_bars",
+      "image": "bars.png",
+      "label": "Odečtení a porovnání hodnot grafu",
+      "difficulty": "intermediate",
+      "skill": "chart",
+      "question": "Read values for B and C, name the highest depot, and compute C minus B. Read the vertical axis. Return ONLY a JSON object with exactly these fields and types: {\"b\": \"number\", \"c\": \"number\", \"highest\": \"string\", \"difference\": \"number\"}.",
+      "expected": {
+        "b": 35,
+        "c": 80,
+        "highest": "C",
+        "difference": 45
+      },
+      "rules": {},
+      "width": 1000,
+      "height": 720,
+      "sha256": "9cd4827acb8d64af68e7174ee56a01859b1bc9a66b698282a85fb0c6eb07ee8f"
+    },
+    {
+      "name": "vision_orders",
+      "image": "orders.png",
+      "label": "Filtrování tabulky a vážený součet",
+      "difficulty": "hard",
+      "skill": "table",
+      "question": "Select only paid orders in East. Return their IDs (any order), sum of quantities, and total price (quantity times unit price, summed). Exclude every unpaid order. Return ONLY a JSON object with exactly these fields and types: {\"ids\": \"array of strings\", \"quantity\": \"number\", \"total\": \"number\"}.",
+      "expected": {
+        "ids": [
+          "A17",
+          "D40",
+          "F62"
+        ],
+        "quantity": 10,
+        "total": 121
+      },
+      "rules": {
+        "ids": "set"
+      },
+      "width": 1000,
+      "height": 720,
+      "sha256": "5225ef2559328e5d1bf6295bbd362adc06c6dd643f5ff7cf9806d6bab495d3f3"
+    },
+    {
+      "name": "vision_lines",
+      "image": "lines.png",
+      "label": "Více řad grafu a podmíněné porovnání",
+      "difficulty": "hard",
+      "skill": "multi_series",
+      "question": "Use values at weekly markers (not interpolated crossings). List weeks when Blue is strictly above Red, give the earliest week of the largest absolute gap and its size, and the Blue value at W3. Return ONLY a JSON object with exactly these fields and types: {\"weeks\": \"array of strings\", \"largest_gap_week\": \"string\", \"gap\": \"number\", \"blue_w3\": \"number\"}.",
+      "expected": {
+        "weeks": [
+          "W2",
+          "W4"
+        ],
+        "largest_gap_week": "W1",
+        "gap": 40,
+        "blue_w3": 40
+      },
+      "rules": {
+        "weeks": "set"
+      },
+      "width": 1000,
+      "height": 720,
+      "sha256": "0aaf1aa3ce9577641e82e28362a2e72c08c775afa662a828b5760ffe9d714007"
+    },
+    {
+      "name": "vision_routes",
+      "image": "routes.png",
+      "label": "Směrový diagram a nejlevnější cesta",
+      "difficulty": "hard",
+      "skill": "diagram",
+      "question": "Find the minimum total cost path from S to T, respecting arrow directions. Return the ordered node labels, total cost, and number of edges on that path. Return ONLY a JSON object with exactly these fields and types: {\"path\": \"array of strings\", \"cost\": \"number\", \"edges\": \"number\"}.",
+      "expected": {
+        "path": [
+          "S",
+          "B",
+          "C",
+          "T"
+        ],
+        "cost": 5,
+        "edges": 3
+      },
+      "rules": {
+        "path": "sequence"
+      },
+      "width": 1000,
+      "height": 720,
+      "sha256": "e9ffa6c5e903329ca9dc44e11a0072528ba3ed5bf3365c24704991849346e1b5"
+    },
+    {
+      "name": "vision_dashboard",
+      "image": "dashboard.png",
+      "label": "Chyby ve filtrovaném přehledu služeb",
+      "difficulty": "hard",
+      "skill": "ui_diagnostics",
+      "question": "The filter should show prod services only. Identify all displayed rows that violate the filter. Among prod rows, count healthy services, name the non-healthy service, and compute how much the header healthy count overstates the correct prod count. Return ONLY a JSON object with exactly these fields and types: {\"wrong_rows\": \"array of strings\", \"healthy_prod\": \"number\", \"non_healthy\": \"string\", \"overstatement\": \"number\"}.",
+      "expected": {
+        "wrong_rows": [
+          "billing"
+        ],
+        "healthy_prod": 3,
+        "non_healthy": "worker",
+        "overstatement": 1
+      },
+      "rules": {
+        "wrong_rows": "set"
+      },
+      "width": 1000,
+      "height": 720,
+      "sha256": "3d1eb5d1bb71f94392e5dc046ed84ed92b0414427253a5c1f08d7b995dce52a8"
+    },
+    {
+      "name": "vision_reconciliation",
+      "image": "reconciliation.png",
+      "label": "Kontrola dokladu včetně slevy a daně",
+      "difficulty": "hard",
+      "skill": "document_reasoning",
+      "question": "Find line items whose printed total differs from quantity times unit price. Correct the subtotal, apply the stated discount, then tax. Return incorrect item names (any order), corrected subtotal, corrected final total and printed final total minus corrected final total. Return ONLY a JSON object with exactly these fields and types: {\"incorrect\": \"array of strings\", \"subtotal\": \"number\", \"final\": \"number\", \"overcharge\": \"number\"}.",
+      "expected": {
+        "incorrect": [
+          "Adapter"
+        ],
+        "subtotal": 190,
+        "final": 205.2,
+        "overcharge": 21.6
+      },
+      "rules": {
+        "incorrect": "set"
+      },
+      "width": 1000,
+      "height": 720,
+      "sha256": "fafc0bf13096294af9c1880b374a60dac40327e67e5a79eb8b4aedc8e549c9b7"
+    }
+  ]
+}

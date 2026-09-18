@@ -27,6 +27,7 @@ import {
   MODEL_EVALUATION_APPLICABILITY_VERSION,
   createRoleEvaluationPlans,
   codeGradingRuntimeContract,
+  textGradingRuntimeContract,
 } from '../src/eval/role-evaluation-plan.js';
 import { generateSyntheticPng, getSyntheticTestImages } from '../src/eval/synthetic-images.js';
 import { MODEL_PROFILES } from '../src/upgrade/model-profiles.js';
@@ -76,11 +77,7 @@ test('CODE reuse pins the actual grader/helper/lock bytes and Node runtime', () 
     assert(hash(changed) !== plans.CODE.suiteContractSha256, `${relative} must invalidate a cached CODE grade`);
   }
   assert(hash({ ...runtime, nodeVersion: 'changed-node-runtime' }) !== plans.CODE.suiteContractSha256);
-  for (const [role, plan] of Object.entries(plans)) {
-    if (role === 'CODE') continue;
-    assertEqual(plan.suiteContractSha256, suiteContract(plan.suite, { version: plan.suiteVersion, repeats: 1, extra: null }).sha256,
-      `${role} retains its existing contract`);
-  }
+
 });
 
 test('unreadable CODE grading material fails closed instead of reusing an unknown grader', () => {
@@ -163,7 +160,10 @@ test('VISION fixtures are complete, valid and cached', () => {
     assertEqual(Buffer.from(image, 'base64').subarray(0, 4).toString('hex'), '89504e47');
   }
   const withImages = visionV2Suite.tests.filter(row => row.prompt().images?.length);
-  assertEqual(withImages.length, 4);
+  assertEqual(withImages.length, 12);
+  assertEqual(new Set(withImages.flatMap(t => t.contractMaterial.prompt.imageDigests)).size, 12);
+  assertEqual(new Set(withImages.map(t => t.skill)).size, 12);
+  assertEqual(withImages.filter(t => t.difficulty === 'hard').length, 5);
   for (const row of withImages) {
     const expected = row.prompt().images.map(image => (
       createHash('sha256').update(Buffer.from(image, 'base64')).digest('hex')
@@ -173,6 +173,81 @@ test('VISION fixtures are complete, valid and cached', () => {
 });
 
 suite('model evaluation runner');
+
+test('all text-role cache identities include the real shared grader and image oracle bytes', () => {
+  const runtime = textGradingRuntimeContract();
+  for (const [role, plan] of Object.entries(plans)) {
+    if (role === 'CODE') continue;
+    const hash = textGradingRuntime => suiteContract(plan.suite, { version: plan.suiteVersion,
+      repeats: 1, extra: { textGradingRuntime } }).sha256;
+    assertEqual(hash(runtime), plan.suiteContractSha256);
+    for (const path of Object.keys(runtime.sources)) {
+      const changed = textGradingRuntimeContract(url => Buffer.concat([readFileSync(url),
+        Buffer.from(url.pathname.endsWith(path.replace(/^\.\//, '')) ? '\nmutation' : '')]));
+      assert(hash(changed) !== plan.suiteContractSha256, `${role}/${path} invalidates reuse`);
+    }
+  }
+  strictAssert.throws(() => textGradingRuntimeContract(() => { throw new Error('missing source'); }), /missing source/);
+});
+
+test('VISION complete-value oracle accepts normalization but rejects negations, stuffing and invented fields', () => {
+  for (const task of visionV2Suite.tests) {
+    const expected = task.contractMaterial.gradingInputs.expected;
+    assertEqual(task.grade(JSON.stringify(expected)).score, 1, task.name);
+    for (const invalid of ['', '{}', task.promptText, 'red green blue black white ring 5 100',
+      'Actually the answer is wrong. '+JSON.stringify(expected),
+      JSON.stringify({ ...expected, contradictory_extra_claim: 'everything else is false' })]) {
+      assertEqual(task.grade(invalid).score, 0, `${task.name}: ${invalid.slice(0, 60)}`);
+    }
+    // Each advertised field contributes once, with no free points for JSON.
+    for (const key of Object.keys(expected)) {
+      const wrong = { ...expected, [key]: null };
+      assert(task.grade(JSON.stringify(wrong)).score < 1, `${task.name}/${key}`);
+    }
+  }
+  const ring = visionV2Suite.tests.find(t => t.name === 'vision_ring');
+  assertEqual(ring.grade('{"shape":"not a ring","foreground":"not black","background":"not white"}').score, 0);
+  assertEqual(ring.grade('{"shape":" Circle ","foreground":"BLACK","background":"white"}').score, 1);
+  const count = visionV2Suite.tests.find(t => t.name === 'vision_count');
+  assertEqual(count.grade('{"total":5,"red":3,"blue":1,"colors":["blue","green","red"]}').score, 1);
+  assertEqual(count.grade('{"total":5,"red":3,"blue":1,"colors":["blue","green","red","yellow"]}').score, .75);
+  assertEqual(count.grade('{"total":5,"red":3,"blue":1,"colors":["red","red","blue"]}').score, .75);
+});
+
+test('VISION hard oracles match independently recomputed pictured quantities and routes', () => {
+  const task = name => visionV2Suite.tests.find(t => t.name === `vision_${name}`);
+  // Independent expected values verified against the committed images.
+  assertEqual(task('orders').grade('{"ids":["F62","A17","D40"],"quantity":10,"total":121}').score, 1);
+  assertEqual(task('routes').grade('{"path":["S","B","C","T"],"cost":5,"edges":3}').score, 1);
+  assertEqual(task('reconciliation').grade('{"incorrect":["Adapter"],"subtotal":190,"final":205.2,"overcharge":21.6}').score, 1);
+  assertEqual(task('lines').grade('{"weeks":["W2","W4"],"largest_gap_week":"W1","gap":40,"blue_w3":40}').score, 1);
+  assertEqual(task('dashboard').grade('{"wrong_rows":["billing"],"healthy_prod":3,"non_healthy":"worker","overstatement":1}').score, 1);
+});
+
+test('review matching penalizes duplicates, wrong lines, false positives and omissions with F1', () => {
+  const task = reviewV2Suite.tests.find(t => t.name === 'review_sql_null');
+  const grade = findings => task.grade(JSON.stringify({ findings }));
+  const a = { kind: 'sql_injection', line: 2 }, b = { kind: 'null_dereference', line: 3 };
+  assertEqual(grade([a, b]).score, 1);
+  strictAssert.ok(Math.abs(grade([a]).score - 2/3) < 1e-12);
+  assertEqual(grade([a, b, a, b]).score, 2/3);
+  assertEqual(grade([{ ...a, line: 200 }, { ...b, line: 300 }]).score, 0);
+  const many = grade([a, b, ...Array(100).fill(a)]);
+  assertEqual(many.detail.truePositive, 2); assertEqual(many.detail.falsePositive, 100);
+  assert(many.score < .04);
+  assertEqual(grade([]).score, 0);
+  assertEqual(task.grade('{"findings":[],"extra":true}').score, 0);
+  const clean = reviewV2Suite.tests.find(t => t.name === 'review_clean');
+  assertEqual(clean.grade('{"findings":[]}').score, 1);
+  assertEqual(clean.grade(JSON.stringify({ findings: [a] })).score, 0);
+});
+
+test('reasoning receives no points for empty JSON or contradictory surrounding prose', () => {
+  const task = reasoningV2Suite.tests.find(t => t.name === 'reason_budget');
+  assertEqual(task.grade('{}').score, 0);
+  assertEqual(task.grade('The answer is 1. {"discounted":660,"tax":132,"total":792}').score, 0);
+  assertEqual(task.grade('{"discounted":660,"tax":132,"total":792}').score, 1);
+});
 
 await testAsync('direct call returns content and metrics', async () => {
   const original = globalThis.fetch;

@@ -1348,7 +1348,7 @@ await testAsync('changed retention conditions release a completed catalog duel o
   db.close();
 });
 
-await testAsync('VISION sends four PNG image requests and one no-image control through the actual runner', async () => {
+await testAsync('VISION sends twelve distinct PNG image requests and one no-image control through the actual runner', async () => {
   const original = globalThis.fetch; const requests = [];
   try {
     globalThis.fetch = async (_url, options) => {
@@ -1360,9 +1360,10 @@ await testAsync('VISION sends four PNG image requests and one no-image control t
     await runner.runSuite('vision_v2', 'qwen3.8:latest', null, {
       modelName: 'qwen3.8:latest', digestSha256: DIGEST_A, providerVersion: '0.34.0',
     });
-    assertEqual(requests.length, 5);
+    assertEqual(requests.length, 13);
     const images = requests.flatMap(r => r.messages.flatMap(m => m.images || []));
-    assertEqual(images.length, 4);
+    assertEqual(images.length, 12);
+    assertEqual(new Set(images).size, 12);
     assert(images.every(i => Buffer.from(i, 'base64').subarray(1, 4).toString() === 'PNG'));
     assertEqual(requests.filter(r => r.messages.every(m => !m.images?.length)).length, 1);
   } finally { globalThis.fetch = original; }
@@ -1382,8 +1383,11 @@ for (const scenario of ['verified-spill', 'transient-error', 'unverified-provide
     if (scenario === 'unverified-provider') block.metadata.provider.version = '0.32.14';
     if (scenario === 'different-context') block.metadata.numCtx = 4096;
     const result = await assessHuntRetention(f);
-    assertEqual(result.eligible, scenario === 'verified-spill');
-    if (result.eligible) assertEqual(result.placementEvidence.runId, 'placement');
+    assertEqual(result.eligible, false);
+    if (scenario === 'verified-spill') {
+      assertEqual(result.reason, 'RETENTION_CONTEXT_SPECIFIC_GPU_UNFIT');
+      assertEqual(result.placementEvidence.runId, 'placement');
+    }
   });
 }
 

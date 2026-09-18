@@ -100,6 +100,9 @@ function taskDetails(row) {
       reason: d.reason || null, syntaxOk: d.syntaxOk, applied: d.applied,
       targetedPassed: d.targetedPassed, targeted: d.targeted, regressions: d.regressions,
       schema: d.schema, parts: d.parts, penalties: d.penalties,
+      precision: d.precision, recall: d.recall, f1: d.f1,
+      truePositive: d.truePositive, falsePositive: d.falsePositive, falseNegative: d.falseNegative,
+      observed: d.observed, expected: d.expected,
     })) }));
 }
 // Presentation only: no prompts, grading rules or contract hashes are changed.
@@ -152,7 +155,7 @@ function taskCatalog(plan) {
     return { name: t.name, label: TASK_LABELS[t.name] || TASK_LABELS[simple] || t.description || t.name.replaceAll('_', ' '),
       type: plan.suiteName === 'code_patch' ? 'Oprava kódu · spuštěné testy' : plan.suiteName === 'review_v2' ? 'Revize kódu'
         : plan.suiteName === 'reasoning_v2' ? 'Analýza a logika' : plan.suiteName === 'vision_v2' ? 'Porozumění obrazu' : 'Konverzace',
-      source: source || null, language: t.language || null,
+      source: source || null, language: t.language || null, difficulty: t.difficulty || null, skill: t.skill || null,
       requirements: g?.failToPass || t.rubric || [], context: g?.context || null };
   });
 }

@@ -1,5 +1,18 @@
 # Modely ve Studiu: filtry, měření a příčina blokace
 
+Aktivní navázání 2026-09-18: podle operátorova rozboru opravit hodnotitele
+strukturovaných odpovědí, F1 lokalizovaných nálezů, identitu sdílených graderů
+a omezení retenčního důkazu na měřený kontext. VISION rozšířit na nejméně
+10 různých obrazových scénářů od základních po složité (nové explicitní zadání).
+Vstupní integrace `3ded30b1` zachovává instalované Studio `576719bf`.
+Vlastněné cesty navíc: `src/eval`, retenční politika, její existující testy
+a výchozí hunt unit; doplnění čitelného katalogu nových úloh. Ověření:
+negativní/pozitivní odpovědi bez GPU, current-contract read model, žádné mazání
+z jediného vyššího kontextu, fyzická VISION evaluace po serializovaném preflightu.
+CHAT volný text a plné quick/full profily navazují až po opravě měřidla;
+nelze je vydávat za dodané zvýšením opakování. Stop: cizí aktivní GPU práce,
+nejasná produkční identita nebo neplatné oracle. Podrobnosti v review packetu.
+
 Autorita: operátorův požadavek a tři snímky z 2026-09-17. Vstup 023af4dd;
 větev work/hunt-model-controls-20260917 v existujícím vlastním checkoutu.
 Výsledek: filtrovat kandidáty podle odhadu VRAM, řadit parametry, spustit

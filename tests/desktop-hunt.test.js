@@ -112,6 +112,8 @@ test('desktop and hunt use one environment, bounded commands, and persistent sch
   const files=renderDesktopInstallation({sourceRoot:'/opt/Intent Smith',node:'/usr/bin/node',dbPath:'/data/user/intentsmith.db',
     configDirectory:'/home/user/.config/intentsmith',stateDirectory:'/home/user/.local/state/intentsmith',icon:'/opt/icon.png'});
   assert.match(files.environment,/INTENTSMITH_DB_PATH="\/data\/user\/intentsmith.db"/);
+  assert.doesNotMatch(files.hunt,/--prune-rejected|--allow-removal/,
+    'installation must preserve the grading-validity pause on unattended removal');
   assert.match(files.environment,/INTENTSMITH_PROJECTS_DIR="\/data\/projects"/);
   const customRoot=renderDesktopInstallation({sourceRoot:'/opt/next-release',node:'/usr/bin/node',dbPath:'/data/user/intentsmith.db',projectsDirectory:'/data/IntentSmith/projects',
     configDirectory:'/home/user/.config/intentsmith',stateDirectory:'/home/user/.local/state/intentsmith',icon:'/opt/icon.png'});
