@@ -120,11 +120,17 @@ obsah zdroje, sám o sobě neznamená ověřenou místní předpověď.
 
 Nastavení má 12 kategorií v samostatné levé nabídce uvnitř středové plochy.
 Hlavní navigace aplikace zůstává vedle ní. Každá kategorie rozděluje skutečné
-ovladače do tematických záložek a kompaktních karet. Šipky vlevo/vpravo a
+ovladače do tematických záložek a kompaktních karet s ikonami. Vedle ovladačů
+je přehled příslušné kategorie: profil, modely, nastavené rozpočty, běhové
+údaje nebo rozsah exportu. V úzkém okně se přesune pod karty. Ukazatele
+rozlišují nastavené limity od skutečně zjištěných provozních hodnot. Šipky vlevo/vpravo a
 Home/End přepínají záložky; křížek v záhlaví vrací do pracovního prostoru.
 
-**Vzhled → Obecné → Studio** přidává chladné tmavé plochy, fialový akcent,
-modré a mátové stavové barvy. Studio podporuje také světlou a systémovou
+**Vzhled → Obecné → Studio** používá chladné tmavé plochy a soustavnou
+paletu: fialová pro výběr, modrá pro nástroje, mátová pro zapnuté stavy a
+úspěch, jantarová pro upozornění, růžová pro chyby a odebrání. Barevné ikony
+rozlišují oblasti navigace; modelové role mají vlastní štítky a stažení
+modelu mátové tlačítko. Studio podporuje také světlou a systémovou
 variantu. Zlatý IntentSmith zůstává výchozí, změna stylu je volitelná.
 Clean zachovává vlastní paletu a Matrix/Japanese/Midnight své efekty.
 
@@ -132,7 +138,9 @@ Clean zachovává vlastní paletu a Matrix/Japanese/Midnight své efekty.
 navigaci, chat, záložky, nastavení, soubory v Monaco, terminál i log.
 Nižší hodnota text zjemňuje, vyšší zvýrazňuje; nula text neschová.
 Mění se vykreslení písma, nikoli průhlednost panelů. Barvy stavů a syntaxe
-zůstávají rozlišené. Živý náhled ukazuje účinek okamžitě. Velikost a rodina
+zůstávají rozlišené. Živý náhled ukazuje strom souborů, chat, kód, terminál a stavové zprávy;
+účinek je vidět okamžitě. Oba posuvníky jsou rychle dostupné také pod
+**Obecné → Intenzita a čitelnost**. Velikost a rodina
 písma jsou na stejné záložce, zvýraznění aktivních ovladačů pod **Barvy a prvky**.
 Toto nastavení neovládá titulkový pruh vykreslovaný operačním systémem ani text
 uvnitř obrázků/PDF. Uloží se do profilu Studia a obnoví po restartu, včetně 0 %.
