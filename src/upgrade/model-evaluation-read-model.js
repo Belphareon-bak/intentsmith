@@ -113,7 +113,7 @@ function taskCatalog(plan) {
   });
 }
 
-function decodeCurrentRow(row) {
+function decodeCurrentRow(row, includeTasks = true) {
   if (!row) return null;
   const interval = decodedInterval(row);
   return Object.freeze({
@@ -125,7 +125,7 @@ function decodeCurrentRow(row) {
     passed: Number(row.passed),
     total: Number(row.total),
     repeats: Number(row.repeats),
-    tasks: Object.freeze(taskDetails(row)),
+    tasks: includeTasks ? Object.freeze(taskDetails(row)) : undefined,
     ...interval,
     errorCode: row.error_code || null,
     errorMessage: row.error_message || null,
@@ -411,7 +411,7 @@ export class ModelEvaluationReadModel {
         }),
         history: Object.freeze(this._db.prepare(`SELECT *, json_extract(metadata_json, '$.provider.version') AS provider_version
           FROM model_evaluation_runs ORDER BY completed_at DESC, rowid DESC LIMIT 200`).all().map(row => ({
-            ...decodeCurrentRow(row), model: row.model_name, role: row.role, digestSha256: row.model_digest_sha256,
+            ...decodeCurrentRow(row, false), model: row.model_name, role: row.role, digestSha256: row.model_digest_sha256,
             suiteName: row.suite_name, suiteContractSha256: row.suite_contract_sha256,
             current: models.some(m => m.digestSha256 === row.model_digest_sha256 && m.evaluations[row.role]?.runId === row.run_id),
           }))),
