@@ -1,6 +1,7 @@
 # Model workspace: task details, catalogue and operational evidence
 
-Status: IMPLEMENTATION_VERIFIED / INSTALLATION_PENDING / REVIEW_PENDING.
+Status: **INSTALLED_DETAILS_VERIFIED / REVIEW_PENDING**.
+Installed product source: `2ca3cca179d81f2c23dbf5d556142c678eb642e2`.
 Authority: the operator's eight follow-up requests of 2026-09-18, after
 `f5c5ccad`. This is a bounded UI/read-model/catalogue repair, not a new scoring
 policy or a claim that a seven-task benchmark measures general coding ability.
@@ -117,3 +118,43 @@ ascending quality sort and the 7-task × 3-repeat confirmation. A separate
 controlled HTTP 503 on the historical detail was disclosed and recovered through
 Zkusit znovu. Screenshots were scrolled to the actual expanded detail, rather
 than merely capturing an unrelated part of the tab.
+
+## Final installed evidence
+
+The second clean-source offline/database profile on `2ca3cca1` finished
+**358 PASS / 1 FAIL / 0 BLOCKED / 0 TIMEOUT**. The sole failure is
+`IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST`: registry hash differs from the
+reviewed Gate 0 policy. This remains a FAIL, not a globally green release.
+
+A clean detached snapshot was built and installed with the existing SQLite DB
+and PDF runtime. The diagnostic Electron journey then exercised all seven tabs
+against the actual installed backend, sorted roles and scores, followed a local
+alternative, opened the Coder task breakdown, read the exact older 28.6% run,
+filtered VISION/2026, ran a fresh Governor check, and cancelled the explicit
+7 × 3 test confirmation. The first installed journey raced the asynchronous
+Governor tab mount; it is retained as FAIL. The next journey waits for an enabled
+button and passed. The initially cached old Governor report was replaced by the
+normal explicit check; no synthetic evaluation records were inserted.
+
+Final API: **82 candidate entries, 26 VISION-eligible, 13 dated in 2026,
+7 without a verified date**. Eligibility is metadata preselection, not a quality
+or GPU-fit verdict. Missing dates are explicit. All six Governor sources are
+READY, with three numeric dimensions and three unscored activity states.
+
+Before/after hashes match for all **516 evaluation runs, 234 decisions and
+7 desired bindings**. Backend PID 1198467 / port 40295 serves the new installation.
+The timer is enabled/active; next scheduled tick at the recorded checkpoint is
+2026-09-19 03:12:48 CEST. No model pull, deletion, rebinding or GPU inference was
+performed by this UI change. Governor's report and ordinary API observability
+are expected writes. User Studio PID 1059862 and foreign soak PID 15110 remained
+running.
+
+**Save work, close the existing Studio window and reopen the application icon.**
+Its already-loaded frontend is preserved and does not become the new bundle in
+place. Independent acceptance and the inherited release-seal repair remain open.
+The separate quick/full benchmark design is not implemented by this change.
+
+Private evidence archive: `/home/belphareon/Projects/coworker/intentsmith-model-details-sha256-ccc8f0122a7e008636406ec297840d6ccf81bb9e62bba205ab990f472d74c65e.tar.gz`.
+SHA-256 `ccc8f0122a7e008636406ec297840d6ccf81bb9e62bba205ab990f472d74c65e`; 858 member hashes verified.
+Includes complete product source tar and a delta git bundle requiring `f5c5ccad`.
+The archived report predates this checksum footer. [Machine receipt](../execution/runs/model-details-20260918.json).
