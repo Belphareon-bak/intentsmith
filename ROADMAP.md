@@ -1,5 +1,11 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**Detail měření a kandidáti, 2026-09-18:** navazuje na osm požadavků operátora.
+Řazení tabulek, rozpad úloh, konkrétní historické měření, aktualizovaný multimodální
+katalog a opravené zdroje Správce. Řízený Electron 7/7 záložek; instalace a úplný
+profil ještě čekají. Šest dostupných zdrojů není šest doložených kvalitativních
+měření. [Rozsah a evidence](docs/review/2026-09-18-MODEL-DETAILS.md). REVIEW_PENDING.
+
 **Obnova modelového pracoviště, 2026-09-18:** operátor znovu otevřel vadu po
 restartu backendu: HTTP zůstávalo na starém portu i po úspěšném WS reconnectu.
 Instalováno `9f9ed339`; 7/7 záložek ověřeno při nedostupných datech i po rotaci

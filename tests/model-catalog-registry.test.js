@@ -79,6 +79,16 @@ test('Catalog never carries quality scores', () => {
   }
 });
 
+test('refreshed 2026 multimodal catalogue keeps dated provenance separate from quality', () => {
+  for (const name of ['qwen3.5:27b','qwen3.6:27b','qwen3.8:27b','gemma4:12b','qwen3-vl:8b']) {
+    const entry=getCatalogEntry(name);assert(entry,name);assert(entry.capabilities.includes('vision'),name);
+    assert(entry.releaseDateSource.startsWith('https://'));assertEqual(entry.metadataVerifiedAt,'2026-09-18');
+  }
+  assertEqual(getCatalogEntry('qwen3.5:27b').releaseDate,'2026-02-24');
+  assertEqual(getCatalogEntry('devstral-small-2:24b').releaseDate,'2025-12-09');
+  assert(getCatalogEntry('llama3.2-vision:11b'));assertEqual(getCatalogEntry('llama3.2:11b'),null);
+});
+
 test('Supersedes chains are valid', () => {
   const names = new Set(CATALOG.map(e => e.name));
   const supersedesValues = CATALOG.filter(e => e.supersedes).map(e => e.supersedes);

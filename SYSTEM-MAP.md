@@ -1,5 +1,11 @@
 # IntentSmith — mapa systému
 
+**Detail měření a kandidáti, 2026-09-18:** navazuje na osm požadavků operátora.
+Řazení tabulek, rozpad úloh, konkrétní historické měření, aktualizovaný multimodální
+katalog a opravené zdroje Správce. Řízený Electron 7/7 záložek; instalace a úplný
+profil ještě čekají. Šest dostupných zdrojů není šest doložených kvalitativních
+měření. [Rozsah a evidence](docs/review/2026-09-18-MODEL-DETAILS.md). REVIEW_PENDING.
+
 **Obnova modelového pracoviště, 2026-09-18:** operátor znovu otevřel vadu po
 restartu backendu: HTTP zůstávalo na starém portu i po úspěšném WS reconnectu.
 Instalováno `9f9ed339`; 7/7 záložek ověřeno při nedostupných datech i po rotaci
@@ -276,8 +282,8 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **225 336 ř.**, 630 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **246 789 ř.**, 532 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **225 473 ř.**, 630 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **246 862 ř.**, 532 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **524** (`430 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 101** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |

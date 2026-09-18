@@ -120,7 +120,7 @@ function ruleBuildQualityLow(dims) {
 // ── R4: CRE Accuracy Low ─────────────────────────────────────────────────────
 function ruleCRELow(dims) {
   const c = dims.cre;
-  if (!c || c.status === 'UNKNOWN') return null;
+  if (!c || !Number.isFinite(c.score)) return null;
   if (c.score >= 0.80) return null;
 
   const overrideRate = c.details?.override_rate ?? 0;
@@ -189,7 +189,7 @@ function ruleModelUnvalidated(dims) {
 // ── R7: Specialist Failing ────────────────────────────────────────────────────
 function ruleSpecialistFailing(dims) {
   const s = dims.specialists;
-  if (!s || s.status === 'UNKNOWN') return null;
+  if (!s || !Number.isFinite(s.score)) return null;
   if (s.score >= 0.70) return null;
 
   const successPct = Math.round(s.score * 100);

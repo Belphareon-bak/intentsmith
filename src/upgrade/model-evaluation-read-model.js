@@ -99,17 +99,61 @@ function taskDetails(row) {
     rubric: t.rubric || [], details: (t.details || []).map(d => d && ({
       reason: d.reason || null, syntaxOk: d.syntaxOk, applied: d.applied,
       targetedPassed: d.targetedPassed, targeted: d.targeted, regressions: d.regressions,
+      schema: d.schema, parts: d.parts, penalties: d.penalties,
     })) }));
 }
+// Presentation only: no prompts, grading rules or contract hashes are changed.
+const TASK_LABELS = {
+  patch_8cae1b583963: 'Ochrana přiřazených modelů při úklidu',
+  patch_0fe346cc820c: 'Souběh inference a změny modelu',
+  patch_6fc5e4eb7dce: 'Ochrana modelu během práce s VRAM',
+  patch_ef4ae48ec16e: 'Jistota rozhodnutí při porovnání modelů',
+  patch_e8cdbe02e5de: 'Uložení odpovědi, chyby a zrušení',
+  patch_22149f55b861: 'Uvolnění časovače po úspěšné odpovědi',
+  patch_adb1258cfec0: 'Uvolnění časovače při síťové chybě',
+  repo_audit_error_envelope: 'Rozpoznání neúspěšného auditu',
+  repo_history_late_guard: 'Chyba v historii před pozdní kontrolou',
+  repo_history_early_guard: 'Ochrana historie včasnou kontrolou',
+  repo_immutable_refinement: 'Zápis do neměnného výsledku',
+  reason_budget: 'Výpočet rozpočtu a daně', reason_order: 'Pořadí závislých kroků',
+  reason_critical_path: 'Kritická cesta a délka plánu', reason_table: 'Porovnání hodnot v tabulce',
+  reason_sets: 'Průniky a rozdíly množin', reason_rate: 'Rychlost práce a doba dokončení',
+  reason_logic: 'Logický úsudek', reason_transform: 'Vícekroková transformace',
+  review_sql_null: 'SQL injection a prázdná hodnota', review_path_async: 'Bezpečnost cest a asynchronní volání',
+  review_command_secret: 'Příkazová injekce a únik tajemství', review_bounds_resource: 'Meze indexů a únik prostředků',
+  review_auth_race: 'Obcházení oprávnění a souběh', review_clean: 'Správný kód bez falešných nálezů',
+  vision_red: 'Barva a jednolitost obrazu', vision_dots: 'Počet objektů a barvy',
+  vision_ring: 'Tvar, popředí a pozadí', vision_dots_cz: 'Počet a barvy v češtině',
+  vision_no_image: 'Přiznání chybějícího obrázku',
+  grounded_summary: 'Shrnutí podle podkladů', action_email: 'Pracovní e-mail s úkolem',
+  context_correction: 'Zapracování opravy kontextu', missing_context: 'Doplnění chybějícího zadání',
+  structured_extraction: 'Extrakce údajů do JSON', translation_from_czech: 'Překlad z češtiny',
+  instruction_priority: 'Priorita pokynů', state_updates: 'Aktualizace stavu',
+  capability_boundary: 'Přiznání mezí přístupu', exact_markdown_table: 'Přesná tabulka Markdown',
+  professional_rewrite: 'Profesionální přeformulování', conditional_action: 'Výběr podmíněné akce',
+  exact_csv: 'Přesný CSV výstup', ambiguous_reference: 'Vyjasnění nejednoznačného odkazu',
+  completion_vs_verification: 'Rozlišení dokončení a ověření', quantifier_scope: 'Počty a rozsah tvrzení',
+  evidence_boundary: 'Oddělení důkazu od domněnky', exact_yaml: 'Přesný YAML výstup',
+  multi_correction: 'Více oprav zadání', neutral_escalation: 'Věcná eskalace',
+  inclusion_exclusion: 'Zahrnutí a vyloučení položek', coherent_status_paragraph: 'Souvislá zpráva o stavu',
+  customer_delay_explanation: 'Vysvětlení zpoždění zákazníkovi', grounded_comparison_paragraph: 'Porovnání podle podkladů',
+  exact_bullets: 'Přesné odrážky', professional_reply: 'Profesionální odpověď',
+  declension: 'Skloňování jmen', plural_agreement: 'Shoda v množném čísle', formal_register: 'Formální vyjadřování',
+  ambiguity_clarification: 'Vyjasnění zadání', vocative_request: 'Oslovení a žádost',
+  double_negation_counts: 'Dvojitý zápor a počty', grammar_correction: 'Oprava české gramatiky',
+  numeral_cases: 'Číslovky a pády', relative_pronoun: 'Vztažná věta',
+  conditional_deadline: 'Podmíněný termín', customer_explanation_paragraph: 'Souvislé vysvětlení zákazníkovi',
+};
 function taskCatalog(plan) {
   return (plan.suite?.tests || []).map(t => {
     const g = t.contractMaterial?.gradingInputs;
     const source = typeof g?.source === 'string' ? g.source : g?.source?.path;
-    const spans = (g?.spans || []).map(s => s.name || s.header).filter(Boolean).join(', ');
-    return { name: t.name, label: source ? source + (spans ? ' · ' + spans : ' · ' + t.name.replaceAll('_', ' '))
-      : t.description || t.name.replaceAll('_', ' '), language: t.language || null,
+    const simple = t.name.replace(/^(?:reason|review)_(?=repo_)/, '').replace(/^(?:en|cz)_/, '');
+    return { name: t.name, label: TASK_LABELS[t.name] || TASK_LABELS[simple] || t.description || t.name.replaceAll('_', ' '),
+      type: plan.suiteName === 'code_patch' ? 'Oprava kódu · spuštěné testy' : plan.suiteName === 'review_v2' ? 'Revize kódu'
+        : plan.suiteName === 'reasoning_v2' ? 'Analýza a logika' : plan.suiteName === 'vision_v2' ? 'Porozumění obrazu' : 'Konverzace',
+      source: source || null, language: t.language || null,
       requirements: g?.failToPass || t.rubric || [], context: g?.context || null };
-
   });
 }
 
@@ -271,6 +315,28 @@ export class ModelEvaluationReadModel {
       'model evaluation run/decision migrations are not applied',
       { httpStatus: 503 },
       );
+    }
+  }
+
+  readRun(runId) {
+    if (typeof runId !== 'string' || runId.length > 200) {
+      throw new ModelEvaluationReadError('INVALID_RUN_ID', 'Invalid evaluation ID', { httpStatus: 400 });
+    }
+    try {
+      const row = this._db.prepare(`SELECT *, json_extract(metadata_json, '$.provider.version') AS provider_version
+        FROM model_evaluation_runs WHERE run_id = ?`).get(runId);
+      if (!row) throw new ModelEvaluationReadError('EVALUATION_NOT_FOUND', 'Měření nebylo nalezeno.', { httpStatus: 404 });
+      const plan = this._plans[row.role];
+      const exact = plan && row.suite_name === plan.suiteName && row.suite_version === plan.suiteVersion
+        && row.suite_contract_sha256 === plan.suiteContractSha256;
+      return Object.freeze({ ...decodeCurrentRow(row), model: row.model_name, role: row.role,
+        digestSha256: row.model_digest_sha256, suiteName: row.suite_name, suiteVersion: row.suite_version,
+        suiteContractSha256: row.suite_contract_sha256, tokensPerSecond: row.tokens_per_second,
+        taskCatalog: exact ? taskCatalog(plan) : [], catalogMatchesContract: Boolean(exact),
+      });
+    } catch (error) {
+      if (error instanceof ModelEvaluationReadError) throw error;
+      throw new ModelEvaluationReadError('MODEL_EVALUATION_DB_READ_FAILED', 'Detail měření nelze načíst.', { cause: error, httpStatus: 503 });
     }
   }
 

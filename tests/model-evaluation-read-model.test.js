@@ -540,6 +540,23 @@ test('schema absence fails closed with typed 503', () => {
   db.close();
 });
 
+test('historical detail uses the exact requested run and preserves failed grading checks', () => {
+  const db = database(), plans = createRoleEvaluationPlans();
+  db.exec("ALTER TABLE model_evaluation_runs ADD COLUMN task_results_json TEXT DEFAULT '[]'");
+  insert(db, { runId:'older', digest:DIGEST, plan:plans.CODE, score:.114 });
+  insert(db, { runId:'newer', digest:DIGEST, plan:plans.CODE, score:.9 });
+  const tasks=[{name:'patch_e8cdbe02e5de',mean:.8,scores:[.8,.8,.8],details:[{targetedPassed:4,targeted:5,schema:true,parts:[{id:'fails',ok:false}],penalties:[{id:'regression'}]}]}];
+  db.prepare('UPDATE model_evaluation_runs SET task_results_json=? WHERE run_id=?').run(JSON.stringify(tasks),'older');
+  const read=new ModelEvaluationReadModel(db,{plans});
+  const old=read.readRun('older'); assertEqual(old.score,.114); assertEqual(old.tasks[0].details[0].targetedPassed,4);
+  assertEqual(old.tasks[0].details[0].parts[0].ok,false); assertEqual(old.catalogMatchesContract,true);
+  assert(old.taskCatalog.some(t=>t.label==='Uložení odpovědi, chyby a zrušení'));
+  db.prepare('UPDATE model_evaluation_runs SET suite_contract_sha256=? WHERE run_id=?').run('f'.repeat(64),'older');
+  assertEqual(read.readRun('older').catalogMatchesContract,false);assertEqual(read.readRun('older').taskCatalog.length,0);
+  let missing;try{read.readRun("older' OR 1=1 --");}catch(e){missing=e;}
+  assertEqual(missing.httpStatus,404);db.close();
+});
+
 const studioSource = readFileSync(new URL('../c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js', import.meta.url), 'utf8');
 function studioFunction(name, endMarker) {
   const start = studioSource.indexOf('function ' + name + '(');
@@ -557,7 +574,7 @@ test('quality tables separate role scores from chronological provider evidence',
       {runId:'old',model:'historical:1',role:'R2',status:'BLOCKED',score:null}],roles:{R2:{suiteName:'review_v2',tasks:[{name:'alpha',label:'Review actual defect'}],
       artifacts:[{model:'measured:1',status:'COMPLETE',score:.75,tasks:[{name:'alpha',mean:.75,spread:0,scores:[.75,.75,.75]}]},
         {model:'historical:1',status:'BLOCKED',score:null}]}}},
-    C:{},_fs:n=>n,h:(tag,props,...children)=>({tag,props,children}),
+    C:{},_rgba:()=>'',_fs:n=>n,h:(tag,props,...children)=>({tag,props,children}),
   };
   const helpers=studioSource.slice(studioSource.indexOf('function _modelButtonStyle('),studioSource.indexOf('var _huntData='));
   const quality=JSON.stringify(runInNewContext(helpers+render+';_renderEvaluationsTab()',context));
