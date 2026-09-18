@@ -559,6 +559,11 @@ export class ModelRegistry {
 
   // ─── Computed ──────────────────────────────────────────────────────────────
 
+  getEvaluationRun(runId) {
+    if (!this._evaluationReadModel) registryFail('MODEL_EVALUATION_READ_AUTHORITY_REQUIRED', 'Evaluation history unavailable', 503);
+    return this._evaluationReadModel.readRun(runId);
+  }
+
   async getEvaluations(installedInput = null) {
     if (!this._evaluationReadModel || typeof this._evaluationReadModel.read !== 'function') {
       registryFail(

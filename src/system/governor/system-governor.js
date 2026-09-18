@@ -104,7 +104,8 @@ class SystemGovernor {
     // Idempotency: skip if minimal change and recent
     if (this._lastReport && (now - this._lastRunTime < IDEMPOTENT_TIME_MS)) {
       const delta = Math.abs(analysis.overallScore - this._lastReport.overallScore);
-      if (delta < IDEMPOTENT_SCORE_DELTA) {
+      const evidence = dimensions => JSON.stringify(Object.fromEntries(Object.entries(dimensions || {}).map(([key, d]) => [key, { score:d.score, status:d.status, collectorStatus:d.collectorStatus, details:d.details }])));
+      if (delta < IDEMPOTENT_SCORE_DELTA && evidence(analysis.dimensions) === evidence(this._lastReport.dimensions)) {
         // Quick check: would any new rules fire?
         const proposals = improvementPlanner.evaluate(analysis, this._db);
         const newRuleIds = new Set(proposals.map(p => p.rule_id));

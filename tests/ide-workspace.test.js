@@ -148,3 +148,13 @@ test('split terminal rendering never steals focus; explicit focus stays with its
   c._focusTerminalInput(1,c._sessions[1]);c._sessions[1]=c._mkSession();timers.shift()();assert.equal(focused.length,0);
   c._focusTerminalInput(1,c._sessions[1]);timers.shift()();assert.deepEqual(focused,['intentsmith-term-input-1']);
 });
+
+test('restoring an inactive project reloads its missing tree exactly once on activation',()=>{
+  const c=harness(),reads=[];Object.assign(c,{PROJECTS:[{id:17,path:'/project'}],
+    _loadWorkspaceTree:(root,idx)=>{reads.push({root,idx});c._sessions[idx]._treeLoading=true;}});
+  vm.runInContext(fn('_ensureWorkspaceTree'),c);
+  c._sessions[1]._projectId=17;c._perSessionTree[1]={wtRoot:'/project',rawTree:null,files:[]};
+  c._ensureWorkspaceTree(1);c._ensureWorkspaceTree(1);assert.deepEqual(reads,[{root:'/project',idx:1}]);
+  c._sessions[1]._treeLoading=false;c._perSessionTree[1].rawTree=[];c._ensureWorkspaceTree(1);assert.equal(reads.length,1);
+  c._perSessionTree[1].rawTree=null;c._sessions[1]._closed=true;c._ensureWorkspaceTree(1);assert.equal(reads.length,1);
+});

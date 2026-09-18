@@ -73,3 +73,23 @@ mutací, odmítnutí opožděných odpovědí. Ověřit skutečné otevřené El
 rotaci portu i capability, všech sedm záložek před/po a výpadek při prvním
 načtení. Integrovat již instalované project-flow změny 5e46fca7; zachovat
 uživatelův otevřený projekt, rozepsané vstupy i cizí soak.
+
+Náprava nainstalována `9f9ed339`: řízená obnova 7/7 a obnova 7/7 nad živou DB
+prošly, historie a bindingy nezměněné. Celý profil 357 PASS / 2 FAIL;
+LOC dokumentace opraveno a artifact suite 160/160, zbývá release pečeť.
+INSTALLED_RECOVERY_VERIFIED / REVIEW_PENDING. Staré uživatelovo okno ponecháno;
+nový frontend načte nové spuštění ikonou.
+[Navazující review](../review/2026-09-18-MODEL-WORKSPACE-RECONNECT.md).
+
+Navazující zadání operátora 2026-09-18 odpoledne; vstup f5c5ccad, instalace
+9f9ed339, čistý vlastní checkout. Zpřehlednit řádky, alternativy rolí,
+řazení, věcný detail jednotlivých testů a historických měření; vysvětlit
+omezený rozsah a délku CODE testu. Opravit zastaralý katalog (včetně VISION
+2026 a provenience vydání) a skutečné zdroje šesti diagnostik Správce.
+Rozsah navíc: catalog/discovery route, governor analyzers a související
+existující testy. Neměnit skórovací prahy, nefalšovat datum ani provozní
+vzorky, neměnit bindingy či cizí projekty. Důkaz: API nad živou DB, offline
+pozitivní i negativní regrese, build a skutečný Electron proklik řazení,
+detailů včetně historie a chybových stavů. Nové důkazy samostatně v
+coworker/intentsmith-model-details-20260918. Instalace/commit/push v rámci
+trvajícího zadání. Nezávislé review zůstává oddělené.

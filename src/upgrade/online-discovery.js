@@ -478,7 +478,7 @@ export class OnlineDiscovery {
       // Skip if already discovered
       if (discoveredNames.has(fullName)) return false;
       // Skip if no params could be parsed
-      if (!t.params) return false;
+      if (!t.params || /(?:^|-)(?:mlx|cloud)(?:-|$)/i.test(t.tag)) return false;
       return true;
     });
   }

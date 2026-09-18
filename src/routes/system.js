@@ -1267,8 +1267,9 @@ export function createSystemRoutes({
         const vramBudgetMb = gpuVramMb > 0 ? Math.round(gpuVramMb * 0.8) : null;
 
         const merged = new Map();
-        for (const [source, entries] of [['CATALOG', CATALOG], ['ONLINE_DISCOVERY', discovered]]) {
+        for (const [source, entries] of [['ONLINE_DISCOVERY', discovered], ['CATALOG', CATALOG]]) {
           for (const entry of entries || []) {
+            if (/(?:-cloud|-mlx)(?:$|:)/i.test(entry.name)) continue;
             const canonical = canonicalModelName(entry.name);
             if (!canonical) continue;
             const previous = merged.get(canonical);
@@ -1284,6 +1285,8 @@ export function createSystemRoutes({
               contextWindow: entry.contextWindow ?? previous?.contextWindow ?? null,
               capabilities: entry.capabilities || previous?.capabilities || [],
               releaseDate: entry.releaseDate || previous?.releaseDate || null,
+              releaseDateSource: entry.releaseDateSource || previous?.releaseDateSource || null,
+              metadataVerifiedAt: entry.metadataVerifiedAt || previous?.metadataVerifiedAt || null,
               discoveredAt: entry.discoveredAt || previous?.discoveredAt || null,
               sources: [...new Set([...(previous?.sources || []), source])],
             });
@@ -1370,6 +1373,16 @@ export function createSystemRoutes({
         sendJSON(res, 200, overview);
       } catch (err) {
         sendJSON(res, 500, { error: err.message });
+      }
+    },
+
+    'GET /api/system/models/evaluations/:runId': async (req, res) => {
+      try {
+        if (!modelRegistry) return sendJSON(res, 503, { error: 'Evaluation history authority unavailable' });
+        const runId = req.params?.runId || decodeURIComponent(req.url.split('?')[0].split('/').pop());
+        return sendJSON(res, 200, modelRegistry.getEvaluationRun(runId));
+      } catch (error) {
+        sendJSON(res, error.httpStatus || 503, { error: error.message, code: error.code });
       }
     },
 

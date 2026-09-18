@@ -359,14 +359,16 @@ function _switchSession(newIdx){
   _sessionActive=newIdx;
   _editorState=_sessions[newIdx]._editor||(_sessions[newIdx]._editor={active:false,tabs:[],activeTabId:null,scrollRaf:null});
   _loadTreeState(newIdx);
-  /* v64.5: If target session has a project but no tree data, load project tree */
-  var s=_sessions[newIdx];
-  if(s&&s._projectId&&!_wtRoot){
-    var proj=PROJECTS.find(function(p){return p.id===s._projectId;});
-    if(proj&&proj.path){_wtRoot=proj.path;_loadWorkspaceTree(proj.path);}
-  }
+  _ensureWorkspaceTree(newIdx);
   /* v92: Sync focus mode class — layout derives from new session's specialist */
   _syncFocusClass();renderCenter();renderChat();renderAgent();
+}
+/* A restored inactive tab has only a root, not a loaded tree. */
+function _ensureWorkspaceTree(idx){
+  var s=_sessions[idx],cached=_perSessionTree[idx];if(!s||s._closed||s._treeLoading)return;
+  if(cached&&cached.rawTree!==null&&cached.rawTree!==undefined)return;
+  var proj=s._projectId&&PROJECTS.find(function(p){return p.id===s._projectId;});
+  var root=(proj&&proj.path)||(cached&&cached.wtRoot);if(root)_loadWorkspaceTree(root,idx);
 }
 /* ── Flatten nested tree respecting collapsed state ── */
 function _flattenTree(nodes,depth,parentPath,collapsed){
@@ -386,7 +388,7 @@ function _flattenTree(nodes,depth,parentPath,collapsed){
 function _loadWorkspaceTree(rootPath,ownerIdx){
   if(!rootPath)return;
   var idx=typeof ownerIdx==='number'?ownerIdx:_sessionActive,s=_sessions[idx];if(!s||s._closed)return;
-  var token={};s._treeLoadToken=token;
+  var token={};s._treeLoadToken=token;s._treeLoading=true;
   _perSessionTree[idx]={wtRoot:rootPath,collapsedDirs:{},rawTree:null,files:[]};
   if(idx===_sessionActive){_wtRoot=rootPath;_wtLoading=true;renderSidebar();}
   function current(){return _sessions[idx]===s&&!s._closed&&s._treeLoadToken===token;}
@@ -394,12 +396,13 @@ function _loadWorkspaceTree(rootPath,ownerIdx){
   .then(function(r){if(!r.ok)throw Error('Strom projektu nelze načíst.');return r.json();})
   .then(function(data){
     if(!current())return;
+    s._treeLoading=false;
     if(data.tree){
       var collapsed={};data.tree.forEach(function(node){if(node.d)collapsed[node.n]=true;});
       _perSessionTree[idx]={wtRoot:data.root||rootPath,rawTree:data.tree,collapsedDirs:collapsed,files:_flattenTree(data.tree,0,null,collapsed)};
     }
     if(idx===_sessionActive){_wtLoading=false;_loadTreeState(idx);_fetchGitStatus();}
-  }).catch(function(){if(current()&&idx===_sessionActive){_wtLoading=false;renderSidebar();}});
+  }).catch(function(){if(current()){s._treeLoading=false;if(idx===_sessionActive){_wtLoading=false;renderSidebar();}}});
 }
 /* ── Fetch git status and merge into file entries ── */
 var _gitStatusTimer=null;
@@ -2476,7 +2479,9 @@ function _openModelTests(model){
 }
 function _testInstalledModel(model,role){
   if(_modelTestPending)return;
-  if(!confirm('Otestovat '+model+' pro roli '+role+'? Použije GPU, uloží skóre a ponechá přiřazení rolí. Provede nové měření; předchozí výsledky zůstanou v historii.'))return;
+  var plan=typeof _evaluationData!=='undefined'&&_evaluationData&&_evaluationData.roles&&_evaluationData.roles[role];
+  var scope=plan?' Celá aktuální sada: '+plan.taskCount+' úloh × '+plan.repeats+' opakování.':'';
+  if(!confirm('Otestovat '+model+' pro roli '+role+'?'+scope+' Použije GPU, uloží skóre a ponechá přiřazení rolí. Provede nové měření; předchozí výsledky zůstanou v historii.'))return;
   _huntSubmittedAt=Date.now();_modelTestPending=true;_modelTestMessage=null;_modelTestTarget={model:model,role:role};_modelTestFailed=false;renderCenter();
   fetch(_backendUrl()+'/api/system/models/evaluations',{signal:AbortSignal.timeout(15000)})
     .then(function(r){if(!r.ok)throw new Error('Nelze ověřit aktuální modely');return r.json();})
@@ -3032,6 +3037,7 @@ function _readModelResource(path,loaded,failed,finished,timeout){
 }
 function _resetModelReads(){
   _modelReadEpoch++;
+  _historyDetails={};_historyExpanded={};
   _upgradeLoading=_evaluationLoading=_modelOverviewLoading=_discoveredLoading=_governorLoading=_huntLoading=_installedLoading=false;
   _upgradeData=_evaluationData=_modelOverview=_discoveredData=_governorData=_governorProposals=_installedModels=null;
   _governorError=null;_huntData=null;_huntError=null;
@@ -3199,11 +3205,12 @@ function _loadDiscoveredData(){
   return _readModelResource('/api/system/models/candidates',function(d){_discoveredData=d;},
     function(error){_discoveredData={error:error};},function(){_discoveredLoading=false;});
 }
-var _candidateFilter={fit:'fit',sort:'params-desc',budgetGiB:''};
+var _candidateFilter={fit:'fit',sort:'releaseDate-desc',budgetGiB:'',role:'all'};
 function _filteredCandidates(data){
   var budget=_candidateFilter.budgetGiB!==''?Number(_candidateFilter.budgetGiB)*1024:data.vramBudgetMb;
   if(!Number.isFinite(budget)||!(budget>0))budget=null;
   var rows=(data.candidates||[]).filter(function(m){
+    if(_candidateFilter.role&&_candidateFilter.role!=='all'&&!(m.eligibleRoles||[]).includes(_candidateFilter.role))return false;
     if(_candidateFilter.fit==='installed'&&!m.installed)return false;
     if(_candidateFilter.fit==='fit'&&budget&&(!(m.vramMb>0)||m.vramMb>budget))return false;
     return true;
@@ -3232,6 +3239,7 @@ function _renderDiscoveredTab(){
       background:C.bg2,border:'1px solid '+C.border,borderRadius:8,fontSize:_fs(10),color:C.tx3}},
       h('label',{style:{display:'flex',flexDirection:'column',gap:5}},'Zobrazit',h('select',{style:_modelFieldStyle(),value:_candidateFilter.fit,onChange:function(e){_candidateFilter.fit=e.target.value;renderCenter();}},
         h('option',{value:'fit'},selection.fitUnavailable?'Všechny · limit VRAM nezjištěn':'V limitu VRAM (odhad)'),h('option',{value:'all'},'Všechny modely'),h('option',{value:'installed'},'Pouze stažené'))),
+      h('label',{style:{display:'flex',flexDirection:'column',gap:5}},'Role',h('select',{style:_modelFieldStyle(),value:_candidateFilter.role||'all',onChange:function(e){_candidateFilter.role=e.target.value;renderCenter();}},h('option',{value:'all'},'Všechny role'),['D1','D2','R1','R2','CODE','CHAT','VISION'].map(function(r){return h('option',{key:r,value:r},r); }))),
       h('label',{style:{display:'flex',flexDirection:'column',gap:5}},'Limit VRAM · GiB (odhad)',h('input',{type:'number',min:1,max:512,step:0.5,
         value:_candidateFilter.budgetGiB,placeholder:_discoveredData.vramBudgetMb?(_discoveredData.vramBudgetMb/1024).toFixed(1):'Nezjištěno',
         style:Object.assign({},_modelFieldStyle(),{width:120}),onChange:function(e){_candidateFilter.budgetGiB=e.target.value;renderCenter();}})),
@@ -3249,7 +3257,7 @@ function _renderDiscoveredTab(){
         _modelCell(h('div',null,h('strong',null,m.name),h('div',{style:{fontSize:_fs(9),color:C.tx3}},m.installed?'Stažený':'Katalog · kvalita nezměřena'))),
         _modelCell(m.params?m.params+' B':'—'),_modelCell(h('div',null,m.vramMb?(m.vramMb/1024).toFixed(1)+' GiB':'Neznámá',fit?h('div',{style:{color:C.amber}},fit):null)),
         _modelCell(fCtx(m.contextWindow)),_modelCell((m.eligibleRoles||[]).join(' · ')),
-        _modelCell(m.releaseDate&&Number.isFinite(Date.parse(m.releaseDate))?new Date(m.releaseDate).toLocaleDateString('cs-CZ'):'Nezjištěno'),
+        _modelCell(h('div',null,m.releaseDate&&Number.isFinite(Date.parse(m.releaseDate))?new Date(m.releaseDate).toLocaleDateString('cs-CZ'):'Vydání nedoloženo',h('div',{style:{fontSize:_fs(9),color:C.tx3}},m.releaseDateSource?h('a',{href:m.releaseDateSource,target:'_blank',rel:'noreferrer',style:{color:C.accent}},'Zdroj vydání ↗'):m.releaseDate?'Starší katalogový údaj':m.discoveredAt?'Objeveno '+new Date(m.discoveredAt).toLocaleDateString('cs-CZ'):'Zdroj datum neuvádí'))),
         _modelCell(h('div',null,m.installed?h('button',{style:_modelButtonStyle(false,false),onClick:function(){_evaluationRoleFilter='all';_openModelTests(m.name);}},'Testy modelu…'):
           h('button',{style:_modelButtonStyle(true,pulling),disabled:pulling,onClick:function(){_pullModel(m.name);}},pulling?'Stahuji…':'Stáhnout'),
           ps?h('div',{style:{marginTop:5,color:ps.status==='error'?C.red:C.tx3}},ps.text):null)));
@@ -3257,31 +3265,84 @@ function _renderDiscoveredTab(){
 }
 
 var _evaluationRoleFilter='all',_roleChoices={},_assignmentMessage=null,_qualityExpanded={};
+var _modelSorts={roles:{col:'role',dir:1},quality:{col:'score',dir:-1},history:{col:'testedAt',dir:-1}},_historyDetails={},_historyExpanded={};
+function _modelSortHeader(scope,col,label){
+  var sort=_modelSorts[scope],active=sort.col===col;
+  return h('button',{'aria-label':'Řadit: '+label,style:{font:'inherit',fontWeight:600,color:active?C.accent:C.tx3,background:'none',border:0,padding:0,cursor:'pointer'},onClick:function(){
+    if(active)sort.dir=-sort.dir;else{sort.col=col;sort.dir=col==='score'||col==='testedAt'||col==='durationMs'?-1:1;}renderCenter();
+  }},label+(active?(sort.dir===1?' ▲':' ▼'):' ↕'));
+}
+function _sortModelRows(rows,scope){
+  var sort=_modelSorts[scope];return rows.slice().sort(function(a,b){
+    var av=a[sort.col],bv=b[sort.col];
+    if(sort.col==='score'){av=a.status==='COMPLETE'?a.score:null;bv=b.status==='COMPLETE'?b.score:null;}
+    if(av==null||bv==null)return av==null&&bv==null?0:av==null?1:-1;
+    return (typeof av==='number'&&typeof bv==='number'?av-bv:String(av).localeCompare(String(bv),'cs'))*sort.dir;
+  });
+}
 function _modelTable(headers,rows){
   return h('div',{style:{overflowX:'auto',border:'1px solid '+C.border,borderRadius:8,marginBottom:14}},
     h('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:_fs(11),textAlign:'left'}},
       h('thead',{style:{background:C.bg2,color:C.tx3}},h('tr',null,headers.map(function(v,i){return h('th',{key:i,style:{padding:'10px 12px',fontWeight:600,whiteSpace:'nowrap'}},v);}))),
       h('tbody',null,rows)));
 }
-function _modelCell(value,props){return h('td',Object.assign({style:{padding:'9px 12px',borderTop:'1px solid '+C.border,verticalAlign:'top'}},props||{}),value);}
+function _modelCell(value,props){return h('td',Object.assign({style:{padding:'9px 12px',borderTop:'1px solid '+_rgba(C.tx1,0.22),verticalAlign:'top'}},props||{}),value);}
 function _modelScore(row){return row&&row.status==='COMPLETE'&&Number.isFinite(row.score)?(row.score*100).toFixed(1)+' %':'—';}
 function _modelStatus(row){return row.applicable===false?'Mimo roli':({COMPLETE:'Změřeno',MISSING:'Nezměřeno',FAILED:'Test selhal',BLOCKED:'Blokováno'}[row.status]||row.status);}
 function _taskLabel(task,rd){var d=(rd.tasks||[]).find(function(t){return t.name===task.name;});return d?d.label:task.name.replace(/_/g,' ');}
+function _taskResultNotes(t){
+  var notes=[];
+  (t.details||[]).forEach(function(d){
+    if(!d)return;
+    if(d.reason)notes.push(d.reason);
+    if(d.schema===false)notes.push('Neodpovídá požadovaný formát JSON');
+    if(d.syntaxOk===false)notes.push('Neplatná syntaxe kódu');
+    if(d.applied===false)notes.push('Opravu nelze použít');
+    if(Number.isFinite(d.targeted))notes.push('Úspěšné cílové testy: '+(d.targetedPassed||0)+'/'+d.targeted);
+    if(d.regressions)notes.push('Nové regrese: '+d.regressions);
+    var parts=d.parts||[];
+    if(parts.length)notes.push('Splněné kontroly: '+parts.filter(function(x){return x.ok;}).length+'/'+parts.length);
+    var failed=parts.filter(function(x){return !x.ok;}).map(function(x){return x.id;});
+    if(failed.length)notes.push('Nesplněno: '+failed.join(', '));
+    if((d.penalties||[]).length)notes.push('Srážky: '+d.penalties.map(function(x){return x.id;}).join(', '));
+  });
+  return Array.from(new Set(notes));
+}
 function _qualityDetail(row,rd){
-  var tasks=row.tasks||[];
+  var tasks=row.tasks||[],catalogs=row.taskCatalog||rd.tasks||[];
   return h('div',{'data-testid':'model-task-detail',style:{padding:'4px 0 12px'}},
     h('strong',null,row.model+' · výsledky '+tasks.length+' úloh'),
-    h('p',{style:{color:C.tx3}},'Skóre je průměr úloh této role. Rozdíl ukazuje rozsah výsledků opakování; nejde o obecnou úspěšnost modelu.'),
-    _modelTable(['Úloha','Výsledky opakování','Vyhodnocení'],tasks.map(function(t){
-      var catalog=(rd.tasks||[]).find(function(c){return c.name===t.name;})||{},requirements=catalog.requirements||[];
+    h('p',{style:{color:C.tx3}},'Skóre '+_modelScore(row)+' = průměr '+tasks.length+' úloh, každá má stejnou váhu. '+(row.repeats||rd.repeats||'?')+' opakování na úlohu'+(row.durationMs!=null?' · měření '+_huntDuration(row.durationMs):'')+'.'),
+    h('p',{style:{color:C.tx3}},row.suiteName==='code_patch'||rd.suiteName==='code_patch'?'Tato sada měří konkrétní opravy JavaScriptu, nikoli dokončení celého projektu. Každá oprava se ověří spuštěním testů; regrese vynuluje výsledek úlohy. Délka běhu není cílem testu.':'Výsledek platí pro tuto sadu úloh. Shoda opakování neprokazuje pokrytí všech schopností modelu.'),
+    row.catalogMatchesContract===false?h('p',{style:{color:C.amber}},'Historická verze sady: dnešní popisy testů se na ni nepřenášejí. Níže jsou tehdy uložené výsledky a kritéria.'):null,
+    _modelTable(['Druh testu / úloha','Skóre','Výsledek'],tasks.map(function(t){
+      var catalog=catalogs.find(function(c){return c.name===t.name;})||{},requirements=catalog.requirements||t.rubric||[],notes=_taskResultNotes(t);
+      var label=catalog.label||t.name.replace(/_/g,' ');
       return h('tr',{key:t.name},
-        _modelCell(h('div',{style:{maxWidth:620}},_taskLabel(t,rd),requirements.length?h('details',{style:{marginTop:6,color:C.tx3,fontSize:_fs(10)}},
-          h('summary',{style:{cursor:'pointer'}},'Co se ověřuje · '+requirements.length+' kontrol'),
-          h('ul',null,requirements.map(function(r,i){return h('li',{key:i},typeof r==='string'?r:r.label||r.name||'');}))):null)),
-        _modelCell((t.scores||[]).map(function(v){return Math.round(v*100)+' %';}).join(' / '),{style:{padding:10,borderTop:'1px solid '+C.border,whiteSpace:'nowrap',verticalAlign:'top'}}),
-        _modelCell((t.details||[]).map(function(d,i){return d?h('div',{key:i},(i+1)+'. '+(d.reason||''),d.syntaxOk===false?' · neplatná syntaxe':'',d.applied===false?' · opravu nelze použít':'',d.targeted!=null?' · kontroly '+d.targetedPassed+'/'+d.targeted:'',d.regressions?' · regrese '+d.regressions:''):null;})));
+        _modelCell(h('div',{style:{maxWidth:520}},h('div',{style:{fontSize:_fs(9),color:C.tx3,marginBottom:4}},catalog.type||row.suiteName||rd.suiteName),
+          h('strong',null,label),h('details',{style:{marginTop:7,fontSize:_fs(10)}},
+            h('summary',{'aria-label':'Informace o testu: '+label,style:{cursor:'pointer',color:C.accent}},'ⓘ Jak se test hodnotí'),
+            catalog.source?h('p',null,'Zdroj úlohy: '+catalog.source):null,
+            catalog.context?h('p',null,catalog.context):null,
+            requirements.length?h('ul',{style:{paddingLeft:18,lineHeight:1.6}},requirements.map(function(r,i){return h('li',{key:i},typeof r==='string'?r:r.label||r.name||JSON.stringify(r));})):h('p',null,'Popis kritérií v tomto měření nebyl uložen.'),
+            h('p',{style:{color:C.tx3}},'Opakování: '+(t.scores||[]).map(function(v){return (v*100).toFixed(1)+' %';}).join(' / ')),h('code',null,t.name)))),
+        _modelCell(h('strong',{style:{color:t.mean>=.8?C.success:t.mean<.5?C.amber:C.tx1,whiteSpace:'nowrap'}},(t.mean*100).toFixed(1)+' %')),
+        _modelCell(notes.length?h('ul',{style:{margin:0,paddingLeft:17,lineHeight:1.5,maxWidth:320}},notes.map(function(n,i){return h('li',{key:i},n);})):h('span',{style:{color:C.tx3}},'Podrobné vyhodnocení nebylo uloženo.')));
     })));
 }
+function _modelResultBullets(tasks,rd){
+  var selected=tasks.slice().sort(function(a,b){return b.mean-a.mean;});
+  var strong=selected.filter(function(t){return t.mean>=.8;}),weak=selected.filter(function(t){return t.mean<.5;}).reverse();
+  function group(list,label,color){return list.length?h('div',null,h('span',{style:{color:color,fontSize:_fs(9)}},label),h('ul',{style:{paddingLeft:17,margin:'4px 0 8px',lineHeight:1.6}},list.slice(0,3).map(function(t){return h('li',{key:t.name},_taskLabel(t,rd)+' · '+Math.round(t.mean*100)+' %');}),list.length>3?h('li',{style:{color:C.tx3}},'Další '+(list.length-3)+' v detailu'):null)):null;}
+  return h('div',{style:{maxWidth:330,fontSize:_fs(10)}},group(strong,'Silnější výsledky',C.success),group(weak,'Slabší výsledky',C.amber),!strong.length&&!weak.length?h('span',null,'Výsledky jsou mezi 50 a 80 %; rozpad je v detailu.'):null);
+}
+function _loadHistoricalRun(runId){
+  _historyExpanded[runId]=!_historyExpanded[runId];renderCenter();
+  if(!_historyExpanded[runId]||(_historyDetails[runId]&&!_historyDetails[runId].error))return;
+  _historyDetails[runId]={loading:true};
+  return _readModelResource('/api/system/models/evaluations/'+encodeURIComponent(runId),function(d){_historyDetails[runId]=d;},function(e){_historyDetails[runId]={error:e};},function(){renderCenter();});
+}
+
 function _renderEvaluationsTab(){
   if(_evaluationData&&_evaluationData.error)return _modelLoadFailure(_evaluationData.error,_loadEvaluationData);
   if(!_evaluationData)return h('p',null,_evaluationLoading?'Načítám výsledky…':'Výsledky nejsou dostupné.');
@@ -3291,19 +3352,18 @@ function _renderEvaluationsTab(){
       h('option',{value:'all'},'Všechny role'),Object.keys(roles).map(function(role){return h('option',{key:role,value:role},role);}))),
     Object.keys(roles).filter(function(role){return _evaluationRoleFilter==='all'||role===_evaluationRoleFilter;}).map(function(role){
       var rd=roles[role],rows=(rd.artifacts||[]).filter(function(a){return a.applicable!==false&&(!_evaluationModelFilter||_canonicalModelIdentity(a.model)===_canonicalModelIdentity(_evaluationModelFilter));})
-        .sort(function(a,b){return (b.status==='COMPLETE'?b.score:-1)-(a.status==='COMPLETE'?a.score:-1);});
+        ;rows=_sortModelRows(rows,'quality');
       return h('section',{key:role,style:{marginBottom:26}},
         h('h3',{style:{fontSize:_fs(14)}},role+' · '+rd.suiteName),
         h('p',{style:{color:C.tx3,fontSize:_fs(11)}},'Aktuální model: '+(rd.binding||'nepřiřazen')+' · změřeno '+rows.filter(function(a){return a.status==='COMPLETE';}).length+'/'+rows.length+' místních modelů · '+rd.taskCount+' úloh × '+rd.repeats+' opakování · silné úlohy ≥ 80 %, slabé < 50 %'),
-        _modelTable(['Model','Skóre','Silné výsledky / slabé výsledky','Detail','Akce'],rows.flatMap(function(row){
-          var tasks=row.tasks||[],strong=tasks.filter(function(t){return t.mean>=0.8&&t.spread<=0.2;}),weak=tasks.filter(function(t){return t.mean<0.5;});
-          var describe=function(list){return list.length?list.slice(0,2).map(function(t){return _taskLabel(t,rd);}).join('; ')+(list.length>2?' a '+(list.length-2)+' další':''):'Zatím bez důkazu';};
+        _modelTable([_modelSortHeader('quality','model','Model'),_modelSortHeader('quality','score','Skóre'),'Výsledky','Detail','Akce'],rows.flatMap(function(row){
+          var tasks=row.tasks||[];
           var key=role+'|'+row.model,expanded=!!_qualityExpanded[key];
           var main=h('tr',{key:row.model,style:{background:row.isCurrentBinding?C.accentBg:undefined}},
             _modelCell(h('div',null,h('strong',null,row.model),row.isCurrentBinding?h('div',{style:{color:C.accent,fontSize:_fs(9)}},'Aktuálně přiřazený'):null,
               h('div',{style:{color:row.status==='COMPLETE'?C.success:C.tx3}},_modelStatus(row)),_modelTestFeedback(row.model,role))),
             _modelCell(h('div',null,h('strong',null,_modelScore(row)),row.status==='COMPLETE'&&Number.isFinite(row.passed)&&Number.isFinite(row.total)?h('div',{style:{color:C.tx3}},row.passed+'/'+row.total+' úloh nad prahem'):null)),
-            _modelCell(tasks.length?h('div',{style:{maxWidth:300,fontSize:_fs(10)}},h('div',{style:{color:C.success}},'Silné: '+describe(strong)),h('div',{style:{marginTop:5,color:C.amber}},'Slabé: '+describe(weak))):row.status==='COMPLETE'?'Chybí podrobnosti výsledku':'Čeká na měření'),
+            _modelCell(tasks.length?_modelResultBullets(tasks,rd):row.status==='COMPLETE'?'Chybí podrobnosti výsledku':'Čeká na měření'),
             _modelCell(tasks.length?h('button',{style:_modelButtonStyle(false,false),'aria-expanded':expanded,onClick:function(){_qualityExpanded[key]=!expanded;renderCenter();}},(expanded?'Skrýt detail':'Výsledky '+tasks.length+' úloh')):'—'),_modelCell(h('button',{style:_modelButtonStyle(false,_modelTestPending),disabled:_modelTestPending,onClick:function(){_testInstalledModel(row.model,role);}},'Nový test')));
           return expanded?[main,h('tr',{key:key+'-detail'},h('td',{colSpan:5,style:{padding:14,borderTop:'1px solid '+C.border,background:C.bg2}},_qualityDetail(row,rd)))]:[main];
         })),
@@ -3315,15 +3375,24 @@ function _renderEvaluationsTab(){
 function _renderEvaluationHistory(){
   if(_evaluationData&&_evaluationData.error)return _modelLoadFailure(_evaluationData.error,_loadEvaluationData);
   if(!_evaluationData)return h('p',null,'Načítám historii měření…');
-  var data=_evaluationData||{},rows=data.history||[];
+  var data=_evaluationData||{},rows=_sortModelRows(data.history||[],'history');
   return h('div',null,h('h3',{style:{fontSize:_fs(13)}},'Měření modelů · posledních '+rows.length),
-    _modelTable(['Dokončeno','Model / role','Výsledek','Délka','Ollama','Identita'],rows.map(function(r){return h('tr',{key:r.runId},
+    _modelTable([_modelSortHeader('history','testedAt','Dokončeno'),_modelSortHeader('history','model','Model / role'),_modelSortHeader('history','score','Výsledek'),_modelSortHeader('history','durationMs','Délka'),'Ollama','Detail měření'],rows.flatMap(function(r){
+      var expanded=!!_historyExpanded[r.runId],detail=_historyDetails[r.runId];
+      var main=h('tr',{key:r.runId},
       _modelCell(r.testedAt?new Date(r.testedAt).toLocaleString('cs-CZ'):'Nezaznamenáno'),_modelCell(h('div',null,r.model+' · '+r.role,h('div',{style:{color:C.tx3}},r.suiteName))),
       _modelCell(h('div',null,_modelStatus(r)+' · '+_modelScore(r),r.current?h('div',{style:{color:C.success}},'Aktuální výsledek'):null,r.errorMessage?h('div',null,r.errorMessage):null)),
       _modelCell(r.durationMs!=null?_huntDuration(r.durationMs):'Neověřený interval'),_modelCell(r.providerVersion||'Nezaznamenána'),
-      _modelCell(h('details',null,h('summary',null,'Podrobnosti'),h('div',null,'Artefakt: '+r.digestSha256),h('div',null,'Kontrakt: '+r.suiteContractSha256),h('div',null,r.runId))));})),
+      _modelCell(h('button',{style:_modelButtonStyle(false,false),'aria-expanded':expanded,onClick:function(){_loadHistoricalRun(r.runId);}},expanded?'Skrýt měření':'Detail měření')));
+      if(!expanded)return [main];
+      return [main,h('tr',{key:r.runId+'-detail'},h('td',{colSpan:6,style:{padding:16,background:C.bg2}},
+        !detail||detail.loading?h('p',null,'Načítám toto měření…'):detail.error?_modelLoadFailure(detail.error,function(){_historyExpanded[r.runId]=false;_loadHistoricalRun(r.runId);}):h('div',null,
+          detail.tasks&&detail.tasks.length?_qualityDetail(detail,{suiteName:detail.suiteName,tasks:detail.taskCatalog}):h('p',null,'Měření nemá výsledky úloh. '+(detail.errorMessage||'')),
+          h('details',null,h('summary',{style:{cursor:'pointer'}},'Identita měření'),h('p',null,r.runId),h('p',null,'Artefakt: '+r.digestSha256),h('p',null,'Kontrakt: '+r.suiteContractSha256)))) )];
+    })),
     h('h3',{style:{fontSize:_fs(13)}},'Porovnání rolí'),_modelTable(['Kdy','Role','Porovnání','Výsledek'],(data.decisions||[]).slice(0,50).map(function(d){return h('tr',{key:d.decisionId},_modelCell(new Date(d.createdAt).toLocaleString('cs-CZ')),_modelCell(d.role),_modelCell(d.incumbentModel+' → '+d.candidateModel),_modelCell(({CANDIDATE:'Lepší kandidát',INCUMBENT:'Zůstává současný',INCONCLUSIVE:'Nedostatečný důkaz'}[d.outcome]||d.outcome)+(!d.actionable?' · historické / nelze přímo použít':' · lze ručně přiřadit')));})));
 }
+
 /* ═══════════════════════════════════════════════════════════
    v133: MODEL OVERVIEW + ROLES TABS
    ═══════════════════════════════════════════════════════════ */
@@ -3433,12 +3502,12 @@ function _renderRolesTab(){
     h('p',{style:{color:C.tx3,fontSize:_fs(11)}},'Porovnání používá aktuální testy dané role. Pořadí skóre samo nemění přiřazení. Další model můžeš otestovat bez přepínání role.'),
     _evaluationData.bindingAuthority&&_evaluationData.bindingAuthority.status!=='DURABLE'?h('p',{role:'alert',style:{color:C.amber}},'Přiřazení modelů není plně ověřené. Zobrazená skóre nepotvrzují aktivní runtime. ',h('span',null,_evaluationData.bindingAuthority.reason||_evaluationData.bindingAuthority.status)):null,
     _assignmentMessage?h('p',{role:'status'},_assignmentMessage):null,
-    _modelTable(['Role a účel','Aktuální model','Skóre','Další dvě nejvyšší místní skóre','Ovládání'],Object.keys(roles).map(function(role){
+    _modelTable([_modelSortHeader('roles','role','Role a účel'),_modelSortHeader('roles','model','Aktuální model'),_modelSortHeader('roles','score','Skóre'),'Další místní modely · top 2','Ovládání'],_sortModelRows(Object.keys(roles).map(function(role){var bound=(roles[role].artifacts||[]).find(function(a){return a.isCurrentBinding;})||{};return {role:role,model:roles[role].binding,score:bound.score,status:bound.status};}),'roles').map(function(item){var role=item.role;
       var rd=roles[role],p=profiles[role]||{},current=rd.binding,rows=(rd.artifacts||[]).filter(function(a){return a.applicable!==false;}),bound=rows.find(function(a){return a.isCurrentBinding;});
       var alternatives=rows.filter(function(a){return !a.isCurrentBinding&&a.status==='COMPLETE';}).sort(function(a,b){return b.score-a.score;}).slice(0,2);
       return h('tr',{key:role},_modelCell(h('div',null,h('strong',{style:{color:C.accent}},role),h('div',null,p.name||rd.suiteName))),
         _modelCell(h('div',null,current||'Nepřiřazen',h('div',{style:{color:C.tx3,fontSize:_fs(10)}},bound?_modelStatus(bound):'Model není v místním inventáři'))),_modelCell(_modelScore(bound)),
-        _modelCell(alternatives.length?alternatives.map(function(a){return h('div',{key:a.model,style:{marginBottom:6}},a.model+' · '+_modelScore(a));}):'Zatím nejsou další změřené modely'),
+        _modelCell(alternatives.length?alternatives.map(function(a,i){return h('div',{key:a.model,style:{display:'grid',gridTemplateColumns:'18px minmax(140px,1fr) 56px',gap:8,alignItems:'start',padding:'6px 0',borderBottom:i===0?'1px solid '+_rgba(C.tx1,.18):'none'}},h('span',{style:{color:C.tx3}},(i+1)+'.'),h('button',{title:'Zobrazit testy pro '+role,style:{font:'inherit',textAlign:'left',overflowWrap:'anywhere',background:'none',border:0,padding:0,color:C.accent,cursor:'pointer'},onClick:function(){_evaluationRoleFilter=role;_evaluationModelFilter=a.model;_qualityExpanded[role+'|'+a.model]=true;_upgradeTab='evaluations';renderCenter();}},a.model),h('strong',{style:{textAlign:'right',whiteSpace:'nowrap'}},_modelScore(a)));}):'Zatím nejsou další změřené modely'),
         _modelCell(h('div',{style:{display:'flex',gap:6,flexWrap:'wrap',maxWidth:420}},
           h('button',{style:_modelButtonStyle(false,false),onClick:function(){_evaluationModelFilter='';_evaluationRoleFilter=role;_upgradeTab='evaluations';_loadEvaluationData();renderCenter();}},'Kvalita a testy'),
           bound?h('button',{style:_modelButtonStyle(false,_modelTestPending),disabled:_modelTestPending,onClick:function(){_testInstalledModel(current,role);}},'Nový test'):null,
@@ -3583,22 +3652,22 @@ function _renderGovernorTab(){
   if(!_governorData)return h('p',null,_governorLoading?'Načítám data Správce…':'Provozní diagnostika ještě nebyla načtena.');
   var report=_governorData,dimensions=report&&report.dimensions||{},proposals=_governorProposals||[];
   var labels={models:'Provoz modelů',cre:'Směrování požadavků (CRE)',architecture:'Architektura',builds:'Buildy',specialists:'Specialisté',upgrades:'Pokrytí rolí měřením'};
-  var explanations={models:'Úspěšnost zaznamenaných provozních úloh za 30 dní; benchmarky jsou v Evaluaci.',
+  var explanations={models:'Zaznamenaná volání a výsledky provozních úloh za 30 dní; benchmarky jsou v Evaluaci.',
     cre:'Výsledek zpracování požadavků a ruční opravy směrování za 7 dní. Není to přesnost klasifikátoru.',
     architecture:'Poslední zaznamenaná kontrola odchylek architektury, vrstev a cyklických závislostí.',
-    builds:'Zaznamenaná kvalita buildů a úspěšnost kontrolních bodů za 30 dní.',
+    builds:'Výsledky testů změn projektu, případně zaznamenaná kvalita buildů za 30 dní.',
     specialists:'Úspěšné výsledky nástrojů specialistů za 7 dní.',upgrades:'Pokrytí přiřazených rolí uloženým měřením.'};
-  var known=Object.values(dimensions).filter(function(d){return d.status!=='UNKNOWN';}).length;
-  var status={UNKNOWN:'Chybí data',HEALTHY:'V pořádku',DEGRADED:'Zhoršený',CRITICAL:'Vyžaduje pozornost'};
+  var known=Object.values(dimensions).filter(function(d){return d.collectorStatus==='READY';}).length;
+  var status={UNKNOWN:'Chyba sběru',NO_ACTIVITY:'Zatím bez aktivity',OBSERVED:'Sběr běží',INCOMPLETE:'Neúplné výsledky',HEALTHY:'V pořádku',DEGRADED:'Zhoršený',CRITICAL:'Vyžaduje pozornost'};
   var pending=proposals.filter(function(p){return p.status==='pending'||p.status==='PENDING';});
   return h('div',{'data-testid':'model-governor'},
     h('div',{style:{display:'flex',alignItems:'center',gap:12}},h('h3',{style:{flex:1}},'Provozní diagnostika'),
       h('button',{style:_modelButtonStyle(false,_governorLoading),disabled:_governorLoading,onClick:_runGovernorCheck},'Zkontrolovat')),
-    h('p',{style:{color:C.tx3}},'Správce sleduje provoz aplikace. Kvalitu modelů porovnávej v Evaluaci. Data jsou dostupná pro '+known+' ze '+Object.keys(labels).length+' oblastí.'),
+    h('p',{style:{color:C.tx3}},'Správce sleduje provoz aplikace. Kvalitu modelů porovnávej v Evaluaci. Zdroje ověřeny: '+known+' / '+Object.keys(labels).length+'. Bez aktivity se skóre nevymýšlí.'),
     _governorActionMessage?h('p',{role:'status',style:{color:C.accent}},_governorActionMessage):null,
     _modelTable(['Oblast','Stav','Hodnota','Co se měří'],Object.keys(labels).map(function(key){var d=dimensions[key];var unknown=!d||d.status==='UNKNOWN';return h('tr',{key:key},
-      _modelCell(labels[key]),_modelCell(unknown?'Chybí data':status[d.status]||d.status),_modelCell(unknown?'—':Math.round(d.score*100)+' %'),
-      _modelCell(h('div',null,explanations[key],unknown?h('div',{style:{color:C.tx3}},'Pro tuto oblast nejsou k dispozici potřebné záznamy.'):null)));
+      _modelCell(labels[key]),_modelCell(unknown?'Chyba sběru':status[d.status]||d.status),_modelCell(!d||!Number.isFinite(d.score)?'—':Math.round(d.score*100)+' %'),
+      _modelCell(h('div',null,explanations[key],d&&d.details?h('div',{style:{color:C.tx3,marginTop:6}},d.details.note||'',d.details.requests!=null?' · volání '+d.details.requests:'',d.details.outcomes!=null?' · doložené výsledky '+d.details.success+'/'+d.details.outcomes:'',d.details.unrecorded_outcomes?' · bez výsledku '+d.details.unrecorded_outcomes:'',d.details.total!=null?' · záznamů '+d.details.total:'',d.details.tested!=null?' · testy '+d.details.passed+'/'+d.details.tested:'',d.details.current_evaluation_complete!=null?' · změřeno '+d.details.current_evaluation_complete+'/7 rolí':'',d.details.source?h('div',null,'Zdroj: '+d.details.source):null):null)));
     })),
     h('h3',null,'Doporučení'),h('p',{style:{color:C.tx3}},'Přijetí doporučení uloží tvoje rozhodnutí. Správce nemá automatické provádění změn; úpravu je potřeba provést ručně.'),
     pending.length?pending.map(function(p){return h('div',{key:p.id,style:{padding:14,marginBottom:10,background:C.bg2,border:'1px solid '+C.border,borderRadius:8}},
@@ -7346,7 +7415,7 @@ var _specialistWorkspaces={};
 try{_specialistWorkspaces=JSON.parse(localStorage.getItem('intentsmith-specialist-workspaces')||'{}')||{};}catch(e){}
 function _workspaceShown(){return !_centerState.view&&!_projectWizard.active&&!_expertiseWizard.active&&!_agentWizard.active&&!_specialistWizard.active;}
 function _workspaceSessionIndices(){return _sessions.map(function(s,i){return s._closed?-1:i;}).filter(function(i){return i>=0;});}
-function _showWorkspace(){_centerState.view=null;_centerState.detail=null;_settingsVals.lastView='';if(_sidebarWidget)_sidebarWidget._active=null;_syncWorkspacePanels();renderCenter();renderChat();}
+function _showWorkspace(){_ensureWorkspaceTree(_sessionActive);_centerState.view=null;_centerState.detail=null;_settingsVals.lastView='';if(_sidebarWidget)_sidebarWidget._active=null;_syncWorkspacePanels();renderCenter();renderChat();}
 function _syncWorkspacePanels(){
   var visible=_workspaceShown();var app=window._intentsmithApp;
   if(!app||!app.shell)return;

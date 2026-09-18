@@ -329,6 +329,15 @@ test('selected evaluation HTTP rejects a remote or forged subject before reading
   assert.equal(result.status,403);assert.equal(effects,0);
 });
 
+test('historical HTTP detail delegates to the injected read authority with the exact run ID',async()=>{
+  const calls=[];
+  const routes=createSystemRoutes({db:{},sendJSON:(_r,status,value)=>({status,value}),modelRegistry:{getEvaluationRun(id){calls.push(id);return {runId:id,score:.114};}}});
+  const result=await routes['GET /api/system/models/evaluations/:runId']({params:{runId:'old-measurement'}},{});
+  assert.equal(result.status,200);assert.equal(result.value.runId,'old-measurement');assert.deepEqual(calls,['old-measurement']);
+  const unavailable=createSystemRoutes({db:{},sendJSON:(_r,status,value)=>({status,value})});
+  assert.equal((await unavailable['GET /api/system/models/evaluations/:runId']({params:{runId:'x'}},{})).status,503);
+});
+
 test('candidate filtering keeps estimates separate from unknown capacity and sorts numeric values',async()=>{
   const source=await readFile(join(ROOT,'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
   const start=source.indexOf('var _candidateFilter='),end=source.indexOf('function _renderDiscoveredTab()',start);
@@ -340,6 +349,11 @@ test('candidate filtering keeps estimates separate from unknown capacity and sor
   assert.equal(vm.runInContext('_filteredCandidates(data).rows.map(m=>m.name).join(",")',context),'medium,small');
   vm.runInContext('_candidateFilter.sort="params-asc"',context);
   assert.equal(vm.runInContext('_filteredCandidates(data).rows.map(m=>m.name).join(",")',context),'small,medium');
+  vm.runInContext('_candidateFilter.role="VISION"',context);
+  assert.equal(vm.runInContext('_filteredCandidates(data).rows.length',context),0);
+  context.data.candidates[1].eligibleRoles=['VISION'];
+  assert.equal(vm.runInContext('_filteredCandidates(data).rows[0].name',context),'small');
+  vm.runInContext('_candidateFilter.role="all"',context);
   context.data.vramBudgetMb=null;
   assert.equal(vm.runInContext('_filteredCandidates(data).rows.length',context),4);
   assert.equal(vm.runInContext('_filteredCandidates(data).fitUnavailable',context),true);

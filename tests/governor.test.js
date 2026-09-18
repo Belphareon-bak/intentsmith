@@ -314,9 +314,10 @@ test('tableExists returns true for existing table', () => {
 test('models dimension — empty DB returns fallback', () => {
   const db = createTestDb();
   const result = analyzeModels(db);
-  assertEqual(result.score, 0.5);
+  assertEqual(result.score, null);
+  assertEqual(result.collectorStatus, 'READY');
   assertEqual(result.dataCompleteness, 0);
-  assertIncludes(result.details.note, 'no data');
+  assert(result.details.note.length > 0);
   db.close();
 });
 
@@ -353,8 +354,9 @@ test('models dimension — data completeness scales linearly', () => {
 test('CRE dimension — empty DB returns fallback', () => {
   const db = createTestDb();
   const result = analyzeCre(db);
-  assertEqual(result.score, 0.5);
-  assertIncludes(result.details.note, 'no telemetry');
+  assertEqual(result.score, null);
+  assertEqual(result.collectorStatus, 'READY');
+  assert(result.details.note.length > 0);
   db.close();
 });
 
@@ -383,8 +385,9 @@ test('CRE dimension — overrides reduce score', () => {
 test('architecture dimension — no records returns fallback', () => {
   const db = createTestDb();
   const result = analyzeArchitecture(db);
-  assertEqual(result.score, 0.5);
-  assertIncludes(result.details.note, 'no records');
+  assertEqual(result.score, null);
+  assertEqual(result.collectorStatus, 'READY');
+  assert(result.details.note.length > 0);
   db.close();
 });
 
@@ -410,7 +413,8 @@ test('architecture dimension — high drift = low score', () => {
 test('builds dimension — no data returns fallback', () => {
   const db = createTestDb();
   const result = analyzeBuilds(db);
-  assertEqual(result.score, 0.5);
+  assertEqual(result.score, null);
+  assertEqual(result.collectorStatus, 'READY');
   db.close();
 });
 
@@ -431,7 +435,8 @@ test('builds dimension — quality + checkpoint combined', () => {
 test('specialists dimension — empty returns fallback', () => {
   const db = createTestDb();
   const result = analyzeSpecialists(db);
-  assertEqual(result.score, 0.5);
+  assertEqual(result.score, null);
+  assertEqual(result.collectorStatus, 'READY');
   db.close();
 });
 
@@ -458,8 +463,9 @@ test('specialists dimension — only observability events returns fallback', () 
   for (let i = 0; i < 50; i++) db.prepare("INSERT INTO specialist_telemetry (event_type) VALUES (?)").run('tool.match');
   for (let i = 0; i < 20; i++) db.prepare("INSERT INTO specialist_telemetry (event_type) VALUES (?)").run('api.request');
   const result = analyzeSpecialists(db);
-  assertEqual(result.score, 0.5);
-  assertIncludes(result.details.note, 'no outcome');
+  assertEqual(result.score, null);
+  assertEqual(result.collectorStatus, 'READY');
+  assert(result.details.note.length > 0);
   db.close();
 });
 
@@ -467,7 +473,7 @@ test('upgrades dimension — missing current exact-contract evaluation penalizes
   const db = createTestDb();
   seedCurrentEvaluations(db, { missing: ['D1'] });
   const result = analyzeUpgrades(db);
-  assertEqual(result.score, 0.8);
+  assertEqual(result.score, 6 / 7);
   assertEqual(result.details.current_evaluation_missing_roles.join(','), 'D1');
   db.close();
 });
@@ -489,10 +495,31 @@ test('full analyze — empty DB returns all fallbacks', () => {
   const db = new Database(':memory:');
   // No tables at all
   const result = healthAnalyzer.analyze(db);
-  assert(result.overallScore > 0, 'Should have a positive score');
-  assertEqual(result.overallHealth, 'DEGRADED'); // 0.5 weighted = ~0.5
+  assertEqual(result.overallScore, 0);
+  assert(Object.values(result.dimensions).every(d => d.score === null && d.collectorStatus === 'ERROR'));
+  assertEqual(result.overallHealth, 'UNKNOWN');
   assert(result.summary.length > 0, 'Summary should not be empty');
   assert(result.dimensions.models, 'Should have models dimension');
+  db.close();
+});
+
+test('live collectors distinguish successful uppercase outcomes, missing outcomes and real M2 test failures', () => {
+  const db=createTestDb();
+  db.exec("CREATE TABLE model_usage (model TEXT, used_at TEXT DEFAULT CURRENT_TIMESTAMP); INSERT INTO model_usage (model) VALUES ('fixture')");
+  db.exec("CREATE TABLE m2_execution_results (terminal_status TEXT, completed_at_ms INTEGER, result_json TEXT)");
+  db.prepare('INSERT INTO m2_execution_results VALUES (?, ?, ?)').run('failed',Date.now(),JSON.stringify({focusedTest:{exitCode:1}}));
+  db.prepare('INSERT INTO telemetry_snapshots (turn_id, execution_status) VALUES (?,?)').run('success','SUCCESS');
+  db.prepare('INSERT INTO telemetry_snapshots (turn_id, execution_status) VALUES (?,?)').run('unknown',null);
+  seedCurrentEvaluations(db);
+  const result=healthAnalyzer.analyze(db);
+  assertEqual(Object.values(result.dimensions).filter(d=>d.collectorStatus==='READY').length,6);
+  assertEqual(result.dimensions.models.status,'OBSERVED');assertEqual(result.dimensions.models.score,null);
+  assertEqual(result.dimensions.models.details.requests,1);
+  assertEqual(result.dimensions.cre.details.success,1);assertEqual(result.dimensions.cre.details.outcomes,1);
+  assertEqual(result.dimensions.cre.details.unrecorded_outcomes,1);assertEqual(result.dimensions.cre.score,1);
+  assertEqual(result.dimensions.builds.score,0);assertEqual(result.dimensions.builds.details.failed,1);
+  assertEqual(result.dimensions.architecture.status,'NO_ACTIVITY');assertEqual(result.dimensions.architecture.score,null);
+  db.exec('DROP TABLE architecture_state');assertEqual(healthAnalyzer.analyze(db).dimensions.architecture.collectorStatus,'ERROR');
   db.close();
 });
 
@@ -1080,6 +1107,11 @@ await testAsync('idempotent skip when score delta < 0.02', async () => {
 
   const r2 = systemGovernor.runCheck();
   assert(r2.skipped === true, 'Should be skipped as idempotent');
+  db.prepare('INSERT INTO specialist_telemetry (event_type) VALUES (?)').run('api.request');
+  systemGovernor._lastRunTime=Date.now()-35_000;
+  const updated=systemGovernor.runCheck();
+  assert(!updated.skipped, 'New observed activity must refresh the report even when the score stays the same');
+  assertEqual(updated.dimensions.specialists.status,'OBSERVED');
   db.close();
 });
 

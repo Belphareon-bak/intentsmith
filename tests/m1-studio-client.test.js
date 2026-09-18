@@ -209,7 +209,7 @@ test('history renders every decision and unverified interval while quality stays
       tx3: '#aaa',
       tx4: '#777',
     },
-    _fs: value => value,
+    _fs: value => value, _rgba: () => 'rgba(255,255,255,.22)',
     _settingsVals: {}, _huntDuration:()=> '2 min',
     _evaluationLoading: false,
     _evaluationModelFilter: '', _modelTestPending: false, _modelTestTarget: null,

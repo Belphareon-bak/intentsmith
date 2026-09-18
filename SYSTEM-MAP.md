@@ -8,6 +8,21 @@ zkouška tento provozní problém neodhalila. Profil a postup připravené, vyž
 heslo správce. REVIEW_PENDING, bez tvrzení production-ready.
 [Packet a přesné meze](docs/review/2026-09-18-PROJECT-FLOW.md).
 
+**Detail měření a kandidáti, 2026-09-18:** navazuje na osm požadavků operátora.
+Řazení tabulek, rozpad úloh, konkrétní historické měření, aktualizovaný multimodální
+katalog a opravené zdroje Správce. Řízený Electron 7/7 záložek; instalace a úplný
+profil ještě čekají. Šest dostupných zdrojů není šest doložených kvalitativních
+měření. [Rozsah a evidence](docs/review/2026-09-18-MODEL-DETAILS.md). REVIEW_PENDING.
+
+**Obnova modelového pracoviště, 2026-09-18:** operátor znovu otevřel vadu po
+restartu backendu: HTTP zůstávalo na starém portu i po úspěšném WS reconnectu.
+Instalováno `9f9ed339`; 7/7 záložek ověřeno při nedostupných datech i po rotaci
+portu/capability, odděleně 7/7 nad produkční DB po skutečném restartu služby.
+Skóre/historie/bindingy nezměněné. Kombinovaná validace 358 PASS / 1 zděděný
+FAIL release pečeti; REVIEW_PENDING. Původní otevřené Studio potřebuje jedno
+zavření a nové spuštění ikonou; jeho frontend se za běhu nevyměnil.
+[Review, negativní pokusy a meze](docs/review/2026-09-18-MODEL-WORKSPACE-RECONNECT.md).
+
 
 **Základ změřen 2026-08-02 na `17a8b9a8`; pre-fix OS-isolated scan proběhl na
 `24457ba2`; registry klasifikace byla opravena v `06309bc8`, post-fix scan
@@ -276,8 +291,8 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **225 389 ř.**, 631 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **246 955 ř.**, 533 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **225 526 ř.**, 631 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **247 038 ř.**, 533 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **525** (`431 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 102** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |
