@@ -3620,7 +3620,7 @@ function centerUpgrades(){
     _modelTestMessage&&_upgradeTab==='hunt'?h('div',{role:_modelTestFailed?'alert':'status',style:{margin:'12px 18px 0',padding:'8px 12px',borderRadius:6,
       border:'1px solid '+C.border2,fontSize:_fs(11),lineHeight:1.5,background:_modelTestFailed?C.redBg:C.bg3,color:_modelTestFailed?C.red:C.tx2}},_modelTestMessage):null,
     /* body */
-    h('div',{style:{flex:1,overflowY:'auto',padding:18}},
+    h('div',{key:_upgradeTab,'data-testid':'model-tab-body',style:{flex:1,overflowY:'auto',padding:18}},
       _modelsDisconnected?_modelLoadFailure('Spojení s backendem je přerušené. Čekám na obnovení; uložená skóre ani historie se nemažou.',_retryModelConnection):h(React.Fragment,null,
       /* ── Overview tab (v133) ── */
       _upgradeTab==='overview'?_renderOverviewTab():null,
