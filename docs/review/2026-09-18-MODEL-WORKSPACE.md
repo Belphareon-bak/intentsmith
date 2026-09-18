@@ -5,7 +5,7 @@ skutečné opakované testování, vysvětlení skóre, tabulky rolí a kandidá
 historie a srozumitelný Správce. Vstup `03597d1d`; větev
 `work/hunt-model-controls-20260917`. Implementace přes `9298ef46`.
 Stav: **INSTALLED / DETERMINISTIC_358_PASS_1_KNOWN_FAIL /
-LIVE_REMEASUREMENT_WAITING / REVIEW_PENDING**. Release acceptance se nemění.
+LIVE_GUI_CODE_MEASUREMENT_PASS / REVIEW_PENDING**. Release acceptance se nemění.
 
 ## Co se změnilo a proč
 
@@ -112,9 +112,52 @@ První produkční klik na Nový test Qwen3.5/CODE přijal HTTP 202 do
 zastaven kvůli instalaci finální úpravy detailu; zůstal CANCELLED, žádné
 nové skóre nevzniklo. Znovu založený požadavek z finálního Studia přijal
 HTTP 202 v 10:58:18 CEST, `run-t9d9xd`, se stejným přesným digestem a CODE
-kontraktem. V tomto checkpointu **stále čeká na cizí GPU lock**. Staré
-2/7 se nevydává za nový výsledek. Živá nová inference a nový CODE výsledek
-Qwen3.8 budou mít samostatný níže doplněný výsledek; zatím se netvrdí PASS.
+kontraktem. Tento checkpoint čekání byl později uzavřen: cizí lock se uvolnil,
+po vypršení residency cizích modelů požadavek sám pokračoval a dokončil
+skutečných 21 vyhodnocení. Následovaly dva další nové CODE testy přes stejné
+tlačítko, nativní potvrzení a produkční HTTP 202. Celkem **tři modely / 63
+vyhodnocení / tři nové COMPLETE řádky**; žádné reuse. Níže je konečný výsledek.
+
+| Model | CODE skóre | Samotná sada | Celý požadavek včetně čekání/přípravy | Nový DB run |
+| --- | ---: | ---: | ---: | --- |
+| `qwen3.5:27b` | 33.3 % | 4 min 59 s | 11 min 56 s | `eval_705a17a7-97ac-4f25-93de-27b7295871b7` |
+| `qwen3.8:latest` | 71.4 % | 2 min 59 s | 3 min 54 s | `eval_5bfef5f3-8eb4-4781-b466-b94d4f933ffb` |
+| `qwen3-coder:latest` | 11.4 % | 1 min 49 s | 3 min 36 s | `eval_51da4e2a-7465-4837-b310-41305e890ccf` |
+
+Všechna měření použila `0.34.0-intentsmith.1`, proof RESPONSE_BOUND a shodný
+CODE kontrakt `6ee5ab47cbc4a42649835cac02d6cca82ad43d97ba12a9fbaa84276fe6fc7035`.
+Přesné digests a intervaly jsou v `live-new-evaluations.json`. Nový Qwen3.5
+má dvě úlohy stabilně 1/1; složitější binding úloha uspěla až ve třetím
+opakování, proto průměr 33,3 % místo původních 28,6 %. Qwen3.8 má stabilně
+úspěšnou deduplikaci modelů, binding ochranu, VRAM lease a timeout při síťové
+chybě; na zachování chybového stavu chatu selhal ve všech třech opakováních.
+Nejde o tvrzení obecné úspěšnosti dokončování projektů ani o nový duelový verdikt.
+
+Živý DOM po dokončení bez ručního obnovení ukázal CODE/Qwen3.8 jako Změřeno
+se 71,4 %. Evaluace obsahují šest aktuálně změřených místních CODE modelů,
+včetně všech tří nových výsledků a rozbalitelných detailů; dalších pět má
+pravdivě chybějící měření. Historie ukazuje nové tři runy, délku sady a verzi
+provideru. Přiřazení CODE zůstalo Qwen3.8 podle operátorovy dřívější volby.
+Živé tlačítko Zkontrolovat ve Správci obnovilo poslední uloženou zprávu:
+pokrytí přiřazených rolí měřením je nyní 100 %, provozní CRE ukazatel 32 %.
+Čtyři oblasti mají stále pravdivě Chybí data. Vzniklo nové otevřené CRE
+doporučení; schválení ani executor této kontroly nejsou součástí běhu.
+Dvě dřívější přijetí zůstala v historii jako čekající na ruční provedení.
+
+
+Po testech: **269 COMPLETE / 215 BLOCKED / 32 FAILED**, celkem 516 řádků.
+Všech 513 původních řádků zůstalo obsahově shodných. Rovněž beze změny
+234 rozhodnutí, sedm desired bindings a 14 binding operations. quick_check OK,
+žádná FK chyba. V inventáři zůstalo stejných 11 identit/digestů: nula nově
+stažených a nula smazaných modelů. Nízké CODE skóre se samo nestává důvodem
+ke smazání modelu vhodného pro jinou roli.
+
+Backend a timer zůstaly enabled/active, další tick 19. 9. v 03:05:11 CEST,
+nejvýše dva kandidáti a původní disková rezerva 40 GiB. Vlastní evaluační
+služba je inactive, její sidecar 11435 po dokončení nedostupný. Následná
+aktivita na systémové Ollamě 11434 patří mimo tyto ukončené požadavky a nebyla
+ukončena. Cizí soak PID 15110 stále běží. Potvrzení vyššího skóre není
+nezávislé přijetí implementace; to zůstává REVIEW_PENDING.
 
 ## Evidence a hranice
 
@@ -124,3 +167,49 @@ produkční DB, autentizační capability, administrační environment ani celé
 snímky s nesouvisející konverzací. Snímky této delty jsou omezené na panel modelů.
 Samostatný dlouhý soak a cizí GPU journey nebyly zastavené; jejich výsledek
 není součástí tohoto tvrzení. Lepší ovládání není důkaz vyšší kvality modelů.
+
+## Jak číst sedm CODE úloh
+
+Nejde o procento libovolných projektů, které model dokončí. Sada vyžaduje
+opravu konkrétních chyb z historie repozitáře a ověřuje ji funkčními kontrolami.
+Každá ze sedmi úloh má v průměru stejnou váhu; počet kontrol uvnitř úlohy se liší.
+
+| Úloha | Co se skutečně ověřuje |
+| --- | --- |
+| `patch_8cae1b583963` | Deduplikace identit, vyřazení null a pořadí starých nepoužívaných modelů. |
+| `patch_0fe346cc820c` | Ochrana modelů během přepnutí role, rollbacku, provider účinků a obnovy; 59 funkčních kontrol. |
+| `patch_6fc5e4eb7dce` | Zákaz smazání během používání/VRAM operace a správné uvolnění lease; osm kontrol. |
+| `patch_ef4ae48ec16e` | Vyjádření nízké jistoty duelu, který rozlišuje jediná úloha. |
+| `patch_e8cdbe02e5de` | Úspěch tahu až po uložení; chyba/zrušení/timeout nesmí vytvořit falešný úspěch. |
+| `patch_22149f55b861` | Zrušení verification timeoutu před parsováním úspěšné odpovědi. |
+| `patch_adb1258cfec0` | Zrušení verification timeoutu také při síťové chybě. |
+
+První dva podobné popisky ve Studiu pocházejí ze stejného zdrojového modulu;
+rozbalení „Co se ověřuje“ odhalí rozdílné kontrolované scénáře. Nízký výsledek
+se neopravuje změkčením těchto požadavků. Vhodným dalším krokem huntu je měřit
+ostatní místní CODE kandidáty stejným kontraktem.
+
+Po novém CODE výsledku Qwen3.8 náhled nad novou kopií DB sám změnil prioritu:
+nejprve VISION (aktuální 53,3 %), pak R2 (65,8 %), následně CODE (71,4 %).
+Nejde o napevno zadanou preferenci CODE. `priority-preview.json` a
+`priority-preview-after.json` zachycují oba stavy bez stažení nebo změny
+produkční DB. Vydání v tabulce kandidátů zůstává údajem z discovery katalogu;
+tato delta není nezávislou revizí správnosti všech jeho dat vydání.
+
+## Uzavřený archiv
+
+Manifest připíná 2024 souborů; archiv byl po vytvoření celý přečten a každý
+člen porovnán s SHA-256. Obsahuje ověřený `source.bundle` s úplnou historií
+na kódové revizi 9298ef46, fyzické snímky, všechny zachované testovací neúspěchy,
+produkční HTTP/DOM a nové měřicí výsledky. Archivní `review-packet.md` je
+checkpoint před přidáním tohoto checksumového závěru. Soubory označené
+`final-governor-*` zachycují stav před posledním klikem Zkontrolovat; jeho
+novější výsledek (100% pokrytí) je v `installed-governor-refreshed.json`.
+
+Privátní archiv: `intentsmith-model-workspace-sha256-8f64ea4356e0927727227b087a02e00f6f01c72844c83bd3ff899228c0a39c57.tar.gz`
+
+SHA-256: `8f64ea4356e0927727227b087a02e00f6f01c72844c83bd3ff899228c0a39c57` · 73 082 662 bajtů.
+Produkční DB, skutečné credentials a nesouvisející konverzační snímek jsou
+z archivu vyloučené. Diagnostické Studio skončilo exit 0; běžný launcher
+bez CDP znovu otevřel nainstalovaný build a dosáhl stavu ready.
+[Strojový souhrn a identity](../execution/runs/model-workspace-20260918.json).

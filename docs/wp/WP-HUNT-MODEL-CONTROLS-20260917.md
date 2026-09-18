@@ -59,5 +59,7 @@ Prokázat fixture HTTP/Electron a živé nové CODE měření bez změny binding
 
 Dodáno a instalováno na `9298ef46`. Úplný profil 358 PASS / 1 FAIL
 (zděděná release registry pečeť), fyzický renderer a běžný launcher ověřené.
-Živé nové CODE měření z GUI je přijato a čeká na cizí GPU lock; inference
-z tohoto checkpointu ještě není PASS. [Review a živý checkpoint](../review/2026-09-18-MODEL-WORKSPACE.md).
+Tři skutečné CODE sady přes GUI dokončené, 63 vyhodnocení a tři nové
+COMPLETE řádky: Qwen3.8 71,4 %, Qwen3.5 33,3 %, Qwen Coder 11,4 %.
+Celá předchozí historie a přiřazení jsou zachovaná. LIVE_GUI_CODE_MEASUREMENT_PASS;
+nezávislé review zůstává otevřené. [Review a živý checkpoint](../review/2026-09-18-MODEL-WORKSPACE.md).
