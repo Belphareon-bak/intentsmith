@@ -13,7 +13,7 @@ echo "║  DI decorators + layout cache + onStart        ║"
 echo "╚═══════════════════════════════════════════════╝"
 
 if [ ! -d "$EXT_DIR" ]; then
-  echo "❌ Extensions not found. Usage: ./apply-fixes.sh /path/to/c3-ide"
+  echo "❌ Extensions not found. Usage: ./apply-fixes.sh /path/to/intentsmith-ide"
   exit 1
 fi
 
@@ -52,7 +52,7 @@ if [ -d "$THEIA_STORAGE" ]; then
 else
   echo "  Not found at: $THEIA_STORAGE"
   echo "  Trying alternative paths..."
-  for alt in "$HOME/.config/c3-studio" "$HOME/.config/c3-ide-electron" "$HOME/.config/Electron"; do
+  for alt in "$HOME/.config/c3-studio" "$HOME/.config/intentsmith-ide-electron" "$HOME/.config/Electron"; do
     if [ -d "$alt" ]; then
       echo "  Found: $alt"
       rm -f "$alt/Local Storage/leveldb/"* 2>/dev/null && echo "  ✓ Cleared Local Storage" || true

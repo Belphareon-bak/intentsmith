@@ -1,4 +1,4 @@
-// C3-Agent v63.0 — Capability Mapping + Sandbox Tests
+// IntentSmith-Agent v63.0 — Capability Mapping + Sandbox Tests
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // T-CM1: Capability → runtime behavior modifiers
@@ -443,7 +443,7 @@ describe('T-CM5: Integration with merge engine', async () => {
 
 // ─── Run All Tests ────────────────────────────────────────────────────────────
 
-console.log('\n🔬 C3 Capability Mapping + Sandbox — Test Suite');
+console.log('\n🔬 IntentSmith Capability Mapping + Sandbox — Test Suite');
 console.log('═'.repeat(70));
 
 for (const test of pendingTests) {

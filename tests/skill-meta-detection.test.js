@@ -2,7 +2,7 @@
 import './helpers/isolated-test-db.js';
 
 // ══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — Meta-skill Detection Unit Tests v93
+// IntentSmith-Agent — Meta-skill Detection Unit Tests v93
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Tests detectMetaSkill() — deterministic pre-resolver detection for

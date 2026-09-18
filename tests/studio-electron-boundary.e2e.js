@@ -31,7 +31,7 @@ import {
 
 const require = createRequire(import.meta.url);
 const { readLocalAccess } = require(
-  '../c3-ide/applications/electron/c3-local-access.js',
+  '../intentsmith-ide/applications/electron/intentsmith-local-access.js',
 );
 
 const SOURCE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -181,12 +181,12 @@ async function inspectSource() {
 
 async function assertBuildPresent() {
   const required = [
-    'c3-ide/node_modules/electron/package.json',
-    'c3-ide/applications/electron/lib/backend/electron-main.js',
-    'c3-ide/applications/electron/lib/frontend/bundle.js',
-    'c3-ide/applications/electron/lib/frontend/index.html',
-    'c3-ide/applications/electron/lib/frontend/preload.js',
-    'c3-ide/applications/electron/scripts/launch.js',
+    'intentsmith-ide/node_modules/electron/package.json',
+    'intentsmith-ide/applications/electron/lib/backend/electron-main.js',
+    'intentsmith-ide/applications/electron/lib/frontend/bundle.js',
+    'intentsmith-ide/applications/electron/lib/frontend/index.html',
+    'intentsmith-ide/applications/electron/lib/frontend/preload.js',
+    'intentsmith-ide/applications/electron/scripts/launch.js',
   ];
   for (const relative of required) {
     let metadata;
@@ -242,7 +242,7 @@ function safeExitCode(error) {
 
 function effectiveExitCode(error) {
   const code = safeExitCode(error);
-  return code === 2 && process.env.C3_AUDIT_RUN === '1' ? 1 : code;
+  return code === 2 && process.env.INTENTSMITH_AUDIT_RUN === '1' ? 1 : code;
 }
 
 async function writePrivateJson(file, value) {
@@ -327,7 +327,7 @@ async function outerMain(options = {}) {
   };
   if (m1Journey) childEnv[M1_JOURNEY_ENV] = '1';
   if (m2ComposerJourney) childEnv[M2_COMPOSER_JOURNEY_ENV] = '1';
-  if (process.env.C3_AUDIT_RUN === '1') childEnv.C3_AUDIT_RUN = '1';
+  if (process.env.INTENTSMITH_AUDIT_RUN === '1') childEnv.INTENTSMITH_AUDIT_RUN = '1';
   const child = spawn('unshare', [
     '--user',
     '--map-root-user',
@@ -449,17 +449,17 @@ function makeBackendEnvironment(paths, modelProviderUrl) {
     NODE_ENV: 'test',
     NODE_NO_WARNINGS: '1',
     NO_COLOR: '1',
-    C3_HOST: '127.0.0.1',
-    C3_PORT: '0',
-    C3_PORT_FILE: paths.portFile,
-    C3_DB_PATH: path.join(paths.data, 'c3.db'),
-    C3_PROJECTS_DIR: paths.projects,
-    C3_OUTPUT_DIR: paths.output,
-    C3_ENABLE_AUTONOMY: 'false',
-    C3_ENABLE_COMFYUI: 'false',
-    C3_ENABLE_ONLINE_DISCOVERY: 'false',
-    C3_LIFECYCLE_AUTO_COMMIT: 'false',
-    C3_LOG_LEVEL: 'warn',
+    INTENTSMITH_HOST: '127.0.0.1',
+    INTENTSMITH_PORT: '0',
+    INTENTSMITH_PORT_FILE: paths.portFile,
+    INTENTSMITH_DB_PATH: path.join(paths.data, 'intentsmith.db'),
+    INTENTSMITH_PROJECTS_DIR: paths.projects,
+    INTENTSMITH_OUTPUT_DIR: paths.output,
+    INTENTSMITH_ENABLE_AUTONOMY: 'false',
+    INTENTSMITH_ENABLE_COMFYUI: 'false',
+    INTENTSMITH_ENABLE_ONLINE_DISCOVERY: 'false',
+    INTENTSMITH_LIFECYCLE_AUTO_COMMIT: 'false',
+    INTENTSMITH_LOG_LEVEL: 'warn',
     OLLAMA_URL: modelProviderUrl,
   };
 }
@@ -554,7 +554,7 @@ function makeElectronEnvironment(paths, display, xauthority, electronTmp) {
     NODE_ENV: 'test',
     NODE_NO_WARNINGS: '1',
     NO_COLOR: '1',
-    C3_PORT_FILE: paths.portFile,
+    INTENTSMITH_PORT_FILE: paths.portFile,
   };
 }
 
@@ -953,10 +953,10 @@ async function waitForRendererTransport(cdp) {
   while (monotonicMs() < deadline) {
     try {
       const ready = await evaluate(cdp, `(() => ({
-        bridge: Boolean(window.electronC3?.getLocalAccess?.()),
+        bridge: Boolean(window.electronIntentSmith?.getLocalAccess?.()),
         shim: window.__intentSmithLegacyLocalFetchV1 === true,
-        bus: Boolean(window.C3Bus?.on && window.C3Bus?.off),
-        ws: Boolean(window.C3WS?.send && window.C3WS?.isReady?.())
+        bus: Boolean(window.IntentSmithBus?.on && window.IntentSmithBus?.off),
+        ws: Boolean(window.IntentSmithWS?.send && window.IntentSmithWS?.isReady?.())
       }))()`);
       if (ready?.bridge && ready?.shim && ready?.bus && ready?.ws) return;
     } catch {
@@ -1089,12 +1089,12 @@ async function installSoakLifecycleMonitor(cdp) {
         if (event?.data?.agentStatus === 'idle') counts.idleSignals += 1;
       }
     };
-    window.C3Bus.on('chat:terminal', handlers.terminal);
-    window.C3Bus.on('chat:message', handlers.message);
-    window.C3Bus.on('chat:system', handlers.system);
-    window.C3Bus.on('ws:disconnected', handlers.disconnected);
-    window.C3Bus.on('agent:event', handlers.agent);
-    window.C3Bus.on('status:update', handlers.status);
+    window.IntentSmithBus.on('chat:terminal', handlers.terminal);
+    window.IntentSmithBus.on('chat:message', handlers.message);
+    window.IntentSmithBus.on('chat:system', handlers.system);
+    window.IntentSmithBus.on('ws:disconnected', handlers.disconnected);
+    window.IntentSmithBus.on('agent:event', handlers.agent);
+    window.IntentSmithBus.on('status:update', handlers.status);
     Object.defineProperty(window, '__intentSmithStudioLifecycleProbeV1', {
       configurable: true,
       enumerable: false,
@@ -1110,12 +1110,12 @@ async function readAndRemoveSoakLifecycleMonitor(cdp) {
   return await evaluate(cdp, `(() => {
     const probe = window.__intentSmithStudioLifecycleProbeV1;
     if (!probe) return null;
-    window.C3Bus.off('chat:terminal', probe.handlers.terminal);
-    window.C3Bus.off('chat:message', probe.handlers.message);
-    window.C3Bus.off('chat:system', probe.handlers.system);
-    window.C3Bus.off('ws:disconnected', probe.handlers.disconnected);
-    window.C3Bus.off('agent:event', probe.handlers.agent);
-    window.C3Bus.off('status:update', probe.handlers.status);
+    window.IntentSmithBus.off('chat:terminal', probe.handlers.terminal);
+    window.IntentSmithBus.off('chat:message', probe.handlers.message);
+    window.IntentSmithBus.off('chat:system', probe.handlers.system);
+    window.IntentSmithBus.off('ws:disconnected', probe.handlers.disconnected);
+    window.IntentSmithBus.off('agent:event', probe.handlers.agent);
+    window.IntentSmithBus.off('status:update', probe.handlers.status);
     delete window.__intentSmithStudioLifecycleProbeV1;
     return { ...probe.counts };
   })()`);
@@ -1171,12 +1171,12 @@ async function installM1SoakLifecycleMonitor(cdp) {
       disconnected: () => { counts.disconnects += 1; },
       reconnected: () => { counts.reconnects += 1; }
     };
-    window.C3Bus.on('chat:terminal', handlers.terminal);
-    window.C3Bus.on('agent:event', handlers.agent);
-    window.C3Bus.on('chat:message', handlers.message);
-    window.C3Bus.on('chat:system', handlers.system);
-    window.C3Bus.on('ws:disconnected', handlers.disconnected);
-    window.C3Bus.on('ws:reconnected', handlers.reconnected);
+    window.IntentSmithBus.on('chat:terminal', handlers.terminal);
+    window.IntentSmithBus.on('agent:event', handlers.agent);
+    window.IntentSmithBus.on('chat:message', handlers.message);
+    window.IntentSmithBus.on('chat:system', handlers.system);
+    window.IntentSmithBus.on('ws:disconnected', handlers.disconnected);
+    window.IntentSmithBus.on('ws:reconnected', handlers.reconnected);
     Object.defineProperty(window, '__intentSmithStudioM1LifecycleProbeV1', {
       configurable: true,
       enumerable: false,
@@ -1192,12 +1192,12 @@ async function readAndRemoveM1SoakLifecycleMonitor(cdp) {
   return evaluate(cdp, `(() => {
     const probe = window.__intentSmithStudioM1LifecycleProbeV1;
     if (!probe) return null;
-    window.C3Bus.off('chat:terminal', probe.handlers.terminal);
-    window.C3Bus.off('agent:event', probe.handlers.agent);
-    window.C3Bus.off('chat:message', probe.handlers.message);
-    window.C3Bus.off('chat:system', probe.handlers.system);
-    window.C3Bus.off('ws:disconnected', probe.handlers.disconnected);
-    window.C3Bus.off('ws:reconnected', probe.handlers.reconnected);
+    window.IntentSmithBus.off('chat:terminal', probe.handlers.terminal);
+    window.IntentSmithBus.off('agent:event', probe.handlers.agent);
+    window.IntentSmithBus.off('chat:message', probe.handlers.message);
+    window.IntentSmithBus.off('chat:system', probe.handlers.system);
+    window.IntentSmithBus.off('ws:disconnected', probe.handlers.disconnected);
+    window.IntentSmithBus.off('ws:reconnected', probe.handlers.reconnected);
     delete window.__intentSmithStudioM1LifecycleProbeV1;
     return {
       ...probe.counts,
@@ -1209,7 +1209,7 @@ async function readAndRemoveM1SoakLifecycleMonitor(cdp) {
 async function rendererFunctionalWsProbe(cdp) {
   return await evaluate(cdp, `(async () => {
     const prompt = 'kolik je 17 * 23?';
-    const client = window.C3WS;
+    const client = window.IntentSmithWS;
     const pane = window._sessions?.[0];
     if (!client?.isReady?.() || !client?.isM1WireNegotiated?.() || !pane) {
       return { resultClass: 'm1-not-ready' };
@@ -1263,11 +1263,11 @@ async function rendererFunctionalWsProbe(cdp) {
       let disconnected = false;
 
       const removeListeners = () => {
-        window.C3Bus.off('agent:event', onAgent);
-        window.C3Bus.off('chat:terminal', onTerminal);
-        window.C3Bus.off('chat:message', onMessage);
-        window.C3Bus.off('chat:system', onSystem);
-        window.C3Bus.off('ws:disconnected', onDisconnected);
+        window.IntentSmithBus.off('agent:event', onAgent);
+        window.IntentSmithBus.off('chat:terminal', onTerminal);
+        window.IntentSmithBus.off('chat:message', onMessage);
+        window.IntentSmithBus.off('chat:system', onSystem);
+        window.IntentSmithBus.off('ws:disconnected', onDisconnected);
       };
       const finish = resultClass => {
         if (settled) return;
@@ -1349,11 +1349,11 @@ async function rendererFunctionalWsProbe(cdp) {
         disconnected = true;
         finish('disconnected');
       };
-      window.C3Bus.on('agent:event', onAgent);
-      window.C3Bus.on('chat:terminal', onTerminal);
-      window.C3Bus.on('chat:message', onMessage);
-      window.C3Bus.on('chat:system', onSystem);
-      window.C3Bus.on('ws:disconnected', onDisconnected);
+      window.IntentSmithBus.on('agent:event', onAgent);
+      window.IntentSmithBus.on('chat:terminal', onTerminal);
+      window.IntentSmithBus.on('chat:message', onMessage);
+      window.IntentSmithBus.on('chat:system', onSystem);
+      window.IntentSmithBus.on('ws:disconnected', onDisconnected);
       const timeout = setTimeout(() => {
         client.sendCancel(pane);
         finish('timeout');
@@ -1366,7 +1366,7 @@ async function rendererFunctionalWsProbe(cdp) {
 
 async function rendererM1FunctionalWsProbe(cdp) {
   return evaluate(cdp, `(async () => {
-    const client = window.C3WS;
+    const client = window.IntentSmithWS;
     const sessions = window._sessions;
     if (!client?.isReady?.() || !client?.isM1WireNegotiated?.()) {
       return { resultClass: 'm1-not-negotiated' };
@@ -1430,7 +1430,7 @@ async function rendererM1FunctionalWsProbe(cdp) {
       'ws:disconnected': handlers.disconnected,
       'ws:ready': handlers.ready,
       'ws:reconnected': handlers.reconnected
-    }).forEach(([name, handler]) => window.C3Bus.on(name, handler));
+    }).forEach(([name, handler]) => window.IntentSmithBus.on(name, handler));
 
     const waitFor = async (predicate, label, timeoutMs = 12_000) => {
       const deadline = Date.now() + timeoutMs;
@@ -1536,7 +1536,7 @@ async function rendererM1FunctionalWsProbe(cdp) {
         'ws:disconnected': handlers.disconnected,
         'ws:ready': handlers.ready,
         'ws:reconnected': handlers.reconnected
-      }).forEach(([name, handler]) => window.C3Bus.off(name, handler));
+      }).forEach(([name, handler]) => window.IntentSmithBus.off(name, handler));
     }
 
     return {
@@ -1579,7 +1579,7 @@ async function rendererM1FunctionalWsProbe(cdp) {
  */
 async function rendererByteBridgeProbe(cdp) {
   return evaluate(cdp, `(() => {
-    const bridge = window.electronC3;
+    const bridge = window.electronIntentSmith;
     if (!bridge) return { exposed: false };
     const forged = bridge.readAttachmentBytes('forged-token-not-minted-by-the-bridge', 1024);
     return {
@@ -1678,13 +1678,13 @@ async function hashBoundedFile(file) {
 async function captureBuildDigests() {
   const files = {
     electronMainSha256:
-      'c3-ide/applications/electron/lib/backend/electron-main.js',
+      'intentsmith-ide/applications/electron/lib/backend/electron-main.js',
     frontendBundleSha256:
-      'c3-ide/applications/electron/lib/frontend/bundle.js',
+      'intentsmith-ide/applications/electron/lib/frontend/bundle.js',
     frontendIndexSha256:
-      'c3-ide/applications/electron/lib/frontend/index.html',
+      'intentsmith-ide/applications/electron/lib/frontend/index.html',
     preloadSha256:
-      'c3-ide/applications/electron/lib/frontend/preload.js',
+      'intentsmith-ide/applications/electron/lib/frontend/preload.js',
   };
   const result = {};
   for (const [key, relative] of Object.entries(files)) {
@@ -2153,7 +2153,7 @@ async function runJourney({
     });
     const access = await waitForAccess(paths.portFile, backend.observation);
     electron = spawnLogged(process.execPath, [
-      'c3-ide/applications/electron/scripts/launch.js',
+      'intentsmith-ide/applications/electron/scripts/launch.js',
       '--no-sandbox',
       '--remote-debugging-port=0',
       `--user-data-dir=${paths.electronData}`,
@@ -2169,7 +2169,7 @@ async function runJourney({
     );
     const expectedEntrypoint = path.join(
       SOURCE_ROOT,
-      'c3-ide/applications/electron/lib/frontend/index.html',
+      'intentsmith-ide/applications/electron/lib/frontend/index.html',
     );
     const target = await waitForCdpTarget(
       debugPort,
@@ -2258,8 +2258,8 @@ async function runJourney({
       - (monotonicMs() - observationStarted);
     if (remaining > 0) await delay(remaining + 50);
     const stillReady = await evaluate(cdp, m1Journey
-      ? 'window.C3WS?.isReady?.() === true && window.C3WS?.isM1WireNegotiated?.() === true'
-      : 'window.C3WS?.isReady?.() === true');
+      ? 'window.IntentSmithWS?.isReady?.() === true && window.IntentSmithWS?.isM1WireNegotiated?.() === true'
+      : 'window.IntentSmithWS?.isReady?.() === true');
     if (stillReady !== true) fail('websocket-not-ready-after-soak');
     await waitForNetworkQuiescence(reducer);
     if (m2ComposerJourney) {

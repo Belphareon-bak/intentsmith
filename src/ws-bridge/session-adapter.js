@@ -1,4 +1,4 @@
-// C3 WS Bridge — Session Adapter
+// IntentSmith WS Bridge — Session Adapter
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // v65.6 — Maps a WebSocket connection to a ChatController session.
@@ -896,7 +896,7 @@ export function createSessionAdapter({
 
   /**
    * Handle a terminal command execution request.
-   * Uses C3ToolExecutor with security validation (whitelist, argv spawn, sanitized env).
+   * Uses IntentSmithToolExecutor with security validation (whitelist, argv spawn, sanitized env).
    *
    * @param {Object} data — { type: 'exec', command: string, cwd?: string, reqId?: string }
    */
@@ -925,8 +925,8 @@ export function createSessionAdapter({
 
     try {
       // Dynamically import executor to avoid circular dependency at module level
-      const { C3ToolExecutor } = await import('../executor/c3-tool-executor.js');
-      const executor = new C3ToolExecutor();
+      const { IntentSmithToolExecutor } = await import('../executor/intentsmith-tool-executor.js');
+      const executor = new IntentSmithToolExecutor();
 
       const result = await executor.execute({
         correlationId: `ws-term-${reqId}`,
@@ -1013,13 +1013,13 @@ export function createSessionAdapter({
           const changed = featureManager.applySettings(settings);
 
           // v93: Sync SMTP notification settings to EmailChannel
-          if (_notificationRouter && 'c3.notif.smtpHost' in settings) {
+          if (_notificationRouter && 'intentsmith.notif.smtpHost' in settings) {
             _notificationRouter.updateChannelConfig('email', {
-              host: settings['c3.notif.smtpHost'],
-              port: settings['c3.notif.smtpPort'],
-              user: settings['c3.notif.smtpUser'],
-              pass: process.env.C3_SMTP_PASS,
-              from: settings['c3.notif.smtpFrom'],
+              host: settings['intentsmith.notif.smtpHost'],
+              port: settings['intentsmith.notif.smtpPort'],
+              user: settings['intentsmith.notif.smtpUser'],
+              pass: (process.env.INTENTSMITH_SMTP_PASS ?? process.env['C3_SMTP_PASS']),
+              from: settings['intentsmith.notif.smtpFrom'],
             });
             if (_notificationEmitter) _notificationEmitter.invalidateCache();
             logger.info('WSSession', 'SMTP notification config synced', { sessionId: sid });

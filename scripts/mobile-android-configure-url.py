@@ -35,7 +35,7 @@ if transport_mode == 'remote-core-v1':
     if parsed.scheme != 'https' or parsed.port != 7443:
         sys.exit('M7 produkční origin musí být exact HTTPS origin na portu 7443')
     if not re.fullmatch(r'sha256:[0-9a-f]{64}', m7_spki_pin):
-        sys.exit('M7 produkční build vyžaduje C3_M7_SERVER_SPKI_PIN=sha256:<64 hex>')
+        sys.exit('M7 produkční build vyžaduje INTENTSMITH_M7_SERVER_SPKI_PIN=sha256:<64 hex>')
 else:
     if m7_spki_pin:
         sys.exit('M7 SPKI pin nesmí být přidán do legacy buildu')

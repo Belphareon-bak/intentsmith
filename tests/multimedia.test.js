@@ -437,7 +437,7 @@ test('getState reports ollamaUnloaded correctly', () => {
 
 suite('Output Storage');
 
-const tmpDir = path.join(os.tmpdir(), 'c3-mm-test-' + Date.now());
+const tmpDir = path.join(os.tmpdir(), 'intentsmith-mm-test-' + Date.now());
 
 await testAsync('init creates base directory', async () => {
   const storage = new MediaOutputStorage({ baseDir: tmpDir, maxGB: 1 });
@@ -587,7 +587,7 @@ test('getStats returns correct values', () => {
 
 await testAsync('enforceQuota deletes oldest non-favorite', async () => {
   const db = createTestDb();
-  const dir = path.join(os.tmpdir(), 'c3-mm-quota-' + Date.now());
+  const dir = path.join(os.tmpdir(), 'intentsmith-mm-quota-' + Date.now());
   const storage = new MediaOutputStorage({ baseDir: dir, maxGB: 0 }); // 0 GB → always over quota
   storage.setDb(db);
   storage.init();

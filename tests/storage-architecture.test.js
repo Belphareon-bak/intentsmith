@@ -13,7 +13,7 @@ import os from 'os';
 // ─── Test Helpers ────────────────────────────────────────────────────────────
 
 function tmpDir() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-storage-test-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-storage-test-'));
   return dir;
 }
 
@@ -22,7 +22,7 @@ function cleanDir(dir) {
 }
 
 function createTestDb(dataDir) {
-  const dbPath = path.join(dataDir, 'c3.db');
+  const dbPath = path.join(dataDir, 'intentsmith.db');
   const db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
@@ -542,10 +542,10 @@ test('createStateBackup: creates backup directory with DB', () => {
     assert(!result.error, `Should not have error: ${result.error}`);
     assert(result.files > 0, 'Should have files');
     assert(result.size > 0, 'Should have size');
-    assert(result.name.startsWith('c3-state-'), 'Name should start with c3-state-');
+    assert(result.name.startsWith('intentsmith-state-'), 'Name should start with intentsmith-state-');
 
     // Verify DB copy exists
-    const dbBackup = path.join(result.path, 'c3.db');
+    const dbBackup = path.join(result.path, 'intentsmith.db');
     assert(fs.existsSync(dbBackup), 'Backup DB should exist');
 
     // Verify metadata.json
@@ -601,7 +601,7 @@ test('listBackups: returns backup metadata', () => {
 
     const backups = listBackups(dir);
     assertEqual(backups.length, 1);
-    assert(backups[0].name.startsWith('c3-state-'), 'Should have correct name');
+    assert(backups[0].name.startsWith('intentsmith-state-'), 'Should have correct name');
     assert(backups[0].created_at, 'Should have created_at');
     assertEqual(backups[0].format_version, 2);
     assertEqual(backups[0].restorable, true);
@@ -621,7 +621,7 @@ test('pruneBackups: keeps within limits', () => {
 
     // Create fake backup dirs with different dates
     for (const date of ['2026-02-20', '2026-02-21', '2026-02-22', '2026-02-25', '2026-02-26', '2026-02-27', '2026-02-28', '2026-03-01']) {
-      const bp = path.join(backupsDir, `c3-state-${date}.backup`);
+      const bp = path.join(backupsDir, `intentsmith-state-${date}.backup`);
       fs.mkdirSync(bp, { recursive: true });
       fs.writeFileSync(path.join(bp, 'metadata.json'), JSON.stringify({
         created_at: `${date}T12:00:00Z`,
@@ -629,7 +629,7 @@ test('pruneBackups: keeps within limits', () => {
         schema_version: 3,
         type: 'state',
       }));
-      fs.writeFileSync(path.join(bp, 'c3.db'), 'fake');
+      fs.writeFileSync(path.join(bp, 'intentsmith.db'), 'fake');
     }
 
     const before = listBackups(dir);

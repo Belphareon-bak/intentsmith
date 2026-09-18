@@ -31,11 +31,11 @@ test('new project has a clean Git baseline, canonical policy and a genuinely fai
   assert.equal(execFileSync('git', ['status', '--porcelain'], { cwd: project.path, encoding: 'utf8' }), '');
   assert.match(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: project.path, encoding: 'utf8' }), /^[0-9a-f]{40}/);
   const analysis = await inspectProject(project);
-  assert.equal(analysis.setup['.c3/m2-governance-policy.json'], true);
+  assert.equal(analysis.setup['.intentsmith/m2-governance-policy.json'], true);
   assert.ok(analysis.files.includes('test/acceptance.test.mjs'));
   assert.throws(() => execFileSync(process.execPath, ['--test', 'test/acceptance.test.mjs'], { cwd: project.path, stdio: 'pipe', env: Object.fromEntries(Object.entries(process.env).filter(([key]) => key !== 'NODE_TEST_CONTEXT')) }), { status: 1 });
   await assert.rejects(initializeNewProject(project.path, { name: 'overwrite' }), { code: 'EEXIST' });
-  assert.equal(JSON.parse(await fs.readFile(path.join(project.path, '.c3/project.json'), 'utf8')).name, 'Fan monitor');
+  assert.equal(JSON.parse(await fs.readFile(path.join(project.path, '.intentsmith/project.json'), 'utf8')).name, 'Fan monitor');
 });
 
 test('foreign repository inspection preserves files and presents scope and goal questions', async t => {

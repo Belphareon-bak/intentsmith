@@ -1,4 +1,4 @@
-// C3-Agent v57.3 — LLM Integration Tests (Multi-Step)
+// IntentSmith-Agent v57.3 — LLM Integration Tests (Multi-Step)
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // End-to-end tests that actually call Ollama and verify real LLM responses.

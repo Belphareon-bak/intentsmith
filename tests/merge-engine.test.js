@@ -1,4 +1,4 @@
-// C3-Agent v63.0 — Merge Engine Tests
+// IntentSmith-Agent v63.0 — Merge Engine Tests
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // T-ME1:  Basic merge (2 expertises, 3 expertises, >3 rejects, empty rejects, single)
@@ -631,7 +631,7 @@ describe('T-ME11: Merge commutativity', async () => {
 
 // ─── Run All Tests ────────────────────────────────────────────────────────────
 
-console.log('\n🔬 C3 Merge Engine v2 — Test Suite');
+console.log('\n🔬 IntentSmith Merge Engine v2 — Test Suite');
 console.log('═'.repeat(70));
 
 for (const test of pendingTests) {

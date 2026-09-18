@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ═══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — A1 + A2 + A3: Fetch Quality, Search Retry, Confidence Styling
+// IntentSmith-Agent — A1 + A2 + A3: Fetch Quality, Search Retry, Confidence Styling
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // Run: node tests/search-quality-a123.test.js

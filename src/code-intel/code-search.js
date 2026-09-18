@@ -22,7 +22,7 @@ const CACHE_TTL = 30_000; // 30s
 // Directories to always ignore
 const IGNORE_DIRS = new Set([
   'node_modules', '.git', 'dist', 'build', '__pycache__',
-  'venv', '.venv', '.c3', 'vendor', 'target', '.next',
+  'venv', '.venv', '.intentsmith', 'vendor', 'target', '.next',
   '.nuxt', 'coverage', '.cache', '.tox', 'env',
 ]);
 

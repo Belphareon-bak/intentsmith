@@ -14,7 +14,7 @@
 /**
  * Per-item ceilings come from the product's real attachment authority:
  * `config.limits.maxTextAttachment` / `maxImageAttachment` (overridable via
- * C3_MAX_TEXT_ATTACHMENT / C3_MAX_IMAGE_ATTACHMENT). The 10 MiB settings slider
+ * INTENTSMITH_MAX_TEXT_ATTACHMENT / INTENTSMITH_MAX_IMAGE_ATTACHMENT). The 10 MiB settings slider
  * is deliberately NOT an input here — it is disconnected from this path.
  *
  * `maxCount`, `maxAggregateBytes` and `maxFrameBytes` are new policy: today's UI

@@ -1,6 +1,6 @@
 // tests/e2e/94-long-conversation-quality.e2e.js — Long Conversation Quality
 // ══════════════════════════════════════════════════════════════════════════════
-// Tier 3+: Tests that C3 maintains quality across 10+ turn conversations.
+// Tier 3+: Tests that IntentSmith maintains quality across 10+ turn conversations.
 //
 // Quality dimensions tested:
 //   1. Context retention — references to earlier turns remain accurate

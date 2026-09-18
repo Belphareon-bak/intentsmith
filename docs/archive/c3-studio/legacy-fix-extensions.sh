@@ -13,7 +13,7 @@ echo "Extensions dir: $EXT_DIR"
 
 if [ ! -d "$EXT_DIR" ]; then
   echo "❌ Extensions not found at $EXT_DIR"
-  echo "   Usage: ./fix-extensions.sh /path/to/c3-ide"
+  echo "   Usage: ./fix-extensions.sh /path/to/intentsmith-ide"
   exit 1
 fi
 

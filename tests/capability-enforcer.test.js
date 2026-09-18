@@ -1,4 +1,4 @@
-// C3-Agent v63.3 — Capability Enforcer + Strict Enforcement + Retry Decay + ExecutionTrace Tests
+// IntentSmith-Agent v63.3 — Capability Enforcer + Strict Enforcement + Retry Decay + ExecutionTrace Tests
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // T-CE1:  evaluateDeterminism — hedging detection, ratio-based scoring
@@ -641,7 +641,7 @@ describe('T-CE10: ExecutionTrace ID in retry audit', async () => {
 
 async function run() {
   console.log('\n' + '═'.repeat(70));
-  console.log('  C3-Agent v63.3 — Capability Enforcer + Strict + Retry + Trace Tests');
+  console.log('  IntentSmith-Agent v63.3 — Capability Enforcer + Strict + Retry + Trace Tests');
   console.log('═'.repeat(70));
 
   for (const test of pendingTests) {

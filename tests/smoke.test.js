@@ -58,12 +58,12 @@ import { suite, test, testAsync, assert, assertEqual, summary } from './harness.
 
 // ─── Setup ───────────────────────────────────────────────────────────────────
 
-const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-smoke-'));
+const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-smoke-'));
 const projectDir = path.join(tmpDir, 'calculator-api');
 fs.mkdirSync(projectDir, { recursive: true });
 execFileSync('git', ['init', '-q'], { cwd: projectDir });
-execFileSync('git', ['config', 'user.email', 'smoke@c3'], { cwd: projectDir });
-execFileSync('git', ['config', 'user.name', 'C3 Smoke'], { cwd: projectDir });
+execFileSync('git', ['config', 'user.email', 'smoke@intentsmith'], { cwd: projectDir });
+execFileSync('git', ['config', 'user.name', 'IntentSmith Smoke'], { cwd: projectDir });
 execFileSync('git', ['commit', '--allow-empty', '-m', 'init', '-q'], { cwd: projectDir });
 
 // ─── fakeLLM ─────────────────────────────────────────────────────────────────

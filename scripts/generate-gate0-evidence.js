@@ -1197,7 +1197,7 @@ ${outcome.repositoryBlockers.length > 0
 - Supported program-language files are discovered regardless of filename;
   ${explicitSupportExclusions} support/aggregate files are explicit reasoned
   exclusions.
-- The operator-owned ignored \`data/c3.db\` remains untouched (\`D-022\`).
+- The operator-owned ignored \`data/intentsmith.db\` remains untouched (\`D-022\`).
 
 ## Next action
 
@@ -1394,7 +1394,7 @@ ${rotationRows}
 - Registry discovery covers every supported program-language file independent
   of its filename; ${explicitSupportExclusions} support/aggregate files are
   explicit reasoned exclusions.
-- Runtime database access now requires an explicit non-empty \`C3_DB_PATH\`;
+- Runtime database access now requires an explicit non-empty \`INTENTSMITH_DB_PATH\`;
   authoritative registry runs bind a distinct isolated path (\`G0-R012\`).
 - All current direct-run temp creators use the private bootstrap-owned runtime
   boundary; the former shared-\`/tmp\` convention is closed (\`G0-R014\`).
@@ -1469,7 +1469,7 @@ ${reviewDiffStat}
 ## Invariants
 
 - Do not weaken A9 or production score thresholds.
-- No source/test run may touch operator \`data/c3.db\`.
+- No source/test run may touch operator \`data/intentsmith.db\`.
 - \`KNOWN_DEFECTIVE\` and \`BLOCKED\` suites never count green.
 - Audit child exits, log hashes, source SHA, cleanup, and clean-tree evidence
   determine the verdict; printed assertion totals do not.
@@ -1504,7 +1504,7 @@ ${pilotEvidence.map(item => (
 
 - Registry discovery is extension-based and every support/aggregate file is an
   explicit reasoned exclusion.
-- Runtime DB access fails closed without an explicit \`C3_DB_PATH\`, and the
+- Runtime DB access fails closed without an explicit \`INTENTSMITH_DB_PATH\`, and the
   authoritative runner supplies isolated DB paths (\`G0-R012\`).
 - ${stateCounts.KNOWN_DEFECTIVE || 0} recovered E2E suites remain
   \`KNOWN_DEFECTIVE\`; ${stateCounts.BLOCKED || 0} remain registry-\`BLOCKED\`.

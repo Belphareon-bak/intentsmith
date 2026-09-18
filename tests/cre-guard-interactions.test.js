@@ -2,7 +2,7 @@
 import './helpers/isolated-test-db.js';
 
 // ══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — CRE Guard Interaction Tests v124
+// IntentSmith-Agent — CRE Guard Interaction Tests v124
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Tests guard combination scenarios to ensure no conflicts:

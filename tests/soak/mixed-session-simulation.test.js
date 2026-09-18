@@ -108,7 +108,7 @@ const CONVERSATIONS = [
   {
     name: 'S07: Project workflow',
     turns: [
-      'otevři projekt c3-agent',
+      'otevři projekt intentsmith-agent',
       'jaká je struktura',
       'najdi všechny testy',
       'spusť test suite',

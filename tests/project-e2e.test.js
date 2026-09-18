@@ -1,18 +1,18 @@
 // E2E Project Tests — v84
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// Two real-world E2E scenarios testing C3 project mode:
+// Two real-world E2E scenarios testing IntentSmith project mode:
 //
 // TEST 1: NEW PROJECT — "Klíčenka" (credentials/secrets manager)
-//   Creates a brand-new project, asks C3 to spec it out, verifies
+//   Creates a brand-new project, asks IntentSmith to spec it out, verifies
 //   the system can handle project creation + initial design conversation.
 //
 // TEST 2: EXISTING PROJECT — ai-log-analyzer
-//   Points C3 at an existing codebase, asks about architecture, bugs,
+//   Points IntentSmith at an existing codebase, asks about architecture, bugs,
 //   regular phase, output analysis, and improvement recommendations.
-//   Verifies C3 can read real files and provide meaningful analysis.
+//   Verifies IntentSmith can read real files and provide meaningful analysis.
 //
-// REQUIRES: C3 server running on port 3335
+// REQUIRES: IntentSmith server running on port 3335
 //   node --watch src/server.js
 //
 // RUN:
@@ -24,7 +24,7 @@ import './helpers/isolated-test-db.js';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-const BASE = process.env.C3_URL || 'http://127.0.0.1:3335';
+const BASE = process.env.INTENTSMITH_URL || 'http://127.0.0.1:3335';
 const TIMEOUT = 300_000; // bounded by the registered 15-minute program timeout
 const PROJECT_READ_CANARY = 'INTENTSMITH_PROJECT_E2E_READ_CANARY';
 
@@ -95,7 +95,7 @@ async function preflight() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return true;
   } catch {
-    console.error('\n  ⚠️  C3 server not running on port 3335.');
+    console.error('\n  ⚠️  IntentSmith server not running on port 3335.');
     console.error('  Start it with: node --watch src/server.js\n');
     process.exit(1);
   }
@@ -131,9 +131,9 @@ async function test1_NewProject() {
     return;
   }
 
-  // ── 1.2 First message: ask C3 to design the project ──
+  // ── 1.2 First message: ask IntentSmith to design the project ──
 
-  await check('1.2 Chat: C3 responds to project spec request', async () => {
+  await check('1.2 Chat: IntentSmith responds to project spec request', async () => {
     const { status, data } = await chat(convId, projectId,
       'Navrhni specifikaci pro klíčenku — systém na bezpečné ukládání credentials (API klíče, hesla, tokeny). ' +
       'Potřebuju: šifrování AES-256, master heslo, CLI rozhraní pro přidání/čtení/smazání, ' +
@@ -170,7 +170,7 @@ async function test1_NewProject() {
     // Should contain file/project indicators — new project shows dashboard or file listing
     const r = data.response.toLowerCase();
     const hasFiles = data.response.includes('📁') || data.response.includes('📄') || data.response.includes('📂') ||
-                     r.includes('project.json') || r.includes('.c3') ||
+                     r.includes('project.json') || r.includes('.intentsmith') ||
                      r.includes('package.json') || r.includes('src') ||
                      r.includes('soubor') || r.includes('adresář') || r.includes('složk') ||
                      r.includes('cesta') || r.includes('projekt');
@@ -375,8 +375,8 @@ async function test2_ExistingProject() {
 
 async function main() {
   console.log('╔══════════════════════════════════════════════════════════════════════╗');
-  console.log('║  C3 Project E2E Tests — v84                                        ║');
-  console.log('║  Tests run against live C3 server (port 3335)                       ║');
+  console.log('║  IntentSmith Project E2E Tests — v84                                        ║');
+  console.log('║  Tests run against live IntentSmith server (port 3335)                       ║');
   console.log('╚══════════════════════════════════════════════════════════════════════╝');
 
   await preflight();

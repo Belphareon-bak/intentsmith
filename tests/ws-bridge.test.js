@@ -1,6 +1,6 @@
 import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 
-// C3 WS Bridge — Tests for B1-B3 (DEV B)
+// IntentSmith WS Bridge — Tests for B1-B3 (DEV B)
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Test coverage:
@@ -2216,7 +2216,7 @@ await asyncTest(
       const port = await listenOnOwnedLoopback(httpServer);
       client = await connectAndHello(
         WebSocket,
-        `ws://127.0.0.1:${port}/c3/ws`,
+        `ws://127.0.0.1:${port}/intentsmith/ws`,
         undefined,
         undefined,
         [M1_WIRE_FEATURE],
@@ -2265,7 +2265,7 @@ await asyncTest(
 
       client = await connectAndHello(
         WebSocket,
-        `ws://127.0.0.1:${port}/c3/ws`,
+        `ws://127.0.0.1:${port}/intentsmith/ws`,
         undefined,
         undefined,
         [M1_WIRE_FEATURE],
@@ -2322,7 +2322,7 @@ await asyncTest(
       const port = await listenOnOwnedLoopback(httpServer);
       client = await connectAndHello(
         WebSocket,
-        `ws://127.0.0.1:${port}/c3/ws`,
+        `ws://127.0.0.1:${port}/intentsmith/ws`,
         undefined,
         undefined,
         [M1_WIRE_FEATURE],
@@ -2422,7 +2422,7 @@ await asyncTest('T25f: rehydrate ack is durable-only and store failure closes wi
       { localCapability: capability },
     );
     const port = await listenOnOwnedLoopback(httpServer);
-    client = await connectAndHello(WebSocket, `ws://127.0.0.1:${port}/c3/ws`);
+    client = await connectAndHello(WebSocket, `ws://127.0.0.1:${port}/intentsmith/ws`);
     const waitForControl = (targetClient, action) => new Promise((resolve, reject) => {
       const timer = setTimeout(
         () => reject(new Error(`Timed out waiting for ${action}`)),
@@ -2498,7 +2498,7 @@ await asyncTest('T25f: rehydrate ack is durable-only and store failure closes wi
       reason: 'Invalid rehydrate request id',
     });
 
-    client = await connectAndHello(WebSocket, `ws://127.0.0.1:${port}/c3/ws`);
+    client = await connectAndHello(WebSocket, `ws://127.0.0.1:${port}/intentsmith/ws`);
     let unexpectedIdentityResponse = false;
     const onMessage = raw => {
       const message = JSON.parse(raw.toString());
@@ -2534,7 +2534,7 @@ await asyncTest('T25f: rehydrate ack is durable-only and store failure closes wi
 
     resetConversationStore();
     getConversationStore(null);
-    client = await connectAndHello(WebSocket, `ws://127.0.0.1:${port}/c3/ws`);
+    client = await connectAndHello(WebSocket, `ws://127.0.0.1:${port}/intentsmith/ws`);
     const memoryClosePromise = new Promise(resolve => {
       client.once('close', (code, reason) => resolve({ code, reason: reason.toString() }));
     });
@@ -2691,7 +2691,7 @@ await asyncTest('T25h: Studio rehydrate composes durable ACK with the production
     const backendBase = `http://127.0.0.1:${port}`;
     const context = vm.createContext({
       AbortSignal,
-      C3Bus: {
+      IntentSmithBus: {
         emit(name, payload) {
           busEvents.push({ name, payload });
           if (name === 'ws:reconnected') resolveCompletion(payload);
@@ -2725,13 +2725,13 @@ await asyncTest('T25h: Studio rehydrate composes durable ACK with the production
       fetchBackendData() {},
       module: { exports: {} },
       require(specifier) {
-        if (specifier === '@c3/protocol') return m1ProtocolRuntime;
+        if (specifier === '@intentsmith/protocol') return m1ProtocolRuntime;
         throw new Error(`Unexpected VM dependency: ${specifier}`);
       },
       setInterval: () => Symbol('interval'),
       setTimeout,
       window: {
-        electronC3: {
+        electronIntentSmith: {
           getBackendUrl: () => backendBase,
           getLocalCapability: () => capability,
         },
@@ -2740,11 +2740,11 @@ await asyncTest('T25h: Studio rehydrate composes durable ACK with the production
     context.window.window = context.window;
     vm.runInContext(
       fs.readFileSync(
-        new URL('../c3-ide/extensions/c3-chat-panel/lib/browser/ws-client.js', import.meta.url),
+        new URL('../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/ws-client.js', import.meta.url),
         'utf8',
       ),
       context,
-      { filename: 'c3-chat-panel/lib/browser/ws-client.js#live-wire' },
+      { filename: 'intentsmith-chat-panel/lib/browser/ws-client.js#live-wire' },
     );
     client = context.module.exports;
     assert.equal(client.wsConnect(), true);
@@ -3124,7 +3124,7 @@ test('T25g: rehydrate validation rejects malformed sets before durable lookup', 
           headers: {
             host: '127.0.0.1:47831',
             'sec-websocket-protocol':
-              `c3-v1, ${LEGACY_LOCAL_WS_CAPABILITY_PREFIX}${capability}`,
+              `intentsmith-v1, ${LEGACY_LOCAL_WS_CAPABILITY_PREFIX}${capability}`,
           },
           socket: { remoteAddress: '127.0.0.1' },
         },
@@ -3138,7 +3138,7 @@ test('T25g: rehydrate validation rejects malformed sets before durable lookup', 
           headers: {
             host: '127.0.0.1:47831',
             'sec-websocket-protocol':
-              `c3-v1, ${LEGACY_LOCAL_WS_CAPABILITY_PREFIX}${'C'.repeat(43)}`,
+              `intentsmith-v1, ${LEGACY_LOCAL_WS_CAPABILITY_PREFIX}${'C'.repeat(43)}`,
           },
           socket: { remoteAddress: '127.0.0.1' },
         },
@@ -3152,7 +3152,7 @@ test('T25g: rehydrate validation rejects malformed sets before durable lookup', 
           headers: {
             host: '127.0.0.1:47831',
             'sec-websocket-protocol':
-              `c3-v1, ${LEGACY_LOCAL_WS_CAPABILITY_PREFIX}${capability}`,
+              `intentsmith-v1, ${LEGACY_LOCAL_WS_CAPABILITY_PREFIX}${capability}`,
           },
           socket: { remoteAddress: '127.0.0.1' },
         },
@@ -3161,7 +3161,7 @@ test('T25g: rehydrate validation rejects malformed sets before durable lookup', 
     );
     assert.equal(
       extractLegacyLocalWebSocketCapability(
-        `c3-v1, ${LEGACY_LOCAL_WS_CAPABILITY_PREFIX}${capability}`,
+        `intentsmith-v1, ${LEGACY_LOCAL_WS_CAPABILITY_PREFIX}${capability}`,
       ),
       capability,
     );
@@ -3171,14 +3171,14 @@ test('T25g: rehydrate validation rejects malformed sets before durable lookup', 
     const fs = await import('node:fs');
     const preloadSource = fs.readFileSync(
       new URL(
-        '../c3-ide/applications/electron/c3-preload.js',
+        '../intentsmith-ide/applications/electron/intentsmith-preload.js',
         import.meta.url,
       ),
       'utf8',
     );
     const clientSource = fs.readFileSync(
       new URL(
-        '../c3-ide/extensions/c3-chat-panel/lib/browser/ws-client.js',
+        '../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/ws-client.js',
         import.meta.url,
       ),
       'utf8',
@@ -3189,8 +3189,8 @@ test('T25g: rehydrate validation rejects malformed sets before durable lookup', 
       preloadSource,
       /backendUrl:\s*access\.backendUrl,\s*localCapability:\s*access\.localCapability/s,
     );
-    assert.match(clientSource, /window\.electronC3\.getLocalCapability\(\)/);
-    assert.match(clientSource, /new WebSocket\(wsUrl,\s*\['c3-v1',\s*'c3-local-v1\.'/);
+    assert.match(clientSource, /window\.electronIntentSmith\.getLocalCapability\(\)/);
+    assert.match(clientSource, /new WebSocket\(wsUrl,\s*\['intentsmith-v1',\s*'intentsmith-local-v1\.'/);
   });
 
   await asyncTest(
@@ -3217,7 +3217,7 @@ test('T25g: rehydrate validation rejects malformed sets before durable lookup', 
       });
 
       const port = await listenOnOwnedLoopback(httpServer);
-      const url = `ws://127.0.0.1:${port}/c3/ws`;
+      const url = `ws://127.0.0.1:${port}/intentsmith/ws`;
       try {
         const nativeClient = await connectAndHello(WebSocket, url);
         assert.equal(acceptedConnections, 1);
@@ -3241,7 +3241,7 @@ test('T25g: rehydrate validation rejects malformed sets before durable lookup', 
           {
             origin: 'https://attacker.example',
             protocols: [
-              'c3-v1',
+              'intentsmith-v1',
               `${LEGACY_LOCAL_WS_CAPABILITY_PREFIX}${capability}`,
             ],
           },
@@ -3271,7 +3271,7 @@ test('T25g: rehydrate validation rejects malformed sets before durable lookup', 
           {
             origin: 'null',
             protocols: [
-              'c3-v1',
+              'intentsmith-v1',
               `${LEGACY_LOCAL_WS_CAPABILITY_PREFIX}${'D'.repeat(43)}`,
             ],
           },
@@ -3321,12 +3321,12 @@ test('T25g: rehydrate validation rejects malformed sets before durable lookup', 
           WebSocket,
           url,
           [
-            'c3-v1',
+            'intentsmith-v1',
             `${LEGACY_LOCAL_WS_CAPABILITY_PREFIX}${capability}`,
           ],
           { origin: 'null' },
         );
-        assert.equal(opaqueClient.protocol, 'c3-v1');
+        assert.equal(opaqueClient.protocol, 'intentsmith-v1');
         assert.equal(acceptedConnections, 4);
         await closeOwnedWebSocket(opaqueClient);
       } finally {

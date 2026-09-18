@@ -6,13 +6,13 @@
 
 set -e
 
-ARCHITECT_DIR=".c3-architect"
+ARCHITECT_DIR=".intentsmith-architect"
 STATE_FILE="$ARCHITECT_DIR/state.json"
 ROADMAP_FILE="$ARCHITECT_DIR/roadmap/main.md"
 
 # Check if architect dir exists
 if [ ! -d "$ARCHITECT_DIR" ]; then
-    echo "Error: .c3-architect directory not found"
+    echo "Error: .intentsmith-architect directory not found"
     exit 1
 fi
 

@@ -168,14 +168,14 @@ export class ChannelCapabilities {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// C3InputEvent
+// IntentSmithInputEvent
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Normalized input event from any channel.
  * This is the ONLY input format ChatController accepts.
  */
-export class C3InputEvent {
+export class IntentSmithInputEvent {
   /**
    * @param {Object} options
    * @param {string} [options.correlationId] - UUID, auto-generated if not provided
@@ -206,22 +206,22 @@ export class C3InputEvent {
   }) {
     // Validation
     if (!source?.channel) {
-      throw new Error('C3InputEvent: source.channel is required');
+      throw new Error('IntentSmithInputEvent: source.channel is required');
     }
     if (!source?.messageId) {
-      throw new Error('C3InputEvent: source.messageId is required');
+      throw new Error('IntentSmithInputEvent: source.messageId is required');
     }
     if (!user?.externalId) {
-      throw new Error('C3InputEvent: user.externalId is required');
+      throw new Error('IntentSmithInputEvent: user.externalId is required');
     }
     if (!content?.type) {
-      throw new Error('C3InputEvent: content.type is required');
+      throw new Error('IntentSmithInputEvent: content.type is required');
     }
     if (content.type === ContentType.TEXT && !content.text) {
-      throw new Error('C3InputEvent: content.text is required for type TEXT');
+      throw new Error('IntentSmithInputEvent: content.text is required for type TEXT');
     }
     if (!capabilities) {
-      throw new Error('C3InputEvent: capabilities is required');
+      throw new Error('IntentSmithInputEvent: capabilities is required');
     }
 
     this.correlationId = correlationId || randomUUID();
@@ -267,7 +267,7 @@ export class C3InputEvent {
     messageId,
     capabilities,
   } = {}) {
-    return new C3InputEvent({
+    return new IntentSmithInputEvent({
       source: {
         channel,
         messageId: messageId || randomUUID(),
@@ -285,13 +285,13 @@ export class C3InputEvent {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// C3OutputEvent
+// IntentSmithOutputEvent
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Output event to be rendered by channel adapter.
  */
-export class C3OutputEvent {
+export class IntentSmithOutputEvent {
   /**
    * @param {Object} options
    * @param {string} options.correlationId - Echo of input correlationId
@@ -316,19 +316,19 @@ export class C3OutputEvent {
     delivery = {},
   }) {
     if (!correlationId) {
-      throw new Error('C3OutputEvent: correlationId is required');
+      throw new Error('IntentSmithOutputEvent: correlationId is required');
     }
     if (!content?.type) {
-      throw new Error('C3OutputEvent: content.type is required');
+      throw new Error('IntentSmithOutputEvent: content.type is required');
     }
     if (!metadata?.speaker) {
-      throw new Error('C3OutputEvent: metadata.speaker is required');
+      throw new Error('IntentSmithOutputEvent: metadata.speaker is required');
     }
     if (!metadata?.mode) {
-      throw new Error('C3OutputEvent: metadata.mode is required');
+      throw new Error('IntentSmithOutputEvent: metadata.mode is required');
     }
     if (typeof metadata?.confidence !== 'number') {
-      throw new Error('C3OutputEvent: metadata.confidence is required');
+      throw new Error('IntentSmithOutputEvent: metadata.confidence is required');
     }
 
     this.correlationId = correlationId;
@@ -361,7 +361,7 @@ export class C3OutputEvent {
    * Create from TaggedResponse (legacy compatibility)
    */
   static fromTaggedResponse(correlationId, response) {
-    return new C3OutputEvent({
+    return new IntentSmithOutputEvent({
       correlationId,
       content: {
         type: 'text',
@@ -379,13 +379,13 @@ export class C3OutputEvent {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// C3ErrorEvent
+// IntentSmithErrorEvent
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
  * Error event for channel adapters.
  */
-export class C3ErrorEvent {
+export class IntentSmithErrorEvent {
   /**
    * @param {Object} options
    * @param {string} options.correlationId
@@ -408,16 +408,16 @@ export class C3ErrorEvent {
     retryAfterMs,
   }) {
     if (!correlationId) {
-      throw new Error('C3ErrorEvent: correlationId is required');
+      throw new Error('IntentSmithErrorEvent: correlationId is required');
     }
     if (!source) {
-      throw new Error('C3ErrorEvent: source is required');
+      throw new Error('IntentSmithErrorEvent: source is required');
     }
     if (!code) {
-      throw new Error('C3ErrorEvent: code is required');
+      throw new Error('IntentSmithErrorEvent: code is required');
     }
     if (!userMessage) {
-      throw new Error('C3ErrorEvent: userMessage is required');
+      throw new Error('IntentSmithErrorEvent: userMessage is required');
     }
 
     this.correlationId = correlationId;
@@ -436,7 +436,7 @@ export class C3ErrorEvent {
    * Create a validation error
    */
   static validation(correlationId, message, debugInfo) {
-    return new C3ErrorEvent({
+    return new IntentSmithErrorEvent({
       correlationId,
       source: ErrorSource.VALIDATION,
       code: 'INVALID_INPUT',
@@ -450,7 +450,7 @@ export class C3ErrorEvent {
    * Create a rate limit error
    */
   static rateLimited(correlationId, retryAfterMs) {
-    return new C3ErrorEvent({
+    return new IntentSmithErrorEvent({
       correlationId,
       source: ErrorSource.RATE_LIMIT,
       code: 'RATE_LIMITED',
@@ -464,7 +464,7 @@ export class C3ErrorEvent {
    * Create a timeout error
    */
   static timeout(correlationId) {
-    return new C3ErrorEvent({
+    return new IntentSmithErrorEvent({
       correlationId,
       source: ErrorSource.TIMEOUT,
       code: 'TIMEOUT',
@@ -477,7 +477,7 @@ export class C3ErrorEvent {
    * Create an internal error
    */
   static internal(correlationId, debugInfo) {
-    return new C3ErrorEvent({
+    return new IntentSmithErrorEvent({
       correlationId,
       source: ErrorSource.INTERNAL,
       code: 'INTERNAL_ERROR',
@@ -497,7 +497,7 @@ export default {
   ContentType,
   ErrorSource,
   ChannelCapabilities,
-  C3InputEvent,
-  C3OutputEvent,
-  C3ErrorEvent,
+  IntentSmithInputEvent,
+  IntentSmithOutputEvent,
+  IntentSmithErrorEvent,
 };

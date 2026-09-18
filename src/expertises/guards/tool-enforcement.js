@@ -1,4 +1,4 @@
-// C3-Agent v57.2 — Tool-Only Enforcement Guard
+// IntentSmith-Agent v57.2 — Tool-Only Enforcement Guard
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // PURPOSE:

@@ -103,28 +103,28 @@ function safeEnvironment(runtime, portFile) {
     CI: '1',
     DOTENV_CONFIG_PATH: path.join(runtime.root, 'no-dotenv-file'),
     DOTENV_CONFIG_QUIET: 'true',
-    C3_HOST: '127.0.0.1',
-    C3_PORT: '0',
-    C3_PORT_FILE: portFile,
-    C3_DB_PATH: runtime.database,
-    C3_PROJECTS_DIR: runtime.projects,
+    INTENTSMITH_HOST: '127.0.0.1',
+    INTENTSMITH_PORT: '0',
+    INTENTSMITH_PORT_FILE: portFile,
+    INTENTSMITH_DB_PATH: runtime.database,
+    INTENTSMITH_PROJECTS_DIR: runtime.projects,
     INTENTSMITH_TEST_PROJECTS_DIR: runtime.projects,
     INTENTSMITH_TEST_ARTIFACT_DIR: runtime.artifacts,
-    C3_CORS_ORIGINS: 'http://localhost:3000',
-    C3_ENABLE_AGENTS: 'false',
-    C3_ENABLE_EXPERTISES: 'false',
-    C3_ENABLE_LIFECYCLE: 'false',
-    C3_ENABLE_COMFYUI: 'false',
-    C3_ENABLE_AUTONOMY: 'false',
-    C3_ENABLE_SKILLS: 'false',
-    C3_ENABLE_TELEMETRY: 'false',
-    C3_ENABLE_ONLINE_DISCOVERY: 'false',
-    C3_MODEL_UNIVERSE_ENABLED: 'false',
-    C3_MODEL_RUNTIME_GUARD_ENABLED: 'false',
-    C3_LIFECYCLE_AUTO_COMMIT: 'false',
-    C3_UPDATE_REPO: '',
-    C3_TRACE: '0',
-    C3_LOG_LEVEL: 'warn',
+    INTENTSMITH_CORS_ORIGINS: 'http://localhost:3000',
+    INTENTSMITH_ENABLE_AGENTS: 'false',
+    INTENTSMITH_ENABLE_EXPERTISES: 'false',
+    INTENTSMITH_ENABLE_LIFECYCLE: 'false',
+    INTENTSMITH_ENABLE_COMFYUI: 'false',
+    INTENTSMITH_ENABLE_AUTONOMY: 'false',
+    INTENTSMITH_ENABLE_SKILLS: 'false',
+    INTENTSMITH_ENABLE_TELEMETRY: 'false',
+    INTENTSMITH_ENABLE_ONLINE_DISCOVERY: 'false',
+    INTENTSMITH_MODEL_UNIVERSE_ENABLED: 'false',
+    INTENTSMITH_MODEL_RUNTIME_GUARD_ENABLED: 'false',
+    INTENTSMITH_LIFECYCLE_AUTO_COMMIT: 'false',
+    INTENTSMITH_UPDATE_REPO: '',
+    INTENTSMITH_TRACE: '0',
+    INTENTSMITH_LOG_LEVEL: 'warn',
     OLLAMA_URL: 'http://127.0.0.1:9',
   };
 }
@@ -355,7 +355,7 @@ function projectMetadata(project, projectsRoot) {
       && !path.isAbsolute(relativeProjectPath),
     'upgraded canary escaped the owned projects root',
   );
-  return JSON.parse(readFileSync(path.join(canonicalProjectPath, '.c3', 'project.json'), 'utf8'));
+  return JSON.parse(readFileSync(path.join(canonicalProjectPath, '.intentsmith', 'project.json'), 'utf8'));
 }
 
 async function main() {
@@ -418,7 +418,7 @@ async function main() {
     backupDatabase.close();
     assert.equal(backup.error, null, backup.error);
     const backupMetadata = JSON.parse(readFileSync(path.join(backup.path, 'metadata.json'), 'utf8'));
-    const backupDatabaseSha256 = databaseSha256(path.join(backup.path, 'c3.db'));
+    const backupDatabaseSha256 = databaseSha256(path.join(backup.path, 'intentsmith.db'));
 
     const collision = new Database(runtime.database);
     collision.exec('CREATE TABLE m5_privacy_rotation_receipts (forced_failure TEXT NOT NULL)');

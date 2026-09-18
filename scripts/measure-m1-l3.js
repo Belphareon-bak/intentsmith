@@ -6,13 +6,13 @@
 //
 // Runs serially against a live product server. GPU work is never concurrent.
 //
-// Usage: C3_URL=http://127.0.0.1:PORT node measure-m1-l3.js [--samples N]
+// Usage: INTENTSMITH_URL=http://127.0.0.1:PORT node measure-m1-l3.js [--samples N]
 
 import { writeFileSync } from 'node:fs';
 
-const BASE = process.env.C3_URL;
+const BASE = (process.env.INTENTSMITH_URL ?? process.env['C3_URL']);
 if (!BASE) {
-  console.error('C3_URL is required');
+  console.error('INTENTSMITH_URL is required');
   process.exit(2);
 }
 const samplesArg = process.argv.indexOf('--samples');

@@ -250,7 +250,7 @@ async function runTest() {
     fs.mkdirSync(path.join(projectPath, 'registry'), { recursive: true });
     fs.mkdirSync(path.join(projectPath, 'k8s/templates'), { recursive: true });
     fs.mkdirSync(path.join(projectPath, 'docs'), { recursive: true });
-    fs.mkdirSync(path.join(projectPath, '.c3'), { recursive: true });
+    fs.mkdirSync(path.join(projectPath, '.intentsmith'), { recursive: true });
 
     fs.writeFileSync(path.join(projectPath, 'README.md'), AI_LOG_README);
     fs.writeFileSync(path.join(projectPath, 'ROADMAP.md'), AI_LOG_ROADMAP);
@@ -264,7 +264,7 @@ async function runTest() {
     fs.writeFileSync(path.join(projectPath, 'k8s/Chart.yaml'), AI_LOG_HELM_CHART);
     fs.writeFileSync(path.join(projectPath, 'config/.env.example'), 'ELASTICSEARCH_URL=http://localhost:9200\nPOSTGRES_DSN=postgresql://...\n');
     fs.writeFileSync(path.join(projectPath, 'registry/known_errors.yaml'), 'errors: []\n');
-    fs.writeFileSync(path.join(projectPath, '.c3/project.json'), JSON.stringify({ type: 'general', lifecycle: 'SPEC' }));
+    fs.writeFileSync(path.join(projectPath, '.intentsmith/project.json'), JSON.stringify({ type: 'general', lifecycle: 'SPEC' }));
 
     // Init git if not already a repo
     if (!fs.existsSync(path.join(projectPath, '.git'))) {

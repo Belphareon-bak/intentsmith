@@ -29,7 +29,7 @@
 - ✅ `.vscode/extensions.json` - Doporučená rozšíření
 - ✅ `.vscode/launch.json` - Debug konfigurace
 - ✅ `.vscode/tasks.json` - Build tasks
-- ✅ `c3-ide.code-workspace` - Multi-root workspace
+- ✅ `intentsmith-ide.code-workspace` - Multi-root workspace
 
 ---
 

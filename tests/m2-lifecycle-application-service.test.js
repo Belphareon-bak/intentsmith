@@ -65,9 +65,9 @@ function policy(externalImports = []) {
 }
 
 function writePolicy(root, value = policy()) {
-  fs.mkdirSync(path.join(root, '.c3'), { recursive: true });
+  fs.mkdirSync(path.join(root, '.intentsmith'), { recursive: true });
   fs.writeFileSync(
-    path.join(root, '.c3', 'm2-governance-policy.json'),
+    path.join(root, '.intentsmith', 'm2-governance-policy.json'),
     `${JSON.stringify(value, null, 2)}\n`,
   );
 }
@@ -78,7 +78,7 @@ function makeProject() {
   fs.writeFileSync(path.join(root, 'src', 'app.js'), 'export const value = 1;\n');
   writePolicy(root);
   git(root, ['init', '-b', 'main']);
-  git(root, ['add', '--', '.c3/m2-governance-policy.json', 'src/app.js']);
+  git(root, ['add', '--', '.intentsmith/m2-governance-policy.json', 'src/app.js']);
   git(root, [
     '-c', 'user.name=IntentSmith Test',
     '-c', 'user.email=intentsmith@example.invalid',
@@ -638,7 +638,7 @@ for (const failure of ['length', 'extra-file', 'malformed', 'unchanged', 'stale'
       await service.recoverIncompleteSmallProjectChanges();
       const draft = { path: 'src/app.js', instruction: 'Change the exported value to 42.' };
       if (failure === 'traversal') draft.path = '../outside.js';
-      if (failure === 'ignored') draft.path = '.c3/private.js';
+      if (failure === 'ignored') draft.path = '.intentsmith/private.js';
       if (failure === 'oversize') draft.instruction = 'x'.repeat(513);
       if (failure === 'forged-test') draft.focusedTest = { binary: 'sh', argv: ['-c', 'anything'] };
       const expected = {
@@ -811,7 +811,7 @@ for (const failure of ['second-length', 'second-cancel', 'second-malformed', 'se
       if (failure === 'duplicate') draft.paths[1] = draft.paths[0];
       if (failure === 'too-many') draft.paths.push('src/c.js');
       if (failure === 'mixed-path-keys') draft.path = 'src/app.js';
-      if (failure === 'ignored-second') draft.paths[1] = '.c3/private.js';
+      if (failure === 'ignored-second') draft.paths[1] = '.intentsmith/private.js';
       const expected = {
         'second-length': 'M2_CODE_DRAFT_OUTPUT_INCOMPLETE', 'second-cancel': 'M2_CODE_DRAFT_CANCELLED',
         'second-malformed': 'M2_CODE_DRAFT_OUTPUT_INVALID', 'second-stale': 'M2_LIFECYCLE_CONTEXT_STALE',

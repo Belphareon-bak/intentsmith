@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — Create Expertise Integration Tests v88
+// IntentSmith-Agent — Create Expertise Integration Tests v88
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Tests for the create-expertise skill pipeline:

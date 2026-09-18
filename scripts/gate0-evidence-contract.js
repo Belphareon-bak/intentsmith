@@ -116,12 +116,12 @@ export function buildGate0ExecutionPlan({
     YARN_CACHE_FOLDER: path.join(installRoot, 'yarn-cache'),
     PIP_CACHE_DIR: path.join(installRoot, 'pip-cache'),
     COREPACK_HOME: path.join(installRoot, 'corepack'),
-    C3_DB_PATH: path.join(installRoot, 'runtime', 'install.sqlite'),
-    C3_PROJECTS_DIR: path.join(installRoot, 'runtime', 'projects'),
-    C3_PORT_FILE: path.join(installRoot, 'runtime', 'intentsmith.port'),
-    C3_LIFECYCLE_AUTO_COMMIT: 'false',
-    C3_ENABLE_AUTONOMY: 'false',
-    C3_LOG_LEVEL: 'warn',
+    INTENTSMITH_DB_PATH: path.join(installRoot, 'runtime', 'install.sqlite'),
+    INTENTSMITH_PROJECTS_DIR: path.join(installRoot, 'runtime', 'projects'),
+    INTENTSMITH_PORT_FILE: path.join(installRoot, 'runtime', 'intentsmith.port'),
+    INTENTSMITH_LIFECYCLE_AUTO_COMMIT: 'false',
+    INTENTSMITH_ENABLE_AUTONOMY: 'false',
+    INTENTSMITH_LOG_LEVEL: 'warn',
     NODE_ENV: 'test',
     CI: '1',
     NO_COLOR: '1',
@@ -133,7 +133,7 @@ export function buildGate0ExecutionPlan({
   const auditOverrides = {
     ...overrides,
     INTENTSMITH_PDF_PYTHON: pdfPython,
-    C3_PDF_PYTHON: pdfPython,
+    C3_PDF_PYTHON: pdfPython, // Historical child toolchains use the same interpreter.
   };
   // Keep the plan host-independent. The runner and the rendered replay both
   // materialize this fixed allowlist, using an empty value when the host does

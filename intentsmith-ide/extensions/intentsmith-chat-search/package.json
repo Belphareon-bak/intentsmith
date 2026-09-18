@@ -1,0 +1,28 @@
+{
+  "name": "@intentsmith/chat-search",
+  "version": "0.1.0",
+  "description": "IntentSmith Chat Search — chat history search",
+  "main": "lib/node/chat-search-service.js",
+  "files": [
+    "lib",
+    "src"
+  ],
+  "theiaExtensions": [
+    {
+      "frontend": "lib/browser/chat-search-module",
+      "backend": "lib/node/chat-search-service"
+    }
+  ],
+  "dependencies": {
+    "@theia/core": "1.74.1"
+  },
+  "devDependencies": {
+    "typescript": "~5.3.0",
+    "rimraf": "^5.0.0"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "watch": "tsc -b -w",
+    "clean": "rimraf lib"
+  }
+}

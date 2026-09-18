@@ -35,7 +35,7 @@ function boundedInteger(rawValue, fallback, min, max) {
  * timeouts off or create effectively unbounded waits.
  */
 export function resolveRoleTimeouts(env = process.env) {
-  const parsedScale = Number(env.C3_TIMEOUT_SCALE);
+  const parsedScale = Number(env.INTENTSMITH_TIMEOUT_SCALE);
   const scale = Number.isFinite(parsedScale) && parsedScale > 0
     ? clamp(parsedScale, 0.001, 10)
     : 1;
@@ -54,19 +54,19 @@ export function resolveRoleTimeouts(env = process.env) {
  */
 export function resolveHttpTimeoutPolicy(env = process.env) {
   const requestTimeoutMs = boundedInteger(
-    env.C3_HTTP_REQUEST_TIMEOUT_MS,
+    env.INTENTSMITH_HTTP_REQUEST_TIMEOUT_MS,
     HTTP_TIMEOUT_DEFAULTS.requestTimeoutMs,
     30_000,
     900_000,
   );
   const headersTimeoutMs = boundedInteger(
-    env.C3_HTTP_HEADERS_TIMEOUT_MS,
+    env.INTENTSMITH_HTTP_HEADERS_TIMEOUT_MS,
     HTTP_TIMEOUT_DEFAULTS.headersTimeoutMs,
     5_000,
     Math.min(120_000, requestTimeoutMs),
   );
   const keepAliveTimeoutMs = boundedInteger(
-    env.C3_HTTP_KEEPALIVE_TIMEOUT_MS,
+    env.INTENTSMITH_HTTP_KEEPALIVE_TIMEOUT_MS,
     HTTP_TIMEOUT_DEFAULTS.keepAliveTimeoutMs,
     1_000,
     60_000,

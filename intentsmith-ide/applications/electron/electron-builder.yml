@@ -1,0 +1,34 @@
+# Native modules already rebuilt by install.sh (electron-rebuild --only)
+npmRebuild: false
+
+appId: com.intentsmith.studio
+productName: IntentSmith
+directories:
+  output: dist
+
+files:
+  - lib/**/*
+  - node_modules/**/*
+  - scripts/**/*
+  - intentsmith-preload.js
+  - intentsmith-preload-entry.js
+  - package.json
+  - resources/**/*
+  - "!**/test/**"
+  - "!**/tests/**"
+  - "!**/*.map"
+  - "!**/*.d.ts"
+
+# asar disabled: Theia monorepo symlinks (yarn workspaces) resolve outside app dir
+# which breaks asar packing. Re-enable when migrating to flat layout.
+asar: false
+
+extraMetadata:
+  main: "lib/backend/electron-main.js"
+
+linux:
+  icon: resources/intentsmith-icon.png
+  target:
+    - AppImage
+    - dir
+  category: Development

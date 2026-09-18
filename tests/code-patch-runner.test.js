@@ -66,7 +66,7 @@ test('isolated test pins Node, preserves literal argv and forwards its private D
     const bin = path.join(work, 'bin');mkdirSync(bin);
     writeFileSync(path.join(bin, 'node'), '#!/bin/sh\necho WRONG_NODE_FROM_PATH\nexit 91\n', { mode: 0o700 });
     const testFile = 'literal-$UNSET-$(echo wrong)-"quoted".cjs';
-    writeFileSync(path.join(work, testFile), `const assert=require('node:assert/strict');assert.equal(process.execPath,${JSON.stringify(process.execPath)});assert.equal(process.env.C3_DB_PATH,${JSON.stringify(path.join(work, 'eval-scratch.sqlite'))});console.log('PINNED_NODE_AND_PRIVATE_DB');`);
+    writeFileSync(path.join(work, testFile), `const assert=require('node:assert/strict');assert.equal(process.execPath,${JSON.stringify(process.execPath)});assert.equal(process.env.INTENTSMITH_DB_PATH,${JSON.stringify(path.join(work, 'eval-scratch.sqlite'))});console.log('PINNED_NODE_AND_PRIVATE_DB');`);
     process.env.PATH = bin + path.delimiter + originalPath;
     const result = runIsolatedTest(work, testFile, 10000);
     assert(result.passed, result.output);
@@ -666,16 +666,16 @@ test('rozporný název testu se počítá jako spadlý', () => {
 
 test('isolated model tests receive a private database instead of the parent database', () => {
   const work = mkdtempSync(path.join(tmpdir(), 'codepatch-env-'));
-  const original = process.env.C3_DB_PATH;
+  const original = process.env.INTENTSMITH_DB_PATH;
   try {
-    process.env.C3_DB_PATH = '/not-a-real-path/parent-production.sqlite';
-    writeFileSync(path.join(work, 'environment.cjs'), 'process.stdout.write(process.env.C3_DB_PATH);');
+    process.env.INTENTSMITH_DB_PATH = '/not-a-real-path/parent-production.sqlite';
+    writeFileSync(path.join(work, 'environment.cjs'), 'process.stdout.write(process.env.INTENTSMITH_DB_PATH);');
     const result = runIsolatedTest(work, 'environment.cjs', 15000);
     assert(result.passed, result.output);
     assertEqual(result.output.trim(), path.join(work, 'eval-scratch.sqlite'));
   } finally {
-    if (original === undefined) delete process.env.C3_DB_PATH;
-    else process.env.C3_DB_PATH = original;
+    if (original === undefined) delete process.env.INTENTSMITH_DB_PATH;
+    else process.env.INTENTSMITH_DB_PATH = original;
     rmSync(work, { recursive: true, force: true });
   }
 });

@@ -268,7 +268,7 @@ await test('candidate documentation keeps backend authority and runtime activati
   assert.match(documentation, /M5 `8\/9`.*M6 `ACCEPTANCE_BLOCKED`/s);
   assert.match(documentation, /projects@2/);
   assert.match(documentation, /REMOTE_EVENT_WINDOW_GONE/);
-  assert.match(documentation, /Legacy `\/api\/\*`, `\/m1\/\*` a\s+`\/c3\/ws`/);
+  assert.match(documentation, /Legacy `\/api\/\*`, `\/m1\/\*` a\s+`\/intentsmith\/ws`/);
 
   const runtimePin = readFileSync(
     new URL('../src/mobile/client/remote-core-v1.js', import.meta.url),

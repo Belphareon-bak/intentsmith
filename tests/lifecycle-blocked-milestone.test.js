@@ -36,7 +36,7 @@ import {
 
 // ─── Test lifecycle factory ─────────────────────────────────────────────────
 
-const TEST_PROJECT_PATH = '/tmp/c3-test-blocked-' + Date.now();
+const TEST_PROJECT_PATH = '/tmp/intentsmith-test-blocked-' + Date.now();
 
 function createTestLifecycle() {
   const proj = projects.getOrCreate('BlockedTest', TEST_PROJECT_PATH, 'Test project');

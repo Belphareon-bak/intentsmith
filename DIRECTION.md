@@ -229,7 +229,7 @@ Chronologicky, s důvodem. Tohle je ta část, která se z kódu odvodit nedá.
 
 **V základu 1.0** — v pořadí podle závislostí:
 server/routing/DB · CRE · konverzace · správa modelů · LLM gateway · QGv2 ·
-chat pipeline · **Studio + WS bridge včetně `c3-ide/`** · expertizy · nástroje ·
+chat pipeline · **Studio + WS bridge včetně `intentsmith-ide/`** · expertizy · nástroje ·
 skills · paměť · code intelligence · execution+patch · lifecycle · governance
 
 K tomu **platforma specialistů + jeden E2E**, **platforma agentů + jeden E2E**

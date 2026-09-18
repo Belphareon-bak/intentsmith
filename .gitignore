@@ -63,17 +63,20 @@ test-transcripts/
 *.bak
 
 # IDE build artifacts
-c3-ide/node_modules/
-c3-ide/extensions/c3-protocol/lib/
-c3-ide/applications/electron/lib/
-c3-ide/applications/electron/src-gen/
-c3-ide/applications/electron/gen-webpack*.js
-c3-ide/applications/electron/dist/
+intentsmith-ide/lib/
+intentsmith-ide/src-gen/
+intentsmith-ide/gen-webpack*.js
+intentsmith-ide/node_modules/
+intentsmith-ide/extensions/intentsmith-protocol/lib/
+intentsmith-ide/applications/electron/lib/
+intentsmith-ide/applications/electron/src-gen/
+intentsmith-ide/applications/electron/gen-webpack*.js
+intentsmith-ide/applications/electron/dist/
 *.tsbuildinfo
 
 # Logs
 *.log
-/.c3-backend.log*
+/.intentsmith-backend.log*
 logs/
 
 # OS

@@ -45,7 +45,7 @@ async function main() {
   console.log('\n══ Automatic online model discovery is gated and opt-out ══\n');
 
   // ── The flag defaults to on ───────────────────────────────────────────────
-  delete process.env.C3_ENABLE_ONLINE_DISCOVERY;
+  delete process.env.INTENTSMITH_ENABLE_ONLINE_DISCOVERY;
   const { config: onByDefault } = await import(
     `${path.join(ROOT, 'src/config.js')}?fresh=${Date.now()}`
   );
@@ -55,22 +55,22 @@ async function main() {
   );
 
   // ── And can be turned off deliberately ────────────────────────────────────
-  process.env.C3_ENABLE_ONLINE_DISCOVERY = 'false';
+  process.env.INTENTSMITH_ENABLE_ONLINE_DISCOVERY = 'false';
   const { config: turnedOff } = await import(
     `${path.join(ROOT, 'src/config.js')}?fresh=${Date.now()}-off`
   );
-  delete process.env.C3_ENABLE_ONLINE_DISCOVERY;
+  delete process.env.INTENTSMITH_ENABLE_ONLINE_DISCOVERY;
   check(
     turnedOff.features.onlineDiscovery === false,
-    'C3_ENABLE_ONLINE_DISCOVERY=false opts out',
+    'INTENTSMITH_ENABLE_ONLINE_DISCOVERY=false opts out',
   );
 
   // ── Only the exact string "false" opts out ────────────────────────────────
-  process.env.C3_ENABLE_ONLINE_DISCOVERY = 'no';
+  process.env.INTENTSMITH_ENABLE_ONLINE_DISCOVERY = 'no';
   const { config: typo } = await import(
     `${path.join(ROOT, 'src/config.js')}?fresh=${Date.now()}-typo`
   );
-  delete process.env.C3_ENABLE_ONLINE_DISCOVERY;
+  delete process.env.INTENTSMITH_ENABLE_ONLINE_DISCOVERY;
   check(
     typo.features.onlineDiscovery === true,
     'only the exact value "false" opts out',

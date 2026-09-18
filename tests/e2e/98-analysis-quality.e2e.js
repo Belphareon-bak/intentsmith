@@ -1,6 +1,6 @@
 // tests/e2e/98-analysis-quality.e2e.js — Analysis & Diverse Task Quality
 // ══════════════════════════════════════════════════════════════════════════════
-// Tier 3+: Tests C3's ability to analyze code, debug problems, complete
+// Tier 3+: Tests IntentSmith's ability to analyze code, debug problems, complete
 // projects, and generate tests — with iterative refinement.
 //
 // Tasks:

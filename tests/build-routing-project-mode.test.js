@@ -2,7 +2,7 @@
 import './helpers/isolated-test-db.js';
 
 // ══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — BUILD Routing in PROJECT Mode Tests v87
+// IntentSmith-Agent — BUILD Routing in PROJECT Mode Tests v87
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // PURPOSE: Verify that BUILD/PLAN decisions in PROJECT mode don't dead-end.

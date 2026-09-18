@@ -1,4 +1,4 @@
-// C3-Agent v63.0 — Merge Compatibility Tests
+// IntentSmith-Agent v63.0 — Merge Compatibility Tests
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // T-MC1: Pairwise compatibility
@@ -206,7 +206,7 @@ describe('T-MC3: All built-in experts have modules and capabilities', async () =
 
 // ─── Run All Tests ────────────────────────────────────────────────────────────
 
-console.log('\n🔬 C3 Merge Compatibility — Test Suite');
+console.log('\n🔬 IntentSmith Merge Compatibility — Test Suite');
 console.log('═'.repeat(70));
 
 for (const test of pendingTests) {

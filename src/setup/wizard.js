@@ -11,7 +11,7 @@
 //   - Data directory
 //   - License key (if applicable)
 //
-// Stores in: data/c3-setup.json + updates config.js env vars
+// Stores in: data/intentsmith-setup.json + updates config.js env vars
 //
 // Usage:
 //   node src/setup/wizard.js          # Interactive terminal
@@ -28,7 +28,7 @@ import { sameModelName } from '../upgrade/model-identity.js';
 
 // ─── Setup State ────────────────────────────────────────────────────────────
 
-const SETUP_FILE = 'c3-setup.json';
+const SETUP_FILE = 'intentsmith-setup.json';
 const SETUP_SCHEMA_VERSION = 2;
 const LEGACY_MODEL_DEFAULTS_V1 = Object.freeze({
   D1: Object.freeze(['deepseek-r1-32b', 'deepseek-r1:32b']),
@@ -252,10 +252,10 @@ export class SetupWizard {
   toEnvVars() {
     const env = {};
     env.OLLAMA_URL = this.config.ollama.url;
-    env.C3_LANG = this.config.language;
-    env.C3_DB_PATH = path.join(this.config.dataDir, 'c3.db');
+    env.INTENTSMITH_LANG = this.config.language;
+    env.INTENTSMITH_DB_PATH = path.join(this.config.dataDir, 'intentsmith.db');
     for (const role of Object.keys(DEFAULT_MODEL_BINDINGS)) {
-      env[`C3_MODEL_${role}`] = this.config.ollama.models[role];
+      env[`INTENTSMITH_MODEL_${role}`] = this.config.ollama.models[role];
     }
 
     if (this.config.notifications.telegram.enabled) {
@@ -272,7 +272,7 @@ export class SetupWizard {
       env.NTFY_SERVER = this.config.notifications.ntfy.server;
     }
     if (this.config.license.key) {
-      env.C3_LICENSE_KEY = this.config.license.key;
+      env.INTENTSMITH_LICENSE_KEY = this.config.license.key;
     }
 
     return env;
@@ -339,7 +339,7 @@ export async function runInteractiveWizard(dataDir = './data') {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
 
   console.log('\n╔══════════════════════════════════════════╗');
-  console.log('║         C3-Agent — Setup Wizard          ║');
+  console.log('║         IntentSmith-Agent — Setup Wizard          ║');
   console.log('╚══════════════════════════════════════════╝\n');
 
   try {
@@ -408,7 +408,7 @@ export async function runInteractiveWizard(dataDir = './data') {
     console.log(cs ? '\n✅ Konfigurace uložena!' : '\n✅ Configuration saved!');
     console.log(cs ? `   Setup: ${wizard.setupPath}` : `   Setup: ${wizard.setupPath}`);
     console.log(cs ? `   Env:   ${envPath}` : `   Env:   ${envPath}`);
-    console.log(cs ? '\n🚀 Spusť C3: node src/server.js' : '\n🚀 Start C3: node src/server.js');
+    console.log(cs ? '\n🚀 Spusť IntentSmith: node src/server.js' : '\n🚀 Start IntentSmith: node src/server.js');
 
   } finally {
     rl.close();

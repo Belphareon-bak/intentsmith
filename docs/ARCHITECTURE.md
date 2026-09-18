@@ -630,7 +630,7 @@ Tiered Rate Limiting:
   Tier 1 — Read (600 req/min): all GET endpoints
   Tier 2 — Write (120 req/min): all POST/PUT/DELETE endpoints
   Localhost disabled: rate limiting OFF when binding to 127.0.0.1
-  Proxy support: C3_TRUST_PROXY=true → reads X-Forwarded-For / X-Real-IP
+  Proxy support: INTENTSMITH_TRUST_PROXY=true → reads X-Forwarded-For / X-Real-IP
 
 Manual binding:
   POST /api/system/upgrades/apply accepts only role + targetModel
@@ -641,7 +641,7 @@ Manual binding:
 
 Dynamic Port Allocation:
   Default port 0 (OS-assigned). Port file ~/.c3/port (JSON: port, host, pid, started).
-  Stdout signal: C3_READY:<port> for parent process detection.
+  Stdout signal: INTENTSMITH_READY:<port> for parent process detection.
   IDE discovery: window.electronC3.getBackendUrl() via contextBridge preload.
   FE fallback: 127.0.0.1:3335 if electronC3 unavailable.
 
@@ -785,7 +785,7 @@ User Query
 - **Upgrade binding is user-controlled** — evaluation may produce a decision, but only an explicit manual binding command changes the role; the independent failover policy is default-off
 - **Single writer** — `ModelBindingApplication` durably records, applies and verifies the exact artifact; old `UpgradeManager` writers do not exist
 - **Complete startup authority** — a configured role without desired state is observed once with its installed exact digest; existing durable rows are never overwritten by bootstrap; only seven runtime+digest checks produce `DURABLE`, while provider/drift failures publish `DEGRADED` and disable evaluation actionability without taking non-model routes down
-- **Concurrency** — single-slot semaphore by default (`C3_MAX_CONCURRENT_LLM=1`), serializes all LLM calls across roles to prevent GPU contention
+- **Concurrency** — single-slot semaphore by default (`INTENTSMITH_MAX_CONCURRENT_LLM=1`), serializes all LLM calls across roles to prevent GPU contention
 
 **MODEL_PROFILES** (defined in `src/upgrade/model-profiles.js`) are metadata used by discovery and role eligibility. They are never a request-time router or quality authority.
 
@@ -833,27 +833,27 @@ All variables loaded from `.env` (`dotenv`). Features independently toggleable v
 
 ```bash
 # Server
-C3_PORT=0                          # Default: 0 (OS-assigned dynamic port). Set to pin a specific port.
-C3_HOST=127.0.0.1                  # Bind address
-C3_PORT_FILE=~/.c3/port            # Port file (JSON: port, host, pid, started) for IDE discovery
-C3_TRUST_PROXY=false               # Trust X-Forwarded-For / X-Real-IP headers (for reverse proxy)
+INTENTSMITH_PORT=0                          # Default: 0 (OS-assigned dynamic port). Set to pin a specific port.
+INTENTSMITH_HOST=127.0.0.1                  # Bind address
+INTENTSMITH_PORT_FILE=~/.c3/port            # Port file (JSON: port, host, pid, started) for IDE discovery
+INTENTSMITH_TRUST_PROXY=false               # Trust X-Forwarded-For / X-Real-IP headers (for reverse proxy)
 
 # Database & Ollama
-C3_DB_PATH=./data/c3.db
+INTENTSMITH_DB_PATH=./data/c3.db
 OLLAMA_URL=http://127.0.0.1:11434
 
 # Multi-session (v125, prepared)
-C3_MAX_CONCURRENT_LLM=1            # Max concurrent LLM calls (1 = single GPU default)
-C3_LLM_QUEUE_TIMEOUT=300000        # 5 min timeout for queued LLM requests
-C3_GPU_AUTO_SCALE=false             # Auto-detect GPU count and scale maxConcurrentLLM
+INTENTSMITH_MAX_CONCURRENT_LLM=1            # Max concurrent LLM calls (1 = single GPU default)
+INTENTSMITH_LLM_QUEUE_TIMEOUT=300000        # 5 min timeout for queued LLM requests
+INTENTSMITH_GPU_AUTO_SCALE=false             # Auto-detect GPU count and scale maxConcurrentLLM
 
 # Provider (v125, prepared)
-C3_LLM_PROVIDER=ollama              # 'ollama' only for now; stub for future OpenAI-compatible API
+INTENTSMITH_LLM_PROVIDER=ollama              # 'ollama' only for now; stub for future OpenAI-compatible API
 
 # Notifications
-C3_SMTP_HOST, C3_SMTP_PORT, C3_SMTP_USER, C3_SMTP_PASS, C3_SMTP_FROM
-C3_TELEGRAM_BOT_TOKEN, C3_TELEGRAM_CHAT_ID
-C3_NTFY_SERVER, C3_NTFY_TOPIC, C3_NTFY_TOKEN
+INTENTSMITH_SMTP_HOST, INTENTSMITH_SMTP_PORT, INTENTSMITH_SMTP_USER, INTENTSMITH_SMTP_PASS, INTENTSMITH_SMTP_FROM
+INTENTSMITH_TELEGRAM_BOT_TOKEN, INTENTSMITH_TELEGRAM_CHAT_ID
+INTENTSMITH_NTFY_SERVER, INTENTSMITH_NTFY_TOPIC, INTENTSMITH_NTFY_TOKEN
 ```
 
 ---
@@ -954,7 +954,7 @@ All memory systems use exponential decay: LTM (λ=0.01, half-life ~69d), Task Me
 | B (Workers) | 95% | Runner, scheduler, sources, notifications, multi-source |
 | C (Lifecycle) | 100% | Milestones, crash recovery, checkpoint modes, adaptive retry |
 | D (Expertises) | 100% | 15 built-in, merge engine, 5D capabilities, self-contained specialists (v121), marketplace (v124) |
-| E (IDE) | 85% | C3 Studio (Theia), 32 extensions, settings UI, security, focus mode, multimedia |
+| E (IDE) | 85% | IntentSmith Studio (Theia), 32 extensions, settings UI, security, focus mode, multimedia |
 | F (Packaging) | 25% | Setup wizard, auto-updater, license system |
 | G (Code Intel) | 100% | 33 modules, symbol index, KG, graph expansion, architecture detection |
 | H (Agent Evolution) | 100% | F1-F8 core (355 tests), FΔ+F9-F14 extensions (242 tests) |

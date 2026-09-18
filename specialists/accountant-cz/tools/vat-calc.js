@@ -1,4 +1,4 @@
-// C3-Agent v57.3 — Czech VAT Calculator
+// IntentSmith-Agent v57.3 — Czech VAT Calculator
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Deterministický výpočet DPH. Zákon č. 235/2004 Sb., o DPH.

@@ -1,4 +1,4 @@
-// C3-Agent Error Handler Type Definitions
+// IntentSmith-Agent Error Handler Type Definitions
 // Generated for v55.1
 
 /**

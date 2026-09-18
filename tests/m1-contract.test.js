@@ -23,7 +23,7 @@ import {
 
 const require = createRequire(import.meta.url);
 const tsSourceRuntime = await import(
-  new URL('../c3-ide/extensions/c3-protocol/src/m1.ts', import.meta.url).href
+  new URL('../intentsmith-ide/extensions/intentsmith-protocol/src/m1.ts', import.meta.url).href
 );
 const identity = Object.freeze({
   requestId: 'req-001',
@@ -336,7 +336,7 @@ suite('M1 connector — TypeScript consumer mirror');
 
 test('TypeScript source exposes all three connector families and no session key', () => {
   const source = fs.readFileSync(
-    new URL('../c3-ide/extensions/c3-protocol/src/m1.ts', import.meta.url),
+    new URL('../intentsmith-ide/extensions/intentsmith-protocol/src/m1.ts', import.meta.url),
     'utf8',
   );
   for (const symbol of [

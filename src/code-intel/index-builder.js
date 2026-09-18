@@ -10,7 +10,7 @@ import { analyzeCodeStructure, detectLanguage } from './code-analyzer.js';
 const MAX_FILE_SIZE = 1_048_576; // 1MB
 const IGNORE_DIRS = new Set([
   'node_modules', '.git', 'dist', 'build', '__pycache__',
-  'venv', '.venv', '.c3', 'vendor', 'target', '.next',
+  'venv', '.venv', '.intentsmith', 'vendor', 'target', '.next',
   '.nuxt', 'coverage', '.cache', '.tox', 'env',
 ]);
 

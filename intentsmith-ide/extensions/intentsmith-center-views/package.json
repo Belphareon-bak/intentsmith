@@ -1,0 +1,15 @@
+{
+  "name": "@intentsmith-ide/intentsmith-center-views",
+  "version": "0.1.0",
+  "description": "IntentSmith Studio — Center views (grids, settings)",
+  "license": "MIT",
+  "main": "lib/browser/center-views-module",
+  "theiaExtensions": [
+    {
+      "frontend": "lib/browser/center-views-module"
+    }
+  ],
+  "dependencies": {
+    "@theia/core": "1.74.1"
+  }
+}

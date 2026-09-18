@@ -34,7 +34,7 @@ export async function initializeNewProject(root, { name, description = '', type 
   // existing directory, even an empty one selected by a racing request.
   await fs.mkdir(root);
   try {
-    for (const dir of ['.c3', ...DIRECTORIES]) await fs.mkdir(path.join(root, dir));
+    for (const dir of ['.intentsmith', ...DIRECTORIES]) await fs.mkdir(path.join(root, dir));
     const pkg = {
       name: path.basename(root).replace(/[^a-z0-9_-]/gi, '-').toLowerCase(),
       version: '0.1.0', private: true, type: 'module', description,
@@ -42,8 +42,8 @@ export async function initializeNewProject(root, { name, description = '', type 
     };
     const files = {
       '.gitignore': 'node_modules/\n.env\n.env.*\ndist/\nbuild/\n*.log\n',
-      '.c3/project.json': JSON.stringify({ name, description, type, created: new Date().toISOString() }, null, 2) + '\n',
-      '.c3/m2-governance-policy.json': JSON.stringify(newProjectPolicy(), null, 2) + '\n',
+      '.intentsmith/project.json': JSON.stringify({ name, description, type, created: new Date().toISOString() }, null, 2) + '\n',
+      '.intentsmith/m2-governance-policy.json': JSON.stringify(newProjectPolicy(), null, 2) + '\n',
       'package.json': JSON.stringify(pkg, null, 2) + '\n',
       'README.md': `# ${name}\n\n${description}\n\n## Stav\nZáklad projektu; implementace a funkční ověření ještě chybí.\n\n## Spuštění\nNode.js 22+, bez instalace závislostí: npm start.\nOvěření: npm test. Výchozí test záměrně selže, dokud nevzniknou skutečné assertions.\n`,
       'ROADMAP.md': '# Plán\n\n- [ ] Ujasnit cíl a ověřitelné podmínky dokončení\n- [ ] Navrhnout první použitelný krok\n- [ ] Schválit konkrétní změnu a provést ji\n- [ ] Funkčně ověřit a projít výsledek\n',
@@ -102,7 +102,7 @@ export async function inspectProject(project, { signal } = {}) {
   else gaps.push('V pozorované části nebyly nalezené testovací soubory.');
   if (names.some(name => /(^|\/)(package.json|pyproject.toml|cargo.toml)$/i.test(name))) facts.push('Je přítomný manifest projektu. Závislosti nebyly instalované.');
   const setup = {};
-  for (const name of ['.git', '.c3/m2-governance-policy.json']) {
+  for (const name of ['.git', '.intentsmith/m2-governance-policy.json']) {
     try { const st = await fs.lstat(path.join(canonicalRoot, name)); setup[name] = !st.isSymbolicLink(); }
     catch { setup[name] = false; }
   }

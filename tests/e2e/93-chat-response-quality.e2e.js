@@ -1,6 +1,6 @@
 // tests/e2e/93-chat-response-quality.e2e.js — Chat Response Quality & Structure
 // ══════════════════════════════════════════════════════════════════════════════
-// Tier 3+: Tests that C3's chat responses are well-structured, accurate,
+// Tier 3+: Tests that IntentSmith's chat responses are well-structured, accurate,
 // appropriately detailed, and genuinely useful — not just "contains keyword X".
 //
 // Quality dimensions tested:

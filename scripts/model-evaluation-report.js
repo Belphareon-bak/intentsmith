@@ -19,13 +19,13 @@ function parseArgs(argv) {
   const unknown = argv.filter(arg => !allowedFlags.has(arg) && !arg.startsWith('--db='));
   const dbArgs = argv.filter(arg => arg.startsWith('--db='));
   if (unknown.length || dbArgs.length > 1) {
-    throw new Error('Použití: node scripts/model-evaluation-report.js [--json] [--db=/cesta/c3.db]');
+    throw new Error('Použití: node scripts/model-evaluation-report.js [--json] [--db=/cesta/intentsmith.db]');
   }
   return Object.freeze({
     json: argv.includes('--json'),
     dbPath: dbArgs[0]?.slice('--db='.length)
-      || process.env.C3_DB_PATH
-      || resolve(REPOSITORY_ROOT, 'data', 'c3.db'),
+      || (process.env.INTENTSMITH_DB_PATH ?? process.env['C3_DB_PATH'])
+      || resolve(REPOSITORY_ROOT, 'data', 'intentsmith.db'),
   });
 }
 

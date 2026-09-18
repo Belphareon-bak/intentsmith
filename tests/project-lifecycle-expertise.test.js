@@ -84,7 +84,7 @@ const SPEC = {
     { id: 'G3', description: 'Recommend libraries for mobile development', priority: 'MUST', success_criteria: 'Recommendations include at least 3 libraries per category' },
   ],
   requirements: [
-    { id: 'R1', description: 'specialist.json manifest with valid schema', type: 'functional', goal_id: 'G1', acceptance_test: 'Validate specialist.json against C3 specialist schema' },
+    { id: 'R1', description: 'specialist.json manifest with valid schema', type: 'functional', goal_id: 'G1', acceptance_test: 'Validate specialist.json against IntentSmith specialist schema' },
     { id: 'R2', description: 'register/unregister exports in index.js', type: 'functional', goal_id: 'G1', acceptance_test: 'Call register() and verify tools are available, unregister() cleans up' },
     { id: 'R3', description: 'Pattern-based intent detection for 3 tools', type: 'functional', goal_id: 'G1', acceptance_test: 'Send 10 sample queries and verify correct tool is selected' },
     { id: 'R4', description: 'Framework detection tool', type: 'functional', goal_id: 'G1', acceptance_test: 'Input "build iOS app" and verify React Native/Swift detected' },
@@ -96,7 +96,7 @@ const SPEC = {
     languages: ['JavaScript'],
     frameworks: ['Node.js'],
     tools: [],
-    rationale: 'C3 specialist plugin system',
+    rationale: 'IntentSmith specialist plugin system',
   },
   architecture: {
     pattern: 'Specialist plugin',
@@ -117,7 +117,7 @@ const SPEC = {
     },
   ],
   acceptance_criteria: [
-    'specialist.json validates against C3 specialist schema',
+    'specialist.json validates against IntentSmith specialist schema',
     'All 3 tools execute and return structured output',
     'Routing accuracy meets or exceeds 80% threshold',
   ],
@@ -314,7 +314,7 @@ const TOOL_INTERFACE_STUBS = {
 `,
 };
 
-// Self-contained specialist files (no imports from C3 project)
+// Self-contained specialist files (no imports from IntentSmith project)
 const FILES = {
   'ms-1': {
     'mobile-dev/specialist.json': JSON.stringify({
@@ -322,7 +322,7 @@ const FILES = {
       version: '1.0.0',
       name: 'Mobile Development Specialist',
       description: 'Framework detection, project scaffolding, library recommendations',
-      author: 'c3-lifecycle-test',
+      author: 'intentsmith-lifecycle-test',
       domain: 'mobile',
       type: 'domain',
       engine: '>=65.0.0',
@@ -716,8 +716,8 @@ function createFakeLLM() {
     if (p.includes('## User Request') && p.includes('## Task')) {
       return {
         content: JSON.stringify({
-          core_goal: 'Build a mobile-dev specialist plugin for C3',
-          implicit_assumptions: ['C3 specialist plugin architecture', 'Node.js runtime'],
+          core_goal: 'Build a mobile-dev specialist plugin for IntentSmith',
+          implicit_assumptions: ['IntentSmith specialist plugin architecture', 'Node.js runtime'],
           technical_decisions: [
             {
               decision: 'Framework detection approach',
@@ -735,7 +735,7 @@ function createFakeLLM() {
               { risk: 'Pattern false positives', severity: 'MEDIUM', likelihood: 'MEDIUM', mitigation: 'Confidence scoring' },
             ],
             suggested_tech_stack: ['Node.js 22'],
-            tech_stack_rationale: 'C3 plugin system requires Node.js',
+            tech_stack_rationale: 'IntentSmith plugin system requires Node.js',
           },
         }),
       };
@@ -991,7 +991,7 @@ async function run() {
   const SESSION_ID = 'expertise-meta-test';
 
   // Unique temporary project path: never overwrite a user's projects/ tree.
-  const projectPath = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-expertise-'));
+  const projectPath = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-expertise-'));
 
   // Git init
   execSync('git init', { cwd: projectPath, stdio: 'pipe' });

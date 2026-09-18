@@ -1,5 +1,5 @@
 // P5-only test runner for model comparison
-// Usage: C3_MODEL_CODE=qwen2.5-coder:32b node tests/p5-only.test.js
+// Usage: INTENTSMITH_MODEL_CODE=qwen2.5-coder:32b node tests/p5-only.test.js
 
 import fs from 'fs';
 
@@ -21,7 +21,7 @@ async function testP5_TaskBoardSaaS() {
   const t = new TestRunner('P5: TaskBoard SaaS');
   console.log('\n\n╔══════════════════════════════════════════════════════════════════════╗');
   console.log('║  P5: TaskBoard SaaS — Node.js + PostgreSQL + React + JWT          ║');
-  console.log(`║  CODE model: ${process.env.C3_MODEL_CODE || 'qwen3.5:27b'}`.padEnd(69) + '║');
+  console.log(`║  CODE model: ${process.env.INTENTSMITH_MODEL_CODE || 'qwen3.5:27b'}`.padEnd(69) + '║');
   console.log('╚══════════════════════════════════════════════════════════════════════╝');
 
   const SESSION_ID = 'p5-taskboard-e2e';
@@ -186,7 +186,7 @@ async function testP5_TaskBoardSaaS() {
 
 
 async function main() {
-  const model = process.env.C3_MODEL_CODE || 'qwen3.5:27b';
+  const model = process.env.INTENTSMITH_MODEL_CODE || 'qwen3.5:27b';
   console.log('══════════════════════════════════════════════════════════════════════');
   console.log(`  P5 Single-Test — CODE model: ${model}`);
   console.log('══════════════════════════════════════════════════════════════════════');

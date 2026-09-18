@@ -22,8 +22,8 @@ const OFFLINE_RETRY_MS = 60 * 60 * 1000; // 1 hour
 const REQUEST_TIMEOUT = 10000; // 10s
 const MAX_CONCURRENCY = 3;
 const DEFAULT_LIBRARY_INDEX_CACHE_MS = 6 * 60 * 60 * 1000;
-const parsedIndexCacheMs = Number.parseInt(process.env.C3_REGISTRY_INDEX_TTL_MS || '', 10);
-const parsedIndexLimit = Number.parseInt(process.env.C3_REGISTRY_INDEX_LIMIT || '', 10);
+const parsedIndexCacheMs = Number.parseInt((process.env.INTENTSMITH_REGISTRY_INDEX_TTL_MS ?? process.env['C3_REGISTRY_INDEX_TTL_MS']) || '', 10);
+const parsedIndexLimit = Number.parseInt((process.env.INTENTSMITH_REGISTRY_INDEX_LIMIT ?? process.env['C3_REGISTRY_INDEX_LIMIT']) || '', 10);
 const LIBRARY_INDEX_CACHE_MS = Number.isFinite(parsedIndexCacheMs) && parsedIndexCacheMs >= 1000
   ? parsedIndexCacheMs
   : DEFAULT_LIBRARY_INDEX_CACHE_MS;
@@ -155,7 +155,7 @@ export class RegistryClient {
         method: 'GET',
         signal: controller.signal,
         redirect: 'follow',
-        headers: { 'User-Agent': 'c3-agent/1.0' },
+        headers: { 'User-Agent': 'intentsmith-agent/1.0' },
       });
       clearTimeout(timeoutId);
 
@@ -203,7 +203,7 @@ export class RegistryClient {
         method: 'GET',
         signal: controller.signal,
         redirect: 'follow',
-        headers: { 'User-Agent': 'c3-agent/1.0' },
+        headers: { 'User-Agent': 'intentsmith-agent/1.0' },
       });
 
       if (!response.ok) {

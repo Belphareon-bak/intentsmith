@@ -459,7 +459,7 @@ test('root README rejects drift from the committed registry', () => {
 
 test('minimal install keeps the projects directory inside the configured boundary', () => {
   assert(installScript.includes(
-    'PROJECTS_DIR="${C3_PROJECTS_DIR:-$PROJECT_ROOT/projects}"',
+    'PROJECTS_DIR="${INTENTSMITH_PROJECTS_DIR:-$PROJECT_ROOT/projects}"',
   ));
   assert(installScript.includes(
     'mkdir -p "$PROJECT_ROOT/data" "$PROJECTS_DIR"',
@@ -3715,7 +3715,7 @@ test('the candidate producer installs owned-process termination handling', () =>
 
 test('the candidate evidence producer rejects seeded ignored install outputs', () => {
   assertThrows(() => assertPristineIgnoredState(
-    '!! c3-ide/node_modules/seeded-package/index.js',
+    '!! intentsmith-ide/node_modules/seeded-package/index.js',
   ));
   assertEqual(assertPristineIgnoredState('').clean, true);
 });
@@ -3726,15 +3726,15 @@ test('every producer phase rejects ignored runtime paths outside its allowlist',
   const allowed = [
     '!! .intentsmith-artifacts/',
     '!! node_modules/',
-    '!! c3-ide/extensions/example/node_modules/',
-    '!! c3-ide/applications/electron/lib/',
+    '!! intentsmith-ide/extensions/example/node_modules/',
+    '!! intentsmith-ide/applications/electron/lib/',
   ].join('\n');
   assertEqual(
     assertAllowedIgnoredState(allowed, evidenceRoot).unexpectedPathCount,
     0,
   );
   assertThrows(() => assertAllowedIgnoredState(
-    `${allowed}\n!! data/c3.db`,
+    `${allowed}\n!! data/intentsmith.db`,
     evidenceRoot,
   ));
   assertThrows(() => assertAllowedIgnoredState(
@@ -3742,7 +3742,7 @@ test('every producer phase rejects ignored runtime paths outside its allowlist',
     evidenceRoot,
   ));
   assertThrows(() => assertAllowedIgnoredState(
-    `${allowed}\n!! data/node_modules/c3.db`,
+    `${allowed}\n!! data/node_modules/intentsmith.db`,
     evidenceRoot,
   ));
   assertThrows(() => assertAllowedIgnoredState(

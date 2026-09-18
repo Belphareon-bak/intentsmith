@@ -2,7 +2,7 @@
 import './helpers/isolated-test-db.js';
 
 // ══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — SKILL Routing CRE Tests v88
+// IntentSmith-Agent — SKILL Routing CRE Tests v88
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Tests SKILL_PATTERNS + GUARD 8 (deterministic SKILL detection):

@@ -5,7 +5,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { logger } from '../core/logger.js';
 
-const ARCHITECT_DIR = '.c3-architect';
+const ARCHITECT_DIR = '.intentsmith-architect';
 const ROADMAP_DIR = 'roadmap';
 const MAIN_FILE = 'main.md';
 

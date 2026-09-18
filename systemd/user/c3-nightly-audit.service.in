@@ -1,5 +1,5 @@
 [Unit]
-Description=C3 safe local nightly audit
+Description=IntentSmith safe local nightly audit
 Documentation=file:@PROJECT_ROOT@/docs/nightly-audit.md
 
 [Service]

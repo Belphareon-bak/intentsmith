@@ -1,6 +1,6 @@
 // Lifecycle Analyzer — Existing Project State Analysis (P3)
 // ══════════════════════════════════════════════════════════════════════════════
-// Reads README.md, ROADMAP.md, .c3/project.json, package.json, git log,
+// Reads README.md, ROADMAP.md, .intentsmith/project.json, package.json, git log,
 // source code structure, and conversation history from DB.
 //
 // Returns a plain text context string for LLM injection into specAnalyze().
@@ -83,7 +83,7 @@ function analyzeGit(projectPath) {
 // ─── Source Code Structure ──────────────────────────────────────────────────
 
 const IGNORE_DIRS = new Set([
-  'node_modules', '.git', '.c3', '.c3-architect', 'dist', 'build',
+  'node_modules', '.git', '.intentsmith', '.intentsmith-architect', 'dist', 'build',
   '.next', '.nuxt', '__pycache__', '.venv', 'venv', 'coverage',
   '.idea', '.vscode', '.cache',
 ]);
@@ -102,7 +102,7 @@ async function analyzeStructure(projectPath, depth = 2) {
     try {
       const entries = await readdir(dir, { withFileTypes: true });
       for (const entry of entries) {
-        if (entry.name.startsWith('.') && currentDepth === 0 && !entry.name.startsWith('.c3')) continue;
+        if (entry.name.startsWith('.') && currentDepth === 0 && !entry.name.startsWith('.intentsmith')) continue;
         if (IGNORE_DIRS.has(entry.name)) continue;
 
         const relative = join(dir, entry.name).slice(projectPath.length + 1);
@@ -207,16 +207,16 @@ export async function analyzeExistingProject(projectPath, projectId = null, db =
     parts.push(`### ROADMAP.md\n${truncated}`);
   }
 
-  // 3. .c3/project.json
-  const c3Config = await readJsonFile(projectPath, '.c3/project.json');
-  if (c3Config) {
+  // 3. .intentsmith/project.json
+  const intentsmithConfig = await readJsonFile(projectPath, '.intentsmith/project.json');
+  if (intentsmithConfig) {
     const summary = [];
-    if (c3Config.name) summary.push(`Name: ${c3Config.name}`);
-    if (c3Config.type) summary.push(`Type: ${c3Config.type}`);
-    if (c3Config.description) summary.push(`Description: ${c3Config.description}`);
-    if (c3Config.lifecycle) summary.push(`Lifecycle phase: ${c3Config.lifecycle}`);
+    if (intentsmithConfig.name) summary.push(`Name: ${intentsmithConfig.name}`);
+    if (intentsmithConfig.type) summary.push(`Type: ${intentsmithConfig.type}`);
+    if (intentsmithConfig.description) summary.push(`Description: ${intentsmithConfig.description}`);
+    if (intentsmithConfig.lifecycle) summary.push(`Lifecycle phase: ${intentsmithConfig.lifecycle}`);
     if (summary.length > 0) {
-      parts.push(`### .c3/project.json\n${summary.join('\n')}`);
+      parts.push(`### .intentsmith/project.json\n${summary.join('\n')}`);
     }
   }
 

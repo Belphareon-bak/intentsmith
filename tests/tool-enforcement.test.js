@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ═══════════════════════════════════════════════════════════════════════════════
-// C3-Agent v57.2 — Tool-Only Enforcement Guard Tests
+// IntentSmith-Agent v57.2 — Tool-Only Enforcement Guard Tests
 // ═══════════════════════════════════════════════════════════════════════════════
 // Run: node tests/tool-enforcement.test.js
 

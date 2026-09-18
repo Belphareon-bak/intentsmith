@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — fetchPage Quality Enhancement (A1)
+// IntentSmith-Agent — fetchPage Quality Enhancement (A1)
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // Improves scraped web content quality by:

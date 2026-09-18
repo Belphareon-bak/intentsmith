@@ -21,7 +21,7 @@ export async function sendWatchMail({store,config,password,signal,test=false,clo
   const audit=new OutboundAuditRepository(store.database,{clock}),requestId=audit.createRequestId();
   const target={requestId,surface:'betting-notifications',scope:test?'sports.betting.email.test':'sports.betting.email.notify',method:'SMTP',targetOrigin:`smtps://${config.host}:${config.port}`,targetDigest:outboundTargetDigest(JSON.stringify({config,signalId:test?requestId:signal.id}))};
   // Operator-selected server and one recipient; no message-supplied routing,
-  // attachments, URL fetches or inherited C3 SMTP environment.
+  // attachments, URL fetches or inherited IntentSmith SMTP environment.
   audit.append({...target,phase:'decision',decision:'allow',reasonCode:'BETTING_WATCH_USER_CONFIGURED'});
   const transport=createTransport({host:config.host,port:config.port,secure:config.port===465,requireTLS:true,ignoreTLS:false,
     auth:{user:config.user,pass:password},tls:{minVersion:'TLSv1.2',rejectUnauthorized:true},connectionTimeout:10000,greetingTimeout:10000,socketTimeout:10000,

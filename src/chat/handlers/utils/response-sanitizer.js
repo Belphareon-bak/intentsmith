@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — Response Sanitization (Q5)
+// IntentSmith-Agent — Response Sanitization (Q5)
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // Fix: LLM occasionally returns raw JSON object as response instead of text.

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ═══════════════════════════════════════════════════════════════════════════════
-// C3-Agent v57.3 — Accountant Tools Test Suite
+// IntentSmith-Agent v57.3 — Accountant Tools Test Suite
 // ═══════════════════════════════════════════════════════════════════════════════
 // Run: node test/accountant-tools.test.js
 

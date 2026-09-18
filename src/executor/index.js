@@ -13,5 +13,5 @@ export { toolExecutor, ExecutionStatus } from './tool-executor.js';
 export { CircuitBreaker, CircuitState } from './circuit-breaker.js';
 export { ToolHealthMonitor, HealthStatus } from './health-monitor.js';
 
-// C3ToolExecutor — Contract v1.0 Implementation (standalone, single-shot)
-export { C3ToolExecutor, registerTool, getAuditTrail } from './c3-tool-executor.js';
+// IntentSmithToolExecutor — Contract v1.0 Implementation (standalone, single-shot)
+export { IntentSmithToolExecutor, registerTool, getAuditTrail } from './intentsmith-tool-executor.js';

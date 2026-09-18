@@ -29,7 +29,7 @@ async function json(file, maximumBytes = 262144) {
 }
 
 export function createHuntControl({ installationFile = process.env.INTENTSMITH_INSTALLATION_FILE,
-  sourceRoot = ROOT, databasePath = process.env.C3_DB_PATH,
+  sourceRoot = ROOT, databasePath = (process.env.INTENTSMITH_DB_PATH ?? process.env['C3_DB_PATH']),
   inspectGpu = inspectHuntGpu, readInventory = () => null,
   launch = args => exec('/usr/bin/systemd-run', args, { timeout: 15000, maxBuffer: 65536 }),
   run = (args) => exec('/usr/bin/systemctl', ['--user', ...args], { timeout: 10000, maxBuffer: 65536 }),
@@ -59,7 +59,7 @@ export function createHuntControl({ installationFile = process.env.INTENTSMITH_I
         || !service.ExecStart?.includes(join(installed.sourceRoot,'scripts/run-model-hunt-provider.js'))
         || !service.ExecStart?.includes(`path=${installed.node} ;`)
         || service.EnvironmentFiles !== `${join(installed.configDirectory,'runtime.env')} (ignore_errors=no)`
-        || !(await readFile(join(installed.configDirectory,'runtime.env'),'utf8')).split('\n').includes(`C3_DB_PATH="${installed.dbPath}"`)) {
+        || !(await readFile(join(installed.configDirectory,'runtime.env'),'utf8')).split('\n').includes(`INTENTSMITH_DB_PATH="${installed.dbPath}"`)) {
         throw new Error('HUNT_INSTALLATION_MISMATCH');
       }
       let current = null, progress = null;

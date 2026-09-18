@@ -19,13 +19,13 @@ if [ -z "$BLOCK_ID" ]; then
     exit 1
 fi
 
-ARCHITECT_DIR=".c3-architect"
+ARCHITECT_DIR=".intentsmith-architect"
 ROADMAP_DIR="$ARCHITECT_DIR/roadmap"
 MAIN_FILE="$ROADMAP_DIR/main.md"
 
 # Check if architect dir exists
 if [ ! -d "$ARCHITECT_DIR" ]; then
-    echo "Error: .c3-architect directory not found. Initialize project first."
+    echo "Error: .intentsmith-architect directory not found. Initialize project first."
     exit 1
 fi
 

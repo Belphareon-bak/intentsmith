@@ -1,6 +1,6 @@
 // tests/e2e/95-code-generation-quality.e2e.js — Code Generation Quality
 // ══════════════════════════════════════════════════════════════════════════════
-// Tier 3+: Tests that C3 generates COMPLETE, CORRECT, WELL-STRUCTURED code.
+// Tier 3+: Tests that IntentSmith generates COMPLETE, CORRECT, WELL-STRUCTURED code.
 //
 // Unlike basic tests that check "has a code block with keyword X", these tests
 // verify deep code quality:

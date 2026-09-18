@@ -4,7 +4,7 @@ import { inspectChatJourneyResult } from './helpers/chat-journey-response.js';
 
 installOllamaLoopbackFetchBoundary({ reportOnExit: true });
 
-// C3-Agent v58.3 — Czech No-Diacritics Deep Conversation Tests (5 × 10 steps)
+// IntentSmith-Agent v58.3 — Czech No-Diacritics Deep Conversation Tests (5 × 10 steps)
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // 5 deep multi-turn Czech conversations WITHOUT diacritics (háčky/čárky).
@@ -129,7 +129,7 @@ console.log('  Ollama + LLM OK\n');
 
 const _origLog = console.log;
 const _origInfo = console.info;
-const suppressPatterns = /\[C3:|CRE Decision|HandleToolCall|ToolExecutor|WebSearch|SearchMetrics|HandleLocal|ConversationHandler|HandleAskUser|DB\]/;
+const suppressPatterns = /\[IntentSmith:|CRE Decision|HandleToolCall|ToolExecutor|WebSearch|SearchMetrics|HandleLocal|ConversationHandler|HandleAskUser|DB\]/;
 console.log = (...args) => { if (!suppressPatterns.test(String(args[0]))) _origLog(...args); };
 console.info = (...args) => { if (!suppressPatterns.test(String(args[0]))) _origInfo(...args); };
 

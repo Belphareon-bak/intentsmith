@@ -168,7 +168,7 @@ console.log('  ✓ Ollama + LLM OK\n');
 const _origLog = console.log;
 const _origWarn = console.warn;
 const _origInfo = console.info;
-const suppressPatterns = /\[C3:|CRE Decision|HandleToolCall|ToolExecutor|WebSearch|SearchMetrics|HandleLocal|ConversationHandler|HandleAskUser|DB\]|ModeDetect|Gatekeeper|ExpertiseHandler|MergeEngine|Pipeline|synthesis|followup|CapabilityEnforcer|CONTINUATION/;
+const suppressPatterns = /\[IntentSmith:|CRE Decision|HandleToolCall|ToolExecutor|WebSearch|SearchMetrics|HandleLocal|ConversationHandler|HandleAskUser|DB\]|ModeDetect|Gatekeeper|ExpertiseHandler|MergeEngine|Pipeline|synthesis|followup|CapabilityEnforcer|CONTINUATION/;
 console.log = (...args) => { if (!suppressPatterns.test(String(args[0]))) _origLog(...args); };
 console.warn = (...args) => { if (!suppressPatterns.test(String(args[0]))) _origWarn(...args); };
 console.info = (...args) => { if (!suppressPatterns.test(String(args[0]))) _origInfo(...args); };

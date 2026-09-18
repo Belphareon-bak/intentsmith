@@ -53,7 +53,7 @@ export const STUDIO_M2_COMPOSER_POLICY = Object.freeze({
 
 const CAPABILITY_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 const LOCAL_CAPABILITY_HEADER = 'x-intentsmith-local-capability';
-const WS_CAPABILITY_PREFIX = 'c3-local-v1.';
+const WS_CAPABILITY_PREFIX = 'intentsmith-local-v1.';
 const SAFE_METHODS = new Set([
   'GET',
   'HEAD',
@@ -231,7 +231,7 @@ export function classifyNetworkTarget(rawUrl, backendOrigin, controlPlaneOrigin)
     )
   );
   if (sameBackendAuthority) {
-    const routeId = parsed.protocol === 'ws:' && parsed.pathname === '/c3/ws'
+    const routeId = parsed.protocol === 'ws:' && parsed.pathname === '/intentsmith/ws'
       ? STUDIO_ROUTE_IDS.WS_BRIDGE
       : classifyBackendPath(parsed.pathname);
     return Object.freeze({
@@ -527,7 +527,7 @@ function createWsSlot(expectedCapability) {
 
 function classifyWsProtocols(headers, expectedCapability, response = false) {
   const protocols = commaValues(headers, 'sec-websocket-protocol');
-  const v1Count = protocols.filter(value => value === 'c3-v1').length;
+  const v1Count = protocols.filter(value => value === 'intentsmith-v1').length;
   const capabilityValues = protocols.filter(value => value.startsWith(WS_CAPABILITY_PREFIX));
   let capabilityProtocolClass = 'missing';
   if (capabilityValues.length > 1) capabilityProtocolClass = 'duplicate';

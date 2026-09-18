@@ -31,7 +31,7 @@
         "url": "https://api.exchangerate-api.com/v4/latest/CZK",
         "method": "GET",
         "headers": {
-          "User-Agent": "C3-Agent/62.0"
+          "User-Agent": "IntentSmith-Agent/62.0"
         }
       }
     }

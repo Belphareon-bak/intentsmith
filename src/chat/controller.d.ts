@@ -1,4 +1,4 @@
-// C3-Agent Chat Controller Type Definitions
+// IntentSmith-Agent Chat Controller Type Definitions
 // Generated for v55.1
 
 /**

@@ -6,7 +6,7 @@ import './helpers/isolated-test-db.js';
 // 3 different use cases scored through the full pipeline:
 //   C1: Backend system (multi-tenant REST API + RBAC) — architectural depth
 //   C2: CLI tool (backup CLI) — low ceremony, friction sensitivity
-//   C3: Web app with scope changes — change management stress test
+//   IntentSmith: Web app with scope changes — change management stress test
 //
 // PRAVIDLO: Žádné zásahy do vah, heuristik, promptů ani scoringu.
 //           Pilot je pozorování, ne ladění.
@@ -70,12 +70,12 @@ function inRange(value, min, max) {
 const TS = Date.now();
 const LC_C1 = `lc-pilot-c1-${TS}`;
 const LC_C2 = `lc-pilot-c2-${TS}`;
-const LC_C3 = `lc-pilot-c3-${TS}`;
+const LC_IntentSmith = `lc-pilot-intentsmith-${TS}`;
 
 // ─── Cleanup ────────────────────────────────────────────────────────────────
 
 function cleanDB() {
-  for (const lcId of [LC_C1, LC_C2, LC_C3]) {
+  for (const lcId of [LC_C1, LC_C2, LC_IntentSmith]) {
     try { db.prepare(`DELETE FROM quality_scores WHERE lifecycle_id = ?`).run(lcId); } catch {}
     try { db.prepare(`DELETE FROM project_lifecycles WHERE id = ?`).run(lcId); } catch {}
   }
@@ -572,10 +572,10 @@ function makeC2Roadmap() {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// C3: Web App with Changing Scope — Training Planner
+// IntentSmith: Web App with Changing Scope — Training Planner
 // ═══════════════════════════════════════════════════════════════════════════════
 
-function makeC3Spec() {
+function makeIntentSmithSpec() {
   return {
     title: 'Webová aplikace pro plánování tréninků s profily, PDF exportem a mobilní optimalizací',
     goals: [
@@ -712,7 +712,7 @@ function makeC3Spec() {
   };
 }
 
-function makeC3Roadmap() {
+function makeIntentSmithRoadmap() {
   return {
     milestones: [
       {
@@ -813,8 +813,8 @@ function makeC3Roadmap() {
   };
 }
 
-// C3 change requests — 3 scope changes during build
-function makeC3Change1_PaymentGateway() {
+// IntentSmith change requests — 3 scope changes during build
+function makeIntentSmithChange1_PaymentGateway() {
   return {
     affected_milestones: ['ms-4'],
     impact: {
@@ -841,7 +841,7 @@ function makeC3Change1_PaymentGateway() {
   };
 }
 
-function makeC3Change2_TeamPlanning() {
+function makeIntentSmithChange2_TeamPlanning() {
   return {
     affected_milestones: ['ms-2', 'ms-3'],
     impact: {
@@ -872,7 +872,7 @@ function makeC3Change2_TeamPlanning() {
   };
 }
 
-function makeC3Change3_OfflineMode() {
+function makeIntentSmithChange3_OfflineMode() {
   return {
     affected_milestones: ['ms-3', 'ms-4'],
     impact: {
@@ -915,7 +915,7 @@ async function run() {
   cleanDB();
   setupLifecycle(LC_C1, 'pilot-c1-backend', 'Multi-tenant REST API');
   setupLifecycle(LC_C2, 'pilot-c2-cli', 'Backup CLI Tool');
-  setupLifecycle(LC_C3, 'pilot-c3-webapp', 'Training Planner Web App');
+  setupLifecycle(LC_IntentSmith, 'pilot-intentsmith-webapp', 'Training Planner Web App');
 
   // ═══════════════════════════════════════════════════════════════════════════
   // C1: Backend System — Spec + Roadmap
@@ -1015,46 +1015,46 @@ async function run() {
   console.log(`\n  C2 lifecycle_score: ${c2Lifecycle?.score} (${c2Lifecycle?.label})`);
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // C3: Web App — Spec + Roadmap + 3 Change Requests
+  // IntentSmith: Web App — Spec + Roadmap + 3 Change Requests
   // ═══════════════════════════════════════════════════════════════════════════
   console.log('\n' + '═'.repeat(70));
-  console.log('  C3: Web App — Training Planner + 3 Scope Changes');
+  console.log('  IntentSmith: Web App — Training Planner + 3 Scope Changes');
   console.log('═'.repeat(70));
 
-  const c3Spec = makeC3Spec();
-  const c3SpecResult = computeSpecScore(c3Spec);
-  console.log(`\n  C3 spec_score: ${c3SpecResult.score} (${c3SpecResult.label})`);
-  console.log(`    decision_depth:    ${c3SpecResult.breakdown.decision_depth}`);
-  console.log(`    measurability:     ${c3SpecResult.breakdown.measurability}`);
-  console.log(`    coverage_quality:  ${c3SpecResult.breakdown.coverage_quality}`);
-  console.log(`    specificity:       ${c3SpecResult.breakdown.specificity}`);
-  console.log(`    risk_quality:      ${c3SpecResult.breakdown.risk_quality}`);
+  const intentsmithSpec = makeIntentSmithSpec();
+  const intentsmithSpecResult = computeSpecScore(intentsmithSpec);
+  console.log(`\n  IntentSmith spec_score: ${intentsmithSpecResult.score} (${intentsmithSpecResult.label})`);
+  console.log(`    decision_depth:    ${intentsmithSpecResult.breakdown.decision_depth}`);
+  console.log(`    measurability:     ${intentsmithSpecResult.breakdown.measurability}`);
+  console.log(`    coverage_quality:  ${intentsmithSpecResult.breakdown.coverage_quality}`);
+  console.log(`    specificity:       ${intentsmithSpecResult.breakdown.specificity}`);
+  console.log(`    risk_quality:      ${intentsmithSpecResult.breakdown.risk_quality}`);
 
-  check(inRange(c3SpecResult.score, 0.65, 0.90),
-    'C3.1: spec_score in expected range (0.65–0.90)',
-    `got ${c3SpecResult.score}`);
+  check(inRange(intentsmithSpecResult.score, 0.65, 0.90),
+    'IntentSmith.1: spec_score in expected range (0.65–0.90)',
+    `got ${intentsmithSpecResult.score}`);
 
-  const c3SpecTelemetry = logSpecScore(LC_C3, c3Spec, 1);
-  check(c3SpecTelemetry !== null, 'C3.2: telemetry logged spec score');
+  const intentsmithSpecTelemetry = logSpecScore(LC_IntentSmith, intentsmithSpec, 1);
+  check(intentsmithSpecTelemetry !== null, 'IntentSmith.2: telemetry logged spec score');
 
-  const c3Roadmap = makeC3Roadmap();
-  const c3RoadmapResult = computeRoadmapScore(c3Roadmap);
-  console.log(`\n  C3 roadmap_score: ${c3RoadmapResult.score} (${c3RoadmapResult.label})`);
-  console.log(`    milestone_completeness: ${c3RoadmapResult.breakdown.milestone_completeness}`);
-  console.log(`    dependency_coherence:   ${c3RoadmapResult.breakdown.dependency_coherence}`);
-  console.log(`    requirement_coverage:   ${c3RoadmapResult.breakdown.requirement_coverage}`);
-  console.log(`    sizing_realism:         ${c3RoadmapResult.breakdown.sizing_realism}`);
+  const intentsmithRoadmap = makeIntentSmithRoadmap();
+  const intentsmithRoadmapResult = computeRoadmapScore(intentsmithRoadmap);
+  console.log(`\n  IntentSmith roadmap_score: ${intentsmithRoadmapResult.score} (${intentsmithRoadmapResult.label})`);
+  console.log(`    milestone_completeness: ${intentsmithRoadmapResult.breakdown.milestone_completeness}`);
+  console.log(`    dependency_coherence:   ${intentsmithRoadmapResult.breakdown.dependency_coherence}`);
+  console.log(`    requirement_coverage:   ${intentsmithRoadmapResult.breakdown.requirement_coverage}`);
+  console.log(`    sizing_realism:         ${intentsmithRoadmapResult.breakdown.sizing_realism}`);
 
-  check(c3RoadmapResult.score >= 0.65,
-    'C3.3: roadmap_score ≥ 0.65',
-    `got ${c3RoadmapResult.score}`);
+  check(intentsmithRoadmapResult.score >= 0.65,
+    'IntentSmith.3: roadmap_score ≥ 0.65',
+    `got ${intentsmithRoadmapResult.score}`);
 
-  const c3RoadmapTelemetry = logRoadmapScore(LC_C3, c3Roadmap, 1);
-  check(c3RoadmapTelemetry !== null, 'C3.4: telemetry logged roadmap score');
+  const intentsmithRoadmapTelemetry = logRoadmapScore(LC_IntentSmith, intentsmithRoadmap, 1);
+  check(intentsmithRoadmapTelemetry !== null, 'IntentSmith.4: telemetry logged roadmap score');
 
   // ─── Change 1: Payment Gateway ───────────────────────────────────────────
   console.log('\n  ─── Change 1: "Přidej platební bránu" ───');
-  const change1 = makeC3Change1_PaymentGateway();
+  const change1 = makeIntentSmithChange1_PaymentGateway();
   const change1Result = computeChangeScore(change1);
   console.log(`  change1_score: ${change1Result.score} (${change1Result.label})`);
   console.log(`    impact_clarity:     ${change1Result.breakdown.impact_clarity}`);
@@ -1063,18 +1063,18 @@ async function run() {
   console.log(`    preservation:       ${change1Result.breakdown.preservation}`);
 
   check(change1Result.score >= 0.65,
-    'C3.5: change1 (payment) score ≥ 0.65',
+    'IntentSmith.5: change1 (payment) score ≥ 0.65',
     `got ${change1Result.score}`);
   check(change1Result.breakdown.preservation >= 0.60,
-    'C3.6: change1 preservation ≥ 0.60 (3 milestones preserved)',
+    'IntentSmith.6: change1 preservation ≥ 0.60 (3 milestones preserved)',
     `got ${change1Result.breakdown.preservation}`);
 
-  logChangeScore(LC_C3, change1, 'cr-payment-001');
-  logLifecycleScore(LC_C3);
+  logChangeScore(LC_IntentSmith, change1, 'cr-payment-001');
+  logLifecycleScore(LC_IntentSmith);
 
   // ─── Change 2: Team Planning ─────────────────────────────────────────────
   console.log('\n  ─── Change 2: "Chci i týmové plánování" ───');
-  const change2 = makeC3Change2_TeamPlanning();
+  const change2 = makeIntentSmithChange2_TeamPlanning();
   const change2Result = computeChangeScore(change2);
   console.log(`  change2_score: ${change2Result.score} (${change2Result.label})`);
   console.log(`    impact_clarity:     ${change2Result.breakdown.impact_clarity}`);
@@ -1083,18 +1083,18 @@ async function run() {
   console.log(`    preservation:       ${change2Result.breakdown.preservation}`);
 
   check(change2Result.score >= 0.65,
-    'C3.7: change2 (team) score ≥ 0.65',
+    'IntentSmith.7: change2 (team) score ≥ 0.65',
     `got ${change2Result.score}`);
   check(change2Result.breakdown.preservation >= 0.60,
-    'C3.8: change2 preservation ≥ 0.60 (4 milestones preserved)',
+    'IntentSmith.8: change2 preservation ≥ 0.60 (4 milestones preserved)',
     `got ${change2Result.breakdown.preservation}`);
 
-  logChangeScore(LC_C3, change2, 'cr-team-002');
-  logLifecycleScore(LC_C3);
+  logChangeScore(LC_IntentSmith, change2, 'cr-team-002');
+  logLifecycleScore(LC_IntentSmith);
 
   // ─── Change 3: Offline Mode ──────────────────────────────────────────────
   console.log('\n  ─── Change 3: "Musí běžet offline" ───');
-  const change3 = makeC3Change3_OfflineMode();
+  const change3 = makeIntentSmithChange3_OfflineMode();
   const change3Result = computeChangeScore(change3);
   console.log(`  change3_score: ${change3Result.score} (${change3Result.label})`);
   console.log(`    impact_clarity:     ${change3Result.breakdown.impact_clarity}`);
@@ -1103,18 +1103,18 @@ async function run() {
   console.log(`    preservation:       ${change3Result.breakdown.preservation}`);
 
   check(change3Result.score >= 0.65,
-    'C3.9: change3 (offline) score ≥ 0.65',
+    'IntentSmith.9: change3 (offline) score ≥ 0.65',
     `got ${change3Result.score}`);
   check(change3Result.breakdown.preservation >= 0.60,
-    'C3.10: change3 preservation ≥ 0.60 (6 milestones preserved)',
+    'IntentSmith.10: change3 preservation ≥ 0.60 (6 milestones preserved)',
     `got ${change3Result.breakdown.preservation}`);
 
-  logChangeScore(LC_C3, change3, 'cr-offline-003');
+  logChangeScore(LC_IntentSmith, change3, 'cr-offline-003');
 
-  // Final lifecycle score for C3 (after all changes)
-  const c3FinalLifecycle = logLifecycleScore(LC_C3);
-  check(c3FinalLifecycle !== null, 'C3.11: final lifecycle score computed');
-  console.log(`\n  C3 final lifecycle_score: ${c3FinalLifecycle?.score} (${c3FinalLifecycle?.label})`);
+  // Final lifecycle score for IntentSmith (after all changes)
+  const intentsmithFinalLifecycle = logLifecycleScore(LC_IntentSmith);
+  check(intentsmithFinalLifecycle !== null, 'IntentSmith.11: final lifecycle score computed');
+  console.log(`\n  IntentSmith final lifecycle_score: ${intentsmithFinalLifecycle?.score} (${intentsmithFinalLifecycle?.label})`);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Cross-project Analytics
@@ -1197,36 +1197,36 @@ async function run() {
   console.log('\n  ─── Volatility Index ───');
   const c1Vol = getVolatilityIndex(LC_C1);
   const c2Vol = getVolatilityIndex(LC_C2);
-  const c3Vol = getVolatilityIndex(LC_C3);
+  const intentsmithVol = getVolatilityIndex(LC_IntentSmith);
 
   console.log(`  C1 volatility: ${c1Vol}`);
   console.log(`  C2 volatility: ${c2Vol}`);
-  console.log(`  C3 volatility: ${c3Vol}`);
+  console.log(`  IntentSmith volatility: ${intentsmithVol}`);
 
-  // C3 has 3 change requests + multiple lifecycle scores → should have highest volatility
-  check(c3Vol >= c1Vol,
-    'A11: C3 volatility ≥ C1 (more changes = more volatility)',
-    `C3=${c3Vol}, C1=${c1Vol}`);
-  check(c3Vol >= c2Vol,
-    'A12: C3 volatility ≥ C2',
-    `C3=${c3Vol}, C2=${c2Vol}`);
+  // IntentSmith has 3 change requests + multiple lifecycle scores → should have highest volatility
+  check(intentsmithVol >= c1Vol,
+    'A11: IntentSmith volatility ≥ C1 (more changes = more volatility)',
+    `IntentSmith=${intentsmithVol}, C1=${c1Vol}`);
+  check(intentsmithVol >= c2Vol,
+    'A12: IntentSmith volatility ≥ C2',
+    `IntentSmith=${intentsmithVol}, C2=${c2Vol}`);
 
-  // ─── C3 Project Report (change management detail) ─────────────────────────
-  console.log('\n  ─── C3 Project Report ───');
-  const c3Report = getProjectReport(LC_C3);
+  // ─── IntentSmith Project Report (change management detail) ─────────────────────────
+  console.log('\n  ─── IntentSmith Project Report ───');
+  const intentsmithReport = getProjectReport(LC_IntentSmith);
 
-  check(c3Report.latest.change !== undefined,
-    'A13: C3 has latest change score');
-  check(c3Report.history.length >= 7,
-    'A14: C3 history has ≥7 entries (spec + roadmap + 3 changes + lifecycle scores)',
-    `got ${c3Report.history.length}`);
-  check(c3Report.trend.change !== undefined && c3Report.trend.change.length >= 3,
-    'A15: C3 has ≥3 change trend entries',
-    `got ${c3Report.trend.change?.length ?? 0}`);
+  check(intentsmithReport.latest.change !== undefined,
+    'A13: IntentSmith has latest change score');
+  check(intentsmithReport.history.length >= 7,
+    'A14: IntentSmith history has ≥7 entries (spec + roadmap + 3 changes + lifecycle scores)',
+    `got ${intentsmithReport.history.length}`);
+  check(intentsmithReport.trend.change !== undefined && intentsmithReport.trend.change.length >= 3,
+    'A15: IntentSmith has ≥3 change trend entries',
+    `got ${intentsmithReport.trend.change?.length ?? 0}`);
 
   // ─── Change Scores Stability ──────────────────────────────────────────────
   console.log('\n  ─── Change Score Stability ───');
-  const changeTrend = c3Report.trend.change || [];
+  const changeTrend = intentsmithReport.trend.change || [];
   if (changeTrend.length >= 3) {
     console.log(`  Change 1: ${changeTrend[0].score}`);
     console.log(`  Change 2: ${changeTrend[1].score}`);
@@ -1245,7 +1245,7 @@ async function run() {
   const textReport = generateTextReport({ sinceDays: 1 });
   console.log(textReport);
 
-  check(textReport.includes('C3 Quality Score Report'),
+  check(textReport.includes('IntentSmith Quality Score Report'),
     'A19: text report has header');
   check(textReport.includes('EXCELLENT') || textReport.includes('GOOD') || textReport.includes('ACCEPTABLE'),
     'A20: text report has distribution labels');
@@ -1258,13 +1258,13 @@ async function run() {
   console.log('═'.repeat(70));
 
   console.log('\n  ┌─────────────────────────┬──────────┬──────────┬──────────┐');
-  console.log('  │ Metric                  │ C1 (API) │ C2 (CLI) │ C3 (Web) │');
+  console.log('  │ Metric                  │ C1 (API) │ C2 (CLI) │ IntentSmith (Web) │');
   console.log('  ├─────────────────────────┼──────────┼──────────┼──────────┤');
-  console.log(`  │ spec_score              │ ${pad(c1SpecResult.score)} │ ${pad(c2SpecResult.score)} │ ${pad(c3SpecResult.score)} │`);
-  console.log(`  │ roadmap_score           │ ${pad(c1RoadmapResult.score)} │ ${pad(c2RoadmapResult.score)} │ ${pad(c3RoadmapResult.score)} │`);
+  console.log(`  │ spec_score              │ ${pad(c1SpecResult.score)} │ ${pad(c2SpecResult.score)} │ ${pad(intentsmithSpecResult.score)} │`);
+  console.log(`  │ roadmap_score           │ ${pad(c1RoadmapResult.score)} │ ${pad(c2RoadmapResult.score)} │ ${pad(intentsmithRoadmapResult.score)} │`);
   console.log(`  │ change_score (avg)      │    —     │    —     │ ${pad(avgScore([change1Result.score, change2Result.score, change3Result.score]))} │`);
-  console.log(`  │ lifecycle_score          │ ${pad(c1Lifecycle?.score)} │ ${pad(c2Lifecycle?.score)} │ ${pad(c3FinalLifecycle?.score)} │`);
-  console.log(`  │ volatility              │ ${pad(c1Vol)}   │ ${pad(c2Vol)}   │ ${pad(c3Vol)}   │`);
+  console.log(`  │ lifecycle_score          │ ${pad(c1Lifecycle?.score)} │ ${pad(c2Lifecycle?.score)} │ ${pad(intentsmithFinalLifecycle?.score)} │`);
+  console.log(`  │ volatility              │ ${pad(c1Vol)}   │ ${pad(c2Vol)}   │ ${pad(intentsmithVol)}   │`);
   console.log(`  │ milestone_count          │    5     │    3     │    4+3   │`);
   console.log(`  │ change_count             │    0     │    0     │    3     │`);
   console.log('  └─────────────────────────┴──────────┴──────────┴──────────┘');
@@ -1272,7 +1272,7 @@ async function run() {
   console.log('\n  Labels:');
   console.log(`    C1: spec=${c1SpecResult.label} roadmap=${c1RoadmapResult.label} lifecycle=${c1Lifecycle?.label}`);
   console.log(`    C2: spec=${c2SpecResult.label} roadmap=${c2RoadmapResult.label} lifecycle=${c2Lifecycle?.label}`);
-  console.log(`    C3: spec=${c3SpecResult.label} roadmap=${c3RoadmapResult.label} changes=${change1Result.label}/${change2Result.label}/${change3Result.label} lifecycle=${c3FinalLifecycle?.label}`);
+  console.log(`    IntentSmith: spec=${intentsmithSpecResult.label} roadmap=${intentsmithRoadmapResult.label} changes=${change1Result.label}/${change2Result.label}/${change3Result.label} lifecycle=${intentsmithFinalLifecycle?.label}`);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Pilot Observations (diagnostic — not pass/fail)
@@ -1282,7 +1282,7 @@ async function run() {
   console.log('═'.repeat(70));
 
   // O1: Roadmap ceiling effect — all 3 roadmaps score 1.0
-  const allRoadmapsPerfect = c1RoadmapResult.score === 1 && c2RoadmapResult.score === 1 && c3RoadmapResult.score === 1;
+  const allRoadmapsPerfect = c1RoadmapResult.score === 1 && c2RoadmapResult.score === 1 && intentsmithRoadmapResult.score === 1;
   if (allRoadmapsPerfect) {
     console.log('\n  ⚠ CEILING: All 3 roadmaps score 1.0 — scoring does not discriminate');
     console.log('    → roadmap_score is binary (well-formed=1, broken=0), not gradient');
@@ -1298,17 +1298,17 @@ async function run() {
   }
 
   // O3: Spec range compression
-  const specRange = c1SpecResult.score - Math.min(c1SpecResult.score, c2SpecResult.score, c3SpecResult.score);
-  console.log(`\n  📊 Spec score range: ${Math.min(c1SpecResult.score, c2SpecResult.score, c3SpecResult.score)}–${Math.max(c1SpecResult.score, c2SpecResult.score, c3SpecResult.score)} (spread: ${specRange.toFixed(2)})`);
+  const specRange = c1SpecResult.score - Math.min(c1SpecResult.score, c2SpecResult.score, intentsmithSpecResult.score);
+  console.log(`\n  📊 Spec score range: ${Math.min(c1SpecResult.score, c2SpecResult.score, intentsmithSpecResult.score)}–${Math.max(c1SpecResult.score, c2SpecResult.score, intentsmithSpecResult.score)} (spread: ${specRange.toFixed(2)})`);
   if (specRange < 0.10) {
     console.log('    ⚠ COMPRESSED: <0.10 spread across 3 very different projects');
     console.log('    → Backend API vs CLI vs Web app should show more variance');
   }
 
   // O4: Volatility always 0 — because scores don't vary within a project
-  const allVolZero = c1Vol === 0 && c2Vol === 0 && c3Vol === 0;
+  const allVolZero = c1Vol === 0 && c2Vol === 0 && intentsmithVol === 0;
   if (allVolZero) {
-    console.log('\n  ⚠ FLAT: Volatility = 0 for all projects (including C3 with 3 changes)');
+    console.log('\n  ⚠ FLAT: Volatility = 0 for all projects (including IntentSmith with 3 changes)');
     console.log('    → Scores within each artifact_type are identical → no delta to measure');
     console.log('    → Volatility only becomes meaningful with spec v1→v2 revisions');
   }
@@ -1323,7 +1323,7 @@ async function run() {
   // O6: per_type mean from report vs pilot actuals
   if (summary.per_type.spec) {
     console.log(`\n  📊 Report mean spec: ${summary.per_type.spec.mean} (includes non-pilot data from DB)`);
-    console.log(`     Pilot-only mean spec: ${((c1SpecResult.score + c2SpecResult.score + c3SpecResult.score) / 3).toFixed(2)}`);
+    console.log(`     Pilot-only mean spec: ${((c1SpecResult.score + c2SpecResult.score + intentsmithSpecResult.score) / 3).toFixed(2)}`);
   }
 
   // ═══════════════════════════════════════════════════════════════════════════

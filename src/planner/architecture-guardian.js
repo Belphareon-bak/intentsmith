@@ -308,7 +308,7 @@ async function _detectProjectArchitecture(projectPath) {
     const path = await import('path');
 
     const files = [];
-    const SKIP = new Set(['node_modules', '.git', 'dist', 'build', '__pycache__', 'vendor', '.venv', '.c3']);
+    const SKIP = new Set(['node_modules', '.git', 'dist', 'build', '__pycache__', 'vendor', '.venv', '.intentsmith']);
     const CODE_EXTS = new Set(['.js', '.mjs', '.ts', '.tsx', '.jsx', '.py', '.go', '.java', '.rs', '.svelte', '.vue']);
 
     async function walk(dir, depth = 0) {
@@ -509,7 +509,7 @@ async function _detectConceptFragmentation(projectPath) {
   try {
     const { readdir, readFile } = await import('fs/promises');
     const pathMod = await import('path');
-    const SKIP = new Set(['node_modules', '.git', 'dist', 'build', '__pycache__', 'vendor', '.venv', '.c3']);
+    const SKIP = new Set(['node_modules', '.git', 'dist', 'build', '__pycache__', 'vendor', '.venv', '.intentsmith']);
     const CODE_EXTS = new Set(['.js', '.mjs', '.ts', '.tsx', '.jsx', '.py', '.go', '.java', '.rs']);
 
     const files = [];
@@ -551,7 +551,7 @@ async function _detectConceptDrift(lifecycle, milestone, projectPath) {
   try {
     const { readdir, readFile } = await import('fs/promises');
     const pathMod = await import('path');
-    const SKIP = new Set(['node_modules', '.git', 'dist', 'build', '__pycache__', 'vendor', '.venv', '.c3']);
+    const SKIP = new Set(['node_modules', '.git', 'dist', 'build', '__pycache__', 'vendor', '.venv', '.intentsmith']);
     const CODE_EXTS = new Set(['.js', '.mjs', '.ts', '.tsx', '.jsx', '.py', '.go', '.java', '.rs']);
 
     const files = [];

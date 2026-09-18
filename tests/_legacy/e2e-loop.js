@@ -340,7 +340,7 @@ function analyzeFailurePatterns(allReports) {
 }
 
 // ── Improvement Suggestion Engine ─────────────────────────────────────────────
-// Maps test failures to C3 source files that are likely responsible.
+// Maps test failures to IntentSmith source files that are likely responsible.
 // This is a heuristic mapping — not exhaustive but covers the main quality areas.
 
 const FAILURE_TO_SOURCE = {

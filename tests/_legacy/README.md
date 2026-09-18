@@ -19,7 +19,7 @@ command, output, and exit code are recorded.
   to `.intentsmith-artifacts/e2e-loop/`.
 - `LIFECYCLE_E2E_REPORT.txt` and `PROJECT-LIFECYCLE-E2E-PLAN.md`: historical
   evidence and planning material, not current results.
-- `packages/c3-backend.md`: a portable historical reference replacing the
+- `packages/intentsmith-backend.md`: a portable historical reference replacing the
   machine-local absolute symlink moved by the disputed commit.
 
 The current inventory and execution profiles are generated from the filesystem;

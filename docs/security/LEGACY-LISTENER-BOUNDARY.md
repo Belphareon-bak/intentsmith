@@ -146,7 +146,7 @@ node tests/upgrade-ux-v125.test.js
 node tests/repository-hygiene.test.js
 node scripts/validate-test-registry.js
 node scripts/validate-final-disposition.js
-(cd c3-ide && corepack yarn build)
+(cd intentsmith-ide && corepack yarn build)
 ```
 
 The T1 suites pin the tracked preload, exact-target fetch wrapper, no-leak

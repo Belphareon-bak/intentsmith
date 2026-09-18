@@ -27,7 +27,7 @@ async function expectRejection(action, expectedMessage, label) {
 function childImport(envOverrides) {
   const env = {
     ...process.env,
-    C3_AUDIT_RUN: '1',
+    INTENTSMITH_AUDIT_RUN: '1',
     ...envOverrides,
   };
   for (const [key, value] of Object.entries(env)) {
@@ -122,8 +122,8 @@ try {
   });
 
   const port = server.address().port;
-  process.env.C3_URL = `http://127.0.0.1:${port}`;
-  process.env.C3_TRANSCRIPT = legacyTranscript;
+  process.env.INTENTSMITH_URL = `http://127.0.0.1:${port}`;
+  process.env.INTENTSMITH_TRANSCRIPT = legacyTranscript;
   process.env.INTENTSMITH_TEST_ARTIFACT_DIR = artifactRoot;
   process.env.npm_config_cache = artifactNpmCache;
   process.env.INTENTSMITH_TEST_REQUEST_TIMEOUT_MS = '100';
@@ -133,9 +133,9 @@ try {
 
   ensure(mode(artifactNpmCache) === 0o700, 'nested npm cache mode is not 0700');
   const helpers = await import('./_helpers.js');
-  ensure(helpers.BASE_URL === process.env.C3_URL, 'C3_URL was not preserved');
+  ensure(helpers.BASE_URL === process.env.INTENTSMITH_URL, 'INTENTSMITH_URL was not preserved');
   ensure(
-    helpers.WS_URL === `ws://127.0.0.1:${port}/c3/ws`,
+    helpers.WS_URL === `ws://127.0.0.1:${port}/intentsmith/ws`,
     'WebSocket URL did not use the runner-owned port',
   );
   ensure(typeof WebSocket.prototype.on === 'function', 'Node WebSocket compatibility API missing');
@@ -245,7 +245,7 @@ try {
   const transcriptDir = path.join(artifactRoot, 'transcripts');
   const transcriptPath = path.join(transcriptDir, 'helpers-self-check.md');
   ensure(fs.existsSync(transcriptPath), 'private transcript was not written');
-  ensure(!fs.existsSync(legacyTranscript), 'legacy C3_TRANSCRIPT path was used');
+  ensure(!fs.existsSync(legacyTranscript), 'legacy INTENTSMITH_TRANSCRIPT path was used');
   ensure(mode(transcriptDir) === 0o700, 'transcript directory mode is not 0700');
   ensure(mode(transcriptPath) === 0o600, 'transcript file mode is not 0600');
 
@@ -382,9 +382,9 @@ try {
     'http://127.0.0.1:3335/nested',
   ]) {
     const child = childImport({
-      C3_URL: invalidUrl,
+      INTENTSMITH_URL: invalidUrl,
     });
-    ensure(child.status !== 0, `unsafe C3_URL was accepted: ${invalidUrl}`);
+    ensure(child.status !== 0, `unsafe INTENTSMITH_URL was accepted: ${invalidUrl}`);
   }
 
   const portFile = path.join(artifactRoot, 'runner.port');
@@ -394,9 +394,9 @@ try {
     pid: process.pid,
   }), { mode: 0o600 });
   const fromPortFile = childImport({
-    C3_URL: undefined,
-    C3_PORT: '0',
-    C3_PORT_FILE: portFile,
+    INTENTSMITH_URL: undefined,
+    INTENTSMITH_PORT: '0',
+    INTENTSMITH_PORT_FILE: portFile,
   });
   ensure(
     fromPortFile.status === 0 && fromPortFile.stdout.includes(`http://127.0.0.1:${port}`),

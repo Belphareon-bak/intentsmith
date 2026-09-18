@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — B6: Multi-Source Agent
+// IntentSmith-Agent — B6: Multi-Source Agent
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // Agent that monitors multiple sources simultaneously and merges results.

@@ -5,7 +5,7 @@
 //
 // Run: node tests/push-channel.test.js
 //
-// For E2E: set C3_NTFY_TOPIC=your-topic
+// For E2E: set INTENTSMITH_NTFY_TOPIC=your-topic
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { PushChannel } from '../src/notifications/channels/push.js';
@@ -56,9 +56,9 @@ const originalFetch = globalThis.fetch;
 // 1.1 Constructor defaults
 {
   const saved = { ...process.env };
-  delete process.env.C3_NTFY_SERVER;
-  delete process.env.C3_NTFY_TOPIC;
-  delete process.env.C3_NTFY_TOKEN;
+  delete process.env.INTENTSMITH_NTFY_SERVER;
+  delete process.env.INTENTSMITH_NTFY_TOPIC;
+  delete process.env.INTENTSMITH_NTFY_TOKEN;
 
   const ch = new PushChannel({ logger });
   assert(ch.name === 'push', 'Channel name is "push"');
@@ -71,14 +71,14 @@ const originalFetch = globalThis.fetch;
 // 1.2 Constructor with env vars
 {
   const saved = {
-    C3_NTFY_SERVER: process.env.C3_NTFY_SERVER,
-    C3_NTFY_TOPIC: process.env.C3_NTFY_TOPIC,
-    C3_NTFY_TOKEN: process.env.C3_NTFY_TOKEN,
+    INTENTSMITH_NTFY_SERVER: process.env.INTENTSMITH_NTFY_SERVER,
+    INTENTSMITH_NTFY_TOPIC: process.env.INTENTSMITH_NTFY_TOPIC,
+    INTENTSMITH_NTFY_TOKEN: process.env.INTENTSMITH_NTFY_TOKEN,
   };
 
-  process.env.C3_NTFY_SERVER = 'https://my-ntfy.example.com/';
-  process.env.C3_NTFY_TOPIC = 'my-topic';
-  process.env.C3_NTFY_TOKEN = 'tk_secret123';
+  process.env.INTENTSMITH_NTFY_SERVER = 'https://my-ntfy.example.com/';
+  process.env.INTENTSMITH_NTFY_TOPIC = 'my-topic';
+  process.env.INTENTSMITH_NTFY_TOKEN = 'tk_secret123';
 
   const ch = new PushChannel({ logger });
   assert(ch.serverUrl === 'https://my-ntfy.example.com', 'Custom server URL (trailing slash stripped)');
@@ -94,15 +94,15 @@ const originalFetch = globalThis.fetch;
 
 // 1.3 send() without topic returns error
 {
-  const saved = { C3_NTFY_TOPIC: process.env.C3_NTFY_TOPIC };
-  delete process.env.C3_NTFY_TOPIC;
+  const saved = { INTENTSMITH_NTFY_TOPIC: process.env.INTENTSMITH_NTFY_TOPIC };
+  delete process.env.INTENTSMITH_NTFY_TOPIC;
 
   const ch = new PushChannel({ logger });
   const result = await ch.send({ title: 'Test', body: 'Body', priority: 'normal', agentId: 'test' });
   assert(result.delivered === false, 'send() fails without topic');
   assert(result.error.includes('No topic'), 'Error mentions missing topic');
 
-  if (saved.C3_NTFY_TOPIC) process.env.C3_NTFY_TOPIC = saved.C3_NTFY_TOPIC;
+  if (saved.INTENTSMITH_NTFY_TOPIC) process.env.INTENTSMITH_NTFY_TOPIC = saved.INTENTSMITH_NTFY_TOPIC;
 }
 
 // 1.4 send() with mocked successful response
@@ -121,9 +121,9 @@ const originalFetch = globalThis.fetch;
     };
   };
 
-  const saved = { C3_NTFY_TOPIC: process.env.C3_NTFY_TOPIC, C3_NTFY_TOKEN: process.env.C3_NTFY_TOKEN };
-  process.env.C3_NTFY_TOPIC = 'test-topic';
-  delete process.env.C3_NTFY_TOKEN;
+  const saved = { INTENTSMITH_NTFY_TOPIC: process.env.INTENTSMITH_NTFY_TOPIC, INTENTSMITH_NTFY_TOKEN: process.env.INTENTSMITH_NTFY_TOKEN };
+  process.env.INTENTSMITH_NTFY_TOPIC = 'test-topic';
+  delete process.env.INTENTSMITH_NTFY_TOKEN;
 
   const ch = new PushChannel({ logger });
   const result = await ch.send({
@@ -159,8 +159,8 @@ const originalFetch = globalThis.fetch;
     return { ok: true, json: async () => ({ id: 'x' }) };
   };
 
-  const saved = { C3_NTFY_TOPIC: process.env.C3_NTFY_TOPIC };
-  process.env.C3_NTFY_TOPIC = 'default-topic';
+  const saved = { INTENTSMITH_NTFY_TOPIC: process.env.INTENTSMITH_NTFY_TOPIC };
+  process.env.INTENTSMITH_NTFY_TOPIC = 'default-topic';
 
   const ch = new PushChannel({ logger });
   await ch.send({
@@ -174,8 +174,8 @@ const originalFetch = globalThis.fetch;
   assert(capturedBody5.topic === 'custom-topic', 'Recipient overrides default topic');
 
   globalThis.fetch = originalFetch;
-  if (saved.C3_NTFY_TOPIC) process.env.C3_NTFY_TOPIC = saved.C3_NTFY_TOPIC;
-  else delete process.env.C3_NTFY_TOPIC;
+  if (saved.INTENTSMITH_NTFY_TOPIC) process.env.INTENTSMITH_NTFY_TOPIC = saved.INTENTSMITH_NTFY_TOPIC;
+  else delete process.env.INTENTSMITH_NTFY_TOPIC;
 }
 
 // 1.6 send() with auth token
@@ -187,11 +187,11 @@ const originalFetch = globalThis.fetch;
   };
 
   const saved = {
-    C3_NTFY_TOPIC: process.env.C3_NTFY_TOPIC,
-    C3_NTFY_TOKEN: process.env.C3_NTFY_TOKEN,
+    INTENTSMITH_NTFY_TOPIC: process.env.INTENTSMITH_NTFY_TOPIC,
+    INTENTSMITH_NTFY_TOKEN: process.env.INTENTSMITH_NTFY_TOKEN,
   };
-  process.env.C3_NTFY_TOPIC = 'test';
-  process.env.C3_NTFY_TOKEN = 'tk_mytoken';
+  process.env.INTENTSMITH_NTFY_TOPIC = 'test';
+  process.env.INTENTSMITH_NTFY_TOKEN = 'tk_mytoken';
 
   const ch = new PushChannel({ logger });
   await ch.send({ title: 'T', body: 'B', priority: 'normal', agentId: 'a' });
@@ -213,8 +213,8 @@ const originalFetch = globalThis.fetch;
     text: async () => 'rate limited',
   });
 
-  const saved = { C3_NTFY_TOPIC: process.env.C3_NTFY_TOPIC };
-  process.env.C3_NTFY_TOPIC = 'test';
+  const saved = { INTENTSMITH_NTFY_TOPIC: process.env.INTENTSMITH_NTFY_TOPIC };
+  process.env.INTENTSMITH_NTFY_TOPIC = 'test';
 
   const ch = new PushChannel({ logger });
   const result = await ch.send({ title: 'T', body: 'B', priority: 'normal', agentId: 'a' });
@@ -222,16 +222,16 @@ const originalFetch = globalThis.fetch;
   assert(result.error.includes('429'), 'Error includes status code');
 
   globalThis.fetch = originalFetch;
-  if (saved.C3_NTFY_TOPIC) process.env.C3_NTFY_TOPIC = saved.C3_NTFY_TOPIC;
-  else delete process.env.C3_NTFY_TOPIC;
+  if (saved.INTENTSMITH_NTFY_TOPIC) process.env.INTENTSMITH_NTFY_TOPIC = saved.INTENTSMITH_NTFY_TOPIC;
+  else delete process.env.INTENTSMITH_NTFY_TOPIC;
 }
 
 // 1.8 send() handles network error
 {
   globalThis.fetch = async () => { throw new Error('ECONNREFUSED'); };
 
-  const saved = { C3_NTFY_TOPIC: process.env.C3_NTFY_TOPIC };
-  process.env.C3_NTFY_TOPIC = 'test';
+  const saved = { INTENTSMITH_NTFY_TOPIC: process.env.INTENTSMITH_NTFY_TOPIC };
+  process.env.INTENTSMITH_NTFY_TOPIC = 'test';
 
   const ch = new PushChannel({ logger });
   const result = await ch.send({ title: 'T', body: 'B', priority: 'normal', agentId: 'a' });
@@ -239,8 +239,8 @@ const originalFetch = globalThis.fetch;
   assert(result.error.includes('ECONNREFUSED'), 'Error includes network error');
 
   globalThis.fetch = originalFetch;
-  if (saved.C3_NTFY_TOPIC) process.env.C3_NTFY_TOPIC = saved.C3_NTFY_TOPIC;
-  else delete process.env.C3_NTFY_TOPIC;
+  if (saved.INTENTSMITH_NTFY_TOPIC) process.env.INTENTSMITH_NTFY_TOPIC = saved.INTENTSMITH_NTFY_TOPIC;
+  else delete process.env.INTENTSMITH_NTFY_TOPIC;
 }
 
 // 1.9 Priority mapping (JSON body format)
@@ -252,8 +252,8 @@ const originalFetch = globalThis.fetch;
     return { ok: true, json: async () => ({ id: 'z' }) };
   };
 
-  const saved = { C3_NTFY_TOPIC: process.env.C3_NTFY_TOPIC };
-  process.env.C3_NTFY_TOPIC = 'test';
+  const saved = { INTENTSMITH_NTFY_TOPIC: process.env.INTENTSMITH_NTFY_TOPIC };
+  process.env.INTENTSMITH_NTFY_TOPIC = 'test';
 
   const ch = new PushChannel({ logger });
   for (const p of ['low', 'normal', 'high', 'critical']) {
@@ -266,36 +266,36 @@ const originalFetch = globalThis.fetch;
   assert(results[5]?.includes('rotating_light'), 'critical → priority 5, tag rotating_light');
 
   globalThis.fetch = originalFetch;
-  if (saved.C3_NTFY_TOPIC) process.env.C3_NTFY_TOPIC = saved.C3_NTFY_TOPIC;
-  else delete process.env.C3_NTFY_TOPIC;
+  if (saved.INTENTSMITH_NTFY_TOPIC) process.env.INTENTSMITH_NTFY_TOPIC = saved.INTENTSMITH_NTFY_TOPIC;
+  else delete process.env.INTENTSMITH_NTFY_TOPIC;
 }
 
 // 1.10 verify() without topic
 {
-  const saved = { C3_NTFY_TOPIC: process.env.C3_NTFY_TOPIC };
-  delete process.env.C3_NTFY_TOPIC;
+  const saved = { INTENTSMITH_NTFY_TOPIC: process.env.INTENTSMITH_NTFY_TOPIC };
+  delete process.env.INTENTSMITH_NTFY_TOPIC;
 
   const ch = new PushChannel({ logger });
   const result = await ch.verify();
   assert(result.ok === false, 'verify() fails without topic');
 
-  if (saved.C3_NTFY_TOPIC) process.env.C3_NTFY_TOPIC = saved.C3_NTFY_TOPIC;
+  if (saved.INTENTSMITH_NTFY_TOPIC) process.env.INTENTSMITH_NTFY_TOPIC = saved.INTENTSMITH_NTFY_TOPIC;
 }
 
 // 1.11 verify() with healthy server
 {
   globalThis.fetch = async () => ({ ok: true });
 
-  const saved = { C3_NTFY_TOPIC: process.env.C3_NTFY_TOPIC };
-  process.env.C3_NTFY_TOPIC = 'test';
+  const saved = { INTENTSMITH_NTFY_TOPIC: process.env.INTENTSMITH_NTFY_TOPIC };
+  process.env.INTENTSMITH_NTFY_TOPIC = 'test';
 
   const ch = new PushChannel({ logger });
   const result = await ch.verify();
   assert(result.ok === true, 'verify() succeeds with healthy server');
 
   globalThis.fetch = originalFetch;
-  if (saved.C3_NTFY_TOPIC) process.env.C3_NTFY_TOPIC = saved.C3_NTFY_TOPIC;
-  else delete process.env.C3_NTFY_TOPIC;
+  if (saved.INTENTSMITH_NTFY_TOPIC) process.env.INTENTSMITH_NTFY_TOPIC = saved.INTENTSMITH_NTFY_TOPIC;
+  else delete process.env.INTENTSMITH_NTFY_TOPIC;
 }
 
 // ── 2. Router Registration ──
@@ -312,7 +312,7 @@ console.log('\n── 2. Router Registration ──');
 // ── 3. E2E Test (real ntfy.sh) ──
 console.log('\n── 3. E2E Test ──');
 
-const hasNtfy = !!process.env.C3_NTFY_TOPIC;
+const hasNtfy = !!process.env.INTENTSMITH_NTFY_TOPIC;
 
 if (hasNtfy) {
   const ch = new PushChannel({ logger });
@@ -328,14 +328,14 @@ if (hasNtfy) {
   // 3.2 Send real notification
   try {
     const result = await ch.send({
-      title: 'C3 Push Test',
-      body: `Testovaci push notifikace z C3.\nCas: ${new Date().toLocaleString('cs-CZ', { timeZone: 'Europe/Prague' })}`,
+      title: 'IntentSmith Push Test',
+      body: `Testovaci push notifikace z IntentSmith.\nCas: ${new Date().toLocaleString('cs-CZ', { timeZone: 'Europe/Prague' })}`,
       priority: 'normal',
       agentId: 'e2e-push-test',
     });
     assert(result.delivered === true, 'E2E send() delivers', `error=${result.error}`);
     if (result.delivered) {
-      console.log(`    → Sent to topic: ${process.env.C3_NTFY_TOPIC}, id: ${result.messageId}`);
+      console.log(`    → Sent to topic: ${process.env.INTENTSMITH_NTFY_TOPIC}, id: ${result.messageId}`);
     }
   } catch (err) {
     fail('E2E send()', err.message);
@@ -344,7 +344,7 @@ if (hasNtfy) {
   // 3.3 Send high priority
   try {
     const result = await ch.send({
-      title: 'C3 High Priority Test',
+      title: 'IntentSmith High Priority Test',
       body: 'Tato zprava ma vysokou prioritu.',
       priority: 'high',
       agentId: 'e2e-push-test',
@@ -354,9 +354,9 @@ if (hasNtfy) {
     fail('E2E high priority', err.message);
   }
 } else {
-  skip('E2E verify()', 'C3_NTFY_TOPIC not set');
-  skip('E2E send()', 'C3_NTFY_TOPIC not set');
-  skip('E2E high priority', 'C3_NTFY_TOPIC not set');
+  skip('E2E verify()', 'INTENTSMITH_NTFY_TOPIC not set');
+  skip('E2E send()', 'INTENTSMITH_NTFY_TOPIC not set');
+  skip('E2E high priority', 'INTENTSMITH_NTFY_TOPIC not set');
 }
 
 // ══════════════════════════════════════════════════════════════════════════════

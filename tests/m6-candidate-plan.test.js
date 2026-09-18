@@ -307,7 +307,7 @@ test('candidate runner materializes only named toolchain bindings', () => {
   );
   assert.match(source, /resolvePdfPythonInterpreter\(process\.env\)/u);
   assert.match(source, /environment\.INTENTSMITH_PDF_PYTHON = pdfPython/u);
-  assert.match(source, /environment\.C3_PDF_PYTHON = pdfPython/u);
+  assert.match(source, /environment\.INTENTSMITH_PDF_PYTHON = pdfPython/u);
   assert.match(source, /npm_config_devdir: nodeGypCache/u);
   assert.match(source, /electron_config_cache: electronCache/u);
   assert.match(source, /electronHeaders: await copyCacheIfPresent/u);
@@ -360,7 +360,7 @@ test('server-program runner owns exact serial loopback fixtures and records clea
   assert.match(source, /INTENTSMITH_TEST_SERVER_NONCE/u);
   assert.match(source, /value\?\.pid !== expectedPid/u);
   assert.match(source, /value\?\.testRunNonce !== expectedNonce/u);
-  assert.match(source, /C3_ENABLE_ONLINE_DISCOVERY: 'false'/u);
+  assert.match(source, /INTENTSMITH_ENABLE_ONLINE_DISCOVERY: 'false'/u);
   assert.match(source, /suite\.requirements\.ollama[\s\S]*127\.0\.0\.1:9/u);
   assert.match(source, /for \(let index = 0; index < suites\.length; index \+= 1\)/u);
   assert.match(source, /status: 'SKIPPED'/u);

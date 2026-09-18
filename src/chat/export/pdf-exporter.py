@@ -53,10 +53,10 @@ register_fonts()
 
 # ─── Colors ───────────────────────────────────────────────────────────────────
 
-C3_BLUE      = HexColor('#2563EB')
-C3_DARK      = HexColor('#1E293B')
-C3_GRAY      = HexColor('#64748B')
-C3_LIGHT_BG  = HexColor('#F1F5F9')
+INTENTSMITH_BLUE      = HexColor('#2563EB')
+INTENTSMITH_DARK      = HexColor('#1E293B')
+INTENTSMITH_GRAY      = HexColor('#64748B')
+INTENTSMITH_LIGHT_BG  = HexColor('#F1F5F9')
 USER_BG      = HexColor('#EFF6FF')
 ASST_BG      = HexColor('#F0FDF4')
 USER_ACCENT  = HexColor('#3B82F6')
@@ -68,26 +68,26 @@ def build_styles():
     styles = getSampleStyleSheet()
 
     styles.add(ParagraphStyle(
-        'C3Title',
+        'IntentSmithTitle',
         parent=styles['Title'],
         fontName='DejaVu-Bold',
         fontSize=18,
-        textColor=C3_DARK,
+        textColor=INTENTSMITH_DARK,
         spaceAfter=6,
         alignment=TA_LEFT,
     ))
 
     styles.add(ParagraphStyle(
-        'C3Subtitle',
+        'IntentSmithSubtitle',
         parent=styles['Normal'],
         fontName='DejaVu',
         fontSize=9,
-        textColor=C3_GRAY,
+        textColor=INTENTSMITH_GRAY,
         spaceAfter=16,
     ))
 
     styles.add(ParagraphStyle(
-        'C3UserLabel',
+        'IntentSmithUserLabel',
         parent=styles['Normal'],
         fontName='DejaVu-Bold',
         fontSize=9,
@@ -97,7 +97,7 @@ def build_styles():
     ))
 
     styles.add(ParagraphStyle(
-        'C3AssistantLabel',
+        'IntentSmithAssistantLabel',
         parent=styles['Normal'],
         fontName='DejaVu-Bold',
         fontSize=9,
@@ -107,33 +107,33 @@ def build_styles():
     ))
 
     styles.add(ParagraphStyle(
-        'C3UserContent',
+        'IntentSmithUserContent',
         parent=styles['Normal'],
         fontName='DejaVu',
         fontSize=10,
-        textColor=C3_DARK,
+        textColor=INTENTSMITH_DARK,
         leftIndent=8,
         spaceAfter=4,
         leading=14,
     ))
 
     styles.add(ParagraphStyle(
-        'C3AssistantContent',
+        'IntentSmithAssistantContent',
         parent=styles['Normal'],
         fontName='DejaVu',
         fontSize=10,
-        textColor=C3_DARK,
+        textColor=INTENTSMITH_DARK,
         leftIndent=8,
         spaceAfter=4,
         leading=14,
     ))
 
     styles.add(ParagraphStyle(
-        'C3Footer',
+        'IntentSmithFooter',
         parent=styles['Normal'],
         fontName='DejaVu',
         fontSize=7,
-        textColor=C3_GRAY,
+        textColor=INTENTSMITH_GRAY,
         alignment=TA_CENTER,
     ))
 
@@ -211,11 +211,11 @@ def build_pdf(data, output_path):
     story = []
 
     # ─── Header ───────────────────────────────────────────────────────────
-    story.append(Paragraph(escape_xml(title), styles['C3Title']))
+    story.append(Paragraph(escape_xml(title), styles['IntentSmithTitle']))
 
     now = datetime.now().strftime('%d. %m. %Y %H:%M' if lang == 'cs' else '%Y-%m-%d %H:%M')
     subtitle = f"{labels['exported']} • {now} • {len(turns)} {labels['turns']}"
-    story.append(Paragraph(subtitle, styles['C3Subtitle']))
+    story.append(Paragraph(subtitle, styles['IntentSmithSubtitle']))
 
     story.append(HRFlowable(
         width='100%', thickness=1, color=HexColor('#E2E8F0'),
@@ -228,11 +228,11 @@ def build_pdf(data, output_path):
         content = turn.get('content', '')
 
         if role == 'user':
-            story.append(Paragraph(labels['user'], styles['C3UserLabel']))
-            story.extend(text_to_paragraphs(content, styles['C3UserContent']))
+            story.append(Paragraph(labels['user'], styles['IntentSmithUserLabel']))
+            story.extend(text_to_paragraphs(content, styles['IntentSmithUserContent']))
         else:
-            story.append(Paragraph(labels['assistant'], styles['C3AssistantLabel']))
-            story.extend(text_to_paragraphs(content, styles['C3AssistantContent']))
+            story.append(Paragraph(labels['assistant'], styles['IntentSmithAssistantLabel']))
+            story.extend(text_to_paragraphs(content, styles['IntentSmithAssistantContent']))
 
         # Subtle separator between turns
         story.append(HRFlowable(
@@ -244,7 +244,7 @@ def build_pdf(data, output_path):
     story.append(Spacer(1, 16))
     story.append(Paragraph(
         f'IntentSmith • {now}',
-        styles['C3Footer'],
+        styles['IntentSmithFooter'],
     ))
 
     # ─── Build ────────────────────────────────────────────────────────────

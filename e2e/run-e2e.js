@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ══════════════════════════════════════════════════════════════════════════════
-// C3-Agent E2E Tests v58.3 — 60 CI checks + 2 conditional soak checks
+// IntentSmith-Agent E2E Tests v58.3 — 60 CI checks + 2 conditional soak checks
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Groups:
@@ -51,7 +51,7 @@ import { assertDesignQuality } from '../src/chat/handlers/utils/quality.js';
 const runner = new E2ETestRunner();
 
 console.log('══════════════════════════════════════════════════════════');
-console.log('  C3-Agent E2E Tests v58.3');
+console.log('  IntentSmith-Agent E2E Tests v58.3');
 console.log(`  Mode: ${runner.mode}`);
 console.log('══════════════════════════════════════════════════════════\n');
 
@@ -447,9 +447,9 @@ await runner.test('T-C2: "Co si myslíš o budoucnosti AI?" → CONVERSATIONAL',
   assertIntent('Co si myslíš o budoucnosti AI?', IntentType.CONVERSATIONAL);
 });
 
-// T-C3: Follow-up chain (3 turns)
-await runner.test('T-C3: Conversational follow-up 3-turn chain', async () => {
-  const sim = new ConversationSimulator('c3');
+// T-IntentSmith: Follow-up chain (3 turns)
+await runner.test('T-IntentSmith: Conversational follow-up 3-turn chain', async () => {
+  const sim = new ConversationSimulator('intentsmith');
   await sim.send('Co je to rekurze?');
   if (sim.lastResult.intent === IntentType.SEARCH) throw new Error('T1 went to SEARCH');
 

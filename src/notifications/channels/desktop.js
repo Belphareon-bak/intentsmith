@@ -12,7 +12,7 @@ export class DesktopChannel extends NotificationChannel {
   constructor(options = {}) {
     super();
     this.logger = options.logger || { info: () => {}, error: () => {} };
-    this._enabled = process.env.C3_DESKTOP_NOTIFICATIONS !== 'false';
+    this._enabled = (process.env.INTENTSMITH_DESKTOP_NOTIFICATIONS ?? process.env['C3_DESKTOP_NOTIFICATIONS']) !== 'false';
   }
 
   get name() { return 'desktop'; }
@@ -37,7 +37,7 @@ export class DesktopChannel extends NotificationChannel {
       channel: 'desktop',
       _wsPayload: {
         type: 'desktop_notification',
-        title: notification.title || 'C3',
+        title: notification.title || 'IntentSmith',
         body: notification.body || '',
         priority: notification.priority || 'normal',
         agentId: notification.agentId || null,

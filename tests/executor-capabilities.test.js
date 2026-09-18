@@ -3,7 +3,7 @@ import { resolveIsolatedArtifactPath } from './helpers/isolated-test-db.js';
 import { executeShell } from '../src/skills/steps/shell.js';
 
 // ══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — Executor Capabilities Tests v90
+// IntentSmith-Agent — Executor Capabilities Tests v90
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Tests all 4 executor capability additions:

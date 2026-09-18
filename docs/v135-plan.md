@@ -21,7 +21,7 @@ v135 je **konsolidační release** — žádné nové velké subsystémy, ale do
 - [ ] `.eslintrc.json` — flat config, ESM, Node 22 globals
 - [ ] `.prettierrc` — single-quote, trailing comma, 120 line width
 - [ ] `npm run lint` + `npm run format` v package.json
-- [ ] Ignorovat `c3-ide/` (vlastní build systém)
+- [ ] Ignorovat `intentsmith-ide/` (vlastní build systém)
 - [ ] Postupný lint fix — začít s `src/core/`, `src/config.js`, `src/server.js`
 - **Odhad**: ~2h setup + iterativní čištění
 

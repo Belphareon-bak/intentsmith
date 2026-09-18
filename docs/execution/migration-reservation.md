@@ -240,6 +240,7 @@ záznamu selže v `artifact-validation`.
 | `2026_09_11_112_model_hunt_append_only.js` | explicitní zadání operátora — ochrana hunt ledgeru proti nahrazení identity |
 | `2026_09_11_113_conversation_web.js` | `WP-AUDIT-REMEDIATION-20260911` — jednotlivě schválený konverzační web |
 | `2026_09_18_114_model_evaluation_remeasure.js` | zadání operátora 2026-09-18 — nové ruční měření se zachováním historie |
+| `2026_09_18_115_intentsmith_setting_names.js` | zadání operátora 2026-09-18 — přejmenování nastavení; staré klíče a explicitní nové hodnoty zachované |
 <!-- migration-source-manifest:end -->
 
 ## Navazující M7 rezervace 2026-08-29
@@ -484,3 +485,7 @@ Navazující kontrola 2026-09-18: v registrovaných lokálních worktrees nebyla
 kromě vlastního přídavku nalezena jiná migrace 114. Nová 114 mění index COMPLETE
 na neunikátní; nové ruční měření má vlastní run ID, staré výsledky a odkazy
 rozhodnutí zůstávají. Aktuální manifest má 101 migrací.
+
+### 2026-09-18 — IntentSmith Studio namespace
+
+Migrace 115 přidává kanonické názvy nastavení vedle původních klíčů. Nemaže data ani nepřepisuje explicitní nové hodnoty. Manifest nyní obsahuje 102 migrací.

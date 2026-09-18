@@ -455,7 +455,7 @@ suite('Tool Execution — Text');
 
 await testAsync('text.count — word/line/char count via file', async () => {
   // text.count reads from a file path, so write a temp file
-  const countFile = path.join(os.tmpdir(), 'c3-text-count-test.txt');
+  const countFile = path.join(os.tmpdir(), 'intentsmith-text-count-test.txt');
   fs.writeFileSync(countFile, 'hello world\nfoo bar baz');
   const r = await registry.get('text.count').execute({ input: countFile });
   assert(!r.error, `error: ${r.error}`);
@@ -496,7 +496,7 @@ await testAsync('yaml.stringify — serializes to YAML', async () => {
 
 suite('Tool Execution — FS (temp dir)');
 
-const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'c3-test-'));
+const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-test-'));
 const npmAuditFixtureRoot = path.join(tmpDir, 'npm-audit-fixture');
 const fakeNpmBinDir = path.join(npmAuditFixtureRoot, 'bin');
 const fakeNpmCacheDir = path.join(npmAuditFixtureRoot, 'npm-cache');

@@ -15,7 +15,7 @@
         "url": "https://www.sreality.cz/api/cs/v2/estates?category_main_cb=1&category_type_cb=1&locality_region_id=10&per_page=20&sort=0",
         "method": "GET",
         "headers": {
-          "User-Agent": "C3-Agent/59.0"
+          "User-Agent": "IntentSmith-Agent/59.0"
         }
       }
     },
@@ -26,7 +26,7 @@
         "url": "https://www.bezrealitky.cz/api/record/markers?offerType=prodej&estateType=pozemek&regionOsmIds=R435514&currency=CZK&page=1&order=timeOrder_desc",
         "method": "GET",
         "headers": {
-          "User-Agent": "C3-Agent/59.0"
+          "User-Agent": "IntentSmith-Agent/59.0"
         }
       }
     }

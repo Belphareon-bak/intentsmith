@@ -1,4 +1,4 @@
-// C3-Agent v57.3 — Czech Tax Deadline Checker
+// IntentSmith-Agent v57.3 — Czech Tax Deadline Checker
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Deterministický výpočet lhůt. Žádný LLM.

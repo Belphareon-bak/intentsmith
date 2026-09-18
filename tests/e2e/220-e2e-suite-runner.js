@@ -1,7 +1,7 @@
 // 220-e2e-suite-runner.js — private, fail-closed runner for large E2E suites
 // ══════════════════════════════════════════════════════════════════════════════
 // Runs the original S1 MiniC3 and S2 ShopFlow phase assertions against one
-// runner-owned C3 server. All writable state is isolated below a caller-provided
+// runner-owned IntentSmith server. All writable state is isolated below a caller-provided
 // INTENTSMITH_TEST_ARTIFACT_DIR containing a `.intentsmith-artifacts` component.
 //
 // Usage:
@@ -310,7 +310,7 @@ function makeRunPaths(artifactRoot, suiteLabel) {
     xdgRuntime: join(runRoot, 'xdg', 'runtime'),
     temp: join(runRoot, 'tmp'),
     runtime: join(runRoot, 'runtime'),
-    database: join(runRoot, 'runtime', 'c3.sqlite'),
+    database: join(runRoot, 'runtime', 'intentsmith.sqlite'),
     portFile: join(runRoot, 'runtime', 'server.port.json'),
     projects: join(runRoot, 'projects'),
     artifacts: join(runRoot, 'artifacts'),
@@ -430,13 +430,13 @@ function makeChildEnv(paths, sourceRevision, port = '0') {
   ];
   const modelKeys = [
     'OLLAMA_URL',
-    'C3_CHAT_MODEL',
-    'C3_MODEL_CHAT',
-    'C3_MODEL_D1',
-    'C3_MODEL_D2',
-    'C3_MODEL_CODE',
-    'C3_MODEL_R1',
-    'C3_MODEL_R2',
+    'INTENTSMITH_CHAT_MODEL',
+    'INTENTSMITH_MODEL_CHAT',
+    'INTENTSMITH_MODEL_D1',
+    'INTENTSMITH_MODEL_D2',
+    'INTENTSMITH_MODEL_CODE',
+    'INTENTSMITH_MODEL_R1',
+    'INTENTSMITH_MODEL_R2',
   ];
   for (const key of [...inheritedKeys, ...modelKeys]) {
     if (process.env[key] !== undefined) env[key] = process.env[key];
@@ -459,30 +459,30 @@ function makeChildEnv(paths, sourceRevision, port = '0') {
     CI: '1',
     NO_COLOR: '1',
     PYTHONNOUSERSITE: '1',
-    C3_AUDIT_RUN: '1',
-    C3_DB_PATH: paths.database,
-    C3_PROJECTS_DIR: paths.projects,
+    INTENTSMITH_AUDIT_RUN: '1',
+    INTENTSMITH_DB_PATH: paths.database,
+    INTENTSMITH_PROJECTS_DIR: paths.projects,
     INTENTSMITH_TEST_PROJECTS_DIR: paths.projects,
     INTENTSMITH_TEST_ARTIFACT_DIR: paths.artifacts,
     [STATE_DIR_ENV]: paths.state,
     [SOURCE_REVISION_ENV]: sourceRevision,
-    C3_E2E_STATE_DIR: paths.state,
-    C3_TRANSCRIPT: paths.transcript,
-    C3_HOST: '127.0.0.1',
-    C3_PORT: String(port),
+    INTENTSMITH_E2E_STATE_DIR: paths.state,
+    INTENTSMITH_TRANSCRIPT: paths.transcript,
+    INTENTSMITH_HOST: '127.0.0.1',
+    INTENTSMITH_PORT: String(port),
     PORT: String(port),
-    C3_PORT_FILE: paths.portFile,
-    C3_LIFECYCLE_AUTO_COMMIT: 'false',
-    C3_ENABLE_AUTONOMY: 'false',
-    C3_ENABLE_COMFYUI: 'false',
-    C3_LOG_LEVEL: 'warn',
+    INTENTSMITH_PORT_FILE: paths.portFile,
+    INTENTSMITH_LIFECYCLE_AUTO_COMMIT: 'false',
+    INTENTSMITH_ENABLE_AUTONOMY: 'false',
+    INTENTSMITH_ENABLE_COMFYUI: 'false',
+    INTENTSMITH_LOG_LEVEL: 'warn',
     NO_PROXY: '127.0.0.1,localhost,::1',
     no_proxy: '127.0.0.1,localhost,::1',
   });
 
   if (String(port) !== '0') {
-    env.C3_URL = `http://127.0.0.1:${port}`;
-    env.C3_SERVER_PORT = String(port);
+    env.INTENTSMITH_URL = `http://127.0.0.1:${port}`;
+    env.INTENTSMITH_SERVER_PORT = String(port);
   }
   return env;
 }
@@ -545,7 +545,7 @@ async function preflightOllama(env) {
     throw new Error('Ollama preflight returned no installed models');
   }
 
-  const expectedModel = env.C3_MODEL_CHAT || env.C3_CHAT_MODEL || 'qwen3.5:27b';
+  const expectedModel = env.INTENTSMITH_MODEL_CHAT || env.INTENTSMITH_CHAT_MODEL || 'qwen3.5:27b';
   const installed = new Set();
   for (const model of data.models) {
     installed.add(canonicalModelName(model?.name));
@@ -729,7 +729,7 @@ async function startServer(paths, baseEnv, globalDeadlineAt) {
     if (requestedSignal) throw new Error(`Interrupted by ${requestedSignal}`);
     if (exitInfo) {
       throw new Error(
-        `C3 server exited before readiness (code=${exitInfo.code}, signal=${exitInfo.signal})`,
+        `IntentSmith server exited before readiness (code=${exitInfo.code}, signal=${exitInfo.signal})`,
       );
     }
 
@@ -754,7 +754,7 @@ async function startServer(paths, baseEnv, globalDeadlineAt) {
   }
 
   throw new Error(
-    `C3 server did not become healthy before deadline`
+    `IntentSmith server did not become healthy before deadline`
     + (lastHealthError ? `: ${lastHealthError}` : ''),
   );
 }
@@ -979,27 +979,27 @@ function selfCheck(options, paths, report, suitesToRun, sourceRevision) {
     env.XDG_STATE_HOME,
     env.XDG_RUNTIME_DIR,
     env.TMPDIR,
-    env.C3_DB_PATH,
-    env.C3_PORT_FILE,
-    env.C3_PROJECTS_DIR,
+    env.INTENTSMITH_DB_PATH,
+    env.INTENTSMITH_PORT_FILE,
+    env.INTENTSMITH_PROJECTS_DIR,
     env.INTENTSMITH_TEST_PROJECTS_DIR,
     env.INTENTSMITH_TEST_ARTIFACT_DIR,
     env.npm_config_cache,
     env[STATE_DIR_ENV],
-    env.C3_TRANSCRIPT,
+    env.INTENTSMITH_TRANSCRIPT,
   ];
   for (const path of writablePaths) {
     assertContained(paths.runRoot, path, 'self-check writable path');
   }
   if (
-    env.C3_AUDIT_RUN !== '1'
+    env.INTENTSMITH_AUDIT_RUN !== '1'
     || env.npm_config_cache !== paths.npmCache
     || dirname(env.npm_config_cache) !== paths.artifacts
   ) {
     throw new Error('Self-check audit bootstrap environment mismatch');
   }
-  if (env.C3_URL !== 'http://127.0.0.1:43210') {
-    throw new Error(`Self-check C3_URL mismatch: ${String(env.C3_URL)}`);
+  if (env.INTENTSMITH_URL !== 'http://127.0.0.1:43210') {
+    throw new Error(`Self-check INTENTSMITH_URL mismatch: ${String(env.INTENTSMITH_URL)}`);
   }
   if (env[SOURCE_REVISION_ENV] !== sourceRevision || report.sourceRevision !== sourceRevision) {
     throw new Error('Self-check source revision was not preserved');

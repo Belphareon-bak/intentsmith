@@ -557,7 +557,7 @@ test('historical detail uses the exact requested run and preserves failed gradin
   assertEqual(missing.httpStatus,404);db.close();
 });
 
-const studioSource = readFileSync(new URL('../c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js', import.meta.url), 'utf8');
+const studioSource = readFileSync(new URL('../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js', import.meta.url), 'utf8');
 function studioFunction(name, endMarker) {
   const start = studioSource.indexOf('function ' + name + '(');
   const end = studioSource.indexOf(endMarker, start);

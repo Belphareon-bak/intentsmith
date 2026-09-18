@@ -191,8 +191,8 @@ if (SHOW_CHAT_TESTS) {
 }
 
 function openDb() {
-  const p = val('db') || process.env.C3_DB_PATH
-    || resolve(dirname(fileURLToPath(import.meta.url)), '..', 'data', 'c3.db');
+  const p = val('db') || (process.env.INTENTSMITH_DB_PATH ?? process.env['C3_DB_PATH'])
+    || resolve(dirname(fileURLToPath(import.meta.url)), '..', 'data', 'intentsmith.db');
   if (!existsSync(p)) throw new Error(`DB nenalezena: ${p}`);
   return new Database(p);
 }

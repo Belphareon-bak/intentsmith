@@ -174,7 +174,7 @@ async function main() {
     inlineCodeModelCalls++;
     throw new Error('Explicit inline middleware must use deterministic classification');
   };
-  const inlineCodeProjectEntries = readdirSync(process.env.C3_PROJECTS_DIR).sort();
+  const inlineCodeProjectEntries = readdirSync(process.env.INTENTSMITH_PROJECTS_DIR).sort();
   const developerContext = { hasActiveExpertise: true, expertise: BUILTIN_EXPERTISES.developer };
   const middlewareInputs = [
     'Napiš mi middleware pro JWT verifikaci v Express.js.',
@@ -197,7 +197,7 @@ async function main() {
   );
   const projectMiddleware = await inlineCodeEngine.decide(middlewareInputs[0], {
     ...developerContext, hasActiveProject: true,
-    project: { id: 'middleware-authority-check', path: process.env.C3_PROJECTS_DIR },
+    project: { id: 'middleware-authority-check', path: process.env.INTENTSMITH_PROJECTS_DIR },
   });
   check(
     projectMiddleware.type === DecisionType.TOOL_CALL
@@ -230,7 +230,7 @@ async function main() {
   );
   check(
     inlineCodeModelCalls === 0
-      && JSON.stringify(readdirSync(process.env.C3_PROJECTS_DIR).sort()) === JSON.stringify(inlineCodeProjectEntries),
+      && JSON.stringify(readdirSync(process.env.INTENTSMITH_PROJECTS_DIR).sort()) === JSON.stringify(inlineCodeProjectEntries),
     'C-09d — middleware decisions spend no model call and create no project artifact',
   );
 

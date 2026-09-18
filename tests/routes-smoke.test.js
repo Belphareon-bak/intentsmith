@@ -571,15 +571,15 @@ function runRejectedNetworkBoundary(environment, prefix) {
         cwd: ROOT,
         env: {
           ...process.env,
-          C3_HOST: '127.0.0.1',
-          C3_CORS_ORIGINS: '',
-          C3_DB_PATH: path.join(runtime, 'c3.sqlite'),
-          C3_PORT_FILE: path.join(runtime, 'port.json'),
-          C3_PROJECTS_DIR: path.join(runtime, 'projects'),
-          C3_ENABLE_AGENTS: 'false',
-          C3_ENABLE_EXPERTISES: 'false',
-          C3_ENABLE_LIFECYCLE: 'false',
-          C3_ENABLE_COMFYUI: 'false',
+          INTENTSMITH_HOST: '127.0.0.1',
+          INTENTSMITH_CORS_ORIGINS: '',
+          INTENTSMITH_DB_PATH: path.join(runtime, 'intentsmith.sqlite'),
+          INTENTSMITH_PORT_FILE: path.join(runtime, 'port.json'),
+          INTENTSMITH_PROJECTS_DIR: path.join(runtime, 'projects'),
+          INTENTSMITH_ENABLE_AGENTS: 'false',
+          INTENTSMITH_ENABLE_EXPERTISES: 'false',
+          INTENTSMITH_ENABLE_LIFECYCLE: 'false',
+          INTENTSMITH_ENABLE_COMFYUI: 'false',
           ...environment,
         },
         encoding: 'utf8',
@@ -609,25 +609,25 @@ function runRejectedNetworkBoundary(environment, prefix) {
 }
 
 const invalidHost = runRejectedNetworkBoundary(
-  { C3_HOST: '0.0.0.0' },
+  { INTENTSMITH_HOST: '0.0.0.0' },
   'legacy-invalid-host',
 );
 assert(
   invalidHost.rejected
     && invalidHost.entries.length === 0
     && !existsSync(invalidHost.runtime),
-  'invalid C3_HOST fails before database, backup, project, or port-file state',
+  'invalid INTENTSMITH_HOST fails before database, backup, project, or port-file state',
 );
 
 const invalidCorsOrigin = runRejectedNetworkBoundary(
-  { C3_CORS_ORIGINS: 'https://attacker.example' },
+  { INTENTSMITH_CORS_ORIGINS: 'https://attacker.example' },
   'legacy-invalid-cors',
 );
 assert(
   invalidCorsOrigin.rejected
     && invalidCorsOrigin.entries.length === 0
     && !existsSync(invalidCorsOrigin.runtime),
-  'invalid C3_CORS_ORIGINS fails before database, backup, project, or port-file state',
+  'invalid INTENTSMITH_CORS_ORIGINS fails before database, backup, project, or port-file state',
 );
 
 const serverSource = readFileSync(
@@ -855,28 +855,28 @@ async function runOwnedLegacyHttpBoundary() {
         CI: '1',
         DOTENV_CONFIG_PATH: path.join(runtimeDirectory, 'no-dotenv-file'),
         DOTENV_CONFIG_QUIET: 'true',
-        C3_HOST: '127.0.0.1',
-        C3_PORT: '0',
-        C3_PORT_FILE: portFile,
-        C3_DB_PATH: databasePath,
-        C3_PROJECTS_DIR: projectsDirectory,
+        INTENTSMITH_HOST: '127.0.0.1',
+        INTENTSMITH_PORT: '0',
+        INTENTSMITH_PORT_FILE: portFile,
+        INTENTSMITH_DB_PATH: databasePath,
+        INTENTSMITH_PROJECTS_DIR: projectsDirectory,
         INTENTSMITH_TEST_PROJECTS_DIR: projectsDirectory,
         INTENTSMITH_TEST_ARTIFACT_DIR: artifactsDirectory,
         INTENTSMITH_TEST_SERVER_NONCE: nonce,
-        C3_CORS_ORIGINS: 'http://localhost:3000',
-        C3_ENABLE_AGENTS: 'false',
-        C3_ENABLE_EXPERTISES: 'false',
-        C3_ENABLE_LIFECYCLE: 'false',
-        C3_ENABLE_COMFYUI: 'false',
-        C3_ENABLE_AUTONOMY: 'false',
-        C3_ENABLE_SKILLS: 'false',
-        C3_ENABLE_TELEMETRY: 'false',
-        C3_SPECIALIST_TELEMETRY: 'false',
-        C3_MODEL_UNIVERSE_ENABLED: 'false',
-        C3_LIFECYCLE_AUTO_COMMIT: 'false',
-        C3_UPDATE_REPO: '',
-        C3_TRACE: '0',
-        C3_LOG_LEVEL: 'warn',
+        INTENTSMITH_CORS_ORIGINS: 'http://localhost:3000',
+        INTENTSMITH_ENABLE_AGENTS: 'false',
+        INTENTSMITH_ENABLE_EXPERTISES: 'false',
+        INTENTSMITH_ENABLE_LIFECYCLE: 'false',
+        INTENTSMITH_ENABLE_COMFYUI: 'false',
+        INTENTSMITH_ENABLE_AUTONOMY: 'false',
+        INTENTSMITH_ENABLE_SKILLS: 'false',
+        INTENTSMITH_ENABLE_TELEMETRY: 'false',
+        INTENTSMITH_SPECIALIST_TELEMETRY: 'false',
+        INTENTSMITH_MODEL_UNIVERSE_ENABLED: 'false',
+        INTENTSMITH_LIFECYCLE_AUTO_COMMIT: 'false',
+        INTENTSMITH_UPDATE_REPO: '',
+        INTENTSMITH_TRACE: '0',
+        INTENTSMITH_LOG_LEVEL: 'warn',
         OLLAMA_URL: 'invalid://routes-smoke-no-model-provider',
       },
       stdio: ['ignore', 'pipe', 'pipe'],

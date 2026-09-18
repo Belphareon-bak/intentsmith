@@ -1,4 +1,4 @@
-// C3-Agent v57.3 — LLM Integration Tests Part 2 (16 tests)
+// IntentSmith-Agent v57.3 — LLM Integration Tests Part 2 (16 tests)
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Requires: Ollama running at 127.0.0.1:11434 with qwen3.5:27b.

@@ -1,10 +1,10 @@
 [Unit]
-Description=Run C3 safe local nightly audit daily
+Description=Run IntentSmith safe local nightly audit daily
 
 [Timer]
 OnCalendar=*-*-* 00:30:00 Europe/Prague
 Persistent=false
-Unit=c3-nightly-audit.service
+Unit=intentsmith-nightly-audit.service
 
 [Install]
 WantedBy=timers.target

@@ -285,7 +285,7 @@ Zdroj se každým během znovu čte, ale diagnostický DC model se znovu netrén
 SMTP je samostatná omezená hostová capability. Používá uživatelem lokálně
 nastavený server, port 465/587 s vynuceným TLS a ověřením certifikátu,
 jednoho příjemce a pevný renderer; žádné přílohy, obecné textové zprávy,
-LLM-generované směrování, cookies nebo automatické čtení C3 SMTP prostředí.
+LLM-generované směrování, cookies nebo automatické čtení IntentSmith SMTP prostředí.
 Audit používá přesný stávající M5 writer/schema, surface `betting-notifications`,
 scopes `sports.betting.email.notify` a `sports.betting.email.test`, method SMTP.
 Secret není v auditu; identita příjemce/nastavení je hashovaná. Tato capability

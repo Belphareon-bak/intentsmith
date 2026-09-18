@@ -94,13 +94,13 @@ function ingestHttp(target, {
 
 function ingestValidWebSocket(target, overrides = {}) {
   const requestId = overrides.requestId || 'ws-main';
-  const url = overrides.url || `${BACKEND.replace('http:', 'ws:')}/c3/ws`;
+  const url = overrides.url || `${BACKEND.replace('http:', 'ws:')}/intentsmith/ws`;
   const requestHeaders = overrides.requestHeaders || {
     Origin: 'file://',
-    'Sec-WebSocket-Protocol': `c3-v1, c3-local-v1.${CAPABILITY}`,
+    'Sec-WebSocket-Protocol': `intentsmith-v1, intentsmith-local-v1.${CAPABILITY}`,
   };
   const responseHeadersValue = overrides.responseHeaders || {
-    'Sec-WebSocket-Protocol': 'c3-v1',
+    'Sec-WebSocket-Protocol': 'intentsmith-v1',
   };
   target.ingest('Network.webSocketCreated', { requestId, url });
   target.ingest('Network.webSocketWillSendHandshakeRequest', {
@@ -253,7 +253,7 @@ test('classifies exact backend routes without retaining query data', () => {
 test('classifies exact WebSocket authority and path', () => {
   assert.deepEqual(
     classifyNetworkTarget(
-      'ws://127.0.0.1:47831/c3/ws',
+      'ws://127.0.0.1:47831/intentsmith/ws',
       BACKEND,
       THEIA_CONTROL_PLANE,
     ),
@@ -439,7 +439,7 @@ test('Theia control-plane records never retain authority, query, headers or payl
   ]) assert.equal(serialized.includes(forbidden), false, `${forbidden} leaked`);
 });
 
-test('bounded polling and one live Theia WebSocket are required independently of C3', () => {
+test('bounded polling and one live Theia WebSocket are required independently of IntentSmith', () => {
   const noPolling = completeObservation({ theiaPolling: false });
   const noPollingResult = evaluateStudioCdpEvidence(noPolling.snapshot());
   assert.equal(noPollingResult.verdict, 'FAIL');
@@ -741,18 +741,18 @@ test('403, 5xx and missing terminal response cannot pass', () => {
 suite('Studio CDP evidence — WebSocket and redaction');
 
 for (const [name, overrides] of [
-  ['wrong target', { url: 'ws://127.0.0.1:47832/c3/ws' }],
+  ['wrong target', { url: 'ws://127.0.0.1:47832/intentsmith/ws' }],
   ['rejected handshake', { status: 403 }],
-  ['missing capability protocol', { requestHeaders: { Origin: 'null', 'Sec-WebSocket-Protocol': 'c3-v1' } }],
-  ['wrong capability protocol', { requestHeaders: { Origin: 'null', 'Sec-WebSocket-Protocol': `c3-v1, c3-local-v1.${WRONG_CAPABILITY}` } }],
-  ['duplicate capability protocol', { requestHeaders: { Origin: 'null', 'Sec-WebSocket-Protocol': `c3-v1, c3-local-v1.${CAPABILITY}, c3-local-v1.${CAPABILITY}` } }],
-  ['missing application protocol', { requestHeaders: { Origin: 'null', 'Sec-WebSocket-Protocol': `c3-local-v1.${CAPABILITY}` } }],
+  ['missing capability protocol', { requestHeaders: { Origin: 'null', 'Sec-WebSocket-Protocol': 'intentsmith-v1' } }],
+  ['wrong capability protocol', { requestHeaders: { Origin: 'null', 'Sec-WebSocket-Protocol': `intentsmith-v1, intentsmith-local-v1.${WRONG_CAPABILITY}` } }],
+  ['duplicate capability protocol', { requestHeaders: { Origin: 'null', 'Sec-WebSocket-Protocol': `intentsmith-v1, intentsmith-local-v1.${CAPABILITY}, intentsmith-local-v1.${CAPABILITY}` } }],
+  ['missing application protocol', { requestHeaders: { Origin: 'null', 'Sec-WebSocket-Protocol': `intentsmith-local-v1.${CAPABILITY}` } }],
   ['no sent frames', { sentFrames: 0 }],
   ['no received frames', { receivedFrames: 0 }],
   ['frame error', { frameError: true }],
   ['premature close', { closed: true }],
-  ['unexpected offered protocol', { requestHeaders: { Origin: 'null', 'Sec-WebSocket-Protocol': `c3-v1, c3-local-v1.${CAPABILITY}, extra-v1` } }],
-  ['capability echoed by server', { responseHeaders: { 'Sec-WebSocket-Protocol': `c3-v1, c3-local-v1.${CAPABILITY}` } }],
+  ['unexpected offered protocol', { requestHeaders: { Origin: 'null', 'Sec-WebSocket-Protocol': `intentsmith-v1, intentsmith-local-v1.${CAPABILITY}, extra-v1` } }],
+  ['capability echoed by server', { responseHeaders: { 'Sec-WebSocket-Protocol': `intentsmith-v1, intentsmith-local-v1.${CAPABILITY}` } }],
 ]) {
   test(`${name} fails the WebSocket contract`, () => {
     const target = completeObservation({ websocket: overrides });
@@ -778,7 +778,7 @@ test('duplicate WebSocket creation keeps the first target and fails closed', () 
   });
   target.ingest('Network.webSocketCreated', {
     requestId: 'ws-duplicate-target',
-    url: `${BACKEND.replace('http:', 'ws:')}/c3/ws`,
+    url: `${BACKEND.replace('http:', 'ws:')}/intentsmith/ws`,
   });
   const snapshot = target.snapshot();
   assert.equal(snapshot.counts.externalAttempts, 1);

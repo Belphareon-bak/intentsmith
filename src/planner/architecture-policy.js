@@ -5,7 +5,7 @@
 //   - drift-detector.js hardcoded DEFAULT_LAYERS + ALLOWED_IMPORTS
 //   - architecture-check.js ARCHITECTURE.json (ACF)
 //
-// Load priority: .c3/architecture-policy.json > ARCHITECTURE.json > auto-detect
+// Load priority: .intentsmith/architecture-policy.json > ARCHITECTURE.json > auto-detect
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
@@ -39,7 +39,7 @@ import { logger } from '../core/logger.js';
  */
 
 const POLICY_FILENAME = 'architecture-policy.json';
-const POLICY_DIR = '.c3';
+const POLICY_DIR = '.intentsmith';
 const ACF_FILENAME = 'ARCHITECTURE.json';
 
 // ─── Default Layer Mapping (for auto-detect → policy) ───────────────────────
@@ -68,7 +68,7 @@ const DEFAULT_RULES = [
 
 /**
  * Load architecture policy from project. Priority:
- *   1. .c3/architecture-policy.json (explicit policy)
+ *   1. .intentsmith/architecture-policy.json (explicit policy)
  *   2. ARCHITECTURE.json (ACF — converted to policy format)
  *   3. Auto-detect via detectArchitecture() → generatePolicy()
  *
@@ -345,7 +345,7 @@ export function acfToPolicy(acf) {
 // ─── Save Policy ────────────────────────────────────────────────────────────
 
 /**
- * Save policy to .c3/architecture-policy.json.
+ * Save policy to .intentsmith/architecture-policy.json.
  *
  * @param {string} projectPath
  * @param {ArchitecturePolicy} policy

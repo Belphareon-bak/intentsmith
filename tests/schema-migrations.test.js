@@ -1,4 +1,4 @@
-// C3-Agent v135.0 — Schema Migration Tests
+// IntentSmith-Agent v135.0 — Schema Migration Tests
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // T-SM0:  Migration identity manifest fails before the first DB mutation
@@ -213,6 +213,7 @@ const ALL_MIGRATIONS = [
   '2026_09_11_112_model_hunt_append_only',
       '2026_09_11_113_conversation_web',
   '2026_09_18_114_model_evaluation_remeasure',
+  '2026_09_18_115_intentsmith_setting_names',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -490,6 +491,7 @@ describe('T-SM0: Migration identity preflight', async () => {
   '2026_09_11_112_model_hunt_append_only',
       '2026_09_11_113_conversation_web',
   '2026_09_18_114_model_evaluation_remeasure',
+  '2026_09_18_115_intentsmith_setting_names',
     ]);
     assert.strictEqual(db.prepare(`
       SELECT COUNT(*) AS count FROM schema_migrations
@@ -1553,9 +1555,10 @@ describe('T-SM11: Core / hunt branch upgrades converge without losing evidence',
         const before = rows(db);
         const result = await runMigrations(db);
         const repeatedMeasurement = '2026_09_18_114_model_evaluation_remeasure';
+        const settingNames = '2026_09_18_115_intentsmith_setting_names';
         assert.deepEqual(result.applied, origin === 'fresh' ? ALL_MIGRATIONS
-          : origin === 'base' ? [...huntVersions, canonicalWeb, repeatedMeasurement]
-          : origin === 'web' ? [...huntVersions, repeatedMeasurement] : [canonicalWeb, repeatedMeasurement]);
+          : origin === 'base' ? [...huntVersions, canonicalWeb, repeatedMeasurement, settingNames]
+          : origin === 'web' ? [...huntVersions, repeatedMeasurement, settingNames] : [canonicalWeb, repeatedMeasurement, settingNames]);
         assert.deepEqual(schema(db), expectedSchema);
         for (const [table, originalRows] of Object.entries(before)) assert.deepEqual(rows(db)[table], originalRows, `${origin}: ${table}`);
         assert.deepEqual(db.pragma('foreign_key_check'), []);
@@ -1629,7 +1632,7 @@ describe('T-SM11: Core / hunt branch upgrades converge without losing evidence',
 
 async function run() {
   console.log('\n' + '═'.repeat(70));
-  console.log(`  C3-Agent v135.0 — Schema Migration Tests (${MIGRATION_COUNT} migrations)`);
+  console.log(`  IntentSmith-Agent v135.0 — Schema Migration Tests (${MIGRATION_COUNT} migrations)`);
   console.log('═'.repeat(70));
 
   for (const test of pendingTests) {

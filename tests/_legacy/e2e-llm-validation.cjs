@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 // ══════════════════════════════════════════════════════════════════════════════
-// C3-Agent E2E LLM Validation Suite — Roadmapa V2 Progress Measurement
+// IntentSmith-Agent E2E LLM Validation Suite — Roadmapa V2 Progress Measurement
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // ÚČEL: Měří reálný posun systému po aplikaci Roadmapy V2.
 //       Testuje ŽIVÉ LLM odpovědi přes Ollama — ne mocky.
 //
 // SPUŠTĚNÍ:
-//   1. Spusť C3 backend:  node src/server.js
+//   1. Spusť IntentSmith backend:  node src/server.js
 //   2. Spusť testy:       node e2e-llm-validation.cjs
 //   3. Volitelně:          node e2e-llm-validation.cjs --save baseline-before.json
 //                          node e2e-llm-validation.cjs --compare baseline-before.json
@@ -21,7 +21,7 @@ const path = require('path');
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 
-const C3_URL = process.env.C3_URL || 'http://127.0.0.1:3335';
+const INTENTSMITH_URL = process.env.INTENTSMITH_URL || 'http://127.0.0.1:3335';
 const TIMEOUT_MS = parseInt(process.env.E2E_TIMEOUT || '90000');
 const VERBOSE = process.argv.includes('--verbose') || process.argv.includes('-v');
 const SAVE_TO = process.argv.find((a, i) => process.argv[i - 1] === '--save');
@@ -33,7 +33,7 @@ function chatRequest(message, sessionId = null) {
   return new Promise((resolve, reject) => {
     const sid = sessionId || `e2e-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const data = JSON.stringify({ message, session_id: sid });
-    const url = new URL('/chat', C3_URL);
+    const url = new URL('/chat', INTENTSMITH_URL);
 
     const req = http.request({
       hostname: url.hostname,
@@ -63,7 +63,7 @@ function chatRequest(message, sessionId = null) {
 
 function apiRequest(method, path, body = null) {
   return new Promise((resolve, reject) => {
-    const url = new URL(path, C3_URL);
+    const url = new URL(path, INTENTSMITH_URL);
     const data = body ? JSON.stringify(body) : null;
     const req = http.request({
       hostname: url.hostname, port: url.port, path: url.pathname,
@@ -149,19 +149,19 @@ function getResponseText(resp) {
 
 async function runAllTests() {
   console.log('\n╔══════════════════════════════════════════════════════════╗');
-  console.log('║  C3-Agent E2E LLM Validation — Roadmapa V2 Measurement ║');
+  console.log('║  IntentSmith-Agent E2E LLM Validation — Roadmapa V2 Measurement ║');
   console.log('╚══════════════════════════════════════════════════════════╝\n');
 
   // ── Health check ────────────────────────────────────────────────────────
   try {
     const health = await apiRequest('GET', '/api/health');
     if (health.status !== 200) throw new Error(`Status ${health.status}`);
-    console.log(`🟢 Backend OK: ${C3_URL}`);
+    console.log(`🟢 Backend OK: ${INTENTSMITH_URL}`);
     if (health.body?.version) console.log(`   Version: ${health.body.version}`);
     console.log('');
   } catch (err) {
-    console.error(`🔴 Backend nedostupný: ${C3_URL}`);
-    console.error(`   Spusť: cd ~/c3-agent && node src/server.js`);
+    console.error(`🔴 Backend nedostupný: ${INTENTSMITH_URL}`);
+    console.error(`   Spusť: cd ~/intentsmith-agent && node src/server.js`);
     console.error(`   Error: ${err.message}`);
     process.exit(1);
   }
@@ -411,7 +411,7 @@ async function runAllTests() {
     };
   });
 
-  await test('C3', '"Pokračuj kde jsme skončili" — resume pattern', async () => {
+  await test('IntentSmith', '"Pokračuj kde jsme skončili" — resume pattern', async () => {
     const r = await chatRequest('Pokračuj kde jsme skončili');
     const text = getResponseText(r);
     // Should either resume a session or say "no active sessions" / "no context"

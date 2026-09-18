@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — DOCX Export Module (A6)
+// IntentSmith-Agent — DOCX Export Module (A6)
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // Generates styled DOCX from conversation turns using docx-js.
@@ -24,9 +24,9 @@ const {
 
 // ─── Colors ──────────────────────────────────────────────────────────────────
 
-const C3_BLUE     = '2563EB';
-const C3_DARK     = '1E293B';
-const C3_GRAY     = '64748B';
+const INTENTSMITH_BLUE     = '2563EB';
+const INTENTSMITH_DARK     = '1E293B';
+const INTENTSMITH_GRAY     = '64748B';
 const USER_BLUE   = '3B82F6';
 const ASST_GREEN  = '22C55E';
 const LIGHT_GRAY  = 'F1F5F9';
@@ -35,10 +35,10 @@ const BORDER_GRAY = 'E2E8F0';
 // ─── Labels ──────────────────────────────────────────────────────────────────
 
 const LABELS = {
-  cs: { user: 'Uživatel', assistant: 'Asistent', exported: 'Exportováno z C3-Agent', turns: 'zpráv' },
-  en: { user: 'User', assistant: 'Assistant', exported: 'Exported from C3-Agent', turns: 'messages' },
-  de: { user: 'Benutzer', assistant: 'Assistent', exported: 'Exportiert aus C3-Agent', turns: 'Nachrichten' },
-  sk: { user: 'Používateľ', assistant: 'Asistent', exported: 'Exportované z C3-Agent', turns: 'správ' },
+  cs: { user: 'Uživatel', assistant: 'Asistent', exported: 'Exportováno z IntentSmith-Agent', turns: 'zpráv' },
+  en: { user: 'User', assistant: 'Assistant', exported: 'Exported from IntentSmith-Agent', turns: 'messages' },
+  de: { user: 'Benutzer', assistant: 'Assistent', exported: 'Exportiert aus IntentSmith-Agent', turns: 'Nachrichten' },
+  sk: { user: 'Používateľ', assistant: 'Asistent', exported: 'Exportované z IntentSmith-Agent', turns: 'správ' },
 };
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -77,7 +77,7 @@ function contentToParagraphs(text, style = {}) {
             text: line,
             font: 'Calibri',
             size: 20,  // 10pt
-            color: C3_DARK,
+            color: INTENTSMITH_DARK,
             ...style,
           }),
         ],
@@ -157,7 +157,7 @@ export async function exportToDocx(turns, title, outputPath, lang = 'cs') {
         font: 'Calibri',
         size: 36,  // 18pt
         bold: true,
-        color: C3_DARK,
+        color: INTENTSMITH_DARK,
       }),
     ],
   }));
@@ -170,7 +170,7 @@ export async function exportToDocx(turns, title, outputPath, lang = 'cs') {
         text: subtitle,
         font: 'Calibri',
         size: 18,  // 9pt
-        color: C3_GRAY,
+        color: INTENTSMITH_GRAY,
       }),
     ],
   }));
@@ -200,10 +200,10 @@ export async function exportToDocx(turns, title, outputPath, lang = 'cs') {
     alignment: AlignmentType.CENTER,
     children: [
       new TextRun({
-        text: `C3-Agent • ${dateStr}`,
+        text: `IntentSmith-Agent • ${dateStr}`,
         font: 'Calibri',
         size: 14,  // 7pt
-        color: C3_GRAY,
+        color: INTENTSMITH_GRAY,
         italics: true,
       }),
     ],
@@ -211,7 +211,7 @@ export async function exportToDocx(turns, title, outputPath, lang = 'cs') {
 
   // ─── Create document ──────────────────────────────────────────────────
   const doc = new Document({
-    creator: 'C3-Agent',
+    creator: 'IntentSmith-Agent',
     title: title,
     description: subtitle,
     styles: {
@@ -230,7 +230,7 @@ export async function exportToDocx(turns, title, outputPath, lang = 'cs') {
           basedOn: 'Normal',
           next: 'Normal',
           quickFormat: true,
-          run: { size: 36, bold: true, font: 'Calibri', color: C3_DARK },
+          run: { size: 36, bold: true, font: 'Calibri', color: INTENTSMITH_DARK },
           paragraph: { spacing: { before: 240, after: 120 } },
         },
       ],
@@ -257,16 +257,16 @@ export async function exportToDocx(turns, title, outputPath, lang = 'cs') {
               alignment: AlignmentType.CENTER,
               children: [
                 new TextRun({
-                  text: 'C3-Agent — ',
+                  text: 'IntentSmith-Agent — ',
                   font: 'Calibri',
                   size: 14,
-                  color: C3_GRAY,
+                  color: INTENTSMITH_GRAY,
                 }),
                 new TextRun({
                   children: [PageNumber.CURRENT],
                   font: 'Calibri',
                   size: 14,
-                  color: C3_GRAY,
+                  color: INTENTSMITH_GRAY,
                 }),
               ],
             }),

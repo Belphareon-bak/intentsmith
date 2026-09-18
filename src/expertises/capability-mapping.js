@@ -1,4 +1,4 @@
-// C3 Capability Mapping — Runtime Behavior Modifiers
+// IntentSmith Capability Mapping — Runtime Behavior Modifiers
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Pure function: capabilities (5D vector) → concrete prompt/enforcement modifiers

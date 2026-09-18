@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// C3-Agent — Multi-Source External-Network Tests
+// IntentSmith-Agent — Multi-Source External-Network Tests
 //
 // This suite deliberately contacts BBC RSS and OpenMeteo. It is registered
 // separately from the required offline multi-source suite so external service

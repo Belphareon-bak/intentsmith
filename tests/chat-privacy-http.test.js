@@ -6,21 +6,21 @@ import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
 import { request } from 'node:http';
 
-process.env.C3_ENABLE_AGENTS = 'false';
-process.env.C3_ENABLE_LIFECYCLE = 'false';
-process.env.C3_ENABLE_ONLINE_DISCOVERY = 'false';
+process.env.INTENTSMITH_ENABLE_AGENTS = 'false';
+process.env.INTENTSMITH_ENABLE_LIFECYCLE = 'false';
+process.env.INTENTSMITH_ENABLE_ONLINE_DISCOVERY = 'false';
 const { default: database } = await import('../src/db/database.js');
 const env = { PATH: process.env.PATH, LANG: 'C.UTF-8', TZ: 'UTC',
   HOME: r.home, XDG_CONFIG_HOME: r.xdgConfig, XDG_CACHE_HOME: r.xdgCache,
   XDG_DATA_HOME: r.xdgData, XDG_STATE_HOME: r.xdgState, TMPDIR: r.temp,
   TMP: r.temp, TEMP: r.temp, NODE_ENV: 'test', CI: '1',
-  DOTENV_CONFIG_PATH: `${r.runtime}/absent-env`, C3_HOST: '127.0.0.1',
-  C3_PORT: '0', C3_PORT_FILE: r.portFile, C3_DB_PATH: r.database,
-  C3_PROJECTS_DIR: r.projects, C3_ENABLE_AGENTS: 'false', C3_ENABLE_EXPERTISES: 'false',
-  C3_ENABLE_LIFECYCLE: 'false', C3_ENABLE_COMFYUI: 'false', C3_ENABLE_AUTONOMY: 'false',
-  C3_ENABLE_SKILLS: 'false', C3_ENABLE_TELEMETRY: 'false', C3_ENABLE_ONLINE_DISCOVERY: 'false',
-  C3_MODEL_UNIVERSE_ENABLED: 'false', C3_LIFECYCLE_AUTO_COMMIT: 'false', C3_UPDATE_REPO: '',
-  C3_LOG_LEVEL: 'info', OLLAMA_URL: 'invalid://privacy-no-provider',
+  DOTENV_CONFIG_PATH: `${r.runtime}/absent-env`, INTENTSMITH_HOST: '127.0.0.1',
+  INTENTSMITH_PORT: '0', INTENTSMITH_PORT_FILE: r.portFile, INTENTSMITH_DB_PATH: r.database,
+  INTENTSMITH_PROJECTS_DIR: r.projects, INTENTSMITH_ENABLE_AGENTS: 'false', INTENTSMITH_ENABLE_EXPERTISES: 'false',
+  INTENTSMITH_ENABLE_LIFECYCLE: 'false', INTENTSMITH_ENABLE_COMFYUI: 'false', INTENTSMITH_ENABLE_AUTONOMY: 'false',
+  INTENTSMITH_ENABLE_SKILLS: 'false', INTENTSMITH_ENABLE_TELEMETRY: 'false', INTENTSMITH_ENABLE_ONLINE_DISCOVERY: 'false',
+  INTENTSMITH_MODEL_UNIVERSE_ENABLED: 'false', INTENTSMITH_LIFECYCLE_AUTO_COMMIT: 'false', INTENTSMITH_UPDATE_REPO: '',
+  INTENTSMITH_LOG_LEVEL: 'info', OLLAMA_URL: 'invalid://privacy-no-provider',
   INTENTSMITH_TEST_SERVER_NONCE: 'privacy-review-isolated-server-20260917-0001' };
 let child, identity, output = '';
 function api(method, pathname, body) {
@@ -65,8 +65,8 @@ test('real HTTP settings/chat reject unsupported privacy, preserve existing opt-
     assert.equal(rejected.status, 400); assert.equal(rejected.body.code, 'CHAT_EPHEMERAL_UNSUPPORTED');
     const rejectedImport = await api('POST', '/api/settings/import', { version: 1, settings: { memory: { saveHistory: false } } });
     assert.equal(rejectedImport.status, 400); assert.equal(rejectedImport.body.code, 'CHAT_EPHEMERAL_UNSUPPORTED');
-    const disabled = { memory: { saveContext: false }, 'c3.memory.ltmEnabled': false,
-      'c3.memory.learningEnabled': false, 'c3.memory.feedbackDetection': false, 'c3.memory.patternTracking': false };
+    const disabled = { memory: { saveContext: false }, 'intentsmith.memory.ltmEnabled': false,
+      'intentsmith.memory.learningEnabled': false, 'intentsmith.memory.feedbackDetection': false, 'intentsmith.memory.patternTracking': false };
     assert.equal((await api('POST', '/api/settings', disabled)).status, 200);
     const chat = await api('POST', '/api/chat', command('privacy:http:normal'));
     assert.equal(chat.status, 200); assert.equal(chat.body.status, 'ok');

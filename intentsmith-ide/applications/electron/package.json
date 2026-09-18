@@ -1,0 +1,109 @@
+{
+  "private": true,
+  "name": "intentsmith-ide-electron",
+  "version": "0.1.0",
+  "description": "IntentSmith Studio — Electron application",
+  "main": "lib/backend/electron-main.js",
+  "license": "MIT",
+  "theia": {
+    "target": "electron",
+    "frontend": {
+      "config": {
+        "applicationName": "IntentSmith",
+        "defaultTheme": "dark",
+        "preferences": {
+          "editor.fontSize": 14,
+          "editor.fontFamily": "'JetBrains Mono', 'Fira Code', monospace",
+          "terminal.integrated.fontSize": 13,
+          "workbench.colorTheme": "dark",
+          "files.enableTrash": false,
+          "window.menuBarVisibility": "visible"
+        },
+        "electron": {
+          "windowOptions": {
+            "icon": "resources/intentsmith-icon.png"
+          },
+          "splashScreenOptions": {
+            "content": "resources/splash.html",
+            "width": 520,
+            "height": 300,
+            "maxDuration": 30000
+          }
+        }
+      }
+    },
+    "backend": {
+      "config": {
+        "startupTimeout": -1,
+        "resolveSystemPlugins": false
+      }
+    }
+  },
+  "dependencies": {
+    "@theia/core": "1.74.1",
+    "@theia/editor": "1.74.1",
+    "@theia/electron": "1.74.1",
+    "@theia/filesystem": "1.74.1",
+    "@theia/markers": "1.74.1",
+    "@theia/messages": "1.74.1",
+    "@theia/monaco": "1.74.1",
+    "@theia/navigator": "1.74.1",
+    "@theia/outline-view": "1.74.1",
+    "@theia/preferences": "1.74.1",
+    "@theia/process": "1.74.1",
+    "@theia/terminal": "1.74.1",
+    "@theia/workspace": "1.74.1",
+    "@intentsmith/protocol": "0.1.0",
+    "@intentsmith/backend-bridge": "0.1.0",
+    "@intentsmith/chat-panel": "0.1.0",
+    "@intentsmith/agent-panel": "0.1.0",
+    "@intentsmith/shell-bridge": "0.1.0",
+    "@intentsmith/project-store": "0.1.0",
+    "@intentsmith/audit-trail": "0.1.0",
+    "@intentsmith/status-widget": "0.1.0",
+    "@intentsmith/command-palette": "0.1.0",
+    "@intentsmith/context-menu": "0.1.0",
+    "@intentsmith/design-viewer": "0.1.0",
+    "@intentsmith/keybindings": "0.1.0",
+    "@intentsmith/notifications": "0.1.0",
+    "@intentsmith/diff-viewer": "0.1.0",
+    "@intentsmith/git-integration": "0.1.0",
+    "@intentsmith/review-panel": "0.1.0",
+    "@intentsmith/error-recovery": "0.1.0",
+    "@intentsmith/onboarding": "0.1.0",
+    "@intentsmith/project-export": "0.1.0",
+    "@intentsmith/settings": "0.1.0",
+    "@intentsmith/chat-search": "0.1.0",
+    "@intentsmith/multi-project": "0.1.0",
+    "@intentsmith/token-dashboard": "0.1.0",
+    "@intentsmith/process-isolation": "0.1.0",
+    "@intentsmith/security-audit": "0.1.0",
+    "@intentsmith/shell-security": "0.1.0",
+    "@intentsmith/ws-security": "0.1.0",
+    "@intentsmith-ide/intentsmith-center-views": "*",
+    "@intentsmith-ide/intentsmith-detail-panel": "*",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "@theia/cli": "1.74.1",
+    "@electron/rebuild": "^3.7.1",
+    "electron": "42.11.3",
+    "electron-builder": "^25.1.8",
+    "terser-webpack-plugin": "5.3.17",
+    "webpack": "5.109.2",
+    "webpack-cli": "4.7.0",
+    "@types/react": "18.3.28",
+    "@types/react-dom": "18.3.7"
+  },
+  "scripts": {
+    "build": "theia build --mode production",
+    "build:dev": "theia build",
+    "start": "node scripts/launch.js",
+    "watch": "theia build --watch",
+    "clean": "theia clean && rimraf lib",
+    "rebuild": "electron-rebuild -f",
+    "dist": "electron-builder --linux",
+    "dist:dir": "electron-builder --linux --dir"
+  }
+}

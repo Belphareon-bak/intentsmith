@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — Confidence Styling (A3)
+// IntentSmith-Agent — Confidence Styling (A3)
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // Adds visual confidence indicators to responses based on data quality.
@@ -225,7 +225,7 @@ export function styleWithConfidence(response, confidence, options = {}) {
  */
 export function getConfidenceCss() {
   return `
-/* C3-Agent Confidence Indicators */
+/* IntentSmith-Agent Confidence Indicators */
 .confidence-high { }
 .confidence-medium { }
 .confidence-low {

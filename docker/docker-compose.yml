@@ -1,4 +1,4 @@
-# C3-Agent Docker Compose
+# IntentSmith-Agent Docker Compose
 # ══════════════════════════════════════════════════════════════════════════════
 # UNSUPPORTED LEGACY DISPOSITION:
 # No service starts under the default Compose profile. The explicit
@@ -13,7 +13,7 @@ services:
   ollama:
     profiles: ["unsupported"]
     image: ollama/ollama:latest
-    container_name: c3-ollama
+    container_name: intentsmith-ollama
     ports:
       - "${OLLAMA_PORT:-11434}:11434"
     volumes:
@@ -36,7 +36,7 @@ services:
   ollama-init:
     profiles: ["unsupported"]
     image: ollama/ollama:latest
-    container_name: c3-ollama-init
+    container_name: intentsmith-ollama-init
     depends_on:
       ollama:
         condition: service_healthy
@@ -45,7 +45,7 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
-        echo "🔄 Pulling C3 models..."
+        echo "🔄 Pulling IntentSmith models..."
         ollama pull qwen3.5:27b
         ollama pull qwen3.8:latest
         ollama pull qwen3:14b
@@ -55,25 +55,25 @@ services:
       - ollama_data:/root/.ollama
     restart: "no"
 
-  # ─── C3-Agent Backend ────────────────────────────────────────────────────
-  c3:
+  # ─── IntentSmith-Agent Backend ────────────────────────────────────────────────────
+  intentsmith:
     profiles: ["unsupported"]
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: c3-agent
+    container_name: intentsmith-agent
     ports:
-      - "${C3_PORT:-3335}:3335"
+      - "${INTENTSMITH_PORT:-3335}:3335"
     environment:
-      - C3_PORT=3335
-      - C3_HOST=127.0.0.1
+      - INTENTSMITH_PORT=3335
+      - INTENTSMITH_HOST=127.0.0.1
       - OLLAMA_URL=http://ollama:11434
-      - C3_DB_PATH=/data/c3.db
-      - C3_LOG_LEVEL=${C3_LOG_LEVEL:-info}
+      - INTENTSMITH_DB_PATH=/data/intentsmith.db
+      - INTENTSMITH_LOG_LEVEL=${INTENTSMITH_LOG_LEVEL:-info}
       - NODE_ENV=production
     volumes:
-      - c3_data:/data
-      - c3_projects:/projects
+      - intentsmith_data:/data
+      - intentsmith_projects:/projects
     depends_on:
       ollama:
         condition: service_healthy
@@ -86,8 +86,8 @@ services:
 
 volumes:
   ollama_data:
-    name: c3-ollama-data
-  c3_data:
-    name: c3-agent-data
-  c3_projects:
-    name: c3-projects
+    name: intentsmith-ollama-data
+  intentsmith_data:
+    name: intentsmith-agent-data
+  intentsmith_projects:
+    name: intentsmith-projects

@@ -1,4 +1,4 @@
-// C3-Agent Logger Type Definitions
+// IntentSmith-Agent Logger Type Definitions
 // Generated for v55.1
 
 /**

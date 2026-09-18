@@ -194,7 +194,7 @@ export function runTest(workdir, testFile, timeout = DEFAULT_TEST_TIMEOUT) {
       cwd: workdir,
       timeout,
       stdio: 'ignore',
-      env: { ...process.env, C3_DB_PATH: path.join(workdir, 'eval-scratch.sqlite') },
+      env: { ...process.env, INTENTSMITH_DB_PATH: path.join(workdir, 'eval-scratch.sqlite') },
     });
     return true;
   } catch {

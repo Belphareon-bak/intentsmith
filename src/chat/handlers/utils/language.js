@@ -1,4 +1,4 @@
-// C3-Agent v56.2.1 — Language Detection & Prompt Injection
+// IntentSmith-Agent v56.2.1 — Language Detection & Prompt Injection
 // ══════════════════════════════════════════════════════════════════════════════
 // Sprint E: Expanded from CS/EN to 7 languages (CS, SK, EN, DE, PL, FR, ES).
 //

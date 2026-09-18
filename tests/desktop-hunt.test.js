@@ -64,7 +64,7 @@ test('latest completed manual evaluation is not overridden by an older failed hu
 });
 
 test('Studio progress exposes real task counts and ETA, with raw failures only in collapsed details',async()=>{
-  const source=await readFile(join(ROOT,'c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
+  const source=await readFile(join(ROOT,'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
   const helpers=source.slice(source.indexOf('function _modelButtonStyle('),source.indexOf('var _huntSubmittedAt='));
   const render=source.slice(source.indexOf('function _renderRecentHunts('),source.indexOf('var _discoveredData='));
   const context=vm.createContext({C:{},_fs:n=>n,h:(tag,props,...children)=>({tag,props,children}),
@@ -99,19 +99,19 @@ async function fixture(t) {
   const home = await mkdtemp(join(tmpdir(), 'intentsmith-desktop-'));
   t.after(() => rm(home,{recursive:true,force:true}));
   const config = { schemaVersion:1, sourceRoot:ROOT, revision, node:process.execPath,
-    dbPath:join(home,'data/c3.db'), configDirectory:join(home,'config'), stateDirectory:join(home,'state'), icon:join(home,'icon.png') };
+    dbPath:join(home,'data/intentsmith.db'), configDirectory:join(home,'config'), stateDirectory:join(home,'state'), icon:join(home,'icon.png') };
   await mkdir(config.stateDirectory,{recursive:true});
   await mkdir(config.configDirectory,{recursive:true});
-  await writeFile(join(config.configDirectory,'runtime.env'),`C3_DB_PATH="${config.dbPath}"\n`,{mode:0o600});
+  await writeFile(join(config.configDirectory,'runtime.env'),`INTENTSMITH_DB_PATH="${config.dbPath}"\n`,{mode:0o600});
   const file=join(home,'installation.json');
   await writeFile(file,JSON.stringify(config),{mode:0o600});
   return {home,config,file};
 }
 
 test('desktop and hunt use one environment, bounded commands, and persistent scheduling', async () => {
-  const files=renderDesktopInstallation({sourceRoot:'/opt/Intent Smith',node:'/usr/bin/node',dbPath:'/data/user/c3.db',
+  const files=renderDesktopInstallation({sourceRoot:'/opt/Intent Smith',node:'/usr/bin/node',dbPath:'/data/user/intentsmith.db',
     configDirectory:'/home/user/.config/intentsmith',stateDirectory:'/home/user/.local/state/intentsmith',icon:'/opt/icon.png'});
-  assert.match(files.environment,/C3_DB_PATH="\/data\/user\/c3.db"/);
+  assert.match(files.environment,/INTENTSMITH_DB_PATH="\/data\/user\/intentsmith.db"/);
   assert.match(files.environment,/\nNODE_ENV=production\n/);
   for(const unit of [files.backend,files.hunt]) {
     assert.match(unit,/WorkingDirectory=\/opt\/Intent Smith\n/);
@@ -121,7 +121,7 @@ test('desktop and hunt use one environment, bounded commands, and persistent sch
   assert.match(files.hunt,/--limit=2 .*--scheduled/);
   assert.match(files.timer,/Persistent=true/);
   assert.match(files.desktop,/Terminal=false/);
-  assert.match(files.apparmor,/profile intentsmith "\/opt\/Intent Smith\/c3-ide\/node_modules\/electron\/dist\/electron" flags=\(unconfined\)/);
+  assert.match(files.apparmor,/profile intentsmith "\/opt\/Intent Smith\/intentsmith-ide\/node_modules\/electron\/dist\/electron" flags=\(unconfined\)/);
   assert.match(files.apparmor,/\n  userns,\n/);
   assert.throws(()=>renderDesktopInstallation({sourceRoot:'/bad\nExecStart=attack'}),/DESKTOP_PATH_UNSUPPORTED/);
   await verifyDesktopUnits(files);
@@ -149,7 +149,7 @@ test('desktop entry is executable and both generic and KDE caches are refreshed'
 test('desktop launcher offers a bounded fallback for the Kubuntu AppArmor sandbox conflict', async t => {
   const {home,config}=await fixture(t);
   config.sourceRoot=join(home,'source');
-  const electronDir=join(config.sourceRoot,'c3-ide/node_modules/electron/dist');
+  const electronDir=join(config.sourceRoot,'intentsmith-ide/node_modules/electron/dist');
   const restricted=join(home,'restricted-userns'),profile=join(home,'missing-profile');
   await mkdir(electronDir,{recursive:true});
   await writeFile(join(electronDir,'chrome-sandbox'),'fixture',{mode:0o755});
@@ -237,12 +237,12 @@ test('legacy launcher preserves attached backend and its port file on Studio fai
   const data=JSON.stringify({host:'127.0.0.1',port:34567,pid:process.pid,localCapability:capability});
   await writeFile(port,data,{mode:0o600});
   await assert.rejects(exec('/bin/bash',[join(ROOT,'scripts/run.sh')],{cwd:ROOT,env:{...process.env,HOME:home,
-    C3_PORT_FILE:port,INTENTSMITH_INSTALLATION_FILE:join(home,'absent'),PATH:bin+':'+process.env.PATH},timeout:10000}),e=>e.code===17);
+    INTENTSMITH_PORT_FILE:port,INTENTSMITH_INSTALLATION_FILE:join(home,'absent'),PATH:bin+':'+process.env.PATH},timeout:10000}),e=>e.code===17);
   assert.equal(await readFile(port,'utf8'),data);assert.doesNotThrow(()=>process.kill(process.pid,0));
 });
 
 test('Studio hunt renders queue and skip reason, and cancelled confirmation sends no control request',async()=>{
-  const source=await readFile(join(ROOT,'c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
+  const source=await readFile(join(ROOT,'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
   const start=source.indexOf('var _huntData='),end=source.indexOf('\n}',source.indexOf('function _renderHuntTab()'))+2;
   let fetches=0;
   const context=vm.createContext({setInterval(){},confirm:()=>false,fetch:()=>{fetches++;},
@@ -339,7 +339,7 @@ test('historical HTTP detail delegates to the injected read authority with the e
 });
 
 test('candidate filtering keeps estimates separate from unknown capacity and sorts numeric values',async()=>{
-  const source=await readFile(join(ROOT,'c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
+  const source=await readFile(join(ROOT,'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
   const start=source.indexOf('var _candidateFilter='),end=source.indexOf('function _renderDiscoveredTab()',start);
   const context=vm.createContext({});vm.runInContext(source.slice(start,end),context);
   context.data={vramBudgetMb:20*1024,candidates:[
@@ -372,7 +372,7 @@ test('candidate filtering keeps estimates separate from unknown capacity and sor
 });
 
 test('Studio selected test sends the current exact artifact and role, no arbitrary arguments',async()=>{
-  const source=await readFile(join(ROOT,'c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
+  const source=await readFile(join(ROOT,'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
   const start=source.indexOf('function _testInstalledModel('),end=source.indexOf('\nsetInterval(',start);
   const calls=[];const context=vm.createContext({AbortSignal,confirm:()=>true,renderCenter(){},_loadHuntStatus(){},
     _modelTestPending:false,_modelTestMessage:null,_backendUrl:()=> 'http://fixture',_canonicalModelIdentity:n=>n,
@@ -385,7 +385,7 @@ test('Studio selected test sends the current exact artifact and role, no arbitra
 });
 
 test('selected test failure stays next to the selected model and role with its actual GPU reason',async()=>{
-  const source=await readFile(join(ROOT,'c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
+  const source=await readFile(join(ROOT,'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
   const start=source.indexOf('function _testInstalledModel('),end=source.indexOf('\nsetInterval(',start);
   const helpers=source.slice(source.indexOf('function _modelButtonStyle('),source.indexOf('var _huntData='));
   const context=vm.createContext({AbortSignal,confirm:()=>true,renderCenter(){},_modelTestPending:false,
@@ -439,11 +439,11 @@ test('hunt retains the last five results and does not present an old plan as que
 });
 
 test('open model workspace follows a rotated backend and never renders failed reads as empty data', async()=>{
-  const source=await readFile(join(ROOT,'c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
+  const source=await readFile(join(ROOT,'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
   const fn=name=>{const start=source.indexOf('function '+name+'(');assert.ok(start>=0,name);return source.slice(start,source.indexOf('\n}',start)+2);};
   let endpoint='http://127.0.0.1:41001',fail=false;
   const calls=[];
-  const context=vm.createContext({window:{electronC3:{getBackendUrl:()=>endpoint}},AbortSignal,
+  const context=vm.createContext({window:{electronIntentSmith:{getBackendUrl:()=>endpoint}},AbortSignal,
     C:{},_fs:n=>n,h:(tag,props,...children)=>({tag,props,children}),renderCenter(){},
     _modelReadEpoch:0,_evaluationData:null,_evaluationLoading:false,_modelOverview:null,
     _governorData:null,_governorProposals:null,_governorLoading:false,_governorError:null,
@@ -471,7 +471,7 @@ test('open model workspace follows a rotated backend and never renders failed re
 });
 
 test('late model reads from the disconnected epoch cannot overwrite the recovered result',async()=>{
-  const source=await readFile(join(ROOT,'c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
+  const source=await readFile(join(ROOT,'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
   const fn=name=>{const start=source.indexOf('function '+name+'(');return source.slice(start,source.indexOf('\n}',start)+2);};
   let finishOld;
   const context=vm.createContext({AbortSignal,_modelReadEpoch:0,_evaluationData:null,_evaluationLoading:false,
@@ -486,7 +486,7 @@ test('late model reads from the disconnected epoch cannot overwrite the recovere
 });
 
 test('LLM settings reject error objects as inventory and keep model management reachable before inventory loads',async()=>{
-  const source=await readFile(join(ROOT,'c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
+  const source=await readFile(join(ROOT,'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
   const fn=name=>{const start=source.indexOf('function '+name+'(');return source.slice(start,source.indexOf('\n}',start)+2);};
   const context=vm.createContext({AbortSignal,_modelReadEpoch:0,_settingsModelsLoading:false,_settingsModelsError:null,_ollamaModels:null,
     _backendUrl:()=> 'http://127.0.0.1:42000',renderCenter(){},fetch:async()=>({ok:false,status:503,json:async()=>({error:'down'})})});

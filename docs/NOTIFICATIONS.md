@@ -26,11 +26,11 @@ TrustTracker — user feedback → auto-mute/degrade
 
 | Channel | Transport | Config Env Vars |
 |---------|-----------|-----------------|
-| email | nodemailer SMTP | `C3_SMTP_HOST`, `C3_SMTP_PORT`, `C3_SMTP_USER`, `C3_SMTP_PASS`, `C3_SMTP_FROM` |
-| telegram | Bot API (native fetch) | `C3_TELEGRAM_BOT_TOKEN`, `C3_TELEGRAM_CHAT_ID` |
-| push | ntfy.sh HTTP | `C3_NTFY_SERVER`, `C3_NTFY_TOPIC`, `C3_NTFY_TOKEN` |
-| webhook | HMAC-signed HTTP POST | `C3_WEBHOOK_URL`, `C3_WEBHOOK_SECRET` |
-| desktop | WS → Electron Notification | `C3_DESKTOP_NOTIFICATIONS` |
+| email | nodemailer SMTP | `INTENTSMITH_SMTP_HOST`, `INTENTSMITH_SMTP_PORT`, `INTENTSMITH_SMTP_USER`, `INTENTSMITH_SMTP_PASS`, `INTENTSMITH_SMTP_FROM` |
+| telegram | Bot API (native fetch) | `INTENTSMITH_TELEGRAM_BOT_TOKEN`, `INTENTSMITH_TELEGRAM_CHAT_ID` |
+| push | ntfy.sh HTTP | `INTENTSMITH_NTFY_SERVER`, `INTENTSMITH_NTFY_TOPIC`, `INTENTSMITH_NTFY_TOKEN` |
+| webhook | HMAC-signed HTTP POST | `INTENTSMITH_WEBHOOK_URL`, `INTENTSMITH_WEBHOOK_SECRET` |
+| desktop | WS → Electron Notification | `INTENTSMITH_DESKTOP_NOTIFICATIONS` |
 | in_app | Database only | — |
 
 ## Delivery Pipeline

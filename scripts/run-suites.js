@@ -91,7 +91,7 @@ async function waitForReady(portFile, log, timeoutMs) {
     }
     if (existsSync(log)) {
       const text = readFileSync(log, 'utf8');
-      if (/Error:|EADDRINUSE|Cannot find module/.test(text) && !/C3_READY:/.test(text)) {
+      if (/Error:|EADDRINUSE|Cannot find module/.test(text) && !/INTENTSMITH_READY:/.test(text)) {
         throw new Error(`Server selhal při startu:\n${text.slice(-800)}`);
       }
     }
@@ -192,7 +192,7 @@ Výstup NENÍ Gate 0 evidence — registr se nemění a lastGreen se nezapisuje.
   });
   const env = {
     ...base.env,
-    C3_LOG_LEVEL: opts.logLevel,
+    INTENTSMITH_LOG_LEVEL: opts.logLevel,
     INTENTSMITH_TEST_SERVER_NONCE: randomBytes(32).toString('base64url'),
   };
 
@@ -210,7 +210,7 @@ Výstup NENÍ Gate 0 evidence — registr se nemění a lastGreen se nezapisuje.
   const results = [];
   let exitCode = 0;
   try {
-    const ready = await waitForReady(env.C3_PORT_FILE, serverLog, 180_000);
+    const ready = await waitForReady(env.INTENTSMITH_PORT_FILE, serverLog, 180_000);
     const url = `http://127.0.0.1:${ready.port}`;
     console.log(`   server: ${url}\n`);
     if (!Number.isSafeInteger(server.pid) || server.pid < 1) {
@@ -218,7 +218,7 @@ Výstup NENÍ Gate 0 evidence — registr se nemění a lastGreen se nezapisuje.
     }
     const suiteEnv = {
       ...env,
-      C3_URL: url,
+      INTENTSMITH_URL: url,
       INTENTSMITH_TEST_SERVER_PID: String(server.pid),
     };
 

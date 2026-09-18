@@ -560,7 +560,10 @@ export function createChatRoutes(deps) {
 
       try {
         let conversations;
-        if (status === 'archived') {
+        const specialistId = url.searchParams.get('specialistId');
+        if (specialistId) {
+          conversations = db.conversations.listBySpecialist.all(specialistId, Math.min(100, Math.max(1, limit)));
+        } else if (status === 'archived') {
           conversations = db.conversations.listArchived.all(limit);
         } else if (status === 'deleted') {
           conversations = db.conversations.listDeleted.all(limit);

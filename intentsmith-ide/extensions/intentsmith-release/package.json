@@ -1,0 +1,29 @@
+{
+  "name": "@intentsmith/release",
+  "version": "1.0.0",
+  "description": "IntentSmith Studio — release",
+  "license": "MIT",
+  "main": "lib/index.js",
+  "typings": "lib/index.d.ts",
+  "files": [
+    "lib",
+    "src"
+  ],
+  "dependencies": {},
+  "devDependencies": {
+    "@theia/core": "1.74.1",
+    "@theia/editor": "1.74.1",
+    "@theia/filesystem": "1.74.1",
+    "@theia/terminal": "1.74.1",
+    "@theia/workspace": "1.74.1",
+    "@theia/monaco": "1.74.1",
+    "@theia/navigator": "1.74.1",
+    "typescript": "~5.4.0",
+    "rimraf": "^5.0.0"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "watch": "tsc -b -w",
+    "clean": "rimraf lib tsconfig.tsbuildinfo"
+  }
+}

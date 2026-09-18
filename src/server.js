@@ -98,7 +98,7 @@ if (config.features.agents !== false) {
     logger.warn('Server', `Agent platform not available: ${err.message}`);
   }
 } else {
-  logger.info('Server', 'Agent platform disabled (C3_ENABLE_AGENTS=false)');
+  logger.info('Server', 'Agent platform disabled (INTENTSMITH_ENABLE_AGENTS=false)');
 }
 
 // ─── Optional: Expert Layer v35 + v57 (Phase D) ─────────────────────────────
@@ -129,7 +129,7 @@ if (config.features.expertises !== false) {
   }
   if (!expertiseLayer) logger.warn('Server', 'Expert layer not available - file not found');
 } else {
-  logger.info('Server', 'Expertise platform disabled (C3_ENABLE_EXPERTISES=false)');
+  logger.info('Server', 'Expertise platform disabled (INTENTSMITH_ENABLE_EXPERTISES=false)');
 }
 
 // v36.9.1: LLM client routed through gateway with auth tokens
@@ -236,7 +236,7 @@ import { pruneAllData, compactDatabase, autoClean, getStorageConfig } from './db
 import { drainMessages, validateHistoryIntegrity } from './core/history-drain.js';
 import { createStateBackup, pruneBackups } from './core/db-backup.js';
 
-// Resolve data directory (parent of c3.db)
+// Resolve data directory (parent of intentsmith.db)
 const dataDir = config.db?.path ? path.dirname(path.resolve(config.db.path)) : path.resolve('./data');
 
 // Startup: integrity check → auto-clean → drain → backup
@@ -430,11 +430,17 @@ try {
     modelArtifactAuthorityRepository,
     requireDurableModelUseAuthority: true,
   });
-  const pullRecovery = await upgradeManager.recoverOutstandingModelPulls();
-  for (const result of pullRecovery) {
-    const level = result.status === 'RECOVERED' ? 'info' : 'warn';
-    logger[level]('Server', `Model pull recovery ${result.operationId}: ${result.status}`);
-  }
+  // An existing multi-GB download must not hold the HTTP listener closed.
+  // Recovery still uses the same durable operation and artifact claims; no
+  // activation, replacement request or bypass of the mutation authority occurs.
+  void upgradeManager.recoverOutstandingModelPulls().then(pullRecovery => {
+    for (const result of pullRecovery) {
+      const level = result.status === 'RECOVERED' ? 'info' : 'warn';
+      logger[level]('Server', `Model pull recovery ${result.operationId}: ${result.status}`);
+    }
+  }).catch(err => {
+    logger.warn('Server', `Model pull recovery unavailable: ${err.code || 'RECOVERY_FAILED'}`);
+  });
   setModelRegistry(modelRegistry);
   modelFailoverDetectionCoordinator = createModelFailoverDetectionCoordinator({
     repositoryPort: createModelFailoverDetectionRepositoryPort(bindingRepository),
@@ -558,7 +564,7 @@ if (isM5ConditionalSurfaceEnabled(conditionalSurfaces, 'marketplace')) {
     logger.warn('Server', `Marketplace not available: ${err.message}`);
   }
 } else {
-  logger.info('Server', 'Marketplace disabled (C3_ENABLE_MARKETPLACE=true to request it)');
+  logger.info('Server', 'Marketplace disabled (INTENTSMITH_ENABLE_MARKETPLACE=true to request it)');
 }
 
 // v130: ComfyUI multimedia module
@@ -1006,7 +1012,7 @@ const learningService = createLearningApplicationService({
 });
 const globalAuthAuthority = createGlobalAuthAuthority({
   localCapability: legacyLocalCapability,
-  adminToken: process.env.C3_ADMIN_TOKEN,
+  adminToken: (process.env.INTENTSMITH_ADMIN_TOKEN ?? process.env['C3_ADMIN_TOKEN']),
   validateApiToken: token => validateApiToken(db.db, token),
   production: process.env.NODE_ENV === 'production',
 });
@@ -1162,7 +1168,7 @@ function healthHandler(req, res) {
       'GET /agents',
       'GET /chat-ui',
       'POST /api/m2/lifecycle/prepare',
-      'GET /api/debug/modules (C3_TRACE=1)',
+      'GET /api/debug/modules (INTENTSMITH_TRACE=1)',
     ],
   });
 }
@@ -1259,7 +1265,7 @@ const routes = {
 // ─── Guard agent routes if platform not loaded ──────────────────────────────
 if (!agentRoutes) {
   const notAvailable = (req, res) => sendJSON(res, 501, {
-    error: 'Agent platform not available (C3_ENABLE_AGENTS=false)'
+    error: 'Agent platform not available (INTENTSMITH_ENABLE_AGENTS=false)'
   });
   const retiredLegacyMutators = new Set(M3_LEGACY_AGENT_MUTATING_ROUTE_KEYS);
   for (const key of Object.keys(routes)) {
@@ -1281,13 +1287,13 @@ const trustRoutes = createTrustRoutes({ db: db.db, sendJSON, parseBody });
 Object.assign(routes, trustRoutes);
 
 // ════════════════════════════════════════════════════════════════════════════
-// DEBUG: Runtime Module Tracer (activate: C3_TRACE=1 or --import ./src/core/tracer-register.mjs)
+// DEBUG: Runtime Module Tracer (activate: INTENTSMITH_TRACE=1 or --import ./src/core/tracer-register.mjs)
 // ════════════════════════════════════════════════════════════════════════════
 
-if (process.env.C3_TRACE === '1' || globalThis.__c3_tracer) {
+if ((process.env.INTENTSMITH_TRACE ?? process.env['C3_TRACE']) === '1' || globalThis.__intentsmith_tracer) {
   routes['GET /api/debug/modules'] = (req, res) => {
-    if (globalThis.__c3_tracer) {
-      sendJSON(res, 200, globalThis.__c3_tracer.getReport());
+    if (globalThis.__intentsmith_tracer) {
+      sendJSON(res, 200, globalThis.__intentsmith_tracer.getReport());
     } else {
       // Fallback: list statically known files
       import('fs').then(fs => import('path').then(path => {
@@ -1317,7 +1323,7 @@ if (process.env.C3_TRACE === '1' || globalThis.__c3_tracer) {
       status: 'ok',
       uptime: process.uptime(),
       memory: process.memoryUsage(),
-      tracer: !!globalThis.__c3_tracer,
+      tracer: !!globalThis.__intentsmith_tracer,
       nodeVersion: process.version,
     });
   };
@@ -1441,7 +1447,7 @@ function matchRoute(method, url) {
 // ── Rate limiter (v125: disabled on localhost, tiered on network) ─────────
 //
 // Like Ollama, local dev tools don't rate-limit localhost — the user IS the
-// only client. Rate limiting only activates when C3_HOST binds to a network
+// only client. Rate limiting only activates when INTENTSMITH_HOST binds to a network
 // interface (0.0.0.0, LAN IP, etc.).
 //
 const _rateLimitEnabled = config.server.host !== '127.0.0.1' && config.server.host !== 'localhost';
@@ -1706,12 +1712,12 @@ listenOnLegacyLoopback(server, config.server, async () => {
         if (!entry.isDirectory()) continue;
         const projectPath = path.join(projectsDir, entry.name);
 
-        // Read description from .c3/project.json if available
+        // Read description from .intentsmith/project.json if available
         let desc = entry.name;
         try {
-          const c3 = JSON.parse(fs.readFileSync(path.join(projectPath, '.c3', 'project.json'), 'utf8'));
-          desc = c3.description || c3.name || entry.name;
-        } catch { /* no .c3 metadata */ }
+          const intentsmith = JSON.parse(fs.readFileSync(path.join(projectPath, '.intentsmith', 'project.json'), 'utf8'));
+          desc = intentsmith.description || intentsmith.name || entry.name;
+        } catch { /* no .intentsmith metadata */ }
 
         // getOrCreate registers new projects and fixes auto-generated names (lc-xxx) on existing ones
         const before = projectsRepo.findByPath.get(projectPath);
@@ -1877,14 +1883,14 @@ listenOnLegacyLoopback(server, config.server, async () => {
   }
 
   // Machine-readable stdout line for parent process detection
-  console.log(`C3_READY:${assignedPort}`);
+  console.log(`INTENTSMITH_READY:${assignedPort}`);
 
   const ver = getCurrentVersion();
   logger.info('Server', `p(AI)assistant v${ver} started`);
   logger.info('Server', `Chat:   http://${config.server.host}:${assignedPort}/architect`);
   if (agentRoutes) logger.info('Server', `Agents: http://${config.server.host}:${assignedPort}/agents`);
   logger.info('Server', `API:    http://${config.server.host}:${assignedPort}`);
-  logger.info('Server', `WS:    ws://${config.server.host}:${assignedPort}/c3/ws`);
+  logger.info('Server', `WS:    ws://${config.server.host}:${assignedPort}/intentsmith/ws`);
 });
 
 // ════════════════════════════════════════════════════════════════════════════

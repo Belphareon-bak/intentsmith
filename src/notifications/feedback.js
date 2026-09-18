@@ -1,4 +1,4 @@
-// C3-Agent v57.2 — Notification Feedback Handler
+// IntentSmith-Agent v57.2 — Notification Feedback Handler
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Handles user feedback on notifications from:

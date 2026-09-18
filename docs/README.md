@@ -10,7 +10,7 @@
 Dokumentace projektu IntentSmith, C3-derived offline-first AI platformy s CRE
 decision enginem, domain expertízami, specialist plugin systémem, lifecycle
 project managementem, skills workflow enginem, autonomními agenty, LTM pamětí
-a zachovaným C3 Studio IDE.
+a zachovaným IntentSmith Studio IDE.
 
 > **Stav: Gate 0 — kandidát důvěryhodné baseline.** Autoritativní verdikt je
 > pouze v generovaném [convergence/STATUS.md](convergence/STATUS.md).
@@ -24,7 +24,7 @@ a zachovaným C3 Studio IDE.
 ## Spuštění
 
 ```bash
-# 1. Kanonicka instalace backendu i C3 Studio
+# 1. Kanonicka instalace backendu i IntentSmith Studio
 ./scripts/install.sh --minimal
 
 # 2. Kanonicke mapovani portu a modelu
@@ -34,7 +34,7 @@ cp .env.example .env
 # 3. Modelovy artefakt (--minimal modely nestahuje)
 ollama pull qwen3.5:27b
 
-# 4. Spusteni backendu a C3 Studio
+# 4. Spusteni backendu a IntentSmith Studio
 ./scripts/run.sh
 ```
 
@@ -50,7 +50,7 @@ proměnlivé; auditní evidence musí zaznamenat skutečný modelový digest.
 - Ollama s modelem `qwen3.5:27b` na `http://127.0.0.1:11434`
 - CPython 3.12 + `venv`, glibc 2.27+ a DejaVu fonty (PDF export)
 - build-essential (kompilace native Node modulů)
-- Yarn 1.22.22 (pouze C3 Studio)
+- Yarn 1.22.22 (pouze IntentSmith Studio)
 - GPU s 12+ GB VRAM (doporučeno pro 32B modely)
 - Kompletní instalační příručka: [INSTALL.md](INSTALL.md)
 
@@ -60,22 +60,22 @@ Všechny proměnné se načítají z `.env` souboru přes `dotenv`. Viz
 `.env.example` pro kanonickou referenci.
 
 Produkční entrypoint nastaví výchozí projektovou databázi explicitně po načtení
-`.env`. Přímý import `src/db/database.js` bez `C3_DB_PATH` záměrně selže dříve,
+`.env`. Přímý import `src/db/database.js` bez `INTENTSMITH_DB_PATH` záměrně selže dříve,
 než může vytvořit nebo otevřít operátorovu databázi; testovací runner každé sadě
 předává vlastní izolovanou cestu.
 
 | Skupina | Proměnné | Popis |
 |---------|----------|-------|
-| Server | `C3_PORT`, `C3_HOST`, `C3_CORS_ORIGINS` | HTTP server |
-| Modely | `C3_MODEL_D1`, `C3_MODEL_D2`, `C3_MODEL_CODE`, `C3_MODEL_R1`, `C3_MODEL_R2`, `C3_MODEL_CHAT`, `C3_MODEL_VISION` | Ollama modely pro 7 rolí |
+| Server | `INTENTSMITH_PORT`, `INTENTSMITH_HOST`, `INTENTSMITH_CORS_ORIGINS` | HTTP server |
+| Modely | `INTENTSMITH_MODEL_D1`, `INTENTSMITH_MODEL_D2`, `INTENTSMITH_MODEL_CODE`, `INTENTSMITH_MODEL_R1`, `INTENTSMITH_MODEL_R2`, `INTENTSMITH_MODEL_CHAT`, `INTENTSMITH_MODEL_VISION` | Ollama modely pro 7 rolí |
 | Ollama | `OLLAMA_URL` | Adresa Ollama serveru |
-| Features | `C3_ENABLE_AGENTS`, `C3_ENABLE_LIFECYCLE`, `C3_ENABLE_EXPERTISES`, `C3_ENABLE_TELEMETRY`, `C3_ENABLE_SKILLS` | Zapnutí/vypnutí modulů |
-| Databáze | `C3_DB_PATH` | Cesta k SQLite souboru |
-| Model Universe | `C3_MODEL_UNIVERSE_ENABLED` | Factual universe ingest and raw diagnostic signals; no quality, blacklist, recommendation, or activation authority |
-| Lifecycle | `C3_LIFECYCLE_REVIEW_FREQ`, `C3_MAX_MILESTONE_LOC`, `C3_MAX_MILESTONE_FILES` | Nastavení projektu |
-| Notifikace | `C3_SMTP_*`, `C3_TELEGRAM_*`, `C3_NTFY_*` | Email, Telegram, push kanály |
-| Security | `C3_ADMIN_TOKEN`, `C3_LICENSE_KEY` | Autentizace a licence |
-| Debug | `C3_LOG_LEVEL`, `C3_TRACE` | Logování a trasování |
+| Features | `INTENTSMITH_ENABLE_AGENTS`, `INTENTSMITH_ENABLE_LIFECYCLE`, `INTENTSMITH_ENABLE_EXPERTISES`, `INTENTSMITH_ENABLE_TELEMETRY`, `INTENTSMITH_ENABLE_SKILLS` | Zapnutí/vypnutí modulů |
+| Databáze | `INTENTSMITH_DB_PATH` | Cesta k SQLite souboru |
+| Model Universe | `INTENTSMITH_MODEL_UNIVERSE_ENABLED` | Factual universe ingest and raw diagnostic signals; no quality, blacklist, recommendation, or activation authority |
+| Lifecycle | `INTENTSMITH_LIFECYCLE_REVIEW_FREQ`, `INTENTSMITH_MAX_MILESTONE_LOC`, `INTENTSMITH_MAX_MILESTONE_FILES` | Nastavení projektu |
+| Notifikace | `INTENTSMITH_SMTP_*`, `INTENTSMITH_TELEGRAM_*`, `INTENTSMITH_NTFY_*` | Email, Telegram, push kanály |
+| Security | `INTENTSMITH_ADMIN_TOKEN`, `INTENTSMITH_LICENSE_KEY` | Autentizace a licence |
+| Debug | `INTENTSMITH_LOG_LEVEL`, `INTENTSMITH_TRACE` | Logování a trasování |
 
 ---
 
@@ -154,8 +154,8 @@ ve zbytku dokumentace.
 
 | Dokument | Popis |
 |----------|-------|
-| [C3-STUDIO-IDE.md](../c3-ide/docs/C3-STUDIO-IDE.md) | C3 Studio IDE dokumentace |
-| [C3-STUDIO-ROADMAP.md](../c3-ide/docs/C3-STUDIO-ROADMAP.md) | IDE integration roadmap |
+| [C3-STUDIO-IDE.md](../intentsmith-ide/docs/IntentSmith-STUDIO-IDE.md) | IntentSmith Studio IDE dokumentace |
+| [C3-STUDIO-ROADMAP.md](../intentsmith-ide/docs/IntentSmith-STUDIO-ROADMAP.md) | IDE integration roadmap |
 
 ### Další
 
@@ -358,7 +358,7 @@ intentsmith/
 │   ├── system/                       # GPU detection, model compatibility
 │   └── tools/                        # Tool registry + HTTP client
 │
-├── c3-ide/                           # C3 Studio IDE — Theia 1.65.2 + Electron 37
+├── intentsmith-ide/                           # IntentSmith Studio IDE — Theia 1.65.2 + Electron 37
 │   ├── extensions/                   # 32 vlastnich rozsireni
 │   │   ├── c3-chat-panel/            # Chat panel + transport layer (4,000+ ř.)
 │   │   ├── c3-center-views/          # Center views + Expertise Wizard

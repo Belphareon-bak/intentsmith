@@ -1,4 +1,4 @@
-// C3-Agent v63.3 — ExecutionTrace Stress Test
+// IntentSmith-Agent v63.3 — ExecutionTrace Stress Test
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Stress scenario: 3-expert merge + strict (accountant) + capability drift
@@ -546,7 +546,7 @@ describe('T-ST6: Token source classification + timer precision', async () => {
 
 async function run() {
   console.log('\n' + '═'.repeat(70));
-  console.log('  C3-Agent v63.3 — ExecutionTrace Stress Test');
+  console.log('  IntentSmith-Agent v63.3 — ExecutionTrace Stress Test');
   console.log('═'.repeat(70));
 
   for (const test of pendingTests) {

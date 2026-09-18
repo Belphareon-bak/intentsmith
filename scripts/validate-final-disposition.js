@@ -38,7 +38,7 @@ const repairedPathMappings = new Map([
   ['tests/TEST-REGISTRY.md', 'docs/convergence/TEST-REGISTRY.md'],
   [
     'tests/packages/c3-backend -> tests/_legacy/packages/c3-backend',
-    'tests/_legacy/packages/c3-backend.md',
+    'tests/_legacy/packages/intentsmith-backend.md',
   ],
 ]);
 const DEFERRED_PREREQUISITES = new Set([
@@ -838,7 +838,7 @@ function main() {
       + `terminals=${JSON.stringify(report.terminalCounts)}; `
       + `resolutions=${JSON.stringify(report.resolutionCounts)}`,
     );
-    if (options.sourceRepo) console.log(`C3 source cross-check: PASS (${options.sourceRepo})`);
+    if (options.sourceRepo) console.log(`IntentSmith source cross-check: PASS (${options.sourceRepo})`);
     if (options.reportPath) {
       console.log(`Private resolution report: ${path.relative(repoRoot, options.reportPath)}`);
     }

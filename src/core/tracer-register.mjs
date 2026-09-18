@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════════════════
-// C3-Agent Runtime Module Tracer — Registration (Node 22+)
+// IntentSmith-Agent Runtime Module Tracer — Registration (Node 22+)
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Zachytí KAŽDÝ modul načtený za runtime přes ESM hooks.
@@ -109,7 +109,7 @@ function walkDir(dir, base = '') {
 
 // ─── Express routes (optional) ──────────────────────────────────────────────
 
-globalThis.__c3_tracer = {
+globalThis.__intentsmith_tracer = {
   getLoadedModules() { return [...loadedModules.keys()].sort(); },
   getReport() { return flush(); },
   

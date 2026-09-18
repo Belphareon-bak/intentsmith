@@ -26,7 +26,7 @@ import http from 'http';
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
-const C3_URL = process.env.C3_URL || 'http://127.0.0.1:3335';
+const INTENTSMITH_URL = process.env.INTENTSMITH_URL || 'http://127.0.0.1:3335';
 const TIMEOUT_MS = parseInt(process.env.E2E_TIMEOUT || '120000');
 const VERBOSE = process.argv.includes('--verbose') || process.argv.includes('-v');
 const SKIP_LLM = process.argv.includes('--skip-llm');
@@ -36,7 +36,7 @@ const TEST_FILTER = process.argv.find((a, i, arr) => arr[i - 1] === '--test') ||
 
 function request(method, endpoint, data = null, { timeout = TIMEOUT_MS } = {}) {
   return new Promise((resolve, reject) => {
-    const url = new URL(endpoint, C3_URL);
+    const url = new URL(endpoint, INTENTSMITH_URL);
     const options = {
       hostname: url.hostname,
       port: url.port,
@@ -408,10 +408,10 @@ async function testS8_UnknownSpecialist() {
 
 async function main() {
   console.log('');
-  console.log('  C3 SPECIALIST E2E TEST SUITE (D4-D8)');
+  console.log('  IntentSmith SPECIALIST E2E TEST SUITE (D4-D8)');
   console.log('  =====================================');
   console.log();
-  console.log(`  Server:   ${C3_URL}`);
+  console.log(`  Server:   ${INTENTSMITH_URL}`);
   console.log(`  LLM:      ${SKIP_LLM ? 'SKIPPED' : 'enabled'}`);
   if (TEST_FILTER) console.log(`  Filter:   ${TEST_FILTER}`);
   console.log();

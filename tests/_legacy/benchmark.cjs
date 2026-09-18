@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ═══════════════════════════════════════════════════════════════════════════════
-// C3-Agent Quality Benchmark — Deterministic LLM Quality Measurement
+// IntentSmith-Agent Quality Benchmark — Deterministic LLM Quality Measurement
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // Measures: score distribution, retry rate, drift, tail risk, bifurcation.
@@ -21,7 +21,7 @@ const fs = require('fs');
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 
-const C3_URL = process.env.C3_URL || 'http://127.0.0.1:3335';
+const INTENTSMITH_URL = process.env.INTENTSMITH_URL || 'http://127.0.0.1:3335';
 const TIMEOUT_MS = parseInt(process.env.BENCH_TIMEOUT || '120000');
 const VERBOSE = process.argv.includes('--verbose') || process.argv.includes('-v');
 const SAVE_TO = process.argv.find((a, i) => process.argv[i - 1] === '--save');
@@ -128,7 +128,7 @@ function chatRequest(message, sessionId) {
   return new Promise((resolve, reject) => {
     const sid = sessionId || `bench-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const data = JSON.stringify({ message, session_id: sid });
-    const url = new URL('/chat', C3_URL);
+    const url = new URL('/chat', INTENTSMITH_URL);
 
     const req = http.request({
       hostname: url.hostname,
@@ -312,10 +312,10 @@ const THRESHOLDS = {
 
 async function runBenchmark() {
   console.log('╔══════════════════════════════════════════════════════════════╗');
-  console.log('║           C3-AGENT QUALITY BENCHMARK                       ║');
+  console.log('║           IntentSmith-AGENT QUALITY BENCHMARK                       ║');
   console.log('╚══════════════════════════════════════════════════════════════╝');
   console.log();
-  console.log(`  Server:     ${C3_URL}`);
+  console.log(`  Server:     ${INTENTSMITH_URL}`);
   console.log(`  Runs/query: ${NUM_RUNS}`);
   console.log(`  Category:   ${CATEGORY_FILTER || 'ALL'}`);
   console.log(`  Query:      ${QUERY_FILTER || 'ALL'}`);
@@ -562,7 +562,7 @@ async function runBenchmark() {
   if (SAVE_TO) {
     const output = {
       timestamp: new Date().toISOString(),
-      config: { runs: NUM_RUNS, category: CATEGORY_FILTER, server: C3_URL },
+      config: { runs: NUM_RUNS, category: CATEGORY_FILTER, server: INTENTSMITH_URL },
       totalDuration,
       summary: categoryResults,
       allStats,

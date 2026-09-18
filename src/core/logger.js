@@ -24,7 +24,7 @@ function log(level, component, message, data = null) {
   const color = COLORS[level];
   const reset = COLORS.reset;
   const time = config.log.timestamps ? `[${formatTime()}] ` : '';
-  const prefix = `${color}[${level.toUpperCase()}]${reset} [C3:${component}]`;
+  const prefix = `${color}[${level.toUpperCase()}]${reset} [IntentSmith:${component}]`;
   
   if (data) {
     const dataStr = typeof data === 'object' ? JSON.stringify(data) : data;

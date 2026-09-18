@@ -263,7 +263,7 @@ export async function generateRoadmap(lifecycle, context) {
         rules: archContract.rules.length,
       });
 
-      // v100: Also generate .c3/architecture-policy.json from ACF
+      // v100: Also generate .intentsmith/architecture-policy.json from ACF
       try {
         const { acfToPolicy, savePolicy } = await import('./architecture-policy.js');
         const policy = acfToPolicy(archContract);
@@ -696,7 +696,7 @@ export async function writeRoadmapFile(projectPath, lifecycleId, context) {
     const lines = [];
     lines.push('# ROADMAP');
     lines.push('');
-    lines.push(`> C3 Lifecycle Engine — Roadmap v${latestVersion}`);
+    lines.push(`> IntentSmith Lifecycle Engine — Roadmap v${latestVersion}`);
     lines.push('');
     lines.push('## Milestones');
     lines.push('');

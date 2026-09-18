@@ -61,16 +61,16 @@ export class NotificationEmitter {
       }
 
       const s = JSON.parse(row.data);
-      if (!s['c3.notif.emailEnabled'] || !s['c3.notif.emailRecipient']) {
+      if (!s['intentsmith.notif.emailEnabled'] || !s['intentsmith.notif.emailRecipient']) {
         this._cfgCache = null;
         return null;
       }
 
       this._cfgCache = {
         channel: 'email',
-        recipient: s['c3.notif.emailRecipient'],
-        onLifecycle: s['c3.notif.emailOnLifecycle'] !== false,
-        onWorker: s['c3.notif.emailOnWorker'] !== false,
+        recipient: s['intentsmith.notif.emailRecipient'],
+        onLifecycle: s['intentsmith.notif.emailOnLifecycle'] !== false,
+        onWorker: s['intentsmith.notif.emailOnWorker'] !== false,
       };
       return this._cfgCache;
     } catch {

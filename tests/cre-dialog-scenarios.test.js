@@ -167,7 +167,7 @@ const scenarios = [
     expected: { notAmbiguous: true, notNewQuery: true, notAskUser: true },
   },
   {
-    id: 'C3',
+    id: 'IntentSmith',
     category: 'project-followup',
     desc: 'CZ: "udelej prehled" after project context',
     lastInput: 'otevri projekt localai-proxy',

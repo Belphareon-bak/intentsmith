@@ -2,7 +2,7 @@
 import './helpers/isolated-test-db.js';
 
 // ══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — CRE Gatekeeper Tests v64.0
+// IntentSmith-Agent — CRE Gatekeeper Tests v64.0
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Tests CRE Gatekeeper single-authority enforcement:

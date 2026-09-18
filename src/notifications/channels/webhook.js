@@ -4,13 +4,13 @@
 // Sends POST requests to configured webhook URLs with HMAC-SHA256 signature.
 //
 // Config env vars:
-//   C3_WEBHOOK_URL    — target webhook URL (required)
-//   C3_WEBHOOK_SECRET — HMAC secret key (required for signature)
+//   INTENTSMITH_WEBHOOK_URL    — target webhook URL (required)
+//   INTENTSMITH_WEBHOOK_SECRET — HMAC secret key (required for signature)
 //
 // Headers sent:
 //   Content-Type: application/json
-//   X-C3-Signature: sha256=<hmac_hex>
-//   X-C3-Timestamp: <unix_ms>
+//   X-IntentSmith-Signature: sha256=<hmac_hex>
+//   X-IntentSmith-Timestamp: <unix_ms>
 //
 // Retry policy: max 3 attempts, exponential backoff (1s → 2s → 4s)
 // Dead-letter: failed notifications logged to notification_log_v57 with error
@@ -33,8 +33,8 @@ export class WebhookChannel extends NotificationChannel {
    */
   constructor(options = {}) {
     super();
-    this.url = options.url || process.env.C3_WEBHOOK_URL || null;
-    this.secret = options.secret || process.env.C3_WEBHOOK_SECRET || null;
+    this.url = options.url || (process.env.INTENTSMITH_WEBHOOK_URL ?? process.env['C3_WEBHOOK_URL']) || null;
+    this.secret = options.secret || (process.env.INTENTSMITH_WEBHOOK_SECRET ?? process.env['C3_WEBHOOK_SECRET']) || null;
     this.logger = options.logger || { info: () => {}, error: () => {}, warn: () => {} };
   }
 
@@ -42,10 +42,10 @@ export class WebhookChannel extends NotificationChannel {
 
   async verify() {
     if (!this.url) {
-      return { ok: false, error: 'No webhook URL configured (C3_WEBHOOK_URL)' };
+      return { ok: false, error: 'No webhook URL configured (INTENTSMITH_WEBHOOK_URL)' };
     }
     if (!this.secret) {
-      return { ok: false, error: 'No HMAC secret configured (C3_WEBHOOK_SECRET)' };
+      return { ok: false, error: 'No HMAC secret configured (INTENTSMITH_WEBHOOK_SECRET)' };
     }
     try {
       new URL(this.url);
@@ -68,7 +68,7 @@ export class WebhookChannel extends NotificationChannel {
     const payload = JSON.stringify({
       event: 'notification',
       timestamp,
-      title: notification.title || 'C3 Notification',
+      title: notification.title || 'IntentSmith Notification',
       body: notification.body || '',
       priority: notification.priority || 'normal',
       agentId: notification.agentId || null,
@@ -78,10 +78,10 @@ export class WebhookChannel extends NotificationChannel {
     const signature = this._sign(payload, timestamp);
     const headers = {
       'Content-Type': 'application/json',
-      'X-C3-Timestamp': String(timestamp),
+      'X-IntentSmith-Timestamp': String(timestamp),
     };
     if (signature) {
-      headers['X-C3-Signature'] = signature;
+      headers['X-IntentSmith-Signature'] = signature;
     }
 
     // Retry loop with exponential backoff

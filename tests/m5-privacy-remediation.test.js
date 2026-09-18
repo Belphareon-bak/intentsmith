@@ -288,18 +288,18 @@ function routeHarness(authority) {
 test('privacy migration scrubs obsolete plaintext settings and installs exact schema', () => {
   const db = openDb({
     webhookSecret: CANARY,
-    'c3.notif.smtpPass': CANARY,
+    'intentsmith.notif.smtpPass': CANARY,
     notifications: {
       telegramToken: CANARY,
       smsSecret: CANARY,
       retained: true,
     },
-    'c3.notif.smtpHost': 'smtp.invalid',
+    'intentsmith.notif.smtpHost': 'smtp.invalid',
   }, { writerAuthority: false });
   const settings = JSON.parse(db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data);
   assert.deepEqual(settings, {
     notifications: { retained: true },
-    'c3.notif.smtpHost': 'smtp.invalid',
+    'intentsmith.notif.smtpHost': 'smtp.invalid',
   });
   assert.equal(
     computeM5PrivacyAuthorityFingerprintV090(db),
@@ -343,7 +343,7 @@ test('user settings cannot reintroduce plaintext credential keys or malformed JS
 });
 
 test('privacy UDFs are restored after SQLite close and reopen before settings routes write', async () => {
-  const databasePath = `${process.env.C3_DB_PATH}.privacy-restart`;
+  const databasePath = `${process.env.INTENTSMITH_DB_PATH}.privacy-restart`;
   const initial = openDb({ retained: true }, { databasePath });
   initial.close();
 
@@ -372,7 +372,7 @@ test('shared settings policy finds and scrubs nested credential keys without ret
     maxTokens: 8192,
     nested: {
       apiKey: CANARY,
-      C3_LICENSE_SECRET: CANARY,
+      INTENTSMITH_LICENSE_SECRET: CANARY,
       webhookUrl: CANARY,
       retained: 'yes',
     },
@@ -380,7 +380,7 @@ test('shared settings policy finds and scrubs nested credential keys without ret
   const inspected = inspectM5UserSettingsPrivacy(input);
   assert.equal(inspected.valid, false);
   assert.deepEqual(inspected.forbiddenPaths, [
-    'nested.C3_LICENSE_SECRET',
+    'nested.INTENTSMITH_LICENSE_SECRET',
     'nested.apiKey',
     'nested.webhookUrl',
   ]);
@@ -421,7 +421,7 @@ test('WS settings boundary rejects credentials before feature or notification di
   try {
     adapter.handleControl({
       action: 'sync_settings',
-      settings: { 'c3.notif.telegramToken': CANARY },
+      settings: { 'intentsmith.notif.telegramToken': CANARY },
     });
   } finally {
     adapter.cleanup();
@@ -638,7 +638,7 @@ test('unsigned legacy rows fail closed even after same-process UDF replacement',
 });
 
 test('second SQLite connection and replacement UDF cannot forge a signed privacy verdict', () => {
-  const databasePath = `${process.env.C3_DB_PATH}.signed-privacy`;
+  const databasePath = `${process.env.INTENTSMITH_DB_PATH}.signed-privacy`;
   const owner = openDb({}, { databasePath });
   owner.close();
 
@@ -780,7 +780,7 @@ test('tree scanner reports only rule, path and line and never the matched value'
 test('tree scanner reads every distributed runtime root and detects multiline credentials', () => {
   const paths = [
     'agent-extensions/project-health/agent.json',
-    'c3-ide/runtime.js',
+    'intentsmith-ide/runtime.js',
     'skills/example.json',
     'specialists/example/index.js',
     'src/multiline.js',
@@ -930,10 +930,13 @@ test('license authority fails closed without a strong caller-owned secret', () =
     () => generateLicenseKey({ ...input, secret: 'too-short' }),
     error => error.code === 'LICENSE_SIGNING_SECRET_REQUIRED',
   );
-  const invalid = validateLicenseKey('C3-00', { secret: 'too-short', hwFingerprint: input.hwFingerprint });
+  const invalid = validateLicenseKey('IntentSmith-00', { secret: 'too-short', hwFingerprint: input.hwFingerprint });
   assert.equal(invalid.valid, false);
   assert.equal(invalid.tier, 'FREE');
   const key = generateLicenseKey({ ...input, secret: 'fixture-only-authority-material-32+' });
+  assert.equal(validateLicenseKey(key.replace(/^IntentSmith-/, 'C3-'), {
+    secret: 'fixture-only-authority-material-32+', hwFingerprint: input.hwFingerprint,
+  }).valid, true, 'previously issued keys retain the same signed payload authority');
   assert.equal(validateLicenseKey(key, {
     secret: 'fixture-only-authority-material-32+',
     hwFingerprint: input.hwFingerprint,
@@ -941,7 +944,7 @@ test('license authority fails closed without a strong caller-owned secret', () =
 });
 
 test('webhook and notification APIs expose environment-only credential persistence', async () => {
-  const db = openDb({ 'c3.notif.smtpHost': 'old.invalid' });
+  const db = openDb({ 'intentsmith.notif.smtpHost': 'old.invalid' });
   const security = createSecurityRoutes({
     db,
     parseBody: async req => req.body,
@@ -978,7 +981,7 @@ test('webhook and notification APIs expose environment-only credential persisten
   assert.equal(notificationResponse.response.payload.code, 'M5_PRIVACY_SMTP_CREDENTIAL_ENV_ONLY');
   const stored = db.prepare('SELECT data FROM user_settings WHERE id = 1').get().data;
   assert(!stored.includes(CANARY));
-  assert(!Object.hasOwn(JSON.parse(stored), 'c3.notif.smtpPass'));
+  assert(!Object.hasOwn(JSON.parse(stored), 'intentsmith.notif.smtpPass'));
   assert.equal(updates.length, 0);
 
   const acceptedResponse = {};
@@ -987,6 +990,6 @@ test('webhook and notification APIs expose environment-only credential persisten
   }, acceptedResponse);
   assert.equal(acceptedResponse.response.status, 200);
   assert.equal(acceptedResponse.response.payload.credentialPersistence, 'environment_only');
-  assert.equal(updates[0][1].pass, process.env.C3_SMTP_PASS);
+  assert.equal(updates[0][1].pass, process.env.INTENTSMITH_SMTP_PASS);
   db.close();
 });

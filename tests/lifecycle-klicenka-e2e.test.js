@@ -151,7 +151,7 @@ function createRealLLMExecutor(projectPath) {
       }
 
       for (const file of files) {
-        const codePrompt = `You are implementing a file for a Node.js credential vault (c3-keychain).
+        const codePrompt = `You are implementing a file for a Node.js credential vault (intentsmith-keychain).
 The vault uses AES-256-GCM encryption, scrypt key derivation, better-sqlite3, and Express.
 
 File: ${file.path}
@@ -240,7 +240,7 @@ function walkFiles(dir, base = dir) {
 
 async function runTest() {
   console.log('══════════════════════════════════════════════════════════════════════');
-  console.log('  Lifecycle E2E: Klíčenka (c3-keychain — Credential Vault)');
+  console.log('  Lifecycle E2E: Klíčenka (intentsmith-keychain — Credential Vault)');
   console.log('  Mode: REAL LLM (Ollama) + Change Management');
   console.log('══════════════════════════════════════════════════════════════════════');
 
@@ -284,8 +284,8 @@ async function runTest() {
     console.log('\n\n═══ PHASE 1: Detection + Proposal ═══════════════════════════════════');
 
     const userMsg1 = userTurn(
-      'Potřebuju vytvořit kompletní klíčenku pro C3 — bezpečné úložiště credentials ' +
-      'a citlivých údajů. C3 agent bude ukládat API klíče, Ollama tokeny, SMTP hesla. ' +
+      'Potřebuju vytvořit kompletní klíčenku pro IntentSmith — bezpečné úložiště credentials ' +
+      'a citlivých údajů. IntentSmith agent bude ukládat API klíče, Ollama tokeny, SMTP hesla. ' +
       'Šifrování AES-256-GCM, master password s scrypt, REST API s bearer auth, ' +
       'SQLite (better-sqlite3) pro storage. Node.js + Express.'
     );
@@ -311,7 +311,7 @@ async function runTest() {
 
     // Answer spec questions — adaptive loop
     const specAnswers = [
-      'AES-256-GCM šifrování (authenticated encryption). REST server — C3 volá přes HTTP. ' +
+      'AES-256-GCM šifrování (authenticated encryption). REST server — IntentSmith volá přes HTTP. ' +
       'Namespace oddělení: ollama, smtp, telegram, custom. ' +
       'Bearer token autentizace (KEYCHAIN_TOKEN env var). ' +
       'Master password přes scrypt (memory-hard, resistant to ASIC). ' +

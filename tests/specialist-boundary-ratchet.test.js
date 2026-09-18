@@ -78,7 +78,7 @@ function runChecker(specialistsDir, extraArgs = []) {
   ], {
     cwd: ROOT,
     encoding: 'utf8',
-    env: { ...process.env, C3_LOG_LEVEL: 'error' },
+    env: { ...process.env, INTENTSMITH_LOG_LEVEL: 'error' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 }

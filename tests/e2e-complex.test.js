@@ -26,7 +26,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // ─── Config ──────────────────────────────────────────────────────────────────
 
-const C3_URL = process.env.C3_URL || 'http://127.0.0.1:3335';
+const INTENTSMITH_URL = process.env.INTENTSMITH_URL || 'http://127.0.0.1:3335';
 const TIMEOUT_MS = parseInt(process.env.E2E_TIMEOUT || '120000');
 const VERBOSE = process.argv.includes('--verbose') || process.argv.includes('-v');
 const SAVE_TO = process.argv.find((a, i, arr) => arr[i - 1] === '--save') || null;
@@ -36,7 +36,7 @@ const TEST_FILTER = process.argv.find((a, i, arr) => arr[i - 1] === '--test') ||
 
 function request(method, endpoint, data = null, { timeout = TIMEOUT_MS, signal } = {}) {
   return new Promise((resolve, reject) => {
-    const url = new URL(endpoint, C3_URL);
+    const url = new URL(endpoint, INTENTSMITH_URL);
     const options = {
       hostname: url.hostname,
       port: url.port,
@@ -319,7 +319,7 @@ async function testD1_CancelMidSearch() {
       message: 'Najdi a porovnej 10 různých elektrických aut dostupných v ČR s cenami a specifikacemi',
       session_id: sid,
     });
-    const url = new URL('/chat', C3_URL);
+    const url = new URL('/chat', INTENTSMITH_URL);
 
     const req = http.request({
       hostname: url.hostname,
@@ -439,10 +439,10 @@ async function testF1_PathTraversal() {
 
 async function main() {
   console.log('╔══════════════════════════════════════════════════════════════╗');
-  console.log('║         C3 COMPLEX E2E TEST SUITE v1                      ║');
+  console.log('║         IntentSmith COMPLEX E2E TEST SUITE v1                      ║');
   console.log('╚══════════════════════════════════════════════════════════════╝');
   console.log();
-  console.log(`  Server:  ${C3_URL}`);
+  console.log(`  Server:  ${INTENTSMITH_URL}`);
   if (TEST_FILTER) console.log(`  Filter:  ${TEST_FILTER}`);
   console.log();
 
@@ -516,7 +516,7 @@ async function main() {
   if (SAVE_TO) {
     fs.writeFileSync(SAVE_TO, JSON.stringify({
       timestamp: new Date().toISOString(),
-      server: C3_URL,
+      server: INTENTSMITH_URL,
       summary: { tests: passed + failed, passed, failed, checks: totalChecks, checksPassed: passedChecks },
       results,
     }, null, 2));

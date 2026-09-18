@@ -48,7 +48,7 @@ const {
   validatePreloadSource,
   validateProtocolRuntime,
   validateSidebarComposition,
-} = require('../c3-ide/scripts/verify-m1-consumer-build.js');
+} = require('../intentsmith-ide/scripts/verify-m1-consumer-build.js');
 
 const CANONICAL_PROTOCOL_FUNCTIONS = Object.freeze([
   'validateM1Contract',
@@ -66,13 +66,13 @@ const CANONICAL_CONSUMER_FUNCTIONS = Object.freeze([
   'wsIsM1WireNegotiated',
 ]);
 const CANONICAL_PRELOAD_MARKERS = Object.freeze([
-  'electronC3',
+  'electronIntentSmith',
   'pickAttachmentFiles',
   'readAttachmentBytes',
   'M1_BRIDGE_ITEM_TOO_LARGE',
 ]);
 const CANONICAL_BUNDLE_MARKERS = Object.freeze([
-  'Generated @c3/protocol M1 runtime is unavailable',
+  'Generated @intentsmith/protocol M1 runtime is unavailable',
   'm1-wire-v1',
   'core-event-stream-limit',
   'DELIVERY_UNKNOWN',
@@ -92,15 +92,15 @@ const TEST_M1_PROTOCOL = Object.freeze({
 });
 
 const WS_CLIENT = new URL(
-  '../c3-ide/extensions/c3-chat-panel/lib/browser/ws-client.js',
+  '../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/ws-client.js',
   import.meta.url,
 );
 const CHAT_PANEL = new URL(
-  '../c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js',
+  '../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js',
   import.meta.url,
 );
 const STUDIO_THEME = new URL(
-  '../c3-ide/extensions/c3-chat-panel/lib/browser/styles/c3-theme.css',
+  '../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/styles/intentsmith-theme.css',
   import.meta.url,
 );
 const ANDROID_LIFECYCLE = new URL(
@@ -108,17 +108,17 @@ const ANDROID_LIFECYCLE = new URL(
   import.meta.url,
 );
 const AGENT_CLIENT = new URL(
-  '../c3-ide/extensions/c3-chat-panel/lib/browser/agent-client.js',
+  '../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/agent-client.js',
   import.meta.url,
 );
 const REPOSITORY_ROOT = fileURLToPath(new URL('..', import.meta.url));
-const STUDIO_PACKAGE = new URL('../c3-ide/package.json', import.meta.url);
+const STUDIO_PACKAGE = new URL('../intentsmith-ide/package.json', import.meta.url);
 const PROTOCOL_PACKAGE = new URL(
-  '../c3-ide/extensions/c3-protocol/package.json',
+  '../intentsmith-ide/extensions/intentsmith-protocol/package.json',
   import.meta.url,
 );
 const PROTOCOL_INDEX = new URL(
-  '../c3-ide/extensions/c3-protocol/src/index.ts',
+  '../intentsmith-ide/extensions/intentsmith-protocol/src/index.ts',
   import.meta.url,
 );
 
@@ -127,19 +127,19 @@ suite('M1 Studio client — generated protocol delivery');
 test('protocol lib is ignored generated output with no tracked stale stub', () => {
   const tracked = execFileSync(
     'git',
-    ['ls-files', '--', 'c3-ide/extensions/c3-protocol/lib'],
+    ['ls-files', '--', 'intentsmith-ide/extensions/intentsmith-protocol/lib'],
     { cwd: REPOSITORY_ROOT, encoding: 'utf8' },
   ).trim();
   assert.equal(tracked, '');
 
   const ignoredBy = execFileSync(
     'git',
-    ['check-ignore', '-v', 'c3-ide/extensions/c3-protocol/lib/runtime-probe.js'],
+    ['check-ignore', '-v', 'intentsmith-ide/extensions/intentsmith-protocol/lib/runtime-probe.js'],
     { cwd: REPOSITORY_ROOT, encoding: 'utf8' },
   );
   assert.match(
     ignoredBy,
-    /\.gitignore:\d+:c3-ide\/extensions\/c3-protocol\/lib\//,
+    /\.gitignore:\d+:intentsmith-ide\/extensions\/intentsmith-protocol\/lib\//,
   );
 });
 
@@ -147,11 +147,11 @@ test('root Studio build and watch share one protocol preparation contract', () =
   const studio = JSON.parse(fs.readFileSync(STUDIO_PACKAGE, 'utf8'));
   assert.equal(
     studio.scripts['clean:protocol'],
-    'yarn workspace @c3/protocol clean',
+    'yarn workspace @intentsmith/protocol clean',
   );
   assert.equal(
     studio.scripts['prepare:protocol'],
-    'yarn run clean:protocol && yarn workspace @c3/protocol build --force && yarn run verify:protocol-runtime',
+    'yarn run clean:protocol && yarn workspace @intentsmith/protocol build --force && yarn run verify:protocol-runtime',
   );
   assert.equal(studio.scripts.prebuild, 'yarn run prepare:protocol');
   assert.equal(
@@ -508,25 +508,25 @@ test('postbuild guard rejects a preload bundle that lost the byte bridge', () =>
 });
 
 test('postbuild refuses the duplicate sidebar in either manifest or generated frontend', () => {
-  const manifest = { dependencies: { '@c3/chat-panel': '0.1.0' } };
-  const frontend = "await load(container, require('@c3/chat-panel/lib/browser/chat-panel-module'));";
+  const manifest = { dependencies: { '@intentsmith/chat-panel': '0.1.0' } };
+  const frontend = "await load(container, require('@intentsmith/chat-panel/lib/browser/chat-panel-module'));";
   assert.doesNotThrow(() => validateSidebarComposition(manifest, frontend));
   for (const section of ['dependencies', 'devDependencies', 'optionalDependencies']) {
     assert.throws(() => validateSidebarComposition({ ...manifest,
-      [section]: { ...manifest[section], '@c3-ide/c3-sidebar': '*' },
+      [section]: { ...manifest[section], '@intentsmith-ide/intentsmith-sidebar': '*' },
     }, frontend), /legacy duplicate sidebar/);
   }
   assert.throws(() => validateSidebarComposition(manifest,
-    frontend + "require('@c3-ide/c3-sidebar/lib/browser/sidebar-module');"), /legacy duplicate sidebar/);
+    frontend + "require('@intentsmith-ide/intentsmith-sidebar/lib/browser/sidebar-module');"), /legacy duplicate sidebar/);
   assert.throws(() => validateSidebarComposition({}, frontend), /sidebar owner.*missing/);
   assert.throws(() => validateSidebarComposition(manifest, ''), /missing the current sidebar/);
 });
 
 test('sidebar startup preserves narrow content panels while hiding activity bars', () => {
   const source = fs.readFileSync(new URL(
-    '../c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js', import.meta.url,
+    '../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js', import.meta.url,
   ), 'utf8');
-  const start = source.indexOf('class C3SidebarWidget extends ');
+  const start = source.indexOf('class IntentSmithSidebarWidget extends ');
   const end = source.indexOf('inversify_1.decorate(', start);
   assert.ok(start >= 0 && end > start, 'actual sidebar lifecycle is available');
   for (const width of [0, 32, 240, 420]) {
@@ -546,7 +546,7 @@ test('sidebar startup preserves narrow content panels while hiding activity bars
       react_widget_1: { ReactWidget: class {
         constructor() { this.node = { style: {} }; this.title = {}; }
       } },
-      C3_SIDEBAR_ID: 'c3-sidebar', _sidebarWidget: null, _centerContainer: null,
+      INTENTSMITH_SIDEBAR_ID: 'intentsmith-sidebar', _sidebarWidget: null, _centerContainer: null,
       _createRoot: () => ({ render() {} }), h() {}, SidebarApp() {},
       setTimeout: callback => callbacks.push(callback), setInterval() {}, clearInterval() {},
       document: {
@@ -554,7 +554,7 @@ test('sidebar startup preserves narrow content panels while hiding activity bars
         querySelectorAll: selector => selector === '.theia-app-sidebar-container' ? activityBars : [],
       },
     };
-    vm.runInNewContext(`${source.slice(start, end)}\nnew C3SidebarWidget().onAfterAttach();`, context);
+    vm.runInNewContext(`${source.slice(start, end)}\nnew IntentSmithSidebarWidget().onAfterAttach();`, context);
     assert.equal(callbacks.length, 1);
     callbacks[0]();
     for (const parent of parents) {
@@ -602,7 +602,7 @@ test('default Studio identity uses the accessible IntentSmith brand system', () 
   assert.match(source, /id:'intentsmith',label:'IntentSmith',desc:'Výchozí brand'/);
   assert.match(source, /id:'clean',label:'Clean',desc:'Původní přizpůsobitelný'/);
   assert.match(source, /'Styl vzhledu'/);
-  assert.match(source, /localStorage\.getItem\('c3-theme-mode'\)\|\|'intentsmith'/,
+  assert.match(source, /localStorage\.getItem\('intentsmith-theme-mode'\)\|\|'intentsmith'/,
     'new profiles select the visible IntentSmith appearance');
   assert.match(source, /accentDim:'#9b6b32'/);
   assert.match(source, /text:_theme\.accentText/,
@@ -638,14 +638,14 @@ test('IntentSmith and Clean keep independent palettes and background authority',
     'IntentSmith uses its owned surface ramp instead of the saved Clean background');
   assert.match(source, /appearanceMode==='clean'\?h\(React\.Fragment/u,
     'editable accent and background controls are explicitly scoped to Clean');
-  assert.match(css, /html\[data-c3-appearance="intentsmith"\] #theia-left-side-panel/u,
+  assert.match(css, /html\[data-intentsmith-appearance="intentsmith"\] #theia-left-side-panel/u,
     'brand-only chrome details are scoped away from Clean');
 });
 
 test('the shipped preload bundle really carries the byte bridge', () => {
   /* lib/ is a build artifact, so this only asserts when a build is present:
      the tracked source guard above is what runs on a fresh clone. */
-  const built = new URL('../c3-ide/applications/electron/lib/frontend/preload.js', import.meta.url);
+  const built = new URL('../intentsmith-ide/applications/electron/lib/frontend/preload.js', import.meta.url);
   if (!fs.existsSync(built)) return;
   assert.doesNotThrow(() => validatePreloadSource(fs.readFileSync(built, 'utf8')));
 });
@@ -656,18 +656,18 @@ test('postbuild CLI composes exact paths and byte-level evidence', () => {
     const consumerBytes = Buffer.from('module.exports = {};\n// consumer\n');
     const bundleBytes = Buffer.from(`${CANONICAL_BUNDLE_MARKERS.join('\n')}\nžluťoučký\n`);
     const preloadBytes = Buffer.from(`${CANONICAL_PRELOAD_MARKERS.join('\n')}\n`);
-    const manifestBytes = Buffer.from(JSON.stringify({ dependencies: { '@c3/chat-panel': '0.1.0' } }));
-    const frontendBytes = Buffer.from("require('@c3/chat-panel/lib/browser/chat-panel-module');\n");
+    const manifestBytes = Buffer.from(JSON.stringify({ dependencies: { '@intentsmith/chat-panel': '0.1.0' } }));
+    const frontendBytes = Buffer.from("require('@intentsmith/chat-panel/lib/browser/chat-panel-module');\n");
     writePostbuildFile(studioRoot, 'applications/electron/package.json', manifestBytes);
     writePostbuildFile(studioRoot, 'applications/electron/src-gen/frontend/index.js', frontendBytes);
     writePostbuildFile(
       studioRoot,
-      'extensions/c3-protocol/lib/index.js',
+      'extensions/intentsmith-protocol/lib/index.js',
       protocolBytes,
     );
     writePostbuildFile(
       studioRoot,
-      'extensions/c3-chat-panel/lib/browser/ws-client.js',
+      'extensions/intentsmith-chat-panel/lib/browser/ws-client.js',
       consumerBytes,
     );
     writePostbuildFile(
@@ -708,7 +708,7 @@ test('postbuild CLI composes exact paths and byte-level evidence', () => {
       protocolVersion: 1,
     });
     writePostbuildFile(studioRoot, 'applications/electron/lib/frontend/bundle.js',
-      Buffer.concat([bundleBytes, Buffer.from('[C3] SidebarWidget created')]));
+      Buffer.concat([bundleBytes, Buffer.from('[IntentSmith] SidebarWidget created')]));
     const staleExit = runCli({ studioRoot, protocol: validPostbuildProtocol(),
       consumer: validPostbuildConsumer(), stdout: { write() {} },
       stderr: { write(value) { stderr += value; } } });
@@ -780,7 +780,7 @@ test('protocol package resolves generated index and source index re-exports M1',
 test('authoritative panel hard-requires the generated protocol consumer', () => {
   const client = fs.readFileSync(WS_CLIENT, 'utf8');
   const panel = fs.readFileSync(CHAT_PANEL, 'utf8');
-  assert.match(client, /require\(['"]@c3\/protocol['"]\)/);
+  assert.match(client, /require\(['"]@intentsmith\/protocol['"]\)/);
   assert.match(panel, /require\(["']\.\/ws-client["']\);/);
   assert.doesNotMatch(
     panel,
@@ -836,7 +836,7 @@ function loadClient(sessions, options = {}) {
 
   const context = vm.createContext({
     AbortSignal,
-    C3Bus: {
+    IntentSmithBus: {
       emit(name, payload) {
         busEvents.push({ name, payload });
         if (typeof options.onBusEmit === 'function') options.onBusEmit(name, payload);
@@ -846,7 +846,7 @@ function loadClient(sessions, options = {}) {
     JSON,
     Math,
     WebSocket: HarnessWebSocket,
-    _backendBase: backendBase,
+    _backendUrl: () => backendBase,
     _sessionActive: 0,
     _sessions: sessions,
     clearInterval() {},
@@ -863,13 +863,13 @@ function loadClient(sessions, options = {}) {
     fetchBackendData() {},
     module: { exports: {} },
     require(specifier) {
-      assert.equal(specifier, '@c3/protocol');
+      assert.equal(specifier, '@intentsmith/protocol');
       return TEST_M1_PROTOCOL;
     },
     setInterval: () => Symbol('interval'),
     setTimeout: options.setTimeout || (() => Symbol('timeout')),
     window: {
-      electronC3: {
+      electronIntentSmith: {
         getBackendUrl: () => backendBase,
         getLocalCapability: () => options.localCapability || 'A'.repeat(43),
       },
@@ -1158,7 +1158,7 @@ function panelSendHarness({ FileReaderClass = null, mode = 'unavailable', input 
   sessions[sessionIndex] = pane;
 
   const context = vm.createContext({
-    C3WS: {
+    IntentSmithWS: {
       isReady: () => mode !== 'unavailable',
       sendCancel() {
         counters.remoteCancel = (counters.remoteCancel || 0) + 1;
@@ -1193,7 +1193,7 @@ function panelSendHarness({ FileReaderClass = null, mode = 'unavailable', input 
     console,
     document: {
       getElementById(id) {
-        return id === `c3-chat-ta-${sessionIndex}` ? textarea : null;
+        return id === `intentsmith-chat-ta-${sessionIndex}` ? textarea : null;
       },
     },
     fetch: async (_url, options = {}) => {
@@ -1280,7 +1280,7 @@ function terminalPanelHarness(pane = session('panel-terminal')) {
   const counters = { agentRender: 0, persist: 0, render: 0, scroll: 0 };
   if (!Array.isArray(pane.log)) pane.log = [];
   const context = vm.createContext({
-    C3Bus: {
+    IntentSmithBus: {
       on(name, callback) { listeners[name] = callback; },
     },
     _sessions: [pane],
@@ -1308,7 +1308,7 @@ function agentStateHarness(sessions = []) {
   const busEvents = [];
   const context = vm.createContext({
     AbortSignal,
-    C3Bus: {
+    IntentSmithBus: {
       emit(name, payload) { busEvents.push({ name, payload }); },
       on(name, callback) { listeners[name] = callback; },
     },
@@ -2486,7 +2486,7 @@ await testAsync('owned loopback carries three Studio panels over the negotiated 
       true,
     );
 
-    durableDb = new Database(process.env.C3_DB_PATH);
+    durableDb = new Database(process.env.INTENTSMITH_DB_PATH);
     durableDb.exec('CREATE TABLE IF NOT EXISTS conversations (id TEXT PRIMARY KEY)');
     const insertConversation = durableDb.prepare('INSERT OR IGNORE INTO conversations (id) VALUES (?)');
     for (const pane of panes) insertConversation.run(pane._convId);
@@ -2778,10 +2778,10 @@ test('authoritative panel passes the selected session into cancel', () => {
   const cancelEnd = source.indexOf('/* split mode:', cancelStart);
   assert.ok(cancelStart >= 0 && cancelEnd > cancelStart);
   const cancelSource = source.slice(cancelStart, cancelEnd);
-  assert.match(cancelSource, /C3WS\.sendCancel\(s\)/);
+  assert.match(cancelSource, /IntentSmithWS\.sendCancel\(s\)/);
   assert.match(source, /_chatCancelPreparedSend\(_sessionActive,activeSession\)/);
-  assert.match(source, /C3WS\.sendCancel\(activeSession\)/);
-  assert.doesNotMatch(source, /C3WS\.sendCancel\(\s*\)/);
+  assert.match(source, /IntentSmithWS\.sendCancel\(activeSession\)/);
+  assert.doesNotMatch(source, /IntentSmithWS\.sendCancel\(\s*\)/);
 });
 
 suite('M1 Studio client — fail-closed send authority');
@@ -2795,7 +2795,7 @@ test('all three send call sites use one WebSocket-only seam and expose NOT_SENT'
 
   assert.equal((sendSource.match(/_chatTryWsSend\(/g) || []).length, 3);
   assert.doesNotMatch(sendSource, /fetch\s*\(/);
-  assert.doesNotMatch(sendSource, /C3WS\.(?:isReady|sendChat)/);
+  assert.doesNotMatch(sendSource, /IntentSmithWS\.(?:isReady|sendChat)/);
   assert.match(source, /_chatGapChoice\(idx,'create',i\)/);
   assert.match(source, /_chatGapChoice\(idx,'fallback',i\)/);
   assert.match(source, /NOT_SENT · Zpráva nebyla odeslána/);
@@ -2907,7 +2907,7 @@ test('busy gap choices remain visible and create no user or wire effect', () => 
       text: 'Vyberte další postup',
     }];
     if (mode === 'active-turn') {
-      harness.context.C3WS.hasActiveM1Turn = () => true;
+      harness.context.IntentSmithWS.hasActiveM1Turn = () => true;
     } else {
       harness.pane.chat._preparedSend = { owned: true };
     }
@@ -3110,7 +3110,7 @@ await testAsync('pre-wire cancel restores owned input and makes late reader comp
       const cancelStart = source.indexOf('function _cancelExecution');
       const cancelEnd = source.indexOf('/* split mode:', cancelStart);
       harness.pane.log = [];
-      harness.context.C3Terminal = { cancel() {} };
+      harness.context.IntentSmithTerminal = { cancel() {} };
       vm.runInContext(source.slice(cancelStart, cancelEnd), harness.context);
       harness.context._cancelExecution(0);
     } else {
@@ -3245,12 +3245,22 @@ await testAsync('hidden panes, route drift, and focus switches cannot misroute a
   vm.runInContext(source.slice(setCountStart, setCountEnd), close.context);
   const closeStart = source.indexOf('function _closeDialogAction');
   const closeEnd = source.indexOf('var _chatContainer', closeStart);
-  vm.runInContext(source.slice(closeStart, closeEnd), close.context);
+  const mkStart = source.indexOf('function _mkSession');
+  const mkEnd = source.indexOf('var _sessions=', mkStart);
+  const helpersStart = source.indexOf('function _workspaceBusy');
+  const helpersEnd = source.indexOf('function _workspaceResize', helpersStart);
+  close.context._rememberSpecialistFiles = () => {};
+  close.context._renderAll = () => {};
+  close.context._workspaceSessionIndices = () => close.context._sessions.map((s,i)=>s._closed?-1:i).filter(i=>i>=0);
+  close.context.IntentSmithWS.hasActiveM1Turn = () => false;
+  close.context.alert = message => { throw new Error(message); };
+  vm.runInContext(source.slice(mkStart,mkEnd)+source.slice(helpersStart,helpersEnd)+source.slice(closeStart, closeEnd), close.context);
   close.context._closeDialogAction('pane');
-  assert.equal(close.context._sessions[0], close.pane);
-  assert.equal(close.pane.chat.msgs[0].tag, 'NOT_SENT');
+  assert.equal(close.context._sessions[2], close.pane, 'closing another tab preserves transport indices');
+  assert.equal(close.context._sessions[0]._closed, true);
   await finishControlledReader(closeReader.readers[0]);
-  assert.equal(close.counters.wsSend.length, 0);
+  assert.equal(close.counters.wsSend.length, 1, 'unrelated prepared send continues in its own tab');
+  assert.equal(close.counters.wsSend[0].index, 2);
 });
 
 test('all destructive session transitions invalidate prepared sends before reuse', () => {
@@ -3261,7 +3271,7 @@ test('all destructive session transitions invalidate prepared sends before reuse
   const showEnd = source.indexOf('function _openTargetDialogAction', showStart);
   const closeStart = source.indexOf('function _closeDialogAction');
   const closeEnd = source.indexOf('var _chatContainer', closeStart);
-  const invalidStart = source.indexOf("C3Bus.on('session:invalidated'");
+  const invalidStart = source.indexOf("IntentSmithBus.on('session:invalidated'");
   const invalidEnd = source.indexOf('/* ── Health state', invalidStart);
   const escapeStart = source.indexOf("case 'Escape':");
   const escapeEnd = source.indexOf('/* Excluded:', escapeStart);
@@ -3270,13 +3280,16 @@ test('all destructive session transitions invalidate prepared sends before reuse
 
   assert.equal(
     (source.slice(smartStart, smartEnd).match(/_chatPrepareRelayTarget/g) || []).length,
-    3,
+    1,
   );
-  assert.match(source.slice(showStart, showEnd), /_chatPrepareRelayTarget\(_sessionActive\)/);
-  assert.match(source.slice(closeStart, closeEnd), /_chatCancelPreparedSend\(lastIdx,last\)/);
+  assert.match(source.slice(showStart, showEnd), /_chatPrepareRelayTarget\(idx\)/);
+  assert.match(source.slice(closeStart, closeEnd), /_closeWorkspaceConversation\(idx\)/);
+  const closeHelper=source.slice(source.indexOf('function _closeWorkspaceConversation'),source.indexOf('function _workspaceResize'));
+  assert.match(closeHelper, /_chatCancelPreparedSend\(idx,s\)/);
+  assert.match(closeHelper, /_chatInvalidatePreparedSends\(s\.chat\)/);
   assert.match(source.slice(invalidStart, invalidEnd), /_chatInvalidatePreparedSends\(s\.chat\)/);
   assert.match(source.slice(escapeStart, escapeEnd), /if\(_chatCancelPreparedSend\(_sessionActive,activeSession\)\)/);
-  assert.match(source.slice(cancelStart, cancelEnd), /if \(!localPreparedCancelled && typeof C3WS/);
+  assert.match(source.slice(cancelStart, cancelEnd), /if \(!localPreparedCancelled && typeof IntentSmithWS/);
   assert.match(source, /captured\.idx>=0&&captured\.idx<_sessionCount/);
   assert.match(source, /captured\.chat\.editMode===captured\.editMode/);
 });
@@ -3322,14 +3335,9 @@ test('new and closed sessions cannot inherit a prior NOT_SENT banner', () => {
     source.slice(newActionStart, newActionEnd),
     /_chatInvalidatePreparedSends\(s\.chat\)/,
   );
-  assert.equal(
-    (source.slice(closeStart, closeEnd).match(/chat\._delivery=null/g) || []).length,
-    2,
-  );
-  assert.match(
-    source.slice(closeStart, closeEnd),
-    /_chatInvalidatePreparedSends\(s\.chat\)/,
-  );
+  const closeHelper=source.slice(source.indexOf('function _closeWorkspaceConversation'),source.indexOf('function _workspaceResize'));
+  assert.match(closeHelper, /_sessions\[idx\]=_mkSession\(\)/);
+  assert.match(closeHelper, /_chatInvalidatePreparedSends\(s\.chat\)/);
   const openStart = source.indexOf('function _openTargetDialogAction');
   const openEnd = source.indexOf('/* v64.4: New-chat', openStart);
   assert.match(
@@ -4337,7 +4345,7 @@ await testAsync('missing ACK times out without clearing the local snapshot and i
 
 test('panel persists only an exact transport-owned invalidation', () => {
   const source = fs.readFileSync(CHAT_PANEL, 'utf8');
-  const start = source.indexOf("C3Bus.on('session:invalidated'");
+  const start = source.indexOf("IntentSmithBus.on('session:invalidated'");
   const end = source.indexOf('\n  });', start);
   assert.ok(start >= 0 && end > start);
   const handler = source.slice(start, end);
@@ -4368,9 +4376,9 @@ test('persisted Studio bounds are normalized by the function used during restore
       sessions: [{ id: 0 }, { id: 1 }, { id: 2 }, { id: 3 }],
     })),
     {
-      sessionCount: 3,
-      sessionActive: 2,
-      sessions: [{ id: 0 }, { id: 1 }, { id: 2 }],
+      sessionCount: 24,
+      sessionActive: 23,
+      sessions: [{ id: 0 }, { id: 1 }, { id: 2 }, { id: 3 }],
     },
   );
   assert.deepEqual(
@@ -4384,7 +4392,7 @@ test('persisted Studio bounds are normalized by the function used during restore
         sessionActive: '1',
         sessions: 'not-an-array',
       })),
-      { sessionCount: 2, sessionActive: 0, sessions: [] },
+      { sessionCount: 1, sessionActive: 0, sessions: [] },
     );
   }
 
@@ -4674,7 +4682,7 @@ test('destroy cancels a pending CONNECTING timeout and its callback is inert', (
 
 test('panel makes reconnect exhaustion visible and keeps health offline', () => {
   const source = fs.readFileSync(CHAT_PANEL, 'utf8');
-  const start = source.indexOf("C3Bus.on('ws:reconnect_exhausted'");
+  const start = source.indexOf("IntentSmithBus.on('ws:reconnect_exhausted'");
   const end = source.indexOf('\n  });', start);
   assert.ok(start >= 0 && end > start);
   const handler = source.slice(start, end);
@@ -4853,21 +4861,21 @@ await testAsync('a response that arrives after the action was superseded is igno
 
 test('the clear event reaches the panel through the WS consumer', () => {
   const consumer = fs.readFileSync(
-    new URL('../c3-ide/extensions/c3-chat-panel/lib/browser/ws-client.js', import.meta.url),
+    new URL('../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/ws-client.js', import.meta.url),
     'utf8',
   );
   // Without this edge the bounded clear event would never arrive and a stale
   // warning could stay on screen over a re-verified binding.
   assert.match(
     consumer,
-    /d\.action === 'upgrade_verify_cleared'[\s\S]{0,80}C3Bus\.emit\('upgrade:verify_cleared', d\)/,
+    /d\.action === 'upgrade_verify_cleared'[\s\S]{0,80}IntentSmithBus\.emit\('upgrade:verify_cleared', d\)/,
   );
 });
 
 test('the panel never rolls back automatically', () => {
   const source = fs.readFileSync(CHAT_PANEL, 'utf8');
-  const start = source.indexOf("C3Bus.on('upgrade:verify_failed'");
-  const end = source.indexOf("C3Bus.on('model:deleted'", start);
+  const start = source.indexOf("IntentSmithBus.on('upgrade:verify_failed'");
+  const end = source.indexOf("IntentSmithBus.on('model:deleted'", start);
   assert.ok(start >= 0 && end > start);
   const handler = source.slice(start, end);
   assert.ok(
@@ -4929,7 +4937,7 @@ await testAsync('a turn needing the legacy shell effect ends as a typed error, n
 
 function clientAttachmentPolicy() {
   const source = fs.readFileSync(
-    new URL('../c3-ide/extensions/c3-chat-panel/lib/browser/ws-client.js', import.meta.url),
+    new URL('../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/ws-client.js', import.meta.url),
     'utf8',
   );
   const start = source.indexOf('var _M1_IMAGE_TYPES');
@@ -5090,7 +5098,7 @@ suite('M1 Studio client — 021 attachment byte bridge');
    Electron, because the dialog channel is the preload's business and the grant
    ledger is this module's. */
 const { createAttachmentBridge, mediaTypeForName, clampCeiling, HARD_READ_CAP_BYTES, REJECTION } =
-  require('../c3-ide/applications/electron/c3-attachment-bridge.js');
+  require('../intentsmith-ide/applications/electron/intentsmith-attachment-bridge.js');
 
 /* An fs double that counts reads, so "refused before allocating" is a fact the
    test can check rather than a claim the comment makes. */
@@ -5522,7 +5530,7 @@ await testAsync('a dialog that throws leaves the pane untouched', async () => {
 
 test('the shipped preload exposes the byte bridge and no path-taking read', () => {
   const source = fs.readFileSync(
-    new URL('../c3-ide/applications/electron/c3-preload.js', import.meta.url),
+    new URL('../intentsmith-ide/applications/electron/intentsmith-preload.js', import.meta.url),
     'utf8',
   );
   assert.match(source, /pickAttachmentFiles:/, 'the gesture-bound pick is exposed');
@@ -5555,7 +5563,7 @@ await testAsync('PDF and large HEIC picked by the native byte bridge become comp
 
 test('specialist focus repaints the center conversation on chat changes',()=>{
   const source=fs.readFileSync(CHAT_PANEL,'utf8'),a=source.indexOf('function renderChat(){'),b=source.indexOf('function _chatScrollPane',a);let focus=true,center=0,side=0;
-  const ctx=vm.createContext({isFocusActive:()=>focus,renderCenter:()=>center++,_chatContainer:{},_chatRoot:{render:()=>side++},h:()=>null,ChatApp:()=>null});
+  const ctx=vm.createContext({_workspaceShown:()=>focus,renderCenter:()=>center++,_chatContainer:{},_chatRoot:{render:()=>side++},h:()=>null,ChatApp:()=>null});
   vm.runInContext(source.slice(a,b),ctx);ctx.renderChat();assert.equal(center,1);assert.equal(side,1);
   focus=false;ctx.renderChat();assert.equal(center,1);assert.equal(side,2);
   focus=true;ctx._chatContainer=null;ctx.renderChat();assert.equal(center,2);

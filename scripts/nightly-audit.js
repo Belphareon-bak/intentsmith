@@ -222,13 +222,13 @@ async function prepareToolchainEnvironment(suite, opts, hostEnv = process.env) {
 
   if (declared.has('python-pdf-runtime')
     && opts.allowBlockers.has('toolchain:python-pdf-runtime')) {
-    const configured = hostEnv.INTENTSMITH_PDF_PYTHON || hostEnv.C3_PDF_PYTHON;
+    const configured = hostEnv.INTENTSMITH_PDF_PYTHON || hostEnv.INTENTSMITH_PDF_PYTHON;
     if (
       typeof configured !== 'string'
       || !path.isAbsolute(configured)
       || (hostEnv.INTENTSMITH_PDF_PYTHON !== undefined
-        && hostEnv.C3_PDF_PYTHON !== undefined
-        && hostEnv.INTENTSMITH_PDF_PYTHON !== hostEnv.C3_PDF_PYTHON)
+        && hostEnv.INTENTSMITH_PDF_PYTHON !== undefined
+        && hostEnv.INTENTSMITH_PDF_PYTHON !== hostEnv.INTENTSMITH_PDF_PYTHON)
     ) {
       return {
         ...result,
@@ -899,7 +899,7 @@ export function makeSuiteEnvironment({
   }
   const pdfRuntimeKeys = [
     'INTENTSMITH_PDF_PYTHON',
-    'C3_PDF_PYTHON',
+    'INTENTSMITH_PDF_PYTHON',
   ];
   for (const key of pdfRuntimeKeys) {
     if (process.env[key] !== undefined) env[key] = process.env[key];
@@ -921,22 +921,22 @@ export function makeSuiteEnvironment({
     NO_COLOR: '1',
     GIT_CONFIG_GLOBAL: gitConfigPath,
     GIT_CONFIG_NOSYSTEM: '1',
-    C3_AUDIT_RUN: '1',
+    INTENTSMITH_AUDIT_RUN: '1',
     INTENTSMITH_TEST_SOURCE_REVISION: sourceRevision,
-    C3_DB_PATH: path.join(runtimeDir, 'intentsmith-test.sqlite'),
-    C3_PROJECTS_DIR: projectsDir,
+    INTENTSMITH_DB_PATH: path.join(runtimeDir, 'intentsmith-test.sqlite'),
+    INTENTSMITH_PROJECTS_DIR: projectsDir,
     INTENTSMITH_TEST_PROJECTS_DIR: projectsDir,
     INTENTSMITH_TEST_ARTIFACT_DIR: artifactsDir,
-    C3_PORT: '0',
-    C3_PORT_FILE: path.join(runtimeDir, 'intentsmith.port'),
-    C3_LIFECYCLE_AUTO_COMMIT: 'false',
-    C3_ENABLE_AUTONOMY: 'false',
-    C3_LOG_LEVEL: 'warn',
+    INTENTSMITH_PORT: '0',
+    INTENTSMITH_PORT_FILE: path.join(runtimeDir, 'intentsmith.port'),
+    INTENTSMITH_LIFECYCLE_AUTO_COMMIT: 'false',
+    INTENTSMITH_ENABLE_AUTONOMY: 'false',
+    INTENTSMITH_LOG_LEVEL: 'warn',
     PYTHONNOUSERSITE: '1',
   });
   Object.assign(env, toolchainEnvironment);
 
-  if (suite.requirements.server) env.C3_URL = 'http://127.0.0.1:3335';
+  if (suite.requirements.server) env.INTENTSMITH_URL = 'http://127.0.0.1:3335';
   if (suite.requirements.ollama) env.OLLAMA_URL = 'http://127.0.0.1:11434';
 
   return {
@@ -948,12 +948,12 @@ export function makeSuiteEnvironment({
       sourceRevision: env.INTENTSMITH_TEST_SOURCE_REVISION,
       home: homeDir,
       temp: tempDir,
-      database: env.C3_DB_PATH,
+      database: env.INTENTSMITH_DB_PATH,
       projects: projectsDir,
       artifacts: artifactsDir,
       npmCache: npmCacheDir,
-      portFile: env.C3_PORT_FILE,
-      pdfPython: env.INTENTSMITH_PDF_PYTHON || env.C3_PDF_PYTHON || null,
+      portFile: env.INTENTSMITH_PORT_FILE,
+      pdfPython: env.INTENTSMITH_PDF_PYTHON || env.INTENTSMITH_PDF_PYTHON || null,
       pythonNoUserSite: true,
       xdg: {
         config: xdgConfigDir,

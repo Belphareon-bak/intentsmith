@@ -25,7 +25,7 @@ const MAX_HASHED_BYTES = 512 * 1024 * 1024;
 
 const IGNORED_DIRECTORIES = Object.freeze([
   '.cache',
-  '.c3',
+  '.intentsmith',
   '.git',
   '.intentsmith-artifacts',
   '.next',

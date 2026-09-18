@@ -11,14 +11,14 @@ const TELEGRAM_API = 'https://api.telegram.org';
  * No external dependencies.
  *
  * Config from environment:
- *   C3_TELEGRAM_BOT_TOKEN, C3_TELEGRAM_CHAT_ID (default recipient)
+ *   INTENTSMITH_TELEGRAM_BOT_TOKEN, INTENTSMITH_TELEGRAM_CHAT_ID (default recipient)
  */
 export class TelegramChannel extends NotificationChannel {
   constructor({ logger }) {
     super();
     this.logger = logger;
-    this.token = process.env.C3_TELEGRAM_BOT_TOKEN;
-    this.defaultChatId = process.env.C3_TELEGRAM_CHAT_ID;
+    this.token = (process.env.INTENTSMITH_TELEGRAM_BOT_TOKEN ?? process.env['C3_TELEGRAM_BOT_TOKEN']);
+    this.defaultChatId = (process.env.INTENTSMITH_TELEGRAM_CHAT_ID ?? process.env['C3_TELEGRAM_CHAT_ID']);
   }
 
   get name() {
@@ -27,7 +27,7 @@ export class TelegramChannel extends NotificationChannel {
 
   async _callAPI(method, body) {
     if (!this.token) {
-      throw new Error('Telegram bot token not configured (set C3_TELEGRAM_BOT_TOKEN)');
+      throw new Error('Telegram bot token not configured (set INTENTSMITH_TELEGRAM_BOT_TOKEN)');
     }
 
     const url = `${TELEGRAM_API}/bot${this.token}/${method}`;
@@ -47,10 +47,10 @@ export class TelegramChannel extends NotificationChannel {
   async send(notification) {
     const chatId = notification.recipient || this.defaultChatId;
     if (!chatId) {
-      return { delivered: false, error: 'No recipient chat_id (set C3_TELEGRAM_CHAT_ID or provide recipient)' };
+      return { delivered: false, error: 'No recipient chat_id (set INTENTSMITH_TELEGRAM_CHAT_ID or provide recipient)' };
     }
     if (!this.token) {
-      return { delivered: false, error: 'Telegram bot token not configured (set C3_TELEGRAM_BOT_TOKEN)' };
+      return { delivered: false, error: 'Telegram bot token not configured (set INTENTSMITH_TELEGRAM_BOT_TOKEN)' };
     }
 
     try {

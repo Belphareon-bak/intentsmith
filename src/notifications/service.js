@@ -102,8 +102,8 @@ export class NotificationRouter {
     // Send a test notification
     const result = await channel.send({
       recipient,
-      title: 'C3 Test Notification',
-      body: 'This is a test notification from C3 Agent Platform. If you see this, the channel is working correctly.',
+      title: 'IntentSmith Test Notification',
+      body: 'This is a test notification from IntentSmith Agent Platform. If you see this, the channel is working correctly.',
       priority: 'low',
       agentId: 'system',
     });

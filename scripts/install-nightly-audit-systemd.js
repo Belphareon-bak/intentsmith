@@ -5,8 +5,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-const SERVICE_NAME = 'c3-nightly-audit.service';
-const TIMER_NAME = 'c3-nightly-audit.timer';
+const SERVICE_NAME = 'intentsmith-nightly-audit.service';
+const TIMER_NAME = 'intentsmith-nightly-audit.timer';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, '..');
@@ -33,7 +33,7 @@ if (options.dryRun) {
     artifactRoot,
     worktreeRoot,
     enableTimer: false,
-    note: 'Legacy C3 unit installation is disabled until IntentSmith systemd migration is reviewed.',
+    note: 'Legacy IntentSmith unit installation is disabled until IntentSmith systemd migration is reviewed.',
   }, null, 2));
   process.exit(0);
 }

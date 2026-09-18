@@ -1,0 +1,15 @@
+{
+  "name": "@intentsmith-ide/intentsmith-detail-panel",
+  "version": "0.1.0",
+  "description": "IntentSmith Studio — Detail panel",
+  "license": "MIT",
+  "main": "lib/browser/detail-panel-module",
+  "theiaExtensions": [
+    {
+      "frontend": "lib/browser/detail-panel-module"
+    }
+  ],
+  "dependencies": {
+    "@theia/core": "1.74.1"
+  }
+}

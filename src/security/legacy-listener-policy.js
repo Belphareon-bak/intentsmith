@@ -1,9 +1,9 @@
-// The legacy HTTP API and /c3/ws terminal do not have a complete remote
+// The legacy HTTP API and /intentsmith/ws terminal do not have a complete remote
 // authentication boundary. Keep their listener on an explicit loopback host;
 // remote access belongs on a separate, scoped listener.
 
 export const LEGACY_LISTENER_LOOPBACK_REQUIRED =
-  'C3_LEGACY_LISTENER_LOOPBACK_REQUIRED';
+  'INTENTSMITH_LEGACY_LISTENER_LOOPBACK_REQUIRED';
 
 // Keep this set deliberately narrow. Symbolic hosts are resolved by the OS
 // after validation and the current port-file/URL consumers are not proven

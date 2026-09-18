@@ -1,6 +1,6 @@
 import './helpers/isolated-test-db.js';
 
-// C3-Agent v55.2 — Sprint 1 Tests: Search Quality & Language Detection
+// IntentSmith-Agent v55.2 — Sprint 1 Tests: Search Quality & Language Detection
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // T7: Web Search Quality Tests

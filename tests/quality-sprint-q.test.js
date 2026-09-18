@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ═══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — Quality Sprint Q: Tests
+// IntentSmith-Agent — Quality Sprint Q: Tests
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // Tests for all Q1–Q6 quality fixes.

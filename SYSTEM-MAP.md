@@ -1,5 +1,13 @@
 # IntentSmith — mapa systému
 
+**Projektový flow, 2026-09-18:** nasazeno `5e46fca7`, nový projekt → návrh →
+přesný M2 krok; existující cizí projekt → čtecí analýza → cíl a priority.
+Úplný gate 358 PASS / 1 FAIL (nezměněná release pečeť), Studio build PASS.
+Skutečný systemd M2 průchod je **BLOCKED AppArmorem**; privátní IDE/Studio
+zkouška tento provozní problém neodhalila. Profil a postup připravené, vyžadují
+heslo správce. REVIEW_PENDING, bez tvrzení production-ready.
+[Packet a přesné meze](docs/review/2026-09-18-PROJECT-FLOW.md).
+
 **Detail měření a kandidáti, 2026-09-18:** instalováno `2ca3cca1`.
 Řazení a propojování tabulek, vysvětlený rozpad úloh, detail konkrétního měření,
 aktualizovaný katalog (API 82 kandidátů, 26 VISION, 13 vydaných v roce 2026)
@@ -17,6 +25,7 @@ Skóre/historie/bindingy nezměněné. Kombinovaná validace 358 PASS / 1 zděd�
 FAIL release pečeti; REVIEW_PENDING. Původní otevřené Studio potřebuje jedno
 zavření a nové spuštění ikonou; jeho frontend se za běhu nevyměnil.
 [Review, negativní pokusy a meze](docs/review/2026-09-18-MODEL-WORKSPACE-RECONNECT.md).
+
 
 **Základ změřen 2026-08-02 na `17a8b9a8`; pre-fix OS-isolated scan proběhl na
 `24457ba2`; registry klasifikace byla opravena v `06309bc8`, post-fix scan
@@ -285,15 +294,15 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **225 473 ř.**, 630 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **246 862 ř.**, 532 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **524** (`430 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
-| Tabulek v čerstvé DB / aplikovaných migrací | **177 / 101** |
+| `src/**/*.js` | **225 536 ř.**, 631 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **247 100 ř.**, 533 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **525** (`431 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
+| Tabulek v čerstvé DB / aplikovaných migrací | **177 / 102** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
 Aktuální registry fingerprint je
-`288760c9e60594301c4ab3826371f8adcff703254bc5ca093c6413424ae78760`.
+`fbe1945675b7ccc36eeea1e86139b0c663254c45df77c775a240ae59213d2ea0`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 
@@ -424,7 +433,7 @@ adresáře** — u čtyř schopností kód leží jinde, než by název adresá�
 | 3 | LLM gateway | 2,9k | `llm/` |
 | 5 | Quality Gate v2 | 2,9k | `chat/quality/` |
 | 6 | Chat pipeline | 20,4k | `chat/handlers/` (45), `chat/controller.js` |
-| 21 | Studio + WS | 1,3k + **14,9k** | `ws-bridge/` + **`c3-ide/` (139 souborů TS/TSX, 20+ rozšíření)** — Theia IDE je **plocha produktu**, viz `DIRECTION.md` |
+| 21 | Studio + WS | 1,3k + **14,9k** | `ws-bridge/` + **`intentsmith-ide/` (139 souborů TS/TSX, 20+ rozšíření)** — Theia IDE je **plocha produktu**, viz `DIRECTION.md` |
 | 7 | Expertizy | 9,5k | `expertises/` **mimo** specialist-runtime, scenario-engine, knowledge-base |
 | 16 | Nástroje | 7,6k | `tools/` — legacy `registry.js` drží **153 registrovaných nástrojů**; M2 typed authority je v `m2-tool-*.js` |
 | 9 | Skills | 1,8k | `skills/` — 8 vykonávaných step typů + samostatná substitution helper vrstva |

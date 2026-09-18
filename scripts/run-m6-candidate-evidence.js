@@ -109,7 +109,7 @@ function safeBaseEnvironment() {
   }
   const pdfPython = resolvePdfPythonInterpreter(process.env);
   environment.INTENTSMITH_PDF_PYTHON = pdfPython;
-  environment.C3_PDF_PYTHON = pdfPython;
+  environment.INTENTSMITH_PDF_PYTHON = pdfPython;
   // Independent, declared toolchain. nightly-audit validates it before use
   // and forwards it only to suites that require accountant-ocr-runtime.
   if (process.env.UCETNI_RUNTIME_DIR !== undefined) {
@@ -653,8 +653,8 @@ async function makeFreshCloneEnvironment({ cloneRoot, runtime, candidateSha, evi
     COREPACK_HOME: corepackHome,
     npm_config_devdir: nodeGypCache,
     electron_config_cache: electronCache,
-    C3_DB_PATH: path.join(runtime, 'fresh-clone.sqlite'),
-    C3_PROJECTS_DIR: path.join(runtime, 'projects'),
+    INTENTSMITH_DB_PATH: path.join(runtime, 'fresh-clone.sqlite'),
+    INTENTSMITH_PROJECTS_DIR: path.join(runtime, 'projects'),
     INTENTSMITH_TEST_PROJECTS_DIR: path.join(runtime, 'projects'),
     INTENTSMITH_TEST_ARTIFACT_DIR: path.join(runtime, 'artifacts'),
     INTENTSMITH_TEST_SOURCE_REVISION: candidateSha,
@@ -663,9 +663,9 @@ async function makeFreshCloneEnvironment({ cloneRoot, runtime, candidateSha, evi
     CI: '1',
     DOTENV_CONFIG_PATH: path.join(runtime, 'no-dotenv-file'),
     DOTENV_CONFIG_QUIET: 'true',
-    C3_LIFECYCLE_AUTO_COMMIT: 'false',
-    C3_ENABLE_AUTONOMY: 'false',
-    C3_LOG_LEVEL: 'warn',
+    INTENTSMITH_LIFECYCLE_AUTO_COMMIT: 'false',
+    INTENTSMITH_ENABLE_AUTONOMY: 'false',
+    INTENTSMITH_LOG_LEVEL: 'warn',
   };
   for (const key of ['DISPLAY', 'XAUTHORITY', 'INTENTSMITH_STUDIO_DISPLAY', 'INTENTSMITH_STUDIO_XAUTHORITY']) {
     if (process.env[key] !== undefined) environment[key] = process.env[key];
@@ -866,7 +866,7 @@ export async function runFreshClonePhase({
       }
       const environment = {
         ...prepared.environment,
-        C3_AUDIT_RUN: '1',
+        INTENTSMITH_AUDIT_RUN: '1',
         HOME: path.join(programRuntime, 'home'),
         XDG_CONFIG_HOME: path.join(programRuntime, 'xdg', 'config'),
         XDG_CACHE_HOME: path.join(programRuntime, 'xdg', 'cache'),
@@ -876,9 +876,9 @@ export async function runFreshClonePhase({
         TMP: programTemp,
         TEMP: programTemp,
         npm_config_cache: programNpmCache,
-        C3_DB_PATH: path.join(programRuntime, 'program.sqlite'),
-        C3_PORT_FILE: path.join(programRuntime, 'program.port'),
-        C3_PROJECTS_DIR: programProjects,
+        INTENTSMITH_DB_PATH: path.join(programRuntime, 'program.sqlite'),
+        INTENTSMITH_PORT_FILE: path.join(programRuntime, 'program.port'),
+        INTENTSMITH_PROJECTS_DIR: programProjects,
         INTENTSMITH_TEST_PROJECTS_DIR: programProjects,
         INTENTSMITH_TEST_ARTIFACT_DIR: programArtifacts,
       };

@@ -1,4 +1,4 @@
-// C3 WS Bridge — Protocol Constants
+// IntentSmith WS Bridge — Protocol Constants
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // v59.0 — IDE ↔ Backend WebSocket protocol

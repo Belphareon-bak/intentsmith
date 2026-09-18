@@ -1,5 +1,7 @@
 # IntentSmith na tomto počítači
 
+Ovládání relací, souborů a specialistů: [Práce ve Studiu](IDE-WORKSPACE.md).
+
 Desktopová instalace nabízí aplikaci **IntentSmith** v nabídce aplikací.
 Ikona spustí backendovou uživatelskou službu nebo se k ní připojí. Opětovné
 spuštění nevytváří další backend. Zavření Studia backend ani hunt nezastavuje;
@@ -87,3 +89,42 @@ V **Workeri** lze native agenta spustit, pozastavit či povolit. Pozastavení
 zastaví další plánování, nikoli právě běžící úlohu. Neúspěšný, přeskočený
 nebo částečný běh se nehlásí jako úspěch. Starší legacy záznamy jsou pouze
 ke čtení. [Rozsah opravy a ověření](review/2026-09-17-PRIVACY-AGENT-REMEDIATION.md).
+
+## Sandbox projektových testů (Ubuntu/Kubuntu)
+
+Úspěšný test z terminálu IDE nemusí prokázat funkčnost systémové služby.
+Dne 18. 9. 2026 tatáž M2 zkouška prošla pod `vscode (unconfined)`, ale pod
+uživatelskou službou (`unconfined`) skončila `bwrap: loopback: Failed
+RTM_NEWADDR: Operation not permitted`. Produkční změna byla vrácena;
+není to úspěšný projektový test. Omezení user namespaces zůstává zapnuté.
+
+Připravený [profil bubblewrap](../systemd/intentsmith-bwrap.apparmor) povoluje
+user namespaces pro rootem vlastněný `/usr/bin/bwrap`, podle
+[mechanismu Ubuntu](https://ubuntu.com/blog/ubuntu-23-10-restricted-unprivileged-user-namespaces).
+M2 dále vynucuje oddělenou síť, zákaz dalších user namespaces, odebrání
+capabilities, soubory pouze ke čtení a limity zdrojů. Profil není náhradou
+za tyto hranice. Nenahrávejte duplicitní profil, pokud správce již pro bwrap
+spravuje jiný profil. Na kontrolovaném počítači takový soubor nalezen nebyl.
+
+Instalátor připravuje soubor v `~/.config/intentsmith/intentsmith-bwrap.apparmor`.
+Nahrání vyžaduje práva správce; samotná aplikace je nezískává:
+
+```bash
+sudo install -m 644 ~/.config/intentsmith/intentsmith-bwrap.apparmor /etc/apparmor.d/intentsmith-bwrap
+sudo apparmor_parser -r /etc/apparmor.d/intentsmith-bwrap
+```
+
+Potom z kořene aktuálního zdrojového checkoutu spusťte skutečnou zkoušku v
+kontextu uživatelské služby (ne pouze `node` v IDE):
+
+```bash
+systemd-run --user --wait --pipe --collect \
+  "$(command -v node)" "$PWD/scripts/check-project-sandbox.mjs"
+```
+
+Výstup musí být `PASS`, exit 0. Zkouška používá skutečný M2 process provider,
+limity, Node HTTP parser i WebAssembly, pouze dočasný vlastní adresář; nedotýká
+se projektů, databáze ani GPU. Poté je nutný nový přesný plán a úspěšné provedení
+ve Studiu. Starý neúspěšný plán se nesmí zpětně vydávat za úspěšný.
+Profil byl parsován bez nahrání do kernelu; na kontrolovaném hostu dosud není
+aktivovaný, protože `sudo -n` požaduje heslo správce.

@@ -4,7 +4,7 @@
   "manifestVersion": 2,
   "name": "Sázkař",
   "description": "Autonomní analýza fotbalu 1X2: načítání zdrojů, měření modelu a tikety s limity kurzů, pravděpodobnosti a času.",
-  "author": "c3-core",
+  "author": "intentsmith-core",
   "domain": "sports_betting",
   "type": "domain",
   "engine": ">=121.0.0",

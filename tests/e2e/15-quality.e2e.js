@@ -58,7 +58,7 @@ suite('GET /api/quality/report');
 await testAsync('returns text report', async () => {
   const { status, data } = await api('GET', '/api/quality/report');
   assertEqual(status, 200);
-  assert(typeof data === 'string' && data.includes('C3 Quality Score Report'), 'text report heading required');
+  assert(typeof data === 'string' && data.includes('IntentSmith Quality Score Report'), 'text report heading required');
 });
 
 const result = summary();

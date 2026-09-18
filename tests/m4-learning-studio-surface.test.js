@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const studioPath = path.join(
   root,
-  'c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js',
+  'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js',
 );
 const source = await readFile(studioPath, 'utf8');
 

@@ -755,7 +755,7 @@ export function createProjectRoutes(deps) {
           const entries = await fsP.readdir(dir, { withFileTypes: true });
           const result = [];
           for (const entry of entries) {
-            if (['node_modules', '.git', '.c3', '__pycache__', '.next'].includes(entry.name)) continue;
+            if (['node_modules', '.git', '.intentsmith', '__pycache__', '.next'].includes(entry.name)) continue;
             const fullPath = path.join(dir, entry.name);
             const relPath = path.relative(projectPath, fullPath);
             if (entry.isDirectory()) {

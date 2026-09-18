@@ -5,7 +5,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { logger } from '../core/logger.js';
 
-const ARCHITECT_DIR = '.c3-architect';
+const ARCHITECT_DIR = '.intentsmith-architect';
 const STATE_FILE = 'state.json';
 
 /**
@@ -52,7 +52,7 @@ export class StateManager {
    * Initialize architect directory and state
    */
   async init(projectName) {
-    // Create .c3-architect directory
+    // Create .intentsmith-architect directory
     await fs.mkdir(this.architectDir, { recursive: true });
     await fs.mkdir(path.join(this.architectDir, 'roadmap'), { recursive: true });
     await fs.mkdir(path.join(this.architectDir, 'history'), { recursive: true });

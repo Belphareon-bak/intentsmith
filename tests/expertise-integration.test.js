@@ -1,4 +1,4 @@
-// C3-Agent v57.0 — Expert Integration Tests
+// IntentSmith-Agent v57.0 — Expert Integration Tests
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Tests expert system with real database (SQLite).
@@ -66,7 +66,7 @@ function cleanupTestDb() {
 async function runTests() {
   console.log('\n');
   console.log('╔══════════════════════════════════════════════════════════════════════╗');
-  console.log('║       C3-Agent v57.0 — Expert Integration Tests                      ║');
+  console.log('║       IntentSmith-Agent v57.0 — Expert Integration Tests                      ║');
   console.log('╚══════════════════════════════════════════════════════════════════════╝');
 
   // Clean up before tests

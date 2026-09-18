@@ -15,7 +15,7 @@
 
 import http from 'node:http';
 
-const BASE_URL = process.env.C3_URL || 'http://127.0.0.1:3335';
+const BASE_URL = process.env.INTENTSMITH_URL || 'http://127.0.0.1:3335';
 const OLLAMA_URL = process.env.OLLAMA_URL || 'http://127.0.0.1:11434';
 const measurementFailures = [];
 

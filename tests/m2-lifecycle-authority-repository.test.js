@@ -170,7 +170,7 @@ function policySnapshot() {
     policyId: 'policy-lifecycle-1',
     projectId: 17,
     workspaceRevision: BEFORE_REVISION,
-    policyPath: '.c3/architecture-policy.json',
+    policyPath: '.intentsmith/architecture-policy.json',
     layers: [{ name: 'application', roots: ['src'] }],
     rules: [{ from: 'application', canImport: [] }],
     externalImports: [],

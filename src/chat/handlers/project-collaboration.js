@@ -194,8 +194,8 @@ export async function discussProject(input, context, {
   let proposal = null;
   // Import grants read access, not repository adoption. Keep the useful
   // analysis visible and say what prevents execution before offering a button.
-  if (value.plan !== null && (!analysis.setup['.git'] || !analysis.setup['.c3/m2-governance-policy.json'])) {
-    return { content: `${value.reply}\n\nProjekt zatím nemá připravený Git základ nebo pravidla řízených změn. Analýza soubory nemění. Před generováním je potřeba připravit čistý Git stav, cílové adresáře a .c3/m2-governance-policy.json podle skutečné struktury projektu (návod Práce s projekty).`,
+  if (value.plan !== null && (!analysis.setup['.git'] || !analysis.setup['.intentsmith/m2-governance-policy.json'])) {
+    return { content: `${value.reply}\n\nProjekt zatím nemá připravený Git základ nebo pravidla řízených změn. Analýza soubory nemění. Před generováním je potřeba připravit čistý Git stav, cílové adresáře a .intentsmith/m2-governance-policy.json podle skutečné struktury projektu (návod Práce s projekty).`,
       metadata: { handler: 'project.collaboration', mode: 'PROJECT', canExecute: false,
         projectId: project.id, projectWorkProposal: null, projectSetupRequired: true,
         inspection: { fileCount: analysis.fileCount, excerptCount: analysis.excerpts.length,

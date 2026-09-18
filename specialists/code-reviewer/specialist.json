@@ -19,7 +19,7 @@
   "payload": {
     "name": "Code Reviewer",
     "description": "Systematické project-bound code review s přesnou ProjectContext provenance",
-    "author": "c3-core",
+    "author": "intentsmith-core",
     "domain": "software_engineering",
     "type": "domain",
     "entry": "./index.js",

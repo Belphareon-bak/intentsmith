@@ -6,7 +6,7 @@
 //
 // Run: node tests/e2e-workers.test.js
 //
-// For real notifications, set: C3_TELEGRAM_BOT_TOKEN, C3_TELEGRAM_CHAT_ID
+// For real notifications, set: INTENTSMITH_TELEGRAM_BOT_TOKEN, INTENTSMITH_TELEGRAM_CHAT_ID
 // ══════════════════════════════════════════════════════════════════════════════
 
 import Database from 'better-sqlite3';

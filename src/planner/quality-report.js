@@ -345,7 +345,7 @@ export function generateTextReport({ sinceDays = 30 } = {}) {
 
   const lines = [];
   lines.push('═'.repeat(60));
-  lines.push('  C3 Quality Score Report');
+  lines.push('  IntentSmith Quality Score Report');
   lines.push('═'.repeat(60));
   lines.push('');
 

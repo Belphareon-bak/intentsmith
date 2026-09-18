@@ -128,17 +128,17 @@ export function loadFixtureTasks(repo = REPO_ROOT, fixturePath = FIXTURE, opts =
 
   // Po kalibraci se běžně měří jen aktivní úlohy: rezervy jsou buď nad síly
   // celého panelu, nebo pod ním, takže by jen prodlužovaly běh a ředily průměr.
-  // `C3_EVAL_INCLUDE_RESERVE=1` je vrátí zpět — na ověření, jestli už silnější
+  // `INTENTSMITH_EVAL_INCLUDE_RESERVE=1` je vrátí zpět — na ověření, jestli už silnější
   // model nepřerostl podlahu.
   const includeReserve = opts.includeNonActive === true
-    || process.env.C3_EVAL_INCLUDE_RESERVE === '1';
+    || (process.env.INTENTSMITH_EVAL_INCLUDE_RESERVE ?? process.env['C3_EVAL_INCLUDE_RESERVE']) === '1';
   const onlyPending = opts.onlyPending === true
-    || process.env.C3_EVAL_ONLY_PENDING === '1';
+    || (process.env.INTENTSMITH_EVAL_ONLY_PENDING ?? process.env['C3_EVAL_ONLY_PENDING']) === '1';
   const explicitStatuses = Array.isArray(opts.statuses) ? opts.statuses
-    : String(process.env.C3_EVAL_STATUSES || '').split(',').map(value => value.trim()).filter(Boolean);
+    : String((process.env.INTENTSMITH_EVAL_STATUSES ?? process.env['C3_EVAL_STATUSES']) || '').split(',').map(value => value.trim()).filter(Boolean);
   const statusSet = new Set(explicitStatuses);
   const pendingMaxFunctionLines = Number(
-    opts.pendingMaxFunctionLines ?? process.env.C3_EVAL_PENDING_MAX_FUNCTION_LINES,
+    opts.pendingMaxFunctionLines ?? (process.env.INTENTSMITH_EVAL_PENDING_MAX_FUNCTION_LINES ?? process.env['C3_EVAL_PENDING_MAX_FUNCTION_LINES']),
   );
 
   const tasks = [];

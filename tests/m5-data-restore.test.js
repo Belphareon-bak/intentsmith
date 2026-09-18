@@ -92,9 +92,9 @@ function fixture(migration = knownMigration) {
   fs.writeFileSync(path.join(projectRoot, 'skills', 'custom.json'), '{"name":"custom"}\n');
   fs.mkdirSync(path.join(projectRoot, 'specialists', 'custom'), { recursive: true });
   fs.writeFileSync(path.join(projectRoot, 'specialists', 'custom', 'index.js'), 'export default true;\n');
-  fs.writeFileSync(path.join(dataDir, 'c3-setup.json'), '{"setup":true}\n');
+  fs.writeFileSync(path.join(dataDir, 'intentsmith-setup.json'), '{"setup":true}\n');
 
-  const dbPath = path.join(dataDir, 'c3.db');
+  const dbPath = path.join(dataDir, 'intentsmith.db');
   const db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
   db.exec(`
@@ -213,7 +213,7 @@ test('backup → damaged current DB → offline restore recovers exact bytes and
   const state = fixture();
   try {
     const created = backup(state);
-    const backupDigest = digest(path.join(created.path, 'c3.db'));
+    const backupDigest = digest(path.join(created.path, 'intentsmith.db'));
     state.db.close();
     state.db = null;
     fs.writeFileSync(state.dbPath, 'damaged current database');
@@ -267,9 +267,9 @@ test('offline restore replaces the complete DB/WAL/SHM file-set without replayin
     assert.equal(fs.existsSync(`${state.dbPath}-shm`), false);
     const safetyPath = path.join(state.dataDir, 'backups', restored.safetyBackupName);
     assert.equal(fs.statSync(safetyPath).isDirectory(), true);
-    assert.equal(fs.existsSync(path.join(safetyPath, 'c3.db')), true);
-    assert.equal(fs.existsSync(path.join(safetyPath, 'c3.db-wal')), true);
-    assert.equal(fs.existsSync(path.join(safetyPath, 'c3.db-shm')), true);
+    assert.equal(fs.existsSync(path.join(safetyPath, 'intentsmith.db')), true);
+    assert.equal(fs.existsSync(path.join(safetyPath, 'intentsmith.db-wal')), true);
+    assert.equal(fs.existsSync(path.join(safetyPath, 'intentsmith.db-shm')), true);
 
     const recovered = new Database(state.dbPath, { readonly: true });
     assert.equal(
@@ -288,8 +288,8 @@ test('missing or corrupted backup content never mutates the current database', (
       state.db.close();
       state.db = null;
       const currentDigest = digest(state.dbPath);
-      if (mode === 'missing') fs.unlinkSync(path.join(created.path, 'c3.db'));
-      if (mode === 'corrupt') fs.appendFileSync(path.join(created.path, 'c3.db'), 'corruption');
+      if (mode === 'missing') fs.unlinkSync(path.join(created.path, 'intentsmith.db'));
+      if (mode === 'corrupt') fs.appendFileSync(path.join(created.path, 'intentsmith.db'), 'corruption');
       if (mode === 'extra') fs.writeFileSync(path.join(created.path, 'unexpected.bin'), 'unexpected');
       assert.throws(
         () => restoreStateBackup(state.dataDir, created.name, {
@@ -425,7 +425,7 @@ test('production database module holds the shared lease until its real SQLite cl
   try {
     state.db.close();
     state.db = null;
-    const productionDbPath = path.join(state.dataDir, 'production-c3.db');
+    const productionDbPath = path.join(state.dataDir, 'production-intentsmith.db');
     const databaseModule = pathToFileURL(path.join(root, 'src', 'db', 'database.js')).href;
     child = spawn(process.execPath, ['--input-type=module', '-e', `
       const database = await import(${JSON.stringify(databaseModule)});
@@ -435,7 +435,7 @@ test('production database module holds the shared lease until its real SQLite cl
         process.stdout.write('DATABASE_LEASE_CLOSED\\n');
       });
     `], {
-      env: { ...process.env, C3_DB_PATH: productionDbPath },
+      env: { ...process.env, INTENTSMITH_DB_PATH: productionDbPath },
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     await waitForOutput(child.stdout, 'DATABASE_LEASE_READY');
@@ -498,11 +498,11 @@ test('unreadable process identity and process census fail closed without clearin
 });
 
 test('production fuser adapter treats exit 1 as closed only with completely clean diagnostics', () => {
-  const pathList = ['/tmp/non-sensitive-c3.db'];
+  const pathList = ['/tmp/non-sensitive-intentsmith.db'];
   const databaseLease = Object.freeze({
     contract: 'IntentSmithDatabaseOsLease',
     mode: 'exclusive',
-    leasePath: '/tmp/non-sensitive-c3.db.restore.lease',
+    leasePath: '/tmp/non-sensitive-intentsmith.db.restore.lease',
   });
   const runWithTarget = target => {
     let call = 0;
@@ -598,10 +598,10 @@ test('stale-lock cleanup preserves a replacement live lock across the cleanup ra
 test('legacy backup remains listable but automatic restore refuses its unauthenticated format', () => {
   const state = fixture();
   try {
-    const legacyName = 'c3-state-2026-08-25.backup';
+    const legacyName = 'intentsmith-state-2026-08-25.backup';
     const legacyPath = path.join(state.dataDir, 'backups', legacyName);
     fs.mkdirSync(legacyPath, { recursive: true });
-    fs.copyFileSync(state.dbPath, path.join(legacyPath, 'c3.db'));
+    fs.copyFileSync(state.dbPath, path.join(legacyPath, 'intentsmith.db'));
     fs.writeFileSync(path.join(legacyPath, 'metadata.json'), JSON.stringify({
       type: 'state',
       schema_version: 1,

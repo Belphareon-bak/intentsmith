@@ -2,7 +2,7 @@
 import './helpers/isolated-test-db.js';
 
 // ══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — Fixes #1-#6 Tests v58.2
+// IntentSmith-Agent — Fixes #1-#6 Tests v58.2
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Fix #1: SEARCH only for fresh data, not general knowledge
@@ -48,7 +48,7 @@ function classifyIntent(input) { return engine.classifyIntent(input); }
 function decide(input, ctx = {}) { return engine.decide(input, ctx); }
 
 console.log('══════════════════════════════════════════════════════════');
-console.log('  C3-Agent Fixes #1-#6 Tests v58.2');
+console.log('  IntentSmith-Agent Fixes #1-#6 Tests v58.2');
 console.log('══════════════════════════════════════════════════════════\n');
 
 // ═══════════════════════════════════════════════════════════════════════════

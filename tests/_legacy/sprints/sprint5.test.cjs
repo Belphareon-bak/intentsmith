@@ -10,8 +10,8 @@ const os = require('os');
 
 const {
   ReconnectionManager, LlmTimeoutManager, CrashRecoveryService,
-  ProjectExportService, C3_DEFAULTS, pathExists,
-} = require('../packages/c3-backend/sprint5-integration.cjs');
+  ProjectExportService, INTENTSMITH_DEFAULTS, pathExists,
+} = require('../packages/intentsmith-backend/sprint5-integration.cjs');
 
 let testCount = 0, passCount = 0;
 function test(name, fn) {
@@ -161,43 +161,43 @@ console.log('\n--- 4. Settings Defaults ---');
 
 test('all required keys exist', () => {
   const requiredKeys = [
-    'c3.backend.url', 'c3.backend.autoReconnect',
-    'c3.chat.fontSize', 'c3.chat.showIntentBadges',
-    'c3.agent.autoScroll', 'c3.agent.verbosity',
-    'c3.shell.timeout', 'c3.shell.maxOutput',
-    'c3.project.autoSaveInterval', 'c3.project.gitAutoCommit',
-    'c3.export.includeChat', 'c3.export.includeSrc',
-    'c3.language', 'c3.theme',
+    'intentsmith.backend.url', 'intentsmith.backend.autoReconnect',
+    'intentsmith.chat.fontSize', 'intentsmith.chat.showIntentBadges',
+    'intentsmith.agent.autoScroll', 'intentsmith.agent.verbosity',
+    'intentsmith.shell.timeout', 'intentsmith.shell.maxOutput',
+    'intentsmith.project.autoSaveInterval', 'intentsmith.project.gitAutoCommit',
+    'intentsmith.export.includeChat', 'intentsmith.export.includeSrc',
+    'intentsmith.language', 'intentsmith.theme',
   ];
   for (const key of requiredKeys) {
-    assert.ok(key in C3_DEFAULTS, 'Missing key: ' + key);
+    assert.ok(key in INTENTSMITH_DEFAULTS, 'Missing key: ' + key);
   }
 });
 
 test('default types are correct', () => {
-  assert.strictEqual(typeof C3_DEFAULTS['c3.backend.url'], 'string');
-  assert.strictEqual(typeof C3_DEFAULTS['c3.backend.autoReconnect'], 'boolean');
-  assert.strictEqual(typeof C3_DEFAULTS['c3.chat.fontSize'], 'number');
-  assert.strictEqual(typeof C3_DEFAULTS['c3.agent.verbosity'], 'string');
-  assert.strictEqual(typeof C3_DEFAULTS['c3.shell.timeout'], 'number');
-  assert.strictEqual(typeof C3_DEFAULTS['c3.language'], 'string');
+  assert.strictEqual(typeof INTENTSMITH_DEFAULTS['intentsmith.backend.url'], 'string');
+  assert.strictEqual(typeof INTENTSMITH_DEFAULTS['intentsmith.backend.autoReconnect'], 'boolean');
+  assert.strictEqual(typeof INTENTSMITH_DEFAULTS['intentsmith.chat.fontSize'], 'number');
+  assert.strictEqual(typeof INTENTSMITH_DEFAULTS['intentsmith.agent.verbosity'], 'string');
+  assert.strictEqual(typeof INTENTSMITH_DEFAULTS['intentsmith.shell.timeout'], 'number');
+  assert.strictEqual(typeof INTENTSMITH_DEFAULTS['intentsmith.language'], 'string');
 });
 
 test('default values are reasonable', () => {
-  assert.ok(C3_DEFAULTS['c3.chat.fontSize'] >= 10);
-  assert.ok(C3_DEFAULTS['c3.chat.fontSize'] <= 24);
-  assert.ok(C3_DEFAULTS['c3.shell.timeout'] >= 5000);
-  assert.ok(C3_DEFAULTS['c3.shell.maxOutput'] >= 1024);
-  assert.ok(['minimal', 'normal', 'verbose'].includes(C3_DEFAULTS['c3.agent.verbosity']));
-  assert.ok(['cs', 'en'].includes(C3_DEFAULTS['c3.language']));
-  assert.ok(['dark', 'light'].includes(C3_DEFAULTS['c3.theme']));
+  assert.ok(INTENTSMITH_DEFAULTS['intentsmith.chat.fontSize'] >= 10);
+  assert.ok(INTENTSMITH_DEFAULTS['intentsmith.chat.fontSize'] <= 24);
+  assert.ok(INTENTSMITH_DEFAULTS['intentsmith.shell.timeout'] >= 5000);
+  assert.ok(INTENTSMITH_DEFAULTS['intentsmith.shell.maxOutput'] >= 1024);
+  assert.ok(['minimal', 'normal', 'verbose'].includes(INTENTSMITH_DEFAULTS['intentsmith.agent.verbosity']));
+  assert.ok(['cs', 'en'].includes(INTENTSMITH_DEFAULTS['intentsmith.language']));
+  assert.ok(['dark', 'light'].includes(INTENTSMITH_DEFAULTS['intentsmith.theme']));
 });
 
 // ── 5. ProjectExportService (async) ──────────────────────
 async function runExportTests() {
   console.log('\n--- 5. ProjectExportService ---');
 
-  const testDir = path.join(os.tmpdir(), 'c3-s5-export-' + Date.now());
+  const testDir = path.join(os.tmpdir(), 'intentsmith-s5-export-' + Date.now());
   const projectDir = path.join(testDir, 'myproject');
   const outputDir = path.join(testDir, 'output');
 

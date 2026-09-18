@@ -11,9 +11,9 @@ export {
   ContentType,
   ErrorSource,
   ChannelCapabilities,
-  C3InputEvent,
-  C3OutputEvent,
-  C3ErrorEvent,
+  IntentSmithInputEvent,
+  IntentSmithOutputEvent,
+  IntentSmithErrorEvent,
 } from './types.js';
 
 // Adapters

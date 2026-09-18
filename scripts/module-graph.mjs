@@ -46,7 +46,7 @@ const ENTRY_POINTS = [
 const DYNAMIC_ENTRY_RULES = [
   { prefix: 'src/db/migrations/', why: 'src/db/migrate.js:44-50 — readdirSync + import()' },
 ];
-const EXTERNAL_DIRS = ['tests', 'e2e', 'scripts', 'bin', 'specialists', 'c3-ide', 'skills', 'marketplace', 'docker', 'ide-test-client'];
+const EXTERNAL_DIRS = ['tests', 'e2e', 'scripts', 'bin', 'specialists', 'intentsmith-ide', 'skills', 'marketplace', 'docker', 'ide-test-client'];
 
 function walk(dir, acc = []) {
   let entries;

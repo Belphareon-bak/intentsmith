@@ -50,10 +50,10 @@ export async function rendererBuildComposerProbe({ cdp, paths, requests, evaluat
     const conversationB = (await post('/api/conversations', { title: 'Composer changed context', project_id: projectId })).conversation;
     check(typeof conversationA?.id === 'string' && typeof conversationB?.id === 'string', 'registered-conversations');
     const pane = window._sessions?.[0];
-    check(pane && window.C3Bus?.emit, 'existing-renderer-entry');
+    check(pane && window.IntentSmithBus?.emit, 'existing-renderer-entry');
     pane._convId = conversationA.id; pane._projectId = projectId; pane._agentId = null;
     pane._conversationFocus = false; pane.chat._thinking = null; pane.chat.attachments = [];
-    window.C3Bus.emit('session:changed', { idx: 0 });
+    window.IntentSmithBus.emit('session:changed', { idx: 0 });
     const prefix = 'm2-build-0-';
     const element = id => document.getElementById(prefix + id);
     const section = () => document.querySelector('section[aria-label="Připravit změnu projektu"]');
@@ -68,14 +68,14 @@ export async function rendererBuildComposerProbe({ cdp, paths, requests, evaluat
       check(document.activeElement === element(id), 'focus-' + id);
     };
     await waitFor(() => element('open'), 'open-button');
-    const chat = document.getElementById('c3-chat-ta-0');
+    const chat = document.getElementById('intentsmith-chat-ta-0');
     check(chat, 'ordinary-chat-input');
     const chatDraft = 'Rozepsaný chat  zůstává.';
     Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(chat, chatDraft);
     chat.dispatchEvent(new Event('input', { bubbles: true })); await pause();
     await click('open');
     await change('instruction', 'První rozepsané zadání.');
-    pane._convId = conversationB.id; window.C3Bus.emit('session:changed', { idx: 0 }); await pause();
+    pane._convId = conversationB.id; window.IntentSmithBus.emit('session:changed', { idx: 0 }); await pause();
     check(element('submit')?.disabled === true, 'changed-context-disabled');
     check(section()?.textContent.includes('Konverzace nebo projekt se změnily'), 'changed-context-visible');
     check(element('instruction')?.value === 'První rozepsané zadání.', 'changed-context-retains-input');
@@ -99,7 +99,7 @@ export async function rendererBuildComposerProbe({ cdp, paths, requests, evaluat
     }
     await change('timeout', String(draft.focusedTest.timeoutMs));
     check(!pane._m2Pending && !pane.chat._m2Busy, 'no-implicit-draft-or-approval');
-    check(document.getElementById('c3-chat-ta-0').value === chatDraft, 'ordinary-chat-preserved-before-submit');
+    check(document.getElementById('intentsmith-chat-ta-0').value === chatDraft, 'ordinary-chat-preserved-before-submit');
     await click('submit');
     await waitFor(() => !pane.chat._m2Busy && section()?.textContent.includes('M2_LIFECYCLE_POLICY_UNAVAILABLE'), 'production-policy-rejection');
     check(section().textContent.includes('HTTP 503'), 'typed-http-error-visible');
@@ -114,7 +114,7 @@ export async function rendererBuildComposerProbe({ cdp, paths, requests, evaluat
     for (let index = 0; index < draft.focusedTest.argv.length; index++) {
       check(element('arg-' + index)?.value === draft.focusedTest.argv[index], 'argv-preserved-after-rejection');
     }
-    check(document.getElementById('c3-chat-ta-0').value === chatDraft, 'ordinary-chat-preserved-after-rejection');
+    check(document.getElementById('intentsmith-chat-ta-0').value === chatDraft, 'ordinary-chat-preserved-after-rejection');
     check(!pane._m2Pending && !pane.chat._m2Busy && !element('submit').disabled, 'no-pending-approval-or-stuck-busy');
     check(!document.querySelector('[aria-label="Akce připravené změny"]'), 'no-approval-actions-after-rejection');
     return { projectId, conversationId: conversationB.id, contextInvalidated: true,
@@ -131,7 +131,7 @@ export async function rendererBuildComposerProbe({ cdp, paths, requests, evaluat
   let actual;
   try { actual = JSON.parse(drafts[0].postData); } catch { fail('composer-request-payload-unavailable'); }
   if (JSON.stringify(actual) !== JSON.stringify(expected)) fail('composer-request-payload-changed');
-  if (fs.existsSync(path.join(projectPath, '.c3/m2-governance-policy.json'))
+  if (fs.existsSync(path.join(projectPath, '.intentsmith/m2-governance-policy.json'))
     || draft.files.some(file => fs.existsSync(path.join(projectPath, file.path)))) fail('composer-rejection-mutated-project');
   return Object.freeze({ scope: 'built-dom-production-authenticated-policy-rejection',
     status: 503, errorCode: 'M2_LIFECYCLE_POLICY_UNAVAILABLE', fixtureRegistrationRequests: 3, draftRequests: 1, approvalRequests: 0,

@@ -4,7 +4,7 @@ import { inspectChatJourneyResult } from './helpers/chat-journey-response.js';
 
 installOllamaLoopbackFetchBoundary({ reportOnExit: true });
 
-// C3-Agent v57.3 — Czech Conversation Tests (10 × 15+ steps)
+// IntentSmith-Agent v57.3 — Czech Conversation Tests (10 × 15+ steps)
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // 10 multi-turn Czech conversations through full ChatController.handle() pipeline.
@@ -137,7 +137,7 @@ console.log('  Ollama + LLM OK\n');
 // Suppress noisy pipeline logs
 const _origLog = console.log;
 const _origInfo = console.info;
-const suppressPatterns = /\[C3:|CRE Decision|HandleToolCall|ToolExecutor|WebSearch|SearchMetrics|HandleLocal|ConversationHandler|HandleAskUser|DB\]/;
+const suppressPatterns = /\[IntentSmith:|CRE Decision|HandleToolCall|ToolExecutor|WebSearch|SearchMetrics|HandleLocal|ConversationHandler|HandleAskUser|DB\]/;
 console.log = (...args) => { if (!suppressPatterns.test(String(args[0]))) _origLog(...args); };
 console.info = (...args) => { if (!suppressPatterns.test(String(args[0]))) _origInfo(...args); };
 

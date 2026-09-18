@@ -19,8 +19,8 @@ import './helpers/isolated-test-db.js';
 // No network, no real LLM. Uses CRE.classifyIntent() (deterministic only)
 // + ToolExecutor with mock handlers. Pure computation — runs in ~5-15s.
 //
-// Run: C3_LOG_LEVEL=error node tests/telemetry-soak.test.js
-// Env: SOAK_TURNS=2000 C3_LOG_LEVEL=error node tests/telemetry-soak.test.js
+// Run: INTENTSMITH_LOG_LEVEL=error node tests/telemetry-soak.test.js
+// Env: SOAK_TURNS=2000 INTENTSMITH_LOG_LEVEL=error node tests/telemetry-soak.test.js
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { TurnTelemetry } from '../src/telemetry/turn-telemetry.js';

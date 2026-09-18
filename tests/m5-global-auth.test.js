@@ -130,7 +130,7 @@ test('admin token is timing-safe authority and mixed credentials fail closed', (
   const header = authorize({ headers: { 'x-admin-token': 'admin-secret' } });
   assert.equal(header.allowed, true);
   const apiTokenInAdminHeader = authorize({
-    headers: { 'x-admin-token': 'c3_reader' },
+    headers: { 'x-admin-token': 'intentsmith_reader' },
     validateApiToken: () => ({ valid: true, id: 'reader', scopes: ['write'] }),
   });
   assert.equal(apiTokenInAdminHeader.allowed, false);
@@ -149,13 +149,13 @@ test('API token scopes are route-class bound and cannot self-upgrade', () => {
   const validateApiToken = () => ({ valid: true, id: 'reader', scopes: ['read'] });
   const read = authorize({
     routeKey: 'GET /api/projects',
-    headers: { authorization: 'Bearer c3_reader' },
+    headers: { authorization: 'Bearer intentsmith_reader' },
     validateApiToken,
   });
   assert.equal(read.allowed, true);
   assert.equal(read.subject.actorId, 'api-token:reader');
   const write = authorize({
-    headers: { authorization: 'Bearer c3_reader' },
+    headers: { authorization: 'Bearer intentsmith_reader' },
     validateApiToken,
   });
   assert.equal(write.allowed, false);
@@ -164,13 +164,13 @@ test('API token scopes are route-class bound and cannot self-upgrade', () => {
 
   const approval = authorize({
     routeKey: 'POST /api/lifecycle/spec/approve',
-    headers: { authorization: 'Bearer c3_approver' },
+    headers: { authorization: 'Bearer intentsmith_approver' },
     validateApiToken: () => ({ valid: true, id: 'approver', scopes: ['approve'] }),
   });
   assert.equal(approval.allowed, true);
   const admin = authorize({
     routeKey: 'POST /api/system/backup',
-    headers: { authorization: 'Bearer c3_writer' },
+    headers: { authorization: 'Bearer intentsmith_writer' },
     validateApiToken: () => ({ valid: true, id: 'writer', scopes: ['write'] }),
   });
   assert.equal(admin.allowed, false);
@@ -179,10 +179,10 @@ test('API token scopes are route-class bound and cannot self-upgrade', () => {
 
 test('WebSocket bearer protocol round-trips exactly and rejects malformed encodings', () => {
   const protocol = encodeWebSocketBearerCredential('admin secret / unicode-ž');
-  assert.equal(extractWebSocketBearerCredential(`c3-v1, ${protocol}`), 'admin secret / unicode-ž');
+  assert.equal(extractWebSocketBearerCredential(`intentsmith-v1, ${protocol}`), 'admin secret / unicode-ž');
   assert.equal(extractWebSocketBearerCredential(`${protocol}, ${protocol}`), null);
   assert.equal(extractWebSocketBearerCredential('intentsmith-auth-v1.%%%'), null);
-  assert.deepEqual(parseWebSocketBearerCredential('c3-v1'), { state: 'absent', token: null });
+  assert.deepEqual(parseWebSocketBearerCredential('intentsmith-v1'), { state: 'absent', token: null });
   assert.equal(parseWebSocketBearerCredential(`${protocol}, ${protocol}`).state, 'ambiguous');
   assert.equal(parseWebSocketBearerCredential('intentsmith-auth-v1.%%%').state, 'ambiguous');
 });
@@ -190,19 +190,19 @@ test('WebSocket bearer protocol round-trips exactly and rejects malformed encodi
 test('WebSocket local capability parser preserves absent, valid and ambiguous transport states', () => {
   const first = createLegacyLocalCapability();
   const second = createLegacyLocalCapability();
-  assert.deepEqual(parseLegacyLocalWebSocketCapability('c3-v1'), {
+  assert.deepEqual(parseLegacyLocalWebSocketCapability('intentsmith-v1'), {
     state: 'absent',
     token: null,
   });
-  assert.deepEqual(parseLegacyLocalWebSocketCapability(`c3-v1, c3-local-v1.${first}`), {
+  assert.deepEqual(parseLegacyLocalWebSocketCapability(`intentsmith-v1, intentsmith-local-v1.${first}`), {
     state: 'valid',
     token: first,
   });
   for (const protocols of [
-    'c3-v1, c3-local-v1.invalid',
-    'c3-v1, c3-local-v1',
-    `c3-v1, c3-local-v1.${first}, c3-local-v1.${second}`,
-    `c3-v1, c3-local-v1.${first}, c3-local-v1.${first}`,
+    'intentsmith-v1, intentsmith-local-v1.invalid',
+    'intentsmith-v1, intentsmith-local-v1',
+    `intentsmith-v1, intentsmith-local-v1.${first}, intentsmith-local-v1.${second}`,
+    `intentsmith-v1, intentsmith-local-v1.${first}, intentsmith-local-v1.${first}`,
   ]) {
     assert.deepEqual(parseLegacyLocalWebSocketCapability(protocols), {
       state: 'ambiguous',
@@ -250,7 +250,7 @@ test('WS upgrade binds capability-derived subject and production native bypass i
   const capability = createLegacyLocalCapability();
   const withCapability = verifyUpgrade({
     capability,
-    protocols: `c3-v1, c3-local-v1.${capability}`,
+    protocols: `intentsmith-v1, intentsmith-local-v1.${capability}`,
   });
   assert.equal(withCapability.callback.allowed, true);
   assert.deepEqual(withCapability.request.authenticatedSubject, {
@@ -263,7 +263,7 @@ test('WS upgrade binds capability-derived subject and production native bypass i
   assert.equal(withoutCredential.callback.status, 401);
 
   const adminProtocol = encodeWebSocketBearerCredential('admin-secret');
-  const withAdmin = verifyUpgrade({ capability, protocols: `c3-v1, ${adminProtocol}` });
+  const withAdmin = verifyUpgrade({ capability, protocols: `intentsmith-v1, ${adminProtocol}` });
   assert.equal(withAdmin.callback.allowed, true);
   assert.equal(withAdmin.request.authenticatedSubject.actorId, 'admin-token');
 });
@@ -272,7 +272,7 @@ test('WS still rejects foreign origin before any credential is considered', () =
   const capability = createLegacyLocalCapability();
   const result = verifyUpgrade({
     capability,
-    protocols: `c3-v1, c3-local-v1.${capability}`,
+    protocols: `intentsmith-v1, intentsmith-local-v1.${capability}`,
     origin: 'https://evil.example',
   });
   assert.equal(result.callback.allowed, false);
@@ -281,7 +281,7 @@ test('WS still rejects foreign origin before any credential is considered', () =
 
 test('WS rejects mixed, duplicate and malformed transport credentials before identity binding', () => {
   const capability = createLegacyLocalCapability();
-  const localProtocols = `c3-v1, c3-local-v1.${capability}`;
+  const localProtocols = `intentsmith-v1, intentsmith-local-v1.${capability}`;
   const mixedAdmin = verifyUpgrade({
     capability,
     protocols: localProtocols,
@@ -294,7 +294,7 @@ test('WS rejects mixed, duplicate and malformed transport credentials before ide
   const bearer = encodeWebSocketBearerCredential('admin-secret');
   const duplicateBearer = verifyUpgrade({
     capability,
-    protocols: `c3-v1, ${bearer}, ${bearer}`,
+    protocols: `intentsmith-v1, ${bearer}, ${bearer}`,
   });
   assert.equal(duplicateBearer.callback.allowed, false);
   assert.equal(duplicateBearer.callback.status, 400);
@@ -302,7 +302,7 @@ test('WS rejects mixed, duplicate and malformed transport credentials before ide
 
   const malformedBearer = verifyUpgrade({
     capability,
-    protocols: 'c3-v1, intentsmith-auth-v1.%%%',
+    protocols: 'intentsmith-v1, intentsmith-auth-v1.%%%',
   });
   assert.equal(malformedBearer.callback.allowed, false);
   assert.equal(malformedBearer.callback.status, 400);
@@ -310,7 +310,7 @@ test('WS rejects mixed, duplicate and malformed transport credentials before ide
 
   const malformedLocalWithAdmin = verifyUpgrade({
     capability,
-    protocols: 'c3-v1, c3-local-v1.invalid',
+    protocols: 'intentsmith-v1, intentsmith-local-v1.invalid',
     headers: { authorization: 'Bearer admin-secret' },
   });
   assert.equal(malformedLocalWithAdmin.callback.allowed, false);
@@ -320,7 +320,7 @@ test('WS rejects mixed, duplicate and malformed transport credentials before ide
   const otherCapability = createLegacyLocalCapability();
   const multipleLocalWithAdmin = verifyUpgrade({
     capability,
-    protocols: `c3-v1, c3-local-v1.${capability}, c3-local-v1.${otherCapability}`,
+    protocols: `intentsmith-v1, intentsmith-local-v1.${capability}, intentsmith-local-v1.${otherCapability}`,
     headers: { authorization: 'Bearer admin-secret' },
   });
   assert.equal(multipleLocalWithAdmin.callback.allowed, false);
@@ -409,23 +409,23 @@ test('production server enforces one HTTP/WS auth boundary before effects', asyn
       CI: '1',
       DOTENV_CONFIG_PATH: path.join(runtime, 'missing.env'),
       DOTENV_CONFIG_QUIET: 'true',
-      C3_ADMIN_TOKEN: adminToken,
-      C3_HOST: LOCAL,
-      C3_PORT: '0',
-      C3_PORT_FILE: portFile,
-      C3_DB_PATH: path.join(runtime, 'auth.sqlite'),
-      C3_PROJECTS_DIR: projects,
-      C3_CORS_ORIGINS: '',
-      C3_ENABLE_AGENTS: 'false',
-      C3_ENABLE_EXPERTISES: 'false',
-      C3_ENABLE_LIFECYCLE: 'false',
-      C3_ENABLE_COMFYUI: 'false',
-      C3_ENABLE_AUTONOMY: 'false',
-      C3_ENABLE_SKILLS: 'false',
-      C3_ENABLE_TELEMETRY: 'false',
-      C3_MODEL_UNIVERSE_ENABLED: 'false',
-      C3_UPDATE_REPO: '',
-      C3_LOG_LEVEL: 'warn',
+      INTENTSMITH_ADMIN_TOKEN: adminToken,
+      INTENTSMITH_HOST: LOCAL,
+      INTENTSMITH_PORT: '0',
+      INTENTSMITH_PORT_FILE: portFile,
+      INTENTSMITH_DB_PATH: path.join(runtime, 'auth.sqlite'),
+      INTENTSMITH_PROJECTS_DIR: projects,
+      INTENTSMITH_CORS_ORIGINS: '',
+      INTENTSMITH_ENABLE_AGENTS: 'false',
+      INTENTSMITH_ENABLE_EXPERTISES: 'false',
+      INTENTSMITH_ENABLE_LIFECYCLE: 'false',
+      INTENTSMITH_ENABLE_COMFYUI: 'false',
+      INTENTSMITH_ENABLE_AUTONOMY: 'false',
+      INTENTSMITH_ENABLE_SKILLS: 'false',
+      INTENTSMITH_ENABLE_TELEMETRY: 'false',
+      INTENTSMITH_MODEL_UNIVERSE_ENABLED: 'false',
+      INTENTSMITH_UPDATE_REPO: '',
+      INTENTSMITH_LOG_LEVEL: 'warn',
       OLLAMA_URL: 'invalid://m5-auth-no-model-provider',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -464,7 +464,7 @@ test('production server enforces one HTTP/WS auth boundary before effects', asyn
       body: { name: 'M5 read-only proof', scopes: ['read'], expiresIn: 60 },
     });
     assert.equal(issued.status, 201, issued.raw);
-    assert.match(issued.json.token, /^c3_/);
+    assert.match(issued.json.token, /^intentsmith_/);
 
     const scopedRead = await request(access.port, 'GET', '/api/projects', {
       headers: { authorization: `Bearer ${issued.json.token}` },
@@ -494,13 +494,13 @@ test('production server enforces one HTTP/WS auth boundary before effects', asyn
     )), true);
     assert.doesNotMatch(JSON.stringify(diagnostics.json), new RegExp(adminToken));
 
-    const wsUrl = `ws://${LOCAL}:${access.port}/c3/ws`;
+    const wsUrl = `ws://${LOCAL}:${access.port}/intentsmith/ws`;
     const unauthenticatedWs = await websocketAttempt(wsUrl);
     assert.equal(unauthenticatedWs.opened, false);
     assert.equal(unauthenticatedWs.status, 401);
     const studioWs = await websocketAttempt(wsUrl, [
-      'c3-v1',
-      `c3-local-v1.${access.localCapability}`,
+      'intentsmith-v1',
+      `intentsmith-local-v1.${access.localCapability}`,
     ]);
     assert.equal(studioWs.opened, true, studioWs.error);
   } finally {

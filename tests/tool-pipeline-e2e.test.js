@@ -6,7 +6,7 @@
 // pure local calculation and negative transport inputs cover the remaining
 // active chat/tool boundaries without ambient filesystem or network authority.
 
-const BASE_URL = process.env.C3_URL || 'http://127.0.0.1:3335';
+const BASE_URL = process.env.INTENTSMITH_URL || 'http://127.0.0.1:3335';
 const TIMEOUT_MS = 300_000;
 const INLINE_CANARY = 'INTENTSMITH_INLINE_FIBONACCI_CANARY';
 const PATH_ONLY_CANARY = 'INTENTSMITH_PATH_ONLY_MUST_NOT_LEAK';

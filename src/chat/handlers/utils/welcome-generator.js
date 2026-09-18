@@ -58,7 +58,7 @@ export function generateExistingProjectWelcome(state) {
   }
 }
 
-// ─── FULL: C3 README + C3 ROADMAP ──────────────────────────────────────────
+// ─── FULL: IntentSmith README + IntentSmith ROADMAP ──────────────────────────────────────────
 
 function _welcomeFull(state) {
   if (state.phaseStatus === PhaseStatus.COMPLETED) {
@@ -117,7 +117,7 @@ function _welcomeFullCompleted(state) {
   return parts.join('\n');
 }
 
-// ─── HYBRID: Mix of C3 and foreign/missing ──────────────────────────────────
+// ─── HYBRID: Mix of IntentSmith and foreign/missing ──────────────────────────────────
 
 function _welcomeHybrid(state) {
   const parts = [];
@@ -131,8 +131,8 @@ function _welcomeHybrid(state) {
 
   // Specific notes about what's missing/foreign
   const notes = [];
-  if (state.hasReadme && !state.hasC3Structure) {
-    notes.push('README existuje ale není ve standardním C3 formátu.');
+  if (state.hasReadme && !state.hasIntentSmithStructure) {
+    notes.push('README existuje ale není ve standardním IntentSmith formátu.');
   }
   if (!state.hasReadme) {
     notes.push('Projekt nemá README.');
@@ -140,8 +140,8 @@ function _welcomeHybrid(state) {
   if (!state.hasRoadmap) {
     notes.push('Projekt nemá ROADMAP.');
   }
-  if (state.hasRoadmap && !state.hasC3Structure) {
-    notes.push('ROADMAP nemá C3 strukturu.');
+  if (state.hasRoadmap && !state.hasIntentSmithStructure) {
+    notes.push('ROADMAP nemá IntentSmith strukturu.');
   }
   if (notes.length > 0) {
     parts.push(notes.join(' '));
@@ -160,7 +160,7 @@ function _welcomeHybrid(state) {
   return parts.join('\n');
 }
 
-// ─── FOREIGN: Both exist but neither is C3-generated ────────────────────────
+// ─── FOREIGN: Both exist but neither is IntentSmith-generated ────────────────────────
 
 function _welcomeForeign(state) {
   const parts = [];
@@ -175,7 +175,7 @@ function _welcomeForeign(state) {
   }
 
   parts.push('');
-  parts.push('→ **Vytvořit C3 strukturu** (README + ROADMAP) — zachovám existující obsah');
+  parts.push('→ **Vytvořit IntentSmith strukturu** (README + ROADMAP) — zachovám existující obsah');
   parts.push('→ Prostě mi řekni s čím potřebuješ pomoct');
 
   return parts.join('\n');

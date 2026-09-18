@@ -11,7 +11,7 @@ import os from 'os';
 import path from 'path';
 
 const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-archive-test-'));
-process.env.C3_DB_PATH = path.join(testDir, 'archive.sqlite');
+process.env.INTENTSMITH_DB_PATH = path.join(testDir, 'archive.sqlite');
 
 const {
   projects,

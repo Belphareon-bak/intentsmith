@@ -9,13 +9,13 @@ import { SourceSchema, SchemaBuilder } from './sources/schema.js';
 
 /**
  * Admin auth guard for sensitive endpoints (secrets).
- * When C3_ADMIN_TOKEN env var is set, requires matching Bearer token.
+ * When INTENTSMITH_ADMIN_TOKEN env var is set, requires matching Bearer token.
  * When not set (local dev mode), allows all requests.
  * @param {object} req - Express request
  * @returns {boolean} true if authorized
  */
 function requireAdminAuth(req) {
-  const expected = process.env.C3_ADMIN_TOKEN;
+  const expected = (process.env.INTENTSMITH_ADMIN_TOKEN ?? process.env['C3_ADMIN_TOKEN']);
   if (!expected) return true;  // no token configured = local dev mode
   const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   return token === expected;
@@ -381,7 +381,7 @@ export function createAgentRoutes({ repository, scheduler, executor, llmClient, 
      */
     async listSecrets(req, res) {
       if (!requireAdminAuth(req)) {
-        return res.status(401).json({ error: 'Unauthorized — set C3_ADMIN_TOKEN and pass as Bearer token' });
+        return res.status(401).json({ error: 'Unauthorized — set INTENTSMITH_ADMIN_TOKEN and pass as Bearer token' });
       }
       try {
         const secrets = repository.listSecrets();
@@ -397,7 +397,7 @@ export function createAgentRoutes({ repository, scheduler, executor, llmClient, 
      */
     async setSecret(req, res) {
       if (!requireAdminAuth(req)) {
-        return res.status(401).json({ error: 'Unauthorized — set C3_ADMIN_TOKEN and pass as Bearer token' });
+        return res.status(401).json({ error: 'Unauthorized — set INTENTSMITH_ADMIN_TOKEN and pass as Bearer token' });
       }
       try {
         const { name, value } = req.body;
@@ -417,7 +417,7 @@ export function createAgentRoutes({ repository, scheduler, executor, llmClient, 
      */
     async deleteSecret(req, res) {
       if (!requireAdminAuth(req)) {
-        return res.status(401).json({ error: 'Unauthorized — set C3_ADMIN_TOKEN and pass as Bearer token' });
+        return res.status(401).json({ error: 'Unauthorized — set INTENTSMITH_ADMIN_TOKEN and pass as Bearer token' });
       }
       try {
         repository.deleteSecret(req.params.name);

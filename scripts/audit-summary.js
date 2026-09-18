@@ -452,7 +452,7 @@ if (entrypointUrl && import.meta.url === entrypointUrl) {
 }
 
 export async function makeTempAuditFixture() {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'c3-audit-summary-'));
+  const root = await mkdtemp(path.join(os.tmpdir(), 'intentsmith-audit-summary-'));
   return root;
 }
 

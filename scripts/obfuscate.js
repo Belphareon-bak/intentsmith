@@ -229,7 +229,7 @@ export async function runObfuscation(options = {}) {
   }
   fs.mkdirSync(config.outputDir, { recursive: true });
 
-  console.log(`\n🔒 C3-Agent Source Protection`);
+  console.log(`\n🔒 IntentSmith-Agent Source Protection`);
   console.log(`   Mode: ${config.mode}`);
   console.log(`   Input: ${config.inputDir}`);
   console.log(`   Output: ${config.outputDir}\n`);

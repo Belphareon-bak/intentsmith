@@ -104,9 +104,9 @@ export function validateMemorySettings(settings, previous = {}) {
     }
   }
   for (const key of ['ltmEnabled', 'learningEnabled', 'feedbackDetection', 'patternTracking']) {
-    const value = settings?.[`c3.memory.${key}`];
+    const value = settings?.[`intentsmith.memory.${key}`];
     if (value !== undefined && typeof value !== 'boolean') {
-      throw new UserSettingsError('MEMORY_SETTINGS_INVALID', `c3.memory.${key} must be boolean.`);
+      throw new UserSettingsError('MEMORY_SETTINGS_INVALID', `intentsmith.memory.${key} must be boolean.`);
     }
   }
   if (memory?.saveHistory === false
@@ -122,12 +122,12 @@ export function readChatMemoryPolicy(db) {
   let valid = [UserSettingsStatus.VALID, UserSettingsStatus.MISSING].includes(document.status);
   try { validateMemorySettings(settings); } catch { valid = false; }
   const context = valid && settings.memory?.saveContext !== false;
-  const ltm = context && settings['c3.memory.ltmEnabled'] !== false;
-  const learning = ltm && settings['c3.memory.learningEnabled'] !== false;
+  const ltm = context && settings['intentsmith.memory.ltmEnabled'] !== false;
+  const learning = ltm && settings['intentsmith.memory.learningEnabled'] !== false;
   return Object.freeze({
     history: valid, context, ltm, learning,
-    feedback: learning && settings['c3.memory.feedbackDetection'] !== false,
-    patterns: learning && settings['c3.memory.patternTracking'] !== false,
+    feedback: learning && settings['intentsmith.memory.feedbackDetection'] !== false,
+    patterns: learning && settings['intentsmith.memory.patternTracking'] !== false,
   });
 }
 

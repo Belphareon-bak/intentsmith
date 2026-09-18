@@ -1,0 +1,132 @@
+/* IntentSmith Chat Search Styles */
+
+.intentsmith-search-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--theia-editor-background);
+}
+
+.intentsmith-search-header {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--theia-panel-border);
+  flex-shrink: 0;
+}
+
+.intentsmith-search-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--theia-input-background);
+  border: 1px solid var(--theia-input-border);
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
+.intentsmith-search-input-row:focus-within {
+  border-color: var(--theia-focusBorder);
+}
+
+.intentsmith-search-icon { font-size: 14px; opacity: 0.6; }
+.intentsmith-search-spinner { font-size: 12px; animation: intentsmith-spin 1s linear infinite; }
+@keyframes intentsmith-spin { to { transform: rotate(360deg); } }
+
+.intentsmith-search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--theia-input-foreground);
+  font-size: 13px;
+  outline: none;
+  font-family: var(--theia-ui-font-family);
+}
+
+.intentsmith-search-filters {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.intentsmith-search-filter-select {
+  padding: 2px 6px;
+  background: var(--theia-input-background);
+  color: var(--theia-input-foreground);
+  border: 1px solid var(--theia-input-border);
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+/* ─── Results ─────────────────────────────────────────── */
+
+.intentsmith-search-results {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.intentsmith-search-results::-webkit-scrollbar { width: 4px; }
+.intentsmith-search-results::-webkit-scrollbar-thumb {
+  background: var(--theia-scrollbarSlider-background);
+  border-radius: 2px;
+}
+
+.intentsmith-search-result-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  transition: background 0.1s;
+}
+
+.intentsmith-search-result-item:hover {
+  background: rgba(255,255,255,0.05);
+}
+
+.intentsmith-search-result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.intentsmith-search-result-role {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--theia-foreground);
+}
+
+.intentsmith-search-result-meta {
+  font-size: 10px;
+  color: var(--theia-descriptionForeground);
+}
+
+.intentsmith-search-result-snippets { font-size: 12px; line-height: 1.5; }
+
+.intentsmith-search-result-snippet {
+  color: var(--theia-descriptionForeground);
+  font-family: var(--theia-code-font-family);
+  font-size: 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.intentsmith-search-result-snippet mark {
+  background: rgba(250, 204, 21, 0.3);
+  color: #fde68a;
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+.intentsmith-search-empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--theia-descriptionForeground);
+  font-size: 13px;
+}
+
+.intentsmith-search-footer {
+  padding: 4px 12px;
+  border-top: 1px solid var(--theia-panel-border);
+  font-size: 11px;
+  color: var(--theia-descriptionForeground);
+  flex-shrink: 0;
+}

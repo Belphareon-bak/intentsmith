@@ -1,4 +1,4 @@
-// C3-Agent v57.2 — Trust Feedback API Routes
+// IntentSmith-Agent v57.2 — Trust Feedback API Routes
 // ══════════════════════════════════════════════════════════════════════════════
 //
 // Integration points:

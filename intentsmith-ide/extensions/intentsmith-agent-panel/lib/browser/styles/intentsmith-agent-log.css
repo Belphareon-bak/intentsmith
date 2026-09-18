@@ -1,0 +1,100 @@
+/* IntentSmith Agent Log — v7 */
+.intentsmith-agent-widget { overflow: hidden !important; }
+
+.intentsmith-al {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--intentsmith-bg-1);
+  font-family: var(--intentsmith-font);
+}
+.intentsmith-al-tabs {
+  height: 28px;
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--intentsmith-border);
+  flex-shrink: 0;
+  cursor: grab;
+}
+.intentsmith-al-tabs:active { cursor: grabbing; }
+.intentsmith-al-tab {
+  padding: 0 10px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--intentsmith-tx-4);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.1s;
+}
+.intentsmith-al-tab:hover { color: var(--intentsmith-tx-2); }
+.intentsmith-al-tab.active {
+  color: var(--intentsmith-tx-1);
+  border-bottom-color: var(--intentsmith-accent);
+}
+.intentsmith-al-cnt {
+  font-size: 8px;
+  background: var(--intentsmith-bg-4);
+  padding: 0 4px;
+  border-radius: 5px;
+  color: var(--intentsmith-tx-3);
+}
+.intentsmith-al-panel {
+  flex: 1;
+  overflow-y: auto;
+}
+.intentsmith-al-entry {
+  display: flex;
+  gap: 6px;
+  padding: 3px 10px;
+  font-family: var(--intentsmith-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  border-left: 3px solid transparent;
+}
+.intentsmith-al-entry:hover { background: rgba(255,255,255,0.02); }
+.intentsmith-al-entry.active {
+  border-left-color: var(--intentsmith-accent);
+  background: rgba(34,197,94,0.03);
+}
+.intentsmith-al-time {
+  color: var(--intentsmith-tx-4);
+  flex-shrink: 0;
+  min-width: 58px;
+  font-variant-numeric: tabular-nums;
+}
+.intentsmith-al-type {
+  font-weight: 600;
+  min-width: 60px;
+  flex-shrink: 0;
+}
+.intentsmith-al-type.cre  { color: var(--intentsmith-cyan); }
+.intentsmith-al-type.llm  { color: var(--intentsmith-purple); }
+.intentsmith-al-type.tool { color: var(--intentsmith-amber); }
+.intentsmith-al-type.gate { color: var(--intentsmith-accent-text); }
+.intentsmith-al-type.turn { color: var(--intentsmith-blue); }
+.intentsmith-al-type.info { color: var(--intentsmith-tx-3); }
+.intentsmith-al-text { color: var(--intentsmith-tx-2); }
+
+/* Terminal */
+.intentsmith-al-term {
+  padding: 5px 10px;
+  font-family: var(--intentsmith-mono);
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--intentsmith-tx-2);
+}
+.intentsmith-term-prompt { color: var(--intentsmith-accent-text); }
+.intentsmith-term-ok { color: var(--intentsmith-accent-text); }
+.intentsmith-term-cursor {
+  border-right: 2px solid var(--intentsmith-accent);
+  animation: intentsmith-blink 1s infinite;
+  margin-left: 2px;
+}
+.intentsmith-al-empty {
+  padding: 10px;
+  color: var(--intentsmith-tx-4);
+  font-size: 11px;
+}

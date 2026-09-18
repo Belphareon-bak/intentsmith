@@ -1,8 +1,8 @@
 // Security Routes — Auth guard, API tokens, audit, webhook secret
 // ══════════════════════════════════════════════════════════════════════════════
 //
-// All routes require auth: localhost bypass (dev mode only) OR C3_ADMIN_TOKEN.
-// Production without C3_ADMIN_TOKEN → process.exit(1) at startup.
+// All routes require auth: localhost bypass (dev mode only) OR INTENTSMITH_ADMIN_TOKEN.
+// Production without INTENTSMITH_ADMIN_TOKEN → process.exit(1) at startup.
 //
 // Token hashing: SHA-256, raw token returned ONCE at creation.
 // Audit: unified view across CRE, merge, drift, LLM logs.
@@ -26,9 +26,9 @@ function requireAuth(req, sendJSON, res) {
   if (isDev && isLocalhost) return true;
 
   // Strategy 2: admin token (timing-safe comparison)
-  const adminToken = process.env.C3_ADMIN_TOKEN;
+  const adminToken = (process.env.INTENTSMITH_ADMIN_TOKEN ?? process.env['C3_ADMIN_TOKEN']);
   if (!adminToken) {
-    sendJSON(res, 403, { error: 'Security routes require C3_ADMIN_TOKEN or localhost access' });
+    sendJSON(res, 403, { error: 'Security routes require INTENTSMITH_ADMIN_TOKEN or localhost access' });
     return false;
   }
 
@@ -75,8 +75,8 @@ export function createSecurityRoutes({ db, parseBody, sendJSON, logger }) {
 
   // ── Startup checks ──
   const isDev = process.env.NODE_ENV !== 'production';
-  if (!isDev && !process.env.C3_ADMIN_TOKEN) {
-    logger.error('Security', 'FATAL: NODE_ENV=production but C3_ADMIN_TOKEN is not set. Security routes cannot operate.');
+  if (!isDev && !(process.env.INTENTSMITH_ADMIN_TOKEN ?? process.env['C3_ADMIN_TOKEN'])) {
+    logger.error('Security', 'FATAL: NODE_ENV=production but INTENTSMITH_ADMIN_TOKEN is not set. Security routes cannot operate.');
     process.exit(1);
   }
   if (isDev) {
@@ -155,7 +155,7 @@ export function createSecurityRoutes({ db, parseBody, sendJSON, logger }) {
       }
 
       const id = randomUUID();
-      const plaintext = 'c3_' + randomBytes(32).toString('hex');
+      const plaintext = 'intentsmith_' + randomBytes(32).toString('hex');
       const tokenHash = _hashToken(plaintext);
       const scopes = JSON.stringify(body.scopes || []);
       const expiresAt = body.expiresIn
@@ -202,7 +202,7 @@ export function createSecurityRoutes({ db, parseBody, sendJSON, logger }) {
     'GET /api/security/webhook-secret': (req, res) => {
       if (!requireAuth(req, sendJSON, res)) return;
 
-      const secret = process.env.C3_WEBHOOK_SECRET || null;
+      const secret = (process.env.INTENTSMITH_WEBHOOK_SECRET ?? process.env['C3_WEBHOOK_SECRET']) || null;
       sendJSON(res, 200, {
         configured: !!secret,
         source: secret ? 'environment' : null,
@@ -233,7 +233,7 @@ export function createSecurityRoutes({ db, parseBody, sendJSON, logger }) {
 // ── Token Validation Helper ──────────────────────────────────────────────────
 //
 // validateApiToken(rawDb, token) — for middleware integration
-// 1. Hash incoming token (SHA-256, includes c3_ prefix)
+// 1. Hash incoming token (SHA-256, includes intentsmith_ prefix)
 // 2. Lookup by hash in api_tokens
 // 3. Check expires_at: if set AND expired → reject
 // 4. Update last_used_at ONLY on successful validation

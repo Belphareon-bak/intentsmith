@@ -47,7 +47,7 @@ const databaseModulePath = realpathSync(
 const isolationHelperPath = realpathSync(
   join(__dirname, 'helpers', 'isolated-test-db.js'),
 );
-const fixtureDir = mkdtempSync(join(tmpdir(), 'c3-harness-meta-'));
+const fixtureDir = mkdtempSync(join(tmpdir(), 'intentsmith-harness-meta-'));
 // This probe imports the broad E2E harness and database graph. It verifies
 // isolation and cleanup, not startup latency; keep its child timeout below the
 // registry suite's 120-second ceiling without false-failing on transient host
@@ -63,7 +63,7 @@ const directParentEntriesBefore = directParentExisted
   ? readdirSync(directParentPath).sort()
   : [];
 const isolationKeys = [
-  'C3_AUDIT_RUN',
+  'INTENTSMITH_AUDIT_RUN',
   'HOME',
   'XDG_CONFIG_HOME',
   'XDG_CACHE_HOME',
@@ -73,14 +73,14 @@ const isolationKeys = [
   'TMP',
   'TEMP',
   'npm_config_cache',
-  'C3_DB_PATH',
-  'C3_PROJECTS_DIR',
-  'C3_URL',
+  'INTENTSMITH_DB_PATH',
+  'INTENTSMITH_PROJECTS_DIR',
+  'INTENTSMITH_URL',
   'INTENTSMITH_TEST_PROJECTS_DIR',
   'INTENTSMITH_TEST_ARTIFACT_DIR',
   'INTENTSMITH_TEST_SERVER_PID',
   'INTENTSMITH_TEST_SERVER_NONCE',
-  'C3_PORT_FILE',
+  'INTENTSMITH_PORT_FILE',
   'INTENTSMITH_DIRECT_TEST_RUN',
   'KEEP_TEST_RUNTIME',
   'KEEP_TEST_DB',
@@ -98,7 +98,7 @@ function runFixture(filePath, { raw = false, env = {}, timeout = 5_000 } = {}) {
     for (const key of isolationKeys) delete childEnvironment[key];
   } else {
     delete childEnvironment.INTENTSMITH_DIRECT_TEST_RUN;
-    childEnvironment.C3_AUDIT_RUN = '1';
+    childEnvironment.INTENTSMITH_AUDIT_RUN = '1';
   }
   return spawnSync(process.execPath, [filePath], {
     encoding: 'utf8',
@@ -541,7 +541,7 @@ try {
     NODE_NO_WARNINGS: '1',
   };
   for (const key of isolationKeys) delete attachmentBoundaryEnvironment[key];
-  attachmentBoundaryEnvironment.C3_URL = 'http://127.0.0.1:1';
+  attachmentBoundaryEnvironment.INTENTSMITH_URL = 'http://127.0.0.1:1';
 
   const chatQualityHarnessSelfTest = spawnSync(
     process.execPath,
@@ -679,8 +679,8 @@ const probe = {
   tempMode: lstatSync(process.env.TMPDIR).mode & 0o777,
   tmpAlias: process.env.TMP,
   tempAlias: process.env.TEMP,
-  database: process.env.C3_DB_PATH,
-  projects: process.env.C3_PROJECTS_DIR,
+  database: process.env.INTENTSMITH_DB_PATH,
+  projects: process.env.INTENTSMITH_PROJECTS_DIR,
   artifacts: process.env.INTENTSMITH_TEST_ARTIFACT_DIR,
   artifactsMode: lstatSync(process.env.INTENTSMITH_TEST_ARTIFACT_DIR).mode & 0o777,
   home: process.env.HOME,
@@ -695,7 +695,7 @@ const probe = {
   xdgStateMode: lstatSync(process.env.XDG_STATE_HOME).mode & 0o777,
   npmCache: process.env.npm_config_cache,
   npmCacheMode: lstatSync(process.env.npm_config_cache).mode & 0o777,
-  portFile: process.env.C3_PORT_FILE,
+  portFile: process.env.INTENTSMITH_PORT_FILE,
 };
 console.log('ISOLATION_PROBE:' + JSON.stringify(probe));
 `);
@@ -743,8 +743,8 @@ const probe = {
   tempMode: lstatSync(process.env.TMPDIR).mode & 0o777,
   tmpAlias: process.env.TMP,
   tempAlias: process.env.TEMP,
-  database: process.env.C3_DB_PATH,
-  projects: process.env.C3_PROJECTS_DIR,
+  database: process.env.INTENTSMITH_DB_PATH,
+  projects: process.env.INTENTSMITH_PROJECTS_DIR,
   artifacts: process.env.INTENTSMITH_TEST_ARTIFACT_DIR,
   artifactsMode: lstatSync(process.env.INTENTSMITH_TEST_ARTIFACT_DIR).mode & 0o777,
   home: process.env.HOME,
@@ -759,7 +759,7 @@ const probe = {
   xdgStateMode: lstatSync(process.env.XDG_STATE_HOME).mode & 0o777,
   npmCache: process.env.npm_config_cache,
   npmCacheMode: lstatSync(process.env.npm_config_cache).mode & 0o777,
-  portFile: process.env.C3_PORT_FILE,
+  portFile: process.env.INTENTSMITH_PORT_FILE,
 };
 close();
 console.log('ISOLATION_PROBE:' + JSON.stringify(probe));
@@ -944,11 +944,11 @@ symlinkSync(replacementTarget, isolatedTestRuntime.root);
     TMP: auditTemp,
     TEMP: auditTemp,
     npm_config_cache: auditNpmCache,
-    C3_DB_PATH: join(auditRuntime, 'audit.sqlite'),
-    C3_PROJECTS_DIR: auditProjects,
+    INTENTSMITH_DB_PATH: join(auditRuntime, 'audit.sqlite'),
+    INTENTSMITH_PROJECTS_DIR: auditProjects,
     INTENTSMITH_TEST_PROJECTS_DIR: auditProjects,
     INTENTSMITH_TEST_ARTIFACT_DIR: auditArtifacts,
-    C3_PORT_FILE: join(auditRuntime, 'audit.port'),
+    INTENTSMITH_PORT_FILE: join(auditRuntime, 'audit.port'),
   };
   const auditProbeFixture = writeFixture('audit-runtime-probe.mjs', `
 import { isolatedTestRuntime } from ${JSON.stringify(isolationHelperUrl)};
@@ -972,7 +972,7 @@ console.log('ISOLATION_PROBE:' + JSON.stringify(isolatedTestRuntime));
   assert.equal(auditProbe.mode, 'audit');
   assert.equal(auditProbe.root, null);
   assert.equal(auditProbe.temp, auditTemp);
-  assert.equal(auditProbe.database, auditEnvironment.C3_DB_PATH);
+  assert.equal(auditProbe.database, auditEnvironment.INTENTSMITH_DB_PATH);
   assert.equal(auditProbe.projects, auditProjects);
   assert.equal(auditProbe.artifacts, auditArtifacts);
   assert.equal(auditProbe.home, auditHome);
@@ -981,7 +981,7 @@ console.log('ISOLATION_PROBE:' + JSON.stringify(isolatedTestRuntime));
   assert.equal(auditProbe.xdgData, auditXdgData);
   assert.equal(auditProbe.xdgState, auditXdgState);
   assert.equal(auditProbe.npmCache, auditNpmCache);
-  assert.equal(auditProbe.portFile, auditEnvironment.C3_PORT_FILE);
+  assert.equal(auditProbe.portFile, auditEnvironment.INTENTSMITH_PORT_FILE);
   assert.equal(existsSync(auditRoot), true, 'helper must not remove audit-owned roots');
 
   const auditArtifactsLink = join(auditRoot, 'artifacts-link');
@@ -1389,7 +1389,7 @@ summary();
     /Test inventory rejects symbolic links/,
   );
 
-  if (process.env.C3_AUDIT_RUN === '1') {
+  if (process.env.INTENTSMITH_AUDIT_RUN === '1') {
     assert.deepEqual(
       readdirSync(directParent).sort(),
       directParentEntriesBefore,

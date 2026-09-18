@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// C3-Agent — Export Pipeline Extension (A5 + A6)
+// IntentSmith-Agent — Export Pipeline Extension (A5 + A6)
 // ═══════════════════════════════════════════════════════════════════════════════
 //
 // Adds PDF and DOCX export to the existing export-pipeline.js.

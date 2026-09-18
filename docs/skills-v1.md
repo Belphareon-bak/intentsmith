@@ -403,8 +403,8 @@ If `skills/` directory doesn't exist, registry is empty (no crash). SKILL intent
 | `skills/create-specialist.json` | Meta-skill: creates specialist packages (v122) |
 | `src/skills/detector.js` | Workflow pattern detection + skill proposals |
 | `src/db/migrations/2026_02_27_022_v85_workflow_patterns.js` | Pattern tracking table |
-| `c3-ide/extensions/c3-settings/` | IDE Settings UI toggle |
-| `c3-ide/extensions/c3-chat-panel/lib/browser/ws-client.js` | WebSocket syncSettings |
+| `intentsmith-ide/extensions/intentsmith-settings/` | IDE Settings UI toggle |
+| `intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/ws-client.js` | WebSocket syncSettings |
 | `docs/skills-v1.md` | This documentation |
 
 ---

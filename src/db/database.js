@@ -47,12 +47,12 @@ try {
       timeout: 120_000,
       env: { ...process.env, npm_config_loglevel: 'error' },
     });
-    console.error('[C3:DB] ✓ Rebuild succeeded. Restarting process...');
+    console.error('[IntentSmith:DB] ✓ Rebuild succeeded. Restarting process...');
     // ESM module cache is immutable — rebuilt .node file won't load
     // until a fresh process starts. Exit and let node --watch restart.
     process.exit(0);
   } catch (rebuildErr) {
-    console.error('[C3:DB] ✗ Auto-repair FAILED:', rebuildErr.stderr?.toString().trim() || rebuildErr.message);
+    console.error('[IntentSmith:DB] ✗ Auto-repair FAILED:', rebuildErr.stderr?.toString().trim() || rebuildErr.message);
     console.error('');
     console.error('  Fix manually:');
     console.error(`    cd ${projectRoot}`);
@@ -629,6 +629,15 @@ export const agentLogs = {
 
 // Conversations
 export const conversations = {
+  // Explicit specialist history is a read projection of accepted user turns.
+  // Metadata is descriptive; it never activates a specialist or grants authority.
+  listBySpecialist: db.prepare(`
+    SELECT c.* FROM conversations c
+    WHERE c.state = 'active' AND EXISTS (
+      SELECT 1 FROM messages m WHERE m.conversation_id = c.id AND m.role = 'user'
+      AND CASE WHEN json_valid(m.metadata) THEN json_extract(m.metadata, '$.specialistId') END = ?
+    ) ORDER BY c.updated_at DESC LIMIT ?
+  `),
   create: db.prepare(`
     INSERT INTO conversations (id, project_id, title, summary)
     VALUES (?, ?, ?, ?)

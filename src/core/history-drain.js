@@ -29,7 +29,7 @@ function convJsonlPath(historyDir, convId) {
 /**
  * Drain messages older than cutoffHours from DB to JSONL files.
  * @param {import('better-sqlite3').Database} db - raw better-sqlite3 instance
- * @param {string} dataDir - base data directory (contains c3.db)
+ * @param {string} dataDir - base data directory (contains intentsmith.db)
  * @param {{ cutoffHours?: number }} opts
  * @returns {{ drained: number, files: number, errors: string[] }}
  */

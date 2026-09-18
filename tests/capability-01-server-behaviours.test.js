@@ -74,21 +74,21 @@ function serverEnv(fixture, overrides = {}) {
     CI: '1',
     DOTENV_CONFIG_PATH: path.join(fixture.runtime, 'no-dotenv-file'),
     DOTENV_CONFIG_QUIET: 'true',
-    C3_HOST: '127.0.0.1',
-    C3_PORT: '0',
-    C3_PORT_FILE: fixture.portFile,
-    C3_DB_PATH: fixture.database,
-    C3_PROJECTS_DIR: fixture.projects,
-    C3_ENABLE_AGENTS: 'false',
-    C3_ENABLE_EXPERTISES: 'false',
-    C3_ENABLE_LIFECYCLE: 'false',
-    C3_ENABLE_COMFYUI: 'false',
-    C3_ENABLE_AUTONOMY: 'false',
-    C3_ENABLE_SKILLS: 'false',
-    C3_ENABLE_TELEMETRY: 'false',
-    C3_MODEL_UNIVERSE_ENABLED: 'false',
-    C3_UPDATE_REPO: '',
-    C3_LOG_LEVEL: 'info',
+    INTENTSMITH_HOST: '127.0.0.1',
+    INTENTSMITH_PORT: '0',
+    INTENTSMITH_PORT_FILE: fixture.portFile,
+    INTENTSMITH_DB_PATH: fixture.database,
+    INTENTSMITH_PROJECTS_DIR: fixture.projects,
+    INTENTSMITH_ENABLE_AGENTS: 'false',
+    INTENTSMITH_ENABLE_EXPERTISES: 'false',
+    INTENTSMITH_ENABLE_LIFECYCLE: 'false',
+    INTENTSMITH_ENABLE_COMFYUI: 'false',
+    INTENTSMITH_ENABLE_AUTONOMY: 'false',
+    INTENTSMITH_ENABLE_SKILLS: 'false',
+    INTENTSMITH_ENABLE_TELEMETRY: 'false',
+    INTENTSMITH_MODEL_UNIVERSE_ENABLED: 'false',
+    INTENTSMITH_UPDATE_REPO: '',
+    INTENTSMITH_LOG_LEVEL: 'info',
     // Guarantees B-14 runs with no reachable model provider.
     OLLAMA_URL: 'invalid://capability-01-no-model-provider',
     ...overrides,
@@ -233,8 +233,8 @@ function probe(port, { method = 'GET', pathname = '/', body = null, headers = {}
 function negotiateM1(portInfo, offeredFeatures) {
   return new Promise((resolve, reject) => {
     const socket = new WebSocket(
-      `ws://127.0.0.1:${portInfo.port}/c3/ws`,
-      ['c3-v1', `c3-local-v1.${portInfo.localCapability}`],
+      `ws://127.0.0.1:${portInfo.port}/intentsmith/ws`,
+      ['intentsmith-v1', `intentsmith-local-v1.${portInfo.localCapability}`],
       { handshakeTimeout: 3_000, origin: 'null' },
     );
     let ack = null;
@@ -305,13 +305,13 @@ async function main() {
       '-e', "import('./src/db/database.js').then(()=>{console.log('LOADED');process.exit(0)},e=>{console.log('REFUSED:'+e.message);process.exit(3)})",
     ], {
       cwd: ROOT,
-      env: { ...serverEnv(fixture), C3_DB_PATH: '' },
+      env: { ...serverEnv(fixture), INTENTSMITH_DB_PATH: '' },
       encoding: 'utf8',
       timeout: 60_000,
     });
     check(
-      guard.status === 3 && /C3_DB_PATH/.test(guard.stdout + guard.stderr) && !existsSync(strayDatabase),
-      'B-04 — importing the database module without C3_DB_PATH is refused and creates no file',
+      guard.status === 3 && /INTENTSMITH_DB_PATH/.test(guard.stdout + guard.stderr) && !existsSync(strayDatabase),
+      'B-04 — importing the database module without INTENTSMITH_DB_PATH is refused and creates no file',
     );
 
     // Exercise the upgrade path, not only an empty DB: the child must survive
@@ -425,7 +425,7 @@ async function main() {
 
     // B-06 - a fatal startup error fails closed.
     // Second server aimed at the same, already-bound port.
-    const occupied = startServer(fixture, { C3_PORT: String(port) });
+    const occupied = startServer(fixture, { INTENTSMITH_PORT: String(port) });
     const deadline = Date.now() + STARTUP_TIMEOUT_MS;
     while (Date.now() < deadline && occupied.exitCode === null) await delay(150);
     const transcript = `${occupied.stdout}\n${occupied.stderr}`;

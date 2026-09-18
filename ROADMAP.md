@@ -1,5 +1,13 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**Projektový flow, 2026-09-18:** nasazeno `5e46fca7`, nový projekt → návrh →
+přesný M2 krok; existující cizí projekt → čtecí analýza → cíl a priority.
+Úplný gate 358 PASS / 1 FAIL (nezměněná release pečeť), Studio build PASS.
+Skutečný systemd M2 průchod je **BLOCKED AppArmorem**; privátní IDE/Studio
+zkouška tento provozní problém neodhalila. Profil a postup připravené, vyžadují
+heslo správce. REVIEW_PENDING, bez tvrzení production-ready.
+[Packet a přesné meze](docs/review/2026-09-18-PROJECT-FLOW.md).
+
 **Detail měření a kandidáti, 2026-09-18:** instalováno `2ca3cca1`.
 Řazení a propojování tabulek, vysvětlený rozpad úloh, detail konkrétního měření,
 aktualizovaný katalog (API 82 kandidátů, 26 VISION, 13 vydaných v roce 2026)
@@ -17,6 +25,7 @@ Skóre/historie/bindingy nezměněné. Kombinovaná validace 358 PASS / 1 zděd�
 FAIL release pečeti; REVIEW_PENDING. Původní otevřené Studio potřebuje jedno
 zavření a nové spuštění ikonou; jeho frontend se za běhu nevyměnil.
 [Review, negativní pokusy a meze](docs/review/2026-09-18-MODEL-WORKSPACE-RECONNECT.md).
+
 
 **Modelové pracoviště Studia, 2026-09-18:** instalováno `9298ef46`.
 Uložená denní GPU inventura, skutečný nový ruční test, čekání na GPU,
@@ -131,7 +140,7 @@ s touto roadmapou, platí `DIRECTION.md`.
 > sloučit do jednoho dlouhého pořadníku ani do stovek předvyplněných záznamů.
 
 
-Práce na projektovém flow 2026-09-18: module graph má 1 376 hran,
+Práce na projektovém flow 2026-09-18: module graph má 1 377 hran,
 3 cykly / 28 členů. Nový projekt má vlastní základ a přesný M2 návrh;
 import cizího projektu provádí jen statické čtení a vyjasnění cíle.
 Implementace a fyzické ověřování jsou rozpracované, nezávislé review otevřené.
@@ -517,8 +526,8 @@ Viz [`Studio Electron boundary evidence`](docs/review/2026-08-08-STUDIO-ELECTRON
    clean shutdown nejsou tímto probe prokázané.
 2. **Povolené cesty:** celý strom jen read-only; zápisy pouze do disposable
    klonu a jeho artifact rootu. **Zakázané:** osm rozpracovaných inventur,
-   v současném checkoutu celé `c3-ide/**/lib/**` včetně
-   `c3-ide/extensions/c3-chat-panel/lib/**`, registry, product code a instalace
+   v současném checkoutu celé `intentsmith-ide/**/lib/**` včetně
+   `intentsmith-ide/extensions/intentsmith-chat-panel/lib/**`, registry, product code a instalace
    globálních nástrojů.
 3. **Connector:** žádný se nemění; probe pouze porovná TS vstupy, build output a
    skutečný package entrypoint.
@@ -534,7 +543,7 @@ Viz [`Studio Electron boundary evidence`](docs/review/2026-08-08-STUDIO-ELECTRON
 7. **Stop:** dotčená zapisující část je zastavená před opravou. Operátor musí
    přijmout source disposition; backendový local guard se nesmí oslabit a stale
    TS se nesmí nechat přepsat přes funkční UI.
-8. **Reprodukce:** v disposable klonu `npm ci`; poté z adresáře `c3-ide/`
+8. **Reprodukce:** v disposable klonu `npm ci`; poté z adresáře `intentsmith-ide/`
    `corepack yarn install --frozen-lockfile`, `corepack yarn build` a
    `corepack yarn workspace @c3/chat-panel build`. Runtime používá skutečný
    X11/Wayland display a OS network namespace. Příkazy se nespouštějí z kořene
@@ -621,7 +630,7 @@ focused regression sady.
 1. **Výsledek:** verze 1 připne korelaci, scope konverzačního stavu a jedinou
    terminální sémantiku shodnou pro HTTP, WS a Studio.
 2. **Povolené cesty:** nové `contracts/m1/**`, `src/ws-bridge/protocol.js`,
-   `c3-ide/extensions/c3-protocol/src/**`, **NOVÝ** `tests/m1-contract.test.js`.
+   `intentsmith-ide/extensions/intentsmith-protocol/src/**`, **NOVÝ** `tests/m1-contract.test.js`.
    **Zakázané:** controller, routes, gateway, session-adapter, Studio UI a quality.
 3. **Connector:** `ConversationCommand/Result`, `ModelRequest/Result`, `CoreEvent`
    v1; vlastní je tento jediný WP.
@@ -639,7 +648,7 @@ focused regression sady.
 7. **Stop:** operátor veřejné schéma nepřijal, kontrakt by musel obsahovat M2
    effect/approval authority nebo by TS/JS sdílení vyžadovalo novou závislost.
 8. **Ověření:** **NOVÝ:** `node tests/m1-contract.test.js`; existující:
-   `node tests/ws-bridge.test.js`; v disposable klonu z adresáře `c3-ide/`
+   `node tests/ws-bridge.test.js`; v disposable klonu z adresáře `intentsmith-ide/`
    `corepack yarn workspace @c3/protocol build`.
 
 #### WP-M1-CHAT — pravdivý turn a persistence
@@ -650,7 +659,7 @@ focused regression sady.
 2. **Povolené cesty:** `src/chat/controller.js`, `conversation-store.js`,
    dočasně `response-finalizer.js`, chat/abort error typy, `src/routes/chat.js`,
    **NOVÉ** `tests/m1-chat-*.test.js`. **Zakázané:** `src/llm/**`, `src/ws-bridge/**`,
-   `c3-ide/**` a quality/synthesis internals.
+   `intentsmith-ide/**` a quality/synthesis internals.
 3. **Connector:** pouze adaptér přijatého v1; sémantiku nemění.
 4. **Závislost:** `WP-M1-CONTRACT`; `response-finalizer.js` se po přijetí předá
    výhradně `WP-M1-QUALITY`.
@@ -968,13 +977,13 @@ focused regression sady.
 1. **Výsledek:** built Theia správně koreluje panely, ukáže progress i přesný
    terminal, scoped cancel/reconnect a nemá tichý Fonts egress.
 2. **Povolené cesty:** `src/ws-bridge/{ws-server,session-adapter}.js` bez
-   protocolu; relevantní `c3-ide/extensions/c3-chat-panel/lib/**`, Electron
+   protocolu; relevantní `intentsmith-ide/extensions/intentsmith-chat-panel/lib/**`, Electron
    bridge a nové Studio client/journey testy. Archivovaný chat-panel TypeScript
    není implementační plocha.
    **Zakázané:** chat controller, routes, LLM, quality a přijatý protocol.
    **Operátorsky schválené Gate 1 výjimky:** 010/A+ smí odstranit stale
    `c3-protocol/lib/**` z trackingu, změnit `.gitignore` a
-   `c3-ide/package.json` pro jeho generated prebuild; 012/B smí změnit pouze existence-aware history
+   `intentsmith-ide/package.json` pro jeho generated prebuild; 012/B smí změnit pouze existence-aware history
    větev v `src/routes/chat.js`; 014/A smí změnit pouze legacy rehydrate control
    payload/handler v `src/ws-bridge/ws-server.js`, autoritativní Studio klient,
    localStorage clamp a úzký durable-readiness šev v `conversation-store.js`.
@@ -1744,7 +1753,7 @@ aktualizovat, provozovat, diagnostikovat a obnovit na podporovaném Linuxu.
   službu, legacy služby vyžadují profil `unsupported`, backend zachovává
   `127.0.0.1` a lockfile instalace nemá fallback. Bez autentizované ingress
   boundary se tato cesta nesmí prezentovat jako produkční deployment.
-- `c3-ide/node_modules` není součástí baseline. Theia frozen install/build a
+- `intentsmith-ide/node_modules` není součástí baseline. Theia frozen install/build a
   native ABI se nejprve změří v M0/M1 a teprve jejich přijatá cesta se balí.
 
 ### Závislostní provedení M5
