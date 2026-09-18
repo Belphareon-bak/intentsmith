@@ -5,7 +5,7 @@ prostředí od chyby opravy, kontrola dokončení testu, plné odpovědi a počt
 nedokončených pokusů. Sedm historických úloh má ověřenou odlišnou správnou
 opravu; 49/49 adversariálních kontrol PASS. Jde o pět závislostních skupin,
 nikoli sedm nezávislých scénářů. Nové porovnání tří modelů a oddělený C3
-průchod zatím nejsou doložené; GPU drží LM Studio. REVIEW_PENDING,
+průchod zatím nejsou doložené; nové měření tří modelů probíhá. REVIEW_PENDING,
 PILOT_INCOMPLETE, nová implementace není nasazená.
 [Důkazy a omezení](docs/review/2026-09-18-CODE-PILOT-GRADER-CHECKPOINT.md).
 
@@ -17,10 +17,11 @@ REVIEW_PENDING. [Review a otevřené vady](docs/review/2026-09-18-EVALUATION-HAR
 [CODE pilot](docs/wp/WP-GPU-HUNT-EVALUATION-CONTRACT-20260918.md) má schválený
 rozsah, implementace a přejímka čekají; quick profil až po ověřeném pilotu.
 
-**IDE a GPU hunt, 2026-09-18:** implementované opravy operátorových reprodukcí:
-řazení hlavičkou, celé použitelné role v jedné evaluaci, číselné matice,
-kandidáti ze skutečného hunt katalogu, záložky/kontext/sloupce/soubory a seznamy.
-Cílené kontroly a skutečné GUI PASS; úplný profil a nasazení zatím probíhají.
+**IDE a GPU hunt, 2026-09-18:** nasazeno `576719bf`. Řazení hlavičkou,
+celé použitelné role v jedné evaluaci, číselné matice, 249 kandidátů ze
+sloučeného katalogu, záložky/kontext/sloupce/soubory a zarovnané seznamy.
+119 cílených/navazujících Node testů, 20 kontrol instalovaného GUI PASS;
+úplný profil 359 PASS / 1 FAIL (nezměněná Gate 0 pečeť). Data zachovaná.
 REVIEW_PENDING. [Rozsah a důkaz](docs/review/2026-09-18-IDE-HUNT-POLISH.md).
 
 **Obnova hlavní navigace, 2026-09-18:** nasazeno `57726969`. Opravená

@@ -340,3 +340,21 @@ body.theme-pro-midnight .lm-DockPanel-widget {
 
 /* ─── Hide Welcome tab ─── */
 .theia-WelcomeView { display: none !important; }
+
+/* Settings share one compact, responsive card layout across all categories. */
+.intentsmith-settings-card input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
+.intentsmith-settings-card select,
+.intentsmith-settings-card textarea {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.intentsmith-settings-card pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+.intentsmith-settings-card { overflow-wrap: anywhere; }
+.intentsmith-settings button:focus-visible {
+  outline: 2px solid var(--intentsmith-accent);
+  outline-offset: 2px;
+}
+@media (max-width: 1050px) {
+  .intentsmith-settings-nav { width: 164px !important; min-width: 150px !important; padding: 8px !important; }
+  .intentsmith-settings-detail { padding: 12px !important; }
+}

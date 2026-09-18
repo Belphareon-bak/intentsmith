@@ -1,8 +1,9 @@
 # IDE a GPU hunt: opravy reprodukcí z 18. září
 
-Stav: IMPLEMENTED_TESTING / REVIEW_PENDING. Vstup `ce4a5fc7`, větev
-`work/ide-workspace-20260918`. Úplný profil a nasazení tohoto kandidáta ještě
-nejsou dokončené. Toto není prohlášení production-ready celého produktu.
+Stav: INSTALLED_RUNTIME_VERIFIED / REVIEW_PENDING. Vstup `ce4a5fc7`, větev
+`work/ide-workspace-20260918`. Implementace `b3bb5069`, strukturální baseline
+a nainstalovaný kandidát `576719bf`. Toto není prohlášení production-ready
+celého produktu. Úplný profil je stále FAIL, viz přesné výsledky níže.
 
 ## Rozsah a chování
 
@@ -58,13 +59,13 @@ Záloha: `~/.local/state/intentsmith/project-relocations/2026-09-18T16-43-25-569
 Staré M2 souhlasy se nepřepisují na nový kořen. Nová instalace neprovádí
 hromadnou migraci cizích projektů ani nepřepisuje desktopový profil.
 
-## Dosavadní důkaz a jeho meze
+## Důkaz a jeho meze
 
 - 65/65 Node testů v pěti cílených programech, 54/54 v šesti navazujících.
   Některé programy mají vlastní vnitřní počítadla; s Node součtem se nesčítají.
 - Artifact validation 160/160, produkční Studio build PASS.
-- Skutečné Electron klikání: 12 modelových kontrol, 5 workspace scénářů,
-  2 weather/M1 kroky. Modelové UI používá zmrazený faktický API snapshot a
+- Skutečné Electron klikání z instalační kopie: 12 modelových kontrol,
+  5 workspace scénářů, 2 weather/M1 kroky a 1 katalog přes skutečné HTTP. Modelové UI používá zmrazený faktický API snapshot a
   zachytí POST; nepředstírá skutečné sedmirolové GPU měření. Backendové
   odmítnutí neplatných pinů a start jediné systemd úlohy jsou pokryté zvlášť.
 - Weather scénář jde přes skutečný privátní server a M1, bez modelového
@@ -79,6 +80,48 @@ hromadnou migraci cizích projektů ani nepřepisuje desktopový profil.
   počet cyklů se nemění. Strukturální baseline není release Gate 0 policy.
 
 Evidence: `.intentsmith-artifacts/ide-polish-20260918/`. Kompletní archiv,
-finální hash souborů, přesný gate a instalační důkaz budou doplněné po běhu.
+hashe souborů, gate i instalační důkaz jsou ve strojovém záznamu níže.
 Zděděné otevřené oblasti: nezávislé review, Gate 0 pečeť, M5 history podpis a
 systemd M2 AppArmor. Tento rozsah je neuzavírá.
+
+
+## Úplný profil a nasazení
+
+Na `576719bf`: **359 PASS / 1 FAIL / 0 TIMEOUT / 0 BLOCKED / 0 SKIPPED**, 360
+programů. Jediný non-PASS je `nightly-orchestrator-self-test`: registry hash
+nesouhlasí s přijatou Gate 0 policy. Celkový verdict **FAIL** zůstává přiznaný;
+policy ani testovací registry se nepřepečetily. Module boundary **1379 hran
+PASS**, 3 cykly / 28 souborů beze změny. M5 aktuální strom **0 nálezů / PASS**,
+historie **15/15 dosažitelných / HISTORY_REMEDIATION_REQUIRED**.
+
+Čistá detached instalace sdílí backend, hunt a DB. Autentizovaný hunt endpoint
+HTTP 200, bez capability HTTP 403, launcher check PASS, timer active. Záloha
+DB před upgradem, quick_check ok a nula FK chyb; shoda všech sledovaných
+konverzačních, modelových a paměťových tabulek. U projektů se při startovacím
+skenu změnil pouze last_active u id 2, 4, 5, 6, 7, 11; všechny ostatní sloupce
+jsou shodné. Původní přesná hash kontrola proto správně selhala a její log
+je zachovaný. Jde o existující src/server.js sken → getOrCreate, nikoli
+přepsání projektu nebo obsahu. Admin credential
+zachovaný. Backendový default a projekt id 11 ukazují do IntentSmith projects.
+Živá kandidátní API po nasazení vrací 249 položek; izolovaná DB měla 243.
+Rozdíl šesti položek pochází ze staršího ONLINE_DISCOVERY, ne z dalších
+fyzických měření. Trvalý hunt katalog má shodně 180 identit / 174 rodin.
+Desktopový profil se nemazal a otevřené uživatelské okno se nezabíjelo: pro
+nový frontend je potřeba okno zavřít a aplikaci znovu otevřít ikonou.
+
+Reprodukce úplného profilu (potřebuje uvedené lokální PDF/OCR runtime):
+
+```sh
+INTENTSMITH_PDF_PYTHON=/home/belphareon/.local/share/intentsmith/python/pdf/bin/python \
+UCETNI_RUNTIME_DIR=/home/belphareon/.local/share/ucetni \
+node scripts/nightly-audit.js --profile=offline,database --concurrency=1 \
+  --allow-blocker=toolchain:git,toolchain:bwrap,toolchain:bubblewrap,toolchain:prlimit,toolchain:systemd-analyze,toolchain:python-pdf-runtime,toolchain:accountant-ocr-runtime \
+  --out-dir=.intentsmith-artifacts/ide-polish-20260918/repeat --run-id=review
+```
+
+[Strojová evidence a hashe](../execution/runs/ide-polish-20260918.json) ·
+[Matice](assets/ide-polish-20260918/matrix.png) ·
+[Katalog](assets/ide-polish-20260918/canonical-candidates.png) ·
+[Sloupce](assets/ide-polish-20260918/three-columns.png) ·
+[Seznam](assets/ide-polish-20260918/specialist-list.png) ·
+[Šipky souborů](assets/ide-polish-20260918/file-arrows.png).

@@ -49,9 +49,16 @@ var _C_CLEAN={bg0:'#0c0c0f',bg1:'#111114',bg2:'#18181c',bg3:'#1f2025',bg4:'#2728
   cyan:'#22d3ee',cyanBg:'rgba(34,211,238,0.1)',
   border:'rgba(255,255,255,0.06)',border2:'rgba(255,255,255,0.1)',
   font:"'Plus Jakarta Sans',-apple-system,sans-serif",mono:"'JetBrains Mono','Fira Code',monospace"};
+var _C_STUDIO=Object.assign({},_C_DEFAULT,{
+  bg0:'#0b1016',bg1:'#101720',bg2:'#171f2b',bg3:'#202a3a',bg4:'#2b3548',bg5:'#354157',
+  tx1:'#edf1fa',tx2:'#b8c4da',tx3:'#92a4c3',tx4:'#7e91b1',
+  accent:'#8876f7',accentText:'#c3b9ff',accentDim:'#5646ae',accentBg:'rgba(136,118,247,0.17)',onAccent:'#ffffff',
+  success:'#4edda0',successBg:'rgba(78,221,160,0.12)',blue:'#70b8ff',cyan:'#5bd7dc',purple:'#b49cff',
+  border:'rgba(151,177,221,0.12)',border2:'rgba(151,177,221,0.24)'});
 var _C_THEMES={
   intentsmith:_C_DEFAULT,
   clean:_C_CLEAN,
+  studio:_C_STUDIO,
   matrix:{bg0:'#010208',bg1:'#020410',bg2:'#040818',bg3:'#06101e',bg4:'#0a1428',bg5:'#0e1a32',
     tx1:'#b0ffb0',tx2:'#408050',tx3:'#22c55e',tx4:'#0d6832',
     accent:'#00ff6a',accentText:'#66ffaa',accentBg:'rgba(0,255,106,0.1)',
@@ -79,7 +86,7 @@ var _C_THEMES={
 };
 var C=Object.assign({},_C_DEFAULT);
 function _appearanceMode(){try{return localStorage.getItem('intentsmith-theme-mode')||'intentsmith';}catch(e){return'intentsmith';}}
-function _isProTheme(themeId){return themeId!=='intentsmith'&&themeId!=='clean';}
+function _isProTheme(themeId){return ['matrix','japanese','midnight'].indexOf(themeId)>=0;}
 /* Font-size scaling — _fs(base) returns scaled px value, containers stay fixed */
 var _fsScale=1;
 function _fs(b){return Math.round(b*_fsScale*10)/10;}
@@ -91,7 +98,7 @@ var _PRO_GLASS={
 };
 function _applyColorTheme(themeId){
   var t=_C_THEMES[themeId]||_C_DEFAULT;
-  Object.keys(t).forEach(function(k){C[k]=t[k];});
+  Object.assign(C,_C_DEFAULT,t);
   C._solidBg0=t.bg0; /* v93: Always store solid bg0 before glass override */
   /* For pro themes: overwrite C.bg* with glass (rgba) values.
      This makes BOTH React inline styles AND CSS variables use transparent backgrounds,
@@ -2440,7 +2447,7 @@ function centerExpertiseWizard(){
 }
 
 /* Settings state */
-var _settingsVals={theme:'dark',accentIdx:0,activeInt:100,passiveInt:50,fontSizeVal:13,fontIdx:0,custom1:null,custom2:null,bgIdx:0,bgCustom1:null,bgCustom2:null,customCSS:'',visualMode:'borders',tileOpacity:80,bgDim:30,sidebarOpacity:80,projectsDir:'',autoCollapse:true,restoreSession:true,lastView:''};
+var _settingsVals={theme:'dark',accentIdx:0,activeInt:100,passiveInt:50,textIntensity:70,fontSizeVal:13,fontIdx:0,custom1:null,custom2:null,bgIdx:0,bgCustom1:null,bgCustom2:null,customCSS:'',visualMode:'borders',tileOpacity:80,bgDim:30,sidebarOpacity:80,projectsDir:'',autoCollapse:true,restoreSession:true,lastView:''};
 /* v87.3: Backend config state — loaded from /api/settings */
 var _bCfg=null;var _bCfgLoading=false;var _gpuInfo=null;var _ollamaModels=null;var _sysInfo=null;var _storageInfo=null;var _bCfgSaveTimer=null;
 var _upgradeData=null;var _upgradeLoading=false;var _upgradeMsg=null;
@@ -2709,13 +2716,14 @@ var _bgPresets=[
   {label:'Custom',bg:null}];
 var _cleanDarkC={bg0:'#0c0c0f',bg1:'#111114',bg2:'#18181c',bg3:'#1f2025',bg4:'#27282e',bg5:'#2f3038',tx1:'#ececef',tx2:'#a1a1aa',border:'rgba(255,255,255,0.06)',border2:'rgba(255,255,255,0.1)'};
 var _cleanLightC={bg0:'#f5f5f7',bg1:'#eaeaec',bg2:'#e0e0e3',bg3:'#d4d4d8',bg4:'#c8c8cc',bg5:'#bbbbc0',tx1:'#18181b',tx2:'#52525b',border:'rgba(0,0,0,0.08)',border2:'rgba(0,0,0,0.15)'};
+var _studioLightC={bg0:'#f0f3fa',bg1:'#e7edf8',bg2:'#dce4f2',bg3:'#cdd8ed',bg4:'#bfcee6',bg5:'#adbfdc',tx1:'#18213b',tx2:'#455577',border:'rgba(65,87,136,0.12)',border2:'rgba(65,87,136,0.24)'};
 var _brandLightC={bg0:'#f7f4ee',bg1:'#f0ebe2',bg2:'#e8e1d6',bg3:'#ddd4c7',bg4:'#d0c4b4',bg5:'#c0b29f',tx1:'#211d17',tx2:'#5c5348',border:'rgba(83,61,30,0.10)',border2:'rgba(83,61,30,0.18)'};
 try{var _sv=localStorage.getItem('intentsmith-settings');if(_sv){var _p=JSON.parse(_sv);Object.assign(_settingsVals,_p);}}catch(e){}
 function _saveSV(){try{localStorage.setItem('intentsmith-settings',JSON.stringify(_settingsVals));}catch(e){}}
 function _getPalette(){var idx=_settingsVals.accentIdx;if(idx>=100){var cc=idx===100?_settingsVals.custom1:_settingsVals.custom2;return cc?_mkPalette(cc):_accentPalettes[0];}return _accentPalettes[idx]||_accentPalettes[0];}
 function _isLight(){var t=_settingsVals.theme;if(t==='light')return true;if(t==='system')try{return!window.matchMedia('(prefers-color-scheme:dark)').matches;}catch(e){return false;}return false;}
 function _applyTheme(themeId){
-  var lt=_isLight();var isClean=themeId==='clean';var tc=isClean?(lt?_cleanLightC:_cleanDarkC):(lt?_brandLightC:_C_DEFAULT);
+  var lt=_isLight();var isClean=themeId==='clean';var tc=isClean?(lt?_cleanLightC:_cleanDarkC):(themeId==='studio'?(lt?_studioLightC:_C_STUDIO):(lt?_brandLightC:_C_DEFAULT));
   var bi=_settingsVals.bgIdx||0;
   var baseBg=tc.bg0;
   if(isClean){
@@ -2728,6 +2736,7 @@ function _applyTheme(themeId){
   }else{
     C.bg0=tc.bg0;C.bg1=tc.bg1;C.bg2=tc.bg2;C.bg3=tc.bg3;C.bg4=tc.bg4;C.bg5=tc.bg5;
   }
+  C._solidBg0=C.bg0;
   C.tx1=tc.tx1;C.tx2=tc.tx2;C.border=tc.border;C.border2=tc.border2;
   var d=document.documentElement.style;
   d.setProperty('--intentsmith-bg0',C.bg0);d.setProperty('--intentsmith-bg1',C.bg1);d.setProperty('--intentsmith-bg2',C.bg2);
@@ -2736,12 +2745,14 @@ function _applyTheme(themeId){
   d.setProperty('--intentsmith-border',C.border);d.setProperty('--intentsmith-border2',C.border2);
 }
 function _applyAccent(){
-  var _ctm=_appearanceMode();var _theme=_C_THEMES[_ctm];var isClean=_ctm==='clean';var p=(!isClean&&_theme)?{accent:_theme.accent,text:_theme.accentText,dim:_theme.accentDim||_cl(_theme.accent,'#000000',0.3)}:_getPalette();var ai=(_settingsVals.activeInt||100)/100;var pi=(_settingsVals.passiveInt!=null?_settingsVals.passiveInt:50)/100;
+  var _ctm=_appearanceMode();var _theme=_C_THEMES[_ctm];var isClean=_ctm==='clean';var p=(!isClean&&_theme)?{accent:_theme.accent,text:_theme.accentText,dim:_theme.accentDim||_cl(_theme.accent,'#000000',0.3)}:_getPalette();var ai=(_settingsVals.activeInt!=null?_settingsVals.activeInt:100)/100;var pi=0.5;
   C.accent=_cl(p.dim,p.accent,ai);C.accentText=_cl(p.dim,p.text,ai);
   var ac=_hp(p.accent);C.accentBg='rgba('+ac[0]+','+ac[1]+','+ac[2]+','+((isClean?0.08:0.12)*ai).toFixed(3)+')';C.onAccent=_onColor(C.accent);
   if(isClean){
     /* Preserve the original Clean palette and its stronger user-selected tint. */
     C.tx3=_cl('#71717a',p.text,pi*0.6);C.tx4=_cl('#52525b',p.accent,pi*0.4);
+  }else if(_ctm==='studio'){
+    C.tx3=_isLight()?'#536487':_C_STUDIO.tx3;C.tx4=_isLight()?'#627294':_C_STUDIO.tx4;
   }else{
     /* Brand copy stays readable and only picks up a restrained gold tint. */
     C.tx3=_cl(_isLight()?'#514a41':'#a18d6e',p.text,pi*0.18);C.tx4=_cl(_isLight()?'#665f55':'#8c7d67',p.accent,pi*0.08);
@@ -2774,7 +2785,31 @@ function _applyFont(){
   if(fs!==13){css+='#intentsmith-chat-panel .intentsmith-chat-msg-text{font-size:'+fs+'px!important;}';}
   ex.textContent=css;
 }
-function _applyAllSettings(){var _ctm=_appearanceMode();_applyColorTheme(_ctm);if(!_isProTheme(_ctm))_applyTheme(_ctm);_applyAccent();_injectProThemeCSS(_ctm);_applyFont();_injectCustomCSS(_settingsVals.customCSS);renderCenter();renderChat();renderAgent();if(typeof renderSidebar==='function')renderSidebar();}
+/* Glyph-only contrast: each element keeps its own semantic/syntax color.
+   Opacity/filter on a panel would also dim its background and nested content. */
+function _applyTextIntensity(){
+  var value=Number(_settingsVals.textIntensity);
+  if(!Number.isFinite(value))value=70;
+  value=Math.max(0,Math.min(100,value));
+  var d=document.documentElement.style;
+  d.setProperty('--intentsmith-text-opacity',(78+value*0.22)+'%');
+  d.setProperty('--intentsmith-text-ink',(_isLight()&&!_isProTheme(_appearanceMode()))?'#000000':'#ffffff');
+  d.setProperty('--intentsmith-text-boost',(value*0.16)+'%');
+  var ex=document.getElementById('intentsmith-text-intensity');
+  if(!ex){ex=document.createElement('style');ex.id='intentsmith-text-intensity';document.head.appendChild(ex);}
+  ex.textContent='body,body *{ -webkit-text-fill-color:color-mix(in srgb,color-mix(in srgb,currentColor calc(100% - var(--intentsmith-text-boost)),var(--intentsmith-text-ink)) var(--intentsmith-text-opacity),transparent)!important;}'+
+    'body input::placeholder,body textarea::placeholder{-webkit-text-fill-color:color-mix(in srgb,currentColor var(--intentsmith-text-opacity),transparent)!important;}';
+}
+function _syncWorkbenchPalette(){
+  var d=document.documentElement.style;
+  ['sideBar','activityBar','panel','mainToolbar','breadcrumb','editor','terminal','editorGutter','editorStickyScroll','sideBarSectionHeader'].forEach(function(k){d.setProperty('--theia-'+k+'-background',C.bg1);});
+  ['foreground','editor-foreground','terminal-foreground','sideBar-foreground','input-foreground','menu-foreground','tab-activeForeground'].forEach(function(k){d.setProperty('--theia-'+k,C.tx1);});
+  ['titleBar-activeBackground','titleBar-inactiveBackground','editorGroupHeader-tabsBackground','editorGroupHeader-noTabsBackground','tab-inactiveBackground'].forEach(function(k){d.setProperty('--theia-'+k,C.bg0);});
+  ['tab-activeBackground','statusBar-background','statusBar-noFolderBackground','menu-background','notifications-background','notificationCenterHeader-background','quickInput-background','editorWidget-background','editorHoverWidget-background','peekViewTitle-background','peekViewResult-background','editorMarkerNavigation-background'].forEach(function(k){d.setProperty('--theia-'+k,C.bg2);});
+  ['input-background','dropdown-background','menu-selectionBackground','list-hoverBackground','list-activeSelectionBackground','list-inactiveSelectionBackground','settings-focusedRowBackground'].forEach(function(k){d.setProperty('--theia-'+k,C.bg3);});
+  d.setProperty('--theia-tab-border',C.border);d.setProperty('--theia-focusBorder',C.accent);
+}
+function _applyAllSettings(){var _ctm=_appearanceMode();_applyColorTheme(_ctm);if(!_isProTheme(_ctm))_applyTheme(_ctm);_applyAccent();if(!_isProTheme(_ctm))_syncWorkbenchPalette();_injectProThemeCSS(_ctm);_applyFont();_applyTextIntensity();_injectCustomCSS(_settingsVals.customCSS);renderCenter();renderChat();renderAgent();if(typeof renderSidebar==='function')renderSidebar();}
 /* Apply saved settings on load */
 var _initialAppearance=_appearanceMode();_applyColorTheme(_initialAppearance);if(!_isProTheme(_initialAppearance))_applyTheme(_initialAppearance);_applyAccent();setTimeout(function(){_applyFont();_injectCustomCSS(_settingsVals.customCSS);_applyAllSettings();},600);
 /* Restore Pro theme from localStorage */
@@ -2788,7 +2823,7 @@ function centerSettings(){
   if(!_bCfg&&!_bCfgLoading)_loadBCfg();
   return h(React.Fragment,null,viewHead('Nastavení',false),
     h('div',{className:'intentsmith-settings',style:{display:'flex',flex:1,minHeight:0,overflow:'hidden'}},
-      h('nav',{style:{width:220,minWidth:170,borderRight:'1px solid '+C.border,padding:12,overflowY:'auto'},'aria-label':'Kategorie nastavení'},
+      h('nav',{className:'intentsmith-settings-nav',style:{width:190,minWidth:160,flexShrink:0,boxSizing:'border-box',borderRight:'1px solid '+C.border,padding:12,overflowY:'auto'},'aria-label':'Kategorie nastavení'},
         h('input',{value:_settingsSearch,placeholder:'Hledat kategorii', 'aria-label':'Hledat v nastavení',style:{width:'100%',boxSizing:'border-box',padding:8,marginBottom:12,border:'1px solid '+C.border2,borderRadius:4,background:C.bg2,color:C.tx1},onChange:function(e){_settingsSearch=e.target.value;renderCenter();}}),
         SETTINGS_SECTIONS.map(function(section,index){var title=_settingsLabels[section.title]||section.title;if((title+' '+section.desc).toLocaleLowerCase().indexOf(_settingsSearch.toLocaleLowerCase())<0)return null;return h('button',{key:section.title,'aria-current':index===si?'page':undefined,style:{display:'block',width:'100%',textAlign:'left',border:0,borderRadius:4,padding:'10px 12px',marginBottom:2,background:index===si?C.bg3:'transparent',color:index===si?C.tx1:C.tx2,fontSize:13,cursor:'pointer'},onClick:function(){_centerState.settingsSection=index;renderCenter();}},title);})),
       settingsDetailPanel(sec,si)));
@@ -2816,24 +2851,45 @@ function settingsDetailPanel(sec,si){
 
       h('span',{style:{fontSize:_fs(13.5),fontWeight:700,flex:1,color:C.tx1}},_settingsLabels[sec.title]||sec.title),
       h('button',{style:{background:'none',border:'none',color:C.tx4,cursor:'pointer',padding:2,borderRadius:4,display:'flex'},
-        onClick:function(){_centerState.settingsSection=null;renderCenter();}},svgEl(I.close,15))),
-    h('div',{style:{flex:1,overflowY:'auto',padding:'12px 14px'}},panelBody));
+        title:'Zpět do pracovního prostoru','aria-label':'Zpět do pracovního prostoru',onClick:function(){_showWorkspace();}},svgEl(I.close,15))),
+    h('div',{className:'intentsmith-settings-detail',style:{flex:1,minHeight:0,overflowY:'auto',padding:'16px 20px'}},panelBody));
 }
 
+var _settingsTabs={};
+function _settingsCard(title,content){
+  return h('section',{key:title,className:'intentsmith-settings-card','aria-label':title,style:{minWidth:0,alignSelf:'start',border:'1px solid '+C.border2,borderRadius:8,background:C.bg2,overflow:'hidden'}},
+    h('h3',{style:{margin:0,padding:'12px 16px',fontSize:_fs(12),fontWeight:600,color:C.tx1,borderBottom:'1px solid '+C.border}},title),
+    h('div',{style:{padding:16,minWidth:0}},content));
+}
+function _settingsPage(section,pages){
+  var active=pages.find(function(p){return p.id===_settingsTabs[section];})||pages[0];
+  var prefix='intentsmith-settings-'+section.replace(/ /g,'-');
+  function select(page,focus){_settingsTabs[section]=page.id;renderCenter();if(focus)setTimeout(function(){var b=document.getElementById(prefix+'-'+page.id);if(b)b.focus();},0);}
+  return h('div',{className:'intentsmith-settings-page','data-settings-section':section,style:{maxWidth:1280,margin:'0 auto',minWidth:0}},
+    h('div',{role:'tablist','aria-label':_settingsLabels[section]||section,style:{display:'flex',flexWrap:'wrap',gap:6,marginBottom:18}},pages.map(function(p,i){return h('button',{key:p.id,id:prefix+'-'+p.id,role:'tab','aria-controls':prefix+'-panel','aria-selected':active===p,tabIndex:active===p?0:-1,style:{border:'1px solid '+(active===p?C.accent:C.border2),borderRadius:5,padding:'8px 13px',background:active===p?C.accentBg:C.bg0,color:active===p?C.accentText:C.tx2,fontSize:_fs(11),cursor:'pointer'},onClick:function(){select(p,false);},onKeyDown:function(e){var n=e.key==='ArrowRight'?(i+1)%pages.length:e.key==='ArrowLeft'?(i+pages.length-1)%pages.length:e.key==='Home'?0:e.key==='End'?pages.length-1:-1;if(n>=0){e.preventDefault();select(pages[n],true);}}},p.label);})),
+    h('div',{id:prefix+'-panel',role:'tabpanel','aria-labelledby':prefix+'-'+active.id,className:'intentsmith-settings-cards',style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(min(100%,340px),1fr))',gap:16,alignItems:'start'}},active.cards));
+}
+function _appearancePreview(){
+  return h('div',{'data-testid':'appearance-preview',style:{background:C.bg0,border:'1px solid '+C.border2,borderRadius:6,overflow:'hidden',fontSize:_fs(12),lineHeight:1.7}},
+    h('div',{style:{background:C.bg3,padding:'8px 12px',color:C.tx1,borderBottom:'2px solid '+C.accent}},'Projekt / widget.js'),
+    h('div',{style:{padding:14}},h('strong',{style:{color:C.tx1}},'IntentSmith'),h('p',{style:{color:C.tx2,margin:'4px 0 12px'}},'Náhled chatu, souboru a výstupů. Výraznost se mění v celém IDE.'),
+      h('pre',{style:{fontFamily:C.mono,margin:0,padding:10,background:C.bg2}},h('span',{style:{color:C.purple}},'const '),h('span',{style:{color:C.tx1}},'widget = '),h('span',{style:{color:C.success}},'"IntentSmith"'),h('span',{style:{color:C.tx1}},';')),
+      h('div',{style:{marginTop:12,color:C.tx3}},'Terminál · Log · Audit'),h('div',{style:{fontFamily:C.mono,color:C.blue}},'$ npm test'),h('div',{style:{color:C.success}},'Ukázka: kontrola dokončena'),h('div',{style:{color:C.red}},'Ukázka: soubor nenalezen')));
+}
 function _settingsToggle(label,desc,val,onChange){
   return h('div',{style:{display:'flex',alignItems:'center',gap:10,padding:'8px 0',borderBottom:'1px solid '+C.border,marginBottom:4}},
     h('div',{style:{flex:1}},
       h('div',{style:{fontSize:_fs(12),color:C.tx1,fontWeight:500}},label),
       desc?h('div',{style:{fontSize:_fs(10),color:C.tx4,marginTop:2}},desc):null),
-    h('div',{onClick:function(){onChange(!val);},style:{width:36,height:20,borderRadius:10,background:val?C.accent:C.bg4,cursor:'pointer',position:'relative',transition:'background 0.2s',flexShrink:0}},
+    h('button',{type:'button',role:'switch','aria-label':label,'aria-checked':!!val,onClick:function(){onChange(!val);},style:{border:0,padding:0,width:36,height:20,borderRadius:10,background:val?C.accent:C.bg4,cursor:'pointer',position:'relative',transition:'background 0.2s',flexShrink:0}},
       h('div',{style:{width:16,height:16,borderRadius:'50%',background:'#fff',position:'absolute',top:2,left:val?18:2,transition:'left 0.2s',boxShadow:'0 1px 3px rgba(0,0,0,0.3)'}})));
 }
 function settingsAppearance(){
   var sv=_settingsVals;
   var appearanceMode=_appearanceMode();
-  function _sl(val,min,max,step,onChange,unit){
+  function _sl(val,min,max,step,onChange,unit,label){
     return h('div',{style:{display:'flex',alignItems:'center',gap:8}},
-      h('input',{type:'range',min:min,max:max,step:step,value:val,onChange:function(e){onChange(parseFloat(e.target.value));},
+      h('input',{'aria-label':label,type:'range',min:min,max:max,step:step,value:val,onChange:function(e){onChange(parseFloat(e.target.value));},
         style:{flex:1,cursor:'pointer'}}),
       h('span',{style:{fontSize:_fs(11),color:C.tx3,minWidth:36,textAlign:'right',fontFamily:C.mono}},val+unit));
   }
@@ -2849,8 +2905,9 @@ function settingsAppearance(){
       h('input',{id:id,type:'color',value:val||'#ff6b6b',style:{position:'absolute',opacity:0,width:0,height:0,pointerEvents:'none'},onChange:function(e){onChange(e.target.value);}}));
   }
   function _appearancePicker(){
-    return h('div',{style:{display:'flex',flexWrap:'wrap',gap:6,marginBottom:16}},
+    return h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(125px,1fr))',gap:8}},
       [{id:'intentsmith',label:'IntentSmith',desc:'Výchozí brand',clr:'#e7c27a'},
+       {id:'studio',label:'Studio',desc:'Fialová, modrá, mátová',clr:'#b49cff'},
        {id:'clean',label:'Clean',desc:'Původní přizpůsobitelný',clr:'#4ade80'},
        {id:'matrix',label:'Matrix',desc:'Neon terminal',clr:'#00ff6a'},
        {id:'japanese',label:'Japanese',desc:'Červená aurora',clr:'#f87171'},
@@ -2858,7 +2915,7 @@ function settingsAppearance(){
       ].map(function(pm){
         var current=_appearanceMode();
         var isSel=current===pm.id;
-        return h('div',{key:pm.id,style:{flex:'0 0 calc(50% - 3px)',padding:'8px 6px',borderRadius:8,border:'2px solid '+(isSel?pm.clr:'rgba(255,255,255,0.08)'),background:isSel?'rgba(255,255,255,0.05)':C.bg3,cursor:'pointer',textAlign:'center',transition:'all 0.2s ease'},
+        return h('button',{type:'button','aria-label':'Styl '+pm.label,'aria-pressed':isSel,key:pm.id,style:{minWidth:0,padding:'8px 8px',borderRadius:8,border:'2px solid '+(isSel?pm.clr:'rgba(255,255,255,0.08)'),background:isSel?'rgba(255,255,255,0.05)':C.bg3,cursor:'pointer',textAlign:'center',transition:'all 0.2s ease'},
           onClick:function(){
             document.body.className=document.body.className.replace(/\btheme-pro[\w-]*/g,'').trim();
             if(_isProTheme(pm.id)){document.body.classList.add('theme-pro-'+pm.id);}
@@ -2866,24 +2923,32 @@ function settingsAppearance(){
             _applyColorTheme(pm.id);
             _applyAllSettings();
           }},
+          h('div',{'aria-hidden':true,style:{height:44,display:'flex',gap:4,padding:5,marginBottom:8,borderRadius:4,background:_C_THEMES[pm.id].bg0}},h('div',{style:{width:16,borderRadius:2,background:_C_THEMES[pm.id].bg3}}),h('div',{style:{flex:1,display:'flex',flexDirection:'column',gap:5,padding:5}},[70,100,45].map(function(w,i){return h('span',{key:i,style:{height:3,width:w+'%',background:i===0?pm.clr:_C_THEMES[pm.id].tx2,opacity:i===0?1:0.4}});}))),
           h('div',{style:{fontSize:_fs(11),fontWeight:isSel?700:500,color:isSel?pm.clr:C.tx2,marginBottom:1}},pm.label),
           h('div',{style:{fontSize:_fs(8),color:C.tx4}},pm.desc));
       }));
   }
-  return h('div',null,
-    /* Theme */
-    h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6}},'Téma'),
-    h('div',{style:{display:'flex',gap:6,marginBottom:16}},_themeOpts.map(function(t){
+  return _settingsPage("Appearance",[
+{id:"general",label:"Obecné",cards:[_settingsCard("Téma",[h('div',{style:{display:'flex',gap:6,marginBottom:16}},_themeOpts.map(function(t){
       var sel=sv.theme===t.id;
-      return h('div',{key:t.id,onClick:function(){sv.theme=t.id;_saveSV();_applyAllSettings();},
+      return h('button',{type:'button','aria-pressed':sel,'aria-label':t.label,key:t.id,onClick:function(){sv.theme=t.id;_saveSV();_applyAllSettings();},
         style:{flex:1,padding:'10px 6px',borderRadius:8,border:'2px solid '+(sel?C.accent:C.border),background:sel?C.accentBg:C.bg3,cursor:'pointer',textAlign:'center'}},
         h('div',{style:{fontSize:_fs(18),marginBottom:4}},t.icon),
-        h('div',{style:{fontSize:_fs(11),color:sel?C.accentText:C.tx2,fontWeight:sel?700:400}},t.label));})),
-    /* Appearance style — visible before detailed color controls */
-    h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:8}},'Styl vzhledu'),
-    _appearancePicker(),
-    /* Clean keeps the original editable palette. Brand/pro styles own theirs. */
-    appearanceMode==='clean'?h(React.Fragment,null,
+        h('div',{style:{fontSize:_fs(11),color:sel?C.accentText:C.tx2,fontWeight:sel?700:400}},t.label));}))]),
+_settingsCard('Styl vzhledu',[_appearancePicker()])]},
+{id:"font",label:"Písmo",cards:[_settingsCard("Čitelnost",[h('div',{style:{marginBottom:4}},h('span',{style:{fontSize:_fs(10),color:C.tx3}},'Výraznost textu')),
+h('p',{style:{fontSize:_fs(11),color:C.tx2,lineHeight:1.6,margin:'0 0 12px'}},'Platí pro všechen text: chat, navigaci, záložky, nastavení, soubory, terminál i log. Nižší hodnota text zjemní, vyšší jej zvýrazní. Barvy stavů a kódu zůstávají odlišené.'),
+h('div',{style:{marginBottom:16}},_sl(sv.textIntensity,0,100,5,function(v){sv.textIntensity=v;_saveSV();_applyTextIntensity();renderCenter();},'%','Výraznost veškerého textu')),
+h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6}},'Velikost písma'),
+h('div',{style:{marginBottom:16}},_sl(sv.fontSizeVal,10,18,1,function(v){sv.fontSizeVal=v;_saveSV();_applyAllSettings();},'px',"Velikost písma"))]),
+_settingsCard("Rodina písma",[h('div',{style:{display:'flex',flexDirection:'column',gap:4}},_fontFamilies.map(function(ff,i){
+      var sel=sv.fontIdx===i;
+      return h('button',{type:'button','aria-pressed':sel,key:i,onClick:function(){sv.fontIdx=i;_saveSV();_applyAllSettings();},
+        style:{padding:'8px 10px',borderRadius:8,border:'2px solid '+(sel?C.accent:C.border),background:sel?C.accentBg:C.bg3,cursor:'pointer',display:'flex',alignItems:'center',gap:8}},
+        h('div',{style:{width:16,height:16,borderRadius:'50%',border:'2px solid '+(sel?C.accent:C.border2),background:sel?C.accent:'transparent',flexShrink:0}}),
+        h('span',{style:{fontSize:_fs(12),fontFamily:ff.val,color:sel?C.accentText:C.tx2}},ff.label));}))]),
+_settingsCard("Živý náhled",[_appearancePreview()])]},
+{id:"colors",label:"Barvy a prvky",cards:[_settingsCard("Barevná paleta",[appearanceMode==='clean'?h(React.Fragment,null,
       h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6}},'Accent'),
       h('div',{style:{display:'flex',flexWrap:'wrap',gap:8,marginBottom:16}},
         _accentPalettes.map(function(p,i){return _cpDot(p.accent,sv.accentIdx===i,function(){sv.accentIdx=i;_saveSV();_applyAllSettings();},i);}),
@@ -2897,59 +2962,39 @@ function settingsAppearance(){
     ):h('div',{style:{display:'flex',alignItems:'center',gap:10,padding:'9px 11px',marginBottom:16,border:'1px solid '+C.border,borderRadius:8,background:C.bg2}},
       appearanceMode==='intentsmith'?h('div',{style:{display:'flex',gap:4,flexShrink:0}},
         ['#09090b','#141416','#d4a85f'].map(function(color){return h('span',{key:color,style:{width:12,height:12,borderRadius:'50%',background:color,border:'1px solid '+C.border2}});})):null,
-      h('div',{style:{fontSize:_fs(9.5),lineHeight:1.4,color:C.tx3}},appearanceMode==='intentsmith'?'IntentSmith používá vlastní zlatou a antracitovou paletu. Volba Téma stále přepíná tmavou a světlou variantu.':'Barvy a pozadí určuje zvolený efektový styl.')),
-    /* Intensity sliders */
-    h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:8}},'Intenzita podsvícení'),
-    h('div',{style:{marginBottom:4}},h('span',{style:{fontSize:_fs(10),color:C.tx3}},'Aktivní prvky')),
-    h('div',{style:{marginBottom:10}},_sl(sv.activeInt,10,100,5,function(v){sv.activeInt=v;_saveSV();_applyAllSettings();},'%')),
-    h('div',{style:{marginBottom:4}},h('span',{style:{fontSize:_fs(10),color:C.tx3}},'Neaktivní prvky')),
-    h('div',{style:{marginBottom:16}},_sl(sv.passiveInt,0,100,5,function(v){sv.passiveInt=v;_saveSV();_applyAllSettings();},'%')),
-    /* Pro theme glass sliders (only visible for pro themes) */
-    (function(){var _ctm=_appearanceMode();if(!_isProTheme(_ctm))return null;return h(React.Fragment,null,
+      h('div',{style:{fontSize:_fs(9.5),lineHeight:1.4,color:C.tx3}},appearanceMode==='intentsmith'?'IntentSmith používá vlastní zlatou a antracitovou paletu. Volba Téma stále přepíná tmavou a světlou variantu.':appearanceMode==='studio'?'Studio kombinuje chladné plochy, fialový akcent a modré i mátové stavové barvy. Podporuje tmavou i světlou variantu.':'Barvy a pozadí určuje zvolený efektový styl.'))]),
+_settingsCard("Zvýraznění a efekty",[h('div',{style:{marginBottom:4}},h('span',{style:{fontSize:_fs(10),color:C.tx3}},'Aktivní prvky')),
+h('div',{style:{marginBottom:10}},_sl(sv.activeInt,10,100,5,function(v){sv.activeInt=v;_saveSV();_applyAllSettings();},'%',"Zvýraznění aktivních prvků")),
+(function(){var _ctm=_appearanceMode();if(!_isProTheme(_ctm))return null;return h(React.Fragment,null,
       h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:8,marginTop:4}},'Průhlednost'),
       h('div',{style:{marginBottom:4}},h('span',{style:{fontSize:_fs(10),color:C.tx3}},'Dlaždice')),
-      h('div',{style:{marginBottom:10}},_sl(sv.tileOpacity,0,100,5,function(v){sv.tileOpacity=v;_saveSV();_applyAllSettings();},'%')),
+      h('div',{style:{marginBottom:10}},_sl(sv.tileOpacity,0,100,5,function(v){sv.tileOpacity=v;_saveSV();_applyAllSettings();},'%',"Průhlednost dlaždic")),
       h('div',{style:{marginBottom:4}},h('span',{style:{fontSize:_fs(10),color:C.tx3}},'Ztlumení pozadí')),
-      h('div',{style:{marginBottom:10}},_sl(sv.bgDim,0,80,5,function(v){sv.bgDim=v;_saveSV();_applyAllSettings();},'%')),
+      h('div',{style:{marginBottom:10}},_sl(sv.bgDim,0,80,5,function(v){sv.bgDim=v;_saveSV();_applyAllSettings();},'%',"Ztlumení pozadí")),
       h('div',{style:{marginBottom:4}},h('span',{style:{fontSize:_fs(10),color:C.tx3}},'Panely')),
-      h('div',{style:{marginBottom:16}},_sl(sv.sidebarOpacity,10,100,5,function(v){sv.sidebarOpacity=v;_saveSV();_applyAllSettings();},'%')));})(),
-    /* Font size slider */
-    h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6}},'Velikost písma'),
-    h('div',{style:{marginBottom:16}},_sl(sv.fontSizeVal,10,18,1,function(v){sv.fontSizeVal=v;_saveSV();_applyAllSettings();},'px')),
-    /* Font family */
-    h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6}},'Písmo'),
-    h('div',{style:{display:'flex',flexDirection:'column',gap:4}},_fontFamilies.map(function(ff,i){
-      var sel=sv.fontIdx===i;
-      return h('div',{key:i,onClick:function(){sv.fontIdx=i;_saveSV();_applyAllSettings();},
-        style:{padding:'8px 10px',borderRadius:8,border:'2px solid '+(sel?C.accent:C.border),background:sel?C.accentBg:C.bg3,cursor:'pointer',display:'flex',alignItems:'center',gap:8}},
-        h('div',{style:{width:16,height:16,borderRadius:'50%',border:'2px solid '+(sel?C.accent:C.border2),background:sel?C.accent:'transparent',flexShrink:0}}),
-        h('span',{style:{fontSize:_fs(12),fontFamily:ff.val,color:sel?C.accentText:C.tx2}},ff.label));})),
-    /* Auto-collapse toggle */
-    h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:8,marginTop:16}},'Automatické skrývání panelů'),
-    h('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:16,cursor:'pointer'},
+      h('div',{style:{marginBottom:16}},_sl(sv.sidebarOpacity,10,100,5,function(v){sv.sidebarOpacity=v;_saveSV();_applyAllSettings();},'%',"Průhlednost panelů")));})()])]},
+{id:"layout",label:"Rozvržení",cards:[_settingsCard("Panely",[h('div',{style:{display:'flex',alignItems:'center',gap:10,marginBottom:16,cursor:'pointer'},
       onClick:function(){sv.autoCollapse=!sv.autoCollapse;_saveSV();renderCenter();}},
       h('div',{style:{width:36,height:20,borderRadius:10,background:sv.autoCollapse?C.accent:C.bg4,transition:'background 0.2s',position:'relative',flexShrink:0}},
         h('div',{style:{width:16,height:16,borderRadius:'50%',background:'#fff',position:'absolute',top:2,left:sv.autoCollapse?18:2,transition:'left 0.2s',boxShadow:'0 1px 3px rgba(0,0,0,0.3)'}})),
       h('div',null,
         h('div',{style:{fontSize:_fs(12),color:sv.autoCollapse?C.tx1:C.tx3,fontWeight:500}},sv.autoCollapse?'Zapnuto':'Vypnuto'),
-        h('div',{style:{fontSize:_fs(10),color:C.tx4}},'Levá navigace se zúží na ikony; pravý panel se při nedostatku místa skryje'))),
-    /* Visual mode picker — global: borders vs lines */
-    h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:8,marginTop:16}},'Vizuální režim'),
-    h('div',{style:{display:'flex',gap:6,marginBottom:12}},
+        h('div',{style:{fontSize:_fs(10),color:C.tx4}},'Levá navigace se zúží na ikony; pravý panel se při nedostatku místa skryje')))]),
+_settingsCard("Oddělení prvků",[h('div',{style:{display:'flex',gap:6,marginBottom:12}},
       [{id:'borders',label:'Rámečky',desc:'Karty, bubliny, tlačítka s rámečkem'},{id:'lines',label:'Linky',desc:'Tenké separátory, bez rámečků'}].map(function(vm){
         var isSel=sv.visualMode===vm.id;
-        return h('div',{key:vm.id,style:{flex:1,padding:'10px 8px',borderRadius:8,border:'2px solid '+(isSel?C.accent:C.border),background:isSel?C.accentBg:C.bg3,cursor:'pointer',textAlign:'center'},
+        return h('button',{type:'button','aria-pressed':isSel,key:vm.id,style:{flex:1,padding:'10px 8px',borderRadius:8,border:'2px solid '+(isSel?C.accent:C.border),background:isSel?C.accentBg:C.bg3,cursor:'pointer',textAlign:'center'},
           onClick:function(){sv.visualMode=vm.id;_saveSV();_applyAllSettings();}},
           h('div',{style:{fontSize:_fs(12),fontWeight:isSel?700:400,color:isSel?C.accentText:C.tx2,marginBottom:2}},vm.label),
           h('div',{style:{fontSize:_fs(9),color:C.tx4}},vm.desc));
-      })),
-    /* I2: Custom CSS */
-    h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6,marginTop:16}},'Vlastní CSS'),
-    h('div',{style:{fontSize:_fs(10),color:C.tx4,marginBottom:6}},'Scope: .intentsmith-root — globální selektory nejsou podporované'),
-    h('textarea',{value:sv.customCSS||'',
+      }))])]},
+{id:"custom",label:"Vlastní CSS",cards:[_settingsCard("Vlastní styly",[h('div',{style:{fontSize:_fs(10),color:C.tx4,marginBottom:6}},'Scope: .intentsmith-root — globální selektory nejsou podporované'),
+h('textarea',{value:sv.customCSS||'',
       onChange:function(e){sv.customCSS=e.target.value;_injectCustomCSS(e.target.value);_saveSV();},
       style:{width:'100%',height:80,fontFamily:C.mono,fontSize:_fs(11),background:C.bg3,color:C.tx2,border:'1px solid '+C.border2,borderRadius:6,padding:'7px 9px',outline:'none',resize:'vertical',lineHeight:'1.4',boxSizing:'border-box'},
-      placeholder:'.intentsmith-card { border-radius: 12px; }'}));
+      placeholder:'.intentsmith-card { border-radius: 12px; }'})])]},
+{id:"preview",label:"Náhled",cards:[_settingsCard("Ukázka rozhraní",[_appearancePreview()])]}
+]);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -2957,16 +3002,17 @@ function settingsAppearance(){
    ═══════════════════════════════════════════════════════════ */
 function settingsAccount(){
   if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
-  return h('div',null,
-    _cfgInput('Zobrazované jméno','intentsmith.account.displayName','','input','Jak vás IntentSmith oslovuje v konverzaci'),
-    _cfgInput('Popis / Bio','intentsmith.account.description','','textarea','Kontext pro personalizaci odpovědí — např. role, zkušenosti, preference'),
-    _cfgSelect('Jazyk UI','intentsmith.language','cs',['cs','en']),
-    h('div',{style:{marginBottom:12}},
+  return _settingsPage("Account",[
+{id:"profile",label:"Profil",cards:[_settingsCard("Identita a jazyk",[_cfgInput('Zobrazované jméno','intentsmith.account.displayName','','input','Jak vás IntentSmith oslovuje v konverzaci'),
+_cfgInput('Popis / Bio','intentsmith.account.description','','textarea','Kontext pro personalizaci odpovědí — např. role, zkušenosti, preference'),
+_cfgSelect('Jazyk UI','intentsmith.language','cs',['cs','en'])])]},
+{id:"projects",label:"Projekty",cards:[_settingsCard("Pracovní složka",[h('div',{style:{marginBottom:12}},
       h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6}},'Složka projektů'),
       h('input',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'6px 9px',color:C.tx1,fontFamily:C.mono,fontSize:_fs(12),outline:'none',boxSizing:'border-box'},
         value:_settingsVals.projectsDir||'',placeholder:'/home/user/Projects',
         onChange:function(e){_settingsVals.projectsDir=e.target.value;_saveSV();renderCenter();}}),
-      h('div',{style:{fontSize:_fs(9),color:C.tx4,marginTop:3}},'Výchozí složka pro nové projekty')));
+      h('div',{style:{fontSize:_fs(9),color:C.tx4,marginTop:3}},'Výchozí složka pro nové projekty'))])]}
+]);
 }
 var _settingsModelsLoading=false,_settingsModelsError=null;
 function _loadSettingsModels(){
@@ -2986,22 +3032,10 @@ function settingsLLM(){
   var models=[...new Set((Array.isArray(_ollamaModels)?_ollamaModels:[]).map(function(m){return typeof m==='string'?m:m.name||m.model||'';}).filter(Boolean))];
   var gpus=_gpuInfo&&_gpuInfo.profile?_gpuInfo.profile.gpus:(_gpuInfo&&_gpuInfo.gpus?_gpuInfo.gpus:null);
   var rec=_gpuInfo&&_gpuInfo.recommendation?_gpuInfo.recommendation:null;
-  return h('div',null,
-    h('button',{style:Object.assign({},_modelButtonStyle(true,false),{width:'100%',marginBottom:14}),onClick:_openModelsWorkspace},'Spravovat role a modely'),
-    _settingsModelsError?_modelLoadFailure(_settingsModelsError,function(){_ollamaModels=null;_roleBindings=null;_loadSettingsModels();renderCenter();}):null,
-    gpus?h('div',{style:{background:'linear-gradient(135deg,'+_rgba(C.success,0.10)+','+_rgba(C.success,0.04)+')',border:'1px solid '+_rgba(C.success,0.24),borderRadius:8,padding:12,marginBottom:14}},
-      h('div',{style:{fontSize:_fs(11),fontWeight:700,color:C.success,marginBottom:6}},'GPU'),
-      gpus.map(function(g,i){
-        var name=g.gpu_model||g.name||'CPU-only';
-        var vram=g.vram_mb||g.vram||0;
-        return h('div',{key:i,style:{fontSize:_fs(11),color:C.tx2,marginBottom:2}},
-          h('span',{style:{fontWeight:600}},name),
-          vram?h('span',{style:{color:C.tx3}},' — '+vram+' MB VRAM'):'',
-          g.driver?h('span',{style:{color:C.tx4,fontSize:_fs(9)}},' ('+g.driver+(g.cuda_version?' / CUDA '+g.cuda_version:'')+')'):null);
-      }),
-      rec&&rec.recommended_model?h('div',{style:{fontSize:_fs(9),color:C.success,marginTop:6}},'Doporučený model: '+rec.recommended_model):null):null,
-    /* v133: Compact 7-role bindings summary (replaces 3 broken dropdowns) */
-    (function(){
+  return _settingsPage("LLM",[
+{id:"models",label:"Lokální modely",cards:[_settingsCard("Modelové pracoviště",[h('button',{style:Object.assign({},_modelButtonStyle(true,false),{width:'100%',marginBottom:14}),onClick:_openModelsWorkspace},'Spravovat role a modely'),
+_settingsModelsError?_modelLoadFailure(_settingsModelsError,function(){_ollamaModels=null;_roleBindings=null;_loadSettingsModels();renderCenter();}):null]),
+_settingsCard("Přiřazení rolí",[(function(){
       if(_settingsModelsError)return null;
       if(!_roleBindings){
         fetch(_backendUrl()+'/api/system/upgrades/bindings',{signal:AbortSignal.timeout(5000)})
@@ -3032,14 +3066,25 @@ function settingsLLM(){
                 !installed?h('span',{style:{color:'#ef4444',fontSize:_fs(9),marginLeft:4}},'\u26A0'):null),
               h('span',{style:{fontSize:_fs(10),fontWeight:600,color:scoreColor,minWidth:36,textAlign:'right'}},scoreText));
           })));
-    })(),
-    _cfgInput('Ollama URL','intentsmith.llm.ollamaUrl','http://127.0.0.1:11434','input','Adresa lok\u00E1ln\u00EDho Ollama serveru'),
-    _cfgSlider(_lI('Temperature','Nízká = deterministické, konzistentní odpovědi. Vysoká = kreativnější, rozmanitější výstupy.'),'intentsmith.llm.temperature',0.7,0,2,0.1,''),
-    _cfgSlider(_lI('Context window','Kolik tokenů si model pamatuje v rámci jedné konverzace. Větší okno = více kontextu, ale vyšší nároky na paměť.'),'intentsmith.llm.contextWindow',32768,2048,131072,1024,'',null,function(v){return v>=1024?Math.round(v/1024)+'K tok':'v tok';}),
-    _cfgSlider(_lI('Timeout chat','Maximální doba čekání na odpověď chat modelu. Zvyšte při pomalých odpovědích.'),'intentsmith.llm.timeoutChat',90000,10000,300000,5000,'',null,function(v){return Math.round(v/1000)+'s';}),
-    _cfgSlider(_lI('Timeout code','Maximální doba čekání na odpověď code modelu.'),'intentsmith.llm.timeoutCode',90000,10000,300000,5000,'',null,function(v){return Math.round(v/1000)+'s';}),
-    _cfgSlider(_lI('GPU layers','Kolik vrstev modelu se načte do GPU. -1 = automaticky dle dostupné VRAM. 0 = vše na CPU.'),'intentsmith.llm.numGpu',-1,-1,8,1,''),
-    h('div',{style:{borderTop:'1px solid '+C.border,margin:'14px 0'}}));
+    })()])]},
+{id:"inference",label:"Inference",cards:[_settingsCard("Generování a kontext",[_cfgSlider(_lI('Temperature','Nízká = deterministické, konzistentní odpovědi. Vysoká = kreativnější, rozmanitější výstupy.'),'intentsmith.llm.temperature',0.7,0,2,0.1,''),
+_cfgSlider(_lI('Context window','Kolik tokenů si model pamatuje v rámci jedné konverzace. Větší okno = více kontextu, ale vyšší nároky na paměť.'),'intentsmith.llm.contextWindow',32768,2048,131072,1024,'',null,function(v){return v>=1024?Math.round(v/1024)+'K tok':'v tok';})]),
+_settingsCard("Časové limity",[_cfgSlider(_lI('Timeout chat','Maximální doba čekání na odpověď chat modelu. Zvyšte při pomalých odpovědích.'),'intentsmith.llm.timeoutChat',90000,10000,300000,5000,'',null,function(v){return Math.round(v/1000)+'s';}),
+_cfgSlider(_lI('Timeout code','Maximální doba čekání na odpověď code modelu.'),'intentsmith.llm.timeoutCode',90000,10000,300000,5000,'',null,function(v){return Math.round(v/1000)+'s';})])]},
+{id:"provider",label:"Připojení",cards:[_settingsCard("Ollama",[_cfgInput('Ollama URL','intentsmith.llm.ollamaUrl','http://127.0.0.1:11434','input','Adresa lok\u00E1ln\u00EDho Ollama serveru')])]},
+{id:"hardware",label:"Hardware",cards:[_settingsCard("Grafická karta",[gpus?h('div',{style:{background:'linear-gradient(135deg,'+_rgba(C.success,0.10)+','+_rgba(C.success,0.04)+')',border:'1px solid '+_rgba(C.success,0.24),borderRadius:8,padding:12,marginBottom:14}},
+      h('div',{style:{fontSize:_fs(11),fontWeight:700,color:C.success,marginBottom:6}},'GPU'),
+      gpus.map(function(g,i){
+        var name=g.gpu_model||g.name||'CPU-only';
+        var vram=g.vram_mb||g.vram||0;
+        return h('div',{key:i,style:{fontSize:_fs(11),color:C.tx2,marginBottom:2}},
+          h('span',{style:{fontWeight:600}},name),
+          vram?h('span',{style:{color:C.tx3}},' — '+vram+' MB VRAM'):'',
+          g.driver?h('span',{style:{color:C.tx4,fontSize:_fs(9)}},' ('+g.driver+(g.cuda_version?' / CUDA '+g.cuda_version:'')+')'):null);
+      }),
+      rec&&rec.recommended_model?h('div',{style:{fontSize:_fs(9),color:C.success,marginTop:6}},'Doporučený model: '+rec.recommended_model):null):null]),
+_settingsCard("Umístění modelu",[_cfgSlider(_lI('GPU layers','Kolik vrstev modelu se načte do GPU. -1 = automaticky dle dostupné VRAM. 0 = vše na CPU.'),'intentsmith.llm.numGpu',-1,-1,8,1,'')])]}
+]);
 }
 /* ═══════════════════════════════════════════════════════════
    v120.2: MODEL UPGRADE PROPOSALS — full center panel
@@ -3784,37 +3829,31 @@ function _renderGovernorTab(){
 if(typeof IntentSmithBus!=='undefined'){IntentSmithBus.on('governor:report',function(){_governorData=null;if(_upgradeTab==='governor')_loadGovernorData();});}
 function settingsMemory(){
   if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
-  return h('div',null,
-    _bCfgError?h('p',{role:'alert'},_bCfgError):null,
-    _bCfg.memory&&_bCfg.memory.saveHistory===false?h('div',{role:'alert'},'Chat je zastaven kvůli dříve vypnuté historii. Režim bez historie není podporován. ',h('button',{onClick:function(){if(window.confirm('Povolit lokální ukládání historie a obnovit chat?')){_bCfg.memory.saveHistory=true;_saveBCfg();renderCenter();}}},'Povolit ukládání historie')):null,
-    h('p',{style:{color:C.tx2}},'Historie konverzací a provozní žurnál se ukládají lokálně. Chat bez historie zatím není podporován. Přepínače níže ovládají automatickou paměť a učení; již uložené záznamy nemažou.'),
-    _cfgToggle('Dlouhodobá paměť (LTM)','Korekce, preference a vzorce se používají pouze uvnitř stejného projektu, bez projektu pouze uvnitř konverzace','intentsmith.memory.ltmEnabled',true),
-    _cfgToggle('Učení z preferencí','IntentSmith se adaptuje na váš styl komunikace a pracovní postupy','intentsmith.memory.learningEnabled',true),
-    _cfgToggle('Detekce zpětné vazby','Automaticky rozpozná pochvalu, kritiku nebo opravu v konverzaci a upraví své chování','intentsmith.memory.feedbackDetection',true),
-    _cfgToggle('Sledování vzorců','Rozpoznává opakující se sekvence úloh a navrhuje efektivnější postupy','intentsmith.memory.patternTracking',true),
-    h('div',{style:{borderTop:'1px solid '+C.border,margin:'10px 0'}}),
-    _cfgSlider(_lI('Max turnů','Maximální počet zpráv (uživatel+asistent) v jedné konverzaci před automatickým ořezáním'),'intentsmith.memory.conversationMaxTurns',500,50,5000,50,''),
-    _cfgSlider(_lI('Práh kompakce','Když kontext dosáhne tohoto % kapacity, starší zprávy se automaticky zhuštní do shrnutí'),'intentsmith.memory.compactThreshold',0.75,0.3,0.95,0.05,'',null,function(v){return Math.round(v*100)+'%';}),
-    _cfgSlider(_lI('Uchované turny','Kolik posledních zpráv zůstane v plném znění při kompakci — starší se zhuštění do shrnutí'),'intentsmith.memory.compactKeepTurns',6,2,20,1,''),
-    _cfgSlider(_lI('Max LTM záznamů','Maximální kapacita dlouhodobé paměti. Staré záznamy s nízkou důvěryhodností se automaticky mažou.'),'intentsmith.memory.ltmMaxEntries',1000,100,10000,100,''),
-    _cfgSlider(_lI('Poločas LTM','Za kolik dní klesne důvěryhodnost LTM záznamu na 50%. Delší = déle si pamatuje, ale může si pamatovat i neaktuální věci.'),'intentsmith.memory.ltmDecayHalfLife',69,7,365,7,' d'),
-    _cfgSlider(_lI('Budget chat','Kolik % kontextového okna se vyhradí pro chat kontext (historii, LTM, systémové instrukce)'),'intentsmith.memory.contextBudgetChat',60,10,90,5,' %'),
-    _cfgSlider(_lI('Budget code','Kolik % kontextového okna se vyhradí pro zdrojový kód při generování'),'intentsmith.memory.contextBudgetCode',40,10,90,5,' %'),
-    _cfgSlider(_lI('Hard cap','Absolutní limit kontextu v tokenech — ochrana proti přetečení bez ohledu na procentuální budget'),'intentsmith.memory.contextBudgetMaxTokens',24576,2048,65536,1024,'',null,function(v){return v>=1024?Math.round(v/1024)+'K':'v';}));
+  return _settingsPage("Memory",[
+{id:"history",label:"Historie a kontext",cards:[_settingsCard("Ukládání",[_bCfgError?h('p',{role:'alert'},_bCfgError):null,
+_bCfg.memory&&_bCfg.memory.saveHistory===false?h('div',{role:'alert'},'Chat je zastaven kvůli dříve vypnuté historii. Režim bez historie není podporován. ',h('button',{onClick:function(){if(window.confirm('Povolit lokální ukládání historie a obnovit chat?')){_bCfg.memory.saveHistory=true;_saveBCfg();renderCenter();}}},'Povolit ukládání historie')):null,
+h('p',{style:{color:C.tx2}},'Historie konverzací a provozní žurnál se ukládají lokálně. Chat bez historie zatím není podporován. Přepínače níže ovládají automatickou paměť a učení; již uložené záznamy nemažou.')]),
+_settingsCard("Komprese historie",[_cfgSlider(_lI('Max turnů','Maximální počet zpráv (uživatel+asistent) v jedné konverzaci před automatickým ořezáním'),'intentsmith.memory.conversationMaxTurns',500,50,5000,50,''),
+_cfgSlider(_lI('Práh kompakce','Když kontext dosáhne tohoto % kapacity, starší zprávy se automaticky zhuštní do shrnutí'),'intentsmith.memory.compactThreshold',0.75,0.3,0.95,0.05,'',null,function(v){return Math.round(v*100)+'%';}),
+_cfgSlider(_lI('Uchované turny','Kolik posledních zpráv zůstane v plném znění při kompakci — starší se zhuštění do shrnutí'),'intentsmith.memory.compactKeepTurns',6,2,20,1,'')])]},
+{id:"learning",label:"Paměť a učení",cards:[_settingsCard("Automatická paměť",[_cfgToggle('Dlouhodobá paměť (LTM)','Korekce, preference a vzorce se používají pouze uvnitř stejného projektu, bez projektu pouze uvnitř konverzace','intentsmith.memory.ltmEnabled',true),
+_cfgToggle('Učení z preferencí','IntentSmith se adaptuje na váš styl komunikace a pracovní postupy','intentsmith.memory.learningEnabled',true),
+_cfgToggle('Detekce zpětné vazby','Automaticky rozpozná pochvalu, kritiku nebo opravu v konverzaci a upraví své chování','intentsmith.memory.feedbackDetection',true),
+_cfgToggle('Sledování vzorců','Rozpoznává opakující se sekvence úloh a navrhuje efektivnější postupy','intentsmith.memory.patternTracking',true)])]},
+{id:"limits",label:"Kapacita a retence",cards:[_settingsCard("Dlouhodobá paměť",[_cfgSlider(_lI('Max LTM záznamů','Maximální kapacita dlouhodobé paměti. Staré záznamy s nízkou důvěryhodností se automaticky mažou.'),'intentsmith.memory.ltmMaxEntries',1000,100,10000,100,''),
+_cfgSlider(_lI('Poločas LTM','Za kolik dní klesne důvěryhodnost LTM záznamu na 50%. Delší = déle si pamatuje, ale může si pamatovat i neaktuální věci.'),'intentsmith.memory.ltmDecayHalfLife',69,7,365,7,' d')]),
+_settingsCard("Rozpočet kontextu",[_cfgSlider(_lI('Budget chat','Kolik % kontextového okna se vyhradí pro chat kontext (historii, LTM, systémové instrukce)'),'intentsmith.memory.contextBudgetChat',60,10,90,5,' %'),
+_cfgSlider(_lI('Budget code','Kolik % kontextového okna se vyhradí pro zdrojový kód při generování'),'intentsmith.memory.contextBudgetCode',40,10,90,5,' %'),
+_cfgSlider(_lI('Hard cap','Absolutní limit kontextu v tokenech — ochrana proti přetečení bez ohledu na procentuální budget'),'intentsmith.memory.contextBudgetMaxTokens',24576,2048,65536,1024,'',null,function(v){return v>=1024?Math.round(v/1024)+'K':'v';})])]}
+]);
 }
 function settingsNotif(){
   if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
   if(!_notifChannels){fetch(_backendUrl()+'/api/notifications/channels',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_notifChannels=d;renderCenter();}).catch(function(){_notifChannels={error:true};});}
   var chs=_notifChannels&&!_notifChannels.error?(_notifChannels.channels||_notifChannels):null;
-  return h('div',null,
-    _cfgToggle('Desktop notifikace','Systémové notifikace přes Electron (dokončení úloh, chyby agentů)','intentsmith.notif.desktopEnabled',true),
-    _cfgToggle('Tichý režim','Potlačí všechny notifikace v nastaveném časovém rozmezí','intentsmith.notif.quietEnabled',false),
-    _bVal('intentsmith.notif.quietEnabled',false)?h(React.Fragment,null,
-      _cfgInput('Ticho od','intentsmith.notif.quietFrom','22:00','input','Formát HH:MM'),
-      _cfgInput('Ticho do','intentsmith.notif.quietTo','07:00','input','Formát HH:MM')):null,
-    h('div',{style:{borderTop:'1px solid '+C.border,margin:'14px 0'}}),
-    h('div',{style:{fontSize:_fs(11),fontWeight:700,color:C.tx1,marginBottom:10}},'Kanály'),
-    h('div',{style:{display:'flex',flexDirection:'column',gap:6}},
+  return _settingsPage("Notifications",[
+{id:"channels",label:"Kanály",cards:[_settingsCard("V aplikaci",[_cfgToggle('Desktop notifikace','Systémové notifikace přes Electron (dokončení úloh, chyby agentů)','intentsmith.notif.desktopEnabled',true)]),
+_settingsCard("Externí kanály",[h('div',{style:{display:'flex',flexDirection:'column',gap:6}},
       [{id:'email',icon:'\u2709\ufe0f',label:'E-mail',desc:'Notifikace na e-mailovou adresu'},
        {id:'telegram',icon:'\ud83d\udcac',label:'Telegram',desc:'Notifikace přes Telegram bota'},
        {id:'webhook',icon:'\ud83d\udd17',label:'Webhook',desc:'HTTP POST na vlastní URL'},
@@ -3829,43 +3868,49 @@ function settingsNotif(){
             h('div',{style:{fontSize:_fs(9),color:C.tx4}},ch.desc)),
           h('span',{style:{fontSize:_fs(9),color:ok?C.accent:'#6b7280',fontWeight:600}},ok?'Aktivní':'Neaktivní'));
       })),
-    h('div',{style:{fontSize:_fs(9),color:C.tx4,marginTop:8}},'Konfigurace kanálů se nastavuje v backend konfiguraci (env proměnné).'));
+h('div',{style:{fontSize:_fs(9),color:C.tx4,marginTop:8}},'Konfigurace kanálů se nastavuje v backend konfiguraci (env proměnné).')])]},
+{id:"quiet",label:"Tiché hodiny",cards:[_settingsCard("Nerušit",[_cfgToggle('Tichý režim','Potlačí všechny notifikace v nastaveném časovém rozmezí','intentsmith.notif.quietEnabled',false),
+_bVal('intentsmith.notif.quietEnabled',false)?h(React.Fragment,null,
+      _cfgInput('Ticho od','intentsmith.notif.quietFrom','22:00','input','Formát HH:MM'),
+      _cfgInput('Ticho do','intentsmith.notif.quietTo','07:00','input','Formát HH:MM')):null])]}
+]);
 }
 function settingsOutput(){
   if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
-  return h('div',null,
-    _cfgToggle('Code blocky','Výstup obsahuje formátované bloky se zdrojovým kódem','intentsmith.output.codeBlocks',true),
-    _cfgToggle('Syntax highlighting','Zvýrazňování syntaxe v code blocích (barvy dle jazyka)','intentsmith.output.syntaxHighlight',true),
-    _cfgToggle('Markdown rendering','Formátování textu — nadpisy, seznamy, tučné písmo, odkazy','intentsmith.output.markdownRendering',true),
-    _cfgSlider(_lI('Max délka odpovědi','Maximální počet tokenů v jedné odpovědi. 1 token \u2248 4 znaky českého textu. 8K token \u2248 6 stran textu.'),'intentsmith.output.maxResponseLength',8192,1024,65536,512,'',null,function(v){return v>=1024?Math.round(v/1024)+'K tok':v+' tok';}));
+  return _settingsPage("Output",[
+{id:"format",label:"Formátování",cards:[_settingsCard("Text a kód",[_cfgToggle('Code blocky','Výstup obsahuje formátované bloky se zdrojovým kódem','intentsmith.output.codeBlocks',true),
+_cfgToggle('Syntax highlighting','Zvýrazňování syntaxe v code blocích (barvy dle jazyka)','intentsmith.output.syntaxHighlight',true),
+_cfgToggle('Markdown rendering','Formátování textu — nadpisy, seznamy, tučné písmo, odkazy','intentsmith.output.markdownRendering',true)])]},
+{id:"limits",label:"Délka odpovědi",cards:[_settingsCard("Rozsah výstupu",[_cfgSlider(_lI('Max délka odpovědi','Maximální počet tokenů v jedné odpovědi. 1 token \u2248 4 znaky českého textu. 8K token \u2248 6 stran textu.'),'intentsmith.output.maxResponseLength',8192,1024,65536,512,'',null,function(v){return v>=1024?Math.round(v/1024)+'K tok':v+' tok';})])]}
+]);
 }
 function settingsSystemPanel(){
   if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
   if(!_sysInfo){fetch(_backendUrl()+'/api/system/info',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_sysInfo=d;renderCenter();}).catch(function(){_sysInfo={error:true};});}
-  return h('div',null,
-    _settingsToggle('Obnovit poslední relaci','Při startu obnoví poslední otevřený pohled, konverzaci a projekt',_settingsVals.restoreSession,function(nv){_settingsVals.restoreSession=nv;_saveSV();renderCenter();}),
-    h('div',{style:{borderTop:'1px solid '+C.border,margin:'14px 0'}}),
-    _sysInfo&&!_sysInfo.error?h('div',{style:{background:C.bg3,border:'1px solid '+C.border2,borderRadius:8,padding:12,marginBottom:14}},
+  return _settingsPage("System",[
+{id:"startup",label:"Spouštění",cards:[_settingsCard("Pracovní relace",[_settingsToggle('Obnovit poslední relaci','Při startu obnoví poslední otevřený pohled, konverzaci a projekt',_settingsVals.restoreSession,function(nv){_settingsVals.restoreSession=nv;_saveSV();renderCenter();})]),
+_settingsCard("Místní formát",[_cfgSelect('Časové pásmo','intentsmith.account.timezone','Europe/Prague',['Europe/Prague','Europe/London','America/New_York','America/Los_Angeles','Asia/Tokyo','UTC']),
+_cfgSelect('Měna','intentsmith.account.currency','CZK',['CZK','EUR','USD','GBP'])])]},
+{id:"diagnostics",label:"Diagnostika",cards:[_settingsCard("Běhové prostředí",[_sysInfo&&!_sysInfo.error?h('div',{style:{background:C.bg3,border:'1px solid '+C.border2,borderRadius:8,padding:12,marginBottom:14}},
       h('div',{style:{fontSize:_fs(11),fontWeight:700,color:C.tx1,marginBottom:6}},'Systémové info'),
       h('div',{style:{fontSize:_fs(10),color:C.tx2,lineHeight:'1.8'}},
         h('div',null,'OS: '+(_sysInfo.platform||'?')+' '+(_sysInfo.arch||'')),
         h('div',null,'Node: '+(_sysInfo.node_version||'?')),
         _sysInfo.memory?h('div',null,'RAM: '+_sysInfo.memory.process_mb+' MB / '+_sysInfo.memory.total_mb+' MB'):null,
         h('div',null,'Uptime: '+(_sysInfo.uptime_seconds?Math.round(_sysInfo.uptime_seconds/60)+' min':'?')),
-        _sysInfo.config?h('div',null,'Model: '+(_sysInfo.config.chat_model||'?')):null)):null,
-    _cfgSelect('Časové pásmo','intentsmith.account.timezone','Europe/Prague',['Europe/Prague','Europe/London','America/New_York','America/Los_Angeles','Asia/Tokyo','UTC']),
-    _cfgSelect('Měna','intentsmith.account.currency','CZK',['CZK','EUR','USD','GBP']),
-    _cfgSelect(_lI('Log level','Úroveň detailu v serverových logách. Debug = vše, Error = jen chyby.'),'intentsmith.system.logLevel','info',['debug','info','warn','error']),
-    _cfgSlider(_lI('Retence logů','Po kolika dnech se automaticky mažou staré logy'),'intentsmith.system.logRetentionDays',30,7,365,7,' d'),
-    _cfgSlider(_lI('Max velikost přílohy','Největší soubor který IntentSmith zpracuje jako přílohu (text, kód). Větší soubory budou odmítnuty.'),'intentsmith.system.maxFileSize',1048576,102400,10485760,102400,'',null,function(v){return v>=1048576?Math.round(v/1048576)+' MB':Math.round(v/1024)+' KB';}),
-    _cfgSlider(_lI('Rate limit','Maximální počet API požadavků za minutu — ochrana proti přetížení serveru'),'intentsmith.system.rateLimit',120,10,1000,10,' /min'));
+        _sysInfo.config?h('div',null,'Model: '+(_sysInfo.config.chat_model||'?')):null)):null]),
+_settingsCard("Logování",[_cfgSelect(_lI('Log level','Úroveň detailu v serverových logách. Debug = vše, Error = jen chyby.'),'intentsmith.system.logLevel','info',['debug','info','warn','error']),
+_cfgSlider(_lI('Retence logů','Po kolika dnech se automaticky mažou staré logy'),'intentsmith.system.logRetentionDays',30,7,365,7,' d')])]},
+{id:"limits",label:"Limity",cards:[_settingsCard("Přílohy a provoz",[_cfgSlider(_lI('Max velikost přílohy','Největší soubor který IntentSmith zpracuje jako přílohu (text, kód). Větší soubory budou odmítnuty.'),'intentsmith.system.maxFileSize',1048576,102400,10485760,102400,'',null,function(v){return v>=1048576?Math.round(v/1048576)+' MB':Math.round(v/1024)+' KB';}),
+_cfgSlider(_lI('Rate limit','Maximální počet API požadavků za minutu — ochrana proti přetížení serveru'),'intentsmith.system.rateLimit',120,10,1000,10,' /min')])]}
+]);
 }
 function settingsStoragePanel(){
   if(!_sysInfo){fetch(_backendUrl()+'/api/system/info',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_sysInfo=d;renderCenter();}).catch(function(){_sysInfo={error:true};});}
   var db=_sysInfo&&_sysInfo.db?_sysInfo.db:null;
   var tables=db&&db.tables?db.tables:null;
-  return h('div',null,
-    db?h('div',{style:{background:C.bg3,border:'1px solid '+C.border2,borderRadius:8,padding:12,marginBottom:14}},
+  return _settingsPage("Storage",[
+{id:"database",label:"Databáze",cards:[_settingsCard("Využití úložiště",[db?h('div',{style:{background:C.bg3,border:'1px solid '+C.border2,borderRadius:8,padding:12,marginBottom:14}},
       h('div',{style:{fontSize:_fs(11),fontWeight:700,color:C.tx1,marginBottom:8}},'SQLite databáze'),
       h('div',{style:{fontSize:_fs(10),color:C.tx2,lineHeight:'1.8'}},
         h('div',null,'Velikost: '+(db.size_mb||0)+' MB'),
@@ -3874,26 +3919,26 @@ function settingsStoragePanel(){
         h('div',{style:{fontSize:_fs(10),fontWeight:600,color:C.tx2,marginBottom:4}},'Tabulky'),
         h('div',{style:{fontSize:_fs(10),color:C.tx3,lineHeight:'1.8'}},
           Object.keys(tables).map(function(t){return h('div',{key:t,style:{display:'flex',justifyContent:'space-between'}},h('span',null,t),h('span',{style:{fontFamily:C.mono}},tables[t].toLocaleString()+' zázn.'));}))):null):
-      h('div',{style:{color:C.tx3,padding:8,fontSize:_fs(11)}},_sysInfo?'Nepodařilo se načíst':'Načítám...'),
-    h('div',{style:{borderTop:'1px solid '+C.border,margin:'14px 0'}}),
-    h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6}},'Údržba'),
-    h('div',{style:{fontSize:_fs(10),color:C.tx4,marginBottom:10}},'Optimalizace databáze odstraní fragmentaci a zmenší soubor na disku. Doporučeno po smazání velkého množství dat.'),
-    h('button',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'8px 12px',color:C.tx1,fontSize:_fs(11),cursor:'pointer',fontFamily:C.font,marginBottom:8},
+      h('div',{style:{color:C.tx3,padding:8,fontSize:_fs(11)}},_sysInfo?'Nepodařilo se načíst':'Načítám...')])]},
+{id:"maintenance",label:"Údržba",cards:[_settingsCard("Optimalizace",[h('div',{style:{fontSize:_fs(10),color:C.tx4,marginBottom:10}},'Optimalizace databáze odstraní fragmentaci a zmenší soubor na disku. Doporučeno po smazání velkého množství dat.'),
+h('button',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'8px 12px',color:C.tx1,fontSize:_fs(11),cursor:'pointer',fontFamily:C.font,marginBottom:8},
       onClick:function(){fetch(_backendUrl()+'/api/system/vacuum',{method:'POST',signal:AbortSignal.timeout(30000)}).then(function(r){return r.json();}).then(function(d){_sysInfo=null;_storageInfo=null;renderCenter();alert(d.message||'Databáze optimalizována');}).catch(function(e){alert('Chyba: '+e.message);});}},'Optimalizovat databázi'),
-    h('button',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'8px 12px',color:C.tx1,fontSize:_fs(11),cursor:'pointer',fontFamily:C.font},
-      onClick:function(){_sysInfo=null;_storageInfo=null;renderCenter();}},'Aktualizovat info'));
+h('button',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'8px 12px',color:C.tx1,fontSize:_fs(11),cursor:'pointer',fontFamily:C.font},
+      onClick:function(){_sysInfo=null;_storageInfo=null;renderCenter();}},'Aktualizovat info')])]}
+]);
 }
 function settingsBackupPanel(){
-  return h('div',null,
-    h('div',{style:{fontSize:_fs(11),color:C.tx3,marginBottom:14}},'Zálohujte svá nastavení nebo je obnovte ze souboru.'),
-    _backupMsg?h('div',{style:{padding:'8px 12px',borderRadius:6,marginBottom:10,fontSize:_fs(11),fontWeight:600,background:_backupMsg.ok?C.successBg:C.redBg,color:_backupMsg.ok?C.success:C.red,border:'1px solid '+(_backupMsg.ok?_rgba(C.success,0.25):_rgba(C.red,0.25))}},_backupMsg.text):null,
-    h('button',{style:{width:'100%',background:C.accent,color:C.onAccent,border:'none',borderRadius:6,padding:'10px 14px',fontSize:_fs(12),fontWeight:700,cursor:'pointer',marginBottom:10,fontFamily:C.font},
+  return _settingsPage("Backup",[
+{id:"export",label:"Export",cards:[_settingsCard("Záloha nastavení",[h('div',{style:{fontSize:_fs(11),color:C.tx3,marginBottom:14}},'Zálohujte svá nastavení nebo je obnovte ze souboru.'),
+_backupMsg?h('div',{style:{padding:'8px 12px',borderRadius:6,marginBottom:10,fontSize:_fs(11),fontWeight:600,background:_backupMsg.ok?C.successBg:C.redBg,color:_backupMsg.ok?C.success:C.red,border:'1px solid '+(_backupMsg.ok?_rgba(C.success,0.25):_rgba(C.red,0.25))}},_backupMsg.text):null,
+h('button',{style:{width:'100%',background:C.accent,color:C.onAccent,border:'none',borderRadius:6,padding:'10px 14px',fontSize:_fs(12),fontWeight:700,cursor:'pointer',marginBottom:10,fontFamily:C.font},
       onClick:function(){fetch(_backendUrl()+'/api/settings',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){
         var blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
         var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='intentsmith-settings-'+new Date().toISOString().slice(0,10)+'.json';a.click();
         _backupMsg={ok:true,text:'Nastavení exportována do souboru'};renderCenter();setTimeout(function(){_backupMsg=null;renderCenter();},4000);
-      }).catch(function(e){_backupMsg={ok:false,text:'Export selhal: '+e.message};renderCenter();});}},'Exportovat nastavení'),
-    h('button',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'10px 14px',fontSize:_fs(12),cursor:'pointer',color:C.tx1,marginBottom:10,fontFamily:C.font},
+      }).catch(function(e){_backupMsg={ok:false,text:'Export selhal: '+e.message};renderCenter();});}},'Exportovat nastavení')])]},
+{id:"restore",label:"Obnova",cards:[_settingsCard("Import nastavení",[_backupMsg?h('div',{style:{padding:'8px 12px',borderRadius:6,marginBottom:10,fontSize:_fs(11),fontWeight:600,background:_backupMsg.ok?C.successBg:C.redBg,color:_backupMsg.ok?C.success:C.red,border:'1px solid '+(_backupMsg.ok?_rgba(C.success,0.25):_rgba(C.red,0.25))}},_backupMsg.text):null,
+h('button',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'10px 14px',fontSize:_fs(12),cursor:'pointer',color:C.tx1,marginBottom:10,fontFamily:C.font},
       onClick:function(){
         var inp=document.createElement('input');inp.type='file';inp.accept='.json';
         inp.onchange=function(e){var f=e.target.files[0];if(!f)return;
@@ -3904,8 +3949,9 @@ function settingsBackupPanel(){
             .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);
               _bCfg=data;_backupMsg={ok:true,text:'Nastavení importována z '+f.name};renderCenter();setTimeout(function(){_backupMsg=null;renderCenter();},4000);})
             .catch(function(e){_backupMsg={ok:false,text:'Import selhal: '+e.message};renderCenter();});
-          }catch(ex){_backupMsg={ok:false,text:'Neplatný JSON soubor'};renderCenter();}};reader.readAsText(f);};inp.click();}},'Importovat nastavení'),
-    h('div',{style:{borderTop:'1px solid '+C.border,paddingTop:14,marginTop:8}},
+          }catch(ex){_backupMsg={ok:false,text:'Neplatný JSON soubor'};renderCenter();}};reader.readAsText(f);};inp.click();}},'Importovat nastavení')])]},
+{id:"reset",label:"Výchozí hodnoty",cards:[_settingsCard("Reset nastavení",[_backupMsg?h('div',{style:{padding:'8px 12px',borderRadius:6,marginBottom:10,fontSize:_fs(11),fontWeight:600,background:_backupMsg.ok?C.successBg:C.redBg,color:_backupMsg.ok?C.success:C.red,border:'1px solid '+(_backupMsg.ok?_rgba(C.success,0.25):_rgba(C.red,0.25))}},_backupMsg.text):null,
+h('div',{style:{borderTop:'1px solid '+C.border,paddingTop:14,marginTop:8}},
       h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:4}},'Reset'),
       h('div',{style:{fontSize:_fs(10),color:C.tx4,marginBottom:8}},'Smaže všechna uživatelská nastavení a obnoví výchozí hodnoty.'),
       h('button',{style:{width:'100%',background:'transparent',border:'1px solid #ef4444',borderRadius:6,padding:'8px 14px',fontSize:_fs(11),cursor:'pointer',color:'#ef4444',fontFamily:C.font},
@@ -3914,7 +3960,8 @@ function settingsBackupPanel(){
              automation policy, and the result is no longer ignored. */
           fetch(_backendUrl()+'/api/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}',signal:AbortSignal.timeout(3000)})
           .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);
-            _bCfg={};_backupMsg={ok:true,text:'Nastavení obnovena na výchozí'};renderCenter();setTimeout(function(){_backupMsg=null;renderCenter();},4000);}).catch(function(e){_backupMsg={ok:false,text:'Reset selhal: '+e.message};renderCenter();});}},'Obnovit výchozí')));
+            _bCfg={};_backupMsg={ok:true,text:'Nastavení obnovena na výchozí'};renderCenter();setTimeout(function(){_backupMsg=null;renderCenter();},4000);}).catch(function(e){_backupMsg={ok:false,text:'Reset selhal: '+e.message};renderCenter();});}},'Obnovit výchozí'))])]}
+]);
 }
 /* v91: Feature Flags panel */
 var _FF_META=[
@@ -3930,18 +3977,19 @@ function settingsFeatureFlags(){
   if(!_featureFlags&&!_ffLoading)_loadFeatureFlags();
   if(!_featureFlags)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
   var warnStyle={fontSize:_fs(9),color:'#e8a735',marginTop:3,display:'flex',alignItems:'center',gap:4};
-  return h('div',null,
-    h('div',{style:{fontSize:_fs(10),color:C.tx4,marginBottom:12,lineHeight:1.4}},
+  return _settingsPage("Feature Flags",[
+{id:"switches",label:"Přepínače",cards:[_settingsCard("Běhové funkce",[h('div',{style:{fontSize:_fs(10),color:C.tx4,marginBottom:12,lineHeight:1.4}},
       'Runtime přepínače subsystémů. Změny jsou okamžité a platí do restartu serveru.'),
-    _FF_META.map(function(ff){
+_FF_META.map(function(ff){
       var val=!!_featureFlags[ff.key];
       return h('div',{key:ff.key,style:{marginBottom:2}},
         _settingsToggle(ff.label,ff.desc,val,function(nv){_toggleFeatureFlag(ff.key,nv);}),
         ff.critical&&val?null:ff.critical?h('div',{style:warnStyle},'⚠ ','Subsystém vypnut — některé funkce nebudou dostupné.'):null);
-    }),
-    h('div',{style:{marginTop:16,paddingTop:12,borderTop:'1px solid '+C.border}},
+    })])]},
+{id:"refresh",label:"Obnovení",cards:[_settingsCard("Aktuální stav",[h('div',{style:{marginTop:16,paddingTop:12,borderTop:'1px solid '+C.border}},
       h('button',{style:{background:C.bg4,color:C.tx2,border:'1px solid '+C.border,borderRadius:6,padding:'6px 14px',cursor:'pointer',fontSize:_fs(11)},
-        onClick:function(){_resetFeatureFlags();}},'Obnovit výchozí')));
+        onClick:function(){_resetFeatureFlags();}},'Obnovit výchozí'))])]}
+]);
 }
 /* v91: Security panel */
 function _secFetch(path,opts){return fetch(_backendUrl()+path,Object.assign({signal:AbortSignal.timeout(5000)},opts||{}));}
@@ -4011,21 +4059,21 @@ function settingsSecurityPanel(){
   }
   /* ── Sessions ── */
   var sessInfo=_secSessions?h('div',{style:{fontSize:_fs(10),color:C.tx3}},'Aktivní relace: '+_secSessions.count+' | Uptime: '+Math.round((_secSessions.uptime_seconds||0)/60)+' min'):null;
-  return h('div',null,
-    h('div',{style:secH},'Audit Log'),h('div',{style:secSub},'Záznamy z CRE, merge, drift a LLM'),
-    auditTabRow,
-    _secLoading.audit?h('div',{style:{color:C.tx4,fontSize:_fs(10)}},'Načítám...'):
-      auditRows.length>0?h('div',{style:{maxHeight:200,overflowY:'auto'}},auditRows):h('div',{style:{color:C.tx4,fontSize:_fs(10)}},'Žádné záznamy.'),
-    h('div',{style:secH},'API Tokeny'),h('div',{style:secSub},'Přístupové tokeny pro API'),
-    newTokenBanner,
-    _secLoading.tokens?h('div',{style:{color:C.tx4,fontSize:_fs(10)}},'Načítám...'):
+  return _settingsPage("Security",[
+{id:"audit",label:"Audit",cards:[_settingsCard("Záznamy",[h('div',{style:secSub},'Záznamy z CRE, merge, drift a LLM'),
+auditTabRow,
+_secLoading.audit?h('div',{style:{color:C.tx4,fontSize:_fs(10)}},'Načítám...'):
+      auditRows.length>0?h('div',{style:{maxHeight:200,overflowY:'auto'}},auditRows):h('div',{style:{color:C.tx4,fontSize:_fs(10)}},'Žádné záznamy.')])]},
+{id:"access",label:"Přístup",cards:[_settingsCard("API tokeny",[h('div',{style:secSub},'Přístupové tokeny pro API'),
+newTokenBanner,
+_secLoading.tokens?h('div',{style:{color:C.tx4,fontSize:_fs(10)}},'Načítám...'):
       tokenRows.length>0?h('div',null,tokenRows):h('div',{style:{color:C.tx4,fontSize:_fs(10)}},'Žádné tokeny.'),
-    h('button',{style:{marginTop:6,background:C.accent,color:C.onAccent,border:'none',borderRadius:4,padding:'4px 12px',cursor:'pointer',fontSize:_fs(10),fontWeight:700},
-      onClick:function(){var name=prompt('Název nového tokenu:');if(!name)return;_secFetch('/api/security/tokens',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name})}).then(function(r){return r.json();}).then(function(d){if(d.token){_secNewToken=d.token;_secLoadTokens();}}).catch(function(){});}},'Vytvořit nový token'),
-    h('div',{style:secH},'Webhook Secret'),h('div',{style:secSub},'HMAC podpis pro webhook notifikace'),
-    webhookInfo||h('div',{style:{color:C.tx4,fontSize:_fs(10)}},'Načítám...'),
-    h('div',{style:secH},'Aktivní relace'),
-    sessInfo||h('div',{style:{color:C.tx4,fontSize:_fs(10)}},'Načítám...'));
+h('button',{style:{marginTop:6,background:C.accent,color:C.onAccent,border:'none',borderRadius:4,padding:'4px 12px',cursor:'pointer',fontSize:_fs(10),fontWeight:700},
+      onClick:function(){var name=prompt('Název nového tokenu:');if(!name)return;_secFetch('/api/security/tokens',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:name})}).then(function(r){return r.json();}).then(function(d){if(d.token){_secNewToken=d.token;_secLoadTokens();}}).catch(function(){});}},'Vytvořit nový token')]),
+_settingsCard("Webhook",[h('div',{style:secSub},'HMAC podpis pro webhook notifikace'),
+webhookInfo||h('div',{style:{color:C.tx4,fontSize:_fs(10)}},'Načítám...')])]},
+{id:"sessions",label:"Relace",cards:[_settingsCard("Aktivní spojení",[sessInfo||h('div',{style:{color:C.tx4,fontSize:_fs(10)}},'Načítám...')])]}
+]);
 }
 function _fbGetLastAssistant(){
   var msgs=_ts&&_ts.chat&&_ts.chat.msgs;if(!msgs)return null;
@@ -4086,16 +4134,16 @@ function settingsAboutPanel(){
       h('div',{style:{fontSize:_fs(8),color:C.tx4,flexShrink:0}},_fbFormatSize(f.size)),
       h('button',{style:{background:'none',border:'none',color:'#ef4444',cursor:'pointer',fontSize:_fs(10),padding:'0 4px',flexShrink:0},onClick:function(){_fbRemoveFile(i);}},'\u00d7'));
   });
-  return h('div',{style:{padding:'30px 0'}},
-    h('div',{style:{textAlign:'center'}},
+  return _settingsPage("About",[
+{id:"version",label:"Aplikace",cards:[_settingsCard("IntentSmith",[h('div',{style:{textAlign:'center'}},
       h('img',{src:'../../resources/intentsmith-icon.png',alt:'',style:{width:80,height:80,objectFit:'contain',marginBottom:14}}),
       h('div',{style:{fontSize:_fs(17),fontWeight:700,color:C.tx1,marginBottom:4}},'IntentSmith'),
       h('div',{style:{fontSize:_fs(13),color:C.accent,fontWeight:600,marginBottom:16}},'v'+(_serverHealth.version||'...')),
       h('div',{style:{fontSize:_fs(11),color:C.tx4,marginBottom:20}},'Made with \u2764\ufe0f by Belfik')),
-    h('div',{style:{borderTop:'1px solid '+C.border,paddingTop:16,marginBottom:20,textAlign:'center'}},
+h('div',{style:{borderTop:'1px solid '+C.border,paddingTop:16,marginBottom:20,textAlign:'center'}},
       h('button',{style:{background:C.bg4,color:C.tx2,border:'1px solid '+C.border,borderRadius:6,padding:'6px 14px',cursor:'pointer',fontSize:_fs(11)},
-        onClick:function(){try{localStorage.removeItem('intentsmith.onboarding.completed');}catch(_){}renderCenter();}},'Spustit pr\u016fvodce prvn\u00edm spu\u0161t\u011bn\u00edm')),
-    h('div',{style:{borderTop:'1px solid '+C.border,paddingTop:16}},
+        onClick:function(){try{localStorage.removeItem('intentsmith.onboarding.completed');}catch(_){}renderCenter();}},'Spustit pr\u016fvodce prvn\u00edm spu\u0161t\u011bn\u00edm'))])]},
+{id:"feedback",label:"Zpětná vazba",cards:[_settingsCard("Podpora",[h('div',{style:{borderTop:'1px solid '+C.border,paddingTop:16}},
       h('div',{style:{fontSize:_fs(13),fontWeight:700,color:C.tx1,marginBottom:4}},'Zp\u011btn\u00e1 vazba'),
       h('div',{style:{fontSize:_fs(10),color:C.tx4,marginBottom:12}},'Napi\u0161 n\u00e1m co funguje, co ne, nebo co bys cht\u011bl/a p\u0159idat. Runtime kontext se p\u0159ilo\u017e\u00ed automaticky.'),
       h('div',{style:{marginBottom:8}},
@@ -4177,7 +4225,8 @@ function settingsAboutPanel(){
               _fbFiles=[];
             });
           }).catch(function(){}).finally(function(){_fbSending=false;renderCenter();});
-        }},_fbSending?'Odes\u00edl\u00e1m...':'Odeslat zp\u011btnou vazbu')));
+        }},_fbSending?'Odes\u00edl\u00e1m...':'Odeslat zp\u011btnou vazbu'))])]}
+]);
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -7575,7 +7624,7 @@ function WorkspaceApp(){
         _workspaceButton(_workspaceTabLabel(title),title,function(){_switchSession(idx);_showWorkspace();},{role:'tab','aria-label':title,'aria-selected':_sessionActive===idx,'data-session-tab':idx,style:{flex:1,minWidth:0,maxWidth:192,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',padding:'8px 10px',textAlign:'left',background:'transparent',border:0,color:_sessionActive===idx?C.tx1:C.tx3,cursor:'pointer',fontFamily:C.font,fontSize:12}}),
         _workspaceButton('×','Zavřít relaci '+title,function(){_closeWorkspaceSession(idx);}));}),
       _workspaceButton('+','Nová relace',function(){_addWorkspaceSession();},{id:'intentsmith-new-session'}),
-      h('div',{style:{flex:1}}),_workspaceButton(_workspaceSplit?'Jedna relace':'Vedle sebe','Rozdělit pracovní prostor',function(){_workspaceSplit=!_workspaceSplit;renderCenter();},{'aria-pressed':_workspaceSplit,id:'intentsmith-split-sessions'})),
+      h('div',{style:{flex:1}}),h('div',{role:'group','aria-label':'Rozložení relací',style:{display:'flex',alignItems:'center',gap:4,padding:'3px 8px',position:'sticky',right:0,background:C.bg0}},[false,true].map(function(split){var label=split?'Vedle sebe':'Jedna relace',active=_workspaceSplit===split;return h('button',{key:String(split),id:split?'intentsmith-split-sessions':'intentsmith-single-session',title:label,'aria-label':label,'aria-pressed':active,onClick:function(){_workspaceSplit=split;renderCenter();},style:{display:'flex',alignItems:'center',justifyContent:'center',width:34,height:28,borderRadius:4,border:'1px solid '+(active?C.accent:C.border2),background:active?C.accentBg:C.bg1,color:active?C.accentText:C.tx3,cursor:'pointer'}},h('svg',{width:21,height:17,viewBox:'0 0 24 20',fill:'none',stroke:'currentColor',strokeWidth:1.6,'aria-hidden':true},h('rect',{x:1.5,y:2,width:21,height:16,rx:1.5}),split?h('path',{d:'M8.5 2v16M15.5 2v16'}):h('path',{d:'M1.5 6h21'})));}))),
     h('div',{style:{display:'flex',flex:1,minWidth:0,minHeight:0,overflowX:'auto'}},visible.map(function(idx){
       var s=_sessions[idx];if(!s||s._closed)return null;var editor=s._editor;var fileOpen=editor&&editor.active&&editor.tabs.length>0;
       var chat=h('section',{'aria-label':'Chat relace','data-session-chat':idx,style:{display:'flex',flexDirection:'column',minHeight:0,flex:fileOpen?(s._chatCollapsed?'0 0 34px':'0 0 36%'):1}},
