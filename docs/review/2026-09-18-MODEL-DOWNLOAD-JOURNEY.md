@@ -35,3 +35,21 @@ binding provideru očekává původní `success` událost; nový čistý parser 
 nepřipnutou import hranu. Zachována původní událost (finální `done` až po EOF
 s success receipt), parser ponechán uvnitř existujícího upgrade-manager modulu.
 Třetí FAIL je zděděná release registry pečeť. Následuje nové ověření.
+
+Druhý úplný profil na `5f364979`: 359 PASS / 1 FAIL / 0 BLOCKED; jediný
+FAIL je `tests/nightly-orchestrator-self-test.js`, zděděná release registry
+pečeť. Řízený skutečný Electron `controlled-4` ověřil HTTP průběh bez WS
+událostí, přerušení backendu, nový port/capability, automatické obnovení a
+trvalé dokončení po reloadu. Předchozí tři negativní pokusy harnessu zachované.
+
+Skutečná Gemma dokončena 15:13:26 CEST: durable `RECONCILED_SUCCEEDED`,
+operace `mao1:ef3320c8-67ea-4096-abe6-b98c57206ab4`. Délka 65 min 45 s.
+Nová instalace `5f364979` tento výsledek skutečně zobrazila v Electronu.
+
+Živý CODE test odhalil další zdržení: background binding verification po
+startu backendu načetla modely a poslední ponechala na GPU s výchozím
+pětiminutovým keep-alive. Její DB claims prokazují vlastníka
+`BINDING_VERIFICATION`; žádný cizí proces nebyl ukončen. Ověřovací chat nyní
+požaduje `keep_alive: 0`, response-bound digest kontrola je zachovaná.
+109 binding testů a 160 artifact testů PASS. Nová měření běží na `5f364979`;
+opravný keep-alive bude instalován až po jejich dokončení.

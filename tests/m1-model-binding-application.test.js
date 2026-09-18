@@ -4643,6 +4643,7 @@ await testAsync('real loopback provider trusts only a response-attested digest',
   assertEqual(chatBody.model, 'fixture-target:latest');
   assertEqual(chatBody.stream, false);
   assertEqual(chatBody.think, false);
+  assertEqual(chatBody.keep_alive, 0, 'identity verification releases its runner after the probe');
   assertEqual(chatBody.options.num_predict, 1);
   assertEqual(chatBody.options.num_ctx, 512);
 });
