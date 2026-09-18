@@ -307,7 +307,7 @@ assert.doesNotMatch(chatPanelRuntime, /\b_apiBase\b/);
 assert.doesNotMatch(chatPanelRuntime, /window\._c3BackendUrl/);
 assert.doesNotMatch(
   chatPanelRuntime,
-  /src:\s*_backendBase\s*\+\s*['"]\/api\/media\/output/,
+  /src:\s*(?:_backendBase|_backendUrl\(\))\s*\+\s*['"]\/api\/media\/output/,
 );
 assert.doesNotMatch(
   centerViewsRuntime,

@@ -4709,7 +4709,7 @@ function recoveryContext(options = {}) {
     module: { exports: {} },
   });
   vm.runInContext(
-    'var _backendBase="http://127.0.0.1:7071";'
+    'function _backendUrl(){return "http://127.0.0.1:7071";}'
     + 'var _verifyFailure=null;var _rollbackConfirm=false;'
     + 'var _rollbackInFlight=null;var _rollbackToken=0;'
     + 'var _upgradeMsg=null;var _roleBindings={CHAT:1};var _modelOverview={x:1};'
@@ -5539,7 +5539,7 @@ test('the shipped preload exposes the byte bridge and no path-taking read', () =
 
 await testAsync('Studio specialist list uses enabled package IDs independently of expertise flags', async () => {
   const source=fs.readFileSync(CHAT_PANEL,'utf8');const start=source.indexOf('function _fetchSpecialists(){'),end=source.indexOf('function _fetchExpertises(){',start);
-  const calls=[];const context=vm.createContext({AbortSignal,console,_backendBase:'http://127.0.0.1:1',SPECIALISTS:[],NAV:[{},{},{},{}],renderCenter(){},
+  const calls=[];const context=vm.createContext({AbortSignal,console,_backendUrl:()=> 'http://127.0.0.1:1',SPECIALISTS:[],NAV:[{},{},{},{}],renderCenter(){},
     fetch:async url=>{calls.push(url);return {ok:true,json:async()=>({ok:true,specialists:[{id:'accountant-cz',name:'Účetní',status:'enabled',type:'domain'},{id:'sazeni',name:'Sázkař',status:'enabled',type:'domain'},{id:'disabled',name:'Zakázaný',status:'disabled',type:'domain'},{id:'utility',status:'enabled',type:'utility'}]})};}});
   vm.runInContext(source.slice(start,end),context);await context._fetchSpecialists();
   assert.equal(calls[0],'http://127.0.0.1:1/api/specialists');assert.deepEqual(Array.from(context.SPECIALISTS,s=>s.id),['accountant-cz','sazeni']);assert.equal(context.NAV[2].badge,2);

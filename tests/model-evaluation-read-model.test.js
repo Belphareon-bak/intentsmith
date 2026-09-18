@@ -568,10 +568,10 @@ test('quality tables separate role scores from chronological provider evidence',
 });
 
 await testAsync('scoring refresh rejects HTTP errors and recovers on the next explicit read', async () => {
-  const source = studioFunction('_loadEvaluationData', '/* Installed models cache');
+  const source = studioSource.slice(studioSource.indexOf('function _modelReadError('),studioSource.indexOf('function _resetModelReads(')) + studioFunction('_loadEvaluationData', '/* Installed models cache');
   let succeed = false; let calls = 0;
   const context = {
-    _evaluationLoading: false, _evaluationData: null, _backendBase: 'http://127.0.0.1:1234',
+    _evaluationLoading: false, _evaluationData: null, _backendUrl: () => 'http://127.0.0.1:1234', _modelReadEpoch: 0,
     AbortSignal, renderCenter() {},
     fetch: async url => {
       assertEqual(url, 'http://127.0.0.1:1234/api/system/models/evaluations'); calls++;
@@ -581,7 +581,7 @@ await testAsync('scoring refresh rejects HTTP errors and recovers on the next ex
   runInNewContext(source + ';_loadEvaluationData();_loadEvaluationData()', context);
   await new Promise(resolve => setImmediate(resolve));
   assertEqual(calls, 1);
-  assertEqual(context._evaluationData.error, 'Evaluace HTTP 503');
+  assertEqual(context._evaluationData.error, 'Načtení dat selhalo (HTTP 503).');
   succeed = true;
   runInNewContext('_loadEvaluationData()', context);
   await new Promise(resolve => setImmediate(resolve));

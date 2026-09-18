@@ -174,7 +174,7 @@ test('Studio draft command renders complete bytes and never auto-approves the mo
       after: { content: 'export const value=42;', digest: 'sha256:after' } }],
   };
   const sandbox = vm.createContext({
-    _sessions: [session], _backendBase: 'http://fixture.invalid',
+    _sessions: [session], _backendUrl: () => 'http://fixture.invalid',
     _M2_TERMINAL_STATES: { succeeded: true, failed: true, cancelled: true },
     _sessionActive: 0, _persistSessionState() {}, renderChat() {}, _chatScrollPane() {},
     AbortSignal, AbortController,
@@ -201,7 +201,7 @@ test('Studio can cancel an active draft without sending approval or a legacy mut
   const pane = { msgs: [], attachments: [] };
   const calls = [];
   const sandbox = vm.createContext({
-    _sessions: [session], _backendBase: 'http://fixture.invalid', _M2_TERMINAL_STATES: {},
+    _sessions: [session], _backendUrl: () => 'http://fixture.invalid', _M2_TERMINAL_STATES: {},
     _sessionActive: 0, _persistSessionState() {}, renderChat() {}, _chatScrollPane() {}, AbortSignal, AbortController, TextEncoder,
     fetch(url, options) {
       calls.push({ url, options });
@@ -240,7 +240,7 @@ function controlledStudio({ pending = true, paths = ['src/app.js'], activeM1 = t
       after: { content: 'export const value=42;', digest: 'sha256:after' } })),
   };
   const sandbox = vm.createContext({
-    _sessions: [session], _backendBase: 'http://fixture.invalid',
+    _sessions: [session], _backendUrl: () => 'http://fixture.invalid',
     _M2_TERMINAL_STATES: { succeeded: true, failed: true, cancelled: true },
     _sessionActive: 0, _persistSessionState() {}, renderChat() {}, _chatScrollPane() {}, AbortSignal, AbortController, TextEncoder,
     document: { getElementById() { return textarea; } }, C3WS: { hasActiveM1Turn(value) { assert.equal(value, session);return activeM1; } },
@@ -661,7 +661,7 @@ test('project wizard preserves the draft and current sessions when creation is r
     const data = { name: 'Fan', pathMode: 'auto', path: '', description: 'RPM widget', type: 'general' };
     const wizard = { active: true, step: 5, data, saving: false, defaultDir: '/stale/default' };
     let routes = 0; const logs = []; const requests = [];
-    const context = vm.createContext({ _projectWizard: wizard, AbortSignal, _backendBase: '',
+    const context = vm.createContext({ _projectWizard: wizard, AbortSignal, _backendUrl: () => '',
       renderCenter() {}, _wizardRestoreLayout() { throw Error('must preserve form'); },
       _smartRouteToRelay() { routes++; }, window: { _c3: { agentLog: (...args) => logs.push(args) } },
       fetch: async (url, options) => { requests.push({ url, body: JSON.parse(options.body) });
@@ -681,7 +681,7 @@ test('opening a registered project clears foreign context and ignores stale asyn
   const calls = [];
   const session = { _projectId: 1, _convId: 'old-conversation', _agentId: 'old-agent',
     chat: { msgs: [], _projectWorkProposal: { old: true }, _m2Composer: { old: true } } };
-  const context = vm.createContext({ _sessions: [session], _backendBase: '', AbortSignal,
+  const context = vm.createContext({ _sessions: [session], _backendUrl: () => '', AbortSignal,
     _chatInvalidatePreparedSends() {}, _loadWorkspaceTree() {}, _syncFocusClass() {}, _persistSessionState() {},
     renderChat() {}, _chatScrollPane() {}, requestAnimationFrame(fn) { fn(); },
     fetch(url) { return new Promise(resolve => calls.push({ url, resolve(body, status = 200) {

@@ -63,3 +63,13 @@ Tři skutečné CODE sady přes GUI dokončené, 63 vyhodnocení a tři nové
 COMPLETE řádky: Qwen3.8 71,4 %, Qwen3.5 33,3 %, Qwen Coder 11,4 %.
 Celá předchozí historie a přiřazení jsou zachovaná. LIVE_GUI_CODE_MEASUREMENT_PASS;
 nezávislé review zůstává otevřené. [Review a živý checkpoint](../review/2026-09-18-MODEL-WORKSPACE.md).
+
+Znovu otevřeno operátorem 2026-09-18 podle pěti snímků: po živé aktualizaci
+backendu se otevřené Studio připojí přes WS k novému portu, ale HTTP panel
+ponechá starou adresu. Role pak zůstanou načítat a Správce maskuje síťovou
+chybu jako chybějící data. Rozsah nápravy: aktuální endpoint pro HTTP,
+obnova všech modelových záložek, viditelný výpadek/ruční retry bez opakování
+mutací, odmítnutí opožděných odpovědí. Ověřit skutečné otevřené Electron okno,
+rotaci portu i capability, všech sedm záložek před/po a výpadek při prvním
+načtení. Integrovat již instalované project-flow změny 5e46fca7; zachovat
+uživatelův otevřený projekt, rozepsané vstupy i cizí soak.

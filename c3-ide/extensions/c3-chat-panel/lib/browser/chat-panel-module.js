@@ -374,7 +374,7 @@ function _flattenTree(nodes,depth,parentPath){
 function _loadWorkspaceTree(rootPath){
   if(!rootPath)return;
   _wtLoading=true;renderSidebar();
-  fetch(_backendBase+'/api/workspace/tree?path='+encodeURIComponent(rootPath),{signal:AbortSignal.timeout(8000)})
+  fetch(_backendUrl()+'/api/workspace/tree?path='+encodeURIComponent(rootPath),{signal:AbortSignal.timeout(8000)})
   .then(function(r){return r.json();})
   .then(function(data){
     _wtLoading=false;
@@ -393,7 +393,7 @@ function _loadWorkspaceTree(rootPath){
 var _gitStatusTimer=null;
 function _fetchGitStatus(){
   if(!_wtRoot)return;
-  fetch(_backendBase+'/api/workspace/git-status?path='+encodeURIComponent(_wtRoot),{signal:AbortSignal.timeout(3000)})
+  fetch(_backendUrl()+'/api/workspace/git-status?path='+encodeURIComponent(_wtRoot),{signal:AbortSignal.timeout(3000)})
   .then(function(r){return r.json();})
   .then(function(data){
     if(!data.files)return;
@@ -424,7 +424,7 @@ function _reflattenTree(){
 /* ── Create file on filesystem ── */
 function _wtCreateFile(name){
   if(!_wtRoot||!name)return;
-  fetch(_backendBase+'/api/workspace/file',{method:'POST',headers:{'Content-Type':'application/json'},
+  fetch(_backendUrl()+'/api/workspace/file',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({path:name,root:_wtRoot,content:''}),signal:AbortSignal.timeout(5000)})
   .then(function(r){return r.json();})
   .then(function(d){if(d.ok)_loadWorkspaceTree(_wtRoot);})
@@ -433,7 +433,7 @@ function _wtCreateFile(name){
 /* ── Create directory on filesystem ── */
 function _wtCreateDir(name){
   if(!_wtRoot||!name)return;
-  fetch(_backendBase+'/api/workspace/directory',{method:'POST',headers:{'Content-Type':'application/json'},
+  fetch(_backendUrl()+'/api/workspace/directory',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({path:name,root:_wtRoot}),signal:AbortSignal.timeout(5000)})
   .then(function(r){return r.json();})
   .then(function(d){if(d.ok)_loadWorkspaceTree(_wtRoot);})
@@ -442,7 +442,7 @@ function _wtCreateDir(name){
 /* ── Rename file/dir on filesystem ── */
 function _wtRenameItem(oldPath,newPath){
   if(!_wtRoot||!oldPath||!newPath||oldPath===newPath)return;
-  fetch(_backendBase+'/api/workspace/rename',{method:'PUT',headers:{'Content-Type':'application/json'},
+  fetch(_backendUrl()+'/api/workspace/rename',{method:'PUT',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({from:oldPath,to:newPath,root:_wtRoot}),signal:AbortSignal.timeout(5000)})
   .then(function(r){return r.json();})
   .then(function(d){if(d.ok)_loadWorkspaceTree(_wtRoot);})
@@ -451,7 +451,7 @@ function _wtRenameItem(oldPath,newPath){
 /* ── Delete file/dir on filesystem ── */
 function _wtDeleteItem(itemPath){
   if(!_wtRoot||!itemPath)return;
-  fetch(_backendBase+'/api/workspace/file?path='+encodeURIComponent(itemPath)+'&root='+encodeURIComponent(_wtRoot),
+  fetch(_backendUrl()+'/api/workspace/file?path='+encodeURIComponent(itemPath)+'&root='+encodeURIComponent(_wtRoot),
     {method:'DELETE',signal:AbortSignal.timeout(5000)})
   .then(function(r){return r.json();})
   .then(function(d){if(d.ok)_loadWorkspaceTree(_wtRoot);})
@@ -460,11 +460,18 @@ function _wtDeleteItem(itemPath){
 var NAV=[{id:'chats',label:'Konverzace',icon:'chat',badge:0,recent:[]},{id:'projects',label:'Projekty',icon:'folder',badge:0,recent:[]},{id:'specialists',label:'Specialisté',icon:'users',badge:SPECIALISTS.length,recent:SPECIALISTS.slice(0,2).map(function(s){return s.name;})},{id:'expertises',label:'Expertyzy',icon:'expert',badge:EXPERTISES.length,recent:EXPERTISES.filter(function(e){return e.fav;}).slice(0,3).map(function(e){return e.name;})},{id:'workers',label:'Workeri',icon:'worker',badge:0,recent:[]},{id:'marketplace',label:'Obchod',icon:'store',badge:0,recent:[]},{id:'multimedia',label:'Multim\u00E9dia',icon:'media',badge:0,recent:[]}];
 
 /* ═══ LIVE DATA FETCH ═══ */
-var _backendBase=(function(){try{if(typeof window!=='undefined'&&window.electronC3){var url=window.electronC3.getBackendUrl();if(url)return url;}}catch(e){}return 'http://127.0.0.1:3335';})();
+/* Read the private endpoint on every request: a managed backend restart rotates
+   both its port and capability while this renderer stays open. */
+function _backendUrl(){
+  if(typeof window!=='undefined'&&window.electronC3){
+    try{return window.electronC3.getBackendUrl()||'';}catch(e){return '';}
+  }
+  return 'http://127.0.0.1:3335';
+}
 
 /* v88: Extracted expertise fetch — reusable for initial load + post-skill refresh */
 function _fetchSpecialists(){
-  return fetch(_backendBase+'/api/specialists',{signal:AbortSignal.timeout(5000)}).then(function(r){if(!r.ok)throw new Error('Specialisté: HTTP '+r.status);return r.json();}).then(function(data){
+  return fetch(_backendUrl()+'/api/specialists',{signal:AbortSignal.timeout(5000)}).then(function(r){if(!r.ok)throw new Error('Specialisté: HTTP '+r.status);return r.json();}).then(function(data){
     if(!data.ok||!Array.isArray(data.specialists))throw new Error('Neplatný seznam specialistů');
     SPECIALISTS=data.specialists.filter(function(s){return s.status==='enabled'&&s.type!=='utility';}).map(function(s){return {id:s.id,expertiseId:s.expertiseId,name:s.name,emoji:s.icon||'🤖',desc:s.description||s.domain,domain:s.domain,tags:[s.domain,'Specialista']};});
     NAV[2].badge=SPECIALISTS.length;NAV[2].recent=SPECIALISTS.slice(0,3).map(function(s){return s.name;});renderCenter();
@@ -472,7 +479,7 @@ function _fetchSpecialists(){
 }
 function _fetchExpertises(){
   _fetchSpecialists();
-  fetch(_backendBase+'/api/expertises',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(data){
+  fetch(_backendUrl()+'/api/expertises',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(data){
     var items=Array.isArray(data)?data:(data.expertises||data.experts||[]);
     if(items.length>0){
       var _localEx={};EXPERTISES.forEach(function(le){_localEx[le.name]=le;});
@@ -505,7 +512,7 @@ function _maybeRefreshExpertises(metadata){
 function fetchBackendData(){
   /* Projects — filter: must have path (real project, not conversation leak) */
   var projStatus=_centerState.projectFilterMode||'active';
-  fetch(_backendBase+'/api/projects?limit=50&status='+projStatus,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(data){
+  fetch(_backendUrl()+'/api/projects?limit=50&status='+projStatus,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(data){
     var items=Array.isArray(data)?data:(data.projects||[]);
     items=items.filter(function(p){return p.path&&p.name;});
     if(items.length>0){PROJECTS=items.slice(0,20).map(function(p){return{id:p.id,emoji:'📁',name:_s(p.name||p.title)||'Projekt',path:p.path||null,status:_s(p.status)||'Active',created:_s(p.created_at||p.createdAt||p.created)||'',updated:_s(p.last_active||p.updatedAt||p.updated)||'',desc:_s(p.description)||'',tags:[]};});}
@@ -518,7 +525,7 @@ function fetchBackendData(){
   }).catch(function(){});
   /* Conversations */
   var convStatus=_centerState.filterMode||'active';
-  fetch(_backendBase+'/api/conversations?limit=50&status='+convStatus,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(data){
+  fetch(_backendUrl()+'/api/conversations?limit=50&status='+convStatus,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(data){
     var items=Array.isArray(data)?data:(data.conversations||[]);
     if(items.length>0){CONVERSATIONS=items.slice(0,20).map(function(c){return{id:c.id,title:_s(c.title||c.name)||'Chat',preview:_s(c.preview||c.lastMessage||c.summary)||'',time:_s(c.time||c.updated_at||c.updatedAt)||'',created_at:_s(c.created_at||c.createdAt)||'',updated_at:_s(c.updated_at||c.updatedAt||c.time)||'',expertise:_s(c.expertise)||'Výchozí',status:_s(c.state||c.status)||'active'};});}
     else{CONVERSATIONS=[];}
@@ -527,7 +534,7 @@ function fetchBackendData(){
   /* Expertises — separate specialists (is_specialist or is_builtin+tools) */
   _fetchExpertises();
   /* Workers (agents) */
-  if(!_agentsForbidden){fetch(_backendBase+'/api/agents?all=true',{signal:AbortSignal.timeout(3000)}).then(function(r){if(r.status===403){_agentsForbidden=true;return{agents:[]};}if(!r.ok)return{agents:[]};return r.json();}).then(function(data){
+  if(!_agentsForbidden){fetch(_backendUrl()+'/api/agents?all=true',{signal:AbortSignal.timeout(3000)}).then(function(r){if(r.status===403){_agentsForbidden=true;return{agents:[]};}if(!r.ok)return{agents:[]};return r.json();}).then(function(data){
     var items=Array.isArray(data)?data:(data.agents||[]);
     if(items.length>0){WORKERS=items.map(function(a){
       var sched=a.definition&&a.definition.schedule?a.definition.schedule:null;
@@ -540,7 +547,7 @@ function fetchBackendData(){
     NAV[4].badge=WORKERS.length;NAV[4].recent=WORKERS.slice(0,3).map(function(w){return w.name;});renderCenter();
   }).catch(function(){});}
   /* v132: Media badge — show active generation count */
-  fetch(_backendBase+'/api/media/history?limit=1',{signal:AbortSignal.timeout(3000)})
+  fetch(_backendUrl()+'/api/media/history?limit=1',{signal:AbortSignal.timeout(3000)})
     .then(function(r){return r.json();})
     .then(function(d){NAV[6].badge=_media.progress.size||(d.generations&&d.generations.length>0?'●':0);renderCenter();})
     .catch(function(){});
@@ -552,12 +559,12 @@ setTimeout(function(){
   var act=_sessionActive||0;
   var hasRestoredTree=(_perSessionTree[act]&&_perSessionTree[act].wtRoot)||_wtRoot;
   if(hasRestoredTree){return;}
-  fetch(_backendBase+'/api/health',{signal:AbortSignal.timeout(3000)})
+  fetch(_backendUrl()+'/api/health',{signal:AbortSignal.timeout(3000)})
   .then(function(r){return r.json();})
   .then(function(d){
     var root=d.cwd||d.workDir||null;
     if(!root){
-      fetch(_backendBase+'/api/projects',{signal:AbortSignal.timeout(3000)})
+      fetch(_backendUrl()+'/api/projects',{signal:AbortSignal.timeout(3000)})
       .then(function(r2){return r2.json();})
       .then(function(data){
         var items=Array.isArray(data)?data:(data.projects||[]);
@@ -571,9 +578,10 @@ setTimeout(function(){
 },2000);
 /* Refetch every 30s + health monitor */
 setInterval(function(){
-  fetch(_backendBase+'/api/health',{signal:AbortSignal.timeout(2000)})
-  .then(function(r){return r.json();})
+  fetch(_backendUrl()+'/api/health',{signal:AbortSignal.timeout(2000)})
+  .then(function(r){if(!r.ok)throw new Error('Health HTTP '+r.status);return r.json();})
   .then(function(d){
+    if(_modelsDisconnected){_modelsDisconnected=false;_refreshModelWorkspace();}
     _serverHealth.status=d.status||'ok';
     _serverHealth.lastCheck=Date.now();
     _serverHealth.wsConnected=(typeof C3WS!=='undefined'&&C3WS.isReady())||false;
@@ -1046,7 +1054,7 @@ function viewHead(t,showZoom,onAdd,extraBtn){
     ):null);
 }
 
-function _favClick(item){return function(ev){ev.stopPropagation();item.fav=!item.fav;if(item.id){fetch(_backendBase+'/api/expertises/'+item.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({favorite:item.fav}),signal:AbortSignal.timeout(3000)}).catch(function(){});}renderCenter();};}
+function _favClick(item){return function(ev){ev.stopPropagation();item.fav=!item.fav;if(item.id){fetch(_backendUrl()+'/api/expertises/'+item.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({favorite:item.fav}),signal:AbortSignal.timeout(3000)}).catch(function(){});}renderCenter();};}
 
 function card(item,onClick){
   var sel=_centerState.detail&&_centerState.detail.name===item.name;
@@ -1155,7 +1163,7 @@ function setDetail(d){
   if(d&&_centerState.view==='projects'){
     var proj=PROJECTS.find(function(p){return p.name===d.name;});
     if(proj&&proj.id){
-      fetch(_backendBase+'/api/projects/'+proj.id+'/conversations?limit=3',{signal:AbortSignal.timeout(5000)})
+      fetch(_backendUrl()+'/api/projects/'+proj.id+'/conversations?limit=3',{signal:AbortSignal.timeout(5000)})
       .then(function(r){return r.json();})
       .then(function(data){
         var convs=(data.conversations||[]).sort(function(a,b){return(b.updated||b.created||'').localeCompare(a.updated||a.created||'');});
@@ -1177,7 +1185,7 @@ function _addNew(view){
   /* Conversations → create via API, link to session */
   if(view==='chats'){
     _smartRouteToRelay(function(_ti){
-      fetch(_backendBase+'/api/conversations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'Nová konverzace',expertise:'Výchozí'}),signal:AbortSignal.timeout(5000)})
+      fetch(_backendUrl()+'/api/conversations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'Nová konverzace',expertise:'Výchozí'}),signal:AbortSignal.timeout(5000)})
       .then(function(r){return r.json();})
       .then(function(created){
         if(created.id){
@@ -1203,7 +1211,7 @@ function _addNew(view){
     _projectWizard={active:true,step:0,data:{name:'',path:'',description:'',type:'general',pathMode:'auto',mode:'create'},saving:false,defaultDir:_settingsVals.projectsDir||''};
     {
       /* The backend owns the effective default; refresh it on every creation. */
-      fetch(_backendBase+'/api/projects/defaults',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(j){
+      fetch(_backendUrl()+'/api/projects/defaults',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(j){
         if(j.defaultDir){_projectWizard.defaultDir=j.defaultDir;if(!_settingsVals.projectsDir){_settingsVals.projectsDir=j.defaultDir;_saveSV();}renderCenter();}
       }).catch(function(){});
     }
@@ -1234,9 +1242,9 @@ function _filterBar(filterKey,view){
     if(bs.length===0)return;
     var ep=view==='projects'?'/api/projects/':'/api/conversations/';
     var promises=bs.map(function(id){
-      if(action==='archive')return fetch(_backendBase+ep+id+'/archive',{method:'PATCH',signal:AbortSignal.timeout(3000)});
-      if(action==='delete')return fetch(_backendBase+ep+id,{method:'DELETE',signal:AbortSignal.timeout(3000)});
-      if(action==='restore')return fetch(_backendBase+ep+id+'/restore',{method:'PATCH',signal:AbortSignal.timeout(3000)});
+      if(action==='archive')return fetch(_backendUrl()+ep+id+'/archive',{method:'PATCH',signal:AbortSignal.timeout(3000)});
+      if(action==='delete')return fetch(_backendUrl()+ep+id,{method:'DELETE',signal:AbortSignal.timeout(3000)});
+      if(action==='restore')return fetch(_backendUrl()+ep+id+'/restore',{method:'PATCH',signal:AbortSignal.timeout(3000)});
       return Promise.resolve();
     });
     Promise.all(promises).then(function(){_centerState._bulkMode=false;_centerState._bulkSelected=[];_centerState.detail=null;fetchBackendData();renderCenter();}).catch(function(){fetchBackendData();renderCenter();});
@@ -1280,8 +1288,8 @@ function _bulkBar(view){
     var promises=bs.map(function(id){
       /* For specialists, disable first then delete expertise */
       var spec=SPECIALISTS.find(function(s){return s.id===id;});
-      var chain=spec?fetch(_backendBase+'/api/specialists/'+id+'/disable',{method:'POST',signal:AbortSignal.timeout(3000)}).catch(function(){}):Promise.resolve();
-      return chain.then(function(){return fetch(_backendBase+ep+id,{method:'DELETE',signal:AbortSignal.timeout(3000)});});
+      var chain=spec?fetch(_backendUrl()+'/api/specialists/'+id+'/disable',{method:'POST',signal:AbortSignal.timeout(3000)}).catch(function(){}):Promise.resolve();
+      return chain.then(function(){return fetch(_backendUrl()+ep+id,{method:'DELETE',signal:AbortSignal.timeout(3000)});});
     });
     Promise.all(promises).then(function(){_centerState._bulkMode=false;_centerState._bulkSelected=[];_centerState.detail=null;_fetchExpertises();renderCenter();}).catch(function(){_fetchExpertises();renderCenter();});
   }
@@ -1351,7 +1359,7 @@ function _openRegisteredProject(idx,proj){
   if(proj.path){_wtRoot=proj.path;_loadWorkspaceTree(proj.path);}
   _syncFocusClass();_persistSessionState();renderChat();
   function current(){return _sessions[idx]===s&&s._openToken===token&&s._projectId===proj.id;}
-  function read(url,options){return fetch(_backendBase+url,Object.assign({signal:AbortSignal.timeout(5000)},options||{})).then(function(r){return r.json().then(function(body){if(!r.ok)throw new Error(body.error||'Načtení selhalo ('+r.status+').');return body;});});}
+  function read(url,options){return fetch(_backendUrl()+url,Object.assign({signal:AbortSignal.timeout(5000)},options||{})).then(function(r){return r.json().then(function(body){if(!r.ok)throw new Error(body.error||'Načtení selhalo ('+r.status+').');return body;});});}
   return read('/api/projects/'+proj.id+'/conversations?limit=1').then(function(data){
     if(!current())return null;
     var conversations=data.conversations||[];if(conversations.length)return conversations[0];
@@ -1424,7 +1432,7 @@ function _doOpenExistingProject(folderPath){
   /* v90: Smart route to relay — open-folder always routes to free/new relay */
   _projectWizard.saving=true;renderCenter();
   _smartRouteToRelay(function(_ti){
-    fetch(_backendBase+'/api/projects/open-folder',{method:'POST',headers:{'Content-Type':'application/json'},
+    fetch(_backendUrl()+'/api/projects/open-folder',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({folderPath:folderPath}),signal:AbortSignal.timeout(30000)})
     .then(function(r){if(!r.ok)return r.json().then(function(e){throw new Error((e.error||'Server error '+r.status)+(e.details?' ['+e.details+']':''));});return r.json();})
     .then(function(res){
@@ -1447,7 +1455,7 @@ function _doOpenExistingProject(folderPath){
         _ts.chat.msgs=[{role:'system',text:'Projekt: '+projName}];
         _ts.chat.ctx=0;
         /* Create conversation for the project. M2 lifecycle starts only via explicit /m2-plan. */
-        fetch(_backendBase+'/api/conversations',{method:'POST',headers:{'Content-Type':'application/json'},
+        fetch(_backendUrl()+'/api/conversations',{method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({project_id:proj.id,title:projName,welcomeMessage:_welcomeMsg}),signal:AbortSignal.timeout(5000)})
         .then(function(r){return r.json().then(function(cd){if(!r.ok)throw new Error(cd.error||'Konverzaci se nepodařilo uložit.');return cd;});}).then(function(cd){
           var conv=cd.conversation||cd;
@@ -1478,7 +1486,7 @@ function _wizardSubmit(){
   _projectWizard.saving=true;_projectWizard.error=null;renderCenter();
   var d=_projectWizard.data;
   var sendPath=d.pathMode==='custom'?d.path.trim():'';
-  return fetch(_backendBase+'/api/projects',{method:'POST',headers:{'Content-Type':'application/json'},
+  return fetch(_backendUrl()+'/api/projects',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({name:d.name.trim(),path:sendPath||null,description:d.description.trim(),type:d.type,autoPath:!sendPath}),signal:AbortSignal.timeout(30000)})
   .then(function(r){return r.json().then(function(value){
     if(!r.ok)throw new Error(value.error||'Vytvoření projektu selhalo (HTTP '+r.status+').');
@@ -1505,7 +1513,7 @@ function _wizardSubmit(){
       _ts.chat.msgs=[{role:'system',text:'Projekt: '+projName}];
       /* Create conversation for the project. M2 lifecycle starts only via explicit /m2-plan. */
       if(projId){
-        fetch(_backendBase+'/api/conversations',{method:'POST',headers:{'Content-Type':'application/json'},
+        fetch(_backendUrl()+'/api/conversations',{method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({project_id:projId,title:projName,welcomeMessage:_welcomeMsg}),signal:AbortSignal.timeout(5000)})
         .then(function(r){return r.json().then(function(cd){if(!r.ok)throw new Error(cd.error||'Konverzaci se nepodařilo uložit.');return cd;});}).then(function(cd){
           var conv=cd.conversation||cd;
@@ -1666,7 +1674,7 @@ function _swSubmit(){
   if(_specialistWizard.saving)return;
   _specialistWizard.saving=true;_specialistWizard.error=null;renderCenter();
   var d=_specialistWizard.data;
-  fetch(_backendBase+'/api/specialists',{method:'POST',headers:{'Content-Type':'application/json'},
+  fetch(_backendUrl()+'/api/specialists',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({name:d.name.trim(),domain:d.domain,description:d.description.trim(),icon:d.icon||null}),
     signal:AbortSignal.timeout(10000)})
   .then(function(r){return r.json().then(function(j){return{ok:r.ok,data:j};});})
@@ -1757,7 +1765,7 @@ function _ewPreview(){
   if(_ewDebounce)clearTimeout(_ewDebounce);
   _ewDebounce=setTimeout(function(){
     var d=_expertiseWizard.data;if(!d||!d.name)return;
-    fetch(_backendBase+'/api/merge-preview',{method:'POST',headers:{'Content-Type':'application/json'},
+    fetch(_backendUrl()+'/api/merge-preview',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({expertises:[{id:'__wizard_'+Date.now(),name:d.name,modules:d.modules,capabilities:d.capabilities,systemPrompt:d.systemPrompt,temperature:d.temperature,tone:d.tone,weight:1.0,styleRules:d.styleRules}]}),
       signal:AbortSignal.timeout(5000)})
     .then(function(r){return r.json();}).then(function(p){_expertiseWizard.preview=p;renderCenter();}).catch(function(){});
@@ -1766,7 +1774,7 @@ function _ewPreview(){
 function _ewTest(question){
   if(_expertiseWizard.testLoading)return;
   _expertiseWizard.testLoading=true;_expertiseWizard.testError=null;_expertiseWizard.testResult=null;renderCenter();
-  fetch(_backendBase+'/api/expertise-wizard/test-prompt',{method:'POST',headers:{'Content-Type':'application/json'},
+  fetch(_backendUrl()+'/api/expertise-wizard/test-prompt',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({expertiseConfig:_expertiseWizard.data,question:question}),signal:AbortSignal.timeout(60000)})
   .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
   .then(function(res){_expertiseWizard.testResult=res;_expertiseWizard.testLoading=false;renderCenter();})
@@ -1776,7 +1784,7 @@ function _ewSave(){
   if(_expertiseWizard.saving||!_expertiseWizard.data||!_expertiseWizard.data.name)return;
   _expertiseWizard.saving=true;renderCenter();
   var d=_expertiseWizard.data;var method=_expertiseWizard.editId?'PUT':'POST';
-  var url=_expertiseWizard.editId?(_backendBase+'/api/expertises/'+_expertiseWizard.editId):(_backendBase+'/api/expertises');
+  var url=_expertiseWizard.editId?(_backendUrl()+'/api/expertises/'+_expertiseWizard.editId):(_backendUrl()+'/api/expertises');
   fetch(url,{method:method,headers:{'Content-Type':'application/json'},body:JSON.stringify(d),signal:AbortSignal.timeout(5000)})
   .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
   .then(function(){
@@ -1809,7 +1817,7 @@ function _ewOpen(mode,editId,data){
   var isEdit=mode==='edit';
   _wizardSaveLayout();
   _expertiseWizard={active:true,mode:mode,data:data||_ewDefaultData(),schema:null,preview:null,testResult:null,testLoading:false,testError:null,openSections:{basic:true},editId:editId||null,saving:false,advancedMode:isEdit,confirmAdvanced:false,simpleStep:1};
-  fetch(_backendBase+'/api/expertise-schema',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(s){_expertiseWizard.schema=s;renderCenter();}).catch(function(){});
+  fetch(_backendUrl()+'/api/expertise-schema',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(s){_expertiseWizard.schema=s;renderCenter();}).catch(function(){});
   renderCenter();
 }
 function _ewClose(){_expertiseWizard.active=false;_wizardRestoreLayout();renderCenter();}
@@ -1827,7 +1835,7 @@ function _awOpen(mode,editId,data){
   var isEdit=mode==='edit';
   _wizardSaveLayout();
   _agentWizard={active:true,mode:mode,data:data||_awDefaultData(),schema:null,preview:null,testResult:null,testLoading:false,testError:null,openSections:{basic:true},editId:editId||null,saving:false,advancedMode:isEdit,confirmAdvanced:false,simpleStep:1};
-  fetch(_backendBase+'/api/agents/schema',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(s){_agentWizard.schema=s;renderCenter();}).catch(function(){});
+  fetch(_backendUrl()+'/api/agents/schema',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(s){_agentWizard.schema=s;renderCenter();}).catch(function(){});
   renderCenter();
 }
 function _awClose(){_agentWizard.active=false;_wizardRestoreLayout();renderCenter();}
@@ -1843,7 +1851,7 @@ function _awApplyPreset(typeId){
 function _awDryRun(){
   var d=_agentWizard.data;if(!d)return;
   _agentWizard.testLoading=true;_agentWizard.testError=null;_agentWizard.preview=null;renderCenter();
-  fetch(_backendBase+'/api/agents/dry-run',{method:'POST',headers:{'Content-Type':'application/json'},
+  fetch(_backendUrl()+'/api/agents/dry-run',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({definition:d}),signal:AbortSignal.timeout(10000)})
   .then(function(r){return r.json();})
   .then(function(res){_agentWizard.preview=res;_agentWizard.testLoading=false;renderCenter();})
@@ -1852,7 +1860,7 @@ function _awDryRun(){
 function _awTestRun(){
   if(!_agentWizard.editId)return;
   _agentWizard.testLoading=true;_agentWizard.testError=null;_agentWizard.testResult=null;renderCenter();
-  fetch(_backendBase+'/api/agents/'+_agentWizard.editId+'/run',{method:'POST',signal:AbortSignal.timeout(60000)})
+  fetch(_backendUrl()+'/api/agents/'+_agentWizard.editId+'/run',{method:'POST',signal:AbortSignal.timeout(60000)})
   .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
   .then(function(res){_agentWizard.testResult=res;_agentWizard.testLoading=false;renderCenter();})
   .catch(function(err){_agentWizard.testError=err.message;_agentWizard.testLoading=false;renderCenter();});
@@ -1863,7 +1871,7 @@ function _awSave(){
   var d=_agentWizard.data;
   if(!d.id)d.id=d.name.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9_-]/g,'').slice(0,64);
   /* Auto dry-run pred save */
-  fetch(_backendBase+'/api/agents/dry-run',{method:'POST',headers:{'Content-Type':'application/json'},
+  fetch(_backendUrl()+'/api/agents/dry-run',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({definition:d}),signal:AbortSignal.timeout(10000)})
   .then(function(r){return r.json();})
   .then(function(dryRes){
@@ -1873,7 +1881,7 @@ function _awSave(){
     }
     /* Dry-run OK → save */
     var method=_agentWizard.editId?'PUT':'POST';
-    var url=_agentWizard.editId?(_backendBase+'/api/agents/'+_agentWizard.editId):(_backendBase+'/api/agents');
+    var url=_agentWizard.editId?(_backendUrl()+'/api/agents/'+_agentWizard.editId):(_backendUrl()+'/api/agents');
     var payload=_agentWizard.editId?d:{name:d.name,description:d.description,type:d.type,icon:d.icon,definition:dryRes.definition||d};
     fetch(url,{method:method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal:AbortSignal.timeout(5000)})
     .then(function(r){
@@ -2497,18 +2505,13 @@ function _modelTestFeedback(model,role){
 var _huntSubmittedAt=0;var _huntRefreshedRunId=null;
 var _huntData=null;var _huntLoading=false;var _huntActionPending=false;var _huntError=null;
 function _loadHuntStatus(){
-  if(_huntLoading)return;
-  _huntLoading=true;
-  fetch(_backendBase+'/api/system/models/hunt',{signal:AbortSignal.timeout(15000)})
-    .then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(d.error||d.code||('HTTP '+r.status));return d;});})
-    .then(function(d){_huntData=d;_huntError=null;
-      if(d.current&&Date.parse(d.current.startedAt)>=_huntSubmittedAt&&_huntSubmittedAt>0)_modelTestMessage=null;
-      if(d.current&&d.current.runId&&d.current.finishedAt&&_huntRefreshedRunId!==d.current.runId){
-        _huntRefreshedRunId=d.current.runId;_modelOverview=null;_loadEvaluationData();
-      }
-    })
-    .catch(function(e){_huntError=e.message;})
-    .finally(function(){_huntLoading=false;if(_centerState.view==='upgrades'&&_upgradeTab==='hunt')renderCenter();});
+  if(_huntLoading)return;_huntLoading=true;
+  return _readModelResource('/api/system/models/hunt',function(d){_huntData=d;_huntError=null;
+    if(d.current&&Date.parse(d.current.startedAt)>=_huntSubmittedAt&&_huntSubmittedAt>0)_modelTestMessage=null;
+    if(d.current&&d.current.runId&&d.current.finishedAt&&_huntRefreshedRunId!==d.current.runId){
+      _huntRefreshedRunId=d.current.runId;_modelOverview=null;_loadEvaluationData();
+    }
+  },function(error){_huntError=error;_huntData=null;},function(){_huntLoading=false;},15000);
 }
 function _controlHunt(action){
   if(_huntActionPending)return;
@@ -2518,7 +2521,7 @@ function _controlHunt(action){
     resume:'Obnovit automatický hunt? Zmeškaný termín se může dohnat nyní, pokud je GPU volná.'};
   if(!messages[action]||!confirm(messages[action]))return;
   _huntActionPending=true;renderCenter();
-  fetch(_backendBase+'/api/system/models/hunt/control',{method:'POST',headers:{'Content-Type':'application/json'},
+  fetch(_backendUrl()+'/api/system/models/hunt/control',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({action:action}),signal:AbortSignal.timeout(15000)})
     .then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(d.error||d.code||('HTTP '+r.status));return d;});})
     .then(function(){_huntError=null;_loadHuntStatus();})
@@ -2532,11 +2535,11 @@ function _testInstalledModel(model,role){
   if(_modelTestPending)return;
   if(!confirm('Otestovat '+model+' pro roli '+role+'? Použije GPU, uloží skóre a ponechá přiřazení rolí. Provede nové měření; předchozí výsledky zůstanou v historii.'))return;
   _huntSubmittedAt=Date.now();_modelTestPending=true;_modelTestMessage=null;_modelTestTarget={model:model,role:role};_modelTestFailed=false;renderCenter();
-  fetch(_backendBase+'/api/system/models/evaluations',{signal:AbortSignal.timeout(15000)})
+  fetch(_backendUrl()+'/api/system/models/evaluations',{signal:AbortSignal.timeout(15000)})
     .then(function(r){if(!r.ok)throw new Error('Nelze ověřit aktuální modely');return r.json();})
     .then(function(d){var rd=d.roles&&d.roles[role];var row=rd&&(rd.artifacts||[]).find(function(a){return _canonicalModelIdentity(a.model)===_canonicalModelIdentity(model);});
       if(!row||!row.digestSha256||row.applicable===false)throw new Error('Model není nainstalovaný nebo není vhodný pro tuto roli.');
-      return fetch(_backendBase+'/api/system/models/evaluate',{method:'POST',headers:{'Content-Type':'application/json'},
+      return fetch(_backendUrl()+'/api/system/models/evaluate',{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({model:row.model,role:role,digestSha256:row.digestSha256,suiteContractSha256:rd.suiteContractSha256}),signal:AbortSignal.timeout(20000)});})
     .then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(d.error||d.code||('HTTP '+r.status));return d;});})
     .then(function(){_upgradeTab='hunt';_modelTestMessage='Požadavek na měření přijat. Připravuji průběh testu…';_loadHuntStatus();})
@@ -2569,6 +2572,7 @@ function _huntFailureText(last){
   return messages[code]||'Měření nebylo dokončeno. Příčinu najdeš v podrobnostech; uložená skóre zůstávají zachovaná.';
 }
 function _renderHuntTab(){
+  if(_huntError&&!_huntData)return _modelLoadFailure(_huntError,_loadHuntStatus);
   var d=_huntData,last=d&&d.current;
   var running=d&&(d.state==='RUNNING'||d.state==='STOPPING');
   var progress=running&&last&&last.status==='RUNNING'?d.progress:null;
@@ -2666,21 +2670,21 @@ var _featureFlags=null;var _ffLoading=false;
 var _secTokens=null;var _secAudit=null;var _secAuditType='all';var _secWebhook=null;var _secSessions=null;var _secNewToken=null;var _secLoading={};
 var _fbCategory='other';var _fbMessage='';var _fbSending=false;var _fbSent=false;var _fbAttachLast=false;var _fbCooldown=0;
 var _fbFiles=[];var _fbAttachLogs=false;
-function _loadBCfg(cb){if(_bCfg&&!_bCfgLoading){if(cb)cb();return;}_bCfgLoading=true;fetch(_backendBase+'/api/settings',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_bCfg=d||{};_bCfgLoading=false;if(cb)cb();renderCenter();}).catch(function(){_bCfg=_bCfg||{};_bCfgLoading=false;if(cb)cb();});}
+function _loadBCfg(cb){if(_bCfg&&!_bCfgLoading){if(cb)cb();return;}_bCfgLoading=true;fetch(_backendUrl()+'/api/settings',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_bCfg=d||{};_bCfgLoading=false;if(cb)cb();renderCenter();}).catch(function(){_bCfg=_bCfg||{};_bCfgLoading=false;if(cb)cb();});}
 var _bCfgSaveVersion=0;var _bCfgSaveChain=Promise.resolve();var _bCfgError=null;
 function _saveBCfg(){
   if(!_bCfg)return;var version=++_bCfgSaveVersion;clearTimeout(_bCfgSaveTimer);
   _bCfgSaveTimer=setTimeout(function(){
     var body=JSON.stringify(_bCfg);
     _bCfgSaveChain=_bCfgSaveChain.then(function(){
-      return fetch(_backendBase+'/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:body,signal:AbortSignal.timeout(5000)})
+      return fetch(_backendUrl()+'/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:body,signal:AbortSignal.timeout(5000)})
         .then(function(r){return r.json().then(function(data){if(!r.ok||data.success!==true)throw new Error(data.error||'HTTP '+r.status);});})
         .then(function(){if(version===_bCfgSaveVersion){_bCfgError=null;renderCenter();}})
         .catch(function(error){
           if(version!==_bCfgSaveVersion)return;
           _bCfgError='Nastavení nebylo uloženo: '+error.message;renderCenter();
           if(window._c3)window._c3.agentLog('TOOL','❌ '+_bCfgError);
-          return fetch(_backendBase+'/api/settings',{signal:AbortSignal.timeout(3000)}).then(function(r){if(!r.ok)throw new Error('read failed');return r.json();})
+          return fetch(_backendUrl()+'/api/settings',{signal:AbortSignal.timeout(3000)}).then(function(r){if(!r.ok)throw new Error('read failed');return r.json();})
             .then(function(data){if(version===_bCfgSaveVersion){_bCfg=data;renderCenter();}}).catch(function(){});
         });
     });
@@ -2689,9 +2693,9 @@ function _saveBCfg(){
 function _bVal(key,def){return _bCfg&&_bCfg[key]!=null?_bCfg[key]:def;}
 function _bSet(key,val){if(!_bCfg)_bCfg={};_bCfg[key]=val;_saveBCfg();renderCenter();}
 /* v91: Feature flags loader */
-function _loadFeatureFlags(cb){if(_ffLoading)return;_ffLoading=true;fetch(_backendBase+'/api/features',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_featureFlags=d.features||{};_ffLoading=false;if(cb)cb();renderCenter();}).catch(function(){_ffLoading=false;if(cb)cb();});}
-function _toggleFeatureFlag(name,enabled){fetch(_backendBase+'/api/features/'+encodeURIComponent(name),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:enabled}),signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){if(d.features)_featureFlags=d.features;renderCenter();}).catch(function(){});}
-function _resetFeatureFlags(){fetch(_backendBase+'/api/features/reset',{method:'POST',signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){if(d.features)_featureFlags=d.features;renderCenter();}).catch(function(){});}
+function _loadFeatureFlags(cb){if(_ffLoading)return;_ffLoading=true;fetch(_backendUrl()+'/api/features',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_featureFlags=d.features||{};_ffLoading=false;if(cb)cb();renderCenter();}).catch(function(){_ffLoading=false;if(cb)cb();});}
+function _toggleFeatureFlag(name,enabled){fetch(_backendUrl()+'/api/features/'+encodeURIComponent(name),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:enabled}),signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){if(d.features)_featureFlags=d.features;renderCenter();}).catch(function(){});}
+function _resetFeatureFlags(){fetch(_backendUrl()+'/api/features/reset',{method:'POST',signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){if(d.features)_featureFlags=d.features;renderCenter();}).catch(function(){});}
 /* v87.3: Info icon helper — native title tooltip on (i) badge */
 function _iI(text){return h('span',{style:{display:'inline-flex',alignItems:'center',justifyContent:'center',width:14,height:14,borderRadius:'50%',background:C.bg4,color:C.tx3,fontSize:'8px',fontWeight:700,cursor:'help',marginLeft:5,verticalAlign:'middle',flexShrink:0},title:text},'i');}
 function _lI(text,info){return h('span',{style:{display:'inline-flex',alignItems:'center'}},text,_iI(info));}
@@ -3018,8 +3022,8 @@ function settingsAccount(){
 }
 function settingsLLM(){
   if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
-  if(!_gpuInfo){fetch(_backendBase+'/api/system/gpu',{signal:AbortSignal.timeout(5000)}).then(function(r){return r.json();}).then(function(d){_gpuInfo=d;renderCenter();}).catch(function(){_gpuInfo={error:true};});}
-  if(!_ollamaModels){fetch(_backendBase+'/api/system/models',{signal:AbortSignal.timeout(5000)}).then(function(r){return r.json();}).then(function(d){_ollamaModels=d.models||d||[];renderCenter();}).catch(function(){_ollamaModels=[];});}
+  if(!_gpuInfo){fetch(_backendUrl()+'/api/system/gpu',{signal:AbortSignal.timeout(5000)}).then(function(r){return r.json();}).then(function(d){_gpuInfo=d;renderCenter();}).catch(function(){_gpuInfo={error:true};});}
+  if(!_ollamaModels){fetch(_backendUrl()+'/api/system/models',{signal:AbortSignal.timeout(5000)}).then(function(r){return r.json();}).then(function(d){_ollamaModels=d.models||d||[];renderCenter();}).catch(function(){_ollamaModels=[];});}
   if(!_evaluationData&&!_evaluationLoading)_loadEvaluationData();
   var models=[...new Set((_ollamaModels||[]).map(function(m){return typeof m==='string'?m:m.name||m.model||'';}).filter(Boolean))];
   var gpus=_gpuInfo&&_gpuInfo.profile?_gpuInfo.profile.gpus:(_gpuInfo&&_gpuInfo.gpus?_gpuInfo.gpus:null);
@@ -3039,7 +3043,7 @@ function settingsLLM(){
     /* v133: Compact 7-role bindings summary (replaces 3 broken dropdowns) */
     (function(){
       if(!_roleBindings){
-        fetch(_backendBase+'/api/system/upgrades/bindings',{signal:AbortSignal.timeout(5000)})
+        fetch(_backendUrl()+'/api/system/upgrades/bindings',{signal:AbortSignal.timeout(5000)})
           .then(function(r){return r.json();})
           .then(function(d){_roleBindings=d.bindings||{};renderCenter();})
           .catch(function(){});
@@ -3084,19 +3088,53 @@ function settingsLLM(){
 /* ═══════════════════════════════════════════════════════════
    v120.2: MODEL UPGRADE PROPOSALS — full center panel
    ═══════════════════════════════════════════════════════════ */
+var _modelReadEpoch=0,_modelsDisconnected=false;
+function _modelReadError(e){
+  return e&&(/Failed to fetch|fetch failed|NetworkError|capability is unavailable/.test(e.message)||e.name==='TypeError')
+    ?'Backend není dostupný. Spojení se obnovuje automaticky; můžeš zkusit načtení znovu.'
+    :e&&(/Timeout|Abort/.test(e.name))?'Backend neodpověděl včas. Zkus načtení znovu.':e&&e.message||'Data se nepodařilo načíst.';
+}
+function _modelLoadFailure(message,retry){
+  return h('div',{role:'alert','data-testid':'model-load-error',style:{padding:14,marginBottom:12,border:'1px solid '+C.border2,borderRadius:8,background:C.bg2}},
+    h('p',{style:{color:C.amber,margin:'0 0 10px'}},message),
+    h('button',{style:_modelButtonStyle(false,false),onClick:retry},'Zkusit znovu'));
+}
+function _readModelResource(path,loaded,failed,finished,timeout){
+  var epoch=_modelReadEpoch;
+  return fetch(_backendUrl()+path,{signal:AbortSignal.timeout(timeout||10000)})
+    .then(function(r){if(!r.ok)throw new Error('Načtení dat selhalo (HTTP '+r.status+').');return r.json();})
+    .then(function(data){if(epoch===_modelReadEpoch)loaded(data);})
+    .catch(function(e){if(epoch===_modelReadEpoch)failed(_modelReadError(e));})
+    .finally(function(){if(epoch===_modelReadEpoch){finished();renderCenter();}});
+}
+function _resetModelReads(){
+  _modelReadEpoch++;
+  _upgradeLoading=_evaluationLoading=_modelOverviewLoading=_discoveredLoading=_governorLoading=_huntLoading=_installedLoading=false;
+  _upgradeData=_evaluationData=_modelOverview=_discoveredData=_governorData=_governorProposals=_installedModels=null;
+  _governorError=null;_huntData=null;_huntError=null;
+}
+function _refreshModelWorkspace(){
+  _resetModelReads();
+  if(_centerState.view!=='upgrades')return;
+  _loadUpgradeData();_loadModelOverview();_loadEvaluationData();_loadDiscoveredData();_loadGovernorData();_loadHuntStatus();
+}
+function _retryModelConnection(){
+  return fetch(_backendUrl()+'/api/health',{signal:AbortSignal.timeout(3000)})
+    .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+    .then(function(){_modelsDisconnected=false;_refreshModelWorkspace();})
+    .catch(function(){_modelsDisconnected=true;renderCenter();});
+}
 function _loadUpgradeData(){
   if(_upgradeLoading)return;_upgradeLoading=true;
-  fetch(_backendBase+'/api/system/upgrades',{signal:AbortSignal.timeout(8000)})
-    .then(function(r){return r.json();})
-    .then(function(d){_upgradeData=d;_upgradeLoading=false;renderCenter();})
-    .catch(function(e){_upgradeData={error:e.message};_upgradeLoading=false;renderCenter();});
+  return _readModelResource('/api/system/upgrades',function(d){_upgradeData=d;},
+    function(error){_upgradeData={error:error};},function(){_upgradeLoading=false;},8000);
 }
 /* v125: fire-and-forget — progress comes via WS events */
 function _upgradeApply(role,model){
   if(_upgradeLoading){_upgradeMsg={ok:false,text:'Prob\u00EDh\u00E1 jin\u00FD upgrade \u2014 vy\u010Dkejte'};renderCenter();return;}
   _upgradeMsg={ok:true,text:'Aplikuji upgrade '+role+': '+model+'...'};_upgradeLoading=true;renderCenter();
   if(window._c3)window._c3.agentLog('TOOL','\uD83D\uDD04 Upgrade '+role+': '+model+'...');
-  fetch(_backendBase+'/api/system/upgrades/apply',{method:'POST',headers:{'Content-Type':'application/json'},
+  fetch(_backendUrl()+'/api/system/upgrades/apply',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({role:role,targetModel:model}),signal:AbortSignal.timeout(30000)})
     .then(function(r){return r.json();})
     .then(function(d){
@@ -3116,7 +3154,7 @@ function _upgradeApply(role,model){
 }
 function _upgradeCheck(){
   _upgradeMsg={ok:true,text:'Probíhá kontrola + vyhledávání nových modelů...'};_upgradeLoading=true;renderCenter();
-  fetch(_backendBase+'/api/system/upgrades/check',{method:'POST',
+  fetch(_backendUrl()+'/api/system/upgrades/check',{method:'POST',
     headers:{'Content-Type':'application/json'},body:JSON.stringify({fullCycle:true}),
     signal:AbortSignal.timeout(90000)})
     .then(function(r){return r.json();})
@@ -3128,23 +3166,21 @@ function _upgradeCheck(){
 }
 function _loadEvaluationData(){
   if(_evaluationLoading)return;_evaluationLoading=true;
-  fetch(_backendBase+'/api/system/models/evaluations',{signal:AbortSignal.timeout(10000)})
-    .then(function(r){if(!r.ok)throw new Error('Evaluace HTTP '+r.status);return r.json();})
-    .then(function(d){_evaluationData=d;_evaluationLoading=false;renderCenter();})
-    .catch(function(e){_evaluationData={error:e.message};_evaluationLoading=false;renderCenter();});
+  return _readModelResource('/api/system/models/evaluations',function(d){_evaluationData=d;},
+    function(error){_evaluationData={error:error};},function(){_evaluationLoading=false;});
 }
 /* Installed models cache for role and evaluation tabs */
 var _installedModels=null;var _installedLoading=false;var _assigningRole=null;
 function _loadInstalledModels(){
   if(_installedLoading)return;_installedLoading=true;
-  fetch(_backendBase+'/api/system/models',{signal:AbortSignal.timeout(5000)})
+  fetch(_backendUrl()+'/api/system/models',{signal:AbortSignal.timeout(5000)})
     .then(function(r){return r.json();})
     .then(function(d){_installedModels=(d.models||[]).map(function(m){return m.name;});_installedLoading=false;renderCenter();})
     .catch(function(){_installedLoading=false;});
 }
 function _assignModel(role,model){
   if(_assigningRole)return;if(!confirm('Přiřadit '+model+' roli '+role+'? Samostatný test lze spustit i bez změny přiřazení.'))return;_assigningRole=role;_assignmentMessage='Ověřuji a přiřazuji '+model+'…';renderCenter();
-  fetch(_backendBase+'/api/system/upgrades/apply',{method:'POST',headers:{'Content-Type':'application/json'},
+  fetch(_backendUrl()+'/api/system/upgrades/apply',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({role:role,targetModel:model,appliedBy:'user-roles'}),signal:AbortSignal.timeout(30000)})
     .then(function(r){return r.json();})
     .then(function(d){_assigningRole=null;
@@ -3155,15 +3191,12 @@ function _assignModel(role,model){
 /* v133: Overview loader + model delete */
 function _loadModelOverview(){
   if(_modelOverviewLoading)return;_modelOverviewLoading=true;
-  fetch(_backendBase+'/api/system/models/overview',{signal:AbortSignal.timeout(10000)})
-    .then(function(r){return r.json();})
-    .then(function(d){_modelOverview=d;_modelOverviewLoading=false;
-      _roleBindings=d.bindings||null;renderCenter();})
-    .catch(function(){_modelOverviewLoading=false;renderCenter();});
+  return _readModelResource('/api/system/models/overview',function(d){_modelOverview=d;_roleBindings=d.bindings||null;},
+    function(error){_modelOverview={error:error};},function(){_modelOverviewLoading=false;});
 }
 function _deleteModel(name){
   if(_deletingModel)return;_deletingModel=name;renderCenter();
-  fetch(_backendBase+'/api/system/models?name='+encodeURIComponent(name),{method:'DELETE',signal:AbortSignal.timeout(15000)})
+  fetch(_backendUrl()+'/api/system/models?name='+encodeURIComponent(name),{method:'DELETE',signal:AbortSignal.timeout(15000)})
     .then(function(r){return r.json();})
     .then(function(d){_deletingModel=null;_deleteConfirm=null;
       if(d.ok){_modelOverview=null;_installedModels=null;_ollamaModels=null;}
@@ -3190,7 +3223,7 @@ function _rollbackBinding(identity){
   if(_rollbackInFlight)return;/* single-flight: a double click cannot send twice */
   _rollbackInFlight=identity.role;_rollbackConfirm=false;
   var token=++_rollbackToken;renderCenter();
-  return fetch(_backendBase+'/api/system/upgrades/rollback',{method:'POST',
+  return fetch(_backendUrl()+'/api/system/upgrades/rollback',{method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify(identity),signal:AbortSignal.timeout(30000)})
     .then(function(r){return r.json().then(function(d){return {status:r.status,body:d};});})
@@ -3217,7 +3250,7 @@ var _discoverLoading=false;var _discoverMsg=null;
 function _discoverNewModels(){
   if(_discoverLoading)return;
   _discoverLoading=true;_discoverMsg={ok:true,text:'Prohledávám ollama.com/library...'};renderCenter();
-  fetch(_backendBase+'/api/system/upgrades/check',{method:'POST',
+  fetch(_backendUrl()+'/api/system/upgrades/check',{method:'POST',
     headers:{'Content-Type':'application/json'},body:JSON.stringify({fullCycle:true}),
     signal:AbortSignal.timeout(90000)})
     .then(function(r){return r.json();})
@@ -3231,7 +3264,7 @@ function _discoverNewModels(){
 function _pullModel(name){
   if(_pullState[name]&&_pullState[name].status&&_pullState[name].status!=='done'&&_pullState[name].status!=='error')return;
   _pullState[name]={status:'starting',percent:0,text:name+' — Zahajuji stahování...'};renderCenter();
-  fetch(_backendBase+'/api/system/models/pull',{method:'POST',headers:{'Content-Type':'application/json'},
+  fetch(_backendUrl()+'/api/system/models/pull',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({name:name}),signal:AbortSignal.timeout(10000)})
     .then(function(r){return r.json();})
     .then(function(d){if(!d.ok){_pullState[name]={status:'error',percent:-1,text:name+' — '+(d.error||'Chyba')};renderCenter();}})
@@ -3239,10 +3272,8 @@ function _pullModel(name){
 }
 function _loadDiscoveredData(){
   if(_discoveredLoading)return;_discoveredLoading=true;
-  fetch(_backendBase+'/api/system/models/candidates',{signal:AbortSignal.timeout(10000)})
-    .then(function(r){return r.json();})
-    .then(function(d){_discoveredData=d;_discoveredLoading=false;renderCenter();})
-    .catch(function(e){_discoveredData={error:e.message};_discoveredLoading=false;renderCenter();});
+  return _readModelResource('/api/system/models/candidates',function(d){_discoveredData=d;},
+    function(error){_discoveredData={error:error};},function(){_discoveredLoading=false;});
 }
 var _candidateFilter={fit:'fit',sort:'params-desc',budgetGiB:''};
 function _filteredCandidates(data){
@@ -3267,8 +3298,7 @@ function _renderDiscoveredTab(){
     background:_discoverMsg.ok?C.successBg:C.redBg,color:_discoverMsg.ok?C.success:C.red,
     border:'1px solid '+(_discoverMsg.ok?_rgba(C.success,0.25):_rgba(C.red,0.25))}},_discoverMsg.text):null;
   if(_discoveredLoading&&!_discoveredData)return h('div',null,toast,h('div',{style:{color:C.tx3,padding:20,textAlign:'center'}},'Načítám kandidáty...'));
-  if(!_discoveredData||_discoveredData.error)return h('div',null,toast,
-    h('div',{style:{color:'#ef4444',padding:20,textAlign:'center'}},'Chyba: '+(_discoveredData?_discoveredData.error:'žádná data')));
+  if(!_discoveredData||_discoveredData.error)return _modelLoadFailure(_discoveredData&&_discoveredData.error||'Katalog není dostupný.',_loadDiscoveredData);
   var selection=_filteredCandidates(_discoveredData);var candidates=selection.rows;
   function fCtx(w){if(!w)return'-';return w>=1048576?(w/1048576).toFixed(0)+'M':w>=1024?(w/1024).toFixed(0)+'K':w+'';}
   return h('div',null,toast,
@@ -3329,7 +3359,8 @@ function _qualityDetail(row,rd){
     })));
 }
 function _renderEvaluationsTab(){
-  if(!_evaluationData||_evaluationData.error)return h('p',null,_evaluationLoading?'Načítám výsledky…':(_evaluationData&&_evaluationData.error||'Výsledky nejsou dostupné.'));
+  if(_evaluationData&&_evaluationData.error)return _modelLoadFailure(_evaluationData.error,_loadEvaluationData);
+  if(!_evaluationData)return h('p',null,_evaluationLoading?'Načítám výsledky…':'Výsledky nejsou dostupné.');
   var roles=_evaluationData.roles||{};
   return h('div',{'data-testid':'model-quality'},
     h('label',{style:{display:'flex',gap:10,alignItems:'center',marginBottom:16}},'Role',h('select',{style:_modelFieldStyle(),value:_evaluationRoleFilter,onChange:function(e){_evaluationRoleFilter=e.target.value;renderCenter();}},
@@ -3358,6 +3389,8 @@ function _renderEvaluationsTab(){
     }));
 }
 function _renderEvaluationHistory(){
+  if(_evaluationData&&_evaluationData.error)return _modelLoadFailure(_evaluationData.error,_loadEvaluationData);
+  if(!_evaluationData)return h('p',null,'Načítám historii měření…');
   var data=_evaluationData||{},rows=data.history||[];
   return h('div',null,h('h3',{style:{fontSize:_fs(13)}},'Měření modelů · posledních '+rows.length),
     _modelTable(['Dokončeno','Model / role','Výsledek','Délka','Ollama','Identita'],rows.map(function(r){return h('tr',{key:r.runId},
@@ -3371,6 +3404,7 @@ function _renderEvaluationHistory(){
    v133: MODEL OVERVIEW + ROLES TABS
    ═══════════════════════════════════════════════════════════ */
 function _renderOverviewTab(){
+  if(_modelOverview&&_modelOverview.error)return _modelLoadFailure(_modelOverview.error,_loadModelOverview);
   if(_modelOverviewLoading&&!_modelOverview)return h('div',{style:{color:C.tx3,padding:20,textAlign:'center'}},'Na\u010D\u00EDt\u00E1m p\u0159ehled...');
   if(!_modelOverview)return h('div',{style:{color:C.tx4,padding:20,textAlign:'center'}},'Nelze na\u010D\u00EDst p\u0159ehled model\u016F');
   var ov=_modelOverview;var mods=ov.models||[];
@@ -3469,7 +3503,8 @@ function _renderOverviewTab(){
 }
 function _renderRolesTab(){
   var ov=_modelOverview||{},roles=(_evaluationData||{}).roles||{},profiles=ov.profiles||{};
-  if(!Object.keys(roles).length)return h('p',null,'Načítám role…');
+  if(_evaluationData&&_evaluationData.error)return _modelLoadFailure(_evaluationData.error,_loadEvaluationData);
+  if(!Object.keys(roles).length)return h('p',null,_evaluationLoading?'Načítám role…':'Žádné role nejsou dostupné.');
   return h('div',{'data-testid':'model-roles'},
     h('p',{style:{color:C.tx3,fontSize:_fs(11)}},'Porovnání používá aktuální testy dané role. Pořadí skóre samo nemění přiřazení. Další model můžeš otestovat bez přepínání role.'),
     _evaluationData.bindingAuthority&&_evaluationData.bindingAuthority.status!=='DURABLE'?h('p',{role:'alert',style:{color:C.amber}},'Přiřazení modelů není plně ověřené. Zobrazená skóre nepotvrzují aktivní runtime. ',h('span',null,_evaluationData.bindingAuthority.reason||_evaluationData.bindingAuthority.status)):null,
@@ -3490,6 +3525,7 @@ function _renderRolesTab(){
     })));
 }
 function centerUpgrades(){
+  if(!_modelsDisconnected){
   if(_upgradeTab==='overview'&&!_modelOverview&&!_modelOverviewLoading)_loadModelOverview();
   if(_upgradeTab==='roles'&&!_modelOverview&&!_modelOverviewLoading)_loadModelOverview();
   if(_upgradeTab==='roles'&&!_installedModels&&!_installedLoading)_loadInstalledModels();
@@ -3497,6 +3533,7 @@ function centerUpgrades(){
   if(['evaluations','history','roles'].includes(_upgradeTab)&&!_evaluationData&&!_evaluationLoading)_loadEvaluationData();
   if(_upgradeTab==='evaluations'&&!_installedModels&&!_installedLoading)_loadInstalledModels();
   if(_upgradeTab==='discovered'&&!_discoveredData&&!_discoveredLoading)_loadDiscoveredData();
+  }
   var history=_upgradeData&&_upgradeData.history?_upgradeData.history:[];
   var lastCheck=_upgradeData&&_upgradeData.lastCheckTime?new Date(_upgradeData.lastCheckTime).toLocaleString('cs-CZ'):null;
   var tabStyle=function(t){return{background:_upgradeTab===t?C.accent:'transparent',color:_upgradeTab===t?C.onAccent:C.tx3,
@@ -3549,6 +3586,7 @@ function centerUpgrades(){
       border:'1px solid '+C.border2,fontSize:_fs(11),lineHeight:1.5,background:_modelTestFailed?C.redBg:C.bg3,color:_modelTestFailed?C.red:C.tx2}},_modelTestMessage):null,
     /* body */
     h('div',{style:{flex:1,overflowY:'auto',padding:18}},
+      _modelsDisconnected?_modelLoadFailure('Spojení s backendem je přerušené. Čekám na obnovení; uložená skóre ani historie se nemažou.',_retryModelConnection):h(React.Fragment,null,
       /* ── Overview tab (v133) ── */
       _upgradeTab==='overview'?_renderOverviewTab():null,
       _upgradeTab==='hunt'?_renderHuntTab():null,
@@ -3584,32 +3622,31 @@ function centerUpgrades(){
       /* ── Discovered tab ── */
       _upgradeTab==='discovered'?_renderDiscoveredTab():null,
       /* ── Governor tab (v135) ── */
-      _upgradeTab==='governor'?_renderGovernorTab():null));
+      _upgradeTab==='governor'?_renderGovernorTab():null)));
 }
 /* ── v135: Governor data loading + rendering ───────────────────────── */
+var _governorError=null;
 function _loadGovernorData(){
-  if(_governorLoading)return;_governorLoading=true;renderCenter();
-  var base=_backendBase;
-  Promise.all([
-    fetch(base+'/api/system/governor/report').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;}),
-    fetch(base+'/api/system/governor/proposals').then(function(r){return r.ok?r.json():null;}).catch(function(){return null;})
-  ]).then(function(res){
-    _governorData=res[0];_governorProposals=res[1]?res[1].proposals:[];
-    _governorLoading=false;renderCenter();
-  }).catch(function(){_governorLoading=false;renderCenter();});
+  if(_governorLoading)return;_governorLoading=true;_governorError=null;
+  var epoch=_modelReadEpoch;
+  return Promise.all(['/api/system/governor/report','/api/system/governor/proposals'].map(function(path){
+    return fetch(_backendUrl()+path,{signal:AbortSignal.timeout(10000)}).then(function(r){if(!r.ok)throw new Error('Správce: HTTP '+r.status);return r.json();});
+  })).then(function(res){if(epoch===_modelReadEpoch){_governorData=res[0];_governorProposals=res[1].proposals||[];}})
+    .catch(function(e){if(epoch===_modelReadEpoch)_governorError=_modelReadError(e);})
+    .finally(function(){if(epoch===_modelReadEpoch){_governorLoading=false;renderCenter();}});
 }
 function _runGovernorCheck(){
-  var base=_backendBase;
-  fetch(base+'/api/system/governor/check',{method:'POST'}).then(function(r){return r.json();}).then(function(d){
-    if(d.overallHealth){_governorData=d;_governorProposals=null;_loadGovernorData();}
-    else{_governorLoading=false;renderCenter();}
-  }).catch(function(){_governorLoading=false;renderCenter();});
+  if(_governorLoading)return;_governorLoading=true;_governorError=null;renderCenter();
+  return fetch(_backendUrl()+'/api/system/governor/check',{method:'POST',signal:AbortSignal.timeout(15000)})
+    .then(function(r){if(!r.ok)throw new Error('Kontrola Správce: HTTP '+r.status);return r.json();})
+    .then(function(d){_governorData=d;_governorLoading=false;return _loadGovernorData();})
+    .catch(function(e){_governorError=_modelReadError(e);_governorLoading=false;renderCenter();});
 }
 var _governorActionMessage=null,_governorActionPending=false;
 function _governorProposalAction(id,action){
   if(_governorActionPending)return;
   _governorActionPending=true;_governorActionMessage=null;renderCenter();
-  fetch(_backendBase+'/api/system/governor/proposals/'+id+'/'+action,{method:'POST',signal:AbortSignal.timeout(15000)})
+  fetch(_backendUrl()+'/api/system/governor/proposals/'+id+'/'+action,{method:'POST',signal:AbortSignal.timeout(15000)})
     .then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(d.error||'Akce se nezdařila');return d;});})
     .then(function(d){_governorActionMessage=d.message||(action==='approve'?'Doporučení přijato. Navrženou úpravu je potřeba provést ručně.':'Doporučení zamítnuto.');_loadGovernorData();})
     .catch(function(e){_governorActionMessage='Chyba: '+e.message;})
@@ -3618,7 +3655,8 @@ function _governorProposalAction(id,action){
 function _approveGovernorProposal(id){_governorProposalAction(id,'approve');}
 function _dismissGovernorProposal(id){_governorProposalAction(id,'dismiss');}
 function _renderGovernorTab(){
-  if(_governorLoading&&!_governorData)return h('p',null,'Načítám data Správce…');
+  if(_governorError)return _modelLoadFailure(_governorError,_loadGovernorData);
+  if(!_governorData)return h('p',null,_governorLoading?'Načítám data Správce…':'Provozní diagnostika ještě nebyla načtena.');
   var report=_governorData,dimensions=report&&report.dimensions||{},proposals=_governorProposals||[];
   var labels={models:'Provoz modelů',cre:'Směrování požadavků (CRE)',architecture:'Architektura',builds:'Buildy',specialists:'Specialisté',upgrades:'Pokrytí rolí měřením'};
   var explanations={models:'Úspěšnost zaznamenaných provozních úloh za 30 dní; benchmarky jsou v Evaluaci.',
@@ -3670,7 +3708,7 @@ function settingsMemory(){
 }
 function settingsNotif(){
   if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
-  if(!_notifChannels){fetch(_backendBase+'/api/notifications/channels',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_notifChannels=d;renderCenter();}).catch(function(){_notifChannels={error:true};});}
+  if(!_notifChannels){fetch(_backendUrl()+'/api/notifications/channels',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_notifChannels=d;renderCenter();}).catch(function(){_notifChannels={error:true};});}
   var chs=_notifChannels&&!_notifChannels.error?(_notifChannels.channels||_notifChannels):null;
   return h('div',null,
     _cfgToggle('Desktop notifikace','Systémové notifikace přes Electron (dokončení úloh, chyby agentů)','c3.notif.desktopEnabled',true),
@@ -3707,7 +3745,7 @@ function settingsOutput(){
 }
 function settingsSystemPanel(){
   if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
-  if(!_sysInfo){fetch(_backendBase+'/api/system/info',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_sysInfo=d;renderCenter();}).catch(function(){_sysInfo={error:true};});}
+  if(!_sysInfo){fetch(_backendUrl()+'/api/system/info',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_sysInfo=d;renderCenter();}).catch(function(){_sysInfo={error:true};});}
   return h('div',null,
     _settingsToggle('Obnovit poslední relaci','Při startu obnoví poslední otevřený pohled, konverzaci a projekt',_settingsVals.restoreSession,function(nv){_settingsVals.restoreSession=nv;_saveSV();renderCenter();}),
     h('div',{style:{borderTop:'1px solid '+C.border,margin:'14px 0'}}),
@@ -3727,7 +3765,7 @@ function settingsSystemPanel(){
     _cfgSlider(_lI('Rate limit','Maximální počet API požadavků za minutu — ochrana proti přetížení serveru'),'c3.system.rateLimit',120,10,1000,10,' /min'));
 }
 function settingsStoragePanel(){
-  if(!_sysInfo){fetch(_backendBase+'/api/system/info',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_sysInfo=d;renderCenter();}).catch(function(){_sysInfo={error:true};});}
+  if(!_sysInfo){fetch(_backendUrl()+'/api/system/info',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){_sysInfo=d;renderCenter();}).catch(function(){_sysInfo={error:true};});}
   var db=_sysInfo&&_sysInfo.db?_sysInfo.db:null;
   var tables=db&&db.tables?db.tables:null;
   return h('div',null,
@@ -3745,7 +3783,7 @@ function settingsStoragePanel(){
     h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:6}},'Údržba'),
     h('div',{style:{fontSize:_fs(10),color:C.tx4,marginBottom:10}},'Optimalizace databáze odstraní fragmentaci a zmenší soubor na disku. Doporučeno po smazání velkého množství dat.'),
     h('button',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'8px 12px',color:C.tx1,fontSize:_fs(11),cursor:'pointer',fontFamily:C.font,marginBottom:8},
-      onClick:function(){fetch(_backendBase+'/api/system/vacuum',{method:'POST',signal:AbortSignal.timeout(30000)}).then(function(r){return r.json();}).then(function(d){_sysInfo=null;_storageInfo=null;renderCenter();alert(d.message||'Databáze optimalizována');}).catch(function(e){alert('Chyba: '+e.message);});}},'Optimalizovat databázi'),
+      onClick:function(){fetch(_backendUrl()+'/api/system/vacuum',{method:'POST',signal:AbortSignal.timeout(30000)}).then(function(r){return r.json();}).then(function(d){_sysInfo=null;_storageInfo=null;renderCenter();alert(d.message||'Databáze optimalizována');}).catch(function(e){alert('Chyba: '+e.message);});}},'Optimalizovat databázi'),
     h('button',{style:{width:'100%',background:C.bg3,border:'1px solid '+C.border2,borderRadius:6,padding:'8px 12px',color:C.tx1,fontSize:_fs(11),cursor:'pointer',fontFamily:C.font},
       onClick:function(){_sysInfo=null;_storageInfo=null;renderCenter();}},'Aktualizovat info'));
 }
@@ -3754,7 +3792,7 @@ function settingsBackupPanel(){
     h('div',{style:{fontSize:_fs(11),color:C.tx3,marginBottom:14}},'Zálohujte svá nastavení nebo je obnovte ze souboru.'),
     _backupMsg?h('div',{style:{padding:'8px 12px',borderRadius:6,marginBottom:10,fontSize:_fs(11),fontWeight:600,background:_backupMsg.ok?C.successBg:C.redBg,color:_backupMsg.ok?C.success:C.red,border:'1px solid '+(_backupMsg.ok?_rgba(C.success,0.25):_rgba(C.red,0.25))}},_backupMsg.text):null,
     h('button',{style:{width:'100%',background:C.accent,color:C.onAccent,border:'none',borderRadius:6,padding:'10px 14px',fontSize:_fs(12),fontWeight:700,cursor:'pointer',marginBottom:10,fontFamily:C.font},
-      onClick:function(){fetch(_backendBase+'/api/settings',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){
+      onClick:function(){fetch(_backendUrl()+'/api/settings',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){
         var blob=new Blob([JSON.stringify(d,null,2)],{type:'application/json'});
         var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='c3-settings-'+new Date().toISOString().slice(0,10)+'.json';a.click();
         _backupMsg={ok:true,text:'Nastavení exportována do souboru'};renderCenter();setTimeout(function(){_backupMsg=null;renderCenter();},4000);
@@ -3766,7 +3804,7 @@ function settingsBackupPanel(){
           var reader=new FileReader();reader.onload=function(ev){try{var data=JSON.parse(ev.target.result);
             /* 020/E: explicit versioned adapter, and the result is checked —
                an ignored response made a failed import look like a success. */
-            fetch(_backendBase+'/api/settings/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:1,settings:data}),signal:AbortSignal.timeout(3000)})
+            fetch(_backendUrl()+'/api/settings/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:1,settings:data}),signal:AbortSignal.timeout(3000)})
             .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);
               _bCfg=data;_backupMsg={ok:true,text:'Nastavení importována z '+f.name};renderCenter();setTimeout(function(){_backupMsg=null;renderCenter();},4000);})
             .catch(function(e){_backupMsg={ok:false,text:'Import selhal: '+e.message};renderCenter();});
@@ -3778,7 +3816,7 @@ function settingsBackupPanel(){
         onClick:function(){if(!confirm('Opravdu obnovit výchozí nastavení? Všechny změny budou ztraceny.'))return;
           /* 020/E: the audited reset path. POST {} no longer resets the
              automation policy, and the result is no longer ignored. */
-          fetch(_backendBase+'/api/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}',signal:AbortSignal.timeout(3000)})
+          fetch(_backendUrl()+'/api/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}',signal:AbortSignal.timeout(3000)})
           .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);
             _bCfg={};_backupMsg={ok:true,text:'Nastavení obnovena na výchozí'};renderCenter();setTimeout(function(){_backupMsg=null;renderCenter();},4000);}).catch(function(e){_backupMsg={ok:false,text:'Reset selhal: '+e.message};renderCenter();});}},'Obnovit výchozí')));
 }
@@ -3810,7 +3848,7 @@ function settingsFeatureFlags(){
         onClick:function(){_resetFeatureFlags();}},'Obnovit výchozí')));
 }
 /* v91: Security panel */
-function _secFetch(path,opts){return fetch(_backendBase+path,Object.assign({signal:AbortSignal.timeout(5000)},opts||{}));}
+function _secFetch(path,opts){return fetch(_backendUrl()+path,Object.assign({signal:AbortSignal.timeout(5000)},opts||{}));}
 function _secLoadTokens(){_secLoading.tokens=true;_secFetch('/api/security/tokens').then(function(r){return r.json();}).then(function(d){_secTokens=d.tokens||[];_secLoading.tokens=false;renderCenter();}).catch(function(){_secLoading.tokens=false;});}
 function _secLoadAudit(type){_secAuditType=type||'all';_secLoading.audit=true;_secFetch('/api/security/audit?type='+encodeURIComponent(_secAuditType)+'&limit=50').then(function(r){return r.json();}).then(function(d){_secAudit=d.results||{};_secLoading.audit=false;renderCenter();}).catch(function(){_secLoading.audit=false;});}
 function _secLoadWebhook(){_secFetch('/api/security/webhook-secret').then(function(r){return r.json();}).then(function(d){_secWebhook=d;renderCenter();}).catch(function(){});}
@@ -3924,7 +3962,7 @@ function _fbUploadAttachments(feedbackId,files){
   var chain=Promise.resolve();
   files.forEach(function(f){
     chain=chain.then(function(){
-      return fetch(_backendBase+'/api/feedback/'+feedbackId+'/attach',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:f.name,type:f.type,data:f.data})}).then(function(r){return r.json();});
+      return fetch(_backendUrl()+'/api/feedback/'+feedbackId+'/attach',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:f.name,type:f.type,data:f.data})}).then(function(r){return r.json();});
     });
   });
   return chain;
@@ -4024,7 +4062,7 @@ function settingsAboutPanel(){
           var payload={category:_fbCategory,message:_fbMessage.trim(),version:_serverHealth.version||null,context:_fbCollectContext()};
           if(_fbAttachLast){var lr=_fbGetLastAssistant();if(lr)payload.lastResponse=lr;}
           /* Step 1: fetch logs if requested */
-          var logsPromise=_fbAttachLogs?fetch(_backendBase+'/api/logs/export').then(function(r){return r.text();}).then(function(txt){
+          var logsPromise=_fbAttachLogs?fetch(_backendUrl()+'/api/logs/export').then(function(r){return r.text();}).then(function(txt){
             var b64=btoa(unescape(encodeURIComponent(txt)));
             return {name:'server-logs_'+Date.now()+'.log',type:'text/plain',data:b64,size:txt.length};
           }).catch(function(){return null;}):Promise.resolve(null);
@@ -4032,7 +4070,7 @@ function settingsAboutPanel(){
             var allFiles=_fbFiles.slice();
             if(logFile)allFiles.push(logFile);
             /* Step 2: submit feedback */
-            return fetch(_backendBase+'/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(function(r){return r.json();}).then(function(d){
+            return fetch(_backendUrl()+'/api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(function(r){return r.json();}).then(function(d){
               if(!d.ok){if(d.error&&d.error.indexOf('Too many')>=0){_fbCooldown=Date.now()+30000;}return;}
               var fbId=d.id;
               _fbMessage='';_fbSent=true;_fbCooldown=Date.now()+30000;_fbAttachLast=false;_fbAttachLogs=false;
@@ -4051,8 +4089,8 @@ function settingsAboutPanel(){
    ═══════════════════════════════════════════════════════════ */
 function _loadMarketplaceData(force){
   if(_mpLoading)return;_mpLoading=true;
-  var url=_backendBase+'/api/marketplace/catalog?page='+_mpPage+'&limit=50';
-  if(force)url=_backendBase+'/api/marketplace/catalog/refresh';
+  var url=_backendUrl()+'/api/marketplace/catalog?page='+_mpPage+'&limit=50';
+  if(force)url=_backendUrl()+'/api/marketplace/catalog/refresh';
   var opts=force?{method:'POST',signal:AbortSignal.timeout(15000)}:{signal:AbortSignal.timeout(8000)};
   fetch(url,opts)
     .then(function(r){return r.json();})
@@ -4072,7 +4110,7 @@ function _mpInstall(type,id){
   if(pkg){msg=(pkg.name||id)+' v'+(pkg.version||'?')+' ('+type+')';if(pkg.dependencies&&pkg.dependencies.length)msg+='\nZávislosti: '+pkg.dependencies.join(', ');if(pkg.size)msg+='\nVelikost: '+(pkg.size>1024?(pkg.size/1024).toFixed(1)+' KB':pkg.size+' B');msg+='\n\nNainstalovat?';}
   if(!confirm(msg))return;
   _mpInstalling[type+':'+id]='Stahuji...';_mpMsg=null;renderCenter();
-  fetch(_backendBase+'/api/marketplace/install/'+type+'/'+id,{method:'POST',signal:AbortSignal.timeout(120000)})
+  fetch(_backendUrl()+'/api/marketplace/install/'+type+'/'+id,{method:'POST',signal:AbortSignal.timeout(120000)})
     .then(function(r){return r.json();})
     .then(function(d){
       delete _mpInstalling[type+':'+id];
@@ -4085,7 +4123,7 @@ function _mpInstall(type,id){
 function _mpUninstall(type,id){
   if(!confirm('Opravdu odinstalovat '+id+'?'))return;
   _mpInstalling[type+':'+id]='Odinstalace...';_mpMsg=null;renderCenter();
-  fetch(_backendBase+'/api/marketplace/installed/'+type+'/'+id,{method:'DELETE',signal:AbortSignal.timeout(15000)})
+  fetch(_backendUrl()+'/api/marketplace/installed/'+type+'/'+id,{method:'DELETE',signal:AbortSignal.timeout(15000)})
     .then(function(r){return r.json();})
     .then(function(d){
       delete _mpInstalling[type+':'+id];
@@ -4097,7 +4135,7 @@ function _mpUninstall(type,id){
 }
 function _mpUpdate(type,id){
   _mpInstalling[type+':'+id]='Aktualizuji...';_mpMsg=null;renderCenter();
-  fetch(_backendBase+'/api/marketplace/update/'+type+'/'+id,{method:'POST',signal:AbortSignal.timeout(120000)})
+  fetch(_backendUrl()+'/api/marketplace/update/'+type+'/'+id,{method:'POST',signal:AbortSignal.timeout(120000)})
     .then(function(r){return r.json();})
     .then(function(d){
       delete _mpInstalling[type+':'+id];
@@ -4217,7 +4255,7 @@ function _mediaOutputPath(id,filename){
   return '/api/media/output?id='+encodeURIComponent(id)+'&filename='+encodeURIComponent(filename);
 }
 function _mediaOutputTarget(id,filename){
-  return _backendBase+_mediaOutputPath(id,filename);
+  return _backendUrl()+_mediaOutputPath(id,filename);
 }
 function _mediaEnsureOutputUrl(id,filename){
   return _mediaOutputCache.load(_mediaOutputTarget(id,filename))
@@ -4227,7 +4265,7 @@ function _mediaEnsureOutputUrl(id,filename){
     });
 }
 function _mediaRevokeOutputUrls(id){
-  var prefix=_backendBase+'/api/media/output?id='+encodeURIComponent(id)+'&';
+  var prefix=_backendUrl()+'/api/media/output?id='+encodeURIComponent(id)+'&';
   _mediaOutputCache.invalidateWhere(function(target){
     return target.indexOf(prefix)===0;
   });
@@ -4247,7 +4285,7 @@ var MediaAPI={
   _fetch:function(path,opts){
     var o={signal:AbortSignal.timeout(8000)};
     if(opts){Object.keys(opts).forEach(function(k){o[k]=opts[k];});}
-    return fetch(_backendBase+path,o)
+    return fetch(_backendUrl()+path,o)
       .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
       .catch(function(e){_media.msg={ok:false,text:e.message};throw e;});
   },
@@ -4607,7 +4645,7 @@ function _buildFilePath(f){
 function _openFileTab(path){
   var existing=_editorState.tabs.find(function(t){return t.path===path&&t.type==='file';});
   if(existing){_setActiveTab(existing.id);return;}
-  fetch(_backendBase+'/api/workspace/file?path='+encodeURIComponent(path),{signal:AbortSignal.timeout(5000)})
+  fetch(_backendUrl()+'/api/workspace/file?path='+encodeURIComponent(path),{signal:AbortSignal.timeout(5000)})
   .then(function(r){return r.json();})
   .then(function(data){
     if(data.error)return;
@@ -4654,7 +4692,7 @@ function _persistEditorState(){
 }
 
 function _refreshFileTab(tab){
-  fetch(_backendBase+'/api/workspace/file?path='+encodeURIComponent(tab.path),{signal:AbortSignal.timeout(5000)})
+  fetch(_backendUrl()+'/api/workspace/file?path='+encodeURIComponent(tab.path),{signal:AbortSignal.timeout(5000)})
   .then(function(r){return r.json();})
   .then(function(data){
     if(data.error)return;
@@ -4878,11 +4916,11 @@ function _detailActionHandler(d,a){
         /* v122.2: Activate conversation center-panel focus */
         _ts._conversationFocus=true;_syncFocusClass();renderCenter();
         _persistSessionState();
-        fetch(_backendBase+'/api/conversations/'+conv.id,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(cd){
+        fetch(_backendUrl()+'/api/conversations/'+conv.id,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(cd){
           var meta={};try{meta=JSON.parse(cd.metadata||'{}');}catch(ex){}
           if(meta.agentId){_ts._agentId=meta.agentId;_persistSessionState();renderChat();}
         }).catch(function(){});
-        fetch(_backendBase+'/api/conversations/'+conv.id+'/messages',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(msgs){
+        fetch(_backendUrl()+'/api/conversations/'+conv.id+'/messages',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(msgs){
         var items=Array.isArray(msgs)?msgs:(msgs.messages||[]);if(items.length>0){_ts.chat.msgs=[{role:'system',text:'Konverzace: '+conv.title}];items.forEach(function(m){var meta=null;try{meta=m.metadata?JSON.parse(m.metadata):null;}catch(e){}_ts.chat.msgs.push({role:m.role||'user',text:m.content||m.text||'',tag:(meta&&meta.mode)||undefined});});renderChat();_chatScrollPane(_ti);}}).catch(function(){});}
     });}
     var proj=PROJECTS.find(function(p){return p.name===d.name;});
@@ -4893,7 +4931,7 @@ function _detailActionHandler(d,a){
     if(_centerState.view==='expertises'||_centerState.view==='specialists'){
       var _exItem=EXPERTISES.find(function(e){return e.name===d.name;});
       if(_exItem&&_exItem.id){
-        fetch(_backendBase+'/api/expertises/'+_exItem.id,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(full){
+        fetch(_backendUrl()+'/api/expertises/'+_exItem.id,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(full){
           var cfg=null;try{cfg=full.config?JSON.parse(full.config):null;}catch(ex){}
           var defCaps={reasoning:50,creativity:50,determinism:50,riskTolerance:50,verbosity:50};
           var defMods={domain_rules:[],emphasis:[],constraints:[],vocabulary:[],antipatterns:[],disclaimer:null};
@@ -4915,7 +4953,7 @@ function _detailActionHandler(d,a){
     if(_centerState.view==='workers'){
       var _wkItem=WORKERS.find(function(w){return w.name===d.name;});
       if(_wkItem&&_wkItem.id){
-        fetch(_backendBase+'/api/agents/'+_wkItem.id,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(full){
+        fetch(_backendUrl()+'/api/agents/'+_wkItem.id,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(full){
           var def=full.definition||{};
           var wizData={id:full.id||_wkItem.id,name:full.name||d.name,description:full.description||'',icon:full.icon||'🤖',type:full.type||'MONITOR',
             schedule:def.schedule||{type:'manual'},sources:def.sources||[],conditions:def.conditions||[],triggers:def.triggers||[],actions:def.actions||[],params:def.params||[]};
@@ -4939,7 +4977,7 @@ function _detailActionHandler(d,a){
     if(d._isNew&&ep){
       upd.name=d.name;
       var postEp=view==='chats'?'/api/conversations':ep.slice(0,-1);
-      fetch(_backendBase+postEp,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(upd),signal:AbortSignal.timeout(5000)})
+      fetch(_backendUrl()+postEp,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(upd),signal:AbortSignal.timeout(5000)})
       .then(function(r){return r.json();})
       .then(function(created){
         c3.agentLog('TOOL','Vytvoreno: '+d.name);
@@ -4955,7 +4993,7 @@ function _detailActionHandler(d,a){
         fetchBackendData();
       }).catch(function(){c3.agentLog('TOOL','Vytvoreno lokalne: '+d.name);});
       delete d._isNew;
-    }else if(itemId&&ep){fetch(_backendBase+ep+itemId,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(upd),signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(res){c3.agentLog('TOOL','Ulozeno: '+d.name);if(view==='projects'&&upd.path){_wtRoot=upd.path;_loadWorkspaceTree(upd.path);c3.agentLog('TOOL','📍 Working tree: '+upd.path);}fetchBackendData();}).catch(function(){c3.agentLog('TOOL','Ulozeno lokalne: '+d.name);});}
+    }else if(itemId&&ep){fetch(_backendUrl()+ep+itemId,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(upd),signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(res){c3.agentLog('TOOL','Ulozeno: '+d.name);if(view==='projects'&&upd.path){_wtRoot=upd.path;_loadWorkspaceTree(upd.path);c3.agentLog('TOOL','📍 Working tree: '+upd.path);}fetchBackendData();}).catch(function(){c3.agentLog('TOOL','Ulozeno lokalne: '+d.name);});}
     else{c3.agentLog('TOOL','Ulozeno: '+d.name);}
     if(view==='projects'&&itemId){var _pi=PROJECTS.find(function(p){return p.id===itemId;});if(_pi){if(upd.path!==undefined)_pi.path=upd.path;if(upd.description!==undefined)_pi.desc=upd.description;if(upd.status!==undefined)_pi.status=upd.status;}}
     d.actions=d._origActions||['Otevřít','Editovat'];delete d.editing;delete d._orig;delete d._origActions;renderCenter();
@@ -4964,27 +5002,27 @@ function _detailActionHandler(d,a){
   }else if(a==='Archivovat'){
     var cid=null;var conv2=CONVERSATIONS.find(function(c){return c.title===d.name;});if(conv2&&conv2.id)cid=conv2.id;
     var pid=null;var proj2=PROJECTS.find(function(p){return p.name===d.name;});if(proj2&&proj2.id)pid=proj2.id;
-    if(cid){fetch(_backendBase+'/api/conversations/'+cid+'/archive',{method:'PATCH',signal:AbortSignal.timeout(3000)}).then(function(){c3.agentLog('TOOL','Konverzace '+d.name+' archivovana.');fetchBackendData();}).catch(function(){c3.agentLog('TOOL',d.name+' archivovano (lokalne).');});}
-    else if(pid){fetch(_backendBase+'/api/projects/'+pid+'/archive',{method:'PATCH',signal:AbortSignal.timeout(3000)}).then(function(){c3.agentLog('TOOL','Projekt '+d.name+' archivovan.');fetchBackendData();}).catch(function(){c3.agentLog('TOOL',d.name+' archivovano (lokalne).');});}
+    if(cid){fetch(_backendUrl()+'/api/conversations/'+cid+'/archive',{method:'PATCH',signal:AbortSignal.timeout(3000)}).then(function(){c3.agentLog('TOOL','Konverzace '+d.name+' archivovana.');fetchBackendData();}).catch(function(){c3.agentLog('TOOL',d.name+' archivovano (lokalne).');});}
+    else if(pid){fetch(_backendUrl()+'/api/projects/'+pid+'/archive',{method:'PATCH',signal:AbortSignal.timeout(3000)}).then(function(){c3.agentLog('TOOL','Projekt '+d.name+' archivovan.');fetchBackendData();}).catch(function(){c3.agentLog('TOOL',d.name+' archivovano (lokalne).');});}
     else{c3.agentLog('TOOL',d.name+' archivovano.');}
     _centerState.detail=null;renderCenter();
   }else if(a==='Obnovit'){
     var cid3=null;var conv3=CONVERSATIONS.find(function(c){return c.title===d.name;});if(conv3&&conv3.id)cid3=conv3.id;
     var pid3=null;var proj3=PROJECTS.find(function(p){return p.name===d.name;});if(proj3&&proj3.id)pid3=proj3.id;
-    if(cid3){fetch(_backendBase+'/api/conversations/'+cid3+'/restore',{method:'PATCH',signal:AbortSignal.timeout(3000)}).then(function(){c3.agentLog('TOOL','Konverzace '+d.name+' obnovena.');fetchBackendData();}).catch(function(){c3.agentLog('TOOL',d.name+' obnoveno (lokalne).');});}
-    else if(pid3){fetch(_backendBase+'/api/projects/'+pid3+'/restore',{method:'PATCH',signal:AbortSignal.timeout(3000)}).then(function(){c3.agentLog('TOOL','Projekt '+d.name+' obnoven.');fetchBackendData();}).catch(function(){c3.agentLog('TOOL',d.name+' obnoveno (lokalne).');});}
+    if(cid3){fetch(_backendUrl()+'/api/conversations/'+cid3+'/restore',{method:'PATCH',signal:AbortSignal.timeout(3000)}).then(function(){c3.agentLog('TOOL','Konverzace '+d.name+' obnovena.');fetchBackendData();}).catch(function(){c3.agentLog('TOOL',d.name+' obnoveno (lokalne).');});}
+    else if(pid3){fetch(_backendUrl()+'/api/projects/'+pid3+'/restore',{method:'PATCH',signal:AbortSignal.timeout(3000)}).then(function(){c3.agentLog('TOOL','Projekt '+d.name+' obnoven.');fetchBackendData();}).catch(function(){c3.agentLog('TOOL',d.name+' obnoveno (lokalne).');});}
     _centerState.detail=null;renderCenter();
   }else if(a==='Smazat'){
     var cid4=null;var conv4=CONVERSATIONS.find(function(c){return c.title===d.name;});if(conv4&&conv4.id)cid4=conv4.id;
     var pid4=null;var proj4=PROJECTS.find(function(p){return p.name===d.name;});if(proj4&&proj4.id)pid4=proj4.id;
     var eid4=d._itemId||null;var exp4=EXPERTISES.find(function(e){return e.name===d.name;});if(!eid4&&exp4&&exp4.id)eid4=exp4.id;
-    if(cid4){fetch(_backendBase+'/api/conversations/'+cid4,{method:'DELETE',signal:AbortSignal.timeout(3000)}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);c3.agentLog('TOOL','Konverzace '+d.name+' smazána.');fetchBackendData();}).catch(function(e){c3.agentLog('TOOL','❌ Chyba mazání: '+(e.message||e));fetchBackendData();});}
-    else if(pid4){fetch(_backendBase+'/api/projects/'+pid4,{method:'DELETE',signal:AbortSignal.timeout(3000)}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);c3.agentLog('TOOL','Projekt '+d.name+' smazán.');fetchBackendData();}).catch(function(e){c3.agentLog('TOOL','❌ Chyba mazání: '+(e.message||e));fetchBackendData();});}
+    if(cid4){fetch(_backendUrl()+'/api/conversations/'+cid4,{method:'DELETE',signal:AbortSignal.timeout(3000)}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);c3.agentLog('TOOL','Konverzace '+d.name+' smazána.');fetchBackendData();}).catch(function(e){c3.agentLog('TOOL','❌ Chyba mazání: '+(e.message||e));fetchBackendData();});}
+    else if(pid4){fetch(_backendUrl()+'/api/projects/'+pid4,{method:'DELETE',signal:AbortSignal.timeout(3000)}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);c3.agentLog('TOOL','Projekt '+d.name+' smazán.');fetchBackendData();}).catch(function(e){c3.agentLog('TOOL','❌ Chyba mazání: '+(e.message||e));fetchBackendData();});}
     else if(eid4){
       /* v122.2: Delete expertise/specialist — disable specialist first if active */
       var _isSpec=SPECIALISTS.find(function(s){return s.name===d.name;});
-      var _disableChain=_isSpec?fetch(_backendBase+'/api/specialists/'+eid4+'/disable',{method:'POST',signal:AbortSignal.timeout(3000)}).catch(function(){}):Promise.resolve();
-      _disableChain.then(function(){return fetch(_backendBase+'/api/expertises/'+eid4,{method:'DELETE',signal:AbortSignal.timeout(3000)});})
+      var _disableChain=_isSpec?fetch(_backendUrl()+'/api/specialists/'+eid4+'/disable',{method:'POST',signal:AbortSignal.timeout(3000)}).catch(function(){}):Promise.resolve();
+      _disableChain.then(function(){return fetch(_backendUrl()+'/api/expertises/'+eid4,{method:'DELETE',signal:AbortSignal.timeout(3000)});})
       .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);c3.agentLog('TOOL',(_isSpec?'Specialista':'Expertyza')+' '+d.name+' smazán(a).');_fetchExpertises();})
       .catch(function(e){c3.agentLog('TOOL','❌ Chyba mazání: '+(e.message||e));_fetchExpertises();});
     }
@@ -4992,15 +5030,15 @@ function _detailActionHandler(d,a){
   }else if(a==='Smazat trvale'){
     var cid5=null;var conv5=CONVERSATIONS.find(function(c){return c.title===d.name;});if(conv5&&conv5.id)cid5=conv5.id;
     var pid5=null;var proj5=PROJECTS.find(function(p){return p.name===d.name;});if(proj5&&proj5.id)pid5=proj5.id;
-    if(cid5){fetch(_backendBase+'/api/conversations/'+cid5+'?hard=true',{method:'DELETE',signal:AbortSignal.timeout(3000)}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);c3.agentLog('TOOL','Konverzace '+d.name+' trvale smazána.');fetchBackendData();}).catch(function(e){c3.agentLog('TOOL','❌ Chyba mazání: '+(e.message||e));fetchBackendData();});}
-    else if(pid5){fetch(_backendBase+'/api/projects/'+pid5+'?hard=true',{method:'DELETE',signal:AbortSignal.timeout(3000)}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);c3.agentLog('TOOL','Projekt '+d.name+' trvale smazán.');fetchBackendData();}).catch(function(e){c3.agentLog('TOOL','❌ Chyba mazání: '+(e.message||e));fetchBackendData();});}
+    if(cid5){fetch(_backendUrl()+'/api/conversations/'+cid5+'?hard=true',{method:'DELETE',signal:AbortSignal.timeout(3000)}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);c3.agentLog('TOOL','Konverzace '+d.name+' trvale smazána.');fetchBackendData();}).catch(function(e){c3.agentLog('TOOL','❌ Chyba mazání: '+(e.message||e));fetchBackendData();});}
+    else if(pid5){fetch(_backendUrl()+'/api/projects/'+pid5+'?hard=true',{method:'DELETE',signal:AbortSignal.timeout(3000)}).then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);c3.agentLog('TOOL','Projekt '+d.name+' trvale smazán.');fetchBackendData();}).catch(function(e){c3.agentLog('TOOL','❌ Chyba mazání: '+(e.message||e));fetchBackendData();});}
     _centerState.detail=null;_centerState.detailConversations=null;renderCenter();
   }else if(a==='Spustit'||a==='Pozastavit'||a==='Povolit'){
     var worker=d._itemId?WORKERS.find(function(w){return w.id===d._itemId;}):WORKERS.find(function(w){return w.name===d.name;});
     if(!worker||!worker.id||!worker.native){c3.agentLog('TOOL','❌ Agent nemá ověřené native ovládání. Legacy záznam je pouze ke čtení.');return;}
     var action=a==='Spustit'?'run':a==='Povolit'?'enable':'disable';
     c3.agentLog('TOOL','Požadavek pro agenta '+d.name+' probíhá…');
-    return fetch(_backendBase+'/api/agent-extensions/instances/'+encodeURIComponent(worker.id)+'/'+action,{method:'POST',signal:AbortSignal.timeout(action==='run'?300000:5000)})
+    return fetch(_backendUrl()+'/api/agent-extensions/instances/'+encodeURIComponent(worker.id)+'/'+action,{method:'POST',signal:AbortSignal.timeout(action==='run'?300000:5000)})
       .then(function(r){return r.json().then(function(body){if(!r.ok)throw new Error(body.error||body.code||'HTTP '+r.status);return body;});})
       .then(function(body){
         if(action==='run'){
@@ -5043,7 +5081,7 @@ function _detailActionHandler(d,a){
     if(!_pubId){var _pubItem=(_pubType==='specialist'?SPECIALISTS:EXPERTISES).find(function(x){return x.name===d.name;});if(_pubItem)_pubId=_pubItem.id;}
     if(!_pubId){alert('Nelze publikovat — chybí ID.');return;}
     _mpMsg={ok:true,text:'Exportuji '+d.name+'...'};renderCenter();
-    fetch(_backendBase+'/api/marketplace/export/'+_pubType+'/'+_pubId,{method:'POST',signal:AbortSignal.timeout(30000)})
+    fetch(_backendUrl()+'/api/marketplace/export/'+_pubType+'/'+_pubId,{method:'POST',signal:AbortSignal.timeout(30000)})
       .then(function(r){return r.json();})
       .then(function(result){
         if(result.error){_mpMsg={ok:false,text:result.error};renderCenter();return;}
@@ -5064,7 +5102,7 @@ function _detailActionHandler(d,a){
 function _assignConvToProject(convTitle,projectId){
   var conv=CONVERSATIONS.find(function(c){return c.title===convTitle;});
   if(!conv||!conv.id||!projectId)return;
-  fetch(_backendBase+'/api/conversations/'+conv.id+'/assign',{method:'POST',headers:{'Content-Type':'application/json'},
+  fetch(_backendUrl()+'/api/conversations/'+conv.id+'/assign',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({project_id:projectId}),signal:AbortSignal.timeout(5000)})
   .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
   .then(function(){
@@ -5102,7 +5140,7 @@ function centerDetail(){
           return h('div',{key:i,style:rowS},
             h('span',{style:lblS},f.k),
             f.type==='fav'?h('span',{style:{fontSize:_fs(16),cursor:'pointer',color:f.v?C.accentText:C.tx4,userSelect:'none'},
-              onClick:function(ev){ev.stopPropagation();f.v=!f.v;var ex=EXPERTISES.find(function(e){return e.name===f._expertiseName;});if(ex){ex.fav=f.v;if(ex.id){fetch(_backendBase+'/api/expertises/'+ex.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({favorite:f.v}),signal:AbortSignal.timeout(3000)}).catch(function(){});}}renderCenter();}},f.v?'★':'☆'):
+              onClick:function(ev){ev.stopPropagation();f.v=!f.v;var ex=EXPERTISES.find(function(e){return e.name===f._expertiseName;});if(ex){ex.fav=f.v;if(ex.id){fetch(_backendUrl()+'/api/expertises/'+ex.id,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({favorite:f.v}),signal:AbortSignal.timeout(3000)}).catch(function(){});}}renderCenter();}},f.v?'★':'☆'):
             d.editing?h('input',{defaultValue:_s(f.v),onChange:function(e){f.v=e.target.value;},
               style:{background:C.bg3,border:'1px solid '+C.border2,borderRadius:4,padding:'3px 6px',color:C.tx1,fontFamily:C.mono,fontSize:_fs(11),flex:1,outline:'none',boxSizing:'border-box'}}):
             h('span',{style:Object.assign({},valS,f.a?{color:C.accentText}:{})},_s(f.v)));
@@ -5137,7 +5175,7 @@ function centerDetail(){
               if(cv.id){_smartRouteToRelay(function(_ti){
                 var _ts=_sessions[_ti];
                 _ts._convId=cv.id;_ts._label=cv.title||'Konverzace';_ts._m2Pending=null;_persistSessionState();
-                fetch(_backendBase+'/api/conversations/'+cv.id+'/messages',{signal:AbortSignal.timeout(5000)}).then(function(r){return r.json();}).then(function(msgs){
+                fetch(_backendUrl()+'/api/conversations/'+cv.id+'/messages',{signal:AbortSignal.timeout(5000)}).then(function(r){return r.json();}).then(function(msgs){
                   var items=Array.isArray(msgs)?msgs:(msgs.messages||[]);
                   _ts.chat.msgs=[{role:'system',text:'Konverzace: '+(cv.title||'#'+cv.id)}];
                   items.forEach(function(m){var mt=null;try{mt=m.metadata?JSON.parse(m.metadata):null;}catch(e){}_ts.chat.msgs.push({role:m.role||'user',text:m.content||m.text||'',tag:(mt&&mt.mode)||undefined});});
@@ -5190,7 +5228,7 @@ document.addEventListener('c3-open-folder',function(){
     inp.click();}catch(e){if(window._c3)window._c3.agentLog('TOOL','❌ Nelze otevřít dialog: '+(e.message||e));}
 });
 function _c3OpenFolderDo(folderPath){
-  fetch(_backendBase+'/api/projects/open-folder',{method:'POST',headers:{'Content-Type':'application/json'},
+  fetch(_backendUrl()+'/api/projects/open-folder',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({folderPath:folderPath}),signal:AbortSignal.timeout(15000)})
   .then(function(r){if(!r.ok)throw new Error('Server error '+r.status);return r.json();})
   .then(function(res){
@@ -5375,7 +5413,7 @@ function _newChatDialogAction(choice){
     s.chat.msgs=[{role:'system',text:'📂 Nová konverzace v projektu: '+_newChatDialog.projectName}];
     s.chat.ctx=0;s.chat.attachments=[];s.chat._thinking=null;s.chat._delivery=null;s._convId=null;s._agentId=null;s._m2Pending=null;
     /* Create new conversation linked to project */
-    fetch(_backendBase+'/api/conversations',{method:'POST',headers:{'Content-Type':'application/json'},
+    fetch(_backendUrl()+'/api/conversations',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({project_id:_newChatDialog.projectId,title:_newChatDialog.projectName}),signal:AbortSignal.timeout(5000)})
     .then(function(r){return r.json();}).then(function(d){if(d.id||d.conversation){s._convId=(d.conversation||d).id;_persistSessionState();}}).catch(function(){});
   } else if(choice==='free'){
@@ -5634,6 +5672,7 @@ function _initBusSubscriptions() {
 
   /* WS ready */
   C3Bus.on('ws:ready', function(ev) {
+    _modelsDisconnected=false;_refreshModelWorkspace();
     _serverHealth.wsConnected = true;
     _serverHealth.status = 'ok';
     renderSidebar();_updateStatusIndicator();
@@ -5641,6 +5680,7 @@ function _initBusSubscriptions() {
 
   /* WS disconnected */
   C3Bus.on('ws:disconnected', function(ev) {
+    _modelsDisconnected=true;_modelReadEpoch++;renderCenter();
     _serverHealth.wsConnected = false;
     if (ev.wasReady) {
       if(window._c3)window._c3.agentLog('TOOL','⚠️ Spojení s backendem ztraceno. Pokus o reconnect...');
@@ -5993,7 +6033,7 @@ function _chatSelectSpecialist(s,spec){
   s.chat._specialistSelecting=true;
   if(!s._convId)s._convId='studio-specialist-'+crypto.randomUUID();
   var id=spec&&spec.id==='accountant'?'accountant-cz':spec&&spec.id;
-  return fetch(_backendBase+'/api/chat/specialist',{method:spec?'POST':'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({specialistId:id,sessionId:s._convId}),signal:AbortSignal.timeout(5000)}).then(function(r){return r.json().then(function(d){if(!r.ok||!d.ok)throw new Error(d.error||'Aktivace specialisty selhala');
+  return fetch(_backendUrl()+'/api/chat/specialist',{method:spec?'POST':'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({specialistId:id,sessionId:s._convId}),signal:AbortSignal.timeout(5000)}).then(function(r){return r.json().then(function(d){if(!r.ok||!d.ok)throw new Error(d.error||'Aktivace specialisty selhala');
     s.chat.specialist=spec?Object.assign({},spec,{id:id}):null;s.chat.expertise=spec?spec.name:'Výchozí';s._focusBulkMode=false;s._focusBulkSelected=[];_renderAll();_persistSessionState();return true;
   });}).catch(function(e){s.chat.msgs.push({role:'system',text:e.message,tag:'ERROR'});renderChat();return false;}).finally(function(){s.chat._specialistSelecting=false;});
 }
@@ -6042,7 +6082,7 @@ function _chatAutocomplete(idx){
   var requestPrefix=partial;
 
   st.acLoading=true;renderChat();
-  fetch(_backendBase+'/api/autocomplete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({partial:partial,expertise:st.expertise,context:st.msgs.slice(-6).map(function(m){return{role:m.role,text:m.text};})}),signal:_acAbort.signal})
+  fetch(_backendUrl()+'/api/autocomplete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({partial:partial,expertise:st.expertise,context:st.msgs.slice(-6).map(function(m){return{role:m.role,text:m.text};})}),signal:_acAbort.signal})
   .then(function(r){return r.json();})
   .then(function(d){
     st.acLoading=false;
@@ -6067,7 +6107,7 @@ function _chatAutocomplete(idx){
 /* Context meter — poll real context usage from backend */
 function _pollContext(idx){
   var s=_sessions[idx];if(!s)return;
-  fetch(_backendBase+'/api/context',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:idx,messageCount:s.chat.msgs.length}),signal:AbortSignal.timeout(3000)})
+  fetch(_backendUrl()+'/api/context',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:idx,messageCount:s.chat.msgs.length}),signal:AbortSignal.timeout(3000)})
   .then(function(r){return r.json();})
   .then(function(d){if(typeof d.percent==='number'){s.chat.ctx=d.percent;renderChat();}})
   .catch(function(){});
@@ -6219,7 +6259,7 @@ function _chatEnsureSpecialist(s){
   if(!spec)return Promise.resolve();
   // Restore old sessions which stored the accountant expertise ID.
   var id=spec.id==='accountant'?'accountant-cz':spec.id;
-  return fetch(_backendBase+'/api/chat/specialist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({specialistId:id,sessionId:s._convId}),signal:AbortSignal.timeout(5000)}).then(function(r){return r.json().then(function(d){if(!r.ok||!d.ok)throw new Error(d.error||'Aktivace specialisty selhala');spec.id=id;});});
+  return fetch(_backendUrl()+'/api/chat/specialist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({specialistId:id,sessionId:s._convId}),signal:AbortSignal.timeout(5000)}).then(function(r){return r.json().then(function(d){if(!r.ok||!d.ok)throw new Error(d.error||'Aktivace specialisty selhala');spec.id=id;});});
 }
 function _chatTryWsSend(content,session,sessionIdx){
   try{
@@ -6356,7 +6396,7 @@ function _m2AssertCurrentContext(idx,s,origin){
 function _m2FetchJSON(endpoint,options,timeoutMs){
   var request=Object.assign({credentials:'same-origin'},options||{});
   if(!request.signal)request.signal=AbortSignal.timeout(timeoutMs);
-  return fetch(_backendBase+endpoint,request).then(function(r){
+  return fetch(_backendUrl()+endpoint,request).then(function(r){
     return r.json().catch(function(){return{};}).then(function(payload){
       if(!r.ok){
         var code=typeof payload.code==='string'?payload.code:'HTTP_'+r.status;
@@ -6783,7 +6823,7 @@ function _m4AssertCurrentProject(idx,s,projectId){
 function _m4LearningFetchJSON(endpoint,options,timeoutMs){
   var request=Object.assign({credentials:'same-origin'},options||{});
   if(!request.signal)request.signal=AbortSignal.timeout(timeoutMs);
-  return fetch(_backendBase+endpoint,request).then(function(r){
+  return fetch(_backendUrl()+endpoint,request).then(function(r){
     return r.json().catch(function(){return{};}).then(function(payload){
       if(!r.ok){
         var code=typeof payload.code==='string'?payload.code:'HTTP_'+r.status;
@@ -7298,7 +7338,7 @@ function _chatPaneUI(idx,opts){
               onMouseLeave:function(e){e.currentTarget.style.background=st.expertise===exp.name?C.accentBg:'transparent';},
               onClick:function(e){e.stopPropagation();st.expertise=exp.name;st.specialist=null;st.showExpertises=false;st.showAllExpertises=false;renderChat();}},
               h('span',null,exp.emoji),h('span',{style:{flex:1}},exp.name),
-              h('span',{style:{fontSize:_fs(11),color:exp.fav?C.accentText:C.tx4,cursor:'pointer'},onClick:function(e){e.stopPropagation();exp.fav=!exp.fav;if(exp.id){fetch(_backendBase+'/api/expertises/'+exp.id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({favorite:exp.fav}),signal:AbortSignal.timeout(3000)}).catch(function(){});}renderChat();}},exp.fav?'★':'☆'));}),
+              h('span',{style:{fontSize:_fs(11),color:exp.fav?C.accentText:C.tx4,cursor:'pointer'},onClick:function(e){e.stopPropagation();exp.fav=!exp.fav;if(exp.id){fetch(_backendUrl()+'/api/expertises/'+exp.id,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({favorite:exp.fav}),signal:AbortSignal.timeout(3000)}).catch(function(){});}renderChat();}},exp.fav?'★':'☆'));}),
           !st.showAllExpertises&&favs.length>0&&favs.length<EXPERTISES.length?h('div',{style:{padding:'4px 10px',fontSize:_fs(9.5),color:C.tx4,cursor:'pointer',borderTop:'1px solid '+C.border,marginTop:2},onClick:function(e){e.stopPropagation();st.showAllExpertises=true;renderChat();}},'Zobrazit vše ('+EXPERTISES.length+')'):null,
           st.showAllExpertises?h('div',{style:{padding:'4px 10px',fontSize:_fs(9.5),color:C.tx4,cursor:'pointer',borderTop:'1px solid '+C.border,marginTop:2},onClick:function(e){e.stopPropagation();st.showAllExpertises=false;renderChat();}},'Jen oblíbené'):null);}()):null)));
 }
@@ -7524,7 +7564,7 @@ function _termTabComplete(idx,el){
   /* Fetch directory listing from backend */
   if(_termTabAbort)try{_termTabAbort.abort();}catch(e){}
   _termTabAbort=new AbortController();
-  fetch(_backendBase+'/api/workspace/ls?path='+encodeURIComponent(dir)+'&prefix='+encodeURIComponent(partial),{signal:_termTabAbort.signal})
+  fetch(_backendUrl()+'/api/workspace/ls?path='+encodeURIComponent(dir)+'&prefix='+encodeURIComponent(partial),{signal:_termTabAbort.signal})
   .then(function(r){return r.json();})
   .then(function(d){
     if(!d.entries||d.entries.length===0)return;
@@ -7657,7 +7697,7 @@ function _auditContent(s){
   /* Fetch audit data (cache 30s) */
   if(!_auditCache.data||Date.now()-_auditCache.ts>30000){
     var convId=s._convId;
-    var url=_backendBase+'/api/audit?limit=100'+(convId?'&conversation_id='+convId:'');
+    var url=_backendUrl()+'/api/audit?limit=100'+(convId?'&conversation_id='+convId:'');
     fetch(url,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(d){
       _auditCache={data:d,ts:Date.now()};renderAgent();
     }).catch(function(){});
@@ -7910,7 +7950,7 @@ inversify_1.decorate(inversify_1.injectable(),C3AgentContrib);
 
 class C3StatusContrib {
   onStart(){this._c();}
-  async _c(){try{var r=await fetch(_backendBase+'/health',{signal:AbortSignal.timeout(2000)});document.body.classList.toggle('c3-backend-online',r.ok);}catch(e){document.body.classList.remove('c3-backend-online');}}}
+  async _c(){try{var r=await fetch(_backendUrl()+'/health',{signal:AbortSignal.timeout(2000)});document.body.classList.toggle('c3-backend-online',r.ok);}catch(e){document.body.classList.remove('c3-backend-online');}}}
 inversify_1.decorate(inversify_1.injectable(),C3StatusContrib);
 
 

@@ -87,7 +87,7 @@ test('Studio settings save rejects failed HTTP and reloads persisted values', as
   const persisted = { 'c3.memory.ltmEnabled': true };
   const logs = [];
   const sandbox = vm.createContext({ _bCfg: { 'c3.memory.ltmEnabled': false }, _bCfgSaveTimer: null,
-    _backendBase: 'http://controlled', AbortSignal, renderCenter() {}, clearTimeout() {},
+    _backendUrl: () => 'http://controlled', AbortSignal, renderCenter() {}, clearTimeout() {},
     setTimeout(fn) { fn(); }, window: { _c3: { agentLog: (_kind, message) => logs.push(message) } },
     fetch: async (_url, options) => options.method === 'POST'
       ? { ok: false, status: 400, json: async () => ({ error: 'Rejected settings' }) }
@@ -292,7 +292,7 @@ test('shipped Studio handler uses native routes, reports actual outcomes and pre
   let calls = [], logs = [], override = null;
   const worker = { id: 'privacy-native', name: 'Scoped agent', native: true };
   const sandbox = vm.createContext({ window: { _c3: { agentLog: (_type, message) => logs.push(message) } },
-    WORKERS: [worker], _backendBase: 'http://controlled', AbortSignal,
+    WORKERS: [worker], _backendUrl: () => 'http://controlled', AbortSignal,
     fetchBackendData() {}, encodeURIComponent,
     fetch: async (url, options) => {
       const path = new URL(url).pathname;

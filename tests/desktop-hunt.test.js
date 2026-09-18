@@ -246,7 +246,7 @@ test('Studio hunt renders queue and skip reason, and cancelled confirmation send
   const start=source.indexOf('var _huntData='),end=source.indexOf('\n}',source.indexOf('function _renderHuntTab()'))+2;
   let fetches=0;
   const context=vm.createContext({setInterval(){},confirm:()=>false,fetch:()=>{fetches++;},
-    _backendBase:'http://fixture',_centerState:{view:'upgrades'},_upgradeTab:'hunt',renderCenter(){},
+    _backendUrl:()=> 'http://fixture',_centerState:{view:'upgrades'},_upgradeTab:'hunt',renderCenter(){},
     _fs:n=>n,C:{tx3:'#888',border:'#333'},h:(tag,props,...children)=>({tag,props,children})});
   const helpers=source.slice(source.indexOf('function _modelButtonStyle('),source.indexOf('var _huntData='));
   vm.runInContext(helpers+source.slice(start,end),context);
@@ -361,7 +361,7 @@ test('Studio selected test sends the current exact artifact and role, no arbitra
   const source=await readFile(join(ROOT,'c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
   const start=source.indexOf('function _testInstalledModel('),end=source.indexOf('\nsetInterval(',start);
   const calls=[];const context=vm.createContext({AbortSignal,confirm:()=>true,renderCenter(){},_loadHuntStatus(){},
-    _modelTestPending:false,_modelTestMessage:null,_backendBase:'http://fixture',_canonicalModelIdentity:n=>n,
+    _modelTestPending:false,_modelTestMessage:null,_backendUrl:()=> 'http://fixture',_canonicalModelIdentity:n=>n,
     fetch:async(url,options)=>{calls.push({url,options});return {ok:true,json:async()=>url.endsWith('/evaluations')?{roles:{CODE:{suiteContractSha256:'e'.repeat(64),artifacts:[{model:'fixture:7b',digestSha256:'d'.repeat(64)}]}}}:{accepted:true}};}});
   vm.runInContext(source.slice(start,end)+';_testInstalledModel("fixture:7b","CODE");_testInstalledModel("fixture:7b","CODE");',context);
   await new Promise(r=>setImmediate(r));assert.equal(calls.length,2);
@@ -375,7 +375,7 @@ test('selected test failure stays next to the selected model and role with its a
   const start=source.indexOf('function _testInstalledModel('),end=source.indexOf('\nsetInterval(',start);
   const helpers=source.slice(source.indexOf('function _modelButtonStyle('),source.indexOf('var _huntData='));
   const context=vm.createContext({AbortSignal,confirm:()=>true,renderCenter(){},_modelTestPending:false,
-    _backendBase:'http://fixture',_canonicalModelIdentity:n=>n,_upgradeTab:'evaluations',C:{},_fs:n=>n,
+    _backendUrl:()=> 'http://fixture',_canonicalModelIdentity:n=>n,_upgradeTab:'evaluations',C:{},_fs:n=>n,
     h:(tag,props,...children)=>({tag,props,children}),fetch:async url=>url.endsWith('/evaluations')
       ?{ok:true,json:async()=>({roles:{CODE:{suiteContractSha256:'e'.repeat(64),artifacts:[{model:'qwen3.5:27b',digestSha256:'d'.repeat(64)}]}}})}
       :{ok:false,status:503,json:async()=>({code:'GPU_DRIVER_LIBRARY_MISMATCH',error:'NVIDIA a NVML mají rozdílné verze; restartuj počítač.'})}});
@@ -422,4 +422,51 @@ test('hunt retains the last five results and does not present an old plan as que
   const result=await control.status();assert.equal(result.recent.length,5);assert.equal(result.recent[0].runId,'run-test6');assert.equal(result.recent.at(-1).runId,'run-test2');
   assert.deepEqual(result.queue,[]);assert.equal(result.lastPlan.length,1);assert.equal(result.gpuInventory.gpus[0].vram_mb,24576);
   await control.status();assert.equal(probes,1);await control.status({freshGpu:true});assert.equal(probes,2);
+});
+
+test('open model workspace follows a rotated backend and never renders failed reads as empty data', async()=>{
+  const source=await readFile(join(ROOT,'c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
+  const fn=name=>{const start=source.indexOf('function '+name+'(');assert.ok(start>=0,name);return source.slice(start,source.indexOf('\n}',start)+2);};
+  let endpoint='http://127.0.0.1:41001',fail=false;
+  const calls=[];
+  const context=vm.createContext({window:{electronC3:{getBackendUrl:()=>endpoint}},AbortSignal,
+    C:{},_fs:n=>n,h:(tag,props,...children)=>({tag,props,children}),renderCenter(){},
+    _modelReadEpoch:0,_evaluationData:null,_evaluationLoading:false,_modelOverview:null,
+    _governorData:null,_governorProposals:null,_governorLoading:false,_governorError:null,
+    _huntData:null,_huntError:null,_huntLoading:false,_huntSubmittedAt:0,_huntRefreshedRunId:null,
+    fetch:async(url,options)=>{calls.push({url,method:options.method||'GET'});if(fail)throw new TypeError('Failed to fetch');
+      return{ok:true,json:async()=>url.endsWith('/proposals')?{proposals:[]}:url.endsWith('/report')?{dimensions:{cre:{status:'HEALTHY',score:1}}}:{roles:{CODE:{binding:'coder',artifacts:[]}},current:null}};}});
+  vm.runInContext(['_backendUrl','_modelButtonStyle','_modelReadError','_modelLoadFailure','_readModelResource','_loadEvaluationData','_loadGovernorData','_loadHuntStatus','_renderRolesTab','_renderGovernorTab','_renderEvaluationHistory','_renderEvaluationsTab','_renderHuntTab'].map(fn).join('\n'),context);
+  await vm.runInContext('_loadEvaluationData()',context);
+  assert.equal(calls.at(-1).url,endpoint+'/api/system/models/evaluations');
+  endpoint='http://127.0.0.1:41002';
+  await vm.runInContext('_loadEvaluationData()',context);
+  assert.equal(calls.at(-1).url,endpoint+'/api/system/models/evaluations');
+  fail=true;
+  await vm.runInContext('Promise.all([_loadEvaluationData(),_loadGovernorData(),_loadHuntStatus()])',context);
+  for(const render of ['_renderRolesTab','_renderGovernorTab','_renderEvaluationHistory','_renderEvaluationsTab','_renderHuntTab']){
+    const text=JSON.stringify(vm.runInContext(render+'()',context));
+    assert.match(text,/Backend není dostupný/);assert.match(text,/Zkusit znovu/);
+    assert.doesNotMatch(text,/Načítám role|Chybí data|Žádné dokončené|Žádná otevřená|posledních 0/);
+  }
+  fail=false;
+  await vm.runInContext('Promise.all([_loadEvaluationData(),_loadGovernorData(),_loadHuntStatus()])',context);
+  assert.equal(context._evaluationData.roles.CODE.binding,'coder');assert.equal(context._governorData.dimensions.cre.score,1);
+  assert.equal(context._huntError,null);assert.ok(calls.every(c=>c.method==='GET'));
+  endpoint=null;assert.equal(vm.runInContext('_backendUrl()',context),'','missing private endpoint must use capability-guarded relative transport, never a guessed port');
+});
+
+test('late model reads from the disconnected epoch cannot overwrite the recovered result',async()=>{
+  const source=await readFile(join(ROOT,'c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
+  const fn=name=>{const start=source.indexOf('function '+name+'(');return source.slice(start,source.indexOf('\n}',start)+2);};
+  let finishOld;
+  const context=vm.createContext({AbortSignal,_modelReadEpoch:0,_evaluationData:null,_evaluationLoading:false,
+    _backendUrl:()=> 'http://127.0.0.1:42000',renderCenter(){},
+    fetch:()=>new Promise(resolve=>{finishOld=()=>resolve({ok:true,json:async()=>({source:'old'})});})});
+  vm.runInContext(['_modelReadError','_readModelResource','_loadEvaluationData'].map(fn).join('\n'),context);
+  const old=vm.runInContext('_loadEvaluationData()',context);
+  context._modelReadEpoch++;context._evaluationLoading=false;
+  context.fetch=async()=>({ok:true,json:async()=>({source:'new'})});
+  await vm.runInContext('_loadEvaluationData()',context);finishOld();await old;
+  assert.equal(context._evaluationData.source,'new');assert.equal(context._evaluationLoading,false);
 });
