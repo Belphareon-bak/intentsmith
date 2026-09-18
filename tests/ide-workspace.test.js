@@ -220,3 +220,32 @@ test('renaming Studio keeps existing user data without replacing an explicit or 
   assert.deepEqual(resolveUserDataArgs([],{...options,isDirectory:p=>p===current||p===previous}),[]);
   assert.deepEqual(resolveUserDataArgs([],{...options,isDirectory:()=>false}),[]);
 });
+
+// Operator regression: restored Settings occupied the whole window; the main
+// navigation had a hidden dock despite its outer container being visible.
+test('navigation reveal repairs the dock and collapsing retains an icon rail',()=>{
+  const calls=[],nav={_collapsed:false},dock={hidden:true},container={hidden:false,show(){this.hidden=false;}};
+  const c=vm.createContext({_sidebarWidget:nav,INTENTSMITH_SIDEBAR_ID:'intentsmith-sidebar',
+    _intentsmithLastLeftW:260,_intentsmithSnapLock:false,renderSidebar(){calls.push('render');},setTimeout:fn=>fn(),
+    window:{_intentsmithApp:{shell:{leftPanelHandler:{container,expand(id){assert.equal(id,'intentsmith-sidebar');dock.hidden=false;}},resize(w,side){calls.push({w,side});}}}}});
+  vm.runInContext(fn('_setSidebarCollapsed'),c);
+  c._setSidebarCollapsed(false);
+  assert.equal(dock.hidden,false);assert.equal(container.hidden,false);assert.equal(nav._collapsed,false);
+  assert.deepEqual(calls[0],{w:260,side:'left'});
+  calls.length=0;c._setSidebarCollapsed(true);
+  assert.equal(nav._collapsed,true);assert.equal(dock.hidden,false);assert.equal(container.hidden,false);
+  assert.deepEqual(calls[0],{w:48,side:'left'});
+});
+test('navigation is reopened after saved layout restoration without changing the selected page',async()=>{
+  const start=source.indexOf('class IntentSmithSidebarContrib '),end=source.indexOf('\ninversify_1.decorate(',start);
+  const events=[],settings={view:'settings'},sessions=[{draft:'keep me'}];let expanded=false;
+  class View {async openView(options){assert.deepEqual(JSON.parse(JSON.stringify(options)),{activate:false,reveal:true});expanded=true;events.push('reveal');}}
+  const shell={get pendingUpdates(){events.push('settle');return Promise.resolve();}};
+  const c=vm.createContext({browser_1:{AbstractViewContribution:View},INTENTSMITH_SIDEBAR_ID:'intentsmith-sidebar',
+    window:{},_centerState:settings,_sessions:sessions,_setSidebarCollapsed(value){assert.equal(value,false);assert.equal(expanded,true);events.push('size');}});
+  vm.runInContext(source.slice(start,end)+';globalThis.navigation=new IntentSmithSidebarContrib();',c);
+  // A saved layout may collapse or omit the old-named navigation widget.
+  expanded=false;await c.navigation.onDidInitializeLayout({shell});
+  assert.deepEqual(events,['reveal','size','settle']);assert.equal(expanded,true);
+  assert.equal(settings.view,'settings');assert.equal(sessions[0].draft,'keep me');
+});

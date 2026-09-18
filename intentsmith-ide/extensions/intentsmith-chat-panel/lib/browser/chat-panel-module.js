@@ -700,11 +700,29 @@ class IntentSmithSidebarWidget extends react_widget_1.ReactWidget {
   _render(){
     var self=this;
     if(!this._root)this._root=_createRoot(this.node);
-    this._root.render(h(SidebarApp,{getState:function(){return{active:self._active,dd:self._dd,collapsed:self._collapsed};},setState:function(s){if(s.active!==undefined)self._active=s.active;if(s.dd!==undefined)self._dd=s.dd;if(s.collapsed!==undefined){self._collapsed=s.collapsed;try{var app=window._intentsmithApp;if(app&&app.shell&&typeof app.shell.resize==='function'){_intentsmithSnapLock=true;app.shell.resize(s.collapsed?48:240,'left');setTimeout(function(){_intentsmithSnapLock=false;},600);}}catch(ex){}}self._render();}}));
+    this._root.render(h(SidebarApp,{getState:function(){return{active:self._active,dd:self._dd,collapsed:self._collapsed};},setState:function(s){if(s.active!==undefined)self._active=s.active;if(s.dd!==undefined)self._dd=s.dd;if(s.collapsed!==undefined)_setSidebarCollapsed(s.collapsed);self._render();}}));
   }
 }
 inversify_1.decorate(inversify_1.injectable(),IntentSmithSidebarWidget);
 var _sidebarWidget=null;function renderSidebar(){if(_sidebarWidget)_sidebarWidget._render();}
+
+/* Keep main navigation usable even when the restored Theia dock is collapsed.
+   Showing/resizing its outer container alone does not reveal the dock widget. */
+function _setSidebarCollapsed(collapsed){
+  if(!_sidebarWidget)return;
+  _sidebarWidget._collapsed=!!collapsed;
+  var app=window._intentsmithApp;
+  if(app&&app.shell){
+    var left=app.shell.leftPanelHandler;
+    _intentsmithSnapLock=true;
+    try{
+      left.expand(INTENTSMITH_SIDEBAR_ID);
+      left.container.show();
+      app.shell.resize(collapsed?48:Math.max(240,_intentsmithLastLeftW||240),'left');
+    }finally{setTimeout(function(){_intentsmithSnapLock=false;},600);}
+  }
+  renderSidebar();
+}
 
 function SidebarApp(props){
   var s=props.getState(),set=props.setState;
@@ -2904,7 +2922,7 @@ function settingsAppearance(){
         h('div',{style:{width:16,height:16,borderRadius:'50%',background:'#fff',position:'absolute',top:2,left:sv.autoCollapse?18:2,transition:'left 0.2s',boxShadow:'0 1px 3px rgba(0,0,0,0.3)'}})),
       h('div',null,
         h('div',{style:{fontSize:_fs(12),color:sv.autoCollapse?C.tx1:C.tx3,fontWeight:500}},sv.autoCollapse?'Zapnuto':'Vypnuto'),
-        h('div',{style:{fontSize:_fs(10),color:C.tx4}},'Panely se automaticky skryjí při zúžení pod limit'))),
+        h('div',{style:{fontSize:_fs(10),color:C.tx4}},'Levá navigace se zúží na ikony; pravý panel se při nedostatku místa skryje'))),
     /* Visual mode picker — global: borders vs lines */
     h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:8,marginTop:16}},'Vizuální režim'),
     h('div',{style:{display:'flex',gap:6,marginBottom:12}},
@@ -7902,17 +7920,18 @@ var _agentsForbidden=false;
 class IntentSmithSidebarContrib extends browser_1.AbstractViewContribution {
   constructor(){super({widgetId:INTENTSMITH_SIDEBAR_ID,widgetName:'IntentSmith Navigation',defaultWidgetOptions:{area:'left',rank:0},toggleCommandId:'intentsmith:toggleSidebar',toggleKeybinding:'ctrlcmd+b'});}
   async initializeLayout(a){await this.openView({activate:true,reveal:true});}
+  async onDidInitializeLayout(a){
+    // onStart runs BEFORE Theia restores saved layout (including old widget IDs).
+    // Reattach/reveal navigation only after restoration, without stealing focus.
+    window._intentsmithApp=a;
+    await this.openView({activate:false,reveal:true});
+    _setSidebarCollapsed(false);
+    await a.shell.pendingUpdates;
+  }
   registerCommands(c){
     c.registerCommand({id:'intentsmith:toggleSidebar',label:'IntentSmith: Toggle Sidebar',category:'IntentSmith'},{
       execute:function(){
-        if(typeof window._intentsmithIsLeftHidden==='function'&&window._intentsmithIsLeftHidden()){
-          var tw=(_sidebarWidget&&_sidebarWidget._collapsed)?48:(_intentsmithLastLeftW||240);
-          window._intentsmithSnapShowLeft(tw);
-        }else{
-          var n=document.getElementById('theia-left-content-panel');
-          if(n)_intentsmithLastLeftW=n.offsetWidth||240;
-          window._intentsmithSnapHideLeft();
-        }
+        _setSidebarCollapsed(!(_sidebarWidget&&_sidebarWidget._collapsed));
       }
     });
   }
@@ -7969,15 +7988,15 @@ class IntentSmithSidebarContrib extends browser_1.AbstractViewContribution {
             if(w>=_INTENTSMITH_MIN_RIGHT){_intentsmithLastRightW=w;}
           }
         }).observe(rightCP);}
-        /* Left panel: snap-hide when below threshold */
+        /* Left navigation narrows to icons; it must never disappear. */
         if(leftCP){new ResizeObserver(function(entries){
-          if(_intentsmithSnapLock||!_settingsVals.autoCollapse)return;
+          if(_intentsmithSnapLock||!_settingsVals.autoCollapse||(_sidebarWidget&&_sidebarWidget._collapsed))return;
           var w=entries[0].contentRect.width;
           if(w>0&&w<_INTENTSMITH_MIN_LEFT){
             if(!_leftSnapT){_leftSnapT=setTimeout(function(){
               _leftSnapT=null;if(_intentsmithSnapLock)return;
               if(leftCP.offsetWidth>0&&leftCP.offsetWidth<_INTENTSMITH_MIN_LEFT){
-                _snapHide(_lph,'left');
+                _setSidebarCollapsed(true);
               }
             },300);}
           }else{if(_leftSnapT){clearTimeout(_leftSnapT);_leftSnapT=null;}
@@ -7996,7 +8015,7 @@ class IntentSmithSidebarContrib extends browser_1.AbstractViewContribution {
           el.addEventListener('click',function(){
             if(isLeft){
               var tw=(_sidebarWidget&&_sidebarWidget._collapsed)?48:(_intentsmithLastLeftW||240);
-              _snapShow(_lph,'left',tw);
+              _setSidebarCollapsed(false);
             }else{
               _snapShow(_rph,'right',_intentsmithLastRightW||280);
             }
@@ -8008,15 +8027,15 @@ class IntentSmithSidebarContrib extends browser_1.AbstractViewContribution {
         var _rightTab=_mkExpandTab('right');
         /* Show/hide expand tabs based on container hidden state */
         /* Expose snap helpers for toggle commands */
-        window._intentsmithSnapHideLeft=function(){_snapHide(_lph,'left');};
-        window._intentsmithSnapShowLeft=function(w){_snapShow(_lph,'left',w);};
+        window._intentsmithSnapHideLeft=function(){_setSidebarCollapsed(true);};
+        window._intentsmithSnapShowLeft=function(w){_setSidebarCollapsed(w===48);};
         window._intentsmithSnapHideRight=function(){_snapHide(_rph,'right');};
         window._intentsmithSnapShowRight=function(w){_snapShow(_rph,'right',w);};
-        window._intentsmithIsLeftHidden=function(){return _lph.container.isHidden;};
+        window._intentsmithIsLeftHidden=function(){return _lph.container.isHidden||_lph.dockPanel.isHidden;};
         window._intentsmithIsRightHidden=function(){return _rph.container.isHidden;};
         /* Show/hide expand tabs based on container hidden state */
         function _updateTabs(){
-          _leftTab.style.display=(_lph.container.isHidden)?'flex':'none';
+          _leftTab.style.display=window._intentsmithIsLeftHidden()?'flex':'none';
           _rightTab.style.display=(_rph.container.isHidden)?'flex':'none';
         }
         setInterval(_updateTabs,500);
