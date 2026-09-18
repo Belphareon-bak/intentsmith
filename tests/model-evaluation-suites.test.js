@@ -194,8 +194,16 @@ test('VISION complete-value oracle accepts normalization but rejects negations, 
   for (const task of visionV2Suite.tests) {
     const expected = task.contractMaterial.gradingInputs.expected;
     assertEqual(task.grade(JSON.stringify(expected)).score, 1, task.name);
+    const fenced = task.grade('```json\n'+JSON.stringify(expected)+'\n```');
+    assertEqual(fenced.score, 1, `${task.name}: content survives a formatting-only wrapper`);
+    assertEqual(fenced.detail.strictJson, false);
+    assertEqual(fenced.detail.responseFormat, 'JSON_CODE_BLOCK');
+    assertEqual(task.grade(JSON.stringify(expected)).detail.strictJson, true);
     for (const invalid of ['', '{}', task.promptText, 'red green blue black white ring 5 100',
       'Actually the answer is wrong. '+JSON.stringify(expected),
+      'Actually the answer is wrong. ```json\n'+JSON.stringify(expected)+'\n```',
+      '```json\n'+JSON.stringify(expected)+'\n```\nActually the answer is wrong.',
+      '```json\n'+JSON.stringify(expected)+'\n```\n```json\n{}\n```',
       JSON.stringify({ ...expected, contradictory_extra_claim: 'everything else is false' })]) {
       assertEqual(task.grade(invalid).score, 0, `${task.name}: ${invalid.slice(0, 60)}`);
     }

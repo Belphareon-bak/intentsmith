@@ -136,6 +136,6 @@ for i,s in enumerate(['Printed subtotal: 210.00','Discount: 10% of corrected sub
 subtotal=sum(r[1]*r[2] for r in items)
 save(im,'reconciliation','Kontrola dokladu včetně slevy a daně','hard','document_reasoning','Find line items whose printed total differs from quantity times unit price. Correct the subtotal, apply the stated discount, then tax. Return incorrect item names (any order), corrected subtotal, corrected final total and printed final total minus corrected final total.',{'incorrect':['Adapter'],'subtotal':subtotal,'final':round(subtotal*.9*1.2,2),'overcharge':round(226.8-subtotal*.9*1.2,2)},{'incorrect':'set'})
 
-manifest={'version':'vision-synthetic.2','provenance':{'kind':'synthetic','generator':'scripts/manual/build-vision-fixtures.py','pillow':pillow_version,'fontSha256':hashlib.sha256(FONT.read_bytes()).hexdigest()},'tasks':records}
+manifest={'version':'vision-synthetic.3','provenance':{'kind':'synthetic','generator':'scripts/manual/build-vision-fixtures.py','pillow':pillow_version,'fontSha256':hashlib.sha256(FONT.read_bytes()).hexdigest()},'tasks':records}
 (ROOT/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
 print(f'Wrote {len(records)} unique image tasks to {ROOT}')

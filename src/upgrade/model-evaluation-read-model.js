@@ -103,6 +103,7 @@ function taskDetails(row) {
       precision: d.precision, recall: d.recall, f1: d.f1,
       truePositive: d.truePositive, falsePositive: d.falsePositive, falseNegative: d.falseNegative,
       observed: d.observed, expected: d.expected,
+      responseFormat: d.responseFormat, strictJson: d.strictJson,
     })) }));
 }
 // Presentation only: no prompts, grading rules or contract hashes are changed.

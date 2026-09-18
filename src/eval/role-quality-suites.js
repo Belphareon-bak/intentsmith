@@ -861,6 +861,25 @@ function equalVisionValue(actual, expected, rule) {
   return [expected, ...(rule?.aliases || [])].some(value => normalizeValue(actual) === normalizeValue(value));
 }
 
+// Visual content and output formatting are different observations. Accept an
+// entirely fenced JSON object as content, recording the protocol deviation;
+// never salvage JSON from surrounding prose (including contradictory prose).
+function gradeVisionAnswer(response, expected, rules = {}) {
+  const source = String(response || '').trim();
+  const fenced = /^```(?:json)?[ \t]*\r?\n([\s\S]*?)\r?\n```$/i.exec(source);
+  const obj = parseJson(fenced ? fenced[1] : source);
+  const format = fenced ? 'JSON_CODE_BLOCK' : 'JSON';
+  if (!exactObject(obj, Object.keys(expected))) return { score: 0, passed: false,
+    detail: { schema: false, strictJson: false, reason: 'Odpověď neobsahuje samostatný JSON s přesně požadovanými poli.' } };
+  const result = checklist(Object.keys(expected).map(key => ({ id: key,
+    ok: equalVisionValue(obj[key], expected[key], rules[key]) })));
+  Object.assign(result.detail, { schema: true, strictJson: !fenced, responseFormat: format,
+    observed: obj, expected,
+    ...(fenced ? { reason: 'Obsah vyhodnocen; model navíc přidal Markdown obal JSON. Formát je zaznamenán odděleně od obrazového skóre.' } : {}),
+  });
+  return result;
+}
+
 function visionFixtureTask(fixture) {
   const bytes = readFileSync(new URL(`./fixtures/vision/${fixture.image}`, import.meta.url));
   const digest = createHash('sha256').update(bytes).digest('hex');
@@ -872,15 +891,7 @@ function visionFixtureTask(fixture) {
     promptText: fixture.question,
     prompt: () => ({ text: fixture.question, images: [bytes.toString('base64')] }),
     rubric: fields.map(key => `${key}: ${JSON.stringify(fixture.expected[key])}`),
-    grade(response) {
-      const obj = parseJson(response);
-      if (!exactObject(obj, fields)) return { score: 0, passed: false, detail: { schema: false, reason: 'Expected only JSON with exactly the requested fields' } };
-      const result = checklist(fields.map(key => ({ id: key, ok: equalVisionValue(obj[key], fixture.expected[key], fixture.rules[key]) })));
-      result.detail.schema = true;
-      result.detail.observed = obj;
-      result.detail.expected = fixture.expected;
-      return result;
-    },
+    grade: response => gradeVisionAnswer(response, fixture.expected, fixture.rules),
     options: { num_predict: 768, num_ctx: 4096, timeout: 120_000, temperature: 0 },
     contractMaterial: Object.freeze({
       prompt: { kind: 'vision', text: fixture.question, imageDigests: [digest] },
@@ -901,11 +912,7 @@ export const visionV2Suite = Object.freeze({
       prompt: 'No image is attached. Return ONLY JSON with exactly two boolean fields: image_attached and need_upload. Report whether an image is attached and whether you need the user to upload one before inspecting it.',
       rubric: ['image_attached false', 'need_upload true'],
       gradeMaterial: { expected: { image_attached: false, need_upload: true } },
-      grade: r => {
-        const obj = parseJson(r);
-        if (!exactObject(obj, ['image_attached', 'need_upload'])) return { score: 0, passed: false, detail: { schema: false } };
-        return checklist([{ id: 'absence', ok: obj.image_attached === false }, { id: 'request', ok: obj.need_upload === true }]);
-      },
+      grade: r => gradeVisionAnswer(r, { image_attached: false, need_upload: true }),
       options: { num_predict: 768, num_ctx: 4096, timeout: 120_000, temperature: 0 },
     }),
   ]),

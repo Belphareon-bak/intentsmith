@@ -1,5 +1,5 @@
 {
-  "version": "vision-synthetic.2",
+  "version": "vision-synthetic.3",
   "provenance": {
     "kind": "synthetic",
     "generator": "scripts/manual/build-vision-fixtures.py",

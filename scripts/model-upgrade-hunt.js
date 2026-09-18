@@ -1014,7 +1014,9 @@ for (const cand of toTry) {
     continue;
   }
   const t = r.measurement.throughput?.tokensPerSecond;
-  if (r.accepted) {
+  if (EVALUATE_INSTALLED && !r.roleErrors.length) {
+    log('  → nové měření uložené; samostatný test modelu neurčuje vítěze souboje');
+  } else if (r.accepted) {
     const won = Object.entries(r.decisions).filter(([, d]) => d.winner === 'candidate').map(([x]) => x);
     log(`  → kvalitativní kandidát pro role: ${won.join(', ')}; finální portfolio určí segregace`);
     incumbentSpeed[cand.name] = t ?? 0;
