@@ -897,6 +897,8 @@ await testAsync('exact send returns a validated durable ConversationResult with 
       requestId: httpCommand.requestId,
       conversationId: httpCommand.conversationId,
       turnId: httpCommand.turnId,
+      m2LifecycleOnly: true,
+      projectId: null,
     });
     return {
       response: '391',

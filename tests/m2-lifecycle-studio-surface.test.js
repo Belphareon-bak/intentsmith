@@ -38,7 +38,7 @@ test('Studio has exactly one explicit M2 transport surface and no mutating legac
   assert.doesNotMatch(source, /api\/projects\/lifecycle\/start/);
   assert.doesNotMatch(source, /lifecycle\/bind/);
   assert.doesNotMatch(source, /Lifecycle aktivovan|Lifecycle obnoven|Lifecycle: SPEC|Lifecycle: faze/);
-  assert.match(source, /M2 lifecycle je neaktivní; plán připravíte explicitním \/m2-plan <JSON>\./);
+  assert.match(source, /Popište cíl v chatu\./);
 });
 
 test('all Studio lifecycle HTTP success is gated by Response.ok and typed errors retain status/code', () => {
@@ -255,6 +255,7 @@ function controlledStudio({ pending = true, paths = ['src/app.js'], activeM1 = t
   return { session, pane, calls, view, textarea,
     setActiveM1(value) { activeM1 = value; },
     openComposer() { sandbox._m2OpenComposer(0); return pane._m2Composer; },
+    normalizeWorkProposal(value) { return sandbox._m2NormalizeWorkProposal(value); },
     submitComposer(form = pane._m2Composer) { sandbox._m2SubmitComposer(0, session, pane, form); },
     actionButtons() {
       const buttons = [];const visit = node => { if (!node || typeof node !== 'object') return;
@@ -269,6 +270,38 @@ function controlledStudio({ pending = true, paths = ['src/app.js'], activeM1 = t
 }
 
 const flushStudio = () => new Promise(resolve => setImmediate(resolve));
+
+test('project chat proposal opens an editable composer and submits only on explicit preparation', async () => {
+  const studio = controlledStudio({ pending: false, activeM1: false,
+    paths: ['src/index.mjs', 'test/acceptance.test.mjs'] });
+  const offered = { origin: studio.view.plan.origin, proposal: { kind: 'ProjectWorkProposal@1', projectId: 27,
+    workspaceRevision: 'wsr1:fixture', draft: { instruction: 'Show RPM history', files: [
+      { path: 'src/index.mjs', instruction: 'Implement history', dependsOn: [] },
+      { path: 'test/acceptance.test.mjs', instruction: 'Assert history eviction', dependsOn: ['src/index.mjs'] },
+    ], focusedTest: { binary: '/usr/bin/node', argv: ['--test', 'test/acceptance.test.mjs'], timeoutMs: 30000 },
+    gitCommit: { message: 'Reviewed step', identity: { authorName: 'Test' } } } } };
+  studio.pane._projectWorkProposal = studio.normalizeWorkProposal(JSON.parse(JSON.stringify(offered)));
+  const form = studio.openComposer();
+  assert.equal(form.instruction, 'Show RPM history');
+  assert.equal(form.files[1].dependencies, 'src/index.mjs');
+  assert.equal(studio.calls.length, 0, 'opening/reloading a suggestion never sends effects');
+  form.instruction = 'Show RPM history with unavailable sensor state';
+  studio.submitComposer(form);
+  assert.equal(studio.calls.length, 1);
+  const body = JSON.parse(studio.calls[0].options.body);
+  assert.equal(body.draft.instruction, form.instruction);
+  assert.deepEqual(body.draft.gitCommit, offered.proposal.draft.gitCommit);
+  assert.match(studio.calls[0].url, /\/draft$/);
+  studio.calls[0].resolve(studio.view); await flushStudio();
+  assert.equal(studio.session._m2Pending.lifecycleId, studio.view.lifecycleId);
+  assert.equal(studio.calls.length, 1, 'generation does not approve execution');
+
+  const foreign = controlledStudio({ pending: false, activeM1: false });
+  foreign.pane._projectWorkProposal = { ...offered, origin: { ...offered.origin, conversationId: 'another' } };
+  assert.equal(foreign.openComposer().instruction, '');
+  assert.equal(foreign.calls.length, 0);
+  assert.equal(foreign.normalizeWorkProposal({ proposal: {}, origin: {} }), null);
+});
 
 test('actual chat entry dispatches M2 cancel despite an active M1 turn and prepared send', async () => {
   const studio = controlledStudio();
@@ -621,4 +654,52 @@ test('action buttons preserve chat/attachment send exclusion even when the rende
     cancel.props.onClick();assert.match(studio.calls[1].url, /\/cancel$/);
     studio.calls[1].resolve(studio.terminal());await flushStudio();
   }
+});
+
+test('project wizard preserves the draft and current sessions when creation is rejected or unconfirmed', async () => {
+  for (const [status, payload] of [[409, { error: 'Projekt tohoto názvu už existuje.' }], [500, { error: 'Storage unavailable' }], [201, { path: '/unconfirmed' }]]) {
+    const data = { name: 'Fan', pathMode: 'auto', path: '', description: 'RPM widget', type: 'general' };
+    const wizard = { active: true, step: 5, data, saving: false, defaultDir: '/stale/default' };
+    let routes = 0; const logs = []; const requests = [];
+    const context = vm.createContext({ _projectWizard: wizard, AbortSignal, _backendBase: '',
+      renderCenter() {}, _wizardRestoreLayout() { throw Error('must preserve form'); },
+      _smartRouteToRelay() { routes++; }, window: { _c3: { agentLog: (...args) => logs.push(args) } },
+      fetch: async (url, options) => { requests.push({ url, body: JSON.parse(options.body) });
+        return { ok: status < 300, status, json: async () => payload }; },
+    });
+    vm.runInContext(functionSlice('_wizardSubmit', 'centerProjectWizard'), context);
+    await vm.runInContext('_wizardSubmit()', context);
+    assert.equal(wizard.active, true); assert.equal(wizard.saving, false);
+    assert.equal(wizard.data, data); assert.ok(wizard.error);
+    assert.equal(routes, 0, 'failed creation must not relabel or detach any existing conversation');
+    assert.equal(requests.length, 1); assert.equal(requests[0].body.path, null, 'backend owns automatic default directory');
+    assert.equal(logs.some(row => row.join(' ').includes('Projekt vytvořen:')), false);
+  }
+});
+
+test('opening a registered project clears foreign context and ignores stale asynchronous responses', async () => {
+  const calls = [];
+  const session = { _projectId: 1, _convId: 'old-conversation', _agentId: 'old-agent',
+    chat: { msgs: [], _projectWorkProposal: { old: true }, _m2Composer: { old: true } } };
+  const context = vm.createContext({ _sessions: [session], _backendBase: '', AbortSignal,
+    _chatInvalidatePreparedSends() {}, _loadWorkspaceTree() {}, _syncFocusClass() {}, _persistSessionState() {},
+    renderChat() {}, _chatScrollPane() {}, requestAnimationFrame(fn) { fn(); },
+    fetch(url) { return new Promise(resolve => calls.push({ url, resolve(body, status = 200) {
+      resolve({ ok: status >= 200 && status < 300, status, json: async () => body });
+    } })); },
+  });
+  vm.runInContext(functionSlice('_openRegisteredProject', '_wizardCanNext'), context);
+  const first = vm.runInContext('_openRegisteredProject(0,{id:2,name:"External",path:"/external"})', context);
+  assert.equal(session._convId, null); assert.equal(session._agentId, null);
+  assert.equal(session.chat._projectWorkProposal, null); assert.equal(session.chat._m2Composer, null);
+  const second = vm.runInContext('_openRegisteredProject(0,{id:3,name:"Next",path:"/next"})', context);
+  calls[0].resolve({ conversations: [{ id: 'stale', project_id: 2 }] }); await first;
+  assert.equal(calls.length, 2, 'stale response must not even load another history');
+  calls[1].resolve({ conversations: [{ id: 'current', project_id: 3 }] }); await flushStudio();
+  calls[2].resolve([{ role: 'user', content: 'Existing project goal' }]); await second;
+  assert.equal(session._convId, 'current'); assert.equal(session.chat.msgs.at(-1).text, 'Existing project goal');
+  const failed = vm.runInContext('_openRegisteredProject(0,{id:4,name:"Failed",path:"/failed"})', context);
+  calls[3].resolve({ error: 'HTTP failure' }, 500); await failed;
+  assert.equal(session._convId, null); assert.equal(session.chat.msgs.at(-1).tag, 'ERROR');
+  assert.match(session.chat.msgs.at(-1).text, /HTTP failure/);
 });

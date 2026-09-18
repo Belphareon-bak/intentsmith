@@ -15894,6 +15894,39 @@
       },
       "flakeCount": 0,
       "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-PROJECT-COLLABORATION-TEST",
+      "path": "tests/project-collaboration.test.js",
+      "argv": [
+        "node",
+        "tests/project-collaboration.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T3",
+      "fixture": "isolated-home",
+      "profile": "server",
+      "timeoutMs": 60000,
+      "expectedDurationMs": 5000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false,
+        "toolchain": [
+          "git"
+        ]
+      },
+      "required": true,
+      "owner": "WP-PROJECT-FLOW-20260918",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
     }
   ]
 }

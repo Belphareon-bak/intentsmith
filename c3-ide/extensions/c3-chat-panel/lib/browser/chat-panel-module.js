@@ -1201,8 +1201,8 @@ function _addNew(view){
   if(view==='projects'){
     _wizardSaveLayout();
     _projectWizard={active:true,step:0,data:{name:'',path:'',description:'',type:'general',pathMode:'auto',mode:'create'},saving:false,defaultDir:_settingsVals.projectsDir||''};
-    if(!_projectWizard.defaultDir){
-      /* First use or not configured — fetch from backend, offer to save */
+    {
+      /* The backend owns the effective default; refresh it on every creation. */
       fetch(_backendBase+'/api/projects/defaults',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(j){
         if(j.defaultDir){_projectWizard.defaultDir=j.defaultDir;if(!_settingsVals.projectsDir){_settingsVals.projectsDir=j.defaultDir;_saveSV();}renderCenter();}
       }).catch(function(){});
@@ -1339,6 +1339,38 @@ function _workerDetail(w){return {name:w.name,_itemId:w.id,fields:[{k:'Status',v
 function centerWorkers(){return h(React.Fragment,null,viewHead('Workeri',false,null,_mpNavBtn('skills')),h('div',{style:{flex:1,overflowY:'auto',padding:18}},h('p',null,'Ovládání je dostupné pro nainstalované M3 agenty. Legacy záznamy jsou pouze ke čtení. Pozastavení zakáže další plánované běhy; právě běžící úlohu neruší.'),grid(WORKERS.map(function(w){return card({name:w.name,emoji:'⚙️',desc:w.desc,status:w.status},function(){setDetail(_workerDetail(w));});}))));}
 
 /* ═══ PROJECT CREATION WIZARD ═══ */
+function _openRegisteredProject(idx,proj){
+  var s=_sessions[idx];if(!s||!proj||!proj.id)return Promise.resolve();
+  if(s.chat._m2Busy||(typeof C3WS!=='undefined'&&C3WS.hasActiveM1Turn(s))){s.chat.msgs.push({role:'system',tag:'ERROR',text:'Nejdřív dokonči nebo zruš probíhající požadavek.'});renderChat();return Promise.resolve();}
+  _chatInvalidatePreparedSends(s.chat);
+  var token={};s._openToken=token;s._projectId=proj.id;s._label=proj.name||'Projekt';
+  s._convId=null;s._agentId=null;s._lifecycleResumed=false;s._m2Pending=null;s._m2PresentedPlan=null;
+  s.chat._projectWorkProposal=null;s.chat._m2Composer=null;s.chat._m2ComposerOpen=false;
+  s.chat.msgs=[{role:'system',text:'Načítám projekt: '+proj.name}];s.chat.ctx=0;s._conversationFocus=false;
+  s.log=[];s.term=[{text:'$ ',ts:new Date().toISOString(),type:'prompt'}];
+  if(proj.path){_wtRoot=proj.path;_loadWorkspaceTree(proj.path);}
+  _syncFocusClass();_persistSessionState();renderChat();
+  function current(){return _sessions[idx]===s&&s._openToken===token&&s._projectId===proj.id;}
+  function read(url,options){return fetch(_backendBase+url,Object.assign({signal:AbortSignal.timeout(5000)},options||{})).then(function(r){return r.json().then(function(body){if(!r.ok)throw new Error(body.error||'Načtení selhalo ('+r.status+').');return body;});});}
+  return read('/api/projects/'+proj.id+'/conversations?limit=1').then(function(data){
+    if(!current())return null;
+    var conversations=data.conversations||[];if(conversations.length)return conversations[0];
+    return read('/api/conversations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project_id:proj.id,title:proj.name})}).then(function(body){return body.conversation||body;});
+  }).then(function(conv){
+    if(!current())return;
+    if(!conv||typeof conv.id!=='string'||!conv.id)throw new Error('Server nepotvrdil uloženou konverzaci.');
+    if(conv.project_id!==undefined&&Number(conv.project_id)!==Number(proj.id))throw new Error('Konverzace patří jinému projektu.');
+    return read('/api/conversations/'+encodeURIComponent(conv.id)+'/messages').then(function(body){
+      if(!current())return;
+      var items=Array.isArray(body)?body:body.messages;if(!Array.isArray(items))throw new Error('Server nevrátil platnou historii.');
+      s._convId=conv.id;s.chat.msgs=[{role:'system',text:'Projekt: '+proj.name}];
+      items.forEach(function(m){var meta={};try{meta=m.metadata?JSON.parse(m.metadata):{};}catch(e){}s.chat.msgs.push({role:m.role||'user',text:m.content||m.text||'',tag:meta.mode});});
+      if(!items.length)s.chat.msgs.push({role:'assistant',tag:'PROJECT',text:'Projekt je připojený. Popiš zamýšlený cíl a čím chceš pokračovat. Můžu nejprve projít skutečné soubory, shrnout silné stránky, nedostatky a navrhnout priority. Samotné otevření soubory nemění.'});
+      _persistSessionState();renderChat();requestAnimationFrame(function(){_chatScrollPane(idx);});
+    });
+  }).catch(function(error){if(!current())return;s._convId=null;s.chat.msgs.push({role:'system',tag:'ERROR',text:'Konverzaci projektu se nepodařilo otevřít: '+error.message+' Otevři projekt znovu.'});_persistSessionState();renderChat();});
+}
+
 function _wizardCanNext(){
   var d=_projectWizard.data,s=_projectWizard.step;
   if(s===0)return!!d.mode;
@@ -1393,11 +1425,12 @@ function _doOpenExistingProject(folderPath){
   _projectWizard.saving=true;renderCenter();
   _smartRouteToRelay(function(_ti){
     fetch(_backendBase+'/api/projects/open-folder',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({folderPath:folderPath}),signal:AbortSignal.timeout(15000)})
+      body:JSON.stringify({folderPath:folderPath}),signal:AbortSignal.timeout(30000)})
     .then(function(r){if(!r.ok)return r.json().then(function(e){throw new Error((e.error||'Server error '+r.status)+(e.details?' ['+e.details+']':''));});return r.json();})
     .then(function(res){
-      _projectWizard.active=false;_projectWizard.saving=false;_wizardRestoreLayout();
       var proj=res.project;
+      if(!proj||!Number.isSafeInteger(proj.id)||!proj.path)throw new Error('Server nepotvrdil načtený projekt.');
+      _projectWizard.active=false;_projectWizard.saving=false;_wizardRestoreLayout();
       var realPath=(proj&&proj.path)||folderPath;
       var projName=(proj&&proj.name)||folderPath.split('/').filter(Boolean).pop()||'Projekt';
       var _welcomeMsg=res.welcomeMessage||null;
@@ -1410,16 +1443,18 @@ function _doOpenExistingProject(folderPath){
         _ts._conversationFocus=false; /* v122.3 */
         /* Reset session for new project context */
         _ts._convId=null;_ts._agentId=null;_ts._lifecycleResumed=false;_ts._m2Pending=null;
+        _ts.chat._projectWorkProposal=null;_ts.chat._m2Composer=null;_ts.chat._m2ComposerOpen=false;
         _ts.chat.msgs=[{role:'system',text:'Projekt: '+projName}];
         _ts.chat.ctx=0;
         /* Create conversation for the project. M2 lifecycle starts only via explicit /m2-plan. */
         fetch(_backendBase+'/api/conversations',{method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({project_id:proj.id,title:projName,welcomeMessage:_welcomeMsg}),signal:AbortSignal.timeout(5000)})
-        .then(function(r){return r.json();}).then(function(cd){
+        .then(function(r){return r.json().then(function(cd){if(!r.ok)throw new Error(cd.error||'Konverzaci se nepodařilo uložit.');return cd;});}).then(function(cd){
           var conv=cd.conversation||cd;
+          if(!conv||!conv.id)throw new Error('Server nepotvrdil uloženou konverzaci.');
           if(conv&&conv.id){_ts._convId=conv.id;_persistSessionState();renderChat();}
           if(_welcomeMsg){_ts.chat.msgs.push({role:'assistant',text:_welcomeMsg,tag:'PROJECT'});renderChat();_chatScrollPane(_ti);}
-        }).catch(function(){});
+        }).catch(function(err){_ts.chat.msgs.push({role:'system',tag:'ERROR',text:'Projekt je uložený, ale konverzace se neotevřela: '+err.message+' Otevři projekt znovu.'});_persistSessionState();renderChat();});
         _persistSessionState();
       }
       if(window._c3){
@@ -1431,22 +1466,25 @@ function _doOpenExistingProject(folderPath){
       _centerState.view='chats';_centerState.detail=null;
       fetchBackendData();renderCenter();renderChat();
     }).catch(function(err){
-      _projectWizard.saving=false;_projectWizard.active=false;_wizardRestoreLayout();
+      _projectWizard.saving=false;_projectWizard.error=err.message||String(err);
       if(window._c3)window._c3.agentLog('TOOL','❌ Chyba při otevírání: '+(err.message||err));
+      if(!_projectWizard.active){_sessions[_sessionActive].chat.msgs.push({role:'system',tag:'ERROR',text:'Projekt se nepodařilo otevřít: '+_projectWizard.error});renderChat();}
       fetchBackendData();renderCenter();
     });
   });
 }
 function _wizardSubmit(){
   if(_projectWizard.saving)return;
-  _projectWizard.saving=true;renderCenter();
+  _projectWizard.saving=true;_projectWizard.error=null;renderCenter();
   var d=_projectWizard.data;
-  var slug=d.name.replace(/[^a-zA-Z0-9-_]/g,'-').toLowerCase();
   var sendPath=d.pathMode==='custom'?d.path.trim():'';
-  if(!sendPath&&d.pathMode==='auto'&&_projectWizard.defaultDir){sendPath=_projectWizard.defaultDir+'/'+slug;}
-  fetch(_backendBase+'/api/projects',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({name:d.name.trim(),path:sendPath||null,description:d.description.trim(),type:d.type,autoPath:!sendPath}),signal:AbortSignal.timeout(15000)})
-  .then(function(r){return r.json();})
+  return fetch(_backendBase+'/api/projects',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({name:d.name.trim(),path:sendPath||null,description:d.description.trim(),type:d.type,autoPath:!sendPath}),signal:AbortSignal.timeout(30000)})
+  .then(function(r){return r.json().then(function(value){
+    if(!r.ok)throw new Error(value.error||'Vytvoření projektu selhalo (HTTP '+r.status+').');
+    if(!Number.isSafeInteger(value.id)||!value.project||value.project.id!==value.id||typeof value.path!=='string')throw new Error('Server nepotvrdil uložený projekt. Ověř seznam projektů před opakováním.');
+    return value;
+  });})
   .then(function(created){
     _projectWizard.active=false;_projectWizard.saving=false;_wizardRestoreLayout();
     var realPath=created.path||sendPath;
@@ -1461,31 +1499,33 @@ function _wizardSubmit(){
       _ts._label=projName;
       if(realPath){_wtRoot=realPath;_loadWorkspaceTree(realPath);}
       /* Reset session for new project */
-      _ts._lifecycleResumed=false;_ts._m2Pending=null;
+      _ts._convId=null;_ts._agentId=null;_ts._lifecycleResumed=false;_ts._m2Pending=null;
+      _ts.chat._projectWorkProposal=null;_ts.chat._m2Composer=null;_ts.chat._m2ComposerOpen=false;
       _ts.log=[];_ts.term=[{text:'$ ',ts:new Date().toISOString(),type:'prompt'}];
       _ts.chat.msgs=[{role:'system',text:'Projekt: '+projName}];
       /* Create conversation for the project. M2 lifecycle starts only via explicit /m2-plan. */
       if(projId){
         fetch(_backendBase+'/api/conversations',{method:'POST',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({project_id:projId,title:projName,welcomeMessage:_welcomeMsg}),signal:AbortSignal.timeout(5000)})
-        .then(function(r){return r.json();}).then(function(cd){
+        .then(function(r){return r.json().then(function(cd){if(!r.ok)throw new Error(cd.error||'Konverzaci se nepodařilo uložit.');return cd;});}).then(function(cd){
           var conv=cd.conversation||cd;
+          if(!conv||!conv.id)throw new Error('Server nepotvrdil uloženou konverzaci.');
           if(conv&&conv.id){_ts._convId=conv.id;_persistSessionState();renderChat();}
           if(_welcomeMsg){_ts.chat.msgs.push({role:'assistant',text:_welcomeMsg,tag:'PROJECT'});renderChat();_chatScrollPane(_ti);}
-        }).catch(function(){});
+        }).catch(function(err){_ts.chat.msgs.push({role:'system',tag:'ERROR',text:'Projekt je uložený, ale konverzace se neotevřela: '+err.message+' Otevři projekt znovu.'});_persistSessionState();renderChat();});
       }
       var scaff=created.scaffold?created.scaffold.join(', '):'';
       if(window._c3){
         window._c3.agentLog('TOOL','📁 Projekt '+projName+' vytvořen ('+d.type+') → '+realPath);
         if(scaff)window._c3.agentLog('TOOL','🔧 Scaffolding: '+scaff);
-        window._c3.agentLog('TOOL','M2 lifecycle je neaktivní; plán připravíte explicitním /m2-plan <JSON>. Malou změnu zadáte: /m2-draft src/app.js :: popis změny');
+        window._c3.agentLog('TOOL','Popište cíl v chatu. Navržený krok otevřete přes Připravit navržený krok; před zápisem se samostatně schvaluje konkrétní změna. Malou změnu zadáte: /m2-draft src/app.js :: popis změny');
       }
       fetchBackendData();renderCenter();renderChat();
     });
   }).catch(function(err){
     _projectWizard.saving=false;
     if(window._c3)window._c3.agentLog('TOOL','❌ Chyba při vytváření projektu: '+(err.message||err));
-    _projectWizard.active=false;_wizardRestoreLayout();fetchBackendData();renderCenter();
+    _projectWizard.error=err.message||String(err);renderCenter();
   });
 }
 function centerProjectWizard(){
@@ -1505,7 +1545,11 @@ function centerProjectWizard(){
         h('div',{style:modeCardStyle(d.mode==='open'),onClick:function(){d.mode='open';_openExistingProject();}},
           h('div',{style:{fontSize:_fs(32),marginBottom:8}},'📂'),
           h('div',{style:{fontSize:_fs(14),fontWeight:700,color:d.mode==='open'?C.accentText:C.tx1}},'Otevřít existující'),
-          h('div',{style:{fontSize:_fs(11),color:C.tx3,marginTop:4}},'Vybrat složku z disku'))));
+          h('div',{style:{fontSize:_fs(11),color:C.tx3,marginTop:4}},'Vybrat složku z disku'))),
+      h('label',{style:{display:'block',marginTop:16}},'Nebo vlož úplnou cestu existujícího projektu',
+        h('input',{id:'project-import-path',style:inputStyle,value:d.importPath||'',placeholder:'/home/user/projects/existing',onChange:function(e){d.importPath=e.target.value;renderCenter();}})),
+      h('button',{id:'project-import-submit',disabled:w.saving||!(d.importPath||'').trim(),style:{marginTop:8,padding:8},onClick:function(){_doOpenExistingProject(d.importPath);}},w.saving?'Načítám…':'Načíst existující projekt'));
+
   }else if(step===1){
     content=h('div',{style:stepStyle},
       h('div',{style:labelStyle},'Název projektu'),
@@ -1524,7 +1568,7 @@ function centerProjectWizard(){
             h('div',{style:{fontSize:_fs(12.5),fontWeight:700,color:sel?C.accentText:C.tx1}},pt.label),
             h('div',{style:{fontSize:_fs(10.5),color:C.tx3,marginTop:2}},pt.desc));})));
   }else if(step===3){
-    var slug=d.name.replace(/[^a-zA-Z0-9-_]/g,'-').toLowerCase();
+    var slug=d.name.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').toLowerCase();
     var autoDir=_projectWizard.defaultDir?((_projectWizard.defaultDir)+'/'+slug):'(načítám...)';
     var isAuto=d.pathMode==='auto';
     var tabStyle=function(active){return{flex:1,padding:'8px 0',textAlign:'center',fontSize:_fs(12),fontWeight:600,cursor:'pointer',borderRadius:'8px 8px 0 0',background:active?C.bg3:'transparent',color:active?C.tx1:C.tx4,border:'1px solid '+(active?C.border:'transparent'),borderBottom:active?'1px solid '+C.bg3:'1px solid '+C.border,marginBottom:-1};};
@@ -1553,21 +1597,22 @@ function centerProjectWizard(){
         onChange:function(e){d.description=e.target.value;renderCenter();}}));
   }else if(step===5){
     var pt=PROJECT_TYPES.find(function(t){return t.id===d.type;})||PROJECT_TYPES[0];
-    var slug2=d.name.replace(/[^a-zA-Z0-9-_]/g,'-').toLowerCase();
+    var slug2=d.name.normalize('NFKD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_-]+/g,'-').replace(/^-+|-+$/g,'').toLowerCase();
     var displayPath=d.pathMode==='auto'?(_projectWizard.defaultDir+'/'+slug2):d.path;
-    var scaffoldHints={general:'git init, README.md (prázdný projekt)',webapp:'package.json, src/, public/, git init',api:'package.json, src/index.js (API), git init',automation:'package.json, scripts/main.js, git init',data:'package.json, data/, notebooks/, src/pipeline.js, git init'};
+    var scaffoldHint='Node.js 22, src/, public/, test/, scripts/, pravidla M2 a první Git commit';
     content=h('div',{style:stepStyle},
       h('div',{style:labelStyle},'Souhrn'),
       h('div',{style:{display:'flex',flexDirection:'column',gap:10,marginTop:8}},
         h('div',{style:{display:'flex',justifyContent:'space-between',fontSize:_fs(12)}},h('span',{style:{color:C.tx3}},'Název'),h('span',{style:{color:C.tx1,fontWeight:600}},d.name)),
         h('div',{style:{display:'flex',justifyContent:'space-between',fontSize:_fs(12)}},h('span',{style:{color:C.tx3}},'Typ'),h('span',{style:{color:C.tx1}},pt.icon+' '+pt.label)),
         h('div',{style:{display:'flex',justifyContent:'space-between',fontSize:_fs(12),gap:8}},h('span',{style:{color:C.tx3,flexShrink:0}},'Cesta'),h('span',{style:{color:C.tx2,fontFamily:C.mono,fontSize:_fs(11),textAlign:'right',wordBreak:'break-all'}},displayPath)),
-        h('div',{style:{display:'flex',justifyContent:'space-between',fontSize:_fs(12)}},h('span',{style:{color:C.tx3}},'Scaffolding'),h('span',{style:{color:C.tx2,fontSize:_fs(10.5)}},scaffoldHints[d.type]||'')),
+        h('div',{style:{display:'flex',justifyContent:'space-between',fontSize:_fs(12)}},h('span',{style:{color:C.tx3}},'Scaffolding'),h('span',{style:{color:C.tx2,fontSize:_fs(10.5)}},scaffoldHint)),
         d.description?h('div',{style:{fontSize:_fs(11),color:C.tx2,marginTop:4,padding:8,background:C.bg3,borderRadius:6,whiteSpace:'pre-wrap'}},d.description):null),
       h('div',{style:{marginTop:16,padding:10,background:C.accentBg,borderRadius:8,border:'1px solid '+C.accent+'33'}},
         h('div',{style:{fontSize:_fs(11),color:C.accentText,fontWeight:600}},'Projekt pro řízenou práci'),
-        h('div',{style:{fontSize:_fs(10),color:C.tx3,marginTop:4}},'Po vytvoření vznikne Git projekt se zvoleným základem. Změny připravíte v chatu tlačítkem Připravit změnu; projekt musí mít nastavené povolené cesty. Každý výsledný plán schvalujete zvlášť.')));
+        h('div',{style:{fontSize:_fs(10),color:C.tx3,marginTop:4}},'Vznikne základ Node.js bez dalších závislostí, s připravenými pravidly změn. Popište cíl v chatu; návrh otevřete přes Připravit navržený krok. Implementace a funkční test zatím chybí. Každou změnu schvalujete zvlášť.')));
   }
+  if(w.error)content=h(React.Fragment,null,content,h('p',{role:'alert',style:{color:C.red||C.tx1,padding:12}},w.error));
   var totalSteps=d.mode==='create'?WIZARD_STEPS.length:1;
   var headerTitle=step===0?'Projekt':d.mode==='create'?'Nový projekt':'Otevřít projekt';
   return h(React.Fragment,null,
@@ -4841,50 +4886,7 @@ function _detailActionHandler(d,a){
         var items=Array.isArray(msgs)?msgs:(msgs.messages||[]);if(items.length>0){_ts.chat.msgs=[{role:'system',text:'Konverzace: '+conv.title}];items.forEach(function(m){var meta=null;try{meta=m.metadata?JSON.parse(m.metadata):null;}catch(e){}_ts.chat.msgs.push({role:m.role||'user',text:m.content||m.text||'',tag:(meta&&meta.mode)||undefined});});renderChat();_chatScrollPane(_ti);}}).catch(function(){});}
     });}
     var proj=PROJECTS.find(function(p){return p.name===d.name;});
-    if(proj){_showOpenDialog('proj',proj,function(_ti){
-      var _ts=_sessions[_ti];
-      c3.agentLog('TOOL','Otevren projekt: '+proj.name+(proj.path?' ['+proj.path+']':''));
-      if(proj.path){_wtRoot=proj.path;_loadWorkspaceTree(proj.path);}
-      _ts._projectId=proj.id||null;_ts._label=proj.name||'Projekt';
-      _ts._conversationFocus=false; /* v122.3: project sessions use normal layout */
-      _ts._lifecycleResumed=false;_ts._m2Pending=null;
-      _ts.log=[];_ts.term=[{text:'$ ',ts:new Date().toISOString(),type:'prompt'}];
-      _syncFocusClass();_persistSessionState();
-      var openToken=Date.now();
-      _ts._openToken=openToken;
-      if(proj.id){
-        var pConv=fetch(_backendBase+'/api/projects/'+proj.id+'/conversations?limit=1',{signal:AbortSignal.timeout(5000)})
-          .then(function(r){return r.json();})
-          .then(function(data){
-            if(_ts._openToken!==openToken)return null;
-            var convs=data.conversations||[];
-            if(convs.length>0)return convs[0];
-            return fetch(_backendBase+'/api/conversations',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({project_id:proj.id,title:proj.name}),signal:AbortSignal.timeout(5000)})
-              .then(function(r){return r.json();}).then(function(d2){return d2.conversation||d2;});
-          });
-        fetch(_backendBase+'/api/projects/'+proj.id,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(pd){if(pd.description)c3.agentLog('TOOL',_s(pd.description));if(pd.path&&!proj.path){proj.path=pd.path;_wtRoot=pd.path;_loadWorkspaceTree(pd.path);}}).catch(function(){});
-        pConv.then(function(conv2){
-          if(_ts._openToken!==openToken)return;
-          if(conv2&&conv2.id){
-            _ts._convId=conv2.id;_persistSessionState();
-            fetch(_backendBase+'/api/conversations/'+conv2.id,{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(cd){
-              var meta2={};try{meta2=JSON.parse(cd.metadata||'{}');}catch(ex){meta2={};}
-              if(meta2.agentId){_ts._agentId=meta2.agentId;_persistSessionState();renderChat();}
-            }).catch(function(){});
-            fetch(_backendBase+'/api/conversations/'+conv2.id+'/messages',{signal:AbortSignal.timeout(5000)}).then(function(r){return r.json();}).then(function(msgs){
-              if(_ts._openToken!==openToken)return;
-              var items=Array.isArray(msgs)?msgs:(msgs.messages||[]);
-              _ts.chat.msgs=[{role:'system',text:'Projekt: '+proj.name}];
-              if(items.length>0){
-                items.forEach(function(m){var mt=null;try{mt=m.metadata?JSON.parse(m.metadata):null;}catch(e){}_ts.chat.msgs.push({role:m.role||'user',text:m.content||m.text||'',tag:(mt&&mt.mode)||undefined});});
-              }
-              renderChat();
-              requestAnimationFrame(function(){_chatScrollPane(_ti);});
-            }).catch(function(){});
-          }
-        }).catch(function(){});
-      }
-    });}
+    if(proj){_showOpenDialog('proj',proj,function(_ti){_openRegisteredProject(_ti,proj);});}
     var wrk=WORKERS.find(function(w){return w.name===d.name;});
     if(wrk){c3.agentLog('TOOL','Worker: '+wrk.name+' ['+_s(wrk.status)+'] cron: '+_s(wrk.cron));}
   }else if(a==='Editovat'){
@@ -5504,6 +5506,8 @@ function _initBusSubscriptions() {
         text:result.response.content,
         tag:metadata.mode||'LLM'
       });
+      s.chat._projectWorkProposal = metadata.projectWorkProposal && metadata.projectWorkProposal.kind === 'ProjectWorkProposal@1' && metadata.projectWorkProposal.projectId === Number(s._projectId)
+        ? _m2NormalizeWorkProposal({proposal:metadata.projectWorkProposal,origin:_m2StudioOrigin(s)}) : null;
       if (metadata.contextPercent !== undefined) s.chat.ctx = metadata.contextPercent;
       _maybeRefreshExpertises(metadata);
     } else {
@@ -5839,7 +5843,8 @@ function _persistSessionState() {
             recentMsgs: recentMsgs,
             focusFiles: s._focusFiles||[],
             lastAttachDir: s.chat._lastAttachDir||'',
-            m2Pending: _m2NormalizePending(s._m2Pending)
+            m2Pending: _m2NormalizePending(s._m2Pending),
+            projectWorkProposal: _m2NormalizeWorkProposal(s.chat._projectWorkProposal)
           };
         })
       }));
@@ -5866,7 +5871,8 @@ window.addEventListener('beforeunload', function() {
           recentMsgs: recentMsgs,
           focusFiles: s._focusFiles||[],
           lastAttachDir: s.chat._lastAttachDir||'',
-          m2Pending: _m2NormalizePending(s._m2Pending)
+          m2Pending: _m2NormalizePending(s._m2Pending),
+            projectWorkProposal: _m2NormalizeWorkProposal(s.chat._projectWorkProposal)
         };
       })
     }));
@@ -5929,6 +5935,7 @@ function _restoreSessionState() {
             if(ss.lastAttachDir)_sessions[i].chat._lastAttachDir=ss.lastAttachDir;
             /* M2: Restore only the exact durable approval binding. */
             _sessions[i]._m2Pending=_m2NormalizePending(ss.m2Pending);
+            _sessions[i].chat._projectWorkProposal=_m2NormalizeWorkProposal(ss.projectWorkProposal);
           }
           /* v81.2: Always clear editing state on restore — editing cannot survive restart */
           _sessions[i].chat.editingIdx=null;
@@ -6320,6 +6327,16 @@ function _m2NormalizePending(value){
     surface:'studio',sessionId:origin.sessionId,conversationId:origin.conversationId,projectId:origin.projectId
   }};
 }
+function _m2NormalizeWorkProposal(value){
+  if(!_m2IsRecord(value)||!_m2IsRecord(value.origin)||!_m2IsRecord(value.proposal))return null;
+  var p=value.proposal;var d=p.draft;var o=value.origin;
+  if(p.kind!=='ProjectWorkProposal@1'||!Number.isSafeInteger(p.projectId)||p.projectId<1||o.projectId!==p.projectId
+    ||o.surface!=='studio'||typeof o.conversationId!=='string'||!o.conversationId||o.sessionId!==o.conversationId
+    ||!_m2IsRecord(d)||typeof d.instruction!=='string'||!Array.isArray(d.files)||!d.files.length||d.files.length>8
+    ||!_m2IsRecord(d.focusedTest)||typeof d.focusedTest.binary!=='string'||!Array.isArray(d.focusedTest.argv)
+    ||d.files.some(function(f){return !_m2IsRecord(f)||typeof f.path!=='string'||typeof f.instruction!=='string'||!Array.isArray(f.dependsOn);}))return null;
+  return {origin:{surface:'studio',sessionId:o.sessionId,conversationId:o.conversationId,projectId:o.projectId},proposal:p};
+}
 function _m2StudioOrigin(s){
   var projectId=Number(s&&s._projectId);
   var conversationId=s&&s._convId!==null&&s._convId!==undefined?String(s._convId).trim():'';
@@ -6436,6 +6453,7 @@ function _m2RenderTerminal(view){
   var focused=result.focusedTest||{};var git=result.git||{};var audit=view.audit||{};
   var decision=audit.governanceDecision||{};var receipt=audit.governanceReceipt||{};
   var lines=[
+    view.state==='succeeded'?'Změna byla provedena a cílený test prošel. Pro další krok napiš do chatu; nejde o ověření celého projektu.':'Změna nebyla úspěšně dokončena. Níže je skutečný výsledek včetně stavu rollbacku.',
     'M2 CANONICAL TERMINAL',
     'Lifecycle ID: '+view.lifecycleId,
     'Lifecycle state: '+_m2Display(view.state),
@@ -6469,6 +6487,11 @@ function _m2RenderTerminal(view){
     'Audit evidence refs: '+JSON.stringify(Array.isArray(terminal.evidenceRefs)?terminal.evidenceRefs:[]),
     'Exact diff material:'
   ];
+  (Array.isArray(audit.executionEvents)?audit.executionEvents:[]).forEach(function(event){
+    var output=event&&event.details&&event.details.testOutput;if(!output)return;
+    lines.push('Výstup cíleného testu'+(output.truncated?' (zkrácený)':'')+':');
+    if(output.stdout)lines.push(output.stdout);if(output.stderr)lines.push(output.stderr);
+  });
   (Array.isArray(view.diff)?view.diff:[]).forEach(function(file){
     lines.push('- '+_m2Display(file&&file.path)+' | beforeDigest: '+_m2Display(file&&file.before&&file.before.digest,'absent')
       +' | afterDigest: '+_m2Display(file&&file.after&&file.after.digest)+' | beforeBytes: '+_m2Display(file&&file.before&&file.before.bytes,0)
@@ -6511,7 +6534,12 @@ function _m2OpenComposer(idx){
     if(_m2NormalizePending(s._m2Pending))throw new Error('Nejdřív zkontrolujte nebo zrušte připravený plán.');
     if(!st._m2Composer){
       var ta=document.getElementById('c3-chat-ta-'+idx);
-      st._m2Composer={origin:origin,instruction:ta?ta.value:'',files:[{path:'',instruction:'',dependencies:''}],binary:'',argv:[],timeoutMs:'30000',error:null};
+      var offered=st._projectWorkProposal;
+      var draft=offered&&_m2SameOrigin(offered.origin,origin)&&offered.proposal.projectId===origin.projectId?offered.proposal.draft:null;
+      st._m2Composer=draft?{origin:origin,instruction:draft.instruction,
+        files:draft.files.map(function(file){return {path:file.path,instruction:file.instruction,dependencies:file.dependsOn.join('\n')};}),
+        binary:draft.focusedTest.binary,argv:draft.focusedTest.argv.slice(),timeoutMs:String(draft.focusedTest.timeoutMs),gitCommit:draft.gitCommit||null,error:null}
+        :{origin:origin,instruction:ta?ta.value:'',files:[{path:'',instruction:'',dependencies:''}],binary:'',argv:[],timeoutMs:'30000',error:null};
     }
     st._m2ComposerOpen=true;
   }catch(error){st.msgs.push({role:'system',text:_m2StudioError(error),tag:'M2_ERROR'});}
@@ -6531,9 +6559,9 @@ function _m2ComposerDraft(form){
     if(!next)throw new Error('Závislosti souborů obsahují cyklus.');resolved.add(next.path);}
   var timeoutMs=Number(form.timeoutMs);
   if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>3600000)throw new Error('Časový limit testu musí být 1–3600000 ms.');
-  return {instruction:instruction(form.instruction,'celkové zadání'),files:files,
+  return Object.assign({instruction:instruction(form.instruction,'celkové zadání'),files:files,
     focusedTest:{binary:required(form.binary,'úplnou cestu programu pro test'),argv:form.argv.slice(),
-      environment:{LANG:'C.UTF-8',LC_ALL:'C.UTF-8',NO_COLOR:'1'},timeoutMs:timeoutMs}};
+      environment:{LANG:'C.UTF-8',LC_ALL:'C.UTF-8',NO_COLOR:'1'},timeoutMs:timeoutMs}},form.gitCommit?{gitCommit:form.gitCommit}:{});
 }
 function _m2SubmitComposer(idx,s,st,form){
   try{
@@ -6578,6 +6606,7 @@ function _m2ComposerUI(idx,s,st){
     h('button',{type:'button',id:prefix+'add-arg',style:buttonStyle,disabled:locked,onClick:function(){form.argv.push('');renderChat();}},'Přidat argument'),
     field('Časový limit testu (ms)','timeout',form.timeoutMs,function(value){form.timeoutMs=value;},false),
     h('details',{style:{color:C.tx2,fontSize:_fs(11),marginBottom:8}},h('summary',null,'Prostředí testu'),h('pre',null,'LANG=C.UTF-8\nLC_ALL=C.UTF-8\nNO_COLOR=1')),
+    form.gitCommit?h('p',{style:{fontSize:_fs(11),color:C.tx2}},'Po úspěšném testu tento schválený krok vytvoří místní Git commit. Jeho údaje budou součástí schvalovaného plánu.'):null,
     form.error?h('p',{role:'alert',style:{color:C.red}},form.error):null,
     h('div',{style:{display:'flex',gap:8}},
       h('button',{type:'button',id:prefix+'submit',style:Object.assign({},buttonStyle,{background:C.accentBg,color:C.accentText}),disabled:locked,onClick:function(){_m2SubmitComposer(idx,s,st,form);}},'Vygenerovat návrh'),
@@ -6685,8 +6714,8 @@ function _m2HandleStudioCommand(idx,s,st,ta,text,cmd,arg){
   if(isDraft){st._m2DraftController=new AbortController();st._thinking.text='Připravuji návrh; zrušení: /m2-cancel';renderChat();}
   if(cmd==='/m2-plan'||isDraft){
     request=_m2FetchJSON(isDraft?'/api/m2/lifecycle/draft':'/api/m2/lifecycle/prepare',{method:'POST',headers:{'Content-Type':'application/json'},
-      signal:st._m2DraftController?AbortSignal.any([st._m2DraftController.signal,AbortSignal.timeout(150000)]):undefined,
-      body:JSON.stringify(isDraft?{projectId:origin.projectId,origin:origin,draft:draft}:{projectId:origin.projectId,origin:origin,proposal:proposal})},150000)
+      signal:st._m2DraftController?AbortSignal.any([st._m2DraftController.signal,AbortSignal.timeout(990000)]):undefined,
+      body:JSON.stringify(isDraft?{projectId:origin.projectId,origin:origin,draft:draft}:{projectId:origin.projectId,origin:origin,proposal:proposal})},990000)
     .then(function(view){
       _m2AssertCurrentContext(idx,s,origin);
       if(!_m2IsRecord(view)||typeof view.lifecycleId!=='string'||!view.lifecycleId)throw Object.assign(new Error('Prepare response nemá lifecycle ID.'),{code:'M2_STUDIO_INVALID_RESPONSE'});
@@ -6726,6 +6755,7 @@ function _m2HandleStudioCommand(idx,s,st,ta,text,cmd,arg){
       if(operation.composer&&st._m2Composer===operation.composer)st._m2ComposerOpen=false;
     }else if(view.terminal||_M2_TERMINAL_STATES[view.state]){
       if(s._m2Pending&&s._m2Pending.lifecycleId===view.lifecycleId)s._m2Pending=null;
+      st._m2Composer=null;st._m2ComposerOpen=false;st._projectWorkProposal=null;
     }
     _m2FinishStudioCommand(idx,s,st,_m2RenderStatus(view),false,operation);
   }).catch(function(error){
@@ -7243,7 +7273,7 @@ function _chatPaneUI(idx,opts){
                 var inp=document.createElement('input');inp.type='file';inp.multiple=true;inp.style.display='none';document.body.appendChild(inp);inp.onchange=function(){if(inp.files){for(var j=0;j<inp.files.length;j++){st.attachments.push({name:inp.files[j].name,size:Math.round(inp.files[j].size/1024)+' KB',file:inp.files[j]});}renderChat();}document.body.removeChild(inp);};inp.click();
                             }}},svgEl(I.attach,12)),
           s._projectId&&s._convId?h('button',{type:'button',id:'m2-build-'+idx+'-open',style:{background:C.accentBg,color:C.accentText,border:'1px solid '+C.border2,borderRadius:4,cursor:'pointer',padding:'3px 6px',fontSize:_fs(10)},
-            disabled:!!st._m2Busy||!!st._preparedSend||!!_m2NormalizePending(s._m2Pending),onClick:function(){_m2OpenComposer(idx);}},'Připravit změnu'):null,
+            disabled:!!st._m2Busy||!!st._preparedSend||!!_m2NormalizePending(s._m2Pending),onClick:function(){_m2OpenComposer(idx);}},st._m2Composer?'Pokračovat v zadání':st._projectWorkProposal?'Připravit navržený krok':'Připravit změnu'):null,
           /* Edit mode toggle */
           h('div',{style:{display:'flex',alignItems:'center',gap:1,padding:'1px 2px',borderRadius:4,background:C.bg3,flexShrink:0},onClick:function(ev){ev.stopPropagation();}},
             h('div',{style:{padding:'2px 6px',borderRadius:3,fontSize:_fs(9),fontWeight:600,cursor:'pointer',color:st.editMode==='auto'?C.tx1:C.tx4,background:st.editMode==='auto'?C.bg4:'transparent'},

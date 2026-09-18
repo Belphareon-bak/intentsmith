@@ -69,7 +69,7 @@ import {
 import { M2LifecycleAuthorityRepository } from './m2-lifecycle-authority-repository.js';
 import { compileM2ProjectChangeProposal } from './m2-proposal-compiler.js';
 import {
-  buildCodeDraftPrompt, codeDraftError, compileCodeDraftInput,
+  buildCodeDraftPrompt, codeDraftError, compileCodeDraftInput, codeDraftModelBudget, assertCodeDraftModelBudget,
   compileCodeDraftResult, generateCodeDraft as defaultGenerateCodeDraft,
 } from './m2-code-draft.js';
 
@@ -617,7 +617,7 @@ export function createM2LifecycleApplicationService(dependencyValues) {
     if (targets.some(target => !isManifestObservablePath(target))) {
       throw codeDraftError('PATH_INVALID', 'Soubor je mimo povolený projektový kontext.');
     }
-    const deadline = AbortSignal.timeout(120_000);
+    const deadline = AbortSignal.timeout(compiled.buildSteps ? Math.min(960_000, compiled.changes.length * 120_000) : 120_000);
     const boundedSignal = signal ? AbortSignal.any([signal, deadline]) : deadline;
     const check = () => {
       if (boundedSignal.aborted) throw codeDraftError(
@@ -650,13 +650,14 @@ export function createM2LifecycleApplicationService(dependencyValues) {
         check();
       }
     }
+    const maxFileBytes = compiled.buildSteps ? 16_384 : 1600;
     const files = targets.map(target => {
       const entry = manifest.entries.find(item => item.path === target);
-      if (entry && (entry.kind !== 'regular@1' || entry.size > 1600)) {
-        throw codeDraftError('CONTEXT_LIMIT_EXCEEDED', 'Vyberte malé textové soubory do 1600 bajtů.');
+      if (entry && (entry.kind !== 'regular@1' || entry.size > maxFileBytes)) {
+        throw codeDraftError('CONTEXT_LIMIT_EXCEEDED', `Vyberte textové soubory do ${maxFileBytes} bajtů.`);
       }
       const before = readProjectFile(scope.canonicalRoot, target, {
-        maxBytes: 1600, rejectHardlinks: true, requireCanonicalTarget: true, signal: boundedSignal,
+        maxBytes: maxFileBytes, rejectHardlinks: true, requireCanonicalTarget: true, signal: boundedSignal,
       });
       if (before.exists !== Boolean(entry)
         || (entry && `sha256:${createHash('sha256').update(before.bytes).digest('hex')}` !== entry.contentDigest)) {
@@ -665,6 +666,8 @@ export function createM2LifecycleApplicationService(dependencyValues) {
       return { path: target,
         content: before.exists ? new TextDecoder('utf-8', { fatal: true }).decode(before.bytes) : null };
     });
+    const generationBudget = generateCodeDraft === defaultGenerateCodeDraft
+      ? await codeDraftModelBudget(!!compiled.buildSteps) : null;
     const changes = [];
     const steps = compiled.buildSteps ?? files.map((_, index) => ({ index }));
     const promptFor = index => buildCodeDraftPrompt(compiled, files[index].content, index,
@@ -677,7 +680,10 @@ export function createM2LifecycleApplicationService(dependencyValues) {
       }));
     // Preflight every initial prompt, then check again with preceding generated
     // after-images. No truncation or partial plan if any peer exceeds the budget.
-    files.forEach((_, index) => promptFor(index));
+    files.forEach((_, index) => {
+      const prompt = promptFor(index);
+      if (generationBudget) assertCodeDraftModelBudget(prompt, generationBudget);
+    });
     for (const { index } of steps) {
       check();
       const prompt = promptFor(index);

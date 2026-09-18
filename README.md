@@ -10,8 +10,8 @@ Studio používá Theia runtime s motivy a ovládáním IntentSmithu.
 
 **Verze:** 136.1.0, vývojový kandidát 1.0. Aktuální počty testovacích programů
 jsou v [generovaném registru](docs/convergence/TEST-REGISTRY.md):
-**523 registrovaných testovacích programů**
-(`429 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
+**524 registrovaných testovacích programů**
+(`430 ACTIVE`, `79 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
 
 **Navazující M5 review, 2026-09-17:** historický inventář doplněn o zveřejněný
 TLS testovací klíč a certifikát: 15 známých objektů. Pár je trvale vyřazený;
@@ -411,14 +411,14 @@ intentsmith/
 │   ├── report-gen.json           #   Generování reportů
 │   └── summarizer.json           #   Sumarizace textu
 │
-├── tests/                        # Testy a kanonický registr 523 programů
+├── tests/                        # Testy a kanonický registr 524 programů
 │   ├── harness.js                #   Custom ESM test harness
 │   ├── cre-*.test.js             #   CRE testy (401+)
 │   ├── lifecycle-*.test.js       #   Lifecycle testy (103+)
 │   ├── code-intel-*.test.js      #   Code Intelligence testy (339+)
 │   ├── execution-loop.test.js    #   Execution Engine testy (597+)
 │   ├── upgrade-*.test.js         #   Model Upgrade testy
-│   └── registry.json             #   Kanonický registr 523 programů
+│   └── registry.json             #   Kanonický registr 524 programů
 │
 ├── docs/                         # Aktivní dokumentace + archiv
 │   ├── ARCHITECTURE.md           #   Kompletní architektura

@@ -429,7 +429,9 @@ try {
   //   130 -> 132 Review regressions exercise scoped chat memory and the real
   //              HTTP settings/chat server; both start with the isolation anchor.
   // 132 -> 133: sazeni-integration also starts with the isolation bootstrap.
-  const expectedDatabaseReachableRootTests = 133;
+  // 133 -> 134: project-collaboration imports the real project/controller graph;
+  // its first import is isolated-test-db.js and it owns every HTTP child server.
+  const expectedDatabaseReachableRootTests = 134;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

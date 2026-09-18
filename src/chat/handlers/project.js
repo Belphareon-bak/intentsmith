@@ -28,6 +28,7 @@ import { handleShellDecision } from './conversation.js';
 import { handleDesignDecision } from './design.js';
 import { config } from '../../config.js';
 import { preHandle } from './pre-handler.js';
+import { handleProjectCollaboration } from './project-collaboration.js';
 
 // ─── Post-CRE modules (lazy-loaded, null if feature disabled) ──────────────
 // Only handleBuildDetected is needed for the PLAN case — shared intercepts
@@ -192,7 +193,7 @@ function buildProjectStatusResponse(input, project, workingMemory, context) {
  * @param {string} input
  * @returns {{ detected: boolean, filePath: string|null, reason: string|null }}
  */
-function detectFileIntent(input) {
+export function detectFileIntent(input) {
   const stripped = input.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
   // A write request may contain both a concrete filename and generic words
@@ -222,9 +223,10 @@ function detectFileIntent(input) {
 
   // "list files/contents" + project reference → a durable file.read request.
   const hasFileSignal = /soubor|obsah|struktur|adres|slozk|files|directory|contents|folder|tree|listing/i.test(stripped);
-  const hasProjectRef = /projekt|project|tomto|tady|zde|here|this/i.test(stripped);
+  const hasProjectRef = tokens.some(token => /^(?:projekt[a-z]*|project[a-z]*|tomto|tady|zde|here|this)$/.test(token));
+  const requestsListing = /^(?:(?:prosim|please)\s+)?(?:vypis|vyjmenuj|ukaz|zobraz|list|show|what|jake|ktere|co|najdi)(?:\s|$)/.test(stripped.trim()) && tokens.length <= 30;
 
-  if (hasFileSignal && hasProjectRef) {
+  if (hasFileSignal && hasProjectRef && requestsListing) {
     return { detected: true, filePath: '.', reason: 'file-signal+project-ref' };
   }
 
@@ -264,6 +266,9 @@ export async function projectHandler(input, context) {
     // Must run BEFORE CRE routing — otherwise CRE classifies as SEARCH
     // and DDG gets "Jaký je stav projektu?" (nonsense web query).
     // ════════════════════════════════════════════════════════════════════════
+    if (isProjectSelfQuery(input) && context.m2LifecycleOnly === true) {
+      return handleProjectCollaboration(input, context);
+    }
     if (isProjectSelfQuery(input)) {
       logger.info('ProjectHandler', 'Project-self query intercepted (bypassing CRE)', {
         input: input.substring(0, 60),
@@ -345,6 +350,13 @@ export async function projectHandler(input, context) {
         projectPath: project.path,
       });
     }
+
+    // CRE still owns routing and refusals. Planning and conversational follow-ups
+    // are read-only collaboration, not entry to the quarantined legacy writer.
+    if (context.m2LifecycleOnly === true && (
+      [DecisionType.PLAN, DecisionType.ASK_USER, DecisionType.ANSWER].includes(decision.type)
+      || (decision.type === DecisionType.TOOL_CALL && decision.intent === IntentType.CODE && !decision.metadata?.filePath)
+    )) return handleProjectCollaboration(input, context);
 
     // Handle based on decision
     switch (decision.type) {

@@ -112,6 +112,13 @@ s touto roadmapou, platí `DIRECTION.md`.
 > které hranice musí držet a jak silný máme důkaz**. Tyto osy se nesmějí
 > sloučit do jednoho dlouhého pořadníku ani do stovek předvyplněných záznamů.
 
+
+Práce na projektovém flow 2026-09-18: module graph má 1 376 hran,
+3 cykly / 28 členů. Nový projekt má vlastní základ a přesný M2 návrh;
+import cizího projektu provádí jen statické čtení a vyjasnění cíle.
+Implementace a fyzické ověřování jsou rozpracované, nezávislé review otevřené.
+[Rozsah práce](docs/wp/WP-PROJECT-FLOW-20260918.md).
+
 ## 1. Cíl
 
 Výsledkem je IntentSmith 1.0: podporovatelný local-first produkt pro

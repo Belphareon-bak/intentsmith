@@ -59,11 +59,19 @@ function statusForError(error) {
 }
 
 function typedErrorPayload(error) {
+  const findings = error?.code === 'M2_LIFECYCLE_GOVERNANCE_DENIED'
+    && Array.isArray(error.details?.decision?.findings)
+    ? error.details.decision.findings.slice(0, 12).map(finding => ({
+      code: String(finding.code).slice(0, 100), path: String(finding.path || '').slice(0, 256),
+      specifier: String(finding.evidence?.specifier || '').slice(0, 256),
+    })) : [];
   return {
-    error: typeof error?.message === 'string' && error.message.length > 0
+    error: findings.length ? `Návrh neprošel kontrolou projektu: ${findings.map(finding => `${finding.path}: ${finding.code}${finding.specifier ? ` (${finding.specifier})` : ''}`).join('; ')}`
+      : typeof error?.message === 'string' && error.message.length > 0
       ? error.message
       : 'M2 lifecycle request failed.',
     code: error.code,
+    ...(findings.length ? { findings } : {}),
   };
 }
 

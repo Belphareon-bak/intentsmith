@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { projectTestProfile } from '../src/chat/handlers/project-collaboration.js';
 
 import './helpers/isolated-test-db.js';
 import assert from 'node:assert/strict';
@@ -686,7 +687,7 @@ for (const invalidLastFile of [false, true]) {
       await service.recoverIncompleteSmallProjectChanges();
       const draft = { paths, instruction: 'Export value from helper and add the extra flag.' };
       if (!invalidLastFile) draft.focusedTest = { binary: process.execPath,
-        argv: ['--experimental-default-type=module', '--input-type=module', '-e',
+        argv: [...projectTestProfile().argv.slice(0, -2), '--experimental-default-type=module', '--input-type=module', '-e',
           "import assert from 'node:assert/strict';import {value} from './src/app.js';import {okay} from './src/extra.js';assert.equal(value,42);assert.equal(okay,true);"],
         environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' }, timeoutMs: 30_000 };
       const planned = await service.draftSmallProjectChange({
@@ -749,7 +750,7 @@ for (const invalidSyntax of [true, false]) {
       await service.recoverIncompleteSmallProjectChanges();
       const draft = { paths, instruction: 'Export 42 from app and propagate it through copy and view.' };
       if (!invalidSyntax) draft.focusedTest = { binary: process.execPath,
-        argv: ['--experimental-default-type=module', '--input-type=module', '-e',
+        argv: [...projectTestProfile().argv.slice(0, -2), '--experimental-default-type=module', '--input-type=module', '-e',
           "import assert from 'node:assert/strict';import {displayed} from './src/view.js';assert.equal(displayed,42,'transitive peer result');"],
         environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' }, timeoutMs: 30_000 };
       const planned = await service.draftSmallProjectChange({
@@ -868,8 +869,8 @@ function projectBlueprint() {
     files: files.map(([path, instruction, dependsOn]) => ({ path, instruction, dependsOn })),
     focusedTest: {
       binary: process.execPath,
-      argv: ['--experimental-default-type=module', '--input-type=module', '-e',
-        "import assert from 'node:assert/strict';import {run} from './src/app.js';const results=run([['add',12,'food'],['add',8,'travel'],['add',3,'food'],['total'],['categories'],['list']]);assert.equal(results[3],23);assert.deepEqual(results[4],{food:15,travel:8});assert.equal(results[5].length,3);assert.deepEqual(run([['list'],['total']]),[[],0]);for(const amount of [0,-1,NaN,Infinity])assert.throws(()=>run([['add',amount,'food']]));assert.throws(()=>run([['add',1,'']]));assert.throws(()=>run([['unknown']]));"],
+      argv: [...projectTestProfile().argv.slice(0, -2), '--experimental-default-type=module', '--input-type=module', '-e',
+        "import assert from 'node:assert/strict';import {run} from './src/app.js';assert.equal(new WebAssembly.Memory({initial:1}).buffer.byteLength,65536);const results=run([['add',12,'food'],['add',8,'travel'],['add',3,'food'],['total'],['categories'],['list']]);assert.equal(results[3],23);assert.deepEqual(results[4],{food:15,travel:8});assert.equal(results[5].length,3);assert.deepEqual(run([['list'],['total']]),[[],0]);for(const amount of [0,-1,NaN,Infinity])assert.throws(()=>run([['add',amount,'food']]));assert.throws(()=>run([['add',1,'']]));assert.throws(()=>run([['unknown']]));"],
       environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' }, timeoutMs: 30_000,
     },
     gitCommit: proposal().gitCommit,
@@ -931,6 +932,10 @@ for (const defect of [null, 'src/totals.js', 'src/app.js']) {
       if (defect) {
         assert.notEqual(result.state, 'succeeded');
         assert.equal(result.result.focusedTest.terminalStatus, 'failed');
+        const diagnostic = result.audit.executionEvents.find(event => event.type === 'process_terminated')?.details.testOutput;
+        assert.ok(diagnostic, 'failed real test exposes bounded diagnostics, not only stream hashes');
+        assert.match(diagnostic.stdout + diagnostic.stderr, /AssertionError/);
+        assert.ok(Buffer.byteLength(diagnostic.stdout) <= 4100 && Buffer.byteLength(diagnostic.stderr) <= 4100);
         assert.equal(result.result.rollback.status, 'succeeded');
         assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 1;\n');
         for (const file of blueprint.files.slice(1)) assert.equal(fs.existsSync(path.join(root, file.path)), false);
@@ -960,6 +965,7 @@ for (const defect of [null, 'src/totals.js', 'src/app.js']) {
           const view=service.getSmallProjectChangeStatus({authenticatedSubject:subject,origin,lifecycleId});
           process.stdout.write(JSON.stringify({pid:process.pid,state:view.state,
             resultDigest:view.terminal.resultDigest,recovered:recovered.length,
+            testOutput:view.audit.executionEvents.find(event=>event.type==='process_terminated')?.details.testOutput,
             terminals:db.prepare('SELECT count(*) AS n FROM m2_lifecycle_terminals').get().n}));
         } finally {db.close();}
       `;
@@ -969,6 +975,7 @@ for (const defect of [null, 'src/totals.js', 'src/app.js']) {
       assert.notEqual(durable.pid, process.pid);
       assert.equal(durable.state, result.state);
       assert.equal(durable.resultDigest, result.terminal.resultDigest);
+      assert.deepEqual(durable.testOutput, result.audit.executionEvents.find(event => event.type === 'process_terminated')?.details.testOutput);
       assert.equal(durable.recovered, 0);
       assert.equal(durable.terminals, 1);
       assert.equal(calls.length, 6);
@@ -1003,7 +1010,7 @@ for (const failure of ['missing-test', 'duplicate', 'unknown-dependency', 'cycle
         const input = JSON.parse(prompt); calls++;
         if (calls === 4 && failure === 'late-cancel') controller.abort();
         if (calls === 4 && failure === 'late-stale') fs.writeFileSync(path.join(root, 'src/foreign.js'), '// foreign\n');
-        return { content: JSON.stringify({ afterContent: failure === 'dependency-overflow' && calls === 1 ? '//'+ 'x'.repeat(2000)+'\n' : projectBuildOutputs[input.path] }),
+        return { content: JSON.stringify({ afterContent: failure === 'dependency-overflow' && calls <= 3 ? '//'+ 'x'.repeat(16000)+'\n' : projectBuildOutputs[input.path] }),
           finishReason: calls === 4 && failure === 'late-length' ? 'length' : 'stop' };
       } });
       await service.recoverIncompleteSmallProjectChanges();

@@ -66,6 +66,11 @@ function git(root, args) {
 
 function writeGovernanceFixture(root) {
   fs.mkdirSync(path.join(root, 'src'), { recursive: true });
+  fs.mkdirSync(path.join(root, '.c3'), { recursive: true });
+  fs.writeFileSync(path.join(root, '.gitignore'), 'node_modules/\n');
+  fs.writeFileSync(path.join(root, 'README.md'), '# Isolated HTTP lifecycle fixture\n');
+  fs.writeFileSync(path.join(root, 'ROADMAP.md'), 'Verify a reviewed change and rollback.\n');
+  git(root, ['init', '--template=', '-b', 'main']);
   fs.writeFileSync(path.join(root, 'src', 'app.js'), 'module.exports = { value: 1 };\n');
   fs.writeFileSync(path.join(root, '.c3', 'm2-governance-policy.json'), `${JSON.stringify({
     policyId: 'm2-policy-v1',
@@ -256,12 +261,7 @@ async function run() {
     const health = await request('GET', '/api/health');
     assert(health.status === 200 && health.data?.status === 'ok', 'owned server health is ready');
 
-    const created = await request('POST', '/api/projects', {
-      name: RUN_ID,
-      description: 'Isolated M2 lifecycle HTTP evidence project',
-      type: 'general',
-      path: root,
-    });
+    const created = await request('POST', '/api/projects/open-folder', { folderPath: root, name: RUN_ID });
     assert(created.status === 201, `project registration returned 201 (got ${created.status})`);
     const projectId = created.data?.project?.id;
     assert(Number.isSafeInteger(projectId), `project registry returned an integer id (${projectId})`);

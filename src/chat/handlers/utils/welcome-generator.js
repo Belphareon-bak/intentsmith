@@ -27,14 +27,9 @@ export function generateNewProjectWelcome({ name, description, type }) {
   }
 
   parts.push('');
-  parts.push('Připravil jsem základní strukturu. Doporučuji workflow:');
-  parts.push('1. **Specifikace** — upřesníme požadavky');
-  parts.push('2. **Plánování** — vygeneruji roadmapu');
-  parts.push('3. **Implementace** — psaní kódu');
-  parts.push('4. **Review** — finalizace');
-  parts.push('');
-  parts.push('→ **Začít specifikací**');
-  parts.push('→ Prostě mi řekni s čím potřebuješ pomoct');
+  parts.push('Připravil jsem základní strukturu, Git a pravidla pro kontrolované změny. Implementace a funkční testy zatím chybí.');
+  parts.push('Popiš cíl a co musí první použitelná verze zvládnout. Navrhnu priority, upozorním na nejasnosti a připravím editovatelný plán souborů.');
+  parts.push('Přes „Připravit navržený krok“ necháš vygenerovat změnu. Před zápisem uvidíš konkrétní diff a test a samostatně je schválíš. Po ověření navážeme dalším krokem.');
 
   return parts.join('\n');
 }
