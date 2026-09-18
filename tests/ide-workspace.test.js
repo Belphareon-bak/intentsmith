@@ -177,3 +177,19 @@ test('a background terminal completion cannot move focus out of the selected ses
   c._refocusTermInput(1);c._sessions[1]=c._mkSession();callbacks.shift()();assert.equal(focused.length,0);
   c._refocusTermInput(1);callbacks.shift()();assert.deepEqual(focused,['intentsmith-term-input-1']);
 });
+
+test('settings upgrade on a reopened database preserves the real M5 trigger and existing values',async()=>{
+  const {tmpdir}=await import('node:os');const {join}=await import('node:path');
+  const {up:privacy,computeM5PrivacyAuthorityFingerprintV090:fingerprint}=await import('../src/db/migrations/2026_08_26_090_m5_privacy_authority.js');
+  const dir=fs.mkdtempSync(join(tmpdir(),'intentsmith-settings-upgrade-')),file=join(dir,'settings.sqlite');let db;
+  try{db=new Database(file);db.exec('CREATE TABLE user_settings(id INTEGER PRIMARY KEY,data TEXT,updated_at TEXT)');
+    const original={'c3.notif.emailEnabled':true,'memory.saveContext':false};
+    db.prepare('INSERT INTO user_settings VALUES(1,?,?)').run(JSON.stringify(original),'unchanged-time');privacy(db);
+    const schema=fingerprint(db);db.close();db=new Database(file);
+    assert.throws(()=>db.prepare('UPDATE user_settings SET data=data').run(),/no such function: m5_privacy_user_settings_valid_v1/);
+    db.transaction(()=>up(db))();const row=db.prepare('SELECT * FROM user_settings').get();
+    assert.deepEqual(JSON.parse(row.data),{...original,'intentsmith.notif.emailEnabled':true});assert.equal(row.updated_at,'unchanged-time');
+    assert.equal(fingerprint(db),schema);
+    assert.throws(()=>db.prepare('UPDATE user_settings SET data=?').run(JSON.stringify({password:'forbidden-test-only'})),/M5_PRIVACY_PLAINTEXT_SETTING_FORBIDDEN/);
+  }finally{if(db?.open)db.close();fs.rmSync(dir,{recursive:true,force:true});}
+});

@@ -1,7 +1,11 @@
+import { registerM5PrivacyAuthorityFunctions } from '../../security/privacy-authority-validation.js';
+
 export const version = '2026_09_18_115_intentsmith_setting_names';
 export const description = 'Add canonical IntentSmith names without discarding previous settings';
 
 export function up(db) {
+  // Reopened upgrade connections must satisfy the existing M5 settings trigger.
+  registerM5PrivacyAuthorityFunctions(db);
   const rows = db.prepare('SELECT id, data FROM user_settings').all();
   const update = db.prepare('UPDATE user_settings SET data = ? WHERE id = ?');
   for (const row of rows) {
