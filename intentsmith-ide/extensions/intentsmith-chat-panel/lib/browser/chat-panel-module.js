@@ -598,7 +598,7 @@ var INTENTSMITH_SIDEBAR_ID='intentsmith-sidebar';
 
 class IntentSmithSidebarWidget extends react_widget_1.ReactWidget {
   constructor(){
-    super();this.id=INTENTSMITH_SIDEBAR_ID;this.title.label='';this.title.iconClass='';this.title.closable=false;this.node.tabIndex=-1;this.node.style.outline='none';
+    super();this.id=INTENTSMITH_SIDEBAR_ID;this.title.label='';this.title.iconClass='';this.title.closable=false;this.node.tabIndex=-1;this.node.style.outline='none';this.node.style.minWidth='48px';
     this._active=null;this._dd={};this._collapsed=false;
   }
   render(){return null;}
@@ -8014,7 +8014,6 @@ class IntentSmithSidebarContrib extends browser_1.AbstractViewContribution {
           el.addEventListener('mouseleave',function(){el.style.opacity='0.15';el.style.width='6px';el.style.background=C.border2;el.querySelector('svg').style.opacity='0';});
           el.addEventListener('click',function(){
             if(isLeft){
-              var tw=(_sidebarWidget&&_sidebarWidget._collapsed)?48:(_intentsmithLastLeftW||240);
               _setSidebarCollapsed(false);
             }else{
               _snapShow(_rph,'right',_intentsmithLastRightW||280);
