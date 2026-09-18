@@ -430,11 +430,17 @@ try {
     modelArtifactAuthorityRepository,
     requireDurableModelUseAuthority: true,
   });
-  const pullRecovery = await upgradeManager.recoverOutstandingModelPulls();
-  for (const result of pullRecovery) {
-    const level = result.status === 'RECOVERED' ? 'info' : 'warn';
-    logger[level]('Server', `Model pull recovery ${result.operationId}: ${result.status}`);
-  }
+  // An existing multi-GB download must not hold the HTTP listener closed.
+  // Recovery still uses the same durable operation and artifact claims; no
+  // activation, replacement request or bypass of the mutation authority occurs.
+  void upgradeManager.recoverOutstandingModelPulls().then(pullRecovery => {
+    for (const result of pullRecovery) {
+      const level = result.status === 'RECOVERED' ? 'info' : 'warn';
+      logger[level]('Server', `Model pull recovery ${result.operationId}: ${result.status}`);
+    }
+  }).catch(err => {
+    logger.warn('Server', `Model pull recovery unavailable: ${err.code || 'RECOVERY_FAILED'}`);
+  });
   setModelRegistry(modelRegistry);
   modelFailoverDetectionCoordinator = createModelFailoverDetectionCoordinator({
     repositoryPort: createModelFailoverDetectionRepositoryPort(bindingRepository),

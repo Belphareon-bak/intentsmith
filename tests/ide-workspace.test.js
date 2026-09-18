@@ -1,3 +1,4 @@
+import './helpers/isolated-test-db.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
@@ -192,4 +193,20 @@ test('settings upgrade on a reopened database preserves the real M5 trigger and 
     assert.equal(fingerprint(db),schema);
     assert.throws(()=>db.prepare('UPDATE user_settings SET data=?').run(JSON.stringify({password:'forbidden-test-only'})),/M5_PRIVACY_PLAINTEXT_SETTING_FORBIDDEN/);
   }finally{if(db?.open)db.close();fs.rmSync(dir,{recursive:true,force:true});}
+});
+
+test('startup continues while a durable model download is pending and observes recovery failure',async()=>{
+  const server=fs.readFileSync(new URL('../src/server.js',import.meta.url),'utf8');
+  const start=server.indexOf('  // An existing multi-GB download'),end=server.indexOf('  setModelRegistry(modelRegistry);',start);assert.ok(start>=0&&end>start);
+  for(const rejectRecovery of [false,true]){
+    let resolve,reject,calls=0;const log=[];const pending=new Promise((ok,fail)=>{resolve=ok;reject=fail;});
+    const c=vm.createContext({upgradeManager:{recoverOutstandingModelPulls:()=>{calls++;return pending;}},
+      logger:{info:(...args)=>log.push(args),warn:(...args)=>log.push(args)},ready:false});
+    const boot=vm.runInContext('(async()=>{'+server.slice(start,end)+'ready=true;})()',c);
+    await new Promise(ok=>setImmediate(ok));assert.equal(c.ready,true);assert.equal(calls,1);assert.equal(log.length,0);
+    if(rejectRecovery)reject(Object.assign(Error('controlled failure'),{code:'TEST_RECOVERY_FAILURE'}));
+    else resolve([{operationId:'same-existing-operation',status:'RECOVERED'}]);
+    await boot;await new Promise(ok=>setImmediate(ok));assert.equal(log.length,1);
+    assert.match(log[0][1],rejectRecovery?/TEST_RECOVERY_FAILURE/:/same-existing-operation: RECOVERED/);
+  }
 });
