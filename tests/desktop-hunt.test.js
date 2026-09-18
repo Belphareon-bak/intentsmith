@@ -112,6 +112,10 @@ test('desktop and hunt use one environment, bounded commands, and persistent sch
   const files=renderDesktopInstallation({sourceRoot:'/opt/Intent Smith',node:'/usr/bin/node',dbPath:'/data/user/intentsmith.db',
     configDirectory:'/home/user/.config/intentsmith',stateDirectory:'/home/user/.local/state/intentsmith',icon:'/opt/icon.png'});
   assert.match(files.environment,/INTENTSMITH_DB_PATH="\/data\/user\/intentsmith.db"/);
+  assert.match(files.environment,/INTENTSMITH_PROJECTS_DIR="\/data\/projects"/);
+  const customRoot=renderDesktopInstallation({sourceRoot:'/opt/next-release',node:'/usr/bin/node',dbPath:'/data/user/intentsmith.db',projectsDirectory:'/data/IntentSmith/projects',
+    configDirectory:'/home/user/.config/intentsmith',stateDirectory:'/home/user/.local/state/intentsmith',icon:'/opt/icon.png'});
+  assert.match(customRoot.environment,/INTENTSMITH_PROJECTS_DIR="\/data\/IntentSmith\/projects"/);
   assert.match(files.environment,/\nNODE_ENV=production\n/);
   for(const unit of [files.backend,files.hunt]) {
     assert.match(unit,/WorkingDirectory=\/opt\/Intent Smith\n/);
@@ -519,4 +523,39 @@ test('download panel polls missed websocket events, shows rate and ETA, and mark
   assert.doesNotMatch(JSON.stringify(tree()),/1.0 MiB\/s/);
   fail=false;done=true;await vm.runInContext('_loadDownloads()',context);
   assert.match(JSON.stringify(tree()),/Staženo/);assert.doesNotMatch(JSON.stringify(tree()),/"tag":"progress"/);
+});
+
+test('complete evaluation preflights every role and launches one serial service with distinct contract pins',async t=>{
+  const {config,file}=await fixture(t),launched=[];
+  const control=createHuntControl({installationFile:file,databasePath:config.dbPath,
+    inspectGpu:async()=>({available:true}),launch:async args=>launched.push(args),
+    run:async()=>({stdout:`LoadState=loaded\nActiveState=inactive\nWorkingDirectory=${ROOT}\nExecStart={ path=${process.execPath} ; argv[]=${process.execPath} ${ROOT}/scripts/run-model-hunt-provider.js ; }\nEnvironmentFiles=${config.configDirectory}/runtime.env (ignore_errors=no)\n`})});
+  const request={model:'fixture:7b',digestSha256:'d'.repeat(64),roles:[{role:'CODE',suiteContractSha256:'a'.repeat(64)},{role:'CHAT',suiteContractSha256:'b'.repeat(64)}]};
+  const evaluations={roles:Object.fromEntries(request.roles.map(pin=>[pin.role,{suiteContractSha256:pin.suiteContractSha256,decisionReady:true,artifacts:[{model:request.model,digestSha256:request.digestSha256,applicable:true}]}]))};
+  for(const roles of [[],[...request.roles,request.roles[0]],[{role:'UNKNOWN',suiteContractSha256:'c'.repeat(64)}],[{...request.roles[0],argv:[]}]] )await assert.rejects(control.evaluate({...request,roles},evaluations),/INVALID/);
+  await assert.rejects(control.evaluate({...request,roles:[request.roles[0],{...request.roles[1],suiteContractSha256:'c'.repeat(64)}]},evaluations),/IDENTITY/);
+  evaluations.roles.CHAT.artifacts[0].applicable=false;
+  await assert.rejects(control.evaluate(request,evaluations),/IDENTITY/);assert.equal(launched.length,0);
+  evaluations.roles.CHAT.artifacts[0].applicable=true;
+  const accepted=await control.evaluate(request,evaluations);
+  assert.deepEqual(accepted.roles,['CODE','CHAT']);assert.equal(launched.length,1);
+  assert.ok(launched[0].includes('--role=CODE,CHAT'));
+  assert.deepEqual(JSON.parse(launched[0].find(v=>v.startsWith('--expected-contracts=')).slice(21)),{CODE:'a'.repeat(64),CHAT:'b'.repeat(64)});
+  assert.ok(!launched[0].some(v=>/prune|activate|allow-removal/.test(v)));
+});
+
+test('manual CLI validates all pins before execution and incomplete batches cannot claim COMPLETE',async()=>{
+  const source=await readFile(join(ROOT,'scripts/model-upgrade-hunt.js'),'utf8');
+  const validation=source.slice(source.indexOf('const ROLE_FILTER ='),source.indexOf('\nconst log ='));
+  const roles=['CODE','CHAT'],hash='a'.repeat(64);
+  const validate=(pins,roleText='CODE,CHAT')=>vm.runInNewContext(validation,{val:n=>n==='role'?roleText:n==='expected-contracts'?JSON.stringify(pins):null,config:{models:{CODE:{},CHAT:{}}},
+    EVALUATE_INSTALLED:true,DO_RUN:true,ONLY:['fixture'],EXPECTED_CONTRACT:null,EXPECTED_DIGEST:'d'.repeat(64),expectedContracts:pins,PRUNE_REJECTED:false,REMOTE_ONLY:false,INSTALLED_PANEL:false,console,process:{exit(){throw Error('EXIT');}}});
+  validate({CODE:hash,CHAT:hash});
+  for(const pins of [{CODE:hash},{CODE:hash,CHAT:'bad'},{CODE:hash,CHAT:hash,VISION:hash}])assert.throws(()=>validate(pins),/INVALID/);
+  assert.throws(()=>validate({CODE:hash},'CODE,CODE'),/INVALID/);
+  const start=source.indexOf("...(EVALUATE_INSTALLED ? { status:");const end=source.indexOf('\n    gpu,',start);
+  const status=results=>vm.runInNewContext('({'+source.slice(start,end)+'})',{EVALUATE_INSTALLED:true,ROLE_FILTER:roles,results}).status;
+  const full={trials:roles.map(role=>({role,evaluation:{score:.8}}))};
+  assert.equal(status([full]),'COMPLETE');assert.equal(status([{trials:[full.trials[0]]}]),'BLOCKED');
+  assert.equal(status([{...full,roleErrors:[{role:'CHAT'}]}]),'FAILED');
 });

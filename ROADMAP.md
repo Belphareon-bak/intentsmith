@@ -1,5 +1,11 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**IDE a GPU hunt, 2026-09-18:** implementované opravy operátorových reprodukcí:
+řazení hlavičkou, celé použitelné role v jedné evaluaci, číselné matice,
+kandidáti ze skutečného hunt katalogu, záložky/kontext/sloupce/soubory a seznamy.
+Cílené kontroly a skutečné GUI PASS; úplný profil a nasazení zatím probíhají.
+REVIEW_PENDING. [Rozsah a důkaz](docs/review/2026-09-18-IDE-HUNT-POLISH.md).
+
 **Obnova hlavní navigace, 2026-09-18:** nasazeno `57726969`. Opravená
 regrese obnovy uloženého rozložení: levé menu zůstává vedle nastavení a katalogů;
 sbalení ponechá pás ikon, zmizel i prázdný pravý panel. Ověřeno 17 GUI kontrol

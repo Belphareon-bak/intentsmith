@@ -15,8 +15,11 @@ záložce zavře celou relaci. **Vedle sebe** zobrazí otevřené relace jako sl
 zůstávají v jednom sloupci. Aktivní práci nelze zavřením tiše přesunout do jiné
 relace; nejprve ji dokončete nebo zastavte.
 
-Křížek v hlavičce konverzace ukončí její otevření v prostoru; samotný sloupec a
-otevřené soubory zůstanou. Tato akce nemaže uloženou historii. Rozpracovaný text
+Křížek v hlavičce chatu nyní zavírá celou relaci stejně jako křížek na záložce;
+při zobrazení vedle sebe ubude příslušný sloupec. Historie se nemaže.
+**Nová konverzace** v pravém panelu zahájí další chat ve stejném prostoru.
+Záložky zobrazují nejvýše 28 znaků, celý název je v tooltipu. Procenta v
+záhlaví vysvětlují při najetí využití kontextového okna modelu. Rozpracovaný text
 chatu zůstává při přepínání relací a menu, nepřislíbena je jeho obnova po pádu
 procesu. Po restartu se obnovují uložené konverzace a běžné souborové záložky.
 Neuložené ruční změny souboru vyžadují potvrzení před zavřením.
@@ -30,7 +33,9 @@ přetažením oddělovače. V katalogu ani nastavení tato konzole nezabírá pl
 
 Soubor otevřený ze stromu patří relaci, ze které byl otevřen. Náhled nebo diff
 využije hlavní část jejího sloupce; chat lze sbalit, rozbalit a umístit nahoru
-nebo dolů. Přepnutí menu náhled skryje a zachová jeho záložku.
+nebo dolů. Přepnutí menu náhled skryje a zachová jeho záložku. Šipky na
+okrajích souborové lišty vybírají předchozí/další soubor; aktivní záložka
+se sama posune do viditelné části. Funguje i vodorovné posouvání lišty.
 
 **Upravit** otevře Monaco v témže sloupci. **Uložit** nebo Ctrl+S uloží ruční
 úpravu přes existující souborovou službu Theia. Pokud se soubor na disku mezitím
@@ -75,3 +80,37 @@ Při přejmenování aplikace launcher rozpozná dosavadní profil
 místě. Nastavení, relace a IndexedDB se nekopírují ani nemažou. Explicitní
 `--user-data-dir` / `--electron-user-data` a již existující nový profil mají
 přednost. Toto je kompatibilita uložených dat, nikoli druhá instalace IDE.
+
+## Modely a GPU hunt
+
+V **Nastavení → Modely a inference → Spravovat role a modely** mají Kandidáti
+řazení přímo v hlavičkách sloupců. Další kliknutí obrátí směr. Filtry role a
+odhadované VRAM zůstávají samostatné; neznámá hodnota se nezaměňuje za nulu.
+Katalog zahrnuje také trvale uložené nálezy GPU huntu, včetně zdroje a času
+posledního nového nálezu. Není to výčet všech LLM na světě: automatický hunt
+prohledává knihovnu Ollamy, vybírá místně použitelné varianty a ověřuje kvalitu
+teprve měřením. Cloudové modely ani celý Hugging Face hub tato tabulka nepokrývá.
+
+**Evaluace** standardně zobrazí matici pro každou roli: model na řádku,
+jednotlivé úlohy ve sloupcích, **Celkem** vpravo. Čísla jsou 0–100 %, barevně
+červená až zelená; pomlčka znamená chybějící platný výsledek. Celkem zůstává
+oficiální průměr skóre úloh, nejde o nový způsob skórování. Model i celkový
+výsledek zůstávají viditelné při vodorovném posouvání. **ⓘ** u úlohy vysvětluje
+obsah a kritéria. Název modelu otevře detail; celý původní přehled je dostupný
+přes **Podrobné výsledky**.
+
+Vyber model, případně otevři **Testy modelu…** u staženého kandidáta.
+**Otestovat vše** připraví všechna použitelná měření daného modelu. Potvrzení
+vypíše role, úlohy a opakování. Jedna úloha služby zpracuje role postupně,
+každou s přesnou aktuální sadou a stejným digestem modelu. Změna jedné sady
+nebo identity před spuštěním odmítne celý požadavek. Nedokončená role nezíská
+stav COMPLETE. Test jednotlivé role zůstává v detailu. Měření nemění přiřazení
+modelů a nemaže historii. Průběh i případné přerušení jsou na kartě GPU hunt.
+
+## Počasí a webové schválení
+
+Na dotaz o počasí „v mé lokaci“ si chat vyžádá město. Polohu neodvozuje z IP
+ani ze zařízení. Po doplnění místa ukáže jedinou konkrétní HTTPS adresu a
+příkaz **schválit web …**. Do přesného schválení nic neodesílá; návrh se ve
+Studiu zobrazuje jako návrh, nikoli obecná chyba M2. Webový výsledek je citovaný
+obsah zdroje, sám o sobě neznamená ověřenou místní předpověď.

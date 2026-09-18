@@ -263,3 +263,32 @@ test('a restored right panel cannot leave blank space beside a catalogue or Sett
   c._syncWorkspacePanels();assert.equal(resizes,1);
   workspace=false;c._syncWorkspacePanels();assert.equal(hidden,true);
 });
+
+test('closing a session reduces displayed columns without reindexing another owner',()=>{
+  const c=harness(),third=c._sessions[2];
+  assert.equal(c._workspaceSessionIndices().length,3);
+  c._closeWorkspaceSession(1);
+  assert.deepEqual(Array.from(c._workspaceSessionIndices()),[0,2]);assert.equal(c._sessions[2],third);
+});
+test('file arrows select adjacent files only in their owning session and stay bounded',()=>{
+  const c=harness();vm.runInContext(fn('_stepWorkspaceFile'),c);
+  const first=c._sessions[0]._editor,second=c._sessions[1]._editor;
+  first.tabs=[{id:'a'},{id:'b'},{id:'c'}];first.activeTabId='b';second.tabs=[{id:'foreign'}];second.activeTabId='foreign';
+  c._setActiveTab=id=>{c._sessions[c._sessionActive]._editor.activeTabId=id;};
+  c._stepWorkspaceFile(0,1);assert.equal(first.activeTabId,'c');c._stepWorkspaceFile(0,1);assert.equal(first.activeTabId,'c');
+  c._stepWorkspaceFile(0,-1);assert.equal(first.activeTabId,'b');assert.equal(second.activeTabId,'foreign');
+});
+test('workspace labels have a Unicode character budget without truncating stored identity',()=>{
+  const c=vm.createContext({});vm.runInContext(fn('_workspaceTabLabel'),c);
+  assert.equal(c._workspaceTabLabel('Účetní'),'Účetní');
+  const full='🧠'.repeat(40);assert.equal(Array.from(c._workspaceTabLabel(full)).length,28);assert.ok(c._workspaceTabLabel(full).endsWith('…'));assert.equal(Array.from(full).length,40);
+});
+test('evaluation matrix keeps missing values distinct from zero and includes every task and total',()=>{
+  const c=vm.createContext({Number,Math,C:{tx3:'#888',border:'#333',bg2:'#111'},_fs:n=>n,h:(tag,props,...children)=>({tag,props,children}),
+    _modelTable:(heads,rows)=>({heads,rows}),_modelSortHeader:(_s,_c,label)=>label,_modelStatus:r=>r.status,_modelCell:(v,p)=>({v,p}),_qualityExpanded:{},renderCenter(){}});
+  for(const name of ['_evaluationScoreCell','_evaluationTaskHeading','_renderEvaluationMatrix'])vm.runInContext(fn(name),c);
+  const matrix=c._renderEvaluationMatrix('CODE',{tasks:[{name:'bug',label:'Oprava chyby',context:'Měří regresní opravu',requirements:['Testy projdou']}]},[
+    {model:'failed',status:'FAILED',score:0,tasks:[]},{model:'measured',status:'COMPLETE',score:0,tasks:[{name:'bug',mean:0,spread:0}]}]);
+  assert.equal(matrix.heads.at(-1),'Celkem');const text=JSON.stringify(matrix);assert.match(text,/Měří regresní opravu/);assert.match(text,/0\.0 %/);assert.match(text,/—/);
+  assert.ok(!JSON.stringify(matrix.rows[0]).includes('0.0 %'));
+});

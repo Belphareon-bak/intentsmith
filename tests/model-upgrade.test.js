@@ -1050,6 +1050,12 @@ await testAsync('durable hunt separates backlog, new revisions, provider upgrade
   const [unchanged, changed, unknown] = state.observe([candidate, { ...candidate, catalogDigest: 'b'.repeat(12) }, { name: 'unknown' }]);
   assertEqual(unchanged.hunt.cohort, 'BOOTSTRAP');
   assertEqual(changed.hunt.cohort, 'INCREMENTAL');
+  const snapshot = state.catalogSnapshot();
+  assertEqual(snapshot.candidates.length, 1);
+  assertEqual(snapshot.observedRevisions, 3);
+  assertEqual(snapshot.invalidRows, 0);
+  assert(!('roles' in snapshot.candidates[0]), 'historical scheduling roles are not current eligibility');
+  assert(!('evaluationState' in snapshot.candidates[0]), 'discovery is not quality proof');
   assertEqual(unknown.hunt.schedulable, false);
   state.record(changed, key, { stage: 'pull', error: 'connection reset' }, '2026-09-11T12:00:00.000Z');
   assert(!state.pending(changed, key, Date.parse('2026-09-11T13:00:00Z')));

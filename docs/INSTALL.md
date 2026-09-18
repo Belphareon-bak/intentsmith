@@ -1,7 +1,7 @@
 # IntentSmith — instalacni prirucka
 
 **Rozsah:** vývojový kandidát 1.0, dosud bez publikovaného release
-**Aktualizace:** 2026-09-12
+**Aktualizace:** 2026-09-18
 
 ---
 
@@ -598,3 +598,15 @@ schvalování mají vlastní kontrakt; tyto přepínače nejsou univerzální ma
 ### Kompatibilita názvů po aktualizaci Studia
 
 Kanonické prostředí používá `INTENTSMITH_*`, adresář `intentsmith-ide` a nové klíče nastavení `intentsmith.*`. Backend přijímá staré proměnné `C3_*` jako fallback; explicitní nová hodnota má přednost. Existující instalace nad `data/c3.db` zůstává na stejné databázi. Migrace 115 zachová původní nastavení; Studio převádí lokální klíče při načtení bez mazání původních. Staré licenční klíče, lokální capability a WebSocket alias zachovávají totožnou kontrolu autority. Historické důkazy a názvy externích repozitářů se nemění.
+
+## Trvalé umístění spravovaných projektů
+
+Desktopová instalace ukládá `projectsDirectory` do `installation.json` a
+předává backendu `INTENTSMITH_PROJECTS_DIR`. Kořen tak nezávisí na dočasné
+verzi v `releases/<commit>`. Pro běžné rozložení `<instalace>/data/c3.db`
+je výchozí `<instalace>/projects`. Explicitní `--projects=/absolutní/cesta`
+při instalaci má přednost; další aktualizace toto nastavení zachovají.
+Průvodce nového projektu si vždy vyžádá skutečný výchozí adresář backendu.
+Importované externí projekty tím nemění své umístění. Instalátor sám staré
+projekty nepřesouvá; konkrétní přemístění vyžaduje zálohu, zachování identity
+a historii existujících plánů ponechanou beze změn.

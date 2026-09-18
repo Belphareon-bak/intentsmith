@@ -91,6 +91,9 @@ const INSTALLED_PANEL = flag('installed-panel');
 const EVALUATE_INSTALLED = flag('evaluate-installed');
 const EXPECTED_DIGEST = val('expected-digest');
 const EXPECTED_CONTRACT = val('expected-contract');
+let expectedContracts = null;
+try { if (val('expected-contracts')) expectedContracts = JSON.parse(val('expected-contracts')); }
+catch { throw new Error('MODEL_EVALUATION_REQUEST_INVALID'); }
 const limitInput = val('limit') ?? (INSTALLED_PANEL ? String(Number.MAX_SAFE_INTEGER) : '3');
 const LIMIT = Number(limitInput);
 if (!/^\d+$/.test(limitInput) || !Number.isSafeInteger(LIMIT) || LIMIT < 1) {
@@ -151,8 +154,14 @@ const emitJsonArtifact = payload => {
  */
 const ROLE_FILTER = (val('role') || '').split(',').map(r => r.trim().toUpperCase()).filter(Boolean);
 const ALL_ROLES = Object.keys(config.models);
-if (EVALUATE_INSTALLED && (!DO_RUN || ONLY.length !== 1 || ROLE_FILTER.length !== 1 || !ALL_ROLES.includes(ROLE_FILTER[0])
-  || !/^[a-f0-9]{64}$/.test(EXPECTED_DIGEST || '') || !/^[a-f0-9]{64}$/.test(EXPECTED_CONTRACT || '')
+if (EXPECTED_CONTRACT && !expectedContracts && ROLE_FILTER.length === 1) expectedContracts = { [ROLE_FILTER[0]]: EXPECTED_CONTRACT };
+if (EVALUATE_INSTALLED && (!DO_RUN || ONLY.length !== 1 || ROLE_FILTER.length < 1 || ROLE_FILTER.length > ALL_ROLES.length
+  || new Set(ROLE_FILTER).size !== ROLE_FILTER.length || ROLE_FILTER.some(role => !ALL_ROLES.includes(role))
+  || !/^[a-f0-9]{64}$/.test(EXPECTED_DIGEST || '')
+  || !expectedContracts || typeof expectedContracts !== 'object' || Array.isArray(expectedContracts)
+  || (val('expected-contracts') && EXPECTED_CONTRACT)
+  || Object.keys(expectedContracts).sort().join(',') !== [...ROLE_FILTER].sort().join(',')
+  || ROLE_FILTER.some(role => !/^[a-f0-9]{64}$/.test(expectedContracts[role] || ''))
   || PRUNE_REJECTED || REMOTE_ONLY || INSTALLED_PANEL)) throw new Error('MODEL_EVALUATION_REQUEST_INVALID');
 const unknownRoles = ROLE_FILTER.filter(r => !ALL_ROLES.includes(r));
 if (unknownRoles.length) {
@@ -405,7 +414,7 @@ const evaluationDecisionStore = new ModelEvaluationDecisionStore(db);
 const bindingRepository = createModelFailoverRepository(db);
 const evaluationRunner = new RoleQualityEvaluationRunner(config.ollama?.baseUrl);
 const evaluationPlans = createRoleEvaluationPlans();
-if (EVALUATE_INSTALLED && evaluationPlans[ROLE_FILTER[0]].suiteContractSha256 !== EXPECTED_CONTRACT) throw new Error('MODEL_EVALUATION_CONTRACT_CHANGED');
+if (EVALUATE_INSTALLED && ROLE_FILTER.some(role => evaluationPlans[role]?.suiteContractSha256 !== expectedContracts[role])) throw new Error('MODEL_EVALUATION_CONTRACT_CHANGED');
 
 const currentBindingNames = inventory => {
   const names = resolveCurrentBindings(config.models, bindingRepository, ALL_ROLES).bindings;
@@ -750,7 +759,7 @@ if (readyRoles.length === 0) {
 let gpuLease;
 const gpuWaitDeadline = Date.now() + (EVALUATE_INSTALLED ? 30 * 60_000 : 0);
 const waitingForGpu = state => publishProgress('waiting-gpu', ONLY[0] || null, [], {
-  role: ROLE_FILTER[0], reasons: state.reasons, waitUntil: new Date(gpuWaitDeadline).toISOString(),
+  role: ROLE_FILTER.join(','), reasons: state.reasons, waitUntil: new Date(gpuWaitDeadline).toISOString(),
 });
 const ownership = await waitForGpuReadiness({ deadline: gpuWaitDeadline, onWait: waitingForGpu,
   probe: async () => {
@@ -1121,7 +1130,7 @@ if (AS_JSON || REPORT_PATH) {
   emitJsonArtifact({
     generatedAt: new Date().toISOString(),
     ...(EVALUATE_INSTALLED ? { status: results.some(r => r.error || r.roleErrors?.length) ? 'FAILED'
-      : results.some(r => r.trials?.some(t => t.evaluation)) ? 'COMPLETE' : 'BLOCKED' } : {}),
+      : results.length === 1 && ROLE_FILTER.every(role => results[0].trials?.some(t => t.role === role && t.evaluation && !t.skipped)) ? 'COMPLETE' : 'BLOCKED' } : {}),
     gpu, providerVersion, huntCatalog: huntState.summary(), catalogUpdatesRequiringManualImport,
     perRole: Object.fromEntries([...perRole].map(([r, l]) => [r, l])),
     queue, results, proposedBindings: bindings, portfolio,
