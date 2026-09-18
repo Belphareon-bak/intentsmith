@@ -22,6 +22,16 @@ dat zachovaná. 106 cílených testů PASS, produkční build a skutečné GUI P
 M2 systemd AppArmor a M5 historie stále otevřené.
 [Review a meze](docs/review/2026-09-18-IDE-WORKSPACE.md).
 
+**Stahování a CODE postup, 2026-09-18:** instalováno `39cad5f1`.
+Gemma4:31b dokončená 15:13:26 CEST; Studio má trvalý průběh s rychlostí/ETA
+a obnovou spojení. Tři nová CODE měření přes GUI (63 vyhodnocení):
+Qwen3.8 71,4 %, Devstral 32,4 %, Ornith 25,7 %. CODE zůstává Qwen3.8.
+Startup probe nenechává runner dalších pět minut v GPU. Fyzické GUI ověřené
+včetně historie, viditelnosti karty a zachování posunu během pollingu.
+Úplný profil 359 PASS / 1 zděděný FAIL release pečeti. REVIEW_PENDING;
+na disku zůstává přibližně 16 GiB, další automatické stahování omezuje rezerva.
+[Review a důkazy](docs/review/2026-09-18-MODEL-DOWNLOAD-JOURNEY.md).
+
 **Projektový flow, 2026-09-18:** nasazeno `5e46fca7`, nový projekt → návrh →
 přesný M2 krok; existující cizí projekt → čtecí analýza → cíl a priority.
 Úplný gate 358 PASS / 1 FAIL (nezměněná release pečeť), Studio build PASS.

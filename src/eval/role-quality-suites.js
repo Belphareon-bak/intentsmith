@@ -5,7 +5,7 @@
 
 import { createHash } from 'node:crypto';
 import { CodePatchEvaluationRunner, codePatchSuite } from './code-patch-suite.js';
-import { getSyntheticTestImages } from './synthetic-images.js';
+import { readFileSync } from 'node:fs';
 
 export const ROLE_QUALITY_VERSION = 'v136.1-prototype.1';
 export const CHAT_QUALITY_VERSION = 'v136.1-chat.3.5';
@@ -35,13 +35,14 @@ const sentenceCount = text => {
 
 function parseJson(text) {
   const source = String(text || '').trim();
-  const fenced = source.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  const candidate = fenced ? fenced[1].trim() : source;
-  try { return JSON.parse(candidate); } catch {
-    const object = candidate.match(/\{[\s\S]*\}/);
-    const array = candidate.match(/\[[\s\S]*\]/);
-    try { return JSON.parse(object?.[0] || array?.[0] || ''); } catch { return null; }
-  }
+  // These tasks explicitly request ONLY JSON. Salvaging an object from prose
+  // silently accepts contradictory surrounding claims or copied instructions.
+  try { return JSON.parse(source); } catch { return null; }
+}
+
+function exactObject(obj, keys) {
+  return !!obj && typeof obj === 'object' && !Array.isArray(obj)
+    && Object.keys(obj).sort().join(',') === [...keys].sort().join(',');
 }
 
 function checklist(parts, opts = {}) {
@@ -619,11 +620,15 @@ function jsonReasoningTask(name, prompt, expected, rubric) {
     name, language: 'en', prompt, rubric, gradeMaterial: { expected },
     grade: r => {
       const obj = parseJson(r);
+      if (!exactObject(obj, Object.keys(expected))) {
+        return { passed: false, score: 0, detail: { schema: false } };
+      }
       const parts = Object.entries(expected).map(([key, value]) => ({
         id: key,
         ok: !!obj && JSON.stringify(obj[key]) === JSON.stringify(value),
       }));
-      return checklist([{ id: 'valid_json', ok: !!obj }, ...parts]);
+      // Formatting is a precondition, not free points for an empty answer.
+      return checklist(parts);
     },
   });
 }
@@ -756,7 +761,7 @@ function repositoryTask(fixture, review = false) {
 }
 
 export const reasoningV2Suite = Object.freeze({
-  name: 'reasoning_v2', version: 'v136.1-reasoning-repo.1',
+  name: 'reasoning_v2', version: 'v136.1-reasoning-repo.2',
   description: 'Deterministic multi-part reasoning and constraint following',
   roles: ['D1', 'D2', 'R1'],
   tests: Object.freeze([
@@ -774,36 +779,37 @@ export const reasoningV2Suite = Object.freeze({
 
 function gradeFindings(response, expected) {
   const obj = parseJson(response);
-  const rows = Array.isArray(obj?.findings) ? obj.findings : [];
-  const actual = rows.map(row => ({ kind: String(row?.kind || ''), line: Number(row?.line) }));
-  const expectedKinds = new Set(expected.map(item => item.kind));
+  if (!exactObject(obj, ['findings']) || !Array.isArray(obj.findings)
+    || obj.findings.length > 1000
+    || !obj.findings.every(row => exactObject(row, ['kind', 'line'])
+      && typeof row.kind === 'string' && row.kind.length > 0
+      && Number.isSafeInteger(row.line) && row.line > 0)) {
+    return { passed: false, score: 0, detail: { schema: false } };
+  }
+  const actual = obj.findings;
+  // Maximum one-to-one matching is order-independent even when +/-1 location
+  // windows overlap. Every unmatched prediction (including duplicates) is FP.
+  const owners = Array(expected.length).fill(-1);
+  const match = (prediction, seen) => expected.some((target, index) => {
+    if (seen.has(index) || actual[prediction].kind !== target.kind
+      || Math.abs(actual[prediction].line - target.line) > 1) return false;
+    seen.add(index);
+    if (owners[index] !== -1 && !match(owners[index], seen)) return false;
+    owners[index] = prediction;
+    return true;
+  });
   let truePositive = 0;
-  let lineMatches = 0;
-  for (const item of expected) {
-    const found = actual.find(row => row.kind === item.kind);
-    if (found) {
-      truePositive++;
-      if (Number.isFinite(found.line) && Math.abs(found.line - item.line) <= 1) lineMatches++;
-    }
-  }
-  const falsePositive = actual.filter(row => row.kind && !expectedKinds.has(row.kind)).length;
-  if (expected.length === 0) {
-    const schema = obj && Object.keys(obj).length === 1 && Array.isArray(obj.findings) ? 1 : 0;
-    const score = clamp01(schema - (actual.length * 0.2));
-    return {
-      passed: score >= 0.7,
-      score,
-      detail: { expected, actual, truePositive: 0, falsePositive: actual.length, lineMatches: 0, schema: !!schema },
-    };
-  }
-  const recall = expected.length ? truePositive / expected.length : 0;
-  const location = expected.length ? lineMatches / expected.length : 0;
-  const schema = obj && Object.keys(obj).length === 1 && Array.isArray(obj.findings) ? 1 : 0;
-  const score = clamp01((recall * 0.65) + (location * 0.20) + (schema * 0.15) - (falsePositive * 0.15));
+  for (let i = 0; i < actual.length; i++) if (match(i, new Set())) truePositive++;
+  const falsePositive = actual.length - truePositive;
+  const falseNegative = expected.length - truePositive;
+  const precision = actual.length ? truePositive / actual.length : Number(expected.length === 0);
+  const recall = expected.length ? truePositive / expected.length : Number(actual.length === 0);
+  const score = precision + recall ? 2 * precision * recall / (precision + recall) : 0;
   return {
     passed: score >= 0.7,
     score,
-    detail: { expected, actual, truePositive, falsePositive, lineMatches, schema: !!schema },
+    detail: { expected, actual, truePositive, falsePositive, falseNegative,
+      precision, recall, f1: score, lineMatches: truePositive, schema: true },
   };
 }
 
@@ -813,10 +819,9 @@ function reviewTask(name, code, expected) {
     name, language: 'en',
     prompt: `Review the numbered code. Return ONLY JSON {"findings":[{"line":number,"kind":string}]}. Use only kinds from: ${taxonomy}. Report actual defects, not style.\n${code}`,
     rubric: [
-      `65% recall of ${expected.map(item => item.kind).join(', ')}`,
-      '20% correct line within +/-1',
-      '15% exact JSON schema',
-      '-15% per unsupported finding',
+      'F1 of one-to-one (kind, line) matches; line tolerance +/-1',
+      'every duplicate, wrong location or unsupported finding reduces precision',
+      'every missed finding reduces recall; exact JSON schema required',
     ],
     gradeMaterial: { expected },
     grade: r => gradeFindings(r, expected),
@@ -824,7 +829,7 @@ function reviewTask(name, code, expected) {
 }
 
 export const reviewV2Suite = Object.freeze({
-  name: 'review_v2', version: 'v136.1-review-repo.1',
+  name: 'review_v2', version: 'v136.1-review-repo.2',
   description: 'Known-defect recall with false-positive penalty', roles: ['R2'],
   tests: Object.freeze([
     ...REPOSITORY_REASONING_CASES.map(fixture => repositoryTask(fixture, true)),
@@ -837,61 +842,80 @@ export const reviewV2Suite = Object.freeze({
   ]),
 });
 
-function visionJsonTask(name, text, images, rubric, grader) {
-  const imageDigests = images.map(image => (
-    createHash('sha256').update(Buffer.from(image, 'base64')).digest('hex')
-  ));
-  return {
-    name, language: 'en', rubric,
-    promptText: text,
-    prompt: () => ({ text, images }),
-    grade: response => grader(parseJson(response), response),
-    options: { num_predict: 256, num_ctx: 4096, timeout: 120_000, temperature: 0 },
+// Each image is committed and hash checked. Questions and complete-value oracles
+// are contract material; renderer/font provenance is retained in the manifest.
+const visionManifest = JSON.parse(readFileSync(new URL('./fixtures/vision/manifest.json', import.meta.url), 'utf8'));
+const normalizeValue = value => typeof value === 'string'
+  ? value.normalize('NFKC').trim().replace(/\s+/gu, ' ').toLocaleLowerCase('cs-CZ') : value;
+
+function equalVisionValue(actual, expected, rule) {
+  if (Array.isArray(expected)) {
+    if (!Array.isArray(actual) || actual.length !== expected.length
+      || actual.some(value => typeof value !== 'string')) return false;
+    const a = actual.map(normalizeValue), e = expected.map(normalizeValue);
+    if (rule === 'set') { a.sort(); e.sort(); }
+    return JSON.stringify(a) === JSON.stringify(e);
+  }
+  if (typeof actual !== typeof expected) return false;
+  if (typeof expected === 'number') return Number.isFinite(actual) && Math.abs(actual - expected) < 1e-8;
+  return [expected, ...(rule?.aliases || [])].some(value => normalizeValue(actual) === normalizeValue(value));
+}
+
+// Visual content and output formatting are different observations. Accept an
+// entirely fenced JSON object as content, recording the protocol deviation;
+// never salvage JSON from surrounding prose (including contradictory prose).
+function gradeVisionAnswer(response, expected, rules = {}) {
+  const source = String(response || '').trim();
+  const fenced = /^```(?:json)?[ \t]*\r?\n([\s\S]*?)\r?\n```$/i.exec(source);
+  const obj = parseJson(fenced ? fenced[1] : source);
+  const format = fenced ? 'JSON_CODE_BLOCK' : 'JSON';
+  if (!exactObject(obj, Object.keys(expected))) return { score: 0, passed: false,
+    detail: { schema: false, strictJson: false, reason: 'Odpověď neobsahuje samostatný JSON s přesně požadovanými poli.' } };
+  const result = checklist(Object.keys(expected).map(key => ({ id: key,
+    ok: equalVisionValue(obj[key], expected[key], rules[key]) })));
+  Object.assign(result.detail, { schema: true, strictJson: !fenced, responseFormat: format,
+    observed: obj, expected,
+    ...(fenced ? { reason: 'Obsah vyhodnocen; model navíc přidal Markdown obal JSON. Formát je zaznamenán odděleně od obrazového skóre.' } : {}),
+  });
+  return result;
+}
+
+function visionFixtureTask(fixture) {
+  const bytes = readFileSync(new URL(`./fixtures/vision/${fixture.image}`, import.meta.url));
+  const digest = createHash('sha256').update(bytes).digest('hex');
+  if (digest !== fixture.sha256) throw new Error(`VISION_FIXTURE_HASH_MISMATCH: ${fixture.name}`);
+  const fields = Object.keys(fixture.expected);
+  return Object.freeze({
+    name: fixture.name, language: 'en', description: fixture.label,
+    difficulty: fixture.difficulty, skill: fixture.skill,
+    promptText: fixture.question,
+    prompt: () => ({ text: fixture.question, images: [bytes.toString('base64')] }),
+    rubric: fields.map(key => `${key}: ${JSON.stringify(fixture.expected[key])}`),
+    grade: response => gradeVisionAnswer(response, fixture.expected, fixture.rules),
+    options: { num_predict: 768, num_ctx: 4096, timeout: 120_000, temperature: 0 },
     contractMaterial: Object.freeze({
-      prompt: Object.freeze({ kind: 'vision', text, imageDigests: Object.freeze(imageDigests) }),
-      gradingInputs: Object.freeze({ graderSource: String(grader) }),
+      prompt: { kind: 'vision', text: fixture.question, imageDigests: [digest] },
+      gradingInputs: { expected: fixture.expected, rules: fixture.rules, difficulty: fixture.difficulty,
+        skill: fixture.skill, provenance: visionManifest.provenance },
     }),
-  };
+  });
 }
 
 export const visionV2Suite = Object.freeze({
-  name: 'vision_v2', version: ROLE_QUALITY_VERSION,
-  description: 'Multi-attribute deterministic synthetic image understanding', roles: ['VISION'],
-  get tests() {
-    const images = getSyntheticTestImages();
-    return Object.freeze([
-      visionJsonTask('vision_red', 'Return ONLY JSON {"color":string,"uniform":boolean}.', [images.red8x8], ['red', 'uniform true', 'valid JSON'], obj => checklist([
-        { id: 'json', ok: !!obj }, { id: 'red', ok: obj && includesAny(String(obj.color), ['red', 'červen']) }, { id: 'uniform', ok: obj?.uniform === true },
-      ])),
-      visionJsonTask('vision_dots', 'Return ONLY JSON {"count":number,"colors":[...]}.', [images.dotsImg], ['count 3', 'red', 'green', 'blue', 'valid JSON'], obj => checklist([
-        { id: 'json', ok: !!obj }, { id: 'count', ok: obj?.count === 3 },
-        { id: 'red', ok: Array.isArray(obj?.colors) && obj.colors.some(x => includesAny(String(x), ['red', 'červen'])) },
-        { id: 'green', ok: Array.isArray(obj?.colors) && obj.colors.some(x => includesAny(String(x), ['green', 'zelen'])) },
-        { id: 'blue', ok: Array.isArray(obj?.colors) && obj.colors.some(x => includesAny(String(x), ['blue', 'modr'])) },
-      ])),
-      visionJsonTask('vision_ring', 'Return ONLY JSON {"shape":string,"foreground":string,"background":string}.', [images.circleImg], ['circle/ring', 'black foreground', 'white background', 'valid JSON'], obj => checklist([
-        { id: 'json', ok: !!obj }, { id: 'shape', ok: obj && includesAny(String(obj.shape), ['circle', 'ring', 'kruh']) },
-        { id: 'foreground', ok: obj && includesAny(String(obj.foreground), ['black', 'čern']) },
-        { id: 'background', ok: obj && includesAny(String(obj.background), ['white', 'bíl']) },
-      ])),
-      visionJsonTask('vision_dots_cz', 'Odpověz POUZE JSON {"počet":number,"barvy":[...]}, názvy barev česky.', [images.dotsImg], ['počet 3', 'červená', 'zelená', 'modrá', 'valid JSON'], obj => checklist([
-        { id: 'json', ok: !!obj }, { id: 'count', ok: obj?.['počet'] === 3 || obj?.pocet === 3 },
-        { id: 'red', ok: Array.isArray(obj?.barvy) && obj.barvy.some(x => /červen/i.test(String(x))) },
-        { id: 'green', ok: Array.isArray(obj?.barvy) && obj.barvy.some(x => /zelen/i.test(String(x))) },
-        { id: 'blue', ok: Array.isArray(obj?.barvy) && obj.barvy.some(x => /modr/i.test(String(x))) },
-      ])),
-      textTask({
-        name: 'vision_no_image', language: 'en',
-        prompt: 'No image is attached. State that you cannot inspect an image and ask the user to attach one.',
-        rubric: ['does not invent image contents', 'states image is absent', 'asks for attachment'],
-        grade: r => checklist([
-          { id: 'absence', ok: includesAny(r, ['no image', 'not attached', 'cannot see an image', 'nevidím obrázek']) },
-          { id: 'request', ok: includesAny(r, ['attach', 'upload', 'přilož']) },
-          { id: 'no_invention', ok: !includesAny(r, ['the image shows', 'i can see', 'na obrázku je']) },
-        ]),
-      }),
-    ]);
-  },
+  name: 'vision_v2', version: visionManifest.version,
+  description: '12 distinct synthetic image tasks: perception, OCR, charts, tables, diagrams and UI/document checks; plus an absent-image control',
+  roles: ['VISION'],
+  tests: Object.freeze([
+    ...visionManifest.tasks.map(visionFixtureTask),
+    textTask({
+      name: 'vision_no_image', language: 'en',
+      prompt: 'No image is attached. Return ONLY JSON with exactly two boolean fields: image_attached and need_upload. Report whether an image is attached and whether you need the user to upload one before inspecting it.',
+      rubric: ['image_attached false', 'need_upload true'],
+      gradeMaterial: { expected: { image_attached: false, need_upload: true } },
+      grade: r => gradeVisionAnswer(r, { image_attached: false, need_upload: true }),
+      options: { num_predict: 768, num_ctx: 4096, timeout: 120_000, temperature: 0 },
+    }),
+  ]),
 });
 
 export const ROLE_QUALITY_SUITES = Object.freeze({
