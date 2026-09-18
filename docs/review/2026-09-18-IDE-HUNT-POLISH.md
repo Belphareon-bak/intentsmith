@@ -72,6 +72,9 @@ hromadnou migraci cizích projektů ani nepřepisuje desktopový profil.
 - Zachované první neúspěšné běhy: WS testovací fixture, chybně nabízený
   neaplikovatelný model v selectoru, chybějící tooltip běžné hlavičky a první
   chyby GUI harnessu. Následné běhy rozlišeny názvem, nic nepřepsáno na PASS.
+- První úplný profil na `3f272b73`: 358 PASS / 2 FAIL. Vedle známé Gate 0
+  pečeti selhal zastaralý census 1377 v ROADMAP po zvýšení baseline na 1379.
+  Údaj opravený; původní report i všech 360 logů zachované.
 - Dvě nové strukturální hrany rout na hunt-state/sweep jsou výslovně ve WP;
   počet cyklů se nemění. Strukturální baseline není release Gate 0 policy.
 
