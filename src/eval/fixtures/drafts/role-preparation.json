@@ -1,0 +1,2610 @@
+{
+  "schemaVersion": 1,
+  "status": "PREPARED_NOT_VALIDATED",
+  "authority": "Explicit operator request 2026-09-18: prepare other roles but defer all testing; expands preparation scope, not CODE pilot acceptance",
+  "productionImported": false,
+  "notAHoldout": true,
+  "sourceRevision": "d7079d1d54ef47d3d30ff3b41f2a94a2caea7c0b",
+  "operationPolicy": {
+    "inferenceTonight": false,
+    "testsTonight": false,
+    "bindingChanges": false,
+    "modelRemoval": false,
+    "timerResume": "Only on later explicit operator start"
+  },
+  "rolePlans": {
+    "D1": {
+      "suiteProposal": "analysis_repo_v3",
+      "purpose": "Analýza systému, omezení a proveditelný plán změny",
+      "instruction": "Analyze the request across the supplied source and its pinned callers. Explain the causal chain, affected boundaries and invariants, compare at least two viable repairs, and order the implementation and verification steps. Mark missing evidence explicitly. Do not produce a patch.",
+      "dimensions": [
+        "causal model",
+        "coverage of boundaries",
+        "constraints and alternatives",
+        "ordered verification plan"
+      ]
+    },
+    "D2": {
+      "suiteProposal": "repair_diagnosis_v3",
+      "purpose": "Diagnóza konkrétního selhání a nejmenší bezpečná oprava",
+      "instruction": "Given the failing observation, identify its cause and the smallest safe repair. Name one discriminating reproduction, explain why the tempting incomplete fix fails, and list focused regression checks. Keep the scope to this failure. Do not claim tests were run.",
+      "dimensions": [
+        "diagnosis",
+        "minimal repair",
+        "reproduction",
+        "regression and negative cases"
+      ]
+    },
+    "R1": {
+      "suiteProposal": "integration_review_v3",
+      "purpose": "Hluboká revize změny napříč vrstvami a dopady",
+      "instruction": "Review the proposed repair and its interaction with callers, persistence and cleanup. Separate blocking defects from missing evidence and nonblocking observations. Support each finding with a causal path and reproduction. Accept a correct alternative; do not require byte equality with a reference patch.",
+      "dimensions": [
+        "cross-boundary correctness",
+        "regression risk",
+        "supported findings",
+        "appropriate verdict"
+      ]
+    },
+    "R2": {
+      "suiteProposal": "local_review_v3",
+      "purpose": "Rychlá lokální revize skutečných vad s důkazem",
+      "instruction": "Review the bounded diff/excerpt and its explicit context. For each actual defect give its location, trigger, consequence and a focused reproduction. Report no finding when the constructed negative control is correct. Findings outside the reference remain unverified pending adjudication.",
+      "dimensions": [
+        "supported defect identification",
+        "causal location",
+        "reproduction",
+        "false-positive control"
+      ]
+    }
+  },
+  "scenarios": [
+    {
+      "id": "audit_error_envelope",
+      "independenceGroup": "audit_error_envelope",
+      "source": {
+        "revision": "bae8106d0c137437162c05b03d441d7824a888b1",
+        "path": "src/tools/registry.js",
+        "startLine": 4715,
+        "endLine": 4753,
+        "sha256": "0a4ac18fb53b946b37b46114f82266ecd8057bf95265770eead33501fca59d74",
+        "code": "    try {\n      const { execSync } = await import('node:child_process');\n      const cwd = params.cwd || process.cwd();\n\n      if (params.fix) {\n        const output = execSync('npm audit fix --json 2>/dev/null || true', { cwd, encoding: 'utf-8', timeout: 60000 });\n        try { return JSON.parse(output); } catch { return { output }; }\n      }\n\n      const output = execSync('npm audit --json 2>/dev/null || true', { cwd, encoding: 'utf-8', timeout: 30000 });\n      let audit;\n      try { audit = JSON.parse(output); } catch { return { error: 'Could not parse audit output', code: 'VULN_ERROR' }; }\n\n      const vulns = audit.vulnerabilities || {};\n      const summary = { critical: 0, high: 0, moderate: 0, low: 0, info: 0, total: 0 };\n      const details = [];\n\n      for (const [name, info] of Object.entries(vulns)) {\n        const sev = info.severity || 'info';\n        summary[sev] = (summary[sev] || 0) + 1;\n        summary.total++;\n        details.push({\n          name,\n          severity: sev,\n          title: info.via?.[0]?.title || info.via?.[0] || 'Unknown',\n          fixAvailable: !!info.fixAvailable,\n          range: info.range,\n        });\n      }\n\n      details.sort((a, b) => {\n        const order = { critical: 0, high: 1, moderate: 2, low: 3, info: 4 };\n        return (order[a.severity] || 5) - (order[b.severity] || 5);\n      });\n\n      return { summary, vulnerabilities: details.slice(0, 50), clean: summary.total === 0 };\n    } catch (err) { return { error: err.message, code: 'VULN_ERROR' }; }\n  },\n};\n"
+      },
+      "context": "Analyze only the non-fix path, with params.fix=false. The command emits {\"error\":{\"code\":\"ENOTFOUND\"}} and npm exits 1. execSync observes the shell command exactly as written. Ignore severity sorting and capability declarations outside this excerpt.",
+      "baselineExpected": {
+        "clean": true,
+        "total": 0,
+        "reportsError": false,
+        "trustworthy": false
+      },
+      "referenceBasis": "Committed repository reasoning fixture; revalidate source and oracle before activation",
+      "acceptanceState": "NOT_REVALIDATED",
+      "authorNotes": {
+        "failure": "An npm error envelope is interpreted as an empty successful audit.",
+        "invariants": [
+          "An unavailable audit cannot claim clean.",
+          "A nonempty vulnerability report remains distinguishable from audit failure."
+        ],
+        "checks": [
+          "Error envelope with no vulnerabilities does not become clean.",
+          "A complete empty report may be clean.",
+          "A nonempty report remains non-clean."
+        ],
+        "alternatives": [
+          "Typed failure envelope or propagated typed exception; both preserve error provenance."
+        ],
+        "dependencies": [
+          "command exit and stdout",
+          "audit parser",
+          "UI success state"
+        ],
+        "trap": "Removing only shell || true without handling a valid error envelope is not a complete repair."
+      },
+      "tasks": [
+        {
+          "id": "d1_audit_error_envelope",
+          "role": "D1",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "hard",
+          "assignment": "Analyze the request across the supplied source and its pinned callers. Explain the causal chain, affected boundaries and invariants, compare at least two viable repairs, and order the implementation and verification steps. Mark missing evidence explicitly. Do not produce a patch.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "request and symptom",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "causal model",
+            "coverage of boundaries",
+            "constraints and alternatives",
+            "ordered verification plan"
+          ],
+          "acceptanceEvidence": [
+            "Error envelope with no vulnerabilities does not become clean.",
+            "A complete empty report may be clean.",
+            "A nonempty report remains non-clean."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "audit_error_envelope"
+        },
+        {
+          "id": "d2_audit_error_envelope",
+          "role": "D2",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "intermediate",
+          "assignment": "Given the failing observation, identify its cause and the smallest safe repair. Name one discriminating reproduction, explain why the tempting incomplete fix fails, and list focused regression checks. Keep the scope to this failure. Do not claim tests were run.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "request and symptom",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "diagnosis",
+            "minimal repair",
+            "reproduction",
+            "regression and negative cases"
+          ],
+          "acceptanceEvidence": [
+            "Error envelope with no vulnerabilities does not become clean.",
+            "A complete empty report may be clean.",
+            "A nonempty report remains non-clean."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "audit_error_envelope"
+        },
+        {
+          "id": "r1_audit_error_envelope",
+          "role": "R1",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "hard",
+          "assignment": "Review the proposed repair and its interaction with callers, persistence and cleanup. Separate blocking defects from missing evidence and nonblocking observations. Support each finding with a causal path and reproduction. Accept a correct alternative; do not require byte equality with a reference patch.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "candidate diff: correct alternative / intentionally incomplete repair",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "cross-boundary correctness",
+            "regression risk",
+            "supported findings",
+            "appropriate verdict"
+          ],
+          "acceptanceEvidence": [
+            "Error envelope with no vulnerabilities does not become clean.",
+            "A complete empty report may be clean.",
+            "A nonempty report remains non-clean."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "audit_error_envelope"
+        },
+        {
+          "id": "r2_audit_error_envelope",
+          "role": "R2",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "intermediate",
+          "assignment": "Review the bounded diff/excerpt and its explicit context. For each actual defect give its location, trigger, consequence and a focused reproduction. Report no finding when the constructed negative control is correct. Findings outside the reference remain unverified pending adjudication.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "request and symptom",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "supported defect identification",
+            "causal location",
+            "reproduction",
+            "false-positive control"
+          ],
+          "acceptanceEvidence": [
+            "Error envelope with no vulnerabilities does not become clean.",
+            "A complete empty report may be clean.",
+            "A nonempty report remains non-clean."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "audit_error_envelope"
+        }
+      ]
+    },
+    {
+      "id": "history_late_guard",
+      "independenceGroup": "chat-history",
+      "source": {
+        "revision": "570782eb68b72301ba61899a0263e8470f4b5f53",
+        "path": "src/chat/controller.js",
+        "startLine": 603,
+        "endLine": 623,
+        "sha256": "e6d4ac06f9d21ecdbc9e0466afb8e9d9fbe5015b4ad9134ce8f40668e58c7919",
+        "code": "      // Ensure response is properly tagged\n      let taggedResponse = this.#ensureTagged(response, targetMode, pendingConfirmation);\n\n      // QGv2 runs inside synthesizeWithLLM() (synthesis.js) where it has\n      // full context (intent, searchSubType, sourceUrls). Running it again\n      // here would be redundant — synthesis.js is the single canonical call site.\n\n      // Add to history\n      this.#addToHistory(taggedResponse);\n\n      return taggedResponse;\n    } catch (error) {\n      if (context.signal?.aborted) {\n        throwIfAborted(context.signal);\n      }\n      return this.#createErrorResponse(\n        `Handler error: ${error.message}`,\n        targetMode\n      );\n    }\n  }\n"
+      },
+      "context": "This is the end of process(). ensureTagged preserves metadata.error=true. addToHistory appends immediately to in-memory response history. The outer handle() awaits process(), then throws on metadata.error before writing any assistant turn to the durable store. The user turn was already saved. No cancellation occurs.",
+      "baselineExpected": {
+        "inMemoryAssistantAdded": true,
+        "durableAssistantAdded": false,
+        "userTurnRetained": true,
+        "directProcessRejects": false
+      },
+      "referenceBasis": "Committed repository reasoning fixture; revalidate source and oracle before activation",
+      "acceptanceState": "NOT_REVALIDATED",
+      "authorNotes": {
+        "failure": "Terminal provider output enters in-memory history before the outer persistence guard.",
+        "invariants": [
+          "No failed assistant output in memory or durable history.",
+          "Already persisted user input remains.",
+          "Direct process callers receive the failure."
+        ],
+        "checks": [
+          "Provider error leaves assistant histories untouched.",
+          "Success still appends exactly once.",
+          "Cancellation remains a cancellation."
+        ],
+        "alternatives": [
+          "A shared early typed guard or equivalent pre-history classification, with typed rethrow through catch."
+        ],
+        "dependencies": [
+          "process catch",
+          "handle persistence",
+          "in-memory response history"
+        ],
+        "trap": "Guarding only durable persistence leaves the in-memory contamination."
+      },
+      "tasks": [
+        {
+          "id": "d1_history_late_guard",
+          "role": "D1",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "hard",
+          "assignment": "Analyze the request across the supplied source and its pinned callers. Explain the causal chain, affected boundaries and invariants, compare at least two viable repairs, and order the implementation and verification steps. Mark missing evidence explicitly. Do not produce a patch.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "request and symptom",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "causal model",
+            "coverage of boundaries",
+            "constraints and alternatives",
+            "ordered verification plan"
+          ],
+          "acceptanceEvidence": [
+            "Provider error leaves assistant histories untouched.",
+            "Success still appends exactly once.",
+            "Cancellation remains a cancellation."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "chat-history"
+        },
+        {
+          "id": "d2_history_late_guard",
+          "role": "D2",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "intermediate",
+          "assignment": "Given the failing observation, identify its cause and the smallest safe repair. Name one discriminating reproduction, explain why the tempting incomplete fix fails, and list focused regression checks. Keep the scope to this failure. Do not claim tests were run.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "request and symptom",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "diagnosis",
+            "minimal repair",
+            "reproduction",
+            "regression and negative cases"
+          ],
+          "acceptanceEvidence": [
+            "Provider error leaves assistant histories untouched.",
+            "Success still appends exactly once.",
+            "Cancellation remains a cancellation."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "chat-history"
+        },
+        {
+          "id": "r1_history_late_guard",
+          "role": "R1",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "hard",
+          "assignment": "Review the proposed repair and its interaction with callers, persistence and cleanup. Separate blocking defects from missing evidence and nonblocking observations. Support each finding with a causal path and reproduction. Accept a correct alternative; do not require byte equality with a reference patch.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "candidate diff: correct alternative / intentionally incomplete repair",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "cross-boundary correctness",
+            "regression risk",
+            "supported findings",
+            "appropriate verdict"
+          ],
+          "acceptanceEvidence": [
+            "Provider error leaves assistant histories untouched.",
+            "Success still appends exactly once.",
+            "Cancellation remains a cancellation."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "chat-history"
+        },
+        {
+          "id": "r2_history_late_guard",
+          "role": "R2",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "intermediate",
+          "assignment": "Review the bounded diff/excerpt and its explicit context. For each actual defect give its location, trigger, consequence and a focused reproduction. Report no finding when the constructed negative control is correct. Findings outside the reference remain unverified pending adjudication.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "request and symptom",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "supported defect identification",
+            "causal location",
+            "reproduction",
+            "false-positive control"
+          ],
+          "acceptanceEvidence": [
+            "Provider error leaves assistant histories untouched.",
+            "Success still appends exactly once.",
+            "Cancellation remains a cancellation."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "chat-history"
+        }
+      ]
+    },
+    {
+      "id": "immutable_refinement",
+      "independenceGroup": "immutable_refinement",
+      "source": {
+        "revision": "265b87729628c7d21d9fea5ccef1c282ebd94170",
+        "path": "src/chat/controller.js",
+        "startLine": 2028,
+        "endLine": 2052,
+        "sha256": "c9175f0d0f283d9ffb6bc82218c4af0c421f1e15e6e142e599db61dc1a426fed",
+        "code": "      if (improvement.improved) {\n        result.content = improvement.response;\n        logger.info('ChatController', 'Self-refinement applied', {\n          originalScore: improvement.telemetry.originalScore,\n          finalScore: improvement.telemetry.finalScore,\n          delta: improvement.telemetry.finalScore - improvement.telemetry.originalScore,\n        });\n      }\n    } catch (err) {\n      logger.warn('ChatController', `Self-refinement failed (non-fatal): ${err.message}`);\n    }\n  } else if (synthesisScore !== null) {\n    logger.debug('ChatController', `Skipping selfRefine: synthesis score ${synthesisScore} >= 75`);\n  }\n  throwIfAborted(signal);\n\n  // Telemetry: always score the FINAL output (after any refinement) — no drift\n  try {\n    const { scoreResponse } = await import('./quality/response-scorer.js');\n    const intent = result.tag?.metadata?.decision?.intent || 'CONVERSATIONAL';\n    const finalScore = scoreResponse(result.content || '', {\n      query: message, intent, lang: 'cs',\n    });\n    _qualityScore = {\n      total: finalScore.total,\n"
+      },
+      "context": "This excerpt executes in an ES module. result is frozen; content is a getter with no setter and returns \"original\". improvement.improved=true and improvement.response=\"improved\". The preceding try is active. There is no cancellation and logging/scoring do not throw. scoreResponse records its first argument.",
+      "baselineExpected": {
+        "contentAfter": "original",
+        "appliedLog": false,
+        "warningLog": true,
+        "scoredText": "original"
+      },
+      "referenceBasis": "Committed repository reasoning fixture; revalidate source and oracle before activation",
+      "acceptanceState": "NOT_REVALIDATED",
+      "authorNotes": {
+        "failure": "Assignment to frozen result.content throws and discards a successful refinement.",
+        "invariants": [
+          "Preserve immutable input and its metadata.",
+          "Publish and score the same final content."
+        ],
+        "checks": [
+          "Frozen getter-only result supports improved output through a new value.",
+          "Original result is unchanged.",
+          "Final scorer sees the emitted content."
+        ],
+        "alternatives": [
+          "Construct a new response through the response factory or an immutable copy preserving the contract."
+        ],
+        "dependencies": [
+          "response factory",
+          "refinement caller",
+          "final scorer"
+        ],
+        "trap": "Logging successful refinement before establishing an updated response is false success."
+      },
+      "tasks": [
+        {
+          "id": "d1_immutable_refinement",
+          "role": "D1",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "hard",
+          "assignment": "Analyze the request across the supplied source and its pinned callers. Explain the causal chain, affected boundaries and invariants, compare at least two viable repairs, and order the implementation and verification steps. Mark missing evidence explicitly. Do not produce a patch.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "request and symptom",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "causal model",
+            "coverage of boundaries",
+            "constraints and alternatives",
+            "ordered verification plan"
+          ],
+          "acceptanceEvidence": [
+            "Frozen getter-only result supports improved output through a new value.",
+            "Original result is unchanged.",
+            "Final scorer sees the emitted content."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "immutable_refinement"
+        },
+        {
+          "id": "d2_immutable_refinement",
+          "role": "D2",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "intermediate",
+          "assignment": "Given the failing observation, identify its cause and the smallest safe repair. Name one discriminating reproduction, explain why the tempting incomplete fix fails, and list focused regression checks. Keep the scope to this failure. Do not claim tests were run.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "request and symptom",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "diagnosis",
+            "minimal repair",
+            "reproduction",
+            "regression and negative cases"
+          ],
+          "acceptanceEvidence": [
+            "Frozen getter-only result supports improved output through a new value.",
+            "Original result is unchanged.",
+            "Final scorer sees the emitted content."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "immutable_refinement"
+        },
+        {
+          "id": "r1_immutable_refinement",
+          "role": "R1",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "hard",
+          "assignment": "Review the proposed repair and its interaction with callers, persistence and cleanup. Separate blocking defects from missing evidence and nonblocking observations. Support each finding with a causal path and reproduction. Accept a correct alternative; do not require byte equality with a reference patch.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "candidate diff: correct alternative / intentionally incomplete repair",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "cross-boundary correctness",
+            "regression risk",
+            "supported findings",
+            "appropriate verdict"
+          ],
+          "acceptanceEvidence": [
+            "Frozen getter-only result supports improved output through a new value.",
+            "Original result is unchanged.",
+            "Final scorer sees the emitted content."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "immutable_refinement"
+        },
+        {
+          "id": "r2_immutable_refinement",
+          "role": "R2",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "intermediate",
+          "assignment": "Review the bounded diff/excerpt and its explicit context. For each actual defect give its location, trigger, consequence and a focused reproduction. Report no finding when the constructed negative control is correct. Findings outside the reference remain unverified pending adjudication.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "request and symptom",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "supported defect identification",
+            "causal location",
+            "reproduction",
+            "false-positive control"
+          ],
+          "acceptanceEvidence": [
+            "Frozen getter-only result supports improved output through a new value.",
+            "Original result is unchanged.",
+            "Final scorer sees the emitted content."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "immutable_refinement"
+        }
+      ]
+    },
+    {
+      "id": "model_cleanup",
+      "independenceGroup": "model-cleanup",
+      "source": {
+        "revision": "a3a00baae2dffa6204afa327b97f102ee36c8c09",
+        "path": "src/upgrade/upgrade-manager.js",
+        "fileSha256": "29542c835a63731317c328069a94b62bbfc4edb694040d61ab52ae0ceaa0c82c",
+        "spans": [
+          {
+            "kind": "region",
+            "name": null,
+            "startLine": 1083,
+            "endLine": 1102,
+            "text": "  getUnusedOldModels() {\n    if (!this._db) return [];\n    try {\n      const rows = this._db.prepare(\n        'SELECT role, model, previous_model, applied_at FROM model_overrides ORDER BY applied_at DESC LIMIT 50'\n      ).all();\n\n      const boundModels = canonicalModelNameSet(Object.values(config.models));\n      return rows\n        .filter(r => !boundModels.has(canonicalModelName(r.previous_model)))\n        .map(r => ({\n          model: r.previous_model,\n          replacedBy: r.model,\n          role: r.role,\n          appliedAt: r.applied_at,\n        }));\n    } catch (_) {\n      return [];\n    }\n  }",
+            "header": "getUnusedOldModels() {",
+            "tail": ""
+          }
+        ],
+        "code": "  getUnusedOldModels() {\n    if (!this._db) return [];\n    try {\n      const rows = this._db.prepare(\n        'SELECT role, model, previous_model, applied_at FROM model_overrides ORDER BY applied_at DESC LIMIT 50'\n      ).all();\n\n      const boundModels = canonicalModelNameSet(Object.values(config.models));\n      return rows\n        .filter(r => !boundModels.has(canonicalModelName(r.previous_model)))\n        .map(r => ({\n          model: r.previous_model,\n          replacedBy: r.model,\n          role: r.role,\n          appliedAt: r.applied_at,\n        }));\n    } catch (_) {\n      return [];\n    }\n  }"
+      },
+      "context": "Historical pre-fix code. Inspect the pinned revision and its callers, not the current file. This is development material, not a blind acceptance set.",
+      "referenceBasis": {
+        "fixRevision": "da95ab15d9fdded66904195d4d5062549fb934d2",
+        "existingTest": "tests/m1-model-binding-application.test.js",
+        "requirements": [
+          "delete protection exposes current desired and one-step rollback identities",
+          "model delete reservation excludes binding apply before any runtime or provider effect",
+          "chat cleanup adapter consumes one exact registry plan and one single-use approval",
+          "real post-apply chat cleanup parks the protected one-step rollback model",
+          "artifact digest accepts bare and sha256-prefixed 64-hex only",
+          "delete revalidates exact provider name and normalized digest before one effect",
+          "binding acquired at the delete seam blocks before inventory and provider effects",
+          "durable desired and rollback binding identities block before provider effects",
+          "overview and scheduler consume only authoritative JSON model settings",
+          "auto-cleanup parses every UTC usage row and is strict and fail-closed at cutoff",
+          "overlapping cleanup tick fails typed before a second inventory effect",
+          "single-model validation reserves its model and releases on terminal completion",
+          "live validation route acquires the registry reservation before reporting started",
+          "getUnusedOldModels is canonical-deduped, null-free and newest-first",
+          "route without deletion authority fails closed and live registry blocks aliases"
+        ]
+      },
+      "acceptanceState": "ROLE_SPECIFIC_ORACLES_NOT_IMPLEMENTED",
+      "authorNotes": {
+        "failure": "Cleanup proposals include null or repeated previous identities.",
+        "invariants": [
+          "Canonical-deduplicated newest-first proposals.",
+          "Exclude active and rollback-protected identities at the authoritative delete seam."
+        ],
+        "checks": [
+          "Null and empty names are excluded.",
+          "Alias and latest spelling deduplicate.",
+          "Two historic replacements keep the newest record.",
+          "Deletion revalidates current protected bindings."
+        ],
+        "alternatives": [
+          "Set plus ordered traversal or ordered reduce with equivalent canonical identity semantics."
+        ],
+        "dependencies": [
+          "override history",
+          "canonical identity",
+          "registry deletion authority"
+        ],
+        "trap": "Deduplicating raw display names or bypassing the delete authority is insufficient."
+      },
+      "tasks": [
+        {
+          "id": "d1_model_cleanup",
+          "role": "D1",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "hard",
+          "assignment": "Analyze the request across the supplied source and its pinned callers. Explain the causal chain, affected boundaries and invariants, compare at least two viable repairs, and order the implementation and verification steps. Mark missing evidence explicitly. Do not produce a patch.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "request and symptom",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "causal model",
+            "coverage of boundaries",
+            "constraints and alternatives",
+            "ordered verification plan"
+          ],
+          "acceptanceEvidence": [
+            "Null and empty names are excluded.",
+            "Alias and latest spelling deduplicate.",
+            "Two historic replacements keep the newest record.",
+            "Deletion revalidates current protected bindings."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "model-cleanup"
+        },
+        {
+          "id": "d2_model_cleanup",
+          "role": "D2",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "intermediate",
+          "assignment": "Given the failing observation, identify its cause and the smallest safe repair. Name one discriminating reproduction, explain why the tempting incomplete fix fails, and list focused regression checks. Keep the scope to this failure. Do not claim tests were run.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "request and symptom",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "diagnosis",
+            "minimal repair",
+            "reproduction",
+            "regression and negative cases"
+          ],
+          "acceptanceEvidence": [
+            "Null and empty names are excluded.",
+            "Alias and latest spelling deduplicate.",
+            "Two historic replacements keep the newest record.",
+            "Deletion revalidates current protected bindings."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "model-cleanup"
+        },
+        {
+          "id": "r1_model_cleanup",
+          "role": "R1",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "hard",
+          "assignment": "Review the proposed repair and its interaction with callers, persistence and cleanup. Separate blocking defects from missing evidence and nonblocking observations. Support each finding with a causal path and reproduction. Accept a correct alternative; do not require byte equality with a reference patch.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "candidate diff: correct alternative / intentionally incomplete repair",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "cross-boundary correctness",
+            "regression risk",
+            "supported findings",
+            "appropriate verdict"
+          ],
+          "acceptanceEvidence": [
+            "Null and empty names are excluded.",
+            "Alias and latest spelling deduplicate.",
+            "Two historic replacements keep the newest record.",
+            "Deletion revalidates current protected bindings."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "model-cleanup"
+        },
+        {
+          "id": "r2_model_cleanup",
+          "role": "R2",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "intermediate",
+          "assignment": "Review the bounded diff/excerpt and its explicit context. For each actual defect give its location, trigger, consequence and a focused reproduction. Report no finding when the constructed negative control is correct. Findings outside the reference remain unverified pending adjudication.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "request and symptom",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "supported defect identification",
+            "causal location",
+            "reproduction",
+            "false-positive control"
+          ],
+          "acceptanceEvidence": [
+            "Null and empty names are excluded.",
+            "Alias and latest spelling deduplicate.",
+            "Two historic replacements keep the newest record.",
+            "Deletion revalidates current protected bindings."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "model-cleanup"
+        }
+      ]
+    },
+    {
+      "id": "model_lease",
+      "independenceGroup": "model-use-leases",
+      "source": {
+        "revision": "b03a9e640299edfcd430475f824ca8bab813d6ce",
+        "path": "src/upgrade/model-use-authority.js",
+        "fileSha256": "b2c46ce6bc42f89c456c95b1df830d45166cdb9b9d5f23076d47a1dfee6c6ef1",
+        "spans": [
+          {
+            "kind": "top-level",
+            "name": "MODEL_ACTIVITY_OWNER",
+            "startLine": 10,
+            "endLine": 16,
+            "text": "export const MODEL_ACTIVITY_OWNER = Object.freeze({\n  LLM_GATEWAY: 'LLM_GATEWAY',\n  MODEL_VALIDATION: 'MODEL_VALIDATION',\n  BINDING_VERIFICATION: 'BINDING_VERIFICATION',\n  MODEL_PULL: 'MODEL_PULL',\n  MODEL_DELETE: 'MODEL_DELETE',\n});",
+            "header": "export const MODEL_ACTIVITY_OWNER = Object.freeze({",
+            "tail": ""
+          },
+          {
+            "kind": "top-level",
+            "name": "SHARED_OWNERS",
+            "startLine": 19,
+            "endLine": 23,
+            "text": "const SHARED_OWNERS = new Set([\n  MODEL_ACTIVITY_OWNER.LLM_GATEWAY,\n  MODEL_ACTIVITY_OWNER.MODEL_VALIDATION,\n  MODEL_ACTIVITY_OWNER.BINDING_VERIFICATION,\n]);",
+            "header": "const SHARED_OWNERS = new Set([",
+            "tail": ""
+          }
+        ],
+        "code": "export const MODEL_ACTIVITY_OWNER = Object.freeze({\n  LLM_GATEWAY: 'LLM_GATEWAY',\n  MODEL_VALIDATION: 'MODEL_VALIDATION',\n  BINDING_VERIFICATION: 'BINDING_VERIFICATION',\n  MODEL_PULL: 'MODEL_PULL',\n  MODEL_DELETE: 'MODEL_DELETE',\n});\n\nconst SHARED_OWNERS = new Set([\n  MODEL_ACTIVITY_OWNER.LLM_GATEWAY,\n  MODEL_ACTIVITY_OWNER.MODEL_VALIDATION,\n  MODEL_ACTIVITY_OWNER.BINDING_VERIFICATION,\n]);"
+      },
+      "context": "Historical pre-fix code. Inspect the pinned revision and its callers, not the current file. This is development material, not a blind acceptance set.",
+      "referenceBasis": {
+        "fixRevision": "0bf2e11db5618b2dcdcbd4cdcc25e5f572c7a014",
+        "existingTest": "tests/m1-model-binding-application.test.js",
+        "requirements": [
+          "binding cutover re-resolves and reserves previous plus target through commit",
+          "cold pull finishes before binding cutover acquires shared use",
+          "default binding wiring shares the production model-use authority",
+          "cutover conflict is retryable and releases a partially acquired lease set",
+          "repository compensation runs under both cutover leases and releases them",
+          "runtime finalize failure releases leases but leaves the named reconciliation residual",
+          "verification conflict retries after releasing the lease before delay",
+          "prior exact override rejects stale census identity under cutover leases",
+          "startup census hint is re-resolved under cutover leases before restore"
+        ]
+      },
+      "acceptanceState": "ROLE_SPECIFIC_ORACLES_NOT_IMPLEMENTED",
+      "authorNotes": {
+        "failure": "Binding cutover has no declared shared-use owner in the pre-fix registry.",
+        "invariants": [
+          "Both old and new artifact identities stay protected during cutover and compensation.",
+          "Delete remains mutually exclusive with use.",
+          "Partial acquisition is released on every exit."
+        ],
+        "checks": [
+          "Delete attempt during cutover makes zero provider mutations.",
+          "Second identity conflict releases the first reservation.",
+          "Failure paths release all acquired leases."
+        ],
+        "alternatives": [
+          "Add and classify the explicit cutover owner while retaining central lease semantics."
+        ],
+        "dependencies": [
+          "owner taxonomy",
+          "binding application",
+          "rollback compensation",
+          "delete reservation"
+        ],
+        "trap": "Treating every unknown owner as shared silently grants authority."
+      },
+      "tasks": [
+        {
+          "id": "d1_model_lease",
+          "role": "D1",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "hard",
+          "assignment": "Analyze the request across the supplied source and its pinned callers. Explain the causal chain, affected boundaries and invariants, compare at least two viable repairs, and order the implementation and verification steps. Mark missing evidence explicitly. Do not produce a patch.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "request and symptom",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "causal model",
+            "coverage of boundaries",
+            "constraints and alternatives",
+            "ordered verification plan"
+          ],
+          "acceptanceEvidence": [
+            "Delete attempt during cutover makes zero provider mutations.",
+            "Second identity conflict releases the first reservation.",
+            "Failure paths release all acquired leases."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "model-use-leases"
+        },
+        {
+          "id": "d2_model_lease",
+          "role": "D2",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "intermediate",
+          "assignment": "Given the failing observation, identify its cause and the smallest safe repair. Name one discriminating reproduction, explain why the tempting incomplete fix fails, and list focused regression checks. Keep the scope to this failure. Do not claim tests were run.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "request and symptom",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "diagnosis",
+            "minimal repair",
+            "reproduction",
+            "regression and negative cases"
+          ],
+          "acceptanceEvidence": [
+            "Delete attempt during cutover makes zero provider mutations.",
+            "Second identity conflict releases the first reservation.",
+            "Failure paths release all acquired leases."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "model-use-leases"
+        },
+        {
+          "id": "r1_model_lease",
+          "role": "R1",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "hard",
+          "assignment": "Review the proposed repair and its interaction with callers, persistence and cleanup. Separate blocking defects from missing evidence and nonblocking observations. Support each finding with a causal path and reproduction. Accept a correct alternative; do not require byte equality with a reference patch.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "candidate diff: correct alternative / intentionally incomplete repair",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "cross-boundary correctness",
+            "regression risk",
+            "supported findings",
+            "appropriate verdict"
+          ],
+          "acceptanceEvidence": [
+            "Delete attempt during cutover makes zero provider mutations.",
+            "Second identity conflict releases the first reservation.",
+            "Failure paths release all acquired leases."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "model-use-leases"
+        },
+        {
+          "id": "r2_model_lease",
+          "role": "R2",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "intermediate",
+          "assignment": "Review the bounded diff/excerpt and its explicit context. For each actual defect give its location, trigger, consequence and a focused reproduction. Report no finding when the constructed negative control is correct. Findings outside the reference remain unverified pending adjudication.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "request and symptom",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "supported defect identification",
+            "causal location",
+            "reproduction",
+            "false-positive control"
+          ],
+          "acceptanceEvidence": [
+            "Delete attempt during cutover makes zero provider mutations.",
+            "Second identity conflict releases the first reservation.",
+            "Failure paths release all acquired leases."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "model-use-leases"
+        }
+      ]
+    },
+    {
+      "id": "pairwise_confidence",
+      "independenceGroup": "pairwise-confidence",
+      "source": {
+        "revision": "580800e1f1675ef105233f3d15c29b0a17e5bbd4",
+        "path": "src/upgrade/pairwise-trial.js",
+        "fileSha256": "9921e8826081e3fd93341e86a57289d861199106d129548b48e773935407a937",
+        "spans": [
+          {
+            "kind": "region",
+            "name": null,
+            "startLine": 192,
+            "endLine": 243,
+            "text": "export function decideRole(comparison, speed = {}, threshold = 0.05) {\n  const { margin, candidateWins, incumbentWins, inconclusive } = comparison;\n\n  if (!inconclusive) {\n    if (margin >= threshold && candidateWins > incumbentWins) {\n      return {\n        winner: 'candidate',\n        basis: 'kvalita',\n        detail: `marže ${margin.toFixed(3)} ≥ práh ${threshold} na ${comparison.discriminating} rozlišujících úlohách `\n          + `(${candidateWins}:${incumbentWins})`,\n      };\n    }\n    if (margin <= -threshold && incumbentWins > candidateWins) {\n      return {\n        winner: 'incumbent',\n        basis: 'kvalita',\n        detail: `kandidát ztrácí ${Math.abs(margin).toFixed(3)} na ${comparison.discriminating} úlohách`,\n      };\n    }\n    return {\n      winner: 'incumbent',\n      basis: 'kvalita',\n      detail: `rozdíl ${margin.toFixed(3)} nedosáhl prahu ${threshold} — stávající zůstává`,\n    };\n  }\n\n  // Kvalita nerozlišila. Rychlost rozhodne jen při zřetelném rozdílu.\n  const c = speed.candidate;\n  const i = speed.incumbent;\n  if (c > 0 && i > 0) {\n    const ratio = c / i;\n    if (ratio >= 1.25) {\n      return {\n        winner: 'candidate',\n        basis: 'rychlost',\n        detail: `kvalita nerozlišila (všechny úlohy shodné), kandidát je ${ratio.toFixed(2)}× rychlejší `\n          + `(${c} vs ${i} tok/s)`,\n      };\n    }\n    return {\n      winner: 'incumbent',\n      basis: 'nerozhodně',\n      detail: `kvalita nerozlišila a rychlost se liší jen ${ratio.toFixed(2)}× — stávající zůstává`,\n    };\n  }\n\n  return {\n    winner: 'incumbent',\n    basis: 'nerozhodně',\n    detail: 'kvalita nerozlišila a rychlost není změřená',\n  };\n}",
+            "header": "export function decideRole(comparison, speed = {}, threshold = 0.05) {",
+            "tail": ""
+          }
+        ],
+        "code": "export function decideRole(comparison, speed = {}, threshold = 0.05) {\n  const { margin, candidateWins, incumbentWins, inconclusive } = comparison;\n\n  if (!inconclusive) {\n    if (margin >= threshold && candidateWins > incumbentWins) {\n      return {\n        winner: 'candidate',\n        basis: 'kvalita',\n        detail: `marže ${margin.toFixed(3)} ≥ práh ${threshold} na ${comparison.discriminating} rozlišujících úlohách `\n          + `(${candidateWins}:${incumbentWins})`,\n      };\n    }\n    if (margin <= -threshold && incumbentWins > candidateWins) {\n      return {\n        winner: 'incumbent',\n        basis: 'kvalita',\n        detail: `kandidát ztrácí ${Math.abs(margin).toFixed(3)} na ${comparison.discriminating} úlohách`,\n      };\n    }\n    return {\n      winner: 'incumbent',\n      basis: 'kvalita',\n      detail: `rozdíl ${margin.toFixed(3)} nedosáhl prahu ${threshold} — stávající zůstává`,\n    };\n  }\n\n  // Kvalita nerozlišila. Rychlost rozhodne jen při zřetelném rozdílu.\n  const c = speed.candidate;\n  const i = speed.incumbent;\n  if (c > 0 && i > 0) {\n    const ratio = c / i;\n    if (ratio >= 1.25) {\n      return {\n        winner: 'candidate',\n        basis: 'rychlost',\n        detail: `kvalita nerozlišila (všechny úlohy shodné), kandidát je ${ratio.toFixed(2)}× rychlejší `\n          + `(${c} vs ${i} tok/s)`,\n      };\n    }\n    return {\n      winner: 'incumbent',\n      basis: 'nerozhodně',\n      detail: `kvalita nerozlišila a rychlost se liší jen ${ratio.toFixed(2)}× — stávající zůstává`,\n    };\n  }\n\n  return {\n    winner: 'incumbent',\n    basis: 'nerozhodně',\n    detail: 'kvalita nerozlišila a rychlost není změřená',\n  };\n}"
+      },
+      "context": "Historical pre-fix code. Inspect the pinned revision and its callers, not the current file. This is development material, not a blind acceptance set.",
+      "referenceBasis": {
+        "fixRevision": "f8ac2c312c1b7245f24daa16871ed236897cfc1b",
+        "existingTest": "tests/candidate-trial.test.js",
+        "requirements": [
+          "textový model se pro VISION vůbec nesoutěží",
+          "vision model se pro VISION soutěží normálně",
+          "volající může dodat přesnější vlastnosti kandidáta",
+          "rozhodnutí o jedinou úlohu je označené jako nízká jistota",
+          "víc rozlišujících úloh zvedá jistotu",
+          "jistota se hlásí i u prohry kandidáta"
+        ]
+      },
+      "acceptanceState": "ROLE_SPECIFIC_ORACLES_NOT_IMPLEMENTED",
+      "authorNotes": {
+        "failure": "A narrow observed winner is returned without exposing how little independent evidence supports it.",
+        "invariants": [
+          "Do not interpret inconclusive quality as equivalence.",
+          "Repeated observations of one defect do not become independent cases.",
+          "Retain evidence for losses as well as wins."
+        ],
+        "checks": [
+          "One discriminating scenario reports insufficient support.",
+          "Correlated variants stay one group.",
+          "Speed cannot justify replacement without a quality non-inferiority bound."
+        ],
+        "alternatives": [
+          "Explicit insufficient-evidence verdict or a supported interval rule locked before measurement."
+        ],
+        "dependencies": [
+          "task grouping",
+          "pairwise reducer",
+          "recommendation authority"
+        ],
+        "trap": "A speed ratio alone does not prove acceptable quality. Historical fix is a source, not the new decision policy."
+      },
+      "tasks": [
+        {
+          "id": "d1_pairwise_confidence",
+          "role": "D1",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "hard",
+          "assignment": "Analyze the request across the supplied source and its pinned callers. Explain the causal chain, affected boundaries and invariants, compare at least two viable repairs, and order the implementation and verification steps. Mark missing evidence explicitly. Do not produce a patch.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "request and symptom",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "causal model",
+            "coverage of boundaries",
+            "constraints and alternatives",
+            "ordered verification plan"
+          ],
+          "acceptanceEvidence": [
+            "One discriminating scenario reports insufficient support.",
+            "Correlated variants stay one group.",
+            "Speed cannot justify replacement without a quality non-inferiority bound."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "pairwise-confidence"
+        },
+        {
+          "id": "d2_pairwise_confidence",
+          "role": "D2",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "intermediate",
+          "assignment": "Given the failing observation, identify its cause and the smallest safe repair. Name one discriminating reproduction, explain why the tempting incomplete fix fails, and list focused regression checks. Keep the scope to this failure. Do not claim tests were run.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "request and symptom",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "diagnosis",
+            "minimal repair",
+            "reproduction",
+            "regression and negative cases"
+          ],
+          "acceptanceEvidence": [
+            "One discriminating scenario reports insufficient support.",
+            "Correlated variants stay one group.",
+            "Speed cannot justify replacement without a quality non-inferiority bound."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "pairwise-confidence"
+        },
+        {
+          "id": "r1_pairwise_confidence",
+          "role": "R1",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "hard",
+          "assignment": "Review the proposed repair and its interaction with callers, persistence and cleanup. Separate blocking defects from missing evidence and nonblocking observations. Support each finding with a causal path and reproduction. Accept a correct alternative; do not require byte equality with a reference patch.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "candidate diff: correct alternative / intentionally incomplete repair",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "cross-boundary correctness",
+            "regression risk",
+            "supported findings",
+            "appropriate verdict"
+          ],
+          "acceptanceEvidence": [
+            "One discriminating scenario reports insufficient support.",
+            "Correlated variants stay one group.",
+            "Speed cannot justify replacement without a quality non-inferiority bound."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "pairwise-confidence"
+        },
+        {
+          "id": "r2_pairwise_confidence",
+          "role": "R2",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "intermediate",
+          "assignment": "Review the bounded diff/excerpt and its explicit context. For each actual defect give its location, trigger, consequence and a focused reproduction. Report no finding when the constructed negative control is correct. Findings outside the reference remain unverified pending adjudication.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "request and symptom",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "supported defect identification",
+            "causal location",
+            "reproduction",
+            "false-positive control"
+          ],
+          "acceptanceEvidence": [
+            "One discriminating scenario reports insufficient support.",
+            "Correlated variants stay one group.",
+            "Speed cannot justify replacement without a quality non-inferiority bound."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "pairwise-confidence"
+        }
+      ]
+    },
+    {
+      "id": "verification_timeout",
+      "independenceGroup": "verification-timeout",
+      "source": {
+        "revision": "7de5c6459b66fff8b4ac7fa76bab9e5bb9e1e403",
+        "path": "src/upgrade/upgrade-manager.js",
+        "fileSha256": "f03d4ab7605ff166769456a64069129144aa4a1838a9b0a3ca609e9e50da3e75",
+        "spans": [
+          {
+            "kind": "region",
+            "name": null,
+            "startLine": 830,
+            "endLine": 860,
+            "text": "  async _verifyModel(modelName) {\n    const baseUrl = config.ollama?.baseUrl || 'http://127.0.0.1:11434';\n    // 90s — model may need to load into VRAM (unload previous + load new)\n    const timeout = 90000;\n\n    try {\n      const controller = new AbortController();\n      const timeoutId = setTimeout(() => controller.abort(), timeout);\n\n      const response = await fetch(`${baseUrl}/api/chat`, {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({\n          model: modelName,\n          messages: [{ role: 'user', content: 'ping' }],\n          stream: false,\n          options: { num_predict: 1, num_ctx: 512 },\n        }),\n        signal: controller.signal,\n      });\n\n      clearTimeout(timeoutId);\n      if (!response.ok) return false;\n\n      const data = await response.json();\n      return !!(data.message?.content || data.response);\n    } catch (err) {\n      logger.warn('UpgradeManager', `Verify failed for ${modelName}: ${err.message}`);\n      return false;\n    }\n  }",
+            "header": "async _verifyModel(modelName) {",
+            "tail": ""
+          }
+        ],
+        "code": "  async _verifyModel(modelName) {\n    const baseUrl = config.ollama?.baseUrl || 'http://127.0.0.1:11434';\n    // 90s — model may need to load into VRAM (unload previous + load new)\n    const timeout = 90000;\n\n    try {\n      const controller = new AbortController();\n      const timeoutId = setTimeout(() => controller.abort(), timeout);\n\n      const response = await fetch(`${baseUrl}/api/chat`, {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({\n          model: modelName,\n          messages: [{ role: 'user', content: 'ping' }],\n          stream: false,\n          options: { num_predict: 1, num_ctx: 512 },\n        }),\n        signal: controller.signal,\n      });\n\n      clearTimeout(timeoutId);\n      if (!response.ok) return false;\n\n      const data = await response.json();\n      return !!(data.message?.content || data.response);\n    } catch (err) {\n      logger.warn('UpgradeManager', `Verify failed for ${modelName}: ${err.message}`);\n      return false;\n    }\n  }"
+      },
+      "context": "Historical pre-fix code. Inspect the pinned revision and its callers, not the current file. This is development material, not a blind acceptance set.",
+      "referenceBasis": {
+        "fixRevision": "723d5726087afcbac935e84b8382a963dd440520",
+        "existingTest": "tests/upgrade-apply.test.js",
+        "requirements": [
+          "original _verifyModel clears its timeout on network error"
+        ]
+      },
+      "acceptanceState": "ROLE_SPECIFIC_ORACLES_NOT_IMPLEMENTED",
+      "authorNotes": {
+        "failure": "A network exception leaves the verification timer uncleared.",
+        "invariants": [
+          "Release the owned timer on all exits.",
+          "Keep the established header/body abort boundary explicit.",
+          "Return the documented failure result on network error."
+        ],
+        "checks": [
+          "Network throw clears timer.",
+          "Non-OK response clears timer.",
+          "JSON parse failure clears timer.",
+          "Successful headers clear at the declared boundary."
+        ],
+        "alternatives": [
+          "Hoist owned handles and clear in finally, plus explicit successful-header boundary where required."
+        ],
+        "dependencies": [
+          "fetch",
+          "response body",
+          "abort signal",
+          "timer lifetime"
+        ],
+        "trap": "Moving clearTimeout only into the success branch leaks on exceptions."
+      },
+      "tasks": [
+        {
+          "id": "d1_verification_timeout",
+          "role": "D1",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "hard",
+          "assignment": "Analyze the request across the supplied source and its pinned callers. Explain the causal chain, affected boundaries and invariants, compare at least two viable repairs, and order the implementation and verification steps. Mark missing evidence explicitly. Do not produce a patch.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "request and symptom",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "causal model",
+            "coverage of boundaries",
+            "constraints and alternatives",
+            "ordered verification plan"
+          ],
+          "acceptanceEvidence": [
+            "Network throw clears timer.",
+            "Non-OK response clears timer.",
+            "JSON parse failure clears timer.",
+            "Successful headers clear at the declared boundary."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "verification-timeout"
+        },
+        {
+          "id": "d2_verification_timeout",
+          "role": "D2",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "intermediate",
+          "assignment": "Given the failing observation, identify its cause and the smallest safe repair. Name one discriminating reproduction, explain why the tempting incomplete fix fails, and list focused regression checks. Keep the scope to this failure. Do not claim tests were run.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "request and symptom",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "diagnosis",
+            "minimal repair",
+            "reproduction",
+            "regression and negative cases"
+          ],
+          "acceptanceEvidence": [
+            "Network throw clears timer.",
+            "Non-OK response clears timer.",
+            "JSON parse failure clears timer.",
+            "Successful headers clear at the declared boundary."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "verification-timeout"
+        },
+        {
+          "id": "r1_verification_timeout",
+          "role": "R1",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "hard",
+          "assignment": "Review the proposed repair and its interaction with callers, persistence and cleanup. Separate blocking defects from missing evidence and nonblocking observations. Support each finding with a causal path and reproduction. Accept a correct alternative; do not require byte equality with a reference patch.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "candidate diff: correct alternative / intentionally incomplete repair",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "cross-boundary correctness",
+            "regression risk",
+            "supported findings",
+            "appropriate verdict"
+          ],
+          "acceptanceEvidence": [
+            "Network throw clears timer.",
+            "Non-OK response clears timer.",
+            "JSON parse failure clears timer.",
+            "Successful headers clear at the declared boundary."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "verification-timeout"
+        },
+        {
+          "id": "r2_verification_timeout",
+          "role": "R2",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "intermediate",
+          "assignment": "Review the bounded diff/excerpt and its explicit context. For each actual defect give its location, trigger, consequence and a focused reproduction. Report no finding when the constructed negative control is correct. Findings outside the reference remain unverified pending adjudication.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "request and symptom",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "supported defect identification",
+            "causal location",
+            "reproduction",
+            "false-positive control"
+          ],
+          "acceptanceEvidence": [
+            "Network throw clears timer.",
+            "Non-OK response clears timer.",
+            "JSON parse failure clears timer.",
+            "Successful headers clear at the declared boundary."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "verification-timeout"
+        }
+      ]
+    },
+    {
+      "id": "metrics_flush",
+      "independenceGroup": "metrics-transaction",
+      "source": {
+        "revision": "912bf0ff344c86a8014b3c5b90b75ec4da707f65",
+        "path": "src/upgrade/metrics-collector.js",
+        "fileSha256": "1c0cdac22f1f40dde4b7040e999224ae928f0168dfa37c8bbcb4dd48896a9705",
+        "startLine": 72,
+        "endLine": 112,
+        "code": "  /**\n   * Batch INSERT OR IGNORE in a single transaction.\n   */\n  _flush() {\n    try {\n      if (this._flushTimer) {\n        clearTimeout(this._flushTimer);\n        this._flushTimer = null;\n      }\n      if (!this._db || this._buffer.length === 0) return;\n\n      if (!this._insertStmt) {\n        this._insertStmt = this._db.prepare(`\n          INSERT OR IGNORE INTO model_performance\n            (role, model, task_type, success, iterations, tokens, duration_ms,\n             errors_fixed, errors_remaining, stop_reason, lifecycle_id, milestone_id, detail_json)\n          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\n        `);\n      }\n\n      const batch = this._buffer.splice(0);\n      const tx = this._db.transaction((rows) => {\n        for (const r of rows) {\n          this._insertStmt.run(\n            r.role, r.model, r.taskType, r.success, r.iterations, r.tokens, r.durationMs,\n            r.errorsFixed, r.errorsRemaining, r.stopReason, r.lifecycleId, r.milestoneId, r.detailJson\n          );\n        }\n      });\n      tx(batch);\n      this._consecutiveFailures = 0;\n    } catch (_) {\n      this._consecutiveFailures++;\n      if (this._consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {\n        this._disabledUntil = Date.now() + DISABLE_DURATION_MS;\n      }\n    }\n  }\n\n  /**\n   * Force flush — used in tests and shutdown.\n"
+      },
+      "context": "DB transaction throws before commit. Buffer contains three events. Trace what is persisted, what remains available for retry, and whether later new events may be dropped.",
+      "referenceBasis": {
+        "fixRevision": "113266c2a26d071d5dc314d09f0125e49cbcfc07",
+        "audit": "docs/archive/AUDIT-v123.md, finding 11",
+        "existingTest": "tests/metrics-collector.test.js",
+        "note": "Source diff inspected; no oracle executed tonight"
+      },
+      "acceptanceState": "ROLE_SPECIFIC_ORACLES_NOT_IMPLEMENTED",
+      "authorNotes": {
+        "failure": "splice removes buffered metrics before the transaction commits, losing retry data on DB failure.",
+        "invariants": [
+          "Failed transaction preserves the pending batch.",
+          "Successful commit removes only that batch.",
+          "Do not claim exactly-once delivery without durable idempotency evidence."
+        ],
+        "checks": [
+          "DB failure leaves the original three events.",
+          "Success clears the committed prefix.",
+          "Newly added events are retained."
+        ],
+        "alternatives": [
+          "Copy then remove after commit, or a durable queue with equivalent failure semantics."
+        ],
+        "dependencies": [
+          "memory buffer",
+          "DB transaction",
+          "retry scheduling"
+        ],
+        "trap": "Catching the exception without retaining the batch only hides data loss."
+      },
+      "tasks": [
+        {
+          "id": "d1_metrics_flush",
+          "role": "D1",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "hard",
+          "assignment": "Analyze the request across the supplied source and its pinned callers. Explain the causal chain, affected boundaries and invariants, compare at least two viable repairs, and order the implementation and verification steps. Mark missing evidence explicitly. Do not produce a patch.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "request and symptom",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "causal model",
+            "coverage of boundaries",
+            "constraints and alternatives",
+            "ordered verification plan"
+          ],
+          "acceptanceEvidence": [
+            "DB failure leaves the original three events.",
+            "Success clears the committed prefix.",
+            "Newly added events are retained."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "metrics-transaction"
+        },
+        {
+          "id": "d2_metrics_flush",
+          "role": "D2",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "intermediate",
+          "assignment": "Given the failing observation, identify its cause and the smallest safe repair. Name one discriminating reproduction, explain why the tempting incomplete fix fails, and list focused regression checks. Keep the scope to this failure. Do not claim tests were run.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "request and symptom",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "diagnosis",
+            "minimal repair",
+            "reproduction",
+            "regression and negative cases"
+          ],
+          "acceptanceEvidence": [
+            "DB failure leaves the original three events.",
+            "Success clears the committed prefix.",
+            "Newly added events are retained."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "metrics-transaction"
+        },
+        {
+          "id": "r1_metrics_flush",
+          "role": "R1",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "hard",
+          "assignment": "Review the proposed repair and its interaction with callers, persistence and cleanup. Separate blocking defects from missing evidence and nonblocking observations. Support each finding with a causal path and reproduction. Accept a correct alternative; do not require byte equality with a reference patch.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "candidate diff: correct alternative / intentionally incomplete repair",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "cross-boundary correctness",
+            "regression risk",
+            "supported findings",
+            "appropriate verdict"
+          ],
+          "acceptanceEvidence": [
+            "DB failure leaves the original three events.",
+            "Success clears the committed prefix.",
+            "Newly added events are retained."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "metrics-transaction"
+        },
+        {
+          "id": "r2_metrics_flush",
+          "role": "R2",
+          "status": "DRAFT_NOT_VALIDATED",
+          "difficulty": "intermediate",
+          "assignment": "Review the bounded diff/excerpt and its explicit context. For each actual defect give its location, trigger, consequence and a focused reproduction. Report no finding when the constructed negative control is correct. Findings outside the reference remain unverified pending adjudication.",
+          "requiredInput": [
+            "pinned pre-fix sources",
+            "request and symptom",
+            "relevant caller excerpts"
+          ],
+          "rubric": [
+            "supported defect identification",
+            "causal location",
+            "reproduction",
+            "false-positive control"
+          ],
+          "acceptanceEvidence": [
+            "DB failure leaves the original three events.",
+            "Success clears the committed prefix.",
+            "Newly added events are retained."
+          ],
+          "graderPreparation": {
+            "preferredTier": "T1/T2 for observable effects; expert adjudication for open explanation",
+            "implementation": "PENDING",
+            "forbidden": "substring matches as correctness; automatic FP for an unlisted real finding"
+          },
+          "variants": [
+            "broken baseline",
+            "correct alternative",
+            "confidently wrong explanation",
+            "prompt echo",
+            "negated causal claim"
+          ],
+          "independenceGroup": "metrics-transaction"
+        }
+      ]
+    }
+  ],
+  "chat": {
+    "taskCount": 40,
+    "languageCounts": {
+      "en": 24,
+      "cs": 16
+    },
+    "tasks": [
+      {
+        "id": "en_grounded_summary",
+        "language": "en",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "en_action_email",
+        "language": "en",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "en_context_correction",
+        "language": "en",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "en_missing_context",
+        "language": "en",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "en_structured_extraction",
+        "language": "en",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Review typed values, complete schema and conflicting claims",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "en_translation_from_czech",
+        "language": "en",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "en_instruction_priority",
+        "language": "en",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Review typed values, complete schema and conflicting claims",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "en_state_updates",
+        "language": "en",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Review typed values, complete schema and conflicting claims",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "en_capability_boundary",
+        "language": "en",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "en_exact_markdown_table",
+        "language": "en",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Review typed values, complete schema and conflicting claims",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "en_professional_rewrite",
+        "language": "en",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "en_conditional_action",
+        "language": "en",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "en_exact_csv",
+        "language": "en",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Review typed values, complete schema and conflicting claims",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "en_ambiguous_reference",
+        "language": "en",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "en_completion_vs_verification",
+        "language": "en",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "en_quantifier_scope",
+        "language": "en",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "en_evidence_boundary",
+        "language": "en",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "en_exact_yaml",
+        "language": "en",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Review typed values, complete schema and conflicting claims",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "en_multi_correction",
+        "language": "en",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Review typed values, complete schema and conflicting claims",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "en_neutral_escalation",
+        "language": "en",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "en_inclusion_exclusion",
+        "language": "en",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "en_coherent_status_paragraph",
+        "language": "en",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "en_customer_delay_explanation",
+        "language": "en",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "en_grounded_comparison_paragraph",
+        "language": "en",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "cz_grounded_summary",
+        "language": "cs",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "cz_exact_bullets",
+        "language": "cs",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Review typed values, complete schema and conflicting claims",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "cz_context_correction",
+        "language": "cs",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "cz_professional_reply",
+        "language": "cs",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "cz_declension",
+        "language": "cs",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "cz_plural_agreement",
+        "language": "cs",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "cz_formal_register",
+        "language": "cs",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "cz_ambiguity_clarification",
+        "language": "cs",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "cz_vocative_request",
+        "language": "cs",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "cz_double_negation_counts",
+        "language": "cs",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "cz_grammar_correction",
+        "language": "cs",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "cz_numeral_cases",
+        "language": "cs",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "cz_relative_pronoun",
+        "language": "cs",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "cz_conditional_deadline",
+        "language": "cs",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "cz_coherent_status_paragraph",
+        "language": "cs",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      },
+      {
+        "id": "cz_customer_explanation_paragraph",
+        "language": "cs",
+        "source": "src/eval/role-quality-suites.js:chatV3Suite",
+        "status": "PREPARATION_ONLY",
+        "action": "Replace semantic substring grading with a validated content rubric",
+        "adversarialCases": [
+          "empty",
+          "prompt echo",
+          "keyword stuffing",
+          "negation",
+          "confidently wrong",
+          "correct paraphrase"
+        ],
+        "expectedControls": {
+          "firstFive": "must not receive content credit merely for matching words",
+          "correctParaphrase": ">=0.9 after semantic rubric validation"
+        },
+        "referencePreparation": "Explicit factual claims, supported alternatives, contradiction cases and a separate format result",
+        "activationBlocker": "Open prose is not made objective by requesting JSON. T4 needs separate adjudicated acceptance; T5 cannot score meaning."
+      }
+    ]
+  },
+  "vision": {
+    "existingManifest": "src/eval/fixtures/vision/manifest.json",
+    "version": "vision-synthetic.3",
+    "imageTasks": [
+      {
+        "name": "vision_color",
+        "skill": "color",
+        "difficulty": "basic",
+        "imageSha256": "43f2c2a13716f365dda375e559322ebb65b4d9f6938945f4fe44824279634442"
+      },
+      {
+        "name": "vision_count",
+        "skill": "counting",
+        "difficulty": "basic",
+        "imageSha256": "dfadab8d84ae96701978e5df26400f510ea2cd4c1cffd111d513f72a00e2cf25"
+      },
+      {
+        "name": "vision_ring",
+        "skill": "shape",
+        "difficulty": "basic",
+        "imageSha256": "8136c8a8dbb57b3134983587f1a6cfaedadf0cc6979b3abfe1eff15243bdd640"
+      },
+      {
+        "name": "vision_spatial",
+        "skill": "spatial",
+        "difficulty": "intermediate",
+        "imageSha256": "555c71e965a67785885ef4709dca8a11896ae04f08f529aeadef79623c30cce1"
+      },
+      {
+        "name": "vision_area",
+        "skill": "size",
+        "difficulty": "intermediate",
+        "imageSha256": "1a0e0083299edcd218d6093f874e0d984cd8ec3a876d31be5c0595df15b5ebde"
+      },
+      {
+        "name": "vision_invoice",
+        "skill": "ocr",
+        "difficulty": "intermediate",
+        "imageSha256": "6976b87fed3790833beacc91ae3420e9b97d0a08be9bb164b947876bb5120bee"
+      },
+      {
+        "name": "vision_bars",
+        "skill": "chart",
+        "difficulty": "intermediate",
+        "imageSha256": "9cd4827acb8d64af68e7174ee56a01859b1bc9a66b698282a85fb0c6eb07ee8f"
+      },
+      {
+        "name": "vision_orders",
+        "skill": "table",
+        "difficulty": "hard",
+        "imageSha256": "5225ef2559328e5d1bf6295bbd362adc06c6dd643f5ff7cf9806d6bab495d3f3"
+      },
+      {
+        "name": "vision_lines",
+        "skill": "multi_series",
+        "difficulty": "hard",
+        "imageSha256": "0aaf1aa3ce9577641e82e28362a2e72c08c775afa662a828b5760ffe9d714007"
+      },
+      {
+        "name": "vision_routes",
+        "skill": "diagram",
+        "difficulty": "hard",
+        "imageSha256": "e9ffa6c5e903329ca9dc44e11a0072528ba3ed5bf3365c24704991849346e1b5"
+      },
+      {
+        "name": "vision_dashboard",
+        "skill": "ui_diagnostics",
+        "difficulty": "hard",
+        "imageSha256": "3d1eb5d1bb71f94392e5dc046ed84ed92b0414427253a5c1f08d7b995dce52a8"
+      },
+      {
+        "name": "vision_reconciliation",
+        "skill": "document_reasoning",
+        "difficulty": "hard",
+        "imageSha256": "fafc0bf13096294af9c1880b374a60dac40327e67e5a79eb8b4aedc8e549c9b7"
+      }
+    ],
+    "negativeControl": "vision_no_image",
+    "minimumDistinctImages": 10,
+    "remainingWork": [
+      "validate grades and alternatives per difficulty",
+      "add independent real document/UI samples before a broad deployment claim",
+      "keep image comprehension and JSON format outcomes separate"
+    ],
+    "newInferenceTonight": false
+  },
+  "code": {
+    "existingPlan": "benchmark-plan.json in review evidence",
+    "finishedModel": "qwen3.8:latest",
+    "cancelledModel": "devstral-small-2:latest",
+    "notStartedModel": "qwen3-coder:latest",
+    "resumePolicy": "Keep completed exact result; restart cancelled candidate from clean state, never infer its score from progress",
+    "remainingWork": [
+      "Review single-span extraction: it selects only the longest fenced block; accept equivalent complete multi-block repairs or disclose format failure separately before treating it as model quality.",
+      "durable task checkpoint on cancellation",
+      "locked paired decision rule",
+      "separate clean C3 holdout",
+      "representative peak memory with the same context"
+    ]
+  },
+  "profilePreparation": {
+    "quick": "Deferred until valid full-role coverage exists; subset must retain role skill coverage. Never binding/deletion authority.",
+    "full": "Representative task breadth plus clean operational cases; 20–30 min is a planning target, not an artificial minimum or proof of completeness.",
+    "qualification": "Same generation context as evaluation; record KV cache, concurrency, GPU/CPU placement and representative peak.",
+    "decision": "Pair incumbent and selected candidate on a prelocked independent set; unknown and interrupted attempts stay visible."
+  }
+}

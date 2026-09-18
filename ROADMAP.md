@@ -1,13 +1,12 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**CODE pilot, navazující implementace 2026-09-18:** opravené rozlišení chyby
-prostředí od chyby opravy, kontrola dokončení testu, plné odpovědi a počty
-nedokončených pokusů. Sedm historických úloh má ověřenou odlišnou správnou
-opravu; 49/49 adversariálních kontrol PASS. Jde o pět závislostních skupin,
-nikoli sedm nezávislých scénářů. Nové porovnání tří modelů a oddělený C3
-průchod zatím nejsou doložené; nové měření tří modelů probíhá. REVIEW_PENDING,
-PILOT_INCOMPLETE, nová implementace není nasazená.
-[Důkazy a omezení](docs/review/2026-09-18-CODE-PILOT-GRADER-CHECKPOINT.md).
+**CODE pilot, noční checkpoint 2026-09-18:** ověřené hodnotitele a výsledkové
+třídy (`d2ce71b7`), jedno nové měření Qwen3.8 76,19 % (21/21). Devstral
+zrušen na pokyn operátora, coder nezahájen. Hunt timer inactive/disabled,
+další testy odložené kvůli nočnímu klidu. Ostatní role mají připravené
+neaktivní podklady, nikoli ověřené sady. 359 PASS / 1 zděděný FAIL před
+poslední integrací vzhledu; integrovaný build PASS, GUI neověřené.
+REVIEW_PENDING / PILOT_INCOMPLETE / NOT_DEPLOYED. [Důkazy a meze](docs/review/2026-09-18-CODE-PILOT-GRADER-CHECKPOINT.md).
 
 **Evaluace, 2026-09-18 večer:** instalováno `230778ad`; VISION má 12 různých
 obrazových úloh + kontrolu bez obrázku, dvě nová měření a ověřený detail v GUI.

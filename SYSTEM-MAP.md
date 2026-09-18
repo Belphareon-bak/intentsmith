@@ -1,12 +1,12 @@
 # IntentSmith — mapa systému
 
-**CODE pilot, navazující implementace 2026-09-18:** hodnotitel rozlišuje
-platnou chybnou opravu, vyčerpání rozpočtu a neplatné prostředí bez skóre.
-Historie zachovává i předchozí dokončená opakování neúplného běhu; GUI
-nezobrazuje chybějící skóre úlohy jako nulu. Sedm úloh / pět skupin:
-gold, alternativní oprava a rozbitý základ ověřeny; 49/49 odpovědních sond PASS.
-REVIEW_PENDING / PILOT_INCOMPLETE / NOT_DEPLOYED. Bez nového modelového skóre,
-bez změny bindingů. [Checkpoint](docs/review/2026-09-18-CODE-PILOT-GRADER-CHECKPOINT.md).
+**CODE pilot, noční checkpoint 2026-09-18:** ověřené hodnotitele a výsledkové
+třídy (`d2ce71b7`), jedno nové měření Qwen3.8 76,19 % (21/21). Devstral
+zrušen na pokyn operátora, coder nezahájen. Hunt timer inactive/disabled,
+další testy odložené kvůli nočnímu klidu. Ostatní role mají připravené
+neaktivní podklady, nikoli ověřené sady. 359 PASS / 1 zděděný FAIL před
+poslední integrací vzhledu; integrovaný build PASS, GUI neověřené.
+REVIEW_PENDING / PILOT_INCOMPLETE / NOT_DEPLOYED. [Důkazy a meze](docs/review/2026-09-18-CODE-PILOT-GRADER-CHECKPOINT.md).
 
 **Evaluace, 2026-09-18 večer:** instalováno `230778ad`; 12 různých VISION PNG
 + kontrola bez obrázku, 13 × 3 odpovědí v každém ze dvou finálních běhů.

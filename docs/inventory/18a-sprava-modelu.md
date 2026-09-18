@@ -1,10 +1,12 @@
 # Inventura #18a — Správa modelů
 
-**CODE pilot 2026-09-18:** implementované výsledkové třídy a ověření sedmi
-historických hodnotitelů alternativními správnými implementacemi. 49/49
-odpovědních sond PASS, pět skupin závislých scénářů. Nové porovnání tří modelů,
-uzamčené rozhodování a oddělený provozní C3 průchod dosud nejsou doložené.
-REVIEW_PENDING / NOT_DEPLOYED; [checkpoint a meze](../review/2026-09-18-CODE-PILOT-GRADER-CHECKPOINT.md).
+**CODE pilot, noční checkpoint 2026-09-18:** ověřené hodnotitele a výsledkové
+třídy (`d2ce71b7`), jedno nové měření Qwen3.8 76,19 % (21/21). Devstral
+zrušen na pokyn operátora, coder nezahájen. Hunt timer inactive/disabled,
+další testy odložené kvůli nočnímu klidu. Ostatní role mají připravené
+neaktivní podklady, nikoli ověřené sady. 359 PASS / 1 zděděný FAIL před
+poslední integrací vzhledu; integrovaný build PASS, GUI neověřené.
+REVIEW_PENDING / PILOT_INCOMPLETE / NOT_DEPLOYED. [Důkazy a meze](../review/2026-09-18-CODE-PILOT-GRADER-CHECKPOINT.md).
 
 **IDE a GPU hunt, 2026-09-18:** nasazeno `576719bf`. Řazení hlavičkou,
 celé použitelné role v jedné evaluaci, číselné matice, 249 kandidátů ze

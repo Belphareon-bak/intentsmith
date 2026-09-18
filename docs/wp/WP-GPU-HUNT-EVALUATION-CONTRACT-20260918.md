@@ -1,6 +1,8 @@
 # WP — kontrakt platnosti evaluací GPU huntu
 
-**Stav:** SCOPE_APPROVED / NOT_IMPLEMENTED / PILOT_PENDING.
+**Stav:** SCOPE_APPROVED / IMPLEMENTATION_PARTIAL / PILOT_INCOMPLETE / REVIEW_PENDING.
+Checkpoint implementace je v [review](../review/2026-09-18-CODE-PILOT-GRADER-CHECKPOINT.md);
+přijetí pilotu tím nevzniká.
 Autorita: zadání operátora z 18. 9. 2026 po dvou kolech nezávislé revize návrhu.
 Tento dokument je **zadání pilotu**, nikoli přijetí implementace a nikoli
 tvrzení, že současné evaluace jsou platné.
@@ -216,3 +218,16 @@ kontextu již retenční politika odmítá jako důvod odstranění
 a evaluace, nové výsledkové třídy a CODE pilot tím nejsou implementované.
 Podrobnosti a meze dokládá
 [navazující review](../review/2026-09-18-EVALUATION-HARDENING-VISION.md).
+
+## Operátorské upřesnění, 18. 9. 2026 v noci
+
+Nový přímý pokyn rozšiřuje **přípravu** také na ostatní role a odkládá další
+testování: počítač má zůstat tichý. §8/§9 nadále definují přejímku CODE pilotu.
+Výluka dalších rolí v §10 nyní nebrání přípravě jejich zadání, ale jejich
+neověřené návrhy nevstupují do produkčního skóre ani rozhodování.
+
+[Přípravný materiál](../../src/eval/fixtures/drafts/README.md): osm historických
+případů, odlišné úkoly pro D1/D2/R1/R2, revize CHAT a inventář VISION.
+Po pokynu se nespouštěla další inference ani validační sada; náročné ověření
+a GUI kontrola společného buildu jsou odložené. GPU hunt timer je zastavený
+a disabled, do dalšího výslovného spuštění se neobnovuje.
