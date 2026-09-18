@@ -117,7 +117,7 @@ export async function generateProjectDiscussion({ prompt, signal, sessionId }) {
 }
 
 export function projectTestProfile() {
-  return { binary: process.execPath, argv: ['--test', 'test/acceptance.test.mjs'],
+  return { binary: process.execPath, argv: ['--disable-wasm-trap-handler', '--test', 'test/acceptance.test.mjs'],
     environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' }, timeoutMs: 30_000 };
 }
 

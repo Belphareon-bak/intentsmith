@@ -20,7 +20,7 @@ potřeby se doptá. Krátké „a jak?“ patří ke stejnému projektu. Pro pod
 malý JavaScript krok může nabídnout **Připravit navržený krok**. Tlačítko otevře
 editovatelný seznam souborů a test; generování a schválení jsou další dva kroky.
 
-Test v takovém návrhu je `node --test test/acceptance.test.mjs`. Model může
+Test v takovém návrhu je `node --disable-wasm-trap-handler --test test/acceptance.test.mjs`. Přepínač zachovává funkčnost Node.js pod limitem virtuální paměti sandboxu. Model může
 navrhnout jeho assertions, takže úspěch testu sám nedokazuje splnění celého cíle.
 Prohlédněte změny a ověřte i skutečný výsledek. Součástí návrhu je lokální Git
 commit po úspěšném provedení, aby další krok mohl vycházet z čistého stavu.
@@ -36,7 +36,7 @@ zůstává provozním záznamem M2; přepínač jej nemaže.
 
 ## Existující projekt vytvořený mimo IntentSmith
 
-Použijte **Otevřít složku**. Import registruje adresář a provede omezenou
+Použijte **Projekty → Nový → Otevřít existující**, nebo do stejného průvodce vložte úplnou cestu a zvolte **Načíst existující projekt**. Import registruje adresář a provede omezenou
 statickou analýzu: inventář povolených textových souborů, vybrané ukázky,
 přítomnost dokumentace, manifestu a testů. Nezapisuje do repozitáře, nezakládá
 Git ani pravidla M2, neinstaluje závislosti a nespouští cizí kód. Funguje i pro
