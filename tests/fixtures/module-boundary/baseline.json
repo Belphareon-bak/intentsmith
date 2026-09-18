@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "5e53255bdf8955354693b0499150fdee0f90731f",
-  "sourceTree": "a278c6d56df55eedb8f6dbe964fec6942b978ead",
+  "sourceRevision": "c2eb57a30466517776d3a123538d12e371d1eab6",
+  "sourceTree": "618890f17f1c4d8297a6de0917ce18627e12797e",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "a111646c052627fd0803fc881838f58d7d5fd8dc",
@@ -576,6 +576,7 @@
     "src/db/migrations/2026_09_10_110_m2_file_list_outputs.js -> src/effects/effect-file-list-output-repository.js",
     "src/db/migrations/2026_09_10_110_m2_file_list_outputs.js -> src/tools/m2-tool-authority-repository.js",
     "src/db/migrations/2026_09_11_113_conversation_web.js -> src/network/conversation-web-repository.js",
+    "src/db/migrations/2026_09_18_115_intentsmith_setting_names.js -> src/security/privacy-authority-validation.js",
     "src/domains/index.js -> src/core/logger.js",
     "src/domains/index.js -> src/domains/recipes/cicd.js",
     "src/domains/index.js -> src/domains/recipes/infra.js",
