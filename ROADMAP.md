@@ -1,5 +1,26 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**IDE a GPU hunt, 2026-09-18:** implementované opravy operátorových reprodukcí:
+řazení hlavičkou, celé použitelné role v jedné evaluaci, číselné matice,
+kandidáti ze skutečného hunt katalogu, záložky/kontext/sloupce/soubory a seznamy.
+Cílené kontroly a skutečné GUI PASS; úplný profil a nasazení zatím probíhají.
+REVIEW_PENDING. [Rozsah a důkaz](docs/review/2026-09-18-IDE-HUNT-POLISH.md).
+
+**Obnova hlavní navigace, 2026-09-18:** nasazeno `57726969`. Opravená
+regrese obnovy uloženého rozložení: levé menu zůstává vedle nastavení a katalogů;
+sbalení ponechá pás ikon, zmizel i prázdný pravý panel. Ověřeno 17 GUI kontrol
+z instalované kopie, 25 workspace regresí a 71 navazujících kontrol PASS.
+Úplný profil 359 PASS / 1 FAIL (nezměněná Gate 0 pečeť). REVIEW_PENDING.
+[Review a meze](docs/review/2026-09-18-IDE-SIDEBAR-RESTORE.md).
+
+**IDE pracovní prostor, 2026-09-18:** nasazeno `c52b03ff`, pojmenované relace,
+samostatné sloupce chatu/souborů/výstupů, historie a knihovny specialistů,
+centrální katalogy a nastavení. Aktivní názvy IntentSmith, kompatibilita starých
+dat zachovaná. 106 cílených testů PASS, produkční build a skutečné GUI PASS;
+úplný profil 359 PASS / 1 FAIL (nezměněná Gate 0 pečeť). REVIEW_PENDING,
+M2 systemd AppArmor a M5 historie stále otevřené.
+[Review a meze](docs/review/2026-09-18-IDE-WORKSPACE.md).
+
 **Stahování a CODE postup, 2026-09-18:** instalováno `39cad5f1`.
 Gemma4:31b dokončená 15:13:26 CEST; Studio má trvalý průběh s rychlostí/ETA
 a obnovou spojení. Tři nová CODE měření přes GUI (63 vyhodnocení):
@@ -150,7 +171,7 @@ s touto roadmapou, platí `DIRECTION.md`.
 > sloučit do jednoho dlouhého pořadníku ani do stovek předvyplněných záznamů.
 
 
-Práce na projektovém flow 2026-09-18: module graph má 1 377 hran,
+Projektový flow a hunt katalog 2026-09-18: module graph má 1 379 hran,
 3 cykly / 28 členů. Nový projekt má vlastní základ a přesný M2 návrh;
 import cizího projektu provádí jen statické čtení a vyjasnění cíle.
 Implementace a fyzické ověřování jsou rozpracované, nezávislé review otevřené.

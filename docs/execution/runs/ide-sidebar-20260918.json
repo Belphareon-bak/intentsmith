@@ -1,0 +1,3015 @@
+{
+  "schemaVersion": 1,
+  "kind": "IDE_NAVIGATION_RESTORE_EVIDENCE",
+  "authority": "operator missing-main-navigation report 2026-09-18",
+  "sourceRevision": "577269693b6bc3f469a859b448d7b5fd07f87819",
+  "previousInstalledRevision": "39cad5f1403c8da65c8534fa668b34f34054bd07",
+  "runtimeStatus": "INSTALLED_RUNTIME_VERIFIED",
+  "reviewStatus": "REVIEW_PENDING",
+  "fullProfile": {
+    "counts": {
+      "PASS": 359,
+      "FAIL": 1,
+      "TIMEOUT": 0,
+      "BLOCKED": 0,
+      "SKIPPED": 0
+    },
+    "verdict": "FAIL",
+    "nonPass": [
+      {
+        "path": "tests/nightly-orchestrator-self-test.js",
+        "status": "FAIL"
+      }
+    ]
+  },
+  "focused": {
+    "workspace": 25,
+    "studioDesktopBoundary": 71,
+    "artifactAssertions": 160
+  },
+  "installedGui": {
+    "checks": 17,
+    "results": "installed-gui-checks.json",
+    "modelProvider": "intentionally unavailable; no new model journey"
+  },
+  "deployment": {
+    "status": "INSTALLED",
+    "previousRevision": "39cad5f1403c8da65c8534fa668b34f34054bd07",
+    "revision": "577269693b6bc3f469a859b448d7b5fd07f87819",
+    "sourceRoot": "/home/belphareon/.local/share/intentsmith/releases/577269693b6bc3f469a859b448d7b5fd07f87819",
+    "backup": "/home/belphareon/.local/state/intentsmith/installation-backups/2026-09-18T15-33-03-988Z",
+    "backend": "active",
+    "backendPid": 1586406,
+    "timer": "active",
+    "authenticatedHTTP": 200,
+    "uncredentialedHTTP": 401,
+    "administratorCredentialPreserved": true,
+    "quickCheck": "ok",
+    "foreignKeyErrors": 0,
+    "migrations": 105,
+    "unchangedTables": {
+      "projects": {
+        "rows": 11,
+        "sha256": "a9524b09221dfa54b0e71e955d233353eeabe7b088305fccd2cb127f3aa6d2ae"
+      },
+      "conversations": {
+        "rows": 35,
+        "sha256": "fa00289c119325befc4b1ba51353851da7c71edf6a6d31b221d1fadf1d506613"
+      },
+      "messages": {
+        "rows": 5,
+        "sha256": "5a1a94375381ffbf21448edacb3180b3b75d6c1826194b3324d39239bf524145"
+      },
+      "model_evaluation_runs": {
+        "rows": 519,
+        "sha256": "57e2ec646ef96e325c030178b8c95c3a091fea537a52ada8fb5fc5bec32df93b"
+      },
+      "model_evaluation_decisions": {
+        "rows": 234,
+        "sha256": "f9ee42981a89c4dc64b7b0420c679c295908052574ece38a3c118f240f05ab80"
+      },
+      "model_desired_bindings": {
+        "rows": 7,
+        "sha256": "87b51bcb23e16ffc453a82035d837eeee255d19002a1a4d06d0284301e348831"
+      },
+      "project_memory": {
+        "rows": 11,
+        "sha256": "58dc9fcb07a7a48a0a8d080dff23db52c12f3217441c089f042f95eb9af0b870"
+      },
+      "user_memory": {
+        "rows": 1,
+        "sha256": "99494ee5579e379fff9e8361de130b31ee8ac4a3fc5b96456dba41ba04f229ad"
+      },
+      "memory": {
+        "rows": 28,
+        "sha256": "7b7aba15baf2e9719a8a18ec114c718f708a0cba96d74265779551cf2e3e2132"
+      },
+      "global_memory": {
+        "rows": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      }
+    }
+  },
+  "archive": {
+    "path": ".intentsmith-artifacts/ide-sidebar-20260918/review-evidence.tar.gz",
+    "bytes": 1133357,
+    "sha256": "7f99e1711e50ecad146610a20f45dc3d8463d76e8d562c700cec0c4a227e7c28"
+  },
+  "artifacts": [
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/artifact-validation-census-fail.log",
+      "bytes": 13754,
+      "sha256": "40478cbcd3cb3e5c89ea9a4010facc62e29152f351ce00de56c4298ccfc2c889"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/artifact-validation-final.log",
+      "bytes": 13425,
+      "sha256": "f52f3b750d7cd8d7f751d21f040b6e178db02e7090f12d6ed38b3f50e3b68476"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/artifact-validation.log",
+      "bytes": 13425,
+      "sha256": "f52f3b750d7cd8d7f751d21f040b6e178db02e7090f12d6ed38b3f50e3b68476"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/before-panel-fix-gui-check.log",
+      "bytes": 20,
+      "sha256": "75ffadae774ef3db0841da4ab6543af257a08dead0a7d651c86a2282d88f8532"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/before-panel-fix-gui-checks.json",
+      "bytes": 3952,
+      "sha256": "728458c45af63f5465abcc826d3430b99e86d936b4c50c51c254c4700738d3eb"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/before-panel-fix-settings-fixed.png",
+      "bytes": 95489,
+      "sha256": "4f3732c9686d8ac79559c25626b67765ae13772eeef414e76c09ade016aad279"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/before-transcript.log",
+      "bytes": 25199,
+      "sha256": "0e4d2b93a3ec737fa027cc091e887ecea7e626120eceb679a26db497578b9e9e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/before.png",
+      "bytes": 75713,
+      "sha256": "1ec21e78fd098941581f653864ea2415e2d18261c7f4827fa39fad4a751aa199"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/build-final.log",
+      "bytes": 10359,
+      "sha256": "0a2a6f1a5d2f84d1dcac614ef37e9b19df20ff321eab7955058f1a9ac44fc93a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/build-panels.log",
+      "bytes": 10359,
+      "sha256": "a0da41d70fa250b630d3fa294b17760725646a76d44735659e416609e8f98c49"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/build.log",
+      "bytes": 10358,
+      "sha256": "d836eb4a54b5a0d634a6cb697433cedbdb83f191ad52f407b4b36de38e66e5ad"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/closeout.py",
+      "bytes": 4465,
+      "sha256": "bf2aa370bc41de682b4d64c8cde038e6369ef7be80026af034eaceed8e10d8a8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/deploy.log",
+      "bytes": 1951,
+      "sha256": "822567c7f9a1428c5822b9cf6bffa85d6ddd811700f394e766b4ac45b1e752f1"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/deploy.mjs",
+      "bytes": 4752,
+      "sha256": "8ac03f472f1c9cacba186726eb0a8a496ad94748a0c5fb0b52f4f1d787ec6850"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/deployment.json",
+      "bytes": 1950,
+      "sha256": "314bcb99cd2a51d5229c202fa21fc853cd4ed2765621bef9061b42bbed09605c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/checkpoint.json",
+      "bytes": 806182,
+      "sha256": "f48e78e96a060861ea3695703ebbaaa10a41baa77510d983c961d257a5a0399d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_accountant-e2e.test.js.5894dad6.log",
+      "bytes": 1871,
+      "sha256": "73a06be29762be3f854b13938ba36ac01d172bd0c441b5d6b918ff10128da09e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_accountant-self-contained.test.js.1403a6bb.log",
+      "bytes": 2728,
+      "sha256": "8250b157c2427b01f29358823294666c121b287c12de049466780df5a4bd611d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_accountant-tools.test.js.5ee165c9.log",
+      "bytes": 4587,
+      "sha256": "e027c2355a898109c794009e9dba91687848ab4552e21f71d4056a2d88f55cf6"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_accountant-workflow-integration.test.js.6d44c7da.log",
+      "bytes": 1931,
+      "sha256": "26add76136f46de6f8feae793789f4de27a97bba3fb47a0ebb810340a8466238"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_accountant-workflow.test.js.dd5f429c.log",
+      "bytes": 2980,
+      "sha256": "7a0aef561926a563a3a074f380c00fadd87bb94ca2b4ab80294ec1c8f42c2858"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_agent-log-ux.test.js.f748fd9e.log",
+      "bytes": 4030,
+      "sha256": "65fc2d0f17752687c77da4f8bd98967c3ba313a1cbab0687d438ab3cb5957f68"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_agent-runner.test.js.7b7332cf.log",
+      "bytes": 6800,
+      "sha256": "735e4055dbf28d0dfbdba45bfce8ce1be5122ee5f58ef22139eeb62ba5ed2fde"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_agent-sources.test.js.b407225b.log",
+      "bytes": 2580,
+      "sha256": "7ba654056143372e15ac46eef29a77bde2db8c4eb4f29274a9e6d7afe17c0d60"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_agent-wizard.test.js.7f8b6590.log",
+      "bytes": 3530,
+      "sha256": "89f94720b4385163d854af879632286443b49578e076be763574e9c042b7a5c5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_api-contract-registry.test.js.c8533c3a.log",
+      "bytes": 2046,
+      "sha256": "085e32e0ff3e84b6c60205c9457faf862c3d0220c794ab4b045db9618bb69d5c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_architect-smoke.test.js.ca5ac490.log",
+      "bytes": 1592,
+      "sha256": "aa6291723e747654daea0ef86b5337c772eeae2c95da4a1ae028b35852fb16c6"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_architecture-check.test.js.d9613b1b.log",
+      "bytes": 1095,
+      "sha256": "4423b05f37a33361cf5f2ecb29e3ab4bc12d365c6f23bca3fbd5e1a289279632"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_architecture-detector.test.js.4c355f52.log",
+      "bytes": 2881,
+      "sha256": "c7de4df5b6991728f77f62ddfcae3de635a218b7a8eece39b5b10641e6440a68"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_architecture-governance.test.js.fa59f229.log",
+      "bytes": 1972,
+      "sha256": "a6b8d72e2f0ae43840e3ff3549aae21f3b1e64fc542cb9d2ba8eb55ba2f4f839"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_architecture-policy.test.js.d4a20908.log",
+      "bytes": 2804,
+      "sha256": "b1531a915b1d1d55d401074392b69bd5b06081896659706781afe97b911ba448"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_archive-lifecycle.test.js.8dae37af.log",
+      "bytes": 5023,
+      "sha256": "f5e0abb01c12200742ce074c499cedf00f2df9dccbfb2b248c183a041cdab897"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_artifact-validation.test.js.9a54c027.log",
+      "bytes": 13797,
+      "sha256": "3bb146d945daf6de55c74c345de41c0bd255aa8710f6db1292e76fb2d5ac6402"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_ast-analyzer.test.js.b4c16ce1.log",
+      "bytes": 2514,
+      "sha256": "30701aabdc268be628351bf168272036c5a49effd9f9d86c49ca10ab0a88e095"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_audit-summary-self-test.js.20930c4d.log",
+      "bytes": 401,
+      "sha256": "7dca6944e9798ab9a028a5d00af8c48be9f2641f4513cf43d02ce649c84219e8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_auto-expertise-select.test.js.ee2c4f1a.log",
+      "bytes": 6783,
+      "sha256": "a9b140af8aa367fe9e6432e150bae22bd7819b2bde2a4d209c0a9d57d09bd9cd"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_build-handoff.test.js.5ce2d1af.log",
+      "bytes": 1533,
+      "sha256": "272b282b9197e9deb571d6d48c72c098f0960350c808875b1c468ef747482079"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_build-patterns.test.js.b080ecfa.log",
+      "bytes": 2827,
+      "sha256": "e955e5df2abe319cc4665b443af7feddaa374a7e2c5c0ed4cb480ae0d3845d47"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_build-strategy.test.js.80fccc14.log",
+      "bytes": 3337,
+      "sha256": "96a0a0b1a21b79d7b775f741ddb8364af5d904ebc3a2540b4507eb57da6bedf8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_candidate-trial.test.js.6ee0db64.log",
+      "bytes": 4744,
+      "sha256": "c1e1414e60e4e779b55b6d75c55b05b22972fdbd0148c8b6db1a73f06685541a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_capability-01-server-behaviours.test.js.34508a22.log",
+      "bytes": 1642,
+      "sha256": "954b80b107251db033c84d70c6679f7b6a23eb58eeb1b3bbddd025d2fd33abd4"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_capability-02-cre-behaviours.test.js.b108029d.log",
+      "bytes": 2765,
+      "sha256": "6962c8aeac09aee0a07c4f9f11f288d13125a3a433590bc22a85ee9f78c54550"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_capability-enforcer.test.js.94d2683e.log",
+      "bytes": 9230,
+      "sha256": "749bf8b56b6b55adb1112b59b1ff7c5a69c17bf3551d7a766bc507656b4dd2c2"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_capability-registry.test.js.650c678f.log",
+      "bytes": 2404,
+      "sha256": "791e916331f72ea7a8c17c718af0b30682f83b705a2677b38110f4735cd8d4a0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_capability-sandbox.test.js.48ff887a.log",
+      "bytes": 5126,
+      "sha256": "334b376f15151f05dd02cfc7a0f3b3eb5f2ee3cf4578afb967f2f9f52f91670e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_catalog-metadata.test.js.25c6d790.log",
+      "bytes": 3240,
+      "sha256": "791db49904ab5bd1416fbde40aba3724db424dfd58bf5eed280106b668ae1bb0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_chat-export-budget.test.js.56739be3.log",
+      "bytes": 7357,
+      "sha256": "4fedcfdc47b37392675fd55a3d759cae2792b23388b70b28fd807486137bd924"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_chat-fixes.test.js.baa9bbb9.log",
+      "bytes": 3730,
+      "sha256": "220b0bb5f8ab4c057901220d708e24fe75e93b8fbf7d3dcb2f85d3cacce8c42c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_chat-memory-privacy.test.js.71ec8b73.log",
+      "bytes": 3172,
+      "sha256": "9e5888b2ed0c608896ccccdd410c0cdb195d4200bb8e723523dd0335bd08f02d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_chat-output-quality.test.js.7ef60198.log",
+      "bytes": 5865,
+      "sha256": "9c1f51bed14397486d9a4957887ef24a121792949fec6dd11c081d0e44be7dd6"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_chat-search-quality.test.js.8d05878c.log",
+      "bytes": 6895,
+      "sha256": "280f0c77629af3bf468aa8204a95b4886f901e2e14a66358ee1858e63ce219fc"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_chat-synthesis-hardening.test.js.afbec6c0.log",
+      "bytes": 4030,
+      "sha256": "2837ae302d25d43bb4f1267bf120e30dff712ffdfd8adf58f81806cef5887887"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_chunker.test.js.5cd49644.log",
+      "bytes": 1725,
+      "sha256": "2b7015ea0d7d918fbb1a4c1b94715c97fde3968d0e3a8a2bd8e81b92876a2f17"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_circuit-breaker-v55.test.js.3cfa0f99.log",
+      "bytes": 1477,
+      "sha256": "05c0d7c7f67d7332b3fda10eff7fe6c38291c359947d8dc5fa569ff22156c075"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_code-analyzer.test.js.e14aa774.log",
+      "bytes": 3363,
+      "sha256": "e411f653d1f99feb96fad0669e8a6bef39efbb71fddd1200024483ebdfb1f715"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_code-evolution.test.js.9588e102.log",
+      "bytes": 1930,
+      "sha256": "3939a0cd8a89d441a086b63a7bd3089d1521ef6f35f604091bde059d4a181275"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_code-patch-runner.test.js.4e53faba.log",
+      "bytes": 4254,
+      "sha256": "3394391707f7cc54589615284ace8659d67f66370b58798a971c770c00936cb2"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_code-patch-suite.test.js.3b160b71.log",
+      "bytes": 2621,
+      "sha256": "1bec85178a776257b51fccc5ce1dafb5dc8eed280139102f568c2ff377edcaf0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_code-search.test.js.ba05e7f6.log",
+      "bytes": 2182,
+      "sha256": "cdc3a72247f280e4483d93965d63a0f06cc4eaf014d7fdfbccb79df89d3e5ed8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_code-task-extractor.test.js.b32be2e5.log",
+      "bytes": 2088,
+      "sha256": "f278ec352ef2ac60289d666321fa69f366cabfa763faea6d8b9cf6c0a042b27a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_concept-registry.test.js.7fb9b136.log",
+      "bytes": 4265,
+      "sha256": "985286a94fc553716e3300b94422bd30cf2f6ab67ffb3d4d4d5a3aca6b542b8b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_context-builder.test.js.d92d331f.log",
+      "bytes": 1855,
+      "sha256": "9af6a4754978c96251b53a10edb84731b206263b67b987b81c4175e059fee16c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_context-compact-model-ctx.test.js.b50dda24.log",
+      "bytes": 1085,
+      "sha256": "a0f9a7e8704dc9f13f72113ad62ba0468deacccacc7f36066d8d037f8427ff1b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_context-delta.test.js.45374093.log",
+      "bytes": 3198,
+      "sha256": "c5edaca69dd65a5db2ab8724e408e2887c80f9db86da5af8721e208df491c7a9"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_context-engine.test.js.4fec1a25.log",
+      "bytes": 1754,
+      "sha256": "4d0ac7686da02ed6b90959f1c927c15b989dd51e43615b03428ae3a36523d62b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_context-optimizer.test.js.8f41abad.log",
+      "bytes": 3720,
+      "sha256": "86bf246c06f8ded5d6f0e94b4ae3ec5bab545e3906dab171ebe2495e89a2e2ed"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_continuous-improvement.test.js.348117fa.log",
+      "bytes": 3393,
+      "sha256": "798d4b0bc069d0988d48a6388927c717107477e686eefa8e718ec2f96441b567"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_conversation-web.test.js.9bd93c0a.log",
+      "bytes": 3035,
+      "sha256": "ea4989c875b4d42343186746539e570db55295e3ea1cc7ddcb42e410d061632e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_cre-build-arbitration.test.js.5ba9f4c2.log",
+      "bytes": 4165,
+      "sha256": "1223b7f23567de3f66ef517813a5032bfaccd1e76e9d045dd879a9c5cbd87323"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_cre-file-reference-guard.test.js.97f62c4c.log",
+      "bytes": 1641,
+      "sha256": "1abedca27ef0748c4edcbe3e4bda3f546253118979d8c8bdccc078e63f0173a5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_cre-gatekeeper.test.js.b49de5a1.log",
+      "bytes": 10060,
+      "sha256": "0bad2adb39ec48f3d23afd770a2f70766ce22ffc1f06ef4659a16e144439b83d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_cre-report-sticky-break.test.js.4c60541b.log",
+      "bytes": 417,
+      "sha256": "80450ec53be1e09d1664b2442042d1c5cbb37201f268ecd6ddfd026d242cdb1c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_create-expertise-integration.test.js.ae897e02.log",
+      "bytes": 5140,
+      "sha256": "faab6e239bd07bca1863512a716d5cd207c36af9a881ef42bcdb4ed610fafdbd"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_create-specialist-skill.test.js.11d6ccc1.log",
+      "bytes": 3693,
+      "sha256": "b2cdc445259bf41a27ae9395499353e71a1abd779ea802b0b8518e7408c80a33"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_critic-agent.test.js.9695f52d.log",
+      "bytes": 2190,
+      "sha256": "d68f8584bf8f6a4c3cff4c155e04a599a009f4916b2c656478f9c327cfef02e2"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_cross-project-learner.test.js.4218a0bf.log",
+      "bytes": 3155,
+      "sha256": "e02930206ec023e157998c24870a639e8b3e862971ffd747982c6e0b11011777"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_db-autorepair.test.js.d1655e67.log",
+      "bytes": 1312,
+      "sha256": "2d36c3a0d7862ba38cd41dbe0cc866e47e83942c60a33c926beb8858afcd5c0e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_dead-code-detector.test.js.2e572168.log",
+      "bytes": 1414,
+      "sha256": "a8d432164c93db991f5305743ea169eee77851997eb89bd03ad24768ae633d22"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_debug-agent.test.js.e8205e39.log",
+      "bytes": 1835,
+      "sha256": "fc5cc3d9114f574b9ed3b0d0c0dd0074d76a2d487cbe8d668f33e0728db8d6aa"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_dependency-manager.test.js.b48e6f16.log",
+      "bytes": 2608,
+      "sha256": "84e0daf2b45909c3e1ad7e0b84d821dc9e6257fc902769dfffe0212f72b9243c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_desktop-hunt.test.js.49df83af.log",
+      "bytes": 8111,
+      "sha256": "d5ff35ff32c7925f80140299009019841137bf6473390f6dde3117e07af43f8f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_deterministic-answer-latency.test.js.9276f549.log",
+      "bytes": 750,
+      "sha256": "ad24b2749e59a1f4d282a6360fdc9652477b880b52cf989a762e22ec7c323857"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_domains.test.js.40d7987e.log",
+      "bytes": 1947,
+      "sha256": "c437cc7bbb8879275d8a2ff889a097614b10ab8ab86ff4382211bca659566f55"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_drift-detector.test.js.5bf78ec2.log",
+      "bytes": 2015,
+      "sha256": "0ee78a9bb688b2532aeb995fb81f60f11d0b01fc63e33db06a06e3742a9199ee"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_e2e-harness-isolation.test.js.965b7f17.log",
+      "bytes": 1416,
+      "sha256": "7da67fd37b440c041375d612fc88b01a0f8ae451544f160e06f8b494b72101e8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_e2e__helpers.self-check.js.f45fd526.log",
+      "bytes": 398,
+      "sha256": "e7941c851df1c66671ab0c87987681eb34bc4ebd356f30e0d1506a0683cd6e6e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_error-normalizer.test.js.b713fc63.log",
+      "bytes": 4376,
+      "sha256": "385495381941662810efb353c1a8a39a45cdff47d0fc054c9cad2cf283cbcb24"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_execution-graph.test.js.166af7ca.log",
+      "bytes": 1784,
+      "sha256": "60219ff934ac5d854d72eb004ec9d5a52f04d206b60bb537dff1145ccdfa2bd8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_execution-loop.test.js.eca94dc0.log",
+      "bytes": 7451,
+      "sha256": "4482c924dcd6bc7777830857a3504cfc8ce0962d596f290aaf4598d989280f69"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_execution-trace-stress.test.js.3884abfb.log",
+      "bytes": 5718,
+      "sha256": "8d01cdcc6cbc230ee7f0faea5cf11c4776b77dabf4f7b006971fb08e1d1b7ab5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_expertise-discovery.test.js.a4992039.log",
+      "bytes": 3074,
+      "sha256": "e3a8de82086d6b0484f8551a5504090644342c3d0dc4a5722a05f0c584064d48"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_expertise-integration.test.js.f04c0b04.log",
+      "bytes": 3987,
+      "sha256": "b5f62b6bc1cf86164b75ef860734e611dc34a2c096a11aaaee3d6a517c7f0e0b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_expertise-system.test.js.ad383929.log",
+      "bytes": 6840,
+      "sha256": "a8435eb827a0893110aa13b222e9d47e47ea9a5ed80b732221ceff54b164e583"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_expertise-wizard.test.js.c6b93dcf.log",
+      "bytes": 4912,
+      "sha256": "ff7eaf140d201741acf555b70a7a69837e44327de7c11ef364b55241b6e681c3"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_exploration-agent.test.js.d64f8a78.log",
+      "bytes": 1569,
+      "sha256": "e2d02c862083236e8da8a525a12b8e877b944f90bd2243b228c1318da780503a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_export-pdf-docx.test.js.30056cec.log",
+      "bytes": 7476,
+      "sha256": "538339c8003b7f6745509217f9ef04987cde6e5d1eb652c5bbc8f0e5d2bc8016"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_file-discovery.test.js.96264527.log",
+      "bytes": 2425,
+      "sha256": "4a75504f8268e4225b2b5c3be6c80373af9ad602daf97e8fcf6d9152bd1328d0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_file-write-extract.test.js.2a88b307.log",
+      "bytes": 2399,
+      "sha256": "22051b521ee03f64293c930f87e3597d469f43673ac3e5c701472609f06dad9d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_fix-strategy.test.js.c6fbfb8e.log",
+      "bytes": 3322,
+      "sha256": "83047136a25816f749fac75985704329256b76fd140133e3eab3acc5761564e1"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_function-span.test.js.731bd2c6.log",
+      "bytes": 2552,
+      "sha256": "56ffe1ec8d0c54e08685816c5bbd52e01b5363c7c2ecb59d657d8454129844e6"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_governor.test.js.cb9c8aef.log",
+      "bytes": 5140,
+      "sha256": "7c595089c4e3568cda7dd958d919085cdeed6343390715dee23b581d45680dfc"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_graph-query.test.js.debaf6cf.log",
+      "bytes": 2562,
+      "sha256": "c199626351a38130147bf886cdf976b4d3be86f21e6144758b1742219c48a393"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_graph-retrieval.test.js.52fd7404.log",
+      "bytes": 2586,
+      "sha256": "c235a434c2108990ef4d7525977e82f2419870175728c22eb1d7b626565c7d54"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_graph-sync.test.js.e6f547c7.log",
+      "bytes": 2725,
+      "sha256": "40ddf7cdc498e315cb7cbac2c826cf209aec653c73da80ded81c6540fb72a91b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_harness-exit-code.test.js.a34d228f.log",
+      "bytes": 649,
+      "sha256": "b453efb69e458e1b516faf68b965014075cc0b1408c536758e126ba5ce4782a3"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_huggingface-client.test.js.28b6ea99.log",
+      "bytes": 2573,
+      "sha256": "765d4d40c5ce600359dce9e2985bb57667a2dbdfdbe873291152a5e925db7efa"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_ide-workspace.test.js.44571dba.log",
+      "bytes": 6134,
+      "sha256": "b41192ebe9acbceee0d25efc44b00d826bd3e2930799bbd193b8e8cb067523a9"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_impact-analyzer.test.js.610b1e67.log",
+      "bytes": 1678,
+      "sha256": "9db4c3b47ae50c3572907853b277b7d2f47ec0c819e825e234376b5aea1dd013"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_import-map.test.js.4bf97966.log",
+      "bytes": 2260,
+      "sha256": "a02f2c9c5b3cc0df065104114c74c35acf4804186f97d8f23f960dab30499b05"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_improvement-loops.test.js.c93525e7.log",
+      "bytes": 2401,
+      "sha256": "37f467f0f5d8f99468181f737ae57fa35d536b3d0bf4321c2541df0454a903b2"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_intent-context.test.js.c509e386.log",
+      "bytes": 1641,
+      "sha256": "a69f7d0b9c00cef38bd9fa5ebe4cc9d274edd5234d204595906d3b26c553a1cc"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_knowledge-base.test.js.26010c8c.log",
+      "bytes": 2774,
+      "sha256": "51287369511f78bca010f5a7ae7f2ae679f2403cc00bef049587adbdeea1ff89"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_knowledge-graph.test.js.253a294c.log",
+      "bytes": 1858,
+      "sha256": "6f7fe8ee182e5e74e004750775000eca02fba28e4397655fad2751814e269459"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_large-project-scaling.test.js.843011ff.log",
+      "bytes": 3259,
+      "sha256": "82bf7b4bd3d906e87351b34cc9741a6043121523a6acb0f6730e157d11891daa"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_ledger-annual.test.js.778c0979.log",
+      "bytes": 3191,
+      "sha256": "0c587f59f5a3dd224b93e832954be685ee195debca9b218d50ca0c99e80215e4"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_ledger-compliance.test.js.177966a2.log",
+      "bytes": 2504,
+      "sha256": "4438b51387505478ab244f05c3615d3370c6aaeb478993e998b344021ab27202"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_ledger-core.test.js.59eacff6.log",
+      "bytes": 3663,
+      "sha256": "ebf90afdc4a50216a3e43fd9634ce8d28166c7356f507494f007beb1bc754d9c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_ledger-insurance.test.js.26716931.log",
+      "bytes": 2364,
+      "sha256": "e2fa0e5e594d83afa3ff8b861b569b3962db6a8ec33b721f3afd433ccaaa4402"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_ledger-reports.test.js.5240a784.log",
+      "bytes": 2106,
+      "sha256": "c11f120ad69746555aa337fdc35d3fc288a2b576d21d50eb83bd95cecf2a2aa8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_ledger-rewire.test.js.fa095236.log",
+      "bytes": 2400,
+      "sha256": "481bcbd355fc9370150c278e340a55f06b7eb26f60c1a4a58b7cddda7ba505fa"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_ledger-vat.test.js.2d81aa9f.log",
+      "bytes": 3306,
+      "sha256": "dbb42cc79f8a9a50c8398003d68d75c3357f0152a1c5c9bd7536708b8a225d9e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_lifecycle-blocked-milestone.test.js.094bea94.log",
+      "bytes": 3098,
+      "sha256": "958a382c845c450dc0bcc53be8e2b3037330425fe39343b6f7ecb43d298296fa"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_lifecycle-build.test.js.6a4c4eb0.log",
+      "bytes": 7251,
+      "sha256": "def7e83185269aceced43854414e13199eef7141186ff35084dd4c2fdf2beac9"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_lifecycle-conversation-e2e.test.js.ee4ca3a6.log",
+      "bytes": 29476,
+      "sha256": "bffaa03313f28430519051bc211ea153b234ee4896e9e617a44ca02bc1bd3199"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_lifecycle-db.test.js.14493c75.log",
+      "bytes": 3429,
+      "sha256": "d715feeaf2131fd535e112f2bfa16f18b26fe3b84c87b030c650b7f07864c5e4"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_lifecycle-e2e.test.js.7a764790.log",
+      "bytes": 7189,
+      "sha256": "f6fc02153e7114776fb9bacfbff504acc3df488e0e2bfe56039e4c99e0a87eb1"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_lifecycle-handoff.test.js.d2704efb.log",
+      "bytes": 6052,
+      "sha256": "edb595f03e2663e5d4c18fba5aedd9f1a07b6e331b7dd48ced88731a398d1d39"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_lifecycle-human-friction.test.js.56124424.log",
+      "bytes": 7063,
+      "sha256": "9ab93372bcd7535e5e89e8b96c2d838783b6e18ef0c8b94812cb125cc63422fd"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_lifecycle-invariants.test.js.36fc15aa.log",
+      "bytes": 16327,
+      "sha256": "483e7c37fbe34f9b6e99fcf3ca79743d1ff976360addf0306db7782e43395e25"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_lifecycle-llm-realistic.test.js.5e88868a.log",
+      "bytes": 11354,
+      "sha256": "9d5bc3002153c1c67db7295a9f2d9e11e2b53d3ae3182e01d9cd5ce9c7b4946a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_lifecycle-review-change.test.js.faa90132.log",
+      "bytes": 2497,
+      "sha256": "40e99d85129e03976c8923d155212fb2bf73ff0e8ec8073aaae9a8d4b12af944"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_lifecycle-stress-advanced.test.js.5ac1e452.log",
+      "bytes": 6605,
+      "sha256": "c741c44b226f5adcdc19726eea11002ae1066771dc4c1be56c318c66e619e951"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_lifecycle.test.js.52956fcb.log",
+      "bytes": 10181,
+      "sha256": "518e420ac17bf2560a83a0ad1f7fde45575c525de0492e6ea07c8e301dd74950"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_llm-gateway-runtime-signal.test.js.0b940a7a.log",
+      "bytes": 2940,
+      "sha256": "a1aad93a55d514ef02deaa8fd9e09837b97301326183ccbcdf62cbbe7acc8ce0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_local-math-nonfinite.test.js.019feb01.log",
+      "bytes": 1188,
+      "sha256": "76de8ee4c66c956831d9b1677bfe2e1d27dff7375f00d96e35a17485f115d612"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m1-chat-contract.test.js.ca2e48b5.log",
+      "bytes": 3502,
+      "sha256": "0ba4e38245d02b537be13a49e4ce859e75d453227206d13bd077c8e641e5cb61"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m1-contract.test.js.998aa76f.log",
+      "bytes": 2811,
+      "sha256": "9c03770f9ac16644d3c378d1edc4505229ba4544d1f8cf460d512204f8fa5122"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m1-model-automation-policy.test.js.13f235f4.log",
+      "bytes": 2522,
+      "sha256": "cda93a18a8193ac9cb3628aec2e99f590548b44000bd4fd2471b1392cd819387"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m1-model-binding-application.test.js.96cefee4.log",
+      "bytes": 10352,
+      "sha256": "d731951eb9f8f42669e08965923bf409f981862e751dcd6939471c6d754265de"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m1-model-binding-repository.test.js.6b2a3128.log",
+      "bytes": 4295,
+      "sha256": "a5c9e971f59c9cb624f8b6e4b3c46c2c3722ff8f5289b0f0e17d2ee5d275b4a0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m1-model-binding-storage.test.js.d31f186e.log",
+      "bytes": 2087,
+      "sha256": "33bfefb452e291066839bfd4ac19e2e1d087d8f8b9aae7992856d4cd85af23a3"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m1-model-contract.test.js.a8bcca69.log",
+      "bytes": 6643,
+      "sha256": "7cbc705d5fbd41df18d1d09b5d30407c3c49089f6c449dd633bde52c8819c7ae"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m1-model-failover-coordinator.test.js.30405fa4.log",
+      "bytes": 2199,
+      "sha256": "ab6e9410f7a37031c254dabf7111c85384de9e5b3191586dd51659c09477295c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m1-model-failover-detection-repository.test.js.8fe33847.log",
+      "bytes": 1245,
+      "sha256": "1f04370bd0d124429ed4b84e4d8d861d35d3fd69e1ac666d8c79d0fdebfa6ded"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m1-model-failover-proof-artifacts.test.js.fcc67211.log",
+      "bytes": 1333,
+      "sha256": "1dcc5117e75f7ad80b8a0643deba667d74d1fe051fc3f202053a55dce45234dc"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m1-model-failover-schema.test.js.48a6c16b.log",
+      "bytes": 3411,
+      "sha256": "aafc6a95dd0f7fd8c19e97d8b719f039b233c3fc621754066d831d3af1787252"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m1-model-settings.test.js.ec00af34.log",
+      "bytes": 2022,
+      "sha256": "53ec09edcefe20ed1546e5a13299969e73b5dc0e73dacf88f9270b27dd58a635"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m1-model-use-authority.test.js.1decaa60.log",
+      "bytes": 3699,
+      "sha256": "f479105bd1040c4512208e1e7c02f0250752a2d31db3de32c74fc11a4ab4d1e5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m1-quality-contract.test.js.48723e78.log",
+      "bytes": 1063,
+      "sha256": "d9d42f3270980a7a60149772c40bab4456dcac1cb58943340679215642c85a80"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m1-studio-client.test.js.a839f16b.log",
+      "bytes": 17920,
+      "sha256": "b67500ca45c00dc329adbb24eccc835654447587baa969d63f1e6ef64a1e1f22"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m1-vram-artifact-use.test.js.13f25518.log",
+      "bytes": 1605,
+      "sha256": "722ec0cf6bbf1aca228653a7d87320eb72bf8d9ddec71ec1d3427a08b660d619"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-effect-authority-repository.test.js.fbda346c.log",
+      "bytes": 4630,
+      "sha256": "213953ee6db55918aacdf963d82df1d646accfc0ba952ca27425f16e883a3e6b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-effect-broker-v1.test.js.606c7170.log",
+      "bytes": 6234,
+      "sha256": "9ce558d827b87a4415b92c6e52f7b36756837c0a509169aad74efa00a5bdc655"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-effect-contract-v1.test.js.6dc251f9.log",
+      "bytes": 3276,
+      "sha256": "a1bc22f5feef83610d8657f1d44d56cb4022e959ecd93146af43a05de65174d7"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-effect-execution-owner.test.js.a1097a45.log",
+      "bytes": 1296,
+      "sha256": "b2e02ad7239154fca2f3c2938f0e8d1c06aa82ff2ca2f2803771f07e01f33297"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-effect-file-consumer.test.js.351c4b65.log",
+      "bytes": 7775,
+      "sha256": "d2f68ba125031cbf70e3b41adb7973b031008df9fb8a78c386ed93335b04cde5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-effect-file-runtime.test.js.598972ff.log",
+      "bytes": 3767,
+      "sha256": "3170ee0a558442b5886a95bc0c0256004646833a51f88047f2818edbd563b715"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-execution-authority-repository.test.js.ed35dc26.log",
+      "bytes": 2096,
+      "sha256": "f21029441405af4c0d37ed907c5747f10516264598c28e876d69c7ee09b47853"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-execution-contract-v1.test.js.62f3b9eb.log",
+      "bytes": 2802,
+      "sha256": "58be3be83e9036b0bb5f563f35944358e6a40ef745128eb6c4a3e1e789475dd8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-execution-git-preservation.test.js.11b275be.log",
+      "bytes": 2012,
+      "sha256": "c290ea491f61de91017c6d838a7a22283157c21f29b81d29caa57cf6a574809a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-execution-process-supervision.test.js.acd09b66.log",
+      "bytes": 2024,
+      "sha256": "6e76ce9acf87427d53e3a20ef1f8e4e1fb07a3a04165dfb9d773cfc2d881f4f7"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-execution-project-change.test.js.a53d03c7.log",
+      "bytes": 2844,
+      "sha256": "1e431ee7489c59dd79c3c4ef7f5e52dac576b4f1e1d1c2108423df9b4eb9b5e8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-governance-contract-v1.test.js.a877dfcd.log",
+      "bytes": 2068,
+      "sha256": "3b8da71f0a1f7b02950f5d1057ccea910b178bc3c1dc3e479933dd024ec0e599"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-governance-evaluator.test.js.8ae217b6.log",
+      "bytes": 2676,
+      "sha256": "fbe0c023fee0a9feefb272c386ac91da1d68aca9c5a4b28f8c0e1d6fb853c76a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-lifecycle-application-service.test.js.1a72c253.log",
+      "bytes": 5104,
+      "sha256": "fc888e8f6eab653be3e6bc3c5d1984c4f7f90d055ccfc60ace0ec02da77005cc"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-lifecycle-authority-repository.test.js.a86849aa.log",
+      "bytes": 2066,
+      "sha256": "93a3479694093908c71d0317ed6cfaab0384f090b91721913a40f9e1a4bf11a9"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-lifecycle-contract-v1.test.js.b74c85da.log",
+      "bytes": 2152,
+      "sha256": "684160b1953191ed45deeede943da5cf30a1d63a4d06b8cf330d214590691f55"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-lifecycle-proposal-compiler.test.js.744ad0e4.log",
+      "bytes": 1925,
+      "sha256": "b06533f14e0c14bbf6cc2c3fdcceced7026eb4978f2bfd13ef39d0100e783759"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-lifecycle-routes.test.js.0c94ab24.log",
+      "bytes": 2281,
+      "sha256": "0f0223979d4048c693fa46082b8a290e722fb0232eed511d2d7c7b5d9d8b534b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-lifecycle-studio-surface.test.js.0e60553a.log",
+      "bytes": 9522,
+      "sha256": "2bbc03c87346556c4a68cee567652b9f5eaace29059deee52ea1909a0bbd1658"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-lifecycle-surface-retirement.test.js.a7607ce4.log",
+      "bytes": 1617,
+      "sha256": "d49ed131df5b852112d827365cff091a5a8073eed0d333ae2e82a1af2e8e8e6c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-negotiated-lifecycle-quarantine.test.js.73ba5d5d.log",
+      "bytes": 1627,
+      "sha256": "73c25b990e0f7a1cbe051abc2e652392e00520f38fbfeca691496ebd3a371f22"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-project-context-boundary.test.js.4adfd6d4.log",
+      "bytes": 2094,
+      "sha256": "2db4dcc2fd30408e3f83436596c88ad14de9aa2c2cc202aca76828cf0cc9f037"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-project-context-consumer.test.js.94ff0a07.log",
+      "bytes": 3525,
+      "sha256": "a30338cc8d4df84e75bac1f5fc5b2c4c57d7956276dbcabd9f949f14d87cc09d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-project-context-contract.test.js.8a826e82.log",
+      "bytes": 2382,
+      "sha256": "bea2e83a6523d3237ebbc00e01005fed99b8bea004ebfb96f332f951646955bd"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-project-context-retrieval.test.js.3680830c.log",
+      "bytes": 1808,
+      "sha256": "acfcbfff50e54f523f0151e3b8b9e62397091dc3f37b5fb3133dd4c8ef875e25"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-remote-core-port-boundary.test.js.e818266d.log",
+      "bytes": 1859,
+      "sha256": "4ff7e074f1350343d3677df29e2719e0397f8a165f65a534b4b369c353eb9673"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-remote-core-port-contract-v1.test.js.331394d6.log",
+      "bytes": 2327,
+      "sha256": "6417d358bb816b359c6eaaf80470b248f99d2ec50e1294b7367e1aae79020e9c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-tool-authority-repository.test.js.2f54b988.log",
+      "bytes": 2954,
+      "sha256": "9b85e349a78c745abd6472fe19882d5bf35d3828c76146d46be227d81a47293e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-tool-broker-v1.test.js.ce3c9391.log",
+      "bytes": 3747,
+      "sha256": "22a37b32e9e5339c43cc5438ae8fb7fbabca3a5a5f0d25f8fa4d8d11b65c530f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-tool-contract-v1.test.js.20002f30.log",
+      "bytes": 1998,
+      "sha256": "6292db6bd2dc9a6fd7dfd3f420c516bc6a652d875b1bf97b7409ed19177531d3"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/logs/tests_m2-tool-production-consumer.test.js.97d359cd.log",
+      "bytes": 389,
+      "sha256": "a3eefef2ddce467b9bbf8ef522a3dc75283f6286e7e9708aa8b4f3d3d7caa578"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate/ide-sidebar/report.json",
+      "bytes": 807524,
+      "sha256": "368efea7f0ad937cf47ba497602cf53416d2103042f2a0934e29239012457996"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/checkpoint.json",
+      "bytes": 1517546,
+      "sha256": "7dedf742c9212bf725ce2f5667f90301a5e82f4acc68525be0c770012e79a6f9"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_accountant-e2e.test.js.5894dad6.log",
+      "bytes": 1871,
+      "sha256": "32218d188af3d2f71f74ecf1a705db99237f2eb0f3e7c010f0c8e09352a06f77"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_accountant-self-contained.test.js.1403a6bb.log",
+      "bytes": 2728,
+      "sha256": "764fa5813e25248e5d1c10d5cabf8bf57c434db70335bf58a48e91a5c40e77a5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_accountant-tools.test.js.5ee165c9.log",
+      "bytes": 4587,
+      "sha256": "2f78868bfa2a2ab71533568417796595bec1e18ed7e043a53044d3586fe48459"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_accountant-workflow-integration.test.js.6d44c7da.log",
+      "bytes": 1943,
+      "sha256": "16e2462d0afad71f9711d07127f81c90a76303050849ad4cc79572c8b07ac80a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_accountant-workflow.test.js.dd5f429c.log",
+      "bytes": 2980,
+      "sha256": "b4c5b608e04b3b3c79c092b6aa3e922acd449f1163c28eff6a84f52ef2dec6ab"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_agent-log-ux.test.js.f748fd9e.log",
+      "bytes": 4030,
+      "sha256": "ec83fc8a21fc265cec6f090c3c2afeed5ab63680fb1c1449391156a7c020e0ce"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_agent-runner.test.js.7b7332cf.log",
+      "bytes": 6800,
+      "sha256": "1198f1d5f763a57b091d2fc337fd9cb09278ab461c300620e541e2f72221fa45"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_agent-sources.test.js.b407225b.log",
+      "bytes": 2580,
+      "sha256": "1ac7c8f96e14f480f0e745f2f927c479ec433f030853d09db5a48fbcf0f1f515"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_agent-wizard.test.js.7f8b6590.log",
+      "bytes": 3530,
+      "sha256": "b14bc1b05e61cbec72ae8dff6e3e28eafe6cc9f3e72a0dd2b8e8ca700722ec9c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_api-contract-registry.test.js.c8533c3a.log",
+      "bytes": 2046,
+      "sha256": "716f4ccf85cdc6b5bc68bc11ffb0f80df9968af50ffdf5cbc4593a97e13881e6"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_architect-smoke.test.js.ca5ac490.log",
+      "bytes": 1592,
+      "sha256": "baad2b74866f0b52ab44fdbaece0d42684b689880af3dc4280a34bacf9c5f811"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_architecture-check.test.js.d9613b1b.log",
+      "bytes": 1095,
+      "sha256": "635fbdb76451488dd1b21e8ab8eb31f4e144490dbb4e94d601919fb2b1907cfb"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_architecture-detector.test.js.4c355f52.log",
+      "bytes": 2881,
+      "sha256": "42c3078ba4ca606412fec5794b27ca4b03bc655f0ee84c87666a321676962ab0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_architecture-governance.test.js.fa59f229.log",
+      "bytes": 1972,
+      "sha256": "a0d94a90cdfca5c2e8ebcc73f1a9161ca864aedacf9d8d765ab554365d961e8c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_architecture-policy.test.js.d4a20908.log",
+      "bytes": 2804,
+      "sha256": "96d1c926e7302957c9c63a904623010a7412030e3b4892dd9e7c68da41d03374"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_archive-lifecycle.test.js.8dae37af.log",
+      "bytes": 5023,
+      "sha256": "816c9307b27dd100e782b9cc768bf1257f9231ff36e3709de2b56400c54f2ccd"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_artifact-validation.test.js.9a54c027.log",
+      "bytes": 13797,
+      "sha256": "6047b28745d138aec8a82deb6d06e197440ccaf1a8f36969d69227e3c37afd91"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_ast-analyzer.test.js.b4c16ce1.log",
+      "bytes": 2514,
+      "sha256": "a0a4aeb6eb8d77ee3c2f1a6fbd31fbb85c2676b079255cb4d91d98682f37f167"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_audit-summary-self-test.js.20930c4d.log",
+      "bytes": 401,
+      "sha256": "8ab4e2a188707a147755f14e8ea8db503e4a81a23c46f4fa5b98309f9147267c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_auto-expertise-select.test.js.ee2c4f1a.log",
+      "bytes": 6783,
+      "sha256": "2d32301d08b1e54467f5235d0ef28839cfa926d63cf4f34e8c8a77853db4c4bc"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_build-handoff.test.js.5ce2d1af.log",
+      "bytes": 1533,
+      "sha256": "febb92a3ed3d046ad9c2979d8898fcf9b25e882601b58f7f5d80d654d51d03ad"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_build-patterns.test.js.b080ecfa.log",
+      "bytes": 2827,
+      "sha256": "e7164aea9ca7d85926b2db8f13bba32ba227d8a77085fc81d2c2cbf641c08593"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_build-strategy.test.js.80fccc14.log",
+      "bytes": 3337,
+      "sha256": "8695221d193d3419b71a45f72df8f2520ad635af6f0192db8990c44e1eb25e5f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_candidate-trial.test.js.6ee0db64.log",
+      "bytes": 4744,
+      "sha256": "667f90a44496a61b99c487b36b27a13dd213ce5409d03c1059e02c450a54a355"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_capability-01-server-behaviours.test.js.34508a22.log",
+      "bytes": 1642,
+      "sha256": "4d27e854cdc144f83b2a2aadffeedb4fb514d75b483c6a592848ed58a1c8ee8c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_capability-02-cre-behaviours.test.js.b108029d.log",
+      "bytes": 2765,
+      "sha256": "d9b0454f5be60724da3917798f7c378431b76d1f2b845a2dff6813d867263817"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_capability-enforcer.test.js.94d2683e.log",
+      "bytes": 9230,
+      "sha256": "64c74d460a478e41b245518eb9c437967c720bf2bba55b7ee8bb0feebc8d451d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_capability-registry.test.js.650c678f.log",
+      "bytes": 2404,
+      "sha256": "f8d628b1d924599ba4e03bc94918c49956f07eac7f605f19176bb9be7dc013cb"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_capability-sandbox.test.js.48ff887a.log",
+      "bytes": 5126,
+      "sha256": "c42e7d152bb27ae6810ee41ee4163dd95e26b90afb580f12d79dbd295ca29408"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_catalog-metadata.test.js.25c6d790.log",
+      "bytes": 3240,
+      "sha256": "753e0ef2cf0b92a9d1d0d2667488ba4d0c34fb2371f89bebab9916682d723168"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_chat-export-budget.test.js.56739be3.log",
+      "bytes": 7357,
+      "sha256": "c422863738eb8ad023ea0053a5b1d4040304a96c1512d3a8c00fcf4d7f3a6602"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_chat-fixes.test.js.baa9bbb9.log",
+      "bytes": 3730,
+      "sha256": "df8fe431a3a417e3a5e5ca2f5c6b67e061c90a9d1a8bc0ae132b2852e8e937b0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_chat-memory-privacy.test.js.71ec8b73.log",
+      "bytes": 3172,
+      "sha256": "7b90d1b4896ca000ce2994c7dcbb6fb6995d7a9521da3d4b4b2e3f602f305884"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_chat-output-quality.test.js.7ef60198.log",
+      "bytes": 5865,
+      "sha256": "487bdb8c9aef9c45a506543b69cc28920bf91870253b20c8b1b4a218b77e2bd0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_chat-search-quality.test.js.8d05878c.log",
+      "bytes": 6895,
+      "sha256": "377bc69cbace3689a283512117999121db6df1f132112c184716faed3f502b4d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_chat-synthesis-hardening.test.js.afbec6c0.log",
+      "bytes": 4030,
+      "sha256": "1dbec9bbaa43c00372ab728cf24a75033bee2ebad2472fe75cfa3e069b760147"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_chunker.test.js.5cd49644.log",
+      "bytes": 1725,
+      "sha256": "ef4e855f259e5db47f2af0488c1133c7fe410d88716694890924d96e5cd3821d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_circuit-breaker-v55.test.js.3cfa0f99.log",
+      "bytes": 1477,
+      "sha256": "cc7369e8cd515c784818880c269138ae94d9752316bc0941bf1fead2d60de40f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_code-analyzer.test.js.e14aa774.log",
+      "bytes": 3363,
+      "sha256": "e20954ac2002e071549067fa5f8972e269e9a4511b4bece2177520af50bd3370"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_code-evolution.test.js.9588e102.log",
+      "bytes": 1930,
+      "sha256": "1a2111f297e130dde05cbd75a3562a5796ebb5f3f77809a8f03bbd3821949f49"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_code-patch-runner.test.js.4e53faba.log",
+      "bytes": 4254,
+      "sha256": "b9f876549475040a0e19d813144481e7aa48b973be9f298c640de904c5aa0562"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_code-patch-suite.test.js.3b160b71.log",
+      "bytes": 2621,
+      "sha256": "fcb325480218950e1b0b7151b000d840427ded6e70d02bca3ac6ab4f65b96997"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_code-search.test.js.ba05e7f6.log",
+      "bytes": 2182,
+      "sha256": "68ebe8f3ebe131e178340c602ebe78e1f66728d3760300129aee694f59eef811"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_code-task-extractor.test.js.b32be2e5.log",
+      "bytes": 2088,
+      "sha256": "1748e59da98a705e43b87abdb3c17ab75151532df1047f8fa645cba247b8db91"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_concept-registry.test.js.7fb9b136.log",
+      "bytes": 4265,
+      "sha256": "e4cc3db125fcaa345eeb650b001544ca8831c13f90d9ca81ea98c7c8df513d70"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_context-builder.test.js.d92d331f.log",
+      "bytes": 1855,
+      "sha256": "6bb499d8fc5d7e710b03f5cb269a7ec0a82f127c4a0c53ee89aa2ba869bcd5d4"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_context-compact-model-ctx.test.js.b50dda24.log",
+      "bytes": 1085,
+      "sha256": "b87ab3f67e522b918c2cc28bb5dcd7dee7a8a69a6c8056df2f3a633592327980"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_context-delta.test.js.45374093.log",
+      "bytes": 3198,
+      "sha256": "b3379be7aa1c73e79ee2fd8c34fb96495212a29af42f324b91497694360830e1"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_context-engine.test.js.4fec1a25.log",
+      "bytes": 1754,
+      "sha256": "1bd0a9777ae9cc48675d507db8fc900d99a654d95708eceb5e39a6c4ee777499"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_context-optimizer.test.js.8f41abad.log",
+      "bytes": 3720,
+      "sha256": "ae073cf2c96a4930263fc7031e80e3cb15548f1901cf843da42892430048b5ac"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_continuous-improvement.test.js.348117fa.log",
+      "bytes": 3393,
+      "sha256": "e9671fc84755f19cd5e577919f67552c778de35e690f8edbed5f5033480e553e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_conversation-web.test.js.9bd93c0a.log",
+      "bytes": 3035,
+      "sha256": "f43a25ab5071c4110741859c2f415d1474ad22afd245f91551eafcff4456a2dc"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_cre-build-arbitration.test.js.5ba9f4c2.log",
+      "bytes": 4165,
+      "sha256": "23c93f6535c7b3ecfee4f1a00aa4c2de65cff991d4ac8a930ff8b4f7f7b2846d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_cre-file-reference-guard.test.js.97f62c4c.log",
+      "bytes": 1641,
+      "sha256": "9579158699a9ad09fe125d5b288784e658e4ee39649248feaac944ac781aaed6"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_cre-gatekeeper.test.js.b49de5a1.log",
+      "bytes": 10060,
+      "sha256": "55dcccfac29ee03d9cd830d5edb98d6e1874803b06a8688a7a908e56078088bd"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_cre-report-sticky-break.test.js.4c60541b.log",
+      "bytes": 417,
+      "sha256": "65a79f9db89acb3b065e4623290a6748faf57777fc9f06834f22c2c341f41597"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_create-expertise-integration.test.js.ae897e02.log",
+      "bytes": 5140,
+      "sha256": "bd47c13c98ac086268fe054d0388f91642c8206906c617a734489830a05ec5dc"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_create-specialist-skill.test.js.11d6ccc1.log",
+      "bytes": 3693,
+      "sha256": "72636cbde193e9c12c69475c65c113255001a18ae1fc07bee3c9f2bd73c3120d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_critic-agent.test.js.9695f52d.log",
+      "bytes": 2190,
+      "sha256": "8939e003ba8667fa5408c07591a4f7743f3f8b55d8644b5448aeb4206e286b25"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_cross-project-learner.test.js.4218a0bf.log",
+      "bytes": 3155,
+      "sha256": "4487cdcf7a59353b4066df91d824efb8f94ddda492698046c334356903803438"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_db-autorepair.test.js.d1655e67.log",
+      "bytes": 1312,
+      "sha256": "c545777f56f96af67c558925fc1786160c131656b4e310621bd7cf9ace78ec9e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_dead-code-detector.test.js.2e572168.log",
+      "bytes": 1414,
+      "sha256": "98fd97e6f242fef37b5905ffb5dfa79f664cfa7725dda2fca34b059e3ba9e91e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_debug-agent.test.js.e8205e39.log",
+      "bytes": 1835,
+      "sha256": "3da8cf23d0722347beaf03ea246d35b9be018efb616c2c5f74183ec7cef6c46a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_dependency-manager.test.js.b48e6f16.log",
+      "bytes": 2608,
+      "sha256": "014b3290e14637514ea1b67e7e04de96b42ebe8728ae43a91c8b449a12f43034"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_desktop-hunt.test.js.49df83af.log",
+      "bytes": 8114,
+      "sha256": "26557c186c8aee05e7c30620d4b73f72241a897b39d26c9b446e974c7d979682"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_deterministic-answer-latency.test.js.9276f549.log",
+      "bytes": 750,
+      "sha256": "9247161bd606b874db10b75d6b6147a4a3284b2f1ddca06e7d0e9c15f76b1fba"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_domains.test.js.40d7987e.log",
+      "bytes": 1947,
+      "sha256": "8dffaa45cc7f3507ddbc8f8d4294630a48f9b2782c11df1d010b6ed2f7e80675"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_drift-detector.test.js.5bf78ec2.log",
+      "bytes": 2015,
+      "sha256": "85919a84a0fb4f76a9b9ad30b339787ced45c23cec9c282bee6f66dca5e8b310"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_e2e-harness-isolation.test.js.965b7f17.log",
+      "bytes": 1416,
+      "sha256": "8c4c3d43cbe9cddcbde6578b06d504da418827b718e06462f21581ab93a63e91"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_e2e__helpers.self-check.js.f45fd526.log",
+      "bytes": 398,
+      "sha256": "f52a7b23d096501063dc509d2c107bd5fbbd51fea0198a6f8650ed78f3202540"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_error-normalizer.test.js.b713fc63.log",
+      "bytes": 4376,
+      "sha256": "5789896ef1a123ae3ad9b39638573be3e5bf8320fda864ad4b3e9b6e3f2ae447"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_execution-graph.test.js.166af7ca.log",
+      "bytes": 1784,
+      "sha256": "af68043b43bf6e5c60927505604e44dbb4179907538b90b78757bd41d2146ae0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_execution-loop.test.js.eca94dc0.log",
+      "bytes": 7499,
+      "sha256": "616d4d22c5467cc2a9b57ecb83b2e8bab51fff6f38f7fa723c03a4fe356de89a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_execution-trace-stress.test.js.3884abfb.log",
+      "bytes": 5718,
+      "sha256": "68217e6e597aafcbbb58fb5be7babd7df25d1a2d64523c1f9540f5bb1695d0fc"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_expertise-discovery.test.js.a4992039.log",
+      "bytes": 3074,
+      "sha256": "9675035c24228bed88bff2f2a5bcab8a11d491c602fdcdcb4ed3a427e6e9cd0e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_expertise-integration.test.js.f04c0b04.log",
+      "bytes": 3987,
+      "sha256": "1a2c3ef98b55013389ced12e96955cb6863fcf1a81a0f4e366f56c9d8d3ac5e5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_expertise-system.test.js.ad383929.log",
+      "bytes": 6840,
+      "sha256": "dffb90f960d406f8b1540de59fc51a141de72b593c702917d683fb6e91917a9e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_expertise-wizard.test.js.c6b93dcf.log",
+      "bytes": 4912,
+      "sha256": "689a675567e7ae02b4a46915ac32d1c0628e3d62c11e69f16a9190d255fc35b5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_exploration-agent.test.js.d64f8a78.log",
+      "bytes": 1569,
+      "sha256": "fa26f7ee9e909bfa1803b22d0df5d295aa5748f89506c04ba3738cf309f51591"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_export-pdf-docx.test.js.30056cec.log",
+      "bytes": 7476,
+      "sha256": "b84e142f518ec23582f19e0941820d31e4aadd273dd5082fa41d2ac91463a64a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_file-discovery.test.js.96264527.log",
+      "bytes": 2425,
+      "sha256": "6e026d3229aae19fa45811d2a80e210d00bb6dad9c192da95a1ed3e580db377f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_file-write-extract.test.js.2a88b307.log",
+      "bytes": 2399,
+      "sha256": "f9efcc8ca14efa3435e00aab61f9952dcba608e76428f988d1b5bcadc1389399"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_fix-strategy.test.js.c6fbfb8e.log",
+      "bytes": 3322,
+      "sha256": "f5140032add891b3dfff0534f7b53cf6e7c3cab9ef2824ef3bc483b213d6f7f2"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_function-span.test.js.731bd2c6.log",
+      "bytes": 2552,
+      "sha256": "60ca20fed06c76eb8d2d1c4b360bc58bde488738fb965560571be97c4a53bdd9"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_governor.test.js.cb9c8aef.log",
+      "bytes": 5140,
+      "sha256": "bc2449ec9dd79b76da5a60983d82df7d2e693719ca61a68efd2e0d454dbfc913"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_graph-query.test.js.debaf6cf.log",
+      "bytes": 2562,
+      "sha256": "1a5dde467e61ddaa7846929392176fc9c11ceabba563720ba8b02a00bb7f92db"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_graph-retrieval.test.js.52fd7404.log",
+      "bytes": 2586,
+      "sha256": "3128a7a0a92eeef65a2bea2b1372a7f4df3ce880fbdffe44d20df3a767f38a66"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_graph-sync.test.js.e6f547c7.log",
+      "bytes": 2725,
+      "sha256": "a2764e40091bd65360deb0cba039ad647ce2459d96588eb41b6b0af2ff69f94c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_harness-exit-code.test.js.a34d228f.log",
+      "bytes": 649,
+      "sha256": "440c1816e6ebc0e73dffd56d16efa554097225f25cd66f84b135829058d10ad2"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_huggingface-client.test.js.28b6ea99.log",
+      "bytes": 2573,
+      "sha256": "500538e7e71662c7bfb2f1b1b93b91d33a1060ecb13241fd7f8a84ca3d502eaf"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_ide-workspace.test.js.44571dba.log",
+      "bytes": 6361,
+      "sha256": "9db72801d6a659ac5d87e92ea1fd91157204165c726aba736d46993ca29fb448"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_impact-analyzer.test.js.610b1e67.log",
+      "bytes": 1678,
+      "sha256": "c2fbd18d09bf9ca8639aa755af8682bf4c1d630359b2e7239920ea082a14ba01"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_import-map.test.js.4bf97966.log",
+      "bytes": 2260,
+      "sha256": "2c1069a366429b0248f93ede8bbd9d920be462caa9811fa5fb4f5762312184b8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_improvement-loops.test.js.c93525e7.log",
+      "bytes": 2401,
+      "sha256": "3ffab809848c934cc2f66fff6a21c3464f8b1b0b4abde3c1148a996394892256"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_intent-context.test.js.c509e386.log",
+      "bytes": 1641,
+      "sha256": "855bbd13769e5ac80bbfed73af8c74978644b1d66f8d85c5a68f47520efe9d8c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_knowledge-base.test.js.26010c8c.log",
+      "bytes": 2774,
+      "sha256": "2a1491558dce8e7348defb322cf94002bd88838572a61a05dcfb6358f2f9de91"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_knowledge-graph.test.js.253a294c.log",
+      "bytes": 1858,
+      "sha256": "6b1279b6735ff1d8fd34b6225d71b0a8e2d6a9549de4802bb34e4903fc48c06f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_large-project-scaling.test.js.843011ff.log",
+      "bytes": 3259,
+      "sha256": "90bcf5dfaef451df0d95f37ff2f15a4f4cf4084854d3b9d8877c1adc1e293c65"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_ledger-annual.test.js.778c0979.log",
+      "bytes": 3191,
+      "sha256": "1e08221d60e4aceed4df5d2bc9f23a9bf3a69a29ac3deb594825737e924252ff"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_ledger-compliance.test.js.177966a2.log",
+      "bytes": 2504,
+      "sha256": "7b2cdc86d57926ea2f2d409ac46557d274869348cf575c17bb18c6e5137fdb60"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_ledger-core.test.js.59eacff6.log",
+      "bytes": 3663,
+      "sha256": "32c68ae646b81a6713f946c522ab71b54bcc7eea9c129f59db96582bf7a9d697"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_ledger-insurance.test.js.26716931.log",
+      "bytes": 2364,
+      "sha256": "c0cb24397576aba66b005adb4449dfe688ca797aeeeb184590ace1114797330d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_ledger-reports.test.js.5240a784.log",
+      "bytes": 2106,
+      "sha256": "cceb84cb499cfc1175a9fd8e6fc537da91b206c182f819e6fe2b68b3a27d8eff"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_ledger-rewire.test.js.fa095236.log",
+      "bytes": 2400,
+      "sha256": "61604811557123daa102fcbdd36627d77671e26d0bc92acb6d75b5d60a3b6659"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_ledger-vat.test.js.2d81aa9f.log",
+      "bytes": 3306,
+      "sha256": "012f87d49338c94c2de1bbff02cde5f1df0e39be4072bcecc699b2fb5fcd5aa4"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_lifecycle-blocked-milestone.test.js.094bea94.log",
+      "bytes": 3098,
+      "sha256": "570b77b3fb1f7bf0df615c43fc5ae903f135fc4052bd980e6a7775b8457785a5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_lifecycle-build.test.js.6a4c4eb0.log",
+      "bytes": 7251,
+      "sha256": "792e7a7ecf4fd4af4dfc0de5ce673c99d105c7de2234aa03bce40af4082b25dd"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_lifecycle-conversation-e2e.test.js.ee4ca3a6.log",
+      "bytes": 29500,
+      "sha256": "67742a987274099860dab6136b6b321c68e8a0ecc5386fd255cd65c83a381578"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_lifecycle-db.test.js.14493c75.log",
+      "bytes": 3429,
+      "sha256": "a76539bb4dc33558020f37b079a4e408e2a8adc981a3725ddb2f1e76c512c317"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_lifecycle-e2e.test.js.7a764790.log",
+      "bytes": 7213,
+      "sha256": "2cf22e99f0153ba0c5aabe58fb33405d76bcf5da0dc1e840700ee14d06e7fd38"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_lifecycle-handoff.test.js.d2704efb.log",
+      "bytes": 6052,
+      "sha256": "2a4589fc1587821a48330d4bbb5ed7f5a9bb85e96364771d725b3d607f3ff3d2"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_lifecycle-human-friction.test.js.56124424.log",
+      "bytes": 7063,
+      "sha256": "7dfb293c12e42cd6d41f3c2b54b7badf57c222c98536535304576f3cb2498af3"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_lifecycle-invariants.test.js.36fc15aa.log",
+      "bytes": 16327,
+      "sha256": "2f8023b9df4aef96404d0adee61a182b8eefeb45c8eb89e9a41b6af8ad56ee67"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_lifecycle-llm-realistic.test.js.5e88868a.log",
+      "bytes": 11354,
+      "sha256": "8b0d346cbaba51ad59bf3d571c121f4e106e3d31f568097d99852c2c0ca6afbf"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_lifecycle-review-change.test.js.faa90132.log",
+      "bytes": 2497,
+      "sha256": "56aaa01c987de37bbefffd600da403e0d66737b70f9e24a84fb82f2661a0eefa"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_lifecycle-stress-advanced.test.js.5ac1e452.log",
+      "bytes": 6605,
+      "sha256": "723f2ffc4f3a6479f6b22a8ee5ace3204ac8ed78f80b5a28f8551e3af4d36035"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_lifecycle.test.js.52956fcb.log",
+      "bytes": 10181,
+      "sha256": "798ca7bcb142f412d22292391d828edfc3e9222917af603639e4f78489bfc299"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_llm-gateway-runtime-signal.test.js.0b940a7a.log",
+      "bytes": 2940,
+      "sha256": "706390760227061bc43add79663c564acc9382b5c0cf1461cc9e00ed88d5a65b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_local-math-nonfinite.test.js.019feb01.log",
+      "bytes": 1188,
+      "sha256": "4e732961ed69e1a3caaeb3fe097417ec0fae75432f4d2b5b5422533609447711"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m1-chat-contract.test.js.ca2e48b5.log",
+      "bytes": 3502,
+      "sha256": "6f7dc1ecc21ea934941552570566fc70bdc1ae88e093580b1436eba6cc4b2fad"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m1-contract.test.js.998aa76f.log",
+      "bytes": 2811,
+      "sha256": "f8816dd49307be26a552ca6c5dee7cabca937aebf893b7c033139b459eab54f2"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m1-model-automation-policy.test.js.13f235f4.log",
+      "bytes": 2522,
+      "sha256": "9b0e889bb719bd32ebd6e063e4395a6dccc8bbd27435b525464a97f5992dadbe"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m1-model-binding-application.test.js.96cefee4.log",
+      "bytes": 10352,
+      "sha256": "d0b8da943aab3d7628930d02e0c803ee04cbebbc325e609a0ddbf6d3d1ad621e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m1-model-binding-repository.test.js.6b2a3128.log",
+      "bytes": 4295,
+      "sha256": "aa8b624112bdfd5c813c8781abb7222f583a30a4514f1ee8f946ac3326e1b3d4"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m1-model-binding-storage.test.js.d31f186e.log",
+      "bytes": 2087,
+      "sha256": "5518148938c604c22a5ba0b6e5d4b73cd26aa65d75e182d1a6001ba0f693947c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m1-model-contract.test.js.a8bcca69.log",
+      "bytes": 6643,
+      "sha256": "4f8397c5c3ff859fa0a3ddbfd4c1acc57bb5bc60d441dd2264e7d228ac9884e5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m1-model-failover-coordinator.test.js.30405fa4.log",
+      "bytes": 2199,
+      "sha256": "04542c0b95cfdf8201c727dfe3cc41f8d26ac4d2b427020dd6e584b361db0816"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m1-model-failover-detection-repository.test.js.8fe33847.log",
+      "bytes": 1245,
+      "sha256": "3f68f32b85031b69f53fbf756f55057eb9d067c36d970e9576a0fdb5b247b91f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m1-model-failover-proof-artifacts.test.js.fcc67211.log",
+      "bytes": 1333,
+      "sha256": "14f6c8c01bf8392854ad0f789690099457b12a3d23e99ac03e3530ca900c02be"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m1-model-failover-schema.test.js.48a6c16b.log",
+      "bytes": 3411,
+      "sha256": "60a8a7b507791d54492c30760bd31ae8baaf3b968fb317a3a9b14f90ba6b9439"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m1-model-settings.test.js.ec00af34.log",
+      "bytes": 2022,
+      "sha256": "6692bc08ae112feb566e37c3ca33f97ef674732fef64d66561a4640756363f4e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m1-model-use-authority.test.js.1decaa60.log",
+      "bytes": 3699,
+      "sha256": "20aaa652581f3f1d5f592511d4ebf0f0427ecf32877fe60169131dc279c0dc23"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m1-quality-contract.test.js.48723e78.log",
+      "bytes": 1063,
+      "sha256": "49cb90a3ceea80ad0c17bef750851506bd5e737d86efc87fb0a4056d0cd40e6d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m1-studio-client.test.js.a839f16b.log",
+      "bytes": 17920,
+      "sha256": "109593f48e08d29bc9c5833ee523120ec37ff7604a6aba3a4d56cb37a27b772e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m1-vram-artifact-use.test.js.13f25518.log",
+      "bytes": 1605,
+      "sha256": "78ba985a06752ad9cda24713a2d613f345e08e280d105ae855fbaf0ae132bbea"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-effect-authority-repository.test.js.fbda346c.log",
+      "bytes": 4630,
+      "sha256": "627ae8c6b9f6f8afb96e5ab58b124d99ad14d52e3ee510699fbfe562f0ba40ff"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-effect-broker-v1.test.js.606c7170.log",
+      "bytes": 6234,
+      "sha256": "7d172358b91f7769fe1b359e0a338304caae7685dfd0c9de32f6967eacabbbd1"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-effect-contract-v1.test.js.6dc251f9.log",
+      "bytes": 3276,
+      "sha256": "ff063ca34a4486a534c93dca2b4a981467a1394502ab5b28ef7dc9a401126c21"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-effect-execution-owner.test.js.a1097a45.log",
+      "bytes": 1296,
+      "sha256": "9fd1cbc5124c008dc4f7b08ec0c5804ba769ce26dc943b529963ce44adf0c028"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-effect-file-consumer.test.js.351c4b65.log",
+      "bytes": 7775,
+      "sha256": "987bc085bc167dea2ac667dce8980f3caf214c4ca26e7c3e42f8d7178ffdcfe6"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-effect-file-runtime.test.js.598972ff.log",
+      "bytes": 3767,
+      "sha256": "cce4b7d807c71a623f7f6d9d62a46a3416406a94b91b6121d58ed641f59913a3"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-execution-authority-repository.test.js.ed35dc26.log",
+      "bytes": 2096,
+      "sha256": "62ebc8ae01d3a98779e8d26374d855a9356a6d1b13a1f8725f92cbbf0c8eeb73"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-execution-contract-v1.test.js.62f3b9eb.log",
+      "bytes": 2802,
+      "sha256": "97cff9ee2ec4f6373aa258a29672bc14725ae8fb2fc7a5ab99b8797826852694"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-execution-git-preservation.test.js.11b275be.log",
+      "bytes": 2012,
+      "sha256": "bd9f1e1d2354848cc84a5d15cefdce961ddd704ff06c701bcee8dce7446c9a53"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-execution-process-supervision.test.js.acd09b66.log",
+      "bytes": 2024,
+      "sha256": "a7fc3f782ce47be25dcf37da718ee318e911f2e28b26c2563fa84fad8231ea61"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-execution-project-change.test.js.a53d03c7.log",
+      "bytes": 2844,
+      "sha256": "8786b813f7b8a7b48cd6904010505a9c36174da42b8fa26113e5c65502e74bd6"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-governance-contract-v1.test.js.a877dfcd.log",
+      "bytes": 2068,
+      "sha256": "6159f8093425e6570f88e0020b9db04517919e7a2b90fa98f97048388023b0e0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-governance-evaluator.test.js.8ae217b6.log",
+      "bytes": 2676,
+      "sha256": "06bfd9d9f0bca86ad04b25754a2657ba3fbe14f2bb62d2526324b9e2d7327573"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-lifecycle-application-service.test.js.1a72c253.log",
+      "bytes": 5104,
+      "sha256": "1cbf7ca7590de14aca76e4b611fadd95d961ad4e297e7d7aa314b6d7ed03f239"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-lifecycle-authority-repository.test.js.a86849aa.log",
+      "bytes": 2066,
+      "sha256": "bcf2fcb34c93c4097a989ead35cc7fa27507c60915db797063f56ec6c99afaab"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-lifecycle-contract-v1.test.js.b74c85da.log",
+      "bytes": 2152,
+      "sha256": "ded4e85f38a49c051fa0018abaf6cf3970bfbc6bd62b379c192130ebb7ab2c2a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-lifecycle-proposal-compiler.test.js.744ad0e4.log",
+      "bytes": 1925,
+      "sha256": "9971f04e5bd7347dbcb3afd275b76b696982f8df1ff747d5117fdae5db5ce9a2"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-lifecycle-routes.test.js.0c94ab24.log",
+      "bytes": 2281,
+      "sha256": "ce009e15ef0120fa3eb85bf9d2323f6f87b8efa70469a46b4f5177f8262ad26d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-lifecycle-studio-surface.test.js.0e60553a.log",
+      "bytes": 9523,
+      "sha256": "ef64a9ea2b2de2a97172f83d9d5fde0264c6ed335972b47ae77f75e74359301c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-lifecycle-surface-retirement.test.js.a7607ce4.log",
+      "bytes": 1617,
+      "sha256": "51d951aa8a396a8d975cdcb342c9813ba97993a66d6a829e39f1e0390ea99b57"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-negotiated-lifecycle-quarantine.test.js.73ba5d5d.log",
+      "bytes": 1627,
+      "sha256": "baac3ad4f41f26e06e3b6cfb3892be86a4ccffb204554ec7eed49c7482b9d553"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-project-context-boundary.test.js.4adfd6d4.log",
+      "bytes": 2094,
+      "sha256": "01511d7f21c162feab020330b92e6226f6b869015e906ac0738d159894f128ec"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-project-context-consumer.test.js.94ff0a07.log",
+      "bytes": 3525,
+      "sha256": "5b1420c278a919d565b915306ee92a8b588011424af3aa18d8852abbbad3c044"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-project-context-contract.test.js.8a826e82.log",
+      "bytes": 2382,
+      "sha256": "c87c639a89643058639e45f48b49301ed2e61a56f9e2e7e5ba056ff42d6dde90"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-project-context-retrieval.test.js.3680830c.log",
+      "bytes": 1808,
+      "sha256": "725f28a028e50f4977e647936d6956ae1c064ce085af4db7035604dc866b4c67"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-remote-core-port-boundary.test.js.e818266d.log",
+      "bytes": 1859,
+      "sha256": "020bea3e983efe98ca72202091228c9f707df40f807de6d0b790a6a70e38aa53"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-remote-core-port-contract-v1.test.js.331394d6.log",
+      "bytes": 2327,
+      "sha256": "7aa618defb042fcf2a59834861177eaf35e57f41649cb50ef36ab705e04b8332"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-tool-authority-repository.test.js.2f54b988.log",
+      "bytes": 2954,
+      "sha256": "1a5d1de5130e28a8d4d42c42643446e5f2b5e9d5a29d45a2f5627dda9530a796"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-tool-broker-v1.test.js.ce3c9391.log",
+      "bytes": 3747,
+      "sha256": "c9f2b59c56ba6bb86b03ed09328bb089ca2aa95e85ff00042be07f2c8b0ac546"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-tool-contract-v1.test.js.20002f30.log",
+      "bytes": 1998,
+      "sha256": "f06517769dd7cbf03d2a4b23fa26bb717e84bb615ec3359418fe03cfba0a4ff7"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m2-tool-production-consumer.test.js.97d359cd.log",
+      "bytes": 5756,
+      "sha256": "f9985b330b891a230ebc7dd8dc7dca30727ef251fdbe066e36a481ff6dd0dc4a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m3-code-review-specialist.test.js.69c5bf24.log",
+      "bytes": 1362,
+      "sha256": "7a5f4b948421ebb596567891d871c0e22fde3b95a28151a3567db94af86f49ce"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m3-expertise-extension.test.js.0cadd29f.log",
+      "bytes": 1433,
+      "sha256": "3287fd087531bf0f8cca9ffcbb80fb9735d20befc4391c31003dc079ade1785b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m3-extension-contract-v1.test.js.6196d1c7.log",
+      "bytes": 2371,
+      "sha256": "6fb22b2febf55f13f19e0e3c2bb9b51dc350b1a5740b9e672b0f5b304c188a05"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m3-legacy-agent-surface-retirement.test.js.1f903705.log",
+      "bytes": 1980,
+      "sha256": "795f72f913e5d70c56cd84ec01ea3ba628ce682f4f0d29688c0ac497de025a43"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m3-project-health-agent.test.js.89ca5dbe.log",
+      "bytes": 1624,
+      "sha256": "48b470f73b87f60daea7d9db937c735b089611941e181fec2fe517800634017a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m3-skill-effect-authority.test.js.90d6abad.log",
+      "bytes": 2277,
+      "sha256": "d898160ea96213cc76586624f71c9b802d4ce1720c3ba14406ab3fca79fedd34"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m4-learning-api.test.js.d38d9233.log",
+      "bytes": 1570,
+      "sha256": "cc1e7a54109dc7ec6e67af23b0812cef5784f7c35f07675f065f27be80cbfb5a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m4-learning-authority-repository.test.js.b4e8600c.log",
+      "bytes": 2075,
+      "sha256": "0a0d647a1419360e4650a351a664a1e2003b04d8816080c10c9fb6e04327216f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m4-learning-contract-v1.test.js.a8e58962.log",
+      "bytes": 2172,
+      "sha256": "c1cb824c3eba564ddfbbd3eb77bd4d53159ed54efcfe31dcb5cc4bcd06f6b7d5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m4-learning-journey-e2e.test.js.f763a019.log",
+      "bytes": 1038,
+      "sha256": "e03604917ccea8f329bc24278b7c290ae17d41765971d4ecc74ad177df024dc4"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m4-learning-outcome-evaluator.test.js.9af5e10e.log",
+      "bytes": 1751,
+      "sha256": "a75e6081024968425c36e13f331d9292eeb9a48a0dcbfbce538f8844ead3df30"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m4-learning-pattern-producer.test.js.8c94c60b.log",
+      "bytes": 1723,
+      "sha256": "3b5c7683258b37e03ca5354e084b71c27a7c4e279a55ed581de9fd096e78b8ac"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m4-learning-studio-surface.test.js.2f719a0e.log",
+      "bytes": 2123,
+      "sha256": "4b2e614b14b3b74a0d9b2c7275ad8b639c517e6d82e7a6b5bf8453c85c98ca93"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m4-project-learning-context.test.js.fe2aa47a.log",
+      "bytes": 1482,
+      "sha256": "1e73ce74c44d0f93baa1c6d3106c2a811d204058cc1af8f61a0d9371984fc8e7"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m5-conditional-surfaces.test.js.c10e5bf3.log",
+      "bytes": 1688,
+      "sha256": "b130a065f4786870c32d184c72ef5450d4f2d2373a318842c7be2ff7fbd50156"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m5-data-restore.test.js.abd1e68b.log",
+      "bytes": 5370,
+      "sha256": "635a7abb033dc016f45d890f0578c5061dbd023a2f398c14eca4c47f43aa61ea"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m5-install-profile.test.js.3197eac0.log",
+      "bytes": 2541,
+      "sha256": "4dd4f7da1535dddf7ca17f47954f2cf4600c4309be96189d723d473dcb06095c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m5-observability.test.js.32ca3222.log",
+      "bytes": 1537,
+      "sha256": "ab801404c6c286ea6a04cee223e0403059f2d948493f0897f0793592d63f2e11"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m5-outbound-policy.test.js.efbd97d2.log",
+      "bytes": 1811,
+      "sha256": "328811f95044a9bc475c4dd83cec1eef922b07d145ecd475b892251e83f8ac00"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m5-performance-budget.test.js.e15e50b5.log",
+      "bytes": 2220,
+      "sha256": "e5ea2992a819f047c9b1965fb0bd0b7ae2f906114a781e4b1a40e444dabd685f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m5-privacy-remediation.test.js.3f394ce8.log",
+      "bytes": 6214,
+      "sha256": "2209931e6e3b87288b422e669b68eb88fe90318d0d2d6008fa897106322e8876"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m5-process-hardening.test.js.b964dd68.log",
+      "bytes": 1634,
+      "sha256": "80847fae045d3159434201afa46f2aeb918d74e4080d4ad23d459ad7ef68c320"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m5-remote-core-adapter.test.js.4328babc.log",
+      "bytes": 2084,
+      "sha256": "63d34072ae16ae864e5fa5372e7d0602b8c03ffa88bf535b666cf4747ca847ab"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m6-acceptance-authority.test.js.4aadeacd.log",
+      "bytes": 1456,
+      "sha256": "25b3b3d73c7aafa0e580e93874a9022a7861b6d48ca3185419d75c6fa6e5911e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m6-candidate-plan.test.js.dc8c9ce7.log",
+      "bytes": 2640,
+      "sha256": "a119ffc929ed1c510f461740de488334e8b4f55588cec1f1a9806abf48b9d4c3"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m6-l0-evidence.test.js.b2ad5108.log",
+      "bytes": 1440,
+      "sha256": "ebd5883d4700c07d5024cda9f00263fb5f5de9473ebd2e7c8e20e68b65a841d0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m6-model-artifact-authority.test.js.1cd51e21.log",
+      "bytes": 2020,
+      "sha256": "6c11a78a4b96d45192409c0c4b53c7f84ba825599751d326d0b33c7b812ea218"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m6-model-discovery-journey.test.js.a03b9269.log",
+      "bytes": 1189,
+      "sha256": "e3f8980ce7ac0195909bfdfe579fc811a5e4e661d0ff0d8de53c06477a989848"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m6-operator-demo.test.js.28fb911e.log",
+      "bytes": 1496,
+      "sha256": "7fa0f1ba5cec4d21e0bc42c3745ec1367b34ebcd6665392532a04ccdabef1f5c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m6-platform-journey.test.js.74df06a5.log",
+      "bytes": 1020,
+      "sha256": "b5afbacd3cd47e95b045c6fb385f481f7d567ed61a8aac34c75e83bc7a330c82"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m6-release-artifact.test.js.a2ff816b.log",
+      "bytes": 1306,
+      "sha256": "1c98d10b0ded2ec86a687637b3d9621e853bf9e52a45fb6b3ce685fea0a5389d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m6-release-validation.test.js.8867f75b.log",
+      "bytes": 1952,
+      "sha256": "ad2767dfef734a486cf11016843bc89f07fb6f69269803210d49200da564f596"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m6-runtime-evidence.test.js.0db6f126.log",
+      "bytes": 1515,
+      "sha256": "6224eee591d39e419df0cebe23aeb83c680c9d79452645ec990763ffeb054d8f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m6-technical-evidence.test.js.dbf843b8.log",
+      "bytes": 1637,
+      "sha256": "969537281fe3ab9c5cf706bb404a10c8bb882ff74fe9fde19babf6a4d5d20a48"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-canonical-json-parity.test.js.779912b1.log",
+      "bytes": 1566,
+      "sha256": "4c0f57366713ae0e9f50af74a058e651f8cabe03048af697dda2d5a70bc51b26"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-conversation-command-executor.test.js.d662a021.log",
+      "bytes": 1278,
+      "sha256": "895bde7eb3b95961dd93db43e7a69374af09a5c99a03f68ef888e3209f7c64fa"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-conversation-core-adapters.test.js.d96c8b72.log",
+      "bytes": 1616,
+      "sha256": "4c7c2720bf4bd1b79bd80f0eb8adbb5389064741529595a1a6d1278aa14440db"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-core-composition.test.js.2b5e07db.log",
+      "bytes": 1676,
+      "sha256": "a94d9b0dcc3a8908f083751d2c40d595f71ba51ba701bf687d8da70ed3b83e16"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-disconnected-request-pipeline.test.js.4361f964.log",
+      "bytes": 1508,
+      "sha256": "53b953dfc35d38134646845208873aeef57eb56a128c5466933f59da0d4f7389"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-durable-rate-limiter.test.js.32485a8e.log",
+      "bytes": 1799,
+      "sha256": "84cc8e0c5966480ab94c130172875e9db1d1b8d9f44da5474a3a6198cbd661b0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-in-process-capability-provider.test.js.f8b9cde8.log",
+      "bytes": 1855,
+      "sha256": "ff02af17252c2350a3cfa957cc80cc9c3ee102d9cf1457491682fd963199ed4d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-local-pairing-route.test.js.7e46b40b.log",
+      "bytes": 1263,
+      "sha256": "90d448ef240ab4de10d3c3cbebb8acd4fb882cf7bda32ed81657f1bfee53eca8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-local-pairing-studio.test.js.572f7692.log",
+      "bytes": 1403,
+      "sha256": "657d6fd51c9c413a93de60036712c336aa08d21ff48fe150617ac93ce525dae8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-m2-approval-core-adapters.test.js.12c96c74.log",
+      "bytes": 1225,
+      "sha256": "33cc85afdf68a3294939857b640c0c0cb093408cea95690422f579a15516cbdc"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-mobile-app-runtime.test.js.6ad6d05e.log",
+      "bytes": 417,
+      "sha256": "83018cc008db1f0a0747023d452a6c4842b1692b36bf163ba3ee4778d20edac6"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-mobile-core-pin-integration.test.js.082d1156.log",
+      "bytes": 1239,
+      "sha256": "bd23f2d44a4b4a1c2967fc3dbe677fafec6ae0c1c596cd92d96c940b98c61586"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-mobile-ui-api-adapter.test.js.1a215f23.log",
+      "bytes": 1637,
+      "sha256": "055d8d8c4430eacf79cb00f8a30d38603d6899a7795bbf1a11875b2511a89d2c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-mutation-mediator.test.js.7b109ce6.log",
+      "bytes": 1305,
+      "sha256": "5e1c7619768d387350c74a6960e26f0cdf020a3f5aa61f0eaf80aab326a6bedc"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-native-remote-client.test.js.5edc41e3.log",
+      "bytes": 1021,
+      "sha256": "eea68af2877e7ea80be8fcafdbbea545292637797e88c814428ff1c4a54ab3df"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-notification-core-adapters.test.js.ef074412.log",
+      "bytes": 1524,
+      "sha256": "3a0bbb7b760cd1051266f3a3d9243103743400a686ea571be063720f5eb62f41"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-operation-control-adapters.test.js.04d13ffc.log",
+      "bytes": 1508,
+      "sha256": "21170c869d433464b3f4dcc37c191bbbd51c057761e9324681bf2e122d13f547"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-operation-journal.test.js.5b628c4f.log",
+      "bytes": 1866,
+      "sha256": "7a0c64b505a81c2b08bf8dc6eac52b4afe6d24bae4281cbde173a89564ae5165"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-project-core-adapters.test.js.eb2adf66.log",
+      "bytes": 1565,
+      "sha256": "d0fe57c868727fd9493bcbf77be165903dbf0e184ce3b98606586d374cb4315d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-remote-health-adapter.test.js.32985334.log",
+      "bytes": 1388,
+      "sha256": "eed1f47607bf3547e099c7b116e7a9eafb04e8747543d913607a349c95e11833"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-run-event-core-adapter.test.js.07053bd8.log",
+      "bytes": 1488,
+      "sha256": "921f6d39457a06e3181bdd0ce6dc60bc5cbfdebca9666b5011c04e97c930e87f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-session-authority.test.js.06f5a8e3.log",
+      "bytes": 1781,
+      "sha256": "44da390cb060c43c3937c1454e8fd03a63f7a59bd69ab8ad2de5a00471a21edf"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-settings-information-core-adapters.test.js.a71ce126.log",
+      "bytes": 1725,
+      "sha256": "4ec721ea7fd617f1217a117b685a734bdea227dd5ccdd4743b3305e2ad0da031"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-transport-admission-policy.test.js.5bd65e6e.log",
+      "bytes": 1665,
+      "sha256": "d779ded93a38a3fc705c8d3d50523ff6109c5590523498055c9c5b18cf891d37"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-vpn-production-runtime.test.js.dca7e897.log",
+      "bytes": 1366,
+      "sha256": "891ac8665225b6fab207ba641a54eadefcae044a145dfc1b4bc4a855969dd252"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-vpn-runtime-config.test.js.fde44a7e.log",
+      "bytes": 1976,
+      "sha256": "225d44e28b0c5934cd179a29fe7ce5d7469d2fe60d8ba20f6ba0d2243bbff6ad"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_m7-vpn-tls-listener.test.js.21c4b96e.log",
+      "bytes": 1348,
+      "sha256": "4d391146b4167f799380c2d9e7d99ae3ef9ba0a5ea27c90dbc162ea7a33d59ea"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_manifest-v2.test.js.3e768afb.log",
+      "bytes": 2311,
+      "sha256": "3c91ce3156f9813d1e6f841490e8aefa7e870d6046a6866b9fdaf92429c38ac8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_marketplace-catalog-v125.test.js.97de319e.log",
+      "bytes": 23529,
+      "sha256": "664ed02d3fa4053e02865b5d8dd5ef350d4a6ab4a34ca71f5cd44198bc658875"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_marketplace.test.js.145d7584.log",
+      "bytes": 4698,
+      "sha256": "b1080ab0ee444369b7052ef6fbc4785c44701844cfffc71dc8a747c15a65c06b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_merge-compatibility.test.js.5f130be0.log",
+      "bytes": 3177,
+      "sha256": "e70411b1b1e7be374c6acc8ac527b6a6de59a4b09bf5e29716dda533f3c145e5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_merge-enforcement-integration.test.js.0b068ac4.log",
+      "bytes": 4739,
+      "sha256": "a759b2d955a1ea9c6c3ac74c3e0c2bce5a6278c17cb8eea87e5dfb874e6a585b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_merge-engine.test.js.823c00c2.log",
+      "bytes": 8705,
+      "sha256": "264bdb80d5c6fa7111ade75519613237f19dfe7cc48c138724f48a4be8358ff1"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_metrics-collector.test.js.d48129a5.log",
+      "bytes": 1271,
+      "sha256": "ae01ce7389c4ff2d45467eb276c539de4f54a63a8b916f85f8b378a4b6e74ed0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_milestone-size.test.js.6d7afcc7.log",
+      "bytes": 2508,
+      "sha256": "13bfbb6163e9c2f8ab464bb0f1d99f4acef02c789ff54bd78e923332f3c68d73"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_mobile-android-release.test.js.83cb5702.log",
+      "bytes": 1938,
+      "sha256": "cb2ea857110cfb843c7eaa27e0e3eedff68ac69215ab07d4951465a4175cb2c8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_mobile-approval-lifecycle-regression.test.js.382f9ce2.log",
+      "bytes": 780,
+      "sha256": "87dfa648782d32e52cb13a4396f65f0a562cf243f9298258afa92a2037f8ce5c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_mobile-browser-a11y.test.js.1de6224d.log",
+      "bytes": 2317,
+      "sha256": "55cf8dbeac1fd92a20664b3e397197e60054173dcb56157af30c291646cf6d5e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_mobile-capability-inventory.test.js.46fb71d6.log",
+      "bytes": 505,
+      "sha256": "a10120a99c24ccef6b6914d28f227ca3d72eda14d9a0b3768b9b82d7a3adb0f8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_mobile-gate-self-test.js.8d8d09c3.log",
+      "bytes": 794,
+      "sha256": "c96aabd934b35e6122bd75487297e00f2e7d618d25105270db70e7ea3a4f0d66"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_mobile-ms07-history.test.js.9079945f.log",
+      "bytes": 1701,
+      "sha256": "b2de37feeb457245a2b0dd2f3cd3a7fd27bec8326cd325ac2488e6049d1193f9"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_mobile-ms13-approvals.test.js.da425472.log",
+      "bytes": 4935,
+      "sha256": "e4b8d00ae1cd8574086aefdab6e184be35086086cc113b1be2fcd49fd59e451e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_mobile-ms14-decision.test.js.f6fb816a.log",
+      "bytes": 6182,
+      "sha256": "2aeab6ecc903926fb36158054e60bbd1d82c9d5b36ae89fdd589f9e5e06749f7"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_mobile-ms20-ui.test.js.a0b9eb4f.log",
+      "bytes": 3904,
+      "sha256": "7a22ba14fcef683249b4bfad06699f8160a4a57fe68d14c1212a174e2cd21832"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_mobile-navbar-ring-turn.test.js.50271dbf.log",
+      "bytes": 1509,
+      "sha256": "35ff275785c5c94193c8a2c4417c1ac893915a8cefb6c68404b95b3bd3f19e24"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_mobile-navbar.test.js.7c4f1227.log",
+      "bytes": 2100,
+      "sha256": "ed75fc2e4b2a43e028b68df118f9f576209d7a182d6cc1a3d61b764199e387e5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_mobile-overview.test.js.37551d17.log",
+      "bytes": 1841,
+      "sha256": "d3605b70a94c23ec21c90d9de0db11e0060172a21c1c29b7800a4f08d3d73215"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_mobile-remote-capability-contract.test.js.e64c218a.log",
+      "bytes": 1357,
+      "sha256": "a9a03097735e9e2449f24628effe73971daee7e280ef14d453cfb96a3a8d2e85"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_mobile-remote-capability-provider-contract.test.js.778bf1cc.log",
+      "bytes": 1621,
+      "sha256": "8bb8277c5de6df1b583a9b4555c90ce08ecd8389d9d99a7ea9fc66aba1b6124d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_mobile-remote-core-simulator.test.js.79ba563d.log",
+      "bytes": 1739,
+      "sha256": "4202b34fcc3fa4f54b65ebb2f8e47fecdd45115d65d4cd33055b2ab9aeb784e0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_mobile-remote-core-v1.test.js.d45ee5b2.log",
+      "bytes": 1026,
+      "sha256": "7f28b7b842a091c9286b8f8b970fa159b840bf38a19298a65af08705aa6b4b80"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_mobile-remote-session-contract.test.js.bdd0f7a4.log",
+      "bytes": 1532,
+      "sha256": "8d51d195082d99722621bc3ddedb9ea662e0f3f973f2b8a12f60300137491a30"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_mobile-run-silence.test.js.1924ac8e.log",
+      "bytes": 1434,
+      "sha256": "ed9a7f15153591c3e7b312acf4bd9f59ad90f50d73fa8b09d1459f9d881946c9"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_mobile-secure-credential.test.js.a1f840f5.log",
+      "bytes": 2602,
+      "sha256": "e9bbae44bff46976efe0e8262e79bcd8f244439bccff73f6d7c380d836ab6816"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_mobile-trust-bar.test.js.ad6effc4.log",
+      "bytes": 1924,
+      "sha256": "dab858a3aaac2203f603fbfc797ec52d301926b045633863cda7a7211a0252b4"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_model-catalog-registry.test.js.a4208391.log",
+      "bytes": 2042,
+      "sha256": "797ce3614920a3315d20d7a98c87641ba6e94db8a5c8a2b15e0fc731a011c257"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_model-ctx.test.js.c0c98746.log",
+      "bytes": 2272,
+      "sha256": "87023a1ee2af89de0e82d8e2ce9fc11ac60bfa81c720da8568da7c16719f3509"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_model-evaluation-consolidation.test.js.d30bd50b.log",
+      "bytes": 2209,
+      "sha256": "fc3c48250eb67a74b70f38b4963fb9b28a3e7922c53c5937cc32f33fae1ef776"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_model-evaluation-read-model.test.js.b8fc9f01.log",
+      "bytes": 2464,
+      "sha256": "5dbddd04cbabd41271806e079f7c614f22bf5e5cc4ba4dc96d37b7ac421574c2"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_model-evaluation-suites.test.js.27a3b5d4.log",
+      "bytes": 3181,
+      "sha256": "09160a87ac8f5281b48d1c52be3771f828f0a9c99183ab75060f2cbc24f0c0d3"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_model-registry-current-authority.test.js.e3bf6cfd.log",
+      "bytes": 2909,
+      "sha256": "086cedb17a00a08d9740f0eab1058f30bc85450e6aee53bb71e9ccbf8119fcfa"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_model-similarity.test.js.38b5a255.log",
+      "bytes": 1332,
+      "sha256": "75e3e80becef6a8d8fedfec6f0ff296b0177a268e6fe23641040369c89bae32a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_model-sweep.test.js.15949b01.log",
+      "bytes": 4491,
+      "sha256": "6a6817917d76e0a9a14dba29fc39088cc839b14b5de66b38c084024d429feab5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_model-universe-store.test.js.e53440f2.log",
+      "bytes": 2052,
+      "sha256": "4b6de40287712d4d334fbaef0731d0b1c574f111b3827daef1f0cef6f9e6ab79"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_model-upgrade.test.js.2c7522c3.log",
+      "bytes": 8081,
+      "sha256": "ac2a363e2f5bd3dc271b7d31c9ee8832d37ec20bfc964910bbb58969e8e72324"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_module-boundary-ratchet.test.js.bcb6a2a7.log",
+      "bytes": 1907,
+      "sha256": "d60da9bedb4181ae5473936a7592f3e1e4c8ba8ef85534f09df67564613824fa"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_modules.test.js.0d9853e3.log",
+      "bytes": 2286,
+      "sha256": "5f61cf8f24c0b3fd6c68fdccc403be8b7e1eb51d90d9f255e7e6443c6ecf40d0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_multi-source-integration.test.js.c7dc01b1.log",
+      "bytes": 4309,
+      "sha256": "e8862618035819ac6461944ea6718d8eb8fd401eceb8fefb3786d1510bd09bb6"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_multimedia.test.js.e1b762ed.log",
+      "bytes": 5099,
+      "sha256": "24972b38005776de729642bbeed6de5a14537af125415d803e216c873634ab06"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_nightly-audit-runner-self-test.js.eaa62b18.log",
+      "bytes": 8253,
+      "sha256": "5d7233e3e13fe2ca0d294d74a7d2a52f752574cc0e75054f164fde0a26d74ea2"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_nightly-orchestrator-self-test.js.a5ce7dd7.log",
+      "bytes": 1130,
+      "sha256": "e511c5a4c9e653ea673f2906fb051f57ff443429d746143e954d433f343c39b0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_notifications.test.js.4e47e960.log",
+      "bytes": 3477,
+      "sha256": "56db3ad7bff26512cfba488c5760c78fa8dc735c6f275b8bc1cd85f748e2d785"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_online-discovery.test.js.aa15fbb5.log",
+      "bytes": 3838,
+      "sha256": "a7ed1894c7c4bc573a63eb85ec3bb3b2842f4b0a0ad8e7f5db460dab274fc71d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_outbound-network-optin.test.js.940a735b.log",
+      "bytes": 1012,
+      "sha256": "ee931b792058e09307b0e12f86ecca20247addf213145ed187a727622890c60b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_output-gate.js.c0084381.log",
+      "bytes": 359,
+      "sha256": "ea50774936f9aa8effd4093cb531563162358a5788b0d614191313b9d06f70e8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_pairwise-trial.test.js.c9619511.log",
+      "bytes": 3947,
+      "sha256": "931fb189a453ca066dc5a3e0b54dc5b146c7f2d06bbfa47267640a5cecc91e09"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_patch-engine.test.js.4a81491a.log",
+      "bytes": 6531,
+      "sha256": "5eeb6bc4907b0c116b0220914a8d9a8967d52306df92c532954f2e11298c89b3"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_pattern-miner.test.js.b1a72d1b.log",
+      "bytes": 3199,
+      "sha256": "e7caf807cef2f1e91d787d2466e961d4238392ee81d12402c5d46f83878ed789"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_perf-analyzer.test.js.210cd8d3.log",
+      "bytes": 3836,
+      "sha256": "fecd88188aefff0aa9ddf27a92f622c6cf4338772b74c708a116dafe0f4b1bf8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_pilot-c1c2c3.test.js.ea164072.log",
+      "bytes": 11748,
+      "sha256": "192d20581cc4a67c7bad3df59bcafabe5d7cfe433fbbb9e8f7483334159c9395"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_pre082-upgrade-regression.test.js.05d1b506.log",
+      "bytes": 1038,
+      "sha256": "3e57f5ec2d8eb2968e56ea69929bf9c86ff615643d72d0d5da4c92e28e74ed9e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_project-kb-decomposer.test.js.e12475a4.log",
+      "bytes": 2900,
+      "sha256": "4c379c8c1f6766ef019b78a7e15b63b12de955c882a2b27f643d1a262f4e5974"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_project-lifecycle-change-mgmt.test.js.0b16d3c9.log",
+      "bytes": 3015,
+      "sha256": "21f8b24ec85f8b93c6fa56fd77161863fe6bd9c5cf587e45246d985a90828c0b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_project-lifecycle-entry.test.js.aec6f3b7.log",
+      "bytes": 3770,
+      "sha256": "aae7105f95b1d6e683157f062868b7513bf5deb1aa029cb1a732a9fd3e5e6430"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_project-lifecycle-expertise.test.js.4c8f42ae.log",
+      "bytes": 5078,
+      "sha256": "9185ba97201347025f30731cb60844bbec7bd0a611ff41a8a8cc3333522b59a8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_project-lifecycle-happy-path.test.js.692206b9.log",
+      "bytes": 5287,
+      "sha256": "26d013176008d1a72cec1d649fb70e96a466f1f65b280ea65184f3e2da60a2c0"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_project-lifecycle-intercept.test.js.ee1f91f2.log",
+      "bytes": 2981,
+      "sha256": "bff50c34fe45be42e29647e19620fd705d5b65c5da8e59f5505adc15697335b1"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_project-lifecycle-interrupts.test.js.c2a0fe3c.log",
+      "bytes": 3069,
+      "sha256": "4c577252770f29a4f478eaea6edc1105e281b30d6bbf63ea2ad007648e026f99"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_project-lifecycle-klicenka.test.js.2e54d87a.log",
+      "bytes": 6898,
+      "sha256": "c933bb37a1501043519461c15a4eb8d9acdf20a68bdd496b65c868eec49ada8c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_project-welcome.test.js.6737c372.log",
+      "bytes": 3834,
+      "sha256": "88d5be4555bbd3fecfe7b11c06a06d17076541c87f3aa681f96d0a2ac0e7af91"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_prompt-builder.test.js.1f5d4f90.log",
+      "bytes": 3392,
+      "sha256": "7db7d65b9443cd3be3cee20c86b2b10c5c6bb7b50b87d6bd3780d8f060c5d47d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_qg-idempotence.test.js.6cd4c52d.log",
+      "bytes": 4717,
+      "sha256": "1b1b19c290c6c61fb5a4bc237dd687cc5b87bc3bb73916da6dd07ae6c1e9ed49"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_quality-gate.test.js.aee41042.log",
+      "bytes": 3045,
+      "sha256": "6c344937799472ae1a13c8cd963f9e7dc9966be90f426786b3f14000a6851a5a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_quality-gates.test.js.73c54b4f.log",
+      "bytes": 4133,
+      "sha256": "c28927abf77c59412c141f95531308c06f7a5b116d440909a509e98571be692f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_quality-report.test.js.45224b34.log",
+      "bytes": 4877,
+      "sha256": "263dd89bb8d0ac017094b716c55c7cfe5622f72a21309d1299bd2ebe1b1e85df"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_quality-score.test.js.7893f2bd.log",
+      "bytes": 5028,
+      "sha256": "3bc8c8b0cac1ff595f00578caef74d9c1005073efdd0eec87436e0a40907cd30"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_quality-sprint-q.test.js.ee20f99d.log",
+      "bytes": 16416,
+      "sha256": "bbbe31f4f0164fb115de4cb20ed4435b385f818730654871756156b05a33c24c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_quality-telemetry.test.js.14fa2429.log",
+      "bytes": 4419,
+      "sha256": "03e89e14a40f2a673429a15b74d9c81113bc128d5eaecafdc5620215e5b44e53"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_query-expander.test.js.e465477c.log",
+      "bytes": 2479,
+      "sha256": "9e220eb3e20769fb8d22207839b4ed78c567be435cc0d94bd892d1ef6611e7eb"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_refactor-agent.test.js.a157fcc0.log",
+      "bytes": 2176,
+      "sha256": "f90d0c1149e946f7ba5cdaccd5478e2a7454c96a8a85d1273bb6d65736a0cedb"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_regression-predictor.test.js.ef5a75ef.log",
+      "bytes": 1497,
+      "sha256": "841aae47b8564ce895e23ddbf0e976fc1a920eed930ca2f4ed09d46b5301cb48"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_repository-hygiene.test.js.a3416d42.log",
+      "bytes": 432,
+      "sha256": "d9469a4a62a7ccbed9dbf86d66c3e0ca87062dccb85ebb1b9e8d7d31884cd4c9"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_response-scorer.test.js.9dd70714.log",
+      "bytes": 3440,
+      "sha256": "992b5d69d9c7a278668f3b56e83f2ed1d5a8f45b0e7df9878f72e0596d1d9f46"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_risk-analyzer.test.js.d28a1095.log",
+      "bytes": 2486,
+      "sha256": "8640eb21386a610f0ea7f52d583e3d9f228a7deacf838e248966dd5258981026"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_routes-smoke.test.js.29cdbe08.log",
+      "bytes": 2101,
+      "sha256": "ea07fd3faf0ef6ae71208911c0654ff16c77cbfbcb66c025aae8f1506b4c26c6"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_routing-accuracy.test.js.2de4c86a.log",
+      "bytes": 3776,
+      "sha256": "03b14f279799eb28836219686a19db3f6b1826e4b4cc57a3f6e2691312c13c50"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_rss-integration.test.js.2fce094c.log",
+      "bytes": 1978,
+      "sha256": "8625193af2c151ccbe8fcf0f094ec62a9ac14e83fb8126fc5ddb5f97d05191df"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_runtime-feedback.test.js.d2024b96.log",
+      "bytes": 2436,
+      "sha256": "6a28145bb7cf85096ca025d2a62cf6d90ed5439ddf9f0d80cea39f5c9873e5b6"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_sazeni-engine.test.js.7bc8a419.log",
+      "bytes": 2444,
+      "sha256": "38fb4c3f4a4f0c06328239683d62aca415ba5df2aa794af0116e734039c9fb0d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_sazeni-integration.test.js.a6879b04.log",
+      "bytes": 2723,
+      "sha256": "9cdbe7d90c5cf0c5c64471d5a8678ecdf15019bcc52e384a4489f32fbe89813c"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_scenario-engine.test.js.b8bcfe18.log",
+      "bytes": 4864,
+      "sha256": "a225e39bc480b64190ca993cf68f51490cbb679645fd6425bd8bde14dbfe7801"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_scheduler.test.js.773fbbe5.log",
+      "bytes": 992,
+      "sha256": "91df8fb9d6728cc8d8459a7023707c60b95241974b94d38a284a7a3bba031463"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_schema-migrations.test.js.923a63bd.log",
+      "bytes": 11166,
+      "sha256": "944653c71397a2e8e99ea46b0803d38418f4e9ccd90193f25b4f1a5f6dd3a51b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_scope-limiter.test.js.f75754fe.log",
+      "bytes": 3471,
+      "sha256": "9b93990d9350d8e4d7cb3f71f12f590afd238c7be78e3ea6f0ef76d2680fb3c1"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_search-quality-a123.test.js.9dbc0432.log",
+      "bytes": 9525,
+      "sha256": "039176b83d6db54d3423b109df2878387ce112f3a51f4ae565d826e313065901"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_security-hardening-v126.test.js.773d902f.log",
+      "bytes": 4036,
+      "sha256": "fdfa52c17ee344539c0fd766fddd2979b5ef6e81b13f1c18b35c9b4d30816c96"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_security-hardening.test.js.42294018.log",
+      "bytes": 4587,
+      "sha256": "64ee2be58a3541021122f719bfe3054495b7249ba201c731661aaf76dc6ff6f2"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_self-critique.test.js.952c17f0.log",
+      "bytes": 3384,
+      "sha256": "0c801305c49f7b2541f7fe4c061b9c27284da8ac19de252e154456b6896b2507"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_semantic-index.test.js.cac8e58f.log",
+      "bytes": 2186,
+      "sha256": "10edf5f590171dc35411f6e083fe4b8e4c591bc8cfbab83cf5c03d51d6698a6a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_server-shutdown.test.js.11b72456.log",
+      "bytes": 1157,
+      "sha256": "acfff29d64f4e49a5877cdcaaa03625d6ae65ac4081d283c491fc26ca4cf2e54"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_session-context.test.js.14a290a1.log",
+      "bytes": 3874,
+      "sha256": "d6f0a3154c56bcc53ad77c5bf9b2f3fe7668f68bd13a6087057d34f0af0d0309"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_signature-cache.test.js.7275b5f4.log",
+      "bytes": 1455,
+      "sha256": "241e9b0637fb4e4b685da5c14dc8310debc3a794f4bb3f2ac49ec6bf4a6f8106"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_signature-map.test.js.4f903ced.log",
+      "bytes": 2085,
+      "sha256": "3a37ce9d17499ecfd450256d5aafecb79721b10762e3602ad2512ab37cab83d5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_signed-authority-bundle.test.js.36ce9ab8.log",
+      "bytes": 2088,
+      "sha256": "37ef30dd593ca259b03306019ddf148ad9a70916f40f0db530b38595552bd3ec"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_signed-authority-receipt.test.js.13231b5b.log",
+      "bytes": 1283,
+      "sha256": "a0ba59d6d60f7ef01ed615d2de3377454029ea5def6c92b43bec0ad87c2971d7"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_skill-meta-detection.test.js.31ea2408.log",
+      "bytes": 5400,
+      "sha256": "9be02dce31a8c62fffedaa7735f085bf8a69a7bac59cd0c00234bb0d3391cacf"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_smoke.test.js.035ee810.log",
+      "bytes": 2767,
+      "sha256": "a47cb693b9fccb0b43e49cb58eab02c8364b3526b383343c21055cf03660eb2a"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_soak_attachment-heavy.test.js.028d4a9f.log",
+      "bytes": 3180,
+      "sha256": "db9d36198f5611df6cafb0660fcf9e2d2c18f32a3726b24809d7382191b073e7"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_soak_break-pattern-probe.test.js.32abfca0.log",
+      "bytes": 5024,
+      "sha256": "ad051c7b0c742b0f12ad053923a2cda72a1534366a45e564f1a65a8b3a447333"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_soak_followup-load.test.js.9d0a2bbb.log",
+      "bytes": 3118,
+      "sha256": "2643847cbc08498bf4f66407fb996ae234ac0e4e811e7c040a47bff683786c70"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_soak_mixed-session-simulation.test.js.1854ca93.log",
+      "bytes": 5524,
+      "sha256": "94f040c3f8dbead1f51ff94ab2123389abe45253ea2617489f98b6204e7ef3fe"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_soak_short-input-stress.test.js.5c6da97c.log",
+      "bytes": 2213,
+      "sha256": "36ba3eac914ae50f4c83bec7119dd5e23df8b88bb17d230148bfc9a31255b449"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_specialist-boundary-ratchet.test.js.fe5330e3.log",
+      "bytes": 2765,
+      "sha256": "a3b2cebd34e790f0b6eb9eb274d7c45a9822e8678e26f711ed750c3897e86b55"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_specialist-handler.test.js.d87a4b91.log",
+      "bytes": 2129,
+      "sha256": "eb02505edd58d803cc0512a38bdb7d2d78f9949dad75bcc1ee711a03518b5cbc"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_specialist-loader.test.js.a3a77659.log",
+      "bytes": 18297,
+      "sha256": "f4e40d67ec7b8f673bffcf30563402ffea1b2c0a56de2290e85bbce3d5b8e117"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_specialist-registries.test.js.bf24136d.log",
+      "bytes": 2710,
+      "sha256": "ae92c940364a1c3134500c0a14ca8d8fb044f894fd69dc67ded37009a6666d80"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_specialist-runtime.test.js.a85c3247.log",
+      "bytes": 2068,
+      "sha256": "7e3a786b3251fc1e66bc855c438014a384a913c67e20af10d4e4df937ffdb9e6"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_storage-architecture.test.js.ab625acc.log",
+      "bytes": 4926,
+      "sha256": "bdcd426a68dfdcc76b280eb22f887d1f8cae53449424de0f34c43905cde2a333"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_studio-cdp-evidence.test.js.9c641f6c.log",
+      "bytes": 5498,
+      "sha256": "8babd7b0b728ea091614cd1833f56802293eec6caeefc2d6b77726ade1ec81d7"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_studio-electron-runner-contract.test.js.6ca72b4c.log",
+      "bytes": 3290,
+      "sha256": "eca5ded8f54b519ca779b5575ffa5314cc47365f2c7ad5dc6263446fa4c0b156"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_symbol-index.test.js.3f5b6b47.log",
+      "bytes": 2767,
+      "sha256": "abc00be7c870f217f455127e62174b941dfa4a8e37b92ec5d88505f65bcd49c1"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_task-memory.test.js.fecbeace.log",
+      "bytes": 3521,
+      "sha256": "58c7702f1b598562261a48b717c8b2c170245392cb5a73f27419bd8dcfcf71af"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_telemetry-aggregation-version.test.js.cb07bde9.log",
+      "bytes": 739,
+      "sha256": "8cd2711870a1e8cd3d696e06364eee634ac9207b2ed156e14c73682e354a98d1"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_telemetry-soak.test.js.ce4d8b6f.log",
+      "bytes": 7957,
+      "sha256": "bac28a75a2a03044040cb2395f963022cb3a7264e50416525fff8d1c5861990f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_telemetry.test.js.fc6a4cbb.log",
+      "bytes": 3197,
+      "sha256": "3be3b47fec01891ed636d2e204d4b5c3741d31e1cb2420aca1e85b712b9ce8e7"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_test-coverage-explorer.test.js.6399b7e8.log",
+      "bytes": 1644,
+      "sha256": "e947f5547dd413e5c7d294e6c7f3e0290d181490f02a4f24de2c06398ffb5400"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_timeout-policy.test.js.d35141af.log",
+      "bytes": 1580,
+      "sha256": "0c38f2452ea6cb2bffea733fa7633d516c8175b2f0beacfe530431a450eb20e3"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_tool-adapter.test.js.28116845.log",
+      "bytes": 4871,
+      "sha256": "42831e621833e104d3353a921b175d7eb8c06fcf16f22665388aa2ebfb43f70e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_tool-enforcement.test.js.4fdf838a.log",
+      "bytes": 2270,
+      "sha256": "32a7f28bf84c812812e8e29059bd4e9a5e9b619209d1474c9b4f88cfd129637f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_tool-registry-e2e.test.js.17b582ac.log",
+      "bytes": 7114,
+      "sha256": "2a9f3dd42772efbbd4ce5f7118e17760a6bdb56be571daa0251d980207865691"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_trust-feedback.test.js.2a3eab25.log",
+      "bytes": 2089,
+      "sha256": "c3778ea3b8a83b8f23b1be11ed8c64d988050f7113b4463dbead5ad3eb0421f8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_upgrade-ux-v125.test.js.3c8c114b.log",
+      "bytes": 4507,
+      "sha256": "a32329a5d9766b26995d8b0119f4fa84e12874272d3f2b70b2357185f75b014e"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_v583-tier1.test.js.7e11e0df.log",
+      "bytes": 2080,
+      "sha256": "a93604b5867ae2296de4e94b28d47f2ec04459d6e89990be95717528e90e86dd"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_vram-coordination.test.js.ce95bd63.log",
+      "bytes": 5928,
+      "sha256": "df9248c7cb5f47b10d67c18b2ef85fe0a8d77cb1e5fb589021b40e2375a7997f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_vram-measurement.test.js.a8bd317d.log",
+      "bytes": 3041,
+      "sha256": "5886daa8df728fcd4d862295828e530d88387b95856b04b42a38b3d564c0811b"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_whatllm-client.test.js.8c50c891.log",
+      "bytes": 1260,
+      "sha256": "85bb86ebf7a49ac9413c42d17acbe6b366dd34be9ae17af9d4abb84a3c1c5fb7"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_workers-phase-b.test.js.1401de1c.log",
+      "bytes": 11652,
+      "sha256": "948f0b6198c2f088a6c11b2392cafba7a0a5e4da0e82868d0ae45905d29609c2"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_workflow.test.js.fd67265b.log",
+      "bytes": 4594,
+      "sha256": "378ef4a3243a00c7b4bc352cbca2d52a7da1ca22e3ee26f55990f837f1c10193"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_workspace-budget.test.js.c7909519.log",
+      "bytes": 1007,
+      "sha256": "5ee02a8cd846ecdd374502abca3389a915591ae1496d4e5abaed5c49ed407686"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/logs/tests_ws-bridge.test.js.5d681a8b.log",
+      "bytes": 7084,
+      "sha256": "caaaf360cf096fbd7e70bb5b3d327b332d4e0a0856f09df39aaaef31d508c567"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final/ide-sidebar-final/report.json",
+      "bytes": 1518850,
+      "sha256": "866ecceff1abc5c6aeaab1d8454814da17c3e60a953ec7a35a41a0d0ba52c31d"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate-final.log",
+      "bytes": 23634,
+      "sha256": "0ef2f64448faad5781706d808da063836a97bff0ce4ada755208f24eb9db6493"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gate.log",
+      "bytes": 10897,
+      "sha256": "a8e0916df45c4e67289db941f61dee919fdd5dad5351cd8a30b0c77d9caa4333"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gui/studio-1561989.log",
+      "bytes": 6207,
+      "sha256": "960b78f5439947621aaddc252e1111f01b25bccf02e67277f33b4d078931b8bb"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gui/studio-1563667.log",
+      "bytes": 6208,
+      "sha256": "e4d6efb0d67896be395e13c5757561b4b8d3fd07582a446a46742c3f39269b67"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gui/studio-1572245.log",
+      "bytes": 6794,
+      "sha256": "05d21c61ab3ff7095bdbca46519271e82b6117656b8f1c19faaf88cb167412b2"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gui/studio-1578663.log",
+      "bytes": 6794,
+      "sha256": "37d906778060841163ce3bb935692c1400b7ed2dac8de37597d2f2db718f3411"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gui/studio-1586935.log",
+      "bytes": 6254,
+      "sha256": "c1c958caf2ddb935646aaebd83736ba6ac1d3858922b308971c700e64987eb07"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gui/studio-1588074.log",
+      "bytes": 7097,
+      "sha256": "86d84c90b1f50e3e510a0b15f0dd40a440039fc17187e38eac8de816bc7e1c9f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gui/transcript.log",
+      "bytes": 17217,
+      "sha256": "f25f95dca4ff36a4cb70bdc96dac65f6bad34c48c998ca7beb79d7fb249c1a82"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gui/xvfb.log",
+      "bytes": 9392,
+      "sha256": "6cf05a91426e236ef9d93bf0dece96b67510aaa04d41aca2499c4b73f4e16635"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gui-check-final.log",
+      "bytes": 20,
+      "sha256": "75ffadae774ef3db0841da4ab6543af257a08dead0a7d651c86a2282d88f8532"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gui-check.log",
+      "bytes": 20,
+      "sha256": "75ffadae774ef3db0841da4ab6543af257a08dead0a7d651c86a2282d88f8532"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gui-checks.json",
+      "bytes": 4767,
+      "sha256": "5c6e63f67f3fcee1638d015e602eeecdaa4427b5dc5b3c0505e8adcf8d2c9bbf"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gui-installed-check.log",
+      "bytes": 20,
+      "sha256": "75ffadae774ef3db0841da4ab6543af257a08dead0a7d651c86a2282d88f8532"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gui-installed.mjs",
+      "bytes": 4059,
+      "sha256": "1a04b8d305bab330e71390432b2e2eff26902ab04fb5b3713d5413f027a54b17"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/gui.mjs",
+      "bytes": 3973,
+      "sha256": "45905090f910b1a1a8403037997548c4e08ec34fac9b2c635ff66988b1edbd55"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/install-final.log",
+      "bytes": 472,
+      "sha256": "0f3559bda577039fbf1086571ffc0874346049eeec1a27cc863eda18738750f7"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/installed-gui-checks.json",
+      "bytes": 4767,
+      "sha256": "5c6e63f67f3fcee1638d015e602eeecdaa4427b5dc5b3c0505e8adcf8d2c9bbf"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/installed-settings-fixed.png",
+      "bytes": 95267,
+      "sha256": "ebcc6bbd18ce417c56e75f5ad5739bfa6944683e5b4aaab2a229d996312a8665"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/integration-tests.log",
+      "bytes": 3227053,
+      "sha256": "5c5a3b3be4fe207b208ef6a74c0abb95f6e24908944b3d69b6237e029a8d4044"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/launcher-check.log",
+      "bytes": 73,
+      "sha256": "f4da2cc4bb9340b12502d67e72156aa30cc64736b86f710e69b665e189c8b2c4"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/m5-final.log",
+      "bytes": 870,
+      "sha256": "671f580e44140a99598cb68a7c8328cfb5de0f7ae8f186647ddae3b932deb58f"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/m5.log",
+      "bytes": 870,
+      "sha256": "148eadd0dfef19a27ec5529234d0a1dcfbc04d1f332c79d732e41cbff879a1a3"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/module-boundary-final.log",
+      "bytes": 741,
+      "sha256": "0862fdbf24de2b638beb4052a683783b3e7e88d611f67120d54ac2b5ce8e1fe1"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/module-boundary.log",
+      "bytes": 741,
+      "sha256": "bab5105fa6de28b1fba3543585ec60fbd02c3d802a1296c1c355578184ed12a7"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/native-resize.py",
+      "bytes": 843,
+      "sha256": "2a56b2436a472bbeed9478c78246bf252c36964ac1efa6bd09722b21211af9c8"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/panel-boundaries.log",
+      "bytes": 34928,
+      "sha256": "d7ffb7afeab37e8b53439e905386c5b9e2d89b56c4ad9fe8be2bd90bd9d38075"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/prepare-release.py",
+      "bytes": 1504,
+      "sha256": "ace957e7f24781735b51c48073a58df29705cd0c9854a86910c34da8e0ddcccb"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/release-build-verify-final.log",
+      "bytes": 656,
+      "sha256": "252710cff68d07b46642ddc265c14ac9d30ba88a1c7f4d5a44af3ddff0a4e9d5"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/release-build-verify.log",
+      "bytes": 656,
+      "sha256": "da76035a712cef81f3107ade2ef37983add52f9368c76bf035d49b2ec9d850ed"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/release-target-final.json",
+      "bytes": 171,
+      "sha256": "a83e1fff24ce3eeea87442a9a93af3dbfd108b9362e235460b469bbc7ccc8de1"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/release-target.json",
+      "bytes": 171,
+      "sha256": "c12ac03fc489ac5bf70d3c3c3d34db3ec85ad346103a48b5817918cb1fbc94ea"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/settings-fixed.png",
+      "bytes": 95378,
+      "sha256": "4b5c6bcbf417703fa88ec11a4ac03720a08f8ff22e4cc64ded8b93360a9f0d48"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/staging-cleanup.json",
+      "bytes": 218,
+      "sha256": "820f99cc7d870c242bf9a4f8654eb3e02ccc550014c0d2c911efd23fb02ab634"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/verify-gui.mjs",
+      "bytes": 4579,
+      "sha256": "8ae5202340d542df355c131eefa03b41298a4b48d65a95563cf0a27b6d3e4101"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/workspace-panel-test.log",
+      "bytes": 5997,
+      "sha256": "3f338ed030fbb4fb7df593000f20db7a0de552a9e6ae1371822ab6b6f2c60251"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/workspace-test-final.log",
+      "bytes": 5768,
+      "sha256": "02e1900a9d1373c9eafd18a013293d668c9e25b41a3bf5bec1bff63e54c8f0bf"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-sidebar-20260918/workspace-test.log",
+      "bytes": 5765,
+      "sha256": "9f7aaaecf01e54af2bc5be40daf0def399c2c1ead464fb7b466e1a48265c1550"
+    }
+  ]
+}

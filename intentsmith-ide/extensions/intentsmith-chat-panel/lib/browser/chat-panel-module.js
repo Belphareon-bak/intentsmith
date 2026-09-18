@@ -598,7 +598,7 @@ var INTENTSMITH_SIDEBAR_ID='intentsmith-sidebar';
 
 class IntentSmithSidebarWidget extends react_widget_1.ReactWidget {
   constructor(){
-    super();this.id=INTENTSMITH_SIDEBAR_ID;this.title.label='';this.title.iconClass='';this.title.closable=false;this.node.tabIndex=-1;this.node.style.outline='none';
+    super();this.id=INTENTSMITH_SIDEBAR_ID;this.title.label='';this.title.iconClass='';this.title.closable=false;this.node.tabIndex=-1;this.node.style.outline='none';this.node.style.minWidth='48px';
     this._active=null;this._dd={};this._collapsed=false;
   }
   render(){return null;}
@@ -700,11 +700,29 @@ class IntentSmithSidebarWidget extends react_widget_1.ReactWidget {
   _render(){
     var self=this;
     if(!this._root)this._root=_createRoot(this.node);
-    this._root.render(h(SidebarApp,{getState:function(){return{active:self._active,dd:self._dd,collapsed:self._collapsed};},setState:function(s){if(s.active!==undefined)self._active=s.active;if(s.dd!==undefined)self._dd=s.dd;if(s.collapsed!==undefined){self._collapsed=s.collapsed;try{var app=window._intentsmithApp;if(app&&app.shell&&typeof app.shell.resize==='function'){_intentsmithSnapLock=true;app.shell.resize(s.collapsed?48:240,'left');setTimeout(function(){_intentsmithSnapLock=false;},600);}}catch(ex){}}self._render();}}));
+    this._root.render(h(SidebarApp,{getState:function(){return{active:self._active,dd:self._dd,collapsed:self._collapsed};},setState:function(s){if(s.active!==undefined)self._active=s.active;if(s.dd!==undefined)self._dd=s.dd;if(s.collapsed!==undefined)_setSidebarCollapsed(s.collapsed);self._render();}}));
   }
 }
 inversify_1.decorate(inversify_1.injectable(),IntentSmithSidebarWidget);
 var _sidebarWidget=null;function renderSidebar(){if(_sidebarWidget)_sidebarWidget._render();}
+
+/* Keep main navigation usable even when the restored Theia dock is collapsed.
+   Showing/resizing its outer container alone does not reveal the dock widget. */
+function _setSidebarCollapsed(collapsed){
+  if(!_sidebarWidget)return;
+  _sidebarWidget._collapsed=!!collapsed;
+  var app=window._intentsmithApp;
+  if(app&&app.shell){
+    var left=app.shell.leftPanelHandler;
+    _intentsmithSnapLock=true;
+    try{
+      left.expand(INTENTSMITH_SIDEBAR_ID);
+      left.container.show();
+      app.shell.resize(collapsed?48:Math.max(240,_intentsmithLastLeftW||240),'left');
+    }finally{setTimeout(function(){_intentsmithSnapLock=false;},600);}
+  }
+  renderSidebar();
+}
 
 function SidebarApp(props){
   var s=props.getState(),set=props.setState;
@@ -1013,21 +1031,21 @@ function card(item,onClick){
     bSel?h('svg',{width:12,height:12,viewBox:'0 0 24 24',fill:'none',stroke:C.onAccent,strokeWidth:3,strokeLinecap:'round',strokeLinejoin:'round'},h('polyline',{points:'20 6 9 17 4 12'})):null):null;
   /* ═══ LIST VIEW ═══ */
   if(_centerState.listView){
-    var listS={display:'flex',alignItems:'center',gap:10,padding:'8px 16px',cursor:'pointer',transition:'all 0.15s',position:'relative'};
+    var listS={display:'grid',gridTemplateColumns:(bm?'18px ':'')+'24px minmax(140px,22%) minmax(0,1fr) 92px 38px 22px',alignItems:'center',gap:12,padding:'10px 16px',minWidth:560,cursor:'pointer',transition:'all 0.15s',position:'relative'};
     if(bSel){listS.background=_rgba(C.accent,0.15);listS.borderLeft=isLines?'4px solid '+C.accent:undefined;if(!isLines){listS.border='2px solid '+C.accent;listS.borderRadius=8;listS.marginBottom=4;listS.boxShadow='0 0 0 1px '+C.accent;}}
     else if(isLines){listS.borderBottom='1px solid '+C.border;listS.background=sel?_rgba(C.accent,0.07):'transparent';}
     else{listS.background=sel?_rgba(C.accent,0.09):C.bg2;listS.border='1px solid '+(sel?C.accent:C.border);listS.borderRadius=8;listS.marginBottom=4;}
-    return h('div',{key:item.name,onClick:onClick,style:listS,
+    return h('div',{key:item.name,'data-list-row':true,onClick:onClick,style:listS,
       onMouseEnter:function(e){if(!sel&&!bSel)e.currentTarget.style.background=isLines?'rgba(255,255,255,0.025)':'rgba(255,255,255,0.04)';},
       onMouseLeave:function(e){if(!sel&&!bSel)e.currentTarget.style.background=bSel?_rgba(C.accent,0.15):isLines?'transparent':(sel?_rgba(C.accent,0.09):C.bg2);}},
       isLines&&sel&&!bSel?h('div',{style:{position:'absolute',left:0,top:0,bottom:0,width:3,background:C.accent,borderRadius:'0 2px 2px 0'}}):null,
       chkBox,
-      item.emoji?h('span',{style:{fontSize:_fs(16),flexShrink:0,width:24,textAlign:'center'}},item.emoji):null,
-      h('div',{style:Object.assign({fontSize:_fs(12),fontWeight:bSel?700:600,color:bSel?C.accentText:sel?C.accentText:C.tx1,flex:'0 1 auto',maxWidth:'40%',minWidth:80},ell)},item.name),
-      h('div',{style:Object.assign({flex:1,fontSize:_fs(11),color:C.tx3,minWidth:0},ell)},item.desc||''),
-      item.status?pill(item.status):null,
-      item.age?h('span',{style:{fontSize:_fs(10),color:C.tx4,fontFamily:C.mono,flexShrink:0,minWidth:28,textAlign:'right'}},item.age):null,
-      item.fav!==undefined?h('span',{style:{fontSize:_fs(14),color:item.fav?C.accentText:C.tx4,cursor:'pointer',padding:'0 2px',userSelect:'none',flexShrink:0},onClick:_favClick(item)},item.fav?'★':'☆'):null);
+      h('span',{style:{fontSize:_fs(16),flexShrink:0,width:24,textAlign:'center'}},item.emoji||''),
+      h('div',{style:Object.assign({fontSize:_fs(12),fontWeight:bSel?700:600,color:bSel?C.accentText:sel?C.accentText:C.tx1,minWidth:0},ell),title:item.name,'data-list-name':true},item.name),
+      h('div',{style:Object.assign({flex:1,fontSize:_fs(11),color:C.tx3,minWidth:0},ell),title:item.desc||'','data-list-description':true},item.desc||''),
+      h('div',null,item.status?pill(item.status):null),
+      h('span',{style:{fontSize:_fs(10),color:C.tx4,fontFamily:C.mono,flexShrink:0,minWidth:28,textAlign:'right'}},item.age||''),
+      item.fav!==undefined?h('span',{style:{fontSize:_fs(14),color:item.fav?C.accentText:C.tx4,cursor:'pointer',padding:'0 2px',userSelect:'none',flexShrink:0},onClick:_favClick(item)},item.fav?'★':'☆'):h('span',null));
   }
   /* ═══ Shared grid card body — emoji+name header, desc, status ═══ */
   var body=[
@@ -1095,7 +1113,7 @@ function grid(items){
   var zoomVal=_centerState.zoom||1;
   var isLines=_settingsVals.visualMode==='lines';
   var inner;
-  if(_centerState.listView){inner=h('div',{style:{display:'flex',flexDirection:'column',gap:isLines?0:4}},items);}
+  if(_centerState.listView){inner=h('div',{style:{display:'flex',flexDirection:'column',gap:isLines?0:4,overflowX:'auto'}},items);}
   else if(isLines){inner=h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:0,alignContent:'start',borderTop:'1px solid '+C.border,borderLeft:'1px solid '+C.border}},items);}
   else{inner=h('div',{style:{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))',gap:12,alignContent:'start'}},items);}
   if(zoomVal!==1){return h('div',{style:{zoom:String(zoomVal),transformOrigin:'top left'}},inner);}
@@ -1157,7 +1175,7 @@ function _addNew(view){
     {
       /* The backend owns the effective default; refresh it on every creation. */
       fetch(_backendUrl()+'/api/projects/defaults',{signal:AbortSignal.timeout(3000)}).then(function(r){return r.json();}).then(function(j){
-        if(j.defaultDir){_projectWizard.defaultDir=j.defaultDir;if(!_settingsVals.projectsDir){_settingsVals.projectsDir=j.defaultDir;_saveSV();}renderCenter();}
+        if(j.defaultDir){_projectWizard.defaultDir=j.defaultDir;_settingsVals.projectsDir=j.defaultDir;_saveSV();renderCenter();}
       }).catch(function(){});
     }
     renderCenter();
@@ -2479,21 +2497,31 @@ function _openModelTests(model){
 }
 function _testInstalledModel(model,role){
   if(_modelTestPending)return;
-  var plan=typeof _evaluationData!=='undefined'&&_evaluationData&&_evaluationData.roles&&_evaluationData.roles[role];
-  var scope=plan?' Celá aktuální sada: '+plan.taskCount+' úloh × '+plan.repeats+' opakování.':'';
-  if(!confirm('Otestovat '+model+' pro roli '+role+'?'+scope+' Použije GPU, uloží skóre a ponechá přiřazení rolí. Provede nové měření; předchozí výsledky zůstanou v historii.'))return;
-  _huntSubmittedAt=Date.now();_modelTestPending=true;_modelTestMessage=null;_modelTestTarget={model:model,role:role};_modelTestFailed=false;renderCenter();
+  _modelTestPending=true;_modelTestMessage=null;_modelTestTarget={model:model,role:role||'all'};_modelTestFailed=false;renderCenter();
   fetch(_backendUrl()+'/api/system/models/evaluations',{signal:AbortSignal.timeout(15000)})
     .then(function(r){if(!r.ok)throw new Error('Nelze ověřit aktuální modely');return r.json();})
-    .then(function(d){var rd=d.roles&&d.roles[role];var row=rd&&(rd.artifacts||[]).find(function(a){return _canonicalModelIdentity(a.model)===_canonicalModelIdentity(model);});
-      if(!row||!row.digestSha256||row.applicable===false)throw new Error('Model není nainstalovaný nebo není vhodný pro tuto roli.');
-      return fetch(_backendUrl()+'/api/system/models/evaluate',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({model:row.model,role:role,digestSha256:row.digestSha256,suiteContractSha256:rd.suiteContractSha256}),signal:AbortSignal.timeout(20000)});})
-    .then(function(r){return r.json().then(function(d){if(!r.ok)throw new Error(d.error||d.code||('HTTP '+r.status));return d;});})
-    .then(function(){_upgradeTab='hunt';_modelTestMessage='Požadavek na měření přijat. Připravuji průběh testu…';_loadHuntStatus();})
-    .catch(function(e){_modelTestFailed=true;_modelTestMessage='Test '+model+' ('+role+') se nespustil. '+e.message;})
+    .then(function(d){
+      var rows=Object.keys(d.roles||{}).filter(function(key){return !role||key===role;}).map(function(key){
+        var rd=d.roles[key],row=(rd.artifacts||[]).find(function(a){return _canonicalModelIdentity(a.model)===_canonicalModelIdentity(model);});
+        return {role:key,plan:rd,row:row};
+      }).filter(function(item){return item.row&&item.row.applicable!==false;});
+      if(!rows.length)throw new Error('Model není nainstalovaný nebo pro něj není použitelná role.');
+      var first=rows[0].row;
+      if(rows.some(function(item){return !item.row.digestSha256||item.row.digestSha256!==first.digestSha256||item.row.model!==first.model||item.plan.decisionReady===false||!item.plan.suiteContractSha256;}))throw new Error('Nelze ověřit úplnou identitu modelu a aktuální sady všech rolí. Obnov výsledky.');
+      var scope=rows.map(function(item){return item.role+': '+item.plan.taskCount+' úloh × '+item.plan.repeats;}).join(', ');
+      if(!confirm('Otestovat '+model+'? '+scope+'. Role se otestují postupně. Použije GPU a uloží nové výsledky; přiřazení rolí i historie zůstanou zachované.'))return null;
+      _huntSubmittedAt=Date.now();
+      var request={model:first.model,digestSha256:first.digestSha256};
+      if(role){request.role=role;request.suiteContractSha256=rows[0].plan.suiteContractSha256;}
+      else request.roles=rows.map(function(item){return {role:item.role,suiteContractSha256:item.plan.suiteContractSha256};});
+      return fetch(_backendUrl()+'/api/system/models/evaluate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(request),signal:AbortSignal.timeout(20000)});
+    })
+    .then(function(r){if(!r)return null;return r.json().then(function(d){if(!r.ok)throw new Error(d.error||d.code||('HTTP '+r.status));return d;});})
+    .then(function(d){if(!d)return;_upgradeTab='hunt';_modelTestMessage='Požadavek přijat: '+(d.roles||[d.role]).join(', ')+'. Připravuji průběh testu…';_loadHuntStatus();})
+    .catch(function(e){_modelTestFailed=true;_modelTestMessage='Test '+model+' ('+(role||'všechny použitelné role')+') se nespustil. '+e.message;})
     .finally(function(){_modelTestPending=false;renderCenter();});
 }
+
 setInterval(function(){if(_centerState.view==='upgrades'&&_upgradeTab==='hunt')_loadHuntStatus();},5000);
 function _renderRecentHunts(data){
   var rows=data&&data.recent||[];
@@ -2904,7 +2932,7 @@ function settingsAppearance(){
         h('div',{style:{width:16,height:16,borderRadius:'50%',background:'#fff',position:'absolute',top:2,left:sv.autoCollapse?18:2,transition:'left 0.2s',boxShadow:'0 1px 3px rgba(0,0,0,0.3)'}})),
       h('div',null,
         h('div',{style:{fontSize:_fs(12),color:sv.autoCollapse?C.tx1:C.tx3,fontWeight:500}},sv.autoCollapse?'Zapnuto':'Vypnuto'),
-        h('div',{style:{fontSize:_fs(10),color:C.tx4}},'Panely se automaticky skryjí při zúžení pod limit'))),
+        h('div',{style:{fontSize:_fs(10),color:C.tx4}},'Levá navigace se zúží na ikony; pravý panel se při nedostatku místa skryje'))),
     /* Visual mode picker — global: borders vs lines */
     h('div',{style:{fontSize:_fs(11),fontWeight:600,color:C.tx2,marginBottom:8,marginTop:16}},'Vizuální režim'),
     h('div',{style:{display:'flex',gap:6,marginBottom:12}},
@@ -3259,12 +3287,17 @@ function _filteredCandidates(data){
   });
   var sort=_candidateFilter.sort,field=sort.split('-')[0],dir=sort.endsWith('-asc')?1:-1;
   rows.sort(function(a,b){
-    if(field==='name')return a.name.localeCompare(b.name);
+    if(field==='name')return a.name.localeCompare(b.name,'cs')*dir;
+    if(field==='eligibleRoles')return (a.eligibleRoles||[]).join(',').localeCompare((b.eligibleRoles||[]).join(','))*dir;
     var av=field==='releaseDate'?Date.parse(a.releaseDate):Number(a[field]),bv=field==='releaseDate'?Date.parse(b.releaseDate):Number(b[field]);var ak=Number.isFinite(av)&&av>0,bk=Number.isFinite(bv)&&bv>0;
     if(ak!==bk)return ak?-1:1;
     return (ak?(av-bv)*dir:0)||a.name.localeCompare(b.name);
   });
   return {rows:rows,budgetMb:budget,fitUnavailable:_candidateFilter.fit==='fit'&&!budget};
+}
+function _candidateSortHeader(field,label){
+  var current=_candidateFilter.sort.split('-'),active=current[0]===field;
+  return h('button',{'aria-label':'Řadit: '+label,style:{font:'inherit',fontWeight:600,color:active?C.accent:C.tx3,background:'none',border:0,padding:0,cursor:'pointer'},onClick:function(){_candidateFilter.sort=field+'-'+(active&&current[1]==='asc'?'desc':active?'asc':field==='name'?'asc':'desc');renderCenter();}},label+(active?(current[1]==='asc'?' ▲':' ▼'):' ↕'));
 }
 function _renderDiscoveredTab(){
   var toast=_discoverMsg?h('div',{style:{marginBottom:12,padding:'8px 14px',borderRadius:6,fontSize:_fs(11),fontWeight:600,
@@ -3274,7 +3307,9 @@ function _renderDiscoveredTab(){
   if(!_discoveredData||_discoveredData.error)return _modelLoadFailure(_discoveredData&&_discoveredData.error||'Katalog není dostupný.',_loadDiscoveredData);
   var selection=_filteredCandidates(_discoveredData);var candidates=selection.rows;
   function fCtx(w){if(!w)return'-';return w>=1048576?(w/1048576).toFixed(0)+'M':w>=1024?(w/1024).toFixed(0)+'K':w+'';}
+  var coverage=_discoveredData.discoveryCoverage;
   return h('div',null,toast,_renderDownloads(),
+    coverage?h('p',{'data-testid':'candidate-coverage',style:{fontSize:_fs(10),color:C.tx3,lineHeight:1.6}},'Zdroje: katalog a uložené nálezy GPU huntu z knihovny Ollamy. Hunt: '+coverage.huntModels+' modelů / '+coverage.huntFamilies+' rodin. Poslední nový nález: '+(coverage.latestFirstSeenAt?new Date(coverage.latestFirstSeenAt).toLocaleString('cs-CZ'):'zatím žádný')+'. Nejde o úplný seznam všech LLM: cloudové služby a modely mimo knihovnu zde nejsou. Filtr VRAM může další modely skrýt.',coverage.invalidRows?' '+coverage.invalidRows+' neplatných historických záznamů nebylo převzato.':null):null,
     h('div',{style:{fontSize:_fs(10),color:C.tx3,lineHeight:1.5,marginBottom:12}},
       'VRAM je katalogový odhad. Skutečné umístění na GPU ověří až měření s produkčním kontextem. Katalogová hodnota není skóre kvality.'),
     h('div',{style:{display:'flex',gap:14,flexWrap:'wrap',alignItems:'flex-end',marginBottom:14,padding:12,
@@ -3285,14 +3320,11 @@ function _renderDiscoveredTab(){
       h('label',{style:{display:'flex',flexDirection:'column',gap:5}},'Limit VRAM · GiB (odhad)',h('input',{type:'number',min:1,max:512,step:0.5,
         value:_candidateFilter.budgetGiB,placeholder:_discoveredData.vramBudgetMb?(_discoveredData.vramBudgetMb/1024).toFixed(1):'Nezjištěno',
         style:Object.assign({},_modelFieldStyle(),{width:120}),onChange:function(e){_candidateFilter.budgetGiB=e.target.value;renderCenter();}})),
-      h('label',{style:{display:'flex',flexDirection:'column',gap:5}},'Řadit podle',h('select',{style:_modelFieldStyle(),value:_candidateFilter.sort,onChange:function(e){_candidateFilter.sort=e.target.value;renderCenter();}},
-        h('option',{value:'params-desc'},'Parametry: největší'),h('option',{value:'params-asc'},'Parametry: nejmenší'),
-        h('option',{value:'vramMb-asc'},'VRAM: nejnižší'),h('option',{value:'contextWindow-desc'},'Kontext: největší'),h('option',{value:'name-asc'},'Název'),h('option',{value:'releaseDate-desc'},'Vydání: nejnovější'))),
       h('span',{style:{marginLeft:'auto',paddingBottom:7,whiteSpace:'nowrap'}},candidates.length+' / '+(_discoveredData.candidates||[]).length+' modelů')),
     _discoveredData.gpuVramMb>0?h('p',{style:{fontSize:_fs(10),color:C.tx3}},'GPU: '+(_discoveredData.gpuVramMb/1024).toFixed(1)+' GiB dedikované VRAM · zdroj: '+(_discoveredData.gpuCapacitySource||'systém')+' · automatický limit 80 % (rezerva pro kontext a systém).'):null,
     !selection.budgetMb?h('p',{role:'status',style:{color:C.amber}},'Limit VRAM není k dispozici. Katalog zůstává viditelný; vejití modelů na GPU není ověřené. Pro filtrování lze zadat vlastní kladný limit.'):null,
     candidates.length===0?h('div',{style:{color:C.tx4,padding:20,textAlign:'center'}},(_discoveredData.candidates||[]).length?'Zvolenému filtru neodpovídá žádný model.':'Katalog zatím neobsahuje žádné modely.'):
-    _modelTable(['Model','Parametry','VRAM · odhad','Kontext','Možné role','Vydání','Akce'],candidates.map(function(m){
+    _modelTable([_candidateSortHeader('name','Model'),_candidateSortHeader('params','Parametry'),_candidateSortHeader('vramMb','VRAM · odhad'),_candidateSortHeader('contextWindow','Kontext'),_candidateSortHeader('eligibleRoles','Možné role'),_candidateSortHeader('releaseDate','Vydání'),'Akce'],candidates.map(function(m){
       var ps=_downloadState(m.name),pulling=ps&&ps.status&&ps.status!=='done'&&ps.status!=='error';
       var fit=!selection.budgetMb||!(m.vramMb>0)?'Vejití neověřeno':m.vramMb>selection.budgetMb?'Nad limitem':'';
       return h('tr',{key:m.canonicalName||m.name},
@@ -3322,10 +3354,11 @@ function _sortModelRows(rows,scope){
     return (typeof av==='number'&&typeof bv==='number'?av-bv:String(av).localeCompare(String(bv),'cs'))*sort.dir;
   });
 }
-function _modelTable(headers,rows){
+function _modelTable(headers,rows,options){
+  options=options||{};
   return h('div',{style:{overflowX:'auto',border:'1px solid '+C.border,borderRadius:8,marginBottom:14}},
     h('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:_fs(11),textAlign:'left'}},
-      h('thead',{style:{background:C.bg2,color:C.tx3}},h('tr',null,headers.map(function(v,i){return h('th',{key:i,style:{padding:'10px 12px',fontWeight:600,whiteSpace:'nowrap'}},v);}))),
+      h('thead',{style:{background:C.bg2,color:C.tx3}},h('tr',null,headers.map(function(v,i){return h('th',{key:i,style:{padding:'10px 12px',fontWeight:600,whiteSpace:'nowrap',position:options.pinned&&(i===0||i===headers.length-1)?'sticky':undefined,left:options.pinned&&i===0?0:undefined,right:options.pinned&&i===headers.length-1?0:undefined,zIndex:options.pinned?2:undefined,background:C.bg2}},v);}))),
       h('tbody',null,rows)));
 }
 function _modelCell(value,props){return h('td',Object.assign({style:{padding:'9px 12px',borderTop:'1px solid '+_rgba(C.tx1,0.22),verticalAlign:'top'}},props||{}),value);}
@@ -3385,19 +3418,45 @@ function _loadHistoricalRun(runId){
   return _readModelResource('/api/system/models/evaluations/'+encodeURIComponent(runId),function(d){_historyDetails[runId]=d;},function(e){_historyDetails[runId]={error:e};},function(){renderCenter();});
 }
 
+var _evaluationView='matrix';
+function _evaluationScoreCell(value,key,title,total){
+  var valid=Number.isFinite(value)&&value>=0&&value<=1;
+  return _modelCell(valid?(value*100).toFixed(1)+' %':'—',{key:key,title:title,style:{padding:'7px 9px',textAlign:'right',whiteSpace:'nowrap',fontVariantNumeric:'tabular-nums',borderTop:'1px solid '+C.border,
+    background:total?C.bg2:valid?'hsla('+Math.round(value*120)+',65%,38%,0.18)':undefined,color:valid?'hsl('+Math.round(value*120)+',65%,68%)':C.tx3,fontWeight:total?700:500,
+    position:total?'sticky':undefined,right:total?0:undefined}});
+}
+function _evaluationTaskHeading(task){
+  var description=[task.label,task.context].concat(task.requirements||[]).filter(Boolean).map(function(v){return typeof v==='string'?v:JSON.stringify(v);}).join(' — ');
+  return h('span',{style:{display:'flex',gap:5,alignItems:'center',maxWidth:145,whiteSpace:'normal',fontSize:_fs(10)}},
+    h('span',null,task.label||task.name),h('span',{tabIndex:0,role:'img','aria-label':'Informace o testu: '+description,title:description,style:{cursor:'help',color:C.accent}},'ⓘ'));
+}
+function _renderEvaluationMatrix(role,rd,rows){
+  var tasks=rd.tasks||[];
+  return _modelTable([_modelSortHeader('quality','model','Model')].concat(tasks.map(_evaluationTaskHeading),[_modelSortHeader('quality','score','Celkem')]),rows.map(function(row){
+    return h('tr',{key:row.model,'data-evaluation-model':row.model},
+      _modelCell(h('div',null,h('button',{title:'Podrobný rozpad a nový test: '+row.model,style:{font:'inherit',fontWeight:600,color:C.tx1,background:'none',border:0,padding:0,cursor:'pointer',whiteSpace:'nowrap'},onClick:function(){_evaluationView='detail';_evaluationModelFilter=row.model;_evaluationRoleFilter=role;_qualityExpanded[role+'|'+row.model]=true;renderCenter();}},row.model),
+        h('div',{style:{fontSize:_fs(9),color:row.isCurrentBinding?C.accent:C.tx3}},(row.isCurrentBinding?'Přiřazený · ':'')+_modelStatus(row))),{style:{padding:'7px 10px',position:'sticky',left:0,zIndex:1,background:C.bg2,borderTop:'1px solid '+C.border}}),
+      tasks.map(function(task){var result=row.status==='COMPLETE'&&(row.tasks||[]).find(function(t){return t.name===task.name;});return _evaluationScoreCell(result?result.mean:null,task.name,result?task.label+' · rozdíl opakování '+Math.round(result.spread*100)+' bodů':_modelStatus(row),false);}),
+      _evaluationScoreCell(row.status==='COMPLETE'?row.score:null,'total','Oficiální skóre role: průměr výsledků úloh se stejnou vahou. Chybějící měření není 0 %.',true));
+  }),{pinned:true});
+}
 function _renderEvaluationsTab(){
   if(_evaluationData&&_evaluationData.error)return _modelLoadFailure(_evaluationData.error,_loadEvaluationData);
   if(!_evaluationData)return h('p',null,_evaluationLoading?'Načítám výsledky…':'Výsledky nejsou dostupné.');
-  var roles=_evaluationData.roles||{};
+  var roles=_evaluationData.roles||{},models=Array.from(new Set(Object.keys(roles).filter(function(role){return _evaluationRoleFilter==='all'||role===_evaluationRoleFilter;}).flatMap(function(role){return (roles[role].artifacts||[]).filter(function(row){return row.applicable!==false;}).map(function(row){return row.model;});}))).sort();
   return h('div',{'data-testid':'model-quality'},
-    h('label',{style:{display:'flex',gap:10,alignItems:'center',marginBottom:16}},'Role',h('select',{style:_modelFieldStyle(),value:_evaluationRoleFilter,onChange:function(e){_evaluationRoleFilter=e.target.value;renderCenter();}},
-      h('option',{value:'all'},'Všechny role'),Object.keys(roles).map(function(role){return h('option',{key:role,value:role},role);}))),
+    h('div',{style:{display:'flex',gap:10,alignItems:'center',flexWrap:'wrap',marginBottom:16}},
+      h('label',null,'Role ',h('select',{style:_modelFieldStyle(),value:_evaluationRoleFilter,onChange:function(e){_evaluationRoleFilter=e.target.value;renderCenter();}},h('option',{value:'all'},'Všechny role'),Object.keys(roles).map(function(role){return h('option',{key:role,value:role},role);}))),
+      h('label',null,'Model ',h('select',{style:_modelFieldStyle(),value:_evaluationModelFilter||'',onChange:function(e){_evaluationModelFilter=e.target.value;renderCenter();}},h('option',{value:''},'Všechny modely'),models.map(function(model){return h('option',{key:model,value:model},model);}))),
+      h('button',{style:_modelButtonStyle(_evaluationView==='matrix',false),onClick:function(){_evaluationView='matrix';renderCenter();}},'Matice výsledků'),
+      h('button',{style:_modelButtonStyle(_evaluationView==='detail',false),onClick:function(){_evaluationView='detail';renderCenter();}},'Podrobné výsledky'),
+      _evaluationModelFilter?h('button',{style:_modelButtonStyle(true,_modelTestPending),disabled:_modelTestPending,onClick:function(){_testInstalledModel(_evaluationModelFilter,null);}},'Otestovat vše'):null),
+    h('p',{style:{fontSize:_fs(10),color:C.tx3}},'Výsledky 0–100 %: červená až zelená. Celkem je skóre dané role. Pomlčka znamená, že platné měření chybí. Podrobnosti otevřeš názvem modelu; informace o úloze přes ⓘ.'),
     Object.keys(roles).filter(function(role){return _evaluationRoleFilter==='all'||role===_evaluationRoleFilter;}).map(function(role){
-      var rd=roles[role],rows=(rd.artifacts||[]).filter(function(a){return a.applicable!==false&&(!_evaluationModelFilter||_canonicalModelIdentity(a.model)===_canonicalModelIdentity(_evaluationModelFilter));})
-        ;rows=_sortModelRows(rows,'quality');
-      return h('section',{key:role,style:{marginBottom:26}},
-        h('h3',{style:{fontSize:_fs(14)}},role+' · '+rd.suiteName),
-        h('p',{style:{color:C.tx3,fontSize:_fs(11)}},'Aktuální model: '+(rd.binding||'nepřiřazen')+' · změřeno '+rows.filter(function(a){return a.status==='COMPLETE';}).length+'/'+rows.length+' místních modelů · '+rd.taskCount+' úloh × '+rd.repeats+' opakování · silné úlohy ≥ 80 %, slabé < 50 %'),
+      var rd=roles[role],rows=_sortModelRows((rd.artifacts||[]).filter(function(a){return a.applicable!==false&&(!_evaluationModelFilter||_canonicalModelIdentity(a.model)===_canonicalModelIdentity(_evaluationModelFilter));}),'quality');
+      return h('section',{key:role,style:{marginBottom:26}},h('h3',{style:{fontSize:_fs(14)}},role+' · '+rd.suiteName),
+        h('p',{style:{color:C.tx3,fontSize:_fs(11)}},'Aktuální model: '+(rd.binding||'nepřiřazen')+' · změřeno '+rows.filter(function(a){return a.status==='COMPLETE';}).length+'/'+rows.length+' modelů · '+rd.taskCount+' úloh × '+rd.repeats+' opakování'),
+        _evaluationView==='matrix'?_renderEvaluationMatrix(role,rd,rows):
         _modelTable([_modelSortHeader('quality','model','Model'),_modelSortHeader('quality','score','Skóre'),'Výsledky','Detail','Akce'],rows.flatMap(function(row){
           var tasks=row.tasks||[];
           var key=role+'|'+row.model,expanded=!!_qualityExpanded[key];
@@ -3408,12 +3467,11 @@ function _renderEvaluationsTab(){
             _modelCell(tasks.length?_modelResultBullets(tasks,rd):row.status==='COMPLETE'?'Chybí podrobnosti výsledku':'Čeká na měření'),
             _modelCell(tasks.length?h('button',{style:_modelButtonStyle(false,false),'aria-expanded':expanded,onClick:function(){_qualityExpanded[key]=!expanded;renderCenter();}},(expanded?'Skrýt detail':'Výsledky '+tasks.length+' úloh')):'—'),_modelCell(h('button',{style:_modelButtonStyle(false,_modelTestPending),disabled:_modelTestPending,onClick:function(){_testInstalledModel(row.model,role);}},'Nový test')));
           return expanded?[main,h('tr',{key:key+'-detail'},h('td',{colSpan:5,style:{padding:14,borderTop:'1px solid '+C.border,background:C.bg2}},_qualityDetail(row,rd)))]:[main];
-        })),
-        h('details',null,h('summary',{style:{cursor:'pointer',color:C.accent}},'Matice výsledků jednotlivých úloh'),
-          _modelTable(['Model'].concat((rd.tasks||[]).map(function(t){return h('span',{title:t.label},t.label);})),rows.filter(function(row){return row.status==='COMPLETE';}).map(function(row){return h('tr',{key:row.model},_modelCell(row.model),(rd.tasks||[]).map(function(t){var result=(row.tasks||[]).find(function(x){return x.name===t.name;});return _modelCell(result?Math.round(result.mean*100)+' %':'—',{key:t.name,title:result?'Rozdíl opakování: '+Math.round(result.spread*100)+' bodů':'Chybí detail',style:{padding:10,borderTop:'1px solid '+C.border,color:result&&result.mean>=0.8?C.success:C.amber}});}));})))
+        }))
       );
     }));
 }
+
 function _renderEvaluationHistory(){
   if(_evaluationData&&_evaluationData.error)return _modelLoadFailure(_evaluationData.error,_loadEvaluationData);
   if(!_evaluationData)return h('p',null,'Načítám historii měření…');
@@ -3617,7 +3675,7 @@ function centerUpgrades(){
         :h('button',{style:{padding:'4px 12px',borderRadius:4,border:'1px solid #ef4444',background:'transparent',
           color:'#ef4444',cursor:'pointer',fontSize:_fs(10),fontFamily:C.font},
           onClick:function(){_rollbackConfirm=true;renderCenter();}},'Rollback')):null):null,
-    _modelTestMessage&&_upgradeTab==='hunt'?h('div',{role:_modelTestFailed?'alert':'status',style:{margin:'12px 18px 0',padding:'8px 12px',borderRadius:6,
+    _modelTestMessage&&(_upgradeTab==='hunt'||_upgradeTab==='evaluations')?h('div',{role:_modelTestFailed?'alert':'status',style:{margin:'12px 18px 0',padding:'8px 12px',borderRadius:6,
       border:'1px solid '+C.border2,fontSize:_fs(11),lineHeight:1.5,background:_modelTestFailed?C.redBg:C.bg3,color:_modelTestFailed?C.red:C.tx2}},_modelTestMessage):null,
     /* body */
     h('div',{key:_upgradeTab,'data-testid':'model-tab-body',style:{flex:1,overflowY:'auto',padding:18}},
@@ -4820,7 +4878,13 @@ function _groupHunks(allLines){
 }
 
 /* ── Editor renderer ── */
+function _stepWorkspaceFile(idx,direction){
+  var s=_sessions[idx];if(!s||s._closed)return;var ed=s._editor,at=ed.tabs.findIndex(function(t){return t.id===ed.activeTabId;});
+  var next=at+direction;if(next<0||next>=ed.tabs.length)return;
+  _switchSession(idx);_setActiveTab(ed.tabs[next].id);
+}
 function centerEditor(idx){
+  idx=idx===undefined?_sessionActive:idx;
   var editor=_sessions[idx===undefined?_sessionActive:idx]._editor||_editorState;
   var tabs=editor.tabs;
   var at=tabs.find(function(t){return t.id===editor.activeTabId;});
@@ -4831,11 +4895,12 @@ function centerEditor(idx){
       h('div',{style:{padding:'0 10px',height:'100%',display:'flex',alignItems:'center',cursor:'pointer',color:C.tx4,fontSize:_fs(12),flexShrink:0,borderRight:'1px solid '+C.border,gap:4},
         onMouseEnter:function(e){e.currentTarget.style.background=C.bg3;},onMouseLeave:function(e){e.currentTarget.style.background='transparent';},
         onClick:_backToGrid},svgEl('<polyline points="15 18 9 12 15 6"/>',14),'Chat'),
-      /* Tabs */
-      h('div',{style:{display:'flex',flex:1,overflow:'hidden'}},
+      _workspaceButton('‹','Předchozí soubor',function(){_stepWorkspaceFile(idx,-1);},{disabled:tabs.findIndex(function(t){return t.id===editor.activeTabId;})<=0}),
+      /* Tabs remain reachable by arrows, wheel/trackpad and keyboard focus. */
+      h('div',{'data-file-tabs':idx,style:{display:'flex',flex:1,minWidth:0,overflowX:'auto',overflowY:'hidden'}},
         tabs.map(function(tab){
           var isA=tab.id===editor.activeTabId;
-          return h('div',{key:tab.id,style:{display:'flex',alignItems:'center',gap:4,padding:'0 10px',height:32,cursor:'pointer',borderRight:'1px solid '+C.border,background:isA?C.bg1:'transparent',color:isA?C.tx1:C.tx3,fontSize:_fs(11.5),fontWeight:isA?600:400,maxWidth:160,flexShrink:0},
+          return h('div',{key:tab.id,'data-file-tab':tab.id,ref:function(el){if(el&&isA)requestAnimationFrame(function(){if(el.isConnected)el.scrollIntoView({block:'nearest',inline:'nearest'});});},style:{display:'flex',alignItems:'center',gap:4,padding:'0 10px',height:32,cursor:'pointer',borderRight:'1px solid '+C.border,background:isA?C.bg1:'transparent',color:isA?C.tx1:C.tx3,fontSize:_fs(11.5),fontWeight:isA?600:400,maxWidth:160,flexShrink:0},
             onClick:function(){_setActiveTab(tab.id);}},
             tab.type==='diff'?h('span',{style:{color:C.amber,fontSize:_fs(10)}},'~'):h('span',{style:{fontSize:_fs(10)}},'📄'),
             h('span',{style:{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',flex:1}},tab.label+(tab.dirty?' •':'')),
@@ -4843,7 +4908,7 @@ function centerEditor(idx){
               onMouseEnter:function(e){e.currentTarget.style.color=C.tx1;},onMouseLeave:function(e){e.currentTarget.style.color=C.tx4;},
               onClick:function(e){e.stopPropagation();_closeTab(tab.id);}},'×'));
         })),
-      h('div',{style:{flex:1}})),
+      _workspaceButton('›','Další soubor',function(){_stepWorkspaceFile(idx,1);},{disabled:tabs.findIndex(function(t){return t.id===editor.activeTabId;})>=tabs.length-1})),
     /* Content */
     h('div',{style:{flex:1,overflow:'hidden',display:'flex',flexDirection:'column'}},
       at?(
@@ -7196,14 +7261,14 @@ function _chatPaneUI(idx,opts){
       h('span',{style:{fontSize:_fs(10),color:C.tx3}},st.specialist.desc||st.specialist.domain||''),
       h('div',{style:{flex:1}}),
       /* Context meter */
-      h('div',{style:{display:'flex',alignItems:'center',gap:3,fontSize:_fs(9),color:C.tx4,fontFamily:C.mono}},
+      h('div',{title:'Využití kontextového okna modelu: '+st.ctx+' %. Zahrnuje zprávy a podklady dostupné modelu v této relaci.', 'aria-label':'Využití kontextu '+st.ctx+' %',tabIndex:0,style:{display:'flex',alignItems:'center',gap:3,fontSize:_fs(9),color:C.tx4,fontFamily:C.mono}},
         h('div',{style:{width:40,height:3,background:C.bg4,borderRadius:2,overflow:'hidden'}},h('div',{style:{height:'100%',background:C.accent,borderRadius:2,width:st.ctx+'%'}})),h('span',null,st.ctx+'%')),
       h('button',{style:{background:'rgba(239,68,68,0.15)',color:'#f87171',border:'1px solid rgba(239,68,68,0.3)',borderRadius:6,padding:'3px 10px',fontSize:_fs(10),fontWeight:600,cursor:'pointer',marginLeft:6},
         onMouseEnter:function(e){e.currentTarget.style.background='rgba(239,68,68,0.3)';},
         onMouseLeave:function(e){e.currentTarget.style.background='rgba(239,68,68,0.15)';},
         onClick:function(ev){ev.stopPropagation();_focusExitDialog={pendingAction:null};renderCenter();}},'Ukončit')):
     h('div',{style:{padding:'0 6px',height:28,display:'flex',alignItems:'center',gap:3,borderBottom:'1px solid '+C.border,flexShrink:0,background:isFocused?C.bg2:'transparent'}},
-      h('button',{style:btnS,title:'Nový chat',onClick:function(ev){ev.stopPropagation();_newChatInProject(idx);}},svgEl(I.plus)),
+      /* A single + in the workspace tab bar creates a new session. */
       /* v90: Session label — prefer persisted _label, fallback to lookup */
       (function(){var label=s._label||'';
         if(!label&&s._projectId){var _pr=PROJECTS.find(function(p){return p.id===s._projectId;});if(_pr)label=_pr.name;}
@@ -7212,11 +7277,11 @@ function _chatPaneUI(idx,opts){
         return label?h('span',{style:{fontSize:_fs(10),fontWeight:600,color:isFocused?C.tx1:C.tx3,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',maxWidth:140},title:label},label):null;})(),
       h('div',{style:{flex:1}}),
       /* Context meter */
-      h('div',{style:{display:'flex',alignItems:'center',gap:3,fontSize:_fs(9),color:C.tx4,fontFamily:C.mono}},
+      h('div',{title:'Využití kontextového okna modelu: '+st.ctx+' %. Zahrnuje zprávy a podklady dostupné modelu v této relaci.', 'aria-label':'Využití kontextu '+st.ctx+' %',tabIndex:0,style:{display:'flex',alignItems:'center',gap:3,fontSize:_fs(9),color:C.tx4,fontFamily:C.mono}},
         h('div',{style:{width:30,height:3,background:C.bg4,borderRadius:2,overflow:'hidden'}},h('div',{style:{height:'100%',background:C.accent,borderRadius:2,width:st.ctx+'%'}})),h('span',null,st.ctx+'%')),
-      /* Close button — opens dialog with options */
-      (s._convId||s._projectId)?h('button',{style:{background:'none',border:'none',color:C.tx4,cursor:'pointer',fontSize:_fs(13),padding:'0 2px',lineHeight:1,marginLeft:2},
-        title:'Zavřít konverzaci',onClick:function(ev){ev.stopPropagation();_closeWorkspaceConversation(idx);}},'×'):null),
+      /* Closing this column closes its session; history remains in the catalogue. */
+      h('button',{style:{background:'none',border:'none',color:C.tx4,cursor:'pointer',fontSize:_fs(13),padding:'0 2px',lineHeight:1,marginLeft:2},
+        title:'Zavřít relaci','aria-label':'Zavřít relaci',onClick:function(ev){ev.stopPropagation();_closeWorkspaceSession(idx);}},'×')),
     /* NEW CHAT DIALOG (v64.4) */
     _newChatDialog&&_newChatDialog.idx===idx?h('div',{style:{position:'absolute',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.6)',zIndex:50,display:'flex',alignItems:'center',justifyContent:'center'},
       onClick:function(ev){ev.stopPropagation();_newChatDialogAction('cancel');}},
@@ -7460,7 +7525,12 @@ function _syncWorkspacePanels(){
     var bottom=app.shell.bottomPanel; if(bottom&&typeof bottom.hide==='function')bottom.hide();
     var handler=app.shell.bottomPanelHandler;if(handler&&handler.container)handler.container.hide();
     var right=app.shell.rightPanelHandler;
-    if(right&&right.container&&_workspacePanelMode!==visible){_workspacePanelMode=visible;if(visible){right.container.show();app.shell.resize(280,'right');}else right.container.hide();}
+    if(right&&right.container){
+      // A shell restore/refresh can show the container without changing our view.
+      if(!visible)right.container.hide();
+      else if(_workspacePanelMode!==true){right.container.show();app.shell.resize(280,'right');}
+      _workspacePanelMode=visible;
+    }
   }catch(e){}
 }
 function _workspaceButton(text,title,fn,extra){return h('button',Object.assign({type:'button',title:title,'aria-label':title,onClick:fn,style:{background:'transparent',border:0,borderRadius:3,color:C.tx2,padding:'5px 9px',cursor:'pointer',fontFamily:C.font,fontSize:12,whiteSpace:'nowrap'}},extra||{}),text);}
@@ -7493,12 +7563,13 @@ function _workspaceResize(e,idx){
   function up(){document.removeEventListener('mousemove',move);document.removeEventListener('mouseup',up);}
   document.addEventListener('mousemove',move);document.addEventListener('mouseup',up);
 }
+function _workspaceTabLabel(title){var chars=Array.from(String(title||'Nová relace'));return chars.length>28?chars.slice(0,27).join('')+'…':chars.join('');}
 function WorkspaceApp(){
   _ensureSessions();var open=_workspaceSessionIndices();var visible=_workspaceSplit?open:[_sessionActive];
   return h('main',{id:'intentsmith-workspace',style:{height:'100%',width:'100%',minWidth:0,minHeight:0,contain:'size layout',display:'flex',flexDirection:'column',background:C._solidBg0||C.bg0,color:C.tx1,fontFamily:C.font}},
-    h('div',{role:'tablist','aria-label':'Pracovní relace',style:{display:'flex',minHeight:36,borderBottom:'1px solid '+C.border,background:C.bg2,overflowX:'auto',flexShrink:0}},
-      open.map(function(idx){var s=_sessions[idx];var title=s._label||(s.chat.specialist&&s.chat.specialist.name)||'Nová relace';return h('div',{key:idx,style:{display:'flex',borderRight:'1px solid '+C.border,borderBottom:'2px solid '+(_sessionActive===idx?C.accent:'transparent'),background:_sessionActive===idx?C.bg1:'transparent',maxWidth:250,flexShrink:0}},
-        _workspaceButton(title,title,function(){_switchSession(idx);_showWorkspace();},{role:'tab','aria-selected':_sessionActive===idx,'data-session-tab':idx}),
+    h('div',{role:'tablist','aria-label':'Pracovní relace',style:{display:'flex',minHeight:36,borderBottom:'1px solid '+C.border,background:C._solidBg0||C.bg0,overflowX:'auto',flexShrink:0}},
+      open.map(function(idx){var s=_sessions[idx];var title=s._label||(s.chat.specialist&&s.chat.specialist.name)||'Nová relace';return h('div',{key:idx,style:{display:'flex',borderRight:'1px solid '+C.border,borderBottom:'2px solid '+(_sessionActive===idx?C.accent:'transparent'),background:_sessionActive===idx?C.bg3:(C._solidBg0||C.bg0),maxWidth:230,minWidth:110,flexShrink:0}},
+        _workspaceButton(_workspaceTabLabel(title),title,function(){_switchSession(idx);_showWorkspace();},{role:'tab','aria-label':title,'aria-selected':_sessionActive===idx,'data-session-tab':idx,style:{flex:1,minWidth:0,maxWidth:192,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',padding:'8px 10px',textAlign:'left',background:'transparent',border:0,color:_sessionActive===idx?C.tx1:C.tx3,cursor:'pointer',fontFamily:C.font,fontSize:12}}),
         _workspaceButton('×','Zavřít relaci '+title,function(){_closeWorkspaceSession(idx);}));}),
       _workspaceButton('+','Nová relace',function(){_addWorkspaceSession();},{id:'intentsmith-new-session'}),
       h('div',{style:{flex:1}}),_workspaceButton(_workspaceSplit?'Jedna relace':'Vedle sebe','Rozdělit pracovní prostor',function(){_workspaceSplit=!_workspaceSplit;renderCenter();},{'aria-pressed':_workspaceSplit,id:'intentsmith-split-sessions'})),
@@ -7902,17 +7973,20 @@ var _agentsForbidden=false;
 class IntentSmithSidebarContrib extends browser_1.AbstractViewContribution {
   constructor(){super({widgetId:INTENTSMITH_SIDEBAR_ID,widgetName:'IntentSmith Navigation',defaultWidgetOptions:{area:'left',rank:0},toggleCommandId:'intentsmith:toggleSidebar',toggleKeybinding:'ctrlcmd+b'});}
   async initializeLayout(a){await this.openView({activate:true,reveal:true});}
+  async onDidInitializeLayout(a){
+    // onStart runs BEFORE Theia restores saved layout (including old widget IDs).
+    // Reattach/reveal navigation only after restoration, without stealing focus.
+    window._intentsmithApp=a;
+    await this.openView({activate:false,reveal:true});
+    _setSidebarCollapsed(false);
+    await a.shell.pendingUpdates;
+    _workspacePanelMode=null;
+    _syncWorkspacePanels();
+  }
   registerCommands(c){
     c.registerCommand({id:'intentsmith:toggleSidebar',label:'IntentSmith: Toggle Sidebar',category:'IntentSmith'},{
       execute:function(){
-        if(typeof window._intentsmithIsLeftHidden==='function'&&window._intentsmithIsLeftHidden()){
-          var tw=(_sidebarWidget&&_sidebarWidget._collapsed)?48:(_intentsmithLastLeftW||240);
-          window._intentsmithSnapShowLeft(tw);
-        }else{
-          var n=document.getElementById('theia-left-content-panel');
-          if(n)_intentsmithLastLeftW=n.offsetWidth||240;
-          window._intentsmithSnapHideLeft();
-        }
+        _setSidebarCollapsed(!(_sidebarWidget&&_sidebarWidget._collapsed));
       }
     });
   }
@@ -7969,15 +8043,15 @@ class IntentSmithSidebarContrib extends browser_1.AbstractViewContribution {
             if(w>=_INTENTSMITH_MIN_RIGHT){_intentsmithLastRightW=w;}
           }
         }).observe(rightCP);}
-        /* Left panel: snap-hide when below threshold */
+        /* Left navigation narrows to icons; it must never disappear. */
         if(leftCP){new ResizeObserver(function(entries){
-          if(_intentsmithSnapLock||!_settingsVals.autoCollapse)return;
+          if(_intentsmithSnapLock||!_settingsVals.autoCollapse||(_sidebarWidget&&_sidebarWidget._collapsed))return;
           var w=entries[0].contentRect.width;
           if(w>0&&w<_INTENTSMITH_MIN_LEFT){
             if(!_leftSnapT){_leftSnapT=setTimeout(function(){
               _leftSnapT=null;if(_intentsmithSnapLock)return;
               if(leftCP.offsetWidth>0&&leftCP.offsetWidth<_INTENTSMITH_MIN_LEFT){
-                _snapHide(_lph,'left');
+                _setSidebarCollapsed(true);
               }
             },300);}
           }else{if(_leftSnapT){clearTimeout(_leftSnapT);_leftSnapT=null;}
@@ -7995,8 +8069,7 @@ class IntentSmithSidebarContrib extends browser_1.AbstractViewContribution {
           el.addEventListener('mouseleave',function(){el.style.opacity='0.15';el.style.width='6px';el.style.background=C.border2;el.querySelector('svg').style.opacity='0';});
           el.addEventListener('click',function(){
             if(isLeft){
-              var tw=(_sidebarWidget&&_sidebarWidget._collapsed)?48:(_intentsmithLastLeftW||240);
-              _snapShow(_lph,'left',tw);
+              _setSidebarCollapsed(false);
             }else{
               _snapShow(_rph,'right',_intentsmithLastRightW||280);
             }
@@ -8008,15 +8081,15 @@ class IntentSmithSidebarContrib extends browser_1.AbstractViewContribution {
         var _rightTab=_mkExpandTab('right');
         /* Show/hide expand tabs based on container hidden state */
         /* Expose snap helpers for toggle commands */
-        window._intentsmithSnapHideLeft=function(){_snapHide(_lph,'left');};
-        window._intentsmithSnapShowLeft=function(w){_snapShow(_lph,'left',w);};
+        window._intentsmithSnapHideLeft=function(){_setSidebarCollapsed(true);};
+        window._intentsmithSnapShowLeft=function(w){_setSidebarCollapsed(w===48);};
         window._intentsmithSnapHideRight=function(){_snapHide(_rph,'right');};
         window._intentsmithSnapShowRight=function(w){_snapShow(_rph,'right',w);};
-        window._intentsmithIsLeftHidden=function(){return _lph.container.isHidden;};
+        window._intentsmithIsLeftHidden=function(){return _lph.container.isHidden||_lph.dockPanel.isHidden;};
         window._intentsmithIsRightHidden=function(){return _rph.container.isHidden;};
         /* Show/hide expand tabs based on container hidden state */
         function _updateTabs(){
-          _leftTab.style.display=(_lph.container.isHidden)?'flex':'none';
+          _leftTab.style.display=window._intentsmithIsLeftHidden()?'flex':'none';
           _rightTab.style.display=(_rph.container.isHidden)?'flex':'none';
         }
         setInterval(_updateTabs,500);

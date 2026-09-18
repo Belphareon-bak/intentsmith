@@ -88,6 +88,33 @@ export class ModelHuntState {
     return this.db.prepare(`SELECT cohort, count(*) AS observed FROM model_hunt_catalog GROUP BY cohort`).all();
   }
 
+  catalogSnapshot() {
+    const rows = this.db.prepare(`SELECT model_name, first_seen_at, candidate_json FROM model_hunt_catalog
+      ORDER BY first_seen_at DESC, rowid DESC`).all();
+    const seen = new Set(), candidates = [];
+    let invalidRows = 0;
+    for (const row of rows) {
+      if (seen.has(row.model_name)) continue;
+      seen.add(row.model_name);
+      try {
+        const candidate = JSON.parse(row.candidate_json);
+        if (canonicalModelName(candidate.name) !== row.model_name) throw new Error('identity');
+        // Discovery facts only: old evaluationState, priority and roles are
+        // deliberately not promoted to current quality or applicability.
+        candidates.push({ name: candidate.name, family: candidate.family,
+          category: candidate.category, params: candidate.params,
+          sizeGB: Number(candidate.sizeGB) || null,
+          contextWindow: candidate.contextWindow || candidate.details?.context_length || null,
+          capabilities: candidate.capabilities || [], releaseDate: candidate.releaseDate || null,
+          releaseDateSource: candidate.releaseDateSource || null,
+          discoveredAt: row.first_seen_at });
+      } catch { invalidRows++; }
+    }
+    return { candidates, observedRevisions: rows.length, invalidRows,
+      latestFirstSeenAt: rows[0]?.first_seen_at || null,
+      source: 'https://ollama.com/library', scope: 'stored-hunt-candidates' };
+  }
+
   recordRetention(candidate, key, retention, now = new Date().toISOString()) {
     if (!key.startsWith('retention:') || !['APPROVED', 'DELETED', 'DELETE_FAILED'].includes(retention.status)) {
       throw new Error('HUNT_RETENTION_RECORD_INVALID');

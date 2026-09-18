@@ -80,7 +80,8 @@ export function createHuntControl({ installationFile = process.env.INTENTSMITH_I
             const manual = report.results?.length === 1 && report.results[0].trials?.some(t => t.evaluation);
             recent.push({runId:entry.name, finishedAt:report.finishedAt || report.generatedAt,
               status:report.status || 'COMPLETE', reasons:report.reasons || (report.reason ? [report.reason] : []),
-              request:manual ? {kind:'evaluation', model:report.results[0].model, role:report.results[0].trials[0]?.role} : null,
+              request:manual ? {kind:'evaluation', model:report.results[0].model,
+                role:report.results[0].trials.filter(t => t.evaluation).map(t => t.role).join(',')} : null,
               results:(report.results || []).map(r => ({model:r.model, stage:r.stage, error:r.error || null,
                 evaluations:(r.trials || []).filter(t => t.evaluation).map(t => ({role:t.role,score:t.evaluation.score,reused:t.evaluation.reused === true}))})),
             });
@@ -104,17 +105,27 @@ export function createHuntControl({ installationFile = process.env.INTENTSMITH_I
       };
     },
     async evaluate(request, evaluations) {
-      if (!request || Object.keys(request).sort().join(',') !== 'digestSha256,model,role,suiteContractSha256'
+      const batch = request && Object.keys(request).sort().join(',') === 'digestSha256,model,roles';
+      const pins = batch ? request.roles : [{ role: request?.role, suiteContractSha256: request?.suiteContractSha256 }];
+      if (!request || (!batch && Object.keys(request).sort().join(',') !== 'digestSha256,model,role,suiteContractSha256')
         || !/^[a-zA-Z0-9][a-zA-Z0-9_.:/-]{0,199}$/.test(request.model || '')
         || !/^[a-f0-9]{64}$/.test(request.digestSha256 || '')
-        || !/^[a-f0-9]{64}$/.test(request.suiteContractSha256 || '')) {
+        || !Array.isArray(pins) || pins.length < 1 || pins.length > 7
+        || pins.some(pin => !pin || Object.keys(pin).sort().join(',') !== 'role,suiteContractSha256'
+          || !['D1','D2','CODE','R1','R2','CHAT','VISION'].includes(pin.role)
+          || !/^[a-f0-9]{64}$/.test(pin.suiteContractSha256 || ''))
+        || new Set(pins.map(pin => pin.role)).size !== pins.length) {
         throw Object.assign(new Error('MODEL_EVALUATION_REQUEST_INVALID'), { httpStatus: 400 });
       }
-      const role = evaluations?.roles?.[request.role];
-      const artifact = role?.artifacts?.find(row => row.model === request.model && row.digestSha256 === request.digestSha256);
-      if (!artifact || artifact.applicable === false || role.decisionReady === false
-        || role.suiteContractSha256 !== request.suiteContractSha256) {
-        throw Object.assign(new Error('MODEL_EVALUATION_IDENTITY_CHANGED_OR_UNAVAILABLE'), { httpStatus: 409 });
+      // Preflight the entire batch before creating a service. One stale role
+      // must not silently turn a complete evaluation into a partial request.
+      for (const pin of pins) {
+        const role = evaluations?.roles?.[pin.role];
+        const artifact = role?.artifacts?.find(row => row.model === request.model && row.digestSha256 === request.digestSha256);
+        if (!artifact || artifact.applicable === false || role.decisionReady === false
+          || role.suiteContractSha256 !== pin.suiteContractSha256) {
+          throw Object.assign(new Error('MODEL_EVALUATION_IDENTITY_CHANGED_OR_UNAVAILABLE'), { httpStatus: 409 });
+        }
       }
       const status = await control.status({ freshGpu: true });
       if (['RUNNING','STOPPING'].includes(status.state)) throw Object.assign(new Error('HUNT_ALREADY_RUNNING'), { httpStatus: 409 });
@@ -127,9 +138,10 @@ export function createHuntControl({ installationFile = process.env.INTENTSMITH_I
         '--property=RuntimeMaxSec=6h', '--property=NoNewPrivileges=true', '--property=UMask=0077', '--property=Nice=10',
         '--', installed.node, join(installed.sourceRoot,'scripts/run-model-hunt-provider.js'),
         '--run', '--scheduled', '--keep-inconclusive', '--evaluate-installed', '--limit=1',
-        '--only=' + request.model, '--role=' + request.role, '--expected-digest=' + request.digestSha256,
-        '--expected-contract=' + request.suiteContractSha256]);
-      return { accepted: true, model: request.model, role: request.role };
+        '--only=' + request.model, '--role=' + pins.map(pin => pin.role).join(','), '--expected-digest=' + request.digestSha256,
+        batch ? '--expected-contracts=' + JSON.stringify(Object.fromEntries(pins.map(pin => [pin.role, pin.suiteContractSha256])))
+          : '--expected-contract=' + request.suiteContractSha256]);
+      return { accepted: true, model: request.model, role: pins.map(pin => pin.role).join(','), roles: pins.map(pin => pin.role) };
     },
     async control(action) {
       if (!Object.hasOwn(ACTIONS, action)) throw Object.assign(new Error('HUNT_ACTION_INVALID'), { httpStatus: 400 });

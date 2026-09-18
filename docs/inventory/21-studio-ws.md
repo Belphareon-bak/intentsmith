@@ -1,5 +1,26 @@
 # Inventura #21 — Studio a WS bridge
 
+**IDE a GPU hunt, 2026-09-18:** implementované opravy operátorových reprodukcí:
+řazení hlavičkou, celé použitelné role v jedné evaluaci, číselné matice,
+kandidáti ze skutečného hunt katalogu, záložky/kontext/sloupce/soubory a seznamy.
+Cílené kontroly a skutečné GUI PASS; úplný profil a nasazení zatím probíhají.
+REVIEW_PENDING. [Rozsah a důkaz](../review/2026-09-18-IDE-HUNT-POLISH.md).
+
+**Obnova hlavní navigace, 2026-09-18:** nasazeno `57726969`. Opravená
+regrese obnovy uloženého rozložení: levé menu zůstává vedle nastavení a katalogů;
+sbalení ponechá pás ikon, zmizel i prázdný pravý panel. Ověřeno 17 GUI kontrol
+z instalované kopie, 25 workspace regresí a 71 navazujících kontrol PASS.
+Úplný profil 359 PASS / 1 FAIL (nezměněná Gate 0 pečeť). REVIEW_PENDING.
+[Review a meze](../review/2026-09-18-IDE-SIDEBAR-RESTORE.md).
+
+**IDE pracovní prostor, 2026-09-18:** nasazeno `c52b03ff`, pojmenované relace,
+samostatné sloupce chatu/souborů/výstupů, historie a knihovny specialistů,
+centrální katalogy a nastavení. Aktivní názvy IntentSmith, kompatibilita starých
+dat zachovaná. 106 cílených testů PASS, produkční build a skutečné GUI PASS;
+úplný profil 359 PASS / 1 FAIL (nezměněná Gate 0 pečeť). REVIEW_PENDING,
+M2 systemd AppArmor a M5 historie stále otevřené.
+[Review a meze](../review/2026-09-18-IDE-WORKSPACE.md).
+
 Aktuální navazující důkaz 2026-09-12 na `dc81a0f0`: **BOUNDED_PHYSICAL_BUILD_PASS**.
 Instalované Studio spojilo DOM formulář, skutečný server, durable CODE binding,
 dvě fyzické generace, kompletní preview, explicitní approval, 12 funkčních

@@ -32,6 +32,7 @@ export function renderDesktopInstallation(config) {
   for (const v of [sourceRoot, node, dbPath, stateDirectory, configDirectory, icon]) quotedPath(v);
   const envFile = join(configDirectory, 'runtime.env');
   const env = Object.entries({ INTENTSMITH_DB_PATH: dbPath, INTENTSMITH_PORT_FILE: join(stateDirectory, 'backend.port.json'),
+    INTENTSMITH_PROJECTS_DIR: config.projectsDirectory || join(dirname(dirname(dbPath)), 'projects'),
     INTENTSMITH_INSTALLATION_FILE: join(configDirectory, 'installation.json'),
     INTENTSMITH_HUNT_STATE_DIR: join(stateDirectory, 'model-hunt'),
     INTENTSMITH_PDF_PYTHON: config.pdfPython,

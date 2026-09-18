@@ -2091,6 +2091,20 @@ await asyncTest('T23eb: file.write hook is telemetry-only and canonical pending 
   );
 });
 
+await asyncTest('pending web proposal reaches M1 as a visible invitation, while mixed effect metadata stays blocked', async () => {
+  for (const mixed of [false,true]) {
+    const sent=[];const frame=m1StudioFrame('web-pending-'+mixed);
+    const text='Chystám HTTPS GET https://example.com/ — schválit web web:'+ 'a'.repeat(64);
+    const adapter=createSessionAdapter({send:encoded=>sent.push(JSON.parse(encoded)),logger:mockLogger,
+      handleRequest:async()=>({response:text,mode:'conversation',confidence:1,metadata:{handler:'conversation.web',webStatus:'pending',webRequestId:'web:'+'a'.repeat(64),approvalRequired:true,...(mixed?{effectId:'effect:'+'b'.repeat(64)}:{})}})});
+    try {await adapter.processM1Command(frame);}finally{adapter.cleanup();}
+    const events=m1EventStream(sent,frame.command.requestId);assert.equal(validateCoreEventStream(events).valid,true);
+    const result=events.at(-1).payload.result;
+    if(mixed){assert.equal(result.error.code,'M2_EFFECT_AUTHORITY_REQUIRED');}
+    else {assert.equal(events.at(-1).terminalStatus,'ok');assert.equal(result.response.content,text);}
+  }
+});
+
 await asyncTest('T23f: provider and timeout failures have one canonical terminal only', async () => {
   const cases = [
     {

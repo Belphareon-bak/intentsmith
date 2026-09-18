@@ -46,6 +46,28 @@ export function createConversationWebHandler({ database = db, clock = Date.now,
   return Object.freeze({
     propose(url, context) { throwIfAborted(context.signal); return render(repository.propose(url, context)); },
     async intercept(input, context) {
+      // Ask for an explicit place before searching for local weather. A city
+      // answer is conversation state, never permission to access location or
+      // send a request; the resulting HTTPS URL still needs exact approval.
+      const text = String(input || '').trim();
+      const normalized = text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+      const state = context.sessionState;
+      const projectless = !context.project && !context.projectId && !context.projectRoot && !context.hasActiveProject;
+      if (projectless && state?.awaitingSlots?.includes('weather_location')) {
+        const pending = state.pendingDecision;
+        state.clearPendingDecision();
+        if (text.length <= 100 && text.split(/\s+/).length <= 8 && /^[\p{L}\p{N}\s,'’.-]+$/u.test(text)
+          && !/^(?:ne|ano|zrus|cancel|jak|co|proc|what|how)(?:\s|$)/.test(normalized)) {
+          const target = `https://www.bing.com/search?format=rss&q=${encodeURIComponent((pending?.query || 'počasí dnes') + ' — místo: ' + text)}`;
+          try { return { handled: true, response: this.propose(target, context) }; }
+          catch (error) { return { handled: true, response: tagged(`Webový požadavek nelze připravit: ${error.code || 'WEB_AUTHORITY_UNAVAILABLE'}.`, {}) }; }
+        }
+      }
+      if (projectless && /pocasi|\bweather\b/.test(normalized)
+        && /(?:moj[iem]|me)\s+(?:lokac|poloh|mist)|zjistit\s+polohu|my\s+location|\bnear me\b/.test(normalized)) {
+        state?.setPendingDecision?.({ type: 'weather_location', query: text }, ['weather_location']);
+        return { handled: true, response: tagged('Tvoji polohu neznám. Pro které město nebo obec chceš počasí? Napiš název místa. Potom ukážu přesnou webovou adresu ke schválení; žádný požadavek zatím neodešel.', { clarification: 'weather_location' }) };
+      }
       const approvalId = parseWebApproval(input);
       const cancelId = String(input || '').trim().match(/^(?:zru[sš]it\s+web|cancel\s+web)\s+(web:[a-f0-9]{64})$/iu)?.[1];
       const url = String(input || '').trim().match(/^(?:na[cč]ti(?:\s+web)?|otev[rř]i\s+web|fetch\s+web)\s+(https:\/\/\S+)$/iu)?.[1];

@@ -19,6 +19,8 @@ import { getOutboundDiagnostics } from '../network/outbound-policy.js';
 import { modelUniverseStore } from '../upgrade/model-universe-store.js';
 import { createHuntControl } from '../system/hunt-control.js';
 import { readNvidiaDisplayCapacity } from '../upgrade/model-hunt-diagnostics.js';
+import { ModelHuntState } from '../upgrade/model-hunt-state.js';
+import { TYPICAL_VRAM_OVERHEAD } from '../upgrade/model-sweep.js';
 import { isLocalOperatorTransportSubject } from '../security/global-auth-policy.js';
 import {
   POLICY_SOURCE,
@@ -1249,6 +1251,9 @@ export function createSystemRoutes({
           import('../upgrade/candidate-eligibility.js'),
         ]);
         const discovered = await onlineDiscovery.getDiscoveredModels();
+        const huntCatalog = new ModelHuntState(db.db).catalogSnapshot();
+        const huntCandidates = huntCatalog.candidates.map(candidate => ({ ...candidate,
+          baseVramMb: candidate.sizeGB ? Math.round(candidate.sizeGB * 1024 * TYPICAL_VRAM_OVERHEAD) : null }));
         const installedByCanonical = new Set();
         try {
           const response = await fetch(`${config.ollama.baseUrl}/api/tags`, {
@@ -1280,7 +1285,7 @@ export function createSystemRoutes({
         const vramBudgetMb = gpuVramMb > 0 ? Math.round(gpuVramMb * 0.8) : null;
 
         const merged = new Map();
-        for (const [source, entries] of [['ONLINE_DISCOVERY', discovered], ['CATALOG', CATALOG]]) {
+        for (const [source, entries] of [['GPU_HUNT', huntCandidates], ['ONLINE_DISCOVERY', discovered], ['CATALOG', CATALOG]]) {
           for (const entry of entries || []) {
             if (/(?:-cloud|-mlx)(?:$|:)/i.test(entry.name)) continue;
             const canonical = canonicalModelName(entry.name);
@@ -1328,6 +1333,10 @@ export function createSystemRoutes({
           gpuVramMb,
           gpuCapacitySource, gpuInventory,
           vramBudgetMb,
+          discoveryCoverage: { source: huntCatalog.source, scope: huntCatalog.scope,
+            huntModels: huntCandidates.length, huntFamilies: new Set(huntCandidates.map(c => c.name.split(':')[0])).size,
+            observedRevisions: huntCatalog.observedRevisions, invalidRows: huntCatalog.invalidRows,
+            latestFirstSeenAt: huntCatalog.latestFirstSeenAt },
           candidates,
         });
       } catch (err) {

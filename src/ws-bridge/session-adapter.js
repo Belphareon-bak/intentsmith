@@ -614,7 +614,14 @@ export function createSessionAdapter({
         return;
       }
 
-      if (m1Egress && response.metadata?.approvalRequired) {
+      // A web proposal has performed no I/O and its text carries the exact
+      // URL and approval command. Present it; the repository still exclusively
+      // owns approval consumption and network execution on a later user turn.
+      const pendingWebProposal = response.metadata?.handler === 'conversation.web'
+        && response.metadata.webStatus === 'pending'
+        && /^web:[a-f0-9]{64}$/.test(response.metadata.webRequestId || '')
+        && !response.metadata.effectId;
+      if (m1Egress && response.metadata?.approvalRequired && !pendingWebProposal) {
         const effectId = response.metadata.effectId || null;
         turnTelemetry?.finalize(turnStartTime);
         m1Egress.terminal(createM1WsConversationResult(m1Command, {

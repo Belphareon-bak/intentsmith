@@ -5,7 +5,7 @@ import { promisify } from 'node:util';
 import { readFile, mkdir, realpath, chmod, copyFile, lstat } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join, resolve, dirname } from 'node:path';
 import Database from 'better-sqlite3';
 import { runMigrations } from '../src/db/migrate.js';
 import { ROOT, normalizeAdminEnvironment, refreshDesktopCaches, renderDesktopInstallation, verifyDesktopUnits, writePrivate, waitForBackend } from './desktop-runtime.mjs';
@@ -23,7 +23,12 @@ if (dirty || branch) throw new Error('Installation must be a clean detached sour
 await exec(process.execPath, [join(sourceRoot,'intentsmith-ide/scripts/verify-m1-consumer-build.js')], { cwd: join(sourceRoot,'intentsmith-ide'), timeout: 15000 });
 const configDirectory = join(homedir(), '.config/intentsmith');
 const stateDirectory = join(homedir(), '.local/state/intentsmith');
+let previousConfig;
+try { previousConfig = JSON.parse(await readFile(join(configDirectory,'installation.json'),'utf8')); }
+catch (error) { if (error.code !== 'ENOENT') throw error; }
+const projectsDirectory = resolve(arg('projects') || previousConfig?.projectsDirectory || join(dirname(dirname(dbPath)), 'projects'));
 const config = { schemaVersion: 1, revision, sourceRoot, node: process.execPath, dbPath, configDirectory, stateDirectory,
+  projectsDirectory,
   icon: join(sourceRoot,'intentsmith-ide/applications/electron/resources/intentsmith-icon.png'), pdfPython: process.env.INTENTSMITH_PDF_PYTHON || null };
 const files = renderDesktopInstallation(config);
 // Validate with systemd itself before touching the timer, live DB or configuration.
@@ -60,6 +65,7 @@ try {
   adminEnvironment = `INTENTSMITH_ADMIN_TOKEN=${randomBytes(32).toString('base64url')}\n`;
 }
 const backup = join(stateDirectory,'installation-backups',stamp);
+await mkdir(projectsDirectory, { recursive: true, mode: 0o700 });
 await mkdir(backup, { recursive: true, mode: 0o700 });
 const db = new Database(dbPath, { readonly: true, fileMustExist: true });
 try { await db.backup(join(backup,'before.sqlite')); } finally { db.close(); }

@@ -34,6 +34,19 @@ function fixture(options = {}) {
     approve: () => context(`schválit web ${id}`), repo: new ConversationWebRepository(db, options) };
 }
 
+await testAsync('unknown weather location asks locally, city proposes one URL, approval alone executes it', async () => {
+  const f=fixture();let pending=null,slots=[];
+  const state={get pendingDecision(){return pending;},get awaitingSlots(){return slots;},setPendingDecision(p,s){pending=p;slots=s;},clearPendingDecision(){pending=null;slots=[];}};
+  const input='jake je dnes pocasi v me lokaci? umis zjistit polohu?';
+  const question=await f.handler.intercept(input,{...f.context(input),sessionState:state});
+  assert.equal(question.handled,true);assert.match(question.response.content,/město/);assert.equal(f.calls(),0);
+  const answer=await f.handler.intercept('Brno',{...f.context('Brno'),sessionState:state});
+  assert.equal(answer.response.metadata.webStatus,'pending');assert.match(answer.response.metadata.url,/Brno/);assert.equal(f.calls(),0);
+  assert.equal(slots.length,0);
+  const command='schválit web '+answer.response.metadata.webRequestId;
+  await f.handler.intercept(command,f.context(command));assert.equal(f.calls(),1);
+});
+
 suite('Conversation web exact approval and durable output');
 await testAsync('proposal sends nothing; exact persisted approval executes once and replay survives a new runtime', async () => {
   const f = fixture();
