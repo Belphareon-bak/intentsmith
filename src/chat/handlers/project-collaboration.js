@@ -17,7 +17,7 @@ only projectWorkEvidence proves execution. Missing sensor means unavailable, nev
 JSON ONLY: {"reply":"goal, priorities, criteria","plan":null} or {"reply":"...","plan":
 {"instruction":"...","files":[{"path":"src/x.mjs","instruction":"...","dependsOn":[]}]}}.
 Plan: at most 6 small files in existing directories, instructions <=512 UTF-8 bytes each.
-Node 22 ESM, node: builtins, no new packages, CDN or network assets. Entry src/index.mjs.
+Node 22 ESM, static imports, node: builtins; no new packages, CDN or network assets. Entry src/index.mjs.
 Pure logic with injected readers/clocks; import must not start servers/timers. Bind 127.0.0.1.
 Include test/acceptance.test.mjs: behavioural assertions and failure cases, offline, no sockets,
 no ESM monkey-patching. Tests depend on their sources, frontend on its API. Acyclic dependsOn
@@ -44,8 +44,8 @@ export function fitProjectDiscussionPrompt(serialized, numCtx, systemPrompt = `$
   // Conservative byte-based estimate, not a tokenizer claim. Keep the current
   // request intact; progressively select excerpts/history rather than letting
   // the provider silently truncate the system instructions. Profile is never raised.
-  const maxTokens = Math.min(2200, Math.floor(numCtx * 0.43));
-  const maxBytes = Math.floor((numCtx - maxTokens - 384) * 2);
+  let maxTokens = Math.min(2200, Math.floor(numCtx * 0.35));
+  let maxBytes = Math.floor((numCtx - maxTokens - 384) * 2);
   const input = JSON.parse(serialized);
   const data = { ...input, project: { ...input.project, description: String(input.project.description || '').slice(0, 300) },
     history: input.history.map(turn => ({ ...turn, content: turn.content.slice(0, 600) })),
@@ -72,6 +72,25 @@ export function fitProjectDiscussionPrompt(serialized, numCtx, systemPrompt = `$
     }));
     prompt = JSON.stringify(data);
   }
+  if (!fits()) {
+    // A test failure is often larger than the code request. It must not make
+    // even a short repair request impossible on an approved 4K model. Keep the
+    // current request, goal and canonical failure; reduce the reply reservation
+    // and diagnostic excerpts rather than enlarging the model's profile.
+    maxTokens = Math.min(maxTokens, 1024);
+    maxBytes = Math.floor((numCtx - maxTokens - 384) * 2);
+    const users = input.history.filter(turn => turn.role === 'user' && turn.content !== input.request);
+    data.history = [...new Set([users[0], users.at(-1)].filter(Boolean))]
+      .map(turn => ({ role: 'user', content: turn.content.slice(0, 180) }));
+    data.project.description = data.project.description.slice(0, 180);
+    data.analysis.files = data.analysis.files.slice(0, 8);
+    data.projectWorkEvidence = data.projectWorkEvidence.slice(0, 1).map(item => ({
+      state: item.state, errorCode: item.errorCode, focusedTest: item.focusedTest,
+      ...(item.testOutput ? { testOutput: { stdout: item.testOutput.stdout.slice(0, 300),
+        stderr: item.testOutput.stderr.slice(0, 300), truncated: true } } : {}),
+    }));
+    prompt = JSON.stringify(data);
+  }
   if (!fits()) throw new Error('Aktuální zadání se nevejde do schváleného kontextu modelu. Rozděl je na menší krok.');
   return { prompt, systemPrompt, maxTokens, numCtx, maxBytes, excerptCount: data.analysis.excerpts.length };
 }
@@ -87,11 +106,14 @@ export async function generateProjectDiscussion({ prompt, signal, sessionId }) {
   const token = auth.createAuthToken({ role: auth.LLMCallerRole.WORKFLOW_PLANNER,
     decisionId: requestId, auditContext: { sessionId }, maxTokens: budget.maxTokens,
     capabilities: [auth.LLMCapability.REASONING, auth.LLMCapability.JSON_OUTPUT] });
-  return callWithPolicy(token, budget.prompt, { systemPrompt: budget.systemPrompt, model, signal,
+  const result = await callWithPolicy(token, budget.prompt, { systemPrompt: budget.systemPrompt, model, signal,
     timeout: 120_000, maxTokens: budget.maxTokens, num_ctx: budget.numCtx, format: PROJECT_DISCUSSION_SCHEMA, temperature: 0.1,
     capability: auth.LLMCapability.REASONING, requestType: 'm1:answer',
     correlation: { requestId, conversationId: sessionId, turnId: requestId,
       callerRole: auth.LLMCallerRole.WORKFLOW_PLANNER, modelRole: 'D1', purpose: 'answer' } });
+  return { ...result, projectContextSelection: { excerptCount: budget.excerptCount,
+    numCtx: budget.numCtx, maxOutputTokens: budget.maxTokens,
+    promptBytes: Buffer.byteLength(budget.systemPrompt + budget.prompt) } };
 }
 
 export function projectTestProfile() {
@@ -207,6 +229,7 @@ export async function discussProject(input, context, {
   return { content: value.reply, metadata: { handler: 'project.collaboration', mode: 'PROJECT',
     canExecute: false, projectId: project.id, projectWorkProposal: proposal,
     inspection: { fileCount: analysis.fileCount, excerptCount: analysis.excerpts.length,
+      modelSelection: result.projectContextSelection || null,
       workspaceRevision: analysis.revision, testsExecuted: false } } };
 }
 

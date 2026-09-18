@@ -193,6 +193,15 @@ test('planning selects context for the real model window and never truncates the
     assert.ok(result.maxTokens + result.maxBytes / 2 + 384 <= numCtx);
   }
   assert.throws(() => fitProjectDiscussionPrompt(JSON.stringify({ ...input, request: 'q'.repeat(50_000) }), 4096), /Rozděl/);
+  const repairRequest = 'Oprav čtení souborů i neúspěšný test. '.repeat(14);
+  const repaired = fitProjectDiscussionPrompt(JSON.stringify({ ...input, request: repairRequest,
+    projectWorkEvidence: [{ lifecycleId: 'lifecycle:failed', state: 'failed', errorCode: 'PROJECT_CHANGE_TEST_FAILED',
+      focusedTest: { status: 'failed', exitCode: 1 }, testOutput: { stdout: 'AssertionError\n'.repeat(250), stderr: '' },
+      failedCandidate: [{ path: 'src/index.mjs', text: 'code'.repeat(400) }] }],
+  }), 4096);
+  assert.equal(JSON.parse(repaired.prompt).request, repairRequest);
+  assert.equal(JSON.parse(repaired.prompt).projectWorkEvidence[0].errorCode, 'PROJECT_CHANGE_TEST_FAILED');
+  assert.ok(Buffer.byteLength(repaired.systemPrompt + repaired.prompt) <= repaired.maxBytes);
 });
 
 test('actual HTTP creation/import preserves foreign files, rejects collisions and survives restart', { timeout: 60_000 }, async () => {
