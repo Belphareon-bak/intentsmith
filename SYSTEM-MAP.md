@@ -1,5 +1,15 @@
 # IntentSmith — mapa systému
 
+**Evaluace, 2026-09-18 večer:** instalováno `230778ad`; 12 různých VISION PNG
++ kontrola bez obrázku, 13 × 3 odpovědí v každém ze dvou finálních běhů.
+Qwen3.8 84,6 %, Ornith 78,8 %; průzkumné výsledky, bindingy nezměněné.
+Sdílené gradery zahrnuté do identity sady, opravené JSON/F1 kontroly; CHAT
+a sdílená zadání D1/D2/R1 zůstávají otevřené. Noční mazání vypnuté.
+Poslední výsledek každého testovacího programu: 358 PASS / 1 FAIL / 1 TIMEOUT.
+REVIEW_PENDING; [důkazy a meze](docs/review/2026-09-18-EVALUATION-HARDENING-VISION.md).
+Nový [kontrakt CODE pilotu](docs/wp/WP-GPU-HUNT-EVALUATION-CONTRACT-20260918.md)
+není implementační přejímka.
+
 **IDE a GPU hunt, 2026-09-18:** implementované opravy operátorových reprodukcí:
 řazení hlavičkou, celé použitelné role v jedné evaluaci, číselné matice,
 kandidáti ze skutečného hunt katalogu, záložky/kontext/sloupce/soubory a seznamy.

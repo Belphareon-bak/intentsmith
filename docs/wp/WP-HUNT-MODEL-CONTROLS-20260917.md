@@ -1,5 +1,14 @@
 # Modely ve Studiu: filtry, měření a příčina blokace
 
+Checkpoint 2026-09-18 večer: předchozí VISION zadání dodané a instalované
+na `230778ad`, 12 obrazových scénářů + kontrola bez obrázku, dvě nová skutečná
+měření a fyzický proklik detailu v instalovaném Studiu. REVIEW_PENDING,
+široká validace není celá zelená (poslední výsledky 358 PASS / 1 FAIL /
+1 TIMEOUT). [Review, výsledky a omezení](../review/2026-09-18-EVALUATION-HARDENING-VISION.md).
+Další práce se řídí [novým CODE kontraktem](WP-GPU-HUNT-EVALUATION-CONTRACT-20260918.md):
+SCOPE_APPROVED / NOT_IMPLEMENTED / PILOT_PENDING. Rychlý profil až po pilotu;
+níže zachované historické navázání není oprávnění souběžně rozšiřovat jiné role.
+
 Aktivní navázání 2026-09-18: podle operátorova rozboru opravit hodnotitele
 strukturovaných odpovědí, F1 lokalizovaných nálezů, identitu sdílených graderů
 a omezení retenčního důkazu na měřený kontext. VISION rozšířit na nejméně

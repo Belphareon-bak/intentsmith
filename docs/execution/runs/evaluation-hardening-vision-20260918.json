@@ -1,0 +1,517 @@
+{
+  "status": "INSTALLED_VISION_EXPLORATORY_MEASUREMENT_PASS / REVIEW_PENDING / CODE_PILOT_PENDING",
+  "implementationRevision": "230778adfe8b64c27c8d84e157bffa42d43fdd62",
+  "implementationBase": "3ded30b1",
+  "contractCommit": "9a35a4e8",
+  "evidenceRoot": "/home/belphareon/Projects/coworker/intentsmith-evaluation-hardening-20260918",
+  "vision": {
+    "imageTasks": 12,
+    "distinctImages": 12,
+    "noImageControls": 1,
+    "repeats": 3,
+    "inferenceCallsPerRun": 39,
+    "models": [
+      {
+        "run_id": "eval_b24a454c-29bc-4131-ab82-8526aabae304",
+        "model_name": "qwen3.8:latest",
+        "model_digest_sha256": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+        "suite_name": "vision_v2",
+        "suite_version": "vision-synthetic.3",
+        "suite_contract_sha256": "7a355a0ad41f057b5699ecbdd3198052fd2d087e4e5aa87c22d897cb736bcc84",
+        "role": "VISION",
+        "status": "COMPLETE",
+        "score": 0.8461538461538463,
+        "repeats": 3,
+        "duration_ms": 154326,
+        "started_at": "2026-09-18T18:52:10.709Z",
+        "completed_at": "2026-09-18T18:54:45.035Z",
+        "provider": {
+          "name": "ollama",
+          "version": "0.34.0-intentsmith.1",
+          "proof": "RESPONSE_BOUND"
+        },
+        "tasks": [
+          {
+            "name": "vision_color",
+            "mean": 1,
+            "spread": 0,
+            "scores": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "vision_count",
+            "mean": 1,
+            "spread": 0,
+            "scores": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "vision_ring",
+            "mean": 1,
+            "spread": 0,
+            "scores": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "vision_spatial",
+            "mean": 1,
+            "spread": 0,
+            "scores": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "vision_area",
+            "mean": 1,
+            "spread": 0,
+            "scores": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "vision_invoice",
+            "mean": 1,
+            "spread": 0,
+            "scores": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "vision_bars",
+            "mean": 1,
+            "spread": 0,
+            "scores": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "vision_orders",
+            "mean": 0.6666666666666666,
+            "spread": 0,
+            "scores": [
+              0.6666666666666666,
+              0.6666666666666666,
+              0.6666666666666666
+            ]
+          },
+          {
+            "name": "vision_lines",
+            "mean": 0.75,
+            "spread": 0,
+            "scores": [
+              0.75,
+              0.75,
+              0.75
+            ]
+          },
+          {
+            "name": "vision_routes",
+            "mean": 0.3333333333333333,
+            "spread": 0,
+            "scores": [
+              0.3333333333333333,
+              0.3333333333333333,
+              0.3333333333333333
+            ]
+          },
+          {
+            "name": "vision_dashboard",
+            "mean": 1,
+            "spread": 0,
+            "scores": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "vision_reconciliation",
+            "mean": 0.25,
+            "spread": 0,
+            "scores": [
+              0.25,
+              0.25,
+              0.25
+            ]
+          },
+          {
+            "name": "vision_no_image",
+            "mean": 1,
+            "spread": 0,
+            "scores": [
+              1,
+              1,
+              1
+            ]
+          }
+        ]
+      },
+      {
+        "run_id": "eval_1cfc47dc-be30-4666-8766-4ffbf6628aab",
+        "model_name": "ornith-1.5:9b",
+        "model_digest_sha256": "e5df7dcdd8a263994df62d610317e07be0d6af23f96fcbd8543273058fce575e",
+        "suite_name": "vision_v2",
+        "suite_version": "vision-synthetic.3",
+        "suite_contract_sha256": "7a355a0ad41f057b5699ecbdd3198052fd2d087e4e5aa87c22d897cb736bcc84",
+        "role": "VISION",
+        "status": "COMPLETE",
+        "score": 0.7884615384615384,
+        "repeats": 3,
+        "duration_ms": 75606,
+        "started_at": "2026-09-18T18:55:33.609Z",
+        "completed_at": "2026-09-18T18:56:49.215Z",
+        "provider": {
+          "name": "ollama",
+          "version": "0.34.0-intentsmith.1",
+          "proof": "RESPONSE_BOUND"
+        },
+        "tasks": [
+          {
+            "name": "vision_color",
+            "mean": 1,
+            "spread": 0,
+            "scores": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "vision_count",
+            "mean": 0.75,
+            "spread": 0,
+            "scores": [
+              0.75,
+              0.75,
+              0.75
+            ]
+          },
+          {
+            "name": "vision_ring",
+            "mean": 1,
+            "spread": 0,
+            "scores": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "vision_spatial",
+            "mean": 1,
+            "spread": 0,
+            "scores": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "vision_area",
+            "mean": 1,
+            "spread": 0,
+            "scores": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "vision_invoice",
+            "mean": 1,
+            "spread": 0,
+            "scores": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "vision_bars",
+            "mean": 1,
+            "spread": 0,
+            "scores": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "vision_orders",
+            "mean": 1,
+            "spread": 0,
+            "scores": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "vision_lines",
+            "mean": 0.5,
+            "spread": 0,
+            "scores": [
+              0.5,
+              0.5,
+              0.5
+            ]
+          },
+          {
+            "name": "vision_routes",
+            "mean": 0,
+            "spread": 0,
+            "scores": [
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "name": "vision_dashboard",
+            "mean": 1,
+            "spread": 0,
+            "scores": [
+              1,
+              1,
+              1
+            ]
+          },
+          {
+            "name": "vision_reconciliation",
+            "mean": 0,
+            "spread": 0,
+            "scores": [
+              0,
+              0,
+              0
+            ]
+          },
+          {
+            "name": "vision_no_image",
+            "mean": 1,
+            "spread": 0,
+            "scores": [
+              1,
+              1,
+              1
+            ]
+          }
+        ]
+      }
+    ],
+    "newDownloads": 0,
+    "activationPerformed": false,
+    "holdoutComparisonPerformed": false
+  },
+  "focusedTests": {
+    "evaluationSuites": {
+      "pass": 32,
+      "fail": 0
+    },
+    "modelUpgrade": {
+      "pass": 102,
+      "fail": 0
+    },
+    "readModel": {
+      "pass": 20,
+      "fail": 0
+    },
+    "desktopHunt": {
+      "pass": 33,
+      "fail": 0
+    },
+    "artifactValidation": {
+      "pass": 160,
+      "fail": 0
+    },
+    "artifactDocs": {
+      "pass": 160,
+      "fail": 0
+    }
+  },
+  "broadRuns": [
+    {
+      "runId": "2026-09-18T18-40-05-803Z",
+      "sourceRevision": "4b5eb2091d7d41da8ab6f7c8f5dcd90ee57fd46f",
+      "statusCounts": {
+        "PASS": 348,
+        "FAIL": 2,
+        "TIMEOUT": 0,
+        "BLOCKED": 10,
+        "SKIPPED": 0
+      },
+      "exitCode": 1
+    },
+    {
+      "runId": "2026-09-18T18-49-41-844Z",
+      "sourceRevision": "230778adfe8b64c27c8d84e157bffa42d43fdd62",
+      "statusCounts": {
+        "PASS": 339,
+        "FAIL": 17,
+        "TIMEOUT": 3,
+        "BLOCKED": 1,
+        "SKIPPED": 0
+      },
+      "exitCode": 1
+    },
+    {
+      "runId": "2026-09-18T18-57-40-410Z",
+      "sourceRevision": "230778adfe8b64c27c8d84e157bffa42d43fdd62",
+      "statusCounts": {
+        "PASS": 19,
+        "FAIL": 1,
+        "TIMEOUT": 1,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "exitCode": 1
+    },
+    {
+      "runId": "2026-09-18T19-02-44-997Z",
+      "sourceRevision": "230778adfe8b64c27c8d84e157bffa42d43fdd62",
+      "statusCounts": {
+        "PASS": 0,
+        "FAIL": 0,
+        "TIMEOUT": 1,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "exitCode": 1
+    }
+  ],
+  "latestPerProgram": {
+    "counts": {
+      "PASS": 358,
+      "TIMEOUT": 1,
+      "FAIL": 1
+    },
+    "singleGreenFullRun": false,
+    "unresolved": [
+      {
+        "path": "tests/m2-lifecycle-application-service.test.js",
+        "status": "TIMEOUT",
+        "runId": "2026-09-18T19-02-44-997Z"
+      },
+      {
+        "path": "tests/nightly-orchestrator-self-test.js",
+        "status": "FAIL",
+        "runId": "2026-09-18T18-57-40-410Z"
+      }
+    ]
+  },
+  "adversarialAudit": {
+    "openDefects": 2,
+    "role": "CHAT",
+    "report": "adversarial-final.json"
+  },
+  "gui": {
+    "source": "/home/belphareon/.local/share/intentsmith/releases/230778adfe8b64c27c8d84e157bffa42d43fdd62",
+    "startedAt": "2026-09-18T19:06:50.570Z",
+    "checks": [
+      {
+        "matrixColumns": 15,
+        "headings": [
+          "Model ↕",
+          "Barva a jednolitost plochy\nⓘ",
+          "Počet objektů podle barvy\nⓘ",
+          "Tvar, popředí a pozadí\nⓘ",
+          "Prostorové vztahy mezi objekty\nⓘ",
+          "Řazení objektů podle plochy\nⓘ",
+          "České OCR a rozlišení dat faktury\nⓘ",
+          "Odečtení a porovnání hodnot grafu\nⓘ",
+          "Filtrování tabulky a vážený součet\nⓘ",
+          "Více řad grafu a podmíněné porovnání\nⓘ",
+          "Směrový diagram a nejlevnější cesta\nⓘ",
+          "Chyby ve filtrovaném přehledu služeb\nⓘ",
+          "Kontrola dokladu včetně slevy a daně\nⓘ",
+          "Přiznání chybějícího obrázku\nⓘ",
+          "Celkem ▼"
+        ]
+      },
+      {
+        "visionTasks": 13,
+        "formatterDisclosure": true,
+        "diagramAndInvoice": true
+      }
+    ],
+    "limitations": [
+      "private Electron profile",
+      "diagnostic --no-sandbox",
+      "NODE_ENV=production",
+      "real installed backend; read-only UI checks; inference executed separately via authoritative CLI"
+    ],
+    "handoff": "Continue existing private window after detecting obsolete settings-card selector; first driver cancelled, product unchanged",
+    "status": "PASS",
+    "finishedAt": "2026-09-18T19:09:48.431Z"
+  },
+  "runtime": {
+    "at": "2026-09-18T18:59:27.753Z",
+    "revision": "230778adfe8b64c27c8d84e157bffa42d43fdd62",
+    "backendPid": 1852808,
+    "backendPort": 42925,
+    "taskCount": 13,
+    "suite": "vision-synthetic.3",
+    "contract": "7a355a0ad41f057b5699ecbdd3198052fd2d087e4e5aa87c22d897cb736bcc84",
+    "models": [
+      {
+        "model": "ornith-1.5:9b",
+        "runId": "eval_1cfc47dc-be30-4666-8766-4ffbf6628aab",
+        "score": 0.7884615384615384,
+        "tasks": 13
+      },
+      {
+        "model": "qwen3.8:latest",
+        "runId": "eval_b24a454c-29bc-4131-ab82-8526aabae304",
+        "score": 0.8461538461538463,
+        "tasks": 13
+      }
+    ],
+    "bindingsUnchanged": true,
+    "bindingsSha256": "ddbdfce82570a121c0ab869b1377f00af147af7b7a3724e9a56435c77ed0cfca"
+  },
+  "retention": {
+    "scheduledDeletionEnabled": false,
+    "timerActive": true,
+    "singleContextOffloadAllowsDeletion": false,
+    "profileContextsAligned": false
+  },
+  "notImplemented": [
+    "CODE contract pilot",
+    "locked held-out operational comparison",
+    "quick/full benchmark profiles",
+    "separate D1/D2/R1 task suites",
+    "CHAT semantic grading fix",
+    "open-world R2 finding adjudication",
+    "same-context VRAM and quality qualification"
+  ],
+  "archive": {
+    "path": "/home/belphareon/Projects/coworker/intentsmith-evaluation-hardening-20260918/evidence.tar.gz",
+    "bytes": 1941617,
+    "sha256": "286b5ce37d9dc9a029a4e8e9bcae2baf792b54310889a1833401aae193031ce4",
+    "manifest": "evidence-manifest.json",
+    "files": 791,
+    "bundlePrerequisites": [
+      "0534a11140ee03c9c170796c511348960f9775a2",
+      "39cad5f1403c8da65c8534fa668b34f34054bd07",
+      "b25124085739a8e9e21b9ad8300b125d11f81d8a"
+    ]
+  },
+  "evidenceManifestSha256": "8b133f484c48219e63b02c190c1e045a868d79f498e7c41f03deb5abb54be7fc"
+}

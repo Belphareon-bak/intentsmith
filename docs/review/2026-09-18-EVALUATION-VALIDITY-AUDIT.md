@@ -1,5 +1,9 @@
 # Audit výpovědní hodnoty evaluací — 18. 9. 2026
 
+Historický audit; následné opravy a nové VISION běhy jsou samostatně
+v [navazujícím review](2026-09-18-EVALUATION-HARDENING-VISION.md).
+Níže uvedené výsledky a závěry původního běhu zůstávají zachované.
+
 Stav: **potvrzené vady hodnotitelů a nedostatečné pokrytí; opravy a quick/full
 profily nedodané**. Toto je technický audit na výslovné zadání operátora,
 nikoli přijetí benchmarku ani tvrzení, že je produkt hotový. Nezávislé review

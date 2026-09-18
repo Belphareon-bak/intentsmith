@@ -1,5 +1,13 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**Evaluace, 2026-09-18 večer:** instalováno `230778ad`; VISION má 12 různých
+obrazových úloh + kontrolu bez obrázku, dvě nová měření a ověřený detail v GUI.
+Noční automatické mazání vypnuté, časovač aktivní. Cílené testy PASS; poslední
+výsledky široké validace 358 PASS / 1 FAIL / 1 TIMEOUT, nikoli jeden zelený běh.
+REVIEW_PENDING. [Review a otevřené vady](docs/review/2026-09-18-EVALUATION-HARDENING-VISION.md).
+[CODE pilot](docs/wp/WP-GPU-HUNT-EVALUATION-CONTRACT-20260918.md) má schválený
+rozsah, implementace a přejímka čekají; quick profil až po ověřeném pilotu.
+
 **IDE a GPU hunt, 2026-09-18:** implementované opravy operátorových reprodukcí:
 řazení hlavičkou, celé použitelné role v jedné evaluaci, číselné matice,
 kandidáti ze skutečného hunt katalogu, záložky/kontext/sloupce/soubory a seznamy.
