@@ -513,5 +513,51 @@
       "b25124085739a8e9e21b9ad8300b125d11f81d8a"
     ]
   },
-  "evidenceManifestSha256": "8b133f484c48219e63b02c190c1e045a868d79f498e7c41f03deb5abb54be7fc"
+  "evidenceManifestSha256": "8b133f484c48219e63b02c190c1e045a868d79f498e7c41f03deb5abb54be7fc",
+  "postPushInstallationCheckpoint": {
+    "sourceRoot": "/home/belphareon/.local/share/intentsmith/releases/9ab808f197ffaf1032989743253153c745d48a3d",
+    "at": "2026-09-18T19:43:24.335840+00:00",
+    "files": [
+      {
+        "path": "src/eval/role-quality-suites.js",
+        "same": true,
+        "installedSha256": "5c1b3ab82644e550ba59c1fabea62c52b4b00b1f0ca0c4acaa4097fcbde18e95"
+      },
+      {
+        "path": "src/eval/role-evaluation-plan.js",
+        "same": true,
+        "installedSha256": "d28b0431e5f1d9448d2eb7d83b513a6746223349d144b60fc8773dc2aeadedab"
+      },
+      {
+        "path": "src/eval/model-evaluation-runner.js",
+        "same": true,
+        "installedSha256": "83b6cb29a438811d0533ec1ff0f0b7117a516cde882f63f77eefdac55b56a095"
+      },
+      {
+        "path": "src/eval/fixtures/vision/manifest.json",
+        "same": true,
+        "installedSha256": "47f18d7b7b9ded4e04badd4324115a419dbc874686f0d05b12f07ac23aa9459e"
+      },
+      {
+        "path": "src/upgrade/model-evaluation-read-model.js",
+        "same": true,
+        "installedSha256": "32f3169be666268a89c3a494a0e816fcc271e7ac4c01d6812666e6ddb6cd32d4"
+      },
+      {
+        "path": "src/upgrade/model-hunt-retention.js",
+        "same": true,
+        "installedSha256": "dbf4378a6c23ac5387c8b06401f0578909840daa985d27f8442797157a6c9eb9"
+      },
+      {
+        "path": "scripts/desktop-runtime.mjs",
+        "same": true,
+        "installedSha256": "6cf64ae9cdaefb990729e2245e8b45d9dbfcfc7ace10af64f0d8385157f30a4f"
+      }
+    ],
+    "backendActive": true,
+    "timerActive": true,
+    "scheduledDeletionEnabled": false,
+    "includedInSealedArchive": false,
+    "guiRetestedOnThisRevision": false
+  }
 }

@@ -207,3 +207,13 @@ Archiv `evidence.tar.gz`: 1 941 617 bajtů, SHA-256
 Všech 790 položek uvedených v manifestu bylo ověřeno proti bajtům archivu;
 manifest sám tvoří 791. soubor. Následná kontrola dokumentace: artifact
 validation znovu 160/160 PASS, `git diff --check` bez chyb.
+
+**Checkpoint po prvním pushi, 19:43:24 UTC:** souběžný běh mezitím nainstaloval
+`9ab808f197ffaf1032989743253153c745d48a3d` (nastavení/vzhled Studia), jehož
+historie obsahuje merge `cc8f4ace` nad `230778ad`. Sedm souborů hodnotitelů,
+plánu, runneru, manifestu, read modelu, retence a desktop runtime bylo
+porovnáno SHA-256 a zůstalo bajtově shodných s testovanou verzí. Backend
+i timer aktivní, automatické mazání nadále vypnuté. Výše uvedený GUI důkaz
+patří testované instalaci `230778ad`, nikoli novému vzhledu `9ab808f1`.
+Dodatečný záznam `installed-closeout-check.json` je obsažen také ve strojovém
+záznamu tohoto packetu; vznikl až po zapečetění archivu, takže do něj nepatří.
