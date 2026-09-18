@@ -1,5 +1,14 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**Projektový flow, 2026-09-18:** nasazeno `5e46fca7`, nový projekt → návrh →
+přesný M2 krok; existující cizí projekt → čtecí analýza → cíl a priority.
+Úplný gate 358 PASS / 1 FAIL (nezměněná release pečeť), Studio build PASS.
+Skutečný systemd M2 průchod je **BLOCKED AppArmorem**; privátní IDE/Studio
+zkouška tento provozní problém neodhalila. Profil a postup připravené, vyžadují
+heslo správce. REVIEW_PENDING, bez tvrzení production-ready.
+[Packet a přesné meze](docs/review/2026-09-18-PROJECT-FLOW.md).
+
+
 **Ruční evaluace a průběh Studia, 2026-09-17:** instalováno `2f150ce7`,
 opraveno falešné odmítnutí digestu. Qwen3.5:27b/CODE prošel úplnou sadou 7 × 3,
 v DB i API je COMPLETE se skóre 2/7; žádné přepnutí rolí. Nový panel má

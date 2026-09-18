@@ -1,0 +1,2920 @@
+{
+  "schemaVersion": 1,
+  "status": "IMPLEMENTED_REVIEW_PENDING_PRODUCTION_SANDBOX_BLOCKED",
+  "inputRevision": "2f150ce7f3f183f9e14c3e2522ce150e1fe1c7a1",
+  "installedRevision": "5e46fca704098d9269bf6d00275d6c54be33e026",
+  "gateReports": [
+    {
+      "runId": "integrated-first",
+      "revision": "b80666d8e776a739f4a93ea2c4772cf13069da3a",
+      "counts": {
+        "PASS": 304,
+        "FAIL": 45,
+        "TIMEOUT": 0,
+        "BLOCKED": 10,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL",
+      "reportSha256": "546c1e3d13b424629c655945802fbeefd2626366b8a0ff659126653b7286f43d",
+      "path": "deterministic/integrated-first/report.json"
+    },
+    {
+      "runId": "integrated-serial",
+      "revision": "1ecf6b97c509da97c727fd72543d823d36770282",
+      "counts": {
+        "PASS": 358,
+        "FAIL": 1,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL",
+      "reportSha256": "e8ae36e249c0ac7d2ae31e422bf3dd09cbdeb3bfd900df62b4abf72f64b16573",
+      "path": "deterministic/integrated-serial/report.json"
+    },
+    {
+      "runId": "project-context-final",
+      "revision": "59abd4ed66bc1c5727007285fa2518614ae2b52a",
+      "counts": {
+        "PASS": 358,
+        "FAIL": 1,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL",
+      "reportSha256": "92b058c8c90a56db581b4899b90ae9b261c3d1e34570ac8bb13dd2b13eaf0ef3",
+      "path": "deterministic/project-context-final/report.json"
+    },
+    {
+      "runId": "project-import-final",
+      "revision": "ef949bb1b79a46b7ce311d638821415cc0d7b9b9",
+      "counts": {
+        "PASS": 358,
+        "FAIL": 1,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL",
+      "reportSha256": "b971be66be21b9c4e051a34e1a14e07286882f5493aa555eccaf78733375e377",
+      "path": "deterministic/project-import-final/report.json"
+    },
+    {
+      "runId": "project-release-source",
+      "revision": "5e46fca704098d9269bf6d00275d6c54be33e026",
+      "counts": {
+        "PASS": 358,
+        "FAIL": 1,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL",
+      "reportSha256": "a864b61c85fa43fb7e3d1a05b1b57c0120d87b9e7417e396dfc1ff9e81d33d69",
+      "path": "deterministic/project-release-source/report.json"
+    },
+    {
+      "runId": "project-wire-final",
+      "revision": "0674832aa7149fb927c77868a40cb756e5bd49a3",
+      "counts": {
+        "PASS": 358,
+        "FAIL": 1,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "verdict": "FAIL",
+      "reportSha256": "c91c2b1cf41bfd72250297c2f8dbff7e6778334cc127791db05f7b478a5fe508",
+      "path": "deterministic/project-wire-final/report.json"
+    }
+  ],
+  "finalGateLogCountVerified": 359,
+  "finalGateLogs": [
+    {
+      "id": "IS-T1-TESTS-ACCOUNTANT-E2E-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_accountant-e2e.test.js.5894dad6.log",
+      "sha256": "a0fe59febf4b9b97e227bdb27ade02092eec01bfa27ec2b00265f1366d91a064"
+    },
+    {
+      "id": "IS-T1-TESTS-ACCOUNTANT-SELF-CONTAINED-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_accountant-self-contained.test.js.1403a6bb.log",
+      "sha256": "06236e55a0e9d41a30adea395f7c5f5df2643b450cbc0921cecfa3341204c5b8"
+    },
+    {
+      "id": "IS-T1-TESTS-ACCOUNTANT-TOOLS-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_accountant-tools.test.js.5ee165c9.log",
+      "sha256": "d5098a993531c700c2d0865fd7a9e589df81d5a14f1e6f00a1fd2a2da5df2863"
+    },
+    {
+      "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_accountant-workflow-integration.test.js.6d44c7da.log",
+      "sha256": "7277bda75c2766bd09d286d8cfb946f4dd01f35a252bf259784642318ded1f38"
+    },
+    {
+      "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_accountant-workflow.test.js.dd5f429c.log",
+      "sha256": "938062b70237f59ecacc5ec8dd34978c78b81845bf28c432f974f680a69f47e9"
+    },
+    {
+      "id": "IS-T1-TESTS-AGENT-LOG-UX-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_agent-log-ux.test.js.f748fd9e.log",
+      "sha256": "efd16c57d8827d1980ba4c795a99bb261b39eb459e4bc12573e00e88af8ef73b"
+    },
+    {
+      "id": "IS-T1-TESTS-AGENT-RUNNER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_agent-runner.test.js.7b7332cf.log",
+      "sha256": "5b27d98d5d8f82ec086b270f38aadd099941d22abbd7665aca51d993cea137eb"
+    },
+    {
+      "id": "IS-T1-TESTS-AGENT-SOURCES-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_agent-sources.test.js.b407225b.log",
+      "sha256": "d6b5cc7e8706536636c6911d9b893717558002adfebf45f1741a3b0b37e84edb"
+    },
+    {
+      "id": "IS-T1-TESTS-AGENT-WIZARD-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_agent-wizard.test.js.7f8b6590.log",
+      "sha256": "aaff44f3065bdee260e3628b2f1ca4ee2b9b609217e41b469a497d978fc361bd"
+    },
+    {
+      "id": "IS-T1-TESTS-API-CONTRACT-REGISTRY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_api-contract-registry.test.js.c8533c3a.log",
+      "sha256": "98a49032279c916d4de255298679828063552cfe2e97b7ac53914095e9aa35a3"
+    },
+    {
+      "id": "IS-T1-TESTS-ARCHITECT-SMOKE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_architect-smoke.test.js.ca5ac490.log",
+      "sha256": "5dd27c485d580622bce8c7b911366daf63ac57b3081aa7a1e4558f6362927a2b"
+    },
+    {
+      "id": "IS-T1-TESTS-ARCHITECTURE-CHECK-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_architecture-check.test.js.d9613b1b.log",
+      "sha256": "d3e040864a5fea6b8f3b878fdf68f7b4d407a219784f4fc8a2583a0ff391a15f"
+    },
+    {
+      "id": "IS-T1-TESTS-ARCHITECTURE-DETECTOR-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_architecture-detector.test.js.4c355f52.log",
+      "sha256": "33d696c156874ae6c85e40ccb52fb8f144cec57a68223cf1446410202b7bd001"
+    },
+    {
+      "id": "IS-T1-TESTS-ARCHITECTURE-GOVERNANCE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_architecture-governance.test.js.fa59f229.log",
+      "sha256": "cf257951b075c02c2efeeb32550dd97b32e06f4e79768d87722463f5a585f7b0"
+    },
+    {
+      "id": "IS-T1-TESTS-ARCHITECTURE-POLICY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_architecture-policy.test.js.d4a20908.log",
+      "sha256": "7a6028eb96f94c7824a3e62db764a10638c7307307ff3cc001e28b66fc859610"
+    },
+    {
+      "id": "IS-T2-TESTS-ARCHIVE-LIFECYCLE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_archive-lifecycle.test.js.8dae37af.log",
+      "sha256": "1144de9929e5e0b2f550f51020216ae8d518db69e304b390aeef1b6e588ee9be"
+    },
+    {
+      "id": "IS-T1-TESTS-ARTIFACT-VALIDATION",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_artifact-validation.test.js.9a54c027.log",
+      "sha256": "c393c73bcc5538f174998ce41d796fea76be4e32cde0fd8fd41d742bcac071f8"
+    },
+    {
+      "id": "IS-T1-TESTS-AST-ANALYZER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_ast-analyzer.test.js.b4c16ce1.log",
+      "sha256": "3b8d0e0e3ad90bc60debae99e30144e651b106a2ae2f95a52d2444f675ed94be"
+    },
+    {
+      "id": "IS-T1-TESTS-AUDIT-SUMMARY-SELF-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_audit-summary-self-test.js.20930c4d.log",
+      "sha256": "93eb1304dbcf3417b3b5acfaf5c823600d3b358d36a87cbb17dbda8b819d4a13"
+    },
+    {
+      "id": "IS-T1-TESTS-AUTO-EXPERTISE-SELECT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_auto-expertise-select.test.js.ee2c4f1a.log",
+      "sha256": "4eeccea358baeef6f22273769f01fdc212c1dbcb15dbca290eaadddeb3f4103f"
+    },
+    {
+      "id": "IS-T1-TESTS-BUILD-HANDOFF-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_build-handoff.test.js.5ce2d1af.log",
+      "sha256": "b243d9c53ba0585616a019adf0b733e1ab47f18f78025cb66d3c49bf93c6cfe5"
+    },
+    {
+      "id": "IS-T1-TESTS-BUILD-PATTERNS-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_build-patterns.test.js.b080ecfa.log",
+      "sha256": "7d54814f197c1a20f88d14b0965d2c2c80f8eba84af91bbc9da5836a2e5c5d4b"
+    },
+    {
+      "id": "IS-T1-TESTS-BUILD-STRATEGY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_build-strategy.test.js.80fccc14.log",
+      "sha256": "4040d062d47984b7f1572acbe11a3ad81c10da92bfbcb98866658cfb4ca59151"
+    },
+    {
+      "id": "IS-T1-TESTS-CANDIDATE-TRIAL-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_candidate-trial.test.js.6ee0db64.log",
+      "sha256": "ea0d01cbc09eb79e1f4bc31ba8b8552e53ab57f33cc491d8ef1b78e25c24df67"
+    },
+    {
+      "id": "IS-T1-TESTS-CAPABILITY-01-SERVER-BEHAVIOURS-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_capability-01-server-behaviours.test.js.34508a22.log",
+      "sha256": "5e771f7c276e0f12fcf07285978abfa30993ea32d7b82e22e399d0055ed61eb8"
+    },
+    {
+      "id": "IS-T1-TESTS-CAPABILITY-02-CRE-BEHAVIOURS-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_capability-02-cre-behaviours.test.js.b108029d.log",
+      "sha256": "25f2e03eb40a35632290348425860a193ad459291470628ccb85c37fdeee8d21"
+    },
+    {
+      "id": "IS-T1-TESTS-CAPABILITY-ENFORCER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_capability-enforcer.test.js.94d2683e.log",
+      "sha256": "af478d2f483dcbeeeb08c08b97c7d922e717872c653da8943ce2adc5044e8d9b"
+    },
+    {
+      "id": "IS-T1-TESTS-CAPABILITY-REGISTRY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_capability-registry.test.js.650c678f.log",
+      "sha256": "3cf98c06a67f28e7b6bc50d3a4a456947fafe233c5a75bc68ca42a9be08d7d14"
+    },
+    {
+      "id": "IS-T1-TESTS-CAPABILITY-SANDBOX-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_capability-sandbox.test.js.48ff887a.log",
+      "sha256": "51eb28f9b456fa14774c5d1e679badd868b84805142c48a7073d06be1f7acc99"
+    },
+    {
+      "id": "IS-T1-TESTS-CATALOG-METADATA-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_catalog-metadata.test.js.25c6d790.log",
+      "sha256": "387325f164014670464d6843eede05fcea6c7fd7693890f1eaf9f70b2b672ae7"
+    },
+    {
+      "id": "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_chat-export-budget.test.js.56739be3.log",
+      "sha256": "22baf536f7926697a96adb25896c0867f195611466b6a6520c183ce56cb29ca7"
+    },
+    {
+      "id": "IS-T1-TESTS-CHAT-FIXES-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_chat-fixes.test.js.baa9bbb9.log",
+      "sha256": "c48484621ee8ba57bba0d27f19580e06a596fff70080560397e09b21e1dc98d3"
+    },
+    {
+      "id": "IS-T1-TESTS-CHAT-MEMORY-PRIVACY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_chat-memory-privacy.test.js.71ec8b73.log",
+      "sha256": "cc26267c71812566e4aaf14bfc492d8d6cbada29b5ac3c03ec0ed680e764bf18"
+    },
+    {
+      "id": "IS-T1-TESTS-CHAT-OUTPUT-QUALITY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_chat-output-quality.test.js.7ef60198.log",
+      "sha256": "d1171909d86540484016f6939a573e047cfe027a1a4eeaca5530e28187d3762d"
+    },
+    {
+      "id": "IS-T1-TESTS-CHAT-SEARCH-QUALITY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_chat-search-quality.test.js.8d05878c.log",
+      "sha256": "50e710ce3bb0d53d0dab0c23c3b119cdcf57664bb90d16506d9aa69932491a79"
+    },
+    {
+      "id": "IS-T1-TESTS-CHAT-SYNTHESIS-HARDENING-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_chat-synthesis-hardening.test.js.afbec6c0.log",
+      "sha256": "50d14f951adb8ff4febab7f08d66b0c2e7739dce0d533e3c8cd081a8475b1ba9"
+    },
+    {
+      "id": "IS-T1-TESTS-CHUNKER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_chunker.test.js.5cd49644.log",
+      "sha256": "72242284fc1b63a29439b44459e849a735c9c7e9d3f6920fcd015a6af2839bfe"
+    },
+    {
+      "id": "IS-T1-TESTS-CIRCUIT-BREAKER-V55-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_circuit-breaker-v55.test.js.3cfa0f99.log",
+      "sha256": "4aa9a169216c36980ffdb2ed1ee2bc3c18b5ecb5c79b2a9148df2a6301ad1694"
+    },
+    {
+      "id": "IS-T1-TESTS-CODE-ANALYZER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_code-analyzer.test.js.e14aa774.log",
+      "sha256": "ef89bc1a3caf5f79d94d0336f7325e4e95260de54cdcc01b45f184f5ae6877b3"
+    },
+    {
+      "id": "IS-T1-TESTS-CODE-EVOLUTION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_code-evolution.test.js.9588e102.log",
+      "sha256": "b9036a42360b2a5f1e617b379461151484bff69ab47a2d57e4e90709adb85dd9"
+    },
+    {
+      "id": "IS-T1-TESTS-CODE-PATCH-RUNNER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_code-patch-runner.test.js.4e53faba.log",
+      "sha256": "74b269ae94abd96a4dd0272f21ea851a0626dc0cff9d96865779c88609fba4eb"
+    },
+    {
+      "id": "IS-T1-TESTS-CODE-PATCH-SUITE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_code-patch-suite.test.js.3b160b71.log",
+      "sha256": "6662959942abe32ee37206e0f8b069267b4104a93138d03a4f6c125967cba03e"
+    },
+    {
+      "id": "IS-T1-TESTS-CODE-SEARCH-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_code-search.test.js.ba05e7f6.log",
+      "sha256": "1bd64d5a9b7ba975395a1b60126aa4e108700c438e26d34ac51e25861a6df5a5"
+    },
+    {
+      "id": "IS-T1-TESTS-CODE-TASK-EXTRACTOR-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_code-task-extractor.test.js.b32be2e5.log",
+      "sha256": "3413e1924eca3655fce945ee2d4eefce4a551eb29bc18b5bb7da937c3da1f79e"
+    },
+    {
+      "id": "IS-T1-TESTS-CONCEPT-REGISTRY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_concept-registry.test.js.7fb9b136.log",
+      "sha256": "d01071276b9560d20683524a04669967efd3346a07f3f316fb906ac36eba464a"
+    },
+    {
+      "id": "IS-T1-TESTS-CONTEXT-BUILDER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_context-builder.test.js.d92d331f.log",
+      "sha256": "752b6382dc0fcc8ac5464b482e6303b4e452007efc15f51cb51d6a14191096cd"
+    },
+    {
+      "id": "IS-T1-TESTS-CONTEXT-COMPACT-MODEL-CTX-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_context-compact-model-ctx.test.js.b50dda24.log",
+      "sha256": "1ff5e3034129c52d4da8c4c0ebfacaede26e8fee7949dfafcdf177dbb2e04a83"
+    },
+    {
+      "id": "IS-T1-TESTS-CONTEXT-DELTA-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_context-delta.test.js.45374093.log",
+      "sha256": "9fb4226b7e73ea82a1e3862e3dc6da086c71d48930569b75a6c1f716099f5f1a"
+    },
+    {
+      "id": "IS-T1-TESTS-CONTEXT-ENGINE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_context-engine.test.js.4fec1a25.log",
+      "sha256": "884af3bea4b0e39a1aea0d39bb48a299a74dae9e29f24e627cdec7f9122a40ae"
+    },
+    {
+      "id": "IS-T1-TESTS-CONTEXT-OPTIMIZER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_context-optimizer.test.js.8f41abad.log",
+      "sha256": "a019a1b5c836100de371f8dc453e7d263e47eaab24fdee5521ac88ed3b55145a"
+    },
+    {
+      "id": "IS-T1-TESTS-CONTINUOUS-IMPROVEMENT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_continuous-improvement.test.js.348117fa.log",
+      "sha256": "840793fc5fccea6b237682d2cdd2a41c19d87d2bc245a8de03a3d1e96abebdcd"
+    },
+    {
+      "id": "IS-T1-TESTS-CONVERSATION-WEB-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_conversation-web.test.js.9bd93c0a.log",
+      "sha256": "c0919f8986d0316e418c662845c59044d69cb516310ede2a32b69b0e6efe29fe"
+    },
+    {
+      "id": "IS-T3-TESTS-CRE-BUILD-ARBITRATION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_cre-build-arbitration.test.js.5ba9f4c2.log",
+      "sha256": "1a9ee335fec5943784f144e980773ced977a649c4de74ded45a2685274f89214"
+    },
+    {
+      "id": "IS-T3-TESTS-CRE-FILE-REFERENCE-GUARD-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_cre-file-reference-guard.test.js.97f62c4c.log",
+      "sha256": "4f558bf24a3bee260eb797527951278a198603dcdfe3482a5aa5bf73bf93e338"
+    },
+    {
+      "id": "IS-T1-TESTS-CRE-GATEKEEPER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_cre-gatekeeper.test.js.b49de5a1.log",
+      "sha256": "0f94374ff533d7c27ebb1b4e14a75aa42034a7342cd2ae9c28e53732400804c2"
+    },
+    {
+      "id": "IS-T3-TESTS-CRE-REPORT-STICKY-BREAK-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_cre-report-sticky-break.test.js.4c60541b.log",
+      "sha256": "c8b03f8cde7ce3d480870500454aac3199b60bcbac186eff34da715743b807be"
+    },
+    {
+      "id": "IS-T1-TESTS-CREATE-EXPERTISE-INTEGRATION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_create-expertise-integration.test.js.ae897e02.log",
+      "sha256": "cc65faf6ea81f3bf8cacf9766983e1ff69b313e7f252a92eb384673ac79074d5"
+    },
+    {
+      "id": "IS-T1-TESTS-CREATE-SPECIALIST-SKILL-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_create-specialist-skill.test.js.11d6ccc1.log",
+      "sha256": "b6e195b661d032feabae236bf7ffae395a43b6647251548310a693e776f35046"
+    },
+    {
+      "id": "IS-T1-TESTS-CRITIC-AGENT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_critic-agent.test.js.9695f52d.log",
+      "sha256": "58443e32917f4da8ff4350b6cc1c8985f889368cd384ef576ef223f8037c5125"
+    },
+    {
+      "id": "IS-T1-TESTS-CROSS-PROJECT-LEARNER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_cross-project-learner.test.js.4218a0bf.log",
+      "sha256": "abc42e81f2214ee9f1bd8e171a1991951ef1aeb5f9c4e93367b8d65ad761659c"
+    },
+    {
+      "id": "IS-T1-TESTS-DB-AUTOREPAIR-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_db-autorepair.test.js.d1655e67.log",
+      "sha256": "33aeab769d89a939c0720c4f8ceb1a3418a6fc78244a6a8dd0ec4933ce887328"
+    },
+    {
+      "id": "IS-T1-TESTS-DEAD-CODE-DETECTOR-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_dead-code-detector.test.js.2e572168.log",
+      "sha256": "519064860d7161f21b0d111ca028f93a5e11674d98c41c61d9384f61d87eb786"
+    },
+    {
+      "id": "IS-T1-TESTS-DEBUG-AGENT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_debug-agent.test.js.e8205e39.log",
+      "sha256": "9200b4512f671c47ad789b553b700c43edf593a587974b383fec9c3756ccaf0a"
+    },
+    {
+      "id": "IS-T1-TESTS-DEPENDENCY-MANAGER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_dependency-manager.test.js.b48e6f16.log",
+      "sha256": "8a4059bf43251853897f3f49f55e6460539fa0699823bc2b3284df3e39883ec7"
+    },
+    {
+      "id": "IS-T1-TESTS-DESKTOP-HUNT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_desktop-hunt.test.js.49df83af.log",
+      "sha256": "5d613dcaf952affb89fd408b8991721e99c3ce2a3d0d600c517e07c877308a28"
+    },
+    {
+      "id": "IS-T1-TESTS-DETERMINISTIC-ANSWER-LATENCY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_deterministic-answer-latency.test.js.9276f549.log",
+      "sha256": "2e05b9bbfab97d7105784fbb5dde6553683cfd77fa18b33f81b5d83f54713ba8"
+    },
+    {
+      "id": "IS-T1-TESTS-DOMAINS-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_domains.test.js.40d7987e.log",
+      "sha256": "81133c119e9b99b12d8fe711c0fe4e82ef52c4a74b44308bfb1ac1983025dddc"
+    },
+    {
+      "id": "IS-T1-TESTS-DRIFT-DETECTOR-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_drift-detector.test.js.5bf78ec2.log",
+      "sha256": "2200c45ddc5e3bf6625b5db58cfd9098351a6f75bea8910cc498d2ec559115a8"
+    },
+    {
+      "id": "IS-T2-TESTS-E2E-HARNESS-ISOLATION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_e2e-harness-isolation.test.js.965b7f17.log",
+      "sha256": "9cdc768327676c4f00f1a0555eb67725a308854cabfb0978bb1a68d84b8f1cb1"
+    },
+    {
+      "id": "IS-T1-E2E-HELPERS-SELF-CHECK",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_e2e__helpers.self-check.js.f45fd526.log",
+      "sha256": "8629e47c77366b8fcb6d48a1ab8bd5aa29eac6d0e3cab30e523812e6ee40d6fd"
+    },
+    {
+      "id": "IS-T1-TESTS-ERROR-NORMALIZER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_error-normalizer.test.js.b713fc63.log",
+      "sha256": "1393807b0b37936556bed00113d2308e1d92a6ecd46d39c160d84ed4ad17f19c"
+    },
+    {
+      "id": "IS-T1-TESTS-EXECUTION-GRAPH-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_execution-graph.test.js.166af7ca.log",
+      "sha256": "f7037779a019683cd03ff4a83cb5eeb87bdf7ae35bc6b04ae2b6b3b690e8c7e4"
+    },
+    {
+      "id": "IS-T1-TESTS-EXECUTION-LOOP-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_execution-loop.test.js.eca94dc0.log",
+      "sha256": "04a7c3004131c804757e605150521e4fc207231a6c21d800e17c47ffe2ed925b"
+    },
+    {
+      "id": "IS-T1-TESTS-EXECUTION-TRACE-STRESS-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_execution-trace-stress.test.js.3884abfb.log",
+      "sha256": "78429a825bfe473d29f87f41c20968128742c2782483852a61be2df846364e95"
+    },
+    {
+      "id": "IS-T1-TESTS-EXPERTISE-DISCOVERY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_expertise-discovery.test.js.a4992039.log",
+      "sha256": "cc6ac60f741dce338d6e182c08502753b1f754115849489b198d380cf45a2a38"
+    },
+    {
+      "id": "IS-T1-TESTS-EXPERTISE-INTEGRATION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_expertise-integration.test.js.f04c0b04.log",
+      "sha256": "6f90b21107df006fcd976e2472d3be3b33354c17fdd31947926f86297004fa97"
+    },
+    {
+      "id": "IS-T1-TESTS-EXPERTISE-SYSTEM-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_expertise-system.test.js.ad383929.log",
+      "sha256": "a982f6ee7a5c6673268d9206191ca0987c60bebeb4f4deb96883f54765d19d0a"
+    },
+    {
+      "id": "IS-T1-TESTS-EXPERTISE-WIZARD-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_expertise-wizard.test.js.c6b93dcf.log",
+      "sha256": "a99a8aeeb43528e99e2f0cac6c0022543b477c0002471a5fad1c7be7be14def1"
+    },
+    {
+      "id": "IS-T1-TESTS-EXPLORATION-AGENT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_exploration-agent.test.js.d64f8a78.log",
+      "sha256": "623c8cddfc435b70325aa40e72b7f4094151d4ca3fa62b709caa521bf917b5c0"
+    },
+    {
+      "id": "IS-T1-TESTS-EXPORT-PDF-DOCX-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_export-pdf-docx.test.js.30056cec.log",
+      "sha256": "f3bdc4443b788db5e1e5edda572524133ec7cda1d3dd48de0b92eb397d3c5c93"
+    },
+    {
+      "id": "IS-T1-TESTS-FILE-DISCOVERY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_file-discovery.test.js.96264527.log",
+      "sha256": "71bf431dcb64fb4e30e75f8203c013e8f1f2e1f02e67ad2f2a94c8a4d8c7e384"
+    },
+    {
+      "id": "IS-T1-TESTS-FILE-WRITE-EXTRACT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_file-write-extract.test.js.2a88b307.log",
+      "sha256": "21d1ff2280568367ec268131bdb0ec26db1b8dba9dd6b819f42aa6285e84f37b"
+    },
+    {
+      "id": "IS-T1-TESTS-FIX-STRATEGY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_fix-strategy.test.js.c6fbfb8e.log",
+      "sha256": "3538deee9706e211296c322304257f44b774bf7e5e0e7389ec263ee8c059b4b6"
+    },
+    {
+      "id": "IS-T1-TESTS-FUNCTION-SPAN-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_function-span.test.js.731bd2c6.log",
+      "sha256": "6f6ac3069e42b1db94c3f5da77f0b2b2b1c90a0d7eb3814ceb16f25130153475"
+    },
+    {
+      "id": "IS-T1-TESTS-GOVERNOR-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_governor.test.js.cb9c8aef.log",
+      "sha256": "d2e9c956f7d6e3a866f598348da0d917a636bcda2c1ef31226414d6313bd50bb"
+    },
+    {
+      "id": "IS-T1-TESTS-GRAPH-QUERY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_graph-query.test.js.debaf6cf.log",
+      "sha256": "3b8a8422ea07d42be941084e901df66fe409179e1ead1e8ee7028063fc40685a"
+    },
+    {
+      "id": "IS-T1-TESTS-GRAPH-RETRIEVAL-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_graph-retrieval.test.js.52fd7404.log",
+      "sha256": "75504c4cd62bd66925c7bb2d0509598ebd88045a591f53836004425f8c2410b2"
+    },
+    {
+      "id": "IS-T1-TESTS-GRAPH-SYNC-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_graph-sync.test.js.e6f547c7.log",
+      "sha256": "b58131cd0bdb152ab49f1600cf7a58a7c515aee7130ebd22aed5a71df43671c1"
+    },
+    {
+      "id": "IS-T1-TESTS-HARNESS-EXIT-CODE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_harness-exit-code.test.js.a34d228f.log",
+      "sha256": "aedab47c539a4921f4a5393a5c4e9221b6788ed98f2c7030c235c04c49c789d4"
+    },
+    {
+      "id": "IS-T1-TESTS-HUGGINGFACE-CLIENT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_huggingface-client.test.js.28b6ea99.log",
+      "sha256": "b11afa90387b0fcc9efe369371f3c05d3173e7d9e16b1c3ae1062bede2e773ab"
+    },
+    {
+      "id": "IS-T1-TESTS-IMPACT-ANALYZER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_impact-analyzer.test.js.610b1e67.log",
+      "sha256": "bf5e26f8fc9eb4787a11c84277e42630dd1617d1d35c5430256b7081f5329ade"
+    },
+    {
+      "id": "IS-T1-TESTS-IMPORT-MAP-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_import-map.test.js.4bf97966.log",
+      "sha256": "6ff5cab4be05af86429fbd6add0471d0490eed71f77c50402a83141d4df4f1d2"
+    },
+    {
+      "id": "IS-T1-TESTS-IMPROVEMENT-LOOPS-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_improvement-loops.test.js.c93525e7.log",
+      "sha256": "a60b401eebc26348216ea0af0bcdd37ca33496a55076de0743f7a9450624ffc0"
+    },
+    {
+      "id": "IS-T1-TESTS-INTENT-CONTEXT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_intent-context.test.js.c509e386.log",
+      "sha256": "e08fc49e2bd93708d3dcedd8effe93c63acb3120f10a3194f486adeaec67aeda"
+    },
+    {
+      "id": "IS-T1-TESTS-KNOWLEDGE-BASE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_knowledge-base.test.js.26010c8c.log",
+      "sha256": "94f968e5bd7a79a56cd0ee005736298a05db085efd978bce64c4cca3c9793b72"
+    },
+    {
+      "id": "IS-T1-TESTS-KNOWLEDGE-GRAPH-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_knowledge-graph.test.js.253a294c.log",
+      "sha256": "7f37d223946fe0e8a69789bacfa3f729fe422c88b6f7c5cb8f7d9433e02afef6"
+    },
+    {
+      "id": "IS-T1-TESTS-LARGE-PROJECT-SCALING-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_large-project-scaling.test.js.843011ff.log",
+      "sha256": "2cf311fcd61c3b646d0d523281fa4a202a8f62e605fc346ede2abf180ece35ca"
+    },
+    {
+      "id": "IS-T1-TESTS-LEDGER-ANNUAL-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_ledger-annual.test.js.778c0979.log",
+      "sha256": "2a1dcc4402e435d15dfa9a35d72f476864ae796c7a77e4998bbbf8a0a16f75fe"
+    },
+    {
+      "id": "IS-T1-TESTS-LEDGER-COMPLIANCE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_ledger-compliance.test.js.177966a2.log",
+      "sha256": "ba617c0be437223aa1953ec387411735d8e4964abc24e38c2eb75e2a7d6adfda"
+    },
+    {
+      "id": "IS-T1-TESTS-LEDGER-CORE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_ledger-core.test.js.59eacff6.log",
+      "sha256": "d3b3065d8a332a56f3488265cde42d4cd4a70c8cc39793b14985e3f3ca1903c6"
+    },
+    {
+      "id": "IS-T1-TESTS-LEDGER-INSURANCE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_ledger-insurance.test.js.26716931.log",
+      "sha256": "63475e71ec3fdd9b029da5b2a9cbd3bfb758eccfbc59e4997e2b05a2cf944d54"
+    },
+    {
+      "id": "IS-T1-TESTS-LEDGER-REPORTS-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_ledger-reports.test.js.5240a784.log",
+      "sha256": "8fd53e0a649433b2f2f5d262eccccf979f9a51c232871973dbc732b05f3dec8d"
+    },
+    {
+      "id": "IS-T1-TESTS-LEDGER-REWIRE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_ledger-rewire.test.js.fa095236.log",
+      "sha256": "f26456b052fad52153fb0299443853535dcb2f1df2f2f7aade23c219e73a4a27"
+    },
+    {
+      "id": "IS-T1-TESTS-LEDGER-VAT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_ledger-vat.test.js.2d81aa9f.log",
+      "sha256": "05735ed8a49c4a5bec59092aeac7cf1ba7e1c8c35923c2a6e6c8ce988c47d663"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-BLOCKED-MILESTONE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_lifecycle-blocked-milestone.test.js.094bea94.log",
+      "sha256": "f1c39414265fd5acc1a9ac130aca3539aaf4c54c27b8a5c5e1ecd432b16287cd"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-BUILD-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_lifecycle-build.test.js.6a4c4eb0.log",
+      "sha256": "548e45d1e191a9fce2e157af2e95a923eae03b64e183cee78bba835ebd85826e"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-CONVERSATION-E2E-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_lifecycle-conversation-e2e.test.js.ee4ca3a6.log",
+      "sha256": "e1b23da9f5d83ffb2e7d6999e408df0d761a4b71771e52f97eb89a66f15818c9"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-DB-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_lifecycle-db.test.js.14493c75.log",
+      "sha256": "1537a38b28fb364f46b8dd7fb3006533a630ddb0c47cadc782d0b490537dbff6"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-E2E-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_lifecycle-e2e.test.js.7a764790.log",
+      "sha256": "1439e89386af87b5019cd2003e6f186ce92fa121dd9dd379b1c661a6045330b9"
+    },
+    {
+      "id": "IS-T1-TESTS-LIFECYCLE-HANDOFF-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_lifecycle-handoff.test.js.d2704efb.log",
+      "sha256": "1b7dc09bc1d7b0ed24b0290a3152465e7dec0f2a1f02beef390ce5ce7ce4cc79"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-HUMAN-FRICTION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_lifecycle-human-friction.test.js.56124424.log",
+      "sha256": "d0bb21a53d92756f7dde3e4bf49a24598115c40afac311a1aadd9eba9ffbdec7"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-INVARIANTS-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_lifecycle-invariants.test.js.36fc15aa.log",
+      "sha256": "b20d62ac43139f4f2e092e9114ced873d30e6e265ac4eaf1bfa8996fb6cb3ff2"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-LLM-REALISTIC-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_lifecycle-llm-realistic.test.js.5e88868a.log",
+      "sha256": "295c25aae6614186ce52b4bb93309eb4e62eedac80f7dbfea0abb6908bf9ee84"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-REVIEW-CHANGE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_lifecycle-review-change.test.js.faa90132.log",
+      "sha256": "a36eec995121ce4bbfe2179298e91f4a1de562b01c0e8fe7d610d84f8f5e72f2"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-STRESS-ADVANCED-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_lifecycle-stress-advanced.test.js.5ac1e452.log",
+      "sha256": "e2577f94852a14a5803df12aa9bf4366b7ca204e2b61abfc41fe60b85ed99b39"
+    },
+    {
+      "id": "IS-T2-TESTS-LIFECYCLE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_lifecycle.test.js.52956fcb.log",
+      "sha256": "b4bfb51451d86b66667a90d0a4952287e2f8592753df971116f7e7bbdaf7f988"
+    },
+    {
+      "id": "IS-T1-TESTS-LLM-GATEWAY-RUNTIME-SIGNAL-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_llm-gateway-runtime-signal.test.js.0b940a7a.log",
+      "sha256": "b2cfab7bc7f24bcfe303d6c0655fccef79e51bcab8c303c9514076204d1e74ef"
+    },
+    {
+      "id": "IS-T1-TESTS-LOCAL-MATH-NONFINITE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_local-math-nonfinite.test.js.019feb01.log",
+      "sha256": "44145c5907f8b3df3334cf46bb4488ee475ed9f034abe759370201c11e01ea79"
+    },
+    {
+      "id": "IS-T2-TESTS-M1-CHAT-CONTRACT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m1-chat-contract.test.js.ca2e48b5.log",
+      "sha256": "09e1be57cc4b12dc2fc8311b539af9f1b0a6de78b3299e3944432355295a6a33"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-CONTRACT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m1-contract.test.js.998aa76f.log",
+      "sha256": "7ecf0055ea3873e0c678b680e885d50b4aa2335a97fc4b5ea6751aa5210007e1"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-AUTOMATION-POLICY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m1-model-automation-policy.test.js.13f235f4.log",
+      "sha256": "9efdfcf922364315dd3b999ceffa9f97957790fc416e29ea75e4e3d65d3d45d5"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-BINDING-APPLICATION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m1-model-binding-application.test.js.96cefee4.log",
+      "sha256": "65f05a40aab492bc254b8c6a37e20eb462e979579ef21cb9aaeeec604a352988"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-BINDING-REPOSITORY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m1-model-binding-repository.test.js.6b2a3128.log",
+      "sha256": "688d2338346a4b74fedf8d3c6c4d36c25d2696eb7f985ba5f149f92d9a7648e9"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-BINDING-STORAGE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m1-model-binding-storage.test.js.d31f186e.log",
+      "sha256": "6b155eb81aeb7c1f6496a17c416194fe948d022f1d0a7d7b9f55ec82cc15b677"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-CONTRACT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m1-model-contract.test.js.a8bcca69.log",
+      "sha256": "70db50362a06021e4025547cfdebb43c128935ed782cedc78f4095e4d2b9700e"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-COORDINATOR-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m1-model-failover-coordinator.test.js.30405fa4.log",
+      "sha256": "0a2020d3bdf068ab04620e4cd3a762677fa4ea9744b9fe5368773162d4d17c48"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-DETECTION-REPOSITORY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m1-model-failover-detection-repository.test.js.8fe33847.log",
+      "sha256": "b229a6a3c0d7042d5866dbe3d356d03f74d9e9910f034d250158858de99044c3"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-PROOF-ARTIFACTS-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m1-model-failover-proof-artifacts.test.js.fcc67211.log",
+      "sha256": "243444c3da3a45a018688756ac5bd0347c722dd395f51b2f50582c997e39d606"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-FAILOVER-SCHEMA-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m1-model-failover-schema.test.js.48a6c16b.log",
+      "sha256": "f5afae9ab9e856968678576b6b49e0c3ba14b30bddcd0b81236af948c04e8dbe"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-SETTINGS-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m1-model-settings.test.js.ec00af34.log",
+      "sha256": "ee06fca735a5fd9d0feda22ce504a22369729d2a22bfd859576a0e8b17e414fe"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-MODEL-USE-AUTHORITY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m1-model-use-authority.test.js.1decaa60.log",
+      "sha256": "14f47d28c882cf0ffd67e0080ca7f181c5fde3fb568035c3fb1d9c8d813f9299"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-QUALITY-CONTRACT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m1-quality-contract.test.js.48723e78.log",
+      "sha256": "56878f349c84770dd2a6f9da277b93968ab6e88b94c3893e258277d2920fb144"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-STUDIO-CLIENT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m1-studio-client.test.js.a839f16b.log",
+      "sha256": "4fd618e65a7ff7ba07799117e22a645ea24adc41faa913e50f3ecd584640fea5"
+    },
+    {
+      "id": "IS-T1-TESTS-M1-VRAM-ARTIFACT-USE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m1-vram-artifact-use.test.js.13f25518.log",
+      "sha256": "1be763fb10fc2aa4e120838e6f0a6860b26234fc165597801ae8dde24409848f"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EFFECT-AUTHORITY-REPOSITORY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-effect-authority-repository.test.js.fbda346c.log",
+      "sha256": "239070c6ad46a8ca02dc82d6d1619e8f2cbf290f90ca36f78e0485452bcdb337"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EFFECT-BROKER-V1-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-effect-broker-v1.test.js.606c7170.log",
+      "sha256": "b018af3e70900a74e2a64d1a6c9711d6d1383386118bd4cd0ee8df705b809053"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EFFECT-CONTRACT-V1-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-effect-contract-v1.test.js.6dc251f9.log",
+      "sha256": "2c57d9daac3031bee9f88cadb0780da2ef417471e789fb3d0d3b9293adbc43ff"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EFFECT-EXECUTION-OWNER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-effect-execution-owner.test.js.a1097a45.log",
+      "sha256": "48c7ecc497875ff8ebe33fa9c2c2960a50b7b80a557320bb1f78b5fc37f11fe6"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EFFECT-FILE-CONSUMER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-effect-file-consumer.test.js.351c4b65.log",
+      "sha256": "9fcae2c0cb8d221169ea7521ca3d31a900ea6edfb8ab91486cbcf5169276b72f"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EFFECT-FILE-RUNTIME-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-effect-file-runtime.test.js.598972ff.log",
+      "sha256": "a78a857bc95d2652921e98105178506f82ef374aa312152304d4737fb0cd41e3"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EXECUTION-AUTHORITY-REPOSITORY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-execution-authority-repository.test.js.ed35dc26.log",
+      "sha256": "95e74a02d1af7dd5464cfd1ac8abc9d7e2e016ec281f11af5a1616b896161333"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EXECUTION-CONTRACT-V1-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-execution-contract-v1.test.js.62f3b9eb.log",
+      "sha256": "1338c46188f1c522230650f7a9a47dba1e48298d6b2bc18c937f2cb3f17f0ac5"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EXECUTION-GIT-PRESERVATION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-execution-git-preservation.test.js.11b275be.log",
+      "sha256": "9dd7a491b0ff23af3653530443c1a1b78600562df6a8ccd5ca0a966be3ba0724"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EXECUTION-PROCESS-SUPERVISION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-execution-process-supervision.test.js.acd09b66.log",
+      "sha256": "09506e8549ef63fcfa0d4877f619553ede7d959b6f3f5e89120d56009997e473"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-EXECUTION-PROJECT-CHANGE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-execution-project-change.test.js.a53d03c7.log",
+      "sha256": "e1cd5fc8d1472eec3256bc17a5e66baad670ef3efbe82cd872b1e4f4b28b3e25"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-GOVERNANCE-CONTRACT-V1-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-governance-contract-v1.test.js.a877dfcd.log",
+      "sha256": "97d60127be4ab4c0e9ea67b2d7bb9056304c032674b7982adf5de5f6be827540"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-GOVERNANCE-EVALUATOR-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-governance-evaluator.test.js.8ae217b6.log",
+      "sha256": "84902c7914ab758d7c346a571a3f63ac8d897ef25a43d70d929b4027371533d7"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-APPLICATION-SERVICE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-lifecycle-application-service.test.js.1a72c253.log",
+      "sha256": "202ccbb87496ef37ca4d484183fbd996594782bd8ae38306b79ddd29d624dfab"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-AUTHORITY-REPOSITORY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-lifecycle-authority-repository.test.js.a86849aa.log",
+      "sha256": "27ae2f327ea91eb32c5de0b9edfce055173a80b1886708f403939d98ade302df"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-CONTRACT-V1-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-lifecycle-contract-v1.test.js.b74c85da.log",
+      "sha256": "e77dfc6620e1f181cc7c2505cd28c0144bef7d7626fb6363922ea4bb6cfa1ea3"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-PROPOSAL-COMPILER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-lifecycle-proposal-compiler.test.js.744ad0e4.log",
+      "sha256": "84bdb0efe88d17d342f5aa5fffdbae6f6a326ecca7d0616f3ebaec1f49987e56"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-ROUTES-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-lifecycle-routes.test.js.0c94ab24.log",
+      "sha256": "639f53ee7dcea463187b12eb0974232d68adc3386a64cea754ed40248512637a"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-STUDIO-SURFACE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-lifecycle-studio-surface.test.js.0e60553a.log",
+      "sha256": "20b0acfca4860a7327358c2e837f3779fc20a3e615b939a88ffcb016b72dcba8"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-LIFECYCLE-SURFACE-RETIREMENT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-lifecycle-surface-retirement.test.js.a7607ce4.log",
+      "sha256": "ee5f116bad207041c6559348835bdd17fbd5124212e90f186095298232c57cbb"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-NEGOTIATED-LIFECYCLE-QUARANTINE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-negotiated-lifecycle-quarantine.test.js.73ba5d5d.log",
+      "sha256": "10e324ab203b27da9eb92116cef6cf7765674f2c64c1e7016f4ca7d70e5c5f56"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-PROJECT-CONTEXT-BOUNDARY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-project-context-boundary.test.js.4adfd6d4.log",
+      "sha256": "3f6205311d313065432563b0009afe9179d7ad6d64bce960aafe142319858218"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-PROJECT-CONTEXT-CONSUMER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-project-context-consumer.test.js.94ff0a07.log",
+      "sha256": "50d795dbc72097065027f7b8730ce960e68f7e465572d516e654b288840fa242"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-PROJECT-CONTEXT-CONTRACT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-project-context-contract.test.js.8a826e82.log",
+      "sha256": "7329f33a69a87c78b920389f5aba40b3ff9888c809fde63ab28ece246ed9103c"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-PROJECT-CONTEXT-RETRIEVAL-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-project-context-retrieval.test.js.3680830c.log",
+      "sha256": "37c58b3d36813bff6a9c662f72981e2c3a6d9c5f40e2052c1c52f11174bea2d5"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-REMOTE-CORE-PORT-BOUNDARY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-remote-core-port-boundary.test.js.e818266d.log",
+      "sha256": "e44ba4895aab03d5d6cdabd57b52f956c78168647c065c249b9d99a82f51a01d"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-REMOTE-CORE-PORT-CONTRACT-V1-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-remote-core-port-contract-v1.test.js.331394d6.log",
+      "sha256": "89ae061c1c04f0c06fa4d32e5a1c11adc9767896d7acb162d3b1055c6fe11ede"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-TOOL-AUTHORITY-REPOSITORY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-tool-authority-repository.test.js.2f54b988.log",
+      "sha256": "394d2324a73f0cf7ee3e5c5fdfbe69b71ad04a176a56eb9782320a56bc12943b"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-TOOL-BROKER-V1-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-tool-broker-v1.test.js.ce3c9391.log",
+      "sha256": "ea66d2d3d91876ef57989c73049b7366598c123fd40d309ead65e7b96c86c981"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-TOOL-CONTRACT-V1-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-tool-contract-v1.test.js.20002f30.log",
+      "sha256": "bb289c65bea83360e9572503ff38baf0ce43302c9c9ce659f339157914ae6686"
+    },
+    {
+      "id": "IS-T1-TESTS-M2-TOOL-PRODUCTION-CONSUMER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m2-tool-production-consumer.test.js.97d359cd.log",
+      "sha256": "7e537020e72731c4767416da913f07ed29142f49550a2408e4eba10cd60c94b5"
+    },
+    {
+      "id": "IS-T1-TESTS-M3-CODE-REVIEW-SPECIALIST-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m3-code-review-specialist.test.js.69c5bf24.log",
+      "sha256": "2c37dbf1ff1793f811280c0d854b58de425dc59b79ec0b066b06eeb3da2350c4"
+    },
+    {
+      "id": "IS-T1-TESTS-M3-EXPERTISE-EXTENSION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m3-expertise-extension.test.js.0cadd29f.log",
+      "sha256": "b754e2c1c26be312ff5a03a14a2f9ac53d26e7d1274119d618e24783cd1a53cb"
+    },
+    {
+      "id": "IS-T1-TESTS-M3-EXTENSION-CONTRACT-V1-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m3-extension-contract-v1.test.js.6196d1c7.log",
+      "sha256": "01ed20997fbb65ae43bc2bb1ba9edfc335a2c659703eae531bffb43600a384de"
+    },
+    {
+      "id": "IS-T1-TESTS-M3-LEGACY-AGENT-SURFACE-RETIREMENT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m3-legacy-agent-surface-retirement.test.js.1f903705.log",
+      "sha256": "54225f38731a7fe854a5041937abd55b403f6dd22a1a9c3b615a4035391bd31c"
+    },
+    {
+      "id": "IS-T1-TESTS-M3-PROJECT-HEALTH-AGENT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m3-project-health-agent.test.js.89ca5dbe.log",
+      "sha256": "40b31b7cd072924b930e55bb842f089275e60ec9b954a1908ac448893b8e8a64"
+    },
+    {
+      "id": "IS-T1-TESTS-M3-SKILL-EFFECT-AUTHORITY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m3-skill-effect-authority.test.js.90d6abad.log",
+      "sha256": "3fd434ffeceedcaa9207617b2219051aefed1e4e6af75f3c6cac33611f25f475"
+    },
+    {
+      "id": "IS-T1-TESTS-M4-LEARNING-API-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m4-learning-api.test.js.d38d9233.log",
+      "sha256": "026b59e661102e693fb3260127245acb25aff174f90ad7246c21cc929046f1f4"
+    },
+    {
+      "id": "IS-T1-TESTS-M4-LEARNING-AUTHORITY-REPOSITORY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m4-learning-authority-repository.test.js.b4e8600c.log",
+      "sha256": "56f4c9f2b30949f7ec053bc115b3d1e77513793e89c1f9cfc2c0d0d0e3643cbd"
+    },
+    {
+      "id": "IS-T1-TESTS-M4-LEARNING-CONTRACT-V1-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m4-learning-contract-v1.test.js.a8e58962.log",
+      "sha256": "a4519a0c0578099b33e1af955dc142e8330e0a0abddbf08652d5c5cece3eed97"
+    },
+    {
+      "id": "IS-T3-TESTS-M4-LEARNING-JOURNEY-E2E-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m4-learning-journey-e2e.test.js.f763a019.log",
+      "sha256": "73efb8b0d5f92d7e38aedb69cd027e0d705507b6502276aca05a0bafb2d00995"
+    },
+    {
+      "id": "IS-T1-TESTS-M4-LEARNING-OUTCOME-EVALUATOR-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m4-learning-outcome-evaluator.test.js.9af5e10e.log",
+      "sha256": "abaef1a22a8a790f9295e73d8d3679d1ead787a665e47d6c72a1caffc5d8fa4c"
+    },
+    {
+      "id": "IS-T1-TESTS-M4-LEARNING-PATTERN-PRODUCER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m4-learning-pattern-producer.test.js.8c94c60b.log",
+      "sha256": "8549ea18599004727bd4d366379f4a2d0880a67d5d5706d71c95a0666effeb2e"
+    },
+    {
+      "id": "IS-T1-TESTS-M4-LEARNING-STUDIO-SURFACE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m4-learning-studio-surface.test.js.2f719a0e.log",
+      "sha256": "0b463a5f48b1a21f9c96a7b768d8366e1c2e80e53c6f3d195bd52bf91f2ab536"
+    },
+    {
+      "id": "IS-T1-TESTS-M4-PROJECT-LEARNING-CONTEXT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m4-project-learning-context.test.js.fe2aa47a.log",
+      "sha256": "ac7c244fddb6fc4d181dcd708e9308d14d170cfa45b5f79651fa77e093352634"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-CONDITIONAL-SURFACES-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m5-conditional-surfaces.test.js.c10e5bf3.log",
+      "sha256": "4c84aa2adf218193476d1f9307ddf67f8fbc14f830e336e3fde095cbcee20fbb"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-DATA-RESTORE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m5-data-restore.test.js.abd1e68b.log",
+      "sha256": "eab12b01c75ef60a0e2ddc789928cd6f69b7e643c84dde15b280e701bc5e60d5"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-INSTALL-PROFILE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m5-install-profile.test.js.3197eac0.log",
+      "sha256": "5eb47b551e6070db97da5c38620f666e18ce7521415a2ad93c8afccc02d6067b"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-OBSERVABILITY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m5-observability.test.js.32ca3222.log",
+      "sha256": "01abcd9f242adca4359c481cdd0c587a0534ed6204bdc4b1e68a28ca811f1b37"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-OUTBOUND-POLICY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m5-outbound-policy.test.js.efbd97d2.log",
+      "sha256": "ad7a206902b3a60067273419045f44f0f1036f34127bc3e69e9e808452d6dc98"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-PERFORMANCE-BUDGET-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m5-performance-budget.test.js.e15e50b5.log",
+      "sha256": "0385bc8a0fe228c79f28e6f086b10ec3a2b78f9dad55075759c84a55905372d1"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-PRIVACY-REMEDIATION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m5-privacy-remediation.test.js.3f394ce8.log",
+      "sha256": "4b80dcb88dd4eefcb2d313890594ba92e1f977ad1fa0c111923620bd6a3cfbea"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-PROCESS-HARDENING-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m5-process-hardening.test.js.b964dd68.log",
+      "sha256": "3997ef0875ede1b75af313f1e3d01bbafd95f7a66141d82bab88c2fa692db6fc"
+    },
+    {
+      "id": "IS-T1-TESTS-M5-REMOTE-CORE-ADAPTER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m5-remote-core-adapter.test.js.4328babc.log",
+      "sha256": "d6c6acd4c14bcd8c7dd5dcd21f5fc35869fa83ca17d440bcf7fa07161e64c3ff"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-ACCEPTANCE-AUTHORITY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m6-acceptance-authority.test.js.4aadeacd.log",
+      "sha256": "712a3e8ad1ccf4378c2ae0e6b05eae5c65126be77e78fc4ca8623fb99a8cd1a3"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-CANDIDATE-PLAN-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m6-candidate-plan.test.js.dc8c9ce7.log",
+      "sha256": "fafdd4bbc7c2ba51913ed44b4f47920a95f03edab87cfcbccb1943604b71c5e3"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-L0-EVIDENCE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m6-l0-evidence.test.js.b2ad5108.log",
+      "sha256": "57c364429e85ba994633b3e1dced1621c5f6549c87b555e64efc594029579d3f"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-MODEL-ARTIFACT-AUTHORITY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m6-model-artifact-authority.test.js.1cd51e21.log",
+      "sha256": "fb47457a782bb8741def1eb43bbea8f9b1cabd228564c689a0c73307b6e83311"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-MODEL-DISCOVERY-JOURNEY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m6-model-discovery-journey.test.js.a03b9269.log",
+      "sha256": "366db1ea1ae8218b4debf633e7c83e44dc6921b038411c75a8b1476c7e312427"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-OPERATOR-DEMO-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m6-operator-demo.test.js.28fb911e.log",
+      "sha256": "e622e66dd57de00000c6afde03ef037dda22d9a1f397a8da5e94ac76bc51d63f"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-PLATFORM-JOURNEY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m6-platform-journey.test.js.74df06a5.log",
+      "sha256": "5d4babf08fc1dda831b67dd1c758985f66f91ec6e40e0fdb9640d0ac75c6c8cf"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-RELEASE-ARTIFACT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m6-release-artifact.test.js.a2ff816b.log",
+      "sha256": "f31215fb6e4e555f5bd1cb6930d39c1f6eeb620999abe807e08fc4828e4c126e"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-RELEASE-VALIDATION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m6-release-validation.test.js.8867f75b.log",
+      "sha256": "1a036f44a3d8ef990907e8111fd238b41ae5d0db147eaa5190482e0afb6f9d35"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-RUNTIME-EVIDENCE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m6-runtime-evidence.test.js.0db6f126.log",
+      "sha256": "0d53bff69284a5d9b99beb8b4c893cc19a1e5220d1f53ad08b08d0fb627d05de"
+    },
+    {
+      "id": "IS-T1-TESTS-M6-TECHNICAL-EVIDENCE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m6-technical-evidence.test.js.dbf843b8.log",
+      "sha256": "e589b4d1759ebd4fee2bfee1ec6ddd6b7e2447713d6c7f0fedd956c9f61e52dd"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-CANONICAL-JSON-PARITY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-canonical-json-parity.test.js.779912b1.log",
+      "sha256": "a52093de5bf3d835275721eba2b4c8ea1239925d0fd5797959cceb575a35577f"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-CONVERSATION-COMMAND-EXECUTOR-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-conversation-command-executor.test.js.d662a021.log",
+      "sha256": "3ccc9a0403e939ee7c62c7022ebd9ad4f69e55c5f3da344c2d110250df362886"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-CONVERSATION-CORE-ADAPTERS-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-conversation-core-adapters.test.js.d96c8b72.log",
+      "sha256": "4058891b52bcae48ac601f65998a68a555904013c257359311d3035de3e8c587"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-CORE-COMPOSITION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-core-composition.test.js.2b5e07db.log",
+      "sha256": "20b228f8b620f279791ab7c1c11587661499e28a1c4754c947f58b044f348870"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-DISCONNECTED-REQUEST-PIPELINE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-disconnected-request-pipeline.test.js.4361f964.log",
+      "sha256": "d62d5cd2b5f492d38238afa492f1abdc29385557a6a2d5c1ebce77d94bf9a6a1"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-DURABLE-RATE-LIMITER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-durable-rate-limiter.test.js.32485a8e.log",
+      "sha256": "9d74b84e7696bc12a662e8d40b9bca9f839e3cac1bb668bbeaecdfa1cd243dd2"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-IN-PROCESS-CAPABILITY-PROVIDER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-in-process-capability-provider.test.js.f8b9cde8.log",
+      "sha256": "dac5f455902bc983c06db12a8388f2fd42ddf36888c225e7c610bd1ce56b0960"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-LOCAL-PAIRING-ROUTE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-local-pairing-route.test.js.7e46b40b.log",
+      "sha256": "9fcad8600643802e756a327d16eab3e891bbbe4163e4e16f99ff9e0c155ca4f0"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-LOCAL-PAIRING-STUDIO-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-local-pairing-studio.test.js.572f7692.log",
+      "sha256": "522c32aef29a29ba6db4af0e5c096febac23989992792a1e0614a5797465ac2d"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-M2-APPROVAL-CORE-ADAPTERS-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-m2-approval-core-adapters.test.js.12c96c74.log",
+      "sha256": "196fbf20775d131648ce8fa15339595cbfdfba12fe3d37382de68d1c6da4b750"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-MOBILE-APP-RUNTIME-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-mobile-app-runtime.test.js.6ad6d05e.log",
+      "sha256": "de25216dc7967786f4b229b73f6f15e4351526a121bf0cdf7f2a3a342c7883ae"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-MOBILE-CORE-PIN-INTEGRATION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-mobile-core-pin-integration.test.js.082d1156.log",
+      "sha256": "2e08149f077c69d7d719d0249f63f5dbc5734bf1a8ba27ea95c82167c5cf86a8"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-MOBILE-UI-API-ADAPTER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-mobile-ui-api-adapter.test.js.1a215f23.log",
+      "sha256": "b994b34dc191bcedae548f8ccc24c762d65daea3fdeede5577f098fbc9cf7953"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-MUTATION-MEDIATOR-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-mutation-mediator.test.js.7b109ce6.log",
+      "sha256": "9bc6458300cb07f92b2e846d35195eb6cce6176e39c382892e6ba21e1b0f51d5"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-NATIVE-REMOTE-CLIENT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-native-remote-client.test.js.5edc41e3.log",
+      "sha256": "49086481f592c6a7225d2f0d69d3d4b76cf29a63e3d4a0c487e9fa7c6d616e0f"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-NOTIFICATION-CORE-ADAPTERS-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-notification-core-adapters.test.js.ef074412.log",
+      "sha256": "a45af7fdc1fd1a4c49af88ab2e47bc2f07e69392ebd6e93b923b04c4d278ea04"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-OPERATION-CONTROL-ADAPTERS-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-operation-control-adapters.test.js.04d13ffc.log",
+      "sha256": "d2e4368a0ad976d65002c2542517209b2fe885436386dea722a616b73137b563"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-OPERATION-JOURNAL-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-operation-journal.test.js.5b628c4f.log",
+      "sha256": "7b24e2cdbf4f94190811203210bc70131e785a6c2724a43998a970de8f1f9ac9"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-PROJECT-CORE-ADAPTERS-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-project-core-adapters.test.js.eb2adf66.log",
+      "sha256": "019b6c6b5db30c9d317015145dd53216335b8db24871e3c1dec5bdb983a0ccaf"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-REMOTE-HEALTH-ADAPTER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-remote-health-adapter.test.js.32985334.log",
+      "sha256": "f4e8359cc725361045ca192517d634bb77834f27993b07f6c445059a196e09fc"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-RUN-EVENT-CORE-ADAPTER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-run-event-core-adapter.test.js.07053bd8.log",
+      "sha256": "89a40c495f6dad9da9abd7f171f73b72aaa7059eff8ceb956f279cf411f9c60b"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-SESSION-AUTHORITY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-session-authority.test.js.06f5a8e3.log",
+      "sha256": "cd6095a6494b94eaa25f81fc3bcf3f542382342dbc86a24b915ffce1fb8f43cd"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-SETTINGS-INFORMATION-CORE-ADAPTERS-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-settings-information-core-adapters.test.js.a71ce126.log",
+      "sha256": "77f9f33c1d4bb57c08f3ca9fbfc3433361b1798bf6d5c1bc462a3f0750c7b541"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-TRANSPORT-ADMISSION-POLICY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-transport-admission-policy.test.js.5bd65e6e.log",
+      "sha256": "6cc1af389c187c7a1e46aa5f89886a0675549da5f44edcb6c8a274aaa1f1dfc8"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-VPN-PRODUCTION-RUNTIME-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-vpn-production-runtime.test.js.dca7e897.log",
+      "sha256": "73521e6fb58c081fd1c5865e830f25ffe6c7ed8682e3e904324054355062aac8"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-VPN-RUNTIME-CONFIG-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-vpn-runtime-config.test.js.fde44a7e.log",
+      "sha256": "86cf635edc63249d237aded13e750b5cea71101ec477a8362af5a5e5a02de22c"
+    },
+    {
+      "id": "IS-T1-TESTS-M7-VPN-TLS-LISTENER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_m7-vpn-tls-listener.test.js.21c4b96e.log",
+      "sha256": "0666b80c161fcaffcbe3bfdb1a4e7f5e4f54dd52a8b192ea7f7a93d97376b855"
+    },
+    {
+      "id": "IS-T1-TESTS-MANIFEST-V2-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_manifest-v2.test.js.3e768afb.log",
+      "sha256": "d3f4a650eb1f1a5a47834277ecb0750bb76f8a07a2f644cf7bb78fb07ccf3ff9"
+    },
+    {
+      "id": "IS-T1-TESTS-MARKETPLACE-CATALOG-V125-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_marketplace-catalog-v125.test.js.97de319e.log",
+      "sha256": "b00f1d010a5cac156d70c8d2330baf54212d31100ee3552c9ec34645c7b6b25b"
+    },
+    {
+      "id": "IS-T1-TESTS-MARKETPLACE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_marketplace.test.js.145d7584.log",
+      "sha256": "1c7e4ad147b31c35adaf387c125f838ae56038ca3640176638103d55649bd7e3"
+    },
+    {
+      "id": "IS-T1-TESTS-MERGE-COMPATIBILITY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_merge-compatibility.test.js.5f130be0.log",
+      "sha256": "272af8d749f6393b5a491a002dbb10a07286038a04574b1399ed08e2bd6b5061"
+    },
+    {
+      "id": "IS-T1-TESTS-MERGE-ENFORCEMENT-INTEGRATION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_merge-enforcement-integration.test.js.0b068ac4.log",
+      "sha256": "d082bd9c0f00e5c1233c0e61a6a320f76b7cbc7b4cdb9bbeda2c6d2fbb42a514"
+    },
+    {
+      "id": "IS-T1-TESTS-MERGE-ENGINE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_merge-engine.test.js.823c00c2.log",
+      "sha256": "567070bb71f511af61fd0f0c57ab4587c7d3a4b70cf802d5314038959707b921"
+    },
+    {
+      "id": "IS-T1-TESTS-METRICS-COLLECTOR-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_metrics-collector.test.js.d48129a5.log",
+      "sha256": "30cdbbeb281247153f217b0ac58571b828f04d78ffa14d414693e7f02fdb5125"
+    },
+    {
+      "id": "IS-T1-TESTS-MILESTONE-SIZE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_milestone-size.test.js.6d7afcc7.log",
+      "sha256": "a87b6685df579402d19eb153f99763164e03c589493340668d048ad6d9d46a73"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-ANDROID-RELEASE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_mobile-android-release.test.js.83cb5702.log",
+      "sha256": "1e83465cf87b7e2cbb586fcf2024387ea6d75745128f28c82bb6895999cfbea1"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-APPROVAL-LIFECYCLE-REGRESSION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_mobile-approval-lifecycle-regression.test.js.382f9ce2.log",
+      "sha256": "17a3a7c1898514f5ea87a91fef669a2e2fb060835cc06631f3743ba4a513bf89"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-BROWSER-A11Y-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_mobile-browser-a11y.test.js.1de6224d.log",
+      "sha256": "c962608b08e7907c9cc0607288fa1d28ce5b0c06efb19f0fb000d614142060e5"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-CAPABILITY-INVENTORY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_mobile-capability-inventory.test.js.46fb71d6.log",
+      "sha256": "a6d1ab5918ca2e09e3f00c55962681d8f4306238cbb345081d4917f16f5040af"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-GATE-SELF-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_mobile-gate-self-test.js.8d8d09c3.log",
+      "sha256": "c41a01077df1aa010a97c042e2a5af2bce571280bfca3486eb3619aec54153f3"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-MS07-HISTORY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_mobile-ms07-history.test.js.9079945f.log",
+      "sha256": "1b2ba37267bf224c47b44b393cd935343c3f43693b3e493a480317e08e6750aa"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-MS13-APPROVALS-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_mobile-ms13-approvals.test.js.da425472.log",
+      "sha256": "f9340342ce065eb84606b873f82411c7412521af7679ba0b6780f4f56e46e79b"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-MS14-DECISION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_mobile-ms14-decision.test.js.f6fb816a.log",
+      "sha256": "69b3bc24d265c212553a1a6b491035be347ed88b850b4a120c6c2fb4c2b132e2"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-MS20-UI-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_mobile-ms20-ui.test.js.a0b9eb4f.log",
+      "sha256": "cfdc0881cfe455618208f4c4e1beb65f1979800721630d4035821619310a3760"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-NAVBAR-RING-TURN-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_mobile-navbar-ring-turn.test.js.50271dbf.log",
+      "sha256": "651b05242efc3a9e8ecbcc765045af2dc15a3613d96864a0b13c25659a6e5901"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-NAVBAR-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_mobile-navbar.test.js.7c4f1227.log",
+      "sha256": "19379ab87b321f8a35b22c070f004bb7571f6b8c1e0499b72c1e564d0be09881"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-OVERVIEW-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_mobile-overview.test.js.37551d17.log",
+      "sha256": "b5e8747dbc7c4c939110164e4af784601f012768acb37ed09cde9931fd51d770"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-REMOTE-CAPABILITY-CONTRACT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_mobile-remote-capability-contract.test.js.e64c218a.log",
+      "sha256": "f72e87ea1457dfe7c4f5a24fc776731ebf0682aa1ef4d771abec98e661377f32"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-REMOTE-CAPABILITY-PROVIDER-CONTRACT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_mobile-remote-capability-provider-contract.test.js.778bf1cc.log",
+      "sha256": "cddb096c94c5856587ac22ba5a698612f52989e110421e52756ab7b5c812cae3"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-REMOTE-CORE-SIMULATOR-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_mobile-remote-core-simulator.test.js.79ba563d.log",
+      "sha256": "219cb7f5e37e876eab991d224e7b07ec5a7668522f409e4684fabf24a5b87947"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-REMOTE-CORE-V1-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_mobile-remote-core-v1.test.js.d45ee5b2.log",
+      "sha256": "e0a728b077f17e5d770e586ee24875cd8cfa3dfcfb2ff1e4eb04ca62918c81ed"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-REMOTE-SESSION-CONTRACT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_mobile-remote-session-contract.test.js.bdd0f7a4.log",
+      "sha256": "9c6aa45452740dd3cf5fb507ea395e4c7cf7a7eb8f0807ec9954121b552c97d8"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-RUN-SILENCE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_mobile-run-silence.test.js.1924ac8e.log",
+      "sha256": "65580ad5694ef8e16bfed1cac2889079546b676d9db63c8e44cebbfd2c8167be"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-SECURE-CREDENTIAL-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_mobile-secure-credential.test.js.a1f840f5.log",
+      "sha256": "c0a11345ed41bbdb23313a0277d4303d2a3553b56a94969e351f27f488da4339"
+    },
+    {
+      "id": "IS-T1-TESTS-MOBILE-TRUST-BAR-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_mobile-trust-bar.test.js.ad6effc4.log",
+      "sha256": "930050f7071797a57b38cd3dc1fbb02051e488f95f62d3822cbe279c873c9ea0"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-CATALOG-REGISTRY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_model-catalog-registry.test.js.a4208391.log",
+      "sha256": "97b57fda64f71843ee5dc51dd7a2d5c5c33a0381e8be43f8a29adcc44a691147"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-CTX-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_model-ctx.test.js.c0c98746.log",
+      "sha256": "a0383750031afd95ff75c0af2c75efe8177a4c272692ebd2d11749c3bb0f5abd"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-EVALUATION-CONSOLIDATION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_model-evaluation-consolidation.test.js.d30bd50b.log",
+      "sha256": "b762982702643ef7bfe4135169b56430e19e99a7546c2c688ead9a48d7680fd6"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-EVALUATION-READ-MODEL-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_model-evaluation-read-model.test.js.b8fc9f01.log",
+      "sha256": "93c3b0bc2b94882fe373ff4635acfe918e17fe3e6bd747cbda4cbff3abbfdc79"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-EVALUATION-SUITES-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_model-evaluation-suites.test.js.27a3b5d4.log",
+      "sha256": "ebc8a7e8c257afd134907f4290d270cfad388498fd2905f144441071f3061b73"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-REGISTRY-CURRENT-AUTHORITY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_model-registry-current-authority.test.js.e3bf6cfd.log",
+      "sha256": "96e02fbff4aa088e93f94682ae6ed40bc6d53e609295489300c35b9f7088e128"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-SIMILARITY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_model-similarity.test.js.38b5a255.log",
+      "sha256": "1c2d0b7d182661ea6ea776542210f2426a7c87981318ad2a0469045e5f89a854"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-SWEEP-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_model-sweep.test.js.15949b01.log",
+      "sha256": "794c18fea4d5784e5ac832860e8024a164c87352a66b8cc945496a3fdee241bd"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-UNIVERSE-STORE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_model-universe-store.test.js.e53440f2.log",
+      "sha256": "c756de7b8db38cbf097106e90b9706f8cb8d04a301b992f75092eeed09c40657"
+    },
+    {
+      "id": "IS-T1-TESTS-MODEL-UPGRADE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_model-upgrade.test.js.2c7522c3.log",
+      "sha256": "c31a299ea1ee51b4cb08ad3593570cfc880e24965e17df81b28dbdd211b50957"
+    },
+    {
+      "id": "IS-T1-TESTS-MODULE-BOUNDARY-RATCHET-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_module-boundary-ratchet.test.js.bcb6a2a7.log",
+      "sha256": "d139d33760d8c89b5e19846a10ccb4727fa3c2b7abee8c1d0f3bf0272a8c02c7"
+    },
+    {
+      "id": "IS-T1-TESTS-MODULES-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_modules.test.js.0d9853e3.log",
+      "sha256": "e3f256e02211ff3f5c641b970e3f3c662f2b4f28d04457751f4a3476f41b4262"
+    },
+    {
+      "id": "IS-T1-TESTS-MULTI-SOURCE-INTEGRATION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_multi-source-integration.test.js.c7dc01b1.log",
+      "sha256": "61e08d795757ab850fa8ea0b837344a2afab3d65773b5f3735818839a1dfa281"
+    },
+    {
+      "id": "IS-T1-TESTS-MULTIMEDIA-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_multimedia.test.js.e1b762ed.log",
+      "sha256": "70072e1470cf157fdfbe689804cb672b8b45101017493da9fa77c533b1bb2f56"
+    },
+    {
+      "id": "IS-T1-TESTS-NIGHTLY-AUDIT-RUNNER-SELF-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_nightly-audit-runner-self-test.js.eaa62b18.log",
+      "sha256": "65a51cf8b1510dd626dcb2da0a3077a871ccf4f1538841621027bf9404089336"
+    },
+    {
+      "id": "IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST",
+      "status": "FAIL",
+      "path": "deterministic/project-release-source/logs/tests_nightly-orchestrator-self-test.js.a5ce7dd7.log",
+      "sha256": "44d11f6556fa904a1ec0b641fea9c0a3133181bde5553e6361de6a0565e05a79"
+    },
+    {
+      "id": "IS-T1-TESTS-NOTIFICATIONS-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_notifications.test.js.4e47e960.log",
+      "sha256": "a1685d0444a3608870c7073e3e69a5b0312b69d6f288cd4772e132ffc556aac6"
+    },
+    {
+      "id": "IS-T1-TESTS-ONLINE-DISCOVERY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_online-discovery.test.js.aa15fbb5.log",
+      "sha256": "e67e2d642d0a5f882700d23c8e2b3bd42a581c62e1fa12bb15d594f29fc150a1"
+    },
+    {
+      "id": "IS-T1-TESTS-OUTBOUND-NETWORK-OPTIN-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_outbound-network-optin.test.js.940a735b.log",
+      "sha256": "ed3d5c882dfe4d48b20eae588bf314d224be5b94f931a1b1616ac20b86f0a028"
+    },
+    {
+      "id": "IS-T1-TESTS-OUTPUT-GATE",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_output-gate.js.c0084381.log",
+      "sha256": "153c650d0f153b8aeec0b9b64b9501ab69e8bcffc133c914ac1417bc05409967"
+    },
+    {
+      "id": "IS-T1-TESTS-PAIRWISE-TRIAL-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_pairwise-trial.test.js.c9619511.log",
+      "sha256": "6a26b3429de4f4d644400aeb45c3d29d4a6fbc65f4e1f10b183620e7b0a58694"
+    },
+    {
+      "id": "IS-T1-TESTS-PATCH-ENGINE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_patch-engine.test.js.4a81491a.log",
+      "sha256": "75515121f84f8076cebfa3416ecd8ce24f0c57fdff0d0d4e880b280e5a71b572"
+    },
+    {
+      "id": "IS-T1-TESTS-PATTERN-MINER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_pattern-miner.test.js.b1a72d1b.log",
+      "sha256": "baaa90d7d2314e3f00063fae217d58bc5bf36e68922542f0d0d7643a331508cb"
+    },
+    {
+      "id": "IS-T1-TESTS-PERF-ANALYZER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_perf-analyzer.test.js.210cd8d3.log",
+      "sha256": "3ea22b612b21871ff9bf43817fae1b4d736b5807c0e802214c65eb1c0d15a321"
+    },
+    {
+      "id": "IS-T2-TESTS-PILOT-C1C2C3-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_pilot-c1c2c3.test.js.ea164072.log",
+      "sha256": "4d140c56c0be96d4b0ec9d1a189876c78b28e3ab7d25d7fa08d4a7c19d191d7b"
+    },
+    {
+      "id": "IS-T1-TESTS-PRE082-UPGRADE-REGRESSION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_pre082-upgrade-regression.test.js.05d1b506.log",
+      "sha256": "92721d2391e777ce102060d30a101f0041a6e21051fc8ee1c24967b683604916"
+    },
+    {
+      "id": "IS-T1-TESTS-PROJECT-KB-DECOMPOSER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_project-kb-decomposer.test.js.e12475a4.log",
+      "sha256": "ed9540a1343a651e1c95f8377a395b5d29354432ecbf3b910639ae83b07dbc4a"
+    },
+    {
+      "id": "IS-T2-TESTS-PROJECT-LIFECYCLE-CHANGE-MGMT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_project-lifecycle-change-mgmt.test.js.0b16d3c9.log",
+      "sha256": "2efd3d59aa0f006a382d646a9f13ef6849e5b93b8f669b6a71dd46682f50c144"
+    },
+    {
+      "id": "IS-T2-TESTS-PROJECT-LIFECYCLE-ENTRY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_project-lifecycle-entry.test.js.aec6f3b7.log",
+      "sha256": "a69937a31191877ab9c751595b94aaea3fb4e3585e0da0f4e4d6a2bb2f3deb08"
+    },
+    {
+      "id": "IS-T2-TESTS-PROJECT-LIFECYCLE-EXPERTISE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_project-lifecycle-expertise.test.js.4c8f42ae.log",
+      "sha256": "bdfdad26457b0ac27232940febfd5136d6041622b3714fcd2c0b11d16873dd1f"
+    },
+    {
+      "id": "IS-T2-TESTS-PROJECT-LIFECYCLE-HAPPY-PATH-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_project-lifecycle-happy-path.test.js.692206b9.log",
+      "sha256": "2b301485363e6ffd7147f9784eace7c1b6660173261a6ee791418ad9189e186d"
+    },
+    {
+      "id": "IS-T2-TESTS-PROJECT-LIFECYCLE-INTERCEPT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_project-lifecycle-intercept.test.js.ee1f91f2.log",
+      "sha256": "392a27429827dbcc175ab677a42e298e94fff206524114ea18a255ca84b63cbf"
+    },
+    {
+      "id": "IS-T2-TESTS-PROJECT-LIFECYCLE-INTERRUPTS-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_project-lifecycle-interrupts.test.js.c2a0fe3c.log",
+      "sha256": "eb4f6f0023feb70282c4924ac57bfa0b3b7652c3d1ef037d0745895735ebe86a"
+    },
+    {
+      "id": "IS-T2-TESTS-PROJECT-LIFECYCLE-KLICENKA-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_project-lifecycle-klicenka.test.js.2e54d87a.log",
+      "sha256": "174fb5cd8e3f7b4e39406828270625244c724ac920a21079c17ffcec51ba8b7f"
+    },
+    {
+      "id": "IS-T1-TESTS-PROJECT-WELCOME-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_project-welcome.test.js.6737c372.log",
+      "sha256": "c305e7594351c926eb6e7f052c0825aa6b50ed582e1c22abd405c67cfcebe98e"
+    },
+    {
+      "id": "IS-T1-TESTS-PROMPT-BUILDER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_prompt-builder.test.js.1f5d4f90.log",
+      "sha256": "75a0fbb9db8a030f6e6797a1e3771b7d8a268760c8ebfb5b4a2132be2ef2ef33"
+    },
+    {
+      "id": "IS-T1-TESTS-QG-IDEMPOTENCE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_qg-idempotence.test.js.6cd4c52d.log",
+      "sha256": "0d51fd7457d47d063e34311fa5a2c180f2fe845c86fe750a39c63c7a1d4707c4"
+    },
+    {
+      "id": "IS-T1-TESTS-QUALITY-GATE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_quality-gate.test.js.aee41042.log",
+      "sha256": "5f92ac72f386e39f33960b3a16e29fafe382d044ec75f3f42e0d9677140a172c"
+    },
+    {
+      "id": "IS-T1-TESTS-QUALITY-GATES-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_quality-gates.test.js.73c54b4f.log",
+      "sha256": "1c652c492836fe59a82304f3dea16cea0e2d51d54847278bfb82503d7ab68a8b"
+    },
+    {
+      "id": "IS-T2-TESTS-QUALITY-REPORT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_quality-report.test.js.45224b34.log",
+      "sha256": "bfdb554007995e8dbb00c0248df7c0973997a0a45673fa9eec104b6aa59d3e8d"
+    },
+    {
+      "id": "IS-T1-TESTS-QUALITY-SCORE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_quality-score.test.js.7893f2bd.log",
+      "sha256": "d133d7f7053315f6e5e142a541a1888bcd38949ecd34c115488af887aa95fd06"
+    },
+    {
+      "id": "IS-T1-TESTS-QUALITY-SPRINT-Q-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_quality-sprint-q.test.js.ee20f99d.log",
+      "sha256": "59df4d4b71a74642e8850dcb8f13b9bd5d081f7a2dff93af68a83acac1b54314"
+    },
+    {
+      "id": "IS-T2-TESTS-QUALITY-TELEMETRY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_quality-telemetry.test.js.14fa2429.log",
+      "sha256": "d3014d5ea8f39ece86dc084404cee98844898421c86b10a42ce1a90367f18eb8"
+    },
+    {
+      "id": "IS-T1-TESTS-QUERY-EXPANDER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_query-expander.test.js.e465477c.log",
+      "sha256": "748af18bf8d5b149a7fb4959498e06ec9899ed3bf72435973257869ee86a9b27"
+    },
+    {
+      "id": "IS-T1-TESTS-REFACTOR-AGENT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_refactor-agent.test.js.a157fcc0.log",
+      "sha256": "d3d659a8bd19ca7d6c732bc1aa64a71b851e81d6135c536c2955f0d11f1a214e"
+    },
+    {
+      "id": "IS-T1-TESTS-REGRESSION-PREDICTOR-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_regression-predictor.test.js.ef5a75ef.log",
+      "sha256": "11d8139e08c9a43519686fd5ce4687c7a39dac36ae2eb9c62b91fa0dec2f5acc"
+    },
+    {
+      "id": "IS-T1-TESTS-REPOSITORY-HYGIENE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_repository-hygiene.test.js.a3416d42.log",
+      "sha256": "7e2c8c13d33639d2c00a6f3a31bc2c573452f85c9b36aa31d5a884d7940bcb61"
+    },
+    {
+      "id": "IS-T1-TESTS-RESPONSE-SCORER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_response-scorer.test.js.9dd70714.log",
+      "sha256": "68aafab969c743f2b24eecff49a5f178a28c4da9b3780681f39e3733b34fc433"
+    },
+    {
+      "id": "IS-T1-TESTS-RISK-ANALYZER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_risk-analyzer.test.js.d28a1095.log",
+      "sha256": "c5942a2875cbc6fd13cfbcf0a9e090ffa0bcad41d9fc3bfe879d30745531120f"
+    },
+    {
+      "id": "IS-T1-TESTS-ROUTES-SMOKE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_routes-smoke.test.js.29cdbe08.log",
+      "sha256": "48acd1df5410f560ad407880424601f7903c311d53e9150a30b350c3c637723c"
+    },
+    {
+      "id": "IS-T1-TESTS-ROUTING-ACCURACY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_routing-accuracy.test.js.2de4c86a.log",
+      "sha256": "00b9fcd501aa4cf21dfbf0d616a75ca9f79cdf132c5d981a0746a5664ebe9464"
+    },
+    {
+      "id": "IS-T1-TESTS-RSS-INTEGRATION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_rss-integration.test.js.2fce094c.log",
+      "sha256": "9efc9e2fc62cf7e74bc491be5bcf5e7e8423878d0233a4dfe42e4b0ed12edf6d"
+    },
+    {
+      "id": "IS-T1-TESTS-RUNTIME-FEEDBACK-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_runtime-feedback.test.js.d2024b96.log",
+      "sha256": "b311f9bd1c5be8326cf8ca7ee4547c95db423cc334de2659c262b3ef93bcc60b"
+    },
+    {
+      "id": "IS-T1-TESTS-SAZENI-ENGINE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_sazeni-engine.test.js.7bc8a419.log",
+      "sha256": "2ef43cc235af29f7925837d04b0c5d9c1594631a395cfe176074198647d69218"
+    },
+    {
+      "id": "IS-T1-TESTS-SAZENI-INTEGRATION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_sazeni-integration.test.js.a6879b04.log",
+      "sha256": "46c55c3866cc942f9474cc7b9704e38163b92c748378bff01e84db0652a6ebfb"
+    },
+    {
+      "id": "IS-T1-TESTS-SCENARIO-ENGINE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_scenario-engine.test.js.b8bcfe18.log",
+      "sha256": "ae95e8b87ed66f04723ac60822a9fdcbce93e03f8cb5d663c09f85d2100b2748"
+    },
+    {
+      "id": "IS-T1-TESTS-SCHEDULER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_scheduler.test.js.773fbbe5.log",
+      "sha256": "f2cdc3d6aa5a05caf70b667f3a3279f33488123575a427582181859d82701d0f"
+    },
+    {
+      "id": "IS-T1-TESTS-SCHEMA-MIGRATIONS-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_schema-migrations.test.js.923a63bd.log",
+      "sha256": "b7e7ca76e3fafd62e17cca4b4f5f42971a8cd6313fa0f1b97266ca3d82128431"
+    },
+    {
+      "id": "IS-T1-TESTS-SCOPE-LIMITER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_scope-limiter.test.js.f75754fe.log",
+      "sha256": "ae3dc85b8c8830be0fd390127861eab8f0cf98b9b59528d2be856e719f9daac1"
+    },
+    {
+      "id": "IS-T1-TESTS-SEARCH-QUALITY-A123-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_search-quality-a123.test.js.9dbc0432.log",
+      "sha256": "8e87b72039afc5925eeb3d601aa27283017680fdbc867b42e8492ec21afc61a2"
+    },
+    {
+      "id": "IS-T1-TESTS-SECURITY-HARDENING-V126-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_security-hardening-v126.test.js.773d902f.log",
+      "sha256": "4be53854242ca17986a9cc9c148d5c0f02700a071f0e378c1f1179447ad087f5"
+    },
+    {
+      "id": "IS-T1-TESTS-SECURITY-HARDENING-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_security-hardening.test.js.42294018.log",
+      "sha256": "d99abb615da0330b6a7462b8bca091a3f697ca64618d02d3c9c442f402c1d43f"
+    },
+    {
+      "id": "IS-T1-TESTS-SELF-CRITIQUE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_self-critique.test.js.952c17f0.log",
+      "sha256": "b6799c26c927ca1daa804358c9b8e941c03d7c06648bea33d78e9eb1937d2aec"
+    },
+    {
+      "id": "IS-T1-TESTS-SEMANTIC-INDEX-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_semantic-index.test.js.cac8e58f.log",
+      "sha256": "d8f1168d28e1d033d70c74574f719a2104e397709d90e82c169619cdd9beb893"
+    },
+    {
+      "id": "IS-T1-TESTS-SERVER-SHUTDOWN-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_server-shutdown.test.js.11b72456.log",
+      "sha256": "164b937602863a9cd51be0d2c0019cb3b7652771bfa64f4bb093a45db66a2829"
+    },
+    {
+      "id": "IS-T1-TESTS-SESSION-CONTEXT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_session-context.test.js.14a290a1.log",
+      "sha256": "4c0542cd486c5b2446d7a050ec880379552f2780ae4656b975a3108088a4e3b0"
+    },
+    {
+      "id": "IS-T1-TESTS-SIGNATURE-CACHE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_signature-cache.test.js.7275b5f4.log",
+      "sha256": "21bf01fd293b0582661465132eac87e89a39867cfd0de36ca697623b86a43f48"
+    },
+    {
+      "id": "IS-T1-TESTS-SIGNATURE-MAP-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_signature-map.test.js.4f903ced.log",
+      "sha256": "7cf3538bf4c89d2c036a02b1c025663d3ca3597b007ad691182199d7fc8e5a68"
+    },
+    {
+      "id": "IS-T1-TESTS-SIGNED-AUTHORITY-BUNDLE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_signed-authority-bundle.test.js.36ce9ab8.log",
+      "sha256": "9870f3b0278cfef4e4c46cd901e9d5981c784b632bbacb989336f055390f54b1"
+    },
+    {
+      "id": "IS-T1-TESTS-SIGNED-AUTHORITY-RECEIPT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_signed-authority-receipt.test.js.13231b5b.log",
+      "sha256": "03ae85f324babd099f01ab961b159e05eaf3360ce2d5ae860d127a129ff5a89d"
+    },
+    {
+      "id": "IS-T1-TESTS-SKILL-META-DETECTION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_skill-meta-detection.test.js.31ea2408.log",
+      "sha256": "b021e95a4d0231bbe70744b824ff79c94f947f2eef46bfe3878992c3035b6ad6"
+    },
+    {
+      "id": "IS-T2-TESTS-SMOKE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_smoke.test.js.035ee810.log",
+      "sha256": "8a4dca31638b85167a11f646876d6b4932973131900aaffab94ea2043029f2c2"
+    },
+    {
+      "id": "IS-T5-TESTS-SOAK-ATTACHMENT-HEAVY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_soak_attachment-heavy.test.js.028d4a9f.log",
+      "sha256": "4fa7d0426147179eaffb45a8b2ef6b66a268f009eae7c1eddfa29cd6a710f255"
+    },
+    {
+      "id": "IS-T5-TESTS-SOAK-BREAK-PATTERN-PROBE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_soak_break-pattern-probe.test.js.32abfca0.log",
+      "sha256": "3bebff978621da80817c2a7831699e331920cde860973015d79f5ba205b70b38"
+    },
+    {
+      "id": "IS-T5-TESTS-SOAK-FOLLOWUP-LOAD-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_soak_followup-load.test.js.9d0a2bbb.log",
+      "sha256": "90229fe8fd5234b4e98c1cc020d7d435c6914658d3bb0aa63d445363d974ede6"
+    },
+    {
+      "id": "IS-T5-TESTS-SOAK-MIXED-SESSION-SIMULATION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_soak_mixed-session-simulation.test.js.1854ca93.log",
+      "sha256": "ea6334e4a263bdeae79d9c19d4147edff1b2798e60e8a3b42b46c3df5b597bb7"
+    },
+    {
+      "id": "IS-T5-TESTS-SOAK-SHORT-INPUT-STRESS-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_soak_short-input-stress.test.js.5c6da97c.log",
+      "sha256": "a782a7c54a00b647874e999f6d0e580e9cc3caf9ec21effe0c16e141144281e7"
+    },
+    {
+      "id": "IS-T1-TESTS-SPECIALIST-BOUNDARY-RATCHET-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_specialist-boundary-ratchet.test.js.fe5330e3.log",
+      "sha256": "614c3e52ddd3863f75625bc6bb838a91fb02ee55f093756d97a2885167a99b3f"
+    },
+    {
+      "id": "IS-T1-TESTS-SPECIALIST-HANDLER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_specialist-handler.test.js.d87a4b91.log",
+      "sha256": "e637bb39ff0bce2d64f73be6eb283746266bab6c08609e256ff9bebf2c132dd4"
+    },
+    {
+      "id": "IS-T1-TESTS-SPECIALIST-LOADER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_specialist-loader.test.js.a3a77659.log",
+      "sha256": "3f10fdfffbccb9c345d3a76d4504bdea1d39b38329e7aece2fb2491ef7187717"
+    },
+    {
+      "id": "IS-T1-TESTS-SPECIALIST-REGISTRIES-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_specialist-registries.test.js.bf24136d.log",
+      "sha256": "b1f074935c99d7fb7a8784adc0d08b39a2616e504661de0d83efc27e83453115"
+    },
+    {
+      "id": "IS-T1-TESTS-SPECIALIST-RUNTIME-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_specialist-runtime.test.js.a85c3247.log",
+      "sha256": "c2eb81dd5021aae2929f27290cb32b9cad3f51c85a01e345d19eed7264e2dc11"
+    },
+    {
+      "id": "IS-T1-TESTS-STORAGE-ARCHITECTURE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_storage-architecture.test.js.ab625acc.log",
+      "sha256": "fc9edd8ba09ff49617fa3fc3839339120527fd2bff02ab89988e2f9687be947f"
+    },
+    {
+      "id": "IS-T1-TESTS-STUDIO-CDP-EVIDENCE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_studio-cdp-evidence.test.js.9c641f6c.log",
+      "sha256": "4305d3c3482195167dc5a79cbefd4ac6f89fc1f85c923ce12d02003f3101ddd7"
+    },
+    {
+      "id": "IS-T1-TESTS-STUDIO-ELECTRON-RUNNER-CONTRACT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_studio-electron-runner-contract.test.js.6ca72b4c.log",
+      "sha256": "5f0d33718759a3acdd2a053265a42b06f7fc6064486e0f70398a58725fc7bfee"
+    },
+    {
+      "id": "IS-T1-TESTS-SYMBOL-INDEX-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_symbol-index.test.js.3f5b6b47.log",
+      "sha256": "d9b9189f26c12efd5233ebd2de29117b949e48334f67a65065cdae426910085a"
+    },
+    {
+      "id": "IS-T1-TESTS-TASK-MEMORY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_task-memory.test.js.fecbeace.log",
+      "sha256": "3bd5997639d7addb5a5ed8884ba2879b71fcfd44e71c15d318a963d46968d418"
+    },
+    {
+      "id": "IS-T2-TESTS-TELEMETRY-AGGREGATION-VERSION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_telemetry-aggregation-version.test.js.cb07bde9.log",
+      "sha256": "cc2a4c2cf0005be36b112981b278dcf9565aeda4f7416bf65229ae349793bb8b"
+    },
+    {
+      "id": "IS-T1-TESTS-TELEMETRY-SOAK-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_telemetry-soak.test.js.ce4d8b6f.log",
+      "sha256": "63351a5fb769b51830c5745070df9efc24ed332c0922f681af354a748613faff"
+    },
+    {
+      "id": "IS-T1-TESTS-TELEMETRY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_telemetry.test.js.fc6a4cbb.log",
+      "sha256": "529638e162720c4c24b1f900ec00a9e5130b530398eb286f114813dddb48d0c3"
+    },
+    {
+      "id": "IS-T1-TESTS-TEST-COVERAGE-EXPLORER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_test-coverage-explorer.test.js.6399b7e8.log",
+      "sha256": "5cc26f40e3d606eed323fa15c2af0e519fcbef33e360c3f380e8f8d4f1bc0ae7"
+    },
+    {
+      "id": "IS-T1-TESTS-TIMEOUT-POLICY-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_timeout-policy.test.js.d35141af.log",
+      "sha256": "d93ca823133f579970c03d9247ed1e9ea3fb668d2a1983cea56d7f30f3254a29"
+    },
+    {
+      "id": "IS-T1-TESTS-TOOL-ADAPTER-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_tool-adapter.test.js.28116845.log",
+      "sha256": "97b4f6eea760b238cc5c690ac7f84db9fdf91a301b08deb6589df7e8f9732aef"
+    },
+    {
+      "id": "IS-T1-TESTS-TOOL-ENFORCEMENT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_tool-enforcement.test.js.4fdf838a.log",
+      "sha256": "6e94ec96df0267796f0860e6805323950250b01c5210d04c245b19705184fb51"
+    },
+    {
+      "id": "IS-T1-TESTS-TOOL-REGISTRY-E2E-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_tool-registry-e2e.test.js.17b582ac.log",
+      "sha256": "d2285910777ee83b3e69f1c2ee6ff7e3c0b61dcf740481c41bd60d99db7f7fba"
+    },
+    {
+      "id": "IS-T1-TESTS-TRUST-FEEDBACK-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_trust-feedback.test.js.2a3eab25.log",
+      "sha256": "f4660fda0562352be53216d8d438dbab8a5eceaf5428d08c9e6eac77f79c7226"
+    },
+    {
+      "id": "IS-T1-TESTS-UPGRADE-UX-V125-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_upgrade-ux-v125.test.js.3c8c114b.log",
+      "sha256": "84ee8faa17e3f3e2f8e6071f63ce9091415420ce1ed41ffa7599ee995e3a2cc5"
+    },
+    {
+      "id": "IS-T1-TESTS-V583-TIER1-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_v583-tier1.test.js.7e11e0df.log",
+      "sha256": "3e4b3c2d991aa4ebf480b0244cdd2d6930375c00df090050b618be65eb676d15"
+    },
+    {
+      "id": "IS-T3-TESTS-VRAM-COORDINATION-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_vram-coordination.test.js.ce95bd63.log",
+      "sha256": "ee00eb25e69b46bdadbe5029f8746d20590adaa46ebccaf9551cce5156a64275"
+    },
+    {
+      "id": "IS-T1-TESTS-VRAM-MEASUREMENT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_vram-measurement.test.js.a8bd317d.log",
+      "sha256": "09dca9424bd436d24c9974b6fe839182ed0db78b00c338556c1b7df7af6f403f"
+    },
+    {
+      "id": "IS-T1-TESTS-WHATLLM-CLIENT-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_whatllm-client.test.js.8c50c891.log",
+      "sha256": "2a222e68144e8ca4351fc5e82c602a790d1b5d525166402ed65b2d82b558987c"
+    },
+    {
+      "id": "IS-T1-TESTS-WORKERS-PHASE-B-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_workers-phase-b.test.js.1401de1c.log",
+      "sha256": "c3a389cb0ef5ae1eb36fb6f5605551a699e06ac628995b02169719a5716b1e87"
+    },
+    {
+      "id": "IS-T1-TESTS-WORKFLOW-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_workflow.test.js.fd67265b.log",
+      "sha256": "23d66ee07160c0bc1e964ad1ce8a239dcc89e9ef7b6c544a4ae44a81442c0100"
+    },
+    {
+      "id": "IS-T1-TESTS-WORKSPACE-BUDGET-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_workspace-budget.test.js.c7909519.log",
+      "sha256": "4a3c655c6b8724ae91980503385a95cae51c9562ef64db95cc25d534917fc4f1"
+    },
+    {
+      "id": "IS-T1-TESTS-WS-BRIDGE-TEST",
+      "status": "PASS",
+      "path": "deterministic/project-release-source/logs/tests_ws-bridge.test.js.5d681a8b.log",
+      "sha256": "f921d332bb49dfd6ba2136608c5a8b1fccbf1acce7bbc50a9e3adc6fd74abbdd"
+    }
+  ],
+  "artifacts": [
+    {
+      "path": "apparmor-profile-parse.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifact-final-import.log",
+      "bytes": 14021,
+      "sha256": "8b991f184a5030c7680b5c4948b1966127d9b689646769d3cfdf834225241103"
+    },
+    {
+      "path": "artifact-validation-second.log",
+      "bytes": 13425,
+      "sha256": "f52f3b750d7cd8d7f751d21f040b6e178db02e7090f12d6ed38b3f50e3b68476"
+    },
+    {
+      "path": "artifact-validation-ui.log",
+      "bytes": 13425,
+      "sha256": "f52f3b750d7cd8d7f751d21f040b6e178db02e7090f12d6ed38b3f50e3b68476"
+    },
+    {
+      "path": "artifact-validation-wire.log",
+      "bytes": 13425,
+      "sha256": "f52f3b750d7cd8d7f751d21f040b6e178db02e7090f12d6ed38b3f50e3b68476"
+    },
+    {
+      "path": "boundary-confirmed.log",
+      "bytes": 740,
+      "sha256": "173345b9711af22953480e97136a6e8e37b9f0b95cf2f7309c09060a72b2c94a"
+    },
+    {
+      "path": "boundary-final.log",
+      "bytes": 740,
+      "sha256": "bdfcc5a9b7483139511f34b2be1c0e0efbb5b8472f81af1cea64ac64369f7e5b"
+    },
+    {
+      "path": "boundary-first.log",
+      "bytes": 1793,
+      "sha256": "d940f4b91106aae782c7fa16027a7c6ec34155fba532bc5b535b9750a19f1b30"
+    },
+    {
+      "path": "boundary-import-final.log",
+      "bytes": 808,
+      "sha256": "c205c0e5dc546cddeb342869c45aad311fceabeba4fef92af9c696de271d46ea"
+    },
+    {
+      "path": "boundary-integrated-before.log",
+      "bytes": 2277,
+      "sha256": "8b0f07a151ba99d8a333366508ede58b986bc2193faf115d6a13e18cedab029d"
+    },
+    {
+      "path": "boundary-second.log",
+      "bytes": 2143,
+      "sha256": "d8a7dcc20bbe8d34b851b7fff3aaf12aae2c433ef67744502cf3e8bf2d3986df"
+    },
+    {
+      "path": "boundary-third.log",
+      "bytes": 2277,
+      "sha256": "368052221cc1868d69ad9a4c0730050e84ec7ce8388159654421e99b7a7c6821"
+    },
+    {
+      "path": "builder-context-final.log",
+      "bytes": 5120,
+      "sha256": "299cd5ae4c0d23727b3dea6346cf4f83019fd22e36075e744b508e8e800d4e24"
+    },
+    {
+      "path": "candidate-plan-second.log",
+      "bytes": 2271,
+      "sha256": "a9eafc2af2f18b3f946e7084f3e2c541b796df6a2517dba7056d9f75609036ea"
+    },
+    {
+      "path": "chat-flow-630f0a02-9835-460f-850a-7c756346353b.json",
+      "bytes": 4799,
+      "sha256": "a6f7baf52c42bfe376bfe8b7c2607a0fa6c876df606b0187d715463638c5c743"
+    },
+    {
+      "path": "chat-flow-72b8d85c-8651-4c8c-adeb-c02a2c913f25.json",
+      "bytes": 8653,
+      "sha256": "1bd2416da84e98c16e2f1ac2c9ae17600c1a443570f6601c28d503c1f48e6950"
+    },
+    {
+      "path": "chat-flow-ee9f6a24-b444-4fdf-b93c-ee52be9473fd.json",
+      "bytes": 9346,
+      "sha256": "d32af582eeb9c3f5180581a850dcc35a0c5dff9f144febcdae4a4a8b8a685144"
+    },
+    {
+      "path": "collaboration-clock-second.log",
+      "bytes": 31336,
+      "sha256": "a05618f27190f3b1ffeb15cd9d27615885a03725f019c0d12953e73ed88a8121"
+    },
+    {
+      "path": "collaboration-clock.log",
+      "bytes": 31338,
+      "sha256": "f506ff21e2bff1f0b3bb7b2aa2a0b5d90bd33db0acb55a59e44a8a31073b5fd8"
+    },
+    {
+      "path": "collaboration-context-final.log",
+      "bytes": 31746,
+      "sha256": "40bfa6fac9e7beb9364f83f0b554bdf8b4c71399f420515686676c39f44c44ae"
+    },
+    {
+      "path": "collaboration-fifth.log",
+      "bytes": 31050,
+      "sha256": "bed0f7eb45af911ab26f311f029f1573b73cfeeafd847292b729aef624b1580f"
+    },
+    {
+      "path": "collaboration-first.log",
+      "bytes": 3187,
+      "sha256": "b317bcff24deb0d2a96404fe76e53e590a6430121283e194c85a08bd5029ec62"
+    },
+    {
+      "path": "collaboration-fourth.log",
+      "bytes": 30279,
+      "sha256": "3ae8988f09b05793303e332c4f417e5d470779286981f05a6c0456879ad5661b"
+    },
+    {
+      "path": "collaboration-http.log",
+      "bytes": 30798,
+      "sha256": "0c0962e541336e8922b9934a7ebac7496043fb7b700eae9b54c20b0efdd4f2f0"
+    },
+    {
+      "path": "collaboration-import-guidance.log",
+      "bytes": 31338,
+      "sha256": "ea30bbbbbc75250be4cf5f99be64c1ed7575a2a217af2e7147be761386617ba3"
+    },
+    {
+      "path": "collaboration-registered.log",
+      "bytes": 293,
+      "sha256": "a27db4961800e4404903a51ac3176f0bc6593ffe0a2b28ef412c71b5ca4ce2c1"
+    },
+    {
+      "path": "collaboration-repair-budget.log",
+      "bytes": 31338,
+      "sha256": "9669c59e159e6aa26b774c0c3dceb0e01691fe62f34d63a00775100131c53be4"
+    },
+    {
+      "path": "collaboration-second.log",
+      "bytes": 2592,
+      "sha256": "124907c7a2a3117e0e1bf696ea7a05e551b84d3e215ca5b2ae5b3b85373db14e"
+    },
+    {
+      "path": "collaboration-seventh.log",
+      "bytes": 31052,
+      "sha256": "242ec268c27adc0eb86bfa7f2513efea0f9c3983f05fec403f0dcc466958e834"
+    },
+    {
+      "path": "collaboration-sixth.log",
+      "bytes": 31053,
+      "sha256": "0602ae04904e0693955aeed2473bff10b52d48242ff14235516d7e8fb55cef24"
+    },
+    {
+      "path": "collaboration-third.log",
+      "bytes": 30279,
+      "sha256": "4b9dcdf2da4f6bba8ab80b64a43c07827c54f56291412020740444d950d479e5"
+    },
+    {
+      "path": "deployment-pending.json",
+      "bytes": 1381,
+      "sha256": "5988c78790fe24ad94a15fe2517715f0d58deac5b24b2c4bfd195a610e30032f"
+    },
+    {
+      "path": "deployment.json",
+      "bytes": 2843,
+      "sha256": "c6c7b245c6780643c95abfb8a61f3d2dde320b8772aa9f09352b5542bd73b876"
+    },
+    {
+      "path": "desktop-profile-focused.log",
+      "bytes": 20391,
+      "sha256": "237948f1e552904e2f7f592b20d088092b903a61b209428085fb7b25a5cd9cd0"
+    },
+    {
+      "path": "deterministic-run.log",
+      "bytes": 23582,
+      "sha256": "2fd466a993e72000c9a933264d578fa30ed2b30b3dd58cb63603c70f3f83ca48"
+    },
+    {
+      "path": "deterministic-serial.log",
+      "bytes": 23570,
+      "sha256": "a78a2b32d29c7f5b006e28b687bfa5fca230534ed7fe995c6313e0d353280fb1"
+    },
+    {
+      "path": "deterministic-wire-final.log",
+      "bytes": 23562,
+      "sha256": "3f63527e512a462a88d245b4e8ac568b31f9c4a74057e15848b0a630e6f734c8"
+    },
+    {
+      "path": "fan-created.json",
+      "bytes": 2937,
+      "sha256": "289b93184bc45e2c7486bac5fea4ff9d367930518792d53456bbd955398fe7e5"
+    },
+    {
+      "path": "fan-draft.json",
+      "bytes": 302,
+      "sha256": "350e68c58d7babc145a714ab1b8c5c8c17ad29d28f2ddfd6d2d137ffeb544de0"
+    },
+    {
+      "path": "fan-identity.json",
+      "bytes": 419,
+      "sha256": "25f54c22e1db9b190778d8548f38c23b88cd6cc858b7e674e4fb8cdd57b2e657"
+    },
+    {
+      "path": "gate-context-final.log",
+      "bytes": 23559,
+      "sha256": "54e05fea7d38c7b2149f907113929c533716ca7e3748ca5ecf1ef08e22b8ba52"
+    },
+    {
+      "path": "gate-import-final.log",
+      "bytes": 23552,
+      "sha256": "de9ee3b94e95ab45ec65d248379b190015893ac8f111bd9d5e23e8390e2e068a"
+    },
+    {
+      "path": "gate-release-source.log",
+      "bytes": 23551,
+      "sha256": "aab3e8bfd6c0c94b3506b993fae0b967efc614d53e45fca292d38985da8073b1"
+    },
+    {
+      "path": "http-owned/program.log",
+      "bytes": 7175,
+      "sha256": "f62bf0ac9efaa86fe123df236a6867d02305b55317f74eae9fa6b60cc3535e70"
+    },
+    {
+      "path": "http-owned/result.json",
+      "bytes": 2274,
+      "sha256": "14c99c59cf38e39773f4d632a68247372344b6c365c420dd9d82a9547a38bee0"
+    },
+    {
+      "path": "http-run.log",
+      "bytes": 344,
+      "sha256": "800126517b57c9dfef8fa6e2594ea8445d6b138ddd39c4efc69adee3f1af8dc8"
+    },
+    {
+      "path": "ide-context-sandbox-probe.log",
+      "bytes": 288,
+      "sha256": "9ae4e9b5ec3a964312ae2f84b79cc15939f93161d88e63ae2b214351a90dbcce"
+    },
+    {
+      "path": "import-context-focused.log",
+      "bytes": 40777,
+      "sha256": "e970a43871f8551c7a17b491fd4b2e4cd90dfa5f08e12ab7f2074382736e76cc"
+    },
+    {
+      "path": "installation-output.log",
+      "bytes": 472,
+      "sha256": "14fe64ded49459388401b30d3491dc64b064fc1e085b239fb03bae74c8a785bc"
+    },
+    {
+      "path": "lifecycle-diagnostics.log",
+      "bytes": 4720,
+      "sha256": "ba430ec557fa2f7ad2f608a3a4da4122cb3e18955fb2598052d9b31db9eea512"
+    },
+    {
+      "path": "lifecycle-first.log",
+      "bytes": 5127,
+      "sha256": "3e9cd3a7c127327c47333ce8719d62dc0b0af3ce8de7074441f532edb304d062"
+    },
+    {
+      "path": "lifecycle-fourth.log",
+      "bytes": 4720,
+      "sha256": "ba430ec557fa2f7ad2f608a3a4da4122cb3e18955fb2598052d9b31db9eea512"
+    },
+    {
+      "path": "lifecycle-second.log",
+      "bytes": 4720,
+      "sha256": "ba430ec557fa2f7ad2f608a3a4da4122cb3e18955fb2598052d9b31db9eea512"
+    },
+    {
+      "path": "lifecycle-third.log",
+      "bytes": 4720,
+      "sha256": "ba430ec557fa2f7ad2f608a3a4da4122cb3e18955fb2598052d9b31db9eea512"
+    },
+    {
+      "path": "live-widget-plan.json",
+      "bytes": 27322,
+      "sha256": "1ba7951e0ea753e00429d4f1838f35041afc69fd6e9d5a1cec6994f418e2a0aa"
+    },
+    {
+      "path": "live-widget-result.json",
+      "bytes": 50036,
+      "sha256": "2b8765b9c4eb165a9333f77154952d49d78f22be608c0dd7dac6e6b9b1afc1cf"
+    },
+    {
+      "path": "live-widget-root-guide-denied.json",
+      "bytes": 767,
+      "sha256": "5ebe407f312242505c68c439d3ec72fe59a1a6ac86f785dbcf4599dadd2bcdfd"
+    },
+    {
+      "path": "live-widget-wrong-digest-rejected.json",
+      "bytes": 146,
+      "sha256": "b415f2dd4df6dfba204b3e3baea57e9fc383a6db9e2716b1c4c437d9df94541c"
+    },
+    {
+      "path": "m1-http-first.log",
+      "bytes": 31438,
+      "sha256": "49e36250dc3f33c1a630db0571175627458a00e2555e451519bef190957bcaef"
+    },
+    {
+      "path": "m1-http-second.log",
+      "bytes": 31015,
+      "sha256": "63cdb386d84a0ae2f8cdf94011a259ad09a1e0b4464e97a89ab0e93b8ddd5845"
+    },
+    {
+      "path": "m2-http.log",
+      "bytes": 1064,
+      "sha256": "4f433e49cf8666f1792eed084fa1136d646793bbeaa8071ddba865ca905b92d1"
+    },
+    {
+      "path": "original-project-preflight.json",
+      "bytes": 1150,
+      "sha256": "1982ff411a25460660167ede6c5cc5a01e0c7abec3551a73f42af980585b33ab"
+    },
+    {
+      "path": "original-scaffold-repair.json",
+      "bytes": 622,
+      "sha256": "69113fbe62d5fbdbad8af96a0a7e06289d255700fba2a6cb33f97b930c443398"
+    },
+    {
+      "path": "physical-preflight.json",
+      "bytes": 108,
+      "sha256": "210922266b6b3f20e369d349b8c05792372ee9309796573a45d17212f174cf7b"
+    },
+    {
+      "path": "physical-runtime.json",
+      "bytes": 2012,
+      "sha256": "435a2d418bfad7859c48e14dab703ab9663ec4fffcacd64abb8738bcdca68510"
+    },
+    {
+      "path": "privacy-http.log",
+      "bytes": 27503,
+      "sha256": "9469cd3a10844ed74f2bdb4de543515f687403d80c9856c29354c9c963c0a286"
+    },
+    {
+      "path": "quarantine-after.log",
+      "bytes": 29061,
+      "sha256": "a5ec5f56ae136da7f247ee53b467ddc9972acd53faa243a107924d8681f59085"
+    },
+    {
+      "path": "quarantine-baseline.log",
+      "bytes": 29061,
+      "sha256": "d046cca2a4d24a1a71913d7e243db212c66bf59166a6516036769e370d5879a4"
+    },
+    {
+      "path": "registry-first.log",
+      "bytes": 231,
+      "sha256": "04fcb1cc75b1ccf01eedbc6addea4778b1a8a354b797b12f3c97dbe12799a6e0"
+    },
+    {
+      "path": "release-prepared.json",
+      "bytes": 271,
+      "sha256": "84766804622014472f420acabae154b66966c28a217445b4a25b85d7a5eb87d1"
+    },
+    {
+      "path": "routes-first.log",
+      "bytes": 1910,
+      "sha256": "3dc4d8cdaaa93761601183da47e2c60601466fef713504a9eb812a66a7720ac7"
+    },
+    {
+      "path": "routing-first.log",
+      "bytes": 47552,
+      "sha256": "9e77aed6cef27ff6ff03124f09a15c0ffb8506a51350279fabcf7bf3a023b838"
+    },
+    {
+      "path": "studio-build.log",
+      "bytes": 10266,
+      "sha256": "185b4307264e0b9b4f9494f88e558f2a23d69988dac647ea6b62adffde7751d7"
+    },
+    {
+      "path": "studio-fifth.log",
+      "bytes": 8619,
+      "sha256": "6e4904b7b84ad6a96361864c729683ba57ee8e8de149f4916e934aeb2c3ae2c7"
+    },
+    {
+      "path": "studio-final-build.log",
+      "bytes": 10265,
+      "sha256": "9f6b1f2b23dd4d1876e8087f6df3ec239958634afd7bc6d6a90d8192edea1e92"
+    },
+    {
+      "path": "studio-first.log",
+      "bytes": 654481,
+      "sha256": "905af56c8ebaffd62e31005dc5f521f5982c9065a8c4ee4288ad6e28a78c6bad"
+    },
+    {
+      "path": "studio-fourth.log",
+      "bytes": 8373,
+      "sha256": "0fd705df34332f968aeba25a38fc945094c5971b5571018157e4d1fb8457e1bd"
+    },
+    {
+      "path": "studio-integrated-build.log",
+      "bytes": 10266,
+      "sha256": "62922e2db585c5dbe7c5236f7340987c766ef18eb0b50780b5e5c81ce3ed1d21"
+    },
+    {
+      "path": "studio-physical/capture-1789723104690.json",
+      "bytes": 3053,
+      "sha256": "f6fbec35bc71928d49a43417c1037f5b750523b889b75085af296669f57e1890"
+    },
+    {
+      "path": "studio-physical/capture-1789723497795.json",
+      "bytes": 5861,
+      "sha256": "dab26acb99038483efd6eea6275e32fd439fd2bc8b5f79bf31cfc5a0e0846736"
+    },
+    {
+      "path": "studio-physical/capture-1789723723589.json",
+      "bytes": 5804,
+      "sha256": "526fe933b4079f12d4104f09006ca60e357c4b9f7ce9d73db318fc3496c4560e"
+    },
+    {
+      "path": "studio-physical/capture-1789723995990.json",
+      "bytes": 44558,
+      "sha256": "aa3833b78721c8e1b7b81af82064281d79fd6c02e26fafb74bba8ce6625a43ad"
+    },
+    {
+      "path": "studio-physical/capture-1789724535695.json",
+      "bytes": 28070,
+      "sha256": "b798a2a0a8f95b952783e52a85769239de9b015865560eb4d4a3f3e7a79e7138"
+    },
+    {
+      "path": "studio-physical/capture-1789725152043.json",
+      "bytes": 3096,
+      "sha256": "88a1eef1c599b5cc56661f3c4b8638abe360317733f9607172d9badc8c41a81a"
+    },
+    {
+      "path": "studio-physical/capture-1789725445030.json",
+      "bytes": 3987,
+      "sha256": "6b86af0b19af00e60d8d80033f67b98ac58b01fc280acf2b39d370745f7b1462"
+    },
+    {
+      "path": "studio-physical/capture-1789725844025.json",
+      "bytes": 12977,
+      "sha256": "cac713b045448225dcb5f6eb814a16560e3aa03e64f88771107f0b6e746cf54d"
+    },
+    {
+      "path": "studio-physical/error.json",
+      "bytes": 1196,
+      "sha256": "e4fca8ee1cbf2668fba25aa3be6c6096c3108a00249d38dac3d0f1458dcfd3df"
+    },
+    {
+      "path": "studio-physical/first-plan.json",
+      "bytes": 13087,
+      "sha256": "afeaff1c49a98395a676d1419e1f576147bbce3b3016847f5aee017901b3278b"
+    },
+    {
+      "path": "studio-physical/foreign-before.json",
+      "bytes": 642,
+      "sha256": "5a49ba5579dcf177551777afa92008a34168ed60f01730a73d60a19b699ae22d"
+    },
+    {
+      "path": "studio-physical/foreign-import.json",
+      "bytes": 2952,
+      "sha256": "5f5109b592b594eca71441f93bb5f73debe5a4212b08b1144a97de6f77584812"
+    },
+    {
+      "path": "studio-physical/foreign-unchanged.json",
+      "bytes": 384,
+      "sha256": "27e6f5383b30c484e0f124b905d82e8be0839c4185796e2f4c4ed4eeffc2b4d7"
+    },
+    {
+      "path": "studio-physical/lifecycle-4804741f-594e-4ac4-8c62-8176e332f4ee.json",
+      "bytes": 49459,
+      "sha256": "f89b751310c3d23d1f134238f66fd7d92a32ec833ed2826515ef40911d95a38b"
+    },
+    {
+      "path": "studio-physical/lifecycle-52c18055-0fd5-4647-bc58-362645be6453.json",
+      "bytes": 9349,
+      "sha256": "f9718a71c34cb4c6b7f8a053ddd463b1ef522dfefc011155d6e39a0e60613de3"
+    },
+    {
+      "path": "studio-physical/lifecycle-98d1382d-be55-4e80-99a9-dd7470b755c6.json",
+      "bytes": 44905,
+      "sha256": "e9cd0157c1af5bbd2e2093584dad9bfac609f1a0bbebde56476eca83fc79ceae"
+    },
+    {
+      "path": "studio-physical/reviewed-widget-plan.json",
+      "bytes": 25456,
+      "sha256": "2a7908a179f2267aa41a45423a16cec7385b594041537c7624556a36594460ac"
+    },
+    {
+      "path": "studio-physical/reviewed-widget-result-detail.json",
+      "bytes": 18304,
+      "sha256": "0a4eadb0c49aeb90350bb643841977ef99d9a0a16cca868af520403db0448f71"
+    },
+    {
+      "path": "studio-physical/reviewed-widget-wasm-plan.json",
+      "bytes": 25497,
+      "sha256": "e95d7278dd6316d1581ac71ab20b4323d22d59a654de9d4582fed23bb053240a"
+    },
+    {
+      "path": "studio-physical/reviewed-widget-wasm-result.json",
+      "bytes": 18541,
+      "sha256": "9ab19476c5c26f6b797fa3db53c10e77e6d7dece1a78eef673a29bae241f57d0"
+    },
+    {
+      "path": "studio-physical/runtime.json",
+      "bytes": 2220,
+      "sha256": "c38592bd83f224a213755dd57e23e7c9969c1ed98c1c6a8f1b3fc08ef1292e6a"
+    },
+    {
+      "path": "studio-second.log",
+      "bytes": 8370,
+      "sha256": "6cc22ac9d2d5908ee9d9bfdf8a82b1fa196fb74d2843ef93132877b3f2cb4567"
+    },
+    {
+      "path": "studio-sixth.log",
+      "bytes": 8621,
+      "sha256": "334f0b42600b17e995f19a9c26f5877e3276ca077a2c7329106171ed015367c1"
+    },
+    {
+      "path": "studio-third.log",
+      "bytes": 8367,
+      "sha256": "41eb1084dd669e697d8b447936afe9ddd974a5792b0051b9ebb5df787d20cad2"
+    },
+    {
+      "path": "studio-wizard-build.log",
+      "bytes": 10269,
+      "sha256": "7cb2a5d923d46627261b0d81547a488d03e23cd0d048f0590309fcd01bd2b7aa"
+    },
+    {
+      "path": "studio-wizard-regression.log",
+      "bytes": 8887,
+      "sha256": "777fc0824a26521c29ced969eb23656171d0249fed83d3da30b21da48ef039a7"
+    },
+    {
+      "path": "systemd-sandbox-probe.log",
+      "bytes": 576,
+      "sha256": "e9d2b6e24a95d8906c2d9db5e78e623430895578315f92ff6b0fcba01c4ea23d"
+    },
+    {
+      "path": "user-widget-installation.json",
+      "bytes": 681,
+      "sha256": "e7396d0da44ce26b49041ac88539979ad7cae335a41af5a208ce3deea6d57119"
+    },
+    {
+      "path": "user-widget-test.log",
+      "bytes": 1856,
+      "sha256": "3771fd5f9facad6dfd5a0d2e8a189d2629e32f2485e7046509913be1e0fb613f"
+    },
+    {
+      "path": "wasm-profile-focused.log",
+      "bytes": 46963,
+      "sha256": "e3a4a90d7b335adbc9956041ed8eb4a57cc5a1de9f7317cb0822b9c737536432"
+    },
+    {
+      "path": "wasm-profile-retest.log",
+      "bytes": 5120,
+      "sha256": "4c1ceb389fcf1299b3a37580d6ec3d1edab7f161868df3a5bc15c4fadf28f5a5"
+    },
+    {
+      "path": "welcome-first.log",
+      "bytes": 4786,
+      "sha256": "653a0ab9bde6b12cb7e570bf265adb32396a97b3a87d2d3f1df9902474ad9281"
+    },
+    {
+      "path": "welcome-second.log",
+      "bytes": 3385,
+      "sha256": "b3a5ec2482da8415f71dc8a5aeb58cbc57f4488b81d81ed58f1941e378a9e4db"
+    },
+    {
+      "path": "widget-browser/actual-host.json",
+      "bytes": 813,
+      "sha256": "c822ee60a5353acd16a0dbbb8a68b2731ac95ca5ad125203bdd7102fa9c6f963"
+    },
+    {
+      "path": "widget-browser/actual-host.png",
+      "bytes": 68583,
+      "sha256": "4f4dfee5c4f3cdd95ebbdd066e1f3f5cd5cb60df6ff9186cd6d697e14744cec2"
+    },
+    {
+      "path": "widget-browser/synthetic-graph.json",
+      "bytes": 709,
+      "sha256": "2edce4a5d30f89a931e1ebcd6ec256d776d796609d2bfa619ccde69b34340f58"
+    },
+    {
+      "path": "widget-browser/synthetic-graph.png",
+      "bytes": 59398,
+      "sha256": "854a74cdbd39ab4f363ac5f6a1e94a78cff0fda37ca79fe06c6b90dc5afe31d0"
+    },
+    {
+      "path": "widget-browser-fixture-retest.log",
+      "bytes": 689,
+      "sha256": "7fa45b04d32386401661a38d7489c196f5f8127e07997ecd604a438c93056556"
+    },
+    {
+      "path": "widget-browser-fixture.log",
+      "bytes": 191,
+      "sha256": "decfc7e888d8c1842377955a1e443aec14329751b564e5593e3ca1a6c25565b9"
+    },
+    {
+      "path": "widget-browser-retest.log",
+      "bytes": 797,
+      "sha256": "b5facb5854991bb74c02bd6db9628012359a0cf378d2f56b60162f09101910dd"
+    },
+    {
+      "path": "widget-browser.log",
+      "bytes": 69,
+      "sha256": "6e4ec056ddba630010de42601d8407e699da1cfdd41c5fb06a6814493f124f0d"
+    },
+    {
+      "path": "widget-limited-wasm.log",
+      "bytes": 1856,
+      "sha256": "40a9423791d7255b3685c3819c7487fad8e721b2cb57906b07b13a387fe64087"
+    },
+    {
+      "path": "widget-unit.log",
+      "bytes": 1856,
+      "sha256": "43f8f925089a879ec14a56a8c2cf1c2677edd6a4b7984355f62094b04291f8ea"
+    },
+    {
+      "path": "ws-proposal.log",
+      "bytes": 34958,
+      "sha256": "17e9168c744d82f718f0ce4dc1ab7c29d97afde60147cea9806027eb9e471da3"
+    }
+  ],
+  "deployment": {
+    "oldRevision": "9298ef46e776e59cee01dc5e4354ae1b0d552c4e",
+    "revision": "5e46fca704098d9269bf6d00275d6c54be33e026",
+    "userDataUnchanged": true,
+    "dataAfter": {
+      "projects": {
+        "rows": 11,
+        "sha256": "55f732b176fac824cf3dc14a71a5f9e27b978111c3896997e2e2d9faeffcef60"
+      },
+      "conversations": {
+        "rows": 35,
+        "sha256": "2f5303f7cc9c7c3fc8fbf545ab4f2211d945101f679384a8d67bebdd8682d581"
+      },
+      "messages": {
+        "rows": 11,
+        "sha256": "6f27b36ad7d3b822c683c4bd39ad59310ff63d3810f429b4296ee7aae0f0ae2a"
+      },
+      "user_settings": {
+        "rows": 1,
+        "sha256": "02ff0569a91c66bd16f40939ab81fdd729a0135e795ded3999cf18d31b690fb1"
+      },
+      "integrity": "ok",
+      "foreignKeyErrors": 0
+    },
+    "backendState": "active",
+    "timerState": "active"
+  },
+  "userWidget": {
+    "mode": "CODEX_REVIEWED_INSTALL_NOT_PRODUCTION_M2_SUCCESS",
+    "beforeHead": "40e596f7b179ccd4075b8659254790a22591e790",
+    "files": {
+      "src/sensors.mjs": "13dca5c9c9a95ddbd4cb6f905c217c6f8684d6bb4f12be4e047e423da9b9e9f0",
+      "src/history.mjs": "48f616f00bc1b8c90244c9fc5427b1c6080a47652dd63ebd9559e1276aa90a01",
+      "src/index.mjs": "2aa218a307b65936fdf09f6a7a7f608bae977b1759f5f6e0375f5e3342ebe8e6",
+      "public/index.html": "8dc6f38e0f5949ce17e38e17c9a0125e9c29d7324cee7ae1e6171fb739bc5c4c",
+      "test/acceptance.test.mjs": "7eb945040ead1f46a049488b75787878be5eccf9d646580cc506d06c0090ef16"
+    },
+    "afterHead": "7fbacd8aabc1cfde36c1636bf687b4b818c6f00d",
+    "clean": true
+  },
+  "physicalScope": {
+    "realModels": {
+      "D1": {
+        "name": "qwen3.5:27b",
+        "digest": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e"
+      },
+      "CODE": {
+        "name": "qwen3.8:latest",
+        "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643"
+      }
+    },
+    "standaloneModelWidgetCompletion": "UNPROVEN",
+    "reviewedCodexWidgetInIsolatedStudio": "PASS",
+    "productionM2Widget": "BLOCKED_APPARMOR_WITH_ROLLBACK",
+    "externalFixtureAnalysis": "PASS_READ_ONLY_BOUNDED",
+    "physicalRpmSensors": 0,
+    "graphEvidence": "EXPLICIT_SYNTHETIC_FIXTURE"
+  },
+  "artifactRoot": ".intentsmith-artifacts/project-flow-20260918"
+}

@@ -1,5 +1,14 @@
 # IntentSmith — mapa systému
 
+**Projektový flow, 2026-09-18:** nasazeno `5e46fca7`, nový projekt → návrh →
+přesný M2 krok; existující cizí projekt → čtecí analýza → cíl a priority.
+Úplný gate 358 PASS / 1 FAIL (nezměněná release pečeť), Studio build PASS.
+Skutečný systemd M2 průchod je **BLOCKED AppArmorem**; privátní IDE/Studio
+zkouška tento provozní problém neodhalila. Profil a postup připravené, vyžadují
+heslo správce. REVIEW_PENDING, bez tvrzení production-ready.
+[Packet a přesné meze](docs/review/2026-09-18-PROJECT-FLOW.md).
+
+
 **Základ změřen 2026-08-02 na `17a8b9a8`; pre-fix OS-isolated scan proběhl na
 `24457ba2`; registry klasifikace byla opravena v `06309bc8`, post-fix scan
 aktuálního registru proběhl na `a85c344f` a izolovaný HTTP/restart baseline na
@@ -12,7 +21,7 @@ skutečný server/SQLite/Ollamu i kontrolované negativní terminály.**
 Neutrální dokument, nezávislý na nástroji.
 Pravidla vývoje: [`CONTRACT.md`](CONTRACT.md) · Detail: [`docs/inventory/`](docs/inventory/)
 
-**Aktuální instalace po opravě evaluace, 2026-09-17: `2f150ce7`.** Ruční
+**Předchozí instalace po opravě evaluace, 2026-09-17: `2f150ce7`.** Ruční
 výběr modelu už ověřuje skutečné pole digestu v inventáři; Studio zobrazuje
 fázi, úlohu, opakování, počty a podložený odhad času. Živý Qwen3.5:27b/CODE
 na 8d1da07e dokončil 21 vyhodnocení, skóre 2/7, RESPONSE_BOUND; finální API

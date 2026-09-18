@@ -1,0 +1,10 @@
+# Permit Ubuntu's namespace setup for the root-owned bubblewrap executable.
+# M2 still applies --unshare-all, --disable-userns, --cap-drop ALL, read-only
+# mounts, exact argv and resource limits. This does not disable AppArmor globally.
+abi <abi/4.0>,
+include <tunables/global>
+
+profile intentsmith-bwrap /usr/bin/bwrap flags=(unconfined) {
+  userns,
+  include if exists <local/intentsmith-bwrap>
+}

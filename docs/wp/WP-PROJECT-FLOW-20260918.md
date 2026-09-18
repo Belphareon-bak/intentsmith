@@ -33,3 +33,8 @@ tests, production Studio build, module boundaries and registered deterministic
 gate. Label injected-model evidence separately from real-model evidence. Real
 inference uses the shared GPU admission path after checking the current owner.
 Record all failures, incomplete journeys and acceptance limits in the packet.
+
+Status 2026-09-18: implementation installed on `5e46fca7`; independent review pending.
+Production systemd sandbox BLOCKED by AppArmor; prepared profile requires admin
+authentication. Standalone successful local-model widget completion remains unproven.
+Full evidence and remaining work: [review packet](../review/2026-09-18-PROJECT-FLOW.md).
