@@ -22,6 +22,11 @@ export function quotedPath(value) {
   if (typeof value !== 'string' || !value.startsWith('/') || /[\r\n\0"\\$%`]/.test(value)) throw new Error('DESKTOP_PATH_UNSUPPORTED');
   return `"${value}"`;
 }
+export function normalizeAdminEnvironment(value) {
+  const match = typeof value === 'string' && /^(?:INTENTSMITH|C3)_ADMIN_TOKEN=([A-Za-z0-9_-]{43,128})\n$/.exec(value);
+  if (!match) throw new Error('ADMIN_CREDENTIAL_FILE_INVALID');
+  return `INTENTSMITH_ADMIN_TOKEN=${match[1]}\n`;
+}
 export function renderDesktopInstallation(config) {
   const { sourceRoot, node, dbPath, stateDirectory, configDirectory, icon } = config;
   for (const v of [sourceRoot, node, dbPath, stateDirectory, configDirectory, icon]) quotedPath(v);
@@ -30,7 +35,7 @@ export function renderDesktopInstallation(config) {
     INTENTSMITH_INSTALLATION_FILE: join(configDirectory, 'installation.json'),
     INTENTSMITH_HUNT_STATE_DIR: join(stateDirectory, 'model-hunt'),
     INTENTSMITH_PDF_PYTHON: config.pdfPython,
-  }).filter(([,v]) => v).map(([k,v]) => `${k}=${quotedPath(v)}`).join('\n') + '\nNODE_ENV=production\nC3_HOST=127.0.0.1\nC3_PORT=0\n';
+  }).filter(([,v]) => v).map(([k,v]) => `${k}=${quotedPath(v)}`).join('\n') + '\nNODE_ENV=production\nINTENTSMITH_HOST=127.0.0.1\nINTENTSMITH_PORT=0\n';
   // These directives consume a single literal path, not ExecStart's argv grammar.
   // Quoting them becomes part of the path and systemd rejects/ignores the value.
   const common = `WorkingDirectory=${sourceRoot}\nEnvironmentFile=${envFile}\nUMask=0077\nKillMode=control-group\n`;

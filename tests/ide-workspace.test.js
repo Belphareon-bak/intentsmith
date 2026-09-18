@@ -90,3 +90,34 @@ test('draft snapshots cannot copy a closed conversation draft into its replaceme
   c._snapshotWorkspaceDrafts();assert.equal(old.chat._draft,'private draft');
   c._closeWorkspaceConversation(0);c._snapshotWorkspaceDrafts();assert.equal(c._sessions[0].chat._draft,undefined);
 });
+test('opening another entity cannot consume an untouched specialist, draft, attachment, file or terminal workspace',()=>{
+  const c=harness();vm.runInContext(fn('_isSessionEmpty'),c);
+  assert.equal(c._isSessionEmpty(c._mkSession()),true);
+  for(const fill of [s=>s.chat.specialist={id:'accountant-cz'},s=>s.chat._draft='draft',s=>s.chat.attachments.push({name:'notes'}),s=>s._editor.tabs.push({id:'file'}),s=>s.term.push({text:'command output'}),s=>s.chat.msgs=[{role:'user',text:'question'}]]){
+    const owner=c._mkSession();fill(owner);assert.equal(c._isSessionEmpty(owner),false);
+  }
+});
+test('catalog navigation takes the center even while the owning session keeps an open editor',()=>{
+  const c=vm.createContext({_workspaceShown:()=>false,_centerState:{view:'projects',detail:null},_editorState:{active:true},
+    _expertiseWizard:{active:false},_agentWizard:{active:false},_projectWizard:{active:false},_specialistWizard:{active:false},
+    C:{},React:{Fragment:'fragment'},h:(tag,props,...children)=>({tag,props,children}),centerProjects:()=> 'PROJECT_CATALOG',centerEditor:()=>{throw Error('editor stole catalog');}});
+  vm.runInContext(fn('CenterApp'),c);assert.match(JSON.stringify(c.CenterApp()),/PROJECT_CATALOG/);assert.equal(c._editorState.active,true);
+});
+test('late project tree responses stay with their owner and cannot replace the selected session tree',async()=>{
+  const c=harness(),pending=[];Object.assign(c,{_backendBase:'http://fixture',AbortSignal,_collapsedDirs:{},renderSidebar(){},_fetchGitStatus(){},fetch:()=>new Promise(resolve=>pending.push(resolve))});
+  for(const name of ['_flattenTree','_loadTreeState','_loadWorkspaceTree'])vm.runInContext(fn(name),c);
+  const first=c._loadWorkspaceTree('/first',0);c._sessionActive=1;const second=c._loadWorkspaceTree('/second',1);
+  pending[1]({ok:true,json:async()=>({root:'/second',tree:[{n:'second.txt',d:false}]})});await second;
+  pending[0]({ok:true,json:async()=>({root:'/first',tree:[{n:'first.txt',d:false}]})});await first;
+  assert.equal(c._wtRoot,'/second');assert.equal(c.FILES[0].n,'second.txt');assert.equal(c._perSessionTree[0].files[0].n,'first.txt');
+  const third=c._loadWorkspaceTree('/stale',0);c._sessions[0]=c._mkSession();pending[2]({ok:true,json:async()=>({root:'/stale',tree:[{n:'private.txt'}]})});await third;
+  assert.equal(c._wtRoot,'/second');assert.equal(c._perSessionTree[0].files.length,0);
+});
+test('desktop upgrades preserve the exact administrator credential under the canonical name',async()=>{
+  const {normalizeAdminEnvironment,renderDesktopInstallation}=await import('../scripts/desktop-runtime.mjs');
+  const token='D'.repeat(43);
+  for(const prefix of ['C3','INTENTSMITH'])assert.equal(normalizeAdminEnvironment(prefix+'_ADMIN_TOKEN='+token+'\n'),'INTENTSMITH_ADMIN_TOKEN='+token+'\n');
+  for(const body of ['C3_ADMIN_TOKEN=short\n','C3_ADMIN_TOKEN='+token+'\nEXTRA=1\n','C3_ADMIN_TOKEN='+token+'\nINTENTSMITH_ADMIN_TOKEN='+token+'\n'])assert.throws(()=>normalizeAdminEnvironment(body),/ADMIN_CREDENTIAL_FILE_INVALID/);
+  const config={sourceRoot:'/source',node:'/node',dbPath:'/data/legacy.db',stateDirectory:'/state',configDirectory:'/config',icon:'/icon.png'};
+  const env=renderDesktopInstallation(config).environment;assert.match(env,/INTENTSMITH_HOST=127\.0\.0\.1/);assert.match(env,/INTENTSMITH_PORT=0/);assert.doesNotMatch(env,/\nC3_/);
+});

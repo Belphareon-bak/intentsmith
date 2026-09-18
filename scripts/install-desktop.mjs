@@ -8,7 +8,7 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import Database from 'better-sqlite3';
 import { runMigrations } from '../src/db/migrate.js';
-import { ROOT, refreshDesktopCaches, renderDesktopInstallation, verifyDesktopUnits, writePrivate, waitForBackend } from './desktop-runtime.mjs';
+import { ROOT, normalizeAdminEnvironment, refreshDesktopCaches, renderDesktopInstallation, verifyDesktopUnits, writePrivate, waitForBackend } from './desktop-runtime.mjs';
 const exec = promisify(execFile);
 const arg = name => process.argv.find(v => v.startsWith(`--${name}=`))?.slice(name.length + 3);
 const systemctl = args => exec('/usr/bin/systemctl', ['--user', ...args], { timeout: 40000 });
@@ -54,7 +54,7 @@ try {
   const metadata = await lstat(adminFile);
   if (!metadata.isFile() || metadata.uid !== process.getuid() || (metadata.mode & 0o077)) throw new Error('ADMIN_CREDENTIAL_FILE_UNSAFE');
   adminEnvironment = await readFile(adminFile,'utf8');
-  if (!/^INTENTSMITH_ADMIN_TOKEN=[A-Za-z0-9_-]{43,128}\n$/.test(adminEnvironment)) throw new Error('ADMIN_CREDENTIAL_FILE_INVALID');
+  adminEnvironment = normalizeAdminEnvironment(adminEnvironment);
 } catch (error) {
   if (error.code !== 'ENOENT') throw error;
   adminEnvironment = `INTENTSMITH_ADMIN_TOKEN=${randomBytes(32).toString('base64url')}\n`;

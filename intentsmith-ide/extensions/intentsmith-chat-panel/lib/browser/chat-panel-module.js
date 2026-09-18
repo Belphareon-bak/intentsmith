@@ -369,45 +369,47 @@ function _switchSession(newIdx){
   _syncFocusClass();renderCenter();renderChat();renderAgent();
 }
 /* ── Flatten nested tree respecting collapsed state ── */
-function _flattenTree(nodes,depth,parentPath){
+function _flattenTree(nodes,depth,parentPath,collapsed){
+  collapsed=collapsed||_collapsedDirs;
   var result=[];
   (nodes||[]).forEach(function(node){
     var fp=parentPath?parentPath+'/'+node.n:node.n;
     var entry={n:node.n,d:!!node.d,i:depth,fp:fp,_children:node.children||null};
     result.push(entry);
-    if(node.d&&node.children&&!_collapsedDirs[fp]){
-      result=result.concat(_flattenTree(node.children,depth+1,fp));
+    if(node.d&&node.children&&!collapsed[fp]){
+      result=result.concat(_flattenTree(node.children,depth+1,fp,collapsed));
     }
   });
   return result;
 }
 /* ── Load real filesystem tree from backend ── */
-function _loadWorkspaceTree(rootPath){
+function _loadWorkspaceTree(rootPath,ownerIdx){
   if(!rootPath)return;
-  _wtLoading=true;renderSidebar();
-  fetch(_backendBase+'/api/workspace/tree?path='+encodeURIComponent(rootPath),{signal:AbortSignal.timeout(8000)})
-  .then(function(r){return r.json();})
+  var idx=typeof ownerIdx==='number'?ownerIdx:_sessionActive,s=_sessions[idx];if(!s||s._closed)return;
+  var token={};s._treeLoadToken=token;
+  _perSessionTree[idx]={wtRoot:rootPath,collapsedDirs:{},rawTree:null,files:[]};
+  if(idx===_sessionActive){_wtRoot=rootPath;_wtLoading=true;renderSidebar();}
+  function current(){return _sessions[idx]===s&&!s._closed&&s._treeLoadToken===token;}
+  return fetch(_backendBase+'/api/workspace/tree?path='+encodeURIComponent(rootPath),{signal:AbortSignal.timeout(8000)})
+  .then(function(r){if(!r.ok)throw Error('Strom projektu nelze načíst.');return r.json();})
   .then(function(data){
-    _wtLoading=false;
+    if(!current())return;
     if(data.tree){
-      _wtRoot=data.root||rootPath;
-      _wtRawTree=data.tree;
-      /* v64.2: Collapse all top-level dirs on initial load */
-      (data.tree||[]).forEach(function(node){if(node.d)_collapsedDirs[node.n]=true;});
-      FILES=_flattenTree(data.tree,0,null);
+      var collapsed={};data.tree.forEach(function(node){if(node.d)collapsed[node.n]=true;});
+      _perSessionTree[idx]={wtRoot:data.root||rootPath,rawTree:data.tree,collapsedDirs:collapsed,files:_flattenTree(data.tree,0,null,collapsed)};
     }
-    renderSidebar();
-    _fetchGitStatus();
-  }).catch(function(){_wtLoading=false;renderSidebar();});
+    if(idx===_sessionActive){_wtLoading=false;_loadTreeState(idx);_fetchGitStatus();}
+  }).catch(function(){if(current()&&idx===_sessionActive){_wtLoading=false;renderSidebar();}});
 }
 /* ── Fetch git status and merge into file entries ── */
 var _gitStatusTimer=null;
 function _fetchGitStatus(){
   if(!_wtRoot)return;
-  fetch(_backendBase+'/api/workspace/git-status?path='+encodeURIComponent(_wtRoot),{signal:AbortSignal.timeout(3000)})
+  var idx=_sessionActive,owner=_sessions[idx],root=_wtRoot;
+  fetch(_backendBase+'/api/workspace/git-status?path='+encodeURIComponent(root),{signal:AbortSignal.timeout(3000)})
   .then(function(r){return r.json();})
   .then(function(data){
-    if(!data.files)return;
+    if(!data.files||_sessionActive!==idx||_sessions[idx]!==owner||_wtRoot!==root)return;
     FILES.forEach(function(f){
       if(f.d)return;
       var fp=f.fp;
@@ -944,7 +946,7 @@ function renderCenter(){_snapshotWorkspaceDrafts();_syncWorkspacePanels();if(!_c
 function CenterApp(){
   if(_workspaceShown())return WorkspaceApp();
   var view=_centerState.view,detail=_centerState.detail;
-  var isOverlay=_expertiseWizard.active||_agentWizard.active||_projectWizard.active||_specialistWizard.active||_editorState.active;
+  var isOverlay=_expertiseWizard.active||_agentWizard.active||_projectWizard.active||_specialistWizard.active;
   var mainContent=isOverlay?(
     _expertiseWizard.active?centerExpertiseWizard():
     _agentWizard.active?centerAgentWizard():
@@ -1289,7 +1291,7 @@ function _openRegisteredProject(idx,proj){
   s.chat._projectWorkProposal=null;s.chat._m2Composer=null;s.chat._m2ComposerOpen=false;
   s.chat.msgs=[{role:'system',text:'Načítám projekt: '+proj.name}];s.chat.ctx=0;s._conversationFocus=false;
   s.log=[];s.term=[{text:'$ ',ts:new Date().toISOString(),type:'prompt'}];
-  if(proj.path){_wtRoot=proj.path;_loadWorkspaceTree(proj.path);}
+  if(proj.path)_loadWorkspaceTree(proj.path,idx);
   _syncFocusClass();_persistSessionState();renderChat();
   function current(){return _sessions[idx]===s&&s._openToken===token&&s._projectId===proj.id;}
   function read(url,options){return fetch(_backendBase+url,Object.assign({signal:AbortSignal.timeout(5000)},options||{})).then(function(r){return r.json().then(function(body){if(!r.ok)throw new Error(body.error||'Načtení selhalo ('+r.status+').');return body;});});}
@@ -1376,7 +1378,7 @@ function _doOpenExistingProject(folderPath){
       var projName=(proj&&proj.name)||folderPath.split('/').filter(Boolean).pop()||'Projekt';
       var _welcomeMsg=res.welcomeMessage||null;
       /* Open working tree */
-      _wtRoot=realPath;_loadWorkspaceTree(realPath);
+      _loadWorkspaceTree(realPath,_ti);
       /* Link to routed session */
       var _ts=_sessions[_ti];
       if(proj&&proj.id){
@@ -1438,7 +1440,7 @@ function _wizardSubmit(){
       var projId=created.id||(created.project&&created.project.id);
       if(projId){_ts._projectId=projId;_ts._conversationFocus=false;_syncFocusClass();_persistSessionState();}
       _ts._label=projName;
-      if(realPath){_wtRoot=realPath;_loadWorkspaceTree(realPath);}
+      if(realPath)_loadWorkspaceTree(realPath,_ti);
       /* Reset session for new project */
       _ts._convId=null;_ts._agentId=null;_ts._lifecycleResumed=false;_ts._m2Pending=null;
       _ts.chat._projectWorkProposal=null;_ts.chat._m2Composer=null;_ts.chat._m2ComposerOpen=false;
@@ -5204,7 +5206,13 @@ function _focusFileExists(s,name,path){return s._focusFiles.some(function(x){ret
 function _relativeTime(ts){if(!ts)return '';var d=Date.now()-ts;if(d<60000)return 'teď';if(d<3600000)return Math.round(d/60000)+' min';if(d<86400000)return Math.round(d/3600000)+' h';return Math.round(d/86400000)+' d';}
 
 /* v90: Relay helpers */
-function _isSessionEmpty(s){return !s._closed&&!s._convId&&!s._projectId&&(!s.chat||!s.chat.msgs||s.chat.msgs.length<=1);}
+function _isSessionEmpty(s){
+  return !!s&&!s._closed&&!s._convId&&!s._projectId&&!s._agentId&&!s._m2Pending
+    &&!(s._editor&&s._editor.tabs.length)&&!(s.term&&s.term.length>1)
+    &&(!s.chat||(!s.chat.specialist&&!s.chat._thinking&&!s.chat._m2Busy
+      &&!(s.chat._draft||'').trim()&&!(s.chat.attachments&&s.chat.attachments.length)
+      &&(!s.chat.msgs||s.chat.msgs.length<=1&&s.chat.msgs.every(function(m){return m.role==='system';}))));
+}
 function _findFreeRelay(excludeIdx){for(var i=0;i<_sessionCount;i++){if(i===excludeIdx||_sessions[i]._closed)continue;if(_isSessionEmpty(_sessions[i]))return i;}return -1;}
 /* v90: Relay picker dialog state */
 var _relayPickDialog=null; /* null | {callback, action} */
