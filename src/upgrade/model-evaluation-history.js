@@ -300,7 +300,7 @@ export class ModelEvaluationHistory {
     if (existing && input.fresh !== true) return Object.freeze({ ...existing, reused: true });
 
     const summary = input.summary || {};
-    const score = Number(summary.score);
+    const score = summary.score;
     if (!Number.isFinite(score) || score < 0 || score > 1) {
       throw new TypeError('complete evaluation score must be between 0 and 1');
     }

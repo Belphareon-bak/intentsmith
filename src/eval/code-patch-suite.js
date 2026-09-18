@@ -32,6 +32,7 @@ import { logger } from '../core/logger.js';
 import { ModelEvaluationRunner } from './model-evaluation-runner.js';
 import {
   applyAndTest, buildPrompt, deriveTask, extractFunctionCodes, normalizedGain,
+  CODE_EVALUATION_OUTCOME,
 } from './code-patch-runner.js';
 import { codeTaskName } from './build-code-suite.js';
 
@@ -84,6 +85,7 @@ function taskFromSnapshot(entry) {
     functionCount: spans.length,
     functionLines: spans.reduce((sum, span) => sum + span.endLine - span.startLine + 1, 0),
     requirements: [...snapshot.requirements],
+    oracleAcceptance: entry.oracleAcceptance || null,
   };
 }
 
@@ -108,6 +110,7 @@ function hydrateRuntimeTask(repo, task) {
     failToPass: [...(task.failToPass || [])],
     passToPass: [...(task.passToPass || [])],
     knownFailing: [...(task.knownFailing || [])],
+    oracleAcceptance: task.oracleAcceptance,
   };
 }
 
@@ -150,8 +153,8 @@ export function loadFixtureTasks(repo = REPO_ROOT, fixturePath = FIXTURE, opts =
     // Fail closed: missing/pending/unknown status is not decision evidence.
     if (!statusSet.size && !onlyPending && !includeReserve && entry.status !== 'active') continue;
     const task = taskFromSnapshot(entry);
-    // Cílové sady jsou odvozené při kurátorské stavbě; přeměřovat je při každém
-    // běhu by znamenalo dva testovací běhy navíc na úlohu a nic by to nepřineslo.
+    // Identita cílových kontrol pochází z kurátorské stavby. Před inferencí
+    // ověříme jejich funkčnost na gold/broken/alternative; cíle nepředefinujeme.
     task.scoreMode = entry.scoreMode || 'named';
     task.failToPass = entry.failToPass || [];
     task.passToPass = entry.passToPass || [];
@@ -203,8 +206,22 @@ export function buildTests(repo = REPO_ROOT, tasks = null) {
       options: MODEL_OPTIONS,
       promptText,
       prepare: () => {
-        if (!runtimeTask) runtimeTask = hydrateRuntimeTask(repo, task);
+        runtimeTask = hydrateRuntimeTask(repo, task);
         return runtimeTask;
+      },
+      validateOracle: () => {
+        const target = runtimeTask || hydrateRuntimeTask(repo, task);
+        const gold = applyAndTest(repo, target, target.goldTexts);
+        const broken = applyAndTest(repo, target, target.functionTexts);
+        const alternative = target.oracleAcceptance?.alternativeTexts
+          ? applyAndTest(repo, target, target.oracleAcceptance.alternativeTexts) : null;
+        if (gold.valid !== true || gold.score !== 1 || broken.valid !== true
+          || broken.timedOut || broken.score !== 0
+          || alternative?.valid !== true || alternative.score < 0.9) {
+          throw new CodePatchRuntimeError(task,
+            `oracle controls failed: gold=${gold.score}, alternative=${alternative?.score}, broken=${broken.score}; ${gold.reason || alternative?.reason || broken.reason || ''}`);
+        }
+        return { verified: true, gold: gold.score, alternative: alternative.score, broken: broken.score };
       },
       prompt: () => ({ text: promptText, _task: runtimeTask || task }),
       contractMaterial: Object.freeze({
@@ -224,6 +241,7 @@ export function buildTests(repo = REPO_ROOT, tasks = null) {
           failToPass: Object.freeze([...(task.failToPass || [])]),
           passToPass: Object.freeze([...(task.passToPass || [])]),
           knownFailing: Object.freeze([...(task.knownFailing || [])]),
+          oracleAcceptance: task.oracleAcceptance,
         }),
       }),
       grade: (response, ctx) => {
@@ -235,13 +253,19 @@ export function buildTests(repo = REPO_ROOT, tasks = null) {
         const result = applyAndTest(repo, target, codes);
         // Podlaha je z definice nula: test, který procházel i před opravou, není
         // cílový.  `normalizedGain` tak jen ořízne případné zhoršení na nulu.
-        const gain = normalizedGain(result.score, 0);
+        const gain = result.valid ? normalizedGain(result.score, 0) : null;
         return {
+          valid: result.valid,
+          outcome: result.outcome,
+          timedOut: result.timedOut,
           passed: result.passed,
           score: gain,
           // Diagnostika: odlišuje „nepochopil vadu" od „nezvládl tvar odpovědi".
           detail: {
             rawScore: result.score,
+            valid: result.valid,
+            outcome: result.outcome,
+            timedOut: result.timedOut,
             syntaxOk: result.syntaxOk,
             applied: result.applied,
             targetedPassed: result.targetedPassed,
@@ -288,7 +312,10 @@ export class CodePatchEvaluationRunner extends ModelEvaluationRunner {
     const defs = this._suite.tests;
     // Resolve every historical oracle before the first provider call. Missing
     // git history is infrastructure BLOCKED, never a zero-quality model run.
-    for (const definition of defs) definition.prepare?.();
+    for (const definition of defs) {
+      definition.prepare?.();
+      definition.validateOracle?.();
+    }
     for (let i = 0; i < defs.length; i++) {
       if (this._cancelled) break;
       onProgress?.({
@@ -299,18 +326,22 @@ export class CodePatchEvaluationRunner extends ModelEvaluationRunner {
       const result = await this._runTest(defs[i], modelName, expectedArtifact);
       tests.push(result);
       if (result.passed) passedCount++;
-      totalScore += result.score;
+      if (result.valid !== false) totalScore += result.score;
     }
 
-    const score = defs.length ? totalScore / defs.length : 0;
+    const valid = !this._cancelled && tests.length === defs.length
+      && tests.every(result => result.valid !== false);
+    const score = valid && defs.length ? totalScore / defs.length : null;
     onProgress?.({
       suite: suiteName, testName: null, status: 'complete',
-      currentTest: defs.length, totalTests: defs.length, percent: 100, score,
+      currentTest: tests.length, totalTests: defs.length,
+      percent: Math.round(tests.length / (defs.length || 1) * 100), score,
     });
 
     return {
       suite: suiteName, model: modelName, score,
       passed: passedCount, total: defs.length, tests,
+      valid, cancelled: this._cancelled,
       durationMs: Date.now() - startTime,
     };
   }
@@ -326,20 +357,28 @@ export class CodePatchEvaluationRunner extends ModelEvaluationRunner {
 
     if (result.error) {
       return {
-        name: testDef.name, passed: false, score: 0, response: '',
+        name: testDef.name, passed: false, score: null, valid: false,
+        outcome: CODE_EVALUATION_OUTCOME.ENVIRONMENT_INVALID, response: '',
         durationMs: result.durationMs, evalTokens: 0, error: result.error, timedOut: !!result.timedOut,
       };
     }
 
+    const gradingStarted = Date.now();
     const graded = testDef.grade(result.content, promptResult);
     return {
       name: testDef.name,
+      valid: graded.valid !== false,
+      outcome: graded.outcome || (graded.passed ? CODE_EVALUATION_OUTCOME.SUCCESS : CODE_EVALUATION_OUTCOME.INCORRECT),
+      timedOut: !!graded.timedOut,
+      error: graded.valid === false ? 'CODE_ENVIRONMENT_INVALID' : null,
       passed: graded.passed,
       score: graded.score,
-      response: result.content.substring(0, 500),
+      // Preserve the complete patch for independent oracle replay. The old
+      // 500-character preview truncated almost every nontrivial CODE answer.
+      response: result.content,
       durationMs: result.durationMs,
       evalTokens: result.evalCount,
-      detail: graded.detail,
+      detail: { ...(graded.detail || {}), gradingDurationMs: Date.now() - gradingStarted },
     };
   }
 }

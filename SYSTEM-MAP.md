@@ -1,5 +1,13 @@
 # IntentSmith — mapa systému
 
+**CODE pilot, navazující implementace 2026-09-18:** hodnotitel rozlišuje
+platnou chybnou opravu, vyčerpání rozpočtu a neplatné prostředí bez skóre.
+Historie zachovává i předchozí dokončená opakování neúplného běhu; GUI
+nezobrazuje chybějící skóre úlohy jako nulu. Sedm úloh / pět skupin:
+gold, alternativní oprava a rozbitý základ ověřeny; 49/49 odpovědních sond PASS.
+REVIEW_PENDING / PILOT_INCOMPLETE / NOT_DEPLOYED. Bez nového modelového skóre,
+bez změny bindingů. [Checkpoint](docs/review/2026-09-18-CODE-PILOT-GRADER-CHECKPOINT.md).
+
 **Evaluace, 2026-09-18 večer:** instalováno `230778ad`; 12 různých VISION PNG
 + kontrola bez obrázku, 13 × 3 odpovědí v každém ze dvou finálních běhů.
 Qwen3.8 84,6 %, Ornith 78,8 %; průzkumné výsledky, bindingy nezměněné.
@@ -335,8 +343,8 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **225 744 ř.**, 631 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **247 419 ř.**, 533 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **225 872 ř.**, 631 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **247 604 ř.**, 533 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **525** (`431 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 102** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |

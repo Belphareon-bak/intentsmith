@@ -3363,12 +3363,15 @@ function _modelTable(headers,rows,options){
 }
 function _modelCell(value,props){return h('td',Object.assign({style:{padding:'9px 12px',borderTop:'1px solid '+_rgba(C.tx1,0.22),verticalAlign:'top'}},props||{}),value);}
 function _modelScore(row){return row&&row.status==='COMPLETE'&&Number.isFinite(row.score)?(row.score*100).toFixed(1)+' %':'—';}
+function _taskScore(value){return Number.isFinite(value)?(value*100).toFixed(1)+' %':'—';}
 function _modelStatus(row){return row.applicable===false?'Mimo roli':({COMPLETE:'Změřeno',MISSING:'Nezměřeno',FAILED:'Test selhal',BLOCKED:'Blokováno'}[row.status]||row.status);}
 function _taskLabel(task,rd){var d=(rd.tasks||[]).find(function(t){return t.name===task.name;});return d?d.label:task.name.replace(/_/g,' ');}
 function _taskResultNotes(t){
   var notes=[];
   (t.details||[]).forEach(function(d){
     if(!d)return;
+    if(d.valid===false)notes.push('Neplatné měření prostředí · nezapočítává se jako kvalita modelu');
+    if(d.outcome==='OPERATIONAL_FAILURE')notes.push('Vyčerpán rozpočet · platný neúspěch, zůstává ve skóre');
     if(d.reason)notes.push(d.reason);
     if(d.schema===false)notes.push('Neodpovídá požadovaný formát JSON');
     if(d.syntaxOk===false)notes.push('Neplatná syntaxe kódu');
@@ -3384,29 +3387,29 @@ function _taskResultNotes(t){
   return Array.from(new Set(notes));
 }
 function _qualityDetail(row,rd){
-  var tasks=row.tasks||[],catalogs=row.taskCatalog||rd.tasks||[];
+  var tasks=row.tasks||[],catalogs=row.taskCatalog||rd.tasks||[],counts=row.attemptCounts;
   return h('div',{'data-testid':'model-task-detail',style:{padding:'4px 0 12px'}},
     h('strong',null,row.model+' · výsledky '+tasks.length+' úloh'),
-    h('p',{style:{color:C.tx3}},'Skóre '+_modelScore(row)+' = průměr '+tasks.length+' úloh, každá má stejnou váhu. '+(row.repeats||rd.repeats||'?')+' opakování na úlohu'+(row.durationMs!=null?' · měření '+_huntDuration(row.durationMs):'')+'.'),
+    h('p',{style:{color:C.tx3}},counts?'Celkové skóre chybí: měření není úplné. Plánováno '+(counts.planned==null?'nezaznamenáno':counts.planned)+' pokusů · zaznamenáno '+counts.observed+' · neplatné prostředí '+counts.invalid+' · vyčerpání rozpočtu '+counts.operationalFailure+' · nezahájeno '+(counts.notAttempted==null?'nezaznamenáno':counts.notAttempted)+'.':'Skóre '+_modelScore(row)+' = průměr '+tasks.length+' úloh, každá má stejnou váhu. '+(row.repeats||rd.repeats||'?')+' opakování na úlohu'+(row.durationMs!=null?' · měření '+_huntDuration(row.durationMs):'')+'.'),
     h('p',{style:{color:C.tx3}},row.suiteName==='code_patch'||rd.suiteName==='code_patch'?'Tato sada měří konkrétní opravy JavaScriptu, nikoli dokončení celého projektu. Každá oprava se ověří spuštěním testů; regrese vynuluje výsledek úlohy. Délka běhu není cílem testu.':'Výsledek platí pro tuto sadu úloh. Shoda opakování neprokazuje pokrytí všech schopností modelu.'),
     row.catalogMatchesContract===false?h('p',{style:{color:C.amber}},'Historická verze sady: dnešní popisy testů se na ni nepřenášejí. Níže jsou tehdy uložené výsledky a kritéria.'):null,
     _modelTable(['Druh testu / úloha','Skóre','Výsledek'],tasks.map(function(t){
       var catalog=catalogs.find(function(c){return c.name===t.name;})||{},requirements=catalog.requirements||t.rubric||[],notes=_taskResultNotes(t);
       var label=catalog.label||t.name.replace(/_/g,' ');
-      return h('tr',{key:t.name},
+      return h('tr',{key:t.name+'|'+(t.repeat||'summary')},
         _modelCell(h('div',{style:{maxWidth:520}},h('div',{style:{fontSize:_fs(9),color:C.tx3,marginBottom:4}},catalog.type||row.suiteName||rd.suiteName),
-          h('strong',null,label),h('details',{style:{marginTop:7,fontSize:_fs(10)}},
+          h('strong',null,label+(t.repeat?' · pokus '+t.repeat:'')),h('details',{style:{marginTop:7,fontSize:_fs(10)}},
             h('summary',{'aria-label':'Informace o testu: '+label,style:{cursor:'pointer',color:C.accent}},'ⓘ Jak se test hodnotí'),
             catalog.source?h('p',null,'Zdroj úlohy: '+catalog.source):null,
             catalog.context?h('p',null,catalog.context):null,
             requirements.length?h('ul',{style:{paddingLeft:18,lineHeight:1.6}},requirements.map(function(r,i){return h('li',{key:i},typeof r==='string'?r:r.label||r.name||JSON.stringify(r));})):h('p',null,'Popis kritérií v tomto měření nebyl uložen.'),
-            h('p',{style:{color:C.tx3}},'Opakování: '+(t.scores||[]).map(function(v){return (v*100).toFixed(1)+' %';}).join(' / ')),h('code',null,t.name)))),
-        _modelCell(h('strong',{style:{color:t.mean>=.8?C.success:t.mean<.5?C.amber:C.tx1,whiteSpace:'nowrap'}},(t.mean*100).toFixed(1)+' %')),
+            h('p',{style:{color:C.tx3}},'Opakování: '+(t.scores||[]).map(_taskScore).join(' / ')),h('code',null,t.name)))),
+        _modelCell(h('strong',{style:{color:!Number.isFinite(t.mean)?C.tx3:t.mean>=.8?C.success:t.mean<.5?C.amber:C.tx1,whiteSpace:'nowrap'}},_taskScore(t.mean))),
         _modelCell(notes.length?h('ul',{style:{margin:0,paddingLeft:17,lineHeight:1.5,maxWidth:320}},notes.map(function(n,i){return h('li',{key:i},n);})):h('span',{style:{color:C.tx3}},'Podrobné vyhodnocení nebylo uloženo.')));
     })));
 }
 function _modelResultBullets(tasks,rd){
-  var selected=tasks.slice().sort(function(a,b){return b.mean-a.mean;});
+  var selected=tasks.filter(function(t){return Number.isFinite(t.mean);}).sort(function(a,b){return b.mean-a.mean;});
   var strong=selected.filter(function(t){return t.mean>=.8;}),weak=selected.filter(function(t){return t.mean<.5;}).reverse();
   function group(list,label,color){return list.length?h('div',null,h('span',{style:{color:color,fontSize:_fs(9)}},label),h('ul',{style:{paddingLeft:17,margin:'4px 0 8px',lineHeight:1.6}},list.slice(0,3).map(function(t){return h('li',{key:t.name},_taskLabel(t,rd)+' · '+Math.round(t.mean*100)+' %');}),list.length>3?h('li',{style:{color:C.tx3}},'Další '+(list.length-3)+' v detailu'):null)):null;}
   return h('div',{style:{maxWidth:330,fontSize:_fs(10)}},group(strong,'Silnější výsledky',C.success),group(weak,'Slabší výsledky',C.amber),!strong.length&&!weak.length?h('span',null,'Výsledky jsou mezi 50 a 80 %; rozpad je v detailu.'):null);

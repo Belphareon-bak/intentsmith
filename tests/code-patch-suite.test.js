@@ -86,13 +86,15 @@ await testAsync('runner posílá vlastní parametry volání', async () => {
   assert(seen.timeout >= 300000, `timeout je ${seen.timeout}`);
 });
 
-await testAsync('chyba volání dá nulu a nespadne', async () => {
+await testAsync('§4: chyba volání nemá skóre a není chybou opravy', async () => {
   const runner = new CodePatchEvaluationRunner('http://127.0.0.1:1');
   runner._callModel = async () => ({ content: '', error: 'timeout', durationMs: 5 });
   const r = await runner._runTest({
     name: 'x', options: {}, prompt: () => ({ text: 'z' }), grade: () => ({ passed: true, score: 1 }),
   }, 'model');
-  assertEqual(r.score, 0);
+  assertEqual(r.score, null);
+  assertEqual(r.valid, false);
+  assertEqual(r.outcome, 'ENVIRONMENT_INVALID');
   assertEqual(r.passed, false);
 });
 
@@ -100,6 +102,28 @@ test('v běžné sadě jsou jen kalibrované aktivní úlohy', () => {
   const fixture = JSON.parse(readFileSync(new URL('../src/eval/code-suite-tasks.json', import.meta.url), 'utf8'));
   const active = fixture.tasks.filter(t => t.status === 'active');
   assertEqual(codePatchSuite.tests.length, active.length);
+});
+
+test('§5/§6: every active task declares an alternate repair and related scenarios retain their group', () => {
+  const tasks = loadFixtureTasks();
+  for (const task of tasks) {
+    assertEqual(task.oracleAcceptance?.version, 1);
+    assertEqual(task.oracleAcceptance.alternativeTexts.length, task.spans.length);
+    assert(task.oracleAcceptance.alternativeExplanation.length > 20);
+    assert(task.oracleAcceptance.independenceGroup);
+  }
+  assertEqual(new Set(tasks.map(task => task.oracleAcceptance.independenceGroup)).size, 5);
+});
+
+await testAsync('§3: failed oracle control stops before any provider invocation', async () => {
+  let calls = 0;
+  const runner = new CodePatchEvaluationRunner('http://127.0.0.1:1', { name: 'control', tests: [
+    { name: 'invalid', prepare() {}, validateOracle() { throw Error('GOLD_FAILED'); } },
+  ] });
+  runner._callModel = async () => { calls++; };
+  let error;
+  try { await runner.runSuite('control', 'candidate'); } catch (e) { error = e; }
+  assertEqual(error.message, 'GOLD_FAILED'); assertEqual(calls, 0);
 });
 
 test('CODE prompt fixture se načte i bez dosažitelného git repozitáře', () => {

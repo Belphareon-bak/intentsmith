@@ -1,5 +1,14 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**CODE pilot, navazující implementace 2026-09-18:** opravené rozlišení chyby
+prostředí od chyby opravy, kontrola dokončení testu, plné odpovědi a počty
+nedokončených pokusů. Sedm historických úloh má ověřenou odlišnou správnou
+opravu; 49/49 adversariálních kontrol PASS. Jde o pět závislostních skupin,
+nikoli sedm nezávislých scénářů. Nové porovnání tří modelů a oddělený C3
+průchod zatím nejsou doložené; GPU drží LM Studio. REVIEW_PENDING,
+PILOT_INCOMPLETE, nová implementace není nasazená.
+[Důkazy a omezení](docs/review/2026-09-18-CODE-PILOT-GRADER-CHECKPOINT.md).
+
 **Evaluace, 2026-09-18 večer:** instalováno `230778ad`; VISION má 12 různých
 obrazových úloh + kontrolu bez obrázku, dvě nová měření a ověřený detail v GUI.
 Noční automatické mazání vypnuté, časovač aktivní. Cílené testy PASS; poslední

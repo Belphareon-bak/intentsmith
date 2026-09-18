@@ -259,6 +259,9 @@ export function recordRoleEvaluationFailures({ result, history, plans, hardware 
   return (result.roleErrors || []).filter(failure => failure.artifact && failure.model)
     .map(failure => {
       const plan = plans[failure.role];
+      const attempts = failure.attemptedTasks || [];
+      const planned = Number.isSafeInteger(plan.taskCount) && Number.isSafeInteger(plan.repeats)
+        ? plan.taskCount * plan.repeats : null;
       return history.recordTerminal({
         artifact: failure.artifact, role: failure.role,
         suiteName: plan.suiteName, suiteVersion: plan.suiteVersion,
@@ -267,7 +270,20 @@ export function recordRoleEvaluationFailures({ result, history, plans, hardware 
         errorCode: 'CANDIDATE_EVALUATION_RETRYABLE', errorMessage: failure.error,
         startedAt: failure.startedAt, completedAt: failure.completedAt,
         durationMs: Date.parse(failure.completedAt) - Date.parse(failure.startedAt),
+        tasks: attempts.map(task => ({
+          name: task.name, repeat: task.repeat, mean: task.score, scores: [task.score],
+          responses: [task.response || ''], durationMs: task.durationMs ?? null,
+          details: [{ ...(task.detail || {}), outcome: task.outcome,
+            valid: task.valid, reason: task.error || task.detail?.reason || null }],
+        })),
         metadata: { source: 'model-upgrade-hunt-v136.1', stage: 'trial',
+          attemptCounts: {
+            planned,
+            observed: attempts.length,
+            notAttempted: planned === null ? null : Math.max(0, planned - attempts.length),
+            invalid: attempts.filter(task => task.valid === false).length,
+            operationalFailure: attempts.filter(task => task.outcome === 'OPERATIONAL_FAILURE').length,
+          },
           candidate: result.model, failure },
       });
     });

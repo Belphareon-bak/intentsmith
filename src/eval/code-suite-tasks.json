@@ -2660,6 +2660,14 @@
           "getUnusedOldModels is canonical-deduped, null-free and newest-first",
           "route without deletion authority fails closed and live registry blocks aliases"
         ]
+      },
+      "oracleAcceptance": {
+        "version": 1,
+        "independenceGroup": "model-cleanup",
+        "alternativeTexts": [
+          "  getUnusedOldModels() {\n    if (!this._db) return [];\n    try {\n      const rows = this._db.prepare(\n        `SELECT role, model, previous_model, applied_at\n         FROM model_overrides\n         ORDER BY applied_at DESC, role ASC\n         LIMIT 50`\n      ).all();\n\n      const boundModels = canonicalModelNameSet(Object.values(config.models));\n      const seen = new Set();\n      return rows.reduce((result, row) => {\n        const canonical = canonicalModelName(row.previous_model);\n        if (!canonical || boundModels.has(canonical) || seen.has(canonical)) return result;\n        seen.add(canonical);\n        result.push({\n          model: row.previous_model.trim(),\n          replacedBy: typeof row.model === 'string' ? row.model.trim() : '',\n          role: row.role,\n          appliedAt: row.applied_at,\n        });\n        return result;\n      }, []);\n    } catch (_) {\n      return [];\n    }\n  }"
+        ],
+        "alternativeExplanation": "Reduce accumulator instead of a mutable for-of result; same canonical identity exclusions and ordering."
       }
     },
     {
@@ -4029,6 +4037,15 @@
           "prior exact override rejects stale census identity under cutover leases",
           "startup census hint is re-resolved under cutover leases before restore"
         ]
+      },
+      "oracleAcceptance": {
+        "version": 1,
+        "independenceGroup": "model-use-leases",
+        "alternativeTexts": [
+          "export const MODEL_ACTIVITY_OWNER = Object.freeze(Object.fromEntries([\n  ['LLM_GATEWAY', 'LLM_GATEWAY'],\n  ['MODEL_VALIDATION', 'MODEL_VALIDATION'],\n  ['BINDING_CUTOVER', 'BINDING_CUTOVER'],\n  ['BINDING_VERIFICATION', 'BINDING_VERIFICATION'],\n  ['MODEL_PULL', 'MODEL_PULL'],\n  ['MODEL_DELETE', 'MODEL_DELETE'],\n]));",
+          "const SHARED_OWNERS = new Set(Object.values({\n  LLM_GATEWAY: MODEL_ACTIVITY_OWNER.LLM_GATEWAY,\n  MODEL_VALIDATION: MODEL_ACTIVITY_OWNER.MODEL_VALIDATION,\n  BINDING_CUTOVER: MODEL_ACTIVITY_OWNER.BINDING_CUTOVER,\n  BINDING_VERIFICATION: MODEL_ACTIVITY_OWNER.BINDING_VERIFICATION,\n}));"
+        ],
+        "alternativeExplanation": "Construct frozen owner mapping from entries and shared-owner set from object values."
       }
     },
     {
@@ -4609,6 +4626,15 @@
           "VRAM_ARTIFACT_USE and LLM_GATEWAY hold shared leases at the same time",
           "delete during a running media task fails typed and immediately"
         ]
+      },
+      "oracleAcceptance": {
+        "version": 1,
+        "independenceGroup": "model-use-leases",
+        "alternativeTexts": [
+          "export const MODEL_ACTIVITY_OWNER = Object.freeze(Object.fromEntries([\n  ['LLM_GATEWAY', 'LLM_GATEWAY'],\n  ['MODEL_VALIDATION', 'MODEL_VALIDATION'],\n  ['BINDING_CUTOVER', 'BINDING_CUTOVER'],\n  ['BINDING_VERIFICATION', 'BINDING_VERIFICATION'],\n  ['VRAM_ARTIFACT_USE', 'VRAM_ARTIFACT_USE'],\n  ['MODEL_PULL', 'MODEL_PULL'],\n  ['MODEL_DELETE', 'MODEL_DELETE'],\n]));",
+          "const SHARED_OWNERS = new Set(Object.values({\n  LLM_GATEWAY: MODEL_ACTIVITY_OWNER.LLM_GATEWAY,\n  MODEL_VALIDATION: MODEL_ACTIVITY_OWNER.MODEL_VALIDATION,\n  BINDING_CUTOVER: MODEL_ACTIVITY_OWNER.BINDING_CUTOVER,\n  BINDING_VERIFICATION: MODEL_ACTIVITY_OWNER.BINDING_VERIFICATION,\n  VRAM_ARTIFACT_USE: MODEL_ACTIVITY_OWNER.VRAM_ARTIFACT_USE,\n}));"
+        ],
+        "alternativeExplanation": "Construct frozen owner mapping from entries and shared-owner set from object values."
       }
     },
     {
@@ -5660,6 +5686,14 @@
           "víc rozlišujících úloh zvedá jistotu",
           "jistota se hlásí i u prohry kandidáta"
         ]
+      },
+      "oracleAcceptance": {
+        "version": 1,
+        "independenceGroup": "pairwise-confidence",
+        "alternativeTexts": [
+          "export function decideRole(comparison, speed = {}, threshold = 0.05) {\n  const { margin, candidateWins, incumbentWins, inconclusive } = comparison;\n\n  // Rozhodnutí opřené o jedinou úlohu je jedno pozorování, ne trend. Signál se\n  // nezahazuje — úloha stabilní přes tři běhy nese informaci — ale operátor má\n  // vidět, jak široký podklad za rozhodnutím stojí.\n  const confidence = ['žádná', 'nízká (jediná úloha)', 'střední', 'vysoká'][Math.min(3, Math.max(0, comparison.discriminating))];\n\n  if (!inconclusive) {\n    if (margin >= threshold && candidateWins > incumbentWins) {\n      return {\n        winner: 'candidate',\n        basis: 'kvalita',\n        confidence,\n        detail: `marže ${margin.toFixed(3)} ≥ práh ${threshold} na ${comparison.discriminating} rozlišujících úlohách `\n          + `(${candidateWins}:${incumbentWins}), jistota ${confidence}`,\n      };\n    }\n    if (margin <= -threshold && incumbentWins > candidateWins) {\n      return {\n        winner: 'incumbent',\n        basis: 'kvalita',\n        confidence,\n        detail: `kandidát ztrácí ${Math.abs(margin).toFixed(3)} na ${comparison.discriminating} úlohách, jistota ${confidence}`,\n      };\n    }\n    return {\n      winner: 'incumbent',\n      basis: 'kvalita',\n      detail: `rozdíl ${margin.toFixed(3)} nedosáhl prahu ${threshold} — stávající zůstává`,\n    };\n  }\n\n  // Kvalita nerozlišila. Rychlost rozhodne jen při zřetelném rozdílu.\n  const c = speed.candidate;\n  const i = speed.incumbent;\n  if (c > 0 && i > 0) {\n    const ratio = c / i;\n    if (ratio >= 1.25) {\n      return {\n        winner: 'candidate',\n        basis: 'rychlost',\n        detail: `kvalita nerozlišila (všechny úlohy shodné), kandidát je ${ratio.toFixed(2)}× rychlejší `\n          + `(${c} vs ${i} tok/s)`,\n      };\n    }\n    return {\n      winner: 'incumbent',\n      basis: 'nerozhodně',\n      detail: `kvalita nerozlišila a rychlost se liší jen ${ratio.toFixed(2)}× — stávající zůstává`,\n    };\n  }\n\n  return {\n    winner: 'incumbent',\n    basis: 'nerozhodně',\n    detail: 'kvalita nerozlišila a rychlost není změřená',\n  };\n}"
+        ],
+        "alternativeExplanation": "Bounded lookup instead of chained conditionals for evidence-count labels."
       }
     },
     {
@@ -6159,6 +6193,16 @@
           "cancellation during request processing cannot persist an assistant turn",
           "timeout at the last pre-persistence seam stays timeout and cannot persist"
         ]
+      },
+      "oracleAcceptance": {
+        "version": 1,
+        "independenceGroup": "chat-persistence",
+        "alternativeTexts": [
+          "export const ChatTurnErrorCode = Object.freeze({\n  LLM_PROVIDER_UNAVAILABLE: 'LLM_PROVIDER_UNAVAILABLE',\n  CHAT_PROCESSING_FAILED: 'CHAT_PROCESSING_FAILED',\n  CHAT_PERSISTENCE_FAILED: 'CHAT_PERSISTENCE_FAILED',\n});",
+          "export const ChatTurnErrorMessage = Object.freeze({\n  LLM_PROVIDER_UNAVAILABLE: 'Model provider is temporarily unavailable.',\n  CHAT_PROCESSING_FAILED: 'Chat processing failed.',\n  CHAT_PERSISTENCE_FAILED: 'Chat response could not be persisted.',\n});",
+          "export class ChatTurnError extends Error {\n  constructor(message, {\n    code,\n    statusCode,\n    recoverable,\n    sourceErrorType = null,\n    cause = null,\n  }) {\n    super(message, cause === null ? undefined : { cause });\n    Object.assign(this, { name: 'ChatTurnError', code, statusCode, recoverable, sourceErrorType });\n  }\n}\n\nexport class LLMProviderUnavailableError extends ChatTurnError {\n  constructor(sourceErrorType = 'LLM_CALL_FAILED') {\n    super(ChatTurnErrorMessage.LLM_PROVIDER_UNAVAILABLE, {\n      code: ChatTurnErrorCode.LLM_PROVIDER_UNAVAILABLE,\n      statusCode: 503,\n      recoverable: true,\n      sourceErrorType,\n    });\n    this.name = 'LLMProviderUnavailableError';\n  }\n}\n\nexport class ChatProcessingError extends ChatTurnError {\n  constructor(sourceErrorType = null) {\n    super(ChatTurnErrorMessage.CHAT_PROCESSING_FAILED, {\n      code: ChatTurnErrorCode.CHAT_PROCESSING_FAILED,\n      statusCode: 500,\n      recoverable: false,\n      sourceErrorType,\n    });\n    this.name = 'ChatProcessingError';\n  }\n}\n\nexport class ChatPersistenceError extends ChatTurnError {\n  constructor(cause = null) {\n    super(ChatTurnErrorMessage.CHAT_PERSISTENCE_FAILED, {\n      code: ChatTurnErrorCode.CHAT_PERSISTENCE_FAILED,\n      statusCode: 500,\n      // The user turn may already be durable. An automatic retry could create\n      // a duplicate, so this boundary must not advertise a blind retry.\n      recoverable: false,\n      sourceErrorType: 'ASSISTANT_TURN_PERSIST_FAILED',\n      cause,\n    });\n    this.name = 'ChatPersistenceError';\n  }\n}"
+        ],
+        "alternativeExplanation": "Assign error metadata atomically, preserving cause, subclass identity and retry semantics."
       }
     },
     {
@@ -7566,6 +7610,14 @@
         "requirements": [
           "original _verifyModel clears its timeout before parsing a successful response"
         ]
+      },
+      "oracleAcceptance": {
+        "version": 1,
+        "independenceGroup": "verification-timeout",
+        "alternativeTexts": [
+          "  async _verifyModel(modelName) {\n    const baseUrl = config.ollama?.baseUrl || 'http://127.0.0.1:11434';\n    // 90s — model may need to load into VRAM (unload previous + load new)\n    const timeout = 90000;\n    const controller = new AbortController();\n    const timeoutId = setTimeout(() => controller.abort(), timeout);\n\n    try {\n      const response = await fetch(`${baseUrl}/api/chat`, {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({\n          model: modelName,\n          messages: [{ role: 'user', content: 'ping' }],\n          stream: false,\n          options: { num_predict: 1, num_ctx: 512 },\n        }),\n        signal: controller.signal,\n      }).finally(() => clearTimeout(timeoutId));\n\n      // Preserve the legacy success boundary: the model-load timeout no\n      // longer owns response-body parsing once the HTTP response arrives.\n      // The finally block remains the fallback for fetch rejection.\n      if (!response.ok) return false;\n\n      const data = await response.json();\n      return !!(data.message?.content || data.response);\n    } catch (err) {\n      logger.warn('UpgradeManager', `Verify failed for ${modelName}: ${err.message}`);\n      return false;\n    } finally {\n      clearTimeout(timeoutId);\n    }\n  }"
+        ],
+        "alternativeExplanation": "Promise settlement cleanup before response parsing, including rejection, with idempotent outer cleanup."
       }
     },
     {
@@ -7685,6 +7737,14 @@
         "requirements": [
           "original _verifyModel clears its timeout on network error"
         ]
+      },
+      "oracleAcceptance": {
+        "version": 1,
+        "independenceGroup": "verification-timeout",
+        "alternativeTexts": [
+          "  async _verifyModel(modelName) {\n    const baseUrl = config.ollama?.baseUrl || 'http://127.0.0.1:11434';\n    // 90s — model may need to load into VRAM (unload previous + load new)\n    const timeout = 90000;\n    const controller = new AbortController();\n    const timeoutId = setTimeout(() => controller.abort(), timeout);\n\n    try {\n      const response = await fetch(`${baseUrl}/api/chat`, {\n        method: 'POST',\n        headers: { 'Content-Type': 'application/json' },\n        body: JSON.stringify({\n          model: modelName,\n          messages: [{ role: 'user', content: 'ping' }],\n          stream: false,\n          options: { num_predict: 1, num_ctx: 512 },\n        }),\n        signal: controller.signal,\n      }).finally(() => clearTimeout(timeoutId));\n\n      if (!response.ok) return false;\n\n      const data = await response.json();\n      return !!(data.message?.content || data.response);\n    } catch (err) {\n      logger.warn('UpgradeManager', `Verify failed for ${modelName}: ${err.message}`);\n      return false;\n    } finally {\n      clearTimeout(timeoutId);\n    }\n  }"
+        ],
+        "alternativeExplanation": "Promise settlement cleanup before response parsing, including rejection, with idempotent outer cleanup."
       }
     },
     {

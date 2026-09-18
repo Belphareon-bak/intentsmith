@@ -489,6 +489,22 @@ test('FAILED and BLOCKED are preserved without invented scores', () => {
   db.close();
 });
 
+test('§4: history read preserves missing task scores and the reason/count of excluded attempts', () => {
+  const db = database(); db.exec("ALTER TABLE model_evaluation_runs ADD COLUMN task_results_json TEXT NOT NULL DEFAULT '[]'");
+  const plans = createRoleEvaluationPlans({ repeats: 3 });
+  insert(db, { runId: 'invalid-task', digest: DIGEST, plan: plans.CODE, status: 'FAILED' });
+  db.prepare('UPDATE model_evaluation_runs SET task_results_json=?, metadata_json=? WHERE run_id=?').run(
+    JSON.stringify([{ name: 'patch', repeat: 2, mean: null, scores: [null], details: [
+      { valid: false, outcome: 'ENVIRONMENT_INVALID', reason: 'fixture missing' },
+    ] }]), JSON.stringify({ attemptCounts: { planned: 21, observed: 8, invalid: 1,
+      operationalFailure: 0, notAttempted: 13 } }), 'invalid-task');
+  const row = new ModelEvaluationReadModel(db, { plans }).readRun('invalid-task');
+  assertEqual(row.score, null); assertEqual(row.tasks[0].mean, null);
+  assertEqual(row.tasks[0].repeat, 2); assertEqual(row.tasks[0].details[0].valid, false);
+  assertEqual(row.tasks[0].details[0].outcome, 'ENVIRONMENT_INVALID');
+  assertEqual(row.attemptCounts.notAttempted, 13); db.close();
+});
+
 test('missing provider digest is BLOCKED, not MISSING or PASS', () => {
   const db = database();
   const row = new ModelEvaluationReadModel(db).read({
@@ -564,6 +580,22 @@ function studioFunction(name, endMarker) {
   assert(start >= 0 && end > start, 'literal shipped Studio function must exist');
   return studioSource.slice(start, end);
 }
+
+test('§4: shipped Studio detail renders an invalid attempt as missing, with its count and reason', () => {
+  const render = studioSource.slice(studioSource.indexOf('var _evaluationRoleFilter='),studioSource.indexOf('/* ═',studioSource.indexOf('var _evaluationRoleFilter=')));
+  const row = { model: 'candidate', status: 'FAILED', suiteName: 'code_patch', score: null,
+    attemptCounts: { planned: 6, observed: 3, notAttempted: 3, invalid: 1, operationalFailure: 1 },
+    tasks: [{ name: 'invalid', repeat: 2, mean: null, scores: [null], details: [
+      { valid: false, outcome: 'ENVIRONMENT_INVALID', reason: 'fixture missing' },
+    ] }] };
+  const view = JSON.stringify(runInNewContext(render+';_qualityDetail(row,{})', {
+    row, C:{}, _rgba:()=>'', _fs:n=>n, h:(tag,props,...children)=>({tag,props,children}),
+  }));
+  assert(view.includes('Celkové skóre chybí')); assert(view.includes('neplatné prostředí 1'));
+  assert(view.includes('nezahájeno 3')); assert(view.includes('pokus 2'));
+  assert(view.includes('fixture missing')); assert(view.includes('Opakování: —'));
+  assert(!view.includes('0.0 %'), 'null must never be shown as a zero-quality repair');
+});
 
 test('quality tables separate role scores from chronological provider evidence', () => {
   const render = studioSource.slice(studioSource.indexOf('var _evaluationRoleFilter='),studioSource.indexOf('/* ═',studioSource.indexOf('var _evaluationRoleFilter=')));

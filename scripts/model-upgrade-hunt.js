@@ -414,6 +414,11 @@ const evaluationDecisionStore = new ModelEvaluationDecisionStore(db);
 const bindingRepository = createModelFailoverRepository(db);
 const evaluationRunner = new RoleQualityEvaluationRunner(config.ollama?.baseUrl);
 const evaluationPlans = createRoleEvaluationPlans();
+// CODE-only measurements qualify the same context used by their inference.
+// A multi-role hunt still retains its declared production-context preflight.
+if (ROLES.length === 1 && ROLES[0] === 'CODE') {
+  gpu.numCtx = evaluationPlans.CODE.suite.tests[0]?.options?.num_ctx || gpu.numCtx;
+}
 if (EVALUATE_INSTALLED && ROLE_FILTER.some(role => evaluationPlans[role]?.suiteContractSha256 !== expectedContracts[role])) throw new Error('MODEL_EVALUATION_CONTRACT_CHANGED');
 
 const currentBindingNames = inventory => {
@@ -813,7 +818,8 @@ log('\n══ MĚŘENÍ STÁVAJÍCÍCH MODELŮ ══');
 publishProgress('incumbents');
 const incumbentSpeed = {};
 const allowedDrainModels = new Set();
-const measurementOptions = { providerVersion, ...(SCHEDULED ? { allowedDrainModels } : {}) };
+const measurementOptions = { providerVersion, numCtx: gpu.numCtx,
+  ...(SCHEDULED ? { allowedDrainModels } : {}) };
 const markOwned = name => {
   allowedDrainModels.add(name);
   const canonical = canonicalModelName(name);
@@ -998,6 +1004,7 @@ for (const cand of toTry) {
           source: 'model-upgrade-hunt-v136.1', stage: r.stage,
           numCtx: r.measurement?.numCtx ?? gpu.numCtx,
           cpuBytes: r.measurement?.placement?.cpuBytes ?? null,
+          outcome: measuredCpuSpill ? 'PROFILE_UNFIT' : 'ENVIRONMENT_INVALID',
           sizeBytes: r.measurement?.placement?.sizeBytes ?? null,
           vramBytes: r.measurement?.placement?.vramBytes ?? null,
         },

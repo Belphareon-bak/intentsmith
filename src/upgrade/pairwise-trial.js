@@ -114,7 +114,8 @@ async function runSuiteRepeated(
       // Transport/authority failure is not zero-quality evidence.
       if (run.cancelled || !Array.isArray(run.tests) || run.tests.length === 0
         || (Number.isInteger(run.total) && run.total !== run.tests.length)
-        || run.tests.some(test => test.error || test.timedOut)) {
+        || run.tests.some(test => test.valid === false || !Number.isFinite(test.score)
+          || test.error || (test.timedOut && test.outcome !== 'OPERATIONAL_FAILURE'))) {
         throw Object.assign(new Error(`Incomplete model evaluation: ${model} / ${suiteName}`), {
           code: 'CANDIDATE_EVALUATION_RETRYABLE',
         });
@@ -127,9 +128,17 @@ async function runSuiteRepeated(
         startedAt, completedAt: new Date().toISOString(),
         cancelled: !!run?.cancelled, total: run?.total ?? null,
         completedTasks: run?.tests?.length ?? 0,
-        failedTasks: (run?.tests || []).filter(test => test.error || test.timedOut)
+        failedTasks: (run?.tests || []).filter(test => test.valid === false || test.error || test.timedOut)
           .map(test => ({ name: test.name, error: test.error || null,
-            timedOut: !!test.timedOut, durationMs: test.durationMs ?? null })),
+            score: test.score ?? null, outcome: test.outcome || null,
+            timedOut: !!test.timedOut, durationMs: test.durationMs ?? null,
+            detail: test.detail || null })),
+        attemptedTasks: [...runs, ...(run ? [run] : [])].flatMap((attempt, repeat) =>
+          (attempt.tests || []).map(test => ({ name: test.name, repeat: repeat + 1,
+            score: test.score ?? null, outcome: test.outcome || null,
+            valid: test.valid !== false && Number.isFinite(test.score) && !test.error,
+            response: test.response || '', durationMs: test.durationMs ?? null,
+            error: test.error || null, detail: test.detail || null }))),
         detail: error.detail || null,
       };
       throw error;
@@ -149,7 +158,8 @@ async function runSuiteRepeated(
       const row = byTask.get(t.name);
       row.scores.push(t.score ?? 0);
       row.responses.push(t.response || '');
-      row.details.push(t.detail || null);
+      row.details.push(t.outcome ? { ...(t.detail || {}), outcome: t.outcome,
+        valid: t.valid !== false, timedOut: !!t.timedOut } : (t.detail || null));
     }
   }
 

@@ -20,10 +20,51 @@ const SUITES = Object.freeze({
   reasoning: Object.freeze({ name: 'reasoning', tests: UNIT_TASKS }),
 });
 
+await testAsync('§4: a verified budget failure remains in both the task count and comparison denominator', async () => {
+  const saved = [];
+  const runner = { runSuite: async (_suite, model) => ({ total: 2, tests: [
+    { name: 'budget', score: model === 'candidate' ? 0 : 1, valid: true,
+      outcome: model === 'candidate' ? 'OPERATIONAL_FAILURE' : 'SUCCESS',
+      timedOut: model === 'candidate' },
+    { name: 'ordinary', score: 1, valid: true, outcome: 'SUCCESS' },
+  ] }) };
+  const result = await comparePair(runner, 'code', 'candidate', 'incumbent', {
+    repeats: 1, resolveArtifact: async modelName => ({ modelName, digestSha256: 'a'.repeat(64) }),
+    saveHistoricalSummary: async value => { saved.push(value); },
+  });
+  assertEqual(result.candidateSuiteScore, 0.5); assertEqual(result.incumbentSuiteScore, 1);
+  assertEqual(saved[0].summary.tasks.length, 2);
+  assertEqual(saved[0].summary.tasks[0].details[0].outcome, 'OPERATIONAL_FAILURE');
+});
+
+await testAsync('§4: a failure in repeat two retains all observed attempts, including the first repeat', async () => {
+  let calls = 0, failure;
+  const runner = { runSuite: async () => (++calls === 1
+    ? { total: 2, tests: [{ name: 'a', score: 1, response: 'full patch' },
+      { name: 'b', score: 0, valid: true, outcome: 'OPERATIONAL_FAILURE', timedOut: true }] }
+    : { total: 2, tests: [{ name: 'a', score: null, valid: false,
+      outcome: 'ENVIRONMENT_INVALID', error: 'fixture missing' }] }) };
+  try {
+    await comparePair(runner, 'code', 'candidate', 'incumbent', {
+      repeats: 3, resolveArtifact: async modelName => ({ modelName, digestSha256: 'a'.repeat(64) }),
+      saveHistoricalSummary: async () => { throw new Error('must not save incomplete quality'); },
+    });
+  } catch (error) { failure = error.evaluationFailure; }
+  assertEqual(failure.model, 'candidate'); assertEqual(calls, 2);
+  assertEqual(failure.attemptedTasks.length, 3);
+  assertEqual(failure.attemptedTasks[0].response, 'full patch');
+  assertEqual(failure.attemptedTasks[1].score, 0);
+  assertEqual(failure.attemptedTasks[1].valid, true);
+  assertEqual(failure.attemptedTasks[2].repeat, 2);
+  assertEqual(failure.attemptedTasks[2].score, null);
+  assertEqual(failure.attemptedTasks[2].valid, false);
+});
+
 await testAsync('provider failures and incomplete runs never become COMPLETE quality or cache entries', async () => {
   for (const run of [
     { tests: [{ name: 'x', score: 0, error: 'MODEL_USE_IN_FLIGHT' }] },
     { tests: [{ name: 'x', score: 0, timedOut: true }] },
+    { tests: [{ name: 'x', score: null, valid: false, outcome: 'ENVIRONMENT_INVALID' }] },
     { tests: [{ name: 'x', score: 1 }], cancelled: true },
     { tests: [{ name: 'x', score: 1 }], total: 3 },
     { tests: [] },

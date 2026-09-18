@@ -57,6 +57,24 @@ function insertRun(db, runId, digest, suite = 'chat_v3', role = 'CHAT') {
 
 suite('Model evaluation consolidation migration and decision store');
 
+test('§4: COMPLETE writer refuses absent or coerced scores; only terminal evidence can have no score', () => {
+  const db = consolidatedDatabase(); up097(db); up111(db); up114(db);
+  const history = new ModelEvaluationHistory(db);
+  const input = { artifact: { modelName: 'ungraded:latest', digestSha256: DIGEST_A },
+    role: 'CODE', suiteName: 'code_patch', suiteVersion: 'v1', contractSha256: CONTRACT };
+  const count = history.count();
+  for (const score of [null, undefined, '', '0.7', false, NaN]) {
+    let rejected = false;
+    try { history.recordComplete({ ...input, summary: { score } }); }
+    catch { rejected = true; }
+    assert(rejected, `ungraded score was accepted: ${String(score)}`);
+  }
+  assertEqual(history.count(), count);
+  const failed = history.recordTerminal({ ...input, status: 'BLOCKED',
+    errorCode: 'CODE_ENVIRONMENT_INVALID', errorMessage: 'fixture unavailable' });
+  assertEqual(failed.score, null); db.close();
+});
+
 test('fresh repeat appends an immutable row while normal hunt reuse returns the latest exact result', () => {
   const db=consolidatedDatabase();up097(db);up111(db);up114(db);const before=db.prepare("SELECT COUNT(*) n FROM model_evaluation_runs").get().n;
   const history=new ModelEvaluationHistory(db),input={artifact:{modelName:'demo:latest',digestSha256:DIGEST_A},role:'CODE',suiteName:'code_patch',suiteVersion:'v1',contractSha256:CONTRACT,summary:{ score:0.75, total:1, repeats:3, tasks:[{name:"task",mean:0.75,spread:0,scores:[.75,.75,.75]}] },provider:{version:'fixture'}};

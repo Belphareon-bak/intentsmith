@@ -1,5 +1,11 @@
 # Inventura #18a — Správa modelů
 
+**CODE pilot 2026-09-18:** implementované výsledkové třídy a ověření sedmi
+historických hodnotitelů alternativními správnými implementacemi. 49/49
+odpovědních sond PASS, pět skupin závislých scénářů. Nové porovnání tří modelů,
+uzamčené rozhodování a oddělený provozní C3 průchod dosud nejsou doložené.
+REVIEW_PENDING / NOT_DEPLOYED; [checkpoint a meze](../review/2026-09-18-CODE-PILOT-GRADER-CHECKPOINT.md).
+
 **IDE a GPU hunt, 2026-09-18:** implementované opravy operátorových reprodukcí:
 řazení hlavičkou, celé použitelné role v jedné evaluaci, číselné matice,
 kandidáti ze skutečného hunt katalogu, záložky/kontext/sloupce/soubory a seznamy.

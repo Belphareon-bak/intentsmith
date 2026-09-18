@@ -48,6 +48,15 @@ import { testFilesOf } from './code-task-extractor.js';
 
 export const DEFAULT_TEST_TIMEOUT = 120_000;
 
+// WP-GPU-HUNT-EVALUATION-CONTRACT-20260918 §4: an invalid environment
+// has no quality score. An exhausted budget in a verified environment is
+// an observed operational failure and remains in the denominator.
+export const CODE_EVALUATION_OUTCOME = Object.freeze({
+  SUCCESS: 'SUCCESS', INCORRECT: 'INCORRECT',
+  OPERATIONAL_FAILURE: 'OPERATIONAL_FAILURE',
+  ENVIRONMENT_INVALID: 'ENVIRONMENT_INVALID',
+});
+
 function git(repo, args, opts = {}) {
   return execFileSync('git', ['-C', repo, ...args], {
     encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, ...opts,
@@ -454,15 +463,34 @@ function linkDependencies(repo, work) {
 /** Spustí testový soubor v síťovém namespace bez cesty ven. */
 export function runIsolatedTest(work, testFile, timeout = DEFAULT_TEST_TIMEOUT) {
   const env = { ...process.env, INTENTSMITH_DB_PATH: path.join(work, 'eval-scratch.sqlite') };
+  if (!existsSync(path.resolve(work, testFile))) {
+    return { passed: false, timedOut: false, completed: false,
+      environmentError: 'CODE_TEST_FILE_MISSING', output: '' };
+  }
+  // A zero exit from candidate code is not proof that the test module ran.
+  // The evaluator, not the generated function, appends a completion receipt
+  // after the test module (including top-level await) has finished loading.
+  const receipt = `CODE_TEST_COMPLETED_${randomUUID()}`;
+  const bootstrap = `import { pathToFileURL } from 'node:url';
+import { writeSync } from 'node:fs';
+process.argv[1] = ${JSON.stringify(path.resolve(work, testFile))};
+await import(pathToFileURL(${JSON.stringify(path.resolve(work, testFile))}).href);
+writeSync(1, ${JSON.stringify('\n' + receipt + '\n')});\n`;
+  const bootstrapPath = path.join(work, `.code-test-${randomUUID()}.mjs`);
+  writeFileSync(bootstrapPath, bootstrap);
+  const observation = (output, extra = {}) => ({
+    completed: output.includes(receipt),
+    output: output.replaceAll(receipt, ''), ...extra,
+  });
   // Keep Node identical to the grading contract and pass filenames as literal
   // argv. JSON quoting is not shell quoting; filenames may contain $ or quotes.
   const inner = 'ip link set lo up 2>/dev/null; exec "$1" -- "$2" 2>&1';
   try {
-    const out = execFileSync('unshare', ['-rn', 'sh', '-c', inner, 'code-patch-test', process.execPath, testFile], {
+    const out = execFileSync('unshare', ['-rn', 'sh', '-c', inner, 'code-patch-test', process.execPath, bootstrapPath], {
       cwd: work, timeout, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
       stdio: ['ignore', 'pipe', 'pipe'], env,
     });
-    return { passed: true, timedOut: false, output: out || '' };
+    return observation(out || '', { passed: true, timedOut: false });
   } catch (err) {
     const unshareOutput = `${err.stdout || ''}${err.stderr || ''}`;
     // Some managed agent/container environments disable unprivileged user
@@ -478,13 +506,12 @@ export function runIsolatedTest(work, testFile, timeout = DEFAULT_TEST_TIMEOUT) 
           '-p', `WorkingDirectory=${work}`,
           '-E', `INTENTSMITH_DB_PATH=${env.INTENTSMITH_DB_PATH}`,
           process.execPath,
-          '--',
-          testFile,
+          '--', bootstrapPath,
         ], {
           cwd: work, timeout, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
           stdio: ['ignore', 'pipe', 'pipe'], env,
         });
-        return { passed: true, timedOut: false, output: out || '', isolation: 'systemd-private-network' };
+        return observation(out || '', { passed: true, timedOut: false, isolation: 'systemd-private-network' });
       } catch (fallbackError) {
         // execFileSync timeout terminates the systemd-run client, not
         // necessarily the transient service. Stop only our unique owned unit
@@ -494,20 +521,26 @@ export function runIsolatedTest(work, testFile, timeout = DEFAULT_TEST_TIMEOUT) 
             timeout: 10_000, stdio: 'ignore',
           });
         } catch { /* the collected unit may already be gone */ }
-        return {
+        const output = `${fallbackError.stdout || ''}${fallbackError.stderr || ''}`;
+        return observation(output, {
           passed: false,
           timedOut: fallbackError.code === 'ETIMEDOUT' || fallbackError.signal === 'SIGTERM',
-          output: `${fallbackError.stdout || ''}${fallbackError.stderr || ''}`,
+          environmentError: ['ENOENT', 'EACCES', 'EPERM'].includes(fallbackError.code)
+            || /Failed to (?:start transient|connect to bus)|Failed at step|Failed to set up.*namespac/i.test(output)
+            ? 'CODE_TEST_LAUNCH_FAILED' : null,
           isolation: 'systemd-private-network',
-        };
+        });
       }
     }
-    return {
+    return observation(unshareOutput, {
       passed: false,
       timedOut: err.code === 'ETIMEDOUT' || err.signal === 'SIGTERM',
-      output: unshareOutput,
+      environmentError: ['ENOENT', 'EACCES', 'EPERM'].includes(err.code)
+        ? 'CODE_TEST_LAUNCH_FAILED' : null,
       isolation: 'unshare-network',
-    };
+    });
+  } finally {
+    rmSync(bootstrapPath, { force: true });
   }
 }
 
@@ -516,7 +549,7 @@ export function runIsolatedTests(work, testFiles, timeout = DEFAULT_TEST_TIMEOUT
   for (const file of testFiles) {
     const result = run(work, file, timeout);
     results.push(result);
-    if (result.timedOut) break;
+    if (result.timedOut || result.environmentError) break;
   }
   return results;
 }
@@ -624,6 +657,13 @@ export function scoreFromOutput(output, task, filePassed) {
         && !(task.knownFailing || []).includes(name));
 
   const score = regressions.length ? 0 : targetedPassed / targets.length;
+  // Named PASS lines before an unhandled exception cannot certify success.
+  // Partial scores still describe completed target checks when other checks
+  // explicitly fail. A late, unexplained nonzero exit invalidates full credit.
+  if (mode === 'named' && !filePassed && score === 1 && !parsed.failed.size) {
+    return { score: 0, passed: false, targeted: targets.length, targetedPassed,
+      regressions: ['testovací proces selhal bez dokončeného výsledku'] };
+  }
   return { score, passed: score === 1, targeted: targets.length, targetedPassed, regressions };
 }
 
@@ -640,7 +680,11 @@ export function scoreFromOutput(output, task, filePassed) {
 export function applyAndTest(repo, task, codes, opts = {}) {
   const timeout = opts.testTimeout ?? DEFAULT_TEST_TIMEOUT;
   const fail = (reason, extra = {}) => ({
-    score: 0, passed: false, applied: false, syntaxOk: false, timedOut: false, reason, ...extra,
+    score: 0, valid: true, outcome: CODE_EVALUATION_OUTCOME.INCORRECT,
+    passed: false, applied: false, syntaxOk: false, timedOut: false, reason, ...extra,
+  });
+  const invalid = (reason, extra = {}) => fail(reason, {
+    score: null, valid: false, outcome: CODE_EVALUATION_OUTCOME.ENVIRONMENT_INVALID, ...extra,
   });
 
   const list = codes == null ? null : (Array.isArray(codes) ? codes : [codes]);
@@ -687,14 +731,31 @@ export function applyAndTest(repo, task, codes, opts = {}) {
     // částečně a skóre by tvrdilo, že je vada opravená.
     // Jeden timeout už znamená nulové skóre a nespolehlivé orákulum. Čekat
     // dalších 120 s na každý další testový soubor nemůže výsledek změnit.
-    const runs = runIsolatedTests(work, testFilesOf(task), timeout);
+    const runs = runIsolatedTests(work, testFilesOf(task), timeout, opts.testRunner || runIsolatedTest);
+    const unavailable = runs.find(r => r.environmentError);
+    if (unavailable) return invalid(unavailable.environmentError, { applied: true, syntaxOk,
+      output: unavailable.output });
     const run = {
       passed: runs.every(r => r.passed),
       timedOut: runs.some(r => r.timedOut),
       output: runs.map(r => r.output).join('\n'),
     };
+    if (run.timedOut) return fail('vyčerpán časový rozpočet testu', {
+      applied: true, syntaxOk, timedOut: true, output: run.output,
+      outcome: CODE_EVALUATION_OUTCOME.OPERATIONAL_FAILURE,
+    });
+    if (runs.some(r => r.completed === false)) return fail('test nebyl dokončen', {
+      applied: true, syntaxOk, output: run.output,
+    });
     const scored = scoreFromOutput(run.output, task, run.passed);
+    if (scored.score === 1 && !run.passed) {
+      scored.score = 0;
+      scored.passed = false;
+      scored.regressions.push('testovací soubor skončil neúspěšně');
+    }
     return {
+      valid: true,
+      outcome: scored.passed ? CODE_EVALUATION_OUTCOME.SUCCESS : CODE_EVALUATION_OUTCOME.INCORRECT,
       score: scored.score,
       passed: scored.passed,
       applied: true, syntaxOk, timedOut: run.timedOut,
@@ -708,7 +769,7 @@ export function applyAndTest(repo, task, codes, opts = {}) {
             : `splněno ${scored.targetedPassed}/${scored.targeted} požadavků`,
     };
   } catch (err) {
-    return fail(`chyba při aplikaci: ${err.message}`);
+    return invalid(`chyba prostředí při aplikaci: ${err.message}`);
   } finally {
     try { git(repo, ['worktree', 'remove', '--force', work]); } catch { /* uklidí rmSync */ }
     try { rmSync(work, { recursive: true, force: true }); } catch { /* už je pryč */ }

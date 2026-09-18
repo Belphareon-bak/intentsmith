@@ -1173,6 +1173,27 @@ test('only the failed model and attempted role receive a terminal row', () => {
   assertEqual(writes[0].metadata.failure.code, failure.code);
 });
 
+test('§4: failed evaluation preserves valid, invalid, budget and unattempted counts separately', () => {
+  const writes = [];
+  const failure = { role: 'CODE', model: 'candidate', artifact: { modelName: 'candidate', digestSha256: DIGEST_A },
+    error: 'fixture missing', startedAt: '2026-09-18T08:00:00.000Z', completedAt: '2026-09-18T08:00:01.000Z',
+    attemptedTasks: [
+      { name: 'a', repeat: 1, score: 1, valid: true, outcome: 'SUCCESS', response: 'complete patch' },
+      { name: 'b', repeat: 1, score: 0, valid: true, outcome: 'OPERATIONAL_FAILURE' },
+      { name: 'a', repeat: 2, score: null, valid: false, outcome: 'ENVIRONMENT_INVALID', error: 'fixture missing' },
+    ] };
+  recordRoleEvaluationFailures({ result: { model: 'candidate', roleErrors: [failure] },
+    plans: { CODE: { suiteName: 'code_patch', suiteVersion: 'v1', suiteContractSha256: CONTRACT_A, repeats: 3, taskCount: 2 } },
+    history: { recordTerminal: row => { writes.push(row); return row; } }, hardware: {} });
+  assertEqual(JSON.stringify(writes[0].metadata.attemptCounts), JSON.stringify({
+    planned: 6, observed: 3, notAttempted: 3, invalid: 1, operationalFailure: 1,
+  }));
+  assertEqual(writes[0].tasks[0].responses[0], 'complete patch');
+  assertEqual(writes[0].tasks[1].mean, 0);
+  assertEqual(writes[0].tasks[2].mean, null);
+  assertEqual(writes[0].tasks[2].details[0].valid, false);
+});
+
 
 function retentionFixture() {
   const bindings = { D1: 'qwen3.5:27b', CODE: 'qwen3.5:27b', CHAT: 'qwen3.5:27b',

@@ -94,10 +94,11 @@ function roleApplicability(artifact, plan) {
 
 function taskDetails(row) {
   const tasks = JSON.parse(row.task_results_json || '[]');
-  return tasks.map(t => ({ name: t.name, language: t.language || null,
-    mean: Number(t.mean), spread: Number(t.spread || 0), scores: t.scores || [],
+  return tasks.map(t => ({ name: t.name, repeat: t.repeat ?? null, language: t.language || null,
+    mean: t.mean == null ? null : Number(t.mean), spread: Number(t.spread || 0), scores: t.scores || [],
     rubric: t.rubric || [], details: (t.details || []).map(d => d && ({
       reason: d.reason || null, syntaxOk: d.syntaxOk, applied: d.applied,
+      outcome: d.outcome, valid: d.valid, timedOut: d.timedOut,
       targetedPassed: d.targetedPassed, targeted: d.targeted, regressions: d.regressions,
       schema: d.schema, parts: d.parts, penalties: d.penalties,
       precision: d.precision, recall: d.recall, f1: d.f1,
@@ -173,6 +174,7 @@ function decodeCurrentRow(row, includeTasks = true) {
     passed: Number(row.passed),
     total: Number(row.total),
     repeats: Number(row.repeats),
+    attemptCounts: JSON.parse(row.metadata_json || '{}').attemptCounts || null,
     tasks: includeTasks ? Object.freeze(taskDetails(row)) : undefined,
     ...interval,
     errorCode: row.error_code || null,

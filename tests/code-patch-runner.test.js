@@ -59,6 +59,55 @@ const fx = buildFixture();
 
 suite('code-patch-runner');
 
+test('§3/§4: alternate correct implementation passes while empty, echo, negation and wrong repairs fail', () => {
+  const { task } = deriveTask(fx.repo, fx.meta);
+  const alternate = 'export function add(a, b) { return [a, b].reduce((sum, value) => sum + value, 0); }';
+  const good = applyAndTest(fx.repo, task, [alternate]);
+  assertEqual(good.score, 1); assertEqual(good.outcome, 'SUCCESS');
+  for (const codes of [null, task.functionTexts,
+    ['add return sum correct fixed'],
+    ['export function add(a, b) { return -(a + b); }'],
+    ['export function add(a, b) { return 999; }']]) {
+    const bad = applyAndTest(fx.repo, task, codes);
+    assertEqual(bad.score, 0); assertEqual(bad.valid, true);
+    assertEqual(bad.outcome, 'INCORRECT');
+  }
+});
+
+test('§4: unavailable historical revision and missing test have no score', () => {
+  const { task } = deriveTask(fx.repo, fx.meta);
+  for (const brokenEnvironment of [
+    { ...task, hash: 'f'.repeat(40) },
+    { ...task, test: 'tests/missing.js', tests: ['tests/missing.js'] },
+  ]) {
+    const result = applyAndTest(fx.repo, brokenEnvironment, task.goldTexts);
+    assertEqual(result.score, null); assertEqual(result.valid, false);
+    assertEqual(result.outcome, 'ENVIRONMENT_INVALID');
+  }
+});
+
+test('§4: generated early process exit cannot replace the final tested state', () => {
+  const { task } = deriveTask(fx.repo, fx.meta);
+  const result = applyAndTest(fx.repo, task,
+    ['export function add(a, b) { process.exit(0); }']);
+  assertEqual(result.score, 0); assertEqual(result.valid, true);
+  assertEqual(result.passed, false);
+});
+
+test('§4: exhausted execution budget is an operational failure with zero score', () => {
+  const { task } = deriveTask(fx.repo, fx.meta);
+  const result = applyAndTest(fx.repo, task,
+    ['export function add(a, b) { while (true) {} }'], { testTimeout: 1000 });
+  assertEqual(result.score, 0); assertEqual(result.valid, true);
+  assertEqual(result.outcome, 'OPERATIONAL_FAILURE'); assert(result.timedOut);
+});
+
+test('§4: named successes printed before a late process failure cannot certify a complete repair', () => {
+  const result = scoreFromOutput('  ✅ target\n  ✅ regression\n',
+    { failToPass: ['target'], passToPass: ['regression'], scoreMode: 'named' }, false);
+  assertEqual(result.score, 0); assertEqual(result.passed, false);
+});
+
 test('isolated test pins Node, preserves literal argv and forwards its private DB environment', () => {
   const work = mkdtempSync(path.join(tmpdir(), 'codepatch-node-pin-'));
   const originalPath = process.env.PATH;
