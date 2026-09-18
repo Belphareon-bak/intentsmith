@@ -126,3 +126,10 @@ Před prohlášením provozního dokončení zbývá nahrát profil správcem a 
 systemd probe i skutečný Studio M2 krok. Nadále chybí důkaz spolehlivého samostatného
 modelového dokončení widgetu, acceptance/release pečetě a finální soak. Sekundární
 weather/news widget nebyl realizován; prioritu dostaly skutečné bloky hlavního flow.
+
+Publikace: větev `work/project-flow-20260918` je na GitHubu. Pokus vytvořit
+draft PR konektorem skončil HTTP 403 `Resource not accessible by integration`;
+PR tedy nevzniklo. Review lze provést přímo nad větví a výše uvedenou deltou.
+M5 kontrola na `c8d5d7ab`: `PASS_CURRENT_TREE_HISTORY_REMEDIATION_REQUIRED`;
+historický podpis tím nevzniká. Vlastní testovací servery, Xvfb, Studio a GPU
+lease byly uklizené; produkční služba/timer a cizí soak zůstaly běžet.

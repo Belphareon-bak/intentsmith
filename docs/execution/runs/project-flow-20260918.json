@@ -2916,5 +2916,16 @@
     "physicalRpmSensors": 0,
     "graphEvidence": "EXPLICIT_SYNTHETIC_FIXTURE"
   },
-  "artifactRoot": ".intentsmith-artifacts/project-flow-20260918"
+  "artifactRoot": ".intentsmith-artifacts/project-flow-20260918",
+  "privacyFollowup": {
+    "revision": "c8d5d7ab",
+    "verdict": "PASS_CURRENT_TREE_HISTORY_REMEDIATION_REQUIRED",
+    "sha256": "ec918a669e0a3c58c1c0219ba31fd0d1d452ebcd619bf70edc54b3f3771ada45",
+    "secretValuesRecorded": false
+  },
+  "publication": {
+    "branch": "work/project-flow-20260918",
+    "remote": "github",
+    "pullRequest": "NOT_CREATED_CONNECTOR_403_RESOURCE_NOT_ACCESSIBLE_BY_INTEGRATION"
+  }
 }
