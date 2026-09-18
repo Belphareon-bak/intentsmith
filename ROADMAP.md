@@ -1,5 +1,11 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**IDE vzhled, 2026-09-18:** nasazeno `9ab808f1`, zachováno novější hodnocení
+z `230778ad`. Dvě ikony rozložení, výraznost veškerého textu, 12 kategorií /
+33 záložek nastavení a volitelný styl Studio. Skutečný Electron, min/max textu
+a restart PASS; úplný profil 359 PASS / 1 FAIL (nezměněná Gate 0 pečeť).
+REVIEW_PENDING. [Rozsah a důkazy](docs/review/2026-09-18-IDE-APPEARANCE.md).
+
 **IDE a GPU hunt, 2026-09-18:** nasazeno `576719bf`. Řazení hlavičkou,
 celé použitelné role v jedné evaluaci, číselné matice, 249 kandidátů ze
 sloučeného katalogu, záložky/kontext/sloupce/soubory a zarovnané seznamy.
