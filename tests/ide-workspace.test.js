@@ -158,3 +158,22 @@ test('restoring an inactive project reloads its missing tree exactly once on act
   c._sessions[1]._treeLoading=false;c._perSessionTree[1].rawTree=[];c._ensureWorkspaceTree(1);assert.equal(reads.length,1);
   c._perSessionTree[1].rawTree=null;c._sessions[1]._closed=true;c._ensureWorkspaceTree(1);assert.equal(reads.length,1);
 });
+
+test('late system logs belong to the sender, never the currently selected or a closed session',()=>{
+  const c=harness();c.renderAgent=()=>{};c._sessionActive=1;vm.runInContext(fn('_appendSessionLog'),c);
+  const start=source.indexOf("IntentSmithBus.on('chat:system'");const end=source.indexOf('\n  });',start)+6;
+  c.IntentSmithBus={on:(_name,handler)=>c.handler=handler};vm.runInContext(source.slice(start,end),c);
+  c.handler({sessionIdx:0,content:'background session message'});
+  assert.equal(c._sessions[0].log[0].text,'background session message');assert.equal(c._sessions[1].log.length,0);
+  c._sessions[0]._closed=true;c.handler({sessionIdx:0,content:'late'});c.handler({sessionIdx:99,content:'unknown'});
+  assert.equal(c._sessions[0].log.length,1);assert.equal(c._sessions[1].log.length,0);
+});
+test('a background terminal completion cannot move focus out of the selected session',()=>{
+  const terminal=fs.readFileSync(new URL('../intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/terminal-client.js',import.meta.url),'utf8');
+  const start=terminal.indexOf('function _refocusTermInput('),end=terminal.indexOf('/* ─── Helpers',start);
+  const callbacks=[],focused=[];const c=harness();Object.assign(c,{requestAnimationFrame:cb=>callbacks.push(cb),
+    window:{_intentsmith:{getSessionActive:()=>c._sessionActive}},document:{getElementById:id=>({focus:()=>focused.push(id)})}});
+  vm.runInContext(terminal.slice(start,end),c);c._refocusTermInput(0);c._sessionActive=1;callbacks.shift()();assert.equal(focused.length,0);
+  c._refocusTermInput(1);c._sessions[1]=c._mkSession();callbacks.shift()();assert.equal(focused.length,0);
+  c._refocusTermInput(1);callbacks.shift()();assert.deepEqual(focused,['intentsmith-term-input-1']);
+});

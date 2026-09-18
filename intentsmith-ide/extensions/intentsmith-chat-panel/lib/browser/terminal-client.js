@@ -165,7 +165,10 @@ function initTerminalClient() {
 /* ─── Focus Restoration ──────────────────────────────────────────────── */
 
 function _refocusTermInput(sessionIdx) {
+  var owner = typeof _sessions !== 'undefined' && _sessions[sessionIdx];
   requestAnimationFrame(function() {
+    if (!owner || owner._closed || _sessions[sessionIdx] !== owner) return;
+    if (typeof window === 'undefined' || !window._intentsmith || window._intentsmith.getSessionActive() !== sessionIdx) return;
     var el = document.getElementById('intentsmith-term-input-' + sessionIdx);
     if (el && !el.disabled) el.focus();
   });

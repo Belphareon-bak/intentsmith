@@ -5456,7 +5456,7 @@ function _initBusSubscriptions() {
 
   /* Chat messages from assistant */
   IntentSmithBus.on('chat:message', function(ev) {
-    var s = _sessions[ev.sessionIdx] || _sessions[0];
+    var s = _sessions[ev.sessionIdx];if(!s||s._closed)return;
     s.chat._thinking = null; /* v90: response arrived — clear thinking indicator */
     s.chat.msgs.push({role:'assistant', text:ev.content, tag:ev.tag||'LLM'});
     s._history=null;
@@ -5540,7 +5540,7 @@ function _initBusSubscriptions() {
 
   /* System messages → agent log */
   IntentSmithBus.on('chat:system', function(ev) {
-    if(window._intentsmith)window._intentsmith.agentLog('TOOL',ev.content);
+    _appendSessionLog(ev.sessionIdx,'TOOL',ev.content);
   });
 
   /* Session changed (rehydration after WS reconnect) */
@@ -5561,7 +5561,7 @@ function _initBusSubscriptions() {
 
   /* Agent log entries (from agent-client.js formatter) */
   IntentSmithBus.on('agent:log', function(ev) {
-    var s = _sessions[ev.sessionIdx] || _sessions[0];
+    var s = _sessions[ev.sessionIdx];if(!s||s._closed)return;
     s.log.forEach(function(l) { l.active = false; });
     s.log.push(ev.entry);
     /* v90: Update thinking indicator text from agent steps */
@@ -6028,7 +6028,7 @@ window._intentsmith={
   clearSpecialist:function(){var s=_sessions[_sessionActive]||_sessions[0];return _chatSelectSpecialist(s,null);},
   getSpecialist:function(){return(_sessions[_sessionActive]||_sessions[0]).chat.specialist;},
   renderChat:renderChat,
-  agentLog:function(type,text){var s=_sessions[_sessionActive]||_sessions[0];var now=new Date();s.log.forEach(function(e){e.active=false;});s.log.push({time:now.toLocaleTimeString('cs-CZ'),type:type,cls:type.toLowerCase(),text:text,active:true,ts:now.toISOString()});renderAgent();},
+  agentLog:function(type,text){_appendSessionLog(_sessionActive,type,text);},
   renderCenter:function(){renderCenter();},
   approveEdit:function(reqId){if(typeof IntentSmithWS!=='undefined')IntentSmithWS.approveEdit(reqId);},
   rejectEdit:function(reqId){if(typeof IntentSmithWS!=='undefined')IntentSmithWS.rejectEdit(reqId);},
@@ -7582,6 +7582,11 @@ var _agentContainer=null;
 var _turnCollapsed={};
 var _scrollOnNewOnly=false;
 var _agentRoot=null;
+function _appendSessionLog(idx,type,text){
+  var s=_sessions[idx];if(!s||s._closed)return;
+  var now=new Date();s.log.forEach(function(e){e.active=false;});
+  s.log.push({time:now.toLocaleTimeString('cs-CZ'),type:type,cls:type.toLowerCase(),text:text,active:true,ts:now.toISOString()});renderAgent();
+}
 function renderAgent(){if(_workspaceShown())renderCenter();}
 function _agentScrollBottom(){if(_scrollOnNewOnly){_scrollOnNewOnly=false;return;}setTimeout(function(){if(!_agentContainer)return;var divs=_agentContainer.querySelectorAll('div');for(var i=0;i<divs.length;i++){var d=divs[i];if(d.style.overflowY==='auto'&&d.scrollHeight>d.clientHeight+20){d.scrollTop=d.scrollHeight;}}},80);}
 
