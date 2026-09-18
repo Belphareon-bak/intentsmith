@@ -63,7 +63,7 @@ import { ModelEvaluationDecisionStore } from '../src/upgrade/model-evaluation-de
 import {
   DEFAULT_RESPONSIBILITY_POLICY,
   auditResponsibilitySegregation,
-  buildInstalledCandidateQueue,
+  buildInstalledCandidateQueue, prioritizeRoleGaps,
   createHistoryCallbacks,
   recordRoleEvaluationFailures,
   evaluationStateForArtifact,
@@ -74,7 +74,7 @@ import {
 import { createModelFailoverRepository } from '../src/upgrade/model-failover.js';
 import {
   assessCandidateDownloadHeadroom, assessScheduledEvaluationReadiness,
-  holdGpuEvaluationLock,
+  holdGpuEvaluationLock, waitForGpuReadiness,
 } from '../src/upgrade/gpu-evaluation-lock.js';
 import { ModelHuntState } from '../src/upgrade/model-hunt-state.js';
 import { huntRetentionKey, pruneRejectedHuntModels } from '../src/upgrade/model-hunt-retention.js';
@@ -590,6 +590,13 @@ const current = resolveCurrentBindings(config.models, bindingRepository, ALL_ROL
 const durableBindings = current.durable;
 const initialBindings = current.bindings;
 const bindings = { ...initialBindings };
+const roleScores = Object.fromEntries(ROLES.map(role => {
+  const model = installedRaw.find(m => canonicalModelName(m.name) === canonicalModelName(bindings[role]));
+  const plan = evaluationPlans[role];
+  const row = model?.digest && modelEvaluationHistory.getComplete({digestSha256:model.digest, role,
+    suiteName:plan.suiteName, suiteVersion:plan.suiteVersion, contractSha256:plan.suiteContractSha256});
+  return [role, row?.score ?? null];
+}));
 if (Object.keys(durableBindings).length) {
   log(`Durable runtime vazby: ${Object.entries(durableBindings).map(([role, model]) => `${role}=${model}`).join(', ')}`);
 }
@@ -635,7 +642,8 @@ const installedQueue = REMOTE_ONLY ? [] : buildInstalledCandidateQueue({
 });
 // Chybějící suite už staženého artefaktu má přednost před dalším downloadem:
 // je rychlejší, nezvětšuje disk a uzavírá přesně tu historii, kterou už máme.
-const byPriority = (a, b) => b.priority - a.priority || a.sizeGB - b.sizeGB;
+for (const rows of [installedQueue, remoteQueue]) rows.splice(0, rows.length, ...prioritizeRoleGaps(rows, roleScores));
+const byPriority = (a, b) => (b.roleUrgency || 0) - (a.roleUrgency || 0) || b.priority - a.priority || a.sizeGB - b.sizeGB;
 const installedPending = installedQueue
   .filter(candidate => candidate.evaluationState?.state !== 'scored')
   .sort(byPriority);
@@ -740,23 +748,27 @@ if (readyRoles.length === 0) {
 // Prevent a scheduled hunt, manual pilot and CODE calibration from loading
 // different Ollama models into the same GPU between drain and measurement.
 let gpuLease;
-try {
-  gpuLease = holdGpuEvaluationLock({ command: `model-upgrade-hunt ${args.join(' ')}` });
-} catch (error) {
-  if (!SCHEDULED || error.code !== 'GPU_EVALUATION_BUSY') throw error;
-  emitJsonArtifact({ generatedAt: new Date().toISOString(), providerVersion, status: 'SCHEDULED_SKIPPED', reasons: [error.message], results: [] });
-  db.close();
-  process.exit(0);
-}
-if (SCHEDULED) {
-  const readiness = await scheduledEvaluationReadiness();
-  if (!readiness.ready) {
-    log(`Plánovaný hunt přeskočen bez zásahu: ${readiness.reasons.join('; ')}`);
-    emitJsonArtifact({ generatedAt: new Date().toISOString(), providerVersion, status: 'SCHEDULED_SKIPPED', reasons: readiness.reasons, results: [] });
-    gpuLease.release();
-    db.close();
-    process.exit(0);
-  }
+const gpuWaitDeadline = Date.now() + (EVALUATE_INSTALLED ? 30 * 60_000 : 0);
+const waitingForGpu = state => publishProgress('waiting-gpu', ONLY[0] || null, [], {
+  role: ROLE_FILTER[0], reasons: state.reasons, waitUntil: new Date(gpuWaitDeadline).toISOString(),
+});
+const ownership = await waitForGpuReadiness({ deadline: gpuWaitDeadline, onWait: waitingForGpu,
+  probe: async () => {
+    try { gpuLease = holdGpuEvaluationLock({ command: `model-upgrade-hunt ${args.join(' ')}` }); return {ready:true}; }
+    catch (error) {
+      if (!SCHEDULED || error.code !== 'GPU_EVALUATION_BUSY') throw error;
+      return {ready:false, reasons:[error.message]};
+    }
+  },
+});
+let readiness = ownership;
+if (gpuLease && SCHEDULED) readiness = await waitForGpuReadiness({
+  probe: scheduledEvaluationReadiness, deadline: gpuWaitDeadline, onWait: waitingForGpu,
+});
+if (!readiness.ready) {
+  log(`Hunt přeskočen bez zásahu: ${readiness.reasons.join('; ')}`);
+  emitJsonArtifact({ generatedAt: new Date().toISOString(), providerVersion, status: 'SCHEDULED_SKIPPED', reasons: readiness.reasons, results: [] });
+  gpuLease?.release(); db.close(); process.exit(0);
 }
 
 const toTry = [];
@@ -902,6 +914,7 @@ for (const cand of toTry) {
     incumbentSpeed,
     evaluationPlans,
     trialOpts: {
+      fresh: EVALUATE_INSTALLED,
       repeats: 3,
       onProgress: value => publishProgress('tasks', value.model || cand.name, results.map(r => r.model), value),
       resolveArtifact: historyCallbacks.resolveArtifact,
@@ -909,6 +922,7 @@ for (const cand of toTry) {
       saveHistoricalSummary: historyCallbacks.saveHistoricalSummary,
     },
     hasReusableEvaluation: async (name, roles) => {
+      if (EVALUATE_INSTALLED) return false;
       const artifact = await historyCallbacks.resolveArtifact(name);
       return evaluationStateForArtifact(
         artifact, roles, evaluationPlans, modelEvaluationHistory,

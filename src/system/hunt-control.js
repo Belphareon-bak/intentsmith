@@ -1,7 +1,7 @@
 // Local desktop control of one installed, bounded systemd hunt. No shell input.
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { readFile, lstat, realpath } from 'node:fs/promises';
+import { readFile, lstat, realpath, readdir } from 'node:fs/promises';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inspectHuntGpu } from '../upgrade/model-hunt-diagnostics.js';
@@ -22,15 +22,15 @@ const parse = value => Object.fromEntries(value.trim().split('\n').filter(Boolea
   const at = line.indexOf('='); return [line.slice(0, at), line.slice(at + 1)];
 }));
 
-async function json(file) {
+async function json(file, maximumBytes = 262144) {
   const st = await lstat(file);
-  if (!st.isFile() || st.size > 262144 || st.uid !== process.getuid() || (st.mode & 0o077)) throw new Error('HUNT_STATE_UNSAFE');
+  if (!st.isFile() || st.size > maximumBytes || st.uid !== process.getuid() || (st.mode & 0o077)) throw new Error('HUNT_STATE_UNSAFE');
   return JSON.parse(await readFile(file, 'utf8'));
 }
 
 export function createHuntControl({ installationFile = process.env.INTENTSMITH_INSTALLATION_FILE,
   sourceRoot = ROOT, databasePath = process.env.C3_DB_PATH,
-  inspectGpu = inspectHuntGpu,
+  inspectGpu = inspectHuntGpu, readInventory = () => null,
   launch = args => exec('/usr/bin/systemd-run', args, { timeout: 15000, maxBuffer: 65536 }),
   run = (args) => exec('/usr/bin/systemctl', ['--user', ...args], { timeout: 10000, maxBuffer: 65536 }),
 } = {}) {
@@ -43,14 +43,15 @@ export function createHuntControl({ installationFile = process.env.INTENTSMITH_I
       || await realpath(value.sourceRoot) !== await realpath(sourceRoot)) throw new Error('DESKTOP_INSTALLATION_MISMATCH');
     return value;
   }
+  let health = null, healthAt = 0;
   const control = {
-    async status() {
+    async status({ freshGpu = false } = {}) {
       const installed = await installation();
       const [serviceResult, timerResult, evaluationResult, gpu] = await Promise.all([
         run(['show', SERVICE, ...properties.map(p => `--property=${p}`)]),
         run(['show', TIMER, ...properties.map(p => `--property=${p}`)]),
         run(['show', EVALUATION, ...properties.map(p => `--property=${p}`)]),
-        inspectGpu(),
+        freshGpu || !health || Date.now() - healthAt > 30000 ? inspectGpu().then(value => { health = value; healthAt = Date.now(); return value; }) : health,
       ]);
       const service = parse(serviceResult.stdout), timer = parse(timerResult.stdout), evaluation = parse(evaluationResult.stdout);
       if (service.LoadState !== 'loaded' || timer.LoadState !== 'loaded') throw new Error('HUNT_SERVICE_NOT_INSTALLED');
@@ -68,6 +69,25 @@ export function createHuntControl({ installationFile = process.env.INTENTSMITH_I
         try { progress = await json(join(installed.stateDirectory, 'model-hunt', current.runId, 'progress.json')); }
         catch (error) { if (error.code !== 'ENOENT') throw error; }
       }
+      const recent = [];
+      for (const entry of await readdir(join(installed.stateDirectory, 'model-hunt'), {withFileTypes:true}).catch(() => [])) {
+        if (!entry.isDirectory() || !/^run-[A-Za-z0-9]+$/.test(entry.name)) continue;
+        try { const summary = await json(join(installed.stateDirectory, 'model-hunt', entry.name, 'summary.json'));
+          if (summary.finishedAt) recent.push(summary); } catch {
+          // Pre-summary versions retain result.json. Do not invent missing request identity.
+          try {
+            const report = await json(join(installed.stateDirectory, 'model-hunt', entry.name, 'result.json'), 4 * 1024 * 1024);
+            const manual = report.results?.length === 1 && report.results[0].trials?.some(t => t.evaluation);
+            recent.push({runId:entry.name, finishedAt:report.finishedAt || report.generatedAt,
+              status:report.status || 'COMPLETE', reasons:report.reasons || (report.reason ? [report.reason] : []),
+              request:manual ? {kind:'evaluation', model:report.results[0].model, role:report.results[0].trials[0]?.role} : null,
+              results:(report.results || []).map(r => ({model:r.model, stage:r.stage, error:r.error || null,
+                evaluations:(r.trials || []).filter(t => t.evaluation).map(t => ({role:t.role,score:t.evaluation.score,reused:t.evaluation.reused === true}))})),
+            });
+          } catch { /* An absent or unsafe record is not evidence of a completed run. */ }
+        }
+      }
+      if (current?.finishedAt && !recent.some(r => r.runId === current.runId)) recent.push(current);
       const manualActive = ['active', 'activating', 'deactivating'].includes(evaluation.ActiveState);
       const activeService = manualActive ? evaluation : service;
       const active = ['active', 'activating', 'deactivating'].includes(activeService.ActiveState);
@@ -77,9 +97,10 @@ export function createHuntControl({ installationFile = process.env.INTENTSMITH_I
         state: active ? (activeService.ActiveState === 'deactivating' ? 'STOPPING' : 'RUNNING')
           : !gpu.available ? 'BLOCKED' : (current?.status === 'FAILED' || (!current && service.ActiveState === 'failed')) ? 'FAILED'
             : timer.ActiveState === 'active' ? 'WAITING' : 'PAUSED',
-        service, timer, evaluation, gpu, current, progress,
+        service, timer, evaluation, gpu, gpuInventory: await readInventory(), current, progress,
+        recent: recent.filter(r => r.finishedAt).sort((a,b) => String(b.finishedAt).localeCompare(String(a.finishedAt))).slice(0,5),
         // A stored plan is explicitly dated, never passed off as a fresh discovery.
-        queue: progress?.queue || [], queueObservedAt: progress?.updatedAt || null,
+        queue: active ? progress?.queue || [] : [], lastPlan: progress?.queue || [], queueObservedAt: progress?.updatedAt || null,
       };
     },
     async evaluate(request, evaluations) {
@@ -95,7 +116,7 @@ export function createHuntControl({ installationFile = process.env.INTENTSMITH_I
         || role.suiteContractSha256 !== request.suiteContractSha256) {
         throw Object.assign(new Error('MODEL_EVALUATION_IDENTITY_CHANGED_OR_UNAVAILABLE'), { httpStatus: 409 });
       }
-      const status = await control.status();
+      const status = await control.status({ freshGpu: true });
       if (['RUNNING','STOPPING'].includes(status.state)) throw Object.assign(new Error('HUNT_ALREADY_RUNNING'), { httpStatus: 409 });
       if (!status.gpu.available) throw Object.assign(new Error(status.gpu.message), { httpStatus: 503, code: status.gpu.code });
       const installed = await installation();
@@ -112,7 +133,7 @@ export function createHuntControl({ installationFile = process.env.INTENTSMITH_I
     },
     async control(action) {
       if (!Object.hasOwn(ACTIONS, action)) throw Object.assign(new Error('HUNT_ACTION_INVALID'), { httpStatus: 400 });
-      const status = await control.status();
+      const status = await control.status({ freshGpu: true });
       if (action === 'start' && ['RUNNING','STOPPING'].includes(status.state)) throw Object.assign(new Error('HUNT_ALREADY_RUNNING'), { httpStatus: 409 });
       if (action === 'start' && !status.gpu.available) throw Object.assign(new Error(status.gpu.message), { httpStatus: 503, code: status.gpu.code });
       await run(action === 'stop' && ['active','activating','deactivating'].includes(status.evaluation.ActiveState)

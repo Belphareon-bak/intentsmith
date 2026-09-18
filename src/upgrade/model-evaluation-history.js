@@ -206,6 +206,7 @@ export class ModelEvaluationHistory {
         AND role = ?
         AND status = 'COMPLETE'
         AND COALESCE(json_extract(metadata_json, '$.provider.version'), 'UNRECORDED') = ?
+      ORDER BY completed_at DESC, rowid DESC
       LIMIT 1
     `).get(digestSha256, suiteName, suiteVersion, contractSha256, role, this.providerVersion);
     return row ? this.#decode(row) : null;
@@ -296,7 +297,7 @@ export class ModelEvaluationHistory {
     const existing = this.getComplete({
       digestSha256, role, suiteName, suiteVersion, contractSha256,
     });
-    if (existing) return Object.freeze({ ...existing, reused: true });
+    if (existing && input.fresh !== true) return Object.freeze({ ...existing, reused: true });
 
     const summary = input.summary || {};
     const score = Number(summary.score);
@@ -342,7 +343,7 @@ export class ModelEvaluationHistory {
         interval.completedAt,
       );
     } catch (error) {
-      if (error?.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      if (input.fresh !== true && error?.code === 'SQLITE_CONSTRAINT_UNIQUE') {
         const raced = this.getComplete({
           digestSha256, role, suiteName, suiteVersion, contractSha256,
         });

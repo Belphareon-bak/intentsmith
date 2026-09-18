@@ -190,7 +190,7 @@ async function runSuiteCached(runner, suiteName, model, cache, opts = {}) {
   const key = cacheKey(suiteName, model, opts);
   if (cache?.has(key)) return cache.get(key);
 
-  if (typeof opts.loadHistoricalSummary === 'function') {
+  if (!opts.fresh && typeof opts.loadHistoricalSummary === 'function') {
     const historical = await opts.loadHistoricalSummary({
       role: opts.role || null,
       suiteName,
@@ -227,6 +227,7 @@ async function runSuiteCached(runner, suiteName, model, cache, opts = {}) {
       suiteContractSha256: opts.suiteContractSha256 || null,
       model,
       summary: result,
+      fresh: opts.fresh === true,
       artifact: expectedArtifact,
     });
     if (saved?.runId) result.historyRunId = saved.runId;

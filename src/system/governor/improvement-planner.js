@@ -140,8 +140,8 @@ function ruleCRELow(dims) {
     rule_id: 'cre-accuracy-low',
     type: 'PATTERN_REVIEW',
     severity,
-    title: `Nízká přesnost CRE (${Math.round(c.score * 100)}%)`,
-    description: `CRE klasifikace pod 80% za 7 dní.`,
+    title: `Slabý provozní výsledek CRE (${Math.round(c.score * 100)}%)`,
+    description: `Provozní ukazatel za 7 dní je pod 80 %: kombinuje úspěšnost požadavků (70 %) a četnost oprav směrování (30 %).`,
     suggested_action: 'Zkontrolujte CRE vzory a případně upravte guardy.',
     action_payload: JSON.stringify({
       type: 'review',

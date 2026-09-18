@@ -31,6 +31,7 @@ const publish = values => {
   writeFileSync(next, JSON.stringify({ schemaVersion: 1, runId: basename(runDir), startedAt,
     sourceRoot: root, request, ...values }) + '\n', { mode: 0o600 });
   renameSync(next, currentFile);
+  writeFileSync(join(runDir, 'summary.json'), readFileSync(currentFile), {mode:0o600});
 };
 // Manual and scheduled units must not race for the provider or overwrite the
 // active run's status. The child separately owns the shared GPU evaluation lock.
@@ -131,7 +132,7 @@ try {
       model: r.model, stage: r.stage, error: r.error || null, roleErrors: r.roleErrors?.length || 0,
       roleFailures: (r.roleErrors || []).map(f => ({ role: f.role, model: f.model, code: f.code, error: f.error, failedTasks: f.failedTasks || [] })),
       evaluations: (r.trials || []).filter(t => t.evaluation).map(t => ({role:t.role, score:t.evaluation.score, reused:t.evaluation.reused === true})),
-      decisions: (r.trials || []).map(t => ({ role: t.role, reason: t.decision?.reasonCode, winner: t.decision?.winner })),
+      decisions: (r.trials || []).filter(t => t.decision).map(t => ({ role: t.role, reason: t.decision?.reasonCode, winner: t.decision?.winner })),
     })) });
 } catch (error) {
   const blocked = ['GPU_DRIVER_LIBRARY_MISMATCH','GPU_PROBE_UNAVAILABLE'].includes(error.code);

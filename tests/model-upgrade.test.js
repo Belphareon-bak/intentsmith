@@ -27,7 +27,7 @@ import {
   auditResponsibilitySegregation, buildInstalledCandidateQueue,
   materializeCurrentHardwareBlocks, resolveCurrentBindings,
   selectResponsibilityPortfolio, recordRoleEvaluationFailures,
-  createHistoryCallbacks,
+  createHistoryCallbacks, prioritizeRoleGaps,
 } from '../src/upgrade/model-upgrade-prototype.js';
 import {
   acquireGpuEvaluationLock, assessCandidateDownloadHeadroom,
@@ -580,6 +580,13 @@ test('exact digest plus contract is stored once and reused across aliases', () =
   assertEqual(second.reused, true);
   assertEqual(first.artifact.digestSha256, DIGEST_A);
   db.close();
+});
+
+test('hunt prioritizes candidates and roles by current quality gaps before catalog rank',()=>{
+  const candidates=[{name:'chat',roles:['CHAT'],priority:99,sizeGB:8},{name:'code',roles:['CHAT','CODE'],priority:1,sizeGB:9},{name:'vision',roles:['VISION'],priority:2,sizeGB:8}];
+  const before=JSON.stringify(candidates),ordered=prioritizeRoleGaps(candidates,{CHAT:.9,CODE:.29,VISION:.8});
+  assertEqual(ordered[0].name,'code');assertEqual(ordered[0].roles[0],'CODE');assertEqual(ordered[1].name,'vision');assertEqual(JSON.stringify(candidates),before);
+  assertEqual(prioritizeRoleGaps(candidates,{CHAT:.9,CODE:.29,VISION:null})[0].name,'vision');
 });
 
 test('history reuse requires the exact suite version as well as the contract SHA', () => {

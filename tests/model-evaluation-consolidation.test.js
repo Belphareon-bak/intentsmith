@@ -1,3 +1,6 @@
+import { up as up111 } from '../src/db/migrations/2026_09_11_111_model_hunt_provider_identity.js';
+import { up as up114 } from '../src/db/migrations/2026_09_18_114_model_evaluation_remeasure.js';
+import { ModelEvaluationHistory } from '../src/upgrade/model-evaluation-history.js';
 import Database from 'better-sqlite3';
 import { suite, test, assert, assertEqual, summary } from './harness.js';
 import { up as up034 } from '../src/db/migrations/2026_03_12_034_v123_validation_results.js';
@@ -53,6 +56,16 @@ function insertRun(db, runId, digest, suite = 'chat_v3', role = 'CHAT') {
 }
 
 suite('Model evaluation consolidation migration and decision store');
+
+test('fresh repeat appends an immutable row while normal hunt reuse returns the latest exact result', () => {
+  const db=consolidatedDatabase();up097(db);up111(db);up114(db);const before=db.prepare("SELECT COUNT(*) n FROM model_evaluation_runs").get().n;
+  const history=new ModelEvaluationHistory(db),input={artifact:{modelName:'demo:latest',digestSha256:DIGEST_A},role:'CODE',suiteName:'code_patch',suiteVersion:'v1',contractSha256:CONTRACT,summary:{ score:0.75, total:1, repeats:3, tasks:[{name:"task",mean:0.75,spread:0,scores:[.75,.75,.75]}] },provider:{version:'fixture'}};
+  const first=history.recordComplete(input),second=history.recordComplete({...input,fresh:true});
+  assert(first.runId!==second.runId);assertEqual(history.count(),before+2);assert(second.reused!==true);
+  assertEqual(history.recordComplete(input).runId,second.runId);assertEqual(history.count(),before+2);
+  let rejected=0;for(const sql of ['DELETE FROM model_evaluation_runs',"UPDATE model_evaluation_runs SET score=1"]){try{db.exec(sql);}catch{rejected++;}}
+  assertEqual(rejected,2);assertEqual(db.pragma('foreign_key_check').length,0);db.close();
+});
 
 test('082 archives all legacy payloads before removing runtime tables', () => {
   const db = consolidatedDatabase();

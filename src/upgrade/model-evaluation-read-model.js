@@ -92,6 +92,27 @@ function roleApplicability(artifact, plan) {
   return checkModelEvaluationApplicability(artifact, plan);
 }
 
+function taskDetails(row) {
+  const tasks = JSON.parse(row.task_results_json || '[]');
+  return tasks.map(t => ({ name: t.name, language: t.language || null,
+    mean: Number(t.mean), spread: Number(t.spread || 0), scores: t.scores || [],
+    rubric: t.rubric || [], details: (t.details || []).map(d => d && ({
+      reason: d.reason || null, syntaxOk: d.syntaxOk, applied: d.applied,
+      targetedPassed: d.targetedPassed, targeted: d.targeted, regressions: d.regressions,
+    })) }));
+}
+function taskCatalog(plan) {
+  return (plan.suite?.tests || []).map(t => {
+    const g = t.contractMaterial?.gradingInputs;
+    const source = typeof g?.source === 'string' ? g.source : g?.source?.path;
+    const spans = (g?.spans || []).map(s => s.name || s.header).filter(Boolean).join(', ');
+    return { name: t.name, label: source ? source + (spans ? ' · ' + spans : ' · ' + t.name.replaceAll('_', ' '))
+      : t.description || t.name.replaceAll('_', ' '), language: t.language || null,
+      requirements: g?.failToPass || t.rubric || [], context: g?.context || null };
+
+  });
+}
+
 function decodeCurrentRow(row) {
   if (!row) return null;
   const interval = decodedInterval(row);
@@ -104,6 +125,7 @@ function decodeCurrentRow(row) {
     passed: Number(row.passed),
     total: Number(row.total),
     repeats: Number(row.repeats),
+    tasks: Object.freeze(taskDetails(row)),
     ...interval,
     errorCode: row.error_code || null,
     errorMessage: row.error_message || null,
@@ -122,8 +144,7 @@ function currentStatus(db, artifact, role, plan, providerVersion = null) {
     });
   }
   const row = db.prepare(`
-    SELECT run_id, status, score, passed, total, repeats, duration_ms,
-           error_code, error_message, started_at, completed_at,
+    SELECT *,
            json_extract(metadata_json, '$.provider.version') AS provider_version
     FROM model_evaluation_runs
     WHERE model_digest_sha256 = ?
@@ -134,7 +155,7 @@ function currentStatus(db, artifact, role, plan, providerVersion = null) {
       AND (? IS NULL OR json_extract(metadata_json, '$.provider.version') = ?)
     ORDER BY CASE status WHEN 'COMPLETE' THEN 0 ELSE 1 END,
              completed_at DESC,
-             run_id DESC
+             rowid DESC
     LIMIT 1
   `).get(
     artifact.digestSha256,
@@ -184,6 +205,8 @@ function decodeDecision(row, context) {
     else if (bindingArtifact.digestSha256 !== row.incumbent_digest_sha256) {
       actionability = 'INCUMBENT_BINDING_CHANGED';
     } else if (!candidateArtifact) actionability = 'CANDIDATE_NOT_INSTALLED';
+    else if (context.currentRuns?.get(row.incumbent_digest_sha256) !== row.incumbent_run_id
+      || context.currentRuns?.get(row.candidate_digest_sha256) !== row.candidate_run_id) actionability = 'EVALUATION_REPLACED';
     else actionability = 'READY_FOR_MANUAL_BINDING';
   }
   return Object.freeze({
@@ -323,7 +346,7 @@ export class ModelEvaluationReadModel {
           plan.suiteVersion,
           plan.suiteContractSha256,
         ).map(row => (
-          decodeDecision(row, { inventory, binding: bindings[role], bindingAuthority, providerVersion: input.providerVersion || null })
+          decodeDecision(row, { inventory, binding: bindings[role], bindingAuthority, providerVersion: input.providerVersion || null, currentRuns: new Map(artifacts.map(a => [a.digestSha256, a.runId])) })
         ));
         decisions.push(...roleDecisions);
         roles[role] = Object.freeze({
@@ -348,6 +371,7 @@ export class ModelEvaluationReadModel {
             )).length,
           }),
           applicabilityContract: plan.applicabilityContract,
+          tasks: Object.freeze(taskCatalog(plan)),
           artifacts: Object.freeze(artifacts),
           latestDecision: roleDecisions[0] || null,
           decisions: Object.freeze(roleDecisions),
@@ -385,6 +409,12 @@ export class ModelEvaluationReadModel {
           notApplicable: notApplicableCount,
           total: models.length * Object.keys(this._plans).length,
         }),
+        history: Object.freeze(this._db.prepare(`SELECT *, json_extract(metadata_json, '$.provider.version') AS provider_version
+          FROM model_evaluation_runs ORDER BY completed_at DESC, rowid DESC LIMIT 200`).all().map(row => ({
+            ...decodeCurrentRow(row), model: row.model_name, role: row.role, digestSha256: row.model_digest_sha256,
+            suiteName: row.suite_name, suiteContractSha256: row.suite_contract_sha256,
+            current: models.some(m => m.digestSha256 === row.model_digest_sha256 && m.evaluations[row.role]?.runId === row.run_id),
+          }))),
         decisions: Object.freeze(decisions),
         roles: Object.freeze(roles),
         models: Object.freeze(models),

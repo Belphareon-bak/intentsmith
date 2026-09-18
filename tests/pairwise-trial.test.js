@@ -73,6 +73,14 @@ function fakeRunner(scoresByModel) {
   };
 }
 
+await testAsync('explicit fresh run bypasses historical reuse and persists a new measurement',async()=>{
+  const runner=fakeRunner({A:{_default:.9},B:{_default:.5}}),saved=[];
+  await comparePair(runner,'code','A','B',{fresh:true,repeats:3,
+    resolveArtifact:async modelName=>({modelName,digestSha256:(modelName==='A'?'a':'b').repeat(64)}),
+    loadHistoricalSummary:async()=>{throw new Error('fresh must not reuse');},saveHistoricalSummary:async value=>{saved.push(value);}});
+  assertEqual(runner.calls.length,6);assertEqual(saved.length,2);assert(saved.every(s=>s.fresh===true));
+});
+
 const ONCE = { repeats: 1 };
 const artifactFor = model => Object.freeze({
   modelName: model,

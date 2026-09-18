@@ -12,6 +12,8 @@
 
 import { execSync } from 'child_process';
 import os from 'os';
+import { readFileSync, writeFileSync, mkdirSync, renameSync, statSync } from 'node:fs';
+import { join, dirname } from 'node:path';
 import { logger } from '../core/logger.js';
 
 const EXEC_TIMEOUT = 5000; // 5s max per command
@@ -363,24 +365,35 @@ export function _clearVramCache() {
 
 // ── Cache ───────────────────────────────────────────────────────────────────
 
-let _cachedProfile = null;
-let _cacheTime = 0;
-const CACHE_TTL = 60000; // 1 minute
-
-/**
- * Get cached GPU profile (refreshes every 60s).
- * @param {boolean} forceRefresh
- * @returns {{ gpus: Array, platform: string, cpu: string, ram_gb: number }}
- */
-export function getSystemProfile(forceRefresh = false) {
-  const now = Date.now();
-  if (!forceRefresh && _cachedProfile && (now - _cacheTime) < CACHE_TTL) {
-    return _cachedProfile;
-  }
-  _cachedProfile = detectGPU();
-  _cacheTime = now;
-  return _cachedProfile;
+// Static inventory only. Free memory and inference readiness still use live probes.
+export function createGpuProfileCache({ detect = detectGPU, now = Date.now,
+  file = join(process.env.XDG_STATE_HOME || join(os.homedir(), '.local/state'), 'intentsmith/gpu-inventory.json'),
+  host = os.hostname(), ttlMs = 86400000 } = {}) {
+  let record = null, loaded = false;
+  const valid = value => value?.host === host && Array.isArray(value.profile?.gpus)
+    && value.profile.gpus.length <= 16 && Number.isFinite(value.checkedAt)
+    && value.profile.gpus.every(g => Number.isFinite(g.vram_mb) && g.vram_mb >= 0);
+  return function read(force = false) {
+    if (!loaded) {
+      loaded = true;
+      try { if (statSync(file).size < 65536) { const value = JSON.parse(readFileSync(file, 'utf8')); if (valid(value)) record = value; } } catch {}
+    }
+    const time = now();
+    if (force || !record || time < record.checkedAt || time - record.checkedAt >= ttlMs) {
+      const profile = detect();
+      const detected = profile.gpus?.some(g => g.vram_mb > 0);
+      record = { host, checkedAt: time, detectedAt: detected ? time : record?.detectedAt ?? null,
+        profile: detected ? profile : record?.profile || profile, lastDetectionSucceeded: !!detected };
+      try { mkdirSync(dirname(file), {recursive:true, mode:0o700});
+        writeFileSync(file+'.'+process.pid+'.tmp', JSON.stringify(record), {mode:0o600});
+        renameSync(file+'.'+process.pid+'.tmp', file); } catch { /* Readable inventory remains available in memory. */ }
+    }
+    return { ...record.profile, detectedAt: record.detectedAt == null ? null : new Date(record.detectedAt).toISOString(),
+      checkedAt: new Date(record.checkedAt).toISOString(), refreshAfter: new Date(record.checkedAt + ttlMs).toISOString(),
+      inventoryStale: !record.lastDetectionSucceeded, capacityOnly: true };
+  };
 }
+export const getSystemProfile = createGpuProfileCache();
 
 /**
  * v125: Compute session capacity based on detected GPUs.

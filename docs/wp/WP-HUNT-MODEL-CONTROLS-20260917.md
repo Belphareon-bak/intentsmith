@@ -47,3 +47,12 @@ starší měření, rozhodnutí a přiřazení. Dva úplné profily shodně 358 
 1 FAIL (release registry pečeť), fyzický řízený Electron PASS.
 Stav LIVE_MANUAL_EVALUATION_PASS / REVIEW_PENDING.
 [Review packet a rozsah důkazů](../review/2026-09-17-EVALUATION-PROGRESS.md).
+
+Navazující zadání 2026-09-18 (vstup 03597d1d): trvalá denní inventura GPU,
+nová ruční evaluace bez reuse, pravdivé čekání na GPU, detaily úloh a srovnání
+po rolích, tabulky rolí/kandidátů, historie měření a posledních pěti hunt akcí,
+priorita slabých rolí a srozumitelné výsledky Správce. Vlastněné cesty navíc:
+gpu-detector, governor read/actions, evaluation read model a jejich testy.
+Schválení doporučení nezískává nový executor; UI vysvětlí skutečný manuální
+účinek. Uložená kapacita nikdy nenahradí aktuální kontrolu GPU před inferencí.
+Prokázat fixture HTTP/Electron a živé nové CODE měření bez změny bindingů.

@@ -329,6 +329,12 @@ test('current decision is linked to exact runs and only actionable for the bound
     degraded.roles.CHAT.latestDecision.actionability,
     'BINDING_AUTHORITY_DEGRADED',
   );
+  insert(db,{runId:'candidate-remeasured',digest:OLD_DIGEST,plan:plans.CHAT,score:.2});
+  const newer=reader.read({...input,bindingAuthority:{status:'DURABLE',durableRoles:['CHAT'],verifiedRoles:['CHAT']}});
+  assertEqual(newer.roles.CHAT.latestDecision.actionability,'EVALUATION_REPLACED');
+  assertEqual(newer.roles.CHAT.latestDecision.actionable,false);
+  assert(newer.history.some(r=>r.runId==='candidate-chat'),'original evidence retained');
+  assert(newer.history.some(r=>r.runId==='candidate-remeasured'&&r.current),'latest evidence selected');
   db.close();
 });
 
@@ -542,27 +548,23 @@ function studioFunction(name, endMarker) {
   return studioSource.slice(start, end);
 }
 
-test('shipped scoring renderer shows exact recorded provider and never invents a legacy version', () => {
-  const render = studioFunction('_renderEvaluationsTab', '/* ═');
+test('quality tables separate role scores from chronological provider evidence', () => {
+  const render = studioSource.slice(studioSource.indexOf('var _evaluationRoleFilter='),studioSource.indexOf('/* ═',studioSource.indexOf('var _evaluationRoleFilter=')));
   const context = {
-    _evaluationLoading: false, _assigningRole: null, _evaluationModelFilter: '', _modelTestPending: false, _modelTestTarget: null,
-    _evaluationData: { coverage: {}, bindingAuthority: { status: 'UNVERIFIED_RUNTIME' }, roles: {
-      R2: { suiteName: 'review_v2', suiteVersion: 'test', suiteContractSha256: 'c'.repeat(64),
-        artifacts: [
-          { model: 'measured:1', digestSha256: DIGEST, status: 'COMPLETE', score: 0.75, providerVersion: '0.34.0-intentsmith.1' },
-          { model: 'historical:1', digestSha256: OLD_DIGEST, status: 'BLOCKED', score: null },
-        ] },
-    } },
-    C: {}, _fs: n => n, h: (tag, props, ...children) => ({ tag, props, children }),
+    _evaluationLoading:false,_assigningRole:null,_evaluationModelFilter:'',_modelTestPending:false,_modelTestTarget:null,
+    _huntDuration:()=> '2 min',_settingsVals:{},
+    _evaluationData:{history:[{runId:'new',model:'measured:1',role:'R2',status:'COMPLETE',score:.75,providerVersion:'0.34.0-intentsmith.1'},
+      {runId:'old',model:'historical:1',role:'R2',status:'BLOCKED',score:null}],roles:{R2:{suiteName:'review_v2',tasks:[{name:'alpha',label:'Review actual defect'}],
+      artifacts:[{model:'measured:1',status:'COMPLETE',score:.75,tasks:[{name:'alpha',mean:.75,spread:0,scores:[.75,.75,.75]}]},
+        {model:'historical:1',status:'BLOCKED',score:null}]}}},
+    C:{},_fs:n=>n,h:(tag,props,...children)=>({tag,props,children}),
   };
-  const helpers = studioSource.slice(studioSource.indexOf('function _modelButtonStyle('), studioSource.indexOf('var _huntData='));
-  const tree = runInNewContext(helpers + render + ';_renderEvaluationsTab()', context);
-  const text = JSON.stringify(tree);
-  assert(text.includes('0.34.0-intentsmith.1'));
-  assert(text.includes('nezaznamenána'));
-  assert(text.includes('75%'));
-  assert(text.includes('BLOCKED'));
-  assert(text.includes('UNVERIFIED_RUNTIME'));
+  const helpers=studioSource.slice(studioSource.indexOf('function _modelButtonStyle('),studioSource.indexOf('var _huntData='));
+  const quality=JSON.stringify(runInNewContext(helpers+render+';_renderEvaluationsTab()',context));
+  assert(quality.includes('75.0 %'));assert(quality.includes('Blokováno'));assert(quality.includes('Review actual defect'));assert(quality.includes('measured:1')&&quality.includes('historical:1'));
+  assert(!quality.includes('0.34.0-intentsmith.1'),'provider metadata belongs to History');
+  const history=JSON.stringify(runInNewContext(helpers+render+';_renderEvaluationHistory()',context));
+  assert(history.includes('0.34.0-intentsmith.1'));assert(history.includes('Nezaznamenána'));assert(history.includes('Blokováno'));
 });
 
 await testAsync('scoring refresh rejects HTTP errors and recovers on the next explicit read', async () => {

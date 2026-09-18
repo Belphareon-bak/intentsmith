@@ -232,6 +232,7 @@ class SystemGovernor {
     if (!this._db) return [];
     try {
       if (status === 'pending') return this._stmts.getPendingProposals.all();
+      if (status === 'all') return this._db.prepare('SELECT * FROM governor_proposals ORDER BY created_at DESC, id DESC LIMIT 50').all();
       return this._db.prepare(
         `SELECT * FROM governor_proposals WHERE status = ? ORDER BY priority DESC`
       ).all(status);
@@ -249,7 +250,7 @@ class SystemGovernor {
     if (!proposal) return { success: false, error: 'not_found' };
     if (proposal.status !== 'pending') return { success: false, error: 'not_pending' };
     this._stmts.approveProposal.run(id);
-    return { success: true, proposal: { ...proposal, status: 'approved' } };
+    return { success: true, executed: false, execution: 'MANUAL_ACTION_REQUIRED', message: 'Doporučení je označeno jako přijaté. Žádná změna systému se nespustila; další krok proveď ručně.', proposal: { ...proposal, status: 'approved' } };
   }
 
   /**

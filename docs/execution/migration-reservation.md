@@ -239,6 +239,7 @@ záznamu selže v `artifact-validation`.
 | `2026_09_11_111_model_hunt_provider_identity.js` | explicitní zadání operátora — provider identity a bootstrap hunt ledger |
 | `2026_09_11_112_model_hunt_append_only.js` | explicitní zadání operátora — ochrana hunt ledgeru proti nahrazení identity |
 | `2026_09_11_113_conversation_web.js` | `WP-AUDIT-REMEDIATION-20260911` — jednotlivě schválený konverzační web |
+| `2026_09_18_114_model_evaluation_remeasure.js` | zadání operátora 2026-09-18 — nové ruční měření se zachováním historie |
 <!-- migration-source-manifest:end -->
 
 ## Navazující M7 rezervace 2026-08-29
@@ -478,3 +479,8 @@ vyžaduje nový důkaz fresh/web/hunt upgrade, nikoli dřívější zelené běh
 Provider rozhodnutí dostává kanonické číslo **048**; web zachovává **044**.
 Původní provider cesta je historický alias s odkazem na původní commit a nový
 dokument. Žádné pravomoci nebo historické review se tím nemění.
+
+Navazující kontrola 2026-09-18: v registrovaných lokálních worktrees nebyla
+kromě vlastního přídavku nalezena jiná migrace 114. Nová 114 mění index COMPLETE
+na neunikátní; nové ruční měření má vlastní run ID, staré výsledky a odkazy
+rozhodnutí zůstávají. Aktuální manifest má 101 migrací.
