@@ -242,10 +242,24 @@ test('navigation is reopened after saved layout restoration without changing the
   class View {async openView(options){assert.deepEqual(JSON.parse(JSON.stringify(options)),{activate:false,reveal:true});expanded=true;events.push('reveal');}}
   const shell={get pendingUpdates(){events.push('settle');return Promise.resolve();}};
   const c=vm.createContext({browser_1:{AbstractViewContribution:View},INTENTSMITH_SIDEBAR_ID:'intentsmith-sidebar',
-    window:{},_centerState:settings,_sessions:sessions,_setSidebarCollapsed(value){assert.equal(value,false);assert.equal(expanded,true);events.push('size');}});
+    window:{},_centerState:settings,_sessions:sessions,_workspacePanelMode:false,_syncWorkspacePanels(){events.push('panels');},_setSidebarCollapsed(value){assert.equal(value,false);assert.equal(expanded,true);events.push('size');}});
   vm.runInContext(source.slice(start,end)+';globalThis.navigation=new IntentSmithSidebarContrib();',c);
   // A saved layout may collapse or omit the old-named navigation widget.
   expanded=false;await c.navigation.onDidInitializeLayout({shell});
-  assert.deepEqual(events,['reveal','size','settle']);assert.equal(expanded,true);
+  assert.deepEqual(events,['reveal','size','settle','panels']);assert.equal(expanded,true);
   assert.equal(settings.view,'settings');assert.equal(sessions[0].draft,'keep me');
+});
+
+test('a restored right panel cannot leave blank space beside a catalogue or Settings',()=>{
+  let workspace=false,hidden=false,resizes=0;
+  const right={container:{show(){hidden=false;},hide(){hidden=true;}}};
+  const c=vm.createContext({_workspacePanelMode:false,_workspaceShown:()=>workspace,
+    window:{_intentsmithApp:{shell:{rightPanelHandler:right,resize(){resizes++;}}}}});
+  vm.runInContext(fn('_syncWorkspacePanels'),c);
+  c._syncWorkspacePanels();assert.equal(hidden,true);assert.equal(resizes,0);
+  // Shell refresh restores it while our selected menu is unchanged.
+  hidden=false;c._syncWorkspacePanels();assert.equal(hidden,true);
+  workspace=true;c._syncWorkspacePanels();assert.equal(hidden,false);assert.equal(resizes,1);
+  c._syncWorkspacePanels();assert.equal(resizes,1);
+  workspace=false;c._syncWorkspacePanels();assert.equal(hidden,true);
 });

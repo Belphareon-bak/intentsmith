@@ -7478,7 +7478,12 @@ function _syncWorkspacePanels(){
     var bottom=app.shell.bottomPanel; if(bottom&&typeof bottom.hide==='function')bottom.hide();
     var handler=app.shell.bottomPanelHandler;if(handler&&handler.container)handler.container.hide();
     var right=app.shell.rightPanelHandler;
-    if(right&&right.container&&_workspacePanelMode!==visible){_workspacePanelMode=visible;if(visible){right.container.show();app.shell.resize(280,'right');}else right.container.hide();}
+    if(right&&right.container){
+      // A shell restore/refresh can show the container without changing our view.
+      if(!visible)right.container.hide();
+      else if(_workspacePanelMode!==true){right.container.show();app.shell.resize(280,'right');}
+      _workspacePanelMode=visible;
+    }
   }catch(e){}
 }
 function _workspaceButton(text,title,fn,extra){return h('button',Object.assign({type:'button',title:title,'aria-label':title,onClick:fn,style:{background:'transparent',border:0,borderRadius:3,color:C.tx2,padding:'5px 9px',cursor:'pointer',fontFamily:C.font,fontSize:12,whiteSpace:'nowrap'}},extra||{}),text);}
@@ -7927,6 +7932,8 @@ class IntentSmithSidebarContrib extends browser_1.AbstractViewContribution {
     await this.openView({activate:false,reveal:true});
     _setSidebarCollapsed(false);
     await a.shell.pendingUpdates;
+    _workspacePanelMode=null;
+    _syncWorkspacePanels();
   }
   registerCommands(c){
     c.registerCommand({id:'intentsmith:toggleSidebar',label:'IntentSmith: Toggle Sidebar',category:'IntentSmith'},{
