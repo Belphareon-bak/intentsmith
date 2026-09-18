@@ -9,7 +9,17 @@ heslo správce. REVIEW_PENDING, bez tvrzení production-ready.
 [Packet a přesné meze](docs/review/2026-09-18-PROJECT-FLOW.md).
 
 
-**Ruční evaluace a průběh Studia, 2026-09-17:** instalováno `2f150ce7`,
+**Modelové pracoviště Studia, 2026-09-18:** instalováno `9298ef46`.
+Uložená denní GPU inventura, skutečný nový ruční test, čekání na GPU,
+tabulky rolí a kandidátů, detail úloh, historie a vysvětlený Správce.
+Hunt dává přednost slabým/chybějícím rolím. Úplný profil 358 PASS / 1 FAIL
+(zděděná release pečeť), řízený fyzický Electron PASS. Tři nové CODE sady
+z běžného GUI: Qwen3.8 71,4 %, Qwen3.5 33,3 %, Qwen Coder 11,4 %;
+63 vyhodnocení, nové DB řádky, starší historie i bindingy zachované.
+REVIEW_PENDING.
+[Review a průběžná živá evidence](docs/review/2026-09-18-MODEL-WORKSPACE.md).
+
+**Předchozí ruční evaluace a průběh Studia, 2026-09-17:** instalováno `2f150ce7`,
 opraveno falešné odmítnutí digestu. Qwen3.5:27b/CODE prošel úplnou sadou 7 × 3,
 v DB i API je COMPLETE se skóre 2/7; žádné přepnutí rolí. Nový panel má
 skutečný průběh a ETA. Dva úplné profily 358 PASS / 1 FAIL (release pečeť),

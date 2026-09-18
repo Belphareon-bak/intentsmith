@@ -104,7 +104,7 @@ test('catalog navigation takes the center even while the owning session keeps an
   vm.runInContext(fn('CenterApp'),c);assert.match(JSON.stringify(c.CenterApp()),/PROJECT_CATALOG/);assert.equal(c._editorState.active,true);
 });
 test('late project tree responses stay with their owner and cannot replace the selected session tree',async()=>{
-  const c=harness(),pending=[];Object.assign(c,{_backendBase:'http://fixture',AbortSignal,_collapsedDirs:{},renderSidebar(){},_fetchGitStatus(){},fetch:()=>new Promise(resolve=>pending.push(resolve))});
+  const c=harness(),pending=[];Object.assign(c,{_backendUrl: () => 'http://fixture',AbortSignal,_collapsedDirs:{},renderSidebar(){},_fetchGitStatus(){},fetch:()=>new Promise(resolve=>pending.push(resolve))});
   for(const name of ['_flattenTree','_loadTreeState','_loadWorkspaceTree'])vm.runInContext(fn(name),c);
   const first=c._loadWorkspaceTree('/first',0);c._sessionActive=1;const second=c._loadWorkspaceTree('/second',1);
   pending[1]({ok:true,json:async()=>({root:'/second',tree:[{n:'second.txt',d:false}]})});await second;
