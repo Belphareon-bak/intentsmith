@@ -1,6 +1,9 @@
 # Práce v IntentSmith Studiu
 
-Levá navigace otevírá katalogy a nastavení ve středové ploše. Otevření projektu,
+Levá navigace zůstává dostupná vedle katalogů i nastavení. Ctrl+B nebo šipka
+u názvu aplikace ji sbalí na pás ikon a znovu rozbalí. Automatické sbalení
+také ponechá ikony, takže lze dál přepínat. Po startu se hlavní menu obnoví
+i ze staršího uloženého rozložení. Katalogy a nastavení využívají středovou plochu. Otevření projektu,
 konverzace nebo specialisty přepne střed na pracovní prostor. Katalog lze znovu
 otevřít stejnou položkou vlevo; rozpracovaná relace tím nezaniká.
 
