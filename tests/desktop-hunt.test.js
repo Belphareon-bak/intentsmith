@@ -470,3 +470,16 @@ test('late model reads from the disconnected epoch cannot overwrite the recovere
   await vm.runInContext('_loadEvaluationData()',context);finishOld();await old;
   assert.equal(context._evaluationData.source,'new');assert.equal(context._evaluationLoading,false);
 });
+
+test('LLM settings reject error objects as inventory and keep model management reachable before inventory loads',async()=>{
+  const source=await readFile(join(ROOT,'c3-ide/extensions/c3-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
+  const fn=name=>{const start=source.indexOf('function '+name+'(');return source.slice(start,source.indexOf('\n}',start)+2);};
+  const context=vm.createContext({AbortSignal,_modelReadEpoch:0,_settingsModelsLoading:false,_settingsModelsError:null,_ollamaModels:null,
+    _backendUrl:()=> 'http://127.0.0.1:42000',renderCenter(){},fetch:async()=>({ok:false,status:503,json:async()=>({error:'down'})})});
+  vm.runInContext(['_modelReadError','_readModelResource','_loadSettingsModels'].map(fn).join('\n'),context);
+  await vm.runInContext('_loadSettingsModels()',context);
+  assert.match(context._settingsModelsError,/HTTP 503/);assert.ok(Array.isArray(context._ollamaModels));
+  context.fetch=async()=>({ok:true,json:async()=>({models:[{name:'installed'}]})});
+  await vm.runInContext('_loadSettingsModels()',context);assert.equal(context._ollamaModels[0].name,'installed');assert.equal(context._settingsModelsError,null);
+  const settings=fn('settingsLLM');assert.ok(settings.indexOf('Spravovat role a modely')<settings.indexOf('if(!_roleBindings)'));
+});

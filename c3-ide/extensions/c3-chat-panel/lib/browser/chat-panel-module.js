@@ -3020,15 +3020,27 @@ function settingsAccount(){
         onChange:function(e){_settingsVals.projectsDir=e.target.value;_saveSV();renderCenter();}}),
       h('div',{style:{fontSize:_fs(9),color:C.tx4,marginTop:3}},'Výchozí složka pro nové projekty')));
 }
+var _settingsModelsLoading=false,_settingsModelsError=null;
+function _loadSettingsModels(){
+  if(_settingsModelsLoading)return;_settingsModelsLoading=true;_settingsModelsError=null;
+  return _readModelResource('/api/system/models',function(d){
+    var models=Array.isArray(d)?d:d.models;
+    if(!Array.isArray(models))throw new Error('Seznam modelů má neplatný formát.');
+    _ollamaModels=models;
+  },function(error){_settingsModelsError=error;_ollamaModels=[];},function(){_settingsModelsLoading=false;},5000);
+}
+function _openModelsWorkspace(){_centerState.view='upgrades';_upgradeTab='overview';_centerState.settingsSection=null;renderCenter();}
 function settingsLLM(){
   if(!_bCfg)return h('div',{style:{color:C.tx3,padding:8}},'Načítám...');
   if(!_gpuInfo){fetch(_backendUrl()+'/api/system/gpu',{signal:AbortSignal.timeout(5000)}).then(function(r){return r.json();}).then(function(d){_gpuInfo=d;renderCenter();}).catch(function(){_gpuInfo={error:true};});}
-  if(!_ollamaModels){fetch(_backendUrl()+'/api/system/models',{signal:AbortSignal.timeout(5000)}).then(function(r){return r.json();}).then(function(d){_ollamaModels=d.models||d||[];renderCenter();}).catch(function(){_ollamaModels=[];});}
+  if(!_ollamaModels&&!_settingsModelsLoading)_loadSettingsModels();
   if(!_evaluationData&&!_evaluationLoading)_loadEvaluationData();
-  var models=[...new Set((_ollamaModels||[]).map(function(m){return typeof m==='string'?m:m.name||m.model||'';}).filter(Boolean))];
+  var models=[...new Set((Array.isArray(_ollamaModels)?_ollamaModels:[]).map(function(m){return typeof m==='string'?m:m.name||m.model||'';}).filter(Boolean))];
   var gpus=_gpuInfo&&_gpuInfo.profile?_gpuInfo.profile.gpus:(_gpuInfo&&_gpuInfo.gpus?_gpuInfo.gpus:null);
   var rec=_gpuInfo&&_gpuInfo.recommendation?_gpuInfo.recommendation:null;
   return h('div',null,
+    h('button',{style:Object.assign({},_modelButtonStyle(true,false),{width:'100%',marginBottom:14}),onClick:_openModelsWorkspace},'Spravovat role a modely'),
+    _settingsModelsError?_modelLoadFailure(_settingsModelsError,function(){_ollamaModels=null;_roleBindings=null;_loadSettingsModels();renderCenter();}):null,
     gpus?h('div',{style:{background:'linear-gradient(135deg,'+_rgba(C.success,0.10)+','+_rgba(C.success,0.04)+')',border:'1px solid '+_rgba(C.success,0.24),borderRadius:8,padding:12,marginBottom:14}},
       h('div',{style:{fontSize:_fs(11),fontWeight:700,color:C.success,marginBottom:6}},'GPU'),
       gpus.map(function(g,i){
@@ -3042,11 +3054,12 @@ function settingsLLM(){
       rec&&rec.recommended_model?h('div',{style:{fontSize:_fs(9),color:C.success,marginTop:6}},'Doporučený model: '+rec.recommended_model):null):null,
     /* v133: Compact 7-role bindings summary (replaces 3 broken dropdowns) */
     (function(){
+      if(_settingsModelsError)return null;
       if(!_roleBindings){
         fetch(_backendUrl()+'/api/system/upgrades/bindings',{signal:AbortSignal.timeout(5000)})
-          .then(function(r){return r.json();})
+          .then(function(r){if(!r.ok)throw new Error('Přiřazení rolí: HTTP '+r.status);return r.json();})
           .then(function(d){_roleBindings=d.bindings||{};renderCenter();})
-          .catch(function(){});
+          .catch(function(e){_settingsModelsError=_modelReadError(e);renderCenter();});
         return h('div',{style:{color:C.tx4,fontSize:_fs(10),padding:'8px 0'}},'Na\u010D\u00EDt\u00E1m role...');
       }
       var rp={D1:{name:'Hlubok\u00E1 anal\u00FDza',color:'#8b5cf6'},D2:{name:'Anal\u00FDza oprav',color:'#a78bfa'},
@@ -3070,12 +3083,7 @@ function settingsLLM(){
               h('span',{style:{flex:1,fontSize:_fs(10),color:installed?C.tx1:'#ef4444',fontFamily:C.mono}},m,
                 !installed?h('span',{style:{color:'#ef4444',fontSize:_fs(9),marginLeft:4}},'\u26A0'):null),
               h('span',{style:{fontSize:_fs(10),fontWeight:600,color:scoreColor,minWidth:36,textAlign:'right'}},scoreText));
-          })),
-        h('button',{style:{width:'100%',marginTop:10,background:'linear-gradient(135deg,'+_rgba(C.accent,0.16)+','+_rgba(C.accent,0.07)+')',
-          border:'1px solid '+_rgba(C.accent,0.32),borderRadius:8,padding:'10px 14px',color:C.accentText,fontSize:_fs(12),fontWeight:700,
-          cursor:'pointer',fontFamily:C.font,display:'flex',alignItems:'center',gap:8,justifyContent:'center'},
-          onClick:function(){_centerState.view='upgrades';_upgradeTab='overview';_centerState.settingsSection=null;renderCenter();}},
-          svgEl('<path d="M12 5v14M5 12l7-7 7 7"/>',16),'Spravovat role a modely'));
+          })));
     })(),
     _cfgInput('Ollama URL','c3.llm.ollamaUrl','http://127.0.0.1:11434','input','Adresa lok\u00E1ln\u00EDho Ollama serveru'),
     _cfgSlider(_lI('Temperature','Nízká = deterministické, konzistentní odpovědi. Vysoká = kreativnější, rozmanitější výstupy.'),'c3.llm.temperature',0.7,0,2,0.1,''),
@@ -3112,6 +3120,7 @@ function _resetModelReads(){
   _upgradeLoading=_evaluationLoading=_modelOverviewLoading=_discoveredLoading=_governorLoading=_huntLoading=_installedLoading=false;
   _upgradeData=_evaluationData=_modelOverview=_discoveredData=_governorData=_governorProposals=_installedModels=null;
   _governorError=null;_huntData=null;_huntError=null;
+  _settingsModelsLoading=false;_settingsModelsError=null;_ollamaModels=null;_roleBindings=null;
 }
 function _refreshModelWorkspace(){
   _resetModelReads();
