@@ -99,3 +99,21 @@ successful test; final results will be appended after clean-source validation.
 - Variant size/context/modality: official Ollama library pages linked in each
   refreshed entry. Download-size-based VRAM remains an estimate; runtime
   placement is still enforced by the existing measurement gate.
+
+## Clean-source validation follow-up
+
+The first full offline/database profile on `fa249009` finished 356 PASS / 3 FAIL.
+Two failures were integration follow-ups: the isolated `m1-studio-client` VM
+needed the existing color helper (132/132 after fixture completion), and the
+static backend-capability inventory needed regeneration for the new read
+endpoint (247 desktop declarations; unchanged 7 M7 transports / 17 operations).
+The third failure is the inherited release seal; no seal or registry gate was
+weakened. The CODE task label for the old-model selection fixture was also
+narrowed to canonical deduplication rather than implying binding protection.
+The read-model suite remains 20/20. A second full profile is pending.
+
+The clean-snapshot Electron journey also passed alternative-model links,
+ascending quality sort and the 7-task × 3-repeat confirmation. A separate
+controlled HTTP 503 on the historical detail was disclosed and recovered through
+Zkusit znovu. Screenshots were scrolled to the actual expanded detail, rather
+than merely capturing an unrelated part of the tab.

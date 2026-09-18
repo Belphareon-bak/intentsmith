@@ -104,7 +104,7 @@ function taskDetails(row) {
 }
 // Presentation only: no prompts, grading rules or contract hashes are changed.
 const TASK_LABELS = {
-  patch_8cae1b583963: 'Ochrana přiřazených modelů při úklidu',
+  patch_8cae1b583963: 'Výběr starých modelů bez duplicit',
   patch_0fe346cc820c: 'Souběh inference a změny modelu',
   patch_6fc5e4eb7dce: 'Ochrana modelu během práce s VRAM',
   patch_ef4ae48ec16e: 'Jistota rozhodnutí při porovnání modelů',
