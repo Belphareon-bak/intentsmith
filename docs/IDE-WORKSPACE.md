@@ -10,8 +10,9 @@ otevřít stejnou položkou vlevo; rozpracovaná relace tím nezaniká.
 ## Relace a výstupy
 
 Každá relace má pojmenovanou záložku. Tlačítko **+** vytvoří další, křížek na
-záložce zavře celou relaci. **Vedle sebe** zobrazí otevřené relace jako sloupce;
-**Jedna relace** se vrátí k vybrané záložce. Chat, terminál a log stejné relace
+záložce zavře celou relaci. Vpravo jsou dvě ikony rozložení: jedno okno pro
+**Jednu relaci**, několik sloupců pro **Vedle sebe**. Aktivní ikona je podsvícená;
+obě mají popisek po najetí a lze je ovládat klávesnicí. Chat, terminál a log stejné relace
 zůstávají v jednom sloupci. Aktivní práci nelze zavřením tiše přesunout do jiné
 relace; nejprve ji dokončete nebo zastavte.
 
@@ -114,3 +115,26 @@ ani ze zařízení. Po doplnění místa ukáže jedinou konkrétní HTTPS adres
 příkaz **schválit web …**. Do přesného schválení nic neodesílá; návrh se ve
 Studiu zobrazuje jako návrh, nikoli obecná chyba M2. Webový výsledek je citovaný
 obsah zdroje, sám o sobě neznamená ověřenou místní předpověď.
+
+## Vzhled a nastavení
+
+Nastavení má 12 kategorií v samostatné levé nabídce uvnitř středové plochy.
+Hlavní navigace aplikace zůstává vedle ní. Každá kategorie rozděluje skutečné
+ovladače do tematických záložek a kompaktních karet. Šipky vlevo/vpravo a
+Home/End přepínají záložky; křížek v záhlaví vrací do pracovního prostoru.
+
+**Vzhled → Obecné → Studio** přidává chladné tmavé plochy, fialový akcent,
+modré a mátové stavové barvy. Studio podporuje také světlou a systémovou
+variantu. Zlatý IntentSmith zůstává výchozí, změna stylu je volitelná.
+Clean zachovává vlastní paletu a Matrix/Japanese/Midnight své efekty.
+
+**Vzhled → Písmo → Výraznost textu** ovládá veškerý text uvnitř IDE:
+navigaci, chat, záložky, nastavení, soubory v Monaco, terminál i log.
+Nižší hodnota text zjemňuje, vyšší zvýrazňuje; nula text neschová.
+Mění se vykreslení písma, nikoli průhlednost panelů. Barvy stavů a syntaxe
+zůstávají rozlišené. Živý náhled ukazuje účinek okamžitě. Velikost a rodina
+písma jsou na stejné záložce, zvýraznění aktivních ovladačů pod **Barvy a prvky**.
+Toto nastavení neovládá titulkový pruh vykreslovaný operačním systémem ani text
+uvnitř obrázků/PDF. Uloží se do profilu Studia a obnoví po restartu, včetně 0 %.
+Starý neúčinný posuvník „Neaktivní prvky“ nahrazuje nová hodnota; starý údaj
+zůstává v profilu pro kompatibilitu, při prvním otevření je výraznost 70 %.
