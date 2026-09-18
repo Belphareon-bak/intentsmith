@@ -21,6 +21,7 @@ import {
   modelUseAuthority,
 } from './model-use-authority.js';
 import { requireLoopbackModelProviderOrigin } from './model-provider-origin.js';
+import { createModelPullProgress } from './model-pull-progress.js';
 import { checkOllamaUpdate } from './ollama-update-check.js';
 
 export const MODEL_PULL_IDLE_TIMEOUT_MS = 120_000;
@@ -82,6 +83,7 @@ export class UpgradeManager {
     this._bindingRuntimeTokenSequence = 0;
     this._modelArtifactAuthorityRepository = null;
     this._pullIdleTimeoutMs = MODEL_PULL_IDLE_TIMEOUT_MS;
+    this._pullProgress = new Map();
     this._modelUseAuthority = options.modelUseAuthority || modelUseAuthority;
     if (typeof this._modelUseAuthority?.acquireExclusive !== 'function') {
       throw modelPullError('MODEL_USE_AUTHORITY_REQUIRED', 'Model use authority is unavailable');
@@ -283,6 +285,23 @@ export class UpgradeManager {
     });
   }
 
+  // Durable receipts survive a restart; byte counts are re-observed from the
+  // recovered provider stream. Missing live telemetry never means completion.
+  getModelPulls() {
+    const durable = this._modelArtifactAuthorityRepository?.listRecentPulls?.() || [];
+    const rows = new Map(durable.map(row => [row.operationId, {
+      ...row, model: row.exactName, startedAt: new Date(row.createdAtMs).toISOString(),
+      updatedAt: new Date(row.updatedAtMs).toISOString(),
+      status: ['SUCCEEDED', 'RECONCILED_SUCCEEDED'].includes(row.state) ? 'done'
+        : row.state === 'FAILED' ? 'error' : 'recovery_pending',
+      text: ['SUCCEEDED', 'RECONCILED_SUCCEEDED'].includes(row.state) ? 'Staženo'
+        : row.state === 'FAILED' ? 'Stahování selhalo' : 'Obnovení stahování čeká na Ollamu',
+      percent: null, etaSeconds: null,
+    }]));
+    for (const [key, progress] of this._pullProgress) rows.set(key, { ...rows.get(key), ...progress, startedAt: rows.get(key)?.startedAt || progress.startedAt });
+    return [...rows.values()].sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt)).slice(0, 100);
+  }
+
   /**
    * Pull a model from Ollama with streaming progress.
    *
@@ -337,6 +356,22 @@ export class UpgradeManager {
         owner: MODEL_ACTIVITY_OWNER.MODEL_PULL,
       });
     }
+    const startedAt = new Date().toISOString();
+    const parseProgress = createModelPullProgress(modelName);
+    const publish = progress => {
+      const key = operationId || canonicalName;
+      const event = { ...this._pullProgress.get(key), ...progress, model: modelName,
+        canonicalName, operationId, startedAt, updatedAt: new Date().toISOString() };
+      this._pullProgress.set(key, event);
+      if (this._pullProgress.size > 100) {
+        for (const [oldKey, old] of this._pullProgress) {
+          if (['done', 'error'].includes(old.status) && oldKey !== key) {
+            this._pullProgress.delete(oldKey); break;
+          }
+        }
+      }
+      onProgress?.(event);
+    };
     try {
       if (!recovery && this._modelArtifactAuthorityRepository) {
         if (typeof pullLease.claimId !== 'string') {
@@ -355,14 +390,17 @@ export class UpgradeManager {
           providerOrigin: provider.origin,
         }).operationId;
       }
+      publish({ status: 'starting', text: recovery ? 'Obnovuji přerušené stahování' : 'Navazuji spojení s Ollamou', percent: null });
       const controller = new AbortController();
-      const response = await fetch(provider.endpoint('/api/pull'), {
+      const headerTimeout = setTimeout(() => controller.abort(modelPullError('MODEL_PULL_IDLE_TIMEOUT', 'Ollama neodpověděla na zahájení stahování')), this._pullIdleTimeoutMs);
+      let response;
+      try { response = await fetch(provider.endpoint('/api/pull'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: modelName }),
         redirect: 'error',
         signal: controller.signal,
-      });
+      }); } finally { clearTimeout(headerTimeout); }
 
       if (!response.ok) {
         throw modelPullError(
@@ -377,19 +415,9 @@ export class UpgradeManager {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
-      let lastPercent = -1;
       let lastEmitTime = 0;
+      let lastStatus = null;
       let providerSuccessSeen = false;
-      const startTime = Date.now();
-
-      const STATUS_LABELS = {
-        'pulling manifest': 'Stahuji manifest...',
-        'downloading': null,
-        'verifying sha256 digest': 'Ověřuji integritu...',
-        'writing manifest': 'Zapisuji manifest...',
-        'removing any unused layers': 'Čistím staré vrstvy...',
-        'success': 'Hotovo',
-      };
 
       const consumeProviderLine = line => {
         if (!line.trim()) return;
@@ -417,29 +445,12 @@ export class UpgradeManager {
         }
         if (data.status === 'success') providerSuccessSeen = true;
 
-        if (data.status === 'downloading' && data.total > 0) {
-          const percent = Math.round((data.completed / data.total) * 100);
-          const now = Date.now();
-          if (percent >= lastPercent + 5 || (now - lastEmitTime >= 3000) || percent === 100) {
-            lastPercent = percent;
-            lastEmitTime = now;
-            const elapsed = (now - startTime) / 1000;
-            const speed = data.completed / elapsed;
-            const remaining = (data.total - data.completed) / speed;
-            const eta = remaining > 60
-              ? `${Math.round(remaining / 60)}:${String(Math.round(remaining % 60)).padStart(2, '0')}`
-              : `${Math.round(remaining)}s`;
-            const downloadedGB = (data.completed / 1_073_741_824).toFixed(1);
-            const totalGB = (data.total / 1_073_741_824).toFixed(1);
-            const text = `${modelName} — ${percent}% (${downloadedGB}/${totalGB} GB) — ETA ~${eta}`;
-
-            if (onProgress) onProgress({ text, percent, downloadedGB, totalGB, eta, status: 'downloading' });
-          }
-        } else if (data.status && STATUS_LABELS[data.status] !== undefined) {
-          const label = STATUS_LABELS[data.status];
-          if (label && onProgress) {
-            onProgress({ text: `${modelName} — ${label}`, percent: -1, status: data.status });
-          }
+        const progress = parseProgress(data);
+        const time = Date.now();
+        if (progress.status !== lastStatus || time - lastEmitTime >= 1000 || progress.percent === 100) {
+          publish(progress);
+          lastStatus = progress.status;
+          lastEmitTime = time;
         }
       };
 
@@ -474,6 +485,7 @@ export class UpgradeManager {
         if (recovery) this._modelArtifactAuthorityRepository.reconcileSucceeded(operationId);
         else this._modelArtifactAuthorityRepository.recordOutcome(operationId, 'SUCCEEDED');
       }
+      publish({ status: 'done', text: 'Staženo · model je připravený k testování', percent: 100, etaSeconds: null, bytesPerSecond: null });
     } catch (error) {
       if (operationId && !recovery) {
         const definitive = typeof error?.code === 'string'
@@ -487,6 +499,7 @@ export class UpgradeManager {
           error?.code || 'MODEL_PULL_PROVIDER_OUTCOME_UNKNOWN',
         );
       }
+      publish({ status: 'error', text: error.message, errorCode: error.code || 'MODEL_PULL_FAILED', percent: null, etaSeconds: null });
       throw error;
     } finally {
       pullLease.release();

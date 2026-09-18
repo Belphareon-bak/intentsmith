@@ -12,10 +12,10 @@
     "clientProjection": "src/mobile/client/m7-runtime-contract-v1.js",
     "requirementsStage": "CANDIDATE_NOT_ACCEPTED"
   },
-  "routeDigest": "ad04f946691365ae3560cc1a8cf9b0dfd4061e23a7972ee981d897e20567f70f",
-  "inventoryDigest": "85e0b49b0cd5d94ff09c604c5cf37bf03e92c57be046948b78d05b5cffb805b4",
+  "routeDigest": "1c5b325fb20273827f9b28e99ff26597fbc8f587a78b1e4298ed341bd2484ba7",
+  "inventoryDigest": "ed84f45950b7d2a7e2e884ce1b6022426c0b61aa36d6f070975c132adf1401f3",
   "summary": {
-    "desktopRouteDeclarations": 247,
+    "desktopRouteDeclarations": 248,
     "legacyM1Declarations": 0,
     "m7TransportRoutes": 7,
     "m7Operations": 17,
@@ -1533,6 +1533,13 @@
     {
       "method": "GET",
       "path": "/api/system/models/compatibility",
+      "sources": [
+        "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/downloads",
       "sources": [
         "src/routes/system.js"
       ]

@@ -574,7 +574,7 @@ setInterval(function(){
   fetch(_backendUrl()+'/api/health',{signal:AbortSignal.timeout(2000)})
   .then(function(r){if(!r.ok)throw new Error('Health HTTP '+r.status);return r.json();})
   .then(function(d){
-    if(_modelsDisconnected){_modelsDisconnected=false;_refreshModelWorkspace();}
+    if(_modelsDisconnected){if(window.IntentSmithWS&&!window.IntentSmithWS.isReady())window.IntentSmithWS.reconnect();_modelsDisconnected=false;_refreshModelWorkspace();}
     _serverHealth.status=d.status||'ok';
     _serverHealth.lastCheck=Date.now();
     _serverHealth.wsConnected=(typeof IntentSmithWS!=='undefined'&&IntentSmithWS.isReady())||false;
@@ -3051,7 +3051,7 @@ function _refreshModelWorkspace(){
 function _retryModelConnection(){
   return fetch(_backendUrl()+'/api/health',{signal:AbortSignal.timeout(3000)})
     .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
-    .then(function(){_modelsDisconnected=false;_refreshModelWorkspace();})
+    .then(function(){if(window.IntentSmithWS&&!window.IntentSmithWS.isReady())window.IntentSmithWS.reconnect();_modelsDisconnected=false;_refreshModelWorkspace();})
     .catch(function(){_modelsDisconnected=true;renderCenter();});
 }
 function _loadUpgradeData(){
@@ -3191,16 +3191,58 @@ function _discoverNewModels(){
       setTimeout(function(){_discoverMsg=null;renderCenter();},5000);})
     .catch(function(e){_discoverLoading=false;_discoverMsg={ok:false,text:'Chyba: '+e.message};renderCenter();});
 }
+var _downloadsLoading=false,_downloadsError=null,_downloadsObservedAt=null,_downloadRequestError=null;
+function _pullKey(name){return String(name||'').replace(/:latest$/,'');}
+function _downloadState(name){return _pullState[_pullKey(name)];}
+function _loadDownloads(){
+  if(_downloadsLoading)return;_downloadsLoading=true;
+  return fetch(_backendUrl()+'/api/system/models/downloads',{signal:AbortSignal.timeout(7000)})
+    .then(function(r){if(!r.ok)throw Error('HTTP '+r.status);return r.json();})
+    .then(function(data){
+      var states={},completed=false;
+      (data.downloads||[]).forEach(function(row){var key=_pullKey(row.model);if(states[key])return;states[key]=row;
+        if(row.status==='done'&&_pullState[key]&&_pullState[key].status!=='done')completed=true;
+      });
+      _pullState=states;_downloadsError=null;_downloadsObservedAt=Date.now();
+      if(completed){_loadDiscoveredData();_loadModelOverview();}
+    }).catch(function(e){_downloadsError=_modelReadError(e);})
+    .finally(function(){_downloadsLoading=false;if(_centerState.view==='upgrades')renderCenter();});
+}
+setInterval(function(){if(_centerState.view==='upgrades'&&_upgradeTab==='discovered')_loadDownloads();},3000);
 function _pullModel(name){
-  if(_pullState[name]&&_pullState[name].status&&_pullState[name].status!=='done'&&_pullState[name].status!=='error')return;
-  _pullState[name]={status:'starting',percent:0,text:name+' — Zahajuji stahování...'};renderCenter();
+  var state=_downloadState(name);
+  if(state&&!['done','error'].includes(state.status))return;
+  _downloadRequestError=null;
+  _pullState[_pullKey(name)]={model:name,status:'starting',percent:null,text:'Odesílám požadavek',startedAt:new Date().toISOString()};renderCenter();
   fetch(_backendUrl()+'/api/system/models/pull',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({name:name}),signal:AbortSignal.timeout(10000)})
-    .then(function(r){return r.json();})
-    .then(function(d){if(!d.ok){_pullState[name]={status:'error',percent:-1,text:name+' — '+(d.error||'Chyba')};renderCenter();}})
-    .catch(function(e){_pullState[name]={status:'error',percent:-1,text:name+' — '+e.message};renderCenter();});
+    .then(function(r){return r.json().then(function(d){if(!r.ok||!d.ok)throw Error(d.error||'HTTP '+r.status);return d;});})
+    .then(function(){_loadDownloads();})
+    .catch(function(e){_downloadRequestError=name+' — '+e.message;_pullState[_pullKey(name)]={model:name,status:'error',percent:null,text:e.message,startedAt:new Date().toISOString()};renderCenter();});
+}
+function _renderDownloads(){
+  var rows=Object.keys(_pullState).map(function(k){return _pullState[k];}).filter(function(p){return !['done','error'].includes(p.status)||Date.now()-Date.parse(p.startedAt)<86400000;});
+  if(!rows.length&&!_downloadsError&&!_downloadRequestError)return null;
+  function bytes(n){return (n/Math.pow(1024,3)).toFixed(2)+' GiB';}
+  return h('section',{'data-testid':'model-downloads',style:{marginBottom:18}},
+    h('div',{style:{display:'flex',justifyContent:'space-between',alignItems:'center'}},h('h3',null,'Stahování modelů'),
+      h('button',{style:_modelButtonStyle(false,_downloadsLoading),disabled:_downloadsLoading,onClick:_loadDownloads},'Obnovit stav')),
+    _downloadRequestError?h('p',{role:'alert',style:{color:C.red}},_downloadRequestError):null,
+    _downloadsError?h('p',{role:'alert',style:{color:C.amber}},'Stav stahování není ověřen. '+_downloadsError):null,
+    rows.map(function(p){var running=!['done','error'].includes(p.status),age=Date.now()-Date.parse(p.updatedAt||p.startedAt),stale=running&&(!!_downloadsError||age>15000);
+      return h('div',{key:p.operationId||p.model,style:{padding:14,marginBottom:8,background:C.bg2,border:'1px solid '+C.border2,borderRadius:8}},
+        h('div',{style:{display:'flex',justifyContent:'space-between',gap:16}},h('strong',null,p.model),h('span',{style:{color:p.status==='error'?C.red:p.status==='done'?C.success:C.accent}},p.text)),
+        running?h('progress',{max:100,value:!stale&&Number.isFinite(p.percent)?p.percent:undefined,'aria-label':'Stahování '+p.model,style:{width:'100%',height:8,accentColor:C.accent,margin:'12px 0'}}):null,
+        p.totalBytes>0?h('div',null,(Number.isFinite(p.percent)?p.percent+' % · ':'')+bytes(p.completedBytes)+' / '+bytes(p.totalBytes)+' · oznámené vrstvy'):null,
+        running?h('div',{style:{color:stale?C.amber:C.tx3,marginTop:6}},stale?'Čekám na aktuální zprávu. Poslední aktualizace před '+_huntDuration(age)+'.':
+          (p.bytesPerSecond>0?(p.bytesPerSecond/1048576).toFixed(1)+' MiB/s · ':'')+(p.etaSeconds>0?'Odhad do konce oznámených vrstev: '+_huntDuration(p.etaSeconds*1000):'Odhad času bude dostupný po změření přenosu.')):null,
+        p.startedAt?h('div',{style:{fontSize:_fs(10),color:C.tx3,marginTop:6}},'Zahájeno '+new Date(p.startedAt).toLocaleString('cs-CZ')):null,
+        p.status==='error'?h('button',{style:_modelButtonStyle(false,false),onClick:function(){_pullModel(p.model);}},'Zkusit stáhnout znovu'):null,
+        p.status==='done'?h('button',{style:_modelButtonStyle(false,false),onClick:function(){_evaluationRoleFilter='all';_openModelTests(p.model);}},'Testy modelu…'):null);
+    }));
 }
 function _loadDiscoveredData(){
+  _loadDownloads();
   if(_discoveredLoading)return;_discoveredLoading=true;
   return _readModelResource('/api/system/models/candidates',function(d){_discoveredData=d;},
     function(error){_discoveredData={error:error};},function(){_discoveredLoading=false;});
@@ -3232,7 +3274,7 @@ function _renderDiscoveredTab(){
   if(!_discoveredData||_discoveredData.error)return _modelLoadFailure(_discoveredData&&_discoveredData.error||'Katalog není dostupný.',_loadDiscoveredData);
   var selection=_filteredCandidates(_discoveredData);var candidates=selection.rows;
   function fCtx(w){if(!w)return'-';return w>=1048576?(w/1048576).toFixed(0)+'M':w>=1024?(w/1024).toFixed(0)+'K':w+'';}
-  return h('div',null,toast,
+  return h('div',null,toast,_renderDownloads(),
     h('div',{style:{fontSize:_fs(10),color:C.tx3,lineHeight:1.5,marginBottom:12}},
       'VRAM je katalogový odhad. Skutečné umístění na GPU ověří až měření s produkčním kontextem. Katalogová hodnota není skóre kvality.'),
     h('div',{style:{display:'flex',gap:14,flexWrap:'wrap',alignItems:'flex-end',marginBottom:14,padding:12,
@@ -3251,7 +3293,7 @@ function _renderDiscoveredTab(){
     !selection.budgetMb?h('p',{role:'status',style:{color:C.amber}},'Limit VRAM není k dispozici. Katalog zůstává viditelný; vejití modelů na GPU není ověřené. Pro filtrování lze zadat vlastní kladný limit.'):null,
     candidates.length===0?h('div',{style:{color:C.tx4,padding:20,textAlign:'center'}},(_discoveredData.candidates||[]).length?'Zvolenému filtru neodpovídá žádný model.':'Katalog zatím neobsahuje žádné modely.'):
     _modelTable(['Model','Parametry','VRAM · odhad','Kontext','Možné role','Vydání','Akce'],candidates.map(function(m){
-      var ps=_pullState[m.name],pulling=ps&&ps.status&&ps.status!=='done'&&ps.status!=='error';
+      var ps=_downloadState(m.name),pulling=ps&&ps.status&&ps.status!=='done'&&ps.status!=='error';
       var fit=!selection.budgetMb||!(m.vramMb>0)?'Vejití neověřeno':m.vramMb>selection.budgetMb?'Nad limitem':'';
       return h('tr',{key:m.canonicalName||m.name},
         _modelCell(h('div',null,h('strong',null,m.name),h('div',{style:{fontSize:_fs(9),color:C.tx3}},m.installed?'Stažený':'Katalog · kvalita nezměřena'))),
@@ -5670,7 +5712,7 @@ function _initBusSubscriptions() {
     _serverHealth.status = 'offline';
     if(window._intentsmith)window._intentsmith.agentLog(
       'TOOL',
-      '❌ Spojení se nepodařilo obnovit po '+ev.attempts+' pokusech. Zkontrolujte backend a restartujte Studio.'
+      '⚠️ Backend zatím neodpovídá po '+ev.attempts+' pokusech. Spojení znovu ověřím při kontrole backendu; můžeš také použít Zkusit znovu.'
     );
     renderSidebar();_updateStatusIndicator();
   });
@@ -5689,14 +5731,9 @@ function _initBusSubscriptions() {
 
   /* Model pull progress (v121.2) */
   IntentSmithBus.on('model:pull_progress', function(ev) {
-    var m=ev.model;if(!m)return;
-    _pullState[m]={status:ev.status||'unknown',percent:ev.percent||0,text:ev.text||'',
-      downloadedGB:ev.downloadedGB,totalGB:ev.totalGB,eta:ev.eta};
-    if(ev.status==='done'||ev.status==='error'){
-      /* Refresh discovered data after completion */
-      _discoveredData=null;_loadDiscoveredData();
-    }
-    renderCenter();
+    // WS wakes the reader; HTTP is the same authority after missed events,
+    // reloads and automatic recovery of a pre-existing download.
+    _loadDownloads();
   });
 
   /* v125: Model changed via WS (fire-and-forget apply) */

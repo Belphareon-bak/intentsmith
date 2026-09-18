@@ -12,14 +12,14 @@ remote-health.read is a public GET /remote/v1/health prerequisite, not one of th
 The underlying requirements retain their own candidate stage. Availability and scopes must
 still be validated against the actual server/session; desktop route existence grants no remote authority.
 
-- Desktop route declarations: 247
+- Desktop route declarations: 248
 - Legacy /m1 declarations: 0
 - M7 HTTP routes: 7
 - M7 invocation operations: 17
 - Capability areas: approvals, conversations, events, notifications, projects, settings, stored_information
 - Control-plane operations (not another capability): 3
-- Desktop route digest: `ad04f946691365ae3560cc1a8cf9b0dfd4061e23a7972ee981d897e20567f70f`
-- Combined inventory digest: `85e0b49b0cd5d94ff09c604c5cf37bf03e92c57be046948b78d05b5cffb805b4`
+- Desktop route digest: `1c5b325fb20273827f9b28e99ff26597fbc8f587a78b1e4298ed341bd2484ba7`
+- Combined inventory digest: `ed84f45950b7d2a7e2e884ce1b6022426c0b61aa36d6f070975c132adf1401f3`
 
 Workers, specialists and device management have no M7 operation in this projection.
 Their desktop route declarations must not be mistaken for a mobile capability.
@@ -277,6 +277,7 @@ Their desktop route declarations must not be mistaken for a mobile capability.
 | GET | `/api/system/models/candidates` | src/routes/system.js |
 | GET | `/api/system/models/check` | src/routes/system.js |
 | GET | `/api/system/models/compatibility` | src/routes/system.js |
+| GET | `/api/system/models/downloads` | src/routes/system.js |
 | POST | `/api/system/models/evaluate` | src/routes/system.js |
 | GET | `/api/system/models/evaluations` | src/routes/system.js |
 | GET | `/api/system/models/evaluations/:runId` | src/routes/system.js |

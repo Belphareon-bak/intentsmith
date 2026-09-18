@@ -13,6 +13,7 @@ import path from 'node:path';
 export const DEFAULT_GPU_EVALUATION_LOCK = path.join(tmpdir(), 'intentsmith-gpu-evaluation.lock');
 export const DEFAULT_MIN_AVAILABLE_MEMORY_BYTES = 8 * 2 ** 30;
 export const DEFAULT_MIN_AVAILABLE_DISK_BYTES = 40 * 2 ** 30;
+export const INSTALLED_EVALUATION_DISK_BYTES = 2 * 2 ** 30;
 
 /**
  * A scheduled pull must preserve the disk reserve after the artifact lands,
@@ -46,7 +47,8 @@ export function assessCandidateDownloadHeadroom(snapshot = {}, opts = {}) {
  */
 export function assessScheduledEvaluationReadiness(snapshot = {}, opts = {}) {
   const minimumMemoryBytes = opts.minimumMemoryBytes ?? DEFAULT_MIN_AVAILABLE_MEMORY_BYTES;
-  const minimumDiskBytes = opts.minimumDiskBytes ?? DEFAULT_MIN_AVAILABLE_DISK_BYTES;
+  const minimumDiskBytes = opts.minimumDiskBytes ?? (opts.installedOnly
+    ? INSTALLED_EVALUATION_DISK_BYTES : DEFAULT_MIN_AVAILABLE_DISK_BYTES);
   const residentModels = (snapshot.residentModels || []).filter(Boolean);
   const computeProcesses = (snapshot.computeProcesses || []).filter(Boolean);
   const memoryAvailableBytes = Number(snapshot.memoryAvailableBytes);

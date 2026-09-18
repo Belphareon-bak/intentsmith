@@ -21,6 +21,7 @@ import {
 } from '../src/upgrade/model-use-authority.js';
 import { requireLoopbackModelProviderOrigin } from '../src/upgrade/model-provider-origin.js';
 import { ModelRegistry } from '../src/upgrade/model-registry.js';
+import { createModelPullProgress } from '../src/upgrade/model-pull-progress.js';
 import { UpgradeManager } from '../src/upgrade/upgrade-manager.js';
 import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 import { suite, summary, test, testAsync } from './harness.js';
@@ -85,6 +86,44 @@ function capture(callback) {
 }
 
 suite('M6 durable model artifact authority');
+
+test('actual Ollama pulling events count multiple layers and exclude resumed bytes from ETA', () => {
+  let now = 0;
+  const parse = createModelPullProgress('fixture:7b', { now: () => now });
+  assert.equal(parse({ status: 'pulling manifest' }).percent, null);
+  const first = parse({ status: 'pulling abc', digest: 'abc', total: 1000, completed: 600 });
+  assert.equal(first.percent, 60);
+  assert.equal(first.etaSeconds, null);
+  now = 2000;
+  const second = parse({ status: 'pulling abc', digest: 'abc', total: 1000, completed: 800 });
+  assert.equal(second.bytesPerSecond, 100);
+  assert.equal(second.etaSeconds, 2);
+  now = 4000;
+  parse({ status: 'pulling abc', digest: 'abc', total: 1000, completed: 1000 });
+  const next = parse({ status: 'pulling def', digest: 'def', total: 200, completed: 0 });
+  assert.equal(next.totalBytes, 1200);
+  assert.equal(next.completedBytes, 1000);
+  assert.equal(next.percent, 83);
+  assert.equal(parse({status:'success'}).status, 'verifying');
+});
+
+await testAsync('durable download reader restores success without a websocket or live in-memory state', async () => {
+  const state = fixture(); const originalFetch = globalThis.fetch;
+  try {
+    const manager = new UpgradeManager({modelUseAuthority:new ModelUseAuthority({durableRepository:state.first})});
+    manager.setModelArtifactAuthorityRepository(state.first);
+    globalThis.fetch = async () => new Response('{"status":"pulling abc","digest":"abc","total":1000,"completed":500}\n{"status":"success"}');
+    const events=[];
+    await manager.pullModel('reader-fixture:latest', event=>events.push(event), {source:'USER_HTTP'});
+    assert.equal(events.find(e=>e.status==='downloading').percent, 50);
+    assert.equal(manager.getModelPulls()[0].status, 'done');
+    const fresh = new UpgradeManager();fresh.setModelArtifactAuthorityRepository(state.second);
+    assert.equal(fresh.getModelPulls()[0].status, 'done');
+    assert.equal(fresh.getModelPulls()[0].model, 'reader-fixture:latest');
+    assert.equal(fresh.getModelPulls()[0].etaSeconds, null);
+  } finally { globalThis.fetch=originalFetch;state.close(); }
+});
+
 
 test('migration installs the exact fingerprinted append-only schema', () => {
   const db = new Database(':memory:');
@@ -359,6 +398,8 @@ await testAsync('stalled pull becomes a durable orphan and startup recovery resu
     const outstanding = state.first.listOutstandingEffects();
     assert.equal(outstanding.length, 1);
     assert.equal(outstanding[0].state, 'ORPHANED');
+    assert.equal(manager.getModelPulls()[0].status, 'error');
+    assert.equal(manager.getModelPulls()[0].state, 'ORPHANED');
     assert.equal(authority.snapshot('stalled-fixture').exclusiveOwner, null);
     assert.equal(authority.snapshot('stalled-fixture').outstandingEffect, outstanding[0].operationId);
 

@@ -100,3 +100,12 @@ release pečeti. Starší negativní pokusy zachované. Šest dostupných zdroj�
 Správce není šest existujících kvalitativních měření; 7 kandidátů má stále
 nedoložené datum vydání. Širší quick/full benchmark není součástí změny.
 [Finální review packet](../review/2026-09-18-MODEL-DETAILS.md). REVIEW_PENDING.
+
+
+Navazující zadání operátora 2026-09-18 odpoledne: ověřit skutečný uživatelský
+postup výběr CODE → nové měření → informované přiřazení a opravit nepozorovatelné
+stahování Gemmy. Výchozí stav: frontend 2ca3cca1, backend c52b03ff, souběžný
+ornith/CODE čeká na disk 40 GiB. Sloučena již nasazená větev Studia (0534a111),
+cizí checkout zůstává beze změny. Rozsah: čtení trvalých pull účtenek, skutečné
+Ollama události vrstev, HTTP obnova průběhu, ruční obnovení WS, oddělená disková
+rezerva pro měření instalovaného artefaktu. Ověření a živý CODE výsledek čekají.

@@ -958,6 +958,13 @@ function _clearPendingEditsOnDisconnect() {
 
 /* ─── Connect ─────────────────────────────────────────────────────────── */
 
+function _wsReconnect() {
+  if (_wsDestroyed) return false;
+  _wsRetryCount = 0;
+  _wsReconnectExhausted = false;
+  return _wsConnect();
+}
+
 function _wsConnect() {
   if (_wsDestroyed) return false;
   if (_wsRetryTimer) {
@@ -976,6 +983,7 @@ function _wsConnect() {
   _m1WireNegotiated = false;
 
   var _base = (typeof _backendBase !== 'undefined') ? _backendBase : (function(){try{if(typeof window!=='undefined'&&window.electronIntentSmith){var u=window.electronIntentSmith.getBackendUrl();if(u)return u;}}catch(e){}return 'http://127.0.0.1:3335';})();
+  try { if (typeof window !== 'undefined' && window.electronIntentSmith) _base = window.electronIntentSmith.getBackendUrl() || _base; } catch (e) {}
   var wsUrl = _base.replace(/^http/, 'ws') + '/intentsmith/ws';
 
   var connectionEpoch = ++_wsConnectionEpoch;
@@ -1431,6 +1439,7 @@ setInterval(function() {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     wsConnect: _wsConnect,
+    wsReconnect: _wsReconnect,
     wsSend: wsSend,
     wsSendChat: wsSendChat,
     wsSendTerminal: wsSendTerminal,
@@ -1452,6 +1461,7 @@ if (typeof module !== 'undefined' && module.exports) {
 if (typeof window !== 'undefined') {
   window.IntentSmithWS = {
     connect: _wsConnect,
+    reconnect: _wsReconnect,
     send: wsSend,
     sendChat: wsSendChat,
     sendTerminal: wsSendTerminal,

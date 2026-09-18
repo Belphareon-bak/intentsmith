@@ -497,3 +497,26 @@ test('LLM settings reject error objects as inventory and keep model management r
   await vm.runInContext('_loadSettingsModels()',context);assert.equal(context._ollamaModels[0].name,'installed');assert.equal(context._settingsModelsError,null);
   const settings=fn('settingsLLM');assert.ok(settings.indexOf('Spravovat role a modely')<settings.indexOf('if(!_roleBindings)'));
 });
+
+
+test('download panel polls missed websocket events, shows rate and ETA, and marks stale progress',async()=>{
+  const source=await readFile(join(ROOT,'intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/chat-panel-module.js'),'utf8');
+  const code=source.slice(source.indexOf('var _downloadsLoading='),source.indexOf('function _loadDiscoveredData()'));
+  let fail=false,done=false;
+  const context=vm.createContext({Date,Number,Object,String,Math,AbortSignal,C:{},_fs:n=>n,
+    _pullState:{},_centerState:{view:'upgrades'},_upgradeTab:'discovered',_modelButtonStyle:()=>({}),
+    _huntDuration:n=>n+'ms',h:(tag,props,...children)=>({tag,props,children}),setInterval(){},renderCenter(){},
+    _modelReadError:e=>e.message,_backendUrl:()=> 'http://127.0.0.1:1',_loadDiscoveredData(){},_loadModelOverview(){},
+    fetch:async()=>{if(fail)throw Error('offline');return {ok:true,json:async()=>({downloads:[{model:'fixture:latest',operationId:'operation',status:done?'done':'downloading',text:done?'Staženo':'Stahuji vrstvy modelu',startedAt:new Date().toISOString(),updatedAt:new Date().toISOString(),percent:50,completedBytes:2**30,totalBytes:2**31,bytesPerSecond:2**20,etaSeconds:1024}]})};},
+  });
+  vm.runInContext(code,context);await vm.runInContext('_loadDownloads()',context);
+  const tree=()=>vm.runInContext('_renderDownloads()',context);
+  assert.match(JSON.stringify(tree()),/1.0 MiB\/s/);assert.match(JSON.stringify(tree()),/Odhad do konce/);
+  assert.equal(vm.runInContext('_downloadState("fixture").percent',context),50);
+  fail=true;await vm.runInContext('_loadDownloads()',context);
+  assert.match(JSON.stringify(tree()),/Stav stahování není ověřen/);
+  assert.match(JSON.stringify(tree()),/Čekám na aktuální zprávu/);
+  assert.doesNotMatch(JSON.stringify(tree()),/1.0 MiB\/s/);
+  fail=false;done=true;await vm.runInContext('_loadDownloads()',context);
+  assert.match(JSON.stringify(tree()),/Staženo/);assert.doesNotMatch(JSON.stringify(tree()),/"tag":"progress"/);
+});
