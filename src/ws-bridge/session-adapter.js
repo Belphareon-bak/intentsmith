@@ -655,6 +655,15 @@ export function createSessionAdapter({
           confidence: response.confidence,
           conversationId: m1Command.conversationId,
         };
+        // A project proposal is editable input, never an approval/effect. Keep
+        // the explicit fields across the canonical Studio wire just as HTTP
+        // does; otherwise the model's concrete next step disappears in the UI.
+        if (response.metadata?.handler === 'project.collaboration') {
+          metadata.handler = 'project.collaboration';
+          metadata.projectWorkProposal = response.metadata.projectWorkProposal ?? null;
+          if (response.metadata.inspection) metadata.inspection = response.metadata.inspection;
+          if (response.metadata.planningError) metadata.planningError = response.metadata.planningError;
+        }
         if (response.state !== undefined) {
           try { metadata.state = JSON.parse(JSON.stringify(response.state)); } catch (_) {}
         }

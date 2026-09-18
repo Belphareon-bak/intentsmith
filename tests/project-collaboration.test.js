@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { test } from 'node:test';
 import { initializeNewProject, inspectProject, importedProjectWelcome } from '../src/planner/project-onboarding.js';
 import { discussProject, collectProjectWorkEvidence, fitProjectDiscussionPrompt, PROJECT_DISCUSSION_SYSTEM } from '../src/chat/handlers/project-collaboration.js';
@@ -52,6 +53,13 @@ test('foreign repository inspection preserves files and presents scope and goal 
   assert.match(welcome, /bez změn/); assert.match(welcome, /cíl projektu/);
   assert.match(welcome, /Chybí README/); assert.match(welcome, /nebyly nalezené testovací/);
   assert.doesNotMatch(welcome, /všechny fáze dokončené/);
+  const response = await discussProject('Navrhni opravu', { project: imported }, {
+    generate: async () => generated({ reply: 'Funkce add odčítá, místo aby sčítala. Chybí test.', plan: plan() }),
+  });
+  assert.equal(response.metadata.projectWorkProposal, null);
+  assert.equal(response.metadata.projectSetupRequired, true);
+  assert.match(response.content, /Git základ/);
+  assert.deepEqual(await fs.readdir(foreign), before);
 });
 
 test('inspection refuses escaped links and hard-linked contents', async t => {
@@ -134,6 +142,8 @@ test('workspace changes during planning invalidate the suggestion before it reac
 });
 
 test('project continuation takes only canonical evidence for the same actor, project and conversation', () => {
+  let material = Buffer.from('export const readFan = () => null;');
+  const digest = `sha256:${createHash('sha256').update(material).digest('hex')}`;
   const rows = [
     { lifecycleId: 'mine', project: 1, conversation: 'fan', actor: 'operator' },
     { lifecycleId: 'foreign-project', project: 2, conversation: 'fan', actor: 'operator' },
@@ -141,19 +151,27 @@ test('project continuation takes only canonical evidence for the same actor, pro
     { lifecycleId: 'foreign-owner', project: 1, conversation: 'fan', actor: 'phone' },
   ];
   const reads = [];
-  const result = collectProjectWorkEvidence({ projectId: 1, conversationId: 'fan', actorId: 'operator',
+  const dependencies = { projectId: 1, conversationId: 'fan', actorId: 'operator',
     lifecycleRepository: {
       listOwnedOperations: ({ actorId }) => { assert.equal(actorId, 'operator'); return rows; },
       getPlan: id => { const row = rows.find(item => item.lifecycleId === id); return {
         actor: { id: row.actor }, project: { projectId: row.project }, origin: { conversationId: row.conversation },
-        identity: { executionId: id }, intent: 'Read RPM', changes: [{ path: 'src/index.mjs' }],
+        identity: { executionId: id }, intent: 'Read RPM', changes: [{ path: 'src/index.mjs', afterDigest: digest }],
       }; },
       getTerminal: id => { reads.push(id); return { state: 'failed', errorCode: 'FOCUSED_TEST_FAILED', resultDigest: 'digest' }; },
     },
-    executionRepository: { getResult: () => ({ focusedTest: { terminalStatus: 'failed', exitCode: 1 } }) },
-  });
+    executionRepository: { getResult: () => ({ focusedTest: { terminalStatus: 'failed', exitCode: 1 } }),
+      listEvents: () => [{ type: 'process_terminated', details: { testOutput: { stdout: 'Assertion failed', stderr: '', truncated: false } } }],
+      getFileMaterial: () => [{ path: 'src/index.mjs', afterBytes: material }],
+    },
+  };
+  const result = collectProjectWorkEvidence(dependencies);
   assert.deepEqual(reads, ['mine']); assert.equal(result.length, 1);
   assert.equal(result[0].state, 'failed'); assert.equal(result[0].focusedTest.exitCode, 1);
+  assert.equal(result[0].failedCandidate[0].state, 'failed_candidate_not_current_file');
+  assert.equal(result[0].testOutput.stdout, 'Assertion failed');
+  material = Buffer.from('tampered');
+  assert.throws(() => collectProjectWorkEvidence(dependencies), /neodpovídá schválenému plánu/);
 });
 
 test('planning selects context for the real model window and never truncates the current request', () => {
@@ -167,7 +185,11 @@ test('planning selects context for the real model window and never truncates the
     const result = fitProjectDiscussionPrompt(JSON.stringify(input), numCtx);
     assert.equal(result.numCtx, numCtx);
     assert.equal(JSON.parse(result.prompt).request, request);
-    assert.ok(Buffer.byteLength(PROJECT_DISCUSSION_SYSTEM + result.prompt) <= result.maxBytes);
+    assert.ok(Buffer.byteLength(result.systemPrompt + result.prompt) <= result.maxBytes);
+    assert.ok(result.systemPrompt.includes(PROJECT_DISCUSSION_SYSTEM));
+    assert.match(result.systemPrompt, /Today \/ dnes: \d{4}-\d{2}-\d{2}/);
+    assert.match(result.systemPrompt, /Yesterday \/ včera:/);
+    assert.match(result.systemPrompt, /Tomorrow \/ zítra:/);
     assert.ok(result.maxTokens + result.maxBytes / 2 + 384 <= numCtx);
   }
   assert.throws(() => fitProjectDiscussionPrompt(JSON.stringify({ ...input, request: 'q'.repeat(50_000) }), 4096), /Rozděl/);

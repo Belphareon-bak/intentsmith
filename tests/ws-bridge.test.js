@@ -1697,6 +1697,27 @@ await asyncTest('T23c: M1 adapter preserves identity and emits one canonical str
   );
 });
 
+await asyncTest('T23ca: project next-step proposal survives the actual canonical terminal wire without granting execution', async () => {
+  const sent = [];
+  const frame = m1StudioFrame('project-proposal', { context: { projectId: '42' } });
+  const proposal = { kind: 'ProjectWorkProposal@1', projectId: 42, workspaceRevision: 'wsr1:test',
+    draft: { instruction: 'Read RPM', files: [{ path: 'src/index.mjs', instruction: 'Read only', dependsOn: [] }] } };
+  const adapter = createSessionAdapter({ send: encoded => sent.push(JSON.parse(encoded)), logger: mockLogger,
+    handleRequest: async () => ({ response: 'Navržený krok', mode: 'project', confidence: 0.8,
+      metadata: { handler: 'project.collaboration', projectWorkProposal: proposal,
+        inspection: { testsExecuted: false }, privateInternalField: 'must-not-leak' } }),
+  });
+  try { await adapter.processM1Command(frame); } finally { adapter.cleanup(); }
+  const events = m1EventStream(sent, frame.command.requestId);
+  assert.equal(validateCoreEventStream(events).valid, true);
+  const terminal = events.at(-1).payload.result;
+  assert.equal(terminal.status, 'ok');
+  assert.deepEqual(terminal.response.metadata.projectWorkProposal, proposal);
+  assert.equal(terminal.response.metadata.inspection.testsExecuted, false);
+  assert.equal(Object.hasOwn(terminal.response.metadata, 'privateInternalField'), false);
+  assert.equal(events.some(event => event.payload?.effectId), false);
+});
+
 await asyncTest('T23c1: M1 WS emits a typed error, never ok, for a length-truncated model result', async () => {
   const sent = [];
   const frame = m1StudioFrame('truncated');
