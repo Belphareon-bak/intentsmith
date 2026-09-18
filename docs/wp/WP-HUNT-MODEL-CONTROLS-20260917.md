@@ -109,3 +109,13 @@ ornith/CODE čeká na disk 40 GiB. Sloučena již nasazená větev Studia (0534a
 cizí checkout zůstává beze změny. Rozsah: čtení trvalých pull účtenek, skutečné
 Ollama události vrstev, HTTP obnova průběhu, ruční obnovení WS, oddělená disková
 rezerva pro měření instalovaného artefaktu. Ověření a živý CODE výsledek čekají.
+
+Dodáno na `39cad5f1`: skutečné NDJSON pull události, trvalý stav stahování,
+HTTP/WS obnova, oddělená disková rezerva a uvolnění GPU po binding probe.
+Gemma dokončená v 15:13:26 CEST. Přes instalované GUI 63 nových CODE
+vyhodnocení: Qwen3.8 71,4 %, Devstral 32,4 %, Ornith 25,7 %; současný
+Qwen v CODE zůstal. Uživatelovo okno zachované, žádný nový model smazán.
+Závěrečný vizuální nález opravil posun po změně záložky; polling jej zachovává.
+Úplný profil 359 PASS / 1 zděděný FAIL release pečeti, navazující cílené
+kontroly a fyzický Electron PASS. LIVE_GUI_MODEL_JOURNEY_PASS / REVIEW_PENDING.
+[Packet](../review/2026-09-18-MODEL-DOWNLOAD-JOURNEY.md).
