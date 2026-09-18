@@ -73,3 +73,10 @@ mutací, odmítnutí opožděných odpovědí. Ověřit skutečné otevřené El
 rotaci portu i capability, všech sedm záložek před/po a výpadek při prvním
 načtení. Integrovat již instalované project-flow změny 5e46fca7; zachovat
 uživatelův otevřený projekt, rozepsané vstupy i cizí soak.
+
+Náprava nainstalována `9f9ed339`: řízená obnova 7/7 a obnova 7/7 nad živou DB
+prošly, historie a bindingy nezměněné. Celý profil 357 PASS / 2 FAIL;
+LOC dokumentace opraveno a artifact suite 160/160, zbývá release pečeť.
+INSTALLED_RECOVERY_VERIFIED / REVIEW_PENDING. Staré uživatelovo okno ponecháno;
+nový frontend načte nové spuštění ikonou.
+[Navazující review](../review/2026-09-18-MODEL-WORKSPACE-RECONNECT.md).

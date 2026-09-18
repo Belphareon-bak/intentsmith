@@ -1,5 +1,14 @@
 # IntentSmith — mapa systému
 
+**Obnova modelového pracoviště, 2026-09-18:** operátor znovu otevřel vadu po
+restartu backendu: HTTP zůstávalo na starém portu i po úspěšném WS reconnectu.
+Instalováno `9f9ed339`; 7/7 záložek ověřeno při nedostupných datech i po rotaci
+portu/capability, odděleně 7/7 nad produkční DB po skutečném restartu služby.
+Skóre/historie/bindingy nezměněné. Kombinovaná validace 358 PASS / 1 zděděný
+FAIL release pečeti; REVIEW_PENDING. Původní otevřené Studio potřebuje jedno
+zavření a nové spuštění ikonou; jeho frontend se za běhu nevyměnil.
+[Review, negativní pokusy a meze](docs/review/2026-09-18-MODEL-WORKSPACE-RECONNECT.md).
+
 **Základ změřen 2026-08-02 na `17a8b9a8`; pre-fix OS-isolated scan proběhl na
 `24457ba2`; registry klasifikace byla opravena v `06309bc8`, post-fix scan
 aktuálního registru proběhl na `a85c344f` a izolovaný HTTP/restart baseline na
@@ -268,7 +277,7 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 | | |
 |---|---:|
 | `src/**/*.js` | **225 336 ř.**, 630 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **246 729 ř.**, 532 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **246 789 ř.**, 532 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **524** (`430 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 101** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |

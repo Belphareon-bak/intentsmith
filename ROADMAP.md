@@ -1,5 +1,14 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**Obnova modelového pracoviště, 2026-09-18:** operátor znovu otevřel vadu po
+restartu backendu: HTTP zůstávalo na starém portu i po úspěšném WS reconnectu.
+Instalováno `9f9ed339`; 7/7 záložek ověřeno při nedostupných datech i po rotaci
+portu/capability, odděleně 7/7 nad produkční DB po skutečném restartu služby.
+Skóre/historie/bindingy nezměněné. Kombinovaná validace 358 PASS / 1 zděděný
+FAIL release pečeti; REVIEW_PENDING. Původní otevřené Studio potřebuje jedno
+zavření a nové spuštění ikonou; jeho frontend se za běhu nevyměnil.
+[Review, negativní pokusy a meze](docs/review/2026-09-18-MODEL-WORKSPACE-RECONNECT.md).
+
 **Modelové pracoviště Studia, 2026-09-18:** instalováno `9298ef46`.
 Uložená denní GPU inventura, skutečný nový ruční test, čekání na GPU,
 tabulky rolí a kandidátů, detail úloh, historie a vysvětlený Správce.
