@@ -12,7 +12,9 @@ const appPath = path.resolve(__dirname, '..');
 const env = { ...process.env };
 delete env.ELECTRON_RUN_AS_NODE;
 
-const args = [appPath, ...process.argv.slice(2)];
+const { resolveUserDataArgs } = require('../resolve-user-data.js');
+const userArgs = process.argv.slice(2);
+const args = [appPath, ...userArgs, ...resolveUserDataArgs(userArgs)];
 
 console.log('[IntentSmith Launcher] Electron:', electronPath);
 console.log('[IntentSmith Launcher] App:', appPath);

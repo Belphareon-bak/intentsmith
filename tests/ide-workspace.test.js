@@ -210,3 +210,13 @@ test('startup continues while a durable model download is pending and observes r
     assert.match(log[0][1],rejectRecovery?/TEST_RECOVERY_FAILURE/:/same-existing-operation: RECOVERED/);
   }
 });
+
+test('renaming Studio keeps existing user data without replacing an explicit or newer profile',async()=>{
+  const {createRequire}=await import('node:module');const {resolveUserDataArgs}=createRequire(import.meta.url)('../intentsmith-ide/applications/electron/resolve-user-data.js');
+  const previous='/profiles/c3-ide-electron',current='/profiles/intentsmith-ide-electron';
+  const options={platform:'linux',env:{XDG_CONFIG_HOME:'/profiles'},home:'/home/test',isDirectory:p=>p===previous};
+  assert.deepEqual(resolveUserDataArgs([],options),['--user-data-dir='+previous]);
+  for(const args of [['--user-data-dir=/chosen'],['--user-data-dir','/chosen'],['--electron-user-data=/chosen'],['--electron-user-data','/chosen']])assert.deepEqual(resolveUserDataArgs(args,options),[]);
+  assert.deepEqual(resolveUserDataArgs([],{...options,isDirectory:p=>p===current||p===previous}),[]);
+  assert.deepEqual(resolveUserDataArgs([],{...options,isDirectory:()=>false}),[]);
+});

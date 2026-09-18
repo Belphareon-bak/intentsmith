@@ -66,3 +66,9 @@ Historické podepsané důkazy, názvy externích repozitářů, identifikátory
 (například Gate 0 C3) a zakódovaná data jsou identity, nikoli označení produktu.
 Zůstávají zachované. Generované staré rootové výstupy IDE jsou vyřazené z Gitu;
 produkční aplikace se sestavuje z nynějšího zdrojového workspace.
+
+Při přejmenování aplikace launcher rozpozná dosavadní profil
+`c3-ide-electron`, pokud nový profil ještě neexistuje, a otevře jej na původním
+místě. Nastavení, relace a IndexedDB se nekopírují ani nemažou. Explicitní
+`--user-data-dir` / `--electron-user-data` a již existující nový profil mají
+přednost. Toto je kompatibilita uložených dat, nikoli druhá instalace IDE.
