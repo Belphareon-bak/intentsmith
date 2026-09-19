@@ -1,6 +1,6 @@
 # IntentSmith — mapa systému
 
-**Tři projektové průchody, průběžně 2026-09-19:** instalováno `fff79214`.
+**Tři projektové průchody, průběžně 2026-09-19:** instalováno `532b6c34`.
 Produkční systemd M2 sandbox už prošel. SystemSmith_1 má přes skutečný model,
 schválení, sandbox a Git zapsané sběrače CPU/RAM, síť/disky, GPU/FAN/host a
 procesy. Desktop a další dva widgety ještě nejsou hotové. Úklid vlastních
@@ -362,8 +362,8 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **225 905 ř.**, 631 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **247 738 ř.**, 533 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **225 909 ř.**, 631 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **247 740 ř.**, 533 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **525** (`431 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 102** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |

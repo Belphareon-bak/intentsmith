@@ -773,6 +773,10 @@ export function createM2LifecycleApplicationService(dependencyValues) {
       if (change.afterContent === files[index].content) {
         throw codeDraftError('OUTPUT_UNCHANGED', 'Model nenavrhl změnu vybraného souboru.');
       }
+      if (change.afterContent === previousFiles.get(files[index].path)?.content) {
+        throw codeDraftError('REVISION_UNCHANGED',
+          'Model vrátil předchozí návrh beze změny. Oprava nevznikla; upřesněte požadovanou změnu.');
+      }
       changes.push(change);
     }
     const proposal = compileM2ProjectChangeProposal({

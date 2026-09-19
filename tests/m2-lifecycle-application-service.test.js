@@ -1129,7 +1129,7 @@ for (const defect of [null, 'missing', 'traversal', 'target-overlap', 'secret', 
   });
 }
 
-for (const defect of [null, 'owner', 'origin', 'digest', 'active', 'stale', 'missing-retained']) {
+for (const defect of [null, 'owner', 'origin', 'digest', 'active', 'stale', 'missing-retained', 'repeated']) {
   await testAsync(`revision preserves reviewed bytes and requires same owned cancelled plan: ${defect ?? 'success'}`, async () => {
     const root = makeProject(); const db = openDatabase(); let calls = 0;
     try {
@@ -1142,7 +1142,8 @@ for (const defect of [null, 'owner', 'origin', 'digest', 'active', 'stale', 'mis
         assert.equal(input.previousDraft.state, 'unapplied_proposal');
         assert.equal(input.previousDraft.contentDigest, sha(input.previousDraft.content));
         assert.equal(input.peerFiles[0].content, retained);
-        return { content: JSON.stringify({ afterContent: 'export const value = 3;\n' }), finishReason: 'stop' };
+        return { content: JSON.stringify({ afterContent: defect === 'repeated'
+          ? input.previousDraft.content : 'export const value = 3;\n' }), finishReason: 'stop' };
       } });
       await service.recoverIncompleteSmallProjectChanges();
       const previous = await prepare(service, proposal({ changes: [
@@ -1165,8 +1166,9 @@ for (const defect of [null, 'owner', 'origin', 'digest', 'active', 'stale', 'mis
       if (defect) {
         const codes = { owner: 'M2_LIFECYCLE_OWNER_MISMATCH', origin: 'M2_LIFECYCLE_ORIGIN_MISMATCH',
           digest: 'M2_LIFECYCLE_PLAN_DIGEST_MISMATCH', active: 'M2_CODE_DRAFT_REVISION_UNAVAILABLE',
-          stale: 'M2_LIFECYCLE_CONTEXT_STALE', 'missing-retained': 'M2_CODE_DRAFT_REVISION_UNAVAILABLE' };
-        await assert.rejects(act(), { code: codes[defect] }); assert.equal(calls, 0);
+          stale: 'M2_LIFECYCLE_CONTEXT_STALE', 'missing-retained': 'M2_CODE_DRAFT_REVISION_UNAVAILABLE',
+          repeated: 'M2_CODE_DRAFT_REVISION_UNCHANGED' };
+        await assert.rejects(act(), { code: codes[defect] }); assert.equal(calls, defect === 'repeated' ? 1 : 0);
         assert.equal(db.prepare('SELECT count(*) AS n FROM m2_lifecycle_operations').get().n, 1);
       } else {
         const next = await act(); assert.equal(calls, 1);

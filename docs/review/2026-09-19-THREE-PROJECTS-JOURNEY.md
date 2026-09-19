@@ -6,7 +6,7 @@ Jde o obecnou zkoušku projektové práce, nikoli o specializaci IntentSmithu na
 
 ## Provoz a úklid
 
-- Instalovaný `fff792140b32ad5e8f63a866ddc9423942f291d4` podporuje opravu
+- Instalovaný `532b6c34e755c01b9b2d171b63d187c8f94b1350` podporuje opravu
   přesně určeného nepoužitého návrhu a zachování vybraných souborů bez další
   inference. Jiný autor, původ, digest nebo revize projektu jsou odmítnuté;
   nový plán vyžaduje nové schválení. Původní materiál zůstává neměnný.
@@ -53,7 +53,10 @@ instalace utility a oba další projekty v tomto checkpointu ještě nejsou doko
    oprávnění ani limity se tím nemění. Tato úprava sama nezaručuje kvalitu modelu.
 3. Opravy nepoužitého návrhu zachovávají jeho funkční části. Dosavadní reálná
    měření zároveň ukazují, že model může vrátit i obsahově nezměněnou chybu;
-   zelený vlastní test modelu není dostatečným důkazem správnosti.
+   zelený vlastní test modelu není dostatečným důkazem správnosti. Návazná
+   kontrola `M2_CODE_DRAFT_REVISION_UNCHANGED` odmítá bajtově totožnou opravu
+   před vznikem nového plánu (service 74/74); tato kontrola ještě není součástí
+   instalovaného `532b6c34`. Explicitní `reusePrevious` zůstává povolené.
 
 První návazný test service měl 70 PASS / 3 FAIL: testovací fixture odvozovala
 runtime přepínače pomocí pevného počtu posledních argumentů a po změně test
@@ -61,7 +64,15 @@ discovery zahodila `--disable-wasm-trap-handler`. Fixture nyní bere přepínač
 před `--test`; assertion skutečné alokace WebAssembly zůstává. Opakování 73/73.
 Projektová sada 24/24. Úplný profil poslední instalované verze byl 359 PASS /
 1 FAIL (`nightly-orchestrator-self-test`, známá neshoda Gate 0 registru).
-Novější úpravy tohoto checkpointu vyžadují vlastní úplné ověření a nasazení.
+`532b6c34` má vlastní sériový profil 359 PASS / 1 FAIL a je nasazený.
+První souběžný profil téhož commitu měl 345 PASS / 15 FAIL: čtrnáct sad
+skončilo s exit 0, ale odmítla je kontrola čistoty kvůli souběžné dočasné
+source fixture orchestration self-testu. Tento běh zůstává FAIL a je uložený.
+Při kontrolním nasazení nejprve selhal starý seznam sedmi projektů v pomocném
+ověřovači. Před nasazením přibyly projekty 14/15 (WeatherSmith/NewsSmith);
+rozdíl byl pouze očekávaný `last_active` devíti projektů při startovním scanu.
+Po ověření přesného rozdílu prošly všechny kontroly dat, autentizace i integrity.
+Původní selhání ověřovače je zachované, nedošlo k opakované instalaci.
 
 ## Důkazy
 

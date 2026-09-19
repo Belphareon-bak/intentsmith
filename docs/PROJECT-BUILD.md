@@ -109,6 +109,9 @@ přesný digest, vlastníka, projekt, konverzaci a nezměněnou revizi pracovní
 stromu. Při změně souborů nebo po úspěšném provedení je třeba nový běžný krok.
 Zachování souboru znamená zachování obsahu, nikoli potvrzení jeho správnosti;
 funkční test a kontrola celého výsledku zůstávají nutné.
+Vrátí-li model při opravě přesně původní návrh souboru, builder jej odmítne
+chybou `M2_CODE_DRAFT_REVISION_UNCHANGED`; nový plán nevznikne. Vědomé zachování
+souboru se zadává volbou **Zachovat přesný obsah**, nikoli opakovaným generováním.
 
 Pokročilý builder přijímá `revisionOf: { lifecycleId, planDigest }` a
 `reusePrevious: true` u explicitně uvedených souborů. Kontext se čte jen na
