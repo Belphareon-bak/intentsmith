@@ -241,6 +241,7 @@ záznamu selže v `artifact-validation`.
 | `2026_09_11_113_conversation_web.js` | `WP-AUDIT-REMEDIATION-20260911` — jednotlivě schválený konverzační web |
 | `2026_09_18_114_model_evaluation_remeasure.js` | zadání operátora 2026-09-18 — nové ruční měření se zachováním historie |
 | `2026_09_18_115_intentsmith_setting_names.js` | zadání operátora 2026-09-18 — přejmenování nastavení; staré klíče a explicitní nové hodnoty zachované |
+| `2026_09_19_116_model_evaluation_acceptance.js` | zadání operátora 2026-09-19 — odvozená rozhodovací způsobilost z přijaté evidence; append-only přejímky a odvolání |
 <!-- migration-source-manifest:end -->
 
 ## Navazující M7 rezervace 2026-08-29
@@ -489,3 +490,11 @@ rozhodnutí zůstávají. Aktuální manifest má 101 migrací.
 ### 2026-09-18 — IntentSmith Studio namespace
 
 Migrace 115 přidává kanonické názvy nastavení vedle původních klíčů. Nemaže data ani nepřepisuje explicitní nové hodnoty. Manifest nyní obsahuje 102 migrací.
+
+### 2026-09-19 — přejímka evaluací
+
+Migrace 116 přidává pouze historii přejímek a odvolání v existující DB.
+Žádný profil nepřijímá a žádné dosavadní skóre nemění. Lokální kontrola
+registrovaných worktrees po přidání nenašla jiného vlastníka slotu 116;
+aktuální manifest obsahuje 103 migrací. Důkaz `migration116-worktrees.json`
+je součástí packetu přejímací brány.

@@ -1,7 +1,7 @@
 // Durable reviews of evidence, not automatic approval of a passing test log.
 // No default database, environment override, or mutable decisionReady switch.
 import { createHash, randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { DEFAULT_MODEL_EVALUATION_OPTIONS } from '../eval/model-evaluation-runner.js';
 import { decideCodePilot } from '../eval/code-pilot-decision.js';
 
@@ -16,14 +16,24 @@ const blocked = code => ({ ready:false, code, graderIds:[], qualifications:[] })
 
 // Operational evidence also expires when the workflow or decision implementation
 // changes, even if the short benchmark's contract is unchanged.
-export function qualificationRuntimeSha256() {
-  const sources = ['../executor/execution-loop.js','../executor/error-normalizer.js',
-    '../patch/patch-parser.js','../patch/patch-applier.js','../patch/patch-validator.js',
-    '../patch/patch-engine.js','../patch/scope-limiter.js','../eval/code-pilot-decision.js',
-    './model-evaluation-acceptance.js','../../scripts/manual/c3-code-pilot.mjs',
-    '../../scripts/manual/c3-code-pilot-fixtures.mjs','../../package-lock.json'];
-  return acceptanceHash(Object.fromEntries(sources.map(path => [path,
-    createHash('sha256').update(readFileSync(new URL(path,import.meta.url))).digest('hex')])));
+export function qualificationRuntimeSha256(readSource = readFileSync) {
+  // Pin the complete product source, including lazy prompt/context/strategy
+  // dependencies. A hand-maintained list would miss transitive workflow edits.
+  const sources = [];
+  const visit = relative => {
+    for (const entry of readdirSync(new URL(relative,import.meta.url), {withFileTypes:true})) {
+      const path = relative + entry.name;
+      if (entry.isDirectory()) visit(path + '/');
+      else if (entry.isFile()) sources.push(path);
+      else throw new Error('EVALUATION_RUNTIME_SOURCE_UNVERIFIABLE');
+    }
+  };
+  visit('../');
+  visit('../../contracts/');
+  sources.push('../../scripts/manual/c3-code-pilot.mjs','../../scripts/manual/c3-code-pilot-fixtures.mjs',
+    '../../scripts/run-model-hunt-provider.js','../../package-lock.json');
+  return acceptanceHash({nodeVersion:process.version, sources:Object.fromEntries(sources.sort().map(path => [path,
+    createHash('sha256').update(readSource(new URL(path,import.meta.url))).digest('hex')]))});
 }
 
 function validateEnvelope(record) {

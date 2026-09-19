@@ -17,6 +17,10 @@ přijatý report, obsahový SHA-256, recenzenta, datum, odkaz a odůvodnění p�
 Odvolání je další záznam s vazbou na původní přejímku; historii nepřepisuje.
 Žádný běh modelu ani úspěšný test nezapisuje přejímku automaticky.
 
+Fingerprint runtime zahrnuje celé `src/`, `contracts/`, Node, dependency lock
+a oba soubory provozního runneru včetně wrapperu providera. Změna nepřímo
+načítaného prompt builderu tím přejímku také zneplatní.
+
 Párová přejímka se váže na přijatého hodnotitele, konkrétní role/kontrakt,
 artefakty obou modelů, provider, GPU, kontext, parametry generování a uzamčený
 provozní plán. Jeho verdikt se přepočítá existujícím rozhodovacím postupem,
@@ -90,3 +94,14 @@ otevřené. Zvlášť: 2/8 není výsledek pro porovnávání modelů.
 
 Doplní se přesné commity, výsledky čistého checkoutu a aktuální GPU stav.
 Dosavadní cílené kontroly jsou pracovní důkaz, nikoli přijetí modelového profilu.
+
+První celý běh `bfb75e8e`: 356 PASS / 5 FAIL. Vedle zděděné pečeti Gate 0
+selhaly aktuální census/manifest, dvě vazby na počet/poslední migraci a P6
+seznam hran. Následující změna aktualizuje pouze aktuální soupisy a očekávání
+migrace 116; historické receipt/počty se nepřepisují. P6 přídavky jsou šest
+konkrétních importů přejímky: plán → store; store → rozhodovací algoritmus
+CODE a sdílené inference defaults; zápis rozhodnutí → plán a store; duel →
+store. Umožňují odvození a opětovnou kontrolu stejné autority, nepřidávají
+cyklus (zůstávají 3 cykly / 28 členů). Jedna dříve odstraněná hrana
+`role-quality-suites → synthetic-images` se z baseline vypouští. Rebaseline
+je revize implementátora podle CONTRACT §11, nikoli nezávislé přijetí změny.

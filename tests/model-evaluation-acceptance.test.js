@@ -2,12 +2,12 @@
 // acceptance, never from a hand-edited boolean. Isolated SQLite, no GPU/DB effects.
 import Database from 'better-sqlite3';
 import assert from 'node:assert/strict';
-import { mkdtempSync,rmSync } from 'node:fs';
+import { mkdtempSync,rmSync,readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { suite,test,testAsync,summary } from './harness.js';
 import { up } from '../src/db/migrations/2026_09_19_116_model_evaluation_acceptance.js';
-import { acceptanceHash,ModelEvaluationAcceptanceStore } from '../src/upgrade/model-evaluation-acceptance.js';
+import { acceptanceHash,ModelEvaluationAcceptanceStore,qualificationRuntimeSha256 } from '../src/upgrade/model-evaluation-acceptance.js';
 import { createRoleEvaluationPlans } from '../src/eval/role-evaluation-plan.js';
 import { codePilotPlanHash } from '../src/eval/code-pilot-decision.js';
 import { ModelEvaluationReadModel } from '../src/upgrade/model-evaluation-read-model.js';
@@ -58,6 +58,12 @@ function fixture(path=':memory:') {
   return {db,plan,store,grader,operation,accept,revoke,resign,runs};
 }
 suite('durable exact-contract evaluation acceptance');
+test('a transitive prompt builder edit invalidates the operational runtime fingerprint',()=>{
+  const original=qualificationRuntimeSha256();
+  const changed=qualificationRuntimeSha256(url=>url.pathname.endsWith('/context/prompt-builder.js')
+    ? Buffer.concat([readFileSync(url),Buffer.from('\n// changed workflow prompt')]) : readFileSync(url));
+  assert.notEqual(original,changed);
+});
 test('missing DB or migration stays closed, with an explicit reason',()=>{
   assert.equal(createRoleEvaluationPlans().CODE.decisionReady,false);
   const db=new Database(':memory:');const p=createRoleEvaluationPlans({db}).CODE;
