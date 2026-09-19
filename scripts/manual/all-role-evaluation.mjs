@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { collectAnswer, collectionSuite, MAX_MODEL_BYTES } from './role-collection-profile.mjs';
 import { ModelEvaluationRunner } from '../../src/eval/model-evaluation-runner.js';
 import { CodePatchEvaluationRunner, codePatchSuite } from '../../src/eval/code-patch-suite.js';
 import { visionV2Suite } from '../../src/eval/role-quality-suites.js';
@@ -19,15 +20,18 @@ const args = process.argv.slice(2);
 const flag = name => args.includes(`--${name}`);
 const option = (name, fallback = null) => args.find(a => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? fallback;
 if (!args.length || flag('help')) {
-  console.log('Usage: all-role-evaluation.mjs --prepare|--run --out=/absolute/new-directory [--model=qwen3.8:latest] [--judge=qwen3.8:latest] [--roles=D1,D2,CODE,R1,R2,CHAT,VISION] [--profile=full|smoke] [--budget-minutes=240] [--calibrate-only] [--resume]');
+  console.log('Usage: all-role-evaluation.mjs --prepare|--run --out=/absolute/new-directory [--model=qwen3.8:latest] [--judge=qwen3.8:latest] [--roles=D1,D2,CODE,R1,R2,CHAT,VISION] [--profile=full|smoke] [--budget-minutes=240] [--collect-only] [--calibrate-only] [--resume]');
   process.exit(0);
 }
-const allowed = /^(?:--(?:prepare|run|calibrate-only|resume)|--(?:out|model|judge|roles|profile|report|task|budget-minutes)=.+)$/;
+const allowed = /^(?:--(?:prepare|run|collect-only|calibrate-only|resume)|--(?:out|model|judge|roles|profile|report|task|budget-minutes)=.+)$/;
 if (args.some(a => !allowed.test(a)) || flag('prepare') === flag('run')) throw new Error('Invalid measurement arguments');
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const out = option('out');
 if (!out || !path.isAbsolute(out)) throw new Error('An absolute evidence directory is required');
-const suites = { ...SEMANTIC_ROLE_SUITES, CODE: codePatchSuite, VISION: visionV2Suite };
+const collectOnly = flag('collect-only');
+if (collectOnly && (flag('calibrate-only') || option('judge'))) throw new Error('Collection cannot use a judge');
+const originals = { ...SEMANTIC_ROLE_SUITES, CODE: codePatchSuite, VISION: visionV2Suite };
+const suites = collectOnly ? Object.fromEntries(Object.entries(originals).map(([role, suite]) => [role, collectionSuite(role, suite)])) : originals;
 const selected = option('roles', 'D1,D2,CODE,R1,R2,CHAT,VISION').split(',');
 if (new Set(selected).size !== selected.length || selected.some(r => !suites[r])) throw new Error('Unknown or duplicate role');
 const profile = option('profile', 'full');
@@ -45,7 +49,9 @@ const workingTreeDirty = !!execFileSync('git',['-C',root,'status','--porcelain']
 const runtimeSha256 = qualificationRuntimeSha256();
 const plan = { schemaVersion: 1, sourceRevision, runtimeSha256, workingTreeDirty,
   runnerSha256: hash(fs.readFileSync(fileURLToPath(import.meta.url))),
-  profile, repeats, budgetMinutes, model: option('model', 'qwen3.8:latest'), judge: option('judge', 'qwen3.8:latest'),
+  collectionModuleSha256: collectOnly ? hash(fs.readFileSync(new URL('./role-collection-profile.mjs',import.meta.url))) : null,
+  profile, repeats, budgetMinutes, model: option('model', 'qwen3.8:latest'), judge: collectOnly ? null : option('judge', 'qwen3.8:latest'),
+  collectOnly, maxModelBytes: collectOnly ? MAX_MODEL_BYTES : null,
   calibratedOnly: flag('calibrate-only'), taskFilter: option('task'),
   roles: selected.map(role => ({ role, suite: suites[role].name,
     contractSha256: suiteContract(suites[role],{repeats}).sha256,
@@ -55,7 +61,7 @@ const plan = { schemaVersion: 1, sourceRevision, runtimeSha256, workingTreeDirty
       options: t.options })) })),
   notAHoldout: true, decisionAuthority: false,
   operationPolicy: { productionImported: false, applyBindings: false, removeModels: false, timer: false },
-  limitations: ['Full means all tasks and three repetitions; it is not yet an accepted operational holdout.',
+  limitations: collectOnly ? ['Raw collection only; no judge, no scores or recommendation.', 'Open development tasks, not an operational holdout.', 'Role budgets locked before either candidate; not a production-profile qualification.'] : ['Full means all tasks and three repetitions; it is not yet an accepted operational holdout.',
     'Semantic judge calibration uses authored adversarial probes, not an independently adjudicated acceptance set.',
     'Model names are blinded to the judge; self-judging bias remains when judge and target are the same artifact.'],
 };
@@ -81,6 +87,7 @@ const blockBeforeRun = message => {
   report.status='BLOCKED';report.error=message;report.finishedAt=new Date().toISOString();
   report.durationMs=Date.parse(report.finishedAt)-Date.parse(report.startedAt);flush();
 };
+write('tasks.json', plan.roles.flatMap(p => suites[p.role].tests.filter(t => p.tasks.some(s => s.name === t.name)).map(t => ({role:p.role,name:t.name,description:t.description||null,rubric:t.rubric||[],contractMaterial:t.contractMaterial, input:t.prompt(),options:t.options}))));
 flush();
 if (flag('prepare')) { console.log(JSON.stringify({status:'PREPARED',planSha256:plan.sha256,roles:plan.roles})); process.exit(0); }
 if (workingTreeDirty) {
@@ -127,21 +134,25 @@ const call=async(model,messages,options,artifact)=>{
   if(activeModel && activeModel!==model)await unload();
   activeModel=model;
   let result;
+  const gpuSamples=[];
+  const sample=()=>{try { gpuSamples.push({at:new Date().toISOString(),values:execFileSync('nvidia-smi',['--query-gpu=memory.used,memory.total,utilization.gpu','--format=csv,noheader,nounits'],{timeout:2000}).toString().trim()}); } catch(error) { gpuSamples.push({at:new Date().toISOString(),error:error.message}); }};
+  sample(); const sampling=setInterval(sample,2000);
   try { result=await runner._callModel(model,messages,{...options,timeout:Math.min(options.timeout||300000,deadline-Date.now())},artifact); }
   catch(error) {
     fs.appendFileSync(path.join(out,'calls.jsonl'),JSON.stringify({at:new Date().toISOString(),model,artifact,options,messages,
-      error:{code:error.code||null,message:error.message,detail:error.detail||null}})+'\n',{mode:0o600});
+      error:{code:error.code||null,message:error.message,detail:error.detail||null},gpuSamples})+'\n',{mode:0o600});
     throw error;
-  }
+  } finally { clearInterval(sampling); sample(); }
   let placement=null, placementError=null;
   try {
     assertOwnership();
     placement=(await get('/api/ps')).models?.find(m=>m.name===model) || null;
     if(!result.error && (!placement || placement.size_vram<placement.size
-      || placement.context_length!==options.num_ctx))throw new Error('MODEL_PROFILE_NOT_FULL_GPU');
+      || placement.context_length!==options.num_ctx
+      || (collectOnly && placement.size_vram>MAX_MODEL_BYTES)))throw new Error('MODEL_PROFILE_NOT_FULL_GPU');
   } catch(error) { placementError=error.message; }
   report.inferenceCalls++;
-  const receipt={at:new Date().toISOString(),model,artifact,options,inputSha256:hash(messages),messages,result,placement,placementError};
+  const receipt={at:new Date().toISOString(),model,artifact,options,inputSha256:hash(messages),messages,result,placement,placementError,gpuSamples,requestSettings:{stream:false,think:false,tools:[]}};
   fs.appendFileSync(path.join(out,'calls.jsonl'),JSON.stringify(receipt)+'\n',{mode:0o600});
   flush();if(placementError)throw new Error(placementError);return result;
 };
@@ -158,10 +169,10 @@ try {
     if(!found || !/^(sha256:)?[a-f0-9]{64}$/.test(found.digest))throw new Error('MODEL_NOT_INSTALLED:'+name);
     return {modelName:name,digestSha256:found.digest.replace(/^sha256:/,''),providerVersion:provider};
   };
-  const artifacts={model:identify(plan.model),judge:identify(plan.judge)};
+  const artifacts={model:identify(plan.model),judge:collectOnly?null:identify(plan.judge)};
   if(report.artifacts && JSON.stringify(report.artifacts)!==JSON.stringify(artifacts))throw new Error('ARTIFACT_IDENTITY_CHANGED');
   report.artifacts=artifacts;report.status='RUNNING';flush();
-  const judge=new SemanticEvaluationJudge({call,artifact:artifacts.judge,onReceipt:receipt=>
+  const judge=collectOnly?null:new SemanticEvaluationJudge({call,artifact:artifacts.judge,onReceipt:receipt=>
     fs.appendFileSync(path.join(out,'judgements.jsonl'),JSON.stringify(receipt)+'\n',{mode:0o600})});
   const textRunner=new ModelEvaluationRunner(endpoint,{semanticJudge:judge});textRunner._callModel=call;
   const codeRunner=new CodePatchEvaluationRunner(endpoint);codeRunner._callModel=call;
@@ -172,8 +183,9 @@ try {
       const task=suite.tests.find(t=>t.name===spec.name);
       if(cancelling)throw new Error('CANCELLED');
       report.phase='oracle';report.current={role:rolePlan.role,task:task.name};flush();
-      let calibrated=true;
-      if(task.tier==='T4') {
+      let calibrated=collectOnly?null:true;
+      if(collectOnly) { /* raw collection has no oracle or judge calls */ }
+      else if(task.tier==='T4') {
         // Re-run probes on resume; never trust an editable PASS flag as a
         // live qualified judge. Prior failures remain in the append-only log.
         const calibration=await judge.qualify(task);
@@ -195,7 +207,7 @@ try {
           completed:report.attempts.length,total};flush();
         console.log('ATTEMPT',report.attempts.length+1,'/',total,rolePlan.role,task.name,repeat);
         const startedAt=new Date().toISOString();
-        const result=rolePlan.role==='CODE'?await codeRunner._runTest(task,plan.model,artifacts.model)
+        const result=collectOnly?await collectAnswer(task,plan.model,artifacts.model,call):rolePlan.role==='CODE'?await codeRunner._runTest(task,plan.model,artifacts.model)
           :await textRunner._runTest(task,plan.model,artifacts.model);
         const attempt={role:rolePlan.role,task:task.name,repeat,startedAt,calibrated,
           independenceGroup:spec.independenceGroup,...result};
@@ -204,9 +216,9 @@ try {
       }
     }
   }
-  report.status=report.calibrations.some(c=>c.status!=='PASS') || report.attempts.some(a=>a.valid===false)
+  report.status=collectOnly ? (report.attempts.some(a=>a.captureStatus==='TRANSPORT_ERROR')?'COLLECTION_INCOMPLETE':'COLLECTION_COMPLETE') : report.calibrations.some(c=>c.status!=='PASS') || report.attempts.some(a=>a.valid===false)
     ? 'INCOMPLETE_EVIDENCE' : flag('calibrate-only')?'CALIBRATION_COMPLETE':'MEASUREMENT_COMPLETE';
-  if(report.status==='INCOMPLETE_EVIDENCE')process.exitCode=2;
+  if(['INCOMPLETE_EVIDENCE','COLLECTION_INCOMPLETE'].includes(report.status))process.exitCode=2;
 } catch(error) {
   report.status=cancelling?'CANCELLED':'BLOCKED';report.error=error.message;process.exitCode=2;
 } finally {
@@ -215,6 +227,7 @@ try {
   report.durationMs=Date.parse(report.finishedAt)-Date.parse(report.startedAt);
   report.roles=plan.roles.map(p=>{
     const rows=report.attempts.filter(a=>a.role===p.role);
+    if(collectOnly) return {role:p.role,expectedAttempts:p.tasks.length*repeats,attempted:rows.length,captured:rows.filter(a=>a.captureStatus==='CAPTURED').length,outputBudgetExhausted:rows.filter(a=>a.captureStatus==='OUTPUT_BUDGET_EXHAUSTED').length,transportErrors:rows.filter(a=>a.captureStatus==='TRANSPORT_ERROR').length,gradingStatus:'NOT_GRADED',contractSha256:p.contractSha256};
     const requiredCalibrations=p.tasks.filter(t=>t.tier==='T4');
     const calibrationValid=requiredCalibrations.every(t=>
       report.calibrations.findLast(c=>c.role===p.role && c.task===t.name)?.status==='PASS');
