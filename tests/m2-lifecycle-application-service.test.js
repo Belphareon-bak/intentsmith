@@ -927,7 +927,7 @@ function projectBlueprint() {
     files: files.map(([path, instruction, dependsOn]) => ({ path, instruction, dependsOn })),
     focusedTest: {
       binary: process.execPath,
-      argv: [...projectTestProfile().argv.slice(0, -2), '--experimental-default-type=module', '--input-type=module', '-e',
+      argv: [...projectTestProfile().argv.slice(0, projectTestProfile().argv.indexOf('--test')), '--experimental-default-type=module', '--input-type=module', '-e',
         "import assert from 'node:assert/strict';import {run} from './src/app.js';assert.equal(new WebAssembly.Memory({initial:1}).buffer.byteLength,65536);const results=run([['add',12,'food'],['add',8,'travel'],['add',3,'food'],['total'],['categories'],['list']]);assert.equal(results[3],23);assert.deepEqual(results[4],{food:15,travel:8});assert.equal(results[5].length,3);assert.deepEqual(run([['list'],['total']]),[[],0]);for(const amount of [0,-1,NaN,Infinity])assert.throws(()=>run([['add',amount,'food']]));assert.throws(()=>run([['add',1,'']]));assert.throws(()=>run([['unknown']]));"],
       environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' }, timeoutMs: 30_000,
     },
@@ -966,6 +966,10 @@ for (const defect of [null, 'src/totals.js', 'src/app.js']) {
           const definition = blueprint.files.find(file => file.path === input.path);
           assert.equal(input.path, projectBuildOrder[calls.length]);
           assert.equal(input.fileInstruction, definition.instruction);
+          assert.equal(input.filePlan.length, blueprint.files.length);
+          assert.ok(input.filePlan.every(file => !Object.hasOwn(file, 'instruction')),
+            'other targets must not compete with the current file instruction');
+          assert.deepEqual(input.filePlan.find(file => file.path === input.path).dependsOn, definition.dependsOn);
           assert.equal(input.beforeContent, input.path === 'src/app.js' ? 'export const value = 1;\n' : null);
           assert.deepEqual(input.peerFiles ?? [], definition.dependsOn.map(path => ({ path, content: outputs[path], state: 'proposed' })));
           for (const dependency of definition.dependsOn) assert.ok(calls.includes(dependency));

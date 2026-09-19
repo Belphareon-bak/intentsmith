@@ -1,5 +1,14 @@
 # IntentSmith — mapa systému
 
+**Tři projektové průchody, průběžně 2026-09-19:** instalováno `fff79214`.
+Produkční systemd M2 sandbox už prošel. SystemSmith_1 má přes skutečný model,
+schválení, sandbox a Git zapsané sběrače CPU/RAM, síť/disky, GPU/FAN/host a
+procesy. Desktop a další dva widgety ještě nejsou hotové. Úklid vlastních
+testovacích kopií uvolnil 16,48 GiB při zachování 2 392 ověřených hashů důkazů.
+Opravy zachování draftu, výběru testů a oddělení instrukcí souborů jsou
+obecné. **IN_PROGRESS / REVIEW_PENDING**, nejde o hotové aplikace ani prod-ready.
+[Aktuální checkpoint a zachované neúspěchy](docs/review/2026-09-19-THREE-PROJECTS-JOURNEY.md).
+
 **Desktopové projektové kroky, 2026-09-19:** nasazeno `d22f64ac`.
 Celý původní cíl a aktuální oprava mají přednost před staršími zprávami.
 Kontext existujících modulů pouze ke čtení, pozorované
@@ -353,8 +362,8 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **225 901 ř.**, 631 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **247 712 ř.**, 533 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **225 905 ř.**, 631 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **247 738 ř.**, 533 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **525** (`431 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 102** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |

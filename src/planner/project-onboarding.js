@@ -41,7 +41,7 @@ export async function initializeNewProject(root, { name, description = '', type 
       name: path.basename(root).replace(/[^a-z0-9_-]/gi, '-').toLowerCase(),
       version: '0.1.0', private: true, type: 'module', description,
       scripts: { start: type === 'desktop' ? 'electron src/index.mjs' : 'node src/index.mjs',
-        test: 'node --test test/acceptance.test.mjs' },
+        test: 'node --test' },
       ...(type === 'desktop' ? { devDependencies: { electron: '42.11.3' } } : {}),
     };
     const files = {

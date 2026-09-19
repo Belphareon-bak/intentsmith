@@ -27,6 +27,28 @@ function plan() {
 }
 function generated(value) { return { content: JSON.stringify(value), finishReason: 'stop' }; }
 
+test('incremental project plans run both a new test file and the preserved acceptance suite', async t => {
+  const project = await fixture(t);
+  const previous = 'import test from "node:test"; test("existing behavior", () => {});\n';
+  await fs.writeFile(path.join(project.path, 'test/acceptance.test.mjs'), previous);
+  const next = { instruction: 'Add separately tested I/O support.', files: [
+    { path: 'test/io.test.mjs', instruction: 'Assert the new I/O behavior.', dependsOn: [] },
+  ] };
+  const response = await discussProject('Add I/O with its own tests; preserve the existing suite.', { project }, {
+    generate: async () => generated({ reply: 'A separate tested increment.', plan: next }),
+  });
+  const profile = response.metadata.projectWorkProposal.draft.focusedTest;
+  const run = () => execFileSync(profile.binary, profile.argv, { cwd: project.path, encoding: 'utf8',
+    env: Object.fromEntries(Object.entries(process.env).filter(([key]) => key !== 'NODE_TEST_CONTEXT')) });
+  await fs.writeFile(path.join(project.path, 'test/io.test.mjs'), 'import test from "node:test"; test("new behavior", () => { throw Error("new regression"); });\n');
+  assert.throws(run, error => error.status === 1 && error.stdout.includes('new regression'));
+  await fs.writeFile(path.join(project.path, 'test/io.test.mjs'), 'import test from "node:test"; test("new behavior", () => {});\n');
+  assert.match(run(), /# pass 2/);
+  assert.equal(await fs.readFile(path.join(project.path, 'test/acceptance.test.mjs'), 'utf8'), previous);
+  await fs.writeFile(path.join(project.path, 'test/acceptance.test.mjs'), 'import test from "node:test"; test("existing behavior", () => { throw Error("old regression"); });\n');
+  assert.throws(run, error => error.status === 1 && error.stdout.includes('old regression'));
+});
+
 test('new project has a clean Git baseline, canonical policy and a genuinely failing initial test', async t => {
   const project = await fixture(t);
   assert.equal(execFileSync('git', ['status', '--porcelain'], { cwd: project.path, encoding: 'utf8' }), '');

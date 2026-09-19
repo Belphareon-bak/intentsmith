@@ -20,7 +20,8 @@ Respect setup.policy roots/imports; permitted packages are not necessarily insta
 Node 22 ESM, static imports, node: prefixes. Entry src/index.mjs. Read /proc via fs, not shell.
 Injected I/O/clocks; import starts no timers/servers. Local servers bind 127.0.0.1.
 Electron: sandbox/contextIsolation on, nodeIntegration off, narrow preload IPC; test pure core.
-Include test/acceptance.test.mjs: real assertions, failure cases, offline/no sockets; keep old tests.
+Include a test/*.test.mjs file: real assertions, failure cases, offline/no sockets; keep old tests.
+Use a new test file for a new module; do not rewrite unrelated passing tests.
 Consumers dependOn providers in THIS plan (acyclic). contextFiles are existing paths READ-ONLY,
 not output targets. Preserve their APIs. Other languages/unclear scope/discussion: plan=null.
 Choose defaults/file names; ask at most 2 consequential questions. Learn from project corrections,
@@ -126,7 +127,7 @@ export async function generateProjectDiscussion({ prompt, signal, sessionId }) {
 }
 
 export function projectTestProfile() {
-  return { binary: process.execPath, argv: ['--disable-wasm-trap-handler', '--test', 'test/acceptance.test.mjs'],
+  return { binary: process.execPath, argv: ['--disable-wasm-trap-handler', '--test'],
     environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' }, timeoutMs: 30_000 };
 }
 
@@ -235,7 +236,7 @@ async function discussProjectOnce(input, context, {
     const plan = value.plan;
     if (!plan || Object.keys(plan).sort().join(',') !== 'files,instruction'
         || !Array.isArray(plan.files) || plan.files.length > 8
-        || !plan.files.some(file => file.path === 'test/acceptance.test.mjs')) {
+        || !plan.files.some(file => /^test\/(?:[^/]+\/)*[^/]+\.test\.mjs$/.test(file.path))) {
       throw invalidPlan('Návrh musí obsahovat konkrétní soubory a funkční test.');
     }
     // Test executable and environment are chosen here, never by the model.

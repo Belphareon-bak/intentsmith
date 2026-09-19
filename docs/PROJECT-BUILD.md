@@ -37,7 +37,7 @@ chyb návrhu (například neexistující adresář nebo cyklus závislostí) zku
 plán opravit podle konkrétní chyby. Nevytváří tím adresáře ani neschvaluje
 změny. Chyby provideru, přerušený výstup a změna revize se automaticky neopakují.
 
-Test v takovém návrhu je `node --disable-wasm-trap-handler --test test/acceptance.test.mjs`. Přepínač zachovává funkčnost Node.js pod limitem virtuální paměti sandboxu. Model může
+Test v takovém návrhu je `node --disable-wasm-trap-handler --test`: Node vyhledá testy projektu, takže nová sada nezůstane mimo ověření a původní regrese se kontrolují dál. Nový modul může mít vlastní `test/*.test.mjs`; není nutné přepisovat nesouvisející `acceptance.test.mjs`. Přepínač zachovává funkčnost Node.js pod limitem virtuální paměti sandboxu. Model může
 navrhnout jeho assertions, takže úspěch testu sám nedokazuje splnění celého cíle.
 Prohlédněte změny a ověřte i skutečný výsledek. Součástí návrhu je lokální Git
 commit po úspěšném provedení, aby další krok mohl vycházet z čistého stavu.
