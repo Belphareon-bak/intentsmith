@@ -171,6 +171,17 @@ test('identical repeated proposals apply once', () => {
   assertEqual(p.regions.length,1);assertEqual(applyPatch(p,'const x = 1;\n').content,'const x = 2;\n');
 });
 
+test('literal Markdown fences inside source do not delimit raw or fenced patches', () => {
+  const original = "function clean() {\n  // Remove fences (```lang and ```)\n  return '```';\n}\n";
+  const response = "--- clean.js\n@@ function clean\n   // Remove fences (```lang and ```)\n-  return '```';\n+  return '';";
+  for (const answer of [response, '```diff\n'+response+'\n```', '````diff\n'+response+'\n````']) {
+    const [patch] = parsePatchFromDiff(answer);
+    assert(patch, 'must preserve the source patch');
+    assertEqual(validatePatch(patch,new Map([['clean.js',original]])).valid,true);
+    assertEqual(applyPatch(patch,original).content,original.replace("return '```'", "return ''"));
+  }
+});
+
 test('numeric unified hunks verify positions and counts before application', () => {
   const original = 'function work() {\n  first();\n  keep();\n  last();\n}\n';
   const response = 'diff --git a/app.js b/app.js\n--- a/app.js\n+++ b/app.js\n@@ -2,3 +2,3 @@\n   first();\n-  keep();\n+  fixed();\n   last();';

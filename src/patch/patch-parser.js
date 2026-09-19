@@ -80,25 +80,24 @@ export function parsePatchFromDiff(llmOutput) {
 
   const input = normalizeNewlines(llmOutput);
 
-  // Extract diff blocks between fences
+  // A raw diff can contain Markdown delimiters as source code. Interpret
+  // fences only when they frame the response, never inside a diff line.
   const diffBlocks = [];
-  const fenceStart = /```[^\n]*\n/g;
-  let match;
-  while ((match = fenceStart.exec(input)) !== null) {
-    const startIdx = match.index + match[0].length;
-    const endIdx = input.indexOf('```', startIdx);
-    if (endIdx < 0) break;
-    const block = input.substring(startIdx, endIdx).trim();
-    if (block.length > 0) diffBlocks.push(block);
-    // The closing fence is not the start of another block (which used to eat
-    // prose and the opening fence of the following patch).
-    fenceStart.lastIndex = endIdx + 3;
-  }
-
-  // If no fenced blocks found, try parsing entire input as diff
-  if (diffBlocks.length === 0) {
-    if (/^(?:---\s|@@\s|diff --git )/.test(input.trim())) {
-      diffBlocks.push(input.trim());
+  if (/^(?:---\s|@@\s|diff --git )/.test(input.trim())) {
+    diffBlocks.push(input.trim());
+  } else {
+    const fenceStart = /^ {0,3}(`{3,}|~{3,})[^\n]*\n/gm;
+    let match;
+    while ((match = fenceStart.exec(input)) !== null) {
+      const startIdx = fenceStart.lastIndex;
+      const delimiter = match[1];
+      const closing = new RegExp('^ {0,3}' + delimiter[0] + '{' + delimiter.length + ',}[ \t]*$', 'gm');
+      closing.lastIndex = startIdx;
+      const end = closing.exec(input);
+      if (!end) break;
+      const block = input.substring(startIdx, end.index).trim();
+      if (block.length > 0) diffBlocks.push(block);
+      fenceStart.lastIndex = closing.lastIndex;
     }
   }
 
