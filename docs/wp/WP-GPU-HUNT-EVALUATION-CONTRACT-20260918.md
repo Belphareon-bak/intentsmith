@@ -17,6 +17,14 @@ Navazuje na [audit výpovědní hodnoty](../review/2026-09-18-EVALUATION-VALIDIT
 
 ## 0. Hranice tohoto dokumentu
 
+Rozšíření zadání operátorem 19. 9. 2026: „připrav to komplet a pak to i
+otestuj na všech rolích … finální výsledek, verdikt a dokument pro review
+celého huntu“. Povoluje přípravu a skutečné měření všech sedmi rolí, včetně
+ověření hodnotitele otevřených odpovědí. Nemění podmínky §3, §6 a §8:
+autorské sondy nejsou nezávislá přejímka, vývojové případy nejsou holdout
+a průzkumné skóre samo neopravňuje doporučení ani retenci. Původní omezení
+§10 na jediný měřený CODE pilot se na toto navazující zadání nevztahuje.
+
 - Schválen je **rozsah prvního pilotu**, ne obecná přestavba metodiky.
 - Počty z auditu (2 758 přeznámkovaných odpovědí, 57 běhů) jsou **údaje
   z předložené zprávy**, ne nezávisle ověřený stav repozitáře. Pilot je musí

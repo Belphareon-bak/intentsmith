@@ -60,6 +60,7 @@ export class ModelEvaluationRunner {
   constructor(ollamaBaseUrl, opts = {}) {
     this._baseUrl = ollamaBaseUrl || config.ollama?.baseUrl || 'http://127.0.0.1:11434';
     this._suites = Object.freeze({ ...(opts.suites || {}) });
+    this._semanticJudge = opts.semanticJudge || null;
     this._cancelled = false;
   }
 
@@ -185,7 +186,9 @@ export class ModelEvaluationRunner {
         name: testDef.name,
         language: testDef.language || null,
         passed: false,
-        score: 0,
+        valid: false,
+        outcome: 'INVALID_MEASUREMENT',
+        score: null,
         response: '',
         durationMs: result.durationMs,
         evalTokens: 0,
@@ -194,15 +197,21 @@ export class ModelEvaluationRunner {
         rubric: testDef.rubric || [],
       };
     }
-    const graded = await testDef.grade(result.content, data);
+    const graded = await testDef.grade(result.content, { ...data, semanticJudge: this._semanticJudge });
+    const valid = graded.valid !== false && Number.isFinite(graded.score);
     return {
       name: testDef.name,
       language: testDef.language || null,
-      passed: !!graded.passed,
-      score: Math.max(0, Math.min(1, Number(graded.score) || 0)),
-      response: result.content.substring(0, 2000),
+      passed: valid && !!graded.passed,
+      valid,
+      outcome: graded.outcome || (valid ? (graded.passed ? 'SUCCESS' : 'INCORRECT') : 'INVALID_MEASUREMENT'),
+      score: valid ? Math.max(0, Math.min(1, graded.score)) : null,
+      response: result.content,
       durationMs: result.durationMs,
       evalTokens: result.evalCount,
+      promptEvalTokens: result.promptEvalCount,
+      doneReason: result.doneReason,
+      artifact: { digestSha256: result.digestSha256, providerVersion: result.providerVersion },
       detail: graded.detail || null,
       rubric: testDef.rubric || [],
     };
@@ -230,7 +239,9 @@ export class ModelEvaluationRunner {
       tests.push(await this._runTest(definition, modelName, expectedArtifact));
     }
 
-    const score = tests.reduce((sum, row) => sum + row.score, 0) / (tests.length || 1);
+    const valid = !this._cancelled && tests.length === definitions.length
+      && tests.length > 0 && tests.every(row => row.valid !== false && Number.isFinite(row.score));
+    const score = valid ? tests.reduce((sum, row) => sum + row.score, 0) / tests.length : null;
     const passed = tests.filter(row => row.passed).length;
     onProgress?.({
       suite: suiteName,
@@ -240,11 +251,13 @@ export class ModelEvaluationRunner {
       totalTests: definitions.length,
       percent: this._cancelled ? Math.round((tests.length / (definitions.length || 1)) * 100) : 100,
       score,
+      valid,
     });
     return {
       suite: suiteName,
       model: modelName,
       score,
+      valid,
       passed,
       total: definitions.length,
       tests,

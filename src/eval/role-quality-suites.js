@@ -6,6 +6,7 @@
 import { createHash } from 'node:crypto';
 import { CodePatchEvaluationRunner, codePatchSuite } from './code-patch-suite.js';
 import { readFileSync } from 'node:fs';
+import { ModelEvaluationRunner } from './model-evaluation-runner.js';
 
 export const ROLE_QUALITY_VERSION = 'v136.1-prototype.1';
 export const CHAT_QUALITY_VERSION = 'v136.1-chat.3.5';
@@ -949,6 +950,7 @@ export class RoleQualityEvaluationRunner extends CodePatchEvaluationRunner {
   constructor(baseUrl, opts = {}) {
     super(baseUrl, opts.codePatchSuite || codePatchSuite);
     this._roleSuites = opts.roleSuites || ROLE_QUALITY_SUITES;
+    this._semanticJudge = opts.semanticJudge || null;
   }
 
   async runSuite(suiteName, modelName, onProgress, expectedArtifact = null) {
@@ -968,45 +970,24 @@ export class RoleQualityEvaluationRunner extends CodePatchEvaluationRunner {
       });
       tests.push(await this._runRoleTest(definition, modelName, expectedArtifact));
     }
-    const score = tests.reduce((sum, test) => sum + test.score, 0) / (tests.length || 1);
+    const valid = !this._cancelled && tests.length === definitions.length && tests.length > 0
+      && tests.every(test => test.valid !== false && Number.isFinite(test.score));
+    const score = valid ? tests.reduce((sum, test) => sum + test.score, 0) / tests.length : null;
     const passed = tests.filter(test => test.passed).length;
     onProgress?.({
-      suite: suiteName, testName: null, status: 'complete',
-      currentTest: tests.length, totalTests: definitions.length, percent: 100, score,
+      suite: suiteName, testName: null, status: this._cancelled ? 'cancelled' : valid ? 'complete' : 'invalid',
+      currentTest: tests.length, totalTests: definitions.length,
+      percent: Math.round(tests.length / (definitions.length || 1) * 100), score,
     });
     return {
       suite: suiteName, model: modelName, score, passed, total: definitions.length,
       tests, durationMs: Date.now() - started,
+      valid, cancelled: this._cancelled,
     };
   }
 
   async _runRoleTest(definition, modelName, expectedArtifact = null) {
-    const promptResult = definition.prompt();
-    const data = typeof promptResult === 'object' && promptResult !== null
-      ? promptResult : { text: String(promptResult) };
-    const messages = data.messages || [{ role: 'user', content: data.text }];
-    if (data.images?.length) messages[messages.length - 1] = { ...messages[messages.length - 1], images: data.images };
-    const result = await this._callModel(
-      modelName,
-      messages,
-      definition.options || data.options || {},
-      expectedArtifact,
-    );
-    if (result.error) {
-      return {
-        name: definition.name, language: definition.language || null,
-        passed: false, score: 0, response: '', durationMs: result.durationMs,
-        evalTokens: 0, error: result.error, rubric: definition.rubric || [],
-      };
-    }
-    const graded = definition.grade(result.content, data);
-    return {
-      name: definition.name, language: definition.language || null,
-      passed: !!graded.passed, score: clamp01(graded.score),
-      response: result.content.substring(0, 2000), durationMs: result.durationMs,
-      evalTokens: result.evalCount, detail: graded.detail || null,
-      rubric: definition.rubric || [],
-    };
+    return ModelEvaluationRunner.prototype._runTest.call(this, definition, modelName, expectedArtifact);
   }
 }
 

@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 526
+- Runnable programs: 527
 - Explicit support-module exclusions: 21
-- Profiles: offline=284, database=77, server=48, model=82, soak=15, manual=20
-- States: ACTIVE=432, HISTORICAL=15, BLOCKED=79
+- Profiles: offline=285, database=77, server=48, model=82, soak=15, manual=20
+- States: ACTIVE=433, HISTORICAL=15, BLOCKED=79
 
 ## Execution profiles
 
@@ -510,6 +510,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-SECURITY-HARDENING-V126-TEST` | `tests/security-hardening-v126.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SECURITY-HARDENING-TEST` | `tests/security-hardening.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SELF-CRITIQUE-TEST` | `tests/self-critique.test.js` | `C3-008` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
+| `IS-T1-TESTS-SEMANTIC-EVALUATION-TEST` | `tests/semantic-evaluation.test.js` | `C3-010` | T1 | `offline` | 1 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SEMANTIC-INDEX-TEST` | `tests/semantic-index.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SERVER-SHUTDOWN-TEST` | `tests/server-shutdown.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-SESSION-CONTEXT-TEST` | `tests/session-context.test.js` | `C3-024` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
