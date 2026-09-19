@@ -79,12 +79,16 @@ const flush = () => {
 };
 flush();
 if (flag('prepare')) { console.log(JSON.stringify({status:'PREPARED',planSha256:plan.sha256,roles:plan.roles})); process.exit(0); }
-if (workingTreeDirty) throw new Error('MODEL_MEASUREMENT_REQUIRES_CLEAN_TRACKED_SOURCE');
+if (workingTreeDirty) {
+  report.status='BLOCKED';report.error='MODEL_MEASUREMENT_REQUIRES_CLEAN_TRACKED_SOURCE';flush();process.exit(2);
+}
 let lease;
 try { lease=holdGpuEvaluationLock({command:'all-role-evaluation '+plan.sha256}); }
 catch(error) { report.status='BLOCKED';report.error=error.message;flush();process.exit(2); }
 const endpoint=process.env.OLLAMA_URL;
-if(endpoint!=='http://127.0.0.1:11435')throw new Error('Use the owned evaluation provider wrapper');
+if(endpoint!=='http://127.0.0.1:11435') {
+  report.status='BLOCKED';report.error='Use the owned evaluation provider wrapper';flush();lease.release();process.exit(2);
+}
 const get=async(route)=>{const r=await fetch(endpoint+route,{signal:AbortSignal.timeout(5000)});if(!r.ok)throw new Error('PROVIDER_HTTP_'+r.status);return r.json();};
 const compute=()=>execFileSync('nvidia-smi',['--query-compute-apps=pid,process_name','--format=csv,noheader'],{timeout:3000}).toString().trim();
 const assertOwnership=()=>{
@@ -97,7 +101,11 @@ const assertOwnership=()=>{
   }
 };
 let cancelling=false, activeModel=null;
-const deadline=Date.now()+budgetMinutes*60000;
+// A resumed plan does not acquire a fresh time budget. Waiting for a foreign
+// lease before the first run does not start the measurement clock.
+report.measurementStartedAt ??= new Date().toISOString();
+const deadline=Date.parse(report.measurementStartedAt)+budgetMinutes*60000;
+flush();
 process.on('SIGTERM',()=>{cancelling=true;}); process.on('SIGINT',()=>{cancelling=true;});
 const runner=new ModelEvaluationRunner(endpoint);
 const unload=async()=>{
@@ -120,14 +128,17 @@ const call=async(model,messages,options,artifact)=>{
       error:{code:error.code||null,message:error.message,detail:error.detail||null}})+'\n',{mode:0o600});
     throw error;
   }
-  assertOwnership();
-  const placement=(await get('/api/ps')).models?.find(m=>m.name===model);
-  if(!result.error && (!placement || placement.size_vram<placement.size
-    || placement.context_length!==options.num_ctx))throw new Error('MODEL_PROFILE_NOT_FULL_GPU');
+  let placement=null, placementError=null;
+  try {
+    assertOwnership();
+    placement=(await get('/api/ps')).models?.find(m=>m.name===model) || null;
+    if(!result.error && (!placement || placement.size_vram<placement.size
+      || placement.context_length!==options.num_ctx))throw new Error('MODEL_PROFILE_NOT_FULL_GPU');
+  } catch(error) { placementError=error.message; }
   report.inferenceCalls++;
-  const receipt={at:new Date().toISOString(),model,artifact,options,inputSha256:hash(messages),messages,result,placement};
+  const receipt={at:new Date().toISOString(),model,artifact,options,inputSha256:hash(messages),messages,result,placement,placementError};
   fs.appendFileSync(path.join(out,'calls.jsonl'),JSON.stringify(receipt)+'\n',{mode:0o600});
-  flush();return result;
+  flush();if(placementError)throw new Error(placementError);return result;
 };
 try {
   const systemPs=await fetch('http://127.0.0.1:11434/api/ps',{signal:AbortSignal.timeout(5000)}).then(r=>r.json());
@@ -174,6 +185,7 @@ try {
       if(flag('calibrate-only'))continue;
       for(let repeat=1;repeat<=repeats;repeat++) {
         if(report.attempts.some(a=>a.role===rolePlan.role && a.task===task.name && a.repeat===repeat))continue;
+        if(Date.now()>=deadline)throw new Error('MEASUREMENT_BUDGET_EXHAUSTED');
         report.phase='measurement';report.current={role:rolePlan.role,task:task.name,repeat,
           completed:report.attempts.length,total};flush();
         console.log('ATTEMPT',report.attempts.length+1,'/',total,rolePlan.role,task.name,repeat);
@@ -189,6 +201,7 @@ try {
   }
   report.status=report.calibrations.some(c=>c.status!=='PASS') || report.attempts.some(a=>a.valid===false)
     ? 'INCOMPLETE_EVIDENCE' : flag('calibrate-only')?'CALIBRATION_COMPLETE':'MEASUREMENT_COMPLETE';
+  if(report.status==='INCOMPLETE_EVIDENCE')process.exitCode=2;
 } catch(error) {
   report.status=cancelling?'CANCELLED':'BLOCKED';report.error=error.message;process.exitCode=2;
 } finally {

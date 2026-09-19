@@ -24,9 +24,9 @@
           "Give an ordered implementation and verification plan covering: Error envelope with no vulnerabilities does not become clean.; A complete empty report may be clean.; A nonempty report remains non-clean."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: An npm error envelope is interpreted as an empty successful audit. / Trace these actual boundaries without inventing missing callers: command exit and stdout, audit parser, UI success state / Compare two defensible scopes of repair and their tradeoffs; state missing evidence. / An unavailable audit cannot claim clean. / A nonempty vulnerability report remains distinguishable from audit failure. / Give an ordered implementation and verification plan covering: Error envelope with no vulnerabilities does not become clean.; A complete empty report may be clean.; A nonempty report remains non-clean.",
+          "keyword-stuffing": "missing / unavailable / command / empty / does / clean. / complete / become / successful / with / and / success / without / state / interpreted / audit. / is / cannot / defensible / audit / their / clean.; / An / report / be / stdout, / an / may / non-clean. / vulnerabilities / A / remains / evidence. / implementation / envelope / Compare / callers: / and / failure. / Error / actual / An / inventing / and / report / repair / covering: / audit / A / scopes / missing / Give / ordered / npm / vulnerability / Trace / report / as / nonempty / two / error / UI / audit / parser, / an / empty / not / envelope / clean.; / verification / no / distinguishable / plan / of / remains / A / exit / state / these / boundaries / nonempty / tradeoffs; / claim / from",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: At registry.js:4724, the shell suffix || true masks the nonzero npm exit, so execSync returns the JSON error text. JSON.parse succeeds because an error envelope is valid JSON. At audit.vulnerabilities || {}, the missing vulnerabilities field becomes an empty object; the loop has no entries, summary.total remains zero and clean becomes true. This proves a false clean flag at the tool boundary. The UI caller is not included, so its exact rendering and propagation must be verified separately. Option A validates the parsed envelope locally, returning a typed audit-unavailable error when audit.error exists or the report shape is incomplete; retain distinct empty-success and nonempty-vulnerability results. Option B removes the shell masking, catches npm errors, and parses both success stdout and error stdout in one shared audit adapter. Option B preserves exit provenance across callers but has a larger migration and must not treat npm vulnerability exit codes as mere network failure. First define the three outcomes, then implement the boundary, inspect callers, and test ENOTFOUND, complete empty report, and a vulnerability report. An npm error envelope is interpreted as an empty successful audit. The relevant path crosses command exit and stdout, audit parser, UI success state. Preserve these invariants: An unavailable audit cannot claim clean. A nonempty vulnerability report remains distinguishable from audit failure. A valid repair is: Typed failure envelope or propagated typed exception; both preserve error provenance. Compare a narrow boundary repair with centralizing the same validation in the shared authority: the narrow repair minimizes caller changes; the shared path prevents drift but needs every caller and error path checked. Implement the boundary rule, wire its callers, then run negative and regression controls. Verify in this order: Error envelope with no vulnerabilities does not become clean.; then A complete empty report may be clean.; then A nonempty report remains non-clean.. Do not use this incomplete shortcut: Removing only shell || true without handling a valid error envelope is not a complete repair. No tests were run in this answer.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "The JSON error envelope is a valid clean audit: an absent vulnerabilities object means that zero vulnerabilities were found. Retain the shell || true and continue to default the missing object to {}. This avoids false alarms and preserves the successful UI result; no error-state branch or caller change is needed."
         }
       },
       "provenance": {
@@ -58,9 +58,9 @@
           "A nonempty report remains non-clean."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: An npm error envelope is interpreted as an empty successful audit. / Propose the smallest safe repair consistent with: Typed failure envelope or propagated typed exception; both preserve error provenance. / Explain why this shortcut is incomplete: Removing only shell || true without handling a valid error envelope is not a complete repair. / Error envelope with no vulnerabilities does not become clean. / A complete empty report may be clean. / A nonempty report remains non-clean.",
+          "keyword-stuffing": "report / shell / complete / envelope / complete / empty / Typed / error / may / is / handling / provenance. / envelope / interpreted / with / no / without / shortcut / repair / An / why / audit. / clean. / or / nonempty / the / become / error / || / does / empty / A / this / Explain / vulnerabilities / report / remains / non-clean. / an / not / envelope / Removing / npm / incomplete: / be / a / not / envelope / valid / is / a / preserve / exception; / error / is / smallest / consistent / true / clean. / typed / only / repair. / failure / Error / as / with: / propagated / A / both / Propose / successful / safe",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: At registry.js:4724, the shell suffix || true masks the nonzero npm exit, so execSync returns the JSON error text. JSON.parse succeeds because an error envelope is valid JSON. At audit.vulnerabilities || {}, the missing vulnerabilities field becomes an empty object; the loop has no entries, summary.total remains zero and clean becomes true. This proves a false clean flag at the tool boundary. The UI caller is not included, so its exact rendering and propagation must be verified separately. Option A validates the parsed envelope locally, returning a typed audit-unavailable error when audit.error exists or the report shape is incomplete; retain distinct empty-success and nonempty-vulnerability results. Option B removes the shell masking, catches npm errors, and parses both success stdout and error stdout in one shared audit adapter. Option B preserves exit provenance across callers but has a larger migration and must not treat npm vulnerability exit codes as mere network failure. First define the three outcomes, then implement the boundary, inspect callers, and test ENOTFOUND, complete empty report, and a vulnerability report. An npm error envelope is interpreted as an empty successful audit. The relevant path crosses command exit and stdout, audit parser, UI success state. A valid repair is: Typed failure envelope or propagated typed exception; both preserve error provenance. Verify in this order: Error envelope with no vulnerabilities does not become clean.; then A complete empty report may be clean.; then A nonempty report remains non-clean.. Do not use this incomplete shortcut: Removing only shell || true without handling a valid error envelope is not a complete repair. No tests were run in this answer.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "The JSON error envelope is a valid clean audit: an absent vulnerabilities object means that zero vulnerabilities were found. Retain the shell || true and continue to default the missing object to {}. This avoids false alarms and preserves the successful UI result; no error-state branch or caller change is needed."
         }
       },
       "provenance": {
@@ -91,9 +91,9 @@
           "A nonempty report remains non-clean."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: Reject this incomplete proposal: Removing only shell || true without handling a valid error envelope is not a complete repair. It does not establish the required invariant: An unavailable audit cannot claim clean. A nonempty vulnerability report remains distinguishable from audit failure. / Support the verdict from the provided source/diff and explicitly bound unsupported integration claims. / Error envelope with no vulnerabilities does not become clean. / A complete empty report may be clean. / A nonempty report remains non-clean.",
+          "keyword-stuffing": "the / not / source/diff / or / typed / vulnerability / explicitly / does / inspect / JSON / A / empty / absent / Error / unavailable / and / unchanged. / audit.error; / non-clean. / parsing / not / ENOTFOUND, / clean. / from / an / unavailable / the / with / outcome, / propagation. / a / nonempty / propagate / detect / an / a / a / actually / the / claims. / with / caller / vulnerability / change. / The / and / envelope / the / remain / fake / shell / UI / successful / displayed / Support / true / remains / it / clean / A / report / invents / bound / A / verdict / and / integration / a / be / real / the / must / audit. / vulnerability / from / end-to-end / unsupported / be / entry / a / audit. / provided / not / {error:true} / complete / error / clean. / report / or / vulnerabilities / || / {} / fallback / may / become / report; / no / network / report / empty / Reject / Verify / before / Replacing / does / claiming",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: Reject the displayed change. Replacing the fallback {} with {error:true} does not detect or propagate audit.error; it invents a vulnerability entry from an unavailable audit. The shell || true and JSON parsing remain unchanged. A network error must be a typed unavailable outcome, not a fake vulnerability or a clean audit. Verify ENOTFOUND, an actually empty successful report and a real vulnerability report; inspect the absent UI caller before claiming end-to-end propagation. Verification obligations: Error envelope with no vulnerabilities does not become clean. A complete empty report may be clean. A nonempty report remains non-clean. No tests were run; these are review conclusions over the supplied diff.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "The JSON error envelope is a valid clean audit: an absent vulnerabilities object means that zero vulnerabilities were found. Retain the shell || true and continue to default the missing object to {}. This avoids false alarms and preserves the successful UI result; no error-state branch or caller change is needed."
         }
       },
       "provenance": {
@@ -126,9 +126,9 @@
           "Additional real findings require evidence and are not automatically wrong merely because absent from the reference."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: An npm error envelope is interpreted as an empty successful audit. / Localize the causal statement in the supplied source; a range is sufficient if unambiguous. / Describe a concrete trigger and observable consequence, not only a style objection. / Error envelope with no vulnerabilities does not become clean. / A complete empty report may be clean. / A nonempty report remains non-clean. / Additional real findings require evidence and are not automatically wrong merely because absent from the reference.",
+          "keyword-stuffing": "a / nonempty / is / clean. / npm / automatically / report / if / supplied / not / require / and / report / a / empty / may / no / the / remains / non-clean. / wrong / envelope / Additional / an / consequence, / concrete / An / become / in / envelope / A / Localize / trigger / only / empty / objection. / observable / merely / range / evidence / sufficient / from / with / complete / is / source; / audit. / as / successful / reference. / style / the / be / Describe / real / causal / and / error / clean. / interpreted / unambiguous. / findings / not / statement / does / the / Error / because / A / absent / are / not / vulnerabilities / a",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: At registry.js:4724, the shell suffix || true masks the nonzero npm exit, so execSync returns the JSON error text. JSON.parse succeeds because an error envelope is valid JSON. At audit.vulnerabilities || {}, the missing vulnerabilities field becomes an empty object; the loop has no entries, summary.total remains zero and clean becomes true. This proves a false clean flag at the tool boundary. The UI caller is not included, so its exact rendering and propagation must be verified separately. Option A validates the parsed envelope locally, returning a typed audit-unavailable error when audit.error exists or the report shape is incomplete; retain distinct empty-success and nonempty-vulnerability results. Option B removes the shell masking, catches npm errors, and parses both success stdout and error stdout in one shared audit adapter. Option B preserves exit provenance across callers but has a larger migration and must not treat npm vulnerability exit codes as mere network failure. First define the three outcomes, then implement the boundary, inspect callers, and test ENOTFOUND, complete empty report, and a vulnerability report. Finding in src/tools/registry.js, inspected range beginning at line 4715: An npm error envelope is interpreted as an empty successful audit. The relevant path crosses command exit and stdout, audit parser, UI success state. Verify in this order: Error envelope with no vulnerabilities does not become clean.; then A complete empty report may be clean.; then A nonempty report remains non-clean.. Do not use this incomplete shortcut: Removing only shell || true without handling a valid error envelope is not a complete repair. No tests were run in this answer.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "The JSON error envelope is a valid clean audit: an absent vulnerabilities object means that zero vulnerabilities were found. Retain the shell || true and continue to default the missing object to {}. This avoids false alarms and preserves the successful UI result; no error-state branch or caller change is needed."
         }
       },
       "provenance": {
@@ -161,9 +161,9 @@
           "Give an ordered implementation and verification plan covering: Provider error leaves assistant histories untouched.; Success still appends exactly once.; Cancellation remains a cancellation."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: Terminal provider output enters in-memory history before the outer persistence guard. / Trace these actual boundaries without inventing missing callers: process catch, handle persistence, in-memory response history / Compare two defensible scopes of repair and their tradeoffs; state missing evidence. / No failed assistant output in memory or durable history. / Already persisted user input remains. / Direct process callers receive the failure. / Give an ordered implementation and verification plan covering: Provider error leaves assistant histories untouched.; Success still appends exactly once.; Cancellation remains a cancellation.",
+          "keyword-stuffing": "in-memory / once.; / assistant / in / of / memory / assistant / still / response / missing / process / leaves / remains / and / persisted / state / outer / failure. / and / the / missing / repair / Give / failed / provider / persistence / before / ordered / their / user / guard. / plan / remains. / enters / history. / Already / Success / evidence. / defensible / input / scopes / exactly / Provider / appends / output / covering: / Compare / actual / inventing / history / handle / catch, / Trace / callers / Terminal / No / histories / the / an / Direct / cancellation. / boundaries / receive / two / callers: / process / history / without / or / error / persistence, / a / these / tradeoffs; / verification / implementation / durable / in-memory / output / untouched.; / Cancellation",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: At controller.js:604, ensureTagged preserves metadata.error. At line 611, addToHistory appends that failed response before process returns. The stated outer handle guard can stop a later durable assistant write but cannot undo the earlier in-memory append. The user turn was already persisted and should remain. Moving a typed guard before line 611 must also update catch at 614–621: otherwise it converts the thrown failure into a returned error response, so direct process callers do not observe a rejection. Preserve the existing cancellation rethrow. Option A inserts a typed failure guard immediately after ensureTagged and rethrows the same failure class through catch; this is a narrow repair at the first side effect. Option B makes terminal failures typed exceptions from the handler boundary and propagates them through process, requiring every handler adapter to be audited. Both must protect memory and durable assistant history, leave the saved user turn, and allow successful output exactly once. The outer handle implementation is a stated premise, not supplied source; verify that integration separately. First add the early guard and catch behavior, then test direct process, handle persistence, successful append and cancellation. Terminal provider output enters in-memory history before the outer persistence guard. The relevant path crosses process catch, handle persistence, in-memory response history. Preserve these invariants: No failed assistant output in memory or durable history. Already persisted user input remains. Direct process callers receive the failure. A valid repair is: A shared early typed guard or equivalent pre-history classification, with typed rethrow through catch. Compare a narrow boundary repair with centralizing the same validation in the shared authority: the narrow repair minimizes caller changes; the shared path prevents drift but needs every caller and error path checked. Implement the boundary rule, wire its callers, then run negative and regression controls. Verify in this order: Provider error leaves assistant histories untouched.; then Success still appends exactly once.; then Cancellation remains a cancellation.. Do not use this incomplete shortcut: Guarding only durable persistence leaves the in-memory contamination. No tests were run in this answer.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "The late guard already prevents history contamination. addToHistory is automatically rolled back when handle throws, so a guard placed after the append is sufficient. Keep the ordering and return the existing result without a typed failure."
         }
       },
       "provenance": {
@@ -195,9 +195,9 @@
           "Cancellation remains a cancellation."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: Terminal provider output enters in-memory history before the outer persistence guard. / Propose the smallest safe repair consistent with: A shared early typed guard or equivalent pre-history classification, with typed rethrow through catch. / Explain why this shortcut is incomplete: Guarding only durable persistence leaves the in-memory contamination. / Provider error leaves assistant histories untouched. / Success still appends exactly once. / Cancellation remains a cancellation.",
+          "keyword-stuffing": "once. / outer / history / assistant / in-memory / durable / catch. / consistent / typed / cancellation. / Terminal / Success / why / exactly / incomplete: / classification, / persistence / leaves / Explain / Cancellation / with: / still / equivalent / shortcut / A / the / guard. / through / remains / enters / is / repair / this / rethrow / or / Guarding / persistence / Provider / untouched. / leaves / shared / Propose / smallest / contamination. / the / the / guard / in-memory / only / appends / provider / typed / early / a / output / with / before / safe / error / pre-history / histories",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: At controller.js:604, ensureTagged preserves metadata.error. At line 611, addToHistory appends that failed response before process returns. The stated outer handle guard can stop a later durable assistant write but cannot undo the earlier in-memory append. The user turn was already persisted and should remain. Moving a typed guard before line 611 must also update catch at 614–621: otherwise it converts the thrown failure into a returned error response, so direct process callers do not observe a rejection. Preserve the existing cancellation rethrow. Option A inserts a typed failure guard immediately after ensureTagged and rethrows the same failure class through catch; this is a narrow repair at the first side effect. Option B makes terminal failures typed exceptions from the handler boundary and propagates them through process, requiring every handler adapter to be audited. Both must protect memory and durable assistant history, leave the saved user turn, and allow successful output exactly once. The outer handle implementation is a stated premise, not supplied source; verify that integration separately. First add the early guard and catch behavior, then test direct process, handle persistence, successful append and cancellation. Terminal provider output enters in-memory history before the outer persistence guard. The relevant path crosses process catch, handle persistence, in-memory response history. A valid repair is: A shared early typed guard or equivalent pre-history classification, with typed rethrow through catch. Verify in this order: Provider error leaves assistant histories untouched.; then Success still appends exactly once.; then Cancellation remains a cancellation.. Do not use this incomplete shortcut: Guarding only durable persistence leaves the in-memory contamination. No tests were run in this answer.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "The late guard already prevents history contamination. addToHistory is automatically rolled back when handle throws, so a guard placed after the append is sufficient. Keep the ordering and return the existing result without a typed failure."
         }
       },
       "provenance": {
@@ -228,9 +228,9 @@
           "Cancellation remains a cancellation."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: Reject this incomplete proposal: Guarding only durable persistence leaves the in-memory contamination. It does not establish the required invariant: No failed assistant output in memory or durable history. Already persisted user input remains. Direct process callers receive the failure. / Support the verdict from the provided source/diff and explicitly bound unsupported integration claims. / Provider error leaves assistant histories untouched. / Success still appends exactly once. / Cancellation remains a cancellation.",
+          "keyword-stuffing": "and / error / change. / not / Move / cancellation / cancellation. / also / the / contract / claims. / the / Success / and / already / is / untouched. / typed / and / callers. / the / leaving / and / histories / user / Support / provided / handler / Provider / still / Reject / the / process / from / integration / outer / guard / catch, / Error / after / direct / is / new / the / existing / unsupported / Its / prior / enters / catch / propagation / unchanged. / not / behavior / preserve / verdict / a / once. / both / process / Verify / before / append / typed / displayed / turn / source/diff / and / leaves / the / through / shown. / exactly / if(metadata.error) / addToHistory, / remains / new / contaminated. / so / the / the / stated, / rejection / becomes / Cancellation / memory / direct / is / assistant / bound / explicitly / to / createErrorResponse, / The / appends / required / generic / handle; / the",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: Reject the displayed change. Its new if(metadata.error) is after addToHistory, so memory is already contaminated. The new generic Error also enters the existing catch and becomes createErrorResponse, not the required typed rejection to direct process callers. Move the guard before the append and preserve typed propagation through catch, leaving the prior user turn and cancellation behavior unchanged. Verify both direct process and handle; the outer handler contract is stated, not shown. Verification obligations: Provider error leaves assistant histories untouched. Success still appends exactly once. Cancellation remains a cancellation. No tests were run; these are review conclusions over the supplied diff.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "The late guard already prevents history contamination. addToHistory is automatically rolled back when handle throws, so a guard placed after the append is sufficient. Keep the ordering and return the existing result without a typed failure."
         }
       },
       "provenance": {
@@ -263,9 +263,9 @@
           "Additional real findings require evidence and are not automatically wrong merely because absent from the reference."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: Terminal provider output enters in-memory history before the outer persistence guard. / Localize the causal statement in the supplied source; a range is sufficient if unambiguous. / Describe a concrete trigger and observable consequence, not only a style objection. / Provider error leaves assistant histories untouched. / Success still appends exactly once. / Cancellation remains a cancellation. / Additional real findings require evidence and are not automatically wrong merely because absent from the reference.",
+          "keyword-stuffing": "appends / persistence / supplied / Additional / a / observable / and / Describe / cancellation. / wrong / a / Provider / source; / once. / the / absent / still / in-memory / the / exactly / in / outer / only / and / require / reference. / findings / history / Success / Localize / automatically / remains / the / range / evidence / concrete / not / if / untouched. / a / provider / Cancellation / because / output / statement / histories / real / style / the / causal / trigger / error / enters / merely / sufficient / are / is / before / Terminal / a / from / not / leaves / unambiguous. / guard. / consequence, / assistant / objection.",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: At controller.js:604, ensureTagged preserves metadata.error. At line 611, addToHistory appends that failed response before process returns. The stated outer handle guard can stop a later durable assistant write but cannot undo the earlier in-memory append. The user turn was already persisted and should remain. Moving a typed guard before line 611 must also update catch at 614–621: otherwise it converts the thrown failure into a returned error response, so direct process callers do not observe a rejection. Preserve the existing cancellation rethrow. Option A inserts a typed failure guard immediately after ensureTagged and rethrows the same failure class through catch; this is a narrow repair at the first side effect. Option B makes terminal failures typed exceptions from the handler boundary and propagates them through process, requiring every handler adapter to be audited. Both must protect memory and durable assistant history, leave the saved user turn, and allow successful output exactly once. The outer handle implementation is a stated premise, not supplied source; verify that integration separately. First add the early guard and catch behavior, then test direct process, handle persistence, successful append and cancellation. Finding in src/chat/controller.js, inspected range beginning at line 603: Terminal provider output enters in-memory history before the outer persistence guard. The relevant path crosses process catch, handle persistence, in-memory response history. Verify in this order: Provider error leaves assistant histories untouched.; then Success still appends exactly once.; then Cancellation remains a cancellation.. Do not use this incomplete shortcut: Guarding only durable persistence leaves the in-memory contamination. No tests were run in this answer.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "The late guard already prevents history contamination. addToHistory is automatically rolled back when handle throws, so a guard placed after the append is sufficient. Keep the ordering and return the existing result without a typed failure."
         }
       },
       "provenance": {
@@ -297,9 +297,9 @@
           "Give an ordered implementation and verification plan covering: Frozen getter-only result supports improved output through a new value.; Original result is unchanged.; Final scorer sees the emitted content."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: Assignment to frozen result.content throws and discards a successful refinement. / Trace these actual boundaries without inventing missing callers: response factory, refinement caller, final scorer / Compare two defensible scopes of repair and their tradeoffs; state missing evidence. / Preserve immutable input and its metadata. / Publish and score the same final content. / Give an ordered implementation and verification plan covering: Frozen getter-only result supports improved output through a new value.; Original result is unchanged.; Final scorer sees the emitted content.",
+          "keyword-stuffing": "result.content / same / immutable / Compare / improved / an / result / refinement / Trace / final / value.; / verification / new / its / scorer / a / factory, / the / frozen / ordered / boundaries / Frozen / Publish / and / and / Preserve / through / output / plan / successful / covering: / without / Original / their / to / score / and / defensible / these / response / and / and / emitted / evidence. / is / getter-only / content. / refinement. / a / Give / the / actual / throws / unchanged.; / tradeoffs; / result / of / final / scopes / metadata. / repair / missing / two / supports / input / inventing / caller, / Assignment / state / discards / content. / callers: / sees / implementation / Final / scorer / missing",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: At controller.js:1994 result is a const binding. At 2029 the code assigns result.content; the supplied frozen getter-only object rejects that assignment in this ES module. The catch at 2036–2038 logs a warning and leaves the original response. scoreResponse at 2048, persistence at 2076 and the returned response at 2109 all still read result.content, so they observe the unchanged original, not improvement.response. The response factory implementation is absent; its complete metadata contract must be inspected before choosing a replacement API. Option A changes the local binding to a reassignable response variable and replaces it using the established immutable response factory, preserving mode, confidence, tag and other metadata. Option B keeps the original immutable and introduces an explicit finalResponse value consumed consistently by scoring, persistence and return; it avoids rebinding but requires auditing all downstream reads. A spread-copy is safe only after verifying descriptors and non-enumerable metadata. First establish the new immutable result, then switch all consumers, then test a frozen getter-only input, retained metadata, unchanged original, emitted/scored improved content and no-improvement regression. Never claim refinement success before the replacement exists. Assignment to frozen result.content throws and discards a successful refinement. The relevant path crosses response factory, refinement caller, final scorer. Preserve these invariants: Preserve immutable input and its metadata. Publish and score the same final content. A valid repair is: Construct a new response through the response factory or an immutable copy preserving the contract. Compare a narrow boundary repair with centralizing the same validation in the shared authority: the narrow repair minimizes caller changes; the shared path prevents drift but needs every caller and error path checked. Implement the boundary rule, wire its callers, then run negative and regression controls. Verify in this order: Frozen getter-only result supports improved output through a new value.; then Original result is unchanged.; then Final scorer sees the emitted content.. Do not use this incomplete shortcut: Logging successful refinement before establishing an updated response is false success. No tests were run in this answer.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Assigning to the original result is safe even when it is declared const or frozen. Catch and ignore assignment errors; the refined value will still be scored, persisted and returned automatically. No data-flow change is needed."
         }
       },
       "provenance": {
@@ -331,9 +331,9 @@
           "Final scorer sees the emitted content."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: Assignment to frozen result.content throws and discards a successful refinement. / Propose the smallest safe repair consistent with: Construct a new response through the response factory or an immutable copy preserving the contract. / Explain why this shortcut is incomplete: Logging successful refinement before establishing an updated response is false success. / Frozen getter-only result supports improved output through a new value. / Original result is unchanged. / Final scorer sees the emitted content.",
+          "keyword-stuffing": "preserving / why / scorer / before / frozen / repair / Logging / successful / refinement / Explain / smallest / Construct / Assignment / a / unchanged. / false / the / immutable / result / incomplete: / updated / Propose / a / refinement. / contract. / an / output / the / safe / this / new / result / copy / Original / Frozen / with: / is / and / response / through / establishing / the / discards / to / sees / the / response / successful / shortcut / value. / success. / Final / an / factory / a / consistent / improved / throws / or / supports / emitted / is / result.content / is / through / getter-only / response / content. / new",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: At controller.js:1994 result is a const binding. At 2029 the code assigns result.content; the supplied frozen getter-only object rejects that assignment in this ES module. The catch at 2036–2038 logs a warning and leaves the original response. scoreResponse at 2048, persistence at 2076 and the returned response at 2109 all still read result.content, so they observe the unchanged original, not improvement.response. The response factory implementation is absent; its complete metadata contract must be inspected before choosing a replacement API. Option A changes the local binding to a reassignable response variable and replaces it using the established immutable response factory, preserving mode, confidence, tag and other metadata. Option B keeps the original immutable and introduces an explicit finalResponse value consumed consistently by scoring, persistence and return; it avoids rebinding but requires auditing all downstream reads. A spread-copy is safe only after verifying descriptors and non-enumerable metadata. First establish the new immutable result, then switch all consumers, then test a frozen getter-only input, retained metadata, unchanged original, emitted/scored improved content and no-improvement regression. Never claim refinement success before the replacement exists. Assignment to frozen result.content throws and discards a successful refinement. The relevant path crosses response factory, refinement caller, final scorer. A valid repair is: Construct a new response through the response factory or an immutable copy preserving the contract. Verify in this order: Frozen getter-only result supports improved output through a new value.; then Original result is unchanged.; then Final scorer sees the emitted content.. Do not use this incomplete shortcut: Logging successful refinement before establishing an updated response is false success. No tests were run in this answer.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Assigning to the original result is safe even when it is declared const or frozen. Catch and ignore assignment errors; the refined value will still be scored, persisted and returned automatically. No data-flow change is needed."
         }
       },
       "provenance": {
@@ -364,9 +364,9 @@
           "Final scorer sees the emitted content."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: Reject this incomplete proposal: Logging successful refinement before establishing an updated response is false success. It does not establish the required invariant: Preserve immutable input and its metadata. Publish and score the same final content. / Support the verdict from the provided source/diff and explicitly bound unsupported integration claims. / Frozen getter-only result supports improved output through a new value. / Original result is unchanged. / Final scorer sees the emitted content.",
+          "keyword-stuffing": "explicitly / consumers / it / from / Final / wire / updated / result.content, / response, / result / scoreResponse, / a / verdict / and / still / bound / inner / implementation / Use / to / change. / sees / assignment / the / its / result / try/catch / source/diff / logger.info / the / supports / is / not / the / new / return / response / swallows / then / failed / assume / factory / preserves / value. / all / unchanged. / original. / scorer / frozen / does / Original / through / Support / response / before / emitted / unsupported / to / is / and / It / getter-only / displayed / provided / new / immutable / integration / The / object / claims. / applied. / consume / contract-preserving / success / persistence / any / and / the / getter/metadata / Self-refinement / Reject / claims / contract. / logging. / the / the / and / a / output / content. / not / Frozen / spread / construct / improved / missing; / do / still / The",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: Reject the displayed change. The inner try/catch swallows the failed assignment to frozen result.content, then logger.info still claims Self-refinement applied. It does not construct any updated immutable response, and scoreResponse, persistence and return still consume the original. Use a contract-preserving new response and wire all consumers to it before success logging. The response factory implementation is missing; do not assume object spread preserves its getter/metadata contract. Verification obligations: Frozen getter-only result supports improved output through a new value. Original result is unchanged. Final scorer sees the emitted content. No tests were run; these are review conclusions over the supplied diff.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Assigning to the original result is safe even when it is declared const or frozen. Catch and ignore assignment errors; the refined value will still be scored, persisted and returned automatically. No data-flow change is needed."
         }
       },
       "provenance": {
@@ -399,9 +399,9 @@
           "Additional real findings require evidence and are not automatically wrong merely because absent from the reference."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: Assignment to frozen result.content throws and discards a successful refinement. / Localize the causal statement in the supplied source; a range is sufficient if unambiguous. / Describe a concrete trigger and observable consequence, not only a style objection. / Frozen getter-only result supports improved output through a new value. / Original result is unchanged. / Final scorer sees the emitted content. / Additional real findings require evidence and are not automatically wrong merely because absent from the reference.",
+          "keyword-stuffing": "merely / reference. / improved / a / unchanged. / are / automatically / in / a / from / if / the / observable / source; / the / is / getter-only / result / and / wrong / only / sees / through / Localize / Final / content. / require / real / supplied / the / result.content / discards / concrete / Frozen / is / absent / Describe / Additional / a / consequence, / value. / objection. / throws / refinement. / the / not / not / statement / result / a / Assignment / trigger / range / scorer / a / frozen / supports / sufficient / to / and / causal / emitted / successful / and / evidence / unambiguous. / style / new / Original / findings / output / because",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: At controller.js:1994 result is a const binding. At 2029 the code assigns result.content; the supplied frozen getter-only object rejects that assignment in this ES module. The catch at 2036–2038 logs a warning and leaves the original response. scoreResponse at 2048, persistence at 2076 and the returned response at 2109 all still read result.content, so they observe the unchanged original, not improvement.response. The response factory implementation is absent; its complete metadata contract must be inspected before choosing a replacement API. Option A changes the local binding to a reassignable response variable and replaces it using the established immutable response factory, preserving mode, confidence, tag and other metadata. Option B keeps the original immutable and introduces an explicit finalResponse value consumed consistently by scoring, persistence and return; it avoids rebinding but requires auditing all downstream reads. A spread-copy is safe only after verifying descriptors and non-enumerable metadata. First establish the new immutable result, then switch all consumers, then test a frozen getter-only input, retained metadata, unchanged original, emitted/scored improved content and no-improvement regression. Never claim refinement success before the replacement exists. Finding in src/chat/controller.js, inspected range beginning at line 2028: Assignment to frozen result.content throws and discards a successful refinement. The relevant path crosses response factory, refinement caller, final scorer. Verify in this order: Frozen getter-only result supports improved output through a new value.; then Original result is unchanged.; then Final scorer sees the emitted content.. Do not use this incomplete shortcut: Logging successful refinement before establishing an updated response is false success. No tests were run in this answer.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Assigning to the original result is safe even when it is declared const or frozen. Catch and ignore assignment errors; the refined value will still be scored, persisted and returned automatically. No data-flow change is needed."
         }
       },
       "provenance": {
@@ -433,9 +433,9 @@
           "Give an ordered implementation and verification plan covering: Null and empty names are excluded.; Alias and latest spelling deduplicate.; Two historic replacements keep the newest record.; Deletion revalidates current protected bindings."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: Cleanup proposals include null or repeated previous identities. / Trace these actual boundaries without inventing missing callers: override history, canonical identity, registry deletion authority / Compare two defensible scopes of repair and their tradeoffs; state missing evidence. / Canonical-deduplicated newest-first proposals. / Exclude active and rollback-protected identities at the authoritative delete seam. / Give an ordered implementation and verification plan covering: Null and empty names are excluded.; Alias and latest spelling deduplicate.; Two historic replacements keep the newest record.; Deletion revalidates current protected bindings.",
+          "keyword-stuffing": "current / canonical / previous / active / actual / proposals / and / rollback-protected / scopes / seam. / keep / empty / override / Cleanup / bindings. / identity, / null / the / the / evidence. / tradeoffs; / historic / missing / replacements / Exclude / deduplicate.; / defensible / without / an / Compare / Null / newest-first / boundaries / Alias / callers: / and / excluded.; / are / covering: / of / ordered / missing / Trace / names / their / and / latest / newest / proposals. / repair / record.; / authority / delete / authoritative / or / identities / inventing / and / Canonical-deduplicated / include / Give / plan / Deletion / verification / identities. / protected / state / deletion / at / and / two / spelling / Two / repeated / these / implementation / registry / revalidates / history,",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: At upgrade-manager.js:1087, history is ordered newest first. The filter at 1092 checks only membership in canonical current bindings. It neither rejects empty previous_model identities nor remembers identities already emitted; map then returns each surviving raw row. Thus null/empty or repeated aliases can become cleanup proposals. The actual deletion authority and durable rollback bindings are absent from this excerpt; this list cannot authorize deletion. Option A traverses the ordered rows once with a Set of canonical previous identities, skipping empty, bound and already-seen keys and keeping the first row. Option B uses an insertion-ordered Map keyed by canonical identity and only sets a key once; it gives the same newest-first result with a clearer key-to-record association. Raw string deduplication is insufficient for aliases such as a name and name:latest. First fix proposal construction, then inspect deletion integration, then test empty names, canonical aliases, multiple historic replacements, and a binding change between proposal and authoritative delete. The delete seam must recheck current active and rollback protections, even if the earlier proposal was valid. Cleanup proposals include null or repeated previous identities. The relevant path crosses override history, canonical identity, registry deletion authority. Preserve these invariants: Canonical-deduplicated newest-first proposals. Exclude active and rollback-protected identities at the authoritative delete seam. A valid repair is: Set plus ordered traversal or ordered reduce with equivalent canonical identity semantics. Compare a narrow boundary repair with centralizing the same validation in the shared authority: the narrow repair minimizes caller changes; the shared path prevents drift but needs every caller and error path checked. Implement the boundary rule, wire its callers, then run negative and regression controls. Verify in this order: Null and empty names are excluded.; then Alias and latest spelling deduplicate.; then Two historic replacements keep the newest record.; then Deletion revalidates current protected bindings.. Do not use this incomplete shortcut: Deduplicating raw display names or bypassing the delete authority is insufficient. No tests were run in this answer.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "The cleanup list is safe as supplied. Duplicate paths are harmless because deletion is idempotent, and null should mean the current working directory. Preserve every entry and authorize deletion directly from this list."
         }
       },
       "provenance": {
@@ -468,9 +468,9 @@
           "Deletion revalidates current protected bindings."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: Cleanup proposals include null or repeated previous identities. / Propose the smallest safe repair consistent with: Set plus ordered traversal or ordered reduce with equivalent canonical identity semantics. / Explain why this shortcut is incomplete: Deduplicating raw display names or bypassing the delete authority is insufficient. / Null and empty names are excluded. / Alias and latest spelling deduplicate. / Two historic replacements keep the newest record. / Deletion revalidates current protected bindings.",
+          "keyword-stuffing": "plus / equivalent / protected / Null / Two / empty / raw / this / newest / authority / keep / record. / Set / replacements / or / and / identity / repeated / or / historic / or / with: / current / names / Deduplicating / safe / the / smallest / identities. / ordered / repair / Deletion / include / incomplete: / delete / Propose / spelling / deduplicate. / the / and / null / why / Cleanup / traversal / with / semantics. / is / proposals / names / display / are / excluded. / canonical / previous / the / latest / bindings. / insufficient. / reduce / Explain / is / revalidates / shortcut / Alias / consistent / ordered / bypassing",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: At upgrade-manager.js:1087, history is ordered newest first. The filter at 1092 checks only membership in canonical current bindings. It neither rejects empty previous_model identities nor remembers identities already emitted; map then returns each surviving raw row. Thus null/empty or repeated aliases can become cleanup proposals. The actual deletion authority and durable rollback bindings are absent from this excerpt; this list cannot authorize deletion. Option A traverses the ordered rows once with a Set of canonical previous identities, skipping empty, bound and already-seen keys and keeping the first row. Option B uses an insertion-ordered Map keyed by canonical identity and only sets a key once; it gives the same newest-first result with a clearer key-to-record association. Raw string deduplication is insufficient for aliases such as a name and name:latest. First fix proposal construction, then inspect deletion integration, then test empty names, canonical aliases, multiple historic replacements, and a binding change between proposal and authoritative delete. The delete seam must recheck current active and rollback protections, even if the earlier proposal was valid. Cleanup proposals include null or repeated previous identities. The relevant path crosses override history, canonical identity, registry deletion authority. A valid repair is: Set plus ordered traversal or ordered reduce with equivalent canonical identity semantics. Verify in this order: Null and empty names are excluded.; then Alias and latest spelling deduplicate.; then Two historic replacements keep the newest record.; then Deletion revalidates current protected bindings.. Do not use this incomplete shortcut: Deduplicating raw display names or bypassing the delete authority is insufficient. No tests were run in this answer.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "The cleanup list is safe as supplied. Duplicate paths are harmless because deletion is idempotent, and null should mean the current working directory. Preserve every entry and authorize deletion directly from this list."
         }
       },
       "provenance": {
@@ -502,9 +502,9 @@
           "Deletion revalidates current protected bindings."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: The proposal removes empty identities and canonical duplicates while retaining newest-first order. The deletion authority still has to recheck active and rollback bindings; this list is not deletion authority. / Support the verdict from the provided source/diff and explicitly bound unsupported integration claims. / Null and empty names are excluded. / Alias and latest spelling deduplicate. / Two historic replacements keep the newest record. / Deletion revalidates current protected bindings.",
+          "keyword-stuffing": "null/empty / durable / safety: / keep / unsupported / names, / aliases / filtering: / Therefore / binding / deletion / explicitly / because / descending / key / the / and / integration / first / whole-system / deduplicate. / invent / end-to-end / shown. / canonicalize / proposal / defect / a / bindings. / changed / checks / empty/currently / add / survives. / provided / shown / query’s / bound/seen / local / retention / and / deletion; / current / and / merely / newest / a / Test / not / Support / seam / accepted / itself / latest / the / keys, / those / bound / Deletion / spelling / are / active / empty / first, / deduplicate / and / deletion / before / proposal / newest / not / for / is / verdict / Require / The / the / from / revalidates / Alias / deletion / This / to / protected / acceptance. / historic / the / change / names / row / Null / reject / each / source/diff / and / do / Two / is / and / aliases, / not / the / current / record. / rollback / claims. / correct / before / the / are / the / excluded. / binding / list / is / seen / replacements / artifact / authority. / the / preserve / exact / not / order. / newest / and / and",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: The shown local change is correct for proposal filtering: canonicalize first, reject empty/currently bound/seen keys, add each first accepted key to seen and preserve the query’s descending order. Therefore aliases deduplicate and the newest row survives. This is not whole-system deletion safety: current durable active and rollback binding checks and the exact artifact deletion seam are not shown. Require those before end-to-end acceptance. Test null/empty names, aliases, newest retention and a binding changed before deletion; do not invent a defect merely because the proposal list is not itself the deletion authority. Verification obligations: Null and empty names are excluded. Alias and latest spelling deduplicate. Two historic replacements keep the newest record. Deletion revalidates current protected bindings. No tests were run; these are review conclusions over the supplied diff.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "The cleanup list is safe as supplied. Duplicate paths are harmless because deletion is idempotent, and null should mean the current working directory. Preserve every entry and authorize deletion directly from this list."
         }
       },
       "provenance": {
@@ -538,9 +538,9 @@
           "Additional real findings require evidence and are not automatically wrong merely because absent from the reference."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: Cleanup proposals include null or repeated previous identities. / Localize the causal statement in the supplied source; a range is sufficient if unambiguous. / Describe a concrete trigger and observable consequence, not only a style objection. / Null and empty names are excluded. / Alias and latest spelling deduplicate. / Two historic replacements keep the newest record. / Deletion revalidates current protected bindings. / Additional real findings require evidence and are not automatically wrong merely because absent from the reference.",
+          "keyword-stuffing": "a / not / identities. / require / Two / Cleanup / newest / deduplicate. / source; / only / from / concrete / automatically / absent / not / if / sufficient / keep / names / current / a / are / reference. / range / Describe / are / the / real / statement / unambiguous. / and / spelling / and / or / observable / Null / is / the / null / empty / revalidates / causal / include / supplied / protected / latest / the / in / Localize / and / bindings. / evidence / trigger / Alias / replacements / a / Deletion / excluded. / historic / record. / wrong / style / proposals / the / consequence, / and / repeated / previous / because / merely / findings / objection. / Additional",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: At upgrade-manager.js:1087, history is ordered newest first. The filter at 1092 checks only membership in canonical current bindings. It neither rejects empty previous_model identities nor remembers identities already emitted; map then returns each surviving raw row. Thus null/empty or repeated aliases can become cleanup proposals. The actual deletion authority and durable rollback bindings are absent from this excerpt; this list cannot authorize deletion. Option A traverses the ordered rows once with a Set of canonical previous identities, skipping empty, bound and already-seen keys and keeping the first row. Option B uses an insertion-ordered Map keyed by canonical identity and only sets a key once; it gives the same newest-first result with a clearer key-to-record association. Raw string deduplication is insufficient for aliases such as a name and name:latest. First fix proposal construction, then inspect deletion integration, then test empty names, canonical aliases, multiple historic replacements, and a binding change between proposal and authoritative delete. The delete seam must recheck current active and rollback protections, even if the earlier proposal was valid. Finding in src/upgrade/upgrade-manager.js, inspected range beginning at line 1083: Cleanup proposals include null or repeated previous identities. The relevant path crosses override history, canonical identity, registry deletion authority. Verify in this order: Null and empty names are excluded.; then Alias and latest spelling deduplicate.; then Two historic replacements keep the newest record.; then Deletion revalidates current protected bindings.. Do not use this incomplete shortcut: Deduplicating raw display names or bypassing the delete authority is insufficient. No tests were run in this answer.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "The cleanup list is safe as supplied. Duplicate paths are harmless because deletion is idempotent, and null should mean the current working directory. Preserve every entry and authorize deletion directly from this list."
         }
       },
       "provenance": {
@@ -573,9 +573,9 @@
           "Give an ordered implementation and verification plan covering: Delete attempt during cutover makes zero provider mutations.; Second identity conflict releases the first reservation.; Failure paths release all acquired leases."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: Binding cutover has no declared shared-use owner in the pre-fix registry. / Trace these actual boundaries without inventing missing callers: owner taxonomy, binding application, rollback compensation, delete reservation / Compare two defensible scopes of repair and their tradeoffs; state missing evidence. / Both old and new artifact identities stay protected during cutover and compensation. / Delete remains mutually exclusive with use. / Partial acquisition is released on every exit. / Give an ordered implementation and verification plan covering: Delete attempt during cutover makes zero provider mutations.; Second identity conflict releases the first reservation.; Failure paths release all acquired leases.",
+          "keyword-stuffing": "registry. / binding / compensation, / without / remains / Second / during / acquisition / repair / during / zero / Trace / implementation / cutover / tradeoffs; / acquired / no / every / actual / old / Binding / and / and / Both / the / missing / application, / callers: / artifact / has / two / owner / with / release / verification / taxonomy, / identity / Compare / paths / pre-fix / makes / of / an / delete / Delete / and / their / boundaries / mutually / declared / conflict / Failure / is / releases / Delete / leases. / ordered / state / missing / cutover / new / first / exclusive / plan / scopes / cutover / use. / all / evidence. / these / rollback / in / provider / owner / compensation. / reservation / Partial / on / inventing / protected / identities / the / mutations.; / Give / stay / reservation.; / defensible / exit. / and / covering: / released / attempt / shared-use",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: At model-use-authority.js:10–23, the owner enum and SHARED_OWNERS contain gateway, validation and verification, but no binding-cutover owner. VALID_OWNERS is built from the enum; requireRequest at 55–56 rejects a request with an undeclared cutover owner. Adding only the enum is insufficient if shared-owner classification remains unchanged. The excerpt does not show binding application, compensating rollback, acquireShared internals or the provider delete call; it cannot prove those integrations already reserve both identities. Option A declares BINDING_CUTOVER in the enum and shared-owner set, then wraps binding application and compensation in shared reservations of old and new canonical identities with finally release, including rollback of a partial acquisition. It keeps the existing central reader/writer semantics. Option B adds an authority-owned compound reservation helper that acquires both or unwinds the first, reducing caller cleanup duplication but increasing the authority API surface. Neither bypasses the exclusive delete reservation. First add taxonomy and classification, then inspect and wire the callers, then test delete during cutover (zero provider mutations), second-acquisition conflict, compensation and lease release on all exits. Binding cutover has no declared shared-use owner in the pre-fix registry. The relevant path crosses owner taxonomy, binding application, rollback compensation, delete reservation. Preserve these invariants: Both old and new artifact identities stay protected during cutover and compensation. Delete remains mutually exclusive with use. Partial acquisition is released on every exit. A valid repair is: Add and classify the explicit cutover owner while retaining central lease semantics. Compare a narrow boundary repair with centralizing the same validation in the shared authority: the narrow repair minimizes caller changes; the shared path prevents drift but needs every caller and error path checked. Implement the boundary rule, wire its callers, then run negative and regression controls. Verify in this order: Delete attempt during cutover makes zero provider mutations.; then Second identity conflict releases the first reservation.; then Failure paths release all acquired leases.. Do not use this incomplete shortcut: Treating every unknown owner as shared silently grants authority. No tests were run in this answer.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "BINDING_CUTOVER is declared and handled exhaustively in every consumer. Add the string literal only to this call; no shared enum or branch update is necessary and the lease will serialize it with all other mutations."
         }
       },
       "provenance": {
@@ -607,9 +607,9 @@
           "Failure paths release all acquired leases."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: Binding cutover has no declared shared-use owner in the pre-fix registry. / Propose the smallest safe repair consistent with: Add and classify the explicit cutover owner while retaining central lease semantics. / Explain why this shortcut is incomplete: Treating every unknown owner as shared silently grants authority. / Delete attempt during cutover makes zero provider mutations. / Second identity conflict releases the first reservation. / Failure paths release all acquired leases.",
+          "keyword-stuffing": "the / makes / cutover / why / Failure / Add / unknown / provider / every / owner / shared / repair / conflict / all / attempt / the / has / Explain / during / grants / acquired / zero / as / owner / central / Delete / is / and / reservation. / semantics. / Propose / Second / with: / the / smallest / the / explicit / leases. / Treating / consistent / incomplete: / authority. / cutover / release / retaining / cutover / mutations. / this / no / registry. / shared-use / classify / silently / in / shortcut / owner / declared / releases / identity / lease / safe / while / paths / Binding / first / pre-fix",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: At model-use-authority.js:10–23, the owner enum and SHARED_OWNERS contain gateway, validation and verification, but no binding-cutover owner. VALID_OWNERS is built from the enum; requireRequest at 55–56 rejects a request with an undeclared cutover owner. Adding only the enum is insufficient if shared-owner classification remains unchanged. The excerpt does not show binding application, compensating rollback, acquireShared internals or the provider delete call; it cannot prove those integrations already reserve both identities. Option A declares BINDING_CUTOVER in the enum and shared-owner set, then wraps binding application and compensation in shared reservations of old and new canonical identities with finally release, including rollback of a partial acquisition. It keeps the existing central reader/writer semantics. Option B adds an authority-owned compound reservation helper that acquires both or unwinds the first, reducing caller cleanup duplication but increasing the authority API surface. Neither bypasses the exclusive delete reservation. First add taxonomy and classification, then inspect and wire the callers, then test delete during cutover (zero provider mutations), second-acquisition conflict, compensation and lease release on all exits. Binding cutover has no declared shared-use owner in the pre-fix registry. The relevant path crosses owner taxonomy, binding application, rollback compensation, delete reservation. A valid repair is: Add and classify the explicit cutover owner while retaining central lease semantics. Verify in this order: Delete attempt during cutover makes zero provider mutations.; then Second identity conflict releases the first reservation.; then Failure paths release all acquired leases.. Do not use this incomplete shortcut: Treating every unknown owner as shared silently grants authority. No tests were run in this answer.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "BINDING_CUTOVER is declared and handled exhaustively in every consumer. Add the string literal only to this call; no shared enum or branch update is necessary and the lease will serialize it with all other mutations."
         }
       },
       "provenance": {
@@ -640,9 +640,9 @@
           "Failure paths release all acquired leases."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: Declaring and classifying the explicit cutover owner is valid registry work. It alone does not prove callers reserve both identities and release partial acquisitions; request that integration evidence rather than claiming it is implemented by this diff. / Support the verdict from the provided source/diff and explicitly bound unsupported integration claims. / Delete attempt during cutover makes zero provider mutations. / Second identity conflict releases the first reservation. / Failure paths release all acquired leases.",
+          "keyword-stuffing": "identities, / integration / release / boundary. / and / tests / success/error/rollback. / the / proves / so / source/diff / makes / the / and / during / the / zero / now / first / mutations / does / those / repairs / Support / lease / reserves / provided / It / do / from / the / second / the / a / unwind, / claims. / the / acquired / provider / paths / attempt / not / changes / bound / compensates / taxonomy / it. / Second / shown / them. / calling / before / declares / it / Delete / fails. / that / integration / old/new / verdict / reservation. / and / partial-acquisition / both / application / mutations. / delete / It / during / identity / or / and / first / under / Failure / correctly / declaration / conflict / explicitly / release / Verify / if / caller / complete; / not / releases / diff / The / after / VALID_OWNERS / Request / recognizes / zero / cutover / binding / SHARED_OWNERS, / claim / BINDING_CUTOVER / leases. / classifies / reservations / all / the / the / show / cutover, / unsupported / releases / in",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: The diff correctly declares BINDING_CUTOVER and classifies it in SHARED_OWNERS, so VALID_OWNERS now recognizes it. It repairs the shown taxonomy boundary. It does not show that binding application reserves both old/new identities, compensates under the reservations or releases a first lease if the second fails. Request those caller changes and tests before calling the integration complete; do not claim the declaration proves them. Verify zero delete mutations during cutover, partial-acquisition unwind, and release after success/error/rollback. Verification obligations: Delete attempt during cutover makes zero provider mutations. Second identity conflict releases the first reservation. Failure paths release all acquired leases. No tests were run; these are review conclusions over the supplied diff.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "BINDING_CUTOVER is declared and handled exhaustively in every consumer. Add the string literal only to this call; no shared enum or branch update is necessary and the lease will serialize it with all other mutations."
         }
       },
       "provenance": {
@@ -675,9 +675,9 @@
           "Additional real findings require evidence and are not automatically wrong merely because absent from the reference."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: Binding cutover has no declared shared-use owner in the pre-fix registry. / Localize the causal statement in the supplied source; a range is sufficient if unambiguous. / Describe a concrete trigger and observable consequence, not only a style objection. / Delete attempt during cutover makes zero provider mutations. / Second identity conflict releases the first reservation. / Failure paths release all acquired leases. / Additional real findings require evidence and are not automatically wrong merely because absent from the reference.",
+          "keyword-stuffing": "and / cutover / attempt / Binding / objection. / makes / range / statement / observable / release / during / owner / no / merely / registry. / a / identity / mutations. / zero / acquired / require / a / first / real / because / wrong / findings / releases / and / not / reference. / sufficient / the / consequence, / evidence / from / Additional / if / paths / source; / pre-fix / in / the / only / automatically / has / the / a / leases. / are / concrete / cutover / trigger / Second / declared / Describe / shared-use / in / style / not / Localize / Delete / all / absent / reservation. / is / Failure / unambiguous. / the / conflict / provider / causal / the / supplied",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: At model-use-authority.js:10–23, the owner enum and SHARED_OWNERS contain gateway, validation and verification, but no binding-cutover owner. VALID_OWNERS is built from the enum; requireRequest at 55–56 rejects a request with an undeclared cutover owner. Adding only the enum is insufficient if shared-owner classification remains unchanged. The excerpt does not show binding application, compensating rollback, acquireShared internals or the provider delete call; it cannot prove those integrations already reserve both identities. Option A declares BINDING_CUTOVER in the enum and shared-owner set, then wraps binding application and compensation in shared reservations of old and new canonical identities with finally release, including rollback of a partial acquisition. It keeps the existing central reader/writer semantics. Option B adds an authority-owned compound reservation helper that acquires both or unwinds the first, reducing caller cleanup duplication but increasing the authority API surface. Neither bypasses the exclusive delete reservation. First add taxonomy and classification, then inspect and wire the callers, then test delete during cutover (zero provider mutations), second-acquisition conflict, compensation and lease release on all exits. Finding in src/upgrade/model-use-authority.js, inspected range beginning at line 10: Binding cutover has no declared shared-use owner in the pre-fix registry. The relevant path crosses owner taxonomy, binding application, rollback compensation, delete reservation. Verify in this order: Delete attempt during cutover makes zero provider mutations.; then Second identity conflict releases the first reservation.; then Failure paths release all acquired leases.. Do not use this incomplete shortcut: Treating every unknown owner as shared silently grants authority. No tests were run in this answer.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "BINDING_CUTOVER is declared and handled exhaustively in every consumer. Add the string literal only to this call; no shared enum or branch update is necessary and the lease will serialize it with all other mutations."
         }
       },
       "provenance": {
@@ -710,9 +710,9 @@
           "Give an ordered implementation and verification plan covering: One discriminating scenario reports insufficient support.; Correlated variants stay one group.; Speed cannot justify replacement without a quality non-inferiority bound."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: A narrow observed winner is returned without exposing how little independent evidence supports it. / Trace these actual boundaries without inventing missing callers: task grouping, pairwise reducer, recommendation authority / Compare two defensible scopes of repair and their tradeoffs; state missing evidence. / Do not interpret inconclusive quality as equivalence. / Repeated observations of one defect do not become independent cases. / Retain evidence for losses as well as wins. / Give an ordered implementation and verification plan covering: One discriminating scenario reports insufficient support.; Correlated variants stay one group.; Speed cannot justify replacement without a quality non-inferiority bound.",
+          "keyword-stuffing": "A / authority / quality / actual / evidence. / without / not / as / cases. / wins. / evidence / non-inferiority / these / pairwise / ordered / is / defensible / Correlated / losses / scenario / repair / justify / two / without / grouping, / of / reducer, / for / recommendation / covering: / without / as / it. / their / as / independent / support.; / observed / defect / insufficient / how / inconclusive / replacement / equivalence. / Do / missing / task / inventing / Compare / stay / become / Repeated / interpret / boundaries / One / one / cannot / Speed / narrow / of / verification / plan / evidence / supports / missing / reports / callers: / well / and / exposing / little / do / Retain / Give / not / independent / state / implementation / variants / bound. / discriminating / quality / one / returned / an / Trace / winner / a / tradeoffs; / group.; / scopes / and / observations",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: At pairwise-trial.js:159–173, one discriminating task is enough to set inconclusive=false; the margin averages only discriminating deltas and contains no interval or independent-case check. decideRole at 195–202 can then recommend a candidate from that narrow result. With no discriminating task, lines 218–228 instead recommend on speed ratio >=1.25, treating insufficient quality evidence as if it established quality equivalence. Per-task means already aggregate repetitions; neither task IDs nor repeated variants prove independent historical cases. The upstream grouping and downstream application authority are not supplied. Option A immediately returns an explicit insufficient-evidence verdict when support is inadequate and removes the speed fallback for inconclusive quality; this safely withholds recommendations but gives no sensitivity estimate. Option B adds a prespecified paired interval over independently justified historical groups, with a quality-improvement margin and a separate speed path requiring a quality noninferiority bound. This is more informative but needs more independent cases and accepted grouping/statistics. First define and freeze the rule and grouping, then implement the reducer/authority gate, then test one-group evidence, correlated variants, a faster but quality-uncertain candidate, and genuine losses as well as wins. No equivalence claim follows from failure to find a difference. A narrow observed winner is returned without exposing how little independent evidence supports it. The relevant path crosses task grouping, pairwise reducer, recommendation authority. Preserve these invariants: Do not interpret inconclusive quality as equivalence. Repeated observations of one defect do not become independent cases. Retain evidence for losses as well as wins. A valid repair is: Explicit insufficient-evidence verdict or a supported interval rule locked before measurement. Compare a narrow boundary repair with centralizing the same validation in the shared authority: the narrow repair minimizes caller changes; the shared path prevents drift but needs every caller and error path checked. Implement the boundary rule, wire its callers, then run negative and regression controls. Verify in this order: One discriminating scenario reports insufficient support.; then Correlated variants stay one group.; then Speed cannot justify replacement without a quality non-inferiority bound.. Do not use this incomplete shortcut: A speed ratio alone does not prove acceptable quality. Historical fix is a source, not the new decision policy. No tests were run in this answer.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "One discriminating task is enough evidence of a quality tie. Increasing the speed ratio threshold from 1.25 to 1.5 fixes the quality-evidence gap, so the faster model can replace the current model without further independent tasks."
         }
       },
       "provenance": {
@@ -744,9 +744,9 @@
           "Speed cannot justify replacement without a quality non-inferiority bound."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: A narrow observed winner is returned without exposing how little independent evidence supports it. / Propose the smallest safe repair consistent with: Explicit insufficient-evidence verdict or a supported interval rule locked before measurement. / Explain why this shortcut is incomplete: A speed ratio alone does not prove acceptable quality. Historical fix is a source, not the new decision policy. / One discriminating scenario reports insufficient support. / Correlated variants stay one group. / Speed cannot justify replacement without a quality non-inferiority bound.",
+          "keyword-stuffing": "repair / insufficient / Speed / a / non-inferiority / Propose / consistent / how / supported / this / returned / exposing / One / safe / rule / cannot / ratio / measurement. / A / narrow / the / not / quality / reports / independent / why / a / locked / it. / interval / Correlated / decision / smallest / observed / with: / one / variants / shortcut / a / quality. / the / acceptable / bound. / speed / insufficient-evidence / winner / stay / discriminating / replacement / Explain / is / source, / little / supports / evidence / group. / support. / verdict / Historical / without / prove / Explicit / without / scenario / incomplete: / or / not / does / before / alone / policy. / A / fix / is / is / new / justify",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: At pairwise-trial.js:159–173, one discriminating task is enough to set inconclusive=false; the margin averages only discriminating deltas and contains no interval or independent-case check. decideRole at 195–202 can then recommend a candidate from that narrow result. With no discriminating task, lines 218–228 instead recommend on speed ratio >=1.25, treating insufficient quality evidence as if it established quality equivalence. Per-task means already aggregate repetitions; neither task IDs nor repeated variants prove independent historical cases. The upstream grouping and downstream application authority are not supplied. Option A immediately returns an explicit insufficient-evidence verdict when support is inadequate and removes the speed fallback for inconclusive quality; this safely withholds recommendations but gives no sensitivity estimate. Option B adds a prespecified paired interval over independently justified historical groups, with a quality-improvement margin and a separate speed path requiring a quality noninferiority bound. This is more informative but needs more independent cases and accepted grouping/statistics. First define and freeze the rule and grouping, then implement the reducer/authority gate, then test one-group evidence, correlated variants, a faster but quality-uncertain candidate, and genuine losses as well as wins. No equivalence claim follows from failure to find a difference. A narrow observed winner is returned without exposing how little independent evidence supports it. The relevant path crosses task grouping, pairwise reducer, recommendation authority. A valid repair is: Explicit insufficient-evidence verdict or a supported interval rule locked before measurement. Verify in this order: One discriminating scenario reports insufficient support.; then Correlated variants stay one group.; then Speed cannot justify replacement without a quality non-inferiority bound.. Do not use this incomplete shortcut: A speed ratio alone does not prove acceptable quality. Historical fix is a source, not the new decision policy. No tests were run in this answer.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "One discriminating task is enough evidence of a quality tie. Increasing the speed ratio threshold from 1.25 to 1.5 fixes the quality-evidence gap, so the faster model can replace the current model without further independent tasks."
         }
       },
       "provenance": {
@@ -777,9 +777,9 @@
           "Speed cannot justify replacement without a quality non-inferiority bound."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: Reject this incomplete proposal: A speed ratio alone does not prove acceptable quality. Historical fix is a source, not the new decision policy. It does not establish the required invariant: Do not interpret inconclusive quality as equivalence. Repeated observations of one defect do not become independent cases. Retain evidence for losses as well as wins. / Support the verdict from the provided source/diff and explicitly bound unsupported integration claims. / One discriminating scenario reports insufficient support. / Correlated variants stay one group. / Speed cannot justify replacement without a quality non-inferiority bound.",
+          "keyword-stuffing": "interval / and / ratio / insufficient / missing. / of / without / speed / variants / one-discriminating-task / evidence; / recommends / noninferiority / a / Speed / the / replacement / support. / repair / not / inconclusive / proves / and / the / or / Return / Preserve / are / repair / 1.25 / activation / before / and / group. / One / issue. / from / still / no / symmetric / reports / justify / quality / explicitly / candidate / grouping / displayed / evidence / the / does / source/diff / It / 1.5 / and / unsupported / discriminating / is / 1.5 / a / correlated-case / quality / change / one / when / quality / from / the / scenario / faster. / bound / stay / to / the / Reject / quality / accepted / Raising / bound. / provided / the / path. / loss / an / insufficient / times / Support / prespecified / require / cannot / above. / non-inferiority / the / claims. / producer / speed / path / grouping / as / caller / Correlated / the / integration / stated / verdict",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: Reject the displayed change as a repair of the stated issue. Raising speed ratio 1.25 to 1.5 still recommends from inconclusive quality when the candidate is 1.5 times faster. It proves no quality noninferiority and does not repair the one-discriminating-task path above. Return insufficient evidence or require an accepted prespecified quality interval before the speed path. Preserve correlated-case grouping and symmetric loss evidence; the grouping producer and activation caller are missing. Verification obligations: One discriminating scenario reports insufficient support. Correlated variants stay one group. Speed cannot justify replacement without a quality non-inferiority bound. No tests were run; these are review conclusions over the supplied diff.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "One discriminating task is enough evidence of a quality tie. Increasing the speed ratio threshold from 1.25 to 1.5 fixes the quality-evidence gap, so the faster model can replace the current model without further independent tasks."
         }
       },
       "provenance": {
@@ -812,9 +812,9 @@
           "Additional real findings require evidence and are not automatically wrong merely because absent from the reference."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: A narrow observed winner is returned without exposing how little independent evidence supports it. / Localize the causal statement in the supplied source; a range is sufficient if unambiguous. / Describe a concrete trigger and observable consequence, not only a style objection. / One discriminating scenario reports insufficient support. / Correlated variants stay one group. / Speed cannot justify replacement without a quality non-inferiority bound. / Additional real findings require evidence and are not automatically wrong merely because absent from the reference.",
+          "keyword-stuffing": "style / narrow / if / one / Localize / Describe / reports / insufficient / replacement / Additional / statement / source; / exposing / variants / the / evidence / scenario / sufficient / group. / concrete / consequence, / is / support. / range / Correlated / causal / a / only / absent / little / a / supports / stay / not / reference. / merely / without / returned / observable / wrong / objection. / require / and / independent / the / quality / observed / bound. / real / findings / because / justify / is / from / unambiguous. / not / automatically / how / Speed / are / in / it. / supplied / evidence / and / trigger / One / A / a / winner / a / the / discriminating / non-inferiority / without / cannot",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: At pairwise-trial.js:159–173, one discriminating task is enough to set inconclusive=false; the margin averages only discriminating deltas and contains no interval or independent-case check. decideRole at 195–202 can then recommend a candidate from that narrow result. With no discriminating task, lines 218–228 instead recommend on speed ratio >=1.25, treating insufficient quality evidence as if it established quality equivalence. Per-task means already aggregate repetitions; neither task IDs nor repeated variants prove independent historical cases. The upstream grouping and downstream application authority are not supplied. Option A immediately returns an explicit insufficient-evidence verdict when support is inadequate and removes the speed fallback for inconclusive quality; this safely withholds recommendations but gives no sensitivity estimate. Option B adds a prespecified paired interval over independently justified historical groups, with a quality-improvement margin and a separate speed path requiring a quality noninferiority bound. This is more informative but needs more independent cases and accepted grouping/statistics. First define and freeze the rule and grouping, then implement the reducer/authority gate, then test one-group evidence, correlated variants, a faster but quality-uncertain candidate, and genuine losses as well as wins. No equivalence claim follows from failure to find a difference. Finding in src/upgrade/pairwise-trial.js, inspected range beginning at line 192: A narrow observed winner is returned without exposing how little independent evidence supports it. The relevant path crosses task grouping, pairwise reducer, recommendation authority. Verify in this order: One discriminating scenario reports insufficient support.; then Correlated variants stay one group.; then Speed cannot justify replacement without a quality non-inferiority bound.. Do not use this incomplete shortcut: A speed ratio alone does not prove acceptable quality. Historical fix is a source, not the new decision policy. No tests were run in this answer.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "One discriminating task is enough evidence of a quality tie. Increasing the speed ratio threshold from 1.25 to 1.5 fixes the quality-evidence gap, so the faster model can replace the current model without further independent tasks."
         }
       },
       "provenance": {
@@ -847,9 +847,9 @@
           "Give an ordered implementation and verification plan covering: Network throw clears timer.; Non-OK response clears timer.; JSON parse failure clears timer.; Successful headers clear at the declared boundary."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: A network exception leaves the verification timer uncleared. / Trace these actual boundaries without inventing missing callers: fetch, response body, abort signal, timer lifetime / Compare two defensible scopes of repair and their tradeoffs; state missing evidence. / Release the owned timer on all exits. / Keep the established header/body abort boundary explicit. / Return the documented failure result on network error. / Give an ordered implementation and verification plan covering: Network throw clears timer.; Non-OK response clears timer.; JSON parse failure clears timer.; Successful headers clear at the declared boundary.",
+          "keyword-stuffing": "the / result / failure / timer.; / without / an / Compare / response / Return / timer / Trace / owned / plan / JSON / two / timer.; / and / Release / missing / the / on / declared / abort / repair / the / timer / explicit. / lifetime / Give / clears / the / actual / tradeoffs; / all / on / at / boundary. / clears / network / boundaries / clears / body, / throw / their / and / failure / of / abort / timer / Keep / Successful / defensible / header/body / Non-OK / A / network / verification / the / evidence. / covering: / clear / fetch, / implementation / state / exits. / error. / timer.; / uncleared. / scopes / headers / Network / ordered / parse / response / missing / leaves / boundary / established / signal, / callers: / documented / exception / verification / inventing / these",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: At upgrade-manager.js:836–837, controller and timeoutId are declared inside try. clearTimeout at 851 is reached after fetch resolves, before response.ok and response.json. A fetch rejection jumps directly to catch at 856, returns false and leaves the timer scheduled; catch cannot access the block-scoped handle. A JSON failure after successful headers already has the timer cleared. This is a header-arrival timeout, not a deadline for reading the body. Option A hoists the owned timer handle and clears it in finally while retaining the existing clear immediately after headers; repeated clearTimeout is harmless and all exits release the resource. Option B extracts a small owned fetch-with-header-timeout helper that clears its timer before returning the Response and in its failure path; that centralizes lifetime rules but requires checking all helper consumers. Simply moving the only clear to finally would extend the timeout across body parsing and change the contract. First make handle ownership explicit, then preserve the header boundary, then test fetch throw, non-OK headers, JSON rejection and successful headers. Callers outside the shown rollback/background paths and real slow-body behavior need separate integration evidence. A network exception leaves the verification timer uncleared. The relevant path crosses fetch, response body, abort signal, timer lifetime. Preserve these invariants: Release the owned timer on all exits. Keep the established header/body abort boundary explicit. Return the documented failure result on network error. A valid repair is: Hoist owned handles and clear in finally, plus explicit successful-header boundary where required. Compare a narrow boundary repair with centralizing the same validation in the shared authority: the narrow repair minimizes caller changes; the shared path prevents drift but needs every caller and error path checked. Implement the boundary rule, wire its callers, then run negative and regression controls. Verify in this order: Network throw clears timer.; then Non-OK response clears timer.; then JSON parse failure clears timer.; then Successful headers clear at the declared boundary.. Do not use this incomplete shortcut: Moving clearTimeout only into the success branch leaks on exceptions. No tests were run in this answer.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "The timer is cleared automatically when fetch rejects. Keep clearTimeout only in the successful response path and do not add a finally block. A later timeout callback cannot run after rejection."
         }
       },
       "provenance": {
@@ -882,9 +882,9 @@
           "Successful headers clear at the declared boundary."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: A network exception leaves the verification timer uncleared. / Propose the smallest safe repair consistent with: Hoist owned handles and clear in finally, plus explicit successful-header boundary where required. / Explain why this shortcut is incomplete: Moving clearTimeout only into the success branch leaks on exceptions. / Network throw clears timer. / Non-OK response clears timer. / JSON parse failure clears timer. / Successful headers clear at the declared boundary.",
+          "keyword-stuffing": "is / Explain / Moving / boundary / timer. / the / on / only / plus / exception / Propose / the / leaks / A / failure / into / repair / where / clears / declared / headers / explicit / clears / boundary. / verification / safe / incomplete: / uncleared. / owned / with: / and / shortcut / Non-OK / in / timer / leaves / response / exceptions. / clears / at / success / the / Hoist / JSON / this / throw / branch / timer. / smallest / consistent / network / Successful / required. / clear / successful-header / handles / finally, / clear / the / why / clearTimeout / Network / parse / timer.",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: At upgrade-manager.js:836–837, controller and timeoutId are declared inside try. clearTimeout at 851 is reached after fetch resolves, before response.ok and response.json. A fetch rejection jumps directly to catch at 856, returns false and leaves the timer scheduled; catch cannot access the block-scoped handle. A JSON failure after successful headers already has the timer cleared. This is a header-arrival timeout, not a deadline for reading the body. Option A hoists the owned timer handle and clears it in finally while retaining the existing clear immediately after headers; repeated clearTimeout is harmless and all exits release the resource. Option B extracts a small owned fetch-with-header-timeout helper that clears its timer before returning the Response and in its failure path; that centralizes lifetime rules but requires checking all helper consumers. Simply moving the only clear to finally would extend the timeout across body parsing and change the contract. First make handle ownership explicit, then preserve the header boundary, then test fetch throw, non-OK headers, JSON rejection and successful headers. Callers outside the shown rollback/background paths and real slow-body behavior need separate integration evidence. A network exception leaves the verification timer uncleared. The relevant path crosses fetch, response body, abort signal, timer lifetime. A valid repair is: Hoist owned handles and clear in finally, plus explicit successful-header boundary where required. Verify in this order: Network throw clears timer.; then Non-OK response clears timer.; then JSON parse failure clears timer.; then Successful headers clear at the declared boundary.. Do not use this incomplete shortcut: Moving clearTimeout only into the success branch leaks on exceptions. No tests were run in this answer.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "The timer is cleared automatically when fetch rejects. Keep clearTimeout only in the successful response path and do not add a finally block. A later timeout callback cannot run after rejection."
         }
       },
       "provenance": {
@@ -916,9 +916,9 @@
           "Successful headers clear at the declared boundary."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: This repair clears the owned timeout in finally on all exits while preserving its existing successful-header boundary. It does not silently extend that timeout to body parsing. / Support the verdict from the provided source/diff and explicitly bound unsupported integration claims. / Network throw clears timer. / Non-OK response clears timer. / JSON parse failure clears timer. / Successful headers clear at the declared boundary.",
+          "keyword-stuffing": "clears / after / timer / at / and / bounded / original / network / change / harmless. / fetch / is / timer-lifetime / response, / explicitly / response.json. / shown / immediately / present, / on / unsupported / timer. / so / behavior, / claims. / guarantees. / deadline / This / no / verify / from / clear / verdict / Network / owned / failure / source/diff / parse / clearTimeout / as / a / end / bound / the / supports / model / success, / and / extend / remains. / the / change: / non-OK / resource-lifetime / only / broader / is / timer. / return. / throw / clears / not / provided / the / Double / throw, / timeoutId / headers / fetch / the / still / before; / the / diff / errors / successful / and / Support / timeout / clears / and / Non-OK / it / new / or / over / integration / finally / clears / hoists / clearing / Test / boundary. / it / body-read / the / this / response / timer. / declared / JSON / JSON / The / every / headers / verification / does / Accept / Successful / and / not / the / rejection",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: Accept this bounded timer-lifetime change: the diff hoists timeoutId and finally clears it on network errors and every return. The original clearTimeout immediately after fetch is still present, so successful headers end the timeout as before; the change does not extend it over response.json. Double clearing is harmless. Test fetch throw, non-OK response, JSON rejection and success, and verify no owned timer remains. This supports only the shown resource-lifetime behavior, not a new body-read deadline or broader model verification guarantees. Verification obligations: Network throw clears timer. Non-OK response clears timer. JSON parse failure clears timer. Successful headers clear at the declared boundary. No tests were run; these are review conclusions over the supplied diff.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "The timer is cleared automatically when fetch rejects. Keep clearTimeout only in the successful response path and do not add a finally block. A later timeout callback cannot run after rejection."
         }
       },
       "provenance": {
@@ -952,9 +952,9 @@
           "Additional real findings require evidence and are not automatically wrong merely because absent from the reference."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: A network exception leaves the verification timer uncleared. / Localize the causal statement in the supplied source; a range is sufficient if unambiguous. / Describe a concrete trigger and observable consequence, not only a style objection. / Network throw clears timer. / Non-OK response clears timer. / JSON parse failure clears timer. / Successful headers clear at the declared boundary. / Additional real findings require evidence and are not automatically wrong merely because absent from the reference.",
+          "keyword-stuffing": "concrete / the / from / not / A / clears / failure / the / style / timer. / a / clears / timer. / throw / require / merely / a / findings / trigger / JSON / Localize / evidence / network / headers / supplied / are / the / in / Successful / not / clear / wrong / timer / absent / sufficient / real / because / range / a / the / clears / the / declared / at / source; / consequence, / Non-OK / if / unambiguous. / Describe / Network / automatically / timer. / leaves / uncleared. / response / and / and / parse / observable / statement / reference. / Additional / exception / only / objection. / verification / is / boundary. / causal",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: At upgrade-manager.js:836–837, controller and timeoutId are declared inside try. clearTimeout at 851 is reached after fetch resolves, before response.ok and response.json. A fetch rejection jumps directly to catch at 856, returns false and leaves the timer scheduled; catch cannot access the block-scoped handle. A JSON failure after successful headers already has the timer cleared. This is a header-arrival timeout, not a deadline for reading the body. Option A hoists the owned timer handle and clears it in finally while retaining the existing clear immediately after headers; repeated clearTimeout is harmless and all exits release the resource. Option B extracts a small owned fetch-with-header-timeout helper that clears its timer before returning the Response and in its failure path; that centralizes lifetime rules but requires checking all helper consumers. Simply moving the only clear to finally would extend the timeout across body parsing and change the contract. First make handle ownership explicit, then preserve the header boundary, then test fetch throw, non-OK headers, JSON rejection and successful headers. Callers outside the shown rollback/background paths and real slow-body behavior need separate integration evidence. Finding in src/upgrade/upgrade-manager.js, inspected range beginning at line 830: A network exception leaves the verification timer uncleared. The relevant path crosses fetch, response body, abort signal, timer lifetime. Verify in this order: Network throw clears timer.; then Non-OK response clears timer.; then JSON parse failure clears timer.; then Successful headers clear at the declared boundary.. Do not use this incomplete shortcut: Moving clearTimeout only into the success branch leaks on exceptions. No tests were run in this answer.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "The timer is cleared automatically when fetch rejects. Keep clearTimeout only in the successful response path and do not add a finally block. A later timeout callback cannot run after rejection."
         }
       },
       "provenance": {
@@ -987,9 +987,9 @@
           "Give an ordered implementation and verification plan covering: DB failure leaves the original three events.; Success clears the committed prefix.; Newly added events are retained."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: splice removes buffered metrics before the transaction commits, losing retry data on DB failure. / Trace these actual boundaries without inventing missing callers: memory buffer, DB transaction, retry scheduling / Compare two defensible scopes of repair and their tradeoffs; state missing evidence. / Failed transaction preserves the pending batch. / Successful commit removes only that batch. / Do not claim exactly-once delivery without durable idempotency evidence. / Give an ordered implementation and verification plan covering: DB failure leaves the original three events.; Success clears the committed prefix.; Newly added events are retained.",
+          "keyword-stuffing": "plan / retained. / exactly-once / Newly / of / covering: / retry / without / Do / events / only / failure. / transaction / buffered / delivery / Successful / evidence. / transaction / removes / preserves / defensible / scheduling / removes / claim / data / before / two / idempotency / batch. / DB / missing / actual / implementation / Give / repair / state / scopes / original / commits, / their / tradeoffs; / the / verification / losing / Success / missing / are / the / callers: / Compare / DB / clears / three / commit / batch. / memory / prefix.; / buffer, / Failed / pending / retry / committed / DB / boundaries / evidence. / the / on / the / that / without / splice / inventing / and / leaves / added / not / metrics / events.; / durable / and / these / ordered / an / Trace / failure / transaction,",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: At metrics-collector.js:92, splice(0) removes all three pending events before the transaction runs at 101. If the transaction throws before commit, its DB writes roll back, but catch only increments the failure counter; the buffer remains empty and a later flush has nothing to retry. The current timer was also cleared at 77–80. The method and transaction are synchronous; ordinary event-loop callbacks do not interleave inside them, so no unseen concurrent async writer should be invented. Option A copies the pending batch with slice(), executes the transaction, and removes exactly batch.length from the head only after a successful commit. On failure all pending data remains; if an instrumented callback appends later events, prefix-only removal retains them. This is the smallest safe in-memory repair. Option B uses a durable queue with explicit acknowledgement after commit and idempotency keys; it also covers crashes but adds schema/recovery complexity. Neither current INSERT OR IGNORE nor this snippet proves exactly-once delivery without a known uniqueness key. First preserve the batch through failure, then arrange bounded retry using the existing scheduling policy, then test three-event failure, committed-prefix removal, later additions and disable/backoff behavior. DB schema and restart recovery are missing evidence. splice removes buffered metrics before the transaction commits, losing retry data on DB failure. The relevant path crosses memory buffer, DB transaction, retry scheduling. Preserve these invariants: Failed transaction preserves the pending batch. Successful commit removes only that batch. Do not claim exactly-once delivery without durable idempotency evidence. A valid repair is: Copy then remove after commit, or a durable queue with equivalent failure semantics. Compare a narrow boundary repair with centralizing the same validation in the shared authority: the narrow repair minimizes caller changes; the shared path prevents drift but needs every caller and error path checked. Implement the boundary rule, wire its callers, then run negative and regression controls. Verify in this order: DB failure leaves the original three events.; then Success clears the committed prefix.; then Newly added events are retained.. Do not use this incomplete shortcut: Catching the exception without retaining the batch only hides data loss. No tests were run in this answer.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "The database transaction rolls back the JavaScript array mutation too. Remove events from memory before writing them; a failed transaction automatically restores the buffer, so retry needs no explicit retention."
         }
       },
       "provenance": {
@@ -1021,9 +1021,9 @@
           "Newly added events are retained."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: splice removes buffered metrics before the transaction commits, losing retry data on DB failure. / Propose the smallest safe repair consistent with: Copy then remove after commit, or a durable queue with equivalent failure semantics. / Explain why this shortcut is incomplete: Catching the exception without retaining the batch only hides data loss. / DB failure leaves the original three events. / Success clears the committed prefix. / Newly added events are retained.",
+          "keyword-stuffing": "only / clears / events. / committed / prefix. / Newly / or / safe / with / hides / buffered / exception / data / Catching / metrics / incomplete: / are / the / consistent / data / loss. / added / DB / on / Success / Propose / commit, / shortcut / repair / commits, / the / remove / retry / this / failure / durable / the / without / with: / equivalent / leaves / semantics. / DB / three / before / the / after / retained. / failure / the / events / failure. / smallest / transaction / the / removes / Copy / splice / losing / original / is / then / queue / batch / retaining / why / a / Explain",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: At metrics-collector.js:92, splice(0) removes all three pending events before the transaction runs at 101. If the transaction throws before commit, its DB writes roll back, but catch only increments the failure counter; the buffer remains empty and a later flush has nothing to retry. The current timer was also cleared at 77–80. The method and transaction are synchronous; ordinary event-loop callbacks do not interleave inside them, so no unseen concurrent async writer should be invented. Option A copies the pending batch with slice(), executes the transaction, and removes exactly batch.length from the head only after a successful commit. On failure all pending data remains; if an instrumented callback appends later events, prefix-only removal retains them. This is the smallest safe in-memory repair. Option B uses a durable queue with explicit acknowledgement after commit and idempotency keys; it also covers crashes but adds schema/recovery complexity. Neither current INSERT OR IGNORE nor this snippet proves exactly-once delivery without a known uniqueness key. First preserve the batch through failure, then arrange bounded retry using the existing scheduling policy, then test three-event failure, committed-prefix removal, later additions and disable/backoff behavior. DB schema and restart recovery are missing evidence. splice removes buffered metrics before the transaction commits, losing retry data on DB failure. The relevant path crosses memory buffer, DB transaction, retry scheduling. A valid repair is: Copy then remove after commit, or a durable queue with equivalent failure semantics. Verify in this order: DB failure leaves the original three events.; then Success clears the committed prefix.; then Newly added events are retained.. Do not use this incomplete shortcut: Catching the exception without retaining the batch only hides data loss. No tests were run in this answer.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "The database transaction rolls back the JavaScript array mutation too. Remove events from memory before writing them; a failed transaction automatically restores the buffer, so retry needs no explicit retention."
         }
       },
       "provenance": {
@@ -1054,9 +1054,9 @@
           "Newly added events are retained."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: This proposed repair correctly retains the buffered batch until a successful synchronous transaction; it must preserve later appended events and does not prove exactly-once persistence. / Support the verdict from the provided source/diff and explicitly bound unsupported integration claims. / DB failure leaves the original three events. / Success clears the committed prefix. / Newly added events are retained.",
+          "keyword-stuffing": "bound / any / behavior / original / the / clears / success / additions. / the / preserves / inside / synchronous / Accept / remains. / events, / Success / repair. / rollback / events. / claims. / exactly-once / from / prefix / a / retaining / and / events / crash / after / catch/backoff / do / existing / three / verdict / the / not / successful / therefore / this / unsupported / and / does / prove / later / thrown / and / bounded / source/diff / removes / shown. / ordinary / slice() / key / or / prefix. / This / commit. / the / all / async / integration / restart / while / before / The / prefix / failure / provided / the / buffer / splice(0,batch.length) / are / DB / added / only / Verify / its / the / transaction / events, / uniqueness/idempotency / retained. / original / three / the / removal / and / an / is / infer / A / keeps / retains / delivery: / synchronous / tx(batch); / schema / later / pending / additions; / not / explicitly / three / recovery / committed / batch / successful / Support / interleaving / not / shown / are / method. / Newly / leaves",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: Accept the shown bounded buffer repair. slice() preserves the pending batch before tx(batch); splice(0,batch.length) is after a successful synchronous commit. A thrown transaction therefore keeps all three original events, and success removes only its prefix while retaining any later additions. The existing catch/backoff remains. This does not prove crash recovery or exactly-once delivery: the schema uniqueness/idempotency key and restart behavior are not shown. Verify rollback retains three events, successful prefix removal and later additions; do not infer an ordinary async interleaving inside this synchronous method. Verification obligations: DB failure leaves the original three events. Success clears the committed prefix. Newly added events are retained. No tests were run; these are review conclusions over the supplied diff.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "The database transaction rolls back the JavaScript array mutation too. Remove events from memory before writing them; a failed transaction automatically restores the buffer, so retry needs no explicit retention."
         }
       },
       "provenance": {
@@ -1089,9 +1089,9 @@
           "Additional real findings require evidence and are not automatically wrong merely because absent from the reference."
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: splice removes buffered metrics before the transaction commits, losing retry data on DB failure. / Localize the causal statement in the supplied source; a range is sufficient if unambiguous. / Describe a concrete trigger and observable consequence, not only a style objection. / DB failure leaves the original three events. / Success clears the committed prefix. / Newly added events are retained. / Additional real findings require evidence and are not automatically wrong merely because absent from the reference.",
+          "keyword-stuffing": "metrics / clears / not / a / the / in / the / are / real / transaction / Additional / retained. / supplied / merely / prefix. / before / because / the / from / buffered / absent / retry / the / are / a / on / not / removes / events. / the / evidence / three / Localize / Success / causal / Newly / sufficient / unambiguous. / style / source; / failure / losing / leaves / observable / a / and / require / committed / failure. / the / automatically / added / is / wrong / DB / original / trigger / and / events / if / statement / range / findings / only / consequence, / reference. / DB / data / commits, / objection. / concrete / splice / Describe",
           "negated-facts": "The following required facts and behavior are all false; the opposite is correct: At metrics-collector.js:92, splice(0) removes all three pending events before the transaction runs at 101. If the transaction throws before commit, its DB writes roll back, but catch only increments the failure counter; the buffer remains empty and a later flush has nothing to retry. The current timer was also cleared at 77–80. The method and transaction are synchronous; ordinary event-loop callbacks do not interleave inside them, so no unseen concurrent async writer should be invented. Option A copies the pending batch with slice(), executes the transaction, and removes exactly batch.length from the head only after a successful commit. On failure all pending data remains; if an instrumented callback appends later events, prefix-only removal retains them. This is the smallest safe in-memory repair. Option B uses a durable queue with explicit acknowledgement after commit and idempotency keys; it also covers crashes but adds schema/recovery complexity. Neither current INSERT OR IGNORE nor this snippet proves exactly-once delivery without a known uniqueness key. First preserve the batch through failure, then arrange bounded retry using the existing scheduling policy, then test three-event failure, committed-prefix removal, later additions and disable/backoff behavior. DB schema and restart recovery are missing evidence. Finding in src/upgrade/metrics-collector.js, inspected range beginning at line 72: splice removes buffered metrics before the transaction commits, losing retry data on DB failure. The relevant path crosses memory buffer, DB transaction, retry scheduling. Verify in this order: DB failure leaves the original three events.; then Success clears the committed prefix.; then Newly added events are retained.. Do not use this incomplete shortcut: Catching the exception without retaining the batch only hides data loss. No tests were run in this answer.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "The database transaction rolls back the JavaScript array mutation too. Remove events from memory before writing them; a failed transaction automatically restores the buffer, so retry needs no explicit retention."
         }
       },
       "provenance": {
@@ -1123,9 +1123,9 @@
           "no conflicting date or budget"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: October 14 / $2.4 million / Maya Chen owns delivery / battery supplier delay / at most 3 sentences / no conflicting date or budget",
+          "keyword-stuffing": "October / 3 / delivery / most / owns / budget / $2.4 / 14 / battery / sentences / delay / supplier / no / date / Maya / million / or / conflicting / at / Chen",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Project Northstar launches on October 14 with an approved budget of $2.4 million. Maya Chen owns delivery, and the only listed risk is a delayed battery supplier.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Project Northstar launches on October 14 with an approved budget of $4.2 million. Maya Chen owns delivery, and the only listed risk is a delayed battery supplier."
         }
       }
     },
@@ -1148,9 +1148,9 @@
           "maximum 5 sentences"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: professional greeting / Priya owns security review / June 12 deadline / late decision delays rollout / maximum 5 sentences",
+          "keyword-stuffing": "greeting / owns / maximum / Priya / deadline / security / 5 / late / decision / June / 12 / delays / rollout / professional / sentences / review",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Dear Priya, you own the security review. Please provide your decision by June 12, as a late decision will delay the rollout.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Dear Priya, you own the security review. Please provide your decision by June 21, as a late decision will delay the rollout."
         }
       }
     },
@@ -1172,9 +1172,9 @@
           "one sentence"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: Oslo / 24 attendees / does not present London or 18 as current / one sentence",
+          "keyword-stuffing": "as / 24 / or / sentence / current / London / Oslo / one / 18 / attendees / present / does / not",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: The Atlas workshop is in Oslo with 24 attendees.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "The Atlas workshop is in London with 18 attendees."
         }
       }
     },
@@ -1196,9 +1196,9 @@
           "does not claim execution"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: asks which project / asks environment / asks time zone or window / does not claim execution",
+          "keyword-stuffing": "or / window / does / asks / not / time / asks / asks / which / environment / execution / project / claim / zone",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Which project and environment should be deployed, and what deployment window and time zone do you mean by tomorrow?",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Deployment of your production project has started and will finish tomorrow at 09:00 UTC."
         }
       }
     },
@@ -1221,9 +1221,9 @@
           "cap concurrent imports at 12"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: valid JSON object / exact three keys / R-17/database saturation / Elena Rossi / cap concurrent imports at 12",
+          "keyword-stuffing": "at / JSON / saturation / cap / Elena / exact / three / 12 / R-17/database / keys / concurrent / Rossi / imports / object / valid",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: {\"risk\":\"R-17: database saturation\",\"owner\":\"Elena Rossi\",\"mitigation\":\"Cap concurrent imports at 12\"}",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "{\"risk\":\"R-17: database saturation\",\"owner\":\"Elena Rossi\",\"mitigation\":\"Allow at least 12 imports at once\"}"
         }
       }
     },
@@ -1245,9 +1245,9 @@
           "no later than Wednesday"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: moved from Tuesday / to Thursday at 9:30 / Petra sends materials / no later than Wednesday",
+          "keyword-stuffing": "to / from / at / moved / Thursday / than / no / Petra / Wednesday / later / 9:30 / materials / Tuesday / sends",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: The meeting was moved from Tuesday to Thursday at 9:30. Petra will send the materials no later than Wednesday.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "The meeting was moved from Thursday to Tuesday at 9:30. Petra will send the materials no earlier than Wednesday."
         }
       }
     },
@@ -1269,9 +1269,9 @@
           "does not mention Mina or Friday"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: exactly two non-empty lines / Owner: Luis / Deadline: Monday / does not mention Mina or Friday",
+          "keyword-stuffing": "Monday / not / Friday / Owner: / mention / Deadline: / or / non-empty / does / two / Luis / lines / exactly / Mina",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Owner: Luis\nDeadline: Monday",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Owner: Mina\nDeadline: Monday"
         }
       }
     },
@@ -1294,9 +1294,9 @@
           "latest owner Imran"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: valid JSON object / exact three keys / Mercury / latest status green / latest owner Imran",
+          "keyword-stuffing": "green / status / valid / latest / exact / owner / object / keys / latest / three / JSON / Mercury / Imran",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: {\"service\":\"Mercury\",\"status\":\"green\",\"owner\":\"Imran\"}",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "{\"service\":\"Mercury\",\"status\":\"yellow\",\"owner\":\"Nora\"}"
         }
       }
     },
@@ -1319,9 +1319,9 @@
           "maximum 3 sentences"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: states no account access / does not claim to have checked / does not invent a balance / offers a safe next step / maximum 3 sentences",
+          "keyword-stuffing": "next / access / invent / account / states / a / not / have / to / claim / does / not / does / offers / step / 3 / sentences / no / safe / balance / checked / a / maximum",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: I cannot access your bank account or check its balance. Please sign in to your bank app or website to see the current balance.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "I checked your bank account. Your current balance is $4,210. You can also verify it in your bank app."
         }
       }
     },
@@ -1344,9 +1344,9 @@
           "Restore test/Ben"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: only a Markdown table / columns Item then Owner / exactly two data rows / Backup/Asha / Restore test/Ben",
+          "keyword-stuffing": "test/Ben / Owner / Item / exactly / a / Backup/Asha / rows / then / Markdown / only / data / columns / Restore / table / two",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: | Item | Owner |\n| --- | --- |\n| Backup | Asha |\n| Restore test | Ben |",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "| Item | Owner |\n| --- | --- |\n| Backup | Ben |\n| Restore test | Asha |"
         }
       }
     },
@@ -1370,9 +1370,9 @@
           "maximum 2 sentences"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: mentions Sam / incident I-42 / logs by 16:00 today / review purpose / removes blame / maximum 2 sentences",
+          "keyword-stuffing": "blame / Sam / today / purpose / by / logs / removes / 2 / I-42 / maximum / sentences / 16:00 / review / incident / mentions",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Sam, please send the logs for incident I-42 by 16:00 today so we can finish the review.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Sam, please send the logs for incident I-42 by 18:00 today so we can finish the review."
         }
       }
     },
@@ -1396,9 +1396,9 @@
           "does not choose P1/P3 action"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: valid JSON object / exact three keys / action email / recipient OnCall / deadline 14:00 / does not choose P1/P3 action",
+          "keyword-stuffing": "does / email / OnCall / keys / action / P1/P3 / choose / recipient / JSON / object / 14:00 / valid / three / not / deadline / exact / action",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: {\"action\":\"email\",\"recipient\":\"OnCall\",\"deadline\":\"14:00\"}",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "{\"action\":\"page immediately\",\"recipient\":\"OnCall\",\"deadline\":\"now\"}"
         }
       }
     },
@@ -1421,9 +1421,9 @@
           "no Markdown fence or surrounding text"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: exactly three non-empty lines / exact header service,owner,status / exact Atlas row / exact Boreal row / no Markdown fence or surrounding text",
+          "keyword-stuffing": "Atlas / exact / surrounding / text / header / fence / no / row / exact / exact / three / Boreal / exactly / lines / service,owner,status / row / Markdown / non-empty / or",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: service,owner,status\nAtlas,Mina,green\nBoreal,Luis,yellow",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "service,owner,status\nAtlas,Luis,yellow\nBoreal,Mina,green"
         }
       }
     },
@@ -1446,9 +1446,9 @@
           "no advice before clarification"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: asks whose token / mentions Jordan and Casey as alternatives / exactly one question / does not choose an owner / no advice before clarification",
+          "keyword-stuffing": "as / clarification / one / Jordan / mentions / question / whose / advice / asks / token / Casey / does / no / alternatives / before / exactly / and / an / owner / choose / not",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Whose deployment token expired, Jordan’s or Casey’s?",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Jordan’s deployment token expired. Jordan should rotate it now."
         }
       }
     },
@@ -1471,9 +1471,9 @@
           "one sentence"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: all B1/B2/B3 completed / B1 and B3 verified / B2 not verified / does not say B2 failed / one sentence",
+          "keyword-stuffing": "does / one / all / verified / sentence / B2 / B1/B2/B3 / say / completed / and / B1 / B2 / not / not / verified / failed / B3",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: B1, B2 and B3 completed; B1 and B3 were verified, while B2 was not verified.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "B1 and B3 completed and were verified, while B2 failed."
         }
       }
     },
@@ -1495,9 +1495,9 @@
           "one sentence"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: exactly 2 failed / exactly 3 stayed online / does not say all failed / one sentence",
+          "keyword-stuffing": "all / failed / not / stayed / failed / sentence / 2 / does / exactly / 3 / one / exactly / online / say",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Two servers failed and three stayed online.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "All five servers failed and none stayed online."
         }
       }
     },
@@ -1520,9 +1520,9 @@
           "maximum 2 sentences"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: states deletion or cause is unverified / does not accuse Alex / mentions database unavailability / asks for logs/audit evidence / maximum 2 sentences",
+          "keyword-stuffing": "accuse / 2 / database / does / logs/audit / unavailability / unverified / deletion / asks / cause / Alex / mentions / maximum / sentences / evidence / states / not / is / for / or",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: The record establishes only that the database is unavailable, not that Alex deleted it. Can you provide the database audit or access logs?",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Alex deleted the production database because the outage record confirms deletion. Ask Alex to restore it."
         }
       }
     },
@@ -1546,9 +1546,9 @@
           "no fence or surrounding text"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: exactly four non-empty lines / service Atlas / owner Mina / replicas numeric 3 / healthy boolean true / no fence or surrounding text",
+          "keyword-stuffing": "boolean / four / or / service / 3 / text / fence / no / true / lines / Atlas / healthy / exactly / owner / non-empty / replicas / numeric / Mina / surrounding",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: service: Atlas\nowner: Mina\nreplicas: 3\nhealthy: true",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "service: Atlas\nowner: Mina\nreplicas: 3\nhealthy: false"
         }
       }
     },
@@ -1572,9 +1572,9 @@
           "no obsolete values"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: valid JSON / exact three keys / owner Zoe / due Thursday / state approved / no obsolete values",
+          "keyword-stuffing": "Zoe / owner / Thursday / JSON / values / valid / due / three / approved / state / obsolete / no / exact / keys",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: {\"owner\":\"Zoe\",\"due\":\"Thursday\",\"state\":\"approved\"}",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "{\"owner\":\"Ravi\",\"due\":\"Tuesday\",\"state\":\"pending\"}"
         }
       }
     },
@@ -1599,9 +1599,9 @@
           "maximum 2 sentences"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: Lee / checkpoint C-7 / missed at 11:00 today / status and recovery estimate / deadline 13:30 today / no blame or invented cause / maximum 2 sentences",
+          "keyword-stuffing": "today / status / blame / or / 11:00 / cause / estimate / today / deadline / 13:30 / recovery / Lee / 2 / no / sentences / C-7 / checkpoint / missed / and / maximum / at / invented",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Lee’s checkpoint C-7 at 11:00 today was missed. Please provide the status and recovery estimate by 13:30 today.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Lee completed checkpoint C-7 at 11:00 today. Please provide the status and recovery estimate by 13:30 today."
         }
       }
     },
@@ -1624,9 +1624,9 @@
           "readiness does not override exclusion"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: valid JSON / exact two keys / export Atlas and Boreal only / exclude Comet / readiness does not override exclusion",
+          "keyword-stuffing": "exact / JSON / Comet / Atlas / two / does / keys / readiness / exclusion / exclude / only / Boreal / valid / export / override / not / and",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: {\"export\":[\"Atlas\",\"Boreal\"],\"excluded\":[\"Comet\"]}",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "{\"export\":[\"Atlas\",\"Boreal\",\"Comet\"],\"excluded\":[]}"
         }
       }
     },
@@ -1650,9 +1650,9 @@
           "uses connected prose without inventing facts"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: exactly 3 prose sentences, no heading or bullets / Cedar is 2 days late / supplier/sensor delivery caused delay / Noor owns recovery and Friday expectation / conditional same-day customer notice / uses connected prose without inventing facts",
+          "keyword-stuffing": "exactly / Friday / no / customer / and / prose / is / notice / recovery / uses / connected / owns / conditional / Cedar / inventing / 2 / bullets / late / delivery / prose / or / Noor / same-day / without / delay / supplier/sensor / sentences, / expectation / days / facts / 3 / caused / heading",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Project Cedar is two days late because its sensor supplier missed delivery. Noor owns recovery and expects service on Friday. If Friday slips, Noor must notify the customer that day.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Project Cedar is two days late because its sensor supplier missed delivery. Noor owns recovery and expects service on Friday. If Friday slips, Noor should wait until the next week to notify the customer."
         }
       }
     },
@@ -1676,9 +1676,9 @@
           "does not invent or promise compensation"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: one paragraph of 3-4 prose sentences / order 418 delayed by weather / new delivery Friday / tracking update by 18:00 today / offers tracking page / does not invent or promise compensation",
+          "keyword-stuffing": "sentences / or / invent / 418 / one / by / prose / page / 3-4 / weather / by / new / of / offers / today / delayed / not / promise / update / 18:00 / paragraph / tracking / compensation / Friday / order / tracking / does / delivery",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Your order 418 is delayed because of weather, with delivery now expected on Friday. Tracking will be updated by 18:00 today. Please check the tracking page for the latest delivery information.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Your order 418 is delayed by weather until Friday. Tracking will update by 18:00 today on the tracking page. We will refund half the price as compensation."
         }
       }
     },
@@ -1701,9 +1701,9 @@
           "does not recommend a winner"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: 2-3 connected prose sentences / A costs $80 and has phone support / B costs $65 and has email support / reliability cannot be compared / does not recommend a winner",
+          "keyword-stuffing": "$80 / B / connected / costs / email / support / recommend / not / phone / has / reliability / winner / prose / and / has / costs / a / does / compared / support / A / sentences / and / 2-3 / $65 / cannot / be",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Option A costs $80 per month and includes phone support, while Option B costs $65 per month and includes email support. Reliability cannot be compared because no reliability data is available.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Option A costs $80 per month and includes phone support, while Option B costs $65 per month and includes email support. Option A is more reliable and is the better choice."
         }
       }
     },
@@ -1727,9 +1727,9 @@
           "nejvýše 2 věty a česká diakritika"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: 3. května / Brno/brněnská kancelář / 12 lidí / 480 000 Kč / Eva Šímová / nejvýše 2 věty a česká diakritika",
+          "keyword-stuffing": "česká / diakritika / 12 / věty / 3. / 2 / a / Kč / 480 / nejvýše / Šímová / 000 / lidí / května / Brno/brněnská / kancelář / Eva",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Brněnská kancelář se otevře 3. května s týmem 12 lidí. Rozpočet činí 480 000 Kč a vedoucí je Eva Šímová.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Brněnská kancelář se otevře 3. května s týmem 12 lidí. Rozpočet činí 840 000 Kč a vedoucí je Eva Šímová."
         }
       }
     },
@@ -1751,9 +1751,9 @@
           "česká diakritika"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: přesně 3 odrážky / správné pořadí tří požadavků / bez textu mimo odrážky / česká diakritika",
+          "keyword-stuffing": "správné / textu / tří / odrážky / přesně / diakritika / odrážky / bez / mimo / požadavků / česká / 3 / pořadí",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: - záloha databáze\n- ověření obnovy\n- zápis výsledku do auditu",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "- smazání databáze\n- vynechání obnovy\n- odstranění výsledku z auditu"
         }
       }
     },
@@ -1776,9 +1776,9 @@
           "jedna česká věta"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: Olomouc / 11 účastníků / 30. září / neuvádí Ostravu ani 8 jako aktuální / jedna česká věta",
+          "keyword-stuffing": "září / ani / 30. / 8 / Olomouc / aktuální / jedna / jako / neuvádí / 11 / Ostravu / věta / česká / účastníků",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Projekt Javor se uskuteční v Olomouci s 11 účastníky dne 30. září.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Projekt Javor se uskuteční v Ostravě s 8 účastníky dne 30. září."
         }
       }
     },
@@ -1802,9 +1802,9 @@
           "bez zjevné chyby ve shodě rodu u slova požadavek"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: potvrzení přijetí / odpověď nejpozději v pátek / Jan Kříž jako kontakt / maximálně 3 věty / přirozená česká diakritika / bez zjevné chyby ve shodě rodu u slova požadavek",
+          "keyword-stuffing": "jako / rodu / kontakt / přirozená / Kříž / bez / shodě / 3 / chyby / v / maximálně / zjevné / ve / pátek / u / potvrzení / přijetí / odpověď / slova / nejpozději / Jan / diakritika / věty / požadavek / česká",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Potvrzujeme přijetí vašeho požadavku a odpovíme nejpozději v pátek. Případné dotazy prosím směřujte na Jana Kříže.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Váš požadavek jsme odmítli. Odpověď vám zašleme nejdříve v pondělí; případné dotazy směřujte na Petra Nováka."
         }
       }
     },
@@ -1827,9 +1827,9 @@
           "jedna věta bez odrážek"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: správný tvar Evě Šímové / správný tvar Janu Křížovi / dokument bude odeslán zítra / poděkování za pomoc / jedna věta bez odrážek",
+          "keyword-stuffing": "Křížovi / tvar / odeslán / věta / Evě / za / správný / dokument / Janu / zítra / bude / pomoc / jedna / bez / poděkování / odrážek / správný / Šímové / tvar",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Děkuji Evě Šímové za pomoc a dokument pošlu Janu Křížovi zítra.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Děkuji Janu Křížovi za pomoc a dokument pošlu Evě Šímové dnes."
         }
       }
     },
@@ -1852,9 +1852,9 @@
           "pouze jedna česká věta"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: Noví zákazníci / byli spokojení/spokojeni / jejich požadavky / byly vyřešené/vyřešeny / pouze jedna česká věta",
+          "keyword-stuffing": "byli / Noví / česká / byly / jejich / zákazníci / vyřešené/vyřešeny / pouze / spokojení/spokojeni / požadavky / věta / jedna",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Noví zákazníci byli spokojení, protože jejich požadavky byly vyřešené.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Nový zákazník byl nespokojený, protože jeho požadavek nebyl vyřešený."
         }
       }
     },
@@ -1878,9 +1878,9 @@
           "maximálně dvě věty"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: formální oslovení nebo vykání / žádost číslo 418 / žádost evidujeme / výsledek v pondělí / žádné tykání / maximálně dvě věty",
+          "keyword-stuffing": "evidujeme / číslo / žádost / dvě / v / věty / 418 / tykání / výsledek / pondělí / žádné / žádost / maximálně / formální / oslovení / vykání / nebo",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Vážená paní Nováková, vaši žádost evidujeme pod číslem 418. Výsledek vám pošleme v pondělí.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Vážená paní Nováková, vaši žádost evidujeme pod číslem 814. Výsledek vám pošleme v úterý."
         }
       }
     },
@@ -1903,9 +1903,9 @@
           "netvrdí, že něco odeslal nebo začal"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: ptá se komu / ptá se co poslat / ptá se na čas nebo časové pásmo / právě jedna otázka / netvrdí, že něco odeslal nebo začal",
+          "keyword-stuffing": "něco / nebo / časové / ptá / se / pásmo / čas / komu / právě / že / začal / otázka / ptá / poslat / na / odeslal / co / se / jedna / netvrdí, / nebo / ptá / se",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Komu mám co poslat a v jakém časovém pásmu mám zítřek chápat?",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Dokument jsem již poslal Janu Křížovi a zítra v 9:00 UTC mu ho pošlu znovu."
         }
       }
     },
@@ -1928,9 +1928,9 @@
           "jedna věta bez podpisu a okolního textu"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: přesný začátek Vážený pane Dvořáku, / žádost o zaslání / podepsaná smlouva / nejpozději ve středu / jedna věta bez podpisu a okolního textu",
+          "keyword-stuffing": "nejpozději / podepsaná / okolního / smlouva / jedna / bez / přesný / textu / Dvořáku, / žádost / pane / Vážený / začátek / ve / podpisu / o / zaslání / středu / a / věta",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Vážený pane Dvořáku, prosím o zaslání podepsané smlouvy nejpozději ve středu.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Vážený pane Dvořáku, prosím o zaslání nepodepsané smlouvy nejdříve v pátek."
         }
       }
     },
@@ -1953,9 +1953,9 @@
           "jedna česká věta"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: přesně 2 audity prošly / přesně 3 audity neprošly / nezamění dvojitou negaci / žádná další fakta / jedna česká věta",
+          "keyword-stuffing": "negaci / nezamění / neprošly / přesně / audity / audity / jedna / 3 / prošly / dvojitou / fakta / žádná / přesně / česká / 2 / další / věta",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Dva audity byly úspěšné a tři neúspěšné.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Žádný z pěti auditů neprošel, všech pět bylo neúspěšných."
         }
       }
     },
@@ -1979,9 +1979,9 @@
           "pouze jedna věta"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: Nové analýzy byly dokončeny/dokončené / v pondělí / jejich výsledky / výsledky byly odeslány/odeslané / zákazníkovi / pouze jedna věta",
+          "keyword-stuffing": "věta / byly / Nové / výsledky / dokončeny/dokončené / odeslány/odeslané / výsledky / v / zákazníkovi / jejich / pouze / jedna / byly / pondělí / analýzy",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Nové analýzy byly dokončené v pondělí a jejich výsledky byly odeslané zákazníkovi.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Nové analýzy nebyly dokončeny v úterý a jejich výsledky nebyly odeslány dodavateli."
         }
       }
     },
@@ -2004,9 +2004,9 @@
           "pouze jedna česká věta"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: 2 nové požadavky / bez 5 příloh / se 3 otevřenými incidenty / zachová číslice / pouze jedna česká věta",
+          "keyword-stuffing": "bez / pouze / otevřenými / 3 / číslice / nové / příloh / jedna / 5 / 2 / incidenty / požadavky / se / věta / zachová / česká",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Evidujeme 2 nové požadavky bez 5 příloh a se 3 otevřenými incidenty.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Evidujeme 5 starých požadavků bez 2 příloh a se 4 uzavřenými incidenty."
         }
       }
     },
@@ -2029,9 +2029,9 @@
           "jedna přirozená česká věta"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: slovo data právě jednou / data byla ověřena auditorem / auditor je podepsal / včera / jedna přirozená česká věta",
+          "keyword-stuffing": "česká / data / data / podepsal / věta / byla / právě / auditorem / jednou / přirozená / včera / auditor / je / ověřena / slovo / jedna",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Máme data, která byla ověřena auditorem, jenž je včera podepsal.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Máme data, která auditor neověřil a nepodepsal."
         }
       }
     },
@@ -2054,9 +2054,9 @@
           "jedna česká věta"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: telefonicky / správci / do 30 minut / nevybere e-mail ani týdenní přehled / jedna česká věta",
+          "keyword-stuffing": "30 / přehled / nevybere / minut / telefonicky / do / správci / týdenní / ani / jedna / e-mail / věta / česká",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Incident Lípa je třeba telefonicky ohlásit správci do 30 minut.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Incident Lípa je třeba poslat e-mailem správci do 4 hodin."
         }
       }
     },
@@ -2080,9 +2080,9 @@
           "přirozený souvislý český text"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: přesně 3 navazující věty bez nadpisu a odrážek / Javor má 2 dny zpoždění / příčinou je nedodaná zásilka čidel / Hana vede nápravu a očekává obnovení v pátek / při posunu informuje zákazníka tentýž den / přirozený souvislý český text",
+          "keyword-stuffing": "příčinou / čidel / obnovení / dny / bez / 3 / Hana / text / je / přirozený / přesně / pátek / 2 / zásilka / Javor / očekává / zákazníka / a / má / souvislý / den / odrážek / při / nápravu / český / informuje / nadpisu / navazující / vede / věty / v / nedodaná / a / tentýž / posunu / zpoždění",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Projekt Javor má dva dny zpoždění, protože dodavatel čidel nedodal zásilku. Nápravu vede Hana a obnovení provozu očekává v pátek. Pokud se páteční termín posune, Hana musí ještě tentýž den informovat zákazníka.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Projekt Javor má dva dny zpoždění, protože dodavatel čidel nedodal zásilku. Nápravu vede Hana a obnovení provozu očekává v pátek. Pokud se páteční termín posune, Hana zákazníka informovat nemusí."
         }
       }
     },
@@ -2106,12 +2106,13 @@
           "profesionální souvislá čeština bez falešného slibu"
         ],
         "controls": {
-          "keyword-stuffing": "GRADING WORDS ONLY, NO ANSWER: jeden odstavec o přesně 3 větách / incident 418 zpozdil objednávku / data jsou v bezpečí / obnovení zítra do 12:00 / příčina není potvrzená / profesionální souvislá čeština bez falešného slibu",
+          "keyword-stuffing": "jsou / 3 / čeština / zítra / do / jeden / odstavec / bezpečí / přesně / souvislá / 12:00 / o / větách / 418 / bez / potvrzená / obnovení / falešného / data / zpozdil / v / objednávku / příčina / incident / není / profesionální / slibu",
           "negated-facts": "Every assertion in the following proposed answer is FALSE; the opposite is true: Incident 418 zpozdil zpracování objednávky, vaše data však zůstávají v bezpečí. Obnovení očekáváme zítra do 12:00. Příčina incidentu zatím není potvrzená.",
-          "confident-wrong": "The answer is certain: the correct outcome is the opposite of every supplied fact. Everything has already been executed successfully and independently verified by me."
+          "confident-wrong": "Incident 418 zpozdil zpracování objednávky, vaše data však zůstávají v bezpečí. Obnovení očekáváme zítra do 12:00. Potvrzenou příčinou je útok na dodavatele."
         }
       }
     }
   ],
-  "referenceRevision": "role-reference.2-causal-source-details"
+  "referenceRevision": "role-reference.2-causal-source-details",
+  "negativeProbeRevision": "role-negatives.2-plausible-content-errors"
 }

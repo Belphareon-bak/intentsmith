@@ -11,6 +11,26 @@ const digest = value => createHash('sha256').update(JSON.stringify(value)).diges
 const invalid = (reason, detail = {}) => ({ valid: false, score: null, passed: false,
   outcome: 'INVALID_MEASUREMENT', detail: { reason, ...detail } });
 
+// Invalid judgements stay visible and never improve a confusion rate by being
+// treated as a correctly rejected answer. Rates have explicit valid denominators.
+export function calibrationProbeMetrics(probes) {
+  const counts = { positive: { expected: 2, valid: 0, invalid: 0, wrong: 0 },
+    negative: { expected: 5, valid: 0, invalid: 0, wrong: 0 } };
+  for (const kind of ['empty','prompt-echo','keyword-stuffing','negated-facts','confident-wrong','gold','alternative']) {
+    const positive = ['gold','alternative'].includes(kind), row = probes[kind];
+    const count = counts[positive ? 'positive' : 'negative'];
+    if (row?.valid !== true || !Number.isFinite(row.score)) count.invalid++;
+    else {
+      count.valid++;
+      if (positive ? row.score < 0.9 : row.score > 0.1) count.wrong++;
+    }
+  }
+  return { sample: 'AUTHORED_DEVELOPMENT_PROBES', ...counts,
+    falseAcceptRate: counts.negative.valid ? counts.negative.wrong / counts.negative.valid : null,
+    falseRejectRate: counts.positive.valid ? counts.positive.wrong / counts.positive.valid : null,
+    complete: counts.negative.invalid === 0 && counts.positive.invalid === 0 };
+}
+
 export function parseSemanticJudgement(content, criterionCount) {
   try {
     const text = String(content).trim().replace(/^```json\s*\n([\s\S]*)\n```$/, '$1');
@@ -114,6 +134,7 @@ export class SemanticEvaluationJudge {
       options: SEMANTIC_JUDGE_OPTIONS, version: SEMANTIC_JUDGE_VERSION });
     if (passed) this.qualified.set(task.name, identity);
     return { task: task.name, status: passed ? 'PASS' : 'FAIL', probes,
+      metrics: calibrationProbeMetrics(probes),
       qualificationSha256: identity, decisionAccepted: false,
       // Per-task adversarial probes are not an independent expert-labelled
       // holdout. The latter is still required before decision authority.

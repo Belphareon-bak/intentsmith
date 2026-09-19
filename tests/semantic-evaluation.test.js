@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { suite, test, testAsync, summary } from './harness.js';
-import { SemanticEvaluationJudge, parseSemanticJudgement, semanticTask } from '../src/eval/semantic-evaluation-judge.js';
+import { SemanticEvaluationJudge, parseSemanticJudgement, semanticTask, calibrationProbeMetrics } from '../src/eval/semantic-evaluation-judge.js';
 import { SEMANTIC_ROLE_SUITES } from '../src/eval/semantic-role-suites.js';
 import { ModelEvaluationRunner } from '../src/eval/model-evaluation-runner.js';
 import { RoleQualityEvaluationRunner } from '../src/eval/role-quality-suites.js';
@@ -19,6 +19,18 @@ const goodCall=async(_model,messages)=>{
 };
 
 suite('semantic evaluation protocol and invalid-evidence propagation');
+test('calibration error rates retain invalid and missing probes outside explicit valid denominators',()=>{
+  const probes = { gold:{valid:true,score:1}, alternative:{valid:true,score:0.5},
+    empty:{valid:true,score:0}, 'confident-wrong':{valid:true,score:0.8},
+    'keyword-stuffing':{valid:false,score:null}, 'prompt-echo':{valid:true,score:0} };
+  const metrics = calibrationProbeMetrics(probes);
+  assert.deepEqual(metrics.positive,{expected:2,valid:2,invalid:0,wrong:1});
+  assert.deepEqual(metrics.negative,{expected:5,valid:3,invalid:2,wrong:1});
+  assert.equal(metrics.falseAcceptRate,1/3); assert.equal(metrics.falseRejectRate,0.5);
+  assert.equal(metrics.complete,false);
+  assert.equal(calibrationProbeMetrics({}).falseAcceptRate,null);
+  assert.equal(calibrationProbeMetrics({}).falseRejectRate,null);
+});
 test('role inputs are different assignments, with pinned sources and explicit development status',()=>{
   for(const role of ['D1','D2','R1','R2']) {
     const s=SEMANTIC_ROLE_SUITES[role];assert.equal(s.tests.length,8);assert.equal(s.notAHoldout,true);
