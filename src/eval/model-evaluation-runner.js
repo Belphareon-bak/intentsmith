@@ -31,6 +31,7 @@ export const MODEL_EVALUATION_ARTIFACT_ERROR = Object.freeze({
   RESPONSE_DRIFT: 'MODEL_EVALUATION_RESPONSE_ARTIFACT_DRIFT',
   RESPONSE_MODEL_MISMATCH: 'MODEL_EVALUATION_RESPONSE_MODEL_MISMATCH',
   PROVIDER_MISMATCH: 'MODEL_EVALUATION_RESPONSE_PROVIDER_MISMATCH',
+  RESPONSE_INCOMPLETE: 'MODEL_EVALUATION_RESPONSE_INCOMPLETE',
 });
 
 export class ModelEvaluationArtifactError extends Error {
@@ -130,8 +131,22 @@ export class ModelEvaluationRunner {
           );
         }
       }
+      // HTTP 200 and a digest do not prove completion. An interrupted provider
+      // can return partial content without a final event. Never grade that as
+      // a model failure; throw through the same invalid-evidence path as drift.
+      if (data.done !== true || !['stop', 'length'].includes(data.done_reason) || data.error) {
+        throw new ModelEvaluationArtifactError(
+          MODEL_EVALUATION_ARTIFACT_ERROR.RESPONSE_INCOMPLETE,
+          'The provider did not confirm a completed generation.',
+          { done: data.done ?? null, doneReason: data.done_reason ?? null, providerError: data.error || null },
+        );
+      }
       return {
         content: data.message?.content || data.response || '',
+        done: true,
+        doneReason: data.done_reason,
+        digestSha256: normalizeModelDigestSha256(data.digest || data.model_digest_sha256),
+        providerVersion: data.provider_version || null,
         evalCount: data.eval_count || 0,
         promptEvalCount: data.prompt_eval_count || 0,
         durationMs: Date.now() - started,

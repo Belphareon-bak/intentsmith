@@ -179,13 +179,21 @@ if(mode==='--prepare') {
     }
     const runtimeControls=[];
     const runtimeSamples=[['gold',versions.gold,1],['alternative',versions.alternative,1],['empty',versions.before,0]];
-    if(def.id==='search-report')runtimeSamples.push(['budget',versions.before,0],['transport-down',versions.before,null]);
+    if(def.id==='search-report')runtimeSamples.push(['budget',versions.before,0],['transport-down',versions.before,null],['provider-incomplete',versions.before,null]);
     for(const [name,sources,expected] of runtimeSamples) {
       console.log(def.id, 'runtime', name);put(dir,versions.before);
       const response=semanticDiff(versions.before,sources);
       const r=await attempt(def,dir,async()=>{
         if(name==='budget')throw Object.assign(new Error('VERIFIED_OPERATION_BUDGET_CONTROL'),{operational:true});
         if(name==='transport-down')throw Object.assign(new Error('PROVIDER_UNAVAILABLE_CONTROL'),{environmentInvalid:true});
+        if(name==='provider-incomplete') {
+          const original=globalThis.fetch;
+          try {
+            const digest='a'.repeat(64);
+            globalThis.fetch=async()=>({ok:true,json:async()=>({model:'oracle',digest,done:false,message:{content:response}})});
+            return await new ModelEvaluationRunner('http://oracle.invalid')._callModel('oracle',[],{}, {modelName:'oracle',digestSha256:digest});
+          } finally {globalThis.fetch=original;}
+        }
         return {content:response,evalCount:0,model:'ORACLE_REPLAY'};
       });
       runtimeControls.push({name,expected,...r});
@@ -226,7 +234,7 @@ if(mode==='--prepare') {
     decision:{method:'hoeffding-kl-bounded-groups',alpha:.05,minimumBenefit:.05,
       nonInferiorityMargin:.05,minimumSpeedup:1.25,allowSpeedDecision:false},
     profile:{numCtx:16384,numPredict:4096,temperature:.1,topP:.9,callTimeoutMs:300000,
-      providerVersion:'0.34.0-intentsmith.1',parallelism:1,maxVramBytes:22000000000,vramScope:'whole_device_including_desktop',
+      providerVersion:'0.34.0-intentsmith.2',parallelism:1,maxVramBytes:22000000000,vramScope:'whole_device_including_desktop',
       minimumPromptTokens:10000,minimumGeneratedTokens:2048,samplingMs:250,requiredGpuPlacement:'size_vram >= size',
       nativeAst:'C3 built-in native safety fallback; every changed JS file additionally checked by Node 22 before all executable oracles.'},
     oracleAcceptanceSha256:hash(fs.readFileSync(path.join(out,'oracle-acceptance.json'))),

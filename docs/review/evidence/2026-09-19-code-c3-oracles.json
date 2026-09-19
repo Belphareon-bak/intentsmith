@@ -1,9 +1,9 @@
 {
-  "startedAt": "2026-09-19T07:23:23.735Z",
-  "finishedAt": "2026-09-19T07:23:44.630Z",
+  "startedAt": "2026-09-19T07:51:39.849Z",
   "c3Revision": "379c2e4b6dea0fd0cd0fb19df67c3454c267fd49",
   "fixturesSha256": "a534aa8ba469ec6aebc7b48d6419b3610d23275762987906678dbf2ce68e4b36",
   "status": "PASS",
+  "finishedAt": "2026-09-19T07:52:01.465Z",
   "cases": [
     {
       "manifest": {
@@ -31,7 +31,8 @@
           "allPassed": true,
           "code": 0,
           "timedOut": false,
-          "durationMs": 100
+          "environmentInvalid": null,
+          "durationMs": 118
         },
         {
           "name": "alternative",
@@ -39,7 +40,8 @@
           "allPassed": true,
           "code": 0,
           "timedOut": false,
-          "durationMs": 82
+          "environmentInvalid": null,
+          "durationMs": 85
         },
         {
           "name": "broken",
@@ -47,54 +49,64 @@
           "allPassed": false,
           "code": 1,
           "timedOut": false,
-          "durationMs": 61
+          "environmentInvalid": null,
+          "durationMs": 70
         }
       ],
       "runtimeControls": [
         {
           "name": "gold",
           "expected": 1,
-          "valid": true,
           "score": 1,
+          "valid": true,
           "outcome": "SUCCESS",
           "reason": "all_passed",
-          "durationMs": 1440
+          "durationMs": 4073
         },
         {
           "name": "alternative",
           "expected": 1,
-          "valid": true,
           "score": 1,
+          "valid": true,
           "outcome": "SUCCESS",
           "reason": "all_passed",
-          "durationMs": 337
+          "durationMs": 303
         },
         {
           "name": "empty",
           "expected": 0,
-          "valid": true,
           "score": 0,
+          "valid": true,
           "outcome": "INCORRECT",
           "reason": "patch_failed",
-          "durationMs": 153
+          "durationMs": 134
         },
         {
           "name": "budget",
           "expected": 0,
-          "valid": true,
           "score": 0,
+          "valid": true,
           "outcome": "OPERATIONAL_FAILURE",
           "reason": "VERIFIED_OPERATION_BUDGET_CONTROL",
-          "durationMs": 167
+          "durationMs": 149
         },
         {
           "name": "transport-down",
           "expected": null,
-          "valid": false,
           "score": null,
+          "valid": false,
           "outcome": "ENVIRONMENT_INVALID",
           "reason": "PROVIDER_UNAVAILABLE_CONTROL",
-          "durationMs": 163
+          "durationMs": 152
+        },
+        {
+          "name": "provider-incomplete",
+          "expected": null,
+          "score": null,
+          "valid": false,
+          "outcome": "ENVIRONMENT_INVALID",
+          "reason": "MODEL_EVALUATION_RESPONSE_INCOMPLETE: The provider did not confirm a completed generation.",
+          "durationMs": 138
         }
       ]
     },
@@ -124,7 +136,8 @@
           "allPassed": true,
           "code": 0,
           "timedOut": false,
-          "durationMs": 111
+          "environmentInvalid": null,
+          "durationMs": 79
         },
         {
           "name": "alternative",
@@ -132,7 +145,8 @@
           "allPassed": true,
           "code": 0,
           "timedOut": false,
-          "durationMs": 113
+          "environmentInvalid": null,
+          "durationMs": 75
         },
         {
           "name": "broken",
@@ -140,36 +154,37 @@
           "allPassed": false,
           "code": 1,
           "timedOut": false,
-          "durationMs": 60
+          "environmentInvalid": null,
+          "durationMs": 65
         }
       ],
       "runtimeControls": [
         {
           "name": "gold",
           "expected": 1,
-          "valid": true,
           "score": 1,
+          "valid": true,
           "outcome": "SUCCESS",
           "reason": "all_passed",
-          "durationMs": 299
+          "durationMs": 338
         },
         {
           "name": "alternative",
           "expected": 1,
-          "valid": true,
           "score": 1,
+          "valid": true,
           "outcome": "SUCCESS",
           "reason": "all_passed",
-          "durationMs": 264
+          "durationMs": 271
         },
         {
           "name": "empty",
           "expected": 0,
-          "valid": true,
           "score": 0,
+          "valid": true,
           "outcome": "INCORRECT",
           "reason": "patch_failed",
-          "durationMs": 182
+          "durationMs": 120
         }
       ]
     },
@@ -199,7 +214,8 @@
           "allPassed": true,
           "code": 0,
           "timedOut": false,
-          "durationMs": 74
+          "environmentInvalid": null,
+          "durationMs": 71
         },
         {
           "name": "alternative",
@@ -207,7 +223,8 @@
           "allPassed": true,
           "code": 0,
           "timedOut": false,
-          "durationMs": 76
+          "environmentInvalid": null,
+          "durationMs": 65
         },
         {
           "name": "broken",
@@ -215,36 +232,37 @@
           "allPassed": false,
           "code": 1,
           "timedOut": false,
-          "durationMs": 92
+          "environmentInvalid": null,
+          "durationMs": 67
         }
       ],
       "runtimeControls": [
         {
           "name": "gold",
           "expected": 1,
-          "valid": true,
           "score": 1,
+          "valid": true,
           "outcome": "SUCCESS",
           "reason": "all_passed",
-          "durationMs": 300
+          "durationMs": 351
         },
         {
           "name": "alternative",
           "expected": 1,
-          "valid": true,
           "score": 1,
+          "valid": true,
           "outcome": "SUCCESS",
           "reason": "all_passed",
-          "durationMs": 308
+          "durationMs": 384
         },
         {
           "name": "empty",
           "expected": 0,
-          "valid": true,
           "score": 0,
+          "valid": true,
           "outcome": "INCORRECT",
           "reason": "patch_failed",
-          "durationMs": 157
+          "durationMs": 192
         }
       ]
     },
@@ -276,7 +294,8 @@
           "allPassed": true,
           "code": 0,
           "timedOut": false,
-          "durationMs": 114
+          "environmentInvalid": null,
+          "durationMs": 374
         },
         {
           "name": "alternative",
@@ -284,7 +303,8 @@
           "allPassed": true,
           "code": 0,
           "timedOut": false,
-          "durationMs": 117
+          "environmentInvalid": null,
+          "durationMs": 100
         },
         {
           "name": "broken",
@@ -292,36 +312,37 @@
           "allPassed": false,
           "code": 1,
           "timedOut": false,
-          "durationMs": 103
+          "environmentInvalid": null,
+          "durationMs": 91
         }
       ],
       "runtimeControls": [
         {
           "name": "gold",
           "expected": 1,
-          "valid": true,
           "score": 1,
+          "valid": true,
           "outcome": "SUCCESS",
           "reason": "all_passed",
-          "durationMs": 402
+          "durationMs": 387
         },
         {
           "name": "alternative",
           "expected": 1,
-          "valid": true,
           "score": 1,
+          "valid": true,
           "outcome": "SUCCESS",
           "reason": "all_passed",
-          "durationMs": 405
+          "durationMs": 359
         },
         {
           "name": "empty",
           "expected": 0,
-          "valid": true,
           "score": 0,
+          "valid": true,
           "outcome": "INCORRECT",
           "reason": "patch_failed",
-          "durationMs": 215
+          "durationMs": 217
         }
       ]
     },
@@ -351,7 +372,8 @@
           "allPassed": true,
           "code": 0,
           "timedOut": false,
-          "durationMs": 55
+          "environmentInvalid": null,
+          "durationMs": 75
         },
         {
           "name": "alternative",
@@ -359,7 +381,8 @@
           "allPassed": true,
           "code": 0,
           "timedOut": false,
-          "durationMs": 65
+          "environmentInvalid": null,
+          "durationMs": 88
         },
         {
           "name": "broken",
@@ -367,36 +390,37 @@
           "allPassed": false,
           "code": 1,
           "timedOut": false,
-          "durationMs": 73
+          "environmentInvalid": null,
+          "durationMs": 81
         }
       ],
       "runtimeControls": [
         {
           "name": "gold",
           "expected": 1,
-          "valid": true,
           "score": 1,
+          "valid": true,
           "outcome": "SUCCESS",
           "reason": "all_passed",
-          "durationMs": 198
+          "durationMs": 314
         },
         {
           "name": "alternative",
           "expected": 1,
-          "valid": true,
           "score": 1,
+          "valid": true,
           "outcome": "SUCCESS",
           "reason": "all_passed",
-          "durationMs": 221
+          "durationMs": 275
         },
         {
           "name": "empty",
           "expected": 0,
-          "valid": true,
           "score": 0,
+          "valid": true,
           "outcome": "INCORRECT",
           "reason": "patch_failed",
-          "durationMs": 130
+          "durationMs": 141
         }
       ]
     },
@@ -426,7 +450,8 @@
           "allPassed": true,
           "code": 0,
           "timedOut": false,
-          "durationMs": 66
+          "environmentInvalid": null,
+          "durationMs": 73
         },
         {
           "name": "alternative",
@@ -434,7 +459,8 @@
           "allPassed": true,
           "code": 0,
           "timedOut": false,
-          "durationMs": 44
+          "environmentInvalid": null,
+          "durationMs": 73
         },
         {
           "name": "broken",
@@ -442,36 +468,37 @@
           "allPassed": false,
           "code": 1,
           "timedOut": false,
-          "durationMs": 53
+          "environmentInvalid": null,
+          "durationMs": 89
         }
       ],
       "runtimeControls": [
         {
           "name": "gold",
           "expected": 1,
-          "valid": true,
           "score": 1,
+          "valid": true,
           "outcome": "SUCCESS",
           "reason": "all_passed",
-          "durationMs": 302
+          "durationMs": 266
         },
         {
           "name": "alternative",
           "expected": 1,
-          "valid": true,
           "score": 1,
+          "valid": true,
           "outcome": "SUCCESS",
           "reason": "all_passed",
-          "durationMs": 251
+          "durationMs": 272
         },
         {
           "name": "empty",
           "expected": 0,
-          "valid": true,
           "score": 0,
+          "valid": true,
           "outcome": "INCORRECT",
           "reason": "patch_failed",
-          "durationMs": 136
+          "durationMs": 111
         }
       ]
     },
@@ -501,7 +528,8 @@
           "allPassed": true,
           "code": 0,
           "timedOut": false,
-          "durationMs": 174
+          "environmentInvalid": null,
+          "durationMs": 495
         },
         {
           "name": "alternative",
@@ -509,7 +537,8 @@
           "allPassed": true,
           "code": 0,
           "timedOut": false,
-          "durationMs": 185
+          "environmentInvalid": null,
+          "durationMs": 153
         },
         {
           "name": "broken",
@@ -517,36 +546,37 @@
           "allPassed": false,
           "code": 1,
           "timedOut": false,
-          "durationMs": 54
+          "environmentInvalid": null,
+          "durationMs": 69
         }
       ],
       "runtimeControls": [
         {
           "name": "gold",
           "expected": 1,
-          "valid": true,
           "score": 1,
+          "valid": true,
           "outcome": "SUCCESS",
           "reason": "all_passed",
-          "durationMs": 425
+          "durationMs": 494
         },
         {
           "name": "alternative",
           "expected": 1,
-          "valid": true,
           "score": 1,
+          "valid": true,
           "outcome": "SUCCESS",
           "reason": "all_passed",
-          "durationMs": 481
+          "durationMs": 454
         },
         {
           "name": "empty",
           "expected": 0,
-          "valid": true,
           "score": 0,
+          "valid": true,
           "outcome": "INCORRECT",
           "reason": "patch_failed",
-          "durationMs": 120
+          "durationMs": 143
         }
       ]
     },
@@ -576,7 +606,8 @@
           "allPassed": true,
           "code": 0,
           "timedOut": false,
-          "durationMs": 96
+          "environmentInvalid": null,
+          "durationMs": 71
         },
         {
           "name": "alternative",
@@ -584,7 +615,8 @@
           "allPassed": true,
           "code": 0,
           "timedOut": false,
-          "durationMs": 73
+          "environmentInvalid": null,
+          "durationMs": 91
         },
         {
           "name": "broken",
@@ -592,36 +624,37 @@
           "allPassed": false,
           "code": 1,
           "timedOut": false,
-          "durationMs": 65
+          "environmentInvalid": null,
+          "durationMs": 51
         }
       ],
       "runtimeControls": [
         {
           "name": "gold",
           "expected": 1,
-          "valid": true,
           "score": 1,
+          "valid": true,
           "outcome": "SUCCESS",
           "reason": "all_passed",
-          "durationMs": 239
+          "durationMs": 334
         },
         {
           "name": "alternative",
           "expected": 1,
-          "valid": true,
           "score": 1,
+          "valid": true,
           "outcome": "SUCCESS",
           "reason": "all_passed",
-          "durationMs": 280
+          "durationMs": 267
         },
         {
           "name": "empty",
           "expected": 0,
-          "valid": true,
           "score": 0,
+          "valid": true,
           "outcome": "INCORRECT",
           "reason": "patch_failed",
-          "durationMs": 117
+          "durationMs": 139
         }
       ]
     }

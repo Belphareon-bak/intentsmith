@@ -10,7 +10,7 @@ nepovyšuje na rozhodovací data. Aktuální ověřený CODE binding je
 jako druhý v průzkumné sérii, nikoli podle výsledku tohoto duelu.
 
 [Uzamčený plán](evidence/2026-09-19-code-decision-plan.json), SHA-256
-`43a1e9172ea125351de930f8805b48bccd32d647e24d4043931aaafc95b78c01`,
+`8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3`,
 obsahuje přesné artefakty, otisky runneru, testů a vstupních kontextů, rozpočet,
 provider i Node. [Přejímka orákul](evidence/2026-09-19-code-c3-oracles.json)
 zachycuje osm reálných historických oprav C3 `379c2e4` a jejich alternativy.
@@ -80,7 +80,41 @@ Požadavek ≥10 000 vstupních / ≥2 048 výstupních tokenů, kontext 16 384,
 limit 22 000 000 000 bajtů celé karty, modely, všech osm úloh, rozpočty,
 metriky i rozhodovací meze zůstaly stejné. Jde o opravu vstupu před jakýmkoli
 kvalitativním výsledkem; v1 se nepřepisuje a jeho nespustené pokusy nejsou
-falešné nuly. Finální měření používá nový uzamčený plán v2 uvedený výše.
+falešné nuly. Plán v2 byl následně zastaven kvůli níže doložené chybě provideru.
+
+### Přerušený v2 a oprava neúplných odpovědí provideru
+
+V2 kvalifikoval oba modely: Qwen 11 990 / 4 096 tokenů, 21,159 GB celé
+karty; Devstral 12 182 / 4 096 tokenů, 21,151 GB; oba plně na GPU.
+Duel byl po sedmi zapsaných pokusech zastaven pouze v našem vlastním procesu.
+Devstral při build-arbitration vrátil HTTP 200 s digestem, ale bez terminálního
+`done` a počtů tokenů. Provider ukončil legitimní opakovanou čáru `═` po
+31 stejných částech a vrátil `ctx.Err() == nil`. Také konec proudu bez
+terminální události původně vracel nil. Runner neověřoval dokončení.
+
+[Původní záznamy a jejich vyřazení](evidence/2026-09-19-code-v2-disposition.json)
+nejsou přepsané. Jeden doložený neúplný pokus je porucha prostředí;
+celý přerušený kohort není rozhodovací evidence. Zbývajících 41 pokusů
+zahrnuje jeden přerušený rozpracovaný pokus. Nic se neimportovalo do produkční DB.
+
+Patch `0003-v0.34.0-complete-repeated-code-tokens.patch` odstraňuje pouze
+heuristiku opakovaných tokenů; původní konečný tokenový rozpočet a časový
+limit zůstávají. Chybějící terminální událost je nyní explicitní chyba.
+Runner navíc vyžaduje `done:true` a `stop|length`; uchovává dokončení,
+digest a verzi provideru. Sonda přes skutečný C3 loop dává pro neúplnou
+HTTP 200 odpověď `ENVIRONMENT_INVALID / null`, bez falešné nuly.
+Oprava nemění modelové zadání, případy, meze ani agregaci podle výsledků.
+
+Ollama `.2` je pouze evaluační sidecar pro ruční CODE pilot na 11435.
+Systémová 11434 a běžný hunt stále používají `.1`; plánovač zůstává
+zablokovaný a nic se neaktivuje. Build: Go 1.26.7, základ v0.34.0,
+patchnutý zdroj `4b548b3d49c8bb79b08673bfebc3c2f1f8468fd7`, binárka
+`3c22a0cfb46a9ea38fd4dba6746a022be04f5ada21a529e83c9380a5f0547b9d`.
+Dvě sestavení se shodují. Reprodukce: `OLLAMA_PROVIDER_REVISION=2`
+u existujícího `scripts/build-ollama-evaluation-provider.sh`; nativní payload
+zůstává hashově ověřený a beze změny. V3 je nový uzamčený plán uvedený výše;
+opakuje i paměťovou kvalifikaci na opraveném provideru. Orákula: 24 přímých
+kontrol a 27 průchodů C3; všechny PASS. Nejde o nezávislé review.
 
 ## Uzavřená průzkumná série
 

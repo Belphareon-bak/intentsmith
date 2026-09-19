@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "role": "CODE",
   "metric": "completed_without_repair_help",
-  "lockedAt": "2026-09-19T07:53:28.714Z",
+  "lockedAt": "2026-09-19T07:30:56.531Z",
   "bindingDb": "/home/belphareon/Projects/intentsmith/data/c3.db",
   "bindingAtLock": {
     "role": "CODE",
@@ -12,7 +12,7 @@
     "binding_operation_id": "op_4e6c3cf8-c8d3-45d2-bc4f-a18def25b619",
     "applied_at": "2026-09-19 06:29:13"
   },
-  "predecessorPlanSha256": "43a1e9172ea125351de930f8805b48bccd32d647e24d4043931aaafc95b78c01",
+  "predecessorPlanSha256": "537ae6d68a7c9105528a49e1e9a1a7f5c0e18090dac3e10550d109e17d95d82e",
   "c3Revision": "379c2e4b6dea0fd0cd0fb19df67c3454c267fd49",
   "independenceStatus": "ASSUMED_GROUPS_NOT_PROVEN_INDEPENDENCE",
   "scope": "Localized historical C3 repair using its unchanged execution loop; no Studio journey or whole-project success claim.",
@@ -45,7 +45,7 @@
     "temperature": 0.1,
     "topP": 0.9,
     "callTimeoutMs": 300000,
-    "providerVersion": "0.34.0-intentsmith.2",
+    "providerVersion": "0.34.0-intentsmith.1",
     "parallelism": 1,
     "maxVramBytes": 22000000000,
     "vramScope": "whole_device_including_desktop",
@@ -56,13 +56,13 @@
     "nativeAst": "C3 built-in native safety fallback; every changed JS file additionally checked by Node 22 before all executable oracles.",
     "promptSha256": "ca69e1e48f4befcc434a97457b6d379ea801dbf93bbf6f063ef15651115f7919"
   },
-  "oracleAcceptanceSha256": "409bab5b71bca3e07b7414940fd25b06cba43efc3c710b0dea46c051d7c5b0ac",
+  "oracleAcceptanceSha256": "73f4a6cdbbad8278c744dcf2806f2c2132293d2f670a5ca2f5cd6c5d2d4e9800",
   "sourceHashes": {
-    "scripts/manual/c3-code-pilot.mjs": "d0e7d1d59c2455483be419aec16c1e2ae1142f3900ae3c9c5040e928f3723626",
+    "scripts/manual/c3-code-pilot.mjs": "e201c2a8435f38ba55d9984115174cfd588c31de151b37a1e81dbfd5ea6411ac",
     "scripts/manual/c3-code-pilot-fixtures.mjs": "a534aa8ba469ec6aebc7b48d6419b3610d23275762987906678dbf2ce68e4b36",
     "src/eval/code-pilot-decision.js": "502aeb57e78b53e53f2d4165563d5aabff07d14326311dfef55d904bf5818a0b",
-    "src/eval/model-evaluation-runner.js": "941f8d9ceffa7810e57c13505525c709afcd2892ac1083df8c96a19b1c0067b4",
-    "scripts/run-model-hunt-provider.js": "1457ed5df62b94f94eeaa4fa3463f4e71cfbf9eb242920e4e99ecbbdee1c024f"
+    "src/eval/model-evaluation-runner.js": "83b6cb29a438811d0533ec1ff0f0b7117a516cde882f63f77eefdac55b56a095",
+    "scripts/run-model-hunt-provider.js": "462e0140816020e7548d266e8967e396f3358eabacae63fda648e2cceb526882"
   },
   "node": {
     "version": "v22.21.1",
@@ -209,5 +209,5 @@
       "contentSha256": "50b4ff296bb87341f3d157ab596b06719120b89f0a0018cae0a70ef91c52079d"
     }
   ],
-  "planSha256": "8a234843506a967389598adc82bed33a0785cc8761f66ef2b2338bf25d7172e3"
+  "planSha256": "43a1e9172ea125351de930f8805b48bccd32d647e24d4043931aaafc95b78c01"
 }

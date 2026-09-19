@@ -264,6 +264,7 @@ await testAsync('direct call returns content and metrics', async () => {
     return {
       ok: true,
       json: async () => ({
+        done: true, done_reason: 'stop',
         message: { content: `response:${body.messages[0].content}` },
         eval_count: 42,
         prompt_eval_count: 9,
@@ -292,7 +293,7 @@ await testAsync('evaluation cannot race a pull and holds its lease through respo
         const conflict = modelUseAuthority.acquireExclusive({ modelName: 'fixture', owner: MODEL_ACTIVITY_OWNER.MODEL_PULL });
         conflict.release();
       } catch { activeDuringBody = true; }
-      return { message: { content: 'held' } };
+      return { done: true, done_reason: 'stop', message: { content: 'held' } };
     } };
   };
   let lease = modelUseAuthority.acquireExclusive({ modelName: 'fixture', owner: MODEL_ACTIVITY_OWNER.MODEL_PULL });
@@ -315,7 +316,7 @@ await testAsync('authoritative direct call accepts a response-attested artifact'
     ok: true,
     json: async () => ({
       model: 'fixture:latest',
-      digest: `sha256:${DIGEST_A}`,
+      digest: `sha256:${DIGEST_A}`, done: true, done_reason: 'stop',
       message: { content: 'verified' },
     }),
   });
@@ -548,7 +549,7 @@ await testAsync('response-bound provider version rejects missing or changed runt
   try {
     for (const version of [undefined, '0.35.0-intentsmith.1', '0.34.0-intentsmith.1']) {
       globalThis.fetch = async () => ({ ok: true, json: async () => ({
-        model: 'fixture:latest', digest: DIGEST_A, provider_version: version, message: { content: 'ok' },
+        model: 'fixture:latest', digest: DIGEST_A, provider_version: version, done: true, done_reason: 'stop', message: { content: 'ok' },
       }) });
       let error = null;
       try {
@@ -559,6 +560,32 @@ await testAsync('response-bound provider version rejects missing or changed runt
       else assertEqual(error?.code, MODEL_EVALUATION_ARTIFACT_ERROR.PROVIDER_MISMATCH);
     }
   } finally { globalThis.fetch = original; }
+});
+
+await testAsync('attested partial responses never reach the grader; terminal budget responses do', async () => {
+  const original = globalThis.fetch;
+  let graded = 0;
+  const runner = new ModelEvaluationRunner('http://127.0.0.1:11434', {suites:{probe:{tests:[{
+    name:'probe', prompt:()=> 'ping', grade:()=> {graded++;return {passed:false,score:0};},
+  }]}}});
+  try {
+    for (const ending of [{}, {done:false}, {done:true}, {done:true,done_reason:'load'},
+      {done:true,done_reason:'stop',error:'interrupted'}]) {
+      globalThis.fetch = async () => ({ok:true,json:async()=>({model:'fixture',digest:DIGEST_A,
+        message:{content:'partial but plausible'},...ending})});
+      let error;
+      try {await runner.runSuite('probe','fixture',null,{modelName:'fixture',digestSha256:DIGEST_A});}
+      catch (caught) {error=caught;}
+      assertEqual(error?.code,MODEL_EVALUATION_ARTIFACT_ERROR.RESPONSE_INCOMPLETE);
+      assertEqual(graded,0);
+    }
+    globalThis.fetch = async () => ({ok:true,json:async()=>({model:'fixture',digest:DIGEST_A,
+      done:true,done_reason:'length',message:{content:'incomplete answer at verified budget'},eval_count:512})});
+    const result=await runner.runSuite('probe','fixture',null,{modelName:'fixture',digestSha256:DIGEST_A});
+    assertEqual(graded,1);assertEqual(result.score,0);
+    const call=await runner._callModel('fixture',[],{}, {modelName:'fixture',digestSha256:DIGEST_A});
+    assertEqual(call.doneReason,'length');assertEqual(call.digestSha256,DIGEST_A);
+  } finally {globalThis.fetch=original;}
 });
 
 const results = summary();

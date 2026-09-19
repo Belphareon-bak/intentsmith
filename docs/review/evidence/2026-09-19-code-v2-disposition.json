@@ -1,0 +1,87 @@
+{
+  "generatedAt": "2026-09-19T07:49:57.817811+00:00",
+  "status": "ABORTED_PROVIDER_COMPLETION_BUG",
+  "planSha256": "43a1e9172ea125351de930f8805b48bccd32d647e24d4043931aaafc95b78c01",
+  "sourceResultSha256": "516cd2bc56b30561152c8f68802ec30a6fff73011b425f98952c5e1c646b70b2",
+  "completedRecords": 7,
+  "missingOrInterrupted": 41,
+  "rows": [
+    {
+      "evidence": "attempt-search-report-1-incumbent.json",
+      "sha256": "85162942747aa169a43afb9073cd14957c4b424b62f4c67f2be1dbfa603934aa",
+      "originalOutcome": "INCORRECT",
+      "originalScore": 0,
+      "callsWithMissingTokenMetrics": 0,
+      "disposition": "ABORTED_COHORT_NOT_DECISION_EVIDENCE",
+      "qualityScore": null,
+      "reason": "Provider completion proof absent from recorded calls; zero-token partial replies observed; original records retained."
+    },
+    {
+      "evidence": "attempt-search-report-1-candidate.json",
+      "sha256": "08e9cc9db89ad00cfa5da29f2b962f54c1a23aeb745b1c6914a7f65b5e2662d9",
+      "originalOutcome": "INCORRECT",
+      "originalScore": 0,
+      "callsWithMissingTokenMetrics": 0,
+      "disposition": "ABORTED_COHORT_NOT_DECISION_EVIDENCE",
+      "qualityScore": null,
+      "reason": "Provider completion proof absent from recorded calls; zero-token partial replies observed; original records retained."
+    },
+    {
+      "evidence": "attempt-build-arbitration-1-candidate.json",
+      "sha256": "de07f1712fb36ad3527dd185deb1a62ad79d570ddb996f703017b70a75a1a34f",
+      "originalOutcome": "INCORRECT",
+      "originalScore": 0,
+      "callsWithMissingTokenMetrics": 1,
+      "disposition": "ENVIRONMENT_INVALID",
+      "qualityScore": null,
+      "reason": "Provider completion proof absent from recorded calls; zero-token partial replies observed; original records retained."
+    },
+    {
+      "evidence": "attempt-build-arbitration-1-incumbent.json",
+      "sha256": "656bf3e95756ffd3f42e9d9506d7047787ed2aad323c75e65f8a3e501fa222de",
+      "originalOutcome": "INCORRECT",
+      "originalScore": 0,
+      "callsWithMissingTokenMetrics": 0,
+      "disposition": "ABORTED_COHORT_NOT_DECISION_EVIDENCE",
+      "qualityScore": null,
+      "reason": "Provider completion proof absent from recorded calls; zero-token partial replies observed; original records retained."
+    },
+    {
+      "evidence": "attempt-manual-scheduler-1-incumbent.json",
+      "sha256": "8933d7e2cd8a697553659cd897a761df6743f5c6797ca7b4e2f9e2977b8ec15f",
+      "originalOutcome": "INCORRECT",
+      "originalScore": 0,
+      "callsWithMissingTokenMetrics": 0,
+      "disposition": "ABORTED_COHORT_NOT_DECISION_EVIDENCE",
+      "qualityScore": null,
+      "reason": "Provider completion proof absent from recorded calls; zero-token partial replies observed; original records retained."
+    },
+    {
+      "evidence": "attempt-manual-scheduler-1-candidate.json",
+      "sha256": "96ada2ffe2eddb057006050393d09861c5f3797db40372148ead9864bbfb2d3f",
+      "originalOutcome": "INCORRECT",
+      "originalScore": 0,
+      "callsWithMissingTokenMetrics": 0,
+      "disposition": "ABORTED_COHORT_NOT_DECISION_EVIDENCE",
+      "qualityScore": null,
+      "reason": "Provider completion proof absent from recorded calls; zero-token partial replies observed; original records retained."
+    },
+    {
+      "evidence": "attempt-specialist-cleanup-1-candidate.json",
+      "sha256": "9e9046b2fd299af56e396b809d95a99c5dfad344f79cd5e941c08e4f49ccd0e8",
+      "originalOutcome": "INCORRECT",
+      "originalScore": 0,
+      "callsWithMissingTokenMetrics": 0,
+      "disposition": "ABORTED_COHORT_NOT_DECISION_EVIDENCE",
+      "qualityScore": null,
+      "reason": "Provider completion proof absent from recorded calls; zero-token partial replies observed; original records retained."
+    }
+  ],
+  "operationPolicy": {
+    "productionImported": false,
+    "applyBindings": false,
+    "removeModels": false
+  },
+  "recommendation": "NEROZHODNUTO",
+  "rawEvidencePreserved": true
+}

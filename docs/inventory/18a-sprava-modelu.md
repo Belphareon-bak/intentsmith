@@ -4,7 +4,8 @@
 Devstralu; osm oddělených historických oprav C3, šest deklarovaných skupin,
 tři opakování, 95% konzervativní interval. Orákula i skutečný C3 fix-loop
 projdou správnou a alternativní opravou; prázdná oprava selže. Paměťová
-kvalifikace 22 GB a 48 párových pokusů zatím **NOT_RUN**. Timer vypnutý,
+kvalifikace v2 prošla; duel v2 přerušen kvůli neúplné odpovědi provideru.
+Opravený sidecar `.2` má reprodukovaný build; nový plán v3 připraven. Timer vypnutý,
 service i timer mají trvalou podmínku proti spuštění starého huntu; bez změn
 vazeb a mazání. **PREPARED / REVIEW_PENDING / NOT_DEPLOYED**.
 [Důkazy a plán](../review/2026-09-19-CODE-MEASUREMENT.md).

@@ -4,7 +4,8 @@
 Devstralu; osm oddělených historických oprav C3, šest deklarovaných skupin,
 tři opakování, 95% konzervativní interval. Orákula i skutečný C3 fix-loop
 projdou správnou a alternativní opravou; prázdná oprava selže. Paměťová
-kvalifikace 22 GB a 48 párových pokusů zatím **NOT_RUN**. Timer vypnutý,
+kvalifikace v2 prošla; duel v2 přerušen kvůli neúplné odpovědi provideru.
+Opravený sidecar `.2` má reprodukovaný build; nový plán v3 připraven. Timer vypnutý,
 service i timer mají trvalou podmínku proti spuštění starého huntu; bez změn
 vazeb a mazání. **PREPARED / REVIEW_PENDING / NOT_DEPLOYED**.
 [Důkazy a plán](docs/review/2026-09-19-CODE-MEASUREMENT.md).
@@ -374,8 +375,8 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **226 038 ř.**, 632 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **247 752 ř.**, 533 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **226 053 ř.**, 632 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **247 779 ř.**, 533 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **525** (`431 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 102** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |

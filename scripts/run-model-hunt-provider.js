@@ -14,16 +14,18 @@ import { analyzeHuntDecisions, inspectHuntGpu } from '../src/upgrade/model-hunt-
 import { holdGpuEvaluationLock } from '../src/upgrade/gpu-evaluation-lock.js';
 
 const root = resolve(fileURLToPath(new URL('..', import.meta.url)));
-const runtime = process.env.INTENTSMITH_EVAL_RUNTIME || join(homedir(), '.local/share/intentsmith/evaluation-provider/0.34.0-intentsmith.1');
+const codePilot = process.argv.includes('--code-pilot');
+const providerVersion = codePilot ? '0.34.0-intentsmith.2' : '0.34.0-intentsmith.1';
+const runtime = process.env.INTENTSMITH_EVAL_RUNTIME || join(homedir(), '.local/share/intentsmith/evaluation-provider', providerVersion);
 const binary = join(runtime, 'bin/ollama');
-const expected = '8883245b864485a74ecccf62c4ce17d4538816cde4e37ea2107c2204d1d04ca7';
+const expected = codePilot ? '3c22a0cfb46a9ea38fd4dba6746a022be04f5ada21a529e83c9380a5f0547b9d'
+  : '8883245b864485a74ecccf62c4ce17d4538816cde4e37ea2107c2204d1d04ca7';
 const state = process.env.INTENTSMITH_HUNT_STATE_DIR || join(homedir(), '.local/state/intentsmith/model-hunt');
 mkdirSync(state, { recursive: true, mode: 0o700 });
 const runDir = mkdtempSync(join(state, 'run-'));
 mkdirSync(join(runDir, 'tmp'), { mode: 0o700 });
 const startedAt = new Date().toISOString();
 const argument = name => process.argv.slice(2).find(value => value.startsWith(`--${name}=`))?.slice(name.length + 3) || null;
-const codePilot = process.argv.includes('--code-pilot');
 const request = { kind: codePilot ? 'code-pilot' : process.argv.includes('--evaluate-installed') ? 'evaluation' : 'hunt',
   model: argument('only'), role: argument('role') };
 const currentFile = join(state, 'current.json');
@@ -103,7 +105,7 @@ try {
     if (provider.exitCode !== null || provider.signalCode !== null) throw new Error(`Evaluation provider exited: ${provider.exitCode}`);
     try {
       const response = await fetch('http://127.0.0.1:11435/api/version', { signal: AbortSignal.timeout(1000) });
-      if (response.ok && (await response.json()).version === '0.34.0-intentsmith.1') { ready = true; break; }
+      if (response.ok && (await response.json()).version === providerVersion) { ready = true; break; }
     } catch { /* startup */ }
     await delay(100);
   }

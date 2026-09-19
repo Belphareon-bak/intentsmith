@@ -16,6 +16,10 @@ go_bin=$(command -v "${GO_BIN:-go}") || {
   exit 2
 }
 provider_tag=${OLLAMA_PROVIDER_TAG:-v0.34.0}
+provider_revision=${OLLAMA_PROVIDER_REVISION:-1}
+[[ "$provider_revision" == 1 || ( "$provider_tag" == v0.34.0 && "$provider_revision" == 2 ) ]] || {
+  echo "Unsupported provider revision." >&2; exit 2
+}
 case "$provider_tag" in
 v0.32.14)
 provider_version=0.32.14-intentsmith.1
@@ -37,6 +41,11 @@ source_epoch=1789160400
 ;;
 *) echo "Unsupported provider tag: $provider_tag" >&2; exit 2 ;;
 esac
+if [[ "$provider_revision" == 2 ]]; then
+  provider_version=0.34.0-intentsmith.2
+  expected_source=4b548b3d49c8bb79b08673bfebc3c2f1f8468fd7
+  expected_binary=3c22a0cfb46a9ea38fd4dba6746a022be04f5ada21a529e83c9380a5f0547b9d
+fi
 mkdir -- "$1"
 output=$(cd -- "$1" && pwd)
 source_dir="$output/source"
@@ -50,6 +59,11 @@ git -c core.hooksPath=/dev/null clone --no-local --depth=1 --single-branch \
 git -C "$source_dir" -c core.hooksPath=/dev/null -c commit.gpgSign=false \
   -c user.name=Belphareon -c user.email=geofery.cz@gmail.com \
   am --committer-date-is-author-date "$patch_file"
+if [[ "$provider_revision" == 2 ]]; then
+  git -C "$source_dir" -c core.hooksPath=/dev/null -c commit.gpgSign=false \
+    -c user.name=Belphareon -c user.email=geofery.cz@gmail.com \
+    am --committer-date-is-author-date "$script_root/patches/ollama/0003-v0.34.0-complete-repeated-code-tokens.patch"
+fi
 [[ "$(git -C "$source_dir" rev-parse HEAD)" == "$expected_source" ]] || {
   echo "Patched source identity mismatch." >&2
   exit 1
