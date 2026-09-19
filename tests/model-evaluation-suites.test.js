@@ -564,7 +564,7 @@ await testAsync('response-bound provider version rejects missing or changed runt
   } finally { globalThis.fetch = original; }
 });
 
-await testAsync('attested partial responses never reach the grader; terminal budget responses do', async () => {
+await testAsync('unverified endings are invalid; confirmed budget exhaustion fails operationally and a normal stop reaches grading', async () => {
   const original = globalThis.fetch;
   let graded = 0;
   const runner = new ModelEvaluationRunner('http://127.0.0.1:11434', {suites:{probe:{tests:[{
@@ -584,9 +584,14 @@ await testAsync('attested partial responses never reach the grader; terminal bud
     globalThis.fetch = async () => ({ok:true,json:async()=>({model:'fixture',digest:DIGEST_A,
       done:true,done_reason:'length',message:{content:'incomplete answer at verified budget'},eval_count:512})});
     const result=await runner.runSuite('probe','fixture',null,{modelName:'fixture',digestSha256:DIGEST_A});
-    assertEqual(graded,1);assertEqual(result.score,0);
+    assertEqual(graded,0);assertEqual(result.score,0);
+    assertEqual(result.tests[0].outcome,'OPERATIONAL_FAILURE');assertEqual(result.tests[0].valid,true);
     const call=await runner._callModel('fixture',[],{}, {modelName:'fixture',digestSha256:DIGEST_A});
     assertEqual(call.doneReason,'length');assertEqual(call.digestSha256,DIGEST_A);
+    globalThis.fetch = async () => ({ok:true,json:async()=>({model:'fixture',digest:DIGEST_A,
+      done:true,done_reason:'stop',message:{content:'complete answer'},eval_count:100})});
+    await runner.runSuite('probe','fixture',null,{modelName:'fixture',digestSha256:DIGEST_A});
+    assertEqual(graded,1);
   } finally {globalThis.fetch=original;}
 });
 
