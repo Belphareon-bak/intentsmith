@@ -1,5 +1,17 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**GPU hunt — opravy workflow, 19. 9. 2026:** `6610faf6` opravuje přenos
+patchů (včetně doslovných Markdown delimitérů), falešnou oscilaci, čtení
+harness diagnostik a chybějící chyby v následném promptu. Průzkumné sady již
+nezakládají rozhodnutí ani retenční důkaz. Finální orákula 60/60, široká
+regrese 359 PASS / 1 očekávaný Gate 0 FAIL; skutečný read-only Electron
+průchod sedmi záložek a reconnect PASS. Vývojová inference staršího
+`bdbcd201`: Qwen 2/8, Devstral 0/8; finální parser při replay navíc opraví
+jeden skutečný případ. Nové měření finálního runtime zůstalo blokované cizí GPU prací.
+Klasifikační doplnění `20a2f764`: 49/49 párových kontrol a 60/60 orákul.
+**REVIEW_PENDING / FULL_HUNT_NOT_READY / NOT_DEPLOYED**; timer disabled,
+hold trvá. [Rozsah, důkazy a otevřené kroky](docs/review/2026-09-19-HUNT-WORKFLOW-REPAIR.md).
+
 **GPU hunt, navazující oprava a audit 2026-09-19:** falešná konvergence
 v produkčním fix loopu opravena; výsledek, paměť oprav a metriky nyní vyžadují
 potvrzené kontroly. Regrese před opravou 63 PASS / 4 FAIL, po 67/67; navazující

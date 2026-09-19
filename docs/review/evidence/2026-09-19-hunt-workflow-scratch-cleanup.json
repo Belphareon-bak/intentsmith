@@ -1,0 +1,22 @@
+{
+  "status": "RECLAIMED_GENERATED_EXPORTS_AFTER_VERIFIED_ARCHIVE",
+  "at": "2026-09-19T11:27:29.790249+00:00",
+  "archiveSha256": "a41f981cbec21f26d8154f706970650cc6faf9252490b9b13b01f5c3e956cd40",
+  "removedDirectories": [
+    "acceptance-final/oracles",
+    "development-clean/attempts",
+    "development-clean/oracles",
+    "development-final/oracles",
+    "development-pinned/oracles",
+    "development-v1/oracles",
+    "development-v2/oracles",
+    "modern-oracles/oracles",
+    "modern-oracles-v2/oracles",
+    "modern-oracles-v3/oracles",
+    "modern-oracles-v4/oracles"
+  ],
+  "fileBytesReclaimed": 5755923682,
+  "uniqueBytesPreserved": 72589016,
+  "sourceCheckoutsRemoved": false,
+  "productionDataChanged": false
+}

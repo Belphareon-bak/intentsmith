@@ -252,3 +252,10 @@ pokus každého modelu na případ a paměťový profil. Výsledek vývojové s�
 vždy `DEVELOPMENT_ONLY`, bez změny produkční DB, vazeb nebo modelů. Přejímka
 správných/alternativních oprav a negativních kontrol běží přes stejnou smyčku.
 Automatický hunt zůstává pod původním holdem do přijetí rozhodovacích profilů.
+
+
+Vývojová oprava `6610faf6` má vlastní
+[packet k revizi](../review/2026-09-19-HUNT-WORKFLOW-REPAIR.md). Obsahuje
+60 kontrol orákul, uzavřenou 16pokusovou vývojovou sérii na předchozím
+`bdbcd201` a opravy nalezené jejím rozborem. Tento záznam nepřijímá nový
+rozhodovací profil, rychlou sadu ani jiné role a nemění původní NEROZHODNUTO.
