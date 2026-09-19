@@ -1,8 +1,100 @@
-# Tři skutečné projekty — průběžné důkazy 19. 9. 2026
+# Tři skutečné projekty — funkční aplikace a meze 19. 9. 2026
 
-**IN_PROGRESS / APPLICATIONS_NOT_COMPLETE / REVIEW_PENDING.** Pořadí operátora:
-SystemSmith_1, widget počasí, widget zpráv; teprve potom převzetí cizího projektu.
-Jde o obecnou zkoušku projektové práce, nikoli o specializaci IntentSmithu na monitory.
+**THREE_APPLICATIONS_RUNTIME_VERIFIED / ASSISTED_JOURNEY / REVIEW_PENDING.**
+Autorita: operátorovo zadání dokončit tři různé projekty přes IntentSmith,
+zlepšovat obecný projektový postup a uklidit vlastní pracovní kopie.
+Nejde o samostatné dokončení na jeden prompt ani o uzavření production release.
+
+## Aktuální výsledek
+
+Všechny tři aplikace jsou nainstalované v hlavní nabídce tohoto počítače.
+Jejich implementaci vytvořil skutečný CODE model (`qwen3.8:latest`) přes
+produkční draft → přesné M2 schválení → bwrap test → Git commit. Codex rozdělil
+práci, revidoval výstupy, dodal nezávislé ověření a konkrétní opravné požadavky.
+Zdrojáky existujícího SystemSmithu ani ShellSmithu se do nových aplikací
+nekopírovaly. Závěrečné README/ROADMAP obou widgetů jsou výslovně operátorská
+redakce přes M2: modelové návody obsahovaly neimplementované funkce a byly
+zrušené. Spouštěče, sběrače, providery, renderer i IPC jsou modelový výstup.
+
+| Aplikace / projekt | Čistý commit | Doložené chování |
+| --- | --- | --- |
+| SystemSmith_1 / 13 | `70d146936e2157008e3837774aa7c1edfe88c47c` | Živé CPU/RAM/NVIDIA GPU/FAN/network/disky, šest grafů, detail, řazené a vyhledávané procesy, pauza, trvalá volba 1/5/15/60 minut historie |
+| WeatherSmith / 14 | `74f7a861767a33250cfeee5e0082939280201abe` | Živé počasí a sedmidenní výhled, hledání města, nejvýše 30 uložených míst, ruční souřadnice, obnova a chybové stavy |
+| NewsSmith / 15 | `cc083cff07644e1ec7508a54cc8df371e5db3bdf` | Skutečné RSS/Atom, výběr z pěti zdrojů, klíčová slova, nepřečtené/přečtené, obnova, trvalé preference a čtecí historie |
+
+Skutečný Electron přes **vlastní vygenerovaný launcher**, nikoli jen webový
+mock, prošel u každé aplikace dvěma starty s různými PID, exit 0 a obnovením
+nastavení. Renderery nemají Node. Síť widgetů byla skutečná; žádná modelová
+inference neprobíhá při jejich běžném provozu.
+
+Důkazy pod `.intentsmith-artifacts/three-projects-20260919/`:
+
+- `system-desktop-zykJG9/result.json`, `overview-live.png`;
+- `weather-desktop-ap6Qb3/result.json`, `round-2.png` (finální CSS);
+- `news-desktop-E2Vh49/result.json`, `initial.png`;
+- `final-app-inventory.json` a `*-desktop-install.json` s přesnými menu entries;
+- `23k-widget-ui-search.json` / `27a-widget-ui-layout.json`: skutečné DOM
+  interakce s řízenou asynchronní sítí, souběh, hledání, odebrání místa a datum
+  také v `America/Los_Angeles`;
+- `33j-widget-ui.json`: zdroje, filtry, přečtení, obnovení, změna zdrojů během
+  požadavku a zachování obsahu/času při výpadku;
+- `24b-entry-contract.json`, `34c-entry-contract.json`: přesný odesílatel,
+  hlavní frame a URL, nastavení profilu před single-instance lockem;
+- `25b-launcher-test.json`, `35a-launcher-test.json`: sanitizace prostředí,
+  skutečné argumenty, exit 7, SIGTERM 143 a nedostupný runtime; raw skripty a logy jsou uchované.
+
+## Co výsledek neprokazuje
+
+- **SystemSmith_1 není doložený jako lightweight.** Celý procesový strom měl
+  v 60s privátním Xvfb/software-renderovaném běhu 488,317 MiB PSS a 7,2085 %
+  jednoho jádra; souběžně probíhal CODE. Jde o měření, ne srovnání s Mission
+  Center. NVIDIA je jediný implementovaný GPU provider; per-process GPU a
+  síťové přenosy se nepředstírají. Vzorky historie jsou pouze v RAM.
+- WeatherSmith má ověřené explicitně zvolené Prahu/Brno, **nikoli skutečnou
+  polohu operátora**. Geolokace je na kliknutí, závislá na OS/Electron provideru
+  a při nedostupnosti funguje hledání města/ruční souřadnice. Výstup je
+  modelový odhad Open-Meteo. Widget nearchivuje počasí pro offline start.
+- NewsSmith má pět konkrétních zdrojů, ne libovolné vlastní URL. Nemá systémové
+  notifikace. Externí HTTPS článek se otevírá až po kliknutí. HTML z feedu se
+  nevkládá do DOM. Tray/always-on-top/panel OS ani jiné platformy nejsou doložené.
+- Vlastní testy modelu několikrát prošly při chybných rozhraních či nefunkčním
+  GUI. Nezávislá kontrola odhalila i syntakticky vadný entrypoint (`34b`) a
+  klikání překryté sticky panelem (`33g/33h`). Tyto návrhy nebyly použité;
+  neúspěšné pokusy a zrušené plány zůstávají v evidenci.
+
+## Obecná oprava po závěrečném průchodu
+
+Aktivní runtime před touto opravou: `ba144c86`; nasazení nové opravy se doloží
+samostatným receipt. Předchozí oprava přesných úseků prokazatelně posloužila
+při dokončení obou widgetů, aniž by bylo nutné přepisovat funkční části.
+
+Nový modelový draft kontroluje syntaxi každého `.js/.mjs/.cjs/.jsx` výsledku
+**před vznikem plánu**, také po přesné opravě. Retained soubory ze starých
+návrhů se zkontrolují před první inferencí. Chyba libovolného souboru shodí
+celou dávku bez nového plánu či efektu. Používá existující tree-sitter JS
+parser; kód se nevyhodnocuje, importy nelinkují a proces se nespouští.
+Žádná nová závislost, žádná změna oprávnění nebo schválení.
+
+To je gramatická kontrola JS, ne důkaz Node runtime/API, rozlišení modulů,
+existence symbolů ani funkčnosti. Přímé operátorské `/m2-plan` je dosavadní
+samostatná cesta; TypeScript, HTML a CSS tento guard nekontroluje.
+
+Service **96/96 PASS**, včetně chybné syntaxe prvního peeru, čtvrtého cíle,
+přesné opravy a retained starého návrhu; bez vyhodnocení/linkování validního
+kódu. Původní testy rollbacku při funkční chybě peeru a restartu zůstávají.
+První testovací běhy s vadným importem/fixturami jsou uchované jako FAIL.
+Modulový ratchet PASS, 1 378 hran bez přidané interní hrany.
+
+Předchozí přesná oprava měla celý profil 356 PASS / 1 FAIL / 3 BLOCKED;
+první příkaz nedodal cesty PDF/OCR nástrojů. Přesné tři blokované programy
+následně se správným prostředím prošly 3/3. To nejsou dva kompletní zelené
+běhy. Jediný ostatní FAIL je známá Gate 0 neshoda registru; pečeť se neměnila.
+Nový úplný profil bude uveden s vlastním run ID, nikoli připsán staršímu SHA.
+
+## Historické checkpointy (zachované beze změny)
+
+Následující popisy nehotových aplikací/instalací platily v čase daného
+checkpointu. Aktuální inventura je výše.
 
 ## Novější checkpoint: desktop a přesné opravy
 

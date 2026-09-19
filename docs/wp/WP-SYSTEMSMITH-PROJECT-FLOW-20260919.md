@@ -1,5 +1,15 @@
 # Projekt SystemSmith_1 vytvořený IntentSmithem
 
+Aktuální checkpoint 2026-09-19: tři aplikace jsou funkčně ověřené a nainstalované
+(SystemSmith_1, WeatherSmith, NewsSmith). Implementace je skutečný modelový
+výstup, ale postup byl asistovaný a opakovaně opravovaný. Nárok lightweight
+SystemSmithu není doložený. Ověřený rozsah a přesné SHA:
+[aktuální výsledky](../review/2026-09-19-THREE-PROJECTS-JOURNEY.md).
+Obecný draft nově odmítá vadnou syntaxi JS před plánem (96/96). Další částí
+zadání je převzetí existujícího cizího kódu; nezávislé review zůstává otevřené.
+Následující průběžné checkpointy jsou historické.
+
+
 Autorita: explicitní zadání operátora 2026-09-19. Z původního přirozeného
 zadání má IntentSmith sám navrhnout a vytvořit funkční systémovou utilitu;
 nekopírovat existující SystemSmith. Vstup ee5f36b9, runtime 0ef67a56.

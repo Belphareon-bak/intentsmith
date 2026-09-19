@@ -119,6 +119,13 @@ Vrátí-li model při opravě přesně původní návrh souboru, builder jej odm
 chybou `M2_CODE_DRAFT_REVISION_UNCHANGED`; nový plán nevznikne. Vědomé zachování
 souboru se zadává volbou **Zachovat přesný obsah**, nikoli opakovaným generováním.
 
+Před nabídkou plánu builder parsuje generované `.js/.mjs/.cjs/.jsx` soubory,
+včetně opravených a výslovně zachovaných návrhů. Vadná syntaxe odmítne celou
+dávku bez zápisu. Jde o gramatickou kontrolu bez spuštění či linkování kódu;
+nenahrazuje funkční test, kontrolu runtime API ani ověření celé aplikace.
+TypeScript, HTML a CSS tato kontrola nepokrývá. Přímé operátorské `/m2-plan`
+se tím nemění.
+
 Pokročilý builder přijímá `revisionOf: { lifecycleId, planDigest }` a
 `reusePrevious: true` u explicitně uvedených souborů. Kontext se čte jen na
 tento výslovný požadavek, ne jako automatická paměť mezi projekty.

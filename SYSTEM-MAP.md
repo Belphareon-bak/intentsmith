@@ -1,16 +1,20 @@
 # IntentSmith — mapa systému
 
-**Tři projektové průchody, průběžně 2026-09-19:** instalováno `a77cb63b`.
-SystemSmith_1 (`70d14693`) je v nabídce aplikací; skutečný Electron přes jeho
-launcher, živá host data a dva procesové starty se zachovanou preferencí prošly.
-Měření celého stromu: 488,3 MiB PSS a 7,21 % jednoho CPU jádra v privátním
-software-renderovaném prostředí; požadavek lightweight není tímto doložený.
-WeatherSmith a NewsSmith mají funkční živé datové zdroje, GUI se dokončuje.
-Úklid vlastních testovacích kopií uvolnil 16,48 GiB při zachování 2 392 hashů.
-Pracovní kandidát přidává opravy přesných úseků místo přegenerování souboru
-(service 88/88) a opravu falešné klasifikace exportovaných deklarací (22/22).
-**IN_PROGRESS / REVIEW_PENDING**, nejde o tři hotové aplikace ani prod-ready.
-[Aktuální checkpoint a zachované neúspěchy](docs/review/2026-09-19-THREE-PROJECTS-JOURNEY.md).
+**Tři projektové průchody, 2026-09-19:** všechny tři utility jsou v nabídce
+aplikací: SystemSmith_1 (`70d14693`), WeatherSmith (`74f7a861`) a NewsSmith
+(`cc083cff`). Skutečný Electron přes vlastní modelové launchery, živá data a
+dva procesové starty se zachovanými preferencemi prošly u všech tří. Jde o
+asistovaný modelový průchod, ne autonomní vytvoření na jeden prompt.
+SystemSmith_1 měl 488,3 MiB PSS a 7,21 % jednoho CPU jádra v privátním software
+renderingu; požadavek lightweight není doložený. Počasí má ověřená uložená
+místa, nikoli skutečnou polohu operátora; zprávy pět pevných zdrojů.
+Úklid vlastních kopií dosud uvolnil 16,48 GiB při zachování 2 392 hashů.
+Instalováno `ba144c86` (přesné opravy úseků); nový kandidát navíc odmítá vadnou
+JS syntaxi před plánem včetně retained návrhů (service 96/96, boundary PASS).
+**THREE_APPLICATIONS_RUNTIME_VERIFIED / ASSISTED_JOURNEY / REVIEW_PENDING**,
+nikoli celkový prod-ready. [Výsledky, meze a neúspěchy](docs/review/2026-09-19-THREE-PROJECTS-JOURNEY.md).
+
+**Následující checkpointy jsou historické, nikoli aktuální stav tří utilit.**
 
 **Desktopové projektové kroky, 2026-09-19:** nasazeno `d22f64ac`.
 Celý původní cíl a aktuální oprava mají přednost před staršími zprávami.
@@ -365,8 +369,8 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **225 963 ř.**, 631 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **247 826 ř.**, 533 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **225 990 ř.**, 631 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **247 884 ř.**, 533 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **525** (`431 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 102** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |

@@ -69,7 +69,7 @@ import {
 import { M2LifecycleAuthorityRepository } from './m2-lifecycle-authority-repository.js';
 import { compileM2ProjectChangeProposal } from './m2-proposal-compiler.js';
 import {
-  buildCodeDraftPrompt, codeDraftError, compileCodeDraftInput, codeDraftModelBudget, assertCodeDraftModelBudget,
+  buildCodeDraftPrompt, codeDraftError, compileCodeDraftInput, codeDraftModelBudget, assertCodeDraftModelBudget, assertCodeDraftSyntax,
   compileCodeDraftResult, generateCodeDraft as defaultGenerateCodeDraft,
 } from './m2-code-draft.js';
 
@@ -749,7 +749,10 @@ export function createM2LifecycleApplicationService(dependencyValues) {
     // Preflight every initial prompt, then check again with preceding generated
     // after-images. No truncation or partial plan if any peer exceeds the budget.
     files.forEach((_, index) => {
-      if (steps.find(step => step.index === index).reusePrevious) return;
+      if (steps.find(step => step.index === index).reusePrevious) {
+        assertCodeDraftSyntax(files[index].path, previousFiles.get(files[index].path).content);
+        return;
+      }
       const prompt = promptFor(index);
       if (generationBudgets) assertCodeDraftModelBudget(prompt, generationBudgets[prompt.repairBuild ? 1 : 0]);
     });

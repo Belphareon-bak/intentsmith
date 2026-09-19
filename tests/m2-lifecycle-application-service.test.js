@@ -618,7 +618,7 @@ await testAsync('syntax check treats option-shaped paths only as filenames', asy
 });
 
 for (const invalidSyntax of [false, true]) {
-  await testAsync(`draft then exact approval uses real file/syntax authority (${invalidSyntax ? 'rollback' : 'success'})`, async () => {
+  await testAsync(`draft then exact approval uses real file/syntax authority (${invalidSyntax ? 'rejected before approval' : 'success'})`, async () => {
     const root = makeProject();
     const db = openDatabase();
     let calls = 0;
@@ -635,10 +635,18 @@ for (const invalidSyntax of [false, true]) {
         },
       });
       await service.recoverIncompleteSmallProjectChanges();
-      const planned = await service.draftSmallProjectChange({
+      const planning = service.draftSmallProjectChange({
         authenticatedSubject: SUBJECT, projectId: PROJECT_ID, origin: ORIGIN,
         draft: { path: 'src/app.js', instruction: 'Change the exported value to 42.' },
       });
+      if (invalidSyntax) {
+        await assert.rejects(planning, { code: 'M2_CODE_DRAFT_OUTPUT_SYNTAX_INVALID' });
+        assert.equal(calls, 1);
+        assert.equal(db.prepare('SELECT count(*) AS n FROM m2_lifecycle_operations').get().n, 0);
+        assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 1;\n');
+        return;
+      }
+      const planned = await planning;
       assert.equal(planned.state, 'awaiting_approval');
       assert.equal(calls, 1);
       assert.equal(planned.diff[0].after.content, output);
@@ -651,16 +659,9 @@ for (const invalidSyntax of [false, true]) {
         authenticatedSubject: SUBJECT, origin: ORIGIN,
         lifecycleId: planned.lifecycleId, planDigest: planned.planDigest,
       });
-      if (invalidSyntax) {
-        assert.notEqual(result.state, 'succeeded');
-        assert.equal(result.result.focusedTest.terminalStatus, 'failed');
-        assert.equal(result.result.rollback.status, 'succeeded');
-        assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 1;\n');
-      } else {
-        assert.equal(result.state, 'succeeded');
-        assert.equal(result.result.focusedTest.terminalStatus, 'succeeded');
-        assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), output);
-      }
+      assert.equal(result.state, 'succeeded');
+      assert.equal(result.result.focusedTest.terminalStatus, 'succeeded');
+      assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), output);
       // Reconstruct the service and recover. Neither model nor write is replayed.
       const restarted = createService(db, root, makeClock(), {
         generateCodeDraft: async () => { throw new Error('unexpected model replay'); },
@@ -719,7 +720,7 @@ for (const failure of ['length', 'extra-file', 'malformed', 'unchanged', 'stale'
 suite('Bounded multi-file draft — one atomic approval');
 
 for (const invalidLastFile of [false, true]) {
-  await testAsync(`three-file draft is atomic (${invalidLastFile ? 'last file syntax rolls all back' : 'functional import succeeds'})`, async () => {
+  await testAsync(`three-file draft is atomic (${invalidLastFile ? 'last file syntax prevents whole plan' : 'functional import succeeds'})`, async () => {
     const root = makeProject();
     const db = openDatabase();
     const outputs = ["import {answer} from './helper.js'; export const value = answer;\n",
@@ -748,28 +749,27 @@ for (const invalidLastFile of [false, true]) {
         argv: [...projectTestProfile().argv.slice(0, -2), '--experimental-default-type=module', '--input-type=module', '-e',
           "import assert from 'node:assert/strict';import {value} from './src/app.js';import {okay} from './src/extra.js';assert.equal(value,42);assert.equal(okay,true);"],
         environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' }, timeoutMs: 30_000 };
-      const planned = await service.draftSmallProjectChange({
+      const planning = service.draftSmallProjectChange({
         authenticatedSubject: SUBJECT, projectId: PROJECT_ID, origin: ORIGIN, draft,
       });
+      if (invalidLastFile) {
+        await assert.rejects(planning, { code: 'M2_CODE_DRAFT_OUTPUT_SYNTAX_INVALID' });
+        assert.equal(calls, 3);
+        assert.equal(db.prepare('SELECT count(*) AS n FROM m2_lifecycle_operations').get().n, 0);
+        assert.equal(fs.readFileSync(path.join(root, paths[0]), 'utf8'), 'export const value = 1;\n');
+        for (const target of paths.slice(1)) assert.equal(fs.existsSync(path.join(root, target)), false);
+        return;
+      }
+      const planned = await planning;
       assert.equal(calls, 3);
       assert.equal(planned.state, 'awaiting_approval');
       assert.deepEqual(planned.diff.map(file => file.path), paths);
       assert.equal(db.prepare('SELECT count(*) AS n FROM m2_lifecycle_operations').get().n, 1);
-      if (invalidLastFile) assert.deepEqual(planned.plan.focusedTest.argv.slice(-3), paths);
       const result = await service.approveSmallProjectChange({ authenticatedSubject: SUBJECT, origin: ORIGIN,
         lifecycleId: planned.lifecycleId, planDigest: planned.planDigest });
-      if (invalidLastFile) {
-        assert.notEqual(result.state, 'succeeded');
-        assert.equal(result.result.focusedTest.terminalStatus, 'failed');
-        assert.equal(result.result.rollback.status, 'succeeded');
-        assert.equal(fs.readFileSync(path.join(root, paths[0]), 'utf8'), 'export const value = 1;\n');
-        assert.equal(fs.existsSync(path.join(root, paths[1])), false);
-        assert.equal(fs.existsSync(path.join(root, paths[2])), false);
-      } else {
-        assert.equal(result.state, 'succeeded');
-        for (let index = 0; index < paths.length; index++)
-          assert.equal(fs.readFileSync(path.join(root, paths[index]), 'utf8'), outputs[index]);
-      }
+      assert.equal(result.state, 'succeeded');
+      for (let index = 0; index < paths.length; index++)
+        assert.equal(fs.readFileSync(path.join(root, paths[index]), 'utf8'), outputs[index]);
       const restarted = createService(db, root, makeClock(), {
         generateCodeDraft: async () => { throw new Error('unexpected model replay'); },
       });
@@ -782,7 +782,7 @@ for (const invalidLastFile of [false, true]) {
 }
 
 for (const invalidSyntax of [true, false]) {
-  await testAsync(`bad first peer propagates as data but rolls the entire batch back (${invalidSyntax ? 'syntax' : 'functional'})`, async () => {
+  await testAsync(`bad first peer (${invalidSyntax ? 'syntax stops before propagation' : 'functional error propagates and rolls back'})`, async () => {
     const root = makeProject();
     const db = openDatabase();
     const paths = ['src/app.js', 'src/copy.js', 'src/view.js'];
@@ -811,9 +811,18 @@ for (const invalidSyntax of [true, false]) {
         argv: [...projectTestProfile().argv.slice(0, -2), '--experimental-default-type=module', '--input-type=module', '-e',
           "import assert from 'node:assert/strict';import {displayed} from './src/view.js';assert.equal(displayed,42,'transitive peer result');"],
         environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' }, timeoutMs: 30_000 };
-      const planned = await service.draftSmallProjectChange({
+      const planning = service.draftSmallProjectChange({
         authenticatedSubject: SUBJECT, projectId: PROJECT_ID, origin: ORIGIN, draft,
       });
+      if (invalidSyntax) {
+        await assert.rejects(planning, { code: 'M2_CODE_DRAFT_OUTPUT_SYNTAX_INVALID' });
+        assert.equal(calls, 1);
+        assert.equal(db.prepare('SELECT count(*) AS n FROM m2_lifecycle_operations').get().n, 0);
+        assert.equal(fs.readFileSync(path.join(root, paths[0]), 'utf8'), 'export const value = 1;\n');
+        for (const target of paths.slice(1)) assert.equal(fs.existsSync(path.join(root, target)), false);
+        return;
+      }
+      const planned = await planning;
       assert.equal(calls, 3);
       assert.equal(planned.state, 'awaiting_approval');
       assert.deepEqual(planned.diff.map(file => file.after.content), outputs);
@@ -1050,7 +1059,7 @@ for (const defect of [null, 'src/totals.js', 'src/app.js']) {
 }
 
 for (const failure of ['missing-test', 'duplicate', 'unknown-dependency', 'cycle', 'too-many', 'extra-authority', 'traversal', 'file-instruction-limit',
-  'missing-parent', 'file-parent', 'dependency-overflow', 'late-length', 'late-cancel', 'late-stale']) {
+  'missing-parent', 'file-parent', 'dependency-overflow', 'late-length', 'late-cancel', 'late-stale', 'late-syntax']) {
   await testAsync(`blueprint ${failure} preserves targets and creates no partial approval`, async () => {
     const root = makeProject();
     const db = openDatabase();
@@ -1072,13 +1081,13 @@ for (const failure of ['missing-test', 'duplicate', 'unknown-dependency', 'cycle
         const input = JSON.parse(prompt); calls++;
         if (calls === 4 && failure === 'late-cancel') controller.abort();
         if (calls === 4 && failure === 'late-stale') fs.writeFileSync(path.join(root, 'src/foreign.js'), '// foreign\n');
-        return { content: JSON.stringify({ afterContent: failure === 'dependency-overflow' && calls <= 3 ? '//'+ 'x'.repeat(16000)+'\n' : projectBuildOutputs[input.path] }),
+        return { content: JSON.stringify({ afterContent: failure === 'dependency-overflow' && calls <= 3 ? '//'+ 'x'.repeat(16000)+'\n' : failure === 'late-syntax' && calls === 4 ? 'export function broken() {' : projectBuildOutputs[input.path] }),
           finishReason: calls === 4 && failure === 'late-length' ? 'length' : 'stop' };
       } });
       await service.recoverIncompleteSmallProjectChanges();
       const expected = { 'missing-parent': 'M2_CODE_DRAFT_PARENT_UNAVAILABLE', 'file-parent': 'M2_CODE_DRAFT_PATH_INVALID', cycle: 'M2_CODE_DRAFT_DEPENDENCY_CYCLE', traversal: 'M2_PROPOSAL_CHANGE_PATH_INVALID',
         'dependency-overflow': 'M2_CODE_DRAFT_CONTEXT_LIMIT_EXCEEDED', 'late-length': 'M2_CODE_DRAFT_OUTPUT_INCOMPLETE',
-        'late-cancel': 'M2_CODE_DRAFT_CANCELLED', 'late-stale': 'M2_LIFECYCLE_CONTEXT_STALE' };
+        'late-syntax': 'M2_CODE_DRAFT_OUTPUT_SYNTAX_INVALID', 'late-cancel': 'M2_CODE_DRAFT_CANCELLED', 'late-stale': 'M2_LIFECYCLE_CONTEXT_STALE' };
       await assert.rejects(service.draftSmallProjectChange({ authenticatedSubject: SUBJECT, projectId: PROJECT_ID, origin: ORIGIN,
         draft: blueprint, signal: controller.signal }), { code: expected[failure] ?? 'M2_CODE_DRAFT_INPUT_INVALID' });
       assert.equal(calls, failure === 'dependency-overflow' ? 3 : failure === 'late-stale' ? 6 : failure.startsWith('late-') ? 4 : 0);
@@ -1146,6 +1155,37 @@ await testAsync('a compact proposal remains repairable when the original disk fi
   { code: 'M2_CODE_DRAFT_CONTEXT_LIMIT_EXCEEDED' });
 });
 
+for (const content of ['export function unfinished() {', 'export const = 1;', 'const text = "unfinished', '/* missing end']) {
+  await testAsync(`draft rejects invalid JavaScript before any focused test: ${JSON.stringify(content)}`, async () => {
+    const compiled = compileCodeDraftInput({ path: 'src/entry.mjs', instruction: 'Implement entrypoint.',
+      focusedTest: { ...proposal().focusedTest, argv: ['-e', 'process.exit(0)'] } });
+    assert.throws(() => compileCodeDraftResult(compiled,
+      { finishReason: 'stop', content: JSON.stringify({ afterContent: content }) }),
+    { code: 'M2_CODE_DRAFT_OUTPUT_SYNTAX_INVALID' });
+  });
+}
+
+await testAsync('syntax validation parses ESM and CommonJS without linking or executing either', async () => {
+  const canary = '__intentsmithDraftSyntaxCanary';
+  assert.equal(Object.hasOwn(globalThis, canary), false);
+  for (const [path, content] of [
+    ['src/entry.mjs', `import './does-not-exist.mjs'; globalThis.${canary}=true; export const value=1;`],
+    ['src/entry.cjs', `globalThis.${canary}=true; module.exports = require('./does-not-exist.cjs');`],
+  ]) {
+    const compiled = compileCodeDraftInput({ path, instruction: 'Parse without running.' });
+    assert.equal(compileCodeDraftResult(compiled,
+      { finishReason: 'stop', content: JSON.stringify({ afterContent: content }) }).changes[0].afterContent, content);
+    assert.equal(Object.hasOwn(globalThis, canary), false);
+  }
+});
+
+await testAsync('an exact repair that breaks syntax cannot produce a proposal', async () => {
+  const compiled = compileCodeDraftInput({ path: 'src/entry.mjs', instruction: 'Repair entrypoint.' });
+  assert.throws(() => compileCodeDraftResult(compiled,
+    { finishReason: 'stop', content: JSON.stringify({ replacements: [{ before: 'return 1;', after: 'return (' }] }) },
+    0, 'export function f() { return 1; }'), { code: 'M2_CODE_DRAFT_OUTPUT_SYNTAX_INVALID' });
+});
+
 await testAsync('repair replaces exact independent spans and preserves every other byte', async () => {
   const compiled = compileCodeDraftInput({ instruction: 'Repair values.',
     files: [{ path: 'src/app.js', instruction: 'Repair values.', dependsOn: [] }],
@@ -1183,6 +1223,24 @@ for (const [name, value, code] of [
     { code: `M2_CODE_DRAFT_${code}` });
   });
 }
+
+await testAsync('retaining an old invalid proposal still checks syntax before inference', async () => {
+  const root = makeProject(); const db = openDatabase(); let calls = 0;
+  try {
+    const service = createService(db, root, makeClock(), { generateCodeDraft: async () => { calls++; throw Error('must not infer'); } });
+    await service.recoverIncompleteSmallProjectChanges();
+    const old = proposal(); old.changes[0].afterContent = 'export const value = ;\n';
+    const prior = await prepare(service, old);
+    await service.cancelSmallProjectChange({ authenticatedSubject: SUBJECT, origin: ORIGIN, lifecycleId: prior.lifecycleId });
+    await assert.rejects(service.draftSmallProjectChange({ authenticatedSubject: SUBJECT, projectId: PROJECT_ID, origin: ORIGIN,
+      draft: { instruction: 'Retain prior proposal.', files: [{ path: 'src/app.js', instruction: 'Retain.', dependsOn: [], reusePrevious: true }],
+        focusedTest: proposal().focusedTest, revisionOf: { lifecycleId: prior.lifecycleId, planDigest: prior.planDigest } } }),
+    { code: 'M2_CODE_DRAFT_OUTPUT_SYNTAX_INVALID' });
+    assert.equal(calls, 0);
+    assert.equal(db.prepare('SELECT count(*) AS n FROM m2_lifecycle_operations').get().n, 1);
+    assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 1;\n');
+  } finally { db.close(); fs.rmSync(root, { recursive: true, force: true }); }
+});
 
 for (const defect of [null, 'owner', 'origin', 'digest', 'active', 'stale', 'missing-retained', 'repeated', 'ambiguous-repair']) {
   await testAsync(`revision preserves reviewed bytes and requires same owned cancelled plan: ${defect ?? 'success'}`, async () => {
