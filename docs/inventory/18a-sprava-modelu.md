@@ -1,5 +1,14 @@
 # Inventura #18a — Správa modelů
 
+**GPU hunt — přejímací brána, 19. 9. 2026:** `decisionReady` se odvozuje
+z append-only přejímky hodnotitele a odděleného párového provozního měření
+pro přesný kontrakt/runtime. Odvolání se znovu kontroluje; přejímka jedné
+dvojice neplatí pro jiné artefakty. Čistý `83cc4704`: 360 PASS / 1 známý
+Gate 0 FAIL, 17 kontrol brány, 57 sond CODE orákul a opakovaný Electron PASS.
+Žádná nová inference ani produkční přejímka; GPU byla obsazená cizí prací.
+**REVIEW_PENDING / FULL_HUNT_NOT_READY / NOT_DEPLOYED**, timer vypnutý,
+hold zachovaný. [Packet a zbývající meze](../review/2026-09-19-EVALUATION-ACCEPTANCE-GATE.md).
+
 **GPU hunt, navazující oprava a audit 2026-09-19:** falešná konvergence
 v produkčním fix loopu opravena; výsledek, paměť oprav a metriky nyní vyžadují
 potvrzené kontroly. Regrese před opravou 63 PASS / 4 FAIL, po 67/67; navazující

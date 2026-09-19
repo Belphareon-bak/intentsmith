@@ -269,3 +269,9 @@ Chybějící přejímka znamená `false`; záznam musí umožnit dohledat proč.
 Tento pokyn nepřijímá žádnou existující sadu ani vývojové modelové výsledky.
 Implementace a validační meze jsou v
 [packetu přejímací brány](../review/2026-09-19-EVALUATION-ACCEPTANCE-GATE.md).
+
+Validace přejímací brány na čistém `83cc4704`: 360 PASS / 1 známý Gate 0
+FAIL, 17/17 regresí brány a 57/57 sond krátké CODE sady. GUI read-only
+průchod PASS. Implementace je REVIEW_PENDING / NOT_DEPLOYED, všechny
+produkční role zůstávají bez přijaté kvalifikace a hold trvá. Čerstvá modelová
+inference se nespouštěla kvůli cizí GPU práci. Podrobnosti a archiv viz packet.

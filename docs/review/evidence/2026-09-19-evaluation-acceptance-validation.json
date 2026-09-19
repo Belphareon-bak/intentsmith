@@ -1,0 +1,96 @@
+{
+  "status": "IMPLEMENTATION_VERIFIED_REVIEW_PENDING",
+  "fullHuntReady": false,
+  "deployed": false,
+  "sourceRevision": "83cc470451a5099e8ee3aff645698b5f486b1994",
+  "baseRevision": "df459c334028679d36bb60710df801525f55a657",
+  "range": "df459c33..83cc4704",
+  "fullRegression": {
+    "runId": "hunt-acceptance-83cc4704-20260919",
+    "verdict": "FAIL",
+    "statusCounts": {
+      "PASS": 360,
+      "FAIL": 1,
+      "TIMEOUT": 0,
+      "BLOCKED": 0,
+      "SKIPPED": 0
+    },
+    "failures": [
+      "tests/nightly-orchestrator-self-test.js"
+    ],
+    "failureReason": "registry hash differs from the reviewed Gate 0 policy"
+  },
+  "acceptanceRegressions": {
+    "passed": 17,
+    "failed": 0,
+    "database": "isolated synthetic SQLite; no production acceptance"
+  },
+  "codeOracles": {
+    "status": "PASS",
+    "tasks": 7,
+    "controls": 57,
+    "workingTreeDirtyAtStart": false,
+    "sourceRevision": "83cc470451a5099e8ee3aff645698b5f486b1994",
+    "independentGroups": 5
+  },
+  "gui": {
+    "status": "PASS",
+    "tabs": 7,
+    "closedAcceptanceDetails": 7,
+    "reconnected": true,
+    "limitations": [
+      "Built production Electron frontend; no sandbox, software rendering, private profile",
+      "Read-only bridge: current evaluation read model and hunt controller over live SQLite/systemd; other GETs from installed backend",
+      "Does not prove deployment, inference through GUI, binding application or model deletion"
+    ],
+    "bundleSha256": "f27c8e4829050dca646eb2d7117b9d763672a23bab7b534386640323a855ca03"
+  },
+  "newModelInference": {
+    "started": false,
+    "status": "BLOCKED_FOREIGN_GPU_WORK",
+    "existingDevelopmentResultsAreModelRankingEvidence": false,
+    "finalPreflight": {
+      "checkedAt": "2026-09-19T12:42:59.112020+00:00",
+      "owner": {
+        "pid": 3242584,
+        "command": "operator three-project real model journey",
+        "startedAt": "2026-09-19T12:41:04.040Z"
+      },
+      "ownerAlive": true,
+      "status": "BLOCKED_GPU_LEASE",
+      "computeProcesses": "3243007, /opt/intentsmith/ollama/0.34.0-intentsmith.1/lib/ollama/llama-server, 18368 MiB\n",
+      "inferenceStarted": false
+    }
+  },
+  "production": {
+    "acceptanceWritten": false,
+    "modelsDeleted": false,
+    "bindingsChanged": false,
+    "timer": "disabled/inactive",
+    "holdPreserved": true
+  },
+  "initialFailuresPreserved": {
+    "fullRegression": {
+      "PASS": 356,
+      "FAIL": 5
+    },
+    "replaceProbe": {
+      "PASS": 16,
+      "FAIL": 1
+    },
+    "censusFormattingFollowup": {
+      "PASS": 159,
+      "FAIL": 1
+    }
+  },
+  "evidence": {
+    "sourceRevision": "83cc470451a5099e8ee3aff645698b5f486b1994",
+    "archive": "/home/belphareon/Projects/coworker/intentsmith-hunt-acceptance-20260919/evidence.tar.gz",
+    "sha256": "1169f0aefcd6fd1f24c3a1afd0d42f0f680d833d12f46f68d00cec0d6e257f28",
+    "bytes": 70073919,
+    "filesVerified": 785,
+    "status": "CONTENT_VERIFIED",
+    "includes": "source Git bundle, complete program logs and reports, oracle reports, GUI receipts/screenshots, read-only snapshots",
+    "excludes": "production DB, Electron homes/state/capabilities, test scratch directories, dependencies"
+  }
+}

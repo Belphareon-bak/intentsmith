@@ -1,6 +1,7 @@
 # Přejímací brána GPU huntu — 19. 9. 2026
 
-Stav: IMPLEMENTED / VALIDATION_IN_PROGRESS / REVIEW_PENDING / NOT_DEPLOYED.
+Stav: IMPLEMENTATION_VERIFIED / REVIEW_PENDING / FULL_HUNT_NOT_READY / NOT_DEPLOYED.
+Rozsah `df459c33..83cc4704`, finální runtime `83cc470451a5099e8ee3aff645698b5f486b1994`.
 Autorita: přímé zadání operátora po review `df459c33`: odvodit `decisionReady`
 z uložené přejímky hodnotitele (§3) a přijatého párového provozního měření
 (§8 krok 5) pro konkrétní contract SHA. Tento packet žádný profil nepřijímá.
@@ -93,8 +94,48 @@ otevřené. Zvlášť: 2/8 není výsledek pro porovnávání modelů.
 
 ## Validace
 
-Doplní se přesné commity, výsledky čistého checkoutu a aktuální GPU stav.
-Dosavadní cílené kontroly jsou pracovní důkaz, nikoli přijetí modelového profilu.
+Finální čistý checkout `83cc4704`:
+
+| Ověření | Výsledek |
+|---|---|
+| Celý `offline,database`, 361 programů | 360 PASS / 1 FAIL / 0 BLOCKED / 0 TIMEOUT |
+| Přejímací brána v dočasné SQLite | 17/17 PASS, včetně REPLACE, revokace po await a před zápisem |
+| Orákula krátké CODE sady | 7/7 úloh, 57/57 sond PASS, 5 deklarovaných skupin |
+| Schéma a upgrady | 61/61 PASS; M1 failover schema 20/20; M6 runtime evidence 8/8 |
+| Produkční frontend build | PASS, bundle `f27c8e48…` |
+| Skutečný Electron | 7 záložek, 7 rozbalených přejímek, detail historie a reconnect PASS |
+| Registry / hygiena / P6 / artefakty | PASS |
+| Nová modelová inference | NESPUŠTĚNA — cizí rezidentní GPU práce |
+
+Jediný zbylý FAIL je `tests/nightly-orchestrator-self-test.js`: aktuální hash
+registru nesouhlasí s dříve revidovanou release pečetí Gate 0. Pečeť se tímto
+WP nepřijímá ani nepřepisuje. Celý runner tedy pravdivě vrací **FAIL**, ne green.
+
+GUI používalo finální čtečku nad produkční DB otevřenou read-only a existující
+hunt controller/systemd; ostatní GETy poskytla instalovaná aplikace. Privátní
+Electron profil, `NODE_ENV=production`, diagnostické `--no-sandbox` a software
+rendering. Dokazuje zobrazení a obnovu spojení, nikoli nasazení, inference přes
+GUI, aplikaci bindingu nebo smazání modelu. Frontend se proti buildu `bfb75e8e`
+nezměnil; finální druhý GUI průchod je na `83cc4704`.
+
+Nové kontroly orákul jsou **krátká CODE sada**, nikoli opakování předchozího
+60kontrolového provozního harnessu nebo nová inference. Vývojových 2/8 pochází
+z dřívějšího `bdbcd201`, jen dokládá průchodnost tehdejší opravy a nedokládá
+pořadí modelů ani schopnost finálního kódu v provozu.
+
+Důkazy jsou pod `/home/belphareon/Projects/coworker/intentsmith-hunt-acceptance-20260919`.
+[Strojový receipt](evidence/2026-09-19-evaluation-acceptance-validation.json)
+uvádí přesné počty, SHA a meze. Archiv `evidence.tar.gz`: 70 073 919 B,
+785 ověřených položek; SHA-256
+`1169f0aefcd6fd1f24c3a1afd0d42f0f680d833d12f46f68d00cec0d6e257f28`.
+Obsahuje Git bundle zdroje, celé programové logy obou širokých běhů, orákula,
+GUI receipts/screenshoty a read-only snapshoty; produkční DB a Electron
+capabilities v něm nejsou. `git bundle verify` prošel.
+
+Nová implementace zůstává k nezávislé revizi; výše uvedené testy nepřijímají
+modelový profil.
+Testovací páry a přejímky jsou syntetické v dočasné SQLite, nikoli skutečná
+modelová inference nebo nezávislé review.
 
 První celý běh `bfb75e8e`: 356 PASS / 5 FAIL. Vedle zděděné pečeti Gate 0
 selhaly aktuální census/manifest, dvě vazby na počet/poslední migraci a P6
@@ -111,3 +152,8 @@ Následná vlastní kontrola reprodukovala mezeru prvního kandidáta: samotné
 UPDATE/DELETE triggery nebránily SQLite REPLACE (16 PASS / 1 FAIL).
 Doplněný insert guard a WITHOUT ROWID ji uzavírají; původní výsledek je
 zachovaný v `replace-before.log`. Migrace 116 zatím nebyla nasazená.
+
+Závěrečná preflight kontrola: rezidentní GPU procesy se uvolnily, ale nový
+živý běh `operator three-project real model journey` drží exkluzivní lease
+(PID 3242584). Čerstvá inference se proto nespustila ani po uvolnění VRAM.
+Pozdější preflight je ve strojovém receiptu, archiv zachovává dřívější snapshot.

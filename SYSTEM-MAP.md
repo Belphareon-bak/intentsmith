@@ -1,5 +1,14 @@
 # IntentSmith — mapa systému
 
+**GPU hunt — přejímací brána, 19. 9. 2026:** `decisionReady` se odvozuje
+z append-only přejímky hodnotitele a odděleného párového provozního měření
+pro přesný kontrakt/runtime. Odvolání se znovu kontroluje; přejímka jedné
+dvojice neplatí pro jiné artefakty. Čistý `83cc4704`: 360 PASS / 1 známý
+Gate 0 FAIL, 17 kontrol brány, 57 sond CODE orákul a opakovaný Electron PASS.
+Žádná nová inference ani produkční přejímka; GPU byla obsazená cizí prací.
+**REVIEW_PENDING / FULL_HUNT_NOT_READY / NOT_DEPLOYED**, timer vypnutý,
+hold zachovaný. [Packet a zbývající meze](docs/review/2026-09-19-EVALUATION-ACCEPTANCE-GATE.md).
+
 **GPU hunt — opravy workflow, 19. 9. 2026:** `6610faf6` opravuje přenos
 patchů (včetně doslovných Markdown delimitérů), falešnou oscilaci, čtení
 harness diagnostik a chybějící chyby v následném promptu. Průzkumné sady již
