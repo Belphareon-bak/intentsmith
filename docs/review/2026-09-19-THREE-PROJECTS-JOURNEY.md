@@ -76,6 +76,27 @@ Původní selhání ověřovače je zachované, nedošlo k opakované instalaci.
 
 ## Důkazy
 
+Návazný checkpoint: SystemSmith_1 má commit `4ca9b05` s rozhraním. Browser
+`15c` ověřil skutečné vykreslovací volání grafů, zachování null, nejvýše jedno
+pomalé čtení, zastavení při pauze, řazení, hledání a obnovu preference.
+Snapshot byl řízená fixture; fyzický Electron s host daty zatím není doložený.
+WeatherSmith (14) a NewsSmith (15) jsou založené, implementace ještě chybí.
+Weather D1 navrhl jen test existence souborů; operátorův asistující Codex plán
+před generováním upravil na funkční data/testy. První CODE běh `21` skončil
+`OUTPUT_INCOMPLETE`, bez plánu a bez zápisu. Nelze jej vykázat jako úspěch.
+
+Úplný profil `b9620f93` prošel 359/1 (jediný stejný Gate 0 FAIL).
+Další změna řadí explicitní úkol až za zdrojový kontext. Reaguje na opakované
+kopírování téměř totožného vadného kódu (`16a` změnil jen import). Cesty, obsah,
+limity a pravomoci zůstávají stejné; účinek na skutečnou kvalitu modelu musí
+teprve potvrdit následující pokus. Nejde o nové měření role ani důkaz autonomie.
+
+Společný Electron 42.11.3 se podařilo spustit ze skutečné uživatelské systemd
+služby přes již povolený bwrap user namespace, s renderer sandboxem a context
+isolation, bez Node v rendereru. Doplňující žádost o instalaci dalšího root
+AppArmor profilu byla zrušená, profil se neinstaloval. Úspěšný izolovaný runtime
+probe není důkazem dokončení tří aplikací.
+
 Lokální kořen: `.intentsmith-artifacts/three-projects-20260919/`.
 `NN-request.json` obsahuje konkrétní schvalovaný vstup; `NN-draft.json` přesné
 modelové bajty a digest plánu; `NN-approve.json` skutečný výsledek včetně
