@@ -54,3 +54,10 @@ nepatří jako zvláštní větev do projektového orchestrátoru.
 Po dokončení této práce následuje operátorem zadaný
 [úklid pracovních kopií a místa](WP-WORKSPACE-CLEANUP-20260919.md).
 Výchozí inventura je připravená; úklid zatím neproběhl.
+
+Doplněné zadání operátora 2026-09-19: úklid provést již nyní. Potom dokončit
+přes skutečný IntentSmith tři nové projekty v pořadí SystemSmith_1, widget
+aktuálního počasí/předpovědi pro polohu nebo uložená místa, widget news feedu
+podle preferencí. Průběžně opravovat obecné projektové flow. Převzetí cizího
+existujícího kódu předvést až po dokončení těchto tří projektů. Tvorbu utility
+nenahrazovat ruční implementací mimo modelový návrh IntentSmithu.

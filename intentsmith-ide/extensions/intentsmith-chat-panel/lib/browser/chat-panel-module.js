@@ -6823,12 +6823,25 @@ function _m2OpenComposer(idx){
   }catch(error){st.msgs.push({role:'system',text:_m2StudioError(error),tag:'M2_ERROR'});}
   renderChat();
 }
+function _m2OpenRevision(idx){
+  var s=_sessions[idx];var st=s&&s.chat;var source=st&&st._m2RevisionSource;
+  if(!source)return;
+  try{
+    var origin=_m2StudioOrigin(s);
+    if(!_m2SameOrigin(source.origin,origin))throw new Error('Předchozí návrh patří jiné konverzaci nebo projektu.');
+    if(st._m2Busy||st._preparedSend||_m2NormalizePending(s._m2Pending)
+      ||(typeof IntentSmithWS!=='undefined'&&IntentSmithWS.hasActiveM1Turn(s)))throw new Error('Nejdřív dokončete nebo zrušte probíhající požadavek.');
+    st._m2Composer=JSON.parse(JSON.stringify(source));st._m2Composer.error=null;st._m2ComposerOpen=true;
+  }catch(error){st.msgs.push({role:'system',text:_m2StudioError(error),tag:'M2_ERROR'});}
+  renderChat();
+}
 function _m2ComposerDraft(form){
   function required(value,label){if(typeof value!=='string'||!value.trim())throw new Error('Vyplňte '+label+'.');return value;}
   function instruction(value,label){required(value,label);if(new TextEncoder().encode(value).length>512)throw new Error(label+' přesahuje 512 bajtů.');return value;}
   var files=form.files.map(function(file){return {path:required(file.path,'cestu souboru'),instruction:instruction(file.instruction,'zadání souboru'),
     dependsOn:file.dependencies?file.dependencies.split('\n').map(function(value){return value.trim();}).filter(Boolean):[],
-    ...(file.contextFiles?{contextFiles:file.contextFiles.split('\n').map(function(value){return value.trim();}).filter(Boolean)}:{})};});
+    ...(file.contextFiles?{contextFiles:file.contextFiles.split('\n').map(function(value){return value.trim();}).filter(Boolean)}:{}),
+    ...(form.revisionOf?{reusePrevious:!!file.reusePrevious}:{})};});
   if(!files.length||files.length>32)throw new Error('Plán musí obsahovat 1–32 souborů.');
   var paths=files.map(function(file){return file.path;});
   if(new Set(paths).size!==paths.length)throw new Error('Každý soubor zadejte pouze jednou.');
@@ -6840,7 +6853,7 @@ function _m2ComposerDraft(form){
   if(!Number.isSafeInteger(timeoutMs)||timeoutMs<1||timeoutMs>3600000)throw new Error('Časový limit testu musí být 1–3600000 ms.');
   return Object.assign({instruction:instruction(form.instruction,'celkové zadání'),files:files,
     focusedTest:{binary:required(form.binary,'úplnou cestu programu pro test'),argv:form.argv.slice(),
-      environment:{LANG:'C.UTF-8',LC_ALL:'C.UTF-8',NO_COLOR:'1'},timeoutMs:timeoutMs}},form.gitCommit?{gitCommit:form.gitCommit}:{});
+      environment:{LANG:'C.UTF-8',LC_ALL:'C.UTF-8',NO_COLOR:'1'},timeoutMs:timeoutMs}},form.gitCommit?{gitCommit:form.gitCommit}:{},form.revisionOf?{revisionOf:form.revisionOf}:{});
 }
 function _m2SubmitComposer(idx,s,st,form){
   try{
@@ -6869,10 +6882,13 @@ function _m2ComposerUI(idx,s,st){
     h('p',{style:{fontSize:_fs(11),color:C.tx2}},'Popište cíl a vyberte soubory. Model připraví návrh; zápis a test spustíte až schválením výsledné změny. Projekt musí mít povolené změny a cílové adresáře musí existovat.'),
     !current?h('p',{role:'alert',style:{color:C.red}},'Konverzace nebo projekt se změnily. Tento návrh nelze odeslat; vraťte se do původní konverzace nebo jej zahoďte.'):null,
     field('Co chcete změnit?', 'instruction',form.instruction,function(value){form.instruction=value;},true),
+    form.revisionOf?h('p',{style:{fontSize:_fs(11),color:C.tx2}},'Oprava předchozího neprovedeného návrhu. Model uvidí jeho obsah. Zkontrolované soubory můžete zachovat přesně beze změny; celý výsledek znovu vyžaduje schválení a test.'):null,
     form.files.map(function(file,index){return h('fieldset',{key:index,disabled:locked,style:{border:'1px solid '+C.border2,borderRadius:6,padding:8,margin:'0 0 8px'}},
       h('legend',{style:{color:C.tx2,fontSize:_fs(11)}},'Soubor '+(index+1)),
       field('Cesta v projektu','file-'+index+'-path',file.path,function(value){file.path=value;},false,'src/app.js'),
       field('Zadání souboru','file-'+index+'-instruction',file.instruction,function(value){file.instruction=value;},true),
+      form.revisionOf?h('label',{style:{display:'block',fontSize:_fs(11),marginBottom:8}},h('input',{type:'checkbox',checked:!!file.reusePrevious,disabled:locked,
+        onChange:function(event){file.reusePrevious=event.target.checked;renderChat();}}),' Zachovat přesný obsah z předchozího návrhu (bez generování)'):null,
       field('Závislosti — jedna cesta z plánu na řádek','file-'+index+'-dependencies',file.dependencies,function(value){file.dependencies=value;},true),
       field('Existující kontext jen ke čtení — jedna cesta na řádek','file-'+index+'-context',file.contextFiles||'',function(value){file.contextFiles=value;},true),
       h('button',{type:'button',style:buttonStyle,disabled:locked||form.files.length===1,onClick:function(){form.files.splice(index,1);renderChat();}},'Odebrat soubor'));}),
@@ -6894,7 +6910,7 @@ function _m2ComposerUI(idx,s,st){
 }
 function _m2ActionsUI(idx,s,st){
   var pending=_m2NormalizePending(s._m2Pending);
-  if(!pending&&!st._m2DraftController)return null;
+  if(!pending&&!st._m2DraftController&&!st._m2RevisionSource)return null;
   var viewed=s._m2PresentedPlan;
   var canApprove=pending&&viewed&&viewed.lifecycleId===pending.lifecycleId&&viewed.planDigest===pending.planDigest&&_m2SameOrigin(viewed.origin,pending.origin);
   function sendBusy(){return !!st._preparedSend||(typeof IntentSmithWS!=='undefined'&&IntentSmithWS.hasActiveM1Turn(s));}
@@ -6917,11 +6933,12 @@ function _m2ActionsUI(idx,s,st){
       }
       _m2HandleStudioCommand(idx,s,st,null,cmd,cmd,'');}},label);}
   return h('div',{'aria-label':'Akce připravené změny',style:{padding:'6px 10px',borderTop:'1px solid '+C.border,fontSize:_fs(11),color:C.tx2},onClick:function(event){event.stopPropagation();}},
-    h('div',null,pending?(canApprove?'Před schválením zkontrolujte úplné obsahy souborů a test v návrhu výše.':'Nejdřív načtěte uložený plán a prohlédněte změny.'): 'Připravuji návrh souborů.'),
+    h('div',null,pending?(canApprove?'Před schválením zkontrolujte úplné obsahy souborů a test v návrhu výše.':'Nejdřív načtěte uložený plán a prohlédněte změny.'):st._m2DraftController?'Připravuji návrh souborů.':'Předchozí návrh lze opravit s původním obsahem souborů.'),
     h('div',{style:{display:'flex',gap:6,flexWrap:'wrap',marginTop:5}},
       pending?action('Načíst stav a plán','/m2-status',!!st._m2Busy):null,
       pending?action('Schválit zobrazené změny','/m2-approve',!canApprove||!!st._m2Busy):null,
-      action('Zrušit','/m2-cancel',!!st._m2Busy&&!st._m2DraftController&&!(st._m2Operation&&st._m2Operation.command==='/m2-approve'&&!st._m2Operation.cancelIssued))));
+      !pending&&!st._m2DraftController&&st._m2RevisionSource?h('button',{type:'button',disabled:!!st._m2Busy||sendBusy(),onClick:function(){_m2OpenRevision(idx);}},'Opravit předchozí návrh'):null,
+      pending||st._m2DraftController?action('Zrušit','/m2-cancel',!!st._m2Busy&&!st._m2DraftController&&!(st._m2Operation&&st._m2Operation.command==='/m2-approve'&&!st._m2Operation.cancelIssued)):null));
 }
 function _m2IsGenericApproval(text){return /^(?:ano|ok|spusť(?: to)?|spust(?: to)?|yes|approve)$/i.test(text.trim());}
 function _m2HandleStudioCommand(idx,s,st,ta,text,cmd,arg){
@@ -7035,6 +7052,17 @@ function _m2HandleStudioCommand(idx,s,st,ta,text,cmd,arg){
       if(operation.composer&&st._m2Composer===operation.composer)st._m2ComposerOpen=false;
     }else if(view.terminal||_M2_TERMINAL_STATES[view.state]){
       if(s._m2Pending&&s._m2Pending.lifecycleId===view.lifecycleId)s._m2Pending=null;
+      st._m2RevisionSource=null;
+      if(['cancelled','failed','timed_out','blocked'].indexOf(view.state)>=0&&Array.isArray(view.diff)&&view.diff.length){
+        var priorForm=st._m2Composer;
+        st._m2RevisionSource={origin:view.plan.origin,revisionOf:{lifecycleId:view.lifecycleId,planDigest:view.planDigest},
+          instruction:'Oprav předchozí návrh podle připomínek; zachovej fungující chování.',
+          files:view.diff.map(function(file){var old=priorForm&&priorForm.files.find(function(item){return item.path===file.path;});
+            return {path:file.path,instruction:old?old.instruction:'Oprav tento soubor podle celkového zadání a zachovej jeho rozhraní.',
+              dependencies:old?old.dependencies:'',contextFiles:old?old.contextFiles||'':'',reusePrevious:false};}),
+          binary:view.plan.focusedTest.binary,argv:view.plan.focusedTest.argv.slice(),timeoutMs:String(view.plan.focusedTest.timeoutMs),
+          gitCommit:priorForm&&priorForm.gitCommit||null,error:null};
+      }
       st._m2Composer=null;st._m2ComposerOpen=false;st._projectWorkProposal=null;
     }
     _m2FinishStudioCommand(idx,s,st,_m2RenderStatus(view),false,operation);

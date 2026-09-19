@@ -271,6 +271,38 @@ function controlledStudio({ pending = true, paths = ['src/app.js'], activeM1 = t
 
 const flushStudio = () => new Promise(resolve => setImmediate(resolve));
 
+test('cancelled proposal can be revised with exact retained files but no inherited approval', async () => {
+  const studio = controlledStudio({ pending: false, activeM1: false, paths: ['src/app.js', 'src/helper.js'] });
+  fillComposer(studio);studio.submitComposer();
+  studio.calls[0].resolve(studio.view);await flushStudio();
+  studio.command('/m2-cancel');studio.calls[1].resolve(studio.terminal());await flushStudio();
+  assert.equal(studio.pane._m2Composer, null);
+  assert.equal(studio.session._m2Pending, null);
+  const revise = studio.actionButtons().find(button => button.children.includes('Opravit předchozí návrh'));
+  assert.ok(revise);revise.props.onClick();
+  const form = studio.pane._m2Composer;
+  assert.equal(form.files[0].dependencies, 'src/helper.js');
+  form.files[1].reusePrevious = true;form.files[0].instruction = 'Correct one defect, preserve the remaining code.';
+  assert.equal(studio.calls.length, 2, 'opening repair never generates or approves');
+  studio.submitComposer();
+  const sent = JSON.parse(studio.calls[2].options.body);
+  assert.deepEqual(sent.draft.revisionOf, { lifecycleId: studio.view.lifecycleId, planDigest: studio.view.planDigest });
+  assert.equal(sent.draft.files[1].reusePrevious, true);
+  assert.equal(sent.draft.files[0].reusePrevious, false);
+  assert.equal(sent.approval, undefined);
+  assert.match(studio.calls[2].url, /\/draft$/);
+  studio.calls[2].reject(new Error('controlled stop'));await flushStudio();
+});
+
+test('revision button rejects changed conversation without reusing previous file context', async () => {
+  const studio = controlledStudio({ activeM1: false });
+  studio.command('/m2-cancel');studio.calls[0].resolve(studio.terminal());await flushStudio();
+  const revise = studio.actionButtons().find(button => button.children.includes('Opravit předchozí návrh'));
+  assert.ok(revise);studio.session._convId = 'another-conversation';revise.props.onClick();
+  assert.equal(studio.pane._m2Composer, null);assert.equal(studio.calls.length, 1);
+  assert.match(studio.pane.msgs.at(-1).text, /jiné konverzaci/);
+});
+
 test('project chat proposal opens an editable composer and submits only on explicit preparation', async () => {
   const studio = controlledStudio({ pending: false, activeM1: false,
     paths: ['src/index.mjs', 'test/acceptance.test.mjs'] });
@@ -625,7 +657,8 @@ test('restored approval button requires loading and displaying its exact plan be
   assert.equal(JSON.parse(studio.calls[1].options.body).planDigest, studio.view.planDigest);
   assert.equal(studio.actionButtons()[1].props.disabled, true);
   studio.calls[1].resolve(studio.terminal());await flushStudio();
-  assert.deepEqual(studio.actionButtons(), []);
+  assert.deepEqual(studio.actionButtons().map(button => button.children[0]), ['Opravit předchozí návrh']);
+  assert.equal(studio.session._m2Pending, null, 'repair action cannot approve the cancelled plan');
 });
 
 test('changing a loaded plan digest disables its approval button', async () => {

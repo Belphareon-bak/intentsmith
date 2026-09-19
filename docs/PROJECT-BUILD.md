@@ -98,7 +98,21 @@ a v chatu zůstane. JSON není nutné psát.
 5. Tlačítkem **Zrušit** nebo `/m2-cancel` zastavíte generování nebo požádáte
    o zrušení prováděné operace. **Načíst stav a plán** či `/m2-status` obnoví
    uložený stav. Po restartu Studia musí tlačítko schválení nejprve načíst
-   a zobrazit obnovený plán. Přepnutí projektu/konverzace staré zadání nepřeváže.
+  a zobrazit obnovený plán. Přepnutí projektu/konverzace staré zadání nepřeváže.
+
+Po zrušení nebo neúspěchu je dostupné **Opravit předchozí návrh**. Model dostane
+úplný původní návrh daného souboru odděleně od skutečného obsahu na disku.
+U jednotlivých souborů lze zvolit **Zachovat přesný obsah**: jejich ověřené
+bajty se převezmou bez dalšího generování. Oprava vytvoří nový plán s novým
+schválením; starý plán ani jeho verdikt se nepřepisují. Odkaz je vázaný na
+přesný digest, vlastníka, projekt, konverzaci a nezměněnou revizi pracovního
+stromu. Při změně souborů nebo po úspěšném provedení je třeba nový běžný krok.
+Zachování souboru znamená zachování obsahu, nikoli potvrzení jeho správnosti;
+funkční test a kontrola celého výsledku zůstávají nutné.
+
+Pokročilý builder přijímá `revisionOf: { lifecycleId, planDigest }` a
+`reusePrevious: true` u explicitně uvedených souborů. Kontext se čte jen na
+tento výslovný požadavek, ne jako automatická paměť mezi projekty.
 
 Pokročilý vstup `/m2-build <JSON>` zůstává dostupný, včetně volitelného
 Git commitu a vlastního prostředí testu. Formulář používá prostředí uvedené

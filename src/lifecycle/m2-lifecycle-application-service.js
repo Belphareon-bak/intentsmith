@@ -646,6 +646,40 @@ export function createM2LifecycleApplicationService(dependencyValues) {
     if (manifest.revision !== observed.workspaceRevision) {
       fail(M2LifecycleServiceErrorCode.CONTEXT_STALE, 'Workspace changed before generation');
     }
+    const previousFiles = new Map();
+    if (compiled.revisionOf) {
+      const previous = requireOwnedOperation({ authenticatedSubject, origin: transportOrigin,
+        lifecycleId: compiled.revisionOf.lifecycleId });
+      const plan = previous.plan;
+      if (computeM2LifecyclePlanSnapshotDigest(plan) !== compiled.revisionOf.planDigest) {
+        fail(M2LifecycleServiceErrorCode.PLAN_DIGEST_MISMATCH, 'Revision must name the exact previous plan');
+      }
+      const terminal = lifecycleRepository.getTerminal(plan.identity.lifecycleId);
+      if (!terminal || !['cancelled', 'failed', 'timed_out', 'blocked'].includes(terminal.state)) {
+        throw codeDraftError('REVISION_UNAVAILABLE', 'Nejdříve zrušte původní návrh; provedenou nebo běžící změnu nelze takto opravovat.');
+      }
+      if (plan.project.projectId !== projectId || plan.project.canonicalRoot !== scope.canonicalRoot
+        || plan.project.workspaceRevision !== manifest.revision) {
+        fail(M2LifecycleServiceErrorCode.CONTEXT_STALE, 'Previous proposal belongs to a different workspace revision');
+      }
+      for (const file of executionRepository.getFileMaterial(plan.identity.executionId)) {
+        const expected = plan.changes.find(change => change.path === file.path);
+        if (!expected || previousFiles.has(file.path) || expected.afterBytes !== file.afterBytes.length
+          || expected.afterDigest !== `sha256:${createHash('sha256').update(file.afterBytes).digest('hex')}`) {
+          fail(M2LifecycleServiceErrorCode.STORAGE_FAILURE, 'Previous proposal material failed integrity verification');
+        }
+        previousFiles.set(file.path, { content: new TextDecoder('utf-8', { fatal: true }).decode(file.afterBytes),
+          contentDigest: expected.afterDigest, state: 'unapplied_proposal' });
+      }
+      if (previousFiles.size !== plan.changes.length) {
+        fail(M2LifecycleServiceErrorCode.STORAGE_FAILURE, 'Previous proposal material is incomplete');
+      }
+      for (const step of compiled.buildSteps) {
+        if (step.reusePrevious && !previousFiles.has(targets[step.index])) {
+          throw codeDraftError('REVISION_UNAVAILABLE', 'Zachovaný soubor není součástí původního návrhu.');
+        }
+      }
+    }
     // Reject all invalid targets and target dirt before spending any model call.
     // The planner repeats policy/baseline checks before persisting the exact plan.
     loadPolicySnapshot(projectId, scope.canonicalRoot, manifest.revision, readProjectFile);
@@ -705,17 +739,25 @@ export function createM2LifecycleApplicationService(dependencyValues) {
         ? steps.find(step => step.index === index).dependsOn.includes(file.path)
         : other !== index).map(file => {
         const generated = changes.find(change => change.path === file.path);
-        return { path: file.path, content: generated ? generated.afterContent : file.content,
-          state: generated ? 'proposed' : 'original' };
-      }).concat(steps.find(step => step.index === index).contextFiles?.map(target => contextFiles.get(target)) || []));
+        const retained = steps.find(step => files[step.index].path === file.path)?.reusePrevious
+          ? previousFiles.get(file.path) : null;
+        return { path: file.path, content: generated ? generated.afterContent : retained ? retained.content : file.content,
+          state: generated || retained ? 'proposed' : 'original' };
+      }).concat(steps.find(step => step.index === index).contextFiles?.map(target => contextFiles.get(target)) || []),
+      previousFiles.get(files[index].path) ?? null);
     // Preflight every initial prompt, then check again with preceding generated
     // after-images. No truncation or partial plan if any peer exceeds the budget.
     files.forEach((_, index) => {
+      if (steps.find(step => step.index === index).reusePrevious) return;
       const prompt = promptFor(index);
       if (generationBudget) assertCodeDraftModelBudget(prompt, generationBudget);
     });
-    for (const { index } of steps) {
+    for (const { index, reusePrevious } of steps) {
       check();
+      if (reusePrevious) {
+        changes.push({ path: files[index].path, afterContent: previousFiles.get(files[index].path).content });
+        continue;
+      }
       const prompt = promptFor(index);
       let result;
       try {

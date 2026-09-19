@@ -1125,4 +1125,58 @@ for (const defect of [null, 'missing', 'traversal', 'target-overlap', 'secret', 
   });
 }
 
+for (const defect of [null, 'owner', 'origin', 'digest', 'active', 'stale', 'missing-retained']) {
+  await testAsync(`revision preserves reviewed bytes and requires same owned cancelled plan: ${defect ?? 'success'}`, async () => {
+    const root = makeProject(); const db = openDatabase(); let calls = 0;
+    try {
+      const retained = 'export const helper = 42;\n';
+      const service = createService(db, root, makeClock(), { generateCodeDraft: async ({ prompt }) => {
+        calls++; const input = JSON.parse(prompt);
+        assert.equal(input.path, 'src/app.js');
+        assert.equal(input.beforeContent, 'export const value = 1;\n');
+        assert.equal(input.previousDraft.content, 'export const value = 2;\n');
+        assert.equal(input.previousDraft.state, 'unapplied_proposal');
+        assert.equal(input.previousDraft.contentDigest, sha(input.previousDraft.content));
+        assert.equal(input.peerFiles[0].content, retained);
+        return { content: JSON.stringify({ afterContent: 'export const value = 3;\n' }), finishReason: 'stop' };
+      } });
+      await service.recoverIncompleteSmallProjectChanges();
+      const previous = await prepare(service, proposal({ changes: [
+        { path: 'src/app.js', afterContent: 'export const value = 2;\n' },
+        { path: 'src/helper.js', afterContent: retained },
+      ] }));
+      if (defect !== 'active') await service.cancelSmallProjectChange({ authenticatedSubject: SUBJECT,
+        lifecycleId: previous.lifecycleId, origin: ORIGIN });
+      if (defect === 'stale') fs.writeFileSync(path.join(root, 'src/unrelated.js'), '// changed workspace\n');
+      const blueprint = { instruction: 'Correct only the exported value; retain the reviewed helper.',
+        revisionOf: { lifecycleId: previous.lifecycleId, planDigest: defect === 'digest' ? sha('wrong') : previous.planDigest },
+        files: [
+          { path: 'src/app.js', instruction: 'Correct value to 3, preserving other behavior.', dependsOn: ['src/helper.js'] },
+          { path: 'src/helper.js', instruction: 'Retain reviewed helper.', dependsOn: [], reusePrevious: true },
+        ], focusedTest: proposal().focusedTest, gitCommit: proposal().gitCommit };
+      if (defect === 'missing-retained') { blueprint.files[1].path = 'src/missing.js'; blueprint.files[0].dependsOn = ['src/missing.js']; }
+      const act = () => service.draftSmallProjectChange({ projectId: PROJECT_ID, draft: blueprint,
+        authenticatedSubject: defect === 'owner' ? { ...SUBJECT, actorId: 'someone-else' } : SUBJECT,
+        origin: defect === 'origin' ? { ...ORIGIN, conversationId: 'other-conversation' } : ORIGIN });
+      if (defect) {
+        const codes = { owner: 'M2_LIFECYCLE_OWNER_MISMATCH', origin: 'M2_LIFECYCLE_ORIGIN_MISMATCH',
+          digest: 'M2_LIFECYCLE_PLAN_DIGEST_MISMATCH', active: 'M2_CODE_DRAFT_REVISION_UNAVAILABLE',
+          stale: 'M2_LIFECYCLE_CONTEXT_STALE', 'missing-retained': 'M2_CODE_DRAFT_REVISION_UNAVAILABLE' };
+        await assert.rejects(act(), { code: codes[defect] }); assert.equal(calls, 0);
+        assert.equal(db.prepare('SELECT count(*) AS n FROM m2_lifecycle_operations').get().n, 1);
+      } else {
+        const next = await act(); assert.equal(calls, 1);
+        assert.notEqual(next.lifecycleId, previous.lifecycleId); assert.notEqual(next.planDigest, previous.planDigest);
+        assert.equal(next.state, 'awaiting_approval'); assert.equal(next.approval, null);
+        assert.equal(next.diff.find(file => file.path === 'src/helper.js').after.content, retained);
+        assert.equal(next.diff.find(file => file.path === 'src/app.js').after.content, 'export const value = 3;\n');
+        assert.equal(service.getSmallProjectChangeStatus({ authenticatedSubject: SUBJECT, origin: ORIGIN,
+          lifecycleId: previous.lifecycleId }).state, 'cancelled');
+      }
+      assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), 'export const value = 1;\n');
+      assert.equal(fs.existsSync(path.join(root, 'src/helper.js')), false);
+    } finally { db.close(); fs.rmSync(root, { recursive: true, force: true }); }
+  });
+}
+
 summary();
