@@ -1,5 +1,16 @@
 # IntentSmith — mapa systému
 
+**GPU hunt — opravy workflow, 19. 9. 2026:** `6610faf6` opravuje přenos
+patchů (včetně doslovných Markdown delimitérů), falešnou oscilaci, čtení
+harness diagnostik a chybějící chyby v následném promptu. Průzkumné sady již
+nezakládají rozhodnutí ani retenční důkaz. Finální orákula 60/60, široká
+regrese 359 PASS / 1 očekávaný Gate 0 FAIL; skutečný read-only Electron
+průchod sedmi záložek a reconnect PASS. Vývojová inference staršího
+`bdbcd201`: Qwen 2/8, Devstral 0/8; finální parser při replay navíc opraví
+jeden skutečný případ. Nové měření finálního runtime čeká na cizí GPU práci.
+**REVIEW_PENDING / FULL_HUNT_NOT_READY / NOT_DEPLOYED**; timer disabled,
+hold trvá. [Rozsah, důkazy a otevřené kroky](docs/review/2026-09-19-HUNT-WORKFLOW-REPAIR.md).
+
 **GPU hunt, navazující oprava a audit 2026-09-19:** falešná konvergence
 v produkčním fix loopu opravena; výsledek, paměť oprav a metriky nyní vyžadují
 potvrzené kontroly. Regrese před opravou 63 PASS / 4 FAIL, po 67/67; navazující
@@ -389,8 +400,8 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **226 218 ř.**, 632 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **248 049 ř.**, 533 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **226 228 ř.**, 632 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **248 062 ř.**, 533 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **525** (`431 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 102** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |

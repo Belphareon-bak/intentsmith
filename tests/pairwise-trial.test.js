@@ -4,7 +4,20 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { suite, test, testAsync, assert, assertEqual, summary } from './harness.js';
-import { codePilotPlanHash, boundedGroupInterval, decideCodePilot } from '../src/eval/code-pilot-decision.js';
+import { codePilotPlanHash, boundedGroupInterval, decideCodePilot, classifyCodePilotOutcome } from '../src/eval/code-pilot-decision.js';
+
+test('CODE loop budget and real oscillation remain visible operational failures', () => {
+  for (const loopReason of ['budget_exhausted','oscillation_detected']) {
+    const row=classifyCodePilotOutcome({invalid:false,success:false,loopReason});
+    assertEqual(row.outcome,'OPERATIONAL_FAILURE');assertEqual(row.valid,true);assertEqual(row.score,0);
+  }
+  assertEqual(classifyCodePilotOutcome({invalid:false,success:false,loopReason:'patch_failed'}).outcome,'INCORRECT');
+});
+test('verified final state and invalid environment take precedence over loop prose', () => {
+  assertEqual(classifyCodePilotOutcome({success:true,loopReason:'budget_exhausted'}).outcome,'SUCCESS');
+  const invalid=classifyCodePilotOutcome({invalid:true,success:true,operationalFailure:true});
+  assertEqual(invalid.valid,false);assertEqual(invalid.score,null);assertEqual(invalid.outcome,'ENVIRONMENT_INVALID');
+});
 
 function pilotFixture(groups = 6, repeats = 3) {
   const plan = { schemaVersion: 1, role: 'CODE', metric: 'completed_without_repair_help',

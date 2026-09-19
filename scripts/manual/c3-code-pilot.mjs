@@ -7,7 +7,7 @@ import {createHash, randomUUID} from 'node:crypto';
 import {execFileSync, spawn} from 'node:child_process';
 import {pathToFileURL, fileURLToPath} from 'node:url';
 import {cases, c3Revision} from './c3-code-pilot-fixtures.mjs';
-import {codePilotPlanHash, validateCodePilotPlan, decideCodePilot} from '../../src/eval/code-pilot-decision.js';
+import {codePilotPlanHash, validateCodePilotPlan, decideCodePilot, classifyCodePilotOutcome} from '../../src/eval/code-pilot-decision.js';
 import {holdGpuEvaluationLock} from '../../src/upgrade/gpu-evaluation-lock.js';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -172,8 +172,8 @@ async function attempt(def, work, callModel, budgetMs=600000) {
   const invalid=failure?.environmentInvalid || final.environmentInvalid;
   const success=!invalid && !failure && final.allPassed && durationMs<=budgetMs;
   const outputBudgetExhausted=calls.at(-1)?.doneReason==='length';
-  return {valid:!invalid,score:invalid?null:success?1:0,
-    outcome:invalid?'ENVIRONMENT_INVALID':success?'SUCCESS':failure?.operational||final.timedOut||durationMs>budgetMs||outputBudgetExhausted?'OPERATIONAL_FAILURE':'INCORRECT',
+  return {...classifyCodePilotOutcome({invalid, success, loopReason:loop?.stopReason,
+      operationalFailure:failure?.operational||final.timedOut||durationMs>budgetMs||outputBudgetExhausted}),
     responseBudgetExhausted:outputBudgetExhausted,
     reason:failure?.message||loop?.stopReason||null,repairHelp:0,durationMs,calls,initial,final,loop,
     finalSourceHashes:Object.fromEntries(def.files.map(f=>[f,hash(fs.readFileSync(path.join(work,f)))]))};

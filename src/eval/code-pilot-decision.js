@@ -9,6 +9,16 @@ export function codePilotPlanHash(plan) {
   return createHash('sha256').update(canonical(material)).digest('hex');
 }
 
+// §4: environment faults have no score; exhausting an allowed operational
+// budget is a visible zero. The independently verified final state takes
+// precedence over a stale loop reason when completion stayed inside budget.
+export function classifyCodePilotOutcome({ invalid, success, operationalFailure, loopReason }) {
+  if (invalid) return { valid:false, score:null, outcome:'ENVIRONMENT_INVALID' };
+  if (success) return { valid:true, score:1, outcome:'SUCCESS' };
+  const operational = operationalFailure || ['budget_exhausted','oscillation_detected'].includes(loopReason);
+  return { valid:true, score:0, outcome:operational ? 'OPERATIONAL_FAILURE' : 'INCORRECT' };
+}
+
 export function validateCodePilotPlan(plan) {
   const fail = message => { throw new Error(`CODE_PILOT_PLAN_INVALID: ${message}`); };
   if (plan?.schemaVersion !== 1 || plan.role !== 'CODE' || plan.metric !== 'completed_without_repair_help') fail('metric');
