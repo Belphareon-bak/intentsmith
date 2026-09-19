@@ -133,8 +133,8 @@ potřeba doplnit průběžné ukládání nebo řízené dokončení aktuálníh
 
 ## Co není splněno
 
-1. Dokončené porovnání současného modelu se dvěma kandidáty. Z plánovaných
-   tří modelů je kompletní pouze Qwen; kandidáti čekají na denní pokračování.
+1. Finální porovnání s předem uzamčenou nejistotou a mezí. Průzkumné měření
+   všech tří modelů již dokončilo 63/63 pokusů; [výsledky 19. 9.](2026-09-19-CODE-MEASUREMENT.md).
 2. Uzamčené intervalové rozhodování §6 a nezávislý provozní holdout §8. Staré
    pravidlo diskriminujících úloh zůstává stávající implementací. Žádný binding
    nebyl změněn, žádný model odstraněn; nejsou podklady pro výměnu.
@@ -147,7 +147,7 @@ potřeba doplnit průběžné ukládání nebo řízené dokončení aktuálníh
 5. Rychlý a kompletní provozní profil; rychlý přijde až po ověření pilotu.
    Délka se uměle neprodlužuje na 20–30 minut.
 6. Validace a nasazení integrovaného GUI a přejímka nově připravených rolí.
-   Tyto testy jsou **odložené na přímý pokyn operátora**, nikoli PASS.
+   Tyto testy nového GUI a přípravných karet v dnešním CODE běhu neproběhly.
 
 ## Ranní pokračování 19. 9. — oprava zadání před novým měřením
 
@@ -167,7 +167,8 @@ zastaralý LOC census; po jeho aktualizaci 160/160 PASS. Původní FAIL log
 zůstává. Chybný vlastní příkaz na neexistující `test-registry.mjs` je rovněž
 zachovaný; není chybou produktu.
 
-Další měření musí použít čerstvý Qwen3.8 i oba kandidáty na novém kontraktu.
+Nové měření použilo čerstvý Qwen3.8 i oba kandidáty na novém kontraktu;
+[výsledky a aktuální stav timeru/instalace](2026-09-19-CODE-MEASUREMENT.md).
 Starých 76,19 % se nesmí vydávat za výsledek opraveného zadání. Změna dvou
 promptů sama neodstraňuje ostatní omezení pilotu vypsaná výše.
 

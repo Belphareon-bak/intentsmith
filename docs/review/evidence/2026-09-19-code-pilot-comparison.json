@@ -1,0 +1,548 @@
+{
+  "observedAt": "2026-09-19T05:33:21.154394+00:00",
+  "contract": "0e55ee99cda70bb8d5a1c78741eeee3efcb234da5aa2fc8cb1278c4f61677c94",
+  "sourceRevision": "0ca09dd931fe94fb09b8e0937cb43d9d9f62d7ed",
+  "interpretation": "EXPLORATORY_ONLY; seven narrow patch tasks in five related-scenario groups; no locked decision rule or operational holdout.",
+  "models": [
+    {
+      "model": "qwen3.8:latest",
+      "status": "COMPLETE",
+      "runId": "eval_17ffb1f3-2f42-4f8a-bec7-8e11780cac03",
+      "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+      "score": 0.8571428571428571,
+      "scoringDurationMs": 299835,
+      "providerVersion": "0.34.0-intentsmith.1",
+      "completedAt": "2026-09-19T05:20:32.550Z",
+      "attempts": 21,
+      "tasks": [
+        {
+          "name": "patch_8cae1b583963",
+          "group": "model-cleanup",
+          "mean": 1,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "outcomes": [
+            "SUCCESS",
+            "SUCCESS",
+            "SUCCESS"
+          ],
+          "reasons": [
+            null,
+            null,
+            null
+          ]
+        },
+        {
+          "name": "patch_0fe346cc820c",
+          "group": "model-use-leases",
+          "mean": 1,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "outcomes": [
+            "SUCCESS",
+            "SUCCESS",
+            "SUCCESS"
+          ],
+          "reasons": [
+            null,
+            null,
+            null
+          ]
+        },
+        {
+          "name": "patch_6fc5e4eb7dce",
+          "group": "model-use-leases",
+          "mean": 1,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "outcomes": [
+            "SUCCESS",
+            "SUCCESS",
+            "SUCCESS"
+          ],
+          "reasons": [
+            null,
+            null,
+            null
+          ]
+        },
+        {
+          "name": "patch_f63d14d5eb61",
+          "group": "pairwise-confidence",
+          "mean": 0,
+          "scores": [
+            0,
+            0,
+            0
+          ],
+          "outcomes": [
+            "INCORRECT",
+            "INCORRECT",
+            "INCORRECT"
+          ],
+          "reasons": [
+            "splněno 0/3 požadavků",
+            "splněno 0/3 požadavků",
+            "splněno 0/3 požadavků"
+          ]
+        },
+        {
+          "name": "patch_75b5539f8cf5",
+          "group": "chat-persistence",
+          "mean": 1,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "outcomes": [
+            "SUCCESS",
+            "SUCCESS",
+            "SUCCESS"
+          ],
+          "reasons": [
+            null,
+            null,
+            null
+          ]
+        },
+        {
+          "name": "patch_22149f55b861",
+          "group": "verification-timeout",
+          "mean": 1,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "outcomes": [
+            "SUCCESS",
+            "SUCCESS",
+            "SUCCESS"
+          ],
+          "reasons": [
+            null,
+            null,
+            null
+          ]
+        },
+        {
+          "name": "patch_adb1258cfec0",
+          "group": "verification-timeout",
+          "mean": 1,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "outcomes": [
+            "SUCCESS",
+            "SUCCESS",
+            "SUCCESS"
+          ],
+          "reasons": [
+            null,
+            null,
+            null
+          ]
+        }
+      ],
+      "groupMeans": {
+        "model-cleanup": 1.0,
+        "model-use-leases": 1.0,
+        "pairwise-confidence": 0.0,
+        "chat-persistence": 1.0,
+        "verification-timeout": 1.0
+      },
+      "descriptiveGroupMean": 0.8,
+      "measurement": {
+        "model": "qwen3.8:latest",
+        "numCtx": 16384,
+        "placement": {
+          "loaded": true,
+          "sizeBytes": 17315848518,
+          "vramBytes": 17315848518,
+          "cpuBytes": 0,
+          "fullyOnGpu": true
+        },
+        "throughput": {
+          "tokensPerSecond": 38.4,
+          "tokens": 160
+        },
+        "fits": true,
+        "error": null
+      }
+    },
+    {
+      "model": "devstral-small-2:latest",
+      "status": "COMPLETE",
+      "runId": "eval_b11c62f7-8631-4485-9af9-17e49c0306ee",
+      "digest": "24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8",
+      "score": 0.46031746031746035,
+      "scoringDurationMs": 326912,
+      "providerVersion": "0.34.0-intentsmith.1",
+      "completedAt": "2026-09-19T05:26:50.133Z",
+      "attempts": 21,
+      "tasks": [
+        {
+          "name": "patch_8cae1b583963",
+          "group": "model-cleanup",
+          "mean": 0,
+          "scores": [
+            0,
+            0,
+            0
+          ],
+          "outcomes": [
+            "INCORRECT",
+            "INCORRECT",
+            "INCORRECT"
+          ],
+          "reasons": [
+            "splněno 0/1 požadavků",
+            "splněno 0/1 požadavků",
+            "splněno 0/1 požadavků"
+          ]
+        },
+        {
+          "name": "patch_0fe346cc820c",
+          "group": "model-use-leases",
+          "mean": 1,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "outcomes": [
+            "SUCCESS",
+            "SUCCESS",
+            "SUCCESS"
+          ],
+          "reasons": [
+            null,
+            null,
+            null
+          ]
+        },
+        {
+          "name": "patch_6fc5e4eb7dce",
+          "group": "model-use-leases",
+          "mean": 1,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "outcomes": [
+            "SUCCESS",
+            "SUCCESS",
+            "SUCCESS"
+          ],
+          "reasons": [
+            null,
+            null,
+            null
+          ]
+        },
+        {
+          "name": "patch_f63d14d5eb61",
+          "group": "pairwise-confidence",
+          "mean": 0.2222222222222222,
+          "scores": [
+            0,
+            0.6666666666666666,
+            0
+          ],
+          "outcomes": [
+            "INCORRECT",
+            "INCORRECT",
+            "INCORRECT"
+          ],
+          "reasons": [
+            "splněno 0/3 požadavků",
+            "splněno 2/3 požadavků",
+            "splněno 0/3 požadavků"
+          ]
+        },
+        {
+          "name": "patch_75b5539f8cf5",
+          "group": "chat-persistence",
+          "mean": 1,
+          "scores": [
+            1,
+            1,
+            1
+          ],
+          "outcomes": [
+            "SUCCESS",
+            "SUCCESS",
+            "SUCCESS"
+          ],
+          "reasons": [
+            null,
+            null,
+            null
+          ]
+        },
+        {
+          "name": "patch_22149f55b861",
+          "group": "verification-timeout",
+          "mean": 0,
+          "scores": [
+            0,
+            0,
+            0
+          ],
+          "outcomes": [
+            "INCORRECT",
+            "INCORRECT",
+            "INCORRECT"
+          ],
+          "reasons": [
+            "splněno 0/1 požadavků",
+            "splněno 0/1 požadavků",
+            "splněno 0/1 požadavků"
+          ]
+        },
+        {
+          "name": "patch_adb1258cfec0",
+          "group": "verification-timeout",
+          "mean": 0,
+          "scores": [
+            0,
+            0,
+            0
+          ],
+          "outcomes": [
+            "INCORRECT",
+            "INCORRECT",
+            "INCORRECT"
+          ],
+          "reasons": [
+            "splněno 0/1 požadavků",
+            "splněno 0/1 požadavků",
+            "splněno 0/1 požadavků"
+          ]
+        }
+      ],
+      "groupMeans": {
+        "model-cleanup": 0.0,
+        "model-use-leases": 1.0,
+        "pairwise-confidence": 0.2222222222222222,
+        "chat-persistence": 1.0,
+        "verification-timeout": 0.0
+      },
+      "descriptiveGroupMean": 0.4444444444444445,
+      "measurement": {
+        "model": "devstral-small-2:latest",
+        "numCtx": 16384,
+        "placement": {
+          "loaded": true,
+          "sizeBytes": 16945428561,
+          "vramBytes": 16945428561,
+          "cpuBytes": 0,
+          "fullyOnGpu": true
+        },
+        "throughput": {
+          "tokensPerSecond": 48.5,
+          "tokens": 160
+        },
+        "fits": true,
+        "error": null
+      }
+    },
+    {
+      "model": "qwen3-coder:latest",
+      "status": "COMPLETE",
+      "runId": "eval_40172b39-041b-44b5-b627-b477aa97426a",
+      "digest": "06c1097efce0431c2045fe7b2e5108366e43bee1b4603a7aded8f21689e90bca",
+      "score": 0.11428571428571431,
+      "scoringDurationMs": 216167,
+      "providerVersion": "0.34.0-intentsmith.1",
+      "completedAt": "2026-09-19T05:33:02.701Z",
+      "attempts": 21,
+      "tasks": [
+        {
+          "name": "patch_8cae1b583963",
+          "group": "model-cleanup",
+          "mean": 0,
+          "scores": [
+            0,
+            0,
+            0
+          ],
+          "outcomes": [
+            "INCORRECT",
+            "INCORRECT",
+            "INCORRECT"
+          ],
+          "reasons": [
+            "splněno 0/1 požadavků",
+            "splněno 0/1 požadavků",
+            "splněno 0/1 požadavků"
+          ]
+        },
+        {
+          "name": "patch_0fe346cc820c",
+          "group": "model-use-leases",
+          "mean": 0,
+          "scores": [
+            0,
+            0,
+            0
+          ],
+          "outcomes": [
+            "INCORRECT",
+            "INCORRECT",
+            "INCORRECT"
+          ],
+          "reasons": [
+            "splněno 0/59 požadavků",
+            "splněno 0/59 požadavků",
+            "splněno 0/59 požadavků"
+          ]
+        },
+        {
+          "name": "patch_6fc5e4eb7dce",
+          "group": "model-use-leases",
+          "mean": 0,
+          "scores": [
+            0,
+            0,
+            0
+          ],
+          "outcomes": [
+            "INCORRECT",
+            "INCORRECT",
+            "INCORRECT"
+          ],
+          "reasons": [
+            "test nebyl dokončen",
+            "test nebyl dokončen",
+            "test nebyl dokončen"
+          ]
+        },
+        {
+          "name": "patch_f63d14d5eb61",
+          "group": "pairwise-confidence",
+          "mean": 0,
+          "scores": [
+            0,
+            0,
+            0
+          ],
+          "outcomes": [
+            "INCORRECT",
+            "INCORRECT",
+            "INCORRECT"
+          ],
+          "reasons": [
+            "oprava rozbila 4 jiných testů",
+            "oprava rozbila 4 jiných testů",
+            "oprava rozbila 4 jiných testů"
+          ]
+        },
+        {
+          "name": "patch_75b5539f8cf5",
+          "group": "chat-persistence",
+          "mean": 0.8000000000000002,
+          "scores": [
+            0.8,
+            0.8,
+            0.8
+          ],
+          "outcomes": [
+            "INCORRECT",
+            "INCORRECT",
+            "INCORRECT"
+          ],
+          "reasons": [
+            "splněno 4/5 požadavků",
+            "splněno 4/5 požadavků",
+            "splněno 4/5 požadavků"
+          ]
+        },
+        {
+          "name": "patch_22149f55b861",
+          "group": "verification-timeout",
+          "mean": 0,
+          "scores": [
+            0,
+            0,
+            0
+          ],
+          "outcomes": [
+            "INCORRECT",
+            "INCORRECT",
+            "INCORRECT"
+          ],
+          "reasons": [
+            "splněno 0/1 požadavků",
+            "splněno 0/1 požadavků",
+            "splněno 0/1 požadavků"
+          ]
+        },
+        {
+          "name": "patch_adb1258cfec0",
+          "group": "verification-timeout",
+          "mean": 0,
+          "scores": [
+            0,
+            0,
+            0
+          ],
+          "outcomes": [
+            "INCORRECT",
+            "INCORRECT",
+            "INCORRECT"
+          ],
+          "reasons": [
+            "splněno 0/1 požadavků",
+            "splněno 0/1 požadavků",
+            "splněno 0/1 požadavků"
+          ]
+        }
+      ],
+      "groupMeans": {
+        "model-cleanup": 0.0,
+        "model-use-leases": 0.0,
+        "pairwise-confidence": 0.0,
+        "chat-persistence": 0.8000000000000002,
+        "verification-timeout": 0.0
+      },
+      "descriptiveGroupMean": 0.16000000000000003,
+      "measurement": {
+        "model": "qwen3-coder:latest",
+        "numCtx": 16384,
+        "placement": {
+          "loaded": true,
+          "sizeBytes": 20091177532,
+          "vramBytes": 20091177532,
+          "cpuBytes": 0,
+          "fullyOnGpu": true
+        },
+        "throughput": {
+          "tokensPerSecond": 176.3,
+          "tokens": 160
+        },
+        "fits": true,
+        "error": null
+      }
+    }
+  ],
+  "bindingsUnchanged": true,
+  "failureReplay": {
+    "distinctResponses": 16,
+    "matchingScores": 16
+  },
+  "acceptedForDeployment": false
+}
