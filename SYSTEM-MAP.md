@@ -1,5 +1,14 @@
 # IntentSmith — mapa systému
 
+**Desktopové projektové kroky, 2026-09-19:** nasazeno `c0eeec50`.
+Celý původní cíl, kontext existujících modulů pouze ke čtení, pozorované
+prostředí/politika a explicitní Desktop základ. M2 60/60, projekt 18/18,
+Studio 39/39; celý profil 359 PASS / 1 FAIL (stávající Gate 0). Reálný první
+modelový návrh byl odmítnut pro chyby výpočtů před zápisem. SystemSmith_1
+zůstává **APPLICATION_INCOMPLETE**; systemd sandbox BLOCKED AppArmorem,
+navazující inference čeká na cizí GPU měření. REVIEW_PENDING.
+[Průchod, opravy a zachované neúspěchy](docs/review/2026-09-19-SYSTEMSMITH-PROJECT-FLOW.md).
+
 **Studio — dotažení předloh, 2026-09-18:** nasazeno `0ef67a56`.
 Sémantická paleta, barevná navigace/role, 12 sekčních přehledů, kompaktní
 karty, miniatury stylů a živý náhled. Electron v šířce 960/1400, text

@@ -24,3 +24,12 @@ chování senzorů; dotčené tests/project-collaboration.test.js,
 tests/m2-lifecycle-application-service.test.js, tests/m1-studio-client.test.js,
 registry a offline/database profil. Změny bezpečnostních invariantů nejsou
 součástí zadání; neúplný nebo pouze izolovaný výsledek nepřejmenovat na hotovo.
+
+Průběžný stav 2026-09-19: opravy nasazeny `c0eeec50`, REVIEW_PENDING.
+Úplný profil 359 PASS / 1 zděděný FAIL release pečeti. První skutečný modelový
+návrh odmítnut před zápisem, projekt id 12 archivován beze ztráty důkazů.
+Aktivní desktopový SystemSmith_1 je id 13 na původní požadované cestě.
+Aplikace není dokončená: M2 test z systemd BLOCKED AppArmorem a další inference
+čeká na uvolnění GPU druhého workera. Celý navazující modelový GUI průchod
+zůstává prací tohoto WP, nikoli údajně splněným výstupem.
+Podrobnosti: ../review/2026-09-19-SYSTEMSMITH-PROJECT-FLOW.md.
