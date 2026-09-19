@@ -5,8 +5,17 @@ Aktuální checkpoint 2026-09-19: tři aplikace jsou funkčně ověřené a nain
 výstup, ale postup byl asistovaný a opakovaně opravovaný. Nárok lightweight
 SystemSmithu není doložený. Ověřený rozsah a přesné SHA:
 [aktuální výsledky](../review/2026-09-19-THREE-PROJECTS-JOURNEY.md).
-Obecný draft nově odmítá vadnou syntaxi JS před plánem (96/96). Další částí
-zadání je převzetí existujícího cizího kódu; nezávislé review zůstává otevřené.
+Obecný draft nově odmítá vadnou syntaxi JS před plánem (96/96). Následně prošlo
+převzetí skutečného ShellSmithu a jedna modelová oprava přes M2: nová regrese
+na původním kódu selže, 30/30 testů i renderer build opraveného návrhu PASS,
+63 ostatních souborů beze změny. Převzetí odhalilo chyby obecných plánovacích
+předpokladů a ztrátu ukázek; oprava má 28/28 a vlastní úplný profil 359/1.
+Nasazeno a publikováno `9660d99b`, po uvolnění společného GPU zámku; data,
+auth i původně neaktivní Hunt timer jsou zachované. Skutečné následné D1 čtení
+`45` správně uvádí main, CJS a testovací příkaz; v nezměněném 4096 profilu má
+3 ukázky. Samo nespouští testy a není auditem celého převzatého projektu.
+Asistovaný průchod nepředstírá samostatné dokončení na jeden prompt ani audit
+celého převzatého projektu; nezávislé review zůstává otevřené.
 Následující průběžné checkpointy jsou historické.
 
 

@@ -16,11 +16,18 @@ potvrdilo integritu DB, nezměněných devět tabulek a zachování autentizace.
 **THREE_APPLICATIONS_RUNTIME_VERIFIED / ASSISTED_JOURNEY / REVIEW_PENDING**,
 nikoli celkový prod-ready. [Výsledky, meze a neúspěchy](docs/review/2026-09-19-THREE-PROJECTS-JOURNEY.md).
 
-Navazující převzetí skutečného ShellSmithu odhalilo vnucený scaffold vstup a
-prázdný výběr ukázek. Pracovní oprava předává skutečný package manifest,
-zachovává importované konvence, doplňuje volný kontext a přijímá CJS/JS Node
-testy (projektová sada 28/28). Dokončený modelový průchod se ověřuje odděleně;
-nejde o audit celého ShellSmithu ani navýšení oprávnění jeho původní instalace.
+Navazující převzetí skutečného ShellSmithu dokončilo jednu modelovou opravu
+v oddělené kopii přes M2: odmítnutí raw CR/LF/TAB před URL normalizací.
+Nová regrese selže na původním kódu; opravený návrh má 30/30 a renderer build
+PASS. Ostatních 63 původních souborů i původní instalace zůstaly nedotčené.
+Průchod odhalil vnucený scaffold vstup a prázdný výběr ukázek. Návazná obecná
+oprava **`9660d99b` je aktuálně nasazená**: skutečný package manifest,
+zachování importovaných konvencí, doplnění volného kontextu a CJS/JS Node testy.
+Projektová sada 28/28; vlastní úplný profil 359 PASS / 1 FAIL Gate 0 / 0 BLOCKED.
+Nasazení proběhlo až po uvolnění GPU zámku, s ověřením původní verze i dat.
+Následná skutečná D1 odpověď správně rozpoznala main, CJS i testovací příkaz,
+s 3 pozorovanými ukázkami v nezměněném 4096 profilu. Nejde o audit celého
+ShellSmithu ani kontrolovaný A/B benchmark.
 
 **Následující checkpointy jsou historické, nikoli aktuální stav tří utilit.**
 

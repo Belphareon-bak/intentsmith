@@ -138,7 +138,7 @@ JSON, deklarovaného neexistujícího main, CJS/JS plánů a zachování celého
 První 23/24 běh zachoval skutečnou regresi rozpočtu: delší systémové instrukce
 vytlačily dlouhý cíl. Oprava zkrátila instrukce; test se neoslabil.
 
-Konkrétní dokončovaný krok: ShellSmith před `new URL()` neodmítal raw CR/LF/TAB,
+Konkrétní dokončený krok: ShellSmith před `new URL()` neodmítal raw CR/LF/TAB,
 WHATWG normalizace pak tiše změnila host/path. `40-url-before.json` zachycuje
 reprodukci. Široká první governance odmítla již existující dynamické importy
 ve dvou cizích test helper modulech (`41-draft.json`). Pro tento omezený krok
@@ -146,8 +146,55 @@ operátor výslovně připravil v klonu policy pro `src/shared` a jeden regresn�
 soubor s původně padajícím placeholderem; zbytek repozitáře není předstíraně
 prohlášený za zkontrolovaný. Žádná aplikační implementace se ručně neopravovala.
 První návazný CODE návrh (`42`) odmítl **nasazený** nový syntax guard už přes
-skutečné HTTP; čistý projekt i nulový nový plán jsou doložené. Další návrh a
-fyzické provedení se zaznamenávají zvlášť, nikoli předem jako úspěch.
+skutečné HTTP; projekt zůstal čistý a plán nevznikl. `43` správně opravil
+implementaci, ale nový modelový test očekával chybnou hlášku existujícího
+odmítnutí `%0A`. Před zápisem byl zrušen. Přesná oprava `44` zachovala
+implementaci bajtově a napravila pouze tento nový test; žádný dřívější test
+se neoslabil.
+
+**Výsledek převzetí:** skutečné M2 provedení `44` má `succeeded`, commit
+`31dbc413af6d96006fd7beeea2ac528e899a0b25` v importované kopii. Nový test
+selže na původních bajtech (`44-red-on-original.log`), přesný návrh projde
+v reálném sandboxu a všech **30/30** testů původního klienta s novou regresí
+projde v privátní kopii. Produkční renderer build také PASS. Po skutečném
+schválení odpovídají aplikované bajty návrhu a ostatních **63** původních
+souborů zůstalo shodných (`44-applied-integrity.json`).
+
+`shellsmith-uri-input.patch` obsahuje jen skutečnou opravu a její nový test,
+bez operátorské policy přípravy. `git apply --check` nad původním čistým
+ShellSmithem PASS; do původní instalace se patch bezprostředně neaplikoval.
+Tohle je doložené převzetí a dokončení jedné konkrétní změny, **nikoli audit či
+certifikace celého ShellSmithu**. Analýza stále pracuje s omezenými ukázkami.
+
+Navazující obecná oprava plánovače je publikovaná a **nasazená na `9660d99b`**.
+Její vlastní úplný profil `existing-context-20260919`: **359 PASS / 1 FAIL /
+0 BLOCKED**; opět jen známá Gate 0 pečeť. Automatická úloha
+`intentsmith-project-flow-finalize-20260919.service` počkala na uvolnění GPU,
+získala společný zámek a zkontrolovala přesnou původní instalaci `b0975bff`.
+Receipt `deployment-existing-context/deployment.json` potvrzuje aktivní backend,
+zachování auth, devíti tabulek a všech projektových dat kromě očekávaného
+startovního `last_active` devíti projektů, quick_check OK a nula FK chyb.
+Předčasné pokusy zůstávají v `deployment-existing-context/run*.log`: žádný
+nezastavil cizí úlohu ani nepřepsal běžící backend. `pending.json` je historický
+záznam čekání, nikoli aktuální stav nasazení. Úloha skončila s exit 0.
+
+Skutečné následné HTTP/D1 čtení `45-chat.json` na instalovaném `9660d99b`
+vrátilo 200, `project.collaboration`, `canExecute=false`, `plan=null`.
+Odpověď správně uvádí `src/main/main.js`, CJS a přesný manifestový testovací
+příkaz `node --test test/*.test.cjs`. Výběr obsahoval 3 pozorované ukázky při
+stejném 4096-tokenovém profilu; první běh `40` měl nula. Není to kontrolovaný
+A/B benchmark: mezi běhy se změnil také projekt a požadavek. Odpověď přiznává
+neznámé obsahy a IPC, priority zůstávají obecné; formulace „funkční testy“
+není audit celé aplikace. Samotný čtecí tah žádné nové testy nespustil.
+Zvlášť doložených 30 testů a build pochází z kroku `44` popsaného výše.
+
+Finální lokální soupis je `final-summary.json`; `final-evidence-manifest.json`
+připíná soubory tohoto dokončeného průchodu včetně screenshotů, modelových
+návrhů, dvou posledních úplných profilů, nasazení a následného čtení.
+Soukromé Electron profily a jednorázové runtime kopie nejsou vydávané za důkazy.
+Ověřeno **1 652 souborů / 16 066 376 B**; SHA-256 manifestu:
+`02ea5f0e0c619bf3f838ab1b42d3b26abd68f93779e87d125a76526c069df943`.
+Manifest připíná implementační `9660d99b`; závěrečný commit mění pouze dokumentaci.
 
 ## Historické checkpointy (zachované beze změny)
 
