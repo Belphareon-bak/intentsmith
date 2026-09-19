@@ -3608,6 +3608,12 @@ function _renderEvaluationsTab(){
       var rd=roles[role],rows=_sortModelRows((rd.artifacts||[]).filter(function(a){return a.applicable!==false&&(!_evaluationModelFilter||_canonicalModelIdentity(a.model)===_canonicalModelIdentity(_evaluationModelFilter));}),'quality');
       return h('section',{key:role,style:{marginBottom:26}},h('h3',{style:{fontSize:_fs(14)}},role+' · '+rd.suiteName),
         rd.evidencePurpose==='EXPLORATORY'?h('p',{role:'note',style:{color:C.warning,fontSize:_fs(11)}},'Průzkumné výsledky — '+rd.decisionBlockReason):null,
+        rd.acceptance?h('details',{'data-testid':'evaluation-acceptance',style:{fontSize:_fs(10),color:C.tx3,marginBottom:10}},
+          h('summary',null,rd.decisionReady?'Přejímka: přijato pouze pro doložené dvojice':'Přejímka: rozhodování uzavřeno'),
+          h('p',null,'Kontrakt: '+rd.suiteContractSha256),
+          h('p',null,'Hodnotitel: '+((rd.acceptance.graderIds||[]).join(', ')||'přejímka chybí')),
+          (rd.acceptance.qualifications||[]).map(function(q){return h('p',{key:q.id},'Provozní kvalifikace: '+q.id+' · '+q.review.reviewer+' · '+q.review.reviewedAt+' · '+q.review.reference);}),
+          rd.acceptance.code?h('p',null,'Důvod: '+rd.acceptance.code):null):null,
         h('p',{style:{color:C.tx3,fontSize:_fs(11)}},'Aktuální model: '+(rd.binding||'nepřiřazen')+' · změřeno '+rows.filter(function(a){return a.status==='COMPLETE';}).length+'/'+rows.length+' modelů · '+rd.taskCount+' úloh × '+rd.repeats+' opakování'),
         _evaluationView==='matrix'?_renderEvaluationMatrix(role,rd,rows):
         _modelTable([_modelSortHeader('quality','model','Model'),_modelSortHeader('quality','score','Skóre'),'Výsledky','Detail','Akce'],rows.flatMap(function(row){

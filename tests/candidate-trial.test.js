@@ -13,7 +13,7 @@ import { UpgradeManager } from '../src/upgrade/upgrade-manager.js';
 import { createRoleEvaluationPlans } from '../src/eval/role-evaluation-plan.js';
 
 // Synthetic qualified plans: production prototype plans remain exploratory.
-const EVALUATION_PLANS = Object.fromEntries(Object.entries(createRoleEvaluationPlans({ repeats: 1 })).map(([role,p]) => [role,{...p,decisionReady:true}]));
+const EVALUATION_PLANS = Object.fromEntries(Object.entries(createRoleEvaluationPlans({ repeats: 1 })).map(([role,p]) => [role,{...p,decisionReady:true,qualificationForRuns:undefined,acceptance:null}]));
 const SUITES = Object.fromEntries(
   Object.values(EVALUATION_PLANS).map(plan => [plan.suiteName, plan.suite]),
 );

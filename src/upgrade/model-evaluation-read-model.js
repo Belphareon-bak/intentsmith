@@ -251,6 +251,11 @@ function decodeDecision(row, context) {
   let actionability = 'NOT_CANDIDATE_WIN';
   if (row.outcome === 'CANDIDATE') {
     if (context.plan?.decisionReady !== true) actionability = 'EVALUATION_PROFILE_NOT_ACCEPTED';
+    else if (typeof context.plan.qualificationForRuns === 'function' && (() => {
+      const q = context.plan.qualificationForRuns({candidateRunId:row.candidate_run_id,incumbentRunId:row.incumbent_run_id});
+      return !q || q.decision.verdict !== 'ZMENIT' || details.decision?.acceptanceId !== q.id
+        || details.decision?.acceptanceSha256 !== q.payloadSha256;
+    })()) actionability = 'EVALUATION_PAIR_NOT_ACCEPTED';
     else if (context.providerVersion && row.provider_version !== context.providerVersion) actionability = 'PROVIDER_VERSION_CHANGED';
     else if (details.activationEligible !== true) actionability = 'PORTFOLIO_NOT_APPROVED';
     else if (context.bindingAuthority.status !== 'DURABLE') {
@@ -314,7 +319,7 @@ export class ModelEvaluationReadModel {
       throw new TypeError('ModelEvaluationReadModel requires a SQLite database');
     }
     this._db = db;
-    this._plans = opts.plans || createRoleEvaluationPlans();
+    this._plans = opts.plans || createRoleEvaluationPlans({ db });
     const tables = new Set(db.prepare(`
       SELECT name FROM sqlite_master
       WHERE type = 'table' AND name IN ('model_evaluation_runs', 'model_evaluation_decisions')
@@ -368,6 +373,8 @@ export class ModelEvaluationReadModel {
             taskCount: plan.taskCount,
             minimumTaskCount: plan.minimumTaskCount,
             decisionReady: plan.decisionReady,
+            acceptance: plan.acceptance || null,
+            decisionBlockCode: plan.decisionBlockCode || null,
             measurementReady: plan.measurementReady ?? plan.decisionReady,
             evidencePurpose: plan.evidencePurpose || null,
             decisionBlockReason: plan.decisionBlockReason || null,
@@ -438,6 +445,8 @@ export class ModelEvaluationReadModel {
           taskCount: plan.taskCount,
           minimumTaskCount: plan.minimumTaskCount,
           decisionReady: plan.decisionReady,
+            acceptance: plan.acceptance || null,
+            decisionBlockCode: plan.decisionBlockCode || null,
           measurementReady: plan.measurementReady ?? plan.decisionReady,
           evidencePurpose: plan.evidencePurpose || null,
           decisionBlockReason: plan.decisionBlockReason || null,

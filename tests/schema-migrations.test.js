@@ -214,6 +214,7 @@ const ALL_MIGRATIONS = [
       '2026_09_11_113_conversation_web',
   '2026_09_18_114_model_evaluation_remeasure',
   '2026_09_18_115_intentsmith_setting_names',
+  '2026_09_19_116_model_evaluation_acceptance',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -492,6 +493,7 @@ describe('T-SM0: Migration identity preflight', async () => {
       '2026_09_11_113_conversation_web',
   '2026_09_18_114_model_evaluation_remeasure',
   '2026_09_18_115_intentsmith_setting_names',
+  '2026_09_19_116_model_evaluation_acceptance',
     ]);
     assert.strictEqual(db.prepare(`
       SELECT COUNT(*) AS count FROM schema_migrations
@@ -1556,9 +1558,10 @@ describe('T-SM11: Core / hunt branch upgrades converge without losing evidence',
         const result = await runMigrations(db);
         const repeatedMeasurement = '2026_09_18_114_model_evaluation_remeasure';
         const settingNames = '2026_09_18_115_intentsmith_setting_names';
+        const evaluationAcceptance = '2026_09_19_116_model_evaluation_acceptance';
         assert.deepEqual(result.applied, origin === 'fresh' ? ALL_MIGRATIONS
-          : origin === 'base' ? [...huntVersions, canonicalWeb, repeatedMeasurement, settingNames]
-          : origin === 'web' ? [...huntVersions, repeatedMeasurement, settingNames] : [canonicalWeb, repeatedMeasurement, settingNames]);
+          : origin === 'base' ? [...huntVersions, canonicalWeb, repeatedMeasurement, settingNames, evaluationAcceptance]
+          : origin === 'web' ? [...huntVersions, repeatedMeasurement, settingNames, evaluationAcceptance] : [canonicalWeb, repeatedMeasurement, settingNames, evaluationAcceptance]);
         assert.deepEqual(schema(db), expectedSchema);
         for (const [table, originalRows] of Object.entries(before)) assert.deepEqual(rows(db)[table], originalRows, `${origin}: ${table}`);
         assert.deepEqual(db.pragma('foreign_key_check'), []);

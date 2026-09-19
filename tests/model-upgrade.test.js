@@ -1205,7 +1205,7 @@ function retentionFixture() {
   }));
   // Qualified synthetic fixture: production prototype plans remain unaccepted.
   const plans = Object.fromEntries(Object.entries(createRoleEvaluationPlans({codeRuntimeAvailability:{ready:true}}))
-    .map(([role,plan])=>[role,{...plan,decisionReady:true}]));
+    .map(([role,plan])=>[role,{...plan,decisionReady:true,qualificationForRuns:undefined,acceptance:null}]));
   const hardware = { model: 'test GPU', vramMb: 24576, numCtx: 32768 };
   const rows = new Map();
   for (const [role, plan] of Object.entries(plans)) for (const m of inventory) {

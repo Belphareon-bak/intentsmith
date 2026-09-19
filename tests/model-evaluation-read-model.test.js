@@ -280,7 +280,7 @@ test('raw API and CLI metadata normalize qwen3-coder into the same technical sco
 test('current decision is linked to exact runs and only actionable for the bound incumbent', () => {
   const db = database();
   // Explicitly qualified synthetic plans exercise the remaining activation gates.
-  const plans = Object.fromEntries(Object.entries(createRoleEvaluationPlans({ repeats: 1 })).map(([role,p]) => [role,{...p,decisionReady:true}]));
+  const plans = Object.fromEntries(Object.entries(createRoleEvaluationPlans({ repeats: 1 })).map(([role,p]) => [role,{...p,decisionReady:true,qualificationForRuns:undefined,acceptance:null}]));
   insert(db, {
     runId: 'incumbent-chat', digest: DIGEST, plan: plans.CHAT,
     score: 0.6, passed: 24,
@@ -375,7 +375,7 @@ test('decision disappears when either linked run has a foreign suite version', (
 test('pairwise winner without final portfolio approval is not actionable', () => {
   const db = database();
   // Explicitly qualified synthetic plans exercise the remaining activation gates.
-  const plans = Object.fromEntries(Object.entries(createRoleEvaluationPlans({ repeats: 1 })).map(([role,p]) => [role,{...p,decisionReady:true}]));
+  const plans = Object.fromEntries(Object.entries(createRoleEvaluationPlans({ repeats: 1 })).map(([role,p]) => [role,{...p,decisionReady:true,qualificationForRuns:undefined,acceptance:null}]));
   insert(db, {
     runId: 'incumbent-r2', digest: DIGEST, plan: plans.R2,
     score: 0.6, passed: 4,

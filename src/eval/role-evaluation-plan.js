@@ -11,6 +11,7 @@ import {
 } from './role-quality-suites.js';
 import { suiteContract } from '../upgrade/model-evaluation-history.js';
 import { DEFAULT_REPEATS } from '../upgrade/pairwise-trial.js';
+import { ModelEvaluationAcceptanceStore, qualificationRuntimeSha256 } from '../upgrade/model-evaluation-acceptance.js';
 import { applicabilityContractForRole } from './model-evaluation-applicability.js';
 
 export {
@@ -94,6 +95,9 @@ export function createRoleEvaluationPlans(opts = {}) {
   const codeGradingRuntime = codeGradingRuntimeContract();
   const textGradingRuntime = textGradingRuntimeContract();
   const codeRuntime = opts.codeRuntimeAvailability || codePatchRuntimeAvailability();
+  const acceptanceStore = new ModelEvaluationAcceptanceStore(opts.db || null);
+  let runtimeSha256 = null;
+  try { runtimeSha256 = qualificationRuntimeSha256(); } catch { /* unavailable source cannot authorize decisions */ }
   const plans = {};
   for (const [role, suiteName] of Object.entries(ROLE_SUITE_NAMES)) {
     const suite = getQualitySuiteForRole(role);
@@ -112,6 +116,8 @@ export function createRoleEvaluationPlans(opts = {}) {
       || minimumDiscriminatingTasks < 1) {
       throw new Error(`missing fail-closed evaluation floors for role ${role}`);
     }
+    const acceptanceIdentity = { role, suiteContractSha256:contract.sha256,
+      taskNames:suite.tests.map(task => task.name), runtimeSha256 };
     plans[role] = Object.freeze({
       role,
       suiteName,
@@ -125,16 +131,17 @@ export function createRoleEvaluationPlans(opts = {}) {
       measurementReady: suite.tests.length >= minimumTaskCount
         && (role !== 'VISION' || new Set(suite.tests.flatMap(t => t.contractMaterial?.prompt?.imageDigests || [])).size >= 10)
         && (role !== 'CODE' || codeRuntime.ready),
-      // Counts and a working runtime establish executability, not validity for
-      // replacing an incumbent. None of the current prototype contracts has
-      // an accepted paired operational qualification (§6/§8 of the eval WP).
-      // Keep exploratory measurement available while closing every effect path.
-      decisionReady: false,
-      evidencePurpose: 'EXPLORATORY',
-      decisionBlockCode: 'EVALUATION_PROFILE_NOT_ACCEPTED',
-      decisionBlockReason: role === 'CODE'
-        ? 'Krátké opravy jsou průzkumné měření. Výběr CODE vyžaduje přijaté párové měření celého opravného postupu.'
-        : 'Sada zatím nemá přejímku hodnotitele a provozního profilu pro výběr modelu.',
+      // Read durable evidence at use time: revocation must affect an already
+      // constructed plan, including the final retention recheck under its lock.
+      qualificationRuntimeSha256: runtimeSha256,
+      get acceptance() { return acceptanceStore.resolve(acceptanceIdentity); },
+      get decisionReady() { return this.measurementReady && this.acceptance.ready; },
+      get evidencePurpose() { return this.decisionReady ? 'QUALIFIED_PAIR_ONLY' : 'EXPLORATORY'; },
+      get decisionBlockCode() { return this.decisionReady ? null : this.acceptance.code || 'EVALUATION_PROFILE_NOT_ACCEPTED'; },
+      get decisionBlockReason() {
+        return this.decisionReady ? null : 'Sada nemá ověřitelnou přejímku hodnotitele a odděleného párového provozního měření pro tento kontrakt. Výsledky jsou průzkumné.';
+      },
+      qualificationForRuns(runIds) { return this.decisionReady ? acceptanceStore.forRuns(this, runIds) : null; },
       runtimeBlockCode: role === 'CODE' ? codeRuntime.code : null,
       runtimeBlockReason: role === 'CODE' ? codeRuntime.reason : null,
       // CHAT needs breadth in both supported languages. The former 1:1

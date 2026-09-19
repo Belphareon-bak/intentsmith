@@ -358,6 +358,7 @@ export async function tryCandidate(candidateName, ctx = {}) {
         d.reasonCode === 'QUALITY_INCONCLUSIVE'
         || d.reasonCode === 'INSUFFICIENT_EVIDENCE'
         || d.reasonCode === 'EVALUATION_PROFILE_NOT_ACCEPTED'
+        || d.reasonCode === 'EVALUATION_PAIR_NOT_ACCEPTED'
       ));
 
     if (out.roleErrors.length) {

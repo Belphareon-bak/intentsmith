@@ -20,7 +20,7 @@ export function huntRetentionKey({ inventory, bindings, plans, hardware, provide
     if (!artifact || !plan?.suiteContractSha256) throw new Error('RETENTION_BINDING_OR_PLAN_MISSING');
     return [role, artifact.canonicalName, artifact.digestSha256, plan.suiteContractSha256,
       ROLE_IMPROVEMENT_THRESHOLDS[role], plan.minimumDiscriminatingTasks,
-      plan.minimumDiscriminatingByLanguage, plan.applicabilityContract];
+      plan.minimumDiscriminatingByLanguage, plan.applicabilityContract, plan.acceptance || null];
   });
   return `retention:${createHash('sha256').update(JSON.stringify([
     HUNT_RETENTION_POLICY, providerVersion, hardware.model, hardware.vramMb, hardware.numCtx, roles,

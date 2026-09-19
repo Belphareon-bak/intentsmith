@@ -413,7 +413,7 @@ if (DO_RUN) {
 const evaluationDecisionStore = new ModelEvaluationDecisionStore(db);
 const bindingRepository = createModelFailoverRepository(db);
 const evaluationRunner = new RoleQualityEvaluationRunner(config.ollama?.baseUrl);
-const evaluationPlans = createRoleEvaluationPlans();
+const evaluationPlans = createRoleEvaluationPlans({ db });
 // CODE-only measurements qualify the same context used by their inference.
 // A multi-role hunt still retains its declared production-context preflight.
 if (ROLES.length === 1 && ROLES[0] === 'CODE') {

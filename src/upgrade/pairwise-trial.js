@@ -19,6 +19,7 @@
 //
 // ══════════════════════════════════════════════════════════════════════════════
 
+import { acceptedOperationalDecision } from './model-evaluation-acceptance.js';
 import { logger } from '../core/logger.js';
 
 /** O kolik musí kandidát vést v marži, aby se to počítalo za rozdíl na úloze. */
@@ -28,7 +29,7 @@ export const TASK_MARGIN_EPSILON = 0.05;
 // places. A rounded 0.333 must not beat an exact 2/3 noise boundary merely
 // because 1 - 0.333 is a few ten-thousandths larger than 0.666666....
 const SCORE_ROUNDING_EPSILON = 0.0005;
-export const MODEL_EVALUATION_DECISION_POLICY_VERSION = 'role-pairwise-v2-qualified';
+export const MODEL_EVALUATION_DECISION_POLICY_VERSION = 'role-pairwise-v3-accepted-evidence';
 export const MODEL_EVALUATION_DECISION_REASON = Object.freeze({
   CANDIDATE_QUALITY: 'CANDIDATE_QUALITY',
   INCUMBENT_QUALITY: 'INCUMBENT_QUALITY',
@@ -47,6 +48,8 @@ export function decisionPolicyForRole(plan, threshold = 0.05) {
     suiteVersion: plan.suiteVersion,
     suiteContractSha256: plan.suiteContractSha256,
     decisionQualified: plan.decisionReady === true,
+    acceptance: plan.acceptance ? { graderIds:plan.acceptance.graderIds,
+      qualifications:plan.acceptance.qualifications.map(q => ({id:q.id,sha256:q.payloadSha256})) } : null,
     repeats: plan.repeats,
     taskMarginEpsilon: TASK_MARGIN_EPSILON,
     scoreRoundingEpsilon: SCORE_ROUNDING_EPSILON,
@@ -433,7 +436,6 @@ export async function trialRole(runner, role, candidate, incumbent, opts = {}) {
   const suiteName = plan.suiteName;
 
   const threshold = opts.threshold ?? 0.05;
-  const policy = decisionPolicyForRole(plan, threshold);
   const comparison = await comparePair(runner, suiteName, candidate, incumbent, {
     ...opts,
     role,
@@ -441,10 +443,15 @@ export async function trialRole(runner, role, candidate, incumbent, opts = {}) {
     suiteVersion: plan?.suiteVersion || opts.suiteVersion,
     suiteContractSha256: plan?.suiteContractSha256 || opts.suiteContractSha256,
   });
+  const policy = decisionPolicyForRole(plan, threshold);
+  const qualification = plan.qualificationForRuns?.({ candidateRunId:comparison.candidateRunId, incumbentRunId:comparison.incumbentRunId });
   const decision = plan.decisionReady !== true ? {
     winner: 'inconclusive', reasonCode: 'EVALUATION_PROFILE_NOT_ACCEPTED', basis: 'průzkumné měření',
     detail: plan.decisionBlockReason || 'Profil nemá přijatou přejímku. Měření neopravňuje doporučit výměnu ani mazání.',
-  } : decideRole(comparison, {}, threshold, {
+  } : typeof plan.qualificationForRuns === 'function' ? (acceptedOperationalDecision(qualification) || {
+    winner:'inconclusive', reasonCode:'EVALUATION_PAIR_NOT_ACCEPTED', basis:'průzkumné měření',
+    detail:'Přijatá provozní kvalifikace neodpovídá této dvojici, provideru nebo paměťovému profilu.',
+  }) : decideRole(comparison, {}, threshold, {
     minimumDiscriminatingTasks: plan?.minimumDiscriminatingTasks
       ?? opts.minimumDiscriminatingTasks,
     minimumDiscriminatingByLanguage: plan?.minimumDiscriminatingByLanguage

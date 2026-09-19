@@ -1,5 +1,7 @@
 // Append-only role-specific decisions over two exact evaluation runs.
 
+import { createRoleEvaluationPlans } from '../eval/role-evaluation-plan.js';
+import { acceptedOperationalDecision } from './model-evaluation-acceptance.js';
 import { createHash, randomUUID } from 'node:crypto';
 
 const OUTCOME_BY_REASON_CODE = Object.freeze({
@@ -7,6 +9,8 @@ const OUTCOME_BY_REASON_CODE = Object.freeze({
   INCUMBENT_QUALITY: 'INCUMBENT',
   INSUFFICIENT_EVIDENCE: 'INCONCLUSIVE',
   QUALITY_INCONCLUSIVE: 'INCONCLUSIVE',
+  EVALUATION_PROFILE_NOT_ACCEPTED: 'INCONCLUSIVE',
+  EVALUATION_PAIR_NOT_ACCEPTED: 'INCONCLUSIVE',
 });
 
 function stable(value) {
@@ -58,10 +62,24 @@ export class ModelEvaluationDecisionStore {
   }
 
   recordTrial(trial, input = {}) {
+    return this._db.transaction(() => this._recordTrial(trial, input)).immediate();
+  }
+
+  _recordTrial(trial, input) {
     if (trial?.skipped) throw new TypeError('a skipped trial cannot become a decision');
     const role = requireText(trial?.role, 'trial.role', 16).toUpperCase();
     const incumbentRunId = requireText(trial?.comparison?.incumbentRunId, 'incumbentRunId');
     const candidateRunId = requireText(trial?.comparison?.candidateRunId, 'candidateRunId');
+    if (trial.policy?.acceptance && ['candidate','incumbent'].includes(trial.decision?.winner)) {
+      const plan = createRoleEvaluationPlans({db:this._db,repeats:trial.policy.repeats})[role];
+      const qualification = plan?.qualificationForRuns({candidateRunId,incumbentRunId});
+      const accepted = acceptedOperationalDecision(qualification);
+      if (!accepted || accepted.acceptanceId !== trial.decision.acceptanceId
+        || accepted.acceptanceSha256 !== trial.decision.acceptanceSha256
+        || accepted.winner !== trial.decision.winner || accepted.reasonCode !== trial.decision.reasonCode) {
+        throw new Error('EVALUATION_ACCEPTANCE_CHANGED');
+      }
+    }
     const basis = requireText(trial?.decision?.basis || 'unknown', 'decision.basis');
     const contract = policyContract(trial?.policy);
     const policySuiteName = requireText(trial?.policy?.suiteName, 'policy.suiteName');

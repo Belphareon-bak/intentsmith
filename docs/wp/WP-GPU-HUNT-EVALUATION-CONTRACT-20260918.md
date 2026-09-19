@@ -259,3 +259,13 @@ Vývojová oprava `6610faf6` má vlastní
 60 kontrol orákul, uzavřenou 16pokusovou vývojovou sérii na předchozím
 `bdbcd201` a opravy nalezené jejím rozborem. Tento záznam nepřijímá nový
 rozhodovací profil, rychlou sadu ani jiné role a nemění původní NEROZHODNUTO.
+
+## Odvozená rozhodovací způsobilost — zadání operátora 19. 9. 2026
+
+Po revizi oprav operátor požaduje odstranit ručně nastavovaný `decisionReady`.
+Hodnota má vycházet z uložené přejímky hodnotitele podle §3 a přijatého
+párového provozního měření podle §8 kroku 5 pro konkrétní contract SHA.
+Chybějící přejímka znamená `false`; záznam musí umožnit dohledat proč.
+Tento pokyn nepřijímá žádnou existující sadu ani vývojové modelové výsledky.
+Implementace a validační meze jsou v
+[packetu přejímací brány](../review/2026-09-19-EVALUATION-ACCEPTANCE-GATE.md).
