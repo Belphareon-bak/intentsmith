@@ -198,6 +198,24 @@ export class ModelEvaluationRunner {
         rubric: testDef.rubric || [],
       };
     }
+    // A response-bound terminal length event proves that this generation used
+    // its output budget. The unfinished text is evidence of an operational
+    // failure, not a successful answer just because its prefix matches a rubric.
+    // CODE has a separate executable-state oracle; this is the text/vision path.
+    if (result.doneReason === 'length') {
+      return {
+        name: testDef.name, language: testDef.language || null,
+        passed: false, valid: true, outcome: 'OPERATIONAL_FAILURE', score: 0,
+        response: result.content, durationMs: result.durationMs,
+        evalTokens: result.evalCount, promptEvalTokens: result.promptEvalCount,
+        doneReason: result.doneReason,
+        artifact: { digestSha256: result.digestSha256, providerVersion: result.providerVersion },
+        detail: { reason: 'MODEL_OUTPUT_BUDGET_EXHAUSTED',
+          outputTokenBudget: testDef.options?.num_predict ?? data.options?.num_predict ?? DEFAULT_MODEL_EVALUATION_OPTIONS.num_predict,
+          contentScoreEvaluated: false },
+        rubric: testDef.rubric || [],
+      };
+    }
     const graded = await testDef.grade(result.content, { ...data, semanticJudge: this._semanticJudge });
     const valid = graded.valid !== false && Number.isFinite(graded.score);
     return {

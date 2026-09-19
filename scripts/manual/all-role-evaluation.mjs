@@ -35,7 +35,7 @@ if (!['full','smoke'].includes(profile)) throw new Error('Quick quality estimate
 const repeats = profile === 'full' ? 3 : 1;
 const budgetMinutes = Number(option('budget-minutes', '240'));
 if (!Number.isInteger(budgetMinutes) || budgetMinutes < 1 || budgetMinutes > 720) throw new Error('Budget must be 1..720 minutes');
-const hash = value => createHash('sha256').update(typeof value === 'string' ? value : JSON.stringify(value)).digest('hex');
+const hash = value => createHash('sha256').update(typeof value === 'string' || Buffer.isBuffer(value) ? value : JSON.stringify(value)).digest('hex');
 const write = (name, value) => {
   const dest = path.join(out, name), temp = `${dest}.${process.pid}.tmp`;
   fs.writeFileSync(temp, JSON.stringify(value, null, 2) + '\n', { mode: 0o600 }); fs.renameSync(temp, dest);
@@ -210,10 +210,15 @@ try {
   report.durationMs=Date.parse(report.finishedAt)-Date.parse(report.startedAt);
   report.roles=plan.roles.map(p=>{
     const rows=report.attempts.filter(a=>a.role===p.role);
-    const valid=rows.length===p.tasks.length*repeats && rows.every(a=>a.valid!==false && Number.isFinite(a.score));
+    const requiredCalibrations=p.tasks.filter(t=>t.tier==='T4');
+    const calibrationValid=requiredCalibrations.every(t=>
+      report.calibrations.findLast(c=>c.role===p.role && c.task===t.name)?.status==='PASS');
+    const valid=calibrationValid && rows.length===p.tasks.length*repeats && rows.every(a=>a.valid!==false && Number.isFinite(a.score));
     return {role:p.role,expectedAttempts:p.tasks.length*repeats,attempted:rows.length,
       validAttempts:rows.filter(a=>a.valid!==false && Number.isFinite(a.score)).length,
       invalidAttempts:rows.filter(a=>a.valid===false).length,
+      operationalFailures:rows.filter(a=>a.outcome==='OPERATIONAL_FAILURE').length,
+      calibrationValid,
       score:valid?rows.reduce((n,a)=>n+a.score,0)/rows.length:null,
       status:valid?'EXPLORATORY_MEASURED':'UNVERIFIED',contractSha256:p.contractSha256,
       declaredGroups:new Set(p.tasks.map(t=>t.independenceGroup)).size};

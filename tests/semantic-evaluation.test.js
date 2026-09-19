@@ -112,6 +112,20 @@ await testAsync('truncated judge generation is invalid even with parseable JSON'
   const judge=new SemanticEvaluationJudge({artifact,call:async()=>({doneReason:'length',content:JSON.stringify({a:rows(1),b:rows(1)})})});
   assert.equal((await judge.grade(task,'correct',{calibration:true})).detail.reason,'SEMANTIC_JUDGE_RESPONSE_INVALID');
 });
+await testAsync('confirmed target output-budget exhaustion is an operational failure, not a high-scoring answer prefix',async()=>{
+  const definition={name:'bounded',prompt:()=>'',rubric:[],options:{num_predict:128},
+    grade:()=>assert.fail('unfinished answer must not receive a content score')};
+  for(const runner of [new ModelEvaluationRunner(''),new RoleQualityEvaluationRunner('')]) {
+    runner._callModel=async()=>({content:'An apparently correct prefix',done:true,doneReason:'length',
+      evalCount:128,promptEvalCount:20,durationMs:1,digestSha256:artifact.digestSha256,providerVersion:artifact.providerVersion});
+    const result=runner instanceof RoleQualityEvaluationRunner
+      ?await runner._runRoleTest(definition,artifact.modelName,artifact)
+      :await runner._runTest(definition,artifact.modelName,artifact);
+    assert.equal(result.outcome,'OPERATIONAL_FAILURE');assert.equal(result.valid,true);assert.equal(result.score,0);
+    assert.equal(result.detail.reason,'MODEL_OUTPUT_BUDGET_EXHAUSTED');assert.equal(result.detail.outputTokenBudget,128);
+    assert.equal(result.response,'An apparently correct prefix');assert.equal(result.artifact.digestSha256,artifact.digestSha256);
+  }
+});
 await testAsync('generic and production role runner preserve invalid/null and complete answer archives',async()=>{
   const answer='x'.repeat(8000);
   const invalidTask={name:'invalid',prompt:()=>'',rubric:[],grade:async()=>({valid:false,score:null,passed:false,detail:{reason:'UNKNOWN'}})};
