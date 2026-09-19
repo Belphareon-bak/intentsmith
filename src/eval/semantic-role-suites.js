@@ -10,7 +10,7 @@ if (fixture.schemaVersion !== 1 || fixture.notAHoldout !== true || fixture.decis
 export const SEMANTIC_ROLE_SUITES = Object.freeze(Object.fromEntries(['D1','D2','R1','R2','CHAT'].map(role => {
   const tests = fixture.tasks.filter(task => task.role === role).map(semanticTask);
   if (!tests.length || new Set(tests.map(t => t.name)).size !== tests.length) throw new Error(`SEMANTIC_ROLE_TASKS_INVALID:${role}`);
-  return [role, Object.freeze({ name: `${role.toLowerCase()}_semantic_v1`, version: 'role-semantic.1',
+  return [role, Object.freeze({ name: `${role.toLowerCase()}_semantic_v1`, version: 'role-semantic.2',
     roles: [role], description: 'Role-specific open answers; per-task calibrated T4, exploratory until independent acceptance',
     tests: Object.freeze(tests), notAHoldout: true })];
 })));

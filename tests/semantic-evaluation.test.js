@@ -75,6 +75,26 @@ await testAsync('position bias is missing evidence, not averaged model quality',
   const judge=new SemanticEvaluationJudge({artifact,call:async()=>({doneReason:'stop',content:JSON.stringify({a:rows(1),b:rows(0)})})});
   const r=await judge.grade(task,'wrong',{calibration:true});assert.equal(r.valid,false);assert.equal(r.score,null);
 });
+await testAsync('agreed prerequisite failure keeps zero credit while preserving raw subordinate order drift',async()=>{
+  const judge=new SemanticEvaluationJudge({artifact,call:async(_model,messages)=>{
+    const data=JSON.parse(messages[1].content);
+    const target=rows(0);target[1].score=data.a==='wrong'?0:1;
+    return {doneReason:'stop',content:JSON.stringify(data.a==='wrong'?{a:target,b:rows(1)}:{a:rows(1),b:target})};
+  }});
+  const r=await judge.grade(task,'wrong',{calibration:true});
+  assert.equal(r.valid,true);assert.equal(r.score,0);assert.equal(r.detail.disagreement,0);
+  assert.equal(r.detail.rawDisagreement,1);assert.deepEqual(r.detail.parts[1].rawScores,[0,1]);
+  assert.ok(r.detail.parts.every(p=>p.score===0));
+});
+await testAsync('disagreement on the prerequisite itself still blocks a superficially stable average',async()=>{
+  const judge=new SemanticEvaluationJudge({artifact,call:async(_model,messages)=>{
+    const data=JSON.parse(messages[1].content),target=rows(0);
+    target[0].score=data.a==='wrong'?0:1;
+    return {doneReason:'stop',content:JSON.stringify(data.a==='wrong'?{a:target,b:rows(1)}:{a:rows(1),b:target})};
+  }});
+  const r=await judge.grade(task,'wrong',{calibration:true});
+  assert.equal(r.valid,false);assert.equal(r.score,null);assert.equal(r.detail.reason,'SEMANTIC_ORDER_UNSTABLE');
+});
 await testAsync('truncated judge generation is invalid even with parseable JSON',async()=>{
   const judge=new SemanticEvaluationJudge({artifact,call:async()=>({doneReason:'length',content:JSON.stringify({a:rows(1),b:rows(1)})})});
   assert.equal((await judge.grade(task,'correct',{calibration:true})).detail.reason,'SEMANTIC_JUDGE_RESPONSE_INVALID');
