@@ -15,7 +15,8 @@ const DIRECTORIES = ['public', 'scripts', 'src', 'test'];
 export function newProjectPolicy(type = 'general') {
   return {
     policyId: 'intentsmith-local-project-v1',
-    layers: [{ name: 'app', roots: [...DIRECTORIES, 'package.json', 'README.md', 'ROADMAP.md'] }],
+    layers: [{ name: 'app', roots: [...DIRECTORIES, 'package.json', 'README.md', 'ROADMAP.md']
+      .sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b))) }],
     rules: [{ from: 'app', canImport: ['app'] }],
     externalImports: [
       'node:assert', 'node:assert/strict', 'node:buffer', 'node:crypto', 'node:events',
@@ -23,7 +24,7 @@ export function newProjectPolicy(type = 'general') {
       'node:stream', 'node:stream/promises', 'node:test', 'node:timers/promises',
       'node:url', 'node:util',
       ...(type === 'desktop' ? ['electron', 'node:child_process'] : []),
-    ],
+    ].sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b))),
     sourceExtensions: ['.cjs', '.js', '.mjs'],
     requiredChecks: ['imports.allowed', 'inventory.complete', 'layers.mapped'],
     unmappedFilePolicy: 'unavailable',

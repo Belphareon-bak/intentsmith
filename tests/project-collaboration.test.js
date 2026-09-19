@@ -10,6 +10,7 @@ import { initializeNewProject, inspectProject, importedProjectWelcome } from '..
 import { discussProject, collectProjectWorkEvidence, fitProjectDiscussionPrompt, PROJECT_DISCUSSION_SYSTEM } from '../src/chat/handlers/project-collaboration.js';
 import { createProjectRoutes } from '../src/routes/projects.js';
 import { detectFileIntent } from '../src/chat/handlers/project.js';
+import { validateM2GovernancePolicySnapshot } from '../contracts/m2/governance-v1.js';
 
 async function fixture(t) {
   const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'is-project-flow-'));
@@ -51,6 +52,21 @@ test('desktop is an explicit scaffold with no dependency install or GUI executio
   assert.ok(!policy.layers[0].roots.includes('.intentsmith'));
   await assert.rejects(fs.stat(path.join(root, 'node_modules')), { code: 'ENOENT' });
   assert.equal(execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' }), '');
+});
+
+test('both created project types satisfy the actual M2 governance policy contract', async t => {
+  const project = await fixture(t);
+  for (const type of ['general', 'desktop']) {
+    const root = path.join(path.dirname(project.path), `policy-${type}`);
+    await initializeNewProject(root, { name: type, type });
+    const analysis = await inspectProject({ ...project, path: root });
+    const policy = JSON.parse(await fs.readFile(path.join(root, '.intentsmith/m2-governance-policy.json'), 'utf8'));
+    const result = validateM2GovernancePolicySnapshot({ ...policy,
+      contract: 'GovernancePolicySnapshot', version: 1, projectId: project.id,
+      workspaceRevision: analysis.revision, policyPath: '.intentsmith/m2-governance-policy.json',
+    });
+    assert.equal(result.valid, true, `${type}: ${result.errors.join(', ')}`);
+  }
 });
 
 test('foreign repository inspection preserves files and presents scope and goal questions', async t => {
