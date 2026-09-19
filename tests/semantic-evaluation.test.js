@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
 import { suite, test, testAsync, summary } from './harness.js';
 import { SemanticEvaluationJudge, parseSemanticJudgement, semanticTask } from '../src/eval/semantic-evaluation-judge.js';
 import { SEMANTIC_ROLE_SUITES } from '../src/eval/semantic-role-suites.js';
@@ -109,6 +110,27 @@ await testAsync('generic and production role runner preserve invalid/null and co
     assert.equal(result.valid,false);assert.equal(result.score,null);assert.equal(result.tests[0].score,null);
     assert.equal(result.tests[0].response,answer);assert.equal(result.tests[0].detail.reason,'UNKNOWN');
   }
+});
+await testAsync('judge requests a complete structured shape and HTTP runner transmits it only when requested',async()=>{
+  let format;
+  const judge=new SemanticEvaluationJudge({artifact,call:async(model,messages,options)=>{
+    format=options.format;return goodCall(model,messages);
+  }});
+  assert.equal((await judge.qualify(task)).status,'PASS');
+  assert.deepEqual(format.required,['a','b']);assert.equal(format.properties.a.minItems,2);
+  const seen=[];
+  const server=createServer(async(req,res)=>{
+    let body='';for await(const chunk of req)body+=chunk;seen.push(JSON.parse(body));
+    res.setHeader('content-type','application/json');res.end(JSON.stringify({model:artifact.modelName,
+      digest:artifact.digestSha256,provider_version:artifact.providerVersion,done:true,done_reason:'stop',message:{content:'{}'}}));
+  });
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  try {
+    const runner=new ModelEvaluationRunner('http://127.0.0.1:'+server.address().port);
+    await runner._callModel(artifact.modelName,[],{format},artifact);
+    await runner._callModel(artifact.modelName,[],{},artifact);
+    assert.deepEqual(seen[0].format,format);assert.ok(!('format' in seen[1]));
+  } finally {server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
 });
 await testAsync('transport errors remain distinct from incorrect answers',async()=>{
   const runner=new ModelEvaluationRunner('');runner._callModel=async()=>({error:'ECONNRESET',durationMs:1});

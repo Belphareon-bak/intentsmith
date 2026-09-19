@@ -3,7 +3,7 @@
 // durable independent acceptance remains the authority in model-evaluation-acceptance.
 import { createHash } from 'node:crypto';
 
-export const SEMANTIC_JUDGE_VERSION = 'semantic-rubric.2';
+export const SEMANTIC_JUDGE_VERSION = 'semantic-rubric.3';
 export const SEMANTIC_JUDGE_OPTIONS = Object.freeze({
   num_ctx: 16384, num_predict: 2048, temperature: 0, top_p: 1, timeout: 300000,
 });
@@ -30,6 +30,15 @@ export function parseSemanticJudgement(content, criterionCount) {
   } catch { return null; }
 }
 
+function judgementSchema(count) {
+  const answer = { type: 'array', minItems: count, maxItems: count, items: {
+    type: 'object', additionalProperties: false, required: ['criterion','score','evidence'],
+    properties: { criterion: { type: 'integer', minimum: 1, maximum: count },
+      score: { type: 'number', enum: [0,0.5,1] }, evidence: { type: 'string', minLength: 1 } },
+  } };
+  return { type: 'object', additionalProperties: false, required: ['a','b'], properties: { a: answer, b: answer } };
+}
+
 export class SemanticEvaluationJudge {
   constructor({ call, artifact, onReceipt = () => {} }) {
     if (typeof call !== 'function' || !/^[a-f0-9]{64}$/.test(artifact?.digestSha256)
@@ -46,7 +55,8 @@ export class SemanticEvaluationJudge {
       { role: 'user', content: JSON.stringify({ task: task.promptText,
         criteria: reference.criteria, ...answers }) },
     ];
-    const result = await this.call(this.artifact.modelName, messages, SEMANTIC_JUDGE_OPTIONS, this.artifact);
+    const result = await this.call(this.artifact.modelName, messages,
+      { ...SEMANTIC_JUDGE_OPTIONS, format: judgementSchema(reference.criteria.length) }, this.artifact);
     const parsed = result.error || result.doneReason === 'length' ? null
       : parseSemanticJudgement(result.content, reference.criteria.length);
     const receipt = { version: SEMANTIC_JUDGE_VERSION, task: task.name,

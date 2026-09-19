@@ -83,6 +83,7 @@ export class ModelEvaluationRunner {
           messages,
           stream: false,
           think: false,
+          ...(options.format ? { format: options.format } : {}),
           options: {
             temperature: options.temperature ?? DEFAULT_MODEL_EVALUATION_OPTIONS.temperature,
             top_p: options.top_p ?? DEFAULT_MODEL_EVALUATION_OPTIONS.top_p,
