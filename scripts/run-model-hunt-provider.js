@@ -23,7 +23,8 @@ const runDir = mkdtempSync(join(state, 'run-'));
 mkdirSync(join(runDir, 'tmp'), { mode: 0o700 });
 const startedAt = new Date().toISOString();
 const argument = name => process.argv.slice(2).find(value => value.startsWith(`--${name}=`))?.slice(name.length + 3) || null;
-const request = { kind: process.argv.includes('--evaluate-installed') ? 'evaluation' : 'hunt',
+const codePilot = process.argv.includes('--code-pilot');
+const request = { kind: codePilot ? 'code-pilot' : process.argv.includes('--evaluate-installed') ? 'evaluation' : 'hunt',
   model: argument('only'), role: argument('role') };
 const currentFile = join(state, 'current.json');
 const publish = values => {
@@ -108,12 +109,15 @@ try {
   }
   if (stopping) throw new Error('HUNT_CANCELLED');
   if (!ready) throw new Error('EVALUATION_PROVIDER_START_FAILED');
-  const args = process.argv.slice(2);
+  const args = process.argv.slice(2).filter(arg => arg !== '--code-pilot');
   const reportArgs = args.some(arg => arg.startsWith('--report=')) ? [] : [`--report=${join(runDir, 'result.json')}`];
   let failureOutput = '';
-  hunt = spawn(process.execPath, [join(root, 'scripts/model-upgrade-hunt.js'), ...args, ...reportArgs], {
+  // Fixed manual CODE entrypoint only; no arbitrary command execution surface.
+  const entrypoint = codePilot ? 'scripts/manual/c3-code-pilot.mjs' : 'scripts/model-upgrade-hunt.js';
+  hunt = spawn(process.execPath, [join(root, entrypoint), ...args, ...reportArgs], {
     cwd: root,
     env: { ...process.env, OLLAMA_URL: 'http://127.0.0.1:11435', INTENTSMITH_HUNT_PULL_URL: 'http://127.0.0.1:11434',
+      ...(codePilot ? { INTENTSMITH_EVAL_PROVIDER_PID: String(provider.pid) } : {}),
       INTENTSMITH_HUNT_PROGRESS_FILE: join(runDir, 'progress.json') },
     stdio: ['inherit', 'inherit', 'pipe'],
   });

@@ -4,6 +4,79 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { suite, test, testAsync, assert, assertEqual, summary } from './harness.js';
+import { codePilotPlanHash, boundedGroupInterval, decideCodePilot } from '../src/eval/code-pilot-decision.js';
+
+function pilotFixture(groups = 6, repeats = 3) {
+  const plan = { schemaVersion: 1, role: 'CODE', metric: 'completed_without_repair_help',
+    lockedAt: '2026-01-01T00:00:00Z', repeats,
+    decision: { method: 'hoeffding-kl-bounded-groups', alpha: 0.05, minimumBenefit: 0.05,
+      nonInferiorityMargin: 0.05, minimumSpeedup: 1.25, allowSpeedDecision: false },
+    budget: { attemptMs: 1000, totalMs: 1e8 }, profile: { numCtx: 16384, maxVramBytes: 22e9 },
+    incumbent: { model: 'a', digest: 'a'.repeat(64) }, candidate: { model: 'b', digest: 'b'.repeat(64) },
+    scenarios: Array.from({ length: groups }, (_, i) => ({ id: `case${i}`, independenceGroup: `group${i}`,
+      groupRationale: 'distinct defect', contentSha256: 'c'.repeat(64) })) };
+  plan.planSha256 = codePilotPlanHash(plan);
+  const attempts = plan.scenarios.flatMap(s => Array.from({length: repeats}, (_, i) =>
+    ['candidate', 'incumbent'].map(side => ({ scenario: s.id, repeat: i + 1, side,
+      planSha256: plan.planSha256, digest: plan[side].digest, startedAt: '2026-01-02T00:00:00Z',
+      valid: true, score: 1, outcome: 'SUCCESS', repairHelp: 0, durationMs: 100 })))).flat();
+  const qualifications = Object.fromEntries(['candidate', 'incumbent'].map(side => [side,
+    { status: 'QUALIFIED', digest: plan[side].digest, planSha256: plan.planSha256 }]));
+  return {plan, attempts, qualifications};
+}
+test('CODE decision does not confuse repeated observations with independent groups', () => {
+  const f = pilotFixture(6, 30), r = decideCodePilot(f.plan, f.attempts, f.qualifications);
+  assertEqual(r.groups.length, 6); assertEqual(r.qualityInterval.groups, 6);
+  assertEqual(r.verdict, 'NEROZHODNUTO'); assertEqual(r.bindingAction, 'UNCHANGED');
+  assertEqual(r.activationAuthorized, false);
+  assert(Math.abs(r.qualityInterval.lower + r.qualityInterval.upper) < 1e-12);
+  assert(r.qualityInterval.lower < -0.5 && r.qualityInterval.upper > 0.5);
+});
+test('CODE decision keeps verified budget failures in the denominator', () => {
+  const f = pilotFixture(20);
+  for (const r of f.attempts) if (r.side === 'candidate') Object.assign(r, {score:0,outcome:'OPERATIONAL_FAILURE'});
+  const r = decideCodePilot(f.plan, f.attempts, f.qualifications);
+  assertEqual(r.verdict, 'PONECHAT'); assertEqual(r.qualityInterval.mean, -1);
+  assertEqual(r.outcomeCounts.OPERATIONAL_FAILURE, 60);
+});
+test('CODE decision requires paired valid evidence, never successful-only selection', () => {
+  for (const outcome of ['ENVIRONMENT_INVALID','EVALUATOR_UNVERIFIED']) {
+    const f = pilotFixture(); Object.assign(f.attempts[0], {score:null, valid:false, outcome});
+    const r = decideCodePilot(f.plan, f.attempts, f.qualifications);
+    assertEqual(r.verdict, 'NEROZHODNUTO'); assertEqual(r.reason, 'INCOMPLETE_PAIRED_EVIDENCE');
+    assertEqual(r.invalidAttempts.length, 1); assertEqual(r.observedAttempts, 36);
+    assertEqual(r.outcomeCounts[outcome], 1);
+  }
+  const f = pilotFixture(); f.attempts.pop();
+  assertEqual(decideCodePilot(f.plan, f.attempts, f.qualifications).missingAttempts.length, 1);
+});
+test('CODE decision rejects unsealed plans, duplicate identities, repaired-help successes and artifact drift', () => {
+  let f = pilotFixture(); f.plan.decision.minimumBenefit = 0.01;
+  let caught = false; try { decideCodePilot(f.plan, f.attempts); } catch { caught = true; } assert(caught);
+  f = pilotFixture(); caught = false;
+  try { decideCodePilot(f.plan, [...f.attempts, f.attempts[0]]); } catch { caught = true; } assert(caught);
+  for (const change of [{repairHelp:1},{digest:'d'.repeat(64)},{durationMs:0},{durationMs:1001},
+    {startedAt:'2025-01-01T00:00:00Z'}, {score:0.5}]) {
+    f = pilotFixture(); Object.assign(f.attempts[0], change);
+    assertEqual(decideCodePilot(f.plan, f.attempts, f.qualifications).invalidAttempts.length,1);
+  }
+});
+test('CODE quality recommendation requires the locked profile for both exact artifacts', () => {
+  const f = pilotFixture(20);
+  for (const r of f.attempts) if (r.side === 'incumbent') Object.assign(r,{score:0,outcome:'INCORRECT'});
+  let r = decideCodePilot(f.plan, f.attempts, f.qualifications);
+  assertEqual(r.verdict,'ZMENIT'); assertEqual(r.activationAuthorized,false);
+  f.qualifications.candidate.status = 'PROFILE_UNFIT';
+  r = decideCodePilot(f.plan, f.attempts, f.qualifications);
+  assertEqual(r.verdict,'NEROZHODNUTO'); assertEqual(r.reason,'PROFILE_NOT_QUALIFIED');
+  assertEqual(r.bindingAction,'UNCHANGED'); assert(!('delete' in r));
+});
+test('CODE confidence interval has the exact bounded extreme and total budget is enforced', () => {
+  const r = boundedGroupInterval(Array(20).fill(1), .05);
+  assert(Math.abs(r.lower - (2 * Math.pow(.025,1/20) - 1)) < 1e-12); assertEqual(r.upper,1);
+  const f = pilotFixture(); f.plan.budget.totalMs = 1; f.plan.planSha256 = codePilotPlanHash(f.plan);
+  assertEqual(decideCodePilot(f.plan, f.attempts, f.qualifications).reason,'TOTAL_BUDGET_EXCEEDED');
+});
 
 import {
   comparePair, decideRole, trialRole, createSuiteCache,

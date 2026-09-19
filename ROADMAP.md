@@ -1,5 +1,14 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**CODE, uzamčený provozní duel 2026-09-19:** aktuální CODE Qwen3.8 proti
+Devstralu; osm oddělených historických oprav C3, šest deklarovaných skupin,
+tři opakování, 95% konzervativní interval. Orákula i skutečný C3 fix-loop
+projdou správnou a alternativní opravou; prázdná oprava selže. Paměťová
+kvalifikace 22 GB a 48 párových pokusů zatím **NOT_RUN**. Timer vypnutý,
+service i timer mají trvalou podmínku proti spuštění starého huntu; bez změn
+vazeb a mazání. **PREPARED / REVIEW_PENDING / NOT_DEPLOYED**.
+[Důkazy a plán](docs/review/2026-09-19-CODE-MEASUREMENT.md).
+
 **CODE, dvoubloková sonda 2026-09-19:** opravené zahození kratší části
 jednoho úseku; před opravou čtyři falešné nuly, po opravě 57/57 kontrol PASS.
 Extrakce 63 ranních odpovědí beze změny. Pět deklarovaných skupin není

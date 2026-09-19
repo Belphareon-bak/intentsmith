@@ -1,5 +1,70 @@
 # CODE — nové měření 19. 9. 2026
 
+## Navazující rozhodovací průchod — plán uzamčen před inferencí
+
+**PREPARED / MEMORY_QUALIFICATION_NOT_RUN / PAIRED_RUN_NOT_RUN / REVIEW_PENDING.**
+Tato část navazuje na nové zadání operátora; uzavřenou průzkumnou sérii níže
+nepovyšuje na rozhodovací data. Aktuální ověřený CODE binding je
+`qwen3.8:latest`, digest `22130167c4c2…`, operace
+`op_4e6c3cf8-c8d3-45d2-bc4f-a18def25b619`. Protikandidát Devstral byl zvolen
+jako druhý v průzkumné sérii, nikoli podle výsledku tohoto duelu.
+
+[Uzamčený plán](evidence/2026-09-19-code-decision-plan.json), SHA-256
+`537ae6d68a7c9105528a49e1e9a1a7f5c0e18090dac3e10550d109e17d95d82e`,
+obsahuje přesné artefakty, otisky runneru, testů a vstupních kontextů, rozpočet,
+provider i Node. [Přejímka orákul](evidence/2026-09-19-code-c3-oracles.json)
+zachycuje osm reálných historických oprav C3 `379c2e4` a jejich alternativy.
+Dvě chyby CRE tvoří jednu skupinu; dvě opravy jednoho auditu také jednu.
+Celkem šest skupin, ne 48 nezávislých pozorování. Výsledkem pokusu je stav
+souborů ověřený spustitelnými kontrolami, nikoli závěrečná zpráva modelu.
+
+Primární metrika: dokončení bez opravné pomoci, binárně za celý scénář.
+Tři opakování se agregují uvnitř scénáře, scénáře uvnitř skupiny; skupiny
+mají stejnou váhu. 95% interval se počítá inverzí dvoustranné
+[Chernoffovy–Hoeffdingovy meze pro omezené proměnné, §2](https://www.cs.rpi.edu/academics/courses/spring06/random/hoefding.pdf).
+Předpoklad nezávislosti skupin není tímto výpočtem dokázán. Kurátorovaná sada
+nedokazuje úspěšnost na libovolném budoucím projektu. Přínos musí mít dolní
+mez nad +5 p. b.; mez horší kvality je −5 p. b. Rychlost se měří, ale
+v tomto plánu není samostatnou cestou ke změně role. Maximálně 600 s a tři
+C3 iterace na pokus, celkově čtyři hodiny. Neúplný pár nebo neplatný pokus
+blokuje doporučení změny; všechny zůstávají v počtech.
+
+Provozní rozsah je lokalizovaná oprava v nezměněném C3 `runFixLoop` a patch
+engine, přes jeho skutečné testovací callbacky. Není to celý Studio journey.
+Každý pokus má čistý export bez Git historie a dokumentace; stejné požadavky,
+zdrojové výřezy a limity. Testy a závislosti jsou v izolovaném procesu pouze
+ke čtení, síť odpojená. Referenční oprava a odpovědi minulých pokusů nejsou
+součástí kontextu ani připojeného filesystému. Model může pracovat jen na
+vyjmenovaných zdrojových souborech. Nativní tree-sitter archivního C3 na tomto
+hostu padá; jeho vlastní ochrana aktivuje fallback. Každý měněný JS soubor
+proto navíc projde `node --check` a skutečnými behaviorálními testy.
+
+Příprava odhalila a zachovala i neúspěchy: neplatný absolutní symlink v
+archivu, chybnou detekci dokončení starého testu s `process.exit(0)`, selhání
+staré DB migrace, nevhodný síťový test a chyby přípravných kontrol. Vyřazené
+historické sady i opravené sondy zůstávají v privátním evidence rootu
+`/home/belphareon/Projects/coworker/intentsmith-code-decision-20260919`.
+Žádný z těchto stavů není nula připsaná modelu.
+
+Provozní ochrana: instalace při kontrole `d22f64ac` je odlišná od pracovního
+zdroje. Její jednotka nepředává `--prune-rejected` ani oprávnění k odstranění
+modelů a hunt nepřiřazuje role. Timer je disabled/inactive. V jednotkách
+`intentsmith-model-hunt.{service,timer}` je navíc drop-in
+`90-code-pilot-hold.conf` s podmínkou na nepřítomnost souboru
+`~/.local/state/intentsmith/code-pilot-automation-hold.json`.
+Skutečný pokus o start služby skončil `ConditionResult=no`, `MainPID=0`.
+Vlastníkem ochrany je tato větev; odstranit ji lze až po přijetí a nasazení
+opravené verze a vědomém obnovení plánovače. Tento pilot ji automaticky neuvolní.
+
+Ověření výsledkových tříd: `pairwise-trial` 46/46, durable storage 18/18,
+upgrade/retention 103/103; `desktop-hunt` 33/33. V C3 replay navíc ověřené
+vyčerpání rozpočtu dává `OPERATIONAL_FAILURE / 0`, porucha provideru
+`ENVIRONMENT_INVALID / null`. Profilová nezpůsobilost blokuje kvalifikaci,
+nikdy se nepoužije k odstranění artefaktu. Po měření se doplní skutečný
+výsledek; zatím není doporučena výměna CODE.
+
+## Uzavřená průzkumná série
+
 **EXPLORATORY_MEASUREMENTS_COMPLETE / STEP_4_PARTIAL / PILOT_INCOMPLETE / REVIEW_PENDING.**
 Autorita: pokračování schváleného CODE pilotu a přímý pokyn operátora
 „muzes zacit s merenim“. Průzkumná data neopravňují k výměně role.
@@ -13,11 +78,11 @@ limit odpovědi 4 096 tokenů, limit generování 300 s. Jeden model současně;
 45 minut maximálně na proces včetně čekání na GPU. Tři čerstvá měření,
 žádná použitá cache, celkem **63/63 pokusů, tři DB COMPLETE**.
 
-| Model | Průměr sady | Pokusy | Čas měření | Krátká paměťová sonda |
-| --- | ---: | ---: | ---: | ---: |
-| `qwen3.8:latest` | 85.71 % | 21/21 | 5:00 | 16.13 GiB |
-| `devstral-small-2:latest` | 46.03 % | 21/21 | 5:27 | 15.78 GiB |
-| `qwen3-coder:latest` | 11.43 % | 21/21 | 3:36 | 18.71 GiB |
+| Model | Průměr sady | Plně splněné úlohy ve všech opakováních | Pokusy | Čas měření | Krátká paměťová sonda |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `qwen3.8:latest` | 85.71 % | 6/7 | 21/21 | 5:00 | 16.13 GiB |
+| `devstral-small-2:latest` | 46.03 % | 3/7 | 21/21 | 5:27 | 15.78 GiB |
+| `qwen3-coder:latest` | 11.43 % | 0/7 | 21/21 | 3:36 | 18.71 GiB |
 
 Čas měření zahrnuje kontrolu orákula a vyhodnocení, nikoli celý start a
 ukončení provideru. Všechny tři paměťové sondy vykázaly nulový CPU offload;
