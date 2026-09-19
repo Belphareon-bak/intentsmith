@@ -59,6 +59,14 @@ export const MODEL_OPTIONS = {
 
 function taskFromSnapshot(entry) {
   const snapshot = entry?.snapshot;
+  const publicContract = snapshot?.publicContract;
+  if (publicContract != null && (publicContract.version !== 1
+    || !Array.isArray(publicContract.requirements) || !publicContract.requirements.length
+    || publicContract.requirements.some(text => typeof text !== 'string' || !text.trim())
+    || !Array.isArray(publicContract.sources) || !publicContract.sources.length
+    || publicContract.sources.some(text => typeof text !== 'string' || !text.trim()))) {
+    throw new Error(`CODE fixture task ${entry?.hash || 'unknown'} has an invalid public contract`);
+  }
   const spans = snapshot?.spans;
   if (!Array.isArray(spans) || spans.length === 0
     || !Array.isArray(snapshot.functionTexts)
@@ -85,6 +93,7 @@ function taskFromSnapshot(entry) {
     functionCount: spans.length,
     functionLines: spans.reduce((sum, span) => sum + span.endLine - span.startLine + 1, 0),
     requirements: [...snapshot.requirements],
+    publicContract: publicContract ? structuredClone(publicContract) : null,
     oracleAcceptance: entry.oracleAcceptance || null,
   };
 }
@@ -111,6 +120,7 @@ function hydrateRuntimeTask(repo, task) {
     passToPass: [...(task.passToPass || [])],
     knownFailing: [...(task.knownFailing || [])],
     oracleAcceptance: task.oracleAcceptance,
+    publicContract: task.publicContract,
   };
 }
 
@@ -242,6 +252,7 @@ export function buildTests(repo = REPO_ROOT, tasks = null) {
           passToPass: Object.freeze([...(task.passToPass || [])]),
           knownFailing: Object.freeze([...(task.knownFailing || [])]),
           oracleAcceptance: task.oracleAcceptance,
+          publicContract: task.publicContract,
         }),
       }),
       grade: (response, ctx) => {

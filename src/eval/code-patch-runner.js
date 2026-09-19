@@ -290,6 +290,7 @@ export function deriveTask(repo, meta) {
       functionCount: spansBefore.length,
       functionLines,
       requirements: [...new Set(tests.flatMap(t => addedTestNames(repo, hash, t)))],
+      publicContract: meta.publicContract || null,
     },
     reason: null,
   };
@@ -344,6 +345,12 @@ export function buildPrompt(task) {
   const req = (task.requirements || []).length
     ? `\n\nPožadované chování:\n${task.requirements.map(r => `- ${r}`).join('\n')}`
     : '';
+  // Test titles can omit an API name or a policy boundary used by callers.
+  // Curated public requirements disclose those obligations, never the gold
+  // implementation or the hidden test bodies. They are part of prompt identity.
+  const publicContract = task.publicContract?.requirements?.length
+    ? `\n\nIntegrační rozhraní a upřesnění zadání:\n${task.publicContract.requirements.map(r => `- ${r}`).join('\n')}`
+    : '';
 
   const kinds = task.functionTexts.map((_, i) => task.spans?.[i]?.kind ?? 'function');
   const many = task.functionTexts.length > 1;
@@ -377,7 +384,7 @@ export function buildPrompt(task) {
 
   return `Soubor: ${task.source}
 
-Hlášená vada: ${task.subject}${req}
+Hlášená vada: ${task.subject}${req}${publicContract}
 
 ${intro}
 

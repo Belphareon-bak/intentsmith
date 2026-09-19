@@ -11,8 +11,9 @@ import {
   CodePatchEvaluationRunner, loadFixtureTasks, MODEL_OPTIONS,
 } from '../src/eval/code-patch-suite.js';
 import {
-  incrementalBuildSeed, preserveCalibration, reconcileVerifiedTaskSupply,
+  incrementalBuildSeed, preserveCalibration, reconcileVerifiedTaskSupply, taskFingerprint,
 } from '../src/eval/build-code-suite.js';
+import { buildPrompt } from '../src/eval/code-patch-runner.js';
 import {
   calibrate, rebaseCalibrationPanel, buildPanelSummaries,
 } from '../src/eval/calibrate-code-suite.js';
@@ -155,6 +156,34 @@ test('CODE contract se změní se skutečným buildPrompt výstupem', () => {
     name: 'code_patch', version: 'fixture', tests: buildTests(process.cwd(), [current]),
   }).sha256;
   assert(contractFor(task) !== contractFor(changed));
+});
+
+test('public API requirements reach the real prompt and change its identity', () => {
+  const tasks = loadFixtureTasks().filter(task => task.publicContract);
+  assertEqual(tasks.length, 2);
+  for (const task of tasks) {
+    const definition = buildTests(process.cwd(), [task])[0];
+    const prepared = definition.prepare();
+    assertEqual(buildPrompt(prepared), definition.prompt().text);
+    assert(task.publicContract.requirements.every(requirement => definition.prompt().text.includes(requirement)));
+    assertEqual(taskFingerprint(task, task), task.taskFingerprint);
+    assert(taskFingerprint({ ...task, publicContract: null }, task) !== task.taskFingerprint);
+    const stripped = buildTests(process.cwd(), [{ ...task, publicContract: null }])[0];
+    const contract = tests => suiteContract({ name: 'code_patch', version: 'fixture', tests }).sha256;
+    assert(contract([definition]) !== contract([stripped]), 'old measurements must not be reused');
+  }
+  const persistence = tasks.find(task => task.source.endsWith('chat-turn-error.js'));
+  assert(buildPrompt(persistence).includes('ChatPersistenceError'));
+  assert(buildPrompt(persistence).includes('CHAT_PERSISTENCE_FAILED'));
+});
+
+test('public requirements do not bypass historical source validation', () => {
+  const task = loadFixtureTasks().find(task => task.publicContract);
+  const altered = { ...task, functionTexts: task.functionTexts.map(text => `${text}\n// altered source`) };
+  let error;
+  try { buildTests(process.cwd(), [altered])[0].prepare(); } catch (caught) { error = caught; }
+  assertEqual(error?.code, 'CODE_FIXTURE_RUNTIME_UNAVAILABLE');
+  assert(error.message.includes('historical prompt differs'));
 });
 
 await testAsync('chybějící historický oracle blokuje CODE před provider callem', async () => {

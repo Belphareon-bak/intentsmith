@@ -114,6 +114,8 @@ const TASK_LABELS = {
   patch_6fc5e4eb7dce: 'Ochrana modelu během práce s VRAM',
   patch_ef4ae48ec16e: 'Jistota rozhodnutí při porovnání modelů',
   patch_e8cdbe02e5de: 'Uložení odpovědi, chyby a zrušení',
+  patch_f63d14d5eb61: 'Jistota rozhodnutí při porovnání modelů',
+  patch_75b5539f8cf5: 'Typ chyby při ukládání odpovědi',
   patch_22149f55b861: 'Uvolnění časovače po úspěšné odpovědi',
   patch_adb1258cfec0: 'Uvolnění časovače při síťové chybě',
   repo_audit_error_envelope: 'Rozpoznání neúspěšného auditu',
@@ -158,7 +160,8 @@ function taskCatalog(plan) {
       type: plan.suiteName === 'code_patch' ? 'Oprava kódu · spuštěné testy' : plan.suiteName === 'review_v2' ? 'Revize kódu'
         : plan.suiteName === 'reasoning_v2' ? 'Analýza a logika' : plan.suiteName === 'vision_v2' ? 'Porozumění obrazu' : 'Konverzace',
       source: source || null, language: t.language || null, difficulty: t.difficulty || null, skill: t.skill || null,
-      requirements: g?.failToPass || t.rubric || [], context: g?.context || null };
+      requirements: [...(g?.failToPass || t.rubric || []), ...(g?.publicContract?.requirements || [])],
+      context: g?.context || null };
   });
 }
 

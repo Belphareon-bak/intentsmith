@@ -561,12 +561,14 @@ test('historical detail uses the exact requested run and preserves failed gradin
   db.exec("ALTER TABLE model_evaluation_runs ADD COLUMN task_results_json TEXT DEFAULT '[]'");
   insert(db, { runId:'older', digest:DIGEST, plan:plans.CODE, score:.114 });
   insert(db, { runId:'newer', digest:DIGEST, plan:plans.CODE, score:.9 });
-  const tasks=[{name:'patch_e8cdbe02e5de',mean:.8,scores:[.8,.8,.8],details:[{targetedPassed:4,targeted:5,schema:true,parts:[{id:'fails',ok:false}],penalties:[{id:'regression'}]}]}];
+  const tasks=[{name:'patch_75b5539f8cf5',mean:.8,scores:[.8,.8,.8],details:[{targetedPassed:4,targeted:5,schema:true,parts:[{id:'fails',ok:false}],penalties:[{id:'regression'}]}]}];
   db.prepare('UPDATE model_evaluation_runs SET task_results_json=? WHERE run_id=?').run(JSON.stringify(tasks),'older');
   const read=new ModelEvaluationReadModel(db,{plans});
   const old=read.readRun('older'); assertEqual(old.score,.114); assertEqual(old.tasks[0].details[0].targetedPassed,4);
   assertEqual(old.tasks[0].details[0].parts[0].ok,false); assertEqual(old.catalogMatchesContract,true);
-  assert(old.taskCatalog.some(t=>t.label==='Uložení odpovědi, chyby a zrušení'));
+  const task=old.taskCatalog.find(t=>t.name==='patch_75b5539f8cf5');
+  assertEqual(task.label,'Typ chyby při ukládání odpovědi');
+  assert(task.requirements.some(text=>text.includes('ChatPersistenceError')));
   db.prepare('UPDATE model_evaluation_runs SET suite_contract_sha256=? WHERE run_id=?').run('f'.repeat(64),'older');
   assertEqual(read.readRun('older').catalogMatchesContract,false);assertEqual(read.readRun('older').taskCatalog.length,0);
   let missing;try{read.readRun("older' OR 1=1 --");}catch(e){missing=e;}

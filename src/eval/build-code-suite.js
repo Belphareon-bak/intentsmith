@@ -108,6 +108,7 @@ export function taskSnapshot(task) {
     })),
     functionTexts: [...task.functionTexts],
     requirements: [...task.requirements],
+    ...(task.publicContract ? { publicContract: structuredClone(task.publicContract) } : {}),
   };
 }
 

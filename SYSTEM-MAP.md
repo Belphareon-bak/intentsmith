@@ -1,5 +1,13 @@
 # IntentSmith — mapa systému
 
+**CODE pilot, pokračování 2026-09-19:** operátor povolil měření. Replay
+odhalil dvě nedostatečná zadání (jméno veřejného exportu a stupně jistoty),
+opravuje se jejich prompt i identita; staré výsledky zůstávají historické.
+Původní podezření na ztrátu bloků parserem se v konkrétní odpovědi nepotvrdilo.
+Nové porovnání zahrne současný model a oba kandidáty; časovač je stále
+pozastavený. PILOT_INCOMPLETE / REVIEW_PENDING / NOT_DEPLOYED.
+[Důkazy a meze](docs/review/2026-09-18-CODE-PILOT-GRADER-CHECKPOINT.md).
+
 **CODE pilot, noční checkpoint 2026-09-18:** ověřené hodnotitele a výsledkové
 třídy (`d2ce71b7`), jedno nové měření Qwen3.8 76,19 % (21/21). Devstral
 zrušen na pokyn operátora, coder nezahájen. Hunt timer inactive/disabled,
@@ -350,8 +358,8 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **225 872 ř.**, 631 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **247 604 ř.**, 533 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **225 894 ř.**, 631 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **247 635 ř.**, 533 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **525** (`431 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 102** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |

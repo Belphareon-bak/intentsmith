@@ -94,13 +94,21 @@ předem uzamčené intervalové rozhodování ani oddělený provozní holdout.
 | qwen3-coder:latest | NOT_STARTED | 0/21 | — |
 
 Qwen: pět úloh za 1, rozhodovací jistota za 1/3, chatový error kontrakt za 0;
-všechna tři opakování měla shodná skóre. V nulové odpovědi model rozděluje
-modul do několika bloků. Parser pro jediný rozsah bere jen nejdelší blok,
-takže zahazuje další části; výstup testu nedokládá dokončení harnessu.
-To je další otevřená otázka férovosti parsování. Samotný údaj 0 proto
-neopravňuje přisoudit celou chybu uvažování modelu. Správná alternativa
-rozdělená do několika bloků nebyla mezi 49 sondami; její kontrola a oddělení
-formátové chyby jsou odložené. Naměřené skóre nereinterpretujeme zpětně.
+všechna tři opakování měla shodná skóre. **Korekce 19. 9.: původní vysvětlení
+ztrátou bloků v parseru bylo chybné.** Tato úloha má tři rozsahy a parser
+zachoval všechny tři bloky skutečné odpovědi. Gold i alternativa ve stejném
+formátu prošly. První diagnostická sonda chybně předala jediný gold rozsah;
+je zachovaná jako neplatný diagnostický vstup, nikoli produktový nález.
+
+Replay odhalil skutečnou vadu zadání: volající importuje `ChatPersistenceError`,
+ale prompt neuvádí toto nové jméno ani veřejný kód chyby. Model dodal jiný
+export a import skončil chybou před testem. Druhá úloha neuvádí přesné meze
+stupňů jistoty ani požadavek na text detailu. To brání čistému výkladu těchto
+bodů jako kvality modelu. Staré skóre nepřeznámkováváme; pro další měření se
+obě zadání doplňují o veřejné požadavky a mění se jejich identita i kontrakt
+sady. Původní kalibrace je zachovaná odděleně jako historická.
+Důkaz: `intentsmith-code-resume-20260919/response-diagnostic.json` a
+`parser-corrected.json`. Nový průchod musí znovu zahrnout i Qwen.
 Konkrétní body zůstávají v `benchmark-1.json` a v produkční DB pod
 `eval_c18f7102-d33b-4b92-9b96-dd6a7ce14bb4`. Contract
 `51cf160b2dde294e9292d0d752b4130d20e926ce64bc00ea75b4c399db74ced7`, artefakt
@@ -140,6 +148,28 @@ potřeba doplnit průběžné ukládání nebo řízené dokončení aktuálníh
    Délka se uměle neprodlužuje na 20–30 minut.
 6. Validace a nasazení integrovaného GUI a přejímka nově připravených rolí.
    Tyto testy jsou **odložené na přímý pokyn operátora**, nikoli PASS.
+
+## Ranní pokračování 19. 9. — oprava zadání před novým měřením
+
+Operátor znovu povolil měření. První fronta `run-qXDOrX` čekala na jiný
+projektový GPU běh; po zjištění vad zadání byla řízeně zrušena před inferencí
+(0 hodnocení). Cizí běh nebyl ukončen. Timer zůstává vypnutý.
+Evidence: `/home/belphareon/Projects/coworker/intentsmith-code-resume-20260919`.
+
+Kurátorské `publicContract` doplňuje názvy veřejných exportů, vlastnosti chyby
+a stupně jistoty z připnutých volajících a testů. Neobsahuje implementaci
+opravy ani těla testů. Jde o ladění průzkumné sady, nikoli holdoutu.
+Historický zdroj i názvy testů se nadále kontrolují proti snapshotu; doplněk
+je součást promptu, fingerprintu úlohy a kontraktu sady. Staré kalibrace se
+nepřebírají. Kontrolní replay nad doplněnými zadáními: 49/49 PASS, runner
+62/62, suite 27/27, read-model 22/22. Artifact kontrola nejprve odhalila
+zastaralý LOC census; po jeho aktualizaci 160/160 PASS. Původní FAIL log
+zůstává. Chybný vlastní příkaz na neexistující `test-registry.mjs` je rovněž
+zachovaný; není chybou produktu.
+
+Další měření musí použít čerstvý Qwen3.8 i oba kandidáty na novém kontraktu.
+Starých 76,19 % se nesmí vydávat za výsledek opraveného zadání. Změna dvou
+promptů sama neodstraňuje ostatní omezení pilotu vypsaná výše.
 
 ## Příprava ostatních rolí bez dalšího testování
 

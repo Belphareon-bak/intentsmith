@@ -1,5 +1,13 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
+**CODE pilot, pokračování 2026-09-19:** operátor povolil měření. Replay
+odhalil dvě nedostatečná zadání (jméno veřejného exportu a stupně jistoty),
+opravuje se jejich prompt i identita; staré výsledky zůstávají historické.
+Původní podezření na ztrátu bloků parserem se v konkrétní odpovědi nepotvrdilo.
+Nové porovnání zahrne současný model a oba kandidáty; časovač je stále
+pozastavený. PILOT_INCOMPLETE / REVIEW_PENDING / NOT_DEPLOYED.
+[Důkazy a meze](docs/review/2026-09-18-CODE-PILOT-GRADER-CHECKPOINT.md).
+
 **CODE pilot, noční checkpoint 2026-09-18:** ověřené hodnotitele a výsledkové
 třídy (`d2ce71b7`), jedno nové měření Qwen3.8 76,19 % (21/21). Devstral
 zrušen na pokyn operátora, coder nezahájen. Hunt timer inactive/disabled,
