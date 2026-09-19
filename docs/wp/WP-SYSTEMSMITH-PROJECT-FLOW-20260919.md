@@ -45,3 +45,12 @@ na základním commitu `4a6072f`. Modelovou spolehlivost ani chybějící funkce
 monitoru nevyřeší samotné nahrání AppArmor profilu.
 Celý navazující modelový GUI průchod zůstává prací tohoto WP, nikoli údajně
 splněným výstupem. Podrobnosti: ../review/2026-09-19-SYSTEMSMITH-PROJECT-FLOW.md.
+
+Upřesnění operátora 2026-09-19: cílem je obecné budování projektů, SystemSmith_1
+je pouze vhodné zkušební zadání. Přenositelnost oprav je třeba ověřit i na
+jiném typu projektu a na převzetí existujícího kódu; doménové znalosti monitoru
+nepatří jako zvláštní větev do projektového orchestrátoru.
+
+Po dokončení této práce následuje operátorem zadaný
+[úklid pracovních kopií a místa](WP-WORKSPACE-CLEANUP-20260919.md).
+Výchozí inventura je připravená; úklid zatím neproběhl.
