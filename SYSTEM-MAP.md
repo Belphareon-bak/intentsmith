@@ -1,12 +1,14 @@
 # IntentSmith — mapa systému
 
-**Desktopové projektové kroky, 2026-09-19:** nasazeno `c0eeec50`.
+**Desktopové projektové kroky, 2026-09-19:** nasazeno `df1fc3b7`.
 Celý původní cíl, kontext existujících modulů pouze ke čtení, pozorované
-prostředí/politika a explicitní Desktop základ. M2 60/60, projekt 18/18,
-Studio 39/39; celý profil 359 PASS / 1 FAIL (stávající Gate 0). Reálný první
-modelový návrh byl odmítnut pro chyby výpočtů před zápisem. SystemSmith_1
-zůstává **APPLICATION_INCOMPLETE**; systemd sandbox BLOCKED AppArmorem,
-navazující inference čeká na cizí GPU měření. REVIEW_PENDING.
+adresáře a jedna strukturální oprava plánu. General i Desktop mají kanonická
+pravidla; inventura podporuje i přesné souborové kořeny se stejnými limity.
+M2 66/66, projekt 22/22, Studio 39/39; celý profil 359 PASS / 1 FAIL (Gate 0).
+Nové integrační testy projdou skutečným základem → draftem → sandboxem → commitem;
+generátor je v nich fixture. SystemSmith_1 z reálného modelu zůstává
+**APPLICATION_INCOMPLETE**, produkční systemd sandbox BLOCKED AppArmorem.
+Neúspěšné modelové návrhy i běhy auditu jsou zachované. REVIEW_PENDING.
 [Průchod, opravy a zachované neúspěchy](docs/review/2026-09-19-SYSTEMSMITH-PROJECT-FLOW.md).
 
 **Studio — dotažení předloh, 2026-09-18:** nasazeno `0ef67a56`.
@@ -347,8 +349,8 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 
 | | |
 |---|---:|
-| `src/**/*.js` | **225 846 ř.**, 631 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **247 602 ř.**, 533 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **225 850 ř.**, 631 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **247 625 ř.**, 533 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **525** (`431 ACTIVE`, `79 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **177 / 102** |
 | HTTP rout | **246 statických deklarací**; nejde o počet runtime ověřených cest |

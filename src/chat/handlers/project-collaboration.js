@@ -96,6 +96,10 @@ export function fitProjectDiscussionPrompt(serialized, numCtx, systemPrompt = `$
     }));
     prompt = JSON.stringify(data);
   }
+  // The persisted goal and current correction outrank old conversation
+  // excerpts. A new lifecycle receipt must not make a short repair impossible
+  // merely because two optional history snippets consume the remaining room.
+  while (!fits() && data.history.length) { data.history.shift(); prompt = JSON.stringify(data); }
   if (!fits()) throw new Error('Aktuální zadání se nevejde do schváleného kontextu modelu. Rozděl je na menší krok.');
   return { prompt, systemPrompt, maxTokens, numCtx, maxBytes, excerptCount: data.analysis.excerpts.length };
 }

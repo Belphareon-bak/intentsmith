@@ -5,7 +5,8 @@ builder. Dvousouborový fyzický průchod ze skutečně nainstalovaného Studia 
 ověřen na `dc81a0f0`, včetně schválení, funkčního testu, restartů a obnovy DB.
 [Rozsah a důkazy](review/2026-09-12-PRODUCTION-JOURNEY-REVIEW-PACKET.md).
 Úplný autonomní builder tím prokázaný není. Následující postup zahrnuje opravu
-projektového flow z 18. září 2026; důkazy staršího průchodu neověřují tuto změnu.
+projektového flow z 18.–19. září 2026; důkazy staršího průchodu neověřují tuto změnu.
+[Aktuální skutečný pokus SystemSmith_1 a jeho omezení](review/2026-09-19-SYSTEMSMITH-PROJECT-FLOW.md).
 
 ## Nový projekt
 
@@ -31,6 +32,10 @@ konverzaci. Pokud se cíl a aktuální požadavek nevejdou do schváleného okna
 plánování skončí vysvětlením místo tichého odříznutí konce cíle.
 Plánovač zná OS, architekturu a povolené importy. Tím není prokázaná
 dostupnost hardwarových senzorů ani instalace deklarovaných závislostí.
+Model dostává také seznam skutečných adresářů. U vyjmenovaných strukturálních
+chyb návrhu (například neexistující adresář nebo cyklus závislostí) zkusí jednou
+plán opravit podle konkrétní chyby. Nevytváří tím adresáře ani neschvaluje
+změny. Chyby provideru, přerušený výstup a změna revize se automaticky neopakují.
 
 Test v takovém návrhu je `node --disable-wasm-trap-handler --test test/acceptance.test.mjs`. Přepínač zachovává funkčnost Node.js pod limitem virtuální paměti sandboxu. Model může
 navrhnout jeho assertions, takže úspěch testu sám nedokazuje splnění celého cíle.
@@ -137,7 +142,7 @@ Volný text v projektovém chatu nabízí návrh; provedení vyžaduje samostatn
 
 Nejprve v editoru připravte adresář `src/` a funkční test, například
 `tests/app.test.js`. Vlastní pravidla projektu uložte do
-`.c3/m2-governance-policy.json`. Pro jednu aplikační vrstvu bez externích
+`.intentsmith/m2-governance-policy.json`. Pro jednu aplikační vrstvu bez externích
 importů může soubor vypadat takto:
 
 ```json
@@ -153,8 +158,11 @@ importů může soubor vypadat takto:
 ```
 
 Pravidla upravte podle skutečných vrstev a dovolených importů projektu;
-seznamy přípon, názvů vrstev, pravidel a importů udržujte seřazené bez duplicit.
-prázdné `externalImports` záměrně neumožňují externí knihovny. Uložte výchozí
+seznamy kořenů, přípon, názvů vrstev, pravidel a importů udržujte seřazené podle
+bajtového pořadí UTF-8 bez duplicit. Kořen může být existující adresář nebo
+jednotlivý existující soubor; inventura pro oba používá stejné kontroly cest,
+odkazů a velikosti. Nové šablony mají toto pořadí připravené automaticky.
+Prázdné `externalImports` záměrně neumožňují externí knihovny. Uložte výchozí
 soubory, test a pravidla do Git commitu a začněte s čistým pracovním stromem.
 Import existujícího projektu tato pravidla nevytváří. U nově založeného
 projektu je základ připravený automaticky. U importu tato příprava probíhá

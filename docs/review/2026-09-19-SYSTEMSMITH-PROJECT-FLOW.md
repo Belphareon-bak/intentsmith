@@ -2,8 +2,8 @@
 
 Stav: **IMPLEMENTATION_VERIFIED / REVIEW_PENDING / APPLICATION_INCOMPLETE**.
 Autorita: operátorovo zadání samostatně vytvořit SystemSmith_1, nikoli kopii
-existujícího SystemSmithu. Review rozsah `ee5f36b9..c0eeec50`; nasazený runtime
-`c0eeec50d569f229cc96872774ac9dc445c172bc`. GPU hunt ani modelové bindingy
+existujícího SystemSmithu. Review rozsah `ee5f36b9..df1fc3b7`; nasazený runtime
+`df1fc3b73d0b588727d434eb71cae0ac6a248840`. GPU hunt ani modelové bindingy
 nejsou změnou tohoto balíku. Vizuální ladění je odložené podle operátora.
 
 ## Co skutečný modelový průchod ukázal
@@ -56,6 +56,22 @@ Důkazy jsou pod `.intentsmith-artifacts/systemsmith-project-20260919/`:
   Nové základy dovolují také úpravy package/README/ROADMAP. Staré ani cizí
   politiky se automaticky nerozšiřují. Skutečná bezpečnost výsledné aplikace
   stále potřebuje kontrolu vygenerovaného kódu; samotný prompt ji nevynucuje.
+- **Oprava strukturálního návrhu:** model dostává skutečné existující adresáře.
+  Chybějící adresář, cyklus nebo jiný vyjmenovaný strukturální problém dovolí
+  nejvýše jednu opravu plánu s konkrétní zpětnou vazbou. Chyba provideru,
+  přerušené generování, cancellation ani změna revize se neopakují. Testy
+  pokrývají úspěšnou opravu, druhé odmítnutí i zákaz opakování chyb provideru.
+- **Kanonická pravidla šablony:** opravené pořadí kořenů/importů. Kontrola proti
+  skutečnému M2 kontraktu nejdříve reprodukovala chybu, potom prošla pro oba
+  typy. U našeho čistého projektu id 13 se jednorázově opravilo pouze pořadí
+  týchž položek (commit `4a6072f`); žádné oprávnění ani implementace nepřibyly.
+- **Souborové kořeny inventury:** baseline nyní přečte také jednotlivý přesně
+  uvedený soubor, např. README/package, přes tentýž bezpečný reader a velikostní
+  limit jako soubory v adresářích. Symlinky, hardlinky, chybějící a nadlimitní
+  soubory zůstávají odmítnuté. Nové integrační testy pro skutečný general i
+  desktop základ nejprve selhaly a po opravě prošly draftem, schválením,
+  skutečným bwrap testem i Git commitem. Generátor v těchto dvou testech je
+  deterministická fixture; nejde o modelový důkaz funkční utility.
 - **Studio:** formulář zachovává a umožňuje upravit kontextové cesty.
   Souhrn desktopového projektu pravdivě uvádí nenainstalovaný Electron.
 
@@ -68,8 +84,8 @@ a ruční Studio modul. Importový graf nemá novou hranu.
 
 ## Ověření
 
-- Projektová spolupráce **18/18**, Studio M2 **39/39**, M1 klient **133/133**.
-- M2 application service **60/60**, včetně existujícího kontextu, neexistující
+- Projektová spolupráce **22/22**, Studio M2 **39/39**, M1 klient **133/133**.
+- M2 application service **66/66**, včetně existujícího kontextu, neexistující
   cesty, traversal, překryvu s cílem, chráněné cesty, velikosti a změny revize.
   Existující reálné bwrap testy této sady běží z IDE testovacího prostředí;
   jejich úspěch neřeší odlišný AppArmor kontext systemd služby.
@@ -78,7 +94,7 @@ a ruční Studio modul. Importový graf nemá novou hranu.
   zobrazením kontextového pole a kontrolou závěrečného souhrnu. Tento GUI test
   nepoužíval model ani produkční databázi. Snímky: `desktop-created.png`,
   `readonly-context-composer.png`, `desktop-review-final.png`.
-- Úplný offline/database audit na neměnném `c0eeec50`: **359 PASS / 1 FAIL**,
+- Úplný offline/database audit na neměnném `df1fc3b7`: **359 PASS / 1 FAIL**,
   360 programů. Jediný non-PASS `nightly-orchestrator-self-test`:
   `registry hash differs from the reviewed Gate 0 policy`. Verdikt zůstává
   **FAIL**, operátorská pečeť se neupravovala.
@@ -94,28 +110,68 @@ neúspěšného mezikroku formátování). Mobilní sada prošla samostatně **2
 a v čistém finálním profilu; příčina prvního selhání není prokázaná, produktový
 mobilní kód se neměnil. Neúspěšné logy nebyly přepsané ani smazané.
 
-Finální důkaz:
-`gate-final/systemsmith-flow-c0eeec50/report.json` + `inventory.json` a 360 logů.
+Další zachovaný běh `systemsmith-flow-71cdf1e4`: **358 PASS / 2 FAIL**.
+Vedle pečeti selhal `m7-durable-rate-limiter` při souběhu procesů na
+`database is locked`. Samostatné opakování prošlo **11/11** a nejnovější úplný
+profil také PASS. M7 kód se neměnil; příčina časově ojedinělého selhání není
+prokázaná. Tento neúspěšný běh se nezaměňuje za čistý nejnovější profil.
+
+Mezilehlé úplné profily `c0eeec50` a `ec78722b` mají shodně 359 PASS / 1 FAIL.
+Nejnovější důkaz:
+`gate-file-roots/systemsmith-flow-df1fc3b7/report.json` + `inventory.json` a 360 logů.
 SHA-256 inventář relevantních souborů: `evidence-sha256.json`.
 
 ## Nasazení, data a aktuální stav utility
 
 Instalátor pořídil zálohu
-`~/.local/state/intentsmith/installation-backups/2026-09-19T05-26-42-031Z`.
+`~/.local/state/intentsmith/installation-backups/2026-09-19T06-12-13-579Z`.
 Backend je aktivní, autentizované HTTP 200, bez autentizace 401. DB
 `quick_check=ok`, bez FK chyb. Kontrola proti záloze potvrdila shodné zprávy,
 konverzace, evaluace, rozhodnutí, bindingy a paměťové tabulky; projektům mohl
 pouze startup posunout `last_active`. Administrátorský credential zachován.
 Následující tvorba/archivace testovacího projektu je samostatně zaznamenaná.
-Důkaz: `deployment.json`, `desktop-current.json`, `first-attempt-archived.json`.
+Důkaz: `deployment-file-roots/deployment.json`, `desktop-current.json`,
+`first-attempt-archived.json`. Starší instalační důkazy a skutečně nainstalované
+release kopie zůstávají zachované pro audit/rollback.
 
 Původní kontrolní projekt id 12 byl se všemi konverzacemi archivován. Jeho
 čistý výchozí Git strom se zachoval v `first-attempt-project/`, nic se nemazalo.
 Nový aktivní **SystemSmith_1, id 13**, vznikl z desktopového základu v
 `~/Projects/intentsmith/projects/systemsmith_1`; konverzace
 `conv-1789795632117-ye567eh8z`. Celý původní požadavek je uložený v jeho popisu.
-Zatím jde o základ, ne o funkční systémový monitor. Druhý pokus o inference
-zastavil sdílený GPU zámek cizího CODE měření; běh druhého workera se nepřerušil.
+Zatím jde o základ, ne o funkční systémový monitor. Cizí CODE měření dočasně
+zastavilo inference společným zámkem; po uvolnění jsme pokračovali. Běh druhého
+workera se nepřerušil, bindingy se nezměnily.
+
+Navazující průchod: `06-chat.json` odhalil neexistující `src/config`;
+`07-chat.json` zbytečnou otázku na GUI; `08-chat.json` skutečný limit dlouhé
+připomínky vedle celého původního cíle. Kratší `09` a zpřesňující `10` již
+navrhly izolované CPU/RAM sběrače a test. `11-draft.json` odmítl nekanonická
+pravidla a `12-draft.json` odmítl neúplnou baseline kvůli souborovým kořenům.
+Obě chyby jsou opravené obecně a mají reprodukční testy. Žádný z těchto
+neúspěchů nevytvořil částečný zapisovací plán.
+
+Po nasazení `df1fc3b7` vznikl skutečný pending plán `13-draft.json` pro
+`src/cpu.mjs`, `src/ram.mjs` a test. Původní modelové testy na přesné soukromé
+kopii pod skutečným M2 sandbox providerem skončily **6 PASS / 1 FAIL**: validní
+RAM vracela `null` (regex klíč bez dvojtečky, konstanty s dvojtečkou; navíc
+chybělo UTF-8 v implicitním readeru). Nezávislé CPU sondy našly 66,67 místo
+50 %, přijetí poškozeného čítače jako 90 % a 110 % při poklesu čítače.
+`13-audit-probes.json` uchovává vstupy/očekávání/výsledky. Guest čas se již
+účtuje do user/nice, jak ukazuje
+[kernel account_guest_time](https://github.com/torvalds/linux/blob/master/kernel/sched/cputime.c).
+Nesmí se při součtu přičíst znovu. Dokumentace kernelu také upozorňuje na
+[možný pokles iowait](https://docs.kernel.org/filesystems/proc.html#miscellaneous-kernel-statistics-in-proc-stat);
+nepoužitelný vzorek nelze nahradit vymyšleným procentem.
+
+Plán `lifecycle:4e9b8542-cbb4-4e3a-82c2-16a275303547` byl zrušen před produkčním
+zápisem (`14-cancelled.json`); model dostal konkrétní opravnou připomínku.
+Soukromé sondy nejsou schválením M2 ani důkazem spuštění ze systemd.
+
+Fyzické čtení hosta potvrzuje /proc zdroje i hwmon ventilátory nct6687.
+`host-sensor-observation.json` obsahuje konkrétní hodnoty a čas, nikoli tvrzení
+modelu. Požadavky, které ještě nejsou implementované, vede
+`requirements-progress.json`.
 
 ## Co brání dokončení celého průchodu
 
@@ -125,9 +181,12 @@ zastavil sdílený GPU zámek cizího CODE měření; běh druhého workera se n
    nemá. Připravený AppArmor profil a dva instalační příkazy jsou v
    [DESKTOP.md](../DESKTOP.md), část Sandbox projektových testů. Operátor dostal
    jednorázový požadavek na nahrání profilu; odpověď zatím nepřišla. Izolace
-   se nevypínala. Důkaz: `systemd-sandbox.log`, `systemd-sandbox-final.log`.
-2. **GPU:** navazující fyzické modelové volání počká na uvolnění společného
-   zámku měření druhého workera. Zámek se neobchází a cizí modely se neodkládají.
+   se nevypínala. Důkaz: `systemd-sandbox.log`, `systemd-sandbox-final.log`,
+   `systemd-sandbox-df1fc3b7.log`.
+2. **Kapacita a kvalita modelu:** schválený profil D1 je 4096. Celý původní cíl
+   zůstává zachovaný, delší další připomínka se však nemusí vejít. Plánování
+   a testové assertions stále vyžadují kritickou kontrolu; nikoli souhlas se
+   vším, co model navrhne. GPU blokace byla dočasná a zámek se neobcházel.
 3. **Aplikace:** po odstranění provozní překážky znovu projít modelový návrh,
    přesnou změnu, behaviorální testy a opravy; následně všechny metriky,
    historii 1m–1h, perzistentní nastavení, GUI, procesy a integraci do nabídky.

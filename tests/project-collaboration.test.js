@@ -6,7 +6,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { test } from 'node:test';
-import { initializeNewProject, inspectProject, importedProjectWelcome } from '../src/planner/project-onboarding.js';
+import { initializeNewProject, inspectProject, importedProjectWelcome, newProjectPolicy } from '../src/planner/project-onboarding.js';
 import { discussProject, collectProjectWorkEvidence, fitProjectDiscussionPrompt, PROJECT_DISCUSSION_SYSTEM } from '../src/chat/handlers/project-collaboration.js';
 import { createProjectRoutes } from '../src/routes/projects.js';
 import { detectFileIntent } from '../src/chat/handlers/project.js';
@@ -289,6 +289,29 @@ test('planning selects context for the real model window and never truncates the
   assert.equal(JSON.parse(repaired.prompt).request, repairRequest);
   assert.equal(JSON.parse(repaired.prompt).projectWorkEvidence[0].errorCode, 'PROJECT_CHANGE_TEST_FAILED');
   assert.ok(Buffer.byteLength(repaired.systemPrompt + repaired.prompt) <= repaired.maxBytes);
+});
+
+test('a short correction and full goal outrank old snippets when lifecycle evidence consumes the window', () => {
+  const policy = newProjectPolicy('desktop');
+  const input = {
+    request: 'Fix RAM keys, use UTF8. Validate CPU counters and guest time; malformed samples and counter regressions must not produce invented percentages. Test positive values and failures independently.',
+    project: { id: 1, name: 'Monitor', description: 'CPU RAM GPU fans, network, disks, readable charts and persistent history. '.repeat(28) },
+    history: [{ role: 'user', content: 'old goal '.repeat(30) }, { role: 'user', content: 'old correction '.repeat(30) }],
+    analysis: { fileCount: 6, files: ['README.md', 'ROADMAP.md', 'package.json', 'src/index.mjs', 'test/acceptance.test.mjs'],
+      setup: { policy: { roots: policy.layers[0].roots, externalImports: policy.externalImports } },
+      directories: ['.', 'public', 'scripts', 'src', 'test'], excerpts: [] },
+    projectWorkEvidence: [{ lifecycleId: 'lifecycle:cancelled', state: 'cancelled', errorCode: null, focusedTest: null }],
+  };
+  const budget = fitProjectDiscussionPrompt(JSON.stringify(input), 4096);
+  const selected = JSON.parse(budget.prompt);
+  assert.equal(selected.project.description, input.project.description);
+  assert.equal(selected.request, input.request);
+  assert.equal(selected.history.length, 0);
+  assert.equal(input.history.length, 2, 'selection must not erase stored history');
+  assert.equal(selected.projectWorkEvidence[0].state, 'cancelled');
+  assert.deepEqual(selected.analysis.setup.policy, input.analysis.setup.policy);
+  assert.equal(budget.numCtx, 4096);
+  assert.ok(Buffer.byteLength(budget.systemPrompt + budget.prompt) <= budget.maxBytes);
 });
 
 test('actual HTTP creation/import preserves foreign files, rejects collisions and survives restart', { timeout: 60_000 }, async () => {
