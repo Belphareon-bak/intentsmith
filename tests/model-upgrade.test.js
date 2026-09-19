@@ -1379,7 +1379,7 @@ await testAsync('changed retention conditions release a completed catalog duel o
   db.close();
 });
 
-await testAsync('VISION sends twelve distinct PNG image requests and one no-image control through the actual runner', async () => {
+await testAsync('VISION sends twenty-two distinct PNG image requests and one no-image control through the actual runner', async () => {
   const original = globalThis.fetch; const requests = [];
   try {
     globalThis.fetch = async (_url, options) => {
@@ -1391,10 +1391,10 @@ await testAsync('VISION sends twelve distinct PNG image requests and one no-imag
     await runner.runSuite('vision_v2', 'qwen3.8:latest', null, {
       modelName: 'qwen3.8:latest', digestSha256: DIGEST_A, providerVersion: '0.34.0',
     });
-    assertEqual(requests.length, 13);
+    assertEqual(requests.length, 23);
     const images = requests.flatMap(r => r.messages.flatMap(m => m.images || []));
-    assertEqual(images.length, 12);
-    assertEqual(new Set(images).size, 12);
+    assertEqual(images.length, 22);
+    assertEqual(new Set(images).size, 22);
     assert(images.every(i => Buffer.from(i, 'base64').subarray(1, 4).toString() === 'PNG'));
     assertEqual(requests.filter(r => r.messages.every(m => !m.images?.length)).length, 1);
   } finally { globalThis.fetch = original; }

@@ -156,7 +156,7 @@ function taskCatalog(plan) {
     const g = t.contractMaterial?.gradingInputs;
     const source = typeof g?.source === 'string' ? g.source : g?.source?.path;
     const simple = t.name.replace(/^(?:reason|review)_(?=repo_)/, '').replace(/^(?:en|cz)_/, '');
-    return { name: t.name, label: TASK_LABELS[t.name] || TASK_LABELS[simple] || t.description || t.name.replaceAll('_', ' '),
+    return { name: t.name, label: TASK_LABELS[t.name] || TASK_LABELS[`patch_${g?.oracleCase}`] || TASK_LABELS[simple] || t.description || t.name.replaceAll('_', ' '),
       type: plan.suiteName === 'code_patch' ? 'Oprava kódu · spuštěné testy' : plan.suiteName === 'review_v2' ? 'Revize kódu'
         : plan.suiteName === 'reasoning_v2' ? 'Analýza a logika' : plan.suiteName === 'vision_v2' ? 'Porozumění obrazu' : 'Konverzace',
       source: source || null, language: t.language || null, difficulty: t.difficulty || null, skill: t.skill || null,
