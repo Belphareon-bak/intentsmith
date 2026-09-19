@@ -227,6 +227,17 @@ export function parsePatchFromDiff(llmOutput) {
   }
 
   const patches = [...patchesByFile.values()];
+  // A model may quote its same proposal more than once. Apply identical hunks
+  // once; different overlapping proposals still fail normal validation.
+  for (const patch of patches) {
+    const seen = new Set();
+    patch.regions = patch.regions.filter(region => {
+      const key = JSON.stringify(region);
+      if (seen.has(key)) return false;
+      seen.add(key); return true;
+    });
+  }
+
 
   if (patches.length > 0) {
     logger.info('PatchParser', `Parsed ${patches.length} patch(es) from diff`, {

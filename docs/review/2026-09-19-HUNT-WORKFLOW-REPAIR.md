@@ -40,3 +40,27 @@ správných referencí; je zachován vedle následné opravy a úplného PASS.
 Evidence: `/home/belphareon/Projects/coworker/intentsmith-hunt-completion-20260919`.
 Původní C3 checkout, produkční DB, vazby, artefakty a automatický timer nebyly
 při této implementaci změněny. Nasazená aplikace zatím obsahuje starší zdroje.
+
+## Nálezy z nové inference a GUI
+
+První vývojový běh používá čistý `bdbcd201`, dva přesné artefakty a osm
+již zveřejněných případů; není to holdout. Oba modely prošly kvalifikací
+16 384 kontext / 4 096 výstup, celé na GPU pod limitem 22 GB. Během něj
+vznikly další opravy, které jeho výsledky zpětně nemění:
+
+- Identická opakovaná nabídka patche v jedné odpovědi se aplikuje jednou.
+  Historie oscilací obsahuje pouze aplikované změny, nikoli odmítnuté návrhy.
+- Pojmenované chyby skutečného repository harnessu zůstávají rozlišitelné
+  bez vymyšlených řádků zdroje. Zkrácený prompt další iterace vždy obsahuje
+  aktuální chyby; skutečný Node test ověřuje dvě následné opravy.
+- Existující hold s nepřijatelnými oprávněními již neshodí celé API na 503:
+  automatika zůstane pozastavená a panel vysvětlí nečitelné podrobnosti.
+- Oba instalační skripty vybírají stejný provider `.2` a jeho SHA jako wrapper.
+  Běžící systémový provider se zde nepřepínal.
+
+Samostatný Electron/CDP průchod `gui-3` otevřel sedm záložek, historický
+  detail a ověřil opětovné spojení po restartu vlastního backendu na novém
+  portu. Použil nový frontend a skutečné read model/controller nad produkční
+  DB otevřenou pouze pro čtení, diagnostický bridge a `--no-sandbox`.
+  Nejde o doklad nasazené aplikace, downloadu, inference z GUI nebo změny vazby.
+  První dva neúspěšné průchody jsou zachované včetně nalezené chyby hold.

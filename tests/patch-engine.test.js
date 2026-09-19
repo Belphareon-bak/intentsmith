@@ -165,6 +165,12 @@ test('separate fenced patches do not consume each other', () => {
   const response = '```diff\n--- a.js\n@@ function a\n-old\n+new\n```\nExplanation\n```diff\n--- b.js\n@@ function b\n-old\n+new\n```';
   assertEqual(parsePatchFromDiff(response).map(p => p.file).join(','), 'a.js,b.js');
 });
+test('identical repeated proposals apply once', () => {
+  const proposal='--- x.js\n@@ line const x = 1;\n-const x = 1;\n+const x = 2;';
+  const [p]=parsePatchFromDiff(['```diff\n'+proposal+'\n```','```diff\n'+proposal+'\n```'].join('\n'));
+  assertEqual(p.regions.length,1);assertEqual(applyPatch(p,'const x = 1;\n').content,'const x = 2;\n');
+});
+
 test('numeric unified hunks verify positions and counts before application', () => {
   const original = 'function work() {\n  first();\n  keep();\n  last();\n}\n';
   const response = 'diff --git a/app.js b/app.js\n--- a/app.js\n+++ b/app.js\n@@ -2,3 +2,3 @@\n   first();\n-  keep();\n+  fixed();\n   last();';

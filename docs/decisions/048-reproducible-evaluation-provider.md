@@ -108,3 +108,25 @@ Toto není nezávislé acceptance review M6. Krátký katalogový manifest ID sl
 jen k detekci změn před stažením; autorita artefaktu vyžaduje plný SHA-256
 z obsloužené odpovědi. Změněný tag již instalovaného modelu se pouze ohlásí,
 protože automatický přepis by mohl změnit aktivní nebo rollback binding.
+
+## Opravený provider a rozhodovací přejímka, 19. 9. 2026
+
+Výchozí reprodukovatelný build, oba instalační skripty a evaluační wrapper
+nyní cílí `0.34.0-intentsmith.2`. Druhý patch opravuje předčasné ukončení
+opakovaných tokenů v kódu. SHA binárky je
+`3c22a0cfb46a9ea38fd4dba6746a022be04f5ada21a529e83c9380a5f0547b9d`;
+upstream native payload zůstává 0.34.0. Změna skriptů sama neznamená instalaci
+ani kvalifikaci další upstream verze. Systémový upgrade se provádí v klidu,
+přes root instalační skript se zachováním předchozí služby pro rollback.
+
+Oba providery mohou mít tentýž patch. Odděluje je životnost, procesní skupina,
+port, účet a vlastnictví operací: 11434 obsluhuje aplikaci a řízené zápisy
+modelového skladu; 11435 existuje pouze pro izolovaný sériový evaluační běh.
+Rozdíl nespočívá v přítomnosti patche. Historie nesmí míchat měření `.1` a `.2`.
+
+Historický odstavec o odstranění na základě CPU offloadu již není současnou
+politikou: samotné přetečení konkrétního kontextu vede pouze k nezpůsobilosti
+tohoto profilu. Retence musí mít přijatý profil a prokázanou ztrátu v každé
+použitelné roli. `decisionReady` neplyne z počtu úloh; neověřené prototypy
+zůstávají průzkumné. Legacy `allowRemoval` na jednotlivém candidate trialu
+neopravňuje k mazání; běžný hunt používá samostatnou retenční autoritu.

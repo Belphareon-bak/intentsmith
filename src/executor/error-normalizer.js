@@ -158,7 +158,7 @@ const FILE_LINE_WINDOW = 40;
 function _extractFileLocation(lines, currentIdx) {
   for (let j = currentIdx; j < Math.min(lines.length, currentIdx + FILE_LINE_WINDOW + 1); j++) {
     // Do not attribute the next diagnostic's file to this one.
-    if (j > currentIdx && /^\s*(?:\w*Error(?:\s*\[[^\]]+\])?:|not ok\s+\d+)/.test(lines[j])) break;
+    if (j > currentIdx && /^\s*(?:\w*Error(?:\s*\[[^\]]+\])?:|not ok\s+\d+|❌)/.test(lines[j])) break;
     for (const pat of FILE_LINE_PATTERNS) {
       const m = lines[j].match(pat);
       if (m) return { file: m[1], lineNum: parseInt(m[2], 10) };
@@ -218,10 +218,21 @@ export function normalizeErrors(rawOutput, language) {
   // Raw string path
   const lines = String(rawOutput).replace(/\x1b\[[0-9;]*m/g, '').split('\n');
   const results = [];
+  // Our test harness emits named failures without stack locations. Recognize
+  // that protocol only with its explicit failed-test summary, not any red icon.
+  const namedHarnessFailures = lines.some(line => /RESULTS:\s*\d+ passed,\s*[1-9]\d* failed,\s*\d+ skipped/.test(line));
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (!line.trim()) continue;
+    const namedFailure = namedHarnessFailures && line.match(/^\s*❌\s+(?:\[[^\]]*\]\s*)?(.+)$/);
+    if (namedFailure) {
+      const testName = namedFailure[1];
+      results.push({ code: ERROR_CODES.TEST_FAILED, file: '', line: null,
+        symbol: null, testName, message: testName, raw: line.trim(),
+        severity: 'error', category: 'test', recoverable: true, derivedFrom: null });
+      continue;
+    }
 
     for (const entry of ERROR_MAP) {
       const match = line.match(entry.pattern);
@@ -300,7 +311,7 @@ export function deduplicateErrors(errors) {
 
   const seen = new Set();
   return errors.filter(err => {
-    const key = `${err.code}|${err.file}|${err.line ?? '?'}`;
+    const key = `${err.code}|${err.file}|${err.line ?? '?'}|${err.testName || ''}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -320,9 +331,10 @@ export function classifyRecoverability(error) {
   if (UNRECOVERABLE_CODES.has(error.code)) return false;
   if (RECOVERABLE_CODES.has(error.code)) return true;
 
-  // TEST_FAILED: recoverable only if file location is known
+  // Named assertions can be repaired using the caller's project context; do
+  // not invent a source location when the harness did not emit one.
   if (error.code === ERROR_CODES.TEST_FAILED) {
-    return !!error.file;
+    return !!error.file || !!error.testName;
   }
 
   // Heuristic for UNKNOWN: compile + lint are usually recoverable

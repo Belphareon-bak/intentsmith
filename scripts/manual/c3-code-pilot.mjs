@@ -216,7 +216,7 @@ if(mode==='--replay') {
       console.log(def.id, 'oracle', name);put(dir,sources);const r=await check(dir);controls.push({name,expected,...r});
     }
     const runtimeControls=[];
-    const runtimeSamples=[['gold',versions.gold,1],['alternative',versions.alternative,1],['empty',versions.before,0]];
+    const runtimeSamples=[['gold',versions.gold,1],['alternative',versions.alternative,1],['alternative-repeated',versions.alternative,1],['empty',versions.before,0]];
     if(def.id==='search-report')runtimeSamples.push(['budget',versions.before,0],['transport-down',versions.before,null],['provider-incomplete',versions.before,null],['output-budget',versions.before,0]);
     for(const [name,sources,expected] of runtimeSamples) {
       console.log(def.id, 'runtime', name);put(dir,versions.before);
@@ -232,7 +232,7 @@ if(mode==='--replay') {
             return await new ModelEvaluationRunner('http://oracle.invalid')._callModel('oracle',[],{}, {modelName:'oracle',digestSha256:digest});
           } finally {globalThis.fetch=original;}
         }
-        return {content:response,evalCount:0,model:'ORACLE_REPLAY',...(name==='output-budget'?{doneReason:'length'}:{})};
+        return {content:name==='alternative-repeated'?[response,response].map(p=>'```diff\n'+p+'\n```').join('\n'):response,evalCount:0,model:'ORACLE_REPLAY',...(name==='output-budget'?{doneReason:'length'}:{})};
       });
       runtimeControls.push({name,expected,...r});
     }

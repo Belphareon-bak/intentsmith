@@ -1,6 +1,7 @@
 // Error Normalizer v104 (F2) — Tests
 // ══════════════════════════════════════════════════════════════════════════════
 
+import { spawnSync } from 'node:child_process';
 import { suite, test, assert, assertEqual, summary } from './harness.js';
 import {
   ERROR_CODES,
@@ -441,6 +442,22 @@ test('TAP failure is explicit and one diagnostic cannot borrow the next diagnost
   const errors = normalizeErrors('AssertionError [ERR_ASSERTION]: first\nnot ok 2 - second\n    at file:///work/second.mjs:8:2');
   assertEqual(errors.length, 2); assertEqual(errors[0].file, '');
   assertEqual(errors[1].code, 'TEST_FAILED'); assertEqual(errors[1].file, '/work/second.mjs');
+});
+
+test('actual repository harness preserves distinct named failures without inventing locations', () => {
+  const harness = new URL('./harness.js', import.meta.url).href;
+  const child = spawnSync(process.execPath, ['--input-type=module', '-e',
+    `import {test,assertEqual,summary} from ${JSON.stringify(harness)};
+     test('first contract',()=>assertEqual(1,2));
+     test('second contract',()=>assertEqual(3,4));summary();`], {encoding:'utf8'});
+  assertEqual(child.status, 1);
+  const failures = deduplicateErrors(normalizeErrors(child.stdout + child.stderr));
+  assertEqual(failures.length, 2);
+  for (const failure of failures) {
+    assertEqual(failure.code, 'TEST_FAILED'); assertEqual(failure.file, '');
+    assertEqual(classifyRecoverability(failure), true);
+  }
+  assertEqual(normalizeErrors('❌ arbitrary operation failed').length, 0);
 });
 
 summary();

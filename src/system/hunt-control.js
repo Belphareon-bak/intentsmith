@@ -58,7 +58,11 @@ export function createHuntControl({ installationFile = process.env.INTENTSMITH_I
       try { const record = await json(join(installed.stateDirectory, 'code-pilot-automation-hold.json'));
         hold = { code: 'HUNT_AUTOMATION_HELD', reason: record.reason || 'Automatika je pozastavena do přijetí evaluátoru.',
           releaseCondition: record.releaseCondition || null, createdAt: record.createdAt || null }; }
-      catch (error) { if (error.code !== 'ENOENT') throw error; }
+      catch (error) {
+        if (error.code !== 'ENOENT') hold = {code:'HUNT_AUTOMATION_HELD',metadataStatus:'UNREADABLE',
+          reason:'Pozastavení automatiky je přítomné, ale jeho podrobnosti nelze bezpečně přečíst.',
+          releaseCondition:null,createdAt:null};
+      }
       if (service.LoadState !== 'loaded' || timer.LoadState !== 'loaded') throw new Error('HUNT_SERVICE_NOT_INSTALLED');
       if (service.WorkingDirectory !== installed.sourceRoot
         || !service.ExecStart?.includes(join(installed.sourceRoot,'scripts/run-model-hunt-provider.js'))

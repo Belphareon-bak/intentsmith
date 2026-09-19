@@ -1192,6 +1192,34 @@ await testAsync('one corrective retry repairs an unparsable answer with an actua
   assertEqual(calls, 2); assertEqual(r.converged, true); assertEqual(check().exitCode, 0);
 });
 
+await testAsync('a corrected rejected patch may retain a previously valid region without false oscillation', async () => {
+  fs.writeFileSync(path.join(TEST_DIR,'corrected.js'),'const a = 1;\nconst b = 1;\n');
+  let calls=0;
+  const r=await runFixLoop({lifecycle:{projectPath:TEST_DIR},milestone:{id:'rejected-history'},
+    testResults:mkTestResults(false,'','AssertionError: values wrong'),qualityGateResult:mkQualityGate(true),
+    callLLM:async()=>{calls++;return {content:'--- corrected.js\n@@ line const a = 1;\n-const a = 1;\n+const a = 2;\n@@ line const b = 1;\n-'+(calls===1?'const b = 999;':'const b = 1;')+'\n+const b = 2;'};},
+    runTests:async()=>mkTestResults(fs.readFileSync(path.join(TEST_DIR,'corrected.js'),'utf8')==='const a = 2;\nconst b = 2;\n'),
+    runQualityGate:async()=>mkQualityGate(true),getGitDiff:async()=>'',
+  });
+  assertEqual(calls,2);assertEqual(r.converged,true);
+});
+
+await testAsync('named harness failure after a patch remains repairable on the next iteration', async () => {
+  const file = path.join(TEST_DIR, 'named.mjs');
+  const harness = new URL('./harness.js', import.meta.url).href;
+  fs.writeFileSync(file, `import {test,assertEqual,summary} from ${JSON.stringify(harness)};\nconst value = 1;\ntest('value contract',()=>assertEqual(value,3));summary();\n`);
+  const check = () => { const p=spawnSync(process.execPath,[file],{encoding:'utf8'});
+    return {allPassed:p.status===0,exitCode:p.status,stdout:p.stdout,stderr:p.stderr}; };
+  let calls=0;
+  const r=await runFixLoop({lifecycle:{projectPath:TEST_DIR},milestone:{id:'named-harness'},
+    testResults:check(),qualityGateResult:mkQualityGate(true),
+    callLLM:async(_role,prompt)=>{calls++;assertIncludes(prompt,'value contract');return {
+      content:`--- named.mjs\n+++ named.mjs\n@@ -2,1 +2,1 @@\n-const value = ${calls};\n+const value = ${calls+1};`};},
+    runTests:async()=>check(),runQualityGate:async()=>mkQualityGate(true),getGitDiff:async()=>'',
+  });
+  assertEqual(calls,2);assertEqual(r.converged,true);assertEqual(check().exitCode,0);
+});
+
 // ─── Cleanup + Summary ─────────────────────────────────────────────────────
 
 cleanupTestProject();

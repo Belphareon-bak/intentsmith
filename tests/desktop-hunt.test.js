@@ -1,7 +1,7 @@
 import './helpers/isolated-test-db.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, rm, symlink, lstat } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, rm, symlink, lstat, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFile } from 'node:child_process';
@@ -573,6 +573,13 @@ test('automation hold is visible and refuses start/resume while preserving manua
   assert.equal(status.lastStartConditionFailed,true);
   await assert.rejects(control.control('start'),/HUNT_AUTOMATION_HELD/);
   await assert.rejects(control.control('resume'),/HUNT_AUTOMATION_HELD/);assert.equal(effects.length,0);
+  await chmod(join(config.stateDirectory,'code-pilot-automation-hold.json'),0o664);
+  const unreadable=await control.status();assert.equal(unreadable.state,'HELD');
+  assert.equal(unreadable.hold.metadataStatus,'UNREADABLE');
+  await assert.rejects(control.control('resume'),/HUNT_AUTOMATION_HELD/);assert.equal(effects.length,0);
+  await chmod(join(config.stateDirectory,'code-pilot-automation-hold.json'),0o600);
+  await writeFile(join(config.stateDirectory,'code-pilot-automation-hold.json'),'{ malformed');
+  assert.equal((await control.status()).state,'HELD');
   const request={model:'fixture:7b',role:'CODE',digestSha256:'d'.repeat(64),suiteContractSha256:'e'.repeat(64)};
   const evaluations={roles:{CODE:{suiteContractSha256:request.suiteContractSha256,measurementReady:true,decisionReady:false,
     artifacts:[{model:request.model,digestSha256:request.digestSha256,applicable:true}]}}};

@@ -181,7 +181,8 @@ export function shouldContinue(currentErrors, previousErrors, iteration, maxIter
   // Same errors as last iteration → not converging
   if (prevErrs.length > 0) {
     const same = currErrs.length === prevErrs.length &&
-      currErrs.every(e => prevErrs.some(p => p.code === e.code && p.file === e.file && p.line === e.line));
+      currErrs.every(e => prevErrs.some(p => p.code === e.code && p.file === e.file && p.line === e.line
+        && (p.testName || '') === (e.testName || '')));
     if (same) return { continue: false, reason: 'not_converging' };
   }
 
@@ -207,7 +208,7 @@ export function shouldContinue(currentErrors, previousErrors, iteration, maxIter
  * @returns {{ added: Array, removed: Array, unchanged: Array }}
  */
 export function compareErrors(current, previous) {
-  const key = e => `${e.code}|${e.file}|${e.line ?? '?'}`;
+  const key = e => `${e.code}|${e.file}|${e.line ?? '?'}|${e.testName || ''}`;
   const currKeys = new Set((current || []).map(key));
   const prevKeys = new Set((previous || []).map(key));
 
@@ -281,7 +282,10 @@ export function buildFixPrompt(milestone, errors, iterationMemory, gitDiff, task
   // FΔ: If delta context available (iteration 2+), use compressed format
   if (deltaContext) {
     return `You are fixing errors in milestone "${milestone.title || ''}".
-This is iteration ${iter}/${maxIter}. Context below shows ONLY what changed since last iteration.
+This is iteration ${iter}/${maxIter}. Current errors are followed by context changes since the last iteration.
+
+## Current Errors
+${formattedErrors}
 
 ${deltaContext}
 
@@ -390,7 +394,7 @@ export function extractErrors(testResults, qualityGateResult) {
 // ─── Patch Oscillation Detection ────────────────────────────────────────────
 
 function hashPatchRegion(patch, region) {
-  return `${patch.file}|${region.anchor || ''}|${(region.new || []).join('\n')}`;
+  return JSON.stringify([patch.file,region.anchor,region.anchorType,region.sourceLine,region.contextBefore,region.old,region.new]);
 }
 
 // ─── Build Iteration Report ─────────────────────────────────────────────────
@@ -803,7 +807,6 @@ export async function runFixLoop(options) {
             oscillation = true;
             break;
           }
-          iterMem.patchHashes.add(hash);
         }
         if (oscillation) break;
       }
@@ -937,6 +940,11 @@ export async function runFixLoop(options) {
           iterMem.filesModified);
       }
 
+      // Only applied changes participate in temporal oscillation detection.
+      // A rejected multi-region patch may legitimately retain a correct region.
+      for (const patch of validPatches) for (const region of patch.regions || []) {
+        iterMem.patchHashes.add(hashPatchRegion(patch, region));
+      }
       // Track applied patches and files
       iterMem.patchesApplied.push(...validPatches);
       lastIterationFiles = validPatches.map(p => p.file);
