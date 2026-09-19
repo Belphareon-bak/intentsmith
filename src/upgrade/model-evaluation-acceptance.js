@@ -109,7 +109,7 @@ export class ModelEvaluationAcceptanceStore {
 
   _rows(role, contractSha256) {
     const rows = this.db.prepare(`SELECT * FROM model_evaluation_acceptances
-      WHERE role=? AND contract_sha256=? ORDER BY rowid`).all(role,contractSha256);
+      WHERE role=? AND contract_sha256=? ORDER BY recorded_at, acceptance_id`).all(role,contractSha256);
     const decoded = rows.map(row => {
       const value = JSON.parse(row.payload_json);
       requireValue(acceptanceHash(value) === row.payload_sha256 && value.role === row.role

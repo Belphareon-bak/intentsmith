@@ -13,7 +13,10 @@ export function up(db) {
       payload_sha256 TEXT NOT NULL CHECK(length(payload_sha256)=64 AND payload_sha256 NOT GLOB '*[^0-9a-f]*'),
       recorded_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
       CHECK((kind='REVOKE') = (target_id IS NOT NULL))
-    );
+    ) WITHOUT ROWID;
+    CREATE TRIGGER trg_evaluation_acceptances_no_replace BEFORE INSERT ON model_evaluation_acceptances
+    WHEN EXISTS (SELECT 1 FROM model_evaluation_acceptances WHERE acceptance_id=NEW.acceptance_id)
+    BEGIN SELECT RAISE(ABORT,'evaluation acceptance is append-only'); END;
     CREATE INDEX idx_evaluation_acceptances_contract ON model_evaluation_acceptances(role, contract_sha256);
     CREATE TRIGGER trg_evaluation_acceptance_revoke BEFORE INSERT ON model_evaluation_acceptances
     WHEN NEW.kind='REVOKE' BEGIN

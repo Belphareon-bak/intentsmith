@@ -14,7 +14,8 @@ Spustitelnost průzkumného měření zůstává oddělená.
 
 Migrace 116 přidává append-only `model_evaluation_acceptances`. Ukládá celý
 přijatý report, obsahový SHA-256, recenzenta, datum, odkaz a odůvodnění přijetí.
-Odvolání je další záznam s vazbou na původní přejímku; historii nepřepisuje.
+SQL ochrany odmítají UPDATE, DELETE i INSERT OR REPLACE; tabulka nemá
+přepisovatelný rowid. Odvolání je další záznam s vazbou na původní přejímku; historii nepřepisuje.
 Žádný běh modelu ani úspěšný test nezapisuje přejímku automaticky.
 
 Fingerprint runtime zahrnuje celé `src/`, `contracts/`, Node, dependency lock
@@ -105,3 +106,8 @@ store. Umožňují odvození a opětovnou kontrolu stejné autority, nepřidáva
 cyklus (zůstávají 3 cykly / 28 členů). Jedna dříve odstraněná hrana
 `role-quality-suites → synthetic-images` se z baseline vypouští. Rebaseline
 je revize implementátora podle CONTRACT §11, nikoli nezávislé přijetí změny.
+
+Následná vlastní kontrola reprodukovala mezeru prvního kandidáta: samotné
+UPDATE/DELETE triggery nebránily SQLite REPLACE (16 PASS / 1 FAIL).
+Doplněný insert guard a WITHOUT ROWID ji uzavírají; původní výsledek je
+zachovaný v `replace-before.log`. Migrace 116 zatím nebyla nasazená.

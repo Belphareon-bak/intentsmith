@@ -120,6 +120,15 @@ test('append-only database rejects update/delete and cross-contract revocation',
   assert.throws(()=>f.db.exec("UPDATE model_evaluation_acceptances SET payload_sha256='a'"),/append-only/);
   assert.throws(()=>f.revoke('missing'),/revocation target/);assert.equal(f.plan.decisionReady,true);f.db.close();
 });
+test('INSERT OR REPLACE cannot overwrite an acceptance or erase a revocation',()=>{
+  const f=fixture(),ids=f.accept();f.revoke(ids.q);
+  for (const id of [ids.g,ids.q]) assert.throws(()=>f.db.prepare(`INSERT OR REPLACE INTO model_evaluation_acceptances
+    SELECT * FROM model_evaluation_acceptances WHERE acceptance_id=?`).run(id),/append-only/);
+  const revokeId=f.db.prepare("SELECT acceptance_id FROM model_evaluation_acceptances WHERE kind='REVOKE'").get().acceptance_id;
+  assert.throws(()=>f.db.prepare(`INSERT OR REPLACE INTO model_evaluation_acceptances
+    SELECT * FROM model_evaluation_acceptances WHERE acceptance_id=?`).run(revokeId),/append-only/);
+  assert.equal(f.plan.decisionReady,false);f.db.close();
+});
 test('corrupt stored content never becomes an approval',()=>{
   const f=fixture();f.accept();f.db.exec('DROP TRIGGER trg_evaluation_acceptances_no_update');
   f.db.exec("UPDATE model_evaluation_acceptances SET payload_json='{}' WHERE kind='GRADER'");
