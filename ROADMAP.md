@@ -245,6 +245,10 @@ s touto roadmapou, platí `DIRECTION.md`.
 > sloučit do jednoho dlouhého pořadníku ani do stovek předvyplněných záznamů.
 
 
+Přejímací brána GPU huntu 2026-09-19: module graph má 1 384 hran,
+3 cykly / 28 členů. Šest konkrétních importů bylo zrevidováno; validace
+přejímky a protokol jsou v [packetu](docs/review/2026-09-19-EVALUATION-ACCEPTANCE-GATE.md).
+
 Projektový flow a hunt katalog 2026-09-18: module graph má 1 379 hran,
 3 cykly / 28 členů. Nový projekt má vlastní základ a přesný M2 návrh;
 import cizího projektu provádí jen statické čtení a vyjasnění cíle.
