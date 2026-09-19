@@ -122,3 +122,36 @@ stanovené přesnosti a obhajitelného způsobu odhadu, nikoli podle výsledku.
 
 Záznamy tohoto auditu a neúspěšná reprodukce jsou v
 `/home/belphareon/Projects/coworker/intentsmith-hunt-closeout-20260919`.
+
+## Závěrečné ověření commitu cd1c2170
+
+Čistý klon přesného commitu používá již instalované sdílené `node_modules`;
+nejde o ověření nové instalace závislostí. Offline/database profil měl
+337 PASS / 13 FAIL / 10 BLOCKED. Dvanáct sad s exit 0 označila kontrola
+čistoty za FAIL kvůli souběžnému dočasnému stromu
+`tests/.nightly-nested-source-*`, doloženému v jejich `sourceTree.porcelain`.
+Deset sad vyžadovalo explicitní povolení lokálního toolchainu. Všech 23
+neúspěšných/blokovaných sad bylo zopakováno sériově s příslušnými nástroji:
+22 PASS / 1 FAIL. **Výsledné pokrytí je 359 PASS / 1 FAIL / 0 BLOCKED**,
+nikoli jeden plně zelený běh. Zůstal pouze zděděný
+`nightly-orchestrator-self-test`: `registry hash differs from the reviewed
+Gate 0 policy`. Související soubory jsou proti vstupu nezměněné a reviewovaná
+pečeť se nepřepisovala. [Souhrn a otisky](evidence/2026-09-19-hunt-readiness-validation.json).
+
+Zachované jsou také počáteční odmítnutí klonu s neignorovaným symlinkem
+závislostí a vadná interpunkce aktualizované LOC tabulky; po opravách
+artefaktová sada prošla 160/160. Produkční kód se během širší validace neměnil.
+
+Poslední čtení 19. 9. v **11:56 CEST** naměřilo **57,54 GiB volného místa**,
+stejných 13 artefaktů, prázdný resident list a nadále vypnutý hunt timer.
+Počátečních 37 GiB výše je starší časovaný snímek; příčinu mezitím uvolněného
+místa tento audit neurčuje. Nynější prostor dovoluje některé kandidáty při
+zachování rezervy 40 GiB; každý pull musí znovu ověřit jeho konkrétní rozpočet.
+
+[Archiv důkazů](/home/belphareon/Projects/coworker/intentsmith-hunt-closeout-20260919/evidence.tar.gz),
+496 341 bajtů, SHA-256
+`9355df554c726045bef2505ee35045d5c3d10cc6418e11b1298b78a11cc999a7`:
+ověřeno všech **395 souborů** proti manifestu. Obsahuje původní i následné
+logy/reporty a zdrojový patch proti `6d085f74`; není samostatnou instalací
+celého repozitáře. [Receipt](evidence/2026-09-19-hunt-readiness-bundle.json).
+Nasazení, nový GPU běh a současný fyzický GUI průchod nebyly součástí této opravy.

@@ -1,0 +1,83 @@
+{
+  "sourceRevision": "cd1c217036ef7f2332707fe70135d0106845bdac",
+  "freshClone": true,
+  "dependencies": "shared existing node_modules; not a fresh dependency installation",
+  "firstAudit": {
+    "statusCounts": {
+      "PASS": 337,
+      "FAIL": 13,
+      "TIMEOUT": 0,
+      "BLOCKED": 10,
+      "SKIPPED": 0
+    },
+    "sha256": "725924311fc357416df8af0295b92e50c56cd2febbe58a1b4d05f13b865a34a3",
+    "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-closeout-20260919/fresh/.intentsmith-artifacts/test-runs/hunt-readiness-cd1c2170/report.json"
+  },
+  "followup": {
+    "statusCounts": {
+      "PASS": 22,
+      "FAIL": 1,
+      "TIMEOUT": 0,
+      "BLOCKED": 0,
+      "SKIPPED": 0
+    },
+    "sha256": "67f9fbe53ff320aec6e41e09686856b1054dc392de97bbfe88a5845e758e9f06",
+    "path": "/home/belphareon/Projects/coworker/intentsmith-hunt-closeout-20260919/fresh/.intentsmith-artifacts/test-runs/hunt-readiness-serial-followup/report.json",
+    "reason": "12 exit-zero suites observed temporary tests/.nightly-nested-source-* files created by concurrent self-tests; 10 suites required explicit toolchain allow-list; rerun serially with recorded local runtimes"
+  },
+  "effectiveSuites": {
+    "PASS": 359,
+    "FAIL": 1,
+    "BLOCKED": 0,
+    "TIMEOUT": 0,
+    "SKIPPED": 0
+  },
+  "remainingFailure": {
+    "id": "IS-T1-TESTS-NIGHTLY-ORCHESTRATOR-SELF-TEST",
+    "path": "tests/nightly-orchestrator-self-test.js",
+    "reason": "registry hash differs from the reviewed Gate 0 policy",
+    "unchangedBlobs": {
+      "tests/nightly-orchestrator-self-test.js": "a23bd3c3b39cbf7af3575053474481a017706ee0",
+      "scripts/nightly-orchestrator.js": "8a6845d0e2a5eb956cc17b37f8b1fabe64bd0ecb",
+      "tests/registry.json": "c4cec1873923cd68a9e1563916729c3ab07e0869",
+      "scripts/test-registry.js": "a5c1d80ce538b1744373e60c729acf1c7e923f74"
+    }
+  },
+  "freshTreeClean": true,
+  "focused": {
+    "executionLoop": 67,
+    "lifecycleBuild": 114,
+    "artifactValidation": 160,
+    "registryPrograms": 525
+  },
+  "preservedPreparationFailures": [
+    "initial clone symlink appeared as untracked node_modules; local exclude fixed only in disposable clone",
+    "first census rendering dropped delimiter commas; corrected and artifact validation rerun"
+  ],
+  "runtimeAfter": {
+    "checkedAt": "2026-09-19T11:56:11+02:00",
+    "diskAvailableGiB": 57.542110443115234,
+    "models": [
+      "gemma4:26b",
+      "qwen3.6:27b",
+      "ornith-1.5:9b",
+      "devstral-small-2:latest",
+      "qwen3.6:27b-mtp-q4_k_m",
+      "phi4:14b",
+      "qwen3.8:latest",
+      "qwen3-coder:latest",
+      "llava-llama3:8b",
+      "qwen3:14b",
+      "qwen3.5:27b",
+      "llava:13b",
+      "qwen3-30b-a3b:latest"
+    ],
+    "residentModels": {
+      "models": []
+    },
+    "timer": [
+      "ActiveState=inactive",
+      "UnitFileState=disabled"
+    ]
+  }
+}

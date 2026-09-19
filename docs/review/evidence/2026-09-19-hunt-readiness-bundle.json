@@ -1,0 +1,9 @@
+{
+  "archive": "/home/belphareon/Projects/coworker/intentsmith-hunt-closeout-20260919/evidence.tar.gz",
+  "sha256": "9355df554c726045bef2505ee35045d5c3d10cc6418e11b1298b78a11cc999a7",
+  "bytes": 496341,
+  "verifiedFiles": 395,
+  "sourceRevision": "cd1c217036ef7f2332707fe70135d0106845bdac",
+  "sourcePatchBase": "6d085f743dc627d311c5327d84a3d41218e8e59c",
+  "status": "PASS"
+}
