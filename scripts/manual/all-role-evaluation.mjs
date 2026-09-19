@@ -77,17 +77,21 @@ const flush = () => {
   report.updatedAt = new Date().toISOString(); write('result.json',report);
   if (option('report')) fs.writeFileSync(option('report'),JSON.stringify(report,null,2)+'\n',{mode:0o600});
 };
+const blockBeforeRun = message => {
+  report.status='BLOCKED';report.error=message;report.finishedAt=new Date().toISOString();
+  report.durationMs=Date.parse(report.finishedAt)-Date.parse(report.startedAt);flush();
+};
 flush();
 if (flag('prepare')) { console.log(JSON.stringify({status:'PREPARED',planSha256:plan.sha256,roles:plan.roles})); process.exit(0); }
 if (workingTreeDirty) {
-  report.status='BLOCKED';report.error='MODEL_MEASUREMENT_REQUIRES_CLEAN_TRACKED_SOURCE';flush();process.exit(2);
+  blockBeforeRun('MODEL_MEASUREMENT_REQUIRES_CLEAN_TRACKED_SOURCE');process.exit(2);
 }
 let lease;
 try { lease=holdGpuEvaluationLock({command:'all-role-evaluation '+plan.sha256}); }
-catch(error) { report.status='BLOCKED';report.error=error.message;flush();process.exit(2); }
+catch(error) { blockBeforeRun(error.message);process.exit(2); }
 const endpoint=process.env.OLLAMA_URL;
 if(endpoint!=='http://127.0.0.1:11435') {
-  report.status='BLOCKED';report.error='Use the owned evaluation provider wrapper';flush();lease.release();process.exit(2);
+  blockBeforeRun('Use the owned evaluation provider wrapper');lease.release();process.exit(2);
 }
 const get=async(route)=>{const r=await fetch(endpoint+route,{signal:AbortSignal.timeout(5000)});if(!r.ok)throw new Error('PROVIDER_HTTP_'+r.status);return r.json();};
 const compute=()=>execFileSync('nvidia-smi',['--query-compute-apps=pid,process_name','--format=csv,noheader'],{timeout:3000}).toString().trim();
@@ -104,6 +108,7 @@ let cancelling=false, activeModel=null;
 // A resumed plan does not acquire a fresh time budget. Waiting for a foreign
 // lease before the first run does not start the measurement clock.
 report.measurementStartedAt ??= new Date().toISOString();
+report.finishedAt=null;report.status='STARTING';report.phase='preflight';delete report.error;
 const deadline=Date.parse(report.measurementStartedAt)+budgetMinutes*60000;
 flush();
 process.on('SIGTERM',()=>{cancelling=true;}); process.on('SIGINT',()=>{cancelling=true;});
