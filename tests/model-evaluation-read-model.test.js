@@ -315,7 +315,7 @@ test('current decision is linked to exact runs and only actionable for the bound
     ...input,bindingAuthority:{status:'DURABLE',durableRoles:['CHAT'],verifiedRoles:['CHAT']}});
   assertEqual(exploratory.roles.CHAT.latestDecision.actionable,false);
   assertEqual(exploratory.roles.CHAT.latestDecision.actionability,'EVALUATION_PROFILE_NOT_ACCEPTED');
-  assertEqual(exploratory.roles.CHAT.measurementReady,true);
+  assertEqual(exploratory.roles.CHAT.measurementReady,false);
 
   const rendered = renderEvaluationReport(result);
   assert(rendered.includes('DECISION CANDIDATE'));

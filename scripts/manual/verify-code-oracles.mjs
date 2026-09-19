@@ -55,6 +55,13 @@ for (const definition of codePatchSuite.tests) {
       samples.push(['alternative-split-two-blocks', split(task.oracleAcceptance.alternativeTexts[0]), 1]);
       samples.push(['incorrect-split-two-blocks', split(task.functionTexts[0]), 0]);
     }
+    if (['0fe346cc820c','6fc5e4eb7dce'].includes(task.oracleCase)) {
+      samples.push(['regression-drop-existing-reader', fenced(task.goldTexts.map(code => code.replace(/.*MODEL_ACTIVITY_OWNER\.BINDING_VERIFICATION,?\n/g, ''))), 0]);
+      samples.push(['regression-drop-existing-owner', fenced(task.goldTexts.map(code => code.replace(/.*MODEL_VALIDATION:.*\n/g, ''))), 0]);
+    }
+    if (task.oracleCase === 'f63d14d5eb61') {
+      samples.push(['equivalent-confidence-punctuation', fenced(task.goldTexts.map(code => code.replaceAll('jistota ${confidence}', 'jistota: ${confidence}'))), 1]);
+    }
     for (const [kind, response, expected] of samples) {
       const result = definition.grade(response, { _task: task });
       const control = { kind, expected, score: result.score, valid: result.valid,

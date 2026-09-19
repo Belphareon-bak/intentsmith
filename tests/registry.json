@@ -16017,6 +16017,66 @@
       },
       "flakeCount": 0,
       "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-EVALUATION-REPAIR-TEST",
+      "path": "tests/evaluation-repair.test.js",
+      "argv": [
+        "node",
+        "tests/evaluation-repair.test.js"
+      ],
+      "capabilityId": "C3-010",
+      "tier": "T1",
+      "fixture": "synthetic-judge-protocol",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-ROLE-COLLECTION-TEST",
+      "path": "tests/role-collection.test.mjs",
+      "argv": [
+        "node",
+        "tests/role-collection.test.mjs"
+      ],
+      "capabilityId": "C3-010",
+      "tier": "T1",
+      "fixture": "synthetic-judge-protocol",
+      "profile": "offline",
+      "timeoutMs": 120000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "primary implementer",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
     }
   ]
 }

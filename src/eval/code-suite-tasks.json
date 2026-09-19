@@ -2579,7 +2579,7 @@
         "empty Ollama inventory is inconclusive, not uninstall evidence"
       ],
       "knownFailing": [],
-      "taskFingerprint": "8cae1b58396315d7fe67230347b808ae51e6025cfa9ee94739ccd95eb52c7975",
+      "taskFingerprint": "5351c2c22f755dc96c5155812f1f1fa1390c58cc2f04254db1e82bf1194e2898",
       "status": "active",
       "calibration": {
         "verdict": "rozlišuje",
@@ -2659,7 +2659,18 @@
           "live validation route acquires the registry reservation before reporting started",
           "getUnusedOldModels is canonical-deduped, null-free and newest-first",
           "route without deletion authority fails closed and live registry blocks aliases"
-        ]
+        ],
+        "publicContract": {
+          "version": 1,
+          "requirements": [
+            "Uprav pouze getUnusedOldModels; tato metoda pouze sestaví návrhy, nic nemaže. DB vrací nejnovější řádky první.",
+            "Vynech null, neřetězcové a prázdné previous_model, vynech modely v config.models a deduplikuj kanonická jména (trim, lowercase, alias :latest). Pro každou identitu zachovej nejnovější řádek i původní model, replacedBy, role a appliedAt.",
+            "canonicalModelName(value) vrací null pro neplatnou/prázdnou hodnotu, jinak trim().toLowerCase() bez koncového :latest; canonicalModelNameSet iteruje validní názvy. Při nedostupné DB nebo výjimce vrať []."
+          ],
+          "sources": [
+            "da95ab15d9fdded66904195d4d5062549fb934d2:src/upgrade/upgrade-manager.js"
+          ]
+        }
       },
       "oracleAcceptance": {
         "version": 1,
@@ -2668,7 +2679,9 @@
           "  getUnusedOldModels() {\n    if (!this._db) return [];\n    try {\n      const rows = this._db.prepare(\n        `SELECT role, model, previous_model, applied_at\n         FROM model_overrides\n         ORDER BY applied_at DESC, role ASC\n         LIMIT 50`\n      ).all();\n\n      const boundModels = canonicalModelNameSet(Object.values(config.models));\n      const seen = new Set();\n      return rows.reduce((result, row) => {\n        const canonical = canonicalModelName(row.previous_model);\n        if (!canonical || boundModels.has(canonical) || seen.has(canonical)) return result;\n        seen.add(canonical);\n        result.push({\n          model: row.previous_model.trim(),\n          replacedBy: typeof row.model === 'string' ? row.model.trim() : '',\n          role: row.role,\n          appliedAt: row.applied_at,\n        });\n        return result;\n      }, []);\n    } catch (_) {\n      return [];\n    }\n  }"
         ],
         "alternativeExplanation": "Reduce accumulator instead of a mutable for-of result; same canonical identity exclusions and ordering."
-      }
+      },
+      "oracleCase": "8cae1b583963",
+      "supersedesTaskFingerprint": "8cae1b58396315d7fe67230347b808ae51e6025cfa9ee94739ccd95eb52c7975"
     },
     {
       "hash": "2f36b5168c5e4bd96ad476a93bd8a0a6cc4afab6",
@@ -3952,7 +3965,7 @@
         "source call graph has no production reference to legacy binding writers"
       ],
       "knownFailing": [],
-      "taskFingerprint": "0fe346cc820c62ce16e9a05c07773a449f0f19f32c567a4a50aab8839704eb26",
+      "taskFingerprint": "b9b97c10fe856f459df5af88f495015375c5ba9f0ba461465dd8aecfe3ff249f",
       "status": "active",
       "calibration": {
         "verdict": "rozlišuje",
@@ -4036,7 +4049,18 @@
           "verification conflict retries after releasing the lease before delay",
           "prior exact override rejects stale census identity under cutover leases",
           "startup census hint is re-resolved under cutover leases before restore"
-        ]
+        ],
+        "publicContract": {
+          "version": 1,
+          "requirements": [
+            "Zbytek cutover workflow a jeho finally uvolnění je již v okolním fixture. Tvým úkolem jsou pouze zadané deklarace vlastníků.",
+            "Přidej veřejný owner BINDING_CUTOVER se stejným řetězcem do MODEL_ACTIVITY_OWNER a SHARED_OWNERS. Cutover musí souběžně fungovat s původními sdílenými ownery a blokovat exkluzivní pull/delete.",
+            "Zachovej všechny původní názvy, hodnoty a klasifikace. MODEL_PULL a MODEL_DELETE zůstávají exkluzivní, neznámý owner je neplatný."
+          ],
+          "sources": [
+            "0bf2e11db5618b2dcdcbd4cdcc25e5f572c7a014:src/upgrade/model-use-authority.js"
+          ]
+        }
       },
       "oracleAcceptance": {
         "version": 1,
@@ -4046,7 +4070,9 @@
           "const SHARED_OWNERS = new Set(Object.values({\n  LLM_GATEWAY: MODEL_ACTIVITY_OWNER.LLM_GATEWAY,\n  MODEL_VALIDATION: MODEL_ACTIVITY_OWNER.MODEL_VALIDATION,\n  BINDING_CUTOVER: MODEL_ACTIVITY_OWNER.BINDING_CUTOVER,\n  BINDING_VERIFICATION: MODEL_ACTIVITY_OWNER.BINDING_VERIFICATION,\n}));"
         ],
         "alternativeExplanation": "Construct frozen owner mapping from entries and shared-owner set from object values."
-      }
+      },
+      "oracleCase": "0fe346cc820c",
+      "supersedesTaskFingerprint": "0fe346cc820c62ce16e9a05c07773a449f0f19f32c567a4a50aab8839704eb26"
     },
     {
       "hash": "31ab414e69c4084712ec18200b46577003349a49",
@@ -4542,7 +4568,7 @@
       ],
       "passToPass": [],
       "knownFailing": [],
-      "taskFingerprint": "6fc5e4eb7dce7878fb8fce19236bfd539efc5b4e39e8a5622a1d89d0fce6c9da",
+      "taskFingerprint": "0287eea754173677bc39f1f30a92e215827957d3f5c6b236a964b06113e07fb1",
       "status": "active",
       "calibration": {
         "verdict": "rozlišuje",
@@ -4625,7 +4651,18 @@
           "name and name:latest produce a single canonical reservation",
           "VRAM_ARTIFACT_USE and LLM_GATEWAY hold shared leases at the same time",
           "delete during a running media task fails typed and immediately"
-        ]
+        ],
+        "publicContract": {
+          "version": 1,
+          "requirements": [
+            "Zbytek VRAM workflow již rezervuje identitu po celý task včetně čtení těla odpovědi. Tvým úkolem jsou pouze zadané deklarace vlastníků.",
+            "Přidej VRAM_ARTIFACT_USE se stejným řetězcem do MODEL_ACTIVITY_OWNER a SHARED_OWNERS, aby sdílel čtení s LLM_GATEWAY, MODEL_VALIDATION, BINDING_CUTOVER a BINDING_VERIFICATION.",
+            "Zachovej všechny původní ownery a hodnoty; MODEL_PULL a MODEL_DELETE zůstávají exkluzivní. Neznámý owner je neplatný."
+          ],
+          "sources": [
+            "51936ee12d443bbc8a85bc296f92163edca73442:src/upgrade/model-use-authority.js"
+          ]
+        }
       },
       "oracleAcceptance": {
         "version": 1,
@@ -4635,7 +4672,9 @@
           "const SHARED_OWNERS = new Set(Object.values({\n  LLM_GATEWAY: MODEL_ACTIVITY_OWNER.LLM_GATEWAY,\n  MODEL_VALIDATION: MODEL_ACTIVITY_OWNER.MODEL_VALIDATION,\n  BINDING_CUTOVER: MODEL_ACTIVITY_OWNER.BINDING_CUTOVER,\n  BINDING_VERIFICATION: MODEL_ACTIVITY_OWNER.BINDING_VERIFICATION,\n  VRAM_ARTIFACT_USE: MODEL_ACTIVITY_OWNER.VRAM_ARTIFACT_USE,\n}));"
         ],
         "alternativeExplanation": "Construct frozen owner mapping from entries and shared-owner set from object values."
-      }
+      },
+      "oracleCase": "6fc5e4eb7dce",
+      "supersedesTaskFingerprint": "6fc5e4eb7dce7878fb8fce19236bfd539efc5b4e39e8a5622a1d89d0fce6c9da"
     },
     {
       "hash": "0a6bde54e1d2fdf7c284207e9555a0577ce6f6ff",
@@ -5614,7 +5653,7 @@
         "skóre úlohy je průměr přes běhy"
       ],
       "knownFailing": [],
-      "taskFingerprint": "f63d14d5eb61061033e8e5cd80ae8739efe8d7125cb56d9f8907528c2c9e459f",
+      "taskFingerprint": "90eff80ecb8a0bdd9c40a776c8f3cc5f9523111d9e05bed4e01d56f537150d97",
       "status": "active",
       "calibration": null,
       "snapshot": {
@@ -5644,8 +5683,8 @@
           "version": 1,
           "requirements": [
             "Uprav pouze decideRole. Filtrování způsobilosti VISION je již implementované ve volající vrstvě; nepřidávej do signatury role ani nové filtrování kandidátů.",
-            "Pro rozhodnutí založené na kvalitě a výhru či prohru kandidáta vracej pole confidence podle comparison.discriminating: 1 znamená nízká (jediná úloha), 2 znamená střední, 3 a více znamená vysoká. Počet se bere z rozlišujících úloh, nikoli z marže či rychlosti.",
-            "Jistota musí být viditelná i v detail textu rozhodnutí o kvalitě: u jediného pozorování uveď jistota nízká. Zachovej původní rozhodování vítěze, prahy, rychlostní a nerozhodné větve."
+            "Pro rozhodnutí založené na kvalitě a výhru či prohru kandidáta vracej pole confidence podle comparison.discriminating: 1 znamená nízká (jediná úloha), 2 znamená střední, 3 a více znamená vysoká. Počet se bere z rozlišujících úloh, nikoli z marže či rychlosti. Pole confidence je řetězec: přesně \"nízká (jediná úloha)\", \"střední\" nebo \"vysoká\".",
+            "Pro rozhodnutí kvalitou zobraz jistotu i v detail; formulace a interpunkce jsou volné, ale význam nízká/střední/vysoká musí odpovídat confidence. Zachovej vítěze, prahy, rychlostní a nerozhodné větve."
           ],
           "sources": [
             "f8ac2c312c1b7245f24daa16871ed236897cfc1b:src/upgrade/pairwise-trial.js",
@@ -5711,7 +5750,9 @@
           ]
         }
       },
-      "curationNote": "2026-09-19: explicit public interface and policy requirements; prior calibration is historical only. Included in the approved exploratory CODE pilot, not accepted decision evidence."
+      "curationNote": "2026-09-19: explicit public interface and policy requirements; prior calibration is historical only. Included in the approved exploratory CODE pilot, not accepted decision evidence.",
+      "oracleCase": "f63d14d5eb61",
+      "supersedesTaskFingerprint": "f63d14d5eb61061033e8e5cd80ae8739efe8d7125cb56d9f8907528c2c9e459f"
     },
     {
       "hash": "580800e1f1675ef105233f3d15c29b0a17e5bbd4",
@@ -6119,7 +6160,7 @@
         "producer makes safe package-manager root modes private before reuse"
       ],
       "knownFailing": [],
-      "taskFingerprint": "75b5539f8cf5a9313ab782ff5c41bea0d5eba93007d14abdc01f0a43e29ae8a9",
+      "taskFingerprint": "42a13a7af0872bbb4b46af93c891d6ee44224a2fe001cc25174b478e5ff36bd7",
       "status": "active",
       "calibration": null,
       "snapshot": {
@@ -6239,7 +6280,9 @@
           ]
         }
       },
-      "curationNote": "2026-09-19: explicit public interface and policy requirements; prior calibration is historical only. Included in the approved exploratory CODE pilot, not accepted decision evidence."
+      "curationNote": "2026-09-19: explicit public interface and policy requirements; prior calibration is historical only. Included in the approved exploratory CODE pilot, not accepted decision evidence.",
+      "oracleCase": "75b5539f8cf5",
+      "supersedesTaskFingerprint": "75b5539f8cf5a9313ab782ff5c41bea0d5eba93007d14abdc01f0a43e29ae8a9"
     },
     {
       "hash": "36ece31eba9376d4b0907ce49f78ac6a11210886",

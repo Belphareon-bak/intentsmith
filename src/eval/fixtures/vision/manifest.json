@@ -1,5 +1,5 @@
 {
-  "version": "vision-synthetic.3",
+  "version": "vision-synthetic.4",
   "provenance": {
     "kind": "synthetic",
     "generator": "scripts/manual/build-vision-fixtures.py",
@@ -259,6 +259,232 @@
       "width": 1000,
       "height": 720,
       "sha256": "fafc0bf13096294af9c1880b374a60dac40327e67e5a79eb8b4aedc8e549c9b7"
+    },
+    {
+      "name": "vision_stock_ledger",
+      "image": "stock_ledger.png",
+      "label": "Pohyby skladu, duplicity a rezervace",
+      "difficulty": "hard",
+      "skill": "event_reconciliation",
+      "question": "Apply posted movements only, once per key. Reservations reduce available stock, not physical stock. Return k1_physical, k2_physical, total_available. Return ONLY a JSON object with exactly these fields and types: {\"k1_physical\": \"number\", \"k2_physical\": \"number\", \"total_available\": \"number\"}.",
+      "expected": {
+        "k1_physical": 40,
+        "k2_physical": 28,
+        "total_available": 56
+      },
+      "rules": {},
+      "width": 1000,
+      "height": 720,
+      "sha256": "d197af3f4b3c1ebc8c48e898c923ac6c528de61076cb82517c07422cc9d6a5b0"
+    },
+    {
+      "name": "vision_weighted_rates",
+      "image": "weighted_rates.png",
+      "label": "Vážené sazby a zavádějící průměr",
+      "difficulty": "hard",
+      "skill": "statistical_chart",
+      "question": "Compute total trials and pooled success percentage for A and B, rounding percentages to 2 decimal places. Return trials_a, trials_b, percent_a, percent_b, higher (A or B). Do not infer causation. Return ONLY a JSON object with exactly these fields and types: {\"trials_a\": \"number\", \"trials_b\": \"number\", \"percent_a\": \"number\", \"percent_b\": \"number\", \"higher\": \"string\"}.",
+      "expected": {
+        "trials_a": 150,
+        "trials_b": 210,
+        "percent_a": 60,
+        "percent_b": 44.29,
+        "higher": "A"
+      },
+      "rules": {},
+      "width": 1000,
+      "height": 720,
+      "sha256": "e5a1716c21a2f11a51c78917fb5e490fd0f4b5944a5c00b74868814221bafeeb"
+    },
+    {
+      "name": "vision_critical_path",
+      "image": "critical_path.png",
+      "label": "Závislosti úloh, souběh a kritická cesta",
+      "difficulty": "hard",
+      "skill": "diagram_schedule",
+      "question": "Return finish_e (hours from start), slack_c (maximum delay in C start without delaying E), critical_path (ordered labels). Return ONLY a JSON object with exactly these fields and types: {\"finish_e\": \"number\", \"slack_c\": \"number\", \"critical_path\": \"array of strings\"}.",
+      "expected": {
+        "finish_e": 12,
+        "slack_c": 2,
+        "critical_path": [
+          "A",
+          "B",
+          "D",
+          "E"
+        ]
+      },
+      "rules": {
+        "critical_path": "sequence"
+      },
+      "width": 1000,
+      "height": 720,
+      "sha256": "6c75f1fcdfb6615bda853ced4fbbc977c8dd569c383ea51d270139aba84706f7"
+    },
+    {
+      "name": "vision_mixed_currency",
+      "image": "mixed_currency.png",
+      "label": "Měny, dobropisy a storna",
+      "difficulty": "hard",
+      "skill": "document_join",
+      "question": "Exclude cancelled rows, subtract credit notes, convert using the shown rates. Return net_czk, included_ids (any order), credit_czk (positive magnitude). Return ONLY a JSON object with exactly these fields and types: {\"net_czk\": \"number\", \"included_ids\": \"array of strings\", \"credit_czk\": \"number\"}.",
+      "expected": {
+        "net_czk": 5460,
+        "included_ids": [
+          "INV-71",
+          "CN-09",
+          "INV-72",
+          "INV-74"
+        ],
+        "credit_czk": 637.5
+      },
+      "rules": {
+        "included_ids": "set"
+      },
+      "width": 1000,
+      "height": 720,
+      "sha256": "c1c383c736bba88f03f714d4651fbd7340fe5cd04c4bf23581a20817a7124f4f"
+    },
+    {
+      "name": "vision_access_matrix",
+      "image": "access_matrix.png",
+      "label": "Čtení matice a složená podmínka",
+      "difficulty": "hard",
+      "skill": "matrix_logic",
+      "question": "Use only the rule in the image. Return allowed_ids (any order), denied_count, suspended_ids (any order). Return ONLY a JSON object with exactly these fields and types: {\"allowed_ids\": \"array of strings\", \"denied_count\": \"number\", \"suspended_ids\": \"array of strings\"}.",
+      "expected": {
+        "allowed_ids": [
+          "D",
+          "E"
+        ],
+        "denied_count": 4,
+        "suspended_ids": [
+          "B"
+        ]
+      },
+      "rules": {
+        "allowed_ids": "set",
+        "suspended_ids": "set"
+      },
+      "width": 1000,
+      "height": 720,
+      "sha256": "fdfeddd47d69849b4e7de7a56fef09e8727dbff6c64d346316ee5f9202dcf742"
+    },
+    {
+      "name": "vision_connections",
+      "image": "connections.png",
+      "label": "Časové návaznosti a minimální přestup",
+      "difficulty": "hard",
+      "skill": "timetable",
+      "question": "You can depart A at 08:00 or later. Find the earliest arrival at C with valid transfers. Return trains (ordered), arrival, transfer_minutes (0 for a direct train). Return ONLY a JSON object with exactly these fields and types: {\"trains\": \"array of strings\", \"arrival\": \"string\", \"transfer_minutes\": \"number\"}.",
+      "expected": {
+        "trains": [
+          "T1",
+          "T5"
+        ],
+        "arrival": "09:15",
+        "transfer_minutes": 19
+      },
+      "rules": {
+        "trains": "sequence"
+      },
+      "width": 1000,
+      "height": 720,
+      "sha256": "120a6d5d708f697e9da8fa9c4fa2f86e9d8aa1f337712c4b5c03d35c4611c26d"
+    },
+    {
+      "name": "vision_windowed_metrics",
+      "image": "windowed_metrics.png",
+      "label": "Různá časová okna a kombinovaný alert",
+      "difficulty": "hard",
+      "skill": "metrics",
+      "question": "Apply both thresholds, strictly greater where specified. Return alert_services (any order), api_error_percent, billing_errors_per_minute, worker_error_percent. Return ONLY a JSON object with exactly these fields and types: {\"alert_services\": \"array of strings\", \"api_error_percent\": \"number\", \"billing_errors_per_minute\": \"number\", \"worker_error_percent\": \"number\"}.",
+      "expected": {
+        "alert_services": [
+          "worker",
+          "billing"
+        ],
+        "api_error_percent": 1,
+        "billing_errors_per_minute": 0.4,
+        "worker_error_percent": 5
+      },
+      "rules": {
+        "alert_services": "set"
+      },
+      "width": 1000,
+      "height": 720,
+      "sha256": "44676747677bc12716a5a3d471120e0e42ac0f38f2b6364839288abaa0479d93"
+    },
+    {
+      "name": "vision_revision_join",
+      "image": "revision_join.png",
+      "label": "Výběr poslední revize a odstraněné položky",
+      "difficulty": "hard",
+      "skill": "versioned_table",
+      "question": "For each item use only its greatest revision; exclude cancelled items. Return active_ids (any order), total_units, p8_units, removed_ids (any order). Return ONLY a JSON object with exactly these fields and types: {\"active_ids\": \"array of strings\", \"total_units\": \"number\", \"p8_units\": \"number\", \"removed_ids\": \"array of strings\"}.",
+      "expected": {
+        "active_ids": [
+          "P-8",
+          "R-5"
+        ],
+        "total_units": 19,
+        "p8_units": 12,
+        "removed_ids": [
+          "Q-2"
+        ]
+      },
+      "rules": {
+        "active_ids": "set",
+        "removed_ids": "set"
+      },
+      "width": 1000,
+      "height": 720,
+      "sha256": "fa1218a1de39e8a1d72c3a5137d1d75794361eb01d589f4c740d82de31d1a4fb"
+    },
+    {
+      "name": "vision_redacted_document",
+      "image": "redacted_document.png",
+      "label": "Čitelné údaje a zákaz domýšlení skrytých",
+      "difficulty": "hard",
+      "skill": "uncertainty",
+      "question": "Return id, net (gross minus fee), account_visible boolean and account_number as the literal string UNKNOWN if redacted. Do not infer hidden digits. Return ONLY a JSON object with exactly these fields and types: {\"id\": \"string\", \"net\": \"number\", \"account_visible\": \"boolean\", \"account_number\": \"string\"}.",
+      "expected": {
+        "id": "PAY-204",
+        "net": 1236,
+        "account_visible": false,
+        "account_number": "UNKNOWN"
+      },
+      "rules": {},
+      "width": 1000,
+      "height": 720,
+      "sha256": "08b1fcd3b47bdc4cdadd832bdabf1734bc5366eafdef66d5bd1620230a1fcc6f"
+    },
+    {
+      "name": "vision_deployment_join",
+      "image": "deployment_join.png",
+      "label": "Spojení panelů podle identity, nesoulad a neověřený stav",
+      "difficulty": "hard",
+      "skill": "ui_diagnostics",
+      "question": "Join by service name, not row position. Separate verified matches, verified mismatches and unknown observations. Return matches, mismatches, unknown as arrays of service names (any order). Return ONLY a JSON object with exactly these fields and types: {\"matches\": \"array of strings\", \"mismatches\": \"array of strings\", \"unknown\": \"array of strings\"}.",
+      "expected": {
+        "matches": [
+          "api",
+          "cache"
+        ],
+        "mismatches": [
+          "billing"
+        ],
+        "unknown": [
+          "worker"
+        ]
+      },
+      "rules": {
+        "matches": "set",
+        "mismatches": "set",
+        "unknown": "set"
+      },
+      "width": 1000,
+      "height": 720,
+      "sha256": "91b547e77fe262f94376a51320dd0da7273eb81c56185866f0383b5b7d52909f"
     }
   ]
 }

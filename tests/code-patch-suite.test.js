@@ -160,7 +160,7 @@ test('CODE contract se změní se skutečným buildPrompt výstupem', () => {
 
 test('public API requirements reach the real prompt and change its identity', () => {
   const tasks = loadFixtureTasks().filter(task => task.publicContract);
-  assertEqual(tasks.length, 2);
+  assertEqual(tasks.length, 5);
   for (const task of tasks) {
     const definition = buildTests(process.cwd(), [task])[0];
     const prepared = definition.prepare();

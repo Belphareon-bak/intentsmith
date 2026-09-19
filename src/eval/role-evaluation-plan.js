@@ -68,7 +68,7 @@ function fileSha256(url) {
 // production plans always read these fixed local files with the default reader.
 export function codeGradingRuntimeContract(readSource = readFileSync) {
   const files = [
-    './code-patch-suite.js', './code-patch-runner.js', './function-span.js',
+    './code-patch-suite.js', './code-patch-runner.js', './code-contract-check.mjs', './function-span.js',
     './code-task-extractor.js', './build-code-suite.js', './model-evaluation-runner.js',
     '../../package-lock.json',
   ];
@@ -128,7 +128,7 @@ export function createRoleEvaluationPlans(opts = {}) {
       repeats,
       taskCount: suite.tests.length,
       minimumTaskCount,
-      measurementReady: suite.tests.length >= minimumTaskCount
+      measurementReady: !['reasoning_v2','review_v2','chat_v3'].includes(suiteName) && suite.tests.length >= minimumTaskCount
         && (role !== 'VISION' || new Set(suite.tests.flatMap(t => t.contractMaterial?.prompt?.imageDigests || [])).size >= 10)
         && (role !== 'CODE' || codeRuntime.ready),
       // Read durable evidence at use time: revocation must affect an already
@@ -142,8 +142,8 @@ export function createRoleEvaluationPlans(opts = {}) {
         return this.decisionReady ? null : 'Sada nemá ověřitelnou přejímku hodnotitele a odděleného párového provozního měření pro tento kontrakt. Výsledky jsou průzkumné.';
       },
       qualificationForRuns(runIds) { return this.decisionReady ? acceptanceStore.forRuns(this, runIds) : null; },
-      runtimeBlockCode: role === 'CODE' ? codeRuntime.code : null,
-      runtimeBlockReason: role === 'CODE' ? codeRuntime.reason : null,
+      runtimeBlockCode: ['reasoning_v2','review_v2','chat_v3'].includes(suiteName) ? 'EVALUATOR_T5_FORBIDDEN' : role === 'CODE' ? codeRuntime.code : null,
+      runtimeBlockReason: ['reasoning_v2','review_v2','chat_v3'].includes(suiteName) ? 'Legacy substringové hodnocení je zakázané. Nová sada sbírá odpovědi pro nezávislé posouzení; přejímka hodnotitele chybí.' : role === 'CODE' ? codeRuntime.reason : null,
       // CHAT needs breadth in both supported languages. The former 1:1
       // decision rested on just two Czech tasks and is diagnostic evidence,
       // not enough authority for an automatic user-facing model change.

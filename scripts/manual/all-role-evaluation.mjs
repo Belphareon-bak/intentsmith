@@ -61,7 +61,7 @@ const plan = { schemaVersion: 1, sourceRevision, runtimeSha256, workingTreeDirty
       options: t.options })) })),
   notAHoldout: true, decisionAuthority: false,
   operationPolicy: { productionImported: false, applyBindings: false, removeModels: false, timer: false },
-  limitations: collectOnly ? ['Raw collection only; no judge, no scores or recommendation.', 'Open development tasks, not an operational holdout.', 'Role budgets locked before either candidate; not a production-profile qualification.'] : ['Full means all tasks and three repetitions; it is not yet an accepted operational holdout.',
+  limitations: collectOnly ? ['Raw collection only; no judge, no scores or recommendation.', 'Open development tasks, not an operational holdout.', 'Role budgets locked before either candidate; not a production-profile qualification.', 'Ollama size/size_vram equality is only provider telemetry; full GPU placement needs layer-offload log verification and separate NVIDIA observations.'] : ['Full means all tasks and three repetitions; it is not yet an accepted operational holdout.',
     'Semantic judge calibration uses authored adversarial probes, not an independently adjudicated acceptance set.',
     'Model names are blinded to the judge; self-judging bias remains when judge and target are the same artifact.'],
 };
@@ -152,7 +152,7 @@ const call=async(model,messages,options,artifact)=>{
       || (collectOnly && placement.size_vram>MAX_MODEL_BYTES)))throw new Error('MODEL_PROFILE_NOT_FULL_GPU');
   } catch(error) { placementError=error.message; }
   report.inferenceCalls++;
-  const receipt={at:new Date().toISOString(),model,artifact,options,inputSha256:hash(messages),messages,result,placement,placementError,gpuSamples,requestSettings:{stream:false,think:false,tools:[]}};
+  const receipt={at:new Date().toISOString(),model,artifact,options,inputSha256:hash(messages),messages,result,placement,placementError,placementEvidence: { status: 'REQUIRES_PROVIDER_LOG_AUDIT', apiMemoryIsNotIndependentProof: true },gpuSamples,requestSettings:{stream:false,think:false,tools:[]}};
   fs.appendFileSync(path.join(out,'calls.jsonl'),JSON.stringify(receipt)+'\n',{mode:0o600});
   flush();if(placementError)throw new Error(placementError);return result;
 };
@@ -170,6 +170,7 @@ try {
     return {modelName:name,digestSha256:found.digest.replace(/^sha256:/,''),providerVersion:provider};
   };
   const artifacts={model:identify(plan.model),judge:collectOnly?null:identify(plan.judge)};
+  if(!collectOnly && !flag('calibrate-only') && artifacts.model.digestSha256===artifacts.judge.digestSha256)throw new Error('SELF_EVALUATION_FORBIDDEN');
   if(report.artifacts && JSON.stringify(report.artifacts)!==JSON.stringify(artifacts))throw new Error('ARTIFACT_IDENTITY_CHANGED');
   report.artifacts=artifacts;report.status='RUNNING';flush();
   const judge=collectOnly?null:new SemanticEvaluationJudge({call,artifact:artifacts.judge,onReceipt:receipt=>

@@ -23,7 +23,7 @@ test('raw collection cannot grade, qualify or prepare a task; references never r
 });
 test('complete profile retains every task and hashes changed settings/prompts',()=>{
   const suites={...SEMANTIC_ROLE_SUITES,CODE:codePatchSuite,VISION:visionV2Suite};
-  assert.equal(Object.values(suites).reduce((n,s)=>n+s.tests.length*3,0),276);
+  assert.equal(Object.values(suites).reduce((n,s)=>n+s.tests.length*3,0),306);
   for(const [role,suite] of Object.entries(suites)) {
     const profile=collectionSuite(role,suite);
     assert.deepEqual(profile.tests.map(t=>t.name),suite.tests.map(t=>t.name));
@@ -32,7 +32,7 @@ test('complete profile retains every task and hashes changed settings/prompts',(
 });
 test('confidence API and timeout preservation are explicit before capture, without changing old suites',()=>{
   const suite=collectionSuite('CODE',codePatchSuite);
-  const confidence=suite.tests.find(t=>t.name==='patch_f63d14d5eb61');
+  const confidence=suite.tests.find(t=>t.contractMaterial?.gradingInputs?.oracleCase==='f63d14d5eb61');
   assert.match(confidence.prompt().text,/řetězec, nikoli číslo/);
   assert.doesNotMatch(codePatchSuite.tests.find(t=>t.name===confidence.name).prompt().text,/řetězec, nikoli číslo/);
   assert.match(suite.tests.find(t=>t.name==='patch_adb1258cfec0').prompt().text,/před čtením response.json/);

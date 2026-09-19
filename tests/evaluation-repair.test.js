@@ -1,0 +1,52 @@
+// Operator repair request 2026-09-20: truthful test contracts and no fresh T5 scores.
+import assert from 'node:assert/strict';
+import {suite,test,testAsync,summary} from './harness.js';
+import {SEMANTIC_ROLE_SUITES} from '../src/eval/semantic-role-suites.js';
+import {gradeStructuredAnswer} from '../src/eval/structured-answer.js';
+import {createRoleEvaluationPlans} from '../src/eval/role-evaluation-plan.js';
+import {RoleQualityEvaluationRunner,visionV2Suite} from '../src/eval/role-quality-suites.js';
+suite('reviewed evaluation repair');
+test('structured content and strict JSON protocol are independent observations',()=>{
+ const expected={total:12,known:false,missing:null};
+ const fenced=gradeStructuredAnswer('```json\n'+JSON.stringify(expected)+'\n```',expected);
+ assert.equal(fenced.score,1);assert.equal(fenced.detail.formatScore,0);assert.equal(fenced.passed,false);
+ assert.equal(gradeStructuredAnswer(JSON.stringify({...expected,total:'12'}),expected).score,2/3);
+ assert.equal(gradeStructuredAnswer('Everything passed '+JSON.stringify(expected),expected).score,0);
+ assert.equal(gradeStructuredAnswer(JSON.stringify({...expected,invented:1}),expected).detail.formatScore,0);
+ assert.equal(gradeStructuredAnswer(JSON.stringify(expected),expected).passed,true);
+});
+test('all structured tasks distinguish each wrong field and preserve equivalent key ordering',()=>{
+ const tasks=SEMANTIC_ROLE_SUITES.CHAT.tests.filter(t=>t.tier==='T2');assert.equal(tasks.length,20);
+ for(const t of tasks){
+  const e=t.contractMaterial.gradingInputs.expected;
+  assert.equal(t.grade(JSON.stringify(e)).passed,true,t.name);
+  assert.equal(t.grade(JSON.stringify(Object.fromEntries(Object.entries(e).reverse()))).passed,true,t.name);
+  for(const key of Object.keys(e))assert.ok(t.grade(JSON.stringify({...e,[key]:'__wrong__'})).score<1,t.name+'/'+key);
+  assert.equal(t.grade(t.promptText).score,0,t.name);
+ }
+});
+test('reviewed missing context is delivered, not just kept in hidden metadata',()=>{
+ for(const role of ['D1','D2','R1','R2'])for(const name of ['model_lease','model_cleanup','immutable_refinement','pairwise_confidence']){
+  const t=SEMANTIC_ROLE_SUITES[role].tests.find(t=>t.name===role.toLowerCase()+'_'+name);
+  const context=t.contractMaterial.gradingInputs.provenance.additionalContext;
+  assert.ok(context.length);for(const file of context)assert.ok(t.promptText.includes(file.text));
+ }
+ const d2=SEMANTIC_ROLE_SUITES.D2.tests.find(t=>t.name==='d2_immutable_refinement');
+ assert.match(d2.rubric[2],/separate finalContent/);assert.match(d2.rubric[3],/Any evidenced shortcut/);
+});
+test('VISION has broad image coverage and does not call partial JSON a complete pass',()=>{
+ const images=visionV2Suite.tests.flatMap(t=>t.contractMaterial.prompt.imageDigests||[]);
+ assert.equal(new Set(images).size,22);
+ for(const t of visionV2Suite.tests){const e=t.contractMaterial.gradingInputs.expected;const g=t.grade(JSON.stringify(e));assert.equal(g.passed,true,t.name);
+  assert.equal(t.grade('```json\n'+JSON.stringify(e)+'\n```').passed,false,t.name);
+  const first=Object.keys(e)[0];assert.equal(t.grade(JSON.stringify({...e,[first]:'WRONG'})).passed,false,t.name);
+ }
+});
+test('legacy T5 production plans cannot measure or decide, history is not rewritten',()=>{
+ const plans=createRoleEvaluationPlans();for(const role of ['D1','D2','R1','R2','CHAT']){assert.equal(plans[role].measurementReady,false);assert.equal(plans[role].runtimeBlockCode,'EVALUATOR_T5_FORBIDDEN');assert.equal(plans[role].decisionReady,false);}
+});
+await testAsync('calling the production runner directly cannot bypass the legacy prohibition',async()=>{
+ const r=new RoleQualityEvaluationRunner();let calls=0;r._callModel=()=>{calls++;throw Error('unexpected inference')};
+ for(const name of ['chat_v3','reasoning_v2','review_v2'])await assert.rejects(()=>r.runSuite(name,'fixture'),e=>e.code==='EVALUATOR_T5_FORBIDDEN');assert.equal(calls,0);
+});
+summary();

@@ -126,7 +126,7 @@ test('every role has a fail-closed task and discrimination floor', () => {
       `${role} decision floor must reject one lucky task`);
     assert(plan.taskCount >= plan.minimumTaskCount,
       `${role}: ${plan.taskCount}/${plan.minimumTaskCount}`);
-    assertEqual(plan.measurementReady, true);
+    assertEqual(plan.measurementReady, ['CODE','VISION'].includes(role));
     assertEqual(plan.decisionReady, false);
     assertEqual(plan.evidencePurpose, 'EXPLORATORY');
   }
@@ -162,10 +162,10 @@ test('VISION fixtures are complete, valid and cached', () => {
     assertEqual(Buffer.from(image, 'base64').subarray(0, 4).toString('hex'), '89504e47');
   }
   const withImages = visionV2Suite.tests.filter(row => row.prompt().images?.length);
-  assertEqual(withImages.length, 12);
-  assertEqual(new Set(withImages.flatMap(t => t.contractMaterial.prompt.imageDigests)).size, 12);
-  assertEqual(new Set(withImages.map(t => t.skill)).size, 12);
-  assertEqual(withImages.filter(t => t.difficulty === 'hard').length, 5);
+  assertEqual(withImages.length, 22);
+  assertEqual(new Set(withImages.flatMap(t => t.contractMaterial.prompt.imageDigests)).size, 22);
+  assertEqual(new Set(withImages.map(t => t.skill)).size, 21);
+  assertEqual(withImages.filter(t => t.difficulty === 'hard').length, 15);
   for (const row of withImages) {
     const expected = row.prompt().images.map(image => (
       createHash('sha256').update(Buffer.from(image, 'base64')).digest('hex')

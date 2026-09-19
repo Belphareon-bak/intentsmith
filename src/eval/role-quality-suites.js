@@ -874,7 +874,8 @@ function gradeVisionAnswer(response, expected, rules = {}) {
     detail: { schema: false, strictJson: false, reason: 'Odpověď neobsahuje samostatný JSON s přesně požadovanými poli.' } };
   const result = checklist(Object.keys(expected).map(key => ({ id: key,
     ok: equalVisionValue(obj[key], expected[key], rules[key]) })));
-  Object.assign(result.detail, { schema: true, strictJson: !fenced, responseFormat: format,
+  result.passed = result.score === 1 && !fenced;
+  Object.assign(result.detail, { contentScore: result.score, formatScore: fenced ? 0 : 1, schema: true, strictJson: !fenced, responseFormat: format,
     observed: obj, expected,
     ...(fenced ? { reason: 'Obsah vyhodnocen; model navíc přidal Markdown obal JSON. Formát je zaznamenán odděleně od obrazového skóre.' } : {}),
   });
@@ -904,7 +905,7 @@ function visionFixtureTask(fixture) {
 
 export const visionV2Suite = Object.freeze({
   name: 'vision_v2', version: visionManifest.version,
-  description: '12 distinct synthetic image tasks: perception, OCR, charts, tables, diagrams and UI/document checks; plus an absent-image control',
+  description: '22 distinct synthetic image tasks: perception, OCR, charts, tables, diagrams and UI/document checks; plus an absent-image control',
   roles: ['VISION'],
   tests: Object.freeze([
     ...visionManifest.tasks.map(visionFixtureTask),
@@ -954,6 +955,9 @@ export class RoleQualityEvaluationRunner extends CodePatchEvaluationRunner {
   }
 
   async runSuite(suiteName, modelName, onProgress, expectedArtifact = null) {
+    if (['reasoning_v2', 'review_v2', 'chat_v3'].includes(suiteName)) {
+      throw Object.assign(new Error('Legacy substring evaluators cannot produce new model scores.'), { code: 'EVALUATOR_T5_FORBIDDEN' });
+    }
     const suite = this._roleSuites[suiteName];
     if (!suite) return super.runSuite(suiteName, modelName, onProgress, expectedArtifact);
     this._cancelled = false;

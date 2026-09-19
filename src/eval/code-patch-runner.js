@@ -40,7 +40,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { writeFileSync, mkdtempSync, rmSync, symlinkSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync, symlinkSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { findSpansForLines, regionForLines, mergeSpans, replaceSpans } from './function-span.js';
@@ -342,7 +342,7 @@ export function addedTestNames(repo, hash, testFile) {
  */
 export function buildPrompt(task) {
   const fence = '```';
-  const req = (task.requirements || []).length
+  const req = !task.publicContract && (task.requirements || []).length
     ? `\n\nPožadované chování:\n${task.requirements.map(r => `- ${r}`).join('\n')}`
     : '';
   // Test titles can omit an API name or a policy boundary used by callers.
@@ -717,6 +717,16 @@ export function applyAndTest(repo, task, codes, opts = {}) {
     const sourcePath = path.join(work, task.source);
     writeFileSync(sourcePath, patched);
 
+    // A reviewed historical assertion confused punctuation with meaning.
+    // Versioned repair applies only inside the disposable oracle worktree;
+    // original evidence and repository history remain unchanged.
+    if ((task.oracleCase || task.taskFingerprint?.slice(0,12)) === 'f63d14d5eb61') {
+      const testPath = path.join(work, 'tests/pairwise-trial.test.js');
+      const original = readFileSync(testPath, 'utf8');
+      const revised = original.replaceAll('/jistota nízká/', '/jistota\\s*:?\\s*nízká/i');
+      writeFileSync(testPath, revised);
+    }
+
     let syntaxOk = true;
     try { execFileSync(process.execPath, ['--check', sourcePath], { stdio: 'ignore', timeout: 30_000 }); }
     catch { syntaxOk = false; }
@@ -757,6 +767,23 @@ export function applyAndTest(repo, task, codes, opts = {}) {
       applied: true, syntaxOk, output: run.output,
     });
     const scored = scoreFromOutput(run.output, task, run.passed);
+    // Check the behavior of the editable unit itself, including preservation
+    // of old owners. Commit-wide tests alone can pass a destructive shortcut.
+    let contractChecks = null;
+    if (task.publicContract) {
+      const fixture = path.join(work, '.code-contract-input.json');
+      const checker = path.join(work, '.code-contract-check.mjs');
+      writeFileSync(fixture, JSON.stringify({ name: task.oracleCase || task.taskFingerprint?.slice(0, 12), source: task.source, codes: list }));
+      writeFileSync(checker, readFileSync(new URL('./code-contract-check.mjs', import.meta.url)));
+      const checked = (opts.testRunner || runIsolatedTest)(work, '.code-contract-check.mjs', timeout);
+      if (checked.environmentError) return invalid(checked.environmentError, { applied: true, syntaxOk });
+      const receipt = /CODE_CONTRACT_RECEIPT (.+)/.exec(checked.output || '');
+      try { contractChecks = receipt ? JSON.parse(receipt[1]) : null; } catch { /* no invented PASS */ }
+      if (!checked.passed || !contractChecks?.passed) {
+        scored.score = 0; scored.passed = false;
+        scored.regressions.push('veřejný kontrakt opravovaného úseku nebyl splněn');
+      }
+    }
     if (scored.score === 1 && !run.passed) {
       scored.score = 0;
       scored.passed = false;
@@ -771,6 +798,7 @@ export function applyAndTest(repo, task, codes, opts = {}) {
       targeted: scored.targeted,
       targetedPassed: scored.targetedPassed,
       regressions: scored.regressions,
+      contractChecks,
       output: run.output,
       reason: scored.passed ? null
         : run.timedOut ? 'test vypršel'

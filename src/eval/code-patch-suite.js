@@ -85,6 +85,7 @@ function taskFromSnapshot(entry) {
     hash: entry.hash,
     source: entry.source,
     taskFingerprint: entry.taskFingerprint || null,
+    oracleCase: entry.oracleCase || entry.taskFingerprint?.slice(0,12),
     test: entry.test,
     tests: [...(entry.tests || [])],
     subject: entry.subject,
@@ -115,6 +116,7 @@ function hydrateRuntimeTask(repo, task) {
   return {
     ...derived,
     taskFingerprint: task.taskFingerprint,
+    oracleCase: task.oracleCase,
     scoreMode: task.scoreMode,
     failToPass: [...(task.failToPass || [])],
     passToPass: [...(task.passToPass || [])],
@@ -239,6 +241,7 @@ export function buildTests(repo = REPO_ROOT, tasks = null) {
         gradingInputs: Object.freeze({
           source: task.source,
           taskFingerprint: task.taskFingerprint,
+          oracleCase: task.oracleCase,
           tests: Object.freeze([...(task.tests || [])]),
           spans: Object.freeze((task.spans || []).map(span => Object.freeze({
             kind: span.kind,
@@ -282,6 +285,7 @@ export function buildTests(repo = REPO_ROOT, tasks = null) {
             targetedPassed: result.targetedPassed,
             targeted: result.targeted,
             regressions: result.regressions?.length ?? 0,
+            contractChecks: result.contractChecks || null,
             reason: result.reason,
           },
         };

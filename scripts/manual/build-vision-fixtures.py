@@ -22,7 +22,10 @@ def canvas(title, size=(1000, 720)):
     im = Image.new('RGB', size, 'white')
     d = ImageDraw.Draw(im)
     if title:
-        text(d, (32, 24), title, 28)
+        title_size = 28
+        while d.textlength(title, font=ImageFont.truetype(str(FONT), title_size)) > size[0]-64 and title_size > 15:
+            title_size -= 1
+        text(d, (32, 24), title, title_size)
         d.line((32, 74, size[0]-32, 74), fill='#b6c3d2', width=2)
     return im, d
 
@@ -136,6 +139,62 @@ for i,s in enumerate(['Printed subtotal: 210.00','Discount: 10% of corrected sub
 subtotal=sum(r[1]*r[2] for r in items)
 save(im,'reconciliation','Kontrola dokladu včetně slevy a daně','hard','document_reasoning','Find line items whose printed total differs from quantity times unit price. Correct the subtotal, apply the stated discount, then tax. Return incorrect item names (any order), corrected subtotal, corrected final total and printed final total minus corrected final total.',{'incorrect':['Adapter'],'subtotal':subtotal,'final':round(subtotal*.9*1.2,2),'overcharge':round(226.8-subtotal*.9*1.2,2)},{'incorrect':'set'})
 
-manifest={'version':'vision-synthetic.3','provenance':{'kind':'synthetic','generator':'scripts/manual/build-vision-fixtures.py','pillow':pillow_version,'fontSha256':hashlib.sha256(FONT.read_bytes()).hexdigest()},'tasks':records}
+# Revision 4 adds cross-panel, mixed-unit, temporal and uncertainty cases.
+# Values are derived below; never fed to the model except as pixels.
+im,d=canvas('Warehouse / one row = one movement / repeated key = retry')
+rows=[('key','SKU','change','status'),('a','K1','+17','posted'),('b','K1','-9','posted'),('a','K1','+17','retry'),('c','K2','+25','posted'),('d','K1','-6','void'),('e','K2','-8','posted')]
+table(d,rows[0],rows[1:],[45,250,455,700],row_height=53)
+text(d,(45,590),'Opening: K1 = 32; K2 = 11. Reserved: K1 = 5; K2 = 7.',22)
+save(im,'stock_ledger','Pohyby skladu, duplicity a rezervace','hard','event_reconciliation','Apply posted movements only, once per key. Reservations reduce available stock, not physical stock. Return k1_physical, k2_physical, total_available.',{'k1_physical':40,'k2_physical':28,'total_available':56})
+im,d=canvas('Comparison of conversion rates / counts, not percentages')
+rows=[('A','mobile',18,60),('A','desktop',72,90),('B','mobile',45,150),('B','desktop',48,60)]
+table(d,['Variant','Channel','Successes','Trials'],rows,[45,245,490,760],row_height=70)
+text(d,(45,570),'Aggregate every trial; do not average the two channel rates.',22)
+save(im,'weighted_rates','Vážené sazby a zavádějící průměr','hard','statistical_chart','Compute total trials and pooled success percentage for A and B, rounding percentages to 2 decimal places. Return trials_a, trials_b, percent_a, percent_b, higher (A or B). Do not infer causation.',{'trials_a':150,'trials_b':210,'percent_a':60,'percent_b':44.29,'higher':'A'})
+im,d=canvas('Release dependencies / duration in hours / arrows are prerequisites')
+# Non-geometric schedule: durations explicit, multiple joins.
+nodes={'A':(130,210),'B':(390,155),'C':(390,425),'D':(670,210),'E':(865,425)}
+for a,b in [('A','B'),('A','C'),('B','D'),('C','D'),('C','E'),('D','E')]:
+ x,y=nodes[a];u,v=nodes[b];dx,dy=u-x,v-y
+ k=min(70/abs(dx) if dx else 999,50/abs(dy) if dy else 999)
+ line(d,(x+k*dx,y+k*dy),(u-k*dx,v-k*dy),fill='#738294',arrow=True)
+for (label,(x,y)),dur in zip(nodes.items(),[2,5,3,4,1]):
+ d.rounded_rectangle((x-58,y-30,x+58,y+38),8,fill='white',outline=BLUE,width=3);text(d,(x-45,y-14),f'{label}: {dur} h',23)
+text(d,(45,580),'Unlimited workers. All predecessors must finish. Start A at 0.',22)
+save(im,'critical_path','Závislosti úloh, souběh a kritická cesta','hard','diagram_schedule','Return finish_e (hours from start), slack_c (maximum delay in C start without delaying E), critical_path (ordered labels).',{'finish_e':12,'slack_c':2,'critical_path':['A','B','D','E']},{'critical_path':'sequence'})
+im,d=canvas('Supplier ledger / amounts after tax / credit notes negative')
+rows=[('INV-71','EUR','125.50','invoice'),('CN-09','EUR','25.50','credit'),('INV-72','CZK','2500.00','invoice'),('INV-73','EUR','40.00','cancelled'),('INV-74','USD','20.00','invoice')]
+table(d,['ID','Currency','Amount','Kind'],rows,[45,290,475,720],row_height=62)
+text(d,(45,580),'Fixed rates: 1 EUR = 25 CZK; 1 USD = 23 CZK.',22)
+save(im,'mixed_currency','Měny, dobropisy a storna','hard','document_join','Exclude cancelled rows, subtract credit notes, convert using the shown rates. Return net_czk, included_ids (any order), credit_czk (positive magnitude).',{'net_czk':5460,'included_ids':['INV-71','CN-09','INV-72','INV-74'],'credit_czk':637.5},{'included_ids':'set'})
+im,d=canvas('Access review / rule: active AND (owner OR admin) AND NOT suspended')
+rows=[('A','no','yes','no','no'),('B','yes','no','yes','yes'),('C','yes','no','no','no'),('D','yes','yes','no','no'),('E','yes','no','yes','no'),('F','no','no','yes','no')]
+table(d,['ID','Active','Owner','Admin','Suspended'],rows,[45,220,410,600,770],row_height=61)
+save(im,'access_matrix','Čtení matice a složená podmínka','hard','matrix_logic','Use only the rule in the image. Return allowed_ids (any order), denied_count, suspended_ids (any order).',{'allowed_ids':['D','E'],'denied_count':4,'suspended_ids':['B']},{'allowed_ids':'set','suspended_ids':'set'})
+im,d=canvas('Train connections / all times same day / minimum transfer 12 minutes')
+rows=[('T1','A','B','08:00','08:41'),('T2','B','C','08:50','09:10'),('T3','B','C','08:55','09:25'),('T4','A','C','08:10','09:35'),('T5','B','C','09:00','09:15')]
+table(d,['Train','From','To','Departs','Arrives'],rows,[45,250,430,590,780],row_height=68)
+save(im,'connections','Časové návaznosti a minimální přestup','hard','timetable','You can depart A at 08:00 or later. Find the earliest arrival at C with valid transfers. Return trains (ordered), arrival, transfer_minutes (0 for a direct train).',{'trains':['T1','T5'],'arrival':'09:15','transfer_minutes':19},{'trains':'sequence'})
+im,d=canvas('Metrics / windows are different; do not add rates')
+rows=[('api','15','3','300'),('worker','60','12','240'),('cache','30','0','180'),('billing','15','6','60')]
+table(d,['Service','Window min','Errors','Requests'],rows,[45,285,555,760],row_height=73)
+text(d,(45,550),'Alert if error percentage > 4% AND errors per minute >= 0.2.',23)
+save(im,'windowed_metrics','Různá časová okna a kombinovaný alert','hard','metrics','Apply both thresholds, strictly greater where specified. Return alert_services (any order), api_error_percent, billing_errors_per_minute, worker_error_percent.',{'alert_services':['worker','billing'],'api_error_percent':1,'billing_errors_per_minute':.4,'worker_error_percent':5},{'alert_services':'set'})
+im,d=canvas('Document versions / larger revision wins; CANCELLED removes an item')
+rows=[('P-8','1','20','active'),('Q-2','4','15','active'),('P-8','3','12','active'),('R-5','2','7','active'),('Q-2','6','0','CANCELLED'),('R-5','1','18','active')]
+table(d,['Item','Revision','Units','State'],rows,[45,300,540,750],row_height=58)
+save(im,'revision_join','Výběr poslední revize a odstraněné položky','hard','versioned_table','For each item use only its greatest revision; exclude cancelled items. Return active_ids (any order), total_units, p8_units, removed_ids (any order).',{'active_ids':['P-8','R-5'],'total_units':19,'p8_units':12,'removed_ids':['Q-2']},{'active_ids':'set','removed_ids':'set'})
+im,d=canvas('Transaction detail / sensitive field deliberately redacted')
+for i,s in enumerate(['ID: PAY-204','Status: settled','Gross: 1 248.50 EUR','Fee: 12.50 EUR','Account number:']):text(d,(65,115+i*83),s,28)
+d.rectangle((345,442,850,494),fill='black');text(d,(65,575),'Visible: currency EUR; destination name not shown.',24)
+save(im,'redacted_document','Čitelné údaje a zákaz domýšlení skrytých','hard','uncertainty','Return id, net (gross minus fee), account_visible boolean and account_number as the literal string UNKNOWN if redacted. Do not infer hidden digits.',{'id':'PAY-204','net':1236,'account_visible':False,'account_number':'UNKNOWN'})
+im,d=canvas('Deployment status / two independent panels')
+text(d,(55,110),'Requested versions',27);text(d,(550,110),'Observed versions',27)
+left=[('api','v4'),('worker','v7'),('billing','v3'),('cache','v2')];right=[('cache','v2'),('billing','v2'),('api','v4'),('worker','unknown')]
+for i,((a,b),(c,e)) in enumerate(zip(left,right)):
+ y=190+i*85;d.rectangle((45,y,460,y+62),outline=BLUE,width=2);text(d,(65,y+15),f'{a}: {b}',27);d.rectangle((530,y,950,y+62),outline=RED,width=2);text(d,(550,y+15),f'{c}: {e}',27)
+save(im,'deployment_join','Spojení panelů podle identity, nesoulad a neověřený stav','hard','ui_diagnostics','Join by service name, not row position. Separate verified matches, verified mismatches and unknown observations. Return matches, mismatches, unknown as arrays of service names (any order).',{'matches':['api','cache'],'mismatches':['billing'],'unknown':['worker']},{'matches':'set','mismatches':'set','unknown':'set'})
+
+manifest={'version':'vision-synthetic.4','provenance':{'kind':'synthetic','generator':'scripts/manual/build-vision-fixtures.py','pillow':pillow_version,'fontSha256':hashlib.sha256(FONT.read_bytes()).hexdigest()},'tasks':records}
 (ROOT/'manifest.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n')
 print(f'Wrote {len(records)} unique image tasks to {ROOT}')
